@@ -19,8 +19,7 @@
 
 #include <gst/gst.h>
 
-#include <client/pv-context.h>
-#include <client/pv-subscribe.h>
+#include <client/pulsevideo.h>
 
 static GMainLoop *loop;
 
@@ -60,7 +59,7 @@ main (gint argc, gchar *argv[])
 {
   PvContext *c;
 
-  gst_init (&argc, &argv);
+  pv_init (&argc, &argv);
 
   loop = g_main_loop_new (NULL, FALSE);
 

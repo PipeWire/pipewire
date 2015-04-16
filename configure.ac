@@ -179,10 +179,30 @@ AC_SUBST([GDBUS_CODEGEN], [`$PKG_CONFIG --variable gdbus_codegen gio-2.0`])
 
 #### GStreamer ####
 
-PKG_CHECK_MODULES(GST, gstreamer-1.0 >= 1.4.0, dummy=yes,
-                    AC_MSG_ERROR(GStreamer >= 1.4.0 is required))
+PKG_CHECK_MODULES(GST, gstreamer-1.0-uninstalled >= 1.5.0, dummy=yes,
+                    AC_MSG_ERROR(GStreamer >= 1.5.0 is required))
 AC_SUBST(GST_CFLAGS)
 AC_SUBST(GST_LIBS)
+
+PKG_CHECK_MODULES(GSTBASE, gstreamer-base-1.0-uninstalled >= 1.5.0, dummy=yes,
+                    AC_MSG_ERROR(GStreamer Base>= 1.5.0 is required))
+GST_CFLAGS="$GST_CFLAGS $GSTBASE_CFLAGS"
+GST_LIBS="$GST_LIBS $GSTBASE_LIBS"
+
+PKG_CHECK_MODULES(GSTPBASE, gstreamer-plugins-base-1.0-uninstalled >= 1.5.0, dummy=yes,
+                    AC_MSG_ERROR(GStreamer Plugins Base>= 1.5.0 is required))
+GST_CFLAGS="$GST_CFLAGS $GSTPBASE_CFLAGS"
+GST_LIBS="$GST_LIBS $GSTPBASE_LIBS"
+
+PKG_CHECK_MODULES(GSTNET, gstreamer-net-1.0-uninstalled >= 1.5.0, dummy=yes,
+                    AC_MSG_ERROR(GStreamer Net>= 1.5.0 is required))
+GST_CFLAGS="$GST_CFLAGS $GSTNET_CFLAGS"
+GST_LIBS="$GST_LIBS $GSTNET_LIBS"
+
+PKG_CHECK_MODULES(GSTALLOC, gstreamer-allocators-1.0-uninstalled >= 1.5.0, dummy=yes,
+                    AC_MSG_ERROR(GStreamer Allocators>= 1.5.0 is required))
+GST_CFLAGS="$GST_CFLAGS $GSTALLOC_CFLAGS"
+GST_LIBS="$GST_LIBS $GSTALLOC_LIBS"
 
 #### Build and Install man pages ####
 

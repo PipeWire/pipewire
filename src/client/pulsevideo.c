@@ -17,14 +17,17 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __PULSEVIDEO_H__
-#define __PULSEVIDEO_H__
+#include "client/pulsevideo.h"
 
-#include <client/pv-context.h>
-#include <client/pv-stream.h>
-#include <client/pv-subscribe.h>
+#include "gst/gstfdpay.h"
+#include "gst/gstfddepay.h"
 
-void pv_init (int *argc, char **argv[]);
+void
+pv_init (int *argc, char **argv[])
+{
+  gst_init (argc, argv);
 
-#endif /* __PULSEVIDEO_H__ */
+  gst_element_register (NULL, "pvfdpay", GST_RANK_NONE, GST_TYPE_FDPAY);
+  gst_element_register (NULL, "pvfddepay", GST_RANK_NONE, GST_TYPE_FDDEPAY);
+}
 

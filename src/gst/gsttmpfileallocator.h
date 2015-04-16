@@ -1,5 +1,5 @@
-/* Pulsevideo
- * Copyright (C) 2015 Wim Taymans <wim.taymans@gmail.com>
+/* GStreamer
+ * Copyright (C) 2014 William Manley <will@williammanley.net>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -17,14 +17,21 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __PULSEVIDEO_H__
-#define __PULSEVIDEO_H__
+#ifndef _GST_TMPFILE_ALLOCATOR_H_
+#define _GST_TMPFILE_ALLOCATOR_H_
 
-#include <client/pv-context.h>
-#include <client/pv-stream.h>
-#include <client/pv-subscribe.h>
+#include <gst/gst.h>
 
-void pv_init (int *argc, char **argv[]);
+G_BEGIN_DECLS
 
-#endif /* __PULSEVIDEO_H__ */
+#define GST_ALLOCATOR_TMPFILE "tmpfile"
 
+
+/* Allocator that allocates memory from a file stored on a tmpfs */
+GstAllocator* gst_tmpfile_allocator_new (void);
+
+gint           gst_tmpfile_memory_get_fd (GstMemory * mem);
+gboolean       gst_is_tmpfile_memory     (GstMemory * mem);
+
+G_END_DECLS
+#endif /* _GST_TMPFILE_ALLOCATOR_H_ */

@@ -20,7 +20,8 @@
 #include <gio/gio.h>
 #include <gst/gst.h>
 
-#include "server/pv-daemon.h"
+#include <client/pulsevideo.h>
+#include <server/pv-daemon.h>
 
 gint
 main (gint argc, gchar *argv[])
@@ -28,7 +29,7 @@ main (gint argc, gchar *argv[])
   PvDaemon *daemon;
   GMainLoop *loop;
 
-  gst_init (&argc, &argv);
+  pv_init (&argc, &argv);
 
   loop = g_main_loop_new (NULL, FALSE);
 

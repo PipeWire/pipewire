@@ -20,8 +20,7 @@
 #include <gst/gst.h>
 #include <gio/gio.h>
 
-#include <client/pv-context.h>
-#include <client/pv-stream.h>
+#include <client/pulsevideo.h>
 
 #define CAPS "video/x-raw, format=(string)YUY2, width=(int)320, height=(int)240, pixel-aspect-ratio=(fraction)1/1, interlace-mode=(string)progressive, framerate=(fraction)30/1"
 
@@ -112,7 +111,7 @@ main (gint argc, gchar *argv[])
 {
   PvContext *c;
 
-  gst_init (&argc, &argv);
+  pv_init (&argc, &argv);
 
   loop = g_main_loop_new (NULL, FALSE);
 

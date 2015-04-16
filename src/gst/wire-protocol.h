@@ -1,5 +1,5 @@
-/* Pulsevideo
- * Copyright (C) 2015 Wim Taymans <wim.taymans@gmail.com>
+/* GStreamer
+ * Copyright (C) 2014 William Manley <will@williammanley.net>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -17,14 +17,17 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __PULSEVIDEO_H__
-#define __PULSEVIDEO_H__
+#ifndef _GST_FDPAY_WIRE_PROTOCOL_H_
+#define _GST_FDPAY_WIRE_PROTOCOL_H_
 
-#include <client/pv-context.h>
-#include <client/pv-stream.h>
-#include <client/pv-subscribe.h>
+#include <stdint.h>
 
-void pv_init (int *argc, char **argv[]);
+/* Almost the simplest possible FD passing protocol.  Each message should have
+ * a file-descriptor attached which should be mmapable.  The data in the FD can
+ * be found at offset and is size bytes long. */
+typedef struct {
+  uint64_t offset;
+  uint64_t size;
+} FDMessage;
 
-#endif /* __PULSEVIDEO_H__ */
-
+#endif

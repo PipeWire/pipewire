@@ -142,11 +142,16 @@ test_subscribe_LDFLAGS = $(AM_LDFLAGS) $(BINLDFLAGS)
 #         Client library          #
 ###################################
 
+pulsevideogstsource = gst/gstfdpay.h gst/gstfdpay.c \
+		      gst/gstfddepay.h gst/gstfddepay.c \
+		      gst/gsttmpfileallocator.h gst/gsttmpfileallocator.c \
+		      wire-protocol.h
+
 pulsevideoinclude_HEADERS = \
+		client/pulsevideo.h \
 		client/pv-context.h \
 		client/pv-enumtypes.h \
 		client/pv-stream.h \
-		client/pv-subscribe.h \
 		client/pv-subscribe.h \
 		dbus/org-pulsevideo.h
 
@@ -158,12 +163,14 @@ libpulsevideo_@PV_MAJORMINOR@_la_SOURCES = \
 		client/pv-context.h client/pv-context.c \
 		client/pv-enumtypes.h client/pv-enumtypes.c \
 		client/pv-stream.h client/pv-stream.c \
-		dbus/org-pulsevideo.c
+		client/pulsevideo.c \
+		dbus/org-pulsevideo.c \
+		$(pulsevideogstsource)
 
 
-libpulsevideo_@PV_MAJORMINOR@_la_CFLAGS = $(AM_CFLAGS)
+libpulsevideo_@PV_MAJORMINOR@_la_CFLAGS = $(AM_CFLAGS) $(GST_CFLAGS)
 libpulsevideo_@PV_MAJORMINOR@_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version
-libpulsevideo_@PV_MAJORMINOR@_la_LIBADD = $(AM_LIBADD) $(LTLIBICONV)
+libpulsevideo_@PV_MAJORMINOR@_la_LIBADD = $(AM_LIBADD) $(LTLIBICONV) $(GST_LIBS)
 
 ###################################
 #      Daemon core library        #

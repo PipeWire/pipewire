@@ -1,0 +1,11 @@
+prefix=/usr/local
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+modlibexecdir=@modlibexecdir@
+
+Name: libpulsevideo
+Description: PulseVideo Client Interface
+Version: 0.1
+Libs: -L${libdir} -lpulsevideo @PTHREAD_LIBS@
+Cflags: -I${includedir} -D_REENTRANT

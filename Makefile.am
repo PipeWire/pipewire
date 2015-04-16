@@ -28,8 +28,6 @@ SUBDIRS = src
 
 DIST_SUBDIRS = pkgconfig \
 	       doc \
-	       man \
-	       po \
 	       src
 
 MAINTAINERCLEANFILES =

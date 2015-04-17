@@ -22,12 +22,24 @@
 
 #include <stdint.h>
 
-/* Almost the simplest possible FD passing protocol.  Each message should have
+/**
+ * @flags: possible flags
+ * @seq: a sequence number
+ * @pts: a PTS or presentation timestamp
+ * @dts_offset: an offset to @pts to get the DTS
+ * @offset: offset in fd
+ * @size: size of data in fd
+ *
+ * Almost the simplest possible FD passing protocol.  Each message should have
  * a file-descriptor attached which should be mmapable.  The data in the FD can
  * be found at offset and is size bytes long. */
 typedef struct {
-  uint64_t offset;
-  uint64_t size;
+  guint32 flags;
+  guint32 seq;
+  gint64 pts;
+  gint64 dts_offset;
+  guint64 offset;
+  guint64 size;
 } FDMessage;
 
 #endif

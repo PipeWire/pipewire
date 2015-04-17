@@ -83,8 +83,6 @@ gst_tmpfile_allocator_alloc (GstAllocator * allocator, gsize size,
     GstAllocationParams * params)
 {
   GstTmpFileAllocator *alloc = (GstTmpFileAllocator *) allocator;
-  GstFdAllocator *fdalloc = GST_FD_ALLOCATOR_CAST (allocator);
-  GstFdAllocatorClass *klass = GST_FD_ALLOCATOR_GET_CLASS (alloc);
   GstMemory *mem;
   int fd;
   gsize maxsize;
@@ -99,7 +97,7 @@ gst_tmpfile_allocator_alloc (GstAllocator * allocator, gsize size,
   if (fd < 0)
     return NULL;
 
-  mem = klass->alloc (fdalloc, fd, maxsize, GST_FD_MEMORY_FLAG_NONE);
+  mem = gst_fd_allocator_alloc (allocator, fd, maxsize, GST_FD_MEMORY_FLAG_NONE);
   gst_memory_resize (mem, pad (params->prefix, params->align), size);
 
   return mem;
@@ -121,6 +119,8 @@ gst_tmpfile_allocator_init (GstTmpFileAllocator * allocator)
   GstAllocator *alloc = GST_ALLOCATOR_CAST (allocator);
 
   alloc->mem_type = GST_ALLOCATOR_TMPFILE;
+
+  GST_OBJECT_FLAG_UNSET (allocator, GST_ALLOCATOR_FLAG_CUSTOM_ALLOC);
 }
 
 GstAllocator *

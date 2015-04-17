@@ -40,7 +40,7 @@
 
 #include <gst/gst.h>
 #include <gst/base/gstbasetransform.h>
-#include <gst/allocators/gstdmabuf.h>
+#include <gst/allocators/gstfdmemory.h>
 #include <gio/gunixfdmessage.h>
 
 #include <fcntl.h>
@@ -115,7 +115,7 @@ gst_fddepay_class_init (GstFddepayClass * klass)
 static void
 gst_fddepay_init (GstFddepay * fddepay)
 {
-  fddepay->dmabuf_allocator = gst_dmabuf_allocator_new ();
+  fddepay->fd_allocator = gst_fd_allocator_new ();
 }
 
 void
@@ -126,9 +126,9 @@ gst_fddepay_dispose (GObject * object)
   GST_DEBUG_OBJECT (fddepay, "dispose");
 
   /* clean up as possible.  may be called multiple times */
-  if (fddepay->dmabuf_allocator != NULL) {
-    g_object_unref (G_OBJECT (fddepay->dmabuf_allocator));
-    fddepay->dmabuf_allocator = NULL;
+  if (fddepay->fd_allocator != NULL) {
+    g_object_unref (G_OBJECT (fddepay->fd_allocator));
+    fddepay->fd_allocator = NULL;
   }
 
   G_OBJECT_CLASS (gst_fddepay_parent_class)->dispose (object);
@@ -169,7 +169,7 @@ gst_fddepay_transform_ip (GstBaseTransform * trans, GstBuffer * buf)
 {
   GstFddepay *fddepay = GST_FDDEPAY (trans);
   FDMessage msg;
-  GstMemory *dmabufmem = NULL;
+  GstMemory *fdmem = NULL;
   GstNetControlMessageMeta * meta;
   int *fds = NULL;
   int fds_len = 0;
@@ -215,15 +215,17 @@ gst_fddepay_transform_ip (GstBaseTransform * trans, GstBuffer * buf)
 
   /* FIXME: Use stat to find out the size of the file, to make sure that the
    * size we've been told is the true size for safety and security. */
-  dmabufmem = gst_dmabuf_allocator_alloc (fddepay->dmabuf_allocator, fd,
-      msg.offset + msg.size);
-  gst_memory_resize (dmabufmem, msg.offset, msg.size);
+  fdmem = gst_fd_allocator_alloc (fddepay->fd_allocator, fd,
+      msg.offset + msg.size, GST_FD_MEMORY_FLAG_NONE);
+  gst_memory_resize (fdmem, msg.offset, msg.size);
 
   gst_buffer_remove_all_memory (buf);
   gst_buffer_remove_meta (buf,
       gst_buffer_get_meta (buf, GST_NET_CONTROL_MESSAGE_META_API_TYPE));
-  gst_buffer_append_memory (buf, dmabufmem);
-  dmabufmem = NULL;
+  gst_buffer_append_memory (buf, fdmem);
+  fdmem = NULL;
+
+  GST_BUFFER_OFFSET (buf) = msg.seq;
 
   return GST_FLOW_OK;
 error:

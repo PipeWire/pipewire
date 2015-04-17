@@ -34,7 +34,7 @@ typedef struct _GstFddepayClass GstFddepayClass;
 struct _GstFddepay
 {
   GstBaseTransform base_fddepay;
-  GstAllocator *dmabuf_allocator;
+  GstAllocator *fd_allocator;
 };
 
 struct _GstFddepayClass

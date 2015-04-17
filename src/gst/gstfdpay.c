@@ -40,8 +40,6 @@
 #include "config.h"
 #endif
 
-#include "wire-protocol.h"
-
 #include <gst/gst.h>
 #include <gst/allocators/gstfdmemory.h>
 #include <gst/base/gstbasetransform.h>
@@ -54,6 +52,8 @@
 #include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
+
+#include "wire-protocol.h"
 
 GST_DEBUG_CATEGORY_STATIC (gst_fdpay_debug_category);
 #define GST_CAT_DEFAULT gst_fdpay_debug_category
@@ -242,12 +242,16 @@ gst_fdpay_transform (GstBaseTransform * trans, GstBuffer * inbuf,
   GstMapInfo info;
   GError *err = NULL;
   GSocketControlMessage *fdmsg = NULL;
-  FDMessage msg = { 0, 0 };
+  FDMessage msg = { 0, };
 
   GST_DEBUG_OBJECT (fdpay, "transform_ip");
 
   fdmem = gst_fdpay_get_fd_memory (fdpay, inbuf);
 
+  msg.flags = 0;
+  msg.seq = GST_BUFFER_OFFSET (inbuf);
+  msg.pts = GST_BUFFER_TIMESTAMP (inbuf);
+  msg.dts_offset = 0;
   msg.size = fdmem->size;
   msg.offset = fdmem->offset;
 

@@ -19,8 +19,8 @@
 
 #include <gio/gio.h>
 
-#include "server/pv-source.h"
-#include "server/pv-daemon.h"
+#include "client/pulsevideo.h"
+#include "client/pv-source.h"
 
 #include "dbus/org-pulsevideo.h"
 
@@ -30,7 +30,8 @@
 
 struct _PvSourcePrivate
 {
-  PvDaemon *daemon;
+  GDBusObjectManagerServer *server_manager;
+
   gchar *object_path;
 };
 
@@ -39,7 +40,7 @@ G_DEFINE_ABSTRACT_TYPE (PvSource, pv_source, G_TYPE_OBJECT);
 enum
 {
   PROP_0,
-  PROP_DAEMON,
+  PROP_MANAGER,
   PROP_OBJECT_PATH
 };
 
@@ -53,8 +54,8 @@ pv_source_get_property (GObject    *_object,
   PvSourcePrivate *priv = source->priv;
 
   switch (prop_id) {
-    case PROP_DAEMON:
-      g_value_set_object (value, priv->daemon);
+    case PROP_MANAGER:
+      g_value_set_object (value, priv->server_manager);
       break;
 
     case PROP_OBJECT_PATH:
@@ -77,8 +78,13 @@ pv_source_set_property (GObject      *_object,
   PvSourcePrivate *priv = source->priv;
 
   switch (prop_id) {
-    case PROP_DAEMON:
-      priv->daemon = g_value_dup_object (value);
+    case PROP_MANAGER:
+      pv_source_set_manager (source, g_value_dup_object (value));
+      break;
+
+    case PROP_OBJECT_PATH:
+      g_free (priv->object_path);
+      priv->object_path = g_value_dup_string (value);
       break;
 
     default:
@@ -90,7 +96,6 @@ static void
 source_register_object (PvSource *source)
 {
   PvSourcePrivate *priv = source->priv;
-  PvDaemon *daemon = priv->daemon;
   GDBusObjectSkeleton *skel;
 
   skel = g_dbus_object_skeleton_new (PV_DBUS_OBJECT_SOURCE);
@@ -101,17 +106,20 @@ source_register_object (PvSource *source)
     g_dbus_object_skeleton_add_interface (skel, G_DBUS_INTERFACE_SKELETON (iface));
     g_object_unref (iface);
   }
+  g_dbus_object_manager_server_export_uniquely (priv->server_manager, skel);
+
   g_free (priv->object_path);
-  priv->object_path = pv_daemon_export_uniquely (daemon, skel);
+  priv->object_path = g_strdup (g_dbus_object_get_object_path (G_DBUS_OBJECT (skel)));
+
+  return;
 }
 
 static void
 source_unregister_object (PvSource *source)
 {
   PvSourcePrivate *priv = source->priv;
-  PvDaemon *daemon = priv->daemon;
 
-  pv_daemon_unexport (daemon, priv->object_path);
+  g_dbus_object_manager_server_unexport (priv->server_manager, priv->object_path);
 }
 
 static void
@@ -120,21 +128,13 @@ pv_source_finalize (GObject * object)
   PvSource *source = PV_SOURCE (object);
   PvSourcePrivate *priv = source->priv;
 
-  source_unregister_object (source);
-  g_object_unref (priv->daemon);
+  if (priv->server_manager) {
+    source_unregister_object (source);
+    g_object_unref (priv->server_manager);
+  }
   g_free (priv->object_path);
 
   G_OBJECT_CLASS (pv_source_parent_class)->finalize (object);
-}
-
-static void
-pv_source_constructed (GObject * object)
-{
-  PvSource *source = PV_SOURCE (object);
-
-  source_register_object (source);
-
-  G_OBJECT_CLASS (pv_source_parent_class)->constructed (object);
 }
 
 static PvSourceOutput *
@@ -142,7 +142,7 @@ default_create_source_output (PvSource *source, GVariant *props, const gchar *pr
 {
   PvSourcePrivate *priv = source->priv;
 
-  return g_object_new (PV_TYPE_SOURCE_OUTPUT, "daemon", priv->daemon, "object-path", prefix, NULL);
+  return g_object_new (PV_TYPE_SOURCE_OUTPUT, "manager", priv->server_manager, "object-path", prefix, NULL);
 }
 
 static gboolean
@@ -163,16 +163,14 @@ pv_source_class_init (PvSourceClass * klass)
   gobject_class->finalize = pv_source_finalize;
   gobject_class->set_property = pv_source_set_property;
   gobject_class->get_property = pv_source_get_property;
-  gobject_class->constructed = pv_source_constructed;
 
   g_object_class_install_property (gobject_class,
-                                   PROP_DAEMON,
-                                   g_param_spec_object ("daemon",
-                                                        "Daemon",
-                                                        "The daemon",
-                                                        PV_TYPE_DAEMON,
+                                   PROP_MANAGER,
+                                   g_param_spec_object ("manager",
+                                                        "Manager",
+                                                        "The manager",
+                                                        G_TYPE_DBUS_OBJECT_MANAGER_SERVER,
                                                         G_PARAM_READWRITE |
-                                                        G_PARAM_CONSTRUCT_ONLY |
                                                         G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class,
@@ -181,7 +179,7 @@ pv_source_class_init (PvSourceClass * klass)
                                                         "Object Path",
                                                         "The object path",
                                                         NULL,
-                                                        G_PARAM_READABLE |
+                                                        G_PARAM_READWRITE |
                                                         G_PARAM_STATIC_STRINGS));
 
   klass->create_source_output = default_create_source_output;
@@ -192,6 +190,25 @@ static void
 pv_source_init (PvSource * source)
 {
   source->priv = PV_SOURCE_GET_PRIVATE (source);
+}
+
+void
+pv_source_set_manager (PvSource *source, GDBusObjectManagerServer *manager)
+{
+  PvSourcePrivate *priv;
+
+  g_return_if_fail (PV_IS_SOURCE (source));
+  priv = source->priv;
+
+  if (priv->server_manager) {
+    source_unregister_object (source);
+    g_object_unref (priv->server_manager);
+  }
+  priv->server_manager = manager;
+
+  if (priv->server_manager) {
+    source_register_object (source);
+  }
 }
 
 GVariant *

@@ -17,7 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include "server/pv-daemon.h"
+#include "client/pulsevideo.h"
 
 #include "client/pv-context.h"
 #include "client/pv-enumtypes.h"
@@ -41,8 +41,9 @@ struct _PvContextPrivate
   gchar *client_path;
   PvClient1 *client;
 
-  PvSubscriptionFlags subscription_mask;
-  GDBusObjectManager *client_manager;
+  PvSubscribe *subscribe;
+
+  GDBusObjectManagerServer *server_manager;
 };
 
 
@@ -57,20 +58,9 @@ enum
   PROP_NAME,
   PROP_PROPERTIES,
   PROP_STATE,
-  PROP_SUBSCRIPTION_MASK,
   PROP_CONNECTION,
   PROP_CLIENT_PATH
 };
-
-enum
-{
-  SIGNAL_SUBSCRIPTION_EVENT,
-  LAST_SIGNAL
-};
-
-static guint signals[LAST_SIGNAL] = { 0 };
-
-#include "pv-subscribe.c"
 
 static void
 pv_context_get_property (GObject    *_object,
@@ -92,10 +82,6 @@ pv_context_get_property (GObject    *_object,
 
     case PROP_STATE:
       g_value_set_enum (value, priv->state);
-      break;
-
-    case PROP_SUBSCRIPTION_MASK:
-      g_value_set_flags (value, priv->subscription_mask);
       break;
 
     case PROP_CONNECTION:
@@ -133,15 +119,23 @@ pv_context_set_property (GObject      *_object,
       priv->properties = g_value_dup_variant (value);
       break;
 
-    case PROP_SUBSCRIPTION_MASK:
-      priv->subscription_mask = g_value_get_flags (value);
-      break;
-
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (context, prop_id, pspec);
       break;
   }
 }
+
+static void
+pv_context_finalize (GObject * object)
+{
+  PvContext *context = PV_CONTEXT (object);
+  PvContextPrivate *priv = context->priv;
+
+  g_object_unref (priv->server_manager);
+
+  G_OBJECT_CLASS (pv_context_parent_class)->finalize (object);
+}
+
 
 static void
 pv_context_class_init (PvContextClass * klass)
@@ -150,6 +144,7 @@ pv_context_class_init (PvContextClass * klass)
 
   g_type_class_add_private (klass, sizeof (PvContextPrivate));
 
+  gobject_class->finalize = pv_context_finalize;
   gobject_class->set_property = pv_context_set_property;
   gobject_class->get_property = pv_context_get_property;
 
@@ -195,21 +190,6 @@ pv_context_class_init (PvContextClass * klass)
                                                       G_PARAM_READABLE |
                                                       G_PARAM_STATIC_STRINGS));
   /**
-   * PvContext:subscription-mask
-   *
-   * A mask for what object notifications will be signaled with
-   * PvContext:subscription-event
-   */
-  g_object_class_install_property (gobject_class,
-                                   PROP_SUBSCRIPTION_MASK,
-                                   g_param_spec_flags ("subscription-mask",
-                                                       "Subscription Mask",
-                                                       "The object to receive subscription events of",
-                                                       PV_TYPE_SUBSCRIPTION_FLAGS,
-                                                       0,
-                                                       G_PARAM_READWRITE |
-                                                       G_PARAM_STATIC_STRINGS));
-  /**
    * PvContext:connection
    *
    * The connection of the context.
@@ -235,27 +215,6 @@ pv_context_class_init (PvContextClass * klass)
                                                         NULL,
                                                         G_PARAM_READABLE |
                                                         G_PARAM_STATIC_STRINGS));
-  /**
-   * PvContext:subscription-event
-   * @context: The #PvContext emitting the signal.
-   * @event: A #PvSubscriptionEvent
-   * @flags: #PvSubscriptionFlags indicating the object
-   * @path: the object path
-   *
-   * Notify about a new object that was added/removed/modified.
-   */
-  signals[SIGNAL_SUBSCRIPTION_EVENT] = g_signal_new ("subscription-event",
-                                                     G_TYPE_FROM_CLASS (klass),
-                                                     G_SIGNAL_RUN_LAST,
-                                                     0,
-                                                     NULL,
-                                                     NULL,
-                                                     g_cclosure_marshal_generic,
-                                                     G_TYPE_NONE,
-                                                     3,
-                                                     PV_TYPE_SUBSCRIPTION_EVENT,
-                                                     PV_TYPE_SUBSCRIPTION_FLAGS,
-                                                     G_TYPE_STRING);
 }
 
 static void
@@ -264,6 +223,7 @@ pv_context_init (PvContext * context)
   PvContextPrivate *priv = context->priv = PV_CONTEXT_GET_PRIVATE (context);
 
   priv->state = PV_CONTEXT_STATE_UNCONNECTED;
+  priv->server_manager = g_dbus_object_manager_server_new (PV_DBUS_OBJECT_PREFIX);
 }
 
 /**
@@ -398,8 +358,12 @@ on_name_appeared (GDBusConnection *connection,
   PvContextPrivate *priv = context->priv;
 
   priv->connection = connection;
+  g_dbus_object_manager_server_set_connection (priv->server_manager, connection);
 
-  install_subscription (context);
+  if (priv->subscribe) {
+    g_object_set (priv->subscribe, "connection", priv->connection, NULL);
+    g_object_set (priv->subscribe, "service", name, NULL);
+  }
 
   pv_daemon1_proxy_new (priv->connection,
                         G_DBUS_PROXY_FLAGS_NONE,
@@ -418,9 +382,11 @@ on_name_vanished (GDBusConnection *connection,
   PvContext *context = user_data;
   PvContextPrivate *priv = context->priv;
 
-  uninstall_subscription (context);
-
   priv->connection = connection;
+  g_dbus_object_manager_server_set_connection (priv->server_manager, connection);
+
+  if (priv->subscribe)
+    g_object_set (priv->subscribe, "connection", connection, NULL);
 
   if (priv->flags & PV_CONTEXT_FLAGS_NOFAIL) {
     context_set_state (context, PV_CONTEXT_STATE_CONNECTING);
@@ -428,6 +394,28 @@ on_name_vanished (GDBusConnection *connection,
     context_set_state (context, PV_CONTEXT_STATE_ERROR);
   }
 }
+
+gboolean
+pv_context_set_subscribe (PvContext *context, PvSubscribe *subscribe)
+{
+  PvContextPrivate *priv;
+
+  g_return_val_if_fail (PV_IS_CONTEXT (context), FALSE);
+
+  priv = context->priv;
+
+  if (priv->subscribe)
+    g_object_unref (priv->subscribe);
+  priv->subscribe = subscribe;
+
+  if (priv->subscribe && priv->connection) {
+    g_object_set (priv->subscribe, "connection", priv->connection,
+                                   "service", PV_DBUS_SERVICE, NULL);
+  }
+
+  return TRUE;
+}
+
 
 /**
  * pv_context_connect:
@@ -467,6 +455,32 @@ pv_context_connect (PvContext *context, PvContextFlags flags)
   return TRUE;
 }
 
+gboolean
+pv_context_register_source (PvContext *context, PvSource *source)
+{
+  PvContextPrivate *priv;
+
+  g_return_val_if_fail (PV_IS_CONTEXT (context), FALSE);
+  g_return_val_if_fail (PV_IS_SOURCE (source), FALSE);
+
+  priv = context->priv;
+
+  pv_source_set_manager (source, priv->server_manager);
+
+  return TRUE;
+}
+
+gboolean
+pv_context_unregister_source (PvContext *context, PvSource *source)
+{
+  g_return_val_if_fail (PV_IS_CONTEXT (context), FALSE);
+  g_return_val_if_fail (PV_IS_SOURCE (source), FALSE);
+
+  pv_source_set_manager (source, NULL);
+
+  return TRUE;
+}
+
 /**
  * pv_context_get_connection:
  * @context: a #PvContext
@@ -481,6 +495,23 @@ pv_context_get_connection (PvContext *context)
   g_return_val_if_fail (PV_IS_CONTEXT (context), NULL);
 
   return context->priv->connection;
+}
+
+/**
+ * pv_context_get_client_proxy:
+ * @context: a #PvContext
+ *
+ * Get the client proxy that @context is registered with
+ *
+ * Returns: the client proxy of @context or %NULL when not
+ * registered.
+ */
+GDBusProxy *
+pv_context_get_client_proxy (PvContext *context)
+{
+  g_return_val_if_fail (PV_IS_CONTEXT (context), NULL);
+
+  return G_DBUS_PROXY (context->priv->client);
 }
 
 /**

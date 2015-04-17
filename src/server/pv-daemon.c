@@ -45,6 +45,7 @@ typedef struct {
   guint id;
 
   GHashTable *clients;
+  PvSubscribe *subscribe;
 } SenderData;
 
 static void
@@ -72,6 +73,15 @@ client_name_vanished_handler (GDBusConnection *connection,
   g_free (data);
 }
 
+static void
+on_subscription_event (PvSubscribe         *subscribe,
+                       PvSubscriptionEvent  event,
+                       PvSubscriptionFlags  flags,
+                       const gchar         *object_path)
+{
+  g_print ("got event %d %d %s\n", event, flags, object_path);
+}
+
 static SenderData *
 sender_data_new (PvDaemon *daemon, const gchar *sender)
 {
@@ -90,6 +100,16 @@ sender_data_new (PvDaemon *daemon, const gchar *sender)
                                     client_name_vanished_handler,
                                     data,
                                     NULL);
+
+  data->subscribe = pv_subscribe_new ();
+  g_object_set (data->subscribe, "service", sender,
+                                 "subscription-mask", PV_SUBSCRIPTION_FLAGS_SOURCE,
+                                 "connection", priv->connection,
+                                 NULL);
+  g_signal_connect (data->subscribe,
+                    "subscription-event",
+                    (GCallback) on_subscription_event,
+                    data);
 
   g_hash_table_insert (priv->senders, data->sender, data);
 
@@ -150,34 +170,6 @@ handle_disconnect_client (PvDaemon1              *interface,
   return TRUE;
 }
 
-static gboolean
-handle_add_provider (PvManager1             *interface,
-                     GDBusMethodInvocation  *invocation,
-                     const gchar            *arg_provider,
-                     GVariant               *arg_properties,
-                     gpointer                user_data)
-{
-  g_print ("add provider\n");
-  g_dbus_method_invocation_return_dbus_error (invocation,
-                "org.pulseaudio.Error.NotImplemented",
-                "Operation add not yet implemented");
-  return TRUE;
-}
-
-static gboolean
-handle_remove_provider (PvManager1             *interface,
-                        GDBusMethodInvocation  *invocation,
-                        const gchar            *arg_provider,
-                        gpointer                user_data)
-{
-  g_print ("remove provider\n");
-  g_dbus_method_invocation_return_dbus_error (invocation,
-                "org.pulseaudio.Error.NotImplemented",
-                "Operation remove not yet implemented");
-  return TRUE;
-}
-
-
 static void
 export_server_object (PvDaemon *daemon, GDBusObjectManagerServer *manager)
 {
@@ -194,16 +186,6 @@ export_server_object (PvDaemon *daemon, GDBusObjectManagerServer *manager)
     pv_daemon1_set_host_name (iface, g_get_host_name ());
     pv_daemon1_set_version (iface, PACKAGE_VERSION);
     pv_daemon1_set_name (iface, PACKAGE_NAME);
-    g_dbus_object_skeleton_add_interface (skel, G_DBUS_INTERFACE_SKELETON (iface));
-    g_object_unref (iface);
-  }
-  {
-    PvManager1 *iface;
-
-    iface = pv_manager1_skeleton_new ();
-    g_signal_connect (iface, "handle-add-provider", (GCallback) handle_add_provider, daemon);
-    g_signal_connect (iface, "handle-remove-provider", (GCallback) handle_remove_provider, daemon);
-
     g_dbus_object_skeleton_add_interface (skel, G_DBUS_INTERFACE_SKELETON (iface));
     g_object_unref (iface);
   }
@@ -315,7 +297,8 @@ pv_daemon_get_source (PvDaemon *daemon, const gchar *name)
   priv = daemon->priv;
 
   if (priv->source == NULL) {
-    priv->source = pv_v4l2_source_new (daemon);
+    priv->source = pv_v4l2_source_new ();
+    pv_source_set_manager (priv->source, priv->server_manager);
   }
   return priv->source;
 }

@@ -17,26 +17,17 @@
   <interface name='org.pulsevideo.Client1'>
     <property name='Name' type='s' access='read' />
     <property name='Properties' type='a{sv}' access='read' />
-  </interface>
-
-  <interface name='org.pulsevideo.Capture1'>
     <method name='CreateSourceOutput'>
       <arg type='o' name='source' direction='in'/>
       <arg type='a{sv}' name='props' direction='in'/>
+      <arg type='s' name='sender' direction='out'/>
       <arg type='o' name='output' direction='out'/>
     </method>
-    <method name='RemoveSourceOutput'>
-      <arg type='o' name='output' direction='in'/>
+    <method name='RegisterSource'>
+      <arg type='o' name='source' direction='in'/>
     </method>
-  </interface>
-
-  <interface name='org.pulsevideo.Manager1'>
-    <method name='AddProvider'>
-      <arg type='o' name='provider' direction='in'/>
-      <arg type='a{sv}' name='properties' direction='in'/>
-    </method>
-    <method name='RemoveProvider'>
-      <arg type='o' name='provider' direction='in'/>
+    <method name='UnregisterSource'>
+      <arg type='o' name='source' direction='in'/>
     </method>
   </interface>
 
@@ -52,11 +43,6 @@
     </method>
   </interface>
 
-  <interface name='org.pulsevideo.Device1'>
-    <property name='Name' type='s' access='read' />
-    <property name='Properties' type='a{sv}' access='read' />
-  </interface>
-
   <interface name='org.pulsevideo.Source1'>
     <property name='Name' type='s' access='read' />
     <property name='Suspended' type='b' access='read' />
@@ -65,16 +51,25 @@
       <arg type='a{sv}' name='props' direction='in'/>
       <arg type='aa{sv}' name='caps' direction='out'/>
     </method>
+    <method name='CreateSourceOutput'>
+      <arg type='o' name='source' direction='in'/>
+      <arg type='a{sv}' name='props' direction='in'/>
+      <arg type='o' name='output' direction='out'/>
+    </method>
   </interface>
 
   <interface name='org.pulsevideo.SourceOutput1'>
-    <method name='Acquire'>
+    <property name='Source' type='o' access='read' />
+    <method name='Start'>
       <arg type='a{sv}' name='props' direction='in'/>
       <arg type='h' name='fd' direction='out'/>
       <arg type='a{sv}' name='props' direction='out'/>
     </method>
-    <method name='Release'>
-    </method>
+    <signal name='RequestReconfigure'>
+      <arg type='a{sv}' name='props' direction='in'/>
+    </signal>
+    <method name='Stop'/>
+    <method name='Remove'/>
 
     <!--
     <method name='Start'>

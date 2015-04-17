@@ -21,7 +21,8 @@
 #define __PV_V4L2_SOURCE_H__
 
 #include <glib-object.h>
-#include "server/pv-source.h"
+
+#include <client/pulsevideo.h>
 
 G_BEGIN_DECLS
 
@@ -50,7 +51,7 @@ struct _PvV4l2SourceClass {
 
 GType           pv_v4l2_source_get_type             (void);
 
-PvSource *      pv_v4l2_source_new                  (PvDaemon *daemon);
+PvSource *      pv_v4l2_source_new                  (void);
 
 G_END_DECLS
 

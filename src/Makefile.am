@@ -121,7 +121,8 @@ noinst_LTLIBRARIES =
 TESTS_default =
 
 TESTS_norun = test-client \
-	      test-subscribe
+	      test-subscribe \
+	      test-v4l2
 
 # These tests need a running pulsevideo daemon
 TESTS_daemon = 
@@ -138,6 +139,11 @@ test_subscribe_CFLAGS = $(AM_CFLAGS)
 test_subscribe_LDADD = $(AM_LDADD) libpulsevideo-@PV_MAJORMINOR@.la
 test_subscribe_LDFLAGS = $(AM_LDFLAGS) $(BINLDFLAGS)
 
+test_v4l2_SOURCES = tests/test-v4l2.c
+test_v4l2_CFLAGS = $(AM_CFLAGS)
+test_v4l2_LDADD = $(AM_LDADD) libpulsevideo-@PV_MAJORMINOR@.la libpulsevideocore-@PV_MAJORMINOR@.la
+test_v4l2_LDFLAGS = $(AM_LDFLAGS) $(BINLDFLAGS)
+
 ###################################
 #         Client library          #
 ###################################
@@ -153,6 +159,8 @@ pulsevideoinclude_HEADERS = \
 		client/pv-enumtypes.h \
 		client/pv-stream.h \
 		client/pv-subscribe.h \
+		client/pv-source.h \
+		client/pv-source-output.h \
 		dbus/org-pulsevideo.h
 
 lib_LTLIBRARIES = \
@@ -163,7 +171,10 @@ libpulsevideo_@PV_MAJORMINOR@_la_SOURCES = \
 		client/pv-context.h client/pv-context.c \
 		client/pv-enumtypes.h client/pv-enumtypes.c \
 		client/pv-stream.h client/pv-stream.c \
-		client/pulsevideo.c \
+		client/pulsevideo.c client/pulsevideo.h \
+		client/pv-source-output.c client/pv-source-output.h \
+		client/pv-source.c client/pv-source.h \
+		client/pv-subscribe.c client/pv-subscribe.h \
 		dbus/org-pulsevideo.c \
 		$(pulsevideogstsource)
 
@@ -182,8 +193,6 @@ lib_LTLIBRARIES += libpulsevideocore-@PV_MAJORMINOR@.la
 libpulsevideocore_@PV_MAJORMINOR@_la_SOURCES = \
 		server/pv-client.c server/pv-client.h \
 		server/pv-daemon.c server/pv-daemon.h \
-		server/pv-source-output.c server/pv-source-output.h \
-		server/pv-source.c server/pv-source.h \
 		modules/v4l2/pv-v4l2-source.c 
 
 libpulsevideocore_@PV_MAJORMINOR@_la_CFLAGS = $(AM_CFLAGS) $(SERVER_CFLAGS)

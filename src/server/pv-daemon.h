@@ -38,13 +38,7 @@ typedef struct _PvDaemon PvDaemon;
 typedef struct _PvDaemonClass PvDaemonClass;
 typedef struct _PvDaemonPrivate PvDaemonPrivate;
 
-#include "server/pv-source.h"
-
-#define PV_DBUS_SERVICE "org.pulsevideo"
-#define PV_DBUS_OBJECT_PREFIX "/org/pulsevideo"
-#define PV_DBUS_OBJECT_SERVER PV_DBUS_OBJECT_PREFIX "/server"
-#define PV_DBUS_OBJECT_SOURCE PV_DBUS_OBJECT_PREFIX "/source"
-#define PV_DBUS_OBJECT_CLIENT PV_DBUS_OBJECT_PREFIX "/client"
+#include "client/pv-source.h"
 
 /**
  * PvDaemon:

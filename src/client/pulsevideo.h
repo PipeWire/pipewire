@@ -20,9 +20,17 @@
 #ifndef __PULSEVIDEO_H__
 #define __PULSEVIDEO_H__
 
-#include <client/pv-context.h>
+#include <client/pv-source.h>
+#include <client/pv-source-output.h>
 #include <client/pv-stream.h>
+#include <client/pv-context.h>
 #include <client/pv-subscribe.h>
+
+#define PV_DBUS_SERVICE "org.pulsevideo"
+#define PV_DBUS_OBJECT_PREFIX "/org/pulsevideo"
+#define PV_DBUS_OBJECT_SERVER PV_DBUS_OBJECT_PREFIX "/server"
+#define PV_DBUS_OBJECT_SOURCE PV_DBUS_OBJECT_PREFIX "/source"
+#define PV_DBUS_OBJECT_CLIENT PV_DBUS_OBJECT_PREFIX "/client"
 
 void pv_init (int *argc, char **argv[]);
 

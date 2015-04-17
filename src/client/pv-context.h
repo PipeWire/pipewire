@@ -23,6 +23,9 @@
 #include <glib-object.h>
 #include <gio/gio.h>
 
+#include <client/pv-source.h>
+#include <client/pv-subscribe.h>
+
 G_BEGIN_DECLS
 
 #define PV_TYPE_CONTEXT                 (pv_context_get_type ())
@@ -97,9 +100,15 @@ GType             pv_context_get_type              (void);
 
 PvContext *       pv_context_new                   (const gchar *name, GVariant *properties);
 
+gboolean          pv_context_set_subscribe         (PvContext *context, PvSubscribe *subscribe);
+
 gboolean          pv_context_connect               (PvContext *context, PvContextFlags flags);
 
+gboolean          pv_context_register_source       (PvContext *context, PvSource *source);
+gboolean          pv_context_unregister_source     (PvContext *context, PvSource *source);
+
 GDBusConnection * pv_context_get_connection        (PvContext *context);
+GDBusProxy *      pv_context_get_client_proxy      (PvContext *context);
 const gchar *     pv_context_get_client_path       (PvContext *context);
 
 PvContextState    pv_context_get_state             (PvContext *context);

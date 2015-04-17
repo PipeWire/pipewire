@@ -24,11 +24,23 @@
 
 G_BEGIN_DECLS
 
+#define PV_TYPE_SUBSCRIBE                 (pv_subscribe_get_type ())
+#define PV_IS_SUBSCRIBE(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PV_TYPE_SUBSCRIBE))
+#define PV_IS_SUBSCRIBE_CLASS(klass)      (G_TYPE_CHECK_CLASS_TYPE ((klass), PV_TYPE_SUBSCRIBE))
+#define PV_SUBSCRIBE_GET_CLASS(obj)       (G_TYPE_INSTANCE_GET_CLASS ((obj), PV_TYPE_SUBSCRIBE, PvSubscribeClass))
+#define PV_SUBSCRIBE(obj)                 (G_TYPE_CHECK_INSTANCE_CAST ((obj), PV_TYPE_SUBSCRIBE, PvSubscribe))
+#define PV_SUBSCRIBE_CLASS(klass)         (G_TYPE_CHECK_CLASS_CAST ((klass), PV_TYPE_SUBSCRIBE, PvSubscribeClass))
+#define PV_SUBSCRIBE_CAST(obj)            ((PvSubscribe*)(obj))
+#define PV_SUBSCRIBE_CLASS_CAST(klass)    ((PvSubscribeClass*)(klass))
+
+typedef struct _PvSubscribe PvSubscribe;
+typedef struct _PvSubscribeClass PvSubscribeClass;
+typedef struct _PvSubscribePrivate PvSubscribePrivate;
+
 typedef enum {
     PV_SUBSCRIPTION_FLAGS_CLIENT        = (1 << 0),
-    PV_SUBSCRIPTION_FLAGS_DEVICE        = (1 << 1),
-    PV_SUBSCRIPTION_FLAGS_SOURCE        = (1 << 2),
-    PV_SUBSCRIPTION_FLAGS_SOURCE_OUTPUT = (1 << 3),
+    PV_SUBSCRIPTION_FLAGS_SOURCE        = (1 << 1),
+    PV_SUBSCRIPTION_FLAGS_SOURCE_OUTPUT = (1 << 2),
 
     PV_SUBSCRIPTION_FLAGS_ALL           = 0xf
 } PvSubscriptionFlags;
@@ -38,6 +50,31 @@ typedef enum {
     PV_SUBSCRIPTION_EVENT_CHANGE        = 1,
     PV_SUBSCRIPTION_EVENT_REMOVE        = 2,
 } PvSubscriptionEvent;
+
+/**
+ * PvSubscribe:
+ *
+ * Pulsevideo subscribe object class.
+ */
+struct _PvSubscribe {
+  GObject object;
+
+  PvSubscribePrivate *priv;
+};
+
+/**
+ * PvSubscribeClass:
+ *
+ * Pulsevideo subscribe object class.
+ */
+struct _PvSubscribeClass {
+  GObjectClass parent_class;
+};
+
+/* normal GObject stuff */
+GType             pv_subscribe_get_type              (void);
+
+PvSubscribe *     pv_subscribe_new                   (void);
 
 G_END_DECLS
 

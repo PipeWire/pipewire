@@ -21,6 +21,7 @@
 #define __PV_SOURCE_H__
 
 #include <glib-object.h>
+#include <gio/gio.h>
 
 G_BEGIN_DECLS
 
@@ -28,8 +29,7 @@ typedef struct _PvSource PvSource;
 typedef struct _PvSourceClass PvSourceClass;
 typedef struct _PvSourcePrivate PvSourcePrivate;
 
-#include "server/pv-daemon.h"
-#include "server/pv-source-output.h"
+#include "client/pv-source-output.h"
 
 #define PV_TYPE_SOURCE                 (pv_source_get_type ())
 #define PV_IS_SOURCE(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PV_TYPE_SOURCE))
@@ -71,7 +71,7 @@ struct _PvSourceClass {
 /* normal GObject stuff */
 GType            pv_source_get_type               (void);
 
-PvSource *       pv_source_new                    (PvDaemon *daemon, const gchar *prefix);
+void             pv_source_set_manager            (PvSource *source, GDBusObjectManagerServer *manager);
 
 GVariant *       pv_source_get_capabilities       (PvSource *source, GVariant *props);
 

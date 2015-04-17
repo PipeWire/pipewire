@@ -17,10 +17,13 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include "server/pv-client.h"
-#include "server/pv-source.h"
-#include "server/pv-source-output.h"
+#include "client/pulsevideo.h"
+
 #include "client/pv-enumtypes.h"
+#include "client/pv-source.h"
+#include "client/pv-source-output.h"
+
+#include "server/pv-client.h"
 
 #include "dbus/org-pulsevideo.h"
 
@@ -95,7 +98,7 @@ pv_client_set_property (GObject      *_object,
 }
 
 static gboolean
-handle_create_source_output (PvCapture1             *interface,
+handle_create_source_output (PvClient1              *interface,
                              GDBusMethodInvocation  *invocation,
                              const gchar            *arg_source,
                              GVariant               *arg_properties,
@@ -114,28 +117,8 @@ handle_create_source_output (PvCapture1             *interface,
 
   object_path = pv_source_output_get_object_path (output);
   g_hash_table_insert (priv->source_outputs, g_strdup (object_path), output);
-  pv_capture1_complete_create_source_output (interface, invocation, object_path);
 
-  return TRUE;
-}
-
-static gboolean
-handle_remove_source_output (PvCapture1             *interface,
-                             GDBusMethodInvocation  *invocation,
-                             const gchar            *arg_output,
-                             gpointer                user_data)
-{
-  PvClient *client = user_data;
-  PvClientPrivate *priv = client->priv;
-  PvSourceOutput *output;
-
-  output = g_hash_table_lookup (priv->source_outputs, arg_output);
-  if (output) {
-    pv_source_release_source_output (priv->source, output);
-    g_hash_table_remove (priv->source_outputs, arg_output);
-  }
-
-  pv_capture1_complete_remove_source_output (interface, invocation);
+  pv_client1_complete_create_source_output (interface, invocation, PV_DBUS_SERVICE, object_path);
 
   return TRUE;
 }
@@ -157,15 +140,7 @@ client_register_object (PvClient *client, const gchar *prefix)
 
     iface = pv_client1_skeleton_new ();
     pv_client1_set_name (iface, "poppy");
-    g_dbus_object_skeleton_add_interface (skel, G_DBUS_INTERFACE_SKELETON (iface));
-    g_object_unref (iface);
-  }
-  {
-    PvCapture1 *iface;
-
-    iface = pv_capture1_skeleton_new ();
     g_signal_connect (iface, "handle-create-source-output", (GCallback) handle_create_source_output, client);
-    g_signal_connect (iface, "handle-remove-source-output", (GCallback) handle_remove_source_output, client);
     g_dbus_object_skeleton_add_interface (skel, G_DBUS_INTERFACE_SKELETON (iface));
     g_object_unref (iface);
   }

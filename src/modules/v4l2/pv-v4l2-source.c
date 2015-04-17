@@ -124,7 +124,7 @@ pv_v4l2_source_init (PvV4l2Source * source)
 }
 
 PvSource *
-pv_v4l2_source_new (PvDaemon *daemon)
+pv_v4l2_source_new (void)
 {
-  return g_object_new (PV_TYPE_V4L2_SOURCE, "daemon", daemon, NULL);
+  return g_object_new (PV_TYPE_V4L2_SOURCE, NULL);
 }

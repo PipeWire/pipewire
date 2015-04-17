@@ -21,16 +21,17 @@
 
 #include <gio/gunixfdlist.h>
 
-#include "server/pv-daemon.h"
-#include "server/pv-source-output.h"
+#include "client/pv-source-output.h"
 #include "client/pv-enumtypes.h"
 
 #include "dbus/org-pulsevideo.h"
 
 struct _PvSourceOutputPrivate
 {
-  PvDaemon *daemon;
+  GDBusObjectManagerServer *server_manager;
+
   gchar *object_path;
+
   GSocket *socket;
 };
 
@@ -42,7 +43,7 @@ G_DEFINE_TYPE (PvSourceOutput, pv_source_output, G_TYPE_OBJECT);
 enum
 {
   PROP_0,
-  PROP_DAEMON,
+  PROP_MANAGER,
   PROP_OBJECT_PATH,
   PROP_SOCKET,
 };
@@ -57,8 +58,8 @@ pv_source_output_get_property (GObject    *_object,
   PvSourceOutputPrivate *priv = output->priv;
 
   switch (prop_id) {
-    case PROP_DAEMON:
-      g_value_set_object (value, priv->daemon);
+    case PROP_MANAGER:
+      g_value_set_object (value, priv->server_manager);
       break;
 
     case PROP_OBJECT_PATH:
@@ -85,8 +86,8 @@ pv_source_output_set_property (GObject      *_object,
   PvSourceOutputPrivate *priv = output->priv;
 
   switch (prop_id) {
-    case PROP_DAEMON:
-      priv->daemon = g_value_dup_object (value);
+    case PROP_MANAGER:
+      priv->server_manager = g_value_dup_object (value);
       break;
 
     case PROP_OBJECT_PATH:
@@ -100,10 +101,10 @@ pv_source_output_set_property (GObject      *_object,
 }
 
 static gboolean
-handle_acquire (PvSourceOutput1        *interface,
-                GDBusMethodInvocation  *invocation,
-                GVariant               *arg_properties,
-                gpointer                user_data)
+handle_start (PvSourceOutput1        *interface,
+              GDBusMethodInvocation  *invocation,
+              GVariant               *arg_properties,
+              gpointer                user_data)
 {
   PvSourceOutput *output = user_data;
   PvSourceOutputPrivate *priv = output->priv;
@@ -111,18 +112,21 @@ handle_acquire (PvSourceOutput1        *interface,
   GVariantBuilder props;
   gint fd[2];
 
-  g_variant_builder_init (&props, G_VARIANT_TYPE ("a{sv}"));
-  g_variant_builder_add (&props, "{sv}", "name", g_variant_new_string ("hello"));
-
   socketpair (AF_UNIX, SOCK_STREAM, 0, fd);
   priv->socket = g_socket_new_from_fd (fd[0], NULL);
   g_object_notify (G_OBJECT (output), "socket");
 
+  g_variant_builder_init (&props, G_VARIANT_TYPE ("a{sv}"));
+  g_variant_builder_add (&props, "{sv}", "name", g_variant_new_string ("hello"));
+
   fdlist = g_unix_fd_list_new ();
   g_unix_fd_list_append (fdlist, fd[1], NULL);
+
   g_dbus_method_invocation_return_value_with_unix_fd_list (invocation,
-      g_variant_new ("(h@a{sv})", 0, g_variant_builder_end (&props)),
-      fdlist);
+           g_variant_new ("(h@a{sv})",
+                          0,
+                          g_variant_builder_end (&props)),
+           fdlist);
 
   return TRUE;
 }
@@ -139,15 +143,29 @@ stop_transfer (PvSourceOutput *output)
 }
 
 static gboolean
-handle_release (PvSourceOutput1        *interface,
-                GDBusMethodInvocation  *invocation,
-                gpointer                user_data)
+handle_stop (PvSourceOutput1        *interface,
+             GDBusMethodInvocation  *invocation,
+             gpointer                user_data)
 {
   PvSourceOutput *output = user_data;
 
   stop_transfer (output);
 
-  pv_source_output1_complete_release (interface, invocation);
+  pv_source_output1_complete_stop (interface, invocation);
+
+  return TRUE;
+}
+
+static gboolean
+handle_remove (PvSourceOutput1        *interface,
+               GDBusMethodInvocation  *invocation,
+               gpointer                user_data)
+{
+  PvSourceOutput *output = user_data;
+
+  stop_transfer (output);
+
+  pv_source_output1_complete_remove (interface, invocation);
 
   return TRUE;
 }
@@ -156,7 +174,6 @@ static void
 output_register_object (PvSourceOutput *output, const gchar *prefix)
 {
   PvSourceOutputPrivate *priv = output->priv;
-  PvDaemon *daemon = priv->daemon;
   GDBusObjectSkeleton *skel;
   gchar *name;
 
@@ -168,25 +185,26 @@ output_register_object (PvSourceOutput *output, const gchar *prefix)
     PvSourceOutput1 *iface;
 
     iface = pv_source_output1_skeleton_new ();
-    g_signal_connect (iface, "handle-acquire", (GCallback) handle_acquire, output);
-    g_signal_connect (iface, "handle-release", (GCallback) handle_release, output);
+    g_signal_connect (iface, "handle-start", (GCallback) handle_start, output);
+    g_signal_connect (iface, "handle-stop", (GCallback) handle_stop, output);
+    g_signal_connect (iface, "handle-remove", (GCallback) handle_remove, output);
     g_dbus_object_skeleton_add_interface (skel, G_DBUS_INTERFACE_SKELETON (iface));
     g_object_unref (iface);
   }
+  g_dbus_object_manager_server_export_uniquely (priv->server_manager, skel);
 
   g_free (priv->object_path);
-  priv->object_path = pv_daemon_export_uniquely (daemon, skel);
+  priv->object_path = g_strdup (g_dbus_object_get_object_path (G_DBUS_OBJECT (skel)));
 }
 
 static void
 output_unregister_object (PvSourceOutput *output)
 {
   PvSourceOutputPrivate *priv = output->priv;
-  PvDaemon *daemon = priv->daemon;
 
   stop_transfer (output);
 
-  pv_daemon_unexport (daemon, priv->object_path);
+  g_dbus_object_manager_server_unexport (priv->server_manager, priv->object_path);
 }
 
 static void
@@ -196,7 +214,7 @@ pv_source_output_finalize (GObject * object)
   PvSourceOutputPrivate *priv = output->priv;
 
   output_unregister_object (output);
-  g_object_unref (priv->daemon);
+  g_object_unref (priv->server_manager);
   g_free (priv->object_path);
 
   G_OBJECT_CLASS (pv_source_output_parent_class)->finalize (object);
@@ -225,11 +243,11 @@ pv_source_output_class_init (PvSourceOutputClass * klass)
   gobject_class->constructed = pv_source_output_constructed;
 
   g_object_class_install_property (gobject_class,
-                                   PROP_DAEMON,
-                                   g_param_spec_object ("daemon",
-                                                        "Daemon",
-                                                        "The daemon",
-                                                        PV_TYPE_DAEMON,
+                                   PROP_MANAGER,
+                                   g_param_spec_object ("manager",
+                                                        "Manager",
+                                                        "The manager",
+                                                        G_TYPE_DBUS_OBJECT_MANAGER_SERVER,
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_CONSTRUCT_ONLY |
                                                         G_PARAM_STATIC_STRINGS));

@@ -9,9 +9,6 @@
       <arg type='a{sv}' name='properties' direction='in'/>
       <arg type='o' name='client' direction='out'/>
     </method>
-    <method name='DisconnectClient'>
-      <arg type='o' name='client' direction='in'/>
-    </method>
   </interface>
 
   <interface name='org.pulsevideo.Client1'>
@@ -28,6 +25,8 @@
     </method>
     <method name='UnregisterSource'>
       <arg type='o' name='source' direction='in'/>
+    </method>
+    <method name='Disconnect'>
     </method>
   </interface>
 

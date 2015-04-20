@@ -118,18 +118,18 @@ static void
 source_register_object (PvSource *source)
 {
   PvSourcePrivate *priv = source->priv;
-  GDBusObjectSkeleton *skel;
+  PvObjectSkeleton *skel;
 
-  skel = g_dbus_object_skeleton_new (PV_DBUS_OBJECT_SOURCE);
+  skel = pv_object_skeleton_new (PV_DBUS_OBJECT_SOURCE);
   {
     PvSource1 *iface;
 
     iface = pv_source1_skeleton_new ();
     g_signal_connect (iface, "handle-create-source-output", (GCallback) handle_create_source_output, source);
-    g_dbus_object_skeleton_add_interface (skel, G_DBUS_INTERFACE_SKELETON (iface));
+    pv_object_skeleton_set_source1 (skel, iface);
     g_object_unref (iface);
   }
-  g_dbus_object_manager_server_export_uniquely (priv->server_manager, skel);
+  g_dbus_object_manager_server_export_uniquely (priv->server_manager, G_DBUS_OBJECT_SKELETON (skel));
 
   g_free (priv->object_path);
   priv->object_path = g_strdup (g_dbus_object_get_object_path (G_DBUS_OBJECT (skel)));

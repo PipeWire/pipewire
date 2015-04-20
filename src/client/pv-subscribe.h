@@ -38,12 +38,13 @@ typedef struct _PvSubscribeClass PvSubscribeClass;
 typedef struct _PvSubscribePrivate PvSubscribePrivate;
 
 typedef enum {
-    PV_SUBSCRIPTION_FLAGS_CLIENT        = (1 << 0),
-    PV_SUBSCRIPTION_FLAGS_SOURCE        = (1 << 1),
-    PV_SUBSCRIPTION_FLAGS_SOURCE_OUTPUT = (1 << 2),
+    PV_SUBSCRIPTION_FLAGS_CLIENT          = (1 << 0),
+    PV_SUBSCRIPTION_FLAGS_SOURCE_PROVIDER = (1 << 1),
+    PV_SUBSCRIPTION_FLAGS_SOURCE          = (1 << 2),
+    PV_SUBSCRIPTION_FLAGS_SOURCE_OUTPUT   = (1 << 3),
 } PvSubscriptionFlags;
 
-#define PV_SUBSCRIPTION_FLAGS_ALL 0x3
+#define PV_SUBSCRIPTION_FLAGS_ALL 0xf
 
 typedef enum {
     PV_SUBSCRIPTION_EVENT_NEW           = 0,

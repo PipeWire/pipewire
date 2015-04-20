@@ -113,11 +113,11 @@ source_provider_register_object (PvSourceProvider *client, const gchar *prefix)
 {
   PvSourceProviderPrivate *priv = client->priv;
   PvDaemon *daemon = priv->daemon;
-  GDBusObjectSkeleton *skel;
+  PvObjectSkeleton *skel;
   gchar *name;
 
   name = g_strdup_printf ("%s/source", prefix);
-  skel = g_dbus_object_skeleton_new (name);
+  skel = pv_object_skeleton_new (name);
   g_free (name);
 
   {
@@ -126,12 +126,12 @@ source_provider_register_object (PvSourceProvider *client, const gchar *prefix)
     iface = pv_source_provider1_skeleton_new ();
     g_object_set (iface, "name", priv->name, NULL);
     g_object_set (iface, "path", priv->path, NULL);
-    g_dbus_object_skeleton_add_interface (skel, G_DBUS_INTERFACE_SKELETON (iface));
+    pv_object_skeleton_set_source_provider1 (skel, iface);
     g_object_unref (iface);
   }
 
   g_free (priv->object_path);
-  priv->object_path = pv_daemon_export_uniquely (daemon, skel);
+  priv->object_path = pv_daemon_export_uniquely (daemon, G_DBUS_OBJECT_SKELETON (skel));
 }
 
 static void

@@ -180,20 +180,20 @@ client_register_object (PvClient *client, const gchar *prefix)
 {
   PvClientPrivate *priv = client->priv;
   PvDaemon *daemon = priv->daemon;
-  GDBusObjectSkeleton *skel;
+  PvObjectSkeleton *skel;
   gchar *name;
 
   name = g_strdup_printf ("%s/client", prefix);
-  skel = g_dbus_object_skeleton_new (name);
+  skel = pv_object_skeleton_new (name);
   g_free (name);
 
   priv->client1 = pv_client1_skeleton_new ();
   pv_client1_set_name (priv->client1, "poppy");
   g_signal_connect (priv->client1, "handle-create-source-output", (GCallback) handle_create_source_output, client);
-  g_dbus_object_skeleton_add_interface (skel, G_DBUS_INTERFACE_SKELETON (priv->client1));
+  pv_object_skeleton_set_client1 (skel, priv->client1);
 
   g_free (priv->object_path);
-  priv->object_path = pv_daemon_export_uniquely (daemon, skel);
+  priv->object_path = pv_daemon_export_uniquely (daemon, G_DBUS_OBJECT_SKELETON (skel));
 }
 
 static void

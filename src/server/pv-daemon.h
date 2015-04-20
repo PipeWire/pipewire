@@ -74,6 +74,9 @@ void               pv_daemon_stop            (PvDaemon *daemon);
 gchar *            pv_daemon_export_uniquely (PvDaemon *daemon, GDBusObjectSkeleton *skel);
 void               pv_daemon_unexport        (PvDaemon *daemon, const gchar *name);
 
+void               pv_daemon_add_source      (PvDaemon *daemon, PvSource *source);
+void               pv_daemon_remove_source   (PvDaemon *daemon, PvSource *source);
+
 PvSource1 *        pv_daemon_get_source      (PvDaemon *daemon, const gchar *name);
 
 G_END_DECLS

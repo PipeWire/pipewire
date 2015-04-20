@@ -103,6 +103,7 @@ PvContext *       pv_context_new                   (const gchar *name, GVariant 
 gboolean          pv_context_set_subscribe         (PvContext *context, PvSubscribe *subscribe);
 
 gboolean          pv_context_connect               (PvContext *context, PvContextFlags flags);
+gboolean          pv_context_disconnect            (PvContext *context);
 
 gboolean          pv_context_register_source       (PvContext *context, PvSource *source);
 gboolean          pv_context_unregister_source     (PvContext *context, PvSource *source);

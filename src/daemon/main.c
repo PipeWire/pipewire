@@ -22,18 +22,23 @@
 
 #include <client/pulsevideo.h>
 #include <server/pv-daemon.h>
+#include <modules/v4l2/pv-v4l2-source.h>
 
 gint
 main (gint argc, gchar *argv[])
 {
   PvDaemon *daemon;
   GMainLoop *loop;
+  PvSource *source;
 
   pv_init (&argc, &argv);
 
   loop = g_main_loop_new (NULL, FALSE);
 
   daemon = pv_daemon_new ();
+
+  source = pv_v4l2_source_new();
+  pv_daemon_add_source (daemon, source);
   pv_daemon_start (daemon);
 
   g_main_loop_run (loop);

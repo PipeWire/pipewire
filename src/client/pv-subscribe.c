@@ -70,6 +70,12 @@ notify_subscription (PvSubscribe         *subscribe,
       g_signal_emit (subscribe, signals[SIGNAL_SUBSCRIPTION_EVENT], 0, event,
           PV_SUBSCRIPTION_FLAGS_CLIENT, object);
   }
+  if (priv->subscription_mask & PV_SUBSCRIPTION_FLAGS_SOURCE_PROVIDER) {
+    if ((interface == NULL && pv_object_peek_source_provider1 (PV_OBJECT (object))) ||
+        PV_IS_SOURCE_PROVIDER1_PROXY (interface))
+      g_signal_emit (subscribe, signals[SIGNAL_SUBSCRIPTION_EVENT], 0, event,
+          PV_SUBSCRIPTION_FLAGS_SOURCE_PROVIDER, object);
+  }
   if (priv->subscription_mask & PV_SUBSCRIPTION_FLAGS_SOURCE) {
     if ((interface == NULL && pv_object_peek_source1 (PV_OBJECT (object))) ||
         PV_IS_SOURCE1_PROXY (interface))
@@ -172,11 +178,18 @@ on_client_manager_ready (GObject *source_object,
   PvSubscribe *subscribe = user_data;
   PvSubscribePrivate *priv = subscribe->priv;
   GError *error = NULL;
+  GList *objects, *walk;
 
   priv->client_manager = pv_object_manager_client_new_finish (res, &error);
   if (priv->client_manager == NULL)
     goto manager_error;
 
+  objects = g_dbus_object_manager_get_objects (G_DBUS_OBJECT_MANAGER (priv->client_manager));
+  for (walk = objects; walk ; walk = g_list_next (walk)) {
+    on_client_manager_object_added (G_DBUS_OBJECT_MANAGER (priv->client_manager),
+                                    walk->data,
+                                    subscribe);
+  }
   connect_client_signals (subscribe);
 
   return;

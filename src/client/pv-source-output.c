@@ -174,11 +174,11 @@ static void
 output_register_object (PvSourceOutput *output, const gchar *prefix)
 {
   PvSourceOutputPrivate *priv = output->priv;
-  GDBusObjectSkeleton *skel;
+  PvObjectSkeleton *skel;
   gchar *name;
 
   name = g_strdup_printf ("%s/output", prefix);
-  skel = g_dbus_object_skeleton_new (name);
+  skel = pv_object_skeleton_new (name);
   g_free (name);
 
   {
@@ -188,10 +188,10 @@ output_register_object (PvSourceOutput *output, const gchar *prefix)
     g_signal_connect (iface, "handle-start", (GCallback) handle_start, output);
     g_signal_connect (iface, "handle-stop", (GCallback) handle_stop, output);
     g_signal_connect (iface, "handle-remove", (GCallback) handle_remove, output);
-    g_dbus_object_skeleton_add_interface (skel, G_DBUS_INTERFACE_SKELETON (iface));
+    pv_object_skeleton_set_source_output1 (skel, iface);
     g_object_unref (iface);
   }
-  g_dbus_object_manager_server_export_uniquely (priv->server_manager, skel);
+  g_dbus_object_manager_server_export_uniquely (priv->server_manager, G_DBUS_OBJECT_SKELETON (skel));
 
   g_free (priv->object_path);
   priv->object_path = g_strdup (g_dbus_object_get_object_path (G_DBUS_OBJECT (skel)));

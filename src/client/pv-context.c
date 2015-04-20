@@ -455,6 +455,49 @@ pv_context_connect (PvContext *context, PvContextFlags flags)
   return TRUE;
 }
 
+static void
+on_client_disconnected (GObject *source_object,
+                        GAsyncResult *res,
+                        gpointer user_data)
+{
+  PvContext *context = user_data;
+  PvContextPrivate *priv = context->priv;
+  GError *error = NULL;
+
+  if (!pv_client1_call_disconnect_finish (priv->client, res, &error)) {
+    context_set_state (context, PV_CONTEXT_STATE_ERROR);
+    g_error ("failed to disconnect client: %s", error->message);
+    g_clear_error (&error);
+    return;
+  }
+  context_set_state (context, PV_CONTEXT_STATE_UNCONNECTED);
+}
+
+/**
+ * pv_context_disconnect:
+ * @context: a #PvContext
+ *
+ * Disonnect from the daemon.
+ *
+ * Returns: %TRUE on success.
+ */
+gboolean
+pv_context_disconnect (PvContext *context)
+{
+  PvContextPrivate *priv;
+
+  g_return_val_if_fail (PV_IS_CONTEXT (context), FALSE);
+
+  priv = context->priv;
+  g_return_val_if_fail (priv->client != NULL, FALSE);
+
+  pv_client1_call_disconnect (priv->client,
+                              NULL,        /* GCancellable *cancellable */
+                              on_client_disconnected,
+                              context);
+  return TRUE;
+}
+
 gboolean
 pv_context_register_source (PvContext *context, PvSource *source)
 {

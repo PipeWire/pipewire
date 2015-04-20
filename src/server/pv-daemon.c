@@ -35,6 +35,7 @@ struct _PvDaemonPrivate
   guint id;
   GDBusConnection *connection;
   GDBusObjectManagerServer *server_manager;
+  PvSubscribe *subscribe;
 
   GHashTable *senders;
   GList *sources;
@@ -52,33 +53,32 @@ typedef struct {
 } SenderData;
 
 static void
-on_subscription_event (PvSubscribe         *subscribe,
-                       PvSubscriptionEvent  event,
-                       PvSubscriptionFlags  flags,
-                       GDBusObjectProxy    *object,
-                       gpointer             user_data)
+on_server_subscription_event (PvSubscribe         *subscribe,
+                              PvSubscriptionEvent  event,
+                              PvSubscriptionFlags  flags,
+                              GDBusObjectProxy    *object,
+                              gpointer             user_data)
 {
-  SenderData *data = user_data;
-  PvDaemon *daemon = data->daemon;
+  PvDaemon *daemon = user_data;
   PvDaemonPrivate *priv = daemon->priv;
   const gchar *object_path;
   PvSource1 *source1;
-
-  object_path = g_dbus_object_get_object_path (G_DBUS_OBJECT (object));
-
-  g_print ("got event %d %d %s.%s\n", event, flags, data->sender, object_path);
+  gchar *service;
 
   if (flags != PV_SUBSCRIPTION_FLAGS_SOURCE)
     return;
+
+  object_path = g_dbus_object_get_object_path (G_DBUS_OBJECT (object));
+
+  g_object_get (subscribe, "service", &service, NULL);
+  g_print ("got event %d %d %s.%s\n", event, flags, service, object_path);
 
   source1 = pv_object_peek_source1 (PV_OBJECT (object));
 
   switch (event) {
     case PV_SUBSCRIPTION_EVENT_NEW:
     {
-      g_object_set_data (G_OBJECT (source1), "org.pulsevideo.name", data->sender);
-
-      g_hash_table_insert (data->sources, g_strdup (object_path), source1);
+      g_object_set_data (G_OBJECT (source1), "org.pulsevideo.name", service);
       priv->sources = g_list_prepend (priv->sources, source1);
       break;
     }
@@ -89,11 +89,48 @@ on_subscription_event (PvSubscribe         *subscribe,
     case PV_SUBSCRIPTION_EVENT_REMOVE:
     {
       priv->sources = g_list_remove (priv->sources, source1);
+      break;
+    }
+  }
+}
+
+static void
+on_sender_subscription_event (PvSubscribe         *subscribe,
+                              PvSubscriptionEvent  event,
+                              PvSubscriptionFlags  flags,
+                              GDBusObjectProxy    *object,
+                              gpointer             user_data)
+{
+  SenderData *data = user_data;
+  PvDaemon *daemon = data->daemon;
+  const gchar *object_path;
+
+  on_server_subscription_event (subscribe, event, flags, object, daemon);
+
+  object_path = g_dbus_object_get_object_path (G_DBUS_OBJECT (object));
+
+  switch (event) {
+    case PV_SUBSCRIPTION_EVENT_NEW:
+    {
+      PvSourceProvider *provider;
+
+      provider = pv_source_provider_new (daemon, PV_DBUS_OBJECT_PREFIX, data->sender,
+          object_path);
+      g_hash_table_insert (data->sources, g_strdup (object_path), provider);
+      break;
+    }
+
+    case PV_SUBSCRIPTION_EVENT_CHANGE:
+      break;
+
+    case PV_SUBSCRIPTION_EVENT_REMOVE:
+    {
       g_hash_table_remove (data->sources, object_path);
       break;
     }
   }
 }
+
 
 static void
 client_name_appeared_handler (GDBusConnection *connection,
@@ -113,7 +150,7 @@ client_name_appeared_handler (GDBusConnection *connection,
 
   g_signal_connect (data->subscribe,
                     "subscription-event",
-                    (GCallback) on_subscription_event,
+                    (GCallback) on_sender_subscription_event,
                     data);
 }
 
@@ -192,50 +229,25 @@ handle_connect_client (PvDaemon1              *interface,
   return TRUE;
 }
 
-static gboolean
-handle_disconnect_client (PvDaemon1              *interface,
-                          GDBusMethodInvocation  *invocation,
-                          const gchar            *arg_client,
-                          gpointer                user_data)
-{
-  PvDaemon *daemon = user_data;
-  PvDaemonPrivate *priv = daemon->priv;
-  const gchar *sender;
-  SenderData *data;
-
-  sender = g_dbus_method_invocation_get_sender (invocation);
-
-  g_print ("disconnect client %s\n", sender);
-  data = g_hash_table_lookup (priv->senders, sender);
-  if (data != NULL) {
-    g_hash_table_remove (data->clients, arg_client);
-  }
-
-  pv_daemon1_complete_disconnect_client (interface, invocation);
-
-  return TRUE;
-}
-
 static void
 export_server_object (PvDaemon *daemon, GDBusObjectManagerServer *manager)
 {
-  GDBusObjectSkeleton *skel;
+  PvObjectSkeleton *skel;
 
-  skel = g_dbus_object_skeleton_new (PV_DBUS_OBJECT_SERVER);
+  skel = pv_object_skeleton_new (PV_DBUS_OBJECT_SERVER);
   {
     PvDaemon1 *iface;
 
     iface = pv_daemon1_skeleton_new ();
     g_signal_connect (iface, "handle-connect-client", (GCallback) handle_connect_client, daemon);
-    g_signal_connect (iface, "handle-disconnect-client", (GCallback) handle_disconnect_client, daemon);
     pv_daemon1_set_user_name (iface, g_get_user_name ());
     pv_daemon1_set_host_name (iface, g_get_host_name ());
     pv_daemon1_set_version (iface, PACKAGE_VERSION);
     pv_daemon1_set_name (iface, PACKAGE_NAME);
-    g_dbus_object_skeleton_add_interface (skel, G_DBUS_INTERFACE_SKELETON (iface));
+    pv_object_skeleton_set_daemon1 (skel, iface);
     g_object_unref (iface);
   }
-  g_dbus_object_manager_server_export (manager, skel);
+  g_dbus_object_manager_server_export (manager, G_DBUS_OBJECT_SKELETON (skel));
   g_object_unref (skel);
 }
 
@@ -257,10 +269,16 @@ name_acquired_handler (GDBusConnection *connection,
 {
   PvDaemon *daemon = user_data;
   PvDaemonPrivate *priv = daemon->priv;
-  GDBusObjectManagerServer *manager;
+  GDBusObjectManagerServer *manager = priv->server_manager;
 
-  priv->server_manager = manager = g_dbus_object_manager_server_new (PV_DBUS_OBJECT_PREFIX);
+  g_object_set (priv->subscribe, "service", PV_DBUS_SERVICE,
+                                 "subscription-mask", PV_SUBSCRIPTION_FLAGS_SOURCE,
+                                 "connection", connection,
+                                 NULL);
+
+
   export_server_object (daemon, manager);
+
   g_dbus_object_manager_server_set_connection (manager, connection);
 }
 
@@ -273,8 +291,10 @@ name_lost_handler (GDBusConnection *connection,
   PvDaemonPrivate *priv = daemon->priv;
   GDBusObjectManagerServer *manager = priv->server_manager;
 
+  g_object_set (priv->subscribe, "connection", connection, NULL);
+
   g_dbus_object_manager_server_unexport (manager, PV_DBUS_OBJECT_SERVER);
-  g_clear_object (&priv->server_manager);
+  g_dbus_object_manager_server_set_connection (manager, connection);
 }
 
 PvDaemon *
@@ -334,6 +354,27 @@ pv_daemon_unexport (PvDaemon *daemon, const gchar *object_path)
   g_dbus_object_manager_server_unexport (daemon->priv->server_manager, object_path);
 }
 
+void
+pv_daemon_add_source (PvDaemon *daemon, PvSource *source)
+{
+  PvDaemonPrivate *priv;
+
+  g_return_if_fail (PV_IS_DAEMON (daemon));
+  g_return_if_fail (PV_IS_SOURCE (source));
+  priv = daemon->priv;
+
+  pv_source_set_manager (source, priv->server_manager);
+}
+
+void
+pv_daemon_remove_source (PvDaemon *daemon, PvSource *source)
+{
+  g_return_if_fail (PV_IS_DAEMON (daemon));
+  g_return_if_fail (PV_IS_SOURCE (source));
+
+  pv_source_set_manager (source, NULL);
+}
+
 PvSource1 *
 pv_daemon_get_source (PvDaemon *daemon, const gchar *name)
 {
@@ -359,6 +400,7 @@ pv_daemon_finalize (GObject * object)
   PvDaemon *daemon = PV_DAEMON_CAST (object);
   PvDaemonPrivate *priv = daemon->priv;
 
+  g_clear_object (&priv->server_manager);
   g_hash_table_unref (priv->senders);
   pv_daemon_stop (daemon);
 
@@ -381,5 +423,12 @@ pv_daemon_init (PvDaemon * daemon)
   PvDaemonPrivate *priv = daemon->priv = PV_DAEMON_GET_PRIVATE (daemon);
 
   priv->senders = g_hash_table_new (g_str_hash, g_str_equal);
+  priv->server_manager = g_dbus_object_manager_server_new (PV_DBUS_OBJECT_PREFIX);
+
+  priv->subscribe = pv_subscribe_new ();
+  g_signal_connect (priv->subscribe,
+                    "subscription-event",
+                    (GCallback) on_server_subscription_event,
+                    daemon);
 }
 

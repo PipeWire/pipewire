@@ -40,7 +40,7 @@ setup_pipeline (PvV4l2Source *source)
 {
   PvV4l2SourcePrivate *priv = source->priv;
 
-  priv->pipeline = gst_parse_launch ("v4l2src ! video/x-raw,width=320,height=240,framerate=30/1 ! "
+  priv->pipeline = gst_parse_launch ("v4l2src ! video/x-raw,width=640,height=480,framerate=30/1 ! "
                  "pvfdpay ! multisocketsink buffers-max=2 buffers-soft-max=1 "
                  "recover-policy=latest sync-method=latest name=sink sync=true "
                  "enable-last-sample=false", NULL);

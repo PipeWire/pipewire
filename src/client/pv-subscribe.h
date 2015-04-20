@@ -41,9 +41,9 @@ typedef enum {
     PV_SUBSCRIPTION_FLAGS_CLIENT        = (1 << 0),
     PV_SUBSCRIPTION_FLAGS_SOURCE        = (1 << 1),
     PV_SUBSCRIPTION_FLAGS_SOURCE_OUTPUT = (1 << 2),
-
-    PV_SUBSCRIPTION_FLAGS_ALL           = 0xf
 } PvSubscriptionFlags;
+
+#define PV_SUBSCRIPTION_FLAGS_ALL 0x3
 
 typedef enum {
     PV_SUBSCRIPTION_EVENT_NEW           = 0,

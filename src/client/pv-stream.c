@@ -327,6 +327,8 @@ on_source_output_created (GObject *source_object,
         &priv->source_output_sender, &priv->source_output_path, res, &error))
     goto create_failed;
 
+  g_print ("got source-output %s %s\n", priv->source_output_sender, priv->source_output_path);
+
   pv_source_output1_proxy_new (pv_context_get_connection (context),
                                G_DBUS_PROXY_FLAGS_NONE,
                                priv->source_output_sender,

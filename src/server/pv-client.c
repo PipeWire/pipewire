@@ -32,7 +32,7 @@ struct _PvClientPrivate
   PvDaemon *daemon;
   gchar *object_path;
 
-  PvSource *source;
+  PvClient1 *client1;
 
   GHashTable *source_outputs;
 };
@@ -97,6 +97,46 @@ pv_client_set_property (GObject      *_object,
   }
 }
 
+typedef struct {
+  PvClient *client;
+  GDBusMethodInvocation  *invocation;
+} CreateData;
+
+static void
+on_source_output_created (GObject *source_object,
+                          GAsyncResult *res,
+                          gpointer user_data)
+{
+  CreateData *data = user_data;
+  PvClient *client = data->client;
+  PvClientPrivate *priv = client->priv;
+  PvSource1 *source1 = PV_SOURCE1 (source_object);
+  GDBusMethodInvocation *invocation = data->invocation;
+  GError *error = NULL;
+  gchar *object_path, *name;
+
+  if (!pv_source1_call_create_source_output_finish (source1, &object_path, res, &error))
+    goto create_failed;
+
+  name = g_object_get_data (G_OBJECT (source1), "org.pulsevideo.name");
+  pv_client1_complete_create_source_output (priv->client1, invocation, name, object_path);
+  g_free (name);
+
+  g_free (data);
+
+  return;
+
+  /* ERRORS */
+create_failed:
+  {
+    g_print ("failed to get connect capture: %s", error->message);
+    g_clear_error (&error);
+    g_free (data);
+    return;
+  }
+}
+
+
 static gboolean
 handle_create_source_output (PvClient1              *interface,
                              GDBusMethodInvocation  *invocation,
@@ -107,18 +147,30 @@ handle_create_source_output (PvClient1              *interface,
   PvClient *client = user_data;
   PvClientPrivate *priv = client->priv;
   PvDaemon *daemon = priv->daemon;
-  PvSource *source;
-  PvSourceOutput *output;
-  const gchar *object_path;
+  PvSource1 *source1;
+  GVariantBuilder builder;
+  CreateData *data;
 
-  source = pv_daemon_get_source (daemon, arg_source);
+  source1 = pv_daemon_get_source (daemon, arg_source);
+  if (source1 == NULL) {
+    g_dbus_method_invocation_return_dbus_error (invocation,
+                                                "org.pulsevideo.NotFound",
+                                                "No source found");
+    return TRUE;
+  }
 
-  output = pv_source_create_source_output (source, NULL, priv->object_path);
+  g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
+  g_variant_builder_add (&builder, "{sv}", "name", g_variant_new_string ("hello"));
 
-  object_path = pv_source_output_get_object_path (output);
-  g_hash_table_insert (priv->source_outputs, g_strdup (object_path), output);
+  data = g_new0 (CreateData, 1);
+  data->client = client;
+  data->invocation = invocation;
 
-  pv_client1_complete_create_source_output (interface, invocation, PV_DBUS_SERVICE, object_path);
+  pv_source1_call_create_source_output (source1,
+                                        g_variant_builder_end (&builder),
+                                        NULL,
+                                        on_source_output_created,
+                                        data);
 
   return TRUE;
 }
@@ -135,15 +187,10 @@ client_register_object (PvClient *client, const gchar *prefix)
   skel = g_dbus_object_skeleton_new (name);
   g_free (name);
 
-  {
-    PvClient1 *iface;
-
-    iface = pv_client1_skeleton_new ();
-    pv_client1_set_name (iface, "poppy");
-    g_signal_connect (iface, "handle-create-source-output", (GCallback) handle_create_source_output, client);
-    g_dbus_object_skeleton_add_interface (skel, G_DBUS_INTERFACE_SKELETON (iface));
-    g_object_unref (iface);
-  }
+  priv->client1 = pv_client1_skeleton_new ();
+  pv_client1_set_name (priv->client1, "poppy");
+  g_signal_connect (priv->client1, "handle-create-source-output", (GCallback) handle_create_source_output, client);
+  g_dbus_object_skeleton_add_interface (skel, G_DBUS_INTERFACE_SKELETON (priv->client1));
 
   g_free (priv->object_path);
   priv->object_path = pv_daemon_export_uniquely (daemon, skel);
@@ -156,7 +203,7 @@ client_unregister_object (PvClient *client)
   PvDaemon *daemon = priv->daemon;
 
   g_hash_table_unref (priv->source_outputs);
-  g_clear_object (&priv->source);
+  g_clear_object (&priv->client1);
 
   pv_daemon_unexport (daemon, priv->object_path);
   g_free (priv->object_path);

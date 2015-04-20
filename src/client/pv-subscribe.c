@@ -68,19 +68,19 @@ notify_subscription (PvSubscribe         *subscribe,
     if ((interface == NULL && pv_object_peek_client1 (PV_OBJECT (object))) ||
         PV_IS_CLIENT1_PROXY (interface))
       g_signal_emit (subscribe, signals[SIGNAL_SUBSCRIPTION_EVENT], 0, event,
-          PV_SUBSCRIPTION_FLAGS_CLIENT, g_dbus_object_get_object_path (object));
+          PV_SUBSCRIPTION_FLAGS_CLIENT, object);
   }
   if (priv->subscription_mask & PV_SUBSCRIPTION_FLAGS_SOURCE) {
     if ((interface == NULL && pv_object_peek_source1 (PV_OBJECT (object))) ||
         PV_IS_SOURCE1_PROXY (interface))
       g_signal_emit (subscribe, signals[SIGNAL_SUBSCRIPTION_EVENT], 0, event,
-          PV_SUBSCRIPTION_FLAGS_SOURCE, g_dbus_object_get_object_path (object));
+          PV_SUBSCRIPTION_FLAGS_SOURCE, object);
   }
   if (priv->subscription_mask & PV_SUBSCRIPTION_FLAGS_SOURCE_OUTPUT) {
     if ((interface == NULL && pv_object_peek_source_output1 (PV_OBJECT (object))) ||
         PV_IS_SOURCE_OUTPUT1_PROXY (interface))
       g_signal_emit (subscribe, signals[SIGNAL_SUBSCRIPTION_EVENT], 0, event,
-          PV_SUBSCRIPTION_FLAGS_SOURCE_OUTPUT, g_dbus_object_get_object_path (object));
+          PV_SUBSCRIPTION_FLAGS_SOURCE_OUTPUT, object);
   }
 }
 
@@ -359,7 +359,7 @@ pv_subscribe_class_init (PvSubscribeClass * klass)
                                                      3,
                                                      PV_TYPE_SUBSCRIPTION_EVENT,
                                                      PV_TYPE_SUBSCRIPTION_FLAGS,
-                                                     G_TYPE_STRING);
+                                                     G_TYPE_DBUS_OBJECT_PROXY);
 }
 
 static void

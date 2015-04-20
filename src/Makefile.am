@@ -84,11 +84,12 @@ client/pv-enumtypes.c: $(enumtypesincludes) client/pv-enumtypes.h
 dbus/org-pulsevideo.c: dbus/org-pulsevideo.h
 dbus/org-pulsevideo.h: dbus/org.pulsevideo.xml
 	$(AM_V_GEN) $(GDBUS_CODEGEN) \
-	--c-generate-object-manager \
 	--interface-prefix org.pulsevideo. \
 	--generate-c-code dbus/org-pulsevideo \
 	--generate-docbook ../doc/org-pulsevideo \
-	--c-namespace Pv dbus/org.pulsevideo.xml
+	--c-namespace Pv dbus/org.pulsevideo.xml \
+        --c-generate-object-manager
+
 
 built_header_make = client/pv-enumtypes.h dbus/org-pulsevideo.h
 built_source_make = client/pv-enumtypes.c dbus/org-pulsevideo.c
@@ -192,6 +193,7 @@ lib_LTLIBRARIES += libpulsevideocore-@PV_MAJORMINOR@.la
 # Pure core stuff
 libpulsevideocore_@PV_MAJORMINOR@_la_SOURCES = \
 		server/pv-client.c server/pv-client.h \
+		server/pv-source-provider.c server/pv-source-provider.h \
 		server/pv-daemon.c server/pv-daemon.h \
 		modules/v4l2/pv-v4l2-source.c 
 

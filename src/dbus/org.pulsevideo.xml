@@ -35,12 +35,14 @@
     <method name='GetClients'>
       <arg type='ao' name='clients' direction='out'/>
     </method>
-    <method name='GetProviders'>
-      <arg type='ao' name='providers' direction='out'/>
-    </method>
     <method name='GetSources'>
       <arg type='ao' name='sources' direction='out'/>
     </method>
+  </interface>
+
+  <interface name='org.pulsevideo.SourceProvider1'>
+    <property name='Name' type='s' access='read' />
+    <property name='Path' type='o' access='read' />
   </interface>
 
   <interface name='org.pulsevideo.Source1'>
@@ -52,7 +54,6 @@
       <arg type='aa{sv}' name='caps' direction='out'/>
     </method>
     <method name='CreateSourceOutput'>
-      <arg type='o' name='source' direction='in'/>
       <arg type='a{sv}' name='props' direction='in'/>
       <arg type='o' name='output' direction='out'/>
     </method>

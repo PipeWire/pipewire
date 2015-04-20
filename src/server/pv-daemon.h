@@ -23,6 +23,8 @@
 #include <glib-object.h>
 #include <gio/gio.h>
 
+#include "dbus/org-pulsevideo.h"
+
 G_BEGIN_DECLS
 
 #define PV_TYPE_DAEMON                 (pv_daemon_get_type ())
@@ -38,7 +40,8 @@ typedef struct _PvDaemon PvDaemon;
 typedef struct _PvDaemonClass PvDaemonClass;
 typedef struct _PvDaemonPrivate PvDaemonPrivate;
 
-#include "client/pv-source.h"
+#include <client/pv-source.h>
+#include <server/pv-source-provider.h>
 
 /**
  * PvDaemon:
@@ -61,17 +64,17 @@ struct _PvDaemonClass {
 };
 
 /* normal GObject stuff */
-GType           pv_daemon_get_type        (void);
+GType              pv_daemon_get_type        (void);
 
-PvDaemon *      pv_daemon_new             (void);
+PvDaemon *         pv_daemon_new             (void);
 
-void            pv_daemon_start           (PvDaemon *daemon);
-void            pv_daemon_stop            (PvDaemon *daemon);
+void               pv_daemon_start           (PvDaemon *daemon);
+void               pv_daemon_stop            (PvDaemon *daemon);
 
-gchar *         pv_daemon_export_uniquely (PvDaemon *daemon, GDBusObjectSkeleton *skel);
-void            pv_daemon_unexport        (PvDaemon *daemon, const gchar *name);
+gchar *            pv_daemon_export_uniquely (PvDaemon *daemon, GDBusObjectSkeleton *skel);
+void               pv_daemon_unexport        (PvDaemon *daemon, const gchar *name);
 
-PvSource *      pv_daemon_get_source      (PvDaemon *daemon, const gchar *name);
+PvSource1 *        pv_daemon_get_source      (PvDaemon *daemon, const gchar *name);
 
 G_END_DECLS
 

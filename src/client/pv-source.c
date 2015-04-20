@@ -92,6 +92,28 @@ pv_source_set_property (GObject      *_object,
       break;
   }
 }
+
+static gboolean
+handle_create_source_output (PvSource1              *interface,
+                             GDBusMethodInvocation  *invocation,
+                             GVariant               *arg_properties,
+                             gpointer                user_data)
+{
+  PvSource *source = user_data;
+  PvSourcePrivate *priv = source->priv;
+  PvSourceOutput *output;
+  const gchar *object_path;
+
+  output = pv_source_create_source_output (source, arg_properties, priv->object_path);
+
+  object_path = pv_source_output_get_object_path (output);
+
+  pv_source1_complete_create_source_output (interface,
+                                            invocation,
+                                            object_path);
+  return TRUE;
+}
+
 static void
 source_register_object (PvSource *source)
 {
@@ -103,6 +125,7 @@ source_register_object (PvSource *source)
     PvSource1 *iface;
 
     iface = pv_source1_skeleton_new ();
+    g_signal_connect (iface, "handle-create-source-output", (GCallback) handle_create_source_output, source);
     g_dbus_object_skeleton_add_interface (skel, G_DBUS_INTERFACE_SKELETON (iface));
     g_object_unref (iface);
   }

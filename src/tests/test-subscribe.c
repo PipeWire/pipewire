@@ -25,9 +25,9 @@ static GMainLoop *loop;
 
 static void
 subscription_cb (PvContext *context, PvSubscriptionEvent type, PvSubscriptionFlags flags,
-    const gchar *object_path, gpointer user_data)
+    GDBusObject *object, gpointer user_data)
 {
-  g_print ("got event %d %d %s\n", type, flags, object_path);
+  g_print ("got event %d %d %s\n", type, flags, g_dbus_object_get_object_path (object));
 }
 
 static void

@@ -22,7 +22,7 @@
 
 #include <client/pulsevideo.h>
 
-#define CAPS "video/x-raw, format=(string)YUY2, width=(int)320, height=(int)240, pixel-aspect-ratio=(fraction)1/1, interlace-mode=(string)progressive, framerate=(fraction)30/1"
+#define CAPS "video/x-raw, format=(string)YUY2, width=(int)640, height=(int)480, pixel-aspect-ratio=(fraction)1/1, interlace-mode=(string)progressive, framerate=(fraction)30/1"
 
 static GMainLoop *loop;
 

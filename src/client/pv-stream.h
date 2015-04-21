@@ -55,8 +55,10 @@ typedef enum {
 } PvStreamFlags;
 
 typedef struct {
-  gint64 timestamp;
-  guint64 seq;
+  guint32 flags;
+  guint32 seq;
+  gint64 pts;
+  gint64 dts_offset;
   guint64 offset;
   guint64 size;
   GSocketControlMessage *message;

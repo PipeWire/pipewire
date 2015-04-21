@@ -38,7 +38,6 @@ struct _PvContextPrivate
 
   PvDaemon1 *daemon;
 
-  gchar *client_path;
   PvClient1 *client;
 
   PvSubscribe *subscribe;
@@ -59,7 +58,7 @@ enum
   PROP_PROPERTIES,
   PROP_STATE,
   PROP_CONNECTION,
-  PROP_CLIENT_PATH
+  PROP_CLIENT_PROXY
 };
 
 static void
@@ -88,8 +87,8 @@ pv_context_get_property (GObject    *_object,
       g_value_set_object (value, priv->connection);
       break;
 
-    case PROP_CLIENT_PATH:
-      g_value_set_string (value, priv->client_path);
+    case PROP_CLIENT_PROXY:
+      g_value_set_object (value, priv->client);
       break;
 
     default:
@@ -208,11 +207,11 @@ pv_context_class_init (PvContextClass * klass)
    * The client object path of the context.
    */
   g_object_class_install_property (gobject_class,
-                                   PROP_CLIENT_PATH,
-                                   g_param_spec_string ("client-path",
-                                                        "Client Path",
-                                                        "The client object path",
-                                                        NULL,
+                                   PROP_CLIENT_PROXY,
+                                   g_param_spec_object ("client-proxy",
+                                                        "Client Proxy",
+                                                        "The client proxy",
+                                                        G_TYPE_DBUS_PROXY,
                                                         G_PARAM_READABLE |
                                                         G_PARAM_STATIC_STRINGS));
 }
@@ -250,25 +249,6 @@ context_set_state (PvContext *context, PvContextState state)
   }
 }
 
-/**
- * pv_context_get_state:
- * @context: a #PvContext
- *
- * Get the state of @context.
- *
- * Returns: the state of @context
- */
-PvContextState
-pv_context_get_state (PvContext *context)
-{
-  PvContextPrivate *priv;
-
-  g_return_val_if_fail (PV_IS_CONTEXT (context), PV_CONTEXT_STATE_ERROR);
-  priv = context->priv;
-
-  return priv->state;
-}
-
 static void
 on_client_proxy (GObject *source_object,
                  GAsyncResult *res,
@@ -296,8 +276,9 @@ on_client_connected (GObject *source_object,
   PvContext *context = user_data;
   PvContextPrivate *priv = context->priv;
   GError *error = NULL;
+  gchar *client_path;
 
-  if (!pv_daemon1_call_connect_client_finish (priv->daemon, &priv->client_path, res, &error)) {
+  if (!pv_daemon1_call_connect_client_finish (priv->daemon, &client_path, res, &error)) {
     context_set_state (context, PV_CONTEXT_STATE_ERROR);
     g_error ("failed to connect client: %s", error->message);
     g_clear_error (&error);
@@ -307,10 +288,11 @@ on_client_connected (GObject *source_object,
   pv_client1_proxy_new (priv->connection,
                         G_DBUS_PROXY_FLAGS_NONE,
                         PV_DBUS_SERVICE,
-                        priv->client_path,
+                        client_path,
                         NULL,
                         on_client_proxy,
                         context);
+  g_free (client_path);
 }
 
 static void
@@ -395,6 +377,15 @@ on_name_vanished (GDBusConnection *connection,
   }
 }
 
+/**
+ * pv_context_set_subscribe:
+ * @context: a #PvContext
+ * @subscribe: (transfer full): a #PvSubscribe
+ *
+ * Use @subscribe to receive subscription events from @context.
+ *
+ * Returns: %TRUE on success.
+ */
 gboolean
 pv_context_set_subscribe (PvContext *context, PvSubscribe *subscribe)
 {
@@ -498,6 +489,16 @@ pv_context_disconnect (PvContext *context)
   return TRUE;
 }
 
+/**
+ * pv_context_register_source:
+ * @context: a #PvContext
+ * @source: a #PvSource
+ *
+ * Register @source in @context. This makes @source availabe to other
+ * connected clients.
+ *
+ * Returns: %TRUE on success.
+ */
 gboolean
 pv_context_register_source (PvContext *context, PvSource *source)
 {
@@ -513,6 +514,16 @@ pv_context_register_source (PvContext *context, PvSource *source)
   return TRUE;
 }
 
+/**
+ * pv_context_unregister_source:
+ * @context: a #PvContext
+ * @source: a #PvSource
+ *
+ * Unregister @source from @context. @source will no longer be
+ * available for clients.
+ *
+ * Returns: %TRUE on success.
+ */
 gboolean
 pv_context_unregister_source (PvContext *context, PvSource *source)
 {
@@ -522,6 +533,25 @@ pv_context_unregister_source (PvContext *context, PvSource *source)
   pv_source_set_manager (source, NULL);
 
   return TRUE;
+}
+
+/**
+ * pv_context_get_state:
+ * @context: a #PvContext
+ *
+ * Get the state of @context.
+ *
+ * Returns: the state of @context
+ */
+PvContextState
+pv_context_get_state (PvContext *context)
+{
+  PvContextPrivate *priv;
+
+  g_return_val_if_fail (PV_IS_CONTEXT (context), PV_CONTEXT_STATE_ERROR);
+  priv = context->priv;
+
+  return priv->state;
 }
 
 /**
@@ -556,21 +586,3 @@ pv_context_get_client_proxy (PvContext *context)
 
   return G_DBUS_PROXY (context->priv->client);
 }
-
-/**
- * pv_context_get_client_path:
- * @context: a #PvContext
- *
- * Get the client object path that @context is registered with
- *
- * Returns: the client object path of @context or %NULL when not
- * registered.
- */
-const gchar *
-pv_context_get_client_path (PvContext *context)
-{
-  g_return_val_if_fail (PV_IS_CONTEXT (context), NULL);
-
-  return context->priv->client_path;
-}
-

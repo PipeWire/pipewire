@@ -274,10 +274,12 @@ pv_client_init (PvClient * client)
 
 /**
  * pv_client_new:
+ * @daemon: a #PvDaemon
+ * @prefix: a prefix
  *
- * Make a new unconnected #PvClient
+ * Make a new #PvClient object and register it to @daemon under the @prefix.
  *
- * Returns: a new unconnected #PvClient
+ * Returns: a new #PvClient
  */
 PvClient *
 pv_client_new (PvDaemon * daemon, const gchar *prefix)
@@ -288,6 +290,14 @@ pv_client_new (PvDaemon * daemon, const gchar *prefix)
   return g_object_new (PV_TYPE_CLIENT, "daemon", daemon, "object-path", prefix, NULL);
 }
 
+/**
+ * pv_client_get_object_path:
+ * @client: a #PvClient
+ *
+ * Get the object path of @client.
+ *
+ * Returns: the object path of @client
+ */
 const gchar *
 pv_client_get_object_path (PvClient *client)
 {

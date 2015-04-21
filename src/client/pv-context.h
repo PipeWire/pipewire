@@ -108,11 +108,10 @@ gboolean          pv_context_disconnect            (PvContext *context);
 gboolean          pv_context_register_source       (PvContext *context, PvSource *source);
 gboolean          pv_context_unregister_source     (PvContext *context, PvSource *source);
 
+PvContextState    pv_context_get_state             (PvContext *context);
 GDBusConnection * pv_context_get_connection        (PvContext *context);
 GDBusProxy *      pv_context_get_client_proxy      (PvContext *context);
-const gchar *     pv_context_get_client_path       (PvContext *context);
 
-PvContextState    pv_context_get_state             (PvContext *context);
 
 G_END_DECLS
 

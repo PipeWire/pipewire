@@ -405,10 +405,10 @@ remove_source_output (PvStream *stream)
 /**
  * pv_stream_connect_capture:
  * @stream: a #PvStream
- * @device: the device name to connect to
+ * @source: the source name to connect to
  * @flags: a #PvStreamFlags
  *
- * Connect @stream for capturing from @device.
+ * Connect @stream for capturing from @source.
  *
  * Returns: %TRUE on success.
  */
@@ -460,11 +460,7 @@ pv_stream_disconnect (PvStream *stream)
   return TRUE;
 }
 
-
-typedef struct {
-  guint64 offset;
-  guint64 size;
-} FDMessage;
+#include <gst/wire-protocol.h>
 
 static gboolean
 on_socket_data (GSocket       *socket,
@@ -502,6 +498,11 @@ on_socket_data (GSocket       *socket,
 
       if (priv->info.message)
         g_object_unref (priv->info.message);
+
+      priv->info.flags = msg.flags;
+      priv->info.seq = msg.seq;
+      priv->info.pts = msg.pts;
+      priv->info.dts_offset = msg.dts_offset;
       priv->info.offset = msg.offset;
       priv->info.size = msg.size;
       priv->info.message = num_messages > 0 ? messages[0] : NULL;
@@ -641,7 +642,7 @@ exit_error:
  * When @mode is #PV_STREAM_MODE_SOCKET, you should connect to the notify::socket
  * signal to obtain a readable socket with metadata and data.
  *
- * When @mode is ##PV_STREAM_MODE_BUFFER, you should connect to the new-buffer
+ * When @mode is #PV_STREAM_MODE_BUFFER, you should connect to the new-buffer
  * signal and use pv_stream_capture_buffer() to get the latest metadata and
  * data.
  *

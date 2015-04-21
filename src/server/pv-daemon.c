@@ -297,12 +297,25 @@ name_lost_handler (GDBusConnection *connection,
   g_dbus_object_manager_server_set_connection (manager, connection);
 }
 
+/**
+ * pv_daemon_new:
+ *
+ * Make a new #PvDaemon object
+ *
+ * Returns: a new #PvDaemon
+ */
 PvDaemon *
 pv_daemon_new (void)
 {
   return g_object_new (PV_TYPE_DAEMON, NULL);
 }
 
+/**
+ * pv_daemon_start:
+ * @daemon: a #PvDaemon
+ *
+ * Start the @daemon.
+ */
 void
 pv_daemon_start (PvDaemon *daemon)
 {
@@ -323,6 +336,12 @@ pv_daemon_start (PvDaemon *daemon)
                              NULL);
 }
 
+/**
+ * pv_daemon_stop:
+ * @daemon: a #PvDaemon
+ *
+ * Stop the @daemon.
+ */
 void
 pv_daemon_stop (PvDaemon *daemon)
 {
@@ -330,10 +349,21 @@ pv_daemon_stop (PvDaemon *daemon)
 
   g_return_if_fail (PV_IS_DAEMON (daemon));
 
-  g_bus_unown_name (priv->id);
-  priv->id = 0;
+  if (priv->id != 0) {
+    g_bus_unown_name (priv->id);
+    priv->id = 0;
+  }
 }
 
+/**
+ * pv_daemon_export_uniquely:
+ * @daemon: a #PvDaemon
+ * @skel: a #GDBusObjectSkeleton
+ *
+ * Export @skel with @daemon with a unique name
+ *
+ * Returns: the unique named used to export @skel.
+ */
 gchar *
 pv_daemon_export_uniquely (PvDaemon *daemon, GDBusObjectSkeleton *skel)
 {
@@ -345,6 +375,13 @@ pv_daemon_export_uniquely (PvDaemon *daemon, GDBusObjectSkeleton *skel)
   return g_strdup (g_dbus_object_get_object_path (G_DBUS_OBJECT (skel)));
 }
 
+/**
+ * pv_daemon_unexport:
+ * @daemon: a #PvDaemon
+ * @object_path: an object path
+ *
+ * Unexport the object on @object_path
+ */
 void
 pv_daemon_unexport (PvDaemon *daemon, const gchar *object_path)
 {
@@ -354,6 +391,13 @@ pv_daemon_unexport (PvDaemon *daemon, const gchar *object_path)
   g_dbus_object_manager_server_unexport (daemon->priv->server_manager, object_path);
 }
 
+/**
+ * pv_daemon_add_source:
+ * @daemon: a #PvDaemon
+ * @source: a #PvSource
+ *
+ * Register @source with @daemon so that it becomes available to clients.
+ */
 void
 pv_daemon_add_source (PvDaemon *daemon, PvSource *source)
 {
@@ -366,6 +410,13 @@ pv_daemon_add_source (PvDaemon *daemon, PvSource *source)
   pv_source_set_manager (source, priv->server_manager);
 }
 
+/**
+ * pv_daemon_remove_source:
+ * @daemon: a #PvDaemon
+ * @source: a #PvSource
+ *
+ * Unregister @source from @daemon so that it becomes unavailable to clients.
+ */
 void
 pv_daemon_remove_source (PvDaemon *daemon, PvSource *source)
 {
@@ -375,6 +426,15 @@ pv_daemon_remove_source (PvDaemon *daemon, PvSource *source)
   pv_source_set_manager (source, NULL);
 }
 
+/**
+ * pv_daemon_get_source:
+ * @daemon: a #PvDaemon
+ * @name: a name
+ *
+ * Find a #PvSource1 for @name in @daemon
+ *
+ * Returns: a #PvSource1
+ */
 PvSource1 *
 pv_daemon_get_source (PvDaemon *daemon, const gchar *name)
 {

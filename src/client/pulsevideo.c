@@ -22,6 +22,14 @@
 #include "gst/gstfdpay.h"
 #include "gst/gstfddepay.h"
 
+/**
+ * pv_init:
+ * @argc: pointer to argc
+ * @argv: pointer to argv
+ *
+ * initialize the pulsevideo system, parse and modify any parameters given
+ * by @argc and @argv.
+ */
 void
 pv_init (int *argc, char **argv[])
 {
@@ -30,4 +38,3 @@ pv_init (int *argc, char **argv[])
   gst_element_register (NULL, "pvfdpay", GST_RANK_NONE, GST_TYPE_FDPAY);
   gst_element_register (NULL, "pvfddepay", GST_RANK_NONE, GST_TYPE_FDDEPAY);
 }
-

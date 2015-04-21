@@ -1,77 +1,206 @@
-<node>
+<!DOCTYPE node PUBLIC
+    "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+    "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd" >
+<node xmlns:doc="http://www.freedesktop.org/dbus/1.0/doc.dtd">
+  <!--
+      org.pulsevideo.Daemon1:
+      @short_description: Main interface for the pulsevideo daemon
+
+      Interface to get properties from the pulsevideo daemon and to 
+      establish a client connection.
+  -->
   <interface name='org.pulsevideo.Daemon1'>
+    <!-- UserName: Name of the user that started the daemon -->
     <property name='UserName' type='s' access='read' />
+    <!-- HostName: Name of the machine the daemon is running on -->
     <property name='HostName' type='s' access='read' />
+    <!-- Version: Version of the daemon -->
     <property name='Version' type='s' access='read' />
+    <!-- Name: Name of the daemon -->
     <property name='Name' type='s' access='read' />
+    <!-- Properties: Extra properties of the daemon -->
     <property name='Properties' type='a{sv}' access='read' />
+    <!-- ConnectClient:
+         @properties: properties of the client
+         @client: a new client object
+
+         Register a client to the pulsevideo daemon. A new client object
+         will be generated that should be used to perform any other
+         action on the server.
+    -->
     <method name='ConnectClient'>
       <arg type='a{sv}' name='properties' direction='in'/>
       <arg type='o' name='client' direction='out'/>
     </method>
   </interface>
 
+  <!--
+      org.pulsevideo.Client1:
+      @short_description: Main client interface
+
+      Interface obtained after connecting a client and allows for
+      obtaining an output object from a source.
+  -->
   <interface name='org.pulsevideo.Client1'>
+    <!-- Name: Name of the client -->
     <property name='Name' type='s' access='read' />
+    <!-- Name: Properties of the client -->
     <property name='Properties' type='a{sv}' access='read' />
+    <!-- CreateSourceOutput:
+         @source: the name of a source or an empty string
+         @props: properties to use
+         @sender: the result sender of the output
+         @output: the result output object
+
+         This method requests an output from @source with given @props.
+         @source can be the empty string, in which case the server will
+         select a good source.
+
+         @sender and @output contain the unique name and object of the
+         owner of the source.
+    -->
     <method name='CreateSourceOutput'>
-      <arg type='o' name='source' direction='in'/>
+      <arg type='s' name='source' direction='in'/>
       <arg type='a{sv}' name='props' direction='in'/>
       <arg type='s' name='sender' direction='out'/>
       <arg type='o' name='output' direction='out'/>
     </method>
-    <method name='RegisterSource'>
-      <arg type='o' name='source' direction='in'/>
-    </method>
-    <method name='UnregisterSource'>
-      <arg type='o' name='source' direction='in'/>
-    </method>
-    <method name='Disconnect'>
-    </method>
+    <!-- Disconnect:
+
+         Disconnect the client from the server.
+    -->
+    <method name='Disconnect'/>
   </interface>
 
+  <!--
+      org.pulsevideo.Introspect:
+      @short_description: Main introspection interface
+
+      This interface allows one to introspect the object on the
+      server
+  -->
   <interface name='org.pulsevideo.Introspect1'>
+    <!-- GetClients:
+         @clients: an array of client objects
+
+         Get a list of clients connected to this server
+    -->
     <method name='GetClients'>
       <arg type='ao' name='clients' direction='out'/>
     </method>
+    <!-- GetSources:
+         @sources: an array of source objects
+
+         Get a list of sources available on this server
+    -->
     <method name='GetSources'>
       <arg type='ao' name='sources' direction='out'/>
     </method>
   </interface>
 
+  <!--
+      org.pulsevideo.SourceProvider1:
+      @short_description: Interface for source provider
+
+      This interface lists the unique name and path of a
+      source
+  -->
   <interface name='org.pulsevideo.SourceProvider1'>
+    <!-- Name: unique name of the provider -->
     <property name='Name' type='s' access='read' />
+    <!-- Path: object path of the source -->
     <property name='Path' type='o' access='read' />
   </interface>
 
+  <!--
+      org.pulsevideo.Source1:
+      @short_description: Main source interface
+
+      A source is an object that can provide media content.
+  -->
   <interface name='org.pulsevideo.Source1'>
+    <!-- Name: the name of the source -->
     <property name='Name' type='s' access='read' />
-    <property name='Suspended' type='b' access='read' />
+    <!-- Properties: extra source properties -->
     <property name='Properties' type='a{sv}' access='read' />
+    <!-- Suspended: if the source is suspended -->
+    <property name='Suspended' type='b' access='read' />
+    <!-- GetCapabilities:
+         @props: input properties
+         @caps: result capabilities
+
+         Get a list of capabilities of this source. This includes
+         supported data formats and transports. @props is used to
+         filter the amount of output capabilities
+    -->
     <method name='GetCapabilities'>
       <arg type='a{sv}' name='props' direction='in'/>
       <arg type='aa{sv}' name='caps' direction='out'/>
     </method>
+    <!-- CreateSourceOutput:
+         @props: input properties
+         @output: the SourceOutput1 object path
+
+         Create a new output for this source with given @props
+    -->
     <method name='CreateSourceOutput'>
       <arg type='a{sv}' name='props' direction='in'/>
       <arg type='o' name='output' direction='out'/>
     </method>
   </interface>
 
+  <!--
+      org.pulsevideo.SourceOutput1:
+      @short_description: Interface for source output
+
+      This interface is used to control the output of a source and
+      start/stop the media transport.
+  -->
   <interface name='org.pulsevideo.SourceOutput1'>
+    <!-- Source: the source of this source output -->
     <property name='Source' type='o' access='read' />
+    <!-- Start:
+         @props: input properties
+         @fd: output file descriptor
+         @props: output properties
+
+         Start the datatransfer of the source with @props.
+         
+         The result is a file descriptor that can be used to get metadata
+         and media. @props contains the final media format and transport
+         properties.
+    -->
     <method name='Start'>
       <arg type='a{sv}' name='props' direction='in'/>
       <arg type='h' name='fd' direction='out'/>
       <arg type='a{sv}' name='props' direction='out'/>
     </method>
+    <!-- RequestReconfigure:
+         @props: new properties
+
+         This signal is fired when the source wants to change the format
+         or transport. The client should Stop and Start the source output
+         with new properties
+    -->
     <signal name='RequestReconfigure'>
       <arg type='a{sv}' name='props' direction='in'/>
     </signal>
+    <!-- Stop:
+
+         Stop data transport
+    -->
     <method name='Stop'/>
+    <!-- Remove:
+
+         Remove the source output
+    -->
     <method name='Remove'/>
 
-    <!--
+    <!-- This is a possible push based API. It would require a dbus call
+         for each media packet, which is probably not a good idea right now.
+         We would probably also want something more lightweight for sending
+         the properties with each fd.
+
     <method name='Start'>
       <arg type='a{sv}' name='props' direction='in'/>
       <arg type='a{sv}' name='props' direction='out'/>

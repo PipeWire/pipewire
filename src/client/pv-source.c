@@ -143,6 +143,24 @@ handle_create_source_output (PvSource1              *interface,
   return TRUE;
 }
 
+static gboolean
+handle_get_capabilities (PvSource1              *interface,
+                         GDBusMethodInvocation  *invocation,
+                         GVariant               *arg_properties,
+                         gpointer                user_data)
+{
+  PvSource *source = user_data;
+  GVariant *out_caps;
+
+  out_caps = pv_source_get_capabilities (source, arg_properties);
+
+  pv_source1_complete_get_capabilities (interface,
+                                        invocation,
+                                        out_caps);
+  return TRUE;
+}
+
+
 static void
 source_register_object (PvSource *source)
 {
@@ -159,6 +177,7 @@ source_register_object (PvSource *source)
                          "properties", priv->properties,
                          NULL);
     g_signal_connect (iface, "handle-create-source-output", (GCallback) handle_create_source_output, source);
+    g_signal_connect (iface, "handle-get-capabilities", (GCallback) handle_get_capabilities, source);
     pv_object_skeleton_set_source1 (skel, iface);
     g_object_unref (iface);
   }
@@ -200,7 +219,9 @@ default_create_source_output (PvSource *source, GVariant *props, const gchar *pr
 {
   PvSourcePrivate *priv = source->priv;
 
-  return g_object_new (PV_TYPE_SOURCE_OUTPUT, "manager", priv->server_manager, "object-path", prefix, NULL);
+  return g_object_new (PV_TYPE_SOURCE_OUTPUT, "manager", priv->server_manager,
+                                              "object-path", prefix,
+                                              "source", priv->object_path, NULL);
 }
 
 static gboolean

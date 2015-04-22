@@ -31,6 +31,7 @@ struct _PvSourceOutputPrivate
   GDBusObjectManagerServer *server_manager;
 
   gchar *object_path;
+  gchar *source;
 
   GSocket *socket;
 };
@@ -45,6 +46,7 @@ enum
   PROP_0,
   PROP_MANAGER,
   PROP_OBJECT_PATH,
+  PROP_SOURCE,
   PROP_SOCKET,
 };
 
@@ -64,6 +66,10 @@ pv_source_output_get_property (GObject    *_object,
 
     case PROP_OBJECT_PATH:
       g_value_set_string (value, priv->object_path);
+      break;
+
+    case PROP_SOURCE:
+      g_value_set_string (value, priv->source);
       break;
 
     case PROP_SOCKET:
@@ -92,6 +98,10 @@ pv_source_output_set_property (GObject      *_object,
 
     case PROP_OBJECT_PATH:
       priv->object_path = g_value_dup_string (value);
+      break;
+
+    case PROP_SOURCE:
+      priv->source = g_value_dup_string (value);
       break;
 
     default:
@@ -185,6 +195,7 @@ output_register_object (PvSourceOutput *output, const gchar *prefix)
     PvSourceOutput1 *iface;
 
     iface = pv_source_output1_skeleton_new ();
+    g_object_set (iface, "source", priv->source, NULL);
     g_signal_connect (iface, "handle-start", (GCallback) handle_start, output);
     g_signal_connect (iface, "handle-stop", (GCallback) handle_stop, output);
     g_signal_connect (iface, "handle-remove", (GCallback) handle_remove, output);
@@ -214,11 +225,14 @@ pv_source_output_finalize (GObject * object)
   PvSourceOutputPrivate *priv = output->priv;
 
   output_unregister_object (output);
+
   g_object_unref (priv->server_manager);
   g_free (priv->object_path);
+  g_free (priv->source);
 
   G_OBJECT_CLASS (pv_source_output_parent_class)->finalize (object);
 }
+
 static void
 pv_source_output_constructed (GObject * object)
 {
@@ -257,6 +271,16 @@ pv_source_output_class_init (PvSourceOutputClass * klass)
                                    g_param_spec_string ("object-path",
                                                         "Object Path",
                                                         "The object path",
+                                                        NULL,
+                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_CONSTRUCT_ONLY |
+                                                        G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_SOURCE,
+                                   g_param_spec_string ("source",
+                                                        "Source",
+                                                        "The source object path",
                                                         NULL,
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_CONSTRUCT_ONLY |

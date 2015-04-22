@@ -31,8 +31,11 @@
 struct _PvSourcePrivate
 {
   GDBusObjectManagerServer *server_manager;
-
   gchar *object_path;
+
+  gchar *name;
+  gboolean suspended;
+  GVariant *properties;
 };
 
 G_DEFINE_ABSTRACT_TYPE (PvSource, pv_source, G_TYPE_OBJECT);
@@ -41,7 +44,10 @@ enum
 {
   PROP_0,
   PROP_MANAGER,
-  PROP_OBJECT_PATH
+  PROP_OBJECT_PATH,
+  PROP_NAME,
+  PROP_SUSPENDED,
+  PROP_PROPERTIES
 };
 
 static void
@@ -60,6 +66,18 @@ pv_source_get_property (GObject    *_object,
 
     case PROP_OBJECT_PATH:
       g_value_set_string (value, priv->object_path);
+      break;
+
+    case PROP_NAME:
+      g_value_set_string (value, priv->name);
+      break;
+
+    case PROP_SUSPENDED:
+      g_value_set_boolean (value, priv->suspended);
+      break;
+
+    case PROP_PROPERTIES:
+      g_value_set_variant (value, priv->properties);
       break;
 
     default:
@@ -85,6 +103,17 @@ pv_source_set_property (GObject      *_object,
     case PROP_OBJECT_PATH:
       g_free (priv->object_path);
       priv->object_path = g_value_dup_string (value);
+      break;
+
+    case PROP_NAME:
+      g_free (priv->name);
+      priv->name = g_value_dup_string (value);
+      break;
+
+    case PROP_PROPERTIES:
+      if (priv->properties)
+        g_variant_unref (priv->properties);
+      priv->properties = g_value_dup_variant (value);
       break;
 
     default:
@@ -125,6 +154,10 @@ source_register_object (PvSource *source)
     PvSource1 *iface;
 
     iface = pv_source1_skeleton_new ();
+    g_object_set (iface, "name", priv->name,
+                         "suspended", priv->suspended,
+                         "properties", priv->properties,
+                         NULL);
     g_signal_connect (iface, "handle-create-source-output", (GCallback) handle_create_source_output, source);
     pv_object_skeleton_set_source1 (skel, iface);
     g_object_unref (iface);
@@ -156,6 +189,8 @@ pv_source_finalize (GObject * object)
     g_object_unref (priv->server_manager);
   }
   g_free (priv->object_path);
+  g_free (priv->name);
+  g_variant_unref (priv->properties);
 
   G_OBJECT_CLASS (pv_source_parent_class)->finalize (object);
 }
@@ -204,6 +239,36 @@ pv_source_class_init (PvSourceClass * klass)
                                                         NULL,
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_NAME,
+                                   g_param_spec_string ("name",
+                                                        "Name",
+                                                        "The source name",
+                                                        NULL,
+                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_CONSTRUCT_ONLY |
+                                                        G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_SUSPENDED,
+                                   g_param_spec_boolean ("suspended",
+                                                         "Suspended",
+                                                         "The suspended state of the source",
+                                                         FALSE,
+                                                         G_PARAM_READABLE |
+                                                         G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_PROPERTIES,
+                                   g_param_spec_variant ("properties",
+                                                         "Properties",
+                                                         "The properties of the source",
+                                                         G_VARIANT_TYPE_VARIANT,
+                                                         NULL,
+                                                         G_PARAM_READWRITE |
+                                                         G_PARAM_STATIC_STRINGS));
+
 
   klass->create_source_output = default_create_source_output;
   klass->release_source_output = default_release_source_output;

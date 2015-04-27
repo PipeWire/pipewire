@@ -30,6 +30,7 @@
 struct _PvClientPrivate
 {
   PvDaemon *daemon;
+  gchar *sender;
   gchar *object_path;
 
   PvClient1 *client1;
@@ -46,6 +47,7 @@ enum
 {
   PROP_0,
   PROP_DAEMON,
+  PROP_SENDER,
   PROP_OBJECT_PATH,
 };
 
@@ -61,6 +63,10 @@ pv_client_get_property (GObject    *_object,
   switch (prop_id) {
     case PROP_DAEMON:
       g_value_set_object (value, priv->daemon);
+      break;
+
+    case PROP_SENDER:
+      g_value_set_string (value, priv->sender);
       break;
 
     case PROP_OBJECT_PATH:
@@ -87,6 +93,10 @@ pv_client_set_property (GObject      *_object,
       priv->daemon = g_value_dup_object (value);
       break;
 
+    case PROP_SENDER:
+      priv->sender = g_value_dup_string (value);
+      break;
+
     case PROP_OBJECT_PATH:
       priv->object_path = g_value_dup_string (value);
       break;
@@ -95,84 +105,6 @@ pv_client_set_property (GObject      *_object,
       G_OBJECT_WARN_INVALID_PROPERTY_ID (client, prop_id, pspec);
       break;
   }
-}
-
-typedef struct {
-  PvClient *client;
-  GDBusMethodInvocation  *invocation;
-} CreateData;
-
-static void
-on_source_output_created (GObject *source_object,
-                          GAsyncResult *res,
-                          gpointer user_data)
-{
-  CreateData *data = user_data;
-  PvClient *client = data->client;
-  PvClientPrivate *priv = client->priv;
-  PvSource1 *source1 = PV_SOURCE1 (source_object);
-  GDBusMethodInvocation *invocation = data->invocation;
-  GError *error = NULL;
-  gchar *object_path, *name;
-
-  if (!pv_source1_call_create_source_output_finish (source1, &object_path, res, &error))
-    goto create_failed;
-
-  name = g_object_get_data (G_OBJECT (source1), "org.pulsevideo.name");
-  pv_client1_complete_create_source_output (priv->client1, invocation, name, object_path);
-  g_free (name);
-
-  g_free (data);
-
-  return;
-
-  /* ERRORS */
-create_failed:
-  {
-    g_print ("failed to get connect capture: %s", error->message);
-    g_clear_error (&error);
-    g_free (data);
-    return;
-  }
-}
-
-
-static gboolean
-handle_create_source_output (PvClient1              *interface,
-                             GDBusMethodInvocation  *invocation,
-                             const gchar            *arg_source,
-                             GVariant               *arg_properties,
-                             gpointer                user_data)
-{
-  PvClient *client = user_data;
-  PvClientPrivate *priv = client->priv;
-  PvDaemon *daemon = priv->daemon;
-  PvSource1 *source1;
-  GVariantBuilder builder;
-  CreateData *data;
-
-  source1 = pv_daemon_get_source (daemon, arg_source);
-  if (source1 == NULL) {
-    g_dbus_method_invocation_return_dbus_error (invocation,
-                                                "org.pulsevideo.NotFound",
-                                                "No source found");
-    return TRUE;
-  }
-
-  g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
-  g_variant_builder_add (&builder, "{sv}", "name", g_variant_new_string ("hello"));
-
-  data = g_new0 (CreateData, 1);
-  data->client = client;
-  data->invocation = invocation;
-
-  pv_source1_call_create_source_output (source1,
-                                        g_variant_builder_end (&builder),
-                                        NULL,
-                                        on_source_output_created,
-                                        data);
-
-  return TRUE;
 }
 
 static void
@@ -188,8 +120,7 @@ client_register_object (PvClient *client, const gchar *prefix)
   g_free (name);
 
   priv->client1 = pv_client1_skeleton_new ();
-  pv_client1_set_name (priv->client1, "poppy");
-  g_signal_connect (priv->client1, "handle-create-source-output", (GCallback) handle_create_source_output, client);
+  pv_client1_set_name (priv->client1, priv->sender);
   pv_object_skeleton_set_client1 (skel, priv->client1);
 
   g_free (priv->object_path);
@@ -253,6 +184,16 @@ pv_client_class_init (PvClientClass * klass)
                                                         G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class,
+                                   PROP_SENDER,
+                                   g_param_spec_string ("sender",
+                                                        "Sender",
+                                                        "The sender",
+                                                        NULL,
+                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_CONSTRUCT_ONLY |
+                                                        G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class,
                                    PROP_OBJECT_PATH,
                                    g_param_spec_string ("object-path",
                                                         "Object Path",
@@ -282,12 +223,12 @@ pv_client_init (PvClient * client)
  * Returns: a new #PvClient
  */
 PvClient *
-pv_client_new (PvDaemon * daemon, const gchar *prefix)
+pv_client_new (PvDaemon * daemon, const gchar *sender, const gchar *prefix)
 {
   g_return_val_if_fail (PV_IS_DAEMON (daemon), NULL);
   g_return_val_if_fail (g_variant_is_object_path (prefix), NULL);
 
-  return g_object_new (PV_TYPE_CLIENT, "daemon", daemon, "object-path", prefix, NULL);
+  return g_object_new (PV_TYPE_CLIENT, "daemon", daemon, "sender", sender, "object-path", prefix, NULL);
 }
 
 /**

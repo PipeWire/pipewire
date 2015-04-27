@@ -24,10 +24,32 @@
 static GMainLoop *loop;
 
 static void
-subscription_cb (PvContext *context, PvSubscriptionEvent type, PvSubscriptionFlags flags,
-    GDBusObject *object, gpointer user_data)
+dump_object (GDBusProxy *proxy)
 {
-  g_print ("got event %d %d %s\n", type, flags, g_dbus_object_get_object_path (object));
+
+}
+
+static void
+subscription_cb (PvContext *context, PvSubscriptionEvent type, PvSubscriptionFlags flags,
+    GDBusProxy *object, gpointer user_data)
+{
+  g_print ("got event %d %d %s:%s\n", type, flags,
+      g_dbus_proxy_get_name (object),
+      g_dbus_proxy_get_object_path (object));
+
+  switch (type) {
+    case PV_SUBSCRIPTION_EVENT_NEW:
+      dump_object (object);
+      break;
+
+    case PV_SUBSCRIPTION_EVENT_CHANGE:
+      dump_object (object);
+      break;
+
+    case PV_SUBSCRIPTION_EVENT_REMOVE:
+      g_print ("object removed %s\n", g_dbus_proxy_get_object_path (object));
+      break;
+  }
 }
 
 static void

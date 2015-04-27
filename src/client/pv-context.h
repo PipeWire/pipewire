@@ -109,8 +109,11 @@ gboolean          pv_context_register_source       (PvContext *context, PvSource
 gboolean          pv_context_unregister_source     (PvContext *context, PvSource *source);
 
 PvContextState    pv_context_get_state             (PvContext *context);
+
 GDBusConnection * pv_context_get_connection        (PvContext *context);
 GDBusProxy *      pv_context_get_client_proxy      (PvContext *context);
+
+GDBusProxy *      pv_context_find_source           (PvContext *context, const gchar *name, GVariant *props);
 
 
 G_END_DECLS

@@ -33,8 +33,8 @@ struct _PvStreamPrivate
   gchar *target;
   PvStreamState state;
 
-  gchar *source_output_sender;
   gchar *source_output_path;
+  PvSource1 *source;
   PvSourceOutput1 *source_output;
 
   GSocket *socket;
@@ -319,19 +319,16 @@ on_source_output_created (GObject *source_object,
   PvStreamPrivate *priv = stream->priv;
   PvContext *context = priv->context;
   GError *error = NULL;
-  PvClient1 *proxy;
 
-  proxy = PV_CLIENT1 (pv_context_get_client_proxy (priv->context));
-
-  if (!pv_client1_call_create_source_output_finish (proxy,
-        &priv->source_output_sender, &priv->source_output_path, res, &error))
+  if (!pv_source1_call_create_source_output_finish (priv->source,
+        &priv->source_output_path, res, &error))
     goto create_failed;
 
-  g_print ("got source-output %s %s\n", priv->source_output_sender, priv->source_output_path);
+  g_print ("got source-output %s\n", priv->source_output_path);
 
   pv_source_output1_proxy_new (pv_context_get_connection (context),
                                G_DBUS_PROXY_FLAGS_NONE,
-                               priv->source_output_sender,
+                               g_dbus_proxy_get_name (G_DBUS_PROXY (priv->source)),
                                priv->source_output_path,
                                NULL,
                                on_source_output1_proxy,
@@ -346,27 +343,6 @@ create_failed:
     g_clear_error (&error);
     return;
   }
-}
-
-static gboolean
-create_source_output (PvStream *stream)
-{
-  PvStreamPrivate *priv = stream->priv;
-  GVariantBuilder builder;
-  PvClient1 *proxy;
-
-  g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
-  g_variant_builder_add (&builder, "{sv}", "name", g_variant_new_string ("hello"));
-
-  proxy = PV_CLIENT1 (pv_context_get_client_proxy (priv->context));
-
-  pv_client1_call_create_source_output (proxy,
-                                        priv->target ? priv->target : "/",  /* const gchar *arg_source */
-                                        g_variant_builder_end (&builder), /* GVariant *arg_props */
-                                        NULL,        /* GCancellable *cancellable */
-                                        on_source_output_created,
-                                        stream);
-  return TRUE;
 }
 
 static void
@@ -385,7 +361,6 @@ on_source_output_removed (GObject *source_object,
     g_clear_error (&error);
     return;
   }
-  g_clear_pointer (&priv->source_output_sender, g_free);
   g_clear_pointer (&priv->source_output_path, g_free);
   g_clear_object (&priv->source_output);
 }
@@ -418,6 +393,7 @@ pv_stream_connect_capture (PvStream      *stream,
                            PvStreamFlags  flags)
 {
   PvStreamPrivate *priv;
+  GVariantBuilder builder;
   PvContext *context;
 
   g_return_val_if_fail (PV_IS_STREAM (stream), FALSE);
@@ -429,7 +405,21 @@ pv_stream_connect_capture (PvStream      *stream,
 
   stream_set_state (stream, PV_STREAM_STATE_CONNECTING);
 
-  return create_source_output (stream);
+  priv->source = PV_SOURCE1 (pv_context_find_source (context, priv->target, NULL));
+  if (priv->source == NULL) {
+    g_warning ("can't find source");
+    return FALSE;
+  }
+
+  g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
+  g_variant_builder_add (&builder, "{sv}", "name", g_variant_new_string ("hello"));
+
+  pv_source1_call_create_source_output (priv->source,
+                                        g_variant_builder_end (&builder), /* GVariant *arg_props */
+                                        NULL,        /* GCancellable *cancellable */
+                                        on_source_output_created,
+                                        stream);
+  return TRUE;
 }
 
 /**

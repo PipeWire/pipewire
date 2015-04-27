@@ -41,6 +41,26 @@ typedef struct _PvSourcePrivate PvSourcePrivate;
 #define PV_SOURCE_CLASS_CAST(klass)    ((PvSourceClass*)(klass))
 
 /**
+ * PvSourceState:
+ * @PV_SOURCE_STATE_ERROR: the source is in error
+ * @PV_SOURCE_STATE_SUSPENDED: the source is suspended, the device might
+ *                             be closed
+ * @PV_SOURCE_STATE_INIT: the source is initializing, it opens the device
+ *                        and gets the device capabilities
+ * @PV_SOURCE_STATE_IDLE: the source is running but there is no active
+ *                        source-output
+ * @PV_SOURCE_STATE_RUNNING: the source is running.
+ *
+ * The different source states
+ */
+typedef enum {
+  PV_SOURCE_STATE_ERROR = 0,
+  PV_SOURCE_STATE_SUSPENDED = 1,
+  PV_SOURCE_STATE_INIT = 2,
+  PV_SOURCE_STATE_IDLE = 3,
+  PV_SOURCE_STATE_RUNNING = 4,
+} PvSourceState;
+/**
  * PvSource:
  *
  * Pulsevideo source object class.
@@ -53,16 +73,19 @@ struct _PvSource {
 
 /**
  * PvSourceClass:
+ * @get_capabilities: called to get a list of supported formats from the source
+ * @set_state: called to change the current state of the source
+ * @create_source_output: called to create a new source-output object
+ * @release_source_output: called to release a source-output object
  *
  * Pulsevideo source object class.
  */
 struct _PvSourceClass {
   GObjectClass parent_class;
 
-  GVariant * (*get_capabilities) (PvSource *source, GVariant *props);
+  GVariant *       (*get_capabilities) (PvSource *source, GVariant *props);
 
-  gboolean (*suspend)  (PvSource *source);
-  gboolean (*resume)   (PvSource *source);
+  gboolean         (*set_state)  (PvSource *source, PvSourceState);
 
   PvSourceOutput * (*create_source_output)  (PvSource *source, GVariant *props, const gchar *prefix);
   gboolean         (*release_source_output) (PvSource *source, PvSourceOutput *output);
@@ -75,8 +98,8 @@ void             pv_source_set_manager            (PvSource *source, GDBusObject
 
 GVariant *       pv_source_get_capabilities       (PvSource *source, GVariant *props);
 
-gboolean         pv_source_suspend                (PvSource *source);
-gboolean         pv_source_resume                 (PvSource *source);
+gboolean         pv_source_set_state              (PvSource *source, PvSourceState state);
+void             pv_source_update_state           (PvSource *source, PvSourceState state);
 
 PvSourceOutput * pv_source_create_source_output   (PvSource *source, GVariant *props, const gchar *prefix);
 gboolean         pv_source_release_source_output  (PvSource *source, PvSourceOutput *output);

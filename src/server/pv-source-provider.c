@@ -116,7 +116,7 @@ source_provider_register_object (PvSourceProvider *client, const gchar *prefix)
   PvObjectSkeleton *skel;
   gchar *name;
 
-  name = g_strdup_printf ("%s/source", prefix);
+  name = g_strdup_printf ("%s/source_provider", prefix);
   skel = pv_object_skeleton_new (name);
   g_free (name);
 

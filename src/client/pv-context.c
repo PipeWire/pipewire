@@ -40,7 +40,10 @@ struct _PvContextPrivate
 
   PvClient1 *client;
 
+  PvSubscribe *internal_subscribe;
   PvSubscribe *subscribe;
+
+  GList *sources;
 
   GDBusObjectManagerServer *server_manager;
 };
@@ -50,6 +53,14 @@ struct _PvContextPrivate
    (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PV_TYPE_CONTEXT, PvContextPrivate))
 
 G_DEFINE_TYPE (PvContext, pv_context, G_TYPE_OBJECT);
+
+static void subscription_state (GObject *object, GParamSpec *pspec, gpointer user_data);
+static void
+subscription_cb (PvSubscribe         *subscribe,
+                 PvSubscriptionEvent  event,
+                 PvSubscriptionFlags  flags,
+                 GDBusProxy          *object,
+                 gpointer             user_data);
 
 enum
 {
@@ -223,6 +234,10 @@ pv_context_init (PvContext * context)
 
   priv->state = PV_CONTEXT_STATE_UNCONNECTED;
   priv->server_manager = g_dbus_object_manager_server_new (PV_DBUS_OBJECT_PREFIX);
+  priv->internal_subscribe = pv_subscribe_new ();
+  g_object_set (priv->internal_subscribe, "subscription-mask", PV_SUBSCRIPTION_FLAGS_ALL, NULL);
+  g_signal_connect (priv->internal_subscribe, "subscription-event", (GCallback) subscription_cb, context);
+  g_signal_connect (priv->internal_subscribe, "notify::state", (GCallback) subscription_state, context);
 }
 
 /**
@@ -302,15 +317,6 @@ on_daemon_connected (GObject *source_object,
 {
   PvContext *context = user_data;
   PvContextPrivate *priv = context->priv;
-  GError *error = NULL;
-
-  priv->daemon = pv_daemon1_proxy_new_finish (res, &error);
-  if (priv->daemon == NULL) {
-    context_set_state (context, PV_CONTEXT_STATE_ERROR);
-    g_error ("failed to get daemon: %s", error->message);
-    g_clear_error (&error);
-    return;
-  }
 
   context_set_state (context, PV_CONTEXT_STATE_REGISTERING);
 
@@ -329,6 +335,57 @@ on_daemon_connected (GObject *source_object,
   }
 }
 
+static void
+subscription_cb (PvSubscribe         *subscribe,
+                 PvSubscriptionEvent  event,
+                 PvSubscriptionFlags  flags,
+                 GDBusProxy          *object,
+                 gpointer             user_data)
+{
+  PvContext *context = user_data;
+  PvContextPrivate *priv = context->priv;
+
+  g_print ("got event %d %d\n", event, flags);
+
+  switch (flags) {
+    case PV_SUBSCRIPTION_FLAGS_DAEMON:
+      priv->daemon = PV_DAEMON1 (object);
+      break;
+
+    case PV_SUBSCRIPTION_FLAGS_CLIENT:
+      break;
+
+    case PV_SUBSCRIPTION_FLAGS_SOURCE:
+      priv->sources = g_list_prepend (priv->sources, object);
+      break;
+
+    case PV_SUBSCRIPTION_FLAGS_SOURCE_OUTPUT:
+      break;
+  }
+}
+
+static void
+subscription_state (GObject    *object,
+                    GParamSpec *pspec,
+                    gpointer    user_data)
+{
+  PvContext *context = user_data;
+  PvSubscriptionState state;
+
+  g_object_get (object, "state", &state, NULL);
+
+  g_print ("got subscription state %d\n", state);
+
+  switch (state) {
+    case PV_SUBSCRIPTION_STATE_READY:
+      on_daemon_connected (NULL, NULL, context);
+      break;
+
+    default:
+      break;
+  }
+
+}
 
 static void
 on_name_appeared (GDBusConnection *connection,
@@ -343,17 +400,11 @@ on_name_appeared (GDBusConnection *connection,
   g_dbus_object_manager_server_set_connection (priv->server_manager, connection);
 
   if (priv->subscribe) {
-    g_object_set (priv->subscribe, "connection", priv->connection, NULL);
-    g_object_set (priv->subscribe, "service", name, NULL);
+    g_object_set (priv->subscribe, "connection", priv->connection,
+                                   "service", name, NULL);
   }
-
-  pv_daemon1_proxy_new (priv->connection,
-                        G_DBUS_PROXY_FLAGS_NONE,
-                        name,
-                        PV_DBUS_OBJECT_SERVER,
-                        NULL,
-                        on_daemon_connected,
-                        user_data);
+  g_object_set (priv->internal_subscribe, "connection", priv->connection,
+                                          "service", name, NULL);
 }
 
 static void
@@ -369,6 +420,8 @@ on_name_vanished (GDBusConnection *connection,
 
   if (priv->subscribe)
     g_object_set (priv->subscribe, "connection", connection, NULL);
+
+  g_object_set (priv->internal_subscribe, "connection", connection, NULL);
 
   if (priv->flags & PV_CONTEXT_FLAGS_NOFAIL) {
     context_set_state (context, PV_CONTEXT_STATE_CONNECTING);
@@ -586,3 +639,18 @@ pv_context_get_client_proxy (PvContext *context)
 
   return G_DBUS_PROXY (context->priv->client);
 }
+
+GDBusProxy *
+pv_context_find_source (PvContext *context, const gchar *name, GVariant *props)
+{
+  PvContextPrivate *priv;
+
+  g_return_val_if_fail (PV_IS_CONTEXT (context), NULL);
+  priv = context->priv;
+
+  if (priv->sources == NULL)
+    return NULL;
+
+  return priv->sources->data;
+}
+

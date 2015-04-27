@@ -21,6 +21,7 @@
 
 #include "client/pulsevideo.h"
 #include "client/pv-source.h"
+#include "client/pv-enumtypes.h"
 
 #include "dbus/org-pulsevideo.h"
 
@@ -31,10 +32,11 @@
 struct _PvSourcePrivate
 {
   GDBusObjectManagerServer *server_manager;
+  PvSource1 *iface;
   gchar *object_path;
 
   gchar *name;
-  gboolean suspended;
+  PvSourceState state;
   GVariant *properties;
 };
 
@@ -46,7 +48,7 @@ enum
   PROP_MANAGER,
   PROP_OBJECT_PATH,
   PROP_NAME,
-  PROP_SUSPENDED,
+  PROP_STATE,
   PROP_PROPERTIES
 };
 
@@ -72,8 +74,8 @@ pv_source_get_property (GObject    *_object,
       g_value_set_string (value, priv->name);
       break;
 
-    case PROP_SUSPENDED:
-      g_value_set_boolean (value, priv->suspended);
+    case PROP_STATE:
+      g_value_set_enum (value, priv->state);
       break;
 
     case PROP_PROPERTIES:
@@ -168,20 +170,22 @@ source_register_object (PvSource *source)
   PvObjectSkeleton *skel;
 
   skel = pv_object_skeleton_new (PV_DBUS_OBJECT_SOURCE);
-  {
-    PvSource1 *iface;
 
-    iface = pv_source1_skeleton_new ();
-    g_object_set (iface, "name", priv->name,
-                         "suspended", priv->suspended,
-                         "properties", priv->properties,
-                         NULL);
-    g_signal_connect (iface, "handle-create-source-output", (GCallback) handle_create_source_output, source);
-    g_signal_connect (iface, "handle-get-capabilities", (GCallback) handle_get_capabilities, source);
-    pv_object_skeleton_set_source1 (skel, iface);
-    g_object_unref (iface);
-  }
+  priv->iface = pv_source1_skeleton_new ();
+  g_object_set (priv->iface, "name", priv->name,
+                             "state", priv->state,
+                             "properties", priv->properties,
+                             NULL);
+  g_signal_connect (priv->iface, "handle-create-source-output",
+                                 (GCallback) handle_create_source_output,
+                                 source);
+  g_signal_connect (priv->iface, "handle-get-capabilities",
+                                 (GCallback) handle_get_capabilities,
+                                 source);
+  pv_object_skeleton_set_source1 (skel, priv->iface);
+
   g_dbus_object_manager_server_export_uniquely (priv->server_manager, G_DBUS_OBJECT_SKELETON (skel));
+  g_object_unref (skel);
 
   g_free (priv->object_path);
   priv->object_path = g_strdup (g_dbus_object_get_object_path (G_DBUS_OBJECT (skel)));
@@ -195,6 +199,7 @@ source_unregister_object (PvSource *source)
   PvSourcePrivate *priv = source->priv;
 
   g_dbus_object_manager_server_unexport (priv->server_manager, priv->object_path);
+  g_clear_object (&priv->iface);
 }
 
 static void
@@ -272,13 +277,14 @@ pv_source_class_init (PvSourceClass * klass)
                                                         G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class,
-                                   PROP_SUSPENDED,
-                                   g_param_spec_boolean ("suspended",
-                                                         "Suspended",
-                                                         "The suspended state of the source",
-                                                         FALSE,
-                                                         G_PARAM_READABLE |
-                                                         G_PARAM_STATIC_STRINGS));
+                                   PROP_STATE,
+                                   g_param_spec_enum ("state",
+                                                      "State",
+                                                      "The state of the source",
+                                                      PV_TYPE_SOURCE_STATE,
+                                                      PV_SOURCE_STATE_INIT,
+                                                      G_PARAM_READABLE |
+                                                      G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class,
                                    PROP_PROPERTIES,
@@ -339,7 +345,7 @@ pv_source_get_capabilities (PvSource *source, GVariant *props)
 }
 
 gboolean
-pv_source_suspend (PvSource *source)
+pv_source_set_state (PvSource *source, PvSourceState state)
 {
   PvSourceClass *klass;
   gboolean res;
@@ -348,32 +354,30 @@ pv_source_suspend (PvSource *source)
 
   klass = PV_SOURCE_GET_CLASS (source);
 
-  if (klass->suspend)
-    res = klass->suspend (source);
+  if (klass->set_state)
+    res = klass->set_state (source, state);
   else
     res = FALSE;
 
   return res;
 }
 
-gboolean
-pv_source_resume (PvSource *source)
+void
+pv_source_update_state (PvSource *source, PvSourceState state)
 {
-  PvSourceClass *klass;
-  gboolean res;
+  PvSourcePrivate *priv;
 
-  g_return_val_if_fail (PV_IS_SOURCE (source), FALSE);
+  g_return_if_fail (PV_IS_SOURCE (source));
+  priv = source->priv;
 
-  klass = PV_SOURCE_GET_CLASS (source);
-
-  if (klass->resume)
-    res = klass->resume (source);
-  else
-    res = FALSE;
-
-  return res;
+  if (priv->state != state) {
+    priv->state = state;
+    g_print ("source changed state %d\n", state);
+    if (priv->iface)
+      pv_source1_set_state (priv->iface, state);
+    g_object_notify (G_OBJECT (source), "state");
+  }
 }
-
 
 PvSourceOutput *
 pv_source_create_source_output (PvSource *source, GVariant *props, const gchar *prefix)

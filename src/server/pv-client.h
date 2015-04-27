@@ -62,7 +62,7 @@ struct _PvClientClass {
 /* normal GObject stuff */
 GType           pv_client_get_type             (void);
 
-PvClient *      pv_client_new                  (PvDaemon *daemon, const gchar *prefix);
+PvClient *      pv_client_new                  (PvDaemon *daemon, const gchar *sender, const gchar *prefix);
 
 const gchar *   pv_client_get_object_path      (PvClient *client);
 

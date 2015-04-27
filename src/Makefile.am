@@ -60,6 +60,7 @@ dbuspolicy_DATA = \
 ###################################
 
 enumtypesincludes = client/pv-context.h \
+		    client/pv-source.h \
 		    client/pv-stream.h \
 		    client/pv-subscribe.h
 
@@ -193,7 +194,6 @@ lib_LTLIBRARIES += libpulsevideocore-@PV_MAJORMINOR@.la
 # Pure core stuff
 libpulsevideocore_@PV_MAJORMINOR@_la_SOURCES = \
 		server/pv-client.c server/pv-client.h \
-		server/pv-source-provider.c server/pv-source-provider.h \
 		server/pv-daemon.c server/pv-daemon.h \
 		modules/v4l2/pv-v4l2-source.c 
 

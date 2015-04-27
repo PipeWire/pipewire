@@ -41,7 +41,6 @@ typedef struct _PvDaemonClass PvDaemonClass;
 typedef struct _PvDaemonPrivate PvDaemonPrivate;
 
 #include <client/pv-source.h>
-#include <server/pv-source-provider.h>
 
 /**
  * PvDaemon:

@@ -46,25 +46,6 @@
     <property name='Name' type='s' access='read' />
     <!-- Name: Properties of the client -->
     <property name='Properties' type='a{sv}' access='read' />
-    <!-- CreateSourceOutput:
-         @source: the name of a source or an empty string
-         @props: properties to use
-         @sender: the result sender of the output
-         @output: the result output object
-
-         This method requests an output from @source with given @props.
-         @source can be the empty string, in which case the server will
-         select a good source.
-
-         @sender and @output contain the unique name and object of the
-         owner of the source.
-    -->
-    <method name='CreateSourceOutput'>
-      <arg type='s' name='source' direction='in'/>
-      <arg type='a{sv}' name='props' direction='in'/>
-      <arg type='s' name='sender' direction='out'/>
-      <arg type='o' name='output' direction='out'/>
-    </method>
     <!-- Disconnect:
 
          Disconnect the client from the server.
@@ -99,20 +80,6 @@
   </interface>
 
   <!--
-      org.pulsevideo.SourceProvider1:
-      @short_description: Interface for source provider
-
-      This interface lists the unique name and path of a
-      source
-  -->
-  <interface name='org.pulsevideo.SourceProvider1'>
-    <!-- Name: unique name of the provider -->
-    <property name='Name' type='s' access='read' />
-    <!-- Path: object path of the source -->
-    <property name='Path' type='o' access='read' />
-  </interface>
-
-  <!--
       org.pulsevideo.Source1:
       @short_description: Main source interface
 
@@ -123,8 +90,15 @@
     <property name='Name' type='s' access='read' />
     <!-- Properties: extra source properties -->
     <property name='Properties' type='a{sv}' access='read' />
-    <!-- Suspended: if the source is suspended -->
-    <property name='Suspended' type='b' access='read' />
+    <!-- state: state of the source
+          0 = the source is in error
+          1 = the source is initializing
+          2 = the source is suspended, this means the device is closed
+          3 = the source is idle, this means the device is opened but
+              no source-output is consuming the data
+          4 = the source is running
+    -->
+    <property name='State' type='u' access='read' />
     <!-- GetCapabilities:
          @props: input properties
          @caps: result capabilities

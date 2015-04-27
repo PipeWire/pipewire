@@ -364,10 +364,56 @@ on_client_manager_signal (GDBusObjectManagerClient *manager,
 }
 
 static void
+client_manager_appeared (PvSubscribe *subscribe)
+{
+  PvSubscribePrivate *priv = subscribe->priv;
+  GList *objects, *walk;
+
+  objects = g_dbus_object_manager_get_objects (G_DBUS_OBJECT_MANAGER (priv->client_manager));
+  for (walk = objects; walk ; walk = g_list_next (walk)) {
+    on_client_manager_object_added (G_DBUS_OBJECT_MANAGER (priv->client_manager),
+                                    walk->data,
+                                    subscribe);
+  }
+  if (--priv->pending_subscribes == 0)
+    subscription_set_state (subscribe, PV_SUBSCRIPTION_STATE_READY);
+}
+
+static void
+client_manager_disappeared (PvSubscribe *subscribe)
+{
+}
+
+static void
+on_client_manager_name_owner (GObject    *object,
+                              GParamSpec *pspec,
+                              gpointer    user_data)
+{
+  PvSubscribe *subscribe = user_data;
+  PvSubscribePrivate *priv = subscribe->priv;
+  gchar *name_owner;
+
+  g_object_get (priv->client_manager, "name-owner", &name_owner, NULL);
+  g_print ("client manager %s %s\n",
+      g_dbus_object_manager_client_get_name (G_DBUS_OBJECT_MANAGER_CLIENT (priv->client_manager)),
+      name_owner);
+
+  if (name_owner) {
+    client_manager_appeared (subscribe);
+    g_free (name_owner);
+  } else {
+    client_manager_disappeared (subscribe);
+  }
+}
+
+
+static void
 connect_client_signals (PvSubscribe *subscribe)
 {
   PvSubscribePrivate *priv = subscribe->priv;
 
+  g_signal_connect (priv->client_manager, "notify::name-owner",
+      (GCallback) on_client_manager_name_owner, subscribe);
   g_signal_connect (priv->client_manager, "interface-added",
       (GCallback) on_client_manager_interface_added, subscribe);
   g_signal_connect (priv->client_manager, "interface-removed",
@@ -390,27 +436,14 @@ on_client_manager_ready (GObject *source_object,
   PvSubscribe *subscribe = user_data;
   PvSubscribePrivate *priv = subscribe->priv;
   GError *error = NULL;
-  GList *objects, *walk;
 
   priv->client_manager = pv_object_manager_client_new_finish (res, &error);
   if (priv->client_manager == NULL)
     goto manager_error;
 
-  g_print ("client manager %s %s\n",
-      g_dbus_object_manager_client_get_name (G_DBUS_OBJECT_MANAGER_CLIENT (priv->client_manager)),
-      g_dbus_object_manager_client_get_name_owner (G_DBUS_OBJECT_MANAGER_CLIENT (priv->client_manager)));
-
   connect_client_signals (subscribe);
 
-  objects = g_dbus_object_manager_get_objects (G_DBUS_OBJECT_MANAGER (priv->client_manager));
-  for (walk = objects; walk ; walk = g_list_next (walk)) {
-    on_client_manager_object_added (G_DBUS_OBJECT_MANAGER (priv->client_manager),
-                                    walk->data,
-                                    subscribe);
-  }
-  if (--priv->pending_subscribes == 0)
-    subscription_set_state (subscribe, PV_SUBSCRIPTION_STATE_READY);
-
+  on_client_manager_name_owner (G_OBJECT (priv->client_manager), NULL, subscribe);
   return;
 
   /* ERRORS */
@@ -498,7 +531,8 @@ pv_subscribe_set_property (GObject      *_object,
       if (priv->connection)
         g_object_unref (priv->connection);
       priv->connection = g_value_dup_object (value);
-      install_subscription (subscribe);
+      if (priv->connection)
+        install_subscription (subscribe);
       break;
     }
 

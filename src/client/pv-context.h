@@ -100,8 +100,6 @@ GType             pv_context_get_type              (void);
 
 PvContext *       pv_context_new                   (const gchar *name, GVariant *properties);
 
-gboolean          pv_context_set_subscribe         (PvContext *context, PvSubscribe *subscribe);
-
 gboolean          pv_context_connect               (PvContext *context, PvContextFlags flags);
 gboolean          pv_context_disconnect            (PvContext *context);
 
@@ -111,7 +109,6 @@ gboolean          pv_context_unregister_source     (PvContext *context, PvSource
 PvContextState    pv_context_get_state             (PvContext *context);
 
 GDBusConnection * pv_context_get_connection        (PvContext *context);
-GDBusProxy *      pv_context_get_client_proxy      (PvContext *context);
 
 GDBusProxy *      pv_context_find_source           (PvContext *context, const gchar *name, GVariant *props);
 

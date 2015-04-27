@@ -69,12 +69,8 @@ on_state_notify (GObject    *gobject,
       break;
     case PV_CONTEXT_STATE_READY:
     {
-      PvSubscribe *subscribe;
-
-      subscribe = pv_subscribe_new ();
-      g_object_set (subscribe, "subscription-mask", PV_SUBSCRIPTION_FLAGS_ALL, NULL);
-      g_signal_connect (subscribe, "subscription-event", (GCallback) subscription_cb, NULL);
-      pv_context_set_subscribe (c, subscribe);
+      g_object_set (c, "subscription-mask", PV_SUBSCRIPTION_FLAGS_ALL, NULL);
+      g_signal_connect (c, "subscription-event", (GCallback) subscription_cb, NULL);
       break;
     }
 

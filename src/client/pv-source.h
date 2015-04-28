@@ -100,6 +100,7 @@ GVariant *       pv_source_get_capabilities       (PvSource *source, GVariant *p
 
 gboolean         pv_source_set_state              (PvSource *source, PvSourceState state);
 void             pv_source_update_state           (PvSource *source, PvSourceState state);
+void             pv_source_report_error           (PvSource *source, GError *error);
 
 PvSourceOutput * pv_source_create_source_output   (PvSource *source, GVariant *props, const gchar *prefix);
 gboolean         pv_source_release_source_output  (PvSource *source, PvSourceOutput *output);

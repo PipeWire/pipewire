@@ -202,6 +202,25 @@ libpulsevideocore_@PV_MAJORMINOR@_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version
 libpulsevideocore_@PV_MAJORMINOR@_la_LIBADD = $(AM_LIBADD) $(LIBLTDL) $(LTLIBICONV)
 
 ###################################
+#      GStreamer Plugin           #
+###################################
+
+plugindir = $(libdir)/gstreamer-1.0
+
+plugin_LTLIBRARIES = libgstpulsevideosrc.la
+
+libgstpulsevideosrc_la_SOURCES = \
+                        gst/gstpvsrc.c 
+
+libgstpulsevideosrc_la_CFLAGS = $(GST_PLUGINS_BASE_CFLAGS) $(GST_BASE_CFLAGS) $(GST_CFLAGS) $(GLIB_CFLAGS)
+libgstpulsevideosrc_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS)
+libgstpulsevideosrc_la_LIBADD =  $(GST_BASE_LIBS) $(GST_LIBS) $(GLIB_LIBS) $(LIBM) -lgstvideo-1.0 \
+				 libpulsevideo-@PV_MAJORMINOR@.la libpulsevideocore-@PV_MAJORMINOR@.la
+libgstpulsevideosrc_la_LIBTOOLFLAGS = $(GST_PLUGIN_LIBTOOLFLAGS)
+
+noinst_HEADERS = gst/gstpvsrc.h
+
+###################################
 #        Some minor stuff         #
 ###################################
 

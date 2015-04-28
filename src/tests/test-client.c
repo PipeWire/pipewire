@@ -75,7 +75,6 @@ on_stream_notify (GObject    *gobject,
   }
 }
 
-
 static void
 on_state_notify (GObject    *gobject,
                  GParamSpec *pspec,
@@ -94,11 +93,14 @@ on_state_notify (GObject    *gobject,
     case PV_CONTEXT_STATE_READY:
     {
       PvStream *stream;
+      GVariantBuilder builder;
 
-      stream = pv_stream_new (c, "test");
+      stream = pv_stream_new (c, "test", NULL);
       g_signal_connect (stream, "notify::state", (GCallback) on_stream_notify, stream);
       g_signal_connect (stream, "notify::socket", (GCallback) on_socket_notify, stream);
-      pv_stream_connect_capture (stream, NULL, 0);
+
+      g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
+      pv_stream_connect_capture (stream, NULL, 0, g_variant_builder_end (&builder));
       break;
     }
     default:

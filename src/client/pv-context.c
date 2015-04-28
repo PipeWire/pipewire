@@ -46,6 +46,8 @@ struct _PvContextPrivate
   GList *sources;
 
   GDBusObjectManagerServer *server_manager;
+
+  GError *error;
 };
 
 
@@ -154,6 +156,7 @@ pv_context_finalize (GObject * object)
   PvContextPrivate *priv = context->priv;
 
   g_object_unref (priv->server_manager);
+  g_clear_error (&priv->error);
 
   G_OBJECT_CLASS (pv_context_parent_class)->finalize (object);
 }
@@ -310,9 +313,9 @@ on_client_proxy (GObject *source_object,
 
   priv->client = pv_client1_proxy_new_finish (res, &error);
   if (priv->client == NULL) {
+    priv->error = error;
     context_set_state (context, PV_CONTEXT_STATE_ERROR);
     g_error ("failed to get client proxy: %s", error->message);
-    g_clear_error (&error);
     return;
   }
   context_set_state (context, PV_CONTEXT_STATE_READY);
@@ -329,9 +332,9 @@ on_client_connected (GObject *source_object,
   gchar *client_path;
 
   if (!pv_daemon1_call_connect_client_finish (priv->daemon, &client_path, res, &error)) {
+    priv->error = error;
     context_set_state (context, PV_CONTEXT_STATE_ERROR);
     g_error ("failed to connect client: %s", error->message);
-    g_clear_error (&error);
     return;
   }
 
@@ -462,6 +465,7 @@ on_name_vanished (GDBusConnection *connection,
   if (priv->flags & PV_CONTEXT_FLAGS_NOFAIL) {
     context_set_state (context, PV_CONTEXT_STATE_CONNECTING);
   } else {
+    priv->error = g_error_new_literal (G_IO_ERROR, G_IO_ERROR_CLOSED, "Connection closed");
     context_set_state (context, PV_CONTEXT_STATE_ERROR);
   }
 }
@@ -514,9 +518,9 @@ on_client_disconnected (GObject *source_object,
   GError *error = NULL;
 
   if (!pv_client1_call_disconnect_finish (priv->client, res, &error)) {
+    priv->error = error;
     context_set_state (context, PV_CONTEXT_STATE_ERROR);
     g_error ("failed to disconnect client: %s", error->message);
-    g_clear_error (&error);
     return;
   }
   context_set_state (context, PV_CONTEXT_STATE_UNCONNECTED);
@@ -610,6 +614,26 @@ pv_context_get_state (PvContext *context)
   priv = context->priv;
 
   return priv->state;
+}
+
+/**
+ * pv_context_error:
+ * @context: a #PvContext
+ *
+ * Get the current error of @context or %NULL when the context state
+ * is not #PV_CONTEXT_STATE_ERROR
+ *
+ * Returns: the last error or %NULL
+ */
+const GError *
+pv_context_error (PvContext *context)
+{
+  PvContextPrivate *priv;
+
+  g_return_val_if_fail (PV_IS_CONTEXT (context), NULL);
+  priv = context->priv;
+
+  return priv->error;
 }
 
 /**

@@ -29,6 +29,7 @@ struct _PvSubscribePrivate
   PvSubscriptionState state;
   GDBusConnection *connection;
   gchar *service;
+  GCancellable *cancellable;
 
   PvSubscriptionFlags subscription_mask;
 
@@ -36,6 +37,8 @@ struct _PvSubscribePrivate
   guint pending_subscribes;
 
   GHashTable *senders;
+
+  GError *error;
 };
 
 
@@ -68,6 +71,8 @@ typedef struct {
   guint id;
   PvSubscribe *sender_subscribe;
   GList *clients;
+  gulong signal_event;
+  gulong signal_state;
 } SenderData;
 
 static void
@@ -140,6 +145,7 @@ client_name_appeared_handler (GDBusConnection *connection,
 {
   SenderData *data = user_data;
 
+  g_print ("appeared client %s %p\n", name, data);
   /* subscribe to Source events. We want to be notified when this new
    * sender add/change/remove sources and outputs */
   data->sender_subscribe = pv_subscribe_new ();
@@ -148,11 +154,11 @@ client_name_appeared_handler (GDBusConnection *connection,
                                         "connection", connection,
                                         NULL);
 
-  g_signal_connect (data->sender_subscribe,
+  data->signal_event = g_signal_connect (data->sender_subscribe,
                     "subscription-event",
                     (GCallback) on_sender_subscription_event,
                     data);
-  g_signal_connect (data->sender_subscribe,
+  data->signal_state = g_signal_connect (data->sender_subscribe,
                     "notify::state",
                     (GCallback) on_sender_subscription_state,
                     data);
@@ -175,18 +181,27 @@ client_name_vanished_handler (GDBusConnection *connection,
                               gpointer user_data)
 {
   SenderData *data = user_data;
-  PvSubscribePrivate *priv = data->subscribe->priv;
 
-  g_print ("vanished client %s\n", name);
+  g_print ("vanished client %s %p\n", name, data);
 
+  g_bus_unwatch_name (data->id);
+}
+
+static void
+data_free (SenderData *data)
+{
+  g_print ("free client %s %p\n", data->sender, data);
   g_list_foreach (data->clients, (GFunc) remove_client, data);
 
-  g_hash_table_remove (priv->senders, data->sender);
+  g_hash_table_remove (data->subscribe->priv->senders, data->sender);
 
-  if (data->sender_subscribe)
+  if (data->sender_subscribe) {
+    g_signal_handler_disconnect (data->sender_subscribe, data->signal_event);
+    g_signal_handler_disconnect (data->sender_subscribe, data->signal_state);
     g_object_unref (data->sender_subscribe);
+  }
+
   g_free (data->sender);
-  g_bus_unwatch_name (data->id);
   g_free (data);
 }
 
@@ -196,11 +211,11 @@ sender_data_new (PvSubscribe *subscribe, const gchar *sender)
   PvSubscribePrivate *priv = subscribe->priv;
   SenderData *data;
 
-  g_print ("watch name %s\n", sender);
-
   data = g_new0 (SenderData, 1);
   data->subscribe = subscribe;
   data->sender = g_strdup (sender);
+
+  g_print ("watch name %s %p\n", sender, data);
 
   data->id = g_bus_watch_name_on_connection (priv->connection,
                                     sender,
@@ -208,7 +223,7 @@ sender_data_new (PvSubscribe *subscribe, const gchar *sender)
                                     client_name_appeared_handler,
                                     client_name_vanished_handler,
                                     data,
-                                    NULL);
+                                    (GDestroyNotify) data_free);
 
   g_hash_table_insert (priv->senders, data->sender, data);
   priv->pending_subscribes++;
@@ -444,14 +459,17 @@ on_client_manager_ready (GObject *source_object,
   connect_client_signals (subscribe);
 
   on_client_manager_name_owner (G_OBJECT (priv->client_manager), NULL, subscribe);
+  g_object_unref (subscribe);
+
   return;
 
   /* ERRORS */
 manager_error:
   {
     g_warning ("could not create client manager: %s", error->message);
-    g_clear_error (&error);
     subscription_set_state (subscribe, PV_SUBSCRIPTION_STATE_ERROR);
+    priv->error = error;
+    g_object_unref (subscribe);
     return;
   }
 }
@@ -468,9 +486,9 @@ install_subscription (PvSubscribe *subscribe)
                                 G_DBUS_OBJECT_MANAGER_CLIENT_FLAGS_NONE,
                                 priv->service,
                                 PV_DBUS_OBJECT_PREFIX,
-                                NULL,
+                                priv->cancellable,
                                 on_client_manager_ready,
-                                subscribe);
+                                g_object_ref (subscribe));
   priv->pending_subscribes++;
 }
 
@@ -480,6 +498,7 @@ uninstall_subscription (PvSubscribe *subscribe)
   PvSubscribePrivate *priv = subscribe->priv;
 
   g_clear_object (&priv->client_manager);
+  g_clear_error (&priv->error);
   subscription_set_state (subscribe, PV_SUBSCRIPTION_STATE_UNCONNECTED);
 }
 
@@ -557,9 +576,13 @@ pv_subscribe_finalize (GObject * object)
   PvSubscribe *subscribe = PV_SUBSCRIBE (object);
   PvSubscribePrivate *priv = subscribe->priv;
 
-  g_free (priv->service);
-  g_object_unref (priv->client_manager);
+  g_print ("cancel\n");
+  g_cancellable_cancel (priv->cancellable);
   g_hash_table_unref (priv->senders);
+  if (priv->client_manager)
+    g_object_unref (priv->client_manager);
+  g_object_unref (priv->cancellable);
+  g_free (priv->service);
 
   G_OBJECT_CLASS (pv_subscribe_parent_class)->finalize (object);
 }
@@ -661,6 +684,7 @@ pv_subscribe_init (PvSubscribe * subscribe)
   priv->service = g_strdup (PV_DBUS_SERVICE);
   priv->senders = g_hash_table_new (g_str_hash, g_str_equal);
   priv->state = PV_SUBSCRIPTION_STATE_UNCONNECTED;
+  priv->cancellable = g_cancellable_new ();
 }
 
 /**
@@ -677,3 +701,26 @@ pv_subscribe_new (void)
 {
   return g_object_new (PV_TYPE_SUBSCRIBE, NULL);
 }
+
+PvSubscriptionState
+pv_subscribe_get_state (PvSubscribe *subscribe)
+{
+  PvSubscribePrivate *priv;
+
+  g_return_val_if_fail (PV_IS_SUBSCRIBE (subscribe), PV_SUBSCRIPTION_STATE_ERROR);
+  priv = subscribe->priv;
+
+  return priv->state;
+}
+
+GError *
+pv_subscribe_get_error (PvSubscribe *subscribe)
+{
+  PvSubscribePrivate *priv;
+
+  g_return_val_if_fail (PV_IS_SUBSCRIBE (subscribe), NULL);
+  priv = subscribe->priv;
+
+  return priv->error;
+}
+

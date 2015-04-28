@@ -107,6 +107,7 @@ gboolean          pv_context_register_source       (PvContext *context, PvSource
 gboolean          pv_context_unregister_source     (PvContext *context, PvSource *source);
 
 PvContextState    pv_context_get_state             (PvContext *context);
+const GError *    pv_context_error                 (PvContext *context);
 
 GDBusConnection * pv_context_get_connection        (PvContext *context);
 

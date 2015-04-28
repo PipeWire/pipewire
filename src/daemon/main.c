@@ -38,7 +38,7 @@ main (gint argc, gchar *argv[])
   daemon = pv_daemon_new ();
 
   source = pv_v4l2_source_new();
-  //pv_daemon_add_source (daemon, source);
+  pv_daemon_add_source (daemon, source);
   pv_daemon_start (daemon);
 
   g_main_loop_run (loop);

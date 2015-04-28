@@ -94,13 +94,15 @@ GType           pv_stream_get_type             (void);
 
 
 PvStream *      pv_stream_new                  (PvContext * context,
-                                                const gchar *name);
+                                                const gchar *name,
+                                                GVariant * props);
 
 PvStreamState   pv_stream_get_state            (PvStream *stream);
 
 gboolean        pv_stream_connect_capture      (PvStream *stream,
                                                 const gchar *source,
-                                                PvStreamFlags flags);
+                                                PvStreamFlags flags,
+                                                GVariant *spec);
 gboolean        pv_stream_disconnect           (PvStream *stream);
 
 gboolean        pv_stream_start                (PvStream *stream, PvStreamMode mode);

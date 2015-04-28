@@ -38,6 +38,8 @@ struct _PvSourcePrivate
   gchar *name;
   PvSourceState state;
   GVariant *properties;
+
+  GError *error;
 };
 
 G_DEFINE_ABSTRACT_TYPE (PvSource, pv_source, G_TYPE_OBJECT);
@@ -377,6 +379,20 @@ pv_source_update_state (PvSource *source, PvSourceState state)
       pv_source1_set_state (priv->iface, state);
     g_object_notify (G_OBJECT (source), "state");
   }
+}
+
+void
+pv_source_report_error (PvSource *source, GError *error)
+{
+  PvSourcePrivate *priv;
+
+  g_return_if_fail (PV_IS_SOURCE (source));
+  priv = source->priv;
+
+  g_clear_error (&priv->error);
+  priv->error = error;
+  priv->state = PV_SOURCE_STATE_ERROR;
+  g_object_notify (G_OBJECT (source), "state");
 }
 
 PvSourceOutput *

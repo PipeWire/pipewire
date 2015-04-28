@@ -29,6 +29,7 @@ struct _PvV4l2SourcePrivate
 {
   GstElement *pipeline;
   GstElement *src;
+  GstElement *filter;
   GstElement *sink;
 
   GSocket *socket;
@@ -36,13 +37,40 @@ struct _PvV4l2SourcePrivate
 
 G_DEFINE_TYPE (PvV4l2Source, pv_v4l2_source, PV_TYPE_SOURCE);
 
+static gboolean
+bus_handler (GstBus * bus, GstMessage * message, gpointer user_data)
+{
+  PvSource *source = user_data;
+  PvV4l2SourcePrivate *priv = PV_V4L2_SOURCE (source)->priv;
+
+  switch (GST_MESSAGE_TYPE (message)) {
+    case GST_MESSAGE_ERROR:
+    {
+      GError *error;
+      gchar *debug;
+
+      gst_message_parse_error (message, &error, &debug);
+      g_print ("got error %s (%s)\n", error->message, debug);
+      g_free (debug);
+
+      pv_source_report_error (source, error);
+      gst_element_set_state (priv->pipeline, GST_STATE_NULL);
+      break;
+    }
+    default:
+      break;
+  }
+  return TRUE;
+}
+
 static void
 setup_pipeline (PvV4l2Source *source)
 {
   PvV4l2SourcePrivate *priv = source->priv;
+  GstBus *bus;
 
   priv->pipeline = gst_parse_launch ("v4l2src name=src ! "
-                                         "video/x-raw,width=640,height=480,framerate=30/1 ! "
+                                         "capsfilter name=filter ! "
                                      "pvfdpay ! "
                                      "multisocketsink "
                                          "buffers-max=2 "
@@ -53,8 +81,13 @@ setup_pipeline (PvV4l2Source *source)
                                          "sync=true "
                                          "enable-last-sample=false",
                                       NULL);
+  priv->filter = gst_bin_get_by_name (GST_BIN (priv->pipeline), "filter");
   priv->sink = gst_bin_get_by_name (GST_BIN (priv->pipeline), "sink");
   priv->src = gst_bin_get_by_name (GST_BIN (priv->pipeline), "src");
+
+  bus = gst_pipeline_get_bus (GST_PIPELINE (priv->pipeline));
+  gst_bus_add_watch (bus, bus_handler, source);
+  gst_object_unref (bus);
 }
 
 static void
@@ -140,6 +173,36 @@ v4l2_create_source_output (PvSource *source, GVariant *props, const gchar *prefi
 {
   PvV4l2SourcePrivate *priv = PV_V4L2_SOURCE (source)->priv;
   PvSourceOutput *output;
+  GVariantDict dict;
+  GstCaps *caps;
+  const gchar *str;
+  gint32 i32;
+
+  g_variant_dict_init (&dict, props);
+  if (!g_variant_dict_lookup (&dict, "format.encoding", "&s", &str))
+    goto invalid_encoding;
+
+  caps = gst_caps_new_empty_simple (str);
+
+  if (g_variant_dict_lookup (&dict, "format.format", "&s", &str))
+    gst_caps_set_simple (caps, "format", G_TYPE_STRING, str, NULL);
+  if (g_variant_dict_lookup (&dict, "format.width", "i", &i32))
+    gst_caps_set_simple (caps, "width", G_TYPE_INT, (gint) i32, NULL);
+  if (g_variant_dict_lookup (&dict, "format.height", "i", &i32))
+    gst_caps_set_simple (caps, "height", G_TYPE_INT, (gint) i32, NULL);
+  if (g_variant_dict_lookup (&dict, "format.views", "i", &i32))
+    gst_caps_set_simple (caps, "views", G_TYPE_INT, (gint) i32, NULL);
+  if (g_variant_dict_lookup (&dict, "format.chroma-site", "&s", &str))
+    gst_caps_set_simple (caps, "chroma-site", G_TYPE_STRING, str, NULL);
+  if (g_variant_dict_lookup (&dict, "format.colorimetry", "&s", &str))
+    gst_caps_set_simple (caps, "colorimetry", G_TYPE_STRING, str, NULL);
+  if (g_variant_dict_lookup (&dict, "format.interlace-mode", "&s", &str))
+    gst_caps_set_simple (caps, "interlace-mode", G_TYPE_STRING, str, NULL);
+
+  g_print ("caps %s\n", gst_caps_to_string (caps));
+
+  g_object_set (priv->filter, "caps", caps, NULL);
+  gst_caps_unref (caps);
 
   output = PV_SOURCE_CLASS (pv_v4l2_source_parent_class)->create_source_output (source, props, prefix);
 
@@ -148,6 +211,13 @@ v4l2_create_source_output (PvSource *source, GVariant *props, const gchar *prefi
   g_signal_connect (output, "notify::socket", (GCallback) on_socket_notify, source);
 
   return output;
+
+  /* ERRORS */
+invalid_encoding:
+  {
+    g_variant_dict_clear (&dict);
+    return NULL;
+  }
 }
 
 static gboolean

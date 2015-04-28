@@ -80,9 +80,14 @@ struct _PvSubscribeClass {
 };
 
 /* normal GObject stuff */
-GType             pv_subscribe_get_type              (void);
+GType               pv_subscribe_get_type              (void);
 
-PvSubscribe *     pv_subscribe_new                   (void);
+PvSubscribe *       pv_subscribe_new                   (void);
+
+PvSubscriptionState pv_subscribe_get_state             (PvSubscribe *subscribe);
+GError *            pv_subscribe_get_error             (PvSubscribe *subscribe);
+
+
 
 G_END_DECLS
 

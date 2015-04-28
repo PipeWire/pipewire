@@ -30,6 +30,7 @@ struct _PvStreamPrivate
 {
   PvContext *context;
   gchar *name;
+  GVariant *properties;
   gchar *target;
   PvStreamState state;
 
@@ -54,6 +55,7 @@ enum
   PROP_0,
   PROP_CONTEXT,
   PROP_NAME,
+  PROP_PROPERTIES,
   PROP_STATE,
   PROP_SOCKET
 };
@@ -82,6 +84,10 @@ pv_stream_get_property (GObject    *_object,
 
     case PROP_NAME:
       g_value_set_string (value, priv->name);
+      break;
+
+    case PROP_PROPERTIES:
+      g_value_set_variant (value, priv->properties);
       break;
 
     case PROP_STATE:
@@ -114,6 +120,12 @@ pv_stream_set_property (GObject      *_object,
 
     case PROP_NAME:
       priv->name = g_value_dup_string (value);
+      break;
+
+    case PROP_PROPERTIES:
+      if (priv->properties)
+        g_variant_unref (priv->properties);
+      priv->properties = g_value_dup_variant (value);
       break;
 
     default:
@@ -172,6 +184,21 @@ pv_stream_class_init (PvStreamClass * klass)
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_CONSTRUCT_ONLY |
                                                         G_PARAM_STATIC_STRINGS));
+  /**
+   * PvStream:properties
+   *
+   * The properties of the stream as specified at construction time.
+   */
+  g_object_class_install_property (gobject_class,
+                                   PROP_PROPERTIES,
+                                   g_param_spec_variant ("properties",
+                                                         "Properties",
+                                                         "The properties of the stream",
+                                                         G_VARIANT_TYPE_VARIANT,
+                                                         NULL,
+                                                         G_PARAM_READWRITE |
+                                                         G_PARAM_CONSTRUCT_ONLY |
+                                                         G_PARAM_STATIC_STRINGS));
   /**
    * PvStream:state
    *
@@ -236,18 +263,19 @@ pv_stream_init (PvStream * stream)
  * pv_stream_new:
  * @context: a #PvContext
  * @name: a stream name
+ * @properties: stream properties
  *
  * Make a new unconnected #PvStream
  *
  * Returns: a new unconnected #PvStream
  */
 PvStream *
-pv_stream_new (PvContext * context, const gchar *name)
+pv_stream_new (PvContext * context, const gchar *name, GVariant *props)
 {
   g_return_val_if_fail (PV_IS_CONTEXT (context), NULL);
   g_return_val_if_fail (name != NULL, NULL);
 
-  return g_object_new (PV_TYPE_STREAM, "context", context, "name", name, NULL);
+  return g_object_new (PV_TYPE_STREAM, "context", context, "name", name, "properties", props, NULL);
 }
 
 static void
@@ -390,13 +418,15 @@ remove_source_output (PvStream *stream)
 gboolean
 pv_stream_connect_capture (PvStream      *stream,
                            const gchar   *source,
-                           PvStreamFlags  flags)
+                           PvStreamFlags  flags,
+                           GVariant      *spec)
 {
   PvStreamPrivate *priv;
-  GVariantBuilder builder;
   PvContext *context;
 
   g_return_val_if_fail (PV_IS_STREAM (stream), FALSE);
+  g_return_val_if_fail (spec != NULL, FALSE);
+
   priv = stream->priv;
   context = priv->context;
   g_return_val_if_fail (pv_context_get_state (context) == PV_CONTEXT_STATE_READY, FALSE);
@@ -408,15 +438,13 @@ pv_stream_connect_capture (PvStream      *stream,
   priv->source = PV_SOURCE1 (pv_context_find_source (context, priv->target, NULL));
   if (priv->source == NULL) {
     g_warning ("can't find source");
+    stream_set_state (stream, PV_STREAM_STATE_READY);
     return FALSE;
   }
 
-  g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
-  g_variant_builder_add (&builder, "{sv}", "name", g_variant_new_string ("hello"));
-
   pv_source1_call_create_source_output (priv->source,
-                                        g_variant_builder_end (&builder), /* GVariant *arg_props */
-                                        NULL,        /* GCancellable *cancellable */
+                                        spec, /* GVariant *arg_props */
+                                        NULL, /* GCancellable *cancellable */
                                         on_source_output_created,
                                         stream);
   return TRUE;
@@ -497,7 +525,7 @@ on_socket_data (GSocket       *socket,
       priv->info.size = msg.size;
       priv->info.message = num_messages > 0 ? messages[0] : NULL;
 
-      g_signal_emit (stream, SIGNAL_NEW_BUFFER, 0, NULL);
+      g_signal_emit (stream, signals[SIGNAL_NEW_BUFFER], 0, NULL);
       break;
     }
 
@@ -530,7 +558,8 @@ handle_socket (PvStream *stream, gint fd)
 
       source = g_socket_create_source (priv->socket, G_IO_IN, NULL);
       g_source_set_callback (source, (GSourceFunc) on_socket_data, stream, NULL);
-      priv->socket_id = g_source_attach (source, NULL);
+      g_print ("%p\n", g_main_context_get_thread_default ());
+      priv->socket_id = g_source_attach (source, g_main_context_get_thread_default ());
       g_source_unref (source);
       break;
     }

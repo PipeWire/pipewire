@@ -88,7 +88,7 @@ main (gint argc, gchar *argv[])
 
   loop = g_main_loop_new (NULL, FALSE);
 
-  c = pv_context_new ("test-client", NULL);
+  c = pv_context_new (NULL, "test-client", NULL);
   g_signal_connect (c, "notify::state", (GCallback) on_state_notify, c);
   pv_context_connect(c, PV_CONTEXT_FLAGS_NOFAIL);
 

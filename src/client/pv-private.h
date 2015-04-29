@@ -17,23 +17,32 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __PULSEVIDEO_H__
-#define __PULSEVIDEO_H__
+struct _PvContextPrivate
+{
+  GMainContext *context;
 
-#include <client/pv-source.h>
-#include <client/pv-source-output.h>
-#include <client/pv-stream.h>
-#include <client/pv-context.h>
-#include <client/pv-subscribe.h>
-#include <client/pv-introspect.h>
+  gchar *name;
+  GVariant *properties;
 
-#define PV_DBUS_SERVICE "org.pulsevideo"
-#define PV_DBUS_OBJECT_PREFIX "/org/pulsevideo"
-#define PV_DBUS_OBJECT_SERVER PV_DBUS_OBJECT_PREFIX "/server"
-#define PV_DBUS_OBJECT_SOURCE PV_DBUS_OBJECT_PREFIX "/source"
-#define PV_DBUS_OBJECT_CLIENT PV_DBUS_OBJECT_PREFIX "/client"
+  guint id;
+  GDBusConnection *connection;
 
-void pv_init (int *argc, char **argv[]);
+  PvContextFlags flags;
+  PvContextState state;
 
-#endif /* __PULSEVIDEO_H__ */
+  PvDaemon1 *daemon;
+
+  PvClient1 *client;
+
+  PvSubscriptionFlags subscription_mask;
+  PvSubscribe *subscribe;
+
+  GList *sources;
+
+  GDBusObjectManagerServer *server_manager;
+
+  GError *error;
+};
+
+GDBusProxy *      pv_context_find_source           (PvContext *context, const gchar *name, GVariant *props);
 

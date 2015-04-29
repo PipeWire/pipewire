@@ -147,13 +147,12 @@ name_acquired_handler (GDBusConnection *connection,
   PvDaemonPrivate *priv = daemon->priv;
   GDBusObjectManagerServer *manager = priv->server_manager;
 
+  export_server_object (daemon, manager);
+
   g_object_set (priv->subscribe, "service", PV_DBUS_SERVICE,
                                  "subscription-mask", PV_SUBSCRIPTION_FLAGS_ALL,
                                  "connection", connection,
                                  NULL);
-
-
-  export_server_object (daemon, manager);
 
   g_dbus_object_manager_server_set_connection (manager, connection);
 }

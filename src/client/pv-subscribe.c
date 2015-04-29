@@ -91,6 +91,8 @@ on_sender_subscription_event (PvSubscribe         *sender_subscribe,
   SenderData *data = user_data;
   PvSubscribe *subscribe = data->subscribe;
 
+  g_print ("on sender subscription def: %p\n", g_main_context_get_thread_default ());
+
   g_signal_emit (subscribe,
                  signals[SIGNAL_SUBSCRIPTION_EVENT],
                  0,
@@ -144,6 +146,11 @@ client_name_appeared_handler (GDBusConnection *connection,
                               gpointer user_data)
 {
   SenderData *data = user_data;
+
+  g_print ("client name appeared def: %p\n", g_main_context_get_thread_default ());
+
+  if (!g_strcmp0 (name, g_dbus_connection_get_unique_name (connection)))
+    return;
 
   g_print ("appeared client %s %p\n", name, data);
   /* subscribe to Source events. We want to be notified when this new
@@ -215,6 +222,7 @@ sender_data_new (PvSubscribe *subscribe, const gchar *sender)
   data->subscribe = subscribe;
   data->sender = g_strdup (sender);
 
+  g_print ("watch name def: %p\n", g_main_context_get_thread_default ());
   g_print ("watch name %s %p\n", sender, data);
 
   data->id = g_bus_watch_name_on_connection (priv->connection,
@@ -238,6 +246,9 @@ notify_subscription (PvSubscribe         *subscribe,
                      PvSubscriptionEvent  event)
 {
   PvSubscribePrivate *priv = subscribe->priv;
+
+  g_print ("notify subscription def: %p\n", g_main_context_get_thread_default ());
+  //g_assert (g_main_context_get_thread_default ());
 
   if (priv->subscription_mask & PV_SUBSCRIPTION_FLAGS_DAEMON) {
     PvDaemon1 *daemon;
@@ -384,6 +395,8 @@ client_manager_appeared (PvSubscribe *subscribe)
   PvSubscribePrivate *priv = subscribe->priv;
   GList *objects, *walk;
 
+  g_print ("client manager appeared def: %p\n", g_main_context_get_thread_default ());
+
   objects = g_dbus_object_manager_get_objects (G_DBUS_OBJECT_MANAGER (priv->client_manager));
   for (walk = objects; walk ; walk = g_list_next (walk)) {
     on_client_manager_object_added (G_DBUS_OBJECT_MANAGER (priv->client_manager),
@@ -408,6 +421,8 @@ on_client_manager_name_owner (GObject    *object,
   PvSubscribePrivate *priv = subscribe->priv;
   gchar *name_owner;
 
+  g_print ("client manager owner def: %p\n", g_main_context_get_thread_default ());
+
   g_object_get (priv->client_manager, "name-owner", &name_owner, NULL);
   g_print ("client manager %s %s\n",
       g_dbus_object_manager_client_get_name (G_DBUS_OBJECT_MANAGER_CLIENT (priv->client_manager)),
@@ -426,6 +441,8 @@ static void
 connect_client_signals (PvSubscribe *subscribe)
 {
   PvSubscribePrivate *priv = subscribe->priv;
+
+  g_print ("add signals def: %p\n", g_main_context_get_thread_default ());
 
   g_signal_connect (priv->client_manager, "notify::name-owner",
       (GCallback) on_client_manager_name_owner, subscribe);
@@ -451,6 +468,8 @@ on_client_manager_ready (GObject *source_object,
   PvSubscribe *subscribe = user_data;
   PvSubscribePrivate *priv = subscribe->priv;
   GError *error = NULL;
+
+  g_print ("client manager ready def: %p\n", g_main_context_get_thread_default ());
 
   priv->client_manager = pv_object_manager_client_new_finish (res, &error);
   if (priv->client_manager == NULL)
@@ -480,6 +499,8 @@ install_subscription (PvSubscribe *subscribe)
   PvSubscribePrivate *priv = subscribe->priv;
 
   subscription_set_state (subscribe, PV_SUBSCRIPTION_STATE_CONNECTING);
+
+  g_print ("new client manager def: %p\n", g_main_context_get_thread_default ());
 
   g_print ("new client manager for %s\n", priv->service);
   pv_object_manager_client_new (priv->connection,

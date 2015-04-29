@@ -98,6 +98,7 @@ PvStream *      pv_stream_new                  (PvContext * context,
                                                 GVariant * props);
 
 PvStreamState   pv_stream_get_state            (PvStream *stream);
+const GError *  pv_stream_get_error            (PvStream *stream);
 
 gboolean        pv_stream_connect_capture      (PvStream *stream,
                                                 const gchar *source,

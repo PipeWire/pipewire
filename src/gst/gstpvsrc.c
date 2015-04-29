@@ -74,6 +74,7 @@ static void gst_pulsevideo_src_get_property (GObject * object, guint prop_id,
 static GstStateChangeReturn
 gst_pulsevideo_src_change_state (GstElement * element, GstStateChange transition);
 
+static gboolean gst_pulsevideo_src_negotiate (GstBaseSrc * basesrc);
 static GstCaps *gst_pulsevideo_src_getcaps (GstBaseSrc * bsrc, GstCaps * filter);
 static gboolean gst_pulsevideo_src_setcaps (GstBaseSrc * bsrc, GstCaps * caps);
 static GstCaps *gst_pulsevideo_src_src_fixate (GstBaseSrc * bsrc,
@@ -113,6 +114,7 @@ gst_pulsevideo_src_class_init (GstPulsevideoSrcClass * klass)
   gst_element_class_add_pad_template (gstelement_class,
       gst_static_pad_template_get (&gst_pulsevideo_src_template));
 
+  gstbasesrc_class->negotiate = gst_pulsevideo_src_negotiate;
   gstbasesrc_class->get_caps = gst_pulsevideo_src_getcaps;
   gstbasesrc_class->set_caps = gst_pulsevideo_src_setcaps;
   gstbasesrc_class->fixate = gst_pulsevideo_src_src_fixate;
@@ -132,6 +134,8 @@ gst_pulsevideo_src_init (GstPulsevideoSrc * src)
   gst_base_src_set_live (GST_BASE_SRC (src), TRUE);
 
   src->fd_allocator = gst_fd_allocator_new ();
+  g_mutex_init (&src->lock);
+  g_cond_init (&src->cond);
 }
 
 static GstCaps *
@@ -252,18 +256,9 @@ on_new_buffer (GObject    *gobject,
 {
   GstPulsevideoSrc *pvsrc = user_data;
 
-  g_main_loop_quit (pvsrc->loop);
-}
-
-static void
-on_socket_notify (GObject    *gobject,
-                  GParamSpec *pspec,
-                  gpointer    user_data)
-{
-  GSocket *socket;
-
-  g_object_get (gobject, "socket", &socket, NULL);
-  g_print ("got socket %p\n", socket);
+  g_mutex_lock (&pvsrc->lock);
+  g_cond_signal (&pvsrc->cond);
+  g_mutex_unlock (&pvsrc->lock);
 }
 
 static void
@@ -274,30 +269,52 @@ on_stream_notify (GObject    *gobject,
   PvStreamState state;
   GstPulsevideoSrc *pvsrc = user_data;
 
-  g_object_get (gobject, "state", &state, NULL);
+  g_mutex_lock (&pvsrc->lock);
+  state = pv_stream_get_state (pvsrc->stream);
   g_print ("got stream state %d\n", state);
-
-  switch (state) {
-    case PV_STREAM_STATE_ERROR:
-      g_main_loop_quit (pvsrc->loop);
-      break;
-    case PV_STREAM_STATE_READY:
-      g_main_loop_quit (pvsrc->loop);
-      g_main_context_push_thread_default (pvsrc->context);
-      pv_stream_start (pvsrc->stream, PV_STREAM_MODE_BUFFER);
-      g_main_context_pop_thread_default (pvsrc->context);
-      break;
-    case PV_STREAM_STATE_STREAMING:
-      break;
-    default:
-      break;
+  if (state == PV_STREAM_STATE_ERROR) {
+    GST_ELEMENT_ERROR (pvsrc, RESOURCE, FAILED,
+        ("Failed to connect stream: %s",
+          pv_stream_get_error (pvsrc->stream)->message), (NULL));
   }
+  g_cond_broadcast (&pvsrc->cond);
+  g_mutex_unlock (&pvsrc->lock);
+}
+
+static gboolean
+source_info_callback (PvContext *c, const PvSourceInfo *info, gpointer user_data)
+{
+  GstPulsevideoSrc *pvsrc = user_data;
+
+  if (info == NULL) {
+    return TRUE;
+  }
+
+  g_print ("source %s %p\n", info->name, pvsrc);
+
+
+  return TRUE;
+}
+
+static gboolean
+gst_pulsevideo_src_negotiate (GstBaseSrc * basesrc)
+{
+  GstPulsevideoSrc *pvsrc = GST_PULSEVIDEO_SRC (basesrc);
+
+  pv_context_list_source_info (pvsrc->ctx,
+      PV_SOURCE_INFO_FLAGS_CAPABILITIES,
+      source_info_callback,
+      NULL,
+      pvsrc);
+
+  return GST_BASE_SRC_CLASS (parent_class)->negotiate (basesrc);
 }
 
 static GstCaps *
 gst_pulsevideo_src_getcaps (GstBaseSrc * bsrc, GstCaps * filter)
 {
   return GST_BASE_SRC_CLASS (parent_class)->get_caps (bsrc, filter);
+
 }
 
 static gboolean
@@ -324,10 +341,8 @@ gst_pulsevideo_src_setcaps (GstBaseSrc * bsrc, GstCaps * caps)
   /* looks ok here */
   pvsrc->info = info;
 
-  g_main_context_push_thread_default (pvsrc->context);
   pvsrc->stream = pv_stream_new (pvsrc->ctx, "test", NULL);
   g_signal_connect (pvsrc->stream, "notify::state", (GCallback) on_stream_notify, pvsrc);
-  g_signal_connect (pvsrc->stream, "notify::socket", (GCallback) on_socket_notify, pvsrc);
   g_signal_connect (pvsrc->stream, "new-buffer", (GCallback) on_new_buffer, pvsrc);
 
   g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
@@ -345,9 +360,22 @@ gst_pulsevideo_src_setcaps (GstBaseSrc * bsrc, GstCaps * caps)
 //      g_variant_new_string (gst_video_interlace_mode_to_string (info.interlace_mode)));
 
   pv_stream_connect_capture (pvsrc->stream, NULL, 0, g_variant_builder_end (&builder));
-  g_main_context_pop_thread_default (pvsrc->context);
 
-  g_main_loop_run (pvsrc->loop);
+  g_mutex_lock (&pvsrc->lock);
+  while (TRUE) {
+    PvStreamState state = pv_stream_get_state (pvsrc->stream);
+
+    if (state == PV_STREAM_STATE_READY)
+      break;
+
+    if (state == PV_STREAM_STATE_ERROR)
+      goto connect_error;
+
+    g_cond_wait (&pvsrc->cond, &pvsrc->lock);
+  }
+  g_mutex_unlock (&pvsrc->lock);
+
+  pv_stream_start (pvsrc->stream, PV_STREAM_MODE_BUFFER);
 
   GST_DEBUG_OBJECT (pvsrc, "size %dx%d, %d/%d fps",
       info.width, info.height, info.fps_n, info.fps_d);
@@ -363,6 +391,11 @@ parse_failed:
 unsupported_caps:
   {
     GST_DEBUG_OBJECT (bsrc, "unsupported caps: %" GST_PTR_FORMAT, caps);
+    return FALSE;
+  }
+connect_error:
+  {
+    g_mutex_unlock (&pvsrc->lock);
     return FALSE;
   }
 }
@@ -449,8 +482,10 @@ gst_pulsevideo_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
           GST_VIDEO_FORMAT_UNKNOWN))
     goto not_negotiated;
 
-  g_main_loop_run (pvsrc->loop);
+  g_mutex_lock (&pvsrc->lock);
+  g_cond_wait (&pvsrc->cond, &pvsrc->lock);
   pv_stream_capture_buffer (pvsrc->stream, &info);
+  g_mutex_unlock (&pvsrc->lock);
 
   *buffer = gst_buffer_new ();
 
@@ -494,6 +529,11 @@ gst_pulsevideo_src_stop (GstBaseSrc * basesrc)
 static gpointer
 handle_mainloop (GstPulsevideoSrc *this)
 {
+  g_main_context_push_thread_default (this->context);
+  g_print ("run mainloop\n");
+  g_main_loop_run (this->loop);
+  g_print ("quit mainloop\n");
+  g_main_context_pop_thread_default (this->context);
 
   return NULL;
 }
@@ -506,36 +546,50 @@ on_state_notify (GObject    *gobject,
   GstPulsevideoSrc *pvsrc = user_data;
   PvContextState state;
 
-  g_object_get (gobject, "state", &state, NULL);
+  g_mutex_lock (&pvsrc->lock);
+  state = pv_context_get_state (pvsrc->ctx);
   g_print ("got context state %d\n", state);
+  g_cond_broadcast (&pvsrc->cond);
+  g_mutex_unlock (&pvsrc->lock);
 
-  switch (state) {
-    case PV_CONTEXT_STATE_ERROR:
-      g_main_loop_quit (pvsrc->loop);
-      GST_ELEMENT_ERROR (pvsrc, RESOURCE, FAILED,
-          ("Failed to connect stream: %s",
-            pv_context_error (pvsrc->ctx)->message), (NULL));
-      break;
-    case PV_CONTEXT_STATE_READY:
-      g_main_loop_quit (pvsrc->loop);
-      break;
-    default:
-      break;
+  if (state == PV_CONTEXT_STATE_ERROR) {
+    GST_ELEMENT_ERROR (pvsrc, RESOURCE, FAILED,
+        ("Failed to connect stream: %s",
+          pv_context_get_error (pvsrc->ctx)->message), (NULL));
   }
 }
 
 static gboolean
 gst_pulsevideo_src_open (GstPulsevideoSrc * pvsrc)
 {
-  g_main_context_push_thread_default (pvsrc->context);
-  pvsrc->ctx = pv_context_new ("test-client", NULL);
-  g_signal_connect (pvsrc->ctx, "notify::state", (GCallback) on_state_notify, pvsrc);
-  pv_context_connect(pvsrc->ctx, PV_CONTEXT_FLAGS_NONE);
-  g_main_context_pop_thread_default (pvsrc->context);
 
-  g_main_loop_run (pvsrc->loop);
+  pvsrc->ctx = pv_context_new (pvsrc->context, "test-client", NULL);
+  g_signal_connect (pvsrc->ctx, "notify::state", (GCallback) on_state_notify, pvsrc);
+
+  pv_context_connect(pvsrc->ctx, PV_CONTEXT_FLAGS_NONE);
+
+  g_mutex_lock (&pvsrc->lock);
+  while (TRUE) {
+    PvContextState state = pv_context_get_state (pvsrc->ctx);
+
+    if (state == PV_CONTEXT_STATE_READY)
+      break;
+
+    if (state == PV_CONTEXT_STATE_ERROR)
+      goto connect_error;
+
+    g_cond_wait (&pvsrc->cond, &pvsrc->lock);
+  }
+  g_mutex_unlock (&pvsrc->lock);
 
   return TRUE;
+
+  /* ERRORS */
+connect_error:
+  {
+    g_mutex_unlock (&pvsrc->lock);
+    return FALSE;
+  }
 }
 
 static GstStateChangeReturn
@@ -552,7 +606,10 @@ gst_pulsevideo_src_change_state (GstElement * element, GstStateChange transition
       this->thread = g_thread_new ("pulsevideo", (GThreadFunc) handle_mainloop, this);
       break;
     case GST_STATE_CHANGE_READY_TO_PAUSED:
-      gst_pulsevideo_src_open (this);
+      if (!gst_pulsevideo_src_open (this)) {
+        ret = GST_STATE_CHANGE_FAILURE;
+        goto exit;
+      }
       break;
     case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
       /* uncork and start recording */
@@ -568,7 +625,6 @@ gst_pulsevideo_src_change_state (GstElement * element, GstStateChange transition
 
   switch (transition) {
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
-      g_main_loop_quit (this->loop);
       break;
     case GST_STATE_CHANGE_PAUSED_TO_READY:
       break;
@@ -582,6 +638,7 @@ gst_pulsevideo_src_change_state (GstElement * element, GstStateChange transition
       break;
   }
 
+exit:
   return ret;
 }
 

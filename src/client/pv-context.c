@@ -25,31 +25,7 @@
 
 #include "dbus/org-pulsevideo.h"
 
-struct _PvContextPrivate
-{
-  gchar *name;
-  GVariant *properties;
-
-  guint id;
-  GDBusConnection *connection;
-
-  PvContextFlags flags;
-  PvContextState state;
-
-  PvDaemon1 *daemon;
-
-  PvClient1 *client;
-
-  PvSubscriptionFlags subscription_mask;
-  PvSubscribe *subscribe;
-
-  GList *sources;
-
-  GDBusObjectManagerServer *server_manager;
-
-  GError *error;
-};
-
+#include "client/pv-private.h"
 
 #define PV_CONTEXT_GET_PRIVATE(obj)  \
    (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PV_TYPE_CONTEXT, PvContextPrivate))
@@ -67,6 +43,7 @@ subscription_cb (PvSubscribe         *subscribe,
 enum
 {
   PROP_0,
+  PROP_MAIN_CONTEXT,
   PROP_NAME,
   PROP_PROPERTIES,
   PROP_STATE,
@@ -92,6 +69,10 @@ pv_context_get_property (GObject    *_object,
   PvContextPrivate *priv = context->priv;
 
   switch (prop_id) {
+    case PROP_MAIN_CONTEXT:
+      g_value_set_pointer (value, priv->context);
+      break;
+
     case PROP_NAME:
       g_value_set_string (value, priv->name);
       break;
@@ -128,6 +109,10 @@ pv_context_set_property (GObject      *_object,
   PvContextPrivate *priv = context->priv;
 
   switch (prop_id) {
+    case PROP_MAIN_CONTEXT:
+      priv->context = g_value_get_pointer (value);
+      break;
+
     case PROP_NAME:
       g_free (priv->name);
       priv->name = g_value_dup_string (value);
@@ -173,6 +158,19 @@ pv_context_class_init (PvContextClass * klass)
   gobject_class->set_property = pv_context_set_property;
   gobject_class->get_property = pv_context_get_property;
 
+  /**
+   * PvContext:main-context
+   *
+   * The main context to use
+   */
+  g_object_class_install_property (gobject_class,
+                                   PROP_MAIN_CONTEXT,
+                                   g_param_spec_pointer ("main-context",
+                                                         "Main Context",
+                                                         "The main context to use",
+                                                          G_PARAM_READWRITE |
+                                                          G_PARAM_CONSTRUCT_ONLY |
+                                                          G_PARAM_STATIC_STRINGS));
   /**
    * PvContext:name
    *
@@ -288,9 +286,9 @@ pv_context_init (PvContext * context)
  * Returns: a new unconnected #PvContext
  */
 PvContext *
-pv_context_new (const gchar *name, GVariant *properties)
+pv_context_new (GMainContext *context, const gchar *name, GVariant *properties)
 {
-  return g_object_new (PV_TYPE_CONTEXT, "name", name, "properties", properties, NULL);
+  return g_object_new (PV_TYPE_CONTEXT, "main-context", context, "name", name, "properties", properties, NULL);
 }
 
 static void
@@ -311,6 +309,8 @@ on_client_proxy (GObject *source_object,
   PvContextPrivate *priv = context->priv;
   GError *error = NULL;
 
+  g_assert (g_main_context_get_thread_default () == priv->context);
+
   priv->client = pv_client1_proxy_new_finish (res, &error);
   if (priv->client == NULL) {
     priv->error = error;
@@ -330,6 +330,8 @@ on_client_connected (GObject *source_object,
   PvContextPrivate *priv = context->priv;
   GError *error = NULL;
   gchar *client_path;
+
+  g_assert (g_main_context_get_thread_default () == priv->context);
 
   if (!pv_daemon1_call_connect_client_finish (priv->daemon, &client_path, res, &error)) {
     priv->error = error;
@@ -355,6 +357,8 @@ on_daemon_connected (GObject *source_object,
 {
   PvContext *context = user_data;
   PvContextPrivate *priv = context->priv;
+
+  g_assert (g_main_context_get_thread_default () == priv->context);
 
   context_set_state (context, PV_CONTEXT_STATE_REGISTERING);
 
@@ -385,6 +389,9 @@ subscription_cb (PvSubscribe         *subscribe,
 
   g_print ("got event %d %d\n", event, flags);
 
+  g_assert (g_main_context_get_thread_default () == priv->context);
+
+
   switch (flags) {
     case PV_SUBSCRIPTION_FLAGS_DAEMON:
       priv->daemon = PV_DAEMON1 (object);
@@ -394,7 +401,10 @@ subscription_cb (PvSubscribe         *subscribe,
       break;
 
     case PV_SUBSCRIPTION_FLAGS_SOURCE:
-      priv->sources = g_list_prepend (priv->sources, object);
+      if (event == PV_SUBSCRIPTION_EVENT_NEW)
+        priv->sources = g_list_prepend (priv->sources, object);
+      else if (event == PV_SUBSCRIPTION_EVENT_REMOVE)
+        priv->sources = g_list_remove (priv->sources, object);
       break;
 
     case PV_SUBSCRIPTION_FLAGS_SOURCE_OUTPUT:
@@ -417,9 +427,13 @@ subscription_state (GObject    *object,
                     gpointer    user_data)
 {
   PvContext *context = user_data;
+  PvContextPrivate *priv = context->priv;
   PvSubscriptionState state;
 
-  g_object_get (object, "state", &state, NULL);
+  g_assert (g_main_context_get_thread_default () == priv->context);
+  g_assert (object == G_OBJECT (priv->subscribe));
+
+  state = pv_subscribe_get_state (priv->subscribe);
   g_print ("got subscription state %d\n", state);
 
   switch (state) {
@@ -442,6 +456,10 @@ on_name_appeared (GDBusConnection *connection,
   PvContext *context = user_data;
   PvContextPrivate *priv = context->priv;
 
+  g_assert (g_main_context_get_thread_default () == priv->context);
+
+  g_print ("context: on name appeared\n");
+
   priv->connection = connection;
   g_dbus_object_manager_server_set_connection (priv->server_manager, connection);
 
@@ -457,6 +475,10 @@ on_name_vanished (GDBusConnection *connection,
   PvContext *context = user_data;
   PvContextPrivate *priv = context->priv;
 
+  g_assert (g_main_context_get_thread_default () == priv->context);
+
+  g_print ("context: on name vanished\n");
+
   priv->connection = connection;
   g_dbus_object_manager_server_set_connection (priv->server_manager, connection);
 
@@ -468,6 +490,26 @@ on_name_vanished (GDBusConnection *connection,
     priv->error = g_error_new_literal (G_IO_ERROR, G_IO_ERROR_CLOSED, "Connection closed");
     context_set_state (context, PV_CONTEXT_STATE_ERROR);
   }
+}
+
+static gboolean
+do_connect (PvContext *context)
+{
+  PvContextPrivate *priv = context->priv;
+  GBusNameWatcherFlags nw_flags;
+
+  nw_flags = G_BUS_NAME_WATCHER_FLAGS_NONE;
+  if (!(priv->flags & PV_CONTEXT_FLAGS_NOAUTOSPAWN))
+    nw_flags = G_BUS_NAME_WATCHER_FLAGS_AUTO_START;
+
+  priv->id = g_bus_watch_name (G_BUS_TYPE_SESSION,
+                               PV_DBUS_SERVICE,
+                               nw_flags,
+                               on_name_appeared,
+                               on_name_vanished,
+                               context,
+                               NULL);
+  return FALSE;
 }
 
 /**
@@ -483,7 +525,6 @@ gboolean
 pv_context_connect (PvContext *context, PvContextFlags flags)
 {
   PvContextPrivate *priv;
-  GBusNameWatcherFlags nw_flags;
 
   g_return_val_if_fail (PV_IS_CONTEXT (context), FALSE);
 
@@ -493,18 +534,8 @@ pv_context_connect (PvContext *context, PvContextFlags flags)
   priv->flags = flags;
 
   context_set_state (context, PV_CONTEXT_STATE_CONNECTING);
+  g_main_context_invoke (priv->context, (GSourceFunc) do_connect, context);
 
-  nw_flags = G_BUS_NAME_WATCHER_FLAGS_NONE;
-  if (!(flags & PV_CONTEXT_FLAGS_NOAUTOSPAWN))
-    nw_flags = G_BUS_NAME_WATCHER_FLAGS_AUTO_START;
-
-  priv->id = g_bus_watch_name (G_BUS_TYPE_SESSION,
-                               PV_DBUS_SERVICE,
-                               nw_flags,
-                               on_name_appeared,
-                               on_name_vanished,
-                               context,
-                               NULL);
   return TRUE;
 }
 
@@ -617,7 +648,7 @@ pv_context_get_state (PvContext *context)
 }
 
 /**
- * pv_context_error:
+ * pv_context_get_error:
  * @context: a #PvContext
  *
  * Get the current error of @context or %NULL when the context state
@@ -626,7 +657,7 @@ pv_context_get_state (PvContext *context)
  * Returns: the last error or %NULL
  */
 const GError *
-pv_context_error (PvContext *context)
+pv_context_get_error (PvContext *context)
 {
   PvContextPrivate *priv;
 
@@ -634,22 +665,6 @@ pv_context_error (PvContext *context)
   priv = context->priv;
 
   return priv->error;
-}
-
-/**
- * pv_context_get_connection:
- * @context: a #PvContext
- *
- * Get the #GDBusConnection of @context.
- *
- * Returns: the #GDBusConnection of @context or %NULL when not connected.
- */
-GDBusConnection *
-pv_context_get_connection (PvContext *context)
-{
-  g_return_val_if_fail (PV_IS_CONTEXT (context), NULL);
-
-  return context->priv->connection;
 }
 
 GDBusProxy *

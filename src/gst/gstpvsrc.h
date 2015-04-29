@@ -27,6 +27,7 @@
 
 #include <client/pv-context.h>
 #include <client/pv-stream.h>
+#include <client/pv-introspect.h>
 
 G_BEGIN_DECLS
 
@@ -65,6 +66,9 @@ struct _GstPulsevideoSrc {
   PvContext *ctx;
   PvStream *stream;
   GstAllocator *fd_allocator;
+
+  GMutex lock;
+  GCond cond;
 };
 
 struct _GstPulsevideoSrcClass {

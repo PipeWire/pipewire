@@ -60,6 +60,7 @@ dbuspolicy_DATA = \
 ###################################
 
 enumtypesincludes = client/pv-context.h \
+		    client/pv-introspect.h \
 		    client/pv-source.h \
 		    client/pv-stream.h \
 		    client/pv-subscribe.h
@@ -159,6 +160,7 @@ pulsevideoinclude_HEADERS = \
 		client/pulsevideo.h \
 		client/pv-context.h \
 		client/pv-enumtypes.h \
+		client/pv-introspect.h \
 		client/pv-stream.h \
 		client/pv-subscribe.h \
 		client/pv-source.h \
@@ -172,6 +174,7 @@ lib_LTLIBRARIES = \
 libpulsevideo_@PV_MAJORMINOR@_la_SOURCES = \
 		client/pv-context.h client/pv-context.c \
 		client/pv-enumtypes.h client/pv-enumtypes.c \
+		client/pv-introspect.h client/pv-introspect.c \
 		client/pv-stream.h client/pv-stream.c \
 		client/pulsevideo.c client/pulsevideo.h \
 		client/pv-source-output.c client/pv-source-output.h \

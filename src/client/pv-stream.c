@@ -26,6 +26,8 @@
 
 #include "dbus/org-pulsevideo.h"
 
+#include "client/pv-private.h"
+
 struct _PvStreamPrivate
 {
   PvContext *context;
@@ -33,9 +35,11 @@ struct _PvStreamPrivate
   GVariant *properties;
   gchar *target;
   PvStreamState state;
+  GError *error;
 
   gchar *source_output_path;
   PvSource1 *source;
+  GVariant *spec;
   PvSourceOutput1 *source_output;
 
   GSocket *socket;
@@ -303,6 +307,23 @@ pv_stream_get_state (PvStream *stream)
   return stream->priv->state;
 }
 
+/**
+ * pv_stream_get_error:
+ * @stream: a #PvStream
+ *
+ * Get the error of @stream.
+ *
+ * Returns: the error of @stream or %NULL when there is no error
+ */
+const GError *
+pv_stream_get_error (PvStream *stream)
+{
+  g_return_val_if_fail (PV_IS_STREAM (stream), NULL);
+
+  return stream->priv->error;
+}
+
+
 static void
 on_request_reconfigure (PvSourceOutput1 *interface,
                         GVariant *props,
@@ -320,6 +341,8 @@ on_source_output1_proxy (GObject *source_object,
   PvStreamPrivate *priv = stream->priv;
   GError *error = NULL;
 
+  g_assert (g_main_context_get_thread_default () == priv->context->priv->context);
+
   priv->source_output = pv_source_output1_proxy_new_finish (res, &error);
   if (priv->source_output == NULL)
     goto source_output_failed;
@@ -331,9 +354,9 @@ on_source_output1_proxy (GObject *source_object,
   /* ERRORS */
 source_output_failed:
   {
+    priv->error = error;
     stream_set_state (stream, PV_STREAM_STATE_ERROR);
     g_error ("failed to get source output proxy: %s", error->message);
-    g_clear_error (&error);
     return;
   }
 }
@@ -348,13 +371,15 @@ on_source_output_created (GObject *source_object,
   PvContext *context = priv->context;
   GError *error = NULL;
 
+  g_assert (g_main_context_get_thread_default () == priv->context->priv->context);
+
   if (!pv_source1_call_create_source_output_finish (priv->source,
         &priv->source_output_path, res, &error))
     goto create_failed;
 
   g_print ("got source-output %s\n", priv->source_output_path);
 
-  pv_source_output1_proxy_new (pv_context_get_connection (context),
+  pv_source_output1_proxy_new (context->priv->connection,
                                G_DBUS_PROXY_FLAGS_NONE,
                                g_dbus_proxy_get_name (G_DBUS_PROXY (priv->source)),
                                priv->source_output_path,
@@ -366,9 +391,9 @@ on_source_output_created (GObject *source_object,
   /* ERRORS */
 create_failed:
   {
+    priv->error = error;
     stream_set_state (stream, PV_STREAM_STATE_ERROR);
     g_print ("failed to get connect capture: %s", error->message);
-    g_clear_error (&error);
     return;
   }
 }
@@ -382,11 +407,13 @@ on_source_output_removed (GObject *source_object,
   PvStreamPrivate *priv = stream->priv;
   GError *error = NULL;
 
+  g_assert (g_main_context_get_thread_default () == priv->context->priv->context);
+
   if (!pv_source_output1_call_remove_finish (priv->source_output,
         res, &error)) {
+    priv->error = error;
     stream_set_state (stream, PV_STREAM_STATE_ERROR);
     g_print ("failed to disconnect: %s", error->message);
-    g_clear_error (&error);
     return;
   }
   g_clear_pointer (&priv->source_output_path, g_free);
@@ -398,11 +425,28 @@ remove_source_output (PvStream *stream)
 {
   PvStreamPrivate *priv = stream->priv;
 
+  g_assert (g_main_context_get_thread_default () == priv->context->priv->context);
+
   pv_source_output1_call_remove (priv->source_output,
                                  NULL,        /* GCancellable *cancellable */
                                  on_source_output_removed,
                                  stream);
   return TRUE;
+}
+
+static gboolean
+do_connect_capture (PvStream *stream)
+{
+  PvStreamPrivate *priv = stream->priv;
+
+  g_assert (g_main_context_get_thread_default () == priv->context->priv->context);
+
+  pv_source1_call_create_source_output (priv->source,
+                                        priv->spec, /* GVariant *arg_props */
+                                        NULL, /* GCancellable *cancellable */
+                                        on_source_output_created,
+                                        stream);
+  return FALSE;
 }
 
 /**
@@ -433,20 +477,17 @@ pv_stream_connect_capture (PvStream      *stream,
 
   priv->target = g_strdup (source);
 
-  stream_set_state (stream, PV_STREAM_STATE_CONNECTING);
-
   priv->source = PV_SOURCE1 (pv_context_find_source (context, priv->target, NULL));
   if (priv->source == NULL) {
     g_warning ("can't find source");
-    stream_set_state (stream, PV_STREAM_STATE_READY);
     return FALSE;
   }
+  priv->spec = spec;
 
-  pv_source1_call_create_source_output (priv->source,
-                                        spec, /* GVariant *arg_props */
-                                        NULL, /* GCancellable *cancellable */
-                                        on_source_output_created,
-                                        stream);
+  stream_set_state (stream, PV_STREAM_STATE_CONNECTING);
+
+  g_main_context_invoke (context->priv->context, (GSourceFunc) do_connect_capture, stream);
+
   return TRUE;
 }
 
@@ -558,8 +599,7 @@ handle_socket (PvStream *stream, gint fd)
 
       source = g_socket_create_source (priv->socket, G_IO_IN, NULL);
       g_source_set_callback (source, (GSourceFunc) on_socket_data, stream, NULL);
-      g_print ("%p\n", g_main_context_get_thread_default ());
-      priv->socket_id = g_source_attach (source, g_main_context_get_thread_default ());
+      priv->socket_id = g_source_attach (source, priv->context->priv->context);
       g_source_unref (source);
       break;
     }
@@ -572,9 +612,9 @@ handle_socket (PvStream *stream, gint fd)
   /* ERRORS */
 socket_failed:
   {
+    priv->error = error;
     stream_set_state (stream, PV_STREAM_STATE_ERROR);
     g_error ("failed to create socket: %s", error->message);
-    g_clear_error (&error);
     return;
   }
 }
@@ -645,10 +685,27 @@ fd_failed:
   }
 exit_error:
   {
+    priv->error = error;
     stream_set_state (stream, PV_STREAM_STATE_ERROR);
-    g_clear_error (&error);
     return;
   }
+}
+
+static gboolean
+do_start (PvStream *stream)
+{
+  PvStreamPrivate *priv = stream->priv;
+  GVariantBuilder builder;
+
+  g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
+  g_variant_builder_add (&builder, "{sv}", "name", g_variant_new_string ("hello"));
+
+  pv_source_output1_call_start (priv->source_output,
+                                g_variant_builder_end (&builder), /* GVariant *arg_properties */
+                                NULL,        /* GCancellable *cancellable */
+                                on_stream_started,
+                                stream);
+  return FALSE;
 }
 
 /**
@@ -680,18 +737,9 @@ pv_stream_start (PvStream *stream, PvStreamMode mode)
   priv->mode = mode;
 
   stream_set_state (stream, PV_STREAM_STATE_STARTING);
-  {
-    GVariantBuilder builder;
 
-    g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
-    g_variant_builder_add (&builder, "{sv}", "name", g_variant_new_string ("hello"));
+  g_main_context_invoke (priv->context->priv->context, (GSourceFunc) do_start, stream);
 
-    pv_source_output1_call_start (priv->source_output,
-                                  g_variant_builder_end (&builder), /* GVariant *arg_properties */
-                                  NULL,        /* GCancellable *cancellable */
-                                  on_stream_started,
-                                  stream);
-  }
   return TRUE;
 }
 
@@ -717,13 +765,25 @@ on_stream_stopped (GObject *source_object,
   /* ERRORS */
 call_failed:
   {
+    priv->error = error;
     stream_set_state (stream, PV_STREAM_STATE_ERROR);
     g_error ("failed to release: %s", error->message);
-    g_clear_error (&error);
     return;
   }
 }
 
+static gboolean
+do_stop (PvStream *stream)
+{
+  PvStreamPrivate *priv = stream->priv;
+
+  pv_source_output1_call_stop (priv->source_output,
+                               NULL,        /* GCancellable *cancellable */
+                               on_stream_stopped,
+                               stream);
+
+  return FALSE;
+}
 /**
  * pv_stream_stop:
  * @stream: a #PvStream
@@ -742,10 +802,7 @@ pv_stream_stop (PvStream *stream)
   priv = stream->priv;
   g_return_val_if_fail (priv->state == PV_STREAM_STATE_STREAMING, FALSE);
 
-  pv_source_output1_call_stop (priv->source_output,
-                               NULL,        /* GCancellable *cancellable */
-                               on_stream_stopped,
-                               stream);
+  g_main_context_invoke (priv->context->priv->context, (GSourceFunc) do_stop, stream);
 
   return TRUE;
 }

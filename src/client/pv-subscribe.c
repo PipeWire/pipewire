@@ -22,24 +22,33 @@
 #include "client/pulsevideo.h"
 #include "client/pv-enumtypes.h"
 
-#include "dbus/org-pulsevideo.h"
-
 struct _PvSubscribePrivate
 {
-  PvSubscriptionState state;
-  GDBusConnection *connection;
   gchar *service;
-  GCancellable *cancellable;
-
   PvSubscriptionFlags subscription_mask;
 
-  GDBusObjectManager *client_manager;
-  guint pending_subscribes;
+  GDBusConnection *connection;
+  GCancellable *cancellable;
 
-  GHashTable *senders;
+  GDBusProxy *manager_proxy;
 
+  guint pending_proxies;
+  GList *objects;
+
+  PvSubscriptionState state;
   GError *error;
 };
+
+typedef struct
+{
+  PvSubscribe *subscribe;
+  gchar *sender_name;
+  gchar *object_path;
+  gchar *interface_name;
+  gboolean pending;
+  GDBusProxy *proxy;
+  GList *tasks;
+} PvObjectData;
 
 
 #define PV_SUBSCRIBE_GET_PRIVATE(obj)  \
@@ -64,43 +73,6 @@ enum
 
 static guint signals[LAST_SIGNAL] = { 0 };
 
-
-typedef struct {
-  PvSubscribe *subscribe;
-  gchar *sender;
-  guint id;
-  PvSubscribe *sender_subscribe;
-  GList *clients;
-  gulong signal_event;
-  gulong signal_state;
-} SenderData;
-
-static void
-notify_subscription (PvSubscribe         *subscribe,
-                     GDBusObject         *object,
-                     GDBusInterface      *interface,
-                     PvSubscriptionEvent  event);
-
-static void
-on_sender_subscription_event (PvSubscribe         *sender_subscribe,
-                              PvSubscriptionEvent  event,
-                              PvSubscriptionFlags  flags,
-                              GDBusProxy          *object,
-                              gpointer             user_data)
-{
-  SenderData *data = user_data;
-  PvSubscribe *subscribe = data->subscribe;
-
-  g_print ("on sender subscription def: %p\n", g_main_context_get_thread_default ());
-
-  g_signal_emit (subscribe,
-                 signals[SIGNAL_SUBSCRIPTION_EVENT],
-                 0,
-                 event,
-                 flags,
-                 object);
-}
-
 static void
 subscription_set_state (PvSubscribe *subscribe, PvSubscriptionState state)
 {
@@ -113,309 +85,231 @@ subscription_set_state (PvSubscribe *subscribe, PvSubscriptionState state)
 }
 
 static void
-on_sender_subscription_state (GObject    *object,
-                              GParamSpec *pspec,
-                              gpointer    user_data)
+notify_event (PvSubscribe         *subscribe,
+              PvObjectData        *data,
+              PvSubscriptionEvent  event)
 {
-  SenderData *data = user_data;
+  const gchar *interface_name;
+  PvSubscriptionFlags flags = 0;
+
+  interface_name = g_dbus_proxy_get_interface_name (data->proxy);
+  if (g_strcmp0 (interface_name, "org.pulsevideo.Daemon1") == 0) {
+    flags = PV_SUBSCRIPTION_FLAGS_DAEMON;
+  }
+  else if (g_strcmp0 (interface_name, "org.pulsevideo.Client1") == 0) {
+    flags = PV_SUBSCRIPTION_FLAGS_CLIENT;
+  }
+  else if (g_strcmp0 (interface_name, "org.pulsevideo.Source1") == 0) {
+    flags = PV_SUBSCRIPTION_FLAGS_SOURCE;
+  }
+  else if (g_strcmp0 (interface_name, "org.pulsevideo.SourceOutput1") == 0) {
+    flags = PV_SUBSCRIPTION_FLAGS_SOURCE_OUTPUT;
+  }
+  g_signal_emit (subscribe, signals[SIGNAL_SUBSCRIPTION_EVENT], 0,
+          event, flags, data->proxy);
+}
+
+static void
+on_proxy_properties_changed (GDBusProxy *proxy,
+                             GVariant   *changed_properties,
+                             GStrv       invalidated_properties,
+                             gpointer    user_data)
+{
+  ProxyData *data = user_data;
+
+  notify_event (subscribe, data->proxy, PV_SUBSCRIPTION_EVENT_CHANGE);
+}
+
+static void
+on_proxy_created (GObject *source_object,
+                  GAsyncResult *res,
+                  gpointer user_data)
+{
+  ProxyData *data = user_data;
   PvSubscribe *subscribe = data->subscribe;
   PvSubscribePrivate *priv = subscribe->priv;
-  PvSubscriptionState state;
+  GError *error = NULL;
+  GList *walk;
 
-  g_object_get (object, "state", &state, NULL);
-
-  switch (state) {
-    case PV_SUBSCRIPTION_STATE_READY:
-      if (--priv->pending_subscribes == 0)
-        subscription_set_state (subscribe, state);
-      break;
-
-    case PV_SUBSCRIPTION_STATE_ERROR:
-      subscription_set_state (subscribe, state);
-      break;
-
-    default:
-      break;
-  }
-}
-
-static void
-client_name_appeared_handler (GDBusConnection *connection,
-                              const gchar *name,
-                              const gchar *name_owner,
-                              gpointer user_data)
-{
-  SenderData *data = user_data;
-
-  g_print ("client name appeared def: %p\n", g_main_context_get_thread_default ());
-
-  if (!g_strcmp0 (name, g_dbus_connection_get_unique_name (connection)))
+  data->proxy = g_dbus_proxy_new_finish (res, &error);
+  if (data->proxy == NULL) {
+    priv->objects = g_list_remove (priv->objects, data);
+    g_warning ("could not create proxy: %s", error->message);
+    subscription_set_state (subscribe, PV_SUBSCRIPTION_STATE_ERROR);
+    priv->error = error;
     return;
+  }
 
-  g_print ("appeared client %s %p\n", name, data);
-  /* subscribe to Source events. We want to be notified when this new
-   * sender add/change/remove sources and outputs */
-  data->sender_subscribe = pv_subscribe_new ();
-  g_object_set (data->sender_subscribe, "service", data->sender,
-                                        "subscription-mask", PV_SUBSCRIPTION_FLAGS_ALL,
-                                        "connection", connection,
-                                        NULL);
-
-  data->signal_event = g_signal_connect (data->sender_subscribe,
-                    "subscription-event",
-                    (GCallback) on_sender_subscription_event,
+  g_signal_connect (data->proxy,
+                    "g-properties-changed",
+                    (GCallback) on_proxy_properties_changed,
                     data);
-  data->signal_state = g_signal_connect (data->sender_subscribe,
-                    "notify::state",
-                    (GCallback) on_sender_subscription_state,
-                    data);
-}
 
-static void
-remove_client (PvClient1 *client, SenderData *data)
-{
-  g_signal_emit (data->subscribe,
-                 signals[SIGNAL_SUBSCRIPTION_EVENT],
-                 0,
-                 PV_SUBSCRIPTION_EVENT_REMOVE,
-                 PV_SUBSCRIPTION_FLAGS_CLIENT,
-                 client);
-}
+  notify_event (subscribe, data, PV_SUBSCRIPTION_EVENT_NEW);
 
-static void
-client_name_vanished_handler (GDBusConnection *connection,
-                              const gchar *name,
-                              gpointer user_data)
-{
-  SenderData *data = user_data;
-
-  g_print ("vanished client %s %p\n", name, data);
-
-  g_bus_unwatch_name (data->id);
-}
-
-static void
-data_free (SenderData *data)
-{
-  g_print ("free client %s %p\n", data->sender, data);
-  g_list_foreach (data->clients, (GFunc) remove_client, data);
-
-  g_hash_table_remove (data->subscribe->priv->senders, data->sender);
-
-  if (data->sender_subscribe) {
-    g_signal_handler_disconnect (data->sender_subscribe, data->signal_event);
-    g_signal_handler_disconnect (data->sender_subscribe, data->signal_state);
-    g_object_unref (data->sender_subscribe);
+  for (walk = data->tasks; walk; walk = g_list_next (walk)) {
+    GTask *task = walk->data;
+    g_task_return_pointer (task, g_object_ref (data->proxy), g_object_unref);
+    g_object_unref (task);
   }
+  g_list_free (data->tasks);
+  data->tasks = NULL;
 
-  g_free (data->sender);
-  g_free (data);
-}
-
-static SenderData *
-sender_data_new (PvSubscribe *subscribe, const gchar *sender)
-{
-  PvSubscribePrivate *priv = subscribe->priv;
-  SenderData *data;
-
-  data = g_new0 (SenderData, 1);
-  data->subscribe = subscribe;
-  data->sender = g_strdup (sender);
-
-  g_print ("watch name def: %p\n", g_main_context_get_thread_default ());
-  g_print ("watch name %s %p\n", sender, data);
-
-  data->id = g_bus_watch_name_on_connection (priv->connection,
-                                    sender,
-                                    G_BUS_NAME_WATCHER_FLAGS_NONE,
-                                    client_name_appeared_handler,
-                                    client_name_vanished_handler,
-                                    data,
-                                    (GDestroyNotify) data_free);
-
-  g_hash_table_insert (priv->senders, data->sender, data);
-  priv->pending_subscribes++;
-
-  return data;
-}
-
-static void
-notify_subscription (PvSubscribe         *subscribe,
-                     GDBusObject         *object,
-                     GDBusInterface      *interface,
-                     PvSubscriptionEvent  event)
-{
-  PvSubscribePrivate *priv = subscribe->priv;
-
-  g_print ("notify subscription def: %p\n", g_main_context_get_thread_default ());
-  //g_assert (g_main_context_get_thread_default ());
-
-  if (priv->subscription_mask & PV_SUBSCRIPTION_FLAGS_DAEMON) {
-    PvDaemon1 *daemon;
-
-    if (interface == NULL)
-      daemon = pv_object_peek_daemon1 (PV_OBJECT (object));
-    else if (PV_IS_DAEMON1_PROXY (interface))
-      daemon = PV_DAEMON1 (interface);
-    else
-      daemon = NULL;
-
-    if (daemon) {
-      g_signal_emit (subscribe, signals[SIGNAL_SUBSCRIPTION_EVENT], 0, event,
-          PV_SUBSCRIPTION_FLAGS_DAEMON, daemon);
-    }
-  }
-  if (priv->subscription_mask & PV_SUBSCRIPTION_FLAGS_CLIENT) {
-    PvClient1 *client;
-
-    if (interface == NULL)
-      client = pv_object_peek_client1 (PV_OBJECT (object));
-    else if (PV_IS_CLIENT1_PROXY (interface))
-      client = PV_CLIENT1 (interface);
-    else
-      client = NULL;
-
-    if (client) {
-      const gchar *sender;
-      SenderData *data;
-
-      sender = pv_client1_get_name (client);
-
-      data = g_hash_table_lookup (priv->senders, sender);
-      if (data == NULL && event != PV_SUBSCRIPTION_EVENT_REMOVE) {
-        data = sender_data_new (subscribe, sender);
-      }
-      if (data) {
-        if (event == PV_SUBSCRIPTION_EVENT_NEW)
-          data->clients = g_list_prepend (data->clients, client);
-        else if (event == PV_SUBSCRIPTION_EVENT_REMOVE)
-          data->clients = g_list_remove (data->clients, client);
-
-        g_signal_emit (subscribe, signals[SIGNAL_SUBSCRIPTION_EVENT], 0, event,
-            PV_SUBSCRIPTION_FLAGS_CLIENT, client);
-      }
-    }
-  }
-  if (priv->subscription_mask & PV_SUBSCRIPTION_FLAGS_SOURCE) {
-    PvSource1 *source;
-
-    if (interface == NULL)
-      source = pv_object_peek_source1 (PV_OBJECT (object));
-    else if (PV_IS_SOURCE1_PROXY (interface))
-      source = PV_SOURCE1 (interface);
-    else
-      source = NULL;
-
-    if (source) {
-      g_signal_emit (subscribe, signals[SIGNAL_SUBSCRIPTION_EVENT], 0, event,
-          PV_SUBSCRIPTION_FLAGS_SOURCE, source);
-    }
-  }
-  if (priv->subscription_mask & PV_SUBSCRIPTION_FLAGS_SOURCE_OUTPUT) {
-    PvSourceOutput1 *output;
-
-    if (interface == NULL)
-      output = pv_object_peek_source_output1 (PV_OBJECT (object));
-    else if PV_IS_SOURCE_OUTPUT1_PROXY (interface)
-      output = PV_SOURCE_OUTPUT1 (interface);
-    else
-      output = NULL;
-
-    if (output) {
-      g_signal_emit (subscribe, signals[SIGNAL_SUBSCRIPTION_EVENT], 0, event,
-          PV_SUBSCRIPTION_FLAGS_SOURCE_OUTPUT, output);
-    }
-  }
-}
-
-static void
-on_client_manager_interface_added (GDBusObjectManager *manager,
-                                   GDBusObject        *object,
-                                   GDBusInterface     *interface,
-                                   gpointer            user_data)
-{
-  PvSubscribe *subscribe = user_data;
-  notify_subscription (subscribe, object, interface, PV_SUBSCRIPTION_EVENT_NEW);
-}
-
-static void
-on_client_manager_interface_removed (GDBusObjectManager *manager,
-                                     GDBusObject        *object,
-                                     GDBusInterface     *interface,
-                                     gpointer            user_data)
-{
-  PvSubscribe *subscribe = user_data;
-  notify_subscription (subscribe, object, interface, PV_SUBSCRIPTION_EVENT_REMOVE);
-}
-
-static void
-on_client_manager_object_added (GDBusObjectManager *manager,
-                                GDBusObject        *object,
-                                gpointer            user_data)
-{
-  PvSubscribe *subscribe = user_data;
-  notify_subscription (subscribe, object, NULL, PV_SUBSCRIPTION_EVENT_NEW);
-}
-
-static void
-on_client_manager_object_removed (GDBusObjectManager *manager,
-                                  GDBusObject        *object,
-                                  gpointer            user_data)
-{
-  PvSubscribe *subscribe = user_data;
-  notify_subscription (subscribe, object, NULL, PV_SUBSCRIPTION_EVENT_REMOVE);
-}
-
-static void
-on_client_manager_properties_changed (GDBusObjectManagerClient *manager,
-                                      GDBusObjectProxy         *object_proxy,
-                                      GDBusProxy               *interface_proxy,
-                                      GVariant                 *changed_properties,
-                                      GStrv                     invalidated_properties,
-                                      gpointer                  user_data)
-{
-  g_print ("properties changed\n");
-}
-
-static void
-on_client_manager_signal (GDBusObjectManagerClient *manager,
-                          GDBusObjectProxy         *object_proxy,
-                          GDBusProxy               *interface_proxy,
-                          gchar                    *sender_name,
-                          gchar                    *signal_name,
-                          GVariant                 *parameters,
-                          gpointer                  user_data)
-{
-  g_print ("proxy signal %s\n", signal_name);
-}
-
-static void
-client_manager_appeared (PvSubscribe *subscribe)
-{
-  PvSubscribePrivate *priv = subscribe->priv;
-  GList *objects, *walk;
-
-  g_print ("client manager appeared def: %p\n", g_main_context_get_thread_default ());
-
-  objects = g_dbus_object_manager_get_objects (G_DBUS_OBJECT_MANAGER (priv->client_manager));
-  for (walk = objects; walk ; walk = g_list_next (walk)) {
-    on_client_manager_object_added (G_DBUS_OBJECT_MANAGER (priv->client_manager),
-                                    walk->data,
-                                    subscribe);
-  }
-  if (--priv->pending_subscribes == 0)
+  if (--priv->pending_proxies == 0)
     subscription_set_state (subscribe, PV_SUBSCRIPTION_STATE_READY);
 }
 
 static void
-client_manager_disappeared (PvSubscribe *subscribe)
+add_interface (PvSubscribe *subscribe,
+               const gchar *object_path,
+               const gchar *interface_name,
+               GVariant    *properties)
+{
+  PvSubscribePrivate *priv = subscribe->priv;
+  ProxyData *data;
+
+  data = g_new0 (ProxyData, 1);
+  data->subscribe = subscribe;
+  data->sender_name = g_strdup (priv->service);
+  data->object_path = g_strdup (object_path);
+  data->interface_name = g_strdup (interface_name);
+
+  priv->objects = g_list_prepend (priv->objects, data);
+  priv->pending_proxies++;
+
+  g_dbus_proxy_new (priv->connection,
+                    G_DBUS_PROXY_FLAGS_NONE,
+                    NULL, /* GDBusInterfaceInfo* */
+                    priv->service,
+                    object_path,
+                    interface_name,
+                    priv->cancellable,
+                    on_proxy_created,
+                    data);
+}
+
+static void
+add_ifaces_and_properties (PvSubscribe *subscribe,
+                           const gchar *object_path,
+                           GVariant    *ifaces_and_properties)
+{
+  GVariantIter iter;
+  const gchar *interface_name;
+  GVariant *properties;
+
+  g_variant_iter_init (&iter, ifaces_and_properties);
+  while (g_variant_iter_next (&iter,
+                              "{&s@a{sv}}",
+                              &interface_name,
+                              &properties)) {
+
+    add_interface (subscribe, object_path, interface_name, properties);
+
+    g_variant_unref (properties);
+  }
+}
+
+static void
+on_manager_proxy_signal (GDBusProxy   *proxy,
+                         const gchar  *sender_name,
+                         const gchar  *signal_name,
+                         GVariant     *parameters,
+                         gpointer      user_data)
+{
+  PvSubscribe *subscribe = user_data;
+  const gchar *object_path;
+
+  g_print ("proxy signal %s %p\n", signal_name, g_main_context_get_thread_default ());
+
+  if (g_strcmp0 (signal_name, "InterfacesAdded") == 0) {
+    GVariant *ifaces_and_properties;
+
+    g_variant_get (parameters,
+                   "(&o@a{sa{sv}})",
+                   &object_path,
+                   &ifaces_and_properties);
+
+    add_ifaces_and_properties (subscribe, object_path, ifaces_and_properties);
+
+    g_variant_unref (ifaces_and_properties);
+  } else if (g_strcmp0 (signal_name, "InterfacesRemoved") == 0) {
+    const gchar **ifaces;
+    g_variant_get (parameters,
+                   "(&o^a&s)",
+                   &object_path,
+                   &ifaces);
+
+
+    g_free (ifaces);
+  }
+}
+
+static void
+on_managed_objects_ready (GObject *source_object,
+                          GAsyncResult *res,
+                          gpointer user_data)
+{
+  PvSubscribe *subscribe = user_data;
+  PvSubscribePrivate *priv = subscribe->priv;
+  GError *error = NULL;
+  GVariant *objects;
+  GVariant *arg0;
+  const gchar *object_path;
+  GVariant *ifaces_and_properties;
+  GVariantIter object_iter;
+
+  objects = g_dbus_proxy_call_finish (priv->manager_proxy, res, &error);
+  if (objects == NULL) {
+    g_warning ("could not get objects: %s", error->message);
+    subscription_set_state (subscribe, PV_SUBSCRIPTION_STATE_ERROR);
+    priv->error = error;
+    return;
+  }
+
+  arg0 = g_variant_get_child_value (objects, 0);
+  g_variant_iter_init (&object_iter, arg0);
+  while (g_variant_iter_next (&object_iter,
+                              "{&o@a{sa{sv}}}",
+                              &object_path,
+                              &ifaces_and_properties)) {
+
+    add_ifaces_and_properties (subscribe, object_path, ifaces_and_properties);
+
+    g_variant_unref (ifaces_and_properties);
+  }
+  g_variant_unref (arg0);
+  g_variant_unref (objects);
+
+  if (priv->pending_proxies == 0)
+    subscription_set_state (subscribe, PV_SUBSCRIPTION_STATE_READY);
+}
+
+static void
+manager_proxy_appeared (PvSubscribe *subscribe)
+{
+  PvSubscribePrivate *priv = subscribe->priv;
+
+  g_print ("client manager appeared def: %p\n", g_main_context_get_thread_default ());
+
+  g_dbus_proxy_call (priv->manager_proxy,
+                    "GetManagedObjects",
+                    NULL, /* parameters */
+                    G_DBUS_CALL_FLAGS_NONE,
+                    -1,
+                    priv->cancellable,
+                    on_managed_objects_ready,
+                    subscribe);
+}
+
+static void
+manager_proxy_disappeared (PvSubscribe *subscribe)
 {
 }
 
 static void
-on_client_manager_name_owner (GObject    *object,
-                              GParamSpec *pspec,
-                              gpointer    user_data)
+on_manager_proxy_name_owner (GObject    *object,
+                             GParamSpec *pspec,
+                             gpointer    user_data)
 {
   PvSubscribe *subscribe = user_data;
   PvSubscribePrivate *priv = subscribe->priv;
@@ -423,16 +317,16 @@ on_client_manager_name_owner (GObject    *object,
 
   g_print ("client manager owner def: %p\n", g_main_context_get_thread_default ());
 
-  g_object_get (priv->client_manager, "name-owner", &name_owner, NULL);
+  g_object_get (priv->manager_proxy, "g-name-owner", &name_owner, NULL);
   g_print ("client manager %s %s\n",
-      g_dbus_object_manager_client_get_name (G_DBUS_OBJECT_MANAGER_CLIENT (priv->client_manager)),
+      g_dbus_proxy_get_name (G_DBUS_PROXY (priv->manager_proxy)),
       name_owner);
 
   if (name_owner) {
-    client_manager_appeared (subscribe);
+    manager_proxy_appeared (subscribe);
     g_free (name_owner);
   } else {
-    client_manager_disappeared (subscribe);
+    manager_proxy_disappeared (subscribe);
   }
 }
 
@@ -444,40 +338,31 @@ connect_client_signals (PvSubscribe *subscribe)
 
   g_print ("add signals def: %p\n", g_main_context_get_thread_default ());
 
-  g_signal_connect (priv->client_manager, "notify::name-owner",
-      (GCallback) on_client_manager_name_owner, subscribe);
-  g_signal_connect (priv->client_manager, "interface-added",
-      (GCallback) on_client_manager_interface_added, subscribe);
-  g_signal_connect (priv->client_manager, "interface-removed",
-      (GCallback) on_client_manager_interface_removed, subscribe);
-  g_signal_connect (priv->client_manager, "object-added",
-      (GCallback) on_client_manager_object_added, subscribe);
-  g_signal_connect (priv->client_manager, "object-removed",
-      (GCallback) on_client_manager_object_removed, subscribe);
-  g_signal_connect (priv->client_manager, "interface-proxy-signal",
-      (GCallback) on_client_manager_signal, subscribe);
-  g_signal_connect (priv->client_manager, "interface-proxy-properties-changed",
-      (GCallback) on_client_manager_properties_changed, subscribe);
+  g_signal_connect (priv->manager_proxy, "notify::g-name-owner",
+      (GCallback) on_manager_proxy_name_owner, subscribe);
+
+  g_signal_connect (priv->manager_proxy, "g-signal",
+      (GCallback) on_manager_proxy_signal, subscribe);
 }
 
 static void
-on_client_manager_ready (GObject *source_object,
-                         GAsyncResult *res,
-                         gpointer user_data)
+on_manager_proxy_ready (GObject *source_object,
+                        GAsyncResult *res,
+                        gpointer user_data)
 {
   PvSubscribe *subscribe = user_data;
   PvSubscribePrivate *priv = subscribe->priv;
   GError *error = NULL;
 
-  g_print ("client manager ready def: %p\n", g_main_context_get_thread_default ());
+  g_print ("manager proyx ready def: %p\n", g_main_context_get_thread_default ());
 
-  priv->client_manager = pv_object_manager_client_new_finish (res, &error);
-  if (priv->client_manager == NULL)
+  priv->manager_proxy = g_dbus_proxy_new_finish (res, &error);
+  if (priv->manager_proxy == NULL)
     goto manager_error;
 
   connect_client_signals (subscribe);
 
-  on_client_manager_name_owner (G_OBJECT (priv->client_manager), NULL, subscribe);
+  on_manager_proxy_name_owner (G_OBJECT (priv->manager_proxy), NULL, subscribe);
   g_object_unref (subscribe);
 
   return;
@@ -503,14 +388,15 @@ install_subscription (PvSubscribe *subscribe)
   g_print ("new client manager def: %p\n", g_main_context_get_thread_default ());
 
   g_print ("new client manager for %s\n", priv->service);
-  pv_object_manager_client_new (priv->connection,
-                                G_DBUS_OBJECT_MANAGER_CLIENT_FLAGS_NONE,
-                                priv->service,
-                                PV_DBUS_OBJECT_PREFIX,
-                                priv->cancellable,
-                                on_client_manager_ready,
-                                g_object_ref (subscribe));
-  priv->pending_subscribes++;
+  g_dbus_proxy_new (priv->connection,
+                    G_DBUS_PROXY_FLAGS_NONE,
+                    NULL, /* GDBusInterfaceInfo* */
+                    priv->service,
+                    PV_DBUS_OBJECT_PREFIX,
+                    "org.freedesktop.DBus.ObjectManager",
+                    priv->cancellable,
+                    on_manager_proxy_ready,
+                    g_object_ref (subscribe));
 }
 
 static void
@@ -518,7 +404,7 @@ uninstall_subscription (PvSubscribe *subscribe)
 {
   PvSubscribePrivate *priv = subscribe->priv;
 
-  g_clear_object (&priv->client_manager);
+  g_clear_object (&priv->manager_proxy);
   g_clear_error (&priv->error);
   subscription_set_state (subscribe, PV_SUBSCRIPTION_STATE_UNCONNECTED);
 }
@@ -599,9 +485,8 @@ pv_subscribe_finalize (GObject * object)
 
   g_print ("cancel\n");
   g_cancellable_cancel (priv->cancellable);
-  g_hash_table_unref (priv->senders);
-  if (priv->client_manager)
-    g_object_unref (priv->client_manager);
+  if (priv->manager_proxy)
+    g_object_unref (priv->manager_proxy);
   g_object_unref (priv->cancellable);
   g_free (priv->service);
 
@@ -703,7 +588,6 @@ pv_subscribe_init (PvSubscribe * subscribe)
   PvSubscribePrivate *priv = subscribe->priv = PV_SUBSCRIBE_GET_PRIVATE (subscribe);
 
   priv->service = g_strdup (PV_DBUS_SERVICE);
-  priv->senders = g_hash_table_new (g_str_hash, g_str_equal);
   priv->state = PV_SUBSCRIPTION_STATE_UNCONNECTED;
   priv->cancellable = g_cancellable_new ();
 }
@@ -743,5 +627,63 @@ pv_subscribe_get_error (PvSubscribe *subscribe)
   priv = subscribe->priv;
 
   return priv->error;
+}
+
+static gint
+compare_data (PvObjectData *data, const gchar *name,
+                                  const gchar *object_path,
+                                  const gchar *interface_name)
+{
+  gint res;
+
+  if ((res = g_strcmp0 (data->sender_name, name)) != 0)
+    return res;
+
+  if ((res = g_strcmp0 (data->object_path, object_path)) != 0)
+    return res;
+
+  return g_strcmp0 (data->interface_name, interface_name);
+}
+
+void
+pv_subscribe_get_proxy (PvSubscribe *subscribe,
+                        GDBusProxyFlags flags,
+                        GDBusInterfaceInfo *info,
+                        const gchar *name,
+                        const gchar *object_path,
+                        const gchar *interface_name,
+                        GCancellable *cancellable,
+                        GAsyncReadyCallback callback,
+                        gpointer user_data)
+{
+  PvSubscribePrivate *priv;
+  GDBusProxy *res = NULL;
+  GList *walk;
+
+  g_return_val_if_fail (PV_IS_SUBSCRIBE (subscribe), NULL);
+  priv = subscribe->priv;
+
+  for (walk = priv->objects; walk; walk = g_list_next (walk)) {
+    PvObjectData *data = walk->data;
+
+    if (compare_data (data, name, object_path, interface_name) == 0) {
+      GTask *task;
+
+      task = g_task_new (subscribe,
+                         cancellable,
+                         callback,
+                         user_data);
+
+      if (data->pending) {
+        g_task_set_task_data (task, data, NULL);
+        data->tasks = g_list_prepend (data->tasks, task);
+      } else if (data->proxy) {
+        g_task_return_pointer (task, g_object_ref (data->proxy), g_object_unref);
+      } else {
+        g_task_return_error (task, NULL);
+      }
+      break;
+    }
+  }
 }
 

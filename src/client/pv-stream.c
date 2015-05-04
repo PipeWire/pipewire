@@ -20,11 +20,10 @@
 #include <gio/gunixfdlist.h>
 
 #include "server/pv-daemon.h"
+#include "client/pulsevideo.h"
 #include "client/pv-context.h"
 #include "client/pv-stream.h"
 #include "client/pv-enumtypes.h"
-
-#include "dbus/org-pulsevideo.h"
 
 #include "client/pv-private.h"
 
@@ -38,9 +37,9 @@ struct _PvStreamPrivate
   GError *error;
 
   gchar *source_output_path;
-  PvSource1 *source;
+  GDBusProxy *source;
   GVariant *spec;
-  PvSourceOutput1 *source_output;
+  GDBusProxy *source_output;
 
   GSocket *socket;
   PvStreamMode mode;
@@ -325,33 +324,36 @@ pv_stream_get_error (PvStream *stream)
 
 
 static void
-on_request_reconfigure (PvSourceOutput1 *interface,
-                        GVariant *props,
-                        gpointer user_data)
+on_source_output_signal (GDBusProxy *proxy,
+                         gchar      *sender_name,
+                         gchar      *signal_name,
+                         GVariant   *parameters,
+                         gpointer    user_data)
 {
-  g_print ("on request reconfigure\n");
+  g_print ("on source output signal\n");
 }
 
 static void
-on_source_output1_proxy (GObject *source_object,
-                         GAsyncResult *res,
-                         gpointer user_data)
+on_source_output_proxy (GObject *source_object,
+                        GAsyncResult *res,
+                        gpointer user_data)
 {
   PvStream *stream = user_data;
   PvStreamPrivate *priv = stream->priv;
   GError *error = NULL;
 
-  g_assert (g_main_context_get_thread_default () == priv->context->priv->context);
-
-  priv->source_output = pv_source_output1_proxy_new_finish (res, &error);
   if (priv->source_output == NULL)
     goto source_output_failed;
 
-  g_signal_connect (priv->source_output, "request-reconfigure", (GCallback) on_request_reconfigure, stream);
+  g_signal_connect (priv->source_output,
+                    "g-signal",
+                    (GCallback) on_source_output_signal,
+                    stream);
+
   stream_set_state (stream, PV_STREAM_STATE_READY);
+
   return;
 
-  /* ERRORS */
 source_output_failed:
   {
     priv->error = error;
@@ -369,23 +371,27 @@ on_source_output_created (GObject *source_object,
   PvStream *stream = user_data;
   PvStreamPrivate *priv = stream->priv;
   PvContext *context = priv->context;
+  GVariant *ret;
   GError *error = NULL;
 
   g_assert (g_main_context_get_thread_default () == priv->context->priv->context);
 
-  if (!pv_source1_call_create_source_output_finish (priv->source,
-        &priv->source_output_path, res, &error))
+  ret = g_dbus_proxy_call_finish (priv->source, res, &error);
+  if (ret == NULL)
     goto create_failed;
 
+  g_variant_get (ret, "(o)", &priv->source_output_path);
   g_print ("got source-output %s\n", priv->source_output_path);
+  g_variant_unref (ret);
 
-  pv_source_output1_proxy_new (context->priv->connection,
-                               G_DBUS_PROXY_FLAGS_NONE,
-                               g_dbus_proxy_get_name (G_DBUS_PROXY (priv->source)),
-                               priv->source_output_path,
-                               NULL,
-                               on_source_output1_proxy,
-                               stream);
+  priv->source_output = pv_subscribe_get_proxy (context->priv->subscribe,
+                                                PV_DBUS_SERVICE,
+                                                priv->source_output_path,
+                                                "org.pulsevideo.SourceOutput1",
+                                                NULL,
+                                                on_source_ouput_proxy,
+                                                stream);
+
   return;
 
   /* ERRORS */
@@ -398,42 +404,6 @@ create_failed:
   }
 }
 
-static void
-on_source_output_removed (GObject *source_object,
-                          GAsyncResult *res,
-                          gpointer user_data)
-{
-  PvStream *stream = user_data;
-  PvStreamPrivate *priv = stream->priv;
-  GError *error = NULL;
-
-  g_assert (g_main_context_get_thread_default () == priv->context->priv->context);
-
-  if (!pv_source_output1_call_remove_finish (priv->source_output,
-        res, &error)) {
-    priv->error = error;
-    stream_set_state (stream, PV_STREAM_STATE_ERROR);
-    g_print ("failed to disconnect: %s", error->message);
-    return;
-  }
-  g_clear_pointer (&priv->source_output_path, g_free);
-  g_clear_object (&priv->source_output);
-}
-
-static gboolean
-remove_source_output (PvStream *stream)
-{
-  PvStreamPrivate *priv = stream->priv;
-
-  g_assert (g_main_context_get_thread_default () == priv->context->priv->context);
-
-  pv_source_output1_call_remove (priv->source_output,
-                                 NULL,        /* GCancellable *cancellable */
-                                 on_source_output_removed,
-                                 stream);
-  return TRUE;
-}
-
 static gboolean
 do_connect_capture (PvStream *stream)
 {
@@ -441,11 +411,15 @@ do_connect_capture (PvStream *stream)
 
   g_assert (g_main_context_get_thread_default () == priv->context->priv->context);
 
-  pv_source1_call_create_source_output (priv->source,
-                                        priv->spec, /* GVariant *arg_props */
-                                        NULL, /* GCancellable *cancellable */
-                                        on_source_output_created,
-                                        stream);
+  g_dbus_proxy_call (priv->source,
+                     "CreateSourceOutput",
+                     g_variant_new ("(@a{sv})", priv->spec),
+                     G_DBUS_CALL_FLAGS_NONE,
+                     -1,
+                     NULL, /* GCancellable *cancellable */
+                     on_source_output_created,
+                     stream);
+
   return FALSE;
 }
 
@@ -477,7 +451,7 @@ pv_stream_connect_capture (PvStream      *stream,
 
   priv->target = g_strdup (source);
 
-  priv->source = PV_SOURCE1 (pv_context_find_source (context, priv->target, NULL));
+  priv->source = pv_context_find_source (context, priv->target, NULL);
   if (priv->source == NULL) {
     g_warning ("can't find source");
     return FALSE;
@@ -489,6 +463,50 @@ pv_stream_connect_capture (PvStream      *stream,
   g_main_context_invoke (context->priv->context, (GSourceFunc) do_connect_capture, stream);
 
   return TRUE;
+}
+
+static void
+on_source_output_removed (GObject *source_object,
+                          GAsyncResult *res,
+                          gpointer user_data)
+{
+  PvStream *stream = user_data;
+  PvStreamPrivate *priv = stream->priv;
+  GVariant *ret;
+  GError *error = NULL;
+
+  g_assert (g_main_context_get_thread_default () == priv->context->priv->context);
+
+  ret = g_dbus_proxy_call_finish (priv->source, res, &error);
+  if (ret == NULL) {
+    priv->error = error;
+    stream_set_state (stream, PV_STREAM_STATE_ERROR);
+    g_print ("failed to disconnect: %s", error->message);
+    return;
+  }
+  g_clear_pointer (&priv->source_output_path, g_free);
+  g_clear_object (&priv->source_output);
+
+  stream_set_state (stream, PV_STREAM_STATE_UNCONNECTED);
+}
+
+static gboolean
+do_disconnect (PvStream *stream)
+{
+  PvStreamPrivate *priv = stream->priv;
+
+  g_assert (g_main_context_get_thread_default () == priv->context->priv->context);
+
+  g_dbus_proxy_call (priv->source_output,
+                     "Remove",
+                     g_variant_new ("()"),
+                     G_DBUS_CALL_FLAGS_NONE,
+                     -1,
+                     NULL, /* GCancellable *cancellable */
+                     on_source_output_removed,
+                     stream);
+
+  return FALSE;
 }
 
 /**
@@ -512,9 +530,8 @@ pv_stream_disconnect (PvStream *stream)
   context = priv->context;
   g_return_val_if_fail (pv_context_get_state (context) == PV_CONTEXT_STATE_READY, FALSE);
 
-  remove_source_output (stream);
+  g_main_context_invoke (context->priv->context, (GSourceFunc) do_disconnect, stream);
 
-  stream_set_state (stream, PV_STREAM_STATE_UNCONNECTED);
 
   return TRUE;
 }
@@ -648,7 +665,7 @@ on_stream_started (GObject *source_object,
   GError *error = NULL;
   GVariant *result;
 
-  result = g_dbus_proxy_call_with_unix_fd_list_finish (G_DBUS_PROXY (priv->source_output),
+  result = g_dbus_proxy_call_with_unix_fd_list_finish (priv->source_output,
                                                        &out_fd_list,
                                                        res,
                                                        &error);
@@ -700,11 +717,15 @@ do_start (PvStream *stream)
   g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
   g_variant_builder_add (&builder, "{sv}", "name", g_variant_new_string ("hello"));
 
-  pv_source_output1_call_start (priv->source_output,
-                                g_variant_builder_end (&builder), /* GVariant *arg_properties */
-                                NULL,        /* GCancellable *cancellable */
-                                on_stream_started,
-                                stream);
+  g_dbus_proxy_call (priv->source_output,
+                     "Start",
+                     g_variant_new ("(@a{sv})", g_variant_builder_end (&builder)),
+                     G_DBUS_CALL_FLAGS_NONE,
+                     -1,
+                     NULL,        /* GCancellable *cancellable */
+                     on_stream_started,
+                     stream);
+
   return FALSE;
 }
 
@@ -750,11 +771,14 @@ on_stream_stopped (GObject *source_object,
 {
   PvStream *stream = user_data;
   PvStreamPrivate *priv = stream->priv;
+  GVariant *ret;
   GError *error = NULL;
 
-  if (!pv_source_output1_call_stop_finish (priv->source_output,
-               res, &error))
+  ret = g_dbus_proxy_call_finish (priv->source_output, res, &error);
+  if (ret == NULL)
     goto call_failed;
+
+  g_variant_unref (ret);
 
   unhandle_socket (stream);
 
@@ -777,10 +801,15 @@ do_stop (PvStream *stream)
 {
   PvStreamPrivate *priv = stream->priv;
 
-  pv_source_output1_call_stop (priv->source_output,
-                               NULL,        /* GCancellable *cancellable */
-                               on_stream_stopped,
-                               stream);
+  g_dbus_proxy_call (priv->source_output,
+                     "Stop",
+                     g_variant_new ("()"),
+                     G_DBUS_CALL_FLAGS_NONE,
+                     -1,
+                     NULL,        /* GCancellable *cancellable */
+                     on_stream_stopped,
+                     stream);
+
 
   return FALSE;
 }

@@ -23,8 +23,6 @@
 #include "client/pv-enumtypes.h"
 #include "client/pv-subscribe.h"
 
-#include "dbus/org-pulsevideo.h"
-
 #include "client/pv-private.h"
 
 /**
@@ -51,9 +49,7 @@ pv_context_list_source_info (PvContext *context,
     GDBusProxy *proxy = walk->data;
     PvSourceInfo info;
 
-    info.name = pv_source1_get_name (PV_SOURCE1 (proxy));
-    info.properties = pv_source1_get_properties (PV_SOURCE1 (proxy));
-    info.state = pv_source1_get_state (PV_SOURCE1 (proxy));
+    info.name = "v4l2";
 
     cb (context, &info, user_data);
   }

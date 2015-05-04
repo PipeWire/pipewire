@@ -23,8 +23,6 @@
 #include "client/pv-enumtypes.h"
 #include "client/pv-subscribe.h"
 
-#include "dbus/org-pulsevideo.h"
-
 #include "client/pv-private.h"
 
 #define PV_CONTEXT_GET_PRIVATE(obj)  \
@@ -301,53 +299,29 @@ context_set_state (PvContext *context, PvContextState state)
 }
 
 static void
-on_client_proxy (GObject *source_object,
-                 GAsyncResult *res,
-                 gpointer user_data)
-{
-  PvContext *context = user_data;
-  PvContextPrivate *priv = context->priv;
-  GError *error = NULL;
-
-  g_assert (g_main_context_get_thread_default () == priv->context);
-
-  priv->client = pv_client1_proxy_new_finish (res, &error);
-  if (priv->client == NULL) {
-    priv->error = error;
-    context_set_state (context, PV_CONTEXT_STATE_ERROR);
-    g_error ("failed to get client proxy: %s", error->message);
-    return;
-  }
-  context_set_state (context, PV_CONTEXT_STATE_READY);
-}
-
-static void
 on_client_connected (GObject *source_object,
                      GAsyncResult *res,
                      gpointer user_data)
 {
   PvContext *context = user_data;
   PvContextPrivate *priv = context->priv;
+  GVariant *ret;
   GError *error = NULL;
-  gchar *client_path;
 
   g_assert (g_main_context_get_thread_default () == priv->context);
 
-  if (!pv_daemon1_call_connect_client_finish (priv->daemon, &client_path, res, &error)) {
+  ret = g_dbus_proxy_call_finish (priv->daemon, res, &error);
+  if (ret == NULL) {
+    g_error ("failed to connect client: %s", error->message);
     priv->error = error;
     context_set_state (context, PV_CONTEXT_STATE_ERROR);
-    g_error ("failed to connect client: %s", error->message);
     return;
   }
 
-  pv_client1_proxy_new (priv->connection,
-                        G_DBUS_PROXY_FLAGS_NONE,
-                        PV_DBUS_SERVICE,
-                        client_path,
-                        NULL,
-                        on_client_proxy,
-                        context);
-  g_free (client_path);
+  g_variant_get (ret, "(o)", &priv->client_path);
+  g_print ("got client %s\n", priv->client_path);
+  g_variant_unref (ret);
+
 }
 
 static void
@@ -357,24 +331,23 @@ on_daemon_connected (GObject *source_object,
 {
   PvContext *context = user_data;
   PvContextPrivate *priv = context->priv;
+  GVariantBuilder builder;
 
   g_assert (g_main_context_get_thread_default () == priv->context);
 
   context_set_state (context, PV_CONTEXT_STATE_REGISTERING);
 
-  {
-    GVariantBuilder builder;
+  g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
+  g_variant_builder_add (&builder, "{sv}", "name", g_variant_new_string ("hello"));
 
-    g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
-    g_variant_builder_add (&builder, "{sv}", "name", g_variant_new_string ("hello"));
-
-    pv_daemon1_call_connect_client (priv->daemon,
-                                    g_variant_builder_end (&builder), /* GVariant *arg_properties */
-                                    NULL,        /* GCancellable *cancellable */
-                                    on_client_connected,
-                                    context);
-
-  }
+  g_dbus_proxy_call (priv->daemon,
+                     "ConnectClient",
+                     g_variant_new ("(@a{sv})", g_variant_builder_end (&builder)),
+                     G_DBUS_CALL_FLAGS_NONE,
+                     -1,
+                     NULL,
+                     on_client_connected,
+                     context);
 }
 
 static void
@@ -391,13 +364,16 @@ subscription_cb (PvSubscribe         *subscribe,
 
   g_assert (g_main_context_get_thread_default () == priv->context);
 
-
   switch (flags) {
     case PV_SUBSCRIPTION_FLAGS_DAEMON:
-      priv->daemon = PV_DAEMON1 (object);
+      priv->daemon = object;
       break;
 
     case PV_SUBSCRIPTION_FLAGS_CLIENT:
+      if (g_strcmp0 (g_dbus_proxy_get_object_path (object), priv->client_path) == 0) {
+        priv->client = object;
+        context_set_state (context, PV_CONTEXT_STATE_READY);
+      }
       break;
 
     case PV_SUBSCRIPTION_FLAGS_SOURCE:
@@ -547,14 +523,35 @@ on_client_disconnected (GObject *source_object,
   PvContext *context = user_data;
   PvContextPrivate *priv = context->priv;
   GError *error = NULL;
+  GVariant *ret;
 
-  if (!pv_client1_call_disconnect_finish (priv->client, res, &error)) {
+  ret = g_dbus_proxy_call_finish (priv->client, res, &error);
+  if (ret == NULL) {
+    g_error ("failed to disconnect client: %s", error->message);
     priv->error = error;
     context_set_state (context, PV_CONTEXT_STATE_ERROR);
-    g_error ("failed to disconnect client: %s", error->message);
     return;
   }
+  g_variant_unref (ret);
+
   context_set_state (context, PV_CONTEXT_STATE_UNCONNECTED);
+}
+
+static gboolean
+do_disconnect (PvContext *context)
+{
+  PvContextPrivate *priv = context->priv;
+
+  g_dbus_proxy_call (priv->client,
+                     "Disconnect",
+                     g_variant_new ("()"),
+                     G_DBUS_CALL_FLAGS_NONE,
+                     -1,
+                     NULL,
+                     on_client_disconnected,
+                     context);
+
+  return FALSE;
 }
 
 /**
@@ -575,10 +572,8 @@ pv_context_disconnect (PvContext *context)
   priv = context->priv;
   g_return_val_if_fail (priv->client != NULL, FALSE);
 
-  pv_client1_call_disconnect (priv->client,
-                              NULL,        /* GCancellable *cancellable */
-                              on_client_disconnected,
-                              context);
+  g_main_context_invoke (priv->context, (GSourceFunc) do_disconnect, context);
+
   return TRUE;
 }
 

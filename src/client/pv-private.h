@@ -28,11 +28,14 @@ struct _PvContextPrivate
   GDBusConnection *connection;
 
   PvContextFlags flags;
+
   PvContextState state;
+  GError *error;
 
-  PvDaemon1 *daemon;
+  GDBusProxy *daemon;
 
-  PvClient1 *client;
+  gchar *client_path;
+  GDBusProxy *client;
 
   PvSubscriptionFlags subscription_mask;
   PvSubscribe *subscribe;
@@ -40,8 +43,6 @@ struct _PvContextPrivate
   GList *sources;
 
   GDBusObjectManagerServer *server_manager;
-
-  GError *error;
 };
 
 GDBusProxy *      pv_context_find_source           (PvContext *context, const gchar *name, GVariant *props);

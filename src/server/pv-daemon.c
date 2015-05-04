@@ -23,8 +23,10 @@
 
 #include "server/pv-daemon.h"
 #include "server/pv-client.h"
-#include "modules/v4l2/pv-v4l2-source.h"
+
 #include "dbus/org-pulsevideo.h"
+
+#include "modules/v4l2/pv-v4l2-source.h"
 
 #define PV_DAEMON_GET_PRIVATE(obj)  \
    (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PV_TYPE_DAEMON, PvDaemonPrivate))
@@ -36,9 +38,15 @@ struct _PvDaemonPrivate
   GDBusObjectManagerServer *server_manager;
   PvSubscribe *subscribe;
 
-  GHashTable *clients;
-  GList *sources;
+  GHashTable *senders;
 };
+
+typedef struct {
+  guint id;
+  gchar *sender;
+  PvDaemon *daemon;
+  GList *clients;
+} SenderData;
 
 static void
 on_server_subscription_event (PvSubscribe         *subscribe,
@@ -47,8 +55,6 @@ on_server_subscription_event (PvSubscribe         *subscribe,
                               GDBusProxy          *object,
                               gpointer             user_data)
 {
-  PvDaemon *daemon = user_data;
-  PvDaemonPrivate *priv = daemon->priv;
   const gchar *name, *object_path;
 
   name = g_dbus_proxy_get_name (object);
@@ -58,27 +64,81 @@ on_server_subscription_event (PvSubscribe         *subscribe,
 
   switch (event) {
     case PV_SUBSCRIPTION_EVENT_NEW:
-    {
-      if (PV_IS_SOURCE1 (object)) {
-        priv->sources = g_list_prepend (priv->sources, object);
-      }
       break;
-    }
 
     case PV_SUBSCRIPTION_EVENT_CHANGE:
       break;
 
     case PV_SUBSCRIPTION_EVENT_REMOVE:
-    {
-      if (PV_IS_SOURCE1 (object)) {
-        priv->sources = g_list_remove (priv->sources, object);
-      } else if (PV_IS_CLIENT1 (object)) {
-        g_hash_table_remove (priv->clients, object_path);
-      }
       break;
-    }
   }
 }
+static void
+client_name_appeared_handler (GDBusConnection *connection,
+                              const gchar *name,
+                              const gchar *name_owner,
+                              gpointer user_data)
+{
+  SenderData *data = user_data;
+
+  g_print ("client name appeared def: %p\n", g_main_context_get_thread_default ());
+
+  if (!g_strcmp0 (name, g_dbus_connection_get_unique_name (connection)))
+    return;
+
+  g_print ("appeared client %s %p\n", name, data);
+}
+
+static void
+client_name_vanished_handler (GDBusConnection *connection,
+                              const gchar *name,
+                              gpointer user_data)
+{
+  SenderData *data = user_data;
+
+  g_print ("vanished client %s %p\n", name, data);
+
+  g_bus_unwatch_name (data->id);
+}
+
+static void
+data_free (SenderData *data)
+{
+  g_print ("free client %s %p\n", data->sender, data);
+
+  g_list_free_full (data->clients, g_object_unref);
+  g_hash_table_remove (data->daemon->priv->senders, data->sender);
+  g_free (data->sender);
+  g_free (data);
+}
+
+
+static SenderData *
+sender_data_new (PvDaemon *daemon, const gchar *sender)
+{
+  PvDaemonPrivate *priv = daemon->priv;
+  SenderData *data;
+
+  data = g_new0 (SenderData, 1);
+  data->daemon = daemon;
+  data->sender = g_strdup (sender);
+
+  g_print ("watch name def: %p\n", g_main_context_get_thread_default ());
+  g_print ("watch name %s %p\n", sender, data);
+
+  data->id = g_bus_watch_name_on_connection (priv->connection,
+                                    sender,
+                                    G_BUS_NAME_WATCHER_FLAGS_NONE,
+                                    client_name_appeared_handler,
+                                    client_name_vanished_handler,
+                                    data,
+                                    (GDestroyNotify) data_free);
+
+  g_hash_table_insert (priv->senders, data->sender, data);
+
+  return data;
+}
+
 
 static gboolean
 handle_connect_client (PvDaemon1              *interface,
@@ -90,15 +150,19 @@ handle_connect_client (PvDaemon1              *interface,
   PvDaemonPrivate *priv = daemon->priv;
   PvClient *client;
   const gchar *sender, *object_path;
+  SenderData *data;
 
   sender = g_dbus_method_invocation_get_sender (invocation);
 
   g_print ("connect client %s\n", sender);
+  data = g_hash_table_lookup (priv->senders, sender);
+  if (data == NULL)
+    data = sender_data_new (daemon, sender);
 
   client = pv_client_new (daemon, sender, PV_DBUS_OBJECT_PREFIX);
   object_path = pv_client_get_object_path (client);
 
-  g_hash_table_insert (priv->clients, g_strdup (object_path), client);
+  data->clients = g_list_prepend (data->clients, client);
 
   pv_daemon1_complete_connect_client (interface, invocation, object_path);
 
@@ -301,32 +365,6 @@ pv_daemon_remove_source (PvDaemon *daemon, PvSource *source)
   pv_source_set_manager (source, NULL);
 }
 
-/**
- * pv_daemon_get_source:
- * @daemon: a #PvDaemon
- * @name: a name
- *
- * Find a #PvSource1 for @name in @daemon
- *
- * Returns: a #PvSource1
- */
-PvSource1 *
-pv_daemon_get_source (PvDaemon *daemon, const gchar *name)
-{
-  PvDaemonPrivate *priv;
-  PvSource1 *source;
-
-  g_return_val_if_fail (PV_IS_DAEMON (daemon), NULL);
-  priv = daemon->priv;
-
-  if (priv->sources == NULL)
-    return NULL;
-
-  source = priv->sources->data;
-
-  return source;
-}
-
 G_DEFINE_TYPE (PvDaemon, pv_daemon, G_TYPE_OBJECT);
 
 static void
@@ -357,7 +395,7 @@ pv_daemon_init (PvDaemon * daemon)
   PvDaemonPrivate *priv = daemon->priv = PV_DAEMON_GET_PRIVATE (daemon);
 
   priv->server_manager = g_dbus_object_manager_server_new (PV_DBUS_OBJECT_PREFIX);
-  priv->clients = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_object_unref);
+  priv->senders = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_object_unref);
 
   priv->subscribe = pv_subscribe_new ();
   g_signal_connect (priv->subscribe,

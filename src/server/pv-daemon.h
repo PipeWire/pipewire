@@ -23,8 +23,6 @@
 #include <glib-object.h>
 #include <gio/gio.h>
 
-#include "dbus/org-pulsevideo.h"
-
 G_BEGIN_DECLS
 
 #define PV_TYPE_DAEMON                 (pv_daemon_get_type ())
@@ -75,8 +73,6 @@ void               pv_daemon_unexport        (PvDaemon *daemon, const gchar *nam
 
 void               pv_daemon_add_source      (PvDaemon *daemon, PvSource *source);
 void               pv_daemon_remove_source   (PvDaemon *daemon, PvSource *source);
-
-PvSource1 *        pv_daemon_get_source      (PvDaemon *daemon, const gchar *name);
 
 G_END_DECLS
 

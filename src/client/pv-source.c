@@ -138,6 +138,8 @@ handle_create_source_output (PvSource1              *interface,
   const gchar *object_path;
 
   output = pv_source_create_source_output (source, arg_properties, priv->object_path);
+  if (output == NULL)
+    goto no_output;
 
   object_path = pv_source_output_get_object_path (output);
 
@@ -145,6 +147,14 @@ handle_create_source_output (PvSource1              *interface,
                                             invocation,
                                             object_path);
   return TRUE;
+
+  /* ERRORS */
+no_output:
+  {
+    g_dbus_method_invocation_return_dbus_error (invocation,
+        "org.pulsevideo.Error", "Can't create output");
+    return TRUE;
+  }
 }
 
 static gboolean

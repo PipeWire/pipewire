@@ -80,8 +80,11 @@ client_name_appeared_handler (GDBusConnection *connection,
                               gpointer user_data)
 {
   SenderData *data = user_data;
+  PvDaemonPrivate *priv = data->daemon->priv;
 
   g_print ("client name appeared def: %p\n", g_main_context_get_thread_default ());
+
+  g_hash_table_insert (priv->senders, data->sender, data);
 
   if (!g_strcmp0 (name, g_dbus_connection_get_unique_name (connection)))
     return;
@@ -112,7 +115,6 @@ data_free (SenderData *data)
   g_free (data);
 }
 
-
 static SenderData *
 sender_data_new (PvDaemon *daemon, const gchar *sender)
 {
@@ -134,7 +136,6 @@ sender_data_new (PvDaemon *daemon, const gchar *sender)
                                     data,
                                     (GDestroyNotify) data_free);
 
-  g_hash_table_insert (priv->senders, data->sender, data);
 
   return data;
 }
@@ -395,7 +396,7 @@ pv_daemon_init (PvDaemon * daemon)
   PvDaemonPrivate *priv = daemon->priv = PV_DAEMON_GET_PRIVATE (daemon);
 
   priv->server_manager = g_dbus_object_manager_server_new (PV_DBUS_OBJECT_PREFIX);
-  priv->senders = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_object_unref);
+  priv->senders = g_hash_table_new (g_str_hash, g_str_equal);
 
   priv->subscribe = pv_subscribe_new ();
   g_signal_connect (priv->subscribe,

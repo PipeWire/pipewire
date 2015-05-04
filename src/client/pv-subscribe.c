@@ -115,9 +115,9 @@ on_proxy_properties_changed (GDBusProxy *proxy,
                              GStrv       invalidated_properties,
                              gpointer    user_data)
 {
-  ProxyData *data = user_data;
+  PvObjectData *data = user_data;
 
-  notify_event (subscribe, data->proxy, PV_SUBSCRIPTION_EVENT_CHANGE);
+  notify_event (data->subscribe, data, PV_SUBSCRIPTION_EVENT_CHANGE);
 }
 
 static void
@@ -125,11 +125,13 @@ on_proxy_created (GObject *source_object,
                   GAsyncResult *res,
                   gpointer user_data)
 {
-  ProxyData *data = user_data;
+  PvObjectData *data = user_data;
   PvSubscribe *subscribe = data->subscribe;
   PvSubscribePrivate *priv = subscribe->priv;
   GError *error = NULL;
   GList *walk;
+
+  data->pending = FALSE;
 
   data->proxy = g_dbus_proxy_new_finish (res, &error);
   if (data->proxy == NULL) {
@@ -166,13 +168,14 @@ add_interface (PvSubscribe *subscribe,
                GVariant    *properties)
 {
   PvSubscribePrivate *priv = subscribe->priv;
-  ProxyData *data;
+  PvObjectData *data;
 
-  data = g_new0 (ProxyData, 1);
+  data = g_new0 (PvObjectData, 1);
   data->subscribe = subscribe;
   data->sender_name = g_strdup (priv->service);
   data->object_path = g_strdup (object_path);
   data->interface_name = g_strdup (interface_name);
+  data->pending = TRUE;
 
   priv->objects = g_list_prepend (priv->objects, data);
   priv->pending_proxies++;
@@ -647,8 +650,6 @@ compare_data (PvObjectData *data, const gchar *name,
 
 void
 pv_subscribe_get_proxy (PvSubscribe *subscribe,
-                        GDBusProxyFlags flags,
-                        GDBusInterfaceInfo *info,
                         const gchar *name,
                         const gchar *object_path,
                         const gchar *interface_name,
@@ -657,10 +658,9 @@ pv_subscribe_get_proxy (PvSubscribe *subscribe,
                         gpointer user_data)
 {
   PvSubscribePrivate *priv;
-  GDBusProxy *res = NULL;
   GList *walk;
 
-  g_return_val_if_fail (PV_IS_SUBSCRIBE (subscribe), NULL);
+  g_return_if_fail (PV_IS_SUBSCRIBE (subscribe));
   priv = subscribe->priv;
 
   for (walk = priv->objects; walk; walk = g_list_next (walk)) {
@@ -675,7 +675,6 @@ pv_subscribe_get_proxy (PvSubscribe *subscribe,
                          user_data);
 
       if (data->pending) {
-        g_task_set_task_data (task, data, NULL);
         data->tasks = g_list_prepend (data->tasks, task);
       } else if (data->proxy) {
         g_task_return_pointer (task, g_object_ref (data->proxy), g_object_unref);
@@ -685,5 +684,13 @@ pv_subscribe_get_proxy (PvSubscribe *subscribe,
       break;
     }
   }
+}
+
+GDBusProxy *
+pv_subscribe_get_proxy_finish (PvSubscribe  *subscribe,
+                               GAsyncResult *res,
+                               GError       **error)
+{
+  return g_task_propagate_pointer (G_TASK (res), error);
 }
 

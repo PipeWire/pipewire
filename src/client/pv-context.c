@@ -321,7 +321,6 @@ on_client_connected (GObject *source_object,
   g_variant_get (ret, "(o)", &priv->client_path);
   g_print ("got client %s\n", priv->client_path);
   g_variant_unref (ret);
-
 }
 
 static void

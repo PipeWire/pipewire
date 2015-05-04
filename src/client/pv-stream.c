@@ -340,8 +340,12 @@ on_source_output_proxy (GObject *source_object,
 {
   PvStream *stream = user_data;
   PvStreamPrivate *priv = stream->priv;
+  PvContext *context = priv->context;
   GError *error = NULL;
 
+  priv->source_output = pv_subscribe_get_proxy_finish (context->priv->subscribe,
+                                                       res,
+                                                       &error);
   if (priv->source_output == NULL)
     goto source_output_failed;
 
@@ -384,13 +388,13 @@ on_source_output_created (GObject *source_object,
   g_print ("got source-output %s\n", priv->source_output_path);
   g_variant_unref (ret);
 
-  priv->source_output = pv_subscribe_get_proxy (context->priv->subscribe,
-                                                PV_DBUS_SERVICE,
-                                                priv->source_output_path,
-                                                "org.pulsevideo.SourceOutput1",
-                                                NULL,
-                                                on_source_ouput_proxy,
-                                                stream);
+  pv_subscribe_get_proxy (context->priv->subscribe,
+                          PV_DBUS_SERVICE,
+                          priv->source_output_path,
+                          "org.pulsevideo.SourceOutput1",
+                          NULL,
+                          on_source_output_proxy,
+                          stream);
 
   return;
 

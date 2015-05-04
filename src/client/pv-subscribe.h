@@ -87,13 +87,17 @@ PvSubscribe *       pv_subscribe_new                   (void);
 PvSubscriptionState pv_subscribe_get_state             (PvSubscribe *subscribe);
 GError *            pv_subscribe_get_error             (PvSubscribe *subscribe);
 
-GDBusProxy *        pv_subscribe_get_proxy             (PvSubscribe *subscribe,
+void                pv_subscribe_get_proxy             (PvSubscribe *subscribe,
                                                         const gchar *name,
                                                         const gchar *object_path,
                                                         const gchar *interface_name,
                                                         GCancellable *cancellable,
                                                         GAsyncReadyCallback callback,
                                                         gpointer user_data);
+GDBusProxy *        pv_subscribe_get_proxy_finish      (PvSubscribe  *subscribe,
+                                                        GAsyncResult *res,
+                                                        GError       **error);
+
 
 
 G_END_DECLS

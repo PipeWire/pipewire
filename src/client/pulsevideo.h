@@ -20,8 +20,6 @@
 #ifndef __PULSEVIDEO_H__
 #define __PULSEVIDEO_H__
 
-#include <client/pv-source.h>
-#include <client/pv-source-output.h>
 #include <client/pv-stream.h>
 #include <client/pv-context.h>
 #include <client/pv-subscribe.h>

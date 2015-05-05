@@ -20,8 +20,6 @@
 #include "client/pulsevideo.h"
 
 #include "client/pv-enumtypes.h"
-#include "client/pv-source.h"
-#include "client/pv-source-output.h"
 
 #include "server/pv-client.h"
 
@@ -34,8 +32,6 @@ struct _PvClientPrivate
   gchar *object_path;
 
   PvClient1 *client1;
-
-  GHashTable *source_outputs;
 };
 
 #define PV_CLIENT_GET_PRIVATE(obj)  \
@@ -133,7 +129,6 @@ client_unregister_object (PvClient *client)
   PvClientPrivate *priv = client->priv;
   PvDaemon *daemon = priv->daemon;
 
-  g_hash_table_unref (priv->source_outputs);
   g_clear_object (&priv->client1);
 
   pv_daemon_unexport (daemon, priv->object_path);
@@ -207,9 +202,7 @@ pv_client_class_init (PvClientClass * klass)
 static void
 pv_client_init (PvClient * client)
 {
-  PvClientPrivate *priv = client->priv = PV_CLIENT_GET_PRIVATE (client);
-
-  priv->source_outputs = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_object_unref);
+  client->priv = PV_CLIENT_GET_PRIVATE (client);
 }
 
 

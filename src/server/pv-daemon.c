@@ -45,7 +45,7 @@ typedef struct {
   guint id;
   gchar *sender;
   PvDaemon *daemon;
-  GList *clients;
+  GList *objects;
 } SenderData;
 
 static void
@@ -109,7 +109,7 @@ data_free (SenderData *data)
 {
   g_print ("free client %s %p\n", data->sender, data);
 
-  g_list_free_full (data->clients, g_object_unref);
+  g_list_free_full (data->objects, g_object_unref);
   g_hash_table_remove (data->daemon->priv->senders, data->sender);
   g_free (data->sender);
   g_free (data);
@@ -148,24 +148,19 @@ handle_connect_client (PvDaemon1              *interface,
                        gpointer                user_data)
 {
   PvDaemon *daemon = user_data;
-  PvDaemonPrivate *priv = daemon->priv;
   PvClient *client;
   const gchar *sender, *object_path;
-  SenderData *data;
 
   sender = g_dbus_method_invocation_get_sender (invocation);
 
   g_print ("connect client %s\n", sender);
-  data = g_hash_table_lookup (priv->senders, sender);
-  if (data == NULL)
-    data = sender_data_new (daemon, sender);
-
   client = pv_client_new (daemon, sender, PV_DBUS_OBJECT_PREFIX);
+
+  pv_daemon_track_object (daemon, sender, G_OBJECT (client));
+
   object_path = pv_client_get_object_path (client);
-
-  data->clients = g_list_prepend (data->clients, client);
-
-  pv_daemon1_complete_connect_client (interface, invocation, object_path);
+  g_dbus_method_invocation_return_value (invocation,
+                                         g_variant_new ("(o)", object_path));
 
   return TRUE;
 }
@@ -331,39 +326,25 @@ pv_daemon_unexport (PvDaemon *daemon, const gchar *object_path)
   g_dbus_object_manager_server_unexport (daemon->priv->server_manager, object_path);
 }
 
-/**
- * pv_daemon_add_source:
- * @daemon: a #PvDaemon
- * @source: a #PvSource
- *
- * Register @source with @daemon so that it becomes available to clients.
- */
 void
-pv_daemon_add_source (PvDaemon *daemon, PvSource *source)
+pv_daemon_track_object (PvDaemon    *daemon,
+                        const gchar *sender,
+                        GObject     *object)
 {
   PvDaemonPrivate *priv;
+  SenderData *data;
 
   g_return_if_fail (PV_IS_DAEMON (daemon));
-  g_return_if_fail (PV_IS_SOURCE (source));
+  g_return_if_fail (sender != NULL);
+  g_return_if_fail (G_IS_OBJECT (object));
+
   priv = daemon->priv;
 
-  pv_source_set_manager (source, priv->server_manager);
-}
+  data = g_hash_table_lookup (priv->senders, sender);
+  if (data == NULL)
+    data = sender_data_new (daemon, sender);
 
-/**
- * pv_daemon_remove_source:
- * @daemon: a #PvDaemon
- * @source: a #PvSource
- *
- * Unregister @source from @daemon so that it becomes unavailable to clients.
- */
-void
-pv_daemon_remove_source (PvDaemon *daemon, PvSource *source)
-{
-  g_return_if_fail (PV_IS_DAEMON (daemon));
-  g_return_if_fail (PV_IS_SOURCE (source));
-
-  pv_source_set_manager (source, NULL);
+  data->objects = g_list_prepend (data->objects, object);
 }
 
 G_DEFINE_TYPE (PvDaemon, pv_daemon, G_TYPE_OBJECT);

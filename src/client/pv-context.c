@@ -577,52 +577,6 @@ pv_context_disconnect (PvContext *context)
 }
 
 /**
- * pv_context_register_source:
- * @context: a #PvContext
- * @source: a #PvSource
- *
- * Register @source in @context. This makes @source availabe to other
- * connected clients.
- *
- * Returns: %TRUE on success.
- */
-gboolean
-pv_context_register_source (PvContext *context, PvSource *source)
-{
-  PvContextPrivate *priv;
-
-  g_return_val_if_fail (PV_IS_CONTEXT (context), FALSE);
-  g_return_val_if_fail (PV_IS_SOURCE (source), FALSE);
-
-  priv = context->priv;
-
-  pv_source_set_manager (source, priv->server_manager);
-
-  return TRUE;
-}
-
-/**
- * pv_context_unregister_source:
- * @context: a #PvContext
- * @source: a #PvSource
- *
- * Unregister @source from @context. @source will no longer be
- * available for clients.
- *
- * Returns: %TRUE on success.
- */
-gboolean
-pv_context_unregister_source (PvContext *context, PvSource *source)
-{
-  g_return_val_if_fail (PV_IS_CONTEXT (context), FALSE);
-  g_return_val_if_fail (PV_IS_SOURCE (source), FALSE);
-
-  pv_source_set_manager (source, NULL);
-
-  return TRUE;
-}
-
-/**
  * pv_context_get_state:
  * @context: a #PvContext
  *

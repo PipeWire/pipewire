@@ -38,7 +38,7 @@ typedef struct _PvDaemon PvDaemon;
 typedef struct _PvDaemonClass PvDaemonClass;
 typedef struct _PvDaemonPrivate PvDaemonPrivate;
 
-#include <client/pv-source.h>
+#include <server/pv-source.h>
 
 /**
  * PvDaemon:
@@ -71,8 +71,7 @@ void               pv_daemon_stop            (PvDaemon *daemon);
 gchar *            pv_daemon_export_uniquely (PvDaemon *daemon, GDBusObjectSkeleton *skel);
 void               pv_daemon_unexport        (PvDaemon *daemon, const gchar *name);
 
-void               pv_daemon_add_source      (PvDaemon *daemon, PvSource *source);
-void               pv_daemon_remove_source   (PvDaemon *daemon, PvSource *source);
+void               pv_daemon_track_object    (PvDaemon *daemon, const gchar *sender, GObject *object);
 
 G_END_DECLS
 

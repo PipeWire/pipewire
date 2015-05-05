@@ -29,7 +29,8 @@ typedef struct _PvSource PvSource;
 typedef struct _PvSourceClass PvSourceClass;
 typedef struct _PvSourcePrivate PvSourcePrivate;
 
-#include "client/pv-source-output.h"
+#include "client/pv-introspect.h"
+#include "server/pv-source-output.h"
 
 #define PV_TYPE_SOURCE                 (pv_source_get_type ())
 #define PV_IS_SOURCE(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PV_TYPE_SOURCE))
@@ -40,26 +41,6 @@ typedef struct _PvSourcePrivate PvSourcePrivate;
 #define PV_SOURCE_CAST(obj)            ((PvSource*)(obj))
 #define PV_SOURCE_CLASS_CAST(klass)    ((PvSourceClass*)(klass))
 
-/**
- * PvSourceState:
- * @PV_SOURCE_STATE_ERROR: the source is in error
- * @PV_SOURCE_STATE_SUSPENDED: the source is suspended, the device might
- *                             be closed
- * @PV_SOURCE_STATE_INIT: the source is initializing, it opens the device
- *                        and gets the device capabilities
- * @PV_SOURCE_STATE_IDLE: the source is running but there is no active
- *                        source-output
- * @PV_SOURCE_STATE_RUNNING: the source is running.
- *
- * The different source states
- */
-typedef enum {
-  PV_SOURCE_STATE_ERROR = 0,
-  PV_SOURCE_STATE_SUSPENDED = 1,
-  PV_SOURCE_STATE_INIT = 2,
-  PV_SOURCE_STATE_IDLE = 3,
-  PV_SOURCE_STATE_RUNNING = 4,
-} PvSourceState;
 /**
  * PvSource:
  *
@@ -93,8 +74,6 @@ struct _PvSourceClass {
 
 /* normal GObject stuff */
 GType            pv_source_get_type               (void);
-
-void             pv_source_set_manager            (PvSource *source, GDBusObjectManagerServer *manager);
 
 GVariant *       pv_source_get_capabilities       (PvSource *source, GVariant *props);
 

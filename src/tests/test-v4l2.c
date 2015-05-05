@@ -32,7 +32,7 @@ on_state_notify (GObject    *gobject,
                  gpointer    user_data)
 {
   PvContextState state;
-  PvContext *c = user_data;
+  //PvContext *c = user_data;
 
   g_object_get (gobject, "state", &state, NULL);
   g_print ("got context state %d\n", state);
@@ -43,10 +43,10 @@ on_state_notify (GObject    *gobject,
       break;
     case PV_CONTEXT_STATE_READY:
     {
-      PvSource *source;
+      //PvSource *source;
 
-      source = pv_v4l2_source_new ();
-      pv_context_register_source (c, source);
+      //source = pv_v4l2_source_new (NULL);
+      //pv_context_register_source (c, source);
       break;
     }
     default:

@@ -192,6 +192,14 @@ add_interface (PvSubscribe *subscribe,
 }
 
 static void
+remove_interface (PvSubscribe *subscribe,
+                  const gchar *object_path,
+                  const gchar *interface_name)
+{
+  g_print ("remove interface %s\n", interface_name);
+}
+
+static void
 add_ifaces_and_properties (PvSubscribe *subscribe,
                            const gchar *object_path,
                            GVariant    *ifaces_and_properties)
@@ -209,6 +217,18 @@ add_ifaces_and_properties (PvSubscribe *subscribe,
     add_interface (subscribe, object_path, interface_name, properties);
 
     g_variant_unref (properties);
+  }
+}
+
+static void
+remove_ifaces (PvSubscribe *subscribe,
+               const gchar *object_path,
+               const gchar **ifaces)
+{
+  while (*ifaces) {
+    remove_interface (subscribe, object_path, *ifaces);
+
+    ifaces++;
   }
 }
 
@@ -242,6 +262,7 @@ on_manager_proxy_signal (GDBusProxy   *proxy,
                    &object_path,
                    &ifaces);
 
+    remove_ifaces (subscribe, object_path, ifaces);
 
     g_free (ifaces);
   }

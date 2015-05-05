@@ -23,7 +23,6 @@
 #include <glib-object.h>
 #include <gio/gio.h>
 
-#include <client/pv-source.h>
 #include <client/pv-subscribe.h>
 
 G_BEGIN_DECLS
@@ -104,9 +103,6 @@ PvContext *       pv_context_new                   (GMainContext *ctx,
 
 gboolean          pv_context_connect               (PvContext *context, PvContextFlags flags);
 gboolean          pv_context_disconnect            (PvContext *context);
-
-gboolean          pv_context_register_source       (PvContext *context, PvSource *source);
-gboolean          pv_context_unregister_source     (PvContext *context, PvSource *source);
 
 PvContextState    pv_context_get_state             (PvContext *context);
 const GError *    pv_context_get_error             (PvContext *context);

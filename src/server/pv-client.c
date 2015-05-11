@@ -103,6 +103,53 @@ pv_client_set_property (GObject      *_object,
   }
 }
 
+static gboolean
+handle_create_source_output (PvClient1              *interface,
+                             GDBusMethodInvocation  *invocation,
+                             const gchar            *arg_source,
+                             GVariant               *arg_properties,
+                             gpointer                user_data)
+{
+  PvClient *client = user_data;
+  PvClientPrivate *priv = client->priv;
+  PvSource *source;
+  PvSourceOutput *output;
+  const gchar *object_path, *sender;
+
+  source = pv_daemon_find_source (priv->daemon, arg_source, arg_properties);
+  if (source == NULL)
+    goto no_source;
+
+  output = pv_source_create_source_output (source, arg_properties, priv->object_path);
+  if (output == NULL)
+    goto no_output;
+
+  sender = g_dbus_method_invocation_get_sender (invocation);
+
+  pv_daemon_track_object (priv->daemon, sender, G_OBJECT (output));
+
+  object_path = pv_source_output_get_object_path (output);
+  g_dbus_method_invocation_return_value (invocation,
+                                         g_variant_new ("(o)", object_path));
+
+  return TRUE;
+
+  /* ERRORS */
+no_source:
+  {
+    g_dbus_method_invocation_return_dbus_error (invocation,
+        "org.pulsevideo.Error", "Can't create sourc");
+    return TRUE;
+  }
+no_output:
+  {
+    g_dbus_method_invocation_return_dbus_error (invocation,
+        "org.pulsevideo.Error", "Can't create output");
+    return TRUE;
+  }
+}
+
+
 static void
 client_register_object (PvClient *client, const gchar *prefix)
 {
@@ -117,6 +164,9 @@ client_register_object (PvClient *client, const gchar *prefix)
 
   priv->client1 = pv_client1_skeleton_new ();
   pv_client1_set_name (priv->client1, priv->sender);
+  g_signal_connect (priv->client1, "handle-create-source-output",
+                                   (GCallback) handle_create_source_output,
+                                   client);
   pv_object_skeleton_set_client1 (skel, priv->client1);
 
   g_free (priv->object_path);

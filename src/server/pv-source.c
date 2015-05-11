@@ -129,40 +129,6 @@ pv_source_set_property (GObject      *_object,
 }
 
 static gboolean
-handle_create_source_output (PvSource1              *interface,
-                             GDBusMethodInvocation  *invocation,
-                             GVariant               *arg_properties,
-                             gpointer                user_data)
-{
-  PvSource *source = user_data;
-  PvSourcePrivate *priv = source->priv;
-  PvSourceOutput *output;
-  const gchar *object_path, *sender;
-
-  output = pv_source_create_source_output (source, arg_properties, priv->object_path);
-  if (output == NULL)
-    goto no_output;
-
-  sender = g_dbus_method_invocation_get_sender (invocation);
-
-  pv_daemon_track_object (priv->daemon, sender, G_OBJECT (output));
-
-  object_path = pv_source_output_get_object_path (output);
-  g_dbus_method_invocation_return_value (invocation,
-                                         g_variant_new ("(o)", object_path));
-
-  return TRUE;
-
-  /* ERRORS */
-no_output:
-  {
-    g_dbus_method_invocation_return_dbus_error (invocation,
-        "org.pulsevideo.Error", "Can't create output");
-    return TRUE;
-  }
-}
-
-static gboolean
 handle_get_capabilities (PvSource1              *interface,
                          GDBusMethodInvocation  *invocation,
                          GVariant               *arg_properties,
@@ -194,9 +160,6 @@ source_register_object (PvSource *source)
                              "state", priv->state,
                              "properties", priv->properties,
                              NULL);
-  g_signal_connect (priv->iface, "handle-create-source-output",
-                                 (GCallback) handle_create_source_output,
-                                 source);
   g_signal_connect (priv->iface, "handle-get-capabilities",
                                  (GCallback) handle_get_capabilities,
                                  source);
@@ -204,6 +167,7 @@ source_register_object (PvSource *source)
 
   g_free (priv->object_path);
   priv->object_path = pv_daemon_export_uniquely (daemon, G_DBUS_OBJECT_SKELETON (skel));
+  pv_daemon_add_source (daemon, source);
 
   return;
 }
@@ -213,6 +177,7 @@ source_unregister_object (PvSource *source)
 {
   PvSourcePrivate *priv = source->priv;
 
+  pv_daemon_remove_source (priv->daemon, source);
   pv_daemon_unexport (priv->daemon, priv->object_path);
   g_clear_object (&priv->iface);
 }

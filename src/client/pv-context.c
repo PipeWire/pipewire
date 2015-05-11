@@ -614,18 +614,3 @@ pv_context_get_error (PvContext *context)
 
   return priv->error;
 }
-
-GDBusProxy *
-pv_context_find_source (PvContext *context, const gchar *name, GVariant *props)
-{
-  PvContextPrivate *priv;
-
-  g_return_val_if_fail (PV_IS_CONTEXT (context), NULL);
-  priv = context->priv;
-
-  if (priv->sources == NULL)
-    return NULL;
-
-  return priv->sources->data;
-}
-

@@ -152,6 +152,8 @@ on_socket_notify (GObject    *gobject,
 
   g_object_get (gobject, "socket", &socket, NULL);
 
+  g_print ("source socket %p\n", socket);
+
   if (socket == NULL) {
     if (priv->socket)
       g_signal_emit_by_name (priv->sink, "remove", priv->socket);

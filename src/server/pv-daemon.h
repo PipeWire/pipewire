@@ -73,6 +73,10 @@ void               pv_daemon_unexport        (PvDaemon *daemon, const gchar *nam
 
 void               pv_daemon_track_object    (PvDaemon *daemon, const gchar *sender, GObject *object);
 
+void               pv_daemon_add_source      (PvDaemon *daemon, PvSource *source);
+void               pv_daemon_remove_source   (PvDaemon *daemon, PvSource *source);
+PvSource *         pv_daemon_find_source     (PvDaemon *daemon, const gchar *name, GVariant *props);
+
 G_END_DECLS
 
 #endif /* __PV_DAEMON_H__ */

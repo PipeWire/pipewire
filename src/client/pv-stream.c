@@ -37,7 +37,6 @@ struct _PvStreamPrivate
   GError *error;
 
   gchar *source_output_path;
-  GDBusProxy *source;
   GVariant *spec;
   GDBusProxy *source_output;
 
@@ -380,7 +379,7 @@ on_source_output_created (GObject *source_object,
 
   g_assert (g_main_context_get_thread_default () == priv->context->priv->context);
 
-  ret = g_dbus_proxy_call_finish (priv->source, res, &error);
+  ret = g_dbus_proxy_call_finish (context->priv->client, res, &error);
   if (ret == NULL)
     goto create_failed;
 
@@ -412,12 +411,15 @@ static gboolean
 do_connect_capture (PvStream *stream)
 {
   PvStreamPrivate *priv = stream->priv;
+  PvContext *context = priv->context;
 
   g_assert (g_main_context_get_thread_default () == priv->context->priv->context);
 
-  g_dbus_proxy_call (priv->source,
+  g_dbus_proxy_call (context->priv->client,
                      "CreateSourceOutput",
-                     g_variant_new ("(@a{sv})", priv->spec),
+                     g_variant_new ("(o@a{sv})", 
+                       (priv->target ? priv->target : "/"),
+                       priv->spec),
                      G_DBUS_CALL_FLAGS_NONE,
                      -1,
                      NULL, /* GCancellable *cancellable */
@@ -454,12 +456,6 @@ pv_stream_connect_capture (PvStream      *stream,
   g_return_val_if_fail (pv_context_get_state (context) == PV_CONTEXT_STATE_READY, FALSE);
 
   priv->target = g_strdup (source);
-
-  priv->source = pv_context_find_source (context, priv->target, NULL);
-  if (priv->source == NULL) {
-    g_warning ("can't find source");
-    return FALSE;
-  }
   priv->spec = spec;
 
   stream_set_state (stream, PV_STREAM_STATE_CONNECTING);
@@ -481,7 +477,7 @@ on_source_output_removed (GObject *source_object,
 
   g_assert (g_main_context_get_thread_default () == priv->context->priv->context);
 
-  ret = g_dbus_proxy_call_finish (priv->source, res, &error);
+  ret = g_dbus_proxy_call_finish (priv->source_output, res, &error);
   if (ret == NULL) {
     priv->error = error;
     stream_set_state (stream, PV_STREAM_STATE_ERROR);

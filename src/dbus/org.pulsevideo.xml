@@ -51,6 +51,18 @@
          Disconnect the client from the server.
     -->
     <method name='Disconnect'/>
+    <!-- CreateSourceOutput:
+         @source: the Source1 object path or / for default
+         @props: input properties
+         @output: the SourceOutput1 object path
+
+         Create a new output for @source with given @props
+    -->
+    <method name='CreateSourceOutput'>
+      <arg type='o' name='source' direction='in'/>
+      <arg type='a{sv}' name='props' direction='in'/>
+      <arg type='o' name='output' direction='out'/>
+    </method>
   </interface>
 
   <!--
@@ -110,16 +122,6 @@
     <method name='GetCapabilities'>
       <arg type='a{sv}' name='props' direction='in'/>
       <arg type='aa{sv}' name='caps' direction='out'/>
-    </method>
-    <!-- CreateSourceOutput:
-         @props: input properties
-         @output: the SourceOutput1 object path
-
-         Create a new output for this source with given @props
-    -->
-    <method name='CreateSourceOutput'>
-      <arg type='a{sv}' name='props' direction='in'/>
-      <arg type='o' name='output' direction='out'/>
     </method>
   </interface>
 

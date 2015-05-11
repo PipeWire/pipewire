@@ -38,6 +38,8 @@ struct _PvDaemonPrivate
   GDBusObjectManagerServer *server_manager;
   PvSubscribe *subscribe;
 
+  GList *sources;
+
   GHashTable *senders;
 };
 
@@ -62,14 +64,8 @@ on_server_subscription_event (PvSubscribe         *subscribe,
 
   g_print ("got event %d %d %s:%s\n", event, flags, name, object_path);
 
-  switch (event) {
-    case PV_SUBSCRIPTION_EVENT_NEW:
-      break;
-
-    case PV_SUBSCRIPTION_EVENT_CHANGE:
-      break;
-
-    case PV_SUBSCRIPTION_EVENT_REMOVE:
+  switch (flags) {
+    default:
       break;
   }
 }
@@ -345,6 +341,44 @@ pv_daemon_track_object (PvDaemon    *daemon,
     data = sender_data_new (daemon, sender);
 
   data->objects = g_list_prepend (data->objects, object);
+}
+
+void
+pv_daemon_add_source (PvDaemon *daemon, PvSource *source)
+{
+  PvDaemonPrivate *priv;
+
+  g_return_if_fail (PV_IS_DAEMON (daemon));
+  g_return_if_fail (PV_IS_SOURCE (source));
+  priv = daemon->priv;
+
+  priv->sources = g_list_prepend (priv->sources, source);
+}
+
+void
+pv_daemon_remove_source (PvDaemon *daemon, PvSource *source)
+{
+  PvDaemonPrivate *priv;
+
+  g_return_if_fail (PV_IS_DAEMON (daemon));
+  g_return_if_fail (PV_IS_SOURCE (source));
+  priv = daemon->priv;
+
+  priv->sources = g_list_remove (priv->sources, source);
+}
+
+PvSource *
+pv_daemon_find_source (PvDaemon *daemon, const gchar *name, GVariant *props)
+{
+  PvDaemonPrivate *priv;
+
+  g_return_val_if_fail (PV_IS_DAEMON (daemon), NULL);
+  priv = daemon->priv;
+
+  if (priv->sources == NULL)
+    return NULL;
+
+  return priv->sources->data;
 }
 
 G_DEFINE_TYPE (PvDaemon, pv_daemon, G_TYPE_OBJECT);

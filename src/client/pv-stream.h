@@ -104,12 +104,17 @@ gboolean        pv_stream_connect_capture      (PvStream *stream,
                                                 const gchar *source,
                                                 PvStreamFlags flags,
                                                 GVariant *spec);
+gboolean        pv_stream_connect_provide      (PvStream *stream,
+                                                PvStreamFlags flags,
+                                                GVariant *spec);
 gboolean        pv_stream_disconnect           (PvStream *stream);
 
 gboolean        pv_stream_start                (PvStream *stream, PvStreamMode mode);
 gboolean        pv_stream_stop                 (PvStream *stream);
 
 gboolean        pv_stream_capture_buffer       (PvStream *stream,
+                                                PvBufferInfo *info);
+gboolean        pv_stream_provide_buffer       (PvStream *stream,
                                                 PvBufferInfo *info);
 
 G_END_DECLS

@@ -44,6 +44,3 @@ struct _PvContextPrivate
 
   GDBusObjectManagerServer *server_manager;
 };
-
-GDBusProxy *      pv_context_find_source           (PvContext *context, const gchar *name, GVariant *props);
-

@@ -417,7 +417,7 @@ do_connect_capture (PvStream *stream)
 
   g_dbus_proxy_call (context->priv->client,
                      "CreateSourceOutput",
-                     g_variant_new ("(o@a{sv})", 
+                     g_variant_new ("(o@a{sv})",
                        (priv->target ? priv->target : "/"),
                        priv->spec),
                      G_DBUS_CALL_FLAGS_NONE,
@@ -434,6 +434,7 @@ do_connect_capture (PvStream *stream)
  * @stream: a #PvStream
  * @source: the source name to connect to
  * @flags: a #PvStreamFlags
+ * @spec: a #GVariant
  *
  * Connect @stream for capturing from @source.
  *
@@ -461,6 +462,61 @@ pv_stream_connect_capture (PvStream      *stream,
   stream_set_state (stream, PV_STREAM_STATE_CONNECTING);
 
   g_main_context_invoke (context->priv->context, (GSourceFunc) do_connect_capture, stream);
+
+  return TRUE;
+}
+
+static gboolean
+do_connect_provide (PvStream *stream)
+{
+  PvStreamPrivate *priv = stream->priv;
+  PvContext *context = priv->context;
+
+  g_assert (g_main_context_get_thread_default () == priv->context->priv->context);
+
+  g_dbus_proxy_call (context->priv->client,
+                     "CreateSourceInput",
+                     g_variant_new ("(@a{sv})",
+                       priv->spec),
+                     G_DBUS_CALL_FLAGS_NONE,
+                     -1,
+                     NULL, /* GCancellable *cancellable */
+                     on_source_output_created,
+                     stream);
+
+  return FALSE;
+}
+
+/**
+ * pv_stream_connect_provide:
+ * @stream: a #PvStream
+ * @flags: a #PvStreamFlags
+ * @spec: a #GVariant
+ *
+ * Connect @stream for providing data for a new source.
+ *
+ * Returns: %TRUE on success.
+ */
+gboolean
+pv_stream_connect_provide (PvStream *stream,
+                           PvStreamFlags flags,
+                           GVariant *spec)
+{
+  PvStreamPrivate *priv;
+  PvContext *context;
+
+  g_return_val_if_fail (PV_IS_STREAM (stream), FALSE);
+  g_return_val_if_fail (spec != NULL, FALSE);
+
+  priv = stream->priv;
+  context = priv->context;
+  g_return_val_if_fail (pv_context_get_state (context) == PV_CONTEXT_STATE_READY, FALSE);
+
+  priv->spec = spec;
+
+  stream_set_state (stream, PV_STREAM_STATE_CONNECTING);
+
+  g_main_context_invoke (context->priv->context, (GSourceFunc) do_connect_provide, stream);
 
   return TRUE;
 }
@@ -861,3 +917,28 @@ pv_stream_capture_buffer (PvStream *stream, PvBufferInfo *info)
 
   return TRUE;
 }
+
+/**
+ * pv_stream_provide_buffer:
+ * @stream: a #PvStream
+ * @info: a #PvBufferInfo
+ *
+ * Provide the next buffer from @stream. This function should be called every
+ * time a new frame becomes available.
+ *
+ * Returns: %TRUE when @info was handled
+ */
+gboolean
+pv_stream_provide_buffer (PvStream *stream, PvBufferInfo *info)
+{
+  PvStreamPrivate *priv;
+
+  g_return_val_if_fail (PV_IS_STREAM (stream), FALSE);
+  g_return_val_if_fail (info != NULL, FALSE);
+
+  priv = stream->priv;
+  g_return_val_if_fail (priv->state == PV_STREAM_STATE_STREAMING, FALSE);
+
+  return TRUE;
+}
+

@@ -22,6 +22,7 @@
 #include "client/pv-enumtypes.h"
 
 #include "server/pv-client.h"
+#include "server/pv-client-source.h"
 
 #include "dbus/org-pulsevideo.h"
 
@@ -138,7 +139,7 @@ handle_create_source_output (PvClient1              *interface,
 no_source:
   {
     g_dbus_method_invocation_return_dbus_error (invocation,
-        "org.pulsevideo.Error", "Can't create sourc");
+        "org.pulsevideo.Error", "Can't create source");
     return TRUE;
   }
 no_output:
@@ -149,6 +150,53 @@ no_output:
   }
 }
 
+static gboolean
+handle_create_source_input (PvClient1              *interface,
+                            GDBusMethodInvocation  *invocation,
+                            GVariant               *arg_properties,
+                            gpointer                user_data)
+{
+  PvClient *client = user_data;
+  PvClientPrivate *priv = client->priv;
+  PvSource *source;
+  PvSourceOutput *input;
+  const gchar *source_input_path, *sender;
+
+  source = pv_client_source_new (priv->daemon);
+  if (source == NULL)
+    goto no_source;
+
+  sender = g_dbus_method_invocation_get_sender (invocation);
+
+  pv_daemon_track_object (priv->daemon, sender, G_OBJECT (source));
+
+  input = pv_client_source_get_source_input (PV_CLIENT_SOURCE (source), arg_properties, priv->object_path);
+  if (input == NULL)
+    goto no_input;
+
+  pv_daemon_track_object (priv->daemon, sender, G_OBJECT (input));
+
+  source_input_path = pv_source_output_get_object_path (input);
+  g_dbus_method_invocation_return_value (invocation,
+                                         g_variant_new ("(o)",
+                                           source_input_path));
+
+  return TRUE;
+
+  /* ERRORS */
+no_source:
+  {
+    g_dbus_method_invocation_return_dbus_error (invocation,
+        "org.pulsevideo.Error", "Can't create source");
+    return TRUE;
+  }
+no_input:
+  {
+    g_dbus_method_invocation_return_dbus_error (invocation,
+        "org.pulsevideo.Error", "Can't create input");
+    return TRUE;
+  }
+}
 
 static void
 client_register_object (PvClient *client, const gchar *prefix)
@@ -166,6 +214,9 @@ client_register_object (PvClient *client, const gchar *prefix)
   pv_client1_set_name (priv->client1, priv->sender);
   g_signal_connect (priv->client1, "handle-create-source-output",
                                    (GCallback) handle_create_source_output,
+                                   client);
+  g_signal_connect (priv->client1, "handle-create-source-input",
+                                   (GCallback) handle_create_source_input,
                                    client);
   pv_object_skeleton_set_client1 (skel, priv->client1);
 

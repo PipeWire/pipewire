@@ -63,6 +63,17 @@
       <arg type='a{sv}' name='props' direction='in'/>
       <arg type='o' name='output' direction='out'/>
     </method>
+    <!-- CreateSourceInput:
+         @props: input properties
+         @source: the new Source1 object path
+         @input: the SourceInput1 object path
+
+         Create a new source and input object with given @props
+    -->
+    <method name='CreateSourceInput'>
+      <arg type='a{sv}' name='props' direction='in'/>
+      <arg type='o' name='input' direction='out'/>
+    </method>
   </interface>
 
   <!--

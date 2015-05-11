@@ -34,7 +34,4 @@ void
 pv_init (int *argc, char **argv[])
 {
   gst_init (argc, argv);
-
-  gst_element_register (NULL, "pvfdpay", GST_RANK_NONE, GST_TYPE_FDPAY);
-  gst_element_register (NULL, "pvfddepay", GST_RANK_NONE, GST_TYPE_FDDEPAY);
 }

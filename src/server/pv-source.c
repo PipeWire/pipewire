@@ -401,3 +401,14 @@ pv_source_release_source_output (PvSource *source, PvSourceOutput *output)
   return res;
 }
 
+const gchar *
+pv_source_get_object_path (PvSource *source)
+{
+  PvSourcePrivate *priv;
+
+  g_return_val_if_fail (PV_IS_SOURCE (source), NULL);
+  priv = source->priv;
+
+ return priv->object_path;
+}
+

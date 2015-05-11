@@ -194,6 +194,7 @@ libpulsevideocore_@PV_MAJORMINOR@_la_SOURCES = \
 		server/pv-client.c server/pv-client.h \
 		server/pv-daemon.c server/pv-daemon.h \
 		server/pv-source.c server/pv-source.h \
+		server/pv-client-source.c server/pv-client-source.h \
 		server/pv-source-output.c server/pv-source-output.h \
 		modules/v4l2/pv-v4l2-source.c 
 
@@ -210,7 +211,11 @@ plugindir = $(libdir)/gstreamer-1.0
 plugin_LTLIBRARIES = libgstpulsevideosrc.la
 
 libgstpulsevideosrc_la_SOURCES = \
-                        gst/gstpvsrc.c 
+                        gst/gstpv.c \
+                        gst/gstfdpay.c \
+                        gst/gstfddepay.c \
+                        gst/gstpvsrc.c \
+                        gst/gstpvsink.c 
 
 libgstpulsevideosrc_la_CFLAGS = $(GST_PLUGINS_BASE_CFLAGS) $(GST_BASE_CFLAGS) $(GST_CFLAGS) $(GLIB_CFLAGS)
 libgstpulsevideosrc_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS)
@@ -218,7 +223,7 @@ libgstpulsevideosrc_la_LIBADD =  $(GST_BASE_LIBS) $(GST_LIBS) $(GLIB_LIBS) $(LIB
 				 libpulsevideo-@PV_MAJORMINOR@.la libpulsevideocore-@PV_MAJORMINOR@.la
 libgstpulsevideosrc_la_LIBTOOLFLAGS = $(GST_PLUGIN_LIBTOOLFLAGS)
 
-noinst_HEADERS = gst/gstpvsrc.h
+noinst_HEADERS = gst/gstpvsrc.h gst/gstpvsink.h gst/gstfdpay.h gst/gstfddepay.h
 
 ###################################
 #        Some minor stuff         #

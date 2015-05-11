@@ -124,6 +124,9 @@ gst_pulsevideo_src_class_init (GstPulsevideoSrcClass * klass)
   gstbasesrc_class->decide_allocation = gst_pulsevideo_src_decide_allocation;
 
   gstpushsrc_class->create = gst_pulsevideo_src_create;
+
+  GST_DEBUG_CATEGORY_INIT (pulsevideo_src_debug, "pulsevideosrc", 0,
+      "Pulsevideo Source");
 }
 
 static void
@@ -641,19 +644,3 @@ gst_pulsevideo_src_change_state (GstElement * element, GstStateChange transition
 exit:
   return ret;
 }
-
-static gboolean
-plugin_init (GstPlugin * plugin)
-{
-  GST_DEBUG_CATEGORY_INIT (pulsevideo_src_debug, "pulsevideosrc", 0,
-      "Pulsevideo Source");
-
-  return gst_element_register (plugin, "pulsevideosrc", GST_RANK_NONE,
-      GST_TYPE_PULSEVIDEO_SRC);
-}
-
-GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
-    GST_VERSION_MINOR,
-    pulsevideo,
-    "Uses pulsevideo to create a video stream",
-    plugin_init, VERSION, "LGPL", "pulsevideo", "pulsevideo.org")

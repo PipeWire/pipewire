@@ -75,6 +75,8 @@ struct _PvSourceClass {
 /* normal GObject stuff */
 GType            pv_source_get_type               (void);
 
+const gchar *    pv_source_get_object_path        (PvSource *source);
+
 GVariant *       pv_source_get_capabilities       (PvSource *source, GVariant *props);
 
 gboolean         pv_source_set_state              (PvSource *source, PvSourceState state);

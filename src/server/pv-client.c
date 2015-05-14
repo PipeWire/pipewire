@@ -17,6 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <string.h>
 #include "client/pulsevideo.h"
 
 #include "client/pv-enumtypes.h"
@@ -31,6 +32,7 @@ struct _PvClientPrivate
   PvDaemon *daemon;
   gchar *sender;
   gchar *object_path;
+  GVariant *properties;
 
   PvClient1 *client1;
 };
@@ -46,6 +48,7 @@ enum
   PROP_DAEMON,
   PROP_SENDER,
   PROP_OBJECT_PATH,
+  PROP_PROPERTIES,
 };
 
 static void
@@ -68,6 +71,10 @@ pv_client_get_property (GObject    *_object,
 
     case PROP_OBJECT_PATH:
       g_value_set_string (value, priv->object_path);
+      break;
+
+    case PROP_PROPERTIES:
+      g_value_set_variant (value, priv->properties);
       break;
 
     default:
@@ -98,6 +105,12 @@ pv_client_set_property (GObject      *_object,
       priv->object_path = g_value_dup_string (value);
       break;
 
+    case PROP_PROPERTIES:
+      if (priv->properties)
+        g_variant_unref (priv->properties);
+      priv->properties = g_value_dup_variant (value);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (client, prop_id, pspec);
       break;
@@ -108,7 +121,7 @@ static gboolean
 handle_create_source_output (PvClient1              *interface,
                              GDBusMethodInvocation  *invocation,
                              const gchar            *arg_source,
-                             GVariant               *arg_properties,
+                             const gchar            *arg_accepted_formats,
                              gpointer                user_data)
 {
   PvClient *client = user_data;
@@ -116,12 +129,15 @@ handle_create_source_output (PvClient1              *interface,
   PvSource *source;
   PvSourceOutput *output;
   const gchar *object_path, *sender;
+  GBytes *formats;
 
-  source = pv_daemon_find_source (priv->daemon, arg_source, arg_properties);
+  formats = g_bytes_new (arg_accepted_formats, strlen (arg_accepted_formats) + 1);
+
+  source = pv_daemon_find_source (priv->daemon, arg_source, priv->properties, formats);
   if (source == NULL)
     goto no_source;
 
-  output = pv_source_create_source_output (source, arg_properties, priv->object_path);
+  output = pv_source_create_source_output (source, priv->object_path, formats, priv->object_path);
   if (output == NULL)
     goto no_output;
 
@@ -153,7 +169,7 @@ no_output:
 static gboolean
 handle_create_source_input (PvClient1              *interface,
                             GDBusMethodInvocation  *invocation,
-                            GVariant               *arg_properties,
+                            const gchar            *arg_possible_formats,
                             gpointer                user_data)
 {
   PvClient *client = user_data;
@@ -161,6 +177,7 @@ handle_create_source_input (PvClient1              *interface,
   PvSource *source;
   PvSourceOutput *input;
   const gchar *source_input_path, *sender;
+  GBytes *formats;
 
   source = pv_client_source_new (priv->daemon);
   if (source == NULL)
@@ -170,7 +187,12 @@ handle_create_source_input (PvClient1              *interface,
 
   pv_daemon_track_object (priv->daemon, sender, G_OBJECT (source));
 
-  input = pv_client_source_get_source_input (PV_CLIENT_SOURCE (source), arg_properties, priv->object_path);
+  formats = g_bytes_new (arg_possible_formats, strlen (arg_possible_formats) + 1);
+
+  input = pv_client_source_get_source_input (PV_CLIENT_SOURCE (source),
+                                             priv->object_path,
+                                             formats,
+                                             priv->object_path);
   if (input == NULL)
     goto no_input;
 
@@ -179,7 +201,7 @@ handle_create_source_input (PvClient1              *interface,
   source_input_path = pv_source_output_get_object_path (input);
   g_dbus_method_invocation_return_value (invocation,
                                          g_variant_new ("(o)",
-                                           source_input_path));
+                                         source_input_path));
 
   return TRUE;
 
@@ -240,8 +262,12 @@ static void
 pv_client_finalize (GObject * object)
 {
   PvClient *client = PV_CLIENT (object);
+  PvClientPrivate *priv = client->priv;
 
   client_unregister_object (client);
+
+  if (priv->properties)
+    g_variant_unref (priv->properties);
 
   G_OBJECT_CLASS (pv_client_parent_class)->finalize (object);
 }
@@ -298,6 +324,15 @@ pv_client_class_init (PvClientClass * klass)
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_CONSTRUCT_ONLY |
                                                         G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (gobject_class,
+                                   PROP_PROPERTIES,
+                                   g_param_spec_variant ("properties",
+                                                         "Properties",
+                                                         "Client properties",
+                                                         G_VARIANT_TYPE_DICTIONARY,
+                                                         NULL,
+                                                         G_PARAM_READWRITE |
+                                                         G_PARAM_STATIC_STRINGS));
 }
 
 static void
@@ -317,12 +352,19 @@ pv_client_init (PvClient * client)
  * Returns: a new #PvClient
  */
 PvClient *
-pv_client_new (PvDaemon * daemon, const gchar *sender, const gchar *prefix)
+pv_client_new (PvDaemon    *daemon,
+               const gchar *sender,
+               const gchar *prefix,
+               GVariant    *properties)
 {
   g_return_val_if_fail (PV_IS_DAEMON (daemon), NULL);
   g_return_val_if_fail (g_variant_is_object_path (prefix), NULL);
 
-  return g_object_new (PV_TYPE_CLIENT, "daemon", daemon, "sender", sender, "object-path", prefix, NULL);
+  return g_object_new (PV_TYPE_CLIENT, "daemon", daemon,
+                                       "sender", sender,
+                                       "object-path", prefix,
+                                       "properties", properties,
+                                       NULL);
 }
 
 /**

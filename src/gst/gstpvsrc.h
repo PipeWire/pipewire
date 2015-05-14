@@ -57,8 +57,7 @@ struct _GstPulsevideoSrc {
 
   /*< private >*/
 
-  /* video state */
-  GstVideoInfo info;
+  gboolean negotiated;
 
   GMainContext *context;
   GMainLoop *loop;

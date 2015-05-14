@@ -66,8 +66,9 @@ GType            pv_client_source_get_type              (void);
 PvSource *       pv_client_source_new                   (PvDaemon *daemon);
 
 PvSourceOutput * pv_client_source_get_source_input      (PvClientSource *source,
-                                                         GVariant *props,
-                                                         const gchar *prefix);
+                                                         const gchar    *client_path,
+                                                         GBytes         *format_filter,
+                                                         const gchar    *prefix);
 
 G_END_DECLS
 

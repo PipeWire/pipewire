@@ -17,6 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <string.h>
 #include <sys/socket.h>
 
 #include <gio/gunixfdlist.h>
@@ -31,9 +32,15 @@
 struct _PvSourceOutputPrivate
 {
   PvDaemon *daemon;
+  PvSourceOutput1 *iface;
 
   gchar *object_path;
-  gchar *source;
+  gchar *client_path;
+  gchar *source_path;
+
+  GBytes *possible_formats;
+  GBytes *requested_format;
+  GBytes *format;
 
   GSocket *socket;
 };
@@ -48,7 +55,11 @@ enum
   PROP_0,
   PROP_DAEMON,
   PROP_OBJECT_PATH,
-  PROP_SOURCE,
+  PROP_CLIENT_PATH,
+  PROP_SOURCE_PATH,
+  PROP_POSSIBLE_FORMATS,
+  PROP_REQUESTED_FORMAT,
+  PROP_FORMAT,
   PROP_SOCKET,
 };
 
@@ -70,8 +81,24 @@ pv_source_output_get_property (GObject    *_object,
       g_value_set_string (value, priv->object_path);
       break;
 
-    case PROP_SOURCE:
-      g_value_set_string (value, priv->source);
+    case PROP_CLIENT_PATH:
+      g_value_set_string (value, priv->client_path);
+      break;
+
+    case PROP_SOURCE_PATH:
+      g_value_set_string (value, priv->source_path);
+      break;
+
+    case PROP_POSSIBLE_FORMATS:
+      g_value_set_boxed (value, priv->possible_formats);
+      break;
+
+    case PROP_REQUESTED_FORMAT:
+      g_value_set_boxed (value, priv->requested_format);
+      break;
+
+    case PROP_FORMAT:
+      g_value_set_boxed (value, priv->format);
       break;
 
     case PROP_SOCKET:
@@ -102,8 +129,28 @@ pv_source_output_set_property (GObject      *_object,
       priv->object_path = g_value_dup_string (value);
       break;
 
-    case PROP_SOURCE:
-      priv->source = g_value_dup_string (value);
+    case PROP_CLIENT_PATH:
+      priv->client_path = g_value_dup_string (value);
+      g_object_set (priv->iface, "client", priv->client_path, NULL);
+      break;
+
+    case PROP_SOURCE_PATH:
+      priv->source_path = g_value_dup_string (value);
+      g_object_set (priv->iface, "source", priv->source_path, NULL);
+      break;
+
+    case PROP_POSSIBLE_FORMATS:
+      if (priv->possible_formats)
+        g_bytes_unref (priv->possible_formats);
+      priv->possible_formats = g_value_dup_boxed (value);
+      g_object_set (priv->iface, "possible-formats",
+          g_bytes_get_data (priv->possible_formats, NULL), NULL);
+      break;
+
+    case PROP_FORMAT:
+      if (priv->format)
+        g_bytes_unref (priv->format);
+      priv->format = g_value_dup_boxed (value);
       break;
 
     default:
@@ -115,32 +162,45 @@ pv_source_output_set_property (GObject      *_object,
 static gboolean
 handle_start (PvSourceOutput1        *interface,
               GDBusMethodInvocation  *invocation,
-              GVariant               *arg_properties,
+              const gchar            *arg_requested_format,
               gpointer                user_data)
 {
   PvSourceOutput *output = user_data;
   PvSourceOutputPrivate *priv = output->priv;
   GUnixFDList *fdlist;
-  GVariantBuilder props;
   gint fd[2];
+
+  priv->requested_format = g_bytes_new (arg_requested_format, strlen (arg_requested_format) + 1);
 
   socketpair (AF_UNIX, SOCK_STREAM, 0, fd);
   priv->socket = g_socket_new_from_fd (fd[0], NULL);
   g_object_notify (G_OBJECT (output), "socket");
 
-  g_variant_builder_init (&props, G_VARIANT_TYPE ("a{sv}"));
-  g_variant_builder_add (&props, "{sv}", "name", g_variant_new_string ("hello"));
+  if (priv->format == NULL)
+    goto no_format;
 
   fdlist = g_unix_fd_list_new ();
   g_unix_fd_list_append (fdlist, fd[1], NULL);
 
   g_dbus_method_invocation_return_value_with_unix_fd_list (invocation,
-           g_variant_new ("(h@a{sv})",
+           g_variant_new ("(hs)",
                           0,
-                          g_variant_builder_end (&props)),
+                          g_bytes_get_data (priv->format, NULL)),
            fdlist);
 
   return TRUE;
+
+  /* error */
+no_format:
+  {
+    g_dbus_method_invocation_return_dbus_error (invocation,
+        "org.pulsevideo.Error", "No format");
+    close (fd[0]);
+    close (fd[1]);
+    g_clear_pointer (&priv->requested_format, g_bytes_unref);
+    g_clear_object (&priv->socket);
+    return TRUE;
+  }
 }
 
 static void
@@ -150,6 +210,8 @@ stop_transfer (PvSourceOutput *output)
 
   if (priv->socket) {
     g_clear_object (&priv->socket);
+    g_clear_pointer (&priv->requested_format, g_bytes_unref);
+    g_clear_pointer (&priv->format, g_bytes_unref);
     g_object_notify (G_OBJECT (output), "socket");
   }
 }
@@ -193,17 +255,7 @@ output_register_object (PvSourceOutput *output, const gchar *prefix)
   skel = pv_object_skeleton_new (name);
   g_free (name);
 
-  {
-    PvSourceOutput1 *iface;
-
-    iface = pv_source_output1_skeleton_new ();
-    g_object_set (iface, "source", priv->source, NULL);
-    g_signal_connect (iface, "handle-start", (GCallback) handle_start, output);
-    g_signal_connect (iface, "handle-stop", (GCallback) handle_stop, output);
-    g_signal_connect (iface, "handle-remove", (GCallback) handle_remove, output);
-    pv_object_skeleton_set_source_output1 (skel, iface);
-    g_object_unref (iface);
-  }
+  pv_object_skeleton_set_source_output1 (skel, priv->iface);
 
   g_free (priv->object_path);
   priv->object_path = pv_daemon_export_uniquely (priv->daemon, G_DBUS_OBJECT_SKELETON (skel));
@@ -228,8 +280,10 @@ pv_source_output_finalize (GObject * object)
   output_unregister_object (output);
 
   g_object_unref (priv->daemon);
+  g_object_unref (priv->iface);
+  g_free (priv->client_path);
   g_free (priv->object_path);
-  g_free (priv->source);
+  g_free (priv->source_path);
 
   G_OBJECT_CLASS (pv_source_output_parent_class)->finalize (object);
 }
@@ -278,14 +332,51 @@ pv_source_output_class_init (PvSourceOutputClass * klass)
                                                         G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class,
-                                   PROP_SOURCE,
-                                   g_param_spec_string ("source",
-                                                        "Source",
+                                   PROP_CLIENT_PATH,
+                                   g_param_spec_string ("client-path",
+                                                        "Client Path",
+                                                        "The client object path",
+                                                        NULL,
+                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_CONSTRUCT_ONLY |
+                                                        G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_SOURCE_PATH,
+                                   g_param_spec_string ("source-path",
+                                                        "Source Path",
                                                         "The source object path",
                                                         NULL,
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_CONSTRUCT_ONLY |
                                                         G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_POSSIBLE_FORMATS,
+                                   g_param_spec_boxed ("possible-formats",
+                                                       "Possible Formats",
+                                                       "The possbile formats of the stream",
+                                                       G_TYPE_BYTES,
+                                                       G_PARAM_READWRITE |
+                                                       G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_REQUESTED_FORMAT,
+                                   g_param_spec_boxed ("requested-format",
+                                                       "Requested Format",
+                                                       "The requested format of the stream",
+                                                       G_TYPE_BYTES,
+                                                       G_PARAM_READABLE |
+                                                       G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_FORMAT,
+                                   g_param_spec_boxed ("format",
+                                                       "Format",
+                                                       "The format of the stream",
+                                                       G_TYPE_BYTES,
+                                                       G_PARAM_READWRITE |
+                                                       G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class,
                                    PROP_SOCKET,
@@ -300,7 +391,12 @@ pv_source_output_class_init (PvSourceOutputClass * klass)
 static void
 pv_source_output_init (PvSourceOutput * output)
 {
-  output->priv = PV_SOURCE_OUTPUT_GET_PRIVATE (output);
+  PvSourceOutputPrivate *priv = output->priv = PV_SOURCE_OUTPUT_GET_PRIVATE (output);
+
+  priv->iface = pv_source_output1_skeleton_new ();
+  g_signal_connect (priv->iface, "handle-start", (GCallback) handle_start, output);
+  g_signal_connect (priv->iface, "handle-stop", (GCallback) handle_stop, output);
+  g_signal_connect (priv->iface, "handle-remove", (GCallback) handle_remove, output);
 }
 
 const gchar *

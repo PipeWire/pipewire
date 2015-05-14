@@ -64,12 +64,16 @@ struct _PvSource {
 struct _PvSourceClass {
   GObjectClass parent_class;
 
-  GVariant *       (*get_capabilities) (PvSource *source, GVariant *props);
+  GBytes *         (*get_capabilities) (PvSource *source, GBytes *filter);
 
   gboolean         (*set_state)  (PvSource *source, PvSourceState);
 
-  PvSourceOutput * (*create_source_output)  (PvSource *source, GVariant *props, const gchar *prefix);
-  gboolean         (*release_source_output) (PvSource *source, PvSourceOutput *output);
+  PvSourceOutput * (*create_source_output)  (PvSource       *source,
+                                             const gchar    *client_path,
+                                             GBytes         *format_filter,
+                                             const gchar    *prefix);
+  gboolean         (*release_source_output) (PvSource       *source,
+                                             PvSourceOutput *output);
 };
 
 /* normal GObject stuff */
@@ -77,13 +81,16 @@ GType            pv_source_get_type               (void);
 
 const gchar *    pv_source_get_object_path        (PvSource *source);
 
-GVariant *       pv_source_get_capabilities       (PvSource *source, GVariant *props);
+GBytes *         pv_source_get_capabilities       (PvSource *source, GBytes *filter);
 
 gboolean         pv_source_set_state              (PvSource *source, PvSourceState state);
 void             pv_source_update_state           (PvSource *source, PvSourceState state);
 void             pv_source_report_error           (PvSource *source, GError *error);
 
-PvSourceOutput * pv_source_create_source_output   (PvSource *source, GVariant *props, const gchar *prefix);
+PvSourceOutput * pv_source_create_source_output   (PvSource    *source,
+                                                   const gchar *client_path,
+                                                   GBytes      *format_filter,
+                                                   const gchar *prefix);
 gboolean         pv_source_release_source_output  (PvSource *source, PvSourceOutput *output);
 
 G_END_DECLS

@@ -128,24 +128,6 @@ pv_source_set_property (GObject      *_object,
   }
 }
 
-static gboolean
-handle_get_capabilities (PvSource1              *interface,
-                         GDBusMethodInvocation  *invocation,
-                         GVariant               *arg_properties,
-                         gpointer                user_data)
-{
-  PvSource *source = user_data;
-  GVariant *out_caps;
-
-  out_caps = pv_source_get_capabilities (source, arg_properties);
-
-  g_dbus_method_invocation_return_value (invocation,
-                                         g_variant_new ("(@aa{sv})", out_caps));
-
-  return TRUE;
-}
-
-
 static void
 source_register_object (PvSource *source)
 {
@@ -160,9 +142,6 @@ source_register_object (PvSource *source)
                              "state", priv->state,
                              "properties", priv->properties,
                              NULL);
-  g_signal_connect (priv->iface, "handle-get-capabilities",
-                                 (GCallback) handle_get_capabilities,
-                                 source);
   pv_object_skeleton_set_source1 (skel, priv->iface);
 
   g_free (priv->object_path);
@@ -202,19 +181,26 @@ pv_source_finalize (GObject * object)
 
   g_free (priv->object_path);
   g_free (priv->name);
-  g_variant_unref (priv->properties);
+  if (priv->properties)
+    g_variant_unref (priv->properties);
 
   G_OBJECT_CLASS (pv_source_parent_class)->finalize (object);
 }
 
 static PvSourceOutput *
-default_create_source_output (PvSource *source, GVariant *props, const gchar *prefix)
+default_create_source_output (PvSource *source,
+                              const gchar *client_path,
+                              GBytes *format_filter,
+                              const gchar *prefix)
 {
   PvSourcePrivate *priv = source->priv;
 
   return g_object_new (PV_TYPE_SOURCE_OUTPUT, "daemon", priv->daemon,
                                               "object-path", prefix,
-                                              "source", priv->object_path, NULL);
+                                              "client-path", client_path,
+                                              "source-path", priv->object_path,
+                                              "possible-formats", format_filter,
+                                              NULL);
 }
 
 static gboolean
@@ -281,7 +267,7 @@ pv_source_class_init (PvSourceClass * klass)
                                    g_param_spec_variant ("properties",
                                                          "Properties",
                                                          "The properties of the source",
-                                                         G_VARIANT_TYPE_VARIANT,
+                                                         G_VARIANT_TYPE_DICTIONARY,
                                                          NULL,
                                                          G_PARAM_READWRITE |
                                                          G_PARAM_STATIC_STRINGS));
@@ -297,18 +283,18 @@ pv_source_init (PvSource * source)
   source->priv = PV_SOURCE_GET_PRIVATE (source);
 }
 
-GVariant *
-pv_source_get_capabilities (PvSource *source, GVariant *props)
+GBytes *
+pv_source_get_capabilities (PvSource *source, GBytes *filter)
 {
   PvSourceClass *klass;
-  GVariant *res;
+  GBytes *res;
 
   g_return_val_if_fail (PV_IS_SOURCE (source), NULL);
 
   klass = PV_SOURCE_GET_CLASS (source);
 
   if (klass->get_capabilities)
-    res = klass->get_capabilities (source, props);
+    res = klass->get_capabilities (source, filter);
   else
     res = NULL;
 
@@ -365,7 +351,10 @@ pv_source_report_error (PvSource *source, GError *error)
 }
 
 PvSourceOutput *
-pv_source_create_source_output (PvSource *source, GVariant *props, const gchar *prefix)
+pv_source_create_source_output (PvSource    *source,
+                                const gchar *client_path,
+                                GBytes      *format_filter,
+                                const gchar *prefix)
 {
   PvSourceClass *klass;
   PvSourceOutput *res;
@@ -375,7 +364,7 @@ pv_source_create_source_output (PvSource *source, GVariant *props, const gchar *
   klass = PV_SOURCE_GET_CLASS (source);
 
   if (klass->create_source_output)
-    res = klass->create_source_output (source, props, prefix);
+    res = klass->create_source_output (source, client_path, format_filter, prefix);
   else
     res = NULL;
 

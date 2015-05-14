@@ -41,6 +41,4 @@ struct _PvContextPrivate
   PvSubscribe *subscribe;
 
   GList *sources;
-
-  GDBusObjectManagerServer *server_manager;
 };

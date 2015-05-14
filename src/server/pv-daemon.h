@@ -75,7 +75,10 @@ void               pv_daemon_track_object    (PvDaemon *daemon, const gchar *sen
 
 void               pv_daemon_add_source      (PvDaemon *daemon, PvSource *source);
 void               pv_daemon_remove_source   (PvDaemon *daemon, PvSource *source);
-PvSource *         pv_daemon_find_source     (PvDaemon *daemon, const gchar *name, GVariant *props);
+PvSource *         pv_daemon_find_source     (PvDaemon *daemon,
+                                              const gchar *name,
+                                              GVariant *props,
+                                              GBytes   *format_filter);
 
 G_END_DECLS
 

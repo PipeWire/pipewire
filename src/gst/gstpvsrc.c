@@ -80,10 +80,6 @@ static gboolean gst_pulsevideo_src_setcaps (GstBaseSrc * bsrc, GstCaps * caps);
 static GstCaps *gst_pulsevideo_src_src_fixate (GstBaseSrc * bsrc,
     GstCaps * caps);
 
-static gboolean gst_pulsevideo_src_query (GstBaseSrc * bsrc, GstQuery * query);
-
-static gboolean gst_pulsevideo_src_decide_allocation (GstBaseSrc * bsrc,
-    GstQuery * query);
 static GstFlowReturn gst_pulsevideo_src_create (GstPushSrc * psrc,
     GstBuffer ** buffer);
 static gboolean gst_pulsevideo_src_start (GstBaseSrc * basesrc);
@@ -118,10 +114,8 @@ gst_pulsevideo_src_class_init (GstPulsevideoSrcClass * klass)
   gstbasesrc_class->get_caps = gst_pulsevideo_src_getcaps;
   gstbasesrc_class->set_caps = gst_pulsevideo_src_setcaps;
   gstbasesrc_class->fixate = gst_pulsevideo_src_src_fixate;
-  gstbasesrc_class->query = gst_pulsevideo_src_query;
   gstbasesrc_class->start = gst_pulsevideo_src_start;
   gstbasesrc_class->stop = gst_pulsevideo_src_stop;
-  gstbasesrc_class->decide_allocation = gst_pulsevideo_src_decide_allocation;
 
   gstpushsrc_class->create = gst_pulsevideo_src_create;
 
@@ -200,59 +194,6 @@ gst_pulsevideo_src_get_property (GObject * object, guint prop_id,
   }
 }
 
-static gboolean
-gst_pulsevideo_src_decide_allocation (GstBaseSrc * bsrc, GstQuery * query)
-{
-  GstPulsevideoSrc *pvsrc;
-  GstBufferPool *pool;
-  gboolean update;
-  guint size, min, max;
-  GstStructure *config;
-  GstCaps *caps = NULL;
-
-  pvsrc = GST_PULSEVIDEO_SRC (bsrc);
-
-  if (gst_query_get_n_allocation_pools (query) > 0) {
-    gst_query_parse_nth_allocation_pool (query, 0, &pool, &size, &min, &max);
-
-    /* adjust size */
-    size = MAX (size, pvsrc->info.size);
-    update = TRUE;
-  } else {
-    pool = NULL;
-    size = pvsrc->info.size;
-    min = max = 0;
-    update = FALSE;
-  }
-
-  /* no downstream pool, make our own */
-  if (pool == NULL) {
-    pool = gst_video_buffer_pool_new ();
-  }
-
-  config = gst_buffer_pool_get_config (pool);
-
-  gst_query_parse_allocation (query, &caps, NULL);
-  if (caps)
-    gst_buffer_pool_config_set_params (config, caps, size, min, max);
-
-  if (gst_query_find_allocation_meta (query, GST_VIDEO_META_API_TYPE, NULL)) {
-    gst_buffer_pool_config_add_option (config,
-        GST_BUFFER_POOL_OPTION_VIDEO_META);
-  }
-  gst_buffer_pool_set_config (pool, config);
-
-  if (update)
-    gst_query_set_nth_allocation_pool (query, 0, pool, size, min, max);
-  else
-    gst_query_add_allocation_pool (query, pool, size, min, max);
-
-  if (pool)
-    gst_object_unref (pool);
-
-  return GST_BASE_SRC_CLASS (parent_class)->decide_allocation (bsrc, query);
-}
-
 static void
 on_new_buffer (GObject    *gobject,
                gpointer    user_data)
@@ -285,116 +226,107 @@ on_stream_notify (GObject    *gobject,
 }
 
 static gboolean
-source_info_callback (PvContext *c, const PvSourceInfo *info, gpointer user_data)
-{
-  GstPulsevideoSrc *pvsrc = user_data;
-
-  if (info == NULL) {
-    return TRUE;
-  }
-
-  g_print ("source %s %p\n", info->name, pvsrc);
-
-
-  return TRUE;
-}
-
-static gboolean
 gst_pulsevideo_src_negotiate (GstBaseSrc * basesrc)
 {
   GstPulsevideoSrc *pvsrc = GST_PULSEVIDEO_SRC (basesrc);
+  GstCaps *thiscaps;
+  GstCaps *caps = NULL;
+  GstCaps *peercaps = NULL;
+  gboolean result = FALSE;
 
-  pv_context_list_source_info (pvsrc->ctx,
-      PV_SOURCE_INFO_FLAGS_CAPABILITIES,
-      source_info_callback,
-      NULL,
-      pvsrc);
+  /* first see what is possible on our source pad */
+  thiscaps = gst_pad_query_caps (GST_BASE_SRC_PAD (basesrc), NULL);
+  GST_DEBUG_OBJECT (basesrc, "caps of src: %" GST_PTR_FORMAT, thiscaps);
+  /* nothing or anything is allowed, we're done */
+  if (thiscaps == NULL || gst_caps_is_any (thiscaps))
+    goto no_nego_needed;
 
-  return GST_BASE_SRC_CLASS (parent_class)->negotiate (basesrc);
-}
+  if (G_UNLIKELY (gst_caps_is_empty (thiscaps)))
+    goto no_caps;
 
-static GstCaps *
-gst_pulsevideo_src_getcaps (GstBaseSrc * bsrc, GstCaps * filter)
-{
-  return GST_BASE_SRC_CLASS (parent_class)->get_caps (bsrc, filter);
-
-}
-
-static gboolean
-gst_pulsevideo_src_setcaps (GstBaseSrc * bsrc, GstCaps * caps)
-{
-  const GstStructure *structure;
-  GstPulsevideoSrc *pvsrc;
-  GstVideoInfo info;
-  GVariantBuilder builder;
-
-  pvsrc = GST_PULSEVIDEO_SRC (bsrc);
-
-  structure = gst_caps_get_structure (caps, 0);
-
-  if (gst_structure_has_name (structure, "video/x-raw")) {
-    /* we can use the parsing code */
-    if (!gst_video_info_from_caps (&info, caps))
-      goto parse_failed;
-
+  /* get the peer caps */
+  peercaps = gst_pad_peer_query_caps (GST_BASE_SRC_PAD (basesrc), thiscaps);
+  GST_DEBUG_OBJECT (basesrc, "caps of peer: %" GST_PTR_FORMAT, peercaps);
+  if (peercaps) {
+    /* The result is already a subset of our caps */
+    caps = peercaps;
+    gst_caps_unref (thiscaps);
   } else {
-    goto unsupported_caps;
+    /* no peer, work with our own caps then */
+    caps = thiscaps;
   }
+  if (caps && !gst_caps_is_empty (caps)) {
+    GBytes *accepted, *possible;
+    gchar *str;
 
-  /* looks ok here */
-  pvsrc->info = info;
+    GST_DEBUG_OBJECT (basesrc, "have caps: %" GST_PTR_FORMAT, caps);
+    /* open a connection with these caps */
+    str = gst_caps_to_string (caps);
+    accepted = g_bytes_new_take (str, strlen (str) + 1);
+    pv_stream_connect_capture (pvsrc->stream, NULL, 0, accepted);
 
-  pvsrc->stream = pv_stream_new (pvsrc->ctx, "test", NULL);
-  g_signal_connect (pvsrc->stream, "notify::state", (GCallback) on_stream_notify, pvsrc);
-  g_signal_connect (pvsrc->stream, "new-buffer", (GCallback) on_new_buffer, pvsrc);
+    g_mutex_lock (&pvsrc->lock);
+    while (TRUE) {
+      PvStreamState state = pv_stream_get_state (pvsrc->stream);
 
-  g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
-  g_variant_builder_add (&builder, "{sv}", "format.encoding", g_variant_new_string ("video/x-raw"));
-  g_variant_builder_add (&builder, "{sv}", "format.format",
-      g_variant_new_string (gst_video_format_to_string (info.finfo->format)));
-  g_variant_builder_add (&builder, "{sv}", "format.width", g_variant_new_int32 (info.width));
-  g_variant_builder_add (&builder, "{sv}", "format.height", g_variant_new_int32 (info.height));
-  g_variant_builder_add (&builder, "{sv}", "format.views", g_variant_new_int32 (info.views));
-//  g_variant_builder_add (&builder, "{sv}", "format.chroma-site",
-//      g_variant_new_string (gst_video_chroma_to_string (info.chroma_site)));
-//  g_variant_builder_add (&builder, "{sv}", "format.colorimetry",
-//      g_variant_new_take_string (gst_video_colorimetry_to_string (&info.colorimetry)));
-//  g_variant_builder_add (&builder, "{sv}", "format.interlace-mode",
-//      g_variant_new_string (gst_video_interlace_mode_to_string (info.interlace_mode)));
+      if (state == PV_STREAM_STATE_READY)
+        break;
 
-  pv_stream_connect_capture (pvsrc->stream, NULL, 0, g_variant_builder_end (&builder));
+      if (state == PV_STREAM_STATE_ERROR)
+        goto connect_error;
 
-  g_mutex_lock (&pvsrc->lock);
-  while (TRUE) {
-    PvStreamState state = pv_stream_get_state (pvsrc->stream);
+      g_cond_wait (&pvsrc->cond, &pvsrc->lock);
+    }
+    g_mutex_unlock (&pvsrc->lock);
 
-    if (state == PV_STREAM_STATE_READY)
-      break;
+    g_object_get (pvsrc->stream, "possible-formats", &possible, NULL);
+    if (possible) {
+      GstCaps *newcaps;
 
-    if (state == PV_STREAM_STATE_ERROR)
-      goto connect_error;
-
-    g_cond_wait (&pvsrc->cond, &pvsrc->lock);
+      newcaps = gst_caps_from_string (g_bytes_get_data (possible, NULL));
+      if (newcaps)
+        caps = newcaps;
+    }
+    /* now fixate */
+    GST_DEBUG_OBJECT (basesrc, "server fixated caps: %" GST_PTR_FORMAT, caps);
+    if (gst_caps_is_any (caps)) {
+      GST_DEBUG_OBJECT (basesrc, "any caps, we stop");
+      /* hmm, still anything, so element can do anything and
+       * nego is not needed */
+      result = TRUE;
+    } else {
+      caps = gst_pulsevideo_src_src_fixate (basesrc, caps);
+      GST_DEBUG_OBJECT (basesrc, "fixated to: %" GST_PTR_FORMAT, caps);
+      if (gst_caps_is_fixed (caps)) {
+        /* yay, fixed caps, use those then, it's possible that the subclass does
+         * not accept this caps after all and we have to fail. */
+        result = gst_base_src_set_caps (basesrc, caps);
+      }
+    }
+    gst_caps_unref (caps);
+  } else {
+    if (caps)
+      gst_caps_unref (caps);
+    GST_DEBUG_OBJECT (basesrc, "no common caps");
   }
-  g_mutex_unlock (&pvsrc->lock);
+  pvsrc->negotiated = result;
+  return result;
 
-  pv_stream_start (pvsrc->stream, PV_STREAM_MODE_BUFFER);
-
-  GST_DEBUG_OBJECT (pvsrc, "size %dx%d, %d/%d fps",
-      info.width, info.height, info.fps_n, info.fps_d);
-
-  return TRUE;
-
-  /* ERRORS */
-parse_failed:
+no_nego_needed:
   {
-    GST_DEBUG_OBJECT (bsrc, "failed to parse caps");
-    return FALSE;
+    GST_DEBUG_OBJECT (basesrc, "no negotiation needed");
+    if (thiscaps)
+      gst_caps_unref (thiscaps);
+    return TRUE;
   }
-unsupported_caps:
+no_caps:
   {
-    GST_DEBUG_OBJECT (bsrc, "unsupported caps: %" GST_PTR_FORMAT, caps);
-    return FALSE;
+    GST_ELEMENT_ERROR (basesrc, STREAM, FORMAT,
+        ("No supported formats found"),
+        ("This element did not produce valid caps"));
+    if (thiscaps)
+      gst_caps_unref (thiscaps);
+    return TRUE;
   }
 connect_error:
   {
@@ -403,74 +335,25 @@ connect_error:
   }
 }
 
-static gboolean
-gst_pulsevideo_src_query (GstBaseSrc * bsrc, GstQuery * query)
+static GstCaps *
+gst_pulsevideo_src_getcaps (GstBaseSrc * bsrc, GstCaps * filter)
 {
-  gboolean res = FALSE;
-  GstPulsevideoSrc *src;
+  return GST_BASE_SRC_CLASS (parent_class)->get_caps (bsrc, filter);
+}
 
-  src = GST_PULSEVIDEO_SRC (bsrc);
+static gboolean
+gst_pulsevideo_src_setcaps (GstBaseSrc * bsrc, GstCaps * caps)
+{
+  GstPulsevideoSrc *pvsrc;
+  gchar *str;
+  GBytes *format;
 
-  switch (GST_QUERY_TYPE (query)) {
-    case GST_QUERY_CONVERT:
-    {
-      GstFormat src_fmt, dest_fmt;
-      gint64 src_val, dest_val;
+  pvsrc = GST_PULSEVIDEO_SRC (bsrc);
 
-      gst_query_parse_convert (query, &src_fmt, &src_val, &dest_fmt, &dest_val);
-      res =
-          gst_video_info_convert (&src->info, src_fmt, src_val, dest_fmt,
-          &dest_val);
-      gst_query_set_convert (query, src_fmt, src_val, dest_fmt, dest_val);
-      break;
-    }
-    case GST_QUERY_LATENCY:
-    {
-      if (src->info.fps_n > 0) {
-        GstClockTime latency;
+  str = gst_caps_to_string (caps);
+  format = g_bytes_new_take (str, strlen (str) + 1);
 
-        latency =
-            gst_util_uint64_scale (GST_SECOND, src->info.fps_d,
-            src->info.fps_n);
-        gst_query_set_latency (query,
-            gst_base_src_is_live (GST_BASE_SRC_CAST (src)), latency,
-            GST_CLOCK_TIME_NONE);
-        GST_DEBUG_OBJECT (src, "Reporting latency of %" GST_TIME_FORMAT,
-            GST_TIME_ARGS (latency));
-        res = TRUE;
-      }
-      break;
-    }
-    case GST_QUERY_DURATION:{
-      if (bsrc->num_buffers != -1) {
-        GstFormat format;
-
-        gst_query_parse_duration (query, &format, NULL);
-        switch (format) {
-          case GST_FORMAT_TIME:{
-            gint64 dur = gst_util_uint64_scale_int_round (bsrc->num_buffers
-                * GST_SECOND, src->info.fps_d, src->info.fps_n);
-            res = TRUE;
-            gst_query_set_duration (query, GST_FORMAT_TIME, dur);
-            goto done;
-          }
-          case GST_FORMAT_BYTES:
-            res = TRUE;
-            gst_query_set_duration (query, GST_FORMAT_BYTES,
-                bsrc->num_buffers * src->info.size);
-            goto done;
-          default:
-            break;
-        }
-      }
-      /* fall through */
-    }
-    default:
-      res = GST_BASE_SRC_CLASS (parent_class)->query (bsrc, query);
-      break;
-  }
-done:
-  return res;
+  return pv_stream_start (pvsrc->stream, format, PV_STREAM_MODE_BUFFER);
 }
 
 static GstFlowReturn
@@ -481,8 +364,7 @@ gst_pulsevideo_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
 
   pvsrc = GST_PULSEVIDEO_SRC (psrc);
 
-  if (G_UNLIKELY (GST_VIDEO_INFO_FORMAT (&pvsrc->info) ==
-          GST_VIDEO_FORMAT_UNKNOWN))
+  if (!pvsrc->negotiated)
     goto not_negotiated;
 
   g_mutex_lock (&pvsrc->lock);
@@ -516,10 +398,6 @@ not_negotiated:
 static gboolean
 gst_pulsevideo_src_start (GstBaseSrc * basesrc)
 {
-  GstPulsevideoSrc *src = GST_PULSEVIDEO_SRC (basesrc);
-
-  gst_video_info_init (&src->info);
-
   return TRUE;
 }
 
@@ -585,6 +463,10 @@ gst_pulsevideo_src_open (GstPulsevideoSrc * pvsrc)
   }
   g_mutex_unlock (&pvsrc->lock);
 
+  pvsrc->stream = pv_stream_new (pvsrc->ctx, "test", NULL);
+  g_signal_connect (pvsrc->stream, "notify::state", (GCallback) on_stream_notify, pvsrc);
+  g_signal_connect (pvsrc->stream, "new-buffer", (GCallback) on_new_buffer, pvsrc);
+
   return TRUE;
 
   /* ERRORS */
@@ -607,12 +489,12 @@ gst_pulsevideo_src_change_state (GstElement * element, GstStateChange transition
       g_print ("context %p\n", this->context);
       this->loop = g_main_loop_new (this->context, FALSE);
       this->thread = g_thread_new ("pulsevideo", (GThreadFunc) handle_mainloop, this);
-      break;
-    case GST_STATE_CHANGE_READY_TO_PAUSED:
       if (!gst_pulsevideo_src_open (this)) {
         ret = GST_STATE_CHANGE_FAILURE;
         goto exit;
       }
+      break;
+    case GST_STATE_CHANGE_READY_TO_PAUSED:
       break;
     case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
       /* uncork and start recording */
@@ -630,6 +512,7 @@ gst_pulsevideo_src_change_state (GstElement * element, GstStateChange transition
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
       break;
     case GST_STATE_CHANGE_PAUSED_TO_READY:
+      this->negotiated = FALSE;
       break;
     case GST_STATE_CHANGE_READY_TO_NULL:
       g_main_loop_quit (this->loop);

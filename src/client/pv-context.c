@@ -138,8 +138,10 @@ pv_context_finalize (GObject * object)
   PvContext *context = PV_CONTEXT (object);
   PvContextPrivate *priv = context->priv;
 
-  g_object_unref (priv->server_manager);
+  g_free (priv->name);
   g_clear_error (&priv->error);
+  if (priv->properties)
+    g_variant_unref (priv->properties);
 
   G_OBJECT_CLASS (pv_context_parent_class)->finalize (object);
 }
@@ -192,7 +194,7 @@ pv_context_class_init (PvContextClass * klass)
                                    g_param_spec_variant ("properties",
                                                          "Properties",
                                                          "Extra properties",
-                                                          G_VARIANT_TYPE_VARIANT,
+                                                          G_VARIANT_TYPE_DICTIONARY,
                                                           NULL,
                                                           G_PARAM_READWRITE |
                                                           G_PARAM_STATIC_STRINGS));
@@ -267,7 +269,6 @@ pv_context_init (PvContext * context)
   PvContextPrivate *priv = context->priv = PV_CONTEXT_GET_PRIVATE (context);
 
   priv->state = PV_CONTEXT_STATE_UNCONNECTED;
-  priv->server_manager = g_dbus_object_manager_server_new (PV_DBUS_OBJECT_PREFIX);
   priv->subscribe = pv_subscribe_new ();
   g_object_set (priv->subscribe, "subscription-mask", PV_SUBSCRIPTION_FLAGS_ALL, NULL);
   g_signal_connect (priv->subscribe, "subscription-event", (GCallback) subscription_cb, context);
@@ -286,6 +287,15 @@ pv_context_init (PvContext * context)
 PvContext *
 pv_context_new (GMainContext *context, const gchar *name, GVariant *properties)
 {
+  g_return_val_if_fail (name != NULL, NULL);
+
+  if (properties == NULL) {
+    GVariantBuilder builder;
+
+    g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
+    g_variant_builder_add (&builder, "{sv}", "name", g_variant_new_string (name));
+    properties = g_variant_builder_end (&builder);
+  }
   return g_object_new (PV_TYPE_CONTEXT, "main-context", context, "name", name, "properties", properties, NULL);
 }
 
@@ -330,18 +340,14 @@ on_daemon_connected (GObject *source_object,
 {
   PvContext *context = user_data;
   PvContextPrivate *priv = context->priv;
-  GVariantBuilder builder;
 
   g_assert (g_main_context_get_thread_default () == priv->context);
 
   context_set_state (context, PV_CONTEXT_STATE_REGISTERING);
 
-  g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
-  g_variant_builder_add (&builder, "{sv}", "name", g_variant_new_string ("hello"));
-
   g_dbus_proxy_call (priv->daemon,
                      "ConnectClient",
-                     g_variant_new ("(@a{sv})", g_variant_builder_end (&builder)),
+                     g_variant_new ("(@a{sv})", priv->properties),
                      G_DBUS_CALL_FLAGS_NONE,
                      -1,
                      NULL,
@@ -436,7 +442,6 @@ on_name_appeared (GDBusConnection *connection,
   g_print ("context: on name appeared\n");
 
   priv->connection = connection;
-  g_dbus_object_manager_server_set_connection (priv->server_manager, connection);
 
   g_object_set (priv->subscribe, "connection", priv->connection,
                                  "service", name, NULL);
@@ -455,7 +460,6 @@ on_name_vanished (GDBusConnection *connection,
   g_print ("context: on name vanished\n");
 
   priv->connection = connection;
-  g_dbus_object_manager_server_set_connection (priv->server_manager, connection);
 
   g_object_set (priv->subscribe, "connection", connection, NULL);
 

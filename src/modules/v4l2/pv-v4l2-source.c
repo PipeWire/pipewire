@@ -17,6 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <string.h>
 #include <gst/gst.h>
 #include <gio/gio.h>
 
@@ -31,6 +32,8 @@ struct _PvV4l2SourcePrivate
   GstElement *src;
   GstElement *filter;
   GstElement *sink;
+
+  GstCaps *possible_formats;
 
   GSocket *socket;
 };
@@ -90,18 +93,20 @@ setup_pipeline (PvV4l2Source *source)
   gst_object_unref (bus);
 }
 
-static void
-collect_capabilities (PvSource * source)
+static GstCaps *
+collect_caps (PvSource * source, GstCaps *filter)
 {
   PvV4l2SourcePrivate *priv = PV_V4L2_SOURCE (source)->priv;
   GstCaps *res;
   GstQuery *query;
 
-  query = gst_query_new_caps (NULL);
+  query = gst_query_new_caps (filter);
   gst_element_query (priv->src, query);
   gst_query_parse_caps_result (query, &res);
-  g_print ("%s\n", gst_caps_to_string (res));
+  gst_caps_ref (res);
   gst_query_unref (query);
+
+  return res;
 }
 
 static gboolean
@@ -116,7 +121,6 @@ v4l2_set_state (PvSource *source, PvSourceState state)
 
     case PV_SOURCE_STATE_INIT:
       gst_element_set_state (priv->pipeline, GST_STATE_READY);
-      collect_capabilities (source);
       break;
 
     case PV_SOURCE_STATE_IDLE:
@@ -134,8 +138,8 @@ v4l2_set_state (PvSource *source, PvSourceState state)
   return TRUE;
 }
 
-static GVariant *
-v4l2_get_capabilities (PvSource *source, GVariant *props)
+static GBytes *
+v4l2_get_capabilities (PvSource *source, GBytes *filter)
 {
   return NULL;
 }
@@ -149,6 +153,8 @@ on_socket_notify (GObject    *gobject,
   PvV4l2SourcePrivate *priv = source->priv;
   GSocket *socket;
   guint num_handles;
+  GstCaps *caps;
+  GBytes *requested_format;
 
   g_object_get (gobject, "socket", &socket, NULL);
 
@@ -162,6 +168,18 @@ on_socket_notify (GObject    *gobject,
   }
   priv->socket = socket;
 
+  g_object_get (gobject, "requested-format", &requested_format, NULL);
+  g_assert (requested_format != NULL);
+  g_object_set (gobject, "format", requested_format, NULL);
+
+  g_print ("final format %s\n", g_bytes_get_data (requested_format, NULL));
+
+  caps = gst_caps_from_string (g_bytes_get_data (requested_format, NULL));
+  g_assert (caps != NULL);
+  g_object_set (priv->filter, "caps", caps, NULL);
+  gst_caps_unref (caps);
+  g_bytes_unref (requested_format);
+
   g_object_get (priv->sink, "num-handles", &num_handles, NULL);
   if (num_handles == 0) {
     gst_element_set_state (priv->pipeline, GST_STATE_READY);
@@ -171,53 +189,45 @@ on_socket_notify (GObject    *gobject,
 }
 
 static PvSourceOutput *
-v4l2_create_source_output (PvSource *source, GVariant *props, const gchar *prefix)
+v4l2_create_source_output (PvSource    *source,
+                           const gchar *client_path,
+                           GBytes      *format_filter,
+                           const gchar *prefix)
 {
   PvV4l2SourcePrivate *priv = PV_V4L2_SOURCE (source)->priv;
   PvSourceOutput *output;
-  GVariantDict dict;
-  GstCaps *caps;
-  const gchar *str;
-  gint32 i32;
+  GstCaps *caps, *filtered;
+  gchar *str;
 
-  g_variant_dict_init (&dict, props);
-  if (!g_variant_dict_lookup (&dict, "format.encoding", "&s", &str))
-    goto invalid_encoding;
-
-  caps = gst_caps_new_empty_simple (str);
-
-  if (g_variant_dict_lookup (&dict, "format.format", "&s", &str))
-    gst_caps_set_simple (caps, "format", G_TYPE_STRING, str, NULL);
-  if (g_variant_dict_lookup (&dict, "format.width", "i", &i32))
-    gst_caps_set_simple (caps, "width", G_TYPE_INT, (gint) i32, NULL);
-  if (g_variant_dict_lookup (&dict, "format.height", "i", &i32))
-    gst_caps_set_simple (caps, "height", G_TYPE_INT, (gint) i32, NULL);
-  if (g_variant_dict_lookup (&dict, "format.views", "i", &i32))
-    gst_caps_set_simple (caps, "views", G_TYPE_INT, (gint) i32, NULL);
-  if (g_variant_dict_lookup (&dict, "format.chroma-site", "&s", &str))
-    gst_caps_set_simple (caps, "chroma-site", G_TYPE_STRING, str, NULL);
-  if (g_variant_dict_lookup (&dict, "format.colorimetry", "&s", &str))
-    gst_caps_set_simple (caps, "colorimetry", G_TYPE_STRING, str, NULL);
-  if (g_variant_dict_lookup (&dict, "format.interlace-mode", "&s", &str))
-    gst_caps_set_simple (caps, "interlace-mode", G_TYPE_STRING, str, NULL);
-
-  g_print ("caps %s\n", gst_caps_to_string (caps));
-
-  g_object_set (priv->filter, "caps", caps, NULL);
-  gst_caps_unref (caps);
-
-  output = PV_SOURCE_CLASS (pv_v4l2_source_parent_class)->create_source_output (source, props, prefix);
+  str = (gchar *) g_bytes_get_data (format_filter, NULL);
+  g_print ("input filter %s\n", str);
+  caps = gst_caps_from_string (str);
+  if (caps == NULL)
+    goto invalid_caps;
 
   gst_element_set_state (priv->pipeline, GST_STATE_READY);
+
+  filtered = collect_caps (source, caps);
+  if (filtered == NULL || gst_caps_is_empty (filtered))
+    goto no_format;
+
+  str = gst_caps_to_string (filtered);
+  g_print ("output filter %s\n", str);
+  format_filter = g_bytes_new_take (str, strlen (str) + 1);
+
+  output = PV_SOURCE_CLASS (pv_v4l2_source_parent_class)->create_source_output (source, client_path, format_filter, prefix);
 
   g_signal_connect (output, "notify::socket", (GCallback) on_socket_notify, source);
 
   return output;
 
   /* ERRORS */
-invalid_encoding:
+invalid_caps:
   {
-    g_variant_dict_clear (&dict);
+    return NULL;
+  }
+no_format:
+  {
     return NULL;
   }
 }

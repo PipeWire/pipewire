@@ -150,7 +150,7 @@ handle_connect_client (PvDaemon1              *interface,
   sender = g_dbus_method_invocation_get_sender (invocation);
 
   g_print ("connect client %s\n", sender);
-  client = pv_client_new (daemon, sender, PV_DBUS_OBJECT_PREFIX);
+  client = pv_client_new (daemon, sender, PV_DBUS_OBJECT_PREFIX, arg_properties);
 
   pv_daemon_track_object (daemon, sender, G_OBJECT (client));
 
@@ -368,7 +368,10 @@ pv_daemon_remove_source (PvDaemon *daemon, PvSource *source)
 }
 
 PvSource *
-pv_daemon_find_source (PvDaemon *daemon, const gchar *name, GVariant *props)
+pv_daemon_find_source (PvDaemon    *daemon,
+                       const gchar *name,
+                       GVariant    *props,
+                       GBytes      *format_filter)
 {
   PvDaemonPrivate *priv;
 

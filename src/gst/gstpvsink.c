@@ -80,8 +80,6 @@ static gboolean gst_pulsevideo_sink_setcaps (GstBaseSink * bsink, GstCaps * caps
 static GstCaps *gst_pulsevideo_sink_sink_fixate (GstBaseSink * bsink,
     GstCaps * caps);
 
-static gboolean gst_pulsevideo_sink_propose_allocation (GstBaseSink * bsink,
-    GstQuery * query);
 static GstFlowReturn gst_pulsevideo_sink_render (GstBaseSink * psink,
     GstBuffer * buffer);
 static gboolean gst_pulsevideo_sink_start (GstBaseSink * basesink);
@@ -116,7 +114,6 @@ gst_pulsevideo_sink_class_init (GstPulsevideoSinkClass * klass)
   gstbasesink_class->start = gst_pulsevideo_sink_start;
   gstbasesink_class->stop = gst_pulsevideo_sink_stop;
   gstbasesink_class->render = gst_pulsevideo_sink_render;
-  gstbasesink_class->propose_allocation = gst_pulsevideo_sink_propose_allocation;
 
   GST_DEBUG_CATEGORY_INIT (pulsevideo_sink_debug, "pulsevideosink", 0,
       "Pulsevideo Sink");
@@ -189,59 +186,6 @@ gst_pulsevideo_sink_get_property (GObject * object, guint prop_id,
   }
 }
 
-static gboolean
-gst_pulsevideo_sink_propose_allocation (GstBaseSink * bsink, GstQuery * query)
-{
-  GstPulsevideoSink *pvsink;
-  GstBufferPool *pool;
-  gboolean update;
-  guint size, min, max;
-  GstStructure *config;
-  GstCaps *caps = NULL;
-
-  pvsink = GST_PULSEVIDEO_SINK (bsink);
-
-  if (gst_query_get_n_allocation_pools (query) > 0) {
-    gst_query_parse_nth_allocation_pool (query, 0, &pool, &size, &min, &max);
-
-    /* adjust size */
-    size = MAX (size, pvsink->info.size);
-    update = TRUE;
-  } else {
-    pool = NULL;
-    size = pvsink->info.size;
-    min = max = 0;
-    update = FALSE;
-  }
-
-  /* no downstream pool, make our own */
-  if (pool == NULL) {
-    pool = gst_video_buffer_pool_new ();
-  }
-
-  config = gst_buffer_pool_get_config (pool);
-
-  gst_query_parse_allocation (query, &caps, NULL);
-  if (caps)
-    gst_buffer_pool_config_set_params (config, caps, size, min, max);
-
-  if (gst_query_find_allocation_meta (query, GST_VIDEO_META_API_TYPE, NULL)) {
-    gst_buffer_pool_config_add_option (config,
-        GST_BUFFER_POOL_OPTION_VIDEO_META);
-  }
-  gst_buffer_pool_set_config (pool, config);
-
-  if (update)
-    gst_query_set_nth_allocation_pool (query, 0, pool, size, min, max);
-  else
-    gst_query_add_allocation_pool (query, pool, size, min, max);
-
-  if (pool)
-    gst_object_unref (pool);
-
-  return GST_BASE_SINK_CLASS (parent_class)->propose_allocation (bsink, query);
-}
-
 static void
 on_new_buffer (GObject    *gobject,
                gpointer    user_data)
@@ -283,46 +227,20 @@ gst_pulsevideo_sink_getcaps (GstBaseSink * bsink, GstCaps * filter)
 static gboolean
 gst_pulsevideo_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
 {
-  const GstStructure *structure;
   GstPulsevideoSink *pvsink;
-  GstVideoInfo info;
-  GVariantBuilder builder;
+  gchar *str;
+  GBytes *format;
 
   pvsink = GST_PULSEVIDEO_SINK (bsink);
-
-  structure = gst_caps_get_structure (caps, 0);
-
-  if (gst_structure_has_name (structure, "video/x-raw")) {
-    /* we can use the parsing code */
-    if (!gst_video_info_from_caps (&info, caps))
-      goto parse_failed;
-
-  } else {
-    goto unsupported_caps;
-  }
-
-  /* looks ok here */
-  pvsink->info = info;
 
   pvsink->stream = pv_stream_new (pvsink->ctx, "test", NULL);
   g_signal_connect (pvsink->stream, "notify::state", (GCallback) on_stream_notify, pvsink);
   g_signal_connect (pvsink->stream, "new-buffer", (GCallback) on_new_buffer, pvsink);
 
-  g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
-  g_variant_builder_add (&builder, "{sv}", "format.encoding", g_variant_new_string ("video/x-raw"));
-  g_variant_builder_add (&builder, "{sv}", "format.format",
-      g_variant_new_string (gst_video_format_to_string (info.finfo->format)));
-  g_variant_builder_add (&builder, "{sv}", "format.width", g_variant_new_int32 (info.width));
-  g_variant_builder_add (&builder, "{sv}", "format.height", g_variant_new_int32 (info.height));
-  g_variant_builder_add (&builder, "{sv}", "format.views", g_variant_new_int32 (info.views));
-//  g_variant_builder_add (&builder, "{sv}", "format.chroma-site",
-//      g_variant_new_string (gst_video_chroma_to_string (info.chroma_site)));
-//  g_variant_builder_add (&builder, "{sv}", "format.colorimetry",
-//      g_variant_new_take_string (gst_video_colorimetry_to_string (&info.colorimetry)));
-//  g_variant_builder_add (&builder, "{sv}", "format.interlace-mode",
-//      g_variant_new_string (gst_video_interlace_mode_to_string (info.interlace_mode)));
+  str = gst_caps_to_string (caps);
+  format = g_bytes_new_take (str, strlen (str) + 1);
 
-  pv_stream_connect_provide (pvsink->stream, 0, g_variant_builder_end (&builder));
+  pv_stream_connect_provide (pvsink->stream, 0, format);
 
   g_mutex_lock (&pvsink->lock);
   while (TRUE) {
@@ -338,24 +256,11 @@ gst_pulsevideo_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
   }
   g_mutex_unlock (&pvsink->lock);
 
-  pv_stream_start (pvsink->stream, PV_STREAM_MODE_BUFFER);
-
-  GST_DEBUG_OBJECT (pvsink, "size %dx%d, %d/%d fps",
-      info.width, info.height, info.fps_n, info.fps_d);
+  pv_stream_start (pvsink->stream, format, PV_STREAM_MODE_BUFFER);
+  pvsink->negotiated = TRUE;
 
   return TRUE;
 
-  /* ERRORS */
-parse_failed:
-  {
-    GST_DEBUG_OBJECT (bsink, "failed to parse caps");
-    return FALSE;
-  }
-unsupported_caps:
-  {
-    GST_DEBUG_OBJECT (bsink, "unsupported caps: %" GST_PTR_FORMAT, caps);
-    return FALSE;
-  }
 connect_error:
   {
     g_mutex_unlock (&pvsink->lock);
@@ -373,8 +278,7 @@ gst_pulsevideo_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
 
   pvsink = GST_PULSEVIDEO_SINK (bsink);
 
-  if (G_UNLIKELY (GST_VIDEO_INFO_FORMAT (&pvsink->info) ==
-          GST_VIDEO_FORMAT_UNKNOWN))
+  if (!pvsink->negotiated)
     goto not_negotiated;
 
   info.flags = 0;
@@ -424,7 +328,7 @@ gst_pulsevideo_sink_start (GstBaseSink * basesink)
 {
   GstPulsevideoSink *sink = GST_PULSEVIDEO_SINK (basesink);
 
-  gst_video_info_init (&sink->info);
+  sink->negotiated = FALSE;
 
   return TRUE;
 }
@@ -432,6 +336,10 @@ gst_pulsevideo_sink_start (GstBaseSink * basesink)
 static gboolean
 gst_pulsevideo_sink_stop (GstBaseSink * basesink)
 {
+  GstPulsevideoSink *sink = GST_PULSEVIDEO_SINK (basesink);
+
+  sink->negotiated = FALSE;
+
   return TRUE;
 }
 

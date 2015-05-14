@@ -53,25 +53,24 @@
     <method name='Disconnect'/>
     <!-- CreateSourceOutput:
          @source: the Source1 object path or / for default
-         @props: input properties
+         @incaps: input capabilities
          @output: the SourceOutput1 object path
 
-         Create a new output for @source with given @props
+         Create a new output for @source with given @incaps
     -->
     <method name='CreateSourceOutput'>
       <arg type='o' name='source' direction='in'/>
-      <arg type='a{sv}' name='props' direction='in'/>
+      <arg type='s' name='accepted_formats' direction='in'/>
       <arg type='o' name='output' direction='out'/>
     </method>
     <!-- CreateSourceInput:
-         @props: input properties
-         @source: the new Source1 object path
+         @incaps: input capabilities
          @input: the SourceInput1 object path
 
-         Create a new source and input object with given @props
+         Create a new source and input object with given @incaps
     -->
     <method name='CreateSourceInput'>
-      <arg type='a{sv}' name='props' direction='in'/>
+      <arg type='s' name='possible_formats' direction='in'/>
       <arg type='o' name='input' direction='out'/>
     </method>
   </interface>
@@ -122,18 +121,12 @@
           4 = the source is running
     -->
     <property name='State' type='u' access='read' />
-    <!-- GetCapabilities:
-         @props: input properties
-         @caps: result capabilities
+    <!-- Capabilities:
 
-         Get a list of capabilities of this source. This includes
-         supported data formats and transports. @props is used to
-         filter the amount of output capabilities
+         The capabilities of this source. This includes
+         supported data formats and transports.
     -->
-    <method name='GetCapabilities'>
-      <arg type='a{sv}' name='props' direction='in'/>
-      <arg type='aa{sv}' name='caps' direction='out'/>
-    </method>
+    <property name='PossibleFormats' type='s' access='read' />
   </interface>
 
   <!--
@@ -144,34 +137,28 @@
       start/stop the media transport.
   -->
   <interface name='org.pulsevideo.SourceOutput1'>
+    <!-- Client: the owner client of this source output -->
+    <property name='Client' type='o' access='read' />
     <!-- Source: the source of this source output -->
     <property name='Source' type='o' access='read' />
+    <!-- Capabilities: capabilities of the source output -->
+    <property name='PossibleFormats' type='s' access='read' />
     <!-- Start:
-         @props: input properties
+         @incaps: input capabilities
          @fd: output file descriptor
-         @props: output properties
+         @outcaps: output capabilities
 
-         Start the datatransfer of the source with @props.
+         Start the datatransfer of the source with @incaps.
          
          The result is a file descriptor that can be used to get metadata
-         and media. @props contains the final media format and transport
+         and media. @outcaps contains the final media format and transport
          properties.
     -->
     <method name='Start'>
-      <arg type='a{sv}' name='props' direction='in'/>
+      <arg type='s' name='requested_format' direction='in'/>
       <arg type='h' name='fd' direction='out'/>
-      <arg type='a{sv}' name='props' direction='out'/>
+      <arg type='s' name='format' direction='out'/>
     </method>
-    <!-- RequestReconfigure:
-         @props: new properties
-
-         This signal is fired when the source wants to change the format
-         or transport. The client should Stop and Start the source output
-         with new properties
-    -->
-    <signal name='RequestReconfigure'>
-      <arg type='a{sv}' name='props' direction='in'/>
-    </signal>
     <!-- Stop:
 
          Stop data transport

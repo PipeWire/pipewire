@@ -17,6 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <string.h>
 #include <gst/gst.h>
 #include <gio/gio.h>
 
@@ -61,8 +62,13 @@ on_stream_notify (GObject    *gobject,
       g_main_loop_quit (loop);
       break;
     case PV_STREAM_STATE_READY:
-      pv_stream_start (s, PV_STREAM_MODE_SOCKET);
+    {
+      GBytes *format;
+
+      format = g_bytes_new_static (CAPS, strlen (CAPS) + 1);
+      pv_stream_start (s, format, PV_STREAM_MODE_SOCKET);
       break;
+    }
     case PV_STREAM_STATE_STREAMING:
     {
       PvBufferInfo info;
@@ -93,14 +99,14 @@ on_state_notify (GObject    *gobject,
     case PV_CONTEXT_STATE_READY:
     {
       PvStream *stream;
-      GVariantBuilder builder;
+      GBytes *format;
 
       stream = pv_stream_new (c, "test", NULL);
       g_signal_connect (stream, "notify::state", (GCallback) on_stream_notify, stream);
       g_signal_connect (stream, "notify::socket", (GCallback) on_socket_notify, stream);
 
-      g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
-      pv_stream_connect_capture (stream, NULL, 0, g_variant_builder_end (&builder));
+      format = g_bytes_new_static (CAPS, strlen (CAPS) + 1);
+      pv_stream_connect_capture (stream, NULL, 0, format);
       break;
     }
     default:

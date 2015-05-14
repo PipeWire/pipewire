@@ -142,6 +142,8 @@ on_proxy_created (GObject *source_object,
     return;
   }
 
+  g_print ("got proxy for %s:%s\n", data->object_path, data->interface_name);
+
   g_signal_connect (data->proxy,
                     "g-properties-changed",
                     (GCallback) on_proxy_properties_changed,
@@ -179,6 +181,8 @@ add_interface (PvSubscribe *subscribe,
 
   priv->objects = g_list_prepend (priv->objects, data);
   priv->pending_proxies++;
+
+  g_print ("making proxy for %s:%s\n", object_path, interface_name);
 
   g_dbus_proxy_new (priv->connection,
                     G_DBUS_PROXY_FLAGS_NONE,

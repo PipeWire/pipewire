@@ -23,8 +23,6 @@
 #include <gst/gst.h>
 #include <gst/base/gstbasesink.h>
 
-#include <gst/video/video.h>
-
 #include <client/pv-context.h>
 #include <client/pv-stream.h>
 #include <client/pv-introspect.h>

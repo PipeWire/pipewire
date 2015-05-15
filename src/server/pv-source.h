@@ -71,7 +71,8 @@ struct _PvSourceClass {
   PvSourceOutput * (*create_source_output)  (PvSource       *source,
                                              const gchar    *client_path,
                                              GBytes         *format_filter,
-                                             const gchar    *prefix);
+                                             const gchar    *prefix,
+                                             GError         **error);
   gboolean         (*release_source_output) (PvSource       *source,
                                              PvSourceOutput *output);
 };
@@ -90,7 +91,8 @@ void             pv_source_report_error           (PvSource *source, GError *err
 PvSourceOutput * pv_source_create_source_output   (PvSource    *source,
                                                    const gchar *client_path,
                                                    GBytes      *format_filter,
-                                                   const gchar *prefix);
+                                                   const gchar *prefix,
+                                                   GError      **error);
 gboolean         pv_source_release_source_output  (PvSource *source, PvSourceOutput *output);
 
 G_END_DECLS

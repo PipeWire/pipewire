@@ -210,7 +210,6 @@ default_release_source_output (PvSource *source, PvSourceOutput *output)
   return TRUE;
 }
 
-
 static void
 pv_source_class_init (PvSourceClass * klass)
 {
@@ -354,7 +353,8 @@ PvSourceOutput *
 pv_source_create_source_output (PvSource    *source,
                                 const gchar *client_path,
                                 GBytes      *format_filter,
-                                const gchar *prefix)
+                                const gchar *prefix,
+                                GError      **error)
 {
   PvSourceClass *klass;
   PvSourceOutput *res;
@@ -363,10 +363,16 @@ pv_source_create_source_output (PvSource    *source,
 
   klass = PV_SOURCE_GET_CLASS (source);
 
-  if (klass->create_source_output)
-    res = klass->create_source_output (source, client_path, format_filter, prefix);
-  else
+  if (klass->create_source_output) {
+    res = klass->create_source_output (source, client_path, format_filter, prefix, error);
+  } else {
+    if (error) {
+      *error = g_error_new (G_IO_ERROR,
+                            G_IO_ERROR_NOT_SUPPORTED,
+                            "Create SourceOutput not implemented");
+    }
     res = NULL;
+  }
 
   return res;
 }

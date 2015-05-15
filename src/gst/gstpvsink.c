@@ -61,7 +61,7 @@ static GstStaticPadTemplate gst_pulsevideo_sink_template =
 GST_STATIC_PAD_TEMPLATE ("sink",
     GST_PAD_SINK,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS (PVS_VIDEO_CAPS)
+    GST_STATIC_CAPS_ANY
     );
 
 #define gst_pulsevideo_sink_parent_class parent_class

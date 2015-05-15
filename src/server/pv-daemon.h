@@ -78,7 +78,8 @@ void               pv_daemon_remove_source   (PvDaemon *daemon, PvSource *source
 PvSource *         pv_daemon_find_source     (PvDaemon *daemon,
                                               const gchar *name,
                                               GVariant *props,
-                                              GBytes   *format_filter);
+                                              GBytes   *format_filter,
+                                              GError   **error);
 
 G_END_DECLS
 

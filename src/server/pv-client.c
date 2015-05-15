@@ -130,14 +130,23 @@ handle_create_source_output (PvClient1              *interface,
   PvSourceOutput *output;
   const gchar *object_path, *sender;
   GBytes *formats;
+  GError *error = NULL;
 
   formats = g_bytes_new (arg_accepted_formats, strlen (arg_accepted_formats) + 1);
 
-  source = pv_daemon_find_source (priv->daemon, arg_source, priv->properties, formats);
+  source = pv_daemon_find_source (priv->daemon,
+                                  arg_source,
+                                  priv->properties,
+                                  formats,
+                                  &error);
   if (source == NULL)
     goto no_source;
 
-  output = pv_source_create_source_output (source, priv->object_path, formats, priv->object_path);
+  output = pv_source_create_source_output (source,
+                                           priv->object_path,
+                                           formats,
+                                           priv->object_path,
+                                           &error);
   if (output == NULL)
     goto no_output;
 
@@ -154,14 +163,16 @@ handle_create_source_output (PvClient1              *interface,
   /* ERRORS */
 no_source:
   {
-    g_dbus_method_invocation_return_dbus_error (invocation,
-        "org.pulsevideo.Error", "Can't create source");
+    g_dbus_method_invocation_return_gerror (invocation, error);
+    g_clear_error (&error);
+    g_bytes_unref (formats);
     return TRUE;
   }
 no_output:
   {
-    g_dbus_method_invocation_return_dbus_error (invocation,
-        "org.pulsevideo.Error", "Can't create output");
+    g_dbus_method_invocation_return_gerror (invocation, error);
+    g_clear_error (&error);
+    g_bytes_unref (formats);
     return TRUE;
   }
 }
@@ -178,6 +189,7 @@ handle_create_source_input (PvClient1              *interface,
   PvSourceOutput *input;
   const gchar *source_input_path, *sender;
   GBytes *formats;
+  GError *error = NULL;
 
   source = pv_client_source_new (priv->daemon);
   if (source == NULL)
@@ -192,7 +204,8 @@ handle_create_source_input (PvClient1              *interface,
   input = pv_client_source_get_source_input (PV_CLIENT_SOURCE (source),
                                              priv->object_path,
                                              formats,
-                                             priv->object_path);
+                                             priv->object_path,
+                                             &error);
   if (input == NULL)
     goto no_input;
 
@@ -214,8 +227,9 @@ no_source:
   }
 no_input:
   {
-    g_dbus_method_invocation_return_dbus_error (invocation,
-        "org.pulsevideo.Error", "Can't create input");
+    g_dbus_method_invocation_return_gerror (invocation, error);
+    g_clear_error (&error);
+    g_bytes_unref (formats);
     return TRUE;
   }
 }

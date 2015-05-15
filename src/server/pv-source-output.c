@@ -272,12 +272,20 @@ output_unregister_object (PvSourceOutput *output)
 }
 
 static void
+pv_source_output_dispose (GObject * object)
+{
+  PvSourceOutput *output = PV_SOURCE_OUTPUT (object);
+
+  output_unregister_object (output);
+
+  G_OBJECT_CLASS (pv_source_output_parent_class)->dispose (object);
+}
+
+static void
 pv_source_output_finalize (GObject * object)
 {
   PvSourceOutput *output = PV_SOURCE_OUTPUT (object);
   PvSourceOutputPrivate *priv = output->priv;
-
-  output_unregister_object (output);
 
   g_object_unref (priv->daemon);
   g_object_unref (priv->iface);
@@ -306,6 +314,7 @@ pv_source_output_class_init (PvSourceOutputClass * klass)
 
   g_type_class_add_private (klass, sizeof (PvSourceOutputPrivate));
 
+  gobject_class->dispose = pv_source_output_dispose;
   gobject_class->finalize = pv_source_output_finalize;
   gobject_class->set_property = pv_source_output_set_property;
   gobject_class->get_property = pv_source_output_get_property;

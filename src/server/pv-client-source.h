@@ -68,7 +68,8 @@ PvSource *       pv_client_source_new                   (PvDaemon *daemon);
 PvSourceOutput * pv_client_source_get_source_input      (PvClientSource *source,
                                                          const gchar    *client_path,
                                                          GBytes         *format_filter,
-                                                         const gchar    *prefix);
+                                                         const gchar    *prefix,
+                                                         GError         **error);
 
 G_END_DECLS
 

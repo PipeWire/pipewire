@@ -34,8 +34,6 @@ struct _PvV4l2SourcePrivate
   GstElement *sink;
 
   GstCaps *possible_formats;
-
-  GSocket *socket;
 };
 
 G_DEFINE_TYPE (PvV4l2Source, pv_v4l2_source, PV_TYPE_SOURCE);
@@ -91,6 +89,8 @@ setup_pipeline (PvV4l2Source *source)
   bus = gst_pipeline_get_bus (GST_PIPELINE (priv->pipeline));
   gst_bus_add_watch (bus, bus_handler, source);
   gst_object_unref (bus);
+
+  gst_element_set_state (priv->pipeline, GST_STATE_READY);
 }
 
 static GstCaps *
@@ -101,7 +101,7 @@ collect_caps (PvSource * source, GstCaps *filter)
   GstQuery *query;
 
   query = gst_query_new_caps (filter);
-  gst_element_query (priv->src, query);
+  gst_element_query (priv->filter, query);
   gst_query_parse_caps_result (query, &res);
   gst_caps_ref (res);
   gst_query_unref (query);
@@ -154,36 +154,57 @@ on_socket_notify (GObject    *gobject,
   GSocket *socket;
   guint num_handles;
   GstCaps *caps;
-  GBytes *requested_format;
+  GBytes *requested_format, *format;
 
   g_object_get (gobject, "socket", &socket, NULL);
 
   g_print ("source socket %p\n", socket);
 
   if (socket == NULL) {
-    if (priv->socket)
-      g_signal_emit_by_name (priv->sink, "remove", priv->socket);
+    GSocket *prev_socket = g_object_get_data (gobject, "last-socket");
+    if (prev_socket) {
+      g_signal_emit_by_name (priv->sink, "remove", prev_socket);
+    }
   } else {
     g_signal_emit_by_name (priv->sink, "add", socket);
   }
-  priv->socket = socket;
-
-  g_object_get (gobject, "requested-format", &requested_format, NULL);
-  g_assert (requested_format != NULL);
-  g_object_set (gobject, "format", requested_format, NULL);
-
-  g_print ("final format %s\n", g_bytes_get_data (requested_format, NULL));
-
-  caps = gst_caps_from_string (g_bytes_get_data (requested_format, NULL));
-  g_assert (caps != NULL);
-  g_object_set (priv->filter, "caps", caps, NULL);
-  gst_caps_unref (caps);
-  g_bytes_unref (requested_format);
+  g_object_set_data (gobject, "last-socket", socket);
 
   g_object_get (priv->sink, "num-handles", &num_handles, NULL);
+  g_print ("num handles %d\n", num_handles);
   if (num_handles == 0) {
     gst_element_set_state (priv->pipeline, GST_STATE_READY);
-  } else {
+    g_object_set (priv->filter, "caps", NULL, NULL);
+  } else if (socket) {
+    /* what client requested */
+    g_object_get (gobject, "requested-format", &requested_format, NULL);
+    g_assert (requested_format != NULL);
+
+    if (num_handles == 1) {
+      /* first client, we set the requested format as the format */
+      format = requested_format;
+
+      /* set on the filter */
+      caps = gst_caps_from_string (g_bytes_get_data (format, NULL));
+      g_assert (caps != NULL);
+      g_object_set (priv->filter, "caps", caps, NULL);
+      gst_caps_unref (caps);
+    } else {
+      gchar *str;
+
+      /* we already have a client, format is whatever is configured already */
+      g_bytes_unref (requested_format);
+
+      g_object_get (priv->filter, "caps", &caps, NULL);
+      str = gst_caps_to_string (caps);
+      format = g_bytes_new (str, strlen (str) + 1);
+      gst_caps_unref (caps);
+    }
+    /* this is what we use as the final format for the output */
+    g_print ("final format %s\n", (gchar *) g_bytes_get_data (format, NULL));
+    g_object_set (gobject, "format", format, NULL);
+    g_bytes_unref (format);
+
     gst_element_set_state (priv->pipeline, GST_STATE_PLAYING);
   }
 }
@@ -192,9 +213,9 @@ static PvSourceOutput *
 v4l2_create_source_output (PvSource    *source,
                            const gchar *client_path,
                            GBytes      *format_filter,
-                           const gchar *prefix)
+                           const gchar *prefix,
+                           GError      **error)
 {
-  PvV4l2SourcePrivate *priv = PV_V4L2_SOURCE (source)->priv;
   PvSourceOutput *output;
   GstCaps *caps, *filtered;
   gchar *str;
@@ -205,8 +226,6 @@ v4l2_create_source_output (PvSource    *source,
   if (caps == NULL)
     goto invalid_caps;
 
-  gst_element_set_state (priv->pipeline, GST_STATE_READY);
-
   filtered = collect_caps (source, caps);
   if (filtered == NULL || gst_caps_is_empty (filtered))
     goto no_format;
@@ -215,7 +234,14 @@ v4l2_create_source_output (PvSource    *source,
   g_print ("output filter %s\n", str);
   format_filter = g_bytes_new_take (str, strlen (str) + 1);
 
-  output = PV_SOURCE_CLASS (pv_v4l2_source_parent_class)->create_source_output (source, client_path, format_filter, prefix);
+  output = PV_SOURCE_CLASS (pv_v4l2_source_parent_class)
+                ->create_source_output (source,
+                                        client_path,
+                                        format_filter,
+                                        prefix,
+                                        error);
+  if (error == NULL)
+    return NULL;
 
   g_signal_connect (output, "notify::socket", (GCallback) on_socket_notify, source);
 
@@ -224,10 +250,18 @@ v4l2_create_source_output (PvSource    *source,
   /* ERRORS */
 invalid_caps:
   {
+    if (error)
+      *error = g_error_new (G_IO_ERROR,
+                            G_IO_ERROR_INVALID_DATA,
+                            "Input filter data invalid");
     return NULL;
   }
 no_format:
   {
+    if (error)
+      *error = g_error_new (G_IO_ERROR,
+                            G_IO_ERROR_NOT_FOUND,
+                            "No format available that matches input filter");
     return NULL;
   }
 }

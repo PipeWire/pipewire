@@ -60,7 +60,7 @@ static GstStaticPadTemplate gst_pulsevideo_src_template =
 GST_STATIC_PAD_TEMPLATE ("src",
     GST_PAD_SRC,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS (PVS_VIDEO_CAPS)
+    GST_STATIC_CAPS_ANY
     );
 
 #define gst_pulsevideo_src_parent_class parent_class
@@ -238,7 +238,7 @@ gst_pulsevideo_src_negotiate (GstBaseSrc * basesrc)
   thiscaps = gst_pad_query_caps (GST_BASE_SRC_PAD (basesrc), NULL);
   GST_DEBUG_OBJECT (basesrc, "caps of src: %" GST_PTR_FORMAT, thiscaps);
   /* nothing or anything is allowed, we're done */
-  if (thiscaps == NULL || gst_caps_is_any (thiscaps))
+  if (thiscaps == NULL)
     goto no_nego_needed;
 
   if (G_UNLIKELY (gst_caps_is_empty (thiscaps)))

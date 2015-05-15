@@ -184,7 +184,8 @@ static PvSourceOutput *
 client_create_source_output (PvSource    *source,
                              const gchar *client_path,
                              GBytes      *format_filter,
-                             const gchar *prefix)
+                             const gchar *prefix,
+                             GError      **error)
 {
   PvClientSourcePrivate *priv = PV_CLIENT_SOURCE (source)->priv;
   PvSourceOutput *output;
@@ -192,7 +193,15 @@ client_create_source_output (PvSource    *source,
   /* propose format of input */
   g_object_get (priv->input, "format", &format_filter, NULL);
 
-  output = PV_SOURCE_CLASS (pv_client_source_parent_class)->create_source_output (source, client_path, format_filter, prefix);
+  output = PV_SOURCE_CLASS (pv_client_source_parent_class)
+                ->create_source_output (source,
+                                        client_path,
+                                        format_filter,
+                                        prefix,
+                                        error);
+
+  if (output == NULL)
+    return NULL;
 
   gst_element_set_state (priv->pipeline, GST_STATE_READY);
 
@@ -246,7 +255,8 @@ PvSourceOutput *
 pv_client_source_get_source_input (PvClientSource *source,
                                    const gchar    *client_path,
                                    GBytes         *format_filter,
-                                   const gchar    *prefix)
+                                   const gchar    *prefix,
+                                   GError         **error)
 {
   PvClientSourcePrivate *priv;
 
@@ -254,7 +264,15 @@ pv_client_source_get_source_input (PvClientSource *source,
   priv = source->priv;
 
   if (priv->input == NULL) {
-    priv->input = PV_SOURCE_CLASS (pv_client_source_parent_class)->create_source_output (PV_SOURCE (source), client_path, format_filter, prefix);
+    priv->input = PV_SOURCE_CLASS (pv_client_source_parent_class)
+                        ->create_source_output (PV_SOURCE (source),
+                                                client_path,
+                                                format_filter,
+                                                prefix,
+                                                error);
+    if (priv->input == NULL)
+      return NULL;
+
     g_signal_connect (priv->input, "notify::socket", (GCallback) on_input_socket_notify, source);
   }
   return priv->input;

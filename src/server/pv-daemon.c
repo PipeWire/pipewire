@@ -78,8 +78,6 @@ client_name_appeared_handler (GDBusConnection *connection,
   SenderData *data = user_data;
   PvDaemonPrivate *priv = data->daemon->priv;
 
-  g_print ("client name appeared def: %p\n", g_main_context_get_thread_default ());
-
   g_hash_table_insert (priv->senders, data->sender, data);
 
   if (!g_strcmp0 (name, g_dbus_connection_get_unique_name (connection)))
@@ -121,7 +119,6 @@ sender_data_new (PvDaemon *daemon, const gchar *sender)
   data->daemon = daemon;
   data->sender = g_strdup (sender);
 
-  g_print ("watch name def: %p\n", g_main_context_get_thread_default ());
   g_print ("watch name %s %p\n", sender, data);
 
   data->id = g_bus_watch_name_on_connection (priv->connection,
@@ -371,15 +368,21 @@ PvSource *
 pv_daemon_find_source (PvDaemon    *daemon,
                        const gchar *name,
                        GVariant    *props,
-                       GBytes      *format_filter)
+                       GBytes      *format_filter,
+                       GError      **error)
 {
   PvDaemonPrivate *priv;
 
   g_return_val_if_fail (PV_IS_DAEMON (daemon), NULL);
   priv = daemon->priv;
 
-  if (priv->sources == NULL)
+  if (priv->sources == NULL) {
+    if (error)
+      *error = g_error_new (G_IO_ERROR,
+                            G_IO_ERROR_NOT_FOUND,
+                            "No sources registered");
     return NULL;
+  }
 
   return priv->sources->data;
 }

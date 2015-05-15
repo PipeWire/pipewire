@@ -368,8 +368,16 @@ gst_pulsevideo_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
     goto not_negotiated;
 
   g_mutex_lock (&pvsrc->lock);
-  g_cond_wait (&pvsrc->cond, &pvsrc->lock);
-  pv_stream_capture_buffer (pvsrc->stream, &info);
+  while (TRUE) {
+    g_cond_wait (&pvsrc->cond, &pvsrc->lock);
+
+    if (pv_stream_get_state (pvsrc->stream) != PV_STREAM_STATE_STREAMING)
+      goto streaming_stopped;
+
+    pv_stream_capture_buffer (pvsrc->stream, &info);
+    if (info.message != NULL)
+      break;
+  }
   g_mutex_unlock (&pvsrc->lock);
 
   *buffer = gst_buffer_new ();
@@ -392,6 +400,11 @@ gst_pulsevideo_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
 not_negotiated:
   {
     return GST_FLOW_NOT_NEGOTIATED;
+  }
+streaming_stopped:
+  {
+    g_mutex_unlock (&pvsrc->lock);
+    return GST_FLOW_FLUSHING;
   }
 }
 

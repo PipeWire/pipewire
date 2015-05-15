@@ -17,6 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <string.h>
 #include <gst/gst.h>
 #include <gio/gio.h>
 
@@ -92,18 +93,20 @@ setup_pipeline (PvClientSource *source)
   gst_object_unref (bus);
 }
 
-static void
-collect_capabilities (PvSource * source)
+static GstCaps *
+collect_caps (PvSource * source, GstCaps *filter)
 {
   PvClientSourcePrivate *priv = PV_CLIENT_SOURCE (source)->priv;
   GstCaps *res;
   GstQuery *query;
 
   query = gst_query_new_caps (NULL);
-  gst_element_query (priv->src, query);
+  gst_element_query (priv->filter, query);
   gst_query_parse_caps_result (query, &res);
-  g_print ("client source caps:  %s\n", gst_caps_to_string (res));
+  gst_caps_ref (res);
   gst_query_unref (query);
+
+  return res;
 }
 
 static gboolean
@@ -118,7 +121,6 @@ client_set_state (PvSource *source, PvSourceState state)
 
     case PV_SOURCE_STATE_INIT:
       gst_element_set_state (priv->pipeline, GST_STATE_READY);
-      collect_capabilities (source);
       break;
 
     case PV_SOURCE_STATE_IDLE:
@@ -139,7 +141,20 @@ client_set_state (PvSource *source, PvSourceState state)
 static GBytes *
 client_get_capabilities (PvSource *source, GBytes *filter)
 {
-  return NULL;
+  GstCaps *caps, *cfilter;
+  gchar *str;
+
+  cfilter = gst_caps_from_string (g_bytes_get_data (filter, NULL));
+  if (cfilter == NULL)
+    return NULL;
+
+  caps = collect_caps (source, cfilter);
+  if (caps == NULL)
+    return NULL;
+
+  str = gst_caps_to_string (caps);
+
+  return g_bytes_new_take (str, strlen (str) + 1);
 }
 
 static void
@@ -151,31 +166,34 @@ on_socket_notify (GObject    *gobject,
   PvClientSourcePrivate *priv = source->priv;
   GSocket *socket;
   guint num_handles;
-  GBytes *requested_format;
 
   g_object_get (gobject, "socket", &socket, NULL);
 
   g_print ("source socket %p\n", socket);
 
   if (socket == NULL) {
-    if (priv->socket)
-      g_signal_emit_by_name (priv->sink, "remove", priv->socket);
+    GSocket *prev_socket = g_object_get_data (gobject, "last-socket");
+    if (prev_socket) {
+      g_signal_emit_by_name (priv->sink, "remove", prev_socket);
+    }
   } else {
     g_signal_emit_by_name (priv->sink, "add", socket);
   }
-  priv->socket = socket;
-
-  /* force format on input */
-  g_object_get (priv->input, "format", &requested_format, NULL);
-  g_assert (requested_format != NULL);
-  g_print ("final format %s\n", (gchar *) g_bytes_get_data (requested_format, NULL));
-  g_object_set (gobject, "format", requested_format, NULL);
-  g_bytes_unref (requested_format);
+  g_object_set_data (gobject, "last-socket", socket);
 
   g_object_get (priv->sink, "num-handles", &num_handles, NULL);
+  g_print ("num handles %d\n", num_handles);
   if (num_handles == 0) {
     gst_element_set_state (priv->pipeline, GST_STATE_READY);
-  } else {
+  } else if (socket) {
+    GBytes *format;
+
+    /* suggest what we provide */
+    g_object_get (priv->input, "format", &format, NULL);
+    g_print ("final format %s\n", (gchar *) g_bytes_get_data (format, NULL));
+    g_object_set (gobject, "format", format, NULL);
+    g_bytes_unref (format);
+
     gst_element_set_state (priv->pipeline, GST_STATE_PLAYING);
   }
 }
@@ -237,17 +255,22 @@ on_input_socket_notify (GObject    *gobject,
   g_object_get (gobject, "socket", &socket, NULL);
   g_print ("input socket %p\n", socket);
 
-  g_object_get (gobject, "requested-format", &requested_format, NULL);
-  g_assert (requested_format != NULL);
-  g_print ("final format %s\n", (gchar *) g_bytes_get_data (requested_format, NULL));
-  g_object_set (gobject, "format", requested_format, NULL);
+  if (socket) {
+    /* requested format is final format */
+    g_object_get (gobject, "requested-format", &requested_format, NULL);
+    g_assert (requested_format != NULL);
+    g_print ("final format %s\n", (gchar *) g_bytes_get_data (requested_format, NULL));
+    g_object_set (gobject, "format", requested_format, NULL);
 
-  caps = gst_caps_from_string (g_bytes_get_data (requested_format, NULL));
-  g_assert (caps != NULL);
-  g_object_set (priv->filter, "caps", caps, NULL);
-  gst_caps_unref (caps);
-  g_bytes_unref (requested_format);
-
+    /* and set as caps on the filter */
+    caps = gst_caps_from_string (g_bytes_get_data (requested_format, NULL));
+    g_assert (caps != NULL);
+    g_object_set (priv->filter, "caps", caps, NULL);
+    gst_caps_unref (caps);
+    g_bytes_unref (requested_format);
+  } else {
+    g_object_set (priv->filter, "caps", NULL, NULL);
+  }
   g_object_set (priv->src, "socket", socket, NULL);
 }
 

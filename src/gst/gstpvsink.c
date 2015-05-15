@@ -257,6 +257,21 @@ gst_pulsevideo_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
   g_mutex_unlock (&pvsink->lock);
 
   pv_stream_start (pvsink->stream, format, PV_STREAM_MODE_BUFFER);
+
+  g_mutex_lock (&pvsink->lock);
+  while (TRUE) {
+    PvStreamState state = pv_stream_get_state (pvsink->stream);
+
+    if (state == PV_STREAM_STATE_STREAMING)
+      break;
+
+    if (state == PV_STREAM_STATE_ERROR)
+      goto connect_error;
+
+    g_cond_wait (&pvsink->cond, &pvsink->lock);
+  }
+  g_mutex_unlock (&pvsink->lock);
+
   pvsink->negotiated = TRUE;
 
   return TRUE;

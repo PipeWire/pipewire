@@ -688,13 +688,16 @@ on_socket_condition (GSocket       *socket,
       if (priv->info.message)
         g_object_unref (priv->info.message);
 
+      if (num_messages == 0)
+        break;
+
       priv->info.flags = msg.flags;
       priv->info.seq = msg.seq;
       priv->info.pts = msg.pts;
       priv->info.dts_offset = msg.dts_offset;
       priv->info.offset = msg.offset;
       priv->info.size = msg.size;
-      priv->info.message = num_messages > 0 ? messages[0] : NULL;
+      priv->info.message = messages[0];
 
       g_signal_emit (stream, signals[SIGNAL_NEW_BUFFER], 0, NULL);
       break;

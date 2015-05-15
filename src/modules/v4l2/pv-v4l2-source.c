@@ -141,7 +141,20 @@ v4l2_set_state (PvSource *source, PvSourceState state)
 static GBytes *
 v4l2_get_capabilities (PvSource *source, GBytes *filter)
 {
-  return NULL;
+  GstCaps *caps, *cfilter;
+  gchar *str;
+
+  cfilter = gst_caps_from_string (g_bytes_get_data (filter, NULL));
+  if (cfilter == NULL)
+    return NULL;
+
+  caps = collect_caps (source, cfilter);
+  if (caps == NULL)
+    return NULL;
+
+  str = gst_caps_to_string (caps);
+
+  return g_bytes_new_take (str, strlen (str) + 1);
 }
 
 static void

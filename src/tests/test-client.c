@@ -23,7 +23,7 @@
 
 #include <client/pulsevideo.h>
 
-#define CAPS "video/x-raw, format=(string)YUY2, width=(int)640, height=(int)480, pixel-aspect-ratio=(fraction)1/1, interlace-mode=(string)progressive, framerate=(fraction)30/1"
+#define ANY_CAPS "ANY"
 
 static GMainLoop *loop;
 
@@ -33,16 +33,33 @@ on_socket_notify (GObject    *gobject,
                   gpointer    user_data)
 {
   GSocket *socket;
-  GstElement *pipeline, *src;
+  GstElement *pipeline, *src, *filter;
+  GBytes *format;
+  GstCaps *caps;
+  GError *error = NULL;
 
+  pipeline = gst_parse_launch ("socketsrc name=src ! pvfddepay ! capsfilter name=filter ! videoconvert ! xvimagesink", &error);
+  if (error != NULL) {
+    g_warning ("error creating pipeline: %s", error->message);
+    g_clear_error (&error);
+    g_assert (pipeline != NULL);
+  }
+
+  /* configure socket in the socketsrc */
   g_object_get (gobject, "socket", &socket, NULL);
   g_print ("got socket %p\n", socket);
-
-  pipeline = gst_parse_launch ("socketsrc name=src ! pvfddepay ! "CAPS" ! videoconvert ! xvimagesink", NULL);
   src = gst_bin_get_by_name (GST_BIN (pipeline), "src");
-
   g_object_set (src, "socket", socket, NULL);
 
+  /* configure format as capsfilter */
+  g_object_get (gobject, "format", &format, NULL);
+  caps = gst_caps_from_string (g_bytes_get_data (format, NULL));
+  g_bytes_unref (format);
+  filter = gst_bin_get_by_name (GST_BIN (pipeline), "filter");
+  g_object_set (filter, "caps", caps, NULL);
+  gst_caps_unref (caps);
+
+  /* and set to playing */
   gst_element_set_state (pipeline, GST_STATE_PLAYING);
 }
 
@@ -61,21 +78,42 @@ on_stream_notify (GObject    *gobject,
     case PV_STREAM_STATE_ERROR:
       g_main_loop_quit (loop);
       break;
+
     case PV_STREAM_STATE_READY:
     {
-      GBytes *format;
+      GBytes *possible, *format;
+      GstCaps *caps;
+      GstStructure *structure;
+      gchar *str;
 
-      format = g_bytes_new_static (CAPS, strlen (CAPS) + 1);
+      g_object_get (s, "possible-formats", &possible, NULL);
+
+      caps = gst_caps_from_string (g_bytes_get_data (possible, NULL));
+
+      structure = gst_caps_get_structure (caps, 0);
+
+      /* set some reasonable defaults */
+      if (gst_structure_has_field (structure, "width"))
+        gst_structure_fixate_field_nearest_int (structure, "width", 320);
+      if (gst_structure_has_field (structure, "height"))
+        gst_structure_fixate_field_nearest_int (structure, "height", 240);
+      if (gst_structure_has_field (structure, "framerate"))
+        gst_structure_fixate_field_nearest_fraction (structure, "framerate", 30, 1);
+
+      /* use random fixation otherwise */
+      caps = gst_caps_fixate (caps);
+      str = gst_caps_to_string (caps);
+      gst_caps_unref (caps);
+
+      format = g_bytes_new_static (str, strlen (str) + 1);
       pv_stream_start (s, format, PV_STREAM_MODE_SOCKET);
+      g_bytes_unref (format);
       break;
     }
-    case PV_STREAM_STATE_STREAMING:
-    {
-      PvBufferInfo info;
 
-      pv_stream_capture_buffer (s, &info);
+    case PV_STREAM_STATE_STREAMING:
       break;
-    }
+
     default:
       break;
   }
@@ -105,8 +143,9 @@ on_state_notify (GObject    *gobject,
       g_signal_connect (stream, "notify::state", (GCallback) on_stream_notify, stream);
       g_signal_connect (stream, "notify::socket", (GCallback) on_socket_notify, stream);
 
-      format = g_bytes_new_static (CAPS, strlen (CAPS) + 1);
+      format = g_bytes_new_static (ANY_CAPS, strlen (ANY_CAPS) + 1);
       pv_stream_connect_capture (stream, NULL, 0, format);
+      g_bytes_unref (format);
       break;
     }
     default:

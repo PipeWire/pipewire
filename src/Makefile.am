@@ -123,8 +123,7 @@ noinst_LTLIBRARIES =
 TESTS_default =
 
 TESTS_norun = test-client \
-	      test-subscribe \
-	      test-v4l2
+	      test-subscribe
 
 # These tests need a running pulsevideo daemon
 TESTS_daemon = 
@@ -140,11 +139,6 @@ test_subscribe_SOURCES = tests/test-subscribe.c
 test_subscribe_CFLAGS = $(AM_CFLAGS)
 test_subscribe_LDADD = $(AM_LDADD) libpulsevideo-@PV_MAJORMINOR@.la
 test_subscribe_LDFLAGS = $(AM_LDFLAGS) $(BINLDFLAGS)
-
-test_v4l2_SOURCES = tests/test-v4l2.c
-test_v4l2_CFLAGS = $(AM_CFLAGS)
-test_v4l2_LDADD = $(AM_LDADD) libpulsevideo-@PV_MAJORMINOR@.la libpulsevideocore-@PV_MAJORMINOR@.la
-test_v4l2_LDFLAGS = $(AM_LDFLAGS) $(BINLDFLAGS)
 
 ###################################
 #         Client library          #

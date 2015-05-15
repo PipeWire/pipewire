@@ -53,6 +53,7 @@ typedef enum {
  * @name: the name of the source
  * @properties: the properties of the source
  * @state: the current state of the source
+ * @formats: the supported formats
  *
  * The source information
  */
@@ -60,19 +61,19 @@ typedef struct {
   const char *name;
   GVariant *properties;
   PvSourceState state;
-  GVariant *capabilities;
+  GBytes *formats;
 } PvSourceInfo;
 
 /**
  * PvSourceInfoFlags:
  * @PV_SOURCE_INFO_FLAGS_NONE: no flags
- * @PV_SOURCE_INFO_FLAGS_CAPABILITIES: include capabilities
+ * @PV_SOURCE_INFO_FLAGS_FORMATS: include formats
  *
  * Extra flags to pass to pv_context_get_source_info_list.
  */
 typedef enum {
   PV_SOURCE_INFO_FLAGS_NONE            = 0,
-  PV_SOURCE_INFO_FLAGS_CAPABILITIES    = (1 << 0)
+  PV_SOURCE_INFO_FLAGS_FORMATS         = (1 << 0)
 } PvSourceInfoFlags;
 
 typedef gboolean (*PvSourceInfoCallback)  (PvContext *c, const PvSourceInfo *info, gpointer userdata);

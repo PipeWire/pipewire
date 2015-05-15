@@ -54,7 +54,7 @@ struct _PvSource {
 
 /**
  * PvSourceClass:
- * @get_capabilities: called to get a list of supported formats from the source
+ * @get_formats: called to get a list of supported formats from the source
  * @set_state: called to change the current state of the source
  * @create_source_output: called to create a new source-output object
  * @release_source_output: called to release a source-output object
@@ -64,7 +64,7 @@ struct _PvSource {
 struct _PvSourceClass {
   GObjectClass parent_class;
 
-  GBytes *         (*get_capabilities) (PvSource *source, GBytes *filter);
+  GBytes *         (*get_formats) (PvSource *source, GBytes *filter);
 
   gboolean         (*set_state)  (PvSource *source, PvSourceState);
 
@@ -82,7 +82,7 @@ GType            pv_source_get_type               (void);
 
 const gchar *    pv_source_get_object_path        (PvSource *source);
 
-GBytes *         pv_source_get_capabilities       (PvSource *source, GBytes *filter);
+GBytes *         pv_source_get_formats            (PvSource *source, GBytes *filter);
 
 gboolean         pv_source_set_state              (PvSource *source, PvSourceState state);
 void             pv_source_update_state           (PvSource *source, PvSourceState state);

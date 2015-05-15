@@ -53,7 +53,7 @@
     <method name='Disconnect'/>
     <!-- CreateSourceOutput:
          @source: the Source1 object path or / for default
-         @incaps: input capabilities
+         @accepted_formats: the formats that can be accepted
          @output: the SourceOutput1 object path
 
          Create a new output for @source with given @incaps
@@ -64,7 +64,7 @@
       <arg type='o' name='output' direction='out'/>
     </method>
     <!-- CreateSourceInput:
-         @incaps: input capabilities
+         @possible_formats: the formats that can be provided
          @input: the SourceInput1 object path
 
          Create a new source and input object with given @incaps
@@ -121,10 +121,9 @@
           4 = the source is running
     -->
     <property name='State' type='u' access='read' />
-    <!-- Capabilities:
+    <!-- PossibleFormats:
 
-         The capabilities of this source. This includes
-         supported data formats and transports.
+         The all possible formats of this source.
     -->
     <property name='PossibleFormats' type='s' access='read' />
   </interface>
@@ -141,18 +140,21 @@
     <property name='Client' type='o' access='read' />
     <!-- Source: the source of this source output -->
     <property name='Source' type='o' access='read' />
-    <!-- Capabilities: capabilities of the source output -->
+    <!-- PossibleFormats:
+         
+         all possible formats of the source output. This is filtered
+         against the accepted_formats when creating the source output.
+         -->
     <property name='PossibleFormats' type='s' access='read' />
     <!-- Start:
-         @incaps: input capabilities
+         @requested_format: requested formats
          @fd: output file descriptor
-         @outcaps: output capabilities
+         @format: output format
 
-         Start the datatransfer of the source with @incaps.
+         Start the datatransfer of the source with @requested_format.
          
          The result is a file descriptor that can be used to get metadata
-         and media. @outcaps contains the final media format and transport
-         properties.
+         and media. @format contains the final media format.
     -->
     <method name='Start'>
       <arg type='s' name='requested_format' direction='in'/>

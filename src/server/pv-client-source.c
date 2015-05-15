@@ -139,7 +139,7 @@ client_set_state (PvSource *source, PvSourceState state)
 }
 
 static GBytes *
-client_get_capabilities (PvSource *source, GBytes *filter)
+client_get_formats (PvSource *source, GBytes *filter)
 {
   GstCaps *caps, *cfilter;
   gchar *str;
@@ -311,7 +311,7 @@ pv_client_source_class_init (PvClientSourceClass * klass)
 
   gobject_class->finalize = client_source_finalize;
 
-  source_class->get_capabilities = client_get_capabilities;
+  source_class->get_formats = client_get_formats;
   source_class->set_state = client_set_state;
   source_class->create_source_output = client_create_source_output;
   source_class->release_source_output = client_release_source_output;

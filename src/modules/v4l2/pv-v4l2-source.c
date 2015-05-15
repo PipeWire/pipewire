@@ -139,7 +139,7 @@ v4l2_set_state (PvSource *source, PvSourceState state)
 }
 
 static GBytes *
-v4l2_get_capabilities (PvSource *source, GBytes *filter)
+v4l2_get_formats (PvSource *source, GBytes *filter)
 {
   GstCaps *caps, *cfilter;
   gchar *str;
@@ -301,7 +301,7 @@ pv_v4l2_source_class_init (PvV4l2SourceClass * klass)
 
   gobject_class->finalize = v4l2_source_finalize;
 
-  source_class->get_capabilities = v4l2_get_capabilities;
+  source_class->get_formats = v4l2_get_formats;
   source_class->set_state = v4l2_set_state;
   source_class->create_source_output = v4l2_create_source_output;
   source_class->release_source_output = v4l2_release_source_output;

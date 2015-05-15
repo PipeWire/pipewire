@@ -187,11 +187,19 @@ pv_source_finalize (GObject * object)
   G_OBJECT_CLASS (pv_source_parent_class)->finalize (object);
 }
 
+static gboolean
+default_set_state (PvSource *source, PvSourceState state)
+{
+  pv_source_update_state (source, state);
+  return TRUE;
+}
+
 static PvSourceOutput *
-default_create_source_output (PvSource *source,
+default_create_source_output (PvSource    *source,
                               const gchar *client_path,
-                              GBytes *format_filter,
-                              const gchar *prefix)
+                              GBytes      *format_filter,
+                              const gchar *prefix,
+                              GError      **error)
 {
   PvSourcePrivate *priv = source->priv;
 
@@ -272,6 +280,7 @@ pv_source_class_init (PvSourceClass * klass)
                                                          G_PARAM_STATIC_STRINGS));
 
 
+  klass->set_state = default_set_state;
   klass->create_source_output = default_create_source_output;
   klass->release_source_output = default_release_source_output;
 }
@@ -283,7 +292,7 @@ pv_source_init (PvSource * source)
 }
 
 GBytes *
-pv_source_get_capabilities (PvSource *source, GBytes *filter)
+pv_source_get_formats (PvSource *source, GBytes *filter)
 {
   PvSourceClass *klass;
   GBytes *res;
@@ -292,8 +301,8 @@ pv_source_get_capabilities (PvSource *source, GBytes *filter)
 
   klass = PV_SOURCE_GET_CLASS (source);
 
-  if (klass->get_capabilities)
-    res = klass->get_capabilities (source, filter);
+  if (klass->get_formats)
+    res = klass->get_formats (source, filter);
   else
     res = NULL;
 
@@ -329,8 +338,7 @@ pv_source_update_state (PvSource *source, PvSourceState state)
   if (priv->state != state) {
     priv->state = state;
     g_print ("source changed state %d\n", state);
-    if (priv->iface)
-      pv_source1_set_state (priv->iface, state);
+    pv_source1_set_state (priv->iface, state);
     g_object_notify (G_OBJECT (source), "state");
   }
 }

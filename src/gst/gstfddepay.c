@@ -203,12 +203,7 @@ gst_fddepay_transform_ip (GstBaseTransform * trans, GstBuffer * buf)
         "buffer, received %i", fds_len);
     goto error;
   }
-  fd = dup (fds[0]);
-  if (fd < 0) {
-    GST_WARNING_OBJECT (fddepay, "fddepay: Could not dup FD %i: %s", fds[0],
-        strerror (errno));
-    goto error;
-  }
+  fd = fds[0];
   fcntl (fd, F_SETFD, FD_CLOEXEC);
   g_free (fds);
   fds = NULL;
@@ -228,6 +223,7 @@ gst_fddepay_transform_ip (GstBaseTransform * trans, GstBuffer * buf)
   GST_BUFFER_OFFSET (buf) = msg.seq;
 
   return GST_FLOW_OK;
+
 error:
   if (fds)
     g_free (fds);

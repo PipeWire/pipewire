@@ -320,6 +320,7 @@ gst_pulsevideo_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
     gst_memory_unmap (mem, &minfo);
   }
   g_unix_fd_message_append_fd ((GUnixFDMessage*)mesg, gst_fd_memory_get_fd (mem), NULL);
+  gst_memory_unref (mem);
   info.message = mesg;
 
   g_mutex_lock (&pvsink->lock);

@@ -44,7 +44,7 @@ plugin_init (GstPlugin * plugin)
       GST_TYPE_FDPAY);
   gst_element_register (plugin, "pvfddepay", GST_RANK_NONE,
       GST_TYPE_FDDEPAY);
-  gst_element_register (plugin, "pulsevideosrc", GST_RANK_NONE,
+  gst_element_register (plugin, "pulsevideosrc", GST_RANK_PRIMARY + 1,
       GST_TYPE_PULSEVIDEO_SRC);
   gst_element_register (plugin, "pulsevideosink", GST_RANK_NONE,
       GST_TYPE_PULSEVIDEO_SINK);

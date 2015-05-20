@@ -474,8 +474,8 @@ do_connect_capture (PvStream *stream)
 
   g_dbus_proxy_call (context->priv->client,
                      "CreateSourceOutput",
-                     g_variant_new ("(os)",
-                       (priv->target ? priv->target : "/"),
+                     g_variant_new ("(ss)",
+                       (priv->target ? priv->target : ""),
                        g_bytes_get_data (priv->accepted_formats, NULL)),
                      G_DBUS_CALL_FLAGS_NONE,
                      -1,

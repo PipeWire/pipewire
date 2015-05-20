@@ -59,7 +59,7 @@
          Create a new output for @source with given @incaps
     -->
     <method name='CreateSourceOutput'>
-      <arg type='o' name='source' direction='in'/>
+      <arg type='s' name='source' direction='in'/>
       <arg type='s' name='accepted_formats' direction='in'/>
       <arg type='o' name='output' direction='out'/>
     </method>

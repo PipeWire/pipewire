@@ -23,8 +23,8 @@
  * <refsect2>
  * <title>Example launch line</title>
  * |[
- * gst-launch -v pulsevideosink ! ximagesink
- * ]| Shows pulsevideo output in an X window.
+ * gst-launch -v videotestsrc ! pulsevideosink
+ * ]| Sends a test video source to pulsevideo
  * </refsect2>
  */
 

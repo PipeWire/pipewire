@@ -23,7 +23,7 @@
  * <refsect2>
  * <title>Example launch line</title>
  * |[
- * gst-launch -v pulsevideosrc ! ximagesink
+ * gst-launch -v pulsevideosrc ! videoconvert ! ximagesink
  * ]| Shows pulsevideo output in an X window.
  * </refsect2>
  */
@@ -50,7 +50,7 @@ GST_DEBUG_CATEGORY_STATIC (pulsevideo_src_debug);
 enum
 {
   PROP_0,
-  PROP_LAST
+  PROP_SOURCE
 };
 
 
@@ -65,11 +65,6 @@ GST_STATIC_PAD_TEMPLATE ("src",
 
 #define gst_pulsevideo_src_parent_class parent_class
 G_DEFINE_TYPE (GstPulsevideoSrc, gst_pulsevideo_src, GST_TYPE_PUSH_SRC);
-
-static void gst_pulsevideo_src_set_property (GObject * object, guint prop_id,
-    const GValue * value, GParamSpec * pspec);
-static void gst_pulsevideo_src_get_property (GObject * object, guint prop_id,
-    GValue * value, GParamSpec * pspec);
 
 static GstStateChangeReturn
 gst_pulsevideo_src_change_state (GstElement * element, GstStateChange transition);
@@ -86,6 +81,51 @@ static gboolean gst_pulsevideo_src_start (GstBaseSrc * basesrc);
 static gboolean gst_pulsevideo_src_stop (GstBaseSrc * basesrc);
 
 static void
+gst_pulsevideo_src_set_property (GObject * object, guint prop_id,
+    const GValue * value, GParamSpec * pspec)
+{
+  GstPulsevideoSrc *pvsrc = GST_PULSEVIDEO_SRC (object);
+
+  switch (prop_id) {
+    case PROP_SOURCE:
+      g_free (pvsrc->source);
+      pvsrc->source = g_value_dup_string (value);
+      break;
+
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+      break;
+  }
+}
+
+static void
+gst_pulsevideo_src_get_property (GObject * object, guint prop_id,
+    GValue * value, GParamSpec * pspec)
+{
+  GstPulsevideoSrc *pvsrc = GST_PULSEVIDEO_SRC (object);
+
+  switch (prop_id) {
+    case PROP_SOURCE:
+      g_value_set_string (value, pvsrc->source);
+      break;
+
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+      break;
+  }
+}
+
+static void
+gst_pulsevideo_src_finalize (GObject * object)
+{
+  GstPulsevideoSrc *pvsrc = GST_PULSEVIDEO_SRC (object);
+
+  g_free (pvsrc->source);
+
+  G_OBJECT_CLASS (parent_class)->finalize (object);
+}
+
+static void
 gst_pulsevideo_src_class_init (GstPulsevideoSrcClass * klass)
 {
   GObjectClass *gobject_class;
@@ -98,8 +138,19 @@ gst_pulsevideo_src_class_init (GstPulsevideoSrcClass * klass)
   gstbasesrc_class = (GstBaseSrcClass *) klass;
   gstpushsrc_class = (GstPushSrcClass *) klass;
 
+  gobject_class->finalize = gst_pulsevideo_src_finalize;
   gobject_class->set_property = gst_pulsevideo_src_set_property;
   gobject_class->get_property = gst_pulsevideo_src_get_property;
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_SOURCE,
+                                   g_param_spec_string ("source",
+                                                        "Source",
+                                                        "The source name to connect to (NULL = default)",
+                                                        NULL,
+                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_STATIC_STRINGS));
+
 
   gstelement_class->change_state = gst_pulsevideo_src_change_state;
 
@@ -173,28 +224,6 @@ gst_pulsevideo_src_src_fixate (GstBaseSrc * bsrc, GstCaps * caps)
 }
 
 static void
-gst_pulsevideo_src_set_property (GObject * object, guint prop_id,
-    const GValue * value, GParamSpec * pspec)
-{
-  switch (prop_id) {
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
-      break;
-  }
-}
-
-static void
-gst_pulsevideo_src_get_property (GObject * object, guint prop_id,
-    GValue * value, GParamSpec * pspec)
-{
-  switch (prop_id) {
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
-      break;
-  }
-}
-
-static void
 on_new_buffer (GObject    *gobject,
                gpointer    user_data)
 {
@@ -263,7 +292,7 @@ gst_pulsevideo_src_negotiate (GstBaseSrc * basesrc)
     /* open a connection with these caps */
     str = gst_caps_to_string (caps);
     accepted = g_bytes_new_take (str, strlen (str) + 1);
-    pv_stream_connect_capture (pvsrc->stream, NULL, 0, accepted);
+    pv_stream_connect_capture (pvsrc->stream, pvsrc->source, 0, accepted);
 
     g_mutex_lock (&pvsrc->lock);
     while (TRUE) {

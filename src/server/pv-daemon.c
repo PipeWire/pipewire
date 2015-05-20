@@ -372,19 +372,30 @@ pv_daemon_find_source (PvDaemon    *daemon,
                        GError      **error)
 {
   PvDaemonPrivate *priv;
+  PvSource *best = NULL;
+  GList *walk;
 
   g_return_val_if_fail (PV_IS_DAEMON (daemon), NULL);
   priv = daemon->priv;
 
-  if (priv->sources == NULL) {
+  for (walk = priv->sources; walk; walk = g_list_next (walk)) {
+    PvSource *s = walk->data;
+
+    if (name == NULL) {
+      best = s;
+      break;
+    }
+    else if (g_str_has_suffix (pv_source_get_object_path (s), name))
+      best = s;
+  }
+
+  if (best == NULL) {
     if (error)
       *error = g_error_new (G_IO_ERROR,
                             G_IO_ERROR_NOT_FOUND,
-                            "No sources registered");
-    return NULL;
+                            "Source not found");
   }
-
-  return priv->sources->data;
+  return best;
 }
 
 G_DEFINE_TYPE (PvDaemon, pv_daemon, G_TYPE_OBJECT);

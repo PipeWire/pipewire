@@ -54,6 +54,7 @@ struct _GstPulsevideoSrc {
   GstPushSrc element;
 
   /*< private >*/
+  gchar *source;
 
   gboolean negotiated;
 

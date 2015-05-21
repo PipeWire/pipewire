@@ -22,7 +22,7 @@
 
 #include <client/pulsevideo.h>
 #include <server/pv-daemon.h>
-#include <modules/v4l2/pv-v4l2-source.h>
+#include <modules/gst/pv-gst-manager.h>
 
 gint
 main (gint argc, gchar *argv[])
@@ -36,7 +36,7 @@ main (gint argc, gchar *argv[])
 
   daemon = pv_daemon_new ();
 
-  pv_v4l2_source_new (daemon);
+  pv_gst_manager_new (daemon);
   pv_daemon_start (daemon);
 
   g_main_loop_run (loop);

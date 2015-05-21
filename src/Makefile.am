@@ -190,7 +190,8 @@ libpulsevideocore_@PV_MAJORMINOR@_la_SOURCES = \
 		server/pv-source.c server/pv-source.h \
 		server/pv-client-source.c server/pv-client-source.h \
 		server/pv-source-output.c server/pv-source-output.h \
-		modules/v4l2/pv-v4l2-source.c 
+		modules/gst/pv-gst-manager.c \
+		modules/gst/pv-gst-source.c
 
 libpulsevideocore_@PV_MAJORMINOR@_la_CFLAGS = $(AM_CFLAGS) $(SERVER_CFLAGS)
 libpulsevideocore_@PV_MAJORMINOR@_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version

@@ -169,8 +169,6 @@ on_socket_notify (GObject    *gobject,
 
   g_object_get (gobject, "socket", &socket, NULL);
 
-  g_print ("source socket %p\n", socket);
-
   if (socket == NULL) {
     GSocket *prev_socket = g_object_get_data (gobject, "last-socket");
     if (prev_socket) {
@@ -182,7 +180,6 @@ on_socket_notify (GObject    *gobject,
   g_object_set_data (gobject, "last-socket", socket);
 
   g_object_get (priv->sink, "num-handles", &num_handles, NULL);
-  g_print ("num handles %d\n", num_handles);
   if (num_handles == 0) {
     gst_element_set_state (priv->pipeline, GST_STATE_READY);
   } else if (socket) {
@@ -190,7 +187,6 @@ on_socket_notify (GObject    *gobject,
 
     /* suggest what we provide */
     g_object_get (priv->input, "format", &format, NULL);
-    g_print ("final format %s\n", (gchar *) g_bytes_get_data (format, NULL));
     g_object_set (gobject, "format", format, NULL);
     g_bytes_unref (format);
 
@@ -253,13 +249,11 @@ on_input_socket_notify (GObject    *gobject,
   GstCaps *caps;
 
   g_object_get (gobject, "socket", &socket, NULL);
-  g_print ("input socket %p\n", socket);
 
   if (socket) {
     /* requested format is final format */
     g_object_get (gobject, "requested-format", &requested_format, NULL);
     g_assert (requested_format != NULL);
-    g_print ("final format %s\n", (gchar *) g_bytes_get_data (requested_format, NULL));
     g_object_set (gobject, "format", requested_format, NULL);
 
     /* and set as caps on the filter */

@@ -21,28 +21,33 @@
 #include <gst/gst.h>
 #include <gio/gio.h>
 
-#include "pv-v4l2-source.h"
+#include "pv-gst-source.h"
 
-#define PV_V4L2_SOURCE_GET_PRIVATE(obj)  \
-     (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PV_TYPE_V4L2_SOURCE, PvV4l2SourcePrivate))
+#define PV_GST_SOURCE_GET_PRIVATE(obj)  \
+     (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PV_TYPE_GST_SOURCE, PvGstSourcePrivate))
 
-struct _PvV4l2SourcePrivate
+struct _PvGstSourcePrivate
 {
   GstElement *pipeline;
-  GstElement *src;
+  GstElement *element;
   GstElement *filter;
   GstElement *sink;
 
   GstCaps *possible_formats;
 };
 
-G_DEFINE_TYPE (PvV4l2Source, pv_v4l2_source, PV_TYPE_SOURCE);
+enum {
+  PROP_0,
+  PROP_ELEMENT,
+};
+
+G_DEFINE_TYPE (PvGstSource, pv_gst_source, PV_TYPE_SOURCE);
 
 static gboolean
 bus_handler (GstBus * bus, GstMessage * message, gpointer user_data)
 {
   PvSource *source = user_data;
-  PvV4l2SourcePrivate *priv = PV_V4L2_SOURCE (source)->priv;
+  PvGstSourcePrivate *priv = PV_GST_SOURCE (source)->priv;
 
   switch (GST_MESSAGE_TYPE (message)) {
     case GST_MESSAGE_ERROR:
@@ -65,26 +70,34 @@ bus_handler (GstBus * bus, GstMessage * message, gpointer user_data)
 }
 
 static void
-setup_pipeline (PvV4l2Source *source)
+setup_pipeline (PvGstSource *source)
 {
-  PvV4l2SourcePrivate *priv = source->priv;
+  PvGstSourcePrivate *priv = source->priv;
   GstBus *bus;
+  GstElement *elem;
 
-  priv->pipeline = gst_parse_launch ("v4l2src name=src ! "
-                                         "capsfilter name=filter ! "
-                                     "pvfdpay ! "
-                                     "multisocketsink "
-                                         "buffers-max=2 "
-                                         "buffers-soft-max=1 "
-                                         "recover-policy=latest "
-                                         "sync-method=latest "
-                                         "name=sink "
-                                         "sync=true "
-                                         "enable-last-sample=false",
-                                      NULL);
-  priv->filter = gst_bin_get_by_name (GST_BIN (priv->pipeline), "filter");
-  priv->sink = gst_bin_get_by_name (GST_BIN (priv->pipeline), "sink");
-  priv->src = gst_bin_get_by_name (GST_BIN (priv->pipeline), "src");
+  priv->pipeline = gst_pipeline_new (NULL);
+
+  gst_bin_add (GST_BIN (priv->pipeline), priv->element);
+
+  priv->filter = gst_element_factory_make ("capsfilter", NULL);
+  gst_bin_add (GST_BIN (priv->pipeline), priv->filter);
+  gst_element_link (priv->element, priv->filter);
+
+  elem = gst_element_factory_make ("pvfdpay", NULL);
+  gst_bin_add (GST_BIN (priv->pipeline), elem);
+  gst_element_link (priv->filter, elem);
+
+  priv->sink = gst_element_factory_make ("multisocketsink", NULL);
+  g_object_set (priv->sink, "buffers-max", 2,
+                            "buffers-soft-max", 1,
+                            "recover-policy", 1, /* latest */
+                            "sync-method", 0, /* latest */
+                            "sync", TRUE,
+                            "enable-last-sample", FALSE,
+                            NULL);
+  gst_bin_add (GST_BIN (priv->pipeline), priv->sink);
+  gst_element_link (elem, priv->sink);
 
   bus = gst_pipeline_get_bus (GST_PIPELINE (priv->pipeline));
   gst_bus_add_watch (bus, bus_handler, source);
@@ -93,10 +106,22 @@ setup_pipeline (PvV4l2Source *source)
   gst_element_set_state (priv->pipeline, GST_STATE_READY);
 }
 
+static void
+destroy_pipeline (PvGstSource *source)
+{
+  PvGstSourcePrivate *priv = source->priv;
+
+  if (priv->pipeline) {
+    gst_element_set_state (priv->pipeline, GST_STATE_NULL);
+    gst_object_unref (priv->pipeline);
+    priv->pipeline = NULL;
+  }
+}
+
 static GstCaps *
 collect_caps (PvSource * source, GstCaps *filter)
 {
-  PvV4l2SourcePrivate *priv = PV_V4L2_SOURCE (source)->priv;
+  PvGstSourcePrivate *priv = PV_GST_SOURCE (source)->priv;
   GstCaps *res;
   GstQuery *query;
 
@@ -110,9 +135,9 @@ collect_caps (PvSource * source, GstCaps *filter)
 }
 
 static gboolean
-v4l2_set_state (PvSource *source, PvSourceState state)
+set_state (PvSource *source, PvSourceState state)
 {
-  PvV4l2SourcePrivate *priv = PV_V4L2_SOURCE (source)->priv;
+  PvGstSourcePrivate *priv = PV_GST_SOURCE (source)->priv;
 
   switch (state) {
     case PV_SOURCE_STATE_SUSPENDED:
@@ -139,7 +164,7 @@ v4l2_set_state (PvSource *source, PvSourceState state)
 }
 
 static GBytes *
-v4l2_get_formats (PvSource *source, GBytes *filter)
+get_formats (PvSource *source, GBytes *filter)
 {
   GstCaps *caps, *cfilter;
   gchar *str;
@@ -162,8 +187,8 @@ on_socket_notify (GObject    *gobject,
                   GParamSpec *pspec,
                   gpointer    user_data)
 {
-  PvV4l2Source *source = user_data;
-  PvV4l2SourcePrivate *priv = source->priv;
+  PvGstSource *source = user_data;
+  PvGstSourcePrivate *priv = source->priv;
   GSocket *socket;
   guint num_handles;
   GstCaps *caps;
@@ -219,11 +244,11 @@ on_socket_notify (GObject    *gobject,
 }
 
 static PvSourceOutput *
-v4l2_create_source_output (PvSource    *source,
-                           const gchar *client_path,
-                           GBytes      *format_filter,
-                           const gchar *prefix,
-                           GError      **error)
+create_source_output (PvSource    *source,
+                      const gchar *client_path,
+                      GBytes      *format_filter,
+                      const gchar *prefix,
+                      GError      **error)
 {
   PvSourceOutput *output;
   GstCaps *caps, *filtered;
@@ -241,7 +266,7 @@ v4l2_create_source_output (PvSource    *source,
   str = gst_caps_to_string (filtered);
   format_filter = g_bytes_new_take (str, strlen (str) + 1);
 
-  output = PV_SOURCE_CLASS (pv_v4l2_source_parent_class)
+  output = PV_SOURCE_CLASS (pv_gst_source_parent_class)
                 ->create_source_output (source,
                                         client_path,
                                         format_filter,
@@ -274,43 +299,109 @@ no_format:
 }
 
 static gboolean
-v4l2_release_source_output  (PvSource *source, PvSourceOutput *output)
+release_source_output  (PvSource *source, PvSourceOutput *output)
 {
-  return PV_SOURCE_CLASS (pv_v4l2_source_parent_class)->release_source_output (source, output);
+  return PV_SOURCE_CLASS (pv_gst_source_parent_class)->release_source_output (source, output);
 }
 
 static void
-v4l2_source_finalize (GObject * object)
+get_property (GObject    *object,
+              guint       prop_id,
+              GValue     *value,
+              GParamSpec *pspec)
 {
-  G_OBJECT_CLASS (pv_v4l2_source_parent_class)->finalize (object);
+  PvGstSource *source = PV_GST_SOURCE (object);
+  PvGstSourcePrivate *priv = source->priv;
+
+  switch (prop_id) {
+    case PROP_ELEMENT:
+      g_value_set_object (value, priv->element);
+      break;
+
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+      break;
+  }
 }
 
 static void
-pv_v4l2_source_class_init (PvV4l2SourceClass * klass)
+set_property (GObject      *object,
+              guint         prop_id,
+              const GValue *value,
+              GParamSpec   *pspec)
+{
+  PvGstSource *source = PV_GST_SOURCE (object);
+  PvGstSourcePrivate *priv = source->priv;
+
+  switch (prop_id) {
+    case PROP_ELEMENT:
+      priv->element = g_value_dup_object (value);
+      break;
+
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+      break;
+  }
+}
+
+static void
+source_constructed (GObject * object)
+{
+  PvGstSource *source = PV_GST_SOURCE (object);
+
+  setup_pipeline (source);
+
+  G_OBJECT_CLASS (pv_gst_source_parent_class)->constructed (object);
+}
+
+static void
+source_finalize (GObject * object)
+{
+  PvGstSource *source = PV_GST_SOURCE (object);
+
+  destroy_pipeline (source);
+
+  G_OBJECT_CLASS (pv_gst_source_parent_class)->finalize (object);
+}
+
+static void
+pv_gst_source_class_init (PvGstSourceClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
   PvSourceClass *source_class = PV_SOURCE_CLASS (klass);
 
-  g_type_class_add_private (klass, sizeof (PvV4l2SourcePrivate));
+  g_type_class_add_private (klass, sizeof (PvGstSourcePrivate));
 
-  gobject_class->finalize = v4l2_source_finalize;
+  gobject_class->constructed = source_constructed;
+  gobject_class->finalize = source_finalize;
+  gobject_class->get_property = get_property;
+  gobject_class->set_property = set_property;
 
-  source_class->get_formats = v4l2_get_formats;
-  source_class->set_state = v4l2_set_state;
-  source_class->create_source_output = v4l2_create_source_output;
-  source_class->release_source_output = v4l2_release_source_output;
+  g_object_class_install_property (gobject_class,
+                                   PROP_ELEMENT,
+                                   g_param_spec_object ("element",
+                                                        "Element",
+                                                        "The element",
+                                                        GST_TYPE_ELEMENT,
+                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_CONSTRUCT_ONLY |
+                                                        G_PARAM_STATIC_STRINGS));
+
+
+  source_class->get_formats = get_formats;
+  source_class->set_state = set_state;
+  source_class->create_source_output = create_source_output;
+  source_class->release_source_output = release_source_output;
 }
 
 static void
-pv_v4l2_source_init (PvV4l2Source * source)
+pv_gst_source_init (PvGstSource * source)
 {
-  source->priv = PV_V4L2_SOURCE_GET_PRIVATE (source);
-
-  setup_pipeline (source);
+  source->priv = PV_GST_SOURCE_GET_PRIVATE (source);
 }
 
 PvSource *
-pv_v4l2_source_new (PvDaemon *daemon)
+pv_gst_source_new (PvDaemon *daemon, const gchar *name, GstElement *element)
 {
-  return g_object_new (PV_TYPE_V4L2_SOURCE, "daemon", daemon, "name", "v4l2", NULL);
+  return g_object_new (PV_TYPE_GST_SOURCE, "daemon", daemon, "name", name, "element", element, NULL);
 }

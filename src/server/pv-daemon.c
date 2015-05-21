@@ -21,12 +21,12 @@
 
 #include "config.h"
 
+#include "client/pulsevideo.h"
+
 #include "server/pv-daemon.h"
 #include "server/pv-client.h"
 
 #include "dbus/org-pulsevideo.h"
-
-#include "modules/v4l2/pv-v4l2-source.h"
 
 #define PV_DAEMON_GET_PRIVATE(obj)  \
    (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PV_TYPE_DAEMON, PvDaemonPrivate))
@@ -36,7 +36,6 @@ struct _PvDaemonPrivate
   guint id;
   GDBusConnection *connection;
   GDBusObjectManagerServer *server_manager;
-  PvSubscribe *subscribe;
 
   GList *sources;
 
@@ -50,23 +49,6 @@ typedef struct {
   GList *objects;
 } SenderData;
 
-static void
-on_server_subscription_event (PvSubscribe         *subscribe,
-                              PvSubscriptionEvent  event,
-                              PvSubscriptionFlags  flags,
-                              GDBusProxy          *object,
-                              gpointer             user_data)
-{
-  const gchar *name, *object_path;
-
-  name = g_dbus_proxy_get_name (object);
-  object_path = g_dbus_proxy_get_object_path (object);
-
-  switch (flags) {
-    default:
-      break;
-  }
-}
 static void
 client_name_appeared_handler (GDBusConnection *connection,
                               const gchar *name,
@@ -176,8 +158,13 @@ bus_acquired_handler (GDBusConnection *connection,
 {
   PvDaemon *daemon = user_data;
   PvDaemonPrivate *priv = daemon->priv;
+  GDBusObjectManagerServer *manager = priv->server_manager;
 
   priv->connection = connection;
+
+  export_server_object (daemon, manager);
+
+  g_dbus_object_manager_server_set_connection (manager, connection);
 }
 
 static void
@@ -185,18 +172,6 @@ name_acquired_handler (GDBusConnection *connection,
                        const gchar *name,
                        gpointer user_data)
 {
-  PvDaemon *daemon = user_data;
-  PvDaemonPrivate *priv = daemon->priv;
-  GDBusObjectManagerServer *manager = priv->server_manager;
-
-  export_server_object (daemon, manager);
-
-  g_object_set (priv->subscribe, "service", PV_DBUS_SERVICE,
-                                 "subscription-mask", PV_SUBSCRIPTION_FLAGS_ALL,
-                                 "connection", connection,
-                                 NULL);
-
-  g_dbus_object_manager_server_set_connection (manager, connection);
 }
 
 static void
@@ -208,10 +183,9 @@ name_lost_handler (GDBusConnection *connection,
   PvDaemonPrivate *priv = daemon->priv;
   GDBusObjectManagerServer *manager = priv->server_manager;
 
-  g_object_set (priv->subscribe, "connection", connection, NULL);
-
   g_dbus_object_manager_server_unexport (manager, PV_DBUS_OBJECT_SERVER);
   g_dbus_object_manager_server_set_connection (manager, connection);
+  priv->connection = connection;
 }
 
 /**
@@ -395,8 +369,8 @@ pv_daemon_finalize (GObject * object)
   PvDaemon *daemon = PV_DAEMON_CAST (object);
   PvDaemonPrivate *priv = daemon->priv;
 
-  g_clear_object (&priv->server_manager);
   pv_daemon_stop (daemon);
+  g_clear_object (&priv->server_manager);
 
   G_OBJECT_CLASS (pv_daemon_parent_class)->finalize (object);
 }
@@ -418,11 +392,5 @@ pv_daemon_init (PvDaemon * daemon)
 
   priv->server_manager = g_dbus_object_manager_server_new (PV_DBUS_OBJECT_PREFIX);
   priv->senders = g_hash_table_new (g_str_hash, g_str_equal);
-
-  priv->subscribe = pv_subscribe_new ();
-  g_signal_connect (priv->subscribe,
-                    "subscription-event",
-                    (GCallback) on_server_subscription_event,
-                    daemon);
 }
 

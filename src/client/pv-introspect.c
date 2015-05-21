@@ -49,7 +49,7 @@ pv_context_list_source_info (PvContext *context,
     GDBusProxy *proxy = walk->data;
     PvSourceInfo info;
 
-    info.name = "v4l2";
+    info.name = "gst";
 
     cb (context, &info, user_data);
   }

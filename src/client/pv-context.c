@@ -307,6 +307,33 @@ context_set_state (PvContext *context, PvContextState state)
     g_object_notify (G_OBJECT (context), "state");
   }
 }
+static void
+on_client_proxy (GObject *source_object,
+                 GAsyncResult *res,
+                 gpointer user_data)
+{
+  PvContext *context = user_data;
+  PvContextPrivate *priv = context->priv;
+  GError *error = NULL;
+
+  priv->client = pv_subscribe_get_proxy_finish (priv->subscribe,
+                                                res,
+                                                &error);
+  if (priv->client == NULL)
+    goto client_failed;
+
+  context_set_state (context, PV_CONTEXT_STATE_READY);
+
+  return;
+
+client_failed:
+  {
+    priv->error = error;
+    context_set_state (context, PV_STREAM_STATE_ERROR);
+    g_error ("failed to get client proxy: %s", error->message);
+    return;
+  }
+}
 
 static void
 on_client_connected (GObject *source_object,
@@ -330,6 +357,14 @@ on_client_connected (GObject *source_object,
 
   g_variant_get (ret, "(o)", &priv->client_path);
   g_variant_unref (ret);
+
+  pv_subscribe_get_proxy (priv->subscribe,
+                          PV_DBUS_SERVICE,
+                          priv->client_path,
+                          "org.pulsevideo.Client1",
+                          NULL,
+                          on_client_proxy,
+                          context);
 }
 
 static void
@@ -372,10 +407,6 @@ subscription_cb (PvSubscribe         *subscribe,
       break;
 
     case PV_SUBSCRIPTION_FLAGS_CLIENT:
-      if (g_strcmp0 (g_dbus_proxy_get_object_path (object), priv->client_path) == 0) {
-        priv->client = object;
-        context_set_state (context, PV_CONTEXT_STATE_READY);
-      }
       break;
 
     case PV_SUBSCRIPTION_FLAGS_SOURCE:

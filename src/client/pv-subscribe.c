@@ -134,15 +134,26 @@ object_data_free (PvObjectData *data)
 static void
 remove_data (PvSubscribe *subscribe, PvObjectData *data)
 {
-  PvSubscribePrivate *priv = subscribe->priv;
-
   if (data->pending) {
     data->removed = TRUE;
   } else {
-    priv->objects = g_list_remove (priv->objects, data);
     notify_event (subscribe, data, PV_SUBSCRIPTION_EVENT_REMOVE);
     object_data_free (data);
   }
+}
+
+static void
+remove_all_data (PvSubscribe *subscribe)
+{
+  PvSubscribePrivate *priv = subscribe->priv;
+  GList *walk;
+
+  for (walk = priv->objects; walk; walk = g_list_next (walk)) {
+    PvObjectData *data = walk->data;
+    remove_data (subscribe, data);
+  }
+  g_list_free (priv->objects);
+  priv->objects = NULL;
 }
 
 static void
@@ -185,8 +196,10 @@ on_proxy_created (GObject *source_object,
   if (--priv->pending_proxies == 0)
     subscription_set_state (subscribe, PV_SUBSCRIPTION_STATE_READY);
 
-  if (data->removed)
+  if (data->removed) {
+    priv->objects = g_list_remove (priv->objects, data);
     remove_data (subscribe, data);
+  }
 }
 
 
@@ -233,6 +246,7 @@ remove_interface (PvSubscribe *subscribe,
 
     if (g_strcmp0 (data->object_path, object_path) == 0 &&
         g_strcmp0 (data->interface_name, interface_name) == 0) {
+      priv->objects = g_list_remove (priv->objects, data);
       remove_data (subscribe, data);
       break;
     }
@@ -364,6 +378,7 @@ manager_proxy_appeared (PvSubscribe *subscribe)
 static void
 manager_proxy_disappeared (PvSubscribe *subscribe)
 {
+  remove_all_data (subscribe);
 }
 
 static void

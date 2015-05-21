@@ -48,6 +48,7 @@ typedef struct
   gboolean pending;
   GDBusProxy *proxy;
   GList *tasks;
+  gboolean removed;
 } PvObjectData;
 
 
@@ -121,6 +122,30 @@ on_proxy_properties_changed (GDBusProxy *proxy,
 }
 
 static void
+object_data_free (PvObjectData *data)
+{
+  g_object_unref (data->proxy);
+  g_free (data->sender_name);
+  g_free (data->object_path);
+  g_free (data->interface_name);
+  g_free (data);
+}
+
+static void
+remove_data (PvSubscribe *subscribe, PvObjectData *data)
+{
+  PvSubscribePrivate *priv = subscribe->priv;
+
+  if (data->pending) {
+    data->removed = TRUE;
+  } else {
+    priv->objects = g_list_remove (priv->objects, data);
+    notify_event (subscribe, data, PV_SUBSCRIPTION_EVENT_REMOVE);
+    object_data_free (data);
+  }
+}
+
+static void
 on_proxy_created (GObject *source_object,
                   GAsyncResult *res,
                   gpointer user_data)
@@ -142,8 +167,6 @@ on_proxy_created (GObject *source_object,
     return;
   }
 
-  g_print ("got proxy for %s:%s\n", data->object_path, data->interface_name);
-
   g_signal_connect (data->proxy,
                     "g-properties-changed",
                     (GCallback) on_proxy_properties_changed,
@@ -161,7 +184,11 @@ on_proxy_created (GObject *source_object,
 
   if (--priv->pending_proxies == 0)
     subscription_set_state (subscribe, PV_SUBSCRIPTION_STATE_READY);
+
+  if (data->removed)
+    remove_data (subscribe, data);
 }
+
 
 static void
 add_interface (PvSubscribe *subscribe,
@@ -182,8 +209,6 @@ add_interface (PvSubscribe *subscribe,
   priv->objects = g_list_prepend (priv->objects, data);
   priv->pending_proxies++;
 
-  g_print ("making proxy for %s:%s\n", object_path, interface_name);
-
   g_dbus_proxy_new (priv->connection,
                     G_DBUS_PROXY_FLAGS_NONE,
                     NULL, /* GDBusInterfaceInfo* */
@@ -200,7 +225,18 @@ remove_interface (PvSubscribe *subscribe,
                   const gchar *object_path,
                   const gchar *interface_name)
 {
-  g_print ("remove interface %s\n", interface_name);
+  PvSubscribePrivate *priv = subscribe->priv;
+  GList *walk;
+
+  for (walk = priv->objects; walk; walk = g_list_next (walk)) {
+    PvObjectData *data = walk->data;
+
+    if (g_strcmp0 (data->object_path, object_path) == 0 &&
+        g_strcmp0 (data->interface_name, interface_name) == 0) {
+      remove_data (subscribe, data);
+      break;
+    }
+  }
 }
 
 static void
@@ -245,8 +281,6 @@ on_manager_proxy_signal (GDBusProxy   *proxy,
 {
   PvSubscribe *subscribe = user_data;
   const gchar *object_path;
-
-  g_print ("proxy signal %s %p\n", signal_name, g_main_context_get_thread_default ());
 
   if (g_strcmp0 (signal_name, "InterfacesAdded") == 0) {
     GVariant *ifaces_and_properties;
@@ -317,8 +351,6 @@ manager_proxy_appeared (PvSubscribe *subscribe)
 {
   PvSubscribePrivate *priv = subscribe->priv;
 
-  g_print ("client manager appeared def: %p\n", g_main_context_get_thread_default ());
-
   g_dbus_proxy_call (priv->manager_proxy,
                     "GetManagedObjects",
                     NULL, /* parameters */
@@ -343,12 +375,7 @@ on_manager_proxy_name_owner (GObject    *object,
   PvSubscribePrivate *priv = subscribe->priv;
   gchar *name_owner;
 
-  g_print ("client manager owner def: %p\n", g_main_context_get_thread_default ());
-
   g_object_get (priv->manager_proxy, "g-name-owner", &name_owner, NULL);
-  g_print ("client manager %s %s\n",
-      g_dbus_proxy_get_name (G_DBUS_PROXY (priv->manager_proxy)),
-      name_owner);
 
   if (name_owner) {
     manager_proxy_appeared (subscribe);
@@ -363,8 +390,6 @@ static void
 connect_client_signals (PvSubscribe *subscribe)
 {
   PvSubscribePrivate *priv = subscribe->priv;
-
-  g_print ("add signals def: %p\n", g_main_context_get_thread_default ());
 
   g_signal_connect (priv->manager_proxy, "notify::g-name-owner",
       (GCallback) on_manager_proxy_name_owner, subscribe);
@@ -381,8 +406,6 @@ on_manager_proxy_ready (GObject *source_object,
   PvSubscribe *subscribe = user_data;
   PvSubscribePrivate *priv = subscribe->priv;
   GError *error = NULL;
-
-  g_print ("manager proyx ready def: %p\n", g_main_context_get_thread_default ());
 
   priv->manager_proxy = g_dbus_proxy_new_finish (res, &error);
   if (priv->manager_proxy == NULL)
@@ -413,9 +436,6 @@ install_subscription (PvSubscribe *subscribe)
 
   subscription_set_state (subscribe, PV_SUBSCRIPTION_STATE_CONNECTING);
 
-  g_print ("new client manager def: %p\n", g_main_context_get_thread_default ());
-
-  g_print ("new client manager for %s\n", priv->service);
   g_dbus_proxy_new (priv->connection,
                     G_DBUS_PROXY_FLAGS_NONE,
                     NULL, /* GDBusInterfaceInfo* */
@@ -511,7 +531,6 @@ pv_subscribe_finalize (GObject * object)
   PvSubscribe *subscribe = PV_SUBSCRIBE (object);
   PvSubscribePrivate *priv = subscribe->priv;
 
-  g_print ("cancel\n");
   g_cancellable_cancel (priv->cancellable);
   if (priv->manager_proxy)
     g_object_unref (priv->manager_proxy);

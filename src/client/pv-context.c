@@ -329,7 +329,6 @@ on_client_connected (GObject *source_object,
   }
 
   g_variant_get (ret, "(o)", &priv->client_path);
-  g_print ("got client %s\n", priv->client_path);
   g_variant_unref (ret);
 }
 
@@ -364,8 +363,6 @@ subscription_cb (PvSubscribe         *subscribe,
 {
   PvContext *context = user_data;
   PvContextPrivate *priv = context->priv;
-
-  g_print ("got event %d %d\n", event, flags);
 
   g_assert (g_main_context_get_thread_default () == priv->context);
 
@@ -415,7 +412,6 @@ subscription_state (GObject    *object,
   g_assert (object == G_OBJECT (priv->subscribe));
 
   state = pv_subscribe_get_state (priv->subscribe);
-  g_print ("got subscription state %d\n", state);
 
   switch (state) {
     case PV_SUBSCRIPTION_STATE_READY:
@@ -439,8 +435,6 @@ on_name_appeared (GDBusConnection *connection,
 
   g_assert (g_main_context_get_thread_default () == priv->context);
 
-  g_print ("context: on name appeared\n");
-
   priv->connection = connection;
 
   g_object_set (priv->subscribe, "connection", priv->connection,
@@ -456,8 +450,6 @@ on_name_vanished (GDBusConnection *connection,
   PvContextPrivate *priv = context->priv;
 
   g_assert (g_main_context_get_thread_default () == priv->context);
-
-  g_print ("context: on name vanished\n");
 
   priv->connection = connection;
 

@@ -51,7 +51,7 @@ bus_handler (GstBus * bus, GstMessage * message, gpointer user_data)
       gchar *debug;
 
       gst_message_parse_error (message, &error, &debug);
-      g_print ("got error %s (%s)\n", error->message, debug);
+      g_warning ("got error %s (%s)\n", error->message, debug);
       g_free (debug);
 
       pv_source_report_error (source, error);
@@ -171,8 +171,6 @@ on_socket_notify (GObject    *gobject,
 
   g_object_get (gobject, "socket", &socket, NULL);
 
-  g_print ("source socket %p\n", socket);
-
   if (socket == NULL) {
     GSocket *prev_socket = g_object_get_data (gobject, "last-socket");
     if (prev_socket) {
@@ -184,7 +182,6 @@ on_socket_notify (GObject    *gobject,
   g_object_set_data (gobject, "last-socket", socket);
 
   g_object_get (priv->sink, "num-handles", &num_handles, NULL);
-  g_print ("num handles %d\n", num_handles);
   if (num_handles == 0) {
     gst_element_set_state (priv->pipeline, GST_STATE_READY);
     g_object_set (priv->filter, "caps", NULL, NULL);
@@ -214,7 +211,6 @@ on_socket_notify (GObject    *gobject,
       gst_caps_unref (caps);
     }
     /* this is what we use as the final format for the output */
-    g_print ("final format %s\n", (gchar *) g_bytes_get_data (format, NULL));
     g_object_set (gobject, "format", format, NULL);
     g_bytes_unref (format);
 
@@ -234,7 +230,6 @@ v4l2_create_source_output (PvSource    *source,
   gchar *str;
 
   str = (gchar *) g_bytes_get_data (format_filter, NULL);
-  g_print ("input filter %s\n", str);
   caps = gst_caps_from_string (str);
   if (caps == NULL)
     goto invalid_caps;
@@ -244,7 +239,6 @@ v4l2_create_source_output (PvSource    *source,
     goto no_format;
 
   str = gst_caps_to_string (filtered);
-  g_print ("output filter %s\n", str);
   format_filter = g_bytes_new_take (str, strlen (str) + 1);
 
   output = PV_SOURCE_CLASS (pv_v4l2_source_parent_class)

@@ -390,14 +390,10 @@ on_source_output_proxy (GObject *source_object,
   if (priv->source_output == NULL)
     goto source_output_failed;
 
-  g_print ("got source-output %s\n", priv->source_output_path);
-
   v = g_dbus_proxy_get_cached_property (priv->source_output, "PossibleFormats");
   if (v) {
     str = g_variant_dup_string (v, NULL);
     g_variant_unref (v);
-
-    g_print ("got possible formats %s\n", str);
 
     if (priv->possible_formats)
       g_bytes_unref (priv->possible_formats);
@@ -459,7 +455,7 @@ create_failed:
   {
     priv->error = error;
     stream_set_state (stream, PV_STREAM_STATE_ERROR);
-    g_print ("failed to get connect capture: %s", error->message);
+    g_warning ("failed to get connect capture: %s", error->message);
     return;
   }
 }
@@ -595,7 +591,7 @@ on_source_output_removed (GObject *source_object,
   if (ret == NULL) {
     priv->error = error;
     stream_set_state (stream, PV_STREAM_STATE_ERROR);
-    g_print ("failed to disconnect: %s", error->message);
+    g_warning ("failed to disconnect: %s", error->message);
     return;
   }
   g_clear_pointer (&priv->source_output_path, g_free);
@@ -703,7 +699,7 @@ on_socket_condition (GSocket       *socket,
       break;
     }
     case G_IO_OUT:
-      g_print ("can do IO\n");
+      g_warning ("can do IO\n");
       break;
 
     default:
@@ -719,7 +715,6 @@ handle_socket (PvStream *stream, gint fd)
   PvStreamPrivate *priv = stream->priv;
   GError *error = NULL;
 
-  g_print ("got fd %d\n", fd);
   priv->socket = g_socket_new_from_fd (fd, &error);
   if (priv->socket == NULL)
     goto socket_failed;

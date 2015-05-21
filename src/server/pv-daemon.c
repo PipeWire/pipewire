@@ -62,8 +62,6 @@ on_server_subscription_event (PvSubscribe         *subscribe,
   name = g_dbus_proxy_get_name (object);
   object_path = g_dbus_proxy_get_object_path (object);
 
-  g_print ("got event %d %d %s:%s\n", event, flags, name, object_path);
-
   switch (flags) {
     default:
       break;
@@ -82,8 +80,6 @@ client_name_appeared_handler (GDBusConnection *connection,
 
   if (!g_strcmp0 (name, g_dbus_connection_get_unique_name (connection)))
     return;
-
-  g_print ("appeared client %s %p\n", name, data);
 }
 
 static void
@@ -93,16 +89,12 @@ client_name_vanished_handler (GDBusConnection *connection,
 {
   SenderData *data = user_data;
 
-  g_print ("vanished client %s %p\n", name, data);
-
   g_bus_unwatch_name (data->id);
 }
 
 static void
 data_free (SenderData *data)
 {
-  g_print ("free client %s %p\n", data->sender, data);
-
   g_list_free_full (data->objects, g_object_unref);
   g_hash_table_remove (data->daemon->priv->senders, data->sender);
   g_free (data->sender);
@@ -118,8 +110,6 @@ sender_data_new (PvDaemon *daemon, const gchar *sender)
   data = g_new0 (SenderData, 1);
   data->daemon = daemon;
   data->sender = g_strdup (sender);
-
-  g_print ("watch name %s %p\n", sender, data);
 
   data->id = g_bus_watch_name_on_connection (priv->connection,
                                     sender,
@@ -146,7 +136,6 @@ handle_connect_client (PvDaemon1              *interface,
 
   sender = g_dbus_method_invocation_get_sender (invocation);
 
-  g_print ("connect client %s\n", sender);
   client = pv_client_new (daemon, sender, PV_DBUS_OBJECT_PREFIX, arg_properties);
 
   pv_daemon_track_object (daemon, sender, G_OBJECT (client));

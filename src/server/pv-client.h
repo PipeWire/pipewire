@@ -67,6 +67,7 @@ PvClient *      pv_client_new                  (PvDaemon *daemon,
                                                 const gchar *prefix,
                                                 GVariant *properties);
 
+const gchar *   pv_client_get_sender           (PvClient *client);
 const gchar *   pv_client_get_object_path      (PvClient *client);
 
 G_END_DECLS

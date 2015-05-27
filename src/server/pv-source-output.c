@@ -63,6 +63,14 @@ enum
   PROP_SOCKET,
 };
 
+enum
+{
+  SIGNAL_REMOVE,
+  LAST_SIGNAL
+};
+
+static guint signals[LAST_SIGNAL] = { 0 };
+
 static void
 pv_source_output_get_property (GObject    *_object,
                                guint       prop_id,
@@ -239,6 +247,8 @@ handle_remove (PvSourceOutput1        *interface,
 
   stop_transfer (output);
 
+  g_signal_emit (output, signals[SIGNAL_REMOVE], 0, NULL);
+
   g_dbus_method_invocation_return_value (invocation, NULL);
 
   return TRUE;
@@ -287,8 +297,8 @@ pv_source_output_finalize (GObject * object)
   PvSourceOutput *output = PV_SOURCE_OUTPUT (object);
   PvSourceOutputPrivate *priv = output->priv;
 
-  g_object_unref (priv->daemon);
-  g_object_unref (priv->iface);
+  g_clear_object (&priv->daemon);
+  g_clear_object (&priv->iface);
   g_free (priv->client_path);
   g_free (priv->object_path);
   g_free (priv->source_path);
@@ -395,6 +405,17 @@ pv_source_output_class_init (PvSourceOutputClass * klass)
                                                         G_TYPE_SOCKET,
                                                         G_PARAM_READABLE |
                                                         G_PARAM_STATIC_STRINGS));
+
+  signals[SIGNAL_REMOVE] = g_signal_new ("remove",
+                                         G_TYPE_FROM_CLASS (klass),
+                                         G_SIGNAL_RUN_LAST,
+                                         0,
+                                         NULL,
+                                         NULL,
+                                         g_cclosure_marshal_generic,
+                                         G_TYPE_NONE,
+                                         0,
+                                         G_TYPE_NONE);
 }
 
 static void

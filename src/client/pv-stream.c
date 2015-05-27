@@ -33,15 +33,17 @@ struct _PvStreamPrivate
   PvContext *context;
   gchar *name;
   GVariant *properties;
-  gchar *target;
+
   PvStreamState state;
   GError *error;
+
+  gchar *target;
+  GBytes *accepted_formats;
   gboolean provide;
 
-  GBytes *accepted_formats;
   GBytes *possible_formats;
   GBytes *format;
-  gchar *source_output_path;
+
   GDBusProxy *source_output;
 
   PvStreamMode mode;
@@ -156,6 +158,22 @@ pv_stream_finalize (GObject * object)
   PvStream *stream = PV_STREAM (object);
   PvStreamPrivate *priv = stream->priv;
 
+  g_clear_object (&priv->source_output);
+
+  if (priv->possible_formats)
+    g_bytes_unref (priv->possible_formats);
+  if (priv->format)
+    g_bytes_unref (priv->format);
+
+  g_free (priv->target);
+  if (priv->accepted_formats)
+    g_bytes_unref (priv->accepted_formats);
+
+  g_clear_error (&priv->error);
+
+  if (priv->properties)
+    g_variant_unref (priv->properties);
+  g_clear_object (&priv->context);
   g_free (priv->name);
 
   G_OBJECT_CLASS (pv_stream_parent_class)->finalize (object);
@@ -408,6 +426,7 @@ on_source_output_proxy (GObject *source_object,
                     stream);
 
   stream_set_state (stream, PV_STREAM_STATE_READY);
+  g_object_unref (stream);
 
   return;
 
@@ -416,6 +435,7 @@ source_output_failed:
     priv->error = error;
     stream_set_state (stream, PV_STREAM_STATE_ERROR);
     g_error ("failed to get source output proxy: %s", error->message);
+    g_object_unref (stream);
     return;
   }
 }
@@ -430,23 +450,22 @@ on_source_output_created (GObject *source_object,
   PvContext *context = priv->context;
   GVariant *ret;
   GError *error = NULL;
-
-  g_assert (g_main_context_get_thread_default () == priv->context->priv->context);
+  const gchar *source_output_path;
 
   ret = g_dbus_proxy_call_finish (context->priv->client, res, &error);
   if (ret == NULL)
     goto create_failed;
 
-  g_variant_get (ret, "(o)", &priv->source_output_path);
-  g_variant_unref (ret);
+  g_variant_get (ret, "(o)", &source_output_path);
 
   pv_subscribe_get_proxy (context->priv->subscribe,
                           PV_DBUS_SERVICE,
-                          priv->source_output_path,
+                          source_output_path,
                           "org.pulsevideo.SourceOutput1",
                           NULL,
                           on_source_output_proxy,
                           stream);
+  g_variant_unref (ret);
 
   return;
 
@@ -456,6 +475,7 @@ create_failed:
     priv->error = error;
     stream_set_state (stream, PV_STREAM_STATE_ERROR);
     g_warning ("failed to get connect capture: %s", error->message);
+    g_object_unref (stream);
     return;
   }
 }
@@ -465,8 +485,6 @@ do_connect_capture (PvStream *stream)
 {
   PvStreamPrivate *priv = stream->priv;
   PvContext *context = priv->context;
-
-  g_assert (g_main_context_get_thread_default () == priv->context->priv->context);
 
   g_dbus_proxy_call (context->priv->client,
                      "CreateSourceOutput",
@@ -509,13 +527,18 @@ pv_stream_connect_capture (PvStream      *stream,
   context = priv->context;
   g_return_val_if_fail (pv_context_get_state (context) == PV_CONTEXT_STATE_READY, FALSE);
 
+  g_free (priv->target);
   priv->target = g_strdup (source);
+  if (priv->accepted_formats)
+    g_bytes_unref (priv->accepted_formats);
   priv->accepted_formats = g_bytes_ref (accepted_formats);
   priv->provide = FALSE;
 
   stream_set_state (stream, PV_STREAM_STATE_CONNECTING);
 
-  g_main_context_invoke (context->priv->context, (GSourceFunc) do_connect_capture, stream);
+  g_main_context_invoke (context->priv->context,
+                         (GSourceFunc) do_connect_capture,
+                         g_object_ref (stream));
 
   return TRUE;
 }
@@ -525,8 +548,6 @@ do_connect_provide (PvStream *stream)
 {
   PvStreamPrivate *priv = stream->priv;
   PvContext *context = priv->context;
-
-  g_assert (g_main_context_get_thread_default () == priv->context->priv->context);
 
   g_dbus_proxy_call (context->priv->client,
                      "CreateSourceInput",
@@ -565,12 +586,16 @@ pv_stream_connect_provide (PvStream      *stream,
   context = priv->context;
   g_return_val_if_fail (pv_context_get_state (context) == PV_CONTEXT_STATE_READY, FALSE);
 
+  if (priv->possible_formats)
+    g_bytes_unref (priv->possible_formats);
   priv->possible_formats = g_bytes_ref (possible_formats);
   priv->provide = TRUE;
 
   stream_set_state (stream, PV_STREAM_STATE_CONNECTING);
 
-  g_main_context_invoke (context->priv->context, (GSourceFunc) do_connect_provide, stream);
+  g_main_context_invoke (context->priv->context, 
+                         (GSourceFunc) do_connect_provide,
+                         g_object_ref (stream));
 
   return TRUE;
 }
@@ -585,27 +610,24 @@ on_source_output_removed (GObject *source_object,
   GVariant *ret;
   GError *error = NULL;
 
-  g_assert (g_main_context_get_thread_default () == priv->context->priv->context);
-
   ret = g_dbus_proxy_call_finish (priv->source_output, res, &error);
   if (ret == NULL) {
     priv->error = error;
     stream_set_state (stream, PV_STREAM_STATE_ERROR);
     g_warning ("failed to disconnect: %s", error->message);
+    g_object_unref (stream);
     return;
   }
-  g_clear_pointer (&priv->source_output_path, g_free);
   g_clear_object (&priv->source_output);
 
   stream_set_state (stream, PV_STREAM_STATE_UNCONNECTED);
+  g_object_unref (stream);
 }
 
 static gboolean
 do_disconnect (PvStream *stream)
 {
   PvStreamPrivate *priv = stream->priv;
-
-  g_assert (g_main_context_get_thread_default () == priv->context->priv->context);
 
   g_dbus_proxy_call (priv->source_output,
                      "Remove",
@@ -640,7 +662,9 @@ pv_stream_disconnect (PvStream *stream)
   context = priv->context;
   g_return_val_if_fail (pv_context_get_state (context) == PV_CONTEXT_STATE_READY, FALSE);
 
-  g_main_context_invoke (context->priv->context, (GSourceFunc) do_disconnect, stream);
+  g_main_context_invoke (context->priv->context,
+                         (GSourceFunc) do_disconnect,
+                         g_object_ref (stream));
 
   return TRUE;
 }

@@ -33,8 +33,6 @@ struct _PvContextPrivate
   GError *error;
 
   GDBusProxy *daemon;
-
-  gchar *client_path;
   GDBusProxy *client;
 
   PvSubscriptionFlags subscription_mask;

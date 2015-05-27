@@ -51,6 +51,14 @@ enum
   PROP_PROPERTIES,
 };
 
+enum
+{
+  SIGNAL_DISCONNECT,
+  LAST_SIGNAL
+};
+
+static guint signals[LAST_SIGNAL] = { 0 };
+
 static void
 pv_client_get_property (GObject    *_object,
                          guint       prop_id,
@@ -132,6 +140,10 @@ handle_create_source_output (PvClient1              *interface,
   GBytes *formats;
   GError *error = NULL;
 
+  sender = g_dbus_method_invocation_get_sender (invocation);
+  if (g_strcmp0 (pv_client_get_sender (client), sender) != 0)
+    goto not_allowed;
+
   formats = g_bytes_new (arg_accepted_formats, strlen (arg_accepted_formats) + 1);
 
   source = pv_daemon_find_source (priv->daemon,
@@ -150,17 +162,25 @@ handle_create_source_output (PvClient1              *interface,
   if (output == NULL)
     goto no_output;
 
-  sender = g_dbus_method_invocation_get_sender (invocation);
-
-  pv_daemon_track_object (priv->daemon, sender, G_OBJECT (output));
-
   object_path = pv_source_output_get_object_path (output);
+
+  g_object_set_data_full (G_OBJECT (client),
+                          object_path,
+                          output,
+                          g_object_unref);
+
   g_dbus_method_invocation_return_value (invocation,
                                          g_variant_new ("(o)", object_path));
 
   return TRUE;
 
   /* ERRORS */
+not_allowed:
+  {
+    g_dbus_method_invocation_return_dbus_error (invocation,
+                 "org.pulsevideo.Error", "not client owner");
+    return TRUE;
+  }
 no_source:
   {
     g_dbus_method_invocation_return_gerror (invocation, error);
@@ -191,13 +211,20 @@ handle_create_source_input (PvClient1              *interface,
   GBytes *formats;
   GError *error = NULL;
 
+  sender = g_dbus_method_invocation_get_sender (invocation);
+  if (g_strcmp0 (pv_client_get_sender (client), sender) != 0)
+    goto not_allowed;
+
   source = pv_client_source_new (priv->daemon);
   if (source == NULL)
     goto no_source;
 
-  sender = g_dbus_method_invocation_get_sender (invocation);
+  g_object_set_data_full (G_OBJECT (client),
+                          pv_source_get_object_path (PV_SOURCE (source)),
+                          source,
+                          g_object_unref);
 
-  pv_daemon_track_object (priv->daemon, sender, G_OBJECT (source));
+  sender = g_dbus_method_invocation_get_sender (invocation);
 
   formats = g_bytes_new (arg_possible_formats, strlen (arg_possible_formats) + 1);
 
@@ -209,9 +236,13 @@ handle_create_source_input (PvClient1              *interface,
   if (input == NULL)
     goto no_input;
 
-  pv_daemon_track_object (priv->daemon, sender, G_OBJECT (input));
-
   source_input_path = pv_source_output_get_object_path (input);
+
+  g_object_set_data_full (G_OBJECT (client),
+                          source_input_path,
+                          input,
+                          g_object_unref);
+
   g_dbus_method_invocation_return_value (invocation,
                                          g_variant_new ("(o)",
                                          source_input_path));
@@ -219,6 +250,12 @@ handle_create_source_input (PvClient1              *interface,
   return TRUE;
 
   /* ERRORS */
+not_allowed:
+  {
+    g_dbus_method_invocation_return_dbus_error (invocation,
+                 "org.pulsevideo.Error", "not client owner");
+    return TRUE;
+  }
 no_source:
   {
     g_dbus_method_invocation_return_dbus_error (invocation,
@@ -232,6 +269,19 @@ no_input:
     g_bytes_unref (formats);
     return TRUE;
   }
+}
+static gboolean
+handle_disconnect (PvClient1              *interface,
+                   GDBusMethodInvocation  *invocation,
+                   gpointer                user_data)
+{
+  PvClient *client = user_data;
+
+  g_signal_emit (client, signals[SIGNAL_DISCONNECT], 0, NULL);
+
+  g_dbus_method_invocation_return_value (invocation,
+                                         g_variant_new ("()"));
+  return TRUE;
 }
 
 static void
@@ -253,6 +303,9 @@ client_register_object (PvClient *client, const gchar *prefix)
                                    client);
   g_signal_connect (priv->client1, "handle-create-source-input",
                                    (GCallback) handle_create_source_input,
+                                   client);
+  g_signal_connect (priv->client1, "handle-disconnect",
+                                   (GCallback) handle_disconnect,
                                    client);
   pv_object_skeleton_set_client1 (skel, priv->client1);
 
@@ -347,6 +400,18 @@ pv_client_class_init (PvClientClass * klass)
                                                          NULL,
                                                          G_PARAM_READWRITE |
                                                          G_PARAM_STATIC_STRINGS));
+
+  signals[SIGNAL_DISCONNECT] = g_signal_new ("disconnect",
+                                             G_TYPE_FROM_CLASS (klass),
+                                             G_SIGNAL_RUN_LAST,
+                                             0,
+                                             NULL,
+                                             NULL,
+                                             g_cclosure_marshal_generic,
+                                             G_TYPE_NONE,
+                                             0,
+                                             G_TYPE_NONE);
+
 }
 
 static void
@@ -379,6 +444,25 @@ pv_client_new (PvDaemon    *daemon,
                                        "object-path", prefix,
                                        "properties", properties,
                                        NULL);
+}
+
+/**
+ * pv_client_get_sender:
+ * @client: a #PvClient
+ *
+ * Get the sender of @client.
+ *
+ * Returns: the sender of @client
+ */
+const gchar *
+pv_client_get_sender (PvClient *client)
+{
+  PvClientPrivate *priv;
+
+  g_return_val_if_fail (PV_IS_CLIENT (client), NULL);
+  priv = client->priv;
+
+  return priv->sender;
 }
 
 /**

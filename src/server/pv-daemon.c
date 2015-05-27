@@ -105,6 +105,24 @@ sender_data_new (PvDaemon *daemon, const gchar *sender)
   return data;
 }
 
+static void
+handle_disconnect_client (PvClient *client,
+                          gpointer  user_data)
+{
+  PvDaemon *daemon = user_data;
+  PvDaemonPrivate *priv = daemon->priv;
+  const gchar *sender;
+  SenderData *data;
+
+  sender = pv_client_get_sender (client);
+
+  data = g_hash_table_lookup (priv->senders, sender);
+  if (data == NULL)
+    return;
+
+  data->objects = g_list_remove (data->objects, client);
+  g_object_unref (client);
+}
 
 static gboolean
 handle_connect_client (PvDaemon1              *interface,
@@ -119,6 +137,7 @@ handle_connect_client (PvDaemon1              *interface,
   sender = g_dbus_method_invocation_get_sender (invocation);
 
   client = pv_client_new (daemon, sender, PV_DBUS_OBJECT_PREFIX, arg_properties);
+  g_signal_connect (client, "disconnect", (GCallback) handle_disconnect_client, daemon);
 
   pv_daemon_track_object (daemon, sender, G_OBJECT (client));
 

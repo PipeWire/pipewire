@@ -194,6 +194,15 @@ default_set_state (PvSource *source, PvSourceState state)
   return TRUE;
 }
 
+static void
+handle_remove_output (PvSourceOutput *output,
+                      gpointer        user_data)
+{
+  PvSource *source = user_data;
+
+  pv_source_release_source_output (source, output);
+}
+
 static PvSourceOutput *
 default_create_source_output (PvSource    *source,
                               const gchar *client_path,
@@ -202,13 +211,18 @@ default_create_source_output (PvSource    *source,
                               GError      **error)
 {
   PvSourcePrivate *priv = source->priv;
+  PvSourceOutput *output;
 
-  return g_object_new (PV_TYPE_SOURCE_OUTPUT, "daemon", priv->daemon,
-                                              "object-path", prefix,
-                                              "client-path", client_path,
-                                              "source-path", priv->object_path,
-                                              "possible-formats", format_filter,
-                                              NULL);
+  output = g_object_new (PV_TYPE_SOURCE_OUTPUT, "daemon", priv->daemon,
+                                                "object-path", prefix,
+                                                "client-path", client_path,
+                                                "source-path", priv->object_path,
+                                                "possible-formats", format_filter,
+                                                NULL);
+
+  g_signal_connect (output, "remove", (GCallback) handle_remove_output, source);
+
+  return output;
 }
 
 static gboolean

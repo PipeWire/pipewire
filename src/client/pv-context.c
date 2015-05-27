@@ -68,7 +68,7 @@ pv_context_get_property (GObject    *_object,
 
   switch (prop_id) {
     case PROP_MAIN_CONTEXT:
-      g_value_set_pointer (value, priv->context);
+      g_value_set_boxed (value, priv->context);
       break;
 
     case PROP_NAME:
@@ -108,7 +108,7 @@ pv_context_set_property (GObject      *_object,
 
   switch (prop_id) {
     case PROP_MAIN_CONTEXT:
-      priv->context = g_value_get_pointer (value);
+      priv->context = g_value_dup_boxed (value);
       break;
 
     case PROP_NAME:
@@ -138,14 +138,16 @@ pv_context_finalize (GObject * object)
   PvContext *context = PV_CONTEXT (object);
   PvContextPrivate *priv = context->priv;
 
+  g_clear_pointer (&priv->context, g_main_context_unref);
   g_free (priv->name);
-  g_clear_error (&priv->error);
   if (priv->properties)
     g_variant_unref (priv->properties);
 
+  g_clear_object (&priv->subscribe);
+  g_clear_error (&priv->error);
+
   G_OBJECT_CLASS (pv_context_parent_class)->finalize (object);
 }
-
 
 static void
 pv_context_class_init (PvContextClass * klass)
@@ -165,12 +167,13 @@ pv_context_class_init (PvContextClass * klass)
    */
   g_object_class_install_property (gobject_class,
                                    PROP_MAIN_CONTEXT,
-                                   g_param_spec_pointer ("main-context",
-                                                         "Main Context",
-                                                         "The main context to use",
-                                                          G_PARAM_READWRITE |
-                                                          G_PARAM_CONSTRUCT_ONLY |
-                                                          G_PARAM_STATIC_STRINGS));
+                                   g_param_spec_boxed ("main-context",
+                                                       "Main Context",
+                                                       "The main context to use",
+                                                       G_TYPE_MAIN_CONTEXT,
+                                                       G_PARAM_READWRITE |
+                                                       G_PARAM_CONSTRUCT_ONLY |
+                                                       G_PARAM_STATIC_STRINGS));
   /**
    * PvContext:name
    *
@@ -344,8 +347,7 @@ on_client_connected (GObject *source_object,
   PvContextPrivate *priv = context->priv;
   GVariant *ret;
   GError *error = NULL;
-
-  g_assert (g_main_context_get_thread_default () == priv->context);
+  const gchar *client_path;
 
   ret = g_dbus_proxy_call_finish (priv->daemon, res, &error);
   if (ret == NULL) {
@@ -355,16 +357,16 @@ on_client_connected (GObject *source_object,
     return;
   }
 
-  g_variant_get (ret, "(o)", &priv->client_path);
-  g_variant_unref (ret);
+  g_variant_get (ret, "(&o)", &client_path);
 
   pv_subscribe_get_proxy (priv->subscribe,
                           PV_DBUS_SERVICE,
-                          priv->client_path,
+                          client_path,
                           "org.pulsevideo.Client1",
                           NULL,
                           on_client_proxy,
                           context);
+  g_variant_unref (ret);
 }
 
 static void
@@ -374,8 +376,6 @@ on_daemon_connected (GObject *source_object,
 {
   PvContext *context = user_data;
   PvContextPrivate *priv = context->priv;
-
-  g_assert (g_main_context_get_thread_default () == priv->context);
 
   context_set_state (context, PV_CONTEXT_STATE_REGISTERING);
 
@@ -399,11 +399,9 @@ subscription_cb (PvSubscribe         *subscribe,
   PvContext *context = user_data;
   PvContextPrivate *priv = context->priv;
 
-  g_assert (g_main_context_get_thread_default () == priv->context);
-
   switch (flags) {
     case PV_SUBSCRIPTION_FLAGS_DAEMON:
-      priv->daemon = object;
+      priv->daemon = g_object_ref (object);
       break;
 
     case PV_SUBSCRIPTION_FLAGS_CLIENT:
@@ -439,7 +437,6 @@ subscription_state (GObject    *object,
   PvContextPrivate *priv = context->priv;
   PvSubscriptionState state;
 
-  g_assert (g_main_context_get_thread_default () == priv->context);
   g_assert (object == G_OBJECT (priv->subscribe));
 
   state = pv_subscribe_get_state (priv->subscribe);
@@ -464,8 +461,6 @@ on_name_appeared (GDBusConnection *connection,
   PvContext *context = user_data;
   PvContextPrivate *priv = context->priv;
 
-  g_assert (g_main_context_get_thread_default () == priv->context);
-
   priv->connection = connection;
 
   g_object_set (priv->subscribe, "connection", priv->connection,
@@ -479,8 +474,6 @@ on_name_vanished (GDBusConnection *connection,
 {
   PvContext *context = user_data;
   PvContextPrivate *priv = context->priv;
-
-  g_assert (g_main_context_get_thread_default () == priv->context);
 
   priv->connection = connection;
 
@@ -510,7 +503,7 @@ do_connect (PvContext *context)
                                on_name_appeared,
                                on_name_vanished,
                                context,
-                               NULL);
+                               g_object_unref);
   return FALSE;
 }
 
@@ -536,7 +529,9 @@ pv_context_connect (PvContext *context, PvContextFlags flags)
   priv->flags = flags;
 
   context_set_state (context, PV_CONTEXT_STATE_CONNECTING);
-  g_main_context_invoke (priv->context, (GSourceFunc) do_connect, context);
+  g_main_context_invoke (priv->context,
+                         (GSourceFunc) do_connect,
+                         g_object_ref (context));
 
   return TRUE;
 }
@@ -556,6 +551,7 @@ on_client_disconnected (GObject *source_object,
     g_error ("failed to disconnect client: %s", error->message);
     priv->error = error;
     context_set_state (context, PV_CONTEXT_STATE_ERROR);
+    g_object_unref (context);
     return;
   }
   g_variant_unref (ret);
@@ -566,6 +562,7 @@ on_client_disconnected (GObject *source_object,
   priv->id = 0;
 
   context_set_state (context, PV_CONTEXT_STATE_UNCONNECTED);
+  g_object_unref (context);
 }
 
 static gboolean
@@ -603,7 +600,9 @@ pv_context_disconnect (PvContext *context)
   priv = context->priv;
   g_return_val_if_fail (priv->client != NULL, FALSE);
 
-  g_main_context_invoke (priv->context, (GSourceFunc) do_disconnect, context);
+  g_main_context_invoke (priv->context,
+                         (GSourceFunc) do_disconnect,
+                         g_object_ref (context));
 
   return TRUE;
 }

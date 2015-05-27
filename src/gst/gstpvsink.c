@@ -395,7 +395,6 @@ on_state_notify (GObject    *gobject,
 static gboolean
 gst_pulsevideo_sink_open (GstPulsevideoSink * pvsink)
 {
-
   pvsink->ctx = pv_context_new (pvsink->context, "test-client", NULL);
   g_signal_connect (pvsink->ctx, "notify::state", (GCallback) on_state_notify, pvsink);
 
@@ -423,6 +422,36 @@ connect_error:
     g_mutex_unlock (&pvsink->lock);
     return FALSE;
   }
+}
+
+static gboolean
+gst_pulsevideo_sink_close (GstPulsevideoSink * pvsink)
+{
+  if (pvsink->stream) {
+    pv_stream_disconnect (pvsink->stream);
+  }
+  if (pvsink->ctx) {
+    pv_context_disconnect(pvsink->ctx);
+
+    g_mutex_lock (&pvsink->lock);
+    while (TRUE) {
+      PvContextState state = pv_context_get_state (pvsink->ctx);
+
+      if (state == PV_CONTEXT_STATE_UNCONNECTED)
+        break;
+
+      if (state == PV_CONTEXT_STATE_ERROR)
+        break;
+
+      g_cond_wait (&pvsink->cond, &pvsink->lock);
+    }
+    g_mutex_unlock (&pvsink->lock);
+  }
+
+  g_clear_object (&pvsink->stream);
+  g_clear_object (&pvsink->ctx);
+
+  return TRUE;
 }
 
 static GstStateChangeReturn
@@ -460,6 +489,7 @@ gst_pulsevideo_sink_change_state (GstElement * element, GstStateChange transitio
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
       break;
     case GST_STATE_CHANGE_PAUSED_TO_READY:
+      gst_pulsevideo_sink_close (this);
       break;
     case GST_STATE_CHANGE_READY_TO_NULL:
       g_main_loop_quit (this->loop);

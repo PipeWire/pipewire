@@ -233,6 +233,14 @@ client_release_source_output  (PvSource *source, PvSourceOutput *output)
 static void
 client_source_finalize (GObject * object)
 {
+  PvClientSourcePrivate *priv = PV_CLIENT_SOURCE (object)->priv;
+
+  gst_element_set_state (priv->pipeline, GST_STATE_NULL);
+  g_clear_object (&priv->filter);
+  g_clear_object (&priv->sink);
+  g_clear_object (&priv->src);
+  g_clear_object (&priv->pipeline);
+
   G_OBJECT_CLASS (pv_client_source_parent_class)->finalize (object);
 }
 
@@ -266,6 +274,11 @@ on_input_socket_notify (GObject    *gobject,
     g_object_set (priv->filter, "caps", NULL, NULL);
   }
   g_object_set (priv->src, "socket", socket, NULL);
+
+  if (socket)
+    gst_element_set_state (priv->pipeline, GST_STATE_PLAYING);
+  else
+    gst_element_set_state (priv->pipeline, GST_STATE_READY);
 }
 
 PvSourceOutput *

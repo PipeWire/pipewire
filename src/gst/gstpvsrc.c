@@ -120,6 +120,9 @@ gst_pulsevideo_src_finalize (GObject * object)
 {
   GstPulsevideoSrc *pvsrc = GST_PULSEVIDEO_SRC (object);
 
+  g_object_unref (pvsrc->fd_allocator);
+  g_mutex_clear (&pvsrc->lock);
+  g_cond_clear (&pvsrc->cond);
   g_free (pvsrc->source);
 
   G_OBJECT_CLASS (parent_class)->finalize (object);

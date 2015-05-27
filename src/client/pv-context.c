@@ -560,6 +560,11 @@ on_client_disconnected (GObject *source_object,
   }
   g_variant_unref (ret);
 
+  g_clear_object (&priv->client);
+  g_clear_object (&priv->daemon);
+  g_bus_unwatch_name(priv->id);
+  priv->id = 0;
+
   context_set_state (context, PV_CONTEXT_STATE_UNCONNECTED);
 }
 

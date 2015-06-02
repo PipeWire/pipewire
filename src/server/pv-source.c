@@ -351,7 +351,6 @@ pv_source_update_state (PvSource *source, PvSourceState state)
 
   if (priv->state != state) {
     priv->state = state;
-    g_print ("source changed state %d\n", state);
     pv_source1_set_state (priv->iface, state);
     g_object_notify (G_OBJECT (source), "state");
   }

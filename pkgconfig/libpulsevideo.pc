@@ -1,4 +1,4 @@
-prefix=/usr/local
+prefix=/mnt/d00b721c-6d2d-4050-8d52-431da51984ef/home/wim/src/gnome/prefix
 exec_prefix=${prefix}
 libdir=${exec_prefix}/lib
 includedir=${prefix}/include

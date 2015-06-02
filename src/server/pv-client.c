@@ -125,6 +125,14 @@ pv_client_set_property (GObject      *_object,
   }
 }
 
+static void
+handle_remove_source_output (PvSourceOutput *output,
+                             gpointer        user_data)
+{
+  g_object_steal_data (G_OBJECT (user_data),
+                       pv_source_output_get_object_path (output));
+}
+
 static gboolean
 handle_create_source_output (PvClient1              *interface,
                              GDBusMethodInvocation  *invocation,
@@ -163,6 +171,11 @@ handle_create_source_output (PvClient1              *interface,
     goto no_output;
 
   object_path = pv_source_output_get_object_path (output);
+
+  g_signal_connect (output,
+                    "remove",
+                    (GCallback) handle_remove_source_output,
+                    client);
 
   g_object_set_data_full (G_OBJECT (client),
                           object_path,
@@ -237,6 +250,11 @@ handle_create_source_input (PvClient1              *interface,
     goto no_input;
 
   source_input_path = pv_source_output_get_object_path (input);
+
+  g_signal_connect (input,
+                    "remove",
+                    (GCallback) handle_remove_source_output,
+                    client);
 
   g_object_set_data_full (G_OBJECT (client),
                           source_input_path,

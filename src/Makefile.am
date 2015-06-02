@@ -203,20 +203,20 @@ libpulsevideocore_@PV_MAJORMINOR@_la_LIBADD = $(AM_LIBADD) $(LIBLTDL) $(LTLIBICO
 
 plugindir = $(libdir)/gstreamer-1.0
 
-plugin_LTLIBRARIES = libgstpulsevideosrc.la
+plugin_LTLIBRARIES = libgstpulsevideo.la
 
-libgstpulsevideosrc_la_SOURCES = \
+libgstpulsevideo_la_SOURCES = \
                         gst/gstpv.c \
                         gst/gstfdpay.c \
                         gst/gstfddepay.c \
                         gst/gstpvsrc.c \
                         gst/gstpvsink.c 
 
-libgstpulsevideosrc_la_CFLAGS = $(GST_PLUGINS_BASE_CFLAGS) $(GST_BASE_CFLAGS) $(GST_CFLAGS) $(GLIB_CFLAGS)
-libgstpulsevideosrc_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS)
-libgstpulsevideosrc_la_LIBADD =  $(GST_BASE_LIBS) $(GST_LIBS) $(GLIB_LIBS) $(LIBM) -lgstvideo-1.0 \
-				 libpulsevideo-@PV_MAJORMINOR@.la libpulsevideocore-@PV_MAJORMINOR@.la
-libgstpulsevideosrc_la_LIBTOOLFLAGS = $(GST_PLUGIN_LIBTOOLFLAGS)
+libgstpulsevideo_la_CFLAGS = $(GST_PLUGINS_BASE_CFLAGS) $(GST_BASE_CFLAGS) $(GST_CFLAGS) $(GLIB_CFLAGS)
+libgstpulsevideo_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS)
+libgstpulsevideo_la_LIBADD =  $(GST_BASE_LIBS) $(GST_LIBS) $(GLIB_LIBS) $(LIBM) -lgstvideo-1.0 \
+			 libpulsevideo-@PV_MAJORMINOR@.la libpulsevideocore-@PV_MAJORMINOR@.la
+libgstpulsevideo_la_LIBTOOLFLAGS = $(GST_PLUGIN_LIBTOOLFLAGS)
 
 noinst_HEADERS = gst/gstpvsrc.h gst/gstpvsink.h gst/gstfdpay.h gst/gstfddepay.h
 
@@ -242,24 +242,5 @@ update-map-file:
 	  echo "};" ) > $(srcdir)/map-file
 
 update-all: update-map-file
-
-# Force installation order of libraries. libtool relinks on install time, in
-# which case libpulsecommon has to be installed before others, but the padsp
-# preload library has to be done after the normal libraries (e.g. libpulse)
-# ...
-# Unfortunately automake behaviour means that rules without commands also
-# override build-in rules, so it's not trivial to add dependencies.
-# See http://debbugs.gnu.org/cgi/bugreport.cgi?bug=7328 for the workaround
-# ...
-# Isn't libtool/autotools fun!
-
-installlibLTLIBRARIES = install-libLTLIBRARIES
-$(installlibLTLIBRARIES): install-pkglibLTLIBRARIES
-
-installmodlibexecLTLIBRARIES = install-modlibexecLTLIBRARIES
-$(installmodlibexecLTLIBRARIES): install-pkglibLTLIBRARIES
-
-installpadsplibLTLIBRARIES = install-padsplibLTLIBRARIES
-$(installpadsplibLTLIBRARIES): install-libLTLIBRARIES
 
 .PHONY: update-all update-map-file coverage

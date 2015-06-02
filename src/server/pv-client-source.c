@@ -231,11 +231,21 @@ client_release_source_output  (PvSource *source, PvSourceOutput *output)
 }
 
 static void
-client_source_finalize (GObject * object)
+client_source_dispose (GObject * object)
 {
   PvClientSourcePrivate *priv = PV_CLIENT_SOURCE (object)->priv;
 
   gst_element_set_state (priv->pipeline, GST_STATE_NULL);
+
+  G_OBJECT_CLASS (pv_client_source_parent_class)->dispose (object);
+}
+
+static void
+client_source_finalize (GObject * object)
+{
+  PvClientSourcePrivate *priv = PV_CLIENT_SOURCE (object)->priv;
+
+  g_clear_object (&priv->input);
   g_clear_object (&priv->filter);
   g_clear_object (&priv->sink);
   g_clear_object (&priv->src);
@@ -305,7 +315,7 @@ pv_client_source_get_source_input (PvClientSource *source,
 
     g_signal_connect (priv->input, "notify::socket", (GCallback) on_input_socket_notify, source);
   }
-  return priv->input;
+  return g_object_ref (priv->input);
 }
 
 static void
@@ -316,6 +326,7 @@ pv_client_source_class_init (PvClientSourceClass * klass)
 
   g_type_class_add_private (klass, sizeof (PvClientSourcePrivate));
 
+  gobject_class->dispose = client_source_dispose;
   gobject_class->finalize = client_source_finalize;
 
   source_class->get_formats = client_get_formats;

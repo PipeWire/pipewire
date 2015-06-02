@@ -172,12 +172,20 @@ pv_source_constructed (GObject * object)
 }
 
 static void
+pv_source_dispose (GObject * object)
+{
+  PvSource *source = PV_SOURCE (object);
+
+  source_unregister_object (source);
+
+  G_OBJECT_CLASS (pv_source_parent_class)->dispose (object);
+}
+
+static void
 pv_source_finalize (GObject * object)
 {
   PvSource *source = PV_SOURCE (object);
   PvSourcePrivate *priv = source->priv;
-
-  source_unregister_object (source);
 
   g_free (priv->object_path);
   g_free (priv->name);
@@ -239,8 +247,9 @@ pv_source_class_init (PvSourceClass * klass)
 
   g_type_class_add_private (klass, sizeof (PvSourcePrivate));
 
-  gobject_class->finalize = pv_source_finalize;
   gobject_class->constructed = pv_source_constructed;
+  gobject_class->dispose = pv_source_dispose;
+  gobject_class->finalize = pv_source_finalize;
   gobject_class->set_property = pv_source_set_property;
   gobject_class->get_property = pv_source_get_property;
 

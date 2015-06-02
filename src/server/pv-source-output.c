@@ -212,14 +212,23 @@ no_format:
 }
 
 static void
+clear_socket (PvSourceOutput *output)
+{
+  PvSourceOutputPrivate *priv = output->priv;
+
+  g_clear_object (&priv->socket);
+  g_clear_pointer (&priv->requested_format, g_bytes_unref);
+  g_clear_pointer (&priv->format, g_bytes_unref);
+}
+
+
+static void
 stop_transfer (PvSourceOutput *output)
 {
   PvSourceOutputPrivate *priv = output->priv;
 
   if (priv->socket) {
-    g_clear_object (&priv->socket);
-    g_clear_pointer (&priv->requested_format, g_bytes_unref);
-    g_clear_pointer (&priv->format, g_bytes_unref);
+    clear_socket (output);
     g_object_notify (G_OBJECT (output), "socket");
   }
 }
@@ -276,8 +285,6 @@ output_unregister_object (PvSourceOutput *output)
 {
   PvSourceOutputPrivate *priv = output->priv;
 
-  stop_transfer (output);
-
   pv_daemon_unexport (priv->daemon, priv->object_path);
 }
 
@@ -286,6 +293,7 @@ pv_source_output_dispose (GObject * object)
 {
   PvSourceOutput *output = PV_SOURCE_OUTPUT (object);
 
+  clear_socket (output);
   output_unregister_object (output);
 
   G_OBJECT_CLASS (pv_source_output_parent_class)->dispose (object);
@@ -324,11 +332,11 @@ pv_source_output_class_init (PvSourceOutputClass * klass)
 
   g_type_class_add_private (klass, sizeof (PvSourceOutputPrivate));
 
+  gobject_class->constructed = pv_source_output_constructed;
   gobject_class->dispose = pv_source_output_dispose;
   gobject_class->finalize = pv_source_output_finalize;
   gobject_class->set_property = pv_source_output_set_property;
   gobject_class->get_property = pv_source_output_get_property;
-  gobject_class->constructed = pv_source_output_constructed;
 
   g_object_class_install_property (gobject_class,
                                    PROP_DAEMON,

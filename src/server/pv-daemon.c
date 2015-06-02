@@ -383,12 +383,21 @@ pv_daemon_find_source (PvDaemon    *daemon,
 G_DEFINE_TYPE (PvDaemon, pv_daemon, G_TYPE_OBJECT);
 
 static void
+pv_daemon_dispose (GObject * object)
+{
+  PvDaemon *daemon = PV_DAEMON_CAST (object);
+
+  pv_daemon_stop (daemon);
+
+  G_OBJECT_CLASS (pv_daemon_parent_class)->dispose (object);
+}
+
+static void
 pv_daemon_finalize (GObject * object)
 {
   PvDaemon *daemon = PV_DAEMON_CAST (object);
   PvDaemonPrivate *priv = daemon->priv;
 
-  pv_daemon_stop (daemon);
   g_clear_object (&priv->server_manager);
 
   G_OBJECT_CLASS (pv_daemon_parent_class)->finalize (object);
@@ -401,6 +410,7 @@ pv_daemon_class_init (PvDaemonClass * klass)
 
   g_type_class_add_private (klass, sizeof (PvDaemonPrivate));
 
+  gobject_class->dispose = pv_daemon_dispose;
   gobject_class->finalize = pv_daemon_finalize;
 }
 

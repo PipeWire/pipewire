@@ -254,9 +254,9 @@ handle_create_source_input (PvClient1              *interface,
   g_signal_connect (input,
                     "remove",
                     (GCallback) handle_remove_source_output,
-                    client);
+                    source);
 
-  g_object_set_data_full (G_OBJECT (client),
+  g_object_set_data_full (G_OBJECT (source),
                           source_input_path,
                           input,
                           g_object_unref);
@@ -344,12 +344,19 @@ client_unregister_object (PvClient *client)
 }
 
 static void
+pv_client_dispose (GObject * object)
+{
+  PvClient *client = PV_CLIENT (object);
+
+  client_unregister_object (client);
+
+  G_OBJECT_CLASS (pv_client_parent_class)->dispose (object);
+}
+static void
 pv_client_finalize (GObject * object)
 {
   PvClient *client = PV_CLIENT (object);
   PvClientPrivate *priv = client->priv;
-
-  client_unregister_object (client);
 
   if (priv->properties)
     g_variant_unref (priv->properties);
@@ -375,10 +382,11 @@ pv_client_class_init (PvClientClass * klass)
 
   g_type_class_add_private (klass, sizeof (PvClientPrivate));
 
+  gobject_class->constructed = pv_client_constructed;
+  gobject_class->dispose = pv_client_dispose;
   gobject_class->finalize = pv_client_finalize;
   gobject_class->set_property = pv_client_set_property;
   gobject_class->get_property = pv_client_get_property;
-  gobject_class->constructed = pv_client_constructed;
 
   g_object_class_install_property (gobject_class,
                                    PROP_DAEMON,

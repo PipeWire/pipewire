@@ -38,10 +38,12 @@ struct _PvSourcePrivate
   gchar *object_path;
 
   gchar *name;
-  PvSourceState state;
   GVariant *properties;
 
+  PvSourceState state;
   GError *error;
+
+  GList *outputs;
 };
 
 G_DEFINE_ABSTRACT_TYPE (PvSource, pv_source, G_TYPE_OBJECT);
@@ -172,10 +174,19 @@ pv_source_constructed (GObject * object)
 }
 
 static void
+do_remove_output (PvSourceOutput *output,
+                  gpointer        user_data)
+{
+  pv_source_output_remove (output);
+}
+
+static void
 pv_source_dispose (GObject * object)
 {
   PvSource *source = PV_SOURCE (object);
+  PvSourcePrivate *priv = source->priv;
 
+  g_list_foreach (priv->outputs, (GFunc) do_remove_output, source);
   source_unregister_object (source);
 
   G_OBJECT_CLASS (pv_source_parent_class)->dispose (object);
@@ -229,14 +240,24 @@ default_create_source_output (PvSource    *source,
                                                 NULL);
 
   g_signal_connect (output, "remove", (GCallback) handle_remove_output, source);
+  priv->outputs = g_list_prepend (priv->outputs, output);
 
-  return output;
+  return g_object_ref (output);
 }
 
 static gboolean
 default_release_source_output (PvSource *source, PvSourceOutput *output)
 {
+  PvSourcePrivate *priv = source->priv;
+  GList *find;
+
+  find = g_list_find (priv->outputs, output);
+  if (find == NULL)
+    return FALSE;
+
+  priv->outputs = g_list_delete_link (priv->outputs, find);
   g_object_unref (output);
+
   return TRUE;
 }
 

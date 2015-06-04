@@ -33,6 +33,7 @@ struct _PvClientSourcePrivate
   GstElement *src;
   GstElement *filter;
   GstElement *sink;
+  guint id;
 
   GSocket *socket;
 
@@ -89,7 +90,7 @@ setup_pipeline (PvClientSource *source)
   priv->src = gst_bin_get_by_name (GST_BIN (priv->pipeline), "src");
 
   bus = gst_pipeline_get_bus (GST_PIPELINE (priv->pipeline));
-  gst_bus_add_watch (bus, bus_handler, source);
+  priv->id = gst_bus_add_watch (bus, bus_handler, source);
   gst_object_unref (bus);
 }
 
@@ -235,6 +236,7 @@ client_source_dispose (GObject * object)
 {
   PvClientSourcePrivate *priv = PV_CLIENT_SOURCE (object)->priv;
 
+  g_source_remove (priv->id);
   gst_element_set_state (priv->pipeline, GST_STATE_NULL);
 
   G_OBJECT_CLASS (pv_client_source_parent_class)->dispose (object);

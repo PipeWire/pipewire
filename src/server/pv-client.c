@@ -35,6 +35,8 @@ struct _PvClientPrivate
   GVariant *properties;
 
   PvClient1 *client1;
+
+  GList *outputs;
 };
 
 #define PV_CLIENT_GET_PRIVATE(obj)  \
@@ -129,8 +131,11 @@ static void
 handle_remove_source_output (PvSourceOutput *output,
                              gpointer        user_data)
 {
-  g_object_steal_data (G_OBJECT (user_data),
-                       pv_source_output_get_object_path (output));
+  PvClient *client = user_data;
+  PvClientPrivate *priv = client->priv;
+
+  priv->outputs = g_list_remove (priv->outputs, output);
+  g_object_unref (output);
 }
 
 static gboolean
@@ -172,15 +177,12 @@ handle_create_source_output (PvClient1              *interface,
 
   object_path = pv_source_output_get_object_path (output);
 
+  priv->outputs = g_list_prepend (priv->outputs, output);
+
   g_signal_connect (output,
                     "remove",
                     (GCallback) handle_remove_source_output,
                     client);
-
-  g_object_set_data_full (G_OBJECT (client),
-                          object_path,
-                          output,
-                          g_object_unref);
 
   g_dbus_method_invocation_return_value (invocation,
                                          g_variant_new ("(o)", object_path));
@@ -251,15 +253,12 @@ handle_create_source_input (PvClient1              *interface,
 
   source_input_path = pv_source_output_get_object_path (input);
 
+  priv->outputs = g_list_prepend (priv->outputs, input);
+
   g_signal_connect (input,
                     "remove",
                     (GCallback) handle_remove_source_output,
-                    source);
-
-  g_object_set_data_full (G_OBJECT (source),
-                          source_input_path,
-                          input,
-                          g_object_unref);
+                    client);
 
   g_dbus_method_invocation_return_value (invocation,
                                          g_variant_new ("(o)",
@@ -344,10 +343,18 @@ client_unregister_object (PvClient *client)
 }
 
 static void
+do_remove_output (PvSourceOutput *output, PvClient *client)
+{
+  pv_source_output_remove (output);
+}
+
+static void
 pv_client_dispose (GObject * object)
 {
   PvClient *client = PV_CLIENT (object);
+  PvClientPrivate *priv = client->priv;
 
+  g_list_foreach (priv->outputs, (GFunc) do_remove_output, client);
   client_unregister_object (client);
 
   G_OBJECT_CLASS (pv_client_parent_class)->dispose (object);

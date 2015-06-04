@@ -60,7 +60,8 @@ struct _PvSourceOutputClass {
 /* normal GObject stuff */
 GType              pv_source_output_get_type             (void);
 
-const gchar *      pv_source_output_get_sender           (PvSourceOutput *output);
+void               pv_source_output_remove               (PvSourceOutput *output);
+
 const gchar *      pv_source_output_get_object_path      (PvSourceOutput *output);
 
 G_END_DECLS

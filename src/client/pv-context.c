@@ -405,6 +405,12 @@ subscription_cb (PvSubscribe         *subscribe,
       break;
 
     case PV_SUBSCRIPTION_FLAGS_CLIENT:
+      if (event == PV_SUBSCRIPTION_EVENT_REMOVE) {
+        if (object == priv->client) {
+          priv->error = g_error_new_literal (G_IO_ERROR, G_IO_ERROR_CLOSED, "Client disappeared");
+          context_set_state (context, PV_CONTEXT_STATE_ERROR);
+        }
+      }
       break;
 
     case PV_SUBSCRIPTION_FLAGS_SOURCE:

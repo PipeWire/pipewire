@@ -34,6 +34,8 @@ struct _PvStreamPrivate
   gchar *name;
   GVariant *properties;
 
+  guint id;
+
   PvStreamState state;
   GError *error;
 
@@ -153,6 +155,54 @@ pv_stream_set_property (GObject      *_object,
 }
 
 static void
+stream_set_state (PvStream *stream, PvStreamState state)
+{
+  if (stream->priv->state != state) {
+    stream->priv->state = state;
+    g_object_notify (G_OBJECT (stream), "state");
+  }
+}
+
+static void
+subscription_cb (PvSubscribe         *subscribe,
+                 PvSubscriptionEvent  event,
+                 PvSubscriptionFlags  flags,
+                 GDBusProxy          *object,
+                 gpointer             user_data)
+{
+  PvStream *stream = PV_STREAM (user_data);
+  PvStreamPrivate *priv = stream->priv;
+
+  switch (flags) {
+    case PV_SUBSCRIPTION_FLAGS_SOURCE_OUTPUT:
+      if (event == PV_SUBSCRIPTION_EVENT_REMOVE) {
+        if (object == priv->source_output) {
+          priv->error = g_error_new_literal (G_IO_ERROR, G_IO_ERROR_CLOSED, "output disappeared");
+          stream_set_state (stream, PV_STREAM_STATE_ERROR);
+        }
+      }
+      break;
+
+    default:
+      break;
+  }
+}
+
+static void
+pv_stream_constructed (GObject * object)
+{
+  PvStream *stream = PV_STREAM (object);
+  PvStreamPrivate *priv = stream->priv;
+
+  priv->id = g_signal_connect (priv->context->priv->subscribe,
+                    "subscription-event",
+                    (GCallback) subscription_cb,
+                    stream);
+
+  G_OBJECT_CLASS (pv_stream_parent_class)->constructed (object);
+}
+
+static void
 pv_stream_finalize (GObject * object)
 {
   PvStream *stream = PV_STREAM (object);
@@ -173,6 +223,7 @@ pv_stream_finalize (GObject * object)
 
   if (priv->properties)
     g_variant_unref (priv->properties);
+  g_signal_handler_disconnect (priv->context->priv->subscribe, priv->id);
   g_clear_object (&priv->context);
   g_free (priv->name);
 
@@ -186,6 +237,7 @@ pv_stream_class_init (PvStreamClass * klass)
 
   g_type_class_add_private (klass, sizeof (PvStreamPrivate));
 
+  gobject_class->constructed = pv_stream_constructed;
   gobject_class->finalize = pv_stream_finalize;
   gobject_class->set_property = pv_stream_set_property;
   gobject_class->get_property = pv_stream_get_property;
@@ -338,15 +390,6 @@ pv_stream_new (PvContext * context, const gchar *name, GVariant *props)
   return g_object_new (PV_TYPE_STREAM, "context", context, "name", name, "properties", props, NULL);
 }
 
-static void
-stream_set_state (PvStream *stream, PvStreamState state)
-{
-  if (stream->priv->state != state) {
-    stream->priv->state = state;
-    g_object_notify (G_OBJECT (stream), "state");
-  }
-}
-
 /**
  * pv_stream_get_state:
  * @stream: a #PvStream
@@ -379,17 +422,6 @@ pv_stream_get_error (PvStream *stream)
   return stream->priv->error;
 }
 
-
-static void
-on_source_output_signal (GDBusProxy *proxy,
-                         gchar      *sender_name,
-                         gchar      *signal_name,
-                         GVariant   *parameters,
-                         gpointer    user_data)
-{
-  g_print ("on source output signal %s %s\n", sender_name, signal_name);
-}
-
 static void
 on_source_output_proxy (GObject *source_object,
                         GAsyncResult *res,
@@ -419,11 +451,6 @@ on_source_output_proxy (GObject *source_object,
 
     g_object_notify (G_OBJECT (stream), "possible-formats");
   }
-
-  g_signal_connect (priv->source_output,
-                    "g-signal",
-                    (GCallback) on_source_output_signal,
-                    stream);
 
   stream_set_state (stream, PV_STREAM_STATE_READY);
   g_object_unref (stream);

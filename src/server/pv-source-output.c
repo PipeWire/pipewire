@@ -437,6 +437,14 @@ pv_source_output_init (PvSourceOutput * output)
   g_signal_connect (priv->iface, "handle-remove", (GCallback) handle_remove, output);
 }
 
+void
+pv_source_output_remove (PvSourceOutput *output)
+{
+  stop_transfer (output);
+
+  g_signal_emit (output, signals[SIGNAL_REMOVE], 0, NULL);
+}
+
 const gchar *
 pv_source_output_get_object_path (PvSourceOutput *output)
 {

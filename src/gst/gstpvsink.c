@@ -448,9 +448,6 @@ gst_pulsevideo_sink_close (GstPulsevideoSink * pvsink)
     g_mutex_unlock (&pvsink->lock);
   }
 
-  g_clear_object (&pvsink->stream);
-  g_clear_object (&pvsink->ctx);
-
   return TRUE;
 }
 
@@ -466,12 +463,12 @@ gst_pulsevideo_sink_change_state (GstElement * element, GstStateChange transitio
       g_print ("context %p\n", this->context);
       this->loop = g_main_loop_new (this->context, FALSE);
       this->thread = g_thread_new ("pulsevideo", (GThreadFunc) handle_mainloop, this);
-      break;
-    case GST_STATE_CHANGE_READY_TO_PAUSED:
       if (!gst_pulsevideo_sink_open (this)) {
         ret = GST_STATE_CHANGE_FAILURE;
         goto exit;
       }
+      break;
+    case GST_STATE_CHANGE_READY_TO_PAUSED:
       break;
     case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
       /* uncork and start recording */
@@ -489,12 +486,14 @@ gst_pulsevideo_sink_change_state (GstElement * element, GstStateChange transitio
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
       break;
     case GST_STATE_CHANGE_PAUSED_TO_READY:
-      gst_pulsevideo_sink_close (this);
       break;
     case GST_STATE_CHANGE_READY_TO_NULL:
+      gst_pulsevideo_sink_close (this);
       g_main_loop_quit (this->loop);
       g_thread_join (this->thread);
       g_main_loop_unref (this->loop);
+      g_clear_object (&this->stream);
+      g_clear_object (&this->ctx);
       g_main_context_unref (this->context);
       break;
     default:

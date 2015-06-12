@@ -154,12 +154,22 @@ pv_stream_set_property (GObject      *_object,
     }
 }
 
+static gboolean
+do_notify_state (PvStream *stream)
+{
+  g_object_notify (G_OBJECT (stream), "state");
+  g_object_unref (stream);
+  return FALSE;
+}
+
 static void
 stream_set_state (PvStream *stream, PvStreamState state)
 {
   if (stream->priv->state != state) {
     stream->priv->state = state;
-    g_object_notify (G_OBJECT (stream), "state");
+    g_main_context_invoke (stream->priv->context->priv->context,
+                          (GSourceFunc) do_notify_state,
+                          g_object_ref (stream));
   }
 }
 
@@ -461,7 +471,7 @@ source_output_failed:
   {
     priv->error = error;
     stream_set_state (stream, PV_STREAM_STATE_ERROR);
-    g_error ("failed to get source output proxy: %s", error->message);
+    g_warning ("failed to get source output proxy: %s", error->message);
     g_object_unref (stream);
     return;
   }
@@ -687,7 +697,7 @@ pv_stream_disconnect (PvStream *stream)
   g_return_val_if_fail (priv->state >= PV_STREAM_STATE_READY, FALSE);
   g_return_val_if_fail (priv->source_output != NULL, FALSE);
   context = priv->context;
-  g_return_val_if_fail (pv_context_get_state (context) == PV_CONTEXT_STATE_READY, FALSE);
+  g_return_val_if_fail (pv_context_get_state (context) >= PV_CONTEXT_STATE_READY, FALSE);
 
   g_main_context_invoke (context->priv->context,
                          (GSourceFunc) do_disconnect,
@@ -795,7 +805,7 @@ socket_failed:
   {
     priv->error = error;
     stream_set_state (stream, PV_STREAM_STATE_ERROR);
-    g_error ("failed to create socket: %s", error->message);
+    g_warning ("failed to create socket: %s", error->message);
     return;
   }
 }
@@ -868,12 +878,12 @@ on_stream_started (GObject *source_object,
   /* ERRORS */
 start_failed:
   {
-    g_error ("failed to start: %s", error->message);
+    g_warning ("failed to start: %s", error->message);
     goto exit_error;
   }
 fd_failed:
   {
-    g_error ("failed to get FD: %s", error->message);
+    g_warning ("failed to get FD: %s", error->message);
     goto exit_error;
   }
 exit_error:
@@ -966,7 +976,7 @@ call_failed:
   {
     priv->error = error;
     stream_set_state (stream, PV_STREAM_STATE_ERROR);
-    g_error ("failed to release: %s", error->message);
+    g_warning ("failed to release: %s", error->message);
     return;
   }
 }
@@ -1082,11 +1092,24 @@ pv_stream_provide_buffer (PvStream *stream, PvBufferInfo *info)
                                flags,
                                NULL,
                                &error);
+  if (info->message) {
+    g_object_unref (info->message);
+    info->message = NULL;
+  }
+
+  if (len == -1)
+    goto send_error;
+
   g_assert (len == sizeof (msg));
 
-  if (info->message)
-    g_object_unref (info->message);
-
   return TRUE;
+
+send_error:
+  {
+    priv->error = error;
+    stream_set_state (stream, PV_STREAM_STATE_ERROR);
+    g_warning ("failed to send_message: %s", error->message);
+    return FALSE;
+  }
 }
 

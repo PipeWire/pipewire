@@ -65,6 +65,7 @@ struct _GstPulsevideoSink {
   PvStream *stream;
   GstAllocator *allocator;
 
+  GPollFunc poll_func;
   GMutex lock;
   GCond cond;
 };

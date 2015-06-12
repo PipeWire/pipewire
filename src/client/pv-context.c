@@ -302,12 +302,22 @@ pv_context_new (GMainContext *context, const gchar *name, GVariant *properties)
   return g_object_new (PV_TYPE_CONTEXT, "main-context", context, "name", name, "properties", properties, NULL);
 }
 
+static gboolean
+do_notify_state (PvContext *context)
+{
+  g_object_notify (G_OBJECT (context), "state");
+  g_object_unref (context);
+  return FALSE;
+}
+
 static void
 context_set_state (PvContext *context, PvContextState state)
 {
   if (context->priv->state != state) {
     context->priv->state = state;
-    g_object_notify (G_OBJECT (context), "state");
+    g_main_context_invoke (context->priv->context,
+                           (GSourceFunc) do_notify_state,
+                           g_object_ref (context));
   }
 }
 static void
@@ -333,7 +343,7 @@ client_failed:
   {
     priv->error = error;
     context_set_state (context, PV_STREAM_STATE_ERROR);
-    g_error ("failed to get client proxy: %s", error->message);
+    g_warning ("failed to get client proxy: %s", error->message);
     return;
   }
 }
@@ -351,7 +361,7 @@ on_client_connected (GObject *source_object,
 
   ret = g_dbus_proxy_call_finish (priv->daemon, res, &error);
   if (ret == NULL) {
-    g_error ("failed to connect client: %s", error->message);
+    g_warning ("failed to connect client: %s", error->message);
     priv->error = error;
     context_set_state (context, PV_CONTEXT_STATE_ERROR);
     return;
@@ -554,7 +564,7 @@ on_client_disconnected (GObject *source_object,
 
   ret = g_dbus_proxy_call_finish (priv->client, res, &error);
   if (ret == NULL) {
-    g_error ("failed to disconnect client: %s", error->message);
+    g_warning ("failed to disconnect client: %s", error->message);
     priv->error = error;
     context_set_state (context, PV_CONTEXT_STATE_ERROR);
     g_object_unref (context);

@@ -155,8 +155,7 @@ pulsevideoinclude_HEADERS = \
 		client/pv-enumtypes.h \
 		client/pv-introspect.h \
 		client/pv-stream.h \
-		client/pv-subscribe.h \
-		dbus/org-pulsevideo.h
+		client/pv-subscribe.h
 
 lib_LTLIBRARIES = \
 		libpulsevideo-@PV_MAJORMINOR@.la
@@ -169,7 +168,6 @@ libpulsevideo_@PV_MAJORMINOR@_la_SOURCES = \
 		client/pv-stream.h client/pv-stream.c \
 		client/pulsevideo.c client/pulsevideo.h \
 		client/pv-subscribe.c client/pv-subscribe.h \
-		dbus/org-pulsevideo.c \
 		$(pulsevideogstsource)
 
 
@@ -191,11 +189,13 @@ libpulsevideocore_@PV_MAJORMINOR@_la_SOURCES = \
 		server/pv-client-source.c server/pv-client-source.h \
 		server/pv-source-output.c server/pv-source-output.h \
 		modules/gst/pv-gst-manager.c \
-		modules/gst/pv-gst-source.c
+		modules/gst/pv-gst-source.c \
+		dbus/org-pulsevideo.c dbus/org-pulsevideo.h
 
 libpulsevideocore_@PV_MAJORMINOR@_la_CFLAGS = $(AM_CFLAGS) $(SERVER_CFLAGS)
 libpulsevideocore_@PV_MAJORMINOR@_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version
-libpulsevideocore_@PV_MAJORMINOR@_la_LIBADD = $(AM_LIBADD) $(LIBLTDL) $(LTLIBICONV)
+libpulsevideocore_@PV_MAJORMINOR@_la_LIBADD = $(AM_LIBADD) $(LIBLTDL) $(LTLIBICONV) \
+			 libpulsevideo-@PV_MAJORMINOR@.la
 
 ###################################
 #      GStreamer Plugin           #

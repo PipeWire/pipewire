@@ -183,6 +183,7 @@ gst_pulsevideo_src_init (GstPulsevideoSrc * src)
   /* we operate in time */
   gst_base_src_set_format (GST_BASE_SRC (src), GST_FORMAT_TIME);
   gst_base_src_set_live (GST_BASE_SRC (src), TRUE);
+  gst_base_src_set_do_timestamp (GST_BASE_SRC (src), TRUE);
 
   src->fd_allocator = gst_fd_allocator_new ();
   g_mutex_init (&src->lock);
@@ -232,9 +233,7 @@ on_new_buffer (GObject    *gobject,
 {
   GstPulsevideoSrc *pvsrc = user_data;
 
-  g_mutex_lock (&pvsrc->lock);
   g_cond_signal (&pvsrc->cond);
-  g_mutex_unlock (&pvsrc->lock);
 }
 
 static void
@@ -245,16 +244,15 @@ on_stream_notify (GObject    *gobject,
   PvStreamState state;
   GstPulsevideoSrc *pvsrc = user_data;
 
-  g_mutex_lock (&pvsrc->lock);
   state = pv_stream_get_state (pvsrc->stream);
   g_print ("got stream state %d\n", state);
+  g_cond_broadcast (&pvsrc->cond);
+
   if (state == PV_STREAM_STATE_ERROR) {
     GST_ELEMENT_ERROR (pvsrc, RESOURCE, FAILED,
         ("Failed to connect stream: %s",
           pv_stream_get_error (pvsrc->stream)->message), (NULL));
   }
-  g_cond_broadcast (&pvsrc->cond);
-  g_mutex_unlock (&pvsrc->lock);
 }
 
 static gboolean
@@ -295,9 +293,10 @@ gst_pulsevideo_src_negotiate (GstBaseSrc * basesrc)
     /* open a connection with these caps */
     str = gst_caps_to_string (caps);
     accepted = g_bytes_new_take (str, strlen (str) + 1);
-    pv_stream_connect_capture (pvsrc->stream, pvsrc->source, 0, accepted);
 
     g_mutex_lock (&pvsrc->lock);
+    pv_stream_connect_capture (pvsrc->stream, pvsrc->source, 0, accepted);
+
     while (TRUE) {
       PvStreamState state = pv_stream_get_state (pvsrc->stream);
 
@@ -379,13 +378,18 @@ gst_pulsevideo_src_setcaps (GstBaseSrc * bsrc, GstCaps * caps)
   GstPulsevideoSrc *pvsrc;
   gchar *str;
   GBytes *format;
+  gboolean res;
 
   pvsrc = GST_PULSEVIDEO_SRC (bsrc);
 
   str = gst_caps_to_string (caps);
   format = g_bytes_new_take (str, strlen (str) + 1);
 
-  return pv_stream_start (pvsrc->stream, format, PV_STREAM_MODE_BUFFER);
+  g_mutex_lock (&pvsrc->lock);
+  res = pv_stream_start (pvsrc->stream, format, PV_STREAM_MODE_BUFFER);
+  g_mutex_unlock (&pvsrc->lock);
+
+  return res;
 }
 
 static GstFlowReturn
@@ -393,17 +397,26 @@ gst_pulsevideo_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
 {
   GstPulsevideoSrc *pvsrc;
   PvBufferInfo info;
+  gint *fds, n_fds;
+  GstMemory *fdmem = NULL;
 
   pvsrc = GST_PULSEVIDEO_SRC (psrc);
 
   if (!pvsrc->negotiated)
     goto not_negotiated;
 
+again:
   g_mutex_lock (&pvsrc->lock);
   while (TRUE) {
+    PvStreamState state;
+
     g_cond_wait (&pvsrc->cond, &pvsrc->lock);
 
-    if (pv_stream_get_state (pvsrc->stream) != PV_STREAM_STATE_STREAMING)
+    state = pv_stream_get_state (pvsrc->stream);
+    if (state == PV_STREAM_STATE_ERROR)
+      goto streaming_error;
+
+    if (state != PV_STREAM_STATE_STREAMING)
       goto streaming_stopped;
 
     pv_stream_capture_buffer (pvsrc->stream, &info);
@@ -412,26 +425,30 @@ gst_pulsevideo_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
   }
   g_mutex_unlock (&pvsrc->lock);
 
+  if (g_socket_control_message_get_msg_type (info.message) != SCM_RIGHTS)
+    goto again;
+
+  fds = g_unix_fd_message_steal_fds (G_UNIX_FD_MESSAGE (info.message), &n_fds);
+  if (n_fds < 1 || fds[0] < 0)
+    goto again;
+
+  fdmem = gst_fd_allocator_alloc (pvsrc->fd_allocator, fds[0],
+            info.offset + info.size, GST_FD_MEMORY_FLAG_NONE);
+  gst_memory_resize (fdmem, info.offset, info.size);
+
   *buffer = gst_buffer_new ();
-
-  if (g_socket_control_message_get_msg_type (info.message) == SCM_RIGHTS) {
-    gint *fds, n_fds;
-    GstMemory *fdmem = NULL;
-
-    fds = g_unix_fd_message_steal_fds (G_UNIX_FD_MESSAGE (info.message), &n_fds);
-
-    fdmem = gst_fd_allocator_alloc (pvsrc->fd_allocator, fds[0],
-              info.offset + info.size, GST_FD_MEMORY_FLAG_NONE);
-    gst_memory_resize (fdmem, info.offset, info.size);
-
-    gst_buffer_append_memory (*buffer, fdmem);
-  }
+  gst_buffer_append_memory (*buffer, fdmem);
 
   return GST_FLOW_OK;
 
 not_negotiated:
   {
     return GST_FLOW_NOT_NEGOTIATED;
+  }
+streaming_error:
+  {
+    g_mutex_unlock (&pvsrc->lock);
+    return GST_FLOW_ERROR;
   }
 streaming_stopped:
   {
@@ -452,14 +469,34 @@ gst_pulsevideo_src_stop (GstBaseSrc * basesrc)
   return TRUE;
 }
 
+static GPrivate src_key;
+
+static gint
+do_poll (GPollFD *ufds, guint nfsd, gint timeout_)
+{
+  gint res;
+  GstPulsevideoSrc *this = g_private_get (&src_key);
+
+  g_mutex_unlock (&this->lock);
+  res = this->poll_func (ufds, nfsd, timeout_);
+  g_mutex_lock (&this->lock);
+
+  return res;
+}
+
 static gpointer
 handle_mainloop (GstPulsevideoSrc *this)
 {
+  g_mutex_lock (&this->lock);
+  g_private_set (&src_key, this);
+  this->poll_func = g_main_context_get_poll_func (this->context);
+  g_main_context_set_poll_func (this->context, do_poll);
   g_main_context_push_thread_default (this->context);
   g_print ("run mainloop\n");
   g_main_loop_run (this->loop);
   g_print ("quit mainloop\n");
   g_main_context_pop_thread_default (this->context);
+  g_mutex_unlock (&this->lock);
 
   return NULL;
 }
@@ -472,11 +509,9 @@ on_state_notify (GObject    *gobject,
   GstPulsevideoSrc *pvsrc = user_data;
   PvContextState state;
 
-  g_mutex_lock (&pvsrc->lock);
   state = pv_context_get_state (pvsrc->ctx);
   g_print ("got context state %d\n", state);
   g_cond_broadcast (&pvsrc->cond);
-  g_mutex_unlock (&pvsrc->lock);
 
   if (state == PV_CONTEXT_STATE_ERROR) {
     GST_ELEMENT_ERROR (pvsrc, RESOURCE, FAILED,
@@ -489,12 +524,12 @@ static gboolean
 gst_pulsevideo_src_open (GstPulsevideoSrc * pvsrc)
 {
 
+  g_mutex_lock (&pvsrc->lock);
   pvsrc->ctx = pv_context_new (pvsrc->context, "test-client", NULL);
   g_signal_connect (pvsrc->ctx, "notify::state", (GCallback) on_state_notify, pvsrc);
 
   pv_context_connect(pvsrc->ctx, PV_CONTEXT_FLAGS_NONE);
 
-  g_mutex_lock (&pvsrc->lock);
   while (TRUE) {
     PvContextState state = pv_context_get_state (pvsrc->ctx);
 
@@ -506,11 +541,11 @@ gst_pulsevideo_src_open (GstPulsevideoSrc * pvsrc)
 
     g_cond_wait (&pvsrc->cond, &pvsrc->lock);
   }
-  g_mutex_unlock (&pvsrc->lock);
 
   pvsrc->stream = pv_stream_new (pvsrc->ctx, "test", NULL);
   g_signal_connect (pvsrc->stream, "notify::state", (GCallback) on_stream_notify, pvsrc);
   g_signal_connect (pvsrc->stream, "new-buffer", (GCallback) on_new_buffer, pvsrc);
+  g_mutex_unlock (&pvsrc->lock);
 
   return TRUE;
 

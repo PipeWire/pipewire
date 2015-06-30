@@ -1,4 +1,4 @@
-/* Pulsevideo
+/* Pinos
  * Copyright (C) 2015 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -43,7 +43,7 @@ typedef struct _PvClientSourcePrivate PvClientSourcePrivate;
 /**
  * PvClientSource:
  *
- * Pulsevideo client source object class.
+ * Pinos client source object class.
  */
 struct _PvClientSource {
   PvSource object;
@@ -54,7 +54,7 @@ struct _PvClientSource {
 /**
  * PvClientSourceClass:
  *
- * Pulsevideo client source object class.
+ * Pinos client source object class.
  */
 struct _PvClientSourceClass {
   PvSourceClass parent_class;

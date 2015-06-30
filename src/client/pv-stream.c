@@ -1,4 +1,4 @@
-/* Pulsevideo
+/* Pinos
  * Copyright (C) 2015 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -21,7 +21,7 @@
 #include <gio/gunixfdlist.h>
 
 #include "server/pv-daemon.h"
-#include "client/pulsevideo.h"
+#include "client/pinos.h"
 #include "client/pv-context.h"
 #include "client/pv-stream.h"
 #include "client/pv-enumtypes.h"
@@ -498,7 +498,7 @@ on_source_output_created (GObject *source_object,
   pv_subscribe_get_proxy (context->priv->subscribe,
                           PV_DBUS_SERVICE,
                           source_output_path,
-                          "org.pulsevideo.SourceOutput1",
+                          "org.pinos.SourceOutput1",
                           NULL,
                           on_source_output_proxy,
                           stream);

@@ -1,4 +1,4 @@
-/* Pulsevideo
+/* Pinos
  * Copyright (C) 2015 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -62,7 +62,7 @@ typedef enum {
 /**
  * PvSubscribe:
  *
- * Pulsevideo subscribe object class.
+ * Pinos subscribe object class.
  */
 struct _PvSubscribe {
   GObject object;
@@ -73,7 +73,7 @@ struct _PvSubscribe {
 /**
  * PvSubscribeClass:
  *
- * Pulsevideo subscribe object class.
+ * Pinos subscribe object class.
  */
 struct _PvSubscribeClass {
   GObjectClass parent_class;

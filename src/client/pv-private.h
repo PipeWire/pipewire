@@ -1,4 +1,4 @@
-/* Pulsevideo
+/* Pinos
  * Copyright (C) 2015 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or

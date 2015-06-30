@@ -17,8 +17,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __GST_PULSEVIDEO_SRC_H__
-#define __GST_PULSEVIDEO_SRC_H__
+#ifndef __GST_PINOS_SRC_H__
+#define __GST_PINOS_SRC_H__
 
 #include <gst/gst.h>
 #include <gst/base/gstpushsrc.h>
@@ -29,28 +29,28 @@
 
 G_BEGIN_DECLS
 
-#define GST_TYPE_PULSEVIDEO_SRC \
-  (gst_pulsevideo_src_get_type())
-#define GST_PULSEVIDEO_SRC(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_PULSEVIDEO_SRC,GstPulsevideoSrc))
-#define GST_PULSEVIDEO_SRC_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_PULSEVIDEO_SRC,GstPulsevideoSrcClass))
-#define GST_IS_PULSEVIDEO_SRC(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_PULSEVIDEO_SRC))
-#define GST_IS_PULSEVIDEO_SRC_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_PULSEVIDEO_SRC))
-#define GST_PULSEVIDEO_SRC_CAST(obj) \
-  ((GstPulsevideoSrc *) (obj))
+#define GST_TYPE_PINOS_SRC \
+  (gst_pinos_src_get_type())
+#define GST_PINOS_SRC(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_PINOS_SRC,GstPinosSrc))
+#define GST_PINOS_SRC_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_PINOS_SRC,GstPinosSrcClass))
+#define GST_IS_PINOS_SRC(obj) \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_PINOS_SRC))
+#define GST_IS_PINOS_SRC_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_PINOS_SRC))
+#define GST_PINOS_SRC_CAST(obj) \
+  ((GstPinosSrc *) (obj))
 
-typedef struct _GstPulsevideoSrc GstPulsevideoSrc;
-typedef struct _GstPulsevideoSrcClass GstPulsevideoSrcClass;
+typedef struct _GstPinosSrc GstPinosSrc;
+typedef struct _GstPinosSrcClass GstPinosSrcClass;
 
 /**
- * GstPulsevideoSrc:
+ * GstPinosSrc:
  *
  * Opaque data structure.
  */
-struct _GstPulsevideoSrc {
+struct _GstPinosSrc {
   GstPushSrc element;
 
   /*< private >*/
@@ -70,12 +70,12 @@ struct _GstPulsevideoSrc {
   GCond cond;
 };
 
-struct _GstPulsevideoSrcClass {
+struct _GstPinosSrcClass {
   GstPushSrcClass parent_class;
 };
 
-GType gst_pulsevideo_src_get_type (void);
+GType gst_pinos_src_get_type (void);
 
 G_END_DECLS
 
-#endif /* __GST_PULSEVIDEO_SRC_H__ */
+#endif /* __GST_PINOS_SRC_H__ */

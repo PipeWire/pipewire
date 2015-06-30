@@ -1,4 +1,4 @@
-/* Pulsevideo
+/* Pinos
  * Copyright (C) 2015 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -77,7 +77,7 @@ typedef enum {
 /**
  * PvContext:
  *
- * Pulsevideo context object class.
+ * Pinos context object class.
  */
 struct _PvContext {
   GObject object;
@@ -88,7 +88,7 @@ struct _PvContext {
 /**
  * PvContextClass:
  *
- * Pulsevideo context object class.
+ * Pinos context object class.
  */
 struct _PvContextClass {
   GObjectClass parent_class;

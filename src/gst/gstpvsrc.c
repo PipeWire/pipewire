@@ -18,13 +18,13 @@
  */
 
 /**
- * SECTION:element-pulsevideosrc
+ * SECTION:element-pinossrc
  *
  * <refsect2>
  * <title>Example launch line</title>
  * |[
- * gst-launch -v pulsevideosrc ! videoconvert ! ximagesink
- * ]| Shows pulsevideo output in an X window.
+ * gst-launch -v pinossrc ! videoconvert ! ximagesink
+ * ]| Shows pinos output in an X window.
  * </refsect2>
  */
 
@@ -44,8 +44,8 @@
 
 
 
-GST_DEBUG_CATEGORY_STATIC (pulsevideo_src_debug);
-#define GST_CAT_DEFAULT pulsevideo_src_debug
+GST_DEBUG_CATEGORY_STATIC (pinos_src_debug);
+#define GST_CAT_DEFAULT pinos_src_debug
 
 enum
 {
@@ -56,35 +56,35 @@ enum
 
 #define PVS_VIDEO_CAPS GST_VIDEO_CAPS_MAKE (GST_VIDEO_FORMATS_ALL)
 
-static GstStaticPadTemplate gst_pulsevideo_src_template =
+static GstStaticPadTemplate gst_pinos_src_template =
 GST_STATIC_PAD_TEMPLATE ("src",
     GST_PAD_SRC,
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS_ANY
     );
 
-#define gst_pulsevideo_src_parent_class parent_class
-G_DEFINE_TYPE (GstPulsevideoSrc, gst_pulsevideo_src, GST_TYPE_PUSH_SRC);
+#define gst_pinos_src_parent_class parent_class
+G_DEFINE_TYPE (GstPinosSrc, gst_pinos_src, GST_TYPE_PUSH_SRC);
 
 static GstStateChangeReturn
-gst_pulsevideo_src_change_state (GstElement * element, GstStateChange transition);
+gst_pinos_src_change_state (GstElement * element, GstStateChange transition);
 
-static gboolean gst_pulsevideo_src_negotiate (GstBaseSrc * basesrc);
-static GstCaps *gst_pulsevideo_src_getcaps (GstBaseSrc * bsrc, GstCaps * filter);
-static gboolean gst_pulsevideo_src_setcaps (GstBaseSrc * bsrc, GstCaps * caps);
-static GstCaps *gst_pulsevideo_src_src_fixate (GstBaseSrc * bsrc,
+static gboolean gst_pinos_src_negotiate (GstBaseSrc * basesrc);
+static GstCaps *gst_pinos_src_getcaps (GstBaseSrc * bsrc, GstCaps * filter);
+static gboolean gst_pinos_src_setcaps (GstBaseSrc * bsrc, GstCaps * caps);
+static GstCaps *gst_pinos_src_src_fixate (GstBaseSrc * bsrc,
     GstCaps * caps);
 
-static GstFlowReturn gst_pulsevideo_src_create (GstPushSrc * psrc,
+static GstFlowReturn gst_pinos_src_create (GstPushSrc * psrc,
     GstBuffer ** buffer);
-static gboolean gst_pulsevideo_src_start (GstBaseSrc * basesrc);
-static gboolean gst_pulsevideo_src_stop (GstBaseSrc * basesrc);
+static gboolean gst_pinos_src_start (GstBaseSrc * basesrc);
+static gboolean gst_pinos_src_stop (GstBaseSrc * basesrc);
 
 static void
-gst_pulsevideo_src_set_property (GObject * object, guint prop_id,
+gst_pinos_src_set_property (GObject * object, guint prop_id,
     const GValue * value, GParamSpec * pspec)
 {
-  GstPulsevideoSrc *pvsrc = GST_PULSEVIDEO_SRC (object);
+  GstPinosSrc *pvsrc = GST_PINOS_SRC (object);
 
   switch (prop_id) {
     case PROP_SOURCE:
@@ -99,10 +99,10 @@ gst_pulsevideo_src_set_property (GObject * object, guint prop_id,
 }
 
 static void
-gst_pulsevideo_src_get_property (GObject * object, guint prop_id,
+gst_pinos_src_get_property (GObject * object, guint prop_id,
     GValue * value, GParamSpec * pspec)
 {
-  GstPulsevideoSrc *pvsrc = GST_PULSEVIDEO_SRC (object);
+  GstPinosSrc *pvsrc = GST_PINOS_SRC (object);
 
   switch (prop_id) {
     case PROP_SOURCE:
@@ -116,9 +116,9 @@ gst_pulsevideo_src_get_property (GObject * object, guint prop_id,
 }
 
 static void
-gst_pulsevideo_src_finalize (GObject * object)
+gst_pinos_src_finalize (GObject * object)
 {
-  GstPulsevideoSrc *pvsrc = GST_PULSEVIDEO_SRC (object);
+  GstPinosSrc *pvsrc = GST_PINOS_SRC (object);
 
   g_object_unref (pvsrc->fd_allocator);
   g_mutex_clear (&pvsrc->lock);
@@ -129,7 +129,7 @@ gst_pulsevideo_src_finalize (GObject * object)
 }
 
 static void
-gst_pulsevideo_src_class_init (GstPulsevideoSrcClass * klass)
+gst_pinos_src_class_init (GstPinosSrcClass * klass)
 {
   GObjectClass *gobject_class;
   GstElementClass *gstelement_class;
@@ -141,9 +141,9 @@ gst_pulsevideo_src_class_init (GstPulsevideoSrcClass * klass)
   gstbasesrc_class = (GstBaseSrcClass *) klass;
   gstpushsrc_class = (GstPushSrcClass *) klass;
 
-  gobject_class->finalize = gst_pulsevideo_src_finalize;
-  gobject_class->set_property = gst_pulsevideo_src_set_property;
-  gobject_class->get_property = gst_pulsevideo_src_get_property;
+  gobject_class->finalize = gst_pinos_src_finalize;
+  gobject_class->set_property = gst_pinos_src_set_property;
+  gobject_class->get_property = gst_pinos_src_get_property;
 
   g_object_class_install_property (gobject_class,
                                    PROP_SOURCE,
@@ -155,30 +155,30 @@ gst_pulsevideo_src_class_init (GstPulsevideoSrcClass * klass)
                                                         G_PARAM_STATIC_STRINGS));
 
 
-  gstelement_class->change_state = gst_pulsevideo_src_change_state;
+  gstelement_class->change_state = gst_pinos_src_change_state;
 
   gst_element_class_set_static_metadata (gstelement_class,
-      "Pulsevideo source", "Source/Video",
-      "Uses pulsevideo to create video", "Wim Taymans <wim.taymans@gmail.com>");
+      "Pinos source", "Source/Video",
+      "Uses pinos to create video", "Wim Taymans <wim.taymans@gmail.com>");
 
   gst_element_class_add_pad_template (gstelement_class,
-      gst_static_pad_template_get (&gst_pulsevideo_src_template));
+      gst_static_pad_template_get (&gst_pinos_src_template));
 
-  gstbasesrc_class->negotiate = gst_pulsevideo_src_negotiate;
-  gstbasesrc_class->get_caps = gst_pulsevideo_src_getcaps;
-  gstbasesrc_class->set_caps = gst_pulsevideo_src_setcaps;
-  gstbasesrc_class->fixate = gst_pulsevideo_src_src_fixate;
-  gstbasesrc_class->start = gst_pulsevideo_src_start;
-  gstbasesrc_class->stop = gst_pulsevideo_src_stop;
+  gstbasesrc_class->negotiate = gst_pinos_src_negotiate;
+  gstbasesrc_class->get_caps = gst_pinos_src_getcaps;
+  gstbasesrc_class->set_caps = gst_pinos_src_setcaps;
+  gstbasesrc_class->fixate = gst_pinos_src_src_fixate;
+  gstbasesrc_class->start = gst_pinos_src_start;
+  gstbasesrc_class->stop = gst_pinos_src_stop;
 
-  gstpushsrc_class->create = gst_pulsevideo_src_create;
+  gstpushsrc_class->create = gst_pinos_src_create;
 
-  GST_DEBUG_CATEGORY_INIT (pulsevideo_src_debug, "pulsevideosrc", 0,
-      "Pulsevideo Source");
+  GST_DEBUG_CATEGORY_INIT (pinos_src_debug, "pinossrc", 0,
+      "Pinos Source");
 }
 
 static void
-gst_pulsevideo_src_init (GstPulsevideoSrc * src)
+gst_pinos_src_init (GstPinosSrc * src)
 {
   /* we operate in time */
   gst_base_src_set_format (GST_BASE_SRC (src), GST_FORMAT_TIME);
@@ -191,7 +191,7 @@ gst_pulsevideo_src_init (GstPulsevideoSrc * src)
 }
 
 static GstCaps *
-gst_pulsevideo_src_src_fixate (GstBaseSrc * bsrc, GstCaps * caps)
+gst_pinos_src_src_fixate (GstBaseSrc * bsrc, GstCaps * caps)
 {
   GstStructure *structure;
 
@@ -231,7 +231,7 @@ static void
 on_new_buffer (GObject    *gobject,
                gpointer    user_data)
 {
-  GstPulsevideoSrc *pvsrc = user_data;
+  GstPinosSrc *pvsrc = user_data;
 
   g_cond_signal (&pvsrc->cond);
 }
@@ -242,7 +242,7 @@ on_stream_notify (GObject    *gobject,
                   gpointer    user_data)
 {
   PvStreamState state;
-  GstPulsevideoSrc *pvsrc = user_data;
+  GstPinosSrc *pvsrc = user_data;
 
   state = pv_stream_get_state (pvsrc->stream);
   g_print ("got stream state %d\n", state);
@@ -256,9 +256,9 @@ on_stream_notify (GObject    *gobject,
 }
 
 static gboolean
-gst_pulsevideo_src_negotiate (GstBaseSrc * basesrc)
+gst_pinos_src_negotiate (GstBaseSrc * basesrc)
 {
-  GstPulsevideoSrc *pvsrc = GST_PULSEVIDEO_SRC (basesrc);
+  GstPinosSrc *pvsrc = GST_PINOS_SRC (basesrc);
   GstCaps *thiscaps;
   GstCaps *caps = NULL;
   GstCaps *peercaps = NULL;
@@ -326,7 +326,7 @@ gst_pulsevideo_src_negotiate (GstBaseSrc * basesrc)
        * nego is not needed */
       result = TRUE;
     } else {
-      caps = gst_pulsevideo_src_src_fixate (basesrc, caps);
+      caps = gst_pinos_src_src_fixate (basesrc, caps);
       GST_DEBUG_OBJECT (basesrc, "fixated to: %" GST_PTR_FORMAT, caps);
       if (gst_caps_is_fixed (caps)) {
         /* yay, fixed caps, use those then, it's possible that the subclass does
@@ -367,20 +367,20 @@ connect_error:
 }
 
 static GstCaps *
-gst_pulsevideo_src_getcaps (GstBaseSrc * bsrc, GstCaps * filter)
+gst_pinos_src_getcaps (GstBaseSrc * bsrc, GstCaps * filter)
 {
   return GST_BASE_SRC_CLASS (parent_class)->get_caps (bsrc, filter);
 }
 
 static gboolean
-gst_pulsevideo_src_setcaps (GstBaseSrc * bsrc, GstCaps * caps)
+gst_pinos_src_setcaps (GstBaseSrc * bsrc, GstCaps * caps)
 {
-  GstPulsevideoSrc *pvsrc;
+  GstPinosSrc *pvsrc;
   gchar *str;
   GBytes *format;
   gboolean res;
 
-  pvsrc = GST_PULSEVIDEO_SRC (bsrc);
+  pvsrc = GST_PINOS_SRC (bsrc);
 
   str = gst_caps_to_string (caps);
   format = g_bytes_new_take (str, strlen (str) + 1);
@@ -393,14 +393,14 @@ gst_pulsevideo_src_setcaps (GstBaseSrc * bsrc, GstCaps * caps)
 }
 
 static GstFlowReturn
-gst_pulsevideo_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
+gst_pinos_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
 {
-  GstPulsevideoSrc *pvsrc;
+  GstPinosSrc *pvsrc;
   PvBufferInfo info;
   gint *fds, n_fds;
   GstMemory *fdmem = NULL;
 
-  pvsrc = GST_PULSEVIDEO_SRC (psrc);
+  pvsrc = GST_PINOS_SRC (psrc);
 
   if (!pvsrc->negotiated)
     goto not_negotiated;
@@ -458,13 +458,13 @@ streaming_stopped:
 }
 
 static gboolean
-gst_pulsevideo_src_start (GstBaseSrc * basesrc)
+gst_pinos_src_start (GstBaseSrc * basesrc)
 {
   return TRUE;
 }
 
 static gboolean
-gst_pulsevideo_src_stop (GstBaseSrc * basesrc)
+gst_pinos_src_stop (GstBaseSrc * basesrc)
 {
   return TRUE;
 }
@@ -475,7 +475,7 @@ static gint
 do_poll (GPollFD *ufds, guint nfsd, gint timeout_)
 {
   gint res;
-  GstPulsevideoSrc *this = g_private_get (&src_key);
+  GstPinosSrc *this = g_private_get (&src_key);
 
   g_mutex_unlock (&this->lock);
   res = this->poll_func (ufds, nfsd, timeout_);
@@ -485,7 +485,7 @@ do_poll (GPollFD *ufds, guint nfsd, gint timeout_)
 }
 
 static gpointer
-handle_mainloop (GstPulsevideoSrc *this)
+handle_mainloop (GstPinosSrc *this)
 {
   g_mutex_lock (&this->lock);
   g_private_set (&src_key, this);
@@ -506,7 +506,7 @@ on_state_notify (GObject    *gobject,
                  GParamSpec *pspec,
                  gpointer    user_data)
 {
-  GstPulsevideoSrc *pvsrc = user_data;
+  GstPinosSrc *pvsrc = user_data;
   PvContextState state;
 
   state = pv_context_get_state (pvsrc->ctx);
@@ -521,7 +521,7 @@ on_state_notify (GObject    *gobject,
 }
 
 static gboolean
-gst_pulsevideo_src_open (GstPulsevideoSrc * pvsrc)
+gst_pinos_src_open (GstPinosSrc * pvsrc)
 {
 
   g_mutex_lock (&pvsrc->lock);
@@ -558,18 +558,18 @@ connect_error:
 }
 
 static GstStateChangeReturn
-gst_pulsevideo_src_change_state (GstElement * element, GstStateChange transition)
+gst_pinos_src_change_state (GstElement * element, GstStateChange transition)
 {
   GstStateChangeReturn ret;
-  GstPulsevideoSrc *this = GST_PULSEVIDEO_SRC_CAST (element);
+  GstPinosSrc *this = GST_PINOS_SRC_CAST (element);
 
   switch (transition) {
     case GST_STATE_CHANGE_NULL_TO_READY:
       this->context = g_main_context_new ();
       g_print ("context %p\n", this->context);
       this->loop = g_main_loop_new (this->context, FALSE);
-      this->thread = g_thread_new ("pulsevideo", (GThreadFunc) handle_mainloop, this);
-      if (!gst_pulsevideo_src_open (this)) {
+      this->thread = g_thread_new ("pinos", (GThreadFunc) handle_mainloop, this);
+      if (!gst_pinos_src_open (this)) {
         ret = GST_STATE_CHANGE_FAILURE;
         goto exit;
       }

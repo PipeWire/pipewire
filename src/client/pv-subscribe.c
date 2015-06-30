@@ -1,4 +1,4 @@
-/* Pulsevideo
+/* Pinos
  * Copyright (C) 2015 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -19,7 +19,7 @@
 
 #include <gio/gio.h>
 
-#include "client/pulsevideo.h"
+#include "client/pinos.h"
 #include "client/pv-enumtypes.h"
 
 struct _PvSubscribePrivate
@@ -94,16 +94,16 @@ notify_event (PvSubscribe         *subscribe,
   PvSubscriptionFlags flags = 0;
 
   interface_name = g_dbus_proxy_get_interface_name (data->proxy);
-  if (g_strcmp0 (interface_name, "org.pulsevideo.Daemon1") == 0) {
+  if (g_strcmp0 (interface_name, "org.pinos.Daemon1") == 0) {
     flags = PV_SUBSCRIPTION_FLAGS_DAEMON;
   }
-  else if (g_strcmp0 (interface_name, "org.pulsevideo.Client1") == 0) {
+  else if (g_strcmp0 (interface_name, "org.pinos.Client1") == 0) {
     flags = PV_SUBSCRIPTION_FLAGS_CLIENT;
   }
-  else if (g_strcmp0 (interface_name, "org.pulsevideo.Source1") == 0) {
+  else if (g_strcmp0 (interface_name, "org.pinos.Source1") == 0) {
     flags = PV_SUBSCRIPTION_FLAGS_SOURCE;
   }
-  else if (g_strcmp0 (interface_name, "org.pulsevideo.SourceOutput1") == 0) {
+  else if (g_strcmp0 (interface_name, "org.pinos.SourceOutput1") == 0) {
     flags = PV_SUBSCRIPTION_FLAGS_SOURCE_OUTPUT;
   }
   g_signal_emit (subscribe, signals[SIGNAL_SUBSCRIPTION_EVENT], 0,

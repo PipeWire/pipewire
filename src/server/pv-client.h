@@ -1,4 +1,4 @@
-/* Pulsevideo
+/* Pinos
  * Copyright (C) 2015 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -42,7 +42,7 @@ typedef struct _PvClientPrivate PvClientPrivate;
 /**
  * PvClient:
  *
- * Pulsevideo client object class.
+ * Pinos client object class.
  */
 struct _PvClient {
   GObject object;
@@ -53,7 +53,7 @@ struct _PvClient {
 /**
  * PvClientClass:
  *
- * Pulsevideo client object class.
+ * Pinos client object class.
  */
 struct _PvClientClass {
   GObjectClass parent_class;

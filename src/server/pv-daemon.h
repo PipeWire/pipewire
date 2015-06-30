@@ -1,4 +1,4 @@
-/* Pulsevideo
+/* Pinos
  * Copyright (C) 2015 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -43,7 +43,7 @@ typedef struct _PvDaemonPrivate PvDaemonPrivate;
 /**
  * PvDaemon:
  *
- * Pulsevideo daemon object class.
+ * Pinos daemon object class.
  */
 struct _PvDaemon {
   GObject object;
@@ -54,7 +54,7 @@ struct _PvDaemon {
 /**
  * PvDaemonClass:
  *
- * Pulsevideo daemon object class.
+ * Pinos daemon object class.
  */
 struct _PvDaemonClass {
   GObjectClass parent_class;

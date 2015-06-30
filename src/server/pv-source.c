@@ -1,4 +1,4 @@
-/* Pulsevideo
+/* Pinos
  * Copyright (C) 2015 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -19,13 +19,13 @@
 
 #include <gio/gio.h>
 
-#include "client/pulsevideo.h"
+#include "client/pinos.h"
 #include "client/pv-enumtypes.h"
 
 #include "server/pv-source.h"
 #include "server/pv-daemon.h"
 
-#include "dbus/org-pulsevideo.h"
+#include "dbus/org-pinos.h"
 
 
 #define PV_SOURCE_GET_PRIVATE(obj)  \

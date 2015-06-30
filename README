@@ -1,7 +1,7 @@
-Pulsevideo
-----------
+Pinos
+-----
 
-Pulsevideo is a user space API to deal with video. This includes:
+Pinos is a user space API to deal with video. This includes:
 
   - Make availabe sources of video (such as from a capture devices or
        application provided streams)

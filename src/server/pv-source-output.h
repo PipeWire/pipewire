@@ -1,4 +1,4 @@
-/* Pulsevideo
+/* Pinos
  * Copyright (C) 2015 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -40,7 +40,7 @@ typedef struct _PvSourceOutputPrivate PvSourceOutputPrivate;
 /**
  * PvSourceOutput:
  *
- * Pulsevideo source output object class.
+ * Pinos source output object class.
  */
 struct _PvSourceOutput {
   GObject object;
@@ -51,7 +51,7 @@ struct _PvSourceOutput {
 /**
  * PvSourceOutputClass:
  *
- * Pulsevideo source output object class.
+ * Pinos source output object class.
  */
 struct _PvSourceOutputClass {
   GObjectClass parent_class;

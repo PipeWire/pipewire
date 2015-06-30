@@ -1,4 +1,4 @@
-/* Pulsevideo
+/* Pinos
  * Copyright (C) 2015 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -17,7 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include "client/pulsevideo.h"
+#include "client/pinos.h"
 
 #include "client/pv-context.h"
 #include "client/pv-enumtypes.h"

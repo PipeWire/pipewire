@@ -1,4 +1,4 @@
-/* Pulsevideo
+/* Pinos
  * Copyright (C) 2015 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -72,7 +72,7 @@ typedef enum {
 /**
  * PvStream:
  *
- * Pulsevideo stream object class.
+ * Pinos stream object class.
  */
 struct _PvStream {
   GObject object;
@@ -83,7 +83,7 @@ struct _PvStream {
 /**
  * PvStreamClass:
  *
- * Pulsevideo stream object class.
+ * Pinos stream object class.
  */
 struct _PvStreamClass {
   GObjectClass parent_class;

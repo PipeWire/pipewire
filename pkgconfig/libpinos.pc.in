@@ -4,8 +4,8 @@ libdir=@libdir@
 includedir=@includedir@
 modlibexecdir=@modlibexecdir@
 
-Name: libpulsevideo
-Description: PulseVideo Client Interface
+Name: libpinos
+Description: Pinos Client Interface
 Version: @PACKAGE_VERSION@
-Libs: -L${libdir} -lpulsevideo @PTHREAD_LIBS@
+Libs: -L${libdir} -lpinos @PTHREAD_LIBS@
 Cflags: -I${includedir} -D_REENTRANT

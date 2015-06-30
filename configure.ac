@@ -1,6 +1,6 @@
 AC_PREREQ(2.63)
 
-AC_INIT(pulsevideo, 0.1)
+AC_INIT(pinos, 0.1)
 AC_CONFIG_SRCDIR([src/daemon/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
@@ -23,7 +23,7 @@ AC_SUBST(PV_PROTOCOL_VERSION, 0)
 
 # The stable ABI for client applications, for the version info x:y:z
 # always will hold y=z
-AC_SUBST(LIBPULSE_VERSION_INFO, [0:0:0])
+AC_SUBST(LIBPINOS_VERSION_INFO, [0:0:0])
 
 dnl sets host_* variables
 AC_CANONICAL_HOST
@@ -217,7 +217,7 @@ dnl keep this alphabetic per directory, please
 AC_CONFIG_FILES([
 Makefile
 src/Makefile
-pkgconfig/libpulsevideo.pc
+pkgconfig/libpinos.pc
 ])
 AC_OUTPUT
 
@@ -229,5 +229,5 @@ Configuration
 	Prefix                     : ${prefix}
 	Compiler                   : ${CC}
 
-pulsevideo configured. Type 'make' to build.
+pinos configured. Type 'make' to build.
 "

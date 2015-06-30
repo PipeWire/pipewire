@@ -1,4 +1,4 @@
-/* Pulsevideo
+/* Pinos
  * Copyright (C) 2015 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -17,21 +17,20 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include "client/pulsevideo.h"
+#ifndef __PINOS_H__
+#define __PINOS_H__
 
-#include "gst/gstfdpay.h"
-#include "gst/gstfddepay.h"
+#include <client/pv-stream.h>
+#include <client/pv-context.h>
+#include <client/pv-subscribe.h>
+#include <client/pv-introspect.h>
 
-/**
- * pv_init:
- * @argc: pointer to argc
- * @argv: pointer to argv
- *
- * initialize the pulsevideo system, parse and modify any parameters given
- * by @argc and @argv.
- */
-void
-pv_init (int *argc, char **argv[])
-{
-  gst_init (argc, argv);
-}
+#define PV_DBUS_SERVICE "org.pinos"
+#define PV_DBUS_OBJECT_PREFIX "/org/pinos"
+#define PV_DBUS_OBJECT_SERVER PV_DBUS_OBJECT_PREFIX "/server"
+#define PV_DBUS_OBJECT_SOURCE PV_DBUS_OBJECT_PREFIX "/source"
+#define PV_DBUS_OBJECT_CLIENT PV_DBUS_OBJECT_PREFIX "/client"
+
+void pv_init (int *argc, char **argv[]);
+
+#endif /* __PINOS_H__ */

@@ -1,4 +1,4 @@
-/* Pulsevideo
+/* Pinos
  * Copyright (C) 2015 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -27,7 +27,7 @@
 #include "server/pv-daemon.h"
 #include "server/pv-source-output.h"
 
-#include "dbus/org-pulsevideo.h"
+#include "dbus/org-pinos.h"
 
 struct _PvSourceOutputPrivate
 {
@@ -202,7 +202,7 @@ handle_start (PvSourceOutput1        *interface,
 no_format:
   {
     g_dbus_method_invocation_return_dbus_error (invocation,
-        "org.pulsevideo.Error", "No format");
+        "org.pinos.Error", "No format");
     close (fd[0]);
     close (fd[1]);
     g_clear_pointer (&priv->requested_format, g_bytes_unref);

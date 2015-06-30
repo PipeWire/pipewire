@@ -1,4 +1,4 @@
-/* Pulsevideo
+/* Pinos
  * Copyright (C) 2015 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -18,14 +18,14 @@
  */
 
 #include <string.h>
-#include "client/pulsevideo.h"
+#include "client/pinos.h"
 
 #include "client/pv-enumtypes.h"
 
 #include "server/pv-client.h"
 #include "server/pv-client-source.h"
 
-#include "dbus/org-pulsevideo.h"
+#include "dbus/org-pinos.h"
 
 struct _PvClientPrivate
 {
@@ -193,7 +193,7 @@ handle_create_source_output (PvClient1              *interface,
 not_allowed:
   {
     g_dbus_method_invocation_return_dbus_error (invocation,
-                 "org.pulsevideo.Error", "not client owner");
+                 "org.pinos.Error", "not client owner");
     return TRUE;
   }
 no_source:
@@ -270,13 +270,13 @@ handle_create_source_input (PvClient1              *interface,
 not_allowed:
   {
     g_dbus_method_invocation_return_dbus_error (invocation,
-                 "org.pulsevideo.Error", "not client owner");
+                 "org.pinos.Error", "not client owner");
     return TRUE;
   }
 no_source:
   {
     g_dbus_method_invocation_return_dbus_error (invocation,
-        "org.pulsevideo.Error", "Can't create source");
+        "org.pinos.Error", "Can't create source");
     return TRUE;
   }
 no_input:

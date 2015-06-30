@@ -1,4 +1,4 @@
-/* Pulsevideo
+/* Pinos
  * Copyright (C) 2015 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -22,7 +22,7 @@
 
 #include <glib-object.h>
 
-#include <client/pulsevideo.h>
+#include <client/pinos.h>
 #include <server/pv-daemon.h>
 
 G_BEGIN_DECLS

@@ -17,8 +17,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __GST_PULSEVIDEO_SINK_H__
-#define __GST_PULSEVIDEO_SINK_H__
+#ifndef __GST_PINOS_SINK_H__
+#define __GST_PINOS_SINK_H__
 
 #include <gst/gst.h>
 #include <gst/base/gstbasesink.h>
@@ -29,28 +29,28 @@
 
 G_BEGIN_DECLS
 
-#define GST_TYPE_PULSEVIDEO_SINK \
-  (gst_pulsevideo_sink_get_type())
-#define GST_PULSEVIDEO_SINK(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_PULSEVIDEO_SINK,GstPulsevideoSink))
-#define GST_PULSEVIDEO_SINK_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_PULSEVIDEO_SINK,GstPulsevideoSinkClass))
-#define GST_IS_PULSEVIDEO_SINK(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_PULSEVIDEO_SINK))
-#define GST_IS_PULSEVIDEO_SINK_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_PULSEVIDEO_SINK))
-#define GST_PULSEVIDEO_SINK_CAST(obj) \
-  ((GstPulsevideoSink *) (obj))
+#define GST_TYPE_PINOS_SINK \
+  (gst_pinos_sink_get_type())
+#define GST_PINOS_SINK(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_PINOS_SINK,GstPinosSink))
+#define GST_PINOS_SINK_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_PINOS_SINK,GstPinosSinkClass))
+#define GST_IS_PINOS_SINK(obj) \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_PINOS_SINK))
+#define GST_IS_PINOS_SINK_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_PINOS_SINK))
+#define GST_PINOS_SINK_CAST(obj) \
+  ((GstPinosSink *) (obj))
 
-typedef struct _GstPulsevideoSink GstPulsevideoSink;
-typedef struct _GstPulsevideoSinkClass GstPulsevideoSinkClass;
+typedef struct _GstPinosSink GstPinosSink;
+typedef struct _GstPinosSinkClass GstPinosSinkClass;
 
 /**
- * GstPulsevideoSink:
+ * GstPinosSink:
  *
  * Opaque data structure.
  */
-struct _GstPulsevideoSink {
+struct _GstPinosSink {
   GstBaseSink element;
 
   /*< private >*/
@@ -70,12 +70,12 @@ struct _GstPulsevideoSink {
   GCond cond;
 };
 
-struct _GstPulsevideoSinkClass {
+struct _GstPinosSinkClass {
   GstBaseSinkClass parent_class;
 };
 
-GType gst_pulsevideo_sink_get_type (void);
+GType gst_pinos_sink_get_type (void);
 
 G_END_DECLS
 
-#endif /* __GST_PULSEVIDEO_SINK_H__ */
+#endif /* __GST_PINOS_SINK_H__ */

@@ -3,13 +3,13 @@
     "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd" >
 <node xmlns:doc="http://www.freedesktop.org/dbus/1.0/doc.dtd">
   <!--
-      org.pulsevideo.Daemon1:
-      @short_description: Main interface for the pulsevideo daemon
+      org.pinos.Daemon1:
+      @short_description: Main interface for the pinos daemon
 
-      Interface to get properties from the pulsevideo daemon and to 
+      Interface to get properties from the pinos daemon and to
       establish a client connection.
   -->
-  <interface name='org.pulsevideo.Daemon1'>
+  <interface name='org.pinos.Daemon1'>
     <!-- UserName: Name of the user that started the daemon -->
     <property name='UserName' type='s' access='read' />
     <!-- HostName: Name of the machine the daemon is running on -->
@@ -24,7 +24,7 @@
          @properties: properties of the client
          @client: a new client object
 
-         Register a client to the pulsevideo daemon. A new client object
+         Register a client to the pinos daemon. A new client object
          will be generated that should be used to perform any other
          action on the server.
     -->
@@ -35,13 +35,13 @@
   </interface>
 
   <!--
-      org.pulsevideo.Client1:
+      org.pinos.Client1:
       @short_description: Main client interface
 
       Interface obtained after connecting a client and allows for
       obtaining an output object from a source.
   -->
-  <interface name='org.pulsevideo.Client1'>
+  <interface name='org.pinos.Client1'>
     <!-- Name: Name of the client -->
     <property name='Name' type='s' access='read' />
     <!-- Name: Properties of the client -->
@@ -76,13 +76,13 @@
   </interface>
 
   <!--
-      org.pulsevideo.Introspect:
+      org.pinos.Introspect:
       @short_description: Main introspection interface
 
       This interface allows one to introspect the object on the
       server
   -->
-  <interface name='org.pulsevideo.Introspect1'>
+  <interface name='org.pinos.Introspect1'>
     <!-- GetClients:
          @clients: an array of client objects
 
@@ -102,12 +102,12 @@
   </interface>
 
   <!--
-      org.pulsevideo.Source1:
+      org.pinos.Source1:
       @short_description: Main source interface
 
       A source is an object that can provide media content.
   -->
-  <interface name='org.pulsevideo.Source1'>
+  <interface name='org.pinos.Source1'>
     <!-- Name: the name of the source -->
     <property name='Name' type='s' access='read' />
     <!-- Properties: extra source properties -->
@@ -129,19 +129,18 @@
   </interface>
 
   <!--
-      org.pulsevideo.SourceOutput1:
+      org.pinos.SourceOutput1:
       @short_description: Interface for source output
 
       This interface is used to control the output of a source and
       start/stop the media transport.
   -->
-  <interface name='org.pulsevideo.SourceOutput1'>
+  <interface name='org.pinos.SourceOutput1'>
     <!-- Client: the owner client of this source output -->
     <property name='Client' type='o' access='read' />
     <!-- Source: the source of this source output -->
     <property name='Source' type='o' access='read' />
     <!-- PossibleFormats:
-         
          all possible formats of the source output. This is filtered
          against the accepted_formats when creating the source output.
          -->
@@ -152,7 +151,7 @@
          @format: output format
 
          Start the datatransfer of the source with @requested_format.
-         
+
          The result is a file descriptor that can be used to get metadata
          and media. @format contains the final media format.
     -->

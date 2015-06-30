@@ -1,4 +1,4 @@
-/* Pulsevideo
+/* Pinos
  * Copyright (C) 2015 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -21,7 +21,7 @@
 #include <gst/gst.h>
 #include <gio/gio.h>
 
-#include <client/pulsevideo.h>
+#include <client/pinos.h>
 
 #define ANY_CAPS "ANY"
 

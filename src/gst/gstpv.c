@@ -18,13 +18,13 @@
  */
 
 /**
- * SECTION:element-pulsevideosrc
+ * SECTION:element-pinossrc
  *
  * <refsect2>
  * <title>Example launch line</title>
  * |[
- * gst-launch -v pulsevideosrc ! ximagesink
- * ]| Shows pulsevideo output in an X window.
+ * gst-launch -v pinossrc ! ximagesink
+ * ]| Shows pinos output in an X window.
  * </refsect2>
  */
 
@@ -44,15 +44,15 @@ plugin_init (GstPlugin * plugin)
       GST_TYPE_FDPAY);
   gst_element_register (plugin, "pvfddepay", GST_RANK_NONE,
       GST_TYPE_FDDEPAY);
-  gst_element_register (plugin, "pulsevideosrc", GST_RANK_PRIMARY + 1,
-      GST_TYPE_PULSEVIDEO_SRC);
-  gst_element_register (plugin, "pulsevideosink", GST_RANK_NONE,
-      GST_TYPE_PULSEVIDEO_SINK);
+  gst_element_register (plugin, "pinossrc", GST_RANK_PRIMARY + 1,
+      GST_TYPE_PINOS_SRC);
+  gst_element_register (plugin, "pinossink", GST_RANK_NONE,
+      GST_TYPE_PINOS_SINK);
   return TRUE;
 }
 
 GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
     GST_VERSION_MINOR,
-    pulsevideo,
-    "Uses pulsevideo to handle video streams",
-    plugin_init, VERSION, "LGPL", "pulsevideo", "pulsevideo.org")
+    pinos,
+    "Uses pinos to handle video streams",
+    plugin_init, VERSION, "LGPL", "pinos", "pinos.org")

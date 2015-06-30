@@ -1,27 +1,27 @@
-# This file is part of PulseVideo.
+# This file is part of Pinos.
 #
 # Copyright 2015 Wim Taymans <wim.taymans@gmail.com>
 #
-# PulseVideo is free software; you can redistribute it and/or modify
+# Pinos is free software; you can redistribute it and/or modify
 # it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation; either version 2 of the License, or
 # (at your option) any later version.
 #
-# PulseVideo is distributed in the hope that it will be useful, but
+# Pinos is distributed in the hope that it will be useful, but
 # WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 # General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public License
-# along with PulseVideo; if not, see <http://www.gnu.org/licenses/>.
+# along with Pinos; if not, see <http://www.gnu.org/licenses/>.
 
 ###################################
 #       Extra directories         #
 ###################################
 
-pulsevideoincludedir=$(includedir)/client
-pulsevideoserverincludedir=$(includedir)/server
-pulsevideolibexecdir=$(libexecdir)/client
+pinosincludedir=$(includedir)/client
+pinosserverincludedir=$(includedir)/server
+pinoslibexecdir=$(libexecdir)/client
 dbuspolicydir=$(sysconfdir)/dbus-1/system.d
 
 ###################################
@@ -36,7 +36,7 @@ AM_CPPFLAGS = \
 	-DPV_BUILDDIR=\"$(abs_builddir)\"
 AM_CFLAGS = $(GLIB_CFLAGS) $(GST_CFLAGS)
 AM_CXXFLAGS = $(AM_CFLAGS)
-SERVER_CFLAGS = -D__INCLUDED_FROM_PULSE_VIDEO
+SERVER_CFLAGS = -D__INCLUDED_FROM_PINOS
 
 AM_LIBADD = $(GLIB_LIBS) $(INTLLIBS) $(GST_LIBS)
 AM_LDADD = $(GLIB_LIBS) $(GST_LIBS) $(INTLLIBS)
@@ -50,10 +50,10 @@ FOREIGN_CFLAGS = -w
 
 EXTRA_DIST = \
 		src/version.h.in \
-		daemon/pulsevideo-system.conf
+		daemon/pinos-system.conf
 
 dbuspolicy_DATA = \
-		daemon/pulsevideo-system.conf
+		daemon/pinos-system.conf
 
 ###################################
 #          Includes               #
@@ -74,7 +74,7 @@ client/pv-enumtypes.h: $(enumtypesincludes)
 
 client/pv-enumtypes.c: $(enumtypesincludes) client/pv-enumtypes.h
 	$(AM_V_GEN)$(GLIB_MKENUMS) \
-	--fhead "#include \"pv-enumtypes.h\"\n#include <client/pulsevideo.h>\n#define C_ENUM(v) ((gint) v)\n#define C_FLAGS(v) ((guint) v)\n " \
+	--fhead "#include \"pv-enumtypes.h\"\n#include <client/pinos.h>\n#define C_ENUM(v) ((gint) v)\n#define C_FLAGS(v) ((guint) v)\n " \
 	--fprod "\n/* enumerations from \"@filename@\" */" \
 	--vhead "GType\n@enum_name@_get_type (void)\n{\n  static gsize id = 0;\n  static const G@Type@Value values[] = {"     \
 	--vprod "    { C_@TYPE@(@VALUENAME@), \"@VALUENAME@\", \"@valuenick@\" }," \
@@ -82,18 +82,18 @@ client/pv-enumtypes.c: $(enumtypesincludes) client/pv-enumtypes.h
 	$^ > client/pv-enumtypes.c
 
 
-dbus/org-pulsevideo.c: dbus/org-pulsevideo.h
-dbus/org-pulsevideo.h: dbus/org.pulsevideo.xml
+dbus/org-pinos.c: dbus/org-pinos.h
+dbus/org-pinos.h: dbus/org.pinos.xml
 	$(AM_V_GEN) $(GDBUS_CODEGEN) \
-	--interface-prefix org.pulsevideo. \
-	--generate-c-code dbus/org-pulsevideo \
-	--generate-docbook ../doc/org-pulsevideo \
-	--c-namespace Pv dbus/org.pulsevideo.xml \
+	--interface-prefix org.pinos. \
+	--generate-c-code dbus/org-pinos \
+	--generate-docbook ../doc/org-pinos \
+	--c-namespace Pv dbus/org.pinos.xml \
         --c-generate-object-manager
 
 
-built_header_make = client/pv-enumtypes.h dbus/org-pulsevideo.h
-built_source_make = client/pv-enumtypes.c dbus/org-pulsevideo.c
+built_header_make = client/pv-enumtypes.h dbus/org-pinos.h
+built_source_make = client/pv-enumtypes.c dbus/org-pinos.c
 
 BUILT_SOURCES = $(built_header_make)            \
 		$(built_source_make)
@@ -104,16 +104,16 @@ CLEANFILES = $(built_header_make) $(built_source_make)
 #          Main daemon            #
 ###################################
 
-bin_PROGRAMS = pulsevideo
+bin_PROGRAMS = pinos
 
-pulsevideo_SOURCES = \
+pinos_SOURCES = \
 		daemon/main.c
 
-pulsevideo_CFLAGS = $(AM_CFLAGS)
-pulsevideo_LDADD = $(AM_LDADD) libpulsevideocore-@PV_MAJORMINOR@.la libpulsevideo-@PV_MAJORMINOR@.la $(LIBLTDL)
+pinos_CFLAGS = $(AM_CFLAGS)
+pinos_LDADD = $(AM_LDADD) libpinoscore-@PV_MAJORMINOR@.la libpinos-@PV_MAJORMINOR@.la $(LIBLTDL)
 # This is needed because automake doesn't properly expand the foreach below
-pulsevideo_DEPENDENCIES = libpulsevideocore-@PV_MAJORMINOR@.la libpulsevideo-@PV_MAJORMINOR@.la
-pulsevideo_LDFLAGS = $(AM_LDFLAGS) $(BINLDFLAGS) $(IMMEDIATE_LDFLAGS)
+pinos_DEPENDENCIES = libpinoscore-@PV_MAJORMINOR@.la libpinos-@PV_MAJORMINOR@.la
+pinos_LDFLAGS = $(AM_LDFLAGS) $(BINLDFLAGS) $(IMMEDIATE_LDFLAGS)
 
 ###################################
 #         Test programs           #
@@ -125,32 +125,32 @@ TESTS_default =
 TESTS_norun = test-client \
 	      test-subscribe
 
-# These tests need a running pulsevideo daemon
+# These tests need a running pinos daemon
 TESTS_daemon = 
 
 noinst_PROGRAMS = $(TESTS_default) $(TESTS_norun) $(TESTS_daemon)
 
 test_client_SOURCES = tests/test-client.c
 test_client_CFLAGS = $(AM_CFLAGS)
-test_client_LDADD = $(AM_LDADD) libpulsevideo-@PV_MAJORMINOR@.la
+test_client_LDADD = $(AM_LDADD) libpinos-@PV_MAJORMINOR@.la
 test_client_LDFLAGS = $(AM_LDFLAGS) $(BINLDFLAGS)
 
 test_subscribe_SOURCES = tests/test-subscribe.c
 test_subscribe_CFLAGS = $(AM_CFLAGS)
-test_subscribe_LDADD = $(AM_LDADD) libpulsevideo-@PV_MAJORMINOR@.la
+test_subscribe_LDADD = $(AM_LDADD) libpinos-@PV_MAJORMINOR@.la
 test_subscribe_LDFLAGS = $(AM_LDFLAGS) $(BINLDFLAGS)
 
 ###################################
 #         Client library          #
 ###################################
 
-pulsevideogstsource = gst/gstfdpay.h gst/gstfdpay.c \
+pinosgstsource = gst/gstfdpay.h gst/gstfdpay.c \
 		      gst/gstfddepay.h gst/gstfddepay.c \
 		      gst/gsttmpfileallocator.h gst/gsttmpfileallocator.c \
 		      wire-protocol.h
 
-pulsevideoinclude_HEADERS = \
-		client/pulsevideo.h \
+pinosinclude_HEADERS = \
+		client/pinos.h \
 		client/pv-context.h \
 		client/pv-enumtypes.h \
 		client/pv-introspect.h \
@@ -158,31 +158,31 @@ pulsevideoinclude_HEADERS = \
 		client/pv-subscribe.h
 
 lib_LTLIBRARIES = \
-		libpulsevideo-@PV_MAJORMINOR@.la
+		libpinos-@PV_MAJORMINOR@.la
 
 # Public interface
-libpulsevideo_@PV_MAJORMINOR@_la_SOURCES = \
+libpinos_@PV_MAJORMINOR@_la_SOURCES = \
 		client/pv-context.h client/pv-context.c \
 		client/pv-enumtypes.h client/pv-enumtypes.c \
 		client/pv-introspect.h client/pv-introspect.c \
 		client/pv-stream.h client/pv-stream.c \
-		client/pulsevideo.c client/pulsevideo.h \
+		client/pinos.c client/pinos.h \
 		client/pv-subscribe.c client/pv-subscribe.h \
-		$(pulsevideogstsource)
+		$(pinosgstsource)
 
 
-libpulsevideo_@PV_MAJORMINOR@_la_CFLAGS = $(AM_CFLAGS) $(GST_CFLAGS)
-libpulsevideo_@PV_MAJORMINOR@_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version
-libpulsevideo_@PV_MAJORMINOR@_la_LIBADD = $(AM_LIBADD) $(LTLIBICONV) $(GST_LIBS)
+libpinos_@PV_MAJORMINOR@_la_CFLAGS = $(AM_CFLAGS) $(GST_CFLAGS)
+libpinos_@PV_MAJORMINOR@_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version
+libpinos_@PV_MAJORMINOR@_la_LIBADD = $(AM_LIBADD) $(LTLIBICONV) $(GST_LIBS)
 
 ###################################
 #      Daemon core library        #
 ###################################
 
-lib_LTLIBRARIES += libpulsevideocore-@PV_MAJORMINOR@.la
+lib_LTLIBRARIES += libpinoscore-@PV_MAJORMINOR@.la
 
 # Pure core stuff
-libpulsevideocore_@PV_MAJORMINOR@_la_SOURCES = \
+libpinoscore_@PV_MAJORMINOR@_la_SOURCES = \
 		server/pv-client.c server/pv-client.h \
 		server/pv-daemon.c server/pv-daemon.h \
 		server/pv-source.c server/pv-source.h \
@@ -190,12 +190,12 @@ libpulsevideocore_@PV_MAJORMINOR@_la_SOURCES = \
 		server/pv-source-output.c server/pv-source-output.h \
 		modules/gst/pv-gst-manager.c \
 		modules/gst/pv-gst-source.c \
-		dbus/org-pulsevideo.c dbus/org-pulsevideo.h
+		dbus/org-pinos.c dbus/org-pinos.h
 
-libpulsevideocore_@PV_MAJORMINOR@_la_CFLAGS = $(AM_CFLAGS) $(SERVER_CFLAGS)
-libpulsevideocore_@PV_MAJORMINOR@_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version
-libpulsevideocore_@PV_MAJORMINOR@_la_LIBADD = $(AM_LIBADD) $(LIBLTDL) $(LTLIBICONV) \
-			 libpulsevideo-@PV_MAJORMINOR@.la
+libpinoscore_@PV_MAJORMINOR@_la_CFLAGS = $(AM_CFLAGS) $(SERVER_CFLAGS)
+libpinoscore_@PV_MAJORMINOR@_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version
+libpinoscore_@PV_MAJORMINOR@_la_LIBADD = $(AM_LIBADD) $(LIBLTDL) $(LTLIBICONV) \
+			 libpinos-@PV_MAJORMINOR@.la
 
 ###################################
 #      GStreamer Plugin           #
@@ -203,20 +203,20 @@ libpulsevideocore_@PV_MAJORMINOR@_la_LIBADD = $(AM_LIBADD) $(LIBLTDL) $(LTLIBICO
 
 plugindir = $(libdir)/gstreamer-1.0
 
-plugin_LTLIBRARIES = libgstpulsevideo.la
+plugin_LTLIBRARIES = libgstpinos.la
 
-libgstpulsevideo_la_SOURCES = \
+libgstpinos_la_SOURCES = \
                         gst/gstpv.c \
                         gst/gstfdpay.c \
                         gst/gstfddepay.c \
                         gst/gstpvsrc.c \
                         gst/gstpvsink.c 
 
-libgstpulsevideo_la_CFLAGS = $(GST_PLUGINS_BASE_CFLAGS) $(GST_BASE_CFLAGS) $(GST_CFLAGS) $(GLIB_CFLAGS)
-libgstpulsevideo_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS)
-libgstpulsevideo_la_LIBADD =  $(GST_BASE_LIBS) $(GST_LIBS) $(GLIB_LIBS) $(LIBM) -lgstvideo-1.0 \
-			 libpulsevideo-@PV_MAJORMINOR@.la libpulsevideocore-@PV_MAJORMINOR@.la
-libgstpulsevideo_la_LIBTOOLFLAGS = $(GST_PLUGIN_LIBTOOLFLAGS)
+libgstpinos_la_CFLAGS = $(GST_PLUGINS_BASE_CFLAGS) $(GST_BASE_CFLAGS) $(GST_CFLAGS) $(GLIB_CFLAGS)
+libgstpinos_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS)
+libgstpinos_la_LIBADD =  $(GST_BASE_LIBS) $(GST_LIBS) $(GLIB_LIBS) $(LIBM) -lgstvideo-1.0 \
+			 libpinos-@PV_MAJORMINOR@.la libpinoscore-@PV_MAJORMINOR@.la
+libgstpinos_la_LIBTOOLFLAGS = $(GST_PLUGIN_LIBTOOLFLAGS)
 
 noinst_HEADERS = gst/gstpvsrc.h gst/gstpvsink.h gst/gstfdpay.h gst/gstfddepay.h
 
@@ -234,9 +234,9 @@ uninstall-hook:
 
 # Automatically generate linker version script. We use the same one for all public .sos
 update-map-file:
-	( echo "PULSE_0 {" ; \
+	( echo "PINOS_0 {" ; \
 	  echo "global:" ; \
-	  ctags -I PV_GCC_MALLOC,PV_GCC_ALLOC_SIZE2,PV_GCC_ALLOC_SIZE,PV_GCC_PURE,PV_GCC_CONST,PV_GCC_DEPRECATED,PV_GCC_PRINTF_ATTR -f - --c-kinds=p $(pulsevideoinclude_HEADERS) | awk '/^pa_/ { print $$1 ";" }' | sort ; \
+	  ctags -I PV_GCC_MALLOC,PV_GCC_ALLOC_SIZE2,PV_GCC_ALLOC_SIZE,PV_GCC_PURE,PV_GCC_CONST,PV_GCC_DEPRECATED,PV_GCC_PRINTF_ATTR -f - --c-kinds=p $(pinosinclude_HEADERS) | awk '/^pa_/ { print $$1 ";" }' | sort ; \
 	  echo "local:" ;  \
 	  echo "*;" ; \
 	  echo "};" ) > $(srcdir)/map-file

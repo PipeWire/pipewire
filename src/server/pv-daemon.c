@@ -1,4 +1,4 @@
-/* Pulsevideo
+/* Pinos
  * Copyright (C) 2015 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -21,12 +21,12 @@
 
 #include "config.h"
 
-#include "client/pulsevideo.h"
+#include "client/pinos.h"
 
 #include "server/pv-daemon.h"
 #include "server/pv-client.h"
 
-#include "dbus/org-pulsevideo.h"
+#include "dbus/org-pinos.h"
 
 #define PV_DAEMON_GET_PRIVATE(obj)  \
    (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PV_TYPE_DAEMON, PvDaemonPrivate))

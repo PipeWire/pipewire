@@ -199,28 +199,34 @@ gst_pinos_src_src_fixate (GstBaseSrc * bsrc, GstCaps * caps)
 
   structure = gst_caps_get_structure (caps, 0);
 
-  gst_structure_fixate_field_nearest_int (structure, "width", 320);
-  gst_structure_fixate_field_nearest_int (structure, "height", 240);
-  gst_structure_fixate_field_nearest_fraction (structure, "framerate", 30, 1);
+  if (gst_structure_has_name (structure, "video/x-raw")) {
+    gst_structure_fixate_field_nearest_int (structure, "width", 320);
+    gst_structure_fixate_field_nearest_int (structure, "height", 240);
+    gst_structure_fixate_field_nearest_fraction (structure, "framerate", 30, 1);
 
-  if (gst_structure_has_field (structure, "pixel-aspect-ratio"))
-    gst_structure_fixate_field_nearest_fraction (structure,
-        "pixel-aspect-ratio", 1, 1);
-  else
-    gst_structure_set (structure, "pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
-        NULL);
+    if (gst_structure_has_field (structure, "pixel-aspect-ratio"))
+      gst_structure_fixate_field_nearest_fraction (structure,
+          "pixel-aspect-ratio", 1, 1);
+    else
+      gst_structure_set (structure, "pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
+          NULL);
 
-  if (gst_structure_has_field (structure, "colorimetry"))
-    gst_structure_fixate_field_string (structure, "colorimetry", "bt601");
-  if (gst_structure_has_field (structure, "chroma-site"))
-    gst_structure_fixate_field_string (structure, "chroma-site", "mpeg2");
+    if (gst_structure_has_field (structure, "colorimetry"))
+      gst_structure_fixate_field_string (structure, "colorimetry", "bt601");
+    if (gst_structure_has_field (structure, "chroma-site"))
+      gst_structure_fixate_field_string (structure, "chroma-site", "mpeg2");
 
-  if (gst_structure_has_field (structure, "interlace-mode"))
-    gst_structure_fixate_field_string (structure, "interlace-mode",
-        "progressive");
-  else
-    gst_structure_set (structure, "interlace-mode", G_TYPE_STRING,
-        "progressive", NULL);
+    if (gst_structure_has_field (structure, "interlace-mode"))
+      gst_structure_fixate_field_string (structure, "interlace-mode",
+          "progressive");
+    else
+      gst_structure_set (structure, "interlace-mode", G_TYPE_STRING,
+          "progressive", NULL);
+  } else if (gst_structure_has_name (structure, "audio/x-raw")) {
+    gst_structure_fixate_field_string (structure, "format", "S16LE");
+    gst_structure_fixate_field_nearest_int (structure, "channels", 2);
+    gst_structure_fixate_field_nearest_int (structure, "rate", 44100);
+  }
 
   caps = GST_BASE_SRC_CLASS (parent_class)->fixate (bsrc, caps);
 

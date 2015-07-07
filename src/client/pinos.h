@@ -20,17 +20,17 @@
 #ifndef __PINOS_H__
 #define __PINOS_H__
 
-#include <client/pv-stream.h>
-#include <client/pv-context.h>
-#include <client/pv-subscribe.h>
-#include <client/pv-introspect.h>
+#include <client/stream.h>
+#include <client/context.h>
+#include <client/subscribe.h>
+#include <client/introspect.h>
 
-#define PV_DBUS_SERVICE "org.pinos"
-#define PV_DBUS_OBJECT_PREFIX "/org/pinos"
-#define PV_DBUS_OBJECT_SERVER PV_DBUS_OBJECT_PREFIX "/server"
-#define PV_DBUS_OBJECT_SOURCE PV_DBUS_OBJECT_PREFIX "/source"
-#define PV_DBUS_OBJECT_CLIENT PV_DBUS_OBJECT_PREFIX "/client"
+#define PINOS_DBUS_SERVICE "org.pinos"
+#define PINOS_DBUS_OBJECT_PREFIX "/org/pinos"
+#define PINOS_DBUS_OBJECT_SERVER PINOS_DBUS_OBJECT_PREFIX "/server"
+#define PINOS_DBUS_OBJECT_SOURCE PINOS_DBUS_OBJECT_PREFIX "/source"
+#define PINOS_DBUS_OBJECT_CLIENT PINOS_DBUS_OBJECT_PREFIX "/client"
 
-void pv_init (int *argc, char **argv[]);
+void pinos_init (int *argc, char **argv[]);
 
 #endif /* __PINOS_H__ */

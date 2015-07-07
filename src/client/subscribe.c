@@ -20,12 +20,12 @@
 #include <gio/gio.h>
 
 #include "client/pinos.h"
-#include "client/pv-enumtypes.h"
+#include "client/enumtypes.h"
 
-struct _PvSubscribePrivate
+struct _PinosSubscribePrivate
 {
   gchar *service;
-  PvSubscriptionFlags subscription_mask;
+  PinosSubscriptionFlags subscription_mask;
 
   GDBusConnection *connection;
   GCancellable *cancellable;
@@ -35,13 +35,13 @@ struct _PvSubscribePrivate
   guint pending_proxies;
   GList *objects;
 
-  PvSubscriptionState state;
+  PinosSubscriptionState state;
   GError *error;
 };
 
 typedef struct
 {
-  PvSubscribe *subscribe;
+  PinosSubscribe *subscribe;
   gchar *sender_name;
   gchar *object_path;
   gchar *interface_name;
@@ -49,13 +49,13 @@ typedef struct
   GDBusProxy *proxy;
   GList *tasks;
   gboolean removed;
-} PvObjectData;
+} PinosObjectData;
 
 
-#define PV_SUBSCRIBE_GET_PRIVATE(obj)  \
-   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PV_TYPE_SUBSCRIBE, PvSubscribePrivate))
+#define PINOS_SUBSCRIBE_GET_PRIVATE(obj)  \
+   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_SUBSCRIBE, PinosSubscribePrivate))
 
-G_DEFINE_TYPE (PvSubscribe, pv_subscribe, G_TYPE_OBJECT);
+G_DEFINE_TYPE (PinosSubscribe, pinos_subscribe, G_TYPE_OBJECT);
 
 enum
 {
@@ -75,9 +75,10 @@ enum
 static guint signals[LAST_SIGNAL] = { 0 };
 
 static void
-subscription_set_state (PvSubscribe *subscribe, PvSubscriptionState state)
+subscription_set_state (PinosSubscribe         *subscribe,
+                        PinosSubscriptionState  state)
 {
-  PvSubscribePrivate *priv = subscribe->priv;
+  PinosSubscribePrivate *priv = subscribe->priv;
 
   if (state != priv->state) {
     priv->state = state;
@@ -86,25 +87,25 @@ subscription_set_state (PvSubscribe *subscribe, PvSubscriptionState state)
 }
 
 static void
-notify_event (PvSubscribe         *subscribe,
-              PvObjectData        *data,
-              PvSubscriptionEvent  event)
+notify_event (PinosSubscribe         *subscribe,
+              PinosObjectData        *data,
+              PinosSubscriptionEvent  event)
 {
   const gchar *interface_name;
-  PvSubscriptionFlags flags = 0;
+  PinosSubscriptionFlags flags = 0;
 
   interface_name = g_dbus_proxy_get_interface_name (data->proxy);
   if (g_strcmp0 (interface_name, "org.pinos.Daemon1") == 0) {
-    flags = PV_SUBSCRIPTION_FLAGS_DAEMON;
+    flags = PINOS_SUBSCRIPTION_FLAGS_DAEMON;
   }
   else if (g_strcmp0 (interface_name, "org.pinos.Client1") == 0) {
-    flags = PV_SUBSCRIPTION_FLAGS_CLIENT;
+    flags = PINOS_SUBSCRIPTION_FLAGS_CLIENT;
   }
   else if (g_strcmp0 (interface_name, "org.pinos.Source1") == 0) {
-    flags = PV_SUBSCRIPTION_FLAGS_SOURCE;
+    flags = PINOS_SUBSCRIPTION_FLAGS_SOURCE;
   }
   else if (g_strcmp0 (interface_name, "org.pinos.SourceOutput1") == 0) {
-    flags = PV_SUBSCRIPTION_FLAGS_SOURCE_OUTPUT;
+    flags = PINOS_SUBSCRIPTION_FLAGS_SOURCE_OUTPUT;
   }
   g_signal_emit (subscribe, signals[SIGNAL_SUBSCRIPTION_EVENT], 0,
           event, flags, data->proxy);
@@ -116,13 +117,13 @@ on_proxy_properties_changed (GDBusProxy *proxy,
                              GStrv       invalidated_properties,
                              gpointer    user_data)
 {
-  PvObjectData *data = user_data;
+  PinosObjectData *data = user_data;
 
-  notify_event (data->subscribe, data, PV_SUBSCRIPTION_EVENT_CHANGE);
+  notify_event (data->subscribe, data, PINOS_SUBSCRIPTION_EVENT_CHANGE);
 }
 
 static void
-object_data_free (PvObjectData *data)
+object_data_free (PinosObjectData *data)
 {
   g_object_unref (data->proxy);
   g_free (data->sender_name);
@@ -132,24 +133,25 @@ object_data_free (PvObjectData *data)
 }
 
 static void
-remove_data (PvSubscribe *subscribe, PvObjectData *data)
+remove_data (PinosSubscribe  *subscribe,
+             PinosObjectData *data)
 {
   if (data->pending) {
     data->removed = TRUE;
   } else {
-    notify_event (subscribe, data, PV_SUBSCRIPTION_EVENT_REMOVE);
+    notify_event (subscribe, data, PINOS_SUBSCRIPTION_EVENT_REMOVE);
     object_data_free (data);
   }
 }
 
 static void
-remove_all_data (PvSubscribe *subscribe)
+remove_all_data (PinosSubscribe *subscribe)
 {
-  PvSubscribePrivate *priv = subscribe->priv;
+  PinosSubscribePrivate *priv = subscribe->priv;
   GList *walk;
 
   for (walk = priv->objects; walk; walk = g_list_next (walk)) {
-    PvObjectData *data = walk->data;
+    PinosObjectData *data = walk->data;
     remove_data (subscribe, data);
   }
   g_list_free (priv->objects);
@@ -157,13 +159,13 @@ remove_all_data (PvSubscribe *subscribe)
 }
 
 static void
-on_proxy_created (GObject *source_object,
+on_proxy_created (GObject      *source_object,
                   GAsyncResult *res,
-                  gpointer user_data)
+                  gpointer      user_data)
 {
-  PvObjectData *data = user_data;
-  PvSubscribe *subscribe = data->subscribe;
-  PvSubscribePrivate *priv = subscribe->priv;
+  PinosObjectData *data = user_data;
+  PinosSubscribe *subscribe = data->subscribe;
+  PinosSubscribePrivate *priv = subscribe->priv;
   GError *error = NULL;
   GList *walk;
 
@@ -173,7 +175,7 @@ on_proxy_created (GObject *source_object,
   if (data->proxy == NULL) {
     priv->objects = g_list_remove (priv->objects, data);
     g_warning ("could not create proxy: %s", error->message);
-    subscription_set_state (subscribe, PV_SUBSCRIPTION_STATE_ERROR);
+    subscription_set_state (subscribe, PINOS_SUBSCRIPTION_STATE_ERROR);
     priv->error = error;
     return;
   }
@@ -183,7 +185,7 @@ on_proxy_created (GObject *source_object,
                     (GCallback) on_proxy_properties_changed,
                     data);
 
-  notify_event (subscribe, data, PV_SUBSCRIPTION_EVENT_NEW);
+  notify_event (subscribe, data, PINOS_SUBSCRIPTION_EVENT_NEW);
 
   for (walk = data->tasks; walk; walk = g_list_next (walk)) {
     GTask *task = walk->data;
@@ -194,7 +196,7 @@ on_proxy_created (GObject *source_object,
   data->tasks = NULL;
 
   if (--priv->pending_proxies == 0)
-    subscription_set_state (subscribe, PV_SUBSCRIPTION_STATE_READY);
+    subscription_set_state (subscribe, PINOS_SUBSCRIPTION_STATE_READY);
 
   if (data->removed) {
     priv->objects = g_list_remove (priv->objects, data);
@@ -204,15 +206,15 @@ on_proxy_created (GObject *source_object,
 
 
 static void
-add_interface (PvSubscribe *subscribe,
-               const gchar *object_path,
-               const gchar *interface_name,
-               GVariant    *properties)
+add_interface (PinosSubscribe *subscribe,
+               const gchar    *object_path,
+               const gchar    *interface_name,
+               GVariant       *properties)
 {
-  PvSubscribePrivate *priv = subscribe->priv;
-  PvObjectData *data;
+  PinosSubscribePrivate *priv = subscribe->priv;
+  PinosObjectData *data;
 
-  data = g_new0 (PvObjectData, 1);
+  data = g_new0 (PinosObjectData, 1);
   data->subscribe = subscribe;
   data->sender_name = g_strdup (priv->service);
   data->object_path = g_strdup (object_path);
@@ -234,15 +236,15 @@ add_interface (PvSubscribe *subscribe,
 }
 
 static void
-remove_interface (PvSubscribe *subscribe,
-                  const gchar *object_path,
-                  const gchar *interface_name)
+remove_interface (PinosSubscribe *subscribe,
+                  const gchar    *object_path,
+                  const gchar    *interface_name)
 {
-  PvSubscribePrivate *priv = subscribe->priv;
+  PinosSubscribePrivate *priv = subscribe->priv;
   GList *walk;
 
   for (walk = priv->objects; walk; walk = g_list_next (walk)) {
-    PvObjectData *data = walk->data;
+    PinosObjectData *data = walk->data;
 
     if (g_strcmp0 (data->object_path, object_path) == 0 &&
         g_strcmp0 (data->interface_name, interface_name) == 0) {
@@ -254,9 +256,9 @@ remove_interface (PvSubscribe *subscribe,
 }
 
 static void
-add_ifaces_and_properties (PvSubscribe *subscribe,
-                           const gchar *object_path,
-                           GVariant    *ifaces_and_properties)
+add_ifaces_and_properties (PinosSubscribe *subscribe,
+                           const gchar    *object_path,
+                           GVariant       *ifaces_and_properties)
 {
   GVariantIter iter;
   const gchar *interface_name;
@@ -275,9 +277,9 @@ add_ifaces_and_properties (PvSubscribe *subscribe,
 }
 
 static void
-remove_ifaces (PvSubscribe *subscribe,
-               const gchar *object_path,
-               const gchar **ifaces)
+remove_ifaces (PinosSubscribe *subscribe,
+               const gchar    *object_path,
+               const gchar    **ifaces)
 {
   while (*ifaces) {
     remove_interface (subscribe, object_path, *ifaces);
@@ -293,7 +295,7 @@ on_manager_proxy_signal (GDBusProxy   *proxy,
                          GVariant     *parameters,
                          gpointer      user_data)
 {
-  PvSubscribe *subscribe = user_data;
+  PinosSubscribe *subscribe = user_data;
   const gchar *object_path;
 
   if (g_strcmp0 (signal_name, "InterfacesAdded") == 0) {
@@ -321,12 +323,12 @@ on_manager_proxy_signal (GDBusProxy   *proxy,
 }
 
 static void
-on_managed_objects_ready (GObject *source_object,
+on_managed_objects_ready (GObject      *source_object,
                           GAsyncResult *res,
-                          gpointer user_data)
+                          gpointer      user_data)
 {
-  PvSubscribe *subscribe = user_data;
-  PvSubscribePrivate *priv = subscribe->priv;
+  PinosSubscribe *subscribe = user_data;
+  PinosSubscribePrivate *priv = subscribe->priv;
   GError *error = NULL;
   GVariant *objects;
   GVariant *arg0;
@@ -337,7 +339,7 @@ on_managed_objects_ready (GObject *source_object,
   objects = g_dbus_proxy_call_finish (priv->manager_proxy, res, &error);
   if (objects == NULL) {
     g_warning ("could not get objects: %s", error->message);
-    subscription_set_state (subscribe, PV_SUBSCRIPTION_STATE_ERROR);
+    subscription_set_state (subscribe, PINOS_SUBSCRIPTION_STATE_ERROR);
     priv->error = error;
     return;
   }
@@ -357,13 +359,13 @@ on_managed_objects_ready (GObject *source_object,
   g_variant_unref (objects);
 
   if (priv->pending_proxies == 0)
-    subscription_set_state (subscribe, PV_SUBSCRIPTION_STATE_READY);
+    subscription_set_state (subscribe, PINOS_SUBSCRIPTION_STATE_READY);
 }
 
 static void
-manager_proxy_appeared (PvSubscribe *subscribe)
+manager_proxy_appeared (PinosSubscribe *subscribe)
 {
-  PvSubscribePrivate *priv = subscribe->priv;
+  PinosSubscribePrivate *priv = subscribe->priv;
 
   g_dbus_proxy_call (priv->manager_proxy,
                     "GetManagedObjects",
@@ -376,7 +378,7 @@ manager_proxy_appeared (PvSubscribe *subscribe)
 }
 
 static void
-manager_proxy_disappeared (PvSubscribe *subscribe)
+manager_proxy_disappeared (PinosSubscribe *subscribe)
 {
   remove_all_data (subscribe);
 }
@@ -386,8 +388,8 @@ on_manager_proxy_name_owner (GObject    *object,
                              GParamSpec *pspec,
                              gpointer    user_data)
 {
-  PvSubscribe *subscribe = user_data;
-  PvSubscribePrivate *priv = subscribe->priv;
+  PinosSubscribe *subscribe = user_data;
+  PinosSubscribePrivate *priv = subscribe->priv;
   gchar *name_owner;
 
   g_object_get (priv->manager_proxy, "g-name-owner", &name_owner, NULL);
@@ -402,9 +404,9 @@ on_manager_proxy_name_owner (GObject    *object,
 
 
 static void
-connect_client_signals (PvSubscribe *subscribe)
+connect_client_signals (PinosSubscribe *subscribe)
 {
-  PvSubscribePrivate *priv = subscribe->priv;
+  PinosSubscribePrivate *priv = subscribe->priv;
 
   g_signal_connect (priv->manager_proxy, "notify::g-name-owner",
       (GCallback) on_manager_proxy_name_owner, subscribe);
@@ -414,12 +416,12 @@ connect_client_signals (PvSubscribe *subscribe)
 }
 
 static void
-on_manager_proxy_ready (GObject *source_object,
+on_manager_proxy_ready (GObject      *source_object,
                         GAsyncResult *res,
-                        gpointer user_data)
+                        gpointer      user_data)
 {
-  PvSubscribe *subscribe = user_data;
-  PvSubscribePrivate *priv = subscribe->priv;
+  PinosSubscribe *subscribe = user_data;
+  PinosSubscribePrivate *priv = subscribe->priv;
   GError *error = NULL;
 
   priv->manager_proxy = g_dbus_proxy_new_finish (res, &error);
@@ -437,7 +439,7 @@ on_manager_proxy_ready (GObject *source_object,
 manager_error:
   {
     g_warning ("could not create client manager: %s", error->message);
-    subscription_set_state (subscribe, PV_SUBSCRIPTION_STATE_ERROR);
+    subscription_set_state (subscribe, PINOS_SUBSCRIPTION_STATE_ERROR);
     priv->error = error;
     g_object_unref (subscribe);
     return;
@@ -445,17 +447,17 @@ manager_error:
 }
 
 static void
-install_subscription (PvSubscribe *subscribe)
+install_subscription (PinosSubscribe *subscribe)
 {
-  PvSubscribePrivate *priv = subscribe->priv;
+  PinosSubscribePrivate *priv = subscribe->priv;
 
-  subscription_set_state (subscribe, PV_SUBSCRIPTION_STATE_CONNECTING);
+  subscription_set_state (subscribe, PINOS_SUBSCRIPTION_STATE_CONNECTING);
 
   g_dbus_proxy_new (priv->connection,
                     G_DBUS_PROXY_FLAGS_NONE,
                     NULL, /* GDBusInterfaceInfo* */
                     priv->service,
-                    PV_DBUS_OBJECT_PREFIX,
+                    PINOS_DBUS_OBJECT_PREFIX,
                     "org.freedesktop.DBus.ObjectManager",
                     priv->cancellable,
                     on_manager_proxy_ready,
@@ -463,23 +465,23 @@ install_subscription (PvSubscribe *subscribe)
 }
 
 static void
-uninstall_subscription (PvSubscribe *subscribe)
+uninstall_subscription (PinosSubscribe *subscribe)
 {
-  PvSubscribePrivate *priv = subscribe->priv;
+  PinosSubscribePrivate *priv = subscribe->priv;
 
   g_clear_object (&priv->manager_proxy);
   g_clear_error (&priv->error);
-  subscription_set_state (subscribe, PV_SUBSCRIPTION_STATE_UNCONNECTED);
+  subscription_set_state (subscribe, PINOS_SUBSCRIPTION_STATE_UNCONNECTED);
 }
 
 static void
-pv_subscribe_get_property (GObject    *_object,
-                           guint       prop_id,
-                           GValue     *value,
-                           GParamSpec *pspec)
+pinos_subscribe_get_property (GObject    *_object,
+                              guint       prop_id,
+                              GValue     *value,
+                              GParamSpec *pspec)
 {
-  PvSubscribe *subscribe = PV_SUBSCRIBE (_object);
-  PvSubscribePrivate *priv = subscribe->priv;
+  PinosSubscribe *subscribe = PINOS_SUBSCRIBE (_object);
+  PinosSubscribePrivate *priv = subscribe->priv;
 
   switch (prop_id) {
     case PROP_CONNECTION:
@@ -505,13 +507,13 @@ pv_subscribe_get_property (GObject    *_object,
 }
 
 static void
-pv_subscribe_set_property (GObject      *_object,
-                         guint         prop_id,
-                         const GValue *value,
-                         GParamSpec   *pspec)
+pinos_subscribe_set_property (GObject      *_object,
+                              guint         prop_id,
+                              const GValue *value,
+                              GParamSpec   *pspec)
 {
-  PvSubscribe *subscribe = PV_SUBSCRIBE (_object);
-  PvSubscribePrivate *priv = subscribe->priv;
+  PinosSubscribe *subscribe = PINOS_SUBSCRIBE (_object);
+  PinosSubscribePrivate *priv = subscribe->priv;
 
   switch (prop_id) {
     case PROP_CONNECTION:
@@ -541,10 +543,10 @@ pv_subscribe_set_property (GObject      *_object,
 }
 
 static void
-pv_subscribe_finalize (GObject * object)
+pinos_subscribe_finalize (GObject * object)
 {
-  PvSubscribe *subscribe = PV_SUBSCRIBE (object);
-  PvSubscribePrivate *priv = subscribe->priv;
+  PinosSubscribe *subscribe = PINOS_SUBSCRIBE (object);
+  PinosSubscribePrivate *priv = subscribe->priv;
 
   g_cancellable_cancel (priv->cancellable);
   if (priv->manager_proxy)
@@ -552,22 +554,22 @@ pv_subscribe_finalize (GObject * object)
   g_object_unref (priv->cancellable);
   g_free (priv->service);
 
-  G_OBJECT_CLASS (pv_subscribe_parent_class)->finalize (object);
+  G_OBJECT_CLASS (pinos_subscribe_parent_class)->finalize (object);
 }
 
 static void
-pv_subscribe_class_init (PvSubscribeClass * klass)
+pinos_subscribe_class_init (PinosSubscribeClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
 
-  g_type_class_add_private (klass, sizeof (PvSubscribePrivate));
+  g_type_class_add_private (klass, sizeof (PinosSubscribePrivate));
 
-  gobject_class->finalize = pv_subscribe_finalize;
-  gobject_class->set_property = pv_subscribe_set_property;
-  gobject_class->get_property = pv_subscribe_get_property;
+  gobject_class->finalize = pinos_subscribe_finalize;
+  gobject_class->set_property = pinos_subscribe_set_property;
+  gobject_class->get_property = pinos_subscribe_get_property;
 
   /**
-   * PvSubscribe:connection
+   * PinosSubscribe:connection
    *
    * The connection of the subscribe.
    */
@@ -580,7 +582,7 @@ pv_subscribe_class_init (PvSubscribeClass * klass)
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_STATIC_STRINGS));
   /**
-   * PvSubscribe:service
+   * PinosSubscribe:service
    *
    * The service of the subscribe.
    */
@@ -589,26 +591,26 @@ pv_subscribe_class_init (PvSubscribeClass * klass)
                                    g_param_spec_string ("service",
                                                         "Service",
                                                         "The service",
-                                                        PV_DBUS_SERVICE,
+                                                        PINOS_DBUS_SERVICE,
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_STATIC_STRINGS));
   /**
-   * PvSubscribe:subscription-mask
+   * PinosSubscribe:subscription-mask
    *
    * A mask for what object notifications will be signaled with
-   * PvSubscribe:subscription-event
+   * PinosSubscribe:subscription-event
    */
   g_object_class_install_property (gobject_class,
                                    PROP_SUBSCRIPTION_MASK,
                                    g_param_spec_flags ("subscription-mask",
                                                        "Subscription Mask",
                                                        "The object to receive subscription events of",
-                                                       PV_TYPE_SUBSCRIPTION_FLAGS,
+                                                       PINOS_TYPE_SUBSCRIPTION_FLAGS,
                                                        0,
                                                        G_PARAM_READWRITE |
                                                        G_PARAM_STATIC_STRINGS));
   /**
-   * PvSubscribe:state
+   * PinosSubscribe:state
    *
    * The state of the subscription
    */
@@ -617,15 +619,15 @@ pv_subscribe_class_init (PvSubscribeClass * klass)
                                    g_param_spec_enum ("state",
                                                       "State",
                                                       "The state",
-                                                      PV_TYPE_SUBSCRIPTION_STATE,
-                                                      PV_SUBSCRIPTION_STATE_UNCONNECTED,
+                                                      PINOS_TYPE_SUBSCRIPTION_STATE,
+                                                      PINOS_SUBSCRIPTION_STATE_UNCONNECTED,
                                                       G_PARAM_READABLE |
                                                       G_PARAM_STATIC_STRINGS));
   /**
-   * PvSubscribe:subscription-event
-   * @subscribe: The #PvSubscribe emitting the signal.
-   * @event: A #PvSubscriptionEvent
-   * @flags: #PvSubscriptionFlags indicating the object
+   * PinosSubscribe:subscription-event
+   * @subscribe: The #PinosSubscribe emitting the signal.
+   * @event: A #PinosSubscriptionEvent
+   * @flags: #PinosSubscriptionFlags indicating the object
    * @path: the object path
    *
    * Notify about a new object that was added/removed/modified.
@@ -639,62 +641,63 @@ pv_subscribe_class_init (PvSubscribeClass * klass)
                                                      g_cclosure_marshal_generic,
                                                      G_TYPE_NONE,
                                                      3,
-                                                     PV_TYPE_SUBSCRIPTION_EVENT,
-                                                     PV_TYPE_SUBSCRIPTION_FLAGS,
+                                                     PINOS_TYPE_SUBSCRIPTION_EVENT,
+                                                     PINOS_TYPE_SUBSCRIPTION_FLAGS,
                                                      G_TYPE_DBUS_PROXY);
 }
 
 static void
-pv_subscribe_init (PvSubscribe * subscribe)
+pinos_subscribe_init (PinosSubscribe * subscribe)
 {
-  PvSubscribePrivate *priv = subscribe->priv = PV_SUBSCRIBE_GET_PRIVATE (subscribe);
+  PinosSubscribePrivate *priv = subscribe->priv = PINOS_SUBSCRIBE_GET_PRIVATE (subscribe);
 
-  priv->service = g_strdup (PV_DBUS_SERVICE);
-  priv->state = PV_SUBSCRIPTION_STATE_UNCONNECTED;
+  priv->service = g_strdup (PINOS_DBUS_SERVICE);
+  priv->state = PINOS_SUBSCRIPTION_STATE_UNCONNECTED;
   priv->cancellable = g_cancellable_new ();
 }
 
 /**
- * pv_subscribe_new:
+ * pinos_subscribe_new:
  * @name: an application name
  * @properties: optional properties
  *
- * Make a new unconnected #PvSubscribe
+ * Make a new unconnected #PinosSubscribe
  *
- * Returns: a new unconnected #PvSubscribe
+ * Returns: a new unconnected #PinosSubscribe
  */
-PvSubscribe *
-pv_subscribe_new (void)
+PinosSubscribe *
+pinos_subscribe_new (void)
 {
-  return g_object_new (PV_TYPE_SUBSCRIBE, NULL);
+  return g_object_new (PINOS_TYPE_SUBSCRIBE, NULL);
 }
 
-PvSubscriptionState
-pv_subscribe_get_state (PvSubscribe *subscribe)
+PinosSubscriptionState
+pinos_subscribe_get_state (PinosSubscribe *subscribe)
 {
-  PvSubscribePrivate *priv;
+  PinosSubscribePrivate *priv;
 
-  g_return_val_if_fail (PV_IS_SUBSCRIBE (subscribe), PV_SUBSCRIPTION_STATE_ERROR);
+  g_return_val_if_fail (PINOS_IS_SUBSCRIBE (subscribe), PINOS_SUBSCRIPTION_STATE_ERROR);
   priv = subscribe->priv;
 
   return priv->state;
 }
 
 GError *
-pv_subscribe_get_error (PvSubscribe *subscribe)
+pinos_subscribe_get_error (PinosSubscribe *subscribe)
 {
-  PvSubscribePrivate *priv;
+  PinosSubscribePrivate *priv;
 
-  g_return_val_if_fail (PV_IS_SUBSCRIBE (subscribe), NULL);
+  g_return_val_if_fail (PINOS_IS_SUBSCRIBE (subscribe), NULL);
   priv = subscribe->priv;
 
   return priv->error;
 }
 
 static gint
-compare_data (PvObjectData *data, const gchar *name,
-                                  const gchar *object_path,
-                                  const gchar *interface_name)
+compare_data (PinosObjectData *data,
+              const gchar     *name,
+              const gchar     *object_path,
+              const gchar     *interface_name)
 {
   gint res;
 
@@ -708,22 +711,22 @@ compare_data (PvObjectData *data, const gchar *name,
 }
 
 void
-pv_subscribe_get_proxy (PvSubscribe *subscribe,
-                        const gchar *name,
-                        const gchar *object_path,
-                        const gchar *interface_name,
-                        GCancellable *cancellable,
-                        GAsyncReadyCallback callback,
-                        gpointer user_data)
+pinos_subscribe_get_proxy (PinosSubscribe      *subscribe,
+                           const gchar         *name,
+                           const gchar         *object_path,
+                           const gchar         *interface_name,
+                           GCancellable        *cancellable,
+                           GAsyncReadyCallback  callback,
+                           gpointer             user_data)
 {
-  PvSubscribePrivate *priv;
+  PinosSubscribePrivate *priv;
   GList *walk;
 
-  g_return_if_fail (PV_IS_SUBSCRIBE (subscribe));
+  g_return_if_fail (PINOS_IS_SUBSCRIBE (subscribe));
   priv = subscribe->priv;
 
   for (walk = priv->objects; walk; walk = g_list_next (walk)) {
-    PvObjectData *data = walk->data;
+    PinosObjectData *data = walk->data;
 
     if (compare_data (data, name, object_path, interface_name) == 0) {
       GTask *task;
@@ -746,9 +749,9 @@ pv_subscribe_get_proxy (PvSubscribe *subscribe,
 }
 
 GDBusProxy *
-pv_subscribe_get_proxy_finish (PvSubscribe  *subscribe,
-                               GAsyncResult *res,
-                               GError       **error)
+pinos_subscribe_get_proxy_finish (PinosSubscribe *subscribe,
+                                  GAsyncResult   *res,
+                                  GError         **error)
 {
   return g_task_propagate_pointer (G_TASK (res), error);
 }

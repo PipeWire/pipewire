@@ -21,13 +21,13 @@
 #include <gst/gst.h>
 #include <gio/gio.h>
 
-#include <server/pv-daemon.h>
-#include "pv-client-source.h"
+#include <server/daemon.h>
+#include <server/client-source.h>
 
-#define PV_CLIENT_SOURCE_GET_PRIVATE(obj)  \
-     (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PV_TYPE_CLIENT_SOURCE, PvClientSourcePrivate))
+#define PINOS_CLIENT_SOURCE_GET_PRIVATE(obj)  \
+     (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_CLIENT_SOURCE, PinosClientSourcePrivate))
 
-struct _PvClientSourcePrivate
+struct _PinosClientSourcePrivate
 {
   GstElement *pipeline;
   GstElement *src;
@@ -37,16 +37,18 @@ struct _PvClientSourcePrivate
 
   GSocket *socket;
 
-  PvSourceOutput *input;
+  PinosSourceOutput *input;
 };
 
-G_DEFINE_TYPE (PvClientSource, pv_client_source, PV_TYPE_SOURCE);
+G_DEFINE_TYPE (PinosClientSource, pinos_client_source, PINOS_TYPE_SOURCE);
 
 static gboolean
-bus_handler (GstBus * bus, GstMessage * message, gpointer user_data)
+bus_handler (GstBus     *bus,
+             GstMessage *message,
+             gpointer    user_data)
 {
-  PvSource *source = user_data;
-  PvClientSourcePrivate *priv = PV_CLIENT_SOURCE (source)->priv;
+  PinosSource *source = user_data;
+  PinosClientSourcePrivate *priv = PINOS_CLIENT_SOURCE (source)->priv;
 
   switch (GST_MESSAGE_TYPE (message)) {
     case GST_MESSAGE_ERROR:
@@ -58,7 +60,7 @@ bus_handler (GstBus * bus, GstMessage * message, gpointer user_data)
       g_print ("got error %s (%s)\n", error->message, debug);
       g_free (debug);
 
-      pv_source_report_error (source, error);
+      pinos_source_report_error (source, error);
       gst_element_set_state (priv->pipeline, GST_STATE_NULL);
       break;
     }
@@ -69,9 +71,9 @@ bus_handler (GstBus * bus, GstMessage * message, gpointer user_data)
 }
 
 static void
-setup_pipeline (PvClientSource *source)
+setup_pipeline (PinosClientSource *source)
 {
-  PvClientSourcePrivate *priv = source->priv;
+  PinosClientSourcePrivate *priv = source->priv;
   GstBus *bus;
 
   priv->pipeline = gst_parse_launch ("socketsrc name=src ! "
@@ -95,9 +97,10 @@ setup_pipeline (PvClientSource *source)
 }
 
 static GstCaps *
-collect_caps (PvSource * source, GstCaps *filter)
+collect_caps (PinosSource *source,
+              GstCaps     *filter)
 {
-  PvClientSourcePrivate *priv = PV_CLIENT_SOURCE (source)->priv;
+  PinosClientSourcePrivate *priv = PINOS_CLIENT_SOURCE (source)->priv;
   GstCaps *res;
   GstQuery *query;
 
@@ -111,36 +114,39 @@ collect_caps (PvSource * source, GstCaps *filter)
 }
 
 static gboolean
-client_set_state (PvSource *source, PvSourceState state)
+client_set_state (PinosSource      *source,
+                  PinosSourceState  state)
 {
-  PvClientSourcePrivate *priv = PV_CLIENT_SOURCE (source)->priv;
+  PinosClientSourcePrivate *priv = PINOS_CLIENT_SOURCE (source)->priv;
 
   switch (state) {
-    case PV_SOURCE_STATE_SUSPENDED:
+    case PINOS_SOURCE_STATE_SUSPENDED:
       gst_element_set_state (priv->pipeline, GST_STATE_NULL);
       break;
 
-    case PV_SOURCE_STATE_INIT:
+    case PINOS_SOURCE_STATE_INIT:
       gst_element_set_state (priv->pipeline, GST_STATE_READY);
       break;
 
-    case PV_SOURCE_STATE_IDLE:
+    case PINOS_SOURCE_STATE_IDLE:
       gst_element_set_state (priv->pipeline, GST_STATE_PAUSED);
       break;
 
-    case PV_SOURCE_STATE_RUNNING:
+    case PINOS_SOURCE_STATE_RUNNING:
       gst_element_set_state (priv->pipeline, GST_STATE_PLAYING);
       break;
 
-    case PV_SOURCE_STATE_ERROR:
+    case PINOS_SOURCE_STATE_ERROR:
       break;
   }
-  pv_source_update_state (source, state);
+  pinos_source_update_state (source, state);
+
   return TRUE;
 }
 
 static GBytes *
-client_get_formats (PvSource *source, GBytes *filter)
+client_get_formats (PinosSource *source,
+                    GBytes      *filter)
 {
   GstCaps *caps, *cfilter;
   gchar *str;
@@ -163,8 +169,8 @@ on_socket_notify (GObject    *gobject,
                   GParamSpec *pspec,
                   gpointer    user_data)
 {
-  PvClientSource *source = user_data;
-  PvClientSourcePrivate *priv = source->priv;
+  PinosClientSource *source = user_data;
+  PinosClientSourcePrivate *priv = source->priv;
   GSocket *socket;
   guint num_handles;
 
@@ -195,20 +201,20 @@ on_socket_notify (GObject    *gobject,
   }
 }
 
-static PvSourceOutput *
-client_create_source_output (PvSource    *source,
+static PinosSourceOutput *
+client_create_source_output (PinosSource *source,
                              const gchar *client_path,
                              GBytes      *format_filter,
                              const gchar *prefix,
                              GError      **error)
 {
-  PvClientSourcePrivate *priv = PV_CLIENT_SOURCE (source)->priv;
-  PvSourceOutput *output;
+  PinosClientSourcePrivate *priv = PINOS_CLIENT_SOURCE (source)->priv;
+  PinosSourceOutput *output;
 
   /* propose format of input */
   g_object_get (priv->input, "format", &format_filter, NULL);
 
-  output = PV_SOURCE_CLASS (pv_client_source_parent_class)
+  output = PINOS_SOURCE_CLASS (pinos_client_source_parent_class)
                 ->create_source_output (source,
                                         client_path,
                                         format_filter,
@@ -226,26 +232,27 @@ client_create_source_output (PvSource    *source,
 }
 
 static gboolean
-client_release_source_output  (PvSource *source, PvSourceOutput *output)
+client_release_source_output  (PinosSource       *source,
+                               PinosSourceOutput *output)
 {
-  return PV_SOURCE_CLASS (pv_client_source_parent_class)->release_source_output (source, output);
+  return PINOS_SOURCE_CLASS (pinos_client_source_parent_class)->release_source_output (source, output);
 }
 
 static void
 client_source_dispose (GObject * object)
 {
-  PvClientSourcePrivate *priv = PV_CLIENT_SOURCE (object)->priv;
+  PinosClientSourcePrivate *priv = PINOS_CLIENT_SOURCE (object)->priv;
 
   g_source_remove (priv->id);
   gst_element_set_state (priv->pipeline, GST_STATE_NULL);
 
-  G_OBJECT_CLASS (pv_client_source_parent_class)->dispose (object);
+  G_OBJECT_CLASS (pinos_client_source_parent_class)->dispose (object);
 }
 
 static void
 client_source_finalize (GObject * object)
 {
-  PvClientSourcePrivate *priv = PV_CLIENT_SOURCE (object)->priv;
+  PinosClientSourcePrivate *priv = PINOS_CLIENT_SOURCE (object)->priv;
 
   g_clear_object (&priv->input);
   g_clear_object (&priv->filter);
@@ -253,7 +260,7 @@ client_source_finalize (GObject * object)
   g_clear_object (&priv->src);
   g_clear_object (&priv->pipeline);
 
-  G_OBJECT_CLASS (pv_client_source_parent_class)->finalize (object);
+  G_OBJECT_CLASS (pinos_client_source_parent_class)->finalize (object);
 }
 
 
@@ -262,8 +269,8 @@ on_input_socket_notify (GObject    *gobject,
                         GParamSpec *pspec,
                         gpointer    user_data)
 {
-  PvClientSource *source = user_data;
-  PvClientSourcePrivate *priv = source->priv;
+  PinosClientSource *source = user_data;
+  PinosClientSourcePrivate *priv = source->priv;
   GSocket *socket;
   GBytes *requested_format;
   GstCaps *caps;
@@ -293,21 +300,21 @@ on_input_socket_notify (GObject    *gobject,
     gst_element_set_state (priv->pipeline, GST_STATE_READY);
 }
 
-PvSourceOutput *
-pv_client_source_get_source_input (PvClientSource *source,
-                                   const gchar    *client_path,
-                                   GBytes         *format_filter,
-                                   const gchar    *prefix,
-                                   GError         **error)
+PinosSourceOutput *
+pinos_client_source_get_source_input (PinosClientSource *source,
+                                      const gchar       *client_path,
+                                      GBytes            *format_filter,
+                                      const gchar       *prefix,
+                                      GError            **error)
 {
-  PvClientSourcePrivate *priv;
+  PinosClientSourcePrivate *priv;
 
-  g_return_val_if_fail (PV_IS_CLIENT_SOURCE (source), NULL);
+  g_return_val_if_fail (PINOS_IS_CLIENT_SOURCE (source), NULL);
   priv = source->priv;
 
   if (priv->input == NULL) {
-    priv->input = PV_SOURCE_CLASS (pv_client_source_parent_class)
-                        ->create_source_output (PV_SOURCE (source),
+    priv->input = PINOS_SOURCE_CLASS (pinos_client_source_parent_class)
+                        ->create_source_output (PINOS_SOURCE (source),
                                                 client_path,
                                                 format_filter,
                                                 prefix,
@@ -321,12 +328,12 @@ pv_client_source_get_source_input (PvClientSource *source,
 }
 
 static void
-pv_client_source_class_init (PvClientSourceClass * klass)
+pinos_client_source_class_init (PinosClientSourceClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
-  PvSourceClass *source_class = PV_SOURCE_CLASS (klass);
+  PinosSourceClass *source_class = PINOS_SOURCE_CLASS (klass);
 
-  g_type_class_add_private (klass, sizeof (PvClientSourcePrivate));
+  g_type_class_add_private (klass, sizeof (PinosClientSourcePrivate));
 
   gobject_class->dispose = client_source_dispose;
   gobject_class->finalize = client_source_finalize;
@@ -338,15 +345,18 @@ pv_client_source_class_init (PvClientSourceClass * klass)
 }
 
 static void
-pv_client_source_init (PvClientSource * source)
+pinos_client_source_init (PinosClientSource * source)
 {
-  source->priv = PV_CLIENT_SOURCE_GET_PRIVATE (source);
+  source->priv = PINOS_CLIENT_SOURCE_GET_PRIVATE (source);
 
   setup_pipeline (source);
 }
 
-PvSource *
-pv_client_source_new (PvDaemon *daemon)
+PinosSource *
+pinos_client_source_new (PinosDaemon *daemon)
 {
-  return g_object_new (PV_TYPE_CLIENT_SOURCE, "daemon", daemon, "name", "client-source", NULL);
+  return g_object_new (PINOS_TYPE_CLIENT_SOURCE,
+                              "daemon", daemon,
+                              "name", "client-source",
+                              NULL);
 }

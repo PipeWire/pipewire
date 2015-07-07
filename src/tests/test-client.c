@@ -38,7 +38,7 @@ on_socket_notify (GObject    *gobject,
   GstCaps *caps;
   GError *error = NULL;
 
-  pipeline = gst_parse_launch ("socketsrc name=src ! pvfddepay ! capsfilter name=filter ! videoconvert ! xvimagesink", &error);
+  pipeline = gst_parse_launch ("socketsrc name=src ! pinosfddepay ! capsfilter name=filter ! videoconvert ! xvimagesink", &error);
   if (error != NULL) {
     g_warning ("error creating pipeline: %s", error->message);
     g_clear_error (&error);
@@ -68,18 +68,18 @@ on_stream_notify (GObject    *gobject,
                   GParamSpec *pspec,
                   gpointer    user_data)
 {
-  PvStreamState state;
-  PvStream *s = user_data;
+  PinosStreamState state;
+  PinosStream *s = user_data;
 
   g_object_get (gobject, "state", &state, NULL);
   g_print ("got stream state %d\n", state);
 
   switch (state) {
-    case PV_STREAM_STATE_ERROR:
+    case PINOS_STREAM_STATE_ERROR:
       g_main_loop_quit (loop);
       break;
 
-    case PV_STREAM_STATE_READY:
+    case PINOS_STREAM_STATE_READY:
     {
       GBytes *possible, *format;
       GstCaps *caps;
@@ -106,12 +106,12 @@ on_stream_notify (GObject    *gobject,
       gst_caps_unref (caps);
 
       format = g_bytes_new_static (str, strlen (str) + 1);
-      pv_stream_start (s, format, PV_STREAM_MODE_SOCKET);
+      pinos_stream_start (s, format, PINOS_STREAM_MODE_SOCKET);
       g_bytes_unref (format);
       break;
     }
 
-    case PV_STREAM_STATE_STREAMING:
+    case PINOS_STREAM_STATE_STREAMING:
       break;
 
     default:
@@ -124,27 +124,27 @@ on_state_notify (GObject    *gobject,
                  GParamSpec *pspec,
                  gpointer    user_data)
 {
-  PvContextState state;
-  PvContext *c = user_data;
+  PinosContextState state;
+  PinosContext *c = user_data;
 
   g_object_get (gobject, "state", &state, NULL);
   g_print ("got context state %d\n", state);
 
   switch (state) {
-    case PV_CONTEXT_STATE_ERROR:
+    case PINOS_CONTEXT_STATE_ERROR:
       g_main_loop_quit (loop);
       break;
-    case PV_CONTEXT_STATE_READY:
+    case PINOS_CONTEXT_STATE_READY:
     {
-      PvStream *stream;
+      PinosStream *stream;
       GBytes *format;
 
-      stream = pv_stream_new (c, "test", NULL);
+      stream = pinos_stream_new (c, "test", NULL);
       g_signal_connect (stream, "notify::state", (GCallback) on_stream_notify, stream);
       g_signal_connect (stream, "notify::socket", (GCallback) on_socket_notify, stream);
 
       format = g_bytes_new_static (ANY_CAPS, strlen (ANY_CAPS) + 1);
-      pv_stream_connect_capture (stream, NULL, 0, format);
+      pinos_stream_connect_capture (stream, NULL, 0, format);
       g_bytes_unref (format);
       break;
     }
@@ -156,15 +156,15 @@ on_state_notify (GObject    *gobject,
 gint
 main (gint argc, gchar *argv[])
 {
-  PvContext *c;
+  PinosContext *c;
 
-  pv_init (&argc, &argv);
+  pinos_init (&argc, &argv);
 
   loop = g_main_loop_new (NULL, FALSE);
 
-  c = pv_context_new (NULL, "test-client", NULL);
+  c = pinos_context_new (NULL, "test-client", NULL);
   g_signal_connect (c, "notify::state", (GCallback) on_state_notify, c);
-  pv_context_connect(c, PV_CONTEXT_FLAGS_NONE);
+  pinos_context_connect(c, PINOS_CONTEXT_FLAGS_NONE);
 
   g_main_loop_run (loop);
 

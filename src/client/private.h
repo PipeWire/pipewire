@@ -17,7 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-struct _PvContextPrivate
+struct _PinosContextPrivate
 {
   GMainContext *context;
 
@@ -27,16 +27,16 @@ struct _PvContextPrivate
   guint id;
   GDBusConnection *connection;
 
-  PvContextFlags flags;
+  PinosContextFlags flags;
 
-  PvContextState state;
+  PinosContextState state;
   GError *error;
 
   GDBusProxy *daemon;
   GDBusProxy *client;
 
-  PvSubscriptionFlags subscription_mask;
-  PvSubscribe *subscribe;
+  PinosSubscriptionFlags subscription_mask;
+  PinosSubscribe *subscribe;
 
   GList *sources;
 };

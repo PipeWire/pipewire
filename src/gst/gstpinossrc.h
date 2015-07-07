@@ -23,9 +23,9 @@
 #include <gst/gst.h>
 #include <gst/base/gstpushsrc.h>
 
-#include <client/pv-context.h>
-#include <client/pv-stream.h>
-#include <client/pv-introspect.h>
+#include <client/context.h>
+#include <client/stream.h>
+#include <client/introspect.h>
 
 G_BEGIN_DECLS
 
@@ -61,8 +61,8 @@ struct _GstPinosSrc {
   GMainContext *context;
   GMainLoop *loop;
   GThread *thread;
-  PvContext *ctx;
-  PvStream *stream;
+  PinosContext *ctx;
+  PinosStream *stream;
   GstAllocator *fd_allocator;
 
   GPollFunc poll_func;

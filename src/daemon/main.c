@@ -21,23 +21,23 @@
 #include <gst/gst.h>
 
 #include <client/pinos.h>
-#include <server/pv-daemon.h>
-#include <modules/gst/pv-gst-manager.h>
+#include <server/daemon.h>
+#include <modules/gst/gst-manager.h>
 
 gint
 main (gint argc, gchar *argv[])
 {
-  PvDaemon *daemon;
+  PinosDaemon *daemon;
   GMainLoop *loop;
 
-  pv_init (&argc, &argv);
+  pinos_init (&argc, &argv);
 
   loop = g_main_loop_new (NULL, FALSE);
 
-  daemon = pv_daemon_new ();
+  daemon = pinos_daemon_new ();
 
-  pv_gst_manager_new (daemon);
-  pv_daemon_start (daemon);
+  pinos_gst_manager_new (daemon);
+  pinos_daemon_start (daemon);
 
   g_main_loop_run (loop);
 

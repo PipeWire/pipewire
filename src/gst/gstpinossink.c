@@ -31,7 +31,7 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
-#include "gstpvsink.h"
+#include "gstpinossink.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -55,7 +55,7 @@ enum
 };
 
 
-#define PVS_VIDEO_CAPS GST_VIDEO_CAPS_MAKE (GST_VIDEO_FORMATS_ALL)
+#define PINOSS_VIDEO_CAPS GST_VIDEO_CAPS_MAKE (GST_VIDEO_FORMATS_ALL)
 
 static GstStaticPadTemplate gst_pinos_sink_template =
 GST_STATIC_PAD_TEMPLATE ("sink",
@@ -196,9 +196,9 @@ static void
 on_new_buffer (GObject    *gobject,
                gpointer    user_data)
 {
-  GstPinosSink *pvsink = user_data;
+  GstPinosSink *pinossink = user_data;
 
-  g_cond_signal (&pvsink->cond);
+  g_cond_signal (&pinossink->cond);
 }
 
 static void
@@ -206,17 +206,17 @@ on_stream_notify (GObject    *gobject,
                   GParamSpec *pspec,
                   gpointer    user_data)
 {
-  PvStreamState state;
-  GstPinosSink *pvsink = user_data;
+  PinosStreamState state;
+  GstPinosSink *pinossink = user_data;
 
-  state = pv_stream_get_state (pvsink->stream);
+  state = pinos_stream_get_state (pinossink->stream);
   g_print ("got stream state %d\n", state);
-  g_cond_broadcast (&pvsink->cond);
+  g_cond_broadcast (&pinossink->cond);
 
-  if (state == PV_STREAM_STATE_ERROR) {
-    GST_ELEMENT_ERROR (pvsink, RESOURCE, FAILED,
+  if (state == PINOS_STREAM_STATE_ERROR) {
+    GST_ELEMENT_ERROR (pinossink, RESOURCE, FAILED,
         ("Failed to connect stream: %s",
-          pv_stream_get_error (pvsink->stream)->message), (NULL));
+          pinos_stream_get_error (pinossink->stream)->message), (NULL));
   }
 }
 
@@ -229,56 +229,56 @@ gst_pinos_sink_getcaps (GstBaseSink * bsink, GstCaps * filter)
 static gboolean
 gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
 {
-  GstPinosSink *pvsink;
+  GstPinosSink *pinossink;
   gchar *str;
   GBytes *format;
 
-  pvsink = GST_PINOS_SINK (bsink);
+  pinossink = GST_PINOS_SINK (bsink);
 
   str = gst_caps_to_string (caps);
   format = g_bytes_new_take (str, strlen (str) + 1);
 
-  g_mutex_lock (&pvsink->lock);
-  pvsink->stream = pv_stream_new (pvsink->ctx, "test", NULL);
-  g_signal_connect (pvsink->stream, "notify::state", (GCallback) on_stream_notify, pvsink);
-  g_signal_connect (pvsink->stream, "new-buffer", (GCallback) on_new_buffer, pvsink);
+  g_mutex_lock (&pinossink->lock);
+  pinossink->stream = pinos_stream_new (pinossink->ctx, "test", NULL);
+  g_signal_connect (pinossink->stream, "notify::state", (GCallback) on_stream_notify, pinossink);
+  g_signal_connect (pinossink->stream, "new-buffer", (GCallback) on_new_buffer, pinossink);
 
-  pv_stream_connect_provide (pvsink->stream, 0, format);
-
-  while (TRUE) {
-    PvStreamState state = pv_stream_get_state (pvsink->stream);
-
-    if (state == PV_STREAM_STATE_READY)
-      break;
-
-    if (state == PV_STREAM_STATE_ERROR)
-      goto connect_error;
-
-    g_cond_wait (&pvsink->cond, &pvsink->lock);
-  }
-
-  pv_stream_start (pvsink->stream, format, PV_STREAM_MODE_BUFFER);
+  pinos_stream_connect_provide (pinossink->stream, 0, format);
 
   while (TRUE) {
-    PvStreamState state = pv_stream_get_state (pvsink->stream);
+    PinosStreamState state = pinos_stream_get_state (pinossink->stream);
 
-    if (state == PV_STREAM_STATE_STREAMING)
+    if (state == PINOS_STREAM_STATE_READY)
       break;
 
-    if (state == PV_STREAM_STATE_ERROR)
+    if (state == PINOS_STREAM_STATE_ERROR)
       goto connect_error;
 
-    g_cond_wait (&pvsink->cond, &pvsink->lock);
+    g_cond_wait (&pinossink->cond, &pinossink->lock);
   }
-  g_mutex_unlock (&pvsink->lock);
 
-  pvsink->negotiated = TRUE;
+  pinos_stream_start (pinossink->stream, format, PINOS_STREAM_MODE_BUFFER);
+
+  while (TRUE) {
+    PinosStreamState state = pinos_stream_get_state (pinossink->stream);
+
+    if (state == PINOS_STREAM_STATE_STREAMING)
+      break;
+
+    if (state == PINOS_STREAM_STATE_ERROR)
+      goto connect_error;
+
+    g_cond_wait (&pinossink->cond, &pinossink->lock);
+  }
+  g_mutex_unlock (&pinossink->lock);
+
+  pinossink->negotiated = TRUE;
 
   return TRUE;
 
 connect_error:
   {
-    g_mutex_unlock (&pvsink->lock);
+    g_mutex_unlock (&pinossink->lock);
     return FALSE;
   }
 }
@@ -286,14 +286,14 @@ connect_error:
 static GstFlowReturn
 gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
 {
-  GstPinosSink *pvsink;
-  PvBufferInfo info;
+  GstPinosSink *pinossink;
+  PinosBufferInfo info;
   GSocketControlMessage *mesg;
   GstMemory *mem = NULL;
 
-  pvsink = GST_PINOS_SINK (bsink);
+  pinossink = GST_PINOS_SINK (bsink);
 
-  if (!pvsink->negotiated)
+  if (!pinossink->negotiated)
     goto not_negotiated;
 
   info.flags = 0;
@@ -313,7 +313,7 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
 
     GST_INFO_OBJECT (bsink, "Buffer cannot be payloaded without copying");
 
-    mem = gst_allocator_alloc (pvsink->allocator, info.size, &params);
+    mem = gst_allocator_alloc (pinossink->allocator, info.size, &params);
     if (!gst_memory_map (mem, &minfo, GST_MAP_WRITE))
       goto map_error;
     gst_buffer_extract (buffer, 0, minfo.data, info.size);
@@ -323,11 +323,11 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   gst_memory_unref (mem);
   info.message = mesg;
 
-  g_mutex_lock (&pvsink->lock);
-  if (pv_stream_get_state (pvsink->stream) != PV_STREAM_STATE_STREAMING)
+  g_mutex_lock (&pinossink->lock);
+  if (pinos_stream_get_state (pinossink->stream) != PINOS_STREAM_STATE_STREAMING)
     goto streaming_error;
-  pv_stream_provide_buffer (pvsink->stream, &info);
-  g_mutex_unlock (&pvsink->lock);
+  pinos_stream_provide_buffer (pinossink->stream, &info);
+  g_mutex_unlock (&pinossink->lock);
 
   return GST_FLOW_OK;
 
@@ -341,7 +341,7 @@ map_error:
   }
 streaming_error:
   {
-    g_mutex_unlock (&pvsink->lock);
+    g_mutex_unlock (&pinossink->lock);
     return GST_FLOW_ERROR;
   }
 }
@@ -403,76 +403,76 @@ on_state_notify (GObject    *gobject,
                  GParamSpec *pspec,
                  gpointer    user_data)
 {
-  GstPinosSink *pvsink = user_data;
-  PvContextState state;
+  GstPinosSink *pinossink = user_data;
+  PinosContextState state;
 
-  state = pv_context_get_state (pvsink->ctx);
+  state = pinos_context_get_state (pinossink->ctx);
   g_print ("got context state %d\n", state);
-  g_cond_broadcast (&pvsink->cond);
+  g_cond_broadcast (&pinossink->cond);
 
-  if (state == PV_CONTEXT_STATE_ERROR) {
-    GST_ELEMENT_ERROR (pvsink, RESOURCE, FAILED,
+  if (state == PINOS_CONTEXT_STATE_ERROR) {
+    GST_ELEMENT_ERROR (pinossink, RESOURCE, FAILED,
         ("Failed to connect stream: %s",
-          pv_context_get_error (pvsink->ctx)->message), (NULL));
+          pinos_context_get_error (pinossink->ctx)->message), (NULL));
   }
 }
 
 static gboolean
-gst_pinos_sink_open (GstPinosSink * pvsink)
+gst_pinos_sink_open (GstPinosSink * pinossink)
 {
-  g_mutex_lock (&pvsink->lock);
-  pvsink->ctx = pv_context_new (pvsink->context, "test-client", NULL);
-  g_signal_connect (pvsink->ctx, "notify::state", (GCallback) on_state_notify, pvsink);
+  g_mutex_lock (&pinossink->lock);
+  pinossink->ctx = pinos_context_new (pinossink->context, "test-client", NULL);
+  g_signal_connect (pinossink->ctx, "notify::state", (GCallback) on_state_notify, pinossink);
 
-  pv_context_connect(pvsink->ctx, PV_CONTEXT_FLAGS_NONE);
+  pinos_context_connect(pinossink->ctx, PINOS_CONTEXT_FLAGS_NONE);
 
   while (TRUE) {
-    PvContextState state = pv_context_get_state (pvsink->ctx);
+    PinosContextState state = pinos_context_get_state (pinossink->ctx);
 
-    if (state == PV_CONTEXT_STATE_READY)
+    if (state == PINOS_CONTEXT_STATE_READY)
       break;
 
-    if (state == PV_CONTEXT_STATE_ERROR)
+    if (state == PINOS_CONTEXT_STATE_ERROR)
       goto connect_error;
 
-    g_cond_wait (&pvsink->cond, &pvsink->lock);
+    g_cond_wait (&pinossink->cond, &pinossink->lock);
   }
-  g_mutex_unlock (&pvsink->lock);
+  g_mutex_unlock (&pinossink->lock);
 
   return TRUE;
 
   /* ERRORS */
 connect_error:
   {
-    g_mutex_unlock (&pvsink->lock);
+    g_mutex_unlock (&pinossink->lock);
     return FALSE;
   }
 }
 
 static gboolean
-gst_pinos_sink_close (GstPinosSink * pvsink)
+gst_pinos_sink_close (GstPinosSink * pinossink)
 {
 
-  g_mutex_lock (&pvsink->lock);
-  if (pvsink->stream) {
-    pv_stream_disconnect (pvsink->stream);
+  g_mutex_lock (&pinossink->lock);
+  if (pinossink->stream) {
+    pinos_stream_disconnect (pinossink->stream);
   }
-  if (pvsink->ctx) {
-    pv_context_disconnect(pvsink->ctx);
+  if (pinossink->ctx) {
+    pinos_context_disconnect(pinossink->ctx);
 
     while (TRUE) {
-      PvContextState state = pv_context_get_state (pvsink->ctx);
+      PinosContextState state = pinos_context_get_state (pinossink->ctx);
 
-      if (state == PV_CONTEXT_STATE_UNCONNECTED)
+      if (state == PINOS_CONTEXT_STATE_UNCONNECTED)
         break;
 
-      if (state == PV_CONTEXT_STATE_ERROR)
+      if (state == PINOS_CONTEXT_STATE_ERROR)
         break;
 
-      g_cond_wait (&pvsink->cond, &pvsink->lock);
+      g_cond_wait (&pinossink->cond, &pinossink->lock);
     }
   }
-  g_mutex_unlock (&pvsink->lock);
+  g_mutex_unlock (&pinossink->lock);
 
   return TRUE;
 }

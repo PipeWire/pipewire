@@ -31,7 +31,7 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
-#include "gstpvsrc.h"
+#include "gstpinossrc.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -54,7 +54,7 @@ enum
 };
 
 
-#define PVS_VIDEO_CAPS GST_VIDEO_CAPS_MAKE (GST_VIDEO_FORMATS_ALL)
+#define PINOSS_VIDEO_CAPS GST_VIDEO_CAPS_MAKE (GST_VIDEO_FORMATS_ALL)
 
 static GstStaticPadTemplate gst_pinos_src_template =
 GST_STATIC_PAD_TEMPLATE ("src",
@@ -84,12 +84,12 @@ static void
 gst_pinos_src_set_property (GObject * object, guint prop_id,
     const GValue * value, GParamSpec * pspec)
 {
-  GstPinosSrc *pvsrc = GST_PINOS_SRC (object);
+  GstPinosSrc *pinossrc = GST_PINOS_SRC (object);
 
   switch (prop_id) {
     case PROP_SOURCE:
-      g_free (pvsrc->source);
-      pvsrc->source = g_value_dup_string (value);
+      g_free (pinossrc->source);
+      pinossrc->source = g_value_dup_string (value);
       break;
 
     default:
@@ -102,11 +102,11 @@ static void
 gst_pinos_src_get_property (GObject * object, guint prop_id,
     GValue * value, GParamSpec * pspec)
 {
-  GstPinosSrc *pvsrc = GST_PINOS_SRC (object);
+  GstPinosSrc *pinossrc = GST_PINOS_SRC (object);
 
   switch (prop_id) {
     case PROP_SOURCE:
-      g_value_set_string (value, pvsrc->source);
+      g_value_set_string (value, pinossrc->source);
       break;
 
     default:
@@ -118,12 +118,12 @@ gst_pinos_src_get_property (GObject * object, guint prop_id,
 static void
 gst_pinos_src_finalize (GObject * object)
 {
-  GstPinosSrc *pvsrc = GST_PINOS_SRC (object);
+  GstPinosSrc *pinossrc = GST_PINOS_SRC (object);
 
-  g_object_unref (pvsrc->fd_allocator);
-  g_mutex_clear (&pvsrc->lock);
-  g_cond_clear (&pvsrc->cond);
-  g_free (pvsrc->source);
+  g_object_unref (pinossrc->fd_allocator);
+  g_mutex_clear (&pinossrc->lock);
+  g_cond_clear (&pinossrc->cond);
+  g_free (pinossrc->source);
 
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }
@@ -237,9 +237,9 @@ static void
 on_new_buffer (GObject    *gobject,
                gpointer    user_data)
 {
-  GstPinosSrc *pvsrc = user_data;
+  GstPinosSrc *pinossrc = user_data;
 
-  g_cond_signal (&pvsrc->cond);
+  g_cond_signal (&pinossrc->cond);
 }
 
 static void
@@ -247,24 +247,24 @@ on_stream_notify (GObject    *gobject,
                   GParamSpec *pspec,
                   gpointer    user_data)
 {
-  PvStreamState state;
-  GstPinosSrc *pvsrc = user_data;
+  PinosStreamState state;
+  GstPinosSrc *pinossrc = user_data;
 
-  state = pv_stream_get_state (pvsrc->stream);
+  state = pinos_stream_get_state (pinossrc->stream);
   g_print ("got stream state %d\n", state);
-  g_cond_broadcast (&pvsrc->cond);
+  g_cond_broadcast (&pinossrc->cond);
 
-  if (state == PV_STREAM_STATE_ERROR) {
-    GST_ELEMENT_ERROR (pvsrc, RESOURCE, FAILED,
+  if (state == PINOS_STREAM_STATE_ERROR) {
+    GST_ELEMENT_ERROR (pinossrc, RESOURCE, FAILED,
         ("Failed to connect stream: %s",
-          pv_stream_get_error (pvsrc->stream)->message), (NULL));
+          pinos_stream_get_error (pinossrc->stream)->message), (NULL));
   }
 }
 
 static gboolean
 gst_pinos_src_negotiate (GstBaseSrc * basesrc)
 {
-  GstPinosSrc *pvsrc = GST_PINOS_SRC (basesrc);
+  GstPinosSrc *pinossrc = GST_PINOS_SRC (basesrc);
   GstCaps *thiscaps;
   GstCaps *caps = NULL;
   GstCaps *peercaps = NULL;
@@ -300,23 +300,23 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
     str = gst_caps_to_string (caps);
     accepted = g_bytes_new_take (str, strlen (str) + 1);
 
-    g_mutex_lock (&pvsrc->lock);
-    pv_stream_connect_capture (pvsrc->stream, pvsrc->source, 0, accepted);
+    g_mutex_lock (&pinossrc->lock);
+    pinos_stream_connect_capture (pinossrc->stream, pinossrc->source, 0, accepted);
 
     while (TRUE) {
-      PvStreamState state = pv_stream_get_state (pvsrc->stream);
+      PinosStreamState state = pinos_stream_get_state (pinossrc->stream);
 
-      if (state == PV_STREAM_STATE_READY)
+      if (state == PINOS_STREAM_STATE_READY)
         break;
 
-      if (state == PV_STREAM_STATE_ERROR)
+      if (state == PINOS_STREAM_STATE_ERROR)
         goto connect_error;
 
-      g_cond_wait (&pvsrc->cond, &pvsrc->lock);
+      g_cond_wait (&pinossrc->cond, &pinossrc->lock);
     }
-    g_mutex_unlock (&pvsrc->lock);
+    g_mutex_unlock (&pinossrc->lock);
 
-    g_object_get (pvsrc->stream, "possible-formats", &possible, NULL);
+    g_object_get (pinossrc->stream, "possible-formats", &possible, NULL);
     if (possible) {
       GstCaps *newcaps;
 
@@ -346,7 +346,7 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
       gst_caps_unref (caps);
     GST_DEBUG_OBJECT (basesrc, "no common caps");
   }
-  pvsrc->negotiated = result;
+  pinossrc->negotiated = result;
   return result;
 
 no_nego_needed:
@@ -367,7 +367,7 @@ no_caps:
   }
 connect_error:
   {
-    g_mutex_unlock (&pvsrc->lock);
+    g_mutex_unlock (&pinossrc->lock);
     return FALSE;
   }
 }
@@ -381,19 +381,19 @@ gst_pinos_src_getcaps (GstBaseSrc * bsrc, GstCaps * filter)
 static gboolean
 gst_pinos_src_setcaps (GstBaseSrc * bsrc, GstCaps * caps)
 {
-  GstPinosSrc *pvsrc;
+  GstPinosSrc *pinossrc;
   gchar *str;
   GBytes *format;
   gboolean res;
 
-  pvsrc = GST_PINOS_SRC (bsrc);
+  pinossrc = GST_PINOS_SRC (bsrc);
 
   str = gst_caps_to_string (caps);
   format = g_bytes_new_take (str, strlen (str) + 1);
 
-  g_mutex_lock (&pvsrc->lock);
-  res = pv_stream_start (pvsrc->stream, format, PV_STREAM_MODE_BUFFER);
-  g_mutex_unlock (&pvsrc->lock);
+  g_mutex_lock (&pinossrc->lock);
+  res = pinos_stream_start (pinossrc->stream, format, PINOS_STREAM_MODE_BUFFER);
+  g_mutex_unlock (&pinossrc->lock);
 
   return res;
 }
@@ -401,35 +401,35 @@ gst_pinos_src_setcaps (GstBaseSrc * bsrc, GstCaps * caps)
 static GstFlowReturn
 gst_pinos_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
 {
-  GstPinosSrc *pvsrc;
-  PvBufferInfo info;
+  GstPinosSrc *pinossrc;
+  PinosBufferInfo info;
   gint *fds, n_fds;
   GstMemory *fdmem = NULL;
 
-  pvsrc = GST_PINOS_SRC (psrc);
+  pinossrc = GST_PINOS_SRC (psrc);
 
-  if (!pvsrc->negotiated)
+  if (!pinossrc->negotiated)
     goto not_negotiated;
 
 again:
-  g_mutex_lock (&pvsrc->lock);
+  g_mutex_lock (&pinossrc->lock);
   while (TRUE) {
-    PvStreamState state;
+    PinosStreamState state;
 
-    g_cond_wait (&pvsrc->cond, &pvsrc->lock);
+    g_cond_wait (&pinossrc->cond, &pinossrc->lock);
 
-    state = pv_stream_get_state (pvsrc->stream);
-    if (state == PV_STREAM_STATE_ERROR)
+    state = pinos_stream_get_state (pinossrc->stream);
+    if (state == PINOS_STREAM_STATE_ERROR)
       goto streaming_error;
 
-    if (state != PV_STREAM_STATE_STREAMING)
+    if (state != PINOS_STREAM_STATE_STREAMING)
       goto streaming_stopped;
 
-    pv_stream_capture_buffer (pvsrc->stream, &info);
+    pinos_stream_capture_buffer (pinossrc->stream, &info);
     if (info.message != NULL)
       break;
   }
-  g_mutex_unlock (&pvsrc->lock);
+  g_mutex_unlock (&pinossrc->lock);
 
   if (g_socket_control_message_get_msg_type (info.message) != SCM_RIGHTS)
     goto again;
@@ -438,7 +438,7 @@ again:
   if (n_fds < 1 || fds[0] < 0)
     goto again;
 
-  fdmem = gst_fd_allocator_alloc (pvsrc->fd_allocator, fds[0],
+  fdmem = gst_fd_allocator_alloc (pinossrc->fd_allocator, fds[0],
             info.offset + info.size, GST_FD_MEMORY_FLAG_NONE);
   gst_memory_resize (fdmem, info.offset, info.size);
 
@@ -453,12 +453,12 @@ not_negotiated:
   }
 streaming_error:
   {
-    g_mutex_unlock (&pvsrc->lock);
+    g_mutex_unlock (&pinossrc->lock);
     return GST_FLOW_ERROR;
   }
 streaming_stopped:
   {
-    g_mutex_unlock (&pvsrc->lock);
+    g_mutex_unlock (&pinossrc->lock);
     return GST_FLOW_FLUSHING;
   }
 }
@@ -512,53 +512,53 @@ on_state_notify (GObject    *gobject,
                  GParamSpec *pspec,
                  gpointer    user_data)
 {
-  GstPinosSrc *pvsrc = user_data;
-  PvContextState state;
+  GstPinosSrc *pinossrc = user_data;
+  PinosContextState state;
 
-  state = pv_context_get_state (pvsrc->ctx);
+  state = pinos_context_get_state (pinossrc->ctx);
   g_print ("got context state %d\n", state);
-  g_cond_broadcast (&pvsrc->cond);
+  g_cond_broadcast (&pinossrc->cond);
 
-  if (state == PV_CONTEXT_STATE_ERROR) {
-    GST_ELEMENT_ERROR (pvsrc, RESOURCE, FAILED,
+  if (state == PINOS_CONTEXT_STATE_ERROR) {
+    GST_ELEMENT_ERROR (pinossrc, RESOURCE, FAILED,
         ("Failed to connect stream: %s",
-          pv_context_get_error (pvsrc->ctx)->message), (NULL));
+          pinos_context_get_error (pinossrc->ctx)->message), (NULL));
   }
 }
 
 static gboolean
-gst_pinos_src_open (GstPinosSrc * pvsrc)
+gst_pinos_src_open (GstPinosSrc * pinossrc)
 {
 
-  g_mutex_lock (&pvsrc->lock);
-  pvsrc->ctx = pv_context_new (pvsrc->context, "test-client", NULL);
-  g_signal_connect (pvsrc->ctx, "notify::state", (GCallback) on_state_notify, pvsrc);
+  g_mutex_lock (&pinossrc->lock);
+  pinossrc->ctx = pinos_context_new (pinossrc->context, "test-client", NULL);
+  g_signal_connect (pinossrc->ctx, "notify::state", (GCallback) on_state_notify, pinossrc);
 
-  pv_context_connect(pvsrc->ctx, PV_CONTEXT_FLAGS_NONE);
+  pinos_context_connect(pinossrc->ctx, PINOS_CONTEXT_FLAGS_NONE);
 
   while (TRUE) {
-    PvContextState state = pv_context_get_state (pvsrc->ctx);
+    PinosContextState state = pinos_context_get_state (pinossrc->ctx);
 
-    if (state == PV_CONTEXT_STATE_READY)
+    if (state == PINOS_CONTEXT_STATE_READY)
       break;
 
-    if (state == PV_CONTEXT_STATE_ERROR)
+    if (state == PINOS_CONTEXT_STATE_ERROR)
       goto connect_error;
 
-    g_cond_wait (&pvsrc->cond, &pvsrc->lock);
+    g_cond_wait (&pinossrc->cond, &pinossrc->lock);
   }
 
-  pvsrc->stream = pv_stream_new (pvsrc->ctx, "test", NULL);
-  g_signal_connect (pvsrc->stream, "notify::state", (GCallback) on_stream_notify, pvsrc);
-  g_signal_connect (pvsrc->stream, "new-buffer", (GCallback) on_new_buffer, pvsrc);
-  g_mutex_unlock (&pvsrc->lock);
+  pinossrc->stream = pinos_stream_new (pinossrc->ctx, "test", NULL);
+  g_signal_connect (pinossrc->stream, "notify::state", (GCallback) on_stream_notify, pinossrc);
+  g_signal_connect (pinossrc->stream, "new-buffer", (GCallback) on_new_buffer, pinossrc);
+  g_mutex_unlock (&pinossrc->lock);
 
   return TRUE;
 
   /* ERRORS */
 connect_error:
   {
-    g_mutex_unlock (&pvsrc->lock);
+    g_mutex_unlock (&pinossrc->lock);
     return FALSE;
   }
 }

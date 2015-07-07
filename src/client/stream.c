@@ -20,23 +20,23 @@
 #include <string.h>
 #include <gio/gunixfdlist.h>
 
-#include "server/pv-daemon.h"
+#include "server/daemon.h"
 #include "client/pinos.h"
-#include "client/pv-context.h"
-#include "client/pv-stream.h"
-#include "client/pv-enumtypes.h"
+#include "client/context.h"
+#include "client/stream.h"
+#include "client/enumtypes.h"
 
-#include "client/pv-private.h"
+#include "client/private.h"
 
-struct _PvStreamPrivate
+struct _PinosStreamPrivate
 {
-  PvContext *context;
+  PinosContext *context;
   gchar *name;
   GVariant *properties;
 
   guint id;
 
-  PvStreamState state;
+  PinosStreamState state;
   GError *error;
 
   gchar *target;
@@ -48,17 +48,17 @@ struct _PvStreamPrivate
 
   GDBusProxy *source_output;
 
-  PvStreamMode mode;
+  PinosStreamMode mode;
   GSocket *socket;
   GSource *socket_source;
 
-  PvBufferInfo info;
+  PinosBufferInfo info;
 };
 
-#define PV_STREAM_GET_PRIVATE(obj)  \
-   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PV_TYPE_STREAM, PvStreamPrivate))
+#define PINOS_STREAM_GET_PRIVATE(obj)  \
+   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_STREAM, PinosStreamPrivate))
 
-G_DEFINE_TYPE (PvStream, pv_stream, G_TYPE_OBJECT);
+G_DEFINE_TYPE (PinosStream, pinos_stream, G_TYPE_OBJECT);
 
 enum
 {
@@ -81,13 +81,13 @@ enum
 static guint signals[LAST_SIGNAL] = { 0 };
 
 static void
-pv_stream_get_property (GObject    *_object,
-                         guint       prop_id,
-                         GValue     *value,
-                         GParamSpec *pspec)
+pinos_stream_get_property (GObject    *_object,
+                           guint       prop_id,
+                           GValue     *value,
+                           GParamSpec *pspec)
 {
-  PvStream *stream = PV_STREAM (_object);
-  PvStreamPrivate *priv = stream->priv;
+  PinosStream *stream = PINOS_STREAM (_object);
+  PinosStreamPrivate *priv = stream->priv;
 
   switch (prop_id) {
     case PROP_CONTEXT:
@@ -125,13 +125,13 @@ pv_stream_get_property (GObject    *_object,
 }
 
 static void
-pv_stream_set_property (GObject      *_object,
-                         guint         prop_id,
-                         const GValue *value,
-                         GParamSpec   *pspec)
+pinos_stream_set_property (GObject      *_object,
+                           guint         prop_id,
+                           const GValue *value,
+                           GParamSpec   *pspec)
 {
-  PvStream *stream = PV_STREAM (_object);
-  PvStreamPrivate *priv = stream->priv;
+  PinosStream *stream = PINOS_STREAM (_object);
+  PinosStreamPrivate *priv = stream->priv;
 
   switch (prop_id) {
     case PROP_CONTEXT:
@@ -155,7 +155,7 @@ pv_stream_set_property (GObject      *_object,
 }
 
 static gboolean
-do_notify_state (PvStream *stream)
+do_notify_state (PinosStream *stream)
 {
   g_object_notify (G_OBJECT (stream), "state");
   g_object_unref (stream);
@@ -163,7 +163,8 @@ do_notify_state (PvStream *stream)
 }
 
 static void
-stream_set_state (PvStream *stream, PvStreamState state)
+stream_set_state (PinosStream      *stream,
+                  PinosStreamState  state)
 {
   if (stream->priv->state != state) {
     stream->priv->state = state;
@@ -174,21 +175,21 @@ stream_set_state (PvStream *stream, PvStreamState state)
 }
 
 static void
-subscription_cb (PvSubscribe         *subscribe,
-                 PvSubscriptionEvent  event,
-                 PvSubscriptionFlags  flags,
-                 GDBusProxy          *object,
-                 gpointer             user_data)
+subscription_cb (PinosSubscribe         *subscribe,
+                 PinosSubscriptionEvent  event,
+                 PinosSubscriptionFlags  flags,
+                 GDBusProxy             *object,
+                 gpointer                user_data)
 {
-  PvStream *stream = PV_STREAM (user_data);
-  PvStreamPrivate *priv = stream->priv;
+  PinosStream *stream = PINOS_STREAM (user_data);
+  PinosStreamPrivate *priv = stream->priv;
 
   switch (flags) {
-    case PV_SUBSCRIPTION_FLAGS_SOURCE_OUTPUT:
-      if (event == PV_SUBSCRIPTION_EVENT_REMOVE) {
+    case PINOS_SUBSCRIPTION_FLAGS_SOURCE_OUTPUT:
+      if (event == PINOS_SUBSCRIPTION_EVENT_REMOVE) {
         if (object == priv->source_output) {
           priv->error = g_error_new_literal (G_IO_ERROR, G_IO_ERROR_CLOSED, "output disappeared");
-          stream_set_state (stream, PV_STREAM_STATE_ERROR);
+          stream_set_state (stream, PINOS_STREAM_STATE_ERROR);
         }
       }
       break;
@@ -199,24 +200,24 @@ subscription_cb (PvSubscribe         *subscribe,
 }
 
 static void
-pv_stream_constructed (GObject * object)
+pinos_stream_constructed (GObject * object)
 {
-  PvStream *stream = PV_STREAM (object);
-  PvStreamPrivate *priv = stream->priv;
+  PinosStream *stream = PINOS_STREAM (object);
+  PinosStreamPrivate *priv = stream->priv;
 
   priv->id = g_signal_connect (priv->context->priv->subscribe,
                     "subscription-event",
                     (GCallback) subscription_cb,
                     stream);
 
-  G_OBJECT_CLASS (pv_stream_parent_class)->constructed (object);
+  G_OBJECT_CLASS (pinos_stream_parent_class)->constructed (object);
 }
 
 static void
-pv_stream_finalize (GObject * object)
+pinos_stream_finalize (GObject * object)
 {
-  PvStream *stream = PV_STREAM (object);
-  PvStreamPrivate *priv = stream->priv;
+  PinosStream *stream = PINOS_STREAM (object);
+  PinosStreamPrivate *priv = stream->priv;
 
   g_clear_object (&priv->source_output);
 
@@ -237,23 +238,23 @@ pv_stream_finalize (GObject * object)
   g_clear_object (&priv->context);
   g_free (priv->name);
 
-  G_OBJECT_CLASS (pv_stream_parent_class)->finalize (object);
+  G_OBJECT_CLASS (pinos_stream_parent_class)->finalize (object);
 }
 
 static void
-pv_stream_class_init (PvStreamClass * klass)
+pinos_stream_class_init (PinosStreamClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
 
-  g_type_class_add_private (klass, sizeof (PvStreamPrivate));
+  g_type_class_add_private (klass, sizeof (PinosStreamPrivate));
 
-  gobject_class->constructed = pv_stream_constructed;
-  gobject_class->finalize = pv_stream_finalize;
-  gobject_class->set_property = pv_stream_set_property;
-  gobject_class->get_property = pv_stream_get_property;
+  gobject_class->constructed = pinos_stream_constructed;
+  gobject_class->finalize = pinos_stream_finalize;
+  gobject_class->set_property = pinos_stream_set_property;
+  gobject_class->get_property = pinos_stream_get_property;
 
   /**
-   * PvStream:context
+   * PinosStream:context
    *
    * The context of the stream.
    */
@@ -262,12 +263,12 @@ pv_stream_class_init (PvStreamClass * klass)
                                    g_param_spec_object ("context",
                                                         "Context",
                                                         "The context",
-                                                        PV_TYPE_CONTEXT,
+                                                        PINOS_TYPE_CONTEXT,
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_CONSTRUCT_ONLY |
                                                         G_PARAM_STATIC_STRINGS));
   /**
-   * PvStream:name
+   * PinosStream:name
    *
    * The name of the stream as specified at construction time.
    */
@@ -281,7 +282,7 @@ pv_stream_class_init (PvStreamClass * klass)
                                                         G_PARAM_CONSTRUCT_ONLY |
                                                         G_PARAM_STATIC_STRINGS));
   /**
-   * PvStream:properties
+   * PinosStream:properties
    *
    * The properties of the stream as specified at construction time.
    */
@@ -296,7 +297,7 @@ pv_stream_class_init (PvStreamClass * klass)
                                                          G_PARAM_CONSTRUCT_ONLY |
                                                          G_PARAM_STATIC_STRINGS));
   /**
-   * PvStream:state
+   * PinosStream:state
    *
    * The state of the stream. Use the notify::state signal to be notified
    * of state changes.
@@ -306,12 +307,12 @@ pv_stream_class_init (PvStreamClass * klass)
                                    g_param_spec_enum ("state",
                                                       "State",
                                                       "The stream state",
-                                                      PV_TYPE_STREAM_STATE,
-                                                      PV_STREAM_STATE_UNCONNECTED,
+                                                      PINOS_TYPE_STREAM_STATE,
+                                                      PINOS_STREAM_STATE_UNCONNECTED,
                                                       G_PARAM_READABLE |
                                                       G_PARAM_STATIC_STRINGS));
   /**
-   * PvStream:possible-formats
+   * PinosStream:possible-formats
    *
    * The possible formats for the stream. this can only be used after connecting
    * the stream for capture or provide.
@@ -325,7 +326,7 @@ pv_stream_class_init (PvStreamClass * klass)
                                                        G_PARAM_READABLE |
                                                        G_PARAM_STATIC_STRINGS));
   /**
-   * PvStream:formats
+   * PinosStream:formats
    *
    * The format of the stream. This will be set after starting the stream.
    */
@@ -338,10 +339,10 @@ pv_stream_class_init (PvStreamClass * klass)
                                                        G_PARAM_READABLE |
                                                        G_PARAM_STATIC_STRINGS));
   /**
-   * PvStream:socket
+   * PinosStream:socket
    *
-   * The socket of the stream. When doing pv_stream_start() with
-   * #PV_STREAM_MODE_SOCKET, the socket will contain a data stream with
+   * The socket of the stream. When doing pinos_stream_start() with
+   * #PINOS_STREAM_MODE_SOCKET, the socket will contain a data stream with
    * meta data and anciliary data containing fds with the data.
    */
   g_object_class_install_property (gobject_class,
@@ -355,11 +356,11 @@ pv_stream_class_init (PvStreamClass * klass)
 
 
   /**
-   * PvStream:new-buffer
+   * PinosStream:new-buffer
    *
-   * When doing pv_stream_start() with #PV_STREAM_MODE_BUFFER, this signal
+   * When doing pinos_stream_start() with #PINOS_STREAM_MODE_BUFFER, this signal
    * will be fired whenever a new buffer can be obtained with
-   * pv_stream_capture_buffer().
+   * pinos_stream_capture_buffer().
    */
   signals[SIGNAL_NEW_BUFFER] = g_signal_new ("new-buffer",
                                              G_TYPE_FROM_CLASS (klass),
@@ -374,77 +375,79 @@ pv_stream_class_init (PvStreamClass * klass)
 }
 
 static void
-pv_stream_init (PvStream * stream)
+pinos_stream_init (PinosStream * stream)
 {
-  PvStreamPrivate *priv = stream->priv = PV_STREAM_GET_PRIVATE (stream);
+  PinosStreamPrivate *priv = stream->priv = PINOS_STREAM_GET_PRIVATE (stream);
 
-  priv->state = PV_STREAM_STATE_UNCONNECTED;
+  priv->state = PINOS_STREAM_STATE_UNCONNECTED;
 }
 
 /**
- * pv_stream_new:
- * @context: a #PvContext
+ * pinos_stream_new:
+ * @context: a #PinosContext
  * @name: a stream name
  * @properties: stream properties
  *
- * Make a new unconnected #PvStream
+ * Make a new unconnected #PinosStream
  *
- * Returns: a new unconnected #PvStream
+ * Returns: a new unconnected #PinosStream
  */
-PvStream *
-pv_stream_new (PvContext * context, const gchar *name, GVariant *props)
+PinosStream *
+pinos_stream_new (PinosContext *context,
+                  const gchar  *name,
+                  GVariant     *props)
 {
-  g_return_val_if_fail (PV_IS_CONTEXT (context), NULL);
+  g_return_val_if_fail (PINOS_IS_CONTEXT (context), NULL);
   g_return_val_if_fail (name != NULL, NULL);
 
-  return g_object_new (PV_TYPE_STREAM, "context", context, "name", name, "properties", props, NULL);
+  return g_object_new (PINOS_TYPE_STREAM, "context", context, "name", name, "properties", props, NULL);
 }
 
 /**
- * pv_stream_get_state:
- * @stream: a #PvStream
+ * pinos_stream_get_state:
+ * @stream: a #PinosStream
  *
  * Get the state of @stream.
  *
  * Returns: the state of @stream
  */
-PvStreamState
-pv_stream_get_state (PvStream *stream)
+PinosStreamState
+pinos_stream_get_state (PinosStream *stream)
 {
-  g_return_val_if_fail (PV_IS_STREAM (stream), PV_STREAM_STATE_ERROR);
+  g_return_val_if_fail (PINOS_IS_STREAM (stream), PINOS_STREAM_STATE_ERROR);
 
   return stream->priv->state;
 }
 
 /**
- * pv_stream_get_error:
- * @stream: a #PvStream
+ * pinos_stream_get_error:
+ * @stream: a #PinosStream
  *
  * Get the error of @stream.
  *
  * Returns: the error of @stream or %NULL when there is no error
  */
 const GError *
-pv_stream_get_error (PvStream *stream)
+pinos_stream_get_error (PinosStream *stream)
 {
-  g_return_val_if_fail (PV_IS_STREAM (stream), NULL);
+  g_return_val_if_fail (PINOS_IS_STREAM (stream), NULL);
 
   return stream->priv->error;
 }
 
 static void
-on_source_output_proxy (GObject *source_object,
+on_source_output_proxy (GObject      *source_object,
                         GAsyncResult *res,
-                        gpointer user_data)
+                        gpointer      user_data)
 {
-  PvStream *stream = user_data;
-  PvStreamPrivate *priv = stream->priv;
-  PvContext *context = priv->context;
+  PinosStream *stream = user_data;
+  PinosStreamPrivate *priv = stream->priv;
+  PinosContext *context = priv->context;
   GVariant *v;
   gchar *str;
   GError *error = NULL;
 
-  priv->source_output = pv_subscribe_get_proxy_finish (context->priv->subscribe,
+  priv->source_output = pinos_subscribe_get_proxy_finish (context->priv->subscribe,
                                                        res,
                                                        &error);
   if (priv->source_output == NULL)
@@ -462,7 +465,7 @@ on_source_output_proxy (GObject *source_object,
     g_object_notify (G_OBJECT (stream), "possible-formats");
   }
 
-  stream_set_state (stream, PV_STREAM_STATE_READY);
+  stream_set_state (stream, PINOS_STREAM_STATE_READY);
   g_object_unref (stream);
 
   return;
@@ -470,7 +473,7 @@ on_source_output_proxy (GObject *source_object,
 source_output_failed:
   {
     priv->error = error;
-    stream_set_state (stream, PV_STREAM_STATE_ERROR);
+    stream_set_state (stream, PINOS_STREAM_STATE_ERROR);
     g_warning ("failed to get source output proxy: %s", error->message);
     g_object_unref (stream);
     return;
@@ -478,13 +481,13 @@ source_output_failed:
 }
 
 static void
-on_source_output_created (GObject *source_object,
+on_source_output_created (GObject      *source_object,
                           GAsyncResult *res,
-                          gpointer user_data)
+                          gpointer      user_data)
 {
-  PvStream *stream = user_data;
-  PvStreamPrivate *priv = stream->priv;
-  PvContext *context = priv->context;
+  PinosStream *stream = user_data;
+  PinosStreamPrivate *priv = stream->priv;
+  PinosContext *context = priv->context;
   GVariant *ret;
   GError *error = NULL;
   const gchar *source_output_path;
@@ -495,8 +498,8 @@ on_source_output_created (GObject *source_object,
 
   g_variant_get (ret, "(o)", &source_output_path);
 
-  pv_subscribe_get_proxy (context->priv->subscribe,
-                          PV_DBUS_SERVICE,
+  pinos_subscribe_get_proxy (context->priv->subscribe,
+                          PINOS_DBUS_SERVICE,
                           source_output_path,
                           "org.pinos.SourceOutput1",
                           NULL,
@@ -510,7 +513,7 @@ on_source_output_created (GObject *source_object,
 create_failed:
   {
     priv->error = error;
-    stream_set_state (stream, PV_STREAM_STATE_ERROR);
+    stream_set_state (stream, PINOS_STREAM_STATE_ERROR);
     g_warning ("failed to get connect capture: %s", error->message);
     g_object_unref (stream);
     return;
@@ -518,10 +521,10 @@ create_failed:
 }
 
 static gboolean
-do_connect_capture (PvStream *stream)
+do_connect_capture (PinosStream *stream)
 {
-  PvStreamPrivate *priv = stream->priv;
-  PvContext *context = priv->context;
+  PinosStreamPrivate *priv = stream->priv;
+  PinosContext *context = priv->context;
 
   g_dbus_proxy_call (context->priv->client,
                      "CreateSourceOutput",
@@ -538,10 +541,10 @@ do_connect_capture (PvStream *stream)
 }
 
 /**
- * pv_stream_connect_capture:
- * @stream: a #PvStream
+ * pinos_stream_connect_capture:
+ * @stream: a #PinosStream
  * @source: the source name to connect to
- * @flags: a #PvStreamFlags
+ * @flags: a #PinosStreamFlags
  * @spec: a #GVariant
  *
  * Connect @stream for capturing from @source.
@@ -549,20 +552,20 @@ do_connect_capture (PvStream *stream)
  * Returns: %TRUE on success.
  */
 gboolean
-pv_stream_connect_capture (PvStream      *stream,
-                           const gchar   *source,
-                           PvStreamFlags  flags,
-                           GBytes        *accepted_formats)
+pinos_stream_connect_capture (PinosStream      *stream,
+                              const gchar      *source,
+                              PinosStreamFlags  flags,
+                              GBytes           *accepted_formats)
 {
-  PvStreamPrivate *priv;
-  PvContext *context;
+  PinosStreamPrivate *priv;
+  PinosContext *context;
 
-  g_return_val_if_fail (PV_IS_STREAM (stream), FALSE);
+  g_return_val_if_fail (PINOS_IS_STREAM (stream), FALSE);
   g_return_val_if_fail (accepted_formats != NULL, FALSE);
 
   priv = stream->priv;
   context = priv->context;
-  g_return_val_if_fail (pv_context_get_state (context) == PV_CONTEXT_STATE_READY, FALSE);
+  g_return_val_if_fail (pinos_context_get_state (context) == PINOS_CONTEXT_STATE_READY, FALSE);
 
   g_free (priv->target);
   priv->target = g_strdup (source);
@@ -571,7 +574,7 @@ pv_stream_connect_capture (PvStream      *stream,
   priv->accepted_formats = g_bytes_ref (accepted_formats);
   priv->provide = FALSE;
 
-  stream_set_state (stream, PV_STREAM_STATE_CONNECTING);
+  stream_set_state (stream, PINOS_STREAM_STATE_CONNECTING);
 
   g_main_context_invoke (context->priv->context,
                          (GSourceFunc) do_connect_capture,
@@ -581,10 +584,10 @@ pv_stream_connect_capture (PvStream      *stream,
 }
 
 static gboolean
-do_connect_provide (PvStream *stream)
+do_connect_provide (PinosStream *stream)
 {
-  PvStreamPrivate *priv = stream->priv;
-  PvContext *context = priv->context;
+  PinosStreamPrivate *priv = stream->priv;
+  PinosContext *context = priv->context;
 
   g_dbus_proxy_call (context->priv->client,
                      "CreateSourceInput",
@@ -599,9 +602,9 @@ do_connect_provide (PvStream *stream)
 }
 
 /**
- * pv_stream_connect_provide:
- * @stream: a #PvStream
- * @flags: a #PvStreamFlags
+ * pinos_stream_connect_provide:
+ * @stream: a #PinosStream
+ * @flags: a #PinosStreamFlags
  * @spec: a #GVariant
  *
  * Connect @stream for providing data for a new source.
@@ -609,28 +612,28 @@ do_connect_provide (PvStream *stream)
  * Returns: %TRUE on success.
  */
 gboolean
-pv_stream_connect_provide (PvStream      *stream,
-                           PvStreamFlags  flags,
-                           GBytes        *possible_formats)
+pinos_stream_connect_provide (PinosStream      *stream,
+                              PinosStreamFlags  flags,
+                              GBytes           *possible_formats)
 {
-  PvStreamPrivate *priv;
-  PvContext *context;
+  PinosStreamPrivate *priv;
+  PinosContext *context;
 
-  g_return_val_if_fail (PV_IS_STREAM (stream), FALSE);
+  g_return_val_if_fail (PINOS_IS_STREAM (stream), FALSE);
   g_return_val_if_fail (possible_formats != NULL, FALSE);
 
   priv = stream->priv;
   context = priv->context;
-  g_return_val_if_fail (pv_context_get_state (context) == PV_CONTEXT_STATE_READY, FALSE);
+  g_return_val_if_fail (pinos_context_get_state (context) == PINOS_CONTEXT_STATE_READY, FALSE);
 
   if (priv->possible_formats)
     g_bytes_unref (priv->possible_formats);
   priv->possible_formats = g_bytes_ref (possible_formats);
   priv->provide = TRUE;
 
-  stream_set_state (stream, PV_STREAM_STATE_CONNECTING);
+  stream_set_state (stream, PINOS_STREAM_STATE_CONNECTING);
 
-  g_main_context_invoke (context->priv->context, 
+  g_main_context_invoke (context->priv->context,
                          (GSourceFunc) do_connect_provide,
                          g_object_ref (stream));
 
@@ -638,33 +641,33 @@ pv_stream_connect_provide (PvStream      *stream,
 }
 
 static void
-on_source_output_removed (GObject *source_object,
+on_source_output_removed (GObject      *source_object,
                           GAsyncResult *res,
-                          gpointer user_data)
+                          gpointer      user_data)
 {
-  PvStream *stream = user_data;
-  PvStreamPrivate *priv = stream->priv;
+  PinosStream *stream = user_data;
+  PinosStreamPrivate *priv = stream->priv;
   GVariant *ret;
   GError *error = NULL;
 
   ret = g_dbus_proxy_call_finish (priv->source_output, res, &error);
   if (ret == NULL) {
     priv->error = error;
-    stream_set_state (stream, PV_STREAM_STATE_ERROR);
+    stream_set_state (stream, PINOS_STREAM_STATE_ERROR);
     g_warning ("failed to disconnect: %s", error->message);
     g_object_unref (stream);
     return;
   }
   g_clear_object (&priv->source_output);
 
-  stream_set_state (stream, PV_STREAM_STATE_UNCONNECTED);
+  stream_set_state (stream, PINOS_STREAM_STATE_UNCONNECTED);
   g_object_unref (stream);
 }
 
 static gboolean
-do_disconnect (PvStream *stream)
+do_disconnect (PinosStream *stream)
 {
-  PvStreamPrivate *priv = stream->priv;
+  PinosStreamPrivate *priv = stream->priv;
 
   g_dbus_proxy_call (priv->source_output,
                      "Remove",
@@ -679,25 +682,25 @@ do_disconnect (PvStream *stream)
 }
 
 /**
- * pv_stream_disconnect:
- * @stream: a #PvStream
+ * pinos_stream_disconnect:
+ * @stream: a #PinosStream
  *
  * Disconnect @stream.
  *
  * Returns: %TRUE on success
  */
 gboolean
-pv_stream_disconnect (PvStream *stream)
+pinos_stream_disconnect (PinosStream *stream)
 {
-  PvStreamPrivate *priv;
-  PvContext *context;
+  PinosStreamPrivate *priv;
+  PinosContext *context;
 
-  g_return_val_if_fail (PV_IS_STREAM (stream), FALSE);
+  g_return_val_if_fail (PINOS_IS_STREAM (stream), FALSE);
   priv = stream->priv;
-  g_return_val_if_fail (priv->state >= PV_STREAM_STATE_READY, FALSE);
+  g_return_val_if_fail (priv->state >= PINOS_STREAM_STATE_READY, FALSE);
   g_return_val_if_fail (priv->source_output != NULL, FALSE);
   context = priv->context;
-  g_return_val_if_fail (pv_context_get_state (context) >= PV_CONTEXT_STATE_READY, FALSE);
+  g_return_val_if_fail (pinos_context_get_state (context) >= PINOS_CONTEXT_STATE_READY, FALSE);
 
   g_main_context_invoke (context->priv->context,
                          (GSourceFunc) do_disconnect,
@@ -709,12 +712,12 @@ pv_stream_disconnect (PvStream *stream)
 #include <gst/wire-protocol.h>
 
 static gboolean
-on_socket_condition (GSocket       *socket,
-                     GIOCondition   condition,
-                     gpointer       user_data)
+on_socket_condition (GSocket      *socket,
+                     GIOCondition  condition,
+                     gpointer      user_data)
 {
-  PvStream *stream = user_data;
-  PvStreamPrivate *priv = stream->priv;
+  PinosStream *stream = user_data;
+  PinosStreamPrivate *priv = stream->priv;
 
   switch (condition) {
     case G_IO_IN:
@@ -771,9 +774,9 @@ on_socket_condition (GSocket       *socket,
 
 
 static void
-handle_socket (PvStream *stream, gint fd)
+handle_socket (PinosStream *stream, gint fd)
 {
-  PvStreamPrivate *priv = stream->priv;
+  PinosStreamPrivate *priv = stream->priv;
   GError *error = NULL;
 
   priv->socket = g_socket_new_from_fd (fd, &error);
@@ -781,11 +784,11 @@ handle_socket (PvStream *stream, gint fd)
     goto socket_failed;
 
   switch (priv->mode) {
-    case PV_STREAM_MODE_SOCKET:
+    case PINOS_STREAM_MODE_SOCKET:
       g_object_notify (G_OBJECT (stream), "socket");
       break;
 
-    case PV_STREAM_MODE_BUFFER:
+    case PINOS_STREAM_MODE_BUFFER:
     {
       if (!priv->provide) {
         priv->socket_source = g_socket_create_source (priv->socket, G_IO_IN, NULL);
@@ -804,24 +807,24 @@ handle_socket (PvStream *stream, gint fd)
 socket_failed:
   {
     priv->error = error;
-    stream_set_state (stream, PV_STREAM_STATE_ERROR);
+    stream_set_state (stream, PINOS_STREAM_STATE_ERROR);
     g_warning ("failed to create socket: %s", error->message);
     return;
   }
 }
 
 static void
-unhandle_socket (PvStream *stream)
+unhandle_socket (PinosStream *stream)
 {
-  PvStreamPrivate *priv = stream->priv;
+  PinosStreamPrivate *priv = stream->priv;
 
   switch (priv->mode) {
-    case PV_STREAM_MODE_SOCKET:
+    case PINOS_STREAM_MODE_SOCKET:
       g_clear_object (&priv->socket);
       g_object_notify (G_OBJECT (stream), "socket");
       break;
 
-    case PV_STREAM_MODE_BUFFER:
+    case PINOS_STREAM_MODE_BUFFER:
       if (priv->socket_source) {
         g_source_destroy (priv->socket_source);
         g_clear_pointer (&priv->socket_source, g_source_unref);
@@ -834,12 +837,12 @@ unhandle_socket (PvStream *stream)
 }
 
 static void
-on_stream_started (GObject *source_object,
+on_stream_started (GObject      *source_object,
                    GAsyncResult *res,
-                   gpointer user_data)
+                   gpointer      user_data)
 {
-  PvStream *stream = user_data;
-  PvStreamPrivate *priv = stream->priv;
+  PinosStream *stream = user_data;
+  PinosStreamPrivate *priv = stream->priv;
   GUnixFDList *out_fd_list;
   gint fd_idx, fd;
   gchar *format;
@@ -871,7 +874,7 @@ on_stream_started (GObject *source_object,
 
   handle_socket (stream, fd);
 
-  stream_set_state (stream, PV_STREAM_STATE_STREAMING);
+  stream_set_state (stream, PINOS_STREAM_STATE_STREAMING);
 
   return;
 
@@ -889,15 +892,15 @@ fd_failed:
 exit_error:
   {
     priv->error = error;
-    stream_set_state (stream, PV_STREAM_STATE_ERROR);
+    stream_set_state (stream, PINOS_STREAM_STATE_ERROR);
     return;
   }
 }
 
 static gboolean
-do_start (PvStream *stream)
+do_start (PinosStream *stream)
 {
-  PvStreamPrivate *priv = stream->priv;
+  PinosStreamPrivate *priv = stream->priv;
 
   g_dbus_proxy_call (priv->source_output,
                      "Start",
@@ -912,35 +915,37 @@ do_start (PvStream *stream)
 }
 
 /**
- * pv_stream_start:
- * @stream: a #PvStream
- * @mode: a #PvStreamMode
+ * pinos_stream_start:
+ * @stream: a #PinosStream
+ * @mode: a #PinosStreamMode
  *
  * Start capturing from @stream.
  *
- * When @mode is #PV_STREAM_MODE_SOCKET, you should connect to the notify::socket
+ * When @mode is #PINOS_STREAM_MODE_SOCKET, you should connect to the notify::socket
  * signal to obtain a readable socket with metadata and data.
  *
- * When @mode is #PV_STREAM_MODE_BUFFER, you should connect to the new-buffer
- * signal and use pv_stream_capture_buffer() to get the latest metadata and
+ * When @mode is #PINOS_STREAM_MODE_BUFFER, you should connect to the new-buffer
+ * signal and use pinos_stream_capture_buffer() to get the latest metadata and
  * data.
  *
  * Returns: %TRUE on success.
  */
 gboolean
-pv_stream_start (PvStream *stream, GBytes *format, PvStreamMode mode)
+pinos_stream_start (PinosStream     *stream,
+                    GBytes          *format,
+                    PinosStreamMode  mode)
 {
-  PvStreamPrivate *priv;
+  PinosStreamPrivate *priv;
 
-  g_return_val_if_fail (PV_IS_STREAM (stream), FALSE);
+  g_return_val_if_fail (PINOS_IS_STREAM (stream), FALSE);
 
   priv = stream->priv;
-  g_return_val_if_fail (priv->state == PV_STREAM_STATE_READY, FALSE);
+  g_return_val_if_fail (priv->state == PINOS_STREAM_STATE_READY, FALSE);
 
   priv->mode = mode;
   priv->format = g_bytes_ref (format);
 
-  stream_set_state (stream, PV_STREAM_STATE_STARTING);
+  stream_set_state (stream, PINOS_STREAM_STATE_STARTING);
 
   g_main_context_invoke (priv->context->priv->context, (GSourceFunc) do_start, stream);
 
@@ -948,12 +953,12 @@ pv_stream_start (PvStream *stream, GBytes *format, PvStreamMode mode)
 }
 
 static void
-on_stream_stopped (GObject *source_object,
+on_stream_stopped (GObject      *source_object,
                    GAsyncResult *res,
-                   gpointer user_data)
+                   gpointer      user_data)
 {
-  PvStream *stream = user_data;
-  PvStreamPrivate *priv = stream->priv;
+  PinosStream *stream = user_data;
+  PinosStreamPrivate *priv = stream->priv;
   GVariant *ret;
   GError *error = NULL;
 
@@ -967,7 +972,7 @@ on_stream_stopped (GObject *source_object,
   g_clear_pointer (&priv->format, g_free);
   g_object_notify (G_OBJECT (stream), "format");
 
-  stream_set_state (stream, PV_STREAM_STATE_READY);
+  stream_set_state (stream, PINOS_STREAM_STATE_READY);
 
   return;
 
@@ -975,16 +980,16 @@ on_stream_stopped (GObject *source_object,
 call_failed:
   {
     priv->error = error;
-    stream_set_state (stream, PV_STREAM_STATE_ERROR);
+    stream_set_state (stream, PINOS_STREAM_STATE_ERROR);
     g_warning ("failed to release: %s", error->message);
     return;
   }
 }
 
 static gboolean
-do_stop (PvStream *stream)
+do_stop (PinosStream *stream)
 {
-  PvStreamPrivate *priv = stream->priv;
+  PinosStreamPrivate *priv = stream->priv;
 
   g_dbus_proxy_call (priv->source_output,
                      "Stop",
@@ -999,22 +1004,22 @@ do_stop (PvStream *stream)
   return FALSE;
 }
 /**
- * pv_stream_stop:
- * @stream: a #PvStream
+ * pinos_stream_stop:
+ * @stream: a #PinosStream
  *
  * Stop capturing from @stream.
  *
  * Returns: %TRUE on success.
  */
 gboolean
-pv_stream_stop (PvStream *stream)
+pinos_stream_stop (PinosStream *stream)
 {
-  PvStreamPrivate *priv;
+  PinosStreamPrivate *priv;
 
-  g_return_val_if_fail (PV_IS_STREAM (stream), FALSE);
+  g_return_val_if_fail (PINOS_IS_STREAM (stream), FALSE);
 
   priv = stream->priv;
-  g_return_val_if_fail (priv->state == PV_STREAM_STATE_STREAMING, FALSE);
+  g_return_val_if_fail (priv->state == PINOS_STREAM_STATE_STREAMING, FALSE);
 
   g_main_context_invoke (priv->context->priv->context, (GSourceFunc) do_stop, stream);
 
@@ -1022,9 +1027,9 @@ pv_stream_stop (PvStream *stream)
 }
 
 /**
- * pv_stream_capture_buffer:
- * @stream: a #PvStream
- * @info: a #PvBufferInfo
+ * pinos_stream_capture_buffer:
+ * @stream: a #PinosStream
+ * @info: a #PinosBufferInfo
  *
  * Capture the next buffer from @stream. This function should be called every
  * time after the new-buffer callback has been emitted.
@@ -1032,15 +1037,16 @@ pv_stream_stop (PvStream *stream)
  * Returns: %TRUE when @info contains valid information
  */
 gboolean
-pv_stream_capture_buffer (PvStream *stream, PvBufferInfo *info)
+pinos_stream_capture_buffer (PinosStream     *stream,
+                             PinosBufferInfo *info)
 {
-  PvStreamPrivate *priv;
+  PinosStreamPrivate *priv;
 
-  g_return_val_if_fail (PV_IS_STREAM (stream), FALSE);
+  g_return_val_if_fail (PINOS_IS_STREAM (stream), FALSE);
   g_return_val_if_fail (info != NULL, FALSE);
 
   priv = stream->priv;
-  g_return_val_if_fail (priv->state == PV_STREAM_STATE_STREAMING, FALSE);
+  g_return_val_if_fail (priv->state == PINOS_STREAM_STATE_STREAMING, FALSE);
 
   *info = priv->info;
 
@@ -1048,9 +1054,9 @@ pv_stream_capture_buffer (PvStream *stream, PvBufferInfo *info)
 }
 
 /**
- * pv_stream_provide_buffer:
- * @stream: a #PvStream
- * @info: a #PvBufferInfo
+ * pinos_stream_provide_buffer:
+ * @stream: a #PinosStream
+ * @info: a #PinosBufferInfo
  *
  * Provide the next buffer from @stream. This function should be called every
  * time a new frame becomes available.
@@ -1058,20 +1064,21 @@ pv_stream_capture_buffer (PvStream *stream, PvBufferInfo *info)
  * Returns: %TRUE when @info was handled
  */
 gboolean
-pv_stream_provide_buffer (PvStream *stream, PvBufferInfo *info)
+pinos_stream_provide_buffer (PinosStream     *stream,
+                             PinosBufferInfo *info)
 {
-  PvStreamPrivate *priv;
+  PinosStreamPrivate *priv;
   gssize len;
   GOutputVector ovec;
   FDMessage msg;
   gint flags = 0;
   GError *error = NULL;
 
-  g_return_val_if_fail (PV_IS_STREAM (stream), FALSE);
+  g_return_val_if_fail (PINOS_IS_STREAM (stream), FALSE);
   g_return_val_if_fail (info != NULL, FALSE);
 
   priv = stream->priv;
-  g_return_val_if_fail (priv->state == PV_STREAM_STATE_STREAMING, FALSE);
+  g_return_val_if_fail (priv->state == PINOS_STREAM_STATE_STREAMING, FALSE);
 
   msg.flags = info->flags;
   msg.seq = info->seq;
@@ -1107,7 +1114,7 @@ pv_stream_provide_buffer (PvStream *stream, PvBufferInfo *info)
 send_error:
   {
     priv->error = error;
-    stream_set_state (stream, PV_STREAM_STATE_ERROR);
+    stream_set_state (stream, PINOS_STREAM_STATE_ERROR);
     g_warning ("failed to send_message: %s", error->message);
     return FALSE;
   }

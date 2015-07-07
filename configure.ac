@@ -11,15 +11,15 @@ AS_IF([! test -n "$VERSION"], [
    AC_MSG_ERROR([git-version-gen failed])
 ])
 
-m4_define(pa_major, `echo $VERSION | cut -d. -f1 | cut -d- -f1`)
-m4_define(pa_minor, `echo $VERSION | cut -d. -f2 | cut -d- -f1`)
+m4_define(pinos_major, `echo $VERSION | cut -d. -f1 | cut -d- -f1`)
+m4_define(pinos_minor, `echo $VERSION | cut -d. -f2 | cut -d- -f1`)
 
-AC_SUBST(PV_MAJOR, pa_major)
-AC_SUBST(PV_MINOR, pa_minor)
-AC_SUBST(PV_MAJORMINOR, pa_major.pa_minor)
+AC_SUBST(PINOS_MAJOR, pinos_major)
+AC_SUBST(PINOS_MINOR, pinos_minor)
+AC_SUBST(PINOS_MAJORMINOR, pinos_major.pinos_minor)
 
-AC_SUBST(PV_API_VERSION, 0)
-AC_SUBST(PV_PROTOCOL_VERSION, 0)
+AC_SUBST(PINOS_API_VERSION, 0)
+AC_SUBST(PINOS_PROTOCOL_VERSION, 0)
 
 # The stable ABI for client applications, for the version info x:y:z
 # always will hold y=z

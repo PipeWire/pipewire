@@ -17,13 +17,12 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <gst/gst.h>
+
 #include "client/pinos.h"
 
-#include "gst/gstfdpay.h"
-#include "gst/gstfddepay.h"
-
 /**
- * pv_init:
+ * pinos_init:
  * @argc: pointer to argc
  * @argv: pointer to argv
  *
@@ -31,7 +30,7 @@
  * by @argc and @argv.
  */
 void
-pv_init (int *argc, char **argv[])
+pinos_init (int *argc, char **argv[])
 {
   gst_init (argc, argv);
 }

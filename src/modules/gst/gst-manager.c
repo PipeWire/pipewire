@@ -21,15 +21,15 @@
 #include <gst/gst.h>
 #include <gio/gio.h>
 
-#include "pv-gst-manager.h"
-#include "pv-gst-source.h"
+#include "gst-manager.h"
+#include "gst-source.h"
 
-#define PV_GST_MANAGER_GET_PRIVATE(obj)  \
-     (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PV_TYPE_GST_MANAGER, PvGstManagerPrivate))
+#define PINOS_GST_MANAGER_GET_PRIVATE(obj)  \
+     (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_GST_MANAGER, PinosGstManagerPrivate))
 
-struct _PvGstManagerPrivate
+struct _PinosGstManagerPrivate
 {
-  PvDaemon *daemon;
+  PinosDaemon *daemon;
 
   GstDeviceMonitor *monitor;
 };
@@ -40,43 +40,47 @@ enum
   PROP_DAEMON
 };
 
-G_DEFINE_TYPE (PvGstManager, pv_gst_manager, G_TYPE_OBJECT);
+G_DEFINE_TYPE (PinosGstManager, pinos_gst_manager, G_TYPE_OBJECT);
 
 static void
-device_added (PvGstManager *manager, GstDevice *device)
+device_added (PinosGstManager *manager,
+              GstDevice       *device)
 {
-  PvGstManagerPrivate *priv = manager->priv;
+  PinosGstManagerPrivate *priv = manager->priv;
   gchar *name;
   GstElement *element;
-  PvSource *source;
+  PinosSource *source;
 
   name = gst_device_get_display_name (device);
   g_print("Device added: %s\n", name);
 
   element = gst_device_create_element (device, NULL);
-  source = pv_gst_source_new (priv->daemon, name, element);
-  g_object_set_data (G_OBJECT (device), "PvSource", source);
+  source = pinos_gst_source_new (priv->daemon, name, element);
+  g_object_set_data (G_OBJECT (device), "PinosSource", source);
   g_free (name);
 }
 
 static void
-device_removed (PvGstManager *manager, GstDevice *device)
+device_removed (PinosGstManager *manager,
+                GstDevice       *device)
 {
   gchar *name;
-  PvSource *source;
+  PinosSource *source;
 
   name = gst_device_get_display_name (device);
   g_print("Device removed: %s\n", name);
-  source = g_object_steal_data (G_OBJECT (device), "PvSource");
+  source = g_object_steal_data (G_OBJECT (device), "PinosSource");
   g_object_unref (source);
   g_free (name);
 }
 
 static gboolean
-bus_handler (GstBus * bus, GstMessage * message, gpointer user_data)
+bus_handler (GstBus     *bus,
+             GstMessage *message,
+             gpointer    user_data)
 {
-  PvGstManager *manager = user_data;
-  PvGstManagerPrivate *priv = manager->priv;
+  PinosGstManager *manager = user_data;
+  PinosGstManagerPrivate *priv = manager->priv;
   GstDevice *device;
 
   switch (GST_MESSAGE_TYPE (message)) {
@@ -95,9 +99,9 @@ bus_handler (GstBus * bus, GstMessage * message, gpointer user_data)
 }
 
 static void
-start_monitor (PvGstManager *manager)
+start_monitor (PinosGstManager *manager)
 {
-  PvGstManagerPrivate *priv = manager->priv;
+  PinosGstManagerPrivate *priv = manager->priv;
   GstBus *bus;
   GList *devices;
 
@@ -122,9 +126,9 @@ start_monitor (PvGstManager *manager)
 }
 
 static void
-stop_monitor (PvGstManager *manager)
+stop_monitor (PinosGstManager *manager)
 {
-  PvGstManagerPrivate *priv = manager->priv;
+  PinosGstManagerPrivate *priv = manager->priv;
 
   if (priv->monitor) {
     gst_device_monitor_stop (priv->monitor);
@@ -134,13 +138,13 @@ stop_monitor (PvGstManager *manager)
 }
 
 static void
-pv_gst_manager_get_property (GObject    *object,
-                              guint       prop_id,
-                              GValue     *value,
-                              GParamSpec *pspec)
+pinos_gst_manager_get_property (GObject    *object,
+                                guint       prop_id,
+                                GValue     *value,
+                                GParamSpec *pspec)
 {
-  PvGstManager *manager = PV_GST_MANAGER (object);
-  PvGstManagerPrivate *priv = manager->priv;
+  PinosGstManager *manager = PINOS_GST_MANAGER (object);
+  PinosGstManagerPrivate *priv = manager->priv;
 
   switch (prop_id) {
     case PROP_DAEMON:
@@ -154,13 +158,13 @@ pv_gst_manager_get_property (GObject    *object,
 }
 
 static void
-pv_gst_manager_set_property (GObject      *object,
-                              guint         prop_id,
-                              const GValue *value,
-                              GParamSpec   *pspec)
+pinos_gst_manager_set_property (GObject      *object,
+                                guint         prop_id,
+                                const GValue *value,
+                                GParamSpec   *pspec)
 {
-  PvGstManager *manager = PV_GST_MANAGER (object);
-  PvGstManagerPrivate *priv = manager->priv;
+  PinosGstManager *manager = PINOS_GST_MANAGER (object);
+  PinosGstManagerPrivate *priv = manager->priv;
 
   switch (prop_id) {
     case PROP_DAEMON:
@@ -176,54 +180,54 @@ pv_gst_manager_set_property (GObject      *object,
 static void
 gst_manager_constructed (GObject * object)
 {
-  PvGstManager *manager = PV_GST_MANAGER (object);
+  PinosGstManager *manager = PINOS_GST_MANAGER (object);
 
   start_monitor (manager);
 
-  G_OBJECT_CLASS (pv_gst_manager_parent_class)->constructed (object);
+  G_OBJECT_CLASS (pinos_gst_manager_parent_class)->constructed (object);
 }
 
 static void
 gst_manager_finalize (GObject * object)
 {
-  PvGstManager *manager = PV_GST_MANAGER (object);
+  PinosGstManager *manager = PINOS_GST_MANAGER (object);
 
   stop_monitor (manager);
 
-  G_OBJECT_CLASS (pv_gst_manager_parent_class)->finalize (object);
+  G_OBJECT_CLASS (pinos_gst_manager_parent_class)->finalize (object);
 }
 
 static void
-pv_gst_manager_class_init (PvGstManagerClass * klass)
+pinos_gst_manager_class_init (PinosGstManagerClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
 
-  g_type_class_add_private (klass, sizeof (PvGstManagerPrivate));
+  g_type_class_add_private (klass, sizeof (PinosGstManagerPrivate));
 
   gobject_class->constructed = gst_manager_constructed;
   gobject_class->finalize = gst_manager_finalize;
-  gobject_class->set_property = pv_gst_manager_set_property;
-  gobject_class->get_property = pv_gst_manager_get_property;
+  gobject_class->set_property = pinos_gst_manager_set_property;
+  gobject_class->get_property = pinos_gst_manager_get_property;
 
   g_object_class_install_property (gobject_class,
                                    PROP_DAEMON,
                                    g_param_spec_object ("daemon",
                                                         "Daemon",
                                                         "The daemon",
-                                                        PV_TYPE_DAEMON,
+                                                        PINOS_TYPE_DAEMON,
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_CONSTRUCT_ONLY |
                                                         G_PARAM_STATIC_STRINGS));
 }
 
 static void
-pv_gst_manager_init (PvGstManager * manager)
+pinos_gst_manager_init (PinosGstManager * manager)
 {
-  manager->priv = PV_GST_MANAGER_GET_PRIVATE (manager);
+  manager->priv = PINOS_GST_MANAGER_GET_PRIVATE (manager);
 }
 
-PvGstManager *
-pv_gst_manager_new (PvDaemon *daemon)
+PinosGstManager *
+pinos_gst_manager_new (PinosDaemon *daemon)
 {
-  return g_object_new (PV_TYPE_GST_MANAGER, "daemon", daemon, NULL);
+  return g_object_new (PINOS_TYPE_GST_MANAGER, "daemon", daemon, NULL);
 }

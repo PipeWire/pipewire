@@ -19,35 +19,35 @@
 
 #include "client/pinos.h"
 
-#include "client/pv-context.h"
-#include "client/pv-enumtypes.h"
-#include "client/pv-subscribe.h"
+#include "client/context.h"
+#include "client/enumtypes.h"
+#include "client/subscribe.h"
 
-#include "client/pv-private.h"
+#include "client/private.h"
 
 /**
- * pv_context_list_source_info:
- * @context: a connected #PvContext
- * @flags: extra #PvSourceInfoFlags
- * @cb: a #PvSourceInfoCallback
+ * pinos_context_list_source_info:
+ * @context: a connected #PinosContext
+ * @flags: extra #PinosSourceInfoFlags
+ * @cb: a #PinosSourceInfoCallback
  * @cancelable: a #GCancellable
  * @user_data: user data passed to @cb
  *
  * Call @cb for each source.
  */
 void
-pv_context_list_source_info (PvContext *context,
-                             PvSourceInfoFlags flags,
-                             PvSourceInfoCallback cb,
-                             GCancellable *cancellable,
-                             gpointer user_data)
+pinos_context_list_source_info (PinosContext            *context,
+                                PinosSourceInfoFlags     flags,
+                                PinosSourceInfoCallback  cb,
+                                GCancellable            *cancellable,
+                                gpointer                 user_data)
 {
   GList *walk;
-  PvContextPrivate *priv = context->priv;
+  PinosContextPrivate *priv = context->priv;
 
   for (walk = priv->sources; walk; walk = g_list_next (walk)) {
     GDBusProxy *proxy = walk->data;
-    PvSourceInfo info;
+    PinosSourceInfo info;
 
     info.name = "gst";
 

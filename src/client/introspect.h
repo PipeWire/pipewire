@@ -17,39 +17,39 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __PV_INTROSPECT_H__
-#define __PV_INTROSPECT_H__
+#ifndef __PINOS_INTROSPECT_H__
+#define __PINOS_INTROSPECT_H__
 
 #include <gio/gio.h>
 #include <glib-object.h>
 
-#include <client/pv-context.h>
+#include <client/context.h>
 
 G_BEGIN_DECLS
 
 /**
- * PvSourceState:
- * @PV_SOURCE_STATE_ERROR: the source is in error
- * @PV_SOURCE_STATE_SUSPENDED: the source is suspended, the device might
+ * PinosSourceState:
+ * @PINOS_SOURCE_STATE_ERROR: the source is in error
+ * @PINOS_SOURCE_STATE_SUSPENDED: the source is suspended, the device might
  *                             be closed
- * @PV_SOURCE_STATE_INIT: the source is initializing, it opens the device
+ * @PINOS_SOURCE_STATE_INIT: the source is initializing, it opens the device
  *                        and gets the device capabilities
- * @PV_SOURCE_STATE_IDLE: the source is running but there is no active
+ * @PINOS_SOURCE_STATE_IDLE: the source is running but there is no active
  *                        source-output
- * @PV_SOURCE_STATE_RUNNING: the source is running.
+ * @PINOS_SOURCE_STATE_RUNNING: the source is running.
  *
  * The different source states
  */
 typedef enum {
-  PV_SOURCE_STATE_ERROR = 0,
-  PV_SOURCE_STATE_SUSPENDED = 1,
-  PV_SOURCE_STATE_INIT = 2,
-  PV_SOURCE_STATE_IDLE = 3,
-  PV_SOURCE_STATE_RUNNING = 4,
-} PvSourceState;
+  PINOS_SOURCE_STATE_ERROR = 0,
+  PINOS_SOURCE_STATE_SUSPENDED = 1,
+  PINOS_SOURCE_STATE_INIT = 2,
+  PINOS_SOURCE_STATE_IDLE = 3,
+  PINOS_SOURCE_STATE_RUNNING = 4,
+} PinosSourceState;
 
 /**
- * PvSourceInfo:
+ * PinosSourceInfo:
  * @name: the name of the source
  * @properties: the properties of the source
  * @state: the current state of the source
@@ -60,31 +60,31 @@ typedef enum {
 typedef struct {
   const char *name;
   GVariant *properties;
-  PvSourceState state;
+  PinosSourceState state;
   GBytes *formats;
-} PvSourceInfo;
+} PinosSourceInfo;
 
 /**
- * PvSourceInfoFlags:
- * @PV_SOURCE_INFO_FLAGS_NONE: no flags
- * @PV_SOURCE_INFO_FLAGS_FORMATS: include formats
+ * PinosSourceInfoFlags:
+ * @PINOS_SOURCE_INFO_FLAGS_NONE: no flags
+ * @PINOS_SOURCE_INFO_FLAGS_FORMATS: include formats
  *
- * Extra flags to pass to pv_context_get_source_info_list.
+ * Extra flags to pass to pinos_context_get_source_info_list.
  */
 typedef enum {
-  PV_SOURCE_INFO_FLAGS_NONE            = 0,
-  PV_SOURCE_INFO_FLAGS_FORMATS         = (1 << 0)
-} PvSourceInfoFlags;
+  PINOS_SOURCE_INFO_FLAGS_NONE            = 0,
+  PINOS_SOURCE_INFO_FLAGS_FORMATS         = (1 << 0)
+} PinosSourceInfoFlags;
 
-typedef gboolean (*PvSourceInfoCallback)  (PvContext *c, const PvSourceInfo *info, gpointer userdata);
+typedef gboolean (*PinosSourceInfoCallback)  (PinosContext *c, const PinosSourceInfo *info, gpointer userdata);
 
-void            pv_context_list_source_info        (PvContext *context,
-                                                    PvSourceInfoFlags flags,
-                                                    PvSourceInfoCallback cb,
+void            pinos_context_list_source_info     (PinosContext *context,
+                                                    PinosSourceInfoFlags flags,
+                                                    PinosSourceInfoCallback cb,
                                                     GCancellable *cancellable,
                                                     gpointer user_data);
 
 G_END_DECLS
 
-#endif /* __PV_INTROSPECT_H__ */
+#endif /* __PINOS_INTROSPECT_H__ */
 

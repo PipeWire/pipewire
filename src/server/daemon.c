@@ -23,15 +23,15 @@
 
 #include "client/pinos.h"
 
-#include "server/pv-daemon.h"
-#include "server/pv-client.h"
+#include "server/daemon.h"
+#include "server/client.h"
 
 #include "dbus/org-pinos.h"
 
-#define PV_DAEMON_GET_PRIVATE(obj)  \
-   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PV_TYPE_DAEMON, PvDaemonPrivate))
+#define PINOS_DAEMON_GET_PRIVATE(obj)  \
+   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_DAEMON, PinosDaemonPrivate))
 
-struct _PvDaemonPrivate
+struct _PinosDaemonPrivate
 {
   guint id;
   GDBusConnection *connection;
@@ -45,18 +45,18 @@ struct _PvDaemonPrivate
 typedef struct {
   guint id;
   gchar *sender;
-  PvDaemon *daemon;
+  PinosDaemon *daemon;
   GList *objects;
 } SenderData;
 
 static void
 client_name_appeared_handler (GDBusConnection *connection,
-                              const gchar *name,
-                              const gchar *name_owner,
-                              gpointer user_data)
+                              const gchar     *name,
+                              const gchar     *name_owner,
+                              gpointer         user_data)
 {
   SenderData *data = user_data;
-  PvDaemonPrivate *priv = data->daemon->priv;
+  PinosDaemonPrivate *priv = data->daemon->priv;
 
   g_hash_table_insert (priv->senders, data->sender, data);
 
@@ -66,8 +66,8 @@ client_name_appeared_handler (GDBusConnection *connection,
 
 static void
 client_name_vanished_handler (GDBusConnection *connection,
-                              const gchar *name,
-                              gpointer user_data)
+                              const gchar     *name,
+                              gpointer         user_data)
 {
   SenderData *data = user_data;
 
@@ -84,9 +84,10 @@ data_free (SenderData *data)
 }
 
 static SenderData *
-sender_data_new (PvDaemon *daemon, const gchar *sender)
+sender_data_new (PinosDaemon *daemon,
+                 const gchar *sender)
 {
-  PvDaemonPrivate *priv = daemon->priv;
+  PinosDaemonPrivate *priv = daemon->priv;
   SenderData *data;
 
   data = g_new0 (SenderData, 1);
@@ -106,15 +107,15 @@ sender_data_new (PvDaemon *daemon, const gchar *sender)
 }
 
 static void
-handle_disconnect_client (PvClient *client,
-                          gpointer  user_data)
+handle_disconnect_client (PinosClient *client,
+                          gpointer     user_data)
 {
-  PvDaemon *daemon = user_data;
-  PvDaemonPrivate *priv = daemon->priv;
+  PinosDaemon *daemon = user_data;
+  PinosDaemonPrivate *priv = daemon->priv;
   const gchar *sender;
   SenderData *data;
 
-  sender = pv_client_get_sender (client);
+  sender = pinos_client_get_sender (client);
 
   data = g_hash_table_lookup (priv->senders, sender);
   if (data == NULL)
@@ -125,23 +126,23 @@ handle_disconnect_client (PvClient *client,
 }
 
 static gboolean
-handle_connect_client (PvDaemon1              *interface,
+handle_connect_client (PinosDaemon1           *interface,
                        GDBusMethodInvocation  *invocation,
                        GVariant               *arg_properties,
                        gpointer                user_data)
 {
-  PvDaemon *daemon = user_data;
-  PvClient *client;
+  PinosDaemon *daemon = user_data;
+  PinosClient *client;
   const gchar *sender, *object_path;
 
   sender = g_dbus_method_invocation_get_sender (invocation);
 
-  client = pv_client_new (daemon, sender, PV_DBUS_OBJECT_PREFIX, arg_properties);
+  client = pinos_client_new (daemon, sender, PINOS_DBUS_OBJECT_PREFIX, arg_properties);
   g_signal_connect (client, "disconnect", (GCallback) handle_disconnect_client, daemon);
 
-  pv_daemon_track_object (daemon, sender, G_OBJECT (client));
+  pinos_daemon_track_object (daemon, sender, G_OBJECT (client));
 
-  object_path = pv_client_get_object_path (client);
+  object_path = pinos_client_get_object_path (client);
   g_dbus_method_invocation_return_value (invocation,
                                          g_variant_new ("(o)", object_path));
 
@@ -149,21 +150,22 @@ handle_connect_client (PvDaemon1              *interface,
 }
 
 static void
-export_server_object (PvDaemon *daemon, GDBusObjectManagerServer *manager)
+export_server_object (PinosDaemon              *daemon,
+                      GDBusObjectManagerServer *manager)
 {
-  PvObjectSkeleton *skel;
+  PinosObjectSkeleton *skel;
 
-  skel = pv_object_skeleton_new (PV_DBUS_OBJECT_SERVER);
+  skel = pinos_object_skeleton_new (PINOS_DBUS_OBJECT_SERVER);
   {
-    PvDaemon1 *iface;
+    PinosDaemon1 *iface;
 
-    iface = pv_daemon1_skeleton_new ();
+    iface = pinos_daemon1_skeleton_new ();
     g_signal_connect (iface, "handle-connect-client", (GCallback) handle_connect_client, daemon);
-    pv_daemon1_set_user_name (iface, g_get_user_name ());
-    pv_daemon1_set_host_name (iface, g_get_host_name ());
-    pv_daemon1_set_version (iface, PACKAGE_VERSION);
-    pv_daemon1_set_name (iface, PACKAGE_NAME);
-    pv_object_skeleton_set_daemon1 (skel, iface);
+    pinos_daemon1_set_user_name (iface, g_get_user_name ());
+    pinos_daemon1_set_host_name (iface, g_get_host_name ());
+    pinos_daemon1_set_version (iface, PACKAGE_VERSION);
+    pinos_daemon1_set_name (iface, PACKAGE_NAME);
+    pinos_object_skeleton_set_daemon1 (skel, iface);
     g_object_unref (iface);
   }
   g_dbus_object_manager_server_export (manager, G_DBUS_OBJECT_SKELETON (skel));
@@ -172,11 +174,11 @@ export_server_object (PvDaemon *daemon, GDBusObjectManagerServer *manager)
 
 static void
 bus_acquired_handler (GDBusConnection *connection,
-                      const gchar *name,
-                      gpointer user_data)
+                      const gchar     *name,
+                      gpointer         user_data)
 {
-  PvDaemon *daemon = user_data;
-  PvDaemonPrivate *priv = daemon->priv;
+  PinosDaemon *daemon = user_data;
+  PinosDaemonPrivate *priv = daemon->priv;
   GDBusObjectManagerServer *manager = priv->server_manager;
 
   priv->connection = connection;
@@ -188,56 +190,56 @@ bus_acquired_handler (GDBusConnection *connection,
 
 static void
 name_acquired_handler (GDBusConnection *connection,
-                       const gchar *name,
-                       gpointer user_data)
+                       const gchar     *name,
+                       gpointer         user_data)
 {
 }
 
 static void
 name_lost_handler (GDBusConnection *connection,
-                   const gchar *name,
-                   gpointer user_data)
+                   const gchar     *name,
+                   gpointer         user_data)
 {
-  PvDaemon *daemon = user_data;
-  PvDaemonPrivate *priv = daemon->priv;
+  PinosDaemon *daemon = user_data;
+  PinosDaemonPrivate *priv = daemon->priv;
   GDBusObjectManagerServer *manager = priv->server_manager;
 
-  g_dbus_object_manager_server_unexport (manager, PV_DBUS_OBJECT_SERVER);
+  g_dbus_object_manager_server_unexport (manager, PINOS_DBUS_OBJECT_SERVER);
   g_dbus_object_manager_server_set_connection (manager, connection);
   priv->connection = connection;
 }
 
 /**
- * pv_daemon_new:
+ * pinos_daemon_new:
  *
- * Make a new #PvDaemon object
+ * Make a new #PinosDaemon object
  *
- * Returns: a new #PvDaemon
+ * Returns: a new #PinosDaemon
  */
-PvDaemon *
-pv_daemon_new (void)
+PinosDaemon *
+pinos_daemon_new (void)
 {
-  return g_object_new (PV_TYPE_DAEMON, NULL);
+  return g_object_new (PINOS_TYPE_DAEMON, NULL);
 }
 
 /**
- * pv_daemon_start:
- * @daemon: a #PvDaemon
+ * pinos_daemon_start:
+ * @daemon: a #PinosDaemon
  *
  * Start the @daemon.
  */
 void
-pv_daemon_start (PvDaemon *daemon)
+pinos_daemon_start (PinosDaemon *daemon)
 {
-  PvDaemonPrivate *priv;
+  PinosDaemonPrivate *priv;
 
-  g_return_if_fail (PV_IS_DAEMON (daemon));
+  g_return_if_fail (PINOS_IS_DAEMON (daemon));
 
   priv = daemon->priv;
   g_return_if_fail (priv->id == 0);
 
   priv->id = g_bus_own_name (G_BUS_TYPE_SESSION,
-                             PV_DBUS_SERVICE,
+                             PINOS_DBUS_SERVICE,
                              G_BUS_NAME_OWNER_FLAGS_REPLACE,
                              bus_acquired_handler,
                              name_acquired_handler,
@@ -247,17 +249,17 @@ pv_daemon_start (PvDaemon *daemon)
 }
 
 /**
- * pv_daemon_stop:
- * @daemon: a #PvDaemon
+ * pinos_daemon_stop:
+ * @daemon: a #PinosDaemon
  *
  * Stop the @daemon.
  */
 void
-pv_daemon_stop (PvDaemon *daemon)
+pinos_daemon_stop (PinosDaemon *daemon)
 {
-  PvDaemonPrivate *priv = daemon->priv;
+  PinosDaemonPrivate *priv = daemon->priv;
 
-  g_return_if_fail (PV_IS_DAEMON (daemon));
+  g_return_if_fail (PINOS_IS_DAEMON (daemon));
 
   if (priv->id != 0) {
     g_bus_unown_name (priv->id);
@@ -266,8 +268,8 @@ pv_daemon_stop (PvDaemon *daemon)
 }
 
 /**
- * pv_daemon_export_uniquely:
- * @daemon: a #PvDaemon
+ * pinos_daemon_export_uniquely:
+ * @daemon: a #PinosDaemon
  * @skel: a #GDBusObjectSkeleton
  *
  * Export @skel with @daemon with a unique name
@@ -275,9 +277,10 @@ pv_daemon_stop (PvDaemon *daemon)
  * Returns: the unique named used to export @skel.
  */
 gchar *
-pv_daemon_export_uniquely (PvDaemon *daemon, GDBusObjectSkeleton *skel)
+pinos_daemon_export_uniquely (PinosDaemon         *daemon,
+                              GDBusObjectSkeleton *skel)
 {
-  g_return_val_if_fail (PV_IS_DAEMON (daemon), NULL);
+  g_return_val_if_fail (PINOS_IS_DAEMON (daemon), NULL);
   g_return_val_if_fail (G_IS_DBUS_OBJECT_SKELETON (skel), NULL);
 
   g_dbus_object_manager_server_export_uniquely (daemon->priv->server_manager, skel);
@@ -286,30 +289,31 @@ pv_daemon_export_uniquely (PvDaemon *daemon, GDBusObjectSkeleton *skel)
 }
 
 /**
- * pv_daemon_unexport:
- * @daemon: a #PvDaemon
+ * pinos_daemon_unexport:
+ * @daemon: a #PinosDaemon
  * @object_path: an object path
  *
  * Unexport the object on @object_path
  */
 void
-pv_daemon_unexport (PvDaemon *daemon, const gchar *object_path)
+pinos_daemon_unexport (PinosDaemon *daemon,
+                       const gchar *object_path)
 {
-  g_return_if_fail (PV_IS_DAEMON (daemon));
+  g_return_if_fail (PINOS_IS_DAEMON (daemon));
   g_return_if_fail (g_variant_is_object_path (object_path));
 
   g_dbus_object_manager_server_unexport (daemon->priv->server_manager, object_path);
 }
 
 void
-pv_daemon_track_object (PvDaemon    *daemon,
-                        const gchar *sender,
-                        GObject     *object)
+pinos_daemon_track_object (PinosDaemon *daemon,
+                          const gchar  *sender,
+                          GObject      *object)
 {
-  PvDaemonPrivate *priv;
+  PinosDaemonPrivate *priv;
   SenderData *data;
 
-  g_return_if_fail (PV_IS_DAEMON (daemon));
+  g_return_if_fail (PINOS_IS_DAEMON (daemon));
   g_return_if_fail (sender != NULL);
   g_return_if_fail (G_IS_OBJECT (object));
 
@@ -323,51 +327,53 @@ pv_daemon_track_object (PvDaemon    *daemon,
 }
 
 void
-pv_daemon_add_source (PvDaemon *daemon, PvSource *source)
+pinos_daemon_add_source (PinosDaemon *daemon,
+                         PinosSource *source)
 {
-  PvDaemonPrivate *priv;
+  PinosDaemonPrivate *priv;
 
-  g_return_if_fail (PV_IS_DAEMON (daemon));
-  g_return_if_fail (PV_IS_SOURCE (source));
+  g_return_if_fail (PINOS_IS_DAEMON (daemon));
+  g_return_if_fail (PINOS_IS_SOURCE (source));
   priv = daemon->priv;
 
   priv->sources = g_list_prepend (priv->sources, source);
 }
 
 void
-pv_daemon_remove_source (PvDaemon *daemon, PvSource *source)
+pinos_daemon_remove_source (PinosDaemon *daemon,
+                            PinosSource *source)
 {
-  PvDaemonPrivate *priv;
+  PinosDaemonPrivate *priv;
 
-  g_return_if_fail (PV_IS_DAEMON (daemon));
-  g_return_if_fail (PV_IS_SOURCE (source));
+  g_return_if_fail (PINOS_IS_DAEMON (daemon));
+  g_return_if_fail (PINOS_IS_SOURCE (source));
   priv = daemon->priv;
 
   priv->sources = g_list_remove (priv->sources, source);
 }
 
-PvSource *
-pv_daemon_find_source (PvDaemon    *daemon,
-                       const gchar *name,
-                       GVariant    *props,
-                       GBytes      *format_filter,
-                       GError      **error)
+PinosSource *
+pinos_daemon_find_source (PinosDaemon *daemon,
+                          const gchar *name,
+                          GVariant    *props,
+                          GBytes      *format_filter,
+                          GError      **error)
 {
-  PvDaemonPrivate *priv;
-  PvSource *best = NULL;
+  PinosDaemonPrivate *priv;
+  PinosSource *best = NULL;
   GList *walk;
 
-  g_return_val_if_fail (PV_IS_DAEMON (daemon), NULL);
+  g_return_val_if_fail (PINOS_IS_DAEMON (daemon), NULL);
   priv = daemon->priv;
 
   for (walk = priv->sources; walk; walk = g_list_next (walk)) {
-    PvSource *s = walk->data;
+    PinosSource *s = walk->data;
 
     if (name == NULL) {
       best = s;
       break;
     }
-    else if (g_str_has_suffix (pv_source_get_object_path (s), name))
+    else if (g_str_has_suffix (pinos_source_get_object_path (s), name))
       best = s;
   }
 
@@ -380,46 +386,46 @@ pv_daemon_find_source (PvDaemon    *daemon,
   return best;
 }
 
-G_DEFINE_TYPE (PvDaemon, pv_daemon, G_TYPE_OBJECT);
+G_DEFINE_TYPE (PinosDaemon, pinos_daemon, G_TYPE_OBJECT);
 
 static void
-pv_daemon_dispose (GObject * object)
+pinos_daemon_dispose (GObject * object)
 {
-  PvDaemon *daemon = PV_DAEMON_CAST (object);
+  PinosDaemon *daemon = PINOS_DAEMON_CAST (object);
 
-  pv_daemon_stop (daemon);
+  pinos_daemon_stop (daemon);
 
-  G_OBJECT_CLASS (pv_daemon_parent_class)->dispose (object);
+  G_OBJECT_CLASS (pinos_daemon_parent_class)->dispose (object);
 }
 
 static void
-pv_daemon_finalize (GObject * object)
+pinos_daemon_finalize (GObject * object)
 {
-  PvDaemon *daemon = PV_DAEMON_CAST (object);
-  PvDaemonPrivate *priv = daemon->priv;
+  PinosDaemon *daemon = PINOS_DAEMON_CAST (object);
+  PinosDaemonPrivate *priv = daemon->priv;
 
   g_clear_object (&priv->server_manager);
 
-  G_OBJECT_CLASS (pv_daemon_parent_class)->finalize (object);
+  G_OBJECT_CLASS (pinos_daemon_parent_class)->finalize (object);
 }
 
 static void
-pv_daemon_class_init (PvDaemonClass * klass)
+pinos_daemon_class_init (PinosDaemonClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
 
-  g_type_class_add_private (klass, sizeof (PvDaemonPrivate));
+  g_type_class_add_private (klass, sizeof (PinosDaemonPrivate));
 
-  gobject_class->dispose = pv_daemon_dispose;
-  gobject_class->finalize = pv_daemon_finalize;
+  gobject_class->dispose = pinos_daemon_dispose;
+  gobject_class->finalize = pinos_daemon_finalize;
 }
 
 static void
-pv_daemon_init (PvDaemon * daemon)
+pinos_daemon_init (PinosDaemon * daemon)
 {
-  PvDaemonPrivate *priv = daemon->priv = PV_DAEMON_GET_PRIVATE (daemon);
+  PinosDaemonPrivate *priv = daemon->priv = PINOS_DAEMON_GET_PRIVATE (daemon);
 
-  priv->server_manager = g_dbus_object_manager_server_new (PV_DBUS_OBJECT_PREFIX);
+  priv->server_manager = g_dbus_object_manager_server_new (PINOS_DBUS_OBJECT_PREFIX);
   priv->senders = g_hash_table_new (g_str_hash, g_str_equal);
 }
 

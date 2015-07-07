@@ -20,33 +20,33 @@
 #include <gio/gio.h>
 
 #include "client/pinos.h"
-#include "client/pv-enumtypes.h"
+#include "client/enumtypes.h"
 
-#include "server/pv-source.h"
-#include "server/pv-daemon.h"
+#include "server/source.h"
+#include "server/daemon.h"
 
 #include "dbus/org-pinos.h"
 
 
-#define PV_SOURCE_GET_PRIVATE(obj)  \
-   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PV_TYPE_SOURCE, PvSourcePrivate))
+#define PINOS_SOURCE_GET_PRIVATE(obj)  \
+   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_SOURCE, PinosSourcePrivate))
 
-struct _PvSourcePrivate
+struct _PinosSourcePrivate
 {
-  PvDaemon *daemon;
-  PvSource1 *iface;
+  PinosDaemon *daemon;
+  PinosSource1 *iface;
   gchar *object_path;
 
   gchar *name;
   GVariant *properties;
 
-  PvSourceState state;
+  PinosSourceState state;
   GError *error;
 
   GList *outputs;
 };
 
-G_DEFINE_ABSTRACT_TYPE (PvSource, pv_source, G_TYPE_OBJECT);
+G_DEFINE_ABSTRACT_TYPE (PinosSource, pinos_source, G_TYPE_OBJECT);
 
 enum
 {
@@ -59,13 +59,13 @@ enum
 };
 
 static void
-pv_source_get_property (GObject    *_object,
-                        guint       prop_id,
-                        GValue     *value,
-                        GParamSpec *pspec)
+pinos_source_get_property (GObject    *_object,
+                           guint       prop_id,
+                           GValue     *value,
+                           GParamSpec *pspec)
 {
-  PvSource *source = PV_SOURCE (_object);
-  PvSourcePrivate *priv = source->priv;
+  PinosSource *source = PINOS_SOURCE (_object);
+  PinosSourcePrivate *priv = source->priv;
 
   switch (prop_id) {
     case PROP_DAEMON:
@@ -95,13 +95,13 @@ pv_source_get_property (GObject    *_object,
 }
 
 static void
-pv_source_set_property (GObject      *_object,
-                        guint         prop_id,
-                        const GValue *value,
-                        GParamSpec   *pspec)
+pinos_source_set_property (GObject      *_object,
+                           guint         prop_id,
+                           const GValue *value,
+                           GParamSpec   *pspec)
 {
-  PvSource *source = PV_SOURCE (_object);
-  PvSourcePrivate *priv = source->priv;
+  PinosSource *source = PINOS_SOURCE (_object);
+  PinosSourcePrivate *priv = source->priv;
 
   switch (prop_id) {
     case PROP_DAEMON:
@@ -131,124 +131,130 @@ pv_source_set_property (GObject      *_object,
 }
 
 static void
-source_register_object (PvSource *source)
+source_register_object (PinosSource *source)
 {
-  PvSourcePrivate *priv = source->priv;
-  PvDaemon *daemon = priv->daemon;
-  PvObjectSkeleton *skel;
+  PinosSourcePrivate *priv = source->priv;
+  PinosDaemon *daemon = priv->daemon;
+  PinosObjectSkeleton *skel;
 
-  skel = pv_object_skeleton_new (PV_DBUS_OBJECT_SOURCE);
+  skel = pinos_object_skeleton_new (PINOS_DBUS_OBJECT_SOURCE);
 
-  priv->iface = pv_source1_skeleton_new ();
+  priv->iface = pinos_source1_skeleton_new ();
   g_object_set (priv->iface, "name", priv->name,
                              "state", priv->state,
                              "properties", priv->properties,
                              NULL);
-  pv_object_skeleton_set_source1 (skel, priv->iface);
+  pinos_object_skeleton_set_source1 (skel, priv->iface);
 
   g_free (priv->object_path);
-  priv->object_path = pv_daemon_export_uniquely (daemon, G_DBUS_OBJECT_SKELETON (skel));
-  pv_daemon_add_source (daemon, source);
+  priv->object_path = pinos_daemon_export_uniquely (daemon, G_DBUS_OBJECT_SKELETON (skel));
+  pinos_daemon_add_source (daemon, source);
 
   return;
 }
 
 static void
-source_unregister_object (PvSource *source)
+source_unregister_object (PinosSource *source)
 {
-  PvSourcePrivate *priv = source->priv;
+  PinosSourcePrivate *priv = source->priv;
 
-  pv_daemon_remove_source (priv->daemon, source);
-  pv_daemon_unexport (priv->daemon, priv->object_path);
+  pinos_daemon_remove_source (priv->daemon, source);
+  pinos_daemon_unexport (priv->daemon, priv->object_path);
   g_clear_object (&priv->iface);
 }
 
 static void
-pv_source_constructed (GObject * object)
+pinos_source_constructed (GObject * object)
 {
-  PvSource *source = PV_SOURCE (object);
+  PinosSource *source = PINOS_SOURCE (object);
 
   source_register_object (source);
 
-  G_OBJECT_CLASS (pv_source_parent_class)->constructed (object);
+  G_OBJECT_CLASS (pinos_source_parent_class)->constructed (object);
 }
 
 static void
-do_remove_output (PvSourceOutput *output,
+do_remove_output (PinosSourceOutput *output,
                   gpointer        user_data)
 {
-  pv_source_output_remove (output);
+  pinos_source_output_remove (output);
 }
 
 static void
-pv_source_dispose (GObject * object)
+pinos_source_dispose (GObject * object)
 {
-  PvSource *source = PV_SOURCE (object);
-  PvSourcePrivate *priv = source->priv;
+  PinosSource *source = PINOS_SOURCE (object);
+  PinosSourcePrivate *priv = source->priv;
 
   g_list_foreach (priv->outputs, (GFunc) do_remove_output, source);
   source_unregister_object (source);
 
-  G_OBJECT_CLASS (pv_source_parent_class)->dispose (object);
+  G_OBJECT_CLASS (pinos_source_parent_class)->dispose (object);
 }
 
 static void
-pv_source_finalize (GObject * object)
+pinos_source_finalize (GObject * object)
 {
-  PvSource *source = PV_SOURCE (object);
-  PvSourcePrivate *priv = source->priv;
+  PinosSource *source = PINOS_SOURCE (object);
+  PinosSourcePrivate *priv = source->priv;
 
   g_free (priv->object_path);
   g_free (priv->name);
   if (priv->properties)
     g_variant_unref (priv->properties);
 
-  G_OBJECT_CLASS (pv_source_parent_class)->finalize (object);
+  G_OBJECT_CLASS (pinos_source_parent_class)->finalize (object);
 }
 
 static gboolean
-default_set_state (PvSource *source, PvSourceState state)
+default_set_state (PinosSource      *source,
+                   PinosSourceState  state)
 {
-  pv_source_update_state (source, state);
+  pinos_source_update_state (source, state);
   return TRUE;
 }
 
 static void
-handle_remove_output (PvSourceOutput *output,
-                      gpointer        user_data)
+handle_remove_output (PinosSourceOutput *output,
+                      gpointer           user_data)
 {
-  PvSource *source = user_data;
+  PinosSource *source = user_data;
 
-  pv_source_release_source_output (source, output);
+  pinos_source_release_source_output (source, output);
 }
 
-static PvSourceOutput *
-default_create_source_output (PvSource    *source,
+static PinosSourceOutput *
+default_create_source_output (PinosSource *source,
                               const gchar *client_path,
                               GBytes      *format_filter,
                               const gchar *prefix,
                               GError      **error)
 {
-  PvSourcePrivate *priv = source->priv;
-  PvSourceOutput *output;
+  PinosSourcePrivate *priv = source->priv;
+  PinosSourceOutput *output;
 
-  output = g_object_new (PV_TYPE_SOURCE_OUTPUT, "daemon", priv->daemon,
-                                                "object-path", prefix,
-                                                "client-path", client_path,
-                                                "source-path", priv->object_path,
-                                                "possible-formats", format_filter,
-                                                NULL);
+  output = g_object_new (PINOS_TYPE_SOURCE_OUTPUT, "daemon", priv->daemon,
+                                                   "object-path", prefix,
+                                                   "client-path", client_path,
+                                                   "source-path", priv->object_path,
+                                                   "possible-formats", format_filter,
+                                                   NULL);
 
-  g_signal_connect (output, "remove", (GCallback) handle_remove_output, source);
+  g_signal_connect (output,
+                    "remove",
+                    (GCallback) handle_remove_output,
+                    source);
+
   priv->outputs = g_list_prepend (priv->outputs, output);
 
   return g_object_ref (output);
 }
 
 static gboolean
-default_release_source_output (PvSource *source, PvSourceOutput *output)
+default_release_source_output (PinosSource       *source,
+                               PinosSourceOutput *output)
 {
-  PvSourcePrivate *priv = source->priv;
+  PinosSourcePrivate *priv = source->priv;
   GList *find;
 
   find = g_list_find (priv->outputs, output);
@@ -262,24 +268,24 @@ default_release_source_output (PvSource *source, PvSourceOutput *output)
 }
 
 static void
-pv_source_class_init (PvSourceClass * klass)
+pinos_source_class_init (PinosSourceClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
 
-  g_type_class_add_private (klass, sizeof (PvSourcePrivate));
+  g_type_class_add_private (klass, sizeof (PinosSourcePrivate));
 
-  gobject_class->constructed = pv_source_constructed;
-  gobject_class->dispose = pv_source_dispose;
-  gobject_class->finalize = pv_source_finalize;
-  gobject_class->set_property = pv_source_set_property;
-  gobject_class->get_property = pv_source_get_property;
+  gobject_class->constructed = pinos_source_constructed;
+  gobject_class->dispose = pinos_source_dispose;
+  gobject_class->finalize = pinos_source_finalize;
+  gobject_class->set_property = pinos_source_set_property;
+  gobject_class->get_property = pinos_source_get_property;
 
   g_object_class_install_property (gobject_class,
                                    PROP_DAEMON,
                                    g_param_spec_object ("daemon",
                                                         "Daemon",
                                                         "The Daemon",
-                                                        PV_TYPE_DAEMON,
+                                                        PINOS_TYPE_DAEMON,
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_CONSTRUCT_ONLY |
                                                         G_PARAM_STATIC_STRINGS));
@@ -308,8 +314,8 @@ pv_source_class_init (PvSourceClass * klass)
                                    g_param_spec_enum ("state",
                                                       "State",
                                                       "The state of the source",
-                                                      PV_TYPE_SOURCE_STATE,
-                                                      PV_SOURCE_STATE_INIT,
+                                                      PINOS_TYPE_SOURCE_STATE,
+                                                      PINOS_SOURCE_STATE_INIT,
                                                       G_PARAM_READABLE |
                                                       G_PARAM_STATIC_STRINGS));
 
@@ -330,20 +336,21 @@ pv_source_class_init (PvSourceClass * klass)
 }
 
 static void
-pv_source_init (PvSource * source)
+pinos_source_init (PinosSource * source)
 {
-  source->priv = PV_SOURCE_GET_PRIVATE (source);
+  source->priv = PINOS_SOURCE_GET_PRIVATE (source);
 }
 
 GBytes *
-pv_source_get_formats (PvSource *source, GBytes *filter)
+pinos_source_get_formats (PinosSource *source,
+                          GBytes      *filter)
 {
-  PvSourceClass *klass;
+  PinosSourceClass *klass;
   GBytes *res;
 
-  g_return_val_if_fail (PV_IS_SOURCE (source), NULL);
+  g_return_val_if_fail (PINOS_IS_SOURCE (source), NULL);
 
-  klass = PV_SOURCE_GET_CLASS (source);
+  klass = PINOS_SOURCE_GET_CLASS (source);
 
   if (klass->get_formats)
     res = klass->get_formats (source, filter);
@@ -354,14 +361,15 @@ pv_source_get_formats (PvSource *source, GBytes *filter)
 }
 
 gboolean
-pv_source_set_state (PvSource *source, PvSourceState state)
+pinos_source_set_state (PinosSource      *source,
+                        PinosSourceState  state)
 {
-  PvSourceClass *klass;
+  PinosSourceClass *klass;
   gboolean res;
 
-  g_return_val_if_fail (PV_IS_SOURCE (source), FALSE);
+  g_return_val_if_fail (PINOS_IS_SOURCE (source), FALSE);
 
-  klass = PV_SOURCE_GET_CLASS (source);
+  klass = PINOS_SOURCE_GET_CLASS (source);
 
   if (klass->set_state)
     res = klass->set_state (source, state);
@@ -372,47 +380,49 @@ pv_source_set_state (PvSource *source, PvSourceState state)
 }
 
 void
-pv_source_update_state (PvSource *source, PvSourceState state)
+pinos_source_update_state (PinosSource      *source,
+                           PinosSourceState  state)
 {
-  PvSourcePrivate *priv;
+  PinosSourcePrivate *priv;
 
-  g_return_if_fail (PV_IS_SOURCE (source));
+  g_return_if_fail (PINOS_IS_SOURCE (source));
   priv = source->priv;
 
   if (priv->state != state) {
     priv->state = state;
-    pv_source1_set_state (priv->iface, state);
+    pinos_source1_set_state (priv->iface, state);
     g_object_notify (G_OBJECT (source), "state");
   }
 }
 
 void
-pv_source_report_error (PvSource *source, GError *error)
+pinos_source_report_error (PinosSource *source,
+                           GError      *error)
 {
-  PvSourcePrivate *priv;
+  PinosSourcePrivate *priv;
 
-  g_return_if_fail (PV_IS_SOURCE (source));
+  g_return_if_fail (PINOS_IS_SOURCE (source));
   priv = source->priv;
 
   g_clear_error (&priv->error);
   priv->error = error;
-  priv->state = PV_SOURCE_STATE_ERROR;
+  priv->state = PINOS_SOURCE_STATE_ERROR;
   g_object_notify (G_OBJECT (source), "state");
 }
 
-PvSourceOutput *
-pv_source_create_source_output (PvSource    *source,
-                                const gchar *client_path,
-                                GBytes      *format_filter,
-                                const gchar *prefix,
-                                GError      **error)
+PinosSourceOutput *
+pinos_source_create_source_output (PinosSource *source,
+                                   const gchar *client_path,
+                                   GBytes      *format_filter,
+                                   const gchar *prefix,
+                                   GError      **error)
 {
-  PvSourceClass *klass;
-  PvSourceOutput *res;
+  PinosSourceClass *klass;
+  PinosSourceOutput *res;
 
-  g_return_val_if_fail (PV_IS_SOURCE (source), NULL);
+  g_return_val_if_fail (PINOS_IS_SOURCE (source), NULL);
 
-  klass = PV_SOURCE_GET_CLASS (source);
+  klass = PINOS_SOURCE_GET_CLASS (source);
 
   if (klass->create_source_output) {
     res = klass->create_source_output (source, client_path, format_filter, prefix, error);
@@ -429,15 +439,16 @@ pv_source_create_source_output (PvSource    *source,
 }
 
 gboolean
-pv_source_release_source_output (PvSource *source, PvSourceOutput *output)
+pinos_source_release_source_output (PinosSource       *source,
+                                    PinosSourceOutput *output)
 {
-  PvSourceClass *klass;
+  PinosSourceClass *klass;
   gboolean res;
 
-  g_return_val_if_fail (PV_IS_SOURCE (source), FALSE);
-  g_return_val_if_fail (PV_IS_SOURCE_OUTPUT (output), FALSE);
+  g_return_val_if_fail (PINOS_IS_SOURCE (source), FALSE);
+  g_return_val_if_fail (PINOS_IS_SOURCE_OUTPUT (output), FALSE);
 
-  klass = PV_SOURCE_GET_CLASS (source);
+  klass = PINOS_SOURCE_GET_CLASS (source);
 
   if (klass->release_source_output)
     res = klass->release_source_output (source, output);
@@ -448,11 +459,11 @@ pv_source_release_source_output (PvSource *source, PvSourceOutput *output)
 }
 
 const gchar *
-pv_source_get_object_path (PvSource *source)
+pinos_source_get_object_path (PinosSource *source)
 {
-  PvSourcePrivate *priv;
+  PinosSourcePrivate *priv;
 
-  g_return_val_if_fail (PV_IS_SOURCE (source), NULL);
+  g_return_val_if_fail (PINOS_IS_SOURCE (source), NULL);
   priv = source->priv;
 
  return priv->object_path;

@@ -32,8 +32,8 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src \
 	-I$(top_srcdir)/src/modules \
 	-I$(top_builddir)/src/modules \
-	-DPV_SRCDIR=\"$(abs_srcdir)\" \
-	-DPV_BUILDDIR=\"$(abs_builddir)\"
+	-DPINOS_SRCDIR=\"$(abs_srcdir)\" \
+	-DPINOS_BUILDDIR=\"$(abs_builddir)\"
 AM_CFLAGS = $(GLIB_CFLAGS) $(GST_CFLAGS)
 AM_CXXFLAGS = $(AM_CFLAGS)
 SERVER_CFLAGS = -D__INCLUDED_FROM_PINOS
@@ -59,27 +59,27 @@ dbuspolicy_DATA = \
 #          Includes               #
 ###################################
 
-enumtypesincludes = client/pv-context.h \
-		    client/pv-introspect.h \
-		    client/pv-stream.h \
-		    client/pv-subscribe.h
+enumtypesincludes = client/context.h \
+		    client/introspect.h \
+		    client/stream.h \
+		    client/subscribe.h
 
-client/pv-enumtypes.h: $(enumtypesincludes)
+client/enumtypes.h: $(enumtypesincludes)
 	$(AM_V_GEN)$(GLIB_MKENUMS) \
-	--fhead "#ifndef __PV_ENUM_TYPES_H__\n#define __PV_ENUM_TYPES_H__\n\n#include <glib-object.h>\n\nG_BEGIN_DECLS\n" \
+	--fhead "#ifndef __PINOS_ENUM_TYPES_H__\n#define __PINOS_ENUM_TYPES_H__\n\n#include <glib-object.h>\n\nG_BEGIN_DECLS\n" \
 	--fprod "\n/* enumerations from \"@filename@\" */\n" \
-	--vhead "GType @enum_name@_get_type (void);\n#define PV_TYPE_@ENUMSHORT@ (@enum_name@_get_type())\n"         \
-	--ftail "G_END_DECLS\n\n#endif /* __PV_ENUM_TYPES_H__ */" \
-	$^ > client/pv-enumtypes.h
+	--vhead "GType @enum_name@_get_type (void);\n#define PINOS_TYPE_@ENUMSHORT@ (@enum_name@_get_type())\n"         \
+	--ftail "G_END_DECLS\n\n#endif /* __PINOS_ENUM_TYPES_H__ */" \
+	$^ > client/enumtypes.h
 
-client/pv-enumtypes.c: $(enumtypesincludes) client/pv-enumtypes.h
+client/enumtypes.c: $(enumtypesincludes) client/enumtypes.h
 	$(AM_V_GEN)$(GLIB_MKENUMS) \
-	--fhead "#include \"pv-enumtypes.h\"\n#include <client/pinos.h>\n#define C_ENUM(v) ((gint) v)\n#define C_FLAGS(v) ((guint) v)\n " \
+	--fhead "#include \"enumtypes.h\"\n#include <client/pinos.h>\n#define C_ENUM(v) ((gint) v)\n#define C_FLAGS(v) ((guint) v)\n " \
 	--fprod "\n/* enumerations from \"@filename@\" */" \
 	--vhead "GType\n@enum_name@_get_type (void)\n{\n  static gsize id = 0;\n  static const G@Type@Value values[] = {"     \
 	--vprod "    { C_@TYPE@(@VALUENAME@), \"@VALUENAME@\", \"@valuenick@\" }," \
 	--vtail "    { 0, NULL, NULL }\n  };\n\n  if (g_once_init_enter (&id)) {\n    GType tmp = g_@type@_register_static (\"@EnumName@\", values);\n    g_once_init_leave (&id, tmp);\n  }\n\n  return (GType) id;\n}" \
-	$^ > client/pv-enumtypes.c
+	$^ > client/enumtypes.c
 
 
 dbus/org-pinos.c: dbus/org-pinos.h
@@ -88,12 +88,12 @@ dbus/org-pinos.h: dbus/org.pinos.xml
 	--interface-prefix org.pinos. \
 	--generate-c-code dbus/org-pinos \
 	--generate-docbook ../doc/org-pinos \
-	--c-namespace Pv dbus/org.pinos.xml \
+	--c-namespace Pinos dbus/org.pinos.xml \
         --c-generate-object-manager
 
 
-built_header_make = client/pv-enumtypes.h dbus/org-pinos.h
-built_source_make = client/pv-enumtypes.c dbus/org-pinos.c
+built_header_make = client/enumtypes.h dbus/org-pinos.h
+built_source_make = client/enumtypes.c dbus/org-pinos.c
 
 BUILT_SOURCES = $(built_header_make)            \
 		$(built_source_make)
@@ -110,9 +110,9 @@ pinos_SOURCES = \
 		daemon/main.c
 
 pinos_CFLAGS = $(AM_CFLAGS)
-pinos_LDADD = $(AM_LDADD) libpinoscore-@PV_MAJORMINOR@.la libpinos-@PV_MAJORMINOR@.la $(LIBLTDL)
+pinos_LDADD = $(AM_LDADD) libpinoscore-@PINOS_MAJORMINOR@.la libpinos-@PINOS_MAJORMINOR@.la $(LIBLTDL)
 # This is needed because automake doesn't properly expand the foreach below
-pinos_DEPENDENCIES = libpinoscore-@PV_MAJORMINOR@.la libpinos-@PV_MAJORMINOR@.la
+pinos_DEPENDENCIES = libpinoscore-@PINOS_MAJORMINOR@.la libpinos-@PINOS_MAJORMINOR@.la
 pinos_LDFLAGS = $(AM_LDFLAGS) $(BINLDFLAGS) $(IMMEDIATE_LDFLAGS)
 
 ###################################
@@ -132,12 +132,12 @@ noinst_PROGRAMS = $(TESTS_default) $(TESTS_norun) $(TESTS_daemon)
 
 test_client_SOURCES = tests/test-client.c
 test_client_CFLAGS = $(AM_CFLAGS)
-test_client_LDADD = $(AM_LDADD) libpinos-@PV_MAJORMINOR@.la
+test_client_LDADD = $(AM_LDADD) libpinos-@PINOS_MAJORMINOR@.la
 test_client_LDFLAGS = $(AM_LDFLAGS) $(BINLDFLAGS)
 
 test_subscribe_SOURCES = tests/test-subscribe.c
 test_subscribe_CFLAGS = $(AM_CFLAGS)
-test_subscribe_LDADD = $(AM_LDADD) libpinos-@PV_MAJORMINOR@.la
+test_subscribe_LDADD = $(AM_LDADD) libpinos-@PINOS_MAJORMINOR@.la
 test_subscribe_LDFLAGS = $(AM_LDFLAGS) $(BINLDFLAGS)
 
 ###################################
@@ -151,51 +151,51 @@ pinosgstsource = gst/gstfdpay.h gst/gstfdpay.c \
 
 pinosinclude_HEADERS = \
 		client/pinos.h \
-		client/pv-context.h \
-		client/pv-enumtypes.h \
-		client/pv-introspect.h \
-		client/pv-stream.h \
-		client/pv-subscribe.h
+		client/context.h \
+		client/enumtypes.h \
+		client/introspect.h \
+		client/stream.h \
+		client/subscribe.h
 
 lib_LTLIBRARIES = \
-		libpinos-@PV_MAJORMINOR@.la
+		libpinos-@PINOS_MAJORMINOR@.la
 
 # Public interface
-libpinos_@PV_MAJORMINOR@_la_SOURCES = \
-		client/pv-context.h client/pv-context.c \
-		client/pv-enumtypes.h client/pv-enumtypes.c \
-		client/pv-introspect.h client/pv-introspect.c \
-		client/pv-stream.h client/pv-stream.c \
+libpinos_@PINOS_MAJORMINOR@_la_SOURCES = \
+		client/context.h client/context.c \
+		client/enumtypes.h client/enumtypes.c \
+		client/introspect.h client/introspect.c \
+		client/stream.h client/stream.c \
 		client/pinos.c client/pinos.h \
-		client/pv-subscribe.c client/pv-subscribe.h \
+		client/subscribe.c client/subscribe.h \
 		$(pinosgstsource)
 
 
-libpinos_@PV_MAJORMINOR@_la_CFLAGS = $(AM_CFLAGS) $(GST_CFLAGS)
-libpinos_@PV_MAJORMINOR@_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version
-libpinos_@PV_MAJORMINOR@_la_LIBADD = $(AM_LIBADD) $(LTLIBICONV) $(GST_LIBS)
+libpinos_@PINOS_MAJORMINOR@_la_CFLAGS = $(AM_CFLAGS) $(GST_CFLAGS)
+libpinos_@PINOS_MAJORMINOR@_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version
+libpinos_@PINOS_MAJORMINOR@_la_LIBADD = $(AM_LIBADD) $(LTLIBICONV) $(GST_LIBS)
 
 ###################################
 #      Daemon core library        #
 ###################################
 
-lib_LTLIBRARIES += libpinoscore-@PV_MAJORMINOR@.la
+lib_LTLIBRARIES += libpinoscore-@PINOS_MAJORMINOR@.la
 
 # Pure core stuff
-libpinoscore_@PV_MAJORMINOR@_la_SOURCES = \
-		server/pv-client.c server/pv-client.h \
-		server/pv-daemon.c server/pv-daemon.h \
-		server/pv-source.c server/pv-source.h \
-		server/pv-client-source.c server/pv-client-source.h \
-		server/pv-source-output.c server/pv-source-output.h \
-		modules/gst/pv-gst-manager.c \
-		modules/gst/pv-gst-source.c \
+libpinoscore_@PINOS_MAJORMINOR@_la_SOURCES = \
+		server/client.c server/client.h \
+		server/daemon.c server/daemon.h \
+		server/source.c server/source.h \
+		server/client-source.c server/client-source.h \
+		server/source-output.c server/source-output.h \
+		modules/gst/gst-manager.c \
+		modules/gst/gst-source.c \
 		dbus/org-pinos.c dbus/org-pinos.h
 
-libpinoscore_@PV_MAJORMINOR@_la_CFLAGS = $(AM_CFLAGS) $(SERVER_CFLAGS)
-libpinoscore_@PV_MAJORMINOR@_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version
-libpinoscore_@PV_MAJORMINOR@_la_LIBADD = $(AM_LIBADD) $(LIBLTDL) $(LTLIBICONV) \
-			 libpinos-@PV_MAJORMINOR@.la
+libpinoscore_@PINOS_MAJORMINOR@_la_CFLAGS = $(AM_CFLAGS) $(SERVER_CFLAGS)
+libpinoscore_@PINOS_MAJORMINOR@_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version
+libpinoscore_@PINOS_MAJORMINOR@_la_LIBADD = $(AM_LIBADD) $(LIBLTDL) $(LTLIBICONV) \
+			 libpinos-@PINOS_MAJORMINOR@.la
 
 ###################################
 #      GStreamer Plugin           #
@@ -206,19 +206,19 @@ plugindir = $(libdir)/gstreamer-1.0
 plugin_LTLIBRARIES = libgstpinos.la
 
 libgstpinos_la_SOURCES = \
-                        gst/gstpv.c \
+                        gst/gstpinos.c \
                         gst/gstfdpay.c \
                         gst/gstfddepay.c \
-                        gst/gstpvsrc.c \
-                        gst/gstpvsink.c 
+                        gst/gstpinossrc.c \
+                        gst/gstpinossink.c 
 
 libgstpinos_la_CFLAGS = $(GST_PLUGINS_BASE_CFLAGS) $(GST_BASE_CFLAGS) $(GST_CFLAGS) $(GLIB_CFLAGS)
 libgstpinos_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS)
 libgstpinos_la_LIBADD =  $(GST_BASE_LIBS) $(GST_LIBS) $(GLIB_LIBS) $(LIBM) -lgstvideo-1.0 \
-			 libpinos-@PV_MAJORMINOR@.la libpinoscore-@PV_MAJORMINOR@.la
+			 libpinos-@PINOS_MAJORMINOR@.la libpinoscore-@PINOS_MAJORMINOR@.la
 libgstpinos_la_LIBTOOLFLAGS = $(GST_PLUGIN_LIBTOOLFLAGS)
 
-noinst_HEADERS = gst/gstpvsrc.h gst/gstpvsink.h gst/gstfdpay.h gst/gstfddepay.h
+noinst_HEADERS = gst/gstpinossrc.h gst/gstpinossink.h gst/gstfdpay.h gst/gstfddepay.h
 
 ###################################
 #        Some minor stuff         #

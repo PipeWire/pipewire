@@ -21,12 +21,12 @@
 #include <gst/gst.h>
 #include <gio/gio.h>
 
-#include "pv-gst-source.h"
+#include "gst-source.h"
 
-#define PV_GST_SOURCE_GET_PRIVATE(obj)  \
-     (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PV_TYPE_GST_SOURCE, PvGstSourcePrivate))
+#define PINOS_GST_SOURCE_GET_PRIVATE(obj)  \
+     (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_GST_SOURCE, PinosGstSourcePrivate))
 
-struct _PvGstSourcePrivate
+struct _PinosGstSourcePrivate
 {
   GstElement *pipeline;
   GstElement *element;
@@ -41,13 +41,15 @@ enum {
   PROP_ELEMENT,
 };
 
-G_DEFINE_TYPE (PvGstSource, pv_gst_source, PV_TYPE_SOURCE);
+G_DEFINE_TYPE (PinosGstSource, pinos_gst_source, PINOS_TYPE_SOURCE);
 
 static gboolean
-bus_handler (GstBus * bus, GstMessage * message, gpointer user_data)
+bus_handler (GstBus     *bus,
+             GstMessage *message,
+             gpointer    user_data)
 {
-  PvSource *source = user_data;
-  PvGstSourcePrivate *priv = PV_GST_SOURCE (source)->priv;
+  PinosSource *source = user_data;
+  PinosGstSourcePrivate *priv = PINOS_GST_SOURCE (source)->priv;
 
   switch (GST_MESSAGE_TYPE (message)) {
     case GST_MESSAGE_ERROR:
@@ -59,7 +61,7 @@ bus_handler (GstBus * bus, GstMessage * message, gpointer user_data)
       g_warning ("got error %s (%s)\n", error->message, debug);
       g_free (debug);
 
-      pv_source_report_error (source, error);
+      pinos_source_report_error (source, error);
       gst_element_set_state (priv->pipeline, GST_STATE_NULL);
       break;
     }
@@ -70,9 +72,9 @@ bus_handler (GstBus * bus, GstMessage * message, gpointer user_data)
 }
 
 static void
-setup_pipeline (PvGstSource *source)
+setup_pipeline (PinosGstSource *source)
 {
-  PvGstSourcePrivate *priv = source->priv;
+  PinosGstSourcePrivate *priv = source->priv;
   GstBus *bus;
   GstElement *elem;
 
@@ -84,7 +86,7 @@ setup_pipeline (PvGstSource *source)
   gst_bin_add (GST_BIN (priv->pipeline), priv->filter);
   gst_element_link (priv->element, priv->filter);
 
-  elem = gst_element_factory_make ("pvfdpay", NULL);
+  elem = gst_element_factory_make ("pinosfdpay", NULL);
   gst_bin_add (GST_BIN (priv->pipeline), elem);
   gst_element_link (priv->filter, elem);
 
@@ -107,9 +109,9 @@ setup_pipeline (PvGstSource *source)
 }
 
 static void
-destroy_pipeline (PvGstSource *source)
+destroy_pipeline (PinosGstSource *source)
 {
-  PvGstSourcePrivate *priv = source->priv;
+  PinosGstSourcePrivate *priv = source->priv;
 
   if (priv->pipeline) {
     gst_element_set_state (priv->pipeline, GST_STATE_NULL);
@@ -119,9 +121,10 @@ destroy_pipeline (PvGstSource *source)
 }
 
 static GstCaps *
-collect_caps (PvSource * source, GstCaps *filter)
+collect_caps (PinosSource *source,
+              GstCaps     *filter)
 {
-  PvGstSourcePrivate *priv = PV_GST_SOURCE (source)->priv;
+  PinosGstSourcePrivate *priv = PINOS_GST_SOURCE (source)->priv;
   GstCaps *res;
   GstQuery *query;
 
@@ -135,36 +138,38 @@ collect_caps (PvSource * source, GstCaps *filter)
 }
 
 static gboolean
-set_state (PvSource *source, PvSourceState state)
+set_state (PinosSource      *source,
+           PinosSourceState  state)
 {
-  PvGstSourcePrivate *priv = PV_GST_SOURCE (source)->priv;
+  PinosGstSourcePrivate *priv = PINOS_GST_SOURCE (source)->priv;
 
   switch (state) {
-    case PV_SOURCE_STATE_SUSPENDED:
+    case PINOS_SOURCE_STATE_SUSPENDED:
       gst_element_set_state (priv->pipeline, GST_STATE_NULL);
       break;
 
-    case PV_SOURCE_STATE_INIT:
+    case PINOS_SOURCE_STATE_INIT:
       gst_element_set_state (priv->pipeline, GST_STATE_READY);
       break;
 
-    case PV_SOURCE_STATE_IDLE:
+    case PINOS_SOURCE_STATE_IDLE:
       gst_element_set_state (priv->pipeline, GST_STATE_PAUSED);
       break;
 
-    case PV_SOURCE_STATE_RUNNING:
+    case PINOS_SOURCE_STATE_RUNNING:
       gst_element_set_state (priv->pipeline, GST_STATE_PLAYING);
       break;
 
-    case PV_SOURCE_STATE_ERROR:
+    case PINOS_SOURCE_STATE_ERROR:
       break;
   }
-  pv_source_update_state (source, state);
+  pinos_source_update_state (source, state);
   return TRUE;
 }
 
 static GBytes *
-get_formats (PvSource *source, GBytes *filter)
+get_formats (PinosSource *source,
+             GBytes      *filter)
 {
   GstCaps *caps, *cfilter;
   gchar *str;
@@ -187,8 +192,8 @@ on_socket_notify (GObject    *gobject,
                   GParamSpec *pspec,
                   gpointer    user_data)
 {
-  PvGstSource *source = user_data;
-  PvGstSourcePrivate *priv = source->priv;
+  PinosGstSource *source = user_data;
+  PinosGstSourcePrivate *priv = source->priv;
   GSocket *socket;
   guint num_handles;
   GstCaps *caps;
@@ -243,14 +248,14 @@ on_socket_notify (GObject    *gobject,
   }
 }
 
-static PvSourceOutput *
-create_source_output (PvSource    *source,
+static PinosSourceOutput *
+create_source_output (PinosSource *source,
                       const gchar *client_path,
                       GBytes      *format_filter,
                       const gchar *prefix,
                       GError      **error)
 {
-  PvSourceOutput *output;
+  PinosSourceOutput *output;
   GstCaps *caps, *filtered;
   gchar *str;
 
@@ -266,7 +271,7 @@ create_source_output (PvSource    *source,
   str = gst_caps_to_string (filtered);
   format_filter = g_bytes_new_take (str, strlen (str) + 1);
 
-  output = PV_SOURCE_CLASS (pv_gst_source_parent_class)
+  output = PINOS_SOURCE_CLASS (pinos_gst_source_parent_class)
                 ->create_source_output (source,
                                         client_path,
                                         format_filter,
@@ -299,9 +304,10 @@ no_format:
 }
 
 static gboolean
-release_source_output  (PvSource *source, PvSourceOutput *output)
+release_source_output (PinosSource       *source,
+                       PinosSourceOutput *output)
 {
-  return PV_SOURCE_CLASS (pv_gst_source_parent_class)->release_source_output (source, output);
+  return PINOS_SOURCE_CLASS (pinos_gst_source_parent_class)->release_source_output (source, output);
 }
 
 static void
@@ -310,8 +316,8 @@ get_property (GObject    *object,
               GValue     *value,
               GParamSpec *pspec)
 {
-  PvGstSource *source = PV_GST_SOURCE (object);
-  PvGstSourcePrivate *priv = source->priv;
+  PinosGstSource *source = PINOS_GST_SOURCE (object);
+  PinosGstSourcePrivate *priv = source->priv;
 
   switch (prop_id) {
     case PROP_ELEMENT:
@@ -330,8 +336,8 @@ set_property (GObject      *object,
               const GValue *value,
               GParamSpec   *pspec)
 {
-  PvGstSource *source = PV_GST_SOURCE (object);
-  PvGstSourcePrivate *priv = source->priv;
+  PinosGstSource *source = PINOS_GST_SOURCE (object);
+  PinosGstSourcePrivate *priv = source->priv;
 
   switch (prop_id) {
     case PROP_ELEMENT:
@@ -347,30 +353,30 @@ set_property (GObject      *object,
 static void
 source_constructed (GObject * object)
 {
-  PvGstSource *source = PV_GST_SOURCE (object);
+  PinosGstSource *source = PINOS_GST_SOURCE (object);
 
   setup_pipeline (source);
 
-  G_OBJECT_CLASS (pv_gst_source_parent_class)->constructed (object);
+  G_OBJECT_CLASS (pinos_gst_source_parent_class)->constructed (object);
 }
 
 static void
 source_finalize (GObject * object)
 {
-  PvGstSource *source = PV_GST_SOURCE (object);
+  PinosGstSource *source = PINOS_GST_SOURCE (object);
 
   destroy_pipeline (source);
 
-  G_OBJECT_CLASS (pv_gst_source_parent_class)->finalize (object);
+  G_OBJECT_CLASS (pinos_gst_source_parent_class)->finalize (object);
 }
 
 static void
-pv_gst_source_class_init (PvGstSourceClass * klass)
+pinos_gst_source_class_init (PinosGstSourceClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
-  PvSourceClass *source_class = PV_SOURCE_CLASS (klass);
+  PinosSourceClass *source_class = PINOS_SOURCE_CLASS (klass);
 
-  g_type_class_add_private (klass, sizeof (PvGstSourcePrivate));
+  g_type_class_add_private (klass, sizeof (PinosGstSourcePrivate));
 
   gobject_class->constructed = source_constructed;
   gobject_class->finalize = source_finalize;
@@ -395,13 +401,18 @@ pv_gst_source_class_init (PvGstSourceClass * klass)
 }
 
 static void
-pv_gst_source_init (PvGstSource * source)
+pinos_gst_source_init (PinosGstSource * source)
 {
-  source->priv = PV_GST_SOURCE_GET_PRIVATE (source);
+  source->priv = PINOS_GST_SOURCE_GET_PRIVATE (source);
 }
 
-PvSource *
-pv_gst_source_new (PvDaemon *daemon, const gchar *name, GstElement *element)
+PinosSource *
+pinos_gst_source_new (PinosDaemon *daemon,
+                      const gchar *name,
+                      GstElement  *element)
 {
-  return g_object_new (PV_TYPE_GST_SOURCE, "daemon", daemon, "name", name, "element", element, NULL);
+  return g_object_new (PINOS_TYPE_GST_SOURCE,
+                       "daemon", daemon,
+                       "name", name,
+                       "element", element, NULL);
 }

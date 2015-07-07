@@ -35,3 +35,7 @@ missing
 mkinstalldirs
 stamp-*
 .dirstamp
+pkgconfig/libpinos.pc
+src/client/enumtypes.c
+src/client/enumtypes.h
+

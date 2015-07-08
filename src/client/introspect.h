@@ -50,6 +50,7 @@ typedef enum {
 
 /**
  * PinosSourceInfo:
+ * @id: generic id of the source
  * @name: the name of the source
  * @properties: the properties of the source
  * @state: the current state of the source
@@ -58,6 +59,7 @@ typedef enum {
  * The source information
  */
 typedef struct {
+  gpointer id;
   const char *name;
   GVariant *properties;
   PinosSourceState state;
@@ -78,11 +80,17 @@ typedef enum {
 
 typedef gboolean (*PinosSourceInfoCallback)  (PinosContext *c, const PinosSourceInfo *info, gpointer userdata);
 
-void            pinos_context_list_source_info     (PinosContext *context,
-                                                    PinosSourceInfoFlags flags,
-                                                    PinosSourceInfoCallback cb,
-                                                    GCancellable *cancellable,
-                                                    gpointer user_data);
+void            pinos_context_list_source_info      (PinosContext *context,
+                                                     PinosSourceInfoFlags flags,
+                                                     PinosSourceInfoCallback cb,
+                                                     GCancellable *cancellable,
+                                                     gpointer user_data);
+void            pinos_context_get_source_info_by_id (PinosContext *context,
+                                                     gpointer id,
+                                                     PinosSourceInfoFlags flags,
+                                                     PinosSourceInfoCallback cb,
+                                                     GCancellable *cancellable,
+                                                     gpointer user_data);
 
 G_END_DECLS
 

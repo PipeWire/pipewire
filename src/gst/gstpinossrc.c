@@ -519,7 +519,7 @@ gst_pinos_src_open (GstPinosSrc * pinossrc)
   pinossrc->ctx = pinos_context_new (pinossrc->context, "test-client", NULL);
   g_signal_connect (pinossrc->ctx, "notify::state", (GCallback) on_context_notify, pinossrc);
 
-  pinos_context_connect(pinossrc->ctx, PINOS_CONTEXT_FLAGS_NONE);
+  pinos_context_connect (pinossrc->ctx, PINOS_CONTEXT_FLAGS_NONE);
 
   while (TRUE) {
     PinosContextState state = pinos_context_get_state (pinossrc->ctx);

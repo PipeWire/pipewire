@@ -80,7 +80,6 @@ bus_handler (GstBus     *bus,
              gpointer    user_data)
 {
   PinosGstManager *manager = user_data;
-  PinosGstManagerPrivate *priv = manager->priv;
   GstDevice *device;
 
   switch (GST_MESSAGE_TYPE (message)) {

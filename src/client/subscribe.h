@@ -87,16 +87,16 @@ PinosSubscribe *       pinos_subscribe_new                (void);
 PinosSubscriptionState pinos_subscribe_get_state          (PinosSubscribe *subscribe);
 GError *               pinos_subscribe_get_error          (PinosSubscribe *subscribe);
 
-void                   pinos_subscribe_get_proxy          (PinosSubscribe *subscribe,
-                                                           const gchar *name,
-                                                           const gchar *object_path,
-                                                           const gchar *interface_name,
-                                                           GCancellable *cancellable,
-                                                           GAsyncReadyCallback callback,
-                                                           gpointer user_data);
-GDBusProxy *           pinos_subscribe_get_proxy_finish   (PinosSubscribe  *subscribe,
-                                                           GAsyncResult *res,
-                                                           GError       **error);
+void                   pinos_subscribe_get_proxy          (PinosSubscribe      *subscribe,
+                                                           const gchar         *name,
+                                                           const gchar         *object_path,
+                                                           const gchar         *interface_name,
+                                                           GCancellable        *cancellable,
+                                                           GAsyncReadyCallback  callback,
+                                                           gpointer             user_data);
+GDBusProxy *           pinos_subscribe_get_proxy_finish   (PinosSubscribe *subscribe,
+                                                           GAsyncResult   *res,
+                                                           GError         **error);
 
 
 

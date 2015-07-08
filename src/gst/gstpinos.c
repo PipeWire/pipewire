@@ -34,8 +34,11 @@
 
 #include "gstpinossrc.h"
 #include "gstpinossink.h"
+#include "gstpinosdeviceprovider.h"
 #include "gstfdpay.h"
 #include "gstfddepay.h"
+
+GST_DEBUG_CATEGORY (pinos_debug);
 
 static gboolean
 plugin_init (GstPlugin * plugin)
@@ -48,11 +51,18 @@ plugin_init (GstPlugin * plugin)
       GST_TYPE_PINOS_SRC);
   gst_element_register (plugin, "pinossink", GST_RANK_NONE,
       GST_TYPE_PINOS_SINK);
+
+  if (!gst_device_provider_register (plugin, "pinosdeviceprovider",
+       GST_RANK_PRIMARY + 1, GST_TYPE_PINOS_DEVICE_PROVIDER))
+    return FALSE;
+
+  GST_DEBUG_CATEGORY_INIT (pinos_debug, "pinos", 0, "Pinos elements");
+
   return TRUE;
 }
 
 GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
     GST_VERSION_MINOR,
     pinos,
-    "Uses pinos to handle video streams",
+    "Uses pinos to handle media streams",
     plugin_init, VERSION, "LGPL", "pinos", "pinos.org")

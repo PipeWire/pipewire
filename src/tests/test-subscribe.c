@@ -30,22 +30,26 @@ dump_object (GDBusProxy *proxy)
 }
 
 static void
-subscription_cb (PinosContext *context, PinosSubscriptionEvent type, PinosSubscriptionFlags flags,
-    GDBusProxy *object, gpointer user_data)
+subscription_cb (PinosContext           *context,
+                 PinosSubscriptionEvent  type,
+                 PinosSubscriptionFlags  flags,
+                 gpointer                id,
+                 gpointer                user_data)
 {
   switch (type) {
     case PINOS_SUBSCRIPTION_EVENT_NEW:
-      g_print ("object added %s\n", g_dbus_proxy_get_object_path (object));
-      dump_object (object);
+      g_print ("object added %s\n", g_dbus_proxy_get_object_path (id));
+      dump_object (G_DBUS_PROXY (id));
       break;
 
     case PINOS_SUBSCRIPTION_EVENT_CHANGE:
-      g_print ("object changed %s\n", g_dbus_proxy_get_object_path (object));
-      dump_object (object);
+      g_print ("object changed %s\n", g_dbus_proxy_get_object_path (id));
+      dump_object (G_DBUS_PROXY (id));
       break;
 
     case PINOS_SUBSCRIPTION_EVENT_REMOVE:
-      g_print ("object removed %s\n", g_dbus_proxy_get_object_path (object));
+      g_print ("object removed %s\n", g_dbus_proxy_get_object_path (id));
+      dump_object (G_DBUS_PROXY (id));
       break;
   }
 }

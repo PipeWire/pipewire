@@ -643,7 +643,7 @@ pinos_subscribe_class_init (PinosSubscribeClass * klass)
                                                      3,
                                                      PINOS_TYPE_SUBSCRIPTION_EVENT,
                                                      PINOS_TYPE_SUBSCRIPTION_FLAGS,
-                                                     G_TYPE_DBUS_PROXY);
+                                                     G_TYPE_POINTER);
 }
 
 static void

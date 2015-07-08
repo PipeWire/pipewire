@@ -33,7 +33,8 @@
  * @cancelable: a #GCancellable
  * @user_data: user data passed to @cb
  *
- * Call @cb for each source.
+ * Call @cb for each source. @cb will be called with NULL when there
+ * are no more sources to list.
  */
 void
 pinos_context_list_source_info (PinosContext            *context,
@@ -49,9 +50,32 @@ pinos_context_list_source_info (PinosContext            *context,
     GDBusProxy *proxy = walk->data;
     PinosSourceInfo info;
 
+    info.id = proxy;
     info.name = "gst";
 
     cb (context, &info, user_data);
   }
   cb (context, NULL, user_data);
+}
+
+/**
+ * pinos_context_get_source_info:
+ * @context: a connected #PinosContext
+ * @id: a source id
+ * @flags: extra #PinosSourceInfoFlags
+ * @cb: a #PinosSourceInfoCallback
+ * @cancelable: a #GCancellable
+ * @user_data: user data passed to @cb
+ *
+ * Call @cb for each source. @cb will be called with NULL when there
+ * are no more sources to list.
+ */
+void
+pinos_context_get_source_info_by_id (PinosContext *context,
+                                     gpointer id,
+                                     PinosSourceInfoFlags flags,
+                                     PinosSourceInfoCallback cb,
+                                     GCancellable *cancellable,
+                                     gpointer user_data)
+{
 }

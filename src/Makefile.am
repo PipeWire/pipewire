@@ -145,9 +145,9 @@ test_subscribe_LDFLAGS = $(AM_LDFLAGS) $(BINLDFLAGS)
 ###################################
 
 pinosgstsource = gst/gstfdpay.h gst/gstfdpay.c \
-		      gst/gstfddepay.h gst/gstfddepay.c \
-		      gst/gsttmpfileallocator.h gst/gsttmpfileallocator.c \
-		      wire-protocol.h
+	      gst/gstfddepay.h gst/gstfddepay.c \
+	      gst/gsttmpfileallocator.h gst/gsttmpfileallocator.c \
+	      wire-protocol.h
 
 pinosinclude_HEADERS = \
 		client/pinos.h \
@@ -210,6 +210,7 @@ libgstpinos_la_SOURCES = \
                         gst/gstpinos.c \
                         gst/gstfdpay.c \
                         gst/gstfddepay.c \
+                        gst/gstpinosdeviceprovider.c \
                         gst/gstpinossrc.c \
                         gst/gstpinossink.c 
 
@@ -219,7 +220,7 @@ libgstpinos_la_LIBADD =  $(GST_BASE_LIBS) $(GST_LIBS) $(GLIB_LIBS) $(LIBM) -lgst
 			 libpinos-@PINOS_MAJORMINOR@.la libpinoscore-@PINOS_MAJORMINOR@.la
 libgstpinos_la_LIBTOOLFLAGS = $(GST_PLUGIN_LIBTOOLFLAGS)
 
-noinst_HEADERS = gst/gstpinossrc.h gst/gstpinossink.h gst/gstfdpay.h gst/gstfddepay.h
+noinst_HEADERS = gst/gstpinossrc.h gst/gstpinossink.h gst/gstfdpay.h gst/gstfddepay.h gst/gstpinosdeviceprovider.h
 
 ###################################
 #        Some minor stuff         #

@@ -67,11 +67,11 @@ typedef enum {
  * The state of a #PinosContext
  */
 typedef enum {
+  PINOS_CONTEXT_STATE_ERROR        = -1,
   PINOS_CONTEXT_STATE_UNCONNECTED  = 0,
   PINOS_CONTEXT_STATE_CONNECTING   = 1,
   PINOS_CONTEXT_STATE_REGISTERING  = 2,
   PINOS_CONTEXT_STATE_READY        = 3,
-  PINOS_CONTEXT_STATE_ERROR        = 4
 } PinosContextState;
 
 /**

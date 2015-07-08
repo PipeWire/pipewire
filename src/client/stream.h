@@ -41,12 +41,12 @@ typedef struct _PinosStreamClass PinosStreamClass;
 typedef struct _PinosStreamPrivate PinosStreamPrivate;
 
 typedef enum {
+  PINOS_STREAM_STATE_ERROR       = -1,
   PINOS_STREAM_STATE_UNCONNECTED = 0,
   PINOS_STREAM_STATE_CONNECTING  = 1,
   PINOS_STREAM_STATE_READY       = 2,
   PINOS_STREAM_STATE_STARTING    = 3,
-  PINOS_STREAM_STATE_STREAMING   = 4,
-  PINOS_STREAM_STATE_ERROR       = 5
+  PINOS_STREAM_STATE_STREAMING   = 4
 } PinosStreamState;
 
 

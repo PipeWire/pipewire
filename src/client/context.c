@@ -556,6 +556,19 @@ pinos_context_connect (PinosContext      *context,
 }
 
 static void
+finish_client_disconnect (PinosContext *context)
+{
+  PinosContextPrivate *priv = context->priv;
+
+  g_clear_object (&priv->client);
+  g_clear_object (&priv->daemon);
+  g_bus_unwatch_name(priv->id);
+  priv->id = 0;
+
+  context_set_state (context, PINOS_CONTEXT_STATE_UNCONNECTED);
+}
+
+static void
 on_client_disconnected (GObject      *source_object,
                         GAsyncResult *res,
                         gpointer      user_data)
@@ -575,12 +588,7 @@ on_client_disconnected (GObject      *source_object,
   }
   g_variant_unref (ret);
 
-  g_clear_object (&priv->client);
-  g_clear_object (&priv->daemon);
-  g_bus_unwatch_name(priv->id);
-  priv->id = 0;
-
-  context_set_state (context, PINOS_CONTEXT_STATE_UNCONNECTED);
+  finish_client_disconnect (context);
   g_object_unref (context);
 }
 
@@ -617,7 +625,11 @@ pinos_context_disconnect (PinosContext *context)
   g_return_val_if_fail (PINOS_IS_CONTEXT (context), FALSE);
 
   priv = context->priv;
-  g_return_val_if_fail (priv->client != NULL, FALSE);
+
+  if (priv->client == NULL) {
+    finish_client_disconnect (context);
+    return TRUE;
+  }
 
   g_main_context_invoke (priv->context,
                          (GSourceFunc) do_disconnect,

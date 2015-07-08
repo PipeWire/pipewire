@@ -23,9 +23,7 @@
 #include <gst/gst.h>
 #include <gst/base/gstpushsrc.h>
 
-#include <client/context.h>
-#include <client/stream.h>
-#include <client/introspect.h>
+#include <client/pinos.h>
 
 G_BEGIN_DECLS
 
@@ -59,15 +57,10 @@ struct _GstPinosSrc {
   gboolean negotiated;
 
   GMainContext *context;
-  GMainLoop *loop;
-  GThread *thread;
+  PinosMainLoop *loop;
   PinosContext *ctx;
   PinosStream *stream;
   GstAllocator *fd_allocator;
-
-  GPollFunc poll_func;
-  GMutex lock;
-  GCond cond;
 };
 
 struct _GstPinosSrcClass {

@@ -121,8 +121,6 @@ gst_pinos_src_finalize (GObject * object)
   GstPinosSrc *pinossrc = GST_PINOS_SRC (object);
 
   g_object_unref (pinossrc->fd_allocator);
-  g_mutex_clear (&pinossrc->lock);
-  g_cond_clear (&pinossrc->cond);
   g_free (pinossrc->source);
 
   G_OBJECT_CLASS (parent_class)->finalize (object);
@@ -186,8 +184,6 @@ gst_pinos_src_init (GstPinosSrc * src)
   gst_base_src_set_do_timestamp (GST_BASE_SRC (src), TRUE);
 
   src->fd_allocator = gst_fd_allocator_new ();
-  g_mutex_init (&src->lock);
-  g_cond_init (&src->cond);
 }
 
 static GstCaps *
@@ -239,7 +235,7 @@ on_new_buffer (GObject    *gobject,
 {
   GstPinosSrc *pinossrc = user_data;
 
-  g_cond_signal (&pinossrc->cond);
+  pinos_main_loop_signal (pinossrc->loop, FALSE);
 }
 
 static void
@@ -247,18 +243,25 @@ on_stream_notify (GObject    *gobject,
                   GParamSpec *pspec,
                   gpointer    user_data)
 {
-  PinosStreamState state;
   GstPinosSrc *pinossrc = user_data;
+  PinosStreamState state = pinos_stream_get_state (pinossrc->stream);
 
-  state = pinos_stream_get_state (pinossrc->stream);
-  g_print ("got stream state %d\n", state);
-  g_cond_broadcast (&pinossrc->cond);
+  GST_DEBUG ("got stream state %d\n", state);
 
-  if (state == PINOS_STREAM_STATE_ERROR) {
-    GST_ELEMENT_ERROR (pinossrc, RESOURCE, FAILED,
-        ("Failed to connect stream: %s",
-          pinos_stream_get_error (pinossrc->stream)->message), (NULL));
+  switch (state) {
+    case PINOS_STREAM_STATE_UNCONNECTED:
+    case PINOS_STREAM_STATE_CONNECTING:
+    case PINOS_STREAM_STATE_STARTING:
+    case PINOS_STREAM_STATE_STREAMING:
+    case PINOS_STREAM_STATE_READY:
+      break;
+    case PINOS_STREAM_STATE_ERROR:
+      GST_ELEMENT_ERROR (pinossrc, RESOURCE, FAILED,
+          ("stream error: %s",
+            pinos_stream_get_error (pinossrc->stream)->message), (NULL));
+      break;
   }
+  pinos_main_loop_signal (pinossrc->loop, FALSE);
 }
 
 static gboolean
@@ -300,7 +303,7 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
     str = gst_caps_to_string (caps);
     accepted = g_bytes_new_take (str, strlen (str) + 1);
 
-    g_mutex_lock (&pinossrc->lock);
+    pinos_main_loop_lock (pinossrc->loop);
     pinos_stream_connect_capture (pinossrc->stream, pinossrc->source, 0, accepted);
 
     while (TRUE) {
@@ -312,9 +315,9 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
       if (state == PINOS_STREAM_STATE_ERROR)
         goto connect_error;
 
-      g_cond_wait (&pinossrc->cond, &pinossrc->lock);
+      pinos_main_loop_wait (pinossrc->loop);
     }
-    g_mutex_unlock (&pinossrc->lock);
+    pinos_main_loop_unlock (pinossrc->loop);
 
     g_object_get (pinossrc->stream, "possible-formats", &possible, NULL);
     if (possible) {
@@ -367,7 +370,7 @@ no_caps:
   }
 connect_error:
   {
-    g_mutex_unlock (&pinossrc->lock);
+    pinos_main_loop_unlock (pinossrc->loop);
     return FALSE;
   }
 }
@@ -391,9 +394,9 @@ gst_pinos_src_setcaps (GstBaseSrc * bsrc, GstCaps * caps)
   str = gst_caps_to_string (caps);
   format = g_bytes_new_take (str, strlen (str) + 1);
 
-  g_mutex_lock (&pinossrc->lock);
+  pinos_main_loop_lock (pinossrc->loop);
   res = pinos_stream_start (pinossrc->stream, format, PINOS_STREAM_MODE_BUFFER);
-  g_mutex_unlock (&pinossrc->lock);
+  pinos_main_loop_unlock (pinossrc->loop);
 
   return res;
 }
@@ -412,11 +415,11 @@ gst_pinos_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
     goto not_negotiated;
 
 again:
-  g_mutex_lock (&pinossrc->lock);
+  pinos_main_loop_lock (pinossrc->loop);
   while (TRUE) {
     PinosStreamState state;
 
-    g_cond_wait (&pinossrc->cond, &pinossrc->lock);
+    pinos_main_loop_wait (pinossrc->loop);
 
     state = pinos_stream_get_state (pinossrc->stream);
     if (state == PINOS_STREAM_STATE_ERROR)
@@ -429,7 +432,7 @@ again:
     if (info.message != NULL)
       break;
   }
-  g_mutex_unlock (&pinossrc->lock);
+  pinos_main_loop_unlock (pinossrc->loop);
 
   if (g_socket_control_message_get_msg_type (info.message) != SCM_RIGHTS)
     goto again;
@@ -453,12 +456,12 @@ not_negotiated:
   }
 streaming_error:
   {
-    g_mutex_unlock (&pinossrc->lock);
+    pinos_main_loop_unlock (pinossrc->loop);
     return GST_FLOW_ERROR;
   }
 streaming_stopped:
   {
-    g_mutex_unlock (&pinossrc->lock);
+    pinos_main_loop_unlock (pinossrc->loop);
     return GST_FLOW_FLUSHING;
   }
 }
@@ -475,64 +478,46 @@ gst_pinos_src_stop (GstBaseSrc * basesrc)
   return TRUE;
 }
 
-static GPrivate src_key;
-
-static gint
-do_poll (GPollFD *ufds, guint nfsd, gint timeout_)
-{
-  gint res;
-  GstPinosSrc *this = g_private_get (&src_key);
-
-  g_mutex_unlock (&this->lock);
-  res = this->poll_func (ufds, nfsd, timeout_);
-  g_mutex_lock (&this->lock);
-
-  return res;
-}
-
-static gpointer
-handle_mainloop (GstPinosSrc *this)
-{
-  g_mutex_lock (&this->lock);
-  g_private_set (&src_key, this);
-  this->poll_func = g_main_context_get_poll_func (this->context);
-  g_main_context_set_poll_func (this->context, do_poll);
-  g_main_context_push_thread_default (this->context);
-  g_print ("run mainloop\n");
-  g_main_loop_run (this->loop);
-  g_print ("quit mainloop\n");
-  g_main_context_pop_thread_default (this->context);
-  g_mutex_unlock (&this->lock);
-
-  return NULL;
-}
-
 static void
-on_state_notify (GObject    *gobject,
-                 GParamSpec *pspec,
-                 gpointer    user_data)
+on_context_notify (GObject    *gobject,
+                   GParamSpec *pspec,
+                   gpointer    user_data)
 {
   GstPinosSrc *pinossrc = user_data;
-  PinosContextState state;
+  PinosContextState state = pinos_context_get_state (pinossrc->ctx);
 
-  state = pinos_context_get_state (pinossrc->ctx);
-  g_print ("got context state %d\n", state);
-  g_cond_broadcast (&pinossrc->cond);
+  GST_DEBUG ("got context state %d\n", state);
 
-  if (state == PINOS_CONTEXT_STATE_ERROR) {
-    GST_ELEMENT_ERROR (pinossrc, RESOURCE, FAILED,
-        ("Failed to connect stream: %s",
-          pinos_context_get_error (pinossrc->ctx)->message), (NULL));
+  switch (state) {
+    case PINOS_CONTEXT_STATE_UNCONNECTED:
+    case PINOS_CONTEXT_STATE_CONNECTING:
+    case PINOS_CONTEXT_STATE_REGISTERING:
+    case PINOS_CONTEXT_STATE_READY:
+      break;
+    case PINOS_CONTEXT_STATE_ERROR:
+      GST_ELEMENT_ERROR (pinossrc, RESOURCE, FAILED,
+          ("context error: %s",
+            pinos_context_get_error (pinossrc->ctx)->message), (NULL));
+      break;
   }
+  pinos_main_loop_signal (pinossrc->loop, FALSE);
 }
 
 static gboolean
 gst_pinos_src_open (GstPinosSrc * pinossrc)
 {
+  GError *error = NULL;
 
-  g_mutex_lock (&pinossrc->lock);
+  pinossrc->context = g_main_context_new ();
+  GST_DEBUG ("context %p\n", pinossrc->context);
+
+  pinossrc->loop = pinos_main_loop_new (pinossrc->context, "pinos-main-loop");
+  if (!pinos_main_loop_start (pinossrc->loop, &error))
+    goto mainloop_failed;
+
+  pinos_main_loop_lock (pinossrc->loop);
   pinossrc->ctx = pinos_context_new (pinossrc->context, "test-client", NULL);
-  g_signal_connect (pinossrc->ctx, "notify::state", (GCallback) on_state_notify, pinossrc);
+  g_signal_connect (pinossrc->ctx, "notify::state", (GCallback) on_context_notify, pinossrc);
 
   pinos_context_connect(pinossrc->ctx, PINOS_CONTEXT_FLAGS_NONE);
 
@@ -545,22 +530,36 @@ gst_pinos_src_open (GstPinosSrc * pinossrc)
     if (state == PINOS_CONTEXT_STATE_ERROR)
       goto connect_error;
 
-    g_cond_wait (&pinossrc->cond, &pinossrc->lock);
+    pinos_main_loop_wait (pinossrc->loop);
   }
 
   pinossrc->stream = pinos_stream_new (pinossrc->ctx, "test", NULL);
   g_signal_connect (pinossrc->stream, "notify::state", (GCallback) on_stream_notify, pinossrc);
   g_signal_connect (pinossrc->stream, "new-buffer", (GCallback) on_new_buffer, pinossrc);
-  g_mutex_unlock (&pinossrc->lock);
+  pinos_main_loop_unlock (pinossrc->loop);
 
   return TRUE;
 
   /* ERRORS */
-connect_error:
+mainloop_failed:
   {
-    g_mutex_unlock (&pinossrc->lock);
+    GST_ELEMENT_ERROR (pinossrc, RESOURCE, FAILED,
+        ("mainloop error: %s", error->message), (NULL));
     return FALSE;
   }
+connect_error:
+  {
+    pinos_main_loop_unlock (pinossrc->loop);
+    return FALSE;
+  }
+}
+
+static void
+gst_pinos_src_close (GstPinosSrc * pinossrc)
+{
+  pinos_main_loop_stop (pinossrc->loop);
+  g_clear_object (&pinossrc->loop);
+  g_main_context_unref (pinossrc->context);
 }
 
 static GstStateChangeReturn
@@ -571,14 +570,8 @@ gst_pinos_src_change_state (GstElement * element, GstStateChange transition)
 
   switch (transition) {
     case GST_STATE_CHANGE_NULL_TO_READY:
-      this->context = g_main_context_new ();
-      g_print ("context %p\n", this->context);
-      this->loop = g_main_loop_new (this->context, FALSE);
-      this->thread = g_thread_new ("pinos", (GThreadFunc) handle_mainloop, this);
-      if (!gst_pinos_src_open (this)) {
-        ret = GST_STATE_CHANGE_FAILURE;
-        goto exit;
-      }
+      if (!gst_pinos_src_open (this))
+        goto open_failed;
       break;
     case GST_STATE_CHANGE_READY_TO_PAUSED:
       break;
@@ -601,15 +594,16 @@ gst_pinos_src_change_state (GstElement * element, GstStateChange transition)
       this->negotiated = FALSE;
       break;
     case GST_STATE_CHANGE_READY_TO_NULL:
-      g_main_loop_quit (this->loop);
-      g_thread_join (this->thread);
-      g_main_loop_unref (this->loop);
-      g_main_context_unref (this->context);
+      gst_pinos_src_close (this);
       break;
     default:
       break;
   }
-
-exit:
   return ret;
+
+  /* ERRORS */
+open_failed:
+  {
+    return GST_STATE_CHANGE_FAILURE;
+  }
 }

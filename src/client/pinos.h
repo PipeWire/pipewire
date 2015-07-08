@@ -20,10 +20,11 @@
 #ifndef __PINOS_H__
 #define __PINOS_H__
 
-#include <client/stream.h>
 #include <client/context.h>
-#include <client/subscribe.h>
 #include <client/introspect.h>
+#include <client/mainloop.h>
+#include <client/stream.h>
+#include <client/subscribe.h>
 
 #define PINOS_DBUS_SERVICE "org.pinos"
 #define PINOS_DBUS_OBJECT_PREFIX "/org/pinos"

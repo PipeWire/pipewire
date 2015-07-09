@@ -88,7 +88,7 @@ gst_pinos_device_create_element (GstDevice * device, const gchar * name)
   GstElement *elem;
 
   elem = gst_element_factory_make (pinos_dev->element, name);
-  g_object_set (elem, "source", pinos_dev->path, NULL);
+  g_object_set (elem, "path", pinos_dev->path, NULL);
 
   return elem;
 }
@@ -108,7 +108,7 @@ gst_pinos_device_reconfigure_element (GstDevice * device, GstElement * element)
     g_assert_not_reached ();
   }
 
-  g_object_set (element, "source", pinos_dev->path, NULL);
+  g_object_set (element, "path", pinos_dev->path, NULL);
 
   return TRUE;
 }

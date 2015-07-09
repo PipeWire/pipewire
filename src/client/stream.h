@@ -101,7 +101,7 @@ PinosStreamState pinos_stream_get_state         (PinosStream *stream);
 const GError *   pinos_stream_get_error         (PinosStream *stream);
 
 gboolean         pinos_stream_connect_capture   (PinosStream      *stream,
-                                                 const gchar      *path,
+                                                 const gchar      *source_path,
                                                  PinosStreamFlags  flags,
                                                  GBytes           *accepted_formats);
 gboolean         pinos_stream_connect_provide   (PinosStream      *stream,

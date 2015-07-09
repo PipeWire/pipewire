@@ -635,7 +635,7 @@ pinos_subscribe_class_init (PinosSubscribeClass * klass)
    * @subscribe: The #PinosSubscribe emitting the signal.
    * @event: A #PinosSubscriptionEvent
    * @flags: #PinosSubscriptionFlags indicating the object
-   * @path: the object path
+   * @id: the unique and opaque object id
    *
    * Notify about a new object that was added/removed/modified.
    */

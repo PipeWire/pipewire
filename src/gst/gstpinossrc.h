@@ -52,7 +52,7 @@ struct _GstPinosSrc {
   GstPushSrc element;
 
   /*< private >*/
-  gchar *source;
+  gchar *path;
 
   gboolean negotiated;
 

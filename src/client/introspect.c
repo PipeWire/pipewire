@@ -34,7 +34,7 @@ fill_info (PinosSourceInfo *info, GDBusProxy *proxy)
 
   info->id = proxy;
 
-  info->path = g_dbus_proxy_get_object_path (proxy);
+  info->source_path = g_dbus_proxy_get_object_path (proxy);
 
   if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "Name"))) {
     info->name = g_variant_get_string (variant, NULL);

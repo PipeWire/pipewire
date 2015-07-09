@@ -50,7 +50,7 @@ GST_DEBUG_CATEGORY_STATIC (pinos_src_debug);
 enum
 {
   PROP_0,
-  PROP_SOURCE
+  PROP_PATH
 };
 
 
@@ -87,9 +87,9 @@ gst_pinos_src_set_property (GObject * object, guint prop_id,
   GstPinosSrc *pinossrc = GST_PINOS_SRC (object);
 
   switch (prop_id) {
-    case PROP_SOURCE:
-      g_free (pinossrc->source);
-      pinossrc->source = g_value_dup_string (value);
+    case PROP_PATH:
+      g_free (pinossrc->path);
+      pinossrc->path = g_value_dup_string (value);
       break;
 
     default:
@@ -105,8 +105,8 @@ gst_pinos_src_get_property (GObject * object, guint prop_id,
   GstPinosSrc *pinossrc = GST_PINOS_SRC (object);
 
   switch (prop_id) {
-    case PROP_SOURCE:
-      g_value_set_string (value, pinossrc->source);
+    case PROP_PATH:
+      g_value_set_string (value, pinossrc->path);
       break;
 
     default:
@@ -121,7 +121,7 @@ gst_pinos_src_finalize (GObject * object)
   GstPinosSrc *pinossrc = GST_PINOS_SRC (object);
 
   g_object_unref (pinossrc->fd_allocator);
-  g_free (pinossrc->source);
+  g_free (pinossrc->path);
 
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }
@@ -144,10 +144,10 @@ gst_pinos_src_class_init (GstPinosSrcClass * klass)
   gobject_class->get_property = gst_pinos_src_get_property;
 
   g_object_class_install_property (gobject_class,
-                                   PROP_SOURCE,
-                                   g_param_spec_string ("source",
-                                                        "Source",
-                                                        "The source name to connect to (NULL = default)",
+                                   PROP_PATH,
+                                   g_param_spec_string ("path",
+                                                        "Path",
+                                                        "The source path to connect to (NULL = default)",
                                                         NULL,
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_STATIC_STRINGS));
@@ -304,7 +304,7 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
     accepted = g_bytes_new_take (str, strlen (str) + 1);
 
     pinos_main_loop_lock (pinossrc->loop);
-    pinos_stream_connect_capture (pinossrc->stream, pinossrc->source, 0, accepted);
+    pinos_stream_connect_capture (pinossrc->stream, pinossrc->path, 0, accepted);
 
     while (TRUE) {
       PinosStreamState state = pinos_stream_get_state (pinossrc->stream);

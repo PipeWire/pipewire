@@ -39,7 +39,7 @@ struct _PinosStreamPrivate
   PinosStreamState state;
   GError *error;
 
-  gchar *target;
+  gchar *source_path;
   GBytes *accepted_formats;
   gboolean provide;
 
@@ -226,7 +226,7 @@ pinos_stream_finalize (GObject * object)
   if (priv->format)
     g_bytes_unref (priv->format);
 
-  g_free (priv->target);
+  g_free (priv->source_path);
   if (priv->accepted_formats)
     g_bytes_unref (priv->accepted_formats);
 
@@ -530,7 +530,7 @@ do_connect_capture (PinosStream *stream)
   g_dbus_proxy_call (context->priv->client,
                      "CreateSourceOutput",
                      g_variant_new ("(ss)",
-                       (priv->target ? priv->target : ""),
+                       (priv->source_path ? priv->source_path : ""),
                        g_bytes_get_data (priv->accepted_formats, NULL)),
                      G_DBUS_CALL_FLAGS_NONE,
                      -1,
@@ -544,17 +544,17 @@ do_connect_capture (PinosStream *stream)
 /**
  * pinos_stream_connect_capture:
  * @stream: a #PinosStream
- * @path: the source path to connect to
+ * @source_path: the source path to connect to
  * @flags: a #PinosStreamFlags
  * @spec: a #GVariant
  *
- * Connect @stream for capturing from @path.
+ * Connect @stream for capturing from @source_path.
  *
  * Returns: %TRUE on success.
  */
 gboolean
 pinos_stream_connect_capture (PinosStream      *stream,
-                              const gchar      *path,
+                              const gchar      *source_path,
                               PinosStreamFlags  flags,
                               GBytes           *accepted_formats)
 {
@@ -568,8 +568,8 @@ pinos_stream_connect_capture (PinosStream      *stream,
   context = priv->context;
   g_return_val_if_fail (pinos_context_get_state (context) == PINOS_CONTEXT_STATE_READY, FALSE);
 
-  g_free (priv->target);
-  priv->target = g_strdup (path);
+  g_free (priv->source_path);
+  priv->source_path = g_strdup (source_path);
   if (priv->accepted_formats)
     g_bytes_unref (priv->accepted_formats);
   priv->accepted_formats = g_bytes_ref (accepted_formats);

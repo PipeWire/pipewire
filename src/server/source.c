@@ -136,6 +136,9 @@ source_register_object (PinosSource *source)
   PinosSourcePrivate *priv = source->priv;
   PinosDaemon *daemon = priv->daemon;
   PinosObjectSkeleton *skel;
+  GBytes *formats;
+
+  formats = pinos_source_get_formats (source, NULL);
 
   skel = pinos_object_skeleton_new (PINOS_DBUS_OBJECT_SOURCE);
 
@@ -143,8 +146,10 @@ source_register_object (PinosSource *source)
   g_object_set (priv->iface, "name", priv->name,
                              "state", priv->state,
                              "properties", priv->properties,
+                             "possible-formats", g_bytes_get_data (formats, NULL),
                              NULL);
   pinos_object_skeleton_set_source1 (skel, priv->iface);
+  g_bytes_unref (formats);
 
   g_free (priv->object_path);
   priv->object_path = pinos_daemon_export_uniquely (daemon, G_DBUS_OBJECT_SKELETON (skel));

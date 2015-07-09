@@ -46,6 +46,9 @@ pinos_context_list_source_info (PinosContext            *context,
   GList *walk;
   PinosContextPrivate *priv = context->priv;
 
+  g_return_if_fail (PINOS_IS_CONTEXT (context));
+  g_return_if_fail (cb != NULL);
+
   for (walk = priv->sources; walk; walk = g_list_next (walk)) {
     GDBusProxy *proxy = walk->data;
     PinosSourceInfo info;
@@ -78,4 +81,18 @@ pinos_context_get_source_info_by_id (PinosContext *context,
                                      GCancellable *cancellable,
                                      gpointer user_data)
 {
+  PinosSourceInfo info;
+
+  g_return_if_fail (PINOS_IS_CONTEXT (context));
+  g_return_if_fail (id != NULL);
+  g_return_if_fail (cb != NULL);
+
+  info.id = id;
+  info.name = "gst";
+  info.properties = NULL;
+  info.state = PINOS_SOURCE_STATE_SUSPENDED;
+  info.formats = NULL;
+
+  cb (context, &info, user_data);
+  cb (context, NULL, user_data);
 }

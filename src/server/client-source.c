@@ -151,9 +151,13 @@ client_get_formats (PinosSource *source,
   GstCaps *caps, *cfilter;
   gchar *str;
 
-  cfilter = gst_caps_from_string (g_bytes_get_data (filter, NULL));
-  if (cfilter == NULL)
-    return NULL;
+  if (filter) {
+    cfilter = gst_caps_from_string (g_bytes_get_data (filter, NULL));
+    if (cfilter == NULL)
+      return NULL;
+  } else {
+    cfilter = NULL;
+  }
 
   caps = collect_caps (source, cfilter);
   if (caps == NULL)

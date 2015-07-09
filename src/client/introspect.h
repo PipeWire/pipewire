@@ -32,20 +32,20 @@ G_BEGIN_DECLS
  * @PINOS_SOURCE_STATE_ERROR: the source is in error
  * @PINOS_SOURCE_STATE_SUSPENDED: the source is suspended, the device might
  *                             be closed
- * @PINOS_SOURCE_STATE_INIT: the source is initializing, it opens the device
- *                        and gets the device capabilities
+ * @PINOS_SOURCE_STATE_INITIALIZING: the source is initializing, the device is
+ *                        being opened and the capabilities are queried
  * @PINOS_SOURCE_STATE_IDLE: the source is running but there is no active
  *                        source-output
- * @PINOS_SOURCE_STATE_RUNNING: the source is running.
+ * @PINOS_SOURCE_STATE_RUNNING: the source is running
  *
  * The different source states
  */
 typedef enum {
-  PINOS_SOURCE_STATE_ERROR = 0,
-  PINOS_SOURCE_STATE_SUSPENDED = 1,
-  PINOS_SOURCE_STATE_INIT = 2,
-  PINOS_SOURCE_STATE_IDLE = 3,
-  PINOS_SOURCE_STATE_RUNNING = 4,
+  PINOS_SOURCE_STATE_ERROR = -1,
+  PINOS_SOURCE_STATE_SUSPENDED = 0,
+  PINOS_SOURCE_STATE_INITIALIZING = 1,
+  PINOS_SOURCE_STATE_IDLE = 2,
+  PINOS_SOURCE_STATE_RUNNING = 3,
 } PinosSourceState;
 
 /**

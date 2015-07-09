@@ -124,7 +124,7 @@ client_set_state (PinosSource      *source,
       gst_element_set_state (priv->pipeline, GST_STATE_NULL);
       break;
 
-    case PINOS_SOURCE_STATE_INIT:
+    case PINOS_SOURCE_STATE_INITIALIZING:
       gst_element_set_state (priv->pipeline, GST_STATE_READY);
       break;
 

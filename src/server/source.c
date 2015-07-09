@@ -315,7 +315,7 @@ pinos_source_class_init (PinosSourceClass * klass)
                                                       "State",
                                                       "The state of the source",
                                                       PINOS_TYPE_SOURCE_STATE,
-                                                      PINOS_SOURCE_STATE_INIT,
+                                                      PINOS_SOURCE_STATE_SUSPENDED,
                                                       G_PARAM_READABLE |
                                                       G_PARAM_STATIC_STRINGS));
 
@@ -338,7 +338,9 @@ pinos_source_class_init (PinosSourceClass * klass)
 static void
 pinos_source_init (PinosSource * source)
 {
-  source->priv = PINOS_SOURCE_GET_PRIVATE (source);
+  PinosSourcePrivate *priv = source->priv = PINOS_SOURCE_GET_PRIVATE (source);
+
+  priv->state = PINOS_SOURCE_STATE_SUSPENDED;
 }
 
 GBytes *

@@ -31,6 +31,8 @@ struct _PinosSubscribePrivate
   GCancellable *cancellable;
 
   GDBusProxy *manager_proxy;
+  guint owner_id;
+  guint signal_id;
 
   guint pending_proxies;
   GList *objects;
@@ -47,6 +49,7 @@ typedef struct
   gchar *interface_name;
   gboolean pending;
   GDBusProxy *proxy;
+  guint prop_id;
   GList *tasks;
   gboolean removed;
 } PinosObjectData;
@@ -125,6 +128,7 @@ on_proxy_properties_changed (GDBusProxy *proxy,
 static void
 object_data_free (PinosObjectData *data)
 {
+  g_signal_handler_disconnect (data->proxy, data->prop_id);
   g_object_unref (data->proxy);
   g_free (data->sender_name);
   g_free (data->object_path);
@@ -180,7 +184,7 @@ on_proxy_created (GObject      *source_object,
     return;
   }
 
-  g_signal_connect (data->proxy,
+  data->prop_id = g_signal_connect (data->proxy,
                     "g-properties-changed",
                     (GCallback) on_proxy_properties_changed,
                     data);
@@ -402,16 +406,15 @@ on_manager_proxy_name_owner (GObject    *object,
   }
 }
 
-
 static void
 connect_client_signals (PinosSubscribe *subscribe)
 {
   PinosSubscribePrivate *priv = subscribe->priv;
 
-  g_signal_connect (priv->manager_proxy, "notify::g-name-owner",
+  priv->owner_id = g_signal_connect (priv->manager_proxy, "notify::g-name-owner",
       (GCallback) on_manager_proxy_name_owner, subscribe);
 
-  g_signal_connect (priv->manager_proxy, "g-signal",
+  priv->signal_id = g_signal_connect (priv->manager_proxy, "g-signal",
       (GCallback) on_manager_proxy_signal, subscribe);
 }
 
@@ -469,7 +472,11 @@ uninstall_subscription (PinosSubscribe *subscribe)
 {
   PinosSubscribePrivate *priv = subscribe->priv;
 
-  g_clear_object (&priv->manager_proxy);
+  if (priv->manager_proxy) {
+    g_signal_handler_disconnect (priv->manager_proxy, priv->owner_id);
+    g_signal_handler_disconnect (priv->manager_proxy, priv->signal_id);
+    g_clear_object (&priv->manager_proxy);
+  }
   g_clear_error (&priv->error);
   subscription_set_state (subscribe, PINOS_SUBSCRIPTION_STATE_UNCONNECTED);
 }

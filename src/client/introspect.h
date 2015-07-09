@@ -51,7 +51,8 @@ typedef enum {
 /**
  * PinosSourceInfo:
  * @id: generic id of the source
- * @name: the name of the source
+ * @path: the unique path of the source, suitable for connecting
+ * @name: name the source, suitable for display
  * @properties: the properties of the source
  * @state: the current state of the source
  * @formats: the supported formats
@@ -60,6 +61,7 @@ typedef enum {
  */
 typedef struct {
   gpointer id;
+  const char *path;
   const char *name;
   GVariant *properties;
   PinosSourceState state;

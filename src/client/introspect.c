@@ -17,6 +17,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <string.h>
+
 #include "client/pinos.h"
 
 #include "client/context.h"
@@ -24,6 +26,50 @@
 #include "client/subscribe.h"
 
 #include "client/private.h"
+
+static void
+fill_info (PinosSourceInfo *info, GDBusProxy *proxy)
+{
+  GVariant *variant;
+
+  info->id = proxy;
+
+  info->path = g_dbus_proxy_get_object_path (proxy);
+
+  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "Name"))) {
+    info->name = g_variant_get_string (variant, NULL);
+    g_variant_unref (variant);
+  } else {
+    info->name = "Unknown";
+  }
+
+  info->properties = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "Properties");
+
+  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "State"))) {
+    info->state = g_variant_get_uint32 (variant);
+    g_variant_unref (variant);
+  } else {
+    info->state = PINOS_SOURCE_STATE_ERROR;
+  }
+
+  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "PossibleFormats"))) {
+    gsize len;
+    gchar *formats = g_variant_dup_string (variant, &len);
+    info->formats = g_bytes_new_take (formats, len + 1);
+    g_variant_unref (variant);
+  } else {
+    info->formats = NULL;
+  }
+}
+
+static void
+clear_info (PinosSourceInfo *info)
+{
+  if (info->properties)
+    g_variant_unref (info->properties);
+  if (info->formats)
+    g_bytes_unref (info->formats);
+}
 
 /**
  * pinos_context_list_source_info:
@@ -53,10 +99,9 @@ pinos_context_list_source_info (PinosContext            *context,
     GDBusProxy *proxy = walk->data;
     PinosSourceInfo info;
 
-    info.id = proxy;
-    info.name = "gst";
-
+    fill_info (&info, proxy);
     cb (context, &info, user_data);
+    clear_info (&info);
   }
   cb (context, NULL, user_data);
 }
@@ -82,17 +127,17 @@ pinos_context_get_source_info_by_id (PinosContext *context,
                                      gpointer user_data)
 {
   PinosSourceInfo info;
+  GDBusProxy *proxy;
 
   g_return_if_fail (PINOS_IS_CONTEXT (context));
   g_return_if_fail (id != NULL);
   g_return_if_fail (cb != NULL);
 
-  info.id = id;
-  info.name = "gst";
-  info.properties = NULL;
-  info.state = PINOS_SOURCE_STATE_SUSPENDED;
-  info.formats = NULL;
+  proxy = G_DBUS_PROXY (id);
 
+  fill_info (&info, proxy);
   cb (context, &info, user_data);
+  clear_info (&info);
+
   cb (context, NULL, user_data);
 }

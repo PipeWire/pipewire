@@ -455,12 +455,13 @@ on_source_output_proxy (GObject      *source_object,
 
   v = g_dbus_proxy_get_cached_property (priv->source_output, "PossibleFormats");
   if (v) {
-    str = g_variant_dup_string (v, NULL);
+    gsize len;
+    str = g_variant_dup_string (v, &len);
     g_variant_unref (v);
 
     if (priv->possible_formats)
       g_bytes_unref (priv->possible_formats);
-    priv->possible_formats = g_bytes_new_take (str, strlen (str) + 1);
+    priv->possible_formats = g_bytes_new_take (str, len + 1);
 
     g_object_notify (G_OBJECT (stream), "possible-formats");
   }
@@ -543,17 +544,17 @@ do_connect_capture (PinosStream *stream)
 /**
  * pinos_stream_connect_capture:
  * @stream: a #PinosStream
- * @source: the source name to connect to
+ * @path: the source path to connect to
  * @flags: a #PinosStreamFlags
  * @spec: a #GVariant
  *
- * Connect @stream for capturing from @source.
+ * Connect @stream for capturing from @path.
  *
  * Returns: %TRUE on success.
  */
 gboolean
 pinos_stream_connect_capture (PinosStream      *stream,
-                              const gchar      *source,
+                              const gchar      *path,
                               PinosStreamFlags  flags,
                               GBytes           *accepted_formats)
 {
@@ -568,7 +569,7 @@ pinos_stream_connect_capture (PinosStream      *stream,
   g_return_val_if_fail (pinos_context_get_state (context) == PINOS_CONTEXT_STATE_READY, FALSE);
 
   g_free (priv->target);
-  priv->target = g_strdup (source);
+  priv->target = g_strdup (path);
   if (priv->accepted_formats)
     g_bytes_unref (priv->accepted_formats);
   priv->accepted_formats = g_bytes_ref (accepted_formats);

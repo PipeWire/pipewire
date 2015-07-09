@@ -93,30 +93,30 @@ struct _PinosStreamClass {
 GType            pinos_stream_get_type          (void);
 
 
-PinosStream *    pinos_stream_new               (PinosContext * context,
-                                                const gchar *name,
-                                                GVariant * props);
+PinosStream *    pinos_stream_new               (PinosContext *context,
+                                                const gchar   *name,
+                                                GVariant      *props);
 
 PinosStreamState pinos_stream_get_state         (PinosStream *stream);
 const GError *   pinos_stream_get_error         (PinosStream *stream);
 
-gboolean         pinos_stream_connect_capture   (PinosStream *stream,
-                                                 const gchar *source,
-                                                 PinosStreamFlags flags,
-                                                 GBytes *accepted_formats);
-gboolean         pinos_stream_connect_provide   (PinosStream *stream,
-                                                 PinosStreamFlags flags,
-                                                 GBytes *possible_formats);
-gboolean         pinos_stream_disconnect        (PinosStream *stream);
+gboolean         pinos_stream_connect_capture   (PinosStream      *stream,
+                                                 const gchar      *path,
+                                                 PinosStreamFlags  flags,
+                                                 GBytes           *accepted_formats);
+gboolean         pinos_stream_connect_provide   (PinosStream      *stream,
+                                                 PinosStreamFlags  flags,
+                                                 GBytes           *possible_formats);
+gboolean         pinos_stream_disconnect        (PinosStream      *stream);
 
-gboolean         pinos_stream_start             (PinosStream *stream,
-                                                 GBytes *format,
-                                                 PinosStreamMode mode);
-gboolean         pinos_stream_stop              (PinosStream *stream);
+gboolean         pinos_stream_start             (PinosStream     *stream,
+                                                 GBytes          *format,
+                                                 PinosStreamMode  mode);
+gboolean         pinos_stream_stop              (PinosStream     *stream);
 
-gboolean         pinos_stream_capture_buffer    (PinosStream *stream,
+gboolean         pinos_stream_capture_buffer    (PinosStream     *stream,
                                                  PinosBufferInfo *info);
-gboolean         pinos_stream_provide_buffer    (PinosStream *stream,
+gboolean         pinos_stream_provide_buffer    (PinosStream     *stream,
                                                  PinosBufferInfo *info);
 
 G_END_DECLS

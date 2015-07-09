@@ -105,11 +105,32 @@ bus_handler (GstBus     *bus,
 }
 
 static void
+disable_pinos_provider (PinosGstManager *manager)
+{
+  GList *factories = NULL;
+
+  factories = gst_device_provider_factory_list_get_device_providers (1);
+
+  while (factories) {
+    GstDeviceProviderFactory *factory = factories->data;
+
+    if (strcmp (GST_OBJECT_NAME (factory), "pinosdeviceprovider") == 0) {
+      gst_plugin_feature_set_rank (GST_PLUGIN_FEATURE (factory), 0);
+    }
+    factories = g_list_remove (factories, factory);
+    gst_object_unref (factory);
+  }
+
+}
+
+static void
 start_monitor (PinosGstManager *manager)
 {
   PinosGstManagerPrivate *priv = manager->priv;
   GstBus *bus;
   GList *devices;
+
+  disable_pinos_provider (manager);
 
   priv->monitor = gst_device_monitor_new ();
 

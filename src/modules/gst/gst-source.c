@@ -174,9 +174,13 @@ get_formats (PinosSource *source,
   GstCaps *caps, *cfilter;
   gchar *str;
 
-  cfilter = gst_caps_from_string (g_bytes_get_data (filter, NULL));
-  if (cfilter == NULL)
-    return NULL;
+  if (filter) {
+    cfilter = gst_caps_from_string (g_bytes_get_data (filter, NULL));
+    if (cfilter == NULL)
+      return NULL;
+  } else {
+    cfilter = NULL;
+  }
 
   caps = collect_caps (source, cfilter);
   if (caps == NULL)
@@ -259,10 +263,14 @@ create_source_output (PinosSource *source,
   GstCaps *caps, *filtered;
   gchar *str;
 
-  str = (gchar *) g_bytes_get_data (format_filter, NULL);
-  caps = gst_caps_from_string (str);
-  if (caps == NULL)
-    goto invalid_caps;
+  if (format_filter) {
+    str = (gchar *) g_bytes_get_data (format_filter, NULL);
+    caps = gst_caps_from_string (str);
+    if (caps == NULL)
+      goto invalid_caps;
+  } else {
+    caps = NULL;
+  }
 
   filtered = collect_caps (source, caps);
   if (filtered == NULL || gst_caps_is_empty (filtered))
@@ -277,6 +285,8 @@ create_source_output (PinosSource *source,
                                         format_filter,
                                         prefix,
                                         error);
+  g_bytes_unref (format_filter);
+
   if (error == NULL)
     return NULL;
 
@@ -295,6 +305,8 @@ invalid_caps:
   }
 no_format:
   {
+    if (filtered)
+      gst_caps_unref (filtered);
     if (error)
       *error = g_error_new (G_IO_ERROR,
                             G_IO_ERROR_NOT_FOUND,

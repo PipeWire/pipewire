@@ -36,7 +36,7 @@ GST_DEBUG_CATEGORY_EXTERN (pinos_debug);
 #define GST_CAT_DEFAULT pinos_debug
 
 
-static GstDevice *gst_pinos_device_new (const gchar * device_name,
+static GstDevice *gst_pinos_device_new (gpointer id, const gchar * device_name,
     GstCaps * caps, const gchar * internal_name, GstPinosDeviceType type);
 
 G_DEFINE_TYPE (GstPinosDeviceProvider, gst_pinos_device_provider,
@@ -70,7 +70,6 @@ pinos_client_name (void)
   else
     return g_strdup_printf ("GStreamer-pid-%lu", (gulong) getpid ());
 }
-
 
 static void
 gst_pinos_device_provider_class_init (GstPinosDeviceProviderClass * klass)
@@ -163,9 +162,12 @@ new_source (const PinosSourceInfo *info)
 {
   GstCaps *caps;
 
-  caps = gst_caps_from_string (g_bytes_get_data (info->formats, NULL));
+  if (info->formats)
+    caps = gst_caps_from_string (g_bytes_get_data (info->formats, NULL));
+  else
+    caps = gst_caps_new_empty_simple("video/x-raw");
 
-  return gst_pinos_device_new (info->name,
+  return gst_pinos_device_new (info->id, info->name,
       caps, info->name, GST_PINOS_DEVICE_TYPE_SOURCE);
 }
 
@@ -199,10 +201,8 @@ get_source_info_cb (PinosContext          *context,
   GstPinosDeviceProvider *self = user_data;
   GstDevice *dev;
 
-  if (info == NULL) {
-    pinos_main_loop_signal (self->loop, FALSE);
+  if (info == NULL)
     return FALSE;
-  }
 
   dev = new_source (info);
 
@@ -315,11 +315,13 @@ gst_pinos_device_provider_probe (GstDeviceProvider * provider)
   g_clear_object (&c);
 
   g_main_context_pop_thread_default (m);
-  g_clear_object (&m);
+  g_main_context_unref (m);
 
   return *data.devices;
 
 failed:
+  g_main_context_pop_thread_default (m);
+  g_main_context_unref (m);
 
   return NULL;
 }
@@ -343,6 +345,7 @@ context_state_notify (GObject    *gobject,
       break;
     case PINOS_CONTEXT_STATE_UNCONNECTED:
     case PINOS_CONTEXT_STATE_READY:
+      break;
     case PINOS_CONTEXT_STATE_ERROR:
       GST_ERROR_OBJECT (self, "context error: %s",
             pinos_context_get_error (context)->message);
@@ -364,6 +367,7 @@ gst_pinos_device_provider_start (GstDeviceProvider * provider)
     GST_ERROR_OBJECT (self, "Could not create pinos mainloop");
     goto mainloop_failed;
   }
+
   if (!pinos_main_loop_start (self->loop, &error)) {
     GST_ERROR_OBJECT (self, "Could not start pinos mainloop: %s", error->message);
     g_clear_object (&self->loop);
@@ -390,51 +394,22 @@ gst_pinos_device_provider_start (GstDeviceProvider * provider)
                     (GCallback) context_subscribe_cb,
                     self);
 
-  pinos_context_connect (self->context, PINOS_CONTEXT_FLAGS_NONE);
-
-  for (;;) {
-    PinosContextState state;
-
-    state = pinos_context_get_state (self->context);
-
-    if (state <= 0) {
-      GST_ERROR_OBJECT (self, "Failed to connect: %s",
-          pinos_context_get_error (self->context)->message);
-      goto unlock_and_fail;
-    }
-
-    if (state == PINOS_CONTEXT_STATE_READY)
-      break;
-
-    /* Wait until the context is ready */
-    pinos_main_loop_wait (self->loop);
-  }
-  GST_DEBUG_OBJECT (self, "connected");
-
-  pinos_context_list_source_info (self->context,
-                                  PINOS_SOURCE_INFO_FLAGS_FORMATS,
-                                  get_source_info_cb,
-                                  NULL,
-                                  self);
-
-  for (;;) {
-    if (pinos_context_get_state (self->context) <= 0)
-      goto unlock_and_fail;
-
-    pinos_main_loop_wait (self->loop);
-  }
+  pinos_context_connect (self->context, PINOS_CONTEXT_FLAGS_NOFAIL);
   pinos_main_loop_unlock (self->loop);
+  g_main_context_unref (c);
 
   return TRUE;
 
 mainloop_failed:
   {
+    g_main_context_unref (c);
     return FALSE;
   }
 unlock_and_fail:
   {
     pinos_main_loop_unlock (self->loop);
     gst_pinos_device_provider_stop (provider);
+    g_main_context_unref (c);
     return FALSE;
   }
 }
@@ -537,7 +512,7 @@ gst_pinos_device_reconfigure_element (GstDevice * device, GstElement * element)
 }
 
 static GstDevice *
-gst_pinos_device_new (const gchar * device_name,
+gst_pinos_device_new (gpointer id, const gchar * device_name,
     GstCaps * caps, const gchar * internal_name, GstPinosDeviceType type)
 {
   GstPinosDevice *gstdev;
@@ -552,11 +527,11 @@ gst_pinos_device_new (const gchar * device_name,
   switch (type) {
     case GST_PINOS_DEVICE_TYPE_SOURCE:
       element = "pinossrc";
-      klass = "Audio/Source";
+      klass = "Video/Source";
       break;
     case GST_PINOS_DEVICE_TYPE_SINK:
       element = "pinossink";
-      klass = "Audio/Sink";
+      klass = "Video/Sink";
       break;
     default:
       g_assert_not_reached ();
@@ -568,6 +543,7 @@ gst_pinos_device_new (const gchar * device_name,
       "display-name", device_name, "caps", caps, "device-class", klass,
       "internal-name", internal_name, NULL);
 
+  gstdev->id = id;
   gstdev->type = type;
   gstdev->element = element;
 

@@ -52,6 +52,9 @@ device_added (PinosGstManager *manager,
   PinosSource *source;
 
   name = gst_device_get_display_name (device);
+  if (strcmp (name, "gst") == 0)
+    return;
+
   g_print("Device added: %s\n", name);
 
   element = gst_device_create_element (device, NULL);
@@ -68,7 +71,11 @@ device_removed (PinosGstManager *manager,
   PinosSource *source;
 
   name = gst_device_get_display_name (device);
+  if (strcmp (name, "gst") == 0)
+    return;
+
   g_print("Device removed: %s\n", name);
+
   source = g_object_steal_data (G_OBJECT (device), "PinosSource");
   g_object_unref (source);
   g_free (name);

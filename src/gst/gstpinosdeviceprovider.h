@@ -34,6 +34,37 @@
 
 G_BEGIN_DECLS
 
+typedef struct _GstPinosDevice GstPinosDevice;
+typedef struct _GstPinosDeviceClass GstPinosDeviceClass;
+
+#define GST_TYPE_PINOS_DEVICE                 (gst_pinos_device_get_type())
+#define GST_IS_PINOS_DEVICE(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GST_TYPE_PINOS_DEVICE))
+#define GST_IS_PINOS_DEVICE_CLASS(klass)      (G_TYPE_CHECK_CLASS_TYPE ((klass), GST_TYPE_PINOS_DEVICE))
+#define GST_PINOS_DEVICE_GET_CLASS(obj)       (G_TYPE_INSTANCE_GET_CLASS ((obj), GST_TYPE_PINOS_DEVICE, GstPinosDeviceClass))
+#define GST_PINOS_DEVICE(obj)                 (G_TYPE_CHECK_INSTANCE_CAST ((obj), GST_TYPE_PINOS_DEVICE, GstPinosDevice))
+#define GST_PINOS_DEVICE_CLASS(klass)         (G_TYPE_CHECK_CLASS_CAST ((klass), GST_TYPE_DEVICE, GstPinosDeviceClass))
+#define GST_PINOS_DEVICE_CAST(obj)            ((GstPinosDevice *)(obj))
+
+typedef enum {
+  GST_PINOS_DEVICE_TYPE_SOURCE,
+  GST_PINOS_DEVICE_TYPE_SINK,
+} GstPinosDeviceType;
+
+struct _GstPinosDevice {
+  GstDevice           parent;
+
+  GstPinosDeviceType  type;
+  gpointer            id;
+  gchar              *path;
+  const gchar        *element;
+};
+
+struct _GstPinosDeviceClass {
+  GstDeviceClass    parent_class;
+};
+
+GType        gst_pinos_device_get_type (void);
+
 typedef struct _GstPinosDeviceProvider GstPinosDeviceProvider;
 typedef struct _GstPinosDeviceProviderClass GstPinosDeviceProviderClass;
 
@@ -56,43 +87,11 @@ struct _GstPinosDeviceProvider {
   PinosContext *context;
 };
 
-typedef enum {
-  GST_PINOS_DEVICE_TYPE_SOURCE,
-  GST_PINOS_DEVICE_TYPE_SINK,
-} GstPinosDeviceType;
-
 struct _GstPinosDeviceProviderClass {
   GstDeviceProviderClass    parent_class;
 };
 
 GType        gst_pinos_device_provider_get_type (void);
-
-
-typedef struct _GstPinosDevice GstPinosDevice;
-typedef struct _GstPinosDeviceClass GstPinosDeviceClass;
-
-#define GST_TYPE_PINOS_DEVICE                 (gst_pinos_device_get_type())
-#define GST_IS_PINOS_DEVICE(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GST_TYPE_PINOS_DEVICE))
-#define GST_IS_PINOS_DEVICE_CLASS(klass)      (G_TYPE_CHECK_CLASS_TYPE ((klass), GST_TYPE_PINOS_DEVICE))
-#define GST_PINOS_DEVICE_GET_CLASS(obj)       (G_TYPE_INSTANCE_GET_CLASS ((obj), GST_TYPE_PINOS_DEVICE, GstPinosDeviceClass))
-#define GST_PINOS_DEVICE(obj)                 (G_TYPE_CHECK_INSTANCE_CAST ((obj), GST_TYPE_PINOS_DEVICE, GstPinosDevice))
-#define GST_PINOS_DEVICE_CLASS(klass)         (G_TYPE_CHECK_CLASS_CAST ((klass), GST_TYPE_DEVICE, GstPinosDeviceClass))
-#define GST_PINOS_DEVICE_CAST(obj)            ((GstPinosDevice *)(obj))
-
-struct _GstPinosDevice {
-  GstDevice           parent;
-
-  GstPinosDeviceType  type;
-  gpointer            id;
-  gchar              *internal_name;
-  const gchar        *element;
-};
-
-struct _GstPinosDeviceClass {
-  GstDeviceClass    parent_class;
-};
-
-GType        gst_pinos_device_get_type (void);
 
 G_END_DECLS
 

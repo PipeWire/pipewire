@@ -246,7 +246,7 @@ on_stream_notify (GObject    *gobject,
   GstPinosSrc *pinossrc = user_data;
   PinosStreamState state = pinos_stream_get_state (pinossrc->stream);
 
-  GST_DEBUG ("got stream state %d\n", state);
+  GST_DEBUG ("got stream state %d", state);
 
   switch (state) {
     case PINOS_STREAM_STATE_UNCONNECTED:
@@ -304,6 +304,7 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
     accepted = g_bytes_new_take (str, strlen (str) + 1);
 
     pinos_main_loop_lock (pinossrc->loop);
+    GST_DEBUG_OBJECT (basesrc, "connect capture with path %s", pinossrc->path);
     pinos_stream_connect_capture (pinossrc->stream, pinossrc->path, 0, accepted);
 
     while (TRUE) {
@@ -486,7 +487,7 @@ on_context_notify (GObject    *gobject,
   GstPinosSrc *pinossrc = user_data;
   PinosContextState state = pinos_context_get_state (pinossrc->ctx);
 
-  GST_DEBUG ("got context state %d\n", state);
+  GST_DEBUG ("got context state %d", state);
 
   switch (state) {
     case PINOS_CONTEXT_STATE_UNCONNECTED:
@@ -509,7 +510,7 @@ gst_pinos_src_open (GstPinosSrc * pinossrc)
   GError *error = NULL;
 
   pinossrc->context = g_main_context_new ();
-  GST_DEBUG ("context %p\n", pinossrc->context);
+  GST_DEBUG ("context %p", pinossrc->context);
 
   pinossrc->loop = pinos_main_loop_new (pinossrc->context, "pinos-main-loop");
   if (!pinos_main_loop_start (pinossrc->loop, &error))

@@ -71,7 +71,6 @@ gst_pinos_src_change_state (GstElement * element, GstStateChange transition);
 
 static gboolean gst_pinos_src_negotiate (GstBaseSrc * basesrc);
 static GstCaps *gst_pinos_src_getcaps (GstBaseSrc * bsrc, GstCaps * filter);
-static gboolean gst_pinos_src_setcaps (GstBaseSrc * bsrc, GstCaps * caps);
 static GstCaps *gst_pinos_src_src_fixate (GstBaseSrc * bsrc,
     GstCaps * caps);
 
@@ -164,7 +163,6 @@ gst_pinos_src_class_init (GstPinosSrcClass * klass)
 
   gstbasesrc_class->negotiate = gst_pinos_src_negotiate;
   gstbasesrc_class->get_caps = gst_pinos_src_getcaps;
-  gstbasesrc_class->set_caps = gst_pinos_src_setcaps;
   gstbasesrc_class->fixate = gst_pinos_src_src_fixate;
   gstbasesrc_class->start = gst_pinos_src_start;
   gstbasesrc_class->stop = gst_pinos_src_stop;
@@ -265,6 +263,23 @@ on_stream_notify (GObject    *gobject,
 }
 
 static gboolean
+gst_pinos_src_stream_start (GstPinosSrc *pinossrc, GstCaps * caps)
+{
+  gchar *str;
+  GBytes *format;
+  gboolean res;
+
+  str = gst_caps_to_string (caps);
+  format = g_bytes_new_take (str, strlen (str) + 1);
+
+  pinos_main_loop_lock (pinossrc->loop);
+  res = pinos_stream_start (pinossrc->stream, format, PINOS_STREAM_MODE_BUFFER);
+  pinos_main_loop_unlock (pinossrc->loop);
+
+  return res;
+}
+
+static gboolean
 gst_pinos_src_negotiate (GstBaseSrc * basesrc)
 {
   GstPinosSrc *pinossrc = GST_PINOS_SRC (basesrc);
@@ -342,6 +357,9 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
         /* yay, fixed caps, use those then, it's possible that the subclass does
          * not accept this caps after all and we have to fail. */
         result = gst_base_src_set_caps (basesrc, caps);
+        if (result) {
+          result = gst_pinos_src_stream_start (pinossrc, caps);
+        }
       }
     }
     gst_caps_unref (caps);
@@ -380,26 +398,6 @@ static GstCaps *
 gst_pinos_src_getcaps (GstBaseSrc * bsrc, GstCaps * filter)
 {
   return GST_BASE_SRC_CLASS (parent_class)->get_caps (bsrc, filter);
-}
-
-static gboolean
-gst_pinos_src_setcaps (GstBaseSrc * bsrc, GstCaps * caps)
-{
-  GstPinosSrc *pinossrc;
-  gchar *str;
-  GBytes *format;
-  gboolean res;
-
-  pinossrc = GST_PINOS_SRC (bsrc);
-
-  str = gst_caps_to_string (caps);
-  format = g_bytes_new_take (str, strlen (str) + 1);
-
-  pinos_main_loop_lock (pinossrc->loop);
-  res = pinos_stream_start (pinossrc->stream, format, PINOS_STREAM_MODE_BUFFER);
-  pinos_main_loop_unlock (pinossrc->loop);
-
-  return res;
 }
 
 static GstFlowReturn

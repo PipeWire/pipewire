@@ -216,7 +216,7 @@ new_source (const PinosSourceInfo *info)
     caps = gst_caps_new_any();
 
   return gst_pinos_device_new (info->id, info->name,
-      caps, info->name, GST_PINOS_DEVICE_TYPE_SOURCE);
+      caps, info->source_path, GST_PINOS_DEVICE_TYPE_SOURCE);
 }
 
 

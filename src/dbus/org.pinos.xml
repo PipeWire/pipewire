@@ -76,32 +76,6 @@
   </interface>
 
   <!--
-      org.pinos.Introspect:
-      @short_description: Main introspection interface
-
-      This interface allows one to introspect the object on the
-      server
-  -->
-  <interface name='org.pinos.Introspect1'>
-    <!-- GetClients:
-         @clients: an array of client objects
-
-         Get a list of clients connected to this server
-    -->
-    <method name='GetClients'>
-      <arg type='ao' name='clients' direction='out'/>
-    </method>
-    <!-- GetSources:
-         @sources: an array of source objects
-
-         Get a list of sources available on this server
-    -->
-    <method name='GetSources'>
-      <arg type='ao' name='sources' direction='out'/>
-    </method>
-  </interface>
-
-  <!--
       org.pinos.Source1:
       @short_description: Main source interface
 

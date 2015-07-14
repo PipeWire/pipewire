@@ -250,7 +250,7 @@ gst_fdpay_transform (GstBaseTransform * trans, GstBuffer * inbuf,
 
   msg.flags = 0;
   msg.seq = GST_BUFFER_OFFSET (inbuf);
-  msg.pts = GST_BUFFER_TIMESTAMP (inbuf);
+  msg.pts = GST_BUFFER_TIMESTAMP (inbuf) + GST_ELEMENT_CAST (trans)->base_time;
   msg.dts_offset = 0;
   msg.size = fdmem->size;
   msg.offset = fdmem->offset;

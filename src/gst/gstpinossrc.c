@@ -179,7 +179,6 @@ gst_pinos_src_init (GstPinosSrc * src)
   /* we operate in time */
   gst_base_src_set_format (GST_BASE_SRC (src), GST_FORMAT_TIME);
   gst_base_src_set_live (GST_BASE_SRC (src), TRUE);
-  gst_base_src_set_do_timestamp (GST_BASE_SRC (src), TRUE);
 
   src->fd_allocator = gst_fd_allocator_new ();
 }
@@ -233,6 +232,7 @@ on_new_buffer (GObject    *gobject,
 {
   GstPinosSrc *pinossrc = user_data;
 
+  GST_LOG_OBJECT (pinossrc, "got new buffer");
   pinos_main_loop_signal (pinossrc->loop, FALSE);
 }
 
@@ -407,6 +407,7 @@ gst_pinos_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
   PinosBufferInfo info;
   gint *fds, n_fds;
   GstMemory *fdmem = NULL;
+  GstBuffer *buf;
 
   pinossrc = GST_PINOS_SRC (psrc);
 
@@ -427,9 +428,12 @@ again:
     if (state != PINOS_STREAM_STATE_STREAMING)
       goto streaming_stopped;
 
+    GST_LOG_OBJECT (pinossrc, "start capture buffer");
     pinos_stream_capture_buffer (pinossrc->stream, &info);
-    if (info.message != NULL)
+    if (info.message != NULL) {
+      GST_LOG_OBJECT (pinossrc, "no message, retry");
       break;
+    }
   }
   pinos_main_loop_unlock (pinossrc->loop);
 
@@ -444,8 +448,19 @@ again:
             info.offset + info.size, GST_FD_MEMORY_FLAG_NONE);
   gst_memory_resize (fdmem, info.offset, info.size);
 
-  *buffer = gst_buffer_new ();
-  gst_buffer_append_memory (*buffer, fdmem);
+  buf = gst_buffer_new ();
+  gst_buffer_append_memory (buf, fdmem);
+
+  if (GST_CLOCK_TIME_IS_VALID (info.pts)) {
+    if (info.pts > GST_ELEMENT_CAST (pinossrc)->base_time)
+      GST_BUFFER_PTS (buf) = info.pts - GST_ELEMENT_CAST (pinossrc)->base_time;
+
+    if (GST_BUFFER_PTS (buf) + info.dts_offset > 0)
+      GST_BUFFER_DTS (buf) = GST_BUFFER_PTS (buf) + info.dts_offset;
+  }
+  GST_BUFFER_OFFSET (buf) = info.seq;
+
+  *buffer = buf;
 
   return GST_FLOW_OK;
 

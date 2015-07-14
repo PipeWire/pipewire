@@ -297,16 +297,26 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   PinosBufferInfo info;
   GSocketControlMessage *mesg;
   GstMemory *mem = NULL;
+  GstClockTime pts, dts, base;
 
   pinossink = GST_PINOS_SINK (bsink);
 
   if (!pinossink->negotiated)
     goto not_negotiated;
 
+  base = GST_ELEMENT_CAST (bsink)->base_time;
+
+  pts = GST_BUFFER_PTS (buffer);
+  dts = GST_BUFFER_DTS (buffer);
+  if (!GST_CLOCK_TIME_IS_VALID (pts))
+    pts = dts;
+  else if (!GST_CLOCK_TIME_IS_VALID (dts))
+    dts = pts;
+
   info.flags = 0;
-  info.seq = 0;
-  info.pts = GST_BUFFER_TIMESTAMP (buffer);
-  info.dts_offset = 0;
+  info.seq = GST_BUFFER_OFFSET (buffer);
+  info.pts = GST_CLOCK_TIME_IS_VALID (pts) ? pts + base : base;
+  info.dts_offset = GST_CLOCK_TIME_IS_VALID (dts) && GST_CLOCK_TIME_IS_VALID (pts) ? pts - dts : 0;
   info.offset = 0;
   info.size = gst_buffer_get_size (buffer);
 

@@ -37,10 +37,63 @@ struct _PinosClientSourcePrivate
 
   GSocket *socket;
 
+  GBytes *possible_formats;
+
   PinosSourceOutput *input;
 };
 
 G_DEFINE_TYPE (PinosClientSource, pinos_client_source, PINOS_TYPE_SOURCE);
+
+enum
+{
+  PROP_0,
+  PROP_POSSIBLE_FORMATS
+};
+
+static void
+client_source_get_property (GObject    *_object,
+                            guint       prop_id,
+                            GValue     *value,
+                            GParamSpec *pspec)
+{
+  PinosClientSource *source = PINOS_CLIENT_SOURCE (_object);
+  PinosClientSourcePrivate *priv = source->priv;
+
+  switch (prop_id) {
+    case PROP_POSSIBLE_FORMATS:
+      g_value_set_boxed (value, priv->possible_formats);
+      break;
+
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (source, prop_id, pspec);
+      break;
+  }
+}
+
+static void
+client_source_set_property (GObject      *_object,
+                            guint         prop_id,
+                            const GValue *value,
+                            GParamSpec   *pspec)
+{
+  PinosClientSource *source = PINOS_CLIENT_SOURCE (_object);
+  PinosClientSourcePrivate *priv = source->priv;
+
+  switch (prop_id) {
+    case PROP_POSSIBLE_FORMATS:
+      if (priv->possible_formats)
+        g_bytes_unref (priv->possible_formats);
+      priv->possible_formats = g_value_dup_boxed (value);
+      pinos_source_update_possible_formats (PINOS_SOURCE (source),
+                                            priv->possible_formats);
+      break;
+
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (source, prop_id, pspec);
+      break;
+  }
+}
+
 
 static gboolean
 bus_handler (GstBus     *bus,
@@ -287,14 +340,14 @@ on_input_socket_notify (GObject    *gobject,
     g_assert (requested_format != NULL);
     g_object_set (gobject, "format", requested_format, NULL);
 
-    /* and set as caps on the filter */
+    /* and set as caps on the source */
     caps = gst_caps_from_string (g_bytes_get_data (requested_format, NULL));
     g_assert (caps != NULL);
-    g_object_set (priv->filter, "caps", caps, NULL);
+    g_object_set (priv->src, "caps", caps, NULL);
     gst_caps_unref (caps);
     g_bytes_unref (requested_format);
   } else {
-    g_object_set (priv->filter, "caps", NULL, NULL);
+    g_object_set (priv->src, "caps", NULL, NULL);
   }
   g_object_set (priv->src, "socket", socket, NULL);
 
@@ -316,7 +369,12 @@ pinos_client_source_get_source_input (PinosClientSource *source,
   g_return_val_if_fail (PINOS_IS_CLIENT_SOURCE (source), NULL);
   priv = source->priv;
 
+
   if (priv->input == NULL) {
+    GstCaps *caps = gst_caps_from_string (g_bytes_get_data (format_filter, NULL));
+
+    g_object_set (priv->filter, "caps", caps, NULL);
+
     priv->input = PINOS_SOURCE_CLASS (pinos_client_source_parent_class)
                         ->create_source_output (PINOS_SOURCE (source),
                                                 client_path,
@@ -342,6 +400,18 @@ pinos_client_source_class_init (PinosClientSourceClass * klass)
   gobject_class->dispose = client_source_dispose;
   gobject_class->finalize = client_source_finalize;
 
+  gobject_class->get_property = client_source_get_property;
+  gobject_class->set_property = client_source_set_property;
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_POSSIBLE_FORMATS,
+                                   g_param_spec_boxed ("possible-formats",
+                                                       "Possible Format",
+                                                       "The possible formats of the stream",
+                                                       G_TYPE_BYTES,
+                                                       G_PARAM_READWRITE |
+                                                       G_PARAM_STATIC_STRINGS));
+
   source_class->get_formats = client_get_formats;
   source_class->set_state = client_set_state;
   source_class->create_source_output = client_create_source_output;
@@ -357,10 +427,12 @@ pinos_client_source_init (PinosClientSource * source)
 }
 
 PinosSource *
-pinos_client_source_new (PinosDaemon *daemon)
+pinos_client_source_new (PinosDaemon *daemon,
+                         GBytes      *possible_formats)
 {
   return g_object_new (PINOS_TYPE_CLIENT_SOURCE,
                               "daemon", daemon,
                               "name", "client-source",
+                              "possible-formats", possible_formats,
                               NULL);
 }

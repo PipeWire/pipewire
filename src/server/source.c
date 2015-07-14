@@ -417,6 +417,19 @@ pinos_source_report_error (PinosSource *source,
   g_object_notify (G_OBJECT (source), "state");
 }
 
+void
+pinos_source_update_possible_formats (PinosSource *source, GBytes *formats)
+{
+  PinosSourcePrivate *priv;
+
+  g_return_if_fail (PINOS_IS_SOURCE (source));
+  priv = source->priv;
+
+  g_object_set (priv->iface, "possible-formats",
+                g_bytes_get_data (formats, NULL),
+                NULL);
+}
+
 PinosSourceOutput *
 pinos_source_create_source_output (PinosSource *source,
                                    const gchar *client_path,

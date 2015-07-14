@@ -78,23 +78,24 @@ struct _PinosSourceClass {
 };
 
 /* normal GObject stuff */
-GType               pinos_source_get_type               (void);
+GType               pinos_source_get_type                (void);
 
-const gchar *       pinos_source_get_object_path        (PinosSource *source);
+const gchar *       pinos_source_get_object_path         (PinosSource *source);
 
-GBytes *            pinos_source_get_formats            (PinosSource *source, GBytes *filter);
+GBytes *            pinos_source_get_formats             (PinosSource *source, GBytes *filter);
 
-gboolean            pinos_source_set_state              (PinosSource *source, PinosSourceState state);
-void                pinos_source_update_state           (PinosSource *source, PinosSourceState state);
-void                pinos_source_report_error           (PinosSource *source, GError *error);
+gboolean            pinos_source_set_state               (PinosSource *source, PinosSourceState state);
+void                pinos_source_update_state            (PinosSource *source, PinosSourceState state);
+void                pinos_source_report_error            (PinosSource *source, GError *error);
+void                pinos_source_update_possible_formats (PinosSource *source, GBytes *formats);
 
-PinosSourceOutput * pinos_source_create_source_output   (PinosSource *source,
-                                                         const gchar *client_path,
-                                                         GBytes      *format_filter,
-                                                         const gchar *prefix,
-                                                         GError      **error);
-gboolean            pinos_source_release_source_output  (PinosSource       *source,
-                                                         PinosSourceOutput *output);
+PinosSourceOutput * pinos_source_create_source_output    (PinosSource *source,
+                                                          const gchar *client_path,
+                                                          GBytes      *format_filter,
+                                                          const gchar *prefix,
+                                                          GError      **error);
+gboolean            pinos_source_release_source_output   (PinosSource       *source,
+                                                          PinosSourceOutput *output);
 
 G_END_DECLS
 

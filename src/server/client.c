@@ -230,7 +230,9 @@ handle_create_source_input (PinosClient1           *interface,
   if (g_strcmp0 (pinos_client_get_sender (client), sender) != 0)
     goto not_allowed;
 
-  source = pinos_client_source_new (priv->daemon);
+  formats = g_bytes_new (arg_possible_formats, strlen (arg_possible_formats) + 1);
+
+  source = pinos_client_source_new (priv->daemon, formats);
   if (source == NULL)
     goto no_source;
 
@@ -241,7 +243,6 @@ handle_create_source_input (PinosClient1           *interface,
 
   sender = g_dbus_method_invocation_get_sender (invocation);
 
-  formats = g_bytes_new (arg_possible_formats, strlen (arg_possible_formats) + 1);
 
   input = pinos_client_source_get_source_input (PINOS_CLIENT_SOURCE (source),
                                                 priv->object_path,
@@ -277,6 +278,7 @@ no_source:
   {
     g_dbus_method_invocation_return_dbus_error (invocation,
         "org.pinos.Error", "Can't create source");
+    g_bytes_unref (formats);
     return TRUE;
   }
 no_input:

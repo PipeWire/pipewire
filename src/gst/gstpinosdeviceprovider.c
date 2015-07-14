@@ -215,10 +215,12 @@ new_source (const PinosSourceInfo *info)
   else
     caps = gst_caps_new_any();
 
-  return gst_pinos_device_new (info->id, info->name,
-      caps, info->source_path, GST_PINOS_DEVICE_TYPE_SOURCE);
+  return gst_pinos_device_new (info->id,
+                               info->name,
+                               caps,
+                               info->source_path,
+                               GST_PINOS_DEVICE_TYPE_SOURCE);
 }
-
 
 static gboolean
 get_source_info_cb (PinosContext          *context,

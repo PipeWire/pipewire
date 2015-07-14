@@ -244,17 +244,13 @@ on_socket_notify (GObject    *gobject,
   g_object_set_data (gobject, "last-socket", socket);
 
   g_object_get (priv->sink, "num-handles", &num_handles, NULL);
-  if (num_handles == 0) {
-    gst_element_set_state (priv->pipeline, GST_STATE_READY);
-  } else if (socket) {
+  if (num_handles > 0 && socket) {
     GBytes *format;
 
     /* suggest what we provide */
     g_object_get (priv->input, "format", &format, NULL);
     g_object_set (gobject, "format", format, NULL);
     g_bytes_unref (format);
-
-    gst_element_set_state (priv->pipeline, GST_STATE_PLAYING);
   }
 }
 
@@ -280,8 +276,6 @@ client_create_source_output (PinosSource *source,
 
   if (output == NULL)
     return NULL;
-
-  gst_element_set_state (priv->pipeline, GST_STATE_READY);
 
   g_signal_connect (output, "notify::socket", (GCallback) on_socket_notify, source);
 

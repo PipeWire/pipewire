@@ -274,9 +274,26 @@ gst_pinos_src_stream_start (GstPinosSrc *pinossrc, GstCaps * caps)
 
   pinos_main_loop_lock (pinossrc->loop);
   res = pinos_stream_start (pinossrc->stream, format, PINOS_STREAM_MODE_BUFFER);
+  while (TRUE) {
+    PinosStreamState state = pinos_stream_get_state (pinossrc->stream);
+
+    if (state == PINOS_STREAM_STATE_STREAMING)
+      break;
+
+    if (state == PINOS_STREAM_STATE_ERROR)
+      goto start_error;
+
+    pinos_main_loop_wait (pinossrc->loop);
+  }
   pinos_main_loop_unlock (pinossrc->loop);
 
   return res;
+
+start_error:
+  {
+    GST_DEBUG_OBJECT (pinossrc, "error starting stream");
+    return FALSE;
+  }
 }
 
 static gboolean
@@ -369,6 +386,7 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
     GST_DEBUG_OBJECT (basesrc, "no common caps");
   }
   pinossrc->negotiated = result;
+
   return result;
 
 no_nego_needed:

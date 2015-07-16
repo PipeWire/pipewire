@@ -71,10 +71,6 @@ void               pinos_daemon_stop            (PinosDaemon *daemon);
 gchar *            pinos_daemon_export_uniquely (PinosDaemon *daemon, GDBusObjectSkeleton *skel);
 void               pinos_daemon_unexport        (PinosDaemon *daemon, const gchar *name);
 
-void               pinos_daemon_track_object    (PinosDaemon *daemon,
-                                                 const gchar *sender,
-                                                 GObject     *object);
-
 void               pinos_daemon_add_source      (PinosDaemon *daemon, PinosSource *source);
 void               pinos_daemon_remove_source   (PinosDaemon *daemon, PinosSource *source);
 PinosSource *      pinos_daemon_find_source     (PinosDaemon *daemon,

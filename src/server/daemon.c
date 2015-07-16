@@ -132,15 +132,21 @@ handle_connect_client (PinosDaemon1           *interface,
                        gpointer                user_data)
 {
   PinosDaemon *daemon = user_data;
+  PinosDaemonPrivate *priv = daemon->priv;
   PinosClient *client;
   const gchar *sender, *object_path;
+  SenderData *data;
 
   sender = g_dbus_method_invocation_get_sender (invocation);
 
   client = pinos_client_new (daemon, sender, PINOS_DBUS_OBJECT_PREFIX, arg_properties);
   g_signal_connect (client, "disconnect", (GCallback) handle_disconnect_client, daemon);
 
-  pinos_daemon_track_object (daemon, sender, G_OBJECT (client));
+  data = g_hash_table_lookup (priv->senders, sender);
+  if (data == NULL)
+    data = sender_data_new (daemon, sender);
+
+  data->objects = g_list_prepend (data->objects, client);
 
   object_path = pinos_client_get_object_path (client);
   g_dbus_method_invocation_return_value (invocation,
@@ -303,27 +309,6 @@ pinos_daemon_unexport (PinosDaemon *daemon,
   g_return_if_fail (g_variant_is_object_path (object_path));
 
   g_dbus_object_manager_server_unexport (daemon->priv->server_manager, object_path);
-}
-
-void
-pinos_daemon_track_object (PinosDaemon *daemon,
-                          const gchar  *sender,
-                          GObject      *object)
-{
-  PinosDaemonPrivate *priv;
-  SenderData *data;
-
-  g_return_if_fail (PINOS_IS_DAEMON (daemon));
-  g_return_if_fail (sender != NULL);
-  g_return_if_fail (G_IS_OBJECT (object));
-
-  priv = daemon->priv;
-
-  data = g_hash_table_lookup (priv->senders, sender);
-  if (data == NULL)
-    data = sender_data_new (daemon, sender);
-
-  data->objects = g_list_prepend (data->objects, object);
 }
 
 void

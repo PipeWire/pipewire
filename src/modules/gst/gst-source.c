@@ -77,6 +77,8 @@ setup_pipeline (PinosGstSource *source)
   PinosGstSourcePrivate *priv = source->priv;
   GstBus *bus;
   GstElement *elem;
+  GstCaps *res;
+  GstQuery *query;
 
   priv->pipeline = gst_pipeline_new (NULL);
 
@@ -106,6 +108,12 @@ setup_pipeline (PinosGstSource *source)
   gst_object_unref (bus);
 
   gst_element_set_state (priv->pipeline, GST_STATE_READY);
+  query = gst_query_new_caps (NULL);
+  gst_element_query (priv->element, query);
+  gst_query_parse_caps_result (query, &res);
+  priv->possible_formats = gst_caps_ref (res);
+  gst_query_unref (query);
+  gst_element_set_state (priv->pipeline, GST_STATE_NULL);
 }
 
 static void
@@ -118,23 +126,6 @@ destroy_pipeline (PinosGstSource *source)
     gst_object_unref (priv->pipeline);
     priv->pipeline = NULL;
   }
-}
-
-static GstCaps *
-collect_caps (PinosSource *source,
-              GstCaps     *filter)
-{
-  PinosGstSourcePrivate *priv = PINOS_GST_SOURCE (source)->priv;
-  GstCaps *res;
-  GstQuery *query;
-
-  query = gst_query_new_caps (filter);
-  gst_element_query (priv->filter, query);
-  gst_query_parse_caps_result (query, &res);
-  gst_caps_ref (res);
-  gst_query_unref (query);
-
-  return res;
 }
 
 static gboolean
@@ -171,22 +162,31 @@ static GBytes *
 get_formats (PinosSource *source,
              GBytes      *filter)
 {
-  GstCaps *caps, *cfilter;
+  PinosGstSourcePrivate *priv = PINOS_GST_SOURCE (source)->priv;
+  GstCaps *caps;
   gchar *str;
 
   if (filter) {
+    GstCaps *cfilter;
+
     cfilter = gst_caps_from_string (g_bytes_get_data (filter, NULL));
     if (cfilter == NULL)
       return NULL;
+
+    caps = gst_caps_intersect (priv->possible_formats, cfilter);
+    gst_caps_unref (cfilter);
+
+    if (caps == NULL)
+      return NULL;
   } else {
-    cfilter = NULL;
+    caps = gst_caps_ref (priv->possible_formats);
   }
-
-  caps = collect_caps (source, cfilter);
-  if (caps == NULL)
+  if (gst_caps_is_empty (caps)) {
+    gst_caps_unref (caps);
     return NULL;
-
+  }
   str = gst_caps_to_string (caps);
+  gst_caps_unref (caps);
 
   return g_bytes_new_take (str, strlen (str) + 1);
 }
@@ -211,13 +211,14 @@ on_socket_notify (GObject    *gobject,
       g_signal_emit_by_name (priv->sink, "remove", prev_socket);
     }
   } else {
+    pinos_source_report_busy (PINOS_SOURCE (source));
     g_signal_emit_by_name (priv->sink, "add", socket);
   }
   g_object_set_data (gobject, "last-socket", socket);
 
   g_object_get (priv->sink, "num-handles", &num_handles, NULL);
   if (num_handles == 0) {
-    gst_element_set_state (priv->pipeline, GST_STATE_READY);
+    pinos_source_report_idle (PINOS_SOURCE (source));
     g_object_set (priv->filter, "caps", NULL, NULL);
   } else if (socket) {
     /* what client requested */
@@ -247,8 +248,6 @@ on_socket_notify (GObject    *gobject,
     /* this is what we use as the final format for the output */
     g_object_set (gobject, "format", format, NULL);
     g_bytes_unref (format);
-
-    gst_element_set_state (priv->pipeline, GST_STATE_PLAYING);
   }
 }
 
@@ -260,23 +259,30 @@ create_source_output (PinosSource *source,
                       GError      **error)
 {
   PinosSourceOutput *output;
-  GstCaps *caps, *filtered;
+  PinosGstSourcePrivate *priv = PINOS_GST_SOURCE (source)->priv;
+  GstCaps *caps;
   gchar *str;
 
   if (format_filter) {
+    GstCaps *cfilter;
+
     str = (gchar *) g_bytes_get_data (format_filter, NULL);
-    caps = gst_caps_from_string (str);
-    if (caps == NULL)
+    cfilter = gst_caps_from_string (str);
+    if (cfilter == NULL)
       goto invalid_caps;
+
+    caps = gst_caps_intersect (priv->possible_formats, cfilter);
+    gst_caps_unref (cfilter);
+
+    if (caps == NULL || gst_caps_is_empty (caps))
+      goto no_format;
   } else {
-    caps = NULL;
+    caps = gst_caps_ref (priv->possible_formats);
   }
 
-  filtered = collect_caps (source, caps);
-  if (filtered == NULL || gst_caps_is_empty (filtered))
-    goto no_format;
+  str = gst_caps_to_string (caps);
+  gst_caps_unref (caps);
 
-  str = gst_caps_to_string (filtered);
   format_filter = g_bytes_new_take (str, strlen (str) + 1);
 
   output = PINOS_SOURCE_CLASS (pinos_gst_source_parent_class)
@@ -305,8 +311,8 @@ invalid_caps:
   }
 no_format:
   {
-    if (filtered)
-      gst_caps_unref (filtered);
+    if (caps)
+      gst_caps_unref (caps);
     if (error)
       *error = g_error_new (G_IO_ERROR,
                             G_IO_ERROR_NOT_FOUND,

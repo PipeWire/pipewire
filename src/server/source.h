@@ -87,6 +87,9 @@ GBytes *            pinos_source_get_formats             (PinosSource *source, G
 gboolean            pinos_source_set_state               (PinosSource *source, PinosSourceState state);
 void                pinos_source_update_state            (PinosSource *source, PinosSourceState state);
 void                pinos_source_report_error            (PinosSource *source, GError *error);
+void                pinos_source_report_idle             (PinosSource *source);
+void                pinos_source_report_busy             (PinosSource *source);
+
 void                pinos_source_update_possible_formats (PinosSource *source, GBytes *formats);
 
 PinosSourceOutput * pinos_source_create_source_output    (PinosSource *source,

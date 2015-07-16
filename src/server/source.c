@@ -42,6 +42,7 @@ struct _PinosSourcePrivate
 
   PinosSourceState state;
   GError *error;
+  guint idle_timeout;
 
   GList *outputs;
 };
@@ -367,6 +368,17 @@ pinos_source_get_formats (PinosSource *source,
   return res;
 }
 
+static void
+remove_idle_timeout (PinosSource *source)
+{
+  PinosSourcePrivate *priv = source->priv;
+
+  if (priv->idle_timeout) {
+    g_source_remove (priv->idle_timeout);
+    priv->idle_timeout = 0;
+  }
+}
+
 gboolean
 pinos_source_set_state (PinosSource      *source,
                         PinosSourceState  state)
@@ -377,6 +389,8 @@ pinos_source_set_state (PinosSource      *source,
   g_return_val_if_fail (PINOS_IS_SOURCE (source), FALSE);
 
   klass = PINOS_SOURCE_GET_CLASS (source);
+
+  remove_idle_timeout (source);
 
   if (klass->set_state)
     res = klass->set_state (source, state);
@@ -412,9 +426,45 @@ pinos_source_report_error (PinosSource *source,
   priv = source->priv;
 
   g_clear_error (&priv->error);
+  remove_idle_timeout (source);
   priv->error = error;
   priv->state = PINOS_SOURCE_STATE_ERROR;
+  pinos_source1_set_state (priv->iface, priv->state);
   g_object_notify (G_OBJECT (source), "state");
+}
+
+static gboolean
+idle_timeout (PinosSource *source)
+{
+  PinosSourcePrivate *priv = source->priv;
+
+  priv->idle_timeout = 0;
+  pinos_source_set_state (source, PINOS_SOURCE_STATE_SUSPENDED);
+
+  return G_SOURCE_REMOVE;
+}
+
+void
+pinos_source_report_idle (PinosSource *source)
+{
+  PinosSourcePrivate *priv;
+
+  g_return_if_fail (PINOS_IS_SOURCE (source));
+  priv = source->priv;
+
+  pinos_source_set_state (source, PINOS_SOURCE_STATE_IDLE);
+
+  priv->idle_timeout = g_timeout_add_seconds (3,
+                                              (GSourceFunc) idle_timeout,
+                                              source);
+}
+
+void
+pinos_source_report_busy (PinosSource *source)
+{
+  g_return_if_fail (PINOS_IS_SOURCE (source));
+
+  pinos_source_set_state (source, PINOS_SOURCE_STATE_RUNNING);
 }
 
 void

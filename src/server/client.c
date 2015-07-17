@@ -32,7 +32,7 @@ struct _PinosClientPrivate
   PinosDaemon *daemon;
   gchar *sender;
   gchar *object_path;
-  GVariant *properties;
+  PinosProperties *properties;
 
   PinosClient1 *client1;
 
@@ -84,7 +84,7 @@ pinos_client_get_property (GObject    *_object,
       break;
 
     case PROP_PROPERTIES:
-      g_value_set_variant (value, priv->properties);
+      g_value_set_boxed (value, priv->properties);
       break;
 
     default:
@@ -117,8 +117,8 @@ pinos_client_set_property (GObject      *_object,
 
     case PROP_PROPERTIES:
       if (priv->properties)
-        g_variant_unref (priv->properties);
-      priv->properties = g_value_dup_variant (value);
+        pinos_properties_free (priv->properties);
+      priv->properties = g_value_dup_boxed (value);
       break;
 
     default:
@@ -370,7 +370,7 @@ pinos_client_finalize (GObject * object)
   PinosClientPrivate *priv = client->priv;
 
   if (priv->properties)
-    g_variant_unref (priv->properties);
+    pinos_properties_free (priv->properties);
 
   G_OBJECT_CLASS (pinos_client_parent_class)->finalize (object);
 }
@@ -430,13 +430,13 @@ pinos_client_class_init (PinosClientClass * klass)
                                                         G_PARAM_STATIC_STRINGS));
   g_object_class_install_property (gobject_class,
                                    PROP_PROPERTIES,
-                                   g_param_spec_variant ("properties",
-                                                         "Properties",
-                                                         "Client properties",
-                                                         G_VARIANT_TYPE_DICTIONARY,
-                                                         NULL,
-                                                         G_PARAM_READWRITE |
-                                                         G_PARAM_STATIC_STRINGS));
+                                   g_param_spec_boxed ("properties",
+                                                       "Properties",
+                                                       "Client properties",
+                                                       PINOS_TYPE_PROPERTIES,
+                                                       G_PARAM_READWRITE |
+                                                       G_PARAM_CONSTRUCT |
+                                                       G_PARAM_STATIC_STRINGS));
 
   signals[SIGNAL_DISCONNECT] = g_signal_new ("disconnect",
                                              G_TYPE_FROM_CLASS (klass),
@@ -461,17 +461,19 @@ pinos_client_init (PinosClient * client)
 /**
  * pinos_client_new:
  * @daemon: a #PinosDaemon
+ * @sender: the sender id
  * @prefix: a prefix
+ * @properties: extra client properties
  *
  * Make a new #PinosClient object and register it to @daemon under the @prefix.
  *
  * Returns: a new #PinosClient
  */
 PinosClient *
-pinos_client_new (PinosDaemon *daemon,
-                  const gchar *sender,
-                  const gchar *prefix,
-                  GVariant    *properties)
+pinos_client_new (PinosDaemon     *daemon,
+                  const gchar     *sender,
+                  const gchar     *prefix,
+                  PinosProperties *properties)
 {
   g_return_val_if_fail (PINOS_IS_DAEMON (daemon), NULL);
   g_return_val_if_fail (g_variant_is_object_path (prefix), NULL);

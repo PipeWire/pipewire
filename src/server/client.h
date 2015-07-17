@@ -62,10 +62,10 @@ struct _PinosClientClass {
 /* normal GObject stuff */
 GType           pinos_client_get_type             (void);
 
-PinosClient *   pinos_client_new                  (PinosDaemon *daemon,
-                                                   const gchar *sender,
-                                                   const gchar *prefix,
-                                                   GVariant    *properties);
+PinosClient *   pinos_client_new                  (PinosDaemon     *daemon,
+                                                   const gchar     *sender,
+                                                   const gchar     *prefix,
+                                                   PinosProperties *properties);
 
 const gchar *   pinos_client_get_sender           (PinosClient *client);
 const gchar *   pinos_client_get_object_path      (PinosClient *client);

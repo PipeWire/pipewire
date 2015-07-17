@@ -40,6 +40,14 @@ struct _PinosDaemonPrivate
   GList *sources;
 
   GHashTable *senders;
+
+  PinosProperties *properties;
+};
+
+enum
+{
+  PROP_0,
+  PROP_PROPERTIES,
 };
 
 typedef struct {
@@ -136,10 +144,14 @@ handle_connect_client (PinosDaemon1           *interface,
   PinosClient *client;
   const gchar *sender, *object_path;
   SenderData *data;
+  PinosProperties *props;
 
   sender = g_dbus_method_invocation_get_sender (invocation);
 
-  client = pinos_client_new (daemon, sender, PINOS_DBUS_OBJECT_PREFIX, arg_properties);
+  props = pinos_properties_from_variant (arg_properties);
+  client = pinos_client_new (daemon, sender, PINOS_DBUS_OBJECT_PREFIX, props);
+  pinos_properties_free (props);
+
   g_signal_connect (client, "disconnect", (GCallback) handle_disconnect_client, daemon);
 
   data = g_hash_table_lookup (priv->senders, sender);
@@ -159,6 +171,7 @@ static void
 export_server_object (PinosDaemon              *daemon,
                       GDBusObjectManagerServer *manager)
 {
+  PinosDaemonPrivate *priv = daemon->priv;
   PinosObjectSkeleton *skel;
 
   skel = pinos_object_skeleton_new (PINOS_DBUS_OBJECT_SERVER);
@@ -171,6 +184,8 @@ export_server_object (PinosDaemon              *daemon,
     pinos_daemon1_set_host_name (iface, g_get_host_name ());
     pinos_daemon1_set_version (iface, PACKAGE_VERSION);
     pinos_daemon1_set_name (iface, PACKAGE_NAME);
+    pinos_daemon1_set_cookie (iface, g_random_int());
+    pinos_daemon1_set_properties (iface, pinos_properties_to_variant (priv->properties));
     pinos_object_skeleton_set_daemon1 (skel, iface);
     g_object_unref (iface);
   }
@@ -217,15 +232,16 @@ name_lost_handler (GDBusConnection *connection,
 
 /**
  * pinos_daemon_new:
+ * @properties: #PinosProperties
  *
- * Make a new #PinosDaemon object
+ * Make a new #PinosDaemon object with given @properties
  *
  * Returns: a new #PinosDaemon
  */
 PinosDaemon *
-pinos_daemon_new (void)
+pinos_daemon_new (PinosProperties *properties)
 {
-  return g_object_new (PINOS_TYPE_DAEMON, NULL);
+  return g_object_new (PINOS_TYPE_DAEMON, "properties", properties, NULL);
 }
 
 /**
@@ -311,6 +327,13 @@ pinos_daemon_unexport (PinosDaemon *daemon,
   g_dbus_object_manager_server_unexport (daemon->priv->server_manager, object_path);
 }
 
+/**
+ * pinos_daemon_add_source:
+ * @daemon: a #PinosDaemon
+ * @source: a #PinosSource
+ *
+ * Add @source to @daemon.
+ */
 void
 pinos_daemon_add_source (PinosDaemon *daemon,
                          PinosSource *source)
@@ -324,6 +347,13 @@ pinos_daemon_add_source (PinosDaemon *daemon,
   priv->sources = g_list_prepend (priv->sources, source);
 }
 
+/**
+ * pinos_daemon_remove_source:
+ * @daemon: a #PinosDaemon
+ * @source: a #PinosSource
+ *
+ * Remove @source from @daemon.
+ */
 void
 pinos_daemon_remove_source (PinosDaemon *daemon,
                             PinosSource *source)
@@ -337,12 +367,24 @@ pinos_daemon_remove_source (PinosDaemon *daemon,
   priv->sources = g_list_remove (priv->sources, source);
 }
 
+/**
+ * pinos_daemon_find_source:
+ * @daemon: a #PinosDaemon
+ * @name: a source name
+ * @props: source properties
+ * @format_filter: a format filter
+ * @error: location for an error
+ *
+ * Find the best source in @daemon that matches the given parameters.
+ *
+ * Returns: a #PinosSource or %NULL when no source could be found.
+ */
 PinosSource *
-pinos_daemon_find_source (PinosDaemon *daemon,
-                          const gchar *name,
-                          GVariant    *props,
-                          GBytes      *format_filter,
-                          GError      **error)
+pinos_daemon_find_source (PinosDaemon     *daemon,
+                          const gchar     *name,
+                          PinosProperties *props,
+                          GBytes          *format_filter,
+                          GError         **error)
 {
   PinosDaemonPrivate *priv;
   PinosSource *best = NULL;
@@ -371,7 +413,50 @@ pinos_daemon_find_source (PinosDaemon *daemon,
   return best;
 }
 
+
 G_DEFINE_TYPE (PinosDaemon, pinos_daemon, G_TYPE_OBJECT);
+
+static void
+pinos_daemon_get_property (GObject    *_object,
+                           guint       prop_id,
+                           GValue     *value,
+                           GParamSpec *pspec)
+{
+  PinosDaemon *daemon = PINOS_DAEMON (_object);
+  PinosDaemonPrivate *priv = daemon->priv;
+
+  switch (prop_id) {
+    case PROP_PROPERTIES:
+      g_value_set_boxed (value, priv->properties);
+      break;
+
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (daemon, prop_id, pspec);
+      break;
+  }
+}
+
+static void
+pinos_daemon_set_property (GObject      *_object,
+                           guint         prop_id,
+                           const GValue *value,
+                           GParamSpec   *pspec)
+{
+  PinosDaemon *daemon = PINOS_DAEMON (_object);
+  PinosDaemonPrivate *priv = daemon->priv;
+
+  switch (prop_id) {
+    case PROP_PROPERTIES:
+      if (priv->properties)
+        pinos_properties_free (priv->properties);
+      priv->properties = g_value_dup_boxed (value);
+      break;
+
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (daemon, prop_id, pspec);
+      break;
+  }
+}
 
 static void
 pinos_daemon_dispose (GObject * object)
@@ -403,6 +488,20 @@ pinos_daemon_class_init (PinosDaemonClass * klass)
 
   gobject_class->dispose = pinos_daemon_dispose;
   gobject_class->finalize = pinos_daemon_finalize;
+
+  gobject_class->set_property = pinos_daemon_set_property;
+  gobject_class->get_property = pinos_daemon_get_property;
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_PROPERTIES,
+                                   g_param_spec_boxed ("properties",
+                                                       "Properties",
+                                                       "Client properties",
+                                                       PINOS_TYPE_PROPERTIES,
+                                                       G_PARAM_READWRITE |
+                                                       G_PARAM_CONSTRUCT |
+                                                       G_PARAM_STATIC_STRINGS));
+
 }
 
 static void

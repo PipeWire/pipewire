@@ -93,9 +93,9 @@ struct _PinosStreamClass {
 GType            pinos_stream_get_type          (void);
 
 
-PinosStream *    pinos_stream_new               (PinosContext *context,
-                                                const gchar   *name,
-                                                GVariant      *props);
+PinosStream *    pinos_stream_new               (PinosContext    *context,
+                                                 const gchar     *name,
+                                                 PinosProperties *props);
 
 PinosStreamState pinos_stream_get_state         (PinosStream *stream);
 const GError *   pinos_stream_get_error         (PinosStream *stream);

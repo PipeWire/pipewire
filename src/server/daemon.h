@@ -39,6 +39,7 @@ typedef struct _PinosDaemonClass PinosDaemonClass;
 typedef struct _PinosDaemonPrivate PinosDaemonPrivate;
 
 #include <server/source.h>
+#include <client/properties.h>
 
 /**
  * PinosDaemon:
@@ -61,23 +62,23 @@ struct _PinosDaemonClass {
 };
 
 /* normal GObject stuff */
-GType              pinos_daemon_get_type        (void);
+GType             pinos_daemon_get_type          (void);
 
-PinosDaemon *      pinos_daemon_new             (void);
+PinosDaemon *     pinos_daemon_new               (PinosProperties *properties);
 
-void               pinos_daemon_start           (PinosDaemon *daemon);
-void               pinos_daemon_stop            (PinosDaemon *daemon);
+void              pinos_daemon_start             (PinosDaemon *daemon);
+void              pinos_daemon_stop              (PinosDaemon *daemon);
 
-gchar *            pinos_daemon_export_uniquely (PinosDaemon *daemon, GDBusObjectSkeleton *skel);
-void               pinos_daemon_unexport        (PinosDaemon *daemon, const gchar *name);
+gchar *           pinos_daemon_export_uniquely   (PinosDaemon *daemon, GDBusObjectSkeleton *skel);
+void              pinos_daemon_unexport          (PinosDaemon *daemon, const gchar *name);
 
-void               pinos_daemon_add_source      (PinosDaemon *daemon, PinosSource *source);
-void               pinos_daemon_remove_source   (PinosDaemon *daemon, PinosSource *source);
-PinosSource *      pinos_daemon_find_source     (PinosDaemon *daemon,
-                                                 const gchar *name,
-                                                 GVariant    *props,
-                                                 GBytes      *format_filter,
-                                                 GError      **error);
+void              pinos_daemon_add_source        (PinosDaemon *daemon, PinosSource *source);
+void              pinos_daemon_remove_source     (PinosDaemon *daemon, PinosSource *source);
+PinosSource *     pinos_daemon_find_source       (PinosDaemon     *daemon,
+                                                  const gchar     *name,
+                                                  PinosProperties *props,
+                                                  GBytes          *format_filter,
+                                                  GError         **error);
 
 G_END_DECLS
 

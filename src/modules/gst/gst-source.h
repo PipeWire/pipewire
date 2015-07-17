@@ -55,6 +55,7 @@ GType           pinos_gst_source_get_type        (void);
 
 PinosSource *   pinos_gst_source_new             (PinosDaemon *daemon,
                                                   const gchar *name,
+                                                  PinosProperties *properties,
                                                   GstElement  *element);
 
 G_END_DECLS

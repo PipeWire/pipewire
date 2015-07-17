@@ -22,7 +22,7 @@ struct _PinosContextPrivate
   GMainContext *context;
 
   gchar *name;
-  GVariant *properties;
+  PinosProperties *properties;
 
   guint id;
   GDBusConnection *connection;

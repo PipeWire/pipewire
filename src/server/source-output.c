@@ -386,6 +386,7 @@ pinos_source_output_class_init (PinosSourceOutputClass * klass)
                                                        "The possbile formats of the stream",
                                                        G_TYPE_BYTES,
                                                        G_PARAM_READWRITE |
+                                                       G_PARAM_CONSTRUCT |
                                                        G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class,
@@ -395,6 +396,7 @@ pinos_source_output_class_init (PinosSourceOutputClass * klass)
                                                        "The requested format of the stream",
                                                        G_TYPE_BYTES,
                                                        G_PARAM_READABLE |
+                                                       G_PARAM_CONSTRUCT |
                                                        G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class,

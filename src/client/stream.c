@@ -32,7 +32,7 @@ struct _PinosStreamPrivate
 {
   PinosContext *context;
   gchar *name;
-  GVariant *properties;
+  PinosProperties *properties;
 
   guint id;
 
@@ -99,7 +99,7 @@ pinos_stream_get_property (GObject    *_object,
       break;
 
     case PROP_PROPERTIES:
-      g_value_set_variant (value, priv->properties);
+      g_value_set_boxed (value, priv->properties);
       break;
 
     case PROP_STATE:
@@ -144,8 +144,8 @@ pinos_stream_set_property (GObject      *_object,
 
     case PROP_PROPERTIES:
       if (priv->properties)
-        g_variant_unref (priv->properties);
-      priv->properties = g_value_dup_variant (value);
+        pinos_properties_free (priv->properties);
+      priv->properties = g_value_dup_boxed (value);
       break;
 
     default:
@@ -233,7 +233,7 @@ pinos_stream_finalize (GObject * object)
   g_clear_error (&priv->error);
 
   if (priv->properties)
-    g_variant_unref (priv->properties);
+    pinos_properties_free (priv->properties);
   g_signal_handler_disconnect (priv->context->priv->subscribe, priv->id);
   g_clear_object (&priv->context);
   g_free (priv->name);
@@ -288,14 +288,13 @@ pinos_stream_class_init (PinosStreamClass * klass)
    */
   g_object_class_install_property (gobject_class,
                                    PROP_PROPERTIES,
-                                   g_param_spec_variant ("properties",
-                                                         "Properties",
-                                                         "The properties of the stream",
-                                                         G_VARIANT_TYPE_VARIANT,
-                                                         NULL,
-                                                         G_PARAM_READWRITE |
-                                                         G_PARAM_CONSTRUCT_ONLY |
-                                                         G_PARAM_STATIC_STRINGS));
+                                   g_param_spec_boxed ("properties",
+                                                       "Properties",
+                                                       "The properties of the stream",
+                                                       PINOS_TYPE_PROPERTIES,
+                                                       G_PARAM_READWRITE |
+                                                       G_PARAM_CONSTRUCT_ONLY |
+                                                       G_PARAM_STATIC_STRINGS));
   /**
    * PinosStream:state
    *
@@ -393,14 +392,18 @@ pinos_stream_init (PinosStream * stream)
  * Returns: a new unconnected #PinosStream
  */
 PinosStream *
-pinos_stream_new (PinosContext *context,
-                  const gchar  *name,
-                  GVariant     *props)
+pinos_stream_new (PinosContext    *context,
+                  const gchar     *name,
+                  PinosProperties *props)
 {
   g_return_val_if_fail (PINOS_IS_CONTEXT (context), NULL);
   g_return_val_if_fail (name != NULL, NULL);
 
-  return g_object_new (PINOS_TYPE_STREAM, "context", context, "name", name, "properties", props, NULL);
+  return g_object_new (PINOS_TYPE_STREAM,
+                       "context", context,
+                       "name", name,
+                       "properties", props,
+                       NULL);
 }
 
 /**
@@ -546,7 +549,7 @@ do_connect_capture (PinosStream *stream)
  * @stream: a #PinosStream
  * @source_path: the source path to connect to
  * @flags: a #PinosStreamFlags
- * @spec: a #GVariant
+ * @accepted_formats: a #GBytes with accepted formats
  *
  * Connect @stream for capturing from @source_path.
  *
@@ -606,7 +609,7 @@ do_connect_provide (PinosStream *stream)
  * pinos_stream_connect_provide:
  * @stream: a #PinosStream
  * @flags: a #PinosStreamFlags
- * @spec: a #GVariant
+ * @possible_formats: a #GBytes
  *
  * Connect @stream for providing data for a new source.
  *

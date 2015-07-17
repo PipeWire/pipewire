@@ -24,6 +24,7 @@
 #include <glib-object.h>
 
 #include <client/context.h>
+#include <client/properties.h>
 
 G_BEGIN_DECLS
 
@@ -57,13 +58,14 @@ typedef enum {
  * @state: the current state of the source
  * @formats: the supported formats
  *
- * The source information
+ * The source information. Extra information can be added in later
+ * versions.
  */
 typedef struct {
   gpointer id;
   const char *source_path;
   const char *name;
-  GVariant *properties;
+  PinosProperties *properties;
   PinosSourceState state;
   GBytes *formats;
 } PinosSourceInfo;

@@ -43,7 +43,8 @@ fill_info (PinosSourceInfo *info, GDBusProxy *proxy)
     info->name = "Unknown";
   }
 
-  info->properties = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "Properties");
+  info->properties = pinos_properties_from_variant (
+      g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "Properties"));
 
   if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "State"))) {
     info->state = g_variant_get_uint32 (variant);
@@ -63,10 +64,10 @@ fill_info (PinosSourceInfo *info, GDBusProxy *proxy)
 }
 
 static void
-clear_info (PinosSourceInfo *info)
+client_clear_info (PinosSourceInfo *info)
 {
   if (info->properties)
-    g_variant_unref (info->properties);
+    pinos_properties_free (info->properties);
   if (info->formats)
     g_bytes_unref (info->formats);
 }
@@ -99,9 +100,9 @@ pinos_context_list_source_info (PinosContext            *context,
     GDBusProxy *proxy = walk->data;
     PinosSourceInfo info;
 
-    fill_info (&info, proxy);
+    client_fill_info (&info, proxy);
     cb (context, &info, user_data);
-    clear_info (&info);
+    client_clear_info (&info);
   }
   cb (context, NULL, user_data);
 }
@@ -135,9 +136,8 @@ pinos_context_get_source_info_by_id (PinosContext *context,
 
   proxy = G_DBUS_PROXY (id);
 
-  fill_info (&info, proxy);
+  client_fill_info (&info, proxy);
   cb (context, &info, user_data);
-  clear_info (&info);
-
+  client_clear_info (&info);
   cb (context, NULL, user_data);
 }

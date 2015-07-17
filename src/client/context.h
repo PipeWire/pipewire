@@ -24,6 +24,7 @@
 #include <gio/gio.h>
 
 #include <client/subscribe.h>
+#include <client/properties.h>
 
 G_BEGIN_DECLS
 
@@ -97,9 +98,9 @@ struct _PinosContextClass {
 /* normal GObject stuff */
 GType             pinos_context_get_type              (void);
 
-PinosContext *    pinos_context_new                   (GMainContext *ctx,
-                                                       const gchar *name,
-                                                       GVariant *properties);
+PinosContext *    pinos_context_new                   (GMainContext    *ctx,
+                                                       const gchar     *name,
+                                                       PinosProperties *properties);
 
 gboolean          pinos_context_connect               (PinosContext *context, PinosContextFlags flags);
 gboolean          pinos_context_disconnect            (PinosContext *context);

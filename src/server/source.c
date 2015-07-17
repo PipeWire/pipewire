@@ -38,7 +38,7 @@ struct _PinosSourcePrivate
   gchar *object_path;
 
   gchar *name;
-  GVariant *properties;
+  PinosProperties *properties;
 
   PinosSourceState state;
   GError *error;
@@ -86,7 +86,7 @@ pinos_source_get_property (GObject    *_object,
       break;
 
     case PROP_PROPERTIES:
-      g_value_set_variant (value, priv->properties);
+      g_value_set_boxed (value, priv->properties);
       break;
 
     default:
@@ -121,8 +121,8 @@ pinos_source_set_property (GObject      *_object,
 
     case PROP_PROPERTIES:
       if (priv->properties)
-        g_variant_unref (priv->properties);
-      priv->properties = g_value_dup_variant (value);
+        pinos_properties_free (priv->properties);
+      priv->properties = g_value_dup_boxed (value);
       break;
 
     default:
@@ -138,15 +138,21 @@ source_register_object (PinosSource *source)
   PinosDaemon *daemon = priv->daemon;
   PinosObjectSkeleton *skel;
   GBytes *formats;
+  GVariant *variant;
 
   formats = pinos_source_get_formats (source, NULL);
 
   skel = pinos_object_skeleton_new (PINOS_DBUS_OBJECT_SOURCE);
 
+  if (priv->properties)
+    variant = pinos_properties_to_variant (priv->properties);
+  else
+    variant = NULL;
+
   priv->iface = pinos_source1_skeleton_new ();
   g_object_set (priv->iface, "name", priv->name,
                              "state", priv->state,
-                             "properties", priv->properties,
+                             "properties", variant,
                              "possible-formats", g_bytes_get_data (formats, NULL),
                              NULL);
   pinos_object_skeleton_set_source1 (skel, priv->iface);
@@ -207,7 +213,7 @@ pinos_source_finalize (GObject * object)
   g_free (priv->object_path);
   g_free (priv->name);
   if (priv->properties)
-    g_variant_unref (priv->properties);
+    pinos_properties_free (priv->properties);
 
   G_OBJECT_CLASS (pinos_source_parent_class)->finalize (object);
 }
@@ -303,6 +309,7 @@ pinos_source_class_init (PinosSourceClass * klass)
                                                         "The object path",
                                                         NULL,
                                                         G_PARAM_READWRITE |
+                                                        G_PARAM_CONSTRUCT_ONLY |
                                                         G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class,
@@ -327,13 +334,13 @@ pinos_source_class_init (PinosSourceClass * klass)
 
   g_object_class_install_property (gobject_class,
                                    PROP_PROPERTIES,
-                                   g_param_spec_variant ("properties",
-                                                         "Properties",
-                                                         "The properties of the source",
-                                                         G_VARIANT_TYPE_DICTIONARY,
-                                                         NULL,
-                                                         G_PARAM_READWRITE |
-                                                         G_PARAM_STATIC_STRINGS));
+                                   g_param_spec_boxed ("properties",
+                                                       "Properties",
+                                                       "The properties of the source",
+                                                       PINOS_TYPE_PROPERTIES,
+                                                       G_PARAM_READWRITE |
+                                                       G_PARAM_CONSTRUCT |
+                                                       G_PARAM_STATIC_STRINGS));
 
 
   klass->set_state = default_set_state;

@@ -75,7 +75,7 @@ pinos_context_get_property (GObject    *_object,
       break;
 
     case PROP_PROPERTIES:
-      g_value_set_variant (value, priv->properties);
+      g_value_set_boxed (value, priv->properties);
       break;
 
     case PROP_STATE:
@@ -117,8 +117,8 @@ pinos_context_set_property (GObject      *_object,
 
     case PROP_PROPERTIES:
       if (priv->properties)
-        g_variant_unref (priv->properties);
-      priv->properties = g_value_dup_variant (value);
+        pinos_properties_free (priv->properties);
+      priv->properties = g_value_dup_boxed (value);
       break;
 
     case PROP_SUBSCRIPTION_MASK:
@@ -140,7 +140,7 @@ pinos_context_finalize (GObject * object)
   g_clear_pointer (&priv->context, g_main_context_unref);
   g_free (priv->name);
   if (priv->properties)
-    g_variant_unref (priv->properties);
+    pinos_properties_free (priv->properties);
 
   g_clear_object (&priv->subscribe);
   g_clear_error (&priv->error);
@@ -193,13 +193,12 @@ pinos_context_class_init (PinosContextClass * klass)
    */
   g_object_class_install_property (gobject_class,
                                    PROP_PROPERTIES,
-                                   g_param_spec_variant ("properties",
-                                                         "Properties",
-                                                         "Extra properties",
-                                                          G_VARIANT_TYPE_DICTIONARY,
-                                                          NULL,
-                                                          G_PARAM_READWRITE |
-                                                          G_PARAM_STATIC_STRINGS));
+                                   g_param_spec_boxed ("properties",
+                                                       "Properties",
+                                                       "Extra properties",
+                                                        PINOS_TYPE_PROPERTIES,
+                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_STATIC_STRINGS));
   /**
    * PinosContext:state
    *
@@ -287,20 +286,20 @@ pinos_context_init (PinosContext * context)
  * Returns: a new unconnected #PinosContext
  */
 PinosContext *
-pinos_context_new (GMainContext *context,
-                   const gchar  *name,
-                   GVariant     *properties)
+pinos_context_new (GMainContext    *context,
+                   const gchar     *name,
+                   PinosProperties *properties)
 {
   g_return_val_if_fail (name != NULL, NULL);
 
-  if (properties == NULL) {
-    GVariantBuilder builder;
+  if (properties == NULL)
+    properties = pinos_properties_new ("media.name", name, NULL);
 
-    g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
-    g_variant_builder_add (&builder, "{sv}", "name", g_variant_new_string (name));
-    properties = g_variant_builder_end (&builder);
-  }
-  return g_object_new (PINOS_TYPE_CONTEXT, "main-context", context, "name", name, "properties", properties, NULL);
+  return g_object_new (PINOS_TYPE_CONTEXT,
+                       "main-context", context,
+                       "name", name,
+                       "properties", properties,
+                       NULL);
 }
 
 static gboolean
@@ -388,12 +387,15 @@ on_daemon_connected (GObject      *source_object,
 {
   PinosContext *context = user_data;
   PinosContextPrivate *priv = context->priv;
+  GVariant *variant;
 
   context_set_state (context, PINOS_CONTEXT_STATE_REGISTERING);
 
+  variant = pinos_properties_to_variant (priv->properties);
+
   g_dbus_proxy_call (priv->daemon,
                      "ConnectClient",
-                     g_variant_new ("(@a{sv})", priv->properties),
+                     g_variant_new ("(@a{sv})", variant),
                      G_DBUS_CALL_FLAGS_NONE,
                      -1,
                      NULL,

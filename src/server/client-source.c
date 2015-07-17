@@ -110,7 +110,7 @@ bus_handler (GstBus     *bus,
       gchar *debug;
 
       gst_message_parse_error (message, &error, &debug);
-      g_print ("got error %s (%s)\n", error->message, debug);
+      g_warning ("got error %s (%s)\n", error->message, debug);
       g_free (debug);
 
       pinos_source_report_error (source, error);
@@ -404,6 +404,7 @@ pinos_client_source_class_init (PinosClientSourceClass * klass)
                                                        "The possible formats of the stream",
                                                        G_TYPE_BYTES,
                                                        G_PARAM_READWRITE |
+                                                       G_PARAM_CONSTRUCT |
                                                        G_PARAM_STATIC_STRINGS));
 
   source_class->get_formats = client_get_formats;
@@ -425,8 +426,8 @@ pinos_client_source_new (PinosDaemon *daemon,
                          GBytes      *possible_formats)
 {
   return g_object_new (PINOS_TYPE_CLIENT_SOURCE,
-                              "daemon", daemon,
-                              "name", "client-source",
-                              "possible-formats", possible_formats,
-                              NULL);
+                       "daemon", daemon,
+                       "name", "client-source",
+                       "possible-formats", possible_formats,
+                       NULL);
 }

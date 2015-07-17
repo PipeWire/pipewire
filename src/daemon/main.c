@@ -29,12 +29,14 @@ main (gint argc, gchar *argv[])
 {
   PinosDaemon *daemon;
   GMainLoop *loop;
+  PinosProperties *props;
 
   pinos_init (&argc, &argv);
 
   loop = g_main_loop_new (NULL, FALSE);
 
-  daemon = pinos_daemon_new ();
+  props = pinos_properties_new ("test", "test", NULL);
+  daemon = pinos_daemon_new (props);
 
   pinos_gst_manager_new (daemon);
   pinos_daemon_start (daemon);

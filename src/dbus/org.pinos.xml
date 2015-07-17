@@ -18,6 +18,8 @@
     <property name='Version' type='s' access='read' />
     <!-- Name: Name of the daemon -->
     <property name='Name' type='s' access='read' />
+    <!-- Cookie: A random cookie for identifying this instance of Pinos -->
+    <property name='Cookie' type='u' access='read' />
     <!-- Properties: Extra properties of the daemon -->
     <property name='Properties' type='a{sv}' access='read' />
     <!-- ConnectClient:

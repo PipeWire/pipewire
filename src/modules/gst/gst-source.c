@@ -427,10 +427,13 @@ pinos_gst_source_init (PinosGstSource * source)
 PinosSource *
 pinos_gst_source_new (PinosDaemon *daemon,
                       const gchar *name,
+                      PinosProperties *properties,
                       GstElement  *element)
 {
   return g_object_new (PINOS_TYPE_GST_SOURCE,
                        "daemon", daemon,
                        "name", name,
-                       "element", element, NULL);
+                       "properties", properties,
+                       "element", element,
+                       NULL);
 }

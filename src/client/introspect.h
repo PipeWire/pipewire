@@ -29,6 +29,41 @@
 G_BEGIN_DECLS
 
 /**
+ * PinosDeamonInfo:
+ * @id: generic id of the daemon
+ * @user_name: name of the user that started the daemon
+ * @host_name: name of the machine the daemon is running on
+ * @version: version of the daemon
+ * @name: name of the daemon
+ * @cookie: a random cookie for identifying this instance of Pinos
+ * @properties: extra properties
+ *
+ * The daemon information. Extra information can be added in later
+ * versions.
+ */
+typedef struct {
+  gpointer id;
+  const char *user_name;
+  const char *host_name;
+  const char *version;
+  const char *name;
+  guint32 cookie;
+  PinosProperties *properties;
+} PinosDaemonInfo;
+
+typedef enum {
+  PINOS_DAEMON_INFO_FLAGS_NONE            = 0,
+} PinosDaemonInfoFlags;
+
+typedef gboolean (*PinosDaemonInfoCallback)  (PinosContext *c, const PinosDaemonInfo *info, gpointer userdata);
+
+void            pinos_context_get_daemon_info (PinosContext *context,
+                                               PinosDaemonInfoFlags flags,
+                                               PinosDaemonInfoCallback cb,
+                                               GCancellable *cancellable,
+                                               gpointer user_data);
+
+/**
  * PinosSourceState:
  * @PINOS_SOURCE_STATE_ERROR: the source is in error
  * @PINOS_SOURCE_STATE_SUSPENDED: the source is suspended, the device might

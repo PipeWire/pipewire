@@ -42,6 +42,21 @@ enum
 
 G_DEFINE_TYPE (PinosGstManager, pinos_gst_manager, G_TYPE_OBJECT);
 
+static gboolean
+copy_properties (GQuark field_id,
+                 const GValue *value,
+                 gpointer user_data)
+{
+  PinosProperties *properties = user_data;
+
+  if (G_VALUE_HOLDS_STRING (value))
+    pinos_properties_set (properties,
+                          g_quark_to_string (field_id),
+                          g_value_get_string (value));
+
+  return TRUE;
+}
+
 static void
 device_added (PinosGstManager *manager,
               GstDevice       *device)
@@ -50,6 +65,8 @@ device_added (PinosGstManager *manager,
   gchar *name;
   GstElement *element;
   PinosSource *source;
+  GstStructure *p;
+  PinosProperties *properties;
 
   name = gst_device_get_display_name (device);
   if (strcmp (name, "gst") == 0)
@@ -57,8 +74,15 @@ device_added (PinosGstManager *manager,
 
   g_print("Device added: %s\n", name);
 
+  properties = pinos_properties_new (NULL);
+  if ((p = gst_device_get_properties (device)))
+    gst_structure_foreach (p, copy_properties, properties);
+  pinos_properties_set (properties,
+                        "gstreamer.device.class",
+                        gst_device_get_device_class (device));
+
   element = gst_device_create_element (device, NULL);
-  source = pinos_gst_source_new (priv->daemon, name, element);
+  source = pinos_gst_source_new (priv->daemon, name, properties, element);
   g_object_set_data (G_OBJECT (device), "PinosSource", source);
   g_free (name);
 }
@@ -129,6 +153,9 @@ start_monitor (PinosGstManager *manager)
   PinosGstManagerPrivate *priv = manager->priv;
   GstBus *bus;
   GList *devices;
+  gchar **providers;
+  gchar *provided;
+  PinosProperties *props;
 
   disable_pinos_provider (manager);
 
@@ -139,8 +166,19 @@ start_monitor (PinosGstManager *manager)
   gst_object_unref (bus);
 
   gst_device_monitor_add_filter (priv->monitor, "Video/Source", NULL);
-
+  gst_device_monitor_add_filter (priv->monitor, "Audio/Source", NULL);
   gst_device_monitor_start (priv->monitor);
+
+  providers = gst_device_monitor_get_providers (priv->monitor);
+  provided = g_strjoinv (",", providers);
+  g_strfreev (providers);
+
+  g_object_get (priv->daemon, "properties", &props, NULL);
+  pinos_properties_set (props, "gstreamer.deviceproviders", provided);
+  g_object_set (priv->daemon, "properties", props, NULL);
+  pinos_properties_free (props);
+
+  g_free (provided);
 
   devices = gst_device_monitor_get_devices (priv->monitor);
   while (devices != NULL) {

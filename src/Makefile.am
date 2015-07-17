@@ -154,6 +154,8 @@ pinosinclude_HEADERS = \
 		client/context.h \
 		client/enumtypes.h \
 		client/introspect.h \
+		client/mainloop.h \
+		client/properties.h \
 		client/stream.h \
 		client/subscribe.h
 
@@ -166,6 +168,7 @@ libpinos_@PINOS_MAJORMINOR@_la_SOURCES = \
 		client/enumtypes.h client/enumtypes.c \
 		client/introspect.h client/introspect.c \
 		client/mainloop.h client/mainloop.c \
+		client/properties.h client/properties.c \
 		client/stream.h client/stream.c \
 		client/pinos.c client/pinos.h \
 		client/subscribe.c client/subscribe.h \

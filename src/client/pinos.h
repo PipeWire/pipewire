@@ -23,6 +23,7 @@
 #include <client/context.h>
 #include <client/introspect.h>
 #include <client/mainloop.h>
+#include <client/properties.h>
 #include <client/stream.h>
 #include <client/subscribe.h>
 

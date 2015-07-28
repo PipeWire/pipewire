@@ -252,11 +252,12 @@ on_socket_notify (GObject    *gobject,
 }
 
 static PinosSourceOutput *
-create_source_output (PinosSource *source,
-                      const gchar *client_path,
-                      GBytes      *format_filter,
-                      const gchar *prefix,
-                      GError      **error)
+create_source_output (PinosSource     *source,
+                      const gchar     *client_path,
+                      GBytes          *format_filter,
+                      PinosProperties *props,
+                      const gchar     *prefix,
+                      GError          **error)
 {
   PinosSourceOutput *output;
   PinosGstSourcePrivate *priv = PINOS_GST_SOURCE (source)->priv;
@@ -289,6 +290,7 @@ create_source_output (PinosSource *source,
                 ->create_source_output (source,
                                         client_path,
                                         format_filter,
+                                        props,
                                         prefix,
                                         error);
   g_bytes_unref (format_filter);

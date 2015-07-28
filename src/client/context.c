@@ -278,6 +278,7 @@ pinos_context_init (PinosContext * context)
 
 /**
  * pinos_context_new:
+ * @context: a #GMainContext to run in
  * @name: an application name
  * @properties: optional properties
  *
@@ -293,7 +294,9 @@ pinos_context_new (GMainContext    *context,
   g_return_val_if_fail (name != NULL, NULL);
 
   if (properties == NULL)
-    properties = pinos_properties_new ("media.name", name, NULL);
+    properties = pinos_properties_new ("application.name", name, NULL);
+
+  pinos_fill_context_properties (properties);
 
   return g_object_new (PINOS_TYPE_CONTEXT,
                        "main-context", context,
@@ -419,7 +422,11 @@ subscription_cb (PinosSubscribe         *subscribe,
       break;
 
     case PINOS_SUBSCRIPTION_FLAGS_CLIENT:
-      if (event == PINOS_SUBSCRIPTION_EVENT_REMOVE) {
+      if (event == PINOS_SUBSCRIPTION_EVENT_NEW) {
+        priv->clients = g_list_prepend (priv->clients, object);
+      } else if (event == PINOS_SUBSCRIPTION_EVENT_REMOVE) {
+        priv->clients = g_list_remove (priv->clients, object);
+
         if (object == priv->client) {
           priv->error = g_error_new_literal (G_IO_ERROR, G_IO_ERROR_CLOSED, "Client disappeared");
           context_set_state (context, PINOS_CONTEXT_STATE_ERROR);
@@ -435,6 +442,10 @@ subscription_cb (PinosSubscribe         *subscribe,
       break;
 
     case PINOS_SUBSCRIPTION_FLAGS_SOURCE_OUTPUT:
+      if (event == PINOS_SUBSCRIPTION_EVENT_NEW)
+        priv->source_outputs = g_list_prepend (priv->source_outputs, object);
+      else if (event == PINOS_SUBSCRIPTION_EVENT_REMOVE)
+        priv->source_outputs = g_list_remove (priv->source_outputs, object);
       break;
   }
 

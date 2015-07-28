@@ -35,4 +35,9 @@
 
 void pinos_init (int *argc, char **argv[]);
 
+gchar *pinos_client_name (void);
+
+void   pinos_fill_context_properties (PinosProperties *properties);
+void   pinos_fill_stream_properties  (PinosProperties *properties);
+
 #endif /* __PINOS_H__ */

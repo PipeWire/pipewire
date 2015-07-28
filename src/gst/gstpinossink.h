@@ -52,6 +52,7 @@ struct _GstPinosSink {
   GstBaseSink element;
 
   /*< private >*/
+  gchar *client_name;
 
   /* video state */
   gboolean negotiated;

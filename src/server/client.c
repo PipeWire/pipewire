@@ -143,6 +143,7 @@ handle_create_source_output (PinosClient1           *interface,
                              GDBusMethodInvocation  *invocation,
                              const gchar            *arg_source,
                              const gchar            *arg_accepted_formats,
+                             GVariant               *arg_properties,
                              gpointer                user_data)
 {
   PinosClient *client = user_data;
@@ -151,6 +152,7 @@ handle_create_source_output (PinosClient1           *interface,
   PinosSourceOutput *output;
   const gchar *object_path, *sender;
   GBytes *formats;
+  PinosProperties *props;
   GError *error = NULL;
 
   sender = g_dbus_method_invocation_get_sender (invocation);
@@ -158,10 +160,11 @@ handle_create_source_output (PinosClient1           *interface,
     goto not_allowed;
 
   formats = g_bytes_new (arg_accepted_formats, strlen (arg_accepted_formats) + 1);
+  props = pinos_properties_from_variant (arg_properties);
 
   source = pinos_daemon_find_source (priv->daemon,
                                      arg_source,
-                                     priv->properties,
+                                     props,
                                      formats,
                                      &error);
   if (source == NULL)
@@ -170,6 +173,7 @@ handle_create_source_output (PinosClient1           *interface,
   output = pinos_source_create_source_output (source,
                                               priv->object_path,
                                               formats,
+                                              props,
                                               priv->object_path,
                                               &error);
   if (output == NULL)
@@ -216,6 +220,7 @@ static gboolean
 handle_create_source_input (PinosClient1           *interface,
                             GDBusMethodInvocation  *invocation,
                             const gchar            *arg_possible_formats,
+                            GVariant               *arg_properties,
                             gpointer                user_data)
 {
   PinosClient *client = user_data;
@@ -225,12 +230,14 @@ handle_create_source_input (PinosClient1           *interface,
   const gchar *source_input_path, *sender;
   GBytes *formats;
   GError *error = NULL;
+  PinosProperties *props;
 
   sender = g_dbus_method_invocation_get_sender (invocation);
   if (g_strcmp0 (pinos_client_get_sender (client), sender) != 0)
     goto not_allowed;
 
   formats = g_bytes_new (arg_possible_formats, strlen (arg_possible_formats) + 1);
+  props = pinos_properties_from_variant (arg_properties);
 
   source = pinos_client_source_new (priv->daemon, formats);
   if (source == NULL)
@@ -243,10 +250,10 @@ handle_create_source_input (PinosClient1           *interface,
 
   sender = g_dbus_method_invocation_get_sender (invocation);
 
-
   input = pinos_client_source_get_source_input (PINOS_CLIENT_SOURCE (source),
                                                 priv->object_path,
                                                 formats,
+                                                props,
                                                 priv->object_path,
                                                 &error);
   if (input == NULL)
@@ -279,6 +286,7 @@ no_source:
     g_dbus_method_invocation_return_dbus_error (invocation,
         "org.pinos.Error", "Can't create source");
     g_bytes_unref (formats);
+    pinos_properties_free (props);
     return TRUE;
   }
 no_input:
@@ -286,6 +294,7 @@ no_input:
     g_dbus_method_invocation_return_gerror (invocation, error);
     g_clear_error (&error);
     g_bytes_unref (formats);
+    pinos_properties_free (props);
     return TRUE;
   }
 }
@@ -318,6 +327,7 @@ client_register_object (PinosClient *client,
 
   priv->client1 = pinos_client1_skeleton_new ();
   pinos_client1_set_name (priv->client1, priv->sender);
+  pinos_client1_set_properties (priv->client1, pinos_properties_to_variant (priv->properties));
   g_signal_connect (priv->client1, "handle-create-source-output",
                                    (GCallback) handle_create_source_output,
                                    client);

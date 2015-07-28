@@ -51,7 +51,7 @@ GST_DEBUG_CATEGORY_STATIC (pinos_sink_debug);
 enum
 {
   PROP_0,
-  PROP_LAST
+  PROP_CLIENT_NAME
 };
 
 
@@ -86,6 +86,17 @@ static gboolean gst_pinos_sink_start (GstBaseSink * basesink);
 static gboolean gst_pinos_sink_stop (GstBaseSink * basesink);
 
 static void
+gst_pinos_sink_finalize (GObject * object)
+{
+  GstPinosSink *pinossink = GST_PINOS_SINK (object);
+
+  g_object_unref (pinossink->allocator);
+  g_free (pinossink->client_name);
+
+  G_OBJECT_CLASS (parent_class)->finalize (object);
+}
+
+static void
 gst_pinos_sink_class_init (GstPinosSinkClass * klass)
 {
   GObjectClass *gobject_class;
@@ -96,8 +107,18 @@ gst_pinos_sink_class_init (GstPinosSinkClass * klass)
   gstelement_class = (GstElementClass *) klass;
   gstbasesink_class = (GstBaseSinkClass *) klass;
 
+  gobject_class->finalize = gst_pinos_sink_finalize;
   gobject_class->set_property = gst_pinos_sink_set_property;
   gobject_class->get_property = gst_pinos_sink_get_property;
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_CLIENT_NAME,
+                                   g_param_spec_string ("client-name",
+                                                        "Client Name",
+                                                        "The client name to use (NULL = default)",
+                                                        NULL,
+                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_STATIC_STRINGS));
 
   gstelement_class->change_state = gst_pinos_sink_change_state;
 
@@ -123,6 +144,7 @@ static void
 gst_pinos_sink_init (GstPinosSink * sink)
 {
   sink->allocator = gst_tmpfile_allocator_new ();
+  sink->client_name = pinos_client_name();
 }
 
 static GstCaps *
@@ -172,7 +194,14 @@ static void
 gst_pinos_sink_set_property (GObject * object, guint prop_id,
     const GValue * value, GParamSpec * pspec)
 {
+  GstPinosSink *pinossink = GST_PINOS_SINK (object);
+
   switch (prop_id) {
+    case PROP_CLIENT_NAME:
+      g_free (pinossink->client_name);
+      pinossink->client_name = g_value_dup_string (value);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -183,7 +212,13 @@ static void
 gst_pinos_sink_get_property (GObject * object, guint prop_id,
     GValue * value, GParamSpec * pspec)
 {
+  GstPinosSink *pinossink = GST_PINOS_SINK (object);
+
   switch (prop_id) {
+    case PROP_CLIENT_NAME:
+      g_value_set_string (value, pinossink->client_name);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;

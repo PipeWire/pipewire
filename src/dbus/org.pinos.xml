@@ -56,6 +56,7 @@
     <!-- CreateSourceOutput:
          @source: the Source1 object path or / for default
          @accepted_formats: the formats that can be accepted
+         @properties: extra properties
          @output: the SourceOutput1 object path
 
          Create a new output for @source with given @incaps
@@ -63,16 +64,19 @@
     <method name='CreateSourceOutput'>
       <arg type='s' name='source' direction='in'/>
       <arg type='s' name='accepted_formats' direction='in'/>
+      <arg type='a{sv}' name='properties' direction='in'/>
       <arg type='o' name='output' direction='out'/>
     </method>
     <!-- CreateSourceInput:
          @possible_formats: the formats that can be provided
+         @properties: extra properties
          @input: the SourceInput1 object path
 
          Create a new source and input object with given @incaps
     -->
     <method name='CreateSourceInput'>
       <arg type='s' name='possible_formats' direction='in'/>
+      <arg type='a{sv}' name='properties' direction='in'/>
       <arg type='o' name='input' direction='out'/>
     </method>
   </interface>
@@ -121,6 +125,9 @@
          against the accepted_formats when creating the source output.
          -->
     <property name='PossibleFormats' type='s' access='read' />
+
+    <!-- Properties: extra source output properties -->
+    <property name='Properties' type='a{sv}' access='read' />
     <!-- Start:
          @requested_format: requested formats
          @fd: output file descriptor

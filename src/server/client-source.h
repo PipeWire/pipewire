@@ -69,6 +69,7 @@ PinosSource *       pinos_client_source_new              (PinosDaemon *daemon,
 PinosSourceOutput * pinos_client_source_get_source_input (PinosClientSource *source,
                                                           const gchar       *client_path,
                                                           GBytes            *format_filter,
+                                                          PinosProperties   *props,
                                                           const gchar       *prefix,
                                                           GError            **error);
 

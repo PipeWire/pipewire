@@ -39,6 +39,7 @@ struct _PinosSourceOutputPrivate
   gchar *source_path;
 
   GBytes *possible_formats;
+  PinosProperties *properties;
   GBytes *requested_format;
   GBytes *format;
 
@@ -58,6 +59,7 @@ enum
   PROP_CLIENT_PATH,
   PROP_SOURCE_PATH,
   PROP_POSSIBLE_FORMATS,
+  PROP_PROPERTIES,
   PROP_REQUESTED_FORMAT,
   PROP_FORMAT,
   PROP_SOCKET,
@@ -99,6 +101,10 @@ pinos_source_output_get_property (GObject    *_object,
 
     case PROP_POSSIBLE_FORMATS:
       g_value_set_boxed (value, priv->possible_formats);
+      break;
+
+    case PROP_PROPERTIES:
+      g_value_set_boxed (value, priv->properties);
       break;
 
     case PROP_REQUESTED_FORMAT:
@@ -153,6 +159,14 @@ pinos_source_output_set_property (GObject      *_object,
       priv->possible_formats = g_value_dup_boxed (value);
       g_object_set (priv->iface, "possible-formats",
           g_bytes_get_data (priv->possible_formats, NULL), NULL);
+      break;
+
+    case PROP_PROPERTIES:
+      if (priv->properties)
+        pinos_properties_free (priv->properties);
+      priv->properties = g_value_dup_boxed (value);
+      g_object_set (priv->iface, "properties",
+          pinos_properties_to_variant (priv->properties), NULL);
       break;
 
     case PROP_FORMAT:
@@ -385,6 +399,16 @@ pinos_source_output_class_init (PinosSourceOutputClass * klass)
                                                        "Possible Formats",
                                                        "The possbile formats of the stream",
                                                        G_TYPE_BYTES,
+                                                       G_PARAM_READWRITE |
+                                                       G_PARAM_CONSTRUCT |
+                                                       G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_PROPERTIES,
+                                   g_param_spec_boxed ("properties",
+                                                       "Properties",
+                                                       "Extra properties of the stream",
+                                                       PINOS_TYPE_PROPERTIES,
                                                        G_PARAM_READWRITE |
                                                        G_PARAM_CONSTRUCT |
                                                        G_PARAM_STATIC_STRINGS));

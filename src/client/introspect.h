@@ -29,7 +29,7 @@
 G_BEGIN_DECLS
 
 /**
- * PinosDeamonInfo:
+ * PinosDaemonInfo:
  * @id: generic id of the daemon
  * @user_name: name of the user that started the daemon
  * @host_name: name of the machine the daemon is running on
@@ -62,6 +62,39 @@ void            pinos_context_get_daemon_info (PinosContext *context,
                                                PinosDaemonInfoCallback cb,
                                                GCancellable *cancellable,
                                                gpointer user_data);
+
+/**
+ * PinosClientInfo:
+ * @id: generic id of the client
+ * @name: name of client
+ * @properties: extra properties
+ *
+ * The client information. Extra information can be added in later
+ * versions.
+ */
+typedef struct {
+  gpointer id;
+  const char *name;
+  PinosProperties *properties;
+} PinosClientInfo;
+
+typedef enum {
+  PINOS_CLIENT_INFO_FLAGS_NONE            = 0,
+} PinosClientInfoFlags;
+
+typedef gboolean (*PinosClientInfoCallback)  (PinosContext *c, const PinosClientInfo *info, gpointer userdata);
+
+void            pinos_context_list_client_info      (PinosContext *context,
+                                                     PinosClientInfoFlags flags,
+                                                     PinosClientInfoCallback cb,
+                                                     GCancellable *cancellable,
+                                                     gpointer user_data);
+void            pinos_context_get_client_info_by_id (PinosContext *context,
+                                                     gpointer id,
+                                                     PinosClientInfoFlags flags,
+                                                     PinosClientInfoCallback cb,
+                                                     GCancellable *cancellable,
+                                                     gpointer user_data);
 
 /**
  * PinosSourceState:
@@ -131,6 +164,48 @@ void            pinos_context_get_source_info_by_id (PinosContext *context,
                                                      GCancellable *cancellable,
                                                      gpointer user_data);
 
+/**
+ * PinosSourceOutputInfo:
+ * @id: generic id of the output
+ * @client_path: the owner client
+ * @source_path: the source path
+ * @possible_formats: the possible formats
+ * @properties: the properties of the source
+ *
+ * The source information. Extra information can be added in later
+ * versions.
+ */
+typedef struct {
+  gpointer id;
+  const char *client_path;
+  const char *source_path;
+  GBytes *possible_formats;
+  PinosProperties *properties;
+} PinosSourceOutputInfo;
+
+/**
+ * PinosSourceOutputInfoFlags:
+ * @PINOS_SOURCE_OUTPUT_INFO_FLAGS_NONE: no flags
+ *
+ * Extra flags to pass to pinos_context_get_source_output_info_list.
+ */
+typedef enum {
+  PINOS_SOURCE_OUTPUT_INFO_FLAGS_NONE            = 0,
+} PinosSourceOutputInfoFlags;
+
+typedef gboolean (*PinosSourceOutputInfoCallback)  (PinosContext *c, const PinosSourceOutputInfo *info, gpointer userdata);
+
+void            pinos_context_list_source_output_info      (PinosContext *context,
+                                                            PinosSourceOutputInfoFlags flags,
+                                                            PinosSourceOutputInfoCallback cb,
+                                                            GCancellable *cancellable,
+                                                            gpointer user_data);
+void            pinos_context_get_source_output_info_by_id (PinosContext *context,
+                                                            gpointer id,
+                                                            PinosSourceOutputInfoFlags flags,
+                                                            PinosSourceOutputInfoCallback cb,
+                                                            GCancellable *cancellable,
+                                                            gpointer user_data);
 G_END_DECLS
 
 #endif /* __PINOS_INTROSPECT_H__ */

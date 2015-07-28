@@ -399,6 +399,12 @@ pinos_stream_new (PinosContext    *context,
   g_return_val_if_fail (PINOS_IS_CONTEXT (context), NULL);
   g_return_val_if_fail (name != NULL, NULL);
 
+  if (props == NULL) {
+    props = pinos_properties_new ("media.name", name, NULL);
+  } else if (!pinos_properties_get (props, "media.name")) {
+    pinos_properties_set (props, "media.name", name);
+  }
+
   return g_object_new (PINOS_TYPE_STREAM,
                        "context", context,
                        "name", name,
@@ -532,9 +538,10 @@ do_connect_capture (PinosStream *stream)
 
   g_dbus_proxy_call (context->priv->client,
                      "CreateSourceOutput",
-                     g_variant_new ("(ss)",
+                     g_variant_new ("(ss@a{sv})",
                        (priv->source_path ? priv->source_path : ""),
-                       g_bytes_get_data (priv->accepted_formats, NULL)),
+                       g_bytes_get_data (priv->accepted_formats, NULL),
+                       pinos_properties_to_variant (priv->properties)),
                      G_DBUS_CALL_FLAGS_NONE,
                      -1,
                      NULL, /* GCancellable *cancellable */
@@ -595,7 +602,9 @@ do_connect_provide (PinosStream *stream)
 
   g_dbus_proxy_call (context->priv->client,
                      "CreateSourceInput",
-                     g_variant_new ("(s)", g_bytes_get_data (priv->possible_formats, NULL)),
+                     g_variant_new ("(s@a{sv})",
+                       g_bytes_get_data (priv->possible_formats, NULL),
+                       pinos_properties_to_variant (priv->properties)),
                      G_DBUS_CALL_FLAGS_NONE,
                      -1,
                      NULL, /* GCancellable *cancellable */

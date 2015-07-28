@@ -50,7 +50,8 @@ GST_DEBUG_CATEGORY_STATIC (pinos_src_debug);
 enum
 {
   PROP_0,
-  PROP_PATH
+  PROP_PATH,
+  PROP_CLIENT_NAME,
 };
 
 
@@ -91,6 +92,11 @@ gst_pinos_src_set_property (GObject * object, guint prop_id,
       pinossrc->path = g_value_dup_string (value);
       break;
 
+    case PROP_CLIENT_NAME:
+      g_free (pinossrc->client_name);
+      pinossrc->client_name = g_value_dup_string (value);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -108,6 +114,10 @@ gst_pinos_src_get_property (GObject * object, guint prop_id,
       g_value_set_string (value, pinossrc->path);
       break;
 
+    case PROP_CLIENT_NAME:
+      g_value_set_string (value, pinossrc->client_name);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -121,6 +131,7 @@ gst_pinos_src_finalize (GObject * object)
 
   g_object_unref (pinossrc->fd_allocator);
   g_free (pinossrc->path);
+  g_free (pinossrc->client_name);
 
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }
@@ -151,6 +162,14 @@ gst_pinos_src_class_init (GstPinosSrcClass * klass)
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (gobject_class,
+                                   PROP_CLIENT_NAME,
+                                   g_param_spec_string ("client-name",
+                                                        "Client Name",
+                                                        "The client name to use (NULL = default)",
+                                                        NULL,
+                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_STATIC_STRINGS));
 
   gstelement_class->change_state = gst_pinos_src_change_state;
 
@@ -181,6 +200,7 @@ gst_pinos_src_init (GstPinosSrc * src)
   gst_base_src_set_live (GST_BASE_SRC (src), TRUE);
 
   src->fd_allocator = gst_fd_allocator_new ();
+  src->client_name = pinos_client_name ();
 }
 
 static GstCaps *

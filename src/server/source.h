@@ -68,11 +68,12 @@ struct _PinosSourceClass {
 
   gboolean            (*set_state)  (PinosSource *source, PinosSourceState);
 
-  PinosSourceOutput * (*create_source_output)  (PinosSource    *source,
-                                                const gchar    *client_path,
-                                                GBytes         *format_filter,
-                                                const gchar    *prefix,
-                                                GError         **error);
+  PinosSourceOutput * (*create_source_output)  (PinosSource     *source,
+                                                const gchar     *client_path,
+                                                GBytes          *format_filter,
+                                                PinosProperties *props,
+                                                const gchar     *prefix,
+                                                GError          **error);
   gboolean            (*release_source_output) (PinosSource       *source,
                                                 PinosSourceOutput *output);
 };
@@ -92,11 +93,12 @@ void                pinos_source_report_busy             (PinosSource *source);
 
 void                pinos_source_update_possible_formats (PinosSource *source, GBytes *formats);
 
-PinosSourceOutput * pinos_source_create_source_output    (PinosSource *source,
-                                                          const gchar *client_path,
-                                                          GBytes      *format_filter,
-                                                          const gchar *prefix,
-                                                          GError      **error);
+PinosSourceOutput * pinos_source_create_source_output    (PinosSource     *source,
+                                                          const gchar     *client_path,
+                                                          GBytes          *format_filter,
+                                                          PinosProperties *props,
+                                                          const gchar     *prefix,
+                                                          GError          **error);
 gboolean            pinos_source_release_source_output   (PinosSource       *source,
                                                           PinosSourceOutput *output);
 

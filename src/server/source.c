@@ -236,11 +236,12 @@ handle_remove_output (PinosSourceOutput *output,
 }
 
 static PinosSourceOutput *
-default_create_source_output (PinosSource *source,
-                              const gchar *client_path,
-                              GBytes      *format_filter,
-                              const gchar *prefix,
-                              GError      **error)
+default_create_source_output (PinosSource     *source,
+                              const gchar     *client_path,
+                              GBytes          *format_filter,
+                              PinosProperties *props,
+                              const gchar     *prefix,
+                              GError          **error)
 {
   PinosSourcePrivate *priv = source->priv;
   PinosSourceOutput *output;
@@ -250,6 +251,7 @@ default_create_source_output (PinosSource *source,
                                                    "client-path", client_path,
                                                    "source-path", priv->object_path,
                                                    "possible-formats", format_filter,
+                                                   "properties", props,
                                                    NULL);
 
   g_signal_connect (output,
@@ -482,17 +484,19 @@ pinos_source_update_possible_formats (PinosSource *source, GBytes *formats)
   g_return_if_fail (PINOS_IS_SOURCE (source));
   priv = source->priv;
 
-  g_object_set (priv->iface, "possible-formats",
-                g_bytes_get_data (formats, NULL),
-                NULL);
+  if (priv->iface)
+    g_object_set (priv->iface, "possible-formats",
+                  g_bytes_get_data (formats, NULL),
+                  NULL);
 }
 
 PinosSourceOutput *
-pinos_source_create_source_output (PinosSource *source,
-                                   const gchar *client_path,
-                                   GBytes      *format_filter,
-                                   const gchar *prefix,
-                                   GError      **error)
+pinos_source_create_source_output (PinosSource     *source,
+                                   const gchar     *client_path,
+                                   GBytes          *format_filter,
+                                   PinosProperties *props,
+                                   const gchar     *prefix,
+                                   GError          **error)
 {
   PinosSourceClass *klass;
   PinosSourceOutput *res;
@@ -502,7 +506,7 @@ pinos_source_create_source_output (PinosSource *source,
   klass = PINOS_SOURCE_GET_CLASS (source);
 
   if (klass->create_source_output) {
-    res = klass->create_source_output (source, client_path, format_filter, prefix, error);
+    res = klass->create_source_output (source, client_path, format_filter, props, prefix, error);
   } else {
     if (error) {
       *error = g_error_new (G_IO_ERROR,

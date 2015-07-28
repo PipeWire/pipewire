@@ -53,6 +53,7 @@ struct _GstPinosSrc {
 
   /*< private >*/
   gchar *path;
+  gchar *client_name;
 
   gboolean negotiated;
 

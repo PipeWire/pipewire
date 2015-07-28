@@ -190,17 +190,6 @@ enum
   PROP_LAST
 };
 
-static gchar *
-pinos_client_name (void)
-{
-  const char *c;
-
-  if ((c = g_get_application_name ()))
-    return g_strdup (c);
-  else
-    return g_strdup_printf ("GStreamer-pid-%lu", (gulong) getpid ());
-}
-
 static GstDevice *
 new_source (const PinosSourceInfo *info)
 {

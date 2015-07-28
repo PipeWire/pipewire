@@ -255,11 +255,12 @@ on_socket_notify (GObject    *gobject,
 }
 
 static PinosSourceOutput *
-client_create_source_output (PinosSource *source,
-                             const gchar *client_path,
-                             GBytes      *format_filter,
-                             const gchar *prefix,
-                             GError      **error)
+client_create_source_output (PinosSource     *source,
+                             const gchar     *client_path,
+                             GBytes          *format_filter,
+                             PinosProperties *props,
+                             const gchar     *prefix,
+                             GError          **error)
 {
   PinosClientSourcePrivate *priv = PINOS_CLIENT_SOURCE (source)->priv;
   PinosSourceOutput *output;
@@ -271,6 +272,7 @@ client_create_source_output (PinosSource *source,
                 ->create_source_output (source,
                                         client_path,
                                         format_filter,
+                                        props,
                                         prefix,
                                         error);
 
@@ -355,6 +357,7 @@ PinosSourceOutput *
 pinos_client_source_get_source_input (PinosClientSource *source,
                                       const gchar       *client_path,
                                       GBytes            *format_filter,
+                                      PinosProperties   *props,
                                       const gchar       *prefix,
                                       GError            **error)
 {
@@ -373,6 +376,7 @@ pinos_client_source_get_source_input (PinosClientSource *source,
                         ->create_source_output (PINOS_SOURCE (source),
                                                 client_path,
                                                 format_filter,
+                                                props,
                                                 prefix,
                                                 error);
     if (priv->input == NULL)

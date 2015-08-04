@@ -34,12 +34,12 @@ print_field (GQuark field, const GValue * value, gpointer user_data)
 }
 
 static void
-print_formats (GBytes *formats)
+print_formats (const gchar *name, GBytes *formats)
 {
   GstCaps *caps = gst_caps_from_string (g_bytes_get_data (formats, NULL));
   guint i;
 
-  g_print ("\tformats:\n");
+  g_print ("\t%s:\n", name);
 
   if (gst_caps_is_any (caps)) {
     g_print ("\t\tANY\n");
@@ -120,7 +120,7 @@ dump_source_info (PinosContext *c, const PinosSourceInfo *info, gpointer userdat
   g_print ("\tsource-path: \"%s\"\n", info->source_path);
   g_print ("\tname: \"%s\"\n", info->name);
   g_print ("\tstate: %d\n", info->state);
-  print_formats (info->formats);
+  print_formats ("formats", info->formats);
   print_properties (info->properties);
 
   return TRUE;
@@ -135,7 +135,9 @@ dump_source_output_info (PinosContext *c, const PinosSourceOutputInfo *info, gpo
   g_print ("\tid: %p\n", info->id);
   g_print ("\tclient-path: \"%s\"\n", info->client_path);
   g_print ("\tsource-path: \"%s\"\n", info->source_path);
-  print_formats (info->possible_formats);
+  print_formats ("possible-formats", info->possible_formats);
+  g_print ("\tstate: \"%d\"\n", info->state);
+  print_formats ("format", info->format);
   print_properties (info->properties);
 
   return TRUE;

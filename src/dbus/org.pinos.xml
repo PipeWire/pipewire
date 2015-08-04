@@ -93,12 +93,12 @@
     <!-- Properties: extra source properties -->
     <property name='Properties' type='a{sv}' access='read' />
     <!-- state: state of the source
-          0 = the source is in error
+          -1 = the source is in error
+          0 = the source is suspended, this means the device is closed
           1 = the source is initializing
-          2 = the source is suspended, this means the device is closed
-          3 = the source is idle, this means the device is opened but
+          2 = the source is idle, this means the device is opened but
               no source-output is consuming the data
-          4 = the source is running
+          3 = the source is running
     -->
     <property name='State' type='u' access='read' />
     <!-- PossibleFormats:
@@ -128,6 +128,17 @@
 
     <!-- Properties: extra source output properties -->
     <property name='Properties' type='a{sv}' access='read' />
+
+    <!-- state: state of the source output
+          -1 = the source output is in error
+          0 = the source output is idle
+          1 = the source output is starting
+          2 = the source output is streaming
+    -->
+    <property name='State' type='u' access='read' />
+    <!-- Format: the current streaming format -->
+    <property name='Format' type='s' access='read' />
+
     <!-- Start:
          @requested_format: requested formats
          @fd: output file descriptor

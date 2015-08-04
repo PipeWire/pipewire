@@ -339,6 +339,20 @@ source_output_fill_info (PinosSourceOutputInfo *info, GDBusProxy *proxy)
   } else {
     info->possible_formats = NULL;
   }
+  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "State"))) {
+    info->state = g_variant_get_uint32 (variant);
+    g_variant_unref (variant);
+  } else {
+    info->state = PINOS_SOURCE_OUTPUT_STATE_ERROR;
+  }
+  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "Format"))) {
+    gsize len;
+    gchar *format = g_variant_dup_string (variant, &len);
+    info->format = g_bytes_new_take (format, len + 1);
+    g_variant_unref (variant);
+  } else {
+    info->format = NULL;
+  }
   info->properties = pinos_properties_from_variant (
       g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "Properties"));
 

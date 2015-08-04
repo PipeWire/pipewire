@@ -41,6 +41,7 @@ struct _PinosSourceOutputPrivate
   GBytes *possible_formats;
   PinosProperties *properties;
   GBytes *requested_format;
+  PinosSourceOutputState state;
   GBytes *format;
 
   GSocket *socket;
@@ -63,6 +64,7 @@ enum
   PROP_REQUESTED_FORMAT,
   PROP_FORMAT,
   PROP_SOCKET,
+  PROP_STATE,
 };
 
 enum
@@ -117,6 +119,10 @@ pinos_source_output_get_property (GObject    *_object,
 
     case PROP_SOCKET:
       g_value_set_object (value, priv->socket);
+      break;
+
+    case PROP_STATE:
+      g_value_set_uint (value, priv->state);
       break;
 
     default:
@@ -192,6 +198,8 @@ handle_start (PinosSourceOutput1     *interface,
   GUnixFDList *fdlist;
   gint fd[2];
 
+  priv->state = PINOS_SOURCE_OUTPUT_STATE_STARTING;
+
   priv->requested_format = g_bytes_new (arg_requested_format, strlen (arg_requested_format) + 1);
 
   socketpair (AF_UNIX, SOCK_STREAM, 0, fd);
@@ -201,6 +209,8 @@ handle_start (PinosSourceOutput1     *interface,
   if (priv->format == NULL)
     goto no_format;
 
+  priv->state = PINOS_SOURCE_OUTPUT_STATE_STREAMING;
+
   fdlist = g_unix_fd_list_new ();
   g_unix_fd_list_append (fdlist, fd[1], NULL);
 
@@ -209,6 +219,11 @@ handle_start (PinosSourceOutput1     *interface,
                           0,
                           g_bytes_get_data (priv->format, NULL)),
            fdlist);
+
+  g_object_set (priv->iface,
+               "format", g_bytes_get_data (priv->format, NULL),
+               "state", priv->state,
+                NULL);
 
   return TRUE;
 
@@ -245,6 +260,10 @@ stop_transfer (PinosSourceOutput *output)
     clear_socket (output);
     g_object_notify (G_OBJECT (output), "socket");
   }
+  priv->state = PINOS_SOURCE_OUTPUT_STATE_IDLE;
+  g_object_set (priv->iface,
+               "state", priv->state,
+                NULL);
 }
 
 static gboolean
@@ -461,6 +480,9 @@ pinos_source_output_init (PinosSourceOutput * output)
   g_signal_connect (priv->iface, "handle-start", (GCallback) handle_start, output);
   g_signal_connect (priv->iface, "handle-stop", (GCallback) handle_stop, output);
   g_signal_connect (priv->iface, "handle-remove", (GCallback) handle_remove, output);
+
+  priv->state = PINOS_SOURCE_OUTPUT_STATE_IDLE;
+  g_object_set (priv->iface, "state", priv->state, NULL);
 }
 
 void

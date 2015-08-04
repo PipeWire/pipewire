@@ -165,11 +165,29 @@ void            pinos_context_get_source_info_by_id (PinosContext *context,
                                                      gpointer user_data);
 
 /**
+ * PinosSourceState:
+ * @PINOS_SOURCE_OUTPUT_STATE_ERROR: the source output is in error
+ * @PINOS_SOURCE_OUTPUT_STATE_IDLE: the source output is idle
+ * @PINOS_SOURCE_OUTPUT_STATE_STARTING: the source output is starting
+ * @PINOS_SOURCE_OUTPUT_STATE_STREAMING: the source output is streaming
+ *
+ * The different source output states
+ */
+typedef enum {
+  PINOS_SOURCE_OUTPUT_STATE_ERROR = -1,
+  PINOS_SOURCE_OUTPUT_STATE_IDLE = 0,
+  PINOS_SOURCE_OUTPUT_STATE_STARTING = 1,
+  PINOS_SOURCE_OUTPUT_STATE_STREAMING = 2,
+} PinosSourceOutputState;
+
+/**
  * PinosSourceOutputInfo:
  * @id: generic id of the output
  * @client_path: the owner client
  * @source_path: the source path
  * @possible_formats: the possible formats
+ * @state: the state
+ * @format: when streaming, the current format
  * @properties: the properties of the source
  *
  * The source information. Extra information can be added in later
@@ -180,6 +198,8 @@ typedef struct {
   const char *client_path;
   const char *source_path;
   GBytes *possible_formats;
+  PinosSourceOutputState state;
+  GBytes *format;
   PinosProperties *properties;
 } PinosSourceOutputInfo;
 

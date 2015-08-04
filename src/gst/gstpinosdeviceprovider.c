@@ -341,7 +341,7 @@ get_daemon_info_cb (PinosContext *c, const PinosDaemonInfo *info, gpointer userd
     GST_DEBUG_OBJECT (provider, "have obsoleted providers: %s\n", value);
 
     for (i = 0; providers[i]; i++) {
-      gst_device_provider_add_obsoleted (provider, providers[i]);
+      gst_device_provider_add_hidden (provider, providers[i]);
     }
     g_strfreev (providers);
   }

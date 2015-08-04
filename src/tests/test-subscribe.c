@@ -83,6 +83,8 @@ print_properties (PinosProperties *props)
 static gboolean
 dump_daemon_info (PinosContext *c, const PinosDaemonInfo *info, gpointer userdata)
 {
+  const gchar * const *props = userdata;
+
   if (info == NULL)
     return FALSE;
 
@@ -92,7 +94,8 @@ dump_daemon_info (PinosContext *c, const PinosDaemonInfo *info, gpointer userdat
   g_print ("\tversion: \"%s\"\n", info->version);
   g_print ("\tname: \"%s\"\n", info->name);
   g_print ("\tcookie: %d\n", info->cookie);
-  print_properties (info->properties);
+  if (!props || g_strv_contains (props, "Properties"))
+    print_properties (info->properties);
 
   return TRUE;
 }
@@ -100,12 +103,16 @@ dump_daemon_info (PinosContext *c, const PinosDaemonInfo *info, gpointer userdat
 static gboolean
 dump_client_info (PinosContext *c, const PinosClientInfo *info, gpointer userdata)
 {
+  const gchar * const *props = userdata;
+
   if (info == NULL)
     return FALSE;
 
   g_print ("\tid: %p\n", info->id);
-  g_print ("\tname: \"%s\"\n", info->name);
-  print_properties (info->properties);
+  if (!props || g_strv_contains (props, "Name"))
+    g_print ("\tname: \"%s\"\n", info->name);
+  if (!props || g_strv_contains (props, "Properties"))
+    print_properties (info->properties);
 
   return TRUE;
 }
@@ -113,15 +120,22 @@ dump_client_info (PinosContext *c, const PinosClientInfo *info, gpointer userdat
 static gboolean
 dump_source_info (PinosContext *c, const PinosSourceInfo *info, gpointer userdata)
 {
+  const gchar * const *props = userdata;
+
   if (info == NULL)
     return FALSE;
 
   g_print ("\tid: %p\n", info->id);
-  g_print ("\tsource-path: \"%s\"\n", info->source_path);
-  g_print ("\tname: \"%s\"\n", info->name);
-  g_print ("\tstate: %d\n", info->state);
-  print_formats ("formats", info->formats);
-  print_properties (info->properties);
+  if (!props || g_strv_contains (props, "Source"))
+    g_print ("\tsource-path: \"%s\"\n", info->source_path);
+  if (!props || g_strv_contains (props, "Name"))
+    g_print ("\tname: \"%s\"\n", info->name);
+  if (!props || g_strv_contains (props, "State"))
+    g_print ("\tstate: %d\n", info->state);
+  if (!props || g_strv_contains (props, "PossibleFormats"))
+    print_formats ("possible formats", info->possible_formats);
+  if (!props || g_strv_contains (props, "Properties"))
+    print_properties (info->properties);
 
   return TRUE;
 }
@@ -129,53 +143,62 @@ dump_source_info (PinosContext *c, const PinosSourceInfo *info, gpointer userdat
 static gboolean
 dump_source_output_info (PinosContext *c, const PinosSourceOutputInfo *info, gpointer userdata)
 {
+  const gchar * const *props = userdata;
+
   if (info == NULL)
     return FALSE;
 
   g_print ("\tid: %p\n", info->id);
-  g_print ("\tclient-path: \"%s\"\n", info->client_path);
-  g_print ("\tsource-path: \"%s\"\n", info->source_path);
-  print_formats ("possible-formats", info->possible_formats);
-  g_print ("\tstate: \"%d\"\n", info->state);
-  print_formats ("format", info->format);
-  print_properties (info->properties);
+  if (!props || g_strv_contains (props, "Client"))
+    g_print ("\tclient-path: \"%s\"\n", info->client_path);
+  if (!props || g_strv_contains (props, "Source"))
+    g_print ("\tsource-path: \"%s\"\n", info->source_path);
+  if (!props || g_strv_contains (props, "PossibleFormats"))
+    print_formats ("possible-formats", info->possible_formats);
+  if (!props || g_strv_contains (props, "State"))
+    g_print ("\tstate: \"%d\"\n", info->state);
+  if (!props || g_strv_contains (props, "Format"))
+    print_formats ("format", info->format);
+  if (!props || g_strv_contains (props, "Properties"))
+    print_properties (info->properties);
 
   return TRUE;
 }
 
 static void
-dump_object (PinosContext *context, GDBusProxy *proxy, PinosSubscriptionFlags flags)
+dump_object (PinosContext *context, GDBusProxy *proxy, PinosSubscriptionFlags flags,
+    GStrv properties)
 {
-  if (flags & PINOS_SUBSCRIPTION_FLAGS_DAEMON) {
+  if (flags & PINOS_SUBSCRIPTION_FLAG_DAEMON) {
     pinos_context_get_daemon_info (context,
                                    PINOS_DAEMON_INFO_FLAGS_NONE,
                                    dump_daemon_info,
                                    NULL,
-                                   NULL);
+                                   properties);
   }
-  else if (flags & PINOS_SUBSCRIPTION_FLAGS_CLIENT) {
+  else if (flags & PINOS_SUBSCRIPTION_FLAG_CLIENT) {
     pinos_context_get_client_info_by_id (context,
                                          proxy,
                                          PINOS_CLIENT_INFO_FLAGS_NONE,
                                          dump_client_info,
                                          NULL,
-                                         NULL);
+                                         properties);
   }
-  else if (flags & PINOS_SUBSCRIPTION_FLAGS_SOURCE) {
+  else if (flags & PINOS_SUBSCRIPTION_FLAG_SOURCE) {
     pinos_context_get_source_info_by_id (context,
                                          proxy,
                                          PINOS_SOURCE_INFO_FLAGS_FORMATS,
                                          dump_source_info,
                                          NULL,
-                                         NULL);
+                                         properties);
   }
-  else if (flags & PINOS_SUBSCRIPTION_FLAGS_SOURCE_OUTPUT) {
+  else if (flags & PINOS_SUBSCRIPTION_FLAG_SOURCE_OUTPUT) {
     pinos_context_get_source_output_info_by_id (context,
                                                 proxy,
                                                 PINOS_SOURCE_OUTPUT_INFO_FLAGS_NONE,
                                                 dump_source_output_info,
                                                 NULL,
-                                                NULL);
+                                                properties);
   }
 }
 
@@ -184,16 +207,18 @@ subscription_cb (PinosContext           *context,
                  PinosSubscriptionEvent  type,
                  PinosSubscriptionFlags  flags,
                  gpointer                id,
+                 GStrv                   properties,
                  gpointer                user_data)
 {
   switch (type) {
     case PINOS_SUBSCRIPTION_EVENT_NEW:
       g_print ("added: %s\n", g_dbus_proxy_get_object_path (id));
-      dump_object (context, G_DBUS_PROXY (id), flags);
+      dump_object (context, G_DBUS_PROXY (id), flags, properties);
       break;
 
     case PINOS_SUBSCRIPTION_EVENT_CHANGE:
       g_print ("changed: %s\n", g_dbus_proxy_get_object_path (id));
+      dump_object (context, G_DBUS_PROXY (id), flags, properties);
       break;
 
     case PINOS_SUBSCRIPTION_EVENT_REMOVE:

@@ -179,13 +179,14 @@ subscription_cb (PinosSubscribe         *subscribe,
                  PinosSubscriptionEvent  event,
                  PinosSubscriptionFlags  flags,
                  GDBusProxy             *object,
+                 GStrv                   properties,
                  gpointer                user_data)
 {
   PinosStream *stream = PINOS_STREAM (user_data);
   PinosStreamPrivate *priv = stream->priv;
 
   switch (flags) {
-    case PINOS_SUBSCRIPTION_FLAGS_SOURCE_OUTPUT:
+    case PINOS_SUBSCRIPTION_FLAG_SOURCE_OUTPUT:
       if (event == PINOS_SUBSCRIPTION_EVENT_REMOVE) {
         if (object == priv->source_output) {
           priv->error = g_error_new_literal (G_IO_ERROR, G_IO_ERROR_CLOSED, "output disappeared");

@@ -35,6 +35,7 @@ static void subscription_cb (PinosSubscribe         *subscribe,
                              PinosSubscriptionEvent  event,
                              PinosSubscriptionFlags  flags,
                              GDBusProxy             *object,
+                             GStrv                   properties,
                              gpointer                user_data);
 
 enum
@@ -246,6 +247,8 @@ pinos_context_class_init (PinosContextClass * klass)
    * @event: A #PinosSubscriptionEvent
    * @flags: #PinosSubscriptionFlags indicating the object
    * @object: the GDBusProxy object
+   * @properties: extra properties that changed or %NULL when all properties
+   *              are affected (new and remove)
    *
    * Notify about a new object that was added/removed/modified.
    */
@@ -257,10 +260,11 @@ pinos_context_class_init (PinosContextClass * klass)
                                                      NULL,
                                                      g_cclosure_marshal_generic,
                                                      G_TYPE_NONE,
-                                                     3,
+                                                     4,
                                                      PINOS_TYPE_SUBSCRIPTION_EVENT,
                                                      PINOS_TYPE_SUBSCRIPTION_FLAGS,
-                                                     G_TYPE_DBUS_PROXY);
+                                                     G_TYPE_DBUS_PROXY,
+                                                     G_TYPE_STRV);
 
 }
 
@@ -411,17 +415,18 @@ subscription_cb (PinosSubscribe         *subscribe,
                  PinosSubscriptionEvent  event,
                  PinosSubscriptionFlags  flags,
                  GDBusProxy             *object,
+                 GStrv                   properties,
                  gpointer                user_data)
 {
   PinosContext *context = user_data;
   PinosContextPrivate *priv = context->priv;
 
   switch (flags) {
-    case PINOS_SUBSCRIPTION_FLAGS_DAEMON:
+    case PINOS_SUBSCRIPTION_FLAG_DAEMON:
       priv->daemon = g_object_ref (object);
       break;
 
-    case PINOS_SUBSCRIPTION_FLAGS_CLIENT:
+    case PINOS_SUBSCRIPTION_FLAG_CLIENT:
       if (event == PINOS_SUBSCRIPTION_EVENT_NEW) {
         priv->clients = g_list_prepend (priv->clients, object);
       } else if (event == PINOS_SUBSCRIPTION_EVENT_REMOVE) {
@@ -434,14 +439,14 @@ subscription_cb (PinosSubscribe         *subscribe,
       }
       break;
 
-    case PINOS_SUBSCRIPTION_FLAGS_SOURCE:
+    case PINOS_SUBSCRIPTION_FLAG_SOURCE:
       if (event == PINOS_SUBSCRIPTION_EVENT_NEW)
         priv->sources = g_list_prepend (priv->sources, object);
       else if (event == PINOS_SUBSCRIPTION_EVENT_REMOVE)
         priv->sources = g_list_remove (priv->sources, object);
       break;
 
-    case PINOS_SUBSCRIPTION_FLAGS_SOURCE_OUTPUT:
+    case PINOS_SUBSCRIPTION_FLAG_SOURCE_OUTPUT:
       if (event == PINOS_SUBSCRIPTION_EVENT_NEW)
         priv->source_outputs = g_list_prepend (priv->source_outputs, object);
       else if (event == PINOS_SUBSCRIPTION_EVENT_REMOVE)
@@ -455,7 +460,8 @@ subscription_cb (PinosSubscribe         *subscribe,
                    0,
                    event,
                    flags,
-                   object);
+                   object,
+                   properties);
 
 }
 

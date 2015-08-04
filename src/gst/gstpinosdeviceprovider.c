@@ -198,8 +198,8 @@ new_source (const PinosSourceInfo *info)
   gpointer state = NULL;
   const gchar *klass;
 
-  if (info->formats)
-    caps = gst_caps_from_string (g_bytes_get_data (info->formats, NULL));
+  if (info->possible_formats)
+    caps = gst_caps_from_string (g_bytes_get_data (info->possible_formats, NULL));
   else
     caps = gst_caps_new_any();
 
@@ -273,19 +273,20 @@ context_subscribe_cb (PinosContext           *context,
                       PinosSubscriptionEvent  type,
                       PinosSubscriptionFlags  flags,
                       gpointer                id,
-                      gpointer                user_data)
+                      gpointer                user_data,
+                      GStrv                   properties)
 {
   GstPinosDeviceProvider *self = user_data;
   GstDeviceProvider *provider = user_data;
   GstPinosDevice *dev;
 
-  if (flags != PINOS_SUBSCRIPTION_FLAGS_SOURCE)
+  if (flags != PINOS_SUBSCRIPTION_FLAG_SOURCE)
     return;
 
   dev = find_device (provider, id);
 
   if (type == PINOS_SUBSCRIPTION_EVENT_NEW) {
-    if (flags == PINOS_SUBSCRIPTION_FLAGS_SOURCE && dev == NULL)
+    if (flags == PINOS_SUBSCRIPTION_FLAG_SOURCE && dev == NULL)
       pinos_context_get_source_info_by_id (context,
                                            id,
                                            PINOS_SOURCE_INFO_FLAGS_FORMATS,
@@ -293,7 +294,7 @@ context_subscribe_cb (PinosContext           *context,
                                            NULL,
                                            self);
   } else if (type == PINOS_SUBSCRIPTION_EVENT_REMOVE) {
-    if (flags == PINOS_SUBSCRIPTION_FLAGS_SOURCE && dev != NULL) {
+    if (flags == PINOS_SUBSCRIPTION_FLAG_SOURCE && dev != NULL) {
       gst_device_provider_device_remove (GST_DEVICE_PROVIDER (self),
                                          GST_DEVICE (dev));
     }

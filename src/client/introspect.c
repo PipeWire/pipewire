@@ -227,10 +227,10 @@ source_fill_info (PinosSourceInfo *info, GDBusProxy *proxy)
   if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "PossibleFormats"))) {
     gsize len;
     gchar *formats = g_variant_dup_string (variant, &len);
-    info->formats = g_bytes_new_take (formats, len + 1);
+    info->possible_formats = g_bytes_new_take (formats, len + 1);
     g_variant_unref (variant);
   } else {
-    info->formats = NULL;
+    info->possible_formats = NULL;
   }
 }
 
@@ -239,8 +239,8 @@ source_clear_info (PinosSourceInfo *info)
 {
   if (info->properties)
     pinos_properties_free (info->properties);
-  if (info->formats)
-    g_bytes_unref (info->formats);
+  if (info->possible_formats)
+    g_bytes_unref (info->possible_formats);
 }
 
 /**

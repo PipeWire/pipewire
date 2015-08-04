@@ -124,7 +124,7 @@ typedef enum {
  * @name: name the source, suitable for display
  * @properties: the properties of the source
  * @state: the current state of the source
- * @formats: the supported formats
+ * @possible formats: the possible formats this source can produce
  *
  * The source information. Extra information can be added in later
  * versions.
@@ -135,7 +135,7 @@ typedef struct {
   const char *name;
   PinosProperties *properties;
   PinosSourceState state;
-  GBytes *formats;
+  GBytes *possible_formats;
 } PinosSourceInfo;
 
 /**

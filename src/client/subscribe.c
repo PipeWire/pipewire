@@ -92,8 +92,7 @@ subscription_set_state (PinosSubscribe         *subscribe,
 static void
 notify_event (PinosSubscribe         *subscribe,
               PinosObjectData        *data,
-              PinosSubscriptionEvent  event,
-              GStrv                   properties)
+              PinosSubscriptionEvent  event)
 {
   const gchar *interface_name;
   PinosSubscriptionFlags flags = 0;
@@ -112,7 +111,7 @@ notify_event (PinosSubscribe         *subscribe,
     flags = PINOS_SUBSCRIPTION_FLAG_SOURCE_OUTPUT;
   }
   g_signal_emit (subscribe, signals[SIGNAL_SUBSCRIPTION_EVENT], 0,
-          event, flags, data->proxy, properties);
+          event, flags, data->proxy);
 }
 
 static void
@@ -122,22 +121,26 @@ on_proxy_properties_changed (GDBusProxy *proxy,
                              gpointer    user_data)
 {
   PinosObjectData *data = user_data;
-  GPtrArray *ptr;
   GVariantIter iter;
   GVariant *value;
   gchar *key;
+  GHashTable *props;
 
-  ptr = g_ptr_array_new_with_free_func (g_free);
+  props = g_object_get_data (G_OBJECT (proxy), "pinos-changed-properties");
+  if (props == NULL) {
+    props = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+    g_object_set_data_full (G_OBJECT (proxy),
+                            "pinos-changed-properties",
+                            props,
+                            (GDestroyNotify) g_hash_table_unref);
+  }
+
   g_variant_iter_init (&iter, changed_properties);
   while (g_variant_iter_loop (&iter, "{sv}", &key, &value)) {
-    g_ptr_array_add (ptr, g_strdup (key));
+    if (!g_hash_table_contains (props, key))
+      g_hash_table_add (props, g_strdup (key));
   }
-  g_ptr_array_add (ptr, NULL);
-
-  notify_event (data->subscribe, data, PINOS_SUBSCRIPTION_EVENT_CHANGE,
-      (gchar **) ptr->pdata);
-
-  g_ptr_array_free (ptr, TRUE);
+  notify_event (data->subscribe, data, PINOS_SUBSCRIPTION_EVENT_CHANGE);
 }
 
 static void
@@ -158,7 +161,7 @@ remove_data (PinosSubscribe  *subscribe,
   if (data->pending) {
     data->removed = TRUE;
   } else {
-    notify_event (subscribe, data, PINOS_SUBSCRIPTION_EVENT_REMOVE, NULL);
+    notify_event (subscribe, data, PINOS_SUBSCRIPTION_EVENT_REMOVE);
     object_data_free (data);
   }
 }
@@ -204,7 +207,7 @@ on_proxy_created (GObject      *source_object,
                     (GCallback) on_proxy_properties_changed,
                     data);
 
-  notify_event (subscribe, data, PINOS_SUBSCRIPTION_EVENT_NEW, NULL);
+  notify_event (subscribe, data, PINOS_SUBSCRIPTION_EVENT_NEW);
 
   for (walk = data->tasks; walk; walk = g_list_next (walk)) {
     GTask *task = walk->data;
@@ -651,8 +654,6 @@ pinos_subscribe_class_init (PinosSubscribeClass * klass)
    * @event: A #PinosSubscriptionEvent
    * @flags: #PinosSubscriptionFlags indicating the object
    * @id: the unique and opaque object id
-   * @properties: extra properties that changed or %NULL when all properties
-   *              are affected (new or remove)
    *
    * Notify about a new object that was added/removed/modified.
    */
@@ -664,11 +665,10 @@ pinos_subscribe_class_init (PinosSubscribeClass * klass)
                                                      NULL,
                                                      g_cclosure_marshal_generic,
                                                      G_TYPE_NONE,
-                                                     4,
+                                                     3,
                                                      PINOS_TYPE_SUBSCRIPTION_EVENT,
                                                      PINOS_TYPE_SUBSCRIPTION_FLAGS,
-                                                     G_TYPE_POINTER,
-                                                     G_TYPE_STRV);
+                                                     G_TYPE_POINTER);
 }
 
 static void

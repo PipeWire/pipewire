@@ -27,45 +27,71 @@
 
 #include "client/private.h"
 
+#define SET_STRING(name, field, idx)                                                    \
+G_STMT_START {                                                                          \
+  GVariant *variant;                                                                    \
+  if (!changed || g_hash_table_contains (changed, name))                                \
+    info->change_mask |= 1 << idx;                                                      \
+  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), name))) {      \
+    info->field = g_variant_get_string (variant, NULL);                                 \
+    g_variant_unref (variant);                                                          \
+  } else {                                                                              \
+    info->field = "Unknown";                                                            \
+  }                                                                                     \
+} G_STMT_END
+
+#define SET_UINT32(name, field, idx, def)                                               \
+G_STMT_START {                                                                          \
+  GVariant *variant;                                                                    \
+  if (!changed || g_hash_table_contains (changed, name))                                \
+    info->change_mask |= 1 << idx;                                                      \
+  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), name))) {      \
+    info->field = g_variant_get_uint32 (variant);                                       \
+    g_variant_unref (variant);                                                          \
+  } else {                                                                              \
+    info->field = def;                                                                  \
+  }                                                                                     \
+} G_STMT_END
+
+#define SET_PROPERTIES(name, field, idx)                                                \
+G_STMT_START {                                                                          \
+  if (!changed || g_hash_table_contains (changed, name))                                \
+    info->change_mask |= 1 << idx;                                                      \
+  info->field = pinos_properties_from_variant (                                         \
+      g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), name));                   \
+} G_STMT_END
+
+#define SET_BYTES(name, field, idx)                                                     \
+G_STMT_START {                                                                          \
+  GVariant *variant;                                                                    \
+  if (!changed || g_hash_table_contains (changed, name))                                \
+    info->change_mask |= 1 << idx;                                                      \
+  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), name))) {      \
+    gsize len;                                                                          \
+    gchar *bytes = g_variant_dup_string (variant, &len);                                \
+    info->field = g_bytes_new_take (bytes, len +1);                                     \
+    g_variant_unref (variant);                                                          \
+  } else {                                                                              \
+    info->field = NULL;                                                                 \
+  }                                                                                     \
+} G_STMT_END
+
 static void
 daemon_fill_info (PinosDaemonInfo *info, GDBusProxy *proxy)
 {
-  GVariant *variant;
+  GHashTable *changed = g_object_get_data (G_OBJECT (proxy), "pinos-changed-properties");
 
   info->id = proxy;
+  info->change_mask = 0;
+  SET_STRING ("UserName", user_name, 0);
+  SET_STRING ("HostName", host_name, 1);
+  SET_STRING ("Version", version, 2);
+  SET_STRING ("Name", name, 3);
+  SET_UINT32 ("Cookie", cookie, 4, 0);
+  SET_PROPERTIES ("Properties", properties, 5);
 
-  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "UserName"))) {
-    info->user_name = g_variant_get_string (variant, NULL);
-    g_variant_unref (variant);
-  } else {
-    info->user_name = "Unknown";
-  }
-  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "HostName"))) {
-    info->host_name = g_variant_get_string (variant, NULL);
-    g_variant_unref (variant);
-  } else {
-    info->host_name = "Unknown";
-  }
-  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "Version"))) {
-    info->version = g_variant_get_string (variant, NULL);
-    g_variant_unref (variant);
-  } else {
-    info->version = "Unknown";
-  }
-  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "Name"))) {
-    info->name = g_variant_get_string (variant, NULL);
-    g_variant_unref (variant);
-  } else {
-    info->name = "Unknown";
-  }
-  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "Cookie"))) {
-    info->cookie = g_variant_get_uint32 (variant);
-    g_variant_unref (variant);
-  } else {
-    info->cookie = 0;
-  }
-  info->properties = pinos_properties_from_variant (
-      g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "Properties"));
+  if (changed)
+    g_hash_table_remove_all (changed);
 }
 
 static void
@@ -106,19 +132,15 @@ pinos_context_get_daemon_info (PinosContext *context,
 static void
 client_fill_info (PinosClientInfo *info, GDBusProxy *proxy)
 {
-  GVariant *variant;
+  GHashTable *changed = g_object_get_data (G_OBJECT (proxy), "pinos-changed-properties");
 
   info->id = proxy;
+  info->change_mask = 0;
+  SET_STRING ("Name", name, 0);
+  SET_PROPERTIES ("Properties", properties, 1);
 
-  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "Name"))) {
-    info->name = g_variant_get_string (variant, NULL);
-    g_variant_unref (variant);
-  } else {
-    info->name = "Unknown";
-  }
-
-  info->properties = pinos_properties_from_variant (
-      g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "Properties"));
+  if (changed)
+    g_hash_table_remove_all (changed);
 }
 
 static void
@@ -201,37 +223,19 @@ pinos_context_get_client_info_by_id (PinosContext *context,
 static void
 source_fill_info (PinosSourceInfo *info, GDBusProxy *proxy)
 {
-  GVariant *variant;
+  GHashTable *changed = g_object_get_data (G_OBJECT (proxy), "pinos-changed-properties");
 
   info->id = proxy;
-
   info->source_path = g_dbus_proxy_get_object_path (proxy);
 
-  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "Name"))) {
-    info->name = g_variant_get_string (variant, NULL);
-    g_variant_unref (variant);
-  } else {
-    info->name = "Unknown";
-  }
+  info->change_mask = 0;
+  SET_STRING ("Name", name, 0);
+  SET_PROPERTIES ("Properties", properties, 1);
+  SET_UINT32 ("State", state, 2, PINOS_SOURCE_STATE_ERROR);
+  SET_BYTES ("PossibleFormats", possible_formats, 3);
 
-  info->properties = pinos_properties_from_variant (
-      g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "Properties"));
-
-  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "State"))) {
-    info->state = g_variant_get_uint32 (variant);
-    g_variant_unref (variant);
-  } else {
-    info->state = PINOS_SOURCE_STATE_ERROR;
-  }
-
-  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "PossibleFormats"))) {
-    gsize len;
-    gchar *formats = g_variant_dup_string (variant, &len);
-    info->possible_formats = g_bytes_new_take (formats, len + 1);
-    g_variant_unref (variant);
-  } else {
-    info->possible_formats = NULL;
-  }
+  if (changed)
+    g_hash_table_remove_all (changed);
 }
 
 static void
@@ -315,47 +319,20 @@ pinos_context_get_source_info_by_id (PinosContext *context,
 static void
 source_output_fill_info (PinosSourceOutputInfo *info, GDBusProxy *proxy)
 {
-  GVariant *variant;
+  GHashTable *changed = g_object_get_data (G_OBJECT (proxy), "pinos-changed-properties");
 
   info->id = proxy;
 
-  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "Client"))) {
-    info->client_path = g_variant_get_string (variant, NULL);
-    g_variant_unref (variant);
-  } else {
-    info->client_path = "Unknown";
-  }
-  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "Source"))) {
-    info->source_path = g_variant_get_string (variant, NULL);
-    g_variant_unref (variant);
-  } else {
-    info->source_path = "Unknown";
-  }
-  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "PossibleFormats"))) {
-    gsize len;
-    gchar *formats = g_variant_dup_string (variant, &len);
-    info->possible_formats = g_bytes_new_take (formats, len + 1);
-    g_variant_unref (variant);
-  } else {
-    info->possible_formats = NULL;
-  }
-  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "State"))) {
-    info->state = g_variant_get_uint32 (variant);
-    g_variant_unref (variant);
-  } else {
-    info->state = PINOS_SOURCE_OUTPUT_STATE_ERROR;
-  }
-  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "Format"))) {
-    gsize len;
-    gchar *format = g_variant_dup_string (variant, &len);
-    info->format = g_bytes_new_take (format, len + 1);
-    g_variant_unref (variant);
-  } else {
-    info->format = NULL;
-  }
-  info->properties = pinos_properties_from_variant (
-      g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "Properties"));
+  info->change_mask = 0;
+  SET_STRING ("Client", client_path, 0);
+  SET_STRING ("Source", source_path, 1);
+  SET_BYTES ("PossibleFormats", possible_formats, 2);
+  SET_UINT32 ("State", state, 3, PINOS_SOURCE_OUTPUT_STATE_ERROR);
+  SET_BYTES ("Format", format, 4);
+  SET_PROPERTIES ("Properties", properties, 5);
 
+  if (changed)
+    g_hash_table_remove_all (changed);
 }
 
 static void

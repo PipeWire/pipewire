@@ -273,8 +273,7 @@ context_subscribe_cb (PinosContext           *context,
                       PinosSubscriptionEvent  type,
                       PinosSubscriptionFlags  flags,
                       gpointer                id,
-                      gpointer                user_data,
-                      GStrv                   properties)
+                      gpointer                user_data)
 {
   GstPinosDeviceProvider *self = user_data;
   GstDeviceProvider *provider = user_data;

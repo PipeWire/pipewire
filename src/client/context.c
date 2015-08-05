@@ -35,7 +35,6 @@ static void subscription_cb (PinosSubscribe         *subscribe,
                              PinosSubscriptionEvent  event,
                              PinosSubscriptionFlags  flags,
                              GDBusProxy             *object,
-                             GStrv                   properties,
                              gpointer                user_data);
 
 enum
@@ -247,8 +246,6 @@ pinos_context_class_init (PinosContextClass * klass)
    * @event: A #PinosSubscriptionEvent
    * @flags: #PinosSubscriptionFlags indicating the object
    * @object: the GDBusProxy object
-   * @properties: extra properties that changed or %NULL when all properties
-   *              are affected (new and remove)
    *
    * Notify about a new object that was added/removed/modified.
    */
@@ -260,11 +257,10 @@ pinos_context_class_init (PinosContextClass * klass)
                                                      NULL,
                                                      g_cclosure_marshal_generic,
                                                      G_TYPE_NONE,
-                                                     4,
+                                                     3,
                                                      PINOS_TYPE_SUBSCRIPTION_EVENT,
                                                      PINOS_TYPE_SUBSCRIPTION_FLAGS,
-                                                     G_TYPE_DBUS_PROXY,
-                                                     G_TYPE_STRV);
+                                                     G_TYPE_DBUS_PROXY);
 
 }
 
@@ -415,7 +411,6 @@ subscription_cb (PinosSubscribe         *subscribe,
                  PinosSubscriptionEvent  event,
                  PinosSubscriptionFlags  flags,
                  GDBusProxy             *object,
-                 GStrv                   properties,
                  gpointer                user_data)
 {
   PinosContext *context = user_data;
@@ -460,8 +455,7 @@ subscription_cb (PinosSubscribe         *subscribe,
                    0,
                    event,
                    flags,
-                   object,
-                   properties);
+                   object);
 
 }
 

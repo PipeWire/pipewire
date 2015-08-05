@@ -179,7 +179,6 @@ subscription_cb (PinosSubscribe         *subscribe,
                  PinosSubscriptionEvent  event,
                  PinosSubscriptionFlags  flags,
                  GDBusProxy             *object,
-                 GStrv                   properties,
                  gpointer                user_data)
 {
   PinosStream *stream = PINOS_STREAM (user_data);

@@ -55,10 +55,15 @@ G_STMT_START {                                                                  
 
 #define SET_PROPERTIES(name, field, idx)                                                \
 G_STMT_START {                                                                          \
+  GVariant *variant;                                                                    \
   if (!changed || g_hash_table_contains (changed, name))                                \
     info->change_mask |= 1 << idx;                                                      \
-  info->field = pinos_properties_from_variant (                                         \
-      g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), name));                   \
+  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), name))) {      \
+    info->field = pinos_properties_from_variant (variant);                              \
+    g_variant_unref (variant);                                                          \
+  } else {                                                                              \
+    info->field = NULL;                                                                 \
+  }                                                                                     \
 } G_STMT_END
 
 #define SET_BYTES(name, field, idx)                                                     \

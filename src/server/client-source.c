@@ -199,7 +199,8 @@ client_set_state (PinosSource      *source,
 
 static GBytes *
 client_get_formats (PinosSource *source,
-                    GBytes      *filter)
+                    GBytes      *filter,
+                    GError     **error)
 {
   GstCaps *caps, *cfilter;
   gchar *str;
@@ -207,18 +208,35 @@ client_get_formats (PinosSource *source,
   if (filter) {
     cfilter = gst_caps_from_string (g_bytes_get_data (filter, NULL));
     if (cfilter == NULL)
-      return NULL;
+      goto invalid_filter;
   } else {
     cfilter = NULL;
   }
 
   caps = collect_caps (source, cfilter);
   if (caps == NULL)
-    return NULL;
+    goto no_format;
 
   str = gst_caps_to_string (caps);
 
   return g_bytes_new_take (str, strlen (str) + 1);
+
+invalid_filter:
+  {
+    if (error)
+      *error = g_error_new (G_IO_ERROR,
+                            G_IO_ERROR_INVALID_ARGUMENT,
+                            "Invalid filter received");
+    return NULL;
+  }
+no_format:
+  {
+    if (error)
+      *error = g_error_new (G_IO_ERROR,
+                            G_IO_ERROR_NOT_FOUND,
+                            "No compatible format found");
+    return NULL;
+  }
 }
 
 static void

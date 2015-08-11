@@ -160,35 +160,61 @@ set_state (PinosSource      *source,
 
 static GBytes *
 get_formats (PinosSource *source,
-             GBytes      *filter)
+             GBytes      *filter,
+             GError     **error)
 {
   PinosGstSourcePrivate *priv = PINOS_GST_SOURCE (source)->priv;
-  GstCaps *caps;
+  GstCaps *caps, *cfilter;
   gchar *str;
 
   if (filter) {
-    GstCaps *cfilter;
-
     cfilter = gst_caps_from_string (g_bytes_get_data (filter, NULL));
     if (cfilter == NULL)
-      return NULL;
+      goto invalid_filter;
 
     caps = gst_caps_intersect (priv->possible_formats, cfilter);
     gst_caps_unref (cfilter);
 
     if (caps == NULL)
-      return NULL;
+      goto no_formats;
+
   } else {
     caps = gst_caps_ref (priv->possible_formats);
   }
+  g_object_get (priv->filter, "caps", &cfilter, NULL);
+  if (cfilter != NULL) {
+    GstCaps *t = caps;
+
+    caps = gst_caps_intersect (t, cfilter);
+    gst_caps_unref (cfilter);
+    gst_caps_unref (t);
+  }
   if (gst_caps_is_empty (caps)) {
     gst_caps_unref (caps);
-    return NULL;
+    goto no_formats;
   }
+
   str = gst_caps_to_string (caps);
   gst_caps_unref (caps);
 
   return g_bytes_new_take (str, strlen (str) + 1);
+
+invalid_filter:
+  {
+    if (error)
+      *error = g_error_new (G_IO_ERROR,
+                            G_IO_ERROR_INVALID_ARGUMENT,
+                            "Invalid filter received");
+    return NULL;
+  }
+no_formats:
+  {
+    if (error)
+      *error = g_error_new (G_IO_ERROR,
+                            G_IO_ERROR_NOT_FOUND,
+                            "No compatible format found");
+    return NULL;
+  }
 }
 
 static void
@@ -201,7 +227,8 @@ on_socket_notify (GObject    *gobject,
   GSocket *socket;
   guint num_handles;
   GstCaps *caps;
-  GBytes *requested_format, *format;
+  GBytes *requested_format, *format = NULL;
+  gchar *str;
 
   g_object_get (gobject, "socket", &socket, NULL);
 
@@ -220,6 +247,9 @@ on_socket_notify (GObject    *gobject,
   if (num_handles == 0) {
     pinos_source_report_idle (PINOS_SOURCE (source));
     g_object_set (priv->filter, "caps", NULL, NULL);
+
+    str = gst_caps_to_string (priv->possible_formats);
+    format = g_bytes_new_take (str, strlen (str) + 1);
   } else if (socket) {
     /* what client requested */
     g_object_get (gobject, "requested-format", &requested_format, NULL);
@@ -235,18 +265,19 @@ on_socket_notify (GObject    *gobject,
       g_object_set (priv->filter, "caps", caps, NULL);
       gst_caps_unref (caps);
     } else {
-      gchar *str;
-
       /* we already have a client, format is whatever is configured already */
       g_bytes_unref (requested_format);
 
       g_object_get (priv->filter, "caps", &caps, NULL);
       str = gst_caps_to_string (caps);
-      format = g_bytes_new (str, strlen (str) + 1);
+      format = g_bytes_new_take (str, strlen (str) + 1);
       gst_caps_unref (caps);
     }
     /* this is what we use as the final format for the output */
     g_object_set (gobject, "format", format, NULL);
+  }
+  if (format) {
+    pinos_source_update_possible_formats (PINOS_SOURCE (source), format);
     g_bytes_unref (format);
   }
 }
@@ -260,31 +291,10 @@ create_source_output (PinosSource     *source,
                       GError          **error)
 {
   PinosSourceOutput *output;
-  PinosGstSourcePrivate *priv = PINOS_GST_SOURCE (source)->priv;
-  GstCaps *caps;
-  gchar *str;
 
-  if (format_filter) {
-    GstCaps *cfilter;
-
-    str = (gchar *) g_bytes_get_data (format_filter, NULL);
-    cfilter = gst_caps_from_string (str);
-    if (cfilter == NULL)
-      goto invalid_caps;
-
-    caps = gst_caps_intersect (priv->possible_formats, cfilter);
-    gst_caps_unref (cfilter);
-
-    if (caps == NULL || gst_caps_is_empty (caps))
-      goto no_format;
-  } else {
-    caps = gst_caps_ref (priv->possible_formats);
-  }
-
-  str = gst_caps_to_string (caps);
-  gst_caps_unref (caps);
-
-  format_filter = g_bytes_new_take (str, strlen (str) + 1);
+  format_filter = get_formats (source, format_filter, error);
+  if (format_filter == NULL)
+    return NULL;
 
   output = PINOS_SOURCE_CLASS (pinos_gst_source_parent_class)
                 ->create_source_output (source,
@@ -295,32 +305,12 @@ create_source_output (PinosSource     *source,
                                         error);
   g_bytes_unref (format_filter);
 
-  if (error == NULL)
+  if (output == NULL)
     return NULL;
 
   g_signal_connect (output, "notify::socket", (GCallback) on_socket_notify, source);
 
   return output;
-
-  /* ERRORS */
-invalid_caps:
-  {
-    if (error)
-      *error = g_error_new (G_IO_ERROR,
-                            G_IO_ERROR_INVALID_DATA,
-                            "Input filter data invalid");
-    return NULL;
-  }
-no_format:
-  {
-    if (caps)
-      gst_caps_unref (caps);
-    if (error)
-      *error = g_error_new (G_IO_ERROR,
-                            G_IO_ERROR_NOT_FOUND,
-                            "No format available that matches input filter");
-    return NULL;
-  }
 }
 
 static gboolean

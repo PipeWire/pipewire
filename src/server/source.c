@@ -123,6 +123,11 @@ pinos_source_set_property (GObject      *_object,
       if (priv->properties)
         pinos_properties_free (priv->properties);
       priv->properties = g_value_dup_boxed (value);
+      if (priv->iface)
+        g_object_set (priv->iface,
+            "properties", priv->properties ?
+                      pinos_properties_to_variant (priv->properties) : NULL,
+            NULL);
       break;
 
     default:
@@ -140,7 +145,7 @@ source_register_object (PinosSource *source)
   GBytes *formats;
   GVariant *variant;
 
-  formats = pinos_source_get_formats (source, NULL);
+  formats = pinos_source_get_formats (source, NULL, NULL);
 
   skel = pinos_object_skeleton_new (PINOS_DBUS_OBJECT_SOURCE);
 
@@ -245,14 +250,23 @@ default_create_source_output (PinosSource     *source,
 {
   PinosSourcePrivate *priv = source->priv;
   PinosSourceOutput *output;
+  GBytes *possible_formats;
+
+  possible_formats = pinos_source_get_formats (source, format_filter, error);
+  if (possible_formats == NULL)
+    return NULL;
 
   output = g_object_new (PINOS_TYPE_SOURCE_OUTPUT, "daemon", priv->daemon,
                                                    "object-path", prefix,
                                                    "client-path", client_path,
                                                    "source-path", priv->object_path,
-                                                   "possible-formats", format_filter,
+                                                   "possible-formats", possible_formats,
                                                    "properties", props,
                                                    NULL);
+  g_bytes_unref (possible_formats);
+
+  if (output == NULL)
+    goto no_output;
 
   g_signal_connect (output,
                     "remove",
@@ -262,6 +276,16 @@ default_create_source_output (PinosSource     *source,
   priv->outputs = g_list_prepend (priv->outputs, output);
 
   return g_object_ref (output);
+
+  /* ERRORS */
+no_output:
+  {
+    if (error)
+      *error = g_error_new (G_IO_ERROR,
+                            G_IO_ERROR_FAILED,
+                            "Could not create a source output");
+    return NULL;
+  }
 }
 
 static gboolean
@@ -359,8 +383,9 @@ pinos_source_init (PinosSource * source)
 }
 
 GBytes *
-pinos_source_get_formats (PinosSource *source,
-                          GBytes      *filter)
+pinos_source_get_formats (PinosSource  *source,
+                          GBytes       *filter,
+                          GError      **error)
 {
   PinosSourceClass *klass;
   GBytes *res;
@@ -370,10 +395,14 @@ pinos_source_get_formats (PinosSource *source,
   klass = PINOS_SOURCE_GET_CLASS (source);
 
   if (klass->get_formats)
-    res = klass->get_formats (source, filter);
-  else
+    res = klass->get_formats (source, filter, error);
+  else {
     res = NULL;
-
+    if (error)
+      *error = g_error_new (G_IO_ERROR,
+                            G_IO_ERROR_NOT_SUPPORTED,
+                            "Format query is not supported");
+  }
   return res;
 }
 

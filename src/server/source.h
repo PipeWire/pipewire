@@ -64,7 +64,9 @@ struct _PinosSource {
 struct _PinosSourceClass {
   GObjectClass parent_class;
 
-  GBytes *            (*get_formats) (PinosSource *source, GBytes *filter);
+  GBytes *            (*get_formats)  (PinosSource  *source,
+                                       GBytes       *filter,
+                                       GError      **error);
 
   gboolean            (*set_state)  (PinosSource *source, PinosSourceState);
 
@@ -83,7 +85,9 @@ GType               pinos_source_get_type                (void);
 
 const gchar *       pinos_source_get_object_path         (PinosSource *source);
 
-GBytes *            pinos_source_get_formats             (PinosSource *source, GBytes *filter);
+GBytes *            pinos_source_get_formats             (PinosSource *source,
+                                                          GBytes      *filter,
+                                                          GError     **error);
 
 gboolean            pinos_source_set_state               (PinosSource *source, PinosSourceState state);
 void                pinos_source_update_state            (PinosSource *source, PinosSourceState state);

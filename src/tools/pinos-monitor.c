@@ -87,6 +87,7 @@ dump_daemon_info (PinosContext *c, const PinosDaemonInfo *info, gpointer userdat
     return FALSE;
 
   g_print ("\tid: %p\n", info->id);
+  g_print ("\tdaemon-path: \"%s\"\n", info->daemon_path);
   if (info->change_mask & (1 << 0))
     g_print ("\tuser-name: \"%s\"\n", info->user_name);
   if (info->change_mask & (1 << 1))
@@ -110,6 +111,7 @@ dump_client_info (PinosContext *c, const PinosClientInfo *info, gpointer userdat
     return FALSE;
 
   g_print ("\tid: %p\n", info->id);
+  g_print ("\tclient-path: \"%s\"\n", info->client_path);
   if (info->change_mask & (1 << 0))
     g_print ("\tname: \"%s\"\n", info->name);
   if (info->change_mask & (1 << 1))
@@ -125,16 +127,15 @@ dump_source_info (PinosContext *c, const PinosSourceInfo *info, gpointer userdat
     return FALSE;
 
   g_print ("\tid: %p\n", info->id);
+  g_print ("\tsource-path: \"%s\"\n", info->source_path);
   if (info->change_mask & (1 << 0))
-    g_print ("\tsource-path: \"%s\"\n", info->source_path);
-  if (info->change_mask & (1 << 1))
     g_print ("\tname: \"%s\"\n", info->name);
+  if (info->change_mask & (1 << 1))
+    print_properties (info->properties);
   if (info->change_mask & (1 << 2))
     g_print ("\tstate: %d\n", info->state);
   if (info->change_mask & (1 << 3))
     print_formats ("possible formats", info->possible_formats);
-  if (info->change_mask & (1 << 4))
-    print_properties (info->properties);
 
   return TRUE;
 }
@@ -146,6 +147,7 @@ dump_source_output_info (PinosContext *c, const PinosSourceOutputInfo *info, gpo
     return FALSE;
 
   g_print ("\tid: %p\n", info->id);
+  g_print ("\toutput-path: \"%s\"\n", info->output_path);
   if (info->change_mask & (1 << 0))
     g_print ("\tclient-path: \"%s\"\n", info->client_path);
   if (info->change_mask & (1 << 1))
@@ -163,7 +165,7 @@ dump_source_output_info (PinosContext *c, const PinosSourceOutputInfo *info, gpo
 }
 
 static void
-dump_object (PinosContext *context, GDBusProxy *proxy, PinosSubscriptionFlags flags)
+dump_object (PinosContext *context, gpointer id, PinosSubscriptionFlags flags)
 {
   if (flags & PINOS_SUBSCRIPTION_FLAG_DAEMON) {
     pinos_context_get_daemon_info (context,
@@ -174,7 +176,7 @@ dump_object (PinosContext *context, GDBusProxy *proxy, PinosSubscriptionFlags fl
   }
   else if (flags & PINOS_SUBSCRIPTION_FLAG_CLIENT) {
     pinos_context_get_client_info_by_id (context,
-                                         proxy,
+                                         id,
                                          PINOS_CLIENT_INFO_FLAGS_NONE,
                                          dump_client_info,
                                          NULL,
@@ -182,7 +184,7 @@ dump_object (PinosContext *context, GDBusProxy *proxy, PinosSubscriptionFlags fl
   }
   else if (flags & PINOS_SUBSCRIPTION_FLAG_SOURCE) {
     pinos_context_get_source_info_by_id (context,
-                                         proxy,
+                                         id,
                                          PINOS_SOURCE_INFO_FLAGS_FORMATS,
                                          dump_source_info,
                                          NULL,
@@ -190,7 +192,7 @@ dump_object (PinosContext *context, GDBusProxy *proxy, PinosSubscriptionFlags fl
   }
   else if (flags & PINOS_SUBSCRIPTION_FLAG_SOURCE_OUTPUT) {
     pinos_context_get_source_output_info_by_id (context,
-                                                proxy,
+                                                id,
                                                 PINOS_SOURCE_OUTPUT_INFO_FLAGS_NONE,
                                                 dump_source_output_info,
                                                 NULL,
@@ -207,17 +209,18 @@ subscription_cb (PinosContext           *context,
 {
   switch (type) {
     case PINOS_SUBSCRIPTION_EVENT_NEW:
-      g_print ("added: %s\n", g_dbus_proxy_get_object_path (id));
-      dump_object (context, G_DBUS_PROXY (id), flags);
+      g_print ("added:\n");
+      dump_object (context, id, flags);
       break;
 
     case PINOS_SUBSCRIPTION_EVENT_CHANGE:
-      g_print ("changed: %s\n", g_dbus_proxy_get_object_path (id));
-      dump_object (context, G_DBUS_PROXY (id), flags);
+      g_print ("changed:\n");
+      dump_object (context, id, flags);
       break;
 
     case PINOS_SUBSCRIPTION_EVENT_REMOVE:
-      g_print ("removed: %s\n", g_dbus_proxy_get_object_path (id));
+      g_print ("removed:\n");
+      dump_object (context, id, flags);
       break;
   }
 }

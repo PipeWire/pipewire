@@ -20,10 +20,9 @@
 #ifndef __PINOS_STREAM_H__
 #define __PINOS_STREAM_H__
 
-#include <gio/gio.h>
 #include <glib-object.h>
 
-#include "context.h"
+#include <client/context.h>
 
 G_BEGIN_DECLS
 

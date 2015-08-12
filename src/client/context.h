@@ -21,7 +21,6 @@
 #define __PINOS_CONTEXT_H__
 
 #include <glib-object.h>
-#include <gio/gio.h>
 
 #include <client/subscribe.h>
 #include <client/properties.h>

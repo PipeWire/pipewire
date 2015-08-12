@@ -87,6 +87,8 @@ daemon_fill_info (PinosDaemonInfo *info, GDBusProxy *proxy)
   GHashTable *changed = g_object_get_data (G_OBJECT (proxy), "pinos-changed-properties");
 
   info->id = proxy;
+  info->daemon_path = g_dbus_proxy_get_object_path (proxy);
+
   info->change_mask = 0;
   SET_STRING ("UserName", user_name, 0);
   SET_STRING ("HostName", host_name, 1);
@@ -140,6 +142,8 @@ client_fill_info (PinosClientInfo *info, GDBusProxy *proxy)
   GHashTable *changed = g_object_get_data (G_OBJECT (proxy), "pinos-changed-properties");
 
   info->id = proxy;
+  info->client_path = g_dbus_proxy_get_object_path (proxy);
+
   info->change_mask = 0;
   SET_STRING ("Name", name, 0);
   SET_PROPERTIES ("Properties", properties, 1);
@@ -327,6 +331,7 @@ source_output_fill_info (PinosSourceOutputInfo *info, GDBusProxy *proxy)
   GHashTable *changed = g_object_get_data (G_OBJECT (proxy), "pinos-changed-properties");
 
   info->id = proxy;
+  info->output_path = g_dbus_proxy_get_object_path (proxy);
 
   info->change_mask = 0;
   SET_STRING ("Client", client_path, 0);

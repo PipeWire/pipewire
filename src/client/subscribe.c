@@ -21,6 +21,7 @@
 
 #include "client/pinos.h"
 #include "client/enumtypes.h"
+#include "client/private.h"
 
 struct _PinosSubscribePrivate
 {
@@ -125,22 +126,18 @@ on_proxy_properties_changed (GDBusProxy *proxy,
   GVariant *value;
   gchar *key;
   GHashTable *props;
+  gboolean need_notify = FALSE;
 
   props = g_object_get_data (G_OBJECT (proxy), "pinos-changed-properties");
-  if (props == NULL) {
-    props = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
-    g_object_set_data_full (G_OBJECT (proxy),
-                            "pinos-changed-properties",
-                            props,
-                            (GDestroyNotify) g_hash_table_unref);
-  }
 
   g_variant_iter_init (&iter, changed_properties);
   while (g_variant_iter_loop (&iter, "{sv}", &key, &value)) {
     if (!g_hash_table_contains (props, key))
       g_hash_table_add (props, g_strdup (key));
+    need_notify = TRUE;
   }
-  notify_event (data->subscribe, data, PINOS_SUBSCRIPTION_EVENT_CHANGE);
+  if (need_notify)
+    notify_event (data->subscribe, data, PINOS_SUBSCRIPTION_EVENT_CHANGE);
 }
 
 static void
@@ -161,6 +158,9 @@ remove_data (PinosSubscribe  *subscribe,
   if (data->pending) {
     data->removed = TRUE;
   } else {
+    GHashTable *props = g_object_get_data (G_OBJECT (data->proxy), "pinos-changed-properties");
+
+    g_hash_table_remove_all (props);
     notify_event (subscribe, data, PINOS_SUBSCRIPTION_EVENT_REMOVE);
     object_data_free (data);
   }
@@ -208,6 +208,11 @@ on_proxy_created (GObject      *source_object,
                     data);
 
   notify_event (subscribe, data, PINOS_SUBSCRIPTION_EVENT_NEW);
+
+  g_object_set_data_full (G_OBJECT (data->proxy),
+                          "pinos-changed-properties",
+                          g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL),
+                          (GDestroyNotify) g_hash_table_unref);
 
   for (walk = data->tasks; walk; walk = g_list_next (walk)) {
     GTask *task = walk->data;

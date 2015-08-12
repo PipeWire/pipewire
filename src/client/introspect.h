@@ -31,6 +31,7 @@ G_BEGIN_DECLS
 /**
  * PinosDaemonInfo:
  * @id: generic id of the daemon
+ * @daemon-path: unique path of the daemon
  * @change_mask: bitfield of changed fields since last call
  * @user_name: name of the user that started the daemon
  * @host_name: name of the machine the daemon is running on
@@ -44,6 +45,7 @@ G_BEGIN_DECLS
  */
 typedef struct {
   gpointer id;
+  const char *daemon_path;
   guint64 change_mask;
   const char *user_name;
   const char *host_name;
@@ -68,6 +70,7 @@ void            pinos_context_get_daemon_info (PinosContext *context,
 /**
  * PinosClientInfo:
  * @id: generic id of the client
+ * @client_path: unique path of the client
  * @change_mask: bitfield of changed fields since last call
  * @name: name of client
  * @properties: extra properties
@@ -77,6 +80,7 @@ void            pinos_context_get_daemon_info (PinosContext *context,
  */
 typedef struct {
   gpointer id;
+  const char *client_path;
   guint64 change_mask;
   const char *name;
   PinosProperties *properties;
@@ -189,6 +193,7 @@ typedef enum {
 /**
  * PinosSourceOutputInfo:
  * @id: generic id of the output
+ * @path: the unique path of the output
  * @change_mask: bitfield of changed fields since last call
  * @client_path: the owner client
  * @source_path: the source path
@@ -202,6 +207,7 @@ typedef enum {
  */
 typedef struct {
   gpointer id;
+  const char *output_path;
   guint64 change_mask;
   const char *client_path;
   const char *source_path;

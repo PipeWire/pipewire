@@ -21,7 +21,6 @@
 #define __PINOS_CLIENT_SOURCE_H__
 
 #include <glib-object.h>
-#include <gio/gio.h>
 
 G_BEGIN_DECLS
 
@@ -29,7 +28,7 @@ typedef struct _PinosClientSource PinosClientSource;
 typedef struct _PinosClientSourceClass PinosClientSourceClass;
 typedef struct _PinosClientSourcePrivate PinosClientSourcePrivate;
 
-#include "server/source.h"
+#include <server/source.h>
 
 #define PINOS_TYPE_CLIENT_SOURCE                 (pinos_client_source_get_type ())
 #define PINOS_IS_CLIENT_SOURCE(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_SOURCE))

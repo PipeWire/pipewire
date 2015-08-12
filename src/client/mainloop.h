@@ -20,10 +20,7 @@
 #ifndef __PINOS_MAIN_LOOP_H__
 #define __PINOS_MAIN_LOOP_H__
 
-#include <gio/gio.h>
 #include <glib-object.h>
-
-#include "context.h"
 
 G_BEGIN_DECLS
 

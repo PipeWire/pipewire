@@ -22,7 +22,7 @@
 
 #include <glib-object.h>
 
-#include "daemon.h"
+#include <server/daemon.h>
 
 G_BEGIN_DECLS
 

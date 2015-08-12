@@ -42,3 +42,15 @@ struct _PinosContextPrivate
   GList *sources;
   GList *source_outputs;
 };
+
+void                   pinos_subscribe_get_proxy          (PinosSubscribe      *subscribe,
+                                                           const gchar         *name,
+                                                           const gchar         *object_path,
+                                                           const gchar         *interface_name,
+                                                           GCancellable        *cancellable,
+                                                           GAsyncReadyCallback  callback,
+                                                           gpointer             user_data);
+GDBusProxy *           pinos_subscribe_get_proxy_finish   (PinosSubscribe *subscribe,
+                                                           GAsyncResult   *res,
+                                                           GError         **error);
+

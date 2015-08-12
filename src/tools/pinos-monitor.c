@@ -228,19 +228,19 @@ on_state_notify (GObject    *gobject,
                  gpointer    user_data)
 {
   PinosContextState state;
+  PinosContext *c = PINOS_CONTEXT (gobject);
+  const GError *error;
 
-  g_object_get (gobject, "state", &state, NULL);
-  g_print ("got context state %d\n", state);
+  g_object_get (c, "state", &state, NULL);
 
   switch (state) {
     case PINOS_CONTEXT_STATE_ERROR:
-      g_main_loop_quit (loop);
-      break;
-
-    case PINOS_CONTEXT_STATE_READY:
+      error = pinos_context_get_error (c);
+      g_print ("context error: %s\n", error->message);
       break;
 
     default:
+      g_print ("context state %d\n", state);
       break;
   }
 }

@@ -122,8 +122,7 @@ noinst_LTLIBRARIES =
 
 TESTS_default =
 
-TESTS_norun = test-client \
-	      test-subscribe
+TESTS_norun = test-client
 
 # These tests need a running pinos daemon
 TESTS_daemon = 
@@ -135,10 +134,17 @@ test_client_CFLAGS = $(AM_CFLAGS)
 test_client_LDADD = $(AM_LDADD) libpinos-@PINOS_MAJORMINOR@.la
 test_client_LDFLAGS = $(AM_LDFLAGS) $(BINLDFLAGS)
 
-test_subscribe_SOURCES = tests/test-subscribe.c
-test_subscribe_CFLAGS = $(AM_CFLAGS)
-test_subscribe_LDADD = $(AM_LDADD) libpinos-@PINOS_MAJORMINOR@.la
-test_subscribe_LDFLAGS = $(AM_LDFLAGS) $(BINLDFLAGS)
+###################################
+#         Tools programs          #
+###################################
+
+bin_PROGRAMS += \
+		pinos-monitor
+
+pinos_monitor_SOURCES = tools/pinos-monitor.c
+pinos_monitor_CFLAGS = $(AM_CFLAGS)
+pinos_monitor_LDADD = $(AM_LDADD) libpinos-@PINOS_MAJORMINOR@.la
+pinos_monitor_LDFLAGS = $(AM_LDFLAGS) $(BINLDFLAGS)
 
 ###################################
 #         Client library          #

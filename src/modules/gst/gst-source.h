@@ -53,10 +53,11 @@ struct _PinosGstSourceClass {
 
 GType           pinos_gst_source_get_type        (void);
 
-PinosSource *   pinos_gst_source_new             (PinosDaemon *daemon,
-                                                  const gchar *name,
+PinosSource *   pinos_gst_source_new             (PinosDaemon     *daemon,
+                                                  const gchar     *name,
                                                   PinosProperties *properties,
-                                                  GstElement  *element);
+                                                  GstElement      *element,
+                                                  GstCaps         *caps);
 
 G_END_DECLS
 

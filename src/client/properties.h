@@ -29,13 +29,17 @@ typedef struct _PinosProperties PinosProperties;
 #define PINOS_TYPE_PROPERTIES (pinos_properties_get_type())
 GType             pinos_properties_get_type (void);
 
-PinosProperties * pinos_properties_new      (const gchar *key, ...);
+PinosProperties * pinos_properties_new      (const gchar *key, ...) G_GNUC_NULL_TERMINATED;
 PinosProperties * pinos_properties_copy     (PinosProperties *properties);
 void              pinos_properties_free     (PinosProperties *properties);
 
 void              pinos_properties_set      (PinosProperties *properties,
                                              const gchar     *key,
                                              const gchar     *value);
+void              pinos_properties_setf     (PinosProperties *properties,
+                                             const gchar     *key,
+                                             const gchar     *format,
+                                             ...) G_GNUC_PRINTF (3, 4);
 const gchar *     pinos_properties_get      (PinosProperties *properties,
                                              const gchar     *key);
 void              pinos_properties_remove   (PinosProperties *properties,

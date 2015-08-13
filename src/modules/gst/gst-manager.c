@@ -67,23 +67,33 @@ device_added (PinosGstManager *manager,
   PinosSource *source;
   GstStructure *p;
   PinosProperties *properties;
+  GstCaps *caps;
 
   name = gst_device_get_display_name (device);
   if (strcmp (name, "gst") == 0)
     return;
 
+  caps = gst_device_get_caps (device);
+
   g_print("Device added: %s\n", name);
 
-  properties = pinos_properties_new (NULL);
+  properties = pinos_properties_new (NULL, NULL);
   if ((p = gst_device_get_properties (device)))
     gst_structure_foreach (p, copy_properties, properties);
+
   pinos_properties_set (properties,
                         "gstreamer.device.class",
                         gst_device_get_device_class (device));
 
   element = gst_device_create_element (device, NULL);
-  source = pinos_gst_source_new (priv->daemon, name, properties, element);
+  source = pinos_gst_source_new (priv->daemon,
+                                 name,
+                                 properties,
+                                 element,
+                                 caps);
   g_object_set_data (G_OBJECT (device), "PinosSource", source);
+
+  gst_caps_unref (caps);
   g_free (name);
 }
 

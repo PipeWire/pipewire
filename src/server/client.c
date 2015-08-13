@@ -179,8 +179,6 @@ handle_create_source_output (PinosClient1           *interface,
   if (output == NULL)
     goto no_output;
 
-  object_path = pinos_source_output_get_object_path (output);
-
   priv->outputs = g_list_prepend (priv->outputs, output);
 
   g_signal_connect (output,
@@ -188,6 +186,7 @@ handle_create_source_output (PinosClient1           *interface,
                     (GCallback) handle_remove_source_output,
                     client);
 
+  object_path = pinos_source_output_get_object_path (output);
   g_dbus_method_invocation_return_value (invocation,
                                          g_variant_new ("(o)", object_path));
 

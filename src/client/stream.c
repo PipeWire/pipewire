@@ -474,6 +474,15 @@ on_source_output_proxy (GObject      *source_object,
 
     g_object_notify (G_OBJECT (stream), "possible-formats");
   }
+  v = g_dbus_proxy_get_cached_property (priv->source_output, "Properties");
+  if (v) {
+    if (priv->properties)
+      pinos_properties_free (priv->properties);
+    priv->properties = pinos_properties_from_variant (v);
+    g_variant_unref (v);
+
+    g_object_notify (G_OBJECT (stream), "properties");
+  }
 
   stream_set_state (stream, PINOS_STREAM_STATE_READY);
   g_object_unref (stream);

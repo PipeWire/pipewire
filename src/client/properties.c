@@ -76,7 +76,7 @@ pinos_properties_copy (PinosProperties *properties)
 
   g_return_val_if_fail (properties != NULL, NULL);
 
-  copy = pinos_properties_new (NULL);
+  copy = pinos_properties_new (NULL, NULL);
   g_hash_table_foreach (properties->hashtable, (GHFunc) copy_func, copy->hashtable);
 
   return copy;
@@ -97,6 +97,15 @@ pinos_properties_free (PinosProperties *properties)
   g_free (properties);
 }
 
+/**
+ * pinos_properties_set:
+ * @properties: a #PinosProperties
+ * @key: a key
+ * @value: a value
+ *
+ * Set the property in @properties with @key to @value. Any previous value
+ * of @key will be overwritten.
+ */
 void
 pinos_properties_set (PinosProperties *properties,
                       const gchar     *key,
@@ -109,6 +118,44 @@ pinos_properties_set (PinosProperties *properties,
   g_hash_table_replace (properties->hashtable, g_strdup (key), g_strdup (value));
 }
 
+/**
+ * pinos_properties_setf:
+ * @properties: a #PinosProperties
+ * @key: a key
+ * @format: a value
+ * @...: extra arguments
+ *
+ * Set the property in @properties with @key to the value in printf style @format
+ * Any previous value of @key will be overwritten.
+ */
+void
+pinos_properties_setf (PinosProperties *properties,
+                       const gchar     *key,
+                       const gchar     *format,
+                       ...)
+{
+  va_list varargs;
+
+  g_return_if_fail (properties != NULL);
+  g_return_if_fail (key != NULL);
+  g_return_if_fail (format != NULL);
+
+  va_start (varargs, format);
+  g_hash_table_replace (properties->hashtable,
+                        g_strdup (key),
+                        g_strdup_vprintf (format, varargs));
+  va_end (varargs);
+}
+
+/**
+ * pinos_properties_get:
+ * @properties: a #PinosProperties
+ * @key: a key
+ *
+ * Get the property in @properties with @key.
+ *
+ * Returns: the property for @key or %NULL when the key was not found
+ */
 const gchar *
 pinos_properties_get (PinosProperties *properties,
                       const gchar     *key)
@@ -118,6 +165,14 @@ pinos_properties_get (PinosProperties *properties,
 
   return g_hash_table_lookup (properties->hashtable, key);
 }
+
+/**
+ * pinos_properties_remove:
+ * @properties: a #PinosProperties
+ * @key: a key
+ *
+ * Remove the property in @properties with @key.
+ */
 void
 pinos_properties_remove (PinosProperties *properties,
                          const gchar     *key)
@@ -187,7 +242,7 @@ pinos_properties_from_variant (GVariant *variant)
 
   g_return_val_if_fail (variant != NULL, NULL);
 
-  props = pinos_properties_new (NULL);
+  props = pinos_properties_new (NULL, NULL);
 
   g_variant_iter_init (&iter, variant);
   while (g_variant_iter_loop (&iter, "{sv}", &key, &value))

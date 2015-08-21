@@ -215,9 +215,10 @@ handle_start (PinosSourceOutput1     *interface,
   g_unix_fd_list_append (fdlist, fd[1], NULL);
 
   g_dbus_method_invocation_return_value_with_unix_fd_list (invocation,
-           g_variant_new ("(hs)",
+           g_variant_new ("(hs@a{sv})",
                           0,
-                          g_bytes_get_data (priv->format, NULL)),
+                          g_bytes_get_data (priv->format, NULL),
+                          pinos_properties_to_variant (priv->properties)),
            fdlist);
 
   g_object_set (priv->iface,

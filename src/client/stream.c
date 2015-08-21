@@ -869,7 +869,7 @@ on_stream_started (GObject      *source_object,
   gint fd_idx, fd;
   gchar *format;
   GError *error = NULL;
-  GVariant *result;
+  GVariant *result, *properties;
 
   result = g_dbus_proxy_call_with_unix_fd_list_finish (priv->source_output,
                                                        &out_fd_list,
@@ -879,17 +879,24 @@ on_stream_started (GObject      *source_object,
     goto start_failed;
 
   g_variant_get (result,
-                 "(hs)",
+                 "(hs@a{sv})",
                  &fd_idx,
-                 &format);
+                 &format,
+                 &properties);
 
   g_variant_unref (result);
 
   if (priv->format)
     g_bytes_unref (priv->format);
-  priv->format = g_bytes_new (format, strlen (format) + 1);
-
+  priv->format = g_bytes_new_take (format, strlen (format) + 1);
   g_object_notify (G_OBJECT (stream), "format");
+
+  if (priv->properties)
+    pinos_properties_free (priv->properties);
+  priv->properties = pinos_properties_from_variant (properties);
+  g_variant_unref (properties);
+
+  g_object_notify (G_OBJECT (stream), "properties");
 
   if ((fd = g_unix_fd_list_get (out_fd_list, fd_idx, &error)) < 0)
     goto fd_failed;

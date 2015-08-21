@@ -143,16 +143,19 @@
          @requested_format: requested formats
          @fd: output file descriptor
          @format: output format
+         @properties: output properties
 
          Start the datatransfer of the source with @requested_format.
 
          The result is a file descriptor that can be used to get metadata
-         and media. @format contains the final media format.
+         and media. @format contains the final media format and @properties
+         the extra properties that describe the media format.
     -->
     <method name='Start'>
       <arg type='s' name='requested_format' direction='in'/>
       <arg type='h' name='fd' direction='out'/>
       <arg type='s' name='format' direction='out'/>
+      <arg type='a{sv}' name='properties' direction='out'/>
     </method>
     <!-- Stop:
 

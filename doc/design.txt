@@ -1,0 +1,90 @@
+Pinos
+-----
+
+The idea is to make a DBus service where you can provide
+and consume media to/from.
+
+Some of the requirements are:
+
+ - must be efficient for raw video using fd passing
+ - must be able to provide media from any process
+ - streaming media only (no seeking)
+ - policy to restrict access to devices and streams
+
+Although an initial goal, the design is not limited to raw video
+only and should be able to handle compressed video and other
+streamable media as well.
+
+The design is in some part inspired by pulseaudio, hence its original
+name. We however are not concerned with playback of any of the media,
+this should be handled by a separate consumer rendering the media to
+a specific output device.
+
+
+DBus protocol
+-------------
+
+The main daemon is registered on the session bus with name: org.pinos
+
+Various Source1 objects are registered in the server based on the available
+sources of content. Source1 has properties and has format descriptions of
+what it can provide.
+
+First a client needs to register with pinos by calling 
+org.pinos.Daemon1.ConnectClient(). This creates a new Client1 object that
+the client must use for further communication.
+
+A client can then do org.pinos.Client1.CreateSourceInput() to create a
+new SourceOutput1 to retrieve data from a source. It can specify a source
+explicitly or let the server choose a source. The client must provide a list
+of formats it can handle along with extra properties that can help with 
+selecting an appropriate source.
+
+A client can then call org.pinos.SourceOutput1.Start() to negotiate the final
+media format and start the data transfer. A new fd is returned to the client
+along with the negotiated format and properties.
+
+All further media transport is then performed on the fd. The client will read
+from the fd to get data and metadata from the server. The wire format is
+generic and extensible and allows for inline serialized events such as
+property changes and format changes.
+
+
+Wire
+----
+
+Fixed header
+
+<flags>      : 4 bytes
+<seq>        : 4 bytes
+<pts>        : 8 bytes
+<dts-offset> : 8 bytes
+
+Followed by 1 or more type-length-data sections
+
+<type>   : 1 byte
+<length> : variable length, 7 bits, hight bit is continuation marker
+<data>   : <length> bytes
+
+Types:
+
+ 0: format change
+
+   <format-id> : 1 byte       : format id
+   <format>    : 0-terminated : contains serialized format
+
+ 1: fd-payload section
+
+   <offset>    : 8 bytes      : offset
+   <size>      : 8 bytes      : size
+   <fd-index>  : 1 byte       : index of fd
+
+ 2: property changes
+
+   <key>       : 0-terminated   : key
+   <value>     : 0-terminated   : value
+   ...                          : more key/values to fill length, 0 key is end
+
+
+
+

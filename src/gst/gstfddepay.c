@@ -35,7 +35,6 @@
 #endif
 
 #include "gstfddepay.h"
-#include "wire-protocol.h"
 #include <gst/net/gstnetcontrolmessagemeta.h>
 
 #include <gst/gst.h>
@@ -48,6 +47,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <client/pinos.h>
 
 GST_DEBUG_CATEGORY_STATIC (gst_fddepay_debug_category);
 #define GST_CAT_DEFAULT gst_fddepay_debug_category
@@ -168,66 +168,66 @@ static GstFlowReturn
 gst_fddepay_transform_ip (GstBaseTransform * trans, GstBuffer * buf)
 {
   GstFddepay *fddepay = GST_FDDEPAY (trans);
-  FDMessage msg;
-  GstMemory *fdmem = NULL;
+  PinosBuffer pbuf;
+  PinosPacketIter it;
   GstNetControlMessageMeta * meta;
-  int *fds = NULL;
-  int fds_len = 0;
-  int fd = -1;
+  GSocketControlMessage *msg = NULL;
+  const PinosBufferHeader *hdr;
+  gpointer data;
+  gsize size;
+  GError *err = NULL;
 
   GST_DEBUG_OBJECT (fddepay, "transform_ip");
 
-  if (gst_buffer_get_size (buf) != sizeof (msg)) {
-    /* We're guaranteed that we can't `read` from a socket across an attached
-     * file descriptor so we should get the data in chunks no bigger than
-     * sizeof(FDMessage) */
-    GST_WARNING_OBJECT (fddepay, "fddepay: Received wrong amount of data "
-        "between fds.");
-    goto error;
-  }
-
-  gst_buffer_extract (buf, 0, &msg, sizeof (msg));
+  gst_buffer_extract_dup (buf, 0, gst_buffer_get_size (buf), &data, &size);
 
   meta = ((GstNetControlMessageMeta*) gst_buffer_get_meta (
       buf, GST_NET_CONTROL_MESSAGE_META_API_TYPE));
 
-  if (meta &&
-      g_socket_control_message_get_msg_type (meta->message) == SCM_RIGHTS) {
-    fds = g_unix_fd_message_steal_fds ((GUnixFDMessage*) meta->message,
-        &fds_len);
+  if (meta) {
+    msg = meta->message;
+    gst_buffer_remove_meta (buf, (GstMeta *) meta);
     meta = NULL;
   }
 
-  if (fds == NULL || fds_len != 1) {
-    GST_WARNING_OBJECT (fddepay, "fddepay: Expect to receive 1 FD for each "
-        "buffer, received %i", fds_len);
-    goto error;
-  }
-  fd = fds[0];
-  fcntl (fd, F_SETFD, FD_CLOEXEC);
-  g_free (fds);
-  fds = NULL;
-
-  /* FIXME: Use stat to find out the size of the file, to make sure that the
-   * size we've been told is the true size for safety and security. */
-  fdmem = gst_fd_allocator_alloc (fddepay->fd_allocator, fd,
-      msg.offset + msg.size, GST_FD_MEMORY_FLAG_NONE);
-  gst_memory_resize (fdmem, msg.offset, msg.size);
+  pinos_buffer_init_take_data (&pbuf, data, size, msg);
 
   gst_buffer_remove_all_memory (buf);
-  gst_buffer_remove_meta (buf,
-      gst_buffer_get_meta (buf, GST_NET_CONTROL_MESSAGE_META_API_TYPE));
-  gst_buffer_append_memory (buf, fdmem);
-  fdmem = NULL;
 
-  GST_BUFFER_OFFSET (buf) = msg.seq;
+  pinos_packet_iter_init (&it, &pbuf);
+  while (pinos_packet_iter_next (&it)) {
+    switch (pinos_packet_iter_get_type (&it)) {
+      case PINOS_PACKET_TYPE_FD_PAYLOAD:
+      {
+        GstMemory *fdmem = NULL;
+        PinosPacketFDPayload p;
+        int fd;
+
+        pinos_packet_iter_parse_fd_payload (&it, &p);
+        fd = pinos_buffer_get_fd (&pbuf, p.fd_index, &err);
+        if (fd == -1)
+          goto error;
+
+        fdmem = gst_fd_allocator_alloc (fddepay->fd_allocator, fd,
+                  p.offset + p.size, GST_FD_MEMORY_FLAG_NONE);
+        gst_memory_resize (fdmem, p.offset, p.size);
+        gst_buffer_append_memory (buf, fdmem);
+        break;
+      }
+      default:
+        break;
+    }
+  }
+  hdr = pinos_buffer_get_header (&pbuf, NULL);
+  GST_BUFFER_OFFSET (buf) = hdr->seq;
 
   return GST_FLOW_OK;
 
 error:
-  if (fds)
-    g_free (fds);
-  if (fd >= 0)
-    close (fd);
-  return GST_FLOW_ERROR;
+  {
+    GST_ELEMENT_ERROR (fddepay, RESOURCE, SETTINGS, (NULL),
+        ("can't get fd: %s", err->message));
+    g_clear_error (&err);
+    return GST_FLOW_ERROR;
+  }
 }

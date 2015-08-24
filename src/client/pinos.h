@@ -20,6 +20,7 @@
 #ifndef __PINOS_H__
 #define __PINOS_H__
 
+#include <client/buffer.h>
 #include <client/context.h>
 #include <client/introspect.h>
 #include <client/mainloop.h>

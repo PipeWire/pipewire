@@ -329,10 +329,12 @@ static GstFlowReturn
 gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
 {
   GstPinosSink *pinossink;
-  PinosBufferInfo info;
-  GSocketControlMessage *mesg;
+  PinosBuffer pbuf;
+  PinosPacketBuilder builder;
   GstMemory *mem = NULL;
   GstClockTime pts, dts, base;
+  PinosBufferHeader hdr;
+  gsize size;
 
   pinossink = GST_PINOS_SINK (bsink);
 
@@ -348,14 +350,15 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   else if (!GST_CLOCK_TIME_IS_VALID (dts))
     dts = pts;
 
-  info.flags = 0;
-  info.seq = GST_BUFFER_OFFSET (buffer);
-  info.pts = GST_CLOCK_TIME_IS_VALID (pts) ? pts + base : base;
-  info.dts_offset = GST_CLOCK_TIME_IS_VALID (dts) && GST_CLOCK_TIME_IS_VALID (pts) ? pts - dts : 0;
-  info.offset = 0;
-  info.size = gst_buffer_get_size (buffer);
+  hdr.flags = 0;
+  hdr.seq = GST_BUFFER_OFFSET (buffer);
+  hdr.pts = GST_CLOCK_TIME_IS_VALID (pts) ? pts + base : base;
+  hdr.dts_offset = GST_CLOCK_TIME_IS_VALID (dts) && GST_CLOCK_TIME_IS_VALID (pts) ? pts - dts : 0;
 
-  mesg = g_unix_fd_message_new ();
+  size = gst_buffer_get_size (buffer);
+
+  pinos_packet_builder_init (&builder, &hdr);
+
   if (gst_buffer_n_memory (buffer) == 1
       && gst_is_fd_memory (gst_buffer_peek_memory (buffer, 0))) {
     mem = gst_buffer_get_memory (buffer, 0);
@@ -365,20 +368,22 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
 
     GST_INFO_OBJECT (bsink, "Buffer cannot be payloaded without copying");
 
-    mem = gst_allocator_alloc (pinossink->allocator, info.size, &params);
+    mem = gst_allocator_alloc (pinossink->allocator, size, &params);
     if (!gst_memory_map (mem, &minfo, GST_MAP_WRITE))
       goto map_error;
-    gst_buffer_extract (buffer, 0, minfo.data, info.size);
+    gst_buffer_extract (buffer, 0, minfo.data, size);
     gst_memory_unmap (mem, &minfo);
   }
-  g_unix_fd_message_append_fd ((GUnixFDMessage*)mesg, gst_fd_memory_get_fd (mem), NULL);
+
+  pinos_packet_builder_add_fd_payload (&builder, 0, size, gst_fd_memory_get_fd (mem), NULL);
   gst_memory_unref (mem);
-  info.message = mesg;
+
+  pinos_packet_builder_end (&builder, &pbuf);
 
   pinos_main_loop_lock (pinossink->loop);
   if (pinos_stream_get_state (pinossink->stream) != PINOS_STREAM_STATE_STREAMING)
     goto streaming_error;
-  pinos_stream_provide_buffer (pinossink->stream, &info);
+  pinos_stream_provide_buffer (pinossink->stream, &pbuf);
   pinos_main_loop_unlock (pinossink->loop);
 
   return GST_FLOW_OK;

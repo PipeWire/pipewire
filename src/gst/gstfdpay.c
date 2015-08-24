@@ -53,7 +53,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "wire-protocol.h"
+#include <client/pinos.h>
 
 GST_DEBUG_CATEGORY_STATIC (gst_fdpay_debug_category);
 #define GST_CAT_DEFAULT gst_fdpay_debug_category
@@ -191,7 +191,7 @@ gst_fdpay_transform_size (GstBaseTransform *trans, GstPadDirection direction,
     return FALSE;
   } else {
     /* transform size going downstream */
-    *othersize = sizeof (FDMessage);
+    *othersize = sizeof (PinosBuffer) + 30;
   }
 
   return TRUE;
@@ -241,40 +241,53 @@ gst_fdpay_transform (GstBaseTransform * trans, GstBuffer * inbuf,
   GstMemory *fdmem = NULL;
   GstMapInfo info;
   GError *err = NULL;
-  GSocketControlMessage *fdmsg = NULL;
-  FDMessage msg = { 0, };
+  PinosBuffer pbuf;
+  PinosPacketBuilder builder;
+  PinosBufferHeader hdr;
+  gsize size;
 
   GST_DEBUG_OBJECT (fdpay, "transform_ip");
 
   fdmem = gst_fdpay_get_fd_memory (fdpay, inbuf);
 
-  msg.flags = 0;
-  msg.seq = GST_BUFFER_OFFSET (inbuf);
-  msg.pts = GST_BUFFER_TIMESTAMP (inbuf) + GST_ELEMENT_CAST (trans)->base_time;
-  msg.dts_offset = 0;
-  msg.size = fdmem->size;
-  msg.offset = fdmem->offset;
+  hdr.flags = 0;
+  hdr.seq = GST_BUFFER_OFFSET (inbuf);
+  hdr.pts = GST_BUFFER_TIMESTAMP (inbuf) + GST_ELEMENT_CAST (trans)->base_time;
+  hdr.dts_offset = 0;
 
-  fdmsg = g_unix_fd_message_new ();
-  if (!g_unix_fd_message_append_fd ((GUnixFDMessage*) fdmsg,
-          gst_fd_memory_get_fd (fdmem), &err)) {
+  pinos_packet_builder_init (&builder, &hdr);
+  if (!pinos_packet_builder_add_fd_payload (&builder,
+                                            fdmem->offset,
+                                            fdmem->size,
+                                            gst_fd_memory_get_fd (fdmem),
+                                            &err))
     goto append_fd_failed;
-  }
+
+  pinos_packet_builder_end (&builder, &pbuf);
   gst_memory_unref(fdmem);
   fdmem = NULL;
 
-  gst_buffer_add_net_control_message_meta (outbuf, fdmsg);
-  g_clear_object (&fdmsg);
+  gst_buffer_add_net_control_message_meta (outbuf,
+                                           pinos_buffer_get_socket_control_message (&pbuf));
+
+  size = pinos_buffer_get_size (&pbuf);
 
   gst_buffer_map (outbuf, &info, GST_MAP_WRITE);
-  memcpy (info.data, &msg, sizeof (msg));
+  pinos_buffer_store (&pbuf, info.data);
   gst_buffer_unmap (outbuf, &info);
+  gst_buffer_resize (outbuf, 0, size);
+
+  pinos_buffer_clear (&pbuf);
 
   return GST_FLOW_OK;
+
+  /* ERRORS */
 append_fd_failed:
-  GST_WARNING_OBJECT (trans, "Appending fd failed: %s", err->message);
-  gst_memory_unref(fdmem);
-  g_clear_error (&err);
-  g_clear_object (&fdmsg);
-  return GST_FLOW_ERROR;
+  {
+    GST_WARNING_OBJECT (trans, "Appending fd failed: %s", err->message);
+    gst_memory_unref(fdmem);
+    g_clear_error (&err);
+
+    return GST_FLOW_ERROR;
+  }
 }

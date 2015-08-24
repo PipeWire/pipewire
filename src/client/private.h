@@ -54,3 +54,23 @@ GDBusProxy *           pinos_subscribe_get_proxy_finish   (PinosSubscribe *subsc
                                                            GAsyncResult   *res,
                                                            GError         **error);
 
+
+typedef struct {
+  guint32 version;
+  PinosBufferHeader header;
+  guint32 length;
+} PinosStackHeader;
+
+typedef struct {
+  gsize allocated_size;
+  gsize size;
+  gpointer data;
+  GSocketControlMessage *message;
+  gsize magic;
+} PinosStackBuffer;
+
+#define PSB(b)             ((PinosStackBuffer *) (b))
+#define PSB_MAGIC          ((gsize) 5493683301u)
+#define is_valid_buffer(b) (b != NULL && \
+                            PSB(b)->magic == PSB_MAGIC)
+

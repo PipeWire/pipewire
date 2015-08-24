@@ -55,29 +55,31 @@ Wire
 
 Fixed header
 
-<flags>      : 4 bytes
-<seq>        : 4 bytes
-<pts>        : 8 bytes
-<dts-offset> : 8 bytes
+<flags>      : 4 bytes       : buffer flags
+<seq>        : 4 bytes       : sequence number
+<pts>        : 8 bytes       : presentation time
+<dts-offset> : 8 bytes       : dts-offset
+<length>     : 8 bytes       : total message length
 
 Followed by 1 or more type-length-data sections
 
 <type>   : 1 byte
 <length> : variable length, 7 bits, hight bit is continuation marker
-<data>   : <length> bytes
+<data>   : <length> bytes, see below for contents based on <type>
 
 Types:
 
- 0: format change
+ 0: fd-payload section
+
+   <offset>    : 8 bytes      : offset
+   <size>      : 8 bytes      : size
+   <fd-index>  : 4 bytes      : index of fd
+
+ 1: format change
 
    <format-id> : 1 byte       : format id
    <format>    : 0-terminated : contains serialized format
 
- 1: fd-payload section
-
-   <offset>    : 8 bytes      : offset
-   <size>      : 8 bytes      : size
-   <fd-index>  : 1 byte       : index of fd
 
  2: property changes
 

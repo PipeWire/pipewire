@@ -157,6 +157,7 @@ pinosgstsource = gst/gstfdpay.h gst/gstfdpay.c \
 
 pinosinclude_HEADERS = \
 		client/pinos.h \
+		client/buffer.h \
 		client/context.h \
 		client/enumtypes.h \
 		client/introspect.h \
@@ -170,6 +171,7 @@ lib_LTLIBRARIES = \
 
 # Public interface
 libpinos_@PINOS_MAJORMINOR@_la_SOURCES = \
+		client/buffer.h client/buffer.c \
 		client/context.h client/context.c \
 		client/enumtypes.h client/enumtypes.c \
 		client/introspect.h client/introspect.c \

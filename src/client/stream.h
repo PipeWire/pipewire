@@ -22,6 +22,7 @@
 
 #include <glib-object.h>
 
+#include <client/buffer.h>
 #include <client/context.h>
 
 G_BEGIN_DECLS
@@ -52,16 +53,6 @@ typedef enum {
 typedef enum {
   PINOS_STREAM_FLAGS_NONE = 0,
 } PinosStreamFlags;
-
-typedef struct {
-  guint32 flags;
-  guint32 seq;
-  gint64 pts;
-  gint64 dts_offset;
-  guint64 offset;
-  guint64 size;
-  GSocketControlMessage *message;
-} PinosBufferInfo;
 
 typedef enum {
   PINOS_STREAM_MODE_SOCKET = 0,
@@ -114,9 +105,12 @@ gboolean         pinos_stream_start             (PinosStream     *stream,
 gboolean         pinos_stream_stop              (PinosStream     *stream);
 
 gboolean         pinos_stream_capture_buffer    (PinosStream     *stream,
-                                                 PinosBufferInfo *info);
+                                                 PinosBuffer     *buffer);
+void             pinos_stream_release_buffer    (PinosStream     *stream,
+                                                 PinosBuffer     *buffer);
+
 gboolean         pinos_stream_provide_buffer    (PinosStream     *stream,
-                                                 PinosBufferInfo *info);
+                                                 PinosBuffer     *buffer);
 
 G_END_DECLS
 

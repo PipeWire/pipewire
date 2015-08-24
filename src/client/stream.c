@@ -238,9 +238,9 @@ pinos_stream_finalize (GObject * object)
   g_clear_object (&priv->context);
   g_free (priv->name);
 
+  g_free (priv->buffer.data);
   if (priv->buffer.message)
     g_object_unref (priv->buffer.message);
-  g_free (priv->buffer.data);
 
   G_OBJECT_CLASS (pinos_stream_parent_class)->finalize (object);
 }
@@ -1098,6 +1098,7 @@ pinos_stream_capture_buffer (PinosStream  *stream,
 
   priv = stream->priv;
   g_return_val_if_fail (priv->state == PINOS_STREAM_STATE_STREAMING, FALSE);
+  g_return_val_if_fail (is_valid_buffer (&priv->buffer), FALSE);
 
   memcpy (buffer, &priv->buffer, sizeof (PinosStackBuffer));
 
@@ -1105,6 +1106,7 @@ pinos_stream_capture_buffer (PinosStream  *stream,
   priv->buffer.allocated_size = 0;
   priv->buffer.size = 0;
   priv->buffer.message = NULL;
+  priv->buffer.magic = 0;
 
   return TRUE;
 }
@@ -1115,7 +1117,8 @@ pinos_stream_capture_buffer (PinosStream  *stream,
  * @buffer: a #PinosBuffer
  *
  * Release @buffer back to @stream. This function should be called whenever the
- * buffer is processed.
+ * buffer is processed. @buffer should not be used anymore after calling this
+ * function.
  */
 void
 pinos_stream_release_buffer (PinosStream  *stream,
@@ -1139,6 +1142,8 @@ pinos_stream_release_buffer (PinosStream  *stream,
 
   if (sb->message)
     g_object_unref (sb->message);
+
+  sb->magic = 0;
 }
 
 /**

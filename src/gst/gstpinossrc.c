@@ -558,6 +558,13 @@ gst_pinos_src_start (GstBaseSrc * basesrc)
 static gboolean
 gst_pinos_src_stop (GstBaseSrc * basesrc)
 {
+  GstPinosSrc *pinossrc;
+
+  pinossrc = GST_PINOS_SRC (basesrc);
+  if (pinossrc->current)
+    gst_buffer_unref (pinossrc->current);
+  pinossrc->current = NULL;
+
   return TRUE;
 }
 

@@ -463,7 +463,7 @@ gst_pinos_sink_open (GstPinosSink * pinossink)
     goto mainloop_error;
 
   pinos_main_loop_lock (pinossink->loop);
-  pinossink->ctx = pinos_context_new (pinossink->context, "test-client", NULL);
+  pinossink->ctx = pinos_context_new (pinossink->context, g_get_application_name (), NULL);
   g_signal_connect (pinossink->ctx, "notify::state", (GCallback) on_context_notify, pinossink);
 
   pinos_context_connect(pinossink->ctx, PINOS_CONTEXT_FLAGS_NONE);

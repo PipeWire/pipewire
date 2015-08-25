@@ -606,7 +606,7 @@ gst_pinos_src_open (GstPinosSrc * pinossrc)
     goto mainloop_failed;
 
   pinos_main_loop_lock (pinossrc->loop);
-  pinossrc->ctx = pinos_context_new (pinossrc->context, "test-client", NULL);
+  pinossrc->ctx = pinos_context_new (pinossrc->context, g_get_application_name (), NULL);
   g_signal_connect (pinossrc->ctx, "notify::state", (GCallback) on_context_notify, pinossrc);
 
   pinos_context_connect (pinossrc->ctx, PINOS_CONTEXT_FLAGS_NONE);

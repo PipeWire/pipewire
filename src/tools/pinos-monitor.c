@@ -257,7 +257,7 @@ main (gint argc, gchar *argv[])
 
   loop = g_main_loop_new (NULL, FALSE);
 
-  c = pinos_context_new (NULL, "test-client", NULL);
+  c = pinos_context_new (NULL, "pinos-monitor", NULL);
   g_signal_connect (c, "notify::state", (GCallback) on_state_notify, c);
   g_object_set (c, "subscription-mask", PINOS_SUBSCRIPTION_FLAGS_ALL, NULL);
   g_signal_connect (c, "subscription-event", (GCallback) subscription_cb, NULL);

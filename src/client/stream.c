@@ -47,6 +47,7 @@ struct _PinosStreamPrivate
   GBytes *format;
 
   GDBusProxy *source_output;
+  gboolean disconnecting;
 
   PinosStreamMode mode;
   GSocket *socket;
@@ -187,7 +188,7 @@ subscription_cb (PinosSubscribe         *subscribe,
   switch (flags) {
     case PINOS_SUBSCRIPTION_FLAG_SOURCE_OUTPUT:
       if (event == PINOS_SUBSCRIPTION_EVENT_REMOVE) {
-        if (object == priv->source_output) {
+        if (object == priv->source_output && !priv->disconnecting) {
           priv->error = g_error_new_literal (G_IO_ERROR, G_IO_ERROR_CLOSED, "output disappeared");
           stream_set_state (stream, PINOS_STREAM_STATE_ERROR);
         }
@@ -515,6 +516,8 @@ on_source_output_created (GObject      *source_object,
   GError *error = NULL;
   const gchar *source_output_path;
 
+  g_assert (context->priv->client == G_DBUS_PROXY (source_object));
+
   ret = g_dbus_proxy_call_finish (context->priv->client, res, &error);
   if (ret == NULL)
     goto create_failed;
@@ -590,6 +593,7 @@ pinos_stream_connect_capture (PinosStream      *stream,
   priv = stream->priv;
   context = priv->context;
   g_return_val_if_fail (pinos_context_get_state (context) == PINOS_CONTEXT_STATE_READY, FALSE);
+  g_return_val_if_fail (pinos_stream_get_state (stream) == PINOS_STREAM_STATE_UNCONNECTED, FALSE);
 
   g_free (priv->source_path);
   priv->source_path = g_strdup (source_path);
@@ -676,18 +680,28 @@ on_source_output_removed (GObject      *source_object,
   GVariant *ret;
   GError *error = NULL;
 
-  ret = g_dbus_proxy_call_finish (priv->source_output, res, &error);
-  if (ret == NULL) {
+  g_assert (priv->source_output == G_DBUS_PROXY (source_object));
+
+  priv->disconnecting = FALSE;
+  g_clear_object (&priv->source_output);
+
+  ret = g_dbus_proxy_call_finish (G_DBUS_PROXY (source_object), res, &error);
+  if (ret == NULL)
+    goto proxy_failed;
+
+  stream_set_state (stream, PINOS_STREAM_STATE_UNCONNECTED);
+  g_object_unref (stream);
+  return;
+
+  /* ERRORS */
+proxy_failed:
+  {
     priv->error = error;
     stream_set_state (stream, PINOS_STREAM_STATE_ERROR);
     g_warning ("failed to disconnect: %s", error->message);
     g_object_unref (stream);
     return;
   }
-  g_clear_object (&priv->source_output);
-
-  stream_set_state (stream, PINOS_STREAM_STATE_UNCONNECTED);
-  g_object_unref (stream);
 }
 
 static gboolean
@@ -727,6 +741,9 @@ pinos_stream_disconnect (PinosStream *stream)
   g_return_val_if_fail (priv->source_output != NULL, FALSE);
   context = priv->context;
   g_return_val_if_fail (pinos_context_get_state (context) >= PINOS_CONTEXT_STATE_READY, FALSE);
+  g_return_val_if_fail (!priv->disconnecting, FALSE);
+
+  priv->disconnecting = TRUE;
 
   g_main_context_invoke (context->priv->context,
                          (GSourceFunc) do_disconnect,

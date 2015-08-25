@@ -258,7 +258,10 @@ on_new_buffer (GObject    *gobject,
   GError *error = NULL;
 
   GST_LOG_OBJECT (pinossrc, "got new buffer");
-  pinos_stream_capture_buffer (pinossrc->stream, &pbuf);
+  if (!pinos_stream_capture_buffer (pinossrc->stream, &pbuf)) {
+    g_warning ("failed to capture buffer");
+    return;
+  }
 
   buf = gst_buffer_new ();
 
@@ -419,6 +422,21 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
     accepted = g_bytes_new_take (str, strlen (str) + 1);
 
     pinos_main_loop_lock (pinossrc->loop);
+    if (pinos_stream_get_state (pinossrc->stream) != PINOS_STREAM_STATE_UNCONNECTED) {
+      GST_DEBUG_OBJECT (basesrc, "disconnect capture");
+      pinos_stream_disconnect (pinossrc->stream);
+      while (TRUE) {
+        PinosStreamState state = pinos_stream_get_state (pinossrc->stream);
+
+        if (state == PINOS_STREAM_STATE_UNCONNECTED)
+          break;
+
+        if (state == PINOS_STREAM_STATE_ERROR)
+          goto connect_error;
+
+        pinos_main_loop_wait (pinossrc->loop);
+      }
+    }
     GST_DEBUG_OBJECT (basesrc, "connect capture with path %s", pinossrc->path);
     pinos_stream_connect_capture (pinossrc->stream, pinossrc->path, 0, accepted);
 
@@ -524,7 +542,8 @@ gst_pinos_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
     if (state != PINOS_STREAM_STATE_STREAMING)
       goto streaming_stopped;
 
-    break;
+    if (pinossrc->current != NULL)
+      break;
   }
   pinos_main_loop_unlock (pinossrc->loop);
 

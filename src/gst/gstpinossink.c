@@ -285,7 +285,7 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
   g_signal_connect (pinossink->stream, "notify::state", (GCallback) on_stream_notify, pinossink);
   g_signal_connect (pinossink->stream, "new-buffer", (GCallback) on_new_buffer, pinossink);
 
-  pinos_stream_connect_provide (pinossink->stream, 0, format);
+  pinos_stream_connect_provide (pinossink->stream, 0, g_bytes_ref (format));
 
   while (TRUE) {
     PinosStreamState state = pinos_stream_get_state (pinossink->stream);

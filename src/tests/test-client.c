@@ -107,7 +107,6 @@ on_stream_notify (GObject    *gobject,
 
       format = g_bytes_new_static (str, strlen (str) + 1);
       pinos_stream_start (s, format, PINOS_STREAM_MODE_SOCKET);
-      g_bytes_unref (format);
       break;
     }
 

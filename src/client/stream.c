@@ -390,7 +390,7 @@ pinos_stream_init (PinosStream * stream)
  * pinos_stream_new:
  * @context: a #PinosContext
  * @name: a stream name
- * @properties: stream properties
+ * @properties: (transfer full): stream properties
  *
  * Make a new unconnected #PinosStream
  *
@@ -401,6 +401,8 @@ pinos_stream_new (PinosContext    *context,
                   const gchar     *name,
                   PinosProperties *props)
 {
+  PinosStream *stream;
+
   g_return_val_if_fail (PINOS_IS_CONTEXT (context), NULL);
   g_return_val_if_fail (name != NULL, NULL);
 
@@ -410,11 +412,15 @@ pinos_stream_new (PinosContext    *context,
     pinos_properties_set (props, "media.name", name);
   }
 
-  return g_object_new (PINOS_TYPE_STREAM,
+  stream = g_object_new (PINOS_TYPE_STREAM,
                        "context", context,
                        "name", name,
                        "properties", props,
                        NULL);
+
+  pinos_properties_free (props);
+
+  return stream;
 }
 
 /**
@@ -572,7 +578,7 @@ do_connect_capture (PinosStream *stream)
  * @stream: a #PinosStream
  * @source_path: the source path to connect to
  * @flags: a #PinosStreamFlags
- * @accepted_formats: a #GBytes with accepted formats
+ * @accepted_formats: (transfer full): a #GBytes with accepted formats
  *
  * Connect @stream for capturing from @source_path.
  *
@@ -599,7 +605,7 @@ pinos_stream_connect_capture (PinosStream      *stream,
   priv->source_path = g_strdup (source_path);
   if (priv->accepted_formats)
     g_bytes_unref (priv->accepted_formats);
-  priv->accepted_formats = g_bytes_ref (accepted_formats);
+  priv->accepted_formats = accepted_formats;
   priv->provide = FALSE;
 
   stream_set_state (stream, PINOS_STREAM_STATE_CONNECTING);
@@ -635,7 +641,7 @@ do_connect_provide (PinosStream *stream)
  * pinos_stream_connect_provide:
  * @stream: a #PinosStream
  * @flags: a #PinosStreamFlags
- * @possible_formats: a #GBytes
+ * @possible_formats: (transfer full): a #GBytes
  *
  * Connect @stream for providing data for a new source.
  *
@@ -658,7 +664,7 @@ pinos_stream_connect_provide (PinosStream      *stream,
 
   if (priv->possible_formats)
     g_bytes_unref (priv->possible_formats);
-  priv->possible_formats = g_bytes_ref (possible_formats);
+  priv->possible_formats = possible_formats;
   priv->provide = TRUE;
 
   stream_set_state (stream, PINOS_STREAM_STATE_CONNECTING);
@@ -771,6 +777,7 @@ on_socket_condition (GSocket      *socket,
       gint flags = 0;
       gsize need;
       GError *error = NULL;
+      gint i;
 
       need = sizeof (PinosStackHeader);
 
@@ -781,6 +788,7 @@ on_socket_condition (GSocket      *socket,
 
       hdr = priv->buffer.data;
 
+      /* read header first */
       ivec.buffer = hdr;
       ivec.size = sizeof (PinosStackHeader);
 
@@ -799,6 +807,7 @@ on_socket_condition (GSocket      *socket,
       if (num_messages == 0)
         break;
 
+      /* now we know the total length */
       need += hdr->length;
 
       if (priv->buffer.allocated_size < need) {
@@ -807,16 +816,27 @@ on_socket_condition (GSocket      *socket,
       }
       priv->buffer.size = need;
 
-      if (priv->buffer.message)
-        g_object_unref (priv->buffer.message);
-      priv->buffer.message = messages[0];
-
+      /* read data */
       len = g_socket_receive (socket,
                               (gchar *)priv->buffer.data + sizeof (PinosStackHeader),
                               hdr->length,
                               NULL,
                               &error);
       g_assert (len == hdr->length);
+
+      /* handle control messages */
+      for (i = 0; i < num_messages; i++) {
+        if (i == 0) {
+          if (priv->buffer.message)
+            g_object_unref (priv->buffer.message);
+          priv->buffer.message = messages[0];
+        }
+        else {
+          g_warning ("discarding control message %d", i);
+          g_object_unref (messages[i]);
+        }
+      }
+      g_free (messages);
 
       priv->buffer.magic = PSB_MAGIC;
 
@@ -985,9 +1005,10 @@ do_start (PinosStream *stream)
 /**
  * pinos_stream_start:
  * @stream: a #PinosStream
+ * @format: (transfer full): a #GBytes with format
  * @mode: a #PinosStreamMode
  *
- * Start capturing from @stream.
+ * Start capturing from @stream in @format.
  *
  * When @mode is #PINOS_STREAM_MODE_SOCKET, you should connect to the notify::socket
  * signal to obtain a readable socket with metadata and data.
@@ -1011,7 +1032,7 @@ pinos_stream_start (PinosStream     *stream,
   g_return_val_if_fail (priv->state == PINOS_STREAM_STATE_READY, FALSE);
 
   priv->mode = mode;
-  priv->format = g_bytes_ref (format);
+  priv->format = format;
 
   stream_set_state (stream, PINOS_STREAM_STATE_STARTING);
 

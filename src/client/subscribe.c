@@ -578,6 +578,8 @@ pinos_subscribe_finalize (GObject * object)
   PinosSubscribe *subscribe = PINOS_SUBSCRIBE (object);
   PinosSubscribePrivate *priv = subscribe->priv;
 
+  remove_all_data (subscribe);
+
   g_cancellable_cancel (priv->cancellable);
   if (priv->manager_proxy)
     g_object_unref (priv->manager_proxy);

@@ -314,6 +314,7 @@ on_new_buffer (GObject    *gobject,
   /* ERRORS */
 no_fds:
   {
+    gst_buffer_unref (buf);
     GST_ELEMENT_ERROR (pinossrc, RESOURCE, FAILED,
         ("buffer error: %s", error->message), (NULL));
     pinos_main_loop_signal (pinossrc->loop, FALSE);
@@ -417,10 +418,12 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
     gchar *str;
 
     GST_DEBUG_OBJECT (basesrc, "have caps: %" GST_PTR_FORMAT, caps);
+
     /* open a connection with these caps */
     str = gst_caps_to_string (caps);
     accepted = g_bytes_new_take (str, strlen (str) + 1);
 
+    /* first disconnect */
     pinos_main_loop_lock (pinossrc->loop);
     if (pinos_stream_get_state (pinossrc->stream) != PINOS_STREAM_STATE_UNCONNECTED) {
       GST_DEBUG_OBJECT (basesrc, "disconnect capture");
@@ -431,12 +434,15 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
         if (state == PINOS_STREAM_STATE_UNCONNECTED)
           break;
 
-        if (state == PINOS_STREAM_STATE_ERROR)
+        if (state == PINOS_STREAM_STATE_ERROR) {
+          g_bytes_unref (accepted);
           goto connect_error;
+        }
 
         pinos_main_loop_wait (pinossrc->loop);
       }
     }
+
     GST_DEBUG_OBJECT (basesrc, "connect capture with path %s", pinossrc->path);
     pinos_stream_connect_capture (pinossrc->stream, pinossrc->path, 0, accepted);
 
@@ -460,6 +466,8 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
       newcaps = gst_caps_from_string (g_bytes_get_data (possible, NULL));
       if (newcaps)
         caps = newcaps;
+
+      g_bytes_unref (possible);
     }
     /* now fixate */
     GST_DEBUG_OBJECT (basesrc, "server fixated caps: %" GST_PTR_FORMAT, caps);
@@ -668,7 +676,13 @@ gst_pinos_src_close (GstPinosSrc * pinossrc)
 {
   pinos_main_loop_stop (pinossrc->loop);
   g_clear_object (&pinossrc->loop);
+  g_clear_object (&pinossrc->ctx);
   g_main_context_unref (pinossrc->context);
+  g_clear_object (&pinossrc->stream);
+
+  if (pinossrc->current)
+    gst_buffer_unref (pinossrc->current);
+  pinossrc->current = NULL;
 }
 
 static GstStateChangeReturn

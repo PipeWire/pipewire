@@ -137,6 +137,9 @@ pinos_context_finalize (GObject * object)
   PinosContext *context = PINOS_CONTEXT (object);
   PinosContextPrivate *priv = context->priv;
 
+  if (priv->id)
+    g_bus_unwatch_name(priv->id);
+
   g_clear_pointer (&priv->context, g_main_context_unref);
   g_free (priv->name);
   if (priv->properties)
@@ -280,7 +283,7 @@ pinos_context_init (PinosContext * context)
  * pinos_context_new:
  * @context: a #GMainContext to run in
  * @name: an application name
- * @properties: optional properties
+ * @properties: (transfer full): optional properties
  *
  * Make a new unconnected #PinosContext
  *
@@ -291,6 +294,8 @@ pinos_context_new (GMainContext    *context,
                    const gchar     *name,
                    PinosProperties *properties)
 {
+  PinosContext *ctx;
+
   g_return_val_if_fail (name != NULL, NULL);
 
   if (properties == NULL)
@@ -298,11 +303,15 @@ pinos_context_new (GMainContext    *context,
 
   pinos_fill_context_properties (properties);
 
-  return g_object_new (PINOS_TYPE_CONTEXT,
-                       "main-context", context,
-                       "name", name,
-                       "properties", properties,
-                       NULL);
+  ctx = g_object_new (PINOS_TYPE_CONTEXT,
+                      "main-context", context,
+                      "name", name,
+                      "properties", properties,
+                      NULL);
+
+  pinos_properties_free (properties);
+
+  return ctx;
 }
 
 static gboolean
@@ -534,7 +543,9 @@ do_connect (PinosContext *context)
                                on_name_appeared,
                                on_name_vanished,
                                context,
-                               g_object_unref);
+                               NULL);
+  g_object_unref (context);
+
   return FALSE;
 }
 
@@ -575,8 +586,10 @@ finish_client_disconnect (PinosContext *context)
 
   g_clear_object (&priv->client);
   g_clear_object (&priv->daemon);
-  g_bus_unwatch_name(priv->id);
-  priv->id = 0;
+  if (priv->id) {
+    g_bus_unwatch_name(priv->id);
+    priv->id = 0;
+  }
 
   context_set_state (context, PINOS_CONTEXT_STATE_UNCONNECTED);
 }

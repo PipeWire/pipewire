@@ -244,7 +244,7 @@ on_stream_notify (GObject    *gobject,
   GstPinosSink *pinossink = user_data;
 
   state = pinos_stream_get_state (stream);
-  GST_DEBUG ("got stream state %d\n", state);
+  GST_DEBUG ("got stream state %d", state);
 
   switch (state) {
     case PINOS_STREAM_STATE_UNCONNECTED:
@@ -394,6 +394,7 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   if (pinos_stream_get_state (pinossink->stream) != PINOS_STREAM_STATE_STREAMING)
     goto streaming_error;
   pinos_stream_provide_buffer (pinossink->stream, &pbuf);
+  pinos_buffer_clear (&pbuf);
   pinos_main_loop_unlock (pinossink->loop);
 
   return GST_FLOW_OK;
@@ -452,7 +453,7 @@ on_context_notify (GObject    *gobject,
   PinosContextState state;
 
   state = pinos_context_get_state (ctx);
-  GST_DEBUG ("got context state %d\n", state);
+  GST_DEBUG ("got context state %d", state);
 
   switch (state) {
     case PINOS_CONTEXT_STATE_UNCONNECTED:
@@ -475,7 +476,7 @@ gst_pinos_sink_open (GstPinosSink * pinossink)
   GError *error = NULL;
 
   pinossink->context = g_main_context_new ();
-  GST_DEBUG ("context %p\n", pinossink->context);
+  GST_DEBUG ("context %p", pinossink->context);
 
   pinossink->loop = pinos_main_loop_new (pinossink->context, "pinos-sink-loop");
   if (!pinos_main_loop_start (pinossink->loop, &error))

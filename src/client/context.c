@@ -137,6 +137,8 @@ pinos_context_finalize (GObject * object)
   PinosContext *context = PINOS_CONTEXT (object);
   PinosContextPrivate *priv = context->priv;
 
+  g_debug ("free context %p", context);
+
   if (priv->id)
     g_bus_unwatch_name(priv->id);
 
@@ -145,6 +147,9 @@ pinos_context_finalize (GObject * object)
   if (priv->properties)
     pinos_properties_free (priv->properties);
 
+  g_list_free (priv->sources);
+  g_list_free (priv->clients);
+  g_list_free (priv->source_outputs);
   g_clear_object (&priv->subscribe);
   g_clear_error (&priv->error);
 
@@ -272,11 +277,22 @@ pinos_context_init (PinosContext * context)
 {
   PinosContextPrivate *priv = context->priv = PINOS_CONTEXT_GET_PRIVATE (context);
 
+  g_debug ("new context %p", context);
+
   priv->state = PINOS_CONTEXT_STATE_UNCONNECTED;
+
   priv->subscribe = pinos_subscribe_new ();
-  g_object_set (priv->subscribe, "subscription-mask", PINOS_SUBSCRIPTION_FLAGS_ALL, NULL);
-  g_signal_connect (priv->subscribe, "subscription-event", (GCallback) subscription_cb, context);
-  g_signal_connect (priv->subscribe, "notify::state", (GCallback) subscription_state, context);
+  g_object_set (priv->subscribe,
+                "subscription-mask", PINOS_SUBSCRIPTION_FLAGS_ALL,
+                NULL);
+  g_signal_connect (priv->subscribe,
+                    "subscription-event",
+                    (GCallback) subscription_cb,
+                    context);
+  g_signal_connect (priv->subscribe,
+                    "notify::state",
+                    (GCallback) subscription_state,
+                    context);
 }
 
 /**
@@ -324,13 +340,21 @@ do_notify_state (PinosContext *context)
 
 static void
 context_set_state (PinosContext      *context,
-                   PinosContextState  state)
+                   PinosContextState  state,
+                   GError            *error)
 {
   if (context->priv->state != state) {
+    if (error) {
+      g_clear_error (&context->priv->error);
+      context->priv->error = error;
+    }
     context->priv->state = state;
     g_main_context_invoke (context->priv->context,
                            (GSourceFunc) do_notify_state,
                            g_object_ref (context));
+  } else {
+    if (error)
+      g_error_free (error);
   }
 }
 static void
@@ -348,15 +372,14 @@ on_client_proxy (GObject      *source_object,
   if (priv->client == NULL)
     goto client_failed;
 
-  context_set_state (context, PINOS_CONTEXT_STATE_READY);
+  context_set_state (context, PINOS_CONTEXT_STATE_READY, NULL);
 
   return;
 
 client_failed:
   {
-    priv->error = error;
-    context_set_state (context, PINOS_STREAM_STATE_ERROR);
     g_warning ("failed to get client proxy: %s", error->message);
+    context_set_state (context, PINOS_STREAM_STATE_ERROR, error);
     return;
   }
 }
@@ -375,8 +398,7 @@ on_client_connected (GObject      *source_object,
   ret = g_dbus_proxy_call_finish (priv->daemon, res, &error);
   if (ret == NULL) {
     g_warning ("failed to connect client: %s", error->message);
-    priv->error = error;
-    context_set_state (context, PINOS_CONTEXT_STATE_ERROR);
+    context_set_state (context, PINOS_CONTEXT_STATE_ERROR, error);
     return;
   }
 
@@ -401,7 +423,7 @@ on_daemon_connected (GObject      *source_object,
   PinosContextPrivate *priv = context->priv;
   GVariant *variant;
 
-  context_set_state (context, PINOS_CONTEXT_STATE_REGISTERING);
+  context_set_state (context, PINOS_CONTEXT_STATE_REGISTERING, NULL);
 
   variant = pinos_properties_to_variant (priv->properties);
 
@@ -436,9 +458,12 @@ subscription_cb (PinosSubscribe         *subscribe,
       } else if (event == PINOS_SUBSCRIPTION_EVENT_REMOVE) {
         priv->clients = g_list_remove (priv->clients, object);
 
-        if (object == priv->client) {
-          priv->error = g_error_new_literal (G_IO_ERROR, G_IO_ERROR_CLOSED, "Client disappeared");
-          context_set_state (context, PINOS_CONTEXT_STATE_ERROR);
+        if (object == priv->client && !priv->disconnecting) {
+          context_set_state (context,
+                             PINOS_CONTEXT_STATE_ERROR,
+                             g_error_new_literal (G_IO_ERROR,
+                                                  G_IO_ERROR_CLOSED,
+                                                  "Client disappeared"));
         }
       }
       break;
@@ -520,10 +545,13 @@ on_name_vanished (GDBusConnection *connection,
   g_object_set (priv->subscribe, "connection", connection, NULL);
 
   if (priv->flags & PINOS_CONTEXT_FLAGS_NOFAIL) {
-    context_set_state (context, PINOS_CONTEXT_STATE_CONNECTING);
+    context_set_state (context, PINOS_CONTEXT_STATE_CONNECTING, NULL);
   } else {
-    priv->error = g_error_new_literal (G_IO_ERROR, G_IO_ERROR_CLOSED, "Connection closed");
-    context_set_state (context, PINOS_CONTEXT_STATE_ERROR);
+    context_set_state (context,
+                       PINOS_CONTEXT_STATE_ERROR,
+                       g_error_new_literal (G_IO_ERROR,
+                                            G_IO_ERROR_CLOSED,
+                                            "Connection closed"));
   }
 }
 
@@ -571,7 +599,7 @@ pinos_context_connect (PinosContext      *context,
 
   priv->flags = flags;
 
-  context_set_state (context, PINOS_CONTEXT_STATE_CONNECTING);
+  context_set_state (context, PINOS_CONTEXT_STATE_CONNECTING, NULL);
   g_main_context_invoke (priv->context,
                          (GSourceFunc) do_connect,
                          g_object_ref (context));
@@ -591,7 +619,7 @@ finish_client_disconnect (PinosContext *context)
     priv->id = 0;
   }
 
-  context_set_state (context, PINOS_CONTEXT_STATE_UNCONNECTED);
+  context_set_state (context, PINOS_CONTEXT_STATE_UNCONNECTED, NULL);
 }
 
 static void
@@ -604,11 +632,12 @@ on_client_disconnected (GObject      *source_object,
   GError *error = NULL;
   GVariant *ret;
 
+  priv->disconnecting = FALSE;
+
   ret = g_dbus_proxy_call_finish (priv->client, res, &error);
   if (ret == NULL) {
     g_warning ("failed to disconnect client: %s", error->message);
-    priv->error = error;
-    context_set_state (context, PINOS_CONTEXT_STATE_ERROR);
+    context_set_state (context, PINOS_CONTEXT_STATE_ERROR, error);
     g_object_unref (context);
     return;
   }
@@ -651,11 +680,14 @@ pinos_context_disconnect (PinosContext *context)
   g_return_val_if_fail (PINOS_IS_CONTEXT (context), FALSE);
 
   priv = context->priv;
+  g_return_val_if_fail (!priv->disconnecting, FALSE);
 
   if (priv->client == NULL) {
     finish_client_disconnect (context);
     return TRUE;
   }
+
+  priv->disconnecting = TRUE;
 
   g_main_context_invoke (priv->context,
                          (GSourceFunc) do_disconnect,

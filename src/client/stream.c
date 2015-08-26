@@ -165,13 +165,21 @@ do_notify_state (PinosStream *stream)
 
 static void
 stream_set_state (PinosStream      *stream,
-                  PinosStreamState  state)
+                  PinosStreamState  state,
+                  GError           *error)
 {
   if (stream->priv->state != state) {
+    if (error) {
+      g_clear_error (&stream->priv->error);
+      stream->priv->error = error;
+    }
     stream->priv->state = state;
     g_main_context_invoke (stream->priv->context->priv->context,
                           (GSourceFunc) do_notify_state,
                           g_object_ref (stream));
+  } else {
+    if (error)
+      g_error_free (error);
   }
 }
 
@@ -189,8 +197,11 @@ subscription_cb (PinosSubscribe         *subscribe,
     case PINOS_SUBSCRIPTION_FLAG_SOURCE_OUTPUT:
       if (event == PINOS_SUBSCRIPTION_EVENT_REMOVE) {
         if (object == priv->source_output && !priv->disconnecting) {
-          priv->error = g_error_new_literal (G_IO_ERROR, G_IO_ERROR_CLOSED, "output disappeared");
-          stream_set_state (stream, PINOS_STREAM_STATE_ERROR);
+          stream_set_state (stream,
+                            PINOS_STREAM_STATE_ERROR,
+                            g_error_new_literal (G_IO_ERROR,
+                                                 G_IO_ERROR_CLOSED,
+                                                 "Output disappeared"));
         }
       }
       break;
@@ -220,6 +231,9 @@ pinos_stream_finalize (GObject * object)
   PinosStream *stream = PINOS_STREAM (object);
   PinosStreamPrivate *priv = stream->priv;
 
+  g_debug ("free stream %p", stream);
+
+  g_clear_object (&priv->socket);
   g_clear_object (&priv->source_output);
 
   if (priv->possible_formats)
@@ -383,6 +397,8 @@ pinos_stream_init (PinosStream * stream)
 {
   PinosStreamPrivate *priv = stream->priv = PINOS_STREAM_GET_PRIVATE (stream);
 
+  g_debug ("new stream %p", stream);
+
   priv->state = PINOS_STREAM_STATE_UNCONNECTED;
 }
 
@@ -495,16 +511,15 @@ on_source_output_proxy (GObject      *source_object,
     g_object_notify (G_OBJECT (stream), "properties");
   }
 
-  stream_set_state (stream, PINOS_STREAM_STATE_READY);
+  stream_set_state (stream, PINOS_STREAM_STATE_READY, NULL);
   g_object_unref (stream);
 
   return;
 
 source_output_failed:
   {
-    priv->error = error;
-    stream_set_state (stream, PINOS_STREAM_STATE_ERROR);
     g_warning ("failed to get source output proxy: %s", error->message);
+    stream_set_state (stream, PINOS_STREAM_STATE_ERROR, error);
     g_object_unref (stream);
     return;
   }
@@ -528,7 +543,7 @@ on_source_output_created (GObject      *source_object,
   if (ret == NULL)
     goto create_failed;
 
-  g_variant_get (ret, "(o)", &source_output_path);
+  g_variant_get (ret, "(&o)", &source_output_path);
 
   pinos_subscribe_get_proxy (context->priv->subscribe,
                           PINOS_DBUS_SERVICE,
@@ -544,9 +559,8 @@ on_source_output_created (GObject      *source_object,
   /* ERRORS */
 create_failed:
   {
-    priv->error = error;
-    stream_set_state (stream, PINOS_STREAM_STATE_ERROR);
     g_warning ("failed to get connect capture: %s", error->message);
+    stream_set_state (stream, PINOS_STREAM_STATE_ERROR, error);
     g_object_unref (stream);
     return;
   }
@@ -608,7 +622,7 @@ pinos_stream_connect_capture (PinosStream      *stream,
   priv->accepted_formats = accepted_formats;
   priv->provide = FALSE;
 
-  stream_set_state (stream, PINOS_STREAM_STATE_CONNECTING);
+  stream_set_state (stream, PINOS_STREAM_STATE_CONNECTING, NULL);
 
   g_main_context_invoke (context->priv->context,
                          (GSourceFunc) do_connect_capture,
@@ -667,7 +681,7 @@ pinos_stream_connect_provide (PinosStream      *stream,
   priv->possible_formats = possible_formats;
   priv->provide = TRUE;
 
-  stream_set_state (stream, PINOS_STREAM_STATE_CONNECTING);
+  stream_set_state (stream, PINOS_STREAM_STATE_CONNECTING, NULL);
 
   g_main_context_invoke (context->priv->context,
                          (GSourceFunc) do_connect_provide,
@@ -695,16 +709,17 @@ on_source_output_removed (GObject      *source_object,
   if (ret == NULL)
     goto proxy_failed;
 
-  stream_set_state (stream, PINOS_STREAM_STATE_UNCONNECTED);
+  g_variant_unref (ret);
+
+  stream_set_state (stream, PINOS_STREAM_STATE_UNCONNECTED, NULL);
   g_object_unref (stream);
   return;
 
   /* ERRORS */
 proxy_failed:
   {
-    priv->error = error;
-    stream_set_state (stream, PINOS_STREAM_STATE_ERROR);
     g_warning ("failed to disconnect: %s", error->message);
+    stream_set_state (stream, PINOS_STREAM_STATE_ERROR, error);
     g_object_unref (stream);
     return;
   }
@@ -887,9 +902,8 @@ handle_socket (PinosStream *stream, gint fd)
   /* ERRORS */
 socket_failed:
   {
-    priv->error = error;
-    stream_set_state (stream, PINOS_STREAM_STATE_ERROR);
     g_warning ("failed to create socket: %s", error->message);
+    stream_set_state (stream, PINOS_STREAM_STATE_ERROR, error);
     return;
   }
 }
@@ -960,9 +974,11 @@ on_stream_started (GObject      *source_object,
   if ((fd = g_unix_fd_list_get (out_fd_list, fd_idx, &error)) < 0)
     goto fd_failed;
 
+  g_object_unref (out_fd_list);
+
   handle_socket (stream, fd);
 
-  stream_set_state (stream, PINOS_STREAM_STATE_STREAMING);
+  stream_set_state (stream, PINOS_STREAM_STATE_STREAMING, NULL);
 
   return;
 
@@ -975,12 +991,12 @@ start_failed:
 fd_failed:
   {
     g_warning ("failed to get FD: %s", error->message);
+    g_object_unref (out_fd_list);
     goto exit_error;
   }
 exit_error:
   {
-    priv->error = error;
-    stream_set_state (stream, PINOS_STREAM_STATE_ERROR);
+    stream_set_state (stream, PINOS_STREAM_STATE_ERROR, error);
     return;
   }
 }
@@ -1034,7 +1050,7 @@ pinos_stream_start (PinosStream     *stream,
   priv->mode = mode;
   priv->format = format;
 
-  stream_set_state (stream, PINOS_STREAM_STATE_STARTING);
+  stream_set_state (stream, PINOS_STREAM_STATE_STARTING, NULL);
 
   g_main_context_invoke (priv->context->priv->context, (GSourceFunc) do_start, stream);
 
@@ -1061,16 +1077,15 @@ on_stream_stopped (GObject      *source_object,
   g_clear_pointer (&priv->format, g_free);
   g_object_notify (G_OBJECT (stream), "format");
 
-  stream_set_state (stream, PINOS_STREAM_STATE_READY);
+  stream_set_state (stream, PINOS_STREAM_STATE_READY, NULL);
 
   return;
 
   /* ERRORS */
 call_failed:
   {
-    priv->error = error;
-    stream_set_state (stream, PINOS_STREAM_STATE_ERROR);
     g_warning ("failed to release: %s", error->message);
+    stream_set_state (stream, PINOS_STREAM_STATE_ERROR, error);
     return;
   }
 }
@@ -1223,11 +1238,6 @@ pinos_stream_provide_buffer (PinosStream *stream,
                                flags,
                                NULL,
                                &error);
-  if (sb->message) {
-    g_object_unref (sb->message);
-    sb->message = NULL;
-  }
-
   if (len == -1)
     goto send_error;
 
@@ -1237,9 +1247,8 @@ pinos_stream_provide_buffer (PinosStream *stream,
 
 send_error:
   {
-    priv->error = error;
-    stream_set_state (stream, PINOS_STREAM_STATE_ERROR);
     g_warning ("failed to send_message: %s", error->message);
+    stream_set_state (stream, PINOS_STREAM_STATE_ERROR, error);
     return FALSE;
   }
 }

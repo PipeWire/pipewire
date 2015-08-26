@@ -34,6 +34,7 @@ struct _PinosContextPrivate
 
   GDBusProxy *daemon;
   GDBusProxy *client;
+  gboolean disconnecting;
 
   PinosSubscriptionFlags subscription_mask;
   PinosSubscribe *subscribe;
@@ -56,8 +57,8 @@ GDBusProxy *           pinos_subscribe_get_proxy_finish   (PinosSubscribe *subsc
 
 
 typedef struct {
-  guint32 version;
   PinosBufferHeader header;
+  guint32 version;
   guint32 length;
 } PinosStackHeader;
 

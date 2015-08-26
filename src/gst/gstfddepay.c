@@ -169,7 +169,7 @@ gst_fddepay_transform_ip (GstBaseTransform * trans, GstBuffer * buf)
 {
   GstFddepay *fddepay = GST_FDDEPAY (trans);
   PinosBuffer pbuf;
-  PinosPacketIter it;
+  PinosBufferIter it;
   GstNetControlMessageMeta * meta;
   GSocketControlMessage *msg = NULL;
   const PinosBufferHeader *hdr;
@@ -194,16 +194,16 @@ gst_fddepay_transform_ip (GstBaseTransform * trans, GstBuffer * buf)
 
   gst_buffer_remove_all_memory (buf);
 
-  pinos_packet_iter_init (&it, &pbuf);
-  while (pinos_packet_iter_next (&it)) {
-    switch (pinos_packet_iter_get_type (&it)) {
+  pinos_buffer_iter_init (&it, &pbuf);
+  while (pinos_buffer_iter_next (&it)) {
+    switch (pinos_buffer_iter_get_type (&it)) {
       case PINOS_PACKET_TYPE_FD_PAYLOAD:
       {
         GstMemory *fdmem = NULL;
         PinosPacketFDPayload p;
         int fd;
 
-        pinos_packet_iter_parse_fd_payload (&it, &p);
+        pinos_buffer_iter_parse_fd_payload (&it, &p);
         fd = pinos_buffer_get_fd (&pbuf, p.fd_index, &err);
         if (fd == -1)
           goto error;

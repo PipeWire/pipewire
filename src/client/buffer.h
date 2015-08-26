@@ -27,8 +27,8 @@ G_BEGIN_DECLS
 
 typedef struct _PinosBuffer PinosBuffer;
 typedef struct _PinosBufferInfo PinosBufferInfo;
-typedef struct _PinosPacketIter PinosPacketIter;
-typedef struct _PinosPacketBuilder PinosPacketBuilder;
+typedef struct _PinosBufferIter PinosBufferIter;
+typedef struct _PinosBufferBuilder PinosBufferBuilder;
 
 #define PINOS_BUFFER_VERSION 0
 
@@ -75,40 +75,46 @@ typedef enum {
 
 
 /* iterating packets */
-struct _PinosPacketIter {
+struct _PinosBufferIter {
   /*< private >*/
   gsize x[16];
 };
 
-void               pinos_packet_iter_init_full   (PinosPacketIter *iter,
+void               pinos_buffer_iter_init_full   (PinosBufferIter *iter,
                                                   PinosBuffer     *buffer,
                                                   guint32          version);
-#define pinos_packet_iter_init(i,b)   pinos_packet_iter_init_full(i,b, PINOS_BUFFER_VERSION);
+#define pinos_buffer_iter_init(i,b)   pinos_buffer_iter_init_full(i,b, PINOS_BUFFER_VERSION);
 
-gboolean           pinos_packet_iter_next        (PinosPacketIter *iter);
+gboolean           pinos_buffer_iter_next        (PinosBufferIter *iter);
 
-PinosPacketType    pinos_packet_iter_get_type    (PinosPacketIter *iter);
-gpointer           pinos_packet_iter_get_data    (PinosPacketIter *iter, gsize *size);
+PinosPacketType    pinos_buffer_iter_get_type    (PinosBufferIter *iter);
+gpointer           pinos_buffer_iter_get_data    (PinosBufferIter *iter, gsize *size);
 
 /**
- * PinosPacketBuilder:
+ * PinosBufferBuilder:
  */
-struct _PinosPacketBuilder {
+struct _PinosBufferBuilder {
   /*< private >*/
   gsize x[16];
 };
 
-void               pinos_packet_builder_init_full (PinosPacketBuilder      *builder,
-                                                   guint32                  version,
-                                                   const PinosBufferHeader *header);
-#define pinos_packet_builder_init(b,h)   pinos_packet_builder_init_full(b, PINOS_BUFFER_VERSION,h);
+void               pinos_buffer_builder_init_full  (PinosBufferBuilder      *builder,
+                                                    guint32                  version);
+#define pinos_buffer_builder_init(b)   pinos_buffer_builder_init_full(b, PINOS_BUFFER_VERSION);
 
-void               pinos_packet_builder_end       (PinosPacketBuilder *builder,
-                                                   PinosBuffer        *buffer);
+void               pinos_buffer_builder_clear      (PinosBufferBuilder *builder);
+void               pinos_buffer_builder_end        (PinosBufferBuilder *builder,
+                                                    PinosBuffer        *buffer);
 
+void               pinos_buffer_builder_set_header (PinosBufferBuilder      *builder,
+                                                    const PinosBufferHeader *header);
+gint               pinos_buffer_builder_add_fd     (PinosBufferBuilder *builder,
+                                                    int                 fd,
+                                                    GError            **error);
 /* fd-payload packets */
 /**
  * PinosPacketFDPayload:
+ * @id: the unique id of this payload
  * @fd_index: the index of the fd with the data
  * @offset: the offset of the data
  * @size: the size of the data
@@ -117,16 +123,16 @@ void               pinos_packet_builder_end       (PinosPacketBuilder *builder,
  * @size.
  */
 typedef struct {
+  guint32 id;
   gint32 fd_index;
-  gint64 offset;
-  gint64 size;
+  guint64 offset;
+  guint64 size;
 } PinosPacketFDPayload;
 
-void               pinos_packet_iter_parse_fd_payload   (PinosPacketIter      *iter,
+void               pinos_buffer_iter_parse_fd_payload   (PinosBufferIter      *iter,
                                                          PinosPacketFDPayload *payload);
-gboolean           pinos_packet_builder_add_fd_payload  (PinosPacketBuilder   *builder,
-                                                         gint64 offset, gint64 size, int fd,
-                                                         GError              **error);
+gboolean           pinos_buffer_builder_add_fd_payload  (PinosBufferBuilder   *builder,
+                                                         PinosPacketFDPayload *payload);
 
 #endif /* __PINOS_BUFFER_H__ */
 

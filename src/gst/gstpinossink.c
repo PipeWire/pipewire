@@ -330,11 +330,13 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
 {
   GstPinosSink *pinossink;
   PinosBuffer pbuf;
-  PinosPacketBuilder builder;
+  PinosBufferBuilder builder;
   GstMemory *mem = NULL;
   GstClockTime pts, dts, base;
   PinosBufferHeader hdr;
+  PinosPacketFDPayload p;
   gsize size;
+  GError *err = NULL;
 
   pinossink = GST_PINOS_SINK (bsink);
 
@@ -357,8 +359,6 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
 
   size = gst_buffer_get_size (buffer);
 
-  pinos_packet_builder_init (&builder, &hdr);
-
   if (gst_buffer_n_memory (buffer) == 1
       && gst_is_fd_memory (gst_buffer_peek_memory (buffer, 0))) {
     mem = gst_buffer_get_memory (buffer, 0);
@@ -375,10 +375,20 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
     gst_memory_unmap (mem, &minfo);
   }
 
-  pinos_packet_builder_add_fd_payload (&builder, 0, size, gst_fd_memory_get_fd (mem), NULL);
+  pinos_buffer_builder_init (&builder);
+  pinos_buffer_builder_set_header (&builder, &hdr);
+
+  p.fd_index = pinos_buffer_builder_add_fd (&builder, gst_fd_memory_get_fd (mem), &err);
+  if (p.fd_index == -1)
+    goto add_fd_failed;
+  p.id = 0;
+  p.offset = 0;
+  p.size = size;
+  pinos_buffer_builder_add_fd_payload (&builder, &p);
+
   gst_memory_unref (mem);
 
-  pinos_packet_builder_end (&builder, &pbuf);
+  pinos_buffer_builder_end (&builder, &pbuf);
 
   pinos_main_loop_lock (pinossink->loop);
   if (pinos_stream_get_state (pinossink->stream) != PINOS_STREAM_STATE_STREAMING)
@@ -394,6 +404,15 @@ not_negotiated:
   }
 map_error:
   {
+    GST_ELEMENT_ERROR (pinossink, RESOURCE, FAILED,
+        ("failed to map buffer"), (NULL));
+    return GST_FLOW_ERROR;
+  }
+add_fd_failed:
+  {
+    GST_ELEMENT_ERROR (pinossink, RESOURCE, FAILED,
+        ("failed to add fd: %s", err->message), (NULL));
+    pinos_buffer_builder_clear (&builder);
     return GST_FLOW_ERROR;
   }
 streaming_error:

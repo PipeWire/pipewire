@@ -253,7 +253,7 @@ on_new_buffer (GObject    *gobject,
   GstPinosSrc *pinossrc = user_data;
   PinosBuffer pbuf;
   const PinosBufferHeader *hdr;
-  PinosPacketIter it;
+  PinosBufferIter it;
   GstBuffer *buf;
   GError *error = NULL;
 
@@ -276,9 +276,9 @@ on_new_buffer (GObject    *gobject,
   }
   GST_BUFFER_OFFSET (buf) = hdr->seq;
 
-  pinos_packet_iter_init (&it, &pbuf);
-  while (pinos_packet_iter_next (&it)) {
-    switch (pinos_packet_iter_get_type (&it)) {
+  pinos_buffer_iter_init (&it, &pbuf);
+  while (pinos_buffer_iter_next (&it)) {
+    switch (pinos_buffer_iter_get_type (&it)) {
       case PINOS_PACKET_TYPE_FD_PAYLOAD:
       {
         GstMemory *fdmem = NULL;
@@ -286,7 +286,7 @@ on_new_buffer (GObject    *gobject,
         int fd;
 
         GST_DEBUG ("got fd payload");
-        pinos_packet_iter_parse_fd_payload  (&it, &p);
+        pinos_buffer_iter_parse_fd_payload  (&it, &p);
         fd = pinos_buffer_get_fd (&pbuf, p.fd_index, &error);
         if (fd == -1)
           goto no_fds;

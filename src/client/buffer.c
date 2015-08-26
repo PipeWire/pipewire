@@ -176,9 +176,9 @@ pinos_buffer_store (PinosBuffer       *buffer,
 }
 
 /**
- * PinosPacketIter:
+ * PinosBufferIter:
  *
- * #PinosPacketIter is an opaque data structure and can only be accessed
+ * #PinosBufferIter is an opaque data structure and can only be accessed
  * using the following functions.
  */
 struct stack_iter {
@@ -194,7 +194,7 @@ struct stack_iter {
   guint             item;
 };
 
-G_STATIC_ASSERT (sizeof (struct stack_iter) <= sizeof (PinosPacketIter));
+G_STATIC_ASSERT (sizeof (struct stack_iter) <= sizeof (PinosBufferIter));
 
 #define PPSI(i)             ((struct stack_iter *) (i))
 #define PPSI_MAGIC          ((gsize) 6739527471u)
@@ -202,14 +202,14 @@ G_STATIC_ASSERT (sizeof (struct stack_iter) <= sizeof (PinosPacketIter));
                              PPSI(i)->magic == PPSI_MAGIC)
 
 /**
- * pinos_packet_iter_init:
- * @iter: a #PinosPacketIter
+ * pinos_buffer_iter_init:
+ * @iter: a #PinosBufferIter
  * @buffer: a #PinosBuffer
  *
  * Initialize @iter to iterate the packets in @buffer.
  */
 void
-pinos_packet_iter_init_full (PinosPacketIter *iter,
+pinos_buffer_iter_init_full (PinosBufferIter *iter,
                              PinosBuffer     *buffer,
                              guint32          version)
 {
@@ -255,15 +255,15 @@ read_length (guint8 * data, guint size, gsize * length, gsize * skip)
 
 
 /**
- * pinos_packet_iter_next:
- * @iter: a #PinosPacketIter
+ * pinos_buffer_iter_next:
+ * @iter: a #PinosBufferIter
  *
  * Move to the next packet in @iter.
  *
  * Returns: %TRUE if more packets are available.
  */
 gboolean
-pinos_packet_iter_next (PinosPacketIter *iter)
+pinos_buffer_iter_next (PinosBufferIter *iter)
 {
   struct stack_iter *si = PPSI (iter);
   gsize len, size, skip;
@@ -302,7 +302,7 @@ pinos_packet_iter_next (PinosPacketIter *iter)
 }
 
 PinosPacketType
-pinos_packet_iter_get_type (PinosPacketIter *iter)
+pinos_buffer_iter_get_type (PinosBufferIter *iter)
 {
   struct stack_iter *si = PPSI (iter);
 
@@ -312,7 +312,7 @@ pinos_packet_iter_get_type (PinosPacketIter *iter)
 }
 
 gpointer
-pinos_packet_iter_get_data (PinosPacketIter *iter, gsize *size)
+pinos_buffer_iter_get_data (PinosBufferIter *iter, gsize *size)
 {
   struct stack_iter *si = PPSI (iter);
 
@@ -326,7 +326,7 @@ pinos_packet_iter_get_data (PinosPacketIter *iter, gsize *size)
 
 
 /**
- * PinosPacketBuilder:
+ * PinosBufferBuilder:
  * @buffer: owner #PinosBuffer
  */
 struct stack_builder {
@@ -338,10 +338,10 @@ struct stack_builder {
   PinosPacketType   type;
   gsize             offset;
 
-  guint             n_sockets;
+  guint             n_fds;
 };
 
-G_STATIC_ASSERT (sizeof (struct stack_builder) <= sizeof (PinosPacketBuilder));
+G_STATIC_ASSERT (sizeof (struct stack_builder) <= sizeof (PinosBufferBuilder));
 
 #define PPSB(b)             ((struct stack_builder *) (b))
 #define PPSB_MAGIC          ((gsize) 8103647428u)
@@ -349,10 +349,16 @@ G_STATIC_ASSERT (sizeof (struct stack_builder) <= sizeof (PinosPacketBuilder));
                              PPSB(b)->magic == PPSB_MAGIC)
 
 
+/**
+ * pinos_buffer_builder_init_full:
+ * @builder: a #PinosBufferBuilder
+ * @version: a version
+ *
+ * Initialize a stack allocated @builder and set the @version.
+ */
 void
-pinos_packet_builder_init_full (PinosPacketBuilder       *builder,
-                                guint32                   version,
-                                const PinosBufferHeader  *header)
+pinos_buffer_builder_init_full (PinosBufferBuilder       *builder,
+                                guint32                   version)
 {
   struct stack_builder *sb = PPSB (builder);
   PinosStackHeader *sh;
@@ -367,15 +373,47 @@ pinos_packet_builder_init_full (PinosPacketBuilder       *builder,
 
   sh = sb->sh = sb->buf.data;
   sh->version = version;
-  sh->header = *header;
   sh->length = 0;
 
   sb->type = 0;
   sb->offset = 0;
+  sb->n_fds = 0;
 }
 
+/**
+ * pinos_buffer_builder_clear:
+ * @builder: a #PinosBufferBuilder
+ *
+ * Clear the memory used by @builder. This can be used to abort building the
+ * buffer.
+ *
+ * @builder becomes invalid after this function and can be reused with
+ * pinos_buffer_builder_init()
+ */
 void
-pinos_packet_builder_end (PinosPacketBuilder *builder,
+pinos_buffer_builder_clear (PinosBufferBuilder *builder)
+{
+  struct stack_builder *sb = PPSB (builder);
+
+  g_return_if_fail (is_valid_builder (builder));
+
+  sb->magic = 0;
+  g_free (sb->buf.data);
+}
+
+/**
+ * pinos_buffer_builder_end:
+ * @builder: a #PinosBufferBuilder
+ * @buffer: a #PinosBuffer
+ *
+ * Ends the building process and fills @buffer with the constructed
+ * #PinosBuffer.
+ *
+ * @builder becomes invalid after this function and can be reused with
+ * pinos_buffer_builder_init()
+ */
+void
+pinos_buffer_builder_end (PinosBufferBuilder *builder,
                           PinosBuffer        *buffer)
 {
   struct stack_builder *sb = PPSB (builder);
@@ -396,7 +434,58 @@ pinos_packet_builder_end (PinosPacketBuilder *builder,
   sb->buf.size = 0;
   sb->buf.allocated_size = 0;
   sb->buf.message = NULL;
-  sb->buf.magic = 0;
+  sb->magic = 0;
+}
+
+/**
+ * pinos_buffer_builder_set_header:
+ * @builder: a #PinosBufferBuilder
+ * @header: a #PinosBufferHeader
+ *
+ * Set @header in @builder.
+ */
+void
+pinos_buffer_builder_set_header (PinosBufferBuilder       *builder,
+                                 const PinosBufferHeader  *header)
+{
+  struct stack_builder *sb = PPSB (builder);
+
+  g_return_if_fail (is_valid_builder (builder));
+  g_return_if_fail (header != NULL);
+
+  sb->sh->header = *header;
+}
+
+/**
+ * pinos_buffer_builder_add_fd:
+ * @builder: a #PinosBufferBuilder
+ * @fd: a valid fd
+ * @error: a #GError or %NULL
+ *
+ * Add the file descriptor @fd to @builder.
+ *
+ * Returns: the index of the file descriptor in @builder. The file descriptor
+ * is duplicated using dup(). You keep your copy of the descriptor and the copy
+ * contained in @buffer will be closed when @buffer is freed.
+ * -1 is returned on error and @error is set.
+ */
+gint
+pinos_buffer_builder_add_fd (PinosBufferBuilder *builder,
+                             int                 fd,
+                             GError            **error)
+{
+  struct stack_builder *sb = PPSB (builder);
+
+  g_return_val_if_fail (is_valid_builder (builder), -1);
+  g_return_val_if_fail (fd > 0, -1);
+
+  if (sb->buf.message == NULL)
+    sb->buf.message = g_unix_fd_message_new ();
+
+  if (!g_unix_fd_message_append_fd ((GUnixFDMessage*)sb->buf.message, fd, error))
+    return -1;
+
+  return sb->n_fds++;
 }
 
 static gpointer
@@ -437,15 +526,15 @@ builder_add_packet (struct stack_builder *sb, PinosPacketType type, gsize size)
 
 /* fd-payload packets */
 /**
- * pinos_packet_iter_get_fd_payload:
- * @iter: a #PinosPacketIter
+ * pinos_buffer_iter_get_fd_payload:
+ * @iter: a #PinosBufferIter
  * @payload: a #PinosPacketFDPayload
  *
  * Get the #PinosPacketFDPayload. @iter must be positioned on a packet of
  * type #PINOS_PACKET_TYPE_FD_PAYLOAD
  */
 void
-pinos_packet_iter_parse_fd_payload (PinosPacketIter *iter,
+pinos_buffer_iter_parse_fd_payload (PinosBufferIter *iter,
                                     PinosPacketFDPayload *payload)
 {
   struct stack_iter *si = PPSI (iter);
@@ -457,42 +546,26 @@ pinos_packet_iter_parse_fd_payload (PinosPacketIter *iter,
 }
 
 /**
- * pinos_packet_builder_add_fd_payload:
- * @builder: a #PinosPacketBuilder
- * @offset: an offset
- * @size: a size
- * @fd: a file descriptor
- * @error: a #GError or %NULL
+ * pinos_buffer_builder_add_fd_payload:
+ * @builder: a #PinosBufferBuilder
+ * @payload: a #PinosPacketFDPayload
  *
- * Add a #PINOS_PACKET_TYPE_FD_PAYLOAD to @builder.
+ * Add a #PINOS_PACKET_TYPE_FD_PAYLOAD to @builder with data from @payload.
  *
- * Returns: %TRUE on success. When %FALSE is returned, @error contains more
- *          information.
+ * Returns: %TRUE on success.
  */
 gboolean
-pinos_packet_builder_add_fd_payload (PinosPacketBuilder *builder,
-                                     gint64 offset, gint64 size, int fd,
-                                     GError **error)
+pinos_buffer_builder_add_fd_payload (PinosBufferBuilder *builder,
+                                     PinosPacketFDPayload *payload)
 {
   struct stack_builder *sb = PPSB (builder);
   PinosPacketFDPayload *p;
 
-  g_return_if_fail (is_valid_builder (builder));
-  g_return_if_fail (size > 0);
-  g_return_if_fail (offset >= 0);
-  g_return_if_fail (fd != -1);
-
-  if (sb->buf.message == NULL) {
-    sb->buf.message = g_unix_fd_message_new ();
-    sb->n_sockets = 0;
-  }
-  if (!g_unix_fd_message_append_fd ((GUnixFDMessage*)sb->buf.message, fd, error))
-    return FALSE;
+  g_return_val_if_fail (is_valid_builder (builder), FALSE);
+  g_return_val_if_fail (payload->size > 0, FALSE);
 
   p = builder_add_packet (sb, PINOS_PACKET_TYPE_FD_PAYLOAD, sizeof (PinosPacketFDPayload));
-  p->offset = offset;
-  p->size = size;
-  p->fd_index = sb->n_sockets++;
+  *p = *payload;
 
   return TRUE;
 }

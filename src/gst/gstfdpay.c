@@ -242,8 +242,9 @@ gst_fdpay_transform (GstBaseTransform * trans, GstBuffer * inbuf,
   GstMapInfo info;
   GError *err = NULL;
   PinosBuffer pbuf;
-  PinosPacketBuilder builder;
+  PinosBufferBuilder builder;
   PinosBufferHeader hdr;
+  PinosPacketFDPayload p;
   gsize size;
 
   GST_DEBUG_OBJECT (fdpay, "transform_ip");
@@ -255,15 +256,18 @@ gst_fdpay_transform (GstBaseTransform * trans, GstBuffer * inbuf,
   hdr.pts = GST_BUFFER_TIMESTAMP (inbuf) + GST_ELEMENT_CAST (trans)->base_time;
   hdr.dts_offset = 0;
 
-  pinos_packet_builder_init (&builder, &hdr);
-  if (!pinos_packet_builder_add_fd_payload (&builder,
-                                            fdmem->offset,
-                                            fdmem->size,
-                                            gst_fd_memory_get_fd (fdmem),
-                                            &err))
-    goto append_fd_failed;
+  pinos_buffer_builder_init (&builder);
+  pinos_buffer_builder_set_header (&builder, &hdr);
 
-  pinos_packet_builder_end (&builder, &pbuf);
+  p.fd_index = pinos_buffer_builder_add_fd (&builder, gst_fd_memory_get_fd (fdmem), &err);
+  if (p.fd_index == -1)
+    goto add_fd_failed;
+  p.id = 0;
+  p.offset = fdmem->offset;
+  p.size = fdmem->size;
+  pinos_buffer_builder_add_fd_payload (&builder, &p);
+
+  pinos_buffer_builder_end (&builder, &pbuf);
   gst_memory_unref(fdmem);
   fdmem = NULL;
 
@@ -282,9 +286,9 @@ gst_fdpay_transform (GstBaseTransform * trans, GstBuffer * inbuf,
   return GST_FLOW_OK;
 
   /* ERRORS */
-append_fd_failed:
+add_fd_failed:
   {
-    GST_WARNING_OBJECT (trans, "Appending fd failed: %s", err->message);
+    GST_WARNING_OBJECT (trans, "Adding fd failed: %s", err->message);
     gst_memory_unref(fdmem);
     g_clear_error (&err);
 

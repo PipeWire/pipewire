@@ -71,17 +71,26 @@ Types:
 
  0: fd-payload section
 
+   Used to send a buffer between client and server.
+
+   <id>        : 4 bytes      : id of the fd-payload
    <offset>    : 8 bytes      : offset
    <size>      : 8 bytes      : size
    <fd-index>  : 4 bytes      : index of fd
 
- 1: format change
+ 1: release fd-payload
+
+   Release a fd-payload with <id>
+
+   <id>        : 4 bytes      : the id number of the released fd-payload
+
+ 2: format change
 
    <format-id> : 1 byte       : format id
    <format>    : 0-terminated : contains serialized format
 
 
- 2: property changes
+ 3: property changes
 
    <key>       : 0-terminated   : key
    <value>     : 0-terminated   : value

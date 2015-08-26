@@ -1210,7 +1210,7 @@ pinos_stream_provide_buffer (PinosStream *stream,
   if (len == -1)
     goto send_error;
 
-  g_assert (len == sb->size);
+  g_assert (len == (gssize) sb->size);
 
   return TRUE;
 

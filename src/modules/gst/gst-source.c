@@ -126,7 +126,7 @@ setup_pipeline (PinosGstSource *source, GError **error)
   gst_bin_add (GST_BIN (priv->pipeline), priv->filter);
   gst_element_link (priv->element, priv->filter);
 
-  elem = gst_element_factory_make ("pinosfdpay", NULL);
+  elem = gst_element_factory_make ("pinospay", NULL);
   gst_bin_add (GST_BIN (priv->pipeline), elem);
   gst_element_link (priv->filter, elem);
 

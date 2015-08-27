@@ -30,18 +30,30 @@
 
 G_STATIC_ASSERT (sizeof (PinosStackBuffer) <= sizeof (PinosBuffer));
 
+/**
+ * pinos_buffer_init_data:
+ * @buffer: a #PinosBuffer
+ * @data: data
+ * @size: size of @data
+ * @message: (transfer full): a #GSocketControlMessage
+ *
+ * Initialize @buffer with @data and @size and @message. @data and size
+ * must not be modified until pinos_buffer_clear() is called.
+ *
+ * Ownership is taken of @message.
+ */
 void
-pinos_buffer_init_take_data (PinosBuffer       *buffer,
-                             gpointer           data,
-                             gsize              size,
-                             GSocketControlMessage *message)
+pinos_buffer_init_data (PinosBuffer       *buffer,
+                        gpointer           data,
+                        gsize              size,
+                        GSocketControlMessage *message)
 {
   PinosStackBuffer *sb = PSB (buffer);
 
   sb->magic = PSB_MAGIC;
   sb->data = data;
   sb->size = size;
-  sb->allocated_size = size;
+  sb->allocated_size = 0;
   sb->message = message;
 }
 
@@ -52,7 +64,9 @@ pinos_buffer_clear (PinosBuffer *buffer)
 
   g_return_val_if_fail (is_valid_buffer (buffer), -1);
 
-  g_free (sb->data);
+  sb->magic = 0;
+  if (sb->allocated_size)
+    g_free (sb->data);
   sb->size = 0;
   sb->allocated_size = 0;
   g_clear_object (&sb->message);
@@ -120,59 +134,39 @@ not_found:
 }
 
 /**
- * pinos_buffer_get_socket_control_message:
+ * pinos_buffer_steal_data:
  * @buffer: a #PinosBuffer
+ * @size: output size
+ * @message: output #GSocketControlMessage
  *
- * Get the #GSocketControlMessage of @buffer
+ * Take the data and control message from @buffer.
  *
- * Returns: the #GSocketControlMessage it remains valid as long as @buffer
- * is valid
+ * Returns: the data of @buffer.
  */
-GSocketControlMessage *
-pinos_buffer_get_socket_control_message  (PinosBuffer *buffer)
+gpointer
+pinos_buffer_steal (PinosBuffer       *buffer,
+                    gsize             *size,
+                    GSocketControlMessage **message)
 {
   PinosStackBuffer *sb = PSB (buffer);
-
-  g_return_val_if_fail (is_valid_buffer (buffer), NULL);
-
-  return sb->message;
-}
-
-/**
- * pinos_buffer_get_size:
- * @buffer: a #PinosBuffer
- *
- * Get the total size needed to store @buffer with pinos_buffer_store().
- *
- * Returns: the serialized size of @buffer.
- */
-gsize
-pinos_buffer_get_size (PinosBuffer *buffer)
-{
-  PinosStackBuffer *sb = PSB (buffer);
+  gpointer data;
 
   g_return_val_if_fail (is_valid_buffer (buffer), 0);
 
-  return sizeof (PinosStackHeader) + sb->size;
-}
+  if (size)
+    *size = sb->size;
+  if (message)
+    *message = sb->message;
 
-/**
- * pinos_buffer_store:
- * @buffer: a #PinosBuffer
- * @data: destination
- *
- * Store the contents of @buffer in @data. @data must be large enough, see
- * pinos_buffer_get_size().
- */
-void
-pinos_buffer_store (PinosBuffer       *buffer,
-                    gpointer           data)
-{
-  PinosStackBuffer *sb = PSB (buffer);
+  data = sb->data;
 
-  g_return_val_if_fail (is_valid_buffer (buffer), 0);
+  sb->magic = 0;
+  sb->data = NULL;
+  sb->size = 0;
+  sb->allocated_size = 0;
+  sb->message = NULL;
 
-  memcpy (data, sb->data, sizeof (PinosStackHeader) + sb->size);
+  return data;
 }
 
 /**

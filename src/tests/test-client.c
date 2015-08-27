@@ -38,7 +38,7 @@ on_socket_notify (GObject    *gobject,
   GstCaps *caps;
   GError *error = NULL;
 
-  pipeline = gst_parse_launch ("socketsrc name=src ! pinosfddepay ! capsfilter name=filter ! videoconvert ! xvimagesink", &error);
+  pipeline = gst_parse_launch ("socketsrc name=src ! pinosdepay ! capsfilter name=filter ! videoconvert ! xvimagesink", &error);
   if (error != NULL) {
     g_warning ("error creating pipeline: %s", error->message);
     g_clear_error (&error);

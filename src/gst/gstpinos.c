@@ -35,18 +35,18 @@
 #include "gstpinossrc.h"
 #include "gstpinossink.h"
 #include "gstpinosdeviceprovider.h"
-#include "gstfdpay.h"
-#include "gstfddepay.h"
+#include "gstpinospay.h"
+#include "gstpinosdepay.h"
 
 GST_DEBUG_CATEGORY (pinos_debug);
 
 static gboolean
 plugin_init (GstPlugin * plugin)
 {
-  gst_element_register (plugin, "pinosfdpay", GST_RANK_NONE,
-      GST_TYPE_FDPAY);
-  gst_element_register (plugin, "pinosfddepay", GST_RANK_NONE,
-      GST_TYPE_FDDEPAY);
+  gst_element_register (plugin, "pinospay", GST_RANK_NONE,
+      GST_TYPE_PINOS_PAY);
+  gst_element_register (plugin, "pinosdepay", GST_RANK_NONE,
+      GST_TYPE_PINOS_DEPAY);
   gst_element_register (plugin, "pinossrc", GST_RANK_PRIMARY + 1,
       GST_TYPE_PINOS_SRC);
   gst_element_register (plugin, "pinossink", GST_RANK_NONE,

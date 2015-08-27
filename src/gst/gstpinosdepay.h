@@ -1,5 +1,6 @@
 /* GStreamer
  * Copyright (C) 2014 William Manley <will@williammanley.net>
+ * Copyright (C) 2015 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -17,32 +18,37 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef _GST_FDDEPAY_H_
-#define _GST_FDDEPAY_H_
+#ifndef _GST_PINOS_DEPAY_H_
+#define _GST_PINOS_DEPAY_H_
 
-#include <gst/base/gstbasetransform.h>
+#include <gst/gst.h>
 
 G_BEGIN_DECLS
-#define GST_TYPE_FDDEPAY   (gst_fddepay_get_type())
-#define GST_FDDEPAY(obj)   (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_FDDEPAY,GstFddepay))
-#define GST_FDDEPAY_CLASS(klass)   (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_FDDEPAY,GstFddepayClass))
-#define GST_IS_FDDEPAY(obj)   (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_FDDEPAY))
-#define GST_IS_FDDEPAY_CLASS(obj)   (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_FDDEPAY))
-typedef struct _GstFddepay GstFddepay;
-typedef struct _GstFddepayClass GstFddepayClass;
 
-struct _GstFddepay
+#define GST_TYPE_PINOS_DEPAY            (gst_pinos_depay_get_type())
+#define GST_PINOS_DEPAY(obj)            (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_PINOS_DEPAY,GstPinosDepay))
+#define GST_PINOS_DEPAY_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_PINOS_DEPAY,GstPinosDepayClass))
+#define GST_IS_PINOS_DEPAY(obj)         (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_PINOS_DEPAY))
+#define GST_IS_PINOS_DEPAY_CLASS(obj)   (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_PINOS_DEPAY))
+
+typedef struct _GstPinosDepay GstPinosDepay;
+typedef struct _GstPinosDepayClass GstPinosDepayClass;
+
+struct _GstPinosDepay
 {
-  GstBaseTransform base_fddepay;
+  GstElement parent;
+
+  GstPad *srcpad, *sinkpad;
   GstAllocator *fd_allocator;
 };
 
-struct _GstFddepayClass
+struct _GstPinosDepayClass
 {
-  GstBaseTransformClass base_fddepay_class;
+  GstElementClass parent_class;
 };
 
-GType gst_fddepay_get_type (void);
+GType gst_pinos_depay_get_type (void);
 
 G_END_DECLS
+
 #endif

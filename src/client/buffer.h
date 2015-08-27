@@ -44,7 +44,7 @@ struct _PinosBuffer {
   gsize x[16];
 };
 
-void               pinos_buffer_init_take_data   (PinosBuffer       *buffer,
+void               pinos_buffer_init_data        (PinosBuffer       *buffer,
                                                   gpointer           data,
                                                   gsize              size,
                                                   GSocketControlMessage *message);
@@ -57,12 +57,10 @@ const PinosBufferHeader *
 int                pinos_buffer_get_fd           (PinosBuffer       *buffer,
                                                   gint               index,
                                                   GError           **error);
-GSocketControlMessage *
-                   pinos_buffer_get_socket_control_message  (PinosBuffer *buffer);
 
-gsize              pinos_buffer_get_size         (PinosBuffer       *buffer);
-void               pinos_buffer_store            (PinosBuffer       *buffer,
-                                                  gpointer           data);
+gpointer           pinos_buffer_steal            (PinosBuffer       *buffer,
+                                                  gsize             *size,
+                                                  GSocketControlMessage **message);
 
 
 typedef enum {

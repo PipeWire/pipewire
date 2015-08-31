@@ -55,18 +55,27 @@ Wire
 
 Fixed header
 
-<version>     : 4 bytes       : total message length
+<version>     : 4 bytes       : message version
 <length>      : 4 bytes       : total message length
 
 Followed by 1 or more type-length-data sections
 
 <type>   : 1 byte
-<length> : variable length, 7 bits, hight bit is continuation marker
+<length> : variable length, 7 bits, high bit is continuation marker
 <data>   : <length> bytes, see below for contents based on <type>
 
 Types:
 
- 1: header
+ 1: continuation section
+
+   Rest of the commands can be found in the shared memory region at
+   @offset and @size. A shared memory region is negotiated when the client
+   connects to the server.
+
+   <offset>     : 8 bytes      : offset
+   <size>       : 8 bytes      : size
+
+ 2: header
 
    Header for payload
 
@@ -75,27 +84,33 @@ Types:
    <pts>        : 8 bytes      : presentation time
    <dts-offset> : 8 bytes      : dts-offset
 
- 2: fd-payload section
+ 3: fd-payload section
 
-   Used to send a buffer between client and server.
+   Used to send a block of data between client and server. The type of fd and
+   the possible operations on it are negotiated when the client connects.
 
    <id>         : 4 bytes      : id of the fd-payload
    <offset>     : 8 bytes      : offset
    <size>       : 8 bytes      : size
    <fd-index>   : 4 bytes      : index of fd
 
- 3: release fd-payload
+ 4: release fd-payload
 
    Release a fd-payload with <id>
 
    <id>         : 4 bytes      : the id number of the released fd-payload
 
- 4: format change
+ 5: format change
+
+   Perform an in-band format change. The following data blocks will be in this
+   new format.
 
    <format-id>  : 1 byte       : format id
    <format>     : 0-terminated : contains serialized format
 
- 5: property changes
+ 6: property changes
+
+   Notify a property change.
 
    <key>       : 0-terminated   : key
    <value>     : 0-terminated   : value

@@ -56,6 +56,8 @@ gpointer           pinos_buffer_steal            (PinosBuffer       *buffer,
 /**
  * PinosPacketType:
  * @PINOS_PACKET_TYPE_INVALID: invalid packet type, ignore
+ * @PINOS_PACKET_TYPE_CONTINUATION: continuation packet, used internally to send
+ *      commands using a shared memory region.
  * @PINOS_PACKET_TYPE_HEADER: common packet header
  * @PINOS_PACKET_TYPE_FD_PAYLOAD: packet contains fd-payload. An fd-payload contains
  *      the media data as a file descriptor
@@ -69,11 +71,12 @@ gpointer           pinos_buffer_steal            (PinosBuffer       *buffer,
 typedef enum {
   PINOS_PACKET_TYPE_INVALID            = 0,
 
-  PINOS_PACKET_TYPE_HEADER             = 1,
-  PINOS_PACKET_TYPE_FD_PAYLOAD         = 2,
-  PINOS_PACKET_TYPE_RELEASE_FD_PAYLOAD = 3,
-  PINOS_PACKET_TYPE_FORMAT_CHANGE      = 4,
-  PINOS_PACKET_TYPE_PROPERTY_CHANGE    = 5,
+  PINOS_PACKET_TYPE_CONTINUATION       = 1,
+  PINOS_PACKET_TYPE_HEADER             = 2,
+  PINOS_PACKET_TYPE_FD_PAYLOAD         = 3,
+  PINOS_PACKET_TYPE_RELEASE_FD_PAYLOAD = 4,
+  PINOS_PACKET_TYPE_FORMAT_CHANGE      = 5,
+  PINOS_PACKET_TYPE_PROPERTY_CHANGE    = 6,
 } PinosPacketType;
 
 

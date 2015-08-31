@@ -72,8 +72,16 @@ pinos_buffer_clear (PinosBuffer *buffer)
   g_clear_object (&sb->message);
 }
 
-const PinosBufferHeader *
-pinos_buffer_get_header (PinosBuffer *buffer, guint32 *version)
+/**
+ * pinos_buffer_get_version
+ * @buffer: a #PinosBuffer
+ *
+ * Get the buffer version
+ *
+ * Returns: the buffer version.
+ */
+guint32
+pinos_buffer_get_version (PinosBuffer *buffer)
 {
   PinosStackBuffer *sb = PSB (buffer);
   PinosStackHeader *hdr;
@@ -82,10 +90,7 @@ pinos_buffer_get_header (PinosBuffer *buffer, guint32 *version)
 
   hdr = sb->data;
 
-  if (version)
-    *version = hdr->version;
-
-  return (const PinosBufferHeader *) &hdr->header;
+  return hdr->version;
 }
 
 /**
@@ -134,7 +139,7 @@ not_found:
 }
 
 /**
- * pinos_buffer_steal_data:
+ * pinos_buffer_steal:
  * @buffer: a #PinosBuffer
  * @size: output size
  * @message: output #GSocketControlMessage
@@ -432,25 +437,6 @@ pinos_buffer_builder_end (PinosBufferBuilder *builder,
 }
 
 /**
- * pinos_buffer_builder_set_header:
- * @builder: a #PinosBufferBuilder
- * @header: a #PinosBufferHeader
- *
- * Set @header in @builder.
- */
-void
-pinos_buffer_builder_set_header (PinosBufferBuilder       *builder,
-                                 const PinosBufferHeader  *header)
-{
-  struct stack_builder *sb = PPSB (builder);
-
-  g_return_if_fail (is_valid_builder (builder));
-  g_return_if_fail (header != NULL);
-
-  sb->sh->header = *header;
-}
-
-/**
  * pinos_buffer_builder_add_fd:
  * @builder: a #PinosBufferBuilder
  * @fd: a valid fd
@@ -518,6 +504,58 @@ builder_add_packet (struct stack_builder *sb, PinosPacketType type, gsize size)
   return p;
 }
 
+/* header packets */
+/**
+ * pinos_buffer_iter_get_header:
+ * @iter: a #PinosBufferIter
+ * @header: a #PinosPacketHeader
+ *
+ * Get the #PinosPacketHeader. @iter must be positioned on a packet of
+ * type #PINOS_PACKET_TYPE_HEADER
+ *
+ * Returns: %TRUE if @header contains valid data.
+ */
+gboolean
+pinos_buffer_iter_parse_header (PinosBufferIter *iter,
+                                PinosPacketHeader *header)
+{
+  struct stack_iter *si = PPSI (iter);
+
+  g_return_val_if_fail (is_valid_iter (iter), FALSE);
+  g_return_val_if_fail (si->type == PINOS_PACKET_TYPE_HEADER, FALSE);
+
+  if (si->size < sizeof (PinosPacketHeader))
+    return FALSE;
+
+  *header = *((PinosPacketHeader *) si->data);
+
+  return TRUE;
+}
+
+/**
+ * pinos_buffer_builder_add_header:
+ * @builder: a #PinosBufferBuilder
+ * @header: a #PinosPacketHeader
+ *
+ * Add a #PINOS_PACKET_TYPE_HEADER to @builder with data from @header.
+ *
+ * Returns: %TRUE on success.
+ */
+gboolean
+pinos_buffer_builder_add_header (PinosBufferBuilder *builder,
+                                 PinosPacketHeader *header)
+{
+  struct stack_builder *sb = PPSB (builder);
+  PinosPacketHeader *h;
+
+  g_return_val_if_fail (is_valid_builder (builder), FALSE);
+
+  h = builder_add_packet (sb, PINOS_PACKET_TYPE_HEADER, sizeof (PinosPacketHeader));
+  *h = *header;
+
+  return TRUE;
+}
+
 /* fd-payload packets */
 /**
  * pinos_buffer_iter_get_fd_payload:
@@ -526,17 +564,24 @@ builder_add_packet (struct stack_builder *sb, PinosPacketType type, gsize size)
  *
  * Get the #PinosPacketFDPayload. @iter must be positioned on a packet of
  * type #PINOS_PACKET_TYPE_FD_PAYLOAD
+ *
+ * Returns: %TRUE if @payload contains valid data.
  */
-void
+gboolean
 pinos_buffer_iter_parse_fd_payload (PinosBufferIter *iter,
                                     PinosPacketFDPayload *payload)
 {
   struct stack_iter *si = PPSI (iter);
 
-  g_return_if_fail (is_valid_iter (iter));
-  g_return_if_fail (si->type == PINOS_PACKET_TYPE_FD_PAYLOAD);
+  g_return_val_if_fail (is_valid_iter (iter), FALSE);
+  g_return_val_if_fail (si->type == PINOS_PACKET_TYPE_FD_PAYLOAD, FALSE);
+
+  if (si->size < sizeof (PinosPacketFDPayload))
+    return FALSE;
 
   *payload = *((PinosPacketFDPayload *) si->data);
+
+  return TRUE;
 }
 
 /**
@@ -564,3 +609,36 @@ pinos_buffer_builder_add_fd_payload (PinosBufferBuilder *builder,
   return TRUE;
 }
 
+gboolean
+pinos_buffer_iter_parse_release_fd_payload (PinosBufferIter      *iter,
+                                            PinosPacketReleaseFDPayload *payload)
+{
+  struct stack_iter *si = PPSI (iter);
+
+  g_return_val_if_fail (is_valid_iter (iter), FALSE);
+  g_return_val_if_fail (si->type == PINOS_PACKET_TYPE_RELEASE_FD_PAYLOAD, FALSE);
+
+  if (si->size < sizeof (PinosPacketReleaseFDPayload))
+    return FALSE;
+
+  *payload = *((PinosPacketReleaseFDPayload *) si->data);
+
+  return TRUE;
+}
+
+gboolean
+pinos_buffer_builder_add_release_fd_payload (PinosBufferBuilder   *builder,
+                                             PinosPacketReleaseFDPayload *payload)
+{
+  struct stack_builder *sb = PPSB (builder);
+  PinosPacketReleaseFDPayload *p;
+
+  g_return_val_if_fail (is_valid_builder (builder), FALSE);
+
+  p = builder_add_packet (sb,
+                          PINOS_PACKET_TYPE_RELEASE_FD_PAYLOAD,
+                          sizeof (PinosPacketReleaseFDPayload));
+  *p = *payload;
+
+  return TRUE;
+}

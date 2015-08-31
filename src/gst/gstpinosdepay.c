@@ -86,15 +86,19 @@ gst_pinos_depay_chain (GstPad *pad, GstObject * parent, GstBuffer * buffer)
   PinosBufferIter it;
   GstNetControlMessageMeta * meta;
   GSocketControlMessage *msg = NULL;
-  const PinosBufferHeader *hdr;
   GError *err = NULL;
 
   meta = ((GstNetControlMessageMeta*) gst_buffer_get_meta (
       buffer, GST_NET_CONTROL_MESSAGE_META_API_TYPE));
   if (meta) {
-    msg = meta->message;
+    msg = g_object_ref (meta->message);
     gst_buffer_remove_meta (buffer, (GstMeta *) meta);
     meta = NULL;
+  }
+
+  if (msg == NULL) {
+    gst_buffer_unref (buffer);
+    return GST_FLOW_OK;
   }
 
   outbuf = gst_buffer_new ();
@@ -105,13 +109,24 @@ gst_pinos_depay_chain (GstPad *pad, GstObject * parent, GstBuffer * buffer)
   pinos_buffer_iter_init (&it, &pbuf);
   while (pinos_buffer_iter_next (&it)) {
     switch (pinos_buffer_iter_get_type (&it)) {
+      case PINOS_PACKET_TYPE_HEADER:
+      {
+        PinosPacketHeader hdr;
+
+        if (!pinos_buffer_iter_parse_header (&it, &hdr))
+          goto error;
+
+        GST_BUFFER_OFFSET (outbuf) = hdr.seq;
+        break;
+      }
       case PINOS_PACKET_TYPE_FD_PAYLOAD:
       {
         GstMemory *fdmem = NULL;
         PinosPacketFDPayload p;
         int fd;
 
-        pinos_buffer_iter_parse_fd_payload (&it, &p);
+        if (!pinos_buffer_iter_parse_fd_payload (&it, &p))
+          goto error;
         fd = pinos_buffer_get_fd (&pbuf, p.fd_index, &err);
         if (fd == -1)
           goto error;
@@ -126,8 +141,6 @@ gst_pinos_depay_chain (GstPad *pad, GstObject * parent, GstBuffer * buffer)
         break;
     }
   }
-  hdr = pinos_buffer_get_header (&pbuf, NULL);
-  GST_BUFFER_OFFSET (buffer) = hdr->seq;
   pinos_buffer_clear (&pbuf);
   gst_buffer_unmap (buffer, &info);
   gst_buffer_unref (buffer);
@@ -139,6 +152,7 @@ error:
     GST_ELEMENT_ERROR (depay, RESOURCE, SETTINGS, (NULL),
         ("can't get fd: %s", err->message));
     g_clear_error (&err);
+    gst_buffer_unref (outbuf);
     return GST_FLOW_ERROR;
   }
 }

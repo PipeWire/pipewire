@@ -26,18 +26,10 @@
 G_BEGIN_DECLS
 
 typedef struct _PinosBuffer PinosBuffer;
-typedef struct _PinosBufferInfo PinosBufferInfo;
 typedef struct _PinosBufferIter PinosBufferIter;
 typedef struct _PinosBufferBuilder PinosBufferBuilder;
 
 #define PINOS_BUFFER_VERSION 0
-
-typedef struct {
-  guint32 flags;
-  guint32 seq;
-  gint64 pts;
-  gint64 dts_offset;
-} PinosBufferHeader;
 
 struct _PinosBuffer {
   /*< private >*/
@@ -51,9 +43,7 @@ void               pinos_buffer_init_data        (PinosBuffer       *buffer,
 
 void               pinos_buffer_clear            (PinosBuffer       *buffer);
 
-const PinosBufferHeader *
-                   pinos_buffer_get_header       (PinosBuffer       *buffer,
-                                                  guint32           *version);
+guint32            pinos_buffer_get_version      (PinosBuffer       *buffer);
 int                pinos_buffer_get_fd           (PinosBuffer       *buffer,
                                                   gint               index,
                                                   GError           **error);
@@ -63,12 +53,27 @@ gpointer           pinos_buffer_steal            (PinosBuffer       *buffer,
                                                   GSocketControlMessage **message);
 
 
+/**
+ * PinosPacketType:
+ * @PINOS_PACKET_TYPE_INVALID: invalid packet type, ignore
+ * @PINOS_PACKET_TYPE_HEADER: common packet header
+ * @PINOS_PACKET_TYPE_FD_PAYLOAD: packet contains fd-payload. An fd-payload contains
+ *      the media data as a file descriptor
+ * @PINOS_PACKET_TYPE_RELEASE_FD_PAYLOAD: packet contains release fd-payload. Notifies
+ *      that a previously received fd-payload is no longer in use.
+ * @PINOS_PACKET_TYPE_FORMAT_CHANGE: a format change.
+ * @PINOS_PACKET_TYPE_PROPERTY_CHANGE: one or more property changes.
+ *
+ * The possible packet types.
+ */
 typedef enum {
-  PINOS_PACKET_TYPE_INVALID           = 0,
+  PINOS_PACKET_TYPE_INVALID            = 0,
 
-  PINOS_PACKET_TYPE_FD_PAYLOAD        = 1,
-  PINOS_PACKET_TYPE_FORMAT_CHANGE     = 2,
-  PINOS_PACKET_TYPE_PROPERTY_CHANGE   = 3,
+  PINOS_PACKET_TYPE_HEADER             = 1,
+  PINOS_PACKET_TYPE_FD_PAYLOAD         = 2,
+  PINOS_PACKET_TYPE_RELEASE_FD_PAYLOAD = 3,
+  PINOS_PACKET_TYPE_FORMAT_CHANGE      = 4,
+  PINOS_PACKET_TYPE_PROPERTY_CHANGE    = 5,
 } PinosPacketType;
 
 
@@ -104,11 +109,31 @@ void               pinos_buffer_builder_clear      (PinosBufferBuilder *builder)
 void               pinos_buffer_builder_end        (PinosBufferBuilder *builder,
                                                     PinosBuffer        *buffer);
 
-void               pinos_buffer_builder_set_header (PinosBufferBuilder      *builder,
-                                                    const PinosBufferHeader *header);
 gint               pinos_buffer_builder_add_fd     (PinosBufferBuilder *builder,
                                                     int                 fd,
                                                     GError            **error);
+/* header packets */
+/**
+ * PinosPacketHeader
+ * @flags: header flags
+ * @seq: sequence number
+ * @pts: presentation timestamp in nanoseconds
+ * @dts_offset: offset to presentation timestamp in nanoseconds to get decode timestamp
+ *
+ * A Packet that contains the header.
+ */
+typedef struct {
+  guint32 flags;
+  guint32 seq;
+  gint64 pts;
+  gint64 dts_offset;
+} PinosPacketHeader;
+
+gboolean           pinos_buffer_iter_parse_header      (PinosBufferIter    *iter,
+                                                        PinosPacketHeader  *header);
+gboolean           pinos_buffer_builder_add_header     (PinosBufferBuilder *builder,
+                                                        PinosPacketHeader  *header);
+
 /* fd-payload packets */
 /**
  * PinosPacketFDPayload:
@@ -127,10 +152,66 @@ typedef struct {
   guint64 size;
 } PinosPacketFDPayload;
 
-void               pinos_buffer_iter_parse_fd_payload   (PinosBufferIter      *iter,
+gboolean           pinos_buffer_iter_parse_fd_payload   (PinosBufferIter      *iter,
                                                          PinosPacketFDPayload *payload);
 gboolean           pinos_buffer_builder_add_fd_payload  (PinosBufferBuilder   *builder,
                                                          PinosPacketFDPayload *payload);
+
+/* release fd-payload packets */
+/**
+ * PinosPacketReleaseFDPayload:
+ * @id: the unique id of the fd-payload to release
+ *
+ * Release the payload with @id
+ */
+typedef struct {
+  guint32 id;
+} PinosPacketReleaseFDPayload;
+
+gboolean           pinos_buffer_iter_parse_release_fd_payload   (PinosBufferIter      *iter,
+                                                                 PinosPacketReleaseFDPayload *payload);
+gboolean           pinos_buffer_builder_add_release_fd_payload  (PinosBufferBuilder   *builder,
+                                                                 PinosPacketReleaseFDPayload *payload);
+
+
+/* format change packets */
+/**
+ * PinosPacketFormatChange:
+ * @id: the id of the new format
+ * @format: the new format
+ *
+ * A new format.
+ */
+typedef struct {
+  guint8 id;
+  gchar *format;
+} PinosPacketFormatChange;
+
+gboolean           pinos_buffer_iter_parse_format_change   (PinosBufferIter      *iter,
+                                                            PinosPacketFormatChange *payload);
+gboolean           pinos_buffer_builder_add_format_change  (PinosBufferBuilder   *builder,
+                                                            PinosPacketFormatChange *payload);
+
+
+/* property change packets */
+/**
+ * PinosPacketPropertyChange:
+ * @key: the key of the property
+ * @value: the new value
+ *
+ * A new property change.
+ */
+typedef struct {
+  gchar *key;
+  gchar *value;
+} PinosPacketPropertyChange;
+
+gboolean           pinos_buffer_iter_parse_property_change  (PinosBufferIter      *iter,
+                                                             guint                 idx,
+                                                             PinosPacketPropertyChange *payload);
+gboolean           pinos_buffer_builder_add_property_change (PinosBufferBuilder   *builder,
+                                                             PinosPacketPropertyChange *payload);
+
 
 #endif /* __PINOS_BUFFER_H__ */
 

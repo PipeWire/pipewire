@@ -856,6 +856,10 @@ on_socket_condition (GSocket      *socket,
       priv->buffer.magic = PSB_MAGIC;
 
       g_signal_emit (stream, signals[SIGNAL_NEW_BUFFER], 0, NULL);
+
+      priv->buffer.magic = 0;
+      priv->buffer.size = 0;
+      g_clear_object (&priv->buffer.message);
       break;
     }
     case G_IO_OUT:
@@ -1131,18 +1135,18 @@ pinos_stream_stop (PinosStream *stream)
 }
 
 /**
- * pinos_stream_capture_buffer:
+ * pinos_stream_peek_buffer:
  * @stream: a #PinosStream
  * @buffer: a #PinosBuffer
  *
- * Capture the next buffer from @stream. This function should be called every
- * time after the new-buffer callback has been emitted.
+ * Peek the next buffer from @stream. This function should be called from
+ * the new-buffer signal callback.
  *
  * Returns: %TRUE when @buffer contains valid information
  */
 gboolean
-pinos_stream_capture_buffer (PinosStream  *stream,
-                             PinosBuffer  *buffer)
+pinos_stream_peek_buffer (PinosStream  *stream,
+                          PinosBuffer  **buffer)
 {
   PinosStreamPrivate *priv;
 
@@ -1153,65 +1157,29 @@ pinos_stream_capture_buffer (PinosStream  *stream,
   g_return_val_if_fail (priv->state == PINOS_STREAM_STATE_STREAMING, FALSE);
   g_return_val_if_fail (is_valid_buffer (&priv->buffer), FALSE);
 
-  memcpy (buffer, &priv->buffer, sizeof (PinosStackBuffer));
-
-  priv->buffer.data = NULL;
-  priv->buffer.allocated_size = 0;
-  priv->buffer.size = 0;
-  priv->buffer.message = NULL;
-  priv->buffer.magic = 0;
+  *buffer = (PinosBuffer *) &priv->buffer;
 
   return TRUE;
 }
 
 /**
- * pinos_stream_release_buffer:
+ * pinos_stream_send_buffer:
  * @stream: a #PinosStream
  * @buffer: a #PinosBuffer
  *
- * Release @buffer back to @stream. This function should be called whenever the
- * buffer is processed. @buffer should not be used anymore after calling this
- * function.
- */
-void
-pinos_stream_release_buffer (PinosStream  *stream,
-                             PinosBuffer  *buffer)
-{
-  PinosStackBuffer *sb = (PinosStackBuffer *) buffer;
-  PinosStreamPrivate *priv;
-
-  g_return_val_if_fail (PINOS_IS_STREAM (stream), FALSE);
-  g_return_val_if_fail (is_valid_buffer (buffer), FALSE);
-
-  priv = stream->priv;
-
-  if (priv->buffer.data == NULL) {
-    priv->buffer.data = sb->data;
-    priv->buffer.allocated_size = sb->allocated_size;
-    priv->buffer.size = 0;
-  }
-  else
-    g_free (sb->data);
-
-  if (sb->message)
-    g_object_unref (sb->message);
-
-  sb->magic = 0;
-}
-
-/**
- * pinos_stream_provide_buffer:
- * @stream: a #PinosStream
- * @buffer: a #PinosBuffer
+ * Send a buffer to @stream.
  *
- * Provide the next buffer from @stream. This function should be called every
- * time a new frame becomes available.
+ * For provider streams, this function should be called whenever there is a new frame
+ * available.
+ *
+ * For capture streams, this functions should be called for each fd-payload that
+ * should be released.
  *
  * Returns: %TRUE when @buffer was handled
  */
 gboolean
-pinos_stream_provide_buffer (PinosStream *stream,
-                             PinosBuffer *buffer)
+pinos_stream_send_buffer (PinosStream *stream,
+                          PinosBuffer *buffer)
 {
   PinosStreamPrivate *priv;
   gssize len;
@@ -1219,6 +1187,7 @@ pinos_stream_provide_buffer (PinosStream *stream,
   GOutputVector ovec[1];
   gint flags = 0;
   GError *error = NULL;
+  gint n_msg;
 
   g_return_val_if_fail (PINOS_IS_STREAM (stream), FALSE);
   g_return_val_if_fail (buffer != NULL, FALSE);
@@ -1229,12 +1198,17 @@ pinos_stream_provide_buffer (PinosStream *stream,
   ovec[0].buffer = sb->data;
   ovec[0].size = sb->size;
 
+  if (sb->message)
+    n_msg = 1;
+  else
+    n_msg = 0;
+
   len = g_socket_send_message (priv->socket,
                                NULL,
                                ovec,
                                1,
                                &sb->message,
-                               1,
+                               n_msg,
                                flags,
                                NULL,
                                &error);

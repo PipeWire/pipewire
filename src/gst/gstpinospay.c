@@ -155,7 +155,7 @@ gst_pinos_pay_chain (GstPad * pad, GstObject * parent, GstBuffer * buffer)
   GstBuffer *outbuf;
   PinosBuffer pbuf;
   PinosBufferBuilder builder;
-  PinosBufferHeader hdr;
+  PinosPacketHeader hdr;
   PinosPacketFDPayload p;
   gsize size;
   gpointer data;
@@ -167,7 +167,7 @@ gst_pinos_pay_chain (GstPad * pad, GstObject * parent, GstBuffer * buffer)
   hdr.dts_offset = 0;
 
   pinos_buffer_builder_init (&builder);
-  pinos_buffer_builder_set_header (&builder, &hdr);
+  pinos_buffer_builder_add_header (&builder, &hdr);
 
   fdmem = gst_pinos_pay_get_fd_memory (pay, buffer);
   p.fd_index = pinos_buffer_builder_add_fd (&builder, gst_fd_memory_get_fd (fdmem), &err);

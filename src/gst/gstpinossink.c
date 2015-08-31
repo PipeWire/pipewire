@@ -333,7 +333,7 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   PinosBufferBuilder builder;
   GstMemory *mem = NULL;
   GstClockTime pts, dts, base;
-  PinosBufferHeader hdr;
+  PinosPacketHeader hdr;
   PinosPacketFDPayload p;
   gsize size;
   GError *err = NULL;
@@ -376,7 +376,7 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   }
 
   pinos_buffer_builder_init (&builder);
-  pinos_buffer_builder_set_header (&builder, &hdr);
+  pinos_buffer_builder_add_header (&builder, &hdr);
 
   p.fd_index = pinos_buffer_builder_add_fd (&builder, gst_fd_memory_get_fd (mem), &err);
   if (p.fd_index == -1)
@@ -393,7 +393,7 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   pinos_main_loop_lock (pinossink->loop);
   if (pinos_stream_get_state (pinossink->stream) != PINOS_STREAM_STATE_STREAMING)
     goto streaming_error;
-  pinos_stream_provide_buffer (pinossink->stream, &pbuf);
+  pinos_stream_send_buffer (pinossink->stream, &pbuf);
   pinos_buffer_clear (&pbuf);
   pinos_main_loop_unlock (pinossink->loop);
 

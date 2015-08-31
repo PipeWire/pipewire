@@ -104,12 +104,9 @@ gboolean         pinos_stream_start             (PinosStream     *stream,
                                                  PinosStreamMode  mode);
 gboolean         pinos_stream_stop              (PinosStream     *stream);
 
-gboolean         pinos_stream_capture_buffer    (PinosStream     *stream,
-                                                 PinosBuffer     *buffer);
-void             pinos_stream_release_buffer    (PinosStream     *stream,
-                                                 PinosBuffer     *buffer);
-
-gboolean         pinos_stream_provide_buffer    (PinosStream     *stream,
+gboolean         pinos_stream_peek_buffer       (PinosStream     *stream,
+                                                 PinosBuffer     **buffer);
+gboolean         pinos_stream_send_buffer       (PinosStream     *stream,
                                                  PinosBuffer     *buffer);
 
 G_END_DECLS

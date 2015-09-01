@@ -200,12 +200,14 @@ handle_start (PinosSourceOutput1     *interface,
 
   priv->state = PINOS_SOURCE_OUTPUT_STATE_STARTING;
 
-  priv->requested_format = g_bytes_new (arg_requested_format, strlen (arg_requested_format) + 1);
+  priv->requested_format = g_bytes_new (arg_requested_format,
+                                        strlen (arg_requested_format) + 1);
 
   socketpair (AF_UNIX, SOCK_STREAM, 0, fd);
   priv->socket = g_socket_new_from_fd (fd[0], NULL);
   g_object_notify (G_OBJECT (output), "socket");
 
+  /* the notify of the socket above should configure the format */
   if (priv->format == NULL)
     goto no_format;
 

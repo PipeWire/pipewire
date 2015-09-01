@@ -48,6 +48,8 @@ void              pinos_properties_remove   (PinosProperties *properties,
 const gchar *     pinos_properties_iterate  (PinosProperties     *properties,
                                              gpointer            *state);
 
+gboolean          pinos_properties_init_builder (PinosProperties *properties,
+                                                 GVariantBuilder *builder);
 GVariant *        pinos_properties_to_variant   (PinosProperties *properties);
 PinosProperties * pinos_properties_from_variant (GVariant *variant);
 

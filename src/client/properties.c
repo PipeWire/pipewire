@@ -183,6 +183,20 @@ pinos_properties_remove (PinosProperties *properties,
   g_hash_table_remove (properties->hashtable, key);
 }
 
+/**
+ * pinos_properties_iterate:
+ * @properties: a #PinosProperties
+ * @state: state
+ *
+ * Iterate over @properties, returning each key in turn. @state should point
+ * to a pointer holding %NULL to get the first element and will be updated
+ * after each iteration. When %NULL is returned, all elements have been
+ * iterated.
+ *
+ * Aborting the iteration before %NULL is returned might cause memory leaks.
+ *
+ * Returns: The next key or %NULL when there are no more keys to iterate.
+ */
 const gchar *
 pinos_properties_iterate (PinosProperties     *properties,
                           gpointer            *state)
@@ -220,18 +234,57 @@ add_to_variant (const gchar *key, const gchar *value, GVariantBuilder *b)
   g_variant_builder_add (b, "{sv}", key, g_variant_new_string (value));
 }
 
+/**
+ * pinos_properties_init_builder:
+ * @properties: a #PinosProperties
+ * @builder: a #GVariantBuilder
+ *
+ * Initialize the @builder of type a{sv} and add @properties to it.
+ *
+ * Returns: %TRUE if @builder could be initialized.
+ */
+gboolean
+pinos_properties_init_builder (PinosProperties *properties,
+                               GVariantBuilder *builder)
+{
+  g_return_val_if_fail (properties != NULL, FALSE);
+  g_return_val_if_fail (builder != NULL, FALSE);
+
+  g_variant_builder_init (builder, G_VARIANT_TYPE ("a{sv}"));
+  g_hash_table_foreach (properties->hashtable, (GHFunc) add_to_variant, builder);
+
+  return TRUE;
+}
+
+/**
+ * pinos_properties_to_variant:
+ * @properties: a #PinosProperties
+ *
+ * Convert @properties to a #GVariant of type a{sv}
+ *
+ * Returns: a new #GVariant of @properties. use g_variant_unref() after
+ *          use.
+ */
 GVariant *
 pinos_properties_to_variant (PinosProperties *properties)
 {
   GVariantBuilder builder;
 
-  g_return_val_if_fail (properties != NULL, NULL);
+  if (!pinos_properties_init_builder (properties, &builder))
+    return NULL;
 
-  g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
-  g_hash_table_foreach (properties->hashtable, (GHFunc) add_to_variant, &builder);
   return g_variant_builder_end (&builder);
 }
 
+/**
+ * pinos_properties_from_variant:
+ * @variant: a #GVariant
+ *
+ * Convert @variant to a #PinosProperties
+ *
+ * Returns: a new #PinosProperties of @variant. use pinos_properties_free()
+ *          after use.
+ */
 PinosProperties *
 pinos_properties_from_variant (GVariant *variant)
 {

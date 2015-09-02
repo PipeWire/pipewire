@@ -26,9 +26,7 @@ EXTRA_DIST = \
 
 SUBDIRS = src
 
-DIST_SUBDIRS = pkgconfig \
-	       doc \
-	       src
+DIST_SUBDIRS = src
 
 MAINTAINERCLEANFILES =
 noinst_DATA =

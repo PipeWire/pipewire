@@ -19,9 +19,9 @@
 #       Extra directories         #
 ###################################
 
-pinosincludedir=$(includedir)/client
-pinosserverincludedir=$(includedir)/server
-pinoslibexecdir=$(libexecdir)/client
+pinosincludedir=$(includedir)/pinos/client
+pinosserverincludedir=$(includedir)/pinos/server
+pinoslibexecdir=$(libexecdir)/pinos/client
 dbuspolicydir=$(sysconfdir)/dbus-1/system.d
 
 ###################################
@@ -49,8 +49,9 @@ FOREIGN_CFLAGS = -w
 ###################################
 
 EXTRA_DIST = \
-		src/version.h.in \
-		daemon/pinos-system.conf
+		daemon/pinos-system.conf \
+		dbus/org.pinos.xml  \
+		client/private.h
 
 dbuspolicy_DATA = \
 		daemon/pinos-system.conf
@@ -152,8 +153,7 @@ pinos_monitor_LDFLAGS = $(AM_LDFLAGS) $(BINLDFLAGS)
 
 pinosgstsource = gst/gstpinospay.h gst/gstpinospay.c \
 	      gst/gstpinosdepay.h gst/gstpinosdepay.c \
-	      gst/gsttmpfileallocator.h gst/gsttmpfileallocator.c \
-	      wire-protocol.h
+	      gst/gsttmpfileallocator.h gst/gsttmpfileallocator.c
 
 pinosinclude_HEADERS = \
 		client/pinos.h \
@@ -200,8 +200,8 @@ libpinoscore_@PINOS_MAJORMINOR@_la_SOURCES = \
 		server/source.c server/source.h \
 		server/client-source.c server/client-source.h \
 		server/source-output.c server/source-output.h \
-		modules/gst/gst-manager.c \
-		modules/gst/gst-source.c \
+		modules/gst/gst-manager.c modules/gst/gst-manager.h \
+		modules/gst/gst-source.c modules/gst/gst-source.h \
 		dbus/org-pinos.c dbus/org-pinos.h
 
 libpinoscore_@PINOS_MAJORMINOR@_la_CFLAGS = $(AM_CFLAGS) $(SERVER_CFLAGS)

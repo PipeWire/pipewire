@@ -24,9 +24,9 @@ EXTRA_DIST = \
 	PROTOCOL \
 	README 
 
-SUBDIRS = src
+SUBDIRS = src man
 
-DIST_SUBDIRS = src
+DIST_SUBDIRS = src man
 
 MAINTAINERCLEANFILES =
 noinst_DATA =

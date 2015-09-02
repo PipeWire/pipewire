@@ -217,6 +217,9 @@ dnl keep this alphabetic per directory, please
 AC_CONFIG_FILES([
 Makefile
 src/Makefile
+man/Makefile
+man/pinos.1.xml
+man/pinos-monitor.1.xml
 pkgconfig/libpinos.pc
 ])
 AC_OUTPUT

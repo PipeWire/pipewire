@@ -130,6 +130,7 @@ make check \
 %{_libdir}/libpinos-%{majorminor}.so
 %{_libdir}/libpinoscore-%{majorminor}.so
 %{_libdir}/gstreamer-1.0/libgstpinos.*
+%{_mandir}/man1/pinos.1*
 
 %files libs 
 %doc README LICENSE GPL LGPL
@@ -142,6 +143,7 @@ make check \
 
 %files utils
 %{_bindir}/pinos-monitor
+%{_mandir}/man1/pinos-monitor.1*
 
 %changelog
 * Tue Sep 1 2015 Wim Taymans <wtaymans@redhat.com> - 0.1.0-1

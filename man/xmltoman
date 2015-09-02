@@ -1,0 +1,216 @@
+#!/usr/bin/perl -w
+
+#    xmltoman - simple xml to man converter
+#    Copyright (C) 2000-2002 Oliver Kurth <oku@masqmail.cx>
+#                       2003 Lennart Poettering <mzkzygbzna@0pointer.de>
+#
+#    This program is free software; you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation; either version 2 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program; if not, see <http://www.gnu.org/licenses/>.
+
+use XML::Parser;
+
+my $buffer = "";
+my $break_req = 0;
+
+my @stack;
+my $stack_n = 0;
+
+my $para = 0; 
+
+sub out {
+    my $t = shift;
+
+    if ($t ne "") {
+        print $t;
+        $break_req=1;
+    }
+}
+
+sub out_buf {
+    local $_;
+
+    my $space = shift;
+
+    $_ = $buffer;
+    $buffer = "";
+
+    s/\n/\ /gm;
+    s/\s+/\ /gm;
+    s/^\s*//gm if (!$break_req);
+    s/^\s$//gm if (!$space);
+    
+    out($_);
+}
+
+sub stack_push {
+    my $a = shift;
+
+    if ($stack_n == 0 or $a ne $stack[$stack_n-1]) {
+        out("\\fB") if $a =~ /^bold$/;
+        out("\\fI") if $a =~ /^italic$/;
+    }
+
+    $stack[$stack_n++] = $a;
+}
+
+sub stack_pop {
+    local $_;
+    
+    if ($stack_n > 0) {
+        $stack_n--;
+
+        if ($stack_n > 0) {
+            $a = $stack[$stack_n-1];
+            out("\\fB") if $a =~ /^bold$/;
+            out("\\fI") if $a =~ /^italic$/;
+        } else {
+            out("\\f1");
+        }
+    }
+}
+
+sub handle_start {
+    local $_;
+    my $expat = shift;
+    my $element = shift;
+    my %attr = @_;
+    
+    $_ = $element;
+
+    if (/^manpage$/) {
+        out_buf(0);
+        print "\n" if ($break_req);
+        print ".TH " . $attr{name} . " " . $attr{section} . " User Manuals\n";
+        print ".SH NAME\n";
+        print $attr{name} . " \\- " . $attr{desc} . "\n";
+        $break_req = 0;
+    } elsif (/^synopsis$/) {
+        out_buf(0);
+        print "\n" if ($break_req);
+        print ".SH SYNOPSIS\n";
+        $section = $element;
+        $break_req = 0;
+        stack_push("bold");
+    } elsif (/^description$/) {
+        out_buf(0);
+        print "\n" if ($break_req);
+        print ".SH DESCRIPTION\n";
+        $section = $element;
+        $break_req = 0;
+    } elsif (/^options$/) {
+        out_buf(0);
+        print "\n" if ($break_req);
+        print ".SH OPTIONS\n";
+        $section = $element;
+        $break_req = 0;
+    } elsif (/^seealso$/) {
+        out_buf(0);
+        print "\n" if ($break_req);
+        print ".SH SEE ALSO\n";
+        $section = $element;
+        $break_req = 0;
+    } elsif (/^section$/) {
+        out_buf(0);
+        print "\n" if ($break_req);
+        print ".SH ".uc($attr{name})."\n";
+        $section = $attr{name};
+        $break_req = 0;
+    } elsif (/^option$/) {
+        out_buf(0);
+        print "\n" if ($break_req);
+        print ".TP\n";
+        $break_req = 0;
+    } elsif (/^p$/ or /^cmd$/) {
+        out_buf(0);
+        print "\n" if ($para);
+        $break_req = 0;
+    } elsif (/^optdesc$/) {
+        out_buf(0);
+        $break_req = 0;
+    } elsif (/^arg$/ or /^file$/) {
+        out_buf(1);
+        stack_push("italic");
+    } elsif (/^opt$/) {
+        out_buf(1);
+        stack_push("bold");
+    } elsif (/^manref$/) {
+        out_buf(1);
+        stack_push("bold");
+        out($attr{name} ."(" . $attr{section} . ")");
+        stack_pop();
+    } elsif (/^url$/) {
+        out_buf(1);
+        stack_push("bold");
+        out($attr{href});
+        stack_pop();
+    };
+
+    $para = 0;
+}
+
+sub handle_end {
+    local $_;
+    my $expat = shift;
+    my $element = shift;
+    
+    $_ = $element;
+
+    $para = 0;
+
+    if (/^description$/ or /^options$/ or /^section$/ or /^seealso$/) {
+        out_buf(0);
+    } elsif (/^p$/ or /^cmd$/) {
+        out_buf(0);
+        print "\n" if ($break_req);
+        $para = 1;
+        $break_req = 0;
+    } elsif (/^synopsis$/) {
+        out_buf(0);
+        stack_pop();
+    } elsif (/^opt$/ or /^arg$/ or /^file$/) {
+        out_buf(1);
+        stack_pop();
+    } elsif (/^manpage$/) {
+        out_buf(0);
+        print "\n" if $break_req;
+        $break_req = 0;
+    } elsif (/^optdesc$/ or /^cmd$/ or /^option$/) {
+        # Simply ignore
+    } else {
+        out_buf(1);
+    }
+};
+
+sub handle_char {
+    local $_;
+    my $expat = shift;
+    my $string = shift;
+    
+    $buffer .= $string;
+}
+
+MAIN:{
+    my $file = shift;
+
+    if (!$file) {
+        print STDERR "You need to specify a file to parse\n";
+        exit(1);
+    }
+    
+    my $parser = new XML::Parser(Handlers => {
+        Start => \&handle_start, 
+        End => \&handle_end,
+        Char => \&handle_char});
+
+    $parser->parsefile($file, ProtocolEncoding => 'ISO-8859-1');
+}

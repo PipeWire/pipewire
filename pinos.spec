@@ -123,6 +123,7 @@ make check \
 
 %files
 %doc README LICENSE GPL LGPL
+%{_sysconfdir}/xdg/autostart/pinos.desktop
 ## already owned by -libs, see also https://bugzilla.redhat.com/show_bug.cgi?id=909690
 #dir %{_sysconfdir}/pinos/
 %{_sysconfdir}/dbus-1/system.d/pinos-system.conf

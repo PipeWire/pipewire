@@ -69,6 +69,27 @@ AS_IF([test "x$M4" = "xno"], AC_MSG_ERROR([m4 missing]))
 
 PKG_PROG_PKG_CONFIG
 
+# gettext
+
+if test "x$enable_nls" != "xno"; then
+IT_PROG_INTLTOOL([0.35.0])
+
+AM_GNU_GETTEXT_VERSION([0.18.1])
+AM_GNU_GETTEXT([external])
+
+GETTEXT_PACKAGE=pinos
+AC_SUBST([GETTEXT_PACKAGE])
+AC_DEFINE_UNQUOTED([GETTEXT_PACKAGE],["$GETTEXT_PACKAGE"],[Gettext package])
+
+pinoslocaledir='${prefix}/${DATADIRNAME}/locale'
+AX_DEFINE_DIR(PINOS_LOCALEDIR, pinoslocaledir, [Gettext locale dir])
+else
+# workaround till an intltool m4 bug is fixed upstream
+# (https://bugs.launchpad.net/intltool/+bug/904647)
+USE_NLS=no
+AC_SUBST(USE_NLS)
+fi
+
 #### Compiler flags ####
 
 AX_APPEND_COMPILE_FLAGS(
@@ -152,6 +173,10 @@ AC_SUBST([LIBLTDL])
 #      External libraries         #
 ###################################
 
+#### [lib]iconv ####
+
+AM_ICONV
+
 #### Valgrind (optional) ####
 
 AC_CHECK_HEADERS_ONCE([valgrind/memcheck.h])
@@ -221,6 +246,7 @@ man/Makefile
 man/pinos.1.xml
 man/pinos-monitor.1.xml
 pkgconfig/libpinos.pc
+po/Makefile.in
 ])
 AC_OUTPUT
 

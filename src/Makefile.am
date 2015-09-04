@@ -22,6 +22,7 @@
 pinosincludedir=$(includedir)/pinos/client
 pinosserverincludedir=$(includedir)/pinos/server
 pinoslibexecdir=$(libexecdir)/pinos/client
+xdgautostartdir=$(sysconfdir)/xdg/autostart
 dbuspolicydir=$(sysconfdir)/dbus-1/system.d
 
 ###################################
@@ -50,11 +51,17 @@ FOREIGN_CFLAGS = -w
 
 EXTRA_DIST = \
 		daemon/pinos-system.conf \
+		daemon/pinos.desktop.in \
 		dbus/org.pinos.xml  \
 		client/private.h
 
 dbuspolicy_DATA = \
 		daemon/pinos-system.conf
+
+xdgautostart_in_files = \
+		daemon/pinos.desktop.in
+xdgautostart_DATA = $(xdgautostart_in_files:.desktop.in=.desktop)
+@INTLTOOL_DESKTOP_RULE@
 
 ###################################
 #          Includes               #
@@ -237,6 +244,7 @@ noinst_HEADERS = gst/gstpinossrc.h gst/gstpinossink.h gst/gstpinospay.h gst/gstp
 #        Some minor stuff         #
 ###################################
 
+CLEANFILES += daemon/pinos.desktop
 DISTCLEANFILES = 
 
 install-exec-hook:

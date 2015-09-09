@@ -14,7 +14,7 @@
 Name:           pinos
 Summary:        Media Sharing Server
 Version:        0.1
-Release:        1%{?snap:.%{snap}git%{shortcommit}}%{?dist}
+Release:        2%{?snap:.%{snap}git%{shortcommit}}%{?dist}
 License:        LGPLv2+
 URL:            http://www.freedesktop.org/wiki/Software/Pinos
 %if 0%{?gitrel}

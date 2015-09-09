@@ -36,7 +36,13 @@ BuildRequires:  intltool
 BuildRequires:  pkgconfig
 BuildRequires:  xmltoman
 BuildRequires:  tcp_wrappers-devel
-BuildRequires:  gstreamer1-devel >= 1.4.5
+BuildRequires:  pkgconfig(glib-2.0) >= 2.32
+BuildRequires:  pkgconfig(gio-unix-2.0) >= 2.32
+BuildRequires:  pkgconfig(gstreamer-1.0) >= 1.5.0
+BuildRequires:  pkgconfig(gstreamer-base-1.0) >= 1.5.0
+BuildRequires:  pkgconfig(gstreamer-plugins-base-1.0) >= 1.5.0
+BuildRequires:  pkgconfig(gstreamer-net-1.0) >= 1.5.0
+BuildRequires:  pkgconfig(gstreamer-allocators-1.0) >= 1.5.0
 BuildRequires:  systemd-devel >= 184
 
 Requires(pre):  shadow-utils
@@ -117,12 +123,17 @@ make check \
 
 
 %pre
+getent group pinos >/dev/null || groupadd -r pinos
+getent passwd pinos >/dev/null || \
+    useradd -r -g pinos -d /var/run/pinos -s /sbin/nologin -c "Pinos System Daemon" pinos
+exit 0
 
 %post -p /sbin/ldconfig
 %postun -p /sbin/ldconfig
 
 %files
-%doc README LICENSE GPL LGPL
+%license LICENSE GPL LGPL
+%doc README
 %{_sysconfdir}/xdg/autostart/pinos.desktop
 ## already owned by -libs, see also https://bugzilla.redhat.com/show_bug.cgi?id=909690
 #dir %{_sysconfdir}/pinos/
@@ -134,7 +145,8 @@ make check \
 %{_mandir}/man1/pinos.1*
 
 %files libs 
-%doc README LICENSE GPL LGPL
+%license LICENSE GPL LGPL
+%doc README
 #%dir %{_sysconfdir}/pinos/
 #%dir %{_libdir}/pinos/
 
@@ -147,5 +159,10 @@ make check \
 %{_mandir}/man1/pinos-monitor.1*
 
 %changelog
+* Wed Sep 9 2015 Wim Taymans <wtaymans@redhat.com> - 0.1.0-2
+- Fix BuildRequires to use pkgconfig, add all dependencies found in configure.ac
+- Add user and groups  if needed
+- Add license to %%licence
+
 * Tue Sep 1 2015 Wim Taymans <wtaymans@redhat.com> - 0.1.0-1
 - First version

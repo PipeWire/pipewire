@@ -403,6 +403,25 @@ pinos_stream_init (PinosStream * stream)
 }
 
 /**
+ * pinos_stream_state_as_string:
+ * @state: a #PinosStreamState
+ *
+ * Return the string representation of @state.
+ *
+ * Returns: the string representation of @state.
+ */
+const gchar *
+pinos_stream_state_as_string (PinosStreamState state)
+{
+  GEnumValue *val;
+
+  val = g_enum_get_value (G_ENUM_CLASS (g_type_class_ref (PINOS_TYPE_STREAM_STATE)),
+                          state);
+
+  return val == NULL ? "invalid-state" : val->value_nick;
+}
+
+/**
  * pinos_stream_new:
  * @context: a #PinosContext
  * @name: a stream name

@@ -229,6 +229,25 @@ pinos_context_get_client_info_by_id (PinosContext *context,
   cb (context, NULL, user_data);
 }
 
+/**
+ * pinos_source_state_as_string:
+ * @state: a #PinosSourceState
+ *
+ * Return the string representation of @state.
+ *
+ * Returns: the string representation of @state.
+ */
+const gchar *
+pinos_source_state_as_string (PinosSourceState state)
+{
+  GEnumValue *val;
+
+  val = g_enum_get_value (G_ENUM_CLASS (g_type_class_ref (PINOS_TYPE_SOURCE_STATE)),
+                          state);
+
+  return val == NULL ? "invalid-state" : val->value_nick;
+}
+
 static void
 source_fill_info (PinosSourceInfo *info, GDBusProxy *proxy)
 {
@@ -323,6 +342,25 @@ pinos_context_get_source_info_by_id (PinosContext *context,
   cb (context, &info, user_data);
   source_clear_info (&info);
   cb (context, NULL, user_data);
+}
+
+/**
+ * pinos_source_output_state_as_string:
+ * @state: a #PinosSourceOutputState
+ *
+ * Return the string representation of @state.
+ *
+ * Returns: the string representation of @state.
+ */
+const gchar *
+pinos_source_output_state_as_string (PinosSourceOutputState state)
+{
+  GEnumValue *val;
+
+  val = g_enum_get_value (G_ENUM_CLASS (g_type_class_ref (PINOS_TYPE_SOURCE_OUTPUT_STATE)),
+                          state);
+
+  return val == NULL ? "invalid-state" : val->value_nick;
 }
 
 static void

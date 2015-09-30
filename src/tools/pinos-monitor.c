@@ -133,7 +133,7 @@ dump_source_info (PinosContext *c, const PinosSourceInfo *info, gpointer userdat
   if (info->change_mask & (1 << 1))
     print_properties (info->properties);
   if (info->change_mask & (1 << 2))
-    g_print ("\tstate: %d\n", info->state);
+    g_print ("\tstate: \"%s\"\n", pinos_source_state_as_string (info->state));
   if (info->change_mask & (1 << 3))
     print_formats ("possible formats", info->possible_formats);
 
@@ -155,7 +155,7 @@ dump_source_output_info (PinosContext *c, const PinosSourceOutputInfo *info, gpo
   if (info->change_mask & (1 << 2))
     print_formats ("possible-formats", info->possible_formats);
   if (info->change_mask & (1 << 3))
-    g_print ("\tstate: \"%d\"\n", info->state);
+    g_print ("\tstate: \"%s\"\n", pinos_source_output_state_as_string (info->state));
   if (info->change_mask & (1 << 4))
     print_formats ("format", info->format);
   if (info->change_mask & (1 << 5))
@@ -243,7 +243,7 @@ on_state_notify (GObject    *gobject,
       break;
 
     default:
-      g_print ("context state %d\n", state);
+      g_print ("context state: \"%s\"\n", pinos_context_state_as_string (state));
       break;
   }
 }

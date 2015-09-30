@@ -125,6 +125,8 @@ typedef enum {
   PINOS_SOURCE_STATE_RUNNING = 3,
 } PinosSourceState;
 
+const gchar * pinos_source_state_as_string (PinosSourceState state);
+
 /**
  * PinosSourceInfo:
  * @id: generic id of the source
@@ -189,6 +191,8 @@ typedef enum {
   PINOS_SOURCE_OUTPUT_STATE_STARTING = 1,
   PINOS_SOURCE_OUTPUT_STATE_STREAMING = 2,
 } PinosSourceOutputState;
+
+const gchar * pinos_source_output_state_as_string (PinosSourceOutputState state);
 
 /**
  * PinosSourceOutputInfo:

@@ -296,6 +296,25 @@ pinos_context_init (PinosContext * context)
 }
 
 /**
+ * pinos_context_state_as_string:
+ * @state: a #PinosContextState
+ *
+ * Return the string representation of @state.
+ *
+ * Returns: the string representation of @state.
+ */
+const gchar *
+pinos_context_state_as_string (PinosContextState state)
+{
+  GEnumValue *val;
+
+  val = g_enum_get_value (G_ENUM_CLASS (g_type_class_ref (PINOS_TYPE_CONTEXT_STATE)),
+                          state);
+
+  return val == NULL ? "invalid-state" : val->value_nick;
+}
+
+/**
  * pinos_context_new:
  * @context: a #GMainContext to run in
  * @name: an application name

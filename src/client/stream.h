@@ -49,6 +49,7 @@ typedef enum {
   PINOS_STREAM_STATE_STREAMING   = 4
 } PinosStreamState;
 
+const gchar * pinos_stream_state_as_string (PinosStreamState state);
 
 typedef enum {
   PINOS_STREAM_FLAGS_NONE = 0,

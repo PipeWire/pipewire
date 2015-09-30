@@ -74,6 +74,8 @@ typedef enum {
   PINOS_CONTEXT_STATE_READY        = 3,
 } PinosContextState;
 
+const gchar * pinos_context_state_as_string (PinosContextState state);
+
 /**
  * PinosContext:
  *

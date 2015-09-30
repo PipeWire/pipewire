@@ -729,6 +729,7 @@ gst_pinos_src_close (GstPinosSrc * pinossrc)
   g_clear_object (&pinossrc->ctx);
   g_main_context_unref (pinossrc->context);
   GST_OBJECT_LOCK (pinossrc);
+  pinossrc->stream_state = PINOS_STREAM_STATE_UNCONNECTED;
   g_clear_object (&pinossrc->stream);
   GST_OBJECT_UNLOCK (pinossrc);
 

@@ -272,7 +272,7 @@ fdpayload_data_destroy (gpointer user_data)
   pinos_buffer_builder_end (&b, &pbuf);
 
   GST_OBJECT_LOCK (pinossrc);
-  if (pinossrc->stream)
+  if (pinossrc->stream_state == PINOS_STREAM_STATE_STREAMING)
     pinos_stream_send_buffer (pinossrc->stream, &pbuf);
   GST_OBJECT_UNLOCK (pinossrc);
 
@@ -378,6 +378,10 @@ on_stream_notify (GObject    *gobject,
   PinosStreamState state = pinos_stream_get_state (pinossrc->stream);
 
   GST_DEBUG ("got stream state %d", state);
+
+  GST_OBJECT_LOCK (pinossrc);
+  pinossrc->stream_state = state;
+  GST_OBJECT_UNLOCK (pinossrc);
 
   switch (state) {
     case PINOS_STREAM_STATE_UNCONNECTED:

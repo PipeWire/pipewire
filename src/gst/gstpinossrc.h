@@ -61,6 +61,7 @@ struct _GstPinosSrc {
   PinosMainLoop *loop;
   PinosContext *ctx;
   PinosStream *stream;
+  PinosStreamState stream_state;
   GstAllocator *fd_allocator;
 
   GstBuffer *current;

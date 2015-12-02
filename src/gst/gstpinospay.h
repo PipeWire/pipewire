@@ -43,6 +43,7 @@ struct _GstPinosPay
 
   GstAllocator *allocator;
 
+  guint32 id_counter;
 };
 
 struct _GstPinosPayClass

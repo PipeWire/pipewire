@@ -65,6 +65,7 @@ struct _GstPinosSrc {
   GstAllocator *fd_allocator;
 
   GstBuffer *current;
+  GstClock *clock;
 };
 
 struct _GstPinosSrcClass {

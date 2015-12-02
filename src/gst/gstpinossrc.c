@@ -40,6 +40,7 @@
 #include <unistd.h>
 
 #include <gio/gunixfdmessage.h>
+#include <gst/net/gstnetclientclock.h>
 #include <gst/allocators/gstfdmemory.h>
 
 
@@ -125,12 +126,41 @@ gst_pinos_src_get_property (GObject * object, guint prop_id,
   }
 }
 
+static GstClock *
+gst_pinos_src_provide_clock (GstElement * elem)
+{
+  GstPinosSrc *pinossrc = GST_PINOS_SRC (elem);
+  GstClock *clock;
+
+  GST_OBJECT_LOCK (pinossrc);
+  if (!GST_OBJECT_FLAG_IS_SET (pinossrc, GST_ELEMENT_FLAG_PROVIDE_CLOCK))
+    goto clock_disabled;
+
+  if (pinossrc->clock)
+    clock = GST_CLOCK_CAST (gst_object_ref (pinossrc->clock));
+  else
+    clock = NULL;
+  GST_OBJECT_UNLOCK (pinossrc);
+
+  return clock;
+
+  /* ERRORS */
+clock_disabled:
+  {
+    GST_DEBUG_OBJECT (pinossrc, "clock provide disabled");
+    GST_OBJECT_UNLOCK (pinossrc);
+    return NULL;
+  }
+}
+
 static void
 gst_pinos_src_finalize (GObject * object)
 {
   GstPinosSrc *pinossrc = GST_PINOS_SRC (object);
 
   g_object_unref (pinossrc->fd_allocator);
+  if (pinossrc->clock)
+    gst_object_unref (pinossrc->clock);
   g_free (pinossrc->path);
   g_free (pinossrc->client_name);
 
@@ -172,6 +202,7 @@ gst_pinos_src_class_init (GstPinosSrcClass * klass)
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_STATIC_STRINGS));
 
+  gstelement_class->provide_clock = gst_pinos_src_provide_clock;
   gstelement_class->change_state = gst_pinos_src_change_state;
 
   gst_element_class_set_static_metadata (gstelement_class,
@@ -201,6 +232,8 @@ gst_pinos_src_init (GstPinosSrc * src)
   /* we operate in time */
   gst_base_src_set_format (GST_BASE_SRC (src), GST_FORMAT_TIME);
   gst_base_src_set_live (GST_BASE_SRC (src), TRUE);
+
+  GST_OBJECT_FLAG_SET (src, GST_ELEMENT_FLAG_PROVIDE_CLOCK);
 
   src->fd_allocator = gst_fd_allocator_new ();
   src->client_name = pinos_client_name ();
@@ -272,8 +305,10 @@ fdpayload_data_destroy (gpointer user_data)
   pinos_buffer_builder_end (&b, &pbuf);
 
   GST_OBJECT_LOCK (pinossrc);
-  if (pinossrc->stream_state == PINOS_STREAM_STATE_STREAMING)
+  if (pinossrc->stream_state == PINOS_STREAM_STATE_STREAMING) {
+    GST_DEBUG_OBJECT (pinossrc, "send release-fd for %d", r.id);
     pinos_stream_send_buffer (pinossrc->stream, &pbuf);
+  }
   GST_OBJECT_UNLOCK (pinossrc);
 
   pinos_buffer_clear (&pbuf);
@@ -326,9 +361,9 @@ on_new_buffer (GObject    *gobject,
         FDPayloadData data;
         int fd;
 
-        GST_DEBUG ("got fd payload");
         if (!pinos_buffer_iter_parse_fd_payload  (&it, &data.p))
           goto no_fds;
+        GST_DEBUG ("got fd payload id %d", data.p.id);
         fd = pinos_buffer_get_fd (pbuf, data.p.fd_index, &error);
         if (fd == -1)
           goto no_fds;
@@ -433,6 +468,30 @@ start_error:
   }
 }
 
+static void
+parse_clock_info (GstPinosSrc *pinossrc)
+{
+  PinosProperties *props;
+  const gchar *var;
+
+  g_object_get (pinossrc->stream, "properties", &props, NULL);
+
+  var = pinos_properties_get (props, "pinos.clock.type");
+  GST_DEBUG_OBJECT (pinossrc, "got clock type %s", var);
+  if (strcmp (var, "gst.net.time.provider") == 0) {
+    const gchar *address;
+    gint port;
+
+    address = pinos_properties_get (props, "pinos.clock.address");
+    port = atoi (pinos_properties_get (props, "pinos.clock.port"));
+
+    GST_DEBUG_OBJECT (pinossrc, "making net clock for %s:%d", address, port);
+    if (pinossrc->clock)
+      gst_object_unref (pinossrc->clock);
+    pinossrc->clock = gst_net_client_clock_new ("pinosclock", address, port, 0);
+  }
+}
+
 static gboolean
 gst_pinos_src_negotiate (GstBaseSrc * basesrc)
 {
@@ -509,6 +568,8 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
     }
     pinos_main_loop_unlock (pinossrc->loop);
 
+    parse_clock_info (pinossrc);
+
     g_object_get (pinossrc->stream, "possible-formats", &possible, NULL);
     if (possible) {
       GstCaps *newcaps;
@@ -519,6 +580,8 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
 
       g_bytes_unref (possible);
     }
+
+
     /* now fixate */
     GST_DEBUG_OBJECT (basesrc, "server fixated caps: %" GST_PTR_FORMAT, caps);
     if (gst_caps_is_any (caps)) {
@@ -736,6 +799,9 @@ gst_pinos_src_close (GstPinosSrc * pinossrc)
   if (pinossrc->current)
     gst_buffer_unref (pinossrc->current);
   pinossrc->current = NULL;
+  if (pinossrc->clock)
+    gst_object_unref (pinossrc->clock);
+  pinossrc->clock = NULL;
 }
 
 static GstStateChangeReturn

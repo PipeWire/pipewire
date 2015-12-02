@@ -252,14 +252,15 @@ on_socket_notify (GObject    *gobject,
   g_object_get (gobject, "socket", &socket, NULL);
 
   if (socket == NULL) {
-    GSocket *prev_socket = g_object_get_data (gobject, "last-socket");
+    GSocket *prev_socket = g_object_steal_data (gobject, "last-socket");
     if (prev_socket) {
       g_signal_emit_by_name (priv->sink, "remove", prev_socket);
+      g_object_unref (prev_socket);
     }
   } else {
     g_signal_emit_by_name (priv->sink, "add", socket);
+    g_object_set_data_full (gobject, "last-socket", socket, g_object_unref);
   }
-  g_object_set_data (gobject, "last-socket", socket);
 
   g_object_get (priv->sink, "num-handles", &num_handles, NULL);
   if (num_handles > 0 && socket) {

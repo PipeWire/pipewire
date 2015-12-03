@@ -31,10 +31,10 @@ struct _PinosClientSourcePrivate
 {
   GstElement *pipeline;
   GstElement *src;
-  GstElement *filter;
   GstElement *sink;
   guint id;
 
+  GstCaps *format;
   GSocket *socket;
 
   GBytes *possible_formats;
@@ -129,8 +129,10 @@ setup_pipeline (PinosClientSource *source)
   PinosClientSourcePrivate *priv = source->priv;
   GstBus *bus;
 
-  priv->pipeline = gst_parse_launch ("socketsrc name=src ! "
-                                         "capsfilter name=filter ! "
+  priv->pipeline = gst_parse_launch ("socketsrc "
+                                         "name=src "
+                                         "caps=application/x-pinos ! "
+                                     "pinospay ! "
                                      "multisocketsink "
                                          "buffers-max=2 "
                                          "buffers-soft-max=1 "
@@ -140,7 +142,6 @@ setup_pipeline (PinosClientSource *source)
                                          "sync=true "
                                          "enable-last-sample=false",
                                       NULL);
-  priv->filter = gst_bin_get_by_name (GST_BIN (priv->pipeline), "filter");
   priv->sink = gst_bin_get_by_name (GST_BIN (priv->pipeline), "sink");
   priv->src = gst_bin_get_by_name (GST_BIN (priv->pipeline), "src");
 
@@ -154,16 +155,11 @@ collect_caps (PinosSource *source,
               GstCaps     *filter)
 {
   PinosClientSourcePrivate *priv = PINOS_CLIENT_SOURCE (source)->priv;
-  GstCaps *res;
-  GstQuery *query;
 
-  query = gst_query_new_caps (NULL);
-  gst_element_query (priv->filter, query);
-  gst_query_parse_caps_result (query, &res);
-  gst_caps_ref (res);
-  gst_query_unref (query);
-
-  return res;
+  if (priv->format)
+    return gst_caps_ref (priv->format);
+  else
+    return gst_caps_new_any ();
 }
 
 static gboolean
@@ -327,10 +323,11 @@ client_source_finalize (GObject * object)
   PinosClientSourcePrivate *priv = PINOS_CLIENT_SOURCE (object)->priv;
 
   g_clear_object (&priv->input);
-  g_clear_object (&priv->filter);
   g_clear_object (&priv->sink);
   g_clear_object (&priv->src);
   g_clear_object (&priv->pipeline);
+
+  gst_caps_replace (&priv->format, NULL);
 
   G_OBJECT_CLASS (pinos_client_source_parent_class)->finalize (object);
 }
@@ -355,14 +352,13 @@ on_input_socket_notify (GObject    *gobject,
     g_assert (requested_format != NULL);
     g_object_set (gobject, "format", requested_format, NULL);
 
-    /* and set as caps on the source */
+    /* and set as the current format */
     caps = gst_caps_from_string (g_bytes_get_data (requested_format, NULL));
     g_assert (caps != NULL);
-    g_object_set (priv->src, "caps", caps, NULL);
-    gst_caps_unref (caps);
+    gst_caps_replace (&priv->format, caps);
     g_bytes_unref (requested_format);
   } else {
-    g_object_set (priv->src, "caps", NULL, NULL);
+    gst_caps_replace (&priv->format, NULL);
   }
   g_object_set (priv->src, "socket", socket, NULL);
 
@@ -385,11 +381,10 @@ pinos_client_source_get_source_input (PinosClientSource *source,
   g_return_val_if_fail (PINOS_IS_CLIENT_SOURCE (source), NULL);
   priv = source->priv;
 
-
   if (priv->input == NULL) {
     GstCaps *caps = gst_caps_from_string (g_bytes_get_data (format_filter, NULL));
 
-    g_object_set (priv->filter, "caps", caps, NULL);
+    gst_caps_replace (&priv->format, caps);
 
     priv->input = PINOS_SOURCE_CLASS (pinos_client_source_parent_class)
                         ->create_source_output (PINOS_SOURCE (source),

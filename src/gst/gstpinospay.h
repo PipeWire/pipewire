@@ -38,7 +38,7 @@ struct _GstPinosPay
 {
   GstElement    parent;
 
-  gboolean negotiated;
+  gboolean pinos_input;
   GstPad *srcpad, *sinkpad;
 
   GstAllocator *allocator;
@@ -55,4 +55,4 @@ GType gst_pinos_pay_get_type (void);
 
 G_END_DECLS
 
-#endif
+#endif /* _GST_PINOS_PAY_H_ */

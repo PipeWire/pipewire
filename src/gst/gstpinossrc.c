@@ -477,6 +477,9 @@ parse_clock_info (GstPinosSrc *pinossrc)
   g_object_get (pinossrc->stream, "properties", &props, NULL);
 
   var = pinos_properties_get (props, "pinos.clock.type");
+  if (var == NULL)
+    return;
+
   GST_DEBUG_OBJECT (pinossrc, "got clock type %s", var);
   if (strcmp (var, "gst.net.time.provider") == 0) {
     const gchar *address;

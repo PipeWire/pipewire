@@ -838,9 +838,6 @@ on_socket_condition (GSocket      *socket,
 
       g_assert (len == sizeof (PinosStackHeader));
 
-      if (num_messages == 0)
-        break;
-
       /* now we know the total length */
       need += hdr->length;
 
@@ -909,11 +906,9 @@ handle_socket (PinosStream *stream, gint fd)
 
     case PINOS_STREAM_MODE_BUFFER:
     {
-      if (!priv->provide) {
-        priv->socket_source = g_socket_create_source (priv->socket, G_IO_IN, NULL);
-        g_source_set_callback (priv->socket_source, (GSourceFunc) on_socket_condition, stream, NULL);
-        g_source_attach (priv->socket_source, priv->context->priv->context);
-      }
+      priv->socket_source = g_socket_create_source (priv->socket, G_IO_IN, NULL);
+      g_source_set_callback (priv->socket_source, (GSourceFunc) on_socket_condition, stream, NULL);
+      g_source_attach (priv->socket_source, priv->context->priv->context);
       break;
     }
 

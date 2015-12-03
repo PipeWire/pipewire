@@ -90,6 +90,7 @@ gst_pinos_sink_finalize (GObject * object)
 {
   GstPinosSink *pinossink = GST_PINOS_SINK (object);
 
+  g_hash_table_unref (pinossink->fdids);
   g_object_unref (pinossink->allocator);
   g_free (pinossink->client_name);
 
@@ -145,6 +146,9 @@ gst_pinos_sink_init (GstPinosSink * sink)
 {
   sink->allocator = gst_tmpfile_allocator_new ();
   sink->client_name = pinos_client_name();
+
+  sink->fdids = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL,
+      (GDestroyNotify) gst_buffer_unref);
 }
 
 static GstCaps *
@@ -230,8 +234,34 @@ on_new_buffer (GObject    *gobject,
                gpointer    user_data)
 {
   GstPinosSink *pinossink = user_data;
+  PinosBuffer *pbuf;
+  PinosBufferIter it;
 
-  pinos_main_loop_signal (pinossink->loop, FALSE);
+  GST_LOG_OBJECT (pinossink, "got new buffer");
+  if (!pinos_stream_peek_buffer (pinossink->stream, &pbuf)) {
+    g_warning ("failed to capture buffer");
+    return;
+  }
+
+  pinos_buffer_iter_init (&it, pbuf);
+  while (pinos_buffer_iter_next (&it)) {
+    switch (pinos_buffer_iter_get_type (&it)) {
+      case PINOS_PACKET_TYPE_RELEASE_FD_PAYLOAD:
+      {
+        PinosPacketReleaseFDPayload p;
+
+        if (!pinos_buffer_iter_parse_release_fd_payload (&it, &p))
+          continue;
+
+        GST_LOG ("fd index %d is released", p.id);
+        g_hash_table_remove (pinossink->fdids, GINT_TO_POINTER (p.id));
+        break;
+      }
+
+      default:
+        break;
+    }
+  }
 }
 
 static void
@@ -337,6 +367,7 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   PinosPacketFDPayload p;
   gsize size;
   GError *err = NULL;
+  gboolean tmpfile, res;
 
   pinossink = GST_PINOS_SINK (bsink);
 
@@ -362,6 +393,7 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   if (gst_buffer_n_memory (buffer) == 1
       && gst_is_fd_memory (gst_buffer_peek_memory (buffer, 0))) {
     mem = gst_buffer_get_memory (buffer, 0);
+    tmpfile = FALSE;
   } else {
     GstMapInfo minfo;
     GstAllocationParams params = {0, 0, 0, 0, { NULL, }};
@@ -373,6 +405,7 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
       goto map_error;
     gst_buffer_extract (buffer, 0, minfo.data, size);
     gst_memory_unmap (mem, &minfo);
+    tmpfile = TRUE;
   }
 
   pinos_buffer_builder_init (&builder);
@@ -381,22 +414,25 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   p.fd_index = pinos_buffer_builder_add_fd (&builder, gst_fd_memory_get_fd (mem), &err);
   if (p.fd_index == -1)
     goto add_fd_failed;
-  p.id = 0;
+  p.id = pinossink->id_counter++;
   p.offset = 0;
   p.size = size;
   pinos_buffer_builder_add_fd_payload (&builder, &p);
+  pinos_buffer_builder_end (&builder, &pbuf);
 
   gst_memory_unref (mem);
-
-  pinos_buffer_builder_end (&builder, &pbuf);
 
   pinos_main_loop_lock (pinossink->loop);
   if (pinos_stream_get_state (pinossink->stream) != PINOS_STREAM_STATE_STREAMING)
     goto streaming_error;
-  pinos_stream_send_buffer (pinossink->stream, &pbuf);
+  res = pinos_stream_send_buffer (pinossink->stream, &pbuf);
   pinos_buffer_clear (&pbuf);
   pinos_main_loop_unlock (pinossink->loop);
 
+  if (res && !tmpfile) {
+    /* keep the buffer around until we get the release fd message */
+    g_hash_table_insert (pinossink->fdids, GINT_TO_POINTER (p.id), gst_buffer_ref (buffer));
+  }
   return GST_FLOW_OK;
 
 not_negotiated:
@@ -579,8 +615,10 @@ gst_pinos_sink_change_state (GstElement * element, GstStateChange transition)
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
       break;
     case GST_STATE_CHANGE_PAUSED_TO_READY:
+      g_hash_table_remove_all (this->fdids);
       break;
     case GST_STATE_CHANGE_READY_TO_NULL:
+      g_hash_table_remove_all (this->fdids);
       gst_pinos_sink_close (this);
       break;
     default:

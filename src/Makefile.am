@@ -230,7 +230,7 @@ libgstpinos_la_SOURCES = \
                         gst/gstpinosdepay.c \
                         gst/gstpinosdeviceprovider.c \
                         gst/gstpinossrc.c \
-                        gst/gstpinossink.c 
+                        gst/gstpinossink.c
 
 libgstpinos_la_CFLAGS = $(GST_PLUGINS_BASE_CFLAGS) $(GST_BASE_CFLAGS) $(GST_CFLAGS) $(GLIB_CFLAGS)
 libgstpinos_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS)
@@ -238,7 +238,8 @@ libgstpinos_la_LIBADD =  $(GST_BASE_LIBS) $(GST_LIBS) $(GLIB_LIBS) $(LIBM) -lgst
 			 libpinos-@PINOS_MAJORMINOR@.la libpinoscore-@PINOS_MAJORMINOR@.la
 libgstpinos_la_LIBTOOLFLAGS = $(GST_PLUGIN_LIBTOOLFLAGS)
 
-noinst_HEADERS = gst/gstpinossrc.h gst/gstpinossink.h gst/gstpinospay.h gst/gstpinosdepay.h gst/gstpinosdeviceprovider.h
+noinst_HEADERS = gst/gstpinossrc.h gst/gstpinossink.h gst/gstpinospay.h \
+		 gst/gstpinosdepay.h gst/gstpinosdeviceprovider.h
 
 ###################################
 #        Some minor stuff         #

@@ -104,6 +104,33 @@ gst_pinos_pay_query (GstPad * pad, GstObject * parent, GstQuery * query)
 }
 
 static gboolean
+do_allocation (GstPinosPay *pay, GstCaps *caps)
+{
+  GstQuery *query;
+
+  GST_DEBUG_OBJECT (pay, "doing allocation query");
+  query = gst_query_new_allocation (caps, TRUE);
+  if (!gst_pad_peer_query (pay->srcpad, query)) {
+    /* not a problem, just debug a little */
+    GST_DEBUG_OBJECT (pay, "peer ALLOCATION query failed");
+  }
+  if (!gst_query_find_allocation_meta (query,
+      GST_NET_CONTROL_MESSAGE_META_API_TYPE, NULL))
+    goto no_meta;
+
+  return TRUE;
+
+  /* ERRORS */
+no_meta:
+  {
+    GST_ELEMENT_ERROR (pay, STREAM, FORMAT,
+        ("Incompatible downstream element"),
+        ("The downstream element does not handle control-message metadata API"));
+    return FALSE;
+  }
+}
+
+static gboolean
 gst_pinos_pay_sink_event (GstPad * pad, GstObject * parent, GstEvent * event)
 {
   GstPinosPay *pay = GST_PINOS_PAY (parent);
@@ -123,6 +150,10 @@ gst_pinos_pay_sink_event (GstPad * pad, GstObject * parent, GstEvent * event)
       caps = gst_caps_new_empty_simple ("application/x-pinos");
       res = gst_pad_push_event (pay->srcpad, gst_event_new_caps (caps));
       gst_caps_unref (caps);
+
+      if (res)
+        /* now negotiate the allocation */
+        res = do_allocation (pay, caps);
       break;
     }
     default:

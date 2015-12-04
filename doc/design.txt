@@ -50,6 +50,123 @@ generic and extensible and allows for inline serialized events such as
 property changes and format changes.
 
 
+fd management
+-------------
+
+Pinos shares data between clients by using fd passing. Sometimes the memory
+referenced by the fd needs to be reused. It is important that all pinos
+clients lost their reference to the fd before it can be reused.
+
+What follows are some scenarios of how the lifecycle of the fds are
+managed.
+
+* server side
+
+          v4l2src    pinospay   multisocketsink
+              |          |             |
+              |          |             |
+make buffer   |--------->|             |
+              |          | (1)         |
+              |          |------------>| (2) ----->
+              |          |             |
+              |          |<------------|
+              |       (4)| ............| (3)
+              |          |             |
+              |...       | ...         |
+              |          |             |
+              |          |<------------| (5) <-----
+              |       (6)|             |
+              |          |             |
+
+
+(1) pinospay generates the pinos message for the v4l2 input
+    buffer. It is assumed in the next steps that the payloader
+    receives fd-memory from v4l2src and that the memory is only
+    freed again when no clients are looking at the fd.
+(2) multisocketsink sends the buffer to N Pinos clients
+(3) for each client that is sent a buffer, multisocketsink sends an
+    event with the client object and buffer in it.
+(4) pinospay maps the fd-index that was sent, to the buffer in a
+    hashtable for each client. It refs the buffer so that it remains
+    alive for as long as the client is using the buffer.
+(5) when a message is received from a client, multisocketsink sends an
+    event upstream.
+(6) pinospay parses the message and removes all fd-index entries from
+    the client hashtable. When all clients release the fd, the buffer
+    will be unreffed and v4l2src can reuse the memory.
+
+* client consumer
+
+            pinossrc           xvimagesink
+               |                    |
+   -------> (1)|------------------->| (2)
+               |                    |
+               |         (3)        |
+               |<-------------------|
+   <------- (4)|                    |
+               |                    |
+
+
+(1) pinossrc receives a buffer from Pinos and wraps the fd with data
+    in an fd-memory. It remembers the fd-index as qdata on the memory.
+    It has a special DestroyNotify on the qdata.
+(2) xvimagesink renders the buffer and frees the buffer.
+(3) freeing the buffer causes the qdata DestoyNotify to be called.
+(4) pinossrc constructs a release-fd message and sends it to Pinos
+
+* client producer
+
+
+          videotestsrc          pinossink
+               |                    |
+            (1)|------------------->|
+               |                    | (2) ----->
+               |                    |
+               |  (4)               | (3) <-----
+               |<-------------------|
+
+
+(1) videotestsrc produces a buffer
+(2) pinossink makes a PinosBuffer from the input buffer. It will also
+    keep the buffer in a hash table indexed by the fd-index.
+(3) pinossink receives an fd-release message from Pinos. It removes
+    the fd-index from the hashtable and
+    the hashtable and the buffer is unreffed
+(4) the fd is returned to videotestsrc for reuse.
+
+
+* client producer, server side
+
+          socketsrc    pinospay   multisocketsink
+              |            |             |
+  ------> (1) |         (2)|             |
+              |----------->|             |
+              |            |------------>| (3) -------->
+              |            |             |       ....
+              |         (5)|<------------| (4)
+              |            |  ......     |
+              |            |             |
+              |         (7)|<------------| (6) <--------
+  <------- (8)|<-----------|             |
+              |            |             |
+
+
+(1) pinos buffer arrives from a client. socketsrc wraps the
+    fd
+(2) pinospay sets a weak-ref on the buffer to know when it is
+    freed.
+(3) multisocketsink sends the buffer to the clients
+(4) for each buffer that is sent, an event is sent to the payloader
+(5) the payloader remembers the fd-index and buffer in a per-client
+    hashtable. it keeps a ref on the buffer
+(6) release-fd is received from a client
+(7) pinospay removes the fd-index from the client hashtable. If all
+    clients released the fd, the buffer will be freeds, triggering
+    the DestroyNotify. This will then trigger an event with a release-fd
+    message to the source.
+(8) the source sends the release-fd message to Pinos
+
+
 Wire
 ----
 

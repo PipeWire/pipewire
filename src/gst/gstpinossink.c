@@ -97,6 +97,15 @@ gst_pinos_sink_finalize (GObject * object)
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }
 
+static gboolean
+gst_pinos_sink_propose_allocation (GstBaseSink * bsink, GstQuery * query)
+{
+  GstPinosSink *pinossink = GST_PINOS_SINK (bsink);
+
+  gst_query_add_allocation_param (query, pinossink->allocator, NULL);
+  return TRUE;
+}
+
 static void
 gst_pinos_sink_class_init (GstPinosSinkClass * klass)
 {
@@ -133,6 +142,7 @@ gst_pinos_sink_class_init (GstPinosSinkClass * klass)
   gstbasesink_class->get_caps = gst_pinos_sink_getcaps;
   gstbasesink_class->set_caps = gst_pinos_sink_setcaps;
   gstbasesink_class->fixate = gst_pinos_sink_sink_fixate;
+  gstbasesink_class->propose_allocation = gst_pinos_sink_propose_allocation;
   gstbasesink_class->start = gst_pinos_sink_start;
   gstbasesink_class->stop = gst_pinos_sink_stop;
   gstbasesink_class->render = gst_pinos_sink_render;

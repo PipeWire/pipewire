@@ -222,7 +222,7 @@ gst_pinos_pay_src_event (GstPad * pad, GstObject * parent, GstEvent * event)
         gst_buffer_unref (buf);
         g_object_unref (obj);
       }
-      else if (gst_event_has_name (event, "GstNetworkMessageReceived")) {
+      else if (gst_event_has_name (event, "GstNetworkMessage")) {
         const GstStructure *str = gst_event_get_structure (event);
         GstBuffer *buf;
         GObject *obj;
@@ -301,7 +301,7 @@ release_fds (GstPinosPay *pay, GstBuffer *buffer)
 
   outbuf = gst_buffer_new_wrapped (data, size);
   ev = gst_event_new_custom (GST_EVENT_CUSTOM_UPSTREAM,
-          gst_structure_new ("GstNetworkMessageReceived",
+          gst_structure_new ("GstNetworkMessage",
               "object", G_TYPE_OBJECT, pay,
               "buffer", GST_TYPE_BUFFER, outbuf, NULL));
   gst_buffer_unref (outbuf);

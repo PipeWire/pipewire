@@ -508,6 +508,17 @@ on_source_output_proxy (GObject      *source_object,
   if (priv->source_output == NULL)
     goto source_output_failed;
 
+  /* get the source we are connected to */
+  v = g_dbus_proxy_get_cached_property (priv->source_output, "Source");
+  if (v) {
+    gsize len;
+    str = g_variant_dup_string (v, &len);
+    g_variant_unref (v);
+
+    g_free (priv->source_path);
+    priv->source_path = str;
+  }
+
   v = g_dbus_proxy_get_cached_property (priv->source_output, "PossibleFormats");
   if (v) {
     gsize len;

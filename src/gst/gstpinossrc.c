@@ -766,7 +766,7 @@ gst_pinos_src_open (GstPinosSrc * pinossrc)
     pinos_main_loop_wait (pinossrc->loop);
   }
 
-  pinossrc->stream = pinos_stream_new (pinossrc->ctx, "test", NULL);
+  pinossrc->stream = pinos_stream_new (pinossrc->ctx, pinossrc->client_name, NULL);
   g_signal_connect (pinossrc->stream, "notify::state", (GCallback) on_stream_notify, pinossrc);
   g_signal_connect (pinossrc->stream, "new-buffer", (GCallback) on_new_buffer, pinossrc);
   pinos_main_loop_unlock (pinossrc->loop);

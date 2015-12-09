@@ -321,7 +321,7 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
   format = g_bytes_new_take (str, strlen (str) + 1);
 
   pinos_main_loop_lock (pinossink->loop);
-  pinossink->stream = pinos_stream_new (pinossink->ctx, "test", NULL);
+  pinossink->stream = pinos_stream_new (pinossink->ctx, pinossink->client_name, NULL);
   g_signal_connect (pinossink->stream, "notify::state", (GCallback) on_stream_notify, pinossink);
   g_signal_connect (pinossink->stream, "new-buffer", (GCallback) on_new_buffer, pinossink);
 

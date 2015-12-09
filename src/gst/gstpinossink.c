@@ -51,7 +51,8 @@ GST_DEBUG_CATEGORY_STATIC (pinos_sink_debug);
 enum
 {
   PROP_0,
-  PROP_CLIENT_NAME
+  PROP_CLIENT_NAME,
+  PROP_STREAM_PROPERTIES
 };
 
 
@@ -90,6 +91,8 @@ gst_pinos_sink_finalize (GObject * object)
 {
   GstPinosSink *pinossink = GST_PINOS_SINK (object);
 
+  if (pinossink->properties)
+    gst_structure_free (pinossink->properties);
   g_hash_table_unref (pinossink->fdids);
   g_object_unref (pinossink->allocator);
   g_free (pinossink->client_name);
@@ -127,6 +130,15 @@ gst_pinos_sink_class_init (GstPinosSinkClass * klass)
                                                         "Client Name",
                                                         "The client name to use (NULL = default)",
                                                         NULL,
+                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_STATIC_STRINGS));
+
+   g_object_class_install_property (gobject_class,
+                                    PROP_STREAM_PROPERTIES,
+                                    g_param_spec_boxed ("stream-properties",
+                                                        "stream properties",
+                                                        "list of pinos stream properties",
+                                                        GST_TYPE_STRUCTURE,
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_STATIC_STRINGS));
 
@@ -216,6 +228,13 @@ gst_pinos_sink_set_property (GObject * object, guint prop_id,
       pinossink->client_name = g_value_dup_string (value);
       break;
 
+    case PROP_STREAM_PROPERTIES:
+      if (pinossink->properties)
+        gst_structure_free (pinossink->properties);
+      pinossink->properties =
+          gst_structure_copy (gst_value_get_structure (value));
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -231,6 +250,10 @@ gst_pinos_sink_get_property (GObject * object, guint prop_id,
   switch (prop_id) {
     case PROP_CLIENT_NAME:
       g_value_set_string (value, pinossink->client_name);
+      break;
+
+    case PROP_STREAM_PROPERTIES:
+      gst_value_set_structure (value, pinossink->properties);
       break;
 
     default:
@@ -309,19 +332,41 @@ gst_pinos_sink_getcaps (GstBaseSink * bsink, GstCaps * filter)
 }
 
 static gboolean
+copy_properties (GQuark field_id,
+                 const GValue *value,
+                 gpointer user_data)
+{
+  PinosProperties *properties = user_data;
+
+  if (G_VALUE_HOLDS_STRING (value))
+    pinos_properties_set (properties,
+                          g_quark_to_string (field_id),
+                          g_value_get_string (value));
+  return TRUE;
+}
+
+static gboolean
 gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
 {
   GstPinosSink *pinossink;
   gchar *str;
   GBytes *format;
+  PinosProperties *props;
 
   pinossink = GST_PINOS_SINK (bsink);
 
   str = gst_caps_to_string (caps);
   format = g_bytes_new_take (str, strlen (str) + 1);
 
+  if (pinossink->properties) {
+    props = pinos_properties_new (NULL, NULL);
+    gst_structure_foreach (pinossink->properties, copy_properties, props);
+  } else {
+    props = NULL;
+  }
+
   pinos_main_loop_lock (pinossink->loop);
-  pinossink->stream = pinos_stream_new (pinossink->ctx, pinossink->client_name, NULL);
+  pinossink->stream = pinos_stream_new (pinossink->ctx, pinossink->client_name, props);
   g_signal_connect (pinossink->stream, "notify::state", (GCallback) on_stream_notify, pinossink);
   g_signal_connect (pinossink->stream, "new-buffer", (GCallback) on_new_buffer, pinossink);
 

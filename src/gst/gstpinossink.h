@@ -62,6 +62,7 @@ struct _GstPinosSink {
   PinosContext *ctx;
   PinosStream *stream;
   GstAllocator *allocator;
+  GstStructure *properties;
 
   guint32 id_counter;
   GHashTable *fdids;

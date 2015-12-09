@@ -54,6 +54,7 @@ enum
   PROP_0,
   PROP_PATH,
   PROP_CLIENT_NAME,
+  PROP_STREAM_PROPERTIES,
 };
 
 
@@ -99,6 +100,13 @@ gst_pinos_src_set_property (GObject * object, guint prop_id,
       pinossrc->client_name = g_value_dup_string (value);
       break;
 
+    case PROP_STREAM_PROPERTIES:
+      if (pinossrc->properties)
+        gst_structure_free (pinossrc->properties);
+      pinossrc->properties =
+          gst_structure_copy (gst_value_get_structure (value));
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -118,6 +126,10 @@ gst_pinos_src_get_property (GObject * object, guint prop_id,
 
     case PROP_CLIENT_NAME:
       g_value_set_string (value, pinossrc->client_name);
+      break;
+
+    case PROP_STREAM_PROPERTIES:
+      gst_value_set_structure (value, pinossrc->properties);
       break;
 
     default:
@@ -158,6 +170,8 @@ gst_pinos_src_finalize (GObject * object)
 {
   GstPinosSrc *pinossrc = GST_PINOS_SRC (object);
 
+  if (pinossrc->properties)
+    gst_structure_free (pinossrc->properties);
   g_object_unref (pinossrc->fd_allocator);
   if (pinossrc->clock)
     gst_object_unref (pinossrc->clock);
@@ -201,6 +215,15 @@ gst_pinos_src_class_init (GstPinosSrcClass * klass)
                                                         NULL,
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_STREAM_PROPERTIES,
+                                   g_param_spec_boxed ("stream-properties",
+                                                       "stream properties",
+                                                       "list of pinos stream properties",
+                                                       GST_TYPE_STRUCTURE,
+                                                       G_PARAM_READWRITE |
+                                                       G_PARAM_STATIC_STRINGS));
 
   gstelement_class->provide_clock = gst_pinos_src_provide_clock;
   gstelement_class->change_state = gst_pinos_src_change_state;
@@ -737,9 +760,24 @@ on_context_notify (GObject    *gobject,
 }
 
 static gboolean
+copy_properties (GQuark field_id,
+                 const GValue *value,
+                 gpointer user_data)
+{
+  PinosProperties *properties = user_data;
+
+  if (G_VALUE_HOLDS_STRING (value))
+    pinos_properties_set (properties,
+                          g_quark_to_string (field_id),
+                          g_value_get_string (value));
+  return TRUE;
+}
+
+static gboolean
 gst_pinos_src_open (GstPinosSrc * pinossrc)
 {
   GError *error = NULL;
+  PinosProperties *props;
 
   pinossrc->context = g_main_context_new ();
   GST_DEBUG ("context %p", pinossrc->context);
@@ -766,7 +804,14 @@ gst_pinos_src_open (GstPinosSrc * pinossrc)
     pinos_main_loop_wait (pinossrc->loop);
   }
 
-  pinossrc->stream = pinos_stream_new (pinossrc->ctx, pinossrc->client_name, NULL);
+  if (pinossrc->properties) {
+    props = pinos_properties_new (NULL, NULL);
+    gst_structure_foreach (pinossrc->properties, copy_properties, props);
+  } else {
+    props = NULL;
+  }
+
+  pinossrc->stream = pinos_stream_new (pinossrc->ctx, pinossrc->client_name, props);
   g_signal_connect (pinossrc->stream, "notify::state", (GCallback) on_stream_notify, pinossrc);
   g_signal_connect (pinossrc->stream, "new-buffer", (GCallback) on_new_buffer, pinossrc);
   pinos_main_loop_unlock (pinossrc->loop);

@@ -63,6 +63,7 @@ struct _GstPinosSrc {
   PinosStream *stream;
   PinosStreamState stream_state;
   GstAllocator *fd_allocator;
+  GstStructure *properties;
 
   GstBuffer *current;
   GstClock *clock;

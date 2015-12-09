@@ -467,6 +467,7 @@ pinos_source_report_error (PinosSource *source,
   remove_idle_timeout (source);
   priv->error = error;
   priv->state = PINOS_SOURCE_STATE_ERROR;
+  g_debug ("got error state %s", error->message);
   pinos_source1_set_state (priv->iface, priv->state);
   g_object_notify (G_OBJECT (source), "state");
 }

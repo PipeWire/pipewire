@@ -170,9 +170,15 @@ start_pipeline (PinosGstSource *source, GError **error)
   GstClock *clock;
   gchar *address;
   gint port;
+  GstStateChangeReturn ret;
 
-  gst_element_set_state (priv->pipeline, GST_STATE_PAUSED);
-  gst_element_get_state (priv->pipeline, NULL, NULL, -1);
+  ret = gst_element_set_state (priv->pipeline, GST_STATE_PAUSED);
+  if (ret == GST_STATE_CHANGE_FAILURE)
+    goto paused_failed;
+
+  ret = gst_element_get_state (priv->pipeline, NULL, NULL, -1);
+  if (ret == GST_STATE_CHANGE_FAILURE)
+    goto paused_failed;
 
   query = gst_query_new_caps (NULL);
   gst_element_query (priv->element, query);
@@ -197,6 +203,18 @@ start_pipeline (PinosGstSource *source, GError **error)
   gst_object_unref (clock);
 
   return TRUE;
+
+  /* ERRORS */
+paused_failed:
+  {
+    GST_ERROR_OBJECT (source, "failed state change");
+    gst_element_set_state (priv->pipeline, GST_STATE_NULL);
+    if (error)
+      *error = g_error_new (G_IO_ERROR,
+                            G_IO_ERROR_FAILED,
+                            "Failed to start pipeline");
+    return FALSE;
+  }
 }
 
 static gboolean

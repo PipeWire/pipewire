@@ -62,7 +62,7 @@ pinos_buffer_clear (PinosBuffer *buffer)
 {
   PinosStackBuffer *sb = PSB (buffer);
 
-  g_return_val_if_fail (is_valid_buffer (buffer), -1);
+  g_return_if_fail (is_valid_buffer (buffer));
 
   sb->magic = 0;
   if (sb->allocated_size)
@@ -86,7 +86,7 @@ pinos_buffer_get_version (PinosBuffer *buffer)
   PinosStackBuffer *sb = PSB (buffer);
   PinosStackHeader *hdr;
 
-  g_return_val_if_fail (is_valid_buffer (buffer), NULL);
+  g_return_val_if_fail (is_valid_buffer (buffer), -1);
 
   hdr = sb->data;
 

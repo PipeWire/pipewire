@@ -32,7 +32,8 @@ MAINTAINERCLEANFILES =
 noinst_DATA =
 
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = pkgconfig/libpinos.pc
+pkgconfig_DATA = pkgconfig/libpinos-$(PINOS_MAJORMINOR).pc
+
 
 eolspace:
 	find \( -name '*.c' -o -name '*.h' -o -name 'Makefile.am' \) -exec perl -i -pe 's/\s+\n$$/\1\n/;' \{\} \;

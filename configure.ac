@@ -245,7 +245,7 @@ src/Makefile
 man/Makefile
 man/pinos.1.xml
 man/pinos-monitor.1.xml
-pkgconfig/libpinos.pc
+pkgconfig/libpinos-$PINOS_MAJORMINOR.pc:pkgconfig/libpinos.pc.in
 po/Makefile.in
 ])
 AC_OUTPUT

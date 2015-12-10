@@ -137,6 +137,8 @@ setup_pipeline (PinosGstSource *source, GError **error)
                             "sync-method", 0, /* latest */
                             "sync", TRUE,
                             "enable-last-sample", FALSE,
+                            "send-dispatched", TRUE,
+                            "send-messages", TRUE,
                             NULL);
 
   gst_bin_add (GST_BIN (priv->pipeline), priv->sink);

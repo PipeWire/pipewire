@@ -7,5 +7,5 @@ modlibexecdir=@modlibexecdir@
 Name: libpinos
 Description: Pinos Client Interface
 Version: @PACKAGE_VERSION@
-Libs: -L${libdir} -lpinos @PTHREAD_LIBS@
+Libs: -L${libdir} -lpinos
 Cflags: -I${includedir} -D_REENTRANT

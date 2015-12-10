@@ -448,7 +448,7 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   if (gst_buffer_n_memory (buffer) == 1
       && gst_is_fd_memory (gst_buffer_peek_memory (buffer, 0))) {
     mem = gst_buffer_get_memory (buffer, 0);
-    tmpfile = FALSE;
+    tmpfile = gst_is_tmpfile_memory (mem);
   } else {
     GstMapInfo minfo;
     GstAllocationParams params = {0, 0, 0, 0, { NULL, }};

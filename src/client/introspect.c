@@ -27,6 +27,28 @@
 
 #include "client/private.h"
 
+/**
+ * pinos_context_info_finish:
+ * @object: a #GObject
+ * @res: a #GAsyncResult
+ * @error: location to place an error
+ *
+ * Call this function in the introspection GAsyncReadyCallback function
+ * to get the final result of the operation.
+ *
+ * Returns: %TRUE if the lookup was successful. If %FALSE is returned, @error
+ * will contain more details.
+ */
+gboolean
+pinos_context_info_finish (GObject      *object,
+                           GAsyncResult *res,
+                           GError      **error)
+{
+  g_return_val_if_fail (g_task_is_valid (res, object), FALSE);
+
+  return g_task_propagate_boolean (G_TASK (res), error);
+}
+
 #define SET_STRING(name, field, idx)                                                    \
 G_STMT_START {                                                                          \
   GVariant *variant;                                                                    \
@@ -123,17 +145,23 @@ pinos_context_get_daemon_info (PinosContext *context,
                                PinosDaemonInfoFlags flags,
                                PinosDaemonInfoCallback cb,
                                GCancellable *cancellable,
+                               GAsyncReadyCallback callback,
                                gpointer user_data)
 {
   PinosDaemonInfo info;
+  GTask *task;
 
   g_return_if_fail (PINOS_IS_CONTEXT (context));
   g_return_if_fail (cb != NULL);
 
+  task = g_task_new (context, cancellable, callback, user_data);
+
   daemon_fill_info (&info, context->priv->daemon);
   cb (context, &info, user_data);
   daemon_clear_info (&info);
-  cb (context, NULL, user_data);
+
+  g_task_return_boolean (task, TRUE);
+  g_object_unref (task);
 }
 
 static void
@@ -176,13 +204,19 @@ pinos_context_list_client_info (PinosContext *context,
                                 PinosClientInfoFlags flags,
                                 PinosClientInfoCallback cb,
                                 GCancellable *cancellable,
+                                GAsyncReadyCallback callback,
                                 gpointer user_data)
 {
+  PinosContextPrivate *priv;
   GList *walk;
-  PinosContextPrivate *priv = context->priv;
+  GTask *task;
 
   g_return_if_fail (PINOS_IS_CONTEXT (context));
   g_return_if_fail (cb != NULL);
+
+  task = g_task_new (context, cancellable, callback, user_data);
+
+  priv = context->priv;
 
   for (walk = priv->clients; walk; walk = g_list_next (walk)) {
     GDBusProxy *proxy = walk->data;
@@ -192,7 +226,9 @@ pinos_context_list_client_info (PinosContext *context,
     cb (context, &info, user_data);
     client_clear_info (&info);
   }
-  cb (context, NULL, user_data);
+
+  g_task_return_boolean (task, TRUE);
+  g_object_unref (task);
 }
 
 /**
@@ -212,21 +248,27 @@ pinos_context_get_client_info_by_id (PinosContext *context,
                                      PinosClientInfoFlags flags,
                                      PinosClientInfoCallback cb,
                                      GCancellable *cancellable,
+                                     GAsyncReadyCallback callback,
                                      gpointer user_data)
 {
   PinosClientInfo info;
   GDBusProxy *proxy;
+  GTask *task;
 
   g_return_if_fail (PINOS_IS_CONTEXT (context));
   g_return_if_fail (id != NULL);
   g_return_if_fail (cb != NULL);
+
+  task = g_task_new (context, cancellable, callback, user_data);
 
   proxy = G_DBUS_PROXY (id);
 
   client_fill_info (&info, proxy);
   cb (context, &info, user_data);
   client_clear_info (&info);
-  cb (context, NULL, user_data);
+
+  g_task_return_boolean (task, TRUE);
+  g_object_unref (task);
 }
 
 /**
@@ -291,13 +333,19 @@ pinos_context_list_source_info (PinosContext            *context,
                                 PinosSourceInfoFlags     flags,
                                 PinosSourceInfoCallback  cb,
                                 GCancellable            *cancellable,
+                                GAsyncReadyCallback      callback,
                                 gpointer                 user_data)
 {
+  PinosContextPrivate *priv;
   GList *walk;
-  PinosContextPrivate *priv = context->priv;
+  GTask *task;
 
   g_return_if_fail (PINOS_IS_CONTEXT (context));
   g_return_if_fail (cb != NULL);
+
+  task = g_task_new (context, cancellable, callback, user_data);
+
+  priv = context->priv;
 
   for (walk = priv->sources; walk; walk = g_list_next (walk)) {
     GDBusProxy *proxy = walk->data;
@@ -307,7 +355,9 @@ pinos_context_list_source_info (PinosContext            *context,
     cb (context, &info, user_data);
     source_clear_info (&info);
   }
-  cb (context, NULL, user_data);
+
+  g_task_return_boolean (task, TRUE);
+  g_object_unref (task);
 }
 
 /**
@@ -327,21 +377,27 @@ pinos_context_get_source_info_by_id (PinosContext *context,
                                      PinosSourceInfoFlags flags,
                                      PinosSourceInfoCallback cb,
                                      GCancellable *cancellable,
+                                     GAsyncReadyCallback callback,
                                      gpointer user_data)
 {
   PinosSourceInfo info;
   GDBusProxy *proxy;
+  GTask *task;
 
   g_return_if_fail (PINOS_IS_CONTEXT (context));
   g_return_if_fail (id != NULL);
   g_return_if_fail (cb != NULL);
+
+  task = g_task_new (context, cancellable, callback, user_data);
 
   proxy = G_DBUS_PROXY (id);
 
   source_fill_info (&info, proxy);
   cb (context, &info, user_data);
   source_clear_info (&info);
-  cb (context, NULL, user_data);
+
+  g_task_return_boolean (task, TRUE);
+  g_object_unref (task);
 }
 
 /**
@@ -408,13 +464,19 @@ pinos_context_list_source_output_info (PinosContext *context,
                                        PinosSourceOutputInfoFlags flags,
                                        PinosSourceOutputInfoCallback cb,
                                        GCancellable *cancellable,
+                                       GAsyncReadyCallback callback,
                                        gpointer user_data)
 {
+  PinosContextPrivate *priv;
   GList *walk;
-  PinosContextPrivate *priv = context->priv;
+  GTask *task;
 
   g_return_if_fail (PINOS_IS_CONTEXT (context));
   g_return_if_fail (cb != NULL);
+
+  task = g_task_new (context, cancellable, callback, user_data);
+
+  priv = context->priv;
 
   for (walk = priv->source_outputs; walk; walk = g_list_next (walk)) {
     GDBusProxy *proxy = walk->data;
@@ -424,7 +486,9 @@ pinos_context_list_source_output_info (PinosContext *context,
     cb (context, &info, user_data);
     source_output_clear_info (&info);
   }
-  cb (context, NULL, user_data);
+
+  g_task_return_boolean (task, TRUE);
+  g_object_unref (task);
 }
 
 /**
@@ -444,20 +508,26 @@ pinos_context_get_source_output_info_by_id (PinosContext *context,
                                             PinosSourceOutputInfoFlags flags,
                                             PinosSourceOutputInfoCallback cb,
                                             GCancellable *cancellable,
+                                            GAsyncReadyCallback callback,
                                             gpointer user_data)
 {
   PinosSourceOutputInfo info;
   GDBusProxy *proxy;
+  GTask *task;
 
   g_return_if_fail (PINOS_IS_CONTEXT (context));
   g_return_if_fail (id != NULL);
   g_return_if_fail (cb != NULL);
+
+  task = g_task_new (context, cancellable, callback, user_data);
 
   proxy = G_DBUS_PROXY (id);
 
   source_output_fill_info (&info, proxy);
   cb (context, &info, user_data);
   source_output_clear_info (&info);
-  cb (context, NULL, user_data);
+
+  g_task_return_boolean (task, TRUE);
+  g_object_unref (task);
 }
 

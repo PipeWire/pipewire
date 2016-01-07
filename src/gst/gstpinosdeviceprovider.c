@@ -229,7 +229,7 @@ new_source (const PinosSourceInfo *info)
                                props);
 }
 
-static gboolean
+static void
 get_source_info_cb (PinosContext          *context,
                     const PinosSourceInfo *info,
                     gpointer               user_data)
@@ -237,15 +237,9 @@ get_source_info_cb (PinosContext          *context,
   GstPinosDeviceProvider *self = user_data;
   GstDevice *dev;
 
-  if (info == NULL)
-    return FALSE;
-
   dev = new_source (info);
-
   if (dev)
     gst_device_provider_device_add (GST_DEVICE_PROVIDER (self), dev);
-
-  return TRUE;
 }
 
 static GstPinosDevice *
@@ -291,6 +285,7 @@ context_subscribe_cb (PinosContext           *context,
                                            PINOS_SOURCE_INFO_FLAGS_FORMATS,
                                            get_source_info_cb,
                                            NULL,
+                                           NULL,
                                            self);
   } else if (type == PINOS_SUBSCRIPTION_EVENT_REMOVE) {
     if (flags == PINOS_SUBSCRIPTION_FLAG_SOURCE && dev != NULL) {
@@ -307,45 +302,49 @@ typedef struct {
   GList **devices;
 } InfoData;
 
-static gboolean
+static void
 list_source_info_cb (PinosContext          *c,
                      const PinosSourceInfo *info,
                      gpointer               user_data)
 {
   InfoData *data = user_data;
 
-  if (info == NULL) {
-    data->end = TRUE;
-    return FALSE;
-  }
-
   *data->devices = g_list_prepend (*data->devices, gst_object_ref_sink (new_source (info)));
-
-  return TRUE;
 }
 
-static gboolean
-get_daemon_info_cb (PinosContext *c, const PinosDaemonInfo *info, gpointer userdata)
+static void
+list_source_info_end_cb (GObject *source_object,
+                         GAsyncResult *res,
+                         gpointer user_data)
 {
-  GstDeviceProvider *provider = userdata;
-  const gchar *value;
+  InfoData *data = user_data;
+  GError *error = NULL;
 
-  if (info == NULL)
-    return TRUE;
+  if (!pinos_context_info_finish (source_object, res, &error)) {
+    GST_WARNING_OBJECT (source_object, "failed to list sources: %s", error->message);
+    g_clear_error (&error);
+  }
+  data->end = TRUE;
+}
+
+static void
+get_daemon_info_cb (PinosContext *c, const PinosDaemonInfo *info, gpointer user_data)
+{
+  GstDeviceProvider *provider = user_data;
+  const gchar *value;
 
   value = pinos_properties_get (info->properties, "gstreamer.deviceproviders");
   if (value) {
     gchar **providers = g_strsplit (value, ",", -1);
     gint i;
 
-    GST_DEBUG_OBJECT (provider, "have hidden providers: %s\n", value);
+    GST_DEBUG_OBJECT (provider, "have hidden providers: %s", value);
 
     for (i = 0; providers[i]; i++) {
       gst_device_provider_hide_provider (provider, providers[i]);
     }
     g_strfreev (providers);
   }
-  return TRUE;
 }
 
 static GList *
@@ -391,6 +390,7 @@ gst_pinos_device_provider_probe (GstDeviceProvider * provider)
                                  PINOS_DAEMON_INFO_FLAGS_NONE,
                                  get_daemon_info_cb,
                                  NULL,
+                                 NULL,
                                  self);
 
 
@@ -400,6 +400,7 @@ gst_pinos_device_provider_probe (GstDeviceProvider * provider)
                                   PINOS_SOURCE_INFO_FLAGS_FORMATS,
                                   list_source_info_cb,
                                   NULL,
+                                  list_source_info_end_cb,
                                   &data);
   for (;;) {
     if (pinos_context_get_state (c) <= 0)
@@ -519,6 +520,7 @@ gst_pinos_device_provider_start (GstDeviceProvider * provider)
   pinos_context_get_daemon_info (self->context,
                                  PINOS_DAEMON_INFO_FLAGS_NONE,
                                  get_daemon_info_cb,
+                                 NULL,
                                  NULL,
                                  self);
   pinos_main_loop_unlock (self->loop);

@@ -80,12 +80,20 @@ print_properties (PinosProperties *props)
   }
 }
 
-static gboolean
+static void
+info_ready (GObject *o, GAsyncResult *res, gpointer user_data)
+{
+  GError *error = NULL;
+
+  if (!pinos_context_info_finish (o, res, &error)) {
+    g_printerr ("introspection failure: %s\n", error->message);
+    g_clear_error (&error);
+  }
+}
+
+static void
 dump_daemon_info (PinosContext *c, const PinosDaemonInfo *info, gpointer userdata)
 {
-  if (info == NULL)
-    return FALSE;
-
   g_print ("\tid: %p\n", info->id);
   g_print ("\tdaemon-path: \"%s\"\n", info->daemon_path);
   if (info->change_mask & (1 << 0))
@@ -100,32 +108,22 @@ dump_daemon_info (PinosContext *c, const PinosDaemonInfo *info, gpointer userdat
     g_print ("\tcookie: %d\n", info->cookie);
   if (info->change_mask & (1 << 5))
     print_properties (info->properties);
-
-  return TRUE;
 }
 
-static gboolean
+static void
 dump_client_info (PinosContext *c, const PinosClientInfo *info, gpointer userdata)
 {
-  if (info == NULL)
-    return FALSE;
-
   g_print ("\tid: %p\n", info->id);
   g_print ("\tclient-path: \"%s\"\n", info->client_path);
   if (info->change_mask & (1 << 0))
     g_print ("\tname: \"%s\"\n", info->name);
   if (info->change_mask & (1 << 1))
     print_properties (info->properties);
-
-  return TRUE;
 }
 
-static gboolean
+static void
 dump_source_info (PinosContext *c, const PinosSourceInfo *info, gpointer userdata)
 {
-  if (info == NULL)
-    return FALSE;
-
   g_print ("\tid: %p\n", info->id);
   g_print ("\tsource-path: \"%s\"\n", info->source_path);
   if (info->change_mask & (1 << 0))
@@ -136,16 +134,11 @@ dump_source_info (PinosContext *c, const PinosSourceInfo *info, gpointer userdat
     g_print ("\tstate: \"%s\"\n", pinos_source_state_as_string (info->state));
   if (info->change_mask & (1 << 3))
     print_formats ("possible formats", info->possible_formats);
-
-  return TRUE;
 }
 
-static gboolean
+static void
 dump_source_output_info (PinosContext *c, const PinosSourceOutputInfo *info, gpointer userdata)
 {
-  if (info == NULL)
-    return FALSE;
-
   g_print ("\tid: %p\n", info->id);
   g_print ("\toutput-path: \"%s\"\n", info->output_path);
   if (info->change_mask & (1 << 0))
@@ -160,8 +153,6 @@ dump_source_output_info (PinosContext *c, const PinosSourceOutputInfo *info, gpo
     print_formats ("format", info->format);
   if (info->change_mask & (1 << 5))
     print_properties (info->properties);
-
-  return TRUE;
 }
 
 static void
@@ -172,6 +163,7 @@ dump_object (PinosContext *context, gpointer id, PinosSubscriptionFlags flags)
                                    PINOS_DAEMON_INFO_FLAGS_NONE,
                                    dump_daemon_info,
                                    NULL,
+                                   info_ready,
                                    NULL);
   }
   else if (flags & PINOS_SUBSCRIPTION_FLAG_CLIENT) {
@@ -180,6 +172,7 @@ dump_object (PinosContext *context, gpointer id, PinosSubscriptionFlags flags)
                                          PINOS_CLIENT_INFO_FLAGS_NONE,
                                          dump_client_info,
                                          NULL,
+                                         info_ready,
                                          NULL);
   }
   else if (flags & PINOS_SUBSCRIPTION_FLAG_SOURCE) {
@@ -188,6 +181,7 @@ dump_object (PinosContext *context, gpointer id, PinosSubscriptionFlags flags)
                                          PINOS_SOURCE_INFO_FLAGS_FORMATS,
                                          dump_source_info,
                                          NULL,
+                                         info_ready,
                                          NULL);
   }
   else if (flags & PINOS_SUBSCRIPTION_FLAG_SOURCE_OUTPUT) {
@@ -196,6 +190,7 @@ dump_object (PinosContext *context, gpointer id, PinosSubscriptionFlags flags)
                                                 PINOS_SOURCE_OUTPUT_INFO_FLAGS_NONE,
                                                 dump_source_output_info,
                                                 NULL,
+                                                info_ready,
                                                 NULL);
   }
 }

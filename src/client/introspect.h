@@ -28,6 +28,10 @@
 
 G_BEGIN_DECLS
 
+gboolean         pinos_context_info_finish      (GObject      *object,
+                                                 GAsyncResult *res,
+                                                 GError      **error);
+
 /**
  * PinosDaemonInfo:
  * @id: generic id of the daemon
@@ -55,16 +59,32 @@ typedef struct {
   PinosProperties *properties;
 } PinosDaemonInfo;
 
+/**PinosDaemonInfoFlags:
+ * @PINOS_DAEMON_INFO_FLAGS_NONE: no flags
+ *
+ * Extra flags that can be passed to pinos_context_get_daemon_info()
+ */
 typedef enum {
   PINOS_DAEMON_INFO_FLAGS_NONE            = 0,
 } PinosDaemonInfoFlags;
 
-typedef gboolean (*PinosDaemonInfoCallback)  (PinosContext *c, const PinosDaemonInfo *info, gpointer userdata);
+/**
+ * PinosDaemonInfoCallback:
+ * @c: a #PinosContext
+ * @info: a #PinosDaemonInfo
+ * @user_data: user data
+ *
+ * Callback with information about the Pinos daemon in @info.
+ */
+typedef void (*PinosDaemonInfoCallback)  (PinosContext          *c,
+                                          const PinosDaemonInfo *info,
+                                          gpointer               user_data);
 
 void            pinos_context_get_daemon_info (PinosContext *context,
                                                PinosDaemonInfoFlags flags,
                                                PinosDaemonInfoCallback cb,
                                                GCancellable *cancellable,
+                                               GAsyncReadyCallback callback,
                                                gpointer user_data);
 
 /**
@@ -86,22 +106,41 @@ typedef struct {
   PinosProperties *properties;
 } PinosClientInfo;
 
+/**
+ * PinosClientInfoFlags:
+ * @PINOS_CLIENT_INFO_FLAGS_NONE: no flags
+ *
+ * Extra flags for pinos_context_list_client_info() and
+ * pinos_context_get_client_info_by_id().
+ */
 typedef enum {
   PINOS_CLIENT_INFO_FLAGS_NONE            = 0,
 } PinosClientInfoFlags;
 
-typedef gboolean (*PinosClientInfoCallback)  (PinosContext *c, const PinosClientInfo *info, gpointer userdata);
+/**
+ * PinosClientInfoCallback:
+ * @c: a #PinosContext
+ * @info: a #PinosClientInfo
+ * @user_data: user data
+ *
+ * Callback with information about the Pinos client in @info.
+ */
+typedef void (*PinosClientInfoCallback)  (PinosContext          *c,
+                                          const PinosClientInfo *info,
+                                          gpointer               user_data);
 
 void            pinos_context_list_client_info      (PinosContext *context,
                                                      PinosClientInfoFlags flags,
                                                      PinosClientInfoCallback cb,
                                                      GCancellable *cancellable,
+                                                     GAsyncReadyCallback callback,
                                                      gpointer user_data);
 void            pinos_context_get_client_info_by_id (PinosContext *context,
                                                      gpointer id,
                                                      PinosClientInfoFlags flags,
                                                      PinosClientInfoCallback cb,
                                                      GCancellable *cancellable,
+                                                     GAsyncReadyCallback callback,
                                                      gpointer user_data);
 
 /**
@@ -162,18 +201,30 @@ typedef enum {
   PINOS_SOURCE_INFO_FLAGS_FORMATS         = (1 << 0)
 } PinosSourceInfoFlags;
 
-typedef gboolean (*PinosSourceInfoCallback)  (PinosContext *c, const PinosSourceInfo *info, gpointer userdata);
+/**
+ * PinosSourceInfoCallback:
+ * @c: a #PinosContext
+ * @info: a #PinosSourceInfo
+ * @user_data: user data
+ *
+ * Callback with information about the Pinos source in @info.
+ */
+typedef void (*PinosSourceInfoCallback)  (PinosContext          *c,
+                                          const PinosSourceInfo *info,
+                                          gpointer               user_data);
 
 void            pinos_context_list_source_info      (PinosContext *context,
                                                      PinosSourceInfoFlags flags,
                                                      PinosSourceInfoCallback cb,
                                                      GCancellable *cancellable,
+                                                     GAsyncReadyCallback callback,
                                                      gpointer user_data);
 void            pinos_context_get_source_info_by_id (PinosContext *context,
                                                      gpointer id,
                                                      PinosSourceInfoFlags flags,
                                                      PinosSourceInfoCallback cb,
                                                      GCancellable *cancellable,
+                                                     GAsyncReadyCallback callback,
                                                      gpointer user_data);
 
 /**
@@ -225,24 +276,37 @@ typedef struct {
  * PinosSourceOutputInfoFlags:
  * @PINOS_SOURCE_OUTPUT_INFO_FLAGS_NONE: no flags
  *
- * Extra flags to pass to pinos_context_get_source_output_info_list.
+ * Extra flags to pass to pinos_context_list_source_output_info() and
+ * pinos_context_get_source_output_info_by_id().
  */
 typedef enum {
   PINOS_SOURCE_OUTPUT_INFO_FLAGS_NONE            = 0,
 } PinosSourceOutputInfoFlags;
 
-typedef gboolean (*PinosSourceOutputInfoCallback)  (PinosContext *c, const PinosSourceOutputInfo *info, gpointer userdata);
+/**
+ * PinosSourceOutputInfoCallback:
+ * @c: a #PinosContext
+ * @info: a #PinosSourceOutputInfo
+ * @user_data: user data
+ *
+ * Callback with information about the Pinos source output in @info.
+ */
+typedef void (*PinosSourceOutputInfoCallback)  (PinosContext                *c,
+                                                const PinosSourceOutputInfo *info,
+                                                gpointer                     user_data);
 
 void            pinos_context_list_source_output_info      (PinosContext *context,
                                                             PinosSourceOutputInfoFlags flags,
                                                             PinosSourceOutputInfoCallback cb,
                                                             GCancellable *cancellable,
+                                                            GAsyncReadyCallback callback,
                                                             gpointer user_data);
 void            pinos_context_get_source_output_info_by_id (PinosContext *context,
                                                             gpointer id,
                                                             PinosSourceOutputInfoFlags flags,
                                                             PinosSourceOutputInfoCallback cb,
                                                             GCancellable *cancellable,
+                                                            GAsyncReadyCallback callback,
                                                             gpointer user_data);
 G_END_DECLS
 

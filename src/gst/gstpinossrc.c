@@ -80,6 +80,8 @@ static GstCaps *gst_pinos_src_src_fixate (GstBaseSrc * bsrc,
 
 static GstFlowReturn gst_pinos_src_create (GstPushSrc * psrc,
     GstBuffer ** buffer);
+static gboolean gst_pinos_src_unlock (GstBaseSrc * basesrc);
+static gboolean gst_pinos_src_unlock_stop (GstBaseSrc * basesrc);
 static gboolean gst_pinos_src_start (GstBaseSrc * basesrc);
 static gboolean gst_pinos_src_stop (GstBaseSrc * basesrc);
 
@@ -238,6 +240,8 @@ gst_pinos_src_class_init (GstPinosSrcClass * klass)
   gstbasesrc_class->negotiate = gst_pinos_src_negotiate;
   gstbasesrc_class->get_caps = gst_pinos_src_getcaps;
   gstbasesrc_class->fixate = gst_pinos_src_src_fixate;
+  gstbasesrc_class->unlock = gst_pinos_src_unlock;
+  gstbasesrc_class->unlock_stop = gst_pinos_src_unlock_stop;
   gstbasesrc_class->start = gst_pinos_src_start;
   gstbasesrc_class->stop = gst_pinos_src_stop;
 
@@ -666,6 +670,33 @@ gst_pinos_src_getcaps (GstBaseSrc * bsrc, GstCaps * filter)
   return GST_BASE_SRC_CLASS (parent_class)->get_caps (bsrc, filter);
 }
 
+static gboolean
+gst_pinos_src_unlock (GstBaseSrc * basesrc)
+{
+  GstPinosSrc *pinossrc = GST_PINOS_SRC (basesrc);
+
+  pinos_main_loop_lock (pinossrc->loop);
+  GST_DEBUG_OBJECT (pinossrc, "setting flushing");
+  pinossrc->flushing = TRUE;
+  pinos_main_loop_signal (pinossrc->loop, FALSE);
+  pinos_main_loop_unlock (pinossrc->loop);
+
+  return TRUE;
+}
+
+static gboolean
+gst_pinos_src_unlock_stop (GstBaseSrc * basesrc)
+{
+  GstPinosSrc *pinossrc = GST_PINOS_SRC (basesrc);
+
+  pinos_main_loop_lock (pinossrc->loop);
+  GST_DEBUG_OBJECT (pinossrc, "unsetting flushing");
+  pinossrc->flushing = FALSE;
+  pinos_main_loop_unlock (pinossrc->loop);
+
+  return TRUE;
+}
+
 static GstFlowReturn
 gst_pinos_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
 {
@@ -679,6 +710,9 @@ gst_pinos_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
   pinos_main_loop_lock (pinossrc->loop);
   while (TRUE) {
     PinosStreamState state;
+
+    if (pinossrc->flushing)
+      goto streaming_stopped;
 
     pinos_main_loop_wait (pinossrc->loop);
 

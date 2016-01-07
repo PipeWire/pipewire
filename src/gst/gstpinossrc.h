@@ -56,6 +56,7 @@ struct _GstPinosSrc {
   gchar *client_name;
 
   gboolean negotiated;
+  gboolean flushing;
 
   GMainContext *context;
   PinosMainLoop *loop;

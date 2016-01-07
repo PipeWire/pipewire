@@ -136,6 +136,7 @@ daemon_clear_info (PinosDaemonInfo *info)
  * @flags: extra flags
  * @cb: a callback
  * @cancelable: a #GCancellable
+ * @callback: a #GAsyncReadyCallback to call when the operation is finished
  * @user_data: user data passed to @cb
  *
  * Get the information of the daemon @context is connected to.
@@ -194,10 +195,10 @@ client_clear_info (PinosClientInfo *info)
  * @flags: extra #PinosClientInfoFlags
  * @cb: a #PinosClientInfoCallback
  * @cancelable: a #GCancellable
+ * @callback: a #GAsyncReadyCallback to call when the operation is finished
  * @user_data: user data passed to @cb
  *
- * Call @cb for each client. @cb will be called with NULL when there
- * are no more clients to list.
+ * Call @cb for each client.
  */
 void
 pinos_context_list_client_info (PinosContext *context,
@@ -238,9 +239,10 @@ pinos_context_list_client_info (PinosContext *context,
  * @flags: extra #PinosClientInfoFlags
  * @cb: a #PinosClientInfoCallback
  * @cancelable: a #GCancellable
+ * @callback: a #GAsyncReadyCallback to call when the operation is finished
  * @user_data: user data passed to @cb
  *
- * Call @cb for the client with @id. Then @cb will be called with NULL.
+ * Call @cb for the client with @id.
  */
 void
 pinos_context_get_client_info_by_id (PinosContext *context,
@@ -323,10 +325,10 @@ source_clear_info (PinosSourceInfo *info)
  * @flags: extra #PinosSourceInfoFlags
  * @cb: a #PinosSourceInfoCallback
  * @cancelable: a #GCancellable
+ * @callback: a #GAsyncReadyCallback to call when the operation is finished
  * @user_data: user data passed to @cb
  *
- * Call @cb for each source. @cb will be called with NULL when there
- * are no more sources to list.
+ * Call @cb for each source.
  */
 void
 pinos_context_list_source_info (PinosContext            *context,
@@ -367,9 +369,10 @@ pinos_context_list_source_info (PinosContext            *context,
  * @flags: extra #PinosSourceInfoFlags
  * @cb: a #PinosSourceInfoCallback
  * @cancelable: a #GCancellable
+ * @callback: a #GAsyncReadyCallback to call when the operation is finished
  * @user_data: user data passed to @cb
  *
- * Call @cb for the source with @id. Then @cb will be called with NULL.
+ * Call @cb for the source with @id.
  */
 void
 pinos_context_get_source_info_by_id (PinosContext *context,
@@ -454,10 +457,10 @@ source_output_clear_info (PinosSourceOutputInfo *info)
  * @flags: extra #PinosSourceOutputInfoFlags
  * @cb: a #PinosSourceOutputInfoCallback
  * @cancelable: a #GCancellable
+ * @callback: a #GAsyncReadyCallback to call when the operation is finished
  * @user_data: user data passed to @cb
  *
- * Call @cb for each source-output. @cb will be called with NULL when there
- * are no more outputs to list.
+ * Call @cb for each source-output.
  */
 void
 pinos_context_list_source_output_info (PinosContext *context,
@@ -498,9 +501,10 @@ pinos_context_list_source_output_info (PinosContext *context,
  * @flags: extra #PinosSourceOutputInfoFlags
  * @cb: a #PinosSourceOutputInfoCallback
  * @cancelable: a #GCancellable
+ * @callback: a #GAsyncReadyCallback to call when the operation is finished
  * @user_data: user data passed to @cb
  *
- * Call @cb for the source output with @id. Then @cb will be called with NULL.
+ * Call @cb for the source output with @id.
  */
 void
 pinos_context_get_source_output_info_by_id (PinosContext *context,

@@ -36,9 +36,13 @@ print_field (GQuark field, const GValue * value, gpointer user_data)
 static void
 print_formats (const gchar *name, GBytes *formats, gchar mark)
 {
-  GstCaps *caps = gst_caps_from_string (g_bytes_get_data (formats, NULL));
+  GstCaps *caps;
   guint i;
 
+  if (formats == NULL)
+    return;
+
+  caps = gst_caps_from_string (g_bytes_get_data (formats, NULL));
   g_print ("%c\t%s:\n", mark, name);
 
   if (gst_caps_is_any (caps)) {
@@ -74,6 +78,9 @@ print_properties (PinosProperties *props, gchar mark)
   gpointer state = NULL;
   const gchar *key;
 
+  if (props == NULL)
+    return;
+
   g_print ("%c\tproperties:\n", mark);
   while ((key = pinos_properties_iterate (props, &state))) {
     g_print ("\t\t%s = \"%s\"\n", key, pinos_properties_get (props, key));
@@ -91,65 +98,78 @@ info_ready (GObject *o, GAsyncResult *res, gpointer user_data)
   }
 }
 
-#define MARK_CHANGE(f) ((print_mark && ((info)->change_mask & (1 << (f)))) ? '*' : ' ')
+typedef struct {
+  gboolean print_mark;
+  gboolean print_all;
+} DumpData;
+
+#define MARK_CHANGE(f) ((data->print_mark && ((info)->change_mask & (1 << (f)))) ? '*' : ' ')
 
 static void
 dump_daemon_info (PinosContext *c, const PinosDaemonInfo *info, gpointer user_data)
 {
-  gboolean print_mark = *((gboolean *) user_data);
+  DumpData *data = user_data;
 
   g_print ("\tid: %p\n", info->id);
   g_print ("\tdaemon-path: \"%s\"\n", info->daemon_path);
-  g_print ("%c\tuser-name: \"%s\"\n", MARK_CHANGE (0), info->user_name);
-  g_print ("%c\thost-name: \"%s\"\n", MARK_CHANGE (1), info->host_name);
-  g_print ("%c\tversion: \"%s\"\n", MARK_CHANGE (2), info->version);
-  g_print ("%c\tname: \"%s\"\n", MARK_CHANGE (3), info->name);
-  g_print ("%c\tcookie: %d\n", MARK_CHANGE (4), info->cookie);
-  print_properties (info->properties, MARK_CHANGE (5));
+  if (data->print_all) {
+    g_print ("%c\tuser-name: \"%s\"\n", MARK_CHANGE (0), info->user_name);
+    g_print ("%c\thost-name: \"%s\"\n", MARK_CHANGE (1), info->host_name);
+    g_print ("%c\tversion: \"%s\"\n", MARK_CHANGE (2), info->version);
+    g_print ("%c\tname: \"%s\"\n", MARK_CHANGE (3), info->name);
+    g_print ("%c\tcookie: %d\n", MARK_CHANGE (4), info->cookie);
+    print_properties (info->properties, MARK_CHANGE (5));
+  }
 }
 
 static void
 dump_client_info (PinosContext *c, const PinosClientInfo *info, gpointer user_data)
 {
-  gboolean print_mark = *((gboolean *) user_data);
+  DumpData *data = user_data;
 
   g_print ("\tid: %p\n", info->id);
   g_print ("\tclient-path: \"%s\"\n", info->client_path);
-  g_print ("%c\tname: \"%s\"\n", MARK_CHANGE (0), info->name);
-  print_properties (info->properties, MARK_CHANGE (1));
+  if (data->print_all) {
+    g_print ("%c\tname: \"%s\"\n", MARK_CHANGE (0), info->name);
+    print_properties (info->properties, MARK_CHANGE (1));
+  }
 }
 
 static void
 dump_source_info (PinosContext *c, const PinosSourceInfo *info, gpointer user_data)
 {
-  gboolean print_mark = *((gboolean *) user_data);
+  DumpData *data = user_data;
 
   g_print ("\tid: %p\n", info->id);
   g_print ("\tsource-path: \"%s\"\n", info->source_path);
-  g_print ("%c\tname: \"%s\"\n", MARK_CHANGE (0), info->name);
-  print_properties (info->properties, MARK_CHANGE (1));
-  g_print ("%c\tstate: \"%s\"\n", MARK_CHANGE (2), pinos_source_state_as_string (info->state));
-  print_formats ("possible formats", info->possible_formats, MARK_CHANGE (3));
+  if (data->print_all) {
+    g_print ("%c\tname: \"%s\"\n", MARK_CHANGE (0), info->name);
+    print_properties (info->properties, MARK_CHANGE (1));
+    g_print ("%c\tstate: \"%s\"\n", MARK_CHANGE (2), pinos_source_state_as_string (info->state));
+    print_formats ("possible formats", info->possible_formats, MARK_CHANGE (3));
+  }
 }
 
 static void
 dump_source_output_info (PinosContext *c, const PinosSourceOutputInfo *info, gpointer user_data)
 {
-  gboolean print_mark = *((gboolean *) user_data);
+  DumpData *data = user_data;
 
   g_print ("\tid: %p\n", info->id);
   g_print ("\toutput-path: \"%s\"\n", info->output_path);
-  g_print ("%c\tclient-path: \"%s\"\n", MARK_CHANGE (0), info->client_path);
-  g_print ("%c\tsource-path: \"%s\"\n", MARK_CHANGE (1), info->source_path);
-  print_formats ("possible-formats", info->possible_formats, MARK_CHANGE (2));
-  g_print ("%c\tstate: \"%s\"\n", MARK_CHANGE (3), pinos_source_output_state_as_string (info->state));
-  print_formats ("format", info->format, MARK_CHANGE (4));
-  print_properties (info->properties, MARK_CHANGE (5));
+  if (data->print_all) {
+    g_print ("%c\tclient-path: \"%s\"\n", MARK_CHANGE (0), info->client_path);
+    g_print ("%c\tsource-path: \"%s\"\n", MARK_CHANGE (1), info->source_path);
+    print_formats ("possible-formats", info->possible_formats, MARK_CHANGE (2));
+    g_print ("%c\tstate: \"%s\"\n", MARK_CHANGE (3), pinos_source_output_state_as_string (info->state));
+    print_formats ("format", info->format, MARK_CHANGE (4));
+    print_properties (info->properties, MARK_CHANGE (5));
+  }
 }
 
 static void
 dump_object (PinosContext *context, gpointer id, PinosSubscriptionFlags flags,
-    gboolean print_mark)
+    DumpData *data)
 {
   if (flags & PINOS_SUBSCRIPTION_FLAG_DAEMON) {
     pinos_context_get_daemon_info (context,
@@ -157,7 +177,7 @@ dump_object (PinosContext *context, gpointer id, PinosSubscriptionFlags flags,
                                    dump_daemon_info,
                                    NULL,
                                    info_ready,
-                                   &print_mark);
+                                   data);
   }
   else if (flags & PINOS_SUBSCRIPTION_FLAG_CLIENT) {
     pinos_context_get_client_info_by_id (context,
@@ -166,7 +186,7 @@ dump_object (PinosContext *context, gpointer id, PinosSubscriptionFlags flags,
                                          dump_client_info,
                                          NULL,
                                          info_ready,
-                                         &print_mark);
+                                         data);
   }
   else if (flags & PINOS_SUBSCRIPTION_FLAG_SOURCE) {
     pinos_context_get_source_info_by_id (context,
@@ -175,7 +195,7 @@ dump_object (PinosContext *context, gpointer id, PinosSubscriptionFlags flags,
                                          dump_source_info,
                                          NULL,
                                          info_ready,
-                                         &print_mark);
+                                         data);
   }
   else if (flags & PINOS_SUBSCRIPTION_FLAG_SOURCE_OUTPUT) {
     pinos_context_get_source_output_info_by_id (context,
@@ -184,7 +204,7 @@ dump_object (PinosContext *context, gpointer id, PinosSubscriptionFlags flags,
                                                 dump_source_output_info,
                                                 NULL,
                                                 info_ready,
-                                                &print_mark);
+                                                data);
   }
 }
 
@@ -195,20 +215,28 @@ subscription_cb (PinosContext           *context,
                  gpointer                id,
                  gpointer                user_data)
 {
+  DumpData data;
+
   switch (type) {
     case PINOS_SUBSCRIPTION_EVENT_NEW:
       g_print ("added:\n");
-      dump_object (context, id, flags, FALSE);
+      data.print_mark = FALSE;
+      data.print_all = TRUE;
+      dump_object (context, id, flags, &data);
       break;
 
     case PINOS_SUBSCRIPTION_EVENT_CHANGE:
       g_print ("changed:\n");
-      dump_object (context, id, flags, TRUE);
+      data.print_mark = TRUE;
+      data.print_all = TRUE;
+      dump_object (context, id, flags, &data);
       break;
 
     case PINOS_SUBSCRIPTION_EVENT_REMOVE:
       g_print ("removed:\n");
-      dump_object (context, id, flags, FALSE);
+      data.print_mark = FALSE;
+      data.print_all = FALSE;
+      dump_object (context, id, flags, &data);
       break;
   }
 }

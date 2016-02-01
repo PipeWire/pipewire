@@ -24,9 +24,9 @@ EXTRA_DIST = \
 	PROTOCOL \
 	README 
 
-SUBDIRS = src man po
+SUBDIRS = pinos man po
 
-DIST_SUBDIRS = src man po
+DIST_SUBDIRS = pinos man po
 
 MAINTAINERCLEANFILES =
 noinst_DATA =

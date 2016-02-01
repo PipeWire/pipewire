@@ -1,7 +1,7 @@
 AC_PREREQ(2.63)
 
 AC_INIT(pinos, 0.1)
-AC_CONFIG_SRCDIR([src/daemon/main.c])
+AC_CONFIG_SRCDIR([pinos/daemon/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([build-aux])
@@ -116,8 +116,8 @@ AS_CASE([" $CFLAGS "], [*" -O0 "*], [], [
 # Check whether the linker supports the -version-script option.
 # The Make variable $(srcdir) needs to be in the LDFLAGS in that form,
 # so that it is expanded the right way in every subdir.
-AX_CHECK_LINK_FLAG(["-Wl,-version-script=${srcdir}/src/map-file"],
-    [VERSIONING_LDFLAGS='-Wl,-version-script=$(abs_top_srcdir)/src/map-file'])
+AX_CHECK_LINK_FLAG(["-Wl,-version-script=${srcdir}/pinos/map-file"],
+    [VERSIONING_LDFLAGS='-Wl,-version-script=$(abs_top_srcdir)/pinos/map-file'])
 AC_SUBST([VERSIONING_LDFLAGS])
 
 # Use immediate (now) bindings; avoids the funky re-call in itself.
@@ -241,7 +241,7 @@ dnl *** output files ***
 dnl keep this alphabetic per directory, please
 AC_CONFIG_FILES([
 Makefile
-src/Makefile
+pinos/Makefile
 man/Makefile
 man/pinos.1.xml
 man/pinos-monitor.1.xml

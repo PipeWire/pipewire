@@ -183,7 +183,6 @@ start_monitor (PinosGstManager *manager)
   GstBus *bus;
   GList *devices;
   gchar **providers;
-  gchar *provided;
   PinosProperties *props;
 
   disable_pinos_provider (manager);
@@ -200,15 +199,18 @@ start_monitor (PinosGstManager *manager)
   gst_device_monitor_start (priv->monitor);
 
   providers = gst_device_monitor_get_providers (priv->monitor);
-  provided = g_strjoinv (",", providers);
-  g_strfreev (providers);
+  if (providers != NULL) {
+    gchar *provided;
 
-  g_object_get (priv->daemon, "properties", &props, NULL);
-  pinos_properties_set (props, "gstreamer.deviceproviders", provided);
-  g_object_set (priv->daemon, "properties", props, NULL);
-  pinos_properties_free (props);
+    provided = g_strjoinv (",", providers);
+    g_strfreev (providers);
 
-  g_free (provided);
+    g_object_get (priv->daemon, "properties", &props, NULL);
+    pinos_properties_set (props, "gstreamer.deviceproviders", provided);
+    g_object_set (priv->daemon, "properties", props, NULL);
+    pinos_properties_free (props);
+    g_free (provided);
+  }
 
   devices = gst_device_monitor_get_devices (priv->monitor);
   while (devices != NULL) {

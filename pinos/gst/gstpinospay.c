@@ -214,6 +214,7 @@ client_buffer_received (GstPinosPay *pay, GstBuffer *buffer,
       {
         PinosPacketReleaseFDPayload p;
         gint id;
+        gboolean res;
 
         if (!pinos_buffer_iter_parse_release_fd_payload (&it, &p))
           continue;
@@ -221,7 +222,8 @@ client_buffer_received (GstPinosPay *pay, GstBuffer *buffer,
         id = p.id;
 
         GST_LOG ("%p: fd index %d is released", hash, id);
-        g_assert (g_hash_table_remove (hash, GINT_TO_POINTER (id)));
+        res = g_hash_table_remove (hash, GINT_TO_POINTER (id));
+        g_assert (res);
         break;
       }
       default:

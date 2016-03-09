@@ -527,7 +527,7 @@ pinos_buffer_iter_parse_header (PinosBufferIter *iter,
   if (si->size < sizeof (PinosPacketHeader))
     return FALSE;
 
-  *header = *((PinosPacketHeader *) si->data);
+  memcpy (header, si->data, sizeof (*header));
 
   return TRUE;
 }
@@ -551,7 +551,7 @@ pinos_buffer_builder_add_header (PinosBufferBuilder *builder,
   g_return_val_if_fail (is_valid_builder (builder), FALSE);
 
   h = builder_add_packet (sb, PINOS_PACKET_TYPE_HEADER, sizeof (PinosPacketHeader));
-  *h = *header;
+  memcpy (h, header, sizeof (*header));
 
   return TRUE;
 }
@@ -579,7 +579,7 @@ pinos_buffer_iter_parse_fd_payload (PinosBufferIter *iter,
   if (si->size < sizeof (PinosPacketFDPayload))
     return FALSE;
 
-  *payload = *((PinosPacketFDPayload *) si->data);
+  memcpy (payload, si->data, sizeof (*payload));
 
   return TRUE;
 }
@@ -604,7 +604,7 @@ pinos_buffer_builder_add_fd_payload (PinosBufferBuilder *builder,
   g_return_val_if_fail (payload->size > 0, FALSE);
 
   p = builder_add_packet (sb, PINOS_PACKET_TYPE_FD_PAYLOAD, sizeof (PinosPacketFDPayload));
-  *p = *payload;
+  memcpy (p, payload, sizeof (*payload));
 
   return TRUE;
 }
@@ -621,7 +621,7 @@ pinos_buffer_iter_parse_release_fd_payload (PinosBufferIter      *iter,
   if (si->size < sizeof (PinosPacketReleaseFDPayload))
     return FALSE;
 
-  *payload = *((PinosPacketReleaseFDPayload *) si->data);
+  memcpy (payload, si->data, sizeof (*payload));
 
   return TRUE;
 }
@@ -638,7 +638,7 @@ pinos_buffer_builder_add_release_fd_payload (PinosBufferBuilder   *builder,
   p = builder_add_packet (sb,
                           PINOS_PACKET_TYPE_RELEASE_FD_PAYLOAD,
                           sizeof (PinosPacketReleaseFDPayload));
-  *p = *payload;
+  memcpy (p, payload, sizeof (*payload));
 
   return TRUE;
 }

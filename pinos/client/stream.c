@@ -1008,6 +1008,7 @@ on_stream_started (GObject      *source_object,
   handle_socket (stream, fd);
 
   stream_set_state (stream, PINOS_STREAM_STATE_STREAMING, NULL);
+  g_object_unref (stream);
 
   return;
 
@@ -1026,6 +1027,7 @@ fd_failed:
 exit_error:
   {
     stream_set_state (stream, PINOS_STREAM_STATE_ERROR, error);
+    g_object_unref (stream);
     return;
   }
 }
@@ -1081,7 +1083,9 @@ pinos_stream_start (PinosStream     *stream,
 
   stream_set_state (stream, PINOS_STREAM_STATE_STARTING, NULL);
 
-  g_main_context_invoke (priv->context->priv->context, (GSourceFunc) do_start, stream);
+  g_main_context_invoke (priv->context->priv->context,
+                         (GSourceFunc) do_start,
+                         g_object_ref (stream));
 
   return TRUE;
 }
@@ -1107,6 +1111,7 @@ on_stream_stopped (GObject      *source_object,
   g_object_notify (G_OBJECT (stream), "format");
 
   stream_set_state (stream, PINOS_STREAM_STATE_READY, NULL);
+  g_object_unref (stream);
 
   return;
 
@@ -1115,6 +1120,7 @@ call_failed:
   {
     g_warning ("failed to release: %s", error->message);
     stream_set_state (stream, PINOS_STREAM_STATE_ERROR, error);
+    g_object_unref (stream);
     return;
   }
 }
@@ -1132,7 +1138,6 @@ do_stop (PinosStream *stream)
                      NULL,        /* GCancellable *cancellable */
                      on_stream_stopped,
                      stream);
-
 
   return FALSE;
 }
@@ -1154,7 +1159,9 @@ pinos_stream_stop (PinosStream *stream)
   priv = stream->priv;
   g_return_val_if_fail (priv->state == PINOS_STREAM_STATE_STREAMING, FALSE);
 
-  g_main_context_invoke (priv->context->priv->context, (GSourceFunc) do_stop, stream);
+  g_main_context_invoke (priv->context->priv->context,
+                         (GSourceFunc) do_stop,
+                         g_object_ref (stream));
 
   return TRUE;
 }

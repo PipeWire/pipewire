@@ -242,11 +242,6 @@ handle_create_source_input (PinosClient1           *interface,
   if (source == NULL)
     goto no_source;
 
-  g_object_set_data_full (G_OBJECT (client),
-                          pinos_source_get_object_path (PINOS_SOURCE (source)),
-                          source,
-                          g_object_unref);
-
   sender = g_dbus_method_invocation_get_sender (invocation);
 
   input = pinos_client_source_get_source_input (PINOS_CLIENT_SOURCE (source),
@@ -257,6 +252,11 @@ handle_create_source_input (PinosClient1           *interface,
                                                 &error);
   if (input == NULL)
     goto no_input;
+
+  g_object_set_data_full (G_OBJECT (input),
+                          "input-source",
+                          source,
+                          g_object_unref);
 
   source_input_path = pinos_source_output_get_object_path (input);
 
@@ -291,6 +291,7 @@ no_source:
 no_input:
   {
     g_dbus_method_invocation_return_gerror (invocation, error);
+    g_object_unref (source);
     g_clear_error (&error);
     g_bytes_unref (formats);
     pinos_properties_free (props);

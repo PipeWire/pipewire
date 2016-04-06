@@ -371,6 +371,15 @@ on_input_socket_notify (GObject    *gobject,
     gst_element_set_state (priv->pipeline, GST_STATE_READY);
 }
 
+static void
+handle_remove_source_input (PinosSourceOutput *output,
+                            gpointer           user_data)
+{
+  PinosClientSourcePrivate *priv = user_data;
+
+  g_clear_pointer (&priv->input, g_object_unref);
+}
+
 PinosSourceOutput *
 pinos_client_source_get_source_input (PinosClientSource *source,
                                       const gchar       *client_path,
@@ -398,6 +407,11 @@ pinos_client_source_get_source_input (PinosClientSource *source,
                                                 error);
     if (priv->input == NULL)
       return NULL;
+
+    g_signal_connect (priv->input,
+                      "remove",
+                      (GCallback) handle_remove_source_input,
+                      priv);
 
     g_signal_connect (priv->input, "notify::socket", (GCallback) on_input_socket_notify, source);
   }

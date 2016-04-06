@@ -366,6 +366,11 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
   }
 
   pinos_main_loop_lock (pinossink->loop);
+  if (pinossink->stream) {
+    pinos_stream_stop (pinossink->stream);
+    pinos_stream_disconnect (pinossink->stream);
+    g_clear_object (&pinossink->stream);
+  }
   pinossink->stream = pinos_stream_new (pinossink->ctx, pinossink->client_name, props);
   g_signal_connect (pinossink->stream, "notify::state", (GCallback) on_stream_notify, pinossink);
   g_signal_connect (pinossink->stream, "new-buffer", (GCallback) on_new_buffer, pinossink);

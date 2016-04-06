@@ -1107,7 +1107,7 @@ on_stream_stopped (GObject      *source_object,
   g_variant_unref (ret);
 
   unhandle_socket (stream);
-  g_clear_pointer (&priv->format, g_free);
+  g_clear_pointer (&priv->format, g_bytes_unref);
   g_object_notify (G_OBJECT (stream), "format");
 
   stream_set_state (stream, PINOS_STREAM_STATE_READY, NULL);

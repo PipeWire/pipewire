@@ -26,9 +26,10 @@ static GMainLoop *loop;
 static gboolean
 print_field (GQuark field, const GValue * value, gpointer user_data)
 {
+  gchar *mark = user_data;
   gchar *str = gst_value_serialize (value);
 
-  g_print ("\t\t%15s: %s\n", g_quark_to_string (field), str);
+  g_print ("%c\t\t%15s: %s\n", *mark, g_quark_to_string (field), str);
   g_free (str);
   return TRUE;
 }
@@ -46,11 +47,11 @@ print_formats (const gchar *name, GBytes *formats, gchar mark)
   g_print ("%c\t%s:\n", mark, name);
 
   if (gst_caps_is_any (caps)) {
-    g_print ("\t\tANY\n");
+    g_print ("%c\t\tANY\n", mark);
     return;
   }
   if (gst_caps_is_empty (caps)) {
-    g_print ("\t\tEMPTY\n");
+    g_print ("%c\t\tEMPTY\n", mark);
     return;
   }
   for (i = 0; i < gst_caps_get_size (caps); i++) {
@@ -62,13 +63,13 @@ print_formats (const gchar *name, GBytes *formats, gchar mark)
                 GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY))) {
       gchar *features_string = gst_caps_features_to_string (features);
 
-      g_print ("\t\t%s(%s)\n", gst_structure_get_name (structure),
+      g_print ("%c\t\t%s(%s)\n", mark, gst_structure_get_name (structure),
           features_string);
       g_free (features_string);
     } else {
-      g_print ("\t\t%s\n", gst_structure_get_name (structure));
+      g_print ("%c\t\t%s\n", mark, gst_structure_get_name (structure));
     }
-    gst_structure_foreach (structure, print_field, NULL);
+    gst_structure_foreach (structure, print_field, &mark);
   }
 }
 
@@ -83,7 +84,7 @@ print_properties (PinosProperties *props, gchar mark)
 
   g_print ("%c\tproperties:\n", mark);
   while ((key = pinos_properties_iterate (props, &state))) {
-    g_print ("\t\t%s = \"%s\"\n", key, pinos_properties_get (props, key));
+    g_print ("%c\t\t%s = \"%s\"\n", mark, key, pinos_properties_get (props, key));
   }
 }
 

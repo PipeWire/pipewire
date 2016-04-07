@@ -35,8 +35,6 @@ struct _PinosClientSourcePrivate
   guint id;
 
   GstCaps *format;
-  GSocket *socket;
-
   GBytes *possible_formats;
 
   PinosSourceOutput *input;
@@ -218,6 +216,10 @@ client_get_formats (PinosSource *source,
 
   str = gst_caps_to_string (caps);
 
+  gst_caps_unref (caps);
+  if (cfilter)
+    gst_caps_unref (cfilter);
+
   return g_bytes_new_take (str, strlen (str) + 1);
 
 invalid_filter:
@@ -234,6 +236,8 @@ no_format:
       *error = g_error_new (G_IO_ERROR,
                             G_IO_ERROR_NOT_FOUND,
                             "No compatible format found");
+    if (cfilter)
+      gst_caps_unref (cfilter);
     return NULL;
   }
 }
@@ -293,6 +297,7 @@ client_create_source_output (PinosSource     *source,
                                         props,
                                         prefix,
                                         error);
+  g_bytes_unref (format_filter);
 
   if (output == NULL)
     return NULL;
@@ -330,6 +335,8 @@ client_source_finalize (GObject * object)
   g_clear_object (&priv->src);
   g_clear_object (&priv->pipeline);
 
+  if (priv->possible_formats)
+    g_bytes_unref (priv->possible_formats);
   gst_caps_replace (&priv->format, NULL);
 
   G_OBJECT_CLASS (pinos_client_source_parent_class)->finalize (object);
@@ -365,10 +372,12 @@ on_input_socket_notify (GObject    *gobject,
   }
   g_object_set (priv->src, "socket", socket, NULL);
 
-  if (socket)
+  if (socket) {
     gst_element_set_state (priv->pipeline, GST_STATE_PLAYING);
-  else
+    g_object_unref (socket);
+  } else {
     gst_element_set_state (priv->pipeline, GST_STATE_READY);
+  }
 }
 
 static void

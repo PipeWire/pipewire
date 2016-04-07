@@ -176,6 +176,9 @@ handle_create_source_output (PinosClient1           *interface,
                                               props,
                                               priv->object_path,
                                               &error);
+  pinos_properties_free (props);
+  g_bytes_unref (formats);
+
   if (output == NULL)
     goto no_output;
 
@@ -202,15 +205,15 @@ not_allowed:
 no_source:
   {
     g_dbus_method_invocation_return_gerror (invocation, error);
-    g_clear_error (&error);
+    pinos_properties_free (props);
     g_bytes_unref (formats);
+    g_clear_error (&error);
     return TRUE;
   }
 no_output:
   {
     g_dbus_method_invocation_return_gerror (invocation, error);
     g_clear_error (&error);
-    g_bytes_unref (formats);
     return TRUE;
   }
 }
@@ -236,13 +239,13 @@ handle_create_source_input (PinosClient1           *interface,
     goto not_allowed;
 
   formats = g_bytes_new (arg_possible_formats, strlen (arg_possible_formats) + 1);
-  props = pinos_properties_from_variant (arg_properties);
 
   source = pinos_client_source_new (priv->daemon, formats);
   if (source == NULL)
     goto no_source;
 
   sender = g_dbus_method_invocation_get_sender (invocation);
+  props = pinos_properties_from_variant (arg_properties);
 
   input = pinos_client_source_get_source_input (PINOS_CLIENT_SOURCE (source),
                                                 priv->object_path,
@@ -250,6 +253,8 @@ handle_create_source_input (PinosClient1           *interface,
                                                 props,
                                                 priv->object_path,
                                                 &error);
+  pinos_properties_free (props);
+
   if (input == NULL)
     goto no_input;
 
@@ -285,7 +290,6 @@ no_source:
     g_dbus_method_invocation_return_dbus_error (invocation,
         "org.pinos.Error", "Can't create source");
     g_bytes_unref (formats);
-    pinos_properties_free (props);
     return TRUE;
   }
 no_input:
@@ -294,7 +298,6 @@ no_input:
     g_object_unref (source);
     g_clear_error (&error);
     g_bytes_unref (formats);
-    pinos_properties_free (props);
     return TRUE;
   }
 }
@@ -352,7 +355,7 @@ client_unregister_object (PinosClient *client)
   g_clear_object (&priv->client1);
 
   pinos_daemon_unexport (daemon, priv->object_path);
-  g_free (priv->object_path);
+  g_clear_pointer (&priv->object_path, g_free);
 }
 
 static void
@@ -370,6 +373,7 @@ pinos_client_dispose (GObject * object)
 
   g_list_foreach (priv->outputs, (GFunc) do_remove_output, client);
   client_unregister_object (client);
+  g_clear_object (&priv->daemon);
 
   G_OBJECT_CLASS (pinos_client_parent_class)->dispose (object);
 }
@@ -379,6 +383,7 @@ pinos_client_finalize (GObject * object)
   PinosClient *client = PINOS_CLIENT (object);
   PinosClientPrivate *priv = client->priv;
 
+  g_free (priv->sender);
   if (priv->properties)
     pinos_properties_free (priv->properties);
 

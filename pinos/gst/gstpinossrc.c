@@ -529,8 +529,10 @@ parse_clock_info (GstPinosSrc *pinossrc)
   g_object_get (pinossrc->stream, "properties", &props, NULL);
 
   var = pinos_properties_get (props, "pinos.clock.type");
-  if (var == NULL)
+  if (var == NULL) {
+    pinos_properties_free (props);
     return;
+  }
 
   GST_DEBUG_OBJECT (pinossrc, "got clock type %s", var);
   if (strcmp (var, "gst.net.time.provider") == 0) {
@@ -545,6 +547,7 @@ parse_clock_info (GstPinosSrc *pinossrc)
       gst_object_unref (pinossrc->clock);
     pinossrc->clock = gst_net_client_clock_new ("pinosclock", address, port, 0);
   }
+  pinos_properties_free (props);
 }
 
 static gboolean

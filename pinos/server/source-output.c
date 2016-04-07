@@ -187,6 +187,31 @@ pinos_source_output_set_property (GObject      *_object,
   }
 }
 
+static void
+clear_formats (PinosSourceOutput *output)
+{
+  PinosSourceOutputPrivate *priv = output->priv;
+
+  g_clear_pointer (&priv->requested_format, g_bytes_unref);
+  g_clear_pointer (&priv->format, g_bytes_unref);
+}
+
+static void
+stop_transfer (PinosSourceOutput *output)
+{
+  PinosSourceOutputPrivate *priv = output->priv;
+
+  if (priv->socket) {
+    g_clear_object (&priv->socket);
+    g_object_notify (G_OBJECT (output), "socket");
+  }
+  clear_formats (output);
+  priv->state = PINOS_SOURCE_OUTPUT_STATE_IDLE;
+  g_object_set (priv->iface,
+               "state", priv->state,
+                NULL);
+}
+
 static gboolean
 handle_start (PinosSourceOutput1     *interface,
               GDBusMethodInvocation  *invocation,
@@ -204,6 +229,8 @@ handle_start (PinosSourceOutput1     *interface,
                                         strlen (arg_requested_format) + 1);
 
   socketpair (AF_UNIX, SOCK_STREAM, 0, fd);
+
+  g_clear_object (&priv->socket);
   priv->socket = g_socket_new_from_fd (fd[0], NULL);
   g_object_notify (G_OBJECT (output), "socket");
 
@@ -222,6 +249,8 @@ handle_start (PinosSourceOutput1     *interface,
                           g_bytes_get_data (priv->format, NULL),
                           pinos_properties_to_variant (priv->properties)),
            fdlist);
+  g_object_unref (fdlist);
+  close (fd[1]);
 
   g_object_set (priv->iface,
                "format", g_bytes_get_data (priv->format, NULL),
@@ -241,32 +270,6 @@ no_format:
     g_clear_object (&priv->socket);
     return TRUE;
   }
-}
-
-static void
-clear_socket (PinosSourceOutput *output)
-{
-  PinosSourceOutputPrivate *priv = output->priv;
-
-  g_clear_object (&priv->socket);
-  g_clear_pointer (&priv->requested_format, g_bytes_unref);
-  g_clear_pointer (&priv->format, g_bytes_unref);
-}
-
-
-static void
-stop_transfer (PinosSourceOutput *output)
-{
-  PinosSourceOutputPrivate *priv = output->priv;
-
-  if (priv->socket) {
-    clear_socket (output);
-    g_object_notify (G_OBJECT (output), "socket");
-  }
-  priv->state = PINOS_SOURCE_OUTPUT_STATE_IDLE;
-  g_object_set (priv->iface,
-               "state", priv->state,
-                NULL);
 }
 
 static gboolean
@@ -329,8 +332,10 @@ static void
 pinos_source_output_dispose (GObject * object)
 {
   PinosSourceOutput *output = PINOS_SOURCE_OUTPUT (object);
+  PinosSourceOutputPrivate *priv = output->priv;
 
-  clear_socket (output);
+  clear_formats (output);
+  g_clear_object (&priv->socket);
   output_unregister_object (output);
 
   G_OBJECT_CLASS (pinos_source_output_parent_class)->dispose (object);
@@ -342,6 +347,10 @@ pinos_source_output_finalize (GObject * object)
   PinosSourceOutput *output = PINOS_SOURCE_OUTPUT (object);
   PinosSourceOutputPrivate *priv = output->priv;
 
+  if (priv->possible_formats)
+    g_bytes_unref (priv->possible_formats);
+  if (priv->properties)
+    pinos_properties_free (priv->properties);
   g_clear_object (&priv->daemon);
   g_clear_object (&priv->iface);
   g_free (priv->client_path);

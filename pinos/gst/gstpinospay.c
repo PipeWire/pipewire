@@ -118,6 +118,8 @@ do_allocation (GstPinosPay *pay, GstCaps *caps)
       GST_NET_CONTROL_MESSAGE_META_API_TYPE, NULL))
     goto no_meta;
 
+  gst_query_unref (query);
+
   return TRUE;
 
   /* ERRORS */
@@ -126,6 +128,7 @@ no_meta:
     GST_ELEMENT_ERROR (pay, STREAM, FORMAT,
         ("Incompatible downstream element"),
         ("The downstream element does not handle control-message metadata API"));
+    gst_query_unref (query);
     return FALSE;
   }
 }
@@ -164,6 +167,13 @@ gst_pinos_pay_sink_event (GstPad * pad, GstObject * parent, GstEvent * event)
 }
 
 static void
+client_object_destroy (GHashTable *hash)
+{
+  GST_LOG ("%p: hash destroyed", hash);
+  g_hash_table_unref (hash);
+}
+
+static void
 client_buffer_sent (GstPinosPay *pay, GstBuffer *buffer,
     GObject *obj)
 {
@@ -182,13 +192,17 @@ client_buffer_sent (GstPinosPay *pay, GstBuffer *buffer,
     hash = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL,
         (GDestroyNotify) gst_buffer_unref);
     g_object_set_qdata_full (obj, fdids_quark, hash,
-        (GDestroyNotify) g_hash_table_unref);
+        (GDestroyNotify) client_object_destroy);
+    GST_LOG ("%p: new hash for object %p", hash, obj);
   }
 
   for (i = 0; i < fdids->len; i++) {
     gint id = g_array_index (fdids, guint32, i);
+    gboolean res;
+
     GST_LOG ("%p: fd index %d, increment refcount of buffer %p", hash, id, buffer);
-    g_hash_table_insert (hash, GINT_TO_POINTER (id), gst_buffer_ref (buffer));
+    res = g_hash_table_insert (hash, GINT_TO_POINTER (id), gst_buffer_ref (buffer));
+//    g_assert (res);
   }
 }
 
@@ -223,7 +237,7 @@ client_buffer_received (GstPinosPay *pay, GstBuffer *buffer,
 
         GST_LOG ("%p: fd index %d is released", hash, id);
         res = g_hash_table_remove (hash, GINT_TO_POINTER (id));
-        g_assert (res);
+        //g_assert (res);
         break;
       }
       default:

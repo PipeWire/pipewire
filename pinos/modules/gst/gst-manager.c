@@ -62,7 +62,7 @@ device_added (PinosGstManager *manager,
               GstDevice       *device)
 {
   PinosGstManagerPrivate *priv = manager->priv;
-  gchar *name;
+  gchar *name, *klass;
   GstElement *element;
   PinosSource *source;
   GstStructure *p;
@@ -70,20 +70,25 @@ device_added (PinosGstManager *manager,
   GstCaps *caps;
 
   name = gst_device_get_display_name (device);
-  if (strcmp (name, "gst") == 0)
+  if (g_strcmp0 (name, "gst") == 0) {
+    g_free (name);
     return;
+  }
 
   caps = gst_device_get_caps (device);
 
   g_print("Device added: %s\n", name);
 
   properties = pinos_properties_new (NULL, NULL);
-  if ((p = gst_device_get_properties (device)))
+  if ((p = gst_device_get_properties (device))) {
     gst_structure_foreach (p, copy_properties, properties);
+    gst_structure_free (p);
+  }
 
+  klass = gst_device_get_device_class (device);
   pinos_properties_set (properties,
                         "gstreamer.device.class",
-                        gst_device_get_device_class (device));
+                        klass);
 
   element = gst_device_create_element (device, NULL);
   source = pinos_gst_source_new (priv->daemon,
@@ -93,8 +98,10 @@ device_added (PinosGstManager *manager,
                                  caps);
   g_object_set_data (G_OBJECT (device), "PinosSource", source);
 
+  pinos_properties_free (properties);
   gst_caps_unref (caps);
   g_free (name);
+  g_free (klass);
 }
 
 static void

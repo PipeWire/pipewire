@@ -365,7 +365,7 @@ on_input_socket_notify (GObject    *gobject,
     /* and set as the current format */
     caps = gst_caps_from_string (g_bytes_get_data (requested_format, NULL));
     g_assert (caps != NULL);
-    gst_caps_replace (&priv->format, caps);
+    gst_caps_take (&priv->format, caps);
     g_bytes_unref (requested_format);
   } else {
     gst_caps_replace (&priv->format, NULL);
@@ -405,7 +405,7 @@ pinos_client_source_get_source_input (PinosClientSource *source,
   if (priv->input == NULL) {
     GstCaps *caps = gst_caps_from_string (g_bytes_get_data (format_filter, NULL));
 
-    gst_caps_replace (&priv->format, caps);
+    gst_caps_take (&priv->format, caps);
 
     priv->input = PINOS_SOURCE_CLASS (pinos_client_source_parent_class)
                         ->create_source_output (PINOS_SOURCE (source),

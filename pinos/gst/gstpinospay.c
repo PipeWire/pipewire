@@ -362,9 +362,7 @@ gst_pinos_pay_chain_pinos (GstPinosPay *pay, GstBuffer * buffer)
   GstMapInfo info;
   PinosBuffer pbuf;
   PinosBufferIter it;
-  GArray *fdids;
-
-  fdids = g_array_new (FALSE, FALSE, sizeof (guint32));
+  GArray *fdids = NULL;
 
   gst_buffer_map (buffer, &info, GST_MAP_READ);
   pinos_buffer_init_data (&pbuf, info.data, info.size, NULL);
@@ -378,6 +376,9 @@ gst_pinos_pay_chain_pinos (GstPinosPay *pay, GstBuffer * buffer)
         if (!pinos_buffer_iter_parse_fd_payload (&it, &p))
           continue;
 
+        if (fdids == NULL)
+          fdids = g_array_new (FALSE, FALSE, sizeof (guint32));
+
         GST_LOG ("track fd index %d", p.id);
         g_array_append_val (fdids, p.id);
         break;
@@ -389,7 +390,7 @@ gst_pinos_pay_chain_pinos (GstPinosPay *pay, GstBuffer * buffer)
   gst_buffer_unmap (buffer, &info);
   pinos_buffer_clear (&pbuf);
 
-  if (fdids->len > 0) {
+  if (fdids != NULL) {
     gst_mini_object_set_qdata (GST_MINI_OBJECT_CAST (buffer),
         fdids_quark, fdids, NULL);
     gst_mini_object_weak_ref (GST_MINI_OBJECT_CAST (buffer),

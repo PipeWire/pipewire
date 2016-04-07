@@ -370,7 +370,7 @@ on_new_buffer (GObject    *gobject,
         PinosPacketHeader hdr;
 
         if (!pinos_buffer_iter_parse_header  (&it, &hdr))
-          goto no_fds;
+          goto parse_failed;
 
         if (GST_CLOCK_TIME_IS_VALID (hdr.pts)) {
           if (hdr.pts > GST_ELEMENT_CAST (pinossrc)->base_time)
@@ -389,7 +389,7 @@ on_new_buffer (GObject    *gobject,
         int fd;
 
         if (!pinos_buffer_iter_parse_fd_payload  (&it, &data.p))
-          goto no_fds;
+          goto parse_failed;
         GST_DEBUG ("got fd payload id %d", data.p.id);
         fd = pinos_buffer_get_fd (pbuf, data.p.fd_index, &error);
         if (fd == -1)
@@ -407,6 +407,20 @@ on_new_buffer (GObject    *gobject,
                                    fdpayload_data_destroy);
         break;
       }
+      case PINOS_PACKET_TYPE_FORMAT_CHANGE:
+      {
+        PinosPacketFormatChange change;
+        GstCaps *caps;
+
+        if (!pinos_buffer_iter_parse_format_change  (&it, &change))
+          goto parse_failed;
+        GST_DEBUG ("got format change %d %s", change.id, change.format);
+
+        caps = gst_caps_from_string (change.format);
+        gst_base_src_set_caps (GST_BASE_SRC (pinossrc), caps);
+        gst_caps_unref (caps);
+        break;
+      }
       default:
         break;
     }
@@ -420,6 +434,13 @@ on_new_buffer (GObject    *gobject,
   return;
 
   /* ERRORS */
+parse_failed:
+  {
+    gst_buffer_unref (buf);
+    GST_ELEMENT_ERROR (pinossrc, RESOURCE, FAILED, ("buffer parse failure"), (NULL));
+    pinos_main_loop_signal (pinossrc->loop, FALSE);
+    return;
+  }
 no_fds:
   {
     gst_buffer_unref (buf);

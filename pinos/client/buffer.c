@@ -474,6 +474,7 @@ builder_ensure_size (struct stack_builder *sb, gsize size)
   if (sb->buf.size + size > sb->buf.allocated_size) {
     sb->buf.allocated_size = sb->buf.size + MAX (size, 1024);
     sb->buf.data = g_realloc (sb->buf.data, sb->buf.allocated_size);
+    sb->sh = sb->buf.data;
   }
   return (guint8 *) sb->buf.data + sb->buf.size;
 }

@@ -375,10 +375,12 @@ gst_pinos_pay_chain_pinos (GstPinosPay *pay, GstBuffer * buffer)
   gst_buffer_unmap (buffer, &info);
   pinos_buffer_clear (&pbuf);
 
-  gst_mini_object_set_qdata (GST_MINI_OBJECT_CAST (buffer),
-      fdids_quark, fdids, NULL);
-  gst_mini_object_weak_ref (GST_MINI_OBJECT_CAST (buffer),
-      (GstMiniObjectNotify) release_fds, pay);
+  if (fdids->len > 0) {
+    gst_mini_object_set_qdata (GST_MINI_OBJECT_CAST (buffer),
+        fdids_quark, fdids, NULL);
+    gst_mini_object_weak_ref (GST_MINI_OBJECT_CAST (buffer),
+        (GstMiniObjectNotify) release_fds, pay);
+  }
 
   return gst_pad_push (pay->srcpad, buffer);
 }

@@ -858,13 +858,15 @@ on_socket_condition (GSocket      *socket,
       }
       priv->buffer.size = need;
 
-      /* read data */
-      len = g_socket_receive (socket,
-                              (gchar *)priv->buffer.data + sizeof (PinosStackHeader),
-                              hdr->length,
-                              NULL,
-                              &error);
-      g_assert (len == hdr->length);
+      if (hdr->length > 0) {
+        /* read data */
+        len = g_socket_receive (socket,
+                                (gchar *)priv->buffer.data + sizeof (PinosStackHeader),
+                                hdr->length,
+                                NULL,
+                                &error);
+        g_assert (len == hdr->length);
+      }
 
       /* handle control messages */
       for (i = 0; i < num_messages; i++) {

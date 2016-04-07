@@ -351,7 +351,7 @@ on_new_buffer (GObject    *gobject,
   GstPinosSrc *pinossrc = user_data;
   PinosBuffer *pbuf;
   PinosBufferIter it;
-  GstBuffer *buf;
+  GstBuffer *buf = NULL;
   GError *error = NULL;
 
   GST_LOG_OBJECT (pinossrc, "got new buffer");
@@ -359,8 +359,6 @@ on_new_buffer (GObject    *gobject,
     g_warning ("failed to capture buffer");
     return;
   }
-
-  buf = gst_buffer_new ();
 
   pinos_buffer_iter_init (&it, pbuf);
   while (pinos_buffer_iter_next (&it)) {
@@ -371,6 +369,9 @@ on_new_buffer (GObject    *gobject,
 
         if (!pinos_buffer_iter_parse_header  (&it, &hdr))
           goto parse_failed;
+
+        if (buf == NULL)
+          buf = gst_buffer_new ();
 
         if (GST_CLOCK_TIME_IS_VALID (hdr.pts)) {
           if (hdr.pts > GST_ELEMENT_CAST (pinossrc)->base_time)
@@ -394,6 +395,9 @@ on_new_buffer (GObject    *gobject,
         fd = pinos_buffer_get_fd (pbuf, data.p.fd_index, &error);
         if (fd == -1)
           goto no_fds;
+
+        if (buf == NULL)
+          buf = gst_buffer_new ();
 
         fdmem = gst_fd_allocator_alloc (pinossrc->fd_allocator, fd,
                   data.p.offset + data.p.size, GST_FD_MEMORY_FLAG_NONE);
@@ -631,8 +635,6 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
 
       g_bytes_unref (possible);
     }
-
-
     /* now fixate */
     GST_DEBUG_OBJECT (basesrc, "server fixated caps: %" GST_PTR_FORMAT, caps);
     if (gst_caps_is_any (caps)) {

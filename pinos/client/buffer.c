@@ -610,6 +610,15 @@ pinos_buffer_builder_add_fd_payload (PinosBufferBuilder *builder,
   return TRUE;
 }
 
+/**
+ * pinos_buffer_iter_parse_release_fd_payload:
+ * @iter: a #PinosBufferIter
+ * @payload: a #PinosPacketReleaseFDPayload
+ *
+ * Parse a #PINOS_PACKET_TYPE_RELEASE_FD_PAYLOAD packet from @iter into @payload.
+ *
+ * Returns: %TRUE on success
+ */
 gboolean
 pinos_buffer_iter_parse_release_fd_payload (PinosBufferIter      *iter,
                                             PinosPacketReleaseFDPayload *payload)
@@ -627,6 +636,15 @@ pinos_buffer_iter_parse_release_fd_payload (PinosBufferIter      *iter,
   return TRUE;
 }
 
+/**
+ * pinos_buffer_builder_add_release_fd_payload:
+ * @builder: a #PinosBufferBuilder
+ * @payload: a #PinosPacketReleaseFDPayload
+ *
+ * Add a #PINOS_PACKET_TYPE_RELEASE_FD_PAYLOAD payload in @payload to @builder.
+ *
+ * Returns: %TRUE on success
+ */
 gboolean
 pinos_buffer_builder_add_release_fd_payload (PinosBufferBuilder   *builder,
                                              PinosPacketReleaseFDPayload *payload)
@@ -640,6 +658,66 @@ pinos_buffer_builder_add_release_fd_payload (PinosBufferBuilder   *builder,
                           PINOS_PACKET_TYPE_RELEASE_FD_PAYLOAD,
                           sizeof (PinosPacketReleaseFDPayload));
   memcpy (p, payload, sizeof (*payload));
+
+  return TRUE;
+}
+
+/**
+ * pinos_buffer_iter_parse_format_change:
+ * @iter: a #PinosBufferIter
+ * @payload: a #PinosPacketFormatChange
+ *
+ * Parse a #PINOS_PACKET_TYPE_FORMAT_CHANGE packet from @iter into @payload.
+ *
+ * Returns: %TRUE on success
+ */
+gboolean
+pinos_buffer_iter_parse_format_change (PinosBufferIter         *iter,
+                                       PinosPacketFormatChange *payload)
+{
+  struct stack_iter *si = PPSI (iter);
+  char *p;
+
+  g_return_val_if_fail (is_valid_iter (iter), FALSE);
+  g_return_val_if_fail (si->type == PINOS_PACKET_TYPE_FORMAT_CHANGE, FALSE);
+
+  if (si->size < 2)
+    return FALSE;
+
+  p = si->data;
+
+  payload->id = *p++;
+  payload->format = p;
+
+  return TRUE;
+}
+
+/**
+ * pinos_buffer_builder_add_format_change:
+ * @builder: a #PinosBufferBuilder
+ * @payload: a #PinosPacketFormatChange
+ *
+ * Add a #PINOS_PACKET_TYPE_FORMAT_CHANGE payload in @payload to @builder.
+ *
+ * Returns: %TRUE on success
+ */
+gboolean
+pinos_buffer_builder_add_format_change (PinosBufferBuilder      *builder,
+                                        PinosPacketFormatChange *payload)
+{
+  struct stack_builder *sb = PPSB (builder);
+  gsize len;
+  char *p;
+
+  g_return_val_if_fail (is_valid_builder (builder), FALSE);
+
+  /* id + format len + zero byte */
+  len = 1 + strlen (payload->format) + 1;
+  p = builder_add_packet (sb,
+                          PINOS_PACKET_TYPE_FORMAT_CHANGE,
+                          len);
+  *p++ = payload->id;
+  strcpy (p, payload->format);
 
   return TRUE;
 }

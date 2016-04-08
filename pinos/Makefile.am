@@ -186,6 +186,7 @@ libpinos_@PINOS_MAJORMINOR@_la_SOURCES = \
 		client/properties.h client/properties.c \
 		client/stream.h client/stream.c \
 		client/pinos.c client/pinos.h \
+		client/fdmanager.c client/fdmanager.h \
 		client/subscribe.c client/subscribe.h \
 		$(pinosgstsource)
 

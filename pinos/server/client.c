@@ -20,8 +20,6 @@
 #include <string.h>
 #include "pinos/client/pinos.h"
 
-#include "pinos/client/enumtypes.h"
-
 #include "pinos/server/client.h"
 #include "pinos/server/client-source.h"
 
@@ -36,6 +34,7 @@ struct _PinosClientPrivate
 
   PinosClient1 *client1;
 
+  PinosFdManager *fdmanager;
   GList *outputs;
 };
 
@@ -371,6 +370,9 @@ pinos_client_dispose (GObject * object)
   PinosClient *client = PINOS_CLIENT (object);
   PinosClientPrivate *priv = client->priv;
 
+  if (priv->object_path)
+    pinos_fd_manager_remove_all (priv->fdmanager, priv->object_path);
+
   g_list_foreach (priv->outputs, (GFunc) do_remove_output, client);
   client_unregister_object (client);
   g_clear_object (&priv->daemon);
@@ -386,6 +388,7 @@ pinos_client_finalize (GObject * object)
   g_free (priv->sender);
   if (priv->properties)
     pinos_properties_free (priv->properties);
+  g_clear_object (&priv->fdmanager);
 
   G_OBJECT_CLASS (pinos_client_parent_class)->finalize (object);
 }
@@ -469,7 +472,9 @@ pinos_client_class_init (PinosClientClass * klass)
 static void
 pinos_client_init (PinosClient * client)
 {
-  client->priv = PINOS_CLIENT_GET_PRIVATE (client);
+  PinosClientPrivate *priv = client->priv = PINOS_CLIENT_GET_PRIVATE (client);
+
+  priv->fdmanager = pinos_fd_manager_get (PINOS_FD_MANAGER_DEFAULT);
 }
 
 

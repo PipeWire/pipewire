@@ -232,6 +232,7 @@ handle_start (PinosSourceOutput1     *interface,
 
   g_clear_object (&priv->socket);
   priv->socket = g_socket_new_from_fd (fd[0], NULL);
+  g_object_set_data (priv->socket, "pinos-client-path", priv->client_path);
   g_object_notify (G_OBJECT (output), "socket");
 
   /* the notify of the socket above should configure the format */

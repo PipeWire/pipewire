@@ -52,8 +52,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <client/pinos.h>
-
 GST_DEBUG_CATEGORY_STATIC (gst_pinos_pay_debug_category);
 #define GST_CAT_DEFAULT gst_pinos_pay_debug_category
 
@@ -167,42 +165,30 @@ gst_pinos_pay_sink_event (GstPad * pad, GstObject * parent, GstEvent * event)
 }
 
 static void
-client_object_destroy (GHashTable *hash)
-{
-  GST_LOG ("%p: hash destroyed", hash);
-  g_hash_table_unref (hash);
-}
-
-static void
 client_buffer_sent (GstPinosPay *pay, GstBuffer *buffer,
     GObject *obj)
 {
   GArray *fdids;
-  GHashTable *hash;
   guint i;
+  const gchar *client_path;
 
   fdids = gst_mini_object_get_qdata (GST_MINI_OBJECT_CAST (buffer), fdids_quark);
   if (fdids == NULL)
     return;
 
-  /* we keep a hashtable of fd ids on the sender object (usually GSocket) itself,
-   * when the object is destroyed, we automatically also release the refcounts */
-  hash = g_object_get_qdata (obj, fdids_quark);
-  if (hash == NULL) {
-    hash = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL,
-        (GDestroyNotify) gst_buffer_unref);
-    g_object_set_qdata_full (obj, fdids_quark, hash,
-        (GDestroyNotify) client_object_destroy);
-    GST_LOG ("%p: new hash for object %p", hash, obj);
-  }
+  /* get the client path of this socket */
+  client_path = g_object_get_data (obj, "pinos-client-path");
+  if (client_path == NULL)
+    return;
 
   for (i = 0; i < fdids->len; i++) {
     gint id = g_array_index (fdids, guint32, i);
-    gboolean res;
-
-    GST_LOG ("%p: fd index %d, increment refcount of buffer %p", hash, id, buffer);
-    res = g_hash_table_insert (hash, GINT_TO_POINTER (id), gst_buffer_ref (buffer));
-//    g_assert (res);
+    /* now store the id/client-path/buffer in the fdmanager */
+    GST_LOG ("fd index %d, client %s increment refcount of buffer %p", id, client_path, buffer);
+    pinos_fd_manager_add (pay->fdmanager,
+                          client_path, id,
+                          gst_buffer_ref (buffer),
+                          (GDestroyNotify) gst_buffer_unref);
   }
 }
 
@@ -213,10 +199,10 @@ client_buffer_received (GstPinosPay *pay, GstBuffer *buffer,
   PinosBuffer pbuf;
   PinosBufferIter it;
   GstMapInfo info;
-  GHashTable *hash;
+  const gchar *client_path;
 
-  hash = g_object_get_qdata (obj, fdids_quark);
-  if (hash == NULL)
+  client_path = g_object_get_data (obj, "pinos-client-path");
+  if (client_path == NULL)
     return;
 
   gst_buffer_map (buffer, &info, GST_MAP_READ);
@@ -228,16 +214,14 @@ client_buffer_received (GstPinosPay *pay, GstBuffer *buffer,
       {
         PinosPacketReleaseFDPayload p;
         gint id;
-        gboolean res;
 
         if (!pinos_buffer_iter_parse_release_fd_payload (&it, &p))
           continue;
 
         id = p.id;
 
-        GST_LOG ("%p: fd index %d is released", hash, id);
-        res = g_hash_table_remove (hash, GINT_TO_POINTER (id));
-        //g_assert (res);
+        GST_LOG ("fd index %d for client %s is released", id, client_path);
+        pinos_fd_manager_remove (pay->fdmanager, client_path, id);
         break;
       }
       default:
@@ -427,7 +411,7 @@ gst_pinos_pay_chain_other (GstPinosPay *pay, GstBuffer * buffer)
   p.fd_index = pinos_buffer_builder_add_fd (&builder, gst_fd_memory_get_fd (fdmem), &err);
   if (p.fd_index == -1)
     goto add_fd_failed;
-  p.id = pay->id_counter++;
+  p.id = pinos_fd_manager_get_id (pay->fdmanager);
   p.offset = fdmem->offset;
   p.size = fdmem->size;
   pinos_buffer_builder_add_fd_payload (&builder, &p);
@@ -497,6 +481,7 @@ gst_pinos_pay_finalize (GObject * object)
   GST_DEBUG_OBJECT (pay, "finalize");
 
   g_object_unref (pay->allocator);
+  g_object_unref (pay->fdmanager);
 
   G_OBJECT_CLASS (gst_pinos_pay_parent_class)->finalize (object);
 }
@@ -515,6 +500,7 @@ gst_pinos_pay_init (GstPinosPay * pay)
   gst_element_add_pad (GST_ELEMENT (pay), pay->sinkpad);
 
   pay->allocator = gst_tmpfile_allocator_new ();
+  pay->fdmanager = pinos_fd_manager_get (PINOS_FD_MANAGER_DEFAULT);
 }
 
 static void

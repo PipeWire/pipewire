@@ -23,6 +23,8 @@
 
 #include <gst/gst.h>
 
+#include <client/pinos.h>
+
 G_BEGIN_DECLS
 
 #define GST_TYPE_PINOS_PAY              (gst_pinos_pay_get_type())
@@ -43,7 +45,7 @@ struct _GstPinosPay
 
   GstAllocator *allocator;
 
-  guint32 id_counter;
+  PinosFdManager *fdmanager;
 };
 
 struct _GstPinosPayClass

@@ -338,6 +338,7 @@ release_fds (GstPinosPay *pay, GstBuffer *buffer)
   gst_buffer_unref (outbuf);
 
   gst_pad_push_event (pay->sinkpad, ev);
+  g_object_unref (pay);
 }
 
 static GstFlowReturn
@@ -378,7 +379,7 @@ gst_pinos_pay_chain_pinos (GstPinosPay *pay, GstBuffer * buffer)
     gst_mini_object_set_qdata (GST_MINI_OBJECT_CAST (buffer),
         fdids_quark, fdids, NULL);
     gst_mini_object_weak_ref (GST_MINI_OBJECT_CAST (buffer),
-        (GstMiniObjectNotify) release_fds, pay);
+        (GstMiniObjectNotify) release_fds, g_object_ref (pay));
   }
 
   return gst_pad_push (pay->srcpad, buffer);

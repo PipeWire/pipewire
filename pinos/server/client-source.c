@@ -115,6 +115,26 @@ bus_handler (GstBus     *bus,
       gst_element_set_state (priv->pipeline, GST_STATE_NULL);
       break;
     }
+    case GST_MESSAGE_ELEMENT:
+    {
+      if (gst_message_has_name (message, "PinosPayloaderFormatChange")) {
+        const GstStructure *str = gst_message_get_structure (message);
+        GstCaps *caps;
+        GBytes *format;
+        gchar *caps_str;
+
+        gst_structure_get (str, "format", GST_TYPE_CAPS, &caps, NULL);
+        gst_caps_replace (&priv->format, caps);
+        caps_str = gst_caps_to_string (caps);
+
+        format = g_bytes_new_take (caps_str, strlen (caps_str) + 1);
+        g_object_set (priv->input, "possible-formats", format, "format", format, NULL);
+        pinos_source_update_possible_formats (source, format);
+        pinos_source_update_format (source, format);
+        g_bytes_unref (format);
+      }
+      break;
+    }
     default:
       break;
   }

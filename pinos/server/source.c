@@ -510,6 +510,7 @@ void
 pinos_source_update_possible_formats (PinosSource *source, GBytes *formats)
 {
   PinosSourcePrivate *priv;
+  GList *walk;
 
   g_return_if_fail (PINOS_IS_SOURCE (source));
   priv = source->priv;
@@ -518,6 +519,22 @@ pinos_source_update_possible_formats (PinosSource *source, GBytes *formats)
     g_object_set (priv->iface, "possible-formats",
                   g_bytes_get_data (formats, NULL),
                   NULL);
+
+  for (walk = priv->outputs; walk; walk = g_list_next (walk))
+    g_object_set (walk->data, "possible-formats", formats, NULL);
+}
+
+void
+pinos_source_update_format (PinosSource *source, GBytes *format)
+{
+  PinosSourcePrivate *priv;
+  GList *walk;
+
+  g_return_if_fail (PINOS_IS_SOURCE (source));
+  priv = source->priv;
+
+  for (walk = priv->outputs; walk; walk = g_list_next (walk))
+    g_object_set (walk->data, "format", format, NULL);
 }
 
 PinosSourceOutput *

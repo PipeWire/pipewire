@@ -368,6 +368,23 @@ gst_pinos_pay_chain_pinos (GstPinosPay *pay, GstBuffer * buffer)
         g_array_append_val (fdids, p.id);
         break;
       }
+      case PINOS_PACKET_TYPE_FORMAT_CHANGE:
+      {
+        PinosPacketFormatChange p;
+        GstCaps * caps;
+
+        if (!pinos_buffer_iter_parse_format_change (&it, &p))
+          continue;
+
+        caps = gst_caps_from_string (p.format);
+
+        gst_element_post_message (GST_ELEMENT (pay),
+            gst_message_new_element (GST_OBJECT (pay),
+                gst_structure_new ("PinosPayloaderFormatChange",
+                    "format", GST_TYPE_CAPS, caps, NULL)));
+        gst_caps_unref (caps);
+        break;
+      }
       default:
         break;
     }

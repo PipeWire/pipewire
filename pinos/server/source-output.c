@@ -179,6 +179,8 @@ pinos_source_output_set_property (GObject      *_object,
       if (priv->format)
         g_bytes_unref (priv->format);
       priv->format = g_value_dup_boxed (value);
+      g_object_set (priv->iface, "format",
+          g_bytes_get_data (priv->format, NULL), NULL);
       break;
 
     default:

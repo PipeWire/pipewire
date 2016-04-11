@@ -95,6 +95,7 @@ void                pinos_source_report_idle             (PinosSource *source);
 void                pinos_source_report_busy             (PinosSource *source);
 
 void                pinos_source_update_possible_formats (PinosSource *source, GBytes *formats);
+void                pinos_source_update_format           (PinosSource *source, GBytes *format);
 
 PinosSourceOutput * pinos_source_create_source_output    (PinosSource     *source,
                                                           const gchar     *client_path,

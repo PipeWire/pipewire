@@ -133,6 +133,7 @@ handle_remove_source_output (PinosSourceOutput *output,
   PinosClient *client = user_data;
   PinosClientPrivate *priv = client->priv;
 
+  g_debug ("client %p: remove source output %p", client, output);
   priv->outputs = g_list_remove (priv->outputs, output);
   g_object_unref (output);
 }
@@ -189,6 +190,7 @@ handle_create_source_output (PinosClient1           *interface,
                     client);
 
   object_path = pinos_source_output_get_object_path (output);
+  g_debug ("client %p: add source output %p, %s", client, output, object_path);
   g_dbus_method_invocation_return_value (invocation,
                                          g_variant_new ("(o)", object_path));
 
@@ -203,6 +205,7 @@ not_allowed:
   }
 no_source:
   {
+    g_debug ("client %p: could not find source %s, %s", client, arg_source, error->message);
     g_dbus_method_invocation_return_gerror (invocation, error);
     pinos_properties_free (props);
     g_bytes_unref (formats);
@@ -211,6 +214,7 @@ no_source:
   }
 no_output:
   {
+    g_debug ("client %p: could not create output %s", client, error->message);
     g_dbus_method_invocation_return_gerror (invocation, error);
     g_clear_error (&error);
     return TRUE;
@@ -263,7 +267,7 @@ handle_create_source_input (PinosClient1           *interface,
                           g_object_unref);
 
   source_input_path = pinos_source_output_get_object_path (input);
-
+  g_debug ("client %p: add source input %p, %s", client, input, source_input_path);
   priv->outputs = g_list_prepend (priv->outputs, input);
 
   g_signal_connect (input,
@@ -286,6 +290,7 @@ not_allowed:
   }
 no_source:
   {
+    g_debug ("client %p: could not create source", client);
     g_dbus_method_invocation_return_dbus_error (invocation,
         "org.pinos.Error", "Can't create source");
     g_bytes_unref (formats);
@@ -293,6 +298,7 @@ no_source:
   }
 no_input:
   {
+    g_debug ("client %p: could not create input %s", client, error->message);
     g_dbus_method_invocation_return_gerror (invocation, error);
     g_object_unref (source);
     g_clear_error (&error);
@@ -307,6 +313,7 @@ handle_disconnect (PinosClient1           *interface,
 {
   PinosClient *client = user_data;
 
+  g_debug ("client %p: disconnect", client);
   g_signal_emit (client, signals[SIGNAL_DISCONNECT], 0, NULL);
 
   g_dbus_method_invocation_return_value (invocation,
@@ -343,6 +350,7 @@ client_register_object (PinosClient *client,
 
   g_free (priv->object_path);
   priv->object_path = pinos_daemon_export_uniquely (daemon, G_DBUS_OBJECT_SKELETON (skel));
+  g_debug ("client %p: register %s", client, priv->object_path);
 }
 
 static void
@@ -351,6 +359,7 @@ client_unregister_object (PinosClient *client)
   PinosClientPrivate *priv = client->priv;
   PinosDaemon *daemon = priv->daemon;
 
+  g_debug ("client %p: unregister", client);
   g_clear_object (&priv->client1);
 
   pinos_daemon_unexport (daemon, priv->object_path);
@@ -361,6 +370,7 @@ static void
 do_remove_output (PinosSourceOutput *output,
                   PinosClient       *client)
 {
+  g_debug ("client %p: remove output %p", client, output);
   pinos_source_output_remove (output);
 }
 
@@ -370,6 +380,7 @@ pinos_client_dispose (GObject * object)
   PinosClient *client = PINOS_CLIENT (object);
   PinosClientPrivate *priv = client->priv;
 
+  g_debug ("client %p: dispose", client);
   if (priv->object_path)
     pinos_fd_manager_remove_all (priv->fdmanager, priv->object_path);
 
@@ -379,12 +390,14 @@ pinos_client_dispose (GObject * object)
 
   G_OBJECT_CLASS (pinos_client_parent_class)->dispose (object);
 }
+
 static void
 pinos_client_finalize (GObject * object)
 {
   PinosClient *client = PINOS_CLIENT (object);
   PinosClientPrivate *priv = client->priv;
 
+  g_debug ("client %p: finalize", client);
   g_free (priv->sender);
   if (priv->properties)
     pinos_properties_free (priv->properties);
@@ -398,6 +411,8 @@ pinos_client_constructed (GObject * object)
 {
   PinosClient *client = PINOS_CLIENT (object);
   PinosClientPrivate *priv = client->priv;
+
+  g_debug ("client %p: constructed", client);
 
   client_register_object (client, priv->object_path);
 
@@ -474,6 +489,7 @@ pinos_client_init (PinosClient * client)
 {
   PinosClientPrivate *priv = client->priv = PINOS_CLIENT_GET_PRIVATE (client);
 
+  g_debug ("client %p: new", client);
   priv->fdmanager = pinos_fd_manager_get (PINOS_FD_MANAGER_DEFAULT);
 }
 

@@ -66,10 +66,9 @@ client_name_appeared_handler (GDBusConnection *connection,
   SenderData *data = user_data;
   PinosDaemonPrivate *priv = data->daemon->priv;
 
-  g_hash_table_insert (priv->senders, data->sender, data);
+  g_debug ("daemon %p: appeared %s %s", data->daemon, name, name_owner);
 
-  if (!g_strcmp0 (name, g_dbus_connection_get_unique_name (connection)))
-    return;
+  g_hash_table_insert (priv->senders, data->sender, data);
 }
 
 static void
@@ -79,12 +78,15 @@ client_name_vanished_handler (GDBusConnection *connection,
 {
   SenderData *data = user_data;
 
+  g_debug ("daemon %p: vanished %s", data->daemon, name);
+
   g_bus_unwatch_name (data->id);
 }
 
 static void
 data_free (SenderData *data)
 {
+  g_debug ("daemon %p: free sender data %p for %s", data->daemon, data, data->sender);
   g_list_free_full (data->objects, g_object_unref);
   g_hash_table_remove (data->daemon->priv->senders, data->sender);
   g_free (data->sender);
@@ -102,6 +104,8 @@ sender_data_new (PinosDaemon *daemon,
   data->daemon = daemon;
   data->sender = g_strdup (sender);
 
+  g_debug ("daemon %p: new sender data %p for %s", daemon, data, sender);
+
   data->id = g_bus_watch_name_on_connection (priv->connection,
                                     sender,
                                     G_BUS_NAME_WATCHER_FLAGS_NONE,
@@ -109,8 +113,6 @@ sender_data_new (PinosDaemon *daemon,
                                     client_name_vanished_handler,
                                     data,
                                     (GDestroyNotify) data_free);
-
-
   return data;
 }
 
@@ -125,10 +127,13 @@ handle_disconnect_client (PinosClient *client,
 
   sender = pinos_client_get_sender (client);
 
+  g_debug ("daemon %p: client %p disconnect %s", daemon, client, sender);
+
   data = g_hash_table_lookup (priv->senders, sender);
   if (data == NULL)
     return;
 
+  g_debug ("daemon %p: client %p unref", daemon, client);
   data->objects = g_list_remove (data->objects, client);
   g_object_unref (client);
 }
@@ -148,6 +153,8 @@ handle_connect_client (PinosDaemon1           *interface,
 
   sender = g_dbus_method_invocation_get_sender (invocation);
 
+  g_debug ("daemon %p: connect client: %s", daemon, sender);
+
   props = pinos_properties_from_variant (arg_properties);
   client = pinos_client_new (daemon, sender, PINOS_DBUS_OBJECT_PREFIX, props);
   pinos_properties_free (props);
@@ -161,6 +168,7 @@ handle_connect_client (PinosDaemon1           *interface,
   data->objects = g_list_prepend (data->objects, client);
 
   object_path = pinos_client_get_object_path (client);
+  g_debug ("daemon %p: added client %p with path %s", daemon, client, object_path);
   g_dbus_method_invocation_return_value (invocation,
                                          g_variant_new ("(o)", object_path));
 
@@ -260,6 +268,8 @@ pinos_daemon_start (PinosDaemon *daemon)
   priv = daemon->priv;
   g_return_if_fail (priv->id == 0);
 
+  g_debug ("daemon %p: start", daemon);
+
   priv->id = g_bus_own_name (G_BUS_TYPE_SESSION,
                              PINOS_DBUS_SERVICE,
                              G_BUS_NAME_OWNER_FLAGS_REPLACE,
@@ -282,6 +292,8 @@ pinos_daemon_stop (PinosDaemon *daemon)
   PinosDaemonPrivate *priv = daemon->priv;
 
   g_return_if_fail (PINOS_IS_DAEMON (daemon));
+
+  g_debug ("daemon %p: stop", daemon);
 
   if (priv->id != 0) {
     g_bus_unown_name (priv->id);
@@ -463,6 +475,8 @@ pinos_daemon_dispose (GObject * object)
 {
   PinosDaemon *daemon = PINOS_DAEMON_CAST (object);
 
+  g_debug ("daemon %p: dispose", object);
+
   pinos_daemon_stop (daemon);
 
   G_OBJECT_CLASS (pinos_daemon_parent_class)->dispose (object);
@@ -474,6 +488,7 @@ pinos_daemon_finalize (GObject * object)
   PinosDaemon *daemon = PINOS_DAEMON_CAST (object);
   PinosDaemonPrivate *priv = daemon->priv;
 
+  g_debug ("daemon %p: finalize", object);
   g_clear_object (&priv->server_manager);
 
   G_OBJECT_CLASS (pinos_daemon_parent_class)->finalize (object);
@@ -508,6 +523,8 @@ static void
 pinos_daemon_init (PinosDaemon * daemon)
 {
   PinosDaemonPrivate *priv = daemon->priv = PINOS_DAEMON_GET_PRIVATE (daemon);
+
+  g_debug ("daemon %p: new", daemon);
 
   priv->server_manager = g_dbus_object_manager_server_new (PINOS_DBUS_OBJECT_PREFIX);
   priv->senders = g_hash_table_new (g_str_hash, g_str_equal);

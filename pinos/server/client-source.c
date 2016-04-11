@@ -149,6 +149,8 @@ setup_pipeline (PinosClientSource *source)
   bus = gst_pipeline_get_bus (GST_PIPELINE (priv->pipeline));
   priv->id = gst_bus_add_watch (bus, bus_handler, source);
   gst_object_unref (bus);
+
+  g_debug ("client-source %p: setup pipeline", source);
 }
 
 static GstCaps *
@@ -254,6 +256,8 @@ on_socket_notify (GObject    *gobject,
 
   g_object_get (gobject, "socket", &socket, NULL);
 
+  g_debug ("client-source %p: output socket notify %p", source, socket);
+
   if (socket == NULL) {
     GSocket *prev_socket = g_object_steal_data (gobject, "last-socket");
     if (prev_socket) {
@@ -302,6 +306,8 @@ client_create_source_output (PinosSource     *source,
   if (output == NULL)
     return NULL;
 
+  g_debug ("client-source %p: create output %p", source, output);
+
   g_signal_connect (output, "notify::socket", (GCallback) on_socket_notify, source);
 
   return output;
@@ -311,6 +317,7 @@ static gboolean
 client_release_source_output  (PinosSource       *source,
                                PinosSourceOutput *output)
 {
+  g_debug ("client-source %p: release output %p", source, output);
   return PINOS_SOURCE_CLASS (pinos_client_source_parent_class)->release_source_output (source, output);
 }
 
@@ -318,6 +325,8 @@ static void
 client_source_dispose (GObject * object)
 {
   PinosClientSourcePrivate *priv = PINOS_CLIENT_SOURCE (object)->priv;
+
+  g_debug ("client-source %p: dispose", object);
 
   g_source_remove (priv->id);
   gst_element_set_state (priv->pipeline, GST_STATE_NULL);
@@ -329,6 +338,8 @@ static void
 client_source_finalize (GObject * object)
 {
   PinosClientSourcePrivate *priv = PINOS_CLIENT_SOURCE (object)->priv;
+
+  g_debug ("client-source %p: finalize", object);
 
   g_clear_object (&priv->input);
   g_clear_object (&priv->sink);
@@ -355,6 +366,7 @@ on_input_socket_notify (GObject    *gobject,
   GstCaps *caps;
 
   g_object_get (gobject, "socket", &socket, NULL);
+  g_debug ("client-source %p: input socket notify %p", source, socket);
 
   if (socket) {
     /* requested format is final format */
@@ -373,9 +385,11 @@ on_input_socket_notify (GObject    *gobject,
   g_object_set (priv->src, "socket", socket, NULL);
 
   if (socket) {
+    g_debug ("client-source %p: set pipeline to PLAYING", source);
     gst_element_set_state (priv->pipeline, GST_STATE_PLAYING);
     g_object_unref (socket);
   } else {
+    g_debug ("client-source %p: set pipeline to READY", source);
     gst_element_set_state (priv->pipeline, GST_STATE_READY);
   }
 }
@@ -384,8 +398,10 @@ static void
 handle_remove_source_input (PinosSourceOutput *output,
                             gpointer           user_data)
 {
-  PinosClientSourcePrivate *priv = user_data;
+  PinosClientSource *source = user_data;
+  PinosClientSourcePrivate *priv = source->priv;
 
+  g_debug ("client-source %p: remove source input %p", source, priv->input);
   g_clear_pointer (&priv->input, g_object_unref);
 }
 
@@ -420,8 +436,9 @@ pinos_client_source_get_source_input (PinosClientSource *source,
     g_signal_connect (priv->input,
                       "remove",
                       (GCallback) handle_remove_source_input,
-                      priv);
+                      source);
 
+    g_debug ("client-source %p: get source input %p", source, priv->input);
     g_signal_connect (priv->input, "notify::socket", (GCallback) on_input_socket_notify, source);
   }
   return g_object_ref (priv->input);
@@ -462,6 +479,7 @@ pinos_client_source_init (PinosClientSource * source)
 {
   source->priv = PINOS_CLIENT_SOURCE_GET_PRIVATE (source);
 
+  g_debug ("client-source %p: new", source);
   setup_pipeline (source);
 }
 

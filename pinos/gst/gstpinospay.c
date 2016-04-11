@@ -322,7 +322,7 @@ release_fds (GstPinosPay *pay, GstBuffer *buffer)
 
   for (i = 0; i < fdids->len; i++) {
     r.id = g_array_index (fdids, guint32, i);
-    GST_LOG ("release fd %d", r.id);
+    GST_LOG ("release fd index %d", r.id);
     pinos_buffer_builder_add_release_fd_payload (&b, &r);
   }
   pinos_buffer_builder_end (&b, &pbuf);

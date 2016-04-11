@@ -86,13 +86,13 @@ make buffer   |--------->|             |
 (2) multisocketsink sends the buffer to N Pinos clients
 (3) for each client that is sent a buffer, multisocketsink sends an
     event with the client object and buffer in it.
-(4) pinospay maps the fd-index that was sent, to the buffer in a
-    hashtable for each client. It refs the buffer so that it remains
+(4) pinospay uses the fdmanager object to map the fd-index that was
+    sent, to the buffer and client. The buffer is reffed and kept
     alive for as long as the client is using the buffer.
 (5) when a message is received from a client, multisocketsink sends an
     event upstream.
-(6) pinospay parses the message and removes all fd-index entries from
-    the client hashtable. When all clients release the fd, the buffer
+(6) pinospay parses the message and instructs the fdmanager to release
+    the fd-index again. When all clients release the fd, the buffer
     will be unreffed and v4l2src can reuse the memory.
 
 * client consumer
@@ -157,14 +157,22 @@ make buffer   |--------->|             |
     freed.
 (3) multisocketsink sends the buffer to the clients
 (4) for each buffer that is sent, an event is sent to the payloader
-(5) the payloader remembers the fd-index and buffer in a per-client
-    hashtable. it keeps a ref on the buffer
+(5) the payloader uses the fdmanager to map the fd-index to a buffer
+    and a client. it keeps a ref on the buffer
 (6) release-fd is received from a client
-(7) pinospay removes the fd-index from the client hashtable. If all
+(7) pinospay removes the fd-index from the fdmanager. If all
     clients released the fd, the buffer will be freeds, triggering
     the DestroyNotify. This will then trigger an event with a release-fd
     message to the source.
 (8) the source sends the release-fd message to Pinos
+
+
+* client remove
+
+When a client disconnects from pinos, it must have released all fd-indexes
+that it received. Pinos will force a release and will reuse the fd-indexes
+when the client disconnects.
+
 
 
 Wire

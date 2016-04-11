@@ -192,6 +192,8 @@ clear_formats (PinosSourceOutput *output)
 {
   PinosSourceOutputPrivate *priv = output->priv;
 
+  g_debug ("source-output %p: clear format", output);
+
   g_clear_pointer (&priv->requested_format, g_bytes_unref);
   g_clear_pointer (&priv->format, g_bytes_unref);
 }
@@ -200,6 +202,8 @@ static void
 stop_transfer (PinosSourceOutput *output)
 {
   PinosSourceOutputPrivate *priv = output->priv;
+
+  g_debug ("source-output %p: stop transfer", output);
 
   if (priv->socket) {
     g_clear_object (&priv->socket);
@@ -222,6 +226,7 @@ handle_start (PinosSourceOutput1     *interface,
   PinosSourceOutputPrivate *priv = output->priv;
   GUnixFDList *fdlist;
   gint fd[2];
+  const gchar *format;
 
   priv->state = PINOS_SOURCE_OUTPUT_STATE_STARTING;
 
@@ -230,16 +235,23 @@ handle_start (PinosSourceOutput1     *interface,
 
   socketpair (AF_UNIX, SOCK_STREAM, 0, fd);
 
+  g_debug ("source-output %p: handle start, fd[%d,%d]", output, fd[0], fd[1]);
+
   g_clear_object (&priv->socket);
   priv->socket = g_socket_new_from_fd (fd[0], NULL);
-  g_object_set_data (priv->socket, "pinos-client-path", priv->client_path);
+  g_object_set_data (G_OBJECT (priv->socket), "pinos-client-path", priv->client_path);
+
+  g_debug ("source-output %p: notify socket %p, path %s", output, priv->socket, priv->client_path);
   g_object_notify (G_OBJECT (output), "socket");
 
   /* the notify of the socket above should configure the format */
   if (priv->format == NULL)
     goto no_format;
 
+  format = g_bytes_get_data (priv->format, NULL);
+
   priv->state = PINOS_SOURCE_OUTPUT_STATE_STREAMING;
+  g_debug ("source-output %p: we are now streaming in format \"%s\"", output, format);
 
   fdlist = g_unix_fd_list_new ();
   g_unix_fd_list_append (fdlist, fd[1], NULL);
@@ -247,14 +259,14 @@ handle_start (PinosSourceOutput1     *interface,
   g_dbus_method_invocation_return_value_with_unix_fd_list (invocation,
            g_variant_new ("(hs@a{sv})",
                           0,
-                          g_bytes_get_data (priv->format, NULL),
+                          format,
                           pinos_properties_to_variant (priv->properties)),
            fdlist);
   g_object_unref (fdlist);
   close (fd[1]);
 
   g_object_set (priv->iface,
-               "format", g_bytes_get_data (priv->format, NULL),
+               "format", format,
                "state", priv->state,
                 NULL);
 
@@ -263,6 +275,7 @@ handle_start (PinosSourceOutput1     *interface,
   /* error */
 no_format:
   {
+    g_debug ("source-output %p: no format configured", output);
     g_dbus_method_invocation_return_dbus_error (invocation,
         "org.pinos.Error", "No format");
     close (fd[0]);
@@ -280,6 +293,7 @@ handle_stop (PinosSourceOutput1     *interface,
 {
   PinosSourceOutput *output = user_data;
 
+  g_debug ("source-output %p: handle stop", output);
   stop_transfer (output);
 
   g_dbus_method_invocation_return_value (invocation, NULL);
@@ -294,6 +308,7 @@ handle_remove (PinosSourceOutput1     *interface,
 {
   PinosSourceOutput *output = user_data;
 
+  g_debug ("source-output %p: handle remove", output);
   stop_transfer (output);
 
   g_signal_emit (output, signals[SIGNAL_REMOVE], 0, NULL);
@@ -319,6 +334,7 @@ output_register_object (PinosSourceOutput *output,
 
   g_free (priv->object_path);
   priv->object_path = pinos_daemon_export_uniquely (priv->daemon, G_DBUS_OBJECT_SKELETON (skel));
+  g_debug ("source-output %p: register object %s", output, priv->object_path);
 }
 
 static void
@@ -326,6 +342,7 @@ output_unregister_object (PinosSourceOutput *output)
 {
   PinosSourceOutputPrivate *priv = output->priv;
 
+  g_debug ("source-output %p: unregister object", output);
   pinos_daemon_unexport (priv->daemon, priv->object_path);
 }
 
@@ -335,6 +352,7 @@ pinos_source_output_dispose (GObject * object)
   PinosSourceOutput *output = PINOS_SOURCE_OUTPUT (object);
   PinosSourceOutputPrivate *priv = output->priv;
 
+  g_debug ("source-output %p: dispose", output);
   clear_formats (output);
   g_clear_object (&priv->socket);
   output_unregister_object (output);
@@ -348,6 +366,7 @@ pinos_source_output_finalize (GObject * object)
   PinosSourceOutput *output = PINOS_SOURCE_OUTPUT (object);
   PinosSourceOutputPrivate *priv = output->priv;
 
+  g_debug ("source-output %p: finalize", output);
   if (priv->possible_formats)
     g_bytes_unref (priv->possible_formats);
   if (priv->properties)
@@ -367,6 +386,7 @@ pinos_source_output_constructed (GObject * object)
   PinosSourceOutput *output = PINOS_SOURCE_OUTPUT (object);
   PinosSourceOutputPrivate *priv = output->priv;
 
+  g_debug ("source-output %p: constructed", output);
   output_register_object (output, priv->object_path);
 
   G_OBJECT_CLASS (pinos_source_output_parent_class)->constructed (object);
@@ -496,11 +516,14 @@ pinos_source_output_init (PinosSourceOutput * output)
 
   priv->state = PINOS_SOURCE_OUTPUT_STATE_IDLE;
   g_object_set (priv->iface, "state", priv->state, NULL);
+
+  g_debug ("source-output %p: new", output);
 }
 
 void
 pinos_source_output_remove (PinosSourceOutput *output)
 {
+  g_debug ("source-output %p: remove", output);
   stop_transfer (output);
 
   g_signal_emit (output, signals[SIGNAL_REMOVE], 0, NULL);

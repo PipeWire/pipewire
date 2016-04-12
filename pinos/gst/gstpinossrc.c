@@ -172,6 +172,7 @@ gst_pinos_src_finalize (GObject * object)
 {
   GstPinosSrc *pinossrc = GST_PINOS_SRC (object);
 
+  g_queue_free_full (&pinossrc->queue, (GDestroyNotify) gst_mini_object_unref);
   if (pinossrc->properties)
     gst_structure_free (pinossrc->properties);
   g_object_unref (pinossrc->fd_allocator);
@@ -261,6 +262,8 @@ gst_pinos_src_init (GstPinosSrc * src)
   gst_base_src_set_live (GST_BASE_SRC (src), TRUE);
 
   GST_OBJECT_FLAG_SET (src, GST_ELEMENT_FLAG_PROVIDE_CLOCK);
+
+  g_queue_init (&src->queue);
 
   src->fd_allocator = gst_fd_allocator_new ();
   src->client_name = pinos_client_name ();
@@ -429,9 +432,7 @@ on_new_buffer (GObject    *gobject,
         break;
     }
   }
-  if (pinossrc->current)
-    gst_buffer_unref (pinossrc->current);
-  pinossrc->current = buf;
+  g_queue_push_tail (&pinossrc->queue, buf);
 
   pinos_main_loop_signal (pinossrc->loop, FALSE);
 
@@ -740,8 +741,6 @@ gst_pinos_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
     if (pinossrc->flushing)
       goto streaming_stopped;
 
-    pinos_main_loop_wait (pinossrc->loop);
-
     state = pinos_stream_get_state (pinossrc->stream);
     if (state == PINOS_STREAM_STATE_ERROR)
       goto streaming_error;
@@ -749,11 +748,12 @@ gst_pinos_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
     if (state != PINOS_STREAM_STATE_STREAMING)
       goto streaming_stopped;
 
-    if (pinossrc->current != NULL)
+    *buffer = g_queue_pop_head (&pinossrc->queue);
+    if (*buffer != NULL)
       break;
+
+    pinos_main_loop_wait (pinossrc->loop);
   }
-  *buffer = pinossrc->current;
-  pinossrc->current = NULL;
   pinos_main_loop_unlock (pinossrc->loop);
 
   return GST_FLOW_OK;
@@ -780,6 +780,13 @@ gst_pinos_src_start (GstBaseSrc * basesrc)
   return TRUE;
 }
 
+static void
+clear_queue (GstPinosSrc *pinossrc)
+{
+  g_queue_foreach (&pinossrc->queue, (GFunc) gst_mini_object_unref, NULL);
+  g_queue_clear (&pinossrc->queue);
+}
+
 static gboolean
 gst_pinos_src_stop (GstBaseSrc * basesrc)
 {
@@ -788,9 +795,7 @@ gst_pinos_src_stop (GstBaseSrc * basesrc)
   pinossrc = GST_PINOS_SRC (basesrc);
 
   pinos_main_loop_lock (pinossrc->loop);
-  if (pinossrc->current)
-    gst_buffer_unref (pinossrc->current);
-  pinossrc->current = NULL;
+  clear_queue (pinossrc);
   pinos_main_loop_unlock (pinossrc->loop);
 
   return TRUE;
@@ -905,10 +910,7 @@ gst_pinos_src_close (GstPinosSrc * pinossrc)
   pinossrc->stream_state = PINOS_STREAM_STATE_UNCONNECTED;
   g_clear_object (&pinossrc->stream);
   GST_OBJECT_UNLOCK (pinossrc);
-
-  if (pinossrc->current)
-    gst_buffer_unref (pinossrc->current);
-  pinossrc->current = NULL;
+  clear_queue (pinossrc);
   if (pinossrc->clock)
     gst_object_unref (pinossrc->clock);
   pinossrc->clock = NULL;

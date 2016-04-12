@@ -66,7 +66,7 @@ struct _GstPinosSrc {
   GstAllocator *fd_allocator;
   GstStructure *properties;
 
-  GstBuffer *current;
+  GQueue queue;
   GstClock *clock;
 };
 

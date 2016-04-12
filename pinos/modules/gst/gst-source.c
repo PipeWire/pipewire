@@ -120,6 +120,8 @@ setup_pipeline (PinosGstSource *source, GError **error)
 
   priv->pipeline = gst_pipeline_new (NULL);
 
+  g_debug ("gst-source %p: setup pipeline", source);
+
   gst_bin_add (GST_BIN (priv->pipeline), priv->element);
 
   priv->filter = gst_element_factory_make ("capsfilter", NULL);
@@ -151,18 +153,6 @@ setup_pipeline (PinosGstSource *source, GError **error)
   return TRUE;
 }
 
-static void
-destroy_pipeline (PinosGstSource *source)
-{
-  PinosGstSourcePrivate *priv = source->priv;
-
-  if (priv->pipeline) {
-    gst_element_set_state (priv->pipeline, GST_STATE_NULL);
-    gst_object_unref (priv->pipeline);
-    priv->pipeline = NULL;
-  }
-}
-
 static gboolean
 start_pipeline (PinosGstSource *source, GError **error)
 {
@@ -173,6 +163,8 @@ start_pipeline (PinosGstSource *source, GError **error)
   gchar *address;
   gint port;
   GstStateChangeReturn ret;
+
+  g_debug ("gst-source %p: starting pipeline", source);
 
   ret = gst_element_set_state (priv->pipeline, GST_STATE_PAUSED);
   if (ret == GST_STATE_CHANGE_FAILURE)
@@ -185,7 +177,7 @@ start_pipeline (PinosGstSource *source, GError **error)
   query = gst_query_new_caps (NULL);
   gst_element_query (priv->element, query);
   gst_query_parse_caps_result (query, &res);
-  priv->possible_formats = gst_caps_ref (res);
+  gst_caps_replace (&priv->possible_formats, res);
   gst_query_unref (query);
 
   clock = gst_pipeline_get_clock (GST_PIPELINE (priv->pipeline));
@@ -219,11 +211,33 @@ paused_failed:
   }
 }
 
+static void
+stop_pipeline (PinosGstSource *source)
+{
+  PinosGstSourcePrivate *priv = source->priv;
+
+  g_debug ("gst-source %p: stopping pipeline", source);
+  gst_element_set_state (priv->pipeline, GST_STATE_NULL);
+}
+
+static void
+destroy_pipeline (PinosGstSource *source)
+{
+  PinosGstSourcePrivate *priv = source->priv;
+
+  g_debug ("gst-source %p: destroy pipeline", source);
+  stop_pipeline (source);
+  g_clear_object (&priv->pipeline);
+}
+
+
 static gboolean
 set_state (PinosSource      *source,
            PinosSourceState  state)
 {
   PinosGstSourcePrivate *priv = PINOS_GST_SOURCE (source)->priv;
+
+  g_debug ("gst-source %p: set state %d", source, state);
 
   switch (state) {
     case PINOS_SOURCE_STATE_SUSPENDED:
@@ -406,7 +420,7 @@ create_source_output (PinosSource     *source,
                                         prefix,
                                         error);
   if (output == NULL)
-    return NULL;
+    goto no_output;
 
   g_signal_connect (output,
                     "notify::socket",
@@ -416,6 +430,14 @@ create_source_output (PinosSource     *source,
   priv->n_outputs++;
 
   return output;
+
+  /* ERRORS */
+no_output:
+  {
+    if (priv->n_outputs == 0)
+       stop_pipeline (s);
+    return NULL;
+  }
 }
 
 static gboolean
@@ -491,6 +513,7 @@ source_finalize (GObject * object)
   PinosGstSourcePrivate *priv = source->priv;
 
   destroy_pipeline (source);
+  g_clear_pointer (&priv->possible_formats, gst_caps_unref);
   pinos_properties_free (priv->props);
 
   G_OBJECT_CLASS (pinos_gst_source_parent_class)->finalize (object);

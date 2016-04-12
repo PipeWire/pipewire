@@ -752,10 +752,9 @@ gst_pinos_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
     if (pinossrc->current != NULL)
       break;
   }
-  pinos_main_loop_unlock (pinossrc->loop);
-
   *buffer = pinossrc->current;
   pinossrc->current = NULL;
+  pinos_main_loop_unlock (pinossrc->loop);
 
   return GST_FLOW_OK;
 
@@ -787,9 +786,12 @@ gst_pinos_src_stop (GstBaseSrc * basesrc)
   GstPinosSrc *pinossrc;
 
   pinossrc = GST_PINOS_SRC (basesrc);
+
+  pinos_main_loop_lock (pinossrc->loop);
   if (pinossrc->current)
     gst_buffer_unref (pinossrc->current);
   pinossrc->current = NULL;
+  pinos_main_loop_unlock (pinossrc->loop);
 
   return TRUE;
 }

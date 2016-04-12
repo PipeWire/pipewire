@@ -522,6 +522,13 @@ pinos_source_output_init (PinosSourceOutput * output)
   g_debug ("source-output %p: new", output);
 }
 
+/**
+ * pinos_source_output_remove:
+ * @output: a #PinosSourceOutput
+ *
+ * Remove @output. This will stop the transfer on the output and
+ * free the resources allocated by @output.
+ */
 void
 pinos_source_output_remove (PinosSourceOutput *output)
 {
@@ -531,6 +538,14 @@ pinos_source_output_remove (PinosSourceOutput *output)
   g_signal_emit (output, signals[SIGNAL_REMOVE], 0, NULL);
 }
 
+/**
+ * pinos_source_output_get_object_path:
+ * @output: a #PinosSourceOutput
+ *
+ * Get the object patch of @output
+ *
+ * Returns: the object path of @source.
+ */
 const gchar *
 pinos_source_output_get_object_path (PinosSourceOutput *output)
 {

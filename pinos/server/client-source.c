@@ -425,6 +425,20 @@ handle_remove_source_input (PinosSourceOutput *output,
   g_clear_pointer (&priv->input, g_object_unref);
 }
 
+/**
+ * pinos_client_source_get_source_input:
+ * @source: a #PinosClientSource
+ * @client_path: the client path
+ * @format_filter: a #GBytes
+ * @props: extra properties
+ * @prefix: a path prefix
+ * @error: a #GError or %NULL
+ *
+ * Create a new #PinosSourceOutput that can be used to send data to
+ * the pinos server.
+ *
+ * Returns: a new #PinosSourceOutput.
+ */
 PinosSourceOutput *
 pinos_client_source_get_source_input (PinosClientSource *source,
                                       const gchar       *client_path,
@@ -503,6 +517,15 @@ pinos_client_source_init (PinosClientSource * source)
   setup_pipeline (source);
 }
 
+/**
+ * pinos_client_source_new:
+ * @daemon: the parent #PinosDaemon
+ * @possible_formats: a #GBytes
+ *
+ * Make a new #PinosSource that can be used to receive data from a client.
+ *
+ * Returns: a new #PinosSource.
+ */
 PinosSource *
 pinos_client_source_new (PinosDaemon *daemon,
                          GBytes      *possible_formats)

@@ -742,6 +742,22 @@ compare_data (PinosObjectData *data,
   return g_strcmp0 (data->interface_name, interface_name);
 }
 
+/**
+ * pinos_subscribe_get_proxy:
+ * @subscribe: a #PinosSubscribe
+ * @name: the owner name
+ * @object_path: the object path
+ * @interface_name: the interface name
+ * @cancellable: a #GCancellable
+ * @callback: a #GAsyncReadyCallback
+ * @user_data: extra user data
+ *
+ * Asyncronously get a #GDBusProxy for the object with the given
+ * @name/@object_path/@interface.
+ *
+ * Use pinos_subscribe_get_proxy_finish() to get the result or error in
+ * @callback.
+ */
 void
 pinos_subscribe_get_proxy (PinosSubscribe      *subscribe,
                            const gchar         *name,
@@ -780,6 +796,18 @@ pinos_subscribe_get_proxy (PinosSubscribe      *subscribe,
   }
 }
 
+/**
+ * pinos_subscribe_get_proxy_finish:
+ * @subscribe: a #PinosSubscribe
+ * @res: a #GAsyncResult
+ * @error: a #GError or %NULL
+ *
+ * Get the requested #GDBusProxy. This function should be called in the callback
+ * of pinos_subscribe_get_proxy() to get the result or error.
+ *
+ * Returns: the requested #GDBusProxy. If %NULL is returned, @error will
+ *          be set.
+ */
 GDBusProxy *
 pinos_subscribe_get_proxy_finish (PinosSubscribe *subscribe,
                                   GAsyncResult   *res,

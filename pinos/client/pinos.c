@@ -53,6 +53,12 @@ pinos_client_name (void)
     return g_strdup_printf ("pinos-pid-%lu", (gulong) getpid ());
 }
 
+/**
+ * pinos_fill_context_properties:
+ * @properties: a #PinosProperties
+ *
+ * Fill @properties with a set of default context properties.
+ */
 void
 pinos_fill_context_properties (PinosProperties *properties)
 {
@@ -87,6 +93,12 @@ pinos_fill_context_properties (PinosProperties *properties)
   }
 }
 
+/**
+ * pinos_fill_stream_properties
+ * @properties: a #PinosProperties
+ *
+ * Fill @properties with a set of default stream properties.
+ */
 void
 pinos_fill_stream_properties (PinosProperties *properties)
 {

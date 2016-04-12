@@ -382,6 +382,18 @@ pinos_source_init (PinosSource * source)
   priv->state = PINOS_SOURCE_STATE_SUSPENDED;
 }
 
+/**
+ * pinos_source_get_formats:
+ * @source: a #PinosSource
+ * @filter: a #GBytes
+ * @error: a #GError or %NULL
+ *
+ * Get all the currently supported formats for @source and filter the
+ * results with @filter.
+ *
+ * Returns: the list of supported format. If %NULL is returned, @error will
+ * be set.
+ */
 GBytes *
 pinos_source_get_formats (PinosSource  *source,
                           GBytes       *filter,
@@ -417,6 +429,15 @@ remove_idle_timeout (PinosSource *source)
   }
 }
 
+/**
+ * pinos_source_set_state:
+ * @source: a #PinosSource
+ * @state: a #PinosSourceState
+ *
+ * Set the state of @source to @state.
+ *
+ * Returns: %TRUE on success.
+ */
 gboolean
 pinos_source_set_state (PinosSource      *source,
                         PinosSourceState  state)
@@ -438,6 +459,14 @@ pinos_source_set_state (PinosSource      *source,
   return res;
 }
 
+/**
+ * pinos_source_update_state:
+ * @source: a #PinosSource
+ * @state: a #PinosSourceState
+ *
+ * Update the state of a source. This method is used from
+ * inside @source itself.
+ */
 void
 pinos_source_update_state (PinosSource      *source,
                            PinosSourceState  state)
@@ -454,6 +483,13 @@ pinos_source_update_state (PinosSource      *source,
   }
 }
 
+/**
+ * pinos_source_report_error:
+ * @source: a #PinosSource
+ * @error: a #GError
+ *
+ * Report an error from within @source.
+ */
 void
 pinos_source_report_error (PinosSource *source,
                            GError      *error)
@@ -483,6 +519,13 @@ idle_timeout (PinosSource *source)
   return G_SOURCE_REMOVE;
 }
 
+/**
+ * pinos_source_report_idle:
+ * @source: a #PinosSource
+ *
+ * Mark @source as being idle. This will start a timeout that will
+ * set the source to SUSPENDED.
+ */
 void
 pinos_source_report_idle (PinosSource *source)
 {
@@ -498,6 +541,13 @@ pinos_source_report_idle (PinosSource *source)
                                               source);
 }
 
+/**
+ * pinos_source_report_busy:
+ * @source: a #PinosSource
+ *
+ * Mark @source as being busy. This will set the state of the source
+ * to the RUNNING state.
+ */
 void
 pinos_source_report_busy (PinosSource *source)
 {
@@ -506,6 +556,14 @@ pinos_source_report_busy (PinosSource *source)
   pinos_source_set_state (source, PINOS_SOURCE_STATE_RUNNING);
 }
 
+/**
+ * pinos_source_update_possible_formats:
+ * @source: a #PinosSource
+ * @formats: a #GBytes
+ *
+ * Update the possible formats in @source to @formats. This function also
+ * updates the possible formats of the outputs.
+ */
 void
 pinos_source_update_possible_formats (PinosSource *source, GBytes *formats)
 {
@@ -524,6 +582,14 @@ pinos_source_update_possible_formats (PinosSource *source, GBytes *formats)
     g_object_set (walk->data, "possible-formats", formats, NULL);
 }
 
+/**
+ * pinos_source_update_format:
+ * @source: a #PinosSource
+ * @format: a #GBytes
+ *
+ * Update the current format in @source to @format. This function also
+ * updates the current format of the outputs.
+ */
 void
 pinos_source_update_format (PinosSource *source, GBytes *format)
 {
@@ -537,6 +603,20 @@ pinos_source_update_format (PinosSource *source, GBytes *format)
     g_object_set (walk->data, "format", format, NULL);
 }
 
+/**
+ * pinos_source_create_source_output:
+ * @source: a #PinosSource
+ * @client_path: the client path
+ * @format_filter: a #GBytes
+ * @props: #PinosProperties
+ * @prefix: a prefix
+ * @error: a #GError or %NULL
+ *
+ * Create a new #PinosSourceOutput for @source.
+ *
+ * Returns: a new #PinosSourceOutput or %NULL, in wich case @error will contain
+ *          more information about the error.
+ */
 PinosSourceOutput *
 pinos_source_create_source_output (PinosSource     *source,
                                    const gchar     *client_path,
@@ -566,6 +646,15 @@ pinos_source_create_source_output (PinosSource     *source,
   return res;
 }
 
+/**
+ * pinos_source_release_source_output:
+ * @source: a #PinosSource
+ * @output: a #PinosSourceOutput
+ *
+ * Release the @output in @source.
+ *
+ * Returns: %TRUE on success.
+ */
 gboolean
 pinos_source_release_source_output (PinosSource       *source,
                                     PinosSourceOutput *output)
@@ -586,6 +675,14 @@ pinos_source_release_source_output (PinosSource       *source,
   return res;
 }
 
+/**
+ * pinos_source_get_object_path:
+ * @source: a #PinosSource
+ *
+ * Get the object path of @source.
+ *
+ * Returns: the object path of @source.
+ */
 const gchar *
 pinos_source_get_object_path (PinosSource *source)
 {

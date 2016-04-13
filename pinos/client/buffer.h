@@ -65,6 +65,7 @@ gpointer           pinos_buffer_steal            (PinosBuffer       *buffer,
  *      that a previously received fd-payload is no longer in use.
  * @PINOS_PACKET_TYPE_FORMAT_CHANGE: a format change.
  * @PINOS_PACKET_TYPE_PROPERTY_CHANGE: one or more property changes.
+ * @PINOS_PACKET_TYPE_REFRESH_REQUEST: ask for a new keyframe
  *
  * The possible packet types.
  */
@@ -77,6 +78,7 @@ typedef enum {
   PINOS_PACKET_TYPE_RELEASE_FD_PAYLOAD = 4,
   PINOS_PACKET_TYPE_FORMAT_CHANGE      = 5,
   PINOS_PACKET_TYPE_PROPERTY_CHANGE    = 6,
+  PINOS_PACKET_TYPE_REFRESH_REQUEST    = 7,
 } PinosPacketType;
 
 
@@ -214,6 +216,26 @@ gboolean           pinos_buffer_iter_parse_property_change  (PinosBufferIter    
                                                              PinosPacketPropertyChange *payload);
 gboolean           pinos_buffer_builder_add_property_change (PinosBufferBuilder   *builder,
                                                              PinosPacketPropertyChange *payload);
+
+/* refresh request packets */
+/**
+ * PinosPacketRefreshRequest:
+ * @last_id: last frame seen frame id
+ * @request_type: the type of the request
+ * @pts: the timestamp of the requested key frame, 0 = as soon as possible
+ *
+ * A refresh request packet. This packet is sent to trigger a new keyframe.
+ */
+typedef struct {
+  guint32 last_id;
+  guint32 request_type;
+  gint64 pts;
+} PinosPacketRefreshRequest;
+
+gboolean           pinos_buffer_iter_parse_refresh_request  (PinosBufferIter      *iter,
+                                                             PinosPacketRefreshRequest *payload);
+gboolean           pinos_buffer_builder_add_refresh_request (PinosBufferBuilder   *builder,
+                                                             PinosPacketRefreshRequest *payload);
 
 
 #endif /* __PINOS_BUFFER_H__ */

@@ -41,6 +41,7 @@
 
 #include <gio/gunixfdmessage.h>
 #include <gst/allocators/gstfdmemory.h>
+#include <gst/video/video.h>
 
 #include "gsttmpfileallocator.h"
 
@@ -290,7 +291,19 @@ on_new_buffer (GObject    *gobject,
         g_hash_table_remove (pinossink->fdids, GINT_TO_POINTER (p.id));
         break;
       }
+      case PINOS_PACKET_TYPE_REFRESH_REQUEST:
+      {
+        PinosPacketRefreshRequest p;
 
+        if (!pinos_buffer_iter_parse_refresh_request (&it, &p))
+          continue;
+
+        GST_LOG ("refresh request");
+        gst_pad_push_event (GST_BASE_SINK_PAD (pinossink),
+            gst_video_event_new_upstream_force_key_unit (p.pts,
+            p.request_type == 1, 0));
+        break;
+      }
       default:
         break;
     }

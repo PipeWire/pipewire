@@ -193,7 +193,7 @@ libpinos_@PINOS_MAJORMINOR@_la_SOURCES = \
 
 libpinos_@PINOS_MAJORMINOR@_la_CFLAGS = $(AM_CFLAGS) $(GST_CFLAGS)
 libpinos_@PINOS_MAJORMINOR@_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version
-libpinos_@PINOS_MAJORMINOR@_la_LIBADD = $(AM_LIBADD) $(LTLIBICONV) $(GST_LIBS)
+libpinos_@PINOS_MAJORMINOR@_la_LIBADD = $(AM_LIBADD) $(LTLIBICONV) $(GST_LIBS) $(GST_BASE_LIBS) -lgstvideo-1.0
 
 ###################################
 #      Daemon core library        #

@@ -42,6 +42,7 @@
 #include <gio/gunixfdmessage.h>
 #include <gst/net/gstnetclientclock.h>
 #include <gst/allocators/gstfdmemory.h>
+#include <gst/video/video.h>
 
 
 static GQuark fdpayload_data_quark;
@@ -84,6 +85,7 @@ static gboolean gst_pinos_src_unlock (GstBaseSrc * basesrc);
 static gboolean gst_pinos_src_unlock_stop (GstBaseSrc * basesrc);
 static gboolean gst_pinos_src_start (GstBaseSrc * basesrc);
 static gboolean gst_pinos_src_stop (GstBaseSrc * basesrc);
+static gboolean gst_pinos_src_event (GstBaseSrc * src, GstEvent * event);
 
 static void
 gst_pinos_src_set_property (GObject * object, guint prop_id,
@@ -245,7 +247,7 @@ gst_pinos_src_class_init (GstPinosSrcClass * klass)
   gstbasesrc_class->unlock_stop = gst_pinos_src_unlock_stop;
   gstbasesrc_class->start = gst_pinos_src_start;
   gstbasesrc_class->stop = gst_pinos_src_stop;
-
+  gstbasesrc_class->event = gst_pinos_src_event;
   gstpushsrc_class->create = gst_pinos_src_create;
 
   GST_DEBUG_CATEGORY_INIT (pinos_src_debug, "pinossrc", 0,
@@ -722,6 +724,55 @@ gst_pinos_src_unlock_stop (GstBaseSrc * basesrc)
   pinos_main_loop_unlock (pinossrc->loop);
 
   return TRUE;
+}
+
+static gboolean
+gst_pinos_src_event (GstBaseSrc * src, GstEvent * event)
+{
+  gboolean res = FALSE;
+  GstPinosSrc *pinossrc;
+
+  pinossrc = GST_PINOS_SRC (src);
+
+  switch (GST_EVENT_TYPE (event)) {
+    case GST_EVENT_CUSTOM_UPSTREAM:
+      if (gst_video_event_is_force_key_unit (event)) {
+        GstClockTime running_time;
+        gboolean all_headers;
+        guint count;
+        PinosPacketRefreshRequest refresh;
+        PinosBufferBuilder b;
+        PinosBuffer pbuf;
+
+        gst_video_event_parse_upstream_force_key_unit (event,
+                &running_time, &all_headers, &count);
+
+        refresh.last_id = 0;
+        refresh.request_type = all_headers ? 1 : 0;
+        refresh.pts = running_time;
+
+        pinos_buffer_builder_init (&b);
+        pinos_buffer_builder_add_refresh_request (&b, &refresh);
+        pinos_buffer_builder_end (&b, &pbuf);
+
+        GST_OBJECT_LOCK (pinossrc);
+        if (pinossrc->stream_state == PINOS_STREAM_STATE_STREAMING) {
+          GST_DEBUG_OBJECT (pinossrc, "send refresh request");
+          pinos_stream_send_buffer (pinossrc->stream, &pbuf);
+        }
+        GST_OBJECT_UNLOCK (pinossrc);
+
+        pinos_buffer_clear (&pbuf);
+        res = TRUE;
+      } else {
+        res = GST_BASE_SRC_CLASS (parent_class)->event (src, event);
+      }
+      break;
+    default:
+      res = GST_BASE_SRC_CLASS (parent_class)->event (src, event);
+      break;
+  }
+  return res;
 }
 
 static GstFlowReturn

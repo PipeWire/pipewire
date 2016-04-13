@@ -721,3 +721,55 @@ pinos_buffer_builder_add_format_change (PinosBufferBuilder      *builder,
 
   return TRUE;
 }
+
+/**
+ * pinos_buffer_iter_parse_refresh_request:
+ * @iter: a #PinosBufferIter
+ * @payload: a #PinosPacketRefreshRequest
+ *
+ * Parse a #PINOS_PACKET_TYPE_REFRESH_REQUEST packet from @iter into @payload.
+ *
+ * Returns: %TRUE on success.
+ */
+gboolean
+pinos_buffer_iter_parse_refresh_request (PinosBufferIter           *iter,
+                                         PinosPacketRefreshRequest *payload)
+{
+  struct stack_iter *si = PPSI (iter);
+
+  g_return_val_if_fail (is_valid_iter (iter), FALSE);
+  g_return_val_if_fail (si->type == PINOS_PACKET_TYPE_REFRESH_REQUEST, FALSE);
+
+  if (si->size < sizeof (PinosPacketRefreshRequest))
+    return FALSE;
+
+  memcpy (payload, si->data, sizeof (*payload));
+
+  return TRUE;
+}
+
+/**
+ * pinos_buffer_builder_add_refresh_request:
+ * @builder: a #PinosBufferBuilder
+ * @payload: a #PinosPacketRefreshRequest
+ *
+ * Add a #PINOS_PACKET_TYPE_REFRESH_REQUEST payload in @payload to @builder.
+ *
+ * Returns: %TRUE on success
+ */
+gboolean
+pinos_buffer_builder_add_refresh_request (PinosBufferBuilder        *builder,
+                                          PinosPacketRefreshRequest *payload)
+{
+  struct stack_builder *sb = PPSB (builder);
+  PinosPacketRefreshRequest *p;
+
+  g_return_val_if_fail (is_valid_builder (builder), FALSE);
+
+  p = builder_add_packet (sb,
+                          PINOS_PACKET_TYPE_REFRESH_REQUEST,
+                          sizeof (PinosPacketRefreshRequest));
+  memcpy (p, payload, sizeof (*payload));
+
+  return TRUE;
+}

@@ -46,6 +46,8 @@
 #include "gsttmpfileallocator.h"
 
 #include <gst/net/gstnetcontrolmessagemeta.h>
+#include <gst/video/video.h>
+
 #include <gio/gunixfdmessage.h>
 
 #include <fcntl.h>
@@ -198,12 +200,18 @@ client_buffer_received (GstPinosPay *pay, GstBuffer *buffer,
 {
   PinosBuffer pbuf;
   PinosBufferIter it;
+  PinosBufferBuilder b;
   GstMapInfo info;
   const gchar *client_path;
+  gboolean have_out = FALSE;
 
   client_path = g_object_get_data (obj, "pinos-client-path");
   if (client_path == NULL)
     return;
+
+  if (pay->pinos_input) {
+    pinos_buffer_builder_init (&b);
+  }
 
   gst_buffer_map (buffer, &info, GST_MAP_READ);
   pinos_buffer_init_data (&pbuf, info.data, info.size, NULL);
@@ -224,12 +232,54 @@ client_buffer_received (GstPinosPay *pay, GstBuffer *buffer,
         pinos_fd_manager_remove (pay->fdmanager, client_path, id);
         break;
       }
+      case PINOS_PACKET_TYPE_REFRESH_REQUEST:
+      {
+        PinosPacketRefreshRequest p;
+
+        if (!pinos_buffer_iter_parse_refresh_request (&it, &p))
+          continue;
+
+        GST_LOG ("refresh request");
+        if (!pay->pinos_input) {
+          gst_pad_push_event (pay->sinkpad,
+              gst_video_event_new_upstream_force_key_unit (p.pts,
+              p.request_type == 1, 0));
+        } else {
+          pinos_buffer_builder_add_refresh_request (&b, &p);
+          have_out = TRUE;
+        }
+        break;
+      }
       default:
         break;
     }
   }
   gst_buffer_unmap (buffer, &info);
   pinos_buffer_clear (&pbuf);
+
+  if (pay->pinos_input) {
+    GstBuffer *outbuf;
+    GstEvent *ev;
+    gsize size;
+    gpointer data;
+
+    if (have_out) {
+      pinos_buffer_builder_end (&b, &pbuf);
+
+      data = pinos_buffer_steal (&pbuf, &size, NULL);
+
+      outbuf = gst_buffer_new_wrapped (data, size);
+      ev = gst_event_new_custom (GST_EVENT_CUSTOM_UPSTREAM,
+              gst_structure_new ("GstNetworkMessage",
+                  "object", G_TYPE_OBJECT, pay,
+                  "buffer", GST_TYPE_BUFFER, outbuf, NULL));
+      gst_buffer_unref (outbuf);
+
+      gst_pad_push_event (pay->sinkpad, ev);
+    } else {
+      pinos_buffer_builder_clear (&b);
+    }
+  }
 }
 
 static gboolean
@@ -264,9 +314,10 @@ gst_pinos_pay_src_event (GstPad * pad, GstObject * parent, GstEvent * event)
         client_buffer_received (pay, buf, obj);
         gst_buffer_unref (buf);
         g_object_unref (obj);
+
       }
-      gst_event_unref (event);
       res = TRUE;
+      gst_event_unref (event);
       break;
     }
     default:

@@ -64,7 +64,6 @@ static void
 object_id_free (ObjectId *oid)
 {
   g_assert (oid->refcount == 0);
-  oid->notify (oid->obj);
   g_slice_free (ObjectId, oid);
 }
 
@@ -236,6 +235,8 @@ pinos_fd_manager_remove (PinosFdManager *manager,
 
       if (find) {
         cids->ids = g_list_delete_link (cids->ids, find);
+
+        oid->notify (oid->obj);
         oid->refcount--;
         if (oid->refcount == 0) {
           g_hash_table_remove (priv->object_ids, GINT_TO_POINTER (id));
@@ -253,6 +254,7 @@ remove_id (ObjectId *oid, PinosFdManager *manager)
 {
   PinosFdManagerPrivate *priv = manager->priv;
 
+  oid->notify (oid->obj);
   oid->refcount--;
   if (oid->refcount == 0) {
     g_hash_table_remove (priv->object_ids, GINT_TO_POINTER (oid->id));

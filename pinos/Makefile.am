@@ -226,7 +226,9 @@ plugindir = $(libdir)/gstreamer-1.0
 plugin_LTLIBRARIES = libgstpinos.la
 
 libgstpinos_la_SOURCES = \
+                        gst/gstburstcache.c \
                         gst/gstpinos.c \
+                        gst/gstpinossocketsink.c \
                         gst/gstpinospay.c \
                         gst/gstpinosdepay.c \
                         gst/gstpinosdeviceprovider.c \
@@ -239,7 +241,8 @@ libgstpinos_la_LIBADD =  $(GST_BASE_LIBS) $(GST_LIBS) $(GLIB_LIBS) $(LIBM) -lgst
 			 libpinos-@PINOS_MAJORMINOR@.la libpinoscore-@PINOS_MAJORMINOR@.la
 libgstpinos_la_LIBTOOLFLAGS = $(GST_PLUGIN_LIBTOOLFLAGS)
 
-noinst_HEADERS = gst/gstpinossrc.h gst/gstpinossink.h gst/gstpinospay.h \
+noinst_HEADERS = gst/gstburstcache.h gst/gstpinossrc.h \
+		 gst/gstpinossocketsink.h gst/gstpinossink.h gst/gstpinospay.h \
 		 gst/gstpinosdepay.h gst/gstpinosdeviceprovider.h
 
 ###################################

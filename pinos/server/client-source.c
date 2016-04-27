@@ -151,17 +151,9 @@ setup_pipeline (PinosClientSource *source)
                                          "name=src "
                                          "caps=application/x-pinos "
                                          "send-messages=true ! "
-                                     "pinospay ! "
-                                     "multisocketsink "
-                                         "buffers-max=2 "
-                                         "buffers-soft-max=1 "
-                                         "recover-policy=latest "
-                                         "sync-method=latest "
+                                     "pinossocketsink "
                                          "name=sink "
-                                         "sync=true "
-                                         "enable-last-sample=false "
-                                         "send-messages=true "
-                                         "send-dispatched=true",
+                                         "enable-last-sample=false ",
                                       NULL);
   priv->sink = gst_bin_get_by_name (GST_BIN (priv->pipeline), "sink");
   priv->src = gst_bin_get_by_name (GST_BIN (priv->pipeline), "src");

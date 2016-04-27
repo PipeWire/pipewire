@@ -116,7 +116,6 @@ setup_pipeline (PinosGstSource *source, GError **error)
 {
   PinosGstSourcePrivate *priv = source->priv;
   GstBus *bus;
-  GstElement *elem;
 
   priv->pipeline = gst_pipeline_new (NULL);
 
@@ -128,23 +127,13 @@ setup_pipeline (PinosGstSource *source, GError **error)
   gst_bin_add (GST_BIN (priv->pipeline), priv->filter);
   gst_element_link (priv->element, priv->filter);
 
-  elem = gst_element_factory_make ("pinospay", NULL);
-  gst_bin_add (GST_BIN (priv->pipeline), elem);
-  gst_element_link (priv->filter, elem);
-
-  priv->sink = gst_element_factory_make ("multisocketsink", NULL);
-  g_object_set (priv->sink, "buffers-max", 2,
-                            "buffers-soft-max", 1,
-                            "recover-policy", 1, /* latest */
-                            "sync-method", 0, /* latest */
-                            "sync", TRUE,
+  priv->sink = gst_element_factory_make ("pinossocketsink", NULL);
+  g_object_set (priv->sink, "sync", TRUE,
                             "enable-last-sample", FALSE,
-                            "send-dispatched", TRUE,
-                            "send-messages", TRUE,
                             NULL);
 
   gst_bin_add (GST_BIN (priv->pipeline), priv->sink);
-  gst_element_link (elem, priv->sink);
+  gst_element_link (priv->filter, priv->sink);
 
   bus = gst_pipeline_get_bus (GST_PIPELINE (priv->pipeline));
   gst_bus_add_watch (bus, bus_handler, source);
@@ -218,6 +207,7 @@ stop_pipeline (PinosGstSource *source)
 
   g_debug ("gst-source %p: stopping pipeline", source);
   gst_element_set_state (priv->pipeline, GST_STATE_NULL);
+  g_clear_object (&priv->provider);
 }
 
 static void

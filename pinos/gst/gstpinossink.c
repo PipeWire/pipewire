@@ -152,7 +152,6 @@ gst_pinos_sink_class_init (GstPinosSinkClass * klass)
   gst_element_class_add_pad_template (gstelement_class,
       gst_static_pad_template_get (&gst_pinos_sink_template));
 
-  gstbasesink_class->get_caps = gst_pinos_sink_getcaps;
   gstbasesink_class->set_caps = gst_pinos_sink_setcaps;
   gstbasesink_class->fixate = gst_pinos_sink_sink_fixate;
   gstbasesink_class->propose_allocation = gst_pinos_sink_propose_allocation;
@@ -336,12 +335,6 @@ on_stream_notify (GObject    *gobject,
       break;
   }
   pinos_main_loop_signal (pinossink->loop, FALSE);
-}
-
-static GstCaps *
-gst_pinos_sink_getcaps (GstBaseSink * bsink, GstCaps * filter)
-{
-  return GST_BASE_SINK_CLASS (parent_class)->get_caps (bsink, filter);
 }
 
 static gboolean

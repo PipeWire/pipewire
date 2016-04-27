@@ -110,6 +110,14 @@ enum
   PROP_LAST
 };
 
+GQuark gst_burst_cache_error_quark (void)
+{
+  static GQuark quark;
+  if (!quark)
+    quark = g_quark_from_static_string ("gst-burst-cache-error-quark");
+  return quark;
+}
+
 GST_DEBUG_CATEGORY_STATIC (burstcache_debug);
 #define GST_CAT_DEFAULT (burstcache_debug)
 
@@ -983,7 +991,7 @@ gst_burst_cache_remove_reader (GstBurstCache * cache,
     }
   } else {
     gst_burst_cache_remove_reader_link (cache, reader, TRUE,
-        g_error_new (0, GST_BURST_CACHE_ERROR_NONE, "User requested remove"));
+        g_error_new (GST_BURST_CACHE_ERROR, GST_BURST_CACHE_ERROR_NONE, "User requested remove"));
   }
   CACHE_UNLOCK (cache);
 
@@ -1023,7 +1031,7 @@ gst_burst_cache_error_reader (GstBurstCache * cache,
     goto not_valid;
 
   if (error == NULL)
-    error = g_error_new (0, GST_BURST_CACHE_ERROR_ERROR, "Unknown error");
+    error = g_error_new (GST_BURST_CACHE_ERROR, GST_BURST_CACHE_ERROR_ERROR, "Unknown error");
 
   GST_WARNING_OBJECT (cache, "%s reader %p error, removing: %s",
       reader->debug, reader, error->message);
@@ -1046,7 +1054,7 @@ static gboolean
 remove_hook (GstBurstCacheReader * reader, GstBurstCache * cache)
 {
   gst_burst_cache_remove_reader_link (cache, reader, FALSE,
-      g_error_new (0, GST_BURST_CACHE_ERROR_NONE, "User requested clear"));
+      g_error_new (GST_BURST_CACHE_ERROR, GST_BURST_CACHE_ERROR_NONE, "User requested clear"));
 
   /* FALSE to remove */
   return FALSE;
@@ -1194,7 +1202,7 @@ hit_limit:
     GST_WARNING_OBJECT (cache, "%s reader %p is too slow, removing",
         reader->debug, reader);
     gst_burst_cache_remove_reader_link (cache, reader, FALSE,
-        g_error_new (0, GST_BURST_CACHE_ERROR_SLOW, "Reader is too slow"));
+        g_error_new (GST_BURST_CACHE_ERROR, GST_BURST_CACHE_ERROR_SLOW, "Reader is too slow"));
     /* remove reader */
     return FALSE;
   }
@@ -1203,7 +1211,7 @@ timeout:
     GST_WARNING_OBJECT (cache, "%s reader %p timeout, removing",
         reader->debug, reader);
     gst_burst_cache_remove_reader_link (cache, reader, FALSE,
-        g_error_new (0, GST_BURST_CACHE_ERROR_SLOW, "Reader timed out"));
+        g_error_new (GST_BURST_CACHE_ERROR, GST_BURST_CACHE_ERROR_SLOW, "Reader timed out"));
     /* remove reader */
     return FALSE;
   }

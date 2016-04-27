@@ -101,6 +101,9 @@ typedef enum
   GST_BURST_CACHE_ERROR_DUPLICATE   = 3,
 } GstBurstCacheError;
 
+GQuark gst_burst_cache_error_quark (void);
+#define GST_BURST_CACHE_ERROR       gst_burst_cache_error_quark()
+
 /**
  * GstBurstCacheResult:
  * @GST_BURST_CACHE_RESULT_ERROR  : An error occured

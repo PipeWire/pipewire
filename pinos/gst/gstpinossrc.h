@@ -58,6 +58,10 @@ struct _GstPinosSrc {
   gboolean negotiated;
   gboolean flushing;
 
+  gboolean is_live;
+  GstClockTime min_latency;
+  GstClockTime max_latency;
+
   GMainContext *context;
   PinosMainLoop *loop;
   PinosContext *ctx;

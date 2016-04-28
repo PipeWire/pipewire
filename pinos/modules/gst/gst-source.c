@@ -243,9 +243,31 @@ set_state (PinosSource      *source,
       break;
 
     case PINOS_SOURCE_STATE_RUNNING:
-      gst_element_set_state (priv->pipeline, GST_STATE_PLAYING);
-      break;
+    {
+      GstQuery *query;
 
+      gst_element_set_state (priv->pipeline, GST_STATE_PLAYING);
+      gst_element_get_state (priv->pipeline, NULL, NULL, -1);
+
+      query = gst_query_new_latency ();
+      if (gst_element_query (GST_ELEMENT_CAST (priv->pipeline), query)) {
+        gboolean live;
+        GstClockTime min_latency, max_latency;
+
+        gst_query_parse_latency (query, &live, &min_latency, &max_latency);
+
+        GST_DEBUG_OBJECT (priv->pipeline,
+            "got min latency %" GST_TIME_FORMAT ", max latency %"
+            GST_TIME_FORMAT ", live %d", GST_TIME_ARGS (min_latency),
+            GST_TIME_ARGS (max_latency), live);
+
+        pinos_properties_setf (priv->props, "pinos.latency.is-live", "%d", live);
+        pinos_properties_setf (priv->props, "pinos.latency.min", "%"G_GUINT64_FORMAT, min_latency);
+        pinos_properties_setf (priv->props, "pinos.latency.max", "%"G_GUINT64_FORMAT, max_latency);
+      }
+      gst_query_unref (query);
+      break;
+    }
     case PINOS_SOURCE_STATE_ERROR:
       break;
   }
@@ -324,6 +346,9 @@ on_socket_notify (GObject    *gobject,
   GstCaps *caps;
   GBytes *requested_format, *format = NULL;
   gchar *str;
+  gpointer state = NULL;
+  const gchar *key, *val;
+  PinosProperties *props;
 
   g_object_get (gobject, "socket", &socket, NULL);
 
@@ -376,6 +401,14 @@ on_socket_notify (GObject    *gobject,
     pinos_source_update_possible_formats (PINOS_SOURCE (source), format);
     g_bytes_unref (format);
   }
+
+  g_object_get (gobject, "properties", &props, NULL);
+  while ((key = pinos_properties_iterate (priv->props, &state))) {
+    val = pinos_properties_get (priv->props, key);
+    pinos_properties_set (props, key, val);
+  }
+  g_object_set (gobject, "properties", props, NULL);
+  pinos_properties_free (props);
 }
 
 static PinosSourceOutput *
@@ -390,7 +423,7 @@ create_source_output (PinosSource     *source,
   PinosGstSourcePrivate *priv = s->priv;
   PinosSourceOutput *output;
   gpointer state = NULL;
-  const char *key, *val;
+  const gchar *key, *val;
 
   if (priv->n_outputs == 0) {
     if (!start_pipeline (s, error))

@@ -86,6 +86,7 @@ static gboolean gst_pinos_src_unlock_stop (GstBaseSrc * basesrc);
 static gboolean gst_pinos_src_start (GstBaseSrc * basesrc);
 static gboolean gst_pinos_src_stop (GstBaseSrc * basesrc);
 static gboolean gst_pinos_src_event (GstBaseSrc * src, GstEvent * event);
+static gboolean gst_pinos_src_query (GstBaseSrc * src, GstQuery * query);
 
 static void
 gst_pinos_src_set_property (GObject * object, guint prop_id,
@@ -248,6 +249,7 @@ gst_pinos_src_class_init (GstPinosSrcClass * klass)
   gstbasesrc_class->start = gst_pinos_src_start;
   gstbasesrc_class->stop = gst_pinos_src_stop;
   gstbasesrc_class->event = gst_pinos_src_event;
+  gstbasesrc_class->query = gst_pinos_src_query;
   gstpushsrc_class->create = gst_pinos_src_create;
 
   GST_DEBUG_CATEGORY_INIT (pinos_src_debug, "pinossrc", 0,
@@ -489,6 +491,44 @@ on_stream_notify (GObject    *gobject,
   pinos_main_loop_signal (pinossrc->loop, FALSE);
 }
 
+static void
+parse_clock_info (GstPinosSrc *pinossrc)
+{
+  PinosProperties *props;
+  const gchar *var;
+
+  g_object_get (pinossrc->stream, "properties", &props, NULL);
+
+  var = pinos_properties_get (props, "pinos.clock.type");
+  if (var != NULL) {
+    GST_DEBUG_OBJECT (pinossrc, "got clock type %s", var);
+    if (strcmp (var, "gst.net.time.provider") == 0) {
+      const gchar *address;
+      gint port;
+
+      address = pinos_properties_get (props, "pinos.clock.address");
+      port = atoi (pinos_properties_get (props, "pinos.clock.port"));
+
+      GST_DEBUG_OBJECT (pinossrc, "making net clock for %s:%d", address, port);
+      if (pinossrc->clock)
+        gst_object_unref (pinossrc->clock);
+      pinossrc->clock = gst_net_client_clock_new ("pinosclock", address, port, 0);
+    }
+  }
+  var = pinos_properties_get (props, "pinos.latency.is-live");
+  pinossrc->is_live = var ? (atoi (var) == 1) : FALSE;
+  gst_base_src_set_live (GST_BASE_SRC (pinossrc), pinossrc->is_live);
+
+  var = pinos_properties_get (props, "pinos.latency.max");
+  pinossrc->max_latency = var ? (GstClockTime) atoi (var) : GST_CLOCK_TIME_NONE;
+
+  var = pinos_properties_get (props, "pinos.latency.min");
+  pinossrc->min_latency = var ? (GstClockTime) atoi (var) : 0;
+
+  pinos_properties_free (props);
+}
+
+
 static gboolean
 gst_pinos_src_stream_start (GstPinosSrc *pinossrc, GstCaps * caps)
 {
@@ -512,6 +552,9 @@ gst_pinos_src_stream_start (GstPinosSrc *pinossrc, GstCaps * caps)
 
     pinos_main_loop_wait (pinossrc->loop);
   }
+
+  parse_clock_info (pinossrc);
+
   pinos_main_loop_unlock (pinossrc->loop);
 
   return res;
@@ -521,36 +564,6 @@ start_error:
     GST_DEBUG_OBJECT (pinossrc, "error starting stream");
     return FALSE;
   }
-}
-
-static void
-parse_clock_info (GstPinosSrc *pinossrc)
-{
-  PinosProperties *props;
-  const gchar *var;
-
-  g_object_get (pinossrc->stream, "properties", &props, NULL);
-
-  var = pinos_properties_get (props, "pinos.clock.type");
-  if (var == NULL) {
-    pinos_properties_free (props);
-    return;
-  }
-
-  GST_DEBUG_OBJECT (pinossrc, "got clock type %s", var);
-  if (strcmp (var, "gst.net.time.provider") == 0) {
-    const gchar *address;
-    gint port;
-
-    address = pinos_properties_get (props, "pinos.clock.address");
-    port = atoi (pinos_properties_get (props, "pinos.clock.port"));
-
-    GST_DEBUG_OBJECT (pinossrc, "making net clock for %s:%d", address, port);
-    if (pinossrc->clock)
-      gst_object_unref (pinossrc->clock);
-    pinossrc->clock = gst_net_client_clock_new ("pinosclock", address, port, 0);
-  }
-  pinos_properties_free (props);
 }
 
 static gboolean
@@ -770,6 +783,26 @@ gst_pinos_src_event (GstBaseSrc * src, GstEvent * event)
       break;
     default:
       res = GST_BASE_SRC_CLASS (parent_class)->event (src, event);
+      break;
+  }
+  return res;
+}
+
+static gboolean
+gst_pinos_src_query (GstBaseSrc * src, GstQuery * query)
+{
+  gboolean res = FALSE;
+  GstPinosSrc *pinossrc;
+
+  pinossrc = GST_PINOS_SRC (src);
+
+  switch (GST_QUERY_TYPE (query)) {
+    case GST_QUERY_LATENCY:
+      gst_query_set_latency (query, pinossrc->is_live, pinossrc->min_latency, pinossrc->max_latency);
+      res = TRUE;
+      break;
+    default:
+      res = GST_BASE_SRC_CLASS (parent_class)->query (src, query);
       break;
   }
   return res;

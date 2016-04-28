@@ -57,6 +57,7 @@ struct _GstPinosSrc {
 
   gboolean negotiated;
   gboolean flushing;
+  gboolean started;
 
   gboolean is_live;
   GstClockTime min_latency;

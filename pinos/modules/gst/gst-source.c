@@ -130,6 +130,7 @@ setup_pipeline (PinosGstSource *source, GError **error)
   priv->sink = gst_element_factory_make ("pinossocketsink", NULL);
   g_object_set (priv->sink, "sync", TRUE,
                             "enable-last-sample", FALSE,
+                            "qos", FALSE,
                             NULL);
 
   gst_bin_add (GST_BIN (priv->pipeline), priv->sink);
@@ -148,9 +149,6 @@ start_pipeline (PinosGstSource *source, GError **error)
   PinosGstSourcePrivate *priv = source->priv;
   GstCaps *res;
   GstQuery *query;
-  GstClock *clock;
-  gchar *address;
-  gint port;
   GstStateChangeReturn ret;
 
   g_debug ("gst-source %p: starting pipeline", source);
@@ -168,22 +166,6 @@ start_pipeline (PinosGstSource *source, GError **error)
   gst_query_parse_caps_result (query, &res);
   gst_caps_replace (&priv->possible_formats, res);
   gst_query_unref (query);
-
-  clock = gst_pipeline_get_clock (GST_PIPELINE (priv->pipeline));
-
-  if (priv->provider)
-    g_object_unref (priv->provider);
-  priv->provider = gst_net_time_provider_new (clock, NULL, 0);
-
-  g_object_get (priv->provider, "address", &address, "port", &port, NULL);
-
-  pinos_properties_set (priv->props, "pinos.clock.type", "gst.net.time.provider");
-  pinos_properties_set (priv->props, "pinos.clock.source", GST_OBJECT_NAME (clock));
-  pinos_properties_set (priv->props, "pinos.clock.address", address);
-  pinos_properties_setf (priv->props, "pinos.clock.port", "%d", port);
-
-  g_free (address);
-  gst_object_unref (clock);
 
   return TRUE;
 
@@ -245,9 +227,31 @@ set_state (PinosSource      *source,
     case PINOS_SOURCE_STATE_RUNNING:
     {
       GstQuery *query;
+      GstClock *clock;
+      gchar *address;
+      gint port;
+      GstClockTime base_time;
 
       gst_element_set_state (priv->pipeline, GST_STATE_PLAYING);
       gst_element_get_state (priv->pipeline, NULL, NULL, -1);
+
+      clock = gst_pipeline_get_clock (GST_PIPELINE (priv->pipeline));
+      base_time = gst_clock_get_time (clock);
+
+      if (priv->provider)
+        g_object_unref (priv->provider);
+      priv->provider = gst_net_time_provider_new (clock, NULL, 0);
+
+      g_object_get (priv->provider, "address", &address, "port", &port, NULL);
+
+      pinos_properties_set (priv->props, "pinos.clock.type", "gst.net.time.provider");
+      pinos_properties_set (priv->props, "pinos.clock.source", GST_OBJECT_NAME (clock));
+      pinos_properties_set (priv->props, "pinos.clock.address", address);
+      pinos_properties_setf (priv->props, "pinos.clock.port", "%d", port);
+      pinos_properties_setf (priv->props, "pinos.clock.base-time", "%"G_GUINT64_FORMAT, base_time);
+
+      g_free (address);
+      gst_object_unref (clock);
 
       query = gst_query_new_latency ();
       if (gst_element_query (GST_ELEMENT_CAST (priv->pipeline), query)) {

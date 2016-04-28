@@ -332,6 +332,9 @@ gst_pinos_socket_sink_render_other (GstPinosSocketSink * this, GstBuffer * buffe
   p.size = fdmem->size;
   pinos_buffer_builder_add_fd_payload (&builder, &p);
 
+  GST_LOG ("send %d %"G_GUINT64_FORMAT" %"G_GUINT64_FORMAT" %"G_GUINT64_FORMAT,
+      p.id, hdr.pts, GST_BUFFER_PTS (buffer), GST_ELEMENT_CAST (this)->base_time);
+
   pinos_buffer_builder_end (&builder, &pbuf);
   gst_memory_unref(fdmem);
   fdmem = NULL;

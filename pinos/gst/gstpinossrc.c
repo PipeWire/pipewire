@@ -379,7 +379,7 @@ on_new_buffer (GObject    *gobject,
         if (buf == NULL)
           buf = gst_buffer_new ();
 
-        GST_INFO ("pts %" G_GUINT64_FORMAT ", dts_offset %"G_GUINT64_FORMAT "\n", hdr.pts, hdr.dts_offset);
+        GST_INFO ("pts %" G_GUINT64_FORMAT ", dts_offset %"G_GUINT64_FORMAT, hdr.pts, hdr.dts_offset);
 
         if (GST_CLOCK_TIME_IS_VALID (hdr.pts)) {
           GST_BUFFER_PTS (buf) = hdr.pts;
@@ -495,6 +495,16 @@ parse_stream_properties (GstPinosSrc *pinossrc, PinosProperties *props)
 {
   const gchar *var;
 
+  var = pinos_properties_get (props, "pinos.latency.is-live");
+  pinossrc->is_live = var ? (atoi (var) == 1) : FALSE;
+  gst_base_src_set_live (GST_BASE_SRC (pinossrc), pinossrc->is_live);
+
+  var = pinos_properties_get (props, "pinos.latency.min");
+  pinossrc->min_latency = var ? (GstClockTime) atoi (var) : 0;
+
+  var = pinos_properties_get (props, "pinos.latency.max");
+  pinossrc->max_latency = var ? (GstClockTime) atoi (var) : GST_CLOCK_TIME_NONE;
+
   var = pinos_properties_get (props, "pinos.clock.type");
   if (var != NULL) {
     GST_DEBUG_OBJECT (pinossrc, "got clock type %s", var);
@@ -517,15 +527,6 @@ parse_stream_properties (GstPinosSrc *pinossrc, PinosProperties *props)
             pinossrc->clock, TRUE));
     }
   }
-  var = pinos_properties_get (props, "pinos.latency.is-live");
-  pinossrc->is_live = var ? (atoi (var) == 1) : FALSE;
-  gst_base_src_set_live (GST_BASE_SRC (pinossrc), pinossrc->is_live);
-
-  var = pinos_properties_get (props, "pinos.latency.max");
-  pinossrc->max_latency = var ? (GstClockTime) atoi (var) : GST_CLOCK_TIME_NONE;
-
-  var = pinos_properties_get (props, "pinos.latency.min");
-  pinossrc->min_latency = var ? (GstClockTime) atoi (var) : 0;
 }
 
 
@@ -829,7 +830,7 @@ static GstFlowReturn
 gst_pinos_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
 {
   GstPinosSrc *pinossrc;
-  GstClockTime base_time;
+  GstClockTime pts, dts, base_time;
 
   pinossrc = GST_PINOS_SRC (psrc);
 
@@ -856,19 +857,24 @@ gst_pinos_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
 
     pinos_main_loop_wait (pinossrc->loop);
   }
-  base_time = GST_ELEMENT_CAST (psrc)->base_time;
-
-  if (GST_BUFFER_PTS_IS_VALID (*buffer) && GST_BUFFER_PTS (*buffer) >= base_time)
-    GST_BUFFER_PTS (*buffer) -= base_time;
-  else
-    GST_BUFFER_PTS (*buffer) = 0;
-
-  if (GST_BUFFER_DTS_IS_VALID (*buffer) && GST_BUFFER_DTS (*buffer) >= base_time)
-    GST_BUFFER_DTS (*buffer) -= base_time;
-  else
-    GST_BUFFER_DTS (*buffer) = 0;
-
   pinos_main_loop_unlock (pinossrc->loop);
+
+  base_time = GST_ELEMENT_CAST (psrc)->base_time;
+  pts = GST_BUFFER_PTS (*buffer);
+  dts = GST_BUFFER_DTS (*buffer);
+
+  if (GST_CLOCK_TIME_IS_VALID (pts))
+    pts = (pts >= base_time ? pts - base_time : 0);
+  if (GST_CLOCK_TIME_IS_VALID (dts))
+    dts = (dts >= base_time ? dts - base_time : 0);
+
+  GST_INFO ("pts %" G_GUINT64_FORMAT ", dts %"G_GUINT64_FORMAT
+      ", base-time %"GST_TIME_FORMAT" -> %"GST_TIME_FORMAT", %"GST_TIME_FORMAT,
+      GST_BUFFER_PTS (*buffer), GST_BUFFER_DTS (*buffer), GST_TIME_ARGS (base_time),
+      GST_TIME_ARGS (pts), GST_TIME_ARGS (dts));
+
+  GST_BUFFER_PTS (*buffer) = pts;
+  GST_BUFFER_DTS (*buffer) = dts;
 
   return GST_FLOW_OK;
 

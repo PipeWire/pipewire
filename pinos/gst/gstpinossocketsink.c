@@ -416,8 +416,6 @@ gst_pinos_socket_sink_open (GstPinosSocketSink * this)
 {
   GError *error = NULL;
 
-  this->cache = gst_burst_cache_new (sizeof (MyReader));
-
   this->context = g_main_context_new ();
   this->loop = g_main_loop_new (this->context, TRUE);
   GST_DEBUG ("context %p, loop %p", this->context, this->loop);
@@ -453,7 +451,6 @@ gst_pinos_socket_sink_close (GstPinosSocketSink * this)
   g_clear_pointer (&this->loop, g_main_loop_unref);
   g_clear_pointer (&this->context, g_main_context_unref);
   g_hash_table_remove_all (this->hash);
-  g_clear_pointer (&this->cache, g_object_unref);
 
   return TRUE;
 }
@@ -799,6 +796,7 @@ gst_pinos_socket_sink_finalize (GObject * object)
   GstPinosSocketSink *this = GST_PINOS_SOCKET_SINK (object);
 
   g_clear_pointer (&this->hash, g_hash_table_unref);
+  g_clear_pointer (&this->cache, g_object_unref);
 
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }
@@ -879,6 +877,7 @@ static void
 gst_pinos_socket_sink_init (GstPinosSocketSink * this)
 {
   this->hash = g_hash_table_new (g_direct_hash, g_direct_equal);
+  this->cache = gst_burst_cache_new (sizeof (MyReader));
   this->allocator = gst_tmpfile_allocator_new ();
   this->fdmanager = pinos_fd_manager_get (PINOS_FD_MANAGER_DEFAULT);
 }

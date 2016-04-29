@@ -111,6 +111,8 @@ bus_handler (GstBus     *bus,
   return TRUE;
 }
 
+
+
 static gboolean
 setup_pipeline (PinosGstSource *source, GError **error)
 {
@@ -118,6 +120,7 @@ setup_pipeline (PinosGstSource *source, GError **error)
   GstBus *bus;
 
   priv->pipeline = gst_pipeline_new (NULL);
+  gst_pipeline_set_latency (GST_PIPELINE_CAST (priv->pipeline), 0);
 
   g_debug ("gst-source %p: setup pipeline", source);
 
@@ -153,13 +156,9 @@ start_pipeline (PinosGstSource *source, GError **error)
 
   g_debug ("gst-source %p: starting pipeline", source);
 
-  ret = gst_element_set_state (priv->pipeline, GST_STATE_PAUSED);
+  ret = gst_element_set_state (priv->pipeline, GST_STATE_READY);
   if (ret == GST_STATE_CHANGE_FAILURE)
-    goto paused_failed;
-
-  ret = gst_element_get_state (priv->pipeline, NULL, NULL, -1);
-  if (ret == GST_STATE_CHANGE_FAILURE)
-    goto paused_failed;
+    goto ready_failed;
 
   query = gst_query_new_caps (NULL);
   gst_element_query (priv->element, query);
@@ -170,9 +169,9 @@ start_pipeline (PinosGstSource *source, GError **error)
   return TRUE;
 
   /* ERRORS */
-paused_failed:
+ready_failed:
   {
-    GST_ERROR_OBJECT (source, "failed state change");
+    GST_ERROR_OBJECT (source, "failed state change to READY");
     gst_element_set_state (priv->pipeline, GST_STATE_NULL);
     if (error)
       *error = g_error_new (G_IO_ERROR,
@@ -231,7 +230,11 @@ set_state (PinosSource      *source,
       gchar *address;
       gint port;
       GstClockTime base_time;
+      gboolean live;
+      GstClockTime min_latency, max_latency;
 
+      gst_element_set_state (priv->pipeline, GST_STATE_PAUSED);
+      gst_element_get_state (priv->pipeline, NULL, NULL, -1);
       gst_element_set_state (priv->pipeline, GST_STATE_PLAYING);
       gst_element_get_state (priv->pipeline, NULL, NULL, -1);
 
@@ -255,21 +258,22 @@ set_state (PinosSource      *source,
 
       query = gst_query_new_latency ();
       if (gst_element_query (GST_ELEMENT_CAST (priv->pipeline), query)) {
-        gboolean live;
-        GstClockTime min_latency, max_latency;
-
         gst_query_parse_latency (query, &live, &min_latency, &max_latency);
-
-        GST_DEBUG_OBJECT (priv->pipeline,
-            "got min latency %" GST_TIME_FORMAT ", max latency %"
-            GST_TIME_FORMAT ", live %d", GST_TIME_ARGS (min_latency),
-            GST_TIME_ARGS (max_latency), live);
-
-        pinos_properties_setf (priv->props, "pinos.latency.is-live", "%d", live);
-        pinos_properties_setf (priv->props, "pinos.latency.min", "%"G_GUINT64_FORMAT, min_latency);
-        pinos_properties_setf (priv->props, "pinos.latency.max", "%"G_GUINT64_FORMAT, max_latency);
+      } else {
+        live = FALSE;
+        min_latency = 0;
+        max_latency = -1;
       }
       gst_query_unref (query);
+
+      GST_DEBUG_OBJECT (priv->pipeline,
+          "got min latency %" GST_TIME_FORMAT ", max latency %"
+          GST_TIME_FORMAT ", live %d", GST_TIME_ARGS (min_latency),
+          GST_TIME_ARGS (max_latency), live);
+
+      pinos_properties_setf (priv->props, "pinos.latency.is-live", "%d", live);
+      pinos_properties_setf (priv->props, "pinos.latency.min", "%"G_GUINT64_FORMAT, min_latency);
+      pinos_properties_setf (priv->props, "pinos.latency.max", "%"G_GUINT64_FORMAT, max_latency);
       break;
     }
     case PINOS_SOURCE_STATE_ERROR:
@@ -355,6 +359,7 @@ on_socket_notify (GObject    *gobject,
   PinosProperties *props;
 
   g_object_get (gobject, "socket", &socket, NULL);
+  GST_DEBUG ("got socket %p", socket);
 
   if (socket == NULL) {
     GSocket *prev_socket = g_object_steal_data (gobject, "last-socket");
@@ -363,7 +368,6 @@ on_socket_notify (GObject    *gobject,
       g_object_unref (prev_socket);
     }
   } else {
-    pinos_source_report_busy (PINOS_SOURCE (source));
     g_signal_emit_by_name (priv->sink, "add", socket);
     g_object_set_data_full (gobject, "last-socket", socket, g_object_unref);
   }
@@ -400,6 +404,7 @@ on_socket_notify (GObject    *gobject,
     }
     /* this is what we use as the final format for the output */
     g_object_set (gobject, "format", format, NULL);
+    pinos_source_report_busy (PINOS_SOURCE (source));
   }
   if (format) {
     pinos_source_update_possible_formats (PINOS_SOURCE (source), format);

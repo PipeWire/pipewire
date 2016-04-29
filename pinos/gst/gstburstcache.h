@@ -272,6 +272,7 @@ void                    gst_burst_cache_get_limits       (GstBurstCache *cache,
 
 void                    gst_burst_cache_queue_buffer     (GstBurstCache *cache,
                                                           GstBuffer *buffer);
+void                    gst_burst_cache_remove_buffers   (GstBurstCache *cache);
 
 GstBurstCacheReader *   gst_burst_cache_reader_new       (GstBurstCache *cache,
                                                           GstBurstCacheReaderCallback callback,
@@ -292,7 +293,7 @@ gboolean                gst_burst_cache_error_reader     (GstBurstCache *cache,
                                                           GstBurstCacheReader *reader,
                                                           GError *error);
 
-void                    gst_burst_cache_clear_readers    (GstBurstCache * cache);
+void                    gst_burst_cache_remove_readers   (GstBurstCache * cache);
 
 
 GstBurstCacheResult     gst_burst_cache_get_buffer       (GstBurstCache *cache,

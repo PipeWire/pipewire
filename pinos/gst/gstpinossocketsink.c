@@ -444,6 +444,8 @@ thread_error:
 static gboolean
 gst_pinos_socket_sink_close (GstPinosSocketSink * this)
 {
+  gst_burst_cache_remove_buffers (this->cache);
+
   GST_DEBUG ("context %p, loop %p", this->context, this->loop);
   g_main_loop_quit (this->loop);
   g_thread_join (this->thread);

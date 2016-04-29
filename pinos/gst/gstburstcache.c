@@ -174,6 +174,7 @@ gst_burst_cache_init (GstBurstCache * this)
   this->recover = DEFAULT_RECOVER;
 }
 
+
 static void
 gst_burst_cache_finalize (GObject * object)
 {
@@ -1061,17 +1062,17 @@ remove_hook (GstBurstCacheReader * reader, GstBurstCache * cache)
 }
 
 /**
- * gst_burst_cache_clear_readers:
+ * gst_burst_cache_remove_readers:
  * @cache: a #GstBurstCache
  *
  * Remove all readers from @cache.
  */
 void
-gst_burst_cache_clear_readers (GstBurstCache * cache)
+gst_burst_cache_remove_readers (GstBurstCache * cache)
 {
   g_return_if_fail (GST_IS_BURST_CACHE (cache));
 
-  GST_DEBUG_OBJECT (cache, "clearing all readers");
+  GST_DEBUG_OBJECT (cache, "removing all readers");
 
   CACHE_LOCK (cache);
   g_hook_list_marshal_check (&cache->readers, TRUE, (GHookCheckMarshaller)
@@ -1334,6 +1335,23 @@ gst_burst_cache_queue_buffer (GstBurstCache * cache, GstBuffer * buffer)
   }
   /* save for stats */
   cache->buffers_queued = data.max_buffer_usage;
+  CACHE_UNLOCK (cache);
+}
+
+/**
+ * gst_burst_cache_remove_buffers:
+ * @cache: a #GstBurstCache
+ *
+ * Remove all buffers from @cache.
+ */
+void
+gst_burst_cache_remove_buffers (GstBurstCache * cache)
+{
+  g_return_if_fail (GST_IS_BURST_CACHE (cache));
+
+  CACHE_LOCK (cache);
+  g_ptr_array_foreach (cache->bufqueue, (GFunc) gst_buffer_unref, NULL);
+  g_ptr_array_set_size (cache->bufqueue, 0);
   CACHE_UNLOCK (cache);
 }
 

@@ -647,7 +647,7 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
     }
 
     GST_DEBUG_OBJECT (basesrc, "connect capture with path %s", pinossrc->path);
-    pinos_stream_connect_capture (pinossrc->stream, pinossrc->path, 0, accepted);
+    pinos_stream_connect_source (pinossrc->stream, pinossrc->path, 0, accepted);
 
     while (TRUE) {
       PinosStreamState state = pinos_stream_get_state (pinossrc->stream);

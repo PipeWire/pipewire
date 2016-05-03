@@ -207,7 +207,7 @@ libpinoscore_@PINOS_MAJORMINOR@_la_SOURCES = \
 		server/daemon.c server/daemon.h \
 		server/source.c server/source.h \
 		server/client-source.c server/client-source.h \
-		server/source-output.c server/source-output.h \
+		server/channel.c server/channel.h \
 		modules/gst/gst-manager.c modules/gst/gst-manager.h \
 		modules/gst/gst-source.c modules/gst/gst-source.h \
 		dbus/org-pinos.c dbus/org-pinos.h

@@ -29,7 +29,7 @@ typedef struct _PinosSourceClass PinosSourceClass;
 typedef struct _PinosSourcePrivate PinosSourcePrivate;
 
 #include <pinos/client/introspect.h>
-#include <pinos/server/source-output.h>
+#include <pinos/server/channel.h>
 
 #define PINOS_TYPE_SOURCE                 (pinos_source_get_type ())
 #define PINOS_IS_SOURCE(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_SOURCE))
@@ -55,8 +55,8 @@ struct _PinosSource {
  * PinosSourceClass:
  * @get_formats: called to get a list of supported formats from the source
  * @set_state: called to change the current state of the source
- * @create_source_output: called to create a new source-output object
- * @release_source_output: called to release a source-output object
+ * @create_channel: called to create a new channel object
+ * @release_channel: called to release a channel object
  *
  * Pinos source object class.
  */
@@ -69,14 +69,14 @@ struct _PinosSourceClass {
 
   gboolean            (*set_state)  (PinosSource *source, PinosSourceState);
 
-  PinosSourceOutput * (*create_source_output)  (PinosSource     *source,
-                                                const gchar     *client_path,
-                                                GBytes          *format_filter,
-                                                PinosProperties *props,
-                                                const gchar     *prefix,
-                                                GError          **error);
-  gboolean            (*release_source_output) (PinosSource       *source,
-                                                PinosSourceOutput *output);
+  PinosChannel *      (*create_channel)  (PinosSource     *source,
+                                          const gchar     *client_path,
+                                          GBytes          *format_filter,
+                                          PinosProperties *props,
+                                          const gchar     *prefix,
+                                          GError          **error);
+  gboolean            (*release_channel) (PinosSource       *source,
+                                          PinosChannel    *channel);
 };
 
 /* normal GObject stuff */
@@ -97,14 +97,14 @@ void                pinos_source_report_busy             (PinosSource *source);
 void                pinos_source_update_possible_formats (PinosSource *source, GBytes *formats);
 void                pinos_source_update_format           (PinosSource *source, GBytes *format);
 
-PinosSourceOutput * pinos_source_create_source_output    (PinosSource     *source,
+PinosChannel *      pinos_source_create_channel          (PinosSource     *source,
                                                           const gchar     *client_path,
                                                           GBytes          *format_filter,
                                                           PinosProperties *props,
                                                           const gchar     *prefix,
                                                           GError          **error);
-gboolean            pinos_source_release_source_output   (PinosSource       *source,
-                                                          PinosSourceOutput *output);
+gboolean            pinos_source_release_channel         (PinosSource     *source,
+                                                          PinosChannel    *channel);
 
 G_END_DECLS
 

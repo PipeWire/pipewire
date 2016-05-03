@@ -35,7 +35,7 @@ struct _PinosClientPrivate
   PinosClient1 *client1;
 
   PinosFdManager *fdmanager;
-  GList *outputs;
+  GList *channels;
 };
 
 #define PINOS_CLIENT_GET_PRIVATE(obj)  \
@@ -127,29 +127,29 @@ pinos_client_set_property (GObject      *_object,
 }
 
 static void
-handle_remove_source_output (PinosSourceOutput *output,
-                             gpointer           user_data)
+handle_remove_channel (PinosChannel *channel,
+                       gpointer      user_data)
 {
   PinosClient *client = user_data;
   PinosClientPrivate *priv = client->priv;
 
-  g_debug ("client %p: remove source output %p", client, output);
-  priv->outputs = g_list_remove (priv->outputs, output);
-  g_object_unref (output);
+  g_debug ("client %p: remove channel %p", client, channel);
+  priv->channels = g_list_remove (priv->channels, channel);
+  g_object_unref (channel);
 }
 
 static gboolean
-handle_create_source_output (PinosClient1           *interface,
-                             GDBusMethodInvocation  *invocation,
-                             const gchar            *arg_source,
-                             const gchar            *arg_accepted_formats,
-                             GVariant               *arg_properties,
-                             gpointer                user_data)
+handle_create_source_channel (PinosClient1           *interface,
+                              GDBusMethodInvocation  *invocation,
+                              const gchar            *arg_source,
+                              const gchar            *arg_accepted_formats,
+                              GVariant               *arg_properties,
+                              gpointer                user_data)
 {
   PinosClient *client = user_data;
   PinosClientPrivate *priv = client->priv;
   PinosSource *source;
-  PinosSourceOutput *output;
+  PinosChannel *channel;
   const gchar *object_path, *sender;
   GBytes *formats;
   PinosProperties *props;
@@ -170,27 +170,27 @@ handle_create_source_output (PinosClient1           *interface,
   if (source == NULL)
     goto no_source;
 
-  output = pinos_source_create_source_output (source,
-                                              priv->object_path,
-                                              formats,
-                                              props,
-                                              priv->object_path,
-                                              &error);
+  channel = pinos_source_create_channel (source,
+                                         priv->object_path,
+                                         formats,
+                                         props,
+                                         priv->object_path,
+                                         &error);
   pinos_properties_free (props);
   g_bytes_unref (formats);
 
-  if (output == NULL)
-    goto no_output;
+  if (channel == NULL)
+    goto no_channel;
 
-  priv->outputs = g_list_prepend (priv->outputs, output);
+  priv->channels = g_list_prepend (priv->channels, channel);
 
-  g_signal_connect (output,
+  g_signal_connect (channel,
                     "remove",
-                    (GCallback) handle_remove_source_output,
+                    (GCallback) handle_remove_channel,
                     client);
 
-  object_path = pinos_source_output_get_object_path (output);
-  g_debug ("client %p: add source output %p, %s", client, output, object_path);
+  object_path = pinos_channel_get_object_path (channel);
+  g_debug ("client %p: add channel %p, %s", client, channel, object_path);
   g_dbus_method_invocation_return_value (invocation,
                                          g_variant_new ("(o)", object_path));
 
@@ -212,9 +212,9 @@ no_source:
     g_clear_error (&error);
     return TRUE;
   }
-no_output:
+no_channel:
   {
-    g_debug ("client %p: could not create output %s", client, error->message);
+    g_debug ("client %p: could not channel %s", client, error->message);
     g_dbus_method_invocation_return_gerror (invocation, error);
     g_clear_error (&error);
     return TRUE;
@@ -222,17 +222,17 @@ no_output:
 }
 
 static gboolean
-handle_create_source_input (PinosClient1           *interface,
-                            GDBusMethodInvocation  *invocation,
-                            const gchar            *arg_possible_formats,
-                            GVariant               *arg_properties,
-                            gpointer                user_data)
+handle_create_upload_channel (PinosClient1           *interface,
+                              GDBusMethodInvocation  *invocation,
+                              const gchar            *arg_possible_formats,
+                              GVariant               *arg_properties,
+                              gpointer                user_data)
 {
   PinosClient *client = user_data;
   PinosClientPrivate *priv = client->priv;
   PinosSource *source;
-  PinosSourceOutput *input;
-  const gchar *source_input_path, *sender;
+  PinosChannel *channel;
+  const gchar *channel_path, *sender;
   GBytes *formats;
   GError *error = NULL;
   PinosProperties *props;
@@ -250,34 +250,34 @@ handle_create_source_input (PinosClient1           *interface,
   sender = g_dbus_method_invocation_get_sender (invocation);
   props = pinos_properties_from_variant (arg_properties);
 
-  input = pinos_client_source_get_source_input (PINOS_CLIENT_SOURCE (source),
-                                                priv->object_path,
-                                                formats,
-                                                props,
-                                                priv->object_path,
-                                                &error);
+  channel = pinos_client_source_get_channel (PINOS_CLIENT_SOURCE (source),
+                                             priv->object_path,
+                                             formats,
+                                             props,
+                                             priv->object_path,
+                                             &error);
   pinos_properties_free (props);
 
-  if (input == NULL)
-    goto no_input;
+  if (channel == NULL)
+    goto no_channel;
 
-  g_object_set_data_full (G_OBJECT (input),
-                          "input-source",
+  g_object_set_data_full (G_OBJECT (channel),
+                          "channel-owner",
                           source,
                           g_object_unref);
 
-  source_input_path = pinos_source_output_get_object_path (input);
-  g_debug ("client %p: add source input %p, %s", client, input, source_input_path);
-  priv->outputs = g_list_prepend (priv->outputs, input);
+  channel_path = pinos_channel_get_object_path (channel);
+  g_debug ("client %p: add source channel %p, %s", client, channel, channel_path);
+  priv->channels = g_list_prepend (priv->channels, channel);
 
-  g_signal_connect (input,
+  g_signal_connect (channel,
                     "remove",
-                    (GCallback) handle_remove_source_output,
+                    (GCallback) handle_remove_channel,
                     client);
 
   g_dbus_method_invocation_return_value (invocation,
                                          g_variant_new ("(o)",
-                                         source_input_path));
+                                         channel_path));
 
   return TRUE;
 
@@ -296,9 +296,9 @@ no_source:
     g_bytes_unref (formats);
     return TRUE;
   }
-no_input:
+no_channel:
   {
-    g_debug ("client %p: could not create input %s", client, error->message);
+    g_debug ("client %p: could not create channel %s", client, error->message);
     g_dbus_method_invocation_return_gerror (invocation, error);
     g_object_unref (source);
     g_clear_error (&error);
@@ -337,11 +337,11 @@ client_register_object (PinosClient *client,
   priv->client1 = pinos_client1_skeleton_new ();
   pinos_client1_set_name (priv->client1, priv->sender);
   pinos_client1_set_properties (priv->client1, pinos_properties_to_variant (priv->properties));
-  g_signal_connect (priv->client1, "handle-create-source-output",
-                                   (GCallback) handle_create_source_output,
+  g_signal_connect (priv->client1, "handle-create-source-channel",
+                                   (GCallback) handle_create_source_channel,
                                    client);
-  g_signal_connect (priv->client1, "handle-create-source-input",
-                                   (GCallback) handle_create_source_input,
+  g_signal_connect (priv->client1, "handle-create-upload-channel",
+                                   (GCallback) handle_create_upload_channel,
                                    client);
   g_signal_connect (priv->client1, "handle-disconnect",
                                    (GCallback) handle_disconnect,
@@ -367,11 +367,11 @@ client_unregister_object (PinosClient *client)
 }
 
 static void
-do_remove_output (PinosSourceOutput *output,
-                  PinosClient       *client)
+do_remove_channel (PinosChannel *channel,
+                   PinosClient  *client)
 {
-  g_debug ("client %p: remove output %p", client, output);
-  pinos_source_output_remove (output);
+  g_debug ("client %p: remove channel %p", client, channel);
+  pinos_channel_remove (channel);
 }
 
 static void
@@ -384,7 +384,7 @@ pinos_client_dispose (GObject * object)
   if (priv->object_path)
     pinos_fd_manager_remove_all (priv->fdmanager, priv->object_path);
 
-  g_list_foreach (priv->outputs, (GFunc) do_remove_output, client);
+  g_list_foreach (priv->channels, (GFunc) do_remove_channel, client);
   client_unregister_object (client);
   g_clear_object (&priv->daemon);
 

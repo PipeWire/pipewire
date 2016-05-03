@@ -25,32 +25,32 @@
 #include "pinos/client/enumtypes.h"
 
 #include "pinos/server/daemon.h"
-#include "pinos/server/source-output.h"
+#include "pinos/server/channel.h"
 
 #include "pinos/dbus/org-pinos.h"
 
-struct _PinosSourceOutputPrivate
+struct _PinosChannelPrivate
 {
   PinosDaemon *daemon;
-  PinosSourceOutput1 *iface;
+  PinosChannel1 *iface;
 
   gchar *object_path;
   gchar *client_path;
-  gchar *source_path;
+  gchar *owner_path;
 
   GBytes *possible_formats;
   PinosProperties *properties;
   GBytes *requested_format;
-  PinosSourceOutputState state;
+  PinosChannelState state;
   GBytes *format;
 
   GSocket *socket;
 };
 
-#define PINOS_SOURCE_OUTPUT_GET_PRIVATE(obj)  \
-   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_SOURCE_OUTPUT, PinosSourceOutputPrivate))
+#define PINOS_CHANNEL_GET_PRIVATE(obj)  \
+   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_CHANNEL, PinosChannelPrivate))
 
-G_DEFINE_TYPE (PinosSourceOutput, pinos_source_output, G_TYPE_OBJECT);
+G_DEFINE_TYPE (PinosChannel, pinos_channel, G_TYPE_OBJECT);
 
 enum
 {
@@ -58,7 +58,7 @@ enum
   PROP_DAEMON,
   PROP_OBJECT_PATH,
   PROP_CLIENT_PATH,
-  PROP_SOURCE_PATH,
+  PROP_OWNER_PATH,
   PROP_POSSIBLE_FORMATS,
   PROP_PROPERTIES,
   PROP_REQUESTED_FORMAT,
@@ -76,13 +76,13 @@ enum
 static guint signals[LAST_SIGNAL] = { 0 };
 
 static void
-pinos_source_output_get_property (GObject    *_object,
+pinos_channel_get_property (GObject    *_object,
                                   guint       prop_id,
                                   GValue     *value,
                                   GParamSpec *pspec)
 {
-  PinosSourceOutput *output = PINOS_SOURCE_OUTPUT (_object);
-  PinosSourceOutputPrivate *priv = output->priv;
+  PinosChannel *channel = PINOS_CHANNEL (_object);
+  PinosChannelPrivate *priv = channel->priv;
 
   switch (prop_id) {
     case PROP_DAEMON:
@@ -97,8 +97,8 @@ pinos_source_output_get_property (GObject    *_object,
       g_value_set_string (value, priv->client_path);
       break;
 
-    case PROP_SOURCE_PATH:
-      g_value_set_string (value, priv->source_path);
+    case PROP_OWNER_PATH:
+      g_value_set_string (value, priv->owner_path);
       break;
 
     case PROP_POSSIBLE_FORMATS:
@@ -126,19 +126,19 @@ pinos_source_output_get_property (GObject    *_object,
       break;
 
     default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (output, prop_id, pspec);
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (channel, prop_id, pspec);
       break;
   }
 }
 
 static void
-pinos_source_output_set_property (GObject      *_object,
+pinos_channel_set_property (GObject      *_object,
                                   guint         prop_id,
                                   const GValue *value,
                                   GParamSpec   *pspec)
 {
-  PinosSourceOutput *output = PINOS_SOURCE_OUTPUT (_object);
-  PinosSourceOutputPrivate *priv = output->priv;
+  PinosChannel *channel = PINOS_CHANNEL (_object);
+  PinosChannelPrivate *priv = channel->priv;
 
   switch (prop_id) {
     case PROP_DAEMON:
@@ -154,9 +154,9 @@ pinos_source_output_set_property (GObject      *_object,
       g_object_set (priv->iface, "client", priv->client_path, NULL);
       break;
 
-    case PROP_SOURCE_PATH:
-      priv->source_path = g_value_dup_string (value);
-      g_object_set (priv->iface, "source", priv->source_path, NULL);
+    case PROP_OWNER_PATH:
+      priv->owner_path = g_value_dup_string (value);
+      g_object_set (priv->iface, "owner", priv->owner_path, NULL);
       break;
 
     case PROP_POSSIBLE_FORMATS:
@@ -184,67 +184,67 @@ pinos_source_output_set_property (GObject      *_object,
       break;
 
     default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (output, prop_id, pspec);
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (channel, prop_id, pspec);
       break;
   }
 }
 
 static void
-clear_formats (PinosSourceOutput *output)
+clear_formats (PinosChannel *channel)
 {
-  PinosSourceOutputPrivate *priv = output->priv;
+  PinosChannelPrivate *priv = channel->priv;
 
-  g_debug ("source-output %p: clear format", output);
+  g_debug ("channel %p: clear format", channel);
 
   g_clear_pointer (&priv->requested_format, g_bytes_unref);
   g_clear_pointer (&priv->format, g_bytes_unref);
 }
 
 static void
-stop_transfer (PinosSourceOutput *output)
+stop_transfer (PinosChannel *channel)
 {
-  PinosSourceOutputPrivate *priv = output->priv;
+  PinosChannelPrivate *priv = channel->priv;
 
-  g_debug ("source-output %p: stop transfer", output);
+  g_debug ("channel %p: stop transfer", channel);
 
   if (priv->socket) {
     g_clear_object (&priv->socket);
-    g_object_notify (G_OBJECT (output), "socket");
+    g_object_notify (G_OBJECT (channel), "socket");
   }
-  clear_formats (output);
-  priv->state = PINOS_SOURCE_OUTPUT_STATE_IDLE;
+  clear_formats (channel);
+  priv->state = PINOS_CHANNEL_STATE_IDLE;
   g_object_set (priv->iface,
                "state", priv->state,
                 NULL);
 }
 
 static gboolean
-handle_start (PinosSourceOutput1     *interface,
+handle_start (PinosChannel1          *interface,
               GDBusMethodInvocation  *invocation,
               const gchar            *arg_requested_format,
               gpointer                user_data)
 {
-  PinosSourceOutput *output = user_data;
-  PinosSourceOutputPrivate *priv = output->priv;
+  PinosChannel *channel = user_data;
+  PinosChannelPrivate *priv = channel->priv;
   GUnixFDList *fdlist;
   gint fd[2];
   const gchar *format;
 
-  priv->state = PINOS_SOURCE_OUTPUT_STATE_STARTING;
+  priv->state = PINOS_CHANNEL_STATE_STARTING;
 
   priv->requested_format = g_bytes_new (arg_requested_format,
                                         strlen (arg_requested_format) + 1);
 
   socketpair (AF_UNIX, SOCK_STREAM, 0, fd);
 
-  g_debug ("source-output %p: handle start, fd[%d,%d]", output, fd[0], fd[1]);
+  g_debug ("channel %p: handle start, fd[%d,%d]", channel, fd[0], fd[1]);
 
   g_clear_object (&priv->socket);
   priv->socket = g_socket_new_from_fd (fd[0], NULL);
   g_object_set_data (G_OBJECT (priv->socket), "pinos-client-path", priv->client_path);
 
-  g_debug ("source-output %p: notify socket %p, path %s", output, priv->socket, priv->client_path);
-  g_object_notify (G_OBJECT (output), "socket");
+  g_debug ("channel %p: notify socket %p, path %s", channel, priv->socket, priv->client_path);
+  g_object_notify (G_OBJECT (channel), "socket");
 
   /* the notify of the socket above should configure the format */
   if (priv->format == NULL)
@@ -252,8 +252,8 @@ handle_start (PinosSourceOutput1     *interface,
 
   format = g_bytes_get_data (priv->format, NULL);
 
-  priv->state = PINOS_SOURCE_OUTPUT_STATE_STREAMING;
-  g_debug ("source-output %p: we are now streaming in format \"%s\"", output, format);
+  priv->state = PINOS_CHANNEL_STATE_STREAMING;
+  g_debug ("channel %p: we are now streaming in format \"%s\"", channel, format);
 
   fdlist = g_unix_fd_list_new ();
   g_unix_fd_list_append (fdlist, fd[1], NULL);
@@ -277,7 +277,7 @@ handle_start (PinosSourceOutput1     *interface,
   /* error */
 no_format:
   {
-    g_debug ("source-output %p: no format configured", output);
+    g_debug ("channel %p: no format configured", channel);
     g_dbus_method_invocation_return_dbus_error (invocation,
         "org.pinos.Error", "No format");
     close (fd[0]);
@@ -289,14 +289,14 @@ no_format:
 }
 
 static gboolean
-handle_stop (PinosSourceOutput1     *interface,
+handle_stop (PinosChannel1          *interface,
              GDBusMethodInvocation  *invocation,
              gpointer                user_data)
 {
-  PinosSourceOutput *output = user_data;
+  PinosChannel *channel = user_data;
 
-  g_debug ("source-output %p: handle stop", output);
-  stop_transfer (output);
+  g_debug ("channel %p: handle stop", channel);
+  stop_transfer (channel);
 
   g_dbus_method_invocation_return_value (invocation, NULL);
 
@@ -304,16 +304,16 @@ handle_stop (PinosSourceOutput1     *interface,
 }
 
 static gboolean
-handle_remove (PinosSourceOutput1     *interface,
+handle_remove (PinosChannel1          *interface,
                GDBusMethodInvocation  *invocation,
                gpointer                user_data)
 {
-  PinosSourceOutput *output = user_data;
+  PinosChannel *channel = user_data;
 
-  g_debug ("source-output %p: handle remove", output);
-  stop_transfer (output);
+  g_debug ("channel %p: handle remove", channel);
+  stop_transfer (channel);
 
-  g_signal_emit (output, signals[SIGNAL_REMOVE], 0, NULL);
+  g_signal_emit (channel, signals[SIGNAL_REMOVE], 0, NULL);
 
   g_dbus_method_invocation_return_value (invocation, NULL);
 
@@ -321,54 +321,54 @@ handle_remove (PinosSourceOutput1     *interface,
 }
 
 static void
-output_register_object (PinosSourceOutput *output,
+channel_register_object (PinosChannel *channel,
                         const gchar       *prefix)
 {
-  PinosSourceOutputPrivate *priv = output->priv;
+  PinosChannelPrivate *priv = channel->priv;
   PinosObjectSkeleton *skel;
   gchar *name;
 
-  name = g_strdup_printf ("%s/output", prefix);
+  name = g_strdup_printf ("%s/channel", prefix);
   skel = pinos_object_skeleton_new (name);
   g_free (name);
 
-  pinos_object_skeleton_set_source_output1 (skel, priv->iface);
+  pinos_object_skeleton_set_channel1 (skel, priv->iface);
 
   g_free (priv->object_path);
   priv->object_path = pinos_daemon_export_uniquely (priv->daemon, G_DBUS_OBJECT_SKELETON (skel));
-  g_debug ("source-output %p: register object %s", output, priv->object_path);
+  g_debug ("channel %p: register object %s", channel, priv->object_path);
 }
 
 static void
-output_unregister_object (PinosSourceOutput *output)
+channel_unregister_object (PinosChannel *channel)
 {
-  PinosSourceOutputPrivate *priv = output->priv;
+  PinosChannelPrivate *priv = channel->priv;
 
-  g_debug ("source-output %p: unregister object", output);
+  g_debug ("channel %p: unregister object", channel);
   pinos_daemon_unexport (priv->daemon, priv->object_path);
 }
 
 static void
-pinos_source_output_dispose (GObject * object)
+pinos_channel_dispose (GObject * object)
 {
-  PinosSourceOutput *output = PINOS_SOURCE_OUTPUT (object);
-  PinosSourceOutputPrivate *priv = output->priv;
+  PinosChannel *channel = PINOS_CHANNEL (object);
+  PinosChannelPrivate *priv = channel->priv;
 
-  g_debug ("source-output %p: dispose", output);
-  clear_formats (output);
+  g_debug ("channel %p: dispose", channel);
+  clear_formats (channel);
   g_clear_object (&priv->socket);
-  output_unregister_object (output);
+  channel_unregister_object (channel);
 
-  G_OBJECT_CLASS (pinos_source_output_parent_class)->dispose (object);
+  G_OBJECT_CLASS (pinos_channel_parent_class)->dispose (object);
 }
 
 static void
-pinos_source_output_finalize (GObject * object)
+pinos_channel_finalize (GObject * object)
 {
-  PinosSourceOutput *output = PINOS_SOURCE_OUTPUT (object);
-  PinosSourceOutputPrivate *priv = output->priv;
+  PinosChannel *channel = PINOS_CHANNEL (object);
+  PinosChannelPrivate *priv = channel->priv;
 
-  g_debug ("source-output %p: finalize", output);
+  g_debug ("channel %p: finalize", channel);
   if (priv->possible_formats)
     g_bytes_unref (priv->possible_formats);
   if (priv->properties)
@@ -377,35 +377,35 @@ pinos_source_output_finalize (GObject * object)
   g_clear_object (&priv->iface);
   g_free (priv->client_path);
   g_free (priv->object_path);
-  g_free (priv->source_path);
+  g_free (priv->owner_path);
 
-  G_OBJECT_CLASS (pinos_source_output_parent_class)->finalize (object);
+  G_OBJECT_CLASS (pinos_channel_parent_class)->finalize (object);
 }
 
 static void
-pinos_source_output_constructed (GObject * object)
+pinos_channel_constructed (GObject * object)
 {
-  PinosSourceOutput *output = PINOS_SOURCE_OUTPUT (object);
-  PinosSourceOutputPrivate *priv = output->priv;
+  PinosChannel *channel = PINOS_CHANNEL (object);
+  PinosChannelPrivate *priv = channel->priv;
 
-  g_debug ("source-output %p: constructed", output);
-  output_register_object (output, priv->object_path);
+  g_debug ("channel %p: constructed", channel);
+  channel_register_object (channel, priv->object_path);
 
-  G_OBJECT_CLASS (pinos_source_output_parent_class)->constructed (object);
+  G_OBJECT_CLASS (pinos_channel_parent_class)->constructed (object);
 }
 
 static void
-pinos_source_output_class_init (PinosSourceOutputClass * klass)
+pinos_channel_class_init (PinosChannelClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
 
-  g_type_class_add_private (klass, sizeof (PinosSourceOutputPrivate));
+  g_type_class_add_private (klass, sizeof (PinosChannelPrivate));
 
-  gobject_class->constructed = pinos_source_output_constructed;
-  gobject_class->dispose = pinos_source_output_dispose;
-  gobject_class->finalize = pinos_source_output_finalize;
-  gobject_class->set_property = pinos_source_output_set_property;
-  gobject_class->get_property = pinos_source_output_get_property;
+  gobject_class->constructed = pinos_channel_constructed;
+  gobject_class->dispose = pinos_channel_dispose;
+  gobject_class->finalize = pinos_channel_finalize;
+  gobject_class->set_property = pinos_channel_set_property;
+  gobject_class->get_property = pinos_channel_get_property;
 
   g_object_class_install_property (gobject_class,
                                    PROP_DAEMON,
@@ -438,10 +438,10 @@ pinos_source_output_class_init (PinosSourceOutputClass * klass)
                                                         G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class,
-                                   PROP_SOURCE_PATH,
-                                   g_param_spec_string ("source-path",
-                                                        "Source Path",
-                                                        "The source object path",
+                                   PROP_OWNER_PATH,
+                                   g_param_spec_string ("owner-path",
+                                                        "Owner Path",
+                                                        "The owner object path",
                                                         NULL,
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_CONSTRUCT_ONLY |
@@ -507,52 +507,52 @@ pinos_source_output_class_init (PinosSourceOutputClass * klass)
 }
 
 static void
-pinos_source_output_init (PinosSourceOutput * output)
+pinos_channel_init (PinosChannel * channel)
 {
-  PinosSourceOutputPrivate *priv = output->priv = PINOS_SOURCE_OUTPUT_GET_PRIVATE (output);
+  PinosChannelPrivate *priv = channel->priv = PINOS_CHANNEL_GET_PRIVATE (channel);
 
-  priv->iface = pinos_source_output1_skeleton_new ();
-  g_signal_connect (priv->iface, "handle-start", (GCallback) handle_start, output);
-  g_signal_connect (priv->iface, "handle-stop", (GCallback) handle_stop, output);
-  g_signal_connect (priv->iface, "handle-remove", (GCallback) handle_remove, output);
+  priv->iface = pinos_channel1_skeleton_new ();
+  g_signal_connect (priv->iface, "handle-start", (GCallback) handle_start, channel);
+  g_signal_connect (priv->iface, "handle-stop", (GCallback) handle_stop, channel);
+  g_signal_connect (priv->iface, "handle-remove", (GCallback) handle_remove, channel);
 
-  priv->state = PINOS_SOURCE_OUTPUT_STATE_IDLE;
+  priv->state = PINOS_CHANNEL_STATE_IDLE;
   g_object_set (priv->iface, "state", priv->state, NULL);
 
-  g_debug ("source-output %p: new", output);
+  g_debug ("channel %p: new", channel);
 }
 
 /**
- * pinos_source_output_remove:
- * @output: a #PinosSourceOutput
+ * pinos_channel_remove:
+ * @channel: a #PinosChannel
  *
- * Remove @output. This will stop the transfer on the output and
- * free the resources allocated by @output.
+ * Remove @channel. This will stop the transfer on the channel and
+ * free the resources allocated by @channel.
  */
 void
-pinos_source_output_remove (PinosSourceOutput *output)
+pinos_channel_remove (PinosChannel *channel)
 {
-  g_debug ("source-output %p: remove", output);
-  stop_transfer (output);
+  g_debug ("channel %p: remove", channel);
+  stop_transfer (channel);
 
-  g_signal_emit (output, signals[SIGNAL_REMOVE], 0, NULL);
+  g_signal_emit (channel, signals[SIGNAL_REMOVE], 0, NULL);
 }
 
 /**
- * pinos_source_output_get_object_path:
- * @output: a #PinosSourceOutput
+ * pinos_channel_get_object_path:
+ * @channel: a #PinosChannel
  *
- * Get the object patch of @output
+ * Get the object patch of @channel
  *
  * Returns: the object path of @source.
  */
 const gchar *
-pinos_source_output_get_object_path (PinosSourceOutput *output)
+pinos_channel_get_object_path (PinosChannel *channel)
 {
-  PinosSourceOutputPrivate *priv;
+  PinosChannelPrivate *priv;
 
-  g_return_val_if_fail (PINOS_IS_SOURCE_OUTPUT (output), NULL);
-  priv = output->priv;
+  g_return_val_if_fail (PINOS_IS_CHANNEL (channel), NULL);
+  priv = channel->priv;
 
   return priv->object_path;
 }

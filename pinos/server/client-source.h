@@ -65,7 +65,7 @@ GType               pinos_client_source_get_type         (void);
 PinosSource *       pinos_client_source_new              (PinosDaemon *daemon,
                                                           GBytes      *possible_formats);
 
-PinosSourceOutput * pinos_client_source_get_source_input (PinosClientSource *source,
+PinosChannel *      pinos_client_source_get_channel      (PinosClientSource *source,
                                                           const gchar       *client_path,
                                                           GBytes            *format_filter,
                                                           PinosProperties   *props,

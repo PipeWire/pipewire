@@ -151,7 +151,7 @@ void            pinos_context_get_client_info_by_id (PinosContext *context,
  * @PINOS_SOURCE_STATE_INITIALIZING: the source is initializing, the device is
  *                        being opened and the capabilities are queried
  * @PINOS_SOURCE_STATE_IDLE: the source is running but there is no active
- *                        source-output
+ *                        channel
  * @PINOS_SOURCE_STATE_RUNNING: the source is running
  *
  * The different source states
@@ -228,86 +228,189 @@ void            pinos_context_get_source_info_by_id (PinosContext *context,
                                                      gpointer user_data);
 
 /**
- * PinosSourceState:
- * @PINOS_SOURCE_OUTPUT_STATE_ERROR: the source output is in error
- * @PINOS_SOURCE_OUTPUT_STATE_IDLE: the source output is idle
- * @PINOS_SOURCE_OUTPUT_STATE_STARTING: the source output is starting
- * @PINOS_SOURCE_OUTPUT_STATE_STREAMING: the source output is streaming
+ * PinosSinkState:
+ * @PINOS_SINK_STATE_ERROR: the sink is in error
+ * @PINOS_SINK_STATE_SUSPENDED: the sink is suspended, the device might
+ *                             be closed
+ * @PINOS_SINK_STATE_INITIALIZING: the sink is initializing, the device is
+ *                        being opened and the capabilities are queried
+ * @PINOS_SINK_STATE_IDLE: the sink is running but there is no active
+ *                         channel
+ * @PINOS_SINK_STATE_RUNNING: the sink is running
  *
- * The different source output states
+ * The different sink states
  */
 typedef enum {
-  PINOS_SOURCE_OUTPUT_STATE_ERROR = -1,
-  PINOS_SOURCE_OUTPUT_STATE_IDLE = 0,
-  PINOS_SOURCE_OUTPUT_STATE_STARTING = 1,
-  PINOS_SOURCE_OUTPUT_STATE_STREAMING = 2,
-} PinosSourceOutputState;
+  PINOS_SINK_STATE_ERROR = -1,
+  PINOS_SINK_STATE_SUSPENDED = 0,
+  PINOS_SINK_STATE_INITIALIZING = 1,
+  PINOS_SINK_STATE_IDLE = 2,
+  PINOS_SINK_STATE_RUNNING = 3,
+} PinosSinkState;
 
-const gchar * pinos_source_output_state_as_string (PinosSourceOutputState state);
+const gchar * pinos_sink_state_as_string (PinosSinkState state);
 
 /**
- * PinosSourceOutputInfo:
- * @id: generic id of the output
- * @path: the unique path of the output
+ * PinosSinkInfo:
+ * @id: generic id of the sink
+ * @sink_path: the unique path of the sink, suitable for connecting
  * @change_mask: bitfield of changed fields since last call
- * @client_path: the owner client
- * @source_path: the source path
- * @possible_formats: the possible formats
- * @state: the state
- * @format: when streaming, the current format
- * @properties: the properties of the source
+ * @name: name the sink, suitable for display
+ * @properties: the properties of the sink
+ * @state: the current state of the sink
+ * @possible formats: the possible formats this sink can consume
  *
- * The source information. Extra information can be added in later
+ * The sink information. Extra information can be added in later
  * versions.
  */
 typedef struct {
   gpointer id;
-  const char *output_path;
+  const char *sink_path;
   guint64 change_mask;
-  const char *client_path;
-  const char *source_path;
-  GBytes *possible_formats;
-  PinosSourceOutputState state;
-  GBytes *format;
+  const char *name;
   PinosProperties *properties;
-} PinosSourceOutputInfo;
+  PinosSinkState state;
+  GBytes *possible_formats;
+} PinosSinkInfo;
 
 /**
- * PinosSourceOutputInfoFlags:
- * @PINOS_SOURCE_OUTPUT_INFO_FLAGS_NONE: no flags
+ * PinosSinkInfoFlags:
+ * @PINOS_SINK_INFO_FLAGS_NONE: no flags
+ * @PINOS_SINK_INFO_FLAGS_FORMATS: include formats
  *
- * Extra flags to pass to pinos_context_list_source_output_info() and
- * pinos_context_get_source_output_info_by_id().
+ * Extra flags to pass to pinos_context_get_sink_info_list.
  */
 typedef enum {
-  PINOS_SOURCE_OUTPUT_INFO_FLAGS_NONE            = 0,
-} PinosSourceOutputInfoFlags;
+  PINOS_SINK_INFO_FLAGS_NONE            = 0,
+  PINOS_SINK_INFO_FLAGS_FORMATS         = (1 << 0)
+} PinosSinkInfoFlags;
 
 /**
- * PinosSourceOutputInfoCallback:
+ * PinosSinkInfoCallback:
  * @c: a #PinosContext
- * @info: a #PinosSourceOutputInfo
+ * @info: a #PinosSinkInfo
  * @user_data: user data
  *
- * Callback with information about the Pinos source output in @info.
+ * Callback with information about the Pinos sink in @info.
  */
-typedef void (*PinosSourceOutputInfoCallback)  (PinosContext                *c,
-                                                const PinosSourceOutputInfo *info,
-                                                gpointer                     user_data);
+typedef void (*PinosSinkInfoCallback)  (PinosContext        *c,
+                                        const PinosSinkInfo *info,
+                                        gpointer             user_data);
 
-void            pinos_context_list_source_output_info      (PinosContext *context,
-                                                            PinosSourceOutputInfoFlags flags,
-                                                            PinosSourceOutputInfoCallback cb,
-                                                            GCancellable *cancellable,
-                                                            GAsyncReadyCallback callback,
-                                                            gpointer user_data);
-void            pinos_context_get_source_output_info_by_id (PinosContext *context,
-                                                            gpointer id,
-                                                            PinosSourceOutputInfoFlags flags,
-                                                            PinosSourceOutputInfoCallback cb,
-                                                            GCancellable *cancellable,
-                                                            GAsyncReadyCallback callback,
-                                                            gpointer user_data);
+void            pinos_context_list_sink_info      (PinosContext *context,
+                                                   PinosSinkInfoFlags flags,
+                                                   PinosSinkInfoCallback cb,
+                                                   GCancellable *cancellable,
+                                                   GAsyncReadyCallback callback,
+                                                   gpointer user_data);
+void            pinos_context_get_sink_info_by_id (PinosContext *context,
+                                                   gpointer id,
+                                                   PinosSinkInfoFlags flags,
+                                                   PinosSinkInfoCallback cb,
+                                                   GCancellable *cancellable,
+                                                   GAsyncReadyCallback callback,
+                                                   gpointer user_data);
+/**
+ * PinosChannelType:
+ * @PINOS_CHANNEL_TYPE_UNKNOWN: an unknown channel type
+ * @PINOS_CHANNEL_TYPE_INPUT: an input channel type
+ * @PINOS_CHANNEL_TYPE_OUTPUT: an output channel type
+ *
+ * The different channel states
+ */
+typedef enum {
+  PINOS_CHANNEL_TYPE_UNKNOWN = 0,
+  PINOS_CHANNEL_TYPE_INPUT = 1,
+  PINOS_CHANNEL_TYPE_OUTPUT = 2,
+} PinosChannelType;
+
+/**
+ * PinosChannelState:
+ * @PINOS_CHANNEL_STATE_ERROR: the channel is in error
+ * @PINOS_CHANNEL_STATE_IDLE: the channel is idle
+ * @PINOS_CHANNEL_STATE_STARTING: the channel is starting
+ * @PINOS_CHANNEL_STATE_STREAMING: the channel is streaming
+ *
+ * The different channel states
+ */
+typedef enum {
+  PINOS_CHANNEL_STATE_ERROR = -1,
+  PINOS_CHANNEL_STATE_IDLE = 0,
+  PINOS_CHANNEL_STATE_STARTING = 1,
+  PINOS_CHANNEL_STATE_STREAMING = 2,
+} PinosChannelState;
+
+const gchar * pinos_channel_state_as_string (PinosChannelState state);
+
+/**
+ * PinosChannelInfo:
+ * @id: generic id of the channel_
+ * @channel_path: the unique path of the channel
+ * @change_mask: bitfield of changed fields since last call
+ * @client_path: the owner client
+ * @owner_path: the owner source or sink path
+ * @type: the channel type
+ * @possible_formats: the possible formats
+ * @state: the state
+ * @format: when streaming, the current format
+ * @properties: the properties of the channel
+ *
+ * The channel information. Extra information can be added in later
+ * versions.
+ */
+typedef struct {
+  gpointer id;
+  const char *channel_path;
+  guint64 change_mask;
+  const char *client_path;
+  const char *owner_path;
+  PinosChannelType type;
+  GBytes *possible_formats;
+  PinosChannelState state;
+  GBytes *format;
+  PinosProperties *properties;
+} PinosChannelInfo;
+
+/**
+ * PinosChannelInfoFlags:
+ * @PINOS_CHANNEL_INFO_FLAGS_NONE: no flags
+ * @PINOS_CHANNEL_INFO_FLAGS_NO_SOURCE: don't list source channels
+ * @PINOS_CHANNEL_INFO_FLAGS_NO_SINK: don't list sink channels
+ *
+ * Extra flags to pass to pinos_context_list_channel_info() and
+ * pinos_context_get_channel_info_by_id().
+ */
+typedef enum {
+  PINOS_CHANNEL_INFO_FLAGS_NONE            = 0,
+  PINOS_CHANNEL_INFO_FLAGS_NO_SOURCE       = (1 << 0),
+  PINOS_CHANNEL_INFO_FLAGS_NO_SINK         = (1 << 1),
+} PinosChannelInfoFlags;
+
+/**
+ * PinosChannelInfoCallback:
+ * @c: a #PinosContext
+ * @info: a #PinosChannelInfo
+ * @user_data: user data
+ *
+ * Callback with information about the Pinos channel in @info.
+ */
+typedef void (*PinosChannelInfoCallback)       (PinosContext           *c,
+                                                const PinosChannelInfo *info,
+                                                gpointer                user_data);
+
+void            pinos_context_list_channel_info      (PinosContext *context,
+                                                      PinosChannelInfoFlags flags,
+                                                      PinosChannelInfoCallback cb,
+                                                      GCancellable *cancellable,
+                                                      GAsyncReadyCallback callback,
+                                                      gpointer user_data);
+void            pinos_context_get_channel_info_by_id (PinosContext *context,
+                                                      gpointer id,
+                                                      PinosChannelInfoFlags flags,
+                                                      PinosChannelInfoCallback cb,
+                                                      GCancellable *cancellable,
+                                                      GAsyncReadyCallback callback,
+                                                      gpointer user_data);
 G_END_DECLS
 
 #endif /* __PINOS_INTROSPECT_H__ */

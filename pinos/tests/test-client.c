@@ -143,7 +143,7 @@ on_state_notify (GObject    *gobject,
       g_signal_connect (stream, "notify::socket", (GCallback) on_socket_notify, stream);
 
       format = g_bytes_new_static (ANY_CAPS, strlen (ANY_CAPS) + 1);
-      pinos_stream_connect_capture (stream, NULL, 0, format);
+      pinos_stream_connect_source (stream, NULL, 0, format);
       g_bytes_unref (format);
       break;
     }

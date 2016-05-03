@@ -148,8 +148,9 @@ pinos_context_finalize (GObject * object)
     pinos_properties_free (priv->properties);
 
   g_list_free (priv->sources);
+  g_list_free (priv->sinks);
   g_list_free (priv->clients);
-  g_list_free (priv->source_outputs);
+  g_list_free (priv->channels);
   g_clear_object (&priv->subscribe);
   g_clear_error (&priv->error);
 
@@ -494,11 +495,18 @@ subscription_cb (PinosSubscribe         *subscribe,
         priv->sources = g_list_remove (priv->sources, object);
       break;
 
-    case PINOS_SUBSCRIPTION_FLAG_SOURCE_OUTPUT:
+    case PINOS_SUBSCRIPTION_FLAG_SINK:
       if (event == PINOS_SUBSCRIPTION_EVENT_NEW)
-        priv->source_outputs = g_list_prepend (priv->source_outputs, object);
+        priv->sinks = g_list_prepend (priv->sinks, object);
       else if (event == PINOS_SUBSCRIPTION_EVENT_REMOVE)
-        priv->source_outputs = g_list_remove (priv->source_outputs, object);
+        priv->sinks = g_list_remove (priv->sinks, object);
+      break;
+
+    case PINOS_SUBSCRIPTION_FLAG_CHANNEL:
+      if (event == PINOS_SUBSCRIPTION_EVENT_NEW)
+        priv->channels = g_list_prepend (priv->channels, object);
+      else if (event == PINOS_SUBSCRIPTION_EVENT_REMOVE)
+        priv->channels = g_list_remove (priv->channels, object);
       break;
   }
 

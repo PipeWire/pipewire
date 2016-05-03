@@ -37,7 +37,7 @@ struct _PinosClientSourcePrivate
   GstCaps *format;
   GBytes *possible_formats;
 
-  PinosSourceOutput *input;
+  PinosChannel *channel;
 };
 
 G_DEFINE_TYPE (PinosClientSource, pinos_client_source, PINOS_TYPE_SOURCE);
@@ -128,7 +128,7 @@ bus_handler (GstBus     *bus,
         caps_str = gst_caps_to_string (caps);
 
         format = g_bytes_new_take (caps_str, strlen (caps_str) + 1);
-        g_object_set (priv->input, "possible-formats", format, "format", format, NULL);
+        g_object_set (priv->channel, "possible-formats", format, "format", format, NULL);
         pinos_source_update_possible_formats (source, format);
         pinos_source_update_format (source, format);
         g_bytes_unref (format);
@@ -286,51 +286,51 @@ on_socket_notify (GObject    *gobject,
     GBytes *format;
 
     /* suggest what we provide */
-    g_object_get (priv->input, "format", &format, NULL);
+    g_object_get (priv->channel, "format", &format, NULL);
     g_object_set (gobject, "format", format, NULL);
     g_bytes_unref (format);
   }
 }
 
-static PinosSourceOutput *
-client_create_source_output (PinosSource     *source,
-                             const gchar     *client_path,
-                             GBytes          *format_filter,
-                             PinosProperties *props,
-                             const gchar     *prefix,
-                             GError          **error)
+static PinosChannel *
+client_create_channel (PinosSource     *source,
+                       const gchar     *client_path,
+                       GBytes          *format_filter,
+                       PinosProperties *props,
+                       const gchar     *prefix,
+                       GError          **error)
 {
   PinosClientSourcePrivate *priv = PINOS_CLIENT_SOURCE (source)->priv;
-  PinosSourceOutput *output;
+  PinosChannel *channel;
 
   /* propose format of input */
-  g_object_get (priv->input, "format", &format_filter, NULL);
+  g_object_get (priv->channel, "format", &format_filter, NULL);
 
-  output = PINOS_SOURCE_CLASS (pinos_client_source_parent_class)
-                ->create_source_output (source,
-                                        client_path,
-                                        format_filter,
-                                        props,
-                                        prefix,
-                                        error);
+  channel = PINOS_SOURCE_CLASS (pinos_client_source_parent_class)
+                ->create_channel (source,
+                                  client_path,
+                                  format_filter,
+                                  props,
+                                  prefix,
+                                  error);
   g_bytes_unref (format_filter);
 
-  if (output == NULL)
+  if (channel == NULL)
     return NULL;
 
-  g_debug ("client-source %p: create output %p", source, output);
+  g_debug ("client-source %p: create channel %p", source, channel);
 
-  g_signal_connect (output, "notify::socket", (GCallback) on_socket_notify, source);
+  g_signal_connect (channel, "notify::socket", (GCallback) on_socket_notify, source);
 
-  return output;
+  return channel;
 }
 
 static gboolean
-client_release_source_output  (PinosSource       *source,
-                               PinosSourceOutput *output)
+client_release_channel  (PinosSource   *source,
+                         PinosChannel  *channel)
 {
-  g_debug ("client-source %p: release output %p", source, output);
-  return PINOS_SOURCE_CLASS (pinos_client_source_parent_class)->release_source_output (source, output);
+  g_debug ("client-source %p: release channel %p", source, channel);
+  return PINOS_SOURCE_CLASS (pinos_client_source_parent_class)->release_channel (source, channel);
 }
 
 static void
@@ -353,7 +353,7 @@ client_source_finalize (GObject * object)
 
   g_debug ("client-source %p: finalize", object);
 
-  g_clear_object (&priv->input);
+  g_clear_object (&priv->channel);
   g_clear_object (&priv->sink);
   g_clear_object (&priv->src);
   g_clear_object (&priv->pipeline);
@@ -407,18 +407,18 @@ on_input_socket_notify (GObject    *gobject,
 }
 
 static void
-handle_remove_source_input (PinosSourceOutput *output,
-                            gpointer           user_data)
+handle_remove_channel (PinosChannel *channel,
+                       gpointer      user_data)
 {
   PinosClientSource *source = user_data;
   PinosClientSourcePrivate *priv = source->priv;
 
-  g_debug ("client-source %p: remove source input %p", source, priv->input);
-  g_clear_pointer (&priv->input, g_object_unref);
+  g_debug ("client-source %p: remove channel %p", source, priv->channel);
+  g_clear_pointer (&priv->channel, g_object_unref);
 }
 
 /**
- * pinos_client_source_get_source_input:
+ * pinos_client_source_get_channel:
  * @source: a #PinosClientSource
  * @client_path: the client path
  * @format_filter: a #GBytes
@@ -426,48 +426,48 @@ handle_remove_source_input (PinosSourceOutput *output,
  * @prefix: a path prefix
  * @error: a #GError or %NULL
  *
- * Create a new #PinosSourceOutput that can be used to send data to
+ * Create a new #PinosChannel that can be used to send data to
  * the pinos server.
  *
- * Returns: a new #PinosSourceOutput.
+ * Returns: a new #PinosChannel.
  */
-PinosSourceOutput *
-pinos_client_source_get_source_input (PinosClientSource *source,
-                                      const gchar       *client_path,
-                                      GBytes            *format_filter,
-                                      PinosProperties   *props,
-                                      const gchar       *prefix,
-                                      GError            **error)
+PinosChannel *
+pinos_client_source_get_channel (PinosClientSource *source,
+                                 const gchar       *client_path,
+                                 GBytes            *format_filter,
+                                 PinosProperties   *props,
+                                 const gchar       *prefix,
+                                 GError            **error)
 {
   PinosClientSourcePrivate *priv;
 
   g_return_val_if_fail (PINOS_IS_CLIENT_SOURCE (source), NULL);
   priv = source->priv;
 
-  if (priv->input == NULL) {
+  if (priv->channel == NULL) {
     GstCaps *caps = gst_caps_from_string (g_bytes_get_data (format_filter, NULL));
 
     gst_caps_take (&priv->format, caps);
 
-    priv->input = PINOS_SOURCE_CLASS (pinos_client_source_parent_class)
-                        ->create_source_output (PINOS_SOURCE (source),
-                                                client_path,
-                                                format_filter,
-                                                props,
-                                                prefix,
-                                                error);
-    if (priv->input == NULL)
+    priv->channel = PINOS_SOURCE_CLASS (pinos_client_source_parent_class)
+                        ->create_channel (PINOS_SOURCE (source),
+                                          client_path,
+                                          format_filter,
+                                          props,
+                                          prefix,
+                                          error);
+    if (priv->channel == NULL)
       return NULL;
 
-    g_signal_connect (priv->input,
+    g_signal_connect (priv->channel,
                       "remove",
-                      (GCallback) handle_remove_source_input,
+                      (GCallback) handle_remove_channel,
                       source);
 
-    g_debug ("client-source %p: get source input %p", source, priv->input);
-    g_signal_connect (priv->input, "notify::socket", (GCallback) on_input_socket_notify, source);
+    g_debug ("client-source %p: get source input %p", source, priv->channel);
+    g_signal_connect (priv->channel, "notify::socket", (GCallback) on_input_socket_notify, source);
   }
-  return g_object_ref (priv->input);
+  return g_object_ref (priv->channel);
 }
 
 static void
@@ -496,8 +496,8 @@ pinos_client_source_class_init (PinosClientSourceClass * klass)
 
   source_class->get_formats = client_get_formats;
   source_class->set_state = client_set_state;
-  source_class->create_source_output = client_create_source_output;
-  source_class->release_source_output = client_release_source_output;
+  source_class->create_channel = client_create_channel;
+  source_class->release_channel = client_release_channel;
 }
 
 static void

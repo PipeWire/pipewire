@@ -41,7 +41,8 @@ struct _PinosContextPrivate
 
   GList *clients;
   GList *sources;
-  GList *source_outputs;
+  GList *sinks;
+  GList *channels;
 };
 
 void                   pinos_subscribe_get_proxy          (PinosSubscribe      *subscribe,

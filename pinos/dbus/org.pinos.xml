@@ -41,7 +41,7 @@
       @short_description: Main client interface
 
       Interface obtained after connecting a client and allows for
-      obtaining an output object from a source.
+      obtaining an channel object from a source/sink.
   -->
   <interface name='org.pinos.Client1'>
     <!-- Name: Name of the client -->
@@ -53,32 +53,48 @@
          Disconnect the client from the server.
     -->
     <method name='Disconnect'/>
-    <!-- CreateSourceOutput:
+    <!-- CreateSourceChannel:
          @source: the Source1 object path or / for default
-         @accepted_formats: the formats that can be accepted
+         @possible_formats: the possible formats that can be accepted
          @properties: extra properties
-         @output: the SourceOutput1 object path
+         @channel: the Channel object path
 
-         Create a new output for @source with given @incaps
+         Create a new channel to capture from @source with given @possible_formats
     -->
-    <method name='CreateSourceOutput'>
+    <method name='CreateSourceChannel'>
       <arg type='s' name='source' direction='in'/>
-      <arg type='s' name='accepted_formats' direction='in'/>
-      <arg type='a{sv}' name='properties' direction='in'/>
-      <arg type='o' name='output' direction='out'/>
-    </method>
-    <!-- CreateSourceInput:
-         @possible_formats: the formats that can be provided
-         @properties: extra properties
-         @input: the SourceInput1 object path
-
-         Create a new source and input object with given @incaps
-    -->
-    <method name='CreateSourceInput'>
       <arg type='s' name='possible_formats' direction='in'/>
       <arg type='a{sv}' name='properties' direction='in'/>
-      <arg type='o' name='input' direction='out'/>
+      <arg type='o' name='channel' direction='out'/>
     </method>
+
+    <!-- CreateSinkChannel:
+         @sink: the Sink1 object path or / for default
+         @possible_formats: the possible formats that can be provided
+         @properties: extra properties
+         @channel: the Channel object path
+
+         Create a new channel to playback to @sink with given @possible_formats
+    -->
+    <method name='CreateSinkChannel'>
+      <arg type='s' name='sink' direction='in'/>
+      <arg type='s' name='possible_formats' direction='in'/>
+      <arg type='a{sv}' name='properties' direction='in'/>
+      <arg type='o' name='channel' direction='out'/>
+    </method>
+    <!-- CreateUploadChannel:
+         @possible_formats: the formats that can be provided
+         @properties: extra properties
+         @channel: the Channel object path
+
+         Create a new channel to upload a new stream
+    -->
+    <method name='CreateUploadChannel'>
+      <arg type='s' name='possible_formats' direction='in'/>
+      <arg type='a{sv}' name='properties' direction='in'/>
+      <arg type='o' name='channel' direction='out'/>
+    </method>
+
   </interface>
 
   <!--
@@ -97,7 +113,7 @@
           0 = the source is suspended, this means the device is closed
           1 = the source is initializing
           2 = the source is idle, this means the device is opened but
-              no source-output is consuming the data
+              no channel is consuming the data
           3 = the source is running
     -->
     <property name='State' type='u' access='read' />
@@ -109,31 +125,63 @@
   </interface>
 
   <!--
-      org.pinos.SourceOutput1:
-      @short_description: Interface for source output
+      org.pinos.Sink1:
+      @short_description: Main sink interface
 
-      This interface is used to control the output of a source and
-      start/stop the media transport.
+      A sink is an object that can consume media content.
   -->
-  <interface name='org.pinos.SourceOutput1'>
-    <!-- Client: the owner client of this source output -->
-    <property name='Client' type='o' access='read' />
-    <!-- Source: the source of this source output -->
-    <property name='Source' type='o' access='read' />
+  <interface name='org.pinos.Sink1'>
+    <!-- Name: the name of the sink -->
+    <property name='Name' type='s' access='read' />
+    <!-- Properties: extra sink properties -->
+    <property name='Properties' type='a{sv}' access='read' />
+    <!-- state: state of the sink
+          -1 = the sink is in error
+          0 = the sink is suspended, this means the device is closed
+          1 = the sink is initializing
+          2 = the sink is idle, this means the device is opened but
+              no channel is providing any data
+          3 = the sink is running
+    -->
+    <property name='State' type='u' access='read' />
     <!-- PossibleFormats:
-         all possible formats of the source output. This is filtered
-         against the accepted_formats when creating the source output.
+
+         The all possible formats of this sink.
+    -->
+    <property name='PossibleFormats' type='s' access='read' />
+  </interface>
+
+  <!--
+      org.pinos.Channel:
+      @short_description: Interface for input/output channel
+
+      This interface is used to control the input/output of a
+      source/sink and start/stop the media transport.
+  -->
+  <interface name='org.pinos.Channel1'>
+    <!-- Client: the owner client of this channel -->
+    <property name='Client' type='o' access='read' />
+    <!-- Owner: the owner source/sink of this channel -->
+    <property name='Owner' type='o' access='read' />
+    <!-- type: type of the channel
+          0 = input channel
+          1 = output channel
+    -->
+    <property name='Type' type='u' access='read' />
+    <!-- PossibleFormats:
+         all possible formats of the channel. This is filtered
+         against the accepted_formats when creating the channel.
          -->
     <property name='PossibleFormats' type='s' access='read' />
 
-    <!-- Properties: extra source output properties -->
+    <!-- Properties: extra channel properties -->
     <property name='Properties' type='a{sv}' access='read' />
 
-    <!-- state: state of the source output
-          -1 = the source output is in error
-          0 = the source output is idle
-          1 = the source output is starting
-          2 = the source output is streaming
+    <!-- state: state of the channel
+          -1 = the channel is in error
+          0 = the channel is idle
+          1 = the channel is starting
+          2 = the channel is streaming
     -->
     <property name='State' type='u' access='read' />
     <!-- Format: the current streaming format -->
@@ -142,14 +190,14 @@
     <!-- Start:
          @requested_format: requested formats
          @fd: output file descriptor
-         @format: output format
-         @properties: output properties
+         @format: channel format
+         @properties: channel properties
 
-         Start the datatransfer of the source with @requested_format.
+         Start the datatransfer on the channel with @requested_format.
 
-         The result is a file descriptor that can be used to get metadata
-         and media. @format contains the final media format and @properties
-         the extra properties that describe the media format.
+         The result is a file descriptor that can be used to send/receive
+         metadata and media. @format contains the final media format and
+         @properties the extra properties that describe the media format.
     -->
     <method name='Start'>
       <arg type='s' name='requested_format' direction='in'/>
@@ -159,12 +207,12 @@
     </method>
     <!-- Stop:
 
-         Stop data transport
+         Stop data transport on the channel
     -->
     <method name='Stop'/>
     <!-- Remove:
 
-         Remove the source output
+         Remove the channel
     -->
     <method name='Remove'/>
 

@@ -41,7 +41,7 @@ struct _PinosGstSourcePrivate
 
   PinosProperties *props;
 
-  gint n_outputs;
+  gint n_channels;
 };
 
 enum {
@@ -420,21 +420,21 @@ on_socket_notify (GObject    *gobject,
   pinos_properties_free (props);
 }
 
-static PinosSourceOutput *
-create_source_output (PinosSource     *source,
-                      const gchar     *client_path,
-                      GBytes          *format_filter,
-                      PinosProperties *props,
-                      const gchar     *prefix,
-                      GError          **error)
+static PinosChannel *
+create_channel (PinosSource     *source,
+                const gchar     *client_path,
+                GBytes          *format_filter,
+                PinosProperties *props,
+                const gchar     *prefix,
+                GError          **error)
 {
   PinosGstSource *s = PINOS_GST_SOURCE (source);
   PinosGstSourcePrivate *priv = s->priv;
-  PinosSourceOutput *output;
+  PinosChannel *channel;
   gpointer state = NULL;
   const gchar *key, *val;
 
-  if (priv->n_outputs == 0) {
+  if (priv->n_channels == 0) {
     if (!start_pipeline (s, error))
       return NULL;
   }
@@ -444,40 +444,40 @@ create_source_output (PinosSource     *source,
     pinos_properties_set (props, key, val);
   }
 
-  output = PINOS_SOURCE_CLASS (pinos_gst_source_parent_class)
-                ->create_source_output (source,
-                                        client_path,
-                                        format_filter,
-                                        props,
-                                        prefix,
-                                        error);
-  if (output == NULL)
-    goto no_output;
+  channel = PINOS_SOURCE_CLASS (pinos_gst_source_parent_class)
+                ->create_channel (source,
+                                  client_path,
+                                  format_filter,
+                                  props,
+                                  prefix,
+                                  error);
+  if (channel == NULL)
+    goto no_channel;
 
-  g_signal_connect (output,
+  g_signal_connect (channel,
                     "notify::socket",
                     (GCallback) on_socket_notify,
                     source);
 
-  priv->n_outputs++;
+  priv->n_channels++;
 
-  return output;
+  return channel;
 
   /* ERRORS */
-no_output:
+no_channel:
   {
-    if (priv->n_outputs == 0)
+    if (priv->n_channels == 0)
        stop_pipeline (s);
     return NULL;
   }
 }
 
 static gboolean
-release_source_output (PinosSource       *source,
-                       PinosSourceOutput *output)
+release_channel (PinosSource    *source,
+                 PinosChannel   *channel)
 {
   return PINOS_SOURCE_CLASS (pinos_gst_source_parent_class)
-                ->release_source_output (source, output);
+                ->release_channel (source, channel);
 }
 
 static void
@@ -585,8 +585,8 @@ pinos_gst_source_class_init (PinosGstSourceClass * klass)
 
   source_class->get_formats = get_formats;
   source_class->set_state = set_state;
-  source_class->create_source_output = create_source_output;
-  source_class->release_source_output = release_source_output;
+  source_class->create_channel = create_channel;
+  source_class->release_channel = release_channel;
 }
 
 static void

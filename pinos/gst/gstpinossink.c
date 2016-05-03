@@ -77,7 +77,6 @@ static void gst_pinos_sink_get_property (GObject * object, guint prop_id,
 static GstStateChangeReturn
 gst_pinos_sink_change_state (GstElement * element, GstStateChange transition);
 
-static GstCaps *gst_pinos_sink_getcaps (GstBaseSink * bsink, GstCaps * filter);
 static gboolean gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps);
 static GstCaps *gst_pinos_sink_sink_fixate (GstBaseSink * bsink,
     GstCaps * caps);

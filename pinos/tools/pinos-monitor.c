@@ -152,17 +152,33 @@ dump_source_info (PinosContext *c, const PinosSourceInfo *info, gpointer user_da
 }
 
 static void
-dump_source_output_info (PinosContext *c, const PinosSourceOutputInfo *info, gpointer user_data)
+dump_sink_info (PinosContext *c, const PinosSinkInfo *info, gpointer user_data)
 {
   DumpData *data = user_data;
 
   g_print ("\tid: %p\n", info->id);
-  g_print ("\toutput-path: \"%s\"\n", info->output_path);
+  g_print ("\tsource-path: \"%s\"\n", info->sink_path);
+  if (data->print_all) {
+    g_print ("%c\tname: \"%s\"\n", MARK_CHANGE (0), info->name);
+    print_properties (info->properties, MARK_CHANGE (1));
+    g_print ("%c\tstate: \"%s\"\n", MARK_CHANGE (2), pinos_sink_state_as_string (info->state));
+    print_formats ("possible formats", info->possible_formats, MARK_CHANGE (3));
+  }
+}
+
+
+static void
+dump_channel_info (PinosContext *c, const PinosChannelInfo *info, gpointer user_data)
+{
+  DumpData *data = user_data;
+
+  g_print ("\tid: %p\n", info->id);
+  g_print ("\tchannel-path: \"%s\"\n", info->channel_path);
   if (data->print_all) {
     g_print ("%c\tclient-path: \"%s\"\n", MARK_CHANGE (0), info->client_path);
-    g_print ("%c\tsource-path: \"%s\"\n", MARK_CHANGE (1), info->source_path);
+    g_print ("%c\towner-path: \"%s\"\n", MARK_CHANGE (1), info->owner_path);
     print_formats ("possible-formats", info->possible_formats, MARK_CHANGE (2));
-    g_print ("%c\tstate: \"%s\"\n", MARK_CHANGE (3), pinos_source_output_state_as_string (info->state));
+    g_print ("%c\tstate: \"%s\"\n", MARK_CHANGE (3), pinos_channel_state_as_string (info->state));
     print_formats ("format", info->format, MARK_CHANGE (4));
     print_properties (info->properties, MARK_CHANGE (5));
   }
@@ -198,14 +214,23 @@ dump_object (PinosContext *context, gpointer id, PinosSubscriptionFlags flags,
                                          info_ready,
                                          data);
   }
-  else if (flags & PINOS_SUBSCRIPTION_FLAG_SOURCE_OUTPUT) {
-    pinos_context_get_source_output_info_by_id (context,
-                                                id,
-                                                PINOS_SOURCE_OUTPUT_INFO_FLAGS_NONE,
-                                                dump_source_output_info,
-                                                NULL,
-                                                info_ready,
-                                                data);
+  else if (flags & PINOS_SUBSCRIPTION_FLAG_SINK) {
+    pinos_context_get_sink_info_by_id (context,
+                                       id,
+                                       PINOS_SINK_INFO_FLAGS_FORMATS,
+                                       dump_sink_info,
+                                       NULL,
+                                       info_ready,
+                                       data);
+  }
+  else if (flags & PINOS_SUBSCRIPTION_FLAG_CHANNEL) {
+    pinos_context_get_channel_info_by_id (context,
+                                          id,
+                                          PINOS_CHANNEL_INFO_FLAGS_NONE,
+                                          dump_channel_info,
+                                          NULL,
+                                          info_ready,
+                                          data);
   }
 }
 

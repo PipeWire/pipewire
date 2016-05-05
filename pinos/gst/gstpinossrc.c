@@ -435,10 +435,11 @@ on_new_buffer (GObject    *gobject,
         break;
     }
   }
-  g_queue_push_tail (&pinossrc->queue, buf);
+  if (buf) {
+    g_queue_push_tail (&pinossrc->queue, buf);
 
-  pinos_main_loop_signal (pinossrc->loop, FALSE);
-
+    pinos_main_loop_signal (pinossrc->loop, FALSE);
+  }
   return;
 
   /* ERRORS */

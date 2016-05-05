@@ -82,8 +82,6 @@ struct _PinosSourceClass {
 /* normal GObject stuff */
 GType               pinos_source_get_type                (void);
 
-const gchar *       pinos_source_get_object_path         (PinosSource *source);
-
 GBytes *            pinos_source_get_formats             (PinosSource *source,
                                                           GBytes      *filter,
                                                           GError     **error);

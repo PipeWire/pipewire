@@ -23,17 +23,17 @@
 
 #include <gst/net/net.h>
 
-#include "gst-source.h"
+#include "gst-sink.h"
 
-#define PINOS_GST_SOURCE_GET_PRIVATE(obj)  \
-     (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_GST_SOURCE, PinosGstSourcePrivate))
+#define PINOS_GST_SINK_GET_PRIVATE(obj)  \
+     (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_GST_SINK, PinosGstSinkPrivate))
 
-struct _PinosGstSourcePrivate
+struct _PinosGstSinkPrivate
 {
   GstElement *pipeline;
+  GstElement *src;
+  GstElement *depay;
   GstElement *element;
-  GstElement *filter;
-  GstElement *sink;
 
   GstCaps *possible_formats;
 
@@ -50,15 +50,15 @@ enum {
   PROP_POSSIBLE_FORMATS
 };
 
-G_DEFINE_TYPE (PinosGstSource, pinos_gst_source, PINOS_TYPE_SOURCE);
+G_DEFINE_TYPE (PinosGstSink, pinos_gst_sink, PINOS_TYPE_SINK);
 
 static gboolean
 bus_handler (GstBus     *bus,
              GstMessage *message,
              gpointer    user_data)
 {
-  PinosSource *source = user_data;
-  PinosGstSourcePrivate *priv = PINOS_GST_SOURCE (source)->priv;
+  PinosSink *sink = user_data;
+  PinosGstSinkPrivate *priv = PINOS_GST_SINK (sink)->priv;
 
   switch (GST_MESSAGE_TYPE (message)) {
     case GST_MESSAGE_ERROR:
@@ -70,7 +70,7 @@ bus_handler (GstBus     *bus,
       g_warning ("got error %s (%s)\n", error->message, debug);
       g_free (debug);
 
-      pinos_source_report_error (source, error);
+      pinos_sink_report_error (sink, error);
       gst_element_set_state (priv->pipeline, GST_STATE_NULL);
       break;
     }
@@ -82,9 +82,9 @@ bus_handler (GstBus     *bus,
       gst_message_parse_new_clock (message, &clock);
       GST_INFO ("got new clock %s", GST_OBJECT_NAME (clock));
 
-      g_object_get (source, "properties", &props, NULL);
+      g_object_get (sink, "properties", &props, NULL);
       pinos_properties_set (props, "gst.pipeline.clock", GST_OBJECT_NAME (clock));
-      g_object_set (source, "properties", props, NULL);
+      g_object_set (sink, "properties", props, NULL);
       pinos_properties_free (props);
       break;
     }
@@ -96,9 +96,9 @@ bus_handler (GstBus     *bus,
       gst_message_parse_new_clock (message, &clock);
       GST_INFO ("clock lost %s", GST_OBJECT_NAME (clock));
 
-      g_object_get (source, "properties", &props, NULL);
+      g_object_get (sink, "properties", &props, NULL);
       pinos_properties_remove (props, "gst.pipeline.clock");
-      g_object_set (source, "properties", props, NULL);
+      g_object_set (sink, "properties", props, NULL);
       pinos_properties_free (props);
 
       gst_element_set_state (priv->pipeline, GST_STATE_PAUSED);
@@ -111,59 +111,60 @@ bus_handler (GstBus     *bus,
   return TRUE;
 }
 
-
-
 static gboolean
-setup_pipeline (PinosGstSource *source, GError **error)
+setup_pipeline (PinosGstSink *sink, GError **error)
 {
-  PinosGstSourcePrivate *priv = source->priv;
+  PinosGstSinkPrivate *priv = sink->priv;
   GstBus *bus;
+  GstCaps *caps;
 
+  g_debug ("gst-sink %p: setup pipeline", sink);
   priv->pipeline = gst_pipeline_new (NULL);
-  gst_pipeline_set_latency (GST_PIPELINE_CAST (priv->pipeline), 0);
 
-  g_debug ("gst-source %p: setup pipeline", source);
+  priv->src = gst_element_factory_make ("socketsrc", NULL);
+  caps = gst_caps_new_empty_simple ("application/x-pinos");
+  g_object_set (priv->src, "send-messages", TRUE,
+                           "caps", caps, NULL);
+  gst_caps_unref (caps);
+  gst_bin_add (GST_BIN (priv->pipeline), priv->src);
+
+  priv->depay = gst_element_factory_make ("pinosdepay", NULL);
+  gst_bin_add (GST_BIN (priv->pipeline), priv->depay);
+  gst_element_link (priv->src, priv->depay);
 
   gst_bin_add (GST_BIN (priv->pipeline), priv->element);
-
-  priv->filter = gst_element_factory_make ("capsfilter", NULL);
-  gst_bin_add (GST_BIN (priv->pipeline), priv->filter);
-  gst_element_link (priv->element, priv->filter);
-
-  priv->sink = gst_element_factory_make ("pinossocketsink", NULL);
-  g_object_set (priv->sink, "sync", TRUE,
-                            "enable-last-sample", FALSE,
-                            "qos", FALSE,
-                            NULL);
-
-  gst_bin_add (GST_BIN (priv->pipeline), priv->sink);
-  gst_element_link (priv->filter, priv->sink);
+  gst_element_link (priv->depay, priv->element);
 
   bus = gst_pipeline_get_bus (GST_PIPELINE (priv->pipeline));
-  gst_bus_add_watch (bus, bus_handler, source);
+  gst_bus_add_watch (bus, bus_handler, sink);
   gst_object_unref (bus);
 
   return TRUE;
 }
 
 static gboolean
-start_pipeline (PinosGstSource *source, GError **error)
+start_pipeline (PinosGstSink *sink, GError **error)
 {
-  PinosGstSourcePrivate *priv = source->priv;
-  GstCaps *res;
+  PinosGstSinkPrivate *priv = sink->priv;
+  GstCaps *caps;
   GstQuery *query;
   GstStateChangeReturn ret;
+  gchar *str;
 
-  g_debug ("gst-source %p: starting pipeline", source);
+  g_debug ("gst-sink %p: starting pipeline", sink);
 
   ret = gst_element_set_state (priv->pipeline, GST_STATE_READY);
   if (ret == GST_STATE_CHANGE_FAILURE)
     goto ready_failed;
 
   query = gst_query_new_caps (NULL);
-  gst_element_query (priv->element, query);
-  gst_query_parse_caps_result (query, &res);
-  gst_caps_replace (&priv->possible_formats, res);
+  if (gst_element_query (priv->element, query)) {
+    gst_query_parse_caps_result (query, &caps);
+    gst_caps_replace (&priv->possible_formats, caps);
+    str = gst_caps_to_string (caps);
+    g_debug ("gst-sink %p: updated possible formats %s", sink, str);
+    g_free (str);
+  }
   gst_query_unref (query);
 
   return TRUE;
@@ -171,7 +172,7 @@ start_pipeline (PinosGstSource *source, GError **error)
   /* ERRORS */
 ready_failed:
   {
-    GST_ERROR_OBJECT (source, "failed state change to READY");
+    GST_ERROR_OBJECT (sink, "failed state change to READY");
     gst_element_set_state (priv->pipeline, GST_STATE_NULL);
     if (error)
       *error = g_error_new (G_IO_ERROR,
@@ -182,113 +183,64 @@ ready_failed:
 }
 
 static void
-stop_pipeline (PinosGstSource *source)
+stop_pipeline (PinosGstSink *sink)
 {
-  PinosGstSourcePrivate *priv = source->priv;
+  PinosGstSinkPrivate *priv = sink->priv;
 
-  g_debug ("gst-source %p: stopping pipeline", source);
+  g_debug ("gst-sink %p: stopping pipeline", sink);
   gst_element_set_state (priv->pipeline, GST_STATE_NULL);
   g_clear_object (&priv->provider);
 }
 
 static void
-destroy_pipeline (PinosGstSource *source)
+destroy_pipeline (PinosGstSink *sink)
 {
-  PinosGstSourcePrivate *priv = source->priv;
+  PinosGstSinkPrivate *priv = sink->priv;
 
-  g_debug ("gst-source %p: destroy pipeline", source);
-  stop_pipeline (source);
+  g_debug ("gst-sink %p: destroy pipeline", sink);
+  stop_pipeline (sink);
   g_clear_object (&priv->pipeline);
 }
 
 
 static gboolean
-set_state (PinosSource      *source,
-           PinosSourceState  state)
+set_state (PinosSink      *sink,
+           PinosSinkState  state)
 {
-  PinosGstSourcePrivate *priv = PINOS_GST_SOURCE (source)->priv;
+  PinosGstSinkPrivate *priv = PINOS_GST_SINK (sink)->priv;
 
-  g_debug ("gst-source %p: set state %d", source, state);
+  g_debug ("gst-sink %p: set state %d", sink, state);
 
   switch (state) {
-    case PINOS_SOURCE_STATE_SUSPENDED:
+    case PINOS_SINK_STATE_SUSPENDED:
       gst_element_set_state (priv->pipeline, GST_STATE_NULL);
       break;
 
-    case PINOS_SOURCE_STATE_INITIALIZING:
+    case PINOS_SINK_STATE_INITIALIZING:
       gst_element_set_state (priv->pipeline, GST_STATE_READY);
       break;
 
-    case PINOS_SOURCE_STATE_IDLE:
+    case PINOS_SINK_STATE_IDLE:
       gst_element_set_state (priv->pipeline, GST_STATE_PAUSED);
       break;
 
-    case PINOS_SOURCE_STATE_RUNNING:
-    {
-      GstQuery *query;
-      GstClock *clock;
-      gchar *address;
-      gint port;
-      GstClockTime base_time;
-      gboolean live;
-      GstClockTime min_latency, max_latency;
-
-      gst_element_set_state (priv->pipeline, GST_STATE_PAUSED);
-      gst_element_get_state (priv->pipeline, NULL, NULL, -1);
+    case PINOS_SINK_STATE_RUNNING:
       gst_element_set_state (priv->pipeline, GST_STATE_PLAYING);
-      gst_element_get_state (priv->pipeline, NULL, NULL, -1);
-
-      clock = gst_pipeline_get_clock (GST_PIPELINE (priv->pipeline));
-      base_time = gst_clock_get_time (clock);
-
-      if (priv->provider)
-        g_object_unref (priv->provider);
-      priv->provider = gst_net_time_provider_new (clock, NULL, 0);
-
-      g_object_get (priv->provider, "address", &address, "port", &port, NULL);
-
-      pinos_properties_set (priv->props, "pinos.clock.type", "gst.net.time.provider");
-      pinos_properties_set (priv->props, "pinos.clock.source", GST_OBJECT_NAME (clock));
-      pinos_properties_set (priv->props, "pinos.clock.address", address);
-      pinos_properties_setf (priv->props, "pinos.clock.port", "%d", port);
-      pinos_properties_setf (priv->props, "pinos.clock.base-time", "%"G_GUINT64_FORMAT, base_time);
-
-      g_free (address);
-      gst_object_unref (clock);
-
-      query = gst_query_new_latency ();
-      if (gst_element_query (GST_ELEMENT_CAST (priv->pipeline), query)) {
-        gst_query_parse_latency (query, &live, &min_latency, &max_latency);
-      } else {
-        live = FALSE;
-        min_latency = 0;
-        max_latency = -1;
-      }
-      gst_query_unref (query);
-
-      GST_DEBUG_OBJECT (priv->pipeline,
-          "got min latency %" GST_TIME_FORMAT ", max latency %"
-          GST_TIME_FORMAT ", live %d", GST_TIME_ARGS (min_latency),
-          GST_TIME_ARGS (max_latency), live);
-
-      pinos_properties_setf (priv->props, "pinos.latency.is-live", "%d", live);
-      pinos_properties_setf (priv->props, "pinos.latency.min", "%"G_GUINT64_FORMAT, min_latency);
-      pinos_properties_setf (priv->props, "pinos.latency.max", "%"G_GUINT64_FORMAT, max_latency);
       break;
-    }
-    case PINOS_SOURCE_STATE_ERROR:
+
+    case PINOS_SINK_STATE_ERROR:
       break;
   }
-  pinos_source_update_state (source, state);
+  pinos_sink_update_state (sink, state);
   return TRUE;
 }
 
 static GBytes *
-get_formats (PinosSource *source,
+get_formats (PinosSink   *sink,
              GBytes      *filter,
              GError     **error)
 {
-  PinosGstSourcePrivate *priv = PINOS_GST_SOURCE (source)->priv;
+  PinosGstSinkPrivate *priv = PINOS_GST_SINK (sink)->priv;
   GstCaps *caps, *cfilter;
   gchar *str;
 
@@ -306,7 +258,7 @@ get_formats (PinosSource *source,
   } else {
     caps = gst_caps_ref (priv->possible_formats);
   }
-  g_object_get (priv->filter, "caps", &cfilter, NULL);
+  g_object_get (priv->depay, "caps", &cfilter, NULL);
   if (cfilter != NULL) {
     GstCaps *t = caps;
 
@@ -347,8 +299,8 @@ on_socket_notify (GObject    *gobject,
                   GParamSpec *pspec,
                   gpointer    user_data)
 {
-  PinosGstSource *source = user_data;
-  PinosGstSourcePrivate *priv = source->priv;
+  PinosGstSink *sink = user_data;
+  PinosGstSinkPrivate *priv = sink->priv;
   GSocket *socket;
   guint num_handles;
   GstCaps *caps;
@@ -362,20 +314,16 @@ on_socket_notify (GObject    *gobject,
   GST_DEBUG ("got socket %p", socket);
 
   if (socket == NULL) {
-    GSocket *prev_socket = g_object_steal_data (gobject, "last-socket");
-    if (prev_socket) {
-      g_signal_emit_by_name (priv->sink, "remove", prev_socket);
-      g_object_unref (prev_socket);
-    }
+    g_object_set (priv->src, "socket", NULL, NULL);
+    num_handles = 0;
   } else {
-    g_signal_emit_by_name (priv->sink, "add", socket);
-    g_object_set_data_full (gobject, "last-socket", socket, g_object_unref);
+    g_object_set (priv->src, "socket", socket, NULL);
+    num_handles = 1;
   }
 
-  g_object_get (priv->sink, "num-handles", &num_handles, NULL);
   if (num_handles == 0) {
-    pinos_source_report_idle (PINOS_SOURCE (source));
-    g_object_set (priv->filter, "caps", NULL, NULL);
+    pinos_sink_report_idle (PINOS_SINK (sink));
+    g_object_set (priv->depay, "caps", NULL, NULL);
 
     str = gst_caps_to_string (priv->possible_formats);
     format = g_bytes_new_take (str, strlen (str) + 1);
@@ -391,23 +339,24 @@ on_socket_notify (GObject    *gobject,
       /* set on the filter */
       caps = gst_caps_from_string (g_bytes_get_data (format, NULL));
       g_assert (caps != NULL);
-      g_object_set (priv->filter, "caps", caps, NULL);
+      g_object_set (priv->depay, "caps", caps, NULL);
       gst_caps_unref (caps);
     } else {
       /* we already have a client, format is whatever is configured already */
       g_bytes_unref (requested_format);
 
-      g_object_get (priv->filter, "caps", &caps, NULL);
+      g_object_get (priv->depay, "caps", &caps, NULL);
       str = gst_caps_to_string (caps);
       format = g_bytes_new_take (str, strlen (str) + 1);
       gst_caps_unref (caps);
     }
     /* this is what we use as the final format for the output */
     g_object_set (gobject, "format", format, NULL);
-    pinos_source_report_busy (PINOS_SOURCE (source));
+    pinos_sink_report_busy (PINOS_SINK (sink));
+    g_object_unref (socket);
   }
   if (format) {
-    pinos_source_update_possible_formats (PINOS_SOURCE (source), format);
+    pinos_sink_update_possible_formats (PINOS_SINK (sink), format);
     g_bytes_unref (format);
   }
 
@@ -421,15 +370,15 @@ on_socket_notify (GObject    *gobject,
 }
 
 static PinosChannel *
-create_channel (PinosSource     *source,
+create_channel (PinosSink       *sink,
                 const gchar     *client_path,
                 GBytes          *format_filter,
                 PinosProperties *props,
                 const gchar     *prefix,
                 GError          **error)
 {
-  PinosGstSource *s = PINOS_GST_SOURCE (source);
-  PinosGstSourcePrivate *priv = s->priv;
+  PinosGstSink *s = PINOS_GST_SINK (sink);
+  PinosGstSinkPrivate *priv = s->priv;
   PinosChannel *channel;
   gpointer state = NULL;
   const gchar *key, *val;
@@ -444,8 +393,8 @@ create_channel (PinosSource     *source,
     pinos_properties_set (props, key, val);
   }
 
-  channel = PINOS_SOURCE_CLASS (pinos_gst_source_parent_class)
-                ->create_channel (source,
+  channel = PINOS_SINK_CLASS (pinos_gst_sink_parent_class)
+                ->create_channel (sink,
                                   client_path,
                                   format_filter,
                                   props,
@@ -457,7 +406,7 @@ create_channel (PinosSource     *source,
   g_signal_connect (channel,
                     "notify::socket",
                     (GCallback) on_socket_notify,
-                    source);
+                    sink);
 
   priv->n_channels++;
 
@@ -473,11 +422,11 @@ no_channel:
 }
 
 static gboolean
-release_channel (PinosSource    *source,
+release_channel (PinosSink      *sink,
                  PinosChannel   *channel)
 {
-  return PINOS_SOURCE_CLASS (pinos_gst_source_parent_class)
-                ->release_channel (source, channel);
+  return PINOS_SINK_CLASS (pinos_gst_sink_parent_class)
+                ->release_channel (sink, channel);
 }
 
 static void
@@ -486,8 +435,8 @@ get_property (GObject    *object,
               GValue     *value,
               GParamSpec *pspec)
 {
-  PinosGstSource *source = PINOS_GST_SOURCE (object);
-  PinosGstSourcePrivate *priv = source->priv;
+  PinosGstSink *sink = PINOS_GST_SINK (object);
+  PinosGstSinkPrivate *priv = sink->priv;
 
   switch (prop_id) {
     case PROP_ELEMENT:
@@ -510,8 +459,8 @@ set_property (GObject      *object,
               const GValue *value,
               GParamSpec   *pspec)
 {
-  PinosGstSource *source = PINOS_GST_SOURCE (object);
-  PinosGstSourcePrivate *priv = source->priv;
+  PinosGstSink *sink = PINOS_GST_SINK (object);
+  PinosGstSinkPrivate *priv = sink->priv;
 
   switch (prop_id) {
     case PROP_ELEMENT:
@@ -529,38 +478,38 @@ set_property (GObject      *object,
 }
 
 static void
-source_constructed (GObject * object)
+sink_constructed (GObject * object)
 {
-  PinosGstSource *source = PINOS_GST_SOURCE (object);
+  PinosGstSink *sink = PINOS_GST_SINK (object);
 
-  setup_pipeline (source, NULL);
+  setup_pipeline (sink, NULL);
 
-  G_OBJECT_CLASS (pinos_gst_source_parent_class)->constructed (object);
+  G_OBJECT_CLASS (pinos_gst_sink_parent_class)->constructed (object);
 }
 
 static void
-source_finalize (GObject * object)
+sink_finalize (GObject * object)
 {
-  PinosGstSource *source = PINOS_GST_SOURCE (object);
-  PinosGstSourcePrivate *priv = source->priv;
+  PinosGstSink *sink = PINOS_GST_SINK (object);
+  PinosGstSinkPrivate *priv = sink->priv;
 
-  destroy_pipeline (source);
+  destroy_pipeline (sink);
   g_clear_pointer (&priv->possible_formats, gst_caps_unref);
   pinos_properties_free (priv->props);
 
-  G_OBJECT_CLASS (pinos_gst_source_parent_class)->finalize (object);
+  G_OBJECT_CLASS (pinos_gst_sink_parent_class)->finalize (object);
 }
 
 static void
-pinos_gst_source_class_init (PinosGstSourceClass * klass)
+pinos_gst_sink_class_init (PinosGstSinkClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
-  PinosSourceClass *source_class = PINOS_SOURCE_CLASS (klass);
+  PinosSinkClass *sink_class = PINOS_SINK_CLASS (klass);
 
-  g_type_class_add_private (klass, sizeof (PinosGstSourcePrivate));
+  g_type_class_add_private (klass, sizeof (PinosGstSinkPrivate));
 
-  gobject_class->constructed = source_constructed;
-  gobject_class->finalize = source_finalize;
+  gobject_class->constructed = sink_constructed;
+  gobject_class->finalize = sink_finalize;
   gobject_class->get_property = get_property;
   gobject_class->set_property = set_property;
 
@@ -583,37 +532,37 @@ pinos_gst_source_class_init (PinosGstSourceClass * klass)
                                                        G_PARAM_CONSTRUCT_ONLY |
                                                        G_PARAM_STATIC_STRINGS));
 
-  source_class->get_formats = get_formats;
-  source_class->set_state = set_state;
-  source_class->create_channel = create_channel;
-  source_class->release_channel = release_channel;
+  sink_class->get_formats = get_formats;
+  sink_class->set_state = set_state;
+  sink_class->create_channel = create_channel;
+  sink_class->release_channel = release_channel;
 }
 
 static void
-pinos_gst_source_init (PinosGstSource * source)
+pinos_gst_sink_init (PinosGstSink * sink)
 {
-  PinosGstSourcePrivate *priv;
+  PinosGstSinkPrivate *priv;
 
-  priv = source->priv = PINOS_GST_SOURCE_GET_PRIVATE (source);
+  priv = sink->priv = PINOS_GST_SINK_GET_PRIVATE (sink);
   priv->props = pinos_properties_new (NULL, NULL);
 }
 
-PinosSource *
-pinos_gst_source_new (PinosNode   *node,
-                      const gchar *name,
-                      PinosProperties *properties,
-                      GstElement  *element,
-                      GstCaps     *caps)
+PinosSink *
+pinos_gst_sink_new (PinosNode   *node,
+                    const gchar *name,
+                    PinosProperties *properties,
+                    GstElement  *element,
+                    GstCaps     *caps)
 {
-  PinosSource *source;
+  PinosSink *sink;
 
-  source = g_object_new (PINOS_TYPE_GST_SOURCE,
-                         "node", node,
-                         "name", name,
-                         "properties", properties,
-                         "element", element,
-                         "possible-formats", caps,
-                         NULL);
+  sink = g_object_new (PINOS_TYPE_GST_SINK,
+                       "node", node,
+                       "name", name,
+                       "properties", properties,
+                       "element", element,
+                       "possible-formats", caps,
+                       NULL);
 
-  return source;
+  return sink;
 }

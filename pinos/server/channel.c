@@ -237,7 +237,7 @@ handle_start (PinosChannel1          *interface,
 
   socketpair (AF_UNIX, SOCK_STREAM, 0, fd);
 
-  g_debug ("channel %p: handle start, fd[%d,%d]", channel, fd[0], fd[1]);
+  g_debug ("channel %p: handle start, fd[%d,%d], format %s", channel, fd[0], fd[1], arg_requested_format);
 
   g_clear_object (&priv->socket);
   priv->socket = g_socket_new_from_fd (fd[0], NULL);

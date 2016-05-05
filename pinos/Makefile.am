@@ -205,11 +205,14 @@ lib_LTLIBRARIES += libpinoscore-@PINOS_MAJORMINOR@.la
 libpinoscore_@PINOS_MAJORMINOR@_la_SOURCES = \
 		server/client.c server/client.h \
 		server/daemon.c server/daemon.h \
+		server/node.c server/node.h \
 		server/source.c server/source.h \
+		server/sink.c server/sink.h \
 		server/client-source.c server/client-source.h \
 		server/channel.c server/channel.h \
 		modules/gst/gst-manager.c modules/gst/gst-manager.h \
 		modules/gst/gst-source.c modules/gst/gst-source.h \
+		modules/gst/gst-sink.c modules/gst/gst-sink.h \
 		dbus/org-pinos.c dbus/org-pinos.h
 
 libpinoscore_@PINOS_MAJORMINOR@_la_CFLAGS = $(AM_CFLAGS) $(SERVER_CFLAGS)

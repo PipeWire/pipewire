@@ -39,7 +39,7 @@ struct _PinosStreamPrivate
   PinosStreamState state;
   GError *error;
 
-  gchar *source_path;
+  gchar *path;
   GBytes *possible_formats;
   gboolean provide;
 
@@ -240,7 +240,7 @@ pinos_stream_finalize (GObject * object)
   if (priv->format)
     g_bytes_unref (priv->format);
 
-  g_free (priv->source_path);
+  g_free (priv->path);
   if (priv->possible_formats)
     g_bytes_unref (priv->possible_formats);
 
@@ -502,20 +502,20 @@ on_channel_proxy (GObject      *source_object,
   GError *error = NULL;
 
   priv->channel = pinos_subscribe_get_proxy_finish (context->priv->subscribe,
-                                                       res,
-                                                       &error);
+                                                    res,
+                                                    &error);
   if (priv->channel == NULL)
     goto channel_failed;
 
   /* get the source we are connected to */
-  v = g_dbus_proxy_get_cached_property (priv->channel, "Source");
+  v = g_dbus_proxy_get_cached_property (priv->channel, "Owner");
   if (v) {
     gsize len;
     str = g_variant_dup_string (v, &len);
     g_variant_unref (v);
 
-    g_free (priv->source_path);
-    priv->source_path = str;
+    g_free (priv->path);
+    priv->path = str;
   }
 
   v = g_dbus_proxy_get_cached_property (priv->channel, "PossibleFormats");
@@ -604,7 +604,7 @@ do_connect_source (PinosStream *stream)
   g_dbus_proxy_call (context->priv->client,
                      "CreateSourceChannel",
                      g_variant_new ("(ss@a{sv})",
-                       (priv->source_path ? priv->source_path : ""),
+                       (priv->path ? priv->path : ""),
                        g_bytes_get_data (priv->possible_formats, NULL),
                        pinos_properties_to_variant (priv->properties)),
                      G_DBUS_CALL_FLAGS_NONE,
@@ -644,8 +644,8 @@ pinos_stream_connect_source (PinosStream      *stream,
   g_return_val_if_fail (pinos_context_get_state (context) == PINOS_CONTEXT_STATE_READY, FALSE);
   g_return_val_if_fail (pinos_stream_get_state (stream) == PINOS_STREAM_STATE_UNCONNECTED, FALSE);
 
-  g_free (priv->source_path);
-  priv->source_path = g_strdup (source_path);
+  g_free (priv->path);
+  priv->path = g_strdup (source_path);
   if (priv->possible_formats)
     g_bytes_unref (priv->possible_formats);
   priv->possible_formats = possible_formats;
@@ -655,6 +655,71 @@ pinos_stream_connect_source (PinosStream      *stream,
 
   g_main_context_invoke (context->priv->context,
                          (GSourceFunc) do_connect_source,
+                         g_object_ref (stream));
+
+  return TRUE;
+}
+
+static gboolean
+do_connect_sink (PinosStream *stream)
+{
+  PinosStreamPrivate *priv = stream->priv;
+  PinosContext *context = priv->context;
+
+  g_dbus_proxy_call (context->priv->client,
+                     "CreateSinkChannel",
+                     g_variant_new ("(ss@a{sv})",
+                       (priv->path ? priv->path : ""),
+                       g_bytes_get_data (priv->possible_formats, NULL),
+                       pinos_properties_to_variant (priv->properties)),
+                     G_DBUS_CALL_FLAGS_NONE,
+                     -1,
+                     NULL, /* GCancellable *cancellable */
+                     on_channel_created,
+                     stream);
+
+  return FALSE;
+}
+
+/**
+ * pinos_stream_connect_sink:
+ * @stream: a #PinosStream
+ * @sink_path: the sink path to connect to
+ * @flags: a #PinosStreamFlags
+ * @possible_formats: (transfer full): a #GBytes with possible accepted formats
+ *
+ * Connect @stream for playback to @sink_path.
+ *
+ * Returns: %TRUE on success.
+ */
+gboolean
+pinos_stream_connect_sink (PinosStream      *stream,
+                           const gchar      *sink_path,
+                           PinosStreamFlags  flags,
+                           GBytes           *possible_formats)
+{
+  PinosStreamPrivate *priv;
+  PinosContext *context;
+
+  g_return_val_if_fail (PINOS_IS_STREAM (stream), FALSE);
+  g_return_val_if_fail (possible_formats != NULL, FALSE);
+
+  priv = stream->priv;
+  context = priv->context;
+  g_return_val_if_fail (pinos_context_get_state (context) == PINOS_CONTEXT_STATE_READY, FALSE);
+  g_return_val_if_fail (pinos_stream_get_state (stream) == PINOS_STREAM_STATE_UNCONNECTED, FALSE);
+
+  g_free (priv->path);
+  priv->path = g_strdup (sink_path);
+  if (priv->possible_formats)
+    g_bytes_unref (priv->possible_formats);
+  priv->possible_formats = possible_formats;
+  priv->provide = FALSE;
+
+  stream_set_state (stream, PINOS_STREAM_STATE_CONNECTING, NULL);
+
+  g_main_context_invoke (context->priv->context,
+                         (GSourceFunc) do_connect_sink,
                          g_object_ref (stream));
 
   return TRUE;

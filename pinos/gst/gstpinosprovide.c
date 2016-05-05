@@ -52,7 +52,6 @@ GST_DEBUG_CATEGORY_STATIC (pinos_sink_debug);
 enum
 {
   PROP_0,
-  PROP_PATH,
   PROP_CLIENT_NAME,
   PROP_STREAM_PROPERTIES
 };
@@ -96,7 +95,6 @@ gst_pinos_sink_finalize (GObject * object)
     gst_structure_free (pinossink->properties);
   g_hash_table_unref (pinossink->fdids);
   g_object_unref (pinossink->allocator);
-  g_free (pinossink->path);
   g_free (pinossink->client_name);
 
   G_OBJECT_CLASS (parent_class)->finalize (object);
@@ -125,15 +123,6 @@ gst_pinos_sink_class_init (GstPinosSinkClass * klass)
   gobject_class->finalize = gst_pinos_sink_finalize;
   gobject_class->set_property = gst_pinos_sink_set_property;
   gobject_class->get_property = gst_pinos_sink_get_property;
-
-  g_object_class_install_property (gobject_class,
-                                   PROP_PATH,
-                                   g_param_spec_string ("path",
-                                                        "Path",
-                                                        "The sink path to connect to (NULL = default)",
-                                                        NULL,
-                                                        G_PARAM_READWRITE |
-                                                        G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class,
                                    PROP_CLIENT_NAME,
@@ -233,11 +222,6 @@ gst_pinos_sink_set_property (GObject * object, guint prop_id,
   GstPinosSink *pinossink = GST_PINOS_SINK (object);
 
   switch (prop_id) {
-    case PROP_PATH:
-      g_free (pinossink->path);
-      pinossink->path = g_value_dup_string (value);
-      break;
-
     case PROP_CLIENT_NAME:
       g_free (pinossink->client_name);
       pinossink->client_name = g_value_dup_string (value);
@@ -263,10 +247,6 @@ gst_pinos_sink_get_property (GObject * object, guint prop_id,
   GstPinosSink *pinossink = GST_PINOS_SINK (object);
 
   switch (prop_id) {
-    case PROP_PATH:
-      g_value_set_string (value, pinossink->path);
-      break;
-
     case PROP_CLIENT_NAME:
       g_value_set_string (value, pinossink->client_name);
       break;
@@ -290,11 +270,6 @@ on_new_buffer (GObject    *gobject,
   PinosBufferIter it;
 
   GST_LOG_OBJECT (pinossink, "got new buffer");
-  if (pinossink->stream == NULL) {
-    GST_LOG_OBJECT (pinossink, "no stream");
-    return;
-  }
-
   if (!pinos_stream_peek_buffer (pinossink->stream, &pbuf)) {
     g_warning ("failed to capture buffer");
     return;
@@ -491,8 +466,6 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
 
   gst_memory_unref (mem);
 
-  GST_LOG ("sending fd index %d", p.id);
-
   pinos_main_loop_lock (pinossink->loop);
   if (pinos_stream_get_state (pinossink->stream) != PINOS_STREAM_STATE_STREAMING)
     goto streaming_error;
@@ -564,7 +537,7 @@ gst_pinos_sink_start (GstBaseSink * basesink)
   g_signal_connect (pinossink->stream, "notify::state", (GCallback) on_stream_notify, pinossink);
   g_signal_connect (pinossink->stream, "new-buffer", (GCallback) on_new_buffer, pinossink);
 
-  pinos_stream_connect_sink (pinossink->stream, pinossink->path, 0, g_bytes_new_static ("ANY", strlen ("ANY")+1));
+  pinos_stream_connect_provide (pinossink->stream, 0, g_bytes_new_static ("ANY", strlen ("ANY")+1));
 
   while (TRUE) {
     PinosStreamState state = pinos_stream_get_state (pinossink->stream);

@@ -23,6 +23,7 @@
 
 #include "gst-manager.h"
 #include "gst-source.h"
+#include "gst-sink.h"
 
 #define PINOS_GST_MANAGER_GET_PRIVATE(obj)  \
      (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_GST_MANAGER, PinosGstManagerPrivate))
@@ -64,7 +65,7 @@ device_added (PinosGstManager *manager,
   PinosGstManagerPrivate *priv = manager->priv;
   gchar *name, *klass;
   GstElement *element;
-  PinosSource *source;
+  PinosNode *node;
   GstStructure *p;
   PinosProperties *properties;
   GstCaps *caps;
@@ -90,13 +91,24 @@ device_added (PinosGstManager *manager,
                         "gstreamer.device.class",
                         klass);
 
+  node = pinos_node_new (priv->daemon);
+  g_object_set_data (G_OBJECT (device), "PinosNode", node);
+
   element = gst_device_create_element (device, NULL);
-  source = pinos_gst_source_new (priv->daemon,
-                                 name,
-                                 properties,
-                                 element,
-                                 caps);
-  g_object_set_data (G_OBJECT (device), "PinosSource", source);
+
+  if (strstr (klass, "Source")) {
+    pinos_gst_source_new (node,
+                          name,
+                          properties,
+                          element,
+                          caps);
+  } else if (strstr (klass, "Sink")) {
+    pinos_gst_sink_new (node,
+                        name,
+                        properties,
+                        element,
+                        caps);
+  }
 
   pinos_properties_free (properties);
   gst_caps_unref (caps);
@@ -109,7 +121,7 @@ device_removed (PinosGstManager *manager,
                 GstDevice       *device)
 {
   gchar *name;
-  PinosSource *source;
+  PinosNode *node;
 
   name = gst_device_get_display_name (device);
   if (strcmp (name, "gst") == 0)
@@ -117,8 +129,8 @@ device_removed (PinosGstManager *manager,
 
   g_print("Device removed: %s\n", name);
 
-  source = g_object_steal_data (G_OBJECT (device), "PinosSource");
-  g_object_unref (source);
+  node = g_object_steal_data (G_OBJECT (device), "PinosNode");
+  g_object_unref (node);
   g_free (name);
 }
 
@@ -184,6 +196,7 @@ start_monitor (PinosGstManager *manager)
 
   gst_device_monitor_add_filter (priv->monitor, "Video/Source", NULL);
   gst_device_monitor_add_filter (priv->monitor, "Audio/Source", NULL);
+  gst_device_monitor_add_filter (priv->monitor, "Audio/Sink", NULL);
   gst_device_monitor_start (priv->monitor);
 
   providers = gst_device_monitor_get_providers (priv->monitor);

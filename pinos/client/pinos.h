@@ -33,7 +33,7 @@
 #define PINOS_DBUS_SERVICE "org.pinos"
 #define PINOS_DBUS_OBJECT_PREFIX "/org/pinos"
 #define PINOS_DBUS_OBJECT_SERVER PINOS_DBUS_OBJECT_PREFIX "/server"
-#define PINOS_DBUS_OBJECT_SOURCE PINOS_DBUS_OBJECT_PREFIX "/source"
+#define PINOS_DBUS_OBJECT_NODE PINOS_DBUS_OBJECT_PREFIX "/node"
 #define PINOS_DBUS_OBJECT_CLIENT PINOS_DBUS_OBJECT_PREFIX "/client"
 
 void pinos_init (int *argc, char **argv[]);

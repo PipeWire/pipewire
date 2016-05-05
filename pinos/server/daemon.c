@@ -37,7 +37,7 @@ struct _PinosDaemonPrivate
   GDBusConnection *connection;
   GDBusObjectManagerServer *server_manager;
 
-  GList *sources;
+  GList *nodes;
 
   GHashTable *senders;
 
@@ -340,87 +340,87 @@ pinos_daemon_unexport (PinosDaemon *daemon,
 }
 
 /**
- * pinos_daemon_add_source:
+ * pinos_daemon_add_node:
  * @daemon: a #PinosDaemon
- * @source: a #PinosSource
+ * @node: a #PinosNode
  *
- * Add @source to @daemon.
+ * Add @node to @daemon.
  */
 void
-pinos_daemon_add_source (PinosDaemon *daemon,
-                         PinosSource *source)
+pinos_daemon_add_node (PinosDaemon *daemon,
+                       PinosNode *node)
 {
   PinosDaemonPrivate *priv;
 
   g_return_if_fail (PINOS_IS_DAEMON (daemon));
-  g_return_if_fail (PINOS_IS_SOURCE (source));
+  g_return_if_fail (PINOS_IS_NODE (node));
   priv = daemon->priv;
 
-  priv->sources = g_list_prepend (priv->sources, source);
+  priv->nodes = g_list_prepend (priv->nodes, node);
 }
 
 /**
- * pinos_daemon_remove_source:
+ * pinos_daemon_remove_node:
  * @daemon: a #PinosDaemon
- * @source: a #PinosSource
+ * @node: a #PinosNode
  *
- * Remove @source from @daemon.
+ * Remove @node from @daemon.
  */
 void
-pinos_daemon_remove_source (PinosDaemon *daemon,
-                            PinosSource *source)
+pinos_daemon_remove_node (PinosDaemon *daemon,
+                          PinosNode *node)
 {
   PinosDaemonPrivate *priv;
 
   g_return_if_fail (PINOS_IS_DAEMON (daemon));
-  g_return_if_fail (PINOS_IS_SOURCE (source));
+  g_return_if_fail (PINOS_IS_NODE (node));
   priv = daemon->priv;
 
-  priv->sources = g_list_remove (priv->sources, source);
+  priv->nodes = g_list_remove (priv->nodes, node);
 }
 
 /**
- * pinos_daemon_find_source:
+ * pinos_daemon_find_node:
  * @daemon: a #PinosDaemon
- * @name: a source name
- * @props: source properties
+ * @name: a node name
+ * @props: node properties
  * @format_filter: a format filter
  * @error: location for an error
  *
- * Find the best source in @daemon that matches the given parameters.
+ * Find the best node in @daemon that matches the given parameters.
  *
- * Returns: a #PinosSource or %NULL when no source could be found.
+ * Returns: a #PinosNode or %NULL when no node could be found.
  */
-PinosSource *
-pinos_daemon_find_source (PinosDaemon     *daemon,
-                          const gchar     *name,
-                          PinosProperties *props,
-                          GBytes          *format_filter,
-                          GError         **error)
+PinosNode *
+pinos_daemon_find_node (PinosDaemon     *daemon,
+                        const gchar     *name,
+                        PinosProperties *props,
+                        GBytes          *format_filter,
+                        GError         **error)
 {
   PinosDaemonPrivate *priv;
-  PinosSource *best = NULL;
+  PinosNode *best = NULL;
   GList *walk;
 
   g_return_val_if_fail (PINOS_IS_DAEMON (daemon), NULL);
   priv = daemon->priv;
 
-  for (walk = priv->sources; walk; walk = g_list_next (walk)) {
-    PinosSource *s = walk->data;
+  for (walk = priv->nodes; walk; walk = g_list_next (walk)) {
+    PinosNode *n = walk->data;
 
     if (name == NULL) {
-      best = s;
+      best = n;
       break;
     }
-    else if (g_str_has_suffix (pinos_source_get_object_path (s), name))
-      best = s;
+    else if (g_str_has_suffix (pinos_node_get_object_path (n), name))
+      best = n;
   }
 
   if (best == NULL) {
     if (error)
       *error = g_error_new (G_IO_ERROR,
                             G_IO_ERROR_NOT_FOUND,
-                            "Source not found");
+                            "Node not found");
   }
   return best;
 }

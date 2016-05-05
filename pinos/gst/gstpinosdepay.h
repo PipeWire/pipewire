@@ -38,6 +38,9 @@ struct _GstPinosDepay
 {
   GstElement parent;
 
+  GstCaps *caps;
+  gboolean pinos_input;
+
   GstPad *srcpad, *sinkpad;
   GstAllocator *fd_allocator;
 };

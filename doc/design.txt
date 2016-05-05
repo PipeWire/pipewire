@@ -21,6 +21,26 @@ this should be handled by a separate consumer rendering the media to
 a specific output device.
 
 
+Objects
+-------
+
+Daemon1:   the main pinos daemon
+           /org/pinos/server
+Client1:   a connected client, the result object from call
+           Daemon1.ConnectClient
+           /org/pinos/client*
+Device1:   a physical device on the machine, devices can provide
+           processing nodes
+           /org/pinos/device*
+Node1:     a processing node, this can be a source, sink or transform
+           element.
+           /org/pinos/node*
+Port1:     a port on a Node1, ports can be input or output ports
+           /org/pinos/node*/port*
+Channel1:  a connection of a client on a port
+           /org/pinos/client*/channel*
+
+
 DBus protocol
 -------------
 

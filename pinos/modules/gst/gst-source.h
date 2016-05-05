@@ -23,7 +23,7 @@
 #include <glib-object.h>
 
 #include <client/pinos.h>
-#include <server/daemon.h>
+#include <server/node.h>
 #include <server/source.h>
 
 G_BEGIN_DECLS
@@ -53,7 +53,7 @@ struct _PinosGstSourceClass {
 
 GType           pinos_gst_source_get_type        (void);
 
-PinosSource *   pinos_gst_source_new             (PinosDaemon     *daemon,
+PinosSource *   pinos_gst_source_new             (PinosNode       *node,
                                                   const gchar     *name,
                                                   PinosProperties *properties,
                                                   GstElement      *element,

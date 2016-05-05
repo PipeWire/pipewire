@@ -157,7 +157,7 @@ dump_sink_info (PinosContext *c, const PinosSinkInfo *info, gpointer user_data)
   DumpData *data = user_data;
 
   g_print ("\tid: %p\n", info->id);
-  g_print ("\tsource-path: \"%s\"\n", info->sink_path);
+  g_print ("\tsink-path: \"%s\"\n", info->sink_path);
   if (data->print_all) {
     g_print ("%c\tname: \"%s\"\n", MARK_CHANGE (0), info->name);
     print_properties (info->properties, MARK_CHANGE (1));

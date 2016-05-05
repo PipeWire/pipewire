@@ -22,31 +22,31 @@
 #include "pinos/client/pinos.h"
 #include "pinos/client/enumtypes.h"
 
-#include "pinos/server/source.h"
+#include "pinos/server/sink.h"
 #include "pinos/server/node.h"
 
 #include "pinos/dbus/org-pinos.h"
 
 
-#define PINOS_SOURCE_GET_PRIVATE(obj)  \
-   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_SOURCE, PinosSourcePrivate))
+#define PINOS_SINK_GET_PRIVATE(obj)  \
+   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_SINK, PinosSinkPrivate))
 
-struct _PinosSourcePrivate
+struct _PinosSinkPrivate
 {
   PinosNode *node;
-  PinosSource1 *iface;
+  PinosSink1 *iface;
 
   gchar *name;
   PinosProperties *properties;
 
-  PinosSourceState state;
+  PinosSinkState state;
   GError *error;
   guint idle_timeout;
 
   GList *channels;
 };
 
-G_DEFINE_ABSTRACT_TYPE (PinosSource, pinos_source, G_TYPE_OBJECT);
+G_DEFINE_ABSTRACT_TYPE (PinosSink, pinos_sink, G_TYPE_OBJECT);
 
 enum
 {
@@ -58,13 +58,13 @@ enum
 };
 
 static void
-pinos_source_get_property (GObject    *_object,
+pinos_sink_get_property (GObject    *_object,
                            guint       prop_id,
                            GValue     *value,
                            GParamSpec *pspec)
 {
-  PinosSource *source = PINOS_SOURCE (_object);
-  PinosSourcePrivate *priv = source->priv;
+  PinosSink *sink = PINOS_SINK (_object);
+  PinosSinkPrivate *priv = sink->priv;
 
   switch (prop_id) {
     case PROP_NODE:
@@ -84,19 +84,19 @@ pinos_source_get_property (GObject    *_object,
       break;
 
     default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (source, prop_id, pspec);
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (sink, prop_id, pspec);
       break;
   }
 }
 
 static void
-pinos_source_set_property (GObject      *_object,
+pinos_sink_set_property (GObject      *_object,
                            guint         prop_id,
                            const GValue *value,
                            GParamSpec   *pspec)
 {
-  PinosSource *source = PINOS_SOURCE (_object);
-  PinosSourcePrivate *priv = source->priv;
+  PinosSink *sink = PINOS_SINK (_object);
+  PinosSinkPrivate *priv = sink->priv;
 
   switch (prop_id) {
     case PROP_NODE:
@@ -120,26 +120,26 @@ pinos_source_set_property (GObject      *_object,
       break;
 
     default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (source, prop_id, pspec);
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (sink, prop_id, pspec);
       break;
   }
 }
 
 static void
-source_register_object (PinosSource *source)
+sink_register_object (PinosSink *sink)
 {
-  PinosSourcePrivate *priv = source->priv;
+  PinosSinkPrivate *priv = sink->priv;
   GBytes *formats;
   GVariant *variant;
 
-  formats = pinos_source_get_formats (source, NULL, NULL);
+  formats = pinos_sink_get_formats (sink, NULL, NULL);
 
   if (priv->properties)
     variant = pinos_properties_to_variant (priv->properties);
   else
     variant = NULL;
 
-  priv->iface = pinos_source1_skeleton_new ();
+  priv->iface = pinos_sink1_skeleton_new ();
   g_object_set (priv->iface, "name", priv->name,
                              "state", priv->state,
                              "properties", variant,
@@ -147,28 +147,28 @@ source_register_object (PinosSource *source)
                              NULL);
   g_bytes_unref (formats);
 
-  pinos_node_set_source (priv->node, source, G_OBJECT (priv->iface));
+  pinos_node_set_sink (priv->node, sink, G_OBJECT (priv->iface));
 
   return;
 }
 
 static void
-source_unregister_object (PinosSource *source)
+sink_unregister_object (PinosSink *sink)
 {
-  PinosSourcePrivate *priv = source->priv;
+  PinosSinkPrivate *priv = sink->priv;
 
-  pinos_node_set_source (priv->node, NULL, NULL);
+  pinos_node_set_sink (priv->node, NULL, NULL);
   g_clear_object (&priv->iface);
 }
 
 static void
-pinos_source_constructed (GObject * object)
+pinos_sink_constructed (GObject * object)
 {
-  PinosSource *source = PINOS_SOURCE (object);
+  PinosSink *sink = PINOS_SINK (object);
 
-  source_register_object (source);
+  sink_register_object (sink);
 
-  G_OBJECT_CLASS (pinos_source_parent_class)->constructed (object);
+  G_OBJECT_CLASS (pinos_sink_parent_class)->constructed (object);
 }
 
 static void
@@ -179,35 +179,35 @@ do_remove_channel (PinosChannel *channel,
 }
 
 static void
-pinos_source_dispose (GObject * object)
+pinos_sink_dispose (GObject * object)
 {
-  PinosSource *source = PINOS_SOURCE (object);
-  PinosSourcePrivate *priv = source->priv;
+  PinosSink *sink = PINOS_SINK (object);
+  PinosSinkPrivate *priv = sink->priv;
 
-  g_list_foreach (priv->channels, (GFunc) do_remove_channel, source);
-  source_unregister_object (source);
+  g_list_foreach (priv->channels, (GFunc) do_remove_channel, sink);
+  sink_unregister_object (sink);
 
-  G_OBJECT_CLASS (pinos_source_parent_class)->dispose (object);
+  G_OBJECT_CLASS (pinos_sink_parent_class)->dispose (object);
 }
 
 static void
-pinos_source_finalize (GObject * object)
+pinos_sink_finalize (GObject * object)
 {
-  PinosSource *source = PINOS_SOURCE (object);
-  PinosSourcePrivate *priv = source->priv;
+  PinosSink *sink = PINOS_SINK (object);
+  PinosSinkPrivate *priv = sink->priv;
 
   g_free (priv->name);
   if (priv->properties)
     pinos_properties_free (priv->properties);
 
-  G_OBJECT_CLASS (pinos_source_parent_class)->finalize (object);
+  G_OBJECT_CLASS (pinos_sink_parent_class)->finalize (object);
 }
 
 static gboolean
-default_set_state (PinosSource      *source,
-                   PinosSourceState  state)
+default_set_state (PinosSink      *sink,
+                   PinosSinkState  state)
 {
-  pinos_source_update_state (source, state);
+  pinos_sink_update_state (sink, state);
   return TRUE;
 }
 
@@ -215,24 +215,24 @@ static void
 handle_remove_channel (PinosChannel *channel,
                        gpointer      user_data)
 {
-  PinosSource *source = user_data;
+  PinosSink *sink = user_data;
 
-  pinos_source_release_channel (source, channel);
+  pinos_sink_release_channel (sink, channel);
 }
 
 static PinosChannel *
-default_create_channel (PinosSource     *source,
+default_create_channel (PinosSink     *sink,
                         const gchar     *client_path,
                         GBytes          *format_filter,
                         PinosProperties *props,
                         const gchar     *prefix,
                         GError          **error)
 {
-  PinosSourcePrivate *priv = source->priv;
+  PinosSinkPrivate *priv = sink->priv;
   PinosChannel *channel;
   GBytes *possible_formats;
 
-  possible_formats = pinos_source_get_formats (source, format_filter, error);
+  possible_formats = pinos_sink_get_formats (sink, format_filter, error);
   if (possible_formats == NULL)
     return NULL;
 
@@ -251,7 +251,7 @@ default_create_channel (PinosSource     *source,
   g_signal_connect (channel,
                     "remove",
                     (GCallback) handle_remove_channel,
-                    source);
+                    sink);
 
   priv->channels = g_list_prepend (priv->channels, channel);
 
@@ -269,10 +269,10 @@ no_channel:
 }
 
 static gboolean
-default_release_channel (PinosSource  *source,
+default_release_channel (PinosSink  *sink,
                          PinosChannel *channel)
 {
-  PinosSourcePrivate *priv = source->priv;
+  PinosSinkPrivate *priv = sink->priv;
   GList *find;
 
   find = g_list_find (priv->channels, channel);
@@ -286,17 +286,17 @@ default_release_channel (PinosSource  *source,
 }
 
 static void
-pinos_source_class_init (PinosSourceClass * klass)
+pinos_sink_class_init (PinosSinkClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
 
-  g_type_class_add_private (klass, sizeof (PinosSourcePrivate));
+  g_type_class_add_private (klass, sizeof (PinosSinkPrivate));
 
-  gobject_class->constructed = pinos_source_constructed;
-  gobject_class->dispose = pinos_source_dispose;
-  gobject_class->finalize = pinos_source_finalize;
-  gobject_class->set_property = pinos_source_set_property;
-  gobject_class->get_property = pinos_source_get_property;
+  gobject_class->constructed = pinos_sink_constructed;
+  gobject_class->dispose = pinos_sink_dispose;
+  gobject_class->finalize = pinos_sink_finalize;
+  gobject_class->set_property = pinos_sink_set_property;
+  gobject_class->get_property = pinos_sink_get_property;
 
   g_object_class_install_property (gobject_class,
                                    PROP_NODE,
@@ -312,7 +312,7 @@ pinos_source_class_init (PinosSourceClass * klass)
                                    PROP_NAME,
                                    g_param_spec_string ("name",
                                                         "Name",
-                                                        "The source name",
+                                                        "The sink name",
                                                         NULL,
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_CONSTRUCT_ONLY |
@@ -322,9 +322,9 @@ pinos_source_class_init (PinosSourceClass * klass)
                                    PROP_STATE,
                                    g_param_spec_enum ("state",
                                                       "State",
-                                                      "The state of the source",
-                                                      PINOS_TYPE_SOURCE_STATE,
-                                                      PINOS_SOURCE_STATE_SUSPENDED,
+                                                      "The state of the sink",
+                                                      PINOS_TYPE_SINK_STATE,
+                                                      PINOS_SINK_STATE_SUSPENDED,
                                                       G_PARAM_READABLE |
                                                       G_PARAM_STATIC_STRINGS));
 
@@ -332,7 +332,7 @@ pinos_source_class_init (PinosSourceClass * klass)
                                    PROP_PROPERTIES,
                                    g_param_spec_boxed ("properties",
                                                        "Properties",
-                                                       "The properties of the source",
+                                                       "The properties of the sink",
                                                        PINOS_TYPE_PROPERTIES,
                                                        G_PARAM_READWRITE |
                                                        G_PARAM_CONSTRUCT |
@@ -345,39 +345,39 @@ pinos_source_class_init (PinosSourceClass * klass)
 }
 
 static void
-pinos_source_init (PinosSource * source)
+pinos_sink_init (PinosSink * sink)
 {
-  PinosSourcePrivate *priv = source->priv = PINOS_SOURCE_GET_PRIVATE (source);
+  PinosSinkPrivate *priv = sink->priv = PINOS_SINK_GET_PRIVATE (sink);
 
-  priv->state = PINOS_SOURCE_STATE_SUSPENDED;
+  priv->state = PINOS_SINK_STATE_SUSPENDED;
 }
 
 /**
- * pinos_source_get_formats:
- * @source: a #PinosSource
+ * pinos_sink_get_formats:
+ * @sink: a #PinosSink
  * @filter: a #GBytes
  * @error: a #GError or %NULL
  *
- * Get all the currently supported formats for @source and filter the
+ * Get all the currently supported formats for @sink and filter the
  * results with @filter.
  *
  * Returns: the list of supported format. If %NULL is returned, @error will
  * be set.
  */
 GBytes *
-pinos_source_get_formats (PinosSource  *source,
+pinos_sink_get_formats (PinosSink  *sink,
                           GBytes       *filter,
                           GError      **error)
 {
-  PinosSourceClass *klass;
+  PinosSinkClass *klass;
   GBytes *res;
 
-  g_return_val_if_fail (PINOS_IS_SOURCE (source), NULL);
+  g_return_val_if_fail (PINOS_IS_SINK (sink), NULL);
 
-  klass = PINOS_SOURCE_GET_CLASS (source);
+  klass = PINOS_SINK_GET_CLASS (sink);
 
   if (klass->get_formats)
-    res = klass->get_formats (source, filter, error);
+    res = klass->get_formats (sink, filter, error);
   else {
     res = NULL;
     if (error)
@@ -389,9 +389,9 @@ pinos_source_get_formats (PinosSource  *source,
 }
 
 static void
-remove_idle_timeout (PinosSource *source)
+remove_idle_timeout (PinosSink *sink)
 {
-  PinosSourcePrivate *priv = source->priv;
+  PinosSinkPrivate *priv = sink->priv;
 
   if (priv->idle_timeout) {
     g_source_remove (priv->idle_timeout);
@@ -400,29 +400,29 @@ remove_idle_timeout (PinosSource *source)
 }
 
 /**
- * pinos_source_set_state:
- * @source: a #PinosSource
- * @state: a #PinosSourceState
+ * pinos_sink_set_state:
+ * @sink: a #PinosSink
+ * @state: a #PinosSinkState
  *
- * Set the state of @source to @state.
+ * Set the state of @sink to @state.
  *
  * Returns: %TRUE on success.
  */
 gboolean
-pinos_source_set_state (PinosSource      *source,
-                        PinosSourceState  state)
+pinos_sink_set_state (PinosSink      *sink,
+                        PinosSinkState  state)
 {
-  PinosSourceClass *klass;
+  PinosSinkClass *klass;
   gboolean res;
 
-  g_return_val_if_fail (PINOS_IS_SOURCE (source), FALSE);
+  g_return_val_if_fail (PINOS_IS_SINK (sink), FALSE);
 
-  klass = PINOS_SOURCE_GET_CLASS (source);
+  klass = PINOS_SINK_GET_CLASS (sink);
 
-  remove_idle_timeout (source);
+  remove_idle_timeout (sink);
 
   if (klass->set_state)
-    res = klass->set_state (source, state);
+    res = klass->set_state (sink, state);
   else
     res = FALSE;
 
@@ -430,118 +430,118 @@ pinos_source_set_state (PinosSource      *source,
 }
 
 /**
- * pinos_source_update_state:
- * @source: a #PinosSource
- * @state: a #PinosSourceState
+ * pinos_sink_update_state:
+ * @sink: a #PinosSink
+ * @state: a #PinosSinkState
  *
- * Update the state of a source. This method is used from
- * inside @source itself.
+ * Update the state of a sink. This method is used from
+ * inside @sink itself.
  */
 void
-pinos_source_update_state (PinosSource      *source,
-                           PinosSourceState  state)
+pinos_sink_update_state (PinosSink      *sink,
+                           PinosSinkState  state)
 {
-  PinosSourcePrivate *priv;
+  PinosSinkPrivate *priv;
 
-  g_return_if_fail (PINOS_IS_SOURCE (source));
-  priv = source->priv;
+  g_return_if_fail (PINOS_IS_SINK (sink));
+  priv = sink->priv;
 
   if (priv->state != state) {
     priv->state = state;
-    pinos_source1_set_state (priv->iface, state);
-    g_object_notify (G_OBJECT (source), "state");
+    pinos_sink1_set_state (priv->iface, state);
+    g_object_notify (G_OBJECT (sink), "state");
   }
 }
 
 /**
- * pinos_source_report_error:
- * @source: a #PinosSource
+ * pinos_sink_report_error:
+ * @sink: a #PinosSink
  * @error: a #GError
  *
- * Report an error from within @source.
+ * Report an error from within @sink.
  */
 void
-pinos_source_report_error (PinosSource *source,
+pinos_sink_report_error (PinosSink *sink,
                            GError      *error)
 {
-  PinosSourcePrivate *priv;
+  PinosSinkPrivate *priv;
 
-  g_return_if_fail (PINOS_IS_SOURCE (source));
-  priv = source->priv;
+  g_return_if_fail (PINOS_IS_SINK (sink));
+  priv = sink->priv;
 
   g_clear_error (&priv->error);
-  remove_idle_timeout (source);
+  remove_idle_timeout (sink);
   priv->error = error;
-  priv->state = PINOS_SOURCE_STATE_ERROR;
+  priv->state = PINOS_SINK_STATE_ERROR;
   g_debug ("got error state %s", error->message);
-  pinos_source1_set_state (priv->iface, priv->state);
-  g_object_notify (G_OBJECT (source), "state");
+  pinos_sink1_set_state (priv->iface, priv->state);
+  g_object_notify (G_OBJECT (sink), "state");
 }
 
 static gboolean
-idle_timeout (PinosSource *source)
+idle_timeout (PinosSink *sink)
 {
-  PinosSourcePrivate *priv = source->priv;
+  PinosSinkPrivate *priv = sink->priv;
 
   priv->idle_timeout = 0;
-  pinos_source_set_state (source, PINOS_SOURCE_STATE_SUSPENDED);
+  pinos_sink_set_state (sink, PINOS_SINK_STATE_SUSPENDED);
 
   return G_SOURCE_REMOVE;
 }
 
 /**
- * pinos_source_report_idle:
- * @source: a #PinosSource
+ * pinos_sink_report_idle:
+ * @sink: a #PinosSink
  *
- * Mark @source as being idle. This will start a timeout that will
- * set the source to SUSPENDED.
+ * Mark @sink as being idle. This will start a timeout that will
+ * set the sink to SUSPENDED.
  */
 void
-pinos_source_report_idle (PinosSource *source)
+pinos_sink_report_idle (PinosSink *sink)
 {
-  PinosSourcePrivate *priv;
+  PinosSinkPrivate *priv;
 
-  g_return_if_fail (PINOS_IS_SOURCE (source));
-  priv = source->priv;
+  g_return_if_fail (PINOS_IS_SINK (sink));
+  priv = sink->priv;
 
-  pinos_source_set_state (source, PINOS_SOURCE_STATE_IDLE);
+  pinos_sink_set_state (sink, PINOS_SINK_STATE_IDLE);
 
   priv->idle_timeout = g_timeout_add_seconds (3,
                                               (GSourceFunc) idle_timeout,
-                                              source);
+                                              sink);
 }
 
 /**
- * pinos_source_report_busy:
- * @source: a #PinosSource
+ * pinos_sink_report_busy:
+ * @sink: a #PinosSink
  *
- * Mark @source as being busy. This will set the state of the source
+ * Mark @sink as being busy. This will set the state of the sink
  * to the RUNNING state.
  */
 void
-pinos_source_report_busy (PinosSource *source)
+pinos_sink_report_busy (PinosSink *sink)
 {
-  g_return_if_fail (PINOS_IS_SOURCE (source));
+  g_return_if_fail (PINOS_IS_SINK (sink));
 
-  pinos_source_set_state (source, PINOS_SOURCE_STATE_RUNNING);
+  pinos_sink_set_state (sink, PINOS_SINK_STATE_RUNNING);
 }
 
 /**
- * pinos_source_update_possible_formats:
- * @source: a #PinosSource
+ * pinos_sink_update_possible_formats:
+ * @sink: a #PinosSink
  * @formats: a #GBytes
  *
- * Update the possible formats in @source to @formats. This function also
+ * Update the possible formats in @sink to @formats. This function also
  * updates the possible formats of the channels.
  */
 void
-pinos_source_update_possible_formats (PinosSource *source, GBytes *formats)
+pinos_sink_update_possible_formats (PinosSink *sink, GBytes *formats)
 {
-  PinosSourcePrivate *priv;
+  PinosSinkPrivate *priv;
   GList *walk;
 
-  g_return_if_fail (PINOS_IS_SOURCE (source));
-  priv = source->priv;
+  g_return_if_fail (PINOS_IS_SINK (sink));
+  priv = sink->priv;
 
   if (priv->iface)
     g_object_set (priv->iface, "possible-formats",
@@ -553,57 +553,57 @@ pinos_source_update_possible_formats (PinosSource *source, GBytes *formats)
 }
 
 /**
- * pinos_source_update_format:
- * @source: a #PinosSource
+ * pinos_sink_update_format:
+ * @sink: a #PinosSink
  * @format: a #GBytes
  *
- * Update the current format in @source to @format. This function also
+ * Update the current format in @sink to @format. This function also
  * updates the current format of the channels.
  */
 void
-pinos_source_update_format (PinosSource *source, GBytes *format)
+pinos_sink_update_format (PinosSink *sink, GBytes *format)
 {
-  PinosSourcePrivate *priv;
+  PinosSinkPrivate *priv;
   GList *walk;
 
-  g_return_if_fail (PINOS_IS_SOURCE (source));
-  priv = source->priv;
+  g_return_if_fail (PINOS_IS_SINK (sink));
+  priv = sink->priv;
 
   for (walk = priv->channels; walk; walk = g_list_next (walk))
     g_object_set (walk->data, "format", format, NULL);
 }
 
 /**
- * pinos_source_create_channel:
- * @source: a #PinosSource
+ * pinos_sink_create_channel:
+ * @sink: a #PinosSink
  * @client_path: the client path
  * @format_filter: a #GBytes
  * @props: #PinosProperties
  * @prefix: a prefix
  * @error: a #GError or %NULL
  *
- * Create a new #PinosChannel for @source.
+ * Create a new #PinosChannel for @sink.
  *
  * Returns: a new #PinosChannel or %NULL, in wich case @error will contain
  *          more information about the error.
  */
 PinosChannel *
-pinos_source_create_channel (PinosSource     *source,
+pinos_sink_create_channel (PinosSink     *sink,
                              const gchar     *client_path,
                              GBytes          *format_filter,
                              PinosProperties *props,
                              const gchar     *prefix,
                              GError          **error)
 {
-  PinosSourceClass *klass;
+  PinosSinkClass *klass;
   PinosChannel *res;
 
-  g_return_val_if_fail (PINOS_IS_SOURCE (source), NULL);
+  g_return_val_if_fail (PINOS_IS_SINK (sink), NULL);
 
-  klass = PINOS_SOURCE_GET_CLASS (source);
+  klass = PINOS_SINK_GET_CLASS (sink);
 
   if (klass->create_channel) {
-    res = klass->create_channel (source, client_path, format_filter, props, prefix, error);
+    res = klass->create_channel (sink, client_path, format_filter, props, prefix, error);
   } else {
     if (error) {
       *error = g_error_new (G_IO_ERROR,
@@ -617,28 +617,28 @@ pinos_source_create_channel (PinosSource     *source,
 }
 
 /**
- * pinos_source_release_channel:
- * @source: a #PinosSource
+ * pinos_sink_release_channel:
+ * @sink: a #PinosSink
  * @channel: a #PinosChannel
  *
- * Release the @channel in @source.
+ * Release the @channel in @sink.
  *
  * Returns: %TRUE on success.
  */
 gboolean
-pinos_source_release_channel (PinosSource  *source,
+pinos_sink_release_channel (PinosSink  *sink,
                               PinosChannel *channel)
 {
-  PinosSourceClass *klass;
+  PinosSinkClass *klass;
   gboolean res;
 
-  g_return_val_if_fail (PINOS_IS_SOURCE (source), FALSE);
+  g_return_val_if_fail (PINOS_IS_SINK (sink), FALSE);
   g_return_val_if_fail (PINOS_IS_CHANNEL (channel), FALSE);
 
-  klass = PINOS_SOURCE_GET_CLASS (source);
+  klass = PINOS_SINK_GET_CLASS (sink);
 
   if (klass->release_channel)
-    res = klass->release_channel (source, channel);
+    res = klass->release_channel (sink, channel);
   else
     res = FALSE;
 

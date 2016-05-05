@@ -52,7 +52,6 @@ struct _GstPinosSink {
   GstBaseSink element;
 
   /*< private >*/
-  gchar *path;
   gchar *client_name;
 
   /* video state */

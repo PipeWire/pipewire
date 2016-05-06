@@ -75,7 +75,8 @@ struct _PinosPortClass {
 /* normal GObject stuff */
 GType               pinos_port_get_type                  (void);
 
-PinosPort *         pinos_port_new                       (PinosNode       *node,
+PinosPort *         pinos_port_new                       (PinosDaemon     *daemon,
+                                                          const gchar     *node_path,
                                                           PinosDirection   direction,
                                                           const gchar     *name,
                                                           GBytes          *possible_formats,

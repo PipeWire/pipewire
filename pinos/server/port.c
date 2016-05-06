@@ -35,8 +35,9 @@
 
 struct _PinosPortPrivate
 {
-  PinosNode *node;
+  PinosDaemon *daemon;
   PinosPort1 *iface;
+  gchar *node_path;
   gchar *object_path;
 
   gchar *name;
@@ -52,7 +53,8 @@ G_DEFINE_TYPE (PinosPort, pinos_port, G_TYPE_OBJECT);
 enum
 {
   PROP_0,
-  PROP_NODE,
+  PROP_DAEMON,
+  PROP_NODE_PATH,
   PROP_OBJECT_PATH,
   PROP_NAME,
   PROP_DIRECTION,
@@ -80,12 +82,16 @@ pinos_port_get_property (GObject    *_object,
   PinosPortPrivate *priv = port->priv;
 
   switch (prop_id) {
-    case PROP_NODE:
-      g_value_set_object (value, priv->node);
+    case PROP_DAEMON:
+      g_value_set_object (value, priv->daemon);
       break;
 
     case PROP_NAME:
       g_value_set_string (value, priv->name);
+      break;
+
+    case PROP_NODE_PATH:
+      g_value_set_string (value, priv->node_path);
       break;
 
     case PROP_OBJECT_PATH:
@@ -111,28 +117,6 @@ pinos_port_get_property (GObject    *_object,
 }
 
 static void
-set_possible_formats (PinosPort *port, GBytes *formats)
-{
-  PinosPortPrivate *priv;
-  GList *walk;
-
-  g_return_if_fail (PINOS_IS_PORT (port));
-  priv = port->priv;
-
-  if (priv->possible_formats)
-    g_bytes_unref (priv->possible_formats);
-  priv->possible_formats = formats ? g_bytes_ref (formats) : NULL;
-
-  if (priv->iface)
-    g_object_set (priv->iface, "possible-formats",
-                  g_bytes_get_data (formats, NULL),
-                  NULL);
-
-  for (walk = priv->channels; walk; walk = g_list_next (walk))
-    g_object_set (walk->data, "possible-formats", formats, NULL);
-}
-
-static void
 pinos_port_set_property (GObject      *_object,
                            guint         prop_id,
                            const GValue *value,
@@ -142,31 +126,51 @@ pinos_port_set_property (GObject      *_object,
   PinosPortPrivate *priv = port->priv;
 
   switch (prop_id) {
-    case PROP_NODE:
-      priv->node = g_value_dup_object (value);
+    case PROP_DAEMON:
+      priv->daemon = g_value_dup_object (value);
       break;
 
     case PROP_NAME:
       priv->name = g_value_dup_string (value);
+      g_object_set (priv->iface, "name", priv->name, NULL);
+      break;
+
+    case PROP_NODE_PATH:
+      priv->node_path = g_value_dup_string (value);
+      g_object_set (priv->iface, "node", priv->name, NULL);
       break;
 
     case PROP_DIRECTION:
       priv->direction = g_value_get_enum (value);
+      g_object_set (priv->iface, "direction", priv->direction, NULL);
       break;
 
     case PROP_POSSIBLE_FORMATS:
-      set_possible_formats (port, g_value_get_boxed (value));
+    {
+      GList *walk;
+
+      if (priv->possible_formats)
+        g_bytes_unref (priv->possible_formats);
+      priv->possible_formats = g_value_dup_boxed (value);
+
+      g_object_set (priv->iface, "possible-formats", priv->possible_formats ?
+                    g_bytes_get_data (priv->possible_formats, NULL) : NULL,
+                    NULL);
+
+      for (walk = priv->channels; walk; walk = g_list_next (walk))
+        g_object_set (walk->data, "possible-formats", priv->possible_formats, NULL);
       break;
+    }
 
     case PROP_PROPERTIES:
       if (priv->properties)
         pinos_properties_free (priv->properties);
       priv->properties = g_value_dup_boxed (value);
-      if (priv->iface)
-        g_object_set (priv->iface,
-            "properties", priv->properties ?
-                      pinos_properties_to_variant (priv->properties) : NULL,
-            NULL);
+
+      g_object_set (priv->iface,
+          "properties", priv->properties ?
+                    pinos_properties_to_variant (priv->properties) : NULL,
+          NULL);
       break;
 
     default:
@@ -179,39 +183,20 @@ static void
 port_register_object (PinosPort *port)
 {
   PinosPortPrivate *priv = port->priv;
-  GBytes *formats;
-  GVariant *variant;
   PinosObjectSkeleton *skel;
   gchar *name;
 
-  name = g_strdup_printf ("%s/port", pinos_node_get_object_path (priv->node));
+  name = g_strdup_printf ("%s/port", priv->node_path);
   skel = pinos_object_skeleton_new (name);
   g_free (name);
 
-  formats = pinos_port_get_formats (port, NULL, NULL);
-
-  if (priv->properties)
-    variant = pinos_properties_to_variant (priv->properties);
-  else
-    variant = NULL;
-
-  priv->iface = pinos_port1_skeleton_new ();
-  g_object_set (priv->iface, "name", priv->name,
-                             "node", pinos_node_get_object_path (priv->node),
-                             "direction", priv->direction,
-                             "properties", variant,
-                             "possible-formats", g_bytes_get_data (formats, NULL),
-                             NULL);
-  g_bytes_unref (formats);
   pinos_object_skeleton_set_port1 (skel, priv->iface);
 
   g_free (priv->object_path);
-  priv->object_path = pinos_daemon_export_uniquely (pinos_node_get_daemon (priv->node),
+  priv->object_path = pinos_daemon_export_uniquely (priv->daemon,
       G_DBUS_OBJECT_SKELETON (skel));
-
   g_object_unref (skel);
-
-  pinos_node_add_port (priv->node, port);
+  g_debug ("port %p: register object %s", port, priv->object_path);
 
   return;
 }
@@ -221,8 +206,8 @@ port_unregister_object (PinosPort *port)
 {
   PinosPortPrivate *priv = port->priv;
 
-  pinos_node_remove_port (priv->node, port);
-  g_clear_object (&priv->iface);
+  g_debug ("port %p: unregister object %s", port, priv->object_path);
+  pinos_daemon_unexport (priv->daemon, priv->object_path);
 }
 
 static void
@@ -236,19 +221,16 @@ pinos_port_constructed (GObject * object)
 }
 
 static void
-do_remove_channel (PinosChannel *channel,
-                  gpointer       user_data)
-{
-  pinos_channel_remove (channel);
-}
-
-static void
 pinos_port_dispose (GObject * object)
 {
   PinosPort *port = PINOS_PORT (object);
   PinosPortPrivate *priv = port->priv;
+  GList *copy;
 
-  g_list_foreach (priv->channels, (GFunc) do_remove_channel, port);
+  g_debug ("port %p: dispose", port);
+
+  copy = g_list_copy (priv->channels);
+  g_list_free_full (copy, (GDestroyNotify) pinos_channel_remove);
   port_unregister_object (port);
 
   G_OBJECT_CLASS (pinos_port_parent_class)->dispose (object);
@@ -260,11 +242,16 @@ pinos_port_finalize (GObject * object)
   PinosPort *port = PINOS_PORT (object);
   PinosPortPrivate *priv = port->priv;
 
+  g_debug ("port %p: finalize", port);
   g_free (priv->name);
+  g_free (priv->object_path);
+  g_free (priv->node_path);
   if (priv->possible_formats)
     g_bytes_unref (priv->possible_formats);
   if (priv->properties)
     pinos_properties_free (priv->properties);
+  g_clear_object (&priv->iface);
+  g_clear_object (&priv->daemon);
 
   G_OBJECT_CLASS (pinos_port_parent_class)->finalize (object);
 }
@@ -293,10 +280,10 @@ default_create_channel (PinosPort       *port,
   if (possible_formats == NULL)
     return NULL;
 
-  channel = g_object_new (PINOS_TYPE_CHANNEL, "daemon", pinos_node_get_daemon (priv->node),
+  channel = g_object_new (PINOS_TYPE_CHANNEL, "daemon", priv->daemon,
                                               "client-path", client_path,
                                               "direction", priv->direction,
-                                              "port-path", pinos_port_get_object_path (port),
+                                              "port-path", priv->object_path,
                                               "possible-formats", possible_formats,
                                               "properties", props,
                                               NULL);
@@ -356,11 +343,20 @@ pinos_port_class_init (PinosPortClass * klass)
   gobject_class->get_property = pinos_port_get_property;
 
   g_object_class_install_property (gobject_class,
-                                   PROP_NODE,
-                                   g_param_spec_object ("node",
-                                                        "Node",
-                                                        "The Node",
-                                                        PINOS_TYPE_NODE,
+                                   PROP_DAEMON,
+                                   g_param_spec_object ("daemon",
+                                                        "Daemon",
+                                                        "The Daemon",
+                                                        PINOS_TYPE_DAEMON,
+                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_CONSTRUCT_ONLY |
+                                                        G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (gobject_class,
+                                   PROP_NODE_PATH,
+                                   g_param_spec_string ("node-path",
+                                                        "Node path",
+                                                        "The Node Path",
+                                                        NULL,
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_CONSTRUCT_ONLY |
                                                         G_PARAM_STATIC_STRINGS));
@@ -457,6 +453,8 @@ pinos_port_init (PinosPort * port)
 {
   PinosPortPrivate *priv = port->priv = PINOS_PORT_GET_PRIVATE (port);
 
+  priv->iface = pinos_port1_skeleton_new ();
+
   priv->direction = PINOS_DIRECTION_INVALID;
 }
 
@@ -467,17 +465,20 @@ pinos_port_init (PinosPort * port)
  * Returns: a new #PinosPort
  */
 PinosPort *
-pinos_port_new (PinosNode       *node,
+pinos_port_new (PinosDaemon     *daemon,
+                const gchar     *node_path,
                 PinosDirection   direction,
                 const gchar     *name,
 		GBytes          *possible_formats,
                 PinosProperties *props)
 {
-  g_return_val_if_fail (PINOS_IS_NODE (node), NULL);
+  g_return_val_if_fail (PINOS_IS_DAEMON (daemon), NULL);
+  g_return_val_if_fail (node_path != NULL, NULL);
   g_return_val_if_fail (name != NULL, NULL);
 
   return g_object_new (PINOS_TYPE_PORT,
-                       "node", node,
+                       "daemon", daemon,
+                       "node-path", node_path,
                        "direction", direction,
                        "name", name,
                        "possible-formats", possible_formats,

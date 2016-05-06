@@ -387,6 +387,7 @@ set_property (GObject      *object,
 static void
 sink_constructed (GObject * object)
 {
+  PinosNode *node = PINOS_NODE (object);
   PinosGstSink *sink = PINOS_GST_SINK (object);
   PinosGstSinkPrivate *priv = sink->priv;
   gchar *str;
@@ -397,12 +398,15 @@ sink_constructed (GObject * object)
   str = gst_caps_to_string (priv->possible_formats);
   format = g_bytes_new_take (str, strlen (str) + 1);
 
-  priv->input = pinos_port_new (PINOS_NODE (sink),
+  priv->input = pinos_port_new (pinos_node_get_daemon (node),
+                                pinos_node_get_object_path (node),
                                 PINOS_DIRECTION_INPUT,
                                 "input",
                                 format,
                                 NULL);
   g_bytes_unref (format);
+
+  pinos_node_add_port (node, priv->input);
 
   g_signal_connect (priv->input, "channel-added", (GCallback) on_channel_added, sink);
   g_signal_connect (priv->input, "channel-removed", (GCallback) on_channel_removed, sink);

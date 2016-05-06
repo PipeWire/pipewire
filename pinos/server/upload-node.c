@@ -84,7 +84,8 @@ upload_node_set_property (GObject      *_object,
       if (priv->possible_formats)
         g_bytes_unref (priv->possible_formats);
       priv->possible_formats = g_value_dup_boxed (value);
-      g_object_set (priv->output, "possible-formats", priv->possible_formats, NULL);
+      if (priv->output)
+        g_object_set (priv->output, "possible-formats", priv->possible_formats, NULL);
       break;
 
     default:
@@ -152,6 +153,7 @@ setup_pipeline (PinosUploadNode *node)
   PinosUploadNodePrivate *priv = node->priv;
   GstBus *bus;
 
+  g_debug ("upload-node %p: setup pipeline", node);
   priv->pipeline = gst_parse_launch ("socketsrc "
                                          "name=src "
                                          "caps=application/x-pinos "
@@ -167,7 +169,6 @@ setup_pipeline (PinosUploadNode *node)
   priv->id = gst_bus_add_watch (bus, bus_handler, node);
   gst_object_unref (bus);
 
-  g_debug ("upload-node %p: setup pipeline", node);
 }
 
 static gboolean
@@ -386,6 +387,37 @@ pinos_upload_node_get_channel (PinosUploadNode   *node,
 }
 
 static void
+upload_node_constructed (GObject * object)
+{
+  PinosNode *node = PINOS_NODE (object);
+  PinosUploadNode *upload = PINOS_UPLOAD_NODE (object);
+  PinosUploadNodePrivate *priv = upload->priv;
+
+  G_OBJECT_CLASS (pinos_upload_node_parent_class)->constructed (object);
+
+  g_debug ("upload-node %p: constructed", upload);
+  priv->input = pinos_port_new (pinos_node_get_daemon (node),
+                                pinos_node_get_object_path (node),
+                                PINOS_DIRECTION_INPUT,
+                                "input",
+                                 priv->possible_formats,
+                                NULL);
+  priv->output = pinos_port_new (pinos_node_get_daemon (node),
+                                 pinos_node_get_object_path (node),
+                                 PINOS_DIRECTION_OUTPUT,
+                                 "output",
+                                 priv->possible_formats,
+                                 NULL);
+  g_signal_connect (priv->output, "channel-added", (GCallback) on_channel_added, upload);
+  g_signal_connect (priv->output, "channel-removed", (GCallback) on_channel_removed, upload);
+
+  pinos_node_add_port (node, priv->input);
+  pinos_node_add_port (node, priv->output);
+
+  setup_pipeline (upload);
+}
+
+static void
 pinos_upload_node_class_init (PinosUploadNodeClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
@@ -393,6 +425,7 @@ pinos_upload_node_class_init (PinosUploadNodeClass * klass)
 
   g_type_class_add_private (klass, sizeof (PinosUploadNodePrivate));
 
+  gobject_class->constructed = upload_node_constructed;
   gobject_class->dispose = upload_node_dispose;
   gobject_class->finalize = upload_node_finalize;
 
@@ -415,23 +448,8 @@ pinos_upload_node_class_init (PinosUploadNodeClass * klass)
 static void
 pinos_upload_node_init (PinosUploadNode * node)
 {
-  PinosUploadNodePrivate *priv = node->priv = PINOS_UPLOAD_NODE_GET_PRIVATE (node);
-
+  node->priv = PINOS_UPLOAD_NODE_GET_PRIVATE (node);
   g_debug ("upload-node %p: new", node);
-  priv->input = pinos_port_new (PINOS_NODE (node),
-                                PINOS_DIRECTION_INPUT,
-                                "input",
-                                 priv->possible_formats,
-                                NULL);
-  priv->output = pinos_port_new (PINOS_NODE (node),
-                                 PINOS_DIRECTION_OUTPUT,
-                                 "output",
-                                 priv->possible_formats,
-                                 NULL);
-  g_signal_connect (priv->output, "channel-added", (GCallback) on_channel_added, node);
-  g_signal_connect (priv->output, "channel-removed", (GCallback) on_channel_removed, node);
-
-  setup_pipeline (node);
 }
 
 /**

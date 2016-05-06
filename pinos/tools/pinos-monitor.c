@@ -118,7 +118,7 @@ dump_daemon_info (PinosContext *c, const PinosDaemonInfo *info, gpointer user_da
     g_print ("%c\thost-name: \"%s\"\n", MARK_CHANGE (1), info->host_name);
     g_print ("%c\tversion: \"%s\"\n", MARK_CHANGE (2), info->version);
     g_print ("%c\tname: \"%s\"\n", MARK_CHANGE (3), info->name);
-    g_print ("%c\tcookie: %d\n", MARK_CHANGE (4), info->cookie);
+    g_print ("%c\tcookie: %u\n", MARK_CHANGE (4), info->cookie);
     print_properties (info->properties, MARK_CHANGE (5));
   }
 }
@@ -131,8 +131,8 @@ dump_client_info (PinosContext *c, const PinosClientInfo *info, gpointer user_da
   g_print ("\tid: %p\n", info->id);
   g_print ("\tclient-path: \"%s\"\n", info->client_path);
   if (data->print_all) {
-    g_print ("%c\tname: \"%s\"\n", MARK_CHANGE (0), info->name);
-    print_properties (info->properties, MARK_CHANGE (1));
+    g_print ("\tsender: \"%s\"\n", info->sender);
+    print_properties (info->properties, MARK_CHANGE (0));
   }
 }
 

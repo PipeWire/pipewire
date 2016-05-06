@@ -18,12 +18,12 @@
  */
 
 /**
- * SECTION:element-pinossink
+ * SECTION:element-pinosprovide
  *
  * <refsect2>
  * <title>Example launch line</title>
  * |[
- * gst-launch -v videotestsrc ! pinossink
+ * gst-launch -v videotestsrc ! pinosprovide
  * ]| Sends a test video source to pinos
  * </refsect2>
  */
@@ -31,7 +31,7 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
-#include "gstpinossink.h"
+#include "gstpinosprovide.h"
 
 #include <string.h>
 #include <stdlib.h>

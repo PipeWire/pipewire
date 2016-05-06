@@ -43,6 +43,24 @@ G_BEGIN_DECLS
 typedef struct _GstPinosSink GstPinosSink;
 typedef struct _GstPinosSinkClass GstPinosSinkClass;
 
+
+/**
+ * GstPinosSinkMode:
+ * @GST_PINOS_SINK_MODE_DEFAULT: the default mode as configured in the server
+ * @GST_PINOS_SINK_MODE_RENDER: try to render the media
+ * @GST_PINOS_SINK_MODE_PROVIDE: provide the media
+ *
+ * Different modes of operation.
+ */
+typedef enum
+{
+  GST_PINOS_SINK_MODE_DEFAULT,
+  GST_PINOS_SINK_MODE_RENDER,
+  GST_PINOS_SINK_MODE_PROVIDE,
+} GstPinosSinkMode;
+
+#define GST_TYPE_PINOS_SINK_MODE (gst_pinos_sink_mode_get_type ())
+
 /**
  * GstPinosSink:
  *
@@ -64,6 +82,7 @@ struct _GstPinosSink {
   PinosStream *stream;
   GstAllocator *allocator;
   GstStructure *properties;
+  GstPinosSinkMode mode;
 
   guint32 id_counter;
   GHashTable *fdids;
@@ -74,6 +93,7 @@ struct _GstPinosSinkClass {
 };
 
 GType gst_pinos_sink_get_type (void);
+GType gst_pinos_sink_mode_get_type (void);
 
 G_END_DECLS
 

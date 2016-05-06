@@ -201,7 +201,7 @@ subscription_cb (PinosSubscribe         *subscribe,
                             PINOS_STREAM_STATE_ERROR,
                             g_error_new_literal (G_IO_ERROR,
                                                  G_IO_ERROR_CLOSED,
-                                                 "Output disappeared"));
+                                                 "Channel disappeared"));
         }
       }
       break;
@@ -508,8 +508,8 @@ on_channel_proxy (GObject      *source_object,
   if (priv->channel == NULL)
     goto channel_failed;
 
-  /* get the source we are connected to */
-  v = g_dbus_proxy_get_cached_property (priv->channel, "Owner");
+  /* get the port we are connected to */
+  v = g_dbus_proxy_get_cached_property (priv->channel, "Port");
   if (v) {
     gsize len;
     str = g_variant_dup_string (v, &len);

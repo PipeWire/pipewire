@@ -112,14 +112,14 @@ pinos_node_set_property (GObject      *_object,
 
     case PROP_NAME:
       priv->name = g_value_dup_string (value);
+      pinos_node1_set_name (priv->iface, priv->name);
       break;
 
     case PROP_PROPERTIES:
       if (priv->properties)
         pinos_properties_free (priv->properties);
       priv->properties = g_value_dup_boxed (value);
-      if (priv->iface)
-        pinos_node1_set_properties (priv->iface,
+      pinos_node1_set_properties (priv->iface,
             priv->properties ?  pinos_properties_to_variant (priv->properties) : NULL);
       break;
 
@@ -138,17 +138,13 @@ node_register_object (PinosNode *node)
 
   skel = pinos_object_skeleton_new (PINOS_DBUS_OBJECT_NODE);
 
-  priv->iface = pinos_node1_skeleton_new ();
-  pinos_node1_set_name (priv->iface, priv->name);
-  if (priv->properties)
-    pinos_node1_set_properties (priv->iface, pinos_properties_to_variant (priv->properties));
-  pinos_node1_set_state (priv->iface, priv->state);
   pinos_object_skeleton_set_node1 (skel, priv->iface);
 
   g_free (priv->object_path);
   priv->object_path = pinos_daemon_export_uniquely (daemon, G_DBUS_OBJECT_SKELETON (skel));
   g_object_unref (skel);
 
+  g_debug ("node %p: register object %s", node, priv->object_path);
   pinos_daemon_add_node (daemon, node);
 
   return;
@@ -159,9 +155,9 @@ node_unregister_object (PinosNode *node)
 {
   PinosNodePrivate *priv = node->priv;
 
+  g_debug ("node %p: unregister object %s", node, priv->object_path);
   pinos_daemon_unexport (priv->daemon, priv->object_path);
   pinos_daemon_remove_node (priv->daemon, node);
-  g_clear_object (&priv->iface);
 }
 
 static void
@@ -169,6 +165,7 @@ pinos_node_constructed (GObject * obj)
 {
   PinosNode *node = PINOS_NODE (obj);
 
+  g_debug ("node %p: constructed", node);
   node_register_object (node);
 
   G_OBJECT_CLASS (pinos_node_parent_class)->constructed (obj);
@@ -178,7 +175,11 @@ static void
 pinos_node_dispose (GObject * obj)
 {
   PinosNode *node = PINOS_NODE (obj);
+  PinosNodePrivate *priv = node->priv;
 
+  g_debug ("node %p: dispose", node);
+  g_list_free_full (priv->ports, (GDestroyNotify) g_object_unref);
+  priv->ports = NULL;
   node_unregister_object (node);
 
   G_OBJECT_CLASS (pinos_node_parent_class)->dispose (obj);
@@ -190,7 +191,14 @@ pinos_node_finalize (GObject * obj)
   PinosNode *node = PINOS_NODE (obj);
   PinosNodePrivate *priv = node->priv;
 
+  g_debug ("node %p: finalize", node);
+  g_clear_object (&priv->daemon);
+  g_clear_object (&priv->iface);
+  g_free (priv->name);
   g_free (priv->object_path);
+  g_clear_error (&priv->error);
+  if (priv->properties)
+    pinos_properties_free (priv->properties);
 
   G_OBJECT_CLASS (pinos_node_parent_class)->finalize (obj);
 }
@@ -262,7 +270,13 @@ pinos_node_class_init (PinosNodeClass * klass)
 static void
 pinos_node_init (PinosNode * node)
 {
-  node->priv = PINOS_NODE_GET_PRIVATE (node);
+  PinosNodePrivate *priv = node->priv = PINOS_NODE_GET_PRIVATE (node);
+
+  g_debug ("node %p: new", node);
+  priv->state = PINOS_NODE_STATE_SUSPENDED;
+
+  priv->iface = pinos_node1_skeleton_new ();
+  pinos_node1_set_state (priv->iface, priv->state);
 }
 
 /**
@@ -306,7 +320,7 @@ pinos_node_get_object_path (PinosNode *node)
 /**
  * pinos_node_add_port:
  * @node: a #PinosNode
- * @port: a #PinosPort
+ * @port: (transfer full): a #PinosPort
  *
  * Add the #PinosPort to @node
  */
@@ -325,7 +339,7 @@ pinos_node_add_port (PinosNode *node, PinosPort *port)
 /**
  * pinos_node_remove_port:
  * @node: a #PinosNode
- * @port: a #PinosPort
+ * @port: (transfer full): a #PinosPort
  *
  * Remove the #PinosPort from @node
  */
@@ -333,12 +347,17 @@ void
 pinos_node_remove_port (PinosNode *node, PinosPort *port)
 {
   PinosNodePrivate *priv;
+  GList *find;
 
   g_return_if_fail (PINOS_IS_NODE (node));
   g_return_if_fail (PINOS_IS_PORT (port));
   priv = node->priv;
 
-  priv->ports = g_list_remove (priv->ports, port);
+  find = g_list_find (priv->ports, port);
+  if (find) {
+    priv->ports = g_list_delete_link (priv->ports, find);
+    g_object_unref (port);
+  }
 }
 
 /**
@@ -497,8 +516,6 @@ pinos_node_report_busy (PinosNode *node)
 
   pinos_node_set_state (node, PINOS_NODE_STATE_RUNNING);
 }
-
-
 
 /**
  * pinos_node_new:

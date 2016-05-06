@@ -17,8 +17,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __GST_PINOS_SINK_H__
-#define __GST_PINOS_SINK_H__
+#ifndef __GST_PINOS_PROVIDE_H__
+#define __GST_PINOS_PROVIDE_H__
 
 #include <gst/gst.h>
 #include <gst/base/gstbasesink.h>
@@ -27,28 +27,28 @@
 
 G_BEGIN_DECLS
 
-#define GST_TYPE_PINOS_SINK \
-  (gst_pinos_sink_get_type())
-#define GST_PINOS_SINK(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_PINOS_SINK,GstPinosSink))
-#define GST_PINOS_SINK_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_PINOS_SINK,GstPinosSinkClass))
-#define GST_IS_PINOS_SINK(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_PINOS_SINK))
-#define GST_IS_PINOS_SINK_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_PINOS_SINK))
-#define GST_PINOS_SINK_CAST(obj) \
-  ((GstPinosSink *) (obj))
+#define GST_TYPE_PINOS_PROVIDE \
+  (gst_pinos_provide_get_type())
+#define GST_PINOS_PROVIDE(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_PINOS_PROVIDE,GstPinosProvide))
+#define GST_PINOS_PROVIDE_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_PINOS_PROVIDE,GstPinosProvideClass))
+#define GST_IS_PINOS_PROVIDE(obj) \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_PINOS_PROVIDE))
+#define GST_IS_PINOS_PROVIDE_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_PINOS_PROVIDE))
+#define GST_PINOS_PROVIDE_CAST(obj) \
+  ((GstPinosProvide *) (obj))
 
-typedef struct _GstPinosSink GstPinosSink;
-typedef struct _GstPinosSinkClass GstPinosSinkClass;
+typedef struct _GstPinosProvide GstPinosProvide;
+typedef struct _GstPinosProvideClass GstPinosProvideClass;
 
 /**
- * GstPinosSink:
+ * GstPinosProvide:
  *
  * Opaque data structure.
  */
-struct _GstPinosSink {
+struct _GstPinosProvide {
   GstBaseSink element;
 
   /*< private >*/
@@ -68,12 +68,12 @@ struct _GstPinosSink {
   GHashTable *fdids;
 };
 
-struct _GstPinosSinkClass {
+struct _GstPinosProvideClass {
   GstBaseSinkClass parent_class;
 };
 
-GType gst_pinos_sink_get_type (void);
+GType gst_pinos_provide_get_type (void);
 
 G_END_DECLS
 
-#endif /* __GST_PINOS_SINK_H__ */
+#endif /* __GST_PINOS_PROVIDE_H__ */

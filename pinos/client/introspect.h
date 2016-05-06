@@ -91,8 +91,8 @@ void            pinos_context_get_daemon_info (PinosContext *context,
  * PinosClientInfo:
  * @id: generic id of the client
  * @client_path: unique path of the client
+ * @sender: sender of client
  * @change_mask: bitfield of changed fields since last call
- * @name: name of client
  * @properties: extra properties
  *
  * The client information. Extra information can be added in later
@@ -101,8 +101,8 @@ void            pinos_context_get_daemon_info (PinosContext *context,
 typedef struct {
   gpointer id;
   const char *client_path;
+  const char *sender;
   guint64 change_mask;
-  const char *name;
   PinosProperties *properties;
 } PinosClientInfo;
 

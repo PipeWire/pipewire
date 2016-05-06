@@ -49,13 +49,36 @@
 GST_DEBUG_CATEGORY_STATIC (pinos_sink_debug);
 #define GST_CAT_DEFAULT pinos_sink_debug
 
+#define DEFAULT_PROP_MODE GST_PINOS_SINK_MODE_DEFAULT
+
 enum
 {
   PROP_0,
   PROP_PATH,
   PROP_CLIENT_NAME,
-  PROP_STREAM_PROPERTIES
+  PROP_STREAM_PROPERTIES,
+  PROP_MODE
 };
+
+GType
+gst_pinos_sink_mode_get_type (void)
+{
+  static volatile gsize mode_type = 0;
+  static const GEnumValue mode[] = {
+    {GST_PINOS_SINK_MODE_DEFAULT, "GST_PINOS_SINK_MODE_DEFAULT", "default"},
+    {GST_PINOS_SINK_MODE_RENDER, "GST_PINOS_SINK_MODE_RENDER", "render"},
+    {GST_PINOS_SINK_MODE_PROVIDE, "GST_PINOS_SINK_MODE_PROVIDE", "provide"},
+    {0, NULL, NULL},
+  };
+
+  if (g_once_init_enter (&mode_type)) {
+    GType tmp =
+        g_enum_register_static ("GstPinosSinkMode", mode);
+    g_once_init_leave (&mode_type, tmp);
+  }
+
+  return (GType) mode_type;
+}
 
 
 #define PINOSS_VIDEO_CAPS GST_VIDEO_CAPS_MAKE (GST_VIDEO_FORMATS_ALL)
@@ -147,9 +170,19 @@ gst_pinos_sink_class_init (GstPinosSinkClass * klass)
    g_object_class_install_property (gobject_class,
                                     PROP_STREAM_PROPERTIES,
                                     g_param_spec_boxed ("stream-properties",
-                                                        "stream properties",
-                                                        "list of pinos stream properties",
+                                                        "Stream properties",
+                                                        "List of pinos stream properties",
                                                         GST_TYPE_STRUCTURE,
+                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_STATIC_STRINGS));
+
+   g_object_class_install_property (gobject_class,
+                                    PROP_MODE,
+                                    g_param_spec_enum ("mode",
+                                                       "Mode",
+                                                       "The mode to operate in",
+                                                        GST_TYPE_PINOS_SINK_MODE,
+                                                        DEFAULT_PROP_MODE,
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_STATIC_STRINGS));
 
@@ -157,7 +190,7 @@ gst_pinos_sink_class_init (GstPinosSinkClass * klass)
 
   gst_element_class_set_static_metadata (gstelement_class,
       "Pinos sink", "Sink/Video",
-      "Send video to pinos", "Wim Taymans <wim.taymans@gmail.com>");
+      "Send video to Pinos", "Wim Taymans <wim.taymans@gmail.com>");
 
   gst_element_class_add_pad_template (gstelement_class,
       gst_static_pad_template_get (&gst_pinos_sink_template));
@@ -178,6 +211,7 @@ gst_pinos_sink_init (GstPinosSink * sink)
 {
   sink->allocator = gst_tmpfile_allocator_new ();
   sink->client_name = pinos_client_name();
+  sink->mode = DEFAULT_PROP_MODE;
 
   sink->fdids = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL,
       (GDestroyNotify) gst_buffer_unref);
@@ -250,6 +284,10 @@ gst_pinos_sink_set_property (GObject * object, guint prop_id,
           gst_structure_copy (gst_value_get_structure (value));
       break;
 
+    case PROP_MODE:
+      pinossink->mode = g_value_get_enum (value);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -273,6 +311,10 @@ gst_pinos_sink_get_property (GObject * object, guint prop_id,
 
     case PROP_STREAM_PROPERTIES:
       gst_value_set_structure (value, pinossink->properties);
+      break;
+
+    case PROP_MODE:
+      g_value_set_enum (value, pinossink->mode);
       break;
 
     default:
@@ -382,11 +424,17 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
     goto start_error;
 
   if (state == PINOS_STREAM_STATE_UNCONNECTED) {
-    pinos_stream_connect (pinossink->stream,
-                          PINOS_DIRECTION_INPUT,
-                          pinossink->path,
-                          0,
-                          g_bytes_ref (format));
+    if (pinossink->mode == GST_PINOS_SINK_MODE_PROVIDE) {
+      pinos_stream_connect_provide (pinossink->stream,
+                            0,
+                            g_bytes_ref (format));
+    } else {
+      pinos_stream_connect (pinossink->stream,
+                            PINOS_DIRECTION_INPUT,
+                            pinossink->path,
+                            0,
+                            g_bytes_ref (format));
+    }
 
     while (TRUE) {
       state = pinos_stream_get_state (pinossink->stream);

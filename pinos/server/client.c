@@ -28,11 +28,11 @@
 struct _PinosClientPrivate
 {
   PinosDaemon *daemon;
+  PinosClient1 *iface;
+
   gchar *sender;
   gchar *object_path;
   PinosProperties *properties;
-
-  PinosClient1 *client1;
 
   PinosFdManager *fdmanager;
   GList *channels;
@@ -108,16 +108,15 @@ pinos_client_set_property (GObject      *_object,
 
     case PROP_SENDER:
       priv->sender = g_value_dup_string (value);
-      break;
-
-    case PROP_OBJECT_PATH:
-      priv->object_path = g_value_dup_string (value);
+      pinos_client1_set_sender (priv->iface, priv->sender);
       break;
 
     case PROP_PROPERTIES:
       if (priv->properties)
         pinos_properties_free (priv->properties);
       priv->properties = g_value_dup_boxed (value);
+      pinos_client1_set_properties (priv->iface, priv->properties ?
+          pinos_properties_to_variant (priv->properties) : NULL);
       break;
 
     default:
@@ -324,34 +323,20 @@ handle_disconnect (PinosClient1           *interface,
 }
 
 static void
-client_register_object (PinosClient *client,
-                        const gchar *prefix)
+client_register_object (PinosClient *client)
 {
   PinosClientPrivate *priv = client->priv;
   PinosDaemon *daemon = priv->daemon;
   PinosObjectSkeleton *skel;
-  gchar *name;
 
-  name = g_strdup_printf ("%s/client", prefix);
-  skel = pinos_object_skeleton_new (name);
-  g_free (name);
+  skel = pinos_object_skeleton_new (PINOS_DBUS_OBJECT_CLIENT);
 
-  priv->client1 = pinos_client1_skeleton_new ();
-  pinos_client1_set_name (priv->client1, priv->sender);
-  pinos_client1_set_properties (priv->client1, pinos_properties_to_variant (priv->properties));
-  g_signal_connect (priv->client1, "handle-create-channel",
-                                   (GCallback) handle_create_channel,
-                                   client);
-  g_signal_connect (priv->client1, "handle-create-upload-channel",
-                                   (GCallback) handle_create_upload_channel,
-                                   client);
-  g_signal_connect (priv->client1, "handle-disconnect",
-                                   (GCallback) handle_disconnect,
-                                   client);
-  pinos_object_skeleton_set_client1 (skel, priv->client1);
+  pinos_object_skeleton_set_client1 (skel, priv->iface);
 
   g_free (priv->object_path);
   priv->object_path = pinos_daemon_export_uniquely (daemon, G_DBUS_OBJECT_SKELETON (skel));
+  g_object_unref (skel);
+
   g_debug ("client %p: register %s", client, priv->object_path);
 }
 
@@ -362,18 +347,7 @@ client_unregister_object (PinosClient *client)
   PinosDaemon *daemon = priv->daemon;
 
   g_debug ("client %p: unregister", client);
-  g_clear_object (&priv->client1);
-
   pinos_daemon_unexport (daemon, priv->object_path);
-  g_clear_pointer (&priv->object_path, g_free);
-}
-
-static void
-do_remove_channel (PinosChannel *channel,
-                   PinosClient  *client)
-{
-  g_debug ("client %p: remove channel %p", client, channel);
-  pinos_channel_remove (channel);
 }
 
 static void
@@ -381,14 +355,14 @@ pinos_client_dispose (GObject * object)
 {
   PinosClient *client = PINOS_CLIENT (object);
   PinosClientPrivate *priv = client->priv;
+  GList *copy;
 
   g_debug ("client %p: dispose", client);
-  if (priv->object_path)
-    pinos_fd_manager_remove_all (priv->fdmanager, priv->object_path);
+  pinos_fd_manager_remove_all (priv->fdmanager, priv->object_path);
 
-  g_list_foreach (priv->channels, (GFunc) do_remove_channel, client);
+  copy = g_list_copy (priv->channels);
+  g_list_free_full (copy, (GDestroyNotify) pinos_channel_remove);
   client_unregister_object (client);
-  g_clear_object (&priv->daemon);
 
   G_OBJECT_CLASS (pinos_client_parent_class)->dispose (object);
 }
@@ -400,7 +374,10 @@ pinos_client_finalize (GObject * object)
   PinosClientPrivate *priv = client->priv;
 
   g_debug ("client %p: finalize", client);
+  g_clear_object (&priv->daemon);
+  g_clear_object (&priv->iface);
   g_free (priv->sender);
+  g_free (priv->object_path);
   if (priv->properties)
     pinos_properties_free (priv->properties);
   g_clear_object (&priv->fdmanager);
@@ -412,11 +389,9 @@ static void
 pinos_client_constructed (GObject * object)
 {
   PinosClient *client = PINOS_CLIENT (object);
-  PinosClientPrivate *priv = client->priv;
 
   g_debug ("client %p: constructed", client);
-
-  client_register_object (client, priv->object_path);
+  client_register_object (client);
 
   G_OBJECT_CLASS (pinos_client_parent_class)->constructed (object);
 }
@@ -460,8 +435,7 @@ pinos_client_class_init (PinosClientClass * klass)
                                                         "Object Path",
                                                         "The object path",
                                                         NULL,
-                                                        G_PARAM_READWRITE |
-                                                        G_PARAM_CONSTRUCT_ONLY |
+                                                        G_PARAM_READABLE |
                                                         G_PARAM_STATIC_STRINGS));
   g_object_class_install_property (gobject_class,
                                    PROP_PROPERTIES,
@@ -491,6 +465,17 @@ pinos_client_init (PinosClient * client)
 {
   PinosClientPrivate *priv = client->priv = PINOS_CLIENT_GET_PRIVATE (client);
 
+  priv->iface = pinos_client1_skeleton_new ();
+  g_signal_connect (priv->iface, "handle-create-channel",
+                                   (GCallback) handle_create_channel,
+                                   client);
+  g_signal_connect (priv->iface, "handle-create-upload-channel",
+                                   (GCallback) handle_create_upload_channel,
+                                   client);
+  g_signal_connect (priv->iface, "handle-disconnect",
+                                   (GCallback) handle_disconnect,
+                                   client);
+
   g_debug ("client %p: new", client);
   priv->fdmanager = pinos_fd_manager_get (PINOS_FD_MANAGER_DEFAULT);
 }
@@ -510,15 +495,12 @@ pinos_client_init (PinosClient * client)
 PinosClient *
 pinos_client_new (PinosDaemon     *daemon,
                   const gchar     *sender,
-                  const gchar     *prefix,
                   PinosProperties *properties)
 {
   g_return_val_if_fail (PINOS_IS_DAEMON (daemon), NULL);
-  g_return_val_if_fail (g_variant_is_object_path (prefix), NULL);
 
   return g_object_new (PINOS_TYPE_CLIENT, "daemon", daemon,
                                           "sender", sender,
-                                          "object-path", prefix,
                                           "properties", properties,
                                           NULL);
 }

@@ -172,10 +172,10 @@ client_fill_info (PinosClientInfo *info, GDBusProxy *proxy)
 
   info->id = proxy;
   info->client_path = g_dbus_proxy_get_object_path (proxy);
+  SET_STRING ("Sender", sender, 0);
 
   info->change_mask = 0;
-  SET_STRING ("Name", name, 0);
-  SET_PROPERTIES ("Properties", properties, 1);
+  SET_PROPERTIES ("Properties", properties, 0);
 
   if (changed)
     g_hash_table_remove_all (changed);

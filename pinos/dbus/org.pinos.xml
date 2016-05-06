@@ -44,8 +44,8 @@
       obtaining an channel object from a source/sink.
   -->
   <interface name='org.pinos.Client1'>
-    <!-- Name: Name of the client -->
-    <property name='Name' type='s' access='read' />
+    <!-- Sender: Sender of the client -->
+    <property name='Sender' type='s' access='read' />
     <!-- Name: Properties of the client -->
     <property name='Properties' type='a{sv}' access='read' />
     <!-- Disconnect:

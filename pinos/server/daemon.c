@@ -158,7 +158,7 @@ handle_connect_client (PinosDaemon1           *interface,
   g_debug ("daemon %p: connect client: %s", daemon, sender);
 
   props = pinos_properties_from_variant (arg_properties);
-  client = pinos_client_new (daemon, sender, PINOS_DBUS_OBJECT_PREFIX, props);
+  client = pinos_client_new (daemon, sender, props);
   pinos_properties_free (props);
 
   g_signal_connect (client, "disconnect", (GCallback) handle_disconnect_client, daemon);

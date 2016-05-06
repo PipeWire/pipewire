@@ -182,16 +182,16 @@ pinos_channel_set_property (GObject      *_object,
       if (priv->properties)
         pinos_properties_free (priv->properties);
       priv->properties = g_value_dup_boxed (value);
-      g_object_set (priv->iface, "properties",
-          pinos_properties_to_variant (priv->properties), NULL);
+      g_object_set (priv->iface, "properties", priv->properties ?
+          pinos_properties_to_variant (priv->properties) : NULL, NULL);
       break;
 
     case PROP_FORMAT:
       if (priv->format)
         g_bytes_unref (priv->format);
       priv->format = g_value_dup_boxed (value);
-      g_object_set (priv->iface, "format",
-          g_bytes_get_data (priv->format, NULL), NULL);
+      g_object_set (priv->iface, "format", priv->format ?
+          g_bytes_get_data (priv->format, NULL) : NULL, NULL);
       break;
 
     default:
@@ -346,6 +346,8 @@ channel_register_object (PinosChannel *channel)
 
   g_free (priv->object_path);
   priv->object_path = pinos_daemon_export_uniquely (priv->daemon, G_DBUS_OBJECT_SKELETON (skel));
+  g_object_unref (skel);
+
   g_debug ("channel %p: register object %s", channel, priv->object_path);
 }
 

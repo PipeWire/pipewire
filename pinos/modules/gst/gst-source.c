@@ -440,6 +440,7 @@ set_property (GObject      *object,
 static void
 source_constructed (GObject * object)
 {
+  PinosNode *node = PINOS_NODE (object);
   PinosGstSource *source = PINOS_GST_SOURCE (object);
   PinosGstSourcePrivate *priv = source->priv;
   gchar *str;
@@ -450,7 +451,8 @@ source_constructed (GObject * object)
   str = gst_caps_to_string (priv->possible_formats);
   format = g_bytes_new_take (str, strlen (str) + 1);
 
-  priv->output = pinos_port_new (PINOS_NODE (source),
+  priv->output = pinos_port_new (pinos_node_get_daemon (node),
+                                 pinos_node_get_object_path (node),
                                  PINOS_DIRECTION_OUTPUT,
                                  "output",
                                  format,
@@ -460,15 +462,19 @@ source_constructed (GObject * object)
   g_signal_connect (priv->output, "channel-added", (GCallback) on_channel_added, source);
   g_signal_connect (priv->output, "channel-removed", (GCallback) on_channel_removed, source);
 
+  pinos_node_add_port (node, priv->output);
+
   setup_pipeline (source, NULL);
 }
 
 static void
 source_finalize (GObject * object)
 {
+  PinosNode *node = PINOS_NODE (object);
   PinosGstSource *source = PINOS_GST_SOURCE (object);
   PinosGstSourcePrivate *priv = source->priv;
 
+  pinos_node_remove_port (node, priv->output);
   destroy_pipeline (source);
   g_clear_pointer (&priv->possible_formats, gst_caps_unref);
   pinos_properties_free (priv->props);

@@ -65,7 +65,7 @@ device_added (PinosGstManager *manager,
   PinosGstManagerPrivate *priv = manager->priv;
   gchar *name, *klass;
   GstElement *element;
-  PinosNode *node;
+  PinosNode *node = NULL;
   GstStructure *p;
   PinosProperties *properties;
   GstCaps *caps;
@@ -91,24 +91,24 @@ device_added (PinosGstManager *manager,
                         "gstreamer.device.class",
                         klass);
 
-  node = pinos_node_new (priv->daemon);
-  g_object_set_data (G_OBJECT (device), "PinosNode", node);
 
   element = gst_device_create_element (device, NULL);
 
   if (strstr (klass, "Source")) {
-    pinos_gst_source_new (node,
-                          name,
-                          properties,
-                          element,
-                          caps);
+    node = pinos_gst_source_new (priv->daemon,
+                                 name,
+                                 properties,
+                                 element,
+                                 caps);
   } else if (strstr (klass, "Sink")) {
-    pinos_gst_sink_new (node,
-                        name,
-                        properties,
-                        element,
-                        caps);
+    node = pinos_gst_sink_new (priv->daemon,
+                               name,
+                               properties,
+                               element,
+                               caps);
   }
+  if (node)
+    g_object_set_data (G_OBJECT (device), "PinosNode", node);
 
   pinos_properties_free (properties);
   gst_caps_unref (caps);

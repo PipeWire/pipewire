@@ -30,8 +30,8 @@ typedef struct _PinosNodePrivate PinosNodePrivate;
 
 #include <pinos/client/introspect.h>
 #include <pinos/server/daemon.h>
-#include <pinos/server/source.h>
-#include <pinos/server/sink.h>
+#include <pinos/server/node.h>
+#include <pinos/server/port.h>
 
 #define PINOS_TYPE_NODE                 (pinos_node_get_type ())
 #define PINOS_IS_NODE(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_NODE))
@@ -55,11 +55,15 @@ struct _PinosNode {
 
 /**
  * PinosNodeClass:
+ * @set_state: called to change the current state of the node
  *
  * Pinos node class.
  */
 struct _PinosNodeClass {
   GObjectClass parent_class;
+
+  gboolean  (*set_state)  (PinosNode *node, PinosNodeState state);
+
 };
 
 /* normal GObject stuff */
@@ -70,15 +74,18 @@ PinosNode *         pinos_node_new                     (PinosDaemon *daemon);
 PinosDaemon *       pinos_node_get_daemon              (PinosNode *node);
 const gchar *       pinos_node_get_object_path         (PinosNode *node);
 
-void                pinos_node_set_source              (PinosNode   *node,
-                                                        PinosSource *source,
-                                                        GObject     *iface);
-PinosSource *       pinos_node_get_source              (PinosNode   *node);
+void                pinos_node_add_port                (PinosNode *node,
+                                                        PinosPort *port);
+void                pinos_node_remove_port             (PinosNode *node,
+                                                        PinosPort *port);
+GList *             pinos_node_get_ports               (PinosNode *node);
 
-void                pinos_node_set_sink                (PinosNode   *node,
-                                                        PinosSink   *sink,
-                                                        GObject     *iface);
-PinosSink *         pinos_node_get_sink                (PinosNode   *node);
+gboolean            pinos_node_set_state               (PinosNode *node, PinosNodeState state);
+void                pinos_node_update_state            (PinosNode *node, PinosNodeState state);
+
+void                pinos_node_report_error            (PinosNode *node, GError *error);
+void                pinos_node_report_idle             (PinosNode *node);
+void                pinos_node_report_busy             (PinosNode *node);
 
 G_END_DECLS
 

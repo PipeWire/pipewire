@@ -366,18 +366,40 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
 {
   GstPinosSink *pinossink;
   gchar *str;
+  GBytes *format;
   PinosStreamState state;
   gboolean res = FALSE;
 
   pinossink = GST_PINOS_SINK (bsink);
 
   str = gst_caps_to_string (caps);
+  format = g_bytes_new_take (str, strlen (str) + 1);
 
   pinos_main_loop_lock (pinossink->loop);
   state = pinos_stream_get_state (pinossink->stream);
 
   if (state == PINOS_STREAM_STATE_ERROR)
     goto start_error;
+
+  if (state == PINOS_STREAM_STATE_UNCONNECTED) {
+    pinos_stream_connect (pinossink->stream,
+                          PINOS_DIRECTION_INPUT,
+                          pinossink->path,
+                          0,
+                          g_bytes_ref (format));
+
+    while (TRUE) {
+      state = pinos_stream_get_state (pinossink->stream);
+
+      if (state == PINOS_STREAM_STATE_READY)
+        break;
+
+      if (state == PINOS_STREAM_STATE_ERROR)
+        goto start_error;
+
+      pinos_main_loop_wait (pinossink->loop);
+    }
+  }
 
   if (state == PINOS_STREAM_STATE_STREAMING) {
     PinosBufferBuilder builder;
@@ -387,16 +409,16 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
     pinos_buffer_builder_init (&builder);
 
     change.id = 1;
-    change.format = str;
+    change.format = g_bytes_get_data (format, NULL);
     pinos_buffer_builder_add_format_change (&builder, &change);
     pinos_buffer_builder_end (&builder, &pbuf);
 
     res = pinos_stream_send_buffer (pinossink->stream, &pbuf);
     pinos_buffer_clear (&pbuf);
   } else {
-    GBytes *format = g_bytes_new_take (str, strlen (str) + 1);
-
-    res = pinos_stream_start (pinossink->stream, format, PINOS_STREAM_MODE_BUFFER);
+    res = pinos_stream_start (pinossink->stream,
+                             g_bytes_ref (format),
+                             PINOS_STREAM_MODE_BUFFER);
 
     while (TRUE) {
       state = pinos_stream_get_state (pinossink->stream);
@@ -411,6 +433,7 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
     }
   }
   pinos_main_loop_unlock (pinossink->loop);
+  g_bytes_unref (format);
 
   pinossink->negotiated = res;
 
@@ -420,6 +443,7 @@ start_error:
   {
     GST_ERROR ("could not start stream");
     pinos_main_loop_unlock (pinossink->loop);
+    g_bytes_unref (format);
     return FALSE;
   }
 }
@@ -563,32 +587,9 @@ gst_pinos_sink_start (GstBaseSink * basesink)
   pinossink->stream = pinos_stream_new (pinossink->ctx, pinossink->client_name, props);
   g_signal_connect (pinossink->stream, "notify::state", (GCallback) on_stream_notify, pinossink);
   g_signal_connect (pinossink->stream, "new-buffer", (GCallback) on_new_buffer, pinossink);
-
-  pinos_stream_connect_sink (pinossink->stream, pinossink->path, 0, g_bytes_new_static ("ANY", strlen ("ANY")+1));
-
-  while (TRUE) {
-    PinosStreamState state = pinos_stream_get_state (pinossink->stream);
-
-    if (state == PINOS_STREAM_STATE_READY)
-      break;
-
-    if (state == PINOS_STREAM_STATE_ERROR)
-      goto connect_error;
-
-    pinos_main_loop_wait (pinossink->loop);
-  }
   pinos_main_loop_unlock (pinossink->loop);
 
-  pinossink->negotiated = TRUE;
-
   return TRUE;
-
-connect_error:
-  {
-    GST_ERROR ("could not connect stream");
-    pinos_main_loop_unlock (pinossink->loop);
-    return FALSE;
-  }
 }
 
 static gboolean

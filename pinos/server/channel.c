@@ -36,7 +36,8 @@ struct _PinosChannelPrivate
 
   gchar *object_path;
   gchar *client_path;
-  gchar *owner_path;
+  gchar *port_path;
+  PinosDirection direction;
 
   GBytes *possible_formats;
   PinosProperties *properties;
@@ -58,7 +59,8 @@ enum
   PROP_DAEMON,
   PROP_OBJECT_PATH,
   PROP_CLIENT_PATH,
-  PROP_OWNER_PATH,
+  PROP_PORT_PATH,
+  PROP_DIRECTION,
   PROP_POSSIBLE_FORMATS,
   PROP_PROPERTIES,
   PROP_REQUESTED_FORMAT,
@@ -97,8 +99,12 @@ pinos_channel_get_property (GObject    *_object,
       g_value_set_string (value, priv->client_path);
       break;
 
-    case PROP_OWNER_PATH:
-      g_value_set_string (value, priv->owner_path);
+    case PROP_PORT_PATH:
+      g_value_set_string (value, priv->port_path);
+      break;
+
+    case PROP_DIRECTION:
+      g_value_set_enum (value, priv->direction);
       break;
 
     case PROP_POSSIBLE_FORMATS:
@@ -154,9 +160,14 @@ pinos_channel_set_property (GObject      *_object,
       g_object_set (priv->iface, "client", priv->client_path, NULL);
       break;
 
-    case PROP_OWNER_PATH:
-      priv->owner_path = g_value_dup_string (value);
-      g_object_set (priv->iface, "owner", priv->owner_path, NULL);
+    case PROP_PORT_PATH:
+      priv->port_path = g_value_dup_string (value);
+      g_object_set (priv->iface, "port", priv->port_path, NULL);
+      break;
+
+    case PROP_DIRECTION:
+      priv->direction = g_value_get_enum (value);
+      g_object_set (priv->iface, "direction", priv->direction, NULL);
       break;
 
     case PROP_POSSIBLE_FORMATS:
@@ -212,7 +223,7 @@ stop_transfer (PinosChannel *channel)
     g_object_notify (G_OBJECT (channel), "socket");
   }
   clear_formats (channel);
-  priv->state = PINOS_CHANNEL_STATE_IDLE;
+  priv->state = PINOS_CHANNEL_STATE_STOPPED;
   g_object_set (priv->iface,
                "state", priv->state,
                 NULL);
@@ -321,14 +332,13 @@ handle_remove (PinosChannel1          *interface,
 }
 
 static void
-channel_register_object (PinosChannel *channel,
-                        const gchar       *prefix)
+channel_register_object (PinosChannel *channel)
 {
   PinosChannelPrivate *priv = channel->priv;
   PinosObjectSkeleton *skel;
   gchar *name;
 
-  name = g_strdup_printf ("%s/channel", prefix);
+  name = g_strdup_printf ("%s/channel", priv->client_path);
   skel = pinos_object_skeleton_new (name);
   g_free (name);
 
@@ -377,7 +387,7 @@ pinos_channel_finalize (GObject * object)
   g_clear_object (&priv->iface);
   g_free (priv->client_path);
   g_free (priv->object_path);
-  g_free (priv->owner_path);
+  g_free (priv->port_path);
 
   G_OBJECT_CLASS (pinos_channel_parent_class)->finalize (object);
 }
@@ -386,10 +396,9 @@ static void
 pinos_channel_constructed (GObject * object)
 {
   PinosChannel *channel = PINOS_CHANNEL (object);
-  PinosChannelPrivate *priv = channel->priv;
 
   g_debug ("channel %p: constructed", channel);
-  channel_register_object (channel, priv->object_path);
+  channel_register_object (channel);
 
   G_OBJECT_CLASS (pinos_channel_parent_class)->constructed (object);
 }
@@ -438,14 +447,25 @@ pinos_channel_class_init (PinosChannelClass * klass)
                                                         G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class,
-                                   PROP_OWNER_PATH,
-                                   g_param_spec_string ("owner-path",
-                                                        "Owner Path",
-                                                        "The owner object path",
+                                   PROP_PORT_PATH,
+                                   g_param_spec_string ("port-path",
+                                                        "Port Path",
+                                                        "The port object path",
                                                         NULL,
                                                         G_PARAM_READWRITE |
-                                                        G_PARAM_CONSTRUCT_ONLY |
+                                                        G_PARAM_CONSTRUCT |
                                                         G_PARAM_STATIC_STRINGS));
+
+ g_object_class_install_property (gobject_class,
+                                   PROP_DIRECTION,
+                                   g_param_spec_enum ("direction",
+                                                      "Direction",
+                                                      "The direction of the port",
+                                                      PINOS_TYPE_DIRECTION,
+                                                      PINOS_DIRECTION_INVALID,
+                                                      G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY |
+                                                      G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class,
                                    PROP_POSSIBLE_FORMATS,
@@ -516,8 +536,10 @@ pinos_channel_init (PinosChannel * channel)
   g_signal_connect (priv->iface, "handle-stop", (GCallback) handle_stop, channel);
   g_signal_connect (priv->iface, "handle-remove", (GCallback) handle_remove, channel);
 
-  priv->state = PINOS_CHANNEL_STATE_IDLE;
+  priv->state = PINOS_CHANNEL_STATE_STOPPED;
   g_object_set (priv->iface, "state", priv->state, NULL);
+
+  priv->direction = PINOS_DIRECTION_INVALID;
 
   g_debug ("channel %p: new", channel);
 }

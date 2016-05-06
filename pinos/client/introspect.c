@@ -274,69 +274,66 @@ pinos_context_get_client_info_by_id (PinosContext *context,
 }
 
 /**
- * pinos_source_state_as_string:
- * @state: a #PinosSourceState
+ * pinos_node_state_as_string:
+ * @state: a #PinosNodeeState
  *
  * Return the string representation of @state.
  *
  * Returns: the string representation of @state.
  */
 const gchar *
-pinos_source_state_as_string (PinosSourceState state)
+pinos_node_state_as_string (PinosNodeState state)
 {
   GEnumValue *val;
 
-  val = g_enum_get_value (G_ENUM_CLASS (g_type_class_ref (PINOS_TYPE_SOURCE_STATE)),
+  val = g_enum_get_value (G_ENUM_CLASS (g_type_class_ref (PINOS_TYPE_NODE_STATE)),
                           state);
 
   return val == NULL ? "invalid-state" : val->value_nick;
 }
 
 static void
-source_fill_info (PinosSourceInfo *info, GDBusProxy *proxy)
+node_fill_info (PinosNodeInfo *info, GDBusProxy *proxy)
 {
   GHashTable *changed = g_object_get_data (G_OBJECT (proxy), "pinos-changed-properties");
 
   info->id = proxy;
-  info->source_path = g_dbus_proxy_get_object_path (proxy);
+  info->node_path = g_dbus_proxy_get_object_path (proxy);
 
   info->change_mask = 0;
   SET_STRING ("Name", name, 0);
   SET_PROPERTIES ("Properties", properties, 1);
-  SET_UINT32 ("State", state, 2, PINOS_SOURCE_STATE_ERROR);
-  SET_BYTES ("PossibleFormats", possible_formats, 3);
+  SET_UINT32 ("State", state, 2, PINOS_NODE_STATE_ERROR);
 
   if (changed)
     g_hash_table_remove_all (changed);
 }
 
 static void
-source_clear_info (PinosSourceInfo *info)
+node_clear_info (PinosNodeInfo *info)
 {
   if (info->properties)
     pinos_properties_free (info->properties);
-  if (info->possible_formats)
-    g_bytes_unref (info->possible_formats);
 }
 
 /**
- * pinos_context_list_source_info:
+ * pinos_context_list_node_info:
  * @context: a connected #PinosContext
- * @flags: extra #PinosSourceInfoFlags
- * @cb: a #PinosSourceInfoCallback
+ * @flags: extra #PinosNodeInfoFlags
+ * @cb: a #PinosNodeInfoCallback
  * @cancelable: a #GCancellable
  * @callback: a #GAsyncReadyCallback to call when the operation is finished
  * @user_data: user data passed to @cb
  *
- * Call @cb for each source.
+ * Call @cb for each node.
  */
 void
-pinos_context_list_source_info (PinosContext            *context,
-                                PinosSourceInfoFlags     flags,
-                                PinosSourceInfoCallback  cb,
-                                GCancellable            *cancellable,
-                                GAsyncReadyCallback      callback,
-                                gpointer                 user_data)
+pinos_context_list_node_info (PinosContext          *context,
+                              PinosNodeInfoFlags     flags,
+                              PinosNodeInfoCallback  cb,
+                              GCancellable          *cancellable,
+                              GAsyncReadyCallback    callback,
+                              gpointer               user_data)
 {
   PinosContextPrivate *priv;
   GList *walk;
@@ -349,13 +346,13 @@ pinos_context_list_source_info (PinosContext            *context,
 
   priv = context->priv;
 
-  for (walk = priv->sources; walk; walk = g_list_next (walk)) {
+  for (walk = priv->nodes; walk; walk = g_list_next (walk)) {
     GDBusProxy *proxy = walk->data;
-    PinosSourceInfo info;
+    PinosNodeInfo info;
 
-    source_fill_info (&info, proxy);
+    node_fill_info (&info, proxy);
     cb (context, &info, user_data);
-    source_clear_info (&info);
+    node_clear_info (&info);
   }
 
   g_task_return_boolean (task, TRUE);
@@ -363,27 +360,27 @@ pinos_context_list_source_info (PinosContext            *context,
 }
 
 /**
- * pinos_context_get_source_info_by_id:
+ * pinos_context_get_node_info_by_id:
  * @context: a connected #PinosContext
- * @id: a source id
- * @flags: extra #PinosSourceInfoFlags
- * @cb: a #PinosSourceInfoCallback
+ * @id: a node id
+ * @flags: extra #PinosNodeInfoFlags
+ * @cb: a #PinosNodeInfoCallback
  * @cancelable: a #GCancellable
  * @callback: a #GAsyncReadyCallback to call when the operation is finished
  * @user_data: user data passed to @cb
  *
- * Call @cb for the source with @id.
+ * Call @cb for the node with @id.
  */
 void
-pinos_context_get_source_info_by_id (PinosContext *context,
-                                     gpointer id,
-                                     PinosSourceInfoFlags flags,
-                                     PinosSourceInfoCallback cb,
-                                     GCancellable *cancellable,
-                                     GAsyncReadyCallback callback,
-                                     gpointer user_data)
+pinos_context_get_node_info_by_id (PinosContext *context,
+                                   gpointer id,
+                                   PinosNodeInfoFlags flags,
+                                   PinosNodeInfoCallback cb,
+                                   GCancellable *cancellable,
+                                   GAsyncReadyCallback callback,
+                                   gpointer user_data)
 {
-  PinosSourceInfo info;
+  PinosNodeInfo info;
   GDBusProxy *proxy;
   GTask *task;
 
@@ -395,53 +392,54 @@ pinos_context_get_source_info_by_id (PinosContext *context,
 
   proxy = G_DBUS_PROXY (id);
 
-  source_fill_info (&info, proxy);
+  node_fill_info (&info, proxy);
   cb (context, &info, user_data);
-  source_clear_info (&info);
+  node_clear_info (&info);
 
   g_task_return_boolean (task, TRUE);
   g_object_unref (task);
 }
 
 /**
- * pinos_sink_state_as_string:
- * @state: a #PinosSinkState
+ * pinos_direction_as_string:
+ * @direction: a #PinosDirection
  *
- * Return the string representation of @state.
+ * Return the string representation of @direction.
  *
- * Returns: the string representation of @state.
+ * Returns: the string representation of @direction.
  */
 const gchar *
-pinos_sink_state_as_string (PinosSinkState state)
+pinos_direction_as_string (PinosDirection direction)
 {
   GEnumValue *val;
 
-  val = g_enum_get_value (G_ENUM_CLASS (g_type_class_ref (PINOS_TYPE_SINK_STATE)),
-                          state);
+  val = g_enum_get_value (G_ENUM_CLASS (g_type_class_ref (PINOS_TYPE_DIRECTION)),
+                          direction);
 
-  return val == NULL ? "invalid-state" : val->value_nick;
+  return val == NULL ? "invalid-direction" : val->value_nick;
 }
 
 static void
-sink_fill_info (PinosSinkInfo *info, GDBusProxy *proxy)
+port_fill_info (PinosPortInfo *info, GDBusProxy *proxy)
 {
   GHashTable *changed = g_object_get_data (G_OBJECT (proxy), "pinos-changed-properties");
 
   info->id = proxy;
-  info->sink_path = g_dbus_proxy_get_object_path (proxy);
+  info->port_path = g_dbus_proxy_get_object_path (proxy);
+  SET_UINT32 ("Direction", direction, 0, PINOS_DIRECTION_INVALID);
+  SET_STRING ("Node", node_path, 0);
 
   info->change_mask = 0;
   SET_STRING ("Name", name, 0);
   SET_PROPERTIES ("Properties", properties, 1);
-  SET_UINT32 ("State", state, 2, PINOS_SINK_STATE_ERROR);
-  SET_BYTES ("PossibleFormats", possible_formats, 3);
+  SET_BYTES ("PossibleFormats", possible_formats, 2);
 
   if (changed)
     g_hash_table_remove_all (changed);
 }
 
 static void
-sink_clear_info (PinosSinkInfo *info)
+port_clear_info (PinosPortInfo *info)
 {
   if (info->properties)
     pinos_properties_free (info->properties);
@@ -450,20 +448,20 @@ sink_clear_info (PinosSinkInfo *info)
 }
 
 /**
- * pinos_context_list_sink_info:
+ * pinos_context_list_port_info:
  * @context: a connected #PinosContext
- * @flags: extra #PinosSinkInfoFlags
- * @cb: a #PinosSinkInfoCallback
+ * @flags: extra #PinosPortInfoFlags
+ * @cb: a #PinosPortInfoCallback
  * @cancelable: a #GCancellable
  * @callback: a #GAsyncReadyCallback to call when the operation is finished
  * @user_data: user data passed to @cb
  *
- * Call @cb for each sink.
+ * Call @cb for each port.
  */
 void
-pinos_context_list_sink_info (PinosContext            *context,
-                              PinosSinkInfoFlags       flags,
-                              PinosSinkInfoCallback    cb,
+pinos_context_list_port_info (PinosContext            *context,
+                              PinosPortInfoFlags       flags,
+                              PinosPortInfoCallback    cb,
                               GCancellable            *cancellable,
                               GAsyncReadyCallback      callback,
                               gpointer                 user_data)
@@ -479,13 +477,13 @@ pinos_context_list_sink_info (PinosContext            *context,
 
   priv = context->priv;
 
-  for (walk = priv->sinks; walk; walk = g_list_next (walk)) {
+  for (walk = priv->ports; walk; walk = g_list_next (walk)) {
     GDBusProxy *proxy = walk->data;
-    PinosSinkInfo info;
+    PinosPortInfo info;
 
-    sink_fill_info (&info, proxy);
+    port_fill_info (&info, proxy);
     cb (context, &info, user_data);
-    sink_clear_info (&info);
+    port_clear_info (&info);
   }
 
   g_task_return_boolean (task, TRUE);
@@ -493,27 +491,27 @@ pinos_context_list_sink_info (PinosContext            *context,
 }
 
 /**
- * pinos_context_get_sink_info_by_id:
+ * pinos_context_get_port_info_by_id:
  * @context: a connected #PinosContext
- * @id: a sink id
- * @flags: extra #PinosSinkInfoFlags
- * @cb: a #PinosSinkInfoCallback
+ * @id: a port id
+ * @flags: extra #PinosPortInfoFlags
+ * @cb: a #PinosPortInfoCallback
  * @cancelable: a #GCancellable
  * @callback: a #GAsyncReadyCallback to call when the operation is finished
  * @user_data: user data passed to @cb
  *
- * Call @cb for the sink with @id.
+ * Call @cb for the port with @id.
  */
 void
-pinos_context_get_sink_info_by_id (PinosContext *context,
+pinos_context_get_port_info_by_id (PinosContext *context,
                                    gpointer id,
-                                   PinosSinkInfoFlags flags,
-                                   PinosSinkInfoCallback cb,
+                                   PinosPortInfoFlags flags,
+                                   PinosPortInfoCallback cb,
                                    GCancellable *cancellable,
                                    GAsyncReadyCallback callback,
                                    gpointer user_data)
 {
-  PinosSinkInfo info;
+  PinosPortInfo info;
   GDBusProxy *proxy;
   GTask *task;
 
@@ -525,9 +523,9 @@ pinos_context_get_sink_info_by_id (PinosContext *context,
 
   proxy = G_DBUS_PROXY (id);
 
-  sink_fill_info (&info, proxy);
+  port_fill_info (&info, proxy);
   cb (context, &info, user_data);
-  sink_clear_info (&info);
+  port_clear_info (&info);
 
   g_task_return_boolean (task, TRUE);
   g_object_unref (task);
@@ -559,14 +557,15 @@ channel_fill_info (PinosChannelInfo *info, GDBusProxy *proxy)
 
   info->id = proxy;
   info->channel_path = g_dbus_proxy_get_object_path (proxy);
+  SET_UINT32 ("Direction", direction, 2, PINOS_DIRECTION_INVALID);
+  SET_STRING ("Client", client_path, 0);
 
   info->change_mask = 0;
-  SET_STRING ("Client", client_path, 0);
-  SET_STRING ("Owner", owner_path, 1);
-  SET_BYTES ("PossibleFormats", possible_formats, 2);
-  SET_UINT32 ("State", state, 3, PINOS_CHANNEL_STATE_ERROR);
+  SET_STRING ("Port", port_path, 0);
+  SET_PROPERTIES ("Properties", properties, 1);
+  SET_UINT32 ("State", state, 2, PINOS_CHANNEL_STATE_ERROR);
+  SET_BYTES ("PossibleFormats", possible_formats, 3);
   SET_BYTES ("Format", format, 4);
-  SET_PROPERTIES ("Properties", properties, 5);
 
   if (changed)
     g_hash_table_remove_all (changed);
@@ -577,6 +576,8 @@ channel_clear_info (PinosChannelInfo *info)
 {
   if (info->possible_formats)
     g_bytes_unref (info->possible_formats);
+  if (info->format)
+    g_bytes_unref (info->format);
   if (info->properties)
     pinos_properties_free (info->properties);
 }
@@ -627,7 +628,7 @@ pinos_context_list_channel_info (PinosContext *context,
 /**
  * pinos_context_get_channel_info_by_id:
  * @context: a connected #PinosContext
- * @id: a source output id
+ * @id: a channel id
  * @flags: extra #PinosChannelInfoFlags
  * @cb: a #PinosChannelInfoCallback
  * @cancelable: a #GCancellable

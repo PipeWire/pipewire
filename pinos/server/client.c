@@ -21,7 +21,7 @@
 #include "pinos/client/pinos.h"
 
 #include "pinos/server/client.h"
-#include "pinos/server/client-source.h"
+#include "pinos/server/upload-node.h"
 
 #include "pinos/dbus/org-pinos.h"
 
@@ -139,17 +139,17 @@ handle_remove_channel (PinosChannel *channel,
 }
 
 static gboolean
-handle_create_source_channel (PinosClient1           *interface,
-                              GDBusMethodInvocation  *invocation,
-                              const gchar            *arg_source,
-                              const gchar            *arg_accepted_formats,
-                              GVariant               *arg_properties,
-                              gpointer                user_data)
+handle_create_channel (PinosClient1           *interface,
+                       GDBusMethodInvocation  *invocation,
+                       PinosDirection          direction,
+                       const gchar            *arg_port,
+                       const gchar            *arg_possible_formats,
+                       GVariant               *arg_properties,
+                       gpointer                user_data)
 {
   PinosClient *client = user_data;
   PinosClientPrivate *priv = client->priv;
-  PinosNode *node;
-  PinosSource *source;
+  PinosPort *port;
   PinosChannel *channel;
   const gchar *object_path, *sender;
   GBytes *formats;
@@ -160,27 +160,25 @@ handle_create_source_channel (PinosClient1           *interface,
   if (g_strcmp0 (pinos_client_get_sender (client), sender) != 0)
     goto not_allowed;
 
-  formats = g_bytes_new (arg_accepted_formats, strlen (arg_accepted_formats) + 1);
+  formats = g_bytes_new (arg_possible_formats, strlen (arg_possible_formats) + 1);
   props = pinos_properties_from_variant (arg_properties);
 
-  node = pinos_daemon_find_node (priv->daemon,
-                                 arg_source,
+  port = pinos_daemon_find_port (priv->daemon,
+                                 direction,
+                                 arg_port,
                                  props,
                                  formats,
                                  &error);
-  if (node == NULL)
-    goto no_node;
+  if (port == NULL)
+    goto no_port;
 
-  source = pinos_node_get_source (node);
-  if (source == NULL)
-    goto no_source;
+  g_debug ("client %p: matched port %s", client, pinos_port_get_object_path (port));
 
-  channel = pinos_source_create_channel (source,
-                                         priv->object_path,
-                                         formats,
-                                         props,
-                                         priv->object_path,
-                                         &error);
+  channel = pinos_port_create_channel (port,
+                                       priv->object_path,
+                                       formats,
+                                       props,
+                                       &error);
   pinos_properties_free (props);
   g_bytes_unref (formats);
 
@@ -208,124 +206,18 @@ not_allowed:
                  "org.pinos.Error", "not client owner");
     return TRUE;
   }
-no_node:
+no_port:
   {
-    g_debug ("client %p: could not find node %s, %s", client, arg_source, error->message);
+    g_debug ("client %p: could not find port %s, %s", client, arg_port, error->message);
     g_dbus_method_invocation_return_gerror (invocation, error);
     pinos_properties_free (props);
     g_bytes_unref (formats);
     g_clear_error (&error);
-    return TRUE;
-  }
-no_source:
-  {
-    g_debug ("client %p: node %s is not a source", client, arg_source);
-    g_dbus_method_invocation_return_dbus_error (invocation,
-                 "org.pinos.Error", "not node is not a source");
-    pinos_properties_free (props);
-    g_bytes_unref (formats);
     return TRUE;
   }
 no_channel:
   {
-    g_debug ("client %p: could not create source channel %s", client, error->message);
-    g_dbus_method_invocation_return_gerror (invocation, error);
-    g_clear_error (&error);
-    return TRUE;
-  }
-}
-
-static gboolean
-handle_create_sink_channel (PinosClient1           *interface,
-                            GDBusMethodInvocation  *invocation,
-                            const gchar            *arg_sink,
-                            const gchar            *arg_accepted_formats,
-                            GVariant               *arg_properties,
-                            gpointer                user_data)
-{
-  PinosClient *client = user_data;
-  PinosClientPrivate *priv = client->priv;
-  PinosNode *node;
-  PinosSink *sink;
-  PinosChannel *channel;
-  const gchar *object_path, *sender;
-  GBytes *formats;
-  PinosProperties *props;
-  GError *error = NULL;
-
-  sender = g_dbus_method_invocation_get_sender (invocation);
-  if (g_strcmp0 (pinos_client_get_sender (client), sender) != 0)
-    goto not_allowed;
-
-  formats = g_bytes_new (arg_accepted_formats, strlen (arg_accepted_formats) + 1);
-  props = pinos_properties_from_variant (arg_properties);
-
-  node = pinos_daemon_find_node (priv->daemon,
-                                 arg_sink,
-                                 props,
-                                 formats,
-                                 &error);
-  if (node == NULL)
-    goto no_node;
-
-  sink = pinos_node_get_sink (node);
-  if (sink == NULL)
-    goto no_sink;
-
-  channel = pinos_sink_create_channel (sink,
-                                       priv->object_path,
-                                       formats,
-                                       props,
-                                       priv->object_path,
-                                       &error);
-  pinos_properties_free (props);
-  g_bytes_unref (formats);
-
-  if (channel == NULL)
-    goto no_channel;
-
-  priv->channels = g_list_prepend (priv->channels, channel);
-
-  g_signal_connect (channel,
-                    "remove",
-                    (GCallback) handle_remove_channel,
-                    client);
-
-  object_path = pinos_channel_get_object_path (channel);
-  g_debug ("client %p: add sink channel %p, %s", client, channel, object_path);
-  g_dbus_method_invocation_return_value (invocation,
-                                         g_variant_new ("(o)", object_path));
-
-  return TRUE;
-
-  /* ERRORS */
-not_allowed:
-  {
-    g_dbus_method_invocation_return_dbus_error (invocation,
-                 "org.pinos.Error", "not client owner");
-    return TRUE;
-  }
-no_node:
-  {
-    g_debug ("client %p: could not find node %s, %s", client, arg_sink, error->message);
-    g_dbus_method_invocation_return_gerror (invocation, error);
-    pinos_properties_free (props);
-    g_bytes_unref (formats);
-    g_clear_error (&error);
-    return TRUE;
-  }
-no_sink:
-  {
-    g_debug ("client %p: node %s is not a sink", client, arg_sink);
-    g_dbus_method_invocation_return_dbus_error (invocation,
-                 "org.pinos.Error", "node is not a sink");
-    pinos_properties_free (props);
-    g_bytes_unref (formats);
-    return TRUE;
-  }
-no_channel:
-  {
-    g_debug ("client %p: could not create sink channel %s", client, error->message);
+    g_debug ("client %p: could not create channel %s", client, error->message);
     g_dbus_method_invocation_return_gerror (invocation, error);
     g_clear_error (&error);
     return TRUE;
@@ -341,7 +233,7 @@ handle_create_upload_channel (PinosClient1           *interface,
 {
   PinosClient *client = user_data;
   PinosClientPrivate *priv = client->priv;
-  PinosSource *source;
+  PinosNode *node;
   PinosChannel *channel;
   const gchar *channel_path, *sender;
   GBytes *formats;
@@ -354,19 +246,18 @@ handle_create_upload_channel (PinosClient1           *interface,
 
   formats = g_bytes_new (arg_possible_formats, strlen (arg_possible_formats) + 1);
 
-  source = pinos_client_source_new (priv->daemon, formats);
-  if (source == NULL)
-    goto no_source;
+  node = pinos_upload_node_new (priv->daemon, formats);
+  if (node == NULL)
+    goto no_node;
 
   sender = g_dbus_method_invocation_get_sender (invocation);
   props = pinos_properties_from_variant (arg_properties);
 
-  channel = pinos_client_source_get_channel (PINOS_CLIENT_SOURCE (source),
-                                             priv->object_path,
-                                             formats,
-                                             props,
-                                             priv->object_path,
-                                             &error);
+  channel = pinos_upload_node_get_channel (PINOS_UPLOAD_NODE (node),
+                                           priv->object_path,
+                                           formats,
+                                           props,
+                                           &error);
   pinos_properties_free (props);
 
   if (channel == NULL)
@@ -374,7 +265,7 @@ handle_create_upload_channel (PinosClient1           *interface,
 
   g_object_set_data_full (G_OBJECT (channel),
                           "channel-owner",
-                          source,
+                          node,
                           g_object_unref);
 
   channel_path = pinos_channel_get_object_path (channel);
@@ -399,11 +290,11 @@ not_allowed:
                  "org.pinos.Error", "not client owner");
     return TRUE;
   }
-no_source:
+no_node:
   {
-    g_debug ("client %p: could not create source", client);
+    g_debug ("client %p: could not create upload node", client);
     g_dbus_method_invocation_return_dbus_error (invocation,
-        "org.pinos.Error", "Can't create source");
+        "org.pinos.Error", "Can't create upload node");
     g_bytes_unref (formats);
     return TRUE;
   }
@@ -411,7 +302,7 @@ no_channel:
   {
     g_debug ("client %p: could not create upload channel %s", client, error->message);
     g_dbus_method_invocation_return_gerror (invocation, error);
-    g_object_unref (source);
+    g_object_unref (node);
     g_clear_error (&error);
     g_bytes_unref (formats);
     return TRUE;
@@ -448,11 +339,8 @@ client_register_object (PinosClient *client,
   priv->client1 = pinos_client1_skeleton_new ();
   pinos_client1_set_name (priv->client1, priv->sender);
   pinos_client1_set_properties (priv->client1, pinos_properties_to_variant (priv->properties));
-  g_signal_connect (priv->client1, "handle-create-source-channel",
-                                   (GCallback) handle_create_source_channel,
-                                   client);
-  g_signal_connect (priv->client1, "handle-create-sink-channel",
-                                   (GCallback) handle_create_sink_channel,
+  g_signal_connect (priv->client1, "handle-create-channel",
+                                   (GCallback) handle_create_channel,
                                    client);
   g_signal_connect (priv->client1, "handle-create-upload-channel",
                                    (GCallback) handle_create_upload_channel,

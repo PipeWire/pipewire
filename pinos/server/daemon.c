@@ -17,6 +17,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <string.h>
+
 #include <gio/gio.h>
 
 #include "config.h"
@@ -380,47 +382,83 @@ pinos_daemon_remove_node (PinosDaemon *daemon,
 }
 
 /**
- * pinos_daemon_find_node:
+ * pinos_daemon_find_port:
  * @daemon: a #PinosDaemon
- * @name: a node name
- * @props: node properties
+ * @name: a port name
+ * @props: port properties
  * @format_filter: a format filter
  * @error: location for an error
  *
- * Find the best node in @daemon that matches the given parameters.
+ * Find the best port in @daemon that matches the given parameters.
  *
- * Returns: a #PinosNode or %NULL when no node could be found.
+ * Returns: a #PinosPort or %NULL when no port could be found.
  */
-PinosNode *
-pinos_daemon_find_node (PinosDaemon     *daemon,
+PinosPort *
+pinos_daemon_find_port (PinosDaemon     *daemon,
+                        PinosDirection   direction,
                         const gchar     *name,
                         PinosProperties *props,
                         GBytes          *format_filter,
                         GError         **error)
 {
   PinosDaemonPrivate *priv;
-  PinosNode *best = NULL;
-  GList *walk;
+  PinosPort *best = NULL;
+  GList *node, *port;
+  gboolean have_name;
 
   g_return_val_if_fail (PINOS_IS_DAEMON (daemon), NULL);
   priv = daemon->priv;
 
-  for (walk = priv->nodes; walk; walk = g_list_next (walk)) {
-    PinosNode *n = walk->data;
+  have_name = name ? strlen (name) > 0 : FALSE;
 
-    if (name == NULL) {
-      best = n;
-      break;
+  for (node = priv->nodes; node; node = g_list_next (node)) {
+    PinosNode *n = node->data;
+    gboolean node_found = FALSE;
+
+    /* we found the node */
+    if (have_name && g_str_has_suffix (pinos_node_get_object_path (n), name)) {
+      g_debug ("name \"%s\" matches node %s", name, pinos_node_get_object_path (n));
+      node_found = TRUE;
     }
-    else if (g_str_has_suffix (pinos_node_get_object_path (n), name))
-      best = n;
-  }
 
+    for (port = pinos_node_get_ports (n); port; port = g_list_next (port)) {
+      PinosPort *p = port->data;
+      PinosDirection dir;
+      GBytes *format;
+
+      g_object_get (p, "direction", &dir, NULL);
+      if (dir != direction)
+        continue;
+
+      if (have_name && !node_found) {
+        if (!g_str_has_suffix (pinos_port_get_object_path (p), name))
+          continue;
+        g_debug ("name \"%s\" matches port %s", name, pinos_port_get_object_path (p));
+        best = p;
+        node_found = TRUE;
+        break;
+      }
+
+      format = pinos_port_get_formats (p, format_filter, NULL);
+      if (format != NULL) {
+        g_debug ("port %s with format %s matches filter %s",
+            pinos_port_get_object_path (p),
+            (gchar*)g_bytes_get_data (format, NULL),
+            format_filter ? (gchar*)g_bytes_get_data (format_filter, NULL) : "ANY");
+        g_bytes_unref (format);
+        best = p;
+        node_found = TRUE;
+        break;
+      }
+    }
+    if (node_found)
+      break;
+  }
   if (best == NULL) {
     if (error)
       *error = g_error_new (G_IO_ERROR,
                             G_IO_ERROR_NOT_FOUND,
-                            "Node not found");
+                            "No matching Port found");
   }
   return best;
 }

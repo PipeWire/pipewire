@@ -54,34 +54,22 @@
     -->
     <method name='Disconnect'/>
     <!-- CreateSourceChannel:
-         @source: the Source1 object path or / for default
+         @direction: the channel direction, 0 = input, 1 = output
+         @port: the Port1 object path or / for default
          @possible_formats: the possible formats that can be accepted
          @properties: extra properties
          @channel: the Channel object path
 
-         Create a new channel to capture from @source with given @possible_formats
+         Create a new channel to stream to/from @port with given @possible_formats
     -->
-    <method name='CreateSourceChannel'>
-      <arg type='s' name='source' direction='in'/>
+    <method name='CreateChannel'>
+      <arg type='u' name='direction' direction='in'/>
+      <arg type='s' name='port' direction='in'/>
       <arg type='s' name='possible_formats' direction='in'/>
       <arg type='a{sv}' name='properties' direction='in'/>
       <arg type='o' name='channel' direction='out'/>
     </method>
 
-    <!-- CreateSinkChannel:
-         @sink: the Sink1 object path or / for default
-         @possible_formats: the possible formats that can be provided
-         @properties: extra properties
-         @channel: the Channel object path
-
-         Create a new channel to playback to @sink with given @possible_formats
-    -->
-    <method name='CreateSinkChannel'>
-      <arg type='s' name='sink' direction='in'/>
-      <arg type='s' name='possible_formats' direction='in'/>
-      <arg type='a{sv}' name='properties' direction='in'/>
-      <arg type='o' name='channel' direction='out'/>
-    </method>
     <!-- CreateUploadChannel:
          @possible_formats: the formats that can be provided
          @properties: extra properties
@@ -98,92 +86,87 @@
   </interface>
 
   <!--
-      org.pinos.Source1:
-      @short_description: Main source interface
+      org.pinos.Node1:
+      @short_description: A processing node
 
-      A source is an object that can provide media content.
+      A node is an object that can consume and/or produce media.
   -->
-  <interface name='org.pinos.Source1'>
-    <!-- Name: the name of the source -->
+  <interface name='org.pinos.Node1'>
+    <!-- Name: the name of the node -->
     <property name='Name' type='s' access='read' />
-    <!-- Properties: extra source properties -->
+    <!-- Properties: extra node properties -->
     <property name='Properties' type='a{sv}' access='read' />
-    <!-- state: state of the source
-          -1 = the source is in error
-          0 = the source is suspended, this means the device is closed
-          1 = the source is initializing
-          2 = the source is idle, this means the device is opened but
-              no channel is consuming the data
-          3 = the source is running
+    <!-- state: state of the node
+          -1 = the node is in error
+          0 = the node is suspended, this means that the node is not
+              processing any data and has closed all devices if any
+          1 = the node is initializing
+          2 = the node is idle, this means no channel is consuming
+              the data. An idle node can become suspended.
+          3 = the node is running
     -->
     <property name='State' type='u' access='read' />
+  </interface>
+
+  <!--
+      org.pinos.Port1:
+      @short_description: a Node1 input/output port
+
+      A port on a Node1 can provide or consume data.
+  -->
+  <interface name='org.pinos.Port1'>
+    <!-- Name: the name of the port -->
+    <property name='Name' type='s' access='read' />
+    <!-- Node: the owner node of this port -->
+    <property name='Node' type='o' access='read' />
+    <!-- Direction: the direction of the port
+         0 = an input port
+         1 = an output port
+    -->
+    <property name='Direction' type='u' access='read' />
+    <!-- Properties: extra port properties -->
+    <property name='Properties' type='a{sv}' access='read' />
     <!-- PossibleFormats:
 
-         The all possible formats of this source.
+         The all possible formats of this port.
     -->
     <property name='PossibleFormats' type='s' access='read' />
   </interface>
 
   <!--
-      org.pinos.Sink1:
-      @short_description: Main sink interface
-
-      A sink is an object that can consume media content.
-  -->
-  <interface name='org.pinos.Sink1'>
-    <!-- Name: the name of the sink -->
-    <property name='Name' type='s' access='read' />
-    <!-- Properties: extra sink properties -->
-    <property name='Properties' type='a{sv}' access='read' />
-    <!-- state: state of the sink
-          -1 = the sink is in error
-          0 = the sink is suspended, this means the device is closed
-          1 = the sink is initializing
-          2 = the sink is idle, this means the device is opened but
-              no channel is providing any data
-          3 = the sink is running
-    -->
-    <property name='State' type='u' access='read' />
-    <!-- PossibleFormats:
-
-         The all possible formats of this sink.
-    -->
-    <property name='PossibleFormats' type='s' access='read' />
-  </interface>
-
-  <!--
-      org.pinos.Channel:
+      org.pinos.Channel1:
       @short_description: Interface for input/output channel
 
       This interface is used to control the input/output of a
-      source/sink and start/stop the media transport.
+      Port1 and start/stop the media transport.
   -->
   <interface name='org.pinos.Channel1'>
     <!-- Client: the owner client of this channel -->
     <property name='Client' type='o' access='read' />
-    <!-- Owner: the owner source/sink of this channel -->
-    <property name='Owner' type='o' access='read' />
-    <!-- type: type of the channel
-          0 = input channel
-          1 = output channel
+    <!-- Owner: the owner port of this channel -->
+    <property name='Port' type='o' access='read' />
+    <!-- Direction: the direction of the port
+         0 = an input port
+         1 = an output port
     -->
-    <property name='Type' type='u' access='read' />
+    <property name='Direction' type='u' access='read' />
+    <!-- Properties: extra channel properties -->
+    <property name='Properties' type='a{sv}' access='read' />
+
+    <!-- state: state of the channel
+          -1 = the channel is in error
+          0 = the channel is stopped
+          1 = the channel is starting
+          2 = the channel is streaming
+    -->
+    <property name='State' type='u' access='read' />
+
     <!-- PossibleFormats:
          all possible formats of the channel. This is filtered
          against the accepted_formats when creating the channel.
          -->
     <property name='PossibleFormats' type='s' access='read' />
 
-    <!-- Properties: extra channel properties -->
-    <property name='Properties' type='a{sv}' access='read' />
-
-    <!-- state: state of the channel
-          -1 = the channel is in error
-          0 = the channel is idle
-          1 = the channel is starting
-          2 = the channel is streaming
-    -->
-    <property name='State' type='u' access='read' />
     <!-- Format: the current streaming format -->
     <property name='Format' type='s' access='read' />
 

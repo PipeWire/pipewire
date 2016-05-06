@@ -189,7 +189,7 @@ gboolean           pinos_buffer_builder_add_release_fd_payload  (PinosBufferBuil
  */
 typedef struct {
   guint8 id;
-  gchar *format;
+  const gchar *format;
 } PinosPacketFormatChange;
 
 gboolean           pinos_buffer_iter_parse_format_change   (PinosBufferIter      *iter,
@@ -207,8 +207,8 @@ gboolean           pinos_buffer_builder_add_format_change  (PinosBufferBuilder  
  * A new property change.
  */
 typedef struct {
-  gchar *key;
-  gchar *value;
+  const gchar *key;
+  const gchar *value;
 } PinosPacketPropertyChange;
 
 gboolean           pinos_buffer_iter_parse_property_change  (PinosBufferIter      *iter,

@@ -40,8 +40,8 @@ struct _PinosContextPrivate
   PinosSubscribe *subscribe;
 
   GList *clients;
-  GList *sources;
-  GList *sinks;
+  GList *nodes;
+  GList *ports;
   GList *channels;
 };
 

@@ -22,12 +22,12 @@
 #include <gio/gio.h>
 
 #include <pinos/server/daemon.h>
-#include <pinos/server/client-source.h>
+#include <pinos/server/upload-node.h>
 
-#define PINOS_CLIENT_SOURCE_GET_PRIVATE(obj)  \
-     (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_CLIENT_SOURCE, PinosClientSourcePrivate))
+#define PINOS_UPLOAD_NODE_GET_PRIVATE(obj)  \
+     (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_UPLOAD_NODE, PinosUploadNodePrivate))
 
-struct _PinosClientSourcePrivate
+struct _PinosUploadNodePrivate
 {
   GstElement *pipeline;
   GstElement *src;
@@ -37,10 +37,12 @@ struct _PinosClientSourcePrivate
   GstCaps *format;
   GBytes *possible_formats;
 
+  PinosPort *input, *output;
+
   PinosChannel *channel;
 };
 
-G_DEFINE_TYPE (PinosClientSource, pinos_client_source, PINOS_TYPE_SOURCE);
+G_DEFINE_TYPE (PinosUploadNode, pinos_upload_node, PINOS_TYPE_NODE);
 
 enum
 {
@@ -49,13 +51,13 @@ enum
 };
 
 static void
-client_source_get_property (GObject    *_object,
+upload_node_get_property (GObject    *_object,
                             guint       prop_id,
                             GValue     *value,
                             GParamSpec *pspec)
 {
-  PinosClientSource *source = PINOS_CLIENT_SOURCE (_object);
-  PinosClientSourcePrivate *priv = source->priv;
+  PinosUploadNode *node = PINOS_UPLOAD_NODE (_object);
+  PinosUploadNodePrivate *priv = node->priv;
 
   switch (prop_id) {
     case PROP_POSSIBLE_FORMATS:
@@ -63,43 +65,47 @@ client_source_get_property (GObject    *_object,
       break;
 
     default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (source, prop_id, pspec);
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (node, prop_id, pspec);
       break;
   }
 }
 
 static void
-client_source_set_property (GObject      *_object,
+upload_node_set_property (GObject      *_object,
                             guint         prop_id,
                             const GValue *value,
                             GParamSpec   *pspec)
 {
-  PinosClientSource *source = PINOS_CLIENT_SOURCE (_object);
-  PinosClientSourcePrivate *priv = source->priv;
+  PinosUploadNode *node = PINOS_UPLOAD_NODE (_object);
+  PinosUploadNodePrivate *priv = node->priv;
 
   switch (prop_id) {
     case PROP_POSSIBLE_FORMATS:
       if (priv->possible_formats)
         g_bytes_unref (priv->possible_formats);
       priv->possible_formats = g_value_dup_boxed (value);
-      pinos_source_update_possible_formats (PINOS_SOURCE (source),
-                                            priv->possible_formats);
+      g_object_set (priv->output, "possible-formats", priv->possible_formats, NULL);
       break;
 
     default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (source, prop_id, pspec);
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (node, prop_id, pspec);
       break;
   }
 }
 
+static void
+update_channel_format (PinosChannel *channel, GBytes *format)
+{
+  g_object_set (channel, "format", format, NULL);
+}
 
 static gboolean
 bus_handler (GstBus     *bus,
              GstMessage *message,
              gpointer    user_data)
 {
-  PinosSource *source = user_data;
-  PinosClientSourcePrivate *priv = PINOS_CLIENT_SOURCE (source)->priv;
+  PinosNode *node = user_data;
+  PinosUploadNodePrivate *priv = PINOS_UPLOAD_NODE (node)->priv;
 
   switch (GST_MESSAGE_TYPE (message)) {
     case GST_MESSAGE_ERROR:
@@ -111,7 +117,7 @@ bus_handler (GstBus     *bus,
       g_warning ("got error %s (%s)\n", error->message, debug);
       g_free (debug);
 
-      pinos_source_report_error (source, error);
+      pinos_node_report_error (node, error);
       gst_element_set_state (priv->pipeline, GST_STATE_NULL);
       break;
     }
@@ -128,9 +134,8 @@ bus_handler (GstBus     *bus,
         caps_str = gst_caps_to_string (caps);
 
         format = g_bytes_new_take (caps_str, strlen (caps_str) + 1);
-        g_object_set (priv->channel, "possible-formats", format, "format", format, NULL);
-        pinos_source_update_possible_formats (source, format);
-        pinos_source_update_format (source, format);
+        g_list_foreach (pinos_port_get_channels (priv->output), (GFunc) update_channel_format, format);
+        g_list_foreach (pinos_port_get_channels (priv->input), (GFunc) update_channel_format, format);
         g_bytes_unref (format);
       }
       break;
@@ -142,9 +147,9 @@ bus_handler (GstBus     *bus,
 }
 
 static void
-setup_pipeline (PinosClientSource *source)
+setup_pipeline (PinosUploadNode *node)
 {
-  PinosClientSourcePrivate *priv = source->priv;
+  PinosUploadNodePrivate *priv = node->priv;
   GstBus *bus;
 
   priv->pipeline = gst_parse_launch ("socketsrc "
@@ -159,101 +164,41 @@ setup_pipeline (PinosClientSource *source)
   priv->src = gst_bin_get_by_name (GST_BIN (priv->pipeline), "src");
 
   bus = gst_pipeline_get_bus (GST_PIPELINE (priv->pipeline));
-  priv->id = gst_bus_add_watch (bus, bus_handler, source);
+  priv->id = gst_bus_add_watch (bus, bus_handler, node);
   gst_object_unref (bus);
 
-  g_debug ("client-source %p: setup pipeline", source);
-}
-
-static GstCaps *
-collect_caps (PinosSource *source,
-              GstCaps     *filter)
-{
-  PinosClientSourcePrivate *priv = PINOS_CLIENT_SOURCE (source)->priv;
-
-  if (priv->format)
-    return gst_caps_ref (priv->format);
-  else
-    return gst_caps_new_any ();
+  g_debug ("upload-node %p: setup pipeline", node);
 }
 
 static gboolean
-client_set_state (PinosSource      *source,
-                  PinosSourceState  state)
+node_set_state (PinosNode      *node,
+                PinosNodeState  state)
 {
-  PinosClientSourcePrivate *priv = PINOS_CLIENT_SOURCE (source)->priv;
+  PinosUploadNodePrivate *priv = PINOS_UPLOAD_NODE (node)->priv;
 
   switch (state) {
-    case PINOS_SOURCE_STATE_SUSPENDED:
+    case PINOS_NODE_STATE_SUSPENDED:
       gst_element_set_state (priv->pipeline, GST_STATE_NULL);
       break;
 
-    case PINOS_SOURCE_STATE_INITIALIZING:
+    case PINOS_NODE_STATE_INITIALIZING:
       gst_element_set_state (priv->pipeline, GST_STATE_READY);
       break;
 
-    case PINOS_SOURCE_STATE_IDLE:
+    case PINOS_NODE_STATE_IDLE:
       gst_element_set_state (priv->pipeline, GST_STATE_PAUSED);
       break;
 
-    case PINOS_SOURCE_STATE_RUNNING:
+    case PINOS_NODE_STATE_RUNNING:
       gst_element_set_state (priv->pipeline, GST_STATE_PLAYING);
       break;
 
-    case PINOS_SOURCE_STATE_ERROR:
+    case PINOS_NODE_STATE_ERROR:
       break;
   }
-  pinos_source_update_state (source, state);
+  pinos_node_update_state (node, state);
 
   return TRUE;
-}
-
-static GBytes *
-client_get_formats (PinosSource *source,
-                    GBytes      *filter,
-                    GError     **error)
-{
-  GstCaps *caps, *cfilter;
-  gchar *str;
-
-  if (filter) {
-    cfilter = gst_caps_from_string (g_bytes_get_data (filter, NULL));
-    if (cfilter == NULL)
-      goto invalid_filter;
-  } else {
-    cfilter = NULL;
-  }
-
-  caps = collect_caps (source, cfilter);
-  if (caps == NULL)
-    goto no_format;
-
-  str = gst_caps_to_string (caps);
-
-  gst_caps_unref (caps);
-  if (cfilter)
-    gst_caps_unref (cfilter);
-
-  return g_bytes_new_take (str, strlen (str) + 1);
-
-invalid_filter:
-  {
-    if (error)
-      *error = g_error_new (G_IO_ERROR,
-                            G_IO_ERROR_INVALID_ARGUMENT,
-                            "Invalid filter received");
-    return NULL;
-  }
-no_format:
-  {
-    if (error)
-      *error = g_error_new (G_IO_ERROR,
-                            G_IO_ERROR_NOT_FOUND,
-                            "No compatible format found");
-    if (cfilter)
-      gst_caps_unref (cfilter);
-    return NULL;
-  }
 }
 
 static void
@@ -261,14 +206,14 @@ on_socket_notify (GObject    *gobject,
                   GParamSpec *pspec,
                   gpointer    user_data)
 {
-  PinosClientSource *source = user_data;
-  PinosClientSourcePrivate *priv = source->priv;
+  PinosUploadNode *node = user_data;
+  PinosUploadNodePrivate *priv = node->priv;
   GSocket *socket;
   guint num_handles;
 
   g_object_get (gobject, "socket", &socket, NULL);
 
-  g_debug ("client-source %p: output socket notify %p", source, socket);
+  g_debug ("upload-node %p: output socket notify %p", node, socket);
 
   if (socket == NULL) {
     GSocket *prev_socket = g_object_steal_data (gobject, "last-socket");
@@ -292,66 +237,39 @@ on_socket_notify (GObject    *gobject,
   }
 }
 
-static PinosChannel *
-client_create_channel (PinosSource     *source,
-                       const gchar     *client_path,
-                       GBytes          *format_filter,
-                       PinosProperties *props,
-                       const gchar     *prefix,
-                       GError          **error)
+static void
+on_channel_added (PinosPort *port, PinosChannel *channel, PinosNode *node)
 {
-  PinosClientSourcePrivate *priv = PINOS_CLIENT_SOURCE (source)->priv;
-  PinosChannel *channel;
+  g_signal_connect (channel, "notify::socket", (GCallback) on_socket_notify, node);
 
-  /* propose format of input */
-  g_object_get (priv->channel, "format", &format_filter, NULL);
-
-  channel = PINOS_SOURCE_CLASS (pinos_client_source_parent_class)
-                ->create_channel (source,
-                                  client_path,
-                                  format_filter,
-                                  props,
-                                  prefix,
-                                  error);
-  g_bytes_unref (format_filter);
-
-  if (channel == NULL)
-    return NULL;
-
-  g_debug ("client-source %p: create channel %p", source, channel);
-
-  g_signal_connect (channel, "notify::socket", (GCallback) on_socket_notify, source);
-
-  return channel;
-}
-
-static gboolean
-client_release_channel  (PinosSource   *source,
-                         PinosChannel  *channel)
-{
-  g_debug ("client-source %p: release channel %p", source, channel);
-  return PINOS_SOURCE_CLASS (pinos_client_source_parent_class)->release_channel (source, channel);
+  g_debug ("upload-node %p: create channel %p", node, channel);
 }
 
 static void
-client_source_dispose (GObject * object)
+on_channel_removed (PinosPort *port, PinosChannel *channel, PinosNode *node)
 {
-  PinosClientSourcePrivate *priv = PINOS_CLIENT_SOURCE (object)->priv;
+  g_debug ("upload-node %p: release channel %p", node, channel);
+}
 
-  g_debug ("client-source %p: dispose", object);
+static void
+upload_node_dispose (GObject * object)
+{
+  PinosUploadNodePrivate *priv = PINOS_UPLOAD_NODE (object)->priv;
+
+  g_debug ("upload-node %p: dispose", object);
 
   g_source_remove (priv->id);
   gst_element_set_state (priv->pipeline, GST_STATE_NULL);
 
-  G_OBJECT_CLASS (pinos_client_source_parent_class)->dispose (object);
+  G_OBJECT_CLASS (pinos_upload_node_parent_class)->dispose (object);
 }
 
 static void
-client_source_finalize (GObject * object)
+upload_node_finalize (GObject * object)
 {
-  PinosClientSourcePrivate *priv = PINOS_CLIENT_SOURCE (object)->priv;
+  PinosUploadNodePrivate *priv = PINOS_UPLOAD_NODE (object)->priv;
 
-  g_debug ("client-source %p: finalize", object);
+  g_debug ("upload-node %p: finalize", object);
 
   g_clear_object (&priv->channel);
   g_clear_object (&priv->sink);
@@ -362,7 +280,7 @@ client_source_finalize (GObject * object)
     g_bytes_unref (priv->possible_formats);
   gst_caps_replace (&priv->format, NULL);
 
-  G_OBJECT_CLASS (pinos_client_source_parent_class)->finalize (object);
+  G_OBJECT_CLASS (pinos_upload_node_parent_class)->finalize (object);
 }
 
 
@@ -371,14 +289,14 @@ on_input_socket_notify (GObject    *gobject,
                         GParamSpec *pspec,
                         gpointer    user_data)
 {
-  PinosClientSource *source = user_data;
-  PinosClientSourcePrivate *priv = source->priv;
+  PinosUploadNode *node = user_data;
+  PinosUploadNodePrivate *priv = node->priv;
   GSocket *socket;
   GBytes *requested_format;
   GstCaps *caps;
 
   g_object_get (gobject, "socket", &socket, NULL);
-  g_debug ("client-source %p: input socket notify %p", source, socket);
+  g_debug ("upload-node %p: input socket notify %p", node, socket);
 
   if (socket) {
     /* requested format is final format */
@@ -397,11 +315,11 @@ on_input_socket_notify (GObject    *gobject,
   g_object_set (priv->src, "socket", socket, NULL);
 
   if (socket) {
-    g_debug ("client-source %p: set pipeline to PLAYING", source);
+    g_debug ("upload-node %p: set pipeline to PLAYING", node);
     gst_element_set_state (priv->pipeline, GST_STATE_PLAYING);
     g_object_unref (socket);
   } else {
-    g_debug ("client-source %p: set pipeline to READY", source);
+    g_debug ("upload-node %p: set pipeline to READY", node);
     gst_element_set_state (priv->pipeline, GST_STATE_READY);
   }
 }
@@ -410,16 +328,16 @@ static void
 handle_remove_channel (PinosChannel *channel,
                        gpointer      user_data)
 {
-  PinosClientSource *source = user_data;
-  PinosClientSourcePrivate *priv = source->priv;
+  PinosUploadNode *node = user_data;
+  PinosUploadNodePrivate *priv = node->priv;
 
-  g_debug ("client-source %p: remove channel %p", source, priv->channel);
+  g_debug ("upload-node %p: remove channel %p", node, priv->channel);
   g_clear_pointer (&priv->channel, g_object_unref);
 }
 
 /**
- * pinos_client_source_get_channel:
- * @source: a #PinosClientSource
+ * pinos_upload_node_get_channel:
+ * @node: a #PinosUploadNode
  * @client_path: the client path
  * @format_filter: a #GBytes
  * @props: extra properties
@@ -432,57 +350,54 @@ handle_remove_channel (PinosChannel *channel,
  * Returns: a new #PinosChannel.
  */
 PinosChannel *
-pinos_client_source_get_channel (PinosClientSource *source,
-                                 const gchar       *client_path,
-                                 GBytes            *format_filter,
-                                 PinosProperties   *props,
-                                 const gchar       *prefix,
-                                 GError            **error)
+pinos_upload_node_get_channel (PinosUploadNode   *node,
+                               const gchar       *client_path,
+                               GBytes            *format_filter,
+                               PinosProperties   *props,
+                               GError            **error)
 {
-  PinosClientSourcePrivate *priv;
+  PinosUploadNodePrivate *priv;
 
-  g_return_val_if_fail (PINOS_IS_CLIENT_SOURCE (source), NULL);
-  priv = source->priv;
+  g_return_val_if_fail (PINOS_IS_UPLOAD_NODE (node), NULL);
+  priv = node->priv;
 
   if (priv->channel == NULL) {
     GstCaps *caps = gst_caps_from_string (g_bytes_get_data (format_filter, NULL));
 
     gst_caps_take (&priv->format, caps);
 
-    priv->channel = PINOS_SOURCE_CLASS (pinos_client_source_parent_class)
-                        ->create_channel (PINOS_SOURCE (source),
-                                          client_path,
-                                          format_filter,
-                                          props,
-                                          prefix,
-                                          error);
+    priv->channel = pinos_port_create_channel (priv->input,
+                                               client_path,
+                                               format_filter,
+                                               props,
+                                               error);
     if (priv->channel == NULL)
       return NULL;
 
     g_signal_connect (priv->channel,
                       "remove",
                       (GCallback) handle_remove_channel,
-                      source);
+                      node);
 
-    g_debug ("client-source %p: get source input %p", source, priv->channel);
-    g_signal_connect (priv->channel, "notify::socket", (GCallback) on_input_socket_notify, source);
+    g_debug ("upload-node %p: get input %p", node, priv->channel);
+    g_signal_connect (priv->channel, "notify::socket", (GCallback) on_input_socket_notify, node);
   }
   return g_object_ref (priv->channel);
 }
 
 static void
-pinos_client_source_class_init (PinosClientSourceClass * klass)
+pinos_upload_node_class_init (PinosUploadNodeClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
-  PinosSourceClass *source_class = PINOS_SOURCE_CLASS (klass);
+  PinosNodeClass *node_class = PINOS_NODE_CLASS (klass);
 
-  g_type_class_add_private (klass, sizeof (PinosClientSourcePrivate));
+  g_type_class_add_private (klass, sizeof (PinosUploadNodePrivate));
 
-  gobject_class->dispose = client_source_dispose;
-  gobject_class->finalize = client_source_finalize;
+  gobject_class->dispose = upload_node_dispose;
+  gobject_class->finalize = upload_node_finalize;
 
-  gobject_class->get_property = client_source_get_property;
-  gobject_class->set_property = client_source_set_property;
+  gobject_class->get_property = upload_node_get_property;
+  gobject_class->set_property = upload_node_set_property;
 
   g_object_class_install_property (gobject_class,
                                    PROP_POSSIBLE_FORMATS,
@@ -494,37 +409,47 @@ pinos_client_source_class_init (PinosClientSourceClass * klass)
                                                        G_PARAM_CONSTRUCT |
                                                        G_PARAM_STATIC_STRINGS));
 
-  source_class->get_formats = client_get_formats;
-  source_class->set_state = client_set_state;
-  source_class->create_channel = client_create_channel;
-  source_class->release_channel = client_release_channel;
+  node_class->set_state = node_set_state;
 }
 
 static void
-pinos_client_source_init (PinosClientSource * source)
+pinos_upload_node_init (PinosUploadNode * node)
 {
-  source->priv = PINOS_CLIENT_SOURCE_GET_PRIVATE (source);
+  PinosUploadNodePrivate *priv = node->priv = PINOS_UPLOAD_NODE_GET_PRIVATE (node);
 
-  g_debug ("client-source %p: new", source);
-  setup_pipeline (source);
+  g_debug ("upload-node %p: new", node);
+  priv->input = pinos_port_new (PINOS_NODE (node),
+                                PINOS_DIRECTION_INPUT,
+                                "input",
+                                 priv->possible_formats,
+                                NULL);
+  priv->output = pinos_port_new (PINOS_NODE (node),
+                                 PINOS_DIRECTION_OUTPUT,
+                                 "output",
+                                 priv->possible_formats,
+                                 NULL);
+  g_signal_connect (priv->output, "channel-added", (GCallback) on_channel_added, node);
+  g_signal_connect (priv->output, "channel-removed", (GCallback) on_channel_removed, node);
+
+  setup_pipeline (node);
 }
 
 /**
- * pinos_client_source_new:
+ * pinos_upload_node_new:
  * @daemon: the parent #PinosDaemon
  * @possible_formats: a #GBytes
  *
- * Make a new #PinosSource that can be used to receive data from a client.
+ * Make a new #PinosNode that can be used to receive data from a client.
  *
- * Returns: a new #PinosSource.
+ * Returns: a new #PinosNode.
  */
-PinosSource *
-pinos_client_source_new (PinosDaemon *daemon,
-                         GBytes      *possible_formats)
+PinosNode *
+pinos_upload_node_new (PinosDaemon *daemon,
+                       GBytes      *possible_formats)
 {
-  return g_object_new (PINOS_TYPE_CLIENT_SOURCE,
+  return g_object_new (PINOS_TYPE_UPLOAD_NODE,
                        "daemon", daemon,
-                       "name", "client-source",
+                       "name", "upload-node",
                        "possible-formats", possible_formats,
                        NULL);
 }

@@ -105,11 +105,11 @@ notify_event (PinosSubscribe         *subscribe,
   else if (g_strcmp0 (interface_name, "org.pinos.Client1") == 0) {
     flags = PINOS_SUBSCRIPTION_FLAG_CLIENT;
   }
-  else if (g_strcmp0 (interface_name, "org.pinos.Source1") == 0) {
-    flags = PINOS_SUBSCRIPTION_FLAG_SOURCE;
+  else if (g_strcmp0 (interface_name, "org.pinos.Node1") == 0) {
+    flags = PINOS_SUBSCRIPTION_FLAG_NODE;
   }
-  else if (g_strcmp0 (interface_name, "org.pinos.Sink1") == 0) {
-    flags = PINOS_SUBSCRIPTION_FLAG_SINK;
+  else if (g_strcmp0 (interface_name, "org.pinos.Port1") == 0) {
+    flags = PINOS_SUBSCRIPTION_FLAG_PORT;
   }
   else if (g_strcmp0 (interface_name, "org.pinos.Channel1") == 0) {
     flags = PINOS_SUBSCRIPTION_FLAG_CHANNEL;

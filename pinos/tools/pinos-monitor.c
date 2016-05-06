@@ -137,32 +137,32 @@ dump_client_info (PinosContext *c, const PinosClientInfo *info, gpointer user_da
 }
 
 static void
-dump_source_info (PinosContext *c, const PinosSourceInfo *info, gpointer user_data)
+dump_node_info (PinosContext *c, const PinosNodeInfo *info, gpointer user_data)
 {
   DumpData *data = user_data;
 
   g_print ("\tid: %p\n", info->id);
-  g_print ("\tsource-path: \"%s\"\n", info->source_path);
+  g_print ("\tnode-path: \"%s\"\n", info->node_path);
   if (data->print_all) {
     g_print ("%c\tname: \"%s\"\n", MARK_CHANGE (0), info->name);
     print_properties (info->properties, MARK_CHANGE (1));
-    g_print ("%c\tstate: \"%s\"\n", MARK_CHANGE (2), pinos_source_state_as_string (info->state));
-    print_formats ("possible formats", info->possible_formats, MARK_CHANGE (3));
+    g_print ("%c\tstate: \"%s\"\n", MARK_CHANGE (2), pinos_node_state_as_string (info->state));
   }
 }
 
 static void
-dump_sink_info (PinosContext *c, const PinosSinkInfo *info, gpointer user_data)
+dump_port_info (PinosContext *c, const PinosPortInfo *info, gpointer user_data)
 {
   DumpData *data = user_data;
 
   g_print ("\tid: %p\n", info->id);
-  g_print ("\tsink-path: \"%s\"\n", info->sink_path);
+  g_print ("\tport-path: \"%s\"\n", info->port_path);
   if (data->print_all) {
+    g_print ("\tnode-path: \"%s\"\n", info->node_path);
+    g_print ("\tdirection: \"%s\"\n", pinos_direction_as_string (info->direction));
     g_print ("%c\tname: \"%s\"\n", MARK_CHANGE (0), info->name);
     print_properties (info->properties, MARK_CHANGE (1));
-    g_print ("%c\tstate: \"%s\"\n", MARK_CHANGE (2), pinos_sink_state_as_string (info->state));
-    print_formats ("possible formats", info->possible_formats, MARK_CHANGE (3));
+    print_formats ("possible formats", info->possible_formats, MARK_CHANGE (2));
   }
 }
 
@@ -175,12 +175,13 @@ dump_channel_info (PinosContext *c, const PinosChannelInfo *info, gpointer user_
   g_print ("\tid: %p\n", info->id);
   g_print ("\tchannel-path: \"%s\"\n", info->channel_path);
   if (data->print_all) {
-    g_print ("%c\tclient-path: \"%s\"\n", MARK_CHANGE (0), info->client_path);
-    g_print ("%c\towner-path: \"%s\"\n", MARK_CHANGE (1), info->owner_path);
-    print_formats ("possible-formats", info->possible_formats, MARK_CHANGE (2));
-    g_print ("%c\tstate: \"%s\"\n", MARK_CHANGE (3), pinos_channel_state_as_string (info->state));
+    g_print ("\tdirection: \"%s\"\n", pinos_direction_as_string (info->direction));
+    g_print ("\tclient-path: \"%s\"\n", info->client_path);
+    g_print ("%c\tport-path: \"%s\"\n", MARK_CHANGE (0), info->port_path);
+    print_properties (info->properties, MARK_CHANGE (1));
+    g_print ("%c\tstate: \"%s\"\n", MARK_CHANGE (2), pinos_channel_state_as_string (info->state));
+    print_formats ("possible-formats", info->possible_formats, MARK_CHANGE (3));
     print_formats ("format", info->format, MARK_CHANGE (4));
-    print_properties (info->properties, MARK_CHANGE (5));
   }
 }
 
@@ -205,20 +206,20 @@ dump_object (PinosContext *context, gpointer id, PinosSubscriptionFlags flags,
                                          info_ready,
                                          data);
   }
-  else if (flags & PINOS_SUBSCRIPTION_FLAG_SOURCE) {
-    pinos_context_get_source_info_by_id (context,
-                                         id,
-                                         PINOS_SOURCE_INFO_FLAGS_FORMATS,
-                                         dump_source_info,
-                                         NULL,
-                                         info_ready,
-                                         data);
-  }
-  else if (flags & PINOS_SUBSCRIPTION_FLAG_SINK) {
-    pinos_context_get_sink_info_by_id (context,
+  else if (flags & PINOS_SUBSCRIPTION_FLAG_NODE) {
+    pinos_context_get_node_info_by_id (context,
                                        id,
-                                       PINOS_SINK_INFO_FLAGS_FORMATS,
-                                       dump_sink_info,
+                                       PINOS_NODE_INFO_FLAGS_NONE,
+                                       dump_node_info,
+                                       NULL,
+                                       info_ready,
+                                       data);
+  }
+  else if (flags & PINOS_SUBSCRIPTION_FLAG_PORT) {
+    pinos_context_get_port_info_by_id (context,
+                                       id,
+                                       PINOS_PORT_INFO_FLAGS_FORMATS,
+                                       dump_port_info,
                                        NULL,
                                        info_ready,
                                        data);

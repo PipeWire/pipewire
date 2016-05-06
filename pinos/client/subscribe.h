@@ -47,8 +47,8 @@ typedef enum {
 typedef enum {
     PINOS_SUBSCRIPTION_FLAG_DAEMON          = (1 << 0),
     PINOS_SUBSCRIPTION_FLAG_CLIENT          = (1 << 1),
-    PINOS_SUBSCRIPTION_FLAG_SOURCE          = (1 << 2),
-    PINOS_SUBSCRIPTION_FLAG_SINK            = (1 << 3),
+    PINOS_SUBSCRIPTION_FLAG_NODE            = (1 << 2),
+    PINOS_SUBSCRIPTION_FLAG_PORT            = (1 << 3),
     PINOS_SUBSCRIPTION_FLAG_CHANNEL         = (1 << 4),
 } PinosSubscriptionFlags;
 

@@ -191,18 +191,20 @@ enum
 };
 
 static GstDevice *
-new_source (const PinosSourceInfo *info)
+new_node (const PinosNodeInfo *info)
 {
   GstCaps *caps;
   GstStructure *props;
   gpointer state = NULL;
   const gchar *klass;
 
+  /* FIXME, iterate ports */
+#if 0
   if (info->possible_formats)
     caps = gst_caps_from_string (g_bytes_get_data (info->possible_formats, NULL));
   else
+#endif
     caps = gst_caps_new_any();
-
 
   props = gst_structure_new_empty ("pinos-proplist");
 
@@ -223,21 +225,21 @@ new_source (const PinosSourceInfo *info)
   return gst_pinos_device_new (info->id,
                                info->name,
                                caps,
-                               info->source_path,
+                               info->node_path,
                                klass,
                                GST_PINOS_DEVICE_TYPE_SOURCE,
                                props);
 }
 
 static void
-get_source_info_cb (PinosContext          *context,
-                    const PinosSourceInfo *info,
-                    gpointer               user_data)
+get_node_info_cb (PinosContext        *context,
+                  const PinosNodeInfo *info,
+                  gpointer             user_data)
 {
   GstPinosDeviceProvider *self = user_data;
   GstDevice *dev;
 
-  dev = new_source (info);
+  dev = new_node (info);
   if (dev)
     gst_device_provider_device_add (GST_DEVICE_PROVIDER (self), dev);
 }
@@ -273,22 +275,22 @@ context_subscribe_cb (PinosContext           *context,
   GstDeviceProvider *provider = user_data;
   GstPinosDevice *dev;
 
-  if (flags != PINOS_SUBSCRIPTION_FLAG_SOURCE)
+  if (flags != PINOS_SUBSCRIPTION_FLAG_NODE)
     return;
 
   dev = find_device (provider, id);
 
   if (type == PINOS_SUBSCRIPTION_EVENT_NEW) {
-    if (flags == PINOS_SUBSCRIPTION_FLAG_SOURCE && dev == NULL)
-      pinos_context_get_source_info_by_id (context,
-                                           id,
-                                           PINOS_SOURCE_INFO_FLAGS_FORMATS,
-                                           get_source_info_cb,
-                                           NULL,
-                                           NULL,
-                                           self);
+    if (flags == PINOS_SUBSCRIPTION_FLAG_NODE && dev == NULL)
+      pinos_context_get_node_info_by_id (context,
+                                         id,
+                                         PINOS_NODE_INFO_FLAGS_NONE,
+                                         get_node_info_cb,
+                                         NULL,
+                                         NULL,
+                                         self);
   } else if (type == PINOS_SUBSCRIPTION_EVENT_REMOVE) {
-    if (flags == PINOS_SUBSCRIPTION_FLAG_SOURCE && dev != NULL) {
+    if (flags == PINOS_SUBSCRIPTION_FLAG_NODE && dev != NULL) {
       gst_device_provider_device_remove (GST_DEVICE_PROVIDER (self),
                                          GST_DEVICE (dev));
     }
@@ -303,25 +305,25 @@ typedef struct {
 } InfoData;
 
 static void
-list_source_info_cb (PinosContext          *c,
-                     const PinosSourceInfo *info,
-                     gpointer               user_data)
+list_node_info_cb (PinosContext        *c,
+                   const PinosNodeInfo *info,
+                   gpointer             user_data)
 {
   InfoData *data = user_data;
 
-  *data->devices = g_list_prepend (*data->devices, gst_object_ref_sink (new_source (info)));
+  *data->devices = g_list_prepend (*data->devices, gst_object_ref_sink (new_node (info)));
 }
 
 static void
-list_source_info_end_cb (GObject *source_object,
-                         GAsyncResult *res,
-                         gpointer user_data)
+list_node_info_end_cb (GObject *source_object,
+                       GAsyncResult *res,
+                       gpointer user_data)
 {
   InfoData *data = user_data;
   GError *error = NULL;
 
   if (!pinos_context_info_finish (source_object, res, &error)) {
-    GST_WARNING_OBJECT (source_object, "failed to list sources: %s", error->message);
+    GST_WARNING_OBJECT (source_object, "failed to list nodes: %s", error->message);
     g_clear_error (&error);
   }
   data->end = TRUE;
@@ -396,12 +398,12 @@ gst_pinos_device_provider_probe (GstDeviceProvider * provider)
 
   data.end = FALSE;
   data.devices = NULL;
-  pinos_context_list_source_info (c,
-                                  PINOS_SOURCE_INFO_FLAGS_FORMATS,
-                                  list_source_info_cb,
-                                  NULL,
-                                  list_source_info_end_cb,
-                                  &data);
+  pinos_context_list_node_info (c,
+                                PINOS_NODE_INFO_FLAGS_NONE,
+                                list_node_info_cb,
+                                NULL,
+                                list_node_info_end_cb,
+                                &data);
   for (;;) {
     if (pinos_context_get_state (c) <= 0)
       break;

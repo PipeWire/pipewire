@@ -91,12 +91,9 @@ PinosStream *    pinos_stream_new               (PinosContext    *context,
 PinosStreamState pinos_stream_get_state         (PinosStream *stream);
 const GError *   pinos_stream_get_error         (PinosStream *stream);
 
-gboolean         pinos_stream_connect_source    (PinosStream      *stream,
-                                                 const gchar      *source_path,
-                                                 PinosStreamFlags  flags,
-                                                 GBytes           *possible_formats);
-gboolean         pinos_stream_connect_sink      (PinosStream      *stream,
-                                                 const gchar      *sink_path,
+gboolean         pinos_stream_connect           (PinosStream      *stream,
+                                                 PinosDirection    direction,
+                                                 const gchar      *port_path,
                                                  PinosStreamFlags  flags,
                                                  GBytes           *possible_formats);
 gboolean         pinos_stream_connect_provide   (PinosStream      *stream,

@@ -62,14 +62,6 @@ struct _PinosPort {
  */
 struct _PinosPortClass {
   GObjectClass parent_class;
-
-  PinosChannel *      (*create_channel)  (PinosPort       *port,
-                                          const gchar     *client_path,
-                                          GBytes          *format_filter,
-                                          PinosProperties *props,
-                                          GError          **error);
-  gboolean            (*release_channel) (PinosPort       *port,
-                                          PinosChannel    *channel);
 };
 
 /* normal GObject stuff */

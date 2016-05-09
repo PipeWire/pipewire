@@ -7,7 +7,7 @@ and consume media to/from.
 Some of the requirements are:
 
  - must be efficient for raw video using fd passing
- - must be able to provide media from any process
+ - must be able to provide/consume/process media from any process
  - streaming media only (no seeking)
  - policy to restrict access to devices and streams
 
@@ -16,9 +16,7 @@ only and should be able to handle compressed video and other
 streamable media as well.
 
 The design is in some part inspired by pulseaudio, hence its original
-name. We however are not concerned with playback of any of the media,
-this should be handled by a separate consumer rendering the media to
-a specific output device.
+name. Increasinly we also seem to add functionality of jack.
 
 
 Objects
@@ -46,21 +44,21 @@ DBus protocol
 
 The main daemon is registered on the session bus with name: org.pinos
 
-Various Source1 objects are registered in the server based on the available
-sources of content. Source1 has properties and has format descriptions of
+Various Node1 objects are registered in the server based on the available
+sources or sinks of content. Source1 has properties and has format descriptions of
 what it can provide.
 
 First a client needs to register with pinos by calling 
 org.pinos.Daemon1.ConnectClient(). This creates a new Client1 object that
 the client must use for further communication.
 
-A client can then do org.pinos.Client1.CreateSourceOutput() to create a
-new SourceOutput1 to retrieve data from a source. It can specify a source
-explicitly or let the server choose a source. The client must provide a list
+A client can then do org.pinos.Client1.CreateChannel() to create a
+new Channel to retrieve/send data from/to a node. It can specify a node/port
+explicitly or let the server choose a port. The client must provide a list
 of formats it can handle along with extra properties that can help with 
-selecting an appropriate source.
+selecting an appropriate port.
 
-A client can then call org.pinos.SourceOutput1.Start() to negotiate the final
+A client can then call org.pinos.Channel1.Start() to negotiate the final
 media format and start the data transfer. A new fd is returned to the client
 along with the negotiated format and properties.
 
@@ -82,36 +80,30 @@ managed.
 
 * server side
 
-          v4l2src    pinospay   multisocketsink
-              |          |             |
-              |          |             |
-make buffer   |--------->|             |
-              |          | (1)         |
-              |          |------------>| (2) ----->
-              |          |             |
-              |          |<------------|
-              |       (4)| ............| (3)
-              |          |             |
-              |...       | ...         |
-              |          |             |
-              |          |<------------| (5) <-----
-              |       (6)|             |
-              |          |             |
+          v4l2src    pinossocketsink
+              |          |
+              |          |
+make buffer   |--------->|
+              |          | (1)
+              |          | (2) ----->
+              |          | (3)
+              |...       | ...
+              |          |
+              |          | (4) <-----
+              |<---------|
 
 
-(1) pinospay generates the pinos message for the v4l2 input
-    buffer. It is assumed in the next steps that the payloader
+(1) pinossocketsink generates the pinos message from the v4l2 input
+    buffer. It is assumed in the next steps that the sink
     receives fd-memory from v4l2src and that the memory is only
     freed again when no clients are looking at the fd.
-(2) multisocketsink sends the buffer to N Pinos clients
-(3) for each client that is sent a buffer, multisocketsink sends an
-    event with the client object and buffer in it.
-(4) pinospay uses the fdmanager object to map the fd-index that was
+(2) pinossocketsink sends the buffer to N Pinos clients
+(3) for each client that is sent a buffer, pinossocketsink uses the
+    fdmanager object to map the fd-index that was
     sent, to the buffer and client. The buffer is reffed and kept
     alive for as long as the client is using the buffer.
-(5) when a message is received from a client, multisocketsink sends an
-    event upstream.
-(6) pinospay parses the message and instructs the fdmanager to release
+(4) when a message is received from a client, pinossocketsink
+    parses the message and instructs the fdmanager to release
     the fd-index again. When all clients release the fd, the buffer
     will be unreffed and v4l2src can reuse the memory.
 
@@ -157,34 +149,33 @@ make buffer   |--------->|             |
 
 * client producer, server side
 
-          socketsrc    pinospay   multisocketsink
-              |            |             |
-  ------> (1) |         (2)|             |
-              |----------->|             |
-              |            |------------>| (3) -------->
-              |            |             |       ....
-              |         (5)|<------------| (4)
-              |            |  ......     |
-              |            |             |
-              |         (7)|<------------| (6) <--------
-  <------- (8)|<-----------|             |
-              |            |             |
+          socketsrc    pinossocketsink
+              |            |
+  ------> (1) |         (2)|
+              |----------->|
+              |            | (3) -------->
+              |            |  ....
+              |         (4)|
+              |            |  ....
+              |            |
+              |         (6)| (5) <--------
+  <------- (7)|<-----------|
+              |            |
 
 
 (1) pinos buffer arrives from a client. socketsrc wraps the
     fd
-(2) pinospay sets a weak-ref on the buffer to know when it is
+(2) pinossocketsink sets a weak-ref on the buffer to know when it is
     freed.
-(3) multisocketsink sends the buffer to the clients
-(4) for each buffer that is sent, an event is sent to the payloader
-(5) the payloader uses the fdmanager to map the fd-index to a buffer
-    and a client. it keeps a ref on the buffer
-(6) release-fd is received from a client
-(7) pinospay removes the fd-index from the fdmanager. If all
+(3) pinossocketsink sends the buffer to the clients
+(4) for each buffer that is sent, the sink uses the fdmanager to map the
+    fd-index to a buffer and a client. it keeps a ref on the buffer
+(5) release-fd is received from a client
+(6) pinossocketsink removes the fd-index from the fdmanager. If all
     clients released the fd, the buffer will be freeds, triggering
     the DestroyNotify. This will then trigger an event with a release-fd
     message to the source.
-(8) the source sends the release-fd message to Pinos
+(7) the source sends the release-fd message to Pinos
 
 
 * client remove

@@ -257,79 +257,6 @@ pinos_port_finalize (GObject * object)
 }
 
 static void
-handle_remove_channel (PinosChannel *channel,
-                       gpointer      user_data)
-{
-  PinosPort *port = user_data;
-
-  pinos_port_release_channel (port, channel);
-}
-
-static PinosChannel *
-default_create_channel (PinosPort       *port,
-                        const gchar     *client_path,
-                        GBytes          *format_filter,
-                        PinosProperties *props,
-                        GError          **error)
-{
-  PinosPortPrivate *priv = port->priv;
-  PinosChannel *channel;
-  GBytes *possible_formats;
-
-  possible_formats = pinos_port_get_formats (port, format_filter, error);
-  if (possible_formats == NULL)
-    return NULL;
-
-  channel = g_object_new (PINOS_TYPE_CHANNEL, "daemon", priv->daemon,
-                                              "client-path", client_path,
-                                              "direction", priv->direction,
-                                              "port-path", priv->object_path,
-                                              "possible-formats", possible_formats,
-                                              "properties", props,
-                                              NULL);
-  g_bytes_unref (possible_formats);
-
-  if (channel == NULL)
-    goto no_channel;
-
-  g_signal_connect (channel,
-                    "remove",
-                    (GCallback) handle_remove_channel,
-                    port);
-
-  priv->channels = g_list_prepend (priv->channels, channel);
-
-  return g_object_ref (channel);
-
-  /* ERRORS */
-no_channel:
-  {
-    if (error)
-      *error = g_error_new (G_IO_ERROR,
-                            G_IO_ERROR_FAILED,
-                            "Could not create channel");
-    return NULL;
-  }
-}
-
-static gboolean
-default_release_channel (PinosPort  *port,
-                         PinosChannel *channel)
-{
-  PinosPortPrivate *priv = port->priv;
-  GList *find;
-
-  find = g_list_find (priv->channels, channel);
-  if (find == NULL)
-    return FALSE;
-
-  priv->channels = g_list_delete_link (priv->channels, find);
-  g_object_unref (channel);
-
-  return TRUE;
-}
-
-static void
 pinos_port_class_init (PinosPortClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
@@ -443,9 +370,6 @@ pinos_port_class_init (PinosPortClass * klass)
                                                   1,
                                                   PINOS_TYPE_CHANNEL);
 
-
-  klass->create_channel = default_create_channel;
-  klass->release_channel = default_release_channel;
 }
 
 static void
@@ -591,6 +515,15 @@ pinos_port_get_channels (PinosPort *port)
   return priv->channels;
 }
 
+static void
+handle_remove_channel (PinosChannel *channel,
+                       gpointer      user_data)
+{
+  PinosPort *port = user_data;
+
+  pinos_port_release_channel (port, channel);
+}
+
 /**
  * pinos_port_create_channel:
  * @port: a #PinosPort
@@ -612,27 +545,49 @@ pinos_port_create_channel (PinosPort       *port,
                            PinosProperties *props,
                            GError          **error)
 {
-  PinosPortClass *klass;
+  PinosPortPrivate *priv;
   PinosChannel *channel;
+  GBytes *possible_formats;
 
   g_return_val_if_fail (PINOS_IS_PORT (port), NULL);
+  priv = port->priv;
 
-  klass = PINOS_PORT_GET_CLASS (port);
+  possible_formats = pinos_port_get_formats (port, format_filter, error);
+  if (possible_formats == NULL)
+    return NULL;
 
-  if (klass->create_channel) {
-    channel = klass->create_channel (port, client_path, format_filter, props, error);
-    if (channel)
-      g_signal_emit (port, signals[SIGNAL_CHANNEL_ADDED], 0, channel);
-  } else {
-    if (error) {
+  channel = g_object_new (PINOS_TYPE_CHANNEL, "daemon", priv->daemon,
+                                              "client-path", client_path,
+                                              "direction", priv->direction,
+                                              "port-path", priv->object_path,
+                                              "possible-formats", possible_formats,
+                                              "properties", props,
+                                              NULL);
+  g_bytes_unref (possible_formats);
+
+  if (channel == NULL)
+    goto no_channel;
+
+  g_signal_connect (channel,
+                    "remove",
+                    (GCallback) handle_remove_channel,
+                    port);
+
+  priv->channels = g_list_prepend (priv->channels, channel);
+
+  g_signal_emit (port, signals[SIGNAL_CHANNEL_ADDED], 0, channel);
+
+  return g_object_ref (channel);
+
+  /* ERRORS */
+no_channel:
+  {
+    if (error)
       *error = g_error_new (G_IO_ERROR,
-                            G_IO_ERROR_NOT_SUPPORTED,
-                            "CreateChannel not implemented");
-    }
-    channel = NULL;
+                            G_IO_ERROR_FAILED,
+                            "Could not create channel");
+    return NULL;
   }
-
-  return channel;
 }
 
 /**
@@ -648,20 +603,21 @@ gboolean
 pinos_port_release_channel (PinosPort    *port,
                             PinosChannel *channel)
 {
-  PinosPortClass *klass;
-  gboolean res;
+  PinosPortPrivate *priv;
+  GList *find;
 
   g_return_val_if_fail (PINOS_IS_PORT (port), FALSE);
   g_return_val_if_fail (PINOS_IS_CHANNEL (channel), FALSE);
+  priv = port->priv;
 
-  klass = PINOS_PORT_GET_CLASS (port);
+  find = g_list_find (priv->channels, channel);
+  if (find == NULL)
+    return FALSE;
 
-  if (klass->release_channel) {
-    g_signal_emit (port, signals[SIGNAL_CHANNEL_REMOVED], 0, channel);
-    res = klass->release_channel (port, channel);
-  }
-  else
-    res = FALSE;
+  priv->channels = g_list_delete_link (priv->channels, find);
 
-  return res;
+  g_signal_emit (port, signals[SIGNAL_CHANNEL_REMOVED], 0, channel);
+  g_object_unref (channel);
+
+  return TRUE;
 }

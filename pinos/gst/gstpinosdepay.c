@@ -142,7 +142,7 @@ release_fds (GstPinosDepay *this, GstBuffer *buffer)
   pinos_buffer_builder_end (&b, &pbuf);
   g_array_unref (fdids);
 
-  data = pinos_buffer_steal (&pbuf, &size, NULL);
+  data = pinos_buffer_steal_data (&pbuf, &size);
 
   outbuf = gst_buffer_new_wrapped (data, size);
   ev = gst_event_new_custom (GST_EVENT_CUSTOM_UPSTREAM,
@@ -164,20 +164,20 @@ gst_pinos_depay_chain (GstPad *pad, GstObject * parent, GstBuffer * buffer)
   PinosBuffer pbuf;
   PinosBufferIter it;
   GstNetControlMessageMeta * meta;
-  GSocketControlMessage *msg = NULL;
   GError *err = NULL;
   GArray *fdids = NULL;
+  GUnixFDList *fds = NULL;
 
   meta = ((GstNetControlMessageMeta*) gst_buffer_get_meta (
       buffer, GST_NET_CONTROL_MESSAGE_META_API_TYPE));
   if (meta) {
-    msg = g_object_ref (meta->message);
-    gst_buffer_remove_meta (buffer, (GstMeta *) meta);
-    meta = NULL;
+    if (G_IS_UNIX_FD_MESSAGE (meta->message)) {
+      fds = g_unix_fd_message_get_fd_list (G_UNIX_FD_MESSAGE (meta->message));
+    }
   }
 
   gst_buffer_map (buffer, &info, GST_MAP_READ);
-  pinos_buffer_init_data (&pbuf, info.data, info.size, msg);
+  pinos_buffer_init_data (&pbuf, info.data, info.size, NULL, 0);
 
   pinos_buffer_iter_init (&it, &pbuf);
   while (pinos_buffer_iter_next (&it)) {
@@ -212,7 +212,7 @@ gst_pinos_depay_chain (GstPad *pad, GstObject * parent, GstBuffer * buffer)
 
         if (!pinos_buffer_iter_parse_fd_payload (&it, &p))
           goto error;
-        fd = pinos_buffer_get_fd (&pbuf, p.fd_index, &err);
+        fd = g_unix_fd_list_get (fds, p.fd_index, &err);
         if (fd == -1)
           goto error;
 

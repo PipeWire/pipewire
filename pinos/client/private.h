@@ -63,10 +63,14 @@ typedef struct {
 } PinosStackHeader;
 
 typedef struct {
-  gsize allocated_size;
-  gsize size;
   gpointer data;
-  GSocketControlMessage *message;
+  gsize size;
+  gsize max_size;
+  gpointer free_data;
+  gint *fds;
+  gint n_fds;
+  gint max_fds;
+  gpointer free_fds;
   gsize magic;
 } PinosStackBuffer;
 

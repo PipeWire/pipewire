@@ -17,8 +17,11 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <sys/socket.h>
 #include <string.h>
+
 #include <gio/gunixfdlist.h>
+#include <gio/gunixfdmessage.h>
 
 #include "pinos/server/daemon.h"
 #include "pinos/client/pinos.h"
@@ -253,9 +256,8 @@ pinos_stream_finalize (GObject * object)
   g_clear_object (&priv->context);
   g_free (priv->name);
 
-  g_free (priv->buffer.data);
-  if (priv->buffer.message)
-    g_object_unref (priv->buffer.message);
+  g_free (priv->buffer.free_data);
+  g_free (priv->buffer.free_fds);
 
   G_OBJECT_CLASS (pinos_stream_parent_class)->finalize (object);
 }
@@ -830,9 +832,9 @@ on_socket_condition (GSocket      *socket,
 
       need = sizeof (PinosStackHeader);
 
-      if (priv->buffer.allocated_size < need) {
-        priv->buffer.allocated_size = need;
-        priv->buffer.data = g_realloc (priv->buffer.data, need);
+      if (priv->buffer.max_size < need) {
+        priv->buffer.max_size = need;
+        priv->buffer.data = priv->buffer.free_data = g_realloc (priv->buffer.free_data, need);
       }
 
       hdr = priv->buffer.data;
@@ -856,9 +858,9 @@ on_socket_condition (GSocket      *socket,
       /* now we know the total length */
       need += hdr->length;
 
-      if (priv->buffer.allocated_size < need) {
-        priv->buffer.allocated_size = need;
-        hdr = priv->buffer.data = g_realloc (priv->buffer.data, need);
+      if (priv->buffer.max_size < need) {
+        priv->buffer.max_size = need;
+        hdr = priv->buffer.data = priv->buffer.free_data = g_realloc (priv->buffer.free_data, need);
       }
       priv->buffer.size = need;
 
@@ -872,17 +874,25 @@ on_socket_condition (GSocket      *socket,
         g_assert (len == hdr->length);
       }
 
+      if (priv->buffer.max_fds < num_messages) {
+        priv->buffer.max_fds = num_messages;
+        priv->buffer.fds = priv->buffer.free_fds = g_realloc (priv->buffer.free_fds,
+                                                              num_messages * sizeof (int));
+      }
+
       /* handle control messages */
       for (i = 0; i < num_messages; i++) {
-        if (i == 0) {
-          if (priv->buffer.message)
-            g_object_unref (priv->buffer.message);
-          priv->buffer.message = messages[0];
-        }
-        else {
-          g_warning ("discarding control message %d", i);
-          g_object_unref (messages[i]);
-        }
+        GSocketControlMessage *msg = messages[i];
+        gint *fds, n_fds, j;
+
+        if (g_socket_control_message_get_msg_type (msg) != SCM_RIGHTS)
+          continue;
+
+        fds = g_unix_fd_message_steal_fds (G_UNIX_FD_MESSAGE (msg), &n_fds);
+        for (j = 0; j < n_fds; j++)
+          priv->buffer.fds[i] = fds[i];
+        g_free (fds);
+        g_object_unref (msg);
       }
       g_free (messages);
 
@@ -892,7 +902,7 @@ on_socket_condition (GSocket      *socket,
 
       priv->buffer.magic = 0;
       priv->buffer.size = 0;
-      g_clear_object (&priv->buffer.message);
+      priv->buffer.n_fds = 0;
       break;
     }
     case G_IO_OUT:
@@ -1223,9 +1233,10 @@ pinos_stream_send_buffer (PinosStream *stream,
   gssize len;
   PinosStackBuffer *sb = (PinosStackBuffer *) buffer;
   GOutputVector ovec[1];
+  GSocketControlMessage *msg = NULL;
   gint flags = 0;
   GError *error = NULL;
-  gint n_msg;
+  gint i, n_msg;
 
   g_return_val_if_fail (PINOS_IS_STREAM (stream), FALSE);
   g_return_val_if_fail (buffer != NULL, FALSE);
@@ -1236,16 +1247,22 @@ pinos_stream_send_buffer (PinosStream *stream,
   ovec[0].buffer = sb->data;
   ovec[0].size = sb->size;
 
-  if (sb->message)
+  if (sb->n_fds) {
     n_msg = 1;
-  else
+    msg = g_unix_fd_message_new ();
+    for (i = 0; i < sb->n_fds; i++)
+      if (!g_unix_fd_message_append_fd (G_UNIX_FD_MESSAGE (msg), sb->fds[i], &error))
+        goto append_failed;
+  }
+  else {
     n_msg = 0;
+  }
 
   len = g_socket_send_message (priv->socket,
                                NULL,
                                ovec,
                                1,
-                               &sb->message,
+                               &msg,
                                n_msg,
                                flags,
                                NULL,
@@ -1257,6 +1274,13 @@ pinos_stream_send_buffer (PinosStream *stream,
 
   return TRUE;
 
+append_failed:
+  {
+    g_warning ("failed to append fd: %s", error->message);
+    g_object_unref (msg);
+    stream_set_state (stream, PINOS_STREAM_STATE_ERROR, error);
+    return FALSE;
+  }
 send_error:
   {
     g_warning ("failed to send_message: %s", error->message);

@@ -17,11 +17,9 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include <sys/socket.h>
 #include <string.h>
 
 #include <gio/gio.h>
-#include <gio/gunixfdmessage.h>
 
 #include "pinos/client/properties.h"
 #include "pinos/client/context.h"
@@ -35,26 +33,32 @@ G_STATIC_ASSERT (sizeof (PinosStackBuffer) <= sizeof (PinosBuffer));
  * @buffer: a #PinosBuffer
  * @data: data
  * @size: size of @data
- * @message: (transfer full): a #GSocketControlMessage
+ * @fds: file descriptors
+ * @n_fds: number of file descriptors
  *
- * Initialize @buffer with @data and @size and @message. @data and size
- * must not be modified until pinos_buffer_clear() is called.
- *
- * Ownership is taken of @message.
+ * Initialize @buffer with @data and @size and @fds and @n_fds.
+ * The memory pointer to by @data and @fds becomes property of @buffer
+ * and should not be freed or modified until pinos_buffer_clear() is
+ * called.
  */
 void
 pinos_buffer_init_data (PinosBuffer       *buffer,
                         gpointer           data,
                         gsize              size,
-                        GSocketControlMessage *message)
+                        gint              *fds,
+                        gint               n_fds)
 {
   PinosStackBuffer *sb = PSB (buffer);
 
   sb->magic = PSB_MAGIC;
   sb->data = data;
   sb->size = size;
-  sb->allocated_size = 0;
-  sb->message = message;
+  sb->max_size = size;
+  sb->free_data = NULL;
+  sb->fds = fds;
+  sb->n_fds = n_fds;
+  sb->max_fds = n_fds;
+  sb->free_fds = NULL;
 }
 
 void
@@ -65,11 +69,8 @@ pinos_buffer_clear (PinosBuffer *buffer)
   g_return_if_fail (is_valid_buffer (buffer));
 
   sb->magic = 0;
-  if (sb->allocated_size)
-    g_free (sb->data);
-  sb->size = 0;
-  sb->allocated_size = 0;
-  g_clear_object (&sb->message);
+  g_free (sb->free_data);
+  g_free (sb->free_fds);
 }
 
 /**
@@ -97,81 +98,87 @@ pinos_buffer_get_version (PinosBuffer *buffer)
  * pinos_buffer_get_fd:
  * @buffer: a #PinosBuffer
  * @index: an index
- * @error: a #GError or %NULL
  *
  * Get the file descriptor at @index in @buffer.
  *
- * Returns: a file descriptor ar @index in @buffer. The file descriptor is
- * duplicated using dup() and set as close-on-exec before being returned.
- * You must call close() on it when you are done. -1 is returned on error and
- * @error is set.
+ * Returns: a file descriptor at @index in @buffer. The file descriptor
+ * is not duplicated in any way. -1 is returned on error.
  */
 int
-pinos_buffer_get_fd (PinosBuffer *buffer, gint index, GError **error)
+pinos_buffer_get_fd (PinosBuffer *buffer, gint index)
 {
   PinosStackBuffer *sb = PSB (buffer);
-  GUnixFDList *fds;
 
   g_return_val_if_fail (is_valid_buffer (buffer), -1);
-  g_return_val_if_fail (sb->message != NULL, -1);
 
-  if (g_socket_control_message_get_msg_type (sb->message) != SCM_RIGHTS)
-    goto not_found;
-
-  fds = g_unix_fd_message_get_fd_list (G_UNIX_FD_MESSAGE (sb->message));
-  if (fds == NULL)
-    goto not_found;
-
-  if (g_unix_fd_list_get_length (fds) <= index)
-    goto not_found;
-
-  return g_unix_fd_list_get (fds, index, error);
-
-  /* ERRORS */
-not_found:
-  {
-    if (error)
-      *error = g_error_new (G_IO_ERROR,
-                            G_IO_ERROR_NOT_FOUND,
-                            "Buffer does not have any fd at index %d", index);
+  if (sb->fds == NULL || sb->n_fds < index)
     return -1;
-  }
+
+  return sb->fds[index];
 }
 
 /**
- * pinos_buffer_steal:
+ * pinos_buffer_steal_data:
  * @buffer: a #PinosBuffer
- * @size: output size
- * @message: output #GSocketControlMessage
+ * @size: output size or %NULL to ignore
  *
- * Take the data and control message from @buffer.
+ * Take the data from @buffer.
  *
  * Returns: the data of @buffer.
  */
 gpointer
-pinos_buffer_steal (PinosBuffer       *buffer,
-                    gsize             *size,
-                    GSocketControlMessage **message)
+pinos_buffer_steal_data (PinosBuffer       *buffer,
+                         gsize             *size)
 {
   PinosStackBuffer *sb = PSB (buffer);
   gpointer data;
 
   g_return_val_if_fail (is_valid_buffer (buffer), 0);
 
+  data = sb->data;
   if (size)
     *size = sb->size;
-  if (message)
-    *message = sb->message;
 
-  data = sb->data;
-
-  sb->magic = 0;
+  if (sb->data != sb->free_data)
+    g_free (sb->free_data);
   sb->data = NULL;
+  sb->free_data = NULL;
   sb->size = 0;
-  sb->allocated_size = 0;
-  sb->message = NULL;
+  sb->max_size = 0;
 
   return data;
+}
+
+/**
+ * pinos_buffer_steal_fds:
+ * @buffer: a #PinosBuffer
+ * @n_fds: number of fds
+ *
+ * Take the fds from @buffer.
+ *
+ * Returns: the fds of @buffer.
+ */
+gint *
+pinos_buffer_steal_fds (PinosBuffer       *buffer,
+                        gint              *n_fds)
+{
+  PinosStackBuffer *sb = PSB (buffer);
+  gint *fds;
+
+  g_return_val_if_fail (is_valid_buffer (buffer), 0);
+
+  fds = sb->fds;
+  if (n_fds)
+   *n_fds = sb->n_fds;
+
+  if (sb->fds != sb->free_fds)
+    g_free (sb->free_fds);
+  sb->fds = NULL;
+  sb->free_fds = NULL;
+  sb->n_fds = 0;
+  sb->max_fds = 0;
+
+  return fds;
 }
 
 /**
@@ -336,8 +343,6 @@ struct stack_builder {
 
   PinosPacketType   type;
   gsize             offset;
-
-  guint             n_fds;
 };
 
 G_STATIC_ASSERT (sizeof (struct stack_builder) <= sizeof (PinosBufferBuilder));
@@ -352,12 +357,20 @@ G_STATIC_ASSERT (sizeof (struct stack_builder) <= sizeof (PinosBufferBuilder));
  * pinos_buffer_builder_init_full:
  * @builder: a #PinosBufferBuilder
  * @version: a version
+ * @data: data to build into or %NULL to allocate
+ * @max_data: allocated size of @data
+ * @fds: memory for fds
+ * @max_fds: maximum number of fds in @fds
  *
  * Initialize a stack allocated @builder and set the @version.
  */
 void
 pinos_buffer_builder_init_full (PinosBufferBuilder       *builder,
-                                guint32                   version)
+                                guint32                   version,
+                                gpointer                  data,
+                                gsize                     max_data,
+                                gint                     *fds,
+                                gint                      max_fds)
 {
   struct stack_builder *sb = PPSB (builder);
   PinosStackHeader *sh;
@@ -365,10 +378,22 @@ pinos_buffer_builder_init_full (PinosBufferBuilder       *builder,
   g_return_if_fail (builder != NULL);
 
   sb->magic = PPSB_MAGIC;
-  sb->buf.allocated_size = sizeof (PinosStackHeader) + 128;
-  sb->buf.data = g_malloc (sb->buf.allocated_size);
+
+  if (max_data < sizeof (PinosStackHeader) || data == NULL) {
+    sb->buf.max_size = sizeof (PinosStackHeader) + 128;
+    sb->buf.data = g_malloc (sb->buf.max_size);
+    sb->buf.free_data = sb->buf.data;
+  } else {
+    sb->buf.max_size = max_data;
+    sb->buf.data = data;
+    sb->buf.free_data = NULL;
+  }
   sb->buf.size = sizeof (PinosStackHeader);
-  sb->buf.message = NULL;
+
+  sb->buf.fds = fds;
+  sb->buf.max_fds = max_fds;
+  sb->buf.n_fds = 0;
+  sb->buf.free_fds = NULL;
 
   sh = sb->sh = sb->buf.data;
   sh->version = version;
@@ -376,7 +401,6 @@ pinos_buffer_builder_init_full (PinosBufferBuilder       *builder,
 
   sb->type = 0;
   sb->offset = 0;
-  sb->n_fds = 0;
 }
 
 /**
@@ -397,7 +421,8 @@ pinos_buffer_builder_clear (PinosBufferBuilder *builder)
   g_return_if_fail (is_valid_builder (builder));
 
   sb->magic = 0;
-  g_free (sb->buf.data);
+  g_free (sb->buf.free_data);
+  g_free (sb->buf.free_fds);
 }
 
 /**
@@ -421,60 +446,59 @@ pinos_buffer_builder_end (PinosBufferBuilder *builder,
   g_return_if_fail (is_valid_builder (builder));
   g_return_if_fail (buffer != NULL);
 
+  sb->magic = 0;
   sb->sh->length = sb->buf.size - sizeof (PinosStackHeader);
 
   sbuf->magic = PSB_MAGIC;
   sbuf->data = sb->buf.data;
   sbuf->size = sb->buf.size;
-  sbuf->allocated_size = sb->buf.allocated_size;
-  sbuf->message = sb->buf.message;
+  sbuf->max_size = sb->buf.max_size;
+  sbuf->free_data = sb->buf.free_data;
 
-  sb->buf.data = NULL;
-  sb->buf.size = 0;
-  sb->buf.allocated_size = 0;
-  sb->buf.message = NULL;
-  sb->magic = 0;
+  sbuf->fds = sb->buf.fds;
+  sbuf->n_fds = sb->buf.n_fds;
+  sbuf->max_fds = sb->buf.max_fds;
+  sbuf->free_fds = sb->buf.free_fds;
 }
 
 /**
  * pinos_buffer_builder_add_fd:
  * @builder: a #PinosBufferBuilder
  * @fd: a valid fd
- * @error: a #GError or %NULL
  *
  * Add the file descriptor @fd to @builder.
  *
- * Returns: the index of the file descriptor in @builder. The file descriptor
- * is duplicated using dup(). You keep your copy of the descriptor and the copy
- * contained in @buffer will be closed when @buffer is freed.
- * -1 is returned on error and @error is set.
+ * Returns: the index of the file descriptor in @builder.
  */
 gint
 pinos_buffer_builder_add_fd (PinosBufferBuilder *builder,
-                             int                 fd,
-                             GError            **error)
+                             int                 fd)
 {
   struct stack_builder *sb = PPSB (builder);
+  gint index;
 
   g_return_val_if_fail (is_valid_builder (builder), -1);
   g_return_val_if_fail (fd > 0, -1);
 
-  if (sb->buf.message == NULL)
-    sb->buf.message = g_unix_fd_message_new ();
+  if (sb->buf.n_fds >= sb->buf.max_fds) {
+    sb->buf.max_fds += 8;
+    sb->buf.free_fds = g_realloc (sb->buf.free_fds, sb->buf.max_fds * sizeof (int));
+    sb->buf.fds = sb->buf.free_fds;
+  }
+  index = sb->buf.n_fds;
+  sb->buf.fds[index] = fd;
+  sb->buf.n_fds++;
 
-  if (!g_unix_fd_message_append_fd ((GUnixFDMessage*)sb->buf.message, fd, error))
-    return -1;
-
-  return sb->n_fds++;
+  return index;
 }
 
 static gpointer
 builder_ensure_size (struct stack_builder *sb, gsize size)
 {
-  if (sb->buf.size + size > sb->buf.allocated_size) {
-    sb->buf.allocated_size = sb->buf.size + MAX (size, 1024);
-    sb->buf.data = g_realloc (sb->buf.data, sb->buf.allocated_size);
-    sb->sh = sb->buf.data;
+  if (sb->buf.size + size > sb->buf.max_size) {
+    sb->buf.max_size = sb->buf.size + MAX (size, 1024);
+    sb->buf.free_data = g_realloc (sb->buf.free_data, sb->buf.max_size);
+    sb->sh = sb->buf.data = sb->buf.free_data;
   }
   return (guint8 *) sb->buf.data + sb->buf.size;
 }

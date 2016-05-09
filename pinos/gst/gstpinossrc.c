@@ -358,7 +358,6 @@ on_new_buffer (GObject    *gobject,
   PinosBuffer *pbuf;
   PinosBufferIter it;
   GstBuffer *buf = NULL;
-  GError *error = NULL;
 
   GST_LOG_OBJECT (pinossrc, "got new buffer");
   if (!pinos_stream_peek_buffer (pinossrc->stream, &pbuf)) {
@@ -397,8 +396,9 @@ on_new_buffer (GObject    *gobject,
 
         if (!pinos_buffer_iter_parse_fd_payload  (&it, &data.p))
           goto parse_failed;
+
         GST_DEBUG ("got fd payload id %d", data.p.id);
-        fd = pinos_buffer_get_fd (pbuf, data.p.fd_index, &error);
+        fd = pinos_buffer_get_fd (pbuf, data.p.fd_index);
         if (fd == -1)
           goto no_fds;
 
@@ -453,8 +453,7 @@ parse_failed:
 no_fds:
   {
     gst_buffer_unref (buf);
-    GST_ELEMENT_ERROR (pinossrc, RESOURCE, FAILED,
-        ("buffer error: %s", error->message), (NULL));
+    GST_ELEMENT_ERROR (pinossrc, RESOURCE, FAILED, ("fd not found in buffer"), (NULL));
     pinos_main_loop_signal (pinossrc->loop, FALSE);
     return;
   }

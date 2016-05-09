@@ -39,18 +39,19 @@ struct _PinosBuffer {
 void               pinos_buffer_init_data        (PinosBuffer       *buffer,
                                                   gpointer           data,
                                                   gsize              size,
-                                                  GSocketControlMessage *message);
+                                                  gint              *fds,
+                                                  gint               n_fds);
 
 void               pinos_buffer_clear            (PinosBuffer       *buffer);
 
 guint32            pinos_buffer_get_version      (PinosBuffer       *buffer);
 int                pinos_buffer_get_fd           (PinosBuffer       *buffer,
-                                                  gint               index,
-                                                  GError           **error);
+                                                  gint               index);
 
-gpointer           pinos_buffer_steal            (PinosBuffer       *buffer,
-                                                  gsize             *size,
-                                                  GSocketControlMessage **message);
+gpointer           pinos_buffer_steal_data       (PinosBuffer       *buffer,
+                                                  gsize             *size);
+gint *             pinos_buffer_steal_fds        (PinosBuffer       *buffer,
+                                                  gint              *n_fds);
 
 
 /**
@@ -107,16 +108,20 @@ struct _PinosBufferBuilder {
 };
 
 void               pinos_buffer_builder_init_full  (PinosBufferBuilder      *builder,
-                                                    guint32                  version);
-#define pinos_buffer_builder_init(b)   pinos_buffer_builder_init_full(b, PINOS_BUFFER_VERSION);
+                                                    guint32                  version,
+                                                    gpointer                 data,
+                                                    gsize                    max_data,
+                                                    gint                    *fds,
+                                                    gint                     max_fds);
+#define pinos_buffer_builder_init_into(b,d,md,f,mf) pinos_buffer_builder_init_full(b, PINOS_BUFFER_VERSION,d,md,f,mf);
+#define pinos_buffer_builder_init(b)                pinos_buffer_builder_init_into(b, NULL, 0, NULL, 0);
 
 void               pinos_buffer_builder_clear      (PinosBufferBuilder *builder);
 void               pinos_buffer_builder_end        (PinosBufferBuilder *builder,
                                                     PinosBuffer        *buffer);
 
 gint               pinos_buffer_builder_add_fd     (PinosBufferBuilder *builder,
-                                                    int                 fd,
-                                                    GError            **error);
+                                                    int                 fd);
 /* header packets */
 /**
  * PinosPacketHeader

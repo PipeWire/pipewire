@@ -507,7 +507,6 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   PinosPacketHeader hdr;
   PinosPacketFDPayload p;
   gsize size;
-  GError *err = NULL;
   gboolean tmpfile, res;
 
   pinossink = GST_PINOS_SINK (bsink);
@@ -552,16 +551,12 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   pinos_buffer_builder_init (&builder);
   pinos_buffer_builder_add_header (&builder, &hdr);
 
-  p.fd_index = pinos_buffer_builder_add_fd (&builder, gst_fd_memory_get_fd (mem), &err);
-  if (p.fd_index == -1)
-    goto add_fd_failed;
+  p.fd_index = pinos_buffer_builder_add_fd (&builder, gst_fd_memory_get_fd (mem));
   p.id = pinossink->id_counter++;
   p.offset = 0;
   p.size = size;
   pinos_buffer_builder_add_fd_payload (&builder, &p);
   pinos_buffer_builder_end (&builder, &pbuf);
-
-  gst_memory_unref (mem);
 
   GST_LOG ("sending fd index %d", p.id);
 
@@ -571,6 +566,8 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   res = pinos_stream_send_buffer (pinossink->stream, &pbuf);
   pinos_buffer_clear (&pbuf);
   pinos_main_loop_unlock (pinossink->loop);
+
+  gst_memory_unref (mem);
 
   if (res && !tmpfile) {
     /* keep the buffer around until we get the release fd message */
@@ -586,18 +583,13 @@ map_error:
   {
     GST_ELEMENT_ERROR (pinossink, RESOURCE, FAILED,
         ("failed to map buffer"), (NULL));
-    return GST_FLOW_ERROR;
-  }
-add_fd_failed:
-  {
-    GST_ELEMENT_ERROR (pinossink, RESOURCE, FAILED,
-        ("failed to add fd: %s", err->message), (NULL));
-    pinos_buffer_builder_clear (&builder);
+    gst_memory_unref (mem);
     return GST_FLOW_ERROR;
   }
 streaming_error:
   {
     pinos_main_loop_unlock (pinossink->loop);
+    gst_memory_unref (mem);
     return GST_FLOW_ERROR;
   }
 }

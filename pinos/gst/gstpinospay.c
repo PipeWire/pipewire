@@ -214,7 +214,7 @@ client_buffer_received (GstPinosPay *pay, GstBuffer *buffer,
   }
 
   gst_buffer_map (buffer, &info, GST_MAP_READ);
-  pinos_buffer_init_data (&pbuf, info.data, info.size, NULL);
+  pinos_buffer_init_data (&pbuf, info.data, info.size, NULL, 0);
   pinos_buffer_iter_init (&it, &pbuf);
   while (pinos_buffer_iter_next (&it)) {
     switch (pinos_buffer_iter_get_type (&it)) {
@@ -266,7 +266,7 @@ client_buffer_received (GstPinosPay *pay, GstBuffer *buffer,
     if (have_out) {
       pinos_buffer_builder_end (&b, &pbuf);
 
-      data = pinos_buffer_steal (&pbuf, &size, NULL);
+      data = pinos_buffer_steal_data (&pbuf, &size);
 
       outbuf = gst_buffer_new_wrapped (data, size);
       ev = gst_event_new_custom (GST_EVENT_CUSTOM_UPSTREAM,
@@ -379,7 +379,7 @@ release_fds (GstPinosPay *pay, GstBuffer *buffer)
   pinos_buffer_builder_end (&b, &pbuf);
   g_array_unref (fdids);
 
-  data = pinos_buffer_steal (&pbuf, &size, NULL);
+  data = pinos_buffer_steal_data (&pbuf, &size);
 
   outbuf = gst_buffer_new_wrapped (data, size);
   ev = gst_event_new_custom (GST_EVENT_CUSTOM_UPSTREAM,
@@ -401,7 +401,7 @@ gst_pinos_pay_chain_pinos (GstPinosPay *pay, GstBuffer * buffer)
   GArray *fdids = NULL;
 
   gst_buffer_map (buffer, &info, GST_MAP_READ);
-  pinos_buffer_init_data (&pbuf, info.data, info.size, NULL);
+  pinos_buffer_init_data (&pbuf, info.data, info.size, NULL, 0);
   pinos_buffer_iter_init (&it, &pbuf);
   while (pinos_buffer_iter_next (&it)) {
     switch (pinos_buffer_iter_get_type (&it)) {
@@ -467,6 +467,7 @@ gst_pinos_pay_chain_other (GstPinosPay *pay, GstBuffer * buffer)
   gpointer data;
   GSocketControlMessage *msg;
   gboolean tmpfile = TRUE;
+  gint *fds, n_fds, i;
 
   hdr.flags = 0;
   hdr.seq = GST_BUFFER_OFFSET (buffer);
@@ -476,20 +477,19 @@ gst_pinos_pay_chain_other (GstPinosPay *pay, GstBuffer * buffer)
   pinos_buffer_builder_init (&builder);
   pinos_buffer_builder_add_header (&builder, &hdr);
 
+  msg = g_unix_fd_message_new ();
+
   fdmem = gst_pinos_pay_get_fd_memory (pay, buffer, &tmpfile);
-  p.fd_index = pinos_buffer_builder_add_fd (&builder, gst_fd_memory_get_fd (fdmem), &err);
-  if (p.fd_index == -1)
-    goto add_fd_failed;
+  p.fd_index = pinos_buffer_builder_add_fd (&builder, gst_fd_memory_get_fd (fdmem));
   p.id = pinos_fd_manager_get_id (pay->fdmanager);
   p.offset = fdmem->offset;
   p.size = fdmem->size;
   pinos_buffer_builder_add_fd_payload (&builder, &p);
 
   pinos_buffer_builder_end (&builder, &pbuf);
-  gst_memory_unref(fdmem);
-  fdmem = NULL;
 
-  data = pinos_buffer_steal (&pbuf, &size, &msg);
+  data = pinos_buffer_steal_data (&pbuf, &size);
+  fds = pinos_buffer_steal_fds (&pbuf, &n_fds);
 
   outbuf = gst_buffer_new_wrapped (data, size);
   GST_BUFFER_PTS (outbuf) = GST_BUFFER_PTS (buffer);
@@ -497,6 +497,18 @@ gst_pinos_pay_chain_other (GstPinosPay *pay, GstBuffer * buffer)
   GST_BUFFER_DURATION (outbuf) = GST_BUFFER_DURATION (buffer);
   GST_BUFFER_OFFSET (outbuf) = GST_BUFFER_OFFSET (buffer);
   GST_BUFFER_OFFSET_END (outbuf) = GST_BUFFER_OFFSET_END (buffer);
+
+  msg = g_unix_fd_message_new ();
+  for (i = 0; i < n_fds; i++) {
+    if (!g_unix_fd_message_append_fd (G_UNIX_FD_MESSAGE (msg), fds[i], &err))
+      goto add_fd_failed;
+  }
+  gst_buffer_add_net_control_message_meta (outbuf, msg);
+  g_object_unref (msg);
+  g_free (fds);
+
+  gst_memory_unref(fdmem);
+  fdmem = NULL;
 
   if (!tmpfile) {
     GArray *fdids;
@@ -516,16 +528,13 @@ gst_pinos_pay_chain_other (GstPinosPay *pay, GstBuffer * buffer)
     gst_buffer_unref (buffer);
   }
 
-  gst_buffer_add_net_control_message_meta (outbuf, msg);
-  g_object_unref (msg);
-
   return gst_pad_push (pay->srcpad, outbuf);
 
   /* ERRORS */
 add_fd_failed:
   {
     GST_WARNING_OBJECT (pay, "Adding fd failed: %s", err->message);
-    gst_memory_unref(fdmem);
+    gst_object_unref(msg);
     g_clear_error (&err);
 
     return GST_FLOW_ERROR;

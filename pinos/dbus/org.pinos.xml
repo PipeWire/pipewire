@@ -53,21 +53,17 @@
          Disconnect the client from the server.
     -->
     <method name='Disconnect'/>
-    <!-- CreateSourceChannel:
-         @direction: the channel direction, 0 = input, 1 = output
-         @port: the Port1 object path or / for default
-         @possible_formats: the possible formats that can be accepted
+    <!-- CreateNode:
+         @name: the name of the node
          @properties: extra properties
-         @channel: the Channel object path
+         @node: the Node1 object path
 
-         Create a new channel to stream to/from @port with given @possible_formats
+         Create a new Node with given name and properties
     -->
-    <method name='CreateChannel'>
-      <arg type='u' name='direction' direction='in'/>
-      <arg type='s' name='port' direction='in'/>
-      <arg type='s' name='possible_formats' direction='in'/>
+    <method name='CreateNode'>
+      <arg type='s' name='Name' direction='in' />
       <arg type='a{sv}' name='properties' direction='in'/>
-      <arg type='o' name='channel' direction='out'/>
+      <arg type='o' name='node' direction='out'/>
     </method>
 
     <!-- CreateUploadChannel:
@@ -94,6 +90,8 @@
   <interface name='org.pinos.Node1'>
     <!-- Name: the name of the node -->
     <property name='Name' type='s' access='read' />
+    <!-- Owner: the owner path of this node -->
+    <property name='Owner' type='o' access='read' />
     <!-- Properties: extra node properties -->
     <property name='Properties' type='a{sv}' access='read' />
     <!-- state: state of the node
@@ -106,6 +104,25 @@
           3 = the node is running
     -->
     <property name='State' type='u' access='read' />
+
+    <!-- CreatePort:
+
+         Create a new port
+    -->
+    <method name='CreatePort'>
+      <arg type='u' name='Direction' direction='in' />
+      <arg type='s' name='Name' direction='in' />
+      <arg type='a{sv}' name='properties' direction='in'/>
+      <arg type='s' name='possible_formats' direction='in'/>
+      <arg type='o' name='port' direction='out'/>
+      <arg type='h' name='fd' direction='out'/>
+    </method>
+
+    <!-- Remove:
+
+         Remove the node
+    -->
+    <method name='Remove'/>
   </interface>
 
   <!--
@@ -131,92 +148,10 @@
          The all possible formats of this port.
     -->
     <property name='PossibleFormats' type='s' access='read' />
-  </interface>
-
-  <!--
-      org.pinos.Channel1:
-      @short_description: Interface for input/output channel
-
-      This interface is used to control the input/output of a
-      Port1 and start/stop the media transport.
-  -->
-  <interface name='org.pinos.Channel1'>
-    <!-- Client: the owner client of this channel -->
-    <property name='Client' type='o' access='read' />
-    <!-- Owner: the owner port of this channel -->
-    <property name='Port' type='o' access='read' />
-    <!-- Direction: the direction of the port
-         0 = an input port
-         1 = an output port
-    -->
-    <property name='Direction' type='u' access='read' />
-    <!-- Properties: extra channel properties -->
-    <property name='Properties' type='a{sv}' access='read' />
-
-    <!-- state: state of the channel
-          -1 = the channel is in error
-          0 = the channel is stopped
-          1 = the channel is starting
-          2 = the channel is streaming
-    -->
-    <property name='State' type='u' access='read' />
-
-    <!-- PossibleFormats:
-         all possible formats of the channel. This is filtered
-         against the accepted_formats when creating the channel.
-         -->
-    <property name='PossibleFormats' type='s' access='read' />
-
     <!-- Format: the current streaming format -->
     <property name='Format' type='s' access='read' />
 
-    <!-- Start:
-         @requested_format: requested formats
-         @fd: output file descriptor
-         @format: channel format
-         @properties: channel properties
-
-         Start the datatransfer on the channel with @requested_format.
-
-         The result is a file descriptor that can be used to send/receive
-         metadata and media. @format contains the final media format and
-         @properties the extra properties that describe the media format.
-    -->
-    <method name='Start'>
-      <arg type='s' name='requested_format' direction='in'/>
-      <arg type='h' name='fd' direction='out'/>
-      <arg type='s' name='format' direction='out'/>
-      <arg type='a{sv}' name='properties' direction='out'/>
-    </method>
-    <!-- Stop:
-
-         Stop data transport on the channel
-    -->
-    <method name='Stop'/>
-    <!-- Remove:
-
-         Remove the channel
-    -->
     <method name='Remove'/>
 
-    <!-- This is a possible push based API. It would require a dbus call
-         for each media packet, which is probably not a good idea right now.
-         We would probably also want something more lightweight for sending
-         the properties with each fd.
-
-    <method name='Start'>
-      <arg type='a{sv}' name='props' direction='in'/>
-      <arg type='a{sv}' name='props' direction='out'/>
-    </method>
-    <method name='Stop'>
-    </method>
-    <signal name='NewData'>
-      <arg type='h' name='data' direction='out'/>
-      <arg type='a{sv}' name='props' direction='out'/>
-    </signal>
-    <method name='FreeData'>
-      <arg type='h' name='data' direction='in'/>
-    </method>
-    -->
   </interface>
 </node>

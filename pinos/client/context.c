@@ -22,6 +22,7 @@
 #include "pinos/client/context.h"
 #include "pinos/client/enumtypes.h"
 #include "pinos/client/subscribe.h"
+#include "pinos/client/client-node.h"
 
 #include "pinos/client/private.h"
 
@@ -150,7 +151,6 @@ pinos_context_finalize (GObject * object)
   g_list_free (priv->nodes);
   g_list_free (priv->ports);
   g_list_free (priv->clients);
-  g_list_free (priv->channels);
   g_clear_object (&priv->subscribe);
   g_clear_error (&priv->error);
 
@@ -501,13 +501,6 @@ subscription_cb (PinosSubscribe         *subscribe,
       else if (event == PINOS_SUBSCRIPTION_EVENT_REMOVE)
         priv->ports = g_list_remove (priv->ports, object);
       break;
-
-    case PINOS_SUBSCRIPTION_FLAG_CHANNEL:
-      if (event == PINOS_SUBSCRIPTION_EVENT_NEW)
-        priv->channels = g_list_prepend (priv->channels, object);
-      else if (event == PINOS_SUBSCRIPTION_EVENT_REMOVE)
-        priv->channels = g_list_remove (priv->channels, object);
-      break;
   }
 
   if (flags & priv->subscription_mask)
@@ -760,4 +753,172 @@ pinos_context_get_error (PinosContext *context)
   priv = context->priv;
 
   return priv->error;
+}
+
+typedef struct {
+  gchar *name;
+  PinosProperties *properties;
+} CreateNodeData;
+
+static void
+create_node_data_free (CreateNodeData *data)
+{
+  g_free (data->name);
+  if (data->properties)
+    pinos_properties_free (data->properties);
+  g_slice_free (CreateNodeData, data);
+}
+
+static void
+on_node_proxy (GObject      *source_object,
+               GAsyncResult *res,
+               gpointer      user_data)
+{
+  GTask *task = user_data;
+  PinosContext *context = g_task_get_source_object (task);
+  GError *error = NULL;
+  GDBusProxy *proxy;
+  PinosNode *node;
+
+  proxy = pinos_subscribe_get_proxy_finish (context->priv->subscribe,
+                                            res,
+                                            &error);
+  if (proxy == NULL)
+    goto node_failed;
+
+  node = g_object_new (PINOS_TYPE_CLIENT_NODE,
+                       "context", context,
+                       "proxy", proxy,
+                       NULL);
+
+  g_task_return_pointer (task, node, (GDestroyNotify) g_object_unref);
+
+  return;
+
+node_failed:
+  {
+    g_warning ("failed to get node proxy: %s", error->message);
+    g_task_return_error (task, error);
+    return;
+  }
+}
+
+
+static void
+on_node_created (GObject      *source_object,
+                 GAsyncResult *res,
+                 gpointer      user_data)
+{
+  GTask *task = user_data;
+  PinosContext *context = g_task_get_source_object (task);
+  GVariant *ret;
+  GError *error = NULL;
+  const gchar *node_path;
+
+  g_assert (context->priv->client == G_DBUS_PROXY (source_object));
+
+  ret = g_dbus_proxy_call_finish (context->priv->client, res, &error);
+  if (ret == NULL)
+    goto create_failed;
+
+  g_variant_get (ret, "(&o)", &node_path);
+
+  pinos_subscribe_get_proxy (context->priv->subscribe,
+                             PINOS_DBUS_SERVICE,
+                             node_path,
+                             "org.pinos.Node1",
+                             NULL,
+                             on_node_proxy,
+                             task);
+  g_variant_unref (ret);
+
+  return;
+
+  /* ERRORS */
+create_failed:
+  {
+    g_warning ("failed to create node: %s", error->message);
+    g_task_return_error (task, error);
+    return;
+  }
+}
+
+
+static gboolean
+do_create_node (GTask *task)
+{
+  PinosContext *context = g_task_get_source_object (task);
+  CreateNodeData *data = g_task_get_task_data (task);
+
+  g_dbus_proxy_call (context->priv->client,
+                     "CreateNode",
+                     g_variant_new ("(s@a{sv})",
+                       "client-node",
+                       pinos_properties_to_variant (data->properties)),
+                     G_DBUS_CALL_FLAGS_NONE,
+                     -1,
+                     NULL, /* GCancellable *cancellable */
+                     on_node_created,
+                     task);
+  return FALSE;
+}
+
+/**
+ * pinos_context_create_node:
+ * @context: a #PinosContext
+ * @name: the name of the Node
+ * @properties: properties of the node
+ * @cancelable: a #GCancellable
+ * @callback: a #GAsyncReadyCallback
+ * @user_data: user data.
+ *
+ * Asynchronously create a new node in @context.
+ */
+void
+pinos_context_create_node (PinosContext        *context,
+                           const gchar         *name,
+                           PinosProperties     *properties,
+                           GCancellable        *cancellable,
+                           GAsyncReadyCallback  callback,
+                           gpointer             user_data)
+{
+  GTask *task;
+  CreateNodeData *data;
+
+  g_return_if_fail (PINOS_IS_CONTEXT (context));
+
+  task = g_task_new (context,
+                     cancellable,
+                     callback,
+                     user_data);
+
+  data = g_slice_new (CreateNodeData);
+  data->name = g_strdup (name);
+  data->properties = properties ? pinos_properties_copy (properties) : NULL;
+
+  g_task_set_task_data (task, data, (GDestroyNotify) create_node_data_free);
+
+  g_main_context_invoke (context->priv->context,
+                        (GSourceFunc) do_create_node,
+                        task);
+}
+
+/**
+ * pinos_context_create_node_finish:
+ * @context: a #PinosContext
+ * @res: a #GAsyncResult
+ * @error: a #GError or %NULL
+ *
+ * Get the newly created #PinosNode. This function should be called in the callback
+ * of pinos_context_create_node() to get the result or error.
+ *
+ * Returns: a new #PinosNode. If %NULL is returned, @error will
+ *          be set.
+ */
+PinosNode *
+pinos_context_create_node_finish (PinosContext   *context,
+                                  GAsyncResult   *res,
+                                  GError         **error)
+{
+  return g_task_propagate_pointer (G_TASK (res), error);
 }

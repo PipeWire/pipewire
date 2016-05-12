@@ -170,6 +170,10 @@ pinosinclude_HEADERS = \
 		client/introspect.h \
 		client/mainloop.h \
 		client/properties.h \
+		client/node.h \
+		client/port.h \
+		client/client-node.h \
+		client/client-port.h \
 		client/stream.h \
 		client/subscribe.h
 
@@ -184,6 +188,10 @@ libpinos_@PINOS_MAJORMINOR@_la_SOURCES = \
 		client/introspect.h client/introspect.c \
 		client/mainloop.h client/mainloop.c \
 		client/properties.h client/properties.c \
+		client/node.h client/node.c \
+		client/port.h client/port.c \
+		client/client-node.h client/client-node.c \
+		client/client-port.h client/client-port.c \
 		client/stream.h client/stream.c \
 		client/pinos.c client/pinos.h \
 		client/fdmanager.c client/fdmanager.h \
@@ -205,10 +213,9 @@ lib_LTLIBRARIES += libpinoscore-@PINOS_MAJORMINOR@.la
 libpinoscore_@PINOS_MAJORMINOR@_la_SOURCES = \
 		server/client.c server/client.h \
 		server/daemon.c server/daemon.h \
-		server/node.c server/node.h \
-		server/port.c server/port.h \
+		server/server-node.c server/server-node.h \
+		server/server-port.c server/server-port.h \
 		server/upload-node.c server/upload-node.h \
-		server/channel.c server/channel.h \
 		modules/gst/gst-manager.c modules/gst/gst-manager.h \
 		modules/gst/gst-source.c modules/gst/gst-source.h \
 		modules/gst/gst-sink.c modules/gst/gst-sink.h \

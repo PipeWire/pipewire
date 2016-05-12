@@ -344,18 +344,18 @@ pinos_daemon_unexport (PinosDaemon *daemon,
 /**
  * pinos_daemon_add_node:
  * @daemon: a #PinosDaemon
- * @node: a #PinosNode
+ * @node: a #PinosServerNode
  *
  * Add @node to @daemon.
  */
 void
-pinos_daemon_add_node (PinosDaemon *daemon,
-                       PinosNode *node)
+pinos_daemon_add_node (PinosDaemon     *daemon,
+                       PinosServerNode *node)
 {
   PinosDaemonPrivate *priv;
 
   g_return_if_fail (PINOS_IS_DAEMON (daemon));
-  g_return_if_fail (PINOS_IS_NODE (node));
+  g_return_if_fail (PINOS_IS_SERVER_NODE (node));
   priv = daemon->priv;
 
   priv->nodes = g_list_prepend (priv->nodes, node);
@@ -364,18 +364,18 @@ pinos_daemon_add_node (PinosDaemon *daemon,
 /**
  * pinos_daemon_remove_node:
  * @daemon: a #PinosDaemon
- * @node: a #PinosNode
+ * @node: a #PinosServerNode
  *
  * Remove @node from @daemon.
  */
 void
-pinos_daemon_remove_node (PinosDaemon *daemon,
-                          PinosNode *node)
+pinos_daemon_remove_node (PinosDaemon     *daemon,
+                          PinosServerNode *node)
 {
   PinosDaemonPrivate *priv;
 
   g_return_if_fail (PINOS_IS_DAEMON (daemon));
-  g_return_if_fail (PINOS_IS_NODE (node));
+  g_return_if_fail (PINOS_IS_SERVER_NODE (node));
   priv = daemon->priv;
 
   priv->nodes = g_list_remove (priv->nodes, node);
@@ -391,9 +391,9 @@ pinos_daemon_remove_node (PinosDaemon *daemon,
  *
  * Find the best port in @daemon that matches the given parameters.
  *
- * Returns: a #PinosPort or %NULL when no port could be found.
+ * Returns: a #PinosServerPort or %NULL when no port could be found.
  */
-PinosPort *
+PinosServerPort *
 pinos_daemon_find_port (PinosDaemon     *daemon,
                         PinosDirection   direction,
                         const gchar     *name,
@@ -402,8 +402,8 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
                         GError         **error)
 {
   PinosDaemonPrivate *priv;
-  PinosPort *best = NULL;
-  GList *node, *port;
+  PinosServerPort *best = NULL;
+  GList *nodes, *ports;
   gboolean have_name;
 
   g_return_val_if_fail (PINOS_IS_DAEMON (daemon), NULL);
@@ -411,18 +411,18 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
 
   have_name = name ? strlen (name) > 0 : FALSE;
 
-  for (node = priv->nodes; node; node = g_list_next (node)) {
-    PinosNode *n = node->data;
+  for (nodes = priv->nodes; nodes; nodes = g_list_next (nodes)) {
+    PinosServerNode *n = nodes->data;
     gboolean node_found = FALSE;
 
     /* we found the node */
-    if (have_name && g_str_has_suffix (pinos_node_get_object_path (n), name)) {
-      g_debug ("name \"%s\" matches node %s", name, pinos_node_get_object_path (n));
+    if (have_name && g_str_has_suffix (pinos_server_node_get_object_path (n), name)) {
+      g_debug ("name \"%s\" matches node %s", name, pinos_server_node_get_object_path (n));
       node_found = TRUE;
     }
 
-    for (port = pinos_node_get_ports (n); port; port = g_list_next (port)) {
-      PinosPort *p = port->data;
+    for (ports = pinos_node_get_ports (PINOS_NODE (n)); ports; ports = g_list_next (ports)) {
+      PinosServerPort *p = ports->data;
       PinosDirection dir;
       GBytes *format;
 
@@ -431,18 +431,18 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
         continue;
 
       if (have_name && !node_found) {
-        if (!g_str_has_suffix (pinos_port_get_object_path (p), name))
+        if (!g_str_has_suffix (pinos_server_port_get_object_path (p), name))
           continue;
-        g_debug ("name \"%s\" matches port %s", name, pinos_port_get_object_path (p));
+        g_debug ("name \"%s\" matches port %s", name, pinos_server_port_get_object_path (p));
         best = p;
         node_found = TRUE;
         break;
       }
 
-      format = pinos_port_get_formats (p, format_filter, NULL);
+      format = pinos_port_get_formats (PINOS_PORT (p), format_filter, NULL);
       if (format != NULL) {
         g_debug ("port %s with format %s matches filter %s",
-            pinos_port_get_object_path (p),
+            pinos_server_port_get_object_path (p),
             (gchar*)g_bytes_get_data (format, NULL),
             format_filter ? (gchar*)g_bytes_get_data (format_filter, NULL) : "ANY");
         g_bytes_unref (format);

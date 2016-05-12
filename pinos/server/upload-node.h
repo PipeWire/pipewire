@@ -28,7 +28,7 @@ typedef struct _PinosUploadNode PinosUploadNode;
 typedef struct _PinosUploadNodeClass PinosUploadNodeClass;
 typedef struct _PinosUploadNodePrivate PinosUploadNodePrivate;
 
-#include <pinos/server/node.h>
+#include <pinos/server/server-node.h>
 
 #define PINOS_TYPE_UPLOAD_NODE                 (pinos_upload_node_get_type ())
 #define PINOS_IS_UPLOAD_NODE(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_UPLOAD_NODE))
@@ -45,7 +45,7 @@ typedef struct _PinosUploadNodePrivate PinosUploadNodePrivate;
  * Pinos client source object class.
  */
 struct _PinosUploadNode {
-  PinosNode object;
+  PinosServerNode object;
 
   PinosUploadNodePrivate *priv;
 };
@@ -56,20 +56,15 @@ struct _PinosUploadNode {
  * Pinos client source object class.
  */
 struct _PinosUploadNodeClass {
-  PinosNodeClass parent_class;
+  PinosServerNodeClass parent_class;
 };
 
 /* normal GObject stuff */
 GType               pinos_upload_node_get_type         (void);
 
-PinosNode *         pinos_upload_node_new              (PinosDaemon *daemon,
+PinosServerNode *   pinos_upload_node_new              (PinosDaemon *daemon,
                                                         GBytes      *possible_formats);
 
-PinosChannel *      pinos_upload_node_get_channel      (PinosUploadNode   *source,
-                                                        const gchar       *client_path,
-                                                        GBytes            *format_filter,
-                                                        PinosProperties   *props,
-                                                        GError            **error);
 G_END_DECLS
 
 #endif /* __PINOS_UPLOAD_NODE_H__ */

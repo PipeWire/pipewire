@@ -41,8 +41,6 @@ struct _PinosGstSinkPrivate
   GstNetTimeProvider *provider;
 
   PinosProperties *props;
-
-  gint n_channels;
 };
 
 enum {
@@ -51,7 +49,7 @@ enum {
   PROP_POSSIBLE_FORMATS
 };
 
-G_DEFINE_TYPE (PinosGstSink, pinos_gst_sink, PINOS_TYPE_NODE);
+G_DEFINE_TYPE (PinosGstSink, pinos_gst_sink, PINOS_TYPE_SERVER_NODE);
 
 static gboolean
 bus_handler (GstBus     *bus,
@@ -143,6 +141,7 @@ setup_pipeline (PinosGstSink *sink, GError **error)
   return TRUE;
 }
 
+#if 0
 static gboolean
 start_pipeline (PinosGstSink *sink, GError **error)
 {
@@ -186,6 +185,7 @@ ready_failed:
     return FALSE;
   }
 }
+#endif
 
 static void
 stop_pipeline (PinosGstSink *sink)
@@ -240,11 +240,13 @@ set_state (PinosNode      *node,
   return TRUE;
 }
 
+#if 0
 static void
 on_socket_notify (GObject    *gobject,
                   GParamSpec *pspec,
                   gpointer    user_data)
 {
+  PinosNode *node = user_data;
   PinosGstSink *sink = user_data;
   PinosGstSinkPrivate *priv = sink->priv;
   GSocket *socket;
@@ -268,7 +270,7 @@ on_socket_notify (GObject    *gobject,
   }
 
   if (num_handles == 0) {
-    pinos_node_report_idle (PINOS_NODE (sink));
+    pinos_node_report_idle (node);
     g_object_set (priv->depay, "caps", NULL, NULL);
 
     str = gst_caps_to_string (priv->possible_formats);
@@ -298,7 +300,7 @@ on_socket_notify (GObject    *gobject,
     }
     /* this is what we use as the final format for the output */
     g_object_set (gobject, "format", format, NULL);
-    pinos_node_report_busy (PINOS_NODE (sink));
+    pinos_node_report_busy (node);
     g_object_unref (socket);
   }
 
@@ -310,31 +312,7 @@ on_socket_notify (GObject    *gobject,
   g_object_set (gobject, "properties", props, NULL);
   pinos_properties_free (props);
 }
-
-static void
-on_channel_added (PinosPort *port, PinosChannel *channel, PinosGstSink *sink)
-{
-  PinosGstSinkPrivate *priv = sink->priv;
-  GError *error = NULL;
-
-  if (priv->n_channels == 0) {
-    if (!start_pipeline (sink, &error))
-      return;
-  }
-
-  g_signal_connect (channel, "notify::socket", (GCallback) on_socket_notify, sink);
-  priv->n_channels++;
-}
-
-static void
-on_channel_removed (PinosPort *port, PinosChannel *channel, PinosGstSink *sink)
-{
-  PinosGstSinkPrivate *priv = sink->priv;
-
-  priv->n_channels--;
-  if (priv->n_channels == 0)
-    stop_pipeline (sink);
-}
+#endif
 
 static void
 get_property (GObject    *object,
@@ -385,9 +363,22 @@ set_property (GObject      *object,
 }
 
 static void
+on_input_port_created (GObject      *source_object,
+                       GAsyncResult *res,
+                       gpointer      user_data)
+{
+  PinosNode *node = PINOS_NODE (source_object);
+  PinosGstSinkPrivate *priv = PINOS_GST_SINK (node)->priv;
+
+  priv->input = pinos_node_create_port_finish (node, res, NULL);
+}
+
+
+
+static void
 sink_constructed (GObject * object)
 {
-  PinosNode *node = PINOS_NODE (object);
+  PinosServerNode *node = PINOS_SERVER_NODE (object);
   PinosGstSink *sink = PINOS_GST_SINK (object);
   PinosGstSinkPrivate *priv = sink->priv;
   gchar *str;
@@ -398,18 +389,15 @@ sink_constructed (GObject * object)
   str = gst_caps_to_string (priv->possible_formats);
   format = g_bytes_new_take (str, strlen (str) + 1);
 
-  priv->input = pinos_port_new (pinos_node_get_daemon (node),
-                                pinos_node_get_object_path (node),
-                                PINOS_DIRECTION_INPUT,
-                                "input",
-                                format,
-                                NULL);
+  pinos_node_create_port (PINOS_NODE (node),
+                          PINOS_DIRECTION_INPUT,
+                          "input",
+                          format,
+                          NULL,
+			  NULL,
+                          on_input_port_created,
+                          node);
   g_bytes_unref (format);
-
-  pinos_node_add_port (node, priv->input);
-
-  g_signal_connect (priv->input, "channel-added", (GCallback) on_channel_added, sink);
-  g_signal_connect (priv->input, "channel-removed", (GCallback) on_channel_removed, sink);
 
   setup_pipeline (sink, NULL);
 }
@@ -471,14 +459,14 @@ pinos_gst_sink_init (PinosGstSink * sink)
   priv->props = pinos_properties_new (NULL, NULL);
 }
 
-PinosNode *
+PinosServerNode *
 pinos_gst_sink_new (PinosDaemon *daemon,
                     const gchar *name,
                     PinosProperties *properties,
                     GstElement  *element,
                     GstCaps     *caps)
 {
-  PinosNode *node;
+  PinosServerNode *node;
 
   node = g_object_new (PINOS_TYPE_GST_SINK,
                        "daemon", daemon,

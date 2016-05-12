@@ -41,8 +41,6 @@ struct _PinosGstSourcePrivate
   GstNetTimeProvider *provider;
 
   PinosProperties *props;
-
-  gint n_channels;
 };
 
 enum {
@@ -51,7 +49,7 @@ enum {
   PROP_POSSIBLE_FORMATS
 };
 
-G_DEFINE_TYPE (PinosGstSource, pinos_gst_source, PINOS_TYPE_NODE);
+G_DEFINE_TYPE (PinosGstSource, pinos_gst_source, PINOS_TYPE_SERVER_NODE);
 
 static gboolean
 bus_handler (GstBus     *bus,
@@ -144,6 +142,7 @@ setup_pipeline (PinosGstSource *source, GError **error)
   return TRUE;
 }
 
+#if 0
 static gboolean
 start_pipeline (PinosGstSource *source, GError **error)
 {
@@ -183,6 +182,7 @@ ready_failed:
     return FALSE;
   }
 }
+#endif
 
 static void
 stop_pipeline (PinosGstSource *source)
@@ -286,6 +286,7 @@ set_state (PinosNode      *node,
   return TRUE;
 }
 
+#if 0
 static void
 on_socket_notify (GObject    *gobject,
                   GParamSpec *pspec,
@@ -363,31 +364,7 @@ on_socket_notify (GObject    *gobject,
   g_object_set (gobject, "properties", props, NULL);
   pinos_properties_free (props);
 }
-
-static void
-on_channel_added (PinosPort *port, PinosChannel *channel, PinosGstSource *source)
-{
-  PinosGstSourcePrivate *priv = source->priv;
-  GError *error = NULL;
-
-  if (priv->n_channels == 0) {
-    if (!start_pipeline (source, &error))
-      return;
-  }
-
-  g_signal_connect (channel, "notify::socket", (GCallback) on_socket_notify, source);
-  priv->n_channels++;
-}
-
-static void
-on_channel_removed (PinosPort *port, PinosChannel *channel, PinosGstSource *source)
-{
-  PinosGstSourcePrivate *priv = source->priv;
-
-  priv->n_channels--;
-  if (priv->n_channels == 0)
-    stop_pipeline (source);
-}
+#endif
 
 static void
 get_property (GObject    *object,
@@ -438,9 +415,20 @@ set_property (GObject      *object,
 }
 
 static void
+on_output_port_created (GObject      *source_object,
+                        GAsyncResult *res,
+                        gpointer      user_data)
+{
+  PinosNode *node = PINOS_NODE (source_object);
+  PinosGstSourcePrivate *priv = PINOS_GST_SOURCE (node)->priv;
+
+  priv->output = pinos_node_create_port_finish (node, res, NULL);
+}
+
+static void
 source_constructed (GObject * object)
 {
-  PinosNode *node = PINOS_NODE (object);
+  PinosServerNode *node = PINOS_SERVER_NODE (object);
   PinosGstSource *source = PINOS_GST_SOURCE (object);
   PinosGstSourcePrivate *priv = source->priv;
   gchar *str;
@@ -451,18 +439,15 @@ source_constructed (GObject * object)
   str = gst_caps_to_string (priv->possible_formats);
   format = g_bytes_new_take (str, strlen (str) + 1);
 
-  priv->output = pinos_port_new (pinos_node_get_daemon (node),
-                                 pinos_node_get_object_path (node),
-                                 PINOS_DIRECTION_OUTPUT,
-                                 "output",
-                                 format,
-                                 NULL);
+  pinos_node_create_port (PINOS_NODE (node),
+                          PINOS_DIRECTION_OUTPUT,
+                          "output",
+                          format,
+                          NULL,
+                          NULL,
+                          on_output_port_created,
+                          node);
   g_bytes_unref (format);
-
-  g_signal_connect (priv->output, "channel-added", (GCallback) on_channel_added, source);
-  g_signal_connect (priv->output, "channel-removed", (GCallback) on_channel_removed, source);
-
-  pinos_node_add_port (node, priv->output);
 
   setup_pipeline (source, NULL);
 }
@@ -470,11 +455,11 @@ source_constructed (GObject * object)
 static void
 source_finalize (GObject * object)
 {
-  PinosNode *node = PINOS_NODE (object);
+  PinosServerNode *node = PINOS_SERVER_NODE (object);
   PinosGstSource *source = PINOS_GST_SOURCE (object);
   PinosGstSourcePrivate *priv = source->priv;
 
-  pinos_node_remove_port (node, priv->output);
+  pinos_node_remove_port (PINOS_NODE (node), priv->output);
   destroy_pipeline (source);
   g_clear_pointer (&priv->possible_formats, gst_caps_unref);
   pinos_properties_free (priv->props);
@@ -526,14 +511,14 @@ pinos_gst_source_init (PinosGstSource * source)
   priv->props = pinos_properties_new (NULL, NULL);
 }
 
-PinosNode *
+PinosServerNode *
 pinos_gst_source_new (PinosDaemon *daemon,
                       const gchar *name,
                       PinosProperties *properties,
                       GstElement  *element,
                       GstCaps     *caps)
 {
-  PinosNode *node;
+  PinosServerNode *node;
 
   node = g_object_new (PINOS_TYPE_GST_SOURCE,
                        "daemon", daemon,

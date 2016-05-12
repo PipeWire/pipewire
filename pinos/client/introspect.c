@@ -532,74 +532,63 @@ pinos_context_get_port_info_by_id (PinosContext *context,
 }
 
 /**
- * pinos_channel_state_as_string:
- * @state: a #PinosChannelState
+ * pinos_port_state_as_string:
+ * @state: a #PinosPortState
  *
  * Return the string representation of @state.
  *
  * Returns: the string representation of @state.
  */
 const gchar *
-pinos_channel_state_as_string (PinosChannelState state)
+pinos_port_state_as_string (PinosPortState state)
 {
   GEnumValue *val;
 
-  val = g_enum_get_value (G_ENUM_CLASS (g_type_class_ref (PINOS_TYPE_CHANNEL_STATE)),
+  val = g_enum_get_value (G_ENUM_CLASS (g_type_class_ref (PINOS_TYPE_PORT_STATE)),
                           state);
 
   return val == NULL ? "invalid-state" : val->value_nick;
 }
 
 static void
-channel_fill_info (PinosChannelInfo *info, GDBusProxy *proxy)
+connection_fill_info (PinosConnectionInfo *info, GDBusProxy *proxy)
 {
   GHashTable *changed = g_object_get_data (G_OBJECT (proxy), "pinos-changed-properties");
 
   info->id = proxy;
-  info->channel_path = g_dbus_proxy_get_object_path (proxy);
-  SET_UINT32 ("Direction", direction, 2, PINOS_DIRECTION_INVALID);
-  SET_STRING ("Client", client_path, 0);
+  info->connection_path = g_dbus_proxy_get_object_path (proxy);
 
   info->change_mask = 0;
-  SET_STRING ("Port", port_path, 0);
-  SET_PROPERTIES ("Properties", properties, 1);
-  SET_UINT32 ("State", state, 2, PINOS_CHANNEL_STATE_ERROR);
-  SET_BYTES ("PossibleFormats", possible_formats, 3);
-  SET_BYTES ("Format", format, 4);
+  SET_STRING ("SourcePort", source_port_path, 0);
+  SET_STRING ("DestinationPort", destination_port_path, 1);
 
   if (changed)
     g_hash_table_remove_all (changed);
 }
 
 static void
-channel_clear_info (PinosChannelInfo *info)
+connection_clear_info (PinosConnectionInfo *info)
 {
-  if (info->possible_formats)
-    g_bytes_unref (info->possible_formats);
-  if (info->format)
-    g_bytes_unref (info->format);
-  if (info->properties)
-    pinos_properties_free (info->properties);
 }
 
 /**
- * pinos_context_list_channel_info:
+ * pinos_context_list_connection_info:
  * @context: a connected #PinosContext
- * @flags: extra #PinosChannelInfoFlags
- * @cb: a #PinosChannelInfoCallback
+ * @flags: extra #PinosConnectionInfoFlags
+ * @cb: a #PinosConnectionInfoCallback
  * @cancelable: a #GCancellable
  * @callback: a #GAsyncReadyCallback to call when the operation is finished
  * @user_data: user data passed to @cb
  *
- * Call @cb for each channel.
+ * Call @cb for each connection.
  */
 void
-pinos_context_list_channel_info (PinosContext *context,
-                                 PinosChannelInfoFlags flags,
-                                 PinosChannelInfoCallback cb,
-                                 GCancellable *cancellable,
-                                 GAsyncReadyCallback callback,
-                                 gpointer user_data)
+pinos_context_list_connection_info (PinosContext *context,
+                                    PinosConnectionInfoFlags flags,
+                                    PinosConnectionInfoCallback cb,
+                                    GCancellable *cancellable,
+                                    GAsyncReadyCallback callback,
+                                    gpointer user_data)
 {
   PinosContextPrivate *priv;
   GList *walk;
@@ -612,13 +601,13 @@ pinos_context_list_channel_info (PinosContext *context,
 
   priv = context->priv;
 
-  for (walk = priv->channels; walk; walk = g_list_next (walk)) {
+  for (walk = priv->connections; walk; walk = g_list_next (walk)) {
     GDBusProxy *proxy = walk->data;
-    PinosChannelInfo info;
+    PinosConnectionInfo info;
 
-    channel_fill_info (&info, proxy);
+    connection_fill_info (&info, proxy);
     cb (context, &info, user_data);
-    channel_clear_info (&info);
+    connection_clear_info (&info);
   }
 
   g_task_return_boolean (task, TRUE);
@@ -626,27 +615,27 @@ pinos_context_list_channel_info (PinosContext *context,
 }
 
 /**
- * pinos_context_get_channel_info_by_id:
+ * pinos_context_get_connection_info_by_id:
  * @context: a connected #PinosContext
- * @id: a channel id
- * @flags: extra #PinosChannelInfoFlags
- * @cb: a #PinosChannelInfoCallback
+ * @id: a connection id
+ * @flags: extra #PinosConnectionInfoFlags
+ * @cb: a #PinosConnectionInfoCallback
  * @cancelable: a #GCancellable
  * @callback: a #GAsyncReadyCallback to call when the operation is finished
  * @user_data: user data passed to @cb
  *
- * Call @cb for the channel with @id.
+ * Call @cb for the connection with @id.
  */
 void
-pinos_context_get_channel_info_by_id (PinosContext *context,
-                                      gpointer id,
-                                      PinosChannelInfoFlags flags,
-                                      PinosChannelInfoCallback cb,
-                                      GCancellable *cancellable,
-                                      GAsyncReadyCallback callback,
-                                      gpointer user_data)
+pinos_context_get_connection_info_by_id (PinosContext *context,
+                                         gpointer id,
+                                         PinosConnectionInfoFlags flags,
+                                         PinosConnectionInfoCallback cb,
+                                         GCancellable *cancellable,
+                                         GAsyncReadyCallback callback,
+                                         gpointer user_data)
 {
-  PinosChannelInfo info;
+  PinosConnectionInfo info;
   GDBusProxy *proxy;
   GTask *task;
 
@@ -658,9 +647,9 @@ pinos_context_get_channel_info_by_id (PinosContext *context,
 
   proxy = G_DBUS_PROXY (id);
 
-  channel_fill_info (&info, proxy);
+  connection_fill_info (&info, proxy);
   cb (context, &info, user_data);
-  channel_clear_info (&info);
+  connection_clear_info (&info);
 
   g_task_return_boolean (task, TRUE);
   g_object_unref (task);

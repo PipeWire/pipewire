@@ -337,7 +337,7 @@ on_new_buffer (GObject    *gobject,
     return;
   }
 
-  if (!pinos_stream_get_buffer (pinossink->stream, &pbuf)) {
+  if (!(pbuf = pinos_stream_peek_buffer (pinossink->stream))) {
     g_warning ("failed to capture buffer");
     return;
   }
@@ -373,6 +373,7 @@ on_new_buffer (GObject    *gobject,
         break;
     }
   }
+  pinos_buffer_iter_end (&it);
 }
 
 static void
@@ -471,7 +472,7 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
     PinosPacketFormatChange change;
     PinosBuffer pbuf;
 
-    pinos_buffer_builder_init (&builder);
+    pinos_stream_buffer_builder_init (pinossink->stream, &builder);
 
     change.id = 1;
     change.format = g_bytes_get_data (format, NULL);
@@ -480,7 +481,7 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
 
     g_debug ("sending format");
     res = pinos_stream_send_buffer (pinossink->stream, &pbuf);
-    pinos_buffer_clear (&pbuf);
+    pinos_buffer_unref (&pbuf);
   }
 
   pinos_main_loop_unlock (pinossink->loop);
@@ -552,10 +553,14 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
     tmpfile = TRUE;
   }
 
-  pinos_buffer_builder_init (&builder);
+  pinos_main_loop_lock (pinossink->loop);
+  if (pinos_stream_get_state (pinossink->stream) != PINOS_STREAM_STATE_STREAMING)
+    goto streaming_error;
+
+  pinos_stream_buffer_builder_init (pinossink->stream, &builder);
   pinos_buffer_builder_add_header (&builder, &hdr);
 
-  fd = dup (gst_fd_memory_get_fd (mem));
+  fd = gst_fd_memory_get_fd (mem);
   p.fd_index = pinos_buffer_builder_add_fd (&builder, fd);
   p.id = pinossink->id_counter++;
   p.offset = 0;
@@ -565,11 +570,9 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
 
   GST_LOG ("sending fd index %d %d %d", p.id, p.fd_index, fd);
 
-  pinos_main_loop_lock (pinossink->loop);
-  if (pinos_stream_get_state (pinossink->stream) != PINOS_STREAM_STATE_STREAMING)
-    goto streaming_error;
   res = pinos_stream_send_buffer (pinossink->stream, &pbuf);
-  pinos_buffer_clear (&pbuf);
+  pinos_buffer_steal_fds (&pbuf, NULL);
+  pinos_buffer_unref (&pbuf);
   pinos_main_loop_unlock (pinossink->loop);
 
   gst_memory_unref (mem);

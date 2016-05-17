@@ -84,9 +84,6 @@ PinosProperties *   pinos_port_get_properties       (PinosPort *port);
 GBytes *            pinos_port_filter_formats       (PinosPort *port,
                                                      GBytes    *filter,
                                                      GError   **error);
-gboolean            pinos_port_update_format        (PinosPort *port,
-                                                     GBytes    *format,
-                                                     GError   **error);
 
 GSocket *           pinos_port_get_socket_pair      (PinosPort *port,
                                                      GError   **error);
@@ -97,11 +94,10 @@ gboolean            pinos_port_unlink               (PinosPort   *source,
                                                      PinosPort   *destination);
 gint                pinos_port_get_n_links          (PinosPort   *port);
 
-gboolean            pinos_port_receive_buffer       (PinosPort   *port,
-                                                     PinosBuffer *buffer,
-                                                     GError     **error);
 PinosBuffer *       pinos_port_peek_buffer          (PinosPort   *port);
-PinosBuffer *       pinos_port_get_buffer           (PinosPort   *port);
+
+void                pinos_port_buffer_builder_init  (PinosPort   *port,
+                                                     PinosBufferBuilder *builder);
 
 gboolean            pinos_port_send_buffer          (PinosPort   *port,
                                                      PinosBuffer *buffer,

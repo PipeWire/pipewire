@@ -391,9 +391,9 @@ pinos_daemon_remove_node (PinosDaemon     *daemon,
  *
  * Find the best port in @daemon that matches the given parameters.
  *
- * Returns: a #PinosServerPort or %NULL when no port could be found.
+ * Returns: a #PinosPort or %NULL when no port could be found.
  */
-PinosServerPort *
+PinosPort *
 pinos_daemon_find_port (PinosDaemon     *daemon,
                         PinosDirection   direction,
                         const gchar     *name,
@@ -417,7 +417,7 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
 
     /* we found the node */
     if (have_name && g_str_has_suffix (pinos_server_node_get_object_path (n), name)) {
-      g_debug ("name \"%s\" matches node %s", name, pinos_server_node_get_object_path (n));
+      g_debug ("name \"%s\" matches node %p", name, n);
       node_found = TRUE;
     }
 
@@ -433,22 +433,15 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
       if (have_name && !node_found) {
         if (!g_str_has_suffix (pinos_server_port_get_object_path (p), name))
           continue;
-        g_debug ("name \"%s\" matches port %s", name, pinos_server_port_get_object_path (p));
+        g_debug ("name \"%s\" matches port %p", name, p);
         best = p;
         node_found = TRUE;
         break;
       }
 
-      g_debug ("port %s with filter %s",
-            pinos_server_port_get_object_path (p),
-            format_filter ? (gchar*)g_bytes_get_data (format_filter, NULL) : "ANY");
-
       format = pinos_port_filter_formats (PINOS_PORT (p), format_filter, NULL);
       if (format != NULL) {
-        g_debug ("port %s with format %s matches filter %s",
-            pinos_server_port_get_object_path (p),
-            (gchar*)g_bytes_get_data (format, NULL),
-            format_filter ? (gchar*)g_bytes_get_data (format_filter, NULL) : "ANY");
+        g_debug ("port %p matches filter", p);
         g_bytes_unref (format);
         best = p;
         node_found = TRUE;
@@ -464,7 +457,7 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
                             G_IO_ERROR_NOT_FOUND,
                             "No matching Port found");
   }
-  return best;
+  return PINOS_PORT (best);
 }
 
 

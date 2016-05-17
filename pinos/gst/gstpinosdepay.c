@@ -251,7 +251,8 @@ gst_pinos_depay_chain (GstPad *pad, GstObject * parent, GstBuffer * buffer)
         break;
     }
   }
-  pinos_buffer_clear (&pbuf);
+  pinos_buffer_iter_init (&it, &pbuf);
+  pinos_buffer_unref (&pbuf);
   gst_buffer_unmap (buffer, &info);
   gst_buffer_unref (buffer);
 

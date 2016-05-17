@@ -106,8 +106,9 @@ gboolean         pinos_stream_start             (PinosStream     *stream,
                                                  PinosStreamMode  mode);
 gboolean         pinos_stream_stop              (PinosStream     *stream);
 
-gboolean         pinos_stream_get_buffer        (PinosStream     *stream,
-                                                 PinosBuffer     **buffer);
+PinosBuffer *    pinos_stream_peek_buffer       (PinosStream     *stream);
+void             pinos_stream_buffer_builder_init (PinosStream        *stream,
+                                                   PinosBufferBuilder *builder);
 gboolean         pinos_stream_send_buffer       (PinosStream     *stream,
                                                  PinosBuffer     *buffer);
 

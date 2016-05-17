@@ -332,18 +332,17 @@ fdpayload_data_destroy (gpointer user_data)
 
   GST_DEBUG_OBJECT (pinossrc, "destroy %d", r.id);
 
-  pinos_buffer_builder_init (&b);
-  pinos_buffer_builder_add_release_fd_payload (&b, &r);
-  pinos_buffer_builder_end (&b, &pbuf);
-
   GST_OBJECT_LOCK (pinossrc);
   if (pinossrc->stream_state == PINOS_STREAM_STATE_STREAMING) {
+    pinos_stream_buffer_builder_init (pinossrc->stream, &b);
+    pinos_buffer_builder_add_release_fd_payload (&b, &r);
+    pinos_buffer_builder_end (&b, &pbuf);
+
     GST_DEBUG_OBJECT (pinossrc, "send release-fd for %d", r.id);
     pinos_stream_send_buffer (pinossrc->stream, &pbuf);
+    pinos_buffer_unref (&pbuf);
   }
   GST_OBJECT_UNLOCK (pinossrc);
-
-  pinos_buffer_clear (&pbuf);
 
   gst_object_unref (pinossrc);
   g_slice_free (FDPayloadData, data);
@@ -359,7 +358,7 @@ on_new_buffer (GObject    *gobject,
   GstBuffer *buf = NULL;
 
   GST_LOG_OBJECT (pinossrc, "got new buffer");
-  if (!pinos_stream_get_buffer (pinossrc->stream, &pbuf)) {
+  if (!(pbuf = pinos_stream_peek_buffer (pinossrc->stream))) {
     g_warning ("failed to capture buffer");
     return;
   }
@@ -404,7 +403,7 @@ on_new_buffer (GObject    *gobject,
         if (buf == NULL)
           buf = gst_buffer_new ();
 
-        fdmem = gst_fd_allocator_alloc (pinossrc->fd_allocator, fd,
+        fdmem = gst_fd_allocator_alloc (pinossrc->fd_allocator, dup (fd),
                   data.p.offset + data.p.size, GST_FD_MEMORY_FLAG_NONE);
         gst_memory_resize (fdmem, data.p.offset, data.p.size);
         gst_buffer_append_memory (buf, fdmem);
@@ -434,6 +433,7 @@ on_new_buffer (GObject    *gobject,
         break;
     }
   }
+  pinos_buffer_iter_end (&it);
 
   if (buf) {
     g_queue_push_tail (&pinossrc->queue, buf);
@@ -445,6 +445,8 @@ on_new_buffer (GObject    *gobject,
   /* ERRORS */
 parse_failed:
   {
+    pinos_buffer_iter_end (&it);
+    pinos_buffer_unref (pbuf);
     gst_buffer_unref (buf);
     GST_ELEMENT_ERROR (pinossrc, RESOURCE, FAILED, ("buffer parse failure"), (NULL));
     pinos_main_loop_signal (pinossrc->loop, FALSE);
@@ -452,6 +454,8 @@ parse_failed:
   }
 no_fds:
   {
+    pinos_buffer_iter_end (&it);
+    pinos_buffer_unref (pbuf);
     gst_buffer_unref (buf);
     GST_ELEMENT_ERROR (pinossrc, RESOURCE, FAILED, ("fd not found in buffer"), (NULL));
     pinos_main_loop_signal (pinossrc->loop, FALSE);
@@ -745,12 +749,13 @@ gst_pinos_src_event (GstBaseSrc * src, GstEvent * event)
         gst_video_event_parse_upstream_force_key_unit (event,
                 &running_time, &all_headers, &count);
 
+        pinos_buffer_builder_init (&b);
+
         refresh.last_id = 0;
         refresh.request_type = all_headers ? 1 : 0;
         refresh.pts = running_time;
-
-        pinos_buffer_builder_init (&b);
         pinos_buffer_builder_add_refresh_request (&b, &refresh);
+
         pinos_buffer_builder_end (&b, &pbuf);
 
         GST_OBJECT_LOCK (pinossrc);
@@ -760,7 +765,7 @@ gst_pinos_src_event (GstBaseSrc * src, GstEvent * event)
         }
         GST_OBJECT_UNLOCK (pinossrc);
 
-        pinos_buffer_clear (&pbuf);
+        pinos_buffer_unref (&pbuf);
         res = TRUE;
       } else {
         res = GST_BASE_SRC_CLASS (parent_class)->event (src, event);

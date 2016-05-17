@@ -145,9 +145,9 @@
     <property name='Properties' type='a{sv}' access='read' />
     <!-- PossibleFormats:
 
-         The all possible formats of this port.
+         The possible formats of this port.
     -->
-    <property name='PossibleFormats' type='s' access='read' />
+    <property name='PossibleFormats' type='s' access='readwrite' />
     <!-- Format: the current streaming format -->
     <property name='Format' type='s' access='read' />
 

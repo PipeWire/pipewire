@@ -84,7 +84,7 @@ on_received_buffer (PinosPort *port, gpointer user_data)
   PinosBufferBuilder b;
   gboolean have_out = FALSE;
 
-  pbuf = pinos_port_get_buffer (port);
+  pbuf = pinos_port_peek_buffer (port);
 
   if (this->pinos_input) {
     pinos_buffer_builder_init (&b);
@@ -93,7 +93,7 @@ on_received_buffer (PinosPort *port, gpointer user_data)
   pinos_buffer_iter_init (&it, pbuf);
   while (pinos_buffer_iter_next (&it)) {
     switch (pinos_buffer_iter_get_type (&it)) {
-     case PINOS_PACKET_TYPE_REFRESH_REQUEST:
+      case PINOS_PACKET_TYPE_REFRESH_REQUEST:
       {
         PinosPacketRefreshRequest p;
 
@@ -115,7 +115,7 @@ on_received_buffer (PinosPort *port, gpointer user_data)
         break;
     }
   }
-  pinos_buffer_clear (pbuf);
+  pinos_buffer_iter_end (&it);
 
   if (this->pinos_input) {
     GstBuffer *outbuf;
@@ -225,16 +225,23 @@ gst_pinos_port_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
   str = gst_caps_get_structure (caps, 0);
   this->pinos_input = gst_structure_has_name (str, "application/x-pinos");
   if (!this->pinos_input) {
-    GBytes *format;
     GError *error = NULL;
+    PinosBufferBuilder builder;
+    PinosBuffer pbuf;
+    PinosPacketFormatChange fc;
 
-    cstr = gst_caps_to_string (caps);
-    format = g_bytes_new_take (cstr, strlen (cstr) + 1);
+    pinos_port_buffer_builder_init (this->port, &builder);
+    fc.id = 0;
+    fc.format = cstr = gst_caps_to_string (caps);
+    pinos_buffer_builder_add_format_change (&builder, &fc);
+    pinos_buffer_builder_end (&builder, &pbuf);
+    g_free (cstr);
 
-    if (!pinos_port_update_format (this->port, format, &error)) {
-      GST_WARNING ("update failed: %s", error->message);
+    if (!pinos_port_send_buffer (this->port, &pbuf, &error)) {
+      GST_WARNING ("format update failed: %s", error->message);
       g_clear_error (&error);
     }
+    pinos_buffer_unref (&pbuf);
   }
 
   return GST_BASE_SINK_CLASS (parent_class)->set_caps (bsink, caps);
@@ -249,12 +256,13 @@ gst_pinos_port_sink_render_pinos (GstPinosPortSink * this, GstBuffer * buffer)
 
   gst_buffer_map (buffer, &info, GST_MAP_READ);
   pinos_buffer_init_data (&pbuf, info.data, info.size, NULL, 0);
-  gst_buffer_unmap (buffer, &info);
 
   if (!pinos_port_send_buffer (this->port, &pbuf, &error)) {
     GST_WARNING ("send failed: %s", error->message);
     g_clear_error (&error);
   }
+  gst_buffer_unmap (buffer, &info);
+  pinos_buffer_unref (&pbuf);
 
   return GST_FLOW_OK;
 }
@@ -293,17 +301,19 @@ gst_pinos_port_sink_render_other (GstPinosPortSink * this, GstBuffer * buffer)
   PinosPacketHeader hdr;
   PinosPacketFDPayload p;
   gboolean tmpfile = TRUE;
+  gint fd;
 
   hdr.flags = 0;
   hdr.seq = GST_BUFFER_OFFSET (buffer);
   hdr.pts = GST_BUFFER_PTS (buffer) + GST_ELEMENT_CAST (this)->base_time;
   hdr.dts_offset = 0;
 
-  pinos_buffer_builder_init (&builder);
+  pinos_port_buffer_builder_init (this->port, &builder);
   pinos_buffer_builder_add_header (&builder, &hdr);
 
   fdmem = gst_pinos_port_sink_get_fd_memory (this, buffer, &tmpfile);
-  p.fd_index = pinos_buffer_builder_add_fd (&builder, gst_fd_memory_get_fd (fdmem));
+  fd = gst_fd_memory_get_fd (fdmem);
+  p.fd_index = pinos_buffer_builder_add_fd (&builder, fd);
   p.id = pinos_fd_manager_get_id (this->fdmanager);
   p.offset = fdmem->offset;
   p.size = fdmem->size;
@@ -318,6 +328,8 @@ gst_pinos_port_sink_render_other (GstPinosPortSink * this, GstBuffer * buffer)
     GST_WARNING ("send failed: %s", error->message);
     g_clear_error (&error);
   }
+  pinos_buffer_steal_fds (&pbuf, NULL);
+  pinos_buffer_unref (&pbuf);
 
   gst_memory_unref(fdmem);
 

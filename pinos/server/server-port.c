@@ -164,7 +164,7 @@ on_property_notify (GObject    *obj,
   PinosPort *port = PINOS_PORT (obj);
   PinosServerPortPrivate *priv = PINOS_SERVER_PORT (port)->priv;
 
-  g_debug ("update %s", pspec ? g_param_spec_get_name (pspec) : "NULL");
+  g_debug ("port %p: update %s", port, pspec ? g_param_spec_get_name (pspec) : "NULL");
 
   if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "node") == 0) {
     PinosServerNode *node = PINOS_SERVER_NODE (pinos_port_get_node (port));

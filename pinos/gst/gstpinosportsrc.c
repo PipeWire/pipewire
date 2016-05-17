@@ -99,12 +99,12 @@ fdpayload_data_destroy (gpointer user_data)
 
   GST_DEBUG_OBJECT (this, "destroy %d", r.id);
 
-  pinos_buffer_builder_init (&b);
+  pinos_port_buffer_builder_init (this->port, &b);
   pinos_buffer_builder_add_release_fd_payload (&b, &r);
   pinos_buffer_builder_end (&b, &pbuf);
 
   pinos_port_send_buffer (this->port, &pbuf, NULL);
-  pinos_buffer_clear (&pbuf);
+  pinos_buffer_unref (&pbuf);
 
   gst_object_unref (this);
   g_slice_free (FDPayloadData, data);
@@ -120,7 +120,7 @@ on_received_buffer (PinosPort  *port,
   GstBuffer *buf = NULL;
 
   GST_LOG_OBJECT (this, "got new buffer");
-  pbuf = pinos_port_get_buffer (port);
+  pbuf = pinos_port_peek_buffer (port);
 
   pinos_buffer_iter_init (&it, pbuf);
   while (pinos_buffer_iter_next (&it)) {
@@ -130,7 +130,7 @@ on_received_buffer (PinosPort  *port,
         PinosPacketHeader hdr;
 
         if (!pinos_buffer_iter_parse_header  (&it, &hdr))
-          goto parse_failed;
+          break;
 
         if (buf == NULL)
           buf = gst_buffer_new ();
@@ -152,17 +152,17 @@ on_received_buffer (PinosPort  *port,
         int fd;
 
         if (!pinos_buffer_iter_parse_fd_payload  (&it, &data.p))
-          goto parse_failed;
+          break;
 
         GST_DEBUG ("got fd payload id %d", data.p.id);
         fd = pinos_buffer_get_fd (pbuf, data.p.fd_index);
         if (fd == -1)
-          goto no_fds;
+          break;
 
         if (buf == NULL)
           buf = gst_buffer_new ();
 
-        fdmem = gst_fd_allocator_alloc (this->fd_allocator, fd,
+        fdmem = gst_fd_allocator_alloc (this->fd_allocator, dup (fd),
                   data.p.offset + data.p.size, GST_FD_MEMORY_FLAG_NONE);
         gst_memory_resize (fdmem, data.p.offset, data.p.size);
         gst_buffer_append_memory (buf, fdmem);
@@ -180,7 +180,7 @@ on_received_buffer (PinosPort  *port,
         GstCaps *caps;
 
         if (!pinos_buffer_iter_parse_format_change  (&it, &change))
-          goto parse_failed;
+          break;
         GST_DEBUG ("got format change %d %s", change.id, change.format);
 
         caps = gst_caps_from_string (change.format);
@@ -192,27 +192,14 @@ on_received_buffer (PinosPort  *port,
         break;
     }
   }
+  pinos_buffer_iter_end (&it);
+
   if (buf) {
     g_queue_push_tail (&this->queue, buf);
     g_cond_signal (&this->cond);
   }
 
   return;
-
-  /* ERRORS */
-parse_failed:
-  {
-    gst_buffer_unref (buf);
-    GST_ELEMENT_ERROR (this, RESOURCE, FAILED, ("buffer parse failure"), (NULL));
-    return;
-  }
-no_fds:
-  {
-    gst_buffer_unref (buf);
-    GST_ELEMENT_ERROR (this, RESOURCE, FAILED, ("fd not found in buffer"), (NULL));
-    return;
-  }
-
 }
 
 static void
@@ -443,7 +430,7 @@ gst_pinos_port_src_getcaps (GstBaseSrc * bsrc, GstCaps * filter)
 
   g_object_get (this->port, "format", &format, NULL);
   if (format) {
-    GST_DEBUG ("have format %s", g_bytes_get_data (format, NULL));
+    GST_DEBUG ("have format %s", (gchar *)g_bytes_get_data (format, NULL));
     caps = gst_caps_from_string (g_bytes_get_data (format, NULL));
     g_bytes_unref (format);
   }
@@ -475,13 +462,13 @@ gst_pinos_port_src_event (GstBaseSrc * src, GstEvent * event)
         refresh.request_type = all_headers ? 1 : 0;
         refresh.pts = running_time;
 
-        pinos_buffer_builder_init (&b);
+        pinos_port_buffer_builder_init (this->port, &b);
         pinos_buffer_builder_add_refresh_request (&b, &refresh);
         pinos_buffer_builder_end (&b, &pbuf);
 
         GST_DEBUG_OBJECT (this, "send refresh request");
         pinos_port_send_buffer (this->port, &pbuf, NULL);
-        pinos_buffer_clear (&pbuf);
+        pinos_buffer_unref (&pbuf);
         res = TRUE;
       } else {
         res = GST_BASE_SRC_CLASS (parent_class)->event (src, event);

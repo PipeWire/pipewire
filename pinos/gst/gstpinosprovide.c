@@ -412,6 +412,7 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   gsize size;
   GError *err = NULL;
   gboolean tmpfile, res;
+  int fd;
 
   pinossink = GST_PINOS_SINK (bsink);
 
@@ -455,7 +456,8 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   pinos_buffer_builder_init (&builder);
   pinos_buffer_builder_add_header (&builder, &hdr);
 
-  p.fd_index = pinos_buffer_builder_add_fd (&builder, gst_fd_memory_get_fd (mem), &err);
+  fd = gst_fd_memory_get_fd (mem);
+  p.fd_index = pinos_buffer_builder_add_fd (&builder, fd, &err);
   if (p.fd_index == -1)
     goto add_fd_failed;
   p.id = pinossink->id_counter++;
@@ -464,14 +466,16 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   pinos_buffer_builder_add_fd_payload (&builder, &p);
   pinos_buffer_builder_end (&builder, &pbuf);
 
-  gst_memory_unref (mem);
 
   pinos_main_loop_lock (pinossink->loop);
   if (pinos_stream_get_state (pinossink->stream) != PINOS_STREAM_STATE_STREAMING)
     goto streaming_error;
   res = pinos_stream_send_buffer (pinossink->stream, &pbuf);
+  pinos_buffer_steal_fds (&pbuf, NULL);
   pinos_buffer_clear (&pbuf);
   pinos_main_loop_unlock (pinossink->loop);
+
+  gst_memory_unref (mem);
 
   if (res && !tmpfile) {
     /* keep the buffer around until we get the release fd message */

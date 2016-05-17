@@ -38,8 +38,8 @@ G_STATIC_ASSERT (sizeof (PinosStackBuffer) <= sizeof (PinosBuffer));
  *
  * Initialize @buffer with @data and @size and @fds and @n_fds.
  * The memory pointer to by @data and @fds becomes property of @buffer
- * and should not be freed or modified until pinos_buffer_clear() is
- * called.
+ * and should not be freed or modified until all referenced to the buffer
+ * are gone pinos_buffer_unref().
  */
 void
 pinos_buffer_init_data (PinosBuffer       *buffer,
@@ -50,7 +50,10 @@ pinos_buffer_init_data (PinosBuffer       *buffer,
 {
   PinosStackBuffer *sb = PSB (buffer);
 
+  g_debug ("buffer %p: init", buffer);
+
   sb->magic = PSB_MAGIC;
+  sb->refcount = 1;
   sb->data = data;
   sb->size = size;
   sb->max_size = size;
@@ -61,20 +64,44 @@ pinos_buffer_init_data (PinosBuffer       *buffer,
   sb->free_fds = NULL;
 }
 
-void
-pinos_buffer_clear (PinosBuffer *buffer)
+PinosBuffer *
+pinos_buffer_ref (PinosBuffer *buffer)
 {
   PinosStackBuffer *sb = PSB (buffer);
+
+  g_return_val_if_fail (is_valid_buffer (buffer), NULL);
+
+  g_debug ("buffer %p: ref %d -> %d", buffer, sb->refcount, sb->refcount+1);
+
+  sb->refcount++;
+
+  return buffer;
+}
+
+gboolean
+pinos_buffer_unref (PinosBuffer *buffer)
+{
+  PinosStackBuffer *sb = PSB (buffer);
+  gboolean res;
   gint i;
 
-  g_return_if_fail (is_valid_buffer (buffer));
+  g_return_val_if_fail (is_valid_buffer (buffer), FALSE);
 
-  sb->magic = 0;
-  g_free (sb->free_data);
-  for (i = 0; i < sb->n_fds; i++)
-    close (sb->fds[i]);
-  g_free (sb->free_fds);
-  sb->n_fds = 0;
+  g_debug ("buffer %p: unref %d -> %d", buffer, sb->refcount, sb->refcount-1);
+
+  sb->refcount--;
+  res = sb->refcount > 0;
+  if (!res) {
+    sb->magic = 0;
+    g_free (sb->free_data);
+    for (i = 0; i < sb->n_fds; i++) {
+      g_debug ("%p: close %d %d", buffer, i, sb->fds[i]);
+      close (sb->fds[i]);
+    }
+    g_free (sb->free_fds);
+    sb->n_fds = 0;
+  }
+  return res;
 }
 
 /**
@@ -158,7 +185,8 @@ pinos_buffer_steal_data (PinosBuffer       *buffer,
   PinosStackBuffer *sb = PSB (buffer);
   gpointer data;
 
-  g_return_val_if_fail (is_valid_buffer (buffer), 0);
+  g_return_val_if_fail (is_valid_buffer (buffer), NULL);
+  g_return_val_if_fail (sb->refcount == 1, NULL);
 
   data = sb->data;
   if (size)
@@ -190,7 +218,8 @@ pinos_buffer_steal_fds (PinosBuffer       *buffer,
   PinosStackBuffer *sb = PSB (buffer);
   gint *fds;
 
-  g_return_val_if_fail (is_valid_buffer (buffer), 0);
+  g_return_val_if_fail (is_valid_buffer (buffer), NULL);
+  g_return_val_if_fail (sb->refcount == 1, NULL);
 
   fds = sb->fds;
   if (n_fds)
@@ -332,6 +361,22 @@ pinos_buffer_iter_next (PinosBufferIter *iter)
   return TRUE;
 }
 
+/**
+ * pinos_buffer_iter_done:
+ * @iter: a #PinosBufferIter
+ *
+ * End iterations on @iter.
+ */
+void
+pinos_buffer_iter_end (PinosBufferIter *iter)
+{
+  struct stack_iter *si = PPSI (iter);
+
+  g_return_if_fail (is_valid_iter (iter));
+
+  si->magic = 0;
+}
+
 PinosPacketType
 pinos_buffer_iter_get_type (PinosBufferIter *iter)
 {
@@ -408,6 +453,8 @@ pinos_buffer_builder_init_full (PinosBufferBuilder       *builder,
     sb->buf.max_size = sizeof (PinosStackHeader) + 128;
     sb->buf.data = g_malloc (sb->buf.max_size);
     sb->buf.free_data = sb->buf.data;
+    g_warning ("builder %p: realloc buffer memory %"G_GSIZE_FORMAT" -> %"G_GSIZE_FORMAT,
+        builder, max_data, sb->buf.max_size);
   } else {
     sb->buf.max_size = max_data;
     sb->buf.data = data;
@@ -493,6 +540,7 @@ pinos_buffer_builder_end (PinosBufferBuilder *builder,
   sb->sh->length = sb->buf.size - sizeof (PinosStackHeader);
 
   sbuf->magic = PSB_MAGIC;
+  sbuf->refcount = 1;
   sbuf->data = sb->buf.data;
   sbuf->size = sb->buf.size;
   sbuf->max_size = sb->buf.max_size;
@@ -502,6 +550,8 @@ pinos_buffer_builder_end (PinosBufferBuilder *builder,
   sbuf->n_fds = sb->buf.n_fds;
   sbuf->max_fds = sb->buf.max_fds;
   sbuf->free_fds = sb->buf.free_fds;
+
+  g_debug ("builder %p: buffer %p init", builder, buffer);
 }
 
 /**
@@ -524,8 +574,11 @@ pinos_buffer_builder_add_fd (PinosBufferBuilder *builder,
   g_return_val_if_fail (fd > 0, -1);
 
   if (sb->buf.n_fds >= sb->buf.max_fds) {
-    sb->buf.max_fds += 8;
-    sb->buf.free_fds = g_realloc (sb->buf.free_fds, sb->buf.max_fds * sizeof (int));
+    gint new_size = sb->buf.max_fds + 8;
+    g_warning ("builder %p: realloc buffer fds %d -> %d",
+        builder, sb->buf.max_fds, new_size);
+    sb->buf.max_fds = new_size;
+    sb->buf.free_fds = g_realloc (sb->buf.free_fds, new_size * sizeof (int));
     sb->buf.fds = sb->buf.free_fds;
   }
   index = sb->buf.n_fds;
@@ -539,8 +592,11 @@ static gpointer
 builder_ensure_size (struct stack_builder *sb, gsize size)
 {
   if (sb->buf.size + size > sb->buf.max_size) {
-    sb->buf.max_size = sb->buf.size + MAX (size, 1024);
-    sb->buf.free_data = g_realloc (sb->buf.free_data, sb->buf.max_size);
+    gsize new_size = sb->buf.size + MAX (size, 1024);
+    g_warning ("builder %p: realloc buffer memory %"G_GSIZE_FORMAT" -> %"G_GSIZE_FORMAT,
+        sb, sb->buf.max_size, new_size);
+    sb->buf.max_size = new_size;
+    sb->buf.free_data = g_realloc (sb->buf.free_data, new_size);
     sb->sh = sb->buf.data = sb->buf.free_data;
   }
   return (guint8 *) sb->buf.data + sb->buf.size;

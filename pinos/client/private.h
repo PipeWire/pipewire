@@ -73,6 +73,7 @@ typedef struct {
   gint max_fds;
   gpointer free_fds;
   gsize magic;
+  gint refcount;
 } PinosStackBuffer;
 
 #define PSB(b)             ((PinosStackBuffer *) (b))

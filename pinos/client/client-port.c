@@ -100,23 +100,21 @@ proxy_g_properties_changed (GDBusProxy *_proxy,
     gpointer data;
     GBytes *bytes;
 
-    g_debug ("changed %s", key);
-
     variant = g_dbus_proxy_get_cached_property (_proxy, key);
     if (variant == NULL)
       continue;
 
-    if (strcmp (key, "Format") == 0) {
+    if (strcmp (key, "PossibleFormats") == 0) {
       data = g_variant_dup_string (variant, &size);
       bytes = g_bytes_new_take (data, size);
-      g_object_set (port, "format", bytes, NULL);
+      g_object_set (port, "possible-formats", bytes, NULL);
+      g_bytes_unref (bytes);
     }
     g_variant_unref (variant);
   }
   g_variant_iter_free (iter);
 }
 
-#if 0
 static void
 proxy_set_property_cb (GDBusProxy   *proxy,
                        GAsyncResult *res,
@@ -144,21 +142,9 @@ on_property_notify (GObject    *obj,
   const gchar *prop_name = NULL;
   GVariant *variant;
 
-  g_debug ("update %s", pspec ? g_param_spec_get_name (pspec) : "NULL");
-
-  if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "properties") == 0) {
-    PinosProperties *props = pinos_port_get_properties (port);
-    prop_name = "Properties";
-    variant = props ? pinos_properties_to_variant (props) : NULL;
-  }
   if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "possible-formats") == 0) {
     GBytes *bytes = pinos_port_get_possible_formats (port);
     prop_name = "PossibleFormats";
-    variant = bytes ? g_variant_new_string (g_bytes_get_data (bytes, NULL)) : NULL;
-  }
-  if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "format") == 0) {
-    GBytes *bytes = pinos_port_get_format (port);
-    prop_name = "Format";
     variant = bytes ? g_variant_new_string (g_bytes_get_data (bytes, NULL)) : NULL;
   }
   if (prop_name) {
@@ -173,11 +159,8 @@ on_property_notify (GObject    *obj,
                        NULL,
                        (GAsyncReadyCallback) proxy_set_property_cb,
                        port);
-    if (variant)
-      g_variant_unref (variant);
   }
 }
-#endif
 
 static void
 pinos_client_port_constructed (GObject * object)
@@ -190,6 +173,7 @@ pinos_client_port_constructed (GObject * object)
                     "g-properties-changed",
                     (GCallback) proxy_g_properties_changed,
                     port);
+  g_signal_connect (port, "notify", (GCallback) on_property_notify, port);
 
   G_OBJECT_CLASS (pinos_client_port_parent_class)->constructed (object);
 }

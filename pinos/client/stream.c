@@ -148,7 +148,6 @@ pinos_stream_set_property (GObject      *_object,
       if (priv->format)
         g_bytes_unref (priv->format);
       priv->format = g_value_dup_boxed (value);
-      g_object_set (priv->port, "format", priv->format, NULL);
       break;
 
     default:
@@ -479,7 +478,6 @@ on_received_buffer (PinosPort *port,
 {
   PinosStream *stream = user_data;
 
-  g_debug ("buffer received");
   g_signal_emit (stream, signals[SIGNAL_NEW_BUFFER], 0, NULL);
 }
 
@@ -824,30 +822,45 @@ pinos_stream_disconnect (PinosStream *stream)
 }
 
 /**
- * pinos_stream_get_buffer:
+ * pinos_stream_peek_buffer:
  * @stream: a #PinosStream
- * @buffer: a #PinosBuffer
  *
- * Get the next buffer from @stream. This function should be called from
+ * Get the current buffer from @stream. This function should be called from
  * the new-buffer signal callback.
  *
- * Returns: %TRUE when @buffer contains valid information
+ * Returns: a #PinosBuffer or %NULL when there is no buffer.
  */
-gboolean
-pinos_stream_get_buffer (PinosStream  *stream,
-                         PinosBuffer  **buffer)
+PinosBuffer *
+pinos_stream_peek_buffer (PinosStream  *stream)
 {
   PinosStreamPrivate *priv;
 
   g_return_val_if_fail (PINOS_IS_STREAM (stream), FALSE);
-  g_return_val_if_fail (buffer != NULL, FALSE);
 
   priv = stream->priv;
   //g_return_val_if_fail (priv->state == PINOS_STREAM_STATE_STREAMING, FALSE);
 
-  *buffer = pinos_port_get_buffer (priv->port);
+  return pinos_port_peek_buffer (priv->port);
+}
 
-  return TRUE;
+/**
+ * pinos_stream_buffer_builder_init:
+ * @stream: a #PinosStream
+ * @builder: a #PinosBufferBuilder
+ *
+ * Get a #PinosBufferBuilder for @stream.
+ *
+ * Returns: a #PinosBuffer or %NULL when there is no buffer.
+ */
+void
+pinos_stream_buffer_builder_init (PinosStream  *stream, PinosBufferBuilder *builder)
+{
+  PinosStreamPrivate *priv;
+
+  g_return_if_fail (PINOS_IS_STREAM (stream));
+  priv = stream->priv;
+
+  pinos_port_buffer_builder_init (priv->port, builder);
 }
 
 /**

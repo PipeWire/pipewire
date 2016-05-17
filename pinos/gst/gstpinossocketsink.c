@@ -262,8 +262,9 @@ gst_pinos_socket_sink_render_pinos (GstPinosSocketSink * this, GstBuffer * buffe
         break;
     }
   }
+  pinos_buffer_iter_end (&it);
+  pinos_buffer_unref (&pbuf);
   gst_buffer_unmap (buffer, &info);
-  pinos_buffer_clear (&pbuf);
 
   if (fdids != NULL) {
     gst_mini_object_set_qdata (GST_MINI_OBJECT_CAST (buffer),
@@ -338,6 +339,7 @@ gst_pinos_socket_sink_render_other (GstPinosSocketSink * this, GstBuffer * buffe
 
   data = pinos_buffer_steal_data (&pbuf, &size);
   fds = pinos_buffer_steal_fds (&pbuf, &n_fds);
+  pinos_buffer_unref (&pbuf);
 
   outbuf = gst_buffer_new_wrapped (data, size);
   GST_BUFFER_PTS (outbuf) = GST_BUFFER_PTS (buffer);
@@ -582,7 +584,8 @@ myreader_receive_buffer (GstPinosSocketSink *this, MyReader *myreader)
         break;
     }
   }
-  pinos_buffer_clear (&pbuf);
+  pinos_buffer_iter_end (&it);
+  pinos_buffer_unref (&pbuf);
   g_free (mem);
 
   if (this->pinos_input) {

@@ -55,7 +55,8 @@ void               pinos_buffer_init_data        (PinosBuffer       *buffer,
                                                   gint              *fds,
                                                   gint               n_fds);
 
-void               pinos_buffer_clear            (PinosBuffer       *buffer);
+PinosBuffer *      pinos_buffer_ref              (PinosBuffer       *buffer);
+gboolean           pinos_buffer_unref            (PinosBuffer       *buffer);
 
 guint32            pinos_buffer_get_version      (PinosBuffer       *buffer);
 PinosBufferFlags   pinos_buffer_get_flags        (PinosBuffer       *buffer);
@@ -109,6 +110,7 @@ void               pinos_buffer_iter_init_full   (PinosBufferIter *iter,
 #define pinos_buffer_iter_init(i,b)   pinos_buffer_iter_init_full(i,b, PINOS_BUFFER_VERSION);
 
 gboolean           pinos_buffer_iter_next        (PinosBufferIter *iter);
+void               pinos_buffer_iter_end         (PinosBufferIter *iter);
 
 PinosPacketType    pinos_buffer_iter_get_type    (PinosBufferIter *iter);
 gpointer           pinos_buffer_iter_get_data    (PinosBufferIter *iter, gsize *size);

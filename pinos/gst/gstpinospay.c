@@ -254,8 +254,9 @@ client_buffer_received (GstPinosPay *pay, GstBuffer *buffer,
         break;
     }
   }
+  pinos_buffer_iter_end (&it);
+  pinos_buffer_unref (&pbuf);
   gst_buffer_unmap (buffer, &info);
-  pinos_buffer_clear (&pbuf);
 
   if (pay->pinos_input) {
     GstBuffer *outbuf;
@@ -440,8 +441,9 @@ gst_pinos_pay_chain_pinos (GstPinosPay *pay, GstBuffer * buffer)
         break;
     }
   }
+  pinos_buffer_iter_end (&it);
+  pinos_buffer_unref (&pbuf);
   gst_buffer_unmap (buffer, &info);
-  pinos_buffer_clear (&pbuf);
 
   if (fdids != NULL) {
     gst_mini_object_set_qdata (GST_MINI_OBJECT_CAST (buffer),
@@ -490,6 +492,7 @@ gst_pinos_pay_chain_other (GstPinosPay *pay, GstBuffer * buffer)
 
   data = pinos_buffer_steal_data (&pbuf, &size);
   fds = pinos_buffer_steal_fds (&pbuf, &n_fds);
+  pinos_buffer_unref (&pbuf);
 
   outbuf = gst_buffer_new_wrapped (data, size);
   GST_BUFFER_PTS (outbuf) = GST_BUFFER_PTS (buffer);

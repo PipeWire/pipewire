@@ -159,6 +159,8 @@ create_failed:
     g_warning ("failed to create port: %s", error->message);
     g_task_return_error (task, error);
     g_object_unref (task);
+    if (ret)
+      g_variant_unref (ret);
     return;
   }
 }
@@ -221,9 +223,9 @@ client_node_remove_port (PinosNode       *node,
 
 static void
 pinos_client_node_get_property (GObject    *_object,
-                         guint       prop_id,
-                         GValue     *value,
-                         GParamSpec *pspec)
+                                guint       prop_id,
+                                GValue     *value,
+                                GParamSpec *pspec)
 {
   PinosClientNode *node = PINOS_CLIENT_NODE (_object);
   PinosClientNodePrivate *priv = node->priv;

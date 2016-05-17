@@ -75,7 +75,7 @@ void              pinos_daemon_unexport          (PinosDaemon *daemon, const gch
 void              pinos_daemon_add_node          (PinosDaemon *daemon, PinosServerNode *node);
 void              pinos_daemon_remove_node       (PinosDaemon *daemon, PinosServerNode *node);
 
-PinosServerPort * pinos_daemon_find_port         (PinosDaemon     *daemon,
+PinosPort *       pinos_daemon_find_port         (PinosDaemon     *daemon,
                                                   PinosDirection   direction,
                                                   const gchar     *name,
                                                   PinosProperties *props,

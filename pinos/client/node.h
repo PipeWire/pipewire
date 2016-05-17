@@ -79,6 +79,10 @@ struct _PinosNodeClass {
 /* normal GObject stuff */
 GType               pinos_node_get_type                (void);
 
+const gchar *       pinos_node_get_name                (PinosNode *node);
+PinosNodeState      pinos_node_get_state               (PinosNode *node);
+PinosProperties *   pinos_node_get_properties          (PinosNode *node);
+
 void                pinos_node_remove                  (PinosNode *node);
 
 void                pinos_node_create_port             (PinosNode          *node,

@@ -786,10 +786,12 @@ pinos_subscribe_get_proxy (PinosSubscribe      *subscribe,
 
       if (data->pending) {
         data->tasks = g_list_prepend (data->tasks, task);
-      } else if (data->proxy) {
-        g_task_return_pointer (task, g_object_ref (data->proxy), g_object_unref);
-      } else {
-        g_task_return_error (task, NULL);
+      } else  {
+        if (data->proxy)
+          g_task_return_pointer (task, g_object_ref (data->proxy), g_object_unref);
+        else
+          g_task_return_error (task, NULL);
+        g_object_unref (task);
       }
       break;
     }

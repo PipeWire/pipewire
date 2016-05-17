@@ -337,7 +337,7 @@ on_new_buffer (GObject    *gobject,
     return;
   }
 
-  if (!pinos_stream_peek_buffer (pinossink->stream, &pbuf)) {
+  if (!pinos_stream_get_buffer (pinossink->stream, &pbuf)) {
     g_warning ("failed to capture buffer");
     return;
   }
@@ -430,7 +430,7 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
                             g_bytes_ref (format));
     } else {
       pinos_stream_connect (pinossink->stream,
-                            PINOS_DIRECTION_INPUT,
+                            PINOS_DIRECTION_OUTPUT,
                             pinossink->path,
                             0,
                             g_bytes_ref (format));
@@ -449,21 +449,7 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
     }
   }
 
-  if (state == PINOS_STREAM_STATE_STREAMING) {
-    PinosBufferBuilder builder;
-    PinosPacketFormatChange change;
-    PinosBuffer pbuf;
-
-    pinos_buffer_builder_init (&builder);
-
-    change.id = 1;
-    change.format = g_bytes_get_data (format, NULL);
-    pinos_buffer_builder_add_format_change (&builder, &change);
-    pinos_buffer_builder_end (&builder, &pbuf);
-
-    res = pinos_stream_send_buffer (pinossink->stream, &pbuf);
-    pinos_buffer_clear (&pbuf);
-  } else {
+  if (state != PINOS_STREAM_STATE_STREAMING) {
     res = pinos_stream_start (pinossink->stream,
                              g_bytes_ref (format),
                              PINOS_STREAM_MODE_BUFFER);
@@ -480,6 +466,23 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
       pinos_main_loop_wait (pinossink->loop);
     }
   }
+  {
+    PinosBufferBuilder builder;
+    PinosPacketFormatChange change;
+    PinosBuffer pbuf;
+
+    pinos_buffer_builder_init (&builder);
+
+    change.id = 1;
+    change.format = g_bytes_get_data (format, NULL);
+    pinos_buffer_builder_add_format_change (&builder, &change);
+    pinos_buffer_builder_end (&builder, &pbuf);
+
+    g_debug ("sending format");
+    res = pinos_stream_send_buffer (pinossink->stream, &pbuf);
+    pinos_buffer_clear (&pbuf);
+  }
+
   pinos_main_loop_unlock (pinossink->loop);
   g_bytes_unref (format);
 
@@ -508,6 +511,7 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   PinosPacketFDPayload p;
   gsize size;
   gboolean tmpfile, res;
+  gint fd;
 
   pinossink = GST_PINOS_SINK (bsink);
 
@@ -551,14 +555,15 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   pinos_buffer_builder_init (&builder);
   pinos_buffer_builder_add_header (&builder, &hdr);
 
-  p.fd_index = pinos_buffer_builder_add_fd (&builder, gst_fd_memory_get_fd (mem));
+  fd = dup (gst_fd_memory_get_fd (mem));
+  p.fd_index = pinos_buffer_builder_add_fd (&builder, fd);
   p.id = pinossink->id_counter++;
   p.offset = 0;
   p.size = size;
   pinos_buffer_builder_add_fd_payload (&builder, &p);
   pinos_buffer_builder_end (&builder, &pbuf);
 
-  GST_LOG ("sending fd index %d", p.id);
+  GST_LOG ("sending fd index %d %d %d", p.id, p.fd_index, fd);
 
   pinos_main_loop_lock (pinossink->loop);
   if (pinos_stream_get_state (pinossink->stream) != PINOS_STREAM_STATE_STREAMING)

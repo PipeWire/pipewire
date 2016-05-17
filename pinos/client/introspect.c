@@ -433,6 +433,7 @@ port_fill_info (PinosPortInfo *info, GDBusProxy *proxy)
   SET_STRING ("Name", name, 0);
   SET_PROPERTIES ("Properties", properties, 1);
   SET_BYTES ("PossibleFormats", possible_formats, 2);
+  SET_BYTES ("Format", format, 3);
 
   if (changed)
     g_hash_table_remove_all (changed);
@@ -445,6 +446,8 @@ port_clear_info (PinosPortInfo *info)
     pinos_properties_free (info->properties);
   if (info->possible_formats)
     g_bytes_unref (info->possible_formats);
+  if (info->format)
+    g_bytes_unref (info->format);
 }
 
 /**

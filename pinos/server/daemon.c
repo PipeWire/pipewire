@@ -439,7 +439,11 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
         break;
       }
 
-      format = pinos_port_get_formats (PINOS_PORT (p), format_filter, NULL);
+      g_debug ("port %s with filter %s",
+            pinos_server_port_get_object_path (p),
+            format_filter ? (gchar*)g_bytes_get_data (format_filter, NULL) : "ANY");
+
+      format = pinos_port_filter_formats (PINOS_PORT (p), format_filter, NULL);
       if (format != NULL) {
         g_debug ("port %s with format %s matches filter %s",
             pinos_server_port_get_object_path (p),

@@ -267,7 +267,8 @@ void            pinos_context_get_node_info_by_id   (PinosContext *context,
  * @change_mask: bitfield of changed fields since last call
  * @name: name the port, suitable for display
  * @properties: the properties of the port
- * @possible formats: the possible formats this port can consume
+ * @possible_formats: the possible formats this port can consume
+ * @format: the current format on this port
  *
  * The port information. Extra information can be added in later
  * versions.
@@ -281,6 +282,7 @@ typedef struct {
   const char *name;
   PinosProperties *properties;
   GBytes *possible_formats;
+  GBytes *format;
 } PinosPortInfo;
 
 /**

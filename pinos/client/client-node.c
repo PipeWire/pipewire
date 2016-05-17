@@ -18,11 +18,14 @@
  */
 
 #include <gio/gio.h>
+#include <gio/gunixfdlist.h>
 
 #include "pinos/client/pinos.h"
+#include "pinos/client/subscribe.h"
 #include "pinos/client/enumtypes.h"
 
 #include "pinos/client/context.h"
+#include "pinos/client/private.h"
 #include "pinos/client/client-node.h"
 #include "pinos/client/client-port.h"
 
@@ -51,25 +54,163 @@ client_node_set_state (PinosNode       *node,
   return FALSE;
 }
 
+typedef struct {
+  PinosDirection direction;
+  gchar *name;
+  PinosProperties *properties;
+  GBytes *possible_formats;
+  GSocket *socket;
+} CreatePortData;
+
+static void
+create_port_data_free (CreatePortData *data)
+{
+  g_free (data->name);
+  if (data->properties)
+    pinos_properties_free (data->properties);
+  g_clear_object (&data->socket);
+  g_slice_free (CreatePortData, data);
+}
+
+static void
+on_port_proxy (GObject      *source_object,
+               GAsyncResult *res,
+               gpointer      user_data)
+{
+  GTask *task = user_data;
+  CreatePortData *data = g_task_get_task_data (task);
+  PinosClientNode *node = g_task_get_source_object (task);
+  PinosClientNodePrivate *priv = node->priv;
+  PinosContext *context = priv->context;
+  GError *error = NULL;
+  GDBusProxy *proxy;
+  PinosClientPort *port;
+
+  proxy = pinos_subscribe_get_proxy_finish (context->priv->subscribe,
+                                            res,
+                                            &error);
+  if (proxy == NULL)
+    goto port_failed;
+
+  port = pinos_client_port_new (node,
+                                proxy,
+                                data->socket);
+  g_task_return_pointer (task, port, (GDestroyNotify) g_object_unref);
+  g_object_unref (task);
+
+  return;
+
+port_failed:
+  {
+    g_warning ("failed to get port proxy: %s", error->message);
+    g_task_return_error (task, error);
+    g_object_unref (task);
+    return;
+  }
+}
+
+static void
+on_port_created (GObject      *source_object,
+                 GAsyncResult *res,
+                 gpointer      user_data)
+{
+  GTask *task = user_data;
+  PinosClientNode *node = g_task_get_source_object (task);
+  CreatePortData *data = g_task_get_task_data (task);
+  PinosClientNodePrivate *priv = node->priv;
+  PinosContext *context = priv->context;
+  GVariant *ret;
+  GError *error = NULL;
+  const gchar *port_path;
+  GUnixFDList *fdlist;
+  gint fd, fd_idx;
+
+  g_assert (priv->proxy == G_DBUS_PROXY (source_object));
+
+  ret = g_dbus_proxy_call_with_unix_fd_list_finish (priv->proxy, &fdlist, res, &error);
+  if (ret == NULL)
+    goto create_failed;
+
+  g_variant_get (ret, "(&oh)", &port_path, &fd_idx);
+
+  fd = g_unix_fd_list_get (fdlist, fd_idx, &error);
+  g_object_unref (fdlist);
+  if (fd == -1)
+    goto create_failed;
+
+  data->socket = g_socket_new_from_fd (fd, &error);
+  if (data->socket == NULL)
+    goto create_failed;
+
+  pinos_subscribe_get_proxy (context->priv->subscribe,
+                             PINOS_DBUS_SERVICE,
+                             port_path,
+                             "org.pinos.Port1",
+                             NULL,
+                             on_port_proxy,
+                             task);
+  g_variant_unref (ret);
+
+  return;
+
+  /* ERRORS */
+create_failed:
+  {
+    g_warning ("failed to create port: %s", error->message);
+    g_task_return_error (task, error);
+    g_object_unref (task);
+    return;
+  }
+}
+
+
+static gboolean
+do_create_port (GTask *task)
+{
+  PinosClientNode *node = g_task_get_source_object (task);
+  PinosClientNodePrivate *priv = node->priv;
+  CreatePortData *data = g_task_get_task_data (task);
+
+  g_dbus_proxy_call (priv->proxy,
+                     "CreatePort",
+                     g_variant_new ("(us@a{sv}s)",
+                       data->direction,
+                       data->name,
+                       pinos_properties_to_variant (data->properties),
+                       g_bytes_get_data (data->possible_formats, NULL)),
+                     G_DBUS_CALL_FLAGS_NONE,
+                     -1,
+                     NULL, /* GCancellable *cancellable */
+                     on_port_created,
+                     task);
+  return FALSE;
+}
+
+
 static void
 client_node_create_port (PinosNode       *node,
                          PinosDirection   direction,
                          const gchar     *name,
                          GBytes          *possible_formats,
-                         PinosProperties *props,
+                         PinosProperties *properties,
                          GTask           *task)
 {
-  PinosPort *port;
+  PinosClientNodePrivate *priv = PINOS_CLIENT_NODE (node)->priv;
+  PinosContext *context = priv->context;
+  CreatePortData *data;
 
-  port = g_object_new (PINOS_TYPE_CLIENT_PORT,
-                       "node", node,
-                       "direction", direction,
-                       "name", name,
-                       "possible-formats", possible_formats,
-                       "properties", props,
-                       NULL);
+  data = g_slice_new (CreatePortData);
+  data->direction = direction;
+  data->name = g_strdup (name);
+  data->possible_formats = possible_formats ? g_bytes_ref (possible_formats) : NULL;
+  data->properties = properties ? pinos_properties_copy (properties) : NULL;
 
-  g_task_return_pointer (task, port, (GDestroyNotify) g_object_unref);
+  g_task_set_task_data (task, data, (GDestroyNotify) create_port_data_free);
+
+  g_main_context_invoke (context->priv->context,
+                        (GSourceFunc) do_create_port,
+                        task);
+
 }
 
 static void

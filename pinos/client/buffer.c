@@ -65,12 +65,16 @@ void
 pinos_buffer_clear (PinosBuffer *buffer)
 {
   PinosStackBuffer *sb = PSB (buffer);
+  gint i;
 
   g_return_if_fail (is_valid_buffer (buffer));
 
   sb->magic = 0;
   g_free (sb->free_data);
+  for (i = 0; i < sb->n_fds; i++)
+    close (sb->fds[i]);
   g_free (sb->free_fds);
+  sb->n_fds = 0;
 }
 
 /**
@@ -92,6 +96,27 @@ pinos_buffer_get_version (PinosBuffer *buffer)
   hdr = sb->data;
 
   return hdr->version;
+}
+
+/**
+ * pinos_buffer_get_flags
+ * @buffer: a #PinosBuffer
+ *
+ * Get the buffer flags
+ *
+ * Returns: the buffer flags.
+ */
+PinosBufferFlags
+pinos_buffer_get_flags (PinosBuffer *buffer)
+{
+  PinosStackBuffer *sb = PSB (buffer);
+  PinosStackHeader *hdr;
+
+  g_return_val_if_fail (is_valid_buffer (buffer), -1);
+
+  hdr = sb->data;
+
+  return hdr->flags;
 }
 
 /**
@@ -397,10 +422,28 @@ pinos_buffer_builder_init_full (PinosBufferBuilder       *builder,
 
   sh = sb->sh = sb->buf.data;
   sh->version = version;
+  sh->flags = 0;
   sh->length = 0;
 
   sb->type = 0;
   sb->offset = 0;
+}
+
+/**
+ * pinos_buffer_builder_set_flags:
+ * @builder: a #PinosBufferBuilder
+ * @flags: flags to set
+ *
+ * Set the flags on the buffer from @builder.
+ */
+void
+pinos_buffer_builder_set_flags (PinosBufferBuilder *builder, PinosBufferFlags flags)
+{
+  struct stack_builder *sb = PPSB (builder);
+
+  g_return_if_fail (is_valid_builder (builder));
+
+  sb->sh->flags = flags;
 }
 
 /**
@@ -742,6 +785,7 @@ pinos_buffer_builder_add_format_change (PinosBufferBuilder      *builder,
                           len);
   *p++ = payload->id;
   strcpy (p, payload->format);
+  sb->sh->flags |= PINOS_BUFFER_FLAG_CONTROL;
 
   return TRUE;
 }

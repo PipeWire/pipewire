@@ -30,6 +30,7 @@ typedef struct _PinosClientPortPrivate PinosClientPortPrivate;
 
 #include <pinos/client/introspect.h>
 #include <pinos/client/port.h>
+#include <pinos/client/client-node.h>
 
 #define PINOS_TYPE_CLIENT_PORT                 (pinos_client_port_get_type ())
 #define PINOS_IS_CLIENT_PORT(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_CLIENT_PORT))
@@ -65,6 +66,10 @@ struct _PinosClientPortClass {
 
 /* normal GObject stuff */
 GType               pinos_client_port_get_type           (void);
+
+PinosClientPort *   pinos_client_port_new                (PinosClientNode *node,
+                                                          gpointer         id,
+                                                          GSocket         *socket);
 
 GBytes *            pinos_client_port_get_formats        (PinosClientPort *port,
                                                           GBytes          *filter,

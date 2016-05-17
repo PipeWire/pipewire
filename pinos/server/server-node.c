@@ -20,6 +20,7 @@
 #include <string.h>
 
 #include <gio/gio.h>
+#include <gio/gunixfdlist.h>
 
 #include "pinos/client/pinos.h"
 #include "pinos/client/enumtypes.h"
@@ -80,6 +81,7 @@ server_node_create_port (PinosNode       *node,
                        NULL);
 
   g_task_return_pointer (task, port, (GDestroyNotify) g_object_unref);
+  g_object_unref (task);
 }
 
 static void
@@ -94,19 +96,55 @@ on_port_created (GObject      *source_object,
                  gpointer      user_data)
 {
   PinosNode *node = PINOS_NODE (source_object);
+  PinosServerNodePrivate *priv = PINOS_SERVER_NODE (node)->priv;
   GDBusMethodInvocation *invocation = user_data;
-  PinosPort *port;
+  PinosPort *port, *peer;
   const gchar *object_path;
   GError *error = NULL;
+  GUnixFDList *fdlist;
+  GSocket *socket;
+  int fd, fdidx;
+  PinosDirection direction;
 
   port = pinos_node_create_port_finish (node, res, &error);
   if (port == NULL)
     goto no_port;
 
+  g_debug ("server-node %p %d: port %p created", node, G_OBJECT (node)->ref_count, port);
+
+  socket = pinos_port_get_socket_pair (port, &error);
+  if (socket == NULL)
+    goto no_sockets;
+
+  fd = g_socket_get_fd (socket);
+  fdlist = g_unix_fd_list_new ();
+  fdidx = g_unix_fd_list_append (fdlist, fd, &error);
+  g_object_unref (socket);
+
+  if (fdidx == -1)
+    goto no_fdlist;
+
+  direction = pinos_port_get_direction (port);
+  direction = pinos_direction_reverse (direction);
+
+  peer = pinos_daemon_find_port (priv->daemon,
+                                 direction,
+                                 NULL,
+                                 pinos_port_get_properties (port),
+                                 pinos_port_get_possible_formats (port),
+                                 &error);
+  if (peer == NULL)
+    goto no_port_found;
+
+  pinos_port_link (port, peer);
+
   object_path = pinos_server_port_get_object_path (PINOS_SERVER_PORT (port));
-  g_debug ("node %p: add port %p, %s", node, port, object_path);
-  g_dbus_method_invocation_return_value (invocation,
-                                         g_variant_new ("(o)", object_path));
+  g_debug ("server-node %p: add port %p, remote fd %d, %s", node, port, fd, object_path);
+  g_dbus_method_invocation_return_value_with_unix_fd_list (invocation,
+                                         g_variant_new ("(oh)",
+                                                object_path,
+                                                fdidx),
+                                         fdlist);
 
   return;
 
@@ -115,6 +153,31 @@ no_port:
     g_debug ("server-node %p: could create port", node);
     g_dbus_method_invocation_return_dbus_error (invocation,
                  "org.pinos.Error", "can't create port");
+    return;
+  }
+no_sockets:
+  {
+    g_debug ("server-node %p: could create socketpair %s", node, error->message);
+    g_dbus_method_invocation_return_gerror (invocation, error);
+    g_clear_error (&error);
+    g_object_unref (port);
+    return;
+  }
+no_fdlist:
+  {
+    g_debug ("server-node %p: could add to fdlist", node);
+    g_dbus_method_invocation_return_gerror (invocation, error);
+    g_clear_error (&error);
+    g_object_unref (fdlist);
+    g_object_unref (port);
+    return;
+  }
+no_port_found:
+  {
+    g_debug ("server-node %p: could not find matching port", node);
+    g_dbus_method_invocation_return_gerror (invocation, error);
+    g_clear_error (&error);
+    g_object_unref (fdlist);
     return;
   }
 }
@@ -142,6 +205,7 @@ handle_create_port (PinosNode1             *interface,
   formats = g_bytes_new (arg_possible_formats, strlen (arg_possible_formats) + 1);
   props = pinos_properties_from_variant (arg_properties);
 
+  g_debug ("server-node %p %d: create port", node, G_OBJECT (node)->ref_count);
   pinos_node_create_port (node,
                           arg_direction,
                           arg_name,
@@ -173,7 +237,7 @@ handle_remove (PinosNode1             *interface,
 {
   PinosNode *node = user_data;
 
-  g_debug ("server-node %p: remove", node);
+  g_debug ("server-node %p %d: remove", node, G_OBJECT (node)->ref_count);
   pinos_node_remove (node);
 
   g_dbus_method_invocation_return_value (invocation,
@@ -265,14 +329,33 @@ node_unregister_object (PinosServerNode *node)
 }
 
 static void
+on_property_notify (GObject    *obj,
+                    GParamSpec *pspec,
+                    gpointer    user_data)
+{
+  PinosNode *node = user_data;
+  PinosServerNodePrivate *priv = PINOS_SERVER_NODE (node)->priv;
+
+  if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "name")) {
+    pinos_node1_set_name (priv->iface, pinos_node_get_name (node));
+  }
+  if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "properties")) {
+    PinosProperties *props = pinos_node_get_properties (node);
+    pinos_node1_set_properties (priv->iface, props ? pinos_properties_to_variant (props) : NULL);
+  }
+}
+
+static void
 pinos_server_node_constructed (GObject * obj)
 {
   PinosServerNode *node = PINOS_SERVER_NODE (obj);
 
   g_debug ("server-node %p: constructed", node);
-  node_register_object (node);
 
+  g_signal_connect (node, "notify", (GCallback) on_property_notify, node);
   G_OBJECT_CLASS (pinos_server_node_parent_class)->constructed (obj);
+
+  node_register_object (node);
 }
 
 static void

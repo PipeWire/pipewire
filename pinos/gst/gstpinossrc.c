@@ -75,7 +75,6 @@ static GstStateChangeReturn
 gst_pinos_src_change_state (GstElement * element, GstStateChange transition);
 
 static gboolean gst_pinos_src_negotiate (GstBaseSrc * basesrc);
-static GstCaps *gst_pinos_src_getcaps (GstBaseSrc * bsrc, GstCaps * filter);
 static GstCaps *gst_pinos_src_src_fixate (GstBaseSrc * bsrc,
     GstCaps * caps);
 
@@ -175,7 +174,8 @@ gst_pinos_src_finalize (GObject * object)
 {
   GstPinosSrc *pinossrc = GST_PINOS_SRC (object);
 
-  g_queue_free_full (&pinossrc->queue, (GDestroyNotify) gst_mini_object_unref);
+  g_queue_foreach (&pinossrc->queue, (GFunc) gst_mini_object_unref, NULL);
+  g_queue_clear (&pinossrc->queue);
   if (pinossrc->properties)
     gst_structure_free (pinossrc->properties);
   g_object_unref (pinossrc->fd_allocator);
@@ -242,7 +242,6 @@ gst_pinos_src_class_init (GstPinosSrcClass * klass)
       gst_static_pad_template_get (&gst_pinos_src_template));
 
   gstbasesrc_class->negotiate = gst_pinos_src_negotiate;
-  gstbasesrc_class->get_caps = gst_pinos_src_getcaps;
   gstbasesrc_class->fixate = gst_pinos_src_src_fixate;
   gstbasesrc_class->unlock = gst_pinos_src_unlock;
   gstbasesrc_class->unlock_stop = gst_pinos_src_unlock_stop;
@@ -360,7 +359,7 @@ on_new_buffer (GObject    *gobject,
   GstBuffer *buf = NULL;
 
   GST_LOG_OBJECT (pinossrc, "got new buffer");
-  if (!pinos_stream_peek_buffer (pinossrc->stream, &pbuf)) {
+  if (!pinos_stream_get_buffer (pinossrc->stream, &pbuf)) {
     g_warning ("failed to capture buffer");
     return;
   }
@@ -435,6 +434,7 @@ on_new_buffer (GObject    *gobject,
         break;
     }
   }
+
   if (buf) {
     g_queue_push_tail (&pinossrc->queue, buf);
 
@@ -534,12 +534,14 @@ static gboolean
 gst_pinos_src_stream_start (GstPinosSrc *pinossrc, GstCaps * caps)
 {
   gchar *str;
-  GBytes *format;
+  GBytes *format = NULL;
   gboolean res;
   PinosProperties *props;
 
-  str = gst_caps_to_string (caps);
-  format = g_bytes_new_take (str, strlen (str) + 1);
+  if (caps) {
+    str = gst_caps_to_string (caps);
+    format = g_bytes_new_take (str, strlen (str) + 1);
+  }
 
   pinos_main_loop_lock (pinossrc->loop);
   res = pinos_stream_start (pinossrc->stream, format, PINOS_STREAM_MODE_BUFFER);
@@ -617,7 +619,7 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
     caps = thiscaps;
   }
   if (caps && !gst_caps_is_empty (caps)) {
-    GBytes *accepted, *possible;
+    GBytes *accepted;
     gchar *str;
 
     GST_DEBUG_OBJECT (basesrc, "have caps: %" GST_PTR_FORMAT, caps);
@@ -647,7 +649,7 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
     }
 
     GST_DEBUG_OBJECT (basesrc, "connect capture with path %s", pinossrc->path);
-    pinos_stream_connect (pinossrc->stream, PINOS_DIRECTION_OUTPUT, pinossrc->path, 0, accepted);
+    pinos_stream_connect (pinossrc->stream, PINOS_DIRECTION_INPUT, pinossrc->path, 0, accepted);
 
     while (TRUE) {
       PinosStreamState state = pinos_stream_get_state (pinossrc->stream);
@@ -662,36 +664,7 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
     }
     pinos_main_loop_unlock (pinossrc->loop);
 
-    g_object_get (pinossrc->stream, "possible-formats", &possible, NULL);
-    if (possible) {
-      GstCaps *newcaps;
-
-      newcaps = gst_caps_from_string (g_bytes_get_data (possible, NULL));
-      if (newcaps)
-        caps = newcaps;
-
-      g_bytes_unref (possible);
-    }
-    /* now fixate */
-    GST_DEBUG_OBJECT (basesrc, "server fixated caps: %" GST_PTR_FORMAT, caps);
-    if (gst_caps_is_any (caps)) {
-      GST_DEBUG_OBJECT (basesrc, "any caps, we stop");
-      /* hmm, still anything, so element can do anything and
-       * nego is not needed */
-      result = TRUE;
-    } else {
-      caps = gst_pinos_src_src_fixate (basesrc, caps);
-      GST_DEBUG_OBJECT (basesrc, "fixated to: %" GST_PTR_FORMAT, caps);
-      if (gst_caps_is_fixed (caps)) {
-        /* yay, fixed caps, use those then, it's possible that the subclass does
-         * not accept this caps after all and we have to fail. */
-        result = gst_base_src_set_caps (basesrc, caps);
-        if (result) {
-          result = gst_pinos_src_stream_start (pinossrc, caps);
-        }
-      }
-    }
-    gst_caps_unref (caps);
+    result = gst_pinos_src_stream_start (pinossrc, NULL);
   } else {
     if (caps)
       gst_caps_unref (caps);
@@ -722,12 +695,6 @@ connect_error:
     pinos_main_loop_unlock (pinossrc->loop);
     return FALSE;
   }
-}
-
-static GstCaps *
-gst_pinos_src_getcaps (GstBaseSrc * bsrc, GstCaps * filter)
-{
-  return GST_BASE_SRC_CLASS (parent_class)->get_caps (bsrc, filter);
 }
 
 static gboolean

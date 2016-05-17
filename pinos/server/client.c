@@ -174,7 +174,7 @@ handle_create_node (PinosClient1           *interface,
                     client);
 
   object_path = pinos_server_node_get_object_path (PINOS_SERVER_NODE (node));
-  g_debug ("client %p: add node %p, %s", client, node, object_path);
+  g_debug ("client %p: add node %p %d, %s", client, node, G_OBJECT (node)->ref_count, object_path);
   g_dbus_method_invocation_return_value (invocation,
                                          g_variant_new ("(o)", object_path));
 

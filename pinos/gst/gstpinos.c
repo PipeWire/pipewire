@@ -33,6 +33,8 @@
 #endif
 
 #include "gstpinossocketsink.h"
+#include "gstpinosportsink.h"
+#include "gstpinosportsrc.h"
 #include "gstpinossrc.h"
 #include "gstpinossink.h"
 #include "gstpinosdeviceprovider.h"
@@ -54,6 +56,10 @@ plugin_init (GstPlugin * plugin)
       GST_TYPE_PINOS_SINK);
   gst_element_register (plugin, "pinossocketsink", GST_RANK_NONE,
       GST_TYPE_PINOS_SOCKET_SINK);
+  gst_element_register (plugin, "pinosportsink", GST_RANK_NONE,
+      GST_TYPE_PINOS_PORT_SINK);
+  gst_element_register (plugin, "pinosportsrc", GST_RANK_NONE,
+      GST_TYPE_PINOS_PORT_SRC);
 
   if (!gst_device_provider_register (plugin, "pinosdeviceprovider",
        GST_RANK_PRIMARY + 1, GST_TYPE_PINOS_DEVICE_PROVIDER))

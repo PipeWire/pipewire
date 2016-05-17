@@ -130,6 +130,7 @@ pinos_node_dispose (GObject * obj)
   PinosNodePrivate *priv = node->priv;
 
   g_debug ("node %p: dispose", node);
+  pinos_node_set_state (node, PINOS_NODE_STATE_SUSPENDED);
   g_list_free_full (priv->ports, (GDestroyNotify) g_object_unref);
   priv->ports = NULL;
 
@@ -216,6 +217,63 @@ pinos_node_init (PinosNode * node)
 }
 
 /**
+ * pinos_node_get_name:
+ * @node: a #PinosNode
+ *
+ * Get the name of @node
+ *
+ * Returns: the name of @node
+ */
+const gchar *
+pinos_node_get_name (PinosNode *node)
+{
+  PinosNodePrivate *priv;
+
+  g_return_val_if_fail (PINOS_IS_NODE (node), NULL);
+  priv = node->priv;
+
+  return priv->name;
+}
+
+/**
+ * pinos_node_get_state:
+ * @node: a #PinosNode
+ *
+ * Get the state of @node
+ *
+ * Returns: the state of @node
+ */
+PinosNodeState
+pinos_node_get_state (PinosNode *node)
+{
+  PinosNodePrivate *priv;
+
+  g_return_val_if_fail (PINOS_IS_NODE (node), PINOS_NODE_STATE_ERROR);
+  priv = node->priv;
+
+  return priv->state;
+}
+
+/**
+ * pinos_node_get_properties:
+ * @node: a #PinosNode
+ *
+ * Get the properties of @node
+ *
+ * Returns: the properties of @node
+ */
+PinosProperties *
+pinos_node_get_properties (PinosNode *node)
+{
+  PinosNodePrivate *priv;
+
+  g_return_val_if_fail (PINOS_IS_NODE (node), NULL);
+  priv = node->priv;
+
+  return priv->properties;
+}
+
+/**
  * pinos_node_remove:
  * @node: a #PinosNode
  *
@@ -227,7 +285,7 @@ pinos_node_remove (PinosNode *node)
 {
   g_return_if_fail (PINOS_IS_NODE (node));
 
-  g_debug ("node %p: remove", node);
+  g_debug ("node %p: remove %d", node, G_OBJECT (node)->ref_count);
   g_signal_emit (node, signals[SIGNAL_REMOVE], 0, NULL);
 }
 
@@ -269,7 +327,9 @@ pinos_node_create_port (PinosNode          *node,
   if (!klass->create_port)
     return;
 
+  g_debug ("node %p %d: create port", node, G_OBJECT (node)->ref_count);
   task = g_task_new  (node, cancellable, callback, user_data);
+  g_debug ("node %p %d: create port", node, G_OBJECT (node)->ref_count);
   klass->create_port (node, direction, name, possible_formats, props, task);
 }
 
@@ -289,6 +349,7 @@ pinos_node_create_port_finish (PinosNode       *node,
     priv->ports = g_list_append (priv->ports, port);
     g_signal_connect (port, "remove", (GCallback) handle_remove_port, node);
   }
+  g_debug ("node %p %d: created port %p", node, G_OBJECT (node)->ref_count, port);
   return port;
 }
 

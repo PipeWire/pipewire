@@ -792,6 +792,7 @@ on_node_proxy (GObject      *source_object,
                        NULL);
 
   g_task_return_pointer (task, node, (GDestroyNotify) g_object_unref);
+  g_object_unref (task);
 
   return;
 
@@ -799,6 +800,7 @@ node_failed:
   {
     g_warning ("failed to get node proxy: %s", error->message);
     g_task_return_error (task, error);
+    g_object_unref (task);
     return;
   }
 }
@@ -839,6 +841,7 @@ create_failed:
   {
     g_warning ("failed to create node: %s", error->message);
     g_task_return_error (task, error);
+    g_object_unref (task);
     return;
   }
 }

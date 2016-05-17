@@ -43,4 +43,6 @@ gchar *pinos_client_name (void);
 void   pinos_fill_context_properties (PinosProperties *properties);
 void   pinos_fill_stream_properties  (PinosProperties *properties);
 
+PinosDirection pinos_direction_reverse (PinosDirection direction);
+
 #endif /* __PINOS_H__ */

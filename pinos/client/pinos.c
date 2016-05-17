@@ -104,3 +104,13 @@ pinos_fill_stream_properties (PinosProperties *properties)
 {
   g_return_if_fail (properties != NULL);
 }
+
+PinosDirection
+pinos_direction_reverse (PinosDirection direction)
+{
+  if (direction == PINOS_DIRECTION_INPUT)
+    return PINOS_DIRECTION_OUTPUT;
+  else if (direction == PINOS_DIRECTION_OUTPUT)
+    return PINOS_DIRECTION_INPUT;
+  return direction;
+}

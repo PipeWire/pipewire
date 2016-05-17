@@ -31,6 +31,19 @@ typedef struct _PinosBufferBuilder PinosBufferBuilder;
 
 #define PINOS_BUFFER_VERSION 0
 
+/**
+ * PinosBufferFlags:
+ * @PINOS_BUFFER_FLAG_NONE: no flags
+ * @PINOS_BUFFER_FLAG_CONTROL: the buffer contains control info such
+ *     as new format or properties.
+ *
+ * The possible buffer flags.
+ */
+typedef enum {
+  PINOS_BUFFER_FLAG_NONE            = 0,
+  PINOS_BUFFER_FLAG_CONTROL         = (1 << 0),
+} PinosBufferFlags;
+
 struct _PinosBuffer {
   /*< private >*/
   gsize x[16];
@@ -45,6 +58,7 @@ void               pinos_buffer_init_data        (PinosBuffer       *buffer,
 void               pinos_buffer_clear            (PinosBuffer       *buffer);
 
 guint32            pinos_buffer_get_version      (PinosBuffer       *buffer);
+PinosBufferFlags   pinos_buffer_get_flags        (PinosBuffer       *buffer);
 int                pinos_buffer_get_fd           (PinosBuffer       *buffer,
                                                   gint               index);
 
@@ -116,6 +130,8 @@ void               pinos_buffer_builder_init_full  (PinosBufferBuilder      *bui
 #define pinos_buffer_builder_init_into(b,d,md,f,mf) pinos_buffer_builder_init_full(b, PINOS_BUFFER_VERSION,d,md,f,mf);
 #define pinos_buffer_builder_init(b)                pinos_buffer_builder_init_into(b, NULL, 0, NULL, 0);
 
+void               pinos_buffer_builder_set_flags  (PinosBufferBuilder *builder,
+                                                    PinosBufferFlags    flags);
 void               pinos_buffer_builder_clear      (PinosBufferBuilder *builder);
 void               pinos_buffer_builder_end        (PinosBufferBuilder *builder,
                                                     PinosBuffer        *buffer);

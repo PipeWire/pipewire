@@ -18,6 +18,8 @@
  */
 
 #include <string.h>
+#include <sys/socket.h>
+
 
 #include <gst/gst.h>
 #include <gio/gio.h>
@@ -38,6 +40,7 @@ struct _PinosServerPortPrivate
   PinosDaemon *daemon;
   PinosPort1 *iface;
   gchar *object_path;
+  gboolean have_sockets;
 };
 
 G_DEFINE_TYPE (PinosServerPort, pinos_server_port, PINOS_TYPE_PORT);
@@ -48,6 +51,17 @@ enum
   PROP_DAEMON,
   PROP_OBJECT_PATH,
 };
+
+const gchar *
+pinos_server_port_get_object_path (PinosServerPort *port)
+{
+  PinosServerPortPrivate *priv;
+
+  g_return_val_if_fail (PINOS_IS_SERVER_PORT (port), NULL);
+  priv = port->priv;
+
+  return priv->object_path;
+}
 
 static gboolean
 handle_remove (PinosPort1             *interface,
@@ -143,14 +157,50 @@ port_unregister_object (PinosServerPort *port)
 }
 
 static void
+on_property_notify (GObject    *obj,
+                    GParamSpec *pspec,
+                    gpointer    user_data)
+{
+  PinosPort *port = PINOS_PORT (obj);
+  PinosServerPortPrivate *priv = PINOS_SERVER_PORT (port)->priv;
+
+  g_debug ("update %s", pspec ? g_param_spec_get_name (pspec) : "NULL");
+
+  if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "node") == 0) {
+    PinosServerNode *node = PINOS_SERVER_NODE (pinos_port_get_node (port));
+    pinos_port1_set_node (priv->iface, pinos_server_node_get_object_path (node));
+  }
+  if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "direction") == 0) {
+    pinos_port1_set_direction (priv->iface, pinos_port_get_direction (port));
+  }
+  if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "name") == 0) {
+    pinos_port1_set_name (priv->iface, pinos_port_get_name (port));
+  }
+  if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "properties") == 0) {
+    PinosProperties *props = pinos_port_get_properties (port);
+    pinos_port1_set_properties (priv->iface, props ? pinos_properties_to_variant (props) : NULL);
+  }
+  if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "possible-formats") == 0) {
+    GBytes *bytes = pinos_port_get_possible_formats (port);
+    pinos_port1_set_possible_formats (priv->iface, bytes ? g_bytes_get_data (bytes, NULL) : NULL);
+  }
+  if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "format") == 0) {
+    GBytes *bytes = pinos_port_get_format (port);
+    pinos_port1_set_format (priv->iface, bytes ? g_bytes_get_data (bytes, NULL) : NULL);
+  }
+}
+
+static void
 pinos_server_port_constructed (GObject * object)
 {
   PinosServerPort *port = PINOS_SERVER_PORT (object);
 
   g_debug ("server-port %p: constructed", port);
-  port_register_object (port);
 
+  g_signal_connect (port, "notify", (GCallback) on_property_notify, port);
   G_OBJECT_CLASS (pinos_server_port_parent_class)->constructed (object);
+
+  port_register_object (port);
 }
 
 static void
@@ -182,6 +232,7 @@ static void
 pinos_server_port_class_init (PinosServerPortClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
+  //PinosPortClass *port_class = PINOS_PORT_CLASS (klass);
 
   g_type_class_add_private (klass, sizeof (PinosServerPortPrivate));
 
@@ -221,15 +272,4 @@ pinos_server_port_init (PinosServerPort * port)
                                  (GCallback) handle_remove,
                                  port);
 
-}
-
-const gchar *
-pinos_server_port_get_object_path (PinosServerPort *port)
-{
-  PinosServerPortPrivate *priv;
-
-  g_return_val_if_fail (PINOS_IS_SERVER_PORT (port), NULL);
-  priv = port->priv;
-
-  return priv->object_path;
 }

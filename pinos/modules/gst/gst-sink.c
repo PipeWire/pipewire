@@ -115,24 +115,23 @@ setup_pipeline (PinosGstSink *sink, GError **error)
 {
   PinosGstSinkPrivate *priv = sink->priv;
   GstBus *bus;
-  GstCaps *caps;
 
   g_debug ("gst-sink %p: setup pipeline", sink);
   priv->pipeline = gst_pipeline_new (NULL);
 
-  priv->src = gst_element_factory_make ("socketsrc", NULL);
-  caps = gst_caps_new_empty_simple ("application/x-pinos");
-  g_object_set (priv->src, "send-messages", TRUE,
-                           "caps", caps, NULL);
-  gst_caps_unref (caps);
+  priv->src = gst_element_factory_make ("pinosportsrc", NULL);
+  g_object_set (priv->src, "port", priv->input,
+                           NULL);
+
   gst_bin_add (GST_BIN (priv->pipeline), priv->src);
 
-  priv->depay = gst_element_factory_make ("pinosdepay", NULL);
-  gst_bin_add (GST_BIN (priv->pipeline), priv->depay);
-  gst_element_link (priv->src, priv->depay);
+//  priv->depay = gst_element_factory_make ("pinosdepay", NULL);
+//  gst_bin_add (GST_BIN (priv->pipeline), priv->depay);
+//  gst_element_link (priv->src, priv->depay);
 
+  g_object_set (priv->element, "sync", FALSE, NULL);
   gst_bin_add (GST_BIN (priv->pipeline), priv->element);
-  gst_element_link (priv->depay, priv->element);
+  gst_element_link (priv->src, priv->element);
 
   bus = gst_pipeline_get_bus (GST_PIPELINE (priv->pipeline));
   gst_bus_add_watch (bus, bus_handler, sink);
@@ -240,80 +239,6 @@ set_state (PinosNode      *node,
   return TRUE;
 }
 
-#if 0
-static void
-on_socket_notify (GObject    *gobject,
-                  GParamSpec *pspec,
-                  gpointer    user_data)
-{
-  PinosNode *node = user_data;
-  PinosGstSink *sink = user_data;
-  PinosGstSinkPrivate *priv = sink->priv;
-  GSocket *socket;
-  guint num_handles;
-  GstCaps *caps;
-  GBytes *requested_format, *format = NULL;
-  gchar *str;
-  gpointer state = NULL;
-  const gchar *key, *val;
-  PinosProperties *props;
-
-  g_object_get (gobject, "socket", &socket, NULL);
-  GST_DEBUG ("got socket %p", socket);
-
-  if (socket == NULL) {
-    g_object_set (priv->src, "socket", NULL, NULL);
-    num_handles = 0;
-  } else {
-    g_object_set (priv->src, "socket", socket, NULL);
-    num_handles = 1;
-  }
-
-  if (num_handles == 0) {
-    pinos_node_report_idle (node);
-    g_object_set (priv->depay, "caps", NULL, NULL);
-
-    str = gst_caps_to_string (priv->possible_formats);
-    format = g_bytes_new_take (str, strlen (str) + 1);
-  } else if (socket) {
-    /* what client requested */
-    g_object_get (gobject, "requested-format", &requested_format, NULL);
-    g_assert (requested_format != NULL);
-
-    if (num_handles == 1) {
-      /* first client, we set the requested format as the format */
-      format = requested_format;
-
-      /* set on the filter */
-      caps = gst_caps_from_string (g_bytes_get_data (format, NULL));
-      g_assert (caps != NULL);
-      g_object_set (priv->depay, "caps", caps, NULL);
-      gst_caps_unref (caps);
-    } else {
-      /* we already have a client, format is whatever is configured already */
-      g_bytes_unref (requested_format);
-
-      g_object_get (priv->depay, "caps", &caps, NULL);
-      str = gst_caps_to_string (caps);
-      format = g_bytes_new_take (str, strlen (str) + 1);
-      gst_caps_unref (caps);
-    }
-    /* this is what we use as the final format for the output */
-    g_object_set (gobject, "format", format, NULL);
-    pinos_node_report_busy (node);
-    g_object_unref (socket);
-  }
-
-  g_object_get (gobject, "properties", &props, NULL);
-  while ((key = pinos_properties_iterate (priv->props, &state))) {
-    val = pinos_properties_get (priv->props, key);
-    pinos_properties_set (props, key, val);
-  }
-  g_object_set (gobject, "properties", props, NULL);
-  pinos_properties_free (props);
-}
-#endif
-
 static void
 get_property (GObject    *object,
               guint       prop_id,
@@ -363,17 +288,46 @@ set_property (GObject      *object,
 }
 
 static void
+on_linked (PinosPort *port, PinosPort *peer, gpointer user_data)
+{
+  PinosNode *node = user_data;
+  gint n_peers;
+
+  g_debug ("port %p: linked", port);
+
+  n_peers = pinos_port_get_n_links (port);
+  if (n_peers == 1)
+    pinos_node_report_busy (node);
+}
+
+static void
+on_unlinked (PinosPort *port, PinosPort *peer, gpointer user_data)
+{
+  PinosNode *node = user_data;
+  gint n_peers;
+
+  g_debug ("port %p: unlinked", port);
+  n_peers = pinos_port_get_n_links (port);
+  if (n_peers == 0)
+    pinos_node_report_idle (node);
+}
+
+static void
 on_input_port_created (GObject      *source_object,
                        GAsyncResult *res,
                        gpointer      user_data)
 {
   PinosNode *node = PINOS_NODE (source_object);
-  PinosGstSinkPrivate *priv = PINOS_GST_SINK (node)->priv;
+  PinosGstSink *sink = PINOS_GST_SINK (node);
+  PinosGstSinkPrivate *priv = sink->priv;
 
   priv->input = pinos_node_create_port_finish (node, res, NULL);
+
+  g_signal_connect (priv->input, "linked", (GCallback) on_linked, node);
+  g_signal_connect (priv->input, "unlinked", (GCallback) on_unlinked, node);
+
+  setup_pipeline (sink, NULL);
 }
-
-
 
 static void
 sink_constructed (GObject * object)
@@ -382,32 +336,32 @@ sink_constructed (GObject * object)
   PinosGstSink *sink = PINOS_GST_SINK (object);
   PinosGstSinkPrivate *priv = sink->priv;
   gchar *str;
-  GBytes *format;
+  GBytes *possible_formats;
 
   G_OBJECT_CLASS (pinos_gst_sink_parent_class)->constructed (object);
 
   str = gst_caps_to_string (priv->possible_formats);
-  format = g_bytes_new_take (str, strlen (str) + 1);
+  possible_formats = g_bytes_new_take (str, strlen (str) + 1);
 
   pinos_node_create_port (PINOS_NODE (node),
                           PINOS_DIRECTION_INPUT,
                           "input",
-                          format,
+                          possible_formats,
                           NULL,
 			  NULL,
                           on_input_port_created,
                           node);
-  g_bytes_unref (format);
-
-  setup_pipeline (sink, NULL);
+  g_bytes_unref (possible_formats);
 }
 
 static void
 sink_finalize (GObject * object)
 {
+  PinosServerNode *node = PINOS_SERVER_NODE (object);
   PinosGstSink *sink = PINOS_GST_SINK (object);
   PinosGstSinkPrivate *priv = sink->priv;
 
+  pinos_node_remove_port (PINOS_NODE (node), priv->input);
   destroy_pipeline (sink);
   g_clear_pointer (&priv->possible_formats, gst_caps_unref);
   pinos_properties_free (priv->props);

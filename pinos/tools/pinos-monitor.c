@@ -163,6 +163,7 @@ dump_port_info (PinosContext *c, const PinosPortInfo *info, gpointer user_data)
     g_print ("%c\tname: \"%s\"\n", MARK_CHANGE (0), info->name);
     print_properties (info->properties, MARK_CHANGE (1));
     print_formats ("possible formats", info->possible_formats, MARK_CHANGE (2));
+    print_formats ("format", info->format, MARK_CHANGE (3));
   }
 }
 

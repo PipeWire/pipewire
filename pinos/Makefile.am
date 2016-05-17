@@ -238,6 +238,8 @@ libgstpinos_la_SOURCES = \
                         gst/gstburstcache.c \
                         gst/gstpinos.c \
                         gst/gstpinossocketsink.c \
+                        gst/gstpinosportsink.c \
+                        gst/gstpinosportsrc.c \
                         gst/gstpinospay.c \
                         gst/gstpinosdepay.c \
                         gst/gstpinosdeviceprovider.c \
@@ -251,7 +253,9 @@ libgstpinos_la_LIBADD =  $(GST_BASE_LIBS) $(GST_LIBS) $(GLIB_LIBS) $(LIBM) -lgst
 libgstpinos_la_LIBTOOLFLAGS = $(GST_PLUGIN_LIBTOOLFLAGS)
 
 noinst_HEADERS = gst/gstburstcache.h gst/gstpinossrc.h \
-		 gst/gstpinossocketsink.h gst/gstpinossink.h gst/gstpinospay.h \
+		 gst/gstpinossocketsink.h gst/gstpinosportsink.h \
+		 gst/gstpinosportsrc.h \
+		 gst/gstpinossink.h gst/gstpinospay.h \
 		 gst/gstpinosdepay.h gst/gstpinosdeviceprovider.h
 
 ###################################

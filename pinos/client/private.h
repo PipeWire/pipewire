@@ -59,6 +59,7 @@ GDBusProxy *           pinos_subscribe_get_proxy_finish   (PinosSubscribe *subsc
 
 typedef struct {
   guint32 version;
+  guint32 flags;
   guint32 length;
 } PinosStackHeader;
 

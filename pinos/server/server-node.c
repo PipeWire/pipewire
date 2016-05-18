@@ -336,10 +336,13 @@ on_property_notify (GObject    *obj,
   PinosNode *node = user_data;
   PinosServerNodePrivate *priv = PINOS_SERVER_NODE (node)->priv;
 
-  if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "name")) {
+  if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "sender") == 0) {
+    pinos_node1_set_owner (priv->iface, priv->sender);
+  }
+  if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "name") == 0) {
     pinos_node1_set_name (priv->iface, pinos_node_get_name (node));
   }
-  if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "properties")) {
+  if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "properties") == 0) {
     PinosProperties *props = pinos_node_get_properties (node);
     pinos_node1_set_properties (priv->iface, props ? pinos_properties_to_variant (props) : NULL);
   }
@@ -349,11 +352,17 @@ static void
 pinos_server_node_constructed (GObject * obj)
 {
   PinosServerNode *node = PINOS_SERVER_NODE (obj);
+  PinosServerNodePrivate *priv = node->priv;
 
   g_debug ("server-node %p: constructed", node);
 
   g_signal_connect (node, "notify", (GCallback) on_property_notify, node);
   G_OBJECT_CLASS (pinos_server_node_parent_class)->constructed (obj);
+
+  if (priv->sender == NULL) {
+    priv->sender = g_strdup (pinos_daemon_get_sender (priv->daemon));
+    pinos_node1_set_owner (priv->iface, priv->sender);
+  }
 
   node_register_object (node);
 }
@@ -378,6 +387,7 @@ pinos_server_node_finalize (GObject * obj)
   g_debug ("server-node %p: finalize", node);
   g_clear_object (&priv->daemon);
   g_clear_object (&priv->iface);
+  g_free (priv->sender);
 
   G_OBJECT_CLASS (pinos_server_node_parent_class)->finalize (obj);
 }

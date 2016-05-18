@@ -109,6 +109,7 @@ gboolean          pinos_context_connect               (PinosContext *context, Pi
 gboolean          pinos_context_disconnect            (PinosContext *context);
 
 void              pinos_context_create_node           (PinosContext       *context,
+                                                       const gchar        *factory_name,
                                                        const gchar        *name,
                                                        PinosProperties    *properties,
                                                        GCancellable       *cancellable,

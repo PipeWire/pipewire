@@ -64,6 +64,9 @@ struct _PinosClientNodeClass {
 /* normal GObject stuff */
 GType               pinos_client_node_get_type                (void);
 
+PinosClientNode *   pinos_client_node_new                     (PinosContext *context,
+                                                               gpointer      id);
+
 PinosContext *      pinos_client_node_get_context             (PinosClientNode *node);
 
 G_END_DECLS

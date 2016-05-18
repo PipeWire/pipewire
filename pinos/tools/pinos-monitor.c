@@ -124,19 +124,6 @@ dump_daemon_info (PinosContext *c, const PinosDaemonInfo *info, gpointer user_da
 }
 
 static void
-dump_client_info (PinosContext *c, const PinosClientInfo *info, gpointer user_data)
-{
-  DumpData *data = user_data;
-
-  g_print ("\tid: %p\n", info->id);
-  g_print ("\tclient-path: \"%s\"\n", info->client_path);
-  if (data->print_all) {
-    g_print ("\tsender: \"%s\"\n", info->sender);
-    print_properties (info->properties, MARK_CHANGE (0));
-  }
-}
-
-static void
 dump_node_info (PinosContext *c, const PinosNodeInfo *info, gpointer user_data)
 {
   DumpData *data = user_data;
@@ -144,6 +131,7 @@ dump_node_info (PinosContext *c, const PinosNodeInfo *info, gpointer user_data)
   g_print ("\tid: %p\n", info->id);
   g_print ("\tnode-path: \"%s\"\n", info->node_path);
   if (data->print_all) {
+    g_print ("%c\towner: \"%s\"\n", MARK_CHANGE (0), info->owner);
     g_print ("%c\tname: \"%s\"\n", MARK_CHANGE (0), info->name);
     print_properties (info->properties, MARK_CHANGE (1));
     g_print ("%c\tstate: \"%s\"\n", MARK_CHANGE (2), pinos_node_state_as_string (info->state));
@@ -193,15 +181,6 @@ dump_object (PinosContext *context, gpointer id, PinosSubscriptionFlags flags,
                                    NULL,
                                    info_ready,
                                    data);
-  }
-  else if (flags & PINOS_SUBSCRIPTION_FLAG_CLIENT) {
-    pinos_context_get_client_info_by_id (context,
-                                         id,
-                                         PINOS_CLIENT_INFO_FLAGS_NONE,
-                                         dump_client_info,
-                                         NULL,
-                                         info_ready,
-                                         data);
   }
   else if (flags & PINOS_SUBSCRIPTION_FLAG_NODE) {
     pinos_context_get_node_info_by_id (context,

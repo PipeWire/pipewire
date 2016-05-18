@@ -33,13 +33,11 @@ struct _PinosContextPrivate
   GError *error;
 
   GDBusProxy *daemon;
-  GDBusProxy *client;
   gboolean disconnecting;
 
   PinosSubscriptionFlags subscription_mask;
   PinosSubscribe *subscribe;
 
-  GList *clients;
   GList *nodes;
   GList *ports;
   GList *connections;

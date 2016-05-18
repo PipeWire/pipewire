@@ -102,9 +102,6 @@ notify_event (PinosSubscribe         *subscribe,
   if (g_strcmp0 (interface_name, "org.pinos.Daemon1") == 0) {
     flags = PINOS_SUBSCRIPTION_FLAG_DAEMON;
   }
-  else if (g_strcmp0 (interface_name, "org.pinos.Client1") == 0) {
-    flags = PINOS_SUBSCRIPTION_FLAG_CLIENT;
-  }
   else if (g_strcmp0 (interface_name, "org.pinos.Node1") == 0) {
     flags = PINOS_SUBSCRIPTION_FLAG_NODE;
   }

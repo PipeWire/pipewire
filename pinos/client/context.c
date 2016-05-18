@@ -150,7 +150,6 @@ pinos_context_finalize (GObject * object)
 
   g_list_free (priv->nodes);
   g_list_free (priv->ports);
-  g_list_free (priv->clients);
   g_clear_object (&priv->subscribe);
   g_clear_error (&priv->error);
 
@@ -377,62 +376,6 @@ context_set_state (PinosContext      *context,
       g_error_free (error);
   }
 }
-static void
-on_client_proxy (GObject      *source_object,
-                 GAsyncResult *res,
-                 gpointer      user_data)
-{
-  PinosContext *context = user_data;
-  PinosContextPrivate *priv = context->priv;
-  GError *error = NULL;
-
-  priv->client = pinos_subscribe_get_proxy_finish (priv->subscribe,
-                                                res,
-                                                &error);
-  if (priv->client == NULL)
-    goto client_failed;
-
-  context_set_state (context, PINOS_CONTEXT_STATE_READY, NULL);
-
-  return;
-
-client_failed:
-  {
-    g_warning ("failed to get client proxy: %s", error->message);
-    context_set_state (context, PINOS_STREAM_STATE_ERROR, error);
-    return;
-  }
-}
-
-static void
-on_client_connected (GObject      *source_object,
-                     GAsyncResult *res,
-                     gpointer      user_data)
-{
-  PinosContext *context = user_data;
-  PinosContextPrivate *priv = context->priv;
-  GVariant *ret;
-  GError *error = NULL;
-  const gchar *client_path;
-
-  ret = g_dbus_proxy_call_finish (priv->daemon, res, &error);
-  if (ret == NULL) {
-    g_warning ("failed to connect client: %s", error->message);
-    context_set_state (context, PINOS_CONTEXT_STATE_ERROR, error);
-    return;
-  }
-
-  g_variant_get (ret, "(&o)", &client_path);
-
-  pinos_subscribe_get_proxy (priv->subscribe,
-                          PINOS_DBUS_SERVICE,
-                          client_path,
-                          "org.pinos.Client1",
-                          NULL,
-                          on_client_proxy,
-                          context);
-  g_variant_unref (ret);
-}
 
 static void
 on_daemon_connected (GObject      *source_object,
@@ -440,21 +383,9 @@ on_daemon_connected (GObject      *source_object,
                      gpointer      user_data)
 {
   PinosContext *context = user_data;
-  PinosContextPrivate *priv = context->priv;
-  GVariant *variant;
 
   context_set_state (context, PINOS_CONTEXT_STATE_REGISTERING, NULL);
-
-  variant = pinos_properties_to_variant (priv->properties);
-
-  g_dbus_proxy_call (priv->daemon,
-                     "ConnectClient",
-                     g_variant_new ("(@a{sv})", variant),
-                     G_DBUS_CALL_FLAGS_NONE,
-                     -1,
-                     NULL,
-                     on_client_connected,
-                     context);
+  context_set_state (context, PINOS_CONTEXT_STATE_READY, NULL);
 }
 
 static void
@@ -470,22 +401,6 @@ subscription_cb (PinosSubscribe         *subscribe,
   switch (flags) {
     case PINOS_SUBSCRIPTION_FLAG_DAEMON:
       priv->daemon = g_object_ref (object);
-      break;
-
-    case PINOS_SUBSCRIPTION_FLAG_CLIENT:
-      if (event == PINOS_SUBSCRIPTION_EVENT_NEW) {
-        priv->clients = g_list_prepend (priv->clients, object);
-      } else if (event == PINOS_SUBSCRIPTION_EVENT_REMOVE) {
-        priv->clients = g_list_remove (priv->clients, object);
-
-        if (object == priv->client && !priv->disconnecting) {
-          context_set_state (context,
-                             PINOS_CONTEXT_STATE_ERROR,
-                             g_error_new_literal (G_IO_ERROR,
-                                                  G_IO_ERROR_CLOSED,
-                                                  "Client disappeared"));
-        }
-      }
       break;
 
     case PINOS_SUBSCRIPTION_FLAG_NODE:
@@ -628,60 +543,16 @@ pinos_context_connect (PinosContext      *context,
 }
 
 static void
-finish_client_disconnect (PinosContext *context)
+do_disconnect (PinosContext *context)
 {
   PinosContextPrivate *priv = context->priv;
 
-  g_clear_object (&priv->client);
   g_clear_object (&priv->daemon);
   if (priv->id) {
     g_bus_unwatch_name(priv->id);
     priv->id = 0;
   }
-
   context_set_state (context, PINOS_CONTEXT_STATE_UNCONNECTED, NULL);
-}
-
-static void
-on_client_disconnected (GObject      *source_object,
-                        GAsyncResult *res,
-                        gpointer      user_data)
-{
-  PinosContext *context = user_data;
-  PinosContextPrivate *priv = context->priv;
-  GError *error = NULL;
-  GVariant *ret;
-
-  priv->disconnecting = FALSE;
-
-  ret = g_dbus_proxy_call_finish (priv->client, res, &error);
-  if (ret == NULL) {
-    g_warning ("failed to disconnect client: %s", error->message);
-    context_set_state (context, PINOS_CONTEXT_STATE_ERROR, error);
-    g_object_unref (context);
-    return;
-  }
-  g_variant_unref (ret);
-
-  finish_client_disconnect (context);
-  g_object_unref (context);
-}
-
-static gboolean
-do_disconnect (PinosContext *context)
-{
-  PinosContextPrivate *priv = context->priv;
-
-  g_dbus_proxy_call (priv->client,
-                     "Disconnect",
-                     g_variant_new ("()"),
-                     G_DBUS_CALL_FLAGS_NONE,
-                     -1,
-                     NULL,
-                     on_client_disconnected,
-                     context);
-
-  return FALSE;
 }
 
 /**
@@ -701,11 +572,6 @@ pinos_context_disconnect (PinosContext *context)
 
   priv = context->priv;
   g_return_val_if_fail (!priv->disconnecting, FALSE);
-
-  if (priv->client == NULL) {
-    finish_client_disconnect (context);
-    return TRUE;
-  }
 
   priv->disconnecting = TRUE;
 
@@ -756,6 +622,7 @@ pinos_context_get_error (PinosContext *context)
 }
 
 typedef struct {
+  gchar *factory_name;
   gchar *name;
   PinosProperties *properties;
 } CreateNodeData;
@@ -763,6 +630,7 @@ typedef struct {
 static void
 create_node_data_free (CreateNodeData *data)
 {
+  g_free (data->factory_name);
   g_free (data->name);
   if (data->properties)
     pinos_properties_free (data->properties);
@@ -786,10 +654,7 @@ on_node_proxy (GObject      *source_object,
   if (proxy == NULL)
     goto node_failed;
 
-  node = g_object_new (PINOS_TYPE_CLIENT_NODE,
-                       "context", context,
-                       "proxy", proxy,
-                       NULL);
+  node = pinos_client_node_new (context, proxy);
 
   g_task_return_pointer (task, node, (GDestroyNotify) g_object_unref);
   g_object_unref (task);
@@ -805,7 +670,6 @@ node_failed:
   }
 }
 
-
 static void
 on_node_created (GObject      *source_object,
                  GAsyncResult *res,
@@ -817,9 +681,9 @@ on_node_created (GObject      *source_object,
   GError *error = NULL;
   const gchar *node_path;
 
-  g_assert (context->priv->client == G_DBUS_PROXY (source_object));
+  g_assert (context->priv->daemon == G_DBUS_PROXY (source_object));
 
-  ret = g_dbus_proxy_call_finish (context->priv->client, res, &error);
+  ret = g_dbus_proxy_call_finish (context->priv->daemon, res, &error);
   if (ret == NULL)
     goto create_failed;
 
@@ -853,10 +717,11 @@ do_create_node (GTask *task)
   PinosContext *context = g_task_get_source_object (task);
   CreateNodeData *data = g_task_get_task_data (task);
 
-  g_dbus_proxy_call (context->priv->client,
+  g_dbus_proxy_call (context->priv->daemon,
                      "CreateNode",
-                     g_variant_new ("(s@a{sv})",
-                       "client-node",
+                     g_variant_new ("(ss@a{sv})",
+                       data->factory_name,
+                       data->name,
                        pinos_properties_to_variant (data->properties)),
                      G_DBUS_CALL_FLAGS_NONE,
                      -1,
@@ -879,16 +744,19 @@ do_create_node (GTask *task)
  */
 void
 pinos_context_create_node (PinosContext        *context,
+                           const gchar         *factory_name,
                            const gchar         *name,
                            PinosProperties     *properties,
                            GCancellable        *cancellable,
                            GAsyncReadyCallback  callback,
                            gpointer             user_data)
 {
+  PinosContextPrivate *priv;
   GTask *task;
   CreateNodeData *data;
 
   g_return_if_fail (PINOS_IS_CONTEXT (context));
+  priv = context->priv;
 
   task = g_task_new (context,
                      cancellable,
@@ -896,8 +764,9 @@ pinos_context_create_node (PinosContext        *context,
                      user_data);
 
   data = g_slice_new (CreateNodeData);
+  data->factory_name = g_strdup (factory_name);
   data->name = g_strdup (name);
-  data->properties = properties ? pinos_properties_copy (properties) : NULL;
+  data->properties = pinos_properties_merge (priv->properties, properties);
 
   g_task_set_task_data (task, data, (GDestroyNotify) create_node_data_free);
 

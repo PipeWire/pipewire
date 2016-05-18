@@ -581,6 +581,7 @@ do_connect (PinosStream *stream)
 
   pinos_context_create_node (context,
                              "client-node",
+                             "client-node",
                              priv->properties,
                              NULL, /* GCancellable *cancellable */
                              on_node_created,

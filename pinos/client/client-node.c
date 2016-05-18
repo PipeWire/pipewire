@@ -205,7 +205,7 @@ client_node_create_port (PinosNode       *node,
   data->direction = direction;
   data->name = g_strdup (name);
   data->possible_formats = possible_formats ? g_bytes_ref (possible_formats) : NULL;
-  data->properties = properties ? pinos_properties_copy (properties) : NULL;
+  data->properties = pinos_properties_merge (pinos_node_get_properties (node), properties);
 
   g_task_set_task_data (task, data, (GDestroyNotify) create_port_data_free);
 
@@ -364,4 +364,44 @@ pinos_client_node_get_context (PinosClientNode *node)
   priv = node->priv;
 
  return priv->context;
+}
+
+/**
+ * pinos_client_port_new:
+ * @node: a #PinosClientNode
+ * @id: an id
+ * @socket: a socket with the server port
+ *
+ * Create a new client port.
+ *
+ * Returns: a new client port
+ */
+PinosClientNode *
+pinos_client_node_new (PinosContext    *context,
+                       gpointer         id)
+{
+  PinosClientNode *node;
+  GDBusProxy *proxy = id;
+  GVariant *variant;
+  PinosProperties *properties = NULL;
+  const gchar *name = NULL;
+
+  variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "Name");
+  if (variant != NULL) {
+    name = g_variant_get_string (variant, NULL);
+    g_variant_unref (variant);
+  }
+  variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), "Properties");
+  if (variant != NULL) {
+    properties = pinos_properties_from_variant (variant);
+    g_variant_unref (variant);
+  }
+
+  node = g_object_new (PINOS_TYPE_CLIENT_NODE,
+                       "context", context,
+                       "proxy", proxy,
+                       "name", name,
+                       "properties", properties,
+                       NULL);
+  return node;
 }

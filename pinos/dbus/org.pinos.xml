@@ -22,63 +22,21 @@
     <property name='Cookie' type='u' access='read' />
     <!-- Properties: Extra properties of the daemon -->
     <property name='Properties' type='a{sv}' access='read' />
-    <!-- ConnectClient:
-         @properties: properties of the client
-         @client: a new client object
 
-         Register a client to the pinos daemon. A new client object
-         will be generated that should be used to perform any other
-         action on the server.
-    -->
-    <method name='ConnectClient'>
-      <arg type='a{sv}' name='properties' direction='in'/>
-      <arg type='o' name='client' direction='out'/>
-    </method>
-  </interface>
-
-  <!--
-      org.pinos.Client1:
-      @short_description: Main client interface
-
-      Interface obtained after connecting a client and allows for
-      obtaining an channel object from a source/sink.
-  -->
-  <interface name='org.pinos.Client1'>
-    <!-- Sender: Sender of the client -->
-    <property name='Sender' type='s' access='read' />
-    <!-- Name: Properties of the client -->
-    <property name='Properties' type='a{sv}' access='read' />
-    <!-- Disconnect:
-
-         Disconnect the client from the server.
-    -->
-    <method name='Disconnect'/>
     <!-- CreateNode:
+         @factory_name: the factory name to use for the node
          @name: the name of the node
-         @properties: extra properties
+         @Properties: extra properties
          @node: the Node1 object path
 
          Create a new Node with given name and properties
     -->
     <method name='CreateNode'>
-      <arg type='s' name='Name' direction='in' />
+      <arg type='s' name='factory_name' direction='in' />
+      <arg type='s' name='name' direction='in' />
       <arg type='a{sv}' name='properties' direction='in'/>
       <arg type='o' name='node' direction='out'/>
     </method>
-
-    <!-- CreateUploadChannel:
-         @possible_formats: the formats that can be provided
-         @properties: extra properties
-         @channel: the Channel object path
-
-         Create a new channel to upload a new stream
-    -->
-    <method name='CreateUploadChannel'>
-      <arg type='s' name='possible_formats' direction='in'/>
-      <arg type='a{sv}' name='properties' direction='in'/>
-      <arg type='o' name='channel' direction='out'/>
-    </method>
-
   </interface>
 
   <!--
@@ -91,7 +49,7 @@
     <!-- Name: the name of the node -->
     <property name='Name' type='s' access='read' />
     <!-- Owner: the owner path of this node -->
-    <property name='Owner' type='o' access='read' />
+    <property name='Owner' type='s' access='read' />
     <!-- Properties: extra node properties -->
     <property name='Properties' type='a{sv}' access='read' />
     <!-- state: state of the node

@@ -165,114 +165,6 @@ pinos_context_get_daemon_info (PinosContext *context,
   g_object_unref (task);
 }
 
-static void
-client_fill_info (PinosClientInfo *info, GDBusProxy *proxy)
-{
-  GHashTable *changed = g_object_get_data (G_OBJECT (proxy), "pinos-changed-properties");
-
-  info->id = proxy;
-  info->client_path = g_dbus_proxy_get_object_path (proxy);
-  SET_STRING ("Sender", sender, 0);
-
-  info->change_mask = 0;
-  SET_PROPERTIES ("Properties", properties, 0);
-
-  if (changed)
-    g_hash_table_remove_all (changed);
-}
-
-static void
-client_clear_info (PinosClientInfo *info)
-{
-  if (info->properties)
-    pinos_properties_free (info->properties);
-}
-
-
-/**
- * pinos_context_list_client_info:
- * @context: a connected #PinosContext
- * @flags: extra #PinosClientInfoFlags
- * @cb: a #PinosClientInfoCallback
- * @cancelable: a #GCancellable
- * @callback: a #GAsyncReadyCallback to call when the operation is finished
- * @user_data: user data passed to @cb
- *
- * Call @cb for each client.
- */
-void
-pinos_context_list_client_info (PinosContext *context,
-                                PinosClientInfoFlags flags,
-                                PinosClientInfoCallback cb,
-                                GCancellable *cancellable,
-                                GAsyncReadyCallback callback,
-                                gpointer user_data)
-{
-  PinosContextPrivate *priv;
-  GList *walk;
-  GTask *task;
-
-  g_return_if_fail (PINOS_IS_CONTEXT (context));
-  g_return_if_fail (cb != NULL);
-
-  task = g_task_new (context, cancellable, callback, user_data);
-
-  priv = context->priv;
-
-  for (walk = priv->clients; walk; walk = g_list_next (walk)) {
-    GDBusProxy *proxy = walk->data;
-    PinosClientInfo info;
-
-    client_fill_info (&info, proxy);
-    cb (context, &info, user_data);
-    client_clear_info (&info);
-  }
-
-  g_task_return_boolean (task, TRUE);
-  g_object_unref (task);
-}
-
-/**
- * pinos_context_get_client_info_by_id:
- * @context: a connected #PinosContext
- * @id: a client id
- * @flags: extra #PinosClientInfoFlags
- * @cb: a #PinosClientInfoCallback
- * @cancelable: a #GCancellable
- * @callback: a #GAsyncReadyCallback to call when the operation is finished
- * @user_data: user data passed to @cb
- *
- * Call @cb for the client with @id.
- */
-void
-pinos_context_get_client_info_by_id (PinosContext *context,
-                                     gpointer id,
-                                     PinosClientInfoFlags flags,
-                                     PinosClientInfoCallback cb,
-                                     GCancellable *cancellable,
-                                     GAsyncReadyCallback callback,
-                                     gpointer user_data)
-{
-  PinosClientInfo info;
-  GDBusProxy *proxy;
-  GTask *task;
-
-  g_return_if_fail (PINOS_IS_CONTEXT (context));
-  g_return_if_fail (id != NULL);
-  g_return_if_fail (cb != NULL);
-
-  task = g_task_new (context, cancellable, callback, user_data);
-
-  proxy = G_DBUS_PROXY (id);
-
-  client_fill_info (&info, proxy);
-  cb (context, &info, user_data);
-  client_clear_info (&info);
-
-  g_task_return_boolean (task, TRUE);
-  g_object_unref (task);
-}
-
 /**
  * pinos_node_state_as_string:
  * @state: a #PinosNodeeState
@@ -299,6 +191,7 @@ node_fill_info (PinosNodeInfo *info, GDBusProxy *proxy)
 
   info->id = proxy;
   info->node_path = g_dbus_proxy_get_object_path (proxy);
+  SET_STRING ("Owner", owner, 0);
 
   info->change_mask = 0;
   SET_STRING ("Name", name, 0);

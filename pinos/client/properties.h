@@ -31,6 +31,8 @@ GType             pinos_properties_get_type (void);
 
 PinosProperties * pinos_properties_new      (const gchar *key, ...) G_GNUC_NULL_TERMINATED;
 PinosProperties * pinos_properties_copy     (PinosProperties *properties);
+PinosProperties * pinos_properties_merge    (PinosProperties *oldprops,
+                                             PinosProperties *newprops);
 void              pinos_properties_free     (PinosProperties *properties);
 
 void              pinos_properties_set      (PinosProperties *properties,

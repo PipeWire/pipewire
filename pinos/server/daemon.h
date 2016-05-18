@@ -65,6 +65,7 @@ struct _PinosDaemonClass {
 GType             pinos_daemon_get_type          (void);
 
 PinosDaemon *     pinos_daemon_new               (PinosProperties *properties);
+const gchar *     pinos_daemon_get_sender        (PinosDaemon *daemon);
 
 void              pinos_daemon_start             (PinosDaemon *daemon);
 void              pinos_daemon_stop              (PinosDaemon *daemon);

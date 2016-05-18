@@ -82,6 +82,33 @@ pinos_properties_copy (PinosProperties *properties)
   return copy;
 }
 
+PinosProperties *
+pinos_properties_merge (PinosProperties *oldprops,
+                        PinosProperties *newprops)
+{
+  PinosProperties *res = NULL;
+
+  if (oldprops == NULL) {
+    if (newprops == NULL)
+      res = NULL;
+    else
+      res = pinos_properties_copy (newprops);
+  } else if (newprops == NULL) {
+    res = pinos_properties_copy (oldprops);
+  } else {
+    const gchar *key;
+    gpointer state = NULL;
+
+    res = pinos_properties_copy (oldprops);
+    while ((key = pinos_properties_iterate (newprops, &state))) {
+       pinos_properties_set (res,
+                             key,
+                             pinos_properties_get (newprops, key));
+    }
+  }
+  return res;
+}
+
 /**
  * pinos_properties_free:
  * @properties: a #PinosProperties

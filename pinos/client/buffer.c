@@ -26,6 +26,12 @@
 #include "pinos/client/buffer.h"
 #include "pinos/client/private.h"
 
+#if 0
+#define PINOS_DEBUG_BUFFER(format,args...) g_debug(format,##args)
+#else
+#define PINOS_DEBUG_BUFFER(format,args...)
+#endif
+
 G_STATIC_ASSERT (sizeof (PinosStackBuffer) <= sizeof (PinosBuffer));
 
 /**
@@ -50,7 +56,7 @@ pinos_buffer_init_data (PinosBuffer       *buffer,
 {
   PinosStackBuffer *sb = PSB (buffer);
 
-  g_debug ("buffer %p: init", buffer);
+  PINOS_DEBUG_BUFFER ("buffer %p: init", buffer);
 
   sb->magic = PSB_MAGIC;
   sb->refcount = 1;
@@ -71,7 +77,7 @@ pinos_buffer_ref (PinosBuffer *buffer)
 
   g_return_val_if_fail (is_valid_buffer (buffer), NULL);
 
-  g_debug ("buffer %p: ref %d -> %d", buffer, sb->refcount, sb->refcount+1);
+  PINOS_DEBUG_BUFFER ("buffer %p: ref %d -> %d", buffer, sb->refcount, sb->refcount+1);
 
   sb->refcount++;
 
@@ -87,7 +93,7 @@ pinos_buffer_unref (PinosBuffer *buffer)
 
   g_return_val_if_fail (is_valid_buffer (buffer), FALSE);
 
-  g_debug ("buffer %p: unref %d -> %d", buffer, sb->refcount, sb->refcount-1);
+  PINOS_DEBUG_BUFFER ("buffer %p: unref %d -> %d", buffer, sb->refcount, sb->refcount-1);
 
   sb->refcount--;
   res = sb->refcount > 0;
@@ -95,7 +101,7 @@ pinos_buffer_unref (PinosBuffer *buffer)
     sb->magic = 0;
     g_free (sb->free_data);
     for (i = 0; i < sb->n_fds; i++) {
-      g_debug ("%p: close %d %d", buffer, i, sb->fds[i]);
+      PINOS_DEBUG_BUFFER ("%p: close %d %d", buffer, i, sb->fds[i]);
       close (sb->fds[i]);
     }
     g_free (sb->free_fds);
@@ -551,7 +557,7 @@ pinos_buffer_builder_end (PinosBufferBuilder *builder,
   sbuf->max_fds = sb->buf.max_fds;
   sbuf->free_fds = sb->buf.free_fds;
 
-  g_debug ("builder %p: buffer %p init", builder, buffer);
+  PINOS_DEBUG_BUFFER ("builder %p: buffer %p init", builder, buffer);
 }
 
 /**

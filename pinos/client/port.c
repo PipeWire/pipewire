@@ -552,7 +552,7 @@ read_buffer (PinosPort    *port,
   sb->refcount = 1;
   sb->magic = PSB_MAGIC;
 
-  g_debug ("port %p: buffer %p init", &priv->recv_buffer, sb);
+  PINOS_DEBUG_TRANSPORT ("port %p: buffer %p init", &priv->recv_buffer, sb);
 
   return &priv->recv_buffer;
 }

@@ -378,6 +378,7 @@ pinos_node_remove_port (PinosNode *node, PinosPort *port)
     if (klass->remove_port)
       klass->remove_port (node, port);
 
+    g_debug ("node %p: removed port %p", node, port);
     priv->ports = g_list_delete_link (priv->ports, find);
     g_object_unref (port);
   }
@@ -435,6 +436,7 @@ pinos_node_set_state (PinosNode      *node,
 
   remove_idle_timeout (node);
 
+  g_debug ("node %p: set state to %s", node, pinos_node_state_as_string (state));
   if (klass->set_state)
     res = klass->set_state (node, state);
   else
@@ -461,6 +463,7 @@ pinos_node_update_state (PinosNode      *node,
   priv = node->priv;
 
   if (priv->state != state) {
+    g_debug ("node %p: update state to %s", node, pinos_node_state_as_string (state));
     priv->state = state;
     g_object_notify (G_OBJECT (node), "state");
   }
@@ -486,7 +489,7 @@ pinos_node_report_error (PinosNode *node,
   remove_idle_timeout (node);
   priv->error = error;
   priv->state = PINOS_NODE_STATE_ERROR;
-  g_debug ("got error state %s", error->message);
+  g_debug ("node %p: got error state %s", node, error->message);
   g_object_notify (G_OBJECT (node), "state");
 }
 
@@ -496,6 +499,7 @@ idle_timeout (PinosNode *node)
   PinosNodePrivate *priv = node->priv;
 
   priv->idle_timeout = 0;
+  g_debug ("node %p: idle timeout", node);
   pinos_node_set_state (node, PINOS_NODE_STATE_SUSPENDED);
 
   return G_SOURCE_REMOVE;
@@ -516,6 +520,7 @@ pinos_node_report_idle (PinosNode *node)
   g_return_if_fail (PINOS_IS_NODE (node));
   priv = node->priv;
 
+  g_debug ("node %p: report idle", node);
   pinos_node_set_state (node, PINOS_NODE_STATE_IDLE);
 
   priv->idle_timeout = g_timeout_add_seconds (3,
@@ -535,5 +540,6 @@ pinos_node_report_busy (PinosNode *node)
 {
   g_return_if_fail (PINOS_IS_NODE (node));
 
+  g_debug ("node %p: report busy", node);
   pinos_node_set_state (node, PINOS_NODE_STATE_RUNNING);
 }

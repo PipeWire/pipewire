@@ -384,8 +384,7 @@ on_daemon_connected (GObject      *source_object,
 {
   PinosContext *context = user_data;
 
-  context_set_state (context, PINOS_CONTEXT_STATE_REGISTERING, NULL);
-  context_set_state (context, PINOS_CONTEXT_STATE_READY, NULL);
+  context_set_state (context, PINOS_CONTEXT_STATE_CONNECTED, NULL);
 }
 
 static void
@@ -646,7 +645,7 @@ on_node_proxy (GObject      *source_object,
   PinosContext *context = g_task_get_source_object (task);
   GError *error = NULL;
   GDBusProxy *proxy;
-  PinosNode *node;
+  PinosClientNode *node;
 
   proxy = pinos_subscribe_get_proxy_finish (context->priv->subscribe,
                                             res,

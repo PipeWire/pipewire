@@ -380,7 +380,7 @@ gst_pinos_device_provider_probe (GstDeviceProvider * provider)
       goto failed;
     }
 
-    if (state == PINOS_CONTEXT_STATE_READY)
+    if (state == PINOS_CONTEXT_STATE_CONNECTED)
       break;
 
     /* Wait until something happens */
@@ -442,10 +442,9 @@ context_state_notify (GObject    *gobject,
 
   switch (state) {
     case PINOS_CONTEXT_STATE_CONNECTING:
-    case PINOS_CONTEXT_STATE_REGISTERING:
       break;
     case PINOS_CONTEXT_STATE_UNCONNECTED:
-    case PINOS_CONTEXT_STATE_READY:
+    case PINOS_CONTEXT_STATE_CONNECTED:
       break;
     case PINOS_CONTEXT_STATE_ERROR:
       GST_ERROR_OBJECT (self, "context error: %s",
@@ -512,7 +511,7 @@ gst_pinos_device_provider_start (GstDeviceProvider * provider)
       goto not_running;
     }
 
-    if (state == PINOS_CONTEXT_STATE_READY)
+    if (state == PINOS_CONTEXT_STATE_CONNECTED)
       break;
 
     /* Wait until something happens */

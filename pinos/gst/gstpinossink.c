@@ -673,8 +673,7 @@ on_context_notify (GObject    *gobject,
   switch (state) {
     case PINOS_CONTEXT_STATE_UNCONNECTED:
     case PINOS_CONTEXT_STATE_CONNECTING:
-    case PINOS_CONTEXT_STATE_REGISTERING:
-    case PINOS_CONTEXT_STATE_READY:
+    case PINOS_CONTEXT_STATE_CONNECTED:
       break;
     case PINOS_CONTEXT_STATE_ERROR:
       GST_ELEMENT_ERROR (pinossink, RESOURCE, FAILED,
@@ -706,7 +705,7 @@ gst_pinos_sink_open (GstPinosSink * pinossink)
   while (TRUE) {
     PinosContextState state = pinos_context_get_state (pinossink->ctx);
 
-    if (state == PINOS_CONTEXT_STATE_READY)
+    if (state == PINOS_CONTEXT_STATE_CONNECTED)
       break;
 
     if (state == PINOS_CONTEXT_STATE_ERROR)

@@ -60,11 +60,10 @@ typedef enum {
 
 /**
  * PinosContextState:
+ * @PINOS_CONTEXT_STATE_ERROR: context is in error
  * @PINOS_CONTEXT_STATE_UNCONNECTED: not connected
  * @PINOS_CONTEXT_STATE_CONNECTING: connecting to daemon
- * @PINOS_CONTEXT_STATE_REGISTERING: registering with daemon
- * @PINOS_CONTEXT_STATE_READY: context is ready
- * @PINOS_CONTEXT_STATE_ERROR: context is in error
+ * @PINOS_CONTEXT_STATE_CONNECTED: context is connected and ready
  *
  * The state of a #PinosContext
  */
@@ -72,8 +71,7 @@ typedef enum {
   PINOS_CONTEXT_STATE_ERROR        = -1,
   PINOS_CONTEXT_STATE_UNCONNECTED  = 0,
   PINOS_CONTEXT_STATE_CONNECTING   = 1,
-  PINOS_CONTEXT_STATE_REGISTERING  = 2,
-  PINOS_CONTEXT_STATE_READY        = 3,
+  PINOS_CONTEXT_STATE_CONNECTED    = 2,
 } PinosContextState;
 
 const gchar * pinos_context_state_as_string (PinosContextState state);

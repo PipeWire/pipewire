@@ -133,7 +133,7 @@ on_state_notify (GObject    *gobject,
     case PINOS_CONTEXT_STATE_ERROR:
       g_main_loop_quit (loop);
       break;
-    case PINOS_CONTEXT_STATE_READY:
+    case PINOS_CONTEXT_STATE_CONNECTED:
     {
       PinosStream *stream;
       GBytes *format;

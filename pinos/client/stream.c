@@ -616,7 +616,7 @@ pinos_stream_connect (PinosStream      *stream,
 
   priv = stream->priv;
   context = priv->context;
-  g_return_val_if_fail (pinos_context_get_state (context) == PINOS_CONTEXT_STATE_READY, FALSE);
+  g_return_val_if_fail (pinos_context_get_state (context) == PINOS_CONTEXT_STATE_CONNECTED, FALSE);
   g_return_val_if_fail (pinos_stream_get_state (stream) == PINOS_STREAM_STATE_UNCONNECTED, FALSE);
 
   priv->direction = direction;
@@ -681,7 +681,7 @@ pinos_stream_connect_provide (PinosStream      *stream,
 
   priv = stream->priv;
   context = priv->context;
-  g_return_val_if_fail (pinos_context_get_state (context) == PINOS_CONTEXT_STATE_READY, FALSE);
+  g_return_val_if_fail (pinos_context_get_state (context) == PINOS_CONTEXT_STATE_CONNECTED, FALSE);
 
   if (priv->possible_formats)
     g_bytes_unref (priv->possible_formats);
@@ -810,7 +810,7 @@ pinos_stream_disconnect (PinosStream *stream)
   g_return_val_if_fail (priv->state >= PINOS_STREAM_STATE_READY, FALSE);
   g_return_val_if_fail (priv->node != NULL, FALSE);
   context = priv->context;
-  g_return_val_if_fail (pinos_context_get_state (context) >= PINOS_CONTEXT_STATE_READY, FALSE);
+  g_return_val_if_fail (pinos_context_get_state (context) >= PINOS_CONTEXT_STATE_CONNECTED, FALSE);
   g_return_val_if_fail (!priv->disconnecting, FALSE);
 
   priv->disconnecting = TRUE;

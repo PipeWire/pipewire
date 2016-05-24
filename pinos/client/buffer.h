@@ -45,6 +45,7 @@ typedef enum {
 } PinosBufferFlags;
 
 struct _PinosBuffer {
+  PinosBuffer *next;
   /*< private >*/
   gsize x[16];
 };

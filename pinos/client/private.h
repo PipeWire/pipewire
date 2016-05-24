@@ -62,6 +62,7 @@ typedef struct {
 } PinosStackHeader;
 
 typedef struct {
+  PinosBuffer *next;
   gpointer data;
   gsize size;
   gsize max_size;

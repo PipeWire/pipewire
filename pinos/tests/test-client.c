@@ -144,7 +144,6 @@ on_state_notify (GObject    *gobject,
 
       format = g_bytes_new_static (ANY_CAPS, strlen (ANY_CAPS) + 1);
       pinos_stream_connect (stream, PINOS_DIRECTION_OUTPUT, NULL, 0, format);
-      g_bytes_unref (format);
       break;
     }
     default:

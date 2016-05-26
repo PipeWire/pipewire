@@ -8,6 +8,7 @@ intltool-merge.in
 intltool-update.in
 *~
 *.tar.gz
+*.tar.xz
 .deps
 .libs
 *.la

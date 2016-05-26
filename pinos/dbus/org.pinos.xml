@@ -76,6 +76,16 @@
       <arg type='h' name='fd' direction='out'/>
     </method>
 
+    <!-- Activate:
+
+         Set the node ready for processing
+    -->
+    <method name='Activate'>
+    </method>
+
+    <method name='Deactivate'>
+    </method>
+
     <!-- Remove:
 
          Remove the node

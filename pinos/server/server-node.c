@@ -18,6 +18,7 @@
  */
 
 #include <string.h>
+#include <stdlib.h>
 
 #include <gio/gio.h>
 #include <gio/gunixfdlist.h>
@@ -99,12 +100,14 @@ on_port_created (GObject      *source_object,
   PinosServerNodePrivate *priv = PINOS_SERVER_NODE (node)->priv;
   GDBusMethodInvocation *invocation = user_data;
   PinosPort *port, *peer;
-  const gchar *object_path;
+  const gchar *object_path, *val;
   GError *error = NULL;
   GUnixFDList *fdlist;
   GSocket *socket;
   int fd, fdidx;
   PinosDirection direction;
+  PinosProperties *props;
+  gboolean autoconnect = FALSE;
 
   port = pinos_node_create_port_finish (node, res, &error);
   if (port == NULL)
@@ -124,19 +127,28 @@ on_port_created (GObject      *source_object,
   if (fdidx == -1)
     goto no_fdlist;
 
-  direction = pinos_port_get_direction (port);
-  direction = pinos_direction_reverse (direction);
+  props = pinos_port_get_properties (port);
 
-  peer = pinos_daemon_find_port (priv->daemon,
-                                 direction,
-                                 NULL,
-                                 pinos_port_get_properties (port),
-                                 pinos_port_get_possible_formats (port),
-                                 &error);
-  if (peer == NULL)
-    goto no_port_found;
+  if ((val = pinos_properties_get (props, "autoconnect"))) {
+    autoconnect = atoi (val);
+  } else
+    autoconnect = TRUE;
 
-  pinos_port_link (port, peer);
+  if (autoconnect) {
+    direction = pinos_port_get_direction (port);
+    direction = pinos_direction_reverse (direction);
+
+    peer = pinos_daemon_find_port (priv->daemon,
+                                   direction,
+                                   NULL,
+                                   pinos_port_get_properties (port),
+                                   pinos_port_get_possible_formats (port),
+                                   &error);
+    if (peer == NULL)
+      goto no_port_found;
+
+    pinos_port_link (port, peer);
+  }
 
   object_path = pinos_server_port_get_object_path (PINOS_SERVER_PORT (port));
   g_debug ("server-node %p: add port %p, remote fd %d, %s", node, port, fd, object_path);

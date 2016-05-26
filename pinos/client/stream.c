@@ -45,7 +45,7 @@ struct _PinosStreamPrivate
   PinosDirection direction;
   gchar *path;
   GBytes *possible_formats;
-  gboolean provide;
+  PinosStreamFlags flags;
 
   GBytes *format;
 
@@ -553,6 +553,14 @@ on_node_created (GObject      *source_object,
   if (priv->node == NULL)
     goto create_failed;
 
+  if (priv->properties == NULL)
+    priv->properties = pinos_properties_new (NULL, NULL);
+
+  if (priv->flags & PINOS_STREAM_FLAG_AUTOCONNECT)
+    pinos_properties_set (priv->properties, "autoconnect", "1");
+  else
+    pinos_properties_set (priv->properties, "autoconnect", "0");
+
   pinos_node_create_port (priv->node,
                           priv->direction,
                           "client-port",
@@ -624,74 +632,13 @@ pinos_stream_connect (PinosStream      *stream,
   priv->path = g_strdup (port_path);
   if (priv->possible_formats)
     g_bytes_unref (priv->possible_formats);
+  priv->flags = flags;
   priv->possible_formats = possible_formats;
-  priv->provide = FALSE;
 
   stream_set_state (stream, PINOS_STREAM_STATE_CONNECTING, NULL);
 
   g_main_context_invoke (context->priv->context,
                          (GSourceFunc) do_connect,
-                         g_object_ref (stream));
-
-  return TRUE;
-}
-
-static gboolean
-do_connect_provide (PinosStream *stream)
-{
-#if 0
-  PinosStreamPrivate *priv = stream->priv;
-  PinosContext *context = priv->context;
-
-  g_dbus_proxy_call (context->priv->client,
-                     "CreateUploadChannel",
-                     g_variant_new ("(s@a{sv})",
-                       g_bytes_get_data (priv->possible_formats, NULL),
-                       pinos_properties_to_variant (priv->properties)),
-                     G_DBUS_CALL_FLAGS_NONE,
-                     -1,
-                     NULL, /* GCancellable *cancellable */
-                     on_channel_created,
-                     stream);
-#endif
-
-  return FALSE;
-}
-
-/**
- * pinos_stream_connect_provide:
- * @stream: a #PinosStream
- * @flags: a #PinosStreamFlags
- * @possible_formats: (transfer full): a #GBytes
- *
- * Connect @stream for providing data for a new source.
- *
- * Returns: %TRUE on success.
- */
-gboolean
-pinos_stream_connect_provide (PinosStream      *stream,
-                              PinosStreamFlags  flags,
-                              GBytes           *possible_formats)
-{
-  PinosStreamPrivate *priv;
-  PinosContext *context;
-
-  g_return_val_if_fail (PINOS_IS_STREAM (stream), FALSE);
-  g_return_val_if_fail (possible_formats != NULL, FALSE);
-
-  priv = stream->priv;
-  context = priv->context;
-  g_return_val_if_fail (pinos_context_get_state (context) == PINOS_CONTEXT_STATE_CONNECTED, FALSE);
-
-  if (priv->possible_formats)
-    g_bytes_unref (priv->possible_formats);
-  priv->possible_formats = possible_formats;
-  priv->provide = TRUE;
-
-  stream_set_state (stream, PINOS_STREAM_STATE_CONNECTING, NULL);
-
-  g_main_context_invoke (context->priv->context,
-                         (GSourceFunc) do_connect_provide,
                          g_object_ref (stream));
 
   return TRUE;

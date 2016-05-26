@@ -161,6 +161,7 @@ handle_create_node (PinosDaemon1           *interface,
   g_debug ("daemon %p: create node: %s", daemon, sender);
 
   props = pinos_properties_from_variant (arg_properties);
+
   node = pinos_server_node_new (daemon,
                                 sender,
                                 arg_name,

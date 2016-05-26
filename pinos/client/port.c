@@ -358,105 +358,32 @@ no_format:
   }
 }
 
-/**
- * pinos_port_link:
- * @source: a source #PinosPort
- * @destination: a destination #PinosPort
- *
- * Link two ports together.
- *
- * Returns: %TRUE if ports could be linked.
- */
-gboolean
-pinos_port_link (PinosPort *source, PinosPort *destination)
-{
-  g_return_val_if_fail (PINOS_IS_PORT (source), FALSE);
-  g_return_val_if_fail (PINOS_IS_PORT (destination), FALSE);
-  g_return_val_if_fail (source->priv->direction != destination->priv->direction, FALSE);
-
-  if (source->priv->direction != PINOS_DIRECTION_OUTPUT) {
-    PinosPort *tmp;
-    tmp = source;
-    source = destination;
-    destination = tmp;
-  }
-
-  source->priv->peers[source->priv->n_peers++] = destination;
-  destination->priv->peers[destination->priv->n_peers++] = source;
-
-  g_debug ("port %p: linked to %p", source, destination);
-  g_signal_emit (source, signals[SIGNAL_LINKED], 0, destination);
-  g_signal_emit (destination, signals[SIGNAL_LINKED], 0, source);
-
-  return TRUE;
-}
-
-/**
- * pinos_port_unlink:
- * @source: a source #PinosPort
- * @destination: a destination #PinosPort
- *
- * Link two ports together.
- *
- * Returns: %TRUE if ports could be linked.
- */
-gboolean
-pinos_port_unlink (PinosPort *source, PinosPort *destination)
-{
-  gint i;
-
-  g_return_val_if_fail (PINOS_IS_PORT (source), FALSE);
-  g_return_val_if_fail (PINOS_IS_PORT (destination), FALSE);
-
-  for (i = 0; i < source->priv->n_peers; i++) {
-    if (source->priv->peers[i] == destination)
-      source->priv->peers[i] = NULL;
-  }
-  for (i = 0; i < destination->priv->n_peers; i++) {
-    if (destination->priv->peers[i] == source)
-      destination->priv->peers[i] = NULL;
-  }
-
-  g_debug ("port %p: unlinked from %p", source, destination);
-  g_signal_emit (source, signals[SIGNAL_UNLINKED], 0, destination);
-  g_signal_emit (destination, signals[SIGNAL_UNLINKED], 0, source);
-
-  return TRUE;
-}
-
 static void
-pinos_port_unlink_all (PinosPort *port)
+parse_control_buffer (PinosPort *port, PinosBuffer *buffer)
 {
-  gint i;
+  PinosPortPrivate *priv = port->priv;
+  PinosBufferIter it;
 
-  for (i = 0; i < port->priv->n_peers; i++) {
-    PinosPort *peer = port->priv->peers[i];
-    if (peer == NULL)
-      continue;
-    if (peer->priv->peers[i] == port)
-      peer->priv->peers[i] = NULL;
-    port->priv->peers[i] = NULL;
-    peer->priv->n_peers--;
-    g_signal_emit (port, signals[SIGNAL_UNLINKED], 0, peer);
-    g_signal_emit (peer, signals[SIGNAL_UNLINKED], 0, port);
+  pinos_buffer_iter_init (&it, buffer);
+  while (pinos_buffer_iter_next (&it)) {
+    switch (pinos_buffer_iter_get_type (&it)) {
+      case PINOS_PACKET_TYPE_FORMAT_CHANGE:
+      {
+        PinosPacketFormatChange change;
+
+        if (!pinos_buffer_iter_parse_format_change  (&it, &change))
+          continue;
+
+        if (priv->format)
+          g_bytes_unref (priv->format);
+        priv->format = g_bytes_new (change.format, strlen (change.format) + 1);
+        g_object_notify (G_OBJECT (port), "format");
+        break;
+      }
+      default:
+        break;
+    }
   }
-  port->priv->n_peers = 0;
-}
-
-/**
- * pinos_port_get_n_links:
- * @port: a #PinosPort
- *
- * Get the number of links on this port
- *
- * Returns: the number of links
- */
-gint
-pinos_port_get_n_links (PinosPort *port)
-{
-  g_return_val_if_fail (PINOS_IS_PORT (port), -1);
-
-  return port->priv->n_peers;
 }
 
 static PinosBuffer *
@@ -611,33 +538,6 @@ send_error:
   }
 }
 
-static void
-parse_control_buffer (PinosPort *port, PinosBuffer *buffer)
-{
-  PinosPortPrivate *priv = port->priv;
-  PinosBufferIter it;
-
-  pinos_buffer_iter_init (&it, buffer);
-  while (pinos_buffer_iter_next (&it)) {
-    switch (pinos_buffer_iter_get_type (&it)) {
-      case PINOS_PACKET_TYPE_FORMAT_CHANGE:
-      {
-        PinosPacketFormatChange change;
-
-        if (!pinos_buffer_iter_parse_format_change  (&it, &change))
-          continue;
-
-        if (priv->format)
-          g_bytes_unref (priv->format);
-        priv->format = g_bytes_new (change.format, strlen (change.format) + 1);
-        g_object_notify (G_OBJECT (port), "format");
-        break;
-      }
-      default:
-        break;
-    }
-  }
-}
 
 static gboolean
 pinos_port_receive_buffer (PinosPort   *port,
@@ -677,6 +577,127 @@ buffer_queued:
                  "buffer was already queued on port");
     return FALSE;
   }
+}
+
+/**
+ * pinos_port_link:
+ * @source: a source #PinosPort
+ * @destination: a destination #PinosPort
+ *
+ * Link two ports together.
+ *
+ * Returns: %TRUE if ports could be linked.
+ */
+gboolean
+pinos_port_link (PinosPort *source, PinosPort *destination)
+{
+  g_return_val_if_fail (PINOS_IS_PORT (source), FALSE);
+  g_return_val_if_fail (PINOS_IS_PORT (destination), FALSE);
+  g_return_val_if_fail (source->priv->direction != destination->priv->direction, FALSE);
+
+  if (source->priv->direction != PINOS_DIRECTION_OUTPUT) {
+    PinosPort *tmp;
+    tmp = source;
+    source = destination;
+    destination = tmp;
+  }
+
+  source->priv->peers[source->priv->n_peers++] = destination;
+  destination->priv->peers[destination->priv->n_peers++] = source;
+
+  if (source->priv->format) {
+    PinosBufferBuilder builder;
+    PinosBuffer pbuf;
+    PinosPacketFormatChange fc;
+    GError *error = NULL;
+
+    pinos_port_buffer_builder_init (destination, &builder);
+    fc.id = 0;
+    fc.format = g_bytes_get_data (source->priv->format, NULL);
+    pinos_buffer_builder_add_format_change (&builder, &fc);
+    pinos_buffer_builder_end (&builder, &pbuf);
+
+    if (!pinos_port_receive_buffer (destination, &pbuf, &error)) {
+      g_warning ("port %p: counld not receive format: %s", destination, error->message);
+      g_clear_error (&error);
+    }
+    pinos_buffer_unref (&pbuf);
+  }
+
+
+  g_debug ("port %p: linked to %p", source, destination);
+  g_signal_emit (source, signals[SIGNAL_LINKED], 0, destination);
+  g_signal_emit (destination, signals[SIGNAL_LINKED], 0, source);
+
+  return TRUE;
+}
+
+/**
+ * pinos_port_unlink:
+ * @source: a source #PinosPort
+ * @destination: a destination #PinosPort
+ *
+ * Link two ports together.
+ *
+ * Returns: %TRUE if ports could be linked.
+ */
+gboolean
+pinos_port_unlink (PinosPort *source, PinosPort *destination)
+{
+  gint i;
+
+  g_return_val_if_fail (PINOS_IS_PORT (source), FALSE);
+  g_return_val_if_fail (PINOS_IS_PORT (destination), FALSE);
+
+  for (i = 0; i < source->priv->n_peers; i++) {
+    if (source->priv->peers[i] == destination)
+      source->priv->peers[i] = NULL;
+  }
+  for (i = 0; i < destination->priv->n_peers; i++) {
+    if (destination->priv->peers[i] == source)
+      destination->priv->peers[i] = NULL;
+  }
+
+  g_debug ("port %p: unlinked from %p", source, destination);
+  g_signal_emit (source, signals[SIGNAL_UNLINKED], 0, destination);
+  g_signal_emit (destination, signals[SIGNAL_UNLINKED], 0, source);
+
+  return TRUE;
+}
+
+static void
+pinos_port_unlink_all (PinosPort *port)
+{
+  gint i;
+
+  for (i = 0; i < port->priv->n_peers; i++) {
+    PinosPort *peer = port->priv->peers[i];
+    if (peer == NULL)
+      continue;
+    if (peer->priv->peers[i] == port)
+      peer->priv->peers[i] = NULL;
+    port->priv->peers[i] = NULL;
+    peer->priv->n_peers--;
+    g_signal_emit (port, signals[SIGNAL_UNLINKED], 0, peer);
+    g_signal_emit (peer, signals[SIGNAL_UNLINKED], 0, port);
+  }
+  port->priv->n_peers = 0;
+}
+
+/**
+ * pinos_port_get_n_links:
+ * @port: a #PinosPort
+ *
+ * Get the number of links on this port
+ *
+ * Returns: the number of links
+ */
+gint
+pinos_port_get_n_links (PinosPort *port)
+{
+  g_return_val_if_fail (PINOS_IS_PORT (port), -1);
+
+  return port->priv->n_peers;
 }
 
 static gboolean

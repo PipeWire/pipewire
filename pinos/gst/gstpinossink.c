@@ -425,17 +425,16 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
     goto start_error;
 
   if (state == PINOS_STREAM_STATE_UNCONNECTED) {
-    if (pinossink->mode == GST_PINOS_SINK_MODE_PROVIDE) {
-      pinos_stream_connect_provide (pinossink->stream,
-                            0,
-                            g_bytes_ref (format));
-    } else {
-      pinos_stream_connect (pinossink->stream,
-                            PINOS_DIRECTION_OUTPUT,
-                            pinossink->path,
-                            0,
-                            g_bytes_ref (format));
-    }
+    PinosStreamFlags flags = 0;
+
+    if (pinossink->mode != GST_PINOS_SINK_MODE_PROVIDE)
+      flags |= PINOS_STREAM_FLAG_AUTOCONNECT;
+
+    pinos_stream_connect (pinossink->stream,
+                          PINOS_DIRECTION_OUTPUT,
+                          pinossink->path,
+                          flags,
+                          g_bytes_ref (format));
 
     while (TRUE) {
       state = pinos_stream_get_state (pinossink->stream);

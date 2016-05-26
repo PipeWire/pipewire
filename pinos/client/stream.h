@@ -52,7 +52,8 @@ typedef enum {
 const gchar * pinos_stream_state_as_string (PinosStreamState state);
 
 typedef enum {
-  PINOS_STREAM_FLAGS_NONE = 0,
+  PINOS_STREAM_FLAG_NONE = 0,
+  PINOS_STREAM_FLAG_AUTOCONNECT = (1 << 0),
 } PinosStreamFlags;
 
 typedef enum {
@@ -94,9 +95,6 @@ const GError *   pinos_stream_get_error         (PinosStream *stream);
 gboolean         pinos_stream_connect           (PinosStream      *stream,
                                                  PinosDirection    direction,
                                                  const gchar      *port_path,
-                                                 PinosStreamFlags  flags,
-                                                 GBytes           *possible_formats);
-gboolean         pinos_stream_connect_provide   (PinosStream      *stream,
                                                  PinosStreamFlags  flags,
                                                  GBytes           *possible_formats);
 gboolean         pinos_stream_disconnect        (PinosStream      *stream);

@@ -92,11 +92,12 @@ client/enumtypes.c: $(enumtypesincludes) client/enumtypes.h
 
 dbus/org-pinos.c: dbus/org-pinos.h
 dbus/org-pinos.h: dbus/org.pinos.xml
+	@$(MKDIR_P) ../doc
 	$(AM_V_GEN) $(GDBUS_CODEGEN) \
 	--interface-prefix org.pinos. \
 	--generate-c-code dbus/org-pinos \
 	--generate-docbook ../doc/org-pinos \
-	--c-namespace Pinos dbus/org.pinos.xml \
+	--c-namespace Pinos $< \
         --c-generate-object-manager
 
 

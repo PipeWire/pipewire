@@ -1,2 +1,2 @@
-src/daemon/main.c
-src/daemon/pinos.desktop.in
+pinos/daemon/main.c
+pinos/daemon/pinos.desktop.in

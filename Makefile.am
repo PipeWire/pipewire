@@ -34,6 +34,8 @@ noinst_DATA =
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = pkgconfig/libpinos-$(PINOS_MAJORMINOR).pc
 
+DISTCLEANFILES = pkgconfig/libpinos-$(PINOS_MAJORMINOR).pc
+
 
 eolspace:
 	find \( -name '*.c' -o -name '*.h' -o -name 'Makefile.am' \) -exec perl -i -pe 's/\s+\n$$/\1\n/;' \{\} \;
@@ -55,5 +57,5 @@ BUILT_SOURCES = $(top_srcdir)/.version
 $(top_srcdir)/.version:
 	echo $(VERSION) > $@-t && mv $@-t $@
 
-DISTCLEANFILES = \
+DISTCLEANFILES += \
         po/.intltool-merge-cache

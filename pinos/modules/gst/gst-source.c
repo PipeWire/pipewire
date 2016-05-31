@@ -39,8 +39,6 @@ struct _PinosGstSourcePrivate
   GstCaps *possible_formats;
 
   GstNetTimeProvider *provider;
-
-  PinosProperties *props;
 };
 
 enum {
@@ -235,6 +233,7 @@ set_state (PinosNode      *node,
       GstClock *clock;
       gchar *address;
       gint port;
+      PinosProperties *props;
       GstClockTime base_time;
       gboolean live;
       GstClockTime min_latency, max_latency;
@@ -253,11 +252,13 @@ set_state (PinosNode      *node,
 
       g_object_get (priv->provider, "address", &address, "port", &port, NULL);
 
-      pinos_properties_set (priv->props, "pinos.clock.type", "gst.net.time.provider");
-      pinos_properties_set (priv->props, "pinos.clock.source", GST_OBJECT_NAME (clock));
-      pinos_properties_set (priv->props, "pinos.clock.address", address);
-      pinos_properties_setf (priv->props, "pinos.clock.port", "%d", port);
-      pinos_properties_setf (priv->props, "pinos.clock.base-time", "%"G_GUINT64_FORMAT, base_time);
+      g_object_get (node, "properties", &props, NULL);
+
+      pinos_properties_set (props, "pinos.clock.type", "gst.net.time.provider");
+      pinos_properties_set (props, "pinos.clock.source", GST_OBJECT_NAME (clock));
+      pinos_properties_set (props, "pinos.clock.address", address);
+      pinos_properties_setf (props, "pinos.clock.port", "%d", port);
+      pinos_properties_setf (props, "pinos.clock.base-time", "%"G_GUINT64_FORMAT, base_time);
 
       g_free (address);
       gst_object_unref (clock);
@@ -277,9 +278,12 @@ set_state (PinosNode      *node,
           GST_TIME_FORMAT ", live %d", GST_TIME_ARGS (min_latency),
           GST_TIME_ARGS (max_latency), live);
 
-      pinos_properties_setf (priv->props, "pinos.latency.is-live", "%d", live);
-      pinos_properties_setf (priv->props, "pinos.latency.min", "%"G_GUINT64_FORMAT, min_latency);
-      pinos_properties_setf (priv->props, "pinos.latency.max", "%"G_GUINT64_FORMAT, max_latency);
+      pinos_properties_setf (props, "pinos.latency.is-live", "%d", live);
+      pinos_properties_setf (props, "pinos.latency.min", "%"G_GUINT64_FORMAT, min_latency);
+      pinos_properties_setf (props, "pinos.latency.max", "%"G_GUINT64_FORMAT, max_latency);
+
+      g_object_set (node, "properties", props, NULL);
+      pinos_properties_free (props);
       break;
     }
     case PINOS_NODE_STATE_ERROR:
@@ -412,7 +416,6 @@ source_finalize (GObject * object)
   destroy_pipeline (source);
   pinos_node_remove_port (PINOS_NODE (node), priv->output);
   g_clear_pointer (&priv->possible_formats, gst_caps_unref);
-  pinos_properties_free (priv->props);
 
   G_OBJECT_CLASS (pinos_gst_source_parent_class)->finalize (object);
 }
@@ -455,10 +458,7 @@ pinos_gst_source_class_init (PinosGstSourceClass * klass)
 static void
 pinos_gst_source_init (PinosGstSource * source)
 {
-  PinosGstSourcePrivate *priv;
-
-  priv = source->priv = PINOS_GST_SOURCE_GET_PRIVATE (source);
-  priv->props = pinos_properties_new (NULL, NULL);
+  source->priv = PINOS_GST_SOURCE_GET_PRIVATE (source);
 }
 
 PinosServerNode *

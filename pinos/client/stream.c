@@ -184,6 +184,100 @@ stream_set_state (PinosStream      *stream,
   }
 }
 
+static GDBusProxy *
+get_proxy (PinosStream *stream, GList *list, const gchar *path)
+{
+  GList *walk;
+
+  for (walk = list; walk; walk = g_list_next (walk)) {
+    GDBusProxy *proxy = walk->data;
+
+    if (!g_strcmp0 (g_dbus_proxy_get_object_path (proxy), path)) {
+      return proxy;
+    }
+  }
+  return NULL;
+}
+
+static GDBusProxy *
+get_port_proxy (PinosStream *stream, const gchar *path)
+{
+  return get_proxy (stream, stream->priv->context->priv->ports, path);
+}
+
+static GDBusProxy *
+get_node_proxy (PinosStream *stream, const gchar *path)
+{
+  return get_proxy (stream, stream->priv->context->priv->nodes, path);
+}
+
+static GDBusProxy *
+get_peer_port_proxy (PinosStream *stream)
+{
+  PinosStreamPrivate *priv = stream->priv;
+  GDBusProxy *port_proxy;
+  GDBusProxy *peer_proxy = NULL;
+
+  if (priv->port == NULL)
+    return NULL;
+
+  g_object_get (priv->port, "proxy", &port_proxy, NULL);
+  if (port_proxy) {
+    GVariant *v;
+
+    v = g_dbus_proxy_get_cached_property (port_proxy, "Peers");
+    if (v) {
+      GVariantIter *iter;
+      gchar *peer_path;
+
+      g_variant_get (v, "ao", &iter);
+      if (g_variant_iter_next (iter, "&o", &peer_path, NULL)) {
+        peer_proxy = get_port_proxy (stream, peer_path);
+      }
+      g_variant_iter_free (iter);
+    }
+  }
+
+  return peer_proxy;
+}
+
+static GDBusProxy *
+get_peer_node_proxy (PinosStream *stream)
+{
+  GDBusProxy *peer_port;
+  GVariant *v;
+  GDBusProxy *node = NULL;
+
+  peer_port = get_peer_port_proxy (stream);
+  if (peer_port) {
+    v = g_dbus_proxy_get_cached_property (peer_port, "Node");
+    if (v) {
+      const gchar *node_path = g_variant_get_string (v, NULL);
+      node = get_node_proxy (stream, node_path);
+      g_variant_unref (v);
+    }
+  }
+  return node;
+}
+
+static void
+merge_peer_properties (PinosStream *stream)
+{
+  PinosStreamPrivate *priv = stream->priv;
+  GDBusProxy *peer_node;
+
+  peer_node = get_peer_node_proxy (stream);
+  if (peer_node) {
+    GVariant *v = g_dbus_proxy_get_cached_property (peer_node, "Properties");
+    if (v) {
+      PinosProperties *props = pinos_properties_from_variant (v);
+      priv->properties = pinos_properties_merge (priv->properties, props);
+      pinos_properties_free (props);
+      g_variant_unref (v);
+    }
+  }
+}
+
 static void
 subscription_cb (PinosSubscribe         *subscribe,
                  PinosSubscriptionEvent  event,
@@ -204,10 +298,21 @@ subscription_cb (PinosSubscribe         *subscribe,
                                                  G_IO_ERROR_CLOSED,
                                                  "Node disappeared"));
         }
+      } else if (event == PINOS_SUBSCRIPTION_EVENT_NEW ||
+                 event == PINOS_SUBSCRIPTION_EVENT_CHANGE) {
+        if (object == get_peer_node_proxy (stream)) {
+          merge_peer_properties (stream);
+        }
       }
       break;
 
     case PINOS_SUBSCRIPTION_FLAG_PORT:
+      if (event == PINOS_SUBSCRIPTION_EVENT_NEW ||
+          event == PINOS_SUBSCRIPTION_EVENT_CHANGE) {
+        if (object == get_peer_port_proxy (stream)) {
+          merge_peer_properties (stream);
+        }
+      }
       break;
 
     default:

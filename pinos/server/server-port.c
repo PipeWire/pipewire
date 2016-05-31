@@ -186,6 +186,11 @@ on_property_notify (GObject    *obj,
     GBytes *bytes = pinos_port_get_format (port);
     pinos_port1_set_format (priv->iface, bytes ? g_bytes_get_data (bytes, NULL) : NULL);
   }
+  if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "peers") == 0) {
+    const gchar *const *paths;
+    g_object_get (port, "peers", &paths, NULL);
+    pinos_port1_set_peers (priv->iface, paths);
+  }
 }
 
 static void

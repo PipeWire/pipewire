@@ -69,6 +69,7 @@ struct _PinosPortPrivate
 
   PinosBuffer *buffer;
   PinosPort *peers[16];
+  gchar **peer_paths;
   gint n_peers;
 
   PinosReceivedBufferCallback received_buffer_cb;
@@ -86,6 +87,7 @@ enum
   PROP_MAIN_CONTEXT,
   PROP_NAME,
   PROP_DIRECTION,
+  PROP_PEERS,
   PROP_POSSIBLE_FORMATS,
   PROP_FORMAT,
   PROP_PROPERTIES,
@@ -579,6 +581,29 @@ buffer_queued:
   }
 }
 
+static void
+update_peer_paths (PinosPort *port)
+{
+  gchar **paths;
+  gint i;
+  gint path_index = 0;
+
+  paths = g_malloc0 (sizeof (port->priv->peers) + 1);
+  for (i = 0; i < port->priv->n_peers; i++) {
+    PinosPort *peer;
+    gchar *path;
+
+    peer = port->priv->peers[i];
+    if (peer == NULL)
+      continue;
+    g_object_get (peer, "object-path", &path, NULL);
+    paths[path_index++] = path;
+  }
+
+  g_object_set (port, "peers", paths, NULL);
+  g_strfreev (paths);
+}
+
 /**
  * pinos_port_link:
  * @source: a source #PinosPort
@@ -604,6 +629,9 @@ pinos_port_link (PinosPort *source, PinosPort *destination)
 
   source->priv->peers[source->priv->n_peers++] = destination;
   destination->priv->peers[destination->priv->n_peers++] = source;
+
+  update_peer_paths (source);
+  update_peer_paths (destination);
 
   if (source->priv->format) {
     PinosBufferBuilder builder;
@@ -657,6 +685,9 @@ pinos_port_unlink (PinosPort *source, PinosPort *destination)
     if (destination->priv->peers[i] == source)
       destination->priv->peers[i] = NULL;
   }
+
+  update_peer_paths (source);
+  update_peer_paths (destination);
 
   g_debug ("port %p: unlinked from %p", source, destination);
   g_signal_emit (source, signals[SIGNAL_UNLINKED], 0, destination);
@@ -941,6 +972,10 @@ pinos_port_get_property (GObject    *_object,
       g_value_set_string (value, priv->name);
       break;
 
+    case PROP_PEERS:
+      g_value_set_boxed (value, priv->peer_paths);
+      break;
+
     case PROP_DIRECTION:
       g_value_set_enum (value, priv->direction);
       break;
@@ -987,6 +1022,12 @@ pinos_port_set_property (GObject      *_object,
 
     case PROP_DIRECTION:
       priv->direction = g_value_get_enum (value);
+      break;
+
+    case PROP_PEERS:
+      if (priv->peer_paths)
+        g_strfreev (priv->peer_paths);
+      priv->peer_paths = g_value_dup_boxed (value);
       break;
 
     case PROP_POSSIBLE_FORMATS:
@@ -1116,6 +1157,15 @@ pinos_port_class_init (PinosPortClass * klass)
                                                       G_PARAM_READWRITE |
                                                       G_PARAM_CONSTRUCT_ONLY |
                                                       G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_PEERS,
+                                   g_param_spec_boxed ("peers",
+                                                       "Peers",
+                                                       "The peer ports of the port",
+                                                       G_TYPE_STRV,
+                                                       G_PARAM_READWRITE |
+                                                       G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class,
                                    PROP_POSSIBLE_FORMATS,

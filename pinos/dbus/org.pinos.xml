@@ -109,6 +109,8 @@
          1 = an output port
     -->
     <property name='Direction' type='u' access='read' />
+    <!-- Peers: peer ports of this port -->
+    <property name='Peers' type='ao' access='read' />
     <!-- Properties: extra port properties -->
     <property name='Properties' type='a{sv}' access='read' />
     <!-- PossibleFormats:

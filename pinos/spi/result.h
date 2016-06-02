@@ -47,6 +47,8 @@ typedef enum {
   SPI_RESULT_INVALID_ARGUMENTS        = -21,
 } SpiResult;
 
+typedef void (*SpiNotify) (void *data);
+
 G_END_DECLS
 
 #endif /* __SPI_RESULT_H__ */

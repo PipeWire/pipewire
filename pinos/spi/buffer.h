@@ -60,10 +60,16 @@ typedef enum {
   SPI_DATA_TYPE_FD,
 } SpiDataType;
 
+/**
+ * SpiDataFd
+ * fd: a file descriptor
+ * offset: offset in the data referenced by @fd
+ * @size: size of data referenced by fd
+ */
 typedef struct {
-  int fd;
-  int offset;
-  size_t size;
+  int          fd;
+  unsigned int offset;
+  size_t       size;
 } SpiDataFD;
 
 /**
@@ -79,8 +85,6 @@ typedef struct {
   size_t       size;
 } SpiData;
 
-typedef void (*SpiNotify) (void *data);
-
 /**
  * SpiBuffer:
  * @refcount: reference counter
@@ -95,10 +99,31 @@ struct _SpiBuffer {
   volatile int      refcount;
   SpiNotify         notify;
   size_t            size;
-  int               n_metas;
+  unsigned int      n_metas;
   SpiMeta          *metas;
-  int               n_datas;
+  unsigned int      n_datas;
   SpiData          *datas;
 };
+
+static inline SpiBuffer *
+spi_buffer_ref (SpiBuffer *buffer)
+{
+  if (buffer != NULL)
+    buffer->refcount++;
+  return buffer;
+}
+
+static inline SpiBuffer *
+spi_buffer_unref (SpiBuffer *buffer)
+{
+  if (buffer != NULL) {
+    if (--buffer->refcount == 0) {
+      buffer->notify (buffer);
+      return NULL;
+    }
+  }
+  return buffer;
+}
+
 
 #endif /* __SPI_BUFFER_H__ */

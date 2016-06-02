@@ -43,6 +43,7 @@ struct _SpiVolume {
   SpiNode  node;
 
   SpiVolumeParams params;
+  SpiVolumeParams tmp_params;
 
   SpiEvent *event;
   SpiEvent last_event;
@@ -161,15 +162,24 @@ get_param (const SpiParams *params,
   return res;
 }
 
+static void
+reset_volume_params (SpiVolumeParams *params)
+{
+  params->volume = default_volume;
+  params->mute = default_mute;
+}
+
 static SpiResult
 spi_volume_node_get_params (SpiNode        *node,
                             SpiParams     **params)
 {
-  static SpiVolumeParams p;
   SpiVolume *this = (SpiVolume *) node;
 
-  memcpy (&p, &this->params, sizeof (p));
-  *params = &p.param;
+  if (node == NULL || params == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
+
+  memcpy (&this->tmp_params, &this->params, sizeof (this->tmp_params));
+  *params = &this->tmp_params.param;
 
   return SPI_RESULT_OK;
 }
@@ -183,6 +193,14 @@ spi_volume_node_set_params (SpiNode          *node,
   SpiParamType type;
   size_t size;
   const void *value;
+
+  if (node == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
+
+  if (params == NULL) {
+    reset_volume_params (p);
+    return SPI_RESULT_OK;
+  }
 
   if (params->get_param (params, 0, &type, &size, &value) == 0) {
     if (type != SPI_PARAM_TYPE_DOUBLE)
@@ -203,6 +221,9 @@ spi_volume_node_send_command (SpiNode       *node,
 {
   SpiVolume *this = (SpiVolume *) node;
   SpiResult res = SPI_RESULT_NOT_IMPLEMENTED;
+
+  if (node == NULL || command == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
 
   switch (command->type) {
     case SPI_COMMAND_INVALID:
@@ -266,24 +287,32 @@ spi_volume_node_set_event_callback (SpiNode       *node,
 
 static SpiResult
 spi_volume_node_get_n_ports (SpiNode       *node,
-                             int           *n_input_ports,
-                             int           *max_input_ports,
-                             int           *n_output_ports,
-                             int           *max_output_ports)
+                             unsigned int  *n_input_ports,
+                             unsigned int  *max_input_ports,
+                             unsigned int  *n_output_ports,
+                             unsigned int  *max_output_ports)
 {
-  *n_input_ports = 1;
-  *n_output_ports = 1;
-  *max_input_ports = 1;
-  *max_output_ports = 1;
+  if (node == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
+
+  if (n_input_ports)
+    *n_input_ports = 1;
+  if (n_output_ports)
+    *n_output_ports = 1;
+  if (max_input_ports)
+    *max_input_ports = 1;
+  if (max_output_ports)
+    *max_output_ports = 1;
+
   return SPI_RESULT_OK;
 }
 
 static SpiResult
 spi_volume_node_get_port_ids (SpiNode       *node,
-                              int            n_input_ports,
-                              int           *input_ids,
-                              int            n_output_ports,
-                              int           *output_ids)
+                              unsigned int   n_input_ports,
+                              uint32_t      *input_ids,
+                              unsigned int   n_output_ports,
+                              uint32_t      *output_ids)
 {
   if (n_input_ports > 0)
     input_ids[0] = 0;
@@ -297,14 +326,14 @@ spi_volume_node_get_port_ids (SpiNode       *node,
 static SpiResult
 spi_volume_node_add_port (SpiNode        *node,
                           SpiDirection    direction,
-                          int            *port_id)
+                          uint32_t       *port_id)
 {
   return SPI_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpiResult
 spi_volume_node_remove_port (SpiNode        *node,
-                             int             port_id)
+                             uint32_t        port_id)
 {
   return SPI_RESULT_NOT_IMPLEMENTED;
 }
@@ -504,8 +533,8 @@ get_format_param (const SpiParams *params,
 
 static SpiResult
 spi_volume_node_get_port_formats (SpiNode          *node,
-                                  int               port_id,
-                                  int               format_idx,
+                                  uint32_t          port_id,
+                                  unsigned int      format_idx,
                                   SpiParams       **format)
 {
   static SpiVolumeFormat fmt;
@@ -531,7 +560,7 @@ spi_volume_node_get_port_formats (SpiNode          *node,
 
 static SpiResult
 spi_volume_node_set_port_format (SpiNode         *node,
-                                 int              port_id,
+                                 uint32_t         port_id,
                                  int              test_only,
                                  const SpiParams *format)
 {
@@ -600,7 +629,7 @@ spi_volume_node_set_port_format (SpiNode         *node,
 
 static SpiResult
 spi_volume_node_get_port_format (SpiNode          *node,
-                                 int               port_id,
+                                 uint32_t          port_id,
                                  const SpiParams **format)
 {
   SpiVolume *this = (SpiVolume *) node;
@@ -618,20 +647,28 @@ spi_volume_node_get_port_format (SpiNode          *node,
 
 static SpiResult
 spi_volume_node_get_port_info (SpiNode       *node,
-                               int            port_id,
+                               uint32_t       port_id,
                                SpiPortInfo   *info)
 {
-  if (port_id != 0)
-    return SPI_RESULT_INVALID_PORT;
-
-  info->flags = SPI_PORT_INFO_FLAG_NONE;
-
+  switch (port_id) {
+    case 0:
+      info->flags = SPI_PORT_INFO_FLAG_CAN_USE_BUFFER |
+                    SPI_PORT_INFO_FLAG_IN_PLACE;
+      break;
+    case 1:
+      info->flags = SPI_PORT_INFO_FLAG_CAN_GIVE_BUFFER |
+                    SPI_PORT_INFO_FLAG_CAN_USE_BUFFER |
+                    SPI_PORT_INFO_FLAG_NO_REF;
+      break;
+    default:
+      return SPI_RESULT_INVALID_PORT;
+  }
   return SPI_RESULT_OK;
 }
 
 static SpiResult
 spi_volume_node_get_port_params (SpiNode    *node,
-                                 int         port_id,
+                                 uint32_t    port_id,
                                  SpiParams **params)
 {
   return SPI_RESULT_NOT_IMPLEMENTED;
@@ -639,7 +676,7 @@ spi_volume_node_get_port_params (SpiNode    *node,
 
 static SpiResult
 spi_volume_node_set_port_params (SpiNode         *node,
-                                 int              port_id,
+                                 uint32_t         port_id,
                                  const SpiParams *params)
 {
   return SPI_RESULT_NOT_IMPLEMENTED;
@@ -647,7 +684,7 @@ spi_volume_node_set_port_params (SpiNode         *node,
 
 static SpiResult
 spi_volume_node_get_port_status (SpiNode        *node,
-                                 int             port_id,
+                                 uint32_t        port_id,
                                  SpiPortStatus  *status)
 {
   SpiVolume *this = (SpiVolume *) node;
@@ -659,7 +696,7 @@ spi_volume_node_get_port_status (SpiNode        *node,
   switch (port_id) {
     case 0:
       if (this->input_buffer == NULL)
-        flags |= SPI_PORT_STATUS_FLAG_ACCEPT_INPUT;
+        flags |= SPI_PORT_STATUS_FLAG_NEED_INPUT;
       break;
     case 1:
       if (this->input_buffer != NULL)
@@ -678,11 +715,17 @@ spi_volume_node_send_port_data (SpiNode       *node,
                                 SpiDataInfo   *data)
 {
   SpiVolume *this = (SpiVolume *) node;
-  SpiBuffer *buffer = data->buffer;
-  SpiEvent *event = data->event;
+  SpiBuffer *buffer;
+  SpiEvent *event;
+
+  if (node == NULL || data == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
 
   if (data->port_id != 0)
     return SPI_RESULT_INVALID_PORT;
+
+  event = data->event;
+  buffer = data->buffer;
 
   if (buffer == NULL && event == NULL)
     return SPI_RESULT_INVALID_ARGUMENTS;
@@ -694,8 +737,7 @@ spi_volume_node_send_port_data (SpiNode       *node,
     if (this->input_buffer != NULL)
       return SPI_RESULT_HAVE_ENOUGH_INPUT;
 
-    buffer->refcount++;
-    this->input_buffer = buffer;
+    this->input_buffer = spi_buffer_ref (buffer);
   }
   if (event) {
     switch (event->type) {
@@ -709,11 +751,18 @@ spi_volume_node_send_port_data (SpiNode       *node,
 
 static SpiResult
 spi_volume_node_receive_port_data (SpiNode      *node,
-                                   int           n_data,
+                                   unsigned int  n_data,
                                    SpiDataInfo  *data)
 {
   SpiVolume *this = (SpiVolume *) node;
-  int i, n_samples;
+  unsigned int si, di, i, n_samples, n_bytes, soff, doff ;
+  SpiBuffer *sbuf, *dbuf;
+  SpiData *sd, *dd;
+  uint16_t *src, *dst;
+  double volume;
+
+  if (node == NULL || n_data == 0 || data == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
 
   if (data->port_id != 1)
     return SPI_RESULT_INVALID_PORT;
@@ -724,13 +773,56 @@ spi_volume_node_receive_port_data (SpiNode      *node,
   if (this->input_buffer == NULL)
     return SPI_RESULT_NEED_MORE_INPUT;
 
-  n_samples = 4096;
+  volume = this->params.volume;
 
-  for (i = 0; i < n_samples; i++) {
+  sbuf = this->input_buffer;
+  dbuf = data->buffer ? data->buffer : this->input_buffer;
+
+  si = di = 0;
+  soff = doff = 0;
+
+  while (TRUE) {
+    if (si == sbuf->n_datas || di == dbuf->n_datas)
+      break;
+
+    sd = &sbuf->datas[si];
+    dd = &dbuf->datas[di];
+
+    if (sd->type != SPI_DATA_TYPE_MEMPTR) {
+      si++;
+      continue;
+    }
+    if (dd->type != SPI_DATA_TYPE_MEMPTR) {
+      di++;
+      continue;
+    }
+    src = (uint16_t*) ((uint8_t*)sd->data + soff);
+    dst = (uint16_t*) ((uint8_t*)dd->data + doff);
+
+    n_bytes = MIN (sd->size - soff, dd->size - doff);
+    n_samples = n_bytes / sizeof (uint16_t);
+
+    for (i = 0; i < n_samples; i++)
+      *src++ = *dst++ * volume;
+
+    soff += n_bytes;
+    doff += n_bytes;
+
+    if (soff >= sd->size) {
+      si++;
+      soff = 0;
+    }
+    if (doff >= dd->size) {
+      di++;
+      doff = 0;
+    }
   }
 
-  data->buffer = this->input_buffer;
+  if (sbuf != dbuf)
+    spi_buffer_unref (sbuf);
+
   this->input_buffer = NULL;
+  data->buffer = dbuf;
 
   return SPI_RESULT_OK;
 }
@@ -766,6 +858,7 @@ spi_volume_new (void)
   this->params.param.get_param_info = get_param_info;
   this->params.param.set_param = set_param;
   this->params.param.get_param = get_param;
+  reset_volume_params (&this->params);
 
   return node;
 }

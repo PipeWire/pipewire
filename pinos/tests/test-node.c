@@ -146,7 +146,7 @@ inspect_node (SpiNode *node)
 {
   SpiResult res;
   SpiParams *params;
-  int n_input, max_input, n_output, max_output, i;
+  unsigned int n_input, max_input, n_output, max_output, i;
   SpiParams *format;
   const SpiParams *cformat;
   uint32_t samplerate;
@@ -235,9 +235,6 @@ handle_event (SpiNode *node)
     case SPI_EVENT_TYPE_REQUEST_DATA:
       printf ("got request-data notify\n");
       break;
-    case SPI_EVENT_TYPE_RELEASE_ID:
-      printf ("got release-id notify\n");
-      break;
     case SPI_EVENT_TYPE_DRAINED:
       printf ("got drained notify\n");
       break;
@@ -315,8 +312,7 @@ push_input (SpiNode *node)
   mybuf = free_list;
   free_list = mybuf->next;
 
-  printf ("alloc buffer %p\n", mybuf);
-
+  printf ("alloc input buffer %p\n", mybuf);
   mybuf->buffer.refcount = 1;
 
   info.port_id = 0;
@@ -324,11 +320,9 @@ push_input (SpiNode *node)
   info.buffer = &mybuf->buffer;
   info.event = NULL;
 
-  if ((res = node->send_port_data (node, &info)) < 0)
-    printf ("got error %d\n", res);
+  res = node->send_port_data (node, &info);
 
-  if (--mybuf->buffer.refcount == 0)
-    mybuf->buffer.notify (mybuf);
+  spi_buffer_unref (&mybuf->buffer);
 
   return res;
 }
@@ -338,20 +332,24 @@ pull_output (SpiNode *node)
 {
   SpiDataInfo info[1] = { { 0, }, };
   SpiResult res;
+  MyBuffer *mybuf;
   SpiBuffer *buf;
 
+  mybuf = free_list;
+  free_list = mybuf->next;
+
+  printf ("alloc output buffer %p\n", mybuf);
+  mybuf->buffer.refcount = 1;
+
   info[0].port_id = 1;
-  info[0].buffer = NULL;
+  info[0].buffer = &mybuf->buffer;
   info[0].event = NULL;
 
-  if ((res = node->receive_port_data (node, 1, info)) < 0)
-    printf ("got error %d\n", res);
+  res = node->receive_port_data (node, 1, info);
 
   buf = info[0].buffer;
-  if (buf) {
-    if (--buf->refcount == 0)
-      buf->notify (buf);
-  }
+  spi_buffer_unref (buf);
+
   return res;
 }
 
@@ -387,6 +385,8 @@ main (gint argc, gchar *argv[])
   state = 0;
 
   while (TRUE) {
+    SpiPortStatus status;
+
     if (state == 0) {
       if ((res = push_input (node)) < 0) {
         if (res == SPI_RESULT_HAVE_ENOUGH_INPUT)
@@ -396,6 +396,10 @@ main (gint argc, gchar *argv[])
           break;
         }
       }
+      if ((res = node->get_port_status (node, 1, &status)) < 0)
+        printf ("got error %d\n", res);
+      else if (status.flags & SPI_PORT_STATUS_FLAG_HAVE_OUTPUT)
+        state = 1;
     }
     if (state == 1) {
       if ((res = pull_output (node)) < 0) {
@@ -406,6 +410,10 @@ main (gint argc, gchar *argv[])
           break;
         }
       }
+      if ((res = node->get_port_status (node, 0, &status)) < 0)
+        printf ("got error %d\n", res);
+      else if (status.flags & SPI_PORT_STATUS_FLAG_NEED_INPUT)
+        state = 0;
     }
   }
 

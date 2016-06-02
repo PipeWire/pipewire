@@ -131,7 +131,7 @@ noinst_LTLIBRARIES =
 
 TESTS_default =
 
-TESTS_norun = test-client
+TESTS_norun = test-client test-node
 
 # These tests need a running pinos daemon
 TESTS_daemon =
@@ -142,6 +142,11 @@ test_client_SOURCES = tests/test-client.c
 test_client_CFLAGS = $(AM_CFLAGS)
 test_client_LDADD = $(AM_LDADD) libpinos-@PINOS_MAJORMINOR@.la
 test_client_LDFLAGS = $(AM_LDFLAGS) $(BINLDFLAGS)
+
+test_node_SOURCES = tests/test-node.c
+test_node_CFLAGS = $(AM_CFLAGS)
+test_node_LDADD = $(AM_LDADD) libpinos-@PINOS_MAJORMINOR@.la
+test_node_LDFLAGS = $(AM_LDFLAGS) $(BINLDFLAGS)
 
 ###################################
 #         Tools programs          #

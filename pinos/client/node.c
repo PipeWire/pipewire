@@ -285,7 +285,7 @@ pinos_node_remove (PinosNode *node)
 {
   g_return_if_fail (PINOS_IS_NODE (node));
 
-  g_debug ("node %p: remove %d", node, G_OBJECT (node)->ref_count);
+  g_debug ("node %p: remove", node);
   g_signal_emit (node, signals[SIGNAL_REMOVE], 0, NULL);
 }
 
@@ -327,9 +327,8 @@ pinos_node_create_port (PinosNode          *node,
   if (!klass->create_port)
     return;
 
-  g_debug ("node %p %d: create port", node, G_OBJECT (node)->ref_count);
+  g_debug ("node %p: create port", node);
   task = g_task_new  (node, cancellable, callback, user_data);
-  g_debug ("node %p %d: create port", node, G_OBJECT (node)->ref_count);
   klass->create_port (node, direction, name, possible_formats, props, task);
 }
 
@@ -349,7 +348,7 @@ pinos_node_create_port_finish (PinosNode       *node,
     priv->ports = g_list_append (priv->ports, port);
     g_signal_connect (port, "remove", (GCallback) handle_remove_port, node);
   }
-  g_debug ("node %p %d: created port %p", node, G_OBJECT (node)->ref_count, port);
+  g_debug ("node %p: created port %p", node, port);
   return port;
 }
 

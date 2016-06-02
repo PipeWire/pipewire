@@ -113,7 +113,7 @@ on_port_created (GObject      *source_object,
   if (port == NULL)
     goto no_port;
 
-  g_debug ("server-node %p %d: port %p created", node, G_OBJECT (node)->ref_count, port);
+  g_debug ("server-node %p: port %p created", node, port);
 
   socket = pinos_port_get_socket_pair (port, &error);
   if (socket == NULL)
@@ -217,7 +217,7 @@ handle_create_port (PinosNode1             *interface,
   formats = g_bytes_new (arg_possible_formats, strlen (arg_possible_formats) + 1);
   props = pinos_properties_from_variant (arg_properties);
 
-  g_debug ("server-node %p %d: create port", node, G_OBJECT (node)->ref_count);
+  g_debug ("server-node %p: create port", node);
   pinos_node_create_port (node,
                           arg_direction,
                           arg_name,
@@ -249,7 +249,7 @@ handle_remove (PinosNode1             *interface,
 {
   PinosNode *node = user_data;
 
-  g_debug ("server-node %p %d: remove", node, G_OBJECT (node)->ref_count);
+  g_debug ("server-node %p: remove", node);
   pinos_node_remove (node);
 
   g_dbus_method_invocation_return_value (invocation,

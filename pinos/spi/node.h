@@ -20,94 +20,18 @@
 #ifndef __SPI_NODE_H__
 #define __SPI_NODE_H__
 
-G_BEGIN_DECLS
-
-#include <inttypes.h>
-
-#include <pinos/spi/result.h>
-#include <pinos/spi/params.h>
-#include <pinos/spi/buffer.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct _SpiNode SpiNode;
-typedef struct _SpiEvent SpiEvent;
 
-/**
- * SpiPortInfoFlags:
- * @SPI_PORT_INFO_FLAG_NONE: no flags
- * @SPI_PORT_INFO_FLAG_REMOVABLE: port can be removed
- * @SPI_PORT_INFO_FLAG_OPTIONAL: processing on port is optional
- * @SPI_PORT_INFO_FLAG_CAN_GIVE_BUFFER: the port can give a buffer
- * @SPI_PORT_INFO_FLAG_CAN_USE_BUFFER: the port can use a provided buffer
- * @SPI_PORT_INFO_FLAG_IN_PLACE: the port can process data in-place and will need
- *    a writable input buffer when no output buffer is specified.
- * @SPI_PORT_INFO_FLAG_NO_REF: the port does not keep a ref on the buffer
- */
-typedef enum {
-  SPI_PORT_INFO_FLAG_NONE                  = 0,
-  SPI_PORT_INFO_FLAG_REMOVABLE             = 1 << 0,
-  SPI_PORT_INFO_FLAG_OPTIONAL              = 1 << 1,
-  SPI_PORT_INFO_FLAG_CAN_GIVE_BUFFER       = 1 << 2,
-  SPI_PORT_INFO_FLAG_CAN_USE_BUFFER        = 1 << 3,
-  SPI_PORT_INFO_FLAG_IN_PLACE              = 1 << 4,
-  SPI_PORT_INFO_FLAG_NO_REF                = 1 << 5,
-} SpiPortInfoFlags;
-
-/**
- * SpiPortInfo
- * @flags: extra port flags
- * @size: minimum size of the buffers or 0 when not specified
- * @align: required alignment of the data
- * @maxbuffering: the maximum amount of bytes that the element will keep
- *                around internally
- * @latency: latency on this port in nanoseconds
- * @features: NULL terminated array of extra port features
- *
- */
-typedef struct {
-  SpiPortInfoFlags    flags;
-  size_t              minsize;
-  uint32_t            align;
-  unsigned int        maxbuffering;
-  uint64_t            latency;
-  const char        **features;
-} SpiPortInfo;
-
-/**
- * SpiPortStatusFlags:
- * @SPI_PORT_STATUS_FLAG_NONE: no status flags
- * @SPI_PORT_STATUS_FLAG_HAVE_OUTPUT: port has output
- * @SPI_PORT_STATUS_FLAG_NEED_INPUT: port needs input
- */
-typedef enum {
-  SPI_PORT_STATUS_FLAG_NONE                  = 0,
-  SPI_PORT_STATUS_FLAG_HAVE_OUTPUT           = 1 << 0,
-  SPI_PORT_STATUS_FLAG_NEED_INPUT            = 1 << 1,
-} SpiPortStatusFlags;
-
-typedef struct {
-  SpiPortStatusFlags   flags;
-} SpiPortStatus;
-
-typedef enum {
-  SPI_EVENT_TYPE_INVALID                  = 0,
-  SPI_EVENT_TYPE_ACTIVATED,
-  SPI_EVENT_TYPE_DEACTIVATED,
-  SPI_EVENT_TYPE_HAVE_OUTPUT,
-  SPI_EVENT_TYPE_NEED_INPUT,
-  SPI_EVENT_TYPE_REQUEST_DATA,
-  SPI_EVENT_TYPE_DRAINED,
-  SPI_EVENT_TYPE_MARKER,
-  SPI_EVENT_TYPE_ERROR,
-} SpiEventType;
-
-struct _SpiEvent {
-  volatile int   refcount;
-  SpiNotify      notify;
-  SpiEventType   type;
-  uint32_t       port_id;
-  void          *data;
-  size_t         size;
-};
+#include <spi/defs.h>
+#include <spi/params.h>
+#include <spi/port.h>
+#include <spi/event.h>
+#include <spi/buffer.h>
+#include <spi/command.h>
 
 /**
  * SpiDataFlags:
@@ -141,35 +65,24 @@ typedef struct {
   SpiEvent     *event;
 } SpiDataInfo;
 
-typedef enum {
-  SPI_COMMAND_INVALID                 =  0,
-  SPI_COMMAND_ACTIVATE,
-  SPI_COMMAND_DEACTIVATE,
-  SPI_COMMAND_START,
-  SPI_COMMAND_STOP,
-  SPI_COMMAND_FLUSH,
-  SPI_COMMAND_DRAIN,
-  SPI_COMMAND_MARKER,
-} SpiCommandType;
-
-typedef struct {
-  volatile int   refcount;
-  SpiNotify      notify;
-  SpiCommandType type;
-  uint32_t       port_id;
-  void          *data;
-  size_t         size;
-} SpiCommand;
-
-typedef enum {
-  SPI_DIRECTION_INVALID         = 0,
-  SPI_DIRECTION_INPUT,
-  SPI_DIRECTION_OUTPUT
-} SpiDirection;
-
 typedef void   (*SpiEventCallback)   (SpiNode     *node,
                                       SpiEvent    *event,
                                       void        *user_data);
+
+/**
+ * SpiInterfaceInfo:
+ * @interface_id: the id of the interface, can be used to get the interface
+ * @name: name of the interface
+ * @description: Human readable description of the interface.
+ *
+ * This structure lists the information about available interfaces on
+ * objects.
+ */
+typedef struct {
+  uint32_t    interface_id;
+  const char *name;
+  const char *description;
+} SpiInterfaceInfo;
 
 /**
  * SpiNode:
@@ -290,9 +203,9 @@ struct _SpiNode {
   SpiResult   (*remove_port)          (SpiNode          *node,
                                        uint32_t          port_id);
 
-  SpiResult   (*get_port_formats)     (SpiNode          *node,
+  SpiResult   (*enum_port_formats)    (SpiNode          *node,
                                        uint32_t          port_id,
-                                       unsigned int      format_idx,
+                                       unsigned int      index,
                                        SpiParams       **format);
   SpiResult   (*set_port_format)      (SpiNode          *node,
                                        uint32_t          port_id,
@@ -323,8 +236,43 @@ struct _SpiNode {
                                        unsigned int      n_data,
                                        SpiDataInfo      *data);
 
+
+  /**
+   * SpiNode::enum_interface_info:
+   * @node: a #SpiNode
+   * @index: the interface index
+   * @info: result to hold SpiInterfaceInfo.
+   *
+   * Get the interface provided by @node at @index.
+   *
+   * Returns: #SPI_RESULT_OK on success
+   *          #SPI_RESULT_NOT_IMPLEMENTED when there are no extensions
+   *          #SPI_RESULT_INVALID_ARGUMENTS when node or info is %NULL
+   *          #SPI_RESULT_ENUM_END when there are no more infos
+   */
+  SpiResult   (*enum_interface_info)  (SpiNode                 *node,
+                                       unsigned int             index,
+                                       const SpiInterfaceInfo **info);
+  /**
+   * SpiNode::enum_interface_info:
+   * @node: a #SpiNode
+   * @index: the interface index
+   * @info: result to hold SpiInterfaceInfo.
+   *
+   * Get the interface provided by @node at @index.
+   *
+   * Returns: #SPI_RESULT_OK on success
+   *          #SPI_RESULT_NOT_IMPLEMENTED when there are no extensions
+   *          #SPI_RESULT_INVALID_ARGUMENTS when node or info is %NULL
+   *          #SPI_RESULT_ENUM_END when there are no more infos
+   */
+  SpiResult   (*get_interface)        (SpiNode                 *node,
+                                       uint32_t                 interface_id,
+                                       void                   **interface);
 };
 
-G_END_DECLS
+#ifdef __cplusplus
+}  /* extern "C" */
+#endif
 
 #endif /* __SPI_NODE_H__ */

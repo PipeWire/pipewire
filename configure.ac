@@ -229,6 +229,13 @@ PKG_CHECK_MODULES(GSTALLOC, gstreamer-allocators-1.0 >= 1.5.0, dummy=yes,
 GST_CFLAGS="$GST_CFLAGS $GSTALLOC_CFLAGS"
 GST_LIBS="$GST_LIBS $GSTALLOC_LIBS"
 
+#### ALSA ####
+PKG_CHECK_MODULES(ALSA, alsa >= 0.9.1, dummy=yes,
+                    AC_MSG_ERROR(ALSA >= 0.9.1 is required))
+
+AC_SUBST(ALSA_CFLAGS)
+AC_SUBST(ALSA_LIBS)
+
 #### Build and Install man pages ####
 
 AC_ARG_ENABLE([manpages],

@@ -143,10 +143,10 @@ test_client_CFLAGS = $(AM_CFLAGS)
 test_client_LDADD = $(AM_LDADD) libpinos-@PINOS_MAJORMINOR@.la
 test_client_LDFLAGS = $(AM_LDFLAGS) $(BINLDFLAGS)
 
-test_node_SOURCES = tests/test-node.c
-test_node_CFLAGS = $(AM_CFLAGS)
+test_node_SOURCES = tests/test-node.c tests/spi-volume.c tests/spi-alsa-sink.c tests/spi-audiotestsrc.c
+test_node_CFLAGS = $(AM_CFLAGS) $(ALSA_CFLAGS)
 test_node_LDADD = $(AM_LDADD) libpinos-@PINOS_MAJORMINOR@.la
-test_node_LDFLAGS = $(AM_LDFLAGS) $(BINLDFLAGS)
+test_node_LDFLAGS = $(AM_LDFLAGS) $(BINLDFLAGS) $(ALSA_LIBS)
 
 ###################################
 #         Tools programs          #

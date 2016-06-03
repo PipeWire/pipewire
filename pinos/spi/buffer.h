@@ -20,14 +20,13 @@
 #ifndef __SPI_BUFFER_H__
 #define __SPI_BUFFER_H__
 
-G_BEGIN_DECLS
-
-#include <inttypes.h>
-
-#include <pinos/spi/result.h>
-#include <pinos/spi/params.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct _SpiBuffer SpiBuffer;
+
+#include <spi/defs.h>
 
 typedef enum {
   SPI_META_TYPE_INVALID               = 0,
@@ -118,12 +117,16 @@ spi_buffer_unref (SpiBuffer *buffer)
 {
   if (buffer != NULL) {
     if (--buffer->refcount == 0) {
-      buffer->notify (buffer);
+      if (buffer->notify)
+        buffer->notify (buffer);
       return NULL;
     }
   }
   return buffer;
 }
 
+#ifdef __cplusplus
+}  /* extern "C" */
+#endif
 
 #endif /* __SPI_BUFFER_H__ */

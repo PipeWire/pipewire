@@ -19,13 +19,16 @@
 
 #include <string.h>
 #include <stdio.h>
-#include <gio/gio.h>
+#include <stdlib.h>
+#include <unistd.h>
 
-#include <client/pinos.h>
-//#include "audio-sink.c"
-#include "spi-volume.c"
+#include <spi/node.h>
+#include "spi-plugins.h"
 
-static GMainLoop *loop;
+typedef struct {
+  SpiNode *src;
+  SpiNode *sink;
+} AppData;
 
 static void
 print_value (const char *prefix, SpiParamType type, int size, const void *value)
@@ -98,8 +101,8 @@ print_params (const SpiParams *params, int print_ranges)
     const void *value;
     size_t size;
 
-    if ((res = params->get_param_info (params, i, &info)) < 0) {
-      if (res != SPI_RESULT_NO_MORE_PARAM_INFO)
+    if ((res = params->enum_param_info (params, i, &info)) < 0) {
+      if (res != SPI_RESULT_ENUM_END)
         printf ("got error %d\n", res);
       break;
     }
@@ -109,7 +112,7 @@ print_params (const SpiParams *params, int print_ranges)
     printf ("description:\t%s\n", info->description);
     printf ("flags:\t\t%d\n", info->flags);
     printf ("type:\t\t%d\n", info->type);
-    printf ("maxsize:\t%d\n", info->maxsize);
+    printf ("maxsize:\t%zu\n", info->maxsize);
 
     res = params->get_param (params, info->id, &type, &size, &value);
     if (res == SPI_RESULT_PARAM_UNSET)
@@ -148,19 +151,8 @@ inspect_node (SpiNode *node)
   SpiParams *params;
   unsigned int n_input, max_input, n_output, max_output, i;
   SpiParams *format;
-  const SpiParams *cformat;
-  uint32_t samplerate;
 
   if ((res = node->get_params (node, &params)) < 0)
-    printf ("got error %d\n", res);
-  else
-    print_params (params, 1);
-
-  params->set_param (params, 0, SPI_PARAM_TYPE_STRING, 12, "hw:0");
-  samplerate = 48000;
-  params->set_param (params, 3, SPI_PARAM_TYPE_UINT32, 4, &samplerate);
-
-  if ((res = node->set_params (node, params)) < 0)
     printf ("got error %d\n", res);
   else
     print_params (params, 1);
@@ -171,40 +163,51 @@ inspect_node (SpiNode *node)
     printf ("supported ports %d %d %d %d\n", n_input, max_input, n_output, max_output);
 
   for (i = 0; ; i++) {
-    uint32_t val;
-    if ((res = node->get_port_formats (node, 0, i, &format)) < 0) {
-      if (res != SPI_RESULT_NO_MORE_FORMATS)
+    if ((res = node->enum_port_formats (node, 0, i, &format)) < 0) {
+      if (res != SPI_RESULT_ENUM_END)
         printf ("got error %d\n", res);
       break;
     }
     print_params (format, 1);
-
-    printf ("setting format\n");
-    if ((res = format->set_param (format, 2, SPI_PARAM_TYPE_STRING, 5, "S16LE")) < 0)
-      printf ("got error %d\n", res);
-    val = 1;
-    if ((res = format->set_param (format, 3, SPI_PARAM_TYPE_UINT32, 4, &val)) < 0)
-      printf ("got error %d\n", res);
-    val = 44100;
-    if ((res = format->set_param (format, 4, SPI_PARAM_TYPE_UINT32, 4, &val)) < 0)
-      printf ("got error %d\n", res);
-    val = 2;
-    if ((res = format->set_param (format, 5, SPI_PARAM_TYPE_UINT32, 4, &val)) < 0)
-      printf ("got error %d\n", res);
-
-    if ((res = node->set_port_format (node, 0, 0, format)) < 0)
-      printf ("set format failed: %d\n", res);
   }
-
-  if ((res = node->get_port_format (node, 0, &cformat)) < 0)
-    printf ("got error %d\n", res);
-  else
-    print_params (format, 0);
-
   if ((res = node->get_port_params (node, 0, &params)) < 0)
-    printf ("got error %d\n", res);
+    printf ("get_port_params error: %d\n", res);
   else
     printf ("got params %p\n", params);
+}
+
+static void
+set_params (AppData *data)
+{
+}
+
+static void
+set_format (AppData *data)
+{
+  SpiParams *format;
+  SpiResult res;
+  uint32_t val;
+
+  if ((res = data->src->enum_port_formats (data->src, 0, 0, &format)) < 0)
+    printf ("got error %d\n", res);
+
+  printf ("setting format\n");
+  if ((res = format->set_param (format, 1, SPI_PARAM_TYPE_STRING, 5, "S16LE")) < 0)
+    printf ("got error %d\n", res);
+  val = 1;
+  if ((res = format->set_param (format, 2, SPI_PARAM_TYPE_UINT32, 4, &val)) < 0)
+    printf ("got error %d\n", res);
+  val = 44100;
+  if ((res = format->set_param (format, 3, SPI_PARAM_TYPE_UINT32, 4, &val)) < 0)
+    printf ("got error %d\n", res);
+  val = 2;
+  if ((res = format->set_param (format, 4, SPI_PARAM_TYPE_UINT32, 4, &val)) < 0)
+    printf ("got error %d\n", res);
+
+  if ((res = data->src->set_port_format (data->src, 0, 0, format)) < 0)
+    printf ("set format failed: %d\n", res);
+  if ((res = data->sink->set_port_format (data->sink, 0, 0, format)) < 0)
+    printf ("set format failed: %d\n", res);
 }
 
 static void
@@ -244,6 +247,9 @@ handle_event (SpiNode *node)
     case SPI_EVENT_TYPE_ERROR:
       printf ("got error notify\n");
       break;
+    case SPI_EVENT_TYPE_BUFFERING:
+      printf ("got noffering notify\n");
+      break;
   }
 }
 
@@ -258,6 +264,7 @@ struct _MyBuffer {
   uint16_t samples[4096];
 };
 
+#if 0
 static MyBuffer my_buffers[4];
 static MyBuffer *free_list = NULL;
 
@@ -353,37 +360,16 @@ pull_output (SpiNode *node)
   return res;
 }
 
-gint
-main (gint argc, gchar *argv[])
+static void
+run_volume (SpiNode *node)
 {
-  SpiResult res;
-  SpiCommand cmd;
-  SpiNode *node;
   int state;
+  SpiResult res;
 
-  pinos_init (&argc, &argv);
-
-  //node = spi_audio_sink_new ();
-  node = spi_volume_new ();
-
-  loop = g_main_loop_new (NULL, FALSE);
-
-  inspect_node (node);
-
-  cmd.type = SPI_COMMAND_ACTIVATE;
-  res = node->send_command (node, &cmd);
-  switch (res) {
-    case SPI_RESULT_HAVE_EVENT:
-      handle_event (node);
-      break;
-    default:
-      break;
-  }
-
-  setup_buffers (node);
+  set_params (node);
+  set_format (node);
 
   state = 0;
-
   while (TRUE) {
     SpiPortStatus status;
 
@@ -416,8 +402,117 @@ main (gint argc, gchar *argv[])
         state = 0;
     }
   }
+}
+#endif
 
-  g_main_loop_run (loop);
+static void
+on_event (SpiNode *node, SpiEvent *event, void *user_data)
+{
+  AppData *data = user_data;
+
+  printf ("got event %d\n", event->type);
+
+  switch (event->type) {
+    case SPI_EVENT_TYPE_REQUEST_DATA:
+    {
+      SpiBuffer *buf;
+      SpiDataInfo info;
+      SpiResult res;
+
+      buf = event->data;
+
+      info.port_id = event->port_id;
+      info.flags = SPI_DATA_FLAG_NONE;
+      info.buffer = buf;
+      info.event = NULL;
+
+      if ((res = data->src->receive_port_data (data->src, 1, &info)) < 0)
+        printf ("got error %d\n", res);
+
+      if ((res = data->sink->send_port_data (data->sink, &info)) < 0)
+        printf ("got error %d\n", res);
+      break;
+    }
+    default:
+      break;
+  }
+}
+
+static void
+run_async_sink (AppData *data)
+{
+  SpiResult res;
+  SpiCommand cmd;
+
+  set_format (data);
+
+  data->sink->set_event_callback (data->sink, on_event, data);
+
+  cmd.type = SPI_COMMAND_START;
+  if ((res = data->sink->send_command (data->sink, &cmd)) < 0)
+    printf ("got error %d\n", res);
+
+  printf ("sleeping for 10 seconds\n");
+  sleep (10);
+
+  cmd.type = SPI_COMMAND_STOP;
+  if ((res = data->sink->send_command (data->sink, &cmd)) < 0)
+    printf ("got error %d\n", res);
+}
+
+static void
+setup_source (AppData *data)
+{
+  SpiCommand cmd;
+  SpiResult res;
+
+  data->src = spi_audiotestsrc_new ();
+
+  cmd.type = SPI_COMMAND_ACTIVATE;
+  if ((res = data->src->send_command (data->src, &cmd)) < 0)
+    printf ("got error %d\n", res);
+}
+
+static void
+setup_sink (AppData *data)
+{
+  SpiCommand cmd;
+  SpiResult res;
+  SpiParams *params;
+
+  data->sink = spi_alsa_sink_new ();
+
+  if ((res = data->sink->get_params (data->sink, &params)) < 0)
+    printf ("got get_params error %d\n", res);
+
+  params->set_param (params, 0, SPI_PARAM_TYPE_STRING, strlen ("hw:1")+1, "hw:1");
+
+  if ((res = data->sink->set_params (data->sink, params)) < 0)
+    printf ("got set_params error %d\n", res);
+
+  cmd.type = SPI_COMMAND_ACTIVATE;
+  if ((res = data->sink->send_command (data->sink, &cmd)) < 0)
+    printf ("got error %d\n", res);
+}
+
+int
+main (int argc, char *argv[])
+{
+  SpiResult res;
+  SpiCommand cmd;
+  AppData data;
+
+  setup_source (&data);
+  setup_sink (&data);
+
+  run_async_sink (&data);
+
+  cmd.type = SPI_COMMAND_DEACTIVATE;
+  if ((res = data.sink->send_command (data.sink, &cmd)) < 0)
+    printf ("got error %d\n", res);
+  cmd.type = SPI_COMMAND_DEACTIVATE;
+  if ((res = data.src->send_command (data.src, &cmd)) < 0)
+    printf ("got error %d\n", res);
 
   return 0;
 }

@@ -20,16 +20,16 @@
 #include <string.h>
 
 #include <spi/node.h>
-
 #include "spi-plugins.h"
 
-typedef struct _SpiVolume SpiVolume;
+typedef struct _SpiAudioTestSrc SpiAudioTestSrc;
 
 typedef struct {
   SpiParams param;
+  uint32_t wave;
+  double freq;
   double volume;
-  bool mute;
-} SpiVolumeParams;
+} SpiAudioTestSrcParams;
 
 typedef struct {
   SpiParams param;
@@ -40,13 +40,13 @@ typedef struct {
   int32_t samplerate;
   int32_t channels;
   int32_t position[16];
-} SpiVolumeFormat;
+} SpiAudioTestSrcFormat;
 
-struct _SpiVolume {
+struct _SpiAudioTestSrc {
   SpiNode  node;
 
-  SpiVolumeParams params;
-  SpiVolumeParams tmp_params;
+  SpiAudioTestSrcParams params;
+  SpiAudioTestSrcParams tmp_params;
 
   SpiEvent *event;
   SpiEvent last_event;
@@ -55,7 +55,7 @@ struct _SpiVolume {
   void *user_data;
 
   bool have_format;
-  SpiVolumeFormat current_format;
+  SpiAudioTestSrcFormat current_format;
 
   bool have_input;
   SpiBuffer *input_buffer;
@@ -63,10 +63,13 @@ struct _SpiVolume {
   SpiData data;
 };
 
+static const uint32_t default_wave = 1.0;
 static const double default_volume = 1.0;
 static const double min_volume = 0.0;
 static const double max_volume = 10.0;
-static const bool default_mute = false;
+static const double default_freq = 440.0;
+static const double min_freq = 0.0;
+static const double max_freq = 50000000.0;
 
 static const SpiParamRangeInfo volume_range[] = {
   { "min", "Minimum value", sizeof (double), &min_volume },
@@ -74,26 +77,49 @@ static const SpiParamRangeInfo volume_range[] = {
   { NULL, NULL, 0, NULL }
 };
 
+static const uint32_t wave_val_sine = 0;
+static const uint32_t wave_val_square = 1;
+
+static const SpiParamRangeInfo wave_range[] = {
+  { "sine", "Sine", sizeof (uint32_t), &wave_val_sine },
+  { "square", "Square", sizeof (uint32_t), &wave_val_square },
+  { NULL, NULL, 0, NULL }
+};
+
+static const SpiParamRangeInfo freq_range[] = {
+  { "min", "Minimum value", sizeof (double), &min_freq },
+  { "max", "Maximum value", sizeof (double), &max_freq },
+  { NULL, NULL, 0, NULL }
+};
+
 enum {
+  PARAM_ID_WAVE,
+  PARAM_ID_FREQ,
   PARAM_ID_VOLUME,
-  PARAM_ID_MUTE,
   PARAM_ID_LAST,
 };
 
 static const SpiParamInfo param_info[] =
 {
+  { PARAM_ID_WAVE,              "wave", "Oscillator waveform",
+                                SPI_PARAM_FLAG_READWRITE,
+                                SPI_PARAM_TYPE_UINT32, sizeof (uint32_t),
+                                sizeof (uint32_t), &default_wave,
+                                SPI_PARAM_RANGE_TYPE_ENUM, wave_range,
+                                NULL,
+                                NULL },
+  { PARAM_ID_FREQ,              "freq", "Frequency of test signal. The sample rate needs to be at least 4 times higher",
+                                SPI_PARAM_FLAG_READWRITE,
+                                SPI_PARAM_TYPE_DOUBLE, sizeof (double),
+                                sizeof (double), &default_freq,
+                                SPI_PARAM_RANGE_TYPE_MIN_MAX, freq_range,
+                                NULL,
+                                NULL },
   { PARAM_ID_VOLUME,            "volume", "The Volume factor",
                                 SPI_PARAM_FLAG_READWRITE,
                                 SPI_PARAM_TYPE_DOUBLE, sizeof (double),
                                 sizeof (double), &default_volume,
                                 SPI_PARAM_RANGE_TYPE_MIN_MAX, volume_range,
-                                NULL,
-                                NULL },
-  { PARAM_ID_MUTE,              "mute", "Mute",
-                                SPI_PARAM_FLAG_READWRITE,
-                                SPI_PARAM_TYPE_BOOL, sizeof (bool),
-                                sizeof (bool), &default_mute,
-                                SPI_PARAM_RANGE_TYPE_NONE, NULL,
                                 NULL,
                                 NULL },
 };
@@ -123,21 +149,26 @@ set_param (SpiParams    *params,
            const void   *value)
 {
   SpiResult res = SPI_RESULT_OK;
-  SpiVolumeParams *p = (SpiVolumeParams *) params;
+  SpiAudioTestSrcParams *p = (SpiAudioTestSrcParams *) params;
 
   if (params == NULL || value == NULL)
     return SPI_RESULT_INVALID_ARGUMENTS;
 
   switch (id) {
+    case PARAM_ID_WAVE:
+      CHECK_TYPE (type, SPI_PARAM_TYPE_UINT32);
+      CHECK_SIZE (size, sizeof (uint32_t));
+      memcpy (&p->wave, value, size);
+      break;
+    case PARAM_ID_FREQ:
+      CHECK_TYPE (type, SPI_PARAM_TYPE_DOUBLE);
+      CHECK_SIZE (size, sizeof (double));
+      memcpy (&p->freq, value, size);
+      break;
     case PARAM_ID_VOLUME:
       CHECK_TYPE (type, SPI_PARAM_TYPE_DOUBLE);
       CHECK_SIZE (size, sizeof (double));
       memcpy (&p->volume, value, size);
-      break;
-    case PARAM_ID_MUTE:
-      CHECK_TYPE (type, SPI_PARAM_TYPE_BOOL);
-      CHECK_SIZE (size, sizeof (bool));
-      memcpy (&p->mute, value, size);
       break;
     default:
       res = SPI_RESULT_INVALID_PARAM_ID;
@@ -154,21 +185,26 @@ get_param (const SpiParams *params,
            const void     **value)
 {
   SpiResult res = SPI_RESULT_OK;
-  SpiVolumeParams *p = (SpiVolumeParams *) params;
+  SpiAudioTestSrcParams *p = (SpiAudioTestSrcParams *) params;
 
   if (params == NULL || type == NULL || size == NULL || value == NULL)
     return SPI_RESULT_INVALID_ARGUMENTS;
 
   switch (id) {
+    case PARAM_ID_WAVE:
+      *type = SPI_PARAM_TYPE_UINT32;
+      *value = &p->wave;
+      *size = sizeof (uint32_t);
+      break;
+    case PARAM_ID_FREQ:
+      *type = SPI_PARAM_TYPE_DOUBLE;
+      *value = &p->freq;
+      *size = sizeof (double);
+      break;
     case PARAM_ID_VOLUME:
       *type = SPI_PARAM_TYPE_DOUBLE;
       *value = &p->volume;
       *size = sizeof (double);
-      break;
-    case PARAM_ID_MUTE:
-      *type = SPI_PARAM_TYPE_BOOL;
-      *value = &p->mute;
-      *size = sizeof (bool);
       break;
     default:
       res = SPI_RESULT_INVALID_PARAM_ID;
@@ -178,17 +214,18 @@ get_param (const SpiParams *params,
 }
 
 static void
-reset_volume_params (SpiVolumeParams *params)
+reset_audiotestsrc_params (SpiAudioTestSrcParams *params)
 {
+  params->wave = default_wave;
+  params->freq = default_freq;
   params->volume = default_volume;
-  params->mute = default_mute;
 }
 
 static SpiResult
-spi_volume_node_get_params (SpiNode        *node,
+spi_audiotestsrc_node_get_params (SpiNode        *node,
                             SpiParams     **params)
 {
-  SpiVolume *this = (SpiVolume *) node;
+  SpiAudioTestSrc *this = (SpiAudioTestSrc *) node;
 
   if (node == NULL || params == NULL)
     return SPI_RESULT_INVALID_ARGUMENTS;
@@ -200,11 +237,11 @@ spi_volume_node_get_params (SpiNode        *node,
 }
 
 static SpiResult
-spi_volume_node_set_params (SpiNode          *node,
-                            const SpiParams  *params)
+spi_audiotestsrc_node_set_params (SpiNode          *node,
+                                  const SpiParams  *params)
 {
-  SpiVolume *this = (SpiVolume *) node;
-  SpiVolumeParams *p = &this->params;
+  SpiAudioTestSrc *this = (SpiAudioTestSrc *) node;
+  SpiAudioTestSrcParams *p = &this->params;
   SpiParamType type;
   size_t size;
   const void *value;
@@ -213,28 +250,33 @@ spi_volume_node_set_params (SpiNode          *node,
     return SPI_RESULT_INVALID_ARGUMENTS;
 
   if (params == NULL) {
-    reset_volume_params (p);
+    reset_audiotestsrc_params (p);
     return SPI_RESULT_OK;
   }
 
-  if (params->get_param (params, 0, &type, &size, &value) == 0) {
+  if (params->get_param (params, PARAM_ID_WAVE, &type, &size, &value) == 0) {
+    CHECK_TYPE (type, SPI_PARAM_TYPE_UINT32);
+    CHECK_SIZE (size, sizeof (uint32_t));
+    memcpy (&p->wave, value, size);
+  }
+  if (params->get_param (params, PARAM_ID_FREQ, &type, &size, &value) == 0) {
+    CHECK_TYPE (type, SPI_PARAM_TYPE_DOUBLE);
+    CHECK_SIZE (size, sizeof (double));
+    memcpy (&p->freq, value, size);
+  }
+  if (params->get_param (params, PARAM_ID_VOLUME, &type, &size, &value) == 0) {
     CHECK_TYPE (type, SPI_PARAM_TYPE_DOUBLE);
     CHECK_SIZE (size, sizeof (double));
     memcpy (&p->volume, value, size);
-  }
-  if (params->get_param (params, 1, &type, &size, &value) == 0) {
-    CHECK_TYPE (type, SPI_PARAM_TYPE_BOOL);
-    CHECK_SIZE (size, sizeof (bool));
-    memcpy (&p->mute, value, size);
   }
   return SPI_RESULT_OK;
 }
 
 static SpiResult
-spi_volume_node_send_command (SpiNode       *node,
-                              SpiCommand    *command)
+spi_audiotestsrc_node_send_command (SpiNode       *node,
+                                    SpiCommand    *command)
 {
-  SpiVolume *this = (SpiVolume *) node;
+  SpiAudioTestSrc *this = (SpiAudioTestSrc *) node;
   SpiResult res = SPI_RESULT_NOT_IMPLEMENTED;
 
   if (node == NULL || command == NULL)
@@ -273,10 +315,13 @@ spi_volume_node_send_command (SpiNode       *node,
 }
 
 static SpiResult
-spi_volume_node_get_event (SpiNode     *node,
-                           SpiEvent   **event)
+spi_audiotestsrc_node_get_event (SpiNode     *node,
+                                 SpiEvent   **event)
 {
-  SpiVolume *this = (SpiVolume *) node;
+  SpiAudioTestSrc *this = (SpiAudioTestSrc *) node;
+
+  if (node == NULL || event == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
 
   if (this->event == NULL)
     return SPI_RESULT_ERROR;
@@ -288,11 +333,14 @@ spi_volume_node_get_event (SpiNode     *node,
 }
 
 static SpiResult
-spi_volume_node_set_event_callback (SpiNode       *node,
-                                    SpiEventCallback event,
-                                    void          *user_data)
+spi_audiotestsrc_node_set_event_callback (SpiNode       *node,
+                                          SpiEventCallback event,
+                                          void          *user_data)
 {
-  SpiVolume *this = (SpiVolume *) node;
+  SpiAudioTestSrc *this = (SpiAudioTestSrc *) node;
+
+  if (node == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
 
   this->event_cb = event;
   this->user_data = user_data;
@@ -301,21 +349,21 @@ spi_volume_node_set_event_callback (SpiNode       *node,
 }
 
 static SpiResult
-spi_volume_node_get_n_ports (SpiNode       *node,
-                             unsigned int  *n_input_ports,
-                             unsigned int  *max_input_ports,
-                             unsigned int  *n_output_ports,
-                             unsigned int  *max_output_ports)
+spi_audiotestsrc_node_get_n_ports (SpiNode       *node,
+                                   unsigned int  *n_input_ports,
+                                   unsigned int  *max_input_ports,
+                                   unsigned int  *n_output_ports,
+                                   unsigned int  *max_output_ports)
 {
   if (node == NULL)
     return SPI_RESULT_INVALID_ARGUMENTS;
 
   if (n_input_ports)
-    *n_input_ports = 1;
+    *n_input_ports = 0;
   if (n_output_ports)
     *n_output_ports = 1;
   if (max_input_ports)
-    *max_input_ports = 1;
+    *max_input_ports = 0;
   if (max_output_ports)
     *max_output_ports = 1;
 
@@ -323,32 +371,33 @@ spi_volume_node_get_n_ports (SpiNode       *node,
 }
 
 static SpiResult
-spi_volume_node_get_port_ids (SpiNode       *node,
-                              unsigned int   n_input_ports,
-                              uint32_t      *input_ids,
-                              unsigned int   n_output_ports,
-                              uint32_t      *output_ids)
+spi_audiotestsrc_node_get_port_ids (SpiNode       *node,
+                                    unsigned int   n_input_ports,
+                                    uint32_t      *input_ids,
+                                    unsigned int   n_output_ports,
+                                    uint32_t      *output_ids)
 {
-  if (n_input_ports > 0)
-    input_ids[0] = 0;
+  if (node == NULL || input_ids == NULL || output_ids == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
+
   if (n_output_ports > 0)
-    output_ids[0] = 1;
+    output_ids[0] = 0;
 
   return SPI_RESULT_OK;
 }
 
 
 static SpiResult
-spi_volume_node_add_port (SpiNode        *node,
-                          SpiDirection    direction,
-                          uint32_t       *port_id)
+spi_audiotestsrc_node_add_port (SpiNode        *node,
+                                SpiDirection    direction,
+                                uint32_t       *port_id)
 {
   return SPI_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpiResult
-spi_volume_node_remove_port (SpiNode        *node,
-                             uint32_t        port_id)
+spi_audiotestsrc_node_remove_port (SpiNode        *node,
+                                   uint32_t        port_id)
 {
   return SPI_RESULT_NOT_IMPLEMENTED;
 }
@@ -390,19 +439,19 @@ static const SpiParamRangeInfo format_format_range[] = {
 static const uint32_t min_uint32 = 1;
 static const uint32_t max_uint32 = UINT32_MAX;
 
-static const SpiParamRangeInfo int32_range[] = {
-  { "min", "Minimum value", 4, &min_uint32 },
-  { "max", "Maximum value", 4, &max_uint32 },
+static const SpiParamRangeInfo uint32_range[] = {
+  { "min", "Minimum value", sizeof (uint32_t), &min_uint32 },
+  { "max", "Maximum value", sizeof (uint32_t), &max_uint32 },
   { NULL, NULL, 0, NULL }
 };
 
 enum {
-  SPI_PARAM_ID_INVALID,
   SPI_PARAM_ID_MEDIA_TYPE,
   SPI_PARAM_ID_FORMAT,
   SPI_PARAM_ID_LAYOUT,
   SPI_PARAM_ID_SAMPLERATE,
   SPI_PARAM_ID_CHANNELS,
+  SPI_PARAM_ID_LAST,
 };
 
 static const int32_t format_default_layout = 1;
@@ -412,7 +461,7 @@ static const SpiParamInfo raw_format_param_info[] =
   { SPI_PARAM_ID_MEDIA_TYPE, "media-type", "The media type",
                              SPI_PARAM_FLAG_READABLE,
                              SPI_PARAM_TYPE_STRING, 32,
-                             12, "audio/x-raw",
+                             strlen ("audio/x-raw")+1, "audio/x-raw",
                              SPI_PARAM_RANGE_TYPE_NONE, NULL,
                              NULL,
                              NULL },
@@ -434,14 +483,14 @@ static const SpiParamInfo raw_format_param_info[] =
                              SPI_PARAM_FLAG_READWRITE,
                              SPI_PARAM_TYPE_UINT32, sizeof (uint32_t),
                              0, NULL,
-                             SPI_PARAM_RANGE_TYPE_MIN_MAX, int32_range,
+                             SPI_PARAM_RANGE_TYPE_MIN_MAX, uint32_range,
                              NULL,
                              NULL },
   { SPI_PARAM_ID_CHANNELS,   "channels", "Audio channels",
                              SPI_PARAM_FLAG_READWRITE,
                              SPI_PARAM_TYPE_UINT32, sizeof (uint32_t),
                              0, NULL,
-                             SPI_PARAM_RANGE_TYPE_MIN_MAX, int32_range,
+                             SPI_PARAM_RANGE_TYPE_MIN_MAX, uint32_range,
                              NULL,
                              NULL },
 };
@@ -451,9 +500,14 @@ enum_raw_format_param_info (const SpiParams     *params,
                             unsigned int         index,
                             const SpiParamInfo **info)
 {
-  if (index >= 4)
+  if (params == NULL || info == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
+
+  if (index >= SPI_PARAM_ID_LAST)
     return SPI_RESULT_ENUM_END;
+
   *info = &raw_format_param_info[index];
+
   return SPI_RESULT_OK;
 }
 
@@ -467,7 +521,10 @@ set_format_param (SpiParams    *params,
                   size_t        size,
                   const void   *value)
 {
-  SpiVolumeFormat *f = (SpiVolumeFormat *) params;
+  SpiAudioTestSrcFormat *f = (SpiAudioTestSrcFormat *) params;
+
+  if (params == NULL || value == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
 
   switch (id) {
     case SPI_PARAM_ID_FORMAT:
@@ -510,7 +567,10 @@ get_format_param (const SpiParams *params,
                   size_t          *size,
                   const void     **value)
 {
-  SpiVolumeFormat *f = (SpiVolumeFormat *) params;
+  SpiAudioTestSrcFormat *f = (SpiAudioTestSrcFormat *) params;
+
+  if (params == NULL || type == NULL || size == NULL || value == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
 
   switch (id) {
     case SPI_PARAM_ID_MEDIA_TYPE:
@@ -551,12 +611,15 @@ get_format_param (const SpiParams *params,
 
 
 static SpiResult
-spi_volume_node_enum_port_formats (SpiNode          *node,
-                                   uint32_t          port_id,
-                                   unsigned int      index,
-                                   SpiParams       **format)
+spi_audiotestsrc_node_enum_port_formats (SpiNode          *node,
+                                         uint32_t          port_id,
+                                         unsigned int      index,
+                                         SpiParams       **format)
 {
-  static SpiVolumeFormat fmt;
+  static SpiAudioTestSrcFormat fmt;
+
+  if (node == NULL || format == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
 
   if (port_id != 0)
     return SPI_RESULT_INVALID_PORT;
@@ -578,19 +641,24 @@ spi_volume_node_enum_port_formats (SpiNode          *node,
 }
 
 static SpiResult
-spi_volume_node_set_port_format (SpiNode         *node,
-                                 uint32_t         port_id,
-                                 int              test_only,
-                                 const SpiParams *format)
+spi_audiotestsrc_node_set_port_format (SpiNode         *node,
+                                       uint32_t         port_id,
+                                       int              test_only,
+                                       const SpiParams *format)
 {
-  SpiVolume *this = (SpiVolume *) node;
+  SpiAudioTestSrc *this = (SpiAudioTestSrc *) node;
   SpiParamType type;
   size_t size;
   const void *value;
-  SpiVolumeFormat *fmt = &this->current_format;
+  SpiAudioTestSrcFormat *fmt;
+
+  if (node == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
 
   if (port_id != 0)
     return SPI_RESULT_INVALID_PORT;
+
+  fmt = &this->current_format;
 
   if (format == NULL) {
     fmt->param.get_param = NULL;
@@ -647,11 +715,14 @@ spi_volume_node_set_port_format (SpiNode         *node,
 }
 
 static SpiResult
-spi_volume_node_get_port_format (SpiNode          *node,
-                                 uint32_t          port_id,
-                                 const SpiParams **format)
+spi_audiotestsrc_node_get_port_format (SpiNode          *node,
+                                       uint32_t          port_id,
+                                       const SpiParams **format)
 {
-  SpiVolume *this = (SpiVolume *) node;
+  SpiAudioTestSrc *this = (SpiAudioTestSrc *) node;
+
+  if (node == NULL || format == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
 
   if (port_id != 0)
     return SPI_RESULT_INVALID_PORT;
@@ -665,28 +736,24 @@ spi_volume_node_get_port_format (SpiNode          *node,
 }
 
 static SpiResult
-spi_volume_node_get_port_info (SpiNode       *node,
-                               uint32_t       port_id,
-                               SpiPortInfo   *info)
+spi_audiotestsrc_node_get_port_info (SpiNode       *node,
+                                     uint32_t       port_id,
+                                     SpiPortInfo   *info)
 {
-  switch (port_id) {
-    case 0:
-      info->flags = SPI_PORT_INFO_FLAG_CAN_USE_BUFFER |
-                    SPI_PORT_INFO_FLAG_IN_PLACE;
-      break;
-    case 1:
-      info->flags = SPI_PORT_INFO_FLAG_CAN_GIVE_BUFFER |
-                    SPI_PORT_INFO_FLAG_CAN_USE_BUFFER |
-                    SPI_PORT_INFO_FLAG_NO_REF;
-      break;
-    default:
-      return SPI_RESULT_INVALID_PORT;
-  }
+  if (node == NULL || info == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
+
+  if (port_id != 0)
+    return SPI_RESULT_INVALID_PORT;
+
+  info->flags = SPI_PORT_INFO_FLAG_CAN_USE_BUFFER |
+                SPI_PORT_INFO_FLAG_NO_REF;
+
   return SPI_RESULT_OK;
 }
 
 static SpiResult
-spi_volume_node_get_port_params (SpiNode    *node,
+spi_audiotestsrc_node_get_port_params (SpiNode    *node,
                                  uint32_t    port_id,
                                  SpiParams **params)
 {
@@ -694,192 +761,103 @@ spi_volume_node_get_port_params (SpiNode    *node,
 }
 
 static SpiResult
-spi_volume_node_set_port_params (SpiNode         *node,
-                                 uint32_t         port_id,
-                                 const SpiParams *params)
+spi_audiotestsrc_node_set_port_params (SpiNode         *node,
+                                       uint32_t         port_id,
+                                       const SpiParams *params)
 {
   return SPI_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpiResult
-spi_volume_node_get_port_status (SpiNode        *node,
-                                 uint32_t        port_id,
-                                 SpiPortStatus  *status)
+spi_audiotestsrc_node_get_port_status (SpiNode        *node,
+                                       uint32_t        port_id,
+                                       SpiPortStatus  *status)
 {
-  SpiVolume *this = (SpiVolume *) node;
-  SpiPortStatusFlags flags = 0;
+  SpiAudioTestSrc *this = (SpiAudioTestSrc *) node;
+
+  if (node == NULL || status == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
+
+  if (port_id != 0)
+    return SPI_RESULT_INVALID_PORT;
 
   if (!this->have_format)
     return SPI_RESULT_NO_FORMAT;
 
-  switch (port_id) {
-    case 0:
-      if (this->input_buffer == NULL)
-        flags |= SPI_PORT_STATUS_FLAG_NEED_INPUT;
-      break;
-    case 1:
-      if (this->input_buffer != NULL)
-        flags |= SPI_PORT_STATUS_FLAG_HAVE_OUTPUT;
-      break;
-    default:
-      return SPI_RESULT_INVALID_PORT;
-  }
-  status->flags = flags;
+  status->flags = SPI_PORT_STATUS_FLAG_HAVE_OUTPUT;
 
   return SPI_RESULT_OK;
 }
 
 static SpiResult
-spi_volume_node_send_port_data (SpiNode       *node,
-                                SpiDataInfo   *data)
+spi_audiotestsrc_node_send_port_data (SpiNode       *node,
+                                      SpiDataInfo   *data)
 {
-  SpiVolume *this = (SpiVolume *) node;
-  SpiBuffer *buffer;
-  SpiEvent *event;
+  return SPI_RESULT_INVALID_PORT;
+}
 
-  if (node == NULL || data == NULL)
+static SpiResult
+spi_audiotestsrc_node_receive_port_data (SpiNode      *node,
+                                         unsigned int  n_data,
+                                         SpiDataInfo  *data)
+{
+  SpiAudioTestSrc *this = (SpiAudioTestSrc *) node;
+  size_t i, size;
+  uint8_t *ptr;
+
+  if (node == NULL || n_data == 0 || data == NULL)
     return SPI_RESULT_INVALID_ARGUMENTS;
 
   if (data->port_id != 0)
     return SPI_RESULT_INVALID_PORT;
 
-  event = data->event;
-  buffer = data->buffer;
-
-  if (buffer == NULL && event == NULL)
-    return SPI_RESULT_INVALID_ARGUMENTS;
-
   if (!this->have_format)
     return SPI_RESULT_NO_FORMAT;
 
-  if (buffer) {
-    if (this->input_buffer != NULL)
-      return SPI_RESULT_HAVE_ENOUGH_INPUT;
-
-    this->input_buffer = spi_buffer_ref (buffer);
-  }
-  if (event) {
-    switch (event->type) {
-      default:
-        break;
-    }
-  }
-
-  return SPI_RESULT_OK;
-}
-
-#define MIN(a,b) ((a) < (b) ? (a) : (b))
-
-static SpiResult
-spi_volume_node_receive_port_data (SpiNode      *node,
-                                   unsigned int  n_data,
-                                   SpiDataInfo  *data)
-{
-  SpiVolume *this = (SpiVolume *) node;
-  unsigned int si, di, i, n_samples, n_bytes, soff, doff ;
-  SpiBuffer *sbuf, *dbuf;
-  SpiData *sd, *dd;
-  uint16_t *src, *dst;
-  double volume;
-
-  if (node == NULL || n_data == 0 || data == NULL)
+  if (data->buffer == NULL)
     return SPI_RESULT_INVALID_ARGUMENTS;
 
-  if (data->port_id != 1)
-    return SPI_RESULT_INVALID_PORT;
+  ptr = data->buffer->datas[0].data;
+  size = data->buffer->datas[0].size;
 
-  if (!this->have_format)
-    return SPI_RESULT_NO_FORMAT;
-
-  if (this->input_buffer == NULL)
-    return SPI_RESULT_NEED_MORE_INPUT;
-
-  volume = this->params.volume;
-
-  sbuf = this->input_buffer;
-  dbuf = data->buffer ? data->buffer : this->input_buffer;
-
-  si = di = 0;
-  soff = doff = 0;
-
-  while (true) {
-    if (si == sbuf->n_datas || di == dbuf->n_datas)
-      break;
-
-    sd = &sbuf->datas[si];
-    dd = &dbuf->datas[di];
-
-    if (sd->type != SPI_DATA_TYPE_MEMPTR) {
-      si++;
-      continue;
-    }
-    if (dd->type != SPI_DATA_TYPE_MEMPTR) {
-      di++;
-      continue;
-    }
-    src = (uint16_t*) ((uint8_t*)sd->data + soff);
-    dst = (uint16_t*) ((uint8_t*)dd->data + doff);
-
-    n_bytes = MIN (sd->size - soff, dd->size - doff);
-    n_samples = n_bytes / sizeof (uint16_t);
-
-    for (i = 0; i < n_samples; i++)
-      *src++ = *dst++ * volume;
-
-    soff += n_bytes;
-    doff += n_bytes;
-
-    if (soff >= sd->size) {
-      si++;
-      soff = 0;
-    }
-    if (doff >= dd->size) {
-      di++;
-      doff = 0;
-    }
-  }
-
-  if (sbuf != dbuf)
-    spi_buffer_unref (sbuf);
-
-  this->input_buffer = NULL;
-  data->buffer = dbuf;
+  for (i = 0; i < size; i++)
+    ptr[i] = rand();
 
   return SPI_RESULT_OK;
 }
 
 SpiNode *
-spi_volume_new (void)
+spi_audiotestsrc_new (void)
 {
   SpiNode *node;
-  SpiVolume *this;
+  SpiAudioTestSrc *this;
 
-  node = calloc (1, sizeof (SpiVolume));
+  node = calloc (1, sizeof (SpiAudioTestSrc));
 
-  node->get_params = spi_volume_node_get_params;
-  node->set_params = spi_volume_node_set_params;
-  node->send_command = spi_volume_node_send_command;
-  node->get_event = spi_volume_node_get_event;
-  node->set_event_callback = spi_volume_node_set_event_callback;
-  node->get_n_ports = spi_volume_node_get_n_ports;
-  node->get_port_ids = spi_volume_node_get_port_ids;
-  node->add_port = spi_volume_node_add_port;
-  node->remove_port = spi_volume_node_remove_port;
-  node->enum_port_formats = spi_volume_node_enum_port_formats;
-  node->set_port_format = spi_volume_node_set_port_format;
-  node->get_port_format = spi_volume_node_get_port_format;
-  node->get_port_info = spi_volume_node_get_port_info;
-  node->get_port_params = spi_volume_node_get_port_params;
-  node->set_port_params = spi_volume_node_set_port_params;
-  node->get_port_status = spi_volume_node_get_port_status;
-  node->send_port_data = spi_volume_node_send_port_data;
-  node->receive_port_data = spi_volume_node_receive_port_data;
+  node->get_params = spi_audiotestsrc_node_get_params;
+  node->set_params = spi_audiotestsrc_node_set_params;
+  node->send_command = spi_audiotestsrc_node_send_command;
+  node->get_event = spi_audiotestsrc_node_get_event;
+  node->set_event_callback = spi_audiotestsrc_node_set_event_callback;
+  node->get_n_ports = spi_audiotestsrc_node_get_n_ports;
+  node->get_port_ids = spi_audiotestsrc_node_get_port_ids;
+  node->add_port = spi_audiotestsrc_node_add_port;
+  node->remove_port = spi_audiotestsrc_node_remove_port;
+  node->enum_port_formats = spi_audiotestsrc_node_enum_port_formats;
+  node->set_port_format = spi_audiotestsrc_node_set_port_format;
+  node->get_port_format = spi_audiotestsrc_node_get_port_format;
+  node->get_port_info = spi_audiotestsrc_node_get_port_info;
+  node->get_port_params = spi_audiotestsrc_node_get_port_params;
+  node->set_port_params = spi_audiotestsrc_node_set_port_params;
+  node->get_port_status = spi_audiotestsrc_node_get_port_status;
+  node->send_port_data = spi_audiotestsrc_node_send_port_data;
+  node->receive_port_data = spi_audiotestsrc_node_receive_port_data;
 
-  this = (SpiVolume *) node;
+  this = (SpiAudioTestSrc *) node;
   this->params.param.enum_param_info = enum_param_info;
   this->params.param.set_param = set_param;
   this->params.param.get_param = get_param;
-  reset_volume_params (&this->params);
+  reset_audiotestsrc_params (&this->params);
 
   return node;
 }

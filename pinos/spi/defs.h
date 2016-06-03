@@ -17,10 +17,16 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __SPI_RESULT_H__
-#define __SPI_RESULT_H__
+#ifndef __SPI_DEFS_H__
+#define __SPI_DEFS_H__
 
-G_BEGIN_DECLS
+#ifdef __cplusplus
+extern "C" {
+#else
+#include <stdbool.h>
+#endif
+#include <inttypes.h>
+#include <stdlib.h>
 
 typedef enum {
   SPI_RESULT_OK                       =  0,
@@ -38,17 +44,26 @@ typedef enum {
   SPI_RESULT_NOT_IMPLEMENTED          = -12,
   SPI_RESULT_INVALID_PARAM_ID         = -13,
   SPI_RESULT_PARAM_UNSET              = -14,
-  SPI_RESULT_NO_MORE_FORMATS          = -15,
+  SPI_RESULT_ENUM_END                 = -15,
   SPI_RESULT_WRONG_PARAM_TYPE         = -16,
-  SPI_RESULT_INVALID_MEDIA_TYPE       = -17,
-  SPI_RESULT_INVALID_FORMAT_PARAMS    = -18,
-  SPI_RESULT_FORMAT_INCOMPLETE        = -19,
-  SPI_RESULT_NO_MORE_PARAM_INFO       = -20,
+  SPI_RESULT_WRONG_PARAM_SIZE         = -17,
+  SPI_RESULT_INVALID_MEDIA_TYPE       = -18,
+  SPI_RESULT_INVALID_FORMAT_PARAMS    = -19,
+  SPI_RESULT_FORMAT_INCOMPLETE        = -20,
   SPI_RESULT_INVALID_ARGUMENTS        = -21,
 } SpiResult;
 
+typedef enum {
+  SPI_DIRECTION_INVALID         = 0,
+  SPI_DIRECTION_INPUT,
+  SPI_DIRECTION_OUTPUT
+} SpiDirection;
+
 typedef void (*SpiNotify) (void *data);
 
-G_END_DECLS
+#ifdef __cplusplus
+}  /* extern "C" */
+#endif
 
-#endif /* __SPI_RESULT_H__ */
+
+#endif /* __SPI_DEFS_H__ */

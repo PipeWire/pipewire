@@ -20,11 +20,13 @@
 #ifndef __SPI_PARAMS_H__
 #define __SPI_PARAMS_H__
 
-G_BEGIN_DECLS
-
-#include <pinos/spi/result.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct _SpiParams SpiParams;
+
+#include <spi/defs.h>
 
 /**
  * SpiParamType:
@@ -92,7 +94,7 @@ typedef enum {
 typedef struct {
   const char    *name;
   const char    *description;
-  int            size;
+  size_t         size;
   const void    *value;
 } SpiParamRangeInfo;
 
@@ -112,13 +114,13 @@ typedef struct {
  * @priv: extra private data
  */
 typedef struct {
-  int                       id;
+  uint32_t                  id;
   const char               *name;
   const char               *description;
   SpiParamFlags             flags;
   SpiParamType              type;
-  int                       maxsize;
-  int                       default_size;
+  size_t                    maxsize;
+  size_t                    default_size;
   const void               *default_value;
   SpiParamRangeType         range_type;
   const SpiParamRangeInfo  *range_values;
@@ -141,11 +143,11 @@ struct _SpiParams {
    * Gets the information about the parameter at @idx in @params.
    *
    * Returns: #SPI_RESULT_OK on success.
-   *          #SPI_RESULT_NO_MORE_PARAM_INFO when there is no param info
+   *          #SPI_RESULT_ENM_END when there is no param info
    *           at @idx. This can be used to iterate the @params.
    */
-  SpiResult   (*get_param_info)    (const SpiParams     *params,
-                                    int                  idx,
+  SpiResult   (*enum_param_info)   (const SpiParams     *params,
+                                    unsigned int         idx,
                                     const SpiParamInfo **infos);
   /**
    * SpiParams::set_param
@@ -164,7 +166,7 @@ struct _SpiParams {
    *          #SPI_RESULT_WRONG_PARAM_TYPE when @type is not correct
    */
   SpiResult   (*set_param)         (SpiParams           *params,
-                                    int                  id,
+                                    uint32_t             id,
                                     SpiParamType         type,
                                     size_t               size,
                                     const void          *value);
@@ -183,12 +185,14 @@ struct _SpiParams {
    *          #SPI_RESULT_PARAM_UNSET when no value has been set yet
    */
   SpiResult   (*get_param)         (const SpiParams     *params,
-                                    int                  id,
+                                    uint32_t             id,
                                     SpiParamType        *type,
                                     size_t              *size,
                                     const void         **value);
 };
 
-G_END_DECLS
+#ifdef __cplusplus
+}  /* extern "C" */
+#endif
 
 #endif /* __SPI_PARAMS_H__ */

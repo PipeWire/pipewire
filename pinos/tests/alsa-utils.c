@@ -335,7 +335,7 @@ direct_loop (void *user_data)
 
         event.refcount = 1;
         event.notify = NULL;
-        event.type = SPI_EVENT_TYPE_REQUEST_DATA;
+        event.type = SPI_EVENT_TYPE_NEED_INPUT;
         event.port_id = 0;
         event.data = buffer;
 

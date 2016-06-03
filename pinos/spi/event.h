@@ -28,13 +28,30 @@ typedef struct _SpiEvent SpiEvent;
 
 #include <spi/defs.h>
 
+/**
+ * SpiEventType:
+ * @SPI_EVENT_TYPE_INVALID: invalid event, should be ignored
+ * @SPI_EVENT_TYPE_ACTIVATED: emited when the ACTIVATE command completes
+ * @SPI_EVENT_TYPE_DEACTIVATED: emited when the DEACTIVATE command completes
+ * @SPI_EVENT_TYPE_HAVE_OUTPUT: emited when an async node has output
+ * @SPI_EVENT_TYPE_NEED_INPUT: emited when an async node needs input. The data
+ *              member could contain a SpiBuffer that should be filled or it
+ *              can be %NULL.
+ * @SPI_EVENT_TYPE_ADD_POLL: emited when a pollfd should be added
+ * @SPI_EVENT_TYPE_REMOVE_POLL: emited when a pollfd should be removed
+ * @SPI_EVENT_TYPE_DRAINED: emited when DRAIN command completed
+ * @SPI_EVENT_TYPE_MARKER: emited when MARK command completed
+ * @SPI_EVENT_TYPE_ERROR: emited when error occured
+ * @SPI_EVENT_TYPE_BUFFERING: emited when buffering is in progress
+ */
 typedef enum {
   SPI_EVENT_TYPE_INVALID                  = 0,
   SPI_EVENT_TYPE_ACTIVATED,
   SPI_EVENT_TYPE_DEACTIVATED,
   SPI_EVENT_TYPE_HAVE_OUTPUT,
   SPI_EVENT_TYPE_NEED_INPUT,
-  SPI_EVENT_TYPE_REQUEST_DATA,
+  SPI_EVENT_TYPE_ADD_POLL,
+  SPI_EVENT_TYPE_REMOVE_POLL,
   SPI_EVENT_TYPE_DRAINED,
   SPI_EVENT_TYPE_MARKER,
   SPI_EVENT_TYPE_ERROR,

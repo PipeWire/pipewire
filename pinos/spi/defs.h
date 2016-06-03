@@ -37,7 +37,6 @@ typedef enum {
   SPI_RESULT_INVALID_PORT             = -5,
   SPI_RESULT_HAVE_ENOUGH_INPUT        = -6,
   SPI_RESULT_NEED_MORE_INPUT          = -7,
-  SPI_RESULT_HAVE_EVENT               = -8,
   SPI_RESULT_PORTS_CHANGED            = -9,
   SPI_RESULT_FORMAT_CHANGED           = -10,
   SPI_RESULT_PROPERTIES_CHANGED       = -11,

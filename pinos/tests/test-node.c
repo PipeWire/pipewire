@@ -177,11 +177,6 @@ inspect_node (SpiNode *node)
 }
 
 static void
-set_params (AppData *data)
-{
-}
-
-static void
 set_format (AppData *data)
 {
   SpiParams *format;
@@ -208,49 +203,6 @@ set_format (AppData *data)
     printf ("set format failed: %d\n", res);
   if ((res = data->sink->set_port_format (data->sink, 0, 0, format)) < 0)
     printf ("set format failed: %d\n", res);
-}
-
-static void
-handle_event (SpiNode *node)
-{
-  SpiEvent *event;
-  SpiResult res;
-
-  if ((res = node->get_event (node, &event)) < 0)
-    printf ("got result %d\n", res);
-
-  switch (event->type) {
-    case SPI_EVENT_TYPE_INVALID:
-      printf ("got invalid notify\n");
-      break;
-    case SPI_EVENT_TYPE_ACTIVATED:
-      printf ("got activated notify\n");
-      break;
-    case SPI_EVENT_TYPE_DEACTIVATED:
-      printf ("got deactivated notify\n");
-      break;
-    case SPI_EVENT_TYPE_HAVE_OUTPUT:
-      printf ("got have-output notify\n");
-      break;
-    case SPI_EVENT_TYPE_NEED_INPUT:
-      printf ("got need-input notify\n");
-      break;
-    case SPI_EVENT_TYPE_REQUEST_DATA:
-      printf ("got request-data notify\n");
-      break;
-    case SPI_EVENT_TYPE_DRAINED:
-      printf ("got drained notify\n");
-      break;
-    case SPI_EVENT_TYPE_MARKER:
-      printf ("got marker notify\n");
-      break;
-    case SPI_EVENT_TYPE_ERROR:
-      printf ("got error notify\n");
-      break;
-    case SPI_EVENT_TYPE_BUFFERING:
-      printf ("got noffering notify\n");
-      break;
-  }
 }
 
 typedef struct _MyBuffer MyBuffer;
@@ -411,27 +363,34 @@ on_event (SpiNode *node, SpiEvent *event, void *user_data)
   AppData *data = user_data;
 
   switch (event->type) {
-    case SPI_EVENT_TYPE_REQUEST_DATA:
+    case SPI_EVENT_TYPE_NEED_INPUT:
     {
       SpiBuffer *buf;
-      SpiDataInfo info;
+      SpiInputInfo iinfo;
+      SpiOutputInfo oinfo;
       SpiResult res;
 
       buf = event->data;
 
-      info.port_id = event->port_id;
-      info.flags = SPI_DATA_FLAG_NONE;
-      info.buffer = buf;
-      info.event = NULL;
+      oinfo.port_id = event->port_id;
+      oinfo.flags = SPI_OUTPUT_FLAG_NONE;
+      oinfo.buffer = buf;
+      oinfo.event = NULL;
 
-      if ((res = data->src->receive_port_data (data->src, 1, &info)) < 0)
+      if ((res = data->src->pull_port_output (data->src, 1, &oinfo)) < 0)
         printf ("got error %d\n", res);
 
-      if ((res = data->sink->send_port_data (data->sink, &info)) < 0)
+      iinfo.port_id = 0;
+      iinfo.flags = SPI_INPUT_FLAG_NONE;
+      iinfo.buffer = oinfo.buffer;
+      iinfo.event = oinfo.event;
+
+      if ((res = data->sink->push_port_input (data->sink, 1, &iinfo)) < 0)
         printf ("got error %d\n", res);
       break;
     }
     default:
+      printf ("got event %d\n", event->type);
       break;
   }
 }
@@ -443,8 +402,6 @@ run_async_sink (AppData *data)
   SpiCommand cmd;
 
   set_format (data);
-
-  data->sink->set_event_callback (data->sink, on_event, data);
 
   cmd.type = SPI_COMMAND_START;
   if ((res = data->sink->send_command (data->sink, &cmd)) < 0)
@@ -479,6 +436,8 @@ setup_sink (AppData *data)
   SpiParams *params;
 
   data->sink = spi_alsa_sink_new ();
+
+  data->sink->set_event_callback (data->sink, on_event, data);
 
   if ((res = data->sink->get_params (data->sink, &params)) < 0)
     printf ("got get_params error %d\n", res);

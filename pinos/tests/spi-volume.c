@@ -48,9 +48,6 @@ struct _SpiVolume {
   SpiVolumeParams params;
   SpiVolumeParams tmp_params;
 
-  SpiEvent *event;
-  SpiEvent last_event;
-
   SpiEventCallback event_cb;
   void *user_data;
 
@@ -109,9 +106,14 @@ enum_param_info (const SpiParams     *params,
                  unsigned int         index,
                  const SpiParamInfo **info)
 {
+  if (params == NULL || info == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
+
   if (index >= PARAM_ID_LAST)
     return SPI_RESULT_ENUM_END;
+
   *info = &param_info[index];
+
   return SPI_RESULT_OK;
 }
 
@@ -235,64 +237,63 @@ spi_volume_node_send_command (SpiNode       *node,
                               SpiCommand    *command)
 {
   SpiVolume *this = (SpiVolume *) node;
-  SpiResult res = SPI_RESULT_NOT_IMPLEMENTED;
 
   if (node == NULL || command == NULL)
     return SPI_RESULT_INVALID_ARGUMENTS;
 
   switch (command->type) {
     case SPI_COMMAND_INVALID:
-      res = SPI_RESULT_INVALID_COMMAND;
-      break;
+      return SPI_RESULT_INVALID_COMMAND;
+
     case SPI_COMMAND_ACTIVATE:
-      this->last_event.type = SPI_EVENT_TYPE_ACTIVATED;
-      this->last_event.data = NULL;
-      this->last_event.size = 0;
-      this->event = &this->last_event;
-      res = SPI_RESULT_HAVE_EVENT;
+      if (this->event_cb) {
+        SpiEvent event;
+
+        event.refcount = 1;
+        event.notify = NULL;
+        event.type = SPI_EVENT_TYPE_ACTIVATED;
+        event.port_id = -1;
+        event.data = NULL;
+        event.size = 0;
+
+        this->event_cb (node, &event, this->user_data);
+      }
       break;
+
     case SPI_COMMAND_DEACTIVATE:
-      this->last_event.type = SPI_EVENT_TYPE_DEACTIVATED;
-      this->last_event.data = NULL;
-      this->last_event.size = 0;
-      this->event = &this->last_event;
-      res = SPI_RESULT_HAVE_EVENT;
+      if (this->event_cb) {
+        SpiEvent event;
+
+        event.refcount = 1;
+        event.notify = NULL;
+        event.type = SPI_EVENT_TYPE_DEACTIVATED;
+        event.port_id = -1;
+        event.data = NULL;
+        event.size = 0;
+
+        this->event_cb (node, &event, this->user_data);
+      }
       break;
+
     case SPI_COMMAND_START:
-      break;
     case SPI_COMMAND_STOP:
-      break;
     case SPI_COMMAND_FLUSH:
-      break;
     case SPI_COMMAND_DRAIN:
-      break;
     case SPI_COMMAND_MARKER:
-      break;
+      return SPI_RESULT_NOT_IMPLEMENTED;
   }
-  return res;
-}
-
-static SpiResult
-spi_volume_node_get_event (SpiNode     *node,
-                           SpiEvent   **event)
-{
-  SpiVolume *this = (SpiVolume *) node;
-
-  if (this->event == NULL)
-    return SPI_RESULT_ERROR;
-
-  *event = this->event;
-  this->event = NULL;
-
   return SPI_RESULT_OK;
 }
 
 static SpiResult
-spi_volume_node_set_event_callback (SpiNode       *node,
-                                    SpiEventCallback event,
-                                    void          *user_data)
+spi_volume_node_set_event_callback (SpiNode          *node,
+                                    SpiEventCallback  event,
+                                    void             *user_data)
 {
   SpiVolume *this = (SpiVolume *) node;
+
+  if (node == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
 
   this->event_cb = event;
   this->user_data = user_data;
@@ -329,9 +330,12 @@ spi_volume_node_get_port_ids (SpiNode       *node,
                               unsigned int   n_output_ports,
                               uint32_t      *output_ids)
 {
-  if (n_input_ports > 0)
+  if (node == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
+
+  if (n_input_ports > 0 && input_ids)
     input_ids[0] = 0;
-  if (n_output_ports > 0)
+  if (n_output_ports > 0 && output_ids)
     output_ids[0] = 1;
 
   return SPI_RESULT_OK;
@@ -451,9 +455,14 @@ enum_raw_format_param_info (const SpiParams     *params,
                             unsigned int         index,
                             const SpiParamInfo **info)
 {
+  if (params == NULL || info == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
+
   if (index >= 4)
     return SPI_RESULT_ENUM_END;
+
   *info = &raw_format_param_info[index];
+
   return SPI_RESULT_OK;
 }
 
@@ -468,6 +477,9 @@ set_format_param (SpiParams    *params,
                   const void   *value)
 {
   SpiVolumeFormat *f = (SpiVolumeFormat *) params;
+
+  if (params == NULL || value == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
 
   switch (id) {
     case SPI_PARAM_ID_FORMAT:
@@ -511,6 +523,9 @@ get_format_param (const SpiParams *params,
                   const void     **value)
 {
   SpiVolumeFormat *f = (SpiVolumeFormat *) params;
+
+  if (params == NULL || type == NULL || size == NULL || value == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
 
   switch (id) {
     case SPI_PARAM_ID_MEDIA_TYPE:
@@ -558,6 +573,9 @@ spi_volume_node_enum_port_formats (SpiNode          *node,
 {
   static SpiVolumeFormat fmt;
 
+  if (node == NULL || format == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
+
   if (port_id != 0)
     return SPI_RESULT_INVALID_PORT;
 
@@ -587,10 +605,15 @@ spi_volume_node_set_port_format (SpiNode         *node,
   SpiParamType type;
   size_t size;
   const void *value;
-  SpiVolumeFormat *fmt = &this->current_format;
+  SpiVolumeFormat *fmt;
+
+  if (node == NULL || format == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
 
   if (port_id != 0)
     return SPI_RESULT_INVALID_PORT;
+
+  fmt = &this->current_format;
 
   if (format == NULL) {
     fmt->param.get_param = NULL;
@@ -653,6 +676,9 @@ spi_volume_node_get_port_format (SpiNode          *node,
 {
   SpiVolume *this = (SpiVolume *) node;
 
+  if (node == NULL || format == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
+
   if (port_id != 0)
     return SPI_RESULT_INVALID_PORT;
 
@@ -669,6 +695,9 @@ spi_volume_node_get_port_info (SpiNode       *node,
                                uint32_t       port_id,
                                SpiPortInfo   *info)
 {
+  if (node == NULL || info == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
+
   switch (port_id) {
     case 0:
       info->flags = SPI_PORT_INFO_FLAG_CAN_USE_BUFFER |
@@ -709,6 +738,9 @@ spi_volume_node_get_port_status (SpiNode        *node,
   SpiVolume *this = (SpiVolume *) node;
   SpiPortStatusFlags flags = 0;
 
+  if (node == NULL || status == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
+
   if (!this->have_format)
     return SPI_RESULT_NO_FORMAT;
 
@@ -730,40 +762,62 @@ spi_volume_node_get_port_status (SpiNode        *node,
 }
 
 static SpiResult
-spi_volume_node_send_port_data (SpiNode       *node,
-                                SpiDataInfo   *data)
+spi_volume_node_push_port_input (SpiNode        *node,
+                                 unsigned int    n_info,
+                                 SpiInputInfo   *info)
 {
   SpiVolume *this = (SpiVolume *) node;
   SpiBuffer *buffer;
   SpiEvent *event;
+  unsigned int i;
+  bool have_error = false;
+  bool have_enough = false;
 
-  if (node == NULL || data == NULL)
+  if (node == NULL || n_info == 0 || info == NULL)
     return SPI_RESULT_INVALID_ARGUMENTS;
 
-  if (data->port_id != 0)
-    return SPI_RESULT_INVALID_PORT;
-
-  event = data->event;
-  buffer = data->buffer;
-
-  if (buffer == NULL && event == NULL)
-    return SPI_RESULT_INVALID_ARGUMENTS;
-
-  if (!this->have_format)
-    return SPI_RESULT_NO_FORMAT;
-
-  if (buffer) {
-    if (this->input_buffer != NULL)
-      return SPI_RESULT_HAVE_ENOUGH_INPUT;
-
-    this->input_buffer = spi_buffer_ref (buffer);
-  }
-  if (event) {
-    switch (event->type) {
-      default:
-        break;
+  for (i = 0; i < n_info; i++) {
+    if (info[i].port_id != 0) {
+      info[i].status = SPI_RESULT_INVALID_PORT;
+      have_error = true;
+      continue;
     }
+
+    event = info[i].event;
+    buffer = info[i].buffer;
+
+    if (buffer == NULL && event == NULL) {
+      info[i].status = SPI_RESULT_INVALID_ARGUMENTS;
+      have_error = true;
+      continue;
+    }
+
+    if (buffer) {
+      if (!this->have_format) {
+        info[i].status = SPI_RESULT_NO_FORMAT;
+        have_error = true;
+        continue;
+      }
+
+      if (this->input_buffer != NULL) {
+        info[i].status = SPI_RESULT_HAVE_ENOUGH_INPUT;
+        have_enough = true;
+        continue;
+      }
+      this->input_buffer = spi_buffer_ref (buffer);
+    }
+    if (event) {
+      switch (event->type) {
+        default:
+          break;
+      }
+    }
+    info[i].status = SPI_RESULT_OK;
   }
+  if (have_error)
+    return SPI_RESULT_ERROR;
+  if (have_enough)
+    return SPI_RESULT_HAVE_ENOUGH_INPUT;
 
   return SPI_RESULT_OK;
 }
@@ -771,9 +825,9 @@ spi_volume_node_send_port_data (SpiNode       *node,
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 
 static SpiResult
-spi_volume_node_receive_port_data (SpiNode      *node,
-                                   unsigned int  n_data,
-                                   SpiDataInfo  *data)
+spi_volume_node_pull_port_output (SpiNode        *node,
+                                  unsigned int    n_info,
+                                  SpiOutputInfo  *info)
 {
   SpiVolume *this = (SpiVolume *) node;
   unsigned int si, di, i, n_samples, n_bytes, soff, doff ;
@@ -782,10 +836,10 @@ spi_volume_node_receive_port_data (SpiNode      *node,
   uint16_t *src, *dst;
   double volume;
 
-  if (node == NULL || n_data == 0 || data == NULL)
+  if (node == NULL || n_info == 0 || info == NULL)
     return SPI_RESULT_INVALID_ARGUMENTS;
 
-  if (data->port_id != 1)
+  if (info->port_id != 1)
     return SPI_RESULT_INVALID_PORT;
 
   if (!this->have_format)
@@ -797,7 +851,7 @@ spi_volume_node_receive_port_data (SpiNode      *node,
   volume = this->params.volume;
 
   sbuf = this->input_buffer;
-  dbuf = data->buffer ? data->buffer : this->input_buffer;
+  dbuf = info->buffer ? info->buffer : this->input_buffer;
 
   si = di = 0;
   soff = doff = 0;
@@ -843,9 +897,26 @@ spi_volume_node_receive_port_data (SpiNode      *node,
     spi_buffer_unref (sbuf);
 
   this->input_buffer = NULL;
-  data->buffer = dbuf;
+  info->buffer = dbuf;
 
   return SPI_RESULT_OK;
+}
+
+static SpiResult
+spi_volume_node_enum_interface_info (SpiNode                  *node,
+                                     unsigned int             index,
+                                     const SpiInterfaceInfo **info)
+
+{
+  return SPI_RESULT_NOT_IMPLEMENTED;
+}
+
+static SpiResult
+spi_volume_node_get_interface (SpiNode                 *node,
+                               uint32_t                 interface_id,
+                               void                   **interface)
+{
+  return SPI_RESULT_NOT_IMPLEMENTED;
 }
 
 SpiNode *
@@ -859,7 +930,6 @@ spi_volume_new (void)
   node->get_params = spi_volume_node_get_params;
   node->set_params = spi_volume_node_set_params;
   node->send_command = spi_volume_node_send_command;
-  node->get_event = spi_volume_node_get_event;
   node->set_event_callback = spi_volume_node_set_event_callback;
   node->get_n_ports = spi_volume_node_get_n_ports;
   node->get_port_ids = spi_volume_node_get_port_ids;
@@ -872,8 +942,10 @@ spi_volume_new (void)
   node->get_port_params = spi_volume_node_get_port_params;
   node->set_port_params = spi_volume_node_set_port_params;
   node->get_port_status = spi_volume_node_get_port_status;
-  node->send_port_data = spi_volume_node_send_port_data;
-  node->receive_port_data = spi_volume_node_receive_port_data;
+  node->push_port_input = spi_volume_node_push_port_input;
+  node->pull_port_output = spi_volume_node_pull_port_output;
+  node->enum_interface_info = spi_volume_node_enum_interface_info;
+  node->get_interface = spi_volume_node_get_interface;
 
   this = (SpiVolume *) node;
   this->params.param.enum_param_info = enum_param_info;

@@ -48,9 +48,6 @@ struct _SpiAudioTestSrc {
   SpiAudioTestSrcParams params;
   SpiAudioTestSrcParams tmp_params;
 
-  SpiEvent *event;
-  SpiEvent last_event;
-
   SpiEventCallback event_cb;
   void *user_data;
 
@@ -277,58 +274,51 @@ spi_audiotestsrc_node_send_command (SpiNode       *node,
                                     SpiCommand    *command)
 {
   SpiAudioTestSrc *this = (SpiAudioTestSrc *) node;
-  SpiResult res = SPI_RESULT_NOT_IMPLEMENTED;
 
   if (node == NULL || command == NULL)
     return SPI_RESULT_INVALID_ARGUMENTS;
 
   switch (command->type) {
     case SPI_COMMAND_INVALID:
-      res = SPI_RESULT_INVALID_COMMAND;
-      break;
+      return SPI_RESULT_INVALID_COMMAND;
+
     case SPI_COMMAND_ACTIVATE:
-      this->last_event.type = SPI_EVENT_TYPE_ACTIVATED;
-      this->last_event.data = NULL;
-      this->last_event.size = 0;
-      this->event = &this->last_event;
-      res = SPI_RESULT_HAVE_EVENT;
+      if (this->event_cb) {
+        SpiEvent event;
+
+        event.refcount = 1;
+        event.notify = NULL;
+        event.type = SPI_EVENT_TYPE_ACTIVATED;
+        event.port_id = -1;
+        event.data = NULL;
+        event.size = 0;
+
+        this->event_cb (node, &event, this->user_data);
+      }
       break;
+
     case SPI_COMMAND_DEACTIVATE:
-      this->last_event.type = SPI_EVENT_TYPE_DEACTIVATED;
-      this->last_event.data = NULL;
-      this->last_event.size = 0;
-      this->event = &this->last_event;
-      res = SPI_RESULT_HAVE_EVENT;
+      if (this->event_cb) {
+        SpiEvent event;
+
+        event.refcount = 1;
+        event.notify = NULL;
+        event.type = SPI_EVENT_TYPE_DEACTIVATED;
+        event.port_id = -1;
+        event.data = NULL;
+        event.size = 0;
+
+        this->event_cb (node, &event, this->user_data);
+      }
       break;
+
     case SPI_COMMAND_START:
-      break;
     case SPI_COMMAND_STOP:
-      break;
     case SPI_COMMAND_FLUSH:
-      break;
     case SPI_COMMAND_DRAIN:
-      break;
     case SPI_COMMAND_MARKER:
-      break;
+      return SPI_RESULT_NOT_IMPLEMENTED;
   }
-  return res;
-}
-
-static SpiResult
-spi_audiotestsrc_node_get_event (SpiNode     *node,
-                                 SpiEvent   **event)
-{
-  SpiAudioTestSrc *this = (SpiAudioTestSrc *) node;
-
-  if (node == NULL || event == NULL)
-    return SPI_RESULT_INVALID_ARGUMENTS;
-
-  if (this->event == NULL)
-    return SPI_RESULT_ERROR;
-
-  *event = this->event;
-  this->event = NULL;
-
   return SPI_RESULT_OK;
 }
 
@@ -790,41 +780,77 @@ spi_audiotestsrc_node_get_port_status (SpiNode        *node,
 }
 
 static SpiResult
-spi_audiotestsrc_node_send_port_data (SpiNode       *node,
-                                      SpiDataInfo   *data)
+spi_audiotestsrc_node_push_port_input (SpiNode       *node,
+                                       unsigned int   n_info,
+                                       SpiInputInfo  *info)
 {
   return SPI_RESULT_INVALID_PORT;
 }
 
 static SpiResult
-spi_audiotestsrc_node_receive_port_data (SpiNode      *node,
-                                         unsigned int  n_data,
-                                         SpiDataInfo  *data)
+spi_audiotestsrc_node_pull_port_output (SpiNode       *node,
+                                        unsigned int   n_info,
+                                        SpiOutputInfo *info)
 {
   SpiAudioTestSrc *this = (SpiAudioTestSrc *) node;
-  size_t i, size;
+  size_t j, size;
   uint8_t *ptr;
+  unsigned int i;
+  bool have_error = false;
 
-  if (node == NULL || n_data == 0 || data == NULL)
+  if (node == NULL || n_info == 0 || info == NULL)
     return SPI_RESULT_INVALID_ARGUMENTS;
 
-  if (data->port_id != 0)
-    return SPI_RESULT_INVALID_PORT;
+  for (i = 0; i < n_info; i++) {
+    if (info[i].port_id != 0) {
+      info[i].status = SPI_RESULT_INVALID_PORT;
+      have_error = true;
+      continue;
+    }
 
-  if (!this->have_format)
-    return SPI_RESULT_NO_FORMAT;
+    if (!this->have_format) {
+      info[i].status = SPI_RESULT_NO_FORMAT;
+      have_error = true;
+      continue;
+    }
 
-  if (data->buffer == NULL)
-    return SPI_RESULT_INVALID_ARGUMENTS;
+    if (info[i].buffer == NULL || info[i].buffer->n_datas == 0) {
+      info[i].status = SPI_RESULT_INVALID_ARGUMENTS;
+      have_error = true;
+      continue;
+    }
 
-  ptr = data->buffer->datas[0].data;
-  size = data->buffer->datas[0].size;
+    ptr = info[i].buffer->datas[0].data;
+    size = info[i].buffer->datas[0].size;
 
-  for (i = 0; i < size; i++)
-    ptr[i] = rand();
+    for (j = 0; j < size; j++)
+      ptr[j] = rand();
+
+    info[i].status = SPI_RESULT_OK;
+  }
+  if (have_error)
+    return SPI_RESULT_ERROR;
 
   return SPI_RESULT_OK;
 }
+
+static SpiResult
+spi_audiotestsrc_node_enum_interface_info (SpiNode                  *node,
+                                           unsigned int             index,
+                                           const SpiInterfaceInfo **info)
+
+{
+  return SPI_RESULT_NOT_IMPLEMENTED;
+}
+
+static SpiResult
+spi_audiotestsrc_node_get_interface (SpiNode                 *node,
+                                     uint32_t                 interface_id,
+                                     void                   **interface)
+{
+  return SPI_RESULT_NOT_IMPLEMENTED;
+}
+
 
 SpiNode *
 spi_audiotestsrc_new (void)
@@ -837,7 +863,6 @@ spi_audiotestsrc_new (void)
   node->get_params = spi_audiotestsrc_node_get_params;
   node->set_params = spi_audiotestsrc_node_set_params;
   node->send_command = spi_audiotestsrc_node_send_command;
-  node->get_event = spi_audiotestsrc_node_get_event;
   node->set_event_callback = spi_audiotestsrc_node_set_event_callback;
   node->get_n_ports = spi_audiotestsrc_node_get_n_ports;
   node->get_port_ids = spi_audiotestsrc_node_get_port_ids;
@@ -850,8 +875,10 @@ spi_audiotestsrc_new (void)
   node->get_port_params = spi_audiotestsrc_node_get_port_params;
   node->set_port_params = spi_audiotestsrc_node_set_port_params;
   node->get_port_status = spi_audiotestsrc_node_get_port_status;
-  node->send_port_data = spi_audiotestsrc_node_send_port_data;
-  node->receive_port_data = spi_audiotestsrc_node_receive_port_data;
+  node->push_port_input = spi_audiotestsrc_node_push_port_input;
+  node->pull_port_output = spi_audiotestsrc_node_pull_port_output;
+  node->enum_interface_info = spi_audiotestsrc_node_enum_interface_info;
+  node->get_interface = spi_audiotestsrc_node_get_interface;
 
   this = (SpiAudioTestSrc *) node;
   this->params.param.enum_param_info = enum_param_info;

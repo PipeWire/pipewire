@@ -34,37 +34,68 @@ typedef struct _SpiNode SpiNode;
 #include <spi/command.h>
 
 /**
- * SpiDataFlags:
- * @SPI_DATA_FLAG_NONE: no flag
- * @SPI_DATA_FLAG_DISCARD: the buffer can be discarded
- * @SPI_DATA_FLAG_FORMAT_CHANGED: the format of this port changed
- * @SPI_DATA_FLAG_PROPERTIES_CHANGED: properties of this port changed
- * @SPI_DATA_FLAG_REMOVED: this port is removed
- * @SPI_DATA_FLAG_NO_BUFFER: no buffer was produced
+ * SpiInputFlags:
+ * @SPI_INPUT_FLAG_NONE: no flag
  */
 typedef enum {
-  SPI_DATA_FLAG_NONE                  =  0,
-  SPI_DATA_FLAG_DISCARD               = (1 << 0),
-  SPI_DATA_FLAG_FORMAT_CHANGED        = (1 << 1),
-  SPI_DATA_FLAG_PROPERTIES_CHANGED    = (1 << 2),
-  SPI_DATA_FLAG_REMOVED               = (1 << 3),
-  SPI_DATA_FLAG_NO_BUFFER             = (1 << 4),
-} SpiDataFlags;
+  SPI_INPUT_FLAG_NONE                  =  0,
+} SpiInputFlags;
 
 /**
- * SpiDataInfo:
+ * SpiOutputFlags:
+ * @SPI_OUTPUT_FLAG_NONE: no flag
+ * @SPI_OUTPUT_FLAG_PULL: force a #SPI_EVENT_NEED_INPUT event on the
+ *                        peer input ports when no data is available.
+ * @SPI_OUTPUT_FLAG_DISCARD: discard the buffer data
+ */
+typedef enum {
+  SPI_OUTPUT_FLAG_NONE                  =  0,
+  SPI_OUTPUT_FLAG_PULL                  = (1 << 0),
+  SPI_OUTPUT_FLAG_DISCARD               = (1 << 1),
+} SpiOutputFlags;
+
+/**
+ * SpiInputInfo:
+ * @port_id: the port id
+ * @flags: extra flags
+ * @buffer: a buffer
+ *
+ * Input information for a node.
+ */
+typedef struct {
+  uint32_t        port_id;
+  SpiInputFlags   flags;
+  SpiBuffer      *buffer;
+  SpiEvent       *event;
+  SpiResult       status;
+} SpiInputInfo;
+
+/**
+ * SpiOutputInfo:
  * @port_id: the port id
  * @flags: extra flags
  * @buffer: a buffer
  * @event: an event
+ *
+ * Output information for a node.
  */
 typedef struct {
-  uint32_t      port_id;
-  SpiDataFlags  flags;
-  SpiBuffer    *buffer;
-  SpiEvent     *event;
-} SpiDataInfo;
+  uint32_t        port_id;
+  SpiOutputFlags  flags;
+  SpiBuffer      *buffer;
+  SpiEvent       *event;
+  SpiResult       status;
+} SpiOutputInfo;
 
+/**
+ * SpiEventCallback:
+ * @node: a #SpiNode emiting the event
+ * @event: the event that was emited
+ * @user_data: user data provided when registering the callback
+ *
+ * This will be called when an out-of-bound event is notified
+ * on @node.
+ */
 typedef void   (*SpiEventCallback)   (SpiNode     *node,
                                       SpiEvent    *event,
                                       void        *user_data);
@@ -99,7 +130,7 @@ struct _SpiNode {
 
   /**
    * SpiNode::get_params:
-   * @Node: a #SpiNode
+   * @node: a #SpiNode
    * @props: a location for a #SpiParams pointer
    *
    * Get the configurable parameters of @node.
@@ -117,7 +148,7 @@ struct _SpiNode {
                                        SpiParams       **props);
   /**
    * SpiNode::set_params:
-   * @Node: a #SpiNode
+   * @node: a #SpiNode
    * @props: a #SpiParams
    *
    * Set the configurable parameters in @node.
@@ -141,7 +172,7 @@ struct _SpiNode {
                                        const SpiParams  *props);
   /**
    * SpiNode::send_command:
-   * @Node: a #SpiNode
+   * @node: a #SpiNode
    * @command: a #SpiCommand
    *
    * Send a command to @node.
@@ -153,14 +184,12 @@ struct _SpiNode {
    */
   SpiResult   (*send_command)         (SpiNode          *node,
                                        SpiCommand       *command);
-  SpiResult   (*get_event)            (SpiNode          *node,
-                                       SpiEvent        **event);
   SpiResult   (*set_event_callback)   (SpiNode          *node,
                                        SpiEventCallback  callback,
                                        void             *user_data);
   /**
    * SpiNode::get_n_ports:
-   * @Node: a #SpiNode
+   * @node: a #SpiNode
    * @n_input_ports: location to hold the number of input ports or %NULL
    * @max_input_ports: location to hold the maximum number of input ports or %NULL
    * @n_output_ports: location to hold the number of output ports or %NULL
@@ -179,7 +208,7 @@ struct _SpiNode {
                                        unsigned int     *max_output_ports);
   /**
    * SpiNode::get_port_ids:
-   * @Node: a #SpiNode
+   * @node: a #SpiNode
    * @n_input_ports: size of the @input_ids array
    * @input_ids: array to store the input stream ids
    * @n_output_ports: size of the @output_ids array
@@ -203,14 +232,68 @@ struct _SpiNode {
   SpiResult   (*remove_port)          (SpiNode          *node,
                                        uint32_t          port_id);
 
+  /**
+   * SpiNode::enum_port_formats:
+   * @node: a #SpiNode
+   * @port_id: the port to query
+   * @index: the format index to retrieve
+   * @format: pointer to a format
+   *
+   * Enumerate all possible formats on @port_id of @node.
+   *
+   * Use the index to retrieve the formats one by one until the function
+   * returns #SPI_RESULT_ENUM_END.
+   *
+   * The result format can be queried and modified and ultimately be used
+   * to call SpiNode::set_port_format.
+   *
+   * Returns: #SPI_RESULT_OK on success
+   *          #SPI_RESULT_INVALID_ARGUMENTS when node or format is %NULL
+   *          #SPI_RESULT_INVALID_PORT when port_id is not valid
+   *          #SPI_RESULT_ENUM_END when no format exists for @index
+   *
+   */
   SpiResult   (*enum_port_formats)    (SpiNode          *node,
                                        uint32_t          port_id,
                                        unsigned int      index,
                                        SpiParams       **format);
+  /**
+   * SpiNode::set_port_format:
+   * @node: a #SpiNode
+   * @port_id: the port to configure
+   * @format: a #SpiParam with the format
+   *
+   * Set a format on @port_id of @node.
+   *
+   * When @format is %NULL, the current format will be removed.
+   *
+   * Returns: #SPI_RESULT_OK on success
+   *          #SPI_RESULT_INVALID_ARGUMENTS when node is %NULL
+   *          #SPI_RESULT_INVALID_PORT when port_id is not valid
+   *          #SPI_RESULT_INVALID_MEDIA_TYPE when the media type is not valid
+   *          #SPI_RESULT_INVALID_FORMAT_PARAMS when one of the mandatory format
+   *                 parameters is not specified.
+   *          #SPI_RESULT_WRONG_PARAM_TYPE when the type of size of a parameter
+   *                 is not correct.
+   */
   SpiResult   (*set_port_format)      (SpiNode          *node,
                                        uint32_t          port_id,
                                        int               test_only,
                                        const SpiParams  *format);
+  /**
+   * SpiNode::get_port_format:
+   * @node: a #SpiNode
+   * @port_id: the port to query
+   * @format: a pointer to a location to hold the #SpiParam
+   *
+   * Get the format on @port_id of @node. The result #SpiParam can
+   * not be modified.
+   *
+   * Returns: #SPI_RESULT_OK on success
+   *          #SPI_RESULT_INVALID_ARGUMENTS when @node or @format is %NULL
+   *          #SPI_RESULT_INVALID_PORT when @port_id is not valid
+   *          #SPI_RESULT_INVALID_NO_FORMAT when no format was set
+   */
   SpiResult   (*get_port_format)      (SpiNode          *node,
                                        uint32_t          port_id,
                                        const SpiParams **format);
@@ -230,11 +313,50 @@ struct _SpiNode {
                                        uint32_t          port_id,
                                        SpiPortStatus    *status);
 
-  SpiResult   (*send_port_data)       (SpiNode          *node,
-                                       SpiDataInfo      *data);
-  SpiResult   (*receive_port_data)    (SpiNode          *node,
-                                       unsigned int      n_data,
-                                       SpiDataInfo      *data);
+  /**
+   * SpiNode::push_port_input:
+   * @node: a #SpiNode
+   * @n_info: number of #SpiInputInfo in @info
+   * @info: array of #SpiInputInfo
+   *
+   * Push a buffer and/or an event into one or more input ports of
+   * @node.
+   *
+   * Returns: #SPI_RESULT_OK on success
+   *          #SPI_RESULT_INVALID_ARGUMENTS when node or info is %NULL
+   *          #SPI_RESULT_ERROR when one or more of the @info has an
+   *                         error result. Check the status of all the
+   *                         @info.
+   *          #SPI_RESULT_HAVE_ENOUGH_INPUT when output can be produced.
+   */
+  SpiResult   (*push_port_input)      (SpiNode          *node,
+                                       unsigned int      n_info,
+                                       SpiInputInfo     *info);
+  /**
+   * SpiNode::pull_port_output:
+   * @node: a #SpiNode
+   * @n_info: number of #SpiOutputInfo in @info
+   * @info: array of #SpiOutputInfo
+   *
+   * Pull a buffer and/or an event from one or more output ports of
+   * @node.
+   *
+   * Returns: #SPI_RESULT_OK on success
+   *          #SPI_RESULT_INVALID_ARGUMENTS when node or info is %NULL
+   *          #SPI_RESULT_PORTS_CHANGED the number of ports has changed. None
+   *                   of the @info fields are modified
+   *          #SPI_RESULT_FORMAT_CHANGED a format changed on some port.
+   *                   the ports that changed are marked in the status.
+   *          #SPI_RESULT_PROPERTIES_CHANGED port properties changed. The
+   *                   changed ports are marked in the status.
+   *          #SPI_RESULT_ERROR when one or more of the @info has an
+   *                   error result. Check the status of all the @info.
+   *          #SPI_RESULT_NEED_MORE_INPUT when no output can be produced
+   *                   because more input is needed.
+   */
+  SpiResult   (*pull_port_output)     (SpiNode          *node,
+                                       unsigned int      n_info,
+                                       SpiOutputInfo    *info);
 
 
   /**

@@ -410,8 +410,6 @@ on_event (SpiNode *node, SpiEvent *event, void *user_data)
 {
   AppData *data = user_data;
 
-  printf ("got event %d\n", event->type);
-
   switch (event->type) {
     case SPI_EVENT_TYPE_REQUEST_DATA:
     {

@@ -360,14 +360,13 @@ direct_loop (void *user_data)
         buffer->data[0].data = (uint8_t *)my_areas[0].addr + (offset * sizeof (uint16_t) * 2);
         buffer->data[0].size = frames * sizeof (uint16_t) * 2;
 
-        printf ("fill data\n");
         this->event_cb (&this->node, &event,this->user_data);
 
         spi_buffer_unref ((SpiBuffer *)event.data);
       }
       if (this->input_buffer) {
         if (this->input_buffer != &this->buffer.buffer) {
-          printf ("copy input !\n");
+          /* FIXME, copy input */
         }
         spi_buffer_unref (this->input_buffer);
         this->input_buffer = NULL;
@@ -415,6 +414,8 @@ spi_alsa_start (SpiALSASink *this)
 
   CHECK (set_hwparams (this), "hwparams");
   CHECK (set_swparams (this), "swparams");
+
+  snd_pcm_dump (this->state.handle, this->state.output);
 
   state->running = true;
   if ((err = pthread_create (&state->thread, NULL, direct_loop, this)) != 0) {

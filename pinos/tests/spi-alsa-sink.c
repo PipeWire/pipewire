@@ -28,8 +28,8 @@ typedef struct _SpiALSASink SpiALSASink;
 
 
 static const char default_device[] = "default";
-static const uint32_t default_buffer_time = 500000;
-static const uint32_t default_period_time = 100000;
+static const uint32_t default_buffer_time = 40000;
+static const uint32_t default_period_time = 20000;
 static const bool default_period_event = 0;
 
 typedef struct {

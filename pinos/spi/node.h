@@ -184,6 +184,21 @@ struct _SpiNode {
    */
   SpiResult   (*send_command)         (SpiNode          *node,
                                        SpiCommand       *command);
+  /**
+   * SpiNode::set_event_callback:
+   * @node: a #SpiNode
+   * @callback: a callback
+   * @user_data: user data passed in the callback
+   *
+   * Set a callback to receive events from @node. if @callback is %NULL, the
+   * current callback is removed.
+   *
+   * The callback can be emited from any thread. The caller should take
+   * appropriate actions to handle the event in other threads when needed.
+   *
+   * Returns: #SPI_RESULT_OK on success
+   *          #SPI_RESULT_INVALID_ARGUMENTS when node is %NULL
+   */
   SpiResult   (*set_event_callback)   (SpiNode          *node,
                                        SpiEventCallback  callback,
                                        void             *user_data);

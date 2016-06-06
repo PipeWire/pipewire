@@ -363,7 +363,7 @@ on_event (SpiNode *node, SpiEvent *event, void *user_data)
   AppData *data = user_data;
 
   switch (event->type) {
-    case SPI_EVENT_TYPE_NEED_INPUT:
+    case SPI_EVENT_TYPE_PULL_INPUT:
     {
       SpiBuffer *buf;
       SpiInputInfo iinfo;

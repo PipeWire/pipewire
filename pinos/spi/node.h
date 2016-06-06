@@ -42,19 +42,6 @@ typedef enum {
 } SpiInputFlags;
 
 /**
- * SpiOutputFlags:
- * @SPI_OUTPUT_FLAG_NONE: no flag
- * @SPI_OUTPUT_FLAG_PULL: force a #SPI_EVENT_NEED_INPUT event on the
- *                        peer input ports when no data is available.
- * @SPI_OUTPUT_FLAG_DISCARD: discard the buffer data
- */
-typedef enum {
-  SPI_OUTPUT_FLAG_NONE                  =  0,
-  SPI_OUTPUT_FLAG_PULL                  = (1 << 0),
-  SPI_OUTPUT_FLAG_DISCARD               = (1 << 1),
-} SpiOutputFlags;
-
-/**
  * SpiInputInfo:
  * @port_id: the port id
  * @flags: extra flags
@@ -69,6 +56,19 @@ typedef struct {
   SpiEvent       *event;
   SpiResult       status;
 } SpiInputInfo;
+
+/**
+ * SpiOutputFlags:
+ * @SPI_OUTPUT_FLAG_NONE: no flag
+ * @SPI_OUTPUT_FLAG_PULL: force a #SPI_EVENT_NEED_INPUT event on the
+ *                        peer input ports when no data is available.
+ * @SPI_OUTPUT_FLAG_DISCARD: discard the buffer data
+ */
+typedef enum {
+  SPI_OUTPUT_FLAG_NONE                  =  0,
+  SPI_OUTPUT_FLAG_PULL                  = (1 << 0),
+  SPI_OUTPUT_FLAG_DISCARD               = (1 << 1),
+} SpiOutputFlags;
 
 /**
  * SpiOutputInfo:

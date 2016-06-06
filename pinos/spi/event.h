@@ -33,10 +33,9 @@ typedef struct _SpiEvent SpiEvent;
  * @SPI_EVENT_TYPE_INVALID: invalid event, should be ignored
  * @SPI_EVENT_TYPE_ACTIVATED: emited when the ACTIVATE command completes
  * @SPI_EVENT_TYPE_DEACTIVATED: emited when the DEACTIVATE command completes
- * @SPI_EVENT_TYPE_HAVE_OUTPUT: emited when an async node has output
- * @SPI_EVENT_TYPE_NEED_INPUT: emited when an async node needs input. The data
- *              member could contain a SpiBuffer that should be filled or it
- *              can be %NULL.
+ * @SPI_EVENT_TYPE_CAN_PULL_OUTPUT: emited when an async node has output that can be pulled
+ * @SPI_EVENT_TYPE_CAN_PUSH_INTPUT: emited when more data can be pushed to an async node
+ * @SPI_EVENT_TYPE_PULL_INPUT: emited when data needs to be provided on an input
  * @SPI_EVENT_TYPE_ADD_POLL: emited when a pollfd should be added
  * @SPI_EVENT_TYPE_REMOVE_POLL: emited when a pollfd should be removed
  * @SPI_EVENT_TYPE_DRAINED: emited when DRAIN command completed
@@ -48,8 +47,9 @@ typedef enum {
   SPI_EVENT_TYPE_INVALID                  = 0,
   SPI_EVENT_TYPE_ACTIVATED,
   SPI_EVENT_TYPE_DEACTIVATED,
-  SPI_EVENT_TYPE_HAVE_OUTPUT,
-  SPI_EVENT_TYPE_NEED_INPUT,
+  SPI_EVENT_TYPE_CAN_PULL_OUTPUT,
+  SPI_EVENT_TYPE_CAN_PUSH_INTPUT,
+  SPI_EVENT_TYPE_PULL_INPUT,
   SPI_EVENT_TYPE_ADD_POLL,
   SPI_EVENT_TYPE_REMOVE_POLL,
   SPI_EVENT_TYPE_DRAINED,

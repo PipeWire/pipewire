@@ -43,6 +43,7 @@ main (gint argc, gchar *argv[])
 
   g_main_loop_run (loop);
 
+  pinos_properties_free (props);
   g_main_loop_unref (loop);
   g_object_unref (daemon);
 

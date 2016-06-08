@@ -37,22 +37,22 @@ print_field (GQuark field, const GValue * value, gpointer user_data)
 static void
 print_formats (const gchar *name, GBytes *formats, gchar mark)
 {
-  GstCaps *caps;
+  GstCaps *caps = NULL;
   guint i;
 
   if (formats == NULL)
-    return;
+    goto done;
 
   caps = gst_caps_from_string (g_bytes_get_data (formats, NULL));
   g_print ("%c\t%s:\n", mark, name);
 
   if (gst_caps_is_any (caps)) {
     g_print ("%c\t\tANY\n", mark);
-    return;
+    goto done;
   }
   if (gst_caps_is_empty (caps)) {
     g_print ("%c\t\tEMPTY\n", mark);
-    return;
+    goto done;
   }
   for (i = 0; i < gst_caps_get_size (caps); i++) {
     GstStructure *structure = gst_caps_get_structure (caps, i);
@@ -71,6 +71,10 @@ print_formats (const gchar *name, GBytes *formats, gchar mark)
     }
     gst_structure_foreach (structure, print_field, &mark);
   }
+
+done:
+  if (caps)
+    gst_caps_unref (caps);
 }
 
 static void

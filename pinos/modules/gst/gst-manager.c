@@ -218,7 +218,7 @@ start_monitor (PinosGstManager *manager)
 
     device_added (manager, device);
     gst_object_unref (device);
-    devices = g_list_remove_link (devices, devices);
+    devices = g_list_delete_link (devices, devices);
   }
 }
 

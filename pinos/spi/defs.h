@@ -50,6 +50,7 @@ typedef enum {
   SPI_RESULT_INVALID_FORMAT_PARAMS    = -19,
   SPI_RESULT_FORMAT_INCOMPLETE        = -20,
   SPI_RESULT_INVALID_ARGUMENTS        = -21,
+  SPI_RESULT_UNKNOWN_INTERFACE        = -22,
 } SpiResult;
 
 typedef enum {

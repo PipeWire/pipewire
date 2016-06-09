@@ -43,6 +43,7 @@ typedef struct {
 } SpiAudioTestSrcFormat;
 
 struct _SpiAudioTestSrc {
+  SpiHandle  handle;
   SpiNode  node;
 
   SpiAudioTestSrcParams params;
@@ -219,12 +220,12 @@ reset_audiotestsrc_params (SpiAudioTestSrcParams *params)
 }
 
 static SpiResult
-spi_audiotestsrc_node_get_params (SpiNode        *node,
-                            SpiParams     **params)
+spi_audiotestsrc_node_get_params (SpiHandle      *handle,
+                                  SpiParams     **params)
 {
-  SpiAudioTestSrc *this = (SpiAudioTestSrc *) node;
+  SpiAudioTestSrc *this = (SpiAudioTestSrc *) handle;
 
-  if (node == NULL || params == NULL)
+  if (handle == NULL || params == NULL)
     return SPI_RESULT_INVALID_ARGUMENTS;
 
   memcpy (&this->tmp_params, &this->params, sizeof (this->tmp_params));
@@ -234,16 +235,16 @@ spi_audiotestsrc_node_get_params (SpiNode        *node,
 }
 
 static SpiResult
-spi_audiotestsrc_node_set_params (SpiNode          *node,
+spi_audiotestsrc_node_set_params (SpiHandle        *handle,
                                   const SpiParams  *params)
 {
-  SpiAudioTestSrc *this = (SpiAudioTestSrc *) node;
+  SpiAudioTestSrc *this = (SpiAudioTestSrc *) handle;
   SpiAudioTestSrcParams *p = &this->params;
   SpiParamType type;
   size_t size;
   const void *value;
 
-  if (node == NULL)
+  if (handle == NULL)
     return SPI_RESULT_INVALID_ARGUMENTS;
 
   if (params == NULL) {
@@ -270,12 +271,12 @@ spi_audiotestsrc_node_set_params (SpiNode          *node,
 }
 
 static SpiResult
-spi_audiotestsrc_node_send_command (SpiNode       *node,
+spi_audiotestsrc_node_send_command (SpiHandle     *handle,
                                     SpiCommand    *command)
 {
-  SpiAudioTestSrc *this = (SpiAudioTestSrc *) node;
+  SpiAudioTestSrc *this = (SpiAudioTestSrc *) handle;
 
-  if (node == NULL || command == NULL)
+  if (handle == NULL || command == NULL)
     return SPI_RESULT_INVALID_ARGUMENTS;
 
   switch (command->type) {
@@ -293,7 +294,7 @@ spi_audiotestsrc_node_send_command (SpiNode       *node,
         event.data = NULL;
         event.size = 0;
 
-        this->event_cb (node, &event, this->user_data);
+        this->event_cb (handle, &event, this->user_data);
       }
       break;
 
@@ -308,7 +309,7 @@ spi_audiotestsrc_node_send_command (SpiNode       *node,
         event.data = NULL;
         event.size = 0;
 
-        this->event_cb (node, &event, this->user_data);
+        this->event_cb (handle, &event, this->user_data);
       }
       break;
 
@@ -323,13 +324,13 @@ spi_audiotestsrc_node_send_command (SpiNode       *node,
 }
 
 static SpiResult
-spi_audiotestsrc_node_set_event_callback (SpiNode       *node,
+spi_audiotestsrc_node_set_event_callback (SpiHandle     *handle,
                                           SpiEventCallback event,
                                           void          *user_data)
 {
-  SpiAudioTestSrc *this = (SpiAudioTestSrc *) node;
+  SpiAudioTestSrc *this = (SpiAudioTestSrc *) handle;
 
-  if (node == NULL)
+  if (handle == NULL)
     return SPI_RESULT_INVALID_ARGUMENTS;
 
   this->event_cb = event;
@@ -339,13 +340,13 @@ spi_audiotestsrc_node_set_event_callback (SpiNode       *node,
 }
 
 static SpiResult
-spi_audiotestsrc_node_get_n_ports (SpiNode       *node,
+spi_audiotestsrc_node_get_n_ports (SpiHandle     *handle,
                                    unsigned int  *n_input_ports,
                                    unsigned int  *max_input_ports,
                                    unsigned int  *n_output_ports,
                                    unsigned int  *max_output_ports)
 {
-  if (node == NULL)
+  if (handle == NULL)
     return SPI_RESULT_INVALID_ARGUMENTS;
 
   if (n_input_ports)
@@ -361,13 +362,13 @@ spi_audiotestsrc_node_get_n_ports (SpiNode       *node,
 }
 
 static SpiResult
-spi_audiotestsrc_node_get_port_ids (SpiNode       *node,
+spi_audiotestsrc_node_get_port_ids (SpiHandle     *handle,
                                     unsigned int   n_input_ports,
                                     uint32_t      *input_ids,
                                     unsigned int   n_output_ports,
                                     uint32_t      *output_ids)
 {
-  if (node == NULL || input_ids == NULL || output_ids == NULL)
+  if (handle == NULL || input_ids == NULL || output_ids == NULL)
     return SPI_RESULT_INVALID_ARGUMENTS;
 
   if (n_output_ports > 0)
@@ -378,7 +379,7 @@ spi_audiotestsrc_node_get_port_ids (SpiNode       *node,
 
 
 static SpiResult
-spi_audiotestsrc_node_add_port (SpiNode        *node,
+spi_audiotestsrc_node_add_port (SpiHandle      *handle,
                                 SpiDirection    direction,
                                 uint32_t       *port_id)
 {
@@ -386,7 +387,7 @@ spi_audiotestsrc_node_add_port (SpiNode        *node,
 }
 
 static SpiResult
-spi_audiotestsrc_node_remove_port (SpiNode        *node,
+spi_audiotestsrc_node_remove_port (SpiHandle      *handle,
                                    uint32_t        port_id)
 {
   return SPI_RESULT_NOT_IMPLEMENTED;
@@ -601,14 +602,14 @@ get_format_param (const SpiParams *params,
 
 
 static SpiResult
-spi_audiotestsrc_node_enum_port_formats (SpiNode          *node,
+spi_audiotestsrc_node_enum_port_formats (SpiHandle        *handle,
                                          uint32_t          port_id,
                                          unsigned int      index,
                                          SpiParams       **format)
 {
   static SpiAudioTestSrcFormat fmt;
 
-  if (node == NULL || format == NULL)
+  if (handle == NULL || format == NULL)
     return SPI_RESULT_INVALID_ARGUMENTS;
 
   if (port_id != 0)
@@ -631,18 +632,18 @@ spi_audiotestsrc_node_enum_port_formats (SpiNode          *node,
 }
 
 static SpiResult
-spi_audiotestsrc_node_set_port_format (SpiNode         *node,
+spi_audiotestsrc_node_set_port_format (SpiHandle       *handle,
                                        uint32_t         port_id,
                                        int              test_only,
                                        const SpiParams *format)
 {
-  SpiAudioTestSrc *this = (SpiAudioTestSrc *) node;
+  SpiAudioTestSrc *this = (SpiAudioTestSrc *) handle;
   SpiParamType type;
   size_t size;
   const void *value;
   SpiAudioTestSrcFormat *fmt;
 
-  if (node == NULL)
+  if (handle == NULL)
     return SPI_RESULT_INVALID_ARGUMENTS;
 
   if (port_id != 0)
@@ -705,13 +706,13 @@ spi_audiotestsrc_node_set_port_format (SpiNode         *node,
 }
 
 static SpiResult
-spi_audiotestsrc_node_get_port_format (SpiNode          *node,
+spi_audiotestsrc_node_get_port_format (SpiHandle        *handle,
                                        uint32_t          port_id,
                                        const SpiParams **format)
 {
-  SpiAudioTestSrc *this = (SpiAudioTestSrc *) node;
+  SpiAudioTestSrc *this = (SpiAudioTestSrc *) handle;
 
-  if (node == NULL || format == NULL)
+  if (handle == NULL || format == NULL)
     return SPI_RESULT_INVALID_ARGUMENTS;
 
   if (port_id != 0)
@@ -726,11 +727,11 @@ spi_audiotestsrc_node_get_port_format (SpiNode          *node,
 }
 
 static SpiResult
-spi_audiotestsrc_node_get_port_info (SpiNode       *node,
+spi_audiotestsrc_node_get_port_info (SpiHandle     *handle,
                                      uint32_t       port_id,
                                      SpiPortInfo   *info)
 {
-  if (node == NULL || info == NULL)
+  if (handle == NULL || info == NULL)
     return SPI_RESULT_INVALID_ARGUMENTS;
 
   if (port_id != 0)
@@ -743,15 +744,15 @@ spi_audiotestsrc_node_get_port_info (SpiNode       *node,
 }
 
 static SpiResult
-spi_audiotestsrc_node_get_port_params (SpiNode    *node,
-                                 uint32_t    port_id,
-                                 SpiParams **params)
+spi_audiotestsrc_node_get_port_params (SpiHandle  *handle,
+                                       uint32_t    port_id,
+                                       SpiParams **params)
 {
   return SPI_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpiResult
-spi_audiotestsrc_node_set_port_params (SpiNode         *node,
+spi_audiotestsrc_node_set_port_params (SpiHandle       *handle,
                                        uint32_t         port_id,
                                        const SpiParams *params)
 {
@@ -759,13 +760,13 @@ spi_audiotestsrc_node_set_port_params (SpiNode         *node,
 }
 
 static SpiResult
-spi_audiotestsrc_node_get_port_status (SpiNode        *node,
+spi_audiotestsrc_node_get_port_status (SpiHandle      *handle,
                                        uint32_t        port_id,
                                        SpiPortStatus  *status)
 {
-  SpiAudioTestSrc *this = (SpiAudioTestSrc *) node;
+  SpiAudioTestSrc *this = (SpiAudioTestSrc *) handle;
 
-  if (node == NULL || status == NULL)
+  if (handle == NULL || status == NULL)
     return SPI_RESULT_INVALID_ARGUMENTS;
 
   if (port_id != 0)
@@ -780,7 +781,7 @@ spi_audiotestsrc_node_get_port_status (SpiNode        *node,
 }
 
 static SpiResult
-spi_audiotestsrc_node_push_port_input (SpiNode       *node,
+spi_audiotestsrc_node_push_port_input (SpiHandle     *handle,
                                        unsigned int   n_info,
                                        SpiInputInfo  *info)
 {
@@ -788,17 +789,17 @@ spi_audiotestsrc_node_push_port_input (SpiNode       *node,
 }
 
 static SpiResult
-spi_audiotestsrc_node_pull_port_output (SpiNode       *node,
+spi_audiotestsrc_node_pull_port_output (SpiHandle     *handle,
                                         unsigned int   n_info,
                                         SpiOutputInfo *info)
 {
-  SpiAudioTestSrc *this = (SpiAudioTestSrc *) node;
+  SpiAudioTestSrc *this = (SpiAudioTestSrc *) handle;
   size_t j, size;
   uint8_t *ptr;
   unsigned int i;
   bool have_error = false;
 
-  if (node == NULL || n_info == 0 || info == NULL)
+  if (handle == NULL || n_info == 0 || info == NULL)
     return SPI_RESULT_INVALID_ARGUMENTS;
 
   for (i = 0; i < n_info; i++) {
@@ -835,31 +836,42 @@ spi_audiotestsrc_node_pull_port_output (SpiNode       *node,
 }
 
 static SpiResult
-spi_audiotestsrc_node_enum_interface_info (SpiNode                  *node,
-                                           unsigned int             index,
-                                           const SpiInterfaceInfo **info)
-
+spi_audiotestsrc_get_interface (SpiHandle               *handle,
+                                uint32_t                 interface_id,
+                                void                   **interface)
 {
+  SpiAudioTestSrc *this = (SpiAudioTestSrc *) handle;
+
+  if (handle == NULL || interface == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
+
+  switch (interface_id) {
+    case SPI_INTERFACE_ID_NODE:
+      *interface = &this->node;
+      break;
+    default:
+      return SPI_RESULT_UNKNOWN_INTERFACE;
+  }
   return SPI_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpiResult
-spi_audiotestsrc_node_get_interface (SpiNode                 *node,
-                                     uint32_t                 interface_id,
-                                     void                   **interface)
-{
-  return SPI_RESULT_NOT_IMPLEMENTED;
-}
-
-
-SpiNode *
+SpiHandle *
 spi_audiotestsrc_new (void)
 {
+  SpiHandle *handle;
   SpiNode *node;
   SpiAudioTestSrc *this;
 
-  node = calloc (1, sizeof (SpiAudioTestSrc));
+  handle = calloc (1, sizeof (SpiAudioTestSrc));
+  handle->get_interface = spi_audiotestsrc_get_interface;
 
+  this = (SpiAudioTestSrc *) handle;
+  this->params.param.enum_param_info = enum_param_info;
+  this->params.param.set_param = set_param;
+  this->params.param.get_param = get_param;
+  reset_audiotestsrc_params (&this->params);
+
+  node = &this->node;
   node->get_params = spi_audiotestsrc_node_get_params;
   node->set_params = spi_audiotestsrc_node_set_params;
   node->send_command = spi_audiotestsrc_node_send_command;
@@ -877,14 +889,6 @@ spi_audiotestsrc_new (void)
   node->get_port_status = spi_audiotestsrc_node_get_port_status;
   node->push_port_input = spi_audiotestsrc_node_push_port_input;
   node->pull_port_output = spi_audiotestsrc_node_pull_port_output;
-  node->enum_interface_info = spi_audiotestsrc_node_enum_interface_info;
-  node->get_interface = spi_audiotestsrc_node_get_interface;
 
-  this = (SpiAudioTestSrc *) node;
-  this->params.param.enum_param_info = enum_param_info;
-  this->params.param.set_param = set_param;
-  this->params.param.get_param = get_param;
-  reset_audiotestsrc_params (&this->params);
-
-  return node;
+  return handle;
 }

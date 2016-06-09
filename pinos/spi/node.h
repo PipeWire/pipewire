@@ -27,6 +27,7 @@ extern "C" {
 typedef struct _SpiNode SpiNode;
 
 #include <spi/defs.h>
+#include <spi/plugin.h>
 #include <spi/params.h>
 #include <spi/port.h>
 #include <spi/event.h>
@@ -89,31 +90,20 @@ typedef struct {
 
 /**
  * SpiEventCallback:
- * @node: a #SpiNode emiting the event
+ * @node: a #SpiHandle emiting the event
  * @event: the event that was emited
  * @user_data: user data provided when registering the callback
  *
  * This will be called when an out-of-bound event is notified
  * on @node.
  */
-typedef void   (*SpiEventCallback)   (SpiNode     *node,
+typedef void   (*SpiEventCallback)   (SpiHandle   *handle,
                                       SpiEvent    *event,
                                       void        *user_data);
 
-/**
- * SpiInterfaceInfo:
- * @interface_id: the id of the interface, can be used to get the interface
- * @name: name of the interface
- * @description: Human readable description of the interface.
- *
- * This structure lists the information about available interfaces on
- * objects.
- */
-typedef struct {
-  uint32_t    interface_id;
-  const char *name;
-  const char *description;
-} SpiInterfaceInfo;
+#define SPI_INTERFACE_ID_NODE                   0
+#define SPI_INTERFACE_ID_NODE_NAME              "Node interface"
+#define SPI_INTERFACE_ID_NODE_DESCRIPTION       "Main processing node interface"
 
 /**
  * SpiNode:
@@ -121,16 +111,12 @@ typedef struct {
  * The main processing nodes.
  */
 struct _SpiNode {
-  /* user_data that can be set by the application */
-  void * user_data;
-
   /* the total size of this node. This can be used to expand this
    * structure in the future */
   size_t size;
-
   /**
    * SpiNode::get_params:
-   * @node: a #SpiNode
+   * @handle: a #SpiHandle
    * @props: a location for a #SpiParams pointer
    *
    * Get the configurable parameters of @node.
@@ -144,11 +130,11 @@ struct _SpiNode {
    *          #SPI_RESULT_NOT_IMPLEMENTED when there are no properties
    *                 implemented on @node
    */
-  SpiResult   (*get_params)           (SpiNode          *node,
+  SpiResult   (*get_params)           (SpiHandle        *handle,
                                        SpiParams       **props);
   /**
    * SpiNode::set_params:
-   * @node: a #SpiNode
+   * @handle: a #SpiHandle
    * @props: a #SpiParams
    *
    * Set the configurable parameters in @node.
@@ -168,11 +154,11 @@ struct _SpiNode {
    *          #SPI_RESULT_WRONG_PARAM_TYPE when a property has the wrong
    *                 type.
    */
-  SpiResult   (*set_params)           (SpiNode          *node,
+  SpiResult   (*set_params)           (SpiHandle        *handle,
                                        const SpiParams  *props);
   /**
    * SpiNode::send_command:
-   * @node: a #SpiNode
+   * @handle: a #SpiHandle
    * @command: a #SpiCommand
    *
    * Send a command to @node.
@@ -182,11 +168,11 @@ struct _SpiNode {
    *          #SPI_RESULT_NOT_IMPLEMENTED when this node can't process commands
    *          #SPI_RESULT_INVALID_COMMAND @command is an invalid command
    */
-  SpiResult   (*send_command)         (SpiNode          *node,
+  SpiResult   (*send_command)         (SpiHandle        *handle,
                                        SpiCommand       *command);
   /**
    * SpiNode::set_event_callback:
-   * @node: a #SpiNode
+   * @handle: a #SpiHandle
    * @callback: a callback
    * @user_data: user data passed in the callback
    *
@@ -199,12 +185,12 @@ struct _SpiNode {
    * Returns: #SPI_RESULT_OK on success
    *          #SPI_RESULT_INVALID_ARGUMENTS when node is %NULL
    */
-  SpiResult   (*set_event_callback)   (SpiNode          *node,
+  SpiResult   (*set_event_callback)   (SpiHandle        *handle,
                                        SpiEventCallback  callback,
                                        void             *user_data);
   /**
    * SpiNode::get_n_ports:
-   * @node: a #SpiNode
+   * @handle: a #SpiHandle
    * @n_input_ports: location to hold the number of input ports or %NULL
    * @max_input_ports: location to hold the maximum number of input ports or %NULL
    * @n_output_ports: location to hold the number of output ports or %NULL
@@ -216,14 +202,14 @@ struct _SpiNode {
    * Returns: #SPI_RESULT_OK on success
    *          #SPI_RESULT_INVALID_ARGUMENTS when node is %NULL
    */
-  SpiResult   (*get_n_ports)          (SpiNode          *node,
+  SpiResult   (*get_n_ports)          (SpiHandle        *handle,
                                        unsigned int     *n_input_ports,
                                        unsigned int     *max_input_ports,
                                        unsigned int     *n_output_ports,
                                        unsigned int     *max_output_ports);
   /**
    * SpiNode::get_port_ids:
-   * @node: a #SpiNode
+   * @handle: a #SpiHandle
    * @n_input_ports: size of the @input_ids array
    * @input_ids: array to store the input stream ids
    * @n_output_ports: size of the @output_ids array
@@ -235,21 +221,21 @@ struct _SpiNode {
    * Returns: #SPI_RESULT_OK on success
    *          #SPI_RESULT_INVALID_ARGUMENTS when node is %NULL
    */
-  SpiResult   (*get_port_ids)         (SpiNode          *node,
+  SpiResult   (*get_port_ids)         (SpiHandle        *handle,
                                        unsigned int      n_input_ports,
                                        uint32_t         *input_ids,
                                        unsigned int      n_output_ports,
                                        uint32_t         *output_ids);
 
-  SpiResult   (*add_port)             (SpiNode          *node,
+  SpiResult   (*add_port)             (SpiHandle        *handle,
                                        SpiDirection      direction,
                                        uint32_t         *port_id);
-  SpiResult   (*remove_port)          (SpiNode          *node,
+  SpiResult   (*remove_port)          (SpiHandle        *handle,
                                        uint32_t          port_id);
 
   /**
    * SpiNode::enum_port_formats:
-   * @node: a #SpiNode
+   * @handle: a #SpiHandle
    * @port_id: the port to query
    * @index: the format index to retrieve
    * @format: pointer to a format
@@ -268,13 +254,13 @@ struct _SpiNode {
    *          #SPI_RESULT_ENUM_END when no format exists for @index
    *
    */
-  SpiResult   (*enum_port_formats)    (SpiNode          *node,
+  SpiResult   (*enum_port_formats)    (SpiHandle        *handle,
                                        uint32_t          port_id,
                                        unsigned int      index,
                                        SpiParams       **format);
   /**
    * SpiNode::set_port_format:
-   * @node: a #SpiNode
+   * @handle: a #SpiHandle
    * @port_id: the port to configure
    * @format: a #SpiParam with the format
    *
@@ -291,13 +277,13 @@ struct _SpiNode {
    *          #SPI_RESULT_WRONG_PARAM_TYPE when the type of size of a parameter
    *                 is not correct.
    */
-  SpiResult   (*set_port_format)      (SpiNode          *node,
+  SpiResult   (*set_port_format)      (SpiHandle        *handle,
                                        uint32_t          port_id,
                                        int               test_only,
                                        const SpiParams  *format);
   /**
    * SpiNode::get_port_format:
-   * @node: a #SpiNode
+   * @handle: a #SpiHandle
    * @port_id: the port to query
    * @format: a pointer to a location to hold the #SpiParam
    *
@@ -309,28 +295,28 @@ struct _SpiNode {
    *          #SPI_RESULT_INVALID_PORT when @port_id is not valid
    *          #SPI_RESULT_INVALID_NO_FORMAT when no format was set
    */
-  SpiResult   (*get_port_format)      (SpiNode          *node,
+  SpiResult   (*get_port_format)      (SpiHandle        *handle,
                                        uint32_t          port_id,
                                        const SpiParams **format);
 
-  SpiResult   (*get_port_info)        (SpiNode          *node,
+  SpiResult   (*get_port_info)        (SpiHandle        *handle,
                                        uint32_t          port_id,
                                        SpiPortInfo      *info);
 
-  SpiResult   (*get_port_params)      (SpiNode          *node,
+  SpiResult   (*get_port_params)      (SpiHandle        *handle,
                                        uint32_t          port_id,
                                        SpiParams       **params);
-  SpiResult   (*set_port_params)      (SpiNode          *node,
+  SpiResult   (*set_port_params)      (SpiHandle        *handle,
                                        uint32_t          port_id,
                                        const SpiParams  *params);
 
-  SpiResult   (*get_port_status)      (SpiNode          *node,
+  SpiResult   (*get_port_status)      (SpiHandle        *handle,
                                        uint32_t          port_id,
                                        SpiPortStatus    *status);
 
   /**
    * SpiNode::push_port_input:
-   * @node: a #SpiNode
+   * @handle: a #SpiHandle
    * @n_info: number of #SpiInputInfo in @info
    * @info: array of #SpiInputInfo
    *
@@ -344,12 +330,12 @@ struct _SpiNode {
    *                         @info.
    *          #SPI_RESULT_HAVE_ENOUGH_INPUT when output can be produced.
    */
-  SpiResult   (*push_port_input)      (SpiNode          *node,
+  SpiResult   (*push_port_input)      (SpiHandle        *handle,
                                        unsigned int      n_info,
                                        SpiInputInfo     *info);
   /**
    * SpiNode::pull_port_output:
-   * @node: a #SpiNode
+   * @handle: a #SpiHandle
    * @n_info: number of #SpiOutputInfo in @info
    * @info: array of #SpiOutputInfo
    *
@@ -369,43 +355,9 @@ struct _SpiNode {
    *          #SPI_RESULT_NEED_MORE_INPUT when no output can be produced
    *                   because more input is needed.
    */
-  SpiResult   (*pull_port_output)     (SpiNode          *node,
+  SpiResult   (*pull_port_output)     (SpiHandle        *handle,
                                        unsigned int      n_info,
                                        SpiOutputInfo    *info);
-
-
-  /**
-   * SpiNode::enum_interface_info:
-   * @node: a #SpiNode
-   * @index: the interface index
-   * @info: result to hold SpiInterfaceInfo.
-   *
-   * Get the interface provided by @node at @index.
-   *
-   * Returns: #SPI_RESULT_OK on success
-   *          #SPI_RESULT_NOT_IMPLEMENTED when there are no extensions
-   *          #SPI_RESULT_INVALID_ARGUMENTS when node or info is %NULL
-   *          #SPI_RESULT_ENUM_END when there are no more infos
-   */
-  SpiResult   (*enum_interface_info)  (SpiNode                 *node,
-                                       unsigned int             index,
-                                       const SpiInterfaceInfo **info);
-  /**
-   * SpiNode::enum_interface_info:
-   * @node: a #SpiNode
-   * @index: the interface index
-   * @info: result to hold SpiInterfaceInfo.
-   *
-   * Get the interface provided by @node at @index.
-   *
-   * Returns: #SPI_RESULT_OK on success
-   *          #SPI_RESULT_NOT_IMPLEMENTED when there are no extensions
-   *          #SPI_RESULT_INVALID_ARGUMENTS when node or info is %NULL
-   *          #SPI_RESULT_ENUM_END when there are no more infos
-   */
-  SpiResult   (*get_interface)        (SpiNode                 *node,
-                                       uint32_t                 interface_id,
-                                       void                   **interface);
 };
 
 #ifdef __cplusplus

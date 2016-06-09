@@ -16,7 +16,8 @@
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
+#include <spi/node.h>
 
-SpiNode * spi_volume_new (void);
-SpiNode * spi_audiotestsrc_new (void);
-SpiNode * spi_alsa_sink_new (void);
+SpiHandle * spi_volume_new (void);
+SpiHandle * spi_audiotestsrc_new (void);
+SpiHandle * spi_alsa_sink_new (void);

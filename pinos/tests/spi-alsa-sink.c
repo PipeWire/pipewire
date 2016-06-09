@@ -87,7 +87,8 @@ struct _ALSABuffer {
 };
 
 struct _SpiALSASink {
-  SpiNode  node;
+  SpiHandle handle;
+  SpiNode   node;
 
   SpiALSASinkParams params;
 
@@ -288,7 +289,7 @@ get_param (const SpiParams *params,
 
 
 static SpiResult
-spi_alsa_sink_node_get_params (SpiNode        *node,
+spi_alsa_sink_node_get_params (SpiHandle     *node,
                                SpiParams     **params)
 {
   static SpiALSASinkParams p;
@@ -304,7 +305,7 @@ spi_alsa_sink_node_get_params (SpiNode        *node,
 }
 
 static SpiResult
-spi_alsa_sink_node_set_params (SpiNode          *node,
+spi_alsa_sink_node_set_params (SpiHandle        *node,
                                const SpiParams  *params)
 {
   SpiALSASink *this = (SpiALSASink *) node;
@@ -345,7 +346,7 @@ spi_alsa_sink_node_set_params (SpiNode          *node,
 }
 
 static SpiResult
-spi_alsa_sink_node_send_command (SpiNode       *node,
+spi_alsa_sink_node_send_command (SpiHandle     *node,
                                  SpiCommand    *command)
 {
   SpiALSASink *this = (SpiALSASink *) node;
@@ -408,7 +409,7 @@ spi_alsa_sink_node_send_command (SpiNode       *node,
 }
 
 static SpiResult
-spi_alsa_sink_node_set_event_callback (SpiNode       *node,
+spi_alsa_sink_node_set_event_callback (SpiHandle     *node,
                                        SpiEventCallback event,
                                        void          *user_data)
 {
@@ -424,7 +425,7 @@ spi_alsa_sink_node_set_event_callback (SpiNode       *node,
 }
 
 static SpiResult
-spi_alsa_sink_node_get_n_ports (SpiNode       *node,
+spi_alsa_sink_node_get_n_ports (SpiHandle     *node,
                                 unsigned int  *n_input_ports,
                                 unsigned int  *max_input_ports,
                                 unsigned int  *n_output_ports,
@@ -446,7 +447,7 @@ spi_alsa_sink_node_get_n_ports (SpiNode       *node,
 }
 
 static SpiResult
-spi_alsa_sink_node_get_port_ids (SpiNode       *node,
+spi_alsa_sink_node_get_port_ids (SpiHandle     *node,
                                  unsigned int   n_input_ports,
                                  uint32_t      *input_ids,
                                  unsigned int   n_output_ports,
@@ -463,7 +464,7 @@ spi_alsa_sink_node_get_port_ids (SpiNode       *node,
 
 
 static SpiResult
-spi_alsa_sink_node_add_port (SpiNode        *node,
+spi_alsa_sink_node_add_port (SpiHandle      *node,
                              SpiDirection    direction,
                              uint32_t       *port_id)
 {
@@ -471,7 +472,7 @@ spi_alsa_sink_node_add_port (SpiNode        *node,
 }
 
 static SpiResult
-spi_alsa_sink_node_remove_port (SpiNode        *node,
+spi_alsa_sink_node_remove_port (SpiHandle      *node,
                                 uint32_t        port_id)
 {
   return SPI_RESULT_NOT_IMPLEMENTED;
@@ -757,7 +758,7 @@ get_format_param (const SpiParams *params,
 
 
 static SpiResult
-spi_alsa_sink_node_enum_port_formats (SpiNode         *node,
+spi_alsa_sink_node_enum_port_formats (SpiHandle       *node,
                                       uint32_t         port_id,
                                       unsigned int     index,
                                       SpiParams      **format)
@@ -796,7 +797,7 @@ spi_alsa_sink_node_enum_port_formats (SpiNode         *node,
 }
 
 static SpiResult
-spi_alsa_sink_node_set_port_format (SpiNode         *node,
+spi_alsa_sink_node_set_port_format (SpiHandle       *node,
                                     uint32_t         port_id,
                                     int              test_only,
                                     const SpiParams *format)
@@ -871,7 +872,7 @@ spi_alsa_sink_node_set_port_format (SpiNode         *node,
 }
 
 static SpiResult
-spi_alsa_sink_node_get_port_format (SpiNode          *node,
+spi_alsa_sink_node_get_port_format (SpiHandle        *node,
                                     uint32_t          port_id,
                                     const SpiParams **format)
 {
@@ -892,7 +893,7 @@ spi_alsa_sink_node_get_port_format (SpiNode          *node,
 }
 
 static SpiResult
-spi_alsa_sink_node_get_port_info (SpiNode       *node,
+spi_alsa_sink_node_get_port_info (SpiHandle     *node,
                                   uint32_t       port_id,
                                   SpiPortInfo   *info)
 {
@@ -908,7 +909,7 @@ spi_alsa_sink_node_get_port_info (SpiNode       *node,
 }
 
 static SpiResult
-spi_alsa_sink_node_get_port_params (SpiNode    *node,
+spi_alsa_sink_node_get_port_params (SpiHandle  *node,
                                     uint32_t    port_id,
                                     SpiParams **params)
 {
@@ -916,7 +917,7 @@ spi_alsa_sink_node_get_port_params (SpiNode    *node,
 }
 
 static SpiResult
-spi_alsa_sink_node_set_port_params (SpiNode         *node,
+spi_alsa_sink_node_set_port_params (SpiHandle       *node,
                                     uint32_t         port_id,
                                     const SpiParams *params)
 {
@@ -924,7 +925,7 @@ spi_alsa_sink_node_set_port_params (SpiNode         *node,
 }
 
 static SpiResult
-spi_alsa_sink_node_get_port_status (SpiNode        *node,
+spi_alsa_sink_node_get_port_status (SpiHandle      *node,
                                     uint32_t        port_id,
                                     SpiPortStatus  *status)
 {
@@ -940,7 +941,7 @@ spi_alsa_sink_node_get_port_status (SpiNode        *node,
 }
 
 static SpiResult
-spi_alsa_sink_node_push_port_input (SpiNode        *node,
+spi_alsa_sink_node_push_port_input (SpiHandle      *node,
                                     unsigned int    n_info,
                                     SpiInputInfo   *info)
 {
@@ -983,7 +984,7 @@ spi_alsa_sink_node_push_port_input (SpiNode        *node,
 }
 
 static SpiResult
-spi_alsa_sink_node_pull_port_output (SpiNode        *node,
+spi_alsa_sink_node_pull_port_output (SpiHandle      *node,
                                      unsigned int    n_info,
                                      SpiOutputInfo  *info)
 {
@@ -991,31 +992,43 @@ spi_alsa_sink_node_pull_port_output (SpiNode        *node,
 }
 
 static SpiResult
-spi_alsa_sink_node_enum_interface_info (SpiNode                  *node,
-                                        unsigned int             index,
-                                        const SpiInterfaceInfo **info)
-
+spi_alsa_sink_get_interface (SpiHandle               *handle,
+                             uint32_t                 interface_id,
+                             void                   **interface)
 {
-  return SPI_RESULT_NOT_IMPLEMENTED;
+  SpiALSASink *this = (SpiALSASink *) handle;
+
+  if (handle == NULL || interface == NULL)
+    return SPI_RESULT_INVALID_ARGUMENTS;
+
+  switch (interface_id) {
+    case SPI_INTERFACE_ID_NODE:
+      *interface = &this->node;
+      break;
+    default:
+      return SPI_RESULT_UNKNOWN_INTERFACE;
+  }
+  return SPI_RESULT_OK;
 }
 
-static SpiResult
-spi_alsa_sink_node_get_interface (SpiNode                 *node,
-                                  uint32_t                 interface_id,
-                                  void                   **interface)
-{
-  return SPI_RESULT_NOT_IMPLEMENTED;
-}
 
-
-SpiNode *
+SpiHandle *
 spi_alsa_sink_new (void)
 {
+  SpiHandle *handle;
   SpiNode *node;
   SpiALSASink *this;
 
-  node = calloc (1, sizeof (SpiALSASink));
+  handle = calloc (1, sizeof (SpiALSASink));
+  handle->get_interface = spi_alsa_sink_get_interface;
 
+  this = (SpiALSASink *) handle;
+  this->params.param.enum_param_info = enum_param_info;
+  this->params.param.set_param = set_param;
+  this->params.param.get_param = get_param;
+  reset_alsa_sink_params (&this->params);
+
+  node = &this->node;
   node->get_params = spi_alsa_sink_node_get_params;
   node->set_params = spi_alsa_sink_node_set_params;
   node->send_command = spi_alsa_sink_node_send_command;
@@ -1033,14 +1046,6 @@ spi_alsa_sink_new (void)
   node->get_port_status = spi_alsa_sink_node_get_port_status;
   node->push_port_input = spi_alsa_sink_node_push_port_input;
   node->pull_port_output = spi_alsa_sink_node_pull_port_output;
-  node->enum_interface_info = spi_alsa_sink_node_enum_interface_info;
-  node->get_interface = spi_alsa_sink_node_get_interface;
 
-  this = (SpiALSASink *) node;
-  this->params.param.enum_param_info = enum_param_info;
-  this->params.param.set_param = set_param;
-  this->params.param.get_param = get_param;
-  reset_alsa_sink_params (&this->params);
-
-  return node;
+  return handle;
 }

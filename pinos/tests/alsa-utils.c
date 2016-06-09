@@ -272,7 +272,7 @@ direct_loop (void *user_data)
         buffer->data[0].data = (uint8_t *)my_areas[0].addr + (offset * sizeof (uint16_t) * 2);
         buffer->data[0].size = frames * sizeof (uint16_t) * 2;
 
-        this->event_cb (&this->node, &event,this->user_data);
+        this->event_cb (&this->handle, &event,this->user_data);
 
         spi_buffer_unref ((SpiBuffer *)event.data);
       }

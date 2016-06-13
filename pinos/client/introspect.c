@@ -103,6 +103,19 @@ G_STMT_START {                                                                  
   }                                                                                     \
 } G_STMT_END
 
+#define SET_OBJV(name, field, idx)                                                      \
+G_STMT_START {                                                                          \
+  GVariant *variant;                                                                    \
+  if (!changed || g_hash_table_contains (changed, name))                                \
+    info->change_mask |= 1 << idx;                                                      \
+  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), name))) {      \
+    info->field = g_variant_dup_objv (variant, NULL);                                   \
+    g_variant_unref (variant);                                                          \
+  } else {                                                                              \
+    info->field = NULL;                                                                 \
+  }                                                                                     \
+} G_STMT_END
+
 static void
 daemon_fill_info (PinosDaemonInfo *info, GDBusProxy *proxy)
 {
@@ -324,9 +337,10 @@ port_fill_info (PinosPortInfo *info, GDBusProxy *proxy)
 
   info->change_mask = 0;
   SET_STRING ("Name", name, 0);
-  SET_PROPERTIES ("Properties", properties, 1);
-  SET_BYTES ("PossibleFormats", possible_formats, 2);
-  SET_BYTES ("Format", format, 3);
+  SET_OBJV ("Peers", peers, 1);
+  SET_PROPERTIES ("Properties", properties, 2);
+  SET_BYTES ("PossibleFormats", possible_formats, 3);
+  SET_BYTES ("Format", format, 4);
 
   if (changed)
     g_hash_table_remove_all (changed);
@@ -335,6 +349,8 @@ port_fill_info (PinosPortInfo *info, GDBusProxy *proxy)
 static void
 port_clear_info (PinosPortInfo *info)
 {
+  if (info->peers)
+    g_strfreev (info->peers);
   if (info->properties)
     pinos_properties_free (info->properties);
   if (info->possible_formats)

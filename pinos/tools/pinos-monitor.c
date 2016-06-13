@@ -93,6 +93,32 @@ print_properties (PinosProperties *props, gchar mark)
 }
 
 static void
+print_peers (gchar **peers, gchar mark)
+{
+  GValue list = G_VALUE_INIT;
+  gint idx = 0;
+  gchar *str;
+
+  g_value_init (&list, GST_TYPE_LIST);
+
+  if (peers != NULL) {
+    while (peers[idx]) {
+      GValue peer = G_VALUE_INIT;
+
+      g_value_init (&peer, G_TYPE_STRING);
+      g_value_set_string (&peer, peers[idx]);
+      gst_value_list_append_and_take_value (&list, &peer);
+      idx++;
+    }
+  }
+
+  str = gst_value_serialize (&list);
+  g_print ("%c\tpeers: %s\n", mark, str);
+  g_free (str);
+  g_value_unset (&list);
+}
+
+static void
 info_ready (GObject *o, GAsyncResult *res, gpointer user_data)
 {
   GError *error = NULL;
@@ -153,9 +179,10 @@ dump_port_info (PinosContext *c, const PinosPortInfo *info, gpointer user_data)
     g_print ("\tnode-path: \"%s\"\n", info->node_path);
     g_print ("\tdirection: \"%s\"\n", pinos_direction_as_string (info->direction));
     g_print ("%c\tname: \"%s\"\n", MARK_CHANGE (0), info->name);
-    print_properties (info->properties, MARK_CHANGE (1));
-    print_formats ("possible formats", info->possible_formats, MARK_CHANGE (2));
-    print_formats ("format", info->format, MARK_CHANGE (3));
+    print_peers (info->peers, MARK_CHANGE (1));
+    print_properties (info->properties, MARK_CHANGE (2));
+    print_formats ("possible formats", info->possible_formats, MARK_CHANGE (3));
+    print_formats ("format", info->format, MARK_CHANGE (4));
   }
 }
 

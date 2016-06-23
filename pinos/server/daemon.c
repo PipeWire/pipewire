@@ -45,6 +45,8 @@ struct _PinosDaemonPrivate
   GHashTable *senders;
 
   PinosProperties *properties;
+
+  GHashTable *node_factories;
 };
 
 enum
@@ -151,6 +153,7 @@ handle_create_node (PinosDaemon1           *interface,
 {
   PinosDaemon *daemon = user_data;
   PinosDaemonPrivate *priv = daemon->priv;
+  PinosNodeFactory *factory;
   PinosNode *node;
   SenderData *data;
   const gchar *sender, *object_path;
@@ -162,10 +165,20 @@ handle_create_node (PinosDaemon1           *interface,
 
   props = pinos_properties_from_variant (arg_properties);
 
-  node = pinos_server_node_new (daemon,
-                                sender,
-                                arg_name,
-                                props);
+  factory = g_hash_table_lookup (priv->node_factories, arg_factory_name);
+  if (factory != NULL) {
+    node = pinos_node_factory_create_node (factory,
+                                           daemon,
+                                           sender,
+                                           arg_name,
+                                           props);
+  } else {
+    node = pinos_server_node_new (daemon,
+                                  sender,
+                                  arg_name,
+                                  props);
+  }
+
   pinos_properties_free (props);
 
   if (node == NULL)
@@ -572,6 +585,7 @@ pinos_daemon_finalize (GObject * object)
   g_clear_object (&priv->server_manager);
   g_clear_object (&priv->iface);
   g_hash_table_unref (priv->senders);
+  g_hash_table_unref (priv->node_factories);
 
   G_OBJECT_CLASS (pinos_daemon_parent_class)->finalize (object);
 }
@@ -613,4 +627,51 @@ pinos_daemon_init (PinosDaemon * daemon)
 
   priv->server_manager = g_dbus_object_manager_server_new (PINOS_DBUS_OBJECT_PREFIX);
   priv->senders = g_hash_table_new (g_str_hash, g_str_equal);
+  priv->node_factories = g_hash_table_new_full (g_str_hash,
+                                                g_str_equal,
+                                                g_free,
+                                                g_object_unref);
+}
+
+/**
+ * pinos_daemon_add_node_factory:
+ * @daemon: a #PinosDaemon
+ * @factory: a #PinosNodeFactory
+ *
+ * Add a #PinosNodeFactory in the daemon that will be used for creating nodes.
+ */
+void
+pinos_daemon_add_node_factory  (PinosDaemon *daemon,
+                                PinosNodeFactory *factory)
+{
+  PinosDaemonPrivate *priv = daemon->priv;
+  gchar *name;
+
+  g_return_if_fail (PINOS_IS_DAEMON (daemon));
+  g_return_if_fail (PINOS_IS_NODE_FACTORY (factory));
+
+  g_object_get (factory, "name", &name, NULL);
+  g_hash_table_insert (priv->node_factories, name, g_object_ref (factory));
+}
+
+/**
+ * pinos_daemon_add_node_factory:
+ * @daemon: a #PinosDaemon
+ * @factory: a #PinosNodeFactory
+ *
+ * Remove a #PinosNodeFactory from the daemon.
+ */
+void
+pinos_daemon_remove_node_factory (PinosDaemon *daemon,
+                                  PinosNodeFactory *factory)
+{
+  PinosDaemonPrivate *priv = daemon->priv;
+  gchar *name;
+
+  g_return_if_fail (PINOS_IS_DAEMON (daemon));
+  g_return_if_fail (PINOS_IS_NODE_FACTORY (factory));
+
+  g_object_get (factory, "name", &name, NULL);
+  g_hash_table_remove (priv->node_factories, name);
+  g_free (name);
 }

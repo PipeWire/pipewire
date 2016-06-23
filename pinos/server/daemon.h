@@ -39,6 +39,7 @@ typedef struct _PinosDaemonPrivate PinosDaemonPrivate;
 
 #include <pinos/server/server-node.h>
 #include <pinos/server/server-port.h>
+#include <pinos/server/node-factory.h>
 #include <pinos/client/properties.h>
 
 /**
@@ -82,6 +83,11 @@ PinosPort *       pinos_daemon_find_port         (PinosDaemon     *daemon,
                                                   PinosProperties *props,
                                                   GBytes          *format_filter,
                                                   GError         **error);
+
+void              pinos_daemon_add_node_factory  (PinosDaemon *daemon,
+                                                  PinosNodeFactory *factory);
+void              pinos_daemon_remove_node_factory (PinosDaemon *daemon,
+                                                  PinosNodeFactory *factory);
 
 G_END_DECLS
 

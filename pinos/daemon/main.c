@@ -23,6 +23,7 @@
 #include <client/pinos.h>
 #include <server/daemon.h>
 #include <modules/gst/gst-manager.h>
+#include <modules/gst/gst-node-factory.h>
 
 gint
 main (gint argc, gchar *argv[])
@@ -30,6 +31,7 @@ main (gint argc, gchar *argv[])
   PinosDaemon *daemon;
   GMainLoop *loop;
   PinosProperties *props;
+  PinosNodeFactory *factory;
 
   pinos_init (&argc, &argv);
 
@@ -39,12 +41,17 @@ main (gint argc, gchar *argv[])
   daemon = pinos_daemon_new (props);
 
   pinos_gst_manager_new (daemon);
+
+  factory = pinos_gst_node_factory_new ("gst-node-factory");
+  pinos_daemon_add_node_factory (daemon, factory);
+
   pinos_daemon_start (daemon);
 
   g_main_loop_run (loop);
 
   pinos_properties_free (props);
   g_main_loop_unref (loop);
+  g_object_unref (factory);
   g_object_unref (daemon);
 
   return 0;

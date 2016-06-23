@@ -219,6 +219,7 @@ libpinoscore_@PINOS_MAJORMINOR@_la_SOURCES = \
 		modules/gst/gst-manager.c modules/gst/gst-manager.h \
 		modules/gst/gst-source.c modules/gst/gst-source.h \
 		modules/gst/gst-sink.c modules/gst/gst-sink.h \
+		modules/gst/gst-node-factory.c modules/gst/gst-node-factory.h \
 		dbus/org-pinos.c dbus/org-pinos.h
 
 libpinoscore_@PINOS_MAJORMINOR@_la_CFLAGS = $(AM_CFLAGS) $(SERVER_CFLAGS)

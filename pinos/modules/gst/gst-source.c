@@ -371,6 +371,7 @@ on_output_port_created (GObject      *source_object,
   PinosNode *node = PINOS_NODE (source_object);
   PinosGstSource *source = PINOS_GST_SOURCE (node);
   PinosGstSourcePrivate *priv = source->priv;
+  GTask *task = user_data;
 
   priv->output = pinos_node_create_port_finish (node, res, NULL);
 
@@ -378,6 +379,12 @@ on_output_port_created (GObject      *source_object,
   g_signal_connect (priv->output, "unlinked", (GCallback) on_unlinked, node);
 
   setup_pipeline (source, NULL);
+
+  if (task) {
+    g_task_return_pointer (task,
+                           priv->output,
+                           (GDestroyNotify) g_object_unref);
+  }
 }
 
 static void
@@ -391,18 +398,20 @@ source_constructed (GObject * object)
 
   G_OBJECT_CLASS (pinos_gst_source_parent_class)->constructed (object);
 
-  str = gst_caps_to_string (priv->possible_formats);
-  possible_formats = g_bytes_new_take (str, strlen (str) + 1);
+  if (priv->element) {
+    str = gst_caps_to_string (priv->possible_formats);
+    possible_formats = g_bytes_new_take (str, strlen (str) + 1);
 
-  pinos_node_create_port (PINOS_NODE (node),
-                          PINOS_DIRECTION_OUTPUT,
-                          "output",
-                          possible_formats,
-                          NULL,
-                          NULL,
-                          on_output_port_created,
-                          node);
-  g_bytes_unref (possible_formats);
+    pinos_node_create_port (PINOS_NODE (node),
+                            PINOS_DIRECTION_OUTPUT,
+                            "output",
+                            possible_formats,
+                            NULL,
+                            NULL,
+                            NULL,
+                            NULL);
+    g_bytes_unref (possible_formats);
+  }
 }
 
 static void
@@ -418,6 +427,113 @@ source_finalize (GObject * object)
   g_clear_pointer (&priv->possible_formats, gst_caps_unref);
 
   G_OBJECT_CLASS (pinos_gst_source_parent_class)->finalize (object);
+}
+
+static gboolean
+factory_filter (GstPluginFeature * feature, gpointer data)
+{
+  guint rank;
+  const gchar *klass;
+
+  if (!GST_IS_ELEMENT_FACTORY (feature))
+    return FALSE;
+
+  rank = gst_plugin_feature_get_rank (feature);
+  if (rank < 1)
+    return FALSE;
+
+  klass = gst_element_factory_get_metadata (GST_ELEMENT_FACTORY (feature),
+      GST_ELEMENT_METADATA_KLASS);
+  if (g_strcmp0 (klass, "Source/Video") && g_strcmp0 (klass, "Source/Audio"))
+    return FALSE;
+
+  return TRUE;
+}
+
+static GstElement *
+create_best_element (GstCaps *caps)
+{
+  GstElement *element = NULL;
+  GList *list, *item;
+
+  /* get factories from registry */
+  list = gst_registry_feature_filter (gst_registry_get (),
+                                      (GstPluginFeatureFilter) factory_filter,
+                                      FALSE, NULL);
+  list = g_list_sort (list,
+                      (GCompareFunc) gst_plugin_feature_rank_compare_func);
+
+  /* loop through list and try to find factory that best matches caps,
+   * following the pattern from GstAutoDetect */
+  for (item = list; item != NULL; item = item->next) {
+    GstElementFactory *f = GST_ELEMENT_FACTORY (item->data);
+    GstElement *el;
+    GstPad *el_pad;
+    GstCaps *el_caps = NULL;
+    gboolean match = FALSE;
+    GstStateChangeReturn ret;
+
+    if ((el = gst_element_factory_create (f, NULL))) {
+      el_pad = gst_element_get_static_pad (el, "src");
+      el_caps = gst_pad_query_caps (el_pad, NULL);
+      gst_object_unref (el_pad);
+      match = gst_caps_can_intersect (caps, el_caps);
+      gst_caps_unref (el_caps);
+
+      if (!match) {
+        gst_object_unref (el);
+        continue;
+      }
+    }
+
+    ret = gst_element_set_state (el, GST_STATE_READY);
+    if (ret == GST_STATE_CHANGE_SUCCESS) {
+      element = el;
+      g_debug ("element %p selected", element);
+      break;
+    }
+
+    gst_element_set_state (el, GST_STATE_NULL);
+    gst_object_unref (el);
+  }
+
+  return element;
+}
+
+static void
+source_create_port (PinosNode       *node,
+                    PinosDirection   direction,
+                    const gchar     *name,
+                    GBytes          *possible_formats,
+                    PinosProperties *props,
+                    GTask           *task)
+{
+  PinosGstSourcePrivate *priv = PINOS_GST_SOURCE (node)->priv;
+  GTask *source_task;
+
+  if (props == NULL)
+    props = pinos_properties_new (NULL, NULL);
+
+  if (priv->element == NULL) {
+    GstCaps *caps;
+
+    caps = gst_caps_from_string (g_bytes_get_data (possible_formats, NULL));
+    priv->element = create_best_element (caps);
+    gst_caps_unref (caps);
+
+    if (priv->element) {
+      pinos_properties_set (props, "autoconnect", "0");
+    }
+  }
+
+  /* chain up */
+  source_task = g_task_new (node, NULL, on_output_port_created, task);
+  PINOS_NODE_CLASS (pinos_gst_source_parent_class)->create_port (node,
+                                                                 direction,
+                                                                 name,
+                                                                 possible_formats,
+                                                                 props,
+                                                                 source_task);
 }
 
 static void
@@ -453,6 +569,7 @@ pinos_gst_source_class_init (PinosGstSourceClass * klass)
                                                        G_PARAM_STATIC_STRINGS));
 
   node_class->set_state = set_state;
+  node_class->create_port = source_create_port;
 }
 
 static void

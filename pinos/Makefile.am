@@ -31,6 +31,7 @@ dbuspolicydir=$(sysconfdir)/dbus-1/system.d
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/ \
+	-I$(top_srcdir)/spa/include/ \
 	-I$(top_srcdir)/pinos/modules \
 	-I$(top_builddir)/pinos/modules \
 	-DPINOS_SRCDIR=\"$(abs_srcdir)\" \
@@ -39,8 +40,8 @@ AM_CFLAGS = $(GLIB_CFLAGS) $(GST_CFLAGS)
 AM_CXXFLAGS = $(AM_CFLAGS)
 SERVER_CFLAGS = -D__INCLUDED_FROM_PINOS
 
-AM_LIBADD = $(GLIB_LIBS) $(INTLLIBS) $(GST_LIBS)
-AM_LDADD = $(GLIB_LIBS) $(GST_LIBS) $(INTLLIBS)
+AM_LIBADD = $(GLIB_LIBS) $(INTLLIBS) $(GST_LIBS)  #$(top_srcdir)/spa/build/lib/libspa-lib.so
+AM_LDADD = $(GLIB_LIBS) $(GST_LIBS) $(INTLLIBS) #$(top_srcdir)/spa/build/lib/libspa-lib.so
 AM_LDFLAGS = $(NODELETE_LDFLAGS)
 
 FOREIGN_CFLAGS = -w
@@ -69,6 +70,7 @@ xdgautostart_DATA = $(xdgautostart_in_files:.desktop.in=.desktop)
 
 enumtypesincludes = client/context.h \
 		    client/introspect.h \
+		    client/ringbuffer.h \
 		    client/stream.h \
 		    client/subscribe.h
 
@@ -131,7 +133,7 @@ noinst_LTLIBRARIES =
 
 TESTS_default =
 
-TESTS_norun = test-client test-node
+TESTS_norun = test-client
 
 # These tests need a running pinos daemon
 TESTS_daemon =
@@ -142,11 +144,6 @@ test_client_SOURCES = tests/test-client.c
 test_client_CFLAGS = $(AM_CFLAGS)
 test_client_LDADD = $(AM_LDADD) libpinos-@PINOS_MAJORMINOR@.la
 test_client_LDFLAGS = $(AM_LDFLAGS) $(BINLDFLAGS)
-
-test_node_SOURCES = tests/test-node.c tests/spi-volume.c tests/spi-alsa-sink.c tests/spi-audiotestsrc.c
-test_node_CFLAGS = $(AM_CFLAGS) $(ALSA_CFLAGS)
-test_node_LDADD = $(AM_LDADD) libpinos-@PINOS_MAJORMINOR@.la
-test_node_LDFLAGS = $(AM_LDFLAGS) $(BINLDFLAGS) $(ALSA_LIBS)
 
 ###################################
 #         Tools programs          #
@@ -169,12 +166,14 @@ pinosgstsource = gst/gstpinospay.h gst/gstpinospay.c \
 	      gst/gsttmpfileallocator.h gst/gsttmpfileallocator.c
 
 pinosinclude_HEADERS = \
-		client/pinos.h \
 		client/buffer.h \
+		client/client-node.h \
+		client/client-port.h \
 		client/context.h \
 		client/enumtypes.h \
 		client/introspect.h \
 		client/mainloop.h \
+		client/pinos.h \
 		client/properties.h \
 		client/stream.h \
 		client/subscribe.h
@@ -194,6 +193,7 @@ libpinos_@PINOS_MAJORMINOR@_la_SOURCES = \
 		client/stream.h client/stream.c \
 		client/pinos.c client/pinos.h \
 		client/fdmanager.c client/fdmanager.h \
+		client/ringbuffer.c client/ringbuffer.h \
 		client/subscribe.c client/subscribe.h \
 		$(pinosgstsource)
 
@@ -222,6 +222,7 @@ libpinoscore_@PINOS_MAJORMINOR@_la_SOURCES = \
 		modules/gst/gst-source.c modules/gst/gst-source.h \
 		modules/gst/gst-sink.c modules/gst/gst-sink.h \
 		modules/gst/gst-node-factory.c modules/gst/gst-node-factory.h \
+		modules/spa/spa-alsa-sink.c modules/spa/spa-alsa-sink.h \
 		dbus/org-pinos.c dbus/org-pinos.h
 
 libpinoscore_@PINOS_MAJORMINOR@_la_CFLAGS = $(AM_CFLAGS) $(SERVER_CFLAGS)

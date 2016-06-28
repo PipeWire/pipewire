@@ -1,4 +1,4 @@
-/* Simple Plugin Interface
+/* Simple Plugin API
  * Copyright (C) 2016 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -17,38 +17,38 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __SPI_PORT_H__
-#define __SPI_PORT_H__
+#ifndef __SPA_PORT_H__
+#define __SPA_PORT_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <spi/defs.h>
+#include <spa/defs.h>
 
 /**
- * SpiPortInfoFlags:
- * @SPI_PORT_INFO_FLAG_NONE: no flags
- * @SPI_PORT_INFO_FLAG_REMOVABLE: port can be removed
- * @SPI_PORT_INFO_FLAG_OPTIONAL: processing on port is optional
- * @SPI_PORT_INFO_FLAG_CAN_GIVE_BUFFER: the port can give a buffer
- * @SPI_PORT_INFO_FLAG_CAN_USE_BUFFER: the port can use a provided buffer
- * @SPI_PORT_INFO_FLAG_IN_PLACE: the port can process data in-place and will need
+ * SpaPortInfoFlags:
+ * @SPA_PORT_INFO_FLAG_NONE: no flags
+ * @SPA_PORT_INFO_FLAG_REMOVABLE: port can be removed
+ * @SPA_PORT_INFO_FLAG_OPTIONAL: processing on port is optional
+ * @SPA_PORT_INFO_FLAG_CAN_GIVE_BUFFER: the port can give a buffer
+ * @SPA_PORT_INFO_FLAG_CAN_USE_BUFFER: the port can use a provided buffer
+ * @SPA_PORT_INFO_FLAG_IN_PLACE: the port can process data in-place and will need
  *    a writable input buffer when no output buffer is specified.
- * @SPI_PORT_INFO_FLAG_NO_REF: the port does not keep a ref on the buffer
+ * @SPA_PORT_INFO_FLAG_NO_REF: the port does not keep a ref on the buffer
  */
 typedef enum {
-  SPI_PORT_INFO_FLAG_NONE                  = 0,
-  SPI_PORT_INFO_FLAG_REMOVABLE             = 1 << 0,
-  SPI_PORT_INFO_FLAG_OPTIONAL              = 1 << 1,
-  SPI_PORT_INFO_FLAG_CAN_GIVE_BUFFER       = 1 << 2,
-  SPI_PORT_INFO_FLAG_CAN_USE_BUFFER        = 1 << 3,
-  SPI_PORT_INFO_FLAG_IN_PLACE              = 1 << 4,
-  SPI_PORT_INFO_FLAG_NO_REF                = 1 << 5,
-} SpiPortInfoFlags;
+  SPA_PORT_INFO_FLAG_NONE                  = 0,
+  SPA_PORT_INFO_FLAG_REMOVABLE             = 1 << 0,
+  SPA_PORT_INFO_FLAG_OPTIONAL              = 1 << 1,
+  SPA_PORT_INFO_FLAG_CAN_GIVE_BUFFER       = 1 << 2,
+  SPA_PORT_INFO_FLAG_CAN_USE_BUFFER        = 1 << 3,
+  SPA_PORT_INFO_FLAG_IN_PLACE              = 1 << 4,
+  SPA_PORT_INFO_FLAG_NO_REF                = 1 << 5,
+} SpaPortInfoFlags;
 
 /**
- * SpiPortInfo
+ * SpaPortInfo
  * @flags: extra port flags
  * @size: minimum size of the buffers or 0 when not specified
  * @align: required alignment of the data
@@ -59,33 +59,37 @@ typedef enum {
  *
  */
 typedef struct {
-  SpiPortInfoFlags    flags;
+  SpaPortInfoFlags    flags;
   size_t              minsize;
   uint32_t            align;
   unsigned int        maxbuffering;
   uint64_t            latency;
   const char        **features;
-} SpiPortInfo;
+} SpaPortInfo;
 
 /**
- * SpiPortStatusFlags:
- * @SPI_PORT_STATUS_FLAG_NONE: no status flags
- * @SPI_PORT_STATUS_FLAG_HAVE_OUTPUT: port has output
- * @SPI_PORT_STATUS_FLAG_NEED_INPUT: port needs input
+ * SpaPortStatusFlags:
+ * @SPA_PORT_STATUS_FLAG_NONE: no status flags
+ * @SPA_PORT_STATUS_FLAG_HAVE_OUTPUT: port has output
+ * @SPA_PORT_STATUS_FLAG_NEED_INPUT: port needs input
  */
 typedef enum {
-  SPI_PORT_STATUS_FLAG_NONE                  = 0,
-  SPI_PORT_STATUS_FLAG_HAVE_OUTPUT           = 1 << 0,
-  SPI_PORT_STATUS_FLAG_NEED_INPUT            = 1 << 1,
-} SpiPortStatusFlags;
+  SPA_PORT_STATUS_FLAG_NONE                  = 0,
+  SPA_PORT_STATUS_FLAG_HAVE_OUTPUT           = 1 << 0,
+  SPA_PORT_STATUS_FLAG_NEED_INPUT            = 1 << 1,
+} SpaPortStatusFlags;
 
+/**
+ * SpaPortStatus:
+ * @flags: port status flags
+ */
 typedef struct {
-  SpiPortStatusFlags   flags;
-} SpiPortStatus;
+  SpaPortStatusFlags   flags;
+} SpaPortStatus;
 
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif
 
 
-#endif /* __SPI_PORT_H__ */
+#endif /* __SPA_PORT_H__ */

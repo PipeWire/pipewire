@@ -1,4 +1,4 @@
-/* Simple Plugin Interface
+/* Simple Plugin API
  * Copyright (C) 2016 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -17,39 +17,41 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __SPI_COMMAND_H__
-#define __SPI_COMMAND_H__
+#ifndef __SPA_FORMAT_H__
+#define __SPA_FORMAT_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct _SpiCommand SpiCommand;
+typedef struct _SpaFormat SpaFormat;
 
-#include <spi/defs.h>
+#include <spa/defs.h>
+#include <spa/props.h>
 
 typedef enum {
-  SPI_COMMAND_INVALID                 =  0,
-  SPI_COMMAND_ACTIVATE,
-  SPI_COMMAND_DEACTIVATE,
-  SPI_COMMAND_START,
-  SPI_COMMAND_STOP,
-  SPI_COMMAND_FLUSH,
-  SPI_COMMAND_DRAIN,
-  SPI_COMMAND_MARKER,
-} SpiCommandType;
+  SPA_MEDIA_TYPE_INVALID         = 0,
+  SPA_MEDIA_TYPE_AUDIO           = 1,
+} SpaMediaType;
 
-struct _SpiCommand {
-  volatile int   refcount;
-  SpiNotify      notify;
-  SpiCommandType type;
-  uint32_t       port_id;
-  void          *data;
-  size_t         size;
+typedef enum {
+  SPA_MEDIA_SUBTYPE_INVALID         = 0,
+  SPA_MEDIA_SUBTYPE_RAW             = 1,
+} SpaMediaSubType;
+
+struct _SpaFormat {
+  SpaProps         props;
+  SpaMediaType     media_type;
+  SpaMediaSubType  media_subtype;
 };
+
+typedef enum {
+  SPA_PROP_ID_INVALID            = 0,
+  SPA_PROP_ID_MEDIA_CUSTOM_START = 200,
+} SpaFormatProps;
 
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif
 
-#endif /* __SPI_COMMAND_H__ */
+#endif /* __SPA_FORMAT_H__ */

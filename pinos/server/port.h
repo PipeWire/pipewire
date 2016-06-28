@@ -59,6 +59,10 @@ struct _PinosPort {
  */
 struct _PinosPortClass {
   GObjectClass parent_class;
+
+  void        (*get_ringbuffer)     (PinosPort          *port,
+                                     PinosProperties    *props,
+                                     GTask              *task);
 };
 
 typedef gboolean (*PinosBufferCallback) (PinosPort *port, PinosBuffer *buffer, GError **error, gpointer user_data);

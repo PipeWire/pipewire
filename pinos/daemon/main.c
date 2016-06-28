@@ -45,6 +45,7 @@ main (gint argc, gchar *argv[])
   factory = pinos_gst_node_factory_new ("gst-node-factory");
   pinos_daemon_add_node_factory (daemon, factory);
 
+  pinos_spa_alsa_sink_new (daemon, "alsa-sink", NULL);
   pinos_daemon_start (daemon);
 
   g_main_loop_run (loop);

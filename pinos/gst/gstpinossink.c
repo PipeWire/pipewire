@@ -467,23 +467,6 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
       pinos_main_loop_wait (pinossink->loop);
     }
   }
-  {
-    PinosBufferBuilder builder;
-    PinosPacketFormatChange change;
-    PinosBuffer pbuf;
-
-    pinos_stream_buffer_builder_init (pinossink->stream, &builder);
-
-    change.id = 1;
-    change.format = g_bytes_get_data (format, NULL);
-    pinos_buffer_builder_add_format_change (&builder, &change);
-    pinos_buffer_builder_end (&builder, &pbuf);
-
-    g_debug ("sending format");
-    res = pinos_stream_send_buffer (pinossink->stream, &pbuf);
-    pinos_buffer_unref (&pbuf);
-  }
-
   pinos_main_loop_unlock (pinossink->loop);
   g_bytes_unref (format);
 

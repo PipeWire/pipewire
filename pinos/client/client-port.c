@@ -21,6 +21,7 @@
 
 #include <gst/gst.h>
 #include <gio/gio.h>
+#include <gio/gunixfdlist.h>
 
 #include "pinos/client/pinos.h"
 #include "pinos/client/enumtypes.h"
@@ -42,6 +43,74 @@ enum
   PROP_0,
   PROP_PROXY,
 };
+
+static void
+on_ringbuffer (GObject      *source_object,
+               GAsyncResult *res,
+               gpointer      user_data)
+{
+  GTask *task = user_data;
+  PinosClientPort *port = g_task_get_source_object (task);
+  PinosClientPortPrivate *priv = port->priv;
+  GVariant *ret;
+  GError *error = NULL;
+  GUnixFDList *fdlist;
+  gint fd, semfd, fd_idx, sem_idx;
+  guint fdsize;
+  PinosRingbuffer *rbuf;
+
+  g_assert (priv->proxy == G_DBUS_PROXY (source_object));
+
+  ret = g_dbus_proxy_call_with_unix_fd_list_finish (priv->proxy, &fdlist, res, &error);
+  if (ret == NULL)
+    goto create_failed;
+
+  g_variant_get (ret, "(huh)", &fd_idx, &fdsize, &sem_idx);
+  g_variant_unref (ret);
+
+  fd = g_unix_fd_list_get (fdlist, fd_idx, &error);
+  semfd = g_unix_fd_list_get (fdlist, sem_idx, &error);
+  g_object_unref (fdlist);
+
+  if (fd == -1 || semfd == -1)
+    goto create_failed;
+
+  rbuf = pinos_ringbuffer_new_import (PINOS_RINGBUFFER_MODE_WRITE,
+                                      fd, fdsize, semfd);
+
+  g_task_return_pointer (task, rbuf, (GDestroyNotify) g_object_unref);
+  g_object_unref (task);
+
+  return;
+
+  /* ERRORS */
+create_failed:
+  {
+    g_warning ("failed to get ringbuffer: %s", error->message);
+    g_task_return_error (task, error);
+    g_object_unref (task);
+    return;
+  }
+}
+
+
+static void
+pinos_client_port_get_ringbuffer (PinosPort       *port,
+                                  PinosProperties *props,
+                                  GTask           *task)
+{
+  PinosClientPortPrivate *priv = PINOS_CLIENT_PORT (port)->priv;
+
+  g_dbus_proxy_call (priv->proxy,
+                     "GetRingbuffer",
+                     g_variant_new ("(@a{sv})",
+                       pinos_properties_to_variant (props)),
+                     G_DBUS_CALL_FLAGS_NONE,
+                     -1,
+                     NULL, /* GCancellable *cancellable */
+                     on_ringbuffer,
+                     task);
+}
 
 static void
 pinos_client_port_get_property (GObject    *_object,
@@ -205,6 +274,7 @@ static void
 pinos_client_port_class_init (PinosClientPortClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
+  PinosPortClass *port_class = PINOS_PORT_CLASS (klass);
 
   g_type_class_add_private (klass, sizeof (PinosClientPortPrivate));
 
@@ -223,6 +293,8 @@ pinos_client_port_class_init (PinosClientPortClass * klass)
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_CONSTRUCT_ONLY |
                                                         G_PARAM_STATIC_STRINGS));
+
+  port_class->get_ringbuffer = pinos_client_port_get_ringbuffer;
 }
 
 static void

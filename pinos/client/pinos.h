@@ -27,6 +27,7 @@
 #include <pinos/client/introspect.h>
 #include <pinos/client/mainloop.h>
 #include <pinos/client/properties.h>
+#include <pinos/client/ringbuffer.h>
 #include <pinos/client/stream.h>
 #include <pinos/client/subscribe.h>
 

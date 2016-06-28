@@ -143,5 +143,12 @@
 
     <method name='Remove'/>
 
+    <method name='GetRingbuffer'>
+      <arg type='a{sv}' name='properties' direction='in'/>
+      <arg type='h' name='buffermem' direction='out'/>
+      <arg type='u' name='buffersize' direction='out'/>
+      <arg type='h' name='fd' direction='out'/>
+    </method>
+
   </interface>
 </node>

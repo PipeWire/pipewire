@@ -851,6 +851,38 @@ pinos_stream_connect (PinosStream      *stream,
   return TRUE;
 }
 
+static void
+on_ringbuffer (GObject      *source_object,
+               GAsyncResult *res,
+               gpointer      user_data)
+{
+  PinosStream *stream = user_data;
+  PinosStreamPrivate *priv = stream->priv;
+  GError *error = NULL;
+
+  g_assert (priv->port ==  PINOS_PORT (source_object));
+
+  priv->ringbuffer = pinos_port_get_ringbuffer_finish (priv->port,
+                                                       res,
+                                                       &error);
+  if (priv->ringbuffer == NULL)
+    goto no_ringbuffer;
+
+  stream_set_state (stream, PINOS_STREAM_STATE_STREAMING, NULL);
+  g_object_unref (stream);
+
+  return;
+
+  /* ERRORS */
+no_ringbuffer:
+  {
+    g_warning ("failed to get ringbuffer: %s", error->message);
+    stream_set_state (stream, PINOS_STREAM_STATE_ERROR, error);
+    g_object_unref (stream);
+    return;
+  }
+}
+
 static gboolean
 do_start (PinosStream *stream)
 {
@@ -1110,7 +1142,6 @@ pinos_stream_send_buffer (PinosStream *stream,
   g_return_val_if_fail (buffer != NULL, FALSE);
 
   priv = stream->priv;
-  g_return_val_if_fail (priv->state == PINOS_STREAM_STATE_STREAMING, FALSE);
 
   if (!pinos_io_write_buffer (priv->fd, buffer, &error)) {
     g_warning ("stream %p: failed to read buffer: %s", stream, error->message);

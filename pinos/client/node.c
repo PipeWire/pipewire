@@ -389,7 +389,7 @@ pinos_node_remove_port (PinosNode *node, PinosPort *port)
  *
  * Get the list of ports in @node.
  *
- * Returns: a #GList of nodes owned by @node.
+ * Returns: a #GList of ports owned by @node.
  */
 GList *
 pinos_node_get_ports (PinosNode *node)

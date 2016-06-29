@@ -206,6 +206,7 @@ client_node_create_port (PinosNode       *node,
   data->name = g_strdup (name);
   data->possible_formats = possible_formats ? g_bytes_ref (possible_formats) : NULL;
   data->properties = pinos_properties_merge (pinos_node_get_properties (node), properties);
+  data->socket = NULL;
 
   g_task_set_task_data (task, data, (GDestroyNotify) create_port_data_free);
 

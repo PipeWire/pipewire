@@ -92,7 +92,8 @@ gboolean            pinos_port_link                 (PinosPort   *source,
                                                      PinosPort   *destination);
 gboolean            pinos_port_unlink               (PinosPort   *source,
                                                      PinosPort   *destination);
-gint                pinos_port_get_n_links          (PinosPort   *port);
+PinosPort *         pinos_port_get_links            (PinosPort   *port,
+                                                     guint       *n_links);
 
 PinosBuffer *       pinos_port_peek_buffer          (PinosPort   *port);
 

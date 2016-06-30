@@ -147,7 +147,8 @@ on_port_created (GObject      *source_object,
     if (peer == NULL)
       goto no_port_found;
 
-    pinos_port_link (port, peer);
+    if (!pinos_port_link (port, peer))
+      goto link_failed;
   }
 
   object_path = pinos_server_port_get_object_path (PINOS_SERVER_PORT (port));
@@ -189,6 +190,14 @@ no_port_found:
     g_debug ("server-node %p: could not find matching port", node);
     g_dbus_method_invocation_return_gerror (invocation, error);
     g_clear_error (&error);
+    g_object_unref (fdlist);
+    return;
+  }
+link_failed:
+  {
+    g_debug ("server-node %p: could not link port", node);
+    g_dbus_method_invocation_return_dbus_error (invocation,
+                 "org.pinos.Error", "can't link port");
     g_object_unref (fdlist);
     return;
   }

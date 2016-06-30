@@ -68,9 +68,9 @@ struct _PinosPortPrivate
   int send_fds[MAX_FDS];
 
   PinosBuffer *buffer;
-  PinosPort *peers[16];
+  GPtrArray *peers;
   gchar **peer_paths;
-  gint n_peers;
+  guint max_peers;
 
   PinosReceivedBufferCallback received_buffer_cb;
   gpointer received_buffer_data;
@@ -87,6 +87,7 @@ enum
   PROP_MAIN_CONTEXT,
   PROP_NAME,
   PROP_DIRECTION,
+  PROP_MAX_PEERS,
   PROP_PEERS,
   PROP_POSSIBLE_FORMATS,
   PROP_FORMAT,
@@ -327,11 +328,9 @@ pinos_port_filter_formats (PinosPort  *port,
   res = g_bytes_new_take (str, strlen (str) + 1);
 
   if (priv->direction == PINOS_DIRECTION_OUTPUT) {
-    gint i;
-    for (i = 0; i < priv->n_peers; i++) {
-      PinosPort *peer = priv->peers[i];
-      if (peer == NULL)
-        continue;
+    guint i;
+    for (i = 0; i < priv->peers->len; i++) {
+      PinosPort *peer = g_ptr_array_index (priv->peers, i);
       res = pinos_port_filter_formats (peer, res, error);
     }
   }
@@ -584,18 +583,17 @@ buffer_queued:
 static void
 update_peer_paths (PinosPort *port)
 {
+  PinosPortPrivate *priv = port->priv;
   gchar **paths;
-  gint i;
+  guint i;
   gint path_index = 0;
 
-  paths = g_malloc0 (sizeof (port->priv->peers) + 1);
-  for (i = 0; i < port->priv->n_peers; i++) {
+  paths = g_new0 (gchar *, priv->peers->len + 1);
+  for (i = 0; i < priv->peers->len; i++) {
     PinosPort *peer;
     gchar *path;
 
-    peer = port->priv->peers[i];
-    if (peer == NULL)
-      continue;
+    peer = g_ptr_array_index (priv->peers, i);
     g_object_get (peer, "object-path", &path, NULL);
     paths[path_index++] = path;
   }
@@ -620,6 +618,11 @@ pinos_port_link (PinosPort *source, PinosPort *destination)
   g_return_val_if_fail (PINOS_IS_PORT (destination), FALSE);
   g_return_val_if_fail (source->priv->direction != destination->priv->direction, FALSE);
 
+  if (source->priv->peers->len >= source->priv->max_peers)
+    return FALSE;
+  if (destination->priv->peers->len >= destination->priv->max_peers)
+    return FALSE;
+
   if (source->priv->direction != PINOS_DIRECTION_OUTPUT) {
     PinosPort *tmp;
     tmp = source;
@@ -627,11 +630,15 @@ pinos_port_link (PinosPort *source, PinosPort *destination)
     destination = tmp;
   }
 
-  source->priv->peers[source->priv->n_peers++] = destination;
-  destination->priv->peers[destination->priv->n_peers++] = source;
+  g_ptr_array_add (source->priv->peers, destination);
+  g_ptr_array_add (destination->priv->peers, source);
 
   update_peer_paths (source);
   update_peer_paths (destination);
+
+  g_debug ("port %p: linked to %p", source, destination);
+  g_signal_emit (source, signals[SIGNAL_LINKED], 0, destination);
+  g_signal_emit (destination, signals[SIGNAL_LINKED], 0, source);
 
   if (source->priv->format) {
     PinosBufferBuilder builder;
@@ -652,11 +659,6 @@ pinos_port_link (PinosPort *source, PinosPort *destination)
     pinos_buffer_unref (&pbuf);
   }
 
-
-  g_debug ("port %p: linked to %p", source, destination);
-  g_signal_emit (source, signals[SIGNAL_LINKED], 0, destination);
-  g_signal_emit (destination, signals[SIGNAL_LINKED], 0, source);
-
   return TRUE;
 }
 
@@ -672,19 +674,11 @@ pinos_port_link (PinosPort *source, PinosPort *destination)
 gboolean
 pinos_port_unlink (PinosPort *source, PinosPort *destination)
 {
-  gint i;
-
   g_return_val_if_fail (PINOS_IS_PORT (source), FALSE);
   g_return_val_if_fail (PINOS_IS_PORT (destination), FALSE);
 
-  for (i = 0; i < source->priv->n_peers; i++) {
-    if (source->priv->peers[i] == destination)
-      source->priv->peers[i] = NULL;
-  }
-  for (i = 0; i < destination->priv->n_peers; i++) {
-    if (destination->priv->peers[i] == source)
-      destination->priv->peers[i] = NULL;
-  }
+  g_ptr_array_remove (source->priv->peers, destination);
+  g_ptr_array_remove (destination->priv->peers, source);
 
   update_peer_paths (source);
   update_peer_paths (destination);
@@ -699,36 +693,42 @@ pinos_port_unlink (PinosPort *source, PinosPort *destination)
 static void
 pinos_port_unlink_all (PinosPort *port)
 {
-  gint i;
+  PinosPortPrivate *priv = port->priv;
+  guint i;
 
-  for (i = 0; i < port->priv->n_peers; i++) {
-    PinosPort *peer = port->priv->peers[i];
-    if (peer == NULL)
-      continue;
-    if (peer->priv->peers[i] == port)
-      peer->priv->peers[i] = NULL;
-    port->priv->peers[i] = NULL;
-    peer->priv->n_peers--;
+  for (i = 0; i < priv->peers->len; i++) {
+    PinosPort *peer = g_ptr_array_index (priv->peers, i);
+
+    g_ptr_array_remove (peer->priv->peers, port);
+    g_ptr_array_index (priv->peers, i) = NULL;
+
     g_signal_emit (port, signals[SIGNAL_UNLINKED], 0, peer);
     g_signal_emit (peer, signals[SIGNAL_UNLINKED], 0, port);
   }
-  port->priv->n_peers = 0;
+  g_ptr_array_set_size (priv->peers, 0);
 }
 
 /**
- * pinos_port_get_n_links:
+ * pinos_port_get_links:
  * @port: a #PinosPort
+ * @n_linkes: location to hold the result number of links
  *
- * Get the number of links on this port
+ * Get the links and number of links on this port
  *
- * Returns: the number of links
+ * Returns: an array of @n_links elements of type #PinosPort.
  */
-gint
-pinos_port_get_n_links (PinosPort *port)
+PinosPort *
+pinos_port_get_links (PinosPort *port, guint *n_links)
 {
-  g_return_val_if_fail (PINOS_IS_PORT (port), -1);
+  PinosPortPrivate *priv;
 
-  return port->priv->n_peers;
+  g_return_val_if_fail (PINOS_IS_PORT (port), NULL);
+  priv = port->priv;
+
+  if (n_links)
+    *n_links = priv->peers->len;
+
+  return (PinosPort *) priv->peers->pdata;
 }
 
 static gboolean
@@ -743,7 +743,7 @@ on_socket_condition (GSocket      *socket,
   switch (condition) {
     case G_IO_IN:
     {
-      gint i;
+      guint i;
       PinosBuffer *buffer;
 
       buffer = read_buffer (port, &error);
@@ -765,10 +765,8 @@ on_socket_condition (GSocket      *socket,
         priv->buffer = NULL;
       }
       PINOS_DEBUG_TRANSPORT ("port %p: send to peer buffer %p", port, buffer);
-      for (i = 0; i < priv->n_peers; i++) {
-        PinosPort *peer = priv->peers[i];
-        if (peer == NULL)
-          continue;
+      for (i = 0; i < priv->peers->len; i++) {
+        PinosPort *peer = g_ptr_array_index (priv->peers, i);
 
         if (!pinos_port_receive_buffer (peer, buffer, &error)) {
           g_warning ("peer %p: failed to receive buffer: %s", peer, error->message);
@@ -867,7 +865,7 @@ pinos_port_send_buffer (PinosPort   *port,
   PinosPortPrivate *priv;
   PinosPort *peer;
   gboolean res = TRUE;
-  gint i;
+  guint i;
   GError *err = NULL;
 
   g_return_val_if_fail (PINOS_IS_PORT (port), FALSE);
@@ -881,10 +879,8 @@ pinos_port_send_buffer (PinosPort   *port,
     PINOS_DEBUG_TRANSPORT ("port %p: write buffer %p", port, buffer);
     res = write_buffer (port, buffer, &err);
   }
-  for (i = 0; i < priv->n_peers; i++) {
-    peer = priv->peers[i];
-    if (peer == NULL)
-      continue;
+  for (i = 0; i < priv->peers->len; i++) {
+    peer = g_ptr_array_index (priv->peers, i);
     res = pinos_port_receive_buffer (peer, buffer, &err);
   }
   if (!res) {
@@ -972,6 +968,10 @@ pinos_port_get_property (GObject    *_object,
       g_value_set_string (value, priv->name);
       break;
 
+    case PROP_MAX_PEERS:
+      g_value_set_uint (value, priv->max_peers);
+      break;
+
     case PROP_PEERS:
       g_value_set_boxed (value, priv->peer_paths);
       break;
@@ -1024,6 +1024,10 @@ pinos_port_set_property (GObject      *_object,
       priv->direction = g_value_get_enum (value);
       break;
 
+    case PROP_MAX_PEERS:
+      priv->max_peers = g_value_get_uint (value);
+      break;
+
     case PROP_PEERS:
       if (priv->peer_paths)
         g_strfreev (priv->peer_paths);
@@ -1066,6 +1070,11 @@ pinos_port_constructed (GObject * object)
   if (priv->sockets[0])
     handle_socket (port, priv->sockets[0]);
 
+  if (priv->direction == PINOS_DIRECTION_OUTPUT)
+    priv->max_peers = G_MAXUINT;
+  else
+    priv->max_peers = 1;
+
   G_OBJECT_CLASS (pinos_port_parent_class)->constructed (object);
 }
 
@@ -1100,6 +1109,7 @@ pinos_port_finalize (GObject * object)
   g_clear_pointer (&priv->properties, pinos_properties_free);
   if (priv->received_buffer_notify)
     priv->received_buffer_notify (priv->received_buffer_data);
+  g_ptr_array_unref (priv->peers);
 
   G_OBJECT_CLASS (pinos_port_parent_class)->finalize (object);
 }
@@ -1156,6 +1166,15 @@ pinos_port_class_init (PinosPortClass * klass)
                                                       PINOS_DIRECTION_INVALID,
                                                       G_PARAM_READWRITE |
                                                       G_PARAM_CONSTRUCT_ONLY |
+                                                      G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_MAX_PEERS,
+                                   g_param_spec_uint ("max-peers",
+                                                      "Max Peers",
+                                                      "The maximum number of peer ports",
+                                                      1, G_MAXUINT, G_MAXUINT,
+                                                      G_PARAM_READWRITE |
                                                       G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class,
@@ -1247,4 +1266,5 @@ pinos_port_init (PinosPort * port)
   PinosPortPrivate *priv = port->priv = PINOS_PORT_GET_PRIVATE (port);
 
   priv->direction = PINOS_DIRECTION_INVALID;
+  priv->peers = g_ptr_array_new_full (64, NULL);
 }

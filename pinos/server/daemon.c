@@ -432,7 +432,8 @@ pinos_daemon_remove_node (PinosDaemon     *daemon,
  *
  * Find the best port in @daemon that matches the given parameters.
  *
- * Returns: a #PinosPort or %NULL when no port could be found.
+ * Returns: a #PinosPort or %NULL when no port could be found. unref the port
+ *          after usage.
  */
 PinosPort *
 pinos_daemon_find_port (PinosDaemon     *daemon,
@@ -445,7 +446,7 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
   PinosDaemonPrivate *priv;
   PinosServerPort *best = NULL;
   GList *nodes, *ports;
-  gboolean have_name;
+  gboolean have_name, created_port = FALSE;
 
   g_return_val_if_fail (PINOS_IS_DAEMON (daemon), NULL);
   priv = daemon->priv;
@@ -455,6 +456,8 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
   for (nodes = priv->nodes; nodes; nodes = g_list_next (nodes)) {
     PinosServerNode *n = nodes->data;
     gboolean node_found = FALSE;
+
+    g_debug ("name %s, node path %s", name, pinos_server_node_get_object_path (n));
 
     /* we found the node */
     if (have_name && g_str_has_suffix (pinos_server_node_get_object_path (n), name)) {
@@ -489,15 +492,23 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
         break;
       }
     }
-    if (node_found)
-      break;
+    if (best == NULL && node_found) {
+      g_debug ("node %p: making port", n);
+      best = pinos_server_node_create_port_sync (n, direction, name, format_filter, props);
+      if (best != NULL) {
+        created_port = TRUE;
+        break;
+      }
+    }
   }
   if (best == NULL) {
-    if (error)
-      *error = g_error_new (G_IO_ERROR,
-                            G_IO_ERROR_NOT_FOUND,
-                            "No matching Port found");
-  }
+    g_set_error (error,
+                 G_IO_ERROR,
+                 G_IO_ERROR_NOT_FOUND,
+                 "No matching Port found");
+  } else if (!created_port)
+    g_object_ref (best);
+
   return PINOS_PORT (best);
 }
 

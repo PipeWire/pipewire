@@ -614,6 +614,8 @@ update_peer_paths (PinosPort *port)
 gboolean
 pinos_port_link (PinosPort *source, PinosPort *destination)
 {
+  gboolean res = TRUE;
+
   g_return_val_if_fail (PINOS_IS_PORT (source), FALSE);
   g_return_val_if_fail (PINOS_IS_PORT (destination), FALSE);
   g_return_val_if_fail (source->priv->direction != destination->priv->direction, FALSE);
@@ -630,15 +632,19 @@ pinos_port_link (PinosPort *source, PinosPort *destination)
     destination = tmp;
   }
 
+  g_signal_emit (source, signals[SIGNAL_LINKED], 0, destination, &res);
+  if (!res)
+    return FALSE;
+  g_signal_emit (destination, signals[SIGNAL_LINKED], 0, source, &res);
+  if (!res)
+    return FALSE;
+
+  g_debug ("port %p: linked to %p", source, destination);
   g_ptr_array_add (source->priv->peers, destination);
   g_ptr_array_add (destination->priv->peers, source);
 
   update_peer_paths (source);
   update_peer_paths (destination);
-
-  g_debug ("port %p: linked to %p", source, destination);
-  g_signal_emit (source, signals[SIGNAL_LINKED], 0, destination);
-  g_signal_emit (destination, signals[SIGNAL_LINKED], 0, source);
 
   if (source->priv->format) {
     PinosBufferBuilder builder;
@@ -1114,6 +1120,27 @@ pinos_port_finalize (GObject * object)
   G_OBJECT_CLASS (pinos_port_parent_class)->finalize (object);
 }
 
+static gboolean
+signal_linked_handler (PinosPort *port, PinosPort *peer, gpointer user_data)
+{
+  return TRUE;
+}
+
+static gboolean
+signal_linked_accum (GSignalInvocationHint *ihint,
+                     GValue *return_accu,
+                     const GValue *handler_return,
+                     gpointer data)
+{
+  if (!g_value_get_boolean (handler_return)) {
+    g_value_set_boolean (return_accu, FALSE);
+    return FALSE;
+  }
+  g_value_set_boolean (return_accu, TRUE);
+  return TRUE;
+}
+
+
 static void
 pinos_port_class_init (PinosPortClass * klass)
 {
@@ -1238,14 +1265,14 @@ pinos_port_class_init (PinosPortClass * klass)
                                          G_TYPE_NONE,
                                          0,
                                          G_TYPE_NONE);
-  signals[SIGNAL_LINKED] = g_signal_new ("linked",
+  signals[SIGNAL_LINKED] = g_signal_new_class_handler ("linked",
                                          G_TYPE_FROM_CLASS (klass),
                                          G_SIGNAL_RUN_LAST,
-                                         0,
-                                         NULL,
+                                         (GCallback) signal_linked_handler,
+                                         signal_linked_accum,
                                          NULL,
                                          g_cclosure_marshal_generic,
-                                         G_TYPE_NONE,
+                                         G_TYPE_BOOLEAN,
                                          1,
                                          PINOS_TYPE_PORT);
   signals[SIGNAL_UNLINKED] = g_signal_new ("unlinked",

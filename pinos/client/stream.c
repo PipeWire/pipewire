@@ -666,6 +666,9 @@ on_node_created (GObject      *source_object,
   else
     pinos_properties_set (priv->properties, "autoconnect", "0");
 
+  if (priv->path)
+    pinos_properties_set (priv->properties, "target-path", priv->path);
+
   pinos_node_create_port (priv->node,
                           priv->direction,
                           "client-port",

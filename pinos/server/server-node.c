@@ -61,16 +61,15 @@ server_node_set_state (PinosNode       *node,
   return FALSE;
 }
 
-static void
-server_node_create_port (PinosNode       *node,
-                         PinosDirection   direction,
-                         const gchar     *name,
-                         GBytes          *possible_formats,
-                         PinosProperties *props,
-                         GTask           *task)
+static PinosServerPort *
+server_node_create_port_sync (PinosServerNode *node,
+                              PinosDirection   direction,
+                              const gchar     *name,
+                              GBytes          *possible_formats,
+                              PinosProperties *props)
 {
-  PinosServerNodePrivate *priv = PINOS_SERVER_NODE (node)->priv;
-  PinosPort *port;
+  PinosServerNodePrivate *priv = node->priv;
+  PinosServerPort *port;
 
   port = g_object_new (PINOS_TYPE_SERVER_PORT,
                        "daemon", priv->daemon,
@@ -80,6 +79,26 @@ server_node_create_port (PinosNode       *node,
                        "possible-formats", possible_formats,
                        "properties", props,
                        NULL);
+  pinos_node_add_port (PINOS_NODE (node), PINOS_PORT (port));
+
+  return port;
+}
+
+static void
+server_node_create_port (PinosNode       *node,
+                         PinosDirection   direction,
+                         const gchar     *name,
+                         GBytes          *possible_formats,
+                         PinosProperties *props,
+                         GTask           *task)
+ {
+  PinosServerPort *port;
+
+  port = pinos_server_node_create_port_sync (PINOS_SERVER_NODE (node),
+					     direction,
+                                             name,
+                                             possible_formats,
+                                             props);
 
   g_task_return_pointer (task, port, (GDestroyNotify) g_object_unref);
   g_object_unref (task);
@@ -89,6 +108,18 @@ static void
 server_node_remove_port (PinosNode       *node,
                          PinosPort       *port)
 {
+}
+
+static void
+remove_port (PinosPort *port)
+{
+  guint n_links;
+
+  pinos_port_get_links (port, &n_links);
+  if (n_links == 0) {
+    pinos_port_remove (port);
+  }
+  g_object_unref (port);
 }
 
 static void
@@ -138,9 +169,11 @@ on_port_created (GObject      *source_object,
     direction = pinos_port_get_direction (port);
     direction = pinos_direction_reverse (direction);
 
+    val = pinos_properties_get (props, "target-path");
+
     peer = pinos_daemon_find_port (priv->daemon,
                                    direction,
-                                   NULL,
+                                   val,
                                    pinos_port_get_properties (port),
                                    pinos_port_get_possible_formats (port),
                                    &error);
@@ -149,6 +182,11 @@ on_port_created (GObject      *source_object,
 
     if (!pinos_port_link (port, peer))
       goto link_failed;
+
+    g_object_set_data_full (G_OBJECT (port),
+                            "autoconnect-peer-port",
+                            peer,
+                            (GDestroyNotify) remove_port);
   }
 
   object_path = pinos_server_port_get_object_path (PINOS_SERVER_PORT (port));
@@ -198,6 +236,7 @@ link_failed:
     g_debug ("server-node %p: could not link port", node);
     g_dbus_method_invocation_return_dbus_error (invocation,
                  "org.pinos.Error", "can't link port");
+    g_object_unref (peer);
     g_object_unref (fdlist);
     return;
   }
@@ -458,6 +497,8 @@ pinos_server_node_class_init (PinosServerNodeClass * klass)
   node_class->set_state = server_node_set_state;
   node_class->create_port = server_node_create_port;
   node_class->remove_port = server_node_remove_port;
+
+  klass->create_port_sync = server_node_create_port_sync;
 }
 
 static void
@@ -557,4 +598,30 @@ pinos_server_node_get_object_path (PinosServerNode *node)
   priv = node->priv;
 
   return priv->object_path;
+}
+
+PinosServerPort *
+pinos_server_node_create_port_sync (PinosServerNode *node,
+                                    PinosDirection   direction,
+                                    const gchar     *name,
+                                    GBytes          *possible_formats,
+                                    PinosProperties *props)
+{
+  PinosServerNodeClass *klass;
+  PinosServerPort *port;
+
+  g_return_val_if_fail (PINOS_IS_SERVER_NODE (node), NULL);
+
+  klass = PINOS_SERVER_NODE_GET_CLASS (node);
+  if (!klass->create_port_sync)
+    return NULL;
+
+  g_debug ("server-node %p: create port", node);
+  port = klass->create_port_sync (node,
+                                  direction,
+                                  name,
+                                  possible_formats,
+                                  props);
+
+  return port;
 }

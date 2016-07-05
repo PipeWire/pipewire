@@ -97,6 +97,8 @@ PinosPort *         pinos_node_create_port_finish      (PinosNode          *node
                                                         GAsyncResult       *res,
                                                         GError            **error);
 
+void                pinos_node_add_port                (PinosNode *node,
+                                                        PinosPort *port);
 void                pinos_node_remove_port             (PinosNode *node,
                                                         PinosPort *port);
 GList *             pinos_node_get_ports               (PinosNode *node);

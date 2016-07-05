@@ -28,25 +28,38 @@
 #define PINOS_GST_SINK_GET_PRIVATE(obj)  \
      (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_GST_SINK, PinosGstSinkPrivate))
 
+typedef struct {
+  PinosGstSink *sink;
+
+  PinosServerPort *port;
+
+  GstElement *src;
+  GstElement *convert;
+
+  GstPad *srcpad;
+  GstPad *peerpad;
+} SinkPortData;
+
 struct _PinosGstSinkPrivate
 {
+  gchar *convert_name;
+
   GstElement *pipeline;
-  GstElement *src;
-  GstElement *depay;
+  GstElement *mixer;
   GstElement *element;
 
-  PinosPort *input;
+  GList *ports;
   GstCaps *possible_formats;
 
   GstNetTimeProvider *provider;
-
-  PinosProperties *props;
 };
 
 enum {
   PROP_0,
   PROP_ELEMENT,
-  PROP_POSSIBLE_FORMATS
+  PROP_POSSIBLE_FORMATS,
+  PROP_MIXER,
+  PROP_CONVERT_NAME
 };
 
 G_DEFINE_TYPE (PinosGstSink, pinos_gst_sink, PINOS_TYPE_SERVER_NODE);
@@ -119,19 +132,13 @@ setup_pipeline (PinosGstSink *sink, GError **error)
   g_debug ("gst-sink %p: setup pipeline", sink);
   priv->pipeline = gst_pipeline_new (NULL);
 
-  priv->src = gst_element_factory_make ("pinosportsrc", NULL);
-  g_object_set (priv->src, "port", priv->input,
-                           NULL);
-
-  gst_bin_add (GST_BIN (priv->pipeline), priv->src);
-
-//  priv->depay = gst_element_factory_make ("pinosdepay", NULL);
-//  gst_bin_add (GST_BIN (priv->pipeline), priv->depay);
-//  gst_element_link (priv->src, priv->depay);
-
   g_object_set (priv->element, "sync", FALSE, NULL);
   gst_bin_add (GST_BIN (priv->pipeline), priv->element);
-  gst_element_link (priv->src, priv->element);
+
+  if (priv->mixer) {
+    gst_bin_add (GST_BIN (priv->pipeline), priv->mixer);
+    gst_element_link (priv->mixer, priv->element);
+  }
 
   bus = gst_pipeline_get_bus (GST_PIPELINE (priv->pipeline));
   gst_bus_add_watch (bus, bus_handler, sink);
@@ -257,6 +264,14 @@ get_property (GObject    *object,
       g_value_set_boxed (value, priv->possible_formats);
       break;
 
+    case PROP_MIXER:
+      g_value_set_object (value, priv->mixer);
+      break;
+
+    case PROP_CONVERT_NAME:
+      g_value_set_string (value, priv->convert_name);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -281,90 +296,173 @@ set_property (GObject      *object,
       priv->possible_formats = g_value_dup_boxed (value);
       break;
 
+    case PROP_MIXER:
+      priv->mixer = g_value_dup_object (value);
+      break;
+
+    case PROP_CONVERT_NAME:
+      priv->convert_name = g_value_dup_string (value);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
   }
 }
 
-static void
+static gboolean
 on_linked (PinosPort *port, PinosPort *peer, gpointer user_data)
 {
-  PinosNode *node = user_data;
-  guint n_peers;
+  SinkPortData *data = user_data;
+  PinosGstSink *sink = data->sink;
+  PinosGstSinkPrivate *priv = sink->priv;
 
   g_debug ("port %p: linked", port);
 
-  pinos_port_get_links (port, &n_peers);
-  if (n_peers == 1)
-    pinos_node_report_busy (node);
+  if (priv->mixer) {
+    data->peerpad = gst_element_get_request_pad (priv->mixer, "sink_%u");
+  } else {
+    data->peerpad = gst_element_get_static_pad (priv->element, "sink");
+  }
+  if (gst_pad_link (data->srcpad, data->peerpad) != GST_PAD_LINK_OK) {
+    g_clear_object (&data->peerpad);
+    return FALSE;
+  }
+
+  pinos_node_report_busy (PINOS_NODE (sink));
+
+  if (data->convert) {
+    gst_element_set_state (data->convert, GST_STATE_PLAYING);
+  }
+  gst_element_set_state (data->src, GST_STATE_PLAYING);
+
+  return TRUE;
 }
 
 static void
 on_unlinked (PinosPort *port, PinosPort *peer, gpointer user_data)
 {
-  PinosNode *node = user_data;
-  guint n_peers;
+  SinkPortData *data = user_data;
+  PinosGstSink *sink = data->sink;
+  PinosGstSinkPrivate *priv = sink->priv;
 
   g_debug ("port %p: unlinked", port);
-  pinos_port_get_links (port, &n_peers);
-  if (n_peers == 0)
-    pinos_node_report_idle (node);
+
+  if (data->convert) {
+    gst_element_set_state (data->convert, GST_STATE_NULL);
+  }
+  gst_element_set_state (data->src, GST_STATE_NULL);
+
+  gst_pad_unlink (data->srcpad, data->peerpad);
+  if (priv->mixer)
+    gst_element_release_request_pad (priv->mixer, data->peerpad);
+  g_clear_object (&data->peerpad);
 }
 
 static void
-on_input_port_created (GObject      *source_object,
-                       GAsyncResult *res,
-                       gpointer      user_data)
+free_sink_port_data (SinkPortData *data)
 {
-  PinosNode *node = PINOS_NODE (source_object);
-  PinosGstSink *sink = PINOS_GST_SINK (node);
+  PinosGstSink *sink = data->sink;
   PinosGstSinkPrivate *priv = sink->priv;
 
-  priv->input = pinos_node_create_port_finish (node, res, NULL);
+  gst_element_set_state (data->src, GST_STATE_NULL);
+  gst_bin_remove (GST_BIN (priv->pipeline), data->src);
 
-  g_signal_connect (priv->input, "linked", (GCallback) on_linked, node);
-  g_signal_connect (priv->input, "unlinked", (GCallback) on_unlinked, node);
+  if (data->convert) {
+    gst_element_set_state (data->convert, GST_STATE_NULL);
+    gst_bin_remove (GST_BIN (priv->pipeline), data->convert);
+  }
+  if (data->peerpad)
+    gst_element_release_request_pad (priv->mixer, data->peerpad);
 
-  setup_pipeline (sink, NULL);
+  g_clear_object (&data->srcpad);
+  g_clear_object (&data->peerpad);
+
+  g_slice_free (SinkPortData, data);
+}
+
+static PinosServerPort *
+create_port_sync (PinosServerNode *node,
+                  PinosDirection   direction,
+                  const gchar     *name,
+                  GBytes          *possible_formats,
+                  PinosProperties *props)
+{
+  PinosGstSink *sink = PINOS_GST_SINK (node);
+  PinosGstSinkPrivate *priv = sink->priv;
+  SinkPortData *data;
+
+  data = g_slice_new0 (SinkPortData);
+  data->sink = sink;
+
+  data->port = PINOS_SERVER_NODE_CLASS (pinos_gst_sink_parent_class)
+                ->create_port_sync (node,
+                                    direction,
+                                    name,
+                                    possible_formats,
+                                    props);
+
+  g_debug ("connecting signals");
+  g_signal_connect (data->port, "linked", (GCallback) on_linked, data);
+  g_signal_connect (data->port, "unlinked", (GCallback) on_unlinked, data);
+
+  data->src = gst_element_factory_make ("pinosportsrc", NULL);
+  g_object_set (data->src, "port", data->port, NULL);
+  gst_bin_add (GST_BIN (priv->pipeline), data->src);
+
+  if (priv->convert_name) {
+    data->convert = gst_element_factory_make (priv->convert_name, NULL);
+    gst_bin_add (GST_BIN (priv->pipeline), data->convert);
+    gst_element_link (data->src, data->convert);
+    data->srcpad = gst_element_get_static_pad (data->convert, "src");
+  } else {
+    data->srcpad = gst_element_get_static_pad (data->src, "src");
+  }
+
+  priv->ports = g_list_append (priv->ports, data);
+
+  return data->port;
+}
+
+static void
+remove_port (PinosNode       *node,
+             PinosPort       *port)
+{
+  PinosGstSink *sink = PINOS_GST_SINK (node);
+  PinosGstSinkPrivate *priv = sink->priv;
+  GList *walk;
+
+  for (walk = priv->ports; walk; walk = g_list_next (walk)) {
+    SinkPortData *data = walk->data;
+
+    if (data->port == PINOS_SERVER_PORT_CAST (port)) {
+      free_sink_port_data (data);
+      priv->ports = g_list_delete_link (priv->ports, walk);
+      break;
+    }
+  }
+  if (priv->ports == NULL)
+    pinos_node_report_idle (node);
 }
 
 static void
 sink_constructed (GObject * object)
 {
-  PinosServerNode *node = PINOS_SERVER_NODE (object);
   PinosGstSink *sink = PINOS_GST_SINK (object);
-  PinosGstSinkPrivate *priv = sink->priv;
-  gchar *str;
-  GBytes *possible_formats;
 
   G_OBJECT_CLASS (pinos_gst_sink_parent_class)->constructed (object);
 
-  str = gst_caps_to_string (priv->possible_formats);
-  possible_formats = g_bytes_new_take (str, strlen (str) + 1);
-
-  pinos_node_create_port (PINOS_NODE (node),
-                          PINOS_DIRECTION_INPUT,
-                          "input",
-                          possible_formats,
-                          NULL,
-			  NULL,
-                          on_input_port_created,
-                          node);
-  g_bytes_unref (possible_formats);
+  setup_pipeline (sink, NULL);
 }
 
 static void
 sink_finalize (GObject * object)
 {
-  PinosServerNode *node = PINOS_SERVER_NODE (object);
   PinosGstSink *sink = PINOS_GST_SINK (object);
   PinosGstSinkPrivate *priv = sink->priv;
 
-  pinos_node_remove_port (PINOS_NODE (node), priv->input);
   destroy_pipeline (sink);
   g_clear_pointer (&priv->possible_formats, gst_caps_unref);
-  pinos_properties_free (priv->props);
 
   G_OBJECT_CLASS (pinos_gst_sink_parent_class)->finalize (object);
 }
@@ -374,6 +472,7 @@ pinos_gst_sink_class_init (PinosGstSinkClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
   PinosNodeClass *node_class = PINOS_NODE_CLASS (klass);
+  PinosServerNodeClass *server_node_class = PINOS_SERVER_NODE_CLASS (klass);
 
   g_type_class_add_private (klass, sizeof (PinosGstSinkPrivate));
 
@@ -400,17 +499,34 @@ pinos_gst_sink_class_init (PinosGstSinkClass * klass)
                                                        G_PARAM_READWRITE |
                                                        G_PARAM_CONSTRUCT_ONLY |
                                                        G_PARAM_STATIC_STRINGS));
-
+  g_object_class_install_property (gobject_class,
+                                   PROP_MIXER,
+                                   g_param_spec_object ("mixer",
+                                                        "Mixer",
+                                                        "The mixer element",
+                                                        GST_TYPE_ELEMENT,
+                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_CONSTRUCT_ONLY |
+                                                        G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (gobject_class,
+                                   PROP_CONVERT_NAME,
+                                   g_param_spec_string ("convert-name",
+                                                        "Convert name",
+                                                        "The converter element name",
+                                                        NULL,
+                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_CONSTRUCT_ONLY |
+                                                        G_PARAM_STATIC_STRINGS));
   node_class->set_state = set_state;
+  node_class->remove_port = remove_port;
+
+  server_node_class->create_port_sync = create_port_sync;
 }
 
 static void
 pinos_gst_sink_init (PinosGstSink * sink)
 {
-  PinosGstSinkPrivate *priv;
-
-  priv = sink->priv = PINOS_GST_SINK_GET_PRIVATE (sink);
-  priv->props = pinos_properties_new (NULL, NULL);
+  sink->priv = PINOS_GST_SINK_GET_PRIVATE (sink);
 }
 
 PinosServerNode *
@@ -418,7 +534,9 @@ pinos_gst_sink_new (PinosDaemon *daemon,
                     const gchar *name,
                     PinosProperties *properties,
                     GstElement  *element,
-                    GstCaps     *caps)
+                    GstCaps     *caps,
+                    GstElement  *mixer,
+                    const gchar *convert_name)
 {
   PinosServerNode *node;
 
@@ -428,6 +546,8 @@ pinos_gst_sink_new (PinosDaemon *daemon,
                        "properties", properties,
                        "element", element,
                        "possible-formats", caps,
+                       "mixer", mixer,
+                       "convert-name", convert_name,
                        NULL);
 
   return node;

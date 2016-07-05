@@ -56,7 +56,9 @@ PinosServerNode * pinos_gst_sink_new             (PinosDaemon     *daemon,
                                                   const gchar     *name,
                                                   PinosProperties *properties,
                                                   GstElement      *element,
-                                                  GstCaps         *caps);
+                                                  GstCaps         *caps,
+                                                  GstElement      *mixer,
+                                                  const gchar     *convert_name);
 
 G_END_DECLS
 

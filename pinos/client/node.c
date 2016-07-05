@@ -344,12 +344,36 @@ pinos_node_create_port_finish (PinosNode       *node,
   priv = node->priv;
 
   port = g_task_propagate_pointer (G_TASK (res), error);
-  if (port) {
-    priv->ports = g_list_append (priv->ports, port);
-    g_signal_connect (port, "remove", (GCallback) handle_remove_port, node);
+  if (port != NULL) {
+    pinos_node_add_port (node, port);
   }
   g_debug ("node %p: created port %p", node, port);
   return port;
+}
+
+/**
+ * pinos_node_add_port:
+ * @node: a #PinosNode
+ * @port: (transfer full): a #PinosPort
+ *
+ * Add the #PinosPort to @node
+ */
+void
+pinos_node_add_port (PinosNode *node, PinosPort *port)
+{
+  PinosNodePrivate *priv;
+  GList *find;
+
+  g_return_if_fail (PINOS_IS_NODE (node));
+  g_return_if_fail (PINOS_IS_PORT (port));
+  priv = node->priv;
+
+  find = g_list_find (priv->ports, port);
+  if (find == NULL) {
+    g_debug ("node %p: add port %p", node, port);
+    priv->ports = g_list_append (priv->ports, port);
+    g_signal_connect (port, "remove", (GCallback) handle_remove_port, node);
+  }
 }
 
 /**

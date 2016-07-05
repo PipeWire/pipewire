@@ -60,6 +60,12 @@ struct _PinosServerNode {
  */
 struct _PinosServerNodeClass {
   PinosNodeClass parent_class;
+
+  PinosServerPort * (*create_port_sync) (PinosServerNode    *node,
+                                         PinosDirection      direction,
+                                         const gchar        *name,
+                                         GBytes             *possible_formats,
+                                         PinosProperties    *props);
 };
 
 /* normal GObject stuff */
@@ -73,6 +79,12 @@ PinosNode *         pinos_server_node_new                     (PinosDaemon     *
 PinosDaemon *       pinos_server_node_get_daemon              (PinosServerNode *node);
 const gchar *       pinos_server_node_get_sender              (PinosServerNode *node);
 const gchar *       pinos_server_node_get_object_path         (PinosServerNode *node);
+
+PinosServerPort *   pinos_server_node_create_port_sync        (PinosServerNode *node,
+                                                               PinosDirection   direction,
+                                                               const gchar     *name,
+                                                               GBytes          *possible_formats,
+                                                               PinosProperties *props);
 
 G_END_DECLS
 

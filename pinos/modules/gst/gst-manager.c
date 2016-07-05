@@ -99,13 +99,17 @@ device_added (PinosGstManager *manager,
                                  name,
                                  properties,
                                  element,
-                                 caps);
+                                 caps,
+                                 NULL,
+                                 NULL);
   } else if (strstr (klass, "Sink")) {
     node = pinos_gst_sink_new (priv->daemon,
                                name,
                                properties,
                                element,
-                               caps);
+                               caps,
+                               NULL,
+                               NULL);
   }
   if (node)
     g_object_set_data (G_OBJECT (device), "PinosServerNode", node);

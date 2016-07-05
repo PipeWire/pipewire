@@ -25,6 +25,9 @@ extern "C" {
 #endif
 
 #include <spa/format.h>
+#include <spa/audio/raw.h>
+
+typedef struct _SpaAudioRawFormat SpaAudioRawFormat;
 
 typedef enum {
   SPA_PROP_ID_AUDIO_FORMAT = SPA_PROP_ID_MEDIA_CUSTOM_START,
@@ -35,6 +38,16 @@ typedef enum {
   SPA_PROP_ID_AUDIO_CHANNEL_MASK,
   SPA_PROP_ID_AUDIO_RAW_INFO,
 } SpaPropIdAudio;
+
+struct _SpaAudioRawFormat {
+  SpaFormat format;
+  uint32_t unset_mask;
+  SpaAudioRawInfo info;
+};
+
+SpaResult   spa_audio_raw_format_init    (SpaAudioRawFormat *format);
+SpaResult   spa_audio_raw_format_parse   (const SpaFormat *format,
+                                          SpaAudioRawFormat *rawformat);
 
 
 #ifdef __cplusplus

@@ -21,7 +21,7 @@
 #include <stdio.h>
 
 #include <spa/node.h>
-#include <spa/audio/raw.h>
+#include <spa/audio/format.h>
 
 #define MAX_PORTS       128
 

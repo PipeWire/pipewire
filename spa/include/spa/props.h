@@ -53,6 +53,11 @@ typedef enum {
   SPA_PROP_TYPE_STRUCT,
 } SpaPropType;
 
+typedef struct {
+  int32_t num;
+  int32_t denom;
+} SpaFraction;
+
 /**
  * SpaPropFlags:
  * @SPA_PROP_FLAG_NONE: no flags
@@ -74,10 +79,8 @@ typedef enum {
 /* SpaPropRangeType:
  * @SPA_PROP_RANGE_TYPE_NONE: no range specified, full range of type applies
  * @SPA_PROP_RANGE_TYPE_MIN_MAX: range contains 2 values, min and max
- * @SPA_PROP_RANGE_TYPE_ENUM: range contains enum of possible values with
- *                            NULL-terminated name
- * @SPA_PROP_RANGE_TYPE_FLAGS: range contains flags of possible values with
- *                            NULL-terminated name
+ * @SPA_PROP_RANGE_TYPE_ENUM: range contains enum of possible values
+ * @SPA_PROP_RANGE_TYPE_FLAGS: range contains flags of possible values
  */
 typedef enum {
   SPA_PROP_RANGE_TYPE_NONE      = 0,

@@ -23,6 +23,7 @@
 #include <string.h>
 
 #include <spa/audio/raw.h>
+#include <spa/audio/format.h>
 
 static const uint32_t format_values[] = {
   SPA_AUDIO_FORMAT_S8,

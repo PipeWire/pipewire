@@ -82,7 +82,7 @@ typedef struct {
  * SpaDataType:
  * @SPA_DATA_TYPE_INVALID: invalid data type, is ignored
  * @SPA_DATA_TYPE_MEMPTR: data and size point to memory
- * @SPA_DATA_TYPE_FD: data points to SpaDataFd
+ * @SPA_DATA_TYPE_FD: data points to an int file descriptor
  */
 typedef enum {
   SPA_DATA_TYPE_INVALID               = 0,
@@ -91,28 +91,20 @@ typedef enum {
 } SpaDataType;
 
 /**
- * SpaDataFd
- * fd: a file descriptor
- * offset: offset in the data referenced by @fd
- * @size: size of data referenced by fd
- */
-typedef struct {
-  int          fd;
-  unsigned int offset;
-  size_t       size;
-} SpaDataFD;
-
-/**
  * SpaData:
  * @id: user id
  * @type: the type of data
- * @data: pointer to data
+ * @data: pointer to data or fd
+ * @offset: offset of data
  * @size: size of data
+ * @stride: stride of data
  */
 typedef struct {
   SpaDataType  type;
   void        *data;
+  unsigned int offset;
   size_t       size;
+  size_t       stride;
 } SpaData;
 
 /**

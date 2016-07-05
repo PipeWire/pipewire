@@ -24,7 +24,7 @@
 #include <dlfcn.h>
 
 #include <spa/node.h>
-#include <spa/audio/raw.h>
+#include <spa/audio/format.h>
 
 typedef struct {
   SpaHandle *sink;

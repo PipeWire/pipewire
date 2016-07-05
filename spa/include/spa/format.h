@@ -32,6 +32,7 @@ typedef struct _SpaFormat SpaFormat;
 typedef enum {
   SPA_MEDIA_TYPE_INVALID         = 0,
   SPA_MEDIA_TYPE_AUDIO           = 1,
+  SPA_MEDIA_TYPE_VIDEO           = 2,
 } SpaMediaType;
 
 typedef enum {

@@ -296,12 +296,12 @@ static void
 on_linked (PinosPort *port, PinosPort *peer, gpointer user_data)
 {
   PinosNode *node = user_data;
-  gint n_peers;
+  guint n_links;
 
   g_debug ("port %p: linked", port);
 
-  n_peers = pinos_port_get_n_links (port);
-  if (n_peers == 1)
+  pinos_port_get_links (port, &n_links);
+  if (n_links == 1)
     pinos_node_report_busy (node);
 }
 
@@ -309,11 +309,11 @@ static void
 on_unlinked (PinosPort *port, PinosPort *peer, gpointer user_data)
 {
   PinosNode *node = user_data;
-  gint n_peers;
+  guint n_links;
 
   g_debug ("port %p: unlinked", port);
-  n_peers = pinos_port_get_n_links (port);
-  if (n_peers == 0)
+  pinos_port_get_links (port, &n_links);
+  if (n_links == 1)
     pinos_node_report_idle (node);
 }
 

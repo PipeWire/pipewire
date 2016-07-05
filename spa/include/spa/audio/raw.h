@@ -25,11 +25,8 @@ extern "C" {
 #endif
 
 typedef struct _SpaAudioRawInfo SpaAudioRawInfo;
-typedef struct _SpaAudioRawFormat SpaAudioRawFormat;
 
 #include <endian.h>
-
-#include <spa/audio/format.h>
 
 #if __BYTE_ORDER == __BIG_ENDIAN
 #define _SPA_AUDIO_FORMAT_NE(fmt) SPA_AUDIO_FORMAT_ ## fmt ## BE
@@ -140,16 +137,6 @@ struct _SpaAudioRawInfo {
   uint32_t       channels;
   uint32_t       channel_mask;
 };
-
-struct _SpaAudioRawFormat {
-  SpaFormat format;
-  uint32_t unset_mask;
-  SpaAudioRawInfo info;
-};
-
-SpaResult   spa_audio_raw_format_init    (SpaAudioRawFormat *format);
-SpaResult   spa_audio_raw_format_parse   (const SpaFormat *format,
-                                          SpaAudioRawFormat *rawformat);
 
 #ifdef __cplusplus
 }  /* extern "C" */

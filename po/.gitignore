@@ -1,5 +1,7 @@
+.intltool-merge-cache
 Makefile.in.in
 Makevars.template
+POTFILES
 Rules-quot
 boldquot.sed
 en@boldquot.header

@@ -265,6 +265,7 @@ struct _SpaNode {
    * SpaNode::set_port_format:
    * @handle: a #SpaHandle
    * @port_id: the port to configure
+   * @test_only: only check if the format is accepted
    * @format: a #SpaFormat with the format
    *
    * Set a format on @port_id of @node.
@@ -282,7 +283,7 @@ struct _SpaNode {
    */
   SpaResult   (*set_port_format)      (SpaHandle        *handle,
                                        uint32_t          port_id,
-                                       int               test_only,
+                                       bool              test_only,
                                        const SpaFormat  *format);
   /**
    * SpaNode::get_port_format:

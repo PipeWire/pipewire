@@ -54,6 +54,7 @@ typedef enum {
   SPA_RESULT_INVALID_DIRECTION         = -23,
   SPA_RESULT_TOO_MANY_PORTS            = -24,
   SPA_RESULT_INVALID_PROPERTY_ACCESS   = -25,
+  SPA_RESULT_UNEXPECTED                = -26,
 } SpaResult;
 
 typedef enum {

@@ -31,8 +31,8 @@ typedef struct _SpaEvent SpaEvent;
 /**
  * SpaEventType:
  * @SPA_EVENT_TYPE_INVALID: invalid event, should be ignored
- * @SPA_EVENT_TYPE_ACTIVATED: emited when the ACTIVATE command completes
- * @SPA_EVENT_TYPE_DEACTIVATED: emited when the DEACTIVATE command completes
+ * @SPA_EVENT_TYPE_STARTED: emited when the START command completes
+ * @SPA_EVENT_TYPE_STOPPED: emited when the STOP command completes
  * @SPA_EVENT_TYPE_CAN_PULL_OUTPUT: emited when an async node has output that can be pulled
  * @SPA_EVENT_TYPE_CAN_PUSH_INTPUT: emited when more data can be pushed to an async node
  * @SPA_EVENT_TYPE_PULL_INPUT: emited when data needs to be provided on an input
@@ -46,8 +46,8 @@ typedef struct _SpaEvent SpaEvent;
  */
 typedef enum {
   SPA_EVENT_TYPE_INVALID                  = 0,
-  SPA_EVENT_TYPE_ACTIVATED,
-  SPA_EVENT_TYPE_DEACTIVATED,
+  SPA_EVENT_TYPE_STARTED,
+  SPA_EVENT_TYPE_STOPPED,
   SPA_EVENT_TYPE_CAN_PULL_OUTPUT,
   SPA_EVENT_TYPE_CAN_PUSH_INTPUT,
   SPA_EVENT_TYPE_PULL_INPUT,

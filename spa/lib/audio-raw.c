@@ -25,6 +25,15 @@
 #include <spa/audio/raw.h>
 #include <spa/audio/format.h>
 
+static const SpaAudioRawInfo default_info = {
+  SPA_AUDIO_FORMAT_S16,
+  SPA_AUDIO_FLAG_NONE,
+  SPA_AUDIO_LAYOUT_INTERLEAVED,
+  44100,
+  2,
+  0
+};
+
 static const uint32_t format_values[] = {
   SPA_AUDIO_FORMAT_S8,
   SPA_AUDIO_FORMAT_U8,
@@ -98,13 +107,6 @@ static const SpaPropRangeInfo format_format_range[] = {
   { "F64BE", "F64BE", sizeof (uint32_t), &format_values[29] },
 };
 
-static const uint32_t default_format = SPA_AUDIO_FORMAT_S16;
-static const uint32_t default_flags = SPA_AUDIO_FLAG_NONE;
-static const uint32_t default_layout = SPA_AUDIO_LAYOUT_INTERLEAVED;
-static const uint32_t default_rate = 44100;
-static const uint32_t default_channels = 2;
-static const uint32_t default_channel_mask = 0;
-
 static const uint32_t format_layouts[] = {
   SPA_AUDIO_LAYOUT_INTERLEAVED,
   SPA_AUDIO_LAYOUT_NON_INTERLEAVED,
@@ -138,7 +140,7 @@ static const SpaPropInfo raw_format_prop_info[] =
   { SPA_PROP_ID_AUDIO_FORMAT,       "format", "The media format",
                                     SPA_PROP_FLAG_READWRITE,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
-                                    sizeof (uint32_t), &default_format,
+                                    sizeof (uint32_t), &default_info.format,
                                     SPA_PROP_RANGE_TYPE_ENUM, SPA_N_ELEMENTS (format_format_range), format_format_range,
                                     NULL,
                                     offsetof (SpaAudioRawFormat, info.format),
@@ -147,7 +149,7 @@ static const SpaPropInfo raw_format_prop_info[] =
   { SPA_PROP_ID_AUDIO_FLAGS,        "flags", "Sample Flags",
                                     SPA_PROP_FLAG_READWRITE,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
-                                    sizeof (uint32_t), &default_flags,
+                                    sizeof (uint32_t), &default_info.flags,
                                     SPA_PROP_RANGE_TYPE_FLAGS, SPA_N_ELEMENTS (flags_range), flags_range,
                                     NULL,
                                     offsetof (SpaAudioRawFormat, info.flags),
@@ -156,7 +158,7 @@ static const SpaPropInfo raw_format_prop_info[] =
   { SPA_PROP_ID_AUDIO_LAYOUT,       "layout", "Sample Layout",
                                     SPA_PROP_FLAG_READWRITE,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
-                                    sizeof (uint32_t), &default_layout,
+                                    sizeof (uint32_t), &default_info.layout,
                                     SPA_PROP_RANGE_TYPE_ENUM, SPA_N_ELEMENTS (layouts_range), layouts_range,
                                     NULL,
                                     offsetof (SpaAudioRawFormat, info.layout),
@@ -165,7 +167,7 @@ static const SpaPropInfo raw_format_prop_info[] =
   { SPA_PROP_ID_AUDIO_RATE,         "rate", "Audio sample rate",
                                     SPA_PROP_FLAG_READWRITE,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
-                                    sizeof (uint32_t), &default_rate,
+                                    sizeof (uint32_t), &default_info.rate,
                                     SPA_PROP_RANGE_TYPE_MIN_MAX, 2, uint32_range,
                                     NULL,
                                     offsetof (SpaAudioRawFormat, info.rate),
@@ -174,7 +176,7 @@ static const SpaPropInfo raw_format_prop_info[] =
   { SPA_PROP_ID_AUDIO_CHANNELS,     "channels", "Audio channels",
                                     SPA_PROP_FLAG_READWRITE,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
-                                    sizeof (uint32_t), &default_channels,
+                                    sizeof (uint32_t), &default_info.channels,
                                     SPA_PROP_RANGE_TYPE_MIN_MAX, 2, uint32_range,
                                     NULL,
                                     offsetof (SpaAudioRawFormat, info.channels),
@@ -183,7 +185,7 @@ static const SpaPropInfo raw_format_prop_info[] =
   { SPA_PROP_ID_AUDIO_CHANNEL_MASK, "channel-mask", "Audio channel mask",
                                     SPA_PROP_FLAG_READWRITE,
                                     SPA_PROP_TYPE_BITMASK, sizeof (uint32_t),
-                                    sizeof (uint32_t), &default_channel_mask,
+                                    sizeof (uint32_t), &default_info.channel_mask,
                                     SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                     NULL,
                                     offsetof (SpaAudioRawFormat, info.channel_mask),
@@ -210,12 +212,7 @@ spa_audio_raw_format_init (SpaAudioRawFormat *format)
   format->format.props.set_prop = spa_props_generic_set_prop;
   format->format.props.get_prop = spa_props_generic_get_prop;
   format->unset_mask = (1 << 0) | (1 << 2) | (1 << 3) | (1 << 4);
-  format->info.format = default_format;
-  format->info.flags = default_flags;
-  format->info.layout = default_layout;
-  format->info.rate = default_rate;
-  format->info.channels = default_channels;
-  format->info.channel_mask = default_channel_mask;
+  format->info = default_info;
 
   return SPA_RESULT_OK;
 }

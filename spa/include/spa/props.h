@@ -79,12 +79,14 @@ typedef enum {
 /* SpaPropRangeType:
  * @SPA_PROP_RANGE_TYPE_NONE: no range specified, full range of type applies
  * @SPA_PROP_RANGE_TYPE_MIN_MAX: range contains 2 values, min and max
+ * @SPA_PROP_RANGE_TYPE_STEP: range contains 3 values, min, max and step
  * @SPA_PROP_RANGE_TYPE_ENUM: range contains enum of possible values
  * @SPA_PROP_RANGE_TYPE_FLAGS: range contains flags of possible values
  */
 typedef enum {
   SPA_PROP_RANGE_TYPE_NONE      = 0,
   SPA_PROP_RANGE_TYPE_MIN_MAX,
+  SPA_PROP_RANGE_TYPE_STEP,
   SPA_PROP_RANGE_TYPE_ENUM,
   SPA_PROP_RANGE_TYPE_FLAGS,
 } SpaPropRangeType;

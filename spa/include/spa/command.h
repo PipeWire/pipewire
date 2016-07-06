@@ -30,8 +30,6 @@ typedef struct _SpaCommand SpaCommand;
 
 typedef enum {
   SPA_COMMAND_INVALID                 =  0,
-  SPA_COMMAND_ACTIVATE,
-  SPA_COMMAND_DEACTIVATE,
   SPA_COMMAND_START,
   SPA_COMMAND_STOP,
   SPA_COMMAND_FLUSH,

@@ -25,7 +25,7 @@
 #include <gio/gio.h>
 
 #include <spa/include/spa/node.h>
-#include <spa/include/spa/audio/raw.h>
+#include <spa/include/spa/audio/format.h>
 
 #include "spa-alsa-sink.h"
 
@@ -163,7 +163,6 @@ create_pipeline (PinosSpaAlsaSink *this)
   SpaResult res;
   SpaProps *props;
   SpaPropValue value;
-  SpaCommand cmd;
 
   if ((res = make_node (&priv->sink, &priv->sink_node, "spa/build/plugins/alsa/libspa-alsa.so", "alsa-sink")) < 0) {
     g_error ("can't create alsa-sink: %d", res);
@@ -181,10 +180,6 @@ create_pipeline (PinosSpaAlsaSink *this)
 
   if ((res = priv->sink_node->set_props (priv->sink, props)) < 0)
     g_debug ("got set_props error %d", res);
-
-  cmd.type = SPA_COMMAND_ACTIVATE;
-  if ((res = priv->sink_node->send_command (priv->sink, &cmd)) < 0)
-    g_debug ("got activate error %d", res);
 }
 
 static void
@@ -218,15 +213,7 @@ stop_pipeline (PinosSpaAlsaSink *sink)
 static void
 destroy_pipeline (PinosSpaAlsaSink *sink)
 {
-  PinosSpaAlsaSinkPrivate *priv = sink->priv;
-  SpaResult res;
-  SpaCommand cmd;
-
   g_debug ("spa-alsa-sink %p: destroy pipeline", sink);
-
-  cmd.type = SPA_COMMAND_DEACTIVATE;
-  if ((res = priv->sink_node->send_command (priv->sink, &cmd)) < 0)
-    g_debug ("got error %d", res);
 }
 
 static gboolean

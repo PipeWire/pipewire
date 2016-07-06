@@ -239,70 +239,32 @@ negotiate_formats (AppData *data)
   if ((res = props->set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_CHANNELS), &value)) < 0)
     return res;
 
-  if ((res = data->sink_node->set_port_format (data->sink, 0, 0, format)) < 0)
+  if ((res = data->sink_node->set_port_format (data->sink, 0, false, format)) < 0)
     return res;
 
-  if ((res = data->mix_node->set_port_format (data->mix, 0, 0, format)) < 0)
+  if ((res = data->mix_node->set_port_format (data->mix, 0, false, format)) < 0)
     return res;
 
   if ((res = data->mix_node->add_port (data->mix, SPA_DIRECTION_INPUT, &data->mix_ports[0])) < 0)
     return res;
 
-  if ((res = data->mix_node->set_port_format (data->mix, data->mix_ports[0], 0, format)) < 0)
+  if ((res = data->mix_node->set_port_format (data->mix, data->mix_ports[0], false, format)) < 0)
     return res;
 
-  if ((res = data->source1_node->set_port_format (data->source1, 0, 0, format)) < 0)
+  if ((res = data->source1_node->set_port_format (data->source1, 0, false, format)) < 0)
     return res;
 
   if ((res = data->mix_node->add_port (data->mix, SPA_DIRECTION_INPUT, &data->mix_ports[1])) < 0)
     return res;
 
-  if ((res = data->mix_node->set_port_format (data->mix, data->mix_ports[1], 0, format)) < 0)
+  if ((res = data->mix_node->set_port_format (data->mix, data->mix_ports[1], false, format)) < 0)
     return res;
 
-  if ((res = data->source2_node->set_port_format (data->source2, 0, 0, format)) < 0)
+  if ((res = data->source2_node->set_port_format (data->source2, 0, false, format)) < 0)
     return res;
 
 
   return SPA_RESULT_OK;
-}
-
-static SpaResult
-start_nodes (AppData *data)
-{
-  SpaResult res;
-  SpaCommand cmd;
-
-  cmd.type = SPA_COMMAND_ACTIVATE;
-  if ((res = data->sink_node->send_command (data->sink, &cmd)) < 0)
-    return res;
-  if ((res = data->mix_node->send_command (data->mix, &cmd)) < 0)
-    return res;
-  if ((res = data->source1_node->send_command (data->source1, &cmd)) < 0)
-    return res;
-  if ((res = data->source2_node->send_command (data->source1, &cmd)) < 0)
-    return res;
-
-  return res;
-}
-
-static SpaResult
-stop_nodes (AppData *data)
-{
-  SpaResult res;
-  SpaCommand cmd;
-
-  cmd.type = SPA_COMMAND_DEACTIVATE;
-  if ((res = data->sink_node->send_command (data->sink, &cmd)) < 0)
-    return res;
-  if ((res = data->mix_node->send_command (data->mix, &cmd)) < 0)
-    return res;
-  if ((res = data->source1_node->send_command (data->source1, &cmd)) < 0)
-    return res;
-  if ((res = data->source2_node->send_command (data->source1, &cmd)) < 0)
-    return res;
-
-  return res;
 }
 
 static void
@@ -337,17 +299,7 @@ main (int argc, char *argv[])
     printf ("can't negotiate nodes: %d\n", res);
     return -1;
   }
-  if ((res = start_nodes (&data)) < 0) {
-    printf ("can't start nodes: %d\n", res);
-    return -1;
-  }
 
   run_async_sink (&data);
 
-  if ((res = stop_nodes (&data)) < 0) {
-    printf ("can't stop nodes: %d\n", res);
-    return -1;
-  }
-
-  return 0;
 }

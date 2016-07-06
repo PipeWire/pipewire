@@ -147,38 +147,36 @@ spa_volume_node_send_command (SpaHandle     *handle,
     case SPA_COMMAND_INVALID:
       return SPA_RESULT_INVALID_COMMAND;
 
-    case SPA_COMMAND_ACTIVATE:
-      if (this->event_cb) {
-        SpaEvent event;
-
-        event.refcount = 1;
-        event.notify = NULL;
-        event.type = SPA_EVENT_TYPE_ACTIVATED;
-        event.port_id = -1;
-        event.data = NULL;
-        event.size = 0;
-
-        this->event_cb (handle, &event, this->user_data);
-      }
-      break;
-
-    case SPA_COMMAND_DEACTIVATE:
-      if (this->event_cb) {
-        SpaEvent event;
-
-        event.refcount = 1;
-        event.notify = NULL;
-        event.type = SPA_EVENT_TYPE_DEACTIVATED;
-        event.port_id = -1;
-        event.data = NULL;
-        event.size = 0;
-
-        this->event_cb (handle, &event, this->user_data);
-      }
-      break;
-
     case SPA_COMMAND_START:
+      if (this->event_cb) {
+        SpaEvent event;
+
+        event.refcount = 1;
+        event.notify = NULL;
+        event.type = SPA_EVENT_TYPE_STARTED;
+        event.port_id = -1;
+        event.data = NULL;
+        event.size = 0;
+
+        this->event_cb (handle, &event, this->user_data);
+      }
+      break;
+
     case SPA_COMMAND_STOP:
+      if (this->event_cb) {
+        SpaEvent event;
+
+        event.refcount = 1;
+        event.notify = NULL;
+        event.type = SPA_EVENT_TYPE_STOPPED;
+        event.port_id = -1;
+        event.data = NULL;
+        event.size = 0;
+
+        this->event_cb (handle, &event, this->user_data);
+      }
+      break;
+
     case SPA_COMMAND_FLUSH:
     case SPA_COMMAND_DRAIN:
     case SPA_COMMAND_MARKER:
@@ -288,7 +286,7 @@ spa_volume_node_enum_port_formats (SpaHandle        *handle,
 static SpaResult
 spa_volume_node_set_port_format (SpaHandle       *handle,
                                  uint32_t         port_id,
-                                 int              test_only,
+                                 bool             test_only,
                                  const SpaFormat *format)
 {
   SpaVolume *this = (SpaVolume *) handle;

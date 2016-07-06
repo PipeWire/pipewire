@@ -22,8 +22,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#include <libv4l2.h>
 #include <pthread.h>
+#include <linux/videodev2.h>
 
 #include <spa/node.h>
 #include <spa/video/format.h>
@@ -45,11 +45,7 @@ reset_v4l2_source_props (SpaV4l2SourceProps *props)
   strncpy (props->device, default_device, 64);
 }
 
-typedef struct {
-  int fd;
-  pthread_t thread;
-  bool running;
-} SpaV4l2State;
+#define MAX_BUFFERS     256
 
 typedef struct _V4l2Buffer V4l2Buffer;
 
@@ -59,7 +55,24 @@ struct _V4l2Buffer {
   SpaMetaHeader header;
   SpaData data[1];
   V4l2Buffer *next;
+  uint32_t index;
+  SpaV4l2Source *source;
+  bool outstanding;
 };
+
+typedef struct {
+  bool opened;
+  int fd;
+  struct v4l2_capability cap;
+  struct v4l2_format fmt;
+  enum v4l2_buf_type type;
+  struct v4l2_requestbuffers reqbuf;
+  pthread_t thread;
+  bool running;
+  V4l2Buffer buffers[MAX_BUFFERS];
+  V4l2Buffer *ready;
+  uint32_t ready_count;
+} SpaV4l2State;
 
 struct _SpaV4l2Source {
   SpaHandle handle;
@@ -67,21 +80,17 @@ struct _SpaV4l2Source {
   SpaV4l2SourceProps tmp_props;
   SpaV4l2SourceProps props;
 
-  bool activated;
-
   SpaEventCallback event_cb;
   void *user_data;
 
-  bool have_format;
-  SpaVideoRawFormat query_format;
-  SpaVideoRawFormat current_format;
+  SpaVideoRawFormat raw_format[2];
+  SpaFormat *current_format;
 
   SpaV4l2State state;
 
   SpaPortInfo info;
   SpaPortStatus status;
 
-  V4l2Buffer buffer;
 };
 
 #include "v4l2-utils.c"
@@ -181,48 +190,39 @@ spa_v4l2_source_node_send_command (SpaHandle     *handle,
     case SPA_COMMAND_INVALID:
       return SPA_RESULT_INVALID_COMMAND;
 
-    case SPA_COMMAND_ACTIVATE:
-      if (!this->activated) {
-        spa_v4l2_open (this);
-        this->activated = true;
-      }
-      if (this->event_cb) {
-        SpaEvent event;
-
-        event.refcount = 1;
-        event.notify = NULL;
-        event.type = SPA_EVENT_TYPE_ACTIVATED;
-        event.port_id = -1;
-        event.data = NULL;
-        event.size = 0;
-
-        this->event_cb (handle, &event, this->user_data);
-      }
-      break;
-    case SPA_COMMAND_DEACTIVATE:
-      if (this->activated) {
-        spa_v4l2_close (this);
-        this->activated = false;
-      }
-      if (this->event_cb) {
-        SpaEvent event;
-
-        event.refcount = 1;
-        event.notify = NULL;
-        event.type = SPA_EVENT_TYPE_DEACTIVATED;
-        event.port_id = -1;
-        event.data = NULL;
-        event.size = 0;
-
-        this->event_cb (handle, &event, this->user_data);
-      }
-      break;
     case SPA_COMMAND_START:
       spa_v4l2_start (this);
+
+      if (this->event_cb) {
+        SpaEvent event;
+
+        event.refcount = 1;
+        event.notify = NULL;
+        event.type = SPA_EVENT_TYPE_STARTED;
+        event.port_id = -1;
+        event.data = NULL;
+        event.size = 0;
+
+        this->event_cb (handle, &event, this->user_data);
+      }
       break;
     case SPA_COMMAND_STOP:
       spa_v4l2_stop (this);
+
+      if (this->event_cb) {
+        SpaEvent event;
+
+        event.refcount = 1;
+        event.notify = NULL;
+        event.type = SPA_EVENT_TYPE_STOPPED;
+        event.port_id = -1;
+        event.data = NULL;
+        event.size = 0;
+
+        this->event_cb (handle, &event, this->user_data);
+      }
       break;
+
     case SPA_COMMAND_FLUSH:
     case SPA_COMMAND_DRAIN:
     case SPA_COMMAND_MARKER:
@@ -317,12 +317,12 @@ spa_v4l2_source_node_enum_port_formats (SpaHandle       *handle,
 
   switch (index) {
     case 0:
-      spa_video_raw_format_init (&this->query_format);
+      spa_video_raw_format_init (&this->raw_format[0]);
       break;
     default:
       return SPA_RESULT_ENUM_END;
   }
-  *format = &this->query_format.format;
+  *format = &this->raw_format[0].format;
 
   return SPA_RESULT_OK;
 }
@@ -330,11 +330,13 @@ spa_v4l2_source_node_enum_port_formats (SpaHandle       *handle,
 static SpaResult
 spa_v4l2_source_node_set_port_format (SpaHandle       *handle,
                                       uint32_t         port_id,
-                                      int              test_only,
+                                      bool             test_only,
                                       const SpaFormat *format)
 {
   SpaV4l2Source *this = (SpaV4l2Source *) handle;
   SpaResult res;
+  SpaFormat *f, *tf;
+  size_t fs;
 
   if (handle == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -343,14 +345,30 @@ spa_v4l2_source_node_set_port_format (SpaHandle       *handle,
     return SPA_RESULT_INVALID_PORT;
 
   if (format == NULL) {
-    this->have_format = false;
+    this->current_format = NULL;
     return SPA_RESULT_OK;
   }
 
-  if ((res = spa_video_raw_format_parse (format, &this->current_format)) < 0)
-    return res;
+  if (format->media_type == SPA_MEDIA_TYPE_VIDEO) {
+    if (format->media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
+      if ((res = spa_video_raw_format_parse (format, &this->raw_format[0]) < 0))
+        return res;
 
-  this->have_format = true;
+      f = &this->raw_format[0].format;
+      tf = &this->raw_format[1].format;
+      fs = sizeof (SpaVideoRawFormat);
+    } else
+      return SPA_RESULT_INVALID_MEDIA_TYPE;
+  } else
+    return SPA_RESULT_INVALID_MEDIA_TYPE;
+
+  if (spa_v4l2_set_format (this, f, test_only) < 0)
+    return SPA_RESULT_INVALID_MEDIA_TYPE;
+
+  if (!test_only) {
+    memcpy (tf, f, fs);
+    this->current_format = tf;
+  }
 
   return SPA_RESULT_OK;
 }
@@ -368,10 +386,10 @@ spa_v4l2_source_node_get_port_format (SpaHandle        *handle,
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
 
-  if (!this->have_format)
+  if (this->current_format == NULL)
     return SPA_RESULT_NO_FORMAT;
 
-  *format = &this->current_format.format;
+  *format = this->current_format;
 
   return SPA_RESULT_OK;
 }
@@ -442,23 +460,41 @@ spa_v4l2_source_node_pull_port_output (SpaHandle      *handle,
                                        SpaOutputInfo  *info)
 {
   SpaV4l2Source *this = (SpaV4l2Source *) handle;
+  SpaV4l2State *state;
   unsigned int i;
   bool have_error = false;
 
   if (handle == NULL || n_info == 0 || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
+  state = &this->state;
+
   for (i = 0; i < n_info; i++) {
+    V4l2Buffer *b;
+
     if (info[i].port_id != 0) {
       info[i].status = SPA_RESULT_INVALID_PORT;
       have_error = true;
       continue;
     }
-    if (!this->have_format) {
+    if (this->current_format == NULL) {
       info[i].status = SPA_RESULT_NO_FORMAT;
       have_error = true;
       continue;
     }
+    if (state->ready_count == 0) {
+      info[i].status = SPA_RESULT_UNEXPECTED;
+      have_error = true;
+      continue;
+    }
+
+    b = state->ready;
+    state->ready = b->next;
+    state->ready_count--;
+
+    b->outstanding = true;
+
+    info[i].buffer = &b->buffer;
     info[i].status = SPA_RESULT_OK;
   }
   if (have_error)

@@ -52,6 +52,7 @@ reset_alsa_sink_props (SpaALSASinkProps *props)
 }
 
 typedef struct {
+  bool opened;
   snd_pcm_t *handle;
   snd_output_t *output;
   snd_pcm_sframes_t buffer_size;
@@ -76,8 +77,6 @@ struct _SpaALSASink {
 
   SpaALSASinkProps tmp_props;
   SpaALSASinkProps props;
-
-  bool activated;
 
   SpaEventCallback event_cb;
   void *user_data;
@@ -223,47 +222,37 @@ spa_alsa_sink_node_send_command (SpaHandle     *handle,
     case SPA_COMMAND_INVALID:
       return SPA_RESULT_INVALID_COMMAND;
 
-    case SPA_COMMAND_ACTIVATE:
-      if (!this->activated) {
-        spa_alsa_open (this);
-        this->activated = true;
-      }
-      if (this->event_cb) {
-        SpaEvent event;
-
-        event.refcount = 1;
-        event.notify = NULL;
-        event.type = SPA_EVENT_TYPE_ACTIVATED;
-        event.port_id = -1;
-        event.data = NULL;
-        event.size = 0;
-
-        this->event_cb (handle, &event, this->user_data);
-      }
-      break;
-    case SPA_COMMAND_DEACTIVATE:
-      if (this->activated) {
-        spa_alsa_close (this);
-        this->activated = false;
-      }
-      if (this->event_cb) {
-        SpaEvent event;
-
-        event.refcount = 1;
-        event.notify = NULL;
-        event.type = SPA_EVENT_TYPE_DEACTIVATED;
-        event.port_id = -1;
-        event.data = NULL;
-        event.size = 0;
-
-        this->event_cb (handle, &event, this->user_data);
-      }
-      break;
     case SPA_COMMAND_START:
       spa_alsa_start (this);
+
+      if (this->event_cb) {
+        SpaEvent event;
+
+        event.refcount = 1;
+        event.notify = NULL;
+        event.type = SPA_EVENT_TYPE_STARTED;
+        event.port_id = -1;
+        event.data = NULL;
+        event.size = 0;
+
+        this->event_cb (handle, &event, this->user_data);
+      }
       break;
     case SPA_COMMAND_STOP:
       spa_alsa_stop (this);
+
+      if (this->event_cb) {
+        SpaEvent event;
+
+        event.refcount = 1;
+        event.notify = NULL;
+        event.type = SPA_EVENT_TYPE_STOPPED;
+        event.port_id = -1;
+        event.data = NULL;
+        event.size = 0;
+
+        this->event_cb (handle, &event, this->user_data);
+      }
       break;
     case SPA_COMMAND_FLUSH:
     case SPA_COMMAND_DRAIN:
@@ -375,7 +364,7 @@ spa_alsa_sink_node_enum_port_formats (SpaHandle       *handle,
 static SpaResult
 spa_alsa_sink_node_set_port_format (SpaHandle       *handle,
                                     uint32_t         port_id,
-                                    int              test_only,
+                                    bool             test_only,
                                     const SpaFormat *format)
 {
   SpaALSASink *this = (SpaALSASink *) handle;

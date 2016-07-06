@@ -310,6 +310,9 @@ spa_alsa_open (SpaALSASink *this)
   SpaALSAState *state = &this->state;
   int err;
 
+  if (state->opened)
+    return 0;
+
   CHECK (snd_output_stdio_attach (&state->output, stdout, 0), "attach failed");
 
   printf ("Playback device is '%s'\n", this->props.device);
@@ -321,7 +324,25 @@ spa_alsa_open (SpaALSASink *this)
                        SND_PCM_NO_AUTO_CHANNELS |
                        SND_PCM_NO_AUTO_FORMAT), "open failed");
 
+  state->opened = true;
+
   return 0;
+}
+
+static int
+spa_alsa_close (SpaALSASink *this)
+{
+  SpaALSAState *state = &this->state;
+  int err = 0;
+
+  if (!state->opened)
+    return 0;
+
+  CHECK (snd_pcm_close (state->handle), "close failed");
+
+  state->opened = false;
+
+  return err;
 }
 
 static int
@@ -329,6 +350,9 @@ spa_alsa_start (SpaALSASink *this)
 {
   SpaALSAState *state = &this->state;
   int err;
+
+  if (spa_alsa_open (this) < 0)
+    return -1;
 
   CHECK (set_hwparams (this), "hwparams");
   CHECK (set_swparams (this), "swparams");
@@ -352,16 +376,7 @@ spa_alsa_stop (SpaALSASink *this)
     state->running = false;
     pthread_join (state->thread, NULL);
   }
+  spa_alsa_close (this);
+
   return 0;
-}
-
-static int
-spa_alsa_close (SpaALSASink *this)
-{
-  SpaALSAState *state = &this->state;
-  int err = 0;
-
-  CHECK (snd_pcm_close (state->handle), "close failed");
-
-  return err;
 }

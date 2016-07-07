@@ -40,8 +40,7 @@ typedef struct {
 struct _SpaVolume {
   SpaHandle  handle;
 
-  SpaVolumeProps props;
-  SpaVolumeProps tmp_props;
+  SpaVolumeProps props[2];
 
   SpaEventCallback event_cb;
   void *user_data;
@@ -108,8 +107,8 @@ spa_volume_node_get_props (SpaHandle      *handle,
   if (handle == NULL || props == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  memcpy (&this->tmp_props, &this->props, sizeof (this->tmp_props));
-  *props = &this->tmp_props.props;
+  memcpy (&this->props[0], &this->props[1], sizeof (this->props[1]));
+  *props = &this->props[0].props;
 
   return SPA_RESULT_OK;
 }
@@ -119,7 +118,7 @@ spa_volume_node_set_props (SpaHandle        *handle,
                             const SpaProps  *props)
 {
   SpaVolume *this = (SpaVolume *) handle;
-  SpaVolumeProps *p = &this->props;
+  SpaVolumeProps *p = &this->props[1];
   SpaResult res;
 
   if (handle == NULL)
@@ -477,7 +476,7 @@ spa_volume_node_pull_port_output (SpaHandle      *handle,
   if (this->input_buffer == NULL)
     return SPA_RESULT_NEED_MORE_INPUT;
 
-  volume = this->props.volume;
+  volume = this->props[1].volume;
 
   sbuf = this->input_buffer;
   dbuf = info->buffer ? info->buffer : this->input_buffer;
@@ -584,11 +583,11 @@ spa_volume_new (void)
   handle->get_interface = spa_volume_get_interface;
 
   this = (SpaVolume *) handle;
-  this->props.props.n_prop_info = PROP_ID_LAST;
-  this->props.props.prop_info = prop_info;
-  this->props.props.set_prop = spa_props_generic_set_prop;
-  this->props.props.get_prop = spa_props_generic_get_prop;
-  reset_volume_props (&this->props);
+  this->props[1].props.n_prop_info = PROP_ID_LAST;
+  this->props[1].props.prop_info = prop_info;
+  this->props[1].props.set_prop = spa_props_generic_set_prop;
+  this->props[1].props.get_prop = spa_props_generic_get_prop;
+  reset_volume_props (&this->props[1]);
 
   this->ports[0].info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFER |
                               SPA_PORT_INFO_FLAG_IN_PLACE;

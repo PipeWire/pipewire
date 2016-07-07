@@ -26,28 +26,29 @@ spa_v4l2_open (SpaV4l2Source *this)
 {
   SpaV4l2State *state = &this->state;
   struct stat st;
+  SpaV4l2SourceProps *props = &this->props[1];
 
   if (state->opened)
     return 0;
 
-  fprintf (stderr, "Playback device is '%s'\n", this->props.device);
+  fprintf (stderr, "Playback device is '%s'\n", props->device);
 
-  if (stat (this->props.device, &st) < 0) {
+  if (stat (props->device, &st) < 0) {
     fprintf(stderr, "Cannot identify '%s': %d, %s\n",
-            this->props.device, errno, strerror (errno));
+            props->device, errno, strerror (errno));
     return -1;
   }
 
   if (!S_ISCHR (st.st_mode)) {
-    fprintf(stderr, "%s is no device\n", this->props.device);
+    fprintf(stderr, "%s is no device\n", props->device);
     return -1;
   }
 
-  state->fd = open (this->props.device, O_RDWR | O_NONBLOCK, 0);
+  state->fd = open (props->device, O_RDWR | O_NONBLOCK, 0);
 
   if (state->fd == -1) {
     fprintf (stderr, "Cannot open '%s': %d, %s\n",
-            this->props.device, errno, strerror (errno));
+            props->device, errno, strerror (errno));
     return -1;
   }
 
@@ -57,7 +58,7 @@ spa_v4l2_open (SpaV4l2Source *this)
   }
 
   if ((state->cap.capabilities & V4L2_CAP_VIDEO_CAPTURE) == 0) {
-    fprintf (stderr, "%s is no video capture device\n", this->props.device);
+    fprintf (stderr, "%s is no video capture device\n", props->device);
     return -1;
   }
   state->opened = true;
@@ -352,20 +353,44 @@ mmap_read (SpaV4l2Source *this)
   return 0;
 }
 
+static void
+v4l2_on_fd_events (void *user_data)
+{
+  V4l2EventPoll *poll = user_data;
+  SpaV4l2Source *this = poll->source;
+  SpaEvent event;
+
+  mmap_read (this);
+
+  event.refcount = 1;
+  event.notify = NULL;
+  event.type = SPA_EVENT_TYPE_CAN_PULL_OUTPUT;
+  event.port_id = 0;
+  event.size = 0;
+  event.data = NULL;
+  this->event_cb (&this->handle, &event, this->user_data);
+}
+
 static void *
 v4l2_loop (void *user_data)
 {
   SpaV4l2Source *this = user_data;
   SpaV4l2State *state = &this->state;
   struct pollfd fds[1];
+  SpaEvent event;
+  int r;
+
+  event.notify = NULL;
+  event.type = SPA_EVENT_TYPE_CAN_PULL_OUTPUT;
+  event.port_id = 0;
+  event.size = 0;
+  event.data = NULL;
 
   fds[0].fd = state->fd;
   fds[0].events = POLLIN | POLLPRI | POLLERR;
   fds[0].revents = 0;
 
   while (state->running) {
-    int r;
-
     r = poll (fds, 1, 2000);
     if (r < 0) {
       if (errno == EINTR)
@@ -380,18 +405,8 @@ v4l2_loop (void *user_data)
     if (mmap_read (this) < 0)
      break;
 
-    {
-      SpaEvent event;
-
-      event.refcount = 1;
-      event.notify = NULL;
-      event.type = SPA_EVENT_TYPE_CAN_PULL_OUTPUT;
-      event.port_id = 0;
-      event.size = 0;
-      event.data = NULL;
-
-      this->event_cb (&this->handle, &event, this->user_data);
-    }
+    event.refcount = 1;
+    this->event_cb (&this->handle, &event, this->user_data);
   }
   return NULL;
 }
@@ -525,6 +540,8 @@ spa_v4l2_start (SpaV4l2Source *this)
   SpaV4l2State *state = &this->state;
   int err;
   enum v4l2_buf_type type;
+  SpaEvent event;
+  V4l2EventPoll poll;
 
   if (spa_v4l2_open (this) < 0)
     return -1;
@@ -538,6 +555,20 @@ spa_v4l2_start (SpaV4l2Source *this)
       return -1;
   } else
     return -1;
+
+  event.refcount = 1;
+  event.notify = NULL;
+  event.type = SPA_EVENT_TYPE_ADD_POLL;
+  event.port_id = 0;
+  event.data = &poll.poll;
+  event.size = sizeof (poll.poll);
+
+  poll.poll.fd = state->fd;
+  poll.poll.events = POLLIN | POLLPRI | POLLERR;
+  poll.poll.revents = 0;
+  poll.poll.callback = v4l2_on_fd_events;
+  poll.source = this;
+  this->event_cb (&this->handle, &event, this->user_data);
 
   type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   if (xioctl (state->fd, VIDIOC_STREAMON, &type) < 0) {

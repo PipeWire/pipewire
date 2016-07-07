@@ -75,8 +75,7 @@ struct _ALSABuffer {
 struct _SpaALSASink {
   SpaHandle handle;
 
-  SpaALSASinkProps tmp_props;
-  SpaALSASinkProps props;
+  SpaALSASinkProps props[2];
 
   SpaEventCallback event_cb;
   void *user_data;
@@ -182,8 +181,8 @@ spa_alsa_sink_node_get_props (SpaHandle     *handle,
   if (handle == NULL || props == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  memcpy (&this->tmp_props, &this->props, sizeof (this->props));
-  *props = &this->tmp_props.props;
+  memcpy (&this->props[0], &this->props[1], sizeof (this->props[1]));
+  *props = &this->props[0].props;
 
   return SPA_RESULT_OK;
 }
@@ -193,7 +192,7 @@ spa_alsa_sink_node_set_props (SpaHandle       *handle,
                               const SpaProps  *props)
 {
   SpaALSASink *this = (SpaALSASink *) handle;
-  SpaALSASinkProps *p = &this->props;
+  SpaALSASinkProps *p = &this->props[1];
   SpaResult res;
 
   if (handle == NULL)
@@ -564,11 +563,11 @@ spa_alsa_sink_new (void)
   handle->get_interface = spa_alsa_sink_get_interface;
 
   this = (SpaALSASink *) handle;
-  this->props.props.n_prop_info = PROP_ID_LAST;
-  this->props.props.prop_info = prop_info;
-  this->props.props.set_prop = spa_props_generic_set_prop;
-  this->props.props.get_prop = spa_props_generic_get_prop;
-  reset_alsa_sink_props (&this->props);
+  this->props[1].props.n_prop_info = PROP_ID_LAST;
+  this->props[1].props.prop_info = prop_info;
+  this->props[1].props.set_prop = spa_props_generic_set_prop;
+  this->props[1].props.get_prop = spa_props_generic_get_prop;
+  reset_alsa_sink_props (&this->props[1]);
 
   this->info.flags = SPA_PORT_INFO_FLAG_NONE;
   this->status.flags = SPA_PORT_STATUS_FLAG_NEED_INPUT;

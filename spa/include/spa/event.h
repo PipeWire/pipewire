@@ -69,6 +69,20 @@ struct _SpaEvent {
   size_t         size;
 };
 
+/**
+ * SpaEventPoll:
+ * @fd: a file descriptor to watch
+ * @events: events to watch for
+ * @revents: result events
+ * @callback: callback called when there was activity on @fd
+ */
+typedef struct {
+  int   fd;
+  short events;
+  short revents;
+  SpaNotify callback;
+} SpaEventPoll;
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

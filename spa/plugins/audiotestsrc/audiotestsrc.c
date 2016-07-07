@@ -35,8 +35,7 @@ typedef struct {
 struct _SpaAudioTestSrc {
   SpaHandle handle;
 
-  SpaAudioTestSrcProps props;
-  SpaAudioTestSrcProps tmp_props;
+  SpaAudioTestSrcProps props[2];
 
   SpaEventCallback event_cb;
   void *user_data;
@@ -130,8 +129,8 @@ spa_audiotestsrc_node_get_props (SpaHandle     *handle,
   if (handle == NULL || props == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  memcpy (&this->tmp_props, &this->props, sizeof (this->tmp_props));
-  *props = &this->tmp_props.props;
+  memcpy (&this->props[0], &this->props[1], sizeof (this->props[1]));
+  *props = &this->props[0].props;
 
   return SPA_RESULT_OK;
 }
@@ -141,7 +140,7 @@ spa_audiotestsrc_node_set_props (SpaHandle       *handle,
                                  const SpaProps  *props)
 {
   SpaAudioTestSrc *this = (SpaAudioTestSrc *) handle;
-  SpaAudioTestSrcProps *p = &this->props;
+  SpaAudioTestSrcProps *p = &this->props[1];
   SpaResult res;
 
   if (handle == NULL)
@@ -510,11 +509,11 @@ spa_audiotestsrc_new (void)
   handle->get_interface = spa_audiotestsrc_get_interface;
 
   this = (SpaAudioTestSrc *) handle;
-  this->props.props.n_prop_info = PROP_ID_LAST;
-  this->props.props.prop_info = prop_info;
-  this->props.props.set_prop = spa_props_generic_set_prop;
-  this->props.props.get_prop = spa_props_generic_get_prop;
-  reset_audiotestsrc_props (&this->props);
+  this->props[1].props.n_prop_info = PROP_ID_LAST;
+  this->props[1].props.prop_info = prop_info;
+  this->props[1].props.set_prop = spa_props_generic_set_prop;
+  this->props[1].props.get_prop = spa_props_generic_get_prop;
+  reset_audiotestsrc_props (&this->props[1]);
 
   this->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFER |
                      SPA_PORT_INFO_FLAG_NO_REF;

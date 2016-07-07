@@ -76,6 +76,7 @@ set_hwparams (SpaALSASink *this)
   snd_pcm_t *handle = state->handle;
   unsigned int buffer_time;
   unsigned int period_time;
+  SpaALSASinkProps *props = &this->props[1];
 
   snd_pcm_hw_params_alloca (&params);
   /* choose all parameters */
@@ -99,13 +100,13 @@ set_hwparams (SpaALSASink *this)
     return -EINVAL;
   }
   /* set the buffer time */
-  buffer_time = this->props.buffer_time;
+  buffer_time = props->buffer_time;
   CHECK (snd_pcm_hw_params_set_buffer_time_near (handle, params, &buffer_time, &dir), "set_buffer_time_near");
   CHECK (snd_pcm_hw_params_get_buffer_size (params, &size), "get_buffer_size");
   state->buffer_size = size;
 
   /* set the period time */
-  period_time = this->props.period_time;
+  period_time = props->period_time;
   CHECK (snd_pcm_hw_params_set_period_time_near (handle, params, &period_time, &dir), "set_period_time_near");
   CHECK (snd_pcm_hw_params_get_period_size (params, &size, &dir), "get_period_size");
   state->period_size = size;
@@ -123,6 +124,7 @@ set_swparams (SpaALSASink *this)
   snd_pcm_t *handle = state->handle;
   int err = 0;
   snd_pcm_sw_params_t *params;
+  SpaALSASinkProps *props = &this->props[1];
 
   snd_pcm_sw_params_alloca (&params);
 
@@ -136,9 +138,9 @@ set_swparams (SpaALSASink *this)
   /* allow the transfer when at least period_size samples can be processed */
   /* or disable this mechanism when period event is enabled (aka interrupt like style processing) */
   CHECK (snd_pcm_sw_params_set_avail_min (handle, params,
-        this->props.period_event ? state->buffer_size : state->period_size), "set_avail_min");
+        props->period_event ? state->buffer_size : state->period_size), "set_avail_min");
   /* enable period events when requested */
-  if (this->props.period_event) {
+  if (props->period_event) {
     CHECK (snd_pcm_sw_params_set_period_event (handle, params, 1), "set_period_event");
   }
   /* write the parameters to the playback device */
@@ -309,15 +311,16 @@ spa_alsa_open (SpaALSASink *this)
 {
   SpaALSAState *state = &this->state;
   int err;
+  SpaALSASinkProps *props = &this->props[1];
 
   if (state->opened)
     return 0;
 
   CHECK (snd_output_stdio_attach (&state->output, stdout, 0), "attach failed");
 
-  printf ("Playback device is '%s'\n", this->props.device);
+  printf ("Playback device is '%s'\n", props->device);
   CHECK (snd_pcm_open (&state->handle,
-                       this->props.device,
+                       props->device,
                        SND_PCM_STREAM_PLAYBACK,
                        SND_PCM_NONBLOCK |
                        SND_PCM_NO_AUTO_RESAMPLE |

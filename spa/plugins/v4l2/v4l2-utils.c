@@ -493,13 +493,15 @@ mmap_init (SpaV4l2Source *this)
     b->meta[0].size = sizeof (b->header);
 
     b->data[0].type = SPA_DATA_TYPE_MEMPTR;
-    b->data[0].size = buf.length;
     b->data[0].data = mmap (NULL,
                             buf.length,
                             PROT_READ | PROT_WRITE,
                             MAP_SHARED,
                             state->fd,
                             buf.m.offset);
+    b->data[0].offset = 0;
+    b->data[0].size = buf.length;
+    b->data[0].stride = state->fmt.fmt.pix.bytesperline;
 
     if (b->data[0].data == MAP_FAILED) {
       perror ("mmap");

@@ -23,12 +23,17 @@
 #include <unistd.h>
 #include <dlfcn.h>
 
+#include <SDL2/SDL.h>
+
 #include <spa/node.h>
 #include <spa/video/format.h>
 
 typedef struct {
   SpaHandle *source;
   const SpaNode *source_node;
+  SDL_Renderer *renderer;
+  SDL_Window *window;
+  SDL_Texture *texture;
 } AppData;
 
 static SpaResult
@@ -73,6 +78,7 @@ make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char
   }
   return SPA_RESULT_ERROR;
 }
+#define MIN(a,b) (a < b ? a : b)
 
 static void
 on_source_event (SpaHandle *handle, SpaEvent *event, void *user_data)
@@ -84,9 +90,31 @@ on_source_event (SpaHandle *handle, SpaEvent *event, void *user_data)
     {
       SpaOutputInfo info[1] = { 0, };
       SpaResult res;
+      void *sdata, *ddata;
+      int sstride, dstride;
+      int i;
+      uint8_t *src, *dst;
 
       if ((res = data->source_node->pull_port_output (data->source, 1, info)) < 0)
         printf ("got pull error %d\n", res);
+
+      if (SDL_LockTexture (data->texture, NULL, &ddata, &dstride) < 0) {
+        fprintf (stderr, "Couldn't lock texture: %s\n", SDL_GetError());
+        return;
+      }
+      sdata = info[0].buffer->datas[0].data;
+      sstride = info[0].buffer->datas[0].stride;
+
+      for (i = 0; i < 240; i++) {
+        src = ((uint8_t*)sdata + i * sstride);
+        dst = ((uint8_t*)ddata + i * dstride);
+        memcpy (dst, src, MIN (sstride, dstride));
+      }
+      SDL_UnlockTexture(data->texture);
+
+      SDL_RenderClear (data->renderer);
+      SDL_RenderCopy (data->renderer, data->texture, NULL, NULL);
+      SDL_RenderPresent (data->renderer);
 
       if (info[0].buffer) {
         spa_buffer_unref (info[0].buffer);
@@ -164,13 +192,30 @@ run_async_source (AppData *data)
 {
   SpaResult res;
   SpaCommand cmd;
+  bool done = false;
 
   cmd.type = SPA_COMMAND_START;
   if ((res = data->source_node->send_command (data->source, &cmd)) < 0)
     printf ("got error %d\n", res);
 
-  printf ("sleeping for 10 seconds\n");
-  sleep (10);
+
+  while (!done) {
+    SDL_Event event;
+
+    while (SDL_PollEvent (&event)) {
+      switch (event.type) {
+        case SDL_KEYDOWN:
+          if (event.key.keysym.sym == SDLK_ESCAPE) {
+            done = SDL_TRUE;
+          }
+          break;
+        case SDL_QUIT:
+          done = SDL_TRUE;
+          break;
+      }
+    }
+
+  }
 
   cmd.type = SPA_COMMAND_STOP;
   if ((res = data->source_node->send_command (data->source, &cmd)) < 0)
@@ -183,6 +228,25 @@ main (int argc, char *argv[])
   AppData data;
   SpaResult res;
 
+  if (SDL_Init (SDL_INIT_VIDEO) < 0) {
+    printf ("can't initialize SDL: %s\n", SDL_GetError ());
+    return -1;
+  }
+
+  if (SDL_CreateWindowAndRenderer (320, 240, SDL_WINDOW_RESIZABLE, &data.window, &data.renderer)) {
+    printf ("can't create window: %s\n", SDL_GetError ());
+    return -1;
+  }
+
+  data.texture = SDL_CreateTexture (data.renderer,
+                                    SDL_PIXELFORMAT_YUY2,
+                                    SDL_TEXTUREACCESS_STREAMING,
+                                    320, 240);
+  if (!data.texture) {
+    printf ("can't create texture: %s\n", SDL_GetError ());
+    return -1;
+  }
+
   if ((res = make_nodes (&data)) < 0) {
     printf ("can't make nodes: %d\n", res);
     return -1;
@@ -193,6 +257,8 @@ main (int argc, char *argv[])
   }
 
   run_async_source (&data);
+
+  SDL_DestroyRenderer (data.renderer);
 
   return 0;
 }

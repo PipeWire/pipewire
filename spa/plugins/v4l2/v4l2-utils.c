@@ -356,8 +356,7 @@ mmap_read (SpaV4l2Source *this)
 static void
 v4l2_on_fd_events (void *user_data)
 {
-  V4l2EventPoll *poll = user_data;
-  SpaV4l2Source *this = poll->source;
+  SpaV4l2Source *this = user_data;
   SpaEvent event;
 
   mmap_read (this);
@@ -371,45 +370,6 @@ v4l2_on_fd_events (void *user_data)
   this->event_cb (&this->handle, &event, this->user_data);
 }
 
-static void *
-v4l2_loop (void *user_data)
-{
-  SpaV4l2Source *this = user_data;
-  SpaV4l2State *state = &this->state;
-  struct pollfd fds[1];
-  SpaEvent event;
-  int r;
-
-  event.notify = NULL;
-  event.type = SPA_EVENT_TYPE_CAN_PULL_OUTPUT;
-  event.port_id = 0;
-  event.size = 0;
-  event.data = NULL;
-
-  fds[0].fd = state->fd;
-  fds[0].events = POLLIN | POLLPRI | POLLERR;
-  fds[0].revents = 0;
-
-  while (state->running) {
-    r = poll (fds, 1, 2000);
-    if (r < 0) {
-      if (errno == EINTR)
-        continue;
-      break;
-    }
-    if (r == 0) {
-      fprintf (stderr, "select timeout\n");
-      break;
-    }
-
-    if (mmap_read (this) < 0)
-     break;
-
-    event.refcount = 1;
-    this->event_cb (&this->handle, &event, this->user_data);
-  }
-  return NULL;
-}
 static void
 v4l2_buffer_free (void *data)
 {
@@ -540,10 +500,8 @@ static int
 spa_v4l2_start (SpaV4l2Source *this)
 {
   SpaV4l2State *state = &this->state;
-  int err;
   enum v4l2_buf_type type;
   SpaEvent event;
-  V4l2EventPoll poll;
 
   if (spa_v4l2_open (this) < 0)
     return -1;
@@ -562,14 +520,14 @@ spa_v4l2_start (SpaV4l2Source *this)
   event.notify = NULL;
   event.type = SPA_EVENT_TYPE_ADD_POLL;
   event.port_id = 0;
-  event.data = &poll.poll;
-  event.size = sizeof (poll.poll);
+  event.data = &state->poll;
+  event.size = sizeof (state->poll);
 
-  poll.poll.fd = state->fd;
-  poll.poll.events = POLLIN | POLLPRI | POLLERR;
-  poll.poll.revents = 0;
-  poll.poll.callback = v4l2_on_fd_events;
-  poll.source = this;
+  state->poll.fd = state->fd;
+  state->poll.events = POLLIN | POLLPRI | POLLERR;
+  state->poll.revents = 0;
+  state->poll.callback = v4l2_on_fd_events;
+  state->poll.user_data = this;
   this->event_cb (&this->handle, &event, this->user_data);
 
   type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -577,13 +535,7 @@ spa_v4l2_start (SpaV4l2Source *this)
     perror ("VIDIOC_STREAMON");
     return -1;
   }
-
-  state->running = true;
-  if ((err = pthread_create (&state->thread, NULL, v4l2_loop, this)) != 0) {
-    printf ("can't create thread: %d %s", err, strerror (err));
-    state->running = false;
-  }
-  return err;
+  return 0;
 }
 
 static int
@@ -591,11 +543,7 @@ spa_v4l2_stop (SpaV4l2Source *this)
 {
   SpaV4l2State *state = &this->state;
   enum v4l2_buf_type type;
-
-  if (state->running) {
-    state->running = false;
-    pthread_join (state->thread, NULL);
-  }
+  SpaEvent event;
 
   type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   if (xioctl (state->fd, VIDIOC_STREAMOFF, &type) < 0) {
@@ -603,6 +551,15 @@ spa_v4l2_stop (SpaV4l2Source *this)
     return -1;
   }
 
+  event.refcount = 1;
+  event.notify = NULL;
+  event.type = SPA_EVENT_TYPE_REMOVE_POLL;
+  event.port_id = 0;
+  event.data = &state->poll;
+  event.size = sizeof (state->poll);
+  this->event_cb (&this->handle, &event, this->user_data);
+
   spa_v4l2_close (this);
+
   return 0;
 }

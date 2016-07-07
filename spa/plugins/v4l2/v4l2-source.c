@@ -22,7 +22,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#include <pthread.h>
 #include <linux/videodev2.h>
 
 #include <spa/node.h>
@@ -47,11 +46,6 @@ reset_v4l2_source_props (SpaV4l2SourceProps *props)
 
 #define MAX_BUFFERS     256
 
-typedef struct {
-  SpaEventPoll poll;
-  SpaV4l2Source *source;
-} V4l2EventPoll;
-
 typedef struct _V4l2Buffer V4l2Buffer;
 
 struct _V4l2Buffer {
@@ -72,11 +66,10 @@ typedef struct {
   struct v4l2_format fmt;
   enum v4l2_buf_type type;
   struct v4l2_requestbuffers reqbuf;
-  pthread_t thread;
-  bool running;
   V4l2Buffer buffers[MAX_BUFFERS];
   V4l2Buffer *ready;
   uint32_t ready_count;
+  SpaEventPoll poll;
 } SpaV4l2State;
 
 struct _SpaV4l2Source {
@@ -94,7 +87,6 @@ struct _SpaV4l2Source {
 
   SpaPortInfo info;
   SpaPortStatus status;
-
 };
 
 #include "v4l2-utils.c"

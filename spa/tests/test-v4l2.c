@@ -22,6 +22,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <dlfcn.h>
+#include <poll.h>
+#include <pthread.h>
+#include <errno.h>
 
 #include <SDL2/SDL.h>
 
@@ -34,6 +37,9 @@ typedef struct {
   SDL_Renderer *renderer;
   SDL_Window *window;
   SDL_Texture *texture;
+  bool running;
+  pthread_t thread;
+  SpaEventPoll poll;
 } AppData;
 
 static SpaResult
@@ -121,6 +127,9 @@ on_source_event (SpaHandle *handle, SpaEvent *event, void *user_data)
       }
       break;
     }
+    case SPA_EVENT_TYPE_ADD_POLL:
+      memcpy (&data->poll, event->data, sizeof (SpaEventPoll));
+      break;
     default:
       printf ("got event %d\n", event->type);
       break;
@@ -187,17 +196,52 @@ negotiate_formats (AppData *data)
   return SPA_RESULT_OK;
 }
 
+static void *
+loop (void *user_data)
+{
+  AppData *data = user_data;
+  struct pollfd fds[1];
+  int r;
+
+  fds[0].fd = data->poll.fd;
+  fds[0].events = data->poll.events;
+  fds[0].revents = 0;
+
+  printf ("enter thread\n");
+  while (data->running) {
+    r = poll (fds, 1, 2000);
+    if (r < 0) {
+      if (errno == EINTR)
+        continue;
+      break;
+    }
+    if (r == 0) {
+      fprintf (stderr, "select timeout\n");
+      break;
+    }
+    data->poll.callback (data->poll.user_data);
+  }
+  printf ("leave thread\n");
+  return NULL;
+}
+
 static void
 run_async_source (AppData *data)
 {
   SpaResult res;
   SpaCommand cmd;
   bool done = false;
+  int err;
 
   cmd.type = SPA_COMMAND_START;
   if ((res = data->source_node->send_command (data->source, &cmd)) < 0)
     printf ("got error %d\n", res);
 
+  data->running = true;
+  if ((err = pthread_create (&data->thread, NULL, loop, data)) != 0) {
+    printf ("can't create thread: %d %s", err, strerror (err));
+    data->running = false;
+  }
 
   while (!done) {
     SDL_Event event;
@@ -214,7 +258,11 @@ run_async_source (AppData *data)
           break;
       }
     }
+  }
 
+  if (data->running) {
+    data->running = false;
+    pthread_join (data->thread, NULL);
   }
 
   cmd.type = SPA_COMMAND_STOP;

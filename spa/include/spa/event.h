@@ -75,12 +75,14 @@ struct _SpaEvent {
  * @events: events to watch for
  * @revents: result events
  * @callback: callback called when there was activity on @fd
+ * @user_data: user data to pass to @callback
  */
 typedef struct {
   int   fd;
   short events;
   short revents;
   SpaNotify callback;
+  void     *user_data;
 } SpaEventPoll;
 
 #ifdef __cplusplus

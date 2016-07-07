@@ -137,7 +137,7 @@ on_source_event (SpaHandle *handle, SpaEvent *event, void *user_data)
 }
 
 static SpaResult
-make_nodes (AppData *data)
+make_nodes (AppData *data, const char *device)
 {
   SpaResult res;
   SpaProps *props;
@@ -153,7 +153,7 @@ make_nodes (AppData *data)
     printf ("got get_props error %d\n", res);
 
   value.type = SPA_PROP_TYPE_STRING;
-  value.value = "/dev/video1";
+  value.value = device ? device : "/dev/video0";
   value.size = strlen (value.value)+1;
   props->set_prop (props, spa_props_index_for_name (props, "device"), &value);
 
@@ -257,6 +257,7 @@ run_async_source (AppData *data)
           done = SDL_TRUE;
           break;
       }
+      sleep (1);
     }
   }
 
@@ -295,7 +296,7 @@ main (int argc, char *argv[])
     return -1;
   }
 
-  if ((res = make_nodes (&data)) < 0) {
+  if ((res = make_nodes (&data, argv[1])) < 0) {
     printf ("can't make nodes: %d\n", res);
     return -1;
   }

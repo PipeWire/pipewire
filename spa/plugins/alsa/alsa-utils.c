@@ -175,137 +175,6 @@ xrun_recovery (snd_pcm_t *handle, int err)
   return err;
 }
 
-/*
- *   Transfer method - direct write only
- */
-static void *
-direct_loop (void *user_data)
-{
-  SpaALSASink *this = user_data;
-  SpaALSAState *state = &this->state;
-  snd_pcm_t *handle = state->handle;
-  const snd_pcm_channel_area_t *my_areas;
-  snd_pcm_uframes_t offset, frames, size;
-  snd_pcm_sframes_t avail, commitres;
-  snd_pcm_state_t st;
-  int err, first = 1;
-
-  while (state->running) {
-    st = snd_pcm_state(handle);
-    if (st == SND_PCM_STATE_XRUN) {
-      err = xrun_recovery(handle, -EPIPE);
-      if (err < 0) {
-        printf("XRUN recovery failed: %s\n", snd_strerror(err));
-        return NULL;
-      }
-      first = 1;
-    } else if (st == SND_PCM_STATE_SUSPENDED) {
-      err = xrun_recovery(handle, -ESTRPIPE);
-      if (err < 0) {
-        printf("SUSPEND recovery failed: %s\n", snd_strerror(err));
-        return NULL;
-      }
-    }
-    avail = snd_pcm_avail_update(handle);
-    if (avail < 0) {
-      err = xrun_recovery(handle, avail);
-      if (err < 0) {
-        printf("avail update failed: %s\n", snd_strerror(err));
-        return NULL;
-      }
-      first = 1;
-      continue;
-    }
-    if (avail < state->period_size) {
-      if (first) {
-        first = 0;
-        err = snd_pcm_start(handle);
-        if (err < 0) {
-          printf("Start error: %s\n", snd_strerror(err));
-          exit(EXIT_FAILURE);
-        }
-      } else {
-        err = snd_pcm_wait(handle, -1);
-        if (err < 0) {
-          if ((err = xrun_recovery(handle, err)) < 0) {
-            printf("snd_pcm_wait error: %s\n", snd_strerror(err));
-            exit(EXIT_FAILURE);
-          }
-          first = 1;
-        }
-      }
-      continue;
-    }
-    size = state->period_size;
-    while (size > 0) {
-      frames = size;
-      err = snd_pcm_mmap_begin(handle, &my_areas, &offset, &frames);
-      if (err < 0) {
-        if ((err = xrun_recovery(handle, err)) < 0) {
-          printf("MMAP begin avail error: %s\n", snd_strerror(err));
-          exit(EXIT_FAILURE);
-        }
-        first = 1;
-      }
-
-      {
-        SpaEvent event;
-        ALSABuffer *buffer = &this->buffer;
-
-        event.refcount = 1;
-        event.notify = NULL;
-        event.type = SPA_EVENT_TYPE_PULL_INPUT;
-        event.port_id = 0;
-        event.size = frames * sizeof (uint16_t) * 2;
-        event.data = buffer;
-
-        buffer->buffer.refcount = 1;
-        buffer->buffer.notify = NULL;
-        buffer->buffer.size = frames * sizeof (uint16_t) * 2;
-        buffer->buffer.n_metas = 1;
-        buffer->buffer.metas = buffer->meta;
-        buffer->buffer.n_datas = 1;
-        buffer->buffer.datas = buffer->data;
-
-        buffer->header.flags = 0;
-        buffer->header.seq = 0;
-        buffer->header.pts = 0;
-        buffer->header.dts_offset = 0;
-
-        buffer->meta[0].type = SPA_META_TYPE_HEADER;
-        buffer->meta[0].data = &buffer->header;
-        buffer->meta[0].size = sizeof (buffer->header);
-
-        buffer->data[0].type = SPA_DATA_TYPE_MEMPTR;
-        buffer->data[0].data = (uint8_t *)my_areas[0].addr + (offset * sizeof (uint16_t) * 2);
-        buffer->data[0].size = frames * sizeof (uint16_t) * 2;
-
-        this->event_cb (&this->handle, &event,this->user_data);
-
-        spa_buffer_unref ((SpaBuffer *)event.data);
-      }
-      if (this->input_buffer) {
-        if (this->input_buffer != &this->buffer.buffer) {
-          /* FIXME, copy input */
-        }
-        spa_buffer_unref (this->input_buffer);
-        this->input_buffer = NULL;
-      }
-
-      commitres = snd_pcm_mmap_commit(handle, offset, frames);
-      if (commitres < 0 || (snd_pcm_uframes_t)commitres != frames) {
-        if ((err = xrun_recovery(handle, commitres >= 0 ? -EPIPE : commitres)) < 0) {
-          printf("MMAP commit error: %s\n", snd_strerror(err));
-          exit(EXIT_FAILURE);
-        }
-        first = 1;
-      }
-      size -= frames;
-    }
-  }
-  return NULL;
-}
-
 static int
 spa_alsa_open (SpaALSASink *this)
 {
@@ -332,6 +201,130 @@ spa_alsa_open (SpaALSASink *this)
   return 0;
 }
 
+static void
+pull_input (SpaALSASink *this, void *data, snd_pcm_uframes_t frames)
+{
+  SpaEvent event;
+  ALSABuffer *buffer = &this->buffer;
+
+  event.refcount = 1;
+  event.notify = NULL;
+  event.type = SPA_EVENT_TYPE_PULL_INPUT;
+  event.port_id = 0;
+  event.size = frames * sizeof (uint16_t) * 2;
+  event.data = buffer;
+
+  buffer->buffer.refcount = 1;
+  buffer->buffer.notify = NULL;
+  buffer->buffer.size = frames * sizeof (uint16_t) * 2;
+  buffer->buffer.n_metas = 1;
+  buffer->buffer.metas = buffer->meta;
+  buffer->buffer.n_datas = 1;
+  buffer->buffer.datas = buffer->data;
+
+  buffer->header.flags = 0;
+  buffer->header.seq = 0;
+  buffer->header.pts = 0;
+  buffer->header.dts_offset = 0;
+
+  buffer->meta[0].type = SPA_META_TYPE_HEADER;
+  buffer->meta[0].data = &buffer->header;
+  buffer->meta[0].size = sizeof (buffer->header);
+
+  buffer->data[0].type = SPA_DATA_TYPE_MEMPTR;
+  buffer->data[0].data = data;
+  buffer->data[0].size = frames * sizeof (uint16_t) * 2;
+
+  this->event_cb (&this->handle, &event,this->user_data);
+
+  spa_buffer_unref ((SpaBuffer *)event.data);
+}
+
+static int
+mmap_write (SpaALSASink *this)
+{
+  SpaALSAState *state = &this->state;
+  snd_pcm_t *handle = state->handle;
+  int err;
+  snd_pcm_sframes_t avail, commitres;
+  snd_pcm_uframes_t offset, frames, size;
+  const snd_pcm_channel_area_t *my_areas;
+
+  if ((avail = snd_pcm_avail_update (handle)) < 0) {
+    if ((err = xrun_recovery (handle, avail)) < 0) {
+      printf ("Write error: %s\n", snd_strerror (err));
+      return -1;
+    }
+  }
+
+  size = avail;
+  while (size > 0) {
+    frames = size;
+    if ((err = snd_pcm_mmap_begin (handle, &my_areas, &offset, &frames)) < 0) {
+      if ((err = xrun_recovery(handle, err)) < 0) {
+        printf("MMAP begin avail error: %s\n", snd_strerror(err));
+        return -1;
+      }
+    }
+
+    pull_input (this,
+                (uint8_t *)my_areas[0].addr + (offset * sizeof (uint16_t) * 2),
+                frames);
+
+    if (this->input_buffer) {
+      if (this->input_buffer != &this->buffer.buffer) {
+        /* FIXME, copy input */
+      }
+      spa_buffer_unref (this->input_buffer);
+      this->input_buffer = NULL;
+    }
+
+    commitres = snd_pcm_mmap_commit (handle, offset, frames);
+    if (commitres < 0 || (snd_pcm_uframes_t)commitres != frames) {
+      if ((err = xrun_recovery (handle, commitres >= 0 ? -EPIPE : commitres)) < 0) {
+        printf("MMAP commit error: %s\n", snd_strerror(err));
+        return -1;
+      }
+    }
+    size -= frames;
+  }
+  return 0;
+}
+
+static int
+alsa_on_fd_events (SpaPollNotifyData *data)
+{
+  SpaALSASink *this = data->user_data;
+  SpaALSAState *state = &this->state;
+  snd_pcm_t *handle = state->handle;
+  int err;
+  unsigned short revents;
+
+  snd_pcm_poll_descriptors_revents (handle,
+                                    (struct pollfd *)data->fds,
+                                    data->n_fds,
+                                    &revents);
+  if (revents & POLLERR) {
+    if (snd_pcm_state (handle) == SND_PCM_STATE_XRUN ||
+        snd_pcm_state (handle) == SND_PCM_STATE_SUSPENDED) {
+      err = snd_pcm_state (handle) == SND_PCM_STATE_XRUN ? -EPIPE : -ESTRPIPE;
+      if ((err = xrun_recovery (handle, err)) < 0) {
+        printf ("Write error: %s\n", snd_strerror(err));
+        return -1;
+      }
+    } else {
+      printf("Wait for poll failed\n");
+      return -1;
+    }
+  }
+  if (!(revents & POLLOUT))
+    return -1;
+
+  mmap_write (this);
+
+  return 0;
+}
+
 static int
 spa_alsa_close (SpaALSASink *this)
 {
@@ -353,6 +346,7 @@ spa_alsa_start (SpaALSASink *this)
 {
   SpaALSAState *state = &this->state;
   int err;
+  SpaEvent event;
 
   if (spa_alsa_open (this) < 0)
     return -1;
@@ -360,13 +354,34 @@ spa_alsa_start (SpaALSASink *this)
   CHECK (set_hwparams (this), "hwparams");
   CHECK (set_swparams (this), "swparams");
 
-  snd_pcm_dump (this->state.handle, this->state.output);
+  snd_pcm_dump (state->handle, state->output);
 
-  state->running = true;
-  if ((err = pthread_create (&state->thread, NULL, direct_loop, this)) != 0) {
-    printf ("can't create thread: %d", err);
-    state->running = false;
+  if ((state->poll.n_fds = snd_pcm_poll_descriptors_count (state->handle)) <= 0) {
+    printf ("Invalid poll descriptors count\n");
+    return state->poll.n_fds;
   }
+  if ((err = snd_pcm_poll_descriptors (state->handle, (struct pollfd *)state->fds, state->poll.n_fds)) < 0) {
+    printf ("Unable to obtain poll descriptors for playback: %s\n", snd_strerror(err));
+    return err;
+  }
+
+  event.refcount = 1;
+  event.notify = NULL;
+  event.type = SPA_EVENT_TYPE_ADD_POLL;
+  event.port_id = 0;
+  event.data = &state->poll;
+  event.size = sizeof (state->poll);
+
+  state->poll.fds = state->fds;
+  state->poll.idle_cb = NULL;
+  state->poll.before_cb = NULL;
+  state->poll.after_cb = alsa_on_fd_events;
+  state->poll.user_data = this;
+  this->event_cb (&this->handle, &event, this->user_data);
+
+  mmap_write (this);
+  err = snd_pcm_start (state->handle);
+
   return err;
 }
 
@@ -374,11 +389,18 @@ static int
 spa_alsa_stop (SpaALSASink *this)
 {
   SpaALSAState *state = &this->state;
+  SpaEvent event;
 
-  if (state->running) {
-    state->running = false;
-    pthread_join (state->thread, NULL);
-  }
+  snd_pcm_drop (state->handle);
+
+  event.refcount = 1;
+  event.notify = NULL;
+  event.type = SPA_EVENT_TYPE_REMOVE_POLL;
+  event.port_id = 0;
+  event.data = &state->poll;
+  event.size = sizeof (state->poll);
+  this->event_cb (&this->handle, &event, this->user_data);
+
   spa_alsa_close (this);
 
   return 0;

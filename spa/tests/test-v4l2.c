@@ -39,7 +39,9 @@ typedef struct {
   SDL_Texture *texture;
   bool running;
   pthread_t thread;
-  SpaEventPoll poll;
+  SpaPollFd fds[16];
+  unsigned int n_fds;
+  SpaPollItem poll;
 } AppData;
 
 static SpaResult
@@ -128,8 +130,15 @@ on_source_event (SpaHandle *handle, SpaEvent *event, void *user_data)
       break;
     }
     case SPA_EVENT_TYPE_ADD_POLL:
-      memcpy (&data->poll, event->data, sizeof (SpaEventPoll));
+    {
+      SpaPollItem *poll = event->data;
+
+      data->poll = *poll;
+      data->fds[0] = poll->fds[0];
+      data->n_fds = 1;
+      data->poll.fds = data->fds;
       break;
+    }
     default:
       printf ("got event %d\n", event->type);
       break;
@@ -200,16 +209,13 @@ static void *
 loop (void *user_data)
 {
   AppData *data = user_data;
-  struct pollfd fds[1];
   int r;
-
-  fds[0].fd = data->poll.fd;
-  fds[0].events = data->poll.events;
-  fds[0].revents = 0;
 
   printf ("enter thread\n");
   while (data->running) {
-    r = poll (fds, 1, 2000);
+    SpaPollNotifyData ndata;
+
+    r = poll ((struct pollfd *) data->fds, data->n_fds, -1);
     if (r < 0) {
       if (errno == EINTR)
         continue;
@@ -219,7 +225,12 @@ loop (void *user_data)
       fprintf (stderr, "select timeout\n");
       break;
     }
-    data->poll.callback (data->poll.user_data);
+    if (data->poll.after_cb) {
+      ndata.fds = data->poll.fds;
+      ndata.n_fds = data->poll.n_fds;
+      ndata.user_data = data->poll.user_data;
+      data->poll.after_cb (&ndata);
+    }
   }
   printf ("leave thread\n");
   return NULL;

@@ -20,7 +20,6 @@
 #include <stddef.h>
 
 #include <asoundlib.h>
-#include <pthread.h>
 
 #include <spa/node.h>
 #include <spa/audio/format.h>
@@ -58,8 +57,9 @@ typedef struct {
   snd_pcm_sframes_t buffer_size;
   snd_pcm_sframes_t period_size;
   snd_pcm_channel_area_t areas[16];
-  pthread_t thread;
   bool running;
+  SpaPollFd fds[16];
+  SpaPollItem poll;
 } SpaALSAState;
 
 typedef struct _ALSABuffer ALSABuffer;

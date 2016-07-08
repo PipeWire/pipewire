@@ -22,7 +22,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#include <pthread.h>
 #include <linux/videodev2.h>
 
 #include <spa/node.h>
@@ -47,11 +46,6 @@ reset_xv_sink_props (SpaXvSinkProps *props)
 
 #define MAX_BUFFERS     256
 
-typedef struct {
-  SpaEventPoll poll;
-  SpaXvSink *sink;
-} XvEventPoll;
-
 typedef struct _XvBuffer XvBuffer;
 
 struct _XvBuffer {
@@ -68,8 +62,6 @@ struct _XvBuffer {
 typedef struct {
   bool opened;
   int fd;
-  pthread_t thread;
-  bool running;
   XvBuffer buffers[MAX_BUFFERS];
   XvBuffer *ready;
   uint32_t ready_count;
@@ -94,14 +86,6 @@ struct _SpaXvSink {
 };
 
 #include "xv-utils.c"
-
-static const uint32_t min_uint32 = 1;
-static const uint32_t max_uint32 = UINT32_MAX;
-
-static const SpaPropRangeInfo uint32_range[] = {
-  { "min", "Minimum value", 4, &min_uint32 },
-  { "max", "Maximum value", 4, &max_uint32 },
-};
 
 enum {
   PROP_ID_DEVICE,

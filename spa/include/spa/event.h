@@ -70,20 +70,53 @@ struct _SpaEvent {
 };
 
 /**
- * SpaEventPoll:
- * @fd: a file descriptor to watch
- * @events: events to watch for
- * @revents: result events
- * @callback: callback called when there was activity on @fd
- * @user_data: user data to pass to @callback
+ * SpaPollFd:
+ * @fd: a file descriptor
+ * @events: events to watch
+ * @revents: events after poll
  */
 typedef struct {
   int   fd;
   short events;
   short revents;
-  SpaNotify callback;
-  void     *user_data;
-} SpaEventPoll;
+} SpaPollFd;
+
+
+/**
+ * SpaPollNotifyData:
+ * @user_data: user data
+ * @fds: array of file descriptors
+ * @n_fds: number of elements in @fds
+ * @now: the current time
+ * @timeout: the next desired wakeup time relative to @now
+ *
+ * Data passed to #SpaPollNotify.
+ */
+typedef struct {
+  void *user_data;
+  SpaPollFd *fds;
+  unsigned int n_fds;
+  uint64_t now;
+  uint64_t timeout;
+} SpaPollNotifyData;
+
+typedef int (*SpaPollNotify) (SpaPollNotifyData *data);
+
+/**
+ * SpaPollItem:
+ * @fds: array of file descriptors to watch
+ * @n_fds: number of elements in @fds
+ * @callback: callback called when there was activity on any of @fds
+ * @user_data: user data
+ */
+typedef struct {
+  SpaPollFd     *fds;
+  unsigned int   n_fds;
+  SpaPollNotify  idle_cb;
+  SpaPollNotify  before_cb;
+  SpaPollNotify  after_cb;
+  void          *user_data;
+} SpaPollItem;
 
 #ifdef __cplusplus
 }  /* extern "C" */

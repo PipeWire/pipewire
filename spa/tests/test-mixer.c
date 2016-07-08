@@ -22,6 +22,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <dlfcn.h>
+#include <errno.h>
+#include <pthread.h>
+#include <poll.h>
 
 #include <spa/node.h>
 #include <spa/audio/format.h>
@@ -36,6 +39,11 @@ typedef struct {
   const SpaNode *source1_node;
   SpaHandle *source2;
   const SpaNode *source2_node;
+  bool running;
+  pthread_t thread;
+  SpaPollFd fds[16];
+  unsigned int n_fds;
+  SpaPollItem poll;
 } AppData;
 
 static SpaResult
@@ -101,7 +109,6 @@ on_mix_event (SpaHandle *handle, SpaEvent *event, void *user_data)
       oinfo.buffer = buf;
       oinfo.event = NULL;
 
-      printf ("pull source %p\n", buf);
       if (event->port_id == data->mix_ports[0]) {
         if ((res = data->source1_node->pull_port_output (data->source1, 1, &oinfo)) < 0)
           printf ("got error %d\n", res);
@@ -115,7 +122,6 @@ on_mix_event (SpaHandle *handle, SpaEvent *event, void *user_data)
       iinfo.buffer = oinfo.buffer;
       iinfo.event = oinfo.event;
 
-      printf ("push mixer %p\n", iinfo.buffer);
       if ((res = data->mix_node->push_port_input (data->mix, 1, &iinfo)) < 0)
         printf ("got error from mixer %d\n", res);
       break;
@@ -146,7 +152,6 @@ on_sink_event (SpaHandle *handle, SpaEvent *event, void *user_data)
       oinfo.buffer = buf;
       oinfo.event = NULL;
 
-      printf ("pull mixer %p\n", buf);
       if ((res = data->mix_node->pull_port_output (data->mix, 1, &oinfo)) < 0)
         printf ("got error %d\n", res);
 
@@ -155,9 +160,21 @@ on_sink_event (SpaHandle *handle, SpaEvent *event, void *user_data)
       iinfo.buffer = oinfo.buffer;
       iinfo.event = oinfo.event;
 
-      printf ("push sink %p\n", iinfo.buffer);
       if ((res = data->sink_node->push_port_input (data->sink, 1, &iinfo)) < 0)
         printf ("got error %d\n", res);
+      break;
+    }
+    case SPA_EVENT_TYPE_ADD_POLL:
+    {
+      SpaPollItem *poll = event->data;
+      int i;
+
+      data->poll = *poll;
+      for (i = 0; i < data->poll.n_fds; i++) {
+        data->fds[i] = poll->fds[i];
+      }
+      data->n_fds = data->poll.n_fds;
+      data->poll.fds = data->fds;
       break;
     }
     default:
@@ -267,18 +284,62 @@ negotiate_formats (AppData *data)
   return SPA_RESULT_OK;
 }
 
+static void *
+loop (void *user_data)
+{
+  AppData *data = user_data;
+  int r;
+
+  printf ("enter thread %d\n", data->poll.n_fds);
+  while (data->running) {
+    SpaPollNotifyData ndata;
+
+    r = poll ((struct pollfd *)data->fds, data->n_fds, -1);
+    if (r < 0) {
+      if (errno == EINTR)
+        continue;
+      break;
+    }
+    if (r == 0) {
+      fprintf (stderr, "select timeout\n");
+      break;
+    }
+    if (data->poll.after_cb) {
+      ndata.fds = data->poll.fds;
+      ndata.n_fds = data->poll.n_fds;
+      ndata.user_data = data->poll.user_data;
+      data->poll.after_cb (&ndata);
+    }
+  }
+  printf ("leave thread\n");
+
+  return NULL;
+}
+
 static void
 run_async_sink (AppData *data)
 {
   SpaResult res;
   SpaCommand cmd;
+  int err;
 
   cmd.type = SPA_COMMAND_START;
   if ((res = data->sink_node->send_command (data->sink, &cmd)) < 0)
     printf ("got error %d\n", res);
 
+  data->running = true;
+  if ((err = pthread_create (&data->thread, NULL, loop, data)) != 0) {
+    printf ("can't create thread: %d %s", err, strerror (err));
+    data->running = false;
+  }
+
   printf ("sleeping for 10 seconds\n");
   sleep (10);
+
+  if (data->running) {
+    data->running = false;
+    pthread_join (data->thread, NULL);
+  }
 
   cmd.type = SPA_COMMAND_STOP;
   if ((res = data->sink_node->send_command (data->sink, &cmd)) < 0)

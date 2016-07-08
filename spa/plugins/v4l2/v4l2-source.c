@@ -69,7 +69,8 @@ typedef struct {
   V4l2Buffer buffers[MAX_BUFFERS];
   V4l2Buffer *ready;
   uint32_t ready_count;
-  SpaEventPoll poll;
+  SpaPollFd fds[1];
+  SpaPollItem poll;
 } SpaV4l2State;
 
 struct _SpaV4l2Source {
@@ -90,14 +91,6 @@ struct _SpaV4l2Source {
 };
 
 #include "v4l2-utils.c"
-
-static const uint32_t min_uint32 = 1;
-static const uint32_t max_uint32 = UINT32_MAX;
-
-static const SpaPropRangeInfo uint32_range[] = {
-  { "min", "Minimum value", 4, &min_uint32 },
-  { "max", "Maximum value", 4, &max_uint32 },
-};
 
 enum {
   PROP_ID_DEVICE,

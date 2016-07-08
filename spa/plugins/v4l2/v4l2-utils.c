@@ -343,7 +343,6 @@ mmap_read (SpaV4l2Source *this)
         return -1;
     }
   }
-  fprintf (stderr, "captured buffer %d\n", buf.index);
 
   b = &state->buffers[buf.index];
   b->next = state->ready;
@@ -353,10 +352,10 @@ mmap_read (SpaV4l2Source *this)
   return 0;
 }
 
-static void
-v4l2_on_fd_events (void *user_data)
+static int
+v4l2_on_fd_events (SpaPollNotifyData *data)
 {
-  SpaV4l2Source *this = user_data;
+  SpaV4l2Source *this = data->user_data;
   SpaEvent event;
 
   mmap_read (this);
@@ -368,6 +367,8 @@ v4l2_on_fd_events (void *user_data)
   event.size = 0;
   event.data = NULL;
   this->event_cb (&this->handle, &event, this->user_data);
+
+  return 0;
 }
 
 static void
@@ -385,8 +386,6 @@ v4l2_buffer_free (void *data)
 
   b->buffer.refcount = 1;
   b->outstanding = false;
-
-  fprintf (stderr, "queue buffer %d\n", buf.index);
 
   if (xioctl (state->fd, VIDIOC_QBUF, &buf) < 0) {
     perror ("VIDIOC_QBUF");
@@ -523,10 +522,15 @@ spa_v4l2_start (SpaV4l2Source *this)
   event.data = &state->poll;
   event.size = sizeof (state->poll);
 
-  state->poll.fd = state->fd;
-  state->poll.events = POLLIN | POLLPRI | POLLERR;
-  state->poll.revents = 0;
-  state->poll.callback = v4l2_on_fd_events;
+  state->fds[0].fd = state->fd;
+  state->fds[0].events = POLLIN | POLLPRI | POLLERR;
+  state->fds[0].revents = 0;
+
+  state->poll.fds = state->fds;
+  state->poll.n_fds = 1;
+  state->poll.idle_cb = NULL;
+  state->poll.before_cb = NULL;
+  state->poll.after_cb = v4l2_on_fd_events;
   state->poll.user_data = this;
   this->event_cb (&this->handle, &event, this->user_data);
 

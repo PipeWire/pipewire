@@ -160,15 +160,15 @@ inspect_node (const SpaNode *node, SpaHandle *handle)
     printf ("supported ports %d %d %d %d\n", n_input, max_input, n_output, max_output);
 
   for (i = 0; ; i++) {
-    if ((res = node->enum_port_formats (handle, 0, i, &format)) < 0) {
+    if ((res = node->port_enum_formats (handle, 0, i, &format)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
         printf ("got error %d\n", res);
       break;
     }
     print_format (format, 1);
   }
-  if ((res = node->get_port_props (handle, 0, &props)) < 0)
-    printf ("get_port_props error: %d\n", res);
+  if ((res = node->port_get_props (handle, 0, &props)) < 0)
+    printf ("port_get_props error: %d\n", res);
   else
     print_props (props, 1);
 }

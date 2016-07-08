@@ -299,7 +299,7 @@ spa_audiomixer_node_remove_port (SpaHandle      *handle,
 
 
 static SpaResult
-spa_audiomixer_node_enum_port_formats (SpaHandle       *handle,
+spa_audiomixer_node_port_enum_formats (SpaHandle       *handle,
                                        uint32_t         port_id,
                                        unsigned int     index,
                                        SpaFormat      **format)
@@ -325,7 +325,7 @@ spa_audiomixer_node_enum_port_formats (SpaHandle       *handle,
 }
 
 static SpaResult
-spa_audiomixer_node_set_port_format (SpaHandle       *handle,
+spa_audiomixer_node_port_set_format (SpaHandle       *handle,
                                      uint32_t         port_id,
                                      bool             test_only,
                                      const SpaFormat *format)
@@ -353,7 +353,7 @@ spa_audiomixer_node_set_port_format (SpaHandle       *handle,
 }
 
 static SpaResult
-spa_audiomixer_node_get_port_format (SpaHandle        *handle,
+spa_audiomixer_node_port_get_format (SpaHandle        *handle,
                                      uint32_t          port_id,
                                      const SpaFormat **format)
 {
@@ -374,7 +374,7 @@ spa_audiomixer_node_get_port_format (SpaHandle        *handle,
 }
 
 static SpaResult
-spa_audiomixer_node_get_port_info (SpaHandle          *handle,
+spa_audiomixer_node_port_get_info (SpaHandle          *handle,
                                    uint32_t            port_id,
                                    const SpaPortInfo **info)
 {
@@ -392,7 +392,7 @@ spa_audiomixer_node_get_port_info (SpaHandle          *handle,
 }
 
 static SpaResult
-spa_audiomixer_node_get_port_props (SpaHandle *handle,
+spa_audiomixer_node_port_get_props (SpaHandle *handle,
                                     uint32_t   port_id,
                                     SpaProps **props)
 {
@@ -400,7 +400,7 @@ spa_audiomixer_node_get_port_props (SpaHandle *handle,
 }
 
 static SpaResult
-spa_audiomixer_node_set_port_props (SpaHandle      *handle,
+spa_audiomixer_node_port_set_props (SpaHandle      *handle,
                                     uint32_t        port_id,
                                     const SpaProps *props)
 {
@@ -408,7 +408,7 @@ spa_audiomixer_node_set_port_props (SpaHandle      *handle,
 }
 
 static SpaResult
-spa_audiomixer_node_get_port_status (SpaHandle            *handle,
+spa_audiomixer_node_port_get_status (SpaHandle            *handle,
                                      uint32_t              port_id,
                                      const SpaPortStatus **status)
 {
@@ -429,7 +429,25 @@ spa_audiomixer_node_get_port_status (SpaHandle            *handle,
 }
 
 static SpaResult
-spa_audiomixer_node_push_port_input (SpaHandle      *handle,
+spa_audiomixer_node_port_use_buffers (SpaHandle       *handle,
+                                      uint32_t         port_id,
+                                      SpaBuffer       *buffers,
+                                      uint32_t         n_buffers)
+{
+  return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
+static SpaResult
+spa_audiomixer_node_port_alloc_buffers (SpaHandle       *handle,
+                                        uint32_t         port_id,
+                                        SpaBuffer      **buffers,
+                                        uint32_t        *n_buffers)
+{
+  return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
+static SpaResult
+spa_audiomixer_node_port_push_input (SpaHandle      *handle,
                                      unsigned int    n_info,
                                      SpaInputInfo   *info)
 {
@@ -641,7 +659,7 @@ mix_data (SpaAudioMixer *this, SpaOutputInfo *info)
 }
 
 static SpaResult
-spa_audiomixer_node_pull_port_output (SpaHandle      *handle,
+spa_audiomixer_node_port_pull_output (SpaHandle      *handle,
                                       unsigned int    n_info,
                                       SpaOutputInfo  *info)
 {
@@ -684,15 +702,17 @@ static const SpaNode audiomixer_node = {
   spa_audiomixer_node_get_port_ids,
   spa_audiomixer_node_add_port,
   spa_audiomixer_node_remove_port,
-  spa_audiomixer_node_enum_port_formats,
-  spa_audiomixer_node_set_port_format,
-  spa_audiomixer_node_get_port_format,
-  spa_audiomixer_node_get_port_info,
-  spa_audiomixer_node_get_port_props,
-  spa_audiomixer_node_set_port_props,
-  spa_audiomixer_node_get_port_status,
-  spa_audiomixer_node_push_port_input,
-  spa_audiomixer_node_pull_port_output,
+  spa_audiomixer_node_port_enum_formats,
+  spa_audiomixer_node_port_set_format,
+  spa_audiomixer_node_port_get_format,
+  spa_audiomixer_node_port_get_info,
+  spa_audiomixer_node_port_get_props,
+  spa_audiomixer_node_port_set_props,
+  spa_audiomixer_node_port_use_buffers,
+  spa_audiomixer_node_port_alloc_buffers,
+  spa_audiomixer_node_port_get_status,
+  spa_audiomixer_node_port_push_input,
+  spa_audiomixer_node_port_pull_output,
 };
 
 static SpaResult

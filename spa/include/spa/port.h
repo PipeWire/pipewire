@@ -50,7 +50,10 @@ typedef enum {
 /**
  * SpaPortInfo
  * @flags: extra port flags
- * @size: minimum size of the buffers or 0 when not specified
+ * @minsize: minimum size of the buffers or 0 when not specified
+ * @stride: suggested stride or 0 when not specified
+ * @min_buffers: minimum number of buffers
+ * @max_buffers: maximum number of buffers
  * @align: required alignment of the data
  * @maxbuffering: the maximum amount of bytes that the element will keep
  *                around internally
@@ -61,6 +64,9 @@ typedef enum {
 typedef struct {
   SpaPortInfoFlags    flags;
   size_t              minsize;
+  size_t              stride;
+  uint32_t            min_buffers;
+  uint32_t            max_buffers;
   uint32_t            align;
   unsigned int        maxbuffering;
   uint64_t            latency;

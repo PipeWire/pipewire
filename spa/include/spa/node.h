@@ -237,7 +237,7 @@ struct _SpaNode {
                                        uint32_t          port_id);
 
   /**
-   * SpaNode::enum_port_formats:
+   * SpaNode::port_enum_formats:
    * @handle: a #SpaHandle
    * @port_id: the port to query
    * @index: the format index to retrieve
@@ -249,7 +249,7 @@ struct _SpaNode {
    * returns #SPA_RESULT_ENUM_END.
    *
    * The result format can be queried and modified and ultimately be used
-   * to call SpaNode::set_port_format.
+   * to call SpaNode::port_set_format.
    *
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_INVALID_ARGUMENTS when node or format is %NULL
@@ -257,12 +257,12 @@ struct _SpaNode {
    *          #SPA_RESULT_ENUM_END when no format exists for @index
    *
    */
-  SpaResult   (*enum_port_formats)    (SpaHandle        *handle,
+  SpaResult   (*port_enum_formats)    (SpaHandle        *handle,
                                        uint32_t          port_id,
                                        unsigned int      index,
                                        SpaFormat       **format);
   /**
-   * SpaNode::set_port_format:
+   * SpaNode::port_set_format:
    * @handle: a #SpaHandle
    * @port_id: the port to configure
    * @test_only: only check if the format is accepted
@@ -281,12 +281,12 @@ struct _SpaNode {
    *          #SPA_RESULT_WRONG_PROPERTY_TYPE when the type or size of a property
    *                 is not correct.
    */
-  SpaResult   (*set_port_format)      (SpaHandle        *handle,
+  SpaResult   (*port_set_format)      (SpaHandle        *handle,
                                        uint32_t          port_id,
                                        bool              test_only,
                                        const SpaFormat  *format);
   /**
-   * SpaNode::get_port_format:
+   * SpaNode::port_get_format:
    * @handle: a #SpaHandle
    * @port_id: the port to query
    * @format: a pointer to a location to hold the #SpaFormat
@@ -299,27 +299,35 @@ struct _SpaNode {
    *          #SPA_RESULT_INVALID_PORT when @port_id is not valid
    *          #SPA_RESULT_INVALID_NO_FORMAT when no format was set
    */
-  SpaResult   (*get_port_format)      (SpaHandle            *handle,
+  SpaResult   (*port_get_format)      (SpaHandle            *handle,
                                        uint32_t              port_id,
                                        const SpaFormat     **format);
 
-  SpaResult   (*get_port_info)        (SpaHandle            *handle,
+  SpaResult   (*port_get_info)        (SpaHandle            *handle,
                                        uint32_t              port_id,
                                        const SpaPortInfo   **info);
 
-  SpaResult   (*get_port_props)       (SpaHandle            *handle,
+  SpaResult   (*port_get_props)       (SpaHandle            *handle,
                                        uint32_t              port_id,
                                        SpaProps            **props);
-  SpaResult   (*set_port_props)       (SpaHandle            *handle,
+  SpaResult   (*port_set_props)       (SpaHandle            *handle,
                                        uint32_t              port_id,
                                        const SpaProps       *props);
 
-  SpaResult   (*get_port_status)      (SpaHandle            *handle,
+  SpaResult   (*port_use_buffers)     (SpaHandle            *handle,
+                                       uint32_t              port_id,
+                                       SpaBuffer            *buffers,
+                                       uint32_t              n_buffers);
+  SpaResult   (*port_alloc_buffers)   (SpaHandle            *handle,
+                                       uint32_t              port_id,
+                                       SpaBuffer           **buffers,
+                                       uint32_t             *n_buffers);
+
+  SpaResult   (*port_get_status)      (SpaHandle            *handle,
                                        uint32_t              port_id,
                                        const SpaPortStatus **status);
-
   /**
-   * SpaNode::push_port_input:
+   * SpaNode::port_push_input:
    * @handle: a #SpaHandle
    * @n_info: number of #SpaInputInfo in @info
    * @info: array of #SpaInputInfo
@@ -334,11 +342,11 @@ struct _SpaNode {
    *                         @info.
    *          #SPA_RESULT_HAVE_ENOUGH_INPUT when output can be produced.
    */
-  SpaResult   (*push_port_input)      (SpaHandle        *handle,
+  SpaResult   (*port_push_input)      (SpaHandle        *handle,
                                        unsigned int      n_info,
                                        SpaInputInfo     *info);
   /**
-   * SpaNode::pull_port_output:
+   * SpaNode::port_pull_output:
    * @handle: a #SpaHandle
    * @n_info: number of #SpaOutputInfo in @info
    * @info: array of #SpaOutputInfo
@@ -359,7 +367,7 @@ struct _SpaNode {
    *          #SPA_RESULT_NEED_MORE_INPUT when no output can be produced
    *                   because more input is needed.
    */
-  SpaResult   (*pull_port_output)     (SpaHandle        *handle,
+  SpaResult   (*port_pull_output)     (SpaHandle        *handle,
                                        unsigned int      n_info,
                                        SpaOutputInfo    *info);
 };

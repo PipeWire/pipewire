@@ -118,6 +118,7 @@ typedef struct {
  * @datas: array of @n_datas data pointers
  */
 struct _SpaBuffer {
+  uint32_t          id;
   volatile int      refcount;
   SpaNotify         notify;
   size_t            size;

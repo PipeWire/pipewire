@@ -110,10 +110,10 @@ on_mix_event (SpaHandle *handle, SpaEvent *event, void *user_data)
       oinfo.event = NULL;
 
       if (event->port_id == data->mix_ports[0]) {
-        if ((res = data->source1_node->pull_port_output (data->source1, 1, &oinfo)) < 0)
+        if ((res = data->source1_node->port_pull_output (data->source1, 1, &oinfo)) < 0)
           printf ("got error %d\n", res);
       } else {
-        if ((res = data->source2_node->pull_port_output (data->source2, 1, &oinfo)) < 0)
+        if ((res = data->source2_node->port_pull_output (data->source2, 1, &oinfo)) < 0)
           printf ("got error %d\n", res);
       }
 
@@ -122,7 +122,7 @@ on_mix_event (SpaHandle *handle, SpaEvent *event, void *user_data)
       iinfo.buffer = oinfo.buffer;
       iinfo.event = oinfo.event;
 
-      if ((res = data->mix_node->push_port_input (data->mix, 1, &iinfo)) < 0)
+      if ((res = data->mix_node->port_push_input (data->mix, 1, &iinfo)) < 0)
         printf ("got error from mixer %d\n", res);
       break;
     }
@@ -152,7 +152,7 @@ on_sink_event (SpaHandle *handle, SpaEvent *event, void *user_data)
       oinfo.buffer = buf;
       oinfo.event = NULL;
 
-      if ((res = data->mix_node->pull_port_output (data->mix, 1, &oinfo)) < 0)
+      if ((res = data->mix_node->port_pull_output (data->mix, 1, &oinfo)) < 0)
         printf ("got error %d\n", res);
 
       iinfo.port_id = event->port_id;
@@ -160,7 +160,7 @@ on_sink_event (SpaHandle *handle, SpaEvent *event, void *user_data)
       iinfo.buffer = oinfo.buffer;
       iinfo.event = oinfo.event;
 
-      if ((res = data->sink_node->push_port_input (data->sink, 1, &iinfo)) < 0)
+      if ((res = data->sink_node->port_push_input (data->sink, 1, &iinfo)) < 0)
         printf ("got error %d\n", res);
       break;
     }
@@ -234,7 +234,7 @@ negotiate_formats (AppData *data)
   uint32_t val;
   SpaPropValue value;
 
-  if ((res = data->sink_node->enum_port_formats (data->sink, 0, 0, &format)) < 0)
+  if ((res = data->sink_node->port_enum_formats (data->sink, 0, 0, &format)) < 0)
     return res;
 
   props = &format->props;
@@ -256,28 +256,28 @@ negotiate_formats (AppData *data)
   if ((res = props->set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_CHANNELS), &value)) < 0)
     return res;
 
-  if ((res = data->sink_node->set_port_format (data->sink, 0, false, format)) < 0)
+  if ((res = data->sink_node->port_set_format (data->sink, 0, false, format)) < 0)
     return res;
 
-  if ((res = data->mix_node->set_port_format (data->mix, 0, false, format)) < 0)
+  if ((res = data->mix_node->port_set_format (data->mix, 0, false, format)) < 0)
     return res;
 
   if ((res = data->mix_node->add_port (data->mix, SPA_DIRECTION_INPUT, &data->mix_ports[0])) < 0)
     return res;
 
-  if ((res = data->mix_node->set_port_format (data->mix, data->mix_ports[0], false, format)) < 0)
+  if ((res = data->mix_node->port_set_format (data->mix, data->mix_ports[0], false, format)) < 0)
     return res;
 
-  if ((res = data->source1_node->set_port_format (data->source1, 0, false, format)) < 0)
+  if ((res = data->source1_node->port_set_format (data->source1, 0, false, format)) < 0)
     return res;
 
   if ((res = data->mix_node->add_port (data->mix, SPA_DIRECTION_INPUT, &data->mix_ports[1])) < 0)
     return res;
 
-  if ((res = data->mix_node->set_port_format (data->mix, data->mix_ports[1], false, format)) < 0)
+  if ((res = data->mix_node->port_set_format (data->mix, data->mix_ports[1], false, format)) < 0)
     return res;
 
-  if ((res = data->source2_node->set_port_format (data->source2, 0, false, format)) < 0)
+  if ((res = data->source2_node->port_set_format (data->source2, 0, false, format)) < 0)
     return res;
 
 

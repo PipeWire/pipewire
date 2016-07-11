@@ -54,8 +54,8 @@ struct _V4l2Buffer {
   SpaMetaHeader header;
   SpaData datas[1];
   SpaV4l2Source *source;
-  bool outstanding;
   SpaBuffer *imported;
+  bool outstanding;
   struct v4l2_buffer v4l2_buffer;
   V4l2Buffer *next;
 };
@@ -448,7 +448,7 @@ spa_v4l2_source_node_port_get_status (SpaHandle            *handle,
 static SpaResult
 spa_v4l2_source_node_port_use_buffers (SpaHandle       *handle,
                                        uint32_t         port_id,
-                                       SpaBuffer       *buffers,
+                                       SpaBuffer      **buffers,
                                        uint32_t         n_buffers)
 {
   SpaV4l2Source *this = (SpaV4l2Source *) handle;

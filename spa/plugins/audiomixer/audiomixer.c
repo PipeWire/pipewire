@@ -431,7 +431,7 @@ spa_audiomixer_node_port_get_status (SpaHandle            *handle,
 static SpaResult
 spa_audiomixer_node_port_use_buffers (SpaHandle       *handle,
                                       uint32_t         port_id,
-                                      SpaBuffer       *buffers,
+                                      SpaBuffer      **buffers,
                                       uint32_t         n_buffers)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;

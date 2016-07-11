@@ -409,7 +409,7 @@ v4l2_buffer_free (void *data)
 }
 
 static int
-spa_v4l2_import_buffers (SpaV4l2Source *this, SpaBuffer *buffers, uint32_t n_buffers)
+spa_v4l2_import_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffers)
 {
   SpaV4l2State *state = &this->state[0];
   struct v4l2_requestbuffers reqbuf;
@@ -437,34 +437,24 @@ spa_v4l2_import_buffers (SpaV4l2Source *this, SpaBuffer *buffers, uint32_t n_buf
     V4l2Buffer *b;
 
     b = &state->buffers[i];
+
     b->source = this;
     b->buffer.refcount = 0;
     b->buffer.notify = v4l2_buffer_free;
-    b->buffer.size = buffers[i].size;
-    b->buffer.n_metas = 1;
-    b->buffer.metas = b->metas;
-    b->buffer.n_datas = 1;
-    b->buffer.datas = b->datas;
-
-    b->header.flags = 0;
-    b->header.seq = 0;
-    b->header.pts = 0;
-    b->header.dts_offset = 0;
-
-    b->metas[0].type = SPA_META_TYPE_HEADER;
-    b->metas[0].data = &b->header;
-    b->metas[0].size = sizeof (b->header);
-
-    b->datas[0] = buffers[i].datas[0];
-    b->imported = &buffers[i];
+    b->buffer.size = buffers[i]->size;
+    b->buffer.n_metas = buffers[i]->n_metas;
+    b->buffer.metas = buffers[i]->metas;
+    b->buffer.n_datas = buffers[i]->n_datas;
+    b->buffer.datas = buffers[i]->datas;
+    b->imported = buffers[i];
     b->outstanding = true;
 
     CLEAR (b->v4l2_buffer);
     b->v4l2_buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     b->v4l2_buffer.memory = state->memtype;
     b->v4l2_buffer.index = i;
-    b->v4l2_buffer.m.userptr = (unsigned long) b->datas[0].data;
-    b->v4l2_buffer.length = b->datas[0].size;
+    b->v4l2_buffer.m.userptr = (unsigned long) b->buffer.datas[0].data;
+    b->v4l2_buffer.length = b->buffer.datas[0].size;
 
     v4l2_buffer_free (b);
   }
@@ -543,7 +533,6 @@ mmap_init (SpaV4l2Source *this)
     b->datas[0].offset = 0;
     b->datas[0].size = buf.length;
     b->datas[0].stride = state->fmt.fmt.pix.bytesperline;
-    b->imported = NULL;
     b->outstanding = true;
 
     if (b->datas[0].data == MAP_FAILED) {

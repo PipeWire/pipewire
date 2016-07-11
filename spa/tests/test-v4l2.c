@@ -31,14 +31,17 @@
 #include <spa/node.h>
 #include <spa/video/format.h>
 
+#define USE_BUFFER
+
 #define MAX_BUFFERS     8
 
 typedef struct {
-  SpaMeta meta[1];
+  SpaBuffer buffer;
+  SpaMeta metas[2];
   SpaMetaHeader header;
-  SpaData data[1];
-  SDL_Texture *texture;
-} SDLBufferData;
+  SpaMetaPointer ptr;
+  SpaData datas[1];
+} SDLBuffer;
 
 typedef struct {
   SpaHandle *source;
@@ -51,8 +54,8 @@ typedef struct {
   SpaPollFd fds[16];
   unsigned int n_fds;
   SpaPollItem poll;
-  SpaBuffer buffers[MAX_BUFFERS];
-  SDLBufferData bdata[MAX_BUFFERS];
+  SpaBuffer *bp[MAX_BUFFERS];
+  SDLBuffer buffers[MAX_BUFFERS];
 } AppData;
 
 static SpaResult
@@ -109,61 +112,55 @@ on_source_event (SpaHandle *handle, SpaEvent *event, void *user_data)
     {
       SpaOutputInfo info[1] = { 0, };
       SpaResult res;
-#if 0
-      void *mem;
-      int stride;
       SpaBuffer *b;
-      SDLBufferData *bd;
-#else
       void *sdata, *ddata;
       int sstride, dstride;
       int i;
       uint8_t *src, *dst;
-#endif
 
       if ((res = data->source_node->port_pull_output (data->source, 1, info)) < 0)
         printf ("got pull error %d\n", res);
 
-#if 0
       b = info[0].buffer;
-      bd = &data->bdata[b->id];
 
-      SDL_UnlockTexture(bd->texture);
-#else
-      if (SDL_LockTexture (data->texture, NULL, &ddata, &dstride) < 0) {
-        fprintf (stderr, "Couldn't lock texture: %s\n", SDL_GetError());
-        return;
+      if (b->metas[1].type == SPA_META_TYPE_POINTER &&
+          strcmp (((SpaMetaPointer*)b->metas[1].data)->type, "SDL_Texture") == 0) {
+        SDL_Texture *texture;
+        texture = ((SpaMetaPointer*)b->metas[1].data)->ptr;
+
+        SDL_UnlockTexture(texture);
+
+        SDL_RenderClear (data->renderer);
+        SDL_RenderCopy (data->renderer, texture, NULL, NULL);
+        SDL_RenderPresent (data->renderer);
+
+        if (SDL_LockTexture (texture, NULL, &sdata, &sstride) < 0) {
+          fprintf (stderr, "Couldn't lock texture: %s\n", SDL_GetError());
+          return;
+        }
+        b->datas[0].data = sdata;
+        b->datas[0].size = sstride * 240;
+        b->datas[0].stride = sstride;
+      } else {
+        if (SDL_LockTexture (data->texture, NULL, &ddata, &dstride) < 0) {
+          fprintf (stderr, "Couldn't lock texture: %s\n", SDL_GetError());
+          return;
+        }
+        sdata = b->datas[0].data;
+        sstride = b->datas[0].stride;
+
+        for (i = 0; i < 240; i++) {
+          src = ((uint8_t*)sdata + i * sstride);
+          dst = ((uint8_t*)ddata + i * dstride);
+          memcpy (dst, src, MIN (sstride, dstride));
+        }
+        SDL_UnlockTexture(data->texture);
+
+        SDL_RenderClear (data->renderer);
+        SDL_RenderCopy (data->renderer, data->texture, NULL, NULL);
+        SDL_RenderPresent (data->renderer);
       }
-      sdata = info[0].buffer->datas[0].data;
-      sstride = info[0].buffer->datas[0].stride;
-
-      for (i = 0; i < 240; i++) {
-        src = ((uint8_t*)sdata + i * sstride);
-        dst = ((uint8_t*)ddata + i * dstride);
-        memcpy (dst, src, MIN (sstride, dstride));
-      }
-      SDL_RenderClear (data->renderer);
-      SDL_RenderCopy (data->renderer, data->texture, NULL, NULL);
-      SDL_RenderPresent (data->renderer);
-#endif
-
-#if 0
-      SDL_RenderClear (data->renderer);
-      SDL_RenderCopy (data->renderer, bd->texture, NULL, NULL);
-      SDL_RenderPresent (data->renderer);
-
-      if (SDL_LockTexture (bd->texture, NULL, &mem, &stride) < 0) {
-        fprintf (stderr, "Couldn't lock texture: %s\n", SDL_GetError());
-        return;
-      }
-      bd->data[0].data = mem;
-      bd->data[0].size = stride * 240;
-      bd->data[0].stride = stride;
-
-#else
-      SDL_UnlockTexture(data->texture);
-#endif
-      spa_buffer_unref (info[0].buffer);
+      spa_buffer_unref (b);
       break;
     }
     case SPA_EVENT_TYPE_ADD_POLL:
@@ -208,56 +205,62 @@ make_nodes (AppData *data, const char *device)
   return res;
 }
 
-#if 0
+#ifdef USE_BUFFER
 static void
 alloc_buffers (AppData *data)
 {
   int i;
 
   for (i = 0; i < MAX_BUFFERS; i++) {
-    SpaBuffer *b = &data->buffers[i];
-    SDLBufferData *bd = &data->bdata[i];
+    SDLBuffer *b = &data->buffers[i];
+    SDL_Texture *texture;
     void *mem;
     int stride;
 
-    bd->texture = SDL_CreateTexture (data->renderer,
-                                     SDL_PIXELFORMAT_YUY2,
-                                     SDL_TEXTUREACCESS_STREAMING,
-                                     320, 240);
-    if (!bd->texture) {
+    data->bp[i] = &b->buffer;
+
+    texture = SDL_CreateTexture (data->renderer,
+                                 SDL_PIXELFORMAT_YUY2,
+                                 SDL_TEXTUREACCESS_STREAMING,
+                                 320, 240);
+    if (!texture) {
       printf ("can't create texture: %s\n", SDL_GetError ());
       return;
     }
-    if (SDL_LockTexture (bd->texture, NULL, &mem, &stride) < 0) {
+    if (SDL_LockTexture (texture, NULL, &mem, &stride) < 0) {
       fprintf (stderr, "Couldn't lock texture: %s\n", SDL_GetError());
       return;
     }
 
-    b->id = i;
-    b->refcount = 1;
-    b->notify = NULL;
-    b->size = stride * 240;
-    b->n_metas = 1;
-    b->metas = bd->meta;
-    b->n_datas = 1;
-    b->datas = bd->data;
+    b->buffer.refcount = 1;
+    b->buffer.notify = NULL;
+    b->buffer.size = stride * 240;
+    b->buffer.n_metas = 2;
+    b->buffer.metas = b->metas;
+    b->buffer.n_datas = 1;
+    b->buffer.datas = b->datas;
 
-    bd->header.flags = 0;
-    bd->header.seq = 0;
-    bd->header.pts = 0;
-    bd->header.dts_offset = 0;
+    b->header.flags = 0;
+    b->header.seq = 0;
+    b->header.pts = 0;
+    b->header.dts_offset = 0;
+    b->metas[0].type = SPA_META_TYPE_HEADER;
+    b->metas[0].data = &b->header;
+    b->metas[0].size = sizeof (b->header);
 
-    bd->meta[0].type = SPA_META_TYPE_HEADER;
-    bd->meta[0].data = &bd->header;
-    bd->meta[0].size = sizeof (bd->header);
+    b->ptr.type = "SDL_Texture";
+    b->ptr.ptr = texture;
+    b->metas[1].type = SPA_META_TYPE_POINTER;
+    b->metas[1].data = &b->ptr;
+    b->metas[1].size = sizeof (b->ptr);
 
-    bd->data[0].type = SPA_DATA_TYPE_MEMPTR;
-    bd->data[0].data = mem;
-    bd->data[0].offset = 0;
-    bd->data[0].size = stride * 240;
-    bd->data[0].stride = stride;
+    b->datas[0].type = SPA_DATA_TYPE_MEMPTR;
+    b->datas[0].data = mem;
+    b->datas[0].offset = 0;
+    b->datas[0].size = stride * 240;
+    b->datas[0].stride = stride;
   }
-  data->source_node->port_use_buffers (data->source, 0, data->buffers, MAX_BUFFERS);
+  data->source_node->port_use_buffers (data->source, 0, data->bp, MAX_BUFFERS);
 }
 #endif
 
@@ -270,6 +273,7 @@ negotiate_formats (AppData *data)
   uint32_t val;
   SpaFraction frac;
   SpaPropValue value;
+  const SpaPortInfo *info;
 
   if ((res = data->source_node->port_enum_formats (data->source, 0, 0, &format)) < 0)
     return res;
@@ -302,7 +306,19 @@ negotiate_formats (AppData *data)
   if ((res = data->source_node->port_set_format (data->source, 0, false, format)) < 0)
     return res;
 
-#if 0
+  if ((res = data->source_node->port_get_info (data->source, 0, &info)) < 0)
+    return res;
+
+  printf ("flags: %d\n", info->flags);
+  printf ("minsize: %zd\n", info->minsize);
+  printf ("stride: %zd\n", info->stride);
+  printf ("min_buffers: %d\n", info->min_buffers);
+  printf ("max_buffers: %d\n", info->max_buffers);
+  printf ("align: %d\n", info->align);
+  printf ("maxbuffering: %d\n", info->maxbuffering);
+  printf ("latency: %lu\n", info->latency);
+
+#ifdef USE_BUFFER
   alloc_buffers (data);
 #else
   data->texture = SDL_CreateTexture (data->renderer,

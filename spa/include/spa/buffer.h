@@ -36,6 +36,7 @@ typedef struct _SpaBuffer SpaBuffer;
 typedef enum {
   SPA_META_TYPE_INVALID               = 0,
   SPA_META_TYPE_HEADER,
+  SPA_META_TYPE_POINTER,
 } SpaMetaType;
 
 /**
@@ -65,6 +66,11 @@ typedef struct {
   int64_t pts;
   int64_t dts_offset;
 } SpaMetaHeader;
+
+typedef struct {
+  const char *type;
+  void       *ptr;
+} SpaMetaPointer;
 
 /**
  * SpaMeta:
@@ -118,7 +124,6 @@ typedef struct {
  * @datas: array of @n_datas data pointers
  */
 struct _SpaBuffer {
-  uint32_t          id;
   volatile int      refcount;
   SpaNotify         notify;
   size_t            size;

@@ -316,7 +316,7 @@ struct _SpaNode {
 
   SpaResult   (*port_use_buffers)     (SpaHandle            *handle,
                                        uint32_t              port_id,
-                                       SpaBuffer            *buffers,
+                                       SpaBuffer           **buffers,
                                        uint32_t              n_buffers);
   SpaResult   (*port_alloc_buffers)   (SpaHandle            *handle,
                                        uint32_t              port_id,

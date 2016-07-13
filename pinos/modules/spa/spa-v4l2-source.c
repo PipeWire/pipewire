@@ -98,7 +98,8 @@ make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char
     if (strcmp (factory->name, name))
       continue;
 
-    if ((res = factory->instantiate (factory, handle)) < 0) {
+    *handle = calloc (1, factory->size);
+    if ((res = factory->init (factory, *handle)) < 0) {
       g_error ("can't make factory instance: %d", res);
       return res;
     }

@@ -70,7 +70,7 @@ typedef struct {
 } SpaMetaHeader;
 
 typedef struct {
-  const char *type;
+  const char *ptr_type;
   void       *ptr;
 } SpaMetaPointer;
 
@@ -101,27 +101,34 @@ typedef struct {
 /**
  * SpaDataType:
  * @SPA_DATA_TYPE_INVALID: invalid data type, is ignored
- * @SPA_DATA_TYPE_MEMPTR: data and size point to memory
- * @SPA_DATA_TYPE_FD: data points to an int file descriptor
+ * @SPA_DATA_TYPE_MEMPTR: data and size point to memory accassible by the
+ *                        CPU.
+ * @SPA_DATA_TYPE_FD: data points to an int file descriptor that can be
+ *                    mmapped.
+ * @SPA_DATA_TYPE_POINTER: data points to some other datastructure, the
+ *        type can be found in ptr_type
  */
 typedef enum {
   SPA_DATA_TYPE_INVALID               = 0,
   SPA_DATA_TYPE_MEMPTR,
   SPA_DATA_TYPE_FD,
+  SPA_DATA_TYPE_POINTER,
 } SpaDataType;
 
 /**
  * SpaData:
  * @id: user id
  * @type: the type of data
- * @data: pointer to data or fd
+ * @ptr_type: more info abouut the type of @ptr
+ * @ptr: pointer to data or fd
  * @offset: offset of data
  * @size: size of data
- * @stride: stride of data
+ * @stride: stride of data if applicable
  */
 typedef struct {
   SpaDataType  type;
-  void        *data;
+  const char  *ptr_type;
+  void        *ptr;
   unsigned int offset;
   size_t       size;
   size_t       stride;

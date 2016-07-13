@@ -121,7 +121,7 @@ on_sink_event (SpaHandle *handle, SpaEvent *event, void *user_data)
       g_debug ("pull ringbuffer %p", buf);
 
       size = buf->size;
-      data = buf->datas[0].data;
+      data = buf->datas[0].ptr;
 
       pinos_ringbuffer_get_read_areas (priv->ringbuffer, areas);
 

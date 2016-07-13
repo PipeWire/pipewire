@@ -126,7 +126,7 @@ on_source_event (SpaHandle *handle, SpaEvent *event, void *user_data)
       b = info[0].buffer;
 
       if (b->metas[1].type == SPA_META_TYPE_POINTER &&
-          strcmp (((SpaMetaPointer*)b->metas[1].data)->type, "SDL_Texture") == 0) {
+          strcmp (((SpaMetaPointer*)b->metas[1].data)->ptr_type, "SDL_Texture") == 0) {
         SDL_Texture *texture;
         texture = ((SpaMetaPointer*)b->metas[1].data)->ptr;
 
@@ -140,7 +140,8 @@ on_source_event (SpaHandle *handle, SpaEvent *event, void *user_data)
           fprintf (stderr, "Couldn't lock texture: %s\n", SDL_GetError());
           return;
         }
-        b->datas[0].data = sdata;
+        b->datas[0].ptr = sdata;
+        b->datas[0].ptr_type = "sysmem";
         b->datas[0].size = sstride * 240;
         b->datas[0].stride = sstride;
       } else {
@@ -148,7 +149,7 @@ on_source_event (SpaHandle *handle, SpaEvent *event, void *user_data)
           fprintf (stderr, "Couldn't lock texture: %s\n", SDL_GetError());
           return;
         }
-        sdata = b->datas[0].data;
+        sdata = b->datas[0].ptr;
         sstride = b->datas[0].stride;
 
         for (i = 0; i < 240; i++) {
@@ -257,7 +258,8 @@ alloc_buffers (AppData *data)
     b->metas[1].size = sizeof (b->ptr);
 
     b->datas[0].type = SPA_DATA_TYPE_MEMPTR;
-    b->datas[0].data = mem;
+    b->datas[0].ptr = mem;
+    b->datas[0].ptr_type = "sysmem";
     b->datas[0].offset = 0;
     b->datas[0].size = stride * 240;
     b->datas[0].stride = stride;

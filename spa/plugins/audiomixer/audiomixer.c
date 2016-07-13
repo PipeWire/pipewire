@@ -548,7 +548,8 @@ pull_port (SpaAudioMixer *this, uint32_t port_id, SpaOutputInfo *info, size_t pu
   buffer->meta[0].size = sizeof (buffer->header);
 
   buffer->data[0].type = SPA_DATA_TYPE_MEMPTR;
-  buffer->data[0].data = buffer->samples;
+  buffer->data[0].ptr = buffer->samples;
+  buffer->data[0].ptr_type = "sysmem";
   buffer->data[0].size = pull_size;
 
   this->event_cb (&this->handle, &event, this->user_data);
@@ -565,11 +566,11 @@ add_port_data (SpaAudioMixer *this, SpaBuffer *out, SpaAudioMixerPort *port)
 
   while (true) {
     if (op == NULL) {
-      op = out->datas[oi].data;
+      op = out->datas[oi].ptr;
       os = out->datas[oi].size;
     }
     if (ip == NULL) {
-      ip = port->buffer->datas[port->buffer_index].data;
+      ip = port->buffer->datas[port->buffer_index].ptr;
       is = port->buffer->datas[port->buffer_index].size;
       ip += port->buffer_offset;
       is -= port->buffer_offset;

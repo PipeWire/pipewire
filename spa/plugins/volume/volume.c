@@ -520,8 +520,8 @@ spa_volume_node_port_pull_output (SpaHandle      *handle,
       di++;
       continue;
     }
-    src = (uint16_t*) ((uint8_t*)sd->data + soff);
-    dst = (uint16_t*) ((uint8_t*)dd->data + doff);
+    src = (uint16_t*) ((uint8_t*)sd->ptr + soff);
+    dst = (uint16_t*) ((uint8_t*)dd->ptr + doff);
 
     n_bytes = MIN (sd->size - soff, dd->size - doff);
     n_samples = n_bytes / sizeof (uint16_t);

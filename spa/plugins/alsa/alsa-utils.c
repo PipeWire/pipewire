@@ -232,7 +232,8 @@ pull_input (SpaALSASink *this, void *data, snd_pcm_uframes_t frames)
   buffer->meta[0].size = sizeof (buffer->header);
 
   buffer->data[0].type = SPA_DATA_TYPE_MEMPTR;
-  buffer->data[0].data = data;
+  buffer->data[0].ptr = data;
+  buffer->data[0].ptr_type = "sysmem";
   buffer->data[0].size = frames * sizeof (uint16_t) * 2;
 
   this->event_cb (&this->handle, &event,this->user_data);

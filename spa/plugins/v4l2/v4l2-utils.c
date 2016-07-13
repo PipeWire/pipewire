@@ -459,7 +459,7 @@ spa_v4l2_import_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_bu
     b->v4l2_buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     b->v4l2_buffer.memory = state->memtype;
     b->v4l2_buffer.index = i;
-    b->v4l2_buffer.m.userptr = (unsigned long) b->buffer.datas[0].data;
+    b->v4l2_buffer.m.userptr = (unsigned long) b->buffer.datas[0].ptr;
     b->v4l2_buffer.length = b->buffer.datas[0].size;
 
     v4l2_buffer_free (b);
@@ -542,22 +542,24 @@ mmap_init (SpaV4l2Source *this)
 
       b->dmafd = expbuf.fd;
       b->datas[0].type = SPA_DATA_TYPE_FD;
-      b->datas[0].data = &b->dmafd;
+      b->datas[0].ptr = &b->dmafd;
+      b->datas[0].ptr_type = "dmabuf";
       b->datas[0].offset = 0;
       b->datas[0].size = buf.length;
       b->datas[0].stride = state->fmt.fmt.pix.bytesperline;
     } else {
       b->datas[0].type = SPA_DATA_TYPE_MEMPTR;
-      b->datas[0].data = mmap (NULL,
-                               buf.length,
-                               PROT_READ | PROT_WRITE,
-                               MAP_SHARED,
-                               state->fd,
-                               buf.m.offset);
+      b->datas[0].ptr_type = "sysmem";
+      b->datas[0].ptr = mmap (NULL,
+                              buf.length,
+                              PROT_READ | PROT_WRITE,
+                              MAP_SHARED,
+                              state->fd,
+                              buf.m.offset);
       b->datas[0].offset = 0;
       b->datas[0].size = buf.length;
       b->datas[0].stride = state->fmt.fmt.pix.bytesperline;
-      if (b->datas[0].data == MAP_FAILED) {
+      if (b->datas[0].ptr == MAP_FAILED) {
         perror ("mmap");
         continue;
       }
@@ -662,7 +664,7 @@ spa_v4l2_stop (SpaV4l2Source *this)
     if (state->export_buf) {
       close (b->dmafd);
     } else {
-      munmap (b->datas[0].data, b->datas[0].size);
+      munmap (b->datas[0].ptr, b->datas[0].size);
     }
   }
   state->have_buffers = false;

@@ -200,9 +200,9 @@ on_source_event (SpaHandle *handle, SpaEvent *event, void *user_data)
       pinos_buffer_builder_add_header (&builder, &hdr);
 
       if (b->datas[0].type == SPA_DATA_TYPE_FD) {
-        fd = *((int *)b->datas[0].data);
+        fd = *((int *)b->datas[0].ptr);
       } else {
-        fd = tmpfile_create (source, b->datas[0].data, b->size);
+        fd = tmpfile_create (source, b->datas[0].ptr, b->size);
       }
       p.fd_index = pinos_buffer_builder_add_fd (&builder, fd);
       p.id = pinos_fd_manager_get_id (priv->fdmanager);
@@ -267,7 +267,7 @@ create_pipeline (PinosSpaV4l2Source *this)
     g_debug ("got get_props error %d", res);
 
   value.type = SPA_PROP_TYPE_STRING;
-  value.value = "/dev/video1";
+  value.value = "/dev/video0";
   value.size = strlen (value.value)+1;
   props->set_prop (props, spa_props_index_for_name (props, "device"), &value);
 

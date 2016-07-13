@@ -467,7 +467,7 @@ spa_audiotestsrc_node_port_pull_output (SpaHandle     *handle,
       continue;
     }
 
-    ptr = info[i].buffer->datas[0].data;
+    ptr = info[i].buffer->datas[0].ptr;
     size = info[i].buffer->datas[0].size;
 
     for (j = 0; j < size; j++)

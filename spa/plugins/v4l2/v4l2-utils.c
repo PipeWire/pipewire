@@ -346,7 +346,6 @@ spa_v4l2_close (SpaV4l2Source *this)
 
   state->fd = -1;
   state->opened = false;
-  state->have_buffers = false;
 
   return 0;
 }
@@ -530,22 +529,40 @@ mmap_init (SpaV4l2Source *this)
     b->metas[0].data = &b->header;
     b->metas[0].size = sizeof (b->header);
 
-    b->datas[0].type = SPA_DATA_TYPE_MEMPTR;
-    b->datas[0].data = mmap (NULL,
-                             buf.length,
-                             PROT_READ | PROT_WRITE,
-                             MAP_SHARED,
-                             state->fd,
-                             buf.m.offset);
-    b->datas[0].offset = 0;
-    b->datas[0].size = buf.length;
-    b->datas[0].stride = state->fmt.fmt.pix.bytesperline;
-    b->outstanding = true;
+    if (state->export_buf) {
+      struct v4l2_exportbuffer expbuf;
 
-    if (b->datas[0].data == MAP_FAILED) {
-      perror ("mmap");
-      continue;
+      CLEAR (expbuf);
+      expbuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+      expbuf.index = i;
+      if (xioctl (state->fd, VIDIOC_EXPBUF, &expbuf) < 0) {
+        perror("VIDIOC_EXPBUF");
+        continue;
+      }
+
+      b->dmafd = expbuf.fd;
+      b->datas[0].type = SPA_DATA_TYPE_FD;
+      b->datas[0].data = &b->dmafd;
+      b->datas[0].offset = 0;
+      b->datas[0].size = buf.length;
+      b->datas[0].stride = state->fmt.fmt.pix.bytesperline;
+    } else {
+      b->datas[0].type = SPA_DATA_TYPE_MEMPTR;
+      b->datas[0].data = mmap (NULL,
+                               buf.length,
+                               PROT_READ | PROT_WRITE,
+                               MAP_SHARED,
+                               state->fd,
+                               buf.m.offset);
+      b->datas[0].offset = 0;
+      b->datas[0].size = buf.length;
+      b->datas[0].stride = state->fmt.fmt.pix.bytesperline;
+      if (b->datas[0].data == MAP_FAILED) {
+        perror ("mmap");
+        continue;
+      }
     }
+    b->outstanding = true;
 
     CLEAR (b->v4l2_buffer);
     b->v4l2_buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -626,12 +643,29 @@ spa_v4l2_stop (SpaV4l2Source *this)
   SpaV4l2State *state = &this->state[0];
   enum v4l2_buf_type type;
   SpaEvent event;
+  int i;
 
   type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   if (xioctl (state->fd, VIDIOC_STREAMOFF, &type) < 0) {
     perror ("VIDIOC_STREAMOFF");
     return -1;
   }
+
+  for (i = 0; i < state->reqbuf.count; i++) {
+    V4l2Buffer *b;
+
+    b = &state->buffers[i];
+    if (b->outstanding) {
+      fprintf (stderr, "queueing outstanding buffer %p\n", b);
+      v4l2_buffer_free (b);
+    }
+    if (state->export_buf) {
+      close (b->dmafd);
+    } else {
+      munmap (b->datas[0].data, b->datas[0].size);
+    }
+  }
+  state->have_buffers = false;
 
   event.refcount = 1;
   event.notify = NULL;

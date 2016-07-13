@@ -199,11 +199,15 @@ on_source_event (SpaHandle *handle, SpaEvent *event, void *user_data)
       pinos_buffer_builder_init_into (&builder, buf, 1024, fdbuf, 8);
       pinos_buffer_builder_add_header (&builder, &hdr);
 
-      fd = tmpfile_create (source, b->datas[0].data, b->size);
+      if (b->datas[0].type == SPA_DATA_TYPE_FD) {
+        fd = *((int *)b->datas[0].data);
+      } else {
+        fd = tmpfile_create (source, b->datas[0].data, b->size);
+      }
       p.fd_index = pinos_buffer_builder_add_fd (&builder, fd);
       p.id = pinos_fd_manager_get_id (priv->fdmanager);
-      p.offset = 0;
-      p.size = b->size;
+      p.offset = b->datas[0].offset;
+      p.size = b->datas[0].size;
       pinos_buffer_builder_add_fd_payload (&builder, &p);
       pinos_buffer_builder_end (&builder, &pbuf);
 
@@ -219,6 +223,7 @@ on_source_event (SpaHandle *handle, SpaEvent *event, void *user_data)
           g_clear_error (&error);
         }
       }
+      pinos_buffer_steal_fds (&pbuf, NULL);
       pinos_buffer_unref (&pbuf);
 
       spa_buffer_unref (b);

@@ -58,6 +58,7 @@ struct _V4l2Buffer {
   bool outstanding;
   struct v4l2_buffer v4l2_buffer;
   V4l2Buffer *next;
+  int dmafd;
 };
 
 typedef struct {
@@ -79,6 +80,7 @@ typedef struct {
   SpaPortInfo info;
   SpaAllocParam *params[1];
   SpaAllocParamBuffers param_buffers;
+  bool export_buf;
   SpaPortStatus status;
 } SpaV4l2State;
 
@@ -597,6 +599,8 @@ v4l2_source_init (const SpaHandleFactory  *factory,
 
   this->state[0].info.flags = SPA_PORT_INFO_FLAG_NONE;
   this->state[0].status.flags = SPA_PORT_STATUS_FLAG_NONE;
+
+  this->state[0].export_buf = true;
 
   return SPA_RESULT_OK;
 }

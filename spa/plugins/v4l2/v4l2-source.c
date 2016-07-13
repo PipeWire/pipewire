@@ -77,6 +77,8 @@ typedef struct {
   SpaPollFd fds[1];
   SpaPollItem poll;
   SpaPortInfo info;
+  SpaAllocParam *params[1];
+  SpaAllocParamBuffers param_buffers;
   SpaPortStatus status;
 } SpaV4l2State;
 
@@ -467,6 +469,8 @@ spa_v4l2_source_node_port_use_buffers (SpaHandle       *handle,
 static SpaResult
 spa_v4l2_source_node_port_alloc_buffers (SpaHandle       *handle,
                                          uint32_t         port_id,
+                                         SpaAllocParam  **params,
+                                         uint32_t         n_params,
                                          SpaBuffer      **buffers,
                                          uint32_t        *n_buffers)
 {
@@ -573,13 +577,15 @@ spa_v4l2_source_get_interface (SpaHandle               *handle,
   return SPA_RESULT_OK;
 }
 
-SpaHandle *
-spa_v4l2_source_new (void)
+static SpaResult
+v4l2_source_init (const SpaHandleFactory  *factory,
+                  SpaHandle               *handle)
 {
-  SpaHandle *handle;
   SpaV4l2Source *this;
 
-  handle = calloc (1, sizeof (SpaV4l2Source));
+  if (factory == NULL || handle == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
   handle->get_interface = spa_v4l2_source_get_interface;
 
   this = (SpaV4l2Source *) handle;
@@ -591,5 +597,35 @@ spa_v4l2_source_new (void)
 
   this->state[0].info.flags = SPA_PORT_INFO_FLAG_NONE;
   this->state[0].status.flags = SPA_PORT_STATUS_FLAG_NONE;
-  return handle;
+
+  return SPA_RESULT_OK;
 }
+
+static const SpaInterfaceInfo v4l2_source_interfaces[] =
+{
+  { SPA_INTERFACE_ID_NODE,
+    SPA_INTERFACE_ID_NODE_NAME,
+    SPA_INTERFACE_ID_NODE_DESCRIPTION,
+  },
+};
+
+static SpaResult
+v4l2_source_enum_interface_info (const SpaHandleFactory  *factory,
+                               unsigned int             index,
+                               const SpaInterfaceInfo **info)
+{
+  if (index >= 1)
+    return SPA_RESULT_ENUM_END;
+
+  *info = &v4l2_source_interfaces[index];
+
+  return SPA_RESULT_OK;
+}
+
+const SpaHandleFactory spa_v4l2_source_factory =
+{ "v4l2-source",
+  NULL,
+  sizeof (SpaV4l2Source),
+  v4l2_source_init,
+  v4l2_source_enum_interface_info,
+};

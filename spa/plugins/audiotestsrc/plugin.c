@@ -20,59 +20,21 @@
 #include <spa/plugin.h>
 #include <spa/node.h>
 
-SpaHandle * spa_audiotestsrc_new (void);
-
-static SpaResult
-audiotestsrc_instantiate (const SpaHandleFactory  *factory,
-                          SpaHandle              **handle)
-{
-  if (factory == NULL || handle == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
-  *handle = spa_audiotestsrc_new ();
-
-  return SPA_RESULT_OK;
-}
-
-static const SpaInterfaceInfo audiotestsrc_interfaces[] =
-{
-  { SPA_INTERFACE_ID_NODE,
-    SPA_INTERFACE_ID_NODE_NAME,
-    SPA_INTERFACE_ID_NODE_DESCRIPTION,
-  },
-};
-
-static SpaResult
-audiotestsrc_enum_interface_info (const SpaHandleFactory  *factory,
-                                  unsigned int             index,
-                                  const SpaInterfaceInfo **info)
-{
-  if (index >= 1)
-    return SPA_RESULT_ENUM_END;
-
-  *info = &audiotestsrc_interfaces[index];
-
-  return SPA_RESULT_OK;
-}
-
-static const SpaHandleFactory factories[] =
-{
-  { "audiotestsrc",
-    NULL,
-    audiotestsrc_instantiate,
-    audiotestsrc_enum_interface_info,
-  },
-};
-
+extern const SpaHandleFactory spa_audiotestsrc_factory;
 
 SpaResult
 spa_enum_handle_factory (unsigned int             index,
                          const SpaHandleFactory **factory)
 {
-  if (index >= 1)
-    return SPA_RESULT_ENUM_END;
+  if (factory == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
 
-  *factory = &factories[index];
-
+  switch (index) {
+    case 0:
+      *factory = &spa_audiotestsrc_factory;
+      break;
+    default:
+      return SPA_RESULT_ENUM_END;
+  }
   return SPA_RESULT_OK;
 }

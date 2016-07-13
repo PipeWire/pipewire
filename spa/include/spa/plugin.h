@@ -78,20 +78,27 @@ struct _SpaHandleFactory {
    * Extra information about the handles of this factory.
    */
   const SpaProps * info;
+  /**
+   * SpaHandleFactory::size
+   *
+   * The size of handles from this factory
+   */
+  const size_t size;
 
   /**
-   * SpaHandleFactory::instantiate
+   * SpaHandleFactory::init
    * @factory: a #SpaHandleFactory
-   * @handle: a pointer to hold the result
+   * @handle: a pointer to memory
    *
-   * Make an instance of this factory.
+   * Initialize an instance of this factory. The caller should allocate
+   * memory at least SpaHandleFactory::size bytes and pass this as @handle.
    *
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_NOT_IMPLEMENTED when an instance can't be made
    *          #SPA_RESULT_INVALID_ARGUMENTS when factory or handle are %NULL
    */
-  SpaResult   (*instantiate)          (const SpaHandleFactory  *factory,
-                                       SpaHandle              **handle);
+  SpaResult   (*init)                 (const SpaHandleFactory  *factory,
+                                       SpaHandle               *handle);
   /**
    * SpaHandle::enum_interface_info:
    * @factory: a #SpaHandleFactory

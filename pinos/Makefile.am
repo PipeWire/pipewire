@@ -223,6 +223,7 @@ libpinoscore_@PINOS_MAJORMINOR@_la_SOURCES = \
 		modules/gst/gst-sink.c modules/gst/gst-sink.h \
 		modules/gst/gst-node-factory.c modules/gst/gst-node-factory.h \
 		modules/spa/spa-alsa-sink.c modules/spa/spa-alsa-sink.h \
+		modules/spa/spa-v4l2-source.c modules/spa/spa-v4l2-source.h \
 		dbus/org-pinos.c dbus/org-pinos.h
 
 libpinoscore_@PINOS_MAJORMINOR@_la_CFLAGS = $(AM_CFLAGS) $(SERVER_CFLAGS)

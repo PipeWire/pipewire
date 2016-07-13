@@ -34,7 +34,7 @@ typedef struct _SpaEvent SpaEvent;
  * @SPA_EVENT_TYPE_STARTED: emited when the START command completes
  * @SPA_EVENT_TYPE_STOPPED: emited when the STOP command completes
  * @SPA_EVENT_TYPE_CAN_PULL_OUTPUT: emited when an async node has output that can be pulled
- * @SPA_EVENT_TYPE_CAN_PUSH_INTPUT: emited when more data can be pushed to an async node
+ * @SPA_EVENT_TYPE_CAN_PUSH_INPUT: emited when more data can be pushed to an async node
  * @SPA_EVENT_TYPE_PULL_INPUT: emited when data needs to be provided on an input
  * @SPA_EVENT_TYPE_ALLOC_OUTPUT: emited when an output buffer needs to be allocated
  * @SPA_EVENT_TYPE_ADD_POLL: emited when a pollfd should be added
@@ -49,7 +49,7 @@ typedef enum {
   SPA_EVENT_TYPE_STARTED,
   SPA_EVENT_TYPE_STOPPED,
   SPA_EVENT_TYPE_CAN_PULL_OUTPUT,
-  SPA_EVENT_TYPE_CAN_PUSH_INTPUT,
+  SPA_EVENT_TYPE_CAN_PUSH_INPUT,
   SPA_EVENT_TYPE_PULL_INPUT,
   SPA_EVENT_TYPE_ALLOC_OUTPUT,
   SPA_EVENT_TYPE_ADD_POLL,

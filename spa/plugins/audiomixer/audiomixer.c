@@ -440,6 +440,8 @@ spa_audiomixer_node_port_use_buffers (SpaHandle       *handle,
 static SpaResult
 spa_audiomixer_node_port_alloc_buffers (SpaHandle       *handle,
                                         uint32_t         port_id,
+                                        SpaAllocParam  **params,
+                                        uint32_t         n_params,
                                         SpaBuffer      **buffers,
                                         uint32_t        *n_buffers)
 {
@@ -733,13 +735,15 @@ spa_audiomixer_get_interface (SpaHandle   *handle,
   return SPA_RESULT_OK;
 }
 
-SpaHandle *
-spa_audiomixer_new (void)
+static SpaResult
+spa_audiomixer_init (const SpaHandleFactory *factory,
+                     SpaHandle              *handle)
 {
-  SpaHandle *handle;
   SpaAudioMixer *this;
 
-  handle = calloc (1, sizeof (SpaAudioMixer));
+  if (factory == NULL || handle == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
   handle->get_interface = spa_audiomixer_get_interface;
 
   this = (SpaAudioMixer *) handle;
@@ -753,5 +757,34 @@ spa_audiomixer_new (void)
   this->ports[0].info.flags = SPA_PORT_INFO_FLAG_CAN_GIVE_BUFFER |
                               SPA_PORT_INFO_FLAG_CAN_USE_BUFFER |
                               SPA_PORT_INFO_FLAG_NO_REF;
-  return handle;
+  return SPA_RESULT_OK;
 }
+
+static const SpaInterfaceInfo audiomixer_interfaces[] =
+{
+  { SPA_INTERFACE_ID_NODE,
+    SPA_INTERFACE_ID_NODE_NAME,
+    SPA_INTERFACE_ID_NODE_DESCRIPTION,
+  },
+};
+
+static SpaResult
+audiomixer_enum_interface_info (const SpaHandleFactory  *factory,
+                                unsigned int             index,
+                                const SpaInterfaceInfo **info)
+{
+  if (index >= 1)
+    return SPA_RESULT_ENUM_END;
+
+  *info = &audiomixer_interfaces[index];
+
+  return SPA_RESULT_OK;
+}
+
+const SpaHandleFactory spa_audiomixer_factory =
+{ "audiomixer",
+  NULL,
+  sizeof (SpaAudioMixer),
+  spa_audiomixer_init,
+  audiomixer_enum_interface_info,
+};

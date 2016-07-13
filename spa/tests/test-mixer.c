@@ -75,7 +75,8 @@ make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char
     if (strcmp (factory->name, name))
       continue;
 
-    if ((res = factory->instantiate (factory, handle)) < 0) {
+    *handle = calloc (1, factory->size);
+    if ((res = factory->init (factory, *handle)) < 0) {
       printf ("can't make factory instance: %d\n", res);
       return res;
     }
@@ -200,8 +201,8 @@ make_nodes (AppData *data)
     printf ("got get_props error %d\n", res);
 
   value.type = SPA_PROP_TYPE_STRING;
-  value.size = strlen ("hw:1")+1;
-  value.value = "hw:1";
+  value.value = "hw:0";
+  value.size = strlen (value.value)+1;
   props->set_prop (props, spa_props_index_for_name (props, "device"), &value);
 
   if ((res = data->sink_node->set_props (data->sink, props)) < 0)

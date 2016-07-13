@@ -20,59 +20,21 @@
 #include <spa/plugin.h>
 #include <spa/node.h>
 
-SpaHandle * spa_v4l2_source_new (void);
-
-static SpaResult
-v4l2_source_instantiate (const SpaHandleFactory  *factory,
-                       SpaHandle              **handle)
-{
-  if (factory == NULL || handle == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
-  *handle = spa_v4l2_source_new ();
-
-  return SPA_RESULT_OK;
-}
-
-static const SpaInterfaceInfo v4l2_source_interfaces[] =
-{
-  { SPA_INTERFACE_ID_NODE,
-    SPA_INTERFACE_ID_NODE_NAME,
-    SPA_INTERFACE_ID_NODE_DESCRIPTION,
-  },
-};
-
-static SpaResult
-v4l2_source_enum_interface_info (const SpaHandleFactory  *factory,
-                               unsigned int             index,
-                               const SpaInterfaceInfo **info)
-{
-  if (index >= 1)
-    return SPA_RESULT_ENUM_END;
-
-  *info = &v4l2_source_interfaces[index];
-
-  return SPA_RESULT_OK;
-}
-
-static const SpaHandleFactory factories[] =
-{
-  { "v4l2-source",
-    NULL,
-    v4l2_source_instantiate,
-    v4l2_source_enum_interface_info,
-  },
-};
-
+extern const SpaHandleFactory spa_v4l2_source_factory;
 
 SpaResult
 spa_enum_handle_factory (unsigned int             index,
                          const SpaHandleFactory **factory)
 {
-  if (index >= 1)
-    return SPA_RESULT_ENUM_END;
+  if (factory == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
 
-  *factory = &factories[index];
-
+  switch (index) {
+    case 0:
+      *factory = &spa_v4l2_source_factory;
+      break;
+    default:
+      return SPA_RESULT_ENUM_END;
+  }
   return SPA_RESULT_OK;
 }

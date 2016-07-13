@@ -442,6 +442,8 @@ spa_xv_sink_node_port_use_buffers (SpaHandle       *handle,
 static SpaResult
 spa_xv_sink_node_port_alloc_buffers (SpaHandle       *handle,
                                      uint32_t         port_id,
+                                     SpaAllocParam  **params,
+                                     uint32_t         n_params,
                                      SpaBuffer      **buffers,
                                      uint32_t        *n_buffers)
 {
@@ -546,13 +548,15 @@ spa_xv_sink_get_interface (SpaHandle               *handle,
   return SPA_RESULT_OK;
 }
 
-SpaHandle *
-spa_xv_sink_new (void)
+static SpaResult
+xv_sink_init (const SpaHandleFactory  *factory,
+              SpaHandle               *handle)
 {
-  SpaHandle *handle;
   SpaXvSink *this;
 
-  handle = calloc (1, sizeof (SpaXvSink));
+  if (factory == NULL || handle == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
   handle->get_interface = spa_xv_sink_get_interface;
 
   this = (SpaXvSink *) handle;
@@ -564,5 +568,35 @@ spa_xv_sink_new (void)
 
   this->info.flags = SPA_PORT_INFO_FLAG_NONE;
   this->status.flags = SPA_PORT_STATUS_FLAG_NONE;
-  return handle;
+
+  return SPA_RESULT_OK;
 }
+
+static const SpaInterfaceInfo xv_sink_interfaces[] =
+{
+  { SPA_INTERFACE_ID_NODE,
+    SPA_INTERFACE_ID_NODE_NAME,
+    SPA_INTERFACE_ID_NODE_DESCRIPTION,
+  },
+};
+
+static SpaResult
+xv_sink_enum_interface_info (const SpaHandleFactory  *factory,
+                             unsigned int             index,
+                             const SpaInterfaceInfo **info)
+{
+  if (index >= 1)
+    return SPA_RESULT_ENUM_END;
+
+  *info = &xv_sink_interfaces[index];
+
+  return SPA_RESULT_OK;
+}
+
+const SpaHandleFactory spa_xv_sink_factory =
+{ "xv-sink",
+  NULL,
+  sizeof (SpaXvSink),
+  xv_sink_init,
+  xv_sink_enum_interface_info,
+};

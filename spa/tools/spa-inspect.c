@@ -188,7 +188,8 @@ inspect_factory (const SpaHandleFactory *factory)
   else
     printf ("  none\n");
 
-  if ((res = factory->instantiate (factory, &handle)) < 0) {
+  handle = calloc (1, factory->size);
+  if ((res = factory->init (factory, handle)) < 0) {
     printf ("can't make factory instance: %d\n", res);
     return;
   }

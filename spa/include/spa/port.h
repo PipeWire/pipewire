@@ -25,6 +25,48 @@ extern "C" {
 #endif
 
 #include <spa/defs.h>
+#include <spa/buffer.h>
+
+/**
+ * SpaAllocParamType:
+ * @SPA_ALLOC_PARAM_TYPE_INVALID: invalid type, should be ignored
+ * @SPA_ALLOC_PARAM_TYPE_META_ENABLE: enable a certain metadata on buffers
+ * @SPA_ALLOC_PARAM_TYPE_VIDEO_PADDING: do specialized video padding
+ */
+typedef enum {
+  SPA_ALLOC_PARAM_TYPE_INVALID,
+  SPA_ALLOC_PARAM_TYPE_BUFFERS,
+  SPA_ALLOC_PARAM_TYPE_META_ENABLE,
+  SPA_ALLOC_PARAM_TYPE_VIDEO_PADDING,
+} SpaAllocParamType;
+
+typedef struct {
+  uint32_t  type;
+  size_t    size;
+} SpaAllocParam;
+
+typedef struct {
+  SpaAllocParam  param;
+  size_t         minsize;
+  size_t         stride;
+  uint32_t       min_buffers;
+  uint32_t       max_buffers;
+  uint32_t       align;
+} SpaAllocParamBuffers;
+
+typedef struct {
+  SpaAllocParam  param;
+  SpaMetaType    type;
+} SpaAllocParamMetaEnable;
+
+typedef struct {
+  SpaAllocParam param;
+  unsigned int  padding_top;
+  unsigned int  padding_bottom;
+  unsigned int  padding_left;
+  unsigned int  padding_right;
+  unsigned int  stride_align[4];
+} SpaAllocParamVideoPadding;
 
 /**
  * SpaPortInfoFlags:
@@ -58,18 +100,17 @@ typedef enum {
  * @maxbuffering: the maximum amount of bytes that the element will keep
  *                around internally
  * @latency: latency on this port in nanoseconds
+ * @params: extra allocation parameters
+ * @n_params: number of elements in @params;
  * @features: NULL terminated array of extra port features
  *
  */
 typedef struct {
   SpaPortInfoFlags    flags;
-  size_t              minsize;
-  size_t              stride;
-  uint32_t            min_buffers;
-  uint32_t            max_buffers;
-  uint32_t            align;
   unsigned int        maxbuffering;
   uint64_t            latency;
+  SpaAllocParam     **params;
+  uint32_t            n_params;
   const char        **features;
 } SpaPortInfo;
 

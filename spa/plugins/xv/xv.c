@@ -20,59 +20,21 @@
 #include <spa/plugin.h>
 #include <spa/node.h>
 
-SpaHandle * spa_xv_sink_new (void);
-
-static SpaResult
-xv_sink_instantiate (const SpaHandleFactory  *factory,
-                     SpaHandle              **handle)
-{
-  if (factory == NULL || handle == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
-  *handle = spa_xv_sink_new ();
-
-  return SPA_RESULT_OK;
-}
-
-static const SpaInterfaceInfo xv_sink_interfaces[] =
-{
-  { SPA_INTERFACE_ID_NODE,
-    SPA_INTERFACE_ID_NODE_NAME,
-    SPA_INTERFACE_ID_NODE_DESCRIPTION,
-  },
-};
-
-static SpaResult
-xv_sink_enum_interface_info (const SpaHandleFactory  *factory,
-                             unsigned int             index,
-                             const SpaInterfaceInfo **info)
-{
-  if (index >= 1)
-    return SPA_RESULT_ENUM_END;
-
-  *info = &xv_sink_interfaces[index];
-
-  return SPA_RESULT_OK;
-}
-
-static const SpaHandleFactory factories[] =
-{
-  { "xv-sink",
-    NULL,
-    xv_sink_instantiate,
-    xv_sink_enum_interface_info,
-  },
-};
-
+extern const SpaHandleFactory spa_xv_sink_factory;
 
 SpaResult
 spa_enum_handle_factory (unsigned int             index,
                          const SpaHandleFactory **factory)
 {
-  if (index >= 1)
-    return SPA_RESULT_ENUM_END;
+  if (factory == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
 
-  *factory = &factories[index];
-
+  switch (index) {
+    case 0:
+      *factory = &spa_xv_sink_factory;
+      break;
+    default:
+      return SPA_RESULT_ENUM_END;
+  }
   return SPA_RESULT_OK;
 }

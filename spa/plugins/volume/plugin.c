@@ -20,59 +20,21 @@
 #include <spa/plugin.h>
 #include <spa/node.h>
 
-SpaHandle * spa_volume_new (void);
-
-static SpaResult
-volume_instantiate (const SpaHandleFactory  *factory,
-                    SpaHandle              **handle)
-{
-  if (factory == NULL || handle == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
-  *handle = spa_volume_new ();
-
-  return SPA_RESULT_OK;
-}
-
-static const SpaInterfaceInfo volume_interfaces[] =
-{
-  { SPA_INTERFACE_ID_NODE,
-    SPA_INTERFACE_ID_NODE_NAME,
-    SPA_INTERFACE_ID_NODE_DESCRIPTION,
-  },
-};
-
-static SpaResult
-volume_enum_interface_info (const SpaHandleFactory  *factory,
-                            unsigned int             index,
-                            const SpaInterfaceInfo **info)
-{
-  if (index >= 1)
-    return SPA_RESULT_ENUM_END;
-
-  *info = &volume_interfaces[index];
-
-  return SPA_RESULT_OK;
-}
-
-static const SpaHandleFactory factories[] =
-{
-  { "volume",
-    NULL,
-    volume_instantiate,
-    volume_enum_interface_info,
-  },
-};
-
+extern const SpaHandleFactory spa_volume_factory;
 
 SpaResult
 spa_enum_handle_factory (unsigned int             index,
                          const SpaHandleFactory **factory)
 {
-  if (index >= 1)
-    return SPA_RESULT_ENUM_END;
+  if (factory == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
 
-  *factory = &factories[index];
-
+  switch (index) {
+    case 0:
+      *factory = &spa_volume_factory;
+      break;
+    default:
+      return SPA_RESULT_ENUM_END;
+  }
   return SPA_RESULT_OK;
 }

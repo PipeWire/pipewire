@@ -29,9 +29,10 @@
 #include <SDL2/SDL.h>
 
 #include <spa/node.h>
+#include <spa/debug.h>
 #include <spa/video/format.h>
 
-#define USE_BUFFER
+#undef USE_BUFFER
 
 #define MAX_BUFFERS     8
 
@@ -87,7 +88,8 @@ make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char
     if (strcmp (factory->name, name))
       continue;
 
-    if ((res = factory->instantiate (factory, handle)) < 0) {
+    *handle = calloc (1, factory->size);
+    if ((res = factory->init (factory, *handle)) < 0) {
       printf ("can't make factory instance: %d\n", res);
       return res;
     }
@@ -309,14 +311,7 @@ negotiate_formats (AppData *data)
   if ((res = data->source_node->port_get_info (data->source, 0, &info)) < 0)
     return res;
 
-  printf ("flags: %d\n", info->flags);
-  printf ("minsize: %zd\n", info->minsize);
-  printf ("stride: %zd\n", info->stride);
-  printf ("min_buffers: %d\n", info->min_buffers);
-  printf ("max_buffers: %d\n", info->max_buffers);
-  printf ("align: %d\n", info->align);
-  printf ("maxbuffering: %d\n", info->maxbuffering);
-  printf ("latency: %lu\n", info->latency);
+  spa_debug_port_info (info);
 
 #ifdef USE_BUFFER
   alloc_buffers (data);

@@ -25,6 +25,7 @@ extern "C" {
 #endif
 
 typedef struct _SpaBuffer SpaBuffer;
+typedef struct _SpaBufferGroup SpaBufferGroup;
 
 #include <spa/defs.h>
 
@@ -37,6 +38,7 @@ typedef enum {
   SPA_META_TYPE_INVALID               = 0,
   SPA_META_TYPE_HEADER,
   SPA_META_TYPE_POINTER,
+  SPA_META_TYPE_VIDEO_CROP,
 } SpaMetaType;
 
 /**
@@ -71,6 +73,18 @@ typedef struct {
   const char *type;
   void       *ptr;
 } SpaMetaPointer;
+
+/**
+ * SpaMetaVideoCrop:
+ * @x:
+ * @y:
+ * @width:
+ * @height
+ */
+typedef struct {
+  int   x, y;
+  int   width, height;
+} SpaMetaVideoCrop;
 
 /**
  * SpaMeta:

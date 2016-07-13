@@ -46,6 +46,7 @@ main (gint argc, gchar *argv[])
   pinos_daemon_add_node_factory (daemon, factory);
 
   pinos_spa_alsa_sink_new (daemon, "alsa-sink", NULL);
+  pinos_spa_v4l2_source_new (daemon, "v4l2-source", NULL);
   pinos_daemon_start (daemon);
 
   g_main_loop_run (loop);

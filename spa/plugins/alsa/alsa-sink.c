@@ -474,6 +474,8 @@ spa_alsa_sink_node_port_use_buffers (SpaHandle       *handle,
 static SpaResult
 spa_alsa_sink_node_port_alloc_buffers (SpaHandle       *handle,
                                        uint32_t         port_id,
+                                       SpaAllocParam  **params,
+                                       uint32_t         n_params,
                                        SpaBuffer      **buffers,
                                        uint32_t        *n_buffers)
 {
@@ -572,13 +574,15 @@ spa_alsa_sink_get_interface (SpaHandle               *handle,
   return SPA_RESULT_OK;
 }
 
-SpaHandle *
-spa_alsa_sink_new (void)
+static SpaResult
+alsa_sink_init (const SpaHandleFactory  *factory,
+                SpaHandle               *handle)
 {
-  SpaHandle *handle;
   SpaALSASink *this;
 
-  handle = calloc (1, sizeof (SpaALSASink));
+  if (factory == NULL || handle == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
   handle->get_interface = spa_alsa_sink_get_interface;
 
   this = (SpaALSASink *) handle;
@@ -590,5 +594,35 @@ spa_alsa_sink_new (void)
 
   this->info.flags = SPA_PORT_INFO_FLAG_NONE;
   this->status.flags = SPA_PORT_STATUS_FLAG_NEED_INPUT;
-  return handle;
+
+  return SPA_RESULT_OK;
 }
+
+static const SpaInterfaceInfo alsa_sink_interfaces[] =
+{
+  { SPA_INTERFACE_ID_NODE,
+    SPA_INTERFACE_ID_NODE_NAME,
+    SPA_INTERFACE_ID_NODE_DESCRIPTION,
+  },
+};
+
+static SpaResult
+alsa_sink_enum_interface_info (const SpaHandleFactory  *factory,
+                               unsigned int             index,
+                               const SpaInterfaceInfo **info)
+{
+  if (index >= 1)
+    return SPA_RESULT_ENUM_END;
+
+  *info = &alsa_sink_interfaces[index];
+
+  return SPA_RESULT_OK;
+}
+
+const SpaHandleFactory spa_alsa_sink_factory =
+{ "alsa-sink",
+  NULL,
+  sizeof (SpaALSASink),
+  alsa_sink_init,
+  alsa_sink_enum_interface_info,
+};

@@ -314,13 +314,19 @@ spa_v4l2_set_format (SpaV4l2Source *this, SpaFormat *format, bool try_only)
 
   state->fmt = fmt;
   state->info.flags = SPA_PORT_INFO_FLAG_CAN_GIVE_BUFFER;
-  state->info.minsize = fmt.fmt.pix.sizeimage;
-  state->info.stride = fmt.fmt.pix.bytesperline;
-  state->info.min_buffers = 2;
-  state->info.max_buffers = MAX_BUFFERS;
-  state->info.align = 16;
   state->info.maxbuffering = -1;
   state->info.latency = -1;
+
+  state->info.n_params = 1;
+  state->info.params = state->params;
+  state->params[0] = &state->param_buffers.param;
+  state->param_buffers.param.type = SPA_ALLOC_PARAM_TYPE_BUFFERS;
+  state->param_buffers.param.size = sizeof (&state->buffers);
+  state->param_buffers.minsize = fmt.fmt.pix.sizeimage;
+  state->param_buffers.stride = fmt.fmt.pix.bytesperline;
+  state->param_buffers.min_buffers = 2;
+  state->param_buffers.max_buffers = MAX_BUFFERS;
+  state->param_buffers.align = 16;
   state->info.features = NULL;
 
   return 0;
@@ -334,6 +340,7 @@ spa_v4l2_close (SpaV4l2Source *this)
   if (!state->opened)
     return 0;
 
+  fprintf (stderr, "close\n");
   if (close(state->fd))
     perror ("close");
 

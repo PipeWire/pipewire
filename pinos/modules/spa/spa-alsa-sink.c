@@ -146,7 +146,7 @@ on_sink_event (SpaHandle *handle, SpaEvent *event, void *user_data)
       iinfo.event = oinfo.event;
 
       g_debug ("push sink %p", iinfo.buffer);
-      if ((res = priv->sink_node->push_port_input (priv->sink, 1, &iinfo)) < 0)
+      if ((res = priv->sink_node->port_push_input (priv->sink, 1, &iinfo)) < 0)
         g_debug ("got error %d", res);
       break;
     }
@@ -314,7 +314,7 @@ negotiate_formats (PinosSpaAlsaSink *this)
   uint32_t val;
   SpaPropValue value;
 
-  if ((res = priv->sink_node->enum_port_formats (priv->sink, 0, 0, &format)) < 0)
+  if ((res = priv->sink_node->port_enum_formats (priv->sink, 0, 0, &format)) < 0)
     return res;
 
   props = &format->props;
@@ -336,7 +336,7 @@ negotiate_formats (PinosSpaAlsaSink *this)
   if ((res = props->set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_CHANNELS), &value)) < 0)
     return res;
 
-  if ((res = priv->sink_node->set_port_format (priv->sink, 0, 0, format)) < 0)
+  if ((res = priv->sink_node->port_set_format (priv->sink, 0, 0, format)) < 0)
     return res;
 
   priv->ringbuffer = pinos_ringbuffer_new (PINOS_RINGBUFFER_MODE_READ, 64 * 1024);

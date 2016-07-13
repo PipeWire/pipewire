@@ -1,6 +1,8 @@
 subdir('alsa')
 subdir('audiomixer')
 subdir('audiotestsrc')
+subdir('ffmpeg')
+#subdir('libva')
 subdir('volume')
 subdir('v4l2')
 subdir('xv')

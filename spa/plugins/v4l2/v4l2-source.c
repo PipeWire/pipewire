@@ -62,26 +62,40 @@ struct _V4l2Buffer {
 };
 
 typedef struct {
+  bool export_buf;
+  bool have_buffers;
+
+  bool next_fmtdesc;
+  struct v4l2_fmtdesc fmtdesc;
+  bool next_frmsize;
+  struct v4l2_frmsizeenum frmsize;
+  bool next_frmival;
+  struct v4l2_frmivalenum frmival;
+  void *cookie;
+
   SpaVideoRawFormat raw_format[2];
   SpaFormat *current_format;
-  bool opened;
-  bool have_buffers;
+
   int fd;
+  bool opened;
   struct v4l2_capability cap;
   struct v4l2_format fmt;
   enum v4l2_buf_type type;
   enum v4l2_memory memtype;
+
   struct v4l2_requestbuffers reqbuf;
   V4l2Buffer buffers[MAX_BUFFERS];
   V4l2Buffer *ready;
   uint32_t ready_count;
+
   SpaPollFd fds[1];
   SpaPollItem poll;
+
   SpaPortInfo info;
   SpaAllocParam *params[1];
   SpaAllocParamBuffers param_buffers;
-  bool export_buf;
   SpaPortStatus status;
+
 } SpaV4l2State;
 
 struct _SpaV4l2Source {
@@ -312,16 +326,18 @@ spa_v4l2_source_node_port_enum_formats (SpaHandle       *handle,
 
   state = &this->state[port_id];
 
+  /*
   switch (index) {
     case 0:
       spa_video_raw_format_init (&state->raw_format[0]);
       break;
     default:
-      return SPA_RESULT_ENUM_END;
+      break;
   }
   *format = &state->raw_format[0].format;
+  */
 
-  return SPA_RESULT_OK;
+  return spa_v4l2_enum_format (this, format, &state->cookie);
 }
 
 static SpaResult

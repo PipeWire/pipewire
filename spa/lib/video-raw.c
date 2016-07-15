@@ -111,7 +111,6 @@ static const uint32_t format_values[] = {
 };
 
 static const SpaPropRangeInfo format_range[] = {
-  { "UNKNOWN", "UNKNOWN,", sizeof (uint32_t), &format_values[0] },
   { "ENCODED,", "ENCODED", sizeof (uint32_t), &format_values[1] },
   { "S16LE", "S16LE", sizeof (uint32_t), &format_values[2] },
   { "S16BE", "S16BE", sizeof (uint32_t), &format_values[3] },
@@ -175,7 +174,6 @@ static const uint32_t multiview_modes[] = {
 };
 
 static const SpaPropRangeInfo multiview_mode_range[] = {
-  { "none", "None", sizeof (uint32_t), &multiview_modes[0] },
   { "mono", "Mono", sizeof (uint32_t), &multiview_modes[1] },
   { "left", "Left", sizeof (uint32_t), &multiview_modes[2] },
   { "right", "Right", sizeof (uint32_t), &multiview_modes[3] },
@@ -371,7 +369,7 @@ static const SpaPropInfo raw_format_prop_info[] =
                                     offsetof (SpaVideoRawFormat, unset_mask), 1 << 3,
                                     NULL },
   { SPA_PROP_ID_VIDEO_MAX_FRAMERATE, "max-framerate", "Video max framerate",
-                                    SPA_PROP_FLAG_READWRITE,
+                                    SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL,
                                     SPA_PROP_TYPE_FRACTION, sizeof (SpaFraction),
                                     sizeof (SpaFraction), &default_info.max_framerate,
                                     SPA_PROP_RANGE_TYPE_MIN_MAX, 2, framerate_range,
@@ -380,7 +378,7 @@ static const SpaPropInfo raw_format_prop_info[] =
                                     offsetof (SpaVideoRawFormat, unset_mask), 1 << 4,
                                     NULL },
   { SPA_PROP_ID_VIDEO_VIEWS,        "views", "Video number of views",
-                                    SPA_PROP_FLAG_READWRITE,
+                                    SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                     sizeof (uint32_t), &default_info.views,
                                     SPA_PROP_RANGE_TYPE_MIN_MAX, 2, uint32_range,
@@ -389,7 +387,7 @@ static const SpaPropInfo raw_format_prop_info[] =
                                     offsetof (SpaVideoRawFormat, unset_mask), 1 << 5,
                                     NULL },
   { SPA_PROP_ID_VIDEO_INTERLACE_MODE, "interlace-mode", "Interlace mode",
-                                    SPA_PROP_FLAG_READWRITE,
+                                    SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                     sizeof (uint32_t), &default_info.interlace_mode,
                                     SPA_PROP_RANGE_TYPE_ENUM, SPA_N_ELEMENTS (interlace_mode_range), interlace_mode_range,
@@ -398,7 +396,7 @@ static const SpaPropInfo raw_format_prop_info[] =
                                     offsetof (SpaVideoRawFormat, unset_mask), 1 << 6,
                                     NULL },
   { SPA_PROP_ID_VIDEO_PIXEL_ASPECT_RATIO, "pixel-aspect-ratio", "Video pixel aspect ratio",
-                                    SPA_PROP_FLAG_READWRITE,
+                                    SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL,
                                     SPA_PROP_TYPE_FRACTION, sizeof (SpaFraction),
                                     sizeof (SpaFraction), &default_info.pixel_aspect_ratio,
                                     SPA_PROP_RANGE_TYPE_MIN_MAX, 2, framerate_range,
@@ -407,7 +405,7 @@ static const SpaPropInfo raw_format_prop_info[] =
                                     offsetof (SpaVideoRawFormat, unset_mask), 1 << 7,
                                     NULL },
   { SPA_PROP_ID_VIDEO_MULTIVIEW_MODE, "multiview-mode", "Multiview mode",
-                                    SPA_PROP_FLAG_READWRITE,
+                                    SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                     sizeof (uint32_t), &default_info.multiview_mode,
                                     SPA_PROP_RANGE_TYPE_ENUM, SPA_N_ELEMENTS (multiview_mode_range), multiview_mode_range,
@@ -416,7 +414,7 @@ static const SpaPropInfo raw_format_prop_info[] =
                                     offsetof (SpaVideoRawFormat, unset_mask), 1 << 8,
                                     NULL },
   { SPA_PROP_ID_VIDEO_MULTIVIEW_FLAGS, "multiview-flags", "Multiview flags",
-                                    SPA_PROP_FLAG_READWRITE,
+                                    SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                     sizeof (uint32_t), &default_info.multiview_flags,
                                     SPA_PROP_RANGE_TYPE_FLAGS, SPA_N_ELEMENTS (multiview_flags_range), multiview_flags_range,
@@ -425,7 +423,7 @@ static const SpaPropInfo raw_format_prop_info[] =
                                     offsetof (SpaVideoRawFormat, unset_mask), 1 << 9,
                                     NULL },
   { SPA_PROP_ID_VIDEO_CHROMA_SITE,  "chroma-site", "Chroma site",
-                                    SPA_PROP_FLAG_READWRITE,
+                                    SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                     sizeof (uint32_t), &default_info.chroma_site,
                                     SPA_PROP_RANGE_TYPE_FLAGS, SPA_N_ELEMENTS (chroma_site_range), chroma_site_range,
@@ -434,7 +432,7 @@ static const SpaPropInfo raw_format_prop_info[] =
                                     offsetof (SpaVideoRawFormat, unset_mask), 1 << 10,
                                     NULL },
   { SPA_PROP_ID_VIDEO_COLOR_RANGE,  "color-range", "Color range",
-                                    SPA_PROP_FLAG_READWRITE,
+                                    SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                     sizeof (uint32_t), &default_info.color_range,
                                     SPA_PROP_RANGE_TYPE_ENUM, SPA_N_ELEMENTS (color_range_range), color_range_range,
@@ -443,7 +441,7 @@ static const SpaPropInfo raw_format_prop_info[] =
                                     offsetof (SpaVideoRawFormat, unset_mask), 1 << 11,
                                     NULL },
   { SPA_PROP_ID_VIDEO_COLOR_MATRIX,  "color-matrix", "Color matrix",
-                                    SPA_PROP_FLAG_READWRITE,
+                                    SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                     sizeof (uint32_t), &default_info.color_matrix,
                                     SPA_PROP_RANGE_TYPE_ENUM, SPA_N_ELEMENTS (color_matrix_range), color_matrix_range,
@@ -452,7 +450,7 @@ static const SpaPropInfo raw_format_prop_info[] =
                                     offsetof (SpaVideoRawFormat, unset_mask), 1 << 12,
                                     NULL },
   { SPA_PROP_ID_VIDEO_TRANSFER_FUNCTION,  "transfer-function", "Transfer function",
-                                    SPA_PROP_FLAG_READWRITE,
+                                    SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                     sizeof (uint32_t), &default_info.transfer_function,
                                     SPA_PROP_RANGE_TYPE_ENUM, SPA_N_ELEMENTS (transfer_function_range), transfer_function_range,
@@ -461,7 +459,7 @@ static const SpaPropInfo raw_format_prop_info[] =
                                     offsetof (SpaVideoRawFormat, unset_mask), 1 << 13,
                                     NULL },
   { SPA_PROP_ID_VIDEO_COLOR_PRIMARIES,  "color-primaries", "Color primaries",
-                                    SPA_PROP_FLAG_READWRITE,
+                                    SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                     sizeof (uint32_t), &default_info.color_primaries,
                                     SPA_PROP_RANGE_TYPE_ENUM, SPA_N_ELEMENTS (color_primaries_range), color_primaries_range,
@@ -470,7 +468,7 @@ static const SpaPropInfo raw_format_prop_info[] =
                                     offsetof (SpaVideoRawFormat, unset_mask), 1 << 14,
                                     NULL },
   { SPA_PROP_ID_VIDEO_RAW_INFO,     "info", "the SpaVideoRawInfo structure",
-                                    SPA_PROP_FLAG_READWRITE,
+                                    SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL,
                                     SPA_PROP_TYPE_STRUCT, sizeof (SpaVideoRawInfo),
                                     0, NULL,
                                     SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
@@ -489,7 +487,7 @@ spa_video_raw_format_init (SpaVideoRawFormat *format)
   format->format.props.prop_info = raw_format_prop_info;
   format->format.props.set_prop = spa_props_generic_set_prop;
   format->format.props.get_prop = spa_props_generic_get_prop;
-  format->unset_mask = (1 << 0) | (1 << 2) | (1 << 3) | (1 << 4);
+  format->unset_mask = (1 << 15)-1;
   format->info = default_info;
 
   return SPA_RESULT_OK;

@@ -256,6 +256,112 @@ video_format_to_fourcc (SpaVideoFormat format)
   return fourcc;
 }
 
+#define FOURCC_ARGS(f) (f)&0x7f,((f)>>8)&0x7f,((f)>>16)&0x7f,((f)>>24)&0x7f
+
+static SpaResult
+spa_v4l2_enum_format (SpaV4l2Source *this, SpaFormat **format, void **cookie)
+{
+  SpaV4l2State *state = &this->state[0];
+  int res;
+
+  if (spa_v4l2_open (this) < 0)
+    return SPA_RESULT_ERROR;
+
+  *format = NULL;
+
+  if (*cookie == NULL) {
+    CLEAR (state->fmtdesc);
+    state->fmtdesc.index = 0;
+    state->fmtdesc.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    state->next_fmtdesc = true;
+
+    CLEAR (state->frmsize);
+    state->next_frmsize = true;
+
+    CLEAR (state->frmival);
+    state->next_frmival = true;
+
+    *cookie = state;
+  }
+
+again:
+  if (state->next_fmtdesc) {
+    if ((res = xioctl (state->fd, VIDIOC_ENUM_FMT, &state->fmtdesc)) < 0) {
+      if (errno != EINVAL)
+        perror ("VIDIOC_ENUM_FMT");
+      return SPA_RESULT_ENUM_END;
+    }
+    state->next_fmtdesc = false;
+
+    state->frmsize.index = 0;
+    state->frmsize.pixel_format = state->fmtdesc.pixelformat;
+    state->next_frmsize = true;
+  }
+  if (state->next_frmsize) {
+    if ((res = xioctl (state->fd, VIDIOC_ENUM_FRAMESIZES, &state->frmsize)) < 0) {
+      if (errno == EINVAL) {
+        state->fmtdesc.index++;
+        state->next_fmtdesc = true;
+        goto again;
+      }
+      perror ("VIDIOC_ENUM_FRAMESIZES");
+      return SPA_RESULT_ENUM_END;
+    }
+    state->next_frmsize = false;
+
+    if (state->frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) {
+      state->frmival.index = 0;
+      state->frmival.pixel_format = state->frmsize.pixel_format;
+      state->frmival.width = state->frmsize.discrete.width;
+      state->frmival.height = state->frmsize.discrete.height;
+      state->next_frmival = true;
+    }
+  }
+  if (state->next_frmival) {
+    if ((res = xioctl (state->fd, VIDIOC_ENUM_FRAMEINTERVALS, &state->frmival)) < 0) {
+      if (errno == EINVAL) {
+        state->frmsize.index++;
+        state->next_frmsize = true;
+        goto again;
+      }
+      perror ("VIDIOC_ENUM_FRAMEINTERVALS");
+      return SPA_RESULT_ENUM_END;
+    }
+    state->frmival.index++;
+  }
+  fprintf (stderr, "format %c%c%c%c\n", FOURCC_ARGS (state->fmtdesc.pixelformat));
+  if (state->frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) {
+    fprintf (stderr, "size %dx%d\n", state->frmsize.discrete.width, state->frmsize.discrete.height);
+  } else if (state->frmsize.type == V4L2_FRMSIZE_TYPE_STEPWISE) {
+    fprintf (stderr, "size %dx%d - %dx%d with step %d/%d\n",
+	state->frmsize.stepwise.min_width,
+	state->frmsize.stepwise.min_height,
+	state->frmsize.stepwise.max_width,
+	state->frmsize.stepwise.max_height,
+	state->frmsize.stepwise.step_width,
+	state->frmsize.stepwise.step_height);
+  }
+  if (state->frmival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
+    fprintf (stderr, "framerate %u/%u\n",
+                state->frmival.discrete.numerator,
+                state->frmival.discrete.denominator);
+  } else if (state->frmival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS) {
+    fprintf (stderr, "framerate %u/%u - %u/%u\n",
+                state->frmival.stepwise.min.numerator,
+                state->frmival.stepwise.min.denominator,
+                state->frmival.stepwise.max.numerator,
+                state->frmival.stepwise.max.denominator);
+  } else if (state->frmival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
+    fprintf (stderr, "framerate %u/%u - %u/%u step %u/%u\n",
+                state->frmival.stepwise.min.numerator,
+                state->frmival.stepwise.min.denominator,
+                state->frmival.stepwise.max.numerator,
+                state->frmival.stepwise.max.denominator,
+                state->frmival.stepwise.step.numerator,
+                state->frmival.stepwise.step.denominator);
+  }
+  return SPA_RESULT_OK;
+}
 
 static int
 spa_v4l2_set_format (SpaV4l2Source *this, SpaFormat *format, bool try_only)
@@ -493,6 +599,8 @@ mmap_init (SpaV4l2Source *this)
     fprintf (stderr, "can't allocate enough buffers\n");
     return -1;
   }
+  if (state->export_buf)
+    fprintf (stderr, "using EXPBUF\n");
 
   state->reqbuf = reqbuf;
 

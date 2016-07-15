@@ -142,8 +142,7 @@ static int
 tmpfile_create (PinosSpaV4l2Source * source, void *data, gsize size)
 {
   char filename[] = "/dev/shm/tmpfilepay.XXXXXX";
-  int fd, result;
-  void *p;
+  int fd;
 
   fd = mkostemp (filename, O_CLOEXEC);
   if (fd == -1) {
@@ -152,15 +151,8 @@ tmpfile_create (PinosSpaV4l2Source * source, void *data, gsize size)
   }
   unlink (filename);
 
-  result = ftruncate (fd, size);
-  if (result == -1) {
-    g_debug ("Failed to resize temporary file: %s", strerror (errno));
-    close (fd);
-    return -1;
-  }
-  p = mmap (0, size, PROT_WRITE, MAP_SHARED, fd, 0);
-  memcpy (p, data, size);
-  munmap (p, size);
+  if (write (fd, data, size) != (gssize) size)
+    g_debug ("Failed to write data: %s", strerror (errno));
 
   return fd;
 }
@@ -185,6 +177,7 @@ on_source_event (SpaHandle *handle, SpaEvent *event, void *user_data)
       gint fd;
       guint8 buf[1024];
       gint fdbuf[8];
+      gboolean do_close = FALSE;
 
       if ((res = priv->source_node->port_pull_output (priv->source, 1, info)) < 0)
         g_debug ("spa-v4l2-source %p: got pull error %d", source, res);
@@ -193,7 +186,7 @@ on_source_event (SpaHandle *handle, SpaEvent *event, void *user_data)
 
       hdr.flags = 0;
       hdr.seq = 0;
-      hdr.pts = 0;
+      hdr.pts = -1;
       hdr.dts_offset = 0;
 
       pinos_buffer_builder_init_into (&builder, buf, 1024, fdbuf, 8);
@@ -203,6 +196,7 @@ on_source_event (SpaHandle *handle, SpaEvent *event, void *user_data)
         fd = *((int *)b->datas[0].ptr);
       } else {
         fd = tmpfile_create (source, b->datas[0].ptr, b->size);
+        do_close = TRUE;
       }
       p.fd_index = pinos_buffer_builder_add_fd (&builder, fd);
       p.id = pinos_fd_manager_get_id (priv->fdmanager);
@@ -223,7 +217,8 @@ on_source_event (SpaHandle *handle, SpaEvent *event, void *user_data)
           g_clear_error (&error);
         }
       }
-      pinos_buffer_steal_fds (&pbuf, NULL);
+      if (!do_close)
+        pinos_buffer_steal_fds (&pbuf, NULL);
       pinos_buffer_unref (&pbuf);
 
       spa_buffer_unref (b);
@@ -410,7 +405,6 @@ set_state (PinosNode      *node,
            PinosNodeState  state)
 {
   PinosSpaV4l2Source *this = PINOS_SPA_V4L2_SOURCE (node);
-  PinosSpaV4l2SourcePrivate *priv = this->priv;
 
   g_debug ("spa-source %p: set state %s", node, pinos_node_state_as_string (state));
 
@@ -442,9 +436,6 @@ get_property (GObject    *object,
               GValue     *value,
               GParamSpec *pspec)
 {
-  PinosSpaV4l2Source *source = PINOS_SPA_V4L2_SOURCE (object);
-  PinosSpaV4l2SourcePrivate *priv = source->priv;
-
   switch (prop_id) {
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -458,9 +449,6 @@ set_property (GObject      *object,
               const GValue *value,
               GParamSpec   *pspec)
 {
-  PinosSpaV4l2Source *source = PINOS_SPA_V4L2_SOURCE (object);
-  PinosSpaV4l2SourcePrivate *priv = source->priv;
-
   switch (prop_id) {
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -473,7 +461,6 @@ on_linked (PinosPort *port, PinosPort *peer, gpointer user_data)
 {
   SourcePortData *data = user_data;
   PinosSpaV4l2Source *source = data->source;
-  PinosSpaV4l2SourcePrivate *priv = source->priv;
   guint n_links;
 
   pinos_port_get_links (port, &n_links);
@@ -489,7 +476,6 @@ on_unlinked (PinosPort *port, PinosPort *peer, gpointer user_data)
 {
   SourcePortData *data = user_data;
   PinosSpaV4l2Source *source = data->source;
-  PinosSpaV4l2SourcePrivate *priv = source->priv;
   guint n_links;
 
   pinos_port_get_links (port, &n_links);
@@ -502,8 +488,6 @@ static void
 on_received_buffer (PinosPort  *port,
                     gpointer    user_data)
 {
-  PinosSpaV4l2Source *this = user_data;
-  PinosSpaV4l2SourcePrivate *priv = this->priv;
   PinosBuffer *pbuf;
   PinosBufferIter it;
 
@@ -522,9 +506,6 @@ on_received_buffer (PinosPort  *port,
 static void
 free_source_port_data (SourcePortData *data)
 {
-  PinosSpaV4l2Source *source = data->source;
-  PinosSpaV4l2SourcePrivate *priv = source->priv;
-
   g_slice_free (SourcePortData, data);
 }
 
@@ -553,7 +534,6 @@ static void
 source_constructed (GObject * object)
 {
   PinosSpaV4l2Source *source = PINOS_SPA_V4L2_SOURCE (object);
-  PinosSpaV4l2SourcePrivate *priv = source->priv;
 
   G_OBJECT_CLASS (pinos_spa_v4l2_source_parent_class)->constructed (object);
 
@@ -564,7 +544,6 @@ static void
 source_finalize (GObject * object)
 {
   PinosSpaV4l2Source *source = PINOS_SPA_V4L2_SOURCE (object);
-  PinosSpaV4l2SourcePrivate *priv = source->priv;
 
   g_debug ("spa-source %p: dispose", source);
   destroy_pipeline (source);

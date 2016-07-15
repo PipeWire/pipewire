@@ -26,9 +26,8 @@
 #include <spa/node.h>
 
 static void
-print_value (const char *prefix, SpaPropType type, int size, const void *value)
+print_value (SpaPropType type, int size, const void *value)
 {
-  printf ("%s", prefix);
   switch (type) {
     case SPA_PROP_TYPE_INVALID:
       printf ("invalid");
@@ -67,21 +66,26 @@ print_value (const char *prefix, SpaPropType type, int size, const void *value)
       printf ("%g", *(double *)value);
       break;
     case SPA_PROP_TYPE_STRING:
-      printf ("%s", (char *)value);
+      printf ("\"%s\"", (char *)value);
       break;
     case SPA_PROP_TYPE_POINTER:
       printf ("%p", value);
       break;
     case SPA_PROP_TYPE_FRACTION:
+    {
+      const SpaFraction *f = value;
+      printf ("%"PRIu32"/%"PRIu32, f->num, f->denom);
       break;
+    }
     case SPA_PROP_TYPE_BITMASK:
       break;
     case SPA_PROP_TYPE_BYTES:
       break;
+    case SPA_PROP_TYPE_STRUCT:
+      break;
     default:
       break;
   }
-  printf ("\n");
 }
 
 static void
@@ -91,44 +95,136 @@ print_props (const SpaProps *props, int print_ranges)
   const SpaPropInfo *info;
   int i, j;
 
+  printf ("Properties (%d items):\n", props->n_prop_info);
   for (i = 0; i < props->n_prop_info; i++) {
     SpaPropValue value;
 
     info = &props->prop_info[i];
 
-    printf ("id:\t\t%d\n", info->id);
-    printf ("name:\t\t%s\n", info->name);
-    printf ("description:\t%s\n", info->description);
-    printf ("flags:\t\t%d\n", info->flags);
-    printf ("type:\t\t%d\n", info->type);
-    printf ("maxsize:\t%zu\n", info->maxsize);
+    printf ("  %-20s: %s\n", info->name, info->description);
+    printf ("%-23.23s flags: ", "");
+    if (info->flags & SPA_PROP_FLAG_READABLE)
+      printf ("readable ");
+    if (info->flags & SPA_PROP_FLAG_WRITABLE)
+      printf ("writable ");
+    if (info->flags & SPA_PROP_FLAG_OPTIONAL)
+      printf ("optional ");
+    if (info->flags & SPA_PROP_FLAG_DEPRECATED)
+      printf ("deprecated ");
+    printf ("\n");
 
-    res = props->get_prop (props, info->id, &value);
-    if (res == SPA_RESULT_PROPERTY_UNSET)
-      printf ("value:\t\tunset\n");
+    printf ("%-23.23s ", "");
+    switch (info->type) {
+      case SPA_PROP_TYPE_INVALID:
+        printf ("Invalid.");
+        break;
+      case SPA_PROP_TYPE_BOOL:
+        printf ("Boolean. ");
+        break;
+      case SPA_PROP_TYPE_INT8:
+        printf ("Int8. ");
+        break;
+      case SPA_PROP_TYPE_UINT8:
+        printf ("UInt8. ");
+        break;
+      case SPA_PROP_TYPE_INT16:
+        printf ("Int16. ");
+        break;
+      case SPA_PROP_TYPE_UINT16:
+        printf ("UInt16. ");
+        break;
+      case SPA_PROP_TYPE_INT32:
+        printf ("Int32. ");
+        break;
+      case SPA_PROP_TYPE_UINT32:
+        printf ("UInt32. ");
+        break;
+      case SPA_PROP_TYPE_INT64:
+        printf ("Int64. ");
+        break;
+      case SPA_PROP_TYPE_UINT64:
+        printf ("UInt64. ");
+        break;
+      case SPA_PROP_TYPE_FLOAT:
+        printf ("Float. ");
+        break;
+      case SPA_PROP_TYPE_DOUBLE:
+        printf ("Double. ");
+        break;
+      case SPA_PROP_TYPE_STRING:
+        printf ("String. Maxsize %zd. ", info->maxsize);
+        break;
+      case SPA_PROP_TYPE_POINTER:
+        printf ("Pointer. ");
+        break;
+      case SPA_PROP_TYPE_FRACTION:
+        printf ("Fraction. ");
+        break;
+      case SPA_PROP_TYPE_BITMASK:
+        printf ("Bitmask. ");
+        break;
+      case SPA_PROP_TYPE_BYTES:
+        printf ("Bytes. ");
+        break;
+      case SPA_PROP_TYPE_STRUCT:
+        printf ("Struct. ");
+        break;
+      default:
+        printf ("*Unknown Property Type*. ");
+        break;
+    }
+
+    printf ("Default: ");
+    if (info->default_value)
+      print_value (info->type, info->default_size, info->default_value);
     else
-      print_value ("value:\t\t", value.type, value.size, value.value);
+      printf ("None");
 
-    if (print_ranges) {
-      if (info->default_value)
-        print_value ("default:\t", info->type, info->default_size, info->default_value);
-      else
-        printf ("default:\tunset\n");
+    res = props->get_prop (props, i, &value);
 
-      printf ("range_type:\t%d\n", info->range_type);
-      if (info->range_values) {
-        for (j = 0; j < info->n_range_values; j++) {
-          const SpaPropRangeInfo *rinfo = &info->range_values[j];
-          printf ("  name:\t%s\n", rinfo->name);
-          printf ("  description:\t%s\n", rinfo->description);
-          print_value ("  value:\t", info->type, rinfo->size, rinfo->value);
-        }
+    printf (". Current: ");
+    if (res == SPA_RESULT_OK)
+      print_value (info->type, value.size, value.value);
+    else if (res == SPA_RESULT_PROPERTY_UNSET)
+      printf ("Unset");
+    else
+      printf ("Error %d", res);
+    printf (".\n");
+
+    if (info->range_type != SPA_PROP_RANGE_TYPE_NONE) {
+      printf ("%-23.23s ", "");
+      switch (info->range_type) {
+        case SPA_PROP_RANGE_TYPE_MIN_MAX:
+          printf ("Range");
+          break;
+        case SPA_PROP_RANGE_TYPE_STEP:
+          printf ("Step");
+          break;
+        case SPA_PROP_RANGE_TYPE_ENUM:
+          printf ("Enum");
+          break;
+        case SPA_PROP_RANGE_TYPE_FLAGS:
+          printf ("Flags");
+          break;
+        default:
+          printf ("Unknown");
+          break;
+      }
+      printf (".\n");
+
+      for (j = 0; j < info->n_range_values; j++) {
+        const SpaPropRangeInfo *rinfo = &info->range_values[j];
+        printf ("%-23.23s   ", "");
+        print_value (info->type, rinfo->size, rinfo->value);
+        printf ("\t: %-12s - %s \n", rinfo->name, rinfo->description);
       }
     }
     if (info->tags) {
+      printf ("Tags: ");
       for (j = 0; info->tags[j]; j++) {
-        printf ("tag:\t%s\n", info->tags[j]);
+        printf ("\"%s\" ", info->tags[j]);
       }
+      printf ("\n");
     }
   }
 }
@@ -165,7 +261,8 @@ inspect_node (const SpaNode *node, SpaHandle *handle)
         printf ("got error %d\n", res);
       break;
     }
-    print_format (format, 1);
+    if (format)
+      print_format (format, 1);
   }
   if ((res = node->port_get_props (handle, 0, &props)) < 0)
     printf ("port_get_props error: %d\n", res);
@@ -244,10 +341,9 @@ main (int argc, char *argv[])
     const SpaHandleFactory *factory;
 
     if ((res = enum_func (i, &factory)) < 0) {
-      if (res == SPA_RESULT_ENUM_END)
-        break;
-      else
-        printf ("can't enumerate factories\n");
+      if (res != SPA_RESULT_ENUM_END)
+        printf ("can't enumerate factories: %d\n", res);
+      break;
     }
     inspect_factory (factory);
   }

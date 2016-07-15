@@ -54,8 +54,8 @@ typedef enum {
 } SpaPropType;
 
 typedef struct {
-  int32_t num;
-  int32_t denom;
+  uint32_t num;
+  uint32_t denom;
 } SpaFraction;
 
 /**
@@ -120,6 +120,7 @@ typedef struct {
  * @range_values: array of possible values
  * @tags: extra tags, NULL terminated
  * @offset: offset in structure with data
+ * @mask_offset: offset in structure for the mask
  * @unset_mask: mask to clear when value is set
  * @priv: extra private data
  */

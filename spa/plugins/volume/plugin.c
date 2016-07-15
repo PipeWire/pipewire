@@ -23,18 +23,24 @@
 extern const SpaHandleFactory spa_volume_factory;
 
 SpaResult
-spa_enum_handle_factory (unsigned int             index,
-                         const SpaHandleFactory **factory)
+spa_enum_handle_factory (const SpaHandleFactory **factory,
+                         void                   **state)
 {
-  if (factory == NULL)
+  int index;
+
+  if (factory == NULL || state == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  index = (*state == NULL ? 0 : *(int*)state);
 
   switch (index) {
     case 0:
-      *factory = &spa_volume_factory;
+     *factory = &spa_volume_factory;
       break;
     default:
       return SPA_RESULT_ENUM_END;
   }
+  *(int*)state = ++index;
+
   return SPA_RESULT_OK;
 }

@@ -32,7 +32,7 @@
 #include <spa/debug.h>
 #include <spa/video/format.h>
 
-#undef USE_BUFFER
+#define USE_BUFFER
 
 #define MAX_BUFFERS     8
 
@@ -66,6 +66,7 @@ make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char
   void *hnd;
   SpaEnumHandleFactoryFunc enum_func;
   unsigned int i;
+  void *state = NULL;
 
   if ((hnd = dlopen (lib, RTLD_NOW)) == NULL) {
     printf ("can't load %s: %s\n", lib, dlerror());
@@ -80,7 +81,7 @@ make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char
     const SpaHandleFactory *factory;
     const void *iface;
 
-    if ((res = enum_func (i, &factory)) < 0) {
+    if ((res = enum_func (&factory, &state)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
         printf ("can't enumerate factories: %d\n", res);
       break;
@@ -251,7 +252,7 @@ alloc_buffers (AppData *data)
     b->metas[0].data = &b->header;
     b->metas[0].size = sizeof (b->header);
 
-    b->ptr.type = "SDL_Texture";
+    b->ptr.ptr_type = "SDL_Texture";
     b->ptr.ptr = texture;
     b->metas[1].type = SPA_META_TYPE_POINTER;
     b->metas[1].data = &b->ptr;
@@ -278,8 +279,10 @@ negotiate_formats (AppData *data)
   SpaFraction frac;
   SpaPropValue value;
   const SpaPortInfo *info;
+  SpaRectangle size;
+  void *state = NULL;
 
-  if ((res = data->source_node->port_enum_formats (data->source, 0, 0, &format)) < 0)
+  if ((res = data->source_node->port_enum_formats (data->source, 0, &format, NULL, &state)) < 0)
     return res;
 
   props = &format->props;
@@ -291,19 +294,21 @@ negotiate_formats (AppData *data)
   val = SPA_VIDEO_FORMAT_YUY2;
   if ((res = props->set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_FORMAT), &value)) < 0)
     return res;
-  val = 320;
-  if ((res = props->set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_WIDTH), &value)) < 0)
-    return res;
-  val = 240;
-  if ((res = props->set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_HEIGHT), &value)) < 0)
+
+  value.type = SPA_PROP_TYPE_RECTANGLE;
+  value.size = sizeof (SpaRectangle);
+  value.value = &size;
+  size.width = 320;
+  size.height = 240;
+  if ((res = props->set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_SIZE), &value)) < 0)
     return res;
 
   value.type = SPA_PROP_TYPE_FRACTION;
   value.size = sizeof (SpaFraction);
   value.value = &frac;
-
   frac.num = 25;
   frac.denom = 1;
+
   if ((res = props->set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_FRAMERATE), &value)) < 0)
     return res;
 

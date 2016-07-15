@@ -25,6 +25,44 @@
 
 #include <spa/node.h>
 
+struct media_type_name {
+  const char *name;
+} media_type_names[] = {
+  { "unknown" },
+  { "audio" },
+  { "video" },
+};
+
+struct media_subtype_name {
+  const char *name;
+} media_subtype_names[] = {
+  { "unknown" },
+  { "raw" },
+};
+
+struct prop_type_name {
+  const char *name;
+  const char *CCName;
+} prop_type_names[] = {
+  { "invalid", "*Invalid*" },
+  { "bool", "Boolean" },
+  { "int8", "Int8" },
+  { "uint8", "UInt8" },
+  { "int16", "Int16" },
+  { "uint16", "UInt16" },
+  { "int32", "Int32" },
+  { "uint32", "UInt32" },
+  { "int64", "Int64" },
+  { "uint64", "UInt64" },
+  { "float", "Float" },
+  { "double", "Double" },
+  { "string", "String" },
+  { "rectangle", "Rectangle" },
+  { "fraction", "Fraction" },
+  { "bitmask", "Bitmask" },
+  { "pointer", "Pointer" },
+};
+
 static void
 print_value (SpaPropType type, int size, const void *value)
 {
@@ -68,9 +106,12 @@ print_value (SpaPropType type, int size, const void *value)
     case SPA_PROP_TYPE_STRING:
       printf ("\"%s\"", (char *)value);
       break;
-    case SPA_PROP_TYPE_POINTER:
-      printf ("%p", value);
+    case SPA_PROP_TYPE_RECTANGLE:
+    {
+      const SpaRectangle *r = value;
+      printf ("%"PRIu32"x%"PRIu32, r->width, r->height);
       break;
+    }
     case SPA_PROP_TYPE_FRACTION:
     {
       const SpaFraction *f = value;
@@ -79,9 +120,8 @@ print_value (SpaPropType type, int size, const void *value)
     }
     case SPA_PROP_TYPE_BITMASK:
       break;
-    case SPA_PROP_TYPE_BYTES:
-      break;
-    case SPA_PROP_TYPE_STRUCT:
+    case SPA_PROP_TYPE_POINTER:
+      printf ("%p", value);
       break;
     default:
       break;
@@ -113,66 +153,7 @@ print_props (const SpaProps *props, int print_ranges)
       printf ("deprecated ");
     printf ("\n");
 
-    printf ("%-23.23s ", "");
-    switch (info->type) {
-      case SPA_PROP_TYPE_INVALID:
-        printf ("Invalid.");
-        break;
-      case SPA_PROP_TYPE_BOOL:
-        printf ("Boolean. ");
-        break;
-      case SPA_PROP_TYPE_INT8:
-        printf ("Int8. ");
-        break;
-      case SPA_PROP_TYPE_UINT8:
-        printf ("UInt8. ");
-        break;
-      case SPA_PROP_TYPE_INT16:
-        printf ("Int16. ");
-        break;
-      case SPA_PROP_TYPE_UINT16:
-        printf ("UInt16. ");
-        break;
-      case SPA_PROP_TYPE_INT32:
-        printf ("Int32. ");
-        break;
-      case SPA_PROP_TYPE_UINT32:
-        printf ("UInt32. ");
-        break;
-      case SPA_PROP_TYPE_INT64:
-        printf ("Int64. ");
-        break;
-      case SPA_PROP_TYPE_UINT64:
-        printf ("UInt64. ");
-        break;
-      case SPA_PROP_TYPE_FLOAT:
-        printf ("Float. ");
-        break;
-      case SPA_PROP_TYPE_DOUBLE:
-        printf ("Double. ");
-        break;
-      case SPA_PROP_TYPE_STRING:
-        printf ("String. Maxsize %zd. ", info->maxsize);
-        break;
-      case SPA_PROP_TYPE_POINTER:
-        printf ("Pointer. ");
-        break;
-      case SPA_PROP_TYPE_FRACTION:
-        printf ("Fraction. ");
-        break;
-      case SPA_PROP_TYPE_BITMASK:
-        printf ("Bitmask. ");
-        break;
-      case SPA_PROP_TYPE_BYTES:
-        printf ("Bytes. ");
-        break;
-      case SPA_PROP_TYPE_STRUCT:
-        printf ("Struct. ");
-        break;
-      default:
-        printf ("*Unknown Property Type*. ");
-        break;
-    }
+    printf ("%-23.23s %s. ", "", prop_type_names[info->type].CCName);
 
     printf ("Default: ");
     if (info->default_value)
@@ -190,6 +171,9 @@ print_props (const SpaProps *props, int print_ranges)
     else
       printf ("Error %d", res);
     printf (".\n");
+
+    if (!print_ranges)
+      continue;
 
     if (info->range_type != SPA_PROP_RANGE_TYPE_NONE) {
       printf ("%-23.23s ", "");
@@ -230,11 +214,34 @@ print_props (const SpaProps *props, int print_ranges)
 }
 
 static void
-print_format (const SpaFormat *format, int print_ranges)
+print_format (const SpaFormat *format)
 {
-  printf ("media-type:\t\t%d\n", format->media_type);
-  printf ("media-subtype:\t\t%d\n", format->media_subtype);
-  print_props (&format->props, print_ranges);
+  const SpaProps *props = &format->props;
+  int i;
+
+  printf (" %-10s %s/%s\n", "", media_type_names[format->media_type].name,
+                        media_subtype_names[format->media_subtype].name);
+
+  for (i = 0; i < props->n_prop_info; i++) {
+    const SpaPropInfo *info = &props->prop_info[i];
+    SpaPropValue value;
+    SpaResult res;
+
+    res = props->get_prop (props, i, &value);
+
+    if (res == SPA_RESULT_PROPERTY_UNSET && info->flags & SPA_PROP_FLAG_OPTIONAL)
+      continue;
+
+    printf ("  %20s : (%s) ", info->name, prop_type_names[info->type].name);
+    if (res == SPA_RESULT_OK) {
+      print_value (info->type, value.size, value.value);
+    } else if (res == SPA_RESULT_PROPERTY_UNSET) {
+      printf ("Unset");
+    } else {
+      printf ("*Error*");
+    }
+    printf ("\n");
+  }
 }
 
 static void
@@ -242,8 +249,9 @@ inspect_node (const SpaNode *node, SpaHandle *handle)
 {
   SpaResult res;
   SpaProps *props;
-  unsigned int n_input, max_input, n_output, max_output, i;
+  unsigned int n_input, max_input, n_output, max_output;
   SpaFormat *format;
+  void *state = NULL;
 
   if ((res = node->get_props (handle, &props)) < 0)
     printf ("can't get properties: %d\n", res);
@@ -255,14 +263,14 @@ inspect_node (const SpaNode *node, SpaHandle *handle)
   else
     printf ("supported ports %d %d %d %d\n", n_input, max_input, n_output, max_output);
 
-  for (i = 0; ; i++) {
-    if ((res = node->port_enum_formats (handle, 0, i, &format)) < 0) {
+  while (true) {
+    if ((res = node->port_enum_formats (handle, 0, &format, NULL, &state)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
         printf ("got error %d\n", res);
       break;
     }
     if (format)
-      print_format (format, 1);
+      print_format (format);
   }
   if ((res = node->port_get_props (handle, 0, &props)) < 0)
     printf ("port_get_props error: %d\n", res);
@@ -274,9 +282,9 @@ static void
 inspect_factory (const SpaHandleFactory *factory)
 {
   SpaResult res;
-  unsigned int i;
   SpaHandle *handle;
   const void *interface;
+  void *state = NULL;
 
   printf ("factory name:\t\t'%s'\n", factory->name);
   printf ("factory info:\n");
@@ -293,16 +301,16 @@ inspect_factory (const SpaHandleFactory *factory)
 
   printf ("factory interfaces:\n");
 
-  for (i = 0; ; i++) {
+  while (true) {
     const SpaInterfaceInfo *info;
 
-    if ((res = factory->enum_interface_info (factory, i, &info)) < 0) {
+    if ((res = factory->enum_interface_info (factory, &info, &state)) < 0) {
       if (res == SPA_RESULT_ENUM_END)
         break;
       else
         printf ("can't enumerate interfaces: %d\n", res);
     }
-    printf (" interface: %d, (%d) '%s' : '%s'\n", i, info->interface_id, info->name, info->description);
+    printf (" interface: (%d) '%s' : '%s'\n", info->interface_id, info->name, info->description);
 
     if ((res = handle->get_interface (handle, info->interface_id, &interface)) < 0) {
       printf ("can't get interface: %d\n", res);
@@ -326,7 +334,7 @@ main (int argc, char *argv[])
   SpaResult res;
   void *handle;
   SpaEnumHandleFactoryFunc enum_func;
-  unsigned int i;
+  void *state = NULL;
 
   if ((handle = dlopen (argv[1], RTLD_NOW)) == NULL) {
     printf ("can't load %s\n", argv[1]);
@@ -337,10 +345,10 @@ main (int argc, char *argv[])
     return -1;
   }
 
-  for (i = 0; ;i++) {
+  while (true) {
     const SpaHandleFactory *factory;
 
-    if ((res = enum_func (i, &factory)) < 0) {
+    if ((res = enum_func (&factory, &state)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
         printf ("can't enumerate factories: %d\n", res);
       break;

@@ -58,25 +58,36 @@ static const SpaInterfaceInfo ffmpeg_interfaces[] =
 
 static SpaResult
 ffmpeg_enum_interface_info (const SpaHandleFactory  *factory,
-                            unsigned int             index,
-                            const SpaInterfaceInfo **info)
+                            const SpaInterfaceInfo **info,
+                            void                   **state)
 {
+  int index;
+
+  if (factory == NULL || state == NULL || info == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  index = (*state == NULL ? 0 : *(int*)state);
+
   if (index >= 1)
     return SPA_RESULT_ENUM_END;
 
   *info = &ffmpeg_interfaces[index];
+  *(int*)state = ++index;
 
   return SPA_RESULT_OK;
 }
 
 SpaResult
-spa_enum_handle_factory (unsigned int             index,
-                         const SpaHandleFactory **factory)
+spa_enum_handle_factory (const SpaHandleFactory **factory,
+                         void                   **state)
 {
   static const AVCodec *c = NULL;
   static int ci = 0;
   static SpaHandleFactory f;
   static char name[128];
+  int index;
+
+  index = (*state == NULL ? 0 : *(int*)state);
 
   av_register_all();
 
@@ -90,6 +101,8 @@ spa_enum_handle_factory (unsigned int             index,
   }
   if (c == NULL)
     return SPA_RESULT_ENUM_END;
+
+  *(int*)state = ++index;
 
   if (av_codec_is_encoder (c)) {
     snprintf (name, 128, "ffenc_%s", c->name);

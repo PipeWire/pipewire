@@ -259,16 +259,20 @@ spa_volume_node_remove_port (SpaHandle      *handle,
 static SpaResult
 spa_volume_node_port_enum_formats (SpaHandle        *handle,
                                    uint32_t          port_id,
-                                   unsigned int      index,
-                                   SpaFormat       **format)
+                                   SpaFormat       **format,
+                                   const SpaFormat  *filter,
+                                   void            **state)
 {
   SpaVolume *this = (SpaVolume *) handle;
+  int index;
 
-  if (handle == NULL || format == NULL)
+  if (handle == NULL || format == NULL || state == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
+
+  index = (*state == NULL ? 0 : *(int*)state);
 
   switch (index) {
     case 0:
@@ -278,6 +282,7 @@ spa_volume_node_port_enum_formats (SpaHandle        *handle,
       return SPA_RESULT_ENUM_END;
   }
   *format = &this->query_format.format;
+  *(int*)state = ++index;
 
   return SPA_RESULT_OK;
 }
@@ -636,13 +641,24 @@ static const SpaInterfaceInfo volume_interfaces[] =
 
 static SpaResult
 volume_enum_interface_info (const SpaHandleFactory  *factory,
-                            unsigned int             index,
-                            const SpaInterfaceInfo **info)
+                            const SpaInterfaceInfo **info,
+                            void                   **state)
 {
-  if (index >= 1)
-    return SPA_RESULT_ENUM_END;
+  int index;
 
-  *info = &volume_interfaces[index];
+  if (factory == NULL || info == NULL || state == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  index = (*state == NULL ? 0 : *(int*)state);
+
+  switch (index) {
+    case 0:
+      *info = &volume_interfaces[index];
+      break;
+    default:
+      return SPA_RESULT_ENUM_END;
+  }
+  *(int*)state = ++index;
 
   return SPA_RESULT_OK;
 }

@@ -246,11 +246,13 @@ spa_ffmpeg_enc_node_remove_port (SpaHandle      *handle,
 static SpaResult
 spa_ffmpeg_enc_node_port_enum_formats (SpaHandle       *handle,
                                        uint32_t         port_id,
-                                       unsigned int     index,
-                                       SpaFormat      **format)
+                                       SpaFormat      **format,
+                                       const SpaFormat *filter,
+                                       void           **state)
 {
   SpaFFMpegEnc *this = (SpaFFMpegEnc *) handle;
-  SpaFFMpegState *state;
+  SpaFFMpegState *s;
+  int index;
 
   if (handle == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -258,16 +260,19 @@ spa_ffmpeg_enc_node_port_enum_formats (SpaHandle       *handle,
   if (!IS_VALID_PORT (port_id))
     return SPA_RESULT_INVALID_PORT;
 
-  state = &this->state[port_id];
+  s = &this->state[port_id];
+
+  index = (*state == NULL ? 0 : *(int*)state);
 
   switch (index) {
     case 0:
-      spa_video_raw_format_init (&state->raw_format[0]);
+      spa_video_raw_format_init (&s->raw_format[0]);
       break;
     default:
       return SPA_RESULT_ENUM_END;
   }
-  *format = &state->raw_format[0].format;
+  *format = &s->raw_format[0].format;
+  *(int*)state = ++index;
 
   return SPA_RESULT_OK;
 }

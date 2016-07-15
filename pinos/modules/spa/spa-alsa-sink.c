@@ -54,7 +54,7 @@ static SpaResult
 make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char *name)
 {
   SpaResult res;
-  void *hnd;
+  void *hnd, *state;
   SpaEnumHandleFactoryFunc enum_func;
   unsigned int i;
 

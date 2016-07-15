@@ -148,8 +148,7 @@ typedef enum {
 /**
  * SpaVideoRawInfo:
  * @format: the format
- * @width: the width of the video
- * @height: the height of the video
+ * @size: the frame size of the video
  * @framerate: the framerate of the video 0/1 means variable rate
  * @max_framerate: the maximum framerate of the video. This is only valid when
  *             @framerate is 0/1
@@ -168,8 +167,7 @@ typedef enum {
  */
 struct _SpaVideoRawInfo {
   SpaVideoFormat            format;
-  unsigned int              width;
-  unsigned int              height;
+  SpaRectangle              size;
   SpaFraction               framerate;
   SpaFraction               max_framerate;
   unsigned int              views;

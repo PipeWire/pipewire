@@ -193,7 +193,7 @@ static const SpaPropInfo raw_format_prop_info[] =
                                     NULL },
   { SPA_PROP_ID_AUDIO_RAW_INFO,     "info", "the SpaAudioRawInfo structure",
                                     SPA_PROP_FLAG_READWRITE,
-                                    SPA_PROP_TYPE_STRUCT, sizeof (SpaAudioRawInfo),
+                                    SPA_PROP_TYPE_POINTER, sizeof (SpaAudioRawInfo),
                                     0, NULL,
                                     SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                     NULL,
@@ -238,7 +238,7 @@ spa_audio_raw_format_parse (const SpaFormat *format,
   if ((res = props->get_prop (props, SPA_PROP_ID_AUDIO_RAW_INFO, &value)) < 0)
     goto fallback;
 
-  if (value.type != SPA_PROP_TYPE_STRUCT || value.size != sizeof (SpaAudioRawInfo))
+  if (value.type != SPA_PROP_TYPE_POINTER || value.size != sizeof (SpaAudioRawInfo))
     goto fallback;
 
   memcpy (&rawformat->info, value.value, sizeof (SpaAudioRawInfo));

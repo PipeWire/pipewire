@@ -102,10 +102,10 @@ struct _SpaHandleFactory {
   /**
    * SpaHandle::enum_interface_info:
    * @factory: a #SpaHandleFactory
-   * @index: the interface index
    * @info: result to hold SpaInterfaceInfo.
+   * @state: state to keep track of the enumeration, %NULL for first item
    *
-   * Get the interface information at @index.
+   * Enumerate the interface information for @factory.
    *
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_NOT_IMPLEMENTED when there are no interfaces
@@ -113,14 +113,14 @@ struct _SpaHandleFactory {
    *          #SPA_RESULT_ENUM_END when there are no more infos
    */
   SpaResult   (*enum_interface_info)  (const SpaHandleFactory  *factory,
-                                       unsigned int             index,
-                                       const SpaInterfaceInfo **info);
+                                       const SpaInterfaceInfo **info,
+                                       void                   **state);
 };
 
 /**
  * SpaEnumHandleFactoryFunc:
- * @index: the index to enumerate
  * @factory: a location to hold the factory result
+ * @state: state to keep track of the enumeration
  *
  * The function signature of the entry point in a plugin.
  *
@@ -128,13 +128,13 @@ struct _SpaHandleFactory {
  *          #SPA_RESULT_INVALID_ARGUMENTS when factory is %NULL
  *          #SPA_RESULT_ENUM_END when there are no more factories
  */
-typedef SpaResult (*SpaEnumHandleFactoryFunc) (unsigned int             index,
-                                               const SpaHandleFactory **factory);
+typedef SpaResult (*SpaEnumHandleFactoryFunc) (const SpaHandleFactory **factory,
+                                               void                   **state);
 
 /**
  * spa_enum_handle_factory:
- * @index: the index to enumerate
  * @factory: a location to hold the factory result
+ * @state: state to keep track of the enumeration
  *
  * The entry point in a plugin.
  *
@@ -142,8 +142,8 @@ typedef SpaResult (*SpaEnumHandleFactoryFunc) (unsigned int             index,
  *          #SPA_RESULT_INVALID_ARGUMENTS when factory is %NULL
  *          #SPA_RESULT_ENUM_END when there are no more factories
  */
-SpaResult spa_enum_handle_factory       (unsigned int             index,
-                                         const SpaHandleFactory **factory);
+SpaResult spa_enum_handle_factory       (const SpaHandleFactory **factory,
+                                         void                   **state);
 
 #ifdef __cplusplus
 }  /* extern "C" */

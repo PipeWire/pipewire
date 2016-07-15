@@ -66,7 +66,6 @@ spa_v4l2_open (SpaV4l2Source *this)
   return 0;
 }
 
-#if 0
 static SpaVideoFormat
 fourcc_to_video_format (uint32_t fourcc)
 {
@@ -169,7 +168,6 @@ fourcc_to_video_format (uint32_t fourcc)
   }
   return format;
 }
-#endif
 
 static uint32_t
 video_format_to_fourcc (SpaVideoFormat format)
@@ -329,37 +327,17 @@ again:
     }
     state->frmival.index++;
   }
-  fprintf (stderr, "format %c%c%c%c\n", FOURCC_ARGS (state->fmtdesc.pixelformat));
-  if (state->frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) {
-    fprintf (stderr, "size %dx%d\n", state->frmsize.discrete.width, state->frmsize.discrete.height);
-  } else if (state->frmsize.type == V4L2_FRMSIZE_TYPE_STEPWISE) {
-    fprintf (stderr, "size %dx%d - %dx%d with step %d/%d\n",
-	state->frmsize.stepwise.min_width,
-	state->frmsize.stepwise.min_height,
-	state->frmsize.stepwise.max_width,
-	state->frmsize.stepwise.max_height,
-	state->frmsize.stepwise.step_width,
-	state->frmsize.stepwise.step_height);
-  }
-  if (state->frmival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
-    fprintf (stderr, "framerate %u/%u\n",
-                state->frmival.discrete.numerator,
-                state->frmival.discrete.denominator);
-  } else if (state->frmival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS) {
-    fprintf (stderr, "framerate %u/%u - %u/%u\n",
-                state->frmival.stepwise.min.numerator,
-                state->frmival.stepwise.min.denominator,
-                state->frmival.stepwise.max.numerator,
-                state->frmival.stepwise.max.denominator);
-  } else if (state->frmival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
-    fprintf (stderr, "framerate %u/%u - %u/%u step %u/%u\n",
-                state->frmival.stepwise.min.numerator,
-                state->frmival.stepwise.min.denominator,
-                state->frmival.stepwise.max.numerator,
-                state->frmival.stepwise.max.denominator,
-                state->frmival.stepwise.step.numerator,
-                state->frmival.stepwise.step.denominator);
-  }
+
+  spa_video_raw_format_init (&state->raw_format[0]);
+  state->raw_format[0].info.format = fourcc_to_video_format (state->fmtdesc.pixelformat);
+  state->raw_format[0].info.size.width = state->frmsize.discrete.width;
+  state->raw_format[0].info.size.height = state->frmsize.discrete.height;
+  state->raw_format[0].info.framerate.num = state->frmival.discrete.numerator;
+  state->raw_format[0].info.framerate.denom = state->frmival.discrete.denominator;
+  state->raw_format[0].unset_mask &= ~((1<<0)|(1<<1)|(1<<2));
+
+  *format = &state->raw_format[0].format;
+
   return SPA_RESULT_OK;
 }
 
@@ -381,8 +359,8 @@ spa_v4l2_set_format (SpaV4l2Source *this, SpaFormat *format, bool try_only)
       SpaVideoRawFormat *f = (SpaVideoRawFormat *) format;
 
       fmt.fmt.pix.pixelformat = video_format_to_fourcc (f->info.format);
-      fmt.fmt.pix.width = f->info.width;
-      fmt.fmt.pix.height = f->info.height;
+      fmt.fmt.pix.width = f->info.size.width;
+      fmt.fmt.pix.height = f->info.size.height;
       fmt.fmt.pix.field = V4L2_FIELD_ANY;
       streamparm.parm.capture.timeperframe.numerator = f->info.framerate.denom;
       streamparm.parm.capture.timeperframe.denominator = f->info.framerate.num;

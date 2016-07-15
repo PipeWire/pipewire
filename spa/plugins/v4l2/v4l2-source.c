@@ -29,7 +29,7 @@
 
 typedef struct _SpaV4l2Source SpaV4l2Source;
 
-static const char default_device[] = "/dev/video0";
+static const char default_device[] = "/dev/video1";
 
 typedef struct {
   SpaProps props;
@@ -312,32 +312,22 @@ spa_v4l2_source_node_remove_port (SpaHandle      *handle,
 static SpaResult
 spa_v4l2_source_node_port_enum_formats (SpaHandle       *handle,
                                         uint32_t         port_id,
-                                        unsigned int     index,
-                                        SpaFormat      **format)
+                                        SpaFormat      **format,
+                                        const SpaFormat *filter,
+                                        void           **state)
 {
   SpaV4l2Source *this = (SpaV4l2Source *) handle;
-  SpaV4l2State *state;
+  SpaResult res;
 
-  if (handle == NULL || format == NULL)
+  if (handle == NULL || format == NULL || state == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
 
-  state = &this->state[port_id];
+  res = spa_v4l2_enum_format (this, format, state);
 
-  /*
-  switch (index) {
-    case 0:
-      spa_video_raw_format_init (&state->raw_format[0]);
-      break;
-    default:
-      break;
-  }
-  *format = &state->raw_format[0].format;
-  */
-
-  return spa_v4l2_enum_format (this, format, &state->cookie);
+  return res;
 }
 
 static SpaResult
@@ -616,7 +606,7 @@ v4l2_source_init (const SpaHandleFactory  *factory,
   this->state[0].info.flags = SPA_PORT_INFO_FLAG_NONE;
   this->state[0].status.flags = SPA_PORT_STATUS_FLAG_NONE;
 
-  this->state[0].export_buf = true;
+  this->state[0].export_buf = false;
 
   return SPA_RESULT_OK;
 }
@@ -631,14 +621,24 @@ static const SpaInterfaceInfo v4l2_source_interfaces[] =
 
 static SpaResult
 v4l2_source_enum_interface_info (const SpaHandleFactory  *factory,
-                               unsigned int             index,
-                               const SpaInterfaceInfo **info)
+                                 const SpaInterfaceInfo **info,
+                                 void                   **state)
 {
-  if (index >= 1)
-    return SPA_RESULT_ENUM_END;
+  int index;
 
-  *info = &v4l2_source_interfaces[index];
+  if (factory == NULL || info == NULL || state == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
 
+  index = (*state == NULL ? 0 : *(int*)state);
+
+  switch (index) {
+    case 0:
+      *info = &v4l2_source_interfaces[index];
+      break;
+    default:
+      return SPA_RESULT_ENUM_END;
+  }
+  *(int*)state = ++index;
   return SPA_RESULT_OK;
 }
 

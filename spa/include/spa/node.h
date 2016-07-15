@@ -240,12 +240,14 @@ struct _SpaNode {
    * SpaNode::port_enum_formats:
    * @handle: a #SpaHandle
    * @port_id: the port to query
-   * @index: the format index to retrieve
    * @format: pointer to a format
+   * @filter: a format filter
+   * @state: a state variable, %NULL to get the first item
    *
-   * Enumerate all possible formats on @port_id of @node.
+   * Enumerate all possible formats on @port_id of @node that are compatible
+   * with @filter..
    *
-   * Use the index to retrieve the formats one by one until the function
+   * Use @state to retrieve the formats one by one until the function
    * returns #SPA_RESULT_ENUM_END.
    *
    * The result format can be queried and modified and ultimately be used
@@ -254,13 +256,13 @@ struct _SpaNode {
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_INVALID_ARGUMENTS when node or format is %NULL
    *          #SPA_RESULT_INVALID_PORT when port_id is not valid
-   *          #SPA_RESULT_ENUM_END when no format exists for @index
-   *
+   *          #SPA_RESULT_ENUM_END when no format exists
    */
   SpaResult   (*port_enum_formats)    (SpaHandle        *handle,
                                        uint32_t          port_id,
-                                       unsigned int      index,
-                                       SpaFormat       **format);
+                                       SpaFormat       **format,
+                                       const SpaFormat  *filter,
+                                       void            **state);
   /**
    * SpaNode::port_set_format:
    * @handle: a #SpaHandle

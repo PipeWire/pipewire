@@ -53,6 +53,7 @@ make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char
   void *hnd;
   SpaEnumHandleFactoryFunc enum_func;
   unsigned int i;
+  void *state = NULL;
 
   if ((hnd = dlopen (lib, RTLD_NOW)) == NULL) {
     printf ("can't load %s: %s\n", lib, dlerror());
@@ -67,7 +68,7 @@ make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char
     const SpaHandleFactory *factory;
     const void *iface;
 
-    if ((res = enum_func (i, &factory)) < 0) {
+    if ((res = enum_func (&factory, &state)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
         printf ("can't enumerate factories: %d\n", res);
       break;
@@ -234,8 +235,9 @@ negotiate_formats (AppData *data)
   SpaProps *props;
   uint32_t val;
   SpaPropValue value;
+  void *state = NULL;
 
-  if ((res = data->sink_node->port_enum_formats (data->sink, 0, 0, &format)) < 0)
+  if ((res = data->sink_node->port_enum_formats (data->sink, 0, &format, NULL, &state)) < 0)
     return res;
 
   props = &format->props;

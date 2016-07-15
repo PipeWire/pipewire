@@ -46,12 +46,16 @@ typedef enum {
   SPA_PROP_TYPE_FLOAT,
   SPA_PROP_TYPE_DOUBLE,
   SPA_PROP_TYPE_STRING,
-  SPA_PROP_TYPE_POINTER,
+  SPA_PROP_TYPE_RECTANGLE,
   SPA_PROP_TYPE_FRACTION,
   SPA_PROP_TYPE_BITMASK,
-  SPA_PROP_TYPE_BYTES,
-  SPA_PROP_TYPE_STRUCT,
+  SPA_PROP_TYPE_POINTER
 } SpaPropType;
+
+typedef struct {
+  uint32_t width;
+  uint32_t height;
+} SpaRectangle;
 
 typedef struct {
   uint32_t num;

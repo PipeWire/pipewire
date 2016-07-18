@@ -365,10 +365,10 @@ spa_alsa_sink_node_port_enum_formats (SpaHandle       *handle,
 }
 
 static SpaResult
-spa_alsa_sink_node_port_set_format (SpaHandle       *handle,
-                                    uint32_t         port_id,
-                                    bool             test_only,
-                                    const SpaFormat *format)
+spa_alsa_sink_node_port_set_format (SpaHandle          *handle,
+                                    uint32_t            port_id,
+                                    SpaPortFormatFlags  flags,
+                                    const SpaFormat    *format)
 {
   SpaALSASink *this = (SpaALSASink *) handle;
   SpaResult res;
@@ -386,8 +386,6 @@ spa_alsa_sink_node_port_set_format (SpaHandle       *handle,
 
   if ((res = spa_audio_raw_format_parse (format, &this->current_format)) < 0)
     return res;
-
-  printf ("format %d\n", this->current_format.info.rate);
 
   this->have_format = true;
 

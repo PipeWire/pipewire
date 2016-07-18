@@ -278,10 +278,10 @@ spa_ffmpeg_enc_node_port_enum_formats (SpaHandle       *handle,
 }
 
 static SpaResult
-spa_ffmpeg_enc_node_port_set_format (SpaHandle       *handle,
-                                     uint32_t         port_id,
-                                     bool             test_only,
-                                     const SpaFormat *format)
+spa_ffmpeg_enc_node_port_set_format (SpaHandle          *handle,
+                                     uint32_t            port_id,
+                                     SpaPortFormatFlags  flags,
+                                     const SpaFormat    *format)
 {
   SpaFFMpegEnc *this = (SpaFFMpegEnc *) handle;
   SpaFFMpegState *state;
@@ -315,7 +315,7 @@ spa_ffmpeg_enc_node_port_set_format (SpaHandle       *handle,
   } else
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
-  if (!test_only) {
+  if (!(flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY)) {
     memcpy (tf, f, fs);
     state->current_format = tf;
   }

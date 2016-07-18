@@ -307,10 +307,10 @@ spa_audiotestsrc_node_port_enum_formats (SpaHandle        *handle,
 }
 
 static SpaResult
-spa_audiotestsrc_node_port_set_format (SpaHandle       *handle,
-                                       uint32_t         port_id,
-                                       bool             test_only,
-                                       const SpaFormat *format)
+spa_audiotestsrc_node_port_set_format (SpaHandle          *handle,
+                                       uint32_t            port_id,
+                                       SpaPortFormatFlags  flags,
+                                       const SpaFormat    *format)
 {
   SpaAudioTestSrc *this = (SpaAudioTestSrc *) handle;
   SpaResult res;

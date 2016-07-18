@@ -317,10 +317,10 @@ spa_xv_sink_node_port_enum_formats (SpaHandle       *handle,
 }
 
 static SpaResult
-spa_xv_sink_node_port_set_format (SpaHandle       *handle,
-                                  uint32_t         port_id,
-                                  bool             test_only,
-                                  const SpaFormat *format)
+spa_xv_sink_node_port_set_format (SpaHandle          *handle,
+                                  uint32_t            port_id,
+                                  SpaPortFormatFlags  flags,
+                                  const SpaFormat    *format)
 {
   SpaXvSink *this = (SpaXvSink *) handle;
   SpaResult res;
@@ -351,10 +351,10 @@ spa_xv_sink_node_port_set_format (SpaHandle       *handle,
   } else
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
-  if (spa_xv_set_format (this, f, test_only) < 0)
+  if (spa_xv_set_format (this, f, flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY) < 0)
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
-  if (!test_only) {
+  if (!(flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY)) {
     memcpy (tf, f, fs);
     this->current_format = tf;
   }

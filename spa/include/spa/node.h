@@ -36,6 +36,21 @@ typedef struct _SpaNode SpaNode;
 #include <spa/format.h>
 
 /**
+ * SpaPortFormatFlags:
+ * @SPA_PORT_FORMAT_FLAG_NONE: no flags
+ * @SPA_PORT_FORMAT_FLAG_TEST_ONLY: just check if the format is accepted
+ * @SPA_PORT_FORMAT_FLAG_FIXATE: fixate the non-optional unset fields
+ * @SPA_PORT_FORMAT_FLAG_NEAREST: allow set fields to be rounded to the
+ *            nearest allowed field value.
+ */
+typedef enum {
+  SPA_PORT_FORMAT_FLAG_NONE             =  0,
+  SPA_PORT_FORMAT_FLAG_TEST_ONLY        = (1 << 0),
+  SPA_PORT_FORMAT_FLAG_FIXATE           = (1 << 1),
+  SPA_PORT_FORMAT_FLAG_NEAREST          = (1 << 2),
+} SpaPortFormatFlags;
+
+/**
  * SpaInputFlags:
  * @SPA_INPUT_FLAG_NONE: no flag
  */
@@ -267,7 +282,7 @@ struct _SpaNode {
    * SpaNode::port_set_format:
    * @handle: a #SpaHandle
    * @port_id: the port to configure
-   * @test_only: only check if the format is accepted
+   * @flags: flags
    * @format: a #SpaFormat with the format
    *
    * Set a format on @port_id of @node.
@@ -283,10 +298,10 @@ struct _SpaNode {
    *          #SPA_RESULT_WRONG_PROPERTY_TYPE when the type or size of a property
    *                 is not correct.
    */
-  SpaResult   (*port_set_format)      (SpaHandle        *handle,
-                                       uint32_t          port_id,
-                                       bool              test_only,
-                                       const SpaFormat  *format);
+  SpaResult   (*port_set_format)      (SpaHandle         *handle,
+                                       uint32_t           port_id,
+                                       SpaPortFormatFlags flags,
+                                       const SpaFormat   *format);
   /**
    * SpaNode::port_get_format:
    * @handle: a #SpaHandle

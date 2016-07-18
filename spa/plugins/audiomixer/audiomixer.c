@@ -330,10 +330,10 @@ spa_audiomixer_node_port_enum_formats (SpaHandle       *handle,
 }
 
 static SpaResult
-spa_audiomixer_node_port_set_format (SpaHandle       *handle,
-                                     uint32_t         port_id,
-                                     bool             test_only,
-                                     const SpaFormat *format)
+spa_audiomixer_node_port_set_format (SpaHandle          *handle,
+                                     uint32_t            port_id,
+                                     SpaPortFormatFlags  flags,
+                                     const SpaFormat    *format)
 {
   SpaAudioMixer *this = (SpaAudioMixer *) handle;
   SpaResult res;

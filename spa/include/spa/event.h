@@ -27,6 +27,7 @@ extern "C" {
 typedef struct _SpaEvent SpaEvent;
 
 #include <spa/defs.h>
+#include <spa/poll.h>
 
 /**
  * SpaEventType:
@@ -35,10 +36,11 @@ typedef struct _SpaEvent SpaEvent;
  * @SPA_EVENT_TYPE_STOPPED: emited when the STOP command completes
  * @SPA_EVENT_TYPE_CAN_PULL_OUTPUT: emited when an async node has output that can be pulled
  * @SPA_EVENT_TYPE_CAN_PUSH_INPUT: emited when more data can be pushed to an async node
- * @SPA_EVENT_TYPE_PULL_INPUT: emited when data needs to be provided on an input
+ * @SPA_EVENT_TYPE_PULL_INPUT: emited when data needs to be provided on an input. data points to
+ *                             buffer to fill.
  * @SPA_EVENT_TYPE_ALLOC_OUTPUT: emited when an output buffer needs to be allocated
- * @SPA_EVENT_TYPE_ADD_POLL: emited when a pollfd should be added
- * @SPA_EVENT_TYPE_REMOVE_POLL: emited when a pollfd should be removed
+ * @SPA_EVENT_TYPE_ADD_POLL: emited when a pollfd should be added. data points to #SpaPollItem
+ * @SPA_EVENT_TYPE_REMOVE_POLL: emited when a pollfd should be removed. data points to #SpaPollItem
  * @SPA_EVENT_TYPE_DRAINED: emited when DRAIN command completed
  * @SPA_EVENT_TYPE_MARKER: emited when MARK command completed
  * @SPA_EVENT_TYPE_ERROR: emited when error occured
@@ -68,55 +70,6 @@ struct _SpaEvent {
   void          *data;
   size_t         size;
 };
-
-/**
- * SpaPollFd:
- * @fd: a file descriptor
- * @events: events to watch
- * @revents: events after poll
- */
-typedef struct {
-  int   fd;
-  short events;
-  short revents;
-} SpaPollFd;
-
-
-/**
- * SpaPollNotifyData:
- * @user_data: user data
- * @fds: array of file descriptors
- * @n_fds: number of elements in @fds
- * @now: the current time
- * @timeout: the next desired wakeup time relative to @now
- *
- * Data passed to #SpaPollNotify.
- */
-typedef struct {
-  void *user_data;
-  SpaPollFd *fds;
-  unsigned int n_fds;
-  uint64_t now;
-  uint64_t timeout;
-} SpaPollNotifyData;
-
-typedef int (*SpaPollNotify) (SpaPollNotifyData *data);
-
-/**
- * SpaPollItem:
- * @fds: array of file descriptors to watch
- * @n_fds: number of elements in @fds
- * @callback: callback called when there was activity on any of @fds
- * @user_data: user data
- */
-typedef struct {
-  SpaPollFd     *fds;
-  unsigned int   n_fds;
-  SpaPollNotify  idle_cb;
-  SpaPollNotify  before_cb;
-  SpaPollNotify  after_cb;
-  void          *user_data;
-} SpaPollItem;
 
 #ifdef __cplusplus
 }  /* extern "C" */

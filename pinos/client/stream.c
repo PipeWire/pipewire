@@ -577,131 +577,12 @@ pinos_stream_get_error (PinosStream *stream)
   return stream->priv->error;
 }
 
-static void
-on_received_buffer (PinosPort *port,
-                    gpointer user_data)
-{
-  PinosStream *stream = user_data;
-
-  g_signal_emit (stream, signals[SIGNAL_NEW_BUFFER], 0, NULL);
-}
-
-static void
-on_port_notify (GObject    *object,
-                GParamSpec *pspec,
-                gpointer    user_data)
-{
-  PinosPort *port = PINOS_PORT (object);
-  PinosStream *stream = user_data;
-  PinosStreamPrivate *priv = stream->priv;
-
-  if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "format")) {
-    g_clear_pointer (&priv->format, g_bytes_unref);
-    g_object_get (port, "format", &priv->format, NULL);
-    g_object_notify (G_OBJECT (stream), "format");
-  }
-  if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "possible-formats")) {
-    g_clear_pointer (&priv->possible_formats, g_bytes_unref);
-    g_object_get (port, "possible-formats", &priv->possible_formats, NULL);
-    g_object_notify (G_OBJECT (stream), "possible-formats");
-  }
-}
-
-static void
-on_port_created (GObject      *source_object,
-                 GAsyncResult *res,
-                 gpointer      user_data)
-{
-  PinosStream *stream = user_data;
-  PinosStreamPrivate *priv = stream->priv;
-  GError *error = NULL;
-
-  g_assert (priv->node ==  PINOS_NODE (source_object));
-
-  priv->port = pinos_node_create_port_finish (priv->node,
-                                              res,
-                                              &error);
-  if (priv->port == NULL)
-    goto create_failed;
-
-  on_port_notify (G_OBJECT (priv->port), NULL, stream);
-  g_signal_connect (priv->port, "notify", (GCallback) on_port_notify, stream);
-
-  pinos_port_set_received_buffer_cb (priv->port, on_received_buffer, stream, NULL);
-
-  stream_set_state (stream, PINOS_STREAM_STATE_READY, NULL);
-  g_object_unref (stream);
-
-  return;
-
-  /* ERRORS */
-create_failed:
-  {
-    g_warning ("failed to create port: %s", error->message);
-    stream_set_state (stream, PINOS_STREAM_STATE_ERROR, error);
-    g_object_unref (stream);
-    return;
-  }
-}
-
-static void
-on_node_created (GObject      *source_object,
-                 GAsyncResult *res,
-                 gpointer      user_data)
-{
-  PinosStream *stream = user_data;
-  PinosStreamPrivate *priv = stream->priv;
-  PinosContext *context = priv->context;
-  GError *error = NULL;
-
-  priv->node = pinos_context_create_node_finish (context, res, &error);
-  if (priv->node == NULL)
-    goto create_failed;
-
-  if (priv->properties == NULL)
-    priv->properties = pinos_properties_new (NULL, NULL);
-
-  if (priv->flags & PINOS_STREAM_FLAG_AUTOCONNECT)
-    pinos_properties_set (priv->properties, "autoconnect", "1");
-  else
-    pinos_properties_set (priv->properties, "autoconnect", "0");
-
-  if (priv->path)
-    pinos_properties_set (priv->properties, "target-path", priv->path);
-
-  pinos_node_create_port (priv->node,
-                          priv->direction,
-                          "client-port",
-                          priv->possible_formats,
-                          priv->properties,
-                          NULL, /* GCancellable *cancellable */
-                          on_port_created,
-                          stream);
-  return;
-
-  /* ERRORS */
-create_failed:
-  {
-    g_warning ("failed to create  node: %s", error->message);
-    stream_set_state (stream, PINOS_STREAM_STATE_ERROR, error);
-    g_object_unref (stream);
-    return;
-  }
-}
-
 static gboolean
 do_connect (PinosStream *stream)
 {
   PinosStreamPrivate *priv = stream->priv;
   PinosContext *context = priv->context;
 
-  pinos_context_create_node (context,
-                             "client-node",
-                             "client-node",
-                             priv->properties,
-                             NULL, /* GCancellable *cancellable */
-                             on_node_created,
-                             stream);
   return FALSE;
 }
 
@@ -841,8 +722,6 @@ do_disconnect (PinosStream *stream)
 {
   PinosStreamPrivate *priv = stream->priv;
 
-  pinos_node_remove (priv->node);
-
   return FALSE;
 }
 
@@ -896,7 +775,7 @@ pinos_stream_peek_buffer (PinosStream  *stream)
   priv = stream->priv;
   //g_return_val_if_fail (priv->state == PINOS_STREAM_STATE_STREAMING, FALSE);
 
-  return pinos_port_peek_buffer (priv->port);
+  return NULL;
 }
 
 /**
@@ -916,7 +795,6 @@ pinos_stream_buffer_builder_init (PinosStream  *stream, PinosBufferBuilder *buil
   g_return_if_fail (PINOS_IS_STREAM (stream));
   priv = stream->priv;
 
-  pinos_port_buffer_builder_init (priv->port, builder);
 }
 
 /**
@@ -947,17 +825,5 @@ pinos_stream_send_buffer (PinosStream *stream,
   priv = stream->priv;
   g_return_val_if_fail (priv->state == PINOS_STREAM_STATE_STREAMING, FALSE);
 
-  if (!pinos_port_send_buffer (priv->port, buffer, &error))
-    goto send_error;
-
   return TRUE;
-
-  /* ERRORS */
-send_error:
-  {
-    g_warning ("failed to send message: %s", error->message);
-    stream_set_state (stream, PINOS_STREAM_STATE_ERROR, error);
-    g_clear_error (&error);
-    return FALSE;
-  }
 }

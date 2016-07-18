@@ -26,7 +26,7 @@
 #include "pinos/client/pinos.h"
 
 #include "pinos/server/daemon.h"
-#include "pinos/server/server-node.h"
+#include "pinos/server/node.h"
 
 #include "pinos/dbus/org-pinos.h"
 
@@ -122,15 +122,15 @@ sender_data_new (PinosDaemon *daemon,
 }
 
 static void
-handle_remove_node (PinosServerNode *node,
-                    gpointer         user_data)
+handle_remove_node (PinosNode *node,
+                    gpointer   user_data)
 {
   PinosDaemon *daemon = user_data;
   PinosDaemonPrivate *priv = daemon->priv;
   const gchar *sender;
   SenderData *data;
 
-  sender = pinos_server_node_get_sender (node);
+  sender = pinos_node_get_sender (node);
 
   g_debug ("daemon %p: sender %s removed node %p", daemon, sender, node);
 
@@ -173,10 +173,10 @@ handle_create_node (PinosDaemon1           *interface,
                                            arg_name,
                                            props);
   } else {
-    node = pinos_server_node_new (daemon,
-                                  sender,
-                                  arg_name,
-                                  props);
+    node = pinos_node_new (daemon,
+                           sender,
+                           arg_name,
+                           props);
   }
 
   pinos_properties_free (props);
@@ -195,7 +195,7 @@ handle_create_node (PinosDaemon1           *interface,
                     (GCallback) handle_remove_node,
                     daemon);
 
-  object_path = pinos_server_node_get_object_path (PINOS_SERVER_NODE (node));
+  object_path = pinos_node_get_object_path (node);
   g_debug ("daemon %p: added node %p with path %s", daemon, node, object_path);
   g_dbus_method_invocation_return_value (invocation,
                                          g_variant_new ("(o)", object_path));
@@ -385,18 +385,18 @@ pinos_daemon_unexport (PinosDaemon *daemon,
 /**
  * pinos_daemon_add_node:
  * @daemon: a #PinosDaemon
- * @node: a #PinosServerNode
+ * @node: a #PinosNode
  *
  * Add @node to @daemon.
  */
 void
-pinos_daemon_add_node (PinosDaemon     *daemon,
-                       PinosServerNode *node)
+pinos_daemon_add_node (PinosDaemon *daemon,
+                       PinosNode   *node)
 {
   PinosDaemonPrivate *priv;
 
   g_return_if_fail (PINOS_IS_DAEMON (daemon));
-  g_return_if_fail (PINOS_IS_SERVER_NODE (node));
+  g_return_if_fail (PINOS_IS_NODE (node));
   priv = daemon->priv;
 
   priv->nodes = g_list_prepend (priv->nodes, node);
@@ -405,18 +405,18 @@ pinos_daemon_add_node (PinosDaemon     *daemon,
 /**
  * pinos_daemon_remove_node:
  * @daemon: a #PinosDaemon
- * @node: a #PinosServerNode
+ * @node: a #PinosNode
  *
  * Remove @node from @daemon.
  */
 void
-pinos_daemon_remove_node (PinosDaemon     *daemon,
-                          PinosServerNode *node)
+pinos_daemon_remove_node (PinosDaemon *daemon,
+                          PinosNode   *node)
 {
   PinosDaemonPrivate *priv;
 
   g_return_if_fail (PINOS_IS_DAEMON (daemon));
-  g_return_if_fail (PINOS_IS_SERVER_NODE (node));
+  g_return_if_fail (PINOS_IS_NODE (node));
   priv = daemon->priv;
 
   priv->nodes = g_list_remove (priv->nodes, node);
@@ -444,7 +444,7 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
                         GError         **error)
 {
   PinosDaemonPrivate *priv;
-  PinosServerPort *best = NULL;
+  PinosPort *best = NULL;
   GList *nodes, *ports;
   gboolean have_name, created_port = FALSE;
 
@@ -454,19 +454,19 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
   have_name = name ? strlen (name) > 0 : FALSE;
 
   for (nodes = priv->nodes; nodes; nodes = g_list_next (nodes)) {
-    PinosServerNode *n = nodes->data;
+    PinosNode *n = nodes->data;
     gboolean node_found = FALSE;
 
-    g_debug ("name %s, node path %s", name, pinos_server_node_get_object_path (n));
+    g_debug ("name %s, node path %s", name, pinos_node_get_object_path (n));
 
     /* we found the node */
-    if (have_name && g_str_has_suffix (pinos_server_node_get_object_path (n), name)) {
+    if (have_name && g_str_has_suffix (pinos_node_get_object_path (n), name)) {
       g_debug ("name \"%s\" matches node %p", name, n);
       node_found = TRUE;
     }
 
-    for (ports = pinos_node_get_ports (PINOS_NODE (n)); ports; ports = g_list_next (ports)) {
-      PinosServerPort *p = ports->data;
+    for (ports = pinos_node_get_ports (n); ports; ports = g_list_next (ports)) {
+      PinosPort *p = ports->data;
       PinosDirection dir;
       GBytes *format;
 
@@ -474,16 +474,7 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
       if (dir != direction)
         continue;
 
-      if (have_name && !node_found) {
-        if (!g_str_has_suffix (pinos_server_port_get_object_path (p), name))
-          continue;
-        g_debug ("name \"%s\" matches port %p", name, p);
-        best = p;
-        node_found = TRUE;
-        break;
-      }
-
-      format = pinos_port_filter_formats (PINOS_PORT (p), format_filter, NULL);
+      format = pinos_port_filter_formats (p, format_filter, NULL);
       if (format != NULL) {
         g_debug ("port %p matches filter", p);
         g_bytes_unref (format);
@@ -494,7 +485,7 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
     }
     if (best == NULL && node_found) {
       g_debug ("node %p: making port", n);
-      best = pinos_server_node_create_port_sync (n, direction, name, format_filter, props);
+      best = pinos_node_add_port (n, direction, NULL);
       if (best != NULL) {
         created_port = TRUE;
         break;

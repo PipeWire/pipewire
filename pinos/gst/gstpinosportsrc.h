@@ -24,6 +24,7 @@
 #include <gst/base/gstpushsrc.h>
 
 #include <client/pinos.h>
+#include <server/port.h>
 
 G_BEGIN_DECLS
 

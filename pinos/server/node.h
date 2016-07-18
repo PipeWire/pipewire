@@ -29,7 +29,8 @@ typedef struct _PinosNodeClass PinosNodeClass;
 typedef struct _PinosNodePrivate PinosNodePrivate;
 
 #include <pinos/client/introspect.h>
-#include <pinos/client/port.h>
+#include <pinos/server/daemon.h>
+#include <pinos/server/port.h>
 
 #define PINOS_TYPE_NODE                 (pinos_node_get_type ())
 #define PINOS_IS_NODE(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_NODE))
@@ -54,55 +55,47 @@ struct _PinosNode {
 /**
  * PinosNodeClass:
  * @set_state: called to change the current state of the node
- * @create_node: make a new port
- * @remove_node: remove a port
  *
  * Pinos node class.
  */
 struct _PinosNodeClass {
   GObjectClass parent_class;
 
-  gboolean    (*set_state)       (PinosNode       *node,
-                                  PinosNodeState   state);
+  gboolean    (*set_state)    (PinosNode       *node,
+                               PinosNodeState   state);
 
-  void        (*create_port)     (PinosNode          *node,
-                                  PinosDirection      direction,
-                                  const gchar        *name,
-                                  GBytes             *possible_formats,
-                                  PinosProperties    *props,
-                                  GTask              *task);
-  void        (*remove_port)     (PinosNode       *node,
-                                  PinosPort       *port);
-
+  PinosPort * (*add_port)     (PinosNode       *node,
+                               PinosDirection   direction,
+                               GError         **error);
+  void        (*remove_port)  (PinosNode       *node,
+                               PinosPort       *port);
 };
 
 /* normal GObject stuff */
 GType               pinos_node_get_type                (void);
 
-const gchar *       pinos_node_get_name                (PinosNode *node);
-PinosNodeState      pinos_node_get_state               (PinosNode *node);
-PinosProperties *   pinos_node_get_properties          (PinosNode *node);
-
+PinosNode *         pinos_node_new                     (PinosDaemon     *daemon,
+                                                        const gchar     *sender,
+                                                        const gchar     *name,
+                                                        PinosProperties *properties);
 void                pinos_node_remove                  (PinosNode *node);
 
-void                pinos_node_create_port             (PinosNode          *node,
-                                                        PinosDirection      direction,
-                                                        const gchar        *name,
-                                                        GBytes             *possible_formats,
-                                                        PinosProperties    *props,
-                                                        GCancellable       *cancellable,
-                                                        GAsyncReadyCallback callback,
-                                                        gpointer            user_data);
-PinosPort *         pinos_node_create_port_finish      (PinosNode          *node,
-                                                        GAsyncResult       *res,
-                                                        GError            **error);
 
-void                pinos_node_add_port                (PinosNode *node,
-                                                        PinosPort *port);
-void                pinos_node_remove_port             (PinosNode *node,
-                                                        PinosPort *port);
-GList *             pinos_node_get_ports               (PinosNode *node);
+const gchar *       pinos_node_get_name                (PinosNode *node);
+PinosProperties *   pinos_node_get_properties          (PinosNode *node);
 
+PinosDaemon *       pinos_node_get_daemon              (PinosNode       *node);
+const gchar *       pinos_node_get_sender              (PinosNode       *node);
+const gchar *       pinos_node_get_object_path         (PinosNode       *node);
+
+PinosPort *         pinos_node_add_port                (PinosNode       *node,
+                                                        PinosDirection   direction,
+                                                        GError         **error);
+void                pinos_node_remove_port             (PinosNode       *node,
+                                                        PinosPort       *port);
+GList *             pinos_node_get_ports               (PinosNode       *node);
+
+PinosNodeState      pinos_node_get_state               (PinosNode *node);
 gboolean            pinos_node_set_state               (PinosNode *node, PinosNodeState state);
 void                pinos_node_update_state            (PinosNode *node, PinosNodeState state);
 

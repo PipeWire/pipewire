@@ -23,6 +23,7 @@
 #include <gio/gio.h>
 
 #include <client/pinos.h>
+#include <server/port.h>
 
 #include <gst/gst.h>
 #include <gst/base/gstbasesink.h>

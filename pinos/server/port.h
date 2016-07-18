@@ -30,15 +30,16 @@ typedef struct _PinosPortPrivate PinosPortPrivate;
 
 #include <pinos/client/introspect.h>
 #include <pinos/client/buffer.h>
+#include <pinos/server/daemon.h>
 
-#define PINOS_TYPE_PORT                 (pinos_port_get_type ())
-#define PINOS_IS_PORT(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_PORT))
-#define PINOS_IS_PORT_CLASS(klass)      (G_TYPE_CHECK_CLASS_TYPE ((klass), PINOS_TYPE_PORT))
-#define PINOS_PORT_GET_CLASS(obj)       (G_TYPE_INSTANCE_GET_CLASS ((obj), PINOS_TYPE_PORT, PinosPortClass))
-#define PINOS_PORT(obj)                 (G_TYPE_CHECK_INSTANCE_CAST ((obj), PINOS_TYPE_PORT, PinosPort))
-#define PINOS_PORT_CLASS(klass)         (G_TYPE_CHECK_CLASS_CAST ((klass), PINOS_TYPE_PORT, PinosPortClass))
-#define PINOS_PORT_CAST(obj)            ((PinosPort*)(obj))
-#define PINOS_PORT_CLASS_CAST(klass)    ((PinosPortClass*)(klass))
+#define PINOS_TYPE_PORT             (pinos_port_get_type ())
+#define PINOS_IS_PORT(obj)          (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_PORT))
+#define PINOS_IS_PORT_CLASS(klass)  (G_TYPE_CHECK_CLASS_TYPE ((klass), PINOS_TYPE_PORT))
+#define PINOS_PORT_GET_CLASS(obj)   (G_TYPE_INSTANCE_GET_CLASS ((obj), PINOS_TYPE_PORT, PinosPortClass))
+#define PINOS_PORT(obj)             (G_TYPE_CHECK_INSTANCE_CAST ((obj), PINOS_TYPE_PORT, PinosPort))
+#define PINOS_PORT_CLASS(klass)     (G_TYPE_CHECK_CLASS_CAST ((klass), PINOS_TYPE_PORT, PinosPortClass))
+#define PINOS_PORT_CAST(obj)        ((PinosPort*)(obj))
+#define PINOS_PORT_CLASS_CAST(klass)((PinosPortClass*)(klass))
 
 /**
  * PinosPort:
@@ -61,7 +62,6 @@ struct _PinosPortClass {
 };
 
 typedef void (*PinosReceivedBufferCallback) (PinosPort *port, gpointer user_data);
-
 
 /* normal GObject stuff */
 GType               pinos_port_get_type           (void);

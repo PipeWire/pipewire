@@ -31,7 +31,7 @@
 typedef struct {
   PinosGstSink *sink;
 
-  PinosServerPort *port;
+  PinosPort *port;
 
   GstElement *src;
   GstElement *convert;
@@ -62,7 +62,7 @@ enum {
   PROP_CONVERT_NAME
 };
 
-G_DEFINE_TYPE (PinosGstSink, pinos_gst_sink, PINOS_TYPE_SERVER_NODE);
+G_DEFINE_TYPE (PinosGstSink, pinos_gst_sink, PINOS_TYPE_NODE);
 
 static gboolean
 bus_handler (GstBus     *bus,
@@ -381,12 +381,10 @@ free_sink_port_data (SinkPortData *data)
   g_slice_free (SinkPortData, data);
 }
 
-static PinosServerPort *
-create_port_sync (PinosServerNode *node,
-                  PinosDirection   direction,
-                  const gchar     *name,
-                  GBytes          *possible_formats,
-                  PinosProperties *props)
+static PinosPort *
+add_port (PinosNode       *node,
+          PinosDirection   direction,
+          GError         **error)
 {
   PinosGstSink *sink = PINOS_GST_SINK (node);
   PinosGstSinkPrivate *priv = sink->priv;
@@ -395,12 +393,8 @@ create_port_sync (PinosServerNode *node,
   data = g_slice_new0 (SinkPortData);
   data->sink = sink;
 
-  data->port = PINOS_SERVER_NODE_CLASS (pinos_gst_sink_parent_class)
-                ->create_port_sync (node,
-                                    direction,
-                                    name,
-                                    possible_formats,
-                                    props);
+  data->port = PINOS_NODE_CLASS (pinos_gst_sink_parent_class)
+                ->add_port (node, direction, error);
 
   g_debug ("connecting signals");
   g_signal_connect (data->port, "linked", (GCallback) on_linked, data);
@@ -435,7 +429,7 @@ remove_port (PinosNode       *node,
   for (walk = priv->ports; walk; walk = g_list_next (walk)) {
     SinkPortData *data = walk->data;
 
-    if (data->port == PINOS_SERVER_PORT_CAST (port)) {
+    if (data->port == PINOS_PORT_CAST (port)) {
       free_sink_port_data (data);
       priv->ports = g_list_delete_link (priv->ports, walk);
       break;
@@ -472,7 +466,6 @@ pinos_gst_sink_class_init (PinosGstSinkClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
   PinosNodeClass *node_class = PINOS_NODE_CLASS (klass);
-  PinosServerNodeClass *server_node_class = PINOS_SERVER_NODE_CLASS (klass);
 
   g_type_class_add_private (klass, sizeof (PinosGstSinkPrivate));
 
@@ -518,9 +511,8 @@ pinos_gst_sink_class_init (PinosGstSinkClass * klass)
                                                         G_PARAM_CONSTRUCT_ONLY |
                                                         G_PARAM_STATIC_STRINGS));
   node_class->set_state = set_state;
+  node_class->add_port = add_port;
   node_class->remove_port = remove_port;
-
-  server_node_class->create_port_sync = create_port_sync;
 }
 
 static void
@@ -529,7 +521,7 @@ pinos_gst_sink_init (PinosGstSink * sink)
   sink->priv = PINOS_GST_SINK_GET_PRIVATE (sink);
 }
 
-PinosServerNode *
+PinosNode *
 pinos_gst_sink_new (PinosDaemon *daemon,
                     const gchar *name,
                     PinosProperties *properties,
@@ -538,7 +530,7 @@ pinos_gst_sink_new (PinosDaemon *daemon,
                     GstElement  *mixer,
                     const gchar *convert_name)
 {
-  PinosServerNode *node;
+  PinosNode *node;
 
   node = g_object_new (PINOS_TYPE_GST_SINK,
                        "daemon", daemon,

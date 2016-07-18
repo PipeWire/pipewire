@@ -65,7 +65,7 @@ device_added (PinosGstManager *manager,
   PinosGstManagerPrivate *priv = manager->priv;
   gchar *name, *klass;
   GstElement *element;
-  PinosServerNode *node = NULL;
+  PinosNode *node = NULL;
   GstStructure *p;
   PinosProperties *properties;
   GstCaps *caps;
@@ -112,7 +112,7 @@ device_added (PinosGstManager *manager,
                                NULL);
   }
   if (node)
-    g_object_set_data (G_OBJECT (device), "PinosServerNode", node);
+    g_object_set_data (G_OBJECT (device), "PinosNode", node);
 
   pinos_properties_free (properties);
   gst_caps_unref (caps);
@@ -125,7 +125,7 @@ device_removed (PinosGstManager *manager,
                 GstDevice       *device)
 {
   gchar *name;
-  PinosServerNode *node;
+  PinosNode *node;
 
   name = gst_device_get_display_name (device);
   if (strcmp (name, "gst") == 0)
@@ -133,7 +133,7 @@ device_removed (PinosGstManager *manager,
 
   g_print("Device removed: %s\n", name);
 
-  node = g_object_steal_data (G_OBJECT (device), "PinosServerNode");
+  node = g_object_steal_data (G_OBJECT (device), "PinosNode");
   g_object_unref (node);
   g_free (name);
 }

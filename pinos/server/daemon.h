@@ -37,8 +37,8 @@ typedef struct _PinosDaemon PinosDaemon;
 typedef struct _PinosDaemonClass PinosDaemonClass;
 typedef struct _PinosDaemonPrivate PinosDaemonPrivate;
 
-#include <pinos/server/server-node.h>
-#include <pinos/server/server-port.h>
+#include <pinos/server/node.h>
+#include <pinos/server/port.h>
 #include <pinos/server/node-factory.h>
 #include <pinos/client/properties.h>
 
@@ -74,8 +74,8 @@ void              pinos_daemon_stop              (PinosDaemon *daemon);
 gchar *           pinos_daemon_export_uniquely   (PinosDaemon *daemon, GDBusObjectSkeleton *skel);
 void              pinos_daemon_unexport          (PinosDaemon *daemon, const gchar *name);
 
-void              pinos_daemon_add_node          (PinosDaemon *daemon, PinosServerNode *node);
-void              pinos_daemon_remove_node       (PinosDaemon *daemon, PinosServerNode *node);
+void              pinos_daemon_add_node          (PinosDaemon *daemon, PinosNode *node);
+void              pinos_daemon_remove_node       (PinosDaemon *daemon, PinosNode *node);
 
 PinosPort *       pinos_daemon_find_port         (PinosDaemon     *daemon,
                                                   PinosDirection   direction,

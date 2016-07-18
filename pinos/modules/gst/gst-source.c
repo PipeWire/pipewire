@@ -31,7 +31,7 @@
 typedef struct {
   PinosGstSource *source;
 
-  PinosServerPort *port;
+  PinosPort *port;
 
   GstElement *convert;
   GstElement *sink;
@@ -62,7 +62,7 @@ enum {
   PROP_CONVERT_NAME
 };
 
-G_DEFINE_TYPE (PinosGstSource, pinos_gst_source, PINOS_TYPE_SERVER_NODE);
+G_DEFINE_TYPE (PinosGstSource, pinos_gst_source, PINOS_TYPE_NODE);
 
 static gboolean
 bus_handler (GstBus     *bus,
@@ -451,7 +451,7 @@ remove_port (PinosNode       *node,
   for (walk = priv->ports; walk; walk = g_list_next (walk)) {
     SourcePortData *data = walk->data;
 
-    if (data->port == PINOS_SERVER_PORT_CAST (port)) {
+    if (data->port == PINOS_PORT_CAST (port)) {
       free_source_port_data (data);
       priv->ports = g_list_delete_link (priv->ports, walk);
       break;
@@ -557,27 +557,25 @@ create_best_element (GstCaps *caps)
   return element;
 }
 
-static PinosServerPort *
-create_port_sync (PinosServerNode *node,
-                  PinosDirection   direction,
-                  const gchar     *name,
-                  GBytes          *possible_formats,
-                  PinosProperties *props)
+static PinosPort *
+add_port (PinosNode       *node,
+          PinosDirection   direction,
+          GError         **error)
 {
   PinosGstSource *source = PINOS_GST_SOURCE (node);
   PinosGstSourcePrivate *priv = source->priv;
   SourcePortData *data;
+  PinosProperties *props = NULL;
 
   if (priv->element == NULL) {
     GstCaps *caps;
 
-    caps = gst_caps_from_string (g_bytes_get_data (possible_formats, NULL));
+    caps = NULL;
     priv->element = create_best_element (caps);
     gst_caps_unref (caps);
 
     if (priv->element) {
-      if (props == NULL)
-        props = pinos_properties_new (NULL, NULL);
+      props = pinos_properties_new (NULL, NULL);
       pinos_properties_set (props, "autoconnect", "0");
       setup_pipeline (source, NULL);
     }
@@ -586,12 +584,8 @@ create_port_sync (PinosServerNode *node,
   data = g_slice_new0 (SourcePortData);
   data->source = source;
 
-  data->port = PINOS_SERVER_NODE_CLASS (pinos_gst_source_parent_class)
-                ->create_port_sync (node,
-                                    direction,
-                                    name,
-                                    possible_formats,
-                                    props);
+  data->port = PINOS_NODE_CLASS (pinos_gst_source_parent_class)
+                ->add_port (node, direction, error);
 
   g_debug ("connecting signals");
   g_signal_connect (data->port, "linked", (GCallback) on_linked, data);
@@ -624,7 +618,6 @@ pinos_gst_source_class_init (PinosGstSourceClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
   PinosNodeClass *node_class = PINOS_NODE_CLASS (klass);
-  PinosServerNodeClass *server_node_class = PINOS_SERVER_NODE_CLASS (klass);
 
   g_type_class_add_private (klass, sizeof (PinosGstSourcePrivate));
 
@@ -671,9 +664,8 @@ pinos_gst_source_class_init (PinosGstSourceClass * klass)
                                                         G_PARAM_CONSTRUCT_ONLY |
                                                         G_PARAM_STATIC_STRINGS));
   node_class->set_state = set_state;
+  node_class->add_port = add_port;
   node_class->remove_port = remove_port;
-
-  server_node_class->create_port_sync = create_port_sync;
 }
 
 static void
@@ -682,7 +674,7 @@ pinos_gst_source_init (PinosGstSource * source)
   source->priv = PINOS_GST_SOURCE_GET_PRIVATE (source);
 }
 
-PinosServerNode *
+PinosNode *
 pinos_gst_source_new (PinosDaemon *daemon,
                       const gchar *name,
                       PinosProperties *properties,
@@ -691,7 +683,7 @@ pinos_gst_source_new (PinosDaemon *daemon,
                       GstElement  *splitter,
                       const gchar *convert_name)
 {
-  PinosServerNode *node;
+  PinosNode *node;
 
   node = g_object_new (PINOS_TYPE_GST_SOURCE,
                        "daemon", daemon,

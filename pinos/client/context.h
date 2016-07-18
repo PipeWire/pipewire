@@ -31,7 +31,6 @@ typedef struct _PinosContextPrivate PinosContextPrivate;
 
 #include <pinos/client/subscribe.h>
 #include <pinos/client/properties.h>
-#include <pinos/client/node.h>
 
 #define PINOS_TYPE_CONTEXT                 (pinos_context_get_type ())
 #define PINOS_IS_CONTEXT(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_CONTEXT))
@@ -105,17 +104,6 @@ PinosContext *    pinos_context_new                   (GMainContext    *ctx,
 
 gboolean          pinos_context_connect               (PinosContext *context, PinosContextFlags flags);
 gboolean          pinos_context_disconnect            (PinosContext *context);
-
-void              pinos_context_create_node           (PinosContext       *context,
-                                                       const gchar        *factory_name,
-                                                       const gchar        *name,
-                                                       PinosProperties    *properties,
-                                                       GCancellable       *cancellable,
-                                                       GAsyncReadyCallback callback,
-                                                       gpointer            user_data);
-PinosNode *       pinos_context_create_node_finish    (PinosContext    *context,
-                                                       GAsyncResult    *res,
-                                                       GError         **error);
 
 PinosContextState pinos_context_get_state             (PinosContext *context);
 const GError *    pinos_context_get_error             (PinosContext *context);

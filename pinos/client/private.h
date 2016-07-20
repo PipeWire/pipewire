@@ -38,6 +38,7 @@ struct _PinosContextPrivate
   PinosSubscriptionFlags subscription_mask;
   PinosSubscribe *subscribe;
 
+  GList *clients;
   GList *nodes;
   GList *ports;
   GList *connections;

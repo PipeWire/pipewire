@@ -154,6 +154,19 @@ dump_daemon_info (PinosContext *c, const PinosDaemonInfo *info, gpointer user_da
 }
 
 static void
+dump_client_info (PinosContext *c, const PinosClientInfo *info, gpointer user_data)
+{
+  DumpData *data = user_data;
+
+  g_print ("\tid: %p\n", info->id);
+  g_print ("\tclient-path: \"%s\"\n", info->client_path);
+  if (data->print_all) {
+    g_print ("\tsender: \"%s\"\n", info->sender);
+    print_properties (info->properties, MARK_CHANGE (0));
+  }
+}
+
+static void
 dump_node_info (PinosContext *c, const PinosNodeInfo *info, gpointer user_data)
 {
   DumpData *data = user_data;
@@ -186,6 +199,25 @@ dump_port_info (PinosContext *c, const PinosPortInfo *info, gpointer user_data)
   }
 }
 
+static void
+dump_channel_info (PinosContext *c, const PinosChannelInfo *info, gpointer user_data)
+{
+  DumpData *data = user_data;
+
+  g_print ("\tid: %p\n", info->id);
+  g_print ("\tchannel-path: \"%s\"\n", info->channel_path);
+  if (data->print_all) {
+    g_print ("\tdirection: \"%s\"\n", pinos_direction_as_string (info->direction));
+    g_print ("\tclient-path: \"%s\"\n", info->client_path);
+
+    g_print ("%c\tnode-path: \"%s\"\n", MARK_CHANGE (0), info->port_path);
+    print_properties (info->properties, MARK_CHANGE (1));
+    g_print ("%c\tstate: \"%s\"\n", MARK_CHANGE (2), pinos_channel_state_as_string (info->state));
+    print_formats ("possible formats", info->possible_formats, MARK_CHANGE (3));
+    print_formats ("format", info->format, MARK_CHANGE (4));
+  }
+}
+
 #if 0
 static void
 dump_connection_info (PinosContext *c, const PinosConnectionInfo *info, gpointer user_data)
@@ -213,6 +245,15 @@ dump_object (PinosContext *context, gpointer id, PinosSubscriptionFlags flags,
                                    info_ready,
                                    data);
   }
+  else if (flags & PINOS_SUBSCRIPTION_FLAG_CLIENT) {
+    pinos_context_get_client_info_by_id (context,
+                                         id,
+                                         PINOS_CLIENT_INFO_FLAGS_NONE,
+                                         dump_client_info,
+                                         NULL,
+                                         info_ready,
+                                         data);
+  }
   else if (flags & PINOS_SUBSCRIPTION_FLAG_NODE) {
     pinos_context_get_node_info_by_id (context,
                                        id,
@@ -230,6 +271,15 @@ dump_object (PinosContext *context, gpointer id, PinosSubscriptionFlags flags,
                                        NULL,
                                        info_ready,
                                        data);
+  }
+  else if (flags & PINOS_SUBSCRIPTION_FLAG_CHANNEL) {
+    pinos_context_get_channel_info_by_id (context,
+                                          id,
+                                          PINOS_CHANNEL_INFO_FLAGS_NONE,
+                                          dump_channel_info,
+                                          NULL,
+                                          info_ready,
+                                          data);
   }
 }
 

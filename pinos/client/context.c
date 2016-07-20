@@ -149,6 +149,8 @@ pinos_context_finalize (GObject * object)
 
   g_list_free (priv->nodes);
   g_list_free (priv->ports);
+  g_list_free (priv->clients);
+  g_list_free (priv->channels);
   g_clear_object (&priv->subscribe);
   g_clear_error (&priv->error);
 
@@ -399,6 +401,13 @@ subscription_cb (PinosSubscribe         *subscribe,
   switch (flags) {
     case PINOS_SUBSCRIPTION_FLAG_DAEMON:
       priv->daemon = g_object_ref (object);
+      break;
+
+    case PINOS_SUBSCRIPTION_FLAG_CLIENT:
+      if (event == PINOS_SUBSCRIPTION_EVENT_NEW)
+        priv->clients = g_list_prepend (priv->clients, object);
+      else if (event == PINOS_SUBSCRIPTION_EVENT_REMOVE)
+        priv->clients = g_list_remove (priv->clients, object);
       break;
 
     case PINOS_SUBSCRIPTION_FLAG_NODE:

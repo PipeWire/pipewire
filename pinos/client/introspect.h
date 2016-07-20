@@ -145,6 +145,62 @@ void            pinos_context_get_daemon_info (PinosContext *context,
                                                gpointer user_data);
 
 /**
+ * PinosClientInfo:
+ * @id: generic id of the client
+ * @client_path: unique path of the client
+ * @sender: sender of client
+ * @change_mask: bitfield of changed fields since last call
+ * @properties: extra properties
+ *
+ * The client information. Extra information can be added in later
+ * versions.
+ */
+typedef struct {
+  gpointer id;
+  const char *client_path;
+  const char *sender;
+  guint64 change_mask;
+  PinosProperties *properties;
+} PinosClientInfo;
+
+/**
+ * PinosClientInfoFlags:
+ * @PINOS_CLIENT_INFO_FLAGS_NONE: no flags
+ *
+ * Extra flags for pinos_context_list_client_info() and
+ * pinos_context_get_client_info_by_id().
+ */
+typedef enum {
+  PINOS_CLIENT_INFO_FLAGS_NONE            = 0,
+} PinosClientInfoFlags;
+
+/**
+ * PinosClientInfoCallback:
+ * @c: a #PinosContext
+ * @info: a #PinosClientInfo
+ * @user_data: user data
+ *
+ * Callback with information about the Pinos client in @info.
+ */
+typedef void (*PinosClientInfoCallback)  (PinosContext          *c,
+                                          const PinosClientInfo *info,
+                                          gpointer               user_data);
+
+void            pinos_context_list_client_info      (PinosContext *context,
+                                                     PinosClientInfoFlags flags,
+                                                     PinosClientInfoCallback cb,
+                                                     GCancellable *cancellable,
+                                                     GAsyncReadyCallback callback,
+                                                     gpointer user_data);
+void            pinos_context_get_client_info_by_id (PinosContext *context,
+                                                     gpointer id,
+                                                     PinosClientInfoFlags flags,
+                                                     PinosClientInfoCallback cb,
+                                                     GCancellable *cancellable,
+                                                     GAsyncReadyCallback callback,
+                                                     gpointer user_data);
+
+/**
  * PinosNodeInfo:
  * @id: generic id of the node
  * @node_path: the unique path of the node

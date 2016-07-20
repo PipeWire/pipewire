@@ -758,6 +758,7 @@ pinos_node_update_state (PinosNode      *node,
   if (priv->state != state) {
     g_debug ("node %p: update state to %s", node, pinos_node_state_as_string (state));
     priv->state = state;
+    pinos_node1_set_state (priv->iface, state);
     g_object_notify (G_OBJECT (node), "state");
   }
 }

@@ -41,6 +41,7 @@ struct _PinosContextPrivate
   GList *nodes;
   GList *ports;
   GList *connections;
+  GList *channels;
 };
 
 void                   pinos_subscribe_get_proxy          (PinosSubscribe      *subscribe,
@@ -79,3 +80,14 @@ typedef struct {
 #define PSB_MAGIC          ((gsize) 5493683301u)
 #define is_valid_buffer(b) (b != NULL && \
                             PSB(b)->magic == PSB_MAGIC)
+
+gboolean   pinos_io_read_buffer  (int          fd,
+                                  PinosBuffer *sb,
+                                  void        *data,
+                                  size_t       max_data,
+                                  int         *fds,
+                                  size_t       max_fds,
+                                  GError     **error);
+gboolean   pinos_io_write_buffer (int          fd,
+                                  PinosBuffer *buffer,
+                                  GError     **error);

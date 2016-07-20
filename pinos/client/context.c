@@ -414,6 +414,13 @@ subscription_cb (PinosSubscribe         *subscribe,
       else if (event == PINOS_SUBSCRIPTION_EVENT_REMOVE)
         priv->ports = g_list_remove (priv->ports, object);
       break;
+
+    case PINOS_SUBSCRIPTION_FLAG_CHANNEL:
+      if (event == PINOS_SUBSCRIPTION_EVENT_NEW)
+        priv->channels = g_list_prepend (priv->channels, object);
+      else if (event == PINOS_SUBSCRIPTION_EVENT_REMOVE)
+        priv->channels = g_list_remove (priv->channels, object);
+      break;
   }
 
   if (flags & priv->subscription_mask)

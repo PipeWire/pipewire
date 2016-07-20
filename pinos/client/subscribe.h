@@ -47,10 +47,11 @@ typedef enum {
 typedef enum {
     PINOS_SUBSCRIPTION_FLAG_DAEMON          = (1 << 0),
     PINOS_SUBSCRIPTION_FLAG_NODE            = (1 << 1),
-    PINOS_SUBSCRIPTION_FLAG_PORT            = (1 << 2)
+    PINOS_SUBSCRIPTION_FLAG_PORT            = (1 << 2),
+    PINOS_SUBSCRIPTION_FLAG_CHANNEL         = (1 << 3)
 } PinosSubscriptionFlags;
 
-#define PINOS_SUBSCRIPTION_FLAGS_ALL 0x07
+#define PINOS_SUBSCRIPTION_FLAGS_ALL 0x0f
 
 typedef enum {
     PINOS_SUBSCRIPTION_EVENT_NEW           = 0,

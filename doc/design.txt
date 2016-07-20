@@ -35,6 +35,8 @@ Node1:     a processing node, this can be a source, sink or transform
            /org/pinos/node*
 Port1:     a port on a Node1, ports can be input or output ports
            /org/pinos/node*/port*
+Channel1:  a communication channel between a client and port
+           /org/pinos/client/channel*
 Link1:     a link between 2 ports
            /org/pinos/link*
 

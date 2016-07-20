@@ -30,6 +30,7 @@ typedef struct _PinosPortPrivate PinosPortPrivate;
 
 #include <pinos/client/introspect.h>
 #include <pinos/client/buffer.h>
+#include <pinos/server/channel.h>
 #include <pinos/server/daemon.h>
 
 #define PINOS_TYPE_PORT             (pinos_port_get_type ())
@@ -61,46 +62,48 @@ struct _PinosPortClass {
   GObjectClass parent_class;
 };
 
-typedef void (*PinosReceivedBufferCallback) (PinosPort *port, gpointer user_data);
+typedef gboolean (*PinosBufferCallback) (PinosPort *port, PinosBuffer *buffer, GError **error, gpointer user_data);
 
 /* normal GObject stuff */
 GType               pinos_port_get_type           (void);
 
 void                pinos_port_set_received_buffer_cb (PinosPort *port,
-                                                       PinosReceivedBufferCallback cb,
+                                                       PinosBufferCallback cb,
                                                        gpointer user_data,
                                                        GDestroyNotify notify);
+gulong              pinos_port_add_send_buffer_cb     (PinosPort *port,
+                                                       PinosBufferCallback cb,
+                                                       gpointer user_data,
+                                                       GDestroyNotify notify);
+void                pinos_port_remove_send_buffer_cb  (PinosPort *port,
+                                                       gulong     id);
 
 void                pinos_port_remove               (PinosPort *port);
 
 PinosNode *         pinos_port_get_node             (PinosPort *port);
-GSocket *           pinos_port_get_socket           (PinosPort *port);
 const gchar *       pinos_port_get_name             (PinosPort *port);
 PinosDirection      pinos_port_get_direction        (PinosPort *port);
-GBytes *            pinos_port_get_possible_formats (PinosPort *port);
-GBytes *            pinos_port_get_format           (PinosPort *port);
 PinosProperties *   pinos_port_get_properties       (PinosPort *port);
 
+GBytes *            pinos_port_get_possible_formats (PinosPort *port);
 GBytes *            pinos_port_filter_formats       (PinosPort *port,
                                                      GBytes    *filter,
                                                      GError   **error);
+GBytes *            pinos_port_get_format           (PinosPort *port);
 
-GSocket *           pinos_port_get_socket_pair      (PinosPort *port,
-                                                     GError   **error);
+void                pinos_port_activate             (PinosPort *port);
+void                pinos_port_deactivate           (PinosPort *port);
 
-gboolean            pinos_port_link                 (PinosPort   *source,
-                                                     PinosPort   *destination);
-gboolean            pinos_port_unlink               (PinosPort   *source,
-                                                     PinosPort   *destination);
-PinosPort *         pinos_port_get_links            (PinosPort   *port,
-                                                     guint       *n_links);
-
-PinosBuffer *       pinos_port_peek_buffer          (PinosPort   *port);
-
-void                pinos_port_buffer_builder_init  (PinosPort   *port,
-                                                     PinosBufferBuilder *builder);
+PinosChannel *      pinos_port_create_channel	    (PinosPort       *port,
+                                                     const gchar     *client_path,
+                                                     GBytes          *format_filter,
+                                                     PinosProperties *props,
+                                                     GError         **error);
 
 gboolean            pinos_port_send_buffer          (PinosPort   *port,
+                                                     PinosBuffer *buffer,
+                                                     GError     **error);
+gboolean            pinos_port_receive_buffer       (PinosPort   *port,
                                                      PinosBuffer *buffer,
                                                      GError     **error);
 

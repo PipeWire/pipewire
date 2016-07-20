@@ -99,7 +99,7 @@ fdpayload_data_destroy (gpointer user_data)
 
   GST_DEBUG_OBJECT (this, "destroy %d", r.id);
 
-  pinos_port_buffer_builder_init (this->port, &b);
+  pinos_buffer_builder_init (&b);
   pinos_buffer_builder_add_release_fd_payload (&b, &r);
   pinos_buffer_builder_end (&b, &pbuf);
 
@@ -110,17 +110,17 @@ fdpayload_data_destroy (gpointer user_data)
   g_slice_free (FDPayloadData, data);
 }
 
-static void
-on_received_buffer (PinosPort  *port,
-                    gpointer    user_data)
+static gboolean
+on_received_buffer (PinosPort   *port,
+                    PinosBuffer *pbuf,
+                    GError     **error,
+                    gpointer     user_data)
 {
   GstPinosPortSrc *this = user_data;
-  PinosBuffer *pbuf;
   PinosBufferIter it;
   GstBuffer *buf = NULL;
 
   GST_LOG_OBJECT (this, "got new buffer");
-  pbuf = pinos_port_peek_buffer (port);
 
   pinos_buffer_iter_init (&it, pbuf);
   while (pinos_buffer_iter_next (&it)) {
@@ -199,7 +199,7 @@ on_received_buffer (PinosPort  *port,
     g_cond_signal (&this->cond);
   }
 
-  return;
+  return TRUE;
 }
 
 static void
@@ -462,7 +462,7 @@ gst_pinos_port_src_event (GstBaseSrc * src, GstEvent * event)
         refresh.request_type = all_headers ? 1 : 0;
         refresh.pts = running_time;
 
-        pinos_port_buffer_builder_init (this->port, &b);
+        pinos_buffer_builder_init (&b);
         pinos_buffer_builder_add_refresh_request (&b, &refresh);
         pinos_buffer_builder_end (&b, &pbuf);
 

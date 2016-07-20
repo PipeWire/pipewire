@@ -459,8 +459,8 @@ pinos_buffer_builder_init_full (PinosBufferBuilder       *builder,
     sb->buf.max_size = sizeof (PinosStackHeader) + 128;
     sb->buf.data = g_malloc (sb->buf.max_size);
     sb->buf.free_data = sb->buf.data;
-    g_warning ("builder %p: realloc buffer memory %"G_GSIZE_FORMAT" -> %"G_GSIZE_FORMAT,
-        builder, max_data, sb->buf.max_size);
+//    g_warning ("builder %p: realloc buffer memory %"G_GSIZE_FORMAT" -> %"G_GSIZE_FORMAT,
+//        builder, max_data, sb->buf.max_size);
   } else {
     sb->buf.max_size = max_data;
     sb->buf.data = data;
@@ -581,8 +581,8 @@ pinos_buffer_builder_add_fd (PinosBufferBuilder *builder,
 
   if (sb->buf.n_fds >= sb->buf.max_fds) {
     gint new_size = sb->buf.max_fds + 8;
-    g_warning ("builder %p: realloc buffer fds %d -> %d",
-        builder, sb->buf.max_fds, new_size);
+//    g_warning ("builder %p: realloc buffer fds %d -> %d",
+//        builder, sb->buf.max_fds, new_size);
     sb->buf.max_fds = new_size;
     sb->buf.free_fds = g_realloc (sb->buf.free_fds, new_size * sizeof (int));
     sb->buf.fds = sb->buf.free_fds;
@@ -599,8 +599,8 @@ builder_ensure_size (struct stack_builder *sb, gsize size)
 {
   if (sb->buf.size + size > sb->buf.max_size) {
     gsize new_size = sb->buf.size + MAX (size, 1024);
-    g_warning ("builder %p: realloc buffer memory %"G_GSIZE_FORMAT" -> %"G_GSIZE_FORMAT,
-        sb, sb->buf.max_size, new_size);
+//    g_warning ("builder %p: realloc buffer memory %"G_GSIZE_FORMAT" -> %"G_GSIZE_FORMAT,
+//        sb, sb->buf.max_size, new_size);
     sb->buf.max_size = new_size;
     sb->buf.free_data = g_realloc (sb->buf.free_data, new_size);
     sb->sh = sb->buf.data = sb->buf.free_data;

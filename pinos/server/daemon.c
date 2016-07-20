@@ -20,6 +20,7 @@
 #include <string.h>
 
 #include <gio/gio.h>
+#include <gio/gunixfdlist.h>
 
 #include "config.h"
 
@@ -27,6 +28,8 @@
 
 #include "pinos/server/daemon.h"
 #include "pinos/server/node.h"
+#include "pinos/server/client.h"
+#include "pinos/server/channel.h"
 
 #include "pinos/dbus/org-pinos.h"
 
@@ -42,7 +45,7 @@ struct _PinosDaemonPrivate
 
   GList *nodes;
 
-  GHashTable *senders;
+  GHashTable *clients;
 
   PinosProperties *properties;
 
@@ -52,95 +55,174 @@ struct _PinosDaemonPrivate
 enum
 {
   PROP_0,
+  PROP_CONNECTION,
   PROP_PROPERTIES,
 };
 
-typedef struct {
-  guint id;
-  gchar *sender;
-  PinosDaemon *daemon;
-  GList *objects;
-} SenderData;
-
 static void
-sender_name_appeared_handler (GDBusConnection *connection,
-                              const gchar     *name,
-                              const gchar     *name_owner,
-                              gpointer         user_data)
+handle_client_appeared (PinosClient *client, gpointer user_data)
 {
-  SenderData *data = user_data;
-  PinosDaemonPrivate *priv = data->daemon->priv;
+  PinosDaemon *daemon = user_data;
+  PinosDaemonPrivate *priv = daemon->priv;
 
-  g_debug ("daemon %p: appeared %s %s", data->daemon, name, name_owner);
+  g_debug ("daemon %p: appeared %p", daemon, client);
 
-  g_hash_table_insert (priv->senders, data->sender, data);
+  g_hash_table_insert (priv->clients, (gpointer) pinos_client_get_sender (client), client);
 }
 
 static void
-sender_name_vanished_handler (GDBusConnection *connection,
-                              const gchar     *name,
-                              gpointer         user_data)
+handle_client_vanished (PinosClient *client, gpointer user_data)
 {
-  SenderData *data = user_data;
+  PinosDaemon *daemon = user_data;
+  PinosDaemonPrivate *priv = daemon->priv;
 
-  g_debug ("daemon %p: vanished %s", data->daemon, name);
-
-  g_bus_unwatch_name (data->id);
+  g_debug ("daemon %p: vanished %p", daemon, client);
+  g_hash_table_remove (priv->clients, (gpointer) pinos_client_get_sender (client));
 }
 
-static void
-data_free (SenderData *data)
-{
-  g_debug ("daemon %p: free sender data %p for %s", data->daemon, data, data->sender);
-  g_list_free_full (data->objects, g_object_unref);
-  g_hash_table_remove (data->daemon->priv->senders, data->sender);
-  g_free (data->sender);
-  g_free (data);
-}
-
-static SenderData *
-sender_data_new (PinosDaemon *daemon,
-                 const gchar *sender)
+static PinosClient *
+sender_get_client (PinosDaemon *daemon,
+                   const gchar *sender)
 {
   PinosDaemonPrivate *priv = daemon->priv;
-  SenderData *data;
+  PinosClient *client;
 
-  data = g_new0 (SenderData, 1);
-  data->daemon = daemon;
-  data->sender = g_strdup (sender);
+  client = g_hash_table_lookup (priv->clients, sender);
+  if (client == NULL) {
+    client = pinos_client_new (daemon, sender, NULL);
 
-  g_debug ("daemon %p: new sender data %p for %s", daemon, data, sender);
+    g_debug ("daemon %p: new client %p for %s", daemon, client, sender);
+    g_signal_connect (client,
+                      "appeared",
+                      (GCallback) handle_client_appeared,
+                      daemon);
+    g_signal_connect (client,
+                      "vanished",
+                      (GCallback) handle_client_vanished,
+                      daemon);
+  }
+  return client;
+}
 
-  data->id = g_bus_watch_name_on_connection (priv->connection,
-                                    sender,
-                                    G_BUS_NAME_WATCHER_FLAGS_NONE,
-                                    sender_name_appeared_handler,
-                                    sender_name_vanished_handler,
-                                    data,
-                                    (GDestroyNotify) data_free);
-  return data;
+static void
+handle_remove_channel (PinosChannel  *channel,
+                       gpointer       user_data)
+{
+  PinosClient *client = user_data;
+
+  g_debug ("client %p: remove channel %p", client, channel);
+  pinos_client_remove_object (client, G_OBJECT (channel));
+}
+
+static gboolean
+handle_create_channel (PinosDaemon1           *interface,
+                       GDBusMethodInvocation  *invocation,
+                       const gchar            *arg_node,
+                       PinosDirection          direction,
+                       const gchar            *arg_possible_formats,
+                       GVariant               *arg_properties,
+                       gpointer                user_data)
+{
+  PinosDaemon *daemon = user_data;
+  const gchar *sender, *object_path;
+  PinosProperties *props;
+  PinosClient *client;
+  PinosPort *port;
+  PinosChannel *channel;
+  GBytes *formats;
+  GError *error = NULL;
+  GUnixFDList *fdlist;
+  GSocket *socket;
+  gint fdidx;
+
+  sender = g_dbus_method_invocation_get_sender (invocation);
+
+  g_debug ("daemon %p: %s create channel", daemon, sender);
+
+  formats = g_bytes_new (arg_possible_formats, strlen (arg_possible_formats) + 1);
+  props = pinos_properties_from_variant (arg_properties);
+
+  port = pinos_daemon_find_port (daemon,
+                                 direction,
+                                 arg_node,
+                                 props,
+                                 formats,
+                                 &error);
+  if (port == NULL)
+    goto no_port;
+
+  g_debug ("daemon %p: matched port %p", daemon, port);
+
+  client = sender_get_client (daemon, sender);
+
+  channel = pinos_port_create_channel (port,
+                                       pinos_client_get_object_path (client),
+                                       formats,
+                                       props,
+                                       &error);
+  pinos_properties_free (props);
+  g_bytes_unref (formats);
+
+  if (channel == NULL)
+    goto no_channel;
+
+  pinos_client_add_object (client, G_OBJECT (channel));
+
+  g_signal_connect (channel,
+                    "remove",
+                    (GCallback) handle_remove_channel,
+                    client);
+
+  socket = pinos_channel_get_socket_pair (channel, &error);
+  if (socket == NULL)
+    goto no_socket;
+
+  object_path = pinos_channel_get_object_path (channel);
+  g_debug ("daemon %p: add channel %p, %s", daemon, channel, object_path);
+
+  fdlist = g_unix_fd_list_new ();
+  fdidx = g_unix_fd_list_append (fdlist, g_socket_get_fd (socket), NULL);
+
+  g_dbus_method_invocation_return_value_with_unix_fd_list (invocation,
+           g_variant_new ("(oh)", object_path, fdidx), fdlist);
+  g_object_unref (fdlist);
+
+  return TRUE;
+
+  /* ERRORS */
+no_port:
+  {
+    g_debug ("daemon %p: could not find port %s, %s", daemon, arg_node, error->message);
+    pinos_properties_free (props);
+    g_bytes_unref (formats);
+    goto exit_error;
+  }
+no_channel:
+  {
+    g_debug ("daemon %p: could not create channel %s", daemon, error->message);
+    goto exit_error;
+  }
+no_socket:
+  {
+    g_debug ("daemon %p: could not create channel %s", daemon, error->message);
+    goto exit_error;
+  }
+exit_error:
+  {
+    g_dbus_method_invocation_return_gerror (invocation, error);
+    g_clear_error (&error);
+    return TRUE;
+  }
 }
 
 static void
 handle_remove_node (PinosNode *node,
                     gpointer   user_data)
 {
-  PinosDaemon *daemon = user_data;
-  PinosDaemonPrivate *priv = daemon->priv;
-  const gchar *sender;
-  SenderData *data;
+  PinosClient *client = user_data;
 
-  sender = pinos_node_get_sender (node);
-
-  g_debug ("daemon %p: sender %s removed node %p", daemon, sender, node);
-
-  data = g_hash_table_lookup (priv->senders, sender);
-  if (data == NULL)
-    return;
-
-  g_debug ("daemon %p: node %p unref", daemon, node);
-  data->objects = g_list_remove (data->objects, node);
-  g_object_unref (node);
+  g_debug ("client %p: node %p remove", daemon, node);
+  pinos_client_remove_object (client, G_OBJECT (node));
 }
 
 static gboolean
@@ -155,7 +237,7 @@ handle_create_node (PinosDaemon1           *interface,
   PinosDaemonPrivate *priv = daemon->priv;
   PinosNodeFactory *factory;
   PinosNode *node;
-  SenderData *data;
+  PinosClient *client;
   const gchar *sender, *object_path;
   PinosProperties *props;
 
@@ -184,16 +266,13 @@ handle_create_node (PinosDaemon1           *interface,
   if (node == NULL)
     goto no_node;
 
-  data = g_hash_table_lookup (priv->senders, sender);
-  if (data == NULL)
-    data = sender_data_new (daemon, sender);
-
-  data->objects = g_list_prepend (data->objects, node);
+  client = sender_get_client (daemon, sender);
+  pinos_client_add_object (client, G_OBJECT (node));
 
   g_signal_connect (node,
                     "remove",
                     (GCallback) handle_remove_node,
-                    daemon);
+                    client);
 
   object_path = pinos_node_get_object_path (node);
   g_debug ("daemon %p: added node %p with path %s", daemon, node, object_path);
@@ -210,6 +289,18 @@ no_node:
                  "org.pinos.Error", "can't create node");
     return TRUE;
   }
+}
+
+static gboolean
+handle_link_nodes (PinosDaemon1           *interface,
+                   GDBusMethodInvocation  *invocation,
+                   const gchar            *arg_node,
+                   const gchar            *arg_port,
+                   const gchar            *arg_possible_formats,
+                   GVariant               *arg_properties,
+                   gpointer                user_data)
+{
+  return TRUE;
 }
 
 static void
@@ -520,6 +611,10 @@ pinos_daemon_get_property (GObject    *_object,
       g_value_set_boxed (value, priv->properties);
       break;
 
+    case PROP_CONNECTION:
+      g_value_set_object (value, priv->connection);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (daemon, prop_id, pspec);
       break;
@@ -586,7 +681,7 @@ pinos_daemon_finalize (GObject * object)
   g_debug ("daemon %p: finalize", object);
   g_clear_object (&priv->server_manager);
   g_clear_object (&priv->iface);
-  g_hash_table_unref (priv->senders);
+  g_hash_table_unref (priv->clients);
   g_hash_table_unref (priv->node_factories);
 
   G_OBJECT_CLASS (pinos_daemon_parent_class)->finalize (object);
@@ -605,6 +700,15 @@ pinos_daemon_class_init (PinosDaemonClass * klass)
 
   gobject_class->set_property = pinos_daemon_set_property;
   gobject_class->get_property = pinos_daemon_get_property;
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_CONNECTION,
+                                   g_param_spec_object ("connection",
+                                                        "Connection",
+                                                        "The DBus connection",
+                                                        G_TYPE_DBUS_CONNECTION,
+                                                        G_PARAM_READABLE |
+                                                        G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class,
                                    PROP_PROPERTIES,
@@ -626,9 +730,11 @@ pinos_daemon_init (PinosDaemon * daemon)
   g_debug ("daemon %p: new", daemon);
   priv->iface = pinos_daemon1_skeleton_new ();
   g_signal_connect (priv->iface, "handle-create-node", (GCallback) handle_create_node, daemon);
+  g_signal_connect (priv->iface, "handle-create-channel", (GCallback) handle_create_channel, daemon);
+  g_signal_connect (priv->iface, "handle-link-nodes", (GCallback) handle_link_nodes, daemon);
 
   priv->server_manager = g_dbus_object_manager_server_new (PINOS_DBUS_OBJECT_PREFIX);
-  priv->senders = g_hash_table_new (g_str_hash, g_str_equal);
+  priv->clients = g_hash_table_new (g_str_hash, g_str_equal);
   priv->node_factories = g_hash_table_new_full (g_str_hash,
                                                 g_str_equal,
                                                 g_free,

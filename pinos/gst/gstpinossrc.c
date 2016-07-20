@@ -275,34 +275,38 @@ static GstCaps *
 gst_pinos_src_src_fixate (GstBaseSrc * bsrc, GstCaps * caps)
 {
   GstStructure *structure;
+  const gchar *name;
 
   caps = gst_caps_make_writable (caps);
 
   structure = gst_caps_get_structure (caps, 0);
+  name = gst_structure_get_name (structure);
 
-  if (gst_structure_has_name (structure, "video/x-raw")) {
+  if (g_str_has_prefix (name, "video/") || g_str_has_prefix (name, "image/")) {
     gst_structure_fixate_field_nearest_int (structure, "width", 320);
     gst_structure_fixate_field_nearest_int (structure, "height", 240);
     gst_structure_fixate_field_nearest_fraction (structure, "framerate", 30, 1);
 
-    if (gst_structure_has_field (structure, "pixel-aspect-ratio"))
-      gst_structure_fixate_field_nearest_fraction (structure,
-          "pixel-aspect-ratio", 1, 1);
-    else
-      gst_structure_set (structure, "pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
-          NULL);
 
-    if (gst_structure_has_field (structure, "colorimetry"))
-      gst_structure_fixate_field_string (structure, "colorimetry", "bt601");
-    if (gst_structure_has_field (structure, "chroma-site"))
-      gst_structure_fixate_field_string (structure, "chroma-site", "mpeg2");
+    if (strcmp (name, "video/x-raw") == 0) {
+      if (gst_structure_has_field (structure, "pixel-aspect-ratio"))
+        gst_structure_fixate_field_nearest_fraction (structure,
+            "pixel-aspect-ratio", 1, 1);
+      else
+        gst_structure_set (structure, "pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
+            NULL);
+      if (gst_structure_has_field (structure, "colorimetry"))
+        gst_structure_fixate_field_string (structure, "colorimetry", "bt601");
+      if (gst_structure_has_field (structure, "chroma-site"))
+        gst_structure_fixate_field_string (structure, "chroma-site", "mpeg2");
 
-    if (gst_structure_has_field (structure, "interlace-mode"))
-      gst_structure_fixate_field_string (structure, "interlace-mode",
-          "progressive");
-    else
-      gst_structure_set (structure, "interlace-mode", G_TYPE_STRING,
-          "progressive", NULL);
+      if (gst_structure_has_field (structure, "interlace-mode"))
+        gst_structure_fixate_field_string (structure, "interlace-mode",
+            "progressive");
+      else
+        gst_structure_set (structure, "interlace-mode", G_TYPE_STRING,
+            "progressive", NULL);
+    }
   } else if (gst_structure_has_name (structure, "audio/x-raw")) {
     gst_structure_fixate_field_string (structure, "format", "S16LE");
     gst_structure_fixate_field_nearest_int (structure, "channels", 2);
@@ -562,8 +566,15 @@ gst_pinos_src_stream_start (GstPinosSrc *pinossrc, GstCaps * caps)
   }
 
   g_object_get (pinossrc->stream, "properties", &props, NULL);
+  g_object_get (pinossrc->stream, "format", &format, NULL);
 
   pinos_main_loop_unlock (pinossrc->loop);
+
+  if (format) {
+    caps = gst_caps_from_string (g_bytes_get_data (format, NULL));
+    gst_base_src_set_caps (GST_BASE_SRC (pinossrc), caps);
+    g_bytes_unref (format);
+  }
 
   parse_stream_properties (pinossrc, props);
   pinos_properties_free (props);
@@ -600,6 +611,8 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
   GstCaps *caps = NULL;
   GstCaps *peercaps = NULL;
   gboolean result = FALSE;
+  GBytes *possible;
+  gchar *str;
 
   /* first see what is possible on our source pad */
   thiscaps = gst_pad_query_caps (GST_BASE_SRC_PAD (basesrc), NULL);
@@ -622,62 +635,57 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
     /* no peer, work with our own caps then */
     caps = thiscaps;
   }
-  if (caps && !gst_caps_is_empty (caps)) {
-    GBytes *accepted;
-    gchar *str;
+  if (caps == NULL || gst_caps_is_empty (caps))
+    goto no_common_caps;
 
-    GST_DEBUG_OBJECT (basesrc, "have caps: %" GST_PTR_FORMAT, caps);
+  GST_DEBUG_OBJECT (basesrc, "have common caps: %" GST_PTR_FORMAT, caps);
 
-    /* open a connection with these caps */
-    str = gst_caps_to_string (caps);
-    accepted = g_bytes_new_take (str, strlen (str) + 1);
+  /* open a connection with these caps */
+  str = gst_caps_to_string (caps);
+  possible = g_bytes_new_take (str, strlen (str) + 1);
 
-    /* first disconnect */
-    pinos_main_loop_lock (pinossrc->loop);
-    if (pinos_stream_get_state (pinossrc->stream) != PINOS_STREAM_STATE_UNCONNECTED) {
-      GST_DEBUG_OBJECT (basesrc, "disconnect capture");
-      pinos_stream_disconnect (pinossrc->stream);
-      while (TRUE) {
-        PinosStreamState state = pinos_stream_get_state (pinossrc->stream);
-
-        if (state == PINOS_STREAM_STATE_UNCONNECTED)
-          break;
-
-        if (state == PINOS_STREAM_STATE_ERROR) {
-          g_bytes_unref (accepted);
-          goto connect_error;
-        }
-
-        pinos_main_loop_wait (pinossrc->loop);
-      }
-    }
-
-    GST_DEBUG_OBJECT (basesrc, "connect capture with path %s", pinossrc->path);
-    pinos_stream_connect (pinossrc->stream,
-                          PINOS_DIRECTION_INPUT,
-                          pinossrc->path,
-                          PINOS_STREAM_FLAG_AUTOCONNECT,
-                          accepted);
-
+  /* first disconnect */
+  pinos_main_loop_lock (pinossrc->loop);
+  if (pinos_stream_get_state (pinossrc->stream) != PINOS_STREAM_STATE_UNCONNECTED) {
+    GST_DEBUG_OBJECT (basesrc, "disconnect capture");
+    pinos_stream_disconnect (pinossrc->stream);
     while (TRUE) {
       PinosStreamState state = pinos_stream_get_state (pinossrc->stream);
 
-      if (state == PINOS_STREAM_STATE_READY)
+      if (state == PINOS_STREAM_STATE_UNCONNECTED)
         break;
 
-      if (state == PINOS_STREAM_STATE_ERROR)
+      if (state == PINOS_STREAM_STATE_ERROR) {
+        g_bytes_unref (possible);
         goto connect_error;
+      }
 
       pinos_main_loop_wait (pinossrc->loop);
     }
-    pinos_main_loop_unlock (pinossrc->loop);
-
-    result = gst_pinos_src_stream_start (pinossrc, NULL);
-  } else {
-    if (caps)
-      gst_caps_unref (caps);
-    GST_DEBUG_OBJECT (basesrc, "no common caps");
   }
+
+  GST_DEBUG_OBJECT (basesrc, "connect capture with path %s", pinossrc->path);
+  pinos_stream_connect (pinossrc->stream,
+                        PINOS_DIRECTION_INPUT,
+                        pinossrc->path,
+                        PINOS_STREAM_FLAG_AUTOCONNECT,
+                        possible);
+
+  while (TRUE) {
+    PinosStreamState state = pinos_stream_get_state (pinossrc->stream);
+
+    if (state == PINOS_STREAM_STATE_READY)
+      break;
+
+    if (state == PINOS_STREAM_STATE_ERROR)
+      goto connect_error;
+
+    pinos_main_loop_wait (pinossrc->loop);
+  }
+  pinos_main_loop_unlock (pinossrc->loop);
+
+  result = gst_pinos_src_stream_start (pinossrc, NULL);
+
   pinossrc->negotiated = result;
 
   return result;
@@ -696,7 +704,16 @@ no_caps:
         ("This element did not produce valid caps"));
     if (thiscaps)
       gst_caps_unref (thiscaps);
-    return TRUE;
+    return FALSE;
+  }
+no_common_caps:
+  {
+    GST_ELEMENT_ERROR (basesrc, STREAM, FORMAT,
+        ("No supported formats found"),
+        ("This element does not have formats in common with the peer"));
+    if (caps)
+      gst_caps_unref (caps);
+    return FALSE;
   }
 connect_error:
   {

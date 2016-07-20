@@ -362,17 +362,11 @@ set_property (GObject      *object,
 }
 
 static gboolean
-on_linked (PinosPort *port, PinosPort *peer, gpointer user_data)
+on_activate (PinosPort *port, gpointer user_data)
 {
   SourcePortData *data = user_data;
   PinosGstSource *source = data->source;
   PinosGstSourcePrivate *priv = source->priv;
-  guint n_links;
-
-  pinos_port_get_links (port, &n_links);
-  g_debug ("port %p: linked, now %d", port, n_links);
-  if (n_links > 0)
-    return TRUE;
 
   if (priv->splitter) {
     data->peerpad = gst_element_get_request_pad (priv->splitter, "src_%u");
@@ -386,36 +380,32 @@ on_linked (PinosPort *port, PinosPort *peer, gpointer user_data)
 
   pinos_node_report_busy (PINOS_NODE (source));
 
+  gst_element_set_state (data->sink, GST_STATE_PLAYING);
   if (data->convert) {
     gst_element_set_state (data->convert, GST_STATE_PLAYING);
   }
-  gst_element_set_state (data->sink, GST_STATE_PLAYING);
 
   return TRUE;
 }
 
 static void
-on_unlinked (PinosPort *port, PinosPort *peer, gpointer user_data)
+on_deactivate (PinosPort *port, gpointer user_data)
 {
   SourcePortData *data = user_data;
   PinosGstSource *source = data->source;
   PinosGstSourcePrivate *priv = source->priv;
-  guint n_links;
-
-  pinos_port_get_links (port, &n_links);
-  g_debug ("port %p: unlinked, now %d", port, n_links);
-  if (n_links > 0)
-    return;
-
-  if (data->convert) {
-    gst_element_set_state (data->convert, GST_STATE_NULL);
-  }
-  gst_element_set_state (data->sink, GST_STATE_NULL);
 
   gst_pad_unlink (data->peerpad, data->sinkpad);
   if (priv->splitter)
     gst_element_release_request_pad (priv->splitter, data->peerpad);
+
+  gst_element_set_state (data->sink, GST_STATE_NULL);
+  if (data->convert) {
+    gst_element_set_state (data->convert, GST_STATE_NULL);
+  }
   g_clear_object (&data->peerpad);
+
+  pinos_node_report_idle (PINOS_NODE (source));
 }
 
 static void
@@ -588,8 +578,8 @@ add_port (PinosNode       *node,
                 ->add_port (node, direction, error);
 
   g_debug ("connecting signals");
-  g_signal_connect (data->port, "linked", (GCallback) on_linked, data);
-  g_signal_connect (data->port, "unlinked", (GCallback) on_unlinked, data);
+  g_signal_connect (data->port, "activate", (GCallback) on_activate, data);
+  g_signal_connect (data->port, "deactivate", (GCallback) on_deactivate, data);
 
   data->sink = gst_element_factory_make ("pinosportsink", NULL);
   g_object_set (data->sink, "sync", TRUE,

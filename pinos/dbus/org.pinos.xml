@@ -69,6 +69,12 @@
 
   </interface>
 
+  <interface name='org.pinos.Client1'>
+    <!-- Sender: Sender of the client -->
+    <property name='Sender' type='s' access='read' />
+    <!-- Name: Properties of the client -->
+    <property name='Properties' type='a{sv}' access='read' />
+  </interface>
 
   <!--
       org.pinos.Channel:

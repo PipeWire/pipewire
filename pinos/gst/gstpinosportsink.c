@@ -74,17 +74,14 @@ gst_pinos_port_sink_propose_allocation (GstBaseSink * bsink, GstQuery * query)
   return TRUE;
 }
 
-static void
-on_received_buffer (PinosPort *port, gpointer user_data)
+static gboolean
+on_received_buffer (PinosPort *port, PinosBuffer *pbuf, GError **error, gpointer user_data)
 {
   GstPinosPortSink *this = user_data;
   GstEvent *ev;
-  PinosBuffer *pbuf;
   PinosBufferIter it;
   PinosBufferBuilder b;
   gboolean have_out = FALSE;
-
-  pbuf = pinos_port_peek_buffer (port);
 
   if (this->pinos_input) {
     pinos_buffer_builder_init (&b);
@@ -139,6 +136,7 @@ on_received_buffer (PinosPort *port, gpointer user_data)
       pinos_buffer_builder_clear (&b);
     }
   }
+  return TRUE;
 }
 
 static void
@@ -230,7 +228,7 @@ gst_pinos_port_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
     PinosBuffer pbuf;
     PinosPacketFormatChange fc;
 
-    pinos_port_buffer_builder_init (this->port, &builder);
+    pinos_buffer_builder_init (&builder);
     fc.id = 0;
     fc.format = cstr = gst_caps_to_string (caps);
     pinos_buffer_builder_add_format_change (&builder, &fc);
@@ -308,7 +306,7 @@ gst_pinos_port_sink_render_other (GstPinosPortSink * this, GstBuffer * buffer)
   hdr.pts = GST_BUFFER_PTS (buffer) + GST_ELEMENT_CAST (this)->base_time;
   hdr.dts_offset = 0;
 
-  pinos_port_buffer_builder_init (this->port, &builder);
+  pinos_buffer_builder_init (&builder);
   pinos_buffer_builder_add_header (&builder, &hdr);
 
   fdmem = gst_pinos_port_sink_get_fd_memory (this, buffer, &tmpfile);

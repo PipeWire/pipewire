@@ -180,6 +180,7 @@ lib_LTLIBRARIES = \
 # Public interface
 libpinos_@PINOS_MAJORMINOR@_la_SOURCES = \
 		client/buffer.h client/buffer.c \
+		client/io.c \
 		client/context.h client/context.c \
 		client/enumtypes.h client/enumtypes.c \
 		client/introspect.h client/introspect.c \
@@ -204,10 +205,13 @@ lib_LTLIBRARIES += libpinoscore-@PINOS_MAJORMINOR@.la
 
 # Pure core stuff
 libpinoscore_@PINOS_MAJORMINOR@_la_SOURCES = \
+		server/channel.c server/channel.h \
+		server/client.c server/client.h \
 		server/daemon.c server/daemon.h \
 		server/node.c server/node.h \
 		server/port.c server/port.h \
 		server/node-factory.c server/node-factory.h \
+		server/utils.c server/utils.h \
 		modules/gst/gst-manager.c modules/gst/gst-manager.h \
 		modules/gst/gst-source.c modules/gst/gst-source.h \
 		modules/gst/gst-sink.c modules/gst/gst-sink.h \

@@ -18,9 +18,7 @@
  */
 
 #include <string.h>
-#include <sys/socket.h>
 
-#include <gst/gst.h>
 #include <gio/gio.h>
 
 #include "pinos/client/pinos.h"
@@ -28,6 +26,7 @@
 
 #include "pinos/server/port.h"
 #include "pinos/server/node.h"
+#include "pinos/server/utils.h"
 
 #define PINOS_PORT_GET_PRIVATE(obj)  \
    (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_PORT, PinosPortPrivate))
@@ -38,12 +37,18 @@
 #define PINOS_DEBUG_TRANSPORT(format,args...)
 #endif
 
-#define MAX_BUFFER_SIZE 1024
-#define MAX_FDS         16
+typedef struct {
+  gulong id;
+  PinosBufferCallback send_buffer_cb;
+  gpointer send_buffer_data;
+  GDestroyNotify send_buffer_notify;
+} SendData;
 
 struct _PinosPortPrivate
 {
   PinosDaemon *daemon;
+
+  gulong id;
 
   PinosNode *node;
   PinosDirection direction;
@@ -51,17 +56,15 @@ struct _PinosPortPrivate
   GBytes *format;
   PinosProperties *properties;
 
-  guint8 send_data[MAX_BUFFER_SIZE];
-  int send_fds[MAX_FDS];
-
   PinosBuffer *buffer;
-  GPtrArray *peers;
-  gchar **peer_paths;
-  guint max_peers;
 
-  PinosReceivedBufferCallback received_buffer_cb;
+  PinosBufferCallback received_buffer_cb;
   gpointer received_buffer_data;
   GDestroyNotify received_buffer_notify;
+
+  gint active_count;
+
+  GList *send_datas;
 };
 
 G_DEFINE_TYPE (PinosPort, pinos_port, G_TYPE_OBJECT);
@@ -71,10 +74,7 @@ enum
   PROP_0,
   PROP_DAEMON,
   PROP_NODE,
-  PROP_MAIN_CONTEXT,
   PROP_DIRECTION,
-  PROP_MAX_PEERS,
-  PROP_PEERS,
   PROP_POSSIBLE_FORMATS,
   PROP_FORMAT,
   PROP_PROPERTIES,
@@ -84,8 +84,8 @@ enum
 {
   SIGNAL_FORMAT_REQUEST,
   SIGNAL_REMOVE,
-  SIGNAL_LINKED,
-  SIGNAL_UNLINKED,
+  SIGNAL_ACTIVATE,
+  SIGNAL_DEACTIVATE,
   LAST_SIGNAL
 };
 
@@ -94,7 +94,7 @@ static guint signals[LAST_SIGNAL] = { 0 };
 
 void
 pinos_port_set_received_buffer_cb (PinosPort *port,
-                                   PinosReceivedBufferCallback cb,
+                                   PinosBufferCallback cb,
                                    gpointer user_data,
                                    GDestroyNotify notify)
 {
@@ -103,7 +103,7 @@ pinos_port_set_received_buffer_cb (PinosPort *port,
   g_return_if_fail (PINOS_IS_PORT (port));
   priv = port->priv;
 
-  g_debug ("port %p: set callback", port);
+  g_debug ("port %p: set receive callback", port);
 
   if (priv->received_buffer_notify)
     priv->received_buffer_notify (priv->received_buffer_data);;
@@ -112,6 +112,54 @@ pinos_port_set_received_buffer_cb (PinosPort *port,
   priv->received_buffer_notify = notify;
 }
 
+gulong
+pinos_port_add_send_buffer_cb (PinosPort *port,
+                               PinosBufferCallback cb,
+                               gpointer user_data,
+                               GDestroyNotify notify)
+{
+  PinosPortPrivate *priv;
+  SendData *data;
+
+  g_return_val_if_fail (PINOS_IS_PORT (port), -1);
+  g_return_val_if_fail (cb != NULL, -1);
+  priv = port->priv;
+
+  g_debug ("port %p: add send callback", port);
+
+  data = g_slice_new (SendData);
+  data->id = priv->id++;
+  data->send_buffer_cb = cb;
+  data->send_buffer_data = user_data;
+  data->send_buffer_notify = notify;
+  priv->send_datas = g_list_prepend (priv->send_datas, data);
+
+  return data->id;
+}
+
+void
+pinos_port_remove_send_buffer_cb (PinosPort *port,
+                                  gulong     id)
+{
+  PinosPortPrivate *priv;
+  GList *walk;
+
+  g_return_if_fail (PINOS_IS_PORT (port));
+  priv = port->priv;
+
+  g_debug ("port %p: remove send callback %lu", port, id);
+  for (walk = priv->send_datas; walk; walk = g_list_next (walk)) {
+    SendData *data = walk->data;
+
+    if (data->id == id) {
+      if (data->send_buffer_notify)
+        data->send_buffer_notify (data->send_buffer_data);;
+      g_slice_free (SendData, data);
+      priv->send_datas = g_list_delete_link (priv->send_datas, walk);
+      break;
+    }
+  }
+}
 
 static void
 pinos_port_get_property (GObject    *_object,
@@ -129,14 +177,6 @@ pinos_port_get_property (GObject    *_object,
 
     case PROP_NODE:
       g_value_set_object (value, priv->node);
-      break;
-
-    case PROP_MAX_PEERS:
-      g_value_set_uint (value, priv->max_peers);
-      break;
-
-    case PROP_PEERS:
-      g_value_set_boxed (value, priv->peer_paths);
       break;
 
     case PROP_DIRECTION:
@@ -181,16 +221,6 @@ pinos_port_set_property (GObject      *_object,
 
     case PROP_DIRECTION:
       priv->direction = g_value_get_enum (value);
-      break;
-
-    case PROP_MAX_PEERS:
-      priv->max_peers = g_value_get_uint (value);
-      break;
-
-    case PROP_PEERS:
-      if (priv->peer_paths)
-        g_strfreev (priv->peer_paths);
-      priv->peer_paths = g_value_dup_boxed (value);
       break;
 
     case PROP_POSSIBLE_FORMATS:
@@ -242,6 +272,7 @@ pinos_port_finalize (GObject * object)
 {
   PinosPort *port = PINOS_PORT (object);
   PinosPortPrivate *priv = port->priv;
+  GList *walk;
 
   g_debug ("port %p: finalize", port);
   g_clear_pointer (&priv->possible_formats, g_bytes_unref);
@@ -249,7 +280,14 @@ pinos_port_finalize (GObject * object)
   g_clear_pointer (&priv->properties, pinos_properties_free);
   if (priv->received_buffer_notify)
     priv->received_buffer_notify (priv->received_buffer_data);
-  g_ptr_array_unref (priv->peers);
+  for (walk = priv->send_datas; walk; walk = g_list_next (walk)) {
+    SendData *data = walk->data;
+    if (data->send_buffer_notify)
+      data->send_buffer_notify (data->send_buffer_data);
+    g_slice_free (SendData, data);
+  }
+  g_list_free (priv->send_datas);
+
   g_clear_object (&priv->daemon);
 
   G_OBJECT_CLASS (pinos_port_parent_class)->finalize (object);
@@ -298,23 +336,6 @@ pinos_port_class_init (PinosPortClass * klass)
                                                       G_PARAM_READWRITE |
                                                       G_PARAM_CONSTRUCT_ONLY |
                                                       G_PARAM_STATIC_STRINGS));
-  g_object_class_install_property (gobject_class,
-                                   PROP_MAX_PEERS,
-                                   g_param_spec_uint ("max-peers",
-                                                      "Max Peers",
-                                                      "The maximum number of peer ports",
-                                                      1, G_MAXUINT, G_MAXUINT,
-                                                      G_PARAM_READWRITE |
-                                                      G_PARAM_STATIC_STRINGS));
-
-  g_object_class_install_property (gobject_class,
-                                   PROP_PEERS,
-                                   g_param_spec_boxed ("peers",
-                                                       "Peers",
-                                                       "The peer ports of the port",
-                                                       G_TYPE_STRV,
-                                                       G_PARAM_READWRITE |
-                                                       G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class,
                                    PROP_POSSIBLE_FORMATS,
@@ -333,7 +354,7 @@ pinos_port_class_init (PinosPortClass * klass)
                                                        "The format of the port",
                                                        G_TYPE_BYTES,
                                                        G_PARAM_READWRITE |
-                                                       G_PARAM_CONSTRUCT_ONLY |
+                                                       G_PARAM_CONSTRUCT |
                                                        G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class,
@@ -368,27 +389,26 @@ pinos_port_class_init (PinosPortClass * klass)
                                          G_TYPE_NONE,
                                          0,
                                          G_TYPE_NONE);
- signals[SIGNAL_LINKED] = g_signal_new ("linked",
-                                        G_TYPE_FROM_CLASS (klass),
-                                        G_SIGNAL_RUN_LAST,
-                                        0,
-                                        NULL,
-                                        NULL,
-                                        g_cclosure_marshal_generic,
-                                        G_TYPE_BOOLEAN,
-                                        1,
-                                        PINOS_TYPE_PORT);
-  signals[SIGNAL_UNLINKED] = g_signal_new ("unlinked",
-                                           G_TYPE_FROM_CLASS (klass),
-                                           G_SIGNAL_RUN_LAST,
-                                           0,
-                                           NULL,
-                                           NULL,
-                                           g_cclosure_marshal_generic,
-                                           G_TYPE_NONE,
-                                           1,
-                                           PINOS_TYPE_PORT);
-
+ signals[SIGNAL_ACTIVATE] = g_signal_new ("activate",
+                                          G_TYPE_FROM_CLASS (klass),
+                                          G_SIGNAL_RUN_LAST,
+                                          0,
+                                          NULL,
+                                          NULL,
+                                          g_cclosure_marshal_generic,
+                                          G_TYPE_NONE,
+                                          0,
+                                          G_TYPE_NONE);
+  signals[SIGNAL_DEACTIVATE] = g_signal_new ("deactivate",
+                                             G_TYPE_FROM_CLASS (klass),
+                                             G_SIGNAL_RUN_LAST,
+                                             0,
+                                             NULL,
+                                             NULL,
+                                             g_cclosure_marshal_generic,
+                                             G_TYPE_NONE,
+                                             0,
+                                             G_TYPE_NONE);
 }
 
 static void
@@ -398,7 +418,6 @@ pinos_port_init (PinosPort * port)
 
   g_debug ("port %p: new", port);
   priv->direction = PINOS_DIRECTION_INVALID;
-  priv->peers = g_ptr_array_new_full (64, NULL);
 }
 
 /**
@@ -529,72 +548,14 @@ pinos_port_filter_formats (PinosPort  *port,
                            GBytes     *filter,
                            GError    **error)
 {
-  GstCaps *tmp, *caps, *cfilter;
-  gchar *str;
   PinosPortPrivate *priv;
-  GBytes *res;
 
   g_return_val_if_fail (PINOS_IS_PORT (port), NULL);
   priv = port->priv;
 
-  if (filter) {
-    cfilter = gst_caps_from_string (g_bytes_get_data (filter, NULL));
-    if (cfilter == NULL)
-      goto invalid_filter;
-  } else {
-    cfilter = NULL;
-  }
-
   g_signal_emit (port, signals[SIGNAL_FORMAT_REQUEST], 0, NULL);
 
-  if (priv->possible_formats)
-    caps = gst_caps_from_string (g_bytes_get_data (priv->possible_formats, NULL));
-  else
-    caps = gst_caps_new_any ();
-
-  if (caps && cfilter) {
-    tmp = gst_caps_intersect_full (caps, cfilter, GST_CAPS_INTERSECT_FIRST);
-    gst_caps_take (&caps, tmp);
-  }
-  g_clear_pointer (&cfilter, gst_caps_unref);
-
-  if (caps == NULL || gst_caps_is_empty (caps))
-    goto no_format;
-
-  str = gst_caps_to_string (caps);
-  gst_caps_unref (caps);
-  res = g_bytes_new_take (str, strlen (str) + 1);
-
-  if (priv->direction == PINOS_DIRECTION_OUTPUT) {
-    guint i;
-    for (i = 0; i < priv->peers->len; i++) {
-      PinosPort *peer = g_ptr_array_index (priv->peers, i);
-      res = pinos_port_filter_formats (peer, res, error);
-    }
-  }
-
-  return res;
-
-invalid_filter:
-  {
-    g_set_error (error,
-                 G_IO_ERROR,
-                 G_IO_ERROR_INVALID_ARGUMENT,
-                 "Invalid filter received");
-    return NULL;
-  }
-no_format:
-  {
-    g_set_error (error,
-                 G_IO_ERROR,
-                 G_IO_ERROR_NOT_FOUND,
-                 "No compatible format found");
-    if (cfilter)
-      gst_caps_unref (cfilter);
-    if (caps)
-      gst_caps_unref (caps);
-    return NULL;
-  }
+  return pinos_format_filter (priv->possible_formats, filter, error);
 }
 
 static void
@@ -625,224 +586,123 @@ parse_control_buffer (PinosPort *port, PinosBuffer *buffer)
   }
 }
 
-static gboolean
-pinos_port_receive_buffer (PinosPort   *port,
-                           PinosBuffer *buffer,
-                           GError     **error)
+/**
+ * pinos_port_create_channel:
+ * @port: a #PinosPort
+ * @client_path: the client path
+ * @format_filter: a #GBytes
+ * @props: #PinosProperties
+ * @prefix: a prefix
+ * @error: a #GError or %NULL
+ *
+ * Create a new #PinosChannel for @port.
+ *
+ * Returns: a new #PinosChannel or %NULL, in wich case @error will contain
+ *          more information about the error.
+ */
+PinosChannel *
+pinos_port_create_channel (PinosPort       *port,
+                           const gchar     *client_path,
+                           GBytes          *format_filter,
+                           PinosProperties *props,
+                           GError          **error)
 {
-  PinosPortPrivate *priv = port->priv;
+  PinosPortPrivate *priv;
+  PinosChannel *channel;
+  GBytes *possible_formats;
 
-  if (priv->buffer)
-    goto buffer_queued;
+  g_return_val_if_fail (PINOS_IS_PORT (port), NULL);
+  priv = port->priv;
 
-  PINOS_DEBUG_TRANSPORT ("port %p: receive buffer %p", port, buffer);
-  if (pinos_buffer_get_flags (buffer) & PINOS_BUFFER_FLAG_CONTROL)
-    parse_control_buffer (port, buffer);
+  possible_formats = pinos_port_filter_formats (port, format_filter, error);
+  if (possible_formats == NULL)
+    return NULL;
 
-  priv->buffer = buffer;
-  if (priv->received_buffer_cb)
-    priv->received_buffer_cb (port, priv->received_buffer_data);
-  priv->buffer = NULL;
+  g_debug ("port %p: make channel with formats %s", port,
+      g_bytes_get_data (possible_formats, NULL));
 
-  return TRUE;
+  channel = g_object_new (PINOS_TYPE_CHANNEL, "daemon", priv->daemon,
+                                              "port", port,
+                                              "client-path", client_path,
+                                              "direction", priv->direction,
+                                              "possible-formats", possible_formats,
+                                              "properties", props,
+                                              NULL);
+  g_bytes_unref (possible_formats);
+
+  if (channel == NULL)
+    goto no_channel;
+
+  return channel;
 
   /* ERRORS */
-buffer_queued:
+no_channel:
   {
-    g_set_error (error,
-                 G_IO_ERROR,
-                 G_IO_ERROR_NOT_FOUND,
-                 "buffer was already queued on port");
-    return FALSE;
+    if (error)
+      *error = g_error_new (G_IO_ERROR,
+                            G_IO_ERROR_FAILED,
+                            "Could not create channel");
+    return NULL;
   }
-}
-
-static void
-update_peer_paths (PinosPort *port)
-{
-  PinosPortPrivate *priv = port->priv;
-  gchar **paths;
-  guint i;
-  gint path_index = 0;
-
-  paths = g_new0 (gchar *, priv->peers->len + 1);
-  for (i = 0; i < priv->peers->len; i++) {
-    PinosPort *peer;
-    gchar *path;
-
-    peer = g_ptr_array_index (priv->peers, i);
-    g_object_get (peer, "object-path", &path, NULL);
-    paths[path_index++] = path;
-  }
-
-  g_object_set (port, "peers", paths, NULL);
-  g_strfreev (paths);
-}
-/**
- * pinos_port_link:
- * @source: a source #PinosPort
- * @destination: a destination #PinosPort
- *
- * Link two ports together.
- *
- * Returns: %TRUE if ports could be linked.
- */
-gboolean
-pinos_port_link (PinosPort *source, PinosPort *destination)
-{
-  gboolean res = TRUE;
-
-  g_return_val_if_fail (PINOS_IS_PORT (source), FALSE);
-  g_return_val_if_fail (PINOS_IS_PORT (destination), FALSE);
-  g_return_val_if_fail (source->priv->direction != destination->priv->direction, FALSE);
-
-  if (source->priv->peers->len >= source->priv->max_peers)
-    return FALSE;
-  if (destination->priv->peers->len >= destination->priv->max_peers)
-    return FALSE;
-
-  if (source->priv->direction != PINOS_DIRECTION_OUTPUT) {
-    PinosPort *tmp;
-    tmp = source;
-    source = destination;
-    destination = tmp;
-  }
-
-  g_signal_emit (source, signals[SIGNAL_LINKED], 0, destination, &res);
-  if (!res)
-    return FALSE;
-  g_signal_emit (destination, signals[SIGNAL_LINKED], 0, source, &res);
-  if (!res)
-    return FALSE;
-
-  g_debug ("port %p: linked to %p", source, destination);
-  g_ptr_array_add (source->priv->peers, destination);
-  g_ptr_array_add (destination->priv->peers, source);
-
-  update_peer_paths (source);
-  update_peer_paths (destination);
-
-
-  if (source->priv->format) {
-    PinosBufferBuilder builder;
-    PinosBuffer pbuf;
-    PinosPacketFormatChange fc;
-    GError *error = NULL;
-
-    pinos_port_buffer_builder_init (destination, &builder);
-    fc.id = 0;
-    fc.format = g_bytes_get_data (source->priv->format, NULL);
-    pinos_buffer_builder_add_format_change (&builder, &fc);
-    pinos_buffer_builder_end (&builder, &pbuf);
-
-    if (!pinos_port_receive_buffer (destination, &pbuf, &error)) {
-      g_warning ("port %p: counld not receive format: %s", destination, error->message);
-      g_clear_error (&error);
-    }
-    pinos_buffer_unref (&pbuf);
-  }
-
-  return TRUE;
-}
-
-/**
- * pinos_port_unlink:
- * @source: a source #PinosPort
- * @destination: a destination #PinosPort
- *
- * Link two ports together.
- *
- * Returns: %TRUE if ports could be linked.
- */
-gboolean
-pinos_port_unlink (PinosPort *source, PinosPort *destination)
-{
-  g_return_val_if_fail (PINOS_IS_PORT (source), FALSE);
-  g_return_val_if_fail (PINOS_IS_PORT (destination), FALSE);
-
-  g_ptr_array_remove (source->priv->peers, destination);
-  g_ptr_array_remove (destination->priv->peers, source);
-
-  update_peer_paths (source);
-  update_peer_paths (destination);
-
-  g_debug ("port %p: unlinked from %p", source, destination);
-  g_signal_emit (source, signals[SIGNAL_UNLINKED], 0, destination);
-  g_signal_emit (destination, signals[SIGNAL_UNLINKED], 0, source);
-
-  return TRUE;
-}
-static void
-pinos_port_unlink_all (PinosPort *port)
-{
-  PinosPortPrivate *priv = port->priv;
-  guint i;
-
-  for (i = 0; i < priv->peers->len; i++) {
-    PinosPort *peer = g_ptr_array_index (priv->peers, i);
-
-    g_ptr_array_remove (peer->priv->peers, port);
-    g_ptr_array_index (priv->peers, i) = NULL;
-
-    g_signal_emit (port, signals[SIGNAL_UNLINKED], 0, peer);
-    g_signal_emit (peer, signals[SIGNAL_UNLINKED], 0, port);
-  }
-  g_ptr_array_set_size (priv->peers, 0);
-}
-
-/**
- * pinos_port_get_links:
- * @port: a #PinosPort
- * @n_linkes: location to hold the result number of links
- *
- * Get the links and number of links on this port
- *
- * Returns: an array of @n_links elements of type #PinosPort.
- */
-PinosPort *
-pinos_port_get_links (PinosPort *port, guint *n_links)
-{
-  PinosPortPrivate *priv;
-
-  g_return_val_if_fail (PINOS_IS_PORT (port), NULL);
-  priv = port->priv;
-
-  if (n_links)
-    *n_links = priv->peers->len;
-
-  return (PinosPort *) priv->peers->pdata;
-}
-/**
- * pinos_port_peek_buffer:
- * @port: a #PinosPort
- *
- * Peek the buffer on @port.
- *
- * Returns: a #PinosBuffer or %NULL when no buffer has arrived on the pad.
- */
-PinosBuffer *
-pinos_port_peek_buffer (PinosPort *port)
-{
-  PinosPortPrivate *priv;
-
-  g_return_val_if_fail (PINOS_IS_PORT (port), NULL);
-  priv = port->priv;
-
-  return priv->buffer;
 }
 
 void
-pinos_port_buffer_builder_init (PinosPort   *port,
-                                PinosBufferBuilder *builder)
+pinos_port_activate (PinosPort *port)
 {
   PinosPortPrivate *priv;
 
   g_return_if_fail (PINOS_IS_PORT (port));
   priv = port->priv;
+  g_return_if_fail (priv->active_count >= 0);
 
-  pinos_buffer_builder_init_into (builder,
-                                  priv->send_data, MAX_BUFFER_SIZE,
-                                  priv->send_fds, MAX_FDS);
+  g_debug ("port %p: activate count now %d", port, priv->active_count);
+
+  if (priv->active_count++ == 0)
+    g_signal_emit (port, signals[SIGNAL_ACTIVATE], 0, NULL);
+}
+
+void
+pinos_port_deactivate (PinosPort *port)
+{
+  PinosPortPrivate *priv;
+
+  g_return_if_fail (PINOS_IS_PORT (port));
+  priv = port->priv;
+  g_return_if_fail (priv->active_count > 0);
+
+  g_debug ("port %p: deactivate count now %d", port, priv->active_count);
+
+  if (--priv->active_count == 0)
+    g_signal_emit (port, signals[SIGNAL_DEACTIVATE], 0, NULL);
+}
+
+
+/**
+ * pinos_port_receive_buffer:
+ * @port: a #PinosPort
+ * @buffer: a #PinosBuffer
+ * @error: a #GError or %NULL
+ *
+ * Receive @buffer on @port
+ *
+ * Returns: %TRUE on success. @error is set when %FALSE is returned.
+ */
+gboolean
+pinos_port_receive_buffer (PinosPort   *port,
+                           PinosBuffer *buffer,
+                           GError     **error)
+{
+  gboolean res = TRUE;
+  PinosPortPrivate *priv = port->priv;
+
+  PINOS_DEBUG_TRANSPORT ("port %p: receive buffer %p", port, buffer);
+  if (pinos_buffer_get_flags (buffer) & PINOS_BUFFER_FLAG_CONTROL)
+    parse_control_buffer (port, buffer);
+
+  if (priv->received_buffer_cb)
+    res = priv->received_buffer_cb (port, buffer, error, priv->received_buffer_data);
+
+  return res;
 }
 
 /**
@@ -851,7 +711,7 @@ pinos_port_buffer_builder_init (PinosPort   *port,
  * @buffer: a #PinosBuffer
  * @error: a #GError or %NULL
  *
- * Send @buffer to ports connected to @port
+ * Send @buffer out on @port.
  *
  * Returns: %TRUE on success. @error is set when %FALSE is returned.
  */
@@ -860,29 +720,21 @@ pinos_port_send_buffer (PinosPort   *port,
                         PinosBuffer *buffer,
                         GError     **error)
 {
-  PinosPortPrivate *priv;
-  PinosPort *peer;
   gboolean res = TRUE;
-  guint i;
-  GError *err = NULL;
+  PinosPortPrivate *priv;
+  GList *walk;
 
   g_return_val_if_fail (PINOS_IS_PORT (port), FALSE);
-  priv = port->priv;
 
+  PINOS_DEBUG_TRANSPORT ("port %p: send buffer %p", port, buffer);
   if (pinos_buffer_get_flags (buffer) & PINOS_BUFFER_FLAG_CONTROL)
     parse_control_buffer (port, buffer);
 
-  PINOS_DEBUG_TRANSPORT ("port %p: send buffer %p", port, buffer);
+  priv = port->priv;
 
-  for (i = 0; i < priv->peers->len; i++) {
-    peer = g_ptr_array_index (priv->peers, i);
-    res = pinos_port_receive_buffer (peer, buffer, &err);
+  for (walk = priv->send_datas; walk; walk = g_list_next (walk)) {
+    SendData *data = walk->data;
+    data->send_buffer_cb (port, buffer, error, data->send_buffer_data);
   }
-  if (!res) {
-    if (error == NULL)
-      g_warning ("could not send buffer: %s", err->message);
-    g_propagate_error (error, err);
-  }
-
   return res;
 }

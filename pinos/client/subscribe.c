@@ -108,6 +108,9 @@ notify_event (PinosSubscribe         *subscribe,
   else if (g_strcmp0 (interface_name, "org.pinos.Port1") == 0) {
     flags = PINOS_SUBSCRIPTION_FLAG_PORT;
   }
+  else if (g_strcmp0 (interface_name, "org.pinos.Channel1") == 0) {
+    flags = PINOS_SUBSCRIPTION_FLAG_CHANNEL;
+  }
   g_signal_emit (subscribe, signals[SIGNAL_SUBSCRIPTION_EVENT], 0,
           event, flags, data->proxy);
 }

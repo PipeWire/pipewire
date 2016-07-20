@@ -59,6 +59,7 @@ typedef enum {
 typedef enum {
   PINOS_STREAM_MODE_SOCKET = 0,
   PINOS_STREAM_MODE_BUFFER = 1,
+  PINOS_STREAM_MODE_RINGBUFFER = 2,
 } PinosStreamMode;
 
 /**

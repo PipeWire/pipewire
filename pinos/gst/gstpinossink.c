@@ -117,7 +117,7 @@ gst_pinos_sink_finalize (GObject * object)
 
   if (pinossink->properties)
     gst_structure_free (pinossink->properties);
-  g_hash_table_unref (pinossink->fdids);
+  g_hash_table_unref (pinossink->mem_ids);
   g_object_unref (pinossink->allocator);
   g_free (pinossink->path);
   g_free (pinossink->client_name);
@@ -210,11 +210,12 @@ static void
 gst_pinos_sink_init (GstPinosSink * sink)
 {
   sink->allocator = gst_tmpfile_allocator_new ();
+  sink->fdmanager = pinos_fd_manager_get (PINOS_FD_MANAGER_DEFAULT);
   sink->client_name = pinos_client_name();
   sink->mode = DEFAULT_PROP_MODE;
 
-  sink->fdids = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL,
-      (GDestroyNotify) gst_buffer_unref);
+  sink->mem_ids = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL,
+      (GDestroyNotify) gst_memory_unref);
 }
 
 static GstCaps *
@@ -345,15 +346,15 @@ on_new_buffer (GObject    *gobject,
   pinos_buffer_iter_init (&it, pbuf);
   while (pinos_buffer_iter_next (&it)) {
     switch (pinos_buffer_iter_get_type (&it)) {
-      case PINOS_PACKET_TYPE_RELEASE_FD_PAYLOAD:
+      case PINOS_PACKET_TYPE_REUSE_MEM:
       {
-        PinosPacketReleaseFDPayload p;
+        PinosPacketReuseMem p;
 
-        if (!pinos_buffer_iter_parse_release_fd_payload (&it, &p))
+        if (!pinos_buffer_iter_parse_reuse_mem (&it, &p))
           continue;
 
-        GST_LOG ("fd index %d is released", p.id);
-        g_hash_table_remove (pinossink->fdids, GINT_TO_POINTER (p.id));
+        GST_LOG ("mem index %d is reused", p.id);
+        g_hash_table_remove (pinossink->mem_ids, GINT_TO_POINTER (p.id));
         break;
       }
       case PINOS_PACKET_TYPE_REFRESH_REQUEST:
@@ -508,10 +509,11 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   GstMemory *mem = NULL;
   GstClockTime pts, dts, base;
   PinosPacketHeader hdr;
-  PinosPacketFDPayload p;
+  PinosPacketAddMem am;
+  PinosPacketProcessMem p;
+  PinosPacketRemoveMem rm;
   gsize size;
   gboolean tmpfile, res;
-  gint fd;
 
   pinossink = GST_PINOS_SINK (bsink);
 
@@ -559,27 +561,32 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   pinos_stream_buffer_builder_init (pinossink->stream, &builder);
   pinos_buffer_builder_add_header (&builder, &hdr);
 
-  fd = gst_fd_memory_get_fd (mem);
-  p.fd_index = pinos_buffer_builder_add_fd (&builder, fd);
-  p.id = pinossink->id_counter++;
-  p.offset = 0;
-  p.size = size;
-  pinos_buffer_builder_add_fd_payload (&builder, &p);
+  am.id = pinos_fd_manager_get_id (pinossink->fdmanager);
+  am.fd_index = pinos_buffer_builder_add_fd (&builder, gst_fd_memory_get_fd (mem));
+  am.offset = 0;
+  am.size = mem->size;
+  p.id = am.id;
+  p.offset = mem->offset;
+  p.size = mem->size;
+  rm.id = am.id;
+  pinos_buffer_builder_add_add_mem (&builder, &am);
+  pinos_buffer_builder_add_process_mem (&builder, &p);
+  pinos_buffer_builder_add_remove_mem (&builder, &rm);
   pinos_buffer_builder_end (&builder, &pbuf);
 
-  GST_LOG ("sending fd index %d %d %d", p.id, p.fd_index, fd);
+  GST_LOG ("sending fd mem %d %d", am.id, am.fd_index);
 
   res = pinos_stream_send_buffer (pinossink->stream, &pbuf);
   pinos_buffer_steal_fds (&pbuf, NULL);
   pinos_buffer_unref (&pbuf);
   pinos_main_loop_unlock (pinossink->loop);
 
-  gst_memory_unref (mem);
-
   if (res && !tmpfile) {
-    /* keep the buffer around until we get the release fd message */
-    g_hash_table_insert (pinossink->fdids, GINT_TO_POINTER (p.id), gst_buffer_ref (buffer));
-  }
+    /* keep the memory around until we get the reuse mem message */
+    g_hash_table_insert (pinossink->mem_ids, GINT_TO_POINTER (p.id), mem);
+  } else
+    gst_memory_unref (mem);
+
   return GST_FLOW_OK;
 
 not_negotiated:
@@ -792,10 +799,10 @@ gst_pinos_sink_change_state (GstElement * element, GstStateChange transition)
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
       break;
     case GST_STATE_CHANGE_PAUSED_TO_READY:
-      g_hash_table_remove_all (this->fdids);
+      g_hash_table_remove_all (this->mem_ids);
       break;
     case GST_STATE_CHANGE_READY_TO_NULL:
-      g_hash_table_remove_all (this->fdids);
+      g_hash_table_remove_all (this->mem_ids);
       gst_pinos_sink_close (this);
       break;
     default:

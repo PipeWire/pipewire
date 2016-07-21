@@ -84,8 +84,8 @@ struct _GstPinosSink {
   GstStructure *properties;
   GstPinosSinkMode mode;
 
-  guint32 id_counter;
-  GHashTable *fdids;
+  PinosFdManager *fdmanager;
+  GHashTable *mem_ids;
 };
 
 struct _GstPinosSinkClass {

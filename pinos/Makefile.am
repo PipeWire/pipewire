@@ -208,6 +208,7 @@ libpinoscore_@PINOS_MAJORMINOR@_la_SOURCES = \
 		server/channel.c server/channel.h \
 		server/client.c server/client.h \
 		server/daemon.c server/daemon.h \
+		server/link.c server/link.h \
 		server/node.c server/node.h \
 		server/port.c server/port.h \
 		server/node-factory.c server/node-factory.h \

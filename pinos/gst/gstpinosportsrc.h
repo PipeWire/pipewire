@@ -65,6 +65,7 @@ struct _GstPinosPortSrc {
   GstClock *clock;
 
   GstAllocator *fd_allocator;
+  GHashTable *mem_ids;
 
   GQueue queue;
   GCond cond;

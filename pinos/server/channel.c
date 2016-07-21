@@ -154,9 +154,9 @@ pinos_channel_get_property (GObject    *_object,
 
 static void
 pinos_channel_set_property (GObject      *_object,
-                                  guint         prop_id,
-                                  const GValue *value,
-                                  GParamSpec   *pspec)
+                            guint         prop_id,
+                            const GValue *value,
+                            GParamSpec   *pspec)
 {
   PinosChannel *channel = PINOS_CHANNEL (_object);
   PinosChannelPrivate *priv = channel->priv;
@@ -234,89 +234,6 @@ stop_transfer (PinosChannel *channel)
   pinos_port_deactivate (priv->port);
   clear_formats (channel);
   priv->state = PINOS_CHANNEL_STATE_STOPPED;
-  g_object_set (priv->iface,
-               "state", priv->state,
-                NULL);
-}
-
-
-
-static gboolean
-handle_start (PinosChannel1          *interface,
-              GDBusMethodInvocation  *invocation,
-              const gchar            *arg_requested_format,
-              gpointer                user_data)
-{
-  PinosChannel *channel = user_data;
-  PinosChannelPrivate *priv = channel->priv;
-  GBytes *req_format, *format;
-  const gchar *format_str;
-  GError *error = NULL;
-
-  priv->state = PINOS_CHANNEL_STATE_STARTING;
-
-  req_format = g_bytes_new (arg_requested_format, strlen (arg_requested_format) + 1);
-
-  format = pinos_format_filter (priv->possible_formats, req_format, &error);
-  if (format == NULL)
-    goto no_format;
-
-  format_str = g_bytes_get_data (format, NULL);
-
-  g_debug ("channel %p: handle start, format %s", channel, format_str);
-
-  g_object_set (priv->port, "possible-formats", format, NULL);
-  pinos_port_activate (priv->port);
-  g_object_get (priv->port, "format", &format, NULL);
-  if (format == NULL)
-    goto no_format_activate;
-
-  format_str = g_bytes_get_data (format, NULL);
-
-  priv->state = PINOS_CHANNEL_STATE_STREAMING;
-  g_debug ("channel %p: we are now streaming in format \"%s\"", channel, format_str);
-
-  g_dbus_method_invocation_return_value (invocation,
-           g_variant_new ("(s@a{sv})",
-                          format_str,
-                          pinos_properties_to_variant (priv->properties)));
-  g_object_set (priv->iface,
-               "format", format_str,
-               "state", priv->state,
-                NULL);
-
-  return TRUE;
-
-no_format:
-  {
-    g_debug ("no format found");
-    g_dbus_method_invocation_return_gerror (invocation, error);
-    g_clear_error (&error);
-    return TRUE;
-  }
-no_format_activate:
-  {
-    g_debug ("no format found when activating");
-    g_dbus_method_invocation_return_dbus_error (invocation,
-                 "org.pinos.Error", "can't negotiate formats");
-    return TRUE;
-  }
-}
-
-static gboolean
-handle_stop (PinosChannel1          *interface,
-             GDBusMethodInvocation  *invocation,
-             gpointer                user_data)
-{
-  PinosChannel *channel = user_data;
-
-  g_debug ("channel %p: handle stop", channel);
-
-  stop_transfer (channel);
-
-  g_dbus_method_invocation_return_value (invocation, NULL);
-
-  return TRUE;
 }
 
 static gboolean
@@ -355,6 +272,93 @@ on_send_buffer (PinosPort    *port,
 }
 
 static gboolean
+parse_buffer (PinosChannel *channel,
+              PinosBuffer *pbuf)
+{
+  PinosBufferIter it;
+  PinosChannelPrivate *priv = channel->priv;
+
+  pinos_buffer_iter_init (&it, pbuf);
+  while (pinos_buffer_iter_next (&it)) {
+    PinosPacketType type = pinos_buffer_iter_get_type (&it);
+
+    switch (type) {
+      case PINOS_PACKET_TYPE_FORMAT_CHANGE:
+      {
+        PinosPacketFormatChange p;
+        GBytes *format, *req_format;
+        GError *error = NULL;
+        const gchar *format_str;
+
+        if (!pinos_buffer_iter_parse_format_change (&it, &p))
+          break;
+
+        req_format = g_bytes_new_static (p.format, strlen (p.format) + 1);
+        format = pinos_format_filter (priv->possible_formats, req_format, &error);
+        g_bytes_unref (req_format);
+
+        if (format == NULL)
+          break;
+
+        format_str = g_bytes_get_data (format, NULL);
+
+        g_debug ("channel %p: format change %s", channel, format_str);
+        g_object_set (priv->port, "possible-formats", format, NULL);
+        g_object_set (priv->iface, "format", format_str, NULL);
+        break;
+      }
+      case PINOS_PACKET_TYPE_START:
+      {
+        GBytes *format;
+        PinosBufferBuilder builder;
+        PinosPacketFormatChange fc;
+        PinosBuffer obuf;
+        guint8 buffer[1024];
+        GError *error = NULL;
+
+        pinos_port_activate (priv->port);
+        g_object_get (priv->port, "format", &format, NULL);
+        if (format == NULL)
+          break;
+
+        fc.id = 0;
+        fc.format = g_bytes_get_data (format, NULL);
+
+        g_debug ("channel %p: we are now streaming in format \"%s\"", channel, fc.format);
+
+        priv->state = PINOS_CHANNEL_STATE_STREAMING;
+        pinos_buffer_builder_init_into (&builder, buffer, 1024, NULL, 0);
+        pinos_buffer_builder_add_format_change (&builder, &fc);
+        pinos_buffer_builder_add_empty (&builder, PINOS_PACKET_TYPE_STREAMING);
+        pinos_buffer_builder_end (&builder, &obuf);
+        g_object_set (priv->iface, "state", priv->state, NULL);
+
+        if (!pinos_io_write_buffer (priv->fd, &obuf, &error)) {
+          g_warning ("channel %p: error writing buffer: %s", channel, error->message);
+          g_clear_error (&error);
+        }
+
+        break;
+      }
+      case PINOS_PACKET_TYPE_STOP:
+      {
+        break;
+      }
+      case PINOS_PACKET_TYPE_REUSE_MEM:
+      {
+        break;
+      }
+      default:
+        g_warning ("unhandled packet %d", type);
+        break;
+    }
+  }
+  pinos_buffer_iter_end (&it);
+
+  return TRUE;
+}
+
+static gboolean
 on_socket_condition (GSocket      *socket,
                      GIOCondition  condition,
                      gpointer      user_data)
@@ -379,6 +383,8 @@ on_socket_condition (GSocket      *socket,
         g_clear_error (&error);
         return TRUE;
       }
+
+      parse_buffer (channel, buffer);
 
       if (!pinos_port_receive_buffer (priv->port, buffer, &error)) {
         g_warning ("channel %p: port %p failed to receive buffer: %s", channel, priv->port, error->message);
@@ -485,7 +491,10 @@ channel_register_object (PinosChannel *channel)
   PinosObjectSkeleton *skel;
   gchar *name;
 
-  priv->send_id = pinos_port_add_send_buffer_cb (priv->port, on_send_buffer, channel, NULL);
+  priv->send_id = pinos_port_add_send_buffer_cb (priv->port,
+                                                 on_send_buffer,
+                                                 channel,
+                                                 NULL);
 
   name = g_strdup_printf ("%s/channel", priv->client_path);
   skel = pinos_object_skeleton_new (name);
@@ -557,6 +566,7 @@ pinos_channel_constructed (GObject * object)
 
   G_OBJECT_CLASS (pinos_channel_parent_class)->constructed (object);
 }
+
 static void
 pinos_channel_class_init (PinosChannelClass * klass)
 {
@@ -677,8 +687,6 @@ pinos_channel_init (PinosChannel * channel)
   PinosChannelPrivate *priv = channel->priv = PINOS_CHANNEL_GET_PRIVATE (channel);
 
   priv->iface = pinos_channel1_skeleton_new ();
-  g_signal_connect (priv->iface, "handle-start", (GCallback) handle_start, channel);
-  g_signal_connect (priv->iface, "handle-stop", (GCallback) handle_stop, channel);
   g_signal_connect (priv->iface, "handle-remove", (GCallback) handle_remove, channel);
 
   priv->state = PINOS_CHANNEL_STATE_STOPPED;

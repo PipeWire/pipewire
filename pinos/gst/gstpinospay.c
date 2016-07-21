@@ -218,17 +218,17 @@ client_buffer_received (GstPinosPay *pay, GstBuffer *buffer,
   pinos_buffer_iter_init (&it, &pbuf);
   while (pinos_buffer_iter_next (&it)) {
     switch (pinos_buffer_iter_get_type (&it)) {
-      case PINOS_PACKET_TYPE_RELEASE_FD_PAYLOAD:
+      case PINOS_PACKET_TYPE_REUSE_MEM:
       {
-        PinosPacketReleaseFDPayload p;
+        PinosPacketReuseMem p;
         gint id;
 
-        if (!pinos_buffer_iter_parse_release_fd_payload (&it, &p))
+        if (!pinos_buffer_iter_parse_reuse_mem (&it, &p))
           continue;
 
         id = p.id;
 
-        GST_LOG ("fd index %d for client %s is released", id, client_path);
+        GST_LOG ("fd index %d for client %s is reused", id, client_path);
         pinos_fd_manager_remove (pay->fdmanager, client_path, id);
         break;
       }
@@ -358,7 +358,7 @@ release_fds (GstPinosPay *pay, GstBuffer *buffer)
   GArray *fdids;
   guint i;
   PinosBufferBuilder b;
-  PinosPacketReleaseFDPayload r;
+  PinosPacketReuseMem r;
   PinosBuffer pbuf;
   gsize size;
   gpointer data;
@@ -375,7 +375,7 @@ release_fds (GstPinosPay *pay, GstBuffer *buffer)
   for (i = 0; i < fdids->len; i++) {
     r.id = g_array_index (fdids, guint32, i);
     GST_LOG ("release fd index %d", r.id);
-    pinos_buffer_builder_add_release_fd_payload (&b, &r);
+    pinos_buffer_builder_add_reuse_mem (&b, &r);
   }
   pinos_buffer_builder_end (&b, &pbuf);
   g_array_unref (fdids);
@@ -406,11 +406,11 @@ gst_pinos_pay_chain_pinos (GstPinosPay *pay, GstBuffer * buffer)
   pinos_buffer_iter_init (&it, &pbuf);
   while (pinos_buffer_iter_next (&it)) {
     switch (pinos_buffer_iter_get_type (&it)) {
-      case PINOS_PACKET_TYPE_FD_PAYLOAD:
+      case PINOS_PACKET_TYPE_PROCESS_MEM:
       {
-        PinosPacketFDPayload p;
+        PinosPacketProcessMem p;
 
-        if (!pinos_buffer_iter_parse_fd_payload (&it, &p))
+        if (!pinos_buffer_iter_parse_process_mem (&it, &p))
           continue;
 
         if (fdids == NULL)
@@ -464,7 +464,9 @@ gst_pinos_pay_chain_other (GstPinosPay *pay, GstBuffer * buffer)
   PinosBuffer pbuf;
   PinosBufferBuilder builder;
   PinosPacketHeader hdr;
-  PinosPacketFDPayload p;
+  PinosPacketAddMem am;
+  PinosPacketProcessMem p;
+  PinosPacketRemoveMem rm;
   gsize size;
   gpointer data;
   GSocketControlMessage *msg;
@@ -482,12 +484,18 @@ gst_pinos_pay_chain_other (GstPinosPay *pay, GstBuffer * buffer)
   msg = g_unix_fd_message_new ();
 
   fdmem = gst_pinos_pay_get_fd_memory (pay, buffer, &tmpfile);
-  p.fd_index = pinos_buffer_builder_add_fd (&builder, gst_fd_memory_get_fd (fdmem));
-  p.id = pinos_fd_manager_get_id (pay->fdmanager);
+
+  am.id = pinos_fd_manager_get_id (pay->fdmanager);
+  am.fd_index = pinos_buffer_builder_add_fd (&builder, gst_fd_memory_get_fd (fdmem));
+  am.offset = 0;
+  am.size = fdmem->size;
+  p.id = am.id;
   p.offset = fdmem->offset;
   p.size = fdmem->size;
-  pinos_buffer_builder_add_fd_payload (&builder, &p);
-
+  rm.id = am.id;
+  pinos_buffer_builder_add_add_mem (&builder, &am);
+  pinos_buffer_builder_add_process_mem (&builder, &p);
+  pinos_buffer_builder_add_remove_mem (&builder, &rm);
   pinos_buffer_builder_end (&builder, &pbuf);
 
   data = pinos_buffer_steal_data (&pbuf, &size);

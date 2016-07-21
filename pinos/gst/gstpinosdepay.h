@@ -43,6 +43,7 @@ struct _GstPinosDepay
 
   GstPad *srcpad, *sinkpad;
   GstAllocator *fd_allocator;
+  GHashTable *mem_ids;
 };
 
 struct _GstPinosDepayClass

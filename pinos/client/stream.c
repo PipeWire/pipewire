@@ -65,6 +65,11 @@ struct _PinosStreamPrivate
   PinosBuffer recv_buffer;
   guint8 recv_data[MAX_BUFFER_SIZE];
   int recv_fds[MAX_FDS];
+
+  guint8 send_data[MAX_BUFFER_SIZE];
+  int send_fds[MAX_FDS];
+
+  GHashTable *mem_ids;
 };
 
 #define PINOS_STREAM_GET_PRIVATE(obj)  \
@@ -90,6 +95,8 @@ enum
 };
 
 static guint signals[LAST_SIGNAL] = { 0 };
+
+static void unhandle_socket (PinosStream *stream);
 
 static void
 pinos_stream_get_property (GObject    *_object,
@@ -547,6 +554,89 @@ channel_failed:
 }
 
 static gboolean
+parse_buffer (PinosStream *stream,
+              PinosBuffer *pbuf)
+{
+  PinosBufferIter it;
+  PinosStreamPrivate *priv = stream->priv;
+
+  pinos_buffer_iter_init (&it, pbuf);
+  while (pinos_buffer_iter_next (&it)) {
+    PinosPacketType type = pinos_buffer_iter_get_type (&it);
+
+    switch (type) {
+      case PINOS_PACKET_TYPE_ADD_MEM:
+      {
+        PinosPacketAddMem p;
+        int fd;
+
+        if (!pinos_buffer_iter_parse_add_mem (&it, &p))
+          break;
+
+        fd = pinos_buffer_get_fd (pbuf, p.fd_index);
+        if (fd == -1)
+          break;
+
+//        g_hash_table_insert (priv->mem_ids, GINT_TO_POINTER (p.id), NULL);
+        break;
+      }
+      case PINOS_PACKET_TYPE_REMOVE_MEM:
+      {
+        PinosPacketRemoveMem p;
+
+        if (!pinos_buffer_iter_parse_remove_mem (&it, &p))
+          break;
+
+//        g_hash_table_remove (priv->mem_ids, GINT_TO_POINTER (p.id));
+        break;
+      }
+      case PINOS_PACKET_TYPE_FORMAT_CHANGE:
+      {
+        PinosPacketFormatChange p;
+
+        if (!pinos_buffer_iter_parse_format_change (&it, &p))
+          break;
+
+        if (priv->format)
+          g_bytes_unref (priv->format);
+        priv->format = g_bytes_new (p.format, strlen (p.format) + 1);
+        g_object_notify (G_OBJECT (stream), "format");
+        break;
+      }
+      case PINOS_PACKET_TYPE_STREAMING:
+      {
+        stream_set_state (stream, PINOS_STREAM_STATE_STREAMING, NULL);
+        break;
+      }
+      case PINOS_PACKET_TYPE_STOPPED:
+      {
+        unhandle_socket (stream);
+
+        g_clear_pointer (&priv->format, g_bytes_unref);
+        g_object_notify (G_OBJECT (stream), "format");
+
+        stream_set_state (stream, PINOS_STREAM_STATE_READY, NULL);
+        break;
+      }
+      case PINOS_PACKET_TYPE_HEADER:
+      {
+        break;
+      }
+      case PINOS_PACKET_TYPE_PROCESS_MEM:
+      {
+        break;
+      }
+      default:
+        g_warning ("unhandled packet %d", type);
+        break;
+    }
+  }
+  pinos_buffer_iter_end (&it);
+
+  return TRUE;
+}
+
+static gboolean
 on_socket_condition (GSocket      *socket,
                      GIOCondition  condition,
                      gpointer      user_data)
@@ -571,6 +661,8 @@ on_socket_condition (GSocket      *socket,
         g_clear_error (&error);
         return TRUE;
       }
+
+      parse_buffer (stream, buffer);
 
       priv->buffer = buffer;
       g_signal_emit (stream, signals[SIGNAL_NEW_BUFFER], 0, NULL);
@@ -841,18 +933,25 @@ static gboolean
 do_start (PinosStream *stream)
 {
   PinosStreamPrivate *priv = stream->priv;
+  PinosBufferBuilder builder;
+  PinosPacketFormatChange fc;
+  PinosBuffer pbuf;
+  GError *error = NULL;
 
   handle_socket (stream, priv->fd);
 
-  g_dbus_proxy_call (priv->channel,
-                     "Start",
-                     g_variant_new ("(s)",
-                       priv->format ? g_bytes_get_data (priv->format, NULL) : "ANY"),
-                     G_DBUS_CALL_FLAGS_NONE,
-                     -1,
-                     NULL, /* GCancellable *cancellable */
-                     on_stream_started,
-                     stream);
+  pinos_stream_buffer_builder_init (stream, &builder);
+  fc.id = 0;
+  fc.format = priv->format ? g_bytes_get_data (priv->format, NULL) : "ANY";
+  pinos_buffer_builder_add_format_change (&builder, &fc);
+  pinos_buffer_builder_add_empty (&builder, PINOS_PACKET_TYPE_START);
+  pinos_buffer_builder_end (&builder, &pbuf);
+
+  if (!pinos_io_write_buffer (priv->fd, &pbuf, &error)) {
+    g_warning ("stream %p: failed to read buffer: %s", stream, error->message);
+    g_clear_error (&error);
+  }
+  g_object_unref (stream);
 
   return FALSE;
 }
@@ -936,16 +1035,11 @@ call_failed:
 static gboolean
 do_stop (PinosStream *stream)
 {
-  PinosStreamPrivate *priv = stream->priv;
+  PinosBufferBuilder builder;
 
-  g_dbus_proxy_call (priv->channel,
-                     "Stop",
-                     g_variant_new ("()"),
-                     G_DBUS_CALL_FLAGS_NONE,
-                     -1,
-                     NULL,        /* GCancellable *cancellable */
-                     on_stream_stopped,
-                     stream);
+  pinos_stream_buffer_builder_init (stream, &builder);
+  pinos_buffer_builder_add_empty (&builder, PINOS_PACKET_TYPE_STOP);
+  g_object_unref (stream);
 
   return FALSE;
 }
@@ -1091,9 +1185,16 @@ pinos_stream_peek_buffer (PinosStream  *stream)
 void
 pinos_stream_buffer_builder_init (PinosStream  *stream, PinosBufferBuilder *builder)
 {
-  g_return_if_fail (PINOS_IS_STREAM (stream));
+  PinosStreamPrivate *priv;
 
-  pinos_buffer_builder_init (builder);
+  g_return_if_fail (PINOS_IS_STREAM (stream));
+  priv = stream->priv;
+
+  pinos_buffer_builder_init_into (builder,
+                                  priv->send_data,
+                                  MAX_BUFFER_SIZE,
+                                  priv->send_fds,
+                                  MAX_FDS);
 }
 
 /**

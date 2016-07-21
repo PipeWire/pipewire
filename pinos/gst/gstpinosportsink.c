@@ -40,9 +40,6 @@
 #include "gstpinosportsink.h"
 #include "gsttmpfileallocator.h"
 
-static GQuark fdids_quark;
-static GQuark orig_buffer_quark;
-
 GST_DEBUG_CATEGORY_STATIC (pinos_port_sink_debug);
 #define GST_CAT_DEFAULT pinos_port_sink_debug
 
@@ -82,9 +79,11 @@ on_received_buffer (PinosPort *port, PinosBuffer *pbuf, GError **error, gpointer
   PinosBufferIter it;
   PinosBufferBuilder b;
   gboolean have_out = FALSE;
+  guint8 buffer[1024];
+  gint fds[8];
 
   if (this->pinos_input) {
-    pinos_buffer_builder_init (&b);
+    pinos_buffer_builder_init_into (&b, buffer, 1024, fds, 8);
   }
 
   pinos_buffer_iter_init (&it, pbuf);
@@ -227,8 +226,9 @@ gst_pinos_port_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
     PinosBufferBuilder builder;
     PinosBuffer pbuf;
     PinosPacketFormatChange fc;
+    guint8 buffer[1024];
 
-    pinos_buffer_builder_init (&builder);
+    pinos_buffer_builder_init_into (&builder, buffer, 1024, NULL, 0);
     fc.id = 0;
     fc.format = cstr = gst_caps_to_string (caps);
     pinos_buffer_builder_add_format_change (&builder, &fc);
@@ -297,30 +297,37 @@ gst_pinos_port_sink_render_other (GstPinosPortSink * this, GstBuffer * buffer)
   PinosBuffer pbuf;
   PinosBufferBuilder builder;
   PinosPacketHeader hdr;
-  PinosPacketFDPayload p;
+  PinosPacketAddMem am;
+  PinosPacketProcessMem p;
+  PinosPacketRemoveMem rm;
   gboolean tmpfile = TRUE;
-  gint fd;
+  guint8 send_buffer[1024];
+  gint send_fds[8];
 
   hdr.flags = 0;
   hdr.seq = GST_BUFFER_OFFSET (buffer);
   hdr.pts = GST_BUFFER_PTS (buffer) + GST_ELEMENT_CAST (this)->base_time;
   hdr.dts_offset = 0;
 
-  pinos_buffer_builder_init (&builder);
+  pinos_buffer_builder_init_into (&builder, send_buffer, 1024, send_fds, 8);
   pinos_buffer_builder_add_header (&builder, &hdr);
 
   fdmem = gst_pinos_port_sink_get_fd_memory (this, buffer, &tmpfile);
-  fd = gst_fd_memory_get_fd (fdmem);
-  p.fd_index = pinos_buffer_builder_add_fd (&builder, fd);
-  p.id = pinos_fd_manager_get_id (this->fdmanager);
+  am.id = pinos_fd_manager_get_id (this->fdmanager);
+  am.fd_index = pinos_buffer_builder_add_fd (&builder, gst_fd_memory_get_fd (fdmem));
+  am.offset = 0;
+  am.size = fdmem->size;
+  p.id = am.id;
   p.offset = fdmem->offset;
   p.size = fdmem->size;
-  pinos_buffer_builder_add_fd_payload (&builder, &p);
+  rm.id = am.id;
+  pinos_buffer_builder_add_add_mem (&builder, &am);
+  pinos_buffer_builder_add_process_mem (&builder, &p);
+  pinos_buffer_builder_add_remove_mem (&builder, &rm);
+  pinos_buffer_builder_end (&builder, &pbuf);
 
   GST_LOG ("send %d %"G_GUINT64_FORMAT" %"G_GUINT64_FORMAT" %"G_GUINT64_FORMAT,
       p.id, hdr.pts, GST_BUFFER_PTS (buffer), GST_ELEMENT_CAST (this)->base_time);
-
-  pinos_buffer_builder_end (&builder, &pbuf);
 
   if (!pinos_port_send_buffer (this->port, &pbuf, &error)) {
     GST_WARNING ("send failed: %s", error->message);
@@ -382,9 +389,6 @@ gst_pinos_port_sink_class_init (GstPinosPortSinkClass * klass)
   gstbasesink_class->set_caps = gst_pinos_port_sink_setcaps;
   gstbasesink_class->propose_allocation = gst_pinos_port_sink_propose_allocation;
   gstbasesink_class->render = gst_pinos_port_sink_render;
-
-  fdids_quark = g_quark_from_static_string ("GstPinosPortSinkFDIds");
-  orig_buffer_quark = g_quark_from_static_string ("GstPinosPortSinkOrigBuffer");
 
   GST_DEBUG_CATEGORY_INIT (pinos_port_sink_debug, "pinosportsink", 0,
       "Pinos Socket Sink");

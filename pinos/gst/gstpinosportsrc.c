@@ -45,7 +45,7 @@
 #include <gst/video/video.h>
 
 
-static GQuark fdpayload_data_quark;
+static GQuark process_mem_data_quark;
 
 GST_DEBUG_CATEGORY_STATIC (pinos_port_src_debug);
 #define GST_CAT_DEFAULT pinos_port_src_debug
@@ -83,16 +83,16 @@ static gboolean gst_pinos_port_src_query (GstBaseSrc * src, GstQuery * query);
 
 typedef struct {
   GstPinosPortSrc *src;
-  PinosPacketFDPayload p;
-} FDPayloadData;
+  PinosPacketProcessMem p;
+} ProcessMemData;
 
 static void
-fdpayload_data_destroy (gpointer user_data)
+process_mem_data_destroy (gpointer user_data)
 {
-  FDPayloadData *data = user_data;
+  ProcessMemData *data = user_data;
   GstPinosPortSrc *this = data->src;
   PinosBufferBuilder b;
-  PinosPacketReleaseFDPayload r;
+  PinosPacketReuseMem r;
   PinosBuffer pbuf;
 
   r.id = data->p.id;
@@ -100,14 +100,14 @@ fdpayload_data_destroy (gpointer user_data)
   GST_DEBUG_OBJECT (this, "destroy %d", r.id);
 
   pinos_buffer_builder_init (&b);
-  pinos_buffer_builder_add_release_fd_payload (&b, &r);
+  pinos_buffer_builder_add_reuse_mem (&b, &r);
   pinos_buffer_builder_end (&b, &pbuf);
 
   pinos_port_send_buffer (this->port, &pbuf, NULL);
   pinos_buffer_unref (&pbuf);
 
   gst_object_unref (this);
-  g_slice_free (FDPayloadData, data);
+  g_slice_free (ProcessMemData, data);
 }
 
 static gboolean
@@ -145,33 +145,58 @@ on_received_buffer (PinosPort   *port,
         GST_BUFFER_OFFSET (buf) = hdr.seq;
         break;
       }
-      case PINOS_PACKET_TYPE_FD_PAYLOAD:
+      case PINOS_PACKET_TYPE_ADD_MEM:
       {
         GstMemory *fdmem = NULL;
-        FDPayloadData data;
+        PinosPacketAddMem p;
         int fd;
 
-        if (!pinos_buffer_iter_parse_fd_payload  (&it, &data.p))
+        if (!pinos_buffer_iter_parse_add_mem (&it, &p))
           break;
 
-        GST_DEBUG ("got fd payload id %d", data.p.id);
-        fd = pinos_buffer_get_fd (pbuf, data.p.fd_index);
+        fd = pinos_buffer_get_fd (pbuf, p.fd_index);
         if (fd == -1)
+          break;
+
+        fdmem = gst_fd_allocator_alloc (this->fd_allocator, dup (fd),
+                  p.offset + p.size, GST_FD_MEMORY_FLAG_NONE);
+        gst_memory_resize (fdmem, p.offset, p.size);
+
+        g_hash_table_insert (this->mem_ids, GINT_TO_POINTER (p.id), fdmem);
+        break;
+      }
+      case PINOS_PACKET_TYPE_REMOVE_MEM:
+      {
+        PinosPacketRemoveMem p;
+
+        if (!pinos_buffer_iter_parse_remove_mem (&it, &p))
+          break;
+
+        g_hash_table_remove (this->mem_ids, GINT_TO_POINTER (p.id));
+        break;
+      }
+      case PINOS_PACKET_TYPE_PROCESS_MEM:
+      {
+        GstMemory *fdmem = NULL;
+        ProcessMemData data;
+
+        if (!pinos_buffer_iter_parse_process_mem  (&it, &data.p))
+          break;
+
+        if (!(fdmem = g_hash_table_lookup (this->mem_ids, GINT_TO_POINTER (data.p.id))))
           break;
 
         if (buf == NULL)
           buf = gst_buffer_new ();
 
-        fdmem = gst_fd_allocator_alloc (this->fd_allocator, dup (fd),
-                  data.p.offset + data.p.size, GST_FD_MEMORY_FLAG_NONE);
-        gst_memory_resize (fdmem, data.p.offset, data.p.size);
+        fdmem = gst_memory_share (fdmem, data.p.offset, data.p.size);
         gst_buffer_append_memory (buf, fdmem);
 
         data.src = gst_object_ref (this);
         gst_mini_object_set_qdata (GST_MINI_OBJECT_CAST (fdmem),
-                                   fdpayload_data_quark,
-                                   g_slice_dup (FDPayloadData, &data),
-                                   fdpayload_data_destroy);
+                                   process_mem_data_quark,
+                                   g_slice_dup (ProcessMemData, &data),
+                                   process_mem_data_destroy);
         break;
       }
       case PINOS_PACKET_TYPE_FORMAT_CHANGE:
@@ -313,6 +338,7 @@ gst_pinos_port_src_finalize (GObject * object)
   g_object_unref (this->port);
   if (this->clock)
     gst_object_unref (this->clock);
+  g_hash_table_unref (this->mem_ids);
 
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }
@@ -363,7 +389,7 @@ gst_pinos_port_src_class_init (GstPinosPortSrcClass * klass)
   GST_DEBUG_CATEGORY_INIT (pinos_port_src_debug, "pinosportsrc", 0,
       "Pinos Source");
 
-  fdpayload_data_quark = g_quark_from_static_string ("GstPinosPortSrcFDPayloadQuark");
+  process_mem_data_quark = g_quark_from_static_string ("GstPinosPortSrcProcessMemQuark");
 }
 
 static void
@@ -378,6 +404,7 @@ gst_pinos_port_src_init (GstPinosPortSrc * src)
   g_queue_init (&src->queue);
 
   src->fd_allocator = gst_fd_allocator_new ();
+  src->mem_ids = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL, (GDestroyNotify) gst_memory_unref);
 }
 
 static void

@@ -67,6 +67,9 @@ gboolean              pinos_fd_manager_add           (PinosFdManager *manager,
 gboolean              pinos_fd_manager_remove        (PinosFdManager *manager,
                                                       const gchar *client,
                                                       guint32 id);
+gpointer              pinos_fd_manager_find          (PinosFdManager *manager,
+                                                      const gchar *client,
+                                                      guint32 id);
 gboolean              pinos_fd_manager_remove_all    (PinosFdManager *manager,
                                                       const gchar *client);
 

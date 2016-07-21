@@ -75,11 +75,16 @@ gint *             pinos_buffer_steal_fds        (PinosBuffer       *buffer,
  * @PINOS_PACKET_TYPE_INVALID: invalid packet type, ignore
  * @PINOS_PACKET_TYPE_CONTINUATION: continuation packet, used internally to send
  *      commands using a shared memory region.
+ * @PINOS_PACKET_TYPE_REGISTER_MEM: register memory region
+ * @PINOS_PACKET_TYPE_RELEASE_MEM: release memory region
+ * @PINOS_PACKET_TYPE_START: start transfer
+ * @PINOS_PACKET_TYPE_STOP: stop transfer
+ *
  * @PINOS_PACKET_TYPE_HEADER: common packet header
- * @PINOS_PACKET_TYPE_FD_PAYLOAD: packet contains fd-payload. An fd-payload contains
- *      the media data as a file descriptor
- * @PINOS_PACKET_TYPE_RELEASE_FD_PAYLOAD: packet contains release fd-payload. Notifies
- *      that a previously received fd-payload is no longer in use.
+ * @PINOS_PACKET_TYPE_PROCESS_MEM: packet contains mem-payload. An mem-payload contains
+ *      the media data as the index of a shared memory region
+ * @PINOS_PACKET_TYPE_REUSE_MEM: when a memory region has been consumed and is ready to
+ *      be reused.
  * @PINOS_PACKET_TYPE_FORMAT_CHANGE: a format change.
  * @PINOS_PACKET_TYPE_PROPERTY_CHANGE: one or more property changes.
  * @PINOS_PACKET_TYPE_REFRESH_REQUEST: ask for a new keyframe
@@ -89,13 +94,21 @@ gint *             pinos_buffer_steal_fds        (PinosBuffer       *buffer,
 typedef enum {
   PINOS_PACKET_TYPE_INVALID            = 0,
 
-  PINOS_PACKET_TYPE_CONTINUATION       = 1,
-  PINOS_PACKET_TYPE_HEADER             = 2,
-  PINOS_PACKET_TYPE_FD_PAYLOAD         = 3,
-  PINOS_PACKET_TYPE_RELEASE_FD_PAYLOAD = 4,
-  PINOS_PACKET_TYPE_FORMAT_CHANGE      = 5,
-  PINOS_PACKET_TYPE_PROPERTY_CHANGE    = 6,
-  PINOS_PACKET_TYPE_REFRESH_REQUEST    = 7,
+  PINOS_PACKET_TYPE_CONTINUATION,
+  PINOS_PACKET_TYPE_ADD_MEM,
+  PINOS_PACKET_TYPE_REMOVE_MEM,
+  PINOS_PACKET_TYPE_START,
+  PINOS_PACKET_TYPE_STREAMING,
+  PINOS_PACKET_TYPE_STOP,
+  PINOS_PACKET_TYPE_STOPPED,
+  PINOS_PACKET_TYPE_DRAIN,
+  PINOS_PACKET_TYPE_DRAINED,
+  PINOS_PACKET_TYPE_HEADER,
+  PINOS_PACKET_TYPE_PROCESS_MEM,
+  PINOS_PACKET_TYPE_REUSE_MEM,
+  PINOS_PACKET_TYPE_FORMAT_CHANGE,
+  PINOS_PACKET_TYPE_PROPERTY_CHANGE,
+  PINOS_PACKET_TYPE_REFRESH_REQUEST,
 } PinosPacketType;
 
 
@@ -139,8 +152,51 @@ void               pinos_buffer_builder_clear      (PinosBufferBuilder *builder)
 void               pinos_buffer_builder_end        (PinosBufferBuilder *builder,
                                                     PinosBuffer        *buffer);
 
+gboolean           pinos_buffer_builder_add_empty  (PinosBufferBuilder   *builder,
+                                                    PinosPacketType       type);
+
 gint               pinos_buffer_builder_add_fd     (PinosBufferBuilder *builder,
                                                     int                 fd);
+/* add-mem packets */
+/**
+ * PinosPacketAddMem:
+ * @id: the unique id of this memory block
+ * @type: the memory block type
+ * @fd_index: the index of the fd with the data
+ * @offset: the offset of the data
+ * @size: the size of the data
+ *
+ * A Packet that contains a memory block used for data transfer.
+ */
+typedef struct {
+  guint32 id;
+  guint32 type;
+  gint32 fd_index;
+  guint64 offset;
+  guint64 size;
+} PinosPacketAddMem;
+
+gboolean           pinos_buffer_iter_parse_add_mem      (PinosBufferIter      *iter,
+                                                         PinosPacketAddMem    *payload);
+gboolean           pinos_buffer_builder_add_add_mem     (PinosBufferBuilder   *builder,
+                                                         PinosPacketAddMem    *payload);
+
+/* remove-mem packets */
+/**
+ * PinosPacketRemoveMem:
+ * @id: the unique id of the memory block
+ *
+ * Remove a memory block.
+ */
+typedef struct {
+  guint32 id;
+} PinosPacketRemoveMem;
+
+gboolean           pinos_buffer_iter_parse_remove_mem   (PinosBufferIter      *iter,
+                                                         PinosPacketRemoveMem *payload);
+gboolean           pinos_buffer_builder_add_remove_mem  (PinosBufferBuilder   *builder,
+                                                         PinosPacketRemoveMem *payload);
+
 /* header packets */
 /**
  * PinosPacketHeader
@@ -159,15 +215,15 @@ typedef struct {
 } PinosPacketHeader;
 
 gboolean           pinos_buffer_iter_parse_header      (PinosBufferIter    *iter,
-                                                        PinosPacketHeader  *header);
+                                                        PinosPacketHeader  *payload);
 gboolean           pinos_buffer_builder_add_header     (PinosBufferBuilder *builder,
-                                                        PinosPacketHeader  *header);
+                                                        PinosPacketHeader  *payload);
 
-/* fd-payload packets */
+
+/* process-mem packets */
 /**
- * PinosPacketFDPayload:
- * @id: the unique id of this payload
- * @fd_index: the index of the fd with the data
+ * PinosPacketProcessMem:
+ * @id: the mem index to process
  * @offset: the offset of the data
  * @size: the size of the data
  *
@@ -176,31 +232,32 @@ gboolean           pinos_buffer_builder_add_header     (PinosBufferBuilder *buil
  */
 typedef struct {
   guint32 id;
-  gint32 fd_index;
   guint64 offset;
   guint64 size;
-} PinosPacketFDPayload;
+} PinosPacketProcessMem;
 
-gboolean           pinos_buffer_iter_parse_fd_payload   (PinosBufferIter      *iter,
-                                                         PinosPacketFDPayload *payload);
-gboolean           pinos_buffer_builder_add_fd_payload  (PinosBufferBuilder   *builder,
-                                                         PinosPacketFDPayload *payload);
+gboolean           pinos_buffer_iter_parse_process_mem  (PinosBufferIter       *iter,
+                                                         PinosPacketProcessMem *payload);
+gboolean           pinos_buffer_builder_add_process_mem (PinosBufferBuilder    *builder,
+                                                         PinosPacketProcessMem *payload);
 
-/* release fd-payload packets */
+/* reuse-mem packets */
 /**
- * PinosPacketReleaseFDPayload:
- * @id: the unique id of the fd-payload to release
+ * PinosPacketReuseMem:
+ * @id: the unique id of the memory block to reuse
  *
  * Release the payload with @id
  */
 typedef struct {
   guint32 id;
-} PinosPacketReleaseFDPayload;
+  guint64 offset;
+  guint64 size;
+} PinosPacketReuseMem;
 
-gboolean           pinos_buffer_iter_parse_release_fd_payload   (PinosBufferIter      *iter,
-                                                                 PinosPacketReleaseFDPayload *payload);
-gboolean           pinos_buffer_builder_add_release_fd_payload  (PinosBufferBuilder   *builder,
-                                                                 PinosPacketReleaseFDPayload *payload);
+gboolean           pinos_buffer_iter_parse_reuse_mem  (PinosBufferIter      *iter,
+                                                       PinosPacketReuseMem  *payload);
+gboolean           pinos_buffer_builder_add_reuse_mem (PinosBufferBuilder   *builder,
+                                                       PinosPacketReuseMem  *payload);
 
 
 /* format change packets */
@@ -216,9 +273,9 @@ typedef struct {
   const gchar *format;
 } PinosPacketFormatChange;
 
-gboolean           pinos_buffer_iter_parse_format_change   (PinosBufferIter      *iter,
+gboolean           pinos_buffer_iter_parse_format_change   (PinosBufferIter         *iter,
                                                             PinosPacketFormatChange *payload);
-gboolean           pinos_buffer_builder_add_format_change  (PinosBufferBuilder   *builder,
+gboolean           pinos_buffer_builder_add_format_change  (PinosBufferBuilder      *builder,
                                                             PinosPacketFormatChange *payload);
 
 
@@ -235,10 +292,10 @@ typedef struct {
   const gchar *value;
 } PinosPacketPropertyChange;
 
-gboolean           pinos_buffer_iter_parse_property_change  (PinosBufferIter      *iter,
-                                                             guint                 idx,
+gboolean           pinos_buffer_iter_parse_property_change  (PinosBufferIter           *iter,
+                                                             guint                      idx,
                                                              PinosPacketPropertyChange *payload);
-gboolean           pinos_buffer_builder_add_property_change (PinosBufferBuilder   *builder,
+gboolean           pinos_buffer_builder_add_property_change (PinosBufferBuilder        *builder,
                                                              PinosPacketPropertyChange *payload);
 
 /* refresh request packets */

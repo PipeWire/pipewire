@@ -619,7 +619,7 @@ pinos_port_create_channel (PinosPort       *port,
     return NULL;
 
   g_debug ("port %p: make channel with formats %s", port,
-      g_bytes_get_data (possible_formats, NULL));
+      (gchar *) g_bytes_get_data (possible_formats, NULL));
 
   channel = g_object_new (PINOS_TYPE_CHANNEL, "daemon", priv->daemon,
                                               "port", port,

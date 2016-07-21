@@ -115,12 +115,12 @@ gst_pinos_depay_sink_event (GstPad * pad, GstObject * parent, GstEvent * event)
 }
 
 static void
-release_fds (GstPinosDepay *this, GstBuffer *buffer)
+reuse_fds (GstPinosDepay *this, GstBuffer *buffer)
 {
   GArray *fdids;
   guint i;
   PinosBufferBuilder b;
-  PinosPacketReleaseFDPayload r;
+  PinosPacketReuseMem r;
   PinosBuffer pbuf;
   gsize size;
   gpointer data;
@@ -136,8 +136,8 @@ release_fds (GstPinosDepay *this, GstBuffer *buffer)
 
   for (i = 0; i < fdids->len; i++) {
     r.id = g_array_index (fdids, guint32, i);
-    GST_LOG ("release fd index %d", r.id);
-    pinos_buffer_builder_add_release_fd_payload (&b, &r);
+    GST_LOG ("reuse mem id %d", r.id);
+    pinos_buffer_builder_add_reuse_mem (&b, &r);
   }
   pinos_buffer_builder_end (&b, &pbuf);
   g_array_unref (fdids);
@@ -204,24 +204,52 @@ gst_pinos_depay_chain (GstPad *pad, GstObject * parent, GstBuffer * buffer)
         GST_BUFFER_OFFSET (outbuf) = hdr.seq;
         break;
       }
-      case PINOS_PACKET_TYPE_FD_PAYLOAD:
+      case PINOS_PACKET_TYPE_ADD_MEM:
       {
         GstMemory *fdmem = NULL;
-        PinosPacketFDPayload p;
+        PinosPacketAddMem p;
         int fd;
 
-        if (!pinos_buffer_iter_parse_fd_payload (&it, &p))
+        if (!pinos_buffer_iter_parse_add_mem (&it, &p))
           goto error;
+
         fd = g_unix_fd_list_get (fds, p.fd_index, &err);
         if (fd == -1)
+          goto error;
+
+        fdmem = gst_fd_allocator_alloc (depay->fd_allocator, fd,
+                  p.offset + p.size, GST_FD_MEMORY_FLAG_NONE);
+        gst_memory_resize (fdmem, p.offset, p.size);
+
+        g_hash_table_insert (depay->mem_ids, GINT_TO_POINTER (p.id), fdmem);
+        break;
+      }
+      case PINOS_PACKET_TYPE_REMOVE_MEM:
+      {
+        PinosPacketRemoveMem p;
+
+        if (!pinos_buffer_iter_parse_remove_mem (&it, &p))
+          goto error;
+
+        g_hash_table_remove (depay->mem_ids, GINT_TO_POINTER (p.id));
+        break;
+      }
+      case PINOS_PACKET_TYPE_PROCESS_MEM:
+      {
+        GstMemory *fdmem = NULL;
+        PinosPacketProcessMem p;
+
+        if (!pinos_buffer_iter_parse_process_mem (&it, &p))
+          goto error;
+
+        fdmem = g_hash_table_lookup (depay->mem_ids, GINT_TO_POINTER (p.id));
+        if (fdmem == NULL)
           goto error;
 
         if (outbuf == NULL)
           outbuf = gst_buffer_new ();
 
-        fdmem = gst_fd_allocator_alloc (depay->fd_allocator, fd,
-                  p.offset + p.size, GST_FD_MEMORY_FLAG_NONE);
-        gst_memory_resize (fdmem, p.offset, p.size);
+        fdmem = gst_memory_share (fdmem, p.offset, p.size);
         gst_buffer_append_memory (outbuf, fdmem);
 
         if (fdids == NULL)
@@ -261,7 +289,7 @@ gst_pinos_depay_chain (GstPad *pad, GstObject * parent, GstBuffer * buffer)
       gst_mini_object_set_qdata (GST_MINI_OBJECT_CAST (outbuf),
           fdids_quark, fdids, NULL);
       gst_mini_object_weak_ref (GST_MINI_OBJECT_CAST (outbuf),
-          (GstMiniObjectNotify) release_fds, g_object_ref (depay));
+          (GstMiniObjectNotify) reuse_fds, g_object_ref (depay));
     }
     return gst_pad_push (depay->srcpad, outbuf);
   }
@@ -326,6 +354,7 @@ gst_pinos_depay_finalize (GObject * object)
 
   gst_caps_replace (&depay->caps, NULL);
   g_object_unref (depay->fd_allocator);
+  g_hash_table_unref (depay->mem_ids);
 
   G_OBJECT_CLASS (gst_pinos_depay_parent_class)->finalize (object);
 }
@@ -376,4 +405,5 @@ gst_pinos_depay_init (GstPinosDepay * depay)
   gst_element_add_pad (GST_ELEMENT (depay), depay->sinkpad);
 
   depay->fd_allocator = gst_fd_allocator_new ();
+  depay->mem_ids = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL, (GDestroyNotify) gst_memory_unref);
 }

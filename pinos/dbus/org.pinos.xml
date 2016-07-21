@@ -62,6 +62,7 @@
     <method name='LinkNodes'>
       <arg type='o' name='src_node' direction='in' />
       <arg type='o' name='dest_node' direction='in' />
+      <arg type='s' name='format_filter' direction='in'/>
       <arg type='a{sv}' name='properties' direction='in'/>
       <arg type='o' name='link' direction='out' />
     </method>
@@ -114,23 +115,6 @@
     <!-- Format: the current streaming format -->
     <property name='Format' type='s' access='read' />
 
-    <!-- Start:
-         @requested_format: requested formats
-         @format: channel format
-         @properties: channel properties
-
-         Start the datatransfer on the channel with @requested_format.
-    -->
-    <method name='Start'>
-      <arg type='s' name='requested_format' direction='in'/>
-      <arg type='s' name='format' direction='out'/>
-      <arg type='a{sv}' name='properties' direction='out'/>
-    </method>
-    <!-- Stop:
-
-         Stop data transport on the channel
-    -->
-    <method name='Stop'/>
     <!-- Remove:
 
          Remove the channel

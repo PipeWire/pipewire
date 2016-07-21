@@ -202,6 +202,43 @@ wrong_object:
     return FALSE;
   }
 }
+/**
+ * pinos_fd_manager_find:
+ * @manager: a #PinosFdManager
+ * @client: a client id
+ * @id: an id
+ *
+ * find the object associated with the id and client from @manager.
+ *
+ * Returns: the object or %NULL
+ */
+gpointer
+pinos_fd_manager_find (PinosFdManager *manager,
+                       const gchar *client, guint32 id)
+{
+  PinosFdManagerPrivate *priv;
+  ObjectId *oid;
+  ClientIds *cids;
+
+  g_return_val_if_fail (PINOS_IS_FD_MANAGER (manager), FALSE);
+  g_return_val_if_fail (client != NULL, FALSE);
+
+  priv = manager->priv;
+
+  g_mutex_lock (&priv->lock);
+  oid = g_hash_table_lookup (priv->object_ids, GINT_TO_POINTER (id));
+  if (oid) {
+    cids = g_hash_table_lookup (priv->client_ids, client);
+    if (cids) {
+      GList *find = g_list_find (cids->ids, oid);
+      if (find)
+        return oid->obj;
+    }
+  }
+  g_mutex_unlock (&priv->lock);
+
+  return NULL;
+}
 
 /**
  * pinos_fd_manager_remove:

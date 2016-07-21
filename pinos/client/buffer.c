@@ -459,8 +459,8 @@ pinos_buffer_builder_init_full (PinosBufferBuilder       *builder,
     sb->buf.max_size = sizeof (PinosStackHeader) + 128;
     sb->buf.data = g_malloc (sb->buf.max_size);
     sb->buf.free_data = sb->buf.data;
-//    g_warning ("builder %p: realloc buffer memory %"G_GSIZE_FORMAT" -> %"G_GSIZE_FORMAT,
-//        builder, max_data, sb->buf.max_size);
+    g_warning ("builder %p: realloc buffer memory %"G_GSIZE_FORMAT" -> %"G_GSIZE_FORMAT,
+        builder, max_data, sb->buf.max_size);
   } else {
     sb->buf.max_size = max_data;
     sb->buf.data = data;
@@ -581,8 +581,8 @@ pinos_buffer_builder_add_fd (PinosBufferBuilder *builder,
 
   if (sb->buf.n_fds >= sb->buf.max_fds) {
     gint new_size = sb->buf.max_fds + 8;
-//    g_warning ("builder %p: realloc buffer fds %d -> %d",
-//        builder, sb->buf.max_fds, new_size);
+    g_warning ("builder %p: realloc buffer fds %d -> %d",
+        builder, sb->buf.max_fds, new_size);
     sb->buf.max_fds = new_size;
     sb->buf.free_fds = g_realloc (sb->buf.free_fds, new_size * sizeof (int));
     sb->buf.fds = sb->buf.free_fds;
@@ -599,8 +599,8 @@ builder_ensure_size (struct stack_builder *sb, gsize size)
 {
   if (sb->buf.size + size > sb->buf.max_size) {
     gsize new_size = sb->buf.size + MAX (size, 1024);
-//    g_warning ("builder %p: realloc buffer memory %"G_GSIZE_FORMAT" -> %"G_GSIZE_FORMAT,
-//        sb, sb->buf.max_size, new_size);
+    g_warning ("builder %p: realloc buffer memory %"G_GSIZE_FORMAT" -> %"G_GSIZE_FORMAT,
+        sb, sb->buf.max_size, new_size);
     sb->buf.max_size = new_size;
     sb->buf.free_data = g_realloc (sb->buf.free_data, new_size);
     sb->sh = sb->buf.data = sb->buf.free_data;
@@ -634,20 +634,144 @@ builder_add_packet (struct stack_builder *sb, PinosPacketType type, gsize size)
   return p;
 }
 
+/**
+ * pinos_buffer_builder_add_empty:
+ * @builder: a #PinosBufferBuilder
+ * @type: a #PinosPacketType
+ *
+ * Add an empty packet of @type.
+ *
+ * Returns: %TRUE on success.
+ */
+gboolean
+pinos_buffer_builder_add_empty (PinosBufferBuilder *builder,
+                                PinosPacketType     type)
+{
+  struct stack_builder *sb = PPSB (builder);
+
+  g_return_val_if_fail (is_valid_builder (builder), FALSE);
+
+  builder_add_packet (sb, type, 0);
+
+  return TRUE;
+}
+
+/**
+ * pinos_buffer_iter_parse_add_mem:
+ * @iter: a #PinosBufferIter
+ * @payload: a #PinosPacketAddMem
+ *
+ * Get the #PinosPacketAddMem. @iter must be positioned on a packet of
+ * type #PINOS_PACKET_TYPE_ADD_MEM
+ *
+ * Returns: %TRUE if @payload contains valid data.
+ */
+gboolean
+pinos_buffer_iter_parse_add_mem (PinosBufferIter *iter,
+                                 PinosPacketAddMem *payload)
+{
+  struct stack_iter *si = PPSI (iter);
+
+  g_return_val_if_fail (is_valid_iter (iter), FALSE);
+  g_return_val_if_fail (si->type == PINOS_PACKET_TYPE_ADD_MEM, FALSE);
+
+  if (si->size < sizeof (PinosPacketAddMem))
+    return FALSE;
+
+  memcpy (payload, si->data, sizeof (*payload));
+
+  return TRUE;
+}
+
+/**
+ * pinos_buffer_builder_add_add_mem:
+ * @builder: a #PinosBufferBuilder
+ * @payload: a #PinosPacketAddMem
+ *
+ * Add a #PINOS_PACKET_TYPE_ADD_MEM to @builder with data from @payload.
+ *
+ * Returns: %TRUE on success.
+ */
+gboolean
+pinos_buffer_builder_add_add_mem (PinosBufferBuilder *builder,
+                                  PinosPacketAddMem *payload)
+{
+  struct stack_builder *sb = PPSB (builder);
+  PinosPacketAddMem *p;
+
+  g_return_val_if_fail (is_valid_builder (builder), FALSE);
+
+  p = builder_add_packet (sb, PINOS_PACKET_TYPE_ADD_MEM, sizeof (PinosPacketAddMem));
+  memcpy (p, payload, sizeof (*payload));
+
+  return TRUE;
+}
+
+/**
+ * pinos_buffer_iter_parse_remove_mem:
+ * @iter: a #PinosBufferIter
+ * @payload: a #PinosPacketRemoveMem
+ *
+ * Get the #PinosPacketRemoveMem. @iter must be positioned on a packet of
+ * type #PINOS_PACKET_TYPE_REMOVE_MEM
+ *
+ * Returns: %TRUE if @payload contains valid data.
+ */
+gboolean
+pinos_buffer_iter_parse_remove_mem (PinosBufferIter *iter,
+                                    PinosPacketRemoveMem *payload)
+{
+  struct stack_iter *si = PPSI (iter);
+
+  g_return_val_if_fail (is_valid_iter (iter), FALSE);
+  g_return_val_if_fail (si->type == PINOS_PACKET_TYPE_REMOVE_MEM, FALSE);
+
+  if (si->size < sizeof (PinosPacketRemoveMem))
+    return FALSE;
+
+  memcpy (payload, si->data, sizeof (*payload));
+
+  return TRUE;
+}
+
+/**
+ * pinos_buffer_builder_add_remove_mem:
+ * @builder: a #PinosBufferBuilder
+ * @payload: a #PinosPacketRemoveMem
+ *
+ * Add a #PINOS_PACKET_TYPE_REMOVE_MEM to @builder with data from @payload.
+ *
+ * Returns: %TRUE on success.
+ */
+gboolean
+pinos_buffer_builder_add_remove_mem (PinosBufferBuilder *builder,
+                                     PinosPacketRemoveMem *payload)
+{
+  struct stack_builder *sb = PPSB (builder);
+  PinosPacketRemoveMem *p;
+
+  g_return_val_if_fail (is_valid_builder (builder), FALSE);
+
+  p = builder_add_packet (sb, PINOS_PACKET_TYPE_REMOVE_MEM, sizeof (PinosPacketRemoveMem));
+  memcpy (p, payload, sizeof (*payload));
+
+  return TRUE;
+}
+
 /* header packets */
 /**
- * pinos_buffer_iter_get_header:
+ * pinos_buffer_iter_parse_header:
  * @iter: a #PinosBufferIter
- * @header: a #PinosPacketHeader
+ * @payload: a #PinosPacketHeader
  *
  * Get the #PinosPacketHeader. @iter must be positioned on a packet of
  * type #PINOS_PACKET_TYPE_HEADER
  *
- * Returns: %TRUE if @header contains valid data.
+ * Returns: %TRUE if @payload contains valid data.
  */
 gboolean
 pinos_buffer_iter_parse_header (PinosBufferIter *iter,
-                                PinosPacketHeader *header)
+                                PinosPacketHeader *payload)
 {
   struct stack_iter *si = PPSI (iter);
 
@@ -657,7 +781,7 @@ pinos_buffer_iter_parse_header (PinosBufferIter *iter,
   if (si->size < sizeof (PinosPacketHeader))
     return FALSE;
 
-  memcpy (header, si->data, sizeof (*header));
+  memcpy (payload, si->data, sizeof (*payload));
 
   return TRUE;
 }
@@ -665,48 +789,48 @@ pinos_buffer_iter_parse_header (PinosBufferIter *iter,
 /**
  * pinos_buffer_builder_add_header:
  * @builder: a #PinosBufferBuilder
- * @header: a #PinosPacketHeader
+ * @payload: a #PinosPacketHeader
  *
- * Add a #PINOS_PACKET_TYPE_HEADER to @builder with data from @header.
+ * Add a #PINOS_PACKET_TYPE_HEADER to @builder with data from @payload.
  *
  * Returns: %TRUE on success.
  */
 gboolean
 pinos_buffer_builder_add_header (PinosBufferBuilder *builder,
-                                 PinosPacketHeader *header)
+                                 PinosPacketHeader *payload)
 {
   struct stack_builder *sb = PPSB (builder);
-  PinosPacketHeader *h;
+  PinosPacketHeader *p;
 
   g_return_val_if_fail (is_valid_builder (builder), FALSE);
 
-  h = builder_add_packet (sb, PINOS_PACKET_TYPE_HEADER, sizeof (PinosPacketHeader));
-  memcpy (h, header, sizeof (*header));
+  p = builder_add_packet (sb, PINOS_PACKET_TYPE_HEADER, sizeof (PinosPacketHeader));
+  memcpy (p, payload, sizeof (*payload));
 
   return TRUE;
 }
 
-/* fd-payload packets */
+/* process-mem packets */
 /**
- * pinos_buffer_iter_get_fd_payload:
+ * pinos_buffer_iter_parse_process_mem:
  * @iter: a #PinosBufferIter
- * @payload: a #PinosPacketFDPayload
+ * @payload: a #PinosPacketProcessMem
  *
- * Get the #PinosPacketFDPayload. @iter must be positioned on a packet of
- * type #PINOS_PACKET_TYPE_FD_PAYLOAD
+ * Get the #PinosPacketProcessMem. @iter must be positioned on a packet of
+ * type #PINOS_PACKET_TYPE_PROCESS_MEM
  *
  * Returns: %TRUE if @payload contains valid data.
  */
 gboolean
-pinos_buffer_iter_parse_fd_payload (PinosBufferIter *iter,
-                                    PinosPacketFDPayload *payload)
+pinos_buffer_iter_parse_process_mem (PinosBufferIter *iter,
+                                     PinosPacketProcessMem *payload)
 {
   struct stack_iter *si = PPSI (iter);
 
   g_return_val_if_fail (is_valid_iter (iter), FALSE);
-  g_return_val_if_fail (si->type == PINOS_PACKET_TYPE_FD_PAYLOAD, FALSE);
+  g_return_val_if_fail (si->type == PINOS_PACKET_TYPE_PROCESS_MEM, FALSE);
 
-  if (si->size < sizeof (PinosPacketFDPayload))
+  if (si->size < sizeof (PinosPacketProcessMem))
     return FALSE;
 
   memcpy (payload, si->data, sizeof (*payload));
@@ -715,49 +839,49 @@ pinos_buffer_iter_parse_fd_payload (PinosBufferIter *iter,
 }
 
 /**
- * pinos_buffer_builder_add_fd_payload:
+ * pinos_buffer_builder_add_process_mem:
  * @builder: a #PinosBufferBuilder
- * @payload: a #PinosPacketFDPayload
+ * @payload: a #PinosPacketProcessMem
  *
- * Add a #PINOS_PACKET_TYPE_FD_PAYLOAD to @builder with data from @payload.
+ * Add a #PINOS_PACKET_TYPE_PROCESS_MEM to @builder with data from @payload.
  *
  * Returns: %TRUE on success.
  */
 gboolean
-pinos_buffer_builder_add_fd_payload (PinosBufferBuilder *builder,
-                                     PinosPacketFDPayload *payload)
+pinos_buffer_builder_add_process_mem (PinosBufferBuilder *builder,
+                                      PinosPacketProcessMem *payload)
 {
   struct stack_builder *sb = PPSB (builder);
-  PinosPacketFDPayload *p;
+  PinosPacketProcessMem *p;
 
   g_return_val_if_fail (is_valid_builder (builder), FALSE);
   g_return_val_if_fail (payload->size > 0, FALSE);
 
-  p = builder_add_packet (sb, PINOS_PACKET_TYPE_FD_PAYLOAD, sizeof (PinosPacketFDPayload));
+  p = builder_add_packet (sb, PINOS_PACKET_TYPE_PROCESS_MEM, sizeof (PinosPacketProcessMem));
   memcpy (p, payload, sizeof (*payload));
 
   return TRUE;
 }
 
 /**
- * pinos_buffer_iter_parse_release_fd_payload:
+ * pinos_buffer_iter_parse_reuse_mem:
  * @iter: a #PinosBufferIter
- * @payload: a #PinosPacketReleaseFDPayload
+ * @payload: a #PinosPacketReuseMem
  *
- * Parse a #PINOS_PACKET_TYPE_RELEASE_FD_PAYLOAD packet from @iter into @payload.
+ * Parse a #PINOS_PACKET_TYPE_REUSE_MEM packet from @iter into @payload.
  *
  * Returns: %TRUE on success
  */
 gboolean
-pinos_buffer_iter_parse_release_fd_payload (PinosBufferIter      *iter,
-                                            PinosPacketReleaseFDPayload *payload)
+pinos_buffer_iter_parse_reuse_mem (PinosBufferIter      *iter,
+                                   PinosPacketReuseMem *payload)
 {
   struct stack_iter *si = PPSI (iter);
 
   g_return_val_if_fail (is_valid_iter (iter), FALSE);
-  g_return_val_if_fail (si->type == PINOS_PACKET_TYPE_RELEASE_FD_PAYLOAD, FALSE);
+  g_return_val_if_fail (si->type == PINOS_PACKET_TYPE_REUSE_MEM, FALSE);
 
-  if (si->size < sizeof (PinosPacketReleaseFDPayload))
+  if (si->size < sizeof (PinosPacketReuseMem))
     return FALSE;
 
   memcpy (payload, si->data, sizeof (*payload));
@@ -766,26 +890,26 @@ pinos_buffer_iter_parse_release_fd_payload (PinosBufferIter      *iter,
 }
 
 /**
- * pinos_buffer_builder_add_release_fd_payload:
+ * pinos_buffer_builder_add_reuse_mem:
  * @builder: a #PinosBufferBuilder
- * @payload: a #PinosPacketReleaseFDPayload
+ * @payload: a #PinosPacketReuseMem
  *
- * Add a #PINOS_PACKET_TYPE_RELEASE_FD_PAYLOAD payload in @payload to @builder.
+ * Add a #PINOS_PACKET_TYPE_REUSE_MEM payload in @payload to @builder.
  *
  * Returns: %TRUE on success
  */
 gboolean
-pinos_buffer_builder_add_release_fd_payload (PinosBufferBuilder   *builder,
-                                             PinosPacketReleaseFDPayload *payload)
+pinos_buffer_builder_add_reuse_mem (PinosBufferBuilder   *builder,
+                                    PinosPacketReuseMem *payload)
 {
   struct stack_builder *sb = PPSB (builder);
-  PinosPacketReleaseFDPayload *p;
+  PinosPacketReuseMem *p;
 
   g_return_val_if_fail (is_valid_builder (builder), FALSE);
 
   p = builder_add_packet (sb,
-                          PINOS_PACKET_TYPE_RELEASE_FD_PAYLOAD,
-                          sizeof (PinosPacketReleaseFDPayload));
+                          PINOS_PACKET_TYPE_REUSE_MEM,
+                          sizeof (PinosPacketReuseMem));
   memcpy (p, payload, sizeof (*payload));
 
   return TRUE;

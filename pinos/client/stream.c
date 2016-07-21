@@ -875,60 +875,6 @@ pinos_stream_connect (PinosStream      *stream,
   return TRUE;
 }
 
-static void
-on_stream_started (GObject      *source_object,
-                   GAsyncResult *res,
-                   gpointer      user_data)
-{
-  PinosStream *stream = user_data;
-  PinosStreamPrivate *priv = stream->priv;
-  gchar *format;
-  GError *error = NULL;
-  GVariant *result, *properties;
-
-  result = g_dbus_proxy_call_finish (priv->channel,
-                                     res,
-                                     &error);
-  if (result == NULL)
-    goto start_failed;
-
-  g_variant_get (result,
-                 "(s@a{sv})",
-                 &format,
-                 &properties);
-
-  g_variant_unref (result);
-
-  if (priv->format)
-    g_bytes_unref (priv->format);
-  priv->format = g_bytes_new_take (format, strlen (format) + 1);
-  g_object_notify (G_OBJECT (stream), "format");
-
-  if (priv->properties)
-    pinos_properties_free (priv->properties);
-  priv->properties = pinos_properties_from_variant (properties);
-  g_variant_unref (properties);
-  g_object_notify (G_OBJECT (stream), "properties");
-
-  stream_set_state (stream, PINOS_STREAM_STATE_STREAMING, NULL);
-  g_object_unref (stream);
-
-  return;
-
-  /* ERRORS */
-start_failed:
-  {
-    g_warning ("failed to start: %s", error->message);
-    goto exit_error;
-  }
-exit_error:
-  {
-    stream_set_state (stream, PINOS_STREAM_STATE_ERROR, error);
-    g_object_unref (stream);
-    return;
-  }
-}
-
 static gboolean
 do_start (PinosStream *stream)
 {
@@ -995,41 +941,6 @@ pinos_stream_start (PinosStream     *stream,
                          g_object_ref (stream));
 
   return TRUE;
-}
-
-static void
-on_stream_stopped (GObject      *source_object,
-                   GAsyncResult *res,
-                   gpointer      user_data)
-{
-  PinosStream *stream = user_data;
-  PinosStreamPrivate *priv = stream->priv;
-  GVariant *ret;
-  GError *error = NULL;
-
-  ret = g_dbus_proxy_call_finish (priv->channel, res, &error);
-  if (ret == NULL)
-    goto call_failed;
-
-  g_variant_unref (ret);
-
-  unhandle_socket (stream);
-  g_clear_pointer (&priv->format, g_bytes_unref);
-  g_object_notify (G_OBJECT (stream), "format");
-
-  stream_set_state (stream, PINOS_STREAM_STATE_READY, NULL);
-  g_object_unref (stream);
-
-  return;
-
-  /* ERRORS */
-call_failed:
-  {
-    g_warning ("failed to stop: %s", error->message);
-    stream_set_state (stream, PINOS_STREAM_STATE_ERROR, error);
-    g_object_unref (stream);
-    return;
-  }
 }
 
 static gboolean

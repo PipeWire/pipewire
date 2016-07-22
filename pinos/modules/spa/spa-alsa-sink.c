@@ -54,9 +54,8 @@ static SpaResult
 make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char *name)
 {
   SpaResult res;
-  void *hnd, *state;
+  void *hnd, *state = NULL;
   SpaEnumHandleFactoryFunc enum_func;
-  unsigned int i;
 
   if ((hnd = dlopen (lib, RTLD_NOW)) == NULL) {
     g_error ("can't load %s: %s", lib, dlerror());
@@ -67,11 +66,11 @@ make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char
     return SPA_RESULT_ERROR;
   }
 
-  for (i = 0; ;i++) {
+  while (true) {
     const SpaHandleFactory *factory;
     const void *iface;
 
-    if ((res = enum_func (i, &factory)) < 0) {
+    if ((res = enum_func (&factory, &state)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
         g_error ("can't enumerate factories: %d", res);
       break;
@@ -222,7 +221,6 @@ set_state (PinosNode      *node,
            PinosNodeState  state)
 {
   PinosSpaAlsaSink *this = PINOS_SPA_ALSA_SINK (node);
-  PinosSpaAlsaSinkPrivate *priv = this->priv;
 
   g_debug ("spa-alsa-sink %p: set state %s", node, pinos_node_state_as_string (state));
 
@@ -254,9 +252,6 @@ get_property (GObject    *object,
               GValue     *value,
               GParamSpec *pspec)
 {
-  PinosSpaAlsaSink *sink = PINOS_SPA_ALSA_SINK (object);
-  PinosSpaAlsaSinkPrivate *priv = sink->priv;
-
   switch (prop_id) {
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -270,9 +265,6 @@ set_property (GObject      *object,
               const GValue *value,
               GParamSpec   *pspec)
 {
-  PinosSpaAlsaSink *sink = PINOS_SPA_ALSA_SINK (object);
-  PinosSpaAlsaSinkPrivate *priv = sink->priv;
-
   switch (prop_id) {
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -314,8 +306,9 @@ negotiate_formats (PinosSpaAlsaSink *this)
   SpaProps *props;
   uint32_t val;
   SpaPropValue value;
+  void *state = NULL;
 
-  if ((res = priv->sink_node->port_enum_formats (priv->sink, 0, 0, &format)) < 0)
+  if ((res = priv->sink_node->port_enum_formats (priv->sink, 0, &format, NULL, &state)) < 0)
     return res;
 
   props = &format->props;
@@ -448,8 +441,6 @@ static void
 sink_constructed (GObject * object)
 {
   PinosServerNode *node = PINOS_SERVER_NODE (object);
-  PinosSpaAlsaSink *sink = PINOS_SPA_ALSA_SINK (object);
-  PinosSpaAlsaSinkPrivate *priv = sink->priv;
 
   G_OBJECT_CLASS (pinos_spa_alsa_sink_parent_class)->constructed (object);
 

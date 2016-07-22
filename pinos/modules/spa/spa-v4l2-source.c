@@ -73,9 +73,8 @@ static SpaResult
 make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char *name)
 {
   SpaResult res;
-  void *hnd;
+  void *hnd, *state = NULL;
   SpaEnumHandleFactoryFunc enum_func;
-  unsigned int i;
 
   if ((hnd = dlopen (lib, RTLD_NOW)) == NULL) {
     g_error ("can't load %s: %s", lib, dlerror());
@@ -86,11 +85,11 @@ make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char
     return SPA_RESULT_ERROR;
   }
 
-  for (i = 0; ;i++) {
+  while (true) {
     const SpaHandleFactory *factory;
     const void *iface;
 
-    if ((res = enum_func (i, &factory)) < 0) {
+    if ((res = enum_func (&factory, &state)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
         g_error ("can't enumerate factories: %d", res);
       break;
@@ -279,9 +278,11 @@ negotiate_formats (PinosSpaV4l2Source *this)
   SpaProps *props;
   uint32_t val;
   SpaPropValue value;
+  void *state = NULL;
   SpaFraction frac;
+  SpaRectangle rect;
 
-  if ((res = priv->source_node->port_enum_formats (priv->source, 0, 0, &format)) < 0)
+  if ((res = priv->source_node->port_enum_formats (priv->source, 0, &format, NULL, &state)) < 0)
     return res;
 
   props = &format->props;
@@ -293,17 +294,18 @@ negotiate_formats (PinosSpaV4l2Source *this)
   val = SPA_VIDEO_FORMAT_YUY2;
   if ((res = props->set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_FORMAT), &value)) < 0)
     return res;
-  val = 320;
-  if ((res = props->set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_WIDTH), &value)) < 0)
-    return res;
-  val = 240;
-  if ((res = props->set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_HEIGHT), &value)) < 0)
+
+  value.type = SPA_PROP_TYPE_RECTANGLE;
+  value.size = sizeof (SpaRectangle);
+  value.value = &rect;
+  rect.width = 320;
+  rect.height = 240;
+  if ((res = props->set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_SIZE), &value)) < 0)
     return res;
 
   value.type = SPA_PROP_TYPE_FRACTION;
   value.size = sizeof (SpaFraction);
   value.value = &frac;
-
   frac.num = 25;
   frac.denom = 1;
   if ((res = props->set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_FRAMERATE), &value)) < 0)

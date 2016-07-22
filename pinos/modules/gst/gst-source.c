@@ -31,6 +31,7 @@
 typedef struct {
   PinosGstSource *source;
 
+  guint id;
   PinosPort *port;
 
   GstElement *convert;
@@ -430,9 +431,9 @@ free_source_port_data (SourcePortData *data)
   g_slice_free (SourcePortData, data);
 }
 
-static void
+static gboolean
 remove_port (PinosNode       *node,
-             PinosPort       *port)
+             guint            id)
 {
   PinosGstSource *source = PINOS_GST_SOURCE (node);
   PinosGstSourcePrivate *priv = source->priv;
@@ -441,7 +442,7 @@ remove_port (PinosNode       *node,
   for (walk = priv->ports; walk; walk = g_list_next (walk)) {
     SourcePortData *data = walk->data;
 
-    if (data->port == PINOS_PORT_CAST (port)) {
+    if (data->id == id) {
       free_source_port_data (data);
       priv->ports = g_list_delete_link (priv->ports, walk);
       break;
@@ -449,6 +450,8 @@ remove_port (PinosNode       *node,
   }
   if (priv->ports == NULL)
     pinos_node_report_idle (node);
+
+  return TRUE;
 }
 
 static void
@@ -550,6 +553,7 @@ create_best_element (GstCaps *caps)
 static PinosPort *
 add_port (PinosNode       *node,
           PinosDirection   direction,
+          guint            id,
           GError         **error)
 {
   PinosGstSource *source = PINOS_GST_SOURCE (node);
@@ -573,9 +577,9 @@ add_port (PinosNode       *node,
 
   data = g_slice_new0 (SourcePortData);
   data->source = source;
-
+  data->id = id;
   data->port = PINOS_NODE_CLASS (pinos_gst_source_parent_class)
-                ->add_port (node, direction, error);
+                ->add_port (node, direction, id, error);
 
   g_debug ("connecting signals");
   g_signal_connect (data->port, "activate", (GCallback) on_activate, data);

@@ -62,6 +62,11 @@ struct _PinosLinkClass {
 /* normal GObject stuff */
 GType               pinos_link_get_type             (void);
 
+PinosLink *         pinos_link_new                  (PinosDaemon *daemon,
+                                                     PinosPort   *output,
+                                                     PinosPort   *input,
+                                                     GBytes      *format_filter);
+
 void                pinos_link_remove               (PinosLink *link);
 
 GBytes *            pinos_link_get_possible_formats (PinosLink *link);

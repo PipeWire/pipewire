@@ -48,7 +48,7 @@ struct _PinosPortPrivate
 {
   PinosDaemon *daemon;
 
-  gulong id;
+  guint id;
 
   PinosNode *node;
   PinosDirection direction;
@@ -75,6 +75,7 @@ enum
   PROP_DAEMON,
   PROP_NODE,
   PROP_DIRECTION,
+  PROP_ID,
   PROP_POSSIBLE_FORMATS,
   PROP_FORMAT,
   PROP_PROPERTIES,
@@ -183,6 +184,10 @@ pinos_port_get_property (GObject    *_object,
       g_value_set_enum (value, priv->direction);
       break;
 
+    case PROP_ID:
+      g_value_set_uint (value, priv->id);
+      break;
+
     case PROP_POSSIBLE_FORMATS:
       g_value_set_boxed (value, priv->possible_formats);
       break;
@@ -221,6 +226,10 @@ pinos_port_set_property (GObject      *_object,
 
     case PROP_DIRECTION:
       priv->direction = g_value_get_enum (value);
+      break;
+
+    case PROP_ID:
+      priv->id = g_value_get_uint (value);
       break;
 
     case PROP_POSSIBLE_FORMATS:
@@ -336,6 +345,17 @@ pinos_port_class_init (PinosPortClass * klass)
                                                       G_PARAM_READWRITE |
                                                       G_PARAM_CONSTRUCT_ONLY |
                                                       G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (gobject_class,
+                                   PROP_ID,
+                                   g_param_spec_uint ("id",
+                                                      "Id",
+                                                      "The id of the port",
+                                                      0,
+                                                      G_MAXUINT,
+                                                      0,
+                                                      G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY |
+                                                      G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class,
                                    PROP_POSSIBLE_FORMATS,
@@ -364,7 +384,7 @@ pinos_port_class_init (PinosPortClass * klass)
                                                        "The properties of the port",
                                                        PINOS_TYPE_PROPERTIES,
                                                        G_PARAM_READWRITE |
-                                                       G_PARAM_CONSTRUCT_ONLY |
+                                                       G_PARAM_CONSTRUCT |
                                                        G_PARAM_STATIC_STRINGS));
 
 
@@ -471,6 +491,25 @@ pinos_port_get_direction (PinosPort *port)
   priv = port->priv;
 
   return priv->direction;
+}
+
+/**
+ * pinos_port_get_id:
+ * @port: a #PinosPort
+ *
+ * Get the id of @port
+ *
+ * Returns: the id or %NULL
+ */
+guint
+pinos_port_get_id (PinosPort *port)
+{
+  PinosPortPrivate *priv;
+
+  g_return_val_if_fail (PINOS_IS_PORT (port), -1);
+  priv = port->priv;
+
+  return priv->id;
 }
 
 /**

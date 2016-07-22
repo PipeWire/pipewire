@@ -53,7 +53,7 @@ struct _PinosStreamPrivate
 
   GBytes *format;
 
-  GDBusProxy *channel;
+  GDBusProxy *node;
   gboolean disconnecting;
 
   PinosStreamMode mode;
@@ -215,7 +215,7 @@ subscription_cb (PinosSubscribe         *subscribe,
   switch (flags) {
     case PINOS_SUBSCRIPTION_FLAG_CHANNEL:
       if (event == PINOS_SUBSCRIPTION_EVENT_REMOVE) {
-        if (object == priv->channel && !priv->disconnecting) {
+        if (object == priv->node && !priv->disconnecting) {
           stream_set_state (stream,
                             PINOS_STREAM_STATE_ERROR,
                             g_error_new_literal (G_IO_ERROR,
@@ -252,7 +252,7 @@ pinos_stream_finalize (GObject * object)
 
   g_debug ("free stream %p", stream);
 
-  g_clear_object (&priv->channel);
+  g_clear_object (&priv->node);
 
   if (priv->possible_formats)
     g_bytes_unref (priv->possible_formats);
@@ -488,71 +488,6 @@ pinos_stream_get_error (PinosStream *stream)
 }
 
 
-static void
-on_channel_proxy (GObject      *source_object,
-                  GAsyncResult *res,
-                  gpointer      user_data)
-{
-  PinosStream *stream = user_data;
-  PinosStreamPrivate *priv = stream->priv;
-  PinosContext *context = priv->context;
-  GVariant *v;
-  gchar *str;
-  GError *error = NULL;
-
-  priv->channel = pinos_subscribe_get_proxy_finish (context->priv->subscribe,
-                                                    res,
-                                                    &error);
-  if (priv->channel == NULL)
-    goto channel_failed;
-
-  /* get the port we are connected to */
-  v = g_dbus_proxy_get_cached_property (priv->channel, "Port");
-  if (v) {
-    gsize len;
-    str = g_variant_dup_string (v, &len);
-    g_variant_unref (v);
-
-    g_free (priv->path);
-    priv->path = str;
-  }
-
-  v = g_dbus_proxy_get_cached_property (priv->channel, "PossibleFormats");
-  if (v) {
-    gsize len;
-    str = g_variant_dup_string (v, &len);
-    g_variant_unref (v);
-
-    if (priv->possible_formats)
-      g_bytes_unref (priv->possible_formats);
-    priv->possible_formats = g_bytes_new_take (str, len + 1);
-
-    g_object_notify (G_OBJECT (stream), "possible-formats");
-  }
-  v = g_dbus_proxy_get_cached_property (priv->channel, "Properties");
-  if (v) {
-    if (priv->properties)
-      pinos_properties_free (priv->properties);
-    priv->properties = pinos_properties_from_variant (v);
-    g_variant_unref (v);
-
-    g_object_notify (G_OBJECT (stream), "properties");
-  }
-
-  stream_set_state (stream, PINOS_STREAM_STATE_READY, NULL);
-  g_object_unref (stream);
-
-  return;
-
-channel_failed:
-  {
-    g_warning ("failed to get channel proxy: %s", error->message);
-    stream_set_state (stream, PINOS_STREAM_STATE_ERROR, error);
-    g_object_unref (stream);
-    return;
-  }
-}
-
 static gboolean
 parse_buffer (PinosStream *stream,
               PinosBuffer *pbuf)
@@ -745,16 +680,46 @@ unhandle_socket (PinosStream *stream)
 
 
 static void
-on_channel_created (GObject      *source_object,
-                    GAsyncResult *res,
-                    gpointer      user_data)
+on_node_proxy (GObject      *source_object,
+               GAsyncResult *res,
+               gpointer      user_data)
+{
+  PinosStream *stream = user_data;
+  PinosStreamPrivate *priv = stream->priv;
+  PinosContext *context = priv->context;
+  GError *error = NULL;
+
+  priv->node = pinos_subscribe_get_proxy_finish (context->priv->subscribe,
+                                                 res,
+                                                 &error);
+  if (priv->node == NULL)
+    goto node_failed;
+
+  stream_set_state (stream, PINOS_STREAM_STATE_READY, NULL);
+  g_object_unref (stream);
+
+  return;
+
+node_failed:
+  {
+    g_warning ("failed to get node proxy: %s", error->message);
+    stream_set_state (stream, PINOS_STREAM_STATE_ERROR, error);
+    g_object_unref (stream);
+    return;
+  }
+}
+
+static void
+on_node_created (GObject      *source_object,
+                 GAsyncResult *res,
+                 gpointer      user_data)
 {
   PinosStream *stream = user_data;
   PinosStreamPrivate *priv = stream->priv;
   PinosContext *context = priv->context;
   GVariant *ret;
   GError *error = NULL;
-  const gchar *channel_path;
+  const gchar *node_path;
   GUnixFDList *fd_list;
   gint fd_idx, fd;
 
@@ -766,7 +731,7 @@ on_channel_created (GObject      *source_object,
   if (ret == NULL)
     goto create_failed;
 
-  g_variant_get (ret, "(&oh)", &channel_path, &fd_idx);
+  g_variant_get (ret, "(&oh)", &node_path, &fd_idx);
   g_variant_unref (ret);
 
   if ((fd = g_unix_fd_list_get (fd_list, fd_idx, &error)) < 0)
@@ -778,10 +743,10 @@ on_channel_created (GObject      *source_object,
 
   pinos_subscribe_get_proxy (context->priv->subscribe,
                              PINOS_DBUS_SERVICE,
-                             channel_path,
-                             "org.pinos.Channel1",
+                             node_path,
+                             "org.pinos.Node1",
                              NULL,
-                             on_channel_proxy,
+                             on_node_proxy,
                              stream);
 
   return;
@@ -812,18 +777,29 @@ do_connect (PinosStream *stream)
 {
   PinosStreamPrivate *priv = stream->priv;
   PinosContext *context = priv->context;
+  GVariantBuilder b;
+  GVariant *ports;
+
+  g_variant_builder_init (&b, G_VARIANT_TYPE ("a(uusa{sv}s)"));
+  g_variant_builder_open (&b, G_VARIANT_TYPE ("(uusa{sv}s)"));
+  g_variant_builder_add (&b, "u", priv->direction);
+  g_variant_builder_add (&b, "u", 0);
+  g_variant_builder_add (&b, "s", g_bytes_get_data (priv->possible_formats, NULL));
+  g_variant_builder_add_value (&b, pinos_properties_to_variant (priv->properties));
+  g_variant_builder_add (&b, "s", priv->path);
+  g_variant_builder_close (&b);
+  ports = g_variant_builder_end (&b);
 
   g_dbus_proxy_call (context->priv->daemon,
-                     "CreateChannel",
-                     g_variant_new ("(sus@a{sv})",
-                       (priv->path ? priv->path : ""),
-                       priv->direction,
-                       g_bytes_get_data (priv->possible_formats, NULL),
-                       pinos_properties_to_variant (priv->properties)),
+                     "CreateClientNode",
+                     g_variant_new ("(s@a{sv}@a(uusa{sv}s))",
+                       "client-node",
+                       pinos_properties_to_variant (priv->properties),
+                       ports),
                      G_DBUS_CALL_FLAGS_NONE,
                      -1,
                      NULL, /* GCancellable *cancellable */
-                     on_channel_created,
+                     on_node_created,
                      stream);
   return FALSE;
 }
@@ -981,7 +957,7 @@ pinos_stream_stop (PinosStream *stream)
 }
 
 static void
-on_channel_removed (GObject      *source_object,
+on_node_removed (GObject      *source_object,
                           GAsyncResult *res,
                           gpointer      user_data)
 {
@@ -990,10 +966,10 @@ on_channel_removed (GObject      *source_object,
   GVariant *ret;
   GError *error = NULL;
 
-  g_assert (priv->channel == G_DBUS_PROXY (source_object));
+  g_assert (priv->node == G_DBUS_PROXY (source_object));
 
   priv->disconnecting = FALSE;
-  g_clear_object (&priv->channel);
+  g_clear_object (&priv->node);
 
   ret = g_dbus_proxy_call_finish (G_DBUS_PROXY (source_object), res, &error);
   if (ret == NULL)
@@ -1021,13 +997,13 @@ do_disconnect (PinosStream *stream)
 {
   PinosStreamPrivate *priv = stream->priv;
 
-  g_dbus_proxy_call (priv->channel,
+  g_dbus_proxy_call (priv->node,
                      "Remove",
                      g_variant_new ("()"),
                      G_DBUS_CALL_FLAGS_NONE,
                      -1,
                      NULL, /* GCancellable *cancellable */
-                     on_channel_removed,
+                     on_node_removed,
                      stream);
 
   return FALSE;
@@ -1050,7 +1026,7 @@ pinos_stream_disconnect (PinosStream *stream)
   g_return_val_if_fail (PINOS_IS_STREAM (stream), FALSE);
   priv = stream->priv;
   g_return_val_if_fail (priv->state >= PINOS_STREAM_STATE_READY, FALSE);
-  g_return_val_if_fail (priv->channel != NULL, FALSE);
+  g_return_val_if_fail (priv->node != NULL, FALSE);
   context = priv->context;
   g_return_val_if_fail (pinos_context_get_state (context) >= PINOS_CONTEXT_STATE_CONNECTED, FALSE);
   g_return_val_if_fail (!priv->disconnecting, FALSE);

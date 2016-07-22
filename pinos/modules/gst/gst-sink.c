@@ -31,6 +31,7 @@
 typedef struct {
   PinosGstSink *sink;
 
+  guint id;
   PinosPort *port;
 
   GstElement *src;
@@ -384,6 +385,7 @@ free_sink_port_data (SinkPortData *data)
 static PinosPort *
 add_port (PinosNode       *node,
           PinosDirection   direction,
+          guint            id,
           GError         **error)
 {
   PinosGstSink *sink = PINOS_GST_SINK (node);
@@ -392,9 +394,9 @@ add_port (PinosNode       *node,
 
   data = g_slice_new0 (SinkPortData);
   data->sink = sink;
-
+  data->id = id;
   data->port = PINOS_NODE_CLASS (pinos_gst_sink_parent_class)
-                ->add_port (node, direction, error);
+                ->add_port (node, direction, id, error);
 
   g_debug ("connecting signals");
   g_signal_connect (data->port, "linked", (GCallback) on_linked, data);
@@ -418,9 +420,9 @@ add_port (PinosNode       *node,
   return data->port;
 }
 
-static void
+static gboolean
 remove_port (PinosNode       *node,
-             PinosPort       *port)
+             guint            id)
 {
   PinosGstSink *sink = PINOS_GST_SINK (node);
   PinosGstSinkPrivate *priv = sink->priv;
@@ -429,7 +431,7 @@ remove_port (PinosNode       *node,
   for (walk = priv->ports; walk; walk = g_list_next (walk)) {
     SinkPortData *data = walk->data;
 
-    if (data->port == PINOS_PORT_CAST (port)) {
+    if (data->id == id) {
       free_sink_port_data (data);
       priv->ports = g_list_delete_link (priv->ports, walk);
       break;
@@ -437,6 +439,8 @@ remove_port (PinosNode       *node,
   }
   if (priv->ports == NULL)
     pinos_node_report_idle (node);
+
+  return TRUE;
 }
 
 static void

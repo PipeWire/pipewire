@@ -160,6 +160,7 @@ gint               pinos_buffer_builder_add_fd     (PinosBufferBuilder *builder,
 /* add-mem packets */
 /**
  * PinosPacketAddMem:
+ * @port: the port number
  * @id: the unique id of this memory block
  * @type: the memory block type
  * @fd_index: the index of the fd with the data
@@ -169,6 +170,7 @@ gint               pinos_buffer_builder_add_fd     (PinosBufferBuilder *builder,
  * A Packet that contains a memory block used for data transfer.
  */
 typedef struct {
+  guint32 port;
   guint32 id;
   guint32 type;
   gint32 fd_index;
@@ -184,11 +186,13 @@ gboolean           pinos_buffer_builder_add_add_mem     (PinosBufferBuilder   *b
 /* remove-mem packets */
 /**
  * PinosPacketRemoveMem:
+ * @port: the port number
  * @id: the unique id of the memory block
  *
  * Remove a memory block.
  */
 typedef struct {
+  guint32 port;
   guint32 id;
 } PinosPacketRemoveMem;
 
@@ -208,6 +212,7 @@ gboolean           pinos_buffer_builder_add_remove_mem  (PinosBufferBuilder   *b
  * A Packet that contains the header.
  */
 typedef struct {
+  guint32 port;
   guint32 flags;
   guint32 seq;
   gint64 pts;
@@ -231,6 +236,7 @@ gboolean           pinos_buffer_builder_add_header     (PinosBufferBuilder *buil
  * @size.
  */
 typedef struct {
+  guint32 port;
   guint32 id;
   guint64 offset;
   guint64 size;
@@ -249,6 +255,7 @@ gboolean           pinos_buffer_builder_add_process_mem (PinosBufferBuilder    *
  * Release the payload with @id
  */
 typedef struct {
+  guint32 port;
   guint32 id;
   guint64 offset;
   guint64 size;
@@ -269,6 +276,7 @@ gboolean           pinos_buffer_builder_add_reuse_mem (PinosBufferBuilder   *bui
  * A new format.
  */
 typedef struct {
+  guint32 port;
   guint8 id;
   const gchar *format;
 } PinosPacketFormatChange;
@@ -288,6 +296,7 @@ gboolean           pinos_buffer_builder_add_format_change  (PinosBufferBuilder  
  * A new property change.
  */
 typedef struct {
+  guint32 port;
   const gchar *key;
   const gchar *value;
 } PinosPacketPropertyChange;
@@ -308,6 +317,7 @@ gboolean           pinos_buffer_builder_add_property_change (PinosBufferBuilder 
  * A refresh request packet. This packet is sent to trigger a new keyframe.
  */
 typedef struct {
+  guint32 port;
   guint32 last_id;
   guint32 request_type;
   gint64 pts;

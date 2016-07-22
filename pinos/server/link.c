@@ -39,11 +39,10 @@ struct _PinosLinkPrivate
 
   gchar *object_path;
 
-  PinosPort *src;
-  PinosPort *dest;
+  PinosPort *output;
+  PinosPort *input;
   GBytes *possible_formats;
   GBytes *format;
-  PinosProperties *properties;
 };
 
 G_DEFINE_TYPE (PinosLink, pinos_link, G_TYPE_OBJECT);
@@ -52,21 +51,38 @@ enum
 {
   PROP_0,
   PROP_DAEMON,
+  PROP_OUTPUT,
+  PROP_INPUT,
   PROP_OBJECT_PATH,
   PROP_POSSIBLE_FORMATS,
   PROP_FORMAT,
-  PROP_PROPERTIES,
 };
 
 enum
 {
   SIGNAL_REMOVE,
-  SIGNAL_ACTIVATE,
-  SIGNAL_DEACTIVATE,
   LAST_SIGNAL
 };
 
 static guint signals[LAST_SIGNAL] = { 0 };
+
+static gboolean
+on_output_send (PinosPort *port, PinosBuffer *buffer, GError **error, gpointer user_data)
+{
+  PinosLink *link = user_data;
+  PinosLinkPrivate *priv = link->priv;
+
+  return pinos_port_receive_buffer (priv->input, buffer, error);
+}
+
+static gboolean
+on_input_send (PinosPort *port, PinosBuffer *buffer, GError **error, gpointer user_data)
+{
+  PinosLink *link = user_data;
+  PinosLinkPrivate *priv = link->priv;
+
+  return pinos_port_receive_buffer (priv->output, buffer, error);
+}
 
 static void
 pinos_link_get_property (GObject    *_object,
@@ -82,6 +98,14 @@ pinos_link_get_property (GObject    *_object,
       g_value_set_object (value, priv->daemon);
       break;
 
+    case PROP_OUTPUT:
+      g_value_set_object (value, priv->output);
+      break;
+
+    case PROP_INPUT:
+      g_value_set_object (value, priv->input);
+      break;
+
     case PROP_OBJECT_PATH:
       g_value_set_string (value, priv->object_path);
       break;
@@ -92,10 +116,6 @@ pinos_link_get_property (GObject    *_object,
 
     case PROP_FORMAT:
       g_value_set_boxed (value, priv->format);
-      break;
-
-    case PROP_PROPERTIES:
-      g_value_set_boxed (value, priv->properties);
       break;
 
     default:
@@ -118,6 +138,14 @@ pinos_link_set_property (GObject      *_object,
       priv->daemon = g_value_dup_object (value);
       break;
 
+    case PROP_OUTPUT:
+      priv->output = g_value_dup_object (value);
+      break;
+
+    case PROP_INPUT:
+      priv->input = g_value_dup_object (value);
+      break;
+
     case PROP_OBJECT_PATH:
       priv->object_path = g_value_dup_string (value);
       break;
@@ -132,12 +160,6 @@ pinos_link_set_property (GObject      *_object,
       if (priv->format)
         g_bytes_unref (priv->format);
       priv->format = g_value_dup_boxed (value);
-      break;
-
-    case PROP_PROPERTIES:
-      if (priv->properties)
-        pinos_properties_free (priv->properties);
-      priv->properties = g_value_dup_boxed (value);
       break;
 
     default:
@@ -175,10 +197,58 @@ link_unregister_object (PinosLink *link)
   pinos_daemon_unexport (priv->daemon, priv->object_path);
 }
 
+static gboolean
+on_activate (PinosPort *port, gpointer user_data)
+{
+  PinosLink *link = user_data;
+  PinosLinkPrivate *priv = link->priv;
+
+  if (priv->input == port)
+    pinos_port_activate (priv->output);
+  else
+    pinos_port_activate (priv->input);
+
+  return TRUE;
+}
+
+static gboolean
+on_deactivate (PinosPort *port, gpointer user_data)
+{
+  PinosLink *link = user_data;
+  PinosLinkPrivate *priv = link->priv;
+
+  if (priv->input == port)
+    pinos_port_deactivate (priv->output);
+  else
+    pinos_port_deactivate (priv->input);
+
+  return TRUE;
+}
+
 static void
 pinos_link_constructed (GObject * object)
 {
   PinosLink *link = PINOS_LINK (object);
+  PinosLinkPrivate *priv = link->priv;
+  GBytes *formats;
+
+  pinos_port_add_send_buffer_cb (priv->output,
+                                 on_output_send,
+                                 link,
+                                 NULL);
+
+  pinos_port_add_send_buffer_cb (priv->input,
+                                 on_input_send,
+                                 link,
+                                 NULL);
+
+  g_object_get (priv->input, "possible-formats", &formats, NULL);
+  g_object_set (priv->output, "possible-formats", formats, NULL);
+
+  g_signal_connect (priv->input, "activate", (GCallback) on_activate, link);
+  g_signal_connect (priv->input, "deactivate", (GCallback) on_deactivate, link);
+  g_signal_connect (priv->output, "activate", (GCallback) on_activate, link);
+  g_signal_connect (priv->output, "deactivate", (GCallback) on_deactivate, link);
 
   g_debug ("link %p: constructed", link);
   link_register_object (link);
@@ -206,7 +276,6 @@ pinos_link_finalize (GObject * object)
   g_debug ("link %p: finalize", link);
   g_clear_pointer (&priv->possible_formats, g_bytes_unref);
   g_clear_pointer (&priv->format, g_bytes_unref);
-  g_clear_pointer (&priv->properties, pinos_properties_free);
   g_clear_object (&priv->daemon);
   g_clear_object (&priv->iface);
   g_free (priv->object_path);
@@ -239,6 +308,26 @@ pinos_link_class_init (PinosLinkClass * klass)
                                                         G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class,
+                                   PROP_OUTPUT,
+                                   g_param_spec_object ("output",
+                                                        "Output",
+                                                        "The output port",
+                                                        PINOS_TYPE_PORT,
+                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_CONSTRUCT |
+                                                        G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_INPUT,
+                                   g_param_spec_object ("input",
+                                                        "Input",
+                                                        "The input port",
+                                                        PINOS_TYPE_PORT,
+                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_CONSTRUCT |
+                                                        G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class,
                                    PROP_POSSIBLE_FORMATS,
                                    g_param_spec_boxed ("possible-formats",
                                                        "Possible Formats",
@@ -258,16 +347,6 @@ pinos_link_class_init (PinosLinkClass * klass)
                                                        G_PARAM_CONSTRUCT |
                                                        G_PARAM_STATIC_STRINGS));
 
-  g_object_class_install_property (gobject_class,
-                                   PROP_PROPERTIES,
-                                   g_param_spec_boxed ("properties",
-                                                       "Properties",
-                                                       "The properties of the link",
-                                                       PINOS_TYPE_PROPERTIES,
-                                                       G_PARAM_READWRITE |
-                                                       G_PARAM_CONSTRUCT_ONLY |
-                                                       G_PARAM_STATIC_STRINGS));
-
   signals[SIGNAL_REMOVE] = g_signal_new ("remove",
                                          G_TYPE_FROM_CLASS (klass),
                                          G_SIGNAL_RUN_LAST,
@@ -278,26 +357,6 @@ pinos_link_class_init (PinosLinkClass * klass)
                                          G_TYPE_NONE,
                                          0,
                                          G_TYPE_NONE);
- signals[SIGNAL_ACTIVATE] = g_signal_new ("activate",
-                                          G_TYPE_FROM_CLASS (klass),
-                                          G_SIGNAL_RUN_LAST,
-                                          0,
-                                          NULL,
-                                          NULL,
-                                          g_cclosure_marshal_generic,
-                                          G_TYPE_NONE,
-                                          0,
-                                          G_TYPE_NONE);
-  signals[SIGNAL_DEACTIVATE] = g_signal_new ("deactivate",
-                                             G_TYPE_FROM_CLASS (klass),
-                                             G_SIGNAL_RUN_LAST,
-                                             0,
-                                             NULL,
-                                             NULL,
-                                             g_cclosure_marshal_generic,
-                                             G_TYPE_NONE,
-                                             0,
-                                             G_TYPE_NONE);
 }
 
 static void
@@ -307,6 +366,31 @@ pinos_link_init (PinosLink * link)
 
   priv->iface = pinos_link1_skeleton_new ();
   g_debug ("link %p: new", link);
+}
+
+PinosLink *
+pinos_link_new (PinosDaemon *daemon,
+                PinosPort   *output,
+                PinosPort   *input,
+                GBytes      *format_filter)
+{
+  PinosLink *link;
+  PinosPort *tmp;
+
+  if (pinos_port_get_direction (output) != PINOS_DIRECTION_OUTPUT) {
+    tmp = output;
+    output = input;
+    input = tmp;
+  }
+
+  link = g_object_new (PINOS_TYPE_LINK,
+                       "daemon", daemon,
+                       "output", output,
+                       "input", input,
+                       "possible-formats", format_filter,
+                       NULL);
+
+  return link;
 }
 
 /**
@@ -379,23 +463,4 @@ pinos_link_get_format (PinosLink *link)
   priv = link->priv;
 
   return priv->format;
-}
-
-/**
- * pinos_link_get_properties:
- * @link: a #PinosLink
- *
- * Get the properties of @link
- *
- * Returns: the properties or %NULL
- */
-PinosProperties *
-pinos_link_get_properties (PinosLink *link)
-{
-  PinosLinkPrivate *priv;
-
-  g_return_val_if_fail (PINOS_IS_LINK (link), NULL);
-  priv = link->priv;
-
-  return priv->properties;
 }

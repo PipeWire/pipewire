@@ -83,6 +83,7 @@ void                pinos_port_remove               (PinosPort *port);
 PinosNode *         pinos_port_get_node             (PinosPort *port);
 const gchar *       pinos_port_get_name             (PinosPort *port);
 PinosDirection      pinos_port_get_direction        (PinosPort *port);
+guint               pinos_port_get_id               (PinosPort *port);
 PinosProperties *   pinos_port_get_properties       (PinosPort *port);
 
 GBytes *            pinos_port_get_possible_formats (PinosPort *port);

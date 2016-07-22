@@ -84,7 +84,6 @@ enum
   PROP_POSSIBLE_FORMATS,
   PROP_PROPERTIES,
   PROP_FORMAT,
-  PROP_SOCKET,
   PROP_STATE,
 };
 
@@ -136,10 +135,6 @@ pinos_channel_get_property (GObject    *_object,
 
     case PROP_FORMAT:
       g_value_set_boxed (value, priv->format);
-      break;
-
-    case PROP_SOCKET:
-      g_value_set_object (value, priv->socket);
       break;
 
     case PROP_STATE:
@@ -530,7 +525,6 @@ pinos_channel_dispose (GObject * object)
   pinos_port_deactivate (priv->port);
   clear_formats (channel);
   unhandle_socket (channel);
-  g_clear_object (&priv->socket);
   channel_unregister_object (channel);
 
   G_OBJECT_CLASS (pinos_channel_parent_class)->dispose (object);
@@ -659,15 +653,6 @@ pinos_channel_class_init (PinosChannelClass * klass)
                                                        G_TYPE_BYTES,
                                                        G_PARAM_READWRITE |
                                                        G_PARAM_STATIC_STRINGS));
-
-  g_object_class_install_property (gobject_class,
-                                   PROP_SOCKET,
-                                   g_param_spec_object ("socket",
-                                                        "Socket",
-                                                        "The socket with data",
-                                                        G_TYPE_SOCKET,
-                                                        G_PARAM_READABLE |
-                                                        G_PARAM_STATIC_STRINGS));
 
   signals[SIGNAL_REMOVE] = g_signal_new ("remove",
                                          G_TYPE_FROM_CLASS (klass),

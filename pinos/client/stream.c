@@ -863,6 +863,7 @@ do_start (PinosStream *stream)
   handle_socket (stream, priv->fd);
 
   pinos_stream_buffer_builder_init (stream, &builder);
+  fc.port = 0;
   fc.id = 0;
   fc.format = priv->format ? g_bytes_get_data (priv->format, NULL) : "ANY";
   pinos_buffer_builder_add_format_change (&builder, &fc);
@@ -1112,7 +1113,7 @@ pinos_stream_send_buffer (PinosStream *stream,
   priv = stream->priv;
 
   if (!pinos_io_write_buffer (priv->fd, buffer, &error)) {
-    g_warning ("stream %p: failed to read buffer: %s", stream, error->message);
+    g_warning ("stream %p: failed to write buffer: %s", stream, error->message);
     g_clear_error (&error);
     return FALSE;
   }

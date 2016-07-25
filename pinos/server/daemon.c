@@ -546,13 +546,13 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
 
   have_name = name ? strlen (name) > 0 : FALSE;
 
-  g_debug ("name %s, format %s, %d", name, (gchar*)g_bytes_get_data (format_filter, NULL), have_name);
+  g_debug ("name \"%s\", format %s, %d", name, (gchar*)g_bytes_get_data (format_filter, NULL), have_name);
 
   for (nodes = priv->nodes; nodes; nodes = g_list_next (nodes)) {
     PinosNode *n = nodes->data;
     gboolean node_found = FALSE;
 
-    g_debug ("node path %s", pinos_node_get_object_path (n));
+    g_debug ("node path \"%s\"", pinos_node_get_object_path (n));
 
     /* we found the node */
     if (have_name) {

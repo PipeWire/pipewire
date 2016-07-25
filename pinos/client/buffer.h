@@ -277,7 +277,7 @@ gboolean           pinos_buffer_builder_add_reuse_mem (PinosBufferBuilder   *bui
  */
 typedef struct {
   guint32 port;
-  guint8 id;
+  guint32 id;
   const gchar *format;
 } PinosPacketFormatChange;
 

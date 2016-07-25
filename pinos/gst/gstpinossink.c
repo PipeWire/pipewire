@@ -547,7 +547,8 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   am.id = pinos_fd_manager_get_id (pinossink->fdmanager);
   am.fd_index = pinos_buffer_builder_add_fd (&builder, gst_fd_memory_get_fd (mem));
   am.offset = 0;
-  am.size = mem->size;
+  am.size = mem->size + mem->offset;
+  p.port = 0;
   p.id = am.id;
   p.offset = mem->offset;
   p.size = mem->size;

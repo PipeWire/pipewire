@@ -236,6 +236,20 @@ on_deactivate (PinosPort *port, gpointer user_data)
 }
 
 static void
+on_format_change (GObject *obj,
+                  GParamSpec *pspec,
+                  gpointer user_data)
+{
+  PinosLink *link = user_data;
+  PinosLinkPrivate *priv = link->priv;
+  GBytes *formats;
+
+  g_object_get (priv->output, "format", &formats, NULL);
+  g_debug ("port %p: format change %s", priv->output, g_bytes_get_data (formats, NULL));
+  g_object_set (priv->input, "format", formats, NULL);
+}
+
+static void
 pinos_link_constructed (GObject * object)
 {
   PinosLink *link = PINOS_LINK (object);
@@ -246,7 +260,6 @@ pinos_link_constructed (GObject * object)
                                  on_output_send,
                                  link,
                                  NULL);
-
   priv->input_id = pinos_port_add_send_buffer_cb (priv->input,
                                  on_input_send,
                                  link,
@@ -256,6 +269,8 @@ pinos_link_constructed (GObject * object)
   g_object_set (priv->output, "possible-formats", formats, NULL);
   g_object_get (priv->output, "format", &formats, NULL);
   g_object_set (priv->input, "format", formats, NULL);
+
+  g_signal_connect (priv->output, "notify::format", (GCallback) on_format_change, link);
 
   g_signal_connect (priv->input, "activate", (GCallback) on_activate, link);
   g_signal_connect (priv->input, "deactivate", (GCallback) on_deactivate, link);

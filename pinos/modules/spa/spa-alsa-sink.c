@@ -21,6 +21,8 @@
 #include <stdio.h>
 #include <dlfcn.h>
 #include <sys/mman.h>
+#include <poll.h>
+#include <errno.h>
 
 #include <gio/gio.h>
 
@@ -50,17 +52,22 @@ typedef struct {
 
 struct _PinosSpaAlsaSinkPrivate
 {
-  PinosPort *input;
+  SpaHandle *sink;
+  const SpaNode *sink_node;
 
   PinosProperties *props;
   PinosRingbuffer *ringbuffer;
 
+  SpaPollFd fds[16];
+  unsigned int n_fds;
+  SpaPollItem poll;
+
+  gboolean running;
+  pthread_t thread;
+
   GHashTable *mem_ids;
 
   GList *ports;
-
-  SpaHandle *sink;
-  const SpaNode *sink_node;
 };
 
 enum {
@@ -145,7 +152,7 @@ on_sink_event (SpaHandle *handle, SpaEvent *event, void *user_data)
       pinos_ringbuffer_get_read_areas (priv->ringbuffer, areas);
 
       total = MIN (size, areas[0].len + areas[1].len);
-      g_debug ("total read %zd %zd", total, areas[0].len + areas[1].len);
+      g_debug ("total read %zd %zd %zd", total, size, areas[0].len + areas[1].len);
       if (total < size) {
         g_warning ("underrun");
       }
@@ -170,6 +177,19 @@ on_sink_event (SpaHandle *handle, SpaEvent *event, void *user_data)
         g_debug ("got error %d", res);
       break;
     }
+
+    case SPA_EVENT_TYPE_ADD_POLL:
+    {
+      SpaPollItem *poll = event->data;
+
+      g_debug ("add poll");
+      priv->poll = *poll;
+      priv->fds[0] = poll->fds[0];
+      priv->n_fds = 1;
+      priv->poll.fds = priv->fds;
+      break;
+    }
+
     default:
       g_debug ("got event %d", event->type);
       break;
@@ -194,12 +214,45 @@ create_pipeline (PinosSpaAlsaSink *this)
     g_debug ("got get_props error %d", res);
 
   value.type = SPA_PROP_TYPE_STRING;
-  value.size = strlen ("hw:1")+1;
-  value.value = "hw:1";
+  value.value = "hw:0";
+  value.size = strlen (value.value)+1;
   props->set_prop (props, spa_props_index_for_name (props, "device"), &value);
 
   if ((res = priv->sink_node->set_props (priv->sink, props)) < 0)
     g_debug ("got set_props error %d", res);
+}
+
+static void *
+loop (void *user_data)
+{
+  PinosSpaAlsaSink *this = user_data;
+  PinosSpaAlsaSinkPrivate *priv = this->priv;
+  int r;
+
+  g_debug ("spa-alsa-sink %p: enter thread", this);
+  while (priv->running) {
+    SpaPollNotifyData ndata;
+
+    r = poll ((struct pollfd *) priv->fds, priv->n_fds, -1);
+    if (r < 0) {
+      if (errno == EINTR)
+        continue;
+      break;
+    }
+    if (r == 0) {
+      g_debug ("spa-alsa-sink %p: select timeout", this);
+      break;
+    }
+    if (priv->poll.after_cb) {
+      ndata.fds = priv->poll.fds;
+      ndata.n_fds = priv->poll.n_fds;
+      ndata.user_data = priv->poll.user_data;
+      priv->poll.after_cb (&ndata);
+    }
+  }
+  g_debug ("spa-alsa-sink %p: leave thread", this);
+
+  return NULL;
 }
 
 static void
@@ -208,12 +261,19 @@ start_pipeline (PinosSpaAlsaSink *sink)
   PinosSpaAlsaSinkPrivate *priv = sink->priv;
   SpaResult res;
   SpaCommand cmd;
+  int err;
 
   g_debug ("spa-alsa-sink %p: starting pipeline", sink);
 
   cmd.type = SPA_COMMAND_START;
   if ((res = priv->sink_node->send_command (priv->sink, &cmd)) < 0)
     g_debug ("got error %d", res);
+
+  priv->running = true;
+  if ((err = pthread_create (&priv->thread, NULL, loop, sink)) != 0) {
+    g_debug ("spa-v4l2-source %p: can't create thread", strerror (err));
+    priv->running = false;
+  }
 }
 
 static void
@@ -224,6 +284,11 @@ stop_pipeline (PinosSpaAlsaSink *sink)
   SpaCommand cmd;
 
   g_debug ("spa-alsa-sink %p: stopping pipeline", sink);
+
+  if (priv->running) {
+    priv->running = false;
+    pthread_join (priv->thread, NULL);
+  }
 
   cmd.type = SPA_COMMAND_STOP;
   if ((res = priv->sink_node->send_command (priv->sink, &cmd)) < 0)
@@ -256,7 +321,7 @@ set_state (PinosNode      *node,
       break;
 
     case PINOS_NODE_STATE_RUNNING:
-      //start_pipeline (this);
+      start_pipeline (this);
       break;
 
     case PINOS_NODE_STATE_ERROR:
@@ -295,7 +360,8 @@ set_property (GObject      *object,
 static void
 on_activate (PinosPort *port, gpointer user_data)
 {
-  PinosNode *node = user_data;
+  SinkPortData *data = user_data;
+  PinosNode *node = PINOS_NODE (data->sink);
 
   g_debug ("port %p: activate", port);
 
@@ -305,7 +371,8 @@ on_activate (PinosPort *port, gpointer user_data)
 static void
 on_deactivate (PinosPort *port, gpointer user_data)
 {
-  PinosNode *node = user_data;
+  SinkPortData *data = user_data;
+  PinosNode *node = PINOS_NODE (data->sink);
 
   g_debug ("port %p: deactivate", port);
   pinos_node_report_idle (node);
@@ -354,8 +421,6 @@ negotiate_formats (PinosSpaAlsaSink *this)
     return res;
 
   priv->ringbuffer = pinos_ringbuffer_new (PINOS_RINGBUFFER_MODE_READ, 64 * 1024);
-
-  g_object_set (priv->input, "ringbuffer", priv->ringbuffer, NULL);
 
   return SPA_RESULT_OK;
 }
@@ -466,8 +531,6 @@ on_received_buffer (PinosPort   *port,
           break;
         g_debug ("got format change %d %s", change.id, change.format);
 
-        negotiate_formats (this);
-        start_pipeline (this);
         break;
       }
       default:
@@ -479,6 +542,24 @@ on_received_buffer (PinosPort   *port,
   return TRUE;
 }
 
+static void
+on_format_change (GObject *obj,
+                  GParamSpec *pspec,
+                  gpointer user_data)
+{
+  SinkPortData *data = user_data;
+  PinosNode *node = PINOS_NODE (data->sink);
+  PinosSpaAlsaSink *sink = PINOS_SPA_ALSA_SINK (node);
+  PinosSpaAlsaSinkPrivate *priv = sink->priv;
+  GBytes *formats;
+
+  g_object_get (obj, "format", &formats, NULL);
+  if (formats) {
+    g_debug ("port %p: format change %s", obj, g_bytes_get_data (formats, NULL));
+    negotiate_formats (sink);
+  }
+}
+
 static PinosPort *
 add_port (PinosNode       *node,
           PinosDirection   direction,
@@ -488,6 +569,7 @@ add_port (PinosNode       *node,
   PinosSpaAlsaSink *sink = PINOS_SPA_ALSA_SINK (node);
   PinosSpaAlsaSinkPrivate *priv = sink->priv;
   SinkPortData *data;
+  GBytes *formats;
 
   data = g_slice_new0 (SinkPortData);
   data->sink = sink;
@@ -497,9 +579,14 @@ add_port (PinosNode       *node,
 
   pinos_port_set_received_buffer_cb (data->port, on_received_buffer, sink, NULL);
 
+  formats = g_bytes_new ("ANY", strlen ("ANY") + 1);
+  g_object_set (data->port, "possible-formats", formats, NULL);
+
   g_debug ("connecting signals");
   g_signal_connect (data->port, "activate", (GCallback) on_activate, data);
   g_signal_connect (data->port, "deactivate", (GCallback) on_deactivate, data);
+
+  g_signal_connect (data->port, "notify::format", (GCallback) on_format_change, data);
 
   priv->ports = g_list_append (priv->ports, data);
 

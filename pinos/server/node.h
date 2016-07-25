@@ -81,7 +81,6 @@ PinosNode *         pinos_node_new                     (PinosDaemon     *daemon,
                                                         PinosProperties *properties);
 void                pinos_node_remove                  (PinosNode *node);
 
-
 const gchar *       pinos_node_get_name                (PinosNode *node);
 PinosProperties *   pinos_node_get_properties          (PinosNode *node);
 

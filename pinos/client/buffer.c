@@ -929,18 +929,19 @@ pinos_buffer_iter_parse_format_change (PinosBufferIter         *iter,
                                        PinosPacketFormatChange *payload)
 {
   struct stack_iter *si = PPSI (iter);
-  char *p;
+  PinosPacketFormatChange *fc;
 
   g_return_val_if_fail (is_valid_iter (iter), FALSE);
   g_return_val_if_fail (si->type == PINOS_PACKET_TYPE_FORMAT_CHANGE, FALSE);
 
-  if (si->size < 2)
+  if (si->size < 9)
     return FALSE;
 
-  p = si->data;
+  fc = si->data;
 
-  payload->id = *p++;
-  payload->format = p;
+  payload->port = fc->port;
+  payload->id = fc->id;
+  payload->format = (gchar *) &fc->format;
 
   return TRUE;
 }
@@ -959,18 +960,22 @@ pinos_buffer_builder_add_format_change (PinosBufferBuilder      *builder,
                                         PinosPacketFormatChange *payload)
 {
   struct stack_builder *sb = PPSB (builder);
-  gsize len;
-  char *p;
+  gsize len, slen;
+  PinosPacketFormatChange *fc;
 
   g_return_val_if_fail (is_valid_builder (builder), FALSE);
 
-  /* id + format len + zero byte */
-  len = 1 + strlen (payload->format) + 1;
-  p = builder_add_packet (sb,
-                          PINOS_PACKET_TYPE_FORMAT_CHANGE,
-                          len);
-  *p++ = payload->id;
-  strcpy (p, payload->format);
+  /* port + id + format len + zero byte */
+  slen = strlen (payload->format) + 1;
+  len = 8 + slen;
+  fc = builder_add_packet (sb,
+                           PINOS_PACKET_TYPE_FORMAT_CHANGE,
+                           len);
+  fc->port = payload->port;
+  fc->id = payload->id;
+  memcpy ((gchar*)&fc->format, payload->format, slen);
+
+  //strcpy ((gchar*)&fc->format, payload->format);
   sb->sh->flags |= PINOS_BUFFER_FLAG_CONTROL;
 
   return TRUE;

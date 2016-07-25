@@ -625,66 +625,6 @@ parse_control_buffer (PinosPort *port, PinosBuffer *buffer)
   }
 }
 
-/**
- * pinos_port_create_channel:
- * @port: a #PinosPort
- * @client_path: the client path
- * @format_filter: a #GBytes
- * @props: #PinosProperties
- * @prefix: a prefix
- * @error: a #GError or %NULL
- *
- * Create a new #PinosChannel for @port.
- *
- * Returns: a new #PinosChannel or %NULL, in wich case @error will contain
- *          more information about the error.
- */
-PinosChannel *
-pinos_port_create_channel (PinosPort       *port,
-                           const gchar     *client_path,
-                           GBytes          *format_filter,
-                           PinosProperties *props,
-                           GError          **error)
-{
-  PinosPortPrivate *priv;
-  PinosChannel *channel;
-  GBytes *possible_formats;
-
-  g_return_val_if_fail (PINOS_IS_PORT (port), NULL);
-  priv = port->priv;
-
-  possible_formats = pinos_port_filter_formats (port, format_filter, error);
-  if (possible_formats == NULL)
-    return NULL;
-
-  g_debug ("port %p: make channel with formats %s", port,
-      (gchar *) g_bytes_get_data (possible_formats, NULL));
-
-  channel = g_object_new (PINOS_TYPE_CHANNEL, "daemon", priv->daemon,
-                                              "port", port,
-                                              "client-path", client_path,
-                                              "direction", priv->direction,
-                                              "possible-formats", possible_formats,
-                                              "properties", props,
-                                              NULL);
-  g_bytes_unref (possible_formats);
-
-  if (channel == NULL)
-    goto no_channel;
-
-  return channel;
-
-  /* ERRORS */
-no_channel:
-  {
-    if (error)
-      *error = g_error_new (G_IO_ERROR,
-                            G_IO_ERROR_FAILED,
-                            "Could not create channel");
-    return NULL;
-  }
-}
-
 void
 pinos_port_activate (PinosPort *port)
 {

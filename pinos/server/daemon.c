@@ -30,7 +30,6 @@
 #include "pinos/server/node.h"
 #include "pinos/server/client-node.h"
 #include "pinos/server/client.h"
-#include "pinos/server/channel.h"
 #include "pinos/server/link.h"
 
 #include "pinos/dbus/org-pinos.h"
@@ -104,117 +103,6 @@ sender_get_client (PinosDaemon *daemon,
                       daemon);
   }
   return client;
-}
-
-static void
-handle_remove_channel (PinosChannel  *channel,
-                       gpointer       user_data)
-{
-  PinosClient *client = user_data;
-
-  g_debug ("client %p: remove channel %p", client, channel);
-  pinos_client_remove_object (client, G_OBJECT (channel));
-}
-
-static gboolean
-handle_create_channel (PinosDaemon1           *interface,
-                       GDBusMethodInvocation  *invocation,
-                       const gchar            *arg_node,
-                       PinosDirection          direction,
-                       const gchar            *arg_possible_formats,
-                       GVariant               *arg_properties,
-                       gpointer                user_data)
-{
-  PinosDaemon *daemon = user_data;
-  const gchar *sender, *object_path;
-  PinosProperties *props;
-  PinosClient *client;
-  PinosPort *port;
-  PinosChannel *channel;
-  GBytes *formats;
-  GError *error = NULL;
-  GUnixFDList *fdlist;
-  GSocket *socket;
-  gint fdidx;
-
-  sender = g_dbus_method_invocation_get_sender (invocation);
-
-  g_debug ("daemon %p: %s create channel", daemon, sender);
-
-  formats = g_bytes_new (arg_possible_formats, strlen (arg_possible_formats) + 1);
-  props = pinos_properties_from_variant (arg_properties);
-
-  port = pinos_daemon_find_port (daemon,
-                                 direction,
-                                 arg_node,
-                                 props,
-                                 formats,
-                                 &error);
-  if (port == NULL)
-    goto no_port;
-
-  g_debug ("daemon %p: matched port %p", daemon, port);
-
-  client = sender_get_client (daemon, sender);
-
-  channel = pinos_port_create_channel (port,
-                                       pinos_client_get_object_path (client),
-                                       formats,
-                                       props,
-                                       &error);
-  pinos_properties_free (props);
-  g_bytes_unref (formats);
-
-  if (channel == NULL)
-    goto no_channel;
-
-  pinos_client_add_object (client, G_OBJECT (channel));
-
-  g_signal_connect (channel,
-                    "remove",
-                    (GCallback) handle_remove_channel,
-                    client);
-
-  socket = pinos_channel_get_socket_pair (channel, &error);
-  if (socket == NULL)
-    goto no_socket;
-
-  object_path = pinos_channel_get_object_path (channel);
-  g_debug ("daemon %p: add channel %p, %s", daemon, channel, object_path);
-
-  fdlist = g_unix_fd_list_new ();
-  fdidx = g_unix_fd_list_append (fdlist, g_socket_get_fd (socket), NULL);
-
-  g_dbus_method_invocation_return_value_with_unix_fd_list (invocation,
-           g_variant_new ("(oh)", object_path, fdidx), fdlist);
-  g_object_unref (fdlist);
-
-  return TRUE;
-
-  /* ERRORS */
-no_port:
-  {
-    g_debug ("daemon %p: could not find port %s, %s", daemon, arg_node, error->message);
-    pinos_properties_free (props);
-    g_bytes_unref (formats);
-    goto exit_error;
-  }
-no_channel:
-  {
-    g_debug ("daemon %p: could not create channel %s", daemon, error->message);
-    goto exit_error;
-  }
-no_socket:
-  {
-    g_debug ("daemon %p: could not create channel %s", daemon, error->message);
-    goto exit_error;
-  }
-exit_error:
-  {
-    g_dbus_method_invocation_return_gerror (invocation, error);
-    g_clear_error (&error);
-    return TRUE;
-  }
 }
 
 static void
@@ -356,8 +244,13 @@ handle_create_client_node (PinosDaemon1           *interface,
                                        pprops,
                                        formats,
                                        &error);
-      if (target == NULL)
+      if (target == NULL) {
+        g_warning ("daemon %p: can't find port target: %s", daemon, error->message);
+        g_clear_error (&error);
         continue;
+      }
+
+      pinos_client_add_object (client, G_OBJECT (target));
 
       link = pinos_link_new (daemon, port, target, NULL);
       pinos_client_add_object (client, G_OBJECT (link));
@@ -653,7 +546,7 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
 
   have_name = name ? strlen (name) > 0 : FALSE;
 
-  g_debug ("name %s, format %s", name, (gchar*)g_bytes_get_data (format_filter, NULL));
+  g_debug ("name %s, format %s, %d", name, (gchar*)g_bytes_get_data (format_filter, NULL), have_name);
 
   for (nodes = priv->nodes; nodes; nodes = g_list_next (nodes)) {
     PinosNode *n = nodes->data;
@@ -662,7 +555,10 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
     g_debug ("node path %s", pinos_node_get_object_path (n));
 
     /* we found the node */
-    if (have_name && g_str_has_suffix (pinos_node_get_object_path (n), name)) {
+    if (have_name) {
+      if (!g_str_has_suffix (pinos_node_get_object_path (n), name))
+        continue;
+
       g_debug ("name \"%s\" matches node %p", name, n);
       node_found = TRUE;
     }
@@ -842,7 +738,6 @@ pinos_daemon_init (PinosDaemon * daemon)
   priv->iface = pinos_daemon1_skeleton_new ();
   g_signal_connect (priv->iface, "handle-create-node", (GCallback) handle_create_node, daemon);
   g_signal_connect (priv->iface, "handle-create-client-node", (GCallback) handle_create_client_node, daemon);
-  g_signal_connect (priv->iface, "handle-create-channel", (GCallback) handle_create_channel, daemon);
   g_signal_connect (priv->iface, "handle-link-nodes", (GCallback) handle_link_nodes, daemon);
 
   priv->server_manager = g_dbus_object_manager_server_new (PINOS_DBUS_OBJECT_PREFIX);

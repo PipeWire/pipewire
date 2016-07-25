@@ -39,6 +39,8 @@ struct _PinosLinkPrivate
 
   gchar *object_path;
 
+  gulong input_id, output_id;
+  gboolean active;
   PinosPort *output;
   PinosPort *input;
   GBytes *possible_formats;
@@ -203,10 +205,14 @@ on_activate (PinosPort *port, gpointer user_data)
   PinosLink *link = user_data;
   PinosLinkPrivate *priv = link->priv;
 
+  if (priv->active)
+    return TRUE;
+
   if (priv->input == port)
     pinos_port_activate (priv->output);
   else
     pinos_port_activate (priv->input);
+  priv->active = TRUE;
 
   return TRUE;
 }
@@ -217,10 +223,14 @@ on_deactivate (PinosPort *port, gpointer user_data)
   PinosLink *link = user_data;
   PinosLinkPrivate *priv = link->priv;
 
+  if (!priv->active)
+    return TRUE;
+
   if (priv->input == port)
     pinos_port_deactivate (priv->output);
   else
     pinos_port_deactivate (priv->input);
+  priv->active = FALSE;
 
   return TRUE;
 }
@@ -232,18 +242,20 @@ pinos_link_constructed (GObject * object)
   PinosLinkPrivate *priv = link->priv;
   GBytes *formats;
 
-  pinos_port_add_send_buffer_cb (priv->output,
+  priv->output_id = pinos_port_add_send_buffer_cb (priv->output,
                                  on_output_send,
                                  link,
                                  NULL);
 
-  pinos_port_add_send_buffer_cb (priv->input,
+  priv->input_id = pinos_port_add_send_buffer_cb (priv->input,
                                  on_input_send,
                                  link,
                                  NULL);
 
   g_object_get (priv->input, "possible-formats", &formats, NULL);
   g_object_set (priv->output, "possible-formats", formats, NULL);
+  g_object_get (priv->output, "format", &formats, NULL);
+  g_object_set (priv->input, "format", formats, NULL);
 
   g_signal_connect (priv->input, "activate", (GCallback) on_activate, link);
   g_signal_connect (priv->input, "deactivate", (GCallback) on_deactivate, link);
@@ -260,8 +272,19 @@ static void
 pinos_link_dispose (GObject * object)
 {
   PinosLink *link = PINOS_LINK (object);
+  PinosLinkPrivate *priv = link->priv;
 
   g_debug ("link %p: dispose", link);
+
+  pinos_port_remove_send_buffer_cb (priv->input, priv->input_id);
+  pinos_port_remove_send_buffer_cb (priv->output, priv->output_id);
+  if (priv->active) {
+    priv->active = FALSE;
+    pinos_port_deactivate (priv->input);
+    pinos_port_deactivate (priv->output);
+  }
+  g_clear_object (&priv->input);
+  g_clear_object (&priv->output);
   link_unregister_object (link);
 
   G_OBJECT_CLASS (pinos_link_parent_class)->dispose (object);

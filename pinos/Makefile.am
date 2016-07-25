@@ -205,7 +205,6 @@ lib_LTLIBRARIES += libpinoscore-@PINOS_MAJORMINOR@.la
 
 # Pure core stuff
 libpinoscore_@PINOS_MAJORMINOR@_la_SOURCES = \
-		server/channel.c server/channel.h \
 		server/client.c server/client.h \
 		server/client-node.c server/client-node.h \
 		server/daemon.c server/daemon.h \

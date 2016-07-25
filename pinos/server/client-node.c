@@ -68,7 +68,7 @@ enum
   LAST_SIGNAL
 };
 
-static guint signals[LAST_SIGNAL] = { 0 };
+//static guint signals[LAST_SIGNAL] = { 0 };
 
 static void
 pinos_client_node_get_property (GObject    *_object,
@@ -175,6 +175,26 @@ parse_buffer (PinosClientNode *cnode,
       }
       case PINOS_PACKET_TYPE_STOP:
       {
+        PinosBufferBuilder builder;
+        PinosBuffer obuf;
+        guint8 buffer[1024];
+        GError *error = NULL;
+        GList *ports, *walk;
+
+        pinos_buffer_builder_init_into (&builder, buffer, 1024, NULL, 0);
+
+        ports = pinos_node_get_ports (node);
+        for (walk = ports; walk; walk = g_list_next (walk)) {
+          port = walk->data;
+          pinos_port_deactivate (port);
+        }
+        pinos_buffer_builder_add_empty (&builder, PINOS_PACKET_TYPE_STOPPED);
+        pinos_buffer_builder_end (&builder, &obuf);
+
+        if (!pinos_io_write_buffer (priv->fd, &obuf, &error)) {
+          g_warning ("client-node %p: error writing buffer: %s", node, error->message);
+          g_clear_error (&error);
+        }
         break;
       }
       case PINOS_PACKET_TYPE_REUSE_MEM:
@@ -359,7 +379,6 @@ static void
 pinos_client_node_dispose (GObject * object)
 {
   PinosClientNode *node = PINOS_CLIENT_NODE (object);
-  PinosClientNodePrivate *priv = node->priv;
 
   g_debug ("client-node %p: dispose", node);
   unhandle_socket (node);
@@ -371,7 +390,6 @@ static void
 pinos_client_node_finalize (GObject * object)
 {
   PinosClientNode *node = PINOS_CLIENT_NODE (object);
-  PinosClientNodePrivate *priv = node->priv;
 
   g_debug ("client-node %p: finalize", node);
 
@@ -409,7 +427,7 @@ pinos_client_node_class_init (PinosClientNodeClass * klass)
 static void
 pinos_client_node_init (PinosClientNode * node)
 {
-  PinosClientNodePrivate *priv = node->priv = PINOS_CLIENT_NODE_GET_PRIVATE (node);
+  node->priv = PINOS_CLIENT_NODE_GET_PRIVATE (node);
 
   g_debug ("client-node %p: new", node);
 }

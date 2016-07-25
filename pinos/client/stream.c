@@ -786,7 +786,7 @@ do_connect (PinosStream *stream)
   g_variant_builder_add (&b, "u", 0);
   g_variant_builder_add (&b, "s", g_bytes_get_data (priv->possible_formats, NULL));
   g_variant_builder_add_value (&b, pinos_properties_to_variant (priv->properties));
-  g_variant_builder_add (&b, "s", priv->path);
+  g_variant_builder_add (&b, "s", priv->path == NULL ? "" : priv->path);
   g_variant_builder_close (&b);
   ports = g_variant_builder_end (&b);
 

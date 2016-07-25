@@ -23,27 +23,6 @@
     <!-- Properties: Extra properties of the daemon -->
     <property name='Properties' type='a{sv}' access='read' />
 
-    <!-- CreateChannel:
-         @node: the Node1 object path or / for default
-         @direction: the direction of the channel
-              0 = input channel
-              1 = output channel
-         @possible_formats: the possible formats that can be accepted
-         @properties: extra properties
-         @channel: the Channel object path
-         @fd: a file descriptor for data transfer
-
-         Create a new channel to communicate with @node with given @possible_formats
-    -->
-    <method name='CreateChannel'>
-      <arg type='s' name='node' direction='in'/>
-      <arg type='u' name='direction' direction='in'/>
-      <arg type='s' name='possible_formats' direction='in'/>
-      <arg type='a{sv}' name='properties' direction='in'/>
-      <arg type='o' name='channel' direction='out'/>
-      <arg type='h' name='fd' direction='out'/>
-    </method>
-
     <!-- CreateNode:
          @factory_name: the factory name to use for the node
          @name: the name of the node
@@ -59,6 +38,14 @@
       <arg type='o' name='node' direction='out'/>
     </method>
 
+    <!-- CreateClientNode:
+         @name: the name of the node
+         @Properties: extra properties
+         @ports: the port descriptions
+         @node: the Node1 object path
+
+         Create a new Node with given name and properties and ports.
+    -->
     <method name='CreateClientNode'>
       <arg type='s' name='name' direction='in' />
       <arg type='a{sv}' name='properties' direction='in'/>
@@ -83,53 +70,11 @@
     <property name='Sender' type='s' access='read' />
     <!-- Name: Properties of the client -->
     <property name='Properties' type='a{sv}' access='read' />
+
+
+
+
   </interface>
-
-  <!--
-      org.pinos.Channel:
-      @short_description: Interface for input/output channel
-
-      This interface is used to control the input/output of a
-      node and start/stop the media transport.
-  -->
-  <interface name='org.pinos.Channel1'>
-    <!-- Owner: the owner node of this channel -->
-    <property name='Owner' type='o' access='read' />
-    <!-- type: type of the channel
-          0 = input channel
-          1 = output channel
-    -->
-    <property name='Direction' type='u' access='read' />
-
-    <property name='Node' type='o' access='read' />
-
-    <!-- Properties: extra channel properties -->
-    <property name='Properties' type='a{sv}' access='read' />
-
-    <!-- state: state of the channel
-          -1 = the channel is in error
-          0 = the channel is idle
-          1 = the channel is starting
-          2 = the channel is streaming
-    -->
-    <property name='State' type='u' access='read' />
-
-    <!-- PossibleFormats:
-         all possible formats of the channel. This is filtered
-         against the accepted_formats when creating the channel.
-         -->
-    <property name='PossibleFormats' type='s' access='read' />
-
-    <!-- Format: the current streaming format -->
-    <property name='Format' type='s' access='read' />
-
-    <!-- Remove:
-
-         Remove the channel
-    -->
-    <method name='Remove'/>
-  </interface>
-
 
   <!--
       org.pinos.Node1:

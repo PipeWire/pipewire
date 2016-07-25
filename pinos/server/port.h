@@ -30,7 +30,6 @@ typedef struct _PinosPortPrivate PinosPortPrivate;
 
 #include <pinos/client/introspect.h>
 #include <pinos/client/buffer.h>
-#include <pinos/server/channel.h>
 #include <pinos/server/daemon.h>
 
 #define PINOS_TYPE_PORT             (pinos_port_get_type ())
@@ -94,12 +93,6 @@ GBytes *            pinos_port_get_format           (PinosPort *port);
 
 void                pinos_port_activate             (PinosPort *port);
 void                pinos_port_deactivate           (PinosPort *port);
-
-PinosChannel *      pinos_port_create_channel	    (PinosPort       *port,
-                                                     const gchar     *client_path,
-                                                     GBytes          *format_filter,
-                                                     PinosProperties *props,
-                                                     GError         **error);
 
 gboolean            pinos_port_send_buffer          (PinosPort   *port,
                                                      PinosBuffer *buffer,

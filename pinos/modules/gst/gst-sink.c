@@ -311,14 +311,14 @@ set_property (GObject      *object,
   }
 }
 
-static gboolean
-on_linked (PinosPort *port, PinosPort *peer, gpointer user_data)
+static void
+on_activate (PinosPort *port, gpointer user_data)
 {
   SinkPortData *data = user_data;
   PinosGstSink *sink = data->sink;
   PinosGstSinkPrivate *priv = sink->priv;
 
-  g_debug ("port %p: linked", port);
+  g_debug ("port %p: activate", port);
 
   if (priv->mixer) {
     data->peerpad = gst_element_get_request_pad (priv->mixer, "sink_%u");
@@ -327,7 +327,7 @@ on_linked (PinosPort *port, PinosPort *peer, gpointer user_data)
   }
   if (gst_pad_link (data->srcpad, data->peerpad) != GST_PAD_LINK_OK) {
     g_clear_object (&data->peerpad);
-    return FALSE;
+    return;
   }
 
   pinos_node_report_busy (PINOS_NODE (sink));
@@ -337,17 +337,17 @@ on_linked (PinosPort *port, PinosPort *peer, gpointer user_data)
   }
   gst_element_set_state (data->src, GST_STATE_PLAYING);
 
-  return TRUE;
+  return;
 }
 
 static void
-on_unlinked (PinosPort *port, PinosPort *peer, gpointer user_data)
+on_deactivate (PinosPort *port, gpointer user_data)
 {
   SinkPortData *data = user_data;
   PinosGstSink *sink = data->sink;
   PinosGstSinkPrivate *priv = sink->priv;
 
-  g_debug ("port %p: unlinked", port);
+  g_debug ("port %p: deactivate", port);
 
   if (data->convert) {
     gst_element_set_state (data->convert, GST_STATE_NULL);
@@ -399,8 +399,8 @@ add_port (PinosNode       *node,
                 ->add_port (node, direction, id, error);
 
   g_debug ("connecting signals");
-  g_signal_connect (data->port, "linked", (GCallback) on_linked, data);
-  g_signal_connect (data->port, "unlinked", (GCallback) on_unlinked, data);
+  g_signal_connect (data->port, "activate", (GCallback) on_activate, data);
+  g_signal_connect (data->port, "deactivate", (GCallback) on_deactivate, data);
 
   data->src = gst_element_factory_make ("pinosportsrc", NULL);
   g_object_set (data->src, "port", data->port, NULL);

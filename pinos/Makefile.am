@@ -167,7 +167,6 @@ pinosgstsource = gst/gstpinospay.h gst/gstpinospay.c \
 
 pinosinclude_HEADERS = \
 		client/buffer.h \
-		client/client-node.h \
 		client/client-port.h \
 		client/context.h \
 		client/enumtypes.h \

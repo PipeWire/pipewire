@@ -41,8 +41,9 @@
 typedef struct {
   PinosSpaV4l2Source *source;
 
+  guint id;
   gboolean have_format;
-  PinosServerPort *port;
+  PinosPort *port;
 } SourcePortData;
 
 struct _PinosSpaV4l2SourcePrivate
@@ -67,7 +68,7 @@ enum {
   PROP_0,
 };
 
-G_DEFINE_TYPE (PinosSpaV4l2Source, pinos_spa_v4l2_source, PINOS_TYPE_SERVER_NODE);
+G_DEFINE_TYPE (PinosSpaV4l2Source, pinos_spa_v4l2_source, PINOS_TYPE_NODE);
 
 static SpaResult
 make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char *name)
@@ -171,7 +172,9 @@ on_source_event (SpaHandle *handle, SpaEvent *event, void *user_data)
       PinosBuffer pbuf;
       PinosBufferBuilder builder;
       PinosPacketHeader hdr;
-      PinosPacketFDPayload p;
+      PinosPacketAddMem am;
+      PinosPacketProcessMem p;
+      PinosPacketRemoveMem rm;
       GList *walk;
       gint fd;
       guint8 buf[1024];
@@ -197,11 +200,17 @@ on_source_event (SpaHandle *handle, SpaEvent *event, void *user_data)
         fd = tmpfile_create (source, b->datas[0].ptr, b->size);
         do_close = TRUE;
       }
-      p.fd_index = pinos_buffer_builder_add_fd (&builder, fd);
-      p.id = pinos_fd_manager_get_id (priv->fdmanager);
+      am.fd_index = pinos_buffer_builder_add_fd (&builder, fd);
+      am.id = pinos_fd_manager_get_id (priv->fdmanager);
+      am.offset = 0;
+      am.size = b->datas[0].size + b->datas[0].offset;
+      p.id = am.id;
       p.offset = b->datas[0].offset;
       p.size = b->datas[0].size;
-      pinos_buffer_builder_add_fd_payload (&builder, &p);
+      rm.id = am.id;
+      pinos_buffer_builder_add_add_mem (&builder, &am);
+      pinos_buffer_builder_add_process_mem (&builder, &p);
+      pinos_buffer_builder_add_remove_mem (&builder, &rm);
       pinos_buffer_builder_end (&builder, &pbuf);
 
       for (walk = priv->ports; walk; walk = g_list_next (walk)) {
@@ -459,41 +468,32 @@ set_property (GObject      *object,
 }
 
 static gboolean
-on_linked (PinosPort *port, PinosPort *peer, gpointer user_data)
+on_activate (PinosPort *port, gpointer user_data)
 {
   SourcePortData *data = user_data;
   PinosSpaV4l2Source *source = data->source;
-  guint n_links;
 
-  pinos_port_get_links (port, &n_links);
-  g_debug ("port %p: linked, now %d", port, n_links);
-  if (n_links == 0)
-    pinos_node_report_busy (PINOS_NODE (source));
+  pinos_node_report_busy (PINOS_NODE (source));
 
   return TRUE;
 }
 
 static void
-on_unlinked (PinosPort *port, PinosPort *peer, gpointer user_data)
+on_deactivate (PinosPort *port, gpointer user_data)
 {
   SourcePortData *data = user_data;
   PinosSpaV4l2Source *source = data->source;
-  guint n_links;
 
-  pinos_port_get_links (port, &n_links);
-  g_debug ("port %p: unlinked, now %d", port, n_links);
-  if (n_links == 1)
-    pinos_node_report_busy (PINOS_NODE (source));
+  pinos_node_report_idle (PINOS_NODE (source));
 }
 
-static void
-on_received_buffer (PinosPort  *port,
+static gboolean
+on_received_buffer (PinosPort   *port,
+                    PinosBuffer *pbuf,
+                    GError     **error,
                     gpointer    user_data)
 {
-  PinosBuffer *pbuf;
   PinosBufferIter it;
-
-  pbuf = pinos_port_peek_buffer (port);
 
   pinos_buffer_iter_init (&it, pbuf);
   while (pinos_buffer_iter_next (&it)) {
@@ -503,6 +503,8 @@ on_received_buffer (PinosPort  *port,
     }
   }
   pinos_buffer_iter_end (&it);
+
+  return TRUE;
 }
 
 static void
@@ -511,9 +513,9 @@ free_source_port_data (SourcePortData *data)
   g_slice_free (SourcePortData, data);
 }
 
-static void
+static gboolean
 remove_port (PinosNode       *node,
-             PinosPort       *port)
+             guint            id)
 {
   PinosSpaV4l2Source *source = PINOS_SPA_V4L2_SOURCE (node);
   PinosSpaV4l2SourcePrivate *priv = source->priv;
@@ -522,7 +524,7 @@ remove_port (PinosNode       *node,
   for (walk = priv->ports; walk; walk = g_list_next (walk)) {
     SourcePortData *data = walk->data;
 
-    if (data->port == PINOS_SERVER_PORT_CAST (port)) {
+    if (data->id == id) {
       free_source_port_data (data);
       priv->ports = g_list_delete_link (priv->ports, walk);
       break;
@@ -530,6 +532,8 @@ remove_port (PinosNode       *node,
   }
   if (priv->ports == NULL)
     pinos_node_report_idle (node);
+
+  return TRUE;
 }
 
 static void
@@ -553,12 +557,11 @@ source_finalize (GObject * object)
   G_OBJECT_CLASS (pinos_spa_v4l2_source_parent_class)->finalize (object);
 }
 
-static PinosServerPort *
-create_port_sync (PinosServerNode *node,
-                  PinosDirection   direction,
-                  const gchar     *name,
-                  GBytes          *possible_formats,
-                  PinosProperties *props)
+static PinosPort *
+add_port (PinosNode       *node,
+          PinosDirection   direction,
+          guint            id,
+          GError         **error)
 {
   PinosSpaV4l2Source *source = PINOS_SPA_V4L2_SOURCE (node);
   PinosSpaV4l2SourcePrivate *priv = source->priv;
@@ -566,20 +569,17 @@ create_port_sync (PinosServerNode *node,
 
   data = g_slice_new0 (SourcePortData);
   data->source = source;
+  data->id = id;
   data->have_format = FALSE;
 
-  data->port = PINOS_SERVER_NODE_CLASS (pinos_spa_v4l2_source_parent_class)
-                ->create_port_sync (node,
-                                    direction,
-                                    name,
-                                    possible_formats,
-                                    props);
+  data->port = PINOS_NODE_CLASS (pinos_spa_v4l2_source_parent_class)
+                    ->add_port (node, direction, id, error);
 
-  pinos_port_set_received_buffer_cb (PINOS_PORT (data->port), on_received_buffer, source, NULL);
+  pinos_port_set_received_buffer_cb (data->port, on_received_buffer, source, NULL);
 
   g_debug ("connecting signals");
-  g_signal_connect (data->port, "linked", (GCallback) on_linked, data);
-  g_signal_connect (data->port, "unlinked", (GCallback) on_unlinked, data);
+  g_signal_connect (data->port, "activate", (GCallback) on_activate, data);
+  g_signal_connect (data->port, "deactivate", (GCallback) on_deactivate, data);
 
   priv->ports = g_list_append (priv->ports, data);
 
@@ -591,7 +591,6 @@ pinos_spa_v4l2_source_class_init (PinosSpaV4l2SourceClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
   PinosNodeClass *node_class = PINOS_NODE_CLASS (klass);
-  PinosServerNodeClass *server_node_class = PINOS_SERVER_NODE_CLASS (klass);
 
   g_type_class_add_private (klass, sizeof (PinosSpaV4l2SourcePrivate));
 
@@ -601,9 +600,8 @@ pinos_spa_v4l2_source_class_init (PinosSpaV4l2SourceClass * klass)
   gobject_class->set_property = set_property;
 
   node_class->set_state = set_state;
+  node_class->add_port = add_port;
   node_class->remove_port = remove_port;
-
-  server_node_class->create_port_sync = create_port_sync;
 }
 
 static void
@@ -615,12 +613,12 @@ pinos_spa_v4l2_source_init (PinosSpaV4l2Source * source)
 
 }
 
-PinosServerNode *
+PinosNode *
 pinos_spa_v4l2_source_new (PinosDaemon *daemon,
                            const gchar *name,
                            PinosProperties *properties)
 {
-  PinosServerNode *node;
+  PinosNode *node;
 
   node = g_object_new (PINOS_TYPE_SPA_V4L2_SOURCE,
                        "daemon", daemon,

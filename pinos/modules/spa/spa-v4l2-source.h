@@ -23,7 +23,7 @@
 #include <glib-object.h>
 
 #include <client/pinos.h>
-#include <server/server-node.h>
+#include <server/node.h>
 
 G_BEGIN_DECLS
 
@@ -41,18 +41,18 @@ typedef struct _PinosSpaV4l2SourceClass PinosSpaV4l2SourceClass;
 typedef struct _PinosSpaV4l2SourcePrivate PinosSpaV4l2SourcePrivate;
 
 struct _PinosSpaV4l2Source {
-  PinosServerNode object;
+  PinosNode object;
 
   PinosSpaV4l2SourcePrivate *priv;
 };
 
 struct _PinosSpaV4l2SourceClass {
-  PinosServerNodeClass parent_class;
+  PinosNodeClass parent_class;
 };
 
 GType             pinos_spa_v4l2_source_get_type (void);
 
-PinosServerNode * pinos_spa_v4l2_source_new      (PinosDaemon     *daemon,
+PinosNode *       pinos_spa_v4l2_source_new      (PinosDaemon     *daemon,
                                                   const gchar     *name,
                                                   PinosProperties *properties);
 

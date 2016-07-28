@@ -1,4 +1,4 @@
-/* Spa ALSA support
+/* Simple Plugin API
  * Copyright (C) 2016 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -17,30 +17,22 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include <spa/plugin.h>
-#include <spa/node.h>
+#ifndef __SPA_DEBUG_H__
+#define __SPA_DEBUG_H__
 
-extern const SpaHandleFactory spa_alsa_sink_factory;
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-SpaResult
-spa_enum_handle_factory (const SpaHandleFactory **factory,
-                         void                   **state)
-{
-  int index;
+#include <spa/defs.h>
+#include <spa/port.h>
 
-  if (factory == NULL || state == NULL)
-    return SPA_RESULT_ENUM_END;
+SpaResult spa_debug_port_info (const SpaPortInfo *info);
+SpaResult spa_debug_dump_mem  (void *data, size_t size);
 
-  index = (*state == NULL ? 0 : *(int*)state);
+#ifdef __cplusplus
+}  /* extern "C" */
+#endif
 
-  switch (index) {
-    case 0:
-      *factory = &spa_alsa_sink_factory;
-      break;
-    default:
-      return SPA_RESULT_ENUM_END;
-  }
-  *(int*)state = ++index;
 
-  return SPA_RESULT_OK;
-}
+#endif /* __SPA_DEBUG_H__ */

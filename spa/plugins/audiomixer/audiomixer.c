@@ -324,7 +324,7 @@ spa_audiomixer_node_port_enum_formats (SpaHandle       *handle,
       return SPA_RESULT_ENUM_END;
   }
   *format = &this->query_format.format;
-  *(int*)state = index++;
+  *(int*)state = ++index;
 
   return SPA_RESULT_OK;
 }

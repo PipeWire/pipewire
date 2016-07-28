@@ -17,10 +17,15 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#define _GNU_SOURCE
+
 #include <string.h>
 #include <sys/socket.h>
 #include <errno.h>
 #include <sys/mman.h>
+#include <unistd.h>
+#include <fcntl.h>
+
 
 #include <gio/gunixfdlist.h>
 
@@ -34,18 +39,11 @@
 
 #include "pinos/dbus/org-pinos.h"
 
+#include "spa/include/spa/control.h"
+
 
 #define MAX_BUFFER_SIZE 1024
 #define MAX_FDS         16
-
-typedef struct {
-  guint32 id;
-  guint32 type;
-  int fd;
-  guint64 offset;
-  guint64 size;
-  void *data;
-} MemBlock;
 
 struct _PinosClientNodePrivate
 {
@@ -53,7 +51,7 @@ struct _PinosClientNodePrivate
   GSource *socket_source;
   GSocket *sockets[2];
 
-  PinosBuffer recv_buffer;
+  SpaControl recv_control;
 
   guint8 recv_data[MAX_BUFFER_SIZE];
   int recv_fds[MAX_FDS];
@@ -112,178 +110,118 @@ pinos_client_node_set_property (GObject      *_object,
   }
 }
 
-static void
-free_mem_block (MemBlock *b)
-{
-  munmap (b->data, b->size);
-  g_slice_free (MemBlock, b);
-}
-
 static gboolean
-parse_buffer (PinosClientNode *cnode,
-              PinosBuffer *pbuf)
+parse_control (PinosClientNode *cnode,
+               SpaControl      *ctrl)
 {
   PinosNode *node = PINOS_NODE (cnode);
-  PinosBufferIter it;
   PinosClientNodePrivate *priv = cnode->priv;
-  PinosPort *port;
+  SpaControlIter it;
 
-  pinos_buffer_iter_init (&it, pbuf);
-  while (pinos_buffer_iter_next (&it)) {
-    PinosPacketType type = pinos_buffer_iter_get_type (&it);
+  spa_control_iter_init (&it, ctrl);
+  while (spa_control_iter_next (&it) == SPA_RESULT_OK) {
+    SpaControlCmd cmd = spa_control_iter_get_cmd (&it);
 
-    switch (type) {
-      case PINOS_PACKET_TYPE_FORMAT_CHANGE:
+    switch (cmd) {
+      case SPA_CONTROL_CMD_ADD_PORT:
+      case SPA_CONTROL_CMD_REMOVE_PORT:
+      case SPA_CONTROL_CMD_SET_FORMAT:
+      case SPA_CONTROL_CMD_SET_PROPERTY:
+      case SPA_CONTROL_CMD_END_CONFIGURE:
+      case SPA_CONTROL_CMD_PAUSE:
+      case SPA_CONTROL_CMD_START:
+      case SPA_CONTROL_CMD_STOP:
+        g_warning ("client-node %p: got unexpected control %d", node, cmd);
+        break;
+
+      case SPA_CONTROL_CMD_NODE_UPDATE:
+      case SPA_CONTROL_CMD_PORT_UPDATE:
+      case SPA_CONTROL_CMD_PORT_REMOVED:
+        g_warning ("client-node %p: command not implemented %d", node, cmd);
+        break;
+
+      case SPA_CONTROL_CMD_START_CONFIGURE:
       {
-        PinosPacketFormatChange p;
-        GBytes *format;
+        SpaControlBuilder builder;
+        SpaControl control;
+        guint8 buffer[1024];
 
-        if (!pinos_buffer_iter_parse_format_change (&it, &p))
-          break;
+        /* set port format */
 
-        g_debug ("format change port %d", p.port);
+        /* send end-configure */
+        spa_control_builder_init_into (&builder, buffer, 1024, NULL, 0);
+        spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_END_CONFIGURE, NULL);
+        spa_control_builder_end (&builder, &control);
 
-        if (!(port = pinos_node_find_port (node, p.port)))
-          break;
+        if (spa_control_write (&control, priv->fd) < 0)
+          g_warning ("client-node %p: error writing control", node);
 
-        format = g_bytes_new_static (p.format, strlen (p.format) + 1);
-
-        g_object_set (port, "possible-formats", format, NULL);
-        g_object_set (port, "format", format, NULL);
-        g_debug ("client-node %p: format change %s", node, p.format);
         break;
       }
-      case PINOS_PACKET_TYPE_START:
+      case SPA_CONTROL_CMD_PORT_STATUS_CHANGE:
       {
-        GBytes *format;
-        PinosBufferBuilder builder;
-        PinosBuffer obuf;
+        g_warning ("client-node %p: command not implemented %d", node, cmd);
+        break;
+      }
+      case SPA_CONTROL_CMD_START_ALLOC:
+      {
+        SpaControlBuilder builder;
+        SpaControl control;
         guint8 buffer[1024];
-        GError *error = NULL;
         GList *ports, *walk;
 
-        pinos_buffer_builder_init_into (&builder, buffer, 1024, NULL, 0);
+        /* FIXME read port memory requirements */
+        /* FIXME add_mem */
+
+        /* send start */
+        spa_control_builder_init_into (&builder, buffer, 1024, NULL, 0);
+        spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_START, NULL);
+        spa_control_builder_end (&builder, &control);
+
+        if (spa_control_write (&control, priv->fd) < 0)
+          g_warning ("client-node %p: error writing control", node);
 
         ports = pinos_node_get_ports (node);
         for (walk = ports; walk; walk = g_list_next (walk)) {
-          PinosPacketFormatChange fc;
-
-          port = walk->data;
+          PinosPort *port = walk->data;
 
           pinos_port_activate (port);
-
-          g_object_get (port, "format", &format, "id", &fc.port, NULL);
-          if (format == NULL)
-            break;
-
-          fc.id = 0;
-          fc.format = g_bytes_get_data (format, NULL);
-
-          g_debug ("client-node %p: port %u we are now streaming in format \"%s\"",
-             node, fc.port, fc.format);
-
-          pinos_buffer_builder_add_format_change (&builder, &fc);
-        }
-        pinos_buffer_builder_add_empty (&builder, PINOS_PACKET_TYPE_STREAMING);
-        pinos_buffer_builder_end (&builder, &obuf);
-
-        if (!pinos_io_write_buffer (priv->fd, &obuf, &error)) {
-          g_warning ("client-node %p: error writing buffer: %s", node, error->message);
-          g_clear_error (&error);
-        }
-
-        break;
-      }
-      case PINOS_PACKET_TYPE_STOP:
-      {
-        PinosBufferBuilder builder;
-        PinosBuffer obuf;
-        guint8 buffer[1024];
-        GError *error = NULL;
-        GList *ports, *walk;
-
-        pinos_buffer_builder_init_into (&builder, buffer, 1024, NULL, 0);
-
-        ports = pinos_node_get_ports (node);
-        for (walk = ports; walk; walk = g_list_next (walk)) {
-          port = walk->data;
-          pinos_port_deactivate (port);
-        }
-        pinos_buffer_builder_add_empty (&builder, PINOS_PACKET_TYPE_STOPPED);
-        pinos_buffer_builder_end (&builder, &obuf);
-
-        if (!pinos_io_write_buffer (priv->fd, &obuf, &error)) {
-          g_warning ("client-node %p: error writing buffer: %s", node, error->message);
-          g_clear_error (&error);
         }
         break;
       }
-      case PINOS_PACKET_TYPE_ADD_MEM:
-      {
-        PinosPacketAddMem p;
-        MemBlock *b;
-        int fd;
-
-        if (!pinos_buffer_iter_parse_add_mem (&it, &p))
-          break;
-
-        fd = pinos_buffer_get_fd (pbuf, p.fd_index);
-        if (fd == -1)
-          break;
-
-        b = g_slice_new0 (MemBlock);
-        b->id = p.id;
-        b->type = p.type;
-        b->fd = fd;
-        b->data = mmap (NULL, p.size, PROT_READ, MAP_PRIVATE, fd, p.offset);
-        b->offset = p.offset;
-        b->size = p.size;
-
-        g_hash_table_insert (priv->mem_ids, GINT_TO_POINTER (p.id), b);
-        break;
-      }
-
-      case PINOS_PACKET_TYPE_REMOVE_MEM:
-      {
-        PinosPacketRemoveMem p;
-
-        if (!pinos_buffer_iter_parse_remove_mem (&it, &p))
-          break;
-
-        g_hash_table_remove (priv->mem_ids, GINT_TO_POINTER (p.id));
-        break;
-      }
-      case PINOS_PACKET_TYPE_PROCESS_MEM:
-      {
-        PinosPacketProcessMem p;
-        GError *error = NULL;
-
-        if (!pinos_buffer_iter_parse_process_mem  (&it, &p))
-          break;
-
-        if (!(port = pinos_node_find_port (node, p.port)))
-          break;
-
-        if (!pinos_port_send_buffer (port, pbuf, &error)) {
-          g_warning ("client-node %p: port %p failed to receive buffer: %s", node, port, error->message);
-          g_clear_error (&error);
-        }
-        break;
-      }
-      case PINOS_PACKET_TYPE_HEADER:
+      case SPA_CONTROL_CMD_NEED_INPUT:
       {
         break;
       }
-      case PINOS_PACKET_TYPE_REUSE_MEM:
+      case SPA_CONTROL_CMD_HAVE_OUTPUT:
       {
         break;
       }
+
+      case SPA_CONTROL_CMD_ADD_MEM:
+        break;
+      case SPA_CONTROL_CMD_REMOVE_MEM:
+        break;
+      case SPA_CONTROL_CMD_ADD_BUFFER:
+        break;
+      case SPA_CONTROL_CMD_REMOVE_BUFFER:
+        break;
+
+      case SPA_CONTROL_CMD_PROCESS_BUFFER:
+      {
+        break;
+      }
+      case SPA_CONTROL_CMD_REUSE_BUFFER:
+      {
+        break;
+      }
+
       default:
-        g_warning ("unhandled packet %d", type);
+        g_warning ("client-node %p: command unhandled %d", node, cmd);
         break;
     }
   }
-  pinos_buffer_iter_end (&it);
+  spa_control_iter_end (&it);
 
   return TRUE;
 }
@@ -299,22 +237,19 @@ on_socket_condition (GSocket      *socket,
   switch (condition) {
     case G_IO_IN:
     {
-      PinosBuffer *buffer = &priv->recv_buffer;
-      GError *error = NULL;
+      SpaControl *control = &priv->recv_control;
 
-      if (!pinos_io_read_buffer (priv->fd,
-                                 buffer,
-                                 priv->recv_data,
-                                 MAX_BUFFER_SIZE,
-                                 priv->recv_fds,
-                                 MAX_FDS,
-                                 &error)) {
-        g_warning ("client-node %p: failed to read buffer: %s", node, error->message);
-        g_clear_error (&error);
+      if (spa_control_read (control,
+                            priv->fd,
+                            priv->recv_data,
+                            MAX_BUFFER_SIZE,
+                            priv->recv_fds,
+                            MAX_FDS) < 0) {
+        g_warning ("client-node %p: failed to read buffer", node);
         return TRUE;
       }
 
-      parse_buffer (node, buffer);
+      parse_control (node, control);
 
 #if 0
       if (!pinos_port_receive_buffer (priv->port, buffer, &error)) {
@@ -322,7 +257,7 @@ on_socket_condition (GSocket      *socket,
         g_clear_error (&error);
       }
 #endif
-      g_assert (pinos_buffer_unref (buffer) == FALSE);
+      spa_control_clear (control);
       break;
     }
 
@@ -416,16 +351,153 @@ create_failed:
   }
 }
 
-static gboolean
-on_received_buffer (PinosPort *port, PinosBuffer *buffer, GError **error, gpointer user_data)
+static void
+on_format_change (GObject *obj,
+                  GParamSpec *pspec,
+                  gpointer user_data)
 {
   PinosClientNode *node = user_data;
   PinosClientNodePrivate *priv = node->priv;
+  GBytes *format;
+  SpaControl control;
+  SpaControlBuilder builder;
+  SpaControlCmdSetFormat sf;
+  guint8 buf[1024];
 
-  if (!pinos_io_write_buffer (priv->fd, buffer, error)) {
-    g_warning ("client-node %p: error writing buffer: %s", node, (*error)->message);
-    return FALSE;
+  g_object_get (obj, "format", &format, NULL);
+  if (format == NULL)
+    return ;
+
+  g_debug ("port %p: format change %s", obj, (gchar*)g_bytes_get_data (format, NULL));
+
+  spa_control_builder_init_into (&builder, buf, 1024, NULL, 0);
+  sf.port = 0;
+  sf.format = NULL;
+  sf.str = g_bytes_get_data (format, NULL);
+  spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_SET_FORMAT, &sf);
+  spa_control_builder_end (&builder, &control);
+
+  if (spa_control_write (&control, priv->fd))
+    g_warning ("client-node %p: error writing control", node);
+}
+
+
+static int
+tmpfile_create (void *data, gsize size)
+{
+  char filename[] = "/dev/shm/tmpfilepay.XXXXXX";
+  int fd;
+
+  fd = mkostemp (filename, O_CLOEXEC);
+  if (fd == -1) {
+    g_debug ("Failed to create temporary file: %s", strerror (errno));
+    return -1;
   }
+  unlink (filename);
+
+  if (write (fd, data, size) != (gssize) size)
+    g_debug ("Failed to write data: %s", strerror (errno));
+
+  return fd;
+}
+
+typedef struct {
+  SpaBuffer buffer;
+  SpaData  datas[16];
+  int idx[16];
+  SpaBuffer *orig;
+} MyBuffer;
+
+static gboolean
+on_received_buffer (PinosPort *port, SpaBuffer *buffer, GError **error, gpointer user_data)
+{
+  PinosClientNode *node = user_data;
+  PinosClientNodePrivate *priv = node->priv;
+  SpaControl control;
+  SpaControlBuilder builder;
+  guint8 buf[1024];
+  int fds[16];
+  SpaControlCmdAddBuffer ab;
+  SpaControlCmdProcessBuffer pb;
+  SpaControlCmdRemoveBuffer rb;
+  bool tmpfile = false;
+
+  if (pinos_port_get_direction (port) == PINOS_DIRECTION_OUTPUT) {
+    /* FIXME, does not happen */
+    spa_control_builder_init_into (&builder, buf, 1024, NULL, 0);
+    spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_HAVE_OUTPUT, NULL);
+    spa_control_builder_end (&builder, &control);
+
+    if (spa_control_write (&control, priv->fd)) {
+      g_warning ("client-node %p: error writing control", node);
+      return FALSE;
+    }
+  } else {
+    unsigned int i;
+    MyBuffer b;
+
+    spa_control_builder_init_into (&builder, buf, 1024, fds, 16);
+
+    b.buffer.refcount = 1;
+    b.buffer.notify = NULL;
+    b.buffer.id = buffer->id;
+    b.buffer.size = buffer->size;
+    b.buffer.n_metas = buffer->n_metas;
+    b.buffer.metas = buffer->metas;
+    b.buffer.n_datas = buffer->n_datas;
+    b.buffer.datas = b.datas;
+
+    for (i = 0; i < buffer->n_datas; i++) {
+      SpaData *d = &buffer->datas[i];
+      int fd;
+      SpaControlCmdAddMem am;
+
+      if (d->type == SPA_DATA_TYPE_FD) {
+        fd = *((int *)d->ptr);
+      } else {
+        fd = tmpfile_create (d->ptr, d->size + d->offset);
+        tmpfile = true;
+      }
+      am.port = 0;
+      am.id = i;
+      am.type = 0;
+      am.fd_index = spa_control_builder_add_fd (&builder, fd, tmpfile ? true : false);
+      am.offset = 0;
+      am.size = d->offset + d->size;
+      spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_ADD_MEM, &am);
+
+      b.idx[i] = i;
+      b.datas[i].type = SPA_DATA_TYPE_MEMID;
+      b.datas[i].ptr_type = NULL;
+      b.datas[i].ptr = &b.idx[i];
+      b.datas[i].offset = d->offset;
+      b.datas[i].size = d->size;
+      b.datas[i].stride = d->stride;
+    }
+    ab.port = 0;
+    ab.buffer = &b.buffer;
+    spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_ADD_BUFFER, &ab);
+    pb.port = 0;
+    pb.id = b.buffer.id;
+    spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_PROCESS_BUFFER, &pb);
+    rb.port = 0;
+    rb.id = b.buffer.id;
+    spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_REMOVE_BUFFER, &rb);
+
+    for (i = 0; i < buffer->n_datas; i++) {
+      SpaControlCmdRemoveMem rm;
+      rm.port = 0;
+      rm.id = i;
+      spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_REMOVE_MEM, &rm);
+    }
+    spa_control_builder_end (&builder, &control);
+
+    if (spa_control_write (&control, priv->fd))
+      g_warning ("client-node %p: error writing control", node);
+
+    spa_control_clear (&control);
+  }
+
   return TRUE;
 }
 
@@ -441,6 +513,8 @@ add_port (PinosNode       *node,
 
   if (port) {
     pinos_port_set_received_buffer_cb (port, on_received_buffer, node, NULL);
+
+    g_signal_connect (port, "notify::format", (GCallback) on_format_change, node);
   }
   return port;
 }
@@ -506,8 +580,7 @@ pinos_client_node_class_init (PinosClientNodeClass * klass)
 static void
 pinos_client_node_init (PinosClientNode * node)
 {
-  PinosClientNodePrivate *priv = node->priv = PINOS_CLIENT_NODE_GET_PRIVATE (node);
+  node->priv = PINOS_CLIENT_NODE_GET_PRIVATE (node);
 
   g_debug ("client-node %p: new", node);
-  priv->mem_ids = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL, (GDestroyNotify) free_mem_block);
 }

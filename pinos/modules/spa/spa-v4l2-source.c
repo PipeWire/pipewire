@@ -58,10 +58,9 @@ struct _PinosSpaV4l2SourcePrivate
   gboolean running;
   pthread_t thread;
 
-  const void *format;
+  GBytes *format;
 
   GList *ports;
-  PinosFdManager *fdmanager;
 };
 
 enum {
@@ -114,50 +113,6 @@ make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char
 }
 
 static void
-send_format (PinosSpaV4l2Source *source, SourcePortData *data)
-{
-  PinosSpaV4l2SourcePrivate *priv = source->priv;
-  GError *error = NULL;
-  PinosBufferBuilder builder;
-  PinosBuffer pbuf;
-  PinosPacketFormatChange fc;
-  guint8 buf[1024];
-
-  pinos_buffer_builder_init_into (&builder, buf, 1024, NULL, 0);
-  fc.id = 0;
-  fc.format = priv->format;
-  pinos_buffer_builder_add_format_change (&builder, &fc);
-  pinos_buffer_builder_end (&builder, &pbuf);
-
-  if (!pinos_port_send_buffer (PINOS_PORT (data->port), &pbuf, &error)) {
-    g_debug ("format update failed: %s", error->message);
-    g_clear_error (&error);
-  }
-  pinos_buffer_unref (&pbuf);
-
-  data->have_format = TRUE;
-}
-
-static int
-tmpfile_create (PinosSpaV4l2Source * source, void *data, gsize size)
-{
-  char filename[] = "/dev/shm/tmpfilepay.XXXXXX";
-  int fd;
-
-  fd = mkostemp (filename, O_CLOEXEC);
-  if (fd == -1) {
-    g_debug ("Failed to create temporary file: %s", strerror (errno));
-    return -1;
-  }
-  unlink (filename);
-
-  if (write (fd, data, size) != (gssize) size)
-    g_debug ("Failed to write data: %s", strerror (errno));
-
-  return fd;
-}
-
-static void
 on_source_event (SpaHandle *handle, SpaEvent *event, void *user_data)
 {
   PinosSpaV4l2Source *source = user_data;
@@ -169,66 +124,27 @@ on_source_event (SpaHandle *handle, SpaEvent *event, void *user_data)
       SpaOutputInfo info[1] = { 0, };
       SpaResult res;
       SpaBuffer *b;
-      PinosBuffer pbuf;
-      PinosBufferBuilder builder;
-      PinosPacketHeader hdr;
-      PinosPacketAddMem am;
-      PinosPacketProcessMem p;
-      PinosPacketRemoveMem rm;
       GList *walk;
-      gint fd;
-      guint8 buf[1024];
-      gint fdbuf[8];
-      gboolean do_close = FALSE;
 
       if ((res = priv->source_node->port_pull_output (priv->source, 1, info)) < 0)
         g_debug ("spa-v4l2-source %p: got pull error %d", source, res);
 
       b = info[0].buffer;
 
-      hdr.flags = 0;
-      hdr.seq = 0;
-      hdr.pts = -1;
-      hdr.dts_offset = 0;
-
-      pinos_buffer_builder_init_into (&builder, buf, 1024, fdbuf, 8);
-      pinos_buffer_builder_add_header (&builder, &hdr);
-
-      if (b->datas[0].type == SPA_DATA_TYPE_FD) {
-        fd = *((int *)b->datas[0].ptr);
-      } else {
-        fd = tmpfile_create (source, b->datas[0].ptr, b->size);
-        do_close = TRUE;
-      }
-      am.fd_index = pinos_buffer_builder_add_fd (&builder, fd);
-      am.id = pinos_fd_manager_get_id (priv->fdmanager);
-      am.offset = 0;
-      am.size = b->datas[0].size + b->datas[0].offset;
-      p.id = am.id;
-      p.offset = b->datas[0].offset;
-      p.size = b->datas[0].size;
-      rm.id = am.id;
-      pinos_buffer_builder_add_add_mem (&builder, &am);
-      pinos_buffer_builder_add_process_mem (&builder, &p);
-      pinos_buffer_builder_add_remove_mem (&builder, &rm);
-      pinos_buffer_builder_end (&builder, &pbuf);
-
       for (walk = priv->ports; walk; walk = g_list_next (walk)) {
         SourcePortData *data = walk->data;
         GError *error = NULL;
 
-        if (!data->have_format)
-          send_format (source, data);
+        if (!data->have_format) {
+          g_object_set (data->port, "format", priv->format, NULL);
+          data->have_format = TRUE;
+        }
 
-        if (!pinos_port_send_buffer (PINOS_PORT (data->port), &pbuf, &error)) {
+        if (!pinos_port_send_buffer (data->port, b, &error)) {
           g_debug ("send failed: %s", error->message);
           g_clear_error (&error);
         }
       }
-      if (!do_close)
-        pinos_buffer_steal_fds (&pbuf, NULL);
-      pinos_buffer_unref (&pbuf);
-
       spa_buffer_unref (b);
       break;
     }
@@ -270,7 +186,7 @@ create_pipeline (PinosSpaV4l2Source *this)
     g_debug ("got get_props error %d", res);
 
   value.type = SPA_PROP_TYPE_STRING;
-  value.value = "/dev/video0";
+  value.value = "/dev/video1";
   value.size = strlen (value.value)+1;
   props->set_prop (props, spa_props_index_for_name (props, "device"), &value);
 
@@ -290,6 +206,7 @@ negotiate_formats (PinosSpaV4l2Source *this)
   void *state = NULL;
   SpaFraction frac;
   SpaRectangle rect;
+  const gchar *str;
 
   if ((res = priv->source_node->port_enum_formats (priv->source, 0, &format, NULL, &state)) < 0)
     return res;
@@ -323,11 +240,12 @@ negotiate_formats (PinosSpaV4l2Source *this)
   if ((res = priv->source_node->port_set_format (priv->source, 0, 0, format)) < 0)
     return res;
 
-  priv->format = "video/x-raw,"
-                 " format=(string)YUY2,"
-                 " width=(int)320,"
-                 " height=(int)240,"
-                 " framerate=(fraction)30/1";
+  str = "video/x-raw,"
+        " format=(string)YUY2,"
+        " width=(int)320,"
+        " height=(int)240,"
+        " framerate=(fraction)30/1";
+  priv->format = g_bytes_new_static (str, strlen (str)+1);
 
   return SPA_RESULT_OK;
 }
@@ -487,26 +405,6 @@ on_deactivate (PinosPort *port, gpointer user_data)
   pinos_node_report_idle (PINOS_NODE (source));
 }
 
-static gboolean
-on_received_buffer (PinosPort   *port,
-                    PinosBuffer *pbuf,
-                    GError     **error,
-                    gpointer    user_data)
-{
-  PinosBufferIter it;
-
-  pinos_buffer_iter_init (&it, pbuf);
-  while (pinos_buffer_iter_next (&it)) {
-    switch (pinos_buffer_iter_get_type (&it)) {
-      default:
-        break;
-    }
-  }
-  pinos_buffer_iter_end (&it);
-
-  return TRUE;
-}
-
 static void
 free_source_port_data (SourcePortData *data)
 {
@@ -575,8 +473,6 @@ add_port (PinosNode       *node,
   data->port = PINOS_NODE_CLASS (pinos_spa_v4l2_source_parent_class)
                     ->add_port (node, direction, id, error);
 
-  pinos_port_set_received_buffer_cb (data->port, on_received_buffer, source, NULL);
-
   g_debug ("connecting signals");
   g_signal_connect (data->port, "activate", (GCallback) on_activate, data);
   g_signal_connect (data->port, "deactivate", (GCallback) on_deactivate, data);
@@ -607,10 +503,7 @@ pinos_spa_v4l2_source_class_init (PinosSpaV4l2SourceClass * klass)
 static void
 pinos_spa_v4l2_source_init (PinosSpaV4l2Source * source)
 {
-  PinosSpaV4l2SourcePrivate *priv = source->priv = PINOS_SPA_V4L2_SOURCE_GET_PRIVATE (source);
-
-  priv->fdmanager = pinos_fd_manager_get (PINOS_FD_MANAGER_DEFAULT);
-
+  source->priv = PINOS_SPA_V4L2_SOURCE_GET_PRIVATE (source);
 }
 
 PinosNode *

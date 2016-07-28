@@ -57,6 +57,7 @@ GDBusProxy *           pinos_subscribe_get_proxy_finish   (PinosSubscribe *subsc
                                                            GError         **error);
 
 
+#if 0
 typedef struct {
   guint32 version;
   guint32 flags;
@@ -92,3 +93,4 @@ gboolean   pinos_io_read_buffer  (int          fd,
 gboolean   pinos_io_write_buffer (int          fd,
                                   PinosBuffer *buffer,
                                   GError     **error);
+#endif

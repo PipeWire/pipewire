@@ -26,6 +26,7 @@
 #include "pinos/client/pinos.h"
 #include "pinos/client/private.h"
 
+#if 0
 gboolean
 pinos_io_read_buffer (int           fd,
                       PinosBuffer  *buffer,
@@ -177,3 +178,4 @@ send_error:
     return FALSE;
   }
 }
+#endif

@@ -111,11 +111,11 @@ static const uint32_t format_values[] = {
 
 static const SpaPropRangeInfo format_range[] = {
   { "ENCODED,", "ENCODED", sizeof (uint32_t), &format_values[1] },
-  { "S16LE", "S16LE", sizeof (uint32_t), &format_values[2] },
-  { "S16BE", "S16BE", sizeof (uint32_t), &format_values[3] },
-  { "U16LE", "U16LE", sizeof (uint32_t), &format_values[4] },
-  { "U16BE", "U16BE", sizeof (uint32_t), &format_values[5] },
-  { "S24_32LE", "S24_32LE", sizeof (uint32_t), &format_values[6] },
+  { "I420", "I420", sizeof (uint32_t), &format_values[2] },
+  { "YV12", "YV12", sizeof (uint32_t), &format_values[3] },
+  { "YUY2", "YUY2", sizeof (uint32_t), &format_values[4] },
+  { "UYVY", "UYVY", sizeof (uint32_t), &format_values[5] },
+  { "AYUV", "AYUV", sizeof (uint32_t), &format_values[6] },
   { "S24_32BE", "S24_32BE", sizeof (uint32_t), &format_values[7] },
   { "U24_32LE", "U24_32LE", sizeof (uint32_t), &format_values[8] },
   { "U24_32BE", "U24_32BE", sizeof (uint32_t), &format_values[9] },
@@ -509,7 +509,7 @@ spa_video_raw_format_parse (const SpaFormat *format,
   spa_video_raw_format_init (rawformat);
 
   props = &format->props;
-  if ((res = props->get_prop (props, SPA_PROP_ID_VIDEO_RAW_INFO, &value)) < 0)
+  if ((res = props->get_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_RAW_INFO), &value)) < 0)
     goto fallback;
 
   if (value.type != SPA_PROP_TYPE_POINTER || value.size != sizeof (SpaVideoRawInfo))
@@ -523,4 +523,38 @@ fallback:
   res = spa_props_copy (props, &rawformat->format.props);
 
   return res;
+}
+
+SpaResult
+spa_video_raw_fill_default_info (SpaVideoRawInfo *info)
+{
+  if (info == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  memcpy (info, &default_info, sizeof (SpaVideoRawInfo));
+
+  return SPA_RESULT_OK;
+}
+
+
+SpaResult
+spa_video_raw_fill_prop_info (SpaPropInfo    *info,
+                              SpaPropIdVideo  id,
+                              size_t          offset)
+{
+  unsigned int i;
+
+  if (info == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  for (i = 0; i < SPA_N_ELEMENTS (raw_format_prop_info); i++) {
+    if (raw_format_prop_info[i].id == id) {
+      memcpy (info, &raw_format_prop_info[i], sizeof (SpaPropInfo));
+      info->offset = offset;
+      info->mask_offset = 0;
+      info->unset_mask = 0;
+      return SPA_RESULT_OK;
+    }
+  }
+  return SPA_RESULT_INVALID_PROPERTY_INDEX;
 }

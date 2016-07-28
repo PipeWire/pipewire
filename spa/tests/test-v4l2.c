@@ -269,50 +269,53 @@ alloc_buffers (AppData *data)
 }
 #endif
 
+typedef struct {
+  SpaFormat fmt;
+  SpaPropInfo infos[3];
+  SpaVideoFormat format;
+  SpaRectangle size;
+  SpaFraction framerate;
+} VideoFormat;
+
 static SpaResult
 negotiate_formats (AppData *data)
 {
   SpaResult res;
-  SpaFormat *format;
-  SpaProps *props;
-  uint32_t val;
-  SpaFraction frac;
-  SpaPropValue value;
   const SpaPortInfo *info;
-  SpaRectangle size;
+  VideoFormat f;
+
+#if 0
   void *state = NULL;
 
   if ((res = data->source_node->port_enum_formats (data->source, 0, &format, NULL, &state)) < 0)
     return res;
+#else
+  f.fmt.media_type = SPA_MEDIA_TYPE_VIDEO;
+  f.fmt.media_subtype = SPA_MEDIA_SUBTYPE_RAW;
+  f.fmt.props.n_prop_info = 3;
+  f.fmt.props.prop_info = f.infos;
+  f.fmt.props.set_prop = spa_props_generic_set_prop;
+  f.fmt.props.get_prop = spa_props_generic_get_prop;
 
-  props = &format->props;
+  spa_video_raw_fill_prop_info (&f.infos[0],
+                                SPA_PROP_ID_VIDEO_FORMAT,
+                                offsetof (VideoFormat, format));
+  f.format = SPA_VIDEO_FORMAT_YUY2;
 
-  value.type = SPA_PROP_TYPE_UINT32;
-  value.size = sizeof (uint32_t);
-  value.value = &val;
+  spa_video_raw_fill_prop_info (&f.infos[1],
+                                SPA_PROP_ID_VIDEO_SIZE,
+                                offsetof (VideoFormat, size));
+  f.size.width = 320;
+  f.size.height = 240;
 
-  val = SPA_VIDEO_FORMAT_YUY2;
-  if ((res = props->set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_FORMAT), &value)) < 0)
-    return res;
+  spa_video_raw_fill_prop_info (&f.infos[2],
+                                SPA_PROP_ID_VIDEO_FRAMERATE,
+                                offsetof (VideoFormat, framerate));
+  f.framerate.num = 25;
+  f.framerate.denom = 1;
+#endif
 
-  value.type = SPA_PROP_TYPE_RECTANGLE;
-  value.size = sizeof (SpaRectangle);
-  value.value = &size;
-  size.width = 320;
-  size.height = 240;
-  if ((res = props->set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_SIZE), &value)) < 0)
-    return res;
-
-  value.type = SPA_PROP_TYPE_FRACTION;
-  value.size = sizeof (SpaFraction);
-  value.value = &frac;
-  frac.num = 25;
-  frac.denom = 1;
-
-  if ((res = props->set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_FRAMERATE), &value)) < 0)
-    return res;
-
-  if ((res = data->source_node->port_set_format (data->source, 0, false, format)) < 0)
+  if ((res = data->source_node->port_set_format (data->source, 0, false, &f.fmt)) < 0)
     return res;
 
   if ((res = data->source_node->port_get_info (data->source, 0, &info)) < 0)

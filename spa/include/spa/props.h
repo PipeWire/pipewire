@@ -244,7 +244,6 @@ SpaResult       spa_props_copy             (const SpaProps *src,
                                             SpaProps       *dest);
 
 
-
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

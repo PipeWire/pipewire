@@ -235,7 +235,7 @@ spa_audio_raw_format_parse (const SpaFormat *format,
   spa_audio_raw_format_init (rawformat);
 
   props = &format->props;
-  if ((res = props->get_prop (props, SPA_PROP_ID_AUDIO_RAW_INFO, &value)) < 0)
+  if ((res = props->get_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_RAW_INFO), &value)) < 0)
     goto fallback;
 
   if (value.type != SPA_PROP_TYPE_POINTER || value.size != sizeof (SpaAudioRawInfo))

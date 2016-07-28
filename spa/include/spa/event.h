@@ -45,6 +45,7 @@ typedef struct _SpaEvent SpaEvent;
  * @SPA_EVENT_TYPE_MARKER: emited when MARK command completed
  * @SPA_EVENT_TYPE_ERROR: emited when error occured
  * @SPA_EVENT_TYPE_BUFFERING: emited when buffering is in progress
+ * @SPA_EVENT_TYPE_REQUEST_REFRESH: emited when a keyframe refresh is needed
  */
 typedef enum {
   SPA_EVENT_TYPE_INVALID                  = 0,
@@ -60,6 +61,7 @@ typedef enum {
   SPA_EVENT_TYPE_MARKER,
   SPA_EVENT_TYPE_ERROR,
   SPA_EVENT_TYPE_BUFFERING,
+  SPA_EVENT_TYPE_REQUEST_REFRESH,
 } SpaEventType;
 
 struct _SpaEvent {

@@ -21,6 +21,7 @@
 
 #include <gio/gio.h>
 
+#if 0
 #include "pinos/client/properties.h"
 #include "pinos/client/context.h"
 #include "pinos/client/buffer.h"
@@ -1032,3 +1033,4 @@ pinos_buffer_builder_add_refresh_request (PinosBufferBuilder        *builder,
 
   return TRUE;
 }
+#endif

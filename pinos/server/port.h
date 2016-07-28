@@ -31,6 +31,7 @@ typedef struct _PinosPortPrivate PinosPortPrivate;
 #include <pinos/client/introspect.h>
 #include <pinos/client/buffer.h>
 #include <pinos/server/daemon.h>
+#include <spa/include/spa/buffer.h>
 
 #define PINOS_TYPE_PORT             (pinos_port_get_type ())
 #define PINOS_IS_PORT(obj)          (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_PORT))
@@ -65,7 +66,7 @@ struct _PinosPortClass {
                                      GTask              *task);
 };
 
-typedef gboolean (*PinosBufferCallback) (PinosPort *port, PinosBuffer *buffer, GError **error, gpointer user_data);
+typedef gboolean (*PinosBufferCallback) (PinosPort *port, SpaBuffer *buffer, GError **error, gpointer user_data);
 
 /* normal GObject stuff */
 GType               pinos_port_get_type           (void);
@@ -99,10 +100,10 @@ void                pinos_port_activate             (PinosPort *port);
 void                pinos_port_deactivate           (PinosPort *port);
 
 gboolean            pinos_port_send_buffer          (PinosPort   *port,
-                                                     PinosBuffer *buffer,
+                                                     SpaBuffer *buffer,
                                                      GError     **error);
 gboolean            pinos_port_receive_buffer       (PinosPort   *port,
-                                                     PinosBuffer *buffer,
+                                                     SpaBuffer *buffer,
                                                      GError     **error);
 
 G_END_DECLS

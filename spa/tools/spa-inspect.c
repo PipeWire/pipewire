@@ -38,6 +38,8 @@ struct media_subtype_name {
 } media_subtype_names[] = {
   { "unknown" },
   { "raw" },
+  { "h264" },
+  { "mjpg" },
 };
 
 struct prop_type_name {
@@ -64,8 +66,25 @@ struct prop_type_name {
 };
 
 static void
-print_value (SpaPropType type, int size, const void *value)
+print_value (const SpaPropInfo *info, int size, const void *value)
 {
+  SpaPropType type = info->type;
+  bool enum_string = false;
+
+  if (info->range_type == SPA_PROP_RANGE_TYPE_ENUM) {
+    int i;
+
+    for (i = 0; i < info->n_range_values; i++) {
+      if (memcmp (info->range_values[i].value, value, size) == 0) {
+        if (info->range_values[i].name) {
+          type = SPA_PROP_TYPE_STRING;
+          value = info->range_values[i].name;
+          enum_string = true;
+        }
+      }
+    }
+  }
+
   switch (type) {
     case SPA_PROP_TYPE_INVALID:
       printf ("invalid");
@@ -104,7 +123,10 @@ print_value (SpaPropType type, int size, const void *value)
       printf ("%g", *(double *)value);
       break;
     case SPA_PROP_TYPE_STRING:
-      printf ("\"%s\"", (char *)value);
+      if (enum_string)
+        printf ("%s", (char *)value);
+      else
+        printf ("\"%s\"", (char *)value);
       break;
     case SPA_PROP_TYPE_RECTANGLE:
     {
@@ -157,7 +179,7 @@ print_props (const SpaProps *props, int print_ranges)
 
     printf ("Default: ");
     if (info->default_value)
-      print_value (info->type, info->default_size, info->default_value);
+      print_value (info, info->default_size, info->default_value);
     else
       printf ("None");
 
@@ -165,7 +187,7 @@ print_props (const SpaProps *props, int print_ranges)
 
     printf (". Current: ");
     if (res == SPA_RESULT_OK)
-      print_value (info->type, value.size, value.value);
+      print_value (info, value.size, value.value);
     else if (res == SPA_RESULT_PROPERTY_UNSET)
       printf ("Unset");
     else
@@ -199,7 +221,7 @@ print_props (const SpaProps *props, int print_ranges)
       for (j = 0; j < info->n_range_values; j++) {
         const SpaPropRangeInfo *rinfo = &info->range_values[j];
         printf ("%-23.23s   ", "");
-        print_value (info->type, rinfo->size, rinfo->value);
+        print_value (info, rinfo->size, rinfo->value);
         printf ("\t: %-12s - %s \n", rinfo->name, rinfo->description);
       }
     }
@@ -219,7 +241,7 @@ print_format (const SpaFormat *format)
   const SpaProps *props = &format->props;
   int i;
 
-  printf (" %-10s %s/%s\n", "", media_type_names[format->media_type].name,
+  printf ("%-6s %s/%s\n", "", media_type_names[format->media_type].name,
                         media_subtype_names[format->media_subtype].name);
 
   for (i = 0; i < props->n_prop_info; i++) {
@@ -234,9 +256,34 @@ print_format (const SpaFormat *format)
 
     printf ("  %20s : (%s) ", info->name, prop_type_names[info->type].name);
     if (res == SPA_RESULT_OK) {
-      print_value (info->type, value.size, value.value);
+      print_value (info, value.size, value.value);
     } else if (res == SPA_RESULT_PROPERTY_UNSET) {
-      printf ("Unset");
+      int j;
+      const char *ssep, *esep, *sep;
+
+      switch (info->range_type) {
+        case SPA_PROP_RANGE_TYPE_MIN_MAX:
+        case SPA_PROP_RANGE_TYPE_STEP:
+          ssep = "[ ";
+          sep = ", ";
+          esep = " ]";
+          break;
+        default:
+        case SPA_PROP_RANGE_TYPE_ENUM:
+        case SPA_PROP_RANGE_TYPE_FLAGS:
+          ssep = "{ ";
+          sep = ", ";
+          esep = " }";
+          break;
+      }
+
+      printf (ssep);
+      for (j = 0; j < info->n_range_values; j++) {
+        const SpaPropRangeInfo *rinfo = &info->range_values[j];
+        print_value (info, rinfo->size, rinfo->value);
+        printf ("%s", j + 1 < info->n_range_values ? sep : "");
+      }
+      printf (esep);
     } else {
       printf ("*Error*");
     }

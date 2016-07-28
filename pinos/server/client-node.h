@@ -22,6 +22,8 @@
 
 #include <glib-object.h>
 
+#include <pinos/server/node.h>
+
 G_BEGIN_DECLS
 
 #define PINOS_TYPE_CLIENT_NODE                 (pinos_client_node_get_type ())

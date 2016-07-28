@@ -66,193 +66,147 @@ spa_v4l2_open (SpaV4l2Source *this)
   return 0;
 }
 
-static SpaVideoFormat
-fourcc_to_video_format (uint32_t fourcc)
-{
-  SpaVideoFormat format;
-
-  switch (fourcc) {
-    case V4L2_PIX_FMT_GREY:    /*  8  Greyscale     */
-      format = SPA_VIDEO_FORMAT_GRAY8;
-      break;
-    case V4L2_PIX_FMT_Y16:
-      format = SPA_VIDEO_FORMAT_GRAY16_LE;
-      break;
-    case V4L2_PIX_FMT_Y16_BE:
-      format = SPA_VIDEO_FORMAT_GRAY16_BE;
-      break;
-    case V4L2_PIX_FMT_XRGB555:
-    case V4L2_PIX_FMT_RGB555:
-      format = SPA_VIDEO_FORMAT_RGB15;
-      break;
-    case V4L2_PIX_FMT_XRGB555X:
-    case V4L2_PIX_FMT_RGB555X:
-      format = SPA_VIDEO_FORMAT_BGR15;
-      break;
-    case V4L2_PIX_FMT_RGB565:
-      format = SPA_VIDEO_FORMAT_RGB16;
-      break;
-    case V4L2_PIX_FMT_RGB24:
-      format = SPA_VIDEO_FORMAT_RGB;
-      break;
-    case V4L2_PIX_FMT_BGR24:
-      format = SPA_VIDEO_FORMAT_BGR;
-      break;
-    case V4L2_PIX_FMT_XRGB32:
-    case V4L2_PIX_FMT_RGB32:
-      format = SPA_VIDEO_FORMAT_xRGB;
-      break;
-    case V4L2_PIX_FMT_XBGR32:
-    case V4L2_PIX_FMT_BGR32:
-      format = SPA_VIDEO_FORMAT_BGRx;
-      break;
-    case V4L2_PIX_FMT_ABGR32:
-      format = SPA_VIDEO_FORMAT_BGRA;
-      break;
-    case V4L2_PIX_FMT_ARGB32:
-      format = SPA_VIDEO_FORMAT_ARGB;
-      break;
-    case V4L2_PIX_FMT_NV12:
-    case V4L2_PIX_FMT_NV12M:
-      format = SPA_VIDEO_FORMAT_NV12;
-      break;
-    case V4L2_PIX_FMT_NV12MT:
-      format = SPA_VIDEO_FORMAT_NV12_64Z32;
-      break;
-    case V4L2_PIX_FMT_NV21:
-    case V4L2_PIX_FMT_NV21M:
-      format = SPA_VIDEO_FORMAT_NV21;
-      break;
-    case V4L2_PIX_FMT_YVU410:
-      format = SPA_VIDEO_FORMAT_YVU9;
-      break;
-    case V4L2_PIX_FMT_YUV410:
-      format = SPA_VIDEO_FORMAT_YUV9;
-      break;
-    case V4L2_PIX_FMT_YUV420:
-    case V4L2_PIX_FMT_YUV420M:
-      format = SPA_VIDEO_FORMAT_I420;
-      break;
-    case V4L2_PIX_FMT_YUYV:
-      format = SPA_VIDEO_FORMAT_YUY2;
-      break;
-    case V4L2_PIX_FMT_YVU420:
-      format = SPA_VIDEO_FORMAT_YV12;
-      break;
-    case V4L2_PIX_FMT_UYVY:
-      format = SPA_VIDEO_FORMAT_UYVY;
-      break;
-    case V4L2_PIX_FMT_YUV411P:
-      format = SPA_VIDEO_FORMAT_Y41B;
-      break;
-    case V4L2_PIX_FMT_YUV422P:
-      format = SPA_VIDEO_FORMAT_Y42B;
-      break;
-    case V4L2_PIX_FMT_YVYU:
-      format = SPA_VIDEO_FORMAT_YVYU;
-      break;
-    case V4L2_PIX_FMT_NV16:
-    case V4L2_PIX_FMT_NV16M:
-      format = SPA_VIDEO_FORMAT_NV16;
-      break;
-    case V4L2_PIX_FMT_NV61:
-    case V4L2_PIX_FMT_NV61M:
-      format = SPA_VIDEO_FORMAT_NV61;
-      break;
-    case V4L2_PIX_FMT_NV24:
-      format = SPA_VIDEO_FORMAT_NV24;
-      break;
-    default:
-      format = SPA_VIDEO_FORMAT_UNKNOWN;
-      break;
-  }
-  return format;
-}
-
-static uint32_t
-video_format_to_fourcc (SpaVideoFormat format)
-{
+typedef struct {
   uint32_t fourcc;
+  SpaVideoFormat format;
+  SpaMediaType media_type;
+  SpaMediaSubType media_subtype;
+} FormatInfo;
 
-  switch (format) {
-    case SPA_VIDEO_FORMAT_I420:
-      fourcc = V4L2_PIX_FMT_YUV420;
-      break;
-    case SPA_VIDEO_FORMAT_YUY2:
-      fourcc = V4L2_PIX_FMT_YUYV;
-      break;
-    case SPA_VIDEO_FORMAT_UYVY:
-      fourcc = V4L2_PIX_FMT_UYVY;
-      break;
-    case SPA_VIDEO_FORMAT_YV12:
-      fourcc = V4L2_PIX_FMT_YVU420;
-      break;
-    case SPA_VIDEO_FORMAT_Y41B:
-      fourcc = V4L2_PIX_FMT_YUV411P;
-      break;
-    case SPA_VIDEO_FORMAT_Y42B:
-      fourcc = V4L2_PIX_FMT_YUV422P;
-      break;
-    case SPA_VIDEO_FORMAT_NV12:
-      fourcc = V4L2_PIX_FMT_NV12;
-      break;
-   case SPA_VIDEO_FORMAT_NV12_64Z32:
-      fourcc = V4L2_PIX_FMT_NV12MT;
-      break;
-    case SPA_VIDEO_FORMAT_NV21:
-      fourcc = V4L2_PIX_FMT_NV21;
-      break;
-    case SPA_VIDEO_FORMAT_NV16:
-      fourcc = V4L2_PIX_FMT_NV16;
-      break;
-    case SPA_VIDEO_FORMAT_NV61:
-      fourcc = V4L2_PIX_FMT_NV61;
-      break;
-    case SPA_VIDEO_FORMAT_NV24:
-      fourcc = V4L2_PIX_FMT_NV24;
-      break;
-    case SPA_VIDEO_FORMAT_YVYU:
-      fourcc = V4L2_PIX_FMT_YVYU;
-      break;
-    case SPA_VIDEO_FORMAT_RGB15:
-      fourcc = V4L2_PIX_FMT_RGB555;
-      break;
-    case SPA_VIDEO_FORMAT_RGB16:
-      fourcc = V4L2_PIX_FMT_RGB565;
-      break;
-    case SPA_VIDEO_FORMAT_RGB:
-      fourcc = V4L2_PIX_FMT_RGB24;
-      break;
-    case SPA_VIDEO_FORMAT_BGR:
-      fourcc = V4L2_PIX_FMT_BGR24;
-      break;
-    case SPA_VIDEO_FORMAT_xRGB:
-      fourcc = V4L2_PIX_FMT_RGB32;
-      break;
-    case SPA_VIDEO_FORMAT_ARGB:
-      fourcc = V4L2_PIX_FMT_RGB32;
-      break;
-    case SPA_VIDEO_FORMAT_BGRx:
-      fourcc = V4L2_PIX_FMT_BGR32;
-      break;
-    case SPA_VIDEO_FORMAT_BGRA:
-      fourcc = V4L2_PIX_FMT_BGR32;
-      break;
-    case SPA_VIDEO_FORMAT_GRAY8:
-      fourcc = V4L2_PIX_FMT_GREY;
-      break;
-    case SPA_VIDEO_FORMAT_GRAY16_LE:
-      fourcc = V4L2_PIX_FMT_Y16;
-      break;
-    case SPA_VIDEO_FORMAT_GRAY16_BE:
-      fourcc = V4L2_PIX_FMT_Y16_BE;
-      break;
-    default:
-      fourcc = 0;
-      break;
+static const FormatInfo format_info[] =
+{
+  /* RGB formats */
+  { V4L2_PIX_FMT_RGB332,       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_ARGB555,      SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_XRGB555,      SPA_VIDEO_FORMAT_RGB15, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_ARGB555X,     SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_XRGB555X,     SPA_VIDEO_FORMAT_BGR15, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_RGB565,       SPA_VIDEO_FORMAT_RGB16, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_RGB565X,      SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_BGR666,       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_BGR24,        SPA_VIDEO_FORMAT_BGR, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_RGB24,        SPA_VIDEO_FORMAT_RGB, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_ABGR32,       SPA_VIDEO_FORMAT_BGRA, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_XBGR32,       SPA_VIDEO_FORMAT_BGRx, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_ARGB32,       SPA_VIDEO_FORMAT_ARGB, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_XRGB32,       SPA_VIDEO_FORMAT_xRGB, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+
+  /* Deprecated Packed RGB Image Formats (alpha ambiguity) */
+  { V4L2_PIX_FMT_RGB444,       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_RGB555,       SPA_VIDEO_FORMAT_RGB15, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_RGB555X,      SPA_VIDEO_FORMAT_BGR15, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_BGR32,        SPA_VIDEO_FORMAT_BGRx, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_RGB32,        SPA_VIDEO_FORMAT_xRGB, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+
+  /* Grey formats */
+  { V4L2_PIX_FMT_GREY,         SPA_VIDEO_FORMAT_GRAY8, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_Y4,           SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_Y6,           SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_Y10,          SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_Y12,          SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_Y16,          SPA_VIDEO_FORMAT_GRAY16_LE, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_Y16_BE,       SPA_VIDEO_FORMAT_GRAY16_BE, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_Y10BPACK,     SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+
+  /* Palette formats */
+  { V4L2_PIX_FMT_PAL8,	       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+
+  /* Chrominance formats */
+  { V4L2_PIX_FMT_UV8,	       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+
+  /* Luminance+Chrominance formats */
+  { V4L2_PIX_FMT_YVU410,       SPA_VIDEO_FORMAT_YVU9, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_YVU420,       SPA_VIDEO_FORMAT_YV12, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_YVU420M,      SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_YUYV,	       SPA_VIDEO_FORMAT_YUY2, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_YYUV,	       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_YVYU,	       SPA_VIDEO_FORMAT_YVYU, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_UYVY,	       SPA_VIDEO_FORMAT_UYVY, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_VYUY,	       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_YUV422P,      SPA_VIDEO_FORMAT_Y42B, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_YUV411P,      SPA_VIDEO_FORMAT_Y41B, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_Y41P,	       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_YUV444,       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_YUV555,       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_YUV565,       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_YUV32,	       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_YUV410,       SPA_VIDEO_FORMAT_YUV9, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_YUV420,       SPA_VIDEO_FORMAT_I420, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_YUV420M,      SPA_VIDEO_FORMAT_I420, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_HI240,	       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_HM12,	       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_M420,	       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+
+  /* two planes -- one Y, one Cr + Cb interleaved  */
+  { V4L2_PIX_FMT_NV12,         SPA_VIDEO_FORMAT_NV12, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_NV12M,        SPA_VIDEO_FORMAT_NV12, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_NV12MT,       SPA_VIDEO_FORMAT_NV12_64Z32, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_NV12MT_16X16, SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_NV21,         SPA_VIDEO_FORMAT_NV21, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_NV21M,        SPA_VIDEO_FORMAT_NV21, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_NV16,         SPA_VIDEO_FORMAT_NV16, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_NV16M,        SPA_VIDEO_FORMAT_NV16, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_NV61,         SPA_VIDEO_FORMAT_NV61, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_NV61M,        SPA_VIDEO_FORMAT_NV61, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_NV24,         SPA_VIDEO_FORMAT_NV24, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_NV42,         SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+
+  /* Bayer formats - see http://www.siliconimaging.com/RGB%20Bayer.htm */
+  { V4L2_PIX_FMT_SBGGR8,       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_BAYER },
+  { V4L2_PIX_FMT_SGBRG8,       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_BAYER },
+  { V4L2_PIX_FMT_SGRBG8,       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_BAYER },
+  { V4L2_PIX_FMT_SRGGB8,       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_BAYER },
+
+  /* compressed formats */
+  {V4L2_PIX_FMT_MJPEG,         SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_MJPG },
+  {V4L2_PIX_FMT_JPEG,          SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_IMAGE, SPA_MEDIA_SUBTYPE_JPEG },
+  {V4L2_PIX_FMT_PJPG,          SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  {V4L2_PIX_FMT_DV,            SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_DV },
+  {V4L2_PIX_FMT_MPEG,          SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_MPEGTS },
+  {V4L2_PIX_FMT_H264,          SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_H264 },
+  {V4L2_PIX_FMT_H264_NO_SC,    SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_H264 },
+  {V4L2_PIX_FMT_H264_MVC,      SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_H264 },
+  {V4L2_PIX_FMT_H263,          SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_H263 },
+  {V4L2_PIX_FMT_MPEG1,         SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_MPEG1 },
+  {V4L2_PIX_FMT_MPEG2,         SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_MPEG2 },
+  {V4L2_PIX_FMT_MPEG4,         SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_MPEG4 },
+  {V4L2_PIX_FMT_XVID,          SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_XVID },
+  {V4L2_PIX_FMT_VC1_ANNEX_G,   SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_VC1 },
+  {V4L2_PIX_FMT_VC1_ANNEX_L,   SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_VC1 },
+  {V4L2_PIX_FMT_VP8,           SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_VP8 },
+
+  /*  Vendor-specific formats   */
+  {V4L2_PIX_FMT_WNVA,          SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  {V4L2_PIX_FMT_SN9C10X,       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  {V4L2_PIX_FMT_PWC1,          SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  {V4L2_PIX_FMT_PWC2,          SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+};
+
+static const FormatInfo *
+fourcc_to_format_info (uint32_t fourcc)
+{
+  int i;
+
+  for (i = 0; i < SPA_N_ELEMENTS (format_info); i++) {
+    if (format_info[i].fourcc == fourcc)
+      return &format_info[i];
   }
-  return fourcc;
+  return NULL;
 }
+
+#if 0
+static const FormatInfo *
+video_format_to_format_info (SpaVideoFormat format)
+{
+  int i;
+
+  for (i = 0; i < SPA_N_ELEMENTS (format_info); i++) {
+    if (format_info[i].format == format)
+      return &format_info[i];
+  }
+  return NULL;
+}
+#endif
 
 #define FOURCC_ARGS(f) (f)&0x7f,((f)>>8)&0x7f,((f)>>16)&0x7f,((f)>>24)&0x7f
 
@@ -260,7 +214,9 @@ static SpaResult
 spa_v4l2_enum_format (SpaV4l2Source *this, SpaFormat **format, void **cookie)
 {
   SpaV4l2State *state = &this->state[0];
-  int res;
+  int res, i, pi;
+  V4l2Format *fmt;
+  const FormatInfo *info;
 
   if (spa_v4l2_open (this) < 0)
     return SPA_RESULT_ERROR;
@@ -272,13 +228,9 @@ spa_v4l2_enum_format (SpaV4l2Source *this, SpaFormat **format, void **cookie)
     state->fmtdesc.index = 0;
     state->fmtdesc.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     state->next_fmtdesc = true;
-
     CLEAR (state->frmsize);
     state->next_frmsize = true;
-
     CLEAR (state->frmival);
-    state->next_frmival = true;
-
     *cookie = state;
   }
 
@@ -295,6 +247,13 @@ again:
     state->frmsize.pixel_format = state->fmtdesc.pixelformat;
     state->next_frmsize = true;
   }
+
+  if (!(info = fourcc_to_format_info (state->fmtdesc.pixelformat))) {
+    state->fmtdesc.index++;
+    state->next_fmtdesc = true;
+    goto again;
+  }
+
   if (state->next_frmsize) {
     if ((res = xioctl (state->fd, VIDIOC_ENUM_FRAMESIZES, &state->frmsize)) < 0) {
       if (errno == EINVAL) {
@@ -312,67 +271,111 @@ again:
       state->frmival.pixel_format = state->frmsize.pixel_format;
       state->frmival.width = state->frmsize.discrete.width;
       state->frmival.height = state->frmsize.discrete.height;
-      state->next_frmival = true;
     }
   }
-  if (state->next_frmival) {
+
+  fmt = &state->format[0];
+  fmt->fmt.media_type = info->media_type;
+  fmt->fmt.media_subtype = info->media_subtype;
+  fmt->fmt.props.prop_info = fmt->infos;
+  fmt->fmt.props.n_prop_info = pi = 0;
+  fmt->fmt.props.set_prop = spa_props_generic_set_prop;
+  fmt->fmt.props.get_prop = spa_props_generic_get_prop;
+  fmt->unset_mask = 0;
+
+  if (info->media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
+    spa_video_raw_fill_prop_info (&fmt->infos[pi],
+                                  SPA_PROP_ID_VIDEO_FORMAT,
+                                  offsetof (V4l2Format, format));
+    fmt->infos[pi].mask_offset = offsetof (V4l2Format, unset_mask);
+    fmt->format = info->format;
+    pi = ++fmt->fmt.props.n_prop_info;
+  }
+
+  spa_video_raw_fill_prop_info (&fmt->infos[pi],
+                                SPA_PROP_ID_VIDEO_SIZE,
+                                offsetof (V4l2Format, size));
+  fmt->infos[pi].mask_offset = offsetof (V4l2Format, unset_mask);
+  fmt->size.width = state->frmsize.discrete.width;
+  fmt->size.height = state->frmsize.discrete.height;
+  pi = ++fmt->fmt.props.n_prop_info;
+
+  spa_video_raw_fill_prop_info (&fmt->infos[pi],
+                                SPA_PROP_ID_VIDEO_FRAMERATE,
+                                offsetof (V4l2Format, framerate));
+  fmt->infos[pi].mask_offset = offsetof (V4l2Format, unset_mask);
+  fmt->infos[pi].range_type = SPA_PROP_RANGE_TYPE_ENUM;
+  fmt->infos[pi].range_values = fmt->ranges;
+  fmt->infos[pi].n_range_values = 0;
+  i = state->frmival.index = 0;
+
+  while (true) {
     if ((res = xioctl (state->fd, VIDIOC_ENUM_FRAMEINTERVALS, &state->frmival)) < 0) {
       if (errno == EINVAL) {
         state->frmsize.index++;
         state->next_frmsize = true;
-        goto again;
+        break;
       }
       perror ("VIDIOC_ENUM_FRAMEINTERVALS");
       return SPA_RESULT_ENUM_END;
     }
-    state->frmival.index++;
+
+    fmt->ranges[i].name = NULL;
+    fmt->ranges[i].description = NULL;
+    fmt->ranges[i].size = sizeof (SpaFraction);
+    fmt->framerates[i].num = state->frmival.discrete.numerator;
+    fmt->framerates[i].denom = state->frmival.discrete.denominator;
+    fmt->ranges[i].value = &fmt->framerates[i];
+
+    i = ++state->frmival.index;
   }
+  fmt->infos[pi].n_range_values = i;
+  fmt->infos[pi].unset_mask = 1 << i;
+  fmt->unset_mask |= fmt->infos[pi].unset_mask;
+  pi = ++fmt->fmt.props.n_prop_info;
 
-  spa_video_raw_format_init (&state->raw_format[0]);
-  state->raw_format[0].info.format = fourcc_to_video_format (state->fmtdesc.pixelformat);
-  state->raw_format[0].info.size.width = state->frmsize.discrete.width;
-  state->raw_format[0].info.size.height = state->frmsize.discrete.height;
-  state->raw_format[0].info.framerate.num = state->frmival.discrete.numerator;
-  state->raw_format[0].info.framerate.denom = state->frmival.discrete.denominator;
-  state->raw_format[0].unset_mask &= ~((1<<0)|(1<<1)|(1<<2));
-
-  *format = &state->raw_format[0].format;
+  *format = &state->format[0].fmt;
 
   return SPA_RESULT_OK;
 }
 
 static int
-spa_v4l2_set_format (SpaV4l2Source *this, SpaFormat *format, bool try_only)
+spa_v4l2_set_format (SpaV4l2Source *this, V4l2Format *f, bool try_only)
 {
   SpaV4l2State *state = &this->state[0];
   int cmd = try_only ? VIDIOC_TRY_FMT : VIDIOC_S_FMT;
   struct v4l2_format reqfmt, fmt;
   struct v4l2_streamparm streamparm;
+  const FormatInfo *info = NULL;
+  int i;
 
   CLEAR (fmt);
   CLEAR (streamparm);
   fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   streamparm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
-  if (format->media_type == SPA_MEDIA_TYPE_VIDEO) {
-    if (format->media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
-      SpaVideoRawFormat *f = (SpaVideoRawFormat *) format;
-
-      fmt.fmt.pix.pixelformat = video_format_to_fourcc (f->info.format);
-      fmt.fmt.pix.width = f->info.size.width;
-      fmt.fmt.pix.height = f->info.size.height;
-      fmt.fmt.pix.field = V4L2_FIELD_ANY;
-      streamparm.parm.capture.timeperframe.numerator = f->info.framerate.denom;
-      streamparm.parm.capture.timeperframe.denominator = f->info.framerate.num;
-
-      fprintf (stderr, "set %08x %dx%d %d/%d\n", fmt.fmt.pix.pixelformat,
-          fmt.fmt.pix.width, fmt.fmt.pix.height, f->info.framerate.denom,
-          f->info.framerate.num);
-
-    } else
-      return -1;
-  } else
+  for (i = 0; i < SPA_N_ELEMENTS (format_info); i++) {
+    if (format_info[i].media_type == f->fmt.media_type &&
+        format_info[i].media_subtype == f->fmt.media_subtype &&
+        format_info[i].format == f->format) {
+      info = &format_info[i];
+      break;
+    }
+  }
+  if (info == NULL)
     return -1;
+
+  fmt.fmt.pix.pixelformat = info->fourcc;
+  fmt.fmt.pix.field = V4L2_FIELD_ANY;
+  fmt.fmt.pix.width = f->size.width;
+  fmt.fmt.pix.height = f->size.height;
+  streamparm.parm.capture.timeperframe.numerator = f->framerate.denom;
+  streamparm.parm.capture.timeperframe.denominator = f->framerate.num;
+
+  fprintf (stderr, "set %08x %dx%d %d/%d\n", fmt.fmt.pix.pixelformat,
+      fmt.fmt.pix.width, fmt.fmt.pix.height,
+      streamparm.parm.capture.timeperframe.denominator,
+      streamparm.parm.capture.timeperframe.numerator);
 
   reqfmt = fmt;
 
@@ -531,6 +534,7 @@ spa_v4l2_import_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_bu
     b->source = this;
     b->buffer.refcount = 0;
     b->buffer.notify = v4l2_buffer_free;
+    b->buffer.id = i;
     b->buffer.size = buffers[i]->size;
     b->buffer.n_metas = buffers[i]->n_metas;
     b->buffer.metas = buffers[i]->metas;
@@ -600,6 +604,7 @@ mmap_init (SpaV4l2Source *this)
     b->source = this;
     b->buffer.refcount = 0;
     b->buffer.notify = v4l2_buffer_free;
+    b->buffer.id = i;
     b->buffer.size = buf.length;
     b->buffer.n_metas = 1;
     b->buffer.metas = b->metas;

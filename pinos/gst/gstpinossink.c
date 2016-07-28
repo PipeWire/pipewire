@@ -43,6 +43,8 @@
 #include <gst/allocators/gstfdmemory.h>
 #include <gst/video/video.h>
 
+#include <spa/include/spa/buffer.h>
+
 #include "gsttmpfileallocator.h"
 
 
@@ -329,8 +331,7 @@ on_new_buffer (GObject    *gobject,
                gpointer    user_data)
 {
   GstPinosSink *pinossink = user_data;
-  PinosBuffer *pbuf;
-  PinosBufferIter it;
+  SpaBuffer *b;
 
   GST_LOG_OBJECT (pinossink, "got new buffer");
   if (pinossink->stream == NULL) {
@@ -338,11 +339,12 @@ on_new_buffer (GObject    *gobject,
     return;
   }
 
-  if (!(pbuf = pinos_stream_peek_buffer (pinossink->stream))) {
+  if (!(b = pinos_stream_peek_buffer (pinossink->stream))) {
     g_warning ("failed to capture buffer");
     return;
   }
 
+#if 0
   pinos_buffer_iter_init (&it, pbuf);
   while (pinos_buffer_iter_next (&it)) {
     switch (pinos_buffer_iter_get_type (&it)) {
@@ -375,6 +377,7 @@ on_new_buffer (GObject    *gobject,
     }
   }
   pinos_buffer_iter_end (&it);
+#endif
 }
 
 static void
@@ -483,18 +486,32 @@ start_error:
   }
 }
 
+typedef struct {
+  SpaBuffer buffer;
+  SpaMeta metas[1];
+  SpaMetaHeader header;
+  SpaData datas[1];
+  GstMemory *mem;
+  GstPinosSink *pinossink;
+  int fd;
+} SinkBuffer;
+
+static void
+sink_buffer_free (void *user_data)
+{
+  SinkBuffer *b = user_data;
+  gst_memory_unref (b->mem);
+  gst_object_unref (b->pinossink);
+  g_slice_free (SinkBuffer, user_data);
+}
+
 static GstFlowReturn
 gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
 {
   GstPinosSink *pinossink;
-  PinosBuffer pbuf;
-  PinosBufferBuilder builder;
+  SinkBuffer *b;
   GstMemory *mem = NULL;
   GstClockTime pts, dts, base;
-  PinosPacketHeader hdr;
-  PinosPacketAddMem am;
-  PinosPacketProcessMem p;
-  PinosPacketRemoveMem rm;
   gsize size;
   gboolean tmpfile, res;
 
@@ -505,6 +522,18 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
 
   base = GST_ELEMENT_CAST (bsink)->base_time;
 
+  size = gst_buffer_get_size (buffer);
+
+  b = g_slice_new (SinkBuffer);
+  b->buffer.refcount = 0;
+  b->buffer.notify = sink_buffer_free;
+  b->buffer.id = pinos_fd_manager_get_id (pinossink->fdmanager);
+  b->buffer.size = size;
+  b->buffer.n_metas = 1;
+  b->buffer.metas = b->metas;
+  b->buffer.n_datas = 1;
+  b->buffer.datas = b->datas;
+
   pts = GST_BUFFER_PTS (buffer);
   dts = GST_BUFFER_DTS (buffer);
   if (!GST_CLOCK_TIME_IS_VALID (pts))
@@ -512,12 +541,13 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   else if (!GST_CLOCK_TIME_IS_VALID (dts))
     dts = pts;
 
-  hdr.flags = 0;
-  hdr.seq = GST_BUFFER_OFFSET (buffer);
-  hdr.pts = GST_CLOCK_TIME_IS_VALID (pts) ? pts + base : base;
-  hdr.dts_offset = GST_CLOCK_TIME_IS_VALID (dts) && GST_CLOCK_TIME_IS_VALID (pts) ? pts - dts : 0;
-
-  size = gst_buffer_get_size (buffer);
+  b->header.flags = 0;
+  b->header.seq = GST_BUFFER_OFFSET (buffer);
+  b->header.pts = GST_CLOCK_TIME_IS_VALID (pts) ? pts + base : base;
+  b->header.dts_offset = GST_CLOCK_TIME_IS_VALID (dts) && GST_CLOCK_TIME_IS_VALID (pts) ? pts - dts : 0;
+  b->metas[0].type = SPA_META_TYPE_HEADER;
+  b->metas[0].data = &b->header;
+  b->metas[0].size = sizeof (b->header);
 
   if (gst_buffer_n_memory (buffer) == 1
       && gst_is_fd_memory (gst_buffer_peek_memory (buffer, 0))) {
@@ -541,35 +571,22 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   if (pinos_stream_get_state (pinossink->stream) != PINOS_STREAM_STATE_STREAMING)
     goto streaming_error;
 
-  pinos_stream_buffer_builder_init (pinossink->stream, &builder);
-  pinos_buffer_builder_add_header (&builder, &hdr);
+  b->mem = mem;
+  b->fd = gst_fd_memory_get_fd (mem);
+  b->datas[0].type = SPA_DATA_TYPE_FD;
+  b->datas[0].ptr = &b->fd;
+  b->datas[0].ptr_type = mem->allocator->mem_type;
+  b->datas[0].offset = mem->offset;
+  b->datas[0].size = mem->size;
+  b->datas[0].stride = 0;
 
-  am.id = pinos_fd_manager_get_id (pinossink->fdmanager);
-  am.fd_index = pinos_buffer_builder_add_fd (&builder, gst_fd_memory_get_fd (mem));
-  am.offset = 0;
-  am.size = mem->size + mem->offset;
-  p.port = 0;
-  p.id = am.id;
-  p.offset = mem->offset;
-  p.size = mem->size;
-  rm.id = am.id;
-  pinos_buffer_builder_add_add_mem (&builder, &am);
-  pinos_buffer_builder_add_process_mem (&builder, &p);
-  pinos_buffer_builder_add_remove_mem (&builder, &rm);
-  pinos_buffer_builder_end (&builder, &pbuf);
+  if (!(res = pinos_stream_send_buffer (pinossink->stream, &b->buffer)))
+    g_warning ("can't send buffer");
 
-  GST_LOG ("sending fd mem %d %d", am.id, am.fd_index);
-
-  res = pinos_stream_send_buffer (pinossink->stream, &pbuf);
-  pinos_buffer_steal_fds (&pbuf, NULL);
-  pinos_buffer_unref (&pbuf);
   pinos_main_loop_unlock (pinossink->loop);
 
-  if (res && !tmpfile) {
-    /* keep the memory around until we get the reuse mem message */
-    g_hash_table_insert (pinossink->mem_ids, GINT_TO_POINTER (p.id), mem);
-  } else
-    gst_memory_unref (mem);
+  /* keep the memory around until we get the reuse mem message */
+  g_hash_table_insert (pinossink->mem_ids, GINT_TO_POINTER (b->buffer.id), b);
 
   return GST_FLOW_OK;
 

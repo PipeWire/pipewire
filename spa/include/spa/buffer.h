@@ -101,10 +101,11 @@ typedef struct {
 /**
  * SpaDataType:
  * @SPA_DATA_TYPE_INVALID: invalid data type, is ignored
- * @SPA_DATA_TYPE_MEMPTR: data and size point to memory accassible by the
+ * @SPA_DATA_TYPE_MEMPTR: data and size point to memory accessible by the
  *                        CPU.
  * @SPA_DATA_TYPE_FD: data points to an int file descriptor that can be
  *                    mmapped.
+ * @SPA_DATA_TYPE_MEMID: data points to the id of the memory block to use
  * @SPA_DATA_TYPE_POINTER: data points to some other datastructure, the
  *        type can be found in ptr_type
  */
@@ -112,6 +113,7 @@ typedef enum {
   SPA_DATA_TYPE_INVALID               = 0,
   SPA_DATA_TYPE_MEMPTR,
   SPA_DATA_TYPE_FD,
+  SPA_DATA_TYPE_MEMID,
   SPA_DATA_TYPE_POINTER,
 } SpaDataType;
 
@@ -138,6 +140,7 @@ typedef struct {
  * SpaBuffer:
  * @refcount: reference counter
  * @notify: called when the refcount reaches 0
+ * @id: buffer id
  * @size: total size of the buffer data
  * @n_metas: number of metadata
  * @metas: array of @n_metas metadata
@@ -147,6 +150,7 @@ typedef struct {
 struct _SpaBuffer {
   volatile int      refcount;
   SpaNotify         notify;
+  uint32_t          id;
   size_t            size;
   unsigned int      n_metas;
   SpaMeta          *metas;

@@ -597,34 +597,6 @@ pinos_port_filter_formats (PinosPort  *port,
   return pinos_format_filter (priv->possible_formats, filter, error);
 }
 
-static void
-parse_control_buffer (PinosPort *port, PinosBuffer *buffer)
-{
-  PinosPortPrivate *priv = port->priv;
-  PinosBufferIter it;
-
-  pinos_buffer_iter_init (&it, buffer);
-  while (pinos_buffer_iter_next (&it)) {
-    switch (pinos_buffer_iter_get_type (&it)) {
-      case PINOS_PACKET_TYPE_FORMAT_CHANGE:
-      {
-        PinosPacketFormatChange change;
-
-        if (!pinos_buffer_iter_parse_format_change  (&it, &change))
-          continue;
-
-        if (priv->format)
-          g_bytes_unref (priv->format);
-        priv->format = g_bytes_new (change.format, strlen (change.format) + 1);
-        g_object_notify (G_OBJECT (port), "format");
-        break;
-      }
-      default:
-        break;
-    }
-  }
-}
-
 void
 pinos_port_activate (PinosPort *port)
 {
@@ -668,15 +640,13 @@ pinos_port_deactivate (PinosPort *port)
  */
 gboolean
 pinos_port_receive_buffer (PinosPort   *port,
-                           PinosBuffer *buffer,
+                           SpaBuffer   *buffer,
                            GError     **error)
 {
   gboolean res = TRUE;
   PinosPortPrivate *priv = port->priv;
 
   PINOS_DEBUG_TRANSPORT ("port %p: receive buffer %p", port, buffer);
-  if (pinos_buffer_get_flags (buffer) & PINOS_BUFFER_FLAG_CONTROL)
-    parse_control_buffer (port, buffer);
 
   if (priv->received_buffer_cb)
     res = priv->received_buffer_cb (port, buffer, error, priv->received_buffer_data);
@@ -687,7 +657,7 @@ pinos_port_receive_buffer (PinosPort   *port,
 /**
  * pinos_port_send_buffer:
  * @port: a #PinosPort
- * @buffer: a #PinosBuffer
+ * @buffer: a #SpaBuffer
  * @error: a #GError or %NULL
  *
  * Send @buffer out on @port.
@@ -696,7 +666,7 @@ pinos_port_receive_buffer (PinosPort   *port,
  */
 gboolean
 pinos_port_send_buffer (PinosPort   *port,
-                        PinosBuffer *buffer,
+                        SpaBuffer   *buffer,
                         GError     **error)
 {
   gboolean res = TRUE;
@@ -706,8 +676,6 @@ pinos_port_send_buffer (PinosPort   *port,
   g_return_val_if_fail (PINOS_IS_PORT (port), FALSE);
 
   PINOS_DEBUG_TRANSPORT ("port %p: send buffer %p", port, buffer);
-  if (pinos_buffer_get_flags (buffer) & PINOS_BUFFER_FLAG_CONTROL)
-    parse_control_buffer (port, buffer);
 
   priv = port->priv;
 

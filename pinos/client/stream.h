@@ -24,6 +24,7 @@
 
 #include <pinos/client/buffer.h>
 #include <pinos/client/context.h>
+#include <spa/include/spa/buffer.h>
 
 G_BEGIN_DECLS
 
@@ -105,12 +106,9 @@ gboolean         pinos_stream_start             (PinosStream     *stream,
                                                  PinosStreamMode  mode);
 gboolean         pinos_stream_stop              (PinosStream     *stream);
 
-PinosBuffer *    pinos_stream_peek_buffer       (PinosStream     *stream);
-void             pinos_stream_buffer_builder_init (PinosStream        *stream,
-                                                   PinosBufferBuilder *builder);
+SpaBuffer *      pinos_stream_peek_buffer       (PinosStream     *stream);
 gboolean         pinos_stream_send_buffer       (PinosStream     *stream,
-                                                 PinosBuffer     *buffer);
-
+                                                 SpaBuffer       *buffer);
 G_END_DECLS
 
 #endif /* __PINOS_STREAM_H__ */

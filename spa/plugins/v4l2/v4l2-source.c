@@ -61,6 +61,24 @@ struct _V4l2Buffer {
   int dmafd;
 };
 
+typedef struct _V4l2Format V4l2Format;
+
+struct _V4l2Format {
+  SpaFormat fmt;
+  uint32_t unset_mask;
+  SpaVideoFormat            format;
+  SpaRectangle              size;
+  SpaFraction               framerate;
+  SpaVideoInterlaceMode     interlace_mode;
+  SpaVideoColorRange        color_range;
+  SpaVideoColorMatrix       color_matrix;
+  SpaVideoTransferFunction  transfer_function;
+  SpaVideoColorPrimaries    color_primaries;
+  SpaPropInfo infos[16];
+  SpaPropRangeInfo ranges[16];
+  SpaFraction framerates[16];
+};
+
 typedef struct {
   bool export_buf;
   bool have_buffers;
@@ -69,11 +87,10 @@ typedef struct {
   struct v4l2_fmtdesc fmtdesc;
   bool next_frmsize;
   struct v4l2_frmsizeenum frmsize;
-  bool next_frmival;
   struct v4l2_frmivalenum frmival;
   void *cookie;
 
-  SpaVideoRawFormat raw_format[2];
+  V4l2Format format[2];
   SpaFormat *current_format;
 
   int fd;
@@ -309,6 +326,33 @@ spa_v4l2_source_node_remove_port (SpaHandle      *handle,
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
+static void
+spa_v4l2_format_init (V4l2Format *f)
+{
+  f->fmt.props.n_prop_info = 3;
+  f->fmt.props.prop_info = f->infos;
+  f->fmt.props.set_prop = spa_props_generic_set_prop;
+  f->fmt.props.get_prop = spa_props_generic_get_prop;
+
+  spa_video_raw_fill_prop_info (&f->infos[0],
+                                SPA_PROP_ID_VIDEO_FORMAT,
+                                offsetof (V4l2Format, format));
+  f->infos[0].mask_offset = offsetof (V4l2Format, unset_mask);
+  f->infos[0].unset_mask = 1 << 0;
+
+  spa_video_raw_fill_prop_info (&f->infos[1],
+                                SPA_PROP_ID_VIDEO_SIZE,
+                                offsetof (V4l2Format, size));
+  f->infos[1].mask_offset = offsetof (V4l2Format, unset_mask);
+  f->infos[1].unset_mask = 1 << 1;
+
+  spa_video_raw_fill_prop_info (&f->infos[2],
+                                SPA_PROP_ID_VIDEO_FRAMERATE,
+                                offsetof (V4l2Format, framerate));
+  f->infos[2].mask_offset = offsetof (V4l2Format, unset_mask);
+  f->infos[2].unset_mask = 1 << 2;
+}
+
 static SpaResult
 spa_v4l2_source_node_port_enum_formats (SpaHandle       *handle,
                                         uint32_t         port_id,
@@ -339,7 +383,7 @@ spa_v4l2_source_node_port_set_format (SpaHandle          *handle,
   SpaV4l2Source *this = (SpaV4l2Source *) handle;
   SpaV4l2State *state;
   SpaResult res;
-  SpaFormat *f, *tf;
+  V4l2Format *f, *tf;
   size_t fs;
 
   if (handle == NULL || format == NULL)
@@ -355,25 +399,22 @@ spa_v4l2_source_node_port_set_format (SpaHandle          *handle,
     return SPA_RESULT_OK;
   }
 
-  if (format->media_type == SPA_MEDIA_TYPE_VIDEO) {
-    if (format->media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
-      if ((res = spa_video_raw_format_parse (format, &state->raw_format[0]) < 0))
-        return res;
+  f = &state->format[0];
+  tf = &state->format[1];
+  fs = sizeof (V4l2Format);
 
-      f = &state->raw_format[0].format;
-      tf = &state->raw_format[1].format;
-      fs = sizeof (SpaVideoRawFormat);
-    } else
-      return SPA_RESULT_INVALID_MEDIA_TYPE;
-  } else
-    return SPA_RESULT_INVALID_MEDIA_TYPE;
+  spa_v4l2_format_init (f);
+  f->fmt.media_type = format->media_type;
+  f->fmt.media_subtype = format->media_subtype;
+  if ((res = spa_props_copy (&format->props, &f->fmt.props) < 0))
+    return res;
 
   if (spa_v4l2_set_format (this, f, flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY) < 0)
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
   if (!(flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY)) {
     memcpy (tf, f, fs);
-    state->current_format = tf;
+    state->current_format = &tf->fmt;
   }
 
   return SPA_RESULT_OK;

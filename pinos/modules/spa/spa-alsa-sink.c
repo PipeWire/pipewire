@@ -434,110 +434,40 @@ free_mem_block (MemBlock *b)
 
 static gboolean
 on_received_buffer (PinosPort   *port,
-                    PinosBuffer *buffer,
+                    SpaBuffer   *buffer,
                     GError     **error,
                     gpointer     user_data)
 {
   PinosSpaAlsaSink *this = user_data;
   PinosSpaAlsaSinkPrivate *priv = this->priv;
-  PinosBuffer *pbuf = buffer;
-  PinosBufferIter it;
+  unsigned int i;
 
-  pinos_buffer_iter_init (&it, pbuf);
-  while (pinos_buffer_iter_next (&it)) {
-    switch (pinos_buffer_iter_get_type (&it)) {
-      case PINOS_PACKET_TYPE_HEADER:
-      {
-        PinosPacketHeader hdr;
+  for (i = 0; i < buffer->n_datas; i++) {
+    SpaData *d = &buffer->datas[i];
+    PinosRingbufferArea areas[2];
+    uint8_t *data;
+    size_t size, towrite, total;
 
-        if (!pinos_buffer_iter_parse_header  (&it, &hdr))
-          break;
+    if (d->type != SPA_DATA_TYPE_MEMPTR)
+      continue;
 
-        break;
-      }
-      case PINOS_PACKET_TYPE_ADD_MEM:
-      {
-        PinosPacketAddMem p;
-        MemBlock *b;
-        int fd;
+    size = d->size;
+    data = (guint8*)d->ptr + d->offset;
 
-        if (!pinos_buffer_iter_parse_add_mem (&it, &p))
-          break;
+    pinos_ringbuffer_get_write_areas (priv->ringbuffer, areas);
 
-        fd = pinos_buffer_get_fd (pbuf, p.fd_index);
-        if (fd == -1)
-          break;
+    total = MIN (size, areas[0].len + areas[1].len);
+    g_debug ("total write %zd %zd", total, areas[0].len + areas[1].len);
+    towrite = MIN (size, areas[0].len);
+    memcpy (areas[0].data, data, towrite);
+    size -= towrite;
+    data += towrite;
+    towrite = MIN (size, areas[1].len);
+    memcpy (areas[1].data, data, towrite);
 
-        b = g_slice_new0 (MemBlock);
-        b->id = p.id;
-        b->type = p.type;
-        b->fd = fd;
-        b->data = mmap (NULL, p.size, PROT_READ, MAP_PRIVATE, fd, p.offset);
-        b->offset = p.offset;
-        b->size = p.size;
-
-        g_hash_table_insert (priv->mem_ids, GINT_TO_POINTER (p.id), b);
-        break;
-      }
-
-      case PINOS_PACKET_TYPE_REMOVE_MEM:
-      {
-        PinosPacketRemoveMem p;
-
-        if (!pinos_buffer_iter_parse_remove_mem (&it, &p))
-          break;
-
-        g_hash_table_remove (priv->mem_ids, GINT_TO_POINTER (p.id));
-        break;
-      }
-
-      case PINOS_PACKET_TYPE_PROCESS_MEM:
-      {
-        PinosPacketProcessMem p;
-        MemBlock *b;
-        PinosRingbufferArea areas[2];
-        uint8_t *data;
-        size_t size, towrite, total;
-
-        if (!pinos_buffer_iter_parse_process_mem  (&it, &p))
-          break;
-
-        if (!(b = g_hash_table_lookup (priv->mem_ids, GINT_TO_POINTER (p.id))))
-          break;
-
-        size = p.size;
-        data = (guint8*)b->data + p.offset;
-
-        pinos_ringbuffer_get_write_areas (priv->ringbuffer, areas);
-
-        total = MIN (size, areas[0].len + areas[1].len);
-        g_debug ("total write %zd %zd", total, areas[0].len + areas[1].len);
-        towrite = MIN (size, areas[0].len);
-        memcpy (areas[0].data, data, towrite);
-        size -= towrite;
-        data += towrite;
-        towrite = MIN (size, areas[1].len);
-        memcpy (areas[1].data, data, towrite);
-
-        pinos_ringbuffer_write_advance (priv->ringbuffer, total);
-
-        break;
-      }
-      case PINOS_PACKET_TYPE_FORMAT_CHANGE:
-      {
-        PinosPacketFormatChange change;
-
-        if (!pinos_buffer_iter_parse_format_change  (&it, &change))
-          break;
-        g_debug ("got format change %d %s", change.id, change.format);
-
-        break;
-      }
-      default:
-        break;
-    }
+    pinos_ringbuffer_write_advance (priv->ringbuffer, total);
   }
-  pinos_buffer_iter_end (&it);
+  spa_buffer_unref (buffer);
 
   return TRUE;
 }
@@ -550,12 +480,11 @@ on_format_change (GObject *obj,
   SinkPortData *data = user_data;
   PinosNode *node = PINOS_NODE (data->sink);
   PinosSpaAlsaSink *sink = PINOS_SPA_ALSA_SINK (node);
-  PinosSpaAlsaSinkPrivate *priv = sink->priv;
   GBytes *formats;
 
   g_object_get (obj, "format", &formats, NULL);
   if (formats) {
-    g_debug ("port %p: format change %s", obj, g_bytes_get_data (formats, NULL));
+    g_debug ("port %p: format change %s", obj, (gchar*) g_bytes_get_data (formats, NULL));
     negotiate_formats (sink);
   }
 }

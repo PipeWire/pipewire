@@ -33,11 +33,26 @@ typedef enum {
   SPA_MEDIA_TYPE_INVALID         = 0,
   SPA_MEDIA_TYPE_AUDIO           = 1,
   SPA_MEDIA_TYPE_VIDEO           = 2,
+  SPA_MEDIA_TYPE_IMAGE           = 3,
 } SpaMediaType;
 
 typedef enum {
   SPA_MEDIA_SUBTYPE_INVALID         = 0,
   SPA_MEDIA_SUBTYPE_RAW             = 1,
+  SPA_MEDIA_SUBTYPE_H264            = 2,
+  SPA_MEDIA_SUBTYPE_MJPG            = 3,
+  SPA_MEDIA_SUBTYPE_DV              = 4,
+  SPA_MEDIA_SUBTYPE_MPEGTS          = 5,
+  SPA_MEDIA_SUBTYPE_H263            = 6,
+  SPA_MEDIA_SUBTYPE_MPEG1           = 7,
+  SPA_MEDIA_SUBTYPE_MPEG2           = 8,
+  SPA_MEDIA_SUBTYPE_MPEG4           = 9,
+  SPA_MEDIA_SUBTYPE_XVID            = 10,
+  SPA_MEDIA_SUBTYPE_VC1             = 11,
+  SPA_MEDIA_SUBTYPE_VP8             = 12,
+  SPA_MEDIA_SUBTYPE_VP9             = 13,
+  SPA_MEDIA_SUBTYPE_JPEG            = 14,
+  SPA_MEDIA_SUBTYPE_BAYER           = 15,
 } SpaMediaSubType;
 
 struct _SpaFormat {

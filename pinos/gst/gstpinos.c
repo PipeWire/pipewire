@@ -32,7 +32,7 @@
 #include "config.h"
 #endif
 
-#include "gstpinossocketsink.h"
+//#include "gstpinossocketsink.h"
 #include "gstpinosportsink.h"
 #include "gstpinosportsrc.h"
 #include "gstpinossrc.h"
@@ -46,20 +46,20 @@ GST_DEBUG_CATEGORY (pinos_debug);
 static gboolean
 plugin_init (GstPlugin * plugin)
 {
-  gst_element_register (plugin, "pinospay", GST_RANK_NONE,
-      GST_TYPE_PINOS_PAY);
-  gst_element_register (plugin, "pinosdepay", GST_RANK_NONE,
-      GST_TYPE_PINOS_DEPAY);
+//  gst_element_register (plugin, "pinospay", GST_RANK_NONE,
+ //     GST_TYPE_PINOS_PAY);
+ // gst_element_register (plugin, "pinosdepay", GST_RANK_NONE,
+ //     GST_TYPE_PINOS_DEPAY);
   gst_element_register (plugin, "pinossrc", GST_RANK_PRIMARY + 1,
       GST_TYPE_PINOS_SRC);
   gst_element_register (plugin, "pinossink", GST_RANK_NONE,
       GST_TYPE_PINOS_SINK);
-  gst_element_register (plugin, "pinossocketsink", GST_RANK_NONE,
-      GST_TYPE_PINOS_SOCKET_SINK);
-  gst_element_register (plugin, "pinosportsink", GST_RANK_NONE,
-      GST_TYPE_PINOS_PORT_SINK);
-  gst_element_register (plugin, "pinosportsrc", GST_RANK_NONE,
-      GST_TYPE_PINOS_PORT_SRC);
+ // gst_element_register (plugin, "pinossocketsink", GST_RANK_NONE,
+ //     GST_TYPE_PINOS_SOCKET_SINK);
+ // gst_element_register (plugin, "pinosportsink", GST_RANK_NONE,
+ //     GST_TYPE_PINOS_PORT_SINK);
+//  gst_element_register (plugin, "pinosportsrc", GST_RANK_NONE,
+//      GST_TYPE_PINOS_PORT_SRC);
 
   if (!gst_device_provider_register (plugin, "pinosdeviceprovider",
        GST_RANK_PRIMARY + 1, GST_TYPE_PINOS_DEVICE_PROVIDER))

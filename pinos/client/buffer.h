@@ -26,6 +26,7 @@
 G_BEGIN_DECLS
 
 typedef struct _PinosBuffer PinosBuffer;
+#if 0
 typedef struct _PinosBufferIter PinosBufferIter;
 typedef struct _PinosBufferBuilder PinosBufferBuilder;
 
@@ -329,4 +330,5 @@ gboolean           pinos_buffer_builder_add_refresh_request (PinosBufferBuilder 
                                                              PinosPacketRefreshRequest *payload);
 
 
+#endif
 #endif /* __PINOS_BUFFER_H__ */

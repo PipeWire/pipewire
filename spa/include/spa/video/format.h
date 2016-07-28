@@ -57,6 +57,10 @@ SpaResult   spa_video_raw_format_init    (SpaVideoRawFormat *format);
 SpaResult   spa_video_raw_format_parse   (const SpaFormat *format,
                                           SpaVideoRawFormat *rawformat);
 
+SpaResult   spa_video_raw_fill_default_info (SpaVideoRawInfo *info);
+SpaResult   spa_video_raw_fill_prop_info    (SpaPropInfo     *info,
+                                             SpaPropIdVideo   id,
+                                             size_t           offset);
 
 #ifdef __cplusplus
 }  /* extern "C" */

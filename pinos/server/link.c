@@ -69,7 +69,7 @@ enum
 static guint signals[LAST_SIGNAL] = { 0 };
 
 static gboolean
-on_output_send (PinosPort *port, PinosBuffer *buffer, GError **error, gpointer user_data)
+on_output_send (PinosPort *port, SpaBuffer *buffer, GError **error, gpointer user_data)
 {
   PinosLink *link = user_data;
   PinosLinkPrivate *priv = link->priv;
@@ -78,7 +78,7 @@ on_output_send (PinosPort *port, PinosBuffer *buffer, GError **error, gpointer u
 }
 
 static gboolean
-on_input_send (PinosPort *port, PinosBuffer *buffer, GError **error, gpointer user_data)
+on_input_send (PinosPort *port, SpaBuffer *buffer, GError **error, gpointer user_data)
 {
   PinosLink *link = user_data;
   PinosLinkPrivate *priv = link->priv;
@@ -245,7 +245,7 @@ on_format_change (GObject *obj,
   GBytes *formats;
 
   g_object_get (priv->output, "format", &formats, NULL);
-  g_debug ("port %p: format change %s", priv->output, g_bytes_get_data (formats, NULL));
+  g_debug ("port %p: format change %s", priv->output, (gchar*)g_bytes_get_data (formats, NULL));
   g_object_set (priv->input, "format", formats, NULL);
 }
 

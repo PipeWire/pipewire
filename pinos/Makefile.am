@@ -40,8 +40,8 @@ AM_CFLAGS = $(GLIB_CFLAGS) $(GST_CFLAGS)
 AM_CXXFLAGS = $(AM_CFLAGS)
 SERVER_CFLAGS = -D__INCLUDED_FROM_PINOS
 
-AM_LIBADD = $(GLIB_LIBS) $(INTLLIBS) $(GST_LIBS)  #$(top_srcdir)/spa/build/lib/libspa-lib.so
-AM_LDADD = $(GLIB_LIBS) $(GST_LIBS) $(INTLLIBS) #$(top_srcdir)/spa/build/lib/libspa-lib.so
+AM_LIBADD = $(GLIB_LIBS) $(INTLLIBS) $(GST_LIBS) -L$(top_srcdir)/spa/build/lib/ -lspa-lib
+AM_LDADD = $(GLIB_LIBS) $(GST_LIBS) $(INTLLIBS) -L$(top_srcdir)/spa/build/lib/ -lspa-lib
 AM_LDFLAGS = $(NODELETE_LDFLAGS)
 
 FOREIGN_CFLAGS = -w
@@ -161,9 +161,7 @@ pinos_monitor_LDFLAGS = $(AM_LDFLAGS) $(BINLDFLAGS)
 #         Client library          #
 ###################################
 
-pinosgstsource = gst/gstpinospay.h gst/gstpinospay.c \
-	      gst/gstpinosdepay.h gst/gstpinosdepay.c \
-	      gst/gsttmpfileallocator.h gst/gsttmpfileallocator.c
+pinosgstsource = gst/gsttmpfileallocator.h gst/gsttmpfileallocator.c
 
 pinosinclude_HEADERS = \
 		client/buffer.h \
@@ -227,8 +225,8 @@ libpinoscore_@PINOS_MAJORMINOR@_la_SOURCES = \
 
 libpinoscore_@PINOS_MAJORMINOR@_la_CFLAGS = $(AM_CFLAGS) $(SERVER_CFLAGS)
 libpinoscore_@PINOS_MAJORMINOR@_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version
-libpinoscore_@PINOS_MAJORMINOR@_la_LIBADD = $(AM_LIBADD) $(LIBLTDL) $(LTLIBICONV) \
-			 libpinos-@PINOS_MAJORMINOR@.la
+libpinoscore_@PINOS_MAJORMINOR@_la_LIBADD = $(LIBLTDL) $(LTLIBICONV) \
+			 libpinos-@PINOS_MAJORMINOR@.la $(AM_LIBADD)
 
 ###################################
 #      GStreamer Plugin           #
@@ -241,19 +239,19 @@ plugin_LTLIBRARIES = libgstpinos.la
 libgstpinos_la_SOURCES = \
                         gst/gstburstcache.c \
                         gst/gstpinos.c \
-                        gst/gstpinossocketsink.c \
-                        gst/gstpinosportsink.c \
-                        gst/gstpinosportsrc.c \
-                        gst/gstpinospay.c \
-                        gst/gstpinosdepay.c \
                         gst/gstpinosdeviceprovider.c \
                         gst/gstpinossrc.c \
                         gst/gstpinossink.c
+                        #gst/gstpinosdepay.c
+                        #gst/gstpinosportsrc.c
+                        #gst/gstpinosportsink.c
+                        #gst/gstpinossocketsink.c
+                        #gst/gstpinospay.c
 
 libgstpinos_la_CFLAGS = $(GST_PLUGINS_BASE_CFLAGS) $(GST_BASE_CFLAGS) $(GST_CFLAGS) $(GLIB_CFLAGS)
-libgstpinos_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS)
+libgstpinos_la_LDFLAGS = $(AM_LDFLAGS) $(GST_PLUGIN_LDFLAGS)
 libgstpinos_la_LIBADD =  $(GST_BASE_LIBS) $(GST_LIBS) $(GLIB_LIBS) $(LIBM) -lgstvideo-1.0 \
-			 libpinos-@PINOS_MAJORMINOR@.la libpinoscore-@PINOS_MAJORMINOR@.la
+			 libpinos-@PINOS_MAJORMINOR@.la libpinoscore-@PINOS_MAJORMINOR@.la $(AM_LIBADD)
 libgstpinos_la_LIBTOOLFLAGS = $(GST_PLUGIN_LIBTOOLFLAGS)
 
 noinst_HEADERS = gst/gstburstcache.h gst/gstpinossrc.h \

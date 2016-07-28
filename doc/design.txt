@@ -370,3 +370,95 @@ Types:
                      1 = keyframe+full headers
    <PTS>          : the timestamp when the refresh should be,
                      0 for as soon as possible
+
+
+
+communication channel
+---------------------
+
+
+               +-----+   +----+   +----+
+               |     |   |  S |   |    |
+               |     -----    -----    |
+               +-----+   +----+   +----+
+                           |
+                           |
+                           |
+                           |
+                         +----+
+                         |    |
+                         |  C |
+                         +----+
+
+
+1) Update config C->S                 INIT
+
+   node-update
+   port-update
+   start-configure
+
+2) Set formats S->C                   CONFIGURE
+
+   add-port
+   set-property
+   enumerate ports
+   enumerate formats
+   set-format
+   end-configure
+
+3) Buffer requirements update C->S    BUFFER_REQS
+
+   Update port status
+   start-alloc
+
+4) Start S->C                         ALLOC
+
+   read port memory requirements
+   add_mem
+   add_buffer
+   pause/start
+
+5) Pause S->C                         PAUSED
+
+   start/stop
+
+5) data transfer C->S                 STARTED
+
+   need-input
+   add_mem
+   add_buffer
+   process_buffer
+   reuse_buffer
+   remove_buffer
+   remove_mem
+   have-output
+   pause/stop
+
+6) data transfer S->C
+
+   add_mem
+   add_buffer
+   process_buffer
+   reuse_buffer
+   remove_buffer
+   remove_mem
+   pause/stop
+
+7) format change C->S
+
+   port-update
+   start-configure
+
+8) format change S->C
+
+   Send set-format change on ports
+   end-configure, back to 3
+
+9) stop S->C                         ALLOC
+
+   remove_buffer
+   remove_mem
+
+10) clear format S->C                 CONFIGURE
+
+   format-change to NULL

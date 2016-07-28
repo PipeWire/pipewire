@@ -78,3 +78,20 @@ spa_debug_port_info (const SpaPortInfo *info)
   }
   return SPA_RESULT_OK;
 }
+
+SpaResult
+spa_debug_dump_mem (void *mem, size_t size)
+{
+  uint8_t *t = mem;
+  int i;
+
+  if (mem == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  for (i = 0; i < size; i++) {
+    printf ("%02x ", t[i]);
+    if (i % 16 == 8 || i == size - 1)
+      printf ("\n");
+  }
+  return SPA_RESULT_OK;
+}

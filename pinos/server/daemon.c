@@ -250,7 +250,7 @@ handle_create_client_node (PinosDaemon1           *interface,
         continue;
       }
 
-      pinos_client_add_object (client, G_OBJECT (target));
+//      pinos_client_add_object (client, G_OBJECT (target));
 
       link = pinos_link_new (daemon, port, target, NULL);
       pinos_client_add_object (client, G_OBJECT (link));

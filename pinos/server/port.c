@@ -56,8 +56,6 @@ struct _PinosPortPrivate
   GBytes *format;
   PinosProperties *properties;
 
-  PinosBuffer *buffer;
-
   PinosBufferCallback received_buffer_cb;
   gpointer received_buffer_data;
   GDestroyNotify received_buffer_notify;

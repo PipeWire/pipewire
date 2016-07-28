@@ -20,7 +20,6 @@
 #ifndef __PINOS_H__
 #define __PINOS_H__
 
-#include <pinos/client/buffer.h>
 #include <pinos/client/context.h>
 #include <pinos/client/enumtypes.h>
 #include <pinos/client/fdmanager.h>

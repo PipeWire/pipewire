@@ -29,7 +29,6 @@ typedef struct _PinosRingbufferClass PinosRingbufferClass;
 typedef struct _PinosRingbufferPrivate PinosRingbufferPrivate;
 
 #include <pinos/client/introspect.h>
-#include <pinos/client/buffer.h>
 
 #define PINOS_TYPE_RINGBUFFER                 (pinos_ringbuffer_get_type ())
 #define PINOS_IS_RINGBUFFER(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_RINGBUFFER))

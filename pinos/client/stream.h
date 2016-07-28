@@ -22,9 +22,10 @@
 
 #include <glib-object.h>
 
-#include <pinos/client/buffer.h>
-#include <pinos/client/context.h>
 #include <spa/include/spa/buffer.h>
+
+#include <pinos/client/context.h>
+
 
 G_BEGIN_DECLS
 

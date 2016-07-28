@@ -164,7 +164,6 @@ pinos_monitor_LDFLAGS = $(AM_LDFLAGS) $(BINLDFLAGS)
 pinosgstsource = gst/gsttmpfileallocator.h gst/gsttmpfileallocator.c
 
 pinosinclude_HEADERS = \
-		client/buffer.h \
 		client/client-port.h \
 		client/context.h \
 		client/enumtypes.h \
@@ -180,8 +179,6 @@ lib_LTLIBRARIES = \
 
 # Public interface
 libpinos_@PINOS_MAJORMINOR@_la_SOURCES = \
-		client/buffer.h client/buffer.c \
-		client/io.c \
 		client/context.h client/context.c \
 		client/enumtypes.h client/enumtypes.c \
 		client/introspect.h client/introspect.c \

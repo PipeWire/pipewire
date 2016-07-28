@@ -28,10 +28,11 @@ typedef struct _PinosPort PinosPort;
 typedef struct _PinosPortClass PinosPortClass;
 typedef struct _PinosPortPrivate PinosPortPrivate;
 
-#include <pinos/client/introspect.h>
-#include <pinos/client/buffer.h>
-#include <pinos/server/daemon.h>
 #include <spa/include/spa/buffer.h>
+
+#include <pinos/client/introspect.h>
+#include <pinos/server/daemon.h>
+
 
 #define PINOS_TYPE_PORT             (pinos_port_get_type ())
 #define PINOS_IS_PORT(obj)          (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_PORT))

@@ -34,6 +34,7 @@ typedef struct {
 
 struct _SpaAudioTestSrc {
   SpaHandle handle;
+  SpaNode node;
 
   SpaAudioTestSrcProps props[2];
 
@@ -121,13 +122,15 @@ reset_audiotestsrc_props (SpaAudioTestSrcProps *props)
 }
 
 static SpaResult
-spa_audiotestsrc_node_get_props (SpaHandle     *handle,
+spa_audiotestsrc_node_get_props (SpaNode       *node,
                                  SpaProps     **props)
 {
-  SpaAudioTestSrc *this = (SpaAudioTestSrc *) handle;
+  SpaAudioTestSrc *this;
 
-  if (handle == NULL || props == NULL)
+  if (node == NULL || node->handle == NULL || props == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaAudioTestSrc *) node->handle;
 
   memcpy (&this->props[0], &this->props[1], sizeof (this->props[1]));
   *props = &this->props[0].props;
@@ -136,15 +139,18 @@ spa_audiotestsrc_node_get_props (SpaHandle     *handle,
 }
 
 static SpaResult
-spa_audiotestsrc_node_set_props (SpaHandle       *handle,
+spa_audiotestsrc_node_set_props (SpaNode         *node,
                                  const SpaProps  *props)
 {
-  SpaAudioTestSrc *this = (SpaAudioTestSrc *) handle;
-  SpaAudioTestSrcProps *p = &this->props[1];
+  SpaAudioTestSrc *this;
+  SpaAudioTestSrcProps *p;
   SpaResult res;
 
-  if (handle == NULL)
+  if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaAudioTestSrc *) node->handle;
+  p = &this->props[1];
 
   if (props == NULL) {
     reset_audiotestsrc_props (p);
@@ -156,13 +162,15 @@ spa_audiotestsrc_node_set_props (SpaHandle       *handle,
 }
 
 static SpaResult
-spa_audiotestsrc_node_send_command (SpaHandle     *handle,
+spa_audiotestsrc_node_send_command (SpaNode       *node,
                                     SpaCommand    *command)
 {
-  SpaAudioTestSrc *this = (SpaAudioTestSrc *) handle;
+  SpaAudioTestSrc *this;
 
-  if (handle == NULL || command == NULL)
+  if (node == NULL || node->handle == NULL || command == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaAudioTestSrc *) node->handle;
 
   switch (command->type) {
     case SPA_COMMAND_INVALID:
@@ -179,7 +187,7 @@ spa_audiotestsrc_node_send_command (SpaHandle     *handle,
         event.data = NULL;
         event.size = 0;
 
-        this->event_cb (handle, &event, this->user_data);
+        this->event_cb (node, &event, this->user_data);
       }
       break;
 
@@ -194,7 +202,7 @@ spa_audiotestsrc_node_send_command (SpaHandle     *handle,
         event.data = NULL;
         event.size = 0;
 
-        this->event_cb (handle, &event, this->user_data);
+        this->event_cb (node, &event, this->user_data);
       }
       break;
 
@@ -207,14 +215,16 @@ spa_audiotestsrc_node_send_command (SpaHandle     *handle,
 }
 
 static SpaResult
-spa_audiotestsrc_node_set_event_callback (SpaHandle     *handle,
+spa_audiotestsrc_node_set_event_callback (SpaNode       *node,
                                           SpaEventCallback event,
                                           void          *user_data)
 {
-  SpaAudioTestSrc *this = (SpaAudioTestSrc *) handle;
+  SpaAudioTestSrc *this;
 
-  if (handle == NULL)
+  if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaAudioTestSrc *) node->handle;
 
   this->event_cb = event;
   this->user_data = user_data;
@@ -223,13 +233,13 @@ spa_audiotestsrc_node_set_event_callback (SpaHandle     *handle,
 }
 
 static SpaResult
-spa_audiotestsrc_node_get_n_ports (SpaHandle     *handle,
+spa_audiotestsrc_node_get_n_ports (SpaNode       *node,
                                    unsigned int  *n_input_ports,
                                    unsigned int  *max_input_ports,
                                    unsigned int  *n_output_ports,
                                    unsigned int  *max_output_ports)
 {
-  if (handle == NULL)
+  if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   if (n_input_ports)
@@ -245,13 +255,13 @@ spa_audiotestsrc_node_get_n_ports (SpaHandle     *handle,
 }
 
 static SpaResult
-spa_audiotestsrc_node_get_port_ids (SpaHandle     *handle,
+spa_audiotestsrc_node_get_port_ids (SpaNode       *node,
                                     unsigned int   n_input_ports,
                                     uint32_t      *input_ids,
                                     unsigned int   n_output_ports,
                                     uint32_t      *output_ids)
 {
-  if (handle == NULL || input_ids == NULL || output_ids == NULL)
+  if (node == NULL || node->handle == NULL || input_ids == NULL || output_ids == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   if (n_output_ports > 0)
@@ -261,32 +271,34 @@ spa_audiotestsrc_node_get_port_ids (SpaHandle     *handle,
 }
 
 static SpaResult
-spa_audiotestsrc_node_add_port (SpaHandle      *handle,
+spa_audiotestsrc_node_add_port (SpaNode        *node,
                                 SpaDirection    direction,
-                                uint32_t       *port_id)
+                                uint32_t        port_id)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult
-spa_audiotestsrc_node_remove_port (SpaHandle      *handle,
+spa_audiotestsrc_node_remove_port (SpaNode        *node,
                                    uint32_t        port_id)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult
-spa_audiotestsrc_node_port_enum_formats (SpaHandle        *handle,
+spa_audiotestsrc_node_port_enum_formats (SpaNode          *node,
                                          uint32_t          port_id,
                                          SpaFormat       **format,
                                          const SpaFormat  *filter,
                                          void            **state)
 {
-  SpaAudioTestSrc *this = (SpaAudioTestSrc *) handle;
+  SpaAudioTestSrc *this;
   int index;
 
-  if (handle == NULL || format == NULL || state == NULL)
+  if (node == NULL || node->handle == NULL || format == NULL || state == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaAudioTestSrc *) node->handle;
 
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
@@ -307,16 +319,18 @@ spa_audiotestsrc_node_port_enum_formats (SpaHandle        *handle,
 }
 
 static SpaResult
-spa_audiotestsrc_node_port_set_format (SpaHandle          *handle,
+spa_audiotestsrc_node_port_set_format (SpaNode            *node,
                                        uint32_t            port_id,
                                        SpaPortFormatFlags  flags,
                                        const SpaFormat    *format)
 {
-  SpaAudioTestSrc *this = (SpaAudioTestSrc *) handle;
+  SpaAudioTestSrc *this;
   SpaResult res;
 
-  if (handle == NULL)
+  if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaAudioTestSrc *) node->handle;
 
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
@@ -335,14 +349,16 @@ spa_audiotestsrc_node_port_set_format (SpaHandle          *handle,
 }
 
 static SpaResult
-spa_audiotestsrc_node_port_get_format (SpaHandle        *handle,
+spa_audiotestsrc_node_port_get_format (SpaNode          *node,
                                        uint32_t          port_id,
                                        const SpaFormat **format)
 {
-  SpaAudioTestSrc *this = (SpaAudioTestSrc *) handle;
+  SpaAudioTestSrc *this;
 
-  if (handle == NULL || format == NULL)
+  if (node == NULL || node->handle == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaAudioTestSrc *) node->handle;
 
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
@@ -356,14 +372,16 @@ spa_audiotestsrc_node_port_get_format (SpaHandle        *handle,
 }
 
 static SpaResult
-spa_audiotestsrc_node_port_get_info (SpaHandle          *handle,
+spa_audiotestsrc_node_port_get_info (SpaNode            *node,
                                      uint32_t            port_id,
                                      const SpaPortInfo **info)
 {
-  SpaAudioTestSrc *this = (SpaAudioTestSrc *) handle;
+  SpaAudioTestSrc *this;
 
-  if (handle == NULL || info == NULL)
+  if (node == NULL || node->handle == NULL || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaAudioTestSrc *) node->handle;
 
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
@@ -374,7 +392,7 @@ spa_audiotestsrc_node_port_get_info (SpaHandle          *handle,
 }
 
 static SpaResult
-spa_audiotestsrc_node_port_get_props (SpaHandle *handle,
+spa_audiotestsrc_node_port_get_props (SpaNode   *node,
                                       uint32_t   port_id,
                                       SpaProps **props)
 {
@@ -382,7 +400,7 @@ spa_audiotestsrc_node_port_get_props (SpaHandle *handle,
 }
 
 static SpaResult
-spa_audiotestsrc_node_port_set_props (SpaHandle      *handle,
+spa_audiotestsrc_node_port_set_props (SpaNode        *node,
                                       uint32_t        port_id,
                                       const SpaProps *props)
 {
@@ -390,14 +408,16 @@ spa_audiotestsrc_node_port_set_props (SpaHandle      *handle,
 }
 
 static SpaResult
-spa_audiotestsrc_node_port_get_status (SpaHandle            *handle,
+spa_audiotestsrc_node_port_get_status (SpaNode              *node,
                                        uint32_t              port_id,
                                        const SpaPortStatus **status)
 {
-  SpaAudioTestSrc *this = (SpaAudioTestSrc *) handle;
+  SpaAudioTestSrc *this;
 
-  if (handle == NULL || status == NULL)
+  if (node == NULL || node->handle == NULL || status == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaAudioTestSrc *) node->handle;
 
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
@@ -411,7 +431,7 @@ spa_audiotestsrc_node_port_get_status (SpaHandle            *handle,
 }
 
 static SpaResult
-spa_audiotestsrc_node_port_use_buffers (SpaHandle       *handle,
+spa_audiotestsrc_node_port_use_buffers (SpaNode         *node,
                                         uint32_t         port_id,
                                         SpaBuffer      **buffers,
                                         uint32_t         n_buffers)
@@ -420,7 +440,7 @@ spa_audiotestsrc_node_port_use_buffers (SpaHandle       *handle,
 }
 
 static SpaResult
-spa_audiotestsrc_node_port_alloc_buffers (SpaHandle       *handle,
+spa_audiotestsrc_node_port_alloc_buffers (SpaNode         *node,
                                           uint32_t         port_id,
                                           SpaAllocParam  **params,
                                           uint32_t         n_params,
@@ -432,7 +452,7 @@ spa_audiotestsrc_node_port_alloc_buffers (SpaHandle       *handle,
 
 
 static SpaResult
-spa_audiotestsrc_node_port_push_input (SpaHandle     *handle,
+spa_audiotestsrc_node_port_push_input (SpaNode       *node,
                                        unsigned int   n_info,
                                        SpaInputInfo  *info)
 {
@@ -440,18 +460,20 @@ spa_audiotestsrc_node_port_push_input (SpaHandle     *handle,
 }
 
 static SpaResult
-spa_audiotestsrc_node_port_pull_output (SpaHandle     *handle,
+spa_audiotestsrc_node_port_pull_output (SpaNode       *node,
                                         unsigned int   n_info,
                                         SpaOutputInfo *info)
 {
-  SpaAudioTestSrc *this = (SpaAudioTestSrc *) handle;
+  SpaAudioTestSrc *this;
   size_t j, size;
   uint8_t *ptr;
   unsigned int i;
   bool have_error = false;
 
-  if (handle == NULL || n_info == 0 || info == NULL)
+  if (node == NULL || node->handle == NULL || n_info == 0 || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaAudioTestSrc *) node->handle;
 
   for (i = 0; i < n_info; i++) {
     if (info[i].port_id != 0) {
@@ -466,14 +488,7 @@ spa_audiotestsrc_node_port_pull_output (SpaHandle     *handle,
       continue;
     }
 
-    if (info[i].buffer == NULL || info[i].buffer->n_datas == 0) {
-      info[i].status = SPA_RESULT_INVALID_ARGUMENTS;
-      have_error = true;
-      continue;
-    }
-
-    ptr = info[i].buffer->datas[0].ptr;
-    size = info[i].buffer->datas[0].size;
+    size = info[i].size;
 
     for (j = 0; j < size; j++)
       ptr[j] = rand();
@@ -486,7 +501,16 @@ spa_audiotestsrc_node_port_pull_output (SpaHandle     *handle,
   return SPA_RESULT_OK;
 }
 
+static SpaResult
+spa_audiotestsrc_node_port_push_event (SpaNode   *node,
+                                       uint32_t   port_id,
+                                       SpaEvent  *event)
+{
+  return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
 static const SpaNode audiotestsrc_node = {
+  NULL,
   sizeof (SpaNode),
   spa_audiotestsrc_node_get_props,
   spa_audiotestsrc_node_set_props,
@@ -507,19 +531,24 @@ static const SpaNode audiotestsrc_node = {
   spa_audiotestsrc_node_port_get_status,
   spa_audiotestsrc_node_port_push_input,
   spa_audiotestsrc_node_port_pull_output,
+  spa_audiotestsrc_node_port_push_event,
 };
 
 static SpaResult
-spa_audiotestsrc_get_interface (SpaHandle               *handle,
-                                uint32_t                 interface_id,
-                                const void             **interface)
+spa_audiotestsrc_get_interface (SpaHandle         *handle,
+                                uint32_t           interface_id,
+                                void             **interface)
 {
+  SpaAudioTestSrc *this;
+
   if (handle == NULL || interface == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
+  this = (SpaAudioTestSrc *) handle;
+
   switch (interface_id) {
     case SPA_INTERFACE_ID_NODE:
-      *interface = &audiotestsrc_node;
+      *interface = &this->node;
       break;
     default:
       return SPA_RESULT_UNKNOWN_INTERFACE;
@@ -539,6 +568,8 @@ audiotestsrc_init (const SpaHandleFactory  *factory,
   handle->get_interface = spa_audiotestsrc_get_interface;
 
   this = (SpaAudioTestSrc *) handle;
+  this->node = audiotestsrc_node;
+  this->node.handle = handle;
   this->props[1].props.n_prop_info = PROP_ID_LAST;
   this->props[1].props.prop_info = prop_info;
   this->props[1].props.set_prop = spa_props_generic_set_prop;

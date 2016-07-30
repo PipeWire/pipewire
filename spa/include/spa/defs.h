@@ -66,6 +66,8 @@ typedef enum {
 typedef void (*SpaNotify) (void *data);
 
 #define SPA_N_ELEMENTS(arr)  (sizeof (arr) / sizeof ((arr)[0]))
+#define SPA_MIN(a,b)  ((a)<(b) ? (a) : (b))
+#define SPA_MAX(a,b)  ((a)>(b) ? (a) : (b))
 
 #ifdef __cplusplus
 }  /* extern "C" */

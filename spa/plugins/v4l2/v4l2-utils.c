@@ -481,19 +481,20 @@ v4l2_on_fd_events (SpaPollNotifyData *data)
   event.port_id = 0;
   event.size = 0;
   event.data = NULL;
-  this->event_cb (&this->handle, &event, this->user_data);
+  this->event_cb (&this->node, &event, this->user_data);
 
   return 0;
 }
 
 static void
-v4l2_buffer_free (void *data)
+v4l2_buffer_recycle (void *data)
 {
-  V4l2Buffer *b = (V4l2Buffer *) data;
-  SpaV4l2Source *this = b->source;
+  SpaBuffer *buf = data;
+  SpaV4l2Source *this = buf->user_data;
   SpaV4l2State *state = &this->state[0];
+  V4l2Buffer *b = &state->buffers[buf->id];
 
-  b->buffer.refcount = 1;
+  b->imported->refcount = 1;
   b->outstanding = false;
 
   if (xioctl (state->fd, VIDIOC_QBUF, &b->v4l2_buffer) < 0) {
@@ -531,10 +532,15 @@ spa_v4l2_import_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_bu
 
     b = &state->buffers[i];
 
+    buffers[i]->notify = v4l2_buffer_recycle;
+    buffers[i]->user_data = this;
+
+    fprintf (stderr, "import buffer %p\n", buffers[i]);
+
     b->source = this;
     b->buffer.refcount = 0;
-    b->buffer.notify = v4l2_buffer_free;
-    b->buffer.id = i;
+    b->buffer.notify = v4l2_buffer_recycle;
+    b->buffer.id = buffers[i]->id;
     b->buffer.size = buffers[i]->size;
     b->buffer.n_metas = buffers[i]->n_metas;
     b->buffer.metas = buffers[i]->metas;
@@ -550,7 +556,7 @@ spa_v4l2_import_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_bu
     b->v4l2_buffer.m.userptr = (unsigned long) b->buffer.datas[0].ptr;
     b->v4l2_buffer.length = b->buffer.datas[0].size;
 
-    v4l2_buffer_free (b);
+    v4l2_buffer_recycle (buffers[i]);
   }
   state->have_buffers = true;
 
@@ -558,7 +564,11 @@ spa_v4l2_import_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_bu
 }
 
 static int
-mmap_init (SpaV4l2Source *this)
+mmap_init (SpaV4l2Source   *this,
+           SpaAllocParam  **params,
+           unsigned int     n_params,
+           SpaBuffer      **buffers,
+           unsigned int    *n_buffers)
 {
   SpaV4l2State *state = &this->state[0];
   struct v4l2_requestbuffers reqbuf;
@@ -569,7 +579,7 @@ mmap_init (SpaV4l2Source *this)
   CLEAR(reqbuf);
   reqbuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   reqbuf.memory = state->memtype;
-  reqbuf.count = MAX_BUFFERS;
+  reqbuf.count = *n_buffers;
 
   if (xioctl (state->fd, VIDIOC_REQBUFS, &reqbuf) < 0) {
     perror ("VIDIOC_REQBUFS");
@@ -577,6 +587,8 @@ mmap_init (SpaV4l2Source *this)
   }
 
   fprintf (stderr, "got %d buffers\n", reqbuf.count);
+  *n_buffers = reqbuf.count;
+
   if (reqbuf.count < 2) {
     fprintf (stderr, "can't allocate enough buffers\n");
     return -1;
@@ -601,9 +613,13 @@ mmap_init (SpaV4l2Source *this)
     }
 
     b = &state->buffers[i];
+
+    buffers[i] = &b->buffer;
+
     b->source = this;
     b->buffer.refcount = 0;
-    b->buffer.notify = v4l2_buffer_free;
+    b->buffer.notify = v4l2_buffer_recycle;
+    b->buffer.user_data = this;
     b->buffer.id = i;
     b->buffer.size = buf.length;
     b->buffer.n_metas = 1;
@@ -655,6 +671,7 @@ mmap_init (SpaV4l2Source *this)
         continue;
       }
     }
+    b->imported = &b->buffer;
     b->outstanding = true;
 
     CLEAR (b->v4l2_buffer);
@@ -662,7 +679,7 @@ mmap_init (SpaV4l2Source *this)
     b->v4l2_buffer.memory = state->memtype;
     b->v4l2_buffer.index = i;
 
-    v4l2_buffer_free (b);
+    v4l2_buffer_recycle (b);
   }
   state->have_buffers = true;
 
@@ -682,6 +699,27 @@ read_init (SpaV4l2Source *this)
 }
 
 static int
+spa_v4l2_alloc_buffers (SpaV4l2Source   *this,
+                        SpaAllocParam  **params,
+                        unsigned int     n_params,
+                        SpaBuffer      **buffers,
+                        unsigned int    *n_buffers)
+{
+  SpaV4l2State *state = &this->state[0];
+
+  if (state->cap.capabilities & V4L2_CAP_STREAMING) {
+    if (mmap_init (this, params, n_params, buffers, n_buffers) < 0)
+      if (userptr_init (this) < 0)
+        return -1;
+  } else if (state->cap.capabilities & V4L2_CAP_READWRITE) {
+    if (read_init (this) < 0)
+      return -1;
+  } else
+    return -1;
+  return 0;
+}
+
+static int
 spa_v4l2_start (SpaV4l2Source *this)
 {
   SpaV4l2State *state = &this->state[0];
@@ -691,17 +729,9 @@ spa_v4l2_start (SpaV4l2Source *this)
   if (spa_v4l2_open (this) < 0)
     return -1;
 
-  if (!state->have_buffers) {
-    if (state->cap.capabilities & V4L2_CAP_STREAMING) {
-      if (mmap_init (this) < 0)
-        if (userptr_init (this) < 0)
-          return -1;
-    } else if (state->cap.capabilities & V4L2_CAP_READWRITE) {
-      if (read_init (this) < 0)
-        return -1;
-    } else
-      return -1;
-  }
+  if (!state->have_buffers)
+    return -1;
+
 
   event.refcount = 1;
   event.notify = NULL;
@@ -714,13 +744,14 @@ spa_v4l2_start (SpaV4l2Source *this)
   state->fds[0].events = POLLIN | POLLPRI | POLLERR;
   state->fds[0].revents = 0;
 
+  state->poll.id = 0;
   state->poll.fds = state->fds;
   state->poll.n_fds = 1;
   state->poll.idle_cb = NULL;
   state->poll.before_cb = NULL;
   state->poll.after_cb = v4l2_on_fd_events;
   state->poll.user_data = this;
-  this->event_cb (&this->handle, &event, this->user_data);
+  this->event_cb (&this->node, &event, this->user_data);
 
   type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   if (xioctl (state->fd, VIDIOC_STREAMON, &type) < 0) {
@@ -750,7 +781,7 @@ spa_v4l2_stop (SpaV4l2Source *this)
     b = &state->buffers[i];
     if (b->outstanding) {
       fprintf (stderr, "queueing outstanding buffer %p\n", b);
-      v4l2_buffer_free (b);
+      v4l2_buffer_recycle (b);
     }
     if (state->export_buf) {
       close (b->dmafd);
@@ -766,7 +797,7 @@ spa_v4l2_stop (SpaV4l2Source *this)
   event.port_id = 0;
   event.data = &state->poll;
   event.size = sizeof (state->poll);
-  this->event_cb (&this->handle, &event, this->user_data);
+  this->event_cb (&this->node, &event, this->user_data);
 
   spa_v4l2_close (this);
 

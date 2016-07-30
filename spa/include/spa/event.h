@@ -73,6 +73,11 @@ struct _SpaEvent {
   size_t         size;
 };
 
+typedef struct {
+  off_t  offset;
+  size_t size;
+} SpaEventPullInput;
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

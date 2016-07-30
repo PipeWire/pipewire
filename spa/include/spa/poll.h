@@ -62,12 +62,16 @@ typedef int (*SpaPollNotify) (SpaPollNotifyData *data);
 
 /**
  * SpaPollItem:
+ * @id: id of the poll item
  * @fds: array of file descriptors to watch
  * @n_fds: number of elements in @fds
- * @callback: callback called when there was activity on any of @fds
- * @user_data: user data
+ * @idle_cb: callback called when there is no other work
+ * @idle_cb: callback called before starting the poll
+ * @idle_cb: callback called after the poll loop
+ * @user_data: user data pass to callbacks
  */
 typedef struct {
+  uint32_t       id;
   SpaPollFd     *fds;
   unsigned int   n_fds;
   SpaPollNotify  idle_cb;

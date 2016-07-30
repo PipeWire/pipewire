@@ -43,6 +43,8 @@ typedef enum {
   SPA_PROP_TYPE_UINT32,
   SPA_PROP_TYPE_INT64,
   SPA_PROP_TYPE_UINT64,
+  SPA_PROP_TYPE_INT,
+  SPA_PROP_TYPE_UINT,
   SPA_PROP_TYPE_FLOAT,
   SPA_PROP_TYPE_DOUBLE,
   SPA_PROP_TYPE_STRING,
@@ -207,6 +209,10 @@ struct _SpaProps {
 
   void *priv;
 };
+
+#define spa_props_set_prop(p,...)          (p)->set_prop((p),__VA_ARGS__)
+#define spa_props_get_prop(p,...)          (p)->get_prop((p),__VA_ARGS__)
+
 
 static inline unsigned int
 spa_props_index_for_id (const SpaProps *props, uint32_t id)

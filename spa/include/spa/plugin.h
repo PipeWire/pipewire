@@ -47,7 +47,7 @@ struct _SpaHandle {
    */
   SpaResult   (*get_interface)        (SpaHandle               *handle,
                                        uint32_t                 interface_id,
-                                       const void             **interface);
+                                       void                   **interface);
 };
 
 /**

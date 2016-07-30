@@ -67,6 +67,7 @@ typedef struct {
 
 struct _SpaFFMpegEnc {
   SpaHandle handle;
+  SpaNode node;
 
   SpaFFMpegEncProps props[2];
 
@@ -86,13 +87,15 @@ static const SpaPropInfo prop_info[] =
 };
 
 static SpaResult
-spa_ffmpeg_enc_node_get_props (SpaHandle     *handle,
+spa_ffmpeg_enc_node_get_props (SpaNode       *node,
                                SpaProps     **props)
 {
-  SpaFFMpegEnc *this = (SpaFFMpegEnc *) handle;
+  SpaFFMpegEnc *this;
 
-  if (handle == NULL || props == NULL)
+  if (node == NULL || node->handle == NULL || props == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaFFMpegEnc *) node->handle;
 
   memcpy (&this->props[0], &this->props[1], sizeof (this->props[1]));
   *props = &this->props[0].props;
@@ -101,15 +104,18 @@ spa_ffmpeg_enc_node_get_props (SpaHandle     *handle,
 }
 
 static SpaResult
-spa_ffmpeg_enc_node_set_props (SpaHandle       *handle,
+spa_ffmpeg_enc_node_set_props (SpaNode         *node,
                                const SpaProps  *props)
 {
-  SpaFFMpegEnc *this = (SpaFFMpegEnc *) handle;
-  SpaFFMpegEncProps *p = &this->props[1];
+  SpaFFMpegEnc *this;
+  SpaFFMpegEncProps *p;
   SpaResult res;
 
-  if (handle == NULL)
+  if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaFFMpegEnc *) node->handle;
+  p = &this->props[1];
 
   if (props == NULL) {
     reset_ffmpeg_enc_props (p);
@@ -122,13 +128,15 @@ spa_ffmpeg_enc_node_set_props (SpaHandle       *handle,
 }
 
 static SpaResult
-spa_ffmpeg_enc_node_send_command (SpaHandle     *handle,
+spa_ffmpeg_enc_node_send_command (SpaNode       *node,
                                   SpaCommand    *command)
 {
-  SpaFFMpegEnc *this = (SpaFFMpegEnc *) handle;
+  SpaFFMpegEnc *this;
 
-  if (handle == NULL || command == NULL)
+  if (node == NULL || node->handle == NULL || command == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaFFMpegEnc *) node->handle;
 
   switch (command->type) {
     case SPA_COMMAND_INVALID:
@@ -145,7 +153,7 @@ spa_ffmpeg_enc_node_send_command (SpaHandle     *handle,
         event.data = NULL;
         event.size = 0;
 
-        this->event_cb (handle, &event, this->user_data);
+        this->event_cb (node, &event, this->user_data);
       }
       break;
     case SPA_COMMAND_STOP:
@@ -159,7 +167,7 @@ spa_ffmpeg_enc_node_send_command (SpaHandle     *handle,
         event.data = NULL;
         event.size = 0;
 
-        this->event_cb (handle, &event, this->user_data);
+        this->event_cb (node, &event, this->user_data);
       }
       break;
 
@@ -172,14 +180,16 @@ spa_ffmpeg_enc_node_send_command (SpaHandle     *handle,
 }
 
 static SpaResult
-spa_ffmpeg_enc_node_set_event_callback (SpaHandle     *handle,
+spa_ffmpeg_enc_node_set_event_callback (SpaNode       *node,
                                         SpaEventCallback event,
                                         void          *user_data)
 {
-  SpaFFMpegEnc *this = (SpaFFMpegEnc *) handle;
+  SpaFFMpegEnc *this;
 
-  if (handle == NULL)
+  if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaFFMpegEnc *) node->handle;
 
   this->event_cb = event;
   this->user_data = user_data;
@@ -188,13 +198,13 @@ spa_ffmpeg_enc_node_set_event_callback (SpaHandle     *handle,
 }
 
 static SpaResult
-spa_ffmpeg_enc_node_get_n_ports (SpaHandle     *handle,
+spa_ffmpeg_enc_node_get_n_ports (SpaNode       *node,
                                  unsigned int  *n_input_ports,
                                  unsigned int  *max_input_ports,
                                  unsigned int  *n_output_ports,
                                  unsigned int  *max_output_ports)
 {
-  if (handle == NULL)
+  if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   if (n_input_ports)
@@ -210,13 +220,13 @@ spa_ffmpeg_enc_node_get_n_ports (SpaHandle     *handle,
 }
 
 static SpaResult
-spa_ffmpeg_enc_node_get_port_ids (SpaHandle     *handle,
+spa_ffmpeg_enc_node_get_port_ids (SpaNode       *node,
                                   unsigned int   n_input_ports,
                                   uint32_t      *input_ids,
                                   unsigned int   n_output_ports,
                                   uint32_t      *output_ids)
 {
-  if (handle == NULL)
+  if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   if (n_input_ports > 0)
@@ -229,33 +239,35 @@ spa_ffmpeg_enc_node_get_port_ids (SpaHandle     *handle,
 
 
 static SpaResult
-spa_ffmpeg_enc_node_add_port (SpaHandle      *handle,
+spa_ffmpeg_enc_node_add_port (SpaNode        *node,
                               SpaDirection    direction,
-                              uint32_t       *port_id)
+                              uint32_t        port_id)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult
-spa_ffmpeg_enc_node_remove_port (SpaHandle      *handle,
+spa_ffmpeg_enc_node_remove_port (SpaNode        *node,
                                  uint32_t        port_id)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult
-spa_ffmpeg_enc_node_port_enum_formats (SpaHandle       *handle,
+spa_ffmpeg_enc_node_port_enum_formats (SpaNode         *node,
                                        uint32_t         port_id,
                                        SpaFormat      **format,
                                        const SpaFormat *filter,
                                        void           **state)
 {
-  SpaFFMpegEnc *this = (SpaFFMpegEnc *) handle;
+  SpaFFMpegEnc *this;
   SpaFFMpegState *s;
   int index;
 
-  if (handle == NULL || format == NULL)
+  if (node == NULL || node->handle == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaFFMpegEnc *) node->handle;
 
   if (!IS_VALID_PORT (port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -278,19 +290,21 @@ spa_ffmpeg_enc_node_port_enum_formats (SpaHandle       *handle,
 }
 
 static SpaResult
-spa_ffmpeg_enc_node_port_set_format (SpaHandle          *handle,
+spa_ffmpeg_enc_node_port_set_format (SpaNode            *node,
                                      uint32_t            port_id,
                                      SpaPortFormatFlags  flags,
                                      const SpaFormat    *format)
 {
-  SpaFFMpegEnc *this = (SpaFFMpegEnc *) handle;
+  SpaFFMpegEnc *this;
   SpaFFMpegState *state;
   SpaResult res;
   SpaFormat *f, *tf;
   size_t fs;
 
-  if (handle == NULL || format == NULL)
+  if (node == NULL || node->handle == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaFFMpegEnc *) node->handle;
 
   if (!IS_VALID_PORT (port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -324,15 +338,17 @@ spa_ffmpeg_enc_node_port_set_format (SpaHandle          *handle,
 }
 
 static SpaResult
-spa_ffmpeg_enc_node_port_get_format (SpaHandle        *handle,
+spa_ffmpeg_enc_node_port_get_format (SpaNode          *node,
                                      uint32_t          port_id,
                                      const SpaFormat **format)
 {
-  SpaFFMpegEnc *this = (SpaFFMpegEnc *) handle;
+  SpaFFMpegEnc *this;
   SpaFFMpegState *state;
 
-  if (handle == NULL || format == NULL)
+  if (node == NULL || node->handle == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaFFMpegEnc *) node->handle;
 
   if (!IS_VALID_PORT (port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -348,14 +364,16 @@ spa_ffmpeg_enc_node_port_get_format (SpaHandle        *handle,
 }
 
 static SpaResult
-spa_ffmpeg_enc_node_port_get_info (SpaHandle          *handle,
+spa_ffmpeg_enc_node_port_get_info (SpaNode            *node,
                                    uint32_t            port_id,
                                    const SpaPortInfo **info)
 {
-  SpaFFMpegEnc *this = (SpaFFMpegEnc *) handle;
+  SpaFFMpegEnc *this;
 
-  if (handle == NULL || info == NULL)
+  if (node == NULL || node->handle == NULL || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaFFMpegEnc *) node->handle;
 
   if (!IS_VALID_PORT (port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -366,7 +384,7 @@ spa_ffmpeg_enc_node_port_get_info (SpaHandle          *handle,
 }
 
 static SpaResult
-spa_ffmpeg_enc_node_port_get_props (SpaHandle  *handle,
+spa_ffmpeg_enc_node_port_get_props (SpaNode    *node,
                                     uint32_t    port_id,
                                     SpaProps  **props)
 {
@@ -374,7 +392,7 @@ spa_ffmpeg_enc_node_port_get_props (SpaHandle  *handle,
 }
 
 static SpaResult
-spa_ffmpeg_enc_node_port_set_props (SpaHandle       *handle,
+spa_ffmpeg_enc_node_port_set_props (SpaNode         *node,
                                     uint32_t         port_id,
                                     const SpaProps  *props)
 {
@@ -382,14 +400,16 @@ spa_ffmpeg_enc_node_port_set_props (SpaHandle       *handle,
 }
 
 static SpaResult
-spa_ffmpeg_enc_node_port_get_status (SpaHandle            *handle,
+spa_ffmpeg_enc_node_port_get_status (SpaNode              *node,
                                      uint32_t              port_id,
                                      const SpaPortStatus **status)
 {
-  SpaFFMpegEnc *this = (SpaFFMpegEnc *) handle;
+  SpaFFMpegEnc *this;
 
-  if (handle == NULL || status == NULL)
+  if (node == NULL || node->handle == NULL || status == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaFFMpegEnc *) node->handle;
 
   if (!IS_VALID_PORT (port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -400,12 +420,12 @@ spa_ffmpeg_enc_node_port_get_status (SpaHandle            *handle,
 }
 
 static SpaResult
-spa_ffmpeg_enc_node_port_use_buffers (SpaHandle       *handle,
+spa_ffmpeg_enc_node_port_use_buffers (SpaNode         *node,
                                       uint32_t         port_id,
                                       SpaBuffer      **buffers,
                                       uint32_t         n_buffers)
 {
-  if (handle == NULL)
+  if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   if (!IS_VALID_PORT (port_id))
@@ -415,7 +435,7 @@ spa_ffmpeg_enc_node_port_use_buffers (SpaHandle       *handle,
 }
 
 static SpaResult
-spa_ffmpeg_enc_node_port_alloc_buffers (SpaHandle       *handle,
+spa_ffmpeg_enc_node_port_alloc_buffers (SpaNode         *node,
                                         uint32_t         port_id,
                                         SpaAllocParam  **params,
                                         uint32_t         n_params,
@@ -427,7 +447,7 @@ spa_ffmpeg_enc_node_port_alloc_buffers (SpaHandle       *handle,
 
 
 static SpaResult
-spa_ffmpeg_enc_node_port_push_input (SpaHandle      *handle,
+spa_ffmpeg_enc_node_port_push_input (SpaNode        *node,
                                      unsigned int    n_info,
                                      SpaInputInfo   *info)
 {
@@ -435,17 +455,19 @@ spa_ffmpeg_enc_node_port_push_input (SpaHandle      *handle,
 }
 
 static SpaResult
-spa_ffmpeg_enc_node_port_pull_output (SpaHandle      *handle,
+spa_ffmpeg_enc_node_port_pull_output (SpaNode        *node,
                                       unsigned int    n_info,
                                       SpaOutputInfo  *info)
 {
-  SpaFFMpegEnc *this = (SpaFFMpegEnc *) handle;
+  SpaFFMpegEnc *this;
   SpaFFMpegState *state;
   unsigned int i;
   bool have_error = false;
 
-  if (handle == NULL || n_info == 0 || info == NULL)
+  if (node == NULL || node->handle == NULL || n_info == 0 || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaFFMpegEnc *) node->handle;
 
 
   for (i = 0; i < n_info; i++) {
@@ -469,7 +491,16 @@ spa_ffmpeg_enc_node_port_pull_output (SpaHandle      *handle,
   return SPA_RESULT_OK;
 }
 
+static SpaResult
+spa_ffmpeg_enc_node_port_push_event (SpaNode    *node,
+                                     uint32_t    port_id,
+                                     SpaEvent   *event)
+{
+  return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
 static const SpaNode ffmpeg_enc_node = {
+  NULL,
   sizeof (SpaNode),
   spa_ffmpeg_enc_node_get_props,
   spa_ffmpeg_enc_node_set_props,
@@ -490,19 +521,24 @@ static const SpaNode ffmpeg_enc_node = {
   spa_ffmpeg_enc_node_port_get_status,
   spa_ffmpeg_enc_node_port_push_input,
   spa_ffmpeg_enc_node_port_pull_output,
+  spa_ffmpeg_enc_node_port_push_event,
 };
 
 static SpaResult
-spa_ffmpeg_enc_get_interface (SpaHandle               *handle,
-                              uint32_t                 interface_id,
-                              const void             **interface)
+spa_ffmpeg_enc_get_interface (SpaHandle         *handle,
+                              uint32_t           interface_id,
+                              void             **interface)
 {
+  SpaFFMpegEnc *this;
+
   if (handle == NULL || interface == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
+  this = (SpaFFMpegEnc *) handle;
+
   switch (interface_id) {
     case SPA_INTERFACE_ID_NODE:
-      *interface = &ffmpeg_enc_node;
+      *interface = &this->node;
       break;
     default:
       return SPA_RESULT_UNKNOWN_INTERFACE;
@@ -518,6 +554,8 @@ spa_ffmpeg_enc_init (SpaHandle *handle)
   handle->get_interface = spa_ffmpeg_enc_get_interface;
 
   this = (SpaFFMpegEnc *) handle;
+  this->node = ffmpeg_enc_node;
+  this->node.handle = handle;
   this->props[1].props.n_prop_info = PROP_ID_LAST;
   this->props[1].props.prop_info = prop_info;
   this->props[1].props.set_prop = spa_props_generic_set_prop;

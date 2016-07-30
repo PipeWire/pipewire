@@ -395,44 +395,46 @@ communication channel
 
    node-update
    port-update
-   start-configure
+   state-configure
 
 2) Set formats S->C                   CONFIGURE
 
-   add-port
    set-property
    enumerate ports
+   add-port
+   remove-port
    enumerate formats
    set-format
-   end-configure
 
-3) Buffer requirements update C->S    BUFFER_REQS
+3) Buffer requirements update C->S
 
    Update port status
-   start-alloc
+   state-ready if enough formats are set
 
-4) Start S->C                         ALLOC
+4) Start S->C                         READY
 
    read port memory requirements
    add_mem
+   remove_mem
    add_buffer
-   pause/start
+   remove_buffer
+   start->streaming
 
-5) Pause S->C                         PAUSED
+5) Pause S->C                         STREAMING
 
-   start/stop
+   stop-streaming
 
-5) data transfer C->S                 STARTED
+5) data transfer C->S
 
    need-input
+   have-output
+
    add_mem
    add_buffer
    process_buffer
    reuse_buffer
    remove_buffer
    remove_mem
-   have-output
-   pause/stop
 
 6) data transfer S->C
 
@@ -442,23 +444,17 @@ communication channel
    reuse_buffer
    remove_buffer
    remove_mem
-   pause/stop
 
 7) format change C->S
 
    port-update
-   start-configure
+   state-configure
 
 8) format change S->C
 
-   Send set-format change on ports
-   end-configure, back to 3
+   Send set-format change on ports -> READY if new memory requirements
+                                   -> RUNNING if all ok
 
-9) stop S->C                         ALLOC
+9) format-change to NULL  -> CONFIGURE
 
-   remove_buffer
-   remove_mem
-
-10) clear format S->C                 CONFIGURE
-
-   format-change to NULL
+10) ERROR

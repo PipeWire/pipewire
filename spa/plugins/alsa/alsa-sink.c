@@ -73,6 +73,7 @@ struct _ALSABuffer {
 
 struct _SpaALSASink {
   SpaHandle handle;
+  SpaNode node;
 
   SpaALSASinkProps props[2];
 
@@ -172,13 +173,15 @@ static const SpaPropInfo prop_info[] =
 };
 
 static SpaResult
-spa_alsa_sink_node_get_props (SpaHandle     *handle,
+spa_alsa_sink_node_get_props (SpaNode       *node,
                               SpaProps     **props)
 {
-  SpaALSASink *this = (SpaALSASink *) handle;
+  SpaALSASink *this;
 
-  if (handle == NULL || props == NULL)
+  if (node == NULL || node->handle == NULL || props == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaALSASink *) node->handle;
 
   memcpy (&this->props[0], &this->props[1], sizeof (this->props[1]));
   *props = &this->props[0].props;
@@ -187,15 +190,18 @@ spa_alsa_sink_node_get_props (SpaHandle     *handle,
 }
 
 static SpaResult
-spa_alsa_sink_node_set_props (SpaHandle       *handle,
+spa_alsa_sink_node_set_props (SpaNode         *node,
                               const SpaProps  *props)
 {
-  SpaALSASink *this = (SpaALSASink *) handle;
-  SpaALSASinkProps *p = &this->props[1];
+  SpaALSASink *this;
+  SpaALSASinkProps *p;
   SpaResult res;
 
-  if (handle == NULL)
+  if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaALSASink *) node->handle;
+  p = &this->props[1];
 
   if (props == NULL) {
     reset_alsa_sink_props (p);
@@ -208,13 +214,15 @@ spa_alsa_sink_node_set_props (SpaHandle       *handle,
 }
 
 static SpaResult
-spa_alsa_sink_node_send_command (SpaHandle     *handle,
+spa_alsa_sink_node_send_command (SpaNode       *node,
                                  SpaCommand    *command)
 {
-  SpaALSASink *this = (SpaALSASink *) handle;
+  SpaALSASink *this;
 
-  if (handle == NULL || command == NULL)
+  if (node == NULL || node->handle == NULL || command == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaALSASink *) node->handle;
 
   switch (command->type) {
     case SPA_COMMAND_INVALID:
@@ -233,7 +241,7 @@ spa_alsa_sink_node_send_command (SpaHandle     *handle,
         event.data = NULL;
         event.size = 0;
 
-        this->event_cb (handle, &event, this->user_data);
+        this->event_cb (node, &event, this->user_data);
       }
       break;
     case SPA_COMMAND_STOP:
@@ -249,7 +257,7 @@ spa_alsa_sink_node_send_command (SpaHandle     *handle,
         event.data = NULL;
         event.size = 0;
 
-        this->event_cb (handle, &event, this->user_data);
+        this->event_cb (node, &event, this->user_data);
       }
       break;
     case SPA_COMMAND_FLUSH:
@@ -261,14 +269,16 @@ spa_alsa_sink_node_send_command (SpaHandle     *handle,
 }
 
 static SpaResult
-spa_alsa_sink_node_set_event_callback (SpaHandle     *handle,
-                                       SpaEventCallback event,
-                                       void          *user_data)
+spa_alsa_sink_node_set_event_callback (SpaNode          *node,
+                                       SpaEventCallback  event,
+                                       void             *user_data)
 {
-  SpaALSASink *this = (SpaALSASink *) handle;
+  SpaALSASink *this;
 
-  if (handle == NULL)
+  if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaALSASink *) node->handle;
 
   this->event_cb = event;
   this->user_data = user_data;
@@ -277,13 +287,13 @@ spa_alsa_sink_node_set_event_callback (SpaHandle     *handle,
 }
 
 static SpaResult
-spa_alsa_sink_node_get_n_ports (SpaHandle     *handle,
+spa_alsa_sink_node_get_n_ports (SpaNode       *node,
                                 unsigned int  *n_input_ports,
                                 unsigned int  *max_input_ports,
                                 unsigned int  *n_output_ports,
                                 unsigned int  *max_output_ports)
 {
-  if (handle == NULL)
+  if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   if (n_input_ports)
@@ -299,13 +309,13 @@ spa_alsa_sink_node_get_n_ports (SpaHandle     *handle,
 }
 
 static SpaResult
-spa_alsa_sink_node_get_port_ids (SpaHandle     *handle,
+spa_alsa_sink_node_get_port_ids (SpaNode       *node,
                                  unsigned int   n_input_ports,
                                  uint32_t      *input_ids,
                                  unsigned int   n_output_ports,
                                  uint32_t      *output_ids)
 {
-  if (handle == NULL)
+  if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   if (n_input_ports > 0)
@@ -316,32 +326,34 @@ spa_alsa_sink_node_get_port_ids (SpaHandle     *handle,
 
 
 static SpaResult
-spa_alsa_sink_node_add_port (SpaHandle      *handle,
+spa_alsa_sink_node_add_port (SpaNode        *node,
                              SpaDirection    direction,
-                             uint32_t       *port_id)
+                             uint32_t        port_id)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult
-spa_alsa_sink_node_remove_port (SpaHandle      *handle,
+spa_alsa_sink_node_remove_port (SpaNode        *node,
                                 uint32_t        port_id)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult
-spa_alsa_sink_node_port_enum_formats (SpaHandle       *handle,
+spa_alsa_sink_node_port_enum_formats (SpaNode         *node,
                                       uint32_t         port_id,
                                       SpaFormat      **format,
                                       const SpaFormat *filter,
                                       void           **state)
 {
-  SpaALSASink *this = (SpaALSASink *) handle;
+  SpaALSASink *this;
   int index;
 
-  if (handle == NULL || format == NULL || state == NULL)
+  if (node == NULL || node->handle == NULL || format == NULL || state == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaALSASink *) node->handle;
 
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
@@ -365,16 +377,18 @@ spa_alsa_sink_node_port_enum_formats (SpaHandle       *handle,
 }
 
 static SpaResult
-spa_alsa_sink_node_port_set_format (SpaHandle          *handle,
+spa_alsa_sink_node_port_set_format (SpaNode            *node,
                                     uint32_t            port_id,
                                     SpaPortFormatFlags  flags,
                                     const SpaFormat    *format)
 {
-  SpaALSASink *this = (SpaALSASink *) handle;
+  SpaALSASink *this;
   SpaResult res;
 
-  if (handle == NULL || format == NULL)
+  if (node == NULL || node->handle == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaALSASink *) node->handle;
 
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
@@ -393,14 +407,16 @@ spa_alsa_sink_node_port_set_format (SpaHandle          *handle,
 }
 
 static SpaResult
-spa_alsa_sink_node_port_get_format (SpaHandle        *handle,
+spa_alsa_sink_node_port_get_format (SpaNode          *node,
                                     uint32_t          port_id,
                                     const SpaFormat **format)
 {
-  SpaALSASink *this = (SpaALSASink *) handle;
+  SpaALSASink *this;
 
-  if (handle == NULL || format == NULL)
+  if (node == NULL || node->handle == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaALSASink *) node->handle;
 
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
@@ -414,14 +430,16 @@ spa_alsa_sink_node_port_get_format (SpaHandle        *handle,
 }
 
 static SpaResult
-spa_alsa_sink_node_port_get_info (SpaHandle          *handle,
+spa_alsa_sink_node_port_get_info (SpaNode            *node,
                                   uint32_t            port_id,
                                   const SpaPortInfo **info)
 {
-  SpaALSASink *this = (SpaALSASink *) handle;
+  SpaALSASink *this;
 
-  if (handle == NULL || info == NULL)
+  if (node == NULL || node->handle == NULL || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaALSASink *) node->handle;
 
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
@@ -432,7 +450,7 @@ spa_alsa_sink_node_port_get_info (SpaHandle          *handle,
 }
 
 static SpaResult
-spa_alsa_sink_node_port_get_props (SpaHandle  *handle,
+spa_alsa_sink_node_port_get_props (SpaNode    *node,
                                    uint32_t    port_id,
                                    SpaProps  **props)
 {
@@ -440,7 +458,7 @@ spa_alsa_sink_node_port_get_props (SpaHandle  *handle,
 }
 
 static SpaResult
-spa_alsa_sink_node_port_set_props (SpaHandle       *handle,
+spa_alsa_sink_node_port_set_props (SpaNode         *node,
                                    uint32_t         port_id,
                                    const SpaProps  *props)
 {
@@ -448,14 +466,16 @@ spa_alsa_sink_node_port_set_props (SpaHandle       *handle,
 }
 
 static SpaResult
-spa_alsa_sink_node_port_get_status (SpaHandle            *handle,
+spa_alsa_sink_node_port_get_status (SpaNode              *node,
                                     uint32_t              port_id,
                                     const SpaPortStatus **status)
 {
-  SpaALSASink *this = (SpaALSASink *) handle;
+  SpaALSASink *this;
 
-  if (handle == NULL || status == NULL)
+  if (node == NULL || node->handle == NULL || status == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaALSASink *) node->handle;
 
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
@@ -466,7 +486,7 @@ spa_alsa_sink_node_port_get_status (SpaHandle            *handle,
 }
 
 static SpaResult
-spa_alsa_sink_node_port_use_buffers (SpaHandle       *handle,
+spa_alsa_sink_node_port_use_buffers (SpaNode         *node,
                                      uint32_t         port_id,
                                      SpaBuffer      **buffers,
                                      uint32_t         n_buffers)
@@ -475,7 +495,7 @@ spa_alsa_sink_node_port_use_buffers (SpaHandle       *handle,
 }
 
 static SpaResult
-spa_alsa_sink_node_port_alloc_buffers (SpaHandle       *handle,
+spa_alsa_sink_node_port_alloc_buffers (SpaNode         *node,
                                        uint32_t         port_id,
                                        SpaAllocParam  **params,
                                        uint32_t         n_params,
@@ -485,26 +505,38 @@ spa_alsa_sink_node_port_alloc_buffers (SpaHandle       *handle,
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
+static SpaBuffer *
+find_buffer (SpaALSASink *this, uint32_t id)
+{
+  return NULL;
+}
+
 static SpaResult
-spa_alsa_sink_node_port_push_input (SpaHandle      *handle,
+spa_alsa_sink_node_port_push_input (SpaNode        *node,
                                     unsigned int    n_info,
                                     SpaInputInfo   *info)
 {
-  SpaALSASink *this = (SpaALSASink *) handle;
+  SpaALSASink *this;
   unsigned int i;
   bool have_error = false, have_enough = false;
 
-  if (handle == NULL || n_info == 0 || info == NULL)
+  if (node == NULL || node->handle == NULL || n_info == 0 || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
+  this = (SpaALSASink *) node->handle;
+
   for (i = 0; i < n_info; i++) {
+    SpaBuffer *buffer;
+
     if (info[i].port_id != 0) {
       info[i].status = SPA_RESULT_INVALID_PORT;
       have_error = true;
       continue;
     }
 
-    if (info[i].buffer != NULL) {
+    buffer = find_buffer (this, info[i].id);
+
+    if (buffer != NULL) {
       if (!this->have_format) {
         info[i].status = SPA_RESULT_NO_FORMAT;
         have_error = true;
@@ -516,7 +548,7 @@ spa_alsa_sink_node_port_push_input (SpaHandle      *handle,
         have_enough = true;
         continue;
       }
-      this->input_buffer = spa_buffer_ref (info[i].buffer);
+      this->input_buffer = spa_buffer_ref (buffer);
     }
     info[i].status = SPA_RESULT_OK;
   }
@@ -529,7 +561,7 @@ spa_alsa_sink_node_port_push_input (SpaHandle      *handle,
 }
 
 static SpaResult
-spa_alsa_sink_node_port_pull_output (SpaHandle      *handle,
+spa_alsa_sink_node_port_pull_output (SpaNode        *node,
                                      unsigned int    n_info,
                                      SpaOutputInfo  *info)
 {
@@ -537,6 +569,7 @@ spa_alsa_sink_node_port_pull_output (SpaHandle      *handle,
 }
 
 static const SpaNode alsasink_node = {
+  NULL,
   sizeof (SpaNode),
   spa_alsa_sink_node_get_props,
   spa_alsa_sink_node_set_props,
@@ -562,14 +595,18 @@ static const SpaNode alsasink_node = {
 static SpaResult
 spa_alsa_sink_get_interface (SpaHandle               *handle,
                              uint32_t                 interface_id,
-                             const void             **interface)
+                             void                   **interface)
 {
+  SpaALSASink *this;
+
   if (handle == NULL || interface == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
+  this = (SpaALSASink *) handle;
+
   switch (interface_id) {
     case SPA_INTERFACE_ID_NODE:
-      *interface = &alsasink_node;
+      *interface = &this->node;
       break;
     default:
       return SPA_RESULT_UNKNOWN_INTERFACE;
@@ -589,6 +626,8 @@ alsa_sink_init (const SpaHandleFactory  *factory,
   handle->get_interface = spa_alsa_sink_get_interface;
 
   this = (SpaALSASink *) handle;
+  this->node = alsasink_node;
+  this->node.handle = handle;
   this->props[1].props.n_prop_info = PROP_ID_LAST;
   this->props[1].props.prop_info = prop_info;
   this->props[1].props.set_prop = spa_props_generic_set_prop;

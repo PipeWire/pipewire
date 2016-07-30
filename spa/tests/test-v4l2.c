@@ -32,7 +32,7 @@
 #include <spa/debug.h>
 #include <spa/video/format.h>
 
-#define USE_BUFFER
+#undef USE_BUFFER
 
 #define MAX_BUFFERS     8
 
@@ -45,8 +45,7 @@ typedef struct {
 } SDLBuffer;
 
 typedef struct {
-  SpaHandle *source;
-  const SpaNode *source_node;
+  SpaNode *source;
   SDL_Renderer *renderer;
   SDL_Window *window;
   SDL_Texture *texture;
@@ -55,13 +54,16 @@ typedef struct {
   SpaPollFd fds[16];
   unsigned int n_fds;
   SpaPollItem poll;
+
   SpaBuffer *bp[MAX_BUFFERS];
   SDLBuffer buffers[MAX_BUFFERS];
+  unsigned int n_buffers;
 } AppData;
 
 static SpaResult
-make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char *name)
+make_node (SpaNode **node, const char *lib, const char *name)
 {
+  SpaHandle *handle;
   SpaResult res;
   void *hnd;
   SpaEnumHandleFactoryFunc enum_func;
@@ -79,7 +81,7 @@ make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char
 
   for (i = 0; ;i++) {
     const SpaHandleFactory *factory;
-    const void *iface;
+    void *iface;
 
     if ((res = enum_func (&factory, &state)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
@@ -89,12 +91,12 @@ make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char
     if (strcmp (factory->name, name))
       continue;
 
-    *handle = calloc (1, factory->size);
-    if ((res = factory->init (factory, *handle)) < 0) {
+    handle = calloc (1, factory->size);
+    if ((res = factory->init (factory, handle)) < 0) {
       printf ("can't make factory instance: %d\n", res);
       return res;
     }
-    if ((res = (*handle)->get_interface (*handle, SPA_INTERFACE_ID_NODE, &iface)) < 0) {
+    if ((res = handle->get_interface (handle, SPA_INTERFACE_ID_NODE, &iface)) < 0) {
       printf ("can't get interface %d\n", res);
       return res;
     }
@@ -103,10 +105,9 @@ make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char
   }
   return SPA_RESULT_ERROR;
 }
-#define MIN(a,b) (a < b ? a : b)
 
 static void
-on_source_event (SpaHandle *handle, SpaEvent *event, void *user_data)
+on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
 {
   AppData *data = user_data;
 
@@ -121,10 +122,10 @@ on_source_event (SpaHandle *handle, SpaEvent *event, void *user_data)
       int i;
       uint8_t *src, *dst;
 
-      if ((res = data->source_node->port_pull_output (data->source, 1, info)) < 0)
+      if ((res = spa_node_port_pull_output (data->source, 1, info)) < 0)
         printf ("got pull error %d\n", res);
 
-      b = info[0].buffer;
+      b = data->bp[info->id];
 
       if (b->metas[1].type == SPA_META_TYPE_POINTER &&
           strcmp (((SpaMetaPointer*)b->metas[1].data)->ptr_type, "SDL_Texture") == 0) {
@@ -156,7 +157,7 @@ on_source_event (SpaHandle *handle, SpaEvent *event, void *user_data)
         for (i = 0; i < 240; i++) {
           src = ((uint8_t*)sdata + i * sstride);
           dst = ((uint8_t*)ddata + i * dstride);
-          memcpy (dst, src, MIN (sstride, dstride));
+          memcpy (dst, src, SPA_MIN (sstride, dstride));
         }
         SDL_UnlockTexture(data->texture);
 
@@ -190,13 +191,13 @@ make_nodes (AppData *data, const char *device)
   SpaProps *props;
   SpaPropValue value;
 
-  if ((res = make_node (&data->source, &data->source_node, "plugins/v4l2/libspa-v4l2.so", "v4l2-source")) < 0) {
+  if ((res = make_node (&data->source, "plugins/v4l2/libspa-v4l2.so", "v4l2-source")) < 0) {
     printf ("can't create v4l2-source: %d\n", res);
     return res;
   }
-  data->source_node->set_event_callback (data->source, on_source_event, data);
+  spa_node_set_event_callback (data->source, on_source_event, data);
 
-  if ((res = data->source_node->get_props (data->source, &props)) < 0)
+  if ((res = spa_node_get_props (data->source, &props)) < 0)
     printf ("got get_props error %d\n", res);
 
   value.type = SPA_PROP_TYPE_STRING;
@@ -204,7 +205,7 @@ make_nodes (AppData *data, const char *device)
   value.size = strlen (value.value)+1;
   props->set_prop (props, spa_props_index_for_name (props, "device"), &value);
 
-  if ((res = data->source_node->set_props (data->source, props)) < 0)
+  if ((res = spa_node_set_props (data->source, props)) < 0)
     printf ("got set_props error %d\n", res);
   return res;
 }
@@ -238,6 +239,7 @@ alloc_buffers (AppData *data)
 
     b->buffer.refcount = 1;
     b->buffer.notify = NULL;
+    b->buffer.id = i;
     b->buffer.size = stride * 240;
     b->buffer.n_metas = 2;
     b->buffer.metas = b->metas;
@@ -265,7 +267,9 @@ alloc_buffers (AppData *data)
     b->datas[0].size = stride * 240;
     b->datas[0].stride = stride;
   }
-  data->source_node->port_use_buffers (data->source, 0, data->bp, MAX_BUFFERS);
+  data->n_buffers = MAX_BUFFERS;
+
+  spa_node_port_use_buffers (data->source, 0, data->bp, MAX_BUFFERS);
 }
 #endif
 
@@ -287,7 +291,7 @@ negotiate_formats (AppData *data)
 #if 0
   void *state = NULL;
 
-  if ((res = data->source_node->port_enum_formats (data->source, 0, &format, NULL, &state)) < 0)
+  if ((res = spa_node_port_enum_formats (data->source, 0, &format, NULL, &state)) < 0)
     return res;
 #else
   f.fmt.media_type = SPA_MEDIA_TYPE_VIDEO;
@@ -315,10 +319,10 @@ negotiate_formats (AppData *data)
   f.framerate.denom = 1;
 #endif
 
-  if ((res = data->source_node->port_set_format (data->source, 0, false, &f.fmt)) < 0)
+  if ((res = spa_node_port_set_format (data->source, 0, false, &f.fmt)) < 0)
     return res;
 
-  if ((res = data->source_node->port_get_info (data->source, 0, &info)) < 0)
+  if ((res = spa_node_port_get_info (data->source, 0, &info)) < 0)
     return res;
 
   spa_debug_port_info (info);
@@ -326,13 +330,23 @@ negotiate_formats (AppData *data)
 #ifdef USE_BUFFER
   alloc_buffers (data);
 #else
-  data->texture = SDL_CreateTexture (data->renderer,
-                                     SDL_PIXELFORMAT_YUY2,
-                                     SDL_TEXTUREACCESS_STREAMING,
-                                     320, 240);
-  if (!data->texture) {
-    printf ("can't create texture: %s\n", SDL_GetError ());
-    return -1;
+  {
+    unsigned int n_buffers;
+
+    data->texture = SDL_CreateTexture (data->renderer,
+                                       SDL_PIXELFORMAT_YUY2,
+                                       SDL_TEXTUREACCESS_STREAMING,
+                                       320, 240);
+    if (!data->texture) {
+      printf ("can't create texture: %s\n", SDL_GetError ());
+      return -1;
+    }
+    n_buffers = MAX_BUFFERS;
+    if ((res = spa_node_port_alloc_buffers (data->source, 0, NULL, 0, data->bp, &n_buffers)) < 0) {
+      printf ("can't allocate buffers: %s\n", SDL_GetError ());
+      return -1;
+    }
+    data->n_buffers = n_buffers;
   }
 #endif
 
@@ -379,7 +393,7 @@ run_async_source (AppData *data)
   int err;
 
   cmd.type = SPA_COMMAND_START;
-  if ((res = data->source_node->send_command (data->source, &cmd)) < 0)
+  if ((res = spa_node_send_command (data->source, &cmd)) < 0)
     printf ("got error %d\n", res);
 
   data->running = true;
@@ -412,7 +426,7 @@ run_async_source (AppData *data)
   }
 
   cmd.type = SPA_COMMAND_STOP;
-  if ((res = data->source_node->send_command (data->source, &cmd)) < 0)
+  if ((res = spa_node_send_command (data->source, &cmd)) < 0)
     printf ("got error %d\n", res);
 }
 

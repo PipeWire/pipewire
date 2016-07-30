@@ -30,15 +30,11 @@
 #include <spa/audio/format.h>
 
 typedef struct {
-  SpaHandle *sink;
-  const SpaNode *sink_node;
-  SpaHandle *mix;
-  const SpaNode *mix_node;
+  SpaNode *sink;
+  SpaNode *mix;
   uint32_t mix_ports[2];
-  SpaHandle *source1;
-  const SpaNode *source1_node;
-  SpaHandle *source2;
-  const SpaNode *source2_node;
+  SpaNode *source1;
+  SpaNode *source2;
   bool running;
   pthread_t thread;
   SpaPollFd fds[16];
@@ -47,8 +43,9 @@ typedef struct {
 } AppData;
 
 static SpaResult
-make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char *name)
+make_node (SpaNode **node, const char *lib, const char *name)
 {
+  SpaHandle *handle;
   SpaResult res;
   void *hnd;
   SpaEnumHandleFactoryFunc enum_func;
@@ -66,7 +63,7 @@ make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char
 
   for (i = 0; ;i++) {
     const SpaHandleFactory *factory;
-    const void *iface;
+    void *iface;
 
     if ((res = enum_func (&factory, &state)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
@@ -76,12 +73,12 @@ make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char
     if (strcmp (factory->name, name))
       continue;
 
-    *handle = calloc (1, factory->size);
-    if ((res = factory->init (factory, *handle)) < 0) {
+    handle = calloc (1, factory->size);
+    if ((res = factory->init (factory, handle)) < 0) {
       printf ("can't make factory instance: %d\n", res);
       return res;
     }
-    if ((res = (*handle)->get_interface (*handle, SPA_INTERFACE_ID_NODE, &iface)) < 0) {
+    if ((res = handle->get_interface (handle, SPA_INTERFACE_ID_NODE, &iface)) < 0) {
       printf ("can't get interface %d\n", res);
       return res;
     }
@@ -92,39 +89,38 @@ make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char
 }
 
 static void
-on_mix_event (SpaHandle *handle, SpaEvent *event, void *user_data)
+on_mix_event (SpaNode *node, SpaEvent *event, void *user_data)
 {
   AppData *data = user_data;
 
   switch (event->type) {
     case SPA_EVENT_TYPE_PULL_INPUT:
     {
-      SpaBuffer *buf;
       SpaInputInfo iinfo;
       SpaOutputInfo oinfo;
       SpaResult res;
+      SpaEventPullInput *pi;
 
-      buf = event->data;
+      pi = event->data;
 
       oinfo.port_id = 0;
       oinfo.flags = SPA_OUTPUT_FLAG_NONE;
-      oinfo.buffer = buf;
-      oinfo.event = NULL;
+      oinfo.size = pi->size;
+      oinfo.offset = pi->offset;
 
       if (event->port_id == data->mix_ports[0]) {
-        if ((res = data->source1_node->port_pull_output (data->source1, 1, &oinfo)) < 0)
+        if ((res = spa_node_port_pull_output (data->source1, 1, &oinfo)) < 0)
           printf ("got error %d\n", res);
       } else {
-        if ((res = data->source2_node->port_pull_output (data->source2, 1, &oinfo)) < 0)
+        if ((res = spa_node_port_pull_output (data->source2, 1, &oinfo)) < 0)
           printf ("got error %d\n", res);
       }
 
       iinfo.port_id = event->port_id;
       iinfo.flags = SPA_INPUT_FLAG_NONE;
-      iinfo.buffer = oinfo.buffer;
-      iinfo.event = oinfo.event;
+      iinfo.id = oinfo.id;
 
-      if ((res = data->mix_node->port_push_input (data->mix, 1, &iinfo)) < 0)
+      if ((res = spa_node_port_push_input (data->mix, 1, &iinfo)) < 0)
         printf ("got error from mixer %d\n", res);
       break;
     }
@@ -135,34 +131,33 @@ on_mix_event (SpaHandle *handle, SpaEvent *event, void *user_data)
 }
 
 static void
-on_sink_event (SpaHandle *handle, SpaEvent *event, void *user_data)
+on_sink_event (SpaNode *node, SpaEvent *event, void *user_data)
 {
   AppData *data = user_data;
 
   switch (event->type) {
     case SPA_EVENT_TYPE_PULL_INPUT:
     {
-      SpaBuffer *buf;
       SpaInputInfo iinfo;
       SpaOutputInfo oinfo;
       SpaResult res;
+      SpaEventPullInput *pi;
 
-      buf = event->data;
+      pi = event->data;
 
       oinfo.port_id = 0;
       oinfo.flags = SPA_OUTPUT_FLAG_PULL;
-      oinfo.buffer = buf;
-      oinfo.event = NULL;
+      oinfo.offset = pi->offset;
+      oinfo.size = pi->size;
 
-      if ((res = data->mix_node->port_pull_output (data->mix, 1, &oinfo)) < 0)
+      if ((res = spa_node_port_pull_output (data->mix, 1, &oinfo)) < 0)
         printf ("got error %d\n", res);
 
       iinfo.port_id = event->port_id;
       iinfo.flags = SPA_INPUT_FLAG_NONE;
-      iinfo.buffer = oinfo.buffer;
-      iinfo.event = oinfo.event;
+      iinfo.id = oinfo.id;
 
-      if ((res = data->sink_node->port_push_input (data->sink, 1, &iinfo)) < 0)
+      if ((res = spa_node_port_push_input (data->sink, 1, &iinfo)) < 0)
         printf ("got error %d\n", res);
       break;
     }
@@ -192,13 +187,13 @@ make_nodes (AppData *data)
   SpaProps *props;
   SpaPropValue value;
 
-  if ((res = make_node (&data->sink, &data->sink_node, "plugins/alsa/libspa-alsa.so", "alsa-sink")) < 0) {
+  if ((res = make_node (&data->sink, "plugins/alsa/libspa-alsa.so", "alsa-sink")) < 0) {
     printf ("can't create alsa-sink: %d\n", res);
     return res;
   }
-  data->sink_node->set_event_callback (data->sink, on_sink_event, data);
+  spa_node_set_event_callback (data->sink, on_sink_event, data);
 
-  if ((res = data->sink_node->get_props (data->sink, &props)) < 0)
+  if ((res = spa_node_get_props (data->sink, &props)) < 0)
     printf ("got get_props error %d\n", res);
 
   value.type = SPA_PROP_TYPE_STRING;
@@ -206,21 +201,21 @@ make_nodes (AppData *data)
   value.size = strlen (value.value)+1;
   props->set_prop (props, spa_props_index_for_name (props, "device"), &value);
 
-  if ((res = data->sink_node->set_props (data->sink, props)) < 0)
+  if ((res = spa_node_set_props (data->sink, props)) < 0)
     printf ("got set_props error %d\n", res);
 
 
-  if ((res = make_node (&data->mix, &data->mix_node, "plugins/audiomixer/libspa-audiomixer.so", "audiomixer")) < 0) {
+  if ((res = make_node (&data->mix, "plugins/audiomixer/libspa-audiomixer.so", "audiomixer")) < 0) {
     printf ("can't create audiomixer: %d\n", res);
     return res;
   }
-  data->mix_node->set_event_callback (data->mix, on_mix_event, data);
+  spa_node_set_event_callback (data->mix, on_mix_event, data);
 
-  if ((res = make_node (&data->source1, &data->source1_node, "plugins/audiotestsrc/libspa-audiotestsrc.so", "audiotestsrc")) < 0) {
+  if ((res = make_node (&data->source1, "plugins/audiotestsrc/libspa-audiotestsrc.so", "audiotestsrc")) < 0) {
     printf ("can't create audiotestsrc: %d\n", res);
     return res;
   }
-  if ((res = make_node (&data->source2, &data->source2_node, "plugins/audiotestsrc/libspa-audiotestsrc.so", "audiotestsrc")) < 0) {
+  if ((res = make_node (&data->source2, "plugins/audiotestsrc/libspa-audiotestsrc.so", "audiotestsrc")) < 0) {
     printf ("can't create audiotestsrc: %d\n", res);
     return res;
   }
@@ -237,7 +232,7 @@ negotiate_formats (AppData *data)
   SpaPropValue value;
   void *state = NULL;
 
-  if ((res = data->sink_node->port_enum_formats (data->sink, 0, &format, NULL, &state)) < 0)
+  if ((res = spa_node_port_enum_formats (data->sink, 0, &format, NULL, &state)) < 0)
     return res;
 
   props = &format->props;
@@ -259,28 +254,30 @@ negotiate_formats (AppData *data)
   if ((res = props->set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_CHANNELS), &value)) < 0)
     return res;
 
-  if ((res = data->sink_node->port_set_format (data->sink, 0, false, format)) < 0)
+  if ((res = spa_node_port_set_format (data->sink, 0, false, format)) < 0)
     return res;
 
-  if ((res = data->mix_node->port_set_format (data->mix, 0, false, format)) < 0)
+  if ((res = spa_node_port_set_format (data->mix, 0, false, format)) < 0)
     return res;
 
-  if ((res = data->mix_node->add_port (data->mix, SPA_DIRECTION_INPUT, &data->mix_ports[0])) < 0)
+  data->mix_ports[0] = 0;
+  if ((res = spa_node_add_port (data->mix, SPA_DIRECTION_INPUT, 0)) < 0)
     return res;
 
-  if ((res = data->mix_node->port_set_format (data->mix, data->mix_ports[0], false, format)) < 0)
+  if ((res = spa_node_port_set_format (data->mix, data->mix_ports[0], false, format)) < 0)
     return res;
 
-  if ((res = data->source1_node->port_set_format (data->source1, 0, false, format)) < 0)
+  if ((res = spa_node_port_set_format (data->source1, 0, false, format)) < 0)
     return res;
 
-  if ((res = data->mix_node->add_port (data->mix, SPA_DIRECTION_INPUT, &data->mix_ports[1])) < 0)
+  data->mix_ports[1] = 0;
+  if ((res = spa_node_add_port (data->mix, SPA_DIRECTION_INPUT, 1)) < 0)
     return res;
 
-  if ((res = data->mix_node->port_set_format (data->mix, data->mix_ports[1], false, format)) < 0)
+  if ((res = spa_node_port_set_format (data->mix, data->mix_ports[1], false, format)) < 0)
     return res;
 
-  if ((res = data->source2_node->port_set_format (data->source2, 0, false, format)) < 0)
+  if ((res = spa_node_port_set_format (data->source2, 0, false, format)) < 0)
     return res;
 
 
@@ -327,7 +324,7 @@ run_async_sink (AppData *data)
   int err;
 
   cmd.type = SPA_COMMAND_START;
-  if ((res = data->sink_node->send_command (data->sink, &cmd)) < 0)
+  if ((res = spa_node_send_command (data->sink, &cmd)) < 0)
     printf ("got error %d\n", res);
 
   data->running = true;
@@ -345,7 +342,7 @@ run_async_sink (AppData *data)
   }
 
   cmd.type = SPA_COMMAND_STOP;
-  if ((res = data->sink_node->send_command (data->sink, &cmd)) < 0)
+  if ((res = spa_node_send_command (data->sink, &cmd)) < 0)
     printf ("got error %d\n", res);
 }
 

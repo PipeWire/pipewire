@@ -344,7 +344,7 @@ typedef struct {
   SpaBuffer buffer;
   SpaMeta metas[16];
   SpaData datas[16];
-  int     mem[16];
+  int     memid[16];
 } MyBuffer;
 
 static SpaResult
@@ -377,8 +377,8 @@ parse_add_buffer (struct stack_iter      *si,
     SpaData *d = &b->datas[i];
     d->type = SPA_DATA_TYPE_MEMID;
     d->ptr_type = NULL;
-    b->mem[i] = *p++;
-    d->ptr = &b->mem[i];
+    b->memid[i] = *p++;
+    d->ptr = &b->memid[i];
     d->offset = *p++;
     d->size = *p++;
     d->stride = *p++;

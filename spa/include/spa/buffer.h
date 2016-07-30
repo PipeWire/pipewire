@@ -131,7 +131,7 @@ typedef struct {
   SpaDataType  type;
   const char  *ptr_type;
   void        *ptr;
-  unsigned int offset;
+  off_t        offset;
   size_t       size;
   size_t       stride;
 } SpaData;
@@ -140,6 +140,7 @@ typedef struct {
  * SpaBuffer:
  * @refcount: reference counter
  * @notify: called when the refcount reaches 0
+ * @user_data: extra user data
  * @id: buffer id
  * @size: total size of the buffer data
  * @n_metas: number of metadata
@@ -150,6 +151,7 @@ typedef struct {
 struct _SpaBuffer {
   volatile int      refcount;
   SpaNotify         notify;
+  void             *user_data;
   uint32_t          id;
   size_t            size;
   unsigned int      n_metas;

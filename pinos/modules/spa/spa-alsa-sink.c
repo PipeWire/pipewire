@@ -52,8 +52,7 @@ typedef struct {
 
 struct _PinosSpaAlsaSinkPrivate
 {
-  SpaHandle *sink;
-  const SpaNode *sink_node;
+  SpaNode *sink;
 
   PinosProperties *props;
   PinosRingbuffer *ringbuffer;
@@ -78,8 +77,9 @@ enum {
 G_DEFINE_TYPE (PinosSpaAlsaSink, pinos_spa_alsa_sink, PINOS_TYPE_NODE);
 
 static SpaResult
-make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char *name)
+make_node (SpaNode **node, const char *lib, const char *name)
 {
+  SpaHandle *handle;
   SpaResult res;
   void *hnd, *state = NULL;
   SpaEnumHandleFactoryFunc enum_func;
@@ -95,7 +95,7 @@ make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char
 
   while (true) {
     const SpaHandleFactory *factory;
-    const void *iface;
+    void *iface;
 
     if ((res = enum_func (&factory, &state)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
@@ -105,12 +105,12 @@ make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char
     if (strcmp (factory->name, name))
       continue;
 
-    *handle = calloc (1, factory->size);
-    if ((res = factory->init (factory, *handle)) < 0) {
+    handle = calloc (1, factory->size);
+    if ((res = factory->init (factory, handle)) < 0) {
       g_error ("can't make factory instance: %d", res);
       return res;
     }
-    if ((res = (*handle)->get_interface (*handle, SPA_INTERFACE_ID_NODE, &iface)) < 0) {
+    if ((res = handle->get_interface (handle, SPA_INTERFACE_ID_NODE, &iface)) < 0) {
       g_error ("can't get interface %d", res);
       return res;
     }
@@ -121,7 +121,7 @@ make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char
 }
 
 static void
-on_sink_event (SpaHandle *handle, SpaEvent *event, void *user_data)
+on_sink_event (SpaNode *node, SpaEvent *event, void *user_data)
 {
   PinosSpaAlsaSink *this = user_data;
   PinosSpaAlsaSinkPrivate *priv = this->priv;
@@ -129,25 +129,19 @@ on_sink_event (SpaHandle *handle, SpaEvent *event, void *user_data)
   switch (event->type) {
     case SPA_EVENT_TYPE_PULL_INPUT:
     {
-      SpaBuffer *buf;
       SpaInputInfo iinfo;
-      SpaOutputInfo oinfo;
       SpaResult res;
       PinosRingbufferArea areas[2];
       uint8_t *data;
       size_t size, towrite, total;
+      SpaEventPullInput *pi;
 
-      buf = event->data;
+      pi = event->data;
 
-      oinfo.port_id = 0;
-      oinfo.flags = SPA_OUTPUT_FLAG_PULL;
-      oinfo.buffer = buf;
-      oinfo.event = NULL;
+      g_debug ("pull ringbuffer %zd", pi->size);
 
-      g_debug ("pull ringbuffer %p", buf);
-
-      size = buf->size;
-      data = buf->datas[0].ptr;
+      size = pi->size;
+      data = NULL;
 
       pinos_ringbuffer_get_read_areas (priv->ringbuffer, areas);
 
@@ -165,15 +159,14 @@ on_sink_event (SpaHandle *handle, SpaEvent *event, void *user_data)
 
       pinos_ringbuffer_read_advance (priv->ringbuffer, total);
 
-      buf->size = total;
-
       iinfo.port_id = event->port_id;
       iinfo.flags = SPA_INPUT_FLAG_NONE;
-      iinfo.buffer = oinfo.buffer;
-      iinfo.event = oinfo.event;
+      iinfo.id = 0;
+      iinfo.offset = 0;
+      iinfo.size = total;
 
-      g_debug ("push sink %p", iinfo.buffer);
-      if ((res = priv->sink_node->port_push_input (priv->sink, 1, &iinfo)) < 0)
+      g_debug ("push sink %d", iinfo.id);
+      if ((res = spa_node_port_push_input (priv->sink, 1, &iinfo)) < 0)
         g_debug ("got error %d", res);
       break;
     }
@@ -204,21 +197,21 @@ create_pipeline (PinosSpaAlsaSink *this)
   SpaProps *props;
   SpaPropValue value;
 
-  if ((res = make_node (&priv->sink, &priv->sink_node, "spa/build/plugins/alsa/libspa-alsa.so", "alsa-sink")) < 0) {
+  if ((res = make_node (&priv->sink, "spa/build/plugins/alsa/libspa-alsa.so", "alsa-sink")) < 0) {
     g_error ("can't create alsa-sink: %d", res);
     return;
   }
-  priv->sink_node->set_event_callback (priv->sink, on_sink_event, this);
+  spa_node_set_event_callback (priv->sink, on_sink_event, this);
 
-  if ((res = priv->sink_node->get_props (priv->sink, &props)) < 0)
+  if ((res = spa_node_get_props (priv->sink, &props)) < 0)
     g_debug ("got get_props error %d", res);
 
   value.type = SPA_PROP_TYPE_STRING;
   value.value = "hw:0";
   value.size = strlen (value.value)+1;
-  props->set_prop (props, spa_props_index_for_name (props, "device"), &value);
+  spa_props_set_prop (props, spa_props_index_for_name (props, "device"), &value);
 
-  if ((res = priv->sink_node->set_props (priv->sink, props)) < 0)
+  if ((res = spa_node_set_props (priv->sink, props)) < 0)
     g_debug ("got set_props error %d", res);
 }
 
@@ -266,7 +259,7 @@ start_pipeline (PinosSpaAlsaSink *sink)
   g_debug ("spa-alsa-sink %p: starting pipeline", sink);
 
   cmd.type = SPA_COMMAND_START;
-  if ((res = priv->sink_node->send_command (priv->sink, &cmd)) < 0)
+  if ((res = spa_node_send_command (priv->sink, &cmd)) < 0)
     g_debug ("got error %d", res);
 
   priv->running = true;
@@ -291,7 +284,7 @@ stop_pipeline (PinosSpaAlsaSink *sink)
   }
 
   cmd.type = SPA_COMMAND_STOP;
-  if ((res = priv->sink_node->send_command (priv->sink, &cmd)) < 0)
+  if ((res = spa_node_send_command (priv->sink, &cmd)) < 0)
     g_debug ("got error %d", res);
 }
 
@@ -395,7 +388,7 @@ negotiate_formats (PinosSpaAlsaSink *this)
   SpaPropValue value;
   void *state = NULL;
 
-  if ((res = priv->sink_node->port_enum_formats (priv->sink, 0, &format, NULL, &state)) < 0)
+  if ((res = spa_node_port_enum_formats (priv->sink, 0, &format, NULL, &state)) < 0)
     return res;
 
   props = &format->props;
@@ -405,19 +398,19 @@ negotiate_formats (PinosSpaAlsaSink *this)
   value.value = &val;
 
   val = SPA_AUDIO_FORMAT_S16LE;
-  if ((res = props->set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_FORMAT), &value)) < 0)
+  if ((res = spa_props_set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_FORMAT), &value)) < 0)
     return res;
   val = SPA_AUDIO_LAYOUT_INTERLEAVED;
-  if ((res = props->set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_LAYOUT), &value)) < 0)
+  if ((res = spa_props_set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_LAYOUT), &value)) < 0)
     return res;
   val = 44100;
-  if ((res = props->set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_RATE), &value)) < 0)
+  if ((res = spa_props_set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_RATE), &value)) < 0)
     return res;
   val = 2;
-  if ((res = props->set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_CHANNELS), &value)) < 0)
+  if ((res = spa_props_set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_CHANNELS), &value)) < 0)
     return res;
 
-  if ((res = priv->sink_node->port_set_format (priv->sink, 0, 0, format)) < 0)
+  if ((res = spa_node_port_set_format (priv->sink, 0, 0, format)) < 0)
     return res;
 
   priv->ringbuffer = pinos_ringbuffer_new (PINOS_RINGBUFFER_MODE_READ, 64 * 1024);

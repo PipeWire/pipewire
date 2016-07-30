@@ -42,7 +42,7 @@ SERVER_CFLAGS = -D__INCLUDED_FROM_PINOS
 
 AM_LIBADD = $(GLIB_LIBS) $(INTLLIBS) $(GST_LIBS) -L$(top_srcdir)/spa/build/lib/ -lspa-lib
 AM_LDADD = $(GLIB_LIBS) $(GST_LIBS) $(INTLLIBS) -L$(top_srcdir)/spa/build/lib/ -lspa-lib
-AM_LDFLAGS = $(NODELETE_LDFLAGS)
+AM_LDFLAGS = $(NODELETE_LDFLAGS) -Wl,-rpath=/home/wim/gst/head/pinos/spa/build/lib/
 
 FOREIGN_CFLAGS = -w
 

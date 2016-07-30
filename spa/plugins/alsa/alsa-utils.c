@@ -236,7 +236,7 @@ pull_input (SpaALSASink *this, void *data, snd_pcm_uframes_t frames)
   buffer->data[0].ptr_type = "sysmem";
   buffer->data[0].size = frames * sizeof (uint16_t) * 2;
 
-  this->event_cb (&this->handle, &event,this->user_data);
+  this->event_cb (&this->node, &event,this->user_data);
 
   spa_buffer_unref ((SpaBuffer *)event.data);
 }
@@ -378,7 +378,7 @@ spa_alsa_start (SpaALSASink *this)
   state->poll.before_cb = NULL;
   state->poll.after_cb = alsa_on_fd_events;
   state->poll.user_data = this;
-  this->event_cb (&this->handle, &event, this->user_data);
+  this->event_cb (&this->node, &event, this->user_data);
 
   mmap_write (this);
   err = snd_pcm_start (state->handle);
@@ -400,7 +400,7 @@ spa_alsa_stop (SpaALSASink *this)
   event.port_id = 0;
   event.data = &state->poll;
   event.size = sizeof (state->poll);
-  this->event_cb (&this->handle, &event, this->user_data);
+  this->event_cb (&this->node, &event, this->user_data);
 
   spa_alsa_close (this);
 

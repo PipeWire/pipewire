@@ -56,7 +56,8 @@ struct prop_type_name {
   { "uint32", "UInt32" },
   { "int64", "Int64" },
   { "uint64", "UInt64" },
-  { "float", "Float" },
+  { "int", "Int" },
+  { "uint", "UInt" },
   { "double", "Double" },
   { "string", "String" },
   { "rectangle", "Rectangle" },
@@ -115,6 +116,12 @@ print_value (const SpaPropInfo *info, int size, const void *value)
       break;
     case SPA_PROP_TYPE_UINT64:
       printf ("%" PRIu64 "\n", *(uint64_t *)value);
+      break;
+    case SPA_PROP_TYPE_INT:
+      printf ("%d", *(int *)value);
+      break;
+    case SPA_PROP_TYPE_UINT:
+      printf ("%u", *(unsigned int *)value);
       break;
     case SPA_PROP_TYPE_FLOAT:
       printf ("%f", *(float *)value);
@@ -292,7 +299,7 @@ print_format (const SpaFormat *format)
 }
 
 static void
-inspect_node (const SpaNode *node, SpaHandle *handle)
+inspect_node (SpaNode *node)
 {
   SpaResult res;
   SpaProps *props;
@@ -300,18 +307,18 @@ inspect_node (const SpaNode *node, SpaHandle *handle)
   SpaFormat *format;
   void *state = NULL;
 
-  if ((res = node->get_props (handle, &props)) < 0)
+  if ((res = node->get_props (node, &props)) < 0)
     printf ("can't get properties: %d\n", res);
   else
     print_props (props, 1);
 
-  if ((res = node->get_n_ports (handle, &n_input, &max_input, &n_output, &max_output)) < 0)
+  if ((res = node->get_n_ports (node, &n_input, &max_input, &n_output, &max_output)) < 0)
     printf ("can't get n_ports: %d\n", res);
   else
     printf ("supported ports %d %d %d %d\n", n_input, max_input, n_output, max_output);
 
   while (true) {
-    if ((res = node->port_enum_formats (handle, 0, &format, NULL, &state)) < 0) {
+    if ((res = node->port_enum_formats (node, 0, &format, NULL, &state)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
         printf ("got error %d\n", res);
       break;
@@ -319,7 +326,7 @@ inspect_node (const SpaNode *node, SpaHandle *handle)
     if (format)
       print_format (format);
   }
-  if ((res = node->port_get_props (handle, 0, &props)) < 0)
+  if ((res = node->port_get_props (node, 0, &props)) < 0)
     printf ("port_get_props error: %d\n", res);
   else
     print_props (props, 1);
@@ -330,7 +337,7 @@ inspect_factory (const SpaHandleFactory *factory)
 {
   SpaResult res;
   SpaHandle *handle;
-  const void *interface;
+  void *interface;
   void *state = NULL;
 
   printf ("factory name:\t\t'%s'\n", factory->name);
@@ -366,7 +373,7 @@ inspect_factory (const SpaHandleFactory *factory)
 
     switch (info->interface_id) {
       case SPA_INTERFACE_ID_NODE:
-        inspect_node (interface, handle);
+        inspect_node (interface);
         break;
       default:
         printf ("skipping unknown interface\n");

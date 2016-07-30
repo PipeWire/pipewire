@@ -48,8 +48,7 @@ typedef struct {
 
 struct _PinosSpaV4l2SourcePrivate
 {
-  SpaHandle *source;
-  const SpaNode *source_node;
+  SpaNode *source;
 
   SpaPollFd fds[16];
   unsigned int n_fds;
@@ -70,8 +69,9 @@ enum {
 G_DEFINE_TYPE (PinosSpaV4l2Source, pinos_spa_v4l2_source, PINOS_TYPE_NODE);
 
 static SpaResult
-make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char *name)
+make_node (SpaNode **node, const char *lib, const char *name)
 {
+  SpaHandle *handle;
   SpaResult res;
   void *hnd, *state = NULL;
   SpaEnumHandleFactoryFunc enum_func;
@@ -87,7 +87,7 @@ make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char
 
   while (true) {
     const SpaHandleFactory *factory;
-    const void *iface;
+    void *iface;
 
     if ((res = enum_func (&factory, &state)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
@@ -97,12 +97,12 @@ make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char
     if (strcmp (factory->name, name))
       continue;
 
-    *handle = calloc (1, factory->size);
-    if ((res = factory->init (factory, *handle)) < 0) {
+    handle = calloc (1, factory->size);
+    if ((res = factory->init (factory, handle)) < 0) {
       g_error ("can't make factory instance: %d", res);
       return res;
     }
-    if ((res = (*handle)->get_interface (*handle, SPA_INTERFACE_ID_NODE, &iface)) < 0) {
+    if ((res = handle->get_interface (handle, SPA_INTERFACE_ID_NODE, &iface)) < 0) {
       g_error ("can't get interface %d", res);
       return res;
     }
@@ -113,7 +113,7 @@ make_node (SpaHandle **handle, const SpaNode **node, const char *lib, const char
 }
 
 static void
-on_source_event (SpaHandle *handle, SpaEvent *event, void *user_data)
+on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
 {
   PinosSpaV4l2Source *source = user_data;
   PinosSpaV4l2SourcePrivate *priv = source->priv;
@@ -126,10 +126,10 @@ on_source_event (SpaHandle *handle, SpaEvent *event, void *user_data)
       SpaBuffer *b;
       GList *walk;
 
-      if ((res = priv->source_node->port_pull_output (priv->source, 1, info)) < 0)
+      if ((res = spa_node_port_pull_output (priv->source, 1, info)) < 0)
         g_debug ("spa-v4l2-source %p: got pull error %d", source, res);
 
-      b = info[0].buffer;
+      b = NULL; /* info[0].id; */
 
       for (walk = priv->ports; walk; walk = g_list_next (walk)) {
         SourcePortData *data = walk->data;
@@ -174,23 +174,22 @@ create_pipeline (PinosSpaV4l2Source *this)
   SpaPropValue value;
 
   if ((res = make_node (&priv->source,
-                        &priv->source_node,
                         "spa/build/plugins/v4l2/libspa-v4l2.so",
                         "v4l2-source")) < 0) {
     g_error ("can't create v4l2-source: %d", res);
     return;
   }
-  priv->source_node->set_event_callback (priv->source, on_source_event, this);
+  spa_node_set_event_callback (priv->source, on_source_event, this);
 
-  if ((res = priv->source_node->get_props (priv->source, &props)) < 0)
+  if ((res = spa_node_get_props (priv->source, &props)) < 0)
     g_debug ("got get_props error %d", res);
 
   value.type = SPA_PROP_TYPE_STRING;
   value.value = "/dev/video1";
   value.size = strlen (value.value)+1;
-  props->set_prop (props, spa_props_index_for_name (props, "device"), &value);
+  spa_props_set_prop (props, spa_props_index_for_name (props, "device"), &value);
 
-  if ((res = priv->source_node->set_props (priv->source, props)) < 0)
+  if ((res = spa_node_set_props (priv->source, props)) < 0)
     g_debug ("got set_props error %d", res);
 }
 
@@ -208,7 +207,7 @@ negotiate_formats (PinosSpaV4l2Source *this)
   SpaRectangle rect;
   const gchar *str;
 
-  if ((res = priv->source_node->port_enum_formats (priv->source, 0, &format, NULL, &state)) < 0)
+  if ((res = spa_node_port_enum_formats (priv->source, 0, &format, NULL, &state)) < 0)
     return res;
 
   props = &format->props;
@@ -218,7 +217,7 @@ negotiate_formats (PinosSpaV4l2Source *this)
   value.value = &val;
 
   val = SPA_VIDEO_FORMAT_YUY2;
-  if ((res = props->set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_FORMAT), &value)) < 0)
+  if ((res = spa_props_set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_FORMAT), &value)) < 0)
     return res;
 
   value.type = SPA_PROP_TYPE_RECTANGLE;
@@ -226,7 +225,7 @@ negotiate_formats (PinosSpaV4l2Source *this)
   value.value = &rect;
   rect.width = 320;
   rect.height = 240;
-  if ((res = props->set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_SIZE), &value)) < 0)
+  if ((res = spa_props_set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_SIZE), &value)) < 0)
     return res;
 
   value.type = SPA_PROP_TYPE_FRACTION;
@@ -234,10 +233,10 @@ negotiate_formats (PinosSpaV4l2Source *this)
   value.value = &frac;
   frac.num = 25;
   frac.denom = 1;
-  if ((res = props->set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_FRAMERATE), &value)) < 0)
+  if ((res = spa_props_set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_FRAMERATE), &value)) < 0)
     return res;
 
-  if ((res = priv->source_node->port_set_format (priv->source, 0, 0, format)) < 0)
+  if ((res = spa_node_port_set_format (priv->source, 0, 0, format)) < 0)
     return res;
 
   str = "video/x-raw,"
@@ -294,7 +293,7 @@ start_pipeline (PinosSpaV4l2Source *source)
   negotiate_formats (source);
 
   cmd.type = SPA_COMMAND_START;
-  if ((res = priv->source_node->send_command (priv->source, &cmd)) < 0)
+  if ((res = spa_node_send_command (priv->source, &cmd)) < 0)
     g_debug ("got error %d", res);
 
   priv->running = true;
@@ -319,7 +318,7 @@ stop_pipeline (PinosSpaV4l2Source *source)
   }
 
   cmd.type = SPA_COMMAND_STOP;
-  if ((res = priv->source_node->send_command (priv->source, &cmd)) < 0)
+  if ((res = spa_node_send_command (priv->source, &cmd)) < 0)
     g_debug ("got error %d", res);
 }
 

@@ -161,11 +161,11 @@ on_sink_event (SpaNode *node, SpaEvent *event, void *user_data)
 
       iinfo.port_id = event->port_id;
       iinfo.flags = SPA_INPUT_FLAG_NONE;
-      iinfo.id = 0;
+      iinfo.buffer_id = 0;
       iinfo.offset = 0;
       iinfo.size = total;
 
-      g_debug ("push sink %d", iinfo.id);
+      g_debug ("push sink %d", iinfo.buffer_id);
       if ((res = spa_node_port_push_input (priv->sink, 1, &iinfo)) < 0)
         g_debug ("got error %d", res);
       break;
@@ -427,13 +427,14 @@ free_mem_block (MemBlock *b)
 
 static gboolean
 on_received_buffer (PinosPort   *port,
-                    SpaBuffer   *buffer,
+                    uint32_t     buffer_id,
                     GError     **error,
                     gpointer     user_data)
 {
   PinosSpaAlsaSink *this = user_data;
   PinosSpaAlsaSinkPrivate *priv = this->priv;
   unsigned int i;
+  SpaBuffer *buffer = NULL;
 
   for (i = 0; i < buffer->n_datas; i++) {
     SpaData *d = &buffer->datas[i];
@@ -460,8 +461,16 @@ on_received_buffer (PinosPort   *port,
 
     pinos_ringbuffer_write_advance (priv->ringbuffer, total);
   }
-  spa_buffer_unref (buffer);
 
+  return TRUE;
+}
+
+static gboolean
+on_received_event (PinosPort   *port,
+                   SpaEvent    *event,
+                   GError     **error,
+                   gpointer     user_data)
+{
   return TRUE;
 }
 
@@ -499,7 +508,7 @@ add_port (PinosNode       *node,
   data->port = PINOS_NODE_CLASS (pinos_spa_alsa_sink_parent_class)
                 ->add_port (node, direction, id, error);
 
-  pinos_port_set_received_buffer_cb (data->port, on_received_buffer, sink, NULL);
+  pinos_port_set_received_cb (data->port, on_received_buffer, on_received_event, sink, NULL);
 
   formats = g_bytes_new ("ANY", strlen ("ANY") + 1);
   g_object_set (data->port, "possible-formats", formats, NULL);

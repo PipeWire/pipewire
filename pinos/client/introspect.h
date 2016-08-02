@@ -57,9 +57,9 @@ const gchar * pinos_node_state_as_string (PinosNodeState state);
  * The direction of a port
  */
 typedef enum {
-  PINOS_DIRECTION_INVALID = -1,
-  PINOS_DIRECTION_INPUT = 0,
-  PINOS_DIRECTION_OUTPUT = 1
+  PINOS_DIRECTION_INVALID = 0,
+  PINOS_DIRECTION_INPUT = 1,
+  PINOS_DIRECTION_OUTPUT = 2
 } PinosDirection;
 
 const gchar * pinos_direction_as_string (PinosDirection direction);

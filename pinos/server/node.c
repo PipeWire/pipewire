@@ -63,6 +63,7 @@ enum
   PROP_NAME,
   PROP_STATE,
   PROP_PROPERTIES,
+  PROP_NODE,
 };
 
 enum
@@ -239,6 +240,10 @@ pinos_node_get_property (GObject    *_object,
       g_value_set_boxed (value, priv->properties);
       break;
 
+    case PROP_NODE:
+      g_value_set_pointer (value, node->node);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (node, prop_id, pspec);
       break;
@@ -271,6 +276,10 @@ pinos_node_set_property (GObject      *_object,
       if (priv->properties)
         pinos_properties_free (priv->properties);
       priv->properties = g_value_dup_boxed (value);
+      break;
+
+    case PROP_NODE:
+      node->node = g_value_get_pointer (value);
       break;
 
     default:
@@ -456,6 +465,15 @@ pinos_node_class_init (PinosNodeClass * klass)
                                                        G_PARAM_CONSTRUCT |
                                                        G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (gobject_class,
+                                   PROP_NODE,
+                                   g_param_spec_pointer ("node",
+                                                         "Node",
+                                                         "The SPA node",
+                                                         G_PARAM_READWRITE |
+                                                         G_PARAM_CONSTRUCT_ONLY |
+                                                         G_PARAM_STATIC_STRINGS));
+
   signals[SIGNAL_REMOVE] = g_signal_new ("remove",
                                          G_TYPE_FROM_CLASS (klass),
                                          G_SIGNAL_RUN_LAST,
@@ -509,7 +527,8 @@ PinosNode *
 pinos_node_new (PinosDaemon     *daemon,
                 const gchar     *sender,
                 const gchar     *name,
-                PinosProperties *properties)
+                PinosProperties *properties,
+                SpaNode         *node)
 {
   g_return_val_if_fail (PINOS_IS_DAEMON (daemon), NULL);
 
@@ -518,6 +537,7 @@ pinos_node_new (PinosDaemon     *daemon,
                        "sender", sender,
                        "name", name,
                        "properties", properties,
+                       "node", node,
                        NULL);
 }
 
@@ -653,7 +673,7 @@ pinos_node_remove (PinosNode *node)
 static void
 do_remove_port (PinosPort *port, PinosNode *node)
 {
-  pinos_node_remove_port (node, pinos_port_get_id (port));
+  pinos_node_remove_port (node, port->id);
 }
 
 /**

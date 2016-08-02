@@ -38,8 +38,6 @@ typedef enum {
 } SpaCommandType;
 
 struct _SpaCommand {
-  volatile int   refcount;
-  SpaNotify      notify;
   SpaCommandType type;
   uint32_t       port_id;
   void          *data;

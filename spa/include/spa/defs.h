@@ -55,6 +55,8 @@ typedef enum {
   SPA_RESULT_TOO_MANY_PORTS            = -24,
   SPA_RESULT_INVALID_PROPERTY_ACCESS   = -25,
   SPA_RESULT_UNEXPECTED                = -26,
+  SPA_RESULT_NO_BUFFERS                = -27,
+  SPA_RESULT_INVALID_BUFFER_ID         = -28,
 } SpaResult;
 
 typedef enum {
@@ -68,6 +70,9 @@ typedef void (*SpaNotify) (void *data);
 #define SPA_N_ELEMENTS(arr)  (sizeof (arr) / sizeof ((arr)[0]))
 #define SPA_MIN(a,b)  ((a)<(b) ? (a) : (b))
 #define SPA_MAX(a,b)  ((a)>(b) ? (a) : (b))
+
+#define SPA_ID_INVALID  ((uint32_t)0xffffffff)
+
 
 #ifdef __cplusplus
 }  /* extern "C" */

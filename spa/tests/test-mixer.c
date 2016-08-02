@@ -118,7 +118,7 @@ on_mix_event (SpaNode *node, SpaEvent *event, void *user_data)
 
       iinfo.port_id = event->port_id;
       iinfo.flags = SPA_INPUT_FLAG_NONE;
-      iinfo.id = oinfo.id;
+      iinfo.buffer_id = oinfo.buffer_id;
 
       if ((res = spa_node_port_push_input (data->mix, 1, &iinfo)) < 0)
         printf ("got error from mixer %d\n", res);
@@ -155,7 +155,7 @@ on_sink_event (SpaNode *node, SpaEvent *event, void *user_data)
 
       iinfo.port_id = event->port_id;
       iinfo.flags = SPA_INPUT_FLAG_NONE;
-      iinfo.id = oinfo.id;
+      iinfo.buffer_id = oinfo.buffer_id;
 
       if ((res = spa_node_port_push_input (data->sink, 1, &iinfo)) < 0)
         printf ("got error %d\n", res);

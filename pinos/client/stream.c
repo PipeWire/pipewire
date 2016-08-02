@@ -58,7 +58,7 @@ typedef struct {
 static void
 clear_buffer_id (BufferId *id)
 {
-  spa_buffer_unref (id->buf);
+  free (id->buf);
   id->buf = NULL;
 }
 
@@ -519,21 +519,31 @@ pinos_stream_get_error (PinosStream *stream)
 }
 
 static void
-send_need_input (PinosStream *stream, uint32_t port)
+send_need_input (PinosStream *stream, uint32_t port_id, uint32_t buffer_id)
 {
   PinosStreamPrivate *priv = stream->priv;
   SpaControlBuilder builder;
   SpaControl control;
   guint8 buffer[64];
   SpaControlCmdNeedInput ni;
+  SpaControlCmdReuseBuffer rb;
 
   spa_control_builder_init_into (&builder, buffer, 64, NULL, 0);
-  ni.port = port;
+  if (buffer_id != SPA_ID_INVALID) {
+    rb.port_id = port_id;
+    rb.buffer_id = buffer_id;
+    rb.offset = 0;
+    rb.size = -1;
+    spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_REUSE_BUFFER, &rb);
+  }
+  ni.port_id = port_id;
   spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_NEED_INPUT, &ni);
   spa_control_builder_end (&builder, &control);
 
   if (spa_control_write (&control, priv->fd) < 0)
     g_warning ("stream %p: error writing control", stream);
+
+  spa_control_clear (&control);
 }
 
 static BufferId *
@@ -577,9 +587,8 @@ parse_control (PinosStream *stream,
       case SPA_CONTROL_CMD_NODE_UPDATE:
       case SPA_CONTROL_CMD_PORT_UPDATE:
       case SPA_CONTROL_CMD_PORT_REMOVED:
-      case SPA_CONTROL_CMD_START_CONFIGURE:
+      case SPA_CONTROL_CMD_STATE_CHANGE:
       case SPA_CONTROL_CMD_PORT_STATUS_CHANGE:
-      case SPA_CONTROL_CMD_START_ALLOC:
       case SPA_CONTROL_CMD_NEED_INPUT:
       case SPA_CONTROL_CMD_HAVE_OUTPUT:
         g_warning ("got unexpected control %d", cmd);
@@ -593,30 +602,31 @@ parse_control (PinosStream *stream,
       case SPA_CONTROL_CMD_SET_FORMAT:
       {
         SpaControlCmdSetFormat p;
+        SpaControlBuilder builder;
+        SpaControl control;
+        SpaControlCmdStateChange sc;
+        guint8 buffer[1024];
+        const gchar *str;
 
         if (spa_control_iter_parse_cmd (&it, &p) < 0)
           break;
 
         if (priv->format)
           g_bytes_unref (priv->format);
-        priv->format = g_bytes_new (p.str, strlen (p.str) + 1);
+        str = "video/x-raw,"
+              " format=(string)YUY2,"
+              " width=(int)320,"
+              " height=(int)240,"
+              " framerate=(fraction)30/1";
+        priv->format = g_bytes_new_static (str, strlen (str)+1);
         g_object_notify (G_OBJECT (stream), "format");
-        break;
-      }
-      case SPA_CONTROL_CMD_SET_PROPERTY:
-        g_warning ("set property not implemented");
-        break;
-
-      case SPA_CONTROL_CMD_END_CONFIGURE:
-      {
-        SpaControlBuilder builder;
-        SpaControl control;
-        guint8 buffer[1024];
 
         /* FIXME send update port status */
-        /* send start-alloc */
+
+        /* send state-change */
         spa_control_builder_init_into (&builder, buffer, 1024, NULL, 0);
-        spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_START_ALLOC, NULL);
+        sc.state = SPA_NODE_STATE_READY;
+        spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_STATE_CHANGE, &sc);
         spa_control_builder_end (&builder, &control);
 
         if (spa_control_write (&control, priv->fd) < 0)
@@ -624,19 +634,23 @@ parse_control (PinosStream *stream,
 
         break;
       }
-
-      case SPA_CONTROL_CMD_PAUSE:
+      case SPA_CONTROL_CMD_SET_PROPERTY:
+        g_warning ("set property not implemented");
         break;
+
       case SPA_CONTROL_CMD_START:
       {
+        g_debug ("stream %p: start", stream);
+
         if (priv->direction == PINOS_DIRECTION_INPUT)
-          send_need_input (stream, 0);
+          send_need_input (stream, 0, SPA_ID_INVALID);
 
         stream_set_state (stream, PINOS_STREAM_STATE_STREAMING, NULL);
         break;
       }
       case SPA_CONTROL_CMD_STOP:
       {
+        g_debug ("stream %p: stop", stream);
         stream_set_state (stream, PINOS_STREAM_STATE_READY, NULL);
         break;
       }
@@ -654,8 +668,9 @@ parse_control (PinosStream *stream,
         if (fd == -1)
           break;
 
+        g_debug ("add mem %d, %d", p.mem_id, fd);
         mid.cleanup = false;
-        mid.id = p.id;
+        mid.id = p.mem_id;
         mid.fd = fd;
         g_array_append_val (priv->mem_ids, mid);
         break;
@@ -668,7 +683,8 @@ parse_control (PinosStream *stream,
         if (spa_control_iter_parse_cmd (&it, &p) < 0)
           break;
 
-        if ((mid = find_mem (stream, p.id)))
+        g_debug ("stream %p: stop", stream);
+        if ((mid = find_mem (stream, p.mem_id)))
           mid->cleanup = true;
         break;
       }
@@ -680,6 +696,7 @@ parse_control (PinosStream *stream,
         if (spa_control_iter_parse_cmd (&it, &p) < 0)
           break;
 
+        g_debug ("add buffer %d", p.buffer->id);
         bid.cleanup = false;
         bid.id = p.buffer->id;
         bid.buf = p.buffer;
@@ -694,7 +711,8 @@ parse_control (PinosStream *stream,
         if (spa_control_iter_parse_cmd (&it, &p) < 0)
           break;
 
-        if ((bid = find_buffer (stream, p.id)))
+        g_debug ("remove buffer %d", p.buffer_id);
+        if ((bid = find_buffer (stream, p.buffer_id)))
           bid->cleanup = true;
         break;
       }
@@ -707,7 +725,8 @@ parse_control (PinosStream *stream,
         if (spa_control_iter_parse_cmd (&it, &p) < 0)
           break;
 
-        if ((bid = find_buffer (stream, p.id))) {
+        g_debug ("process buffer %d", p.buffer_id);
+        if ((bid = find_buffer (stream, p.buffer_id))) {
           SpaBuffer *b = bid->buf;
 
           for (i = 0; i < b->n_datas; i++) {
@@ -728,7 +747,15 @@ parse_control (PinosStream *stream,
         break;
       }
       case SPA_CONTROL_CMD_REUSE_BUFFER:
+      {
+        SpaControlCmdReuseBuffer p;
+
+        if (spa_control_iter_parse_cmd (&it, &p) < 0)
+          break;
+
+        g_debug ("reuse buffer %d", p.buffer_id);
         break;
+      }
 
       case SPA_CONTROL_CMD_INVALID:
         g_warning ("unhandled command %d", cmd);
@@ -768,8 +795,8 @@ on_socket_condition (GSocket      *socket,
 
       if (priv->buffer) {
         g_signal_emit (stream, signals[SIGNAL_NEW_BUFFER], 0, NULL);
+        send_need_input (stream, 0, priv->buffer->id);
         priv->buffer = NULL;
-        send_need_input (stream, 0);
       }
       for (i = 0; i < priv->mem_ids->len; i++) {
         MemId *mid = &g_array_index (priv->mem_ids, MemId, i);
@@ -1051,16 +1078,18 @@ do_start (PinosStream *stream)
   PinosStreamPrivate *priv = stream->priv;
   SpaControlBuilder builder;
   SpaControlCmdPortUpdate pu;
+  SpaControlCmdStateChange sc;
   SpaControl control;
 
   handle_socket (stream, priv->fd);
 
   control_builder_init (stream, &builder);
-  pu.port = 0;
+  pu.port_id = 0;
   pu.change_mask = 0;
 
   spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_PORT_UPDATE, &pu);
-  spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_START_CONFIGURE, NULL);
+  sc.state = SPA_NODE_STATE_CONFIGURE;
+  spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_STATE_CHANGE, &sc);
   spa_control_builder_end (&builder, &control);
 
   if (spa_control_write (&control, priv->fd) < 0)
@@ -1250,7 +1279,7 @@ pinos_stream_peek_buffer (PinosStream  *stream)
   g_return_val_if_fail (PINOS_IS_STREAM (stream), NULL);
   priv = stream->priv;
 
-  return spa_buffer_ref (priv->buffer);
+  return priv->buffer;
 }
 
 /**

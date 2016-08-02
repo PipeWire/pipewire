@@ -26,6 +26,24 @@ extern "C" {
 
 typedef struct _SpaNode SpaNode;
 
+/**
+ * SpaNodeState:
+ * @SPA_NODE_STATE_INIT: the node is initializing
+ * @SPA_NODE_STATE_CONFIGURE: the node needs at least one port format
+ * @SPA_NODE_STATE_READY: the node is ready for memory allocation
+ * @SPA_NODE_STATE_STREAMING: the node is streaming
+ * @SPA_NODE_STATE_ERROR: the node is in error
+ */
+typedef enum {
+  SPA_NODE_STATE_INIT,
+  SPA_NODE_STATE_CONFIGURE,
+  SPA_NODE_STATE_READY,
+  SPA_NODE_STATE_PAUSED,
+  SPA_NODE_STATE_STREAMING,
+  SPA_NODE_STATE_ERROR
+} SpaNodeState;
+
+
 #include <spa/defs.h>
 #include <spa/plugin.h>
 #include <spa/props.h>
@@ -62,18 +80,19 @@ typedef enum {
  * SpaInputInfo:
  * @port_id: the port id
  * @flags: extra flags
+ * @buffer_id: a buffer id
  * @offset: offset of data in @id
  * @size: size of data in @id
- * @id: a buffer id
+ * @status: status
  *
  * Input information for a node.
  */
 typedef struct {
   uint32_t        port_id;
   SpaInputFlags   flags;
+  uint32_t        buffer_id;
   off_t           offset;
   size_t          size;
-  uint32_t        id;
   SpaResult       status;
 } SpaInputInfo;
 
@@ -96,35 +115,21 @@ typedef enum {
  * SpaOutputInfo:
  * @port_id: the port id
  * @flags: extra flags
+ * @buffer_id: a buffer id will be set
  * @offset: offset to get
  * @size: size to get
- * @id: a buffer id will be set
- * @event: an event
+ * @status: a status
  *
  * Output information for a node.
  */
 typedef struct {
   uint32_t        port_id;
   SpaOutputFlags  flags;
+  uint32_t        buffer_id;
   off_t           offset;
   size_t          size;
-  uint32_t        id;
   SpaResult       status;
 } SpaOutputInfo;
-
-/**
- * SpaNodeState:
- * @SPA_NODE_STATE_INIT: the node is initializing
- * @SPA_NODE_STATE_CONFIGURE: the node needs at least one port format
- * @SPA_NODE_STATE_READY: the node is ready for memory allocation
- * @SPA_NODE_STREAMING: the node is streaming
- */
-typedef enum {
-  SPA_NODE_STATE_INIT,
-  SPA_NODE_STATE_CONFIGURE,
-  SPA_NODE_STATE_READY,
-  SPA_NODE_STATE_STREAMING
-} SpaNodeState;
 
 /**
  * SpaEventCallback:
@@ -371,6 +376,9 @@ struct _SpaNode {
    * will be set by @node so that buffers will be reused when the refcount
    * reaches 0.
    *
+   * Passing %NULL as @buffers will remove the reference that the port has
+   * on the buffers.
+   *
    * Returns: #SPA_RESULT_OK on success
    */
   SpaResult   (*port_use_buffers)     (SpaNode              *node,
@@ -403,6 +411,12 @@ struct _SpaNode {
                                        unsigned int          n_params,
                                        SpaBuffer           **buffers,
                                        unsigned int         *n_buffers);
+
+  SpaResult   (*port_reuse_buffer)    (SpaNode              *node,
+                                       uint32_t              port_id,
+                                       uint32_t              buffer_id,
+                                       off_t                 offset,
+                                       size_t                size);
 
   SpaResult   (*port_get_status)      (SpaNode              *node,
                                        uint32_t              port_id,
@@ -473,6 +487,7 @@ struct _SpaNode {
 #define spa_node_port_set_props(n,...)     (n)->port_set_props((n),__VA_ARGS__)
 #define spa_node_port_use_buffers(n,...)   (n)->port_use_buffers((n),__VA_ARGS__)
 #define spa_node_port_alloc_buffers(n,...) (n)->port_alloc_buffers((n),__VA_ARGS__)
+#define spa_node_port_reuse_buffer(n,...)  (n)->port_reuse_buffer((n),__VA_ARGS__)
 #define spa_node_port_get_status(n,...)    (n)->port_get_status((n),__VA_ARGS__)
 #define spa_node_port_push_input(n,...)    (n)->port_push_input((n),__VA_ARGS__)
 #define spa_node_port_pull_output(n,...)   (n)->port_pull_output((n),__VA_ARGS__)

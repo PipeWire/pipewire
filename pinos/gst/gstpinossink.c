@@ -525,8 +525,6 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   size = gst_buffer_get_size (buffer);
 
   b = g_slice_new (SinkBuffer);
-  b->buffer.refcount = 0;
-  b->buffer.notify = sink_buffer_free;
   b->buffer.id = pinos_fd_manager_get_id (pinossink->fdmanager);
   b->buffer.size = size;
   b->buffer.n_metas = 1;

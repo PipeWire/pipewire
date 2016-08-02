@@ -332,7 +332,6 @@ process_mem_data_destroy (gpointer user_data)
 {
   ProcessMemData *data = user_data;
 
-  spa_buffer_unref (data->buffer);
   gst_object_unref (data->src);
   g_slice_free (ProcessMemData, data);
 }

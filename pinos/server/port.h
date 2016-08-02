@@ -51,6 +51,10 @@ typedef struct _PinosPortPrivate PinosPortPrivate;
 struct _PinosPort {
   GObject object;
 
+  PinosDirection direction;
+  uint32_t id;
+  PinosNode *node;
+
   PinosPortPrivate *priv;
 };
 
@@ -67,28 +71,28 @@ struct _PinosPortClass {
                                      GTask              *task);
 };
 
-typedef gboolean (*PinosBufferCallback) (PinosPort *port, SpaBuffer *buffer, GError **error, gpointer user_data);
+typedef gboolean (*PinosBufferCallback) (PinosPort *port, uint32_t buffer_id, GError **error, gpointer user_data);
+typedef gboolean (*PinosEventCallback) (PinosPort *port, SpaEvent *event, GError **error, gpointer user_data);
 
 /* normal GObject stuff */
 GType               pinos_port_get_type           (void);
 
-void                pinos_port_set_received_buffer_cb (PinosPort *port,
-                                                       PinosBufferCallback cb,
+void                pinos_port_set_received_cb        (PinosPort *port,
+                                                       PinosBufferCallback buffer_cb,
+                                                       PinosEventCallback event_cb,
                                                        gpointer user_data,
                                                        GDestroyNotify notify);
-gulong              pinos_port_add_send_buffer_cb     (PinosPort *port,
-                                                       PinosBufferCallback cb,
+gulong              pinos_port_add_send_cb            (PinosPort *port,
+                                                       PinosBufferCallback buffer_cb,
+                                                       PinosEventCallback event_cb,
                                                        gpointer user_data,
                                                        GDestroyNotify notify);
-void                pinos_port_remove_send_buffer_cb  (PinosPort *port,
+void                pinos_port_remove_send_cb         (PinosPort *port,
                                                        gulong     id);
 
 void                pinos_port_remove               (PinosPort *port);
 
-PinosNode *         pinos_port_get_node             (PinosPort *port);
 const gchar *       pinos_port_get_name             (PinosPort *port);
-PinosDirection      pinos_port_get_direction        (PinosPort *port);
-guint               pinos_port_get_id               (PinosPort *port);
 PinosProperties *   pinos_port_get_properties       (PinosPort *port);
 
 GBytes *            pinos_port_get_possible_formats (PinosPort *port);
@@ -97,14 +101,21 @@ GBytes *            pinos_port_filter_formats       (PinosPort *port,
                                                      GError   **error);
 GBytes *            pinos_port_get_format           (PinosPort *port);
 
+
 void                pinos_port_activate             (PinosPort *port);
 void                pinos_port_deactivate           (PinosPort *port);
 
 gboolean            pinos_port_send_buffer          (PinosPort   *port,
-                                                     SpaBuffer *buffer,
+                                                     uint32_t     buffer_id,
+                                                     GError     **error);
+gboolean            pinos_port_send_event           (PinosPort   *port,
+                                                     SpaEvent    *event,
                                                      GError     **error);
 gboolean            pinos_port_receive_buffer       (PinosPort   *port,
-                                                     SpaBuffer *buffer,
+                                                     uint32_t     buffer_id,
+                                                     GError     **error);
+gboolean            pinos_port_receive_event        (PinosPort   *port,
+                                                     SpaEvent    *event,
                                                      GError     **error);
 
 G_END_DECLS

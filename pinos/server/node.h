@@ -28,6 +28,8 @@ typedef struct _PinosNode PinosNode;
 typedef struct _PinosNodeClass PinosNodeClass;
 typedef struct _PinosNodePrivate PinosNodePrivate;
 
+#include <spa/include/spa/node.h>
+
 #include <pinos/client/introspect.h>
 #include <pinos/server/daemon.h>
 #include <pinos/server/port.h>
@@ -48,6 +50,8 @@ typedef struct _PinosNodePrivate PinosNodePrivate;
  */
 struct _PinosNode {
   GObject object;
+
+  SpaNode *node;
 
   PinosNodePrivate *priv;
 };
@@ -78,7 +82,8 @@ GType               pinos_node_get_type                (void);
 PinosNode *         pinos_node_new                     (PinosDaemon     *daemon,
                                                         const gchar     *sender,
                                                         const gchar     *name,
-                                                        PinosProperties *properties);
+                                                        PinosProperties *properties,
+                                                        SpaNode         *node);
 void                pinos_node_remove                  (PinosNode *node);
 
 const gchar *       pinos_node_get_name                (PinosNode *node);

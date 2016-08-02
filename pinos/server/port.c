@@ -40,25 +40,25 @@
 typedef struct {
   gulong id;
   PinosBufferCallback send_buffer_cb;
-  gpointer send_buffer_data;
-  GDestroyNotify send_buffer_notify;
+  PinosEventCallback send_event_cb;
+  gpointer send_data;
+  GDestroyNotify send_notify;
 } SendData;
 
 struct _PinosPortPrivate
 {
   PinosDaemon *daemon;
 
-  guint id;
+  gulong data_id;
 
-  PinosNode *node;
-  PinosDirection direction;
   GBytes *possible_formats;
   GBytes *format;
   PinosProperties *properties;
 
   PinosBufferCallback received_buffer_cb;
-  gpointer received_buffer_data;
-  GDestroyNotify received_buffer_notify;
+  PinosEventCallback received_event_cb;
+  gpointer received_data;
+  GDestroyNotify received_notify;
 
   gint active_count;
 
@@ -92,10 +92,11 @@ static guint signals[LAST_SIGNAL] = { 0 };
 
 
 void
-pinos_port_set_received_buffer_cb (PinosPort *port,
-                                   PinosBufferCallback cb,
-                                   gpointer user_data,
-                                   GDestroyNotify notify)
+pinos_port_set_received_cb (PinosPort *port,
+                            PinosBufferCallback buffer_cb,
+                            PinosEventCallback event_cb,
+                            gpointer user_data,
+                            GDestroyNotify notify)
 {
   PinosPortPrivate *priv;
 
@@ -104,41 +105,45 @@ pinos_port_set_received_buffer_cb (PinosPort *port,
 
   g_debug ("port %p: set receive callback", port);
 
-  if (priv->received_buffer_notify)
-    priv->received_buffer_notify (priv->received_buffer_data);;
-  priv->received_buffer_cb = cb;
-  priv->received_buffer_data = user_data;
-  priv->received_buffer_notify = notify;
+  if (priv->received_notify)
+    priv->received_notify (priv->received_data);;
+  priv->received_buffer_cb = buffer_cb;
+  priv->received_event_cb = event_cb;
+  priv->received_data = user_data;
+  priv->received_notify = notify;
 }
 
 gulong
-pinos_port_add_send_buffer_cb (PinosPort *port,
-                               PinosBufferCallback cb,
-                               gpointer user_data,
-                               GDestroyNotify notify)
+pinos_port_add_send_cb (PinosPort *port,
+                        PinosBufferCallback buffer_cb,
+                        PinosEventCallback event_cb,
+                        gpointer user_data,
+                        GDestroyNotify notify)
 {
   PinosPortPrivate *priv;
   SendData *data;
 
   g_return_val_if_fail (PINOS_IS_PORT (port), -1);
-  g_return_val_if_fail (cb != NULL, -1);
+  g_return_val_if_fail (buffer_cb != NULL, -1);
+  g_return_val_if_fail (event_cb != NULL, -1);
   priv = port->priv;
 
   g_debug ("port %p: add send callback", port);
 
   data = g_slice_new (SendData);
-  data->id = priv->id++;
-  data->send_buffer_cb = cb;
-  data->send_buffer_data = user_data;
-  data->send_buffer_notify = notify;
+  data->id = priv->data_id++;
+  data->send_buffer_cb = buffer_cb;
+  data->send_event_cb = event_cb;
+  data->send_data = user_data;
+  data->send_notify = notify;
   priv->send_datas = g_list_prepend (priv->send_datas, data);
 
   return data->id;
 }
 
 void
-pinos_port_remove_send_buffer_cb (PinosPort *port,
-                                  gulong     id)
+pinos_port_remove_send_cb (PinosPort *port,
+                           gulong     id)
 {
   PinosPortPrivate *priv;
   GList *walk;
@@ -151,8 +156,8 @@ pinos_port_remove_send_buffer_cb (PinosPort *port,
     SendData *data = walk->data;
 
     if (data->id == id) {
-      if (data->send_buffer_notify)
-        data->send_buffer_notify (data->send_buffer_data);;
+      if (data->send_notify)
+        data->send_notify (data->send_data);;
       g_slice_free (SendData, data);
       priv->send_datas = g_list_delete_link (priv->send_datas, walk);
       break;
@@ -175,15 +180,15 @@ pinos_port_get_property (GObject    *_object,
       break;
 
     case PROP_NODE:
-      g_value_set_object (value, priv->node);
+      g_value_set_object (value, port->node);
       break;
 
     case PROP_DIRECTION:
-      g_value_set_enum (value, priv->direction);
+      g_value_set_enum (value, port->direction);
       break;
 
     case PROP_ID:
-      g_value_set_uint (value, priv->id);
+      g_value_set_uint (value, port->id);
       break;
 
     case PROP_POSSIBLE_FORMATS:
@@ -219,15 +224,15 @@ pinos_port_set_property (GObject      *_object,
       break;
 
     case PROP_NODE:
-      priv->node = g_value_get_object (value);
+      port->node = g_value_get_object (value);
       break;
 
     case PROP_DIRECTION:
-      priv->direction = g_value_get_enum (value);
+      port->direction = g_value_get_enum (value);
       break;
 
     case PROP_ID:
-      priv->id = g_value_get_uint (value);
+      port->id = g_value_get_uint (value);
       break;
 
     case PROP_POSSIBLE_FORMATS:
@@ -285,12 +290,12 @@ pinos_port_finalize (GObject * object)
   g_clear_pointer (&priv->possible_formats, g_bytes_unref);
   g_clear_pointer (&priv->format, g_bytes_unref);
   g_clear_pointer (&priv->properties, pinos_properties_free);
-  if (priv->received_buffer_notify)
-    priv->received_buffer_notify (priv->received_buffer_data);
+  if (priv->received_notify)
+    priv->received_notify (priv->received_data);
   for (walk = priv->send_datas; walk; walk = g_list_next (walk)) {
     SendData *data = walk->data;
-    if (data->send_buffer_notify)
-      data->send_buffer_notify (data->send_buffer_data);
+    if (data->send_notify)
+      data->send_notify (data->send_data);
     g_slice_free (SendData, data);
   }
   g_list_free (priv->send_datas);
@@ -435,7 +440,7 @@ pinos_port_init (PinosPort * port)
   PinosPortPrivate *priv = port->priv = PINOS_PORT_GET_PRIVATE (port);
 
   g_debug ("port %p: new", port);
-  priv->direction = PINOS_DIRECTION_INVALID;
+  port->direction = PINOS_DIRECTION_INVALID;
 }
 
 /**
@@ -451,63 +456,6 @@ pinos_port_remove (PinosPort *port)
 
   g_debug ("port %p: remove", port);
   g_signal_emit (port, signals[SIGNAL_REMOVE], 0, NULL);
-}
-
-/**
- * pinos_port_get_node:
- * @port: a #PinosPort
- *
- * Get the parent #PinosNode of @port
- *
- * Returns: the parent node or %NULL
- */
-PinosNode *
-pinos_port_get_node (PinosPort *port)
-{
-  PinosPortPrivate *priv;
-
-  g_return_val_if_fail (PINOS_IS_PORT (port), NULL);
-  priv = port->priv;
-
-  return priv->node;
-}
-
-/**
- * pinos_port_get_direction:
- * @port: a #PinosPort
- *
- * Get the direction of @port
- *
- * Returns: the direction or %NULL
- */
-PinosDirection
-pinos_port_get_direction (PinosPort *port)
-{
-  PinosPortPrivate *priv;
-
-  g_return_val_if_fail (PINOS_IS_PORT (port), PINOS_DIRECTION_INVALID);
-  priv = port->priv;
-
-  return priv->direction;
-}
-
-/**
- * pinos_port_get_id:
- * @port: a #PinosPort
- *
- * Get the id of @port
- *
- * Returns: the id or %NULL
- */
-guint
-pinos_port_get_id (PinosPort *port)
-{
-  PinosPortPrivate *priv;
-
-  g_return_val_if_fail (PINOS_IS_PORT (port), -1);
-  priv = port->priv;
-
-  return priv->id;
 }
 
 /**
@@ -625,11 +573,10 @@ pinos_port_deactivate (PinosPort *port)
     g_signal_emit (port, signals[SIGNAL_DEACTIVATE], 0, NULL);
 }
 
-
 /**
  * pinos_port_receive_buffer:
  * @port: a #PinosPort
- * @buffer: a #PinosBuffer
+ * @buffer_id: a buffer id
  * @error: a #GError or %NULL
  *
  * Receive @buffer on @port
@@ -638,16 +585,42 @@ pinos_port_deactivate (PinosPort *port)
  */
 gboolean
 pinos_port_receive_buffer (PinosPort   *port,
-                           SpaBuffer   *buffer,
+                           uint32_t     buffer_id,
                            GError     **error)
 {
   gboolean res = TRUE;
   PinosPortPrivate *priv = port->priv;
 
-  PINOS_DEBUG_TRANSPORT ("port %p: receive buffer %p", port, buffer);
+  PINOS_DEBUG_TRANSPORT ("port %p: receive buffer %d", port, buffer_id);
 
   if (priv->received_buffer_cb)
-    res = priv->received_buffer_cb (port, buffer, error, priv->received_buffer_data);
+    res = priv->received_buffer_cb (port, buffer_id, error, priv->received_data);
+
+  return res;
+}
+
+/**
+ * pinos_port_receive_event:
+ * @port: a #PinosPort
+ * @event: a #SpaEvent
+ * @error: a #GError or %NULL
+ *
+ * Receive @event on @port
+ *
+ * Returns: %TRUE on success. @error is set when %FALSE is returned.
+ */
+gboolean
+pinos_port_receive_event (PinosPort   *port,
+                          SpaEvent    *event,
+                          GError     **error)
+{
+  gboolean res = TRUE;
+  PinosPortPrivate *priv = port->priv;
+
+  PINOS_DEBUG_TRANSPORT ("port %p: receive event %p", port, event);
+
+  if (priv->received_event_cb)
+    res = priv->received_event_cb (port, event, error, priv->received_data);
 
   return res;
 }
@@ -655,7 +628,7 @@ pinos_port_receive_buffer (PinosPort   *port,
 /**
  * pinos_port_send_buffer:
  * @port: a #PinosPort
- * @buffer: a #SpaBuffer
+ * @buffer_id: a buffer id
  * @error: a #GError or %NULL
  *
  * Send @buffer out on @port.
@@ -664,7 +637,7 @@ pinos_port_receive_buffer (PinosPort   *port,
  */
 gboolean
 pinos_port_send_buffer (PinosPort   *port,
-                        SpaBuffer   *buffer,
+                        uint32_t     buffer_id,
                         GError     **error)
 {
   gboolean res = TRUE;
@@ -673,13 +646,45 @@ pinos_port_send_buffer (PinosPort   *port,
 
   g_return_val_if_fail (PINOS_IS_PORT (port), FALSE);
 
-  PINOS_DEBUG_TRANSPORT ("port %p: send buffer %p", port, buffer);
+  PINOS_DEBUG_TRANSPORT ("port %p: send buffer %d", port, buffer_id);
 
   priv = port->priv;
 
   for (walk = priv->send_datas; walk; walk = g_list_next (walk)) {
     SendData *data = walk->data;
-    data->send_buffer_cb (port, buffer, error, data->send_buffer_data);
+    data->send_buffer_cb (port, buffer_id, error, data->send_data);
+  }
+  return res;
+}
+
+/**
+ * pinos_port_send_event:
+ * @port: a #PinosPort
+ * @event: a #SpaEvent
+ * @error: a #GError or %NULL
+ *
+ * Send @event out on @port.
+ *
+ * Returns: %TRUE on success. @error is set when %FALSE is returned.
+ */
+gboolean
+pinos_port_send_event (PinosPort   *port,
+                       SpaEvent    *event,
+                       GError     **error)
+{
+  gboolean res = TRUE;
+  PinosPortPrivate *priv;
+  GList *walk;
+
+  g_return_val_if_fail (PINOS_IS_PORT (port), FALSE);
+
+  PINOS_DEBUG_TRANSPORT ("port %p: send event %p", port, event);
+
+  priv = port->priv;
+
+  for (walk = priv->send_datas; walk; walk = g_list_next (walk)) {
+    SendData *data = walk->data;
+    data->send_event_cb (port, event, error, data->send_data);
   }
   return res;
 }

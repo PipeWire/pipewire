@@ -148,7 +148,8 @@ handle_create_node (PinosDaemon1           *interface,
     node = pinos_node_new (daemon,
                            sender,
                            arg_name,
-                           props);
+                           props,
+                           NULL);
   }
 
   pinos_properties_free (props);
@@ -204,12 +205,10 @@ handle_create_client_node (PinosDaemon1           *interface,
   g_debug ("daemon %p: create client-node: %s", daemon, sender);
   props = pinos_properties_from_variant (arg_properties);
 
-  node =  g_object_new (PINOS_TYPE_CLIENT_NODE,
-                        "daemon", daemon,
-                        "sender", sender,
-                        "name", arg_name,
-                        "properties", props,
-                        NULL);
+  node =  pinos_client_node_new (daemon,
+                                 sender,
+                                 arg_name,
+                                 props);
 
   client = sender_get_client (daemon, sender);
 

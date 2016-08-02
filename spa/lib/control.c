@@ -355,10 +355,8 @@ parse_add_buffer (struct stack_iter      *si,
   uint32_t *p = si->data;
   unsigned int i;
 
-  command->port = *p++;
+  command->port_id = *p++;
   b = malloc (sizeof (MyBuffer));
-  b->buffer.refcount = 1;
-  b->buffer.notify = free;
   b->buffer.id = *(uint32_t *)p++;
   b->buffer.size = *(uint32_t *)p++;
   b->buffer.n_metas = *(uint32_t *)p++;
@@ -411,9 +409,14 @@ spa_control_iter_parse_cmd (SpaControlIter *iter,
       memcpy (command, si->data, sizeof (SpaControlCmdPortRemoved));
       break;
 
-    case SPA_CONTROL_CMD_START_CONFIGURE:
+    case SPA_CONTROL_CMD_STATE_CHANGE:
+      if (si->size < sizeof (SpaControlCmdStateChange))
+        return SPA_RESULT_ERROR;
+      memcpy (command, si->data, sizeof (SpaControlCmdStateChange));
+      break;
+
     case SPA_CONTROL_CMD_PORT_STATUS_CHANGE:
-    case SPA_CONTROL_CMD_START_ALLOC:
+      fprintf (stderr, "implement iter of %d\n", si->cmd);
       break;
 
     case SPA_CONTROL_CMD_NEED_INPUT:
@@ -447,8 +450,8 @@ spa_control_iter_parse_cmd (SpaControlIter *iter,
       uint32_t *p = si->data;
 
       cmd = command;
-      cmd->port = *p++;
-      cmd->str = (char *)p;
+      cmd->port_id = *p++;
+      cmd->format = (const SpaFormat *)p;
       break;
     }
 
@@ -456,8 +459,6 @@ spa_control_iter_parse_cmd (SpaControlIter *iter,
       fprintf (stderr, "implement iter of %d\n", si->cmd);
       break;
 
-    case SPA_CONTROL_CMD_END_CONFIGURE:
-    case SPA_CONTROL_CMD_PAUSE:
     case SPA_CONTROL_CMD_START:
     case SPA_CONTROL_CMD_STOP:
       break;
@@ -636,8 +637,6 @@ spa_control_builder_end (SpaControlBuilder *builder,
   sc->max_fds = sb->control.max_fds;
   sc->free_fds = sb->control.free_fds;
 
-  SPA_DEBUG_CONTROL ("builder %p: control %p init", builder, control);
-
   return SPA_RESULT_OK;
 }
 
@@ -743,7 +742,7 @@ build_add_buffer (struct stack_builder   *sb,
   }
   p = builder_add_cmd (sb, SPA_CONTROL_CMD_ADD_BUFFER, size);
 
-  *p++ = command->port;
+  *p++ = command->port_id;
   *p++ = b->id;
   *p++ = b->size;
   *p++ = b->n_metas;
@@ -803,12 +802,12 @@ spa_control_builder_add_cmd (SpaControlBuilder *builder,
       memcpy (p, command, sizeof (SpaControlCmdPortRemoved));
       break;
 
-    case SPA_CONTROL_CMD_START_CONFIGURE:
-      p = builder_add_cmd (sb, cmd, 0);
+    case SPA_CONTROL_CMD_STATE_CHANGE:
+      p = builder_add_cmd (sb, cmd, sizeof (SpaControlCmdStateChange));
+      memcpy (p, command, sizeof (SpaControlCmdStateChange));
       break;
 
     case SPA_CONTROL_CMD_PORT_STATUS_CHANGE:
-    case SPA_CONTROL_CMD_START_ALLOC:
       p = builder_add_cmd (sb, cmd, 0);
       break;
 
@@ -839,13 +838,13 @@ spa_control_builder_add_cmd (SpaControlBuilder *builder,
       SpaControlCmdSetFormat *sf = command;
       uint32_t *p;
 
-      slen = strlen (sf->str)+1;
+      slen = strlen ("")+1;
       /* port + string */
       len = 4 + slen;
 
       p = builder_add_cmd (sb, cmd, len);
-      *p++ = sf->port;
-      memcpy ((char*)p, sf->str, slen);
+      *p++ = sf->port_id;
+      memcpy ((char*)p, sf->format, slen);
       break;
     }
 
@@ -853,11 +852,6 @@ spa_control_builder_add_cmd (SpaControlBuilder *builder,
       fprintf (stderr, "implement builder of %d\n", cmd);
       break;
 
-    case SPA_CONTROL_CMD_END_CONFIGURE:
-      p = builder_add_cmd (sb, cmd, 0);
-      break;
-
-    case SPA_CONTROL_CMD_PAUSE:
     case SPA_CONTROL_CMD_START:
     case SPA_CONTROL_CMD_STOP:
       p = builder_add_cmd (sb, cmd, 0);
@@ -986,6 +980,8 @@ spa_control_read (SpaControl   *control,
   }
   sc->magic = SSC_MAGIC;
 
+  SPA_DEBUG_CONTROL ("read %zd bytes and %d fds\n", len, sc->n_fds);
+
   return SPA_RESULT_OK;
 
   /* ERRORS */
@@ -1036,6 +1032,8 @@ spa_control_write (SpaControl *control,
   }
   if (len != (ssize_t) sc->size)
     return SPA_RESULT_ERROR;
+
+  SPA_DEBUG_CONTROL ("written %zd bytes\n", len);
 
   return SPA_RESULT_OK;
 

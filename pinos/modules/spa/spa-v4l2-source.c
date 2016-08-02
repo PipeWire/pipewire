@@ -48,8 +48,6 @@ typedef struct {
 
 struct _PinosSpaV4l2SourcePrivate
 {
-  SpaNode *source;
-
   SpaPollFd fds[16];
   unsigned int n_fds;
   SpaPollItem poll;
@@ -112,143 +110,6 @@ make_node (SpaNode **node, const char *lib, const char *name)
   return SPA_RESULT_ERROR;
 }
 
-static void
-on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
-{
-  PinosSpaV4l2Source *source = user_data;
-  PinosSpaV4l2SourcePrivate *priv = source->priv;
-
-  switch (event->type) {
-    case SPA_EVENT_TYPE_CAN_PULL_OUTPUT:
-    {
-      SpaOutputInfo info[1] = { 0, };
-      SpaResult res;
-      SpaBuffer *b;
-      GList *walk;
-
-      if ((res = spa_node_port_pull_output (priv->source, 1, info)) < 0)
-        g_debug ("spa-v4l2-source %p: got pull error %d", source, res);
-
-      b = NULL; /* info[0].id; */
-
-      for (walk = priv->ports; walk; walk = g_list_next (walk)) {
-        SourcePortData *data = walk->data;
-        GError *error = NULL;
-
-        if (!data->have_format) {
-          g_object_set (data->port, "format", priv->format, NULL);
-          data->have_format = TRUE;
-        }
-
-        if (!pinos_port_send_buffer (data->port, b, &error)) {
-          g_debug ("send failed: %s", error->message);
-          g_clear_error (&error);
-        }
-      }
-      spa_buffer_unref (b);
-      break;
-    }
-
-    case SPA_EVENT_TYPE_ADD_POLL:
-    {
-      SpaPollItem *poll = event->data;
-
-      priv->poll = *poll;
-      priv->fds[0] = poll->fds[0];
-      priv->n_fds = 1;
-      priv->poll.fds = priv->fds;
-      break;
-    }
-    default:
-      g_debug ("got event %d", event->type);
-      break;
-  }
-}
-
-static void
-create_pipeline (PinosSpaV4l2Source *this)
-{
-  PinosSpaV4l2SourcePrivate *priv = this->priv;
-  SpaResult res;
-  SpaProps *props;
-  SpaPropValue value;
-
-  if ((res = make_node (&priv->source,
-                        "spa/build/plugins/v4l2/libspa-v4l2.so",
-                        "v4l2-source")) < 0) {
-    g_error ("can't create v4l2-source: %d", res);
-    return;
-  }
-  spa_node_set_event_callback (priv->source, on_source_event, this);
-
-  if ((res = spa_node_get_props (priv->source, &props)) < 0)
-    g_debug ("got get_props error %d", res);
-
-  value.type = SPA_PROP_TYPE_STRING;
-  value.value = "/dev/video1";
-  value.size = strlen (value.value)+1;
-  spa_props_set_prop (props, spa_props_index_for_name (props, "device"), &value);
-
-  if ((res = spa_node_set_props (priv->source, props)) < 0)
-    g_debug ("got set_props error %d", res);
-}
-
-static SpaResult
-negotiate_formats (PinosSpaV4l2Source *this)
-{
-  PinosSpaV4l2SourcePrivate *priv = this->priv;
-  SpaResult res;
-  SpaFormat *format;
-  SpaProps *props;
-  uint32_t val;
-  SpaPropValue value;
-  void *state = NULL;
-  SpaFraction frac;
-  SpaRectangle rect;
-  const gchar *str;
-
-  if ((res = spa_node_port_enum_formats (priv->source, 0, &format, NULL, &state)) < 0)
-    return res;
-
-  props = &format->props;
-
-  value.type = SPA_PROP_TYPE_UINT32;
-  value.size = sizeof (uint32_t);
-  value.value = &val;
-
-  val = SPA_VIDEO_FORMAT_YUY2;
-  if ((res = spa_props_set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_FORMAT), &value)) < 0)
-    return res;
-
-  value.type = SPA_PROP_TYPE_RECTANGLE;
-  value.size = sizeof (SpaRectangle);
-  value.value = &rect;
-  rect.width = 320;
-  rect.height = 240;
-  if ((res = spa_props_set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_SIZE), &value)) < 0)
-    return res;
-
-  value.type = SPA_PROP_TYPE_FRACTION;
-  value.size = sizeof (SpaFraction);
-  value.value = &frac;
-  frac.num = 25;
-  frac.denom = 1;
-  if ((res = spa_props_set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_FRAMERATE), &value)) < 0)
-    return res;
-
-  if ((res = spa_node_port_set_format (priv->source, 0, 0, format)) < 0)
-    return res;
-
-  str = "video/x-raw,"
-        " format=(string)YUY2,"
-        " width=(int)320,"
-        " height=(int)240,"
-        " framerate=(fraction)30/1";
-  priv->format = g_bytes_new_static (str, strlen (str)+1);
-
-  return SPA_RESULT_OK;
-}
-
 static void *
 loop (void *user_data)
 {
@@ -282,35 +143,186 @@ loop (void *user_data)
 }
 
 static void
-start_pipeline (PinosSpaV4l2Source *source)
+on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
 {
-  PinosSpaV4l2SourcePrivate *priv = source->priv;
-  SpaResult res;
-  SpaCommand cmd;
-  int err;
+  PinosSpaV4l2Source *this = user_data;
+  PinosSpaV4l2SourcePrivate *priv = this->priv;
 
-  g_debug ("spa-v4l2-source %p: starting pipeline", source);
-  negotiate_formats (source);
+  switch (event->type) {
+    case SPA_EVENT_TYPE_CAN_PULL_OUTPUT:
+    {
+      SpaOutputInfo info[1] = { 0, };
+      SpaResult res;
+      GList *walk;
 
-  cmd.type = SPA_COMMAND_START;
-  if ((res = spa_node_send_command (priv->source, &cmd)) < 0)
-    g_debug ("got error %d", res);
+      if ((res = spa_node_port_pull_output (node, 1, info)) < 0)
+        g_debug ("spa-v4l2-source %p: got pull error %d, %d", this, res, info[0].status);
 
-  priv->running = true;
-  if ((err = pthread_create (&priv->thread, NULL, loop, source)) != 0) {
-    g_debug ("spa-v4l2-source %p: can't create thread", strerror (err));
-    priv->running = false;
+      for (walk = priv->ports; walk; walk = g_list_next (walk)) {
+        SourcePortData *data = walk->data;
+        GError *error = NULL;
+
+        if (!pinos_port_send_buffer (data->port, info[0].buffer_id, &error)) {
+          g_debug ("send failed: %s", error->message);
+          g_clear_error (&error);
+        }
+      }
+      break;
+    }
+
+    case SPA_EVENT_TYPE_ADD_POLL:
+    {
+      SpaPollItem *poll = event->data;
+      int err;
+
+      priv->poll = *poll;
+      priv->fds[0] = poll->fds[0];
+      priv->n_fds = 1;
+      priv->poll.fds = priv->fds;
+
+      if (!priv->running) {
+        priv->running = true;
+        if ((err = pthread_create (&priv->thread, NULL, loop, this)) != 0) {
+          g_debug ("spa-v4l2-source %p: can't create thread: %s", this, strerror (err));
+          priv->running = false;
+        }
+      }
+      break;
+    }
+    case SPA_EVENT_TYPE_REMOVE_POLL:
+    {
+      if (priv->running) {
+        priv->running = false;
+        pthread_join (priv->thread, NULL);
+      }
+      break;
+    }
+    default:
+      g_debug ("got event %d", event->type);
+      break;
   }
 }
 
 static void
-stop_pipeline (PinosSpaV4l2Source *source)
+setup_node (PinosSpaV4l2Source *this)
 {
-  PinosSpaV4l2SourcePrivate *priv = source->priv;
+  PinosNode *node = PINOS_NODE (this);
+  PinosSpaV4l2SourcePrivate *priv = this->priv;
+  SpaResult res;
+  SpaProps *props;
+  SpaPropValue value;
+
+  spa_node_set_event_callback (node->node, on_source_event, this);
+
+  if ((res = spa_node_get_props (node->node, &props)) < 0)
+    g_debug ("got get_props error %d", res);
+
+  value.type = SPA_PROP_TYPE_STRING;
+  value.value = "/dev/video1";
+  value.size = strlen (value.value)+1;
+  spa_props_set_prop (props, spa_props_index_for_name (props, "device"), &value);
+
+  if ((res = spa_node_set_props (node->node, props)) < 0)
+    g_debug ("got set_props error %d", res);
+}
+
+#if 0
+static SpaResult
+negotiate_formats (PinosSpaV4l2Source *this)
+{
+  PinosNode *node = PINOS_NODE (this);
+  PinosSpaV4l2SourcePrivate *priv = this->priv;
+  SpaResult res;
+  SpaFormat *format;
+  SpaProps *props;
+  uint32_t val;
+  SpaPropValue value;
+  void *state = NULL;
+  SpaFraction frac;
+  SpaRectangle rect;
+  const gchar *str;
+
+  if ((res = spa_node_port_enum_formats (node->node, 0, &format, NULL, &state)) < 0)
+    return res;
+
+  props = &format->props;
+
+  value.type = SPA_PROP_TYPE_UINT32;
+  value.size = sizeof (uint32_t);
+  value.value = &val;
+
+  val = SPA_VIDEO_FORMAT_YUY2;
+  if ((res = spa_props_set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_FORMAT), &value)) < 0)
+    return res;
+
+  value.type = SPA_PROP_TYPE_RECTANGLE;
+  value.size = sizeof (SpaRectangle);
+  value.value = &rect;
+  rect.width = 320;
+  rect.height = 240;
+  if ((res = spa_props_set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_SIZE), &value)) < 0)
+    return res;
+
+  value.type = SPA_PROP_TYPE_FRACTION;
+  value.size = sizeof (SpaFraction);
+  value.value = &frac;
+  frac.num = 25;
+  frac.denom = 1;
+  if ((res = spa_props_set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_FRAMERATE), &value)) < 0)
+    return res;
+
+  if ((res = spa_node_port_set_format (node->node, 0, 0, format)) < 0)
+    return res;
+
+  str = "video/x-raw,"
+        " format=(string)YUY2,"
+        " width=(int)320,"
+        " height=(int)240,"
+        " framerate=(fraction)30/1";
+  priv->format = g_bytes_new_static (str, strlen (str)+1);
+
+  priv->n_buffers = 16;
+  if ((res = spa_node_port_alloc_buffers (node->node, 0, NULL, 0, priv->buffers, &priv->n_buffers)) < 0)
+    return res;
+
+  return SPA_RESULT_OK;
+}
+#endif
+
+static void
+start_pipeline (PinosSpaV4l2Source *this)
+{
+#if 0
+  PinosSpaV4l2SourcePrivate *priv = this->priv;
+  PinosNode *node = PINOS_NODE (this);
+  SpaResult res;
+  SpaCommand cmd;
+  int err;
+
+  g_debug ("spa-v4l2-source %p: starting pipeline", this);
+  negotiate_formats (this);
+
+  cmd.type = SPA_COMMAND_START;
+  if ((res = spa_node_send_command (node->node, &cmd)) < 0)
+    g_debug ("got error %d", res);
+
+  priv->running = true;
+  if ((err = pthread_create (&priv->thread, NULL, loop, this)) != 0) {
+    g_debug ("spa-v4l2-source %p: can't create thread", strerror (err));
+    priv->running = false;
+  }
+#endif
+}
+
+static void
+stop_pipeline (PinosSpaV4l2Source *this)
+{
+  PinosSpaV4l2SourcePrivate *priv = this->priv;
+  PinosNode *node = PINOS_NODE (this);
   SpaResult res;
   SpaCommand cmd;
 
-  g_debug ("spa-v4l2-source %p: stopping pipeline", source);
+  g_debug ("spa-v4l2-source %p: stopping pipeline", this);
 
   if (priv->running) {
     priv->running = false;
@@ -318,14 +330,14 @@ stop_pipeline (PinosSpaV4l2Source *source)
   }
 
   cmd.type = SPA_COMMAND_STOP;
-  if ((res = spa_node_send_command (priv->source, &cmd)) < 0)
+  if ((res = spa_node_send_command (node->node, &cmd)) < 0)
     g_debug ("got error %d", res);
 }
 
 static void
-destroy_pipeline (PinosSpaV4l2Source *source)
+destroy_pipeline (PinosSpaV4l2Source *this)
 {
-  g_debug ("spa-v4l2-source %p: destroy pipeline", source);
+  g_debug ("spa-v4l2-source %p: destroy pipeline", this);
 }
 
 static gboolean
@@ -440,7 +452,7 @@ source_constructed (GObject * object)
 
   G_OBJECT_CLASS (pinos_spa_v4l2_source_parent_class)->constructed (object);
 
-  create_pipeline (source);
+  setup_node (source);
 }
 
 static void
@@ -453,6 +465,42 @@ source_finalize (GObject * object)
 
   G_OBJECT_CLASS (pinos_spa_v4l2_source_parent_class)->finalize (object);
 }
+
+static gboolean
+on_received_buffer (PinosPort *port, uint32_t buffer_id, GError **error, gpointer user_data)
+{
+  return FALSE;
+}
+
+static gboolean
+on_received_event (PinosPort *port, SpaEvent *event, GError **error, gpointer user_data)
+{
+  PinosNode *node = user_data;
+  PinosSpaV4l2Source *source = PINOS_SPA_V4L2_SOURCE (node);
+  PinosSpaV4l2SourcePrivate *priv = source->priv;
+  SpaResult res;
+
+  switch (event->type) {
+    case SPA_EVENT_TYPE_REUSE_BUFFER:
+    {
+      SpaEventReuseBuffer *rb = event->data;
+
+      if ((res = spa_node_port_reuse_buffer (node->node,
+                                             event->port_id,
+                                             rb->buffer_id,
+                                             rb->offset,
+                                             rb->size)) < 0)
+        g_warning ("client-node %p: error reuse buffer: %d", node, res);
+      break;
+    }
+    default:
+      if ((res = spa_node_port_push_event (node->node, port->id, event)) < 0)
+        g_warning ("client-node %p: error pushing event: %d", node, res);
+      break;
+  }
+  return TRUE;
+}
+
 
 static PinosPort *
 add_port (PinosNode       *node,
@@ -471,6 +519,8 @@ add_port (PinosNode       *node,
 
   data->port = PINOS_NODE_CLASS (pinos_spa_v4l2_source_parent_class)
                     ->add_port (node, direction, id, error);
+
+  pinos_port_set_received_cb (data->port, on_received_buffer, on_received_event, node, NULL);
 
   g_debug ("connecting signals");
   g_signal_connect (data->port, "activate", (GCallback) on_activate, data);
@@ -511,11 +561,21 @@ pinos_spa_v4l2_source_new (PinosDaemon *daemon,
                            PinosProperties *properties)
 {
   PinosNode *node;
+  SpaNode *n;
+  SpaResult res;
+
+  if ((res = make_node (&n,
+                        "spa/build/plugins/v4l2/libspa-v4l2.so",
+                        "v4l2-source")) < 0) {
+    g_error ("can't create v4l2-source: %d", res);
+    return NULL;
+  }
 
   node = g_object_new (PINOS_TYPE_SPA_V4L2_SOURCE,
                        "daemon", daemon,
                        "name", name,
                        "properties", properties,
+                       "node", n,
                        NULL);
 
   return node;

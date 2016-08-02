@@ -228,13 +228,13 @@ spa_v4l2_source_node_send_command (SpaNode       *node,
 
       if (this->event_cb) {
         SpaEvent event;
+        SpaEventStateChange sc;
 
-        event.refcount = 1;
-        event.notify = NULL;
-        event.type = SPA_EVENT_TYPE_STARTED;
+        event.type = SPA_EVENT_TYPE_STATE_CHANGE;
         event.port_id = -1;
-        event.data = NULL;
-        event.size = 0;
+        event.data = &sc;
+        event.size = sizeof (sc);
+        sc.state = SPA_NODE_STATE_STREAMING;
 
         this->event_cb (node, &event, this->user_data);
       }
@@ -244,13 +244,13 @@ spa_v4l2_source_node_send_command (SpaNode       *node,
 
       if (this->event_cb) {
         SpaEvent event;
+        SpaEventStateChange sc;
 
-        event.refcount = 1;
-        event.notify = NULL;
-        event.type = SPA_EVENT_TYPE_STOPPED;
+        event.type = SPA_EVENT_TYPE_STATE_CHANGE;
         event.port_id = -1;
-        event.data = NULL;
-        event.size = 0;
+        event.data = &sc;
+        event.size = sizeof (sc);
+        sc.state = SPA_NODE_STATE_PAUSED;
 
         this->event_cb (node, &event, this->user_data);
       }
@@ -497,26 +497,6 @@ spa_v4l2_source_node_port_set_props (SpaNode         *node,
 }
 
 static SpaResult
-spa_v4l2_source_node_port_get_status (SpaNode              *node,
-                                      uint32_t              port_id,
-                                      const SpaPortStatus **status)
-{
-  SpaV4l2Source *this;
-
-  if (node == NULL || node->handle == NULL || status == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
-  this = (SpaV4l2Source *) node->handle;
-
-  if (port_id != 0)
-    return SPA_RESULT_INVALID_PORT;
-
-  *status = &this->state[port_id].status;
-
-  return SPA_RESULT_OK;
-}
-
-static SpaResult
 spa_v4l2_source_node_port_use_buffers (SpaNode         *node,
                                        uint32_t         port_id,
                                        SpaBuffer      **buffers,
@@ -560,6 +540,47 @@ spa_v4l2_source_node_port_alloc_buffers (SpaNode         *node,
   return SPA_RESULT_OK;
 }
 
+static SpaResult
+spa_v4l2_source_node_port_reuse_buffer (SpaNode         *node,
+                                        uint32_t         port_id,
+                                        uint32_t         buffer_id,
+                                        off_t            offset,
+                                        size_t           size)
+{
+  SpaV4l2Source *this;
+
+  if (node == NULL || node->handle == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaV4l2Source *) node->handle;
+
+  if (port_id != 0)
+    return SPA_RESULT_INVALID_PORT;
+
+  spa_v4l2_buffer_recycle (this, buffer_id);
+
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
+spa_v4l2_source_node_port_get_status (SpaNode              *node,
+                                      uint32_t              port_id,
+                                      const SpaPortStatus **status)
+{
+  SpaV4l2Source *this;
+
+  if (node == NULL || node->handle == NULL || status == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaV4l2Source *) node->handle;
+
+  if (port_id != 0)
+    return SPA_RESULT_INVALID_PORT;
+
+  *status = &this->state[port_id].status;
+
+  return SPA_RESULT_OK;
+}
 
 static SpaResult
 spa_v4l2_source_node_port_push_input (SpaNode        *node,
@@ -583,7 +604,6 @@ spa_v4l2_source_node_port_pull_output (SpaNode        *node,
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = (SpaV4l2Source *) node->handle;
-
 
   for (i = 0; i < n_info; i++) {
     V4l2Buffer *b;
@@ -612,7 +632,7 @@ spa_v4l2_source_node_port_pull_output (SpaNode        *node,
 
     b->outstanding = true;
 
-    info[i].id = b->buffer.id;
+    info[i].buffer_id = b->buffer.id;
     info[i].status = SPA_RESULT_OK;
   }
   if (have_error)
@@ -649,6 +669,7 @@ static const SpaNode v4l2source_node = {
   spa_v4l2_source_node_port_set_props,
   spa_v4l2_source_node_port_use_buffers,
   spa_v4l2_source_node_port_alloc_buffers,
+  spa_v4l2_source_node_port_reuse_buffer,
   spa_v4l2_source_node_port_get_status,
   spa_v4l2_source_node_port_push_input,
   spa_v4l2_source_node_port_pull_output,

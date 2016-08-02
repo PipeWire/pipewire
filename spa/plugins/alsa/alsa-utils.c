@@ -205,40 +205,18 @@ static void
 pull_input (SpaALSASink *this, void *data, snd_pcm_uframes_t frames)
 {
   SpaEvent event;
-  ALSABuffer *buffer = &this->buffer;
+  SpaEventPullInput pi;
 
-  event.refcount = 1;
-  event.notify = NULL;
   event.type = SPA_EVENT_TYPE_PULL_INPUT;
   event.port_id = 0;
   event.size = frames * sizeof (uint16_t) * 2;
-  event.data = buffer;
+  event.data = &pi;
 
-  buffer->buffer.refcount = 1;
-  buffer->buffer.notify = NULL;
-  buffer->buffer.size = frames * sizeof (uint16_t) * 2;
-  buffer->buffer.n_metas = 1;
-  buffer->buffer.metas = buffer->meta;
-  buffer->buffer.n_datas = 1;
-  buffer->buffer.datas = buffer->data;
+  pi.buffer_id = this->buffer.buffer.id;
+  pi.offset = 0;
+  pi.size = frames * sizeof (uint16_t) * 2;
 
-  buffer->header.flags = 0;
-  buffer->header.seq = 0;
-  buffer->header.pts = 0;
-  buffer->header.dts_offset = 0;
-
-  buffer->meta[0].type = SPA_META_TYPE_HEADER;
-  buffer->meta[0].data = &buffer->header;
-  buffer->meta[0].size = sizeof (buffer->header);
-
-  buffer->data[0].type = SPA_DATA_TYPE_MEMPTR;
-  buffer->data[0].ptr = data;
-  buffer->data[0].ptr_type = "sysmem";
-  buffer->data[0].size = frames * sizeof (uint16_t) * 2;
-
-  this->event_cb (&this->node, &event,this->user_data);
-
-  spa_buffer_unref ((SpaBuffer *)event.data);
+  this->event_cb (&this->node, &event, this->user_data);
 }
 
 static int
@@ -273,11 +251,10 @@ mmap_write (SpaALSASink *this)
                 frames);
 
     if (this->input_buffer) {
-      if (this->input_buffer != &this->buffer.buffer) {
+      if (this->input_buffer != this->buffer.buffer.id) {
         /* FIXME, copy input */
       }
-      spa_buffer_unref (this->input_buffer);
-      this->input_buffer = NULL;
+      this->input_buffer = -1;
     }
 
     commitres = snd_pcm_mmap_commit (handle, offset, frames);
@@ -366,8 +343,6 @@ spa_alsa_start (SpaALSASink *this)
     return err;
   }
 
-  event.refcount = 1;
-  event.notify = NULL;
   event.type = SPA_EVENT_TYPE_ADD_POLL;
   event.port_id = 0;
   event.data = &state->poll;
@@ -394,8 +369,6 @@ spa_alsa_stop (SpaALSASink *this)
 
   snd_pcm_drop (state->handle);
 
-  event.refcount = 1;
-  event.notify = NULL;
   event.type = SPA_EVENT_TYPE_REMOVE_POLL;
   event.port_id = 0;
   event.data = &state->poll;

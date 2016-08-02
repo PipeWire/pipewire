@@ -125,7 +125,7 @@ on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
       if ((res = spa_node_port_pull_output (data->source, 1, info)) < 0)
         printf ("got pull error %d\n", res);
 
-      b = data->bp[info->id];
+      b = data->bp[info->buffer_id];
 
       if (b->metas[1].type == SPA_META_TYPE_POINTER &&
           strcmp (((SpaMetaPointer*)b->metas[1].data)->ptr_type, "SDL_Texture") == 0) {
@@ -165,7 +165,7 @@ on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
         SDL_RenderCopy (data->renderer, data->texture, NULL, NULL);
         SDL_RenderPresent (data->renderer);
       }
-      spa_buffer_unref (b);
+      spa_node_port_reuse_buffer (data->source, 0, info->buffer_id, info->offset, info->size);
       break;
     }
     case SPA_EVENT_TYPE_ADD_POLL:
@@ -237,8 +237,6 @@ alloc_buffers (AppData *data)
       return;
     }
 
-    b->buffer.refcount = 1;
-    b->buffer.notify = NULL;
     b->buffer.id = i;
     b->buffer.size = stride * 240;
     b->buffer.n_metas = 2;

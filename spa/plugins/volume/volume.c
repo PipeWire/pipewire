@@ -159,13 +159,13 @@ spa_volume_node_send_command (SpaNode       *node,
     case SPA_COMMAND_START:
       if (this->event_cb) {
         SpaEvent event;
+        SpaEventStateChange sc;
 
-        event.refcount = 1;
-        event.notify = NULL;
-        event.type = SPA_EVENT_TYPE_STARTED;
+        event.type = SPA_EVENT_TYPE_STATE_CHANGE;
         event.port_id = -1;
-        event.data = NULL;
-        event.size = 0;
+        event.data = &sc;
+        event.size = sizeof (sc);
+        sc.state = SPA_NODE_STATE_STREAMING;
 
         this->event_cb (node, &event, this->user_data);
       }
@@ -174,13 +174,13 @@ spa_volume_node_send_command (SpaNode       *node,
     case SPA_COMMAND_STOP:
       if (this->event_cb) {
         SpaEvent event;
+        SpaEventStateChange sc;
 
-        event.refcount = 1;
-        event.notify = NULL;
-        event.type = SPA_EVENT_TYPE_STOPPED;
+        event.type = SPA_EVENT_TYPE_STATE_CHANGE;
         event.port_id = -1;
-        event.data = NULL;
-        event.size = 0;
+        event.data = &sc;
+        event.size = sizeof (sc);
+        sc.state = SPA_NODE_STATE_PAUSED;
 
         this->event_cb (node, &event, this->user_data);
       }
@@ -399,6 +399,36 @@ spa_volume_node_port_set_props (SpaNode         *node,
 }
 
 static SpaResult
+spa_volume_node_port_use_buffers (SpaNode         *node,
+                                  uint32_t         port_id,
+                                  SpaBuffer      **buffers,
+                                  uint32_t         n_buffers)
+{
+  return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
+static SpaResult
+spa_volume_node_port_alloc_buffers (SpaNode         *node,
+                                    uint32_t         port_id,
+                                    SpaAllocParam  **params,
+                                    uint32_t         n_params,
+                                    SpaBuffer      **buffers,
+                                    uint32_t        *n_buffers)
+{
+  return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
+static SpaResult
+spa_volume_node_port_reuse_buffer (SpaNode         *node,
+                                   uint32_t         port_id,
+                                   uint32_t         buffer_id,
+                                   off_t            offset,
+                                   size_t           size)
+{
+  return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
+static SpaResult
 spa_volume_node_port_get_status (SpaNode              *node,
                                  uint32_t              port_id,
                                  const SpaPortStatus **status)
@@ -422,26 +452,6 @@ spa_volume_node_port_get_status (SpaNode              *node,
   *status = &port->status;
 
   return SPA_RESULT_OK;
-}
-
-static SpaResult
-spa_volume_node_port_use_buffers (SpaNode         *node,
-                                  uint32_t         port_id,
-                                  SpaBuffer      **buffers,
-                                  uint32_t         n_buffers)
-{
-  return SPA_RESULT_NOT_IMPLEMENTED;
-}
-
-static SpaResult
-spa_volume_node_port_alloc_buffers (SpaNode         *node,
-                                    uint32_t         port_id,
-                                    SpaAllocParam  **params,
-                                    uint32_t         n_params,
-                                    SpaBuffer      **buffers,
-                                    uint32_t        *n_buffers)
-{
-  return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 
@@ -471,7 +481,7 @@ spa_volume_node_port_push_input (SpaNode        *node,
     }
 
     port = &this->ports[info[i].port_id];
-    buffer = port->buffers[info[i].id];
+    buffer = port->buffers[info[i].buffer_id];
 
     if (buffer == NULL) {
       info[i].status = SPA_RESULT_INVALID_ARGUMENTS;
@@ -491,7 +501,7 @@ spa_volume_node_port_push_input (SpaNode        *node,
         have_enough = true;
         continue;
       }
-      port->buffer = spa_buffer_ref (buffer);
+      port->buffer = buffer;
 
       this->ports[0].status.flags &= ~SPA_PORT_STATUS_FLAG_NEED_INPUT;
       this->ports[1].status.flags |= SPA_PORT_STATUS_FLAG_HAVE_OUTPUT;
@@ -510,6 +520,22 @@ static SpaBuffer *
 find_free_buffer (SpaVolume *this, SpaVolumePort *port)
 {
   return NULL;
+}
+
+static void
+release_buffer (SpaVolume *this, SpaBuffer *buffer)
+{
+  SpaEvent event;
+  SpaEventReuseBuffer rb;
+
+  event.type = SPA_EVENT_TYPE_REUSE_BUFFER;
+  event.port_id = 0;
+  event.data = &rb;
+  event.size = sizeof (rb);
+  rb.buffer_id = buffer->id;
+  rb.offset = 0;
+  rb.size = -1;
+  this->event_cb (&this->node, &event, this->user_data);
 }
 
 static SpaResult
@@ -586,10 +612,10 @@ spa_volume_node_port_pull_output (SpaNode        *node,
   }
 
   if (sbuf != dbuf)
-    spa_buffer_unref (sbuf);
+    release_buffer (this, sbuf);
 
   this->ports[0].buffer = NULL;
-  info->id = dbuf->id;
+  info->buffer_id = dbuf->id;
 
   this->ports[0].status.flags |= SPA_PORT_STATUS_FLAG_NEED_INPUT;
   this->ports[1].status.flags &= ~SPA_PORT_STATUS_FLAG_HAVE_OUTPUT;
@@ -624,6 +650,7 @@ static const SpaNode volume_node = {
   spa_volume_node_port_set_props,
   spa_volume_node_port_use_buffers,
   spa_volume_node_port_alloc_buffers,
+  spa_volume_node_port_reuse_buffer,
   spa_volume_node_port_get_status,
   spa_volume_node_port_push_input,
   spa_volume_node_port_pull_output,

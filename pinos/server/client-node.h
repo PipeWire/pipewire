@@ -62,6 +62,11 @@ struct _PinosClientNodeClass {
 /* normal GObject stuff */
 GType              pinos_client_node_get_type             (void);
 
+PinosNode *        pinos_client_node_new                  (PinosDaemon     *daemon,
+                                                           const gchar     *sender,
+                                                           const gchar     *name,
+                                                           PinosProperties *properties);
+
 GSocket *          pinos_client_node_get_socket_pair      (PinosClientNode  *node,
                                                            GError          **error);
 

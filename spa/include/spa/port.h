@@ -30,6 +30,7 @@ extern "C" {
 /**
  * SpaAllocParamType:
  * @SPA_ALLOC_PARAM_TYPE_INVALID: invalid type, should be ignored
+ * @SPA_ALLOC_PARAM_TYPE_BUFFER: buffer requirements
  * @SPA_ALLOC_PARAM_TYPE_META_ENABLE: enable a certain metadata on buffers
  * @SPA_ALLOC_PARAM_TYPE_VIDEO_PADDING: do specialized video padding
  */
@@ -92,11 +93,6 @@ typedef enum {
 /**
  * SpaPortInfo
  * @flags: extra port flags
- * @minsize: minimum size of the buffers or 0 when not specified
- * @stride: suggested stride or 0 when not specified
- * @min_buffers: minimum number of buffers
- * @max_buffers: maximum number of buffers
- * @align: required alignment of the data
  * @maxbuffering: the maximum amount of bytes that the element will keep
  *                around internally
  * @latency: latency on this port in nanoseconds

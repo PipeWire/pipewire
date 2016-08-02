@@ -34,6 +34,7 @@ typedef struct _SpaControlBuilder SpaControlBuilder;
 #include <spa/props.h>
 #include <spa/format.h>
 #include <spa/port.h>
+#include <spa/node.h>
 
 struct _SpaControl {
   size_t x[16];
@@ -59,13 +60,12 @@ typedef enum {
   SPA_CONTROL_CMD_PORT_UPDATE              = 2,
   SPA_CONTROL_CMD_PORT_REMOVED             = 3,
 
-  SPA_CONTROL_CMD_START_CONFIGURE          = 4,
+  SPA_CONTROL_CMD_STATE_CHANGE             = 4,
 
   SPA_CONTROL_CMD_PORT_STATUS_CHANGE       = 5,
-  SPA_CONTROL_CMD_START_ALLOC              = 6,
 
-  SPA_CONTROL_CMD_NEED_INPUT               = 7,
-  SPA_CONTROL_CMD_HAVE_OUTPUT              = 8,
+  SPA_CONTROL_CMD_NEED_INPUT               = 6,
+  SPA_CONTROL_CMD_HAVE_OUTPUT              = 7,
 
   /* server to client */
   SPA_CONTROL_CMD_ADD_PORT                 = 32,
@@ -73,11 +73,9 @@ typedef enum {
 
   SPA_CONTROL_CMD_SET_FORMAT               = 34,
   SPA_CONTROL_CMD_SET_PROPERTY             = 35,
-  SPA_CONTROL_CMD_END_CONFIGURE            = 36,
 
-  SPA_CONTROL_CMD_PAUSE                    = 37,
-  SPA_CONTROL_CMD_START                    = 38,
-  SPA_CONTROL_CMD_STOP                     = 39,
+  SPA_CONTROL_CMD_START                    = 36,
+  SPA_CONTROL_CMD_STOP                     = 37,
 
   /* both */
   SPA_CONTROL_CMD_ADD_MEM                  = 64,
@@ -100,7 +98,7 @@ typedef struct {
 
 /* SPA_CONTROL_CMD_PORT_UPDATE */
 typedef struct {
-  uint32_t           port;
+  uint32_t           port_id;
   uint32_t           change_mask;
   uint32_t           direction;
   uint32_t           n_possible_formats;
@@ -111,65 +109,61 @@ typedef struct {
 
 /* SPA_CONTROL_CMD_PORT_REMOVED */
 typedef struct {
-  uint32_t port;
+  uint32_t port_id;
 } SpaControlCmdPortRemoved;
 
-/* SPA_CONTROL_CMD_START_CONFIGURE */
+/* SPA_CONTROL_CMD_STATE_CHANGE */
+typedef struct {
+  SpaNodeState state;
+} SpaControlCmdStateChange;
 
 /* SPA_CONTROL_CMD_PORT_STATUS_CHANGE */
 
-/* SPA_CONTROL_CMD_START_ALLOC */
-
 /* SPA_CONTROL_CMD_NEED_INPUT */
 typedef struct {
-  uint32_t port;
+  uint32_t port_id;
 } SpaControlCmdNeedInput;
 
 /* SPA_CONTROL_CMD_HAVE_OUTPUT */
 typedef struct {
-  uint32_t port;
+  uint32_t port_id;
 } SpaControlCmdHaveOutput;
 
 
 /* SPA_CONTROL_CMD_ADD_PORT */
 typedef struct {
-  uint32_t port;
+  uint32_t port_id;
   uint32_t direction;
 } SpaControlCmdAddPort;
 
 /* SPA_CONTROL_CMD_REMOVE_PORT */
 typedef struct {
-  uint32_t port;
+  uint32_t port_id;
 } SpaControlCmdRemovePort;
 
 
 /* SPA_CONTROL_CMD_SET_FORMAT */
 typedef struct {
-  uint32_t         port;
+  uint32_t         port_id;
   const SpaFormat *format;
-  const char *str;
 } SpaControlCmdSetFormat;
 
 /* SPA_CONTROL_CMD_SET_PROPERTY */
 typedef struct {
-  uint32_t   port;
+  uint32_t   port_id;
   uint32_t   id;
   uint32_t   size;
   void      *value;
 } SpaControlCmdSetProperty;
 
-/* SPA_CONTROL_CMD_END_CONFIGURE */
-
 /* SPA_CONTROL_CMD_PAUSE */
 /* SPA_CONTROL_CMD_START */
-/* SPA_CONTROL_CMD_STOP */
-
 
 /* SPA_CONTROL_CMD_ADD_MEM */
 typedef struct {
-  uint32_t port;
-  uint32_t id;
-  uint32_t type;
+  uint32_t port_id;
+  uint32_t mem_id;
+  uint32_t mem_type;
   uint32_t fd_index;
   uint64_t offset;
   uint64_t size;
@@ -177,32 +171,36 @@ typedef struct {
 
 /* SPA_CONTROL_CMD_REMOVE_MEM */
 typedef struct {
-  uint32_t port;
-  uint32_t id;
+  uint32_t port_id;
+  uint32_t mem_id;
 } SpaControlCmdRemoveMem;
 
 /* SPA_CONTROL_CMD_ADD_BUFFER */
 typedef struct {
-  uint32_t port;
+  uint32_t port_id;
   SpaBuffer *buffer;
 } SpaControlCmdAddBuffer;
 
 /* SPA_CONTROL_CMD_REMOVE_BUFFER */
 typedef struct {
-  uint32_t port;
-  uint32_t id;
+  uint32_t port_id;
+  uint32_t buffer_id;
 } SpaControlCmdRemoveBuffer;
 
 /* SPA_CONTROL_CMD_PROCESS_BUFFER */
 typedef struct {
-  uint32_t port;
-  uint32_t id;
+  uint32_t port_id;
+  uint32_t buffer_id;
+  uint64_t offset;
+  uint64_t size;
 } SpaControlCmdProcessBuffer;
 
 /* SPA_CONTROL_CMD_REUSE_BUFFER */
 typedef struct {
-  uint32_t port;
-  uint32_t id;
+  uint32_t port_id;
+  uint32_t buffer_id;
+  uint64_t offset;
+  uint64_t size;
 } SpaControlCmdReuseBuffer;
 
 

@@ -138,9 +138,6 @@ typedef struct {
 
 /**
  * SpaBuffer:
- * @refcount: reference counter
- * @notify: called when the refcount reaches 0
- * @user_data: extra user data
  * @id: buffer id
  * @size: total size of the buffer data
  * @n_metas: number of metadata
@@ -149,9 +146,6 @@ typedef struct {
  * @datas: array of @n_datas data pointers
  */
 struct _SpaBuffer {
-  volatile int      refcount;
-  SpaNotify         notify;
-  void             *user_data;
   uint32_t          id;
   size_t            size;
   unsigned int      n_metas;
@@ -159,44 +153,6 @@ struct _SpaBuffer {
   unsigned int      n_datas;
   SpaData          *datas;
 };
-
-/**
- * spa_buffer_ref:
- * @buffer: a #SpaBuffer
- *
- * Increase the refcount on @buffer
- *
- * Returns: @buffer
- */
-static inline SpaBuffer *
-spa_buffer_ref (SpaBuffer *buffer)
-{
-  if (buffer != NULL)
-    buffer->refcount++;
-  return buffer;
-}
-
-/**
- * spa_buffer_unref:
- * @buffer: a #SpaBuffer
- *
- * Decrease the refcount on buffer. when the refcount is 0, the notify,
- * if any, of the buffer will be called.
- *
- * Returns: @buffer or %NULL when the refcount is 0
- */
-static inline SpaBuffer *
-spa_buffer_unref (SpaBuffer *buffer)
-{
-  if (buffer != NULL) {
-    if (--buffer->refcount == 0) {
-      if (buffer->notify)
-        buffer->notify (buffer);
-      return NULL;
-    }
-  }
-  return buffer;
-}
 
 #ifdef __cplusplus
 }  /* extern "C" */

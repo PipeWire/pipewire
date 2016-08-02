@@ -21,6 +21,8 @@
 
 #include <gio/gio.h>
 
+#include <spa/include/spa/video/format.h>
+
 #include "pinos/client/pinos.h"
 #include "pinos/client/enumtypes.h"
 
@@ -40,11 +42,24 @@ struct _PinosLinkPrivate
   gchar *object_path;
 
   gulong input_id, output_id;
+
   gboolean active;
+  gboolean negotiated;
+  gboolean allocated;
+
   PinosPort *output;
   PinosPort *input;
+
+  SpaNode *output_node;
+  uint32_t output_port;
+  SpaNode *input_node;
+  uint32_t input_port;
+
   GBytes *possible_formats;
   GBytes *format;
+
+  SpaBuffer *buffers[16];
+  unsigned int n_buffers;
 };
 
 G_DEFINE_TYPE (PinosLink, pinos_link, G_TYPE_OBJECT);
@@ -69,21 +84,39 @@ enum
 static guint signals[LAST_SIGNAL] = { 0 };
 
 static gboolean
-on_output_send (PinosPort *port, SpaBuffer *buffer, GError **error, gpointer user_data)
+on_output_buffer (PinosPort *port, uint32_t buffer_id, GError **error, gpointer user_data)
 {
   PinosLink *link = user_data;
   PinosLinkPrivate *priv = link->priv;
 
-  return pinos_port_receive_buffer (priv->input, buffer, error);
+  return pinos_port_receive_buffer (priv->input, buffer_id, error);
 }
 
 static gboolean
-on_input_send (PinosPort *port, SpaBuffer *buffer, GError **error, gpointer user_data)
+on_output_event (PinosPort *port, SpaEvent *event, GError **error, gpointer user_data)
 {
   PinosLink *link = user_data;
   PinosLinkPrivate *priv = link->priv;
 
-  return pinos_port_receive_buffer (priv->output, buffer, error);
+  return pinos_port_receive_event (priv->input, event, error);
+}
+
+static gboolean
+on_input_buffer (PinosPort *port, uint32_t buffer_id, GError **error, gpointer user_data)
+{
+  PinosLink *link = user_data;
+  PinosLinkPrivate *priv = link->priv;
+
+  return pinos_port_receive_buffer (priv->output, buffer_id, error);
+}
+
+static gboolean
+on_input_event (PinosPort *port, SpaEvent *event, GError **error, gpointer user_data)
+{
+  PinosLink *link = user_data;
+  PinosLinkPrivate *priv = link->priv;
+
+  return pinos_port_receive_event (priv->output, event, error);
 }
 
 static void
@@ -142,10 +175,14 @@ pinos_link_set_property (GObject      *_object,
 
     case PROP_OUTPUT:
       priv->output = g_value_dup_object (value);
+      priv->output_node = priv->output->node->node;
+      priv->output_port = priv->output->id;
       break;
 
     case PROP_INPUT:
       priv->input = g_value_dup_object (value);
+      priv->input_node = priv->input->node->node;
+      priv->input_port = priv->input->id;
       break;
 
     case PROP_OBJECT_PATH:
@@ -199,11 +236,101 @@ link_unregister_object (PinosLink *link)
   pinos_daemon_unexport (priv->daemon, priv->object_path);
 }
 
+static SpaResult
+do_negotiate (PinosLink *this)
+{
+  PinosLinkPrivate *priv = this->priv;
+  SpaResult res;
+  SpaFormat *format;
+  SpaProps *props;
+  uint32_t val;
+  SpaPropValue value;
+  void *state = NULL;
+  SpaFraction frac;
+  SpaRectangle rect;
+
+  g_debug ("link %p: doing set format", this);
+
+  if ((res = spa_node_port_enum_formats (priv->output_node, priv->output_port, &format, NULL, &state)) < 0) {
+    g_warning ("error enum formats: %d", res);
+    return res;
+  }
+
+  props = &format->props;
+
+  value.type = SPA_PROP_TYPE_UINT32;
+  value.size = sizeof (uint32_t);
+  value.value = &val;
+
+  val = SPA_VIDEO_FORMAT_YUY2;
+  if ((res = spa_props_set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_FORMAT), &value)) < 0)
+    return res;
+
+  value.type = SPA_PROP_TYPE_RECTANGLE;
+  value.size = sizeof (SpaRectangle);
+  value.value = &rect;
+  rect.width = 320;
+  rect.height = 240;
+  if ((res = spa_props_set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_SIZE), &value)) < 0)
+    return res;
+
+  value.type = SPA_PROP_TYPE_FRACTION;
+  value.size = sizeof (SpaFraction);
+  value.value = &frac;
+  frac.num = 25;
+  frac.denom = 1;
+  if ((res = spa_props_set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_FRAMERATE), &value)) < 0)
+    return res;
+
+  if ((res = spa_node_port_set_format (priv->output_node, priv->output_port, 0, format)) < 0) {
+    g_warning ("error set format output: %d", res);
+    return res;
+  }
+
+  if ((res = spa_node_port_set_format (priv->input_node, priv->input_port, 0, format)) < 0) {
+    g_warning ("error set format input: %d", res);
+    return res;
+  }
+
+  priv->negotiated = TRUE;
+
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
+do_allocation (PinosLink *this)
+{
+  PinosLinkPrivate *priv = this->priv;
+  SpaResult res;
+
+  g_debug ("link %p: doing alloc buffers", this);
+
+  priv->n_buffers = 16;
+  if ((res = spa_node_port_alloc_buffers (priv->output_node, priv->output_port,
+                                          NULL, 0,
+                                          priv->buffers, &priv->n_buffers)) < 0) {
+    g_warning ("error alloc buffers: %d", res);
+    return res;
+  }
+
+  if ((res = spa_node_port_use_buffers (priv->input_node, priv->input_port,
+                                        priv->buffers, priv->n_buffers)) < 0) {
+    g_warning ("error alloc buffers: %d", res);
+    return res;
+  }
+
+  priv->allocated = TRUE;
+
+  return SPA_RESULT_OK;
+}
+
 static gboolean
 on_activate (PinosPort *port, gpointer user_data)
 {
-  PinosLink *link = user_data;
-  PinosLinkPrivate *priv = link->priv;
+  PinosLink *this = user_data;
+  PinosLinkPrivate *priv = this->priv;
+  SpaCommand cmd;
+  SpaResult res;
 
   if (priv->active)
     return TRUE;
@@ -214,6 +341,19 @@ on_activate (PinosPort *port, gpointer user_data)
     pinos_port_activate (priv->input);
   priv->active = TRUE;
 
+  if (!priv->negotiated)
+    do_negotiate (this);
+
+  /* negotiate allocation */
+  if (!priv->allocated)
+    do_allocation (this);
+
+  cmd.type = SPA_COMMAND_START;
+  if ((res = spa_node_send_command (priv->input_node, &cmd)) < 0)
+    g_warning ("got error %d", res);
+  if ((res = spa_node_send_command (priv->output_node, &cmd)) < 0)
+    g_warning ("got error %d", res);
+
   return TRUE;
 }
 
@@ -222,6 +362,8 @@ on_deactivate (PinosPort *port, gpointer user_data)
 {
   PinosLink *link = user_data;
   PinosLinkPrivate *priv = link->priv;
+  SpaCommand cmd;
+  SpaResult res;
 
   if (!priv->active)
     return TRUE;
@@ -232,21 +374,13 @@ on_deactivate (PinosPort *port, gpointer user_data)
     pinos_port_deactivate (priv->input);
   priv->active = FALSE;
 
+  cmd.type = SPA_COMMAND_STOP;
+  if ((res = spa_node_send_command (priv->input_node, &cmd)) < 0)
+    g_warning ("got error %d", res);
+  if ((res = spa_node_send_command (priv->output_node, &cmd)) < 0)
+    g_warning ("got error %d", res);
+
   return TRUE;
-}
-
-static void
-on_format_change (GObject *obj,
-                  GParamSpec *pspec,
-                  gpointer user_data)
-{
-  PinosLink *link = user_data;
-  PinosLinkPrivate *priv = link->priv;
-  GBytes *formats;
-
-  g_object_get (priv->output, "format", &formats, NULL);
-  g_debug ("port %p: format change %s", priv->output, (gchar*)g_bytes_get_data (formats, NULL));
-  g_object_set (priv->input, "format", formats, NULL);
 }
 
 static void
@@ -254,23 +388,17 @@ pinos_link_constructed (GObject * object)
 {
   PinosLink *link = PINOS_LINK (object);
   PinosLinkPrivate *priv = link->priv;
-  GBytes *formats;
 
-  priv->output_id = pinos_port_add_send_buffer_cb (priv->output,
-                                 on_output_send,
+  priv->output_id = pinos_port_add_send_cb (priv->output,
+                                 on_output_buffer,
+                                 on_output_event,
                                  link,
                                  NULL);
-  priv->input_id = pinos_port_add_send_buffer_cb (priv->input,
-                                 on_input_send,
+  priv->input_id = pinos_port_add_send_cb (priv->input,
+                                 on_input_buffer,
+                                 on_input_event,
                                  link,
                                  NULL);
-
-  g_object_get (priv->input, "possible-formats", &formats, NULL);
-  g_object_set (priv->output, "possible-formats", formats, NULL);
-  g_object_get (priv->output, "format", &formats, NULL);
-  g_object_set (priv->input, "format", formats, NULL);
-
-  g_signal_connect (priv->output, "notify::format", (GCallback) on_format_change, link);
 
   g_signal_connect (priv->input, "activate", (GCallback) on_activate, link);
   g_signal_connect (priv->input, "deactivate", (GCallback) on_deactivate, link);
@@ -291,8 +419,8 @@ pinos_link_dispose (GObject * object)
 
   g_debug ("link %p: dispose", link);
 
-  pinos_port_remove_send_buffer_cb (priv->input, priv->input_id);
-  pinos_port_remove_send_buffer_cb (priv->output, priv->output_id);
+  pinos_port_remove_send_cb (priv->input, priv->input_id);
+  pinos_port_remove_send_cb (priv->output, priv->output_id);
   if (priv->active) {
     priv->active = FALSE;
     pinos_port_deactivate (priv->input);
@@ -415,7 +543,7 @@ pinos_link_new (PinosDaemon *daemon,
   PinosLink *link;
   PinosPort *tmp;
 
-  if (pinos_port_get_direction (output) != PINOS_DIRECTION_OUTPUT) {
+  if (output->direction != PINOS_DIRECTION_OUTPUT) {
     tmp = output;
     output = input;
     input = tmp;

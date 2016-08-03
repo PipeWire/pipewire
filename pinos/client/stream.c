@@ -1269,12 +1269,5 @@ pinos_stream_send_buffer (PinosStream *stream,
   g_return_val_if_fail (PINOS_IS_STREAM (stream), FALSE);
   g_return_val_if_fail (buffer != NULL, FALSE);
 
-#if 0
-  if (!spa_control_write (priv->fd, buffer, &error)) {
-    g_warning ("stream %p: failed to write buffer: %s", stream, error->message);
-    g_clear_error (&error);
-    return FALSE;
-  }
-#endif
   return TRUE;
 }

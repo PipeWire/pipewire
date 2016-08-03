@@ -616,71 +616,6 @@ add_buffer (SpaProxy *this, uint32_t port_id, SpaBuffer *buffer)
   return SPA_RESULT_OK;
 }
 
-#if 0
-static SpaResult
-add_buffer (SpaProxy *this, uint32_t port_id, SpaBuffer *buffer)
-{
-  SpaControl control;
-  SpaControlBuilder builder;
-  uint8_t buf[1024];
-  int fds[16];
-  SpaControlCmdAddMem am;
-  SpaControlCmdAddBuffer ab;
-  int i;
-  SpaResult res;
-  SpaBuffer *b;
-  SpaMemory *bmem;
-
-  spa_control_builder_init_into (&builder, buf, sizeof (buf), fds, sizeof (fds));
-
-  bmem = spa_memory_alloc_with_fd (0, buffer, buffer->size);
-  b = spa_memory_ensure_ptr (bmem);
-  b->mem_id = bmem->id;
-  b->offset = 0;
-
-  am.port_id = port_id;
-  am.mem_id = bmem->id;
-  am.mem_type = 0;
-  am.fd_index = spa_control_builder_add_fd (&builder, bmem->fd, false);
-  am.offset = 0;
-  am.size = buffer->size;
-  spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_ADD_MEM, &am);
-
-  for (i = 0; i < b->n_datas; i++) {
-    SpaData *d = &SPA_BUFFER_DATAS (b)[i];
-    SpaMemory *mem;
-
-    if (!(mem = spa_memory_find (0, d->mem_id))) {
-      fprintf (stderr, "proxy %p: error invalid memory\n", this);
-      continue;
-    }
-
-    am.port_id = port_id;
-    am.mem_id = mem->id;
-    am.mem_type = 0;
-    am.fd_index = spa_control_builder_add_fd (&builder, mem->fd, false);
-    am.offset = d->offset;
-    am.size = d->size;
-    spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_ADD_MEM, &am);
-  }
-  ab.port_id = port_id;
-  ab.buffer_id = b->id;
-  ab.mem_id = bmem->id;
-  ab.offset = 0;
-  ab.size = b->size;
-  spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_ADD_BUFFER, &ab);
-
-  spa_control_builder_end (&builder, &control);
-
-  if ((res = spa_control_write (&control, this->fds[0].fd)) < 0)
-    fprintf (stderr, "proxy %p: error writing control\n", this);
-
-  spa_control_clear (&control);
-
-  return SPA_RESULT_OK;
-}
-#endif
-
 static SpaResult
 remove_buffer (SpaProxy *this, uint32_t port_id, SpaBuffer *buffer)
 {
@@ -688,6 +623,7 @@ remove_buffer (SpaProxy *this, uint32_t port_id, SpaBuffer *buffer)
   SpaControlBuilder builder;
   uint8_t buf[1024];
   SpaControlCmdRemoveBuffer rb;
+  SpaControlCmdRemoveMem rm;
   unsigned int i;
   SpaResult res;
 
@@ -695,11 +631,15 @@ remove_buffer (SpaProxy *this, uint32_t port_id, SpaBuffer *buffer)
   rb.port_id = port_id;
   rb.buffer_id = buffer->id;
   spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_REMOVE_BUFFER, &rb);
+  rm.port_id = port_id;
+  rm.mem_id = buffer->mem_id;
+  spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_REMOVE_MEM, &rm);
 
   for (i = 0; i < buffer->n_datas; i++) {
-    SpaControlCmdRemoveMem rm;
+    SpaData *d = &SPA_BUFFER_DATAS (buffer)[i];
+
     rm.port_id = port_id;
-    rm.mem_id = buffer->id * 64 + i;
+    rm.mem_id = d->mem_id;
     spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_REMOVE_MEM, &rm);
   }
   spa_control_builder_end (&builder, &control);

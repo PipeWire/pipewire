@@ -33,8 +33,6 @@
 #include <spa/memory.h>
 #include <spa/video/format.h>
 
-#undef USE_BUFFER
-
 #define MAX_BUFFERS     8
 
 typedef struct {
@@ -47,9 +45,13 @@ typedef struct {
 
 typedef struct {
   SpaNode *source;
+
   SDL_Renderer *renderer;
   SDL_Window *window;
   SDL_Texture *texture;
+
+  bool use_buffer;
+
   bool running;
   pthread_t thread;
   SpaPollFd fds[16];
@@ -214,14 +216,14 @@ make_nodes (AppData *data, const char *device)
   value.type = SPA_PROP_TYPE_STRING;
   value.value = device ? device : "/dev/video0";
   value.size = strlen (value.value)+1;
-  props->set_prop (props, spa_props_index_for_name (props, "device"), &value);
+  spa_props_set_prop (props, spa_props_index_for_name (props, "device"), &value);
 
   if ((res = spa_node_set_props (data->source, props)) < 0)
     printf ("got set_props error %d\n", res);
+
   return res;
 }
 
-#ifdef USE_BUFFER
 static void
 alloc_buffers (AppData *data)
 {
@@ -230,7 +232,8 @@ alloc_buffers (AppData *data)
   for (i = 0; i < MAX_BUFFERS; i++) {
     SDLBuffer *b = &data->buffers[i];
     SDL_Texture *texture;
-    void *mem;
+    SpaMemory *mem;
+    void *ptr;
     int stride;
 
     data->bp[i] = &b->buffer;
@@ -243,7 +246,7 @@ alloc_buffers (AppData *data)
       printf ("can't create texture: %s\n", SDL_GetError ());
       return;
     }
-    if (SDL_LockTexture (texture, NULL, &mem, &stride) < 0) {
+    if (SDL_LockTexture (texture, NULL, &ptr, &stride) < 0) {
       fprintf (stderr, "Couldn't lock texture: %s\n", SDL_GetError());
       return;
     }
@@ -251,36 +254,40 @@ alloc_buffers (AppData *data)
     b->buffer.id = i;
     b->buffer.size = sizeof (SDLBuffer);
     b->buffer.n_metas = 2;
-    b->buffer.metas = b->metas;
+    b->buffer.metas = offsetof (SDLBuffer, metas);
     b->buffer.n_datas = 1;
-    b->buffer.datas = b->datas;
+    b->buffer.datas = offsetof (SDLBuffer, datas);
 
     b->header.flags = 0;
     b->header.seq = 0;
     b->header.pts = 0;
     b->header.dts_offset = 0;
     b->metas[0].type = SPA_META_TYPE_HEADER;
-    b->metas[0].data = &b->header;
+    b->metas[0].offset = offsetof (SDLBuffer, header);
     b->metas[0].size = sizeof (b->header);
 
     b->ptr.ptr_type = "SDL_Texture";
     b->ptr.ptr = texture;
     b->metas[1].type = SPA_META_TYPE_POINTER;
-    b->metas[1].data = &b->ptr;
+    b->metas[1].offset = offsetof (SDLBuffer, ptr);
     b->metas[1].size = sizeof (b->ptr);
 
-    b->datas[0].type = SPA_DATA_TYPE_MEMPTR;
-    b->datas[0].ptr = mem;
-    b->datas[0].ptr_type = "sysmem";
+    mem = spa_memory_alloc (0);
+    mem->flags = SPA_MEMORY_FLAG_READWRITE;
+    mem->type = "sysmem";
+    mem->fd = -1;
+    mem->ptr = ptr;
+    mem->size = stride * 240;
+
+    b->datas[0].mem_id = mem->id;
     b->datas[0].offset = 0;
-    b->datas[0].size = stride * 240;
+    b->datas[0].size = mem->size;
     b->datas[0].stride = stride;
   }
   data->n_buffers = MAX_BUFFERS;
 
   spa_node_port_use_buffers (data->source, 0, data->bp, MAX_BUFFERS);
 }
-#endif
 
 typedef struct {
   SpaFormat fmt;
@@ -336,10 +343,9 @@ negotiate_formats (AppData *data)
 
   spa_debug_port_info (info);
 
-#ifdef USE_BUFFER
-  alloc_buffers (data);
-#else
-  {
+  if (data->use_buffer) {
+    alloc_buffers (data);
+  } else {
     unsigned int n_buffers;
 
     data->texture = SDL_CreateTexture (data->renderer,
@@ -357,8 +363,6 @@ negotiate_formats (AppData *data)
     }
     data->n_buffers = n_buffers;
   }
-#endif
-
   return SPA_RESULT_OK;
 }
 
@@ -446,6 +450,8 @@ main (int argc, char *argv[])
   SpaResult res;
 
   spa_memory_init ();
+
+  data.use_buffer = true;
 
   if (SDL_Init (SDL_INIT_VIDEO) < 0) {
     printf ("can't initialize SDL: %s\n", SDL_GetError ());

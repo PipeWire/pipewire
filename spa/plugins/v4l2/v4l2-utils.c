@@ -559,6 +559,8 @@ spa_v4l2_import_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_bu
     b->v4l2_buffer.m.userptr = (unsigned long) ((uint8_t*)mem->ptr + d[0].offset);
     b->v4l2_buffer.length = d[0].size;
 
+    spa_debug_buffer (b->outbuf);
+
     spa_v4l2_buffer_recycle (this, buffers[i]->id);
   }
   state->have_buffers = true;
@@ -688,7 +690,7 @@ mmap_init (SpaV4l2Source   *this,
     b->v4l2_buffer.memory = state->memtype;
     b->v4l2_buffer.index = i;
 
-    spa_debug_buffer (&b->buffer);
+    spa_debug_buffer (b->outbuf);
 
     spa_v4l2_buffer_recycle (this, i);
   }

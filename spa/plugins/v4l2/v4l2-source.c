@@ -634,7 +634,7 @@ spa_v4l2_source_node_port_pull_output (SpaNode        *node,
 
     b->outstanding = true;
 
-    info[i].buffer_id = b->buffer.id;
+    info[i].buffer_id = b->outbuf->id;
     info[i].status = SPA_RESULT_OK;
   }
   if (have_error)

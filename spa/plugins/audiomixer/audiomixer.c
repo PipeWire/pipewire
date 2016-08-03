@@ -588,17 +588,19 @@ add_port_data (SpaAudioMixer *this, SpaBuffer *out, SpaAudioMixerPort *port)
   int i, oi = 0;
   uint8_t *op, *ip;
   size_t os, is, chunk;
+  SpaData *odatas = SPA_BUFFER_DATAS (out);
+  SpaData *idatas = SPA_BUFFER_DATAS (port->buffer);
 
   op = ip = NULL;
 
   while (true) {
     if (op == NULL) {
-      op = out->datas[oi].ptr;
-      os = out->datas[oi].size;
+      op = odatas[oi].ptr;
+      os = odatas[oi].size;
     }
     if (ip == NULL) {
-      ip = port->buffer->datas[port->buffer_index].ptr;
-      is = port->buffer->datas[port->buffer_index].size;
+      ip = idatas[port->buffer_index].ptr;
+      is = idatas[port->buffer_index].size;
       ip += port->buffer_offset;
       is -= port->buffer_offset;
     }

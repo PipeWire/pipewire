@@ -19,6 +19,7 @@
 
 #include <sys/socket.h>
 #include <string.h>
+#include <sys/mman.h>
 
 #include <gio/gio.h>
 #include <gio/gunixfdlist.h>
@@ -52,14 +53,19 @@ clear_mem_id (MemId *id)
 typedef struct {
   bool cleanup;
   uint32_t id;
+  int fd;
+  off_t offset;
+  size_t size;
   SpaBuffer *buf;
 } BufferId;
 
 static void
 clear_buffer_id (BufferId *id)
 {
-  free (id->buf);
+  munmap (id->buf, id->size);
   id->buf = NULL;
+  close (id->fd);
+  id->fd = -1;
 }
 
 struct _PinosStreamPrivate
@@ -696,10 +702,18 @@ parse_control (PinosStream *stream,
         if (spa_control_iter_parse_cmd (&it, &p) < 0)
           break;
 
-        g_debug ("add buffer %d", p.buffer->id);
+        bid.fd = spa_control_get_fd (ctrl, p.fd_index, false);
+        if (bid.fd == -1)
+          break;
+
+        g_debug ("add buffer %d", p.buffer_id);
         bid.cleanup = false;
-        bid.id = p.buffer->id;
-        bid.buf = p.buffer;
+        bid.id = p.buffer_id;
+        bid.offset = p.offset;
+        bid.size = p.size;
+        bid.buf = mmap (NULL, p.size, PROT_READ | PROT_WRITE, MAP_SHARED, bid.fd, p.offset);
+        spa_debug_buffer (bid.buf);
+
         g_array_append_val (priv->buffer_ids, bid);
         break;
       }
@@ -725,20 +739,18 @@ parse_control (PinosStream *stream,
         if (spa_control_iter_parse_cmd (&it, &p) < 0)
           break;
 
-        g_debug ("process buffer %d", p.buffer_id);
         if ((bid = find_buffer (stream, p.buffer_id))) {
           SpaBuffer *b = bid->buf;
+          SpaData *d = SPA_BUFFER_DATAS (b);
 
           for (i = 0; i < b->n_datas; i++) {
-            SpaData *d = &b->datas[i];
-
-            if (d->type == SPA_DATA_TYPE_MEMID) {
-              int id = *((int*)(d->ptr));
+            if (d[i].type == SPA_DATA_TYPE_MEMID) {
+              uint32_t id = SPA_PTR_TO_UINT32 (d[i].ptr);
               MemId *mid;
 
               if ((mid = find_mem (stream, id))) {
-                d->type = SPA_DATA_TYPE_FD;
-                *((int *)(d->ptr)) = mid->fd;
+                d[i].type = SPA_DATA_TYPE_FD;
+                d[i].ptr = SPA_INT_TO_PTR (mid->fd);
               }
             }
           }

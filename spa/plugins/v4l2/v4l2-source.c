@@ -26,6 +26,7 @@
 
 #include <spa/node.h>
 #include <spa/video/format.h>
+#include <spa/debug.h>
 
 typedef struct _SpaV4l2Source SpaV4l2Source;
 
@@ -721,7 +722,7 @@ v4l2_source_init (const SpaHandleFactory  *factory,
   this->state[0].info.flags = SPA_PORT_INFO_FLAG_NONE;
   this->state[0].status.flags = SPA_PORT_STATUS_FLAG_NONE;
 
-  this->state[0].export_buf = false;
+  this->state[0].export_buf = true;
 
   return SPA_RESULT_OK;
 }

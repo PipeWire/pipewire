@@ -89,12 +89,12 @@ typedef struct {
 /**
  * SpaMeta:
  * @type: metadata type
- * @data: pointer to metadata
+ * @offset: offset of metadata
  * @size: size of metadata
  */
 typedef struct {
   SpaMetaType  type;
-  void        *data;
+  off_t        offset;
   size_t       size;
 } SpaMeta;
 
@@ -121,7 +121,7 @@ typedef enum {
  * SpaData:
  * @id: user id
  * @type: the type of data
- * @ptr_type: more info abouut the type of @ptr
+ * @ptr_type: more info about the type of @ptr
  * @ptr: pointer to data or fd
  * @offset: offset of data
  * @size: size of data
@@ -139,20 +139,24 @@ typedef struct {
 /**
  * SpaBuffer:
  * @id: buffer id
- * @size: total size of the buffer data
+ * @size: total size of the buffer structure
  * @n_metas: number of metadata
- * @metas: array of @n_metas metadata
+ * @metas: offset of array of @n_metas metadata
  * @n_datas: number of data pointers
- * @datas: array of @n_datas data pointers
+ * @datas: offset of array of @n_datas data pointers
  */
 struct _SpaBuffer {
   uint32_t          id;
   size_t            size;
   unsigned int      n_metas;
-  SpaMeta          *metas;
+  off_t             metas;
   unsigned int      n_datas;
-  SpaData          *datas;
+  off_t             datas;
 };
+
+#define SPA_BUFFER_METAS(b)        (SPA_MEMBER ((b), (b)->metas, SpaMeta))
+#define SPA_BUFFER_DATAS(b)        (SPA_MEMBER ((b), (b)->datas, SpaData))
+
 
 #ifdef __cplusplus
 }  /* extern "C" */

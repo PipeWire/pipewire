@@ -178,7 +178,10 @@ typedef struct {
 /* SPA_CONTROL_CMD_ADD_BUFFER */
 typedef struct {
   uint32_t port_id;
-  SpaBuffer *buffer;
+  uint32_t buffer_id;
+  int      fd_index;
+  uint64_t offset;
+  uint64_t size;
 } SpaControlCmdAddBuffer;
 
 /* SPA_CONTROL_CMD_REMOVE_BUFFER */

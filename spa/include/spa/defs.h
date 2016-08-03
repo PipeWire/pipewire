@@ -27,6 +27,7 @@ extern "C" {
 #endif
 #include <inttypes.h>
 #include <stdlib.h>
+#include <stddef.h>
 
 typedef enum {
   SPA_RESULT_OK                        =  0,
@@ -70,6 +71,14 @@ typedef void (*SpaNotify) (void *data);
 #define SPA_N_ELEMENTS(arr)  (sizeof (arr) / sizeof ((arr)[0]))
 #define SPA_MIN(a,b)  ((a)<(b) ? (a) : (b))
 #define SPA_MAX(a,b)  ((a)>(b) ? (a) : (b))
+
+#define SPA_MEMBER(b,o,t) ((t*)((uint8_t*)(b) + (o)))
+
+#define SPA_PTR_TO_INT(p) ((int) ((intptr_t) (p)))
+#define SPA_INT_TO_PTR(u) ((void*) ((intptr_t) (u)))
+
+#define SPA_PTR_TO_UINT32(p) ((uint32_t) ((uintptr_t) (p)))
+#define SPA_UINT32_TO_PTR(u) ((void*) ((uintptr_t) (u)))
 
 #define SPA_ID_INVALID  ((uint32_t)0xffffffff)
 

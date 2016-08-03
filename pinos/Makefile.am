@@ -164,7 +164,6 @@ pinos_monitor_LDFLAGS = $(AM_LDFLAGS) $(BINLDFLAGS)
 pinosgstsource = gst/gsttmpfileallocator.h gst/gsttmpfileallocator.c
 
 pinosinclude_HEADERS = \
-		client/client-port.h \
 		client/context.h \
 		client/enumtypes.h \
 		client/introspect.h \

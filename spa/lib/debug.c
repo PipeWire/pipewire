@@ -80,6 +80,72 @@ spa_debug_port_info (const SpaPortInfo *info)
 }
 
 SpaResult
+spa_debug_buffer (const SpaBuffer *buffer)
+{
+  int i;
+
+  if (buffer == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  fprintf (stderr, "SpaBuffer %p:\n", buffer);
+  fprintf (stderr, " id: \t%08x\n", buffer->id);
+  fprintf (stderr, " size: \t%zd\n", buffer->size);
+  fprintf (stderr, " n_metas: \t%u (offset %zd)\n", buffer->n_metas, buffer->metas);
+  for (i = 0; i < buffer->n_metas; i++) {
+    SpaMeta *m = &SPA_BUFFER_METAS (buffer)[i];
+    fprintf (stderr, "  meta %d: type %d, offset %zd, size %zd:\n", i, m->type, m->offset, m->size);
+    switch (m->type) {
+      case SPA_META_TYPE_HEADER:
+      {
+        SpaMetaHeader *h = SPA_MEMBER (buffer, m->offset, SpaMetaHeader);
+        fprintf (stderr, "    SpaMetaHeader:\n");
+        fprintf (stderr, "      flags:      %08x\n", h->flags);
+        fprintf (stderr, "      seq:        %u\n", h->seq);
+        fprintf (stderr, "      pts:        %"PRIi64"\n", h->pts);
+        fprintf (stderr, "      dts_offset: %"PRIi64"\n", h->dts_offset);
+        break;
+      }
+      case SPA_META_TYPE_POINTER:
+        fprintf (stderr, "    SpaMetaPointer:\n");
+        spa_debug_dump_mem (SPA_MEMBER (buffer, m->offset, void), m->size);
+        break;
+      case SPA_META_TYPE_VIDEO_CROP:
+        fprintf (stderr, "    SpaMetaVideoCrop:\n");
+        spa_debug_dump_mem (SPA_MEMBER (buffer, m->offset, void), m->size);
+        break;
+      default:
+        spa_debug_dump_mem (SPA_MEMBER (buffer, m->offset, void), m->size);
+        break;
+    }
+  }
+  fprintf (stderr, " n_datas: \t%u (offset %zd)\n", buffer->n_datas, buffer->datas);
+  for (i = 0; i < buffer->n_datas; i++) {
+    SpaData *d = &SPA_BUFFER_DATAS (buffer)[i];
+    fprintf (stderr, "  data %d: type %d\n", i, d->type);
+    switch (d->type) {
+      case SPA_DATA_TYPE_MEMPTR:
+        fprintf (stderr, "    memptr %p\n", d->ptr);
+        break;
+      case SPA_DATA_TYPE_FD:
+        fprintf (stderr, "    fd %d\n", SPA_PTR_TO_INT (d->ptr));
+        break;
+      case SPA_DATA_TYPE_MEMID:
+        fprintf (stderr, "    memid %d\n", SPA_PTR_TO_UINT32 (d->ptr));
+        break;
+      case SPA_DATA_TYPE_POINTER:
+        fprintf (stderr, "    pointer %p\n", d->ptr);
+        break;
+      default:
+        break;
+    }
+    fprintf (stderr, "    offset %zd:\n", d->offset);
+    fprintf (stderr, "    size %zd:\n", d->size);
+    fprintf (stderr, "    stride %zd:\n", d->stride);
+  }
+  return SPA_RESULT_OK;
+}
+
+SpaResult
 spa_debug_dump_mem (void *mem, size_t size)
 {
   uint8_t *t = mem;
@@ -90,7 +156,7 @@ spa_debug_dump_mem (void *mem, size_t size)
 
   for (i = 0; i < size; i++) {
     printf ("%02x ", t[i]);
-    if (i % 16 == 8 || i == size - 1)
+    if (i % 16 == 15 || i == size - 1)
       printf ("\n");
   }
   return SPA_RESULT_OK;

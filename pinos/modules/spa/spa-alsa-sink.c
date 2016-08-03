@@ -437,16 +437,16 @@ on_received_buffer (PinosPort   *port,
   SpaBuffer *buffer = NULL;
 
   for (i = 0; i < buffer->n_datas; i++) {
-    SpaData *d = &buffer->datas[i];
+    SpaData *d = SPA_BUFFER_DATAS (buffer);
     PinosRingbufferArea areas[2];
     uint8_t *data;
     size_t size, towrite, total;
 
-    if (d->type != SPA_DATA_TYPE_MEMPTR)
+    if (d[i].type != SPA_DATA_TYPE_MEMPTR)
       continue;
 
-    size = d->size;
-    data = (guint8*)d->ptr + d->offset;
+    size = d[i].size;
+    data = (guint8*)d[i].ptr + d[i].offset;
 
     pinos_ringbuffer_get_write_areas (priv->ringbuffer, areas);
 

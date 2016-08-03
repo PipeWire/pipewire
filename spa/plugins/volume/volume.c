@@ -578,8 +578,8 @@ spa_volume_node_port_pull_output (SpaNode        *node,
     if (si == sbuf->n_datas || di == dbuf->n_datas)
       break;
 
-    sd = &sbuf->datas[si];
-    dd = &dbuf->datas[di];
+    sd = &SPA_BUFFER_DATAS (sbuf)[si];
+    dd = &SPA_BUFFER_DATAS (dbuf)[di];
 
     if (sd->type != SPA_DATA_TYPE_MEMPTR) {
       si++;

@@ -121,16 +121,20 @@ on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
       int sstride, dstride;
       int i;
       uint8_t *src, *dst;
+      SpaMeta *metas;
+      SpaData *datas;
 
       if ((res = spa_node_port_pull_output (data->source, 1, info)) < 0)
         printf ("got pull error %d\n", res);
 
       b = data->bp[info->buffer_id];
+      metas = SPA_BUFFER_METAS (b);
+      datas = SPA_BUFFER_DATAS (b);
 
-      if (b->metas[1].type == SPA_META_TYPE_POINTER &&
-          strcmp (((SpaMetaPointer*)b->metas[1].data)->ptr_type, "SDL_Texture") == 0) {
+      if (metas[1].type == SPA_META_TYPE_POINTER &&
+          strcmp (SPA_MEMBER (b, metas[1].offset, SpaMetaPointer)->ptr_type, "SDL_Texture") == 0) {
         SDL_Texture *texture;
-        texture = ((SpaMetaPointer*)b->metas[1].data)->ptr;
+        texture = SPA_MEMBER (b, metas[1].offset, SpaMetaPointer)->ptr;
 
         SDL_UnlockTexture(texture);
 
@@ -142,17 +146,17 @@ on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
           fprintf (stderr, "Couldn't lock texture: %s\n", SDL_GetError());
           return;
         }
-        b->datas[0].ptr = sdata;
-        b->datas[0].ptr_type = "sysmem";
-        b->datas[0].size = sstride * 240;
-        b->datas[0].stride = sstride;
+        datas[0].ptr = sdata;
+        datas[0].ptr_type = "sysmem";
+        datas[0].size = sstride * 240;
+        datas[0].stride = sstride;
       } else {
         if (SDL_LockTexture (data->texture, NULL, &ddata, &dstride) < 0) {
           fprintf (stderr, "Couldn't lock texture: %s\n", SDL_GetError());
           return;
         }
-        sdata = b->datas[0].ptr;
-        sstride = b->datas[0].stride;
+        sdata = datas[0].ptr;
+        sstride = datas[0].stride;
 
         for (i = 0; i < 240; i++) {
           src = ((uint8_t*)sdata + i * sstride);
@@ -238,7 +242,7 @@ alloc_buffers (AppData *data)
     }
 
     b->buffer.id = i;
-    b->buffer.size = stride * 240;
+    b->buffer.size = sizeof (SDLBuffer);
     b->buffer.n_metas = 2;
     b->buffer.metas = b->metas;
     b->buffer.n_datas = 1;

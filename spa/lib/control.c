@@ -160,7 +160,6 @@ spa_control_clear (SpaControl *control)
   free (sc->free_data);
   for (i = 0; i < sc->n_fds; i++) {
     if (sc->fds[i] > 0) {
-      SPA_DEBUG_CONTROL ("%p: close %d %d", control, i, sc->fds[i]);
       if (close (sc->fds[i]) < 0)
         perror ("close");
     }
@@ -340,6 +339,7 @@ spa_control_iter_get_data (SpaControlIter *iter, size_t *size)
   return si->data;
 }
 
+#if 0
 typedef struct {
   SpaBuffer buffer;
   SpaMeta metas[16];
@@ -360,16 +360,16 @@ parse_add_buffer (struct stack_iter      *si,
   b->buffer.id = *(uint32_t *)p++;
   b->buffer.size = *(uint32_t *)p++;
   b->buffer.n_metas = *(uint32_t *)p++;
-  b->buffer.metas = b->metas;
+  b->buffer.metas = offsetof (MyBuffer, metas);
   b->buffer.n_datas = *(uint32_t *)p++;
-  b->buffer.datas = b->datas;
+  b->buffer.datas = offsetof (MyBuffer, datas);
 
   for (i = 0; i < b->buffer.n_metas; i++) {
     SpaMeta *m = &b->metas[i];
     m->type = *p++;
     m->size = *p++;
-    m->data = p;
-    p = p + m->size / 4;
+    m->offset = 0;
+    p = p + (m->size + 3) / 4;
   }
   for (i = 0; i < b->buffer.n_datas; i++) {
     SpaData *d = &b->datas[i];
@@ -385,6 +385,7 @@ parse_add_buffer (struct stack_iter      *si,
 
   return SPA_RESULT_OK;
 }
+#endif
 
 SpaResult
 spa_control_iter_parse_cmd (SpaControlIter *iter,
@@ -477,7 +478,9 @@ spa_control_iter_parse_cmd (SpaControlIter *iter,
       break;
 
     case SPA_CONTROL_CMD_ADD_BUFFER:
-      res = parse_add_buffer (si, command);
+      if (si->size < sizeof (SpaControlCmdAddBuffer))
+        return SPA_RESULT_ERROR;
+      memcpy (command, si->data, sizeof (SpaControlCmdAddBuffer));
       break;
 
     case SPA_CONTROL_CMD_REMOVE_BUFFER:
@@ -716,6 +719,7 @@ builder_add_cmd (struct stack_builder *sb, SpaControlCmd cmd, size_t size)
   return p;
 }
 
+#if 0
 static SpaResult
 build_add_buffer (struct stack_builder   *sb,
                   SpaControlCmdAddBuffer *command)
@@ -767,6 +771,7 @@ build_add_buffer (struct stack_builder   *sb,
   }
   return SPA_RESULT_OK;
 }
+#endif
 
 /**
  * spa_control_builder_add_cmd:
@@ -869,7 +874,8 @@ spa_control_builder_add_cmd (SpaControlBuilder *builder,
       break;
 
     case SPA_CONTROL_CMD_ADD_BUFFER:
-      res = build_add_buffer (sb, (SpaControlCmdAddBuffer *) command);
+      p = builder_add_cmd (sb, cmd, sizeof (SpaControlCmdAddBuffer));
+      memcpy (p, command, sizeof (SpaControlCmdAddBuffer));
       break;
 
     case SPA_CONTROL_CMD_REMOVE_BUFFER:
@@ -980,7 +986,7 @@ spa_control_read (SpaControl   *control,
   }
   sc->magic = SSC_MAGIC;
 
-  SPA_DEBUG_CONTROL ("read %zd bytes and %d fds\n", len, sc->n_fds);
+  SPA_DEBUG_CONTROL ("control %p: read %zd bytes and %d fds\n", sc, len, sc->n_fds);
 
   return SPA_RESULT_OK;
 
@@ -1009,16 +1015,21 @@ spa_control_write (SpaControl *control,
   iov[0].iov_len = sc->size;
   msg.msg_iov = iov;
   msg.msg_iovlen = 1;
-  msg.msg_control = cmsgbuf;
-  msg.msg_controllen = CMSG_SPACE (fds_len);
-  cmsg = CMSG_FIRSTHDR(&msg);
-  cmsg->cmsg_level = SOL_SOCKET;
-  cmsg->cmsg_type = SCM_RIGHTS;
-  cmsg->cmsg_len = CMSG_LEN (fds_len);
-  cm = (int*)CMSG_DATA (cmsg);
-  for (i = 0; i < fds_len; i++)
-    cm[i] = sc->fds[i] > 0 ? sc->fds[i] : -sc->fds[i];
-  msg.msg_controllen = cmsg->cmsg_len;
+  if (sc->n_fds > 0) {
+    msg.msg_control = cmsgbuf;
+    msg.msg_controllen = CMSG_SPACE (fds_len);
+    cmsg = CMSG_FIRSTHDR(&msg);
+    cmsg->cmsg_level = SOL_SOCKET;
+    cmsg->cmsg_type = SCM_RIGHTS;
+    cmsg->cmsg_len = CMSG_LEN (fds_len);
+    cm = (int*)CMSG_DATA (cmsg);
+    for (i = 0; i < sc->n_fds; i++)
+      cm[i] = sc->fds[i] > 0 ? sc->fds[i] : -sc->fds[i];
+    msg.msg_controllen = cmsg->cmsg_len;
+  } else {
+    msg.msg_control = NULL;
+    msg.msg_controllen = 0;
+  }
 
   while (true) {
     len = sendmsg (fd, &msg, 0);
@@ -1033,7 +1044,7 @@ spa_control_write (SpaControl *control,
   if (len != (ssize_t) sc->size)
     return SPA_RESULT_ERROR;
 
-  SPA_DEBUG_CONTROL ("written %zd bytes\n", len);
+  SPA_DEBUG_CONTROL ("control %p: written %zd bytes and %d fds\n", sc, len, sc->n_fds);
 
   return SPA_RESULT_OK;
 

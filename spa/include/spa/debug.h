@@ -26,8 +26,10 @@ extern "C" {
 
 #include <spa/defs.h>
 #include <spa/port.h>
+#include <spa/buffer.h>
 
 SpaResult spa_debug_port_info (const SpaPortInfo *info);
+SpaResult spa_debug_buffer (const SpaBuffer *buffer);
 SpaResult spa_debug_dump_mem  (void *data, size_t size);
 
 #ifdef __cplusplus

@@ -531,12 +531,7 @@ spa_v4l2_import_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_bu
     fprintf (stderr, "import buffer %p\n", buffers[i]);
 
     b->source = this;
-    b->buffer.id = buffers[i]->id;
-    b->buffer.size = buffers[i]->size;
-    b->buffer.n_metas = buffers[i]->n_metas;
-    b->buffer.metas = buffers[i]->metas;
-    b->buffer.n_datas = buffers[i]->n_datas;
-    b->buffer.datas = buffers[i]->datas;
+    b->buffer.id = SPA_ID_INVALID;
     b->imported = buffers[i];
     b->outstanding = true;
 
@@ -544,8 +539,8 @@ spa_v4l2_import_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_bu
     b->v4l2_buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     b->v4l2_buffer.memory = state->memtype;
     b->v4l2_buffer.index = i;
-    b->v4l2_buffer.m.userptr = (unsigned long) b->buffer.datas[0].ptr;
-    b->v4l2_buffer.length = b->buffer.datas[0].size;
+    b->v4l2_buffer.m.userptr = (unsigned long) SPA_BUFFER_DATAS (buffers[i])[0].ptr;
+    b->v4l2_buffer.length = SPA_BUFFER_DATAS (buffers[i])[0].size;
 
     spa_v4l2_buffer_recycle (this, buffers[i]->id);
   }
@@ -609,11 +604,11 @@ mmap_init (SpaV4l2Source   *this,
 
     b->source = this;
     b->buffer.id = i;
-    b->buffer.size = buf.length;
+    b->buffer.size = sizeof (V4l2Buffer);
     b->buffer.n_metas = 1;
-    b->buffer.metas = b->metas;
+    b->buffer.metas = offsetof (V4l2Buffer, metas);
     b->buffer.n_datas = 1;
-    b->buffer.datas = b->datas;
+    b->buffer.datas = offsetof (V4l2Buffer, datas);
 
     b->header.flags = 0;
     b->header.seq = 0;
@@ -621,7 +616,7 @@ mmap_init (SpaV4l2Source   *this,
     b->header.dts_offset = 0;
 
     b->metas[0].type = SPA_META_TYPE_HEADER;
-    b->metas[0].data = &b->header;
+    b->metas[0].offset = offsetof (V4l2Buffer, header);
     b->metas[0].size = sizeof (b->header);
 
     if (state->export_buf) {
@@ -637,12 +632,13 @@ mmap_init (SpaV4l2Source   *this,
 
       b->dmafd = expbuf.fd;
       b->datas[0].type = SPA_DATA_TYPE_FD;
-      b->datas[0].ptr = &b->dmafd;
+      b->datas[0].ptr = SPA_INT_TO_PTR (b->dmafd);
       b->datas[0].ptr_type = "dmabuf";
       b->datas[0].offset = 0;
       b->datas[0].size = buf.length;
       b->datas[0].stride = state->fmt.fmt.pix.bytesperline;
     } else {
+#if 1
       b->datas[0].type = SPA_DATA_TYPE_MEMPTR;
       b->datas[0].ptr_type = "sysmem";
       b->datas[0].ptr = mmap (NULL,
@@ -653,11 +649,18 @@ mmap_init (SpaV4l2Source   *this,
                               buf.m.offset);
       b->datas[0].offset = 0;
       b->datas[0].size = buf.length;
-      b->datas[0].stride = state->fmt.fmt.pix.bytesperline;
       if (b->datas[0].ptr == MAP_FAILED) {
         perror ("mmap");
         continue;
       }
+#else
+      b->datas[0].type = SPA_DATA_TYPE_FD;
+      b->datas[0].ptr = &state->fd;
+      b->datas[0].ptr_type = "dmabuf";
+      b->datas[0].offset = buf.m.offset;
+      b->datas[0].size = buf.length;
+      b->datas[0].stride = state->fmt.fmt.pix.bytesperline;
+#endif
     }
     b->imported = &b->buffer;
     b->outstanding = true;
@@ -666,6 +669,8 @@ mmap_init (SpaV4l2Source   *this,
     b->v4l2_buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     b->v4l2_buffer.memory = state->memtype;
     b->v4l2_buffer.index = i;
+
+    spa_debug_buffer (&b->buffer);
 
     spa_v4l2_buffer_recycle (this, i);
   }

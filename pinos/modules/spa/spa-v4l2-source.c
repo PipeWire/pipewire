@@ -218,7 +218,7 @@ setup_node (PinosSpaV4l2Source *this)
     g_debug ("got get_props error %d", res);
 
   value.type = SPA_PROP_TYPE_STRING;
-  value.value = "/dev/video1";
+  value.value = "/dev/video0";
   value.size = strlen (value.value)+1;
   spa_props_set_prop (props, spa_props_index_for_name (props, "device"), &value);
 

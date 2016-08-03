@@ -362,12 +362,12 @@ on_new_buffer (GObject    *gobject,
                              process_mem_data_destroy);
 
   for (i = 0; i < b->n_metas; i++) {
-    SpaMeta *m = &b->metas[i];
+    SpaMeta *m = &SPA_BUFFER_METAS(b)[i];
 
     switch (m->type) {
       case SPA_META_TYPE_HEADER:
       {
-        SpaMetaHeader *h = m->data;
+        SpaMetaHeader *h = SPA_MEMBER (b, m->offset, SpaMetaHeader);
 
         GST_INFO ("pts %" G_GUINT64_FORMAT ", dts_offset %"G_GUINT64_FORMAT, h->pts, h->dts_offset);
 
@@ -384,7 +384,7 @@ on_new_buffer (GObject    *gobject,
     }
   }
   for (i = 0; i < b->n_datas; i++) {
-    SpaData *d = &b->datas[i];
+    SpaData *d = &SPA_BUFFER_DATAS (b)[i];
 
     switch (d->type) {
       case SPA_DATA_TYPE_MEMPTR:
@@ -397,7 +397,7 @@ on_new_buffer (GObject    *gobject,
       case SPA_DATA_TYPE_FD:
       {
         GstMemory *fdmem = NULL;
-        int fd = *((int *) d->ptr);
+        int fd = SPA_PTR_TO_INT (d->ptr);
 
         fdmem = gst_fd_allocator_alloc (pinossrc->fd_allocator, dup (fd),
                   d->offset + d->size, GST_FD_MEMORY_FLAG_NONE);

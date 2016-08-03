@@ -55,8 +55,9 @@ typedef struct {
   SpaPortInfo info;
   SpaPortStatus status;
   SpaFormat formats[2];
-  SpaBuffer **buffers;
   unsigned int n_buffers;
+  SpaBuffer **buffers;
+  SpaBuffer *remote_buffers[128];
 } SpaProxyPort;
 
 struct _SpaProxy {
@@ -566,13 +567,6 @@ tmpfile_create (void *data, size_t size)
   return fd;
 }
 
-typedef struct {
-  SpaBuffer buffer;
-  SpaData  datas[16];
-  int idx[16];
-  SpaBuffer *orig;
-} MyBuffer;
-
 static SpaResult
 add_buffer (SpaProxy *this, uint32_t port_id, SpaBuffer *buffer)
 {
@@ -581,51 +575,53 @@ add_buffer (SpaProxy *this, uint32_t port_id, SpaBuffer *buffer)
   uint8_t buf[1024];
   int fds[16];
   SpaControlCmdAddBuffer ab;
-  bool tmpfile = false;
-  unsigned int i;
-  MyBuffer b;
+  int fd, i;
   SpaResult res;
+  SpaBuffer *b;
 
   spa_control_builder_init_into (&builder, buf, sizeof (buf), fds, sizeof (fds));
 
-  b.buffer.id = buffer->id;
-  b.buffer.size = buffer->size;
-  b.buffer.n_metas = buffer->n_metas;
-  b.buffer.metas = buffer->metas;
-  b.buffer.n_datas = buffer->n_datas;
-  b.buffer.datas = b.datas;
+  fd = tmpfile_create (buffer, buffer->size);
 
-  for (i = 0; i < buffer->n_datas; i++) {
-    SpaData *d = &buffer->datas[i];
+  b = mmap (NULL, buffer->size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+  for (i = 0; i < b->n_datas; i++) {
+    SpaData *d = &SPA_BUFFER_DATAS (b)[i];
     int fd;
     SpaControlCmdAddMem am;
+    bool tmpfile;
 
     if (d->type == SPA_DATA_TYPE_FD) {
-      fd = *((int *)d->ptr);
-    } else {
+      fd = SPA_PTR_TO_INT (d->ptr);
+      tmpfile = false;
+    } else if (d->type == SPA_DATA_TYPE_MEMPTR) {
       fd = tmpfile_create (d->ptr, d->size + d->offset);
       tmpfile = true;
+    } else {
+      fprintf (stderr, "proxy %p: invalid mem type received %d\n", this, d->type);
+      continue;
     }
+
     am.port_id = port_id;
-    am.mem_id = buffer->id * 64 + i;
+    am.mem_id = b->id * 64 + i;
     am.mem_type = 0;
     am.fd_index = spa_control_builder_add_fd (&builder, fd, tmpfile ? true : false);
-    am.offset = 0;
-    am.size = d->offset + d->size;
+    am.offset = d->offset;
+    am.size = d->size;
     spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_ADD_MEM, &am);
 
-    b.idx[i] = am.mem_id;
-    b.datas[i].type = SPA_DATA_TYPE_MEMID;
-    b.datas[i].ptr_type = NULL;
-    b.datas[i].ptr = &b.idx[i];
-    b.datas[i].offset = d->offset;
-    b.datas[i].size = d->size;
-    b.datas[i].stride = d->stride;
+    d->type = SPA_DATA_TYPE_MEMID;
+    d->ptr_type = NULL;
+    d->ptr = SPA_UINT32_TO_PTR (am.mem_id);
+    d->offset = 0;
   }
   ab.port_id = port_id;
-  ab.buffer = &b.buffer;
-  fprintf (stderr, "proxy %p: add buffer %d\n", this, b.buffer.id);
+  ab.buffer_id = b->id;
+  ab.fd_index = spa_control_builder_add_fd (&builder, fd, true);
+  ab.offset = 0;
+  ab.size = b->size;
   spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_ADD_BUFFER, &ab);
+  munmap (b, buffer->size);
+
   spa_control_builder_end (&builder, &control);
 
   if ((res = spa_control_write (&control, this->fds[0].fd)) < 0)
@@ -654,7 +650,7 @@ remove_buffer (SpaProxy *this, uint32_t port_id, SpaBuffer *buffer)
   for (i = 0; i < buffer->n_datas; i++) {
     SpaControlCmdRemoveMem rm;
     rm.port_id = port_id;
-    rm.mem_id = i;
+    rm.mem_id = buffer->id * 64 + i;
     spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_REMOVE_MEM, &rm);
   }
   spa_control_builder_end (&builder, &control);
@@ -867,8 +863,6 @@ parse_control (SpaProxy   *this,
   spa_control_iter_init (&it, ctrl);
   while (spa_control_iter_next (&it) == SPA_RESULT_OK) {
     SpaControlCmd cmd = spa_control_iter_get_cmd (&it);
-
-    fprintf (stderr, "proxy %p: got control %d\n", this, cmd);
 
     switch (cmd) {
       case SPA_CONTROL_CMD_ADD_PORT:

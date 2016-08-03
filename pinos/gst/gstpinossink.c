@@ -496,15 +496,6 @@ typedef struct {
   int fd;
 } SinkBuffer;
 
-static void
-sink_buffer_free (void *user_data)
-{
-  SinkBuffer *b = user_data;
-  gst_memory_unref (b->mem);
-  gst_object_unref (b->pinossink);
-  g_slice_free (SinkBuffer, user_data);
-}
-
 static GstFlowReturn
 gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
 {
@@ -526,11 +517,11 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
 
   b = g_slice_new (SinkBuffer);
   b->buffer.id = pinos_fd_manager_get_id (pinossink->fdmanager);
-  b->buffer.size = size;
+  b->buffer.size = sizeof (SinkBuffer);
   b->buffer.n_metas = 1;
-  b->buffer.metas = b->metas;
+  b->buffer.metas = offsetof (SinkBuffer, metas);
   b->buffer.n_datas = 1;
-  b->buffer.datas = b->datas;
+  b->buffer.datas = offsetof (SinkBuffer, datas);
 
   pts = GST_BUFFER_PTS (buffer);
   dts = GST_BUFFER_DTS (buffer);
@@ -544,7 +535,7 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   b->header.pts = GST_CLOCK_TIME_IS_VALID (pts) ? pts + base : base;
   b->header.dts_offset = GST_CLOCK_TIME_IS_VALID (dts) && GST_CLOCK_TIME_IS_VALID (pts) ? pts - dts : 0;
   b->metas[0].type = SPA_META_TYPE_HEADER;
-  b->metas[0].data = &b->header;
+  b->metas[0].offset = offsetof (SinkBuffer, header);
   b->metas[0].size = sizeof (b->header);
 
   if (gst_buffer_n_memory (buffer) == 1

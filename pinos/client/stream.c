@@ -33,22 +33,11 @@
 
 #include "pinos/client/private.h"
 #include "spa/include/spa/control.h"
+#include "spa/include/spa/debug.h"
+#include "spa/include/spa/memory.h"
 
 #define MAX_BUFFER_SIZE 1024
 #define MAX_FDS         16
-
-typedef struct {
-  bool cleanup;
-  uint32_t id;
-  int fd;
-} MemId;
-
-static void
-clear_mem_id (MemId *id)
-{
-  close (id->fd);
-  id->fd = -1;
-}
 
 typedef struct {
   bool cleanup;
@@ -104,7 +93,6 @@ struct _PinosStreamPrivate
   guint8 send_data[MAX_BUFFER_SIZE];
   int send_fds[MAX_FDS];
 
-  GArray *mem_ids;
   GArray *buffer_ids;
 };
 
@@ -430,8 +418,6 @@ pinos_stream_init (PinosStream * stream)
   g_debug ("new stream %p", stream);
 
   priv->state = PINOS_STREAM_STATE_UNCONNECTED;
-  priv->mem_ids = g_array_sized_new (FALSE, FALSE, sizeof (MemId), 64);
-  g_array_set_clear_func (priv->mem_ids, (GDestroyNotify) clear_mem_id);
   priv->buffer_ids = g_array_sized_new (FALSE, FALSE, sizeof (BufferId), 64);
   g_array_set_clear_func (priv->buffer_ids, (GDestroyNotify) clear_buffer_id);
 }
@@ -565,19 +551,6 @@ find_buffer (PinosStream *stream, uint32_t id)
   return NULL;
 }
 
-static MemId *
-find_mem (PinosStream *stream, uint32_t id)
-{
-  PinosStreamPrivate *priv = stream->priv;
-  guint i;
-  for (i = 0; i < priv->mem_ids->len; i++) {
-    MemId *mid = &g_array_index (priv->mem_ids, MemId, i);
-    if (mid->id == id)
-      return mid;
-  }
-  return NULL;
-}
-
 static gboolean
 parse_control (PinosStream *stream,
                SpaControl  *ctrl)
@@ -664,7 +637,7 @@ parse_control (PinosStream *stream,
       case SPA_CONTROL_CMD_ADD_MEM:
       {
         SpaControlCmdAddMem p;
-        MemId mid;
+        SpaMemory *mem;
         int fd;
 
         if (spa_control_iter_parse_cmd (&it, &p) < 0)
@@ -674,44 +647,44 @@ parse_control (PinosStream *stream,
         if (fd == -1)
           break;
 
-        g_debug ("add mem %d, %d", p.mem_id, fd);
-        mid.cleanup = false;
-        mid.id = p.mem_id;
-        mid.fd = fd;
-        g_array_append_val (priv->mem_ids, mid);
+        g_debug ("add mem %d, %d, %d", p.mem_id, fd, p.flags);
+        mem = spa_memory_import (0, p.mem_id);
+        mem->flags = p.flags;
+        mem->fd = fd;
+        mem->ptr = NULL;
+        mem->size = p.size;
         break;
       }
       case SPA_CONTROL_CMD_REMOVE_MEM:
       {
         SpaControlCmdRemoveMem p;
-        MemId *mid;
+        SpaMemory *mem;
 
         if (spa_control_iter_parse_cmd (&it, &p) < 0)
           break;
 
         g_debug ("stream %p: stop", stream);
-        if ((mid = find_mem (stream, p.mem_id)))
-          mid->cleanup = true;
+        mem = spa_memory_find (0, p.mem_id);
+        if (--mem->refcount == 0)
+          mem->notify (mem);
         break;
       }
       case SPA_CONTROL_CMD_ADD_BUFFER:
       {
         SpaControlCmdAddBuffer p;
         BufferId bid;
+        SpaMemory *mem;
 
         if (spa_control_iter_parse_cmd (&it, &p) < 0)
           break;
 
-        bid.fd = spa_control_get_fd (ctrl, p.fd_index, false);
-        if (bid.fd == -1)
-          break;
-
         g_debug ("add buffer %d", p.buffer_id);
+        mem = spa_memory_find (0, p.mem_id);
         bid.cleanup = false;
         bid.id = p.buffer_id;
         bid.offset = p.offset;
         bid.size = p.size;
-        bid.buf = mmap (NULL, p.size, PROT_READ | PROT_WRITE, MAP_SHARED, bid.fd, p.offset);
+        bid.buf = (SpaBuffer *)((uint8_t*) spa_memory_ensure_ptr (mem) + p.offset);
         spa_debug_buffer (bid.buf);
 
         g_array_append_val (priv->buffer_ids, bid);
@@ -733,29 +706,16 @@ parse_control (PinosStream *stream,
       case SPA_CONTROL_CMD_PROCESS_BUFFER:
       {
         SpaControlCmdProcessBuffer p;
-        unsigned int i;
         BufferId *bid;
 
         if (spa_control_iter_parse_cmd (&it, &p) < 0)
           break;
 
         if ((bid = find_buffer (stream, p.buffer_id))) {
-          SpaBuffer *b = bid->buf;
-          SpaData *d = SPA_BUFFER_DATAS (b);
-
-          for (i = 0; i < b->n_datas; i++) {
-            if (d[i].type == SPA_DATA_TYPE_MEMID) {
-              uint32_t id = SPA_PTR_TO_UINT32 (d[i].ptr);
-              MemId *mid;
-
-              if ((mid = find_mem (stream, id))) {
-                d[i].type = SPA_DATA_TYPE_FD;
-                d[i].ptr = SPA_INT_TO_PTR (mid->fd);
-              }
-            }
-          }
-          priv->buffer = b;
+          priv->buffer = bid->buf;
+          spa_debug_buffer (bid->buf);
         }
+
         break;
       }
       case SPA_CONTROL_CMD_REUSE_BUFFER:
@@ -809,13 +769,6 @@ on_socket_condition (GSocket      *socket,
         g_signal_emit (stream, signals[SIGNAL_NEW_BUFFER], 0, NULL);
         send_need_input (stream, 0, priv->buffer->id);
         priv->buffer = NULL;
-      }
-      for (i = 0; i < priv->mem_ids->len; i++) {
-        MemId *mid = &g_array_index (priv->mem_ids, MemId, i);
-        if (mid->cleanup) {
-          g_array_remove_index_fast (priv->mem_ids, i);
-          i--;
-        }
       }
       for (i = 0; i < priv->buffer_ids->len; i++) {
         BufferId *bid = &g_array_index (priv->buffer_ids, BufferId, i);

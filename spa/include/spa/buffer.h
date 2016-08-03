@@ -99,38 +99,14 @@ typedef struct {
 } SpaMeta;
 
 /**
- * SpaDataType:
- * @SPA_DATA_TYPE_INVALID: invalid data type, is ignored
- * @SPA_DATA_TYPE_MEMPTR: data and size point to memory accessible by the
- *                        CPU.
- * @SPA_DATA_TYPE_FD: data points to an int file descriptor that can be
- *                    mmapped.
- * @SPA_DATA_TYPE_MEMID: data points to the id of the memory block to use
- * @SPA_DATA_TYPE_POINTER: data points to some other datastructure, the
- *        type can be found in ptr_type
- */
-typedef enum {
-  SPA_DATA_TYPE_INVALID               = 0,
-  SPA_DATA_TYPE_MEMPTR,
-  SPA_DATA_TYPE_FD,
-  SPA_DATA_TYPE_MEMID,
-  SPA_DATA_TYPE_POINTER,
-} SpaDataType;
-
-/**
  * SpaData:
- * @id: user id
- * @type: the type of data
- * @ptr_type: more info about the type of @ptr
- * @ptr: pointer to data or fd
- * @offset: offset of data
- * @size: size of data
- * @stride: stride of data if applicable
+ * @mem_id: the memory id to use
+ * @offset: offset of memory
+ * @size: size of memory
+ * @stride: stride of memory if applicable
  */
 typedef struct {
-  SpaDataType  type;
-  const char  *ptr_type;
-  void        *ptr;
+  uint32_t     mem_id;
   off_t        offset;
   size_t       size;
   size_t       stride;
@@ -139,6 +115,8 @@ typedef struct {
 /**
  * SpaBuffer:
  * @id: buffer id
+ * @mem_id: memory id of the buffer
+ * @offset: offset into the memory
  * @size: total size of the buffer structure
  * @n_metas: number of metadata
  * @metas: offset of array of @n_metas metadata
@@ -147,6 +125,8 @@ typedef struct {
  */
 struct _SpaBuffer {
   uint32_t          id;
+  uint32_t          mem_id;
+  off_t             offset;
   size_t            size;
   unsigned int      n_metas;
   off_t             metas;

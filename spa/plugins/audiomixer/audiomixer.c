@@ -21,6 +21,7 @@
 #include <stdio.h>
 
 #include <spa/node.h>
+#include <spa/memory.h>
 #include <spa/audio/format.h>
 
 #define MAX_PORTS       128
@@ -590,16 +591,19 @@ add_port_data (SpaAudioMixer *this, SpaBuffer *out, SpaAudioMixerPort *port)
   size_t os, is, chunk;
   SpaData *odatas = SPA_BUFFER_DATAS (out);
   SpaData *idatas = SPA_BUFFER_DATAS (port->buffer);
+  SpaMemory *mem;
 
   op = ip = NULL;
 
   while (true) {
     if (op == NULL) {
-      op = odatas[oi].ptr;
+      mem = spa_memory_find (0, odatas[oi].mem_id);
+      op = (uint8_t*)mem->ptr + odatas[oi].offset;
       os = odatas[oi].size;
     }
     if (ip == NULL) {
-      ip = idatas[port->buffer_index].ptr;
+      mem = spa_memory_find (0, idatas[port->buffer_index].mem_id);
+      ip = (uint8_t*)mem->ptr + odatas[oi].offset;
       is = idatas[port->buffer_index].size;
       ip += port->buffer_offset;
       is -= port->buffer_offset;

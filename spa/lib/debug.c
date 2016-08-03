@@ -20,6 +20,7 @@
 #include <stdio.h>
 
 #include "spa/debug.h"
+#include "spa/memory.h"
 
 SpaResult
 spa_debug_port_info (const SpaPortInfo *info)
@@ -88,9 +89,11 @@ spa_debug_buffer (const SpaBuffer *buffer)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   fprintf (stderr, "SpaBuffer %p:\n", buffer);
-  fprintf (stderr, " id: \t%08x\n", buffer->id);
-  fprintf (stderr, " size: \t%zd\n", buffer->size);
-  fprintf (stderr, " n_metas: \t%u (offset %zd)\n", buffer->n_metas, buffer->metas);
+  fprintf (stderr, " id:      %08X\n", buffer->id);
+  fprintf (stderr, " mem_id:  %08X\n", buffer->mem_id);
+  fprintf (stderr, " offset:  %zd\n", buffer->offset);
+  fprintf (stderr, " size:    %zd\n", buffer->size);
+  fprintf (stderr, " n_metas: %u (offset %zd)\n", buffer->n_metas, buffer->metas);
   for (i = 0; i < buffer->n_metas; i++) {
     SpaMeta *m = &SPA_BUFFER_METAS (buffer)[i];
     fprintf (stderr, "  meta %d: type %d, offset %zd, size %zd:\n", i, m->type, m->offset, m->size);
@@ -121,26 +124,24 @@ spa_debug_buffer (const SpaBuffer *buffer)
   fprintf (stderr, " n_datas: \t%u (offset %zd)\n", buffer->n_datas, buffer->datas);
   for (i = 0; i < buffer->n_datas; i++) {
     SpaData *d = &SPA_BUFFER_DATAS (buffer)[i];
-    fprintf (stderr, "  data %d: type %d\n", i, d->type);
-    switch (d->type) {
-      case SPA_DATA_TYPE_MEMPTR:
-        fprintf (stderr, "    memptr %p\n", d->ptr);
-        break;
-      case SPA_DATA_TYPE_FD:
-        fprintf (stderr, "    fd %d\n", SPA_PTR_TO_INT (d->ptr));
-        break;
-      case SPA_DATA_TYPE_MEMID:
-        fprintf (stderr, "    memid %d\n", SPA_PTR_TO_UINT32 (d->ptr));
-        break;
-      case SPA_DATA_TYPE_POINTER:
-        fprintf (stderr, "    pointer %p\n", d->ptr);
-        break;
-      default:
-        break;
+    SpaMemory *mem;
+
+    mem = spa_memory_find (0, d->mem_id);
+    fprintf (stderr, "  data %d: (memory %p)\n", i, mem);
+    if (mem) {
+      fprintf (stderr, "    pool_id: %u\n", mem->pool_id);
+      fprintf (stderr, "    id:      %u\n", mem->id);
+      fprintf (stderr, "    flags:   %08x\n", mem->flags);
+      fprintf (stderr, "    type:    %s\n", mem->type ? mem->type : "*unknown*");
+      fprintf (stderr, "    fd:      %d\n", mem->fd);
+      fprintf (stderr, "    ptr:     %p\n", mem->ptr);
+      fprintf (stderr, "    size:    %zd\n", mem->size);
+    } else {
+      fprintf (stderr, "    invalid memory reference\n");
     }
-    fprintf (stderr, "    offset %zd:\n", d->offset);
-    fprintf (stderr, "    size %zd:\n", d->size);
-    fprintf (stderr, "    stride %zd:\n", d->stride);
+    fprintf (stderr, "   offset: %zd\n", d->offset);
+    fprintf (stderr, "   size:   %zd\n", d->size);
+    fprintf (stderr, "   stride: %zd\n", d->stride);
   }
   return SPA_RESULT_OK;
 }

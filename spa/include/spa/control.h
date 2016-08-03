@@ -165,7 +165,7 @@ typedef struct {
   uint32_t mem_id;
   uint32_t mem_type;
   uint32_t fd_index;
-  uint64_t offset;
+  uint32_t flags;
   uint64_t size;
 } SpaControlCmdAddMem;
 
@@ -179,7 +179,7 @@ typedef struct {
 typedef struct {
   uint32_t port_id;
   uint32_t buffer_id;
-  int      fd_index;
+  uint32_t mem_id;
   uint64_t offset;
   uint64_t size;
 } SpaControlCmdAddBuffer;

@@ -21,6 +21,7 @@
 #include <stddef.h>
 
 #include <spa/node.h>
+#include <spa/memory.h>
 #include <spa/audio/format.h>
 
 typedef struct _SpaVolume SpaVolume;
@@ -550,6 +551,7 @@ spa_volume_node_port_pull_output (SpaNode        *node,
   SpaData *sd, *dd;
   uint16_t *src, *dst;
   double volume;
+  SpaMemory *sm, *dm;
 
   if (node == NULL || node->handle == NULL || n_info == 0 || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -581,16 +583,11 @@ spa_volume_node_port_pull_output (SpaNode        *node,
     sd = &SPA_BUFFER_DATAS (sbuf)[si];
     dd = &SPA_BUFFER_DATAS (dbuf)[di];
 
-    if (sd->type != SPA_DATA_TYPE_MEMPTR) {
-      si++;
-      continue;
-    }
-    if (dd->type != SPA_DATA_TYPE_MEMPTR) {
-      di++;
-      continue;
-    }
-    src = (uint16_t*) ((uint8_t*)sd->ptr + soff);
-    dst = (uint16_t*) ((uint8_t*)dd->ptr + doff);
+    sm = spa_memory_find (0, sd->mem_id);
+    dm = spa_memory_find (0, dd->mem_id);
+
+    src = (uint16_t*) ((uint8_t*)sm->ptr + sd->offset + soff);
+    dst = (uint16_t*) ((uint8_t*)dm->ptr + dd->offset + doff);
 
     n_bytes = SPA_MIN (sd->size - soff, dd->size - doff);
     n_samples = n_bytes / sizeof (uint16_t);

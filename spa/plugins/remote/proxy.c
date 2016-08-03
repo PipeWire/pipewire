@@ -17,8 +17,6 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#define _GNU_SOURCE
-
 #include <string.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -31,6 +29,7 @@
 
 
 #include <spa/node.h>
+#include <spa/memory.h>
 #include <spa/control.h>
 
 #define MAX_INPUTS       64
@@ -548,25 +547,6 @@ spa_proxy_node_port_get_status (SpaNode              *node,
   return SPA_RESULT_OK;
 }
 
-static int
-tmpfile_create (void *data, size_t size)
-{
-  char filename[] = "/dev/shm/tmpfilepay.XXXXXX";
-  int fd;
-
-  fd = mkostemp (filename, O_CLOEXEC);
-  if (fd == -1) {
-    fprintf (stderr, "Failed to create temporary file: %s\n", strerror (errno));
-    return -1;
-  }
-  unlink (filename);
-
-  if (write (fd, data, size) != (ssize_t) size)
-    fprintf (stderr, "Failed to write data: %s\n", strerror (errno));
-
-  return fd;
-}
-
 static SpaResult
 add_buffer (SpaProxy *this, uint32_t port_id, SpaBuffer *buffer)
 {
@@ -574,53 +554,57 @@ add_buffer (SpaProxy *this, uint32_t port_id, SpaBuffer *buffer)
   SpaControlBuilder builder;
   uint8_t buf[1024];
   int fds[16];
+  SpaControlCmdAddMem am;
   SpaControlCmdAddBuffer ab;
-  int fd, i;
+  int i;
   SpaResult res;
   SpaBuffer *b;
+  SpaMemory *bmem;
 
   spa_control_builder_init_into (&builder, buf, sizeof (buf), fds, sizeof (fds));
 
-  fd = tmpfile_create (buffer, buffer->size);
+  if (buffer->mem_id == SPA_ID_INVALID) {
+    fprintf (stderr, "proxy %p: alloc buffer space\n", this);
+    bmem = spa_memory_alloc_with_fd (0, buffer, buffer->size);
+    b = spa_memory_ensure_ptr (bmem);
+    b->mem_id = bmem->id;
+    b->offset = 0;
+  } else {
+    bmem = spa_memory_find (0, buffer->mem_id);
+    b = buffer;
+  }
 
-  b = mmap (NULL, buffer->size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+  am.port_id = port_id;
+  am.mem_id = bmem->id;
+  am.mem_type = 0;
+  am.fd_index = spa_control_builder_add_fd (&builder, bmem->fd, false);
+  am.flags = bmem->flags;
+  am.size = bmem->size;
+  spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_ADD_MEM, &am);
+
   for (i = 0; i < b->n_datas; i++) {
     SpaData *d = &SPA_BUFFER_DATAS (b)[i];
-    int fd;
-    SpaControlCmdAddMem am;
-    bool tmpfile;
+    SpaMemory *mem;
 
-    if (d->type == SPA_DATA_TYPE_FD) {
-      fd = SPA_PTR_TO_INT (d->ptr);
-      tmpfile = false;
-    } else if (d->type == SPA_DATA_TYPE_MEMPTR) {
-      fd = tmpfile_create (d->ptr, d->size + d->offset);
-      tmpfile = true;
-    } else {
-      fprintf (stderr, "proxy %p: invalid mem type received %d\n", this, d->type);
+    if (!(mem = spa_memory_find (0, d->mem_id))) {
+      fprintf (stderr, "proxy %p: error invalid memory\n", this);
       continue;
     }
 
     am.port_id = port_id;
-    am.mem_id = b->id * 64 + i;
+    am.mem_id = mem->id;
     am.mem_type = 0;
-    am.fd_index = spa_control_builder_add_fd (&builder, fd, tmpfile ? true : false);
-    am.offset = d->offset;
-    am.size = d->size;
+    am.fd_index = spa_control_builder_add_fd (&builder, mem->fd, false);
+    am.flags = mem->flags;
+    am.size = mem->size;
     spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_ADD_MEM, &am);
-
-    d->type = SPA_DATA_TYPE_MEMID;
-    d->ptr_type = NULL;
-    d->ptr = SPA_UINT32_TO_PTR (am.mem_id);
-    d->offset = 0;
   }
   ab.port_id = port_id;
   ab.buffer_id = b->id;
-  ab.fd_index = spa_control_builder_add_fd (&builder, fd, true);
-  ab.offset = 0;
+  ab.mem_id = bmem->id;
+  ab.offset = b->offset;
   ab.size = b->size;
   spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_ADD_BUFFER, &ab);
-  munmap (b, buffer->size);
 
   spa_control_builder_end (&builder, &control);
 
@@ -631,6 +615,71 @@ add_buffer (SpaProxy *this, uint32_t port_id, SpaBuffer *buffer)
 
   return SPA_RESULT_OK;
 }
+
+#if 0
+static SpaResult
+add_buffer (SpaProxy *this, uint32_t port_id, SpaBuffer *buffer)
+{
+  SpaControl control;
+  SpaControlBuilder builder;
+  uint8_t buf[1024];
+  int fds[16];
+  SpaControlCmdAddMem am;
+  SpaControlCmdAddBuffer ab;
+  int i;
+  SpaResult res;
+  SpaBuffer *b;
+  SpaMemory *bmem;
+
+  spa_control_builder_init_into (&builder, buf, sizeof (buf), fds, sizeof (fds));
+
+  bmem = spa_memory_alloc_with_fd (0, buffer, buffer->size);
+  b = spa_memory_ensure_ptr (bmem);
+  b->mem_id = bmem->id;
+  b->offset = 0;
+
+  am.port_id = port_id;
+  am.mem_id = bmem->id;
+  am.mem_type = 0;
+  am.fd_index = spa_control_builder_add_fd (&builder, bmem->fd, false);
+  am.offset = 0;
+  am.size = buffer->size;
+  spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_ADD_MEM, &am);
+
+  for (i = 0; i < b->n_datas; i++) {
+    SpaData *d = &SPA_BUFFER_DATAS (b)[i];
+    SpaMemory *mem;
+
+    if (!(mem = spa_memory_find (0, d->mem_id))) {
+      fprintf (stderr, "proxy %p: error invalid memory\n", this);
+      continue;
+    }
+
+    am.port_id = port_id;
+    am.mem_id = mem->id;
+    am.mem_type = 0;
+    am.fd_index = spa_control_builder_add_fd (&builder, mem->fd, false);
+    am.offset = d->offset;
+    am.size = d->size;
+    spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_ADD_MEM, &am);
+  }
+  ab.port_id = port_id;
+  ab.buffer_id = b->id;
+  ab.mem_id = bmem->id;
+  ab.offset = 0;
+  ab.size = b->size;
+  spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_ADD_BUFFER, &ab);
+
+  spa_control_builder_end (&builder, &control);
+
+  if ((res = spa_control_write (&control, this->fds[0].fd)) < 0)
+    fprintf (stderr, "proxy %p: error writing control\n", this);
+
+  spa_control_clear (&control);
+
+  return SPA_RESULT_OK;
+}
+#endif
 
 static SpaResult
 remove_buffer (SpaProxy *this, uint32_t port_id, SpaBuffer *buffer)

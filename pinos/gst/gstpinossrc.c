@@ -44,6 +44,7 @@
 #include <gst/allocators/gstfdmemory.h>
 #include <gst/video/video.h>
 
+#include <spa/include/spa/memory.h>
 #include <spa/include/spa/buffer.h>
 
 
@@ -385,28 +386,21 @@ on_new_buffer (GObject    *gobject,
   }
   for (i = 0; i < b->n_datas; i++) {
     SpaData *d = &SPA_BUFFER_DATAS (b)[i];
+    SpaMemory *mem;
 
-    switch (d->type) {
-      case SPA_DATA_TYPE_MEMPTR:
-      {
-        gst_buffer_append_memory (buf,
-                 gst_memory_new_wrapped (0, d->ptr, d->offset + d->size, d->offset,
-                                         d->size, NULL, NULL));
-        break;
-      }
-      case SPA_DATA_TYPE_FD:
-      {
-        GstMemory *fdmem = NULL;
-        int fd = SPA_PTR_TO_INT (d->ptr);
+    mem = spa_memory_find (0, d->mem_id);
 
-        fdmem = gst_fd_allocator_alloc (pinossrc->fd_allocator, dup (fd),
-                  d->offset + d->size, GST_FD_MEMORY_FLAG_NONE);
-        gst_memory_resize (fdmem, d->offset, d->size);
-        gst_buffer_append_memory (buf, fdmem);
-        break;
-      }
-      default:
-        break;
+    if (mem->fd) {
+      GstMemory *fdmem = NULL;
+
+      fdmem = gst_fd_allocator_alloc (pinossrc->fd_allocator, dup (mem->fd),
+                d->offset + d->size, GST_FD_MEMORY_FLAG_NONE);
+      gst_memory_resize (fdmem, d->offset, d->size);
+      gst_buffer_append_memory (buf, fdmem);
+    } else {
+      gst_buffer_append_memory (buf,
+               gst_memory_new_wrapped (0, mem->ptr, mem->size, d->offset,
+                                       d->size, NULL, NULL));
     }
   }
 

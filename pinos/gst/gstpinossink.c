@@ -562,9 +562,8 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
 
   b->mem = mem;
   b->fd = gst_fd_memory_get_fd (mem);
-  b->datas[0].type = SPA_DATA_TYPE_FD;
-  b->datas[0].ptr = &b->fd;
-  b->datas[0].ptr_type = mem->allocator->mem_type;
+
+  b->datas[0].mem_id = 0;
   b->datas[0].offset = mem->offset;
   b->datas[0].size = mem->size;
   b->datas[0].stride = 0;

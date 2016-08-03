@@ -46,6 +46,8 @@ GST_DEBUG_CATEGORY (pinos_debug);
 static gboolean
 plugin_init (GstPlugin * plugin)
 {
+  pinos_init (NULL, NULL);
+
 //  gst_element_register (plugin, "pinospay", GST_RANK_NONE,
  //     GST_TYPE_PINOS_PAY);
  // gst_element_register (plugin, "pinosdepay", GST_RANK_NONE,

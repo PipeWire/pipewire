@@ -339,54 +339,6 @@ spa_control_iter_get_data (SpaControlIter *iter, size_t *size)
   return si->data;
 }
 
-#if 0
-typedef struct {
-  SpaBuffer buffer;
-  SpaMeta metas[16];
-  SpaData datas[16];
-  int     memid[16];
-} MyBuffer;
-
-static SpaResult
-parse_add_buffer (struct stack_iter      *si,
-                  SpaControlCmdAddBuffer *command)
-{
-  MyBuffer *b;
-  uint32_t *p = si->data;
-  unsigned int i;
-
-  command->port_id = *p++;
-  b = malloc (sizeof (MyBuffer));
-  b->buffer.id = *(uint32_t *)p++;
-  b->buffer.size = *(uint32_t *)p++;
-  b->buffer.n_metas = *(uint32_t *)p++;
-  b->buffer.metas = offsetof (MyBuffer, metas);
-  b->buffer.n_datas = *(uint32_t *)p++;
-  b->buffer.datas = offsetof (MyBuffer, datas);
-
-  for (i = 0; i < b->buffer.n_metas; i++) {
-    SpaMeta *m = &b->metas[i];
-    m->type = *p++;
-    m->size = *p++;
-    m->offset = 0;
-    p = p + (m->size + 3) / 4;
-  }
-  for (i = 0; i < b->buffer.n_datas; i++) {
-    SpaData *d = &b->datas[i];
-    d->type = SPA_DATA_TYPE_MEMID;
-    d->ptr_type = NULL;
-    b->memid[i] = *p++;
-    d->ptr = &b->memid[i];
-    d->offset = *p++;
-    d->size = *p++;
-    d->stride = *p++;
-  }
-  command->buffer = &b->buffer;
-
-  return SPA_RESULT_OK;
-}
-#endif
-
 SpaResult
 spa_control_iter_parse_cmd (SpaControlIter *iter,
                             void           *command)
@@ -718,60 +670,6 @@ builder_add_cmd (struct stack_builder *sb, SpaControlCmd cmd, size_t size)
   }
   return p;
 }
-
-#if 0
-static SpaResult
-build_add_buffer (struct stack_builder   *sb,
-                  SpaControlCmdAddBuffer *command)
-{
-  unsigned int i;
-  size_t size;
-  SpaBuffer *b = command->buffer;
-  uint32_t *p;
-
-  /* port + id + size + n_metas + n_datas */
-  size = 4 + 4 + 4 + 4 + 4;
-
-  for (i = 0; i < b->n_metas; i++) {
-    SpaMeta *m = &b->metas[i];
-    /* type + size + data */
-    size += 4 + 4 + m->size;
-  }
-  for (i = 0; i < b->n_datas; i++) {
-    SpaData *d = &b->datas[i];
-    if (d->type != SPA_DATA_TYPE_MEMID)
-      continue;
-    /* memidx + offset + size + stride */
-    size += 4 + 4 + 4 + 4;
-  }
-  p = builder_add_cmd (sb, SPA_CONTROL_CMD_ADD_BUFFER, size);
-
-  *p++ = command->port_id;
-  *p++ = b->id;
-  *p++ = b->size;
-  *p++ = b->n_metas;
-  *p++ = b->n_datas;
-
-  for (i = 0; i < b->n_metas; i++) {
-    SpaMeta *m = &b->metas[i];
-
-    *p++ = m->type;
-    *p++ = m->size;
-    memcpy (p, m->data, m->size);
-    p = p + m->size / 4;
-  }
-  for (i = 0; i < b->n_datas; i++) {
-    SpaData *d = &b->datas[i];
-    if (d->type != SPA_DATA_TYPE_MEMID)
-      continue;
-    *p++ = *((uint32_t*)(d->ptr));
-    *p++ = d->offset;
-    *p++ = d->size;
-    *p++ = d->stride;
-  }
-  return SPA_RESULT_OK;
-}
-#endif
 
 /**
  * spa_control_builder_add_cmd:

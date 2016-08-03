@@ -25,6 +25,7 @@
 #include <linux/videodev2.h>
 
 #include <spa/node.h>
+#include <spa/memory.h>
 #include <spa/video/format.h>
 #include <spa/debug.h>
 
@@ -54,8 +55,7 @@ struct _V4l2Buffer {
   SpaMeta metas[1];
   SpaMetaHeader header;
   SpaData datas[1];
-  SpaV4l2Source *source;
-  SpaBuffer *imported;
+  SpaBuffer *outbuf;
   bool outstanding;
   struct v4l2_buffer v4l2_buffer;
   V4l2Buffer *next;
@@ -102,7 +102,8 @@ typedef struct {
   enum v4l2_memory memtype;
 
   struct v4l2_requestbuffers reqbuf;
-  V4l2Buffer buffers[MAX_BUFFERS];
+  SpaMemory *alloc_mem;
+  V4l2Buffer *alloc_buffers;
   V4l2Buffer *ready;
   uint32_t ready_count;
 

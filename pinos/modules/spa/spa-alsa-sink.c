@@ -27,6 +27,7 @@
 #include <gio/gio.h>
 
 #include <spa/include/spa/node.h>
+#include <spa/include/spa/memory.h>
 #include <spa/include/spa/audio/format.h>
 
 #include "spa-alsa-sink.h"
@@ -438,15 +439,15 @@ on_received_buffer (PinosPort   *port,
 
   for (i = 0; i < buffer->n_datas; i++) {
     SpaData *d = SPA_BUFFER_DATAS (buffer);
+    SpaMemory *mem;
     PinosRingbufferArea areas[2];
     uint8_t *data;
     size_t size, towrite, total;
 
-    if (d[i].type != SPA_DATA_TYPE_MEMPTR)
-      continue;
+    mem = spa_memory_find (0, d[i].mem_id);
 
     size = d[i].size;
-    data = (guint8*)d[i].ptr + d[i].offset;
+    data = (guint8*)mem->ptr + d[i].offset;
 
     pinos_ringbuffer_get_write_areas (priv->ringbuffer, areas);
 

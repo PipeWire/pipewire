@@ -17,7 +17,16 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#define _GNU_SOURCE
+
+#include <string.h>
+#include <stddef.h>
 #include <stdio.h>
+#include <sys/socket.h>
+#include <errno.h>
+#include <sys/mman.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 #include "spa/memory.h"
 
@@ -39,6 +48,7 @@ spa_memory_pool_init (SpaMemoryPool *pool, uint32_t id)
 {
   int i;
 
+  memset (pool, 0, sizeof (SpaMemoryPool));
   for (i = 0; i < MAX_MEMORIES; i++)
     pool->free_mem[i] = MAX_MEMORIES - 1 - i;
   pool->n_free = MAX_MEMORIES;
@@ -103,8 +113,80 @@ spa_memory_alloc (uint32_t pool_id)
 
   mem = &pool->memories[id];
   mem->refcount = 1;
+  mem->notify = NULL;
   mem->pool_id = pool_id;
   mem->id = id;
+
+  return mem;
+}
+
+SpaMemory *
+spa_memory_alloc_with_fd  (uint32_t pool_id, void *data, size_t size)
+{
+  SpaMemory *mem;
+  char filename[] = "/dev/shm/spa-tmpfile.XXXXXX";
+
+  if (!(mem = spa_memory_alloc (pool_id)))
+    return NULL;
+
+  mem->fd = mkostemp (filename, O_CLOEXEC);
+  if (mem->fd == -1) {
+    fprintf (stderr, "Failed to create temporary file: %s\n", strerror (errno));
+    return NULL;
+  }
+  unlink (filename);
+
+  if (data) {
+    if (write (mem->fd, data, size) != (ssize_t) size) {
+      fprintf (stderr, "Failed to write data: %s\n", strerror (errno));
+      close (mem->fd);
+      return NULL;
+    }
+  } else {
+    if (ftruncate (mem->fd, size) < 0) {
+      fprintf (stderr, "Failed to truncate temporary file: %s\n", strerror (errno));
+      close (mem->fd);
+      return NULL;
+    }
+  }
+
+  mem->flags = SPA_MEMORY_FLAG_READWRITE;
+  mem->ptr = NULL;
+  mem->size = size;
+
+  return mem;
+}
+
+
+SpaMemory *
+spa_memory_import (uint32_t pool_id, uint32_t id)
+{
+  SpaMemory *mem = NULL;
+  SpaMemoryPool *pool;
+  int i;
+  bool init = false;
+
+  if (pool_id >= MAX_POOLS || !pools[pool_id].valid)
+    return NULL;
+
+  pool = &pools[pool_id];
+
+  for (i = 0; i < pool->n_free; i++) {
+    if (pool->free_mem[i] == id) {
+      pool->free_mem[i] = pool->free_mem[pool->n_free - 1];
+      pool->n_free--;
+      init = true;
+      break;
+    }
+  }
+
+  mem = &pool->memories[id];
+  if (init) {
+    mem->refcount = 1;
+    mem->notify = NULL;
+    mem->pool_id = pool_id;
+    mem->id = id;
+  }
 
   return mem;
 }
@@ -138,4 +220,28 @@ spa_memory_find (uint32_t pool_id, uint32_t id)
     return NULL;
 
   return &pool->memories[id];
+}
+
+void *
+spa_memory_ensure_ptr (SpaMemory *mem)
+{
+  int prot = 0;
+
+  if (mem == NULL)
+    return NULL;
+
+  if (mem->ptr)
+    return mem->ptr;
+
+  if (mem->flags & SPA_MEMORY_FLAG_READABLE)
+    prot |= PROT_READ;
+  if (mem->flags & SPA_MEMORY_FLAG_WRITABLE)
+    prot |= PROT_WRITE;
+
+  mem->ptr = mmap (NULL, mem->size, prot, MAP_SHARED, mem->fd, 0);
+  if (mem->ptr == MAP_FAILED) {
+    mem->ptr = NULL;
+    fprintf (stderr, "Failed to mmap memory %p: %s\n", mem, strerror (errno));
+  }
+  return mem->ptr;
 }

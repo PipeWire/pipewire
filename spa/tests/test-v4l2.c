@@ -30,6 +30,7 @@
 
 #include <spa/node.h>
 #include <spa/debug.h>
+#include <spa/memory.h>
 #include <spa/video/format.h>
 
 #undef USE_BUFFER
@@ -123,6 +124,7 @@ on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
       uint8_t *src, *dst;
       SpaMeta *metas;
       SpaData *datas;
+      SpaMemory *mem;
 
       if ((res = spa_node_port_pull_output (data->source, 1, info)) < 0)
         printf ("got pull error %d\n", res);
@@ -146,8 +148,11 @@ on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
           fprintf (stderr, "Couldn't lock texture: %s\n", SDL_GetError());
           return;
         }
-        datas[0].ptr = sdata;
-        datas[0].ptr_type = "sysmem";
+        mem = spa_memory_find (0, datas[0].mem_id);
+        mem->ptr = sdata;
+        mem->type = "sysmem";
+        mem->size = sstride * 240;
+
         datas[0].size = sstride * 240;
         datas[0].stride = sstride;
       } else {
@@ -155,7 +160,9 @@ on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
           fprintf (stderr, "Couldn't lock texture: %s\n", SDL_GetError());
           return;
         }
-        sdata = datas[0].ptr;
+        mem = spa_memory_find (0, datas[0].mem_id);
+
+        sdata = spa_memory_ensure_ptr (mem);
         sstride = datas[0].stride;
 
         for (i = 0; i < 240; i++) {
@@ -437,6 +444,8 @@ main (int argc, char *argv[])
 {
   AppData data;
   SpaResult res;
+
+  spa_memory_init ();
 
   if (SDL_Init (SDL_INIT_VIDEO) < 0) {
     printf ("can't initialize SDL: %s\n", SDL_GetError ());

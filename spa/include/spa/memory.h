@@ -41,6 +41,8 @@ typedef enum {
   SPA_MEMORY_FLAG_WRITABLE           = (1 << 1),
 } SpaMemoryFlags;
 
+#define SPA_MEMORY_FLAG_READWRITE   (SPA_MEMORY_FLAG_READABLE|SPA_MEMORY_FLAG_WRITABLE)
+
 /**
  * SpaMemory:
  * @refcount: a refcount
@@ -65,14 +67,20 @@ struct _SpaMemory {
   size_t          size;
 };
 
+void             spa_memory_init           (void);
+
 uint32_t         spa_memory_pool_get       (uint32_t type);
 uint32_t         spa_memory_pool_new       (void);
 void             spa_memory_pool_free      (uint32_t);
 
 SpaMemory *      spa_memory_alloc          (uint32_t pool_id);
+SpaMemory *      spa_memory_alloc_with_fd  (uint32_t pool_id, void *data, size_t size);
 SpaResult        spa_memory_free           (uint32_t pool_id, uint32_t id);
+SpaMemory *      spa_memory_import         (uint32_t pool_id, uint32_t id);
 
 SpaMemory *      spa_memory_find           (uint32_t pool_id, uint32_t id);
+
+void *           spa_memory_ensure_ptr     (SpaMemory *mem);
 
 #ifdef __cplusplus
 }  /* extern "C" */

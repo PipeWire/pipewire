@@ -20,6 +20,7 @@
 #include <gst/gst.h>
 
 #include "pinos/client/pinos.h"
+#include "spa/include/spa/memory.h"
 
 /**
  * pinos_init:
@@ -33,6 +34,7 @@ void
 pinos_init (int *argc, char **argv[])
 {
   gst_init (argc, argv);
+  spa_memory_init ();
 }
 
 /**

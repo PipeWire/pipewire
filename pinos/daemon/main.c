@@ -24,6 +24,7 @@
 #include <server/daemon.h>
 #include <modules/gst/gst-manager.h>
 #include <modules/gst/gst-node-factory.h>
+#include <spa/include/spa/memory.h>
 
 gint
 main (gint argc, gchar *argv[])
@@ -34,6 +35,7 @@ main (gint argc, gchar *argv[])
   PinosNodeFactory *factory;
 
   pinos_init (&argc, &argv);
+  spa_memory_init ();
 
   loop = g_main_loop_new (NULL, FALSE);
 

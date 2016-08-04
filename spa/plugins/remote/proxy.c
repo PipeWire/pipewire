@@ -565,7 +565,7 @@ add_buffer (SpaProxy *this, uint32_t port_id, SpaBuffer *buffer)
 
   if (buffer->mem.id == SPA_ID_INVALID) {
     fprintf (stderr, "proxy %p: alloc buffer space\n", this);
-    bmem = spa_memory_alloc_with_fd (0, buffer, buffer->size);
+    bmem = spa_memory_alloc_with_fd (SPA_MEMORY_POOL_SHARED, buffer, buffer->size);
     b = spa_memory_ensure_ptr (bmem);
     b->mem = bmem->mem;
     b->offset = 0;
@@ -1021,8 +1021,6 @@ proxy_instantiate (const SpaHandleFactory  *factory,
   this->node.handle = handle;
   this->props[1].props.n_prop_info = PROP_ID_LAST;
   this->props[1].props.prop_info = prop_info;
-  this->props[1].props.set_prop = spa_props_generic_set_prop;
-  this->props[1].props.get_prop = spa_props_generic_get_prop;
   reset_proxy_props (&this->props[1]);
   memcpy (&this->props[0], &this->props[1], sizeof (this->props[1]));
 

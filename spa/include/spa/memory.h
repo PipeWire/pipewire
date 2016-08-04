@@ -58,6 +58,7 @@ struct _SpaMemoryRef {
  * SpaMemory:
  * @refcount: a refcount
  * @notify: notify when refcount is 0
+ * @user_data: owner specific used data
  * @pool_id: the id of the pool
  * @id: the memory id
  * @flags: extra memory flags
@@ -69,6 +70,7 @@ struct _SpaMemoryRef {
 struct _SpaMemory {
   int             refcount;
   SpaNotify       notify;
+  void           *user_data;
   SpaMemoryRef    mem;
   SpaMemoryFlags  flags;
   const char     *type;
@@ -77,6 +79,9 @@ struct _SpaMemory {
   size_t          size;
 };
 
+#define SPA_MEMORY_POOL_SHARED   0
+#define SPA_MEMORY_POOL_LOCAL    1
+
 void             spa_memory_init           (void);
 
 uint32_t         spa_memory_pool_get       (uint32_t type);
@@ -84,9 +89,12 @@ uint32_t         spa_memory_pool_new       (void);
 void             spa_memory_pool_free      (uint32_t);
 
 SpaMemory *      spa_memory_alloc          (uint32_t pool_id);
+SpaMemory *      spa_memory_alloc_size     (uint32_t pool_id, void *data, size_t size);
 SpaMemory *      spa_memory_alloc_with_fd  (uint32_t pool_id, void *data, size_t size);
 
-SpaResult        spa_memory_free           (SpaMemoryRef *ref);
+SpaResult        spa_memory_ref            (SpaMemoryRef *ref);
+SpaResult        spa_memory_unref          (SpaMemoryRef *ref);
+
 SpaMemory *      spa_memory_import         (SpaMemoryRef *ref);
 SpaMemory *      spa_memory_find           (SpaMemoryRef *ref);
 

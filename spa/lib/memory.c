@@ -62,7 +62,8 @@ spa_memory_init (void)
   static bool initialized = false;
 
   if (!initialized) {
-    spa_memory_pool_init (&pools[0], 0);
+    spa_memory_pool_init (&pools[0], SPA_MEMORY_POOL_SHARED);
+    spa_memory_pool_init (&pools[1], SPA_MEMORY_POOL_LOCAL);
     initialized = true;
   }
 }
@@ -114,8 +115,27 @@ spa_memory_alloc (uint32_t pool_id)
   mem = &pool->memories[id];
   mem->refcount = 1;
   mem->notify = NULL;
+  mem->fd = -1;
+  mem->ptr = NULL;
   mem->mem.pool_id = pool_id;
   mem->mem.id = id;
+
+  return mem;
+}
+
+SpaMemory *
+spa_memory_alloc_size  (uint32_t pool_id, void *data, size_t size)
+{
+  SpaMemory *mem;
+
+  if (!(mem = spa_memory_alloc (pool_id)))
+    return NULL;
+
+  mem->flags = SPA_MEMORY_FLAG_READWRITE;
+  mem->ptr = malloc (size);
+  mem->size = size;
+  if (data)
+    memcpy (mem->ptr, data, size);
 
   return mem;
 }
@@ -151,12 +171,10 @@ spa_memory_alloc_with_fd  (uint32_t pool_id, void *data, size_t size)
   }
 
   mem->flags = SPA_MEMORY_FLAG_READWRITE;
-  mem->ptr = NULL;
   mem->size = size;
 
   return mem;
 }
-
 
 SpaMemory *
 spa_memory_import (SpaMemoryRef *ref)
@@ -189,22 +207,56 @@ spa_memory_import (SpaMemoryRef *ref)
     mem->refcount = 1;
     mem->notify = NULL;
     mem->mem = *ref;
+    mem->ptr = NULL;
+    mem->fd = -1;
   }
 
   return mem;
 }
 
 SpaResult
-spa_memory_free (SpaMemoryRef *ref)
+spa_memory_ref (SpaMemoryRef *ref)
+{
+  SpaMemory *mem;
+
+  if (!(mem = spa_memory_find (ref)))
+    return SPA_RESULT_ERROR;
+
+  mem->refcount++;
+
+  return SPA_RESULT_OK;
+}
+
+static void
+spa_memory_free (SpaMemory *mem)
 {
   SpaMemoryPool *pool;
 
-  if (ref == NULL || ref->pool_id >= MAX_POOLS || !pools[ref->pool_id].valid)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
-  pool = &pools[ref->pool_id];
-  pool->free_mem[pool->n_free] = ref->id;
+  if (mem->fd != -1) {
+    if (mem->ptr)
+      munmap (mem->ptr, mem->size);
+    close (mem->fd);
+  }
+  pool = &pools[mem->mem.pool_id];
+  pool->free_mem[pool->n_free] = mem->mem.id;
   pool->n_free++;
+}
+
+SpaResult
+spa_memory_unref (SpaMemoryRef *ref)
+{
+  SpaMemory *mem;
+
+  if (!(mem = spa_memory_find (ref)))
+    return SPA_RESULT_ERROR;
+
+  if (--mem->refcount == 0) {
+    if (mem->notify)
+      mem->notify (mem);
+
+    if (mem->refcount == 0)
+      spa_memory_free (mem);
+  }
 
   return SPA_RESULT_OK;
 }

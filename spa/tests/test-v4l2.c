@@ -275,7 +275,7 @@ alloc_buffers (AppData *data)
     b->metas[1].offset = offsetof (SDLBuffer, ptr);
     b->metas[1].size = sizeof (b->ptr);
 
-    mem = spa_memory_alloc (0);
+    mem = spa_memory_alloc (SPA_MEMORY_POOL_LOCAL);
     mem->flags = SPA_MEMORY_FLAG_READWRITE;
     mem->type = "sysmem";
     mem->fd = -1;
@@ -317,8 +317,6 @@ negotiate_formats (AppData *data)
   f.fmt.media_subtype = SPA_MEDIA_SUBTYPE_RAW;
   f.fmt.props.n_prop_info = 3;
   f.fmt.props.prop_info = f.infos;
-  f.fmt.props.set_prop = spa_props_generic_set_prop;
-  f.fmt.props.get_prop = spa_props_generic_get_prop;
 
   spa_video_raw_fill_prop_info (&f.infos[0],
                                 SPA_PROP_ID_VIDEO_FORMAT,

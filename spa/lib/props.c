@@ -25,9 +25,9 @@
 #include <spa/props.h>
 
 SpaResult
-spa_props_generic_set_prop (SpaProps           *props,
-                            unsigned int        index,
-                            const SpaPropValue *value)
+spa_props_set_prop (SpaProps           *props,
+                    unsigned int        index,
+                    const SpaPropValue *value)
 {
   const SpaPropInfo *info;
 
@@ -56,9 +56,9 @@ spa_props_generic_set_prop (SpaProps           *props,
 
 
 SpaResult
-spa_props_generic_get_prop (const SpaProps *props,
-                            unsigned int    index,
-                            SpaPropValue   *value)
+spa_props_get_prop (const SpaProps *props,
+                    unsigned int    index,
+                    SpaPropValue   *value)
 {
   const SpaPropInfo *info;
 
@@ -100,7 +100,7 @@ spa_props_copy (const SpaProps *src,
 
     if (!(info->flags & SPA_PROP_FLAG_WRITABLE))
       continue;
-    if ((res = src->get_prop (src, spa_props_index_for_id (src, info->id), &value)) < 0)
+    if ((res = spa_props_get_prop (src, spa_props_index_for_id (src, info->id), &value)) < 0)
       continue;
     if (value.type != info->type)
       return SPA_RESULT_WRONG_PROPERTY_TYPE;

@@ -343,8 +343,6 @@ spa_v4l2_format_init (V4l2Format *f)
 {
   f->fmt.props.n_prop_info = 3;
   f->fmt.props.prop_info = f->infos;
-  f->fmt.props.set_prop = spa_props_generic_set_prop;
-  f->fmt.props.get_prop = spa_props_generic_get_prop;
 
   spa_video_raw_fill_prop_info (&f->infos[0],
                                 SPA_PROP_ID_VIDEO_FORMAT,
@@ -716,8 +714,6 @@ v4l2_source_init (const SpaHandleFactory  *factory,
   this->node.handle = handle;
   this->props[1].props.n_prop_info = PROP_ID_LAST;
   this->props[1].props.prop_info = prop_info;
-  this->props[1].props.set_prop = spa_props_generic_set_prop;
-  this->props[1].props.get_prop = spa_props_generic_get_prop;
   reset_v4l2_source_props (&this->props[1]);
 
   this->state[0].info.flags = SPA_PORT_INFO_FLAG_NONE;

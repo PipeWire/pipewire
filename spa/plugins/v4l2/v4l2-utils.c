@@ -279,8 +279,6 @@ again:
   fmt->fmt.media_subtype = info->media_subtype;
   fmt->fmt.props.prop_info = fmt->infos;
   fmt->fmt.props.n_prop_info = pi = 0;
-  fmt->fmt.props.set_prop = spa_props_generic_set_prop;
-  fmt->fmt.props.get_prop = spa_props_generic_get_prop;
   fmt->unset_mask = 0;
 
   if (info->media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
@@ -526,8 +524,10 @@ spa_v4l2_import_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_bu
   state->reqbuf = reqbuf;
 
   if (state->alloc_mem)
-    spa_memory_free (&state->alloc_mem->mem);
-  state->alloc_mem = spa_memory_alloc_with_fd (0, NULL, sizeof (V4l2Buffer) * reqbuf.count);
+    spa_memory_unref (&state->alloc_mem->mem);
+  state->alloc_mem = spa_memory_alloc_with_fd (SPA_MEMORY_POOL_SHARED,
+                                               NULL,
+                                               sizeof (V4l2Buffer) * reqbuf.count);
   state->alloc_buffers = spa_memory_ensure_ptr (state->alloc_mem);
 
   for (i = 0; i < reqbuf.count; i++) {
@@ -602,8 +602,10 @@ mmap_init (SpaV4l2Source   *this,
   state->reqbuf = reqbuf;
 
   if (state->alloc_mem)
-    spa_memory_free (&state->alloc_mem->mem);
-  state->alloc_mem = spa_memory_alloc_with_fd (0, NULL, sizeof (V4l2Buffer) * reqbuf.count);
+    spa_memory_unref (&state->alloc_mem->mem);
+  state->alloc_mem = spa_memory_alloc_with_fd (SPA_MEMORY_POOL_SHARED,
+                                               NULL,
+                                               sizeof (V4l2Buffer) * reqbuf.count);
   state->alloc_buffers = spa_memory_ensure_ptr (state->alloc_mem);
 
   for (i = 0; i < reqbuf.count; i++) {
@@ -643,7 +645,7 @@ mmap_init (SpaV4l2Source   *this,
     b->metas[0].offset = offsetof (V4l2Buffer, header);
     b->metas[0].size = sizeof (b->header);
 
-    mem = spa_memory_alloc (0);
+    mem = spa_memory_alloc (SPA_MEMORY_POOL_SHARED);
     mem->flags = SPA_MEMORY_FLAG_READABLE;
     mem->size = buf.length;
     b->datas[0].mem = mem->mem;
@@ -801,7 +803,7 @@ spa_v4l2_stop (SpaV4l2Source *this)
     } else {
       munmap (mem->ptr, mem->size);
     }
-    spa_memory_free (&mem->mem);
+    spa_memory_unref (&mem->mem);
   }
   state->have_buffers = false;
 

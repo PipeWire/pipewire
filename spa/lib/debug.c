@@ -335,7 +335,7 @@ spa_debug_props (const SpaProps *props, bool print_ranges)
     else
       fprintf (stderr, "None");
 
-    res = props->get_prop (props, i, &value);
+    res = spa_props_get_prop (props, i, &value);
 
     fprintf (stderr, ". Current: ");
     if (res == SPA_RESULT_OK)
@@ -407,7 +407,7 @@ spa_debug_format (const SpaFormat *format)
     SpaPropValue value;
     SpaResult res;
 
-    res = props->get_prop (props, i, &value);
+    res = spa_props_get_prop (props, i, &value);
 
     if (res == SPA_RESULT_PROPERTY_UNSET && info->flags & SPA_PROP_FLAG_OPTIONAL)
       continue;

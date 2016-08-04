@@ -795,8 +795,6 @@ spa_audiomixer_init (const SpaHandleFactory *factory,
   this->node.handle = handle;
   this->props[1].props.n_prop_info = PROP_ID_LAST;
   this->props[1].props.prop_info = prop_info;
-  this->props[1].props.set_prop = spa_props_generic_set_prop;
-  this->props[1].props.get_prop = spa_props_generic_get_prop;
   reset_audiomixer_props (&this->props[1]);
 
   this->ports[0].valid = true;

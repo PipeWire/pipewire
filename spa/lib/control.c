@@ -348,16 +348,15 @@ iter_parse_set_format (struct stack_iter *si, SpaControlCmdSetFormat *cmd)
   unsigned int i, j;
   SpaPropInfo *pi;
   SpaPropRangeInfo *ri;
+  SpaMemory *mem;
 
   cmd->port_id = *p++;
-  cmd->format = malloc (si->size - 4);
-  memcpy (cmd->format, p, si->size - 4);
+  mem = spa_memory_alloc_size (SPA_MEMORY_POOL_LOCAL, p, si->size - 4);
+  cmd->format = spa_memory_ensure_ptr (mem);
+  cmd->format->mem = mem->mem;
 
   tp = (SpaProps *) &cmd->format->props;
   tp->prop_info = SPA_MEMBER (tp, SPA_PTR_TO_INT (tp->prop_info), SpaPropInfo);
-  tp->set_prop = spa_props_generic_set_prop;
-  tp->get_prop = spa_props_generic_get_prop;
-  tp->priv = NULL;
 
   /* now fix all the pointers */
   for (i = 0; i < tp->n_prop_info; i++) {
@@ -764,13 +763,10 @@ builder_add_set_format (struct stack_builder *sb, SpaControlCmdSetFormat *sf)
 
   tp = SPA_MEMBER (tf, offsetof (SpaFormat, props), SpaProps);
   tp->n_prop_info = sp->n_prop_info;
-  tp->prop_info = SPA_INT_TO_PTR (sizeof (SpaFormat) + sizeof (uint32_t));
-  tp->set_prop = NULL;
-  tp->get_prop = NULL;
-  tp->priv = NULL;
+  tp->prop_info = SPA_INT_TO_PTR (sizeof (SpaProps) + sizeof (uint32_t));
 
   /* write propinfo array, adjust offset of mask */
-  bpi = pi = (SpaPropInfo *) ((uint8_t *)tp + sizeof (SpaFormat) + sizeof (uint32_t));
+  bpi = pi = (SpaPropInfo *) ((uint8_t *)tp + sizeof (SpaProps) + sizeof (uint32_t));
   for (i = 0; i < tp->n_prop_info; i++) {
     memcpy (pi, &sp->prop_info[i], sizeof (SpaPropInfo));
     pi->mask_offset = sizeof (SpaFormat);
@@ -781,7 +777,7 @@ builder_add_set_format (struct stack_builder *sb, SpaControlCmdSetFormat *sf)
   pi = bpi;
   /* write range info arrays, adjust offset to it */
   for (i = 0; i < tp->n_prop_info; i++) {
-    pi->range_values = SPA_INT_TO_PTR (SPA_PTRDIFF (ri, tf));
+    pi->range_values = SPA_INT_TO_PTR (SPA_PTRDIFF (ri, tp));
     for (j = 0; j < pi->n_range_values; j++) {
       memcpy (ri, &sp->prop_info[i].range_values[j], sizeof (SpaPropRangeInfo));
       ri++;
@@ -796,7 +792,7 @@ builder_add_set_format (struct stack_builder *sb, SpaControlCmdSetFormat *sf)
     if (pi->name) {
       slen = strlen (pi->name) + 1;
       memcpy (p, pi->name, slen);
-      pi->name = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tf));
+      pi->name = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tp));
       p += slen;
     } else {
       pi->name = 0;
@@ -804,14 +800,14 @@ builder_add_set_format (struct stack_builder *sb, SpaControlCmdSetFormat *sf)
     if (pi->description) {
       slen = strlen (pi->description) + 1;
       memcpy (p, pi->description, slen);
-      pi->description = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tf));
+      pi->description = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tp));
       p += slen;
     } else {
       pi->description = 0;
     }
     if (pi->default_value) {
       memcpy (p, pi->default_value, pi->default_size);
-      pi->default_value = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tf));
+      pi->default_value = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tp));
       p += pi->default_size;
     } else {
       pi->default_value = 0;
@@ -820,7 +816,7 @@ builder_add_set_format (struct stack_builder *sb, SpaControlCmdSetFormat *sf)
       if (ri->name) {
         slen = strlen (ri->name) + 1;
         memcpy (p, ri->name, slen);
-        ri->name = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tf));
+        ri->name = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tp));
         p += slen;
       } else {
         ri->name = 0;
@@ -828,14 +824,14 @@ builder_add_set_format (struct stack_builder *sb, SpaControlCmdSetFormat *sf)
       if (ri->description) {
         slen = strlen (ri->description) + 1;
         memcpy (p, ri->description, slen);
-        ri->description = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tf));
+        ri->description = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tp));
         p += slen;
       } else {
         ri->description = 0;
       }
       if (ri->size) {
         memcpy (p, ri->value, ri->size);
-        ri->value = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tf));
+        ri->value = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tp));
         p += ri->size;
       } else {
         ri->value = 0;
@@ -849,7 +845,7 @@ builder_add_set_format (struct stack_builder *sb, SpaControlCmdSetFormat *sf)
   for (i = 0; i < tp->n_prop_info; i++) {
     if (pi->offset) {
       memcpy (p, SPA_MEMBER (sp, pi->offset, void), pi->maxsize);
-      pi->offset = SPA_PTRDIFF (p, tf);
+      pi->offset = SPA_PTRDIFF (p, tp);
       p += pi->maxsize;
     } else {
       pi->offset = 0;

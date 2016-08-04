@@ -28,6 +28,7 @@ typedef struct _SpaFormat SpaFormat;
 
 #include <spa/defs.h>
 #include <spa/props.h>
+#include <spa/memory.h>
 
 typedef enum {
   SPA_MEDIA_TYPE_INVALID         = 0,
@@ -55,11 +56,22 @@ typedef enum {
   SPA_MEDIA_SUBTYPE_BAYER           = 15,
 } SpaMediaSubType;
 
+/**
+ * SpaFormat:
+ * @props: properties
+ * @media_type: media type
+ * @media_subtype: subtype
+ * @mem: memory reference
+ */
 struct _SpaFormat {
   SpaProps         props;
   SpaMediaType     media_type;
   SpaMediaSubType  media_subtype;
+  SpaMemoryRef     mem;
 };
+
+#define spa_format_ref(f)    spa_memory_ref(&(f)->mem)
+#define spa_format_unref(f)  spa_memory_unref(&(f)->mem)
 
 typedef enum {
   SPA_PROP_ID_INVALID            = 0,

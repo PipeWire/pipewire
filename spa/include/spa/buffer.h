@@ -138,6 +138,8 @@ struct _SpaBuffer {
 #define SPA_BUFFER_METAS(b)        (SPA_MEMBER ((b), (b)->metas, SpaMeta))
 #define SPA_BUFFER_DATAS(b)        (SPA_MEMBER ((b), (b)->datas, SpaData))
 
+#define spa_buffer_ref(b)    spa_memory_ref (&(b)->mem)
+#define spa_buffer_unref(b)  spa_memory_unref (&(b)->mem)
 
 #ifdef __cplusplus
 }  /* extern "C" */

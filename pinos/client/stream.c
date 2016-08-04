@@ -600,6 +600,8 @@ parse_control (PinosStream *stream,
         priv->format = g_bytes_new_static (str, strlen (str)+1);
         g_object_notify (G_OBJECT (stream), "format");
 
+        spa_format_unref (p.format);
+
         /* FIXME send update port status */
 
         /* send state-change */

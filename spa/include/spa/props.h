@@ -157,62 +157,16 @@ typedef struct {
 
 /**
  * SpaProps:
+ * @n_prop_info: number of elements in @prop_info
+ * @prop_info: array of #SpaPropInfo. Contains info about the
+ *             properties. Can be %NULL when unspecified.
  *
  * Generic propertiers.
  */
 struct _SpaProps {
-  /**
-   * SpaProps::n_prop_info:
-   *
-   * The number of items in @prop_info.
-   */
-  unsigned int n_prop_info;
-  /**
-   * SpaProps::prop_info:
-   *
-   * Info about the properties. Can be %NULL when unspecified.
-   */
+  unsigned int       n_prop_info;
   const SpaPropInfo *prop_info;
-
-  /**
-   * SpaProps::set_prop
-   * @props: a #SpaProps
-   * @index: the index of the property in the prop_info array
-   * @value: the value to set
-   *
-   * Sets @value in @prop. type should match the type specified
-   * in the #SpaPropInfo at @index or else #SPA_RESULT_WRONG_PROPERTY_TYPE
-   * is returned.
-   *
-   * Returns: #SPA_RESULT_OK on success.
-   *          #SPA_RESULT_INVALID_PROPERTY_INDEX when @index is not valid
-   *          #SPA_RESULT_WRONG_PROPERTY_TYPE when type is not correct
-   */
-  SpaResult   (*set_prop)         (SpaProps           *props,
-                                   unsigned int        index,
-                                   const SpaPropValue *value);
-  /**
-   * SpaProps::get_prop
-   * @props: a #SpaProps
-   * @index: the property index in the prop_info array
-   * @value: a location for the type, size and value
-   *
-   * Get the type, size and value of the property at @index.
-   *
-   * Returns: #SPA_RESULT_OK on success.
-   *          #SPA_RESULT_INVALID_PROPERTY_INDEX when @index is not valid
-   *          #SPA_RESULT_PROPERTY_UNSET when no value has been set yet
-   */
-  SpaResult   (*get_prop)         (const SpaProps     *props,
-                                   unsigned int        index,
-                                   SpaPropValue       *value);
-
-  void *priv;
 };
-
-#define spa_props_set_prop(p,...)          (p)->set_prop((p),__VA_ARGS__)
-#define spa_props_get_prop(p,...)          (p)->get_prop((p),__VA_ARGS__)
-
 
 static inline unsigned int
 spa_props_index_for_id (const SpaProps *props, uint32_t id)
@@ -239,15 +193,41 @@ spa_props_index_for_name (const SpaProps *props, const char *name)
 }
 
 
-SpaResult       spa_props_generic_set_prop (SpaProps           *props,
-                                            unsigned int        index,
-                                            const SpaPropValue *value);
-SpaResult	spa_props_generic_get_prop (const SpaProps     *props,
-                                            unsigned int        index,
-                                            SpaPropValue       *value);
+/**
+ * spa_props_set_prop:
+ * @props: a #SpaProps
+ * @index: the index of the property in the prop_info array
+ * @value: the value to set
+ *
+ * Sets @value in @prop. type should match the type specified
+ * in the #SpaPropInfo at @index or else #SPA_RESULT_WRONG_PROPERTY_TYPE
+ * is returned.
+ *
+ * Returns: #SPA_RESULT_OK on success.
+ *          #SPA_RESULT_INVALID_PROPERTY_INDEX when @index is not valid
+ *          #SPA_RESULT_WRONG_PROPERTY_TYPE when type is not correct
+ */
+SpaResult       spa_props_set_prop    (SpaProps           *props,
+                                       unsigned int        index,
+                                       const SpaPropValue *value);
+/**
+ * spa_props_get_prop:
+ * @props: a #SpaProps
+ * @index: the property index in the prop_info array
+ * @value: a location for the type, size and value
+ *
+ * Get the type, size and value of the property at @index.
+ *
+ * Returns: #SPA_RESULT_OK on success.
+ *          #SPA_RESULT_INVALID_PROPERTY_INDEX when @index is not valid
+ *          #SPA_RESULT_PROPERTY_UNSET when no value has been set yet
+ */
+SpaResult	spa_props_get_prop    (const SpaProps     *props,
+                                       unsigned int        index,
+                                       SpaPropValue       *value);
 
-SpaResult       spa_props_copy             (const SpaProps *src,
-                                            SpaProps       *dest);
+SpaResult       spa_props_copy        (const SpaProps *src,
+                                       SpaProps       *dest);
 
 
 #ifdef __cplusplus

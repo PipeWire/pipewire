@@ -483,8 +483,6 @@ spa_video_raw_format_init (SpaVideoRawFormat *format)
   format->format.media_subtype = SPA_MEDIA_SUBTYPE_RAW;
   format->format.props.n_prop_info = SPA_N_ELEMENTS (raw_format_prop_info);
   format->format.props.prop_info = raw_format_prop_info;
-  format->format.props.set_prop = spa_props_generic_set_prop;
-  format->format.props.get_prop = spa_props_generic_get_prop;
   format->unset_mask = (1 << 14)-1;
   format->info = default_info;
 
@@ -509,7 +507,7 @@ spa_video_raw_format_parse (const SpaFormat *format,
   spa_video_raw_format_init (rawformat);
 
   props = &format->props;
-  if ((res = props->get_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_RAW_INFO), &value)) < 0)
+  if ((res = spa_props_get_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_RAW_INFO), &value)) < 0)
     goto fallback;
 
   if (value.type != SPA_PROP_TYPE_POINTER || value.size != sizeof (SpaVideoRawInfo))

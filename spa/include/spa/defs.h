@@ -73,6 +73,7 @@ typedef void (*SpaNotify) (void *data);
 #define SPA_MAX(a,b)  ((a)>(b) ? (a) : (b))
 
 #define SPA_MEMBER(b,o,t) ((t*)((uint8_t*)(b) + (o)))
+#define SPA_PTRDIFF(p1,p2) ((uint8_t*)(p1) - (uint8_t*)(p2))
 
 #define SPA_PTR_TO_INT(p) ((int) ((intptr_t) (p)))
 #define SPA_INT_TO_PTR(u) ((void*) ((intptr_t) (u)))

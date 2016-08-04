@@ -114,8 +114,8 @@ spa_memory_alloc (uint32_t pool_id)
   mem = &pool->memories[id];
   mem->refcount = 1;
   mem->notify = NULL;
-  mem->pool_id = pool_id;
-  mem->id = id;
+  mem->mem.pool_id = pool_id;
+  mem->mem.id = id;
 
   return mem;
 }
@@ -159,15 +159,19 @@ spa_memory_alloc_with_fd  (uint32_t pool_id, void *data, size_t size)
 
 
 SpaMemory *
-spa_memory_import (uint32_t pool_id, uint32_t id)
+spa_memory_import (SpaMemoryRef *ref)
 {
   SpaMemory *mem = NULL;
   SpaMemoryPool *pool;
   int i;
   bool init = false;
+  uint32_t id, pool_id;
 
-  if (pool_id >= MAX_POOLS || !pools[pool_id].valid)
+  if (ref == NULL || ref->pool_id >= MAX_POOLS || !pools[ref->pool_id].valid)
     return NULL;
+
+  id = ref->id;
+  pool_id = ref->pool_id;
 
   pool = &pools[pool_id];
 
@@ -184,42 +188,41 @@ spa_memory_import (uint32_t pool_id, uint32_t id)
   if (init) {
     mem->refcount = 1;
     mem->notify = NULL;
-    mem->pool_id = pool_id;
-    mem->id = id;
+    mem->mem = *ref;
   }
 
   return mem;
 }
 
 SpaResult
-spa_memory_free (uint32_t pool_id, uint32_t id)
+spa_memory_free (SpaMemoryRef *ref)
 {
   SpaMemoryPool *pool;
 
-  if (pool_id >= MAX_POOLS || !pools[pool_id].valid)
+  if (ref == NULL || ref->pool_id >= MAX_POOLS || !pools[ref->pool_id].valid)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  pool = &pools[pool_id];
-  pool->free_mem[pool->n_free] = id;
+  pool = &pools[ref->pool_id];
+  pool->free_mem[pool->n_free] = ref->id;
   pool->n_free++;
 
   return SPA_RESULT_OK;
 }
 
 SpaMemory *
-spa_memory_find (uint32_t pool_id, uint32_t id)
+spa_memory_find (SpaMemoryRef *ref)
 {
   SpaMemoryPool *pool;
 
-  if (pool_id >= MAX_POOLS || !pools[pool_id].valid)
+  if (ref == NULL || ref->pool_id >= MAX_POOLS || !pools[ref->pool_id].valid)
     return NULL;
 
-  pool = &pools[pool_id];
+  pool = &pools[ref->pool_id];
 
-  if (id >= MAX_MEMORIES || pool->memories[id].refcount <= 0)
+  if (ref->id >= MAX_MEMORIES || pool->memories[ref->id].refcount <= 0)
     return NULL;
 
-  return &pool->memories[id];
+  return &pool->memories[ref->id];
 }
 
 void *

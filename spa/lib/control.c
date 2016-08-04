@@ -26,6 +26,7 @@
 #include <sys/socket.h>
 
 #include <spa/control.h>
+#include <spa/debug.h>
 
 #if 0
 #define SPA_DEBUG_CONTROL(format,args...) fprintf(stderr,format,##args)
@@ -339,6 +340,50 @@ spa_control_iter_get_data (SpaControlIter *iter, size_t *size)
   return si->data;
 }
 
+static void
+iter_parse_set_format (struct stack_iter *si, SpaControlCmdSetFormat *cmd)
+{
+  uint32_t *p = si->data;
+  SpaProps *tp;
+  unsigned int i, j;
+  SpaPropInfo *pi;
+  SpaPropRangeInfo *ri;
+
+  cmd->port_id = *p++;
+  cmd->format = malloc (si->size - 4);
+  memcpy (cmd->format, p, si->size - 4);
+
+  tp = (SpaProps *) &cmd->format->props;
+  tp->prop_info = SPA_MEMBER (tp, SPA_PTR_TO_INT (tp->prop_info), SpaPropInfo);
+  tp->set_prop = spa_props_generic_set_prop;
+  tp->get_prop = spa_props_generic_get_prop;
+  tp->priv = NULL;
+
+  /* now fix all the pointers */
+  for (i = 0; i < tp->n_prop_info; i++) {
+    pi = (SpaPropInfo *) &tp->prop_info[i];
+    if (pi->name)
+      pi->name = SPA_MEMBER (tp, SPA_PTR_TO_INT (pi->name), char);
+    if (pi->description)
+      pi->description = SPA_MEMBER (tp, SPA_PTR_TO_INT (pi->description), char);
+    if (pi->default_value)
+      pi->default_value = SPA_MEMBER (tp, SPA_PTR_TO_INT (pi->default_value), void);
+    if (pi->range_values)
+      pi->range_values = SPA_MEMBER (tp, SPA_PTR_TO_INT (pi->range_values), SpaPropRangeInfo);
+
+    for (j = 0; j < pi->n_range_values; j++) {
+      ri = (SpaPropRangeInfo *) &pi->range_values[j];
+      if (ri->name)
+        ri->name = SPA_MEMBER (tp, SPA_PTR_TO_INT (ri->name), char);
+      if (ri->description)
+        ri->description = SPA_MEMBER (tp, SPA_PTR_TO_INT (ri->description), char);
+      if (ri->value)
+        ri->value = SPA_MEMBER (tp, SPA_PTR_TO_INT (ri->value), void);
+    }
+  }
+}
+
+
 SpaResult
 spa_control_iter_parse_cmd (SpaControlIter *iter,
                             void           *command)
@@ -399,12 +444,7 @@ spa_control_iter_parse_cmd (SpaControlIter *iter,
 
     case SPA_CONTROL_CMD_SET_FORMAT:
     {
-      SpaControlCmdSetFormat *cmd;
-      uint32_t *p = si->data;
-
-      cmd = command;
-      cmd->port_id = *p++;
-      cmd->format = (const SpaFormat *)p;
+      iter_parse_set_format (si, command);
       break;
     }
 
@@ -507,7 +547,7 @@ spa_control_builder_init_full (SpaControlBuilder *builder,
     sb->control.max_size = sizeof (SpaStackHeader) + 128;
     sb->control.data = malloc (sb->control.max_size);
     sb->control.free_data = sb->control.data;
-    fprintf (stderr, "builder %p: realloc control memory %zd -> %zd\n",
+    fprintf (stderr, "builder %p: alloc control memory %zd -> %zd\n",
         builder, max_data, sb->control.max_size);
   } else {
     sb->control.max_size = max_data;
@@ -620,7 +660,12 @@ spa_control_builder_add_fd (SpaControlBuilder *builder,
     fprintf (stderr, "builder %p: realloc control fds %d -> %d\n",
         builder, sb->control.max_fds, new_size);
     sb->control.max_fds = new_size;
-    sb->control.free_fds = realloc (sb->control.free_fds, new_size * sizeof (int));
+    if (sb->control.free_fds == NULL) {
+      sb->control.free_fds = malloc (new_size * sizeof (int));
+      memcpy (sb->control.free_fds, sb->control.fds, sb->control.n_fds * sizeof (int));
+    } else {
+      sb->control.free_fds = realloc (sb->control.free_fds, new_size * sizeof (int));
+    }
     sb->control.fds = sb->control.free_fds;
   }
   index = sb->control.n_fds;
@@ -639,7 +684,12 @@ builder_ensure_size (struct stack_builder *sb, size_t size)
     fprintf (stderr, "builder %p: realloc control memory %zd -> %zd\n",
         sb, sb->control.max_size, new_size);
     sb->control.max_size = new_size;
-    sb->control.free_data = realloc (sb->control.free_data, new_size);
+    if (sb->control.free_data == NULL) {
+      sb->control.free_data = malloc (new_size);
+      memcpy (sb->control.free_data, sb->control.data, sb->control.size);
+    } else {
+      sb->control.free_data = realloc (sb->control.free_data, new_size);
+    }
     sb->sh = sb->control.data = sb->control.free_data;
   }
   return (uint8_t *) sb->control.data + sb->control.size;
@@ -669,6 +719,143 @@ builder_add_cmd (struct stack_builder *sb, SpaControlCmd cmd, size_t size)
     *p++ = ((plen > 0) ? 0x80 : 0) | ((size >> (7 * plen)) & 0x7f);
   }
   return p;
+}
+
+static void
+builder_add_set_format (struct stack_builder *sb, SpaControlCmdSetFormat *sf)
+{
+  size_t len, slen;
+  unsigned int i, j;
+  void *p, *base;
+  SpaFormat *tf;
+  SpaProps *tp;
+  const SpaProps *sp;
+  SpaPropInfo *pi, *bpi;
+  SpaPropRangeInfo *ri, *bri;
+
+  sp = &sf->format->props;
+
+  /* calculate length */
+  /* port_id + format + mask  */
+  len = sizeof (uint32_t) + sizeof (SpaFormat) + sizeof (uint32_t);
+  for (i = 0; i < sp->n_prop_info; i++) {
+    pi = (SpaPropInfo *) &sp->prop_info[i];
+    len += sizeof (SpaPropInfo);
+    len += pi->name ? strlen (pi->name) + 1 : 0;
+    len += pi->description ? strlen (pi->description) + 1 : 0;
+    /* for the value and the default value */
+    len += pi->maxsize + pi->default_size;
+    for (j = 0; j < pi->n_range_values; j++) {
+      ri = (SpaPropRangeInfo *)&pi->range_values[j];
+      len += sizeof (SpaPropRangeInfo);
+      len += ri->name ? strlen (ri->name) + 1 : 0;
+      len += ri->description ? strlen (ri->description) + 1 : 0;
+      /* the size of the range value */
+      len += ri->size;
+    }
+  }
+
+  base = builder_add_cmd (sb, SPA_CONTROL_CMD_SET_FORMAT, len);
+  memcpy (base, &sf->port_id, sizeof (uint32_t));
+
+  tf = SPA_MEMBER (base, sizeof (uint32_t), SpaFormat);
+  tf->media_type = sf->format->media_type;
+  tf->media_subtype = sf->format->media_subtype;
+
+  tp = SPA_MEMBER (tf, offsetof (SpaFormat, props), SpaProps);
+  tp->n_prop_info = sp->n_prop_info;
+  tp->prop_info = SPA_INT_TO_PTR (sizeof (SpaFormat) + sizeof (uint32_t));
+  tp->set_prop = NULL;
+  tp->get_prop = NULL;
+  tp->priv = NULL;
+
+  /* write propinfo array, adjust offset of mask */
+  bpi = pi = (SpaPropInfo *) ((uint8_t *)tp + sizeof (SpaFormat) + sizeof (uint32_t));
+  for (i = 0; i < tp->n_prop_info; i++) {
+    memcpy (pi, &sp->prop_info[i], sizeof (SpaPropInfo));
+    pi->mask_offset = sizeof (SpaFormat);
+    pi->priv = NULL;
+    pi++;
+  }
+  bri = ri = (SpaPropRangeInfo *) pi;
+  pi = bpi;
+  /* write range info arrays, adjust offset to it */
+  for (i = 0; i < tp->n_prop_info; i++) {
+    pi->range_values = SPA_INT_TO_PTR (SPA_PTRDIFF (ri, tf));
+    for (j = 0; j < pi->n_range_values; j++) {
+      memcpy (ri, &sp->prop_info[i].range_values[j], sizeof (SpaPropRangeInfo));
+      ri++;
+    }
+    pi++;
+  }
+  p = ri;
+  pi = bpi;
+  ri = bri;
+  /* strings and default values from props and ranges */
+  for (i = 0; i < tp->n_prop_info; i++) {
+    if (pi->name) {
+      slen = strlen (pi->name) + 1;
+      memcpy (p, pi->name, slen);
+      pi->name = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tf));
+      p += slen;
+    } else {
+      pi->name = 0;
+    }
+    if (pi->description) {
+      slen = strlen (pi->description) + 1;
+      memcpy (p, pi->description, slen);
+      pi->description = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tf));
+      p += slen;
+    } else {
+      pi->description = 0;
+    }
+    if (pi->default_value) {
+      memcpy (p, pi->default_value, pi->default_size);
+      pi->default_value = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tf));
+      p += pi->default_size;
+    } else {
+      pi->default_value = 0;
+    }
+    for (j = 0; j < pi->n_range_values; j++) {
+      if (ri->name) {
+        slen = strlen (ri->name) + 1;
+        memcpy (p, ri->name, slen);
+        ri->name = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tf));
+        p += slen;
+      } else {
+        ri->name = 0;
+      }
+      if (ri->description) {
+        slen = strlen (ri->description) + 1;
+        memcpy (p, ri->description, slen);
+        ri->description = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tf));
+        p += slen;
+      } else {
+        ri->description = 0;
+      }
+      if (ri->size) {
+        memcpy (p, ri->value, ri->size);
+        ri->value = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tf));
+        p += ri->size;
+      } else {
+        ri->value = 0;
+      }
+      ri++;
+    }
+    pi++;
+  }
+  /* and the actual values */
+  pi = bpi;
+  for (i = 0; i < tp->n_prop_info; i++) {
+    if (pi->offset) {
+      memcpy (p, SPA_MEMBER (sp, pi->offset, void), pi->maxsize);
+      pi->offset = SPA_PTRDIFF (p, tf);
+      p += pi->maxsize;
+    } else {
+      pi->offset = 0;
+    }
+    pi++;
+  }
 }
 
 /**
@@ -736,20 +923,8 @@ spa_control_builder_add_cmd (SpaControlBuilder *builder,
       break;
 
     case SPA_CONTROL_CMD_SET_FORMAT:
-    {
-      size_t len, slen;
-      SpaControlCmdSetFormat *sf = command;
-      uint32_t *p;
-
-      slen = strlen ("")+1;
-      /* port + string */
-      len = 4 + slen;
-
-      p = builder_add_cmd (sb, cmd, len);
-      *p++ = sf->port_id;
-      memcpy ((char*)p, sf->format, slen);
+      builder_add_set_format (sb, command);
       break;
-    }
 
     case SPA_CONTROL_CMD_SET_PROPERTY:
       fprintf (stderr, "implement builder of %d\n", cmd);
@@ -854,7 +1029,13 @@ spa_control_read (SpaControl   *control,
   if (sc->max_size < need) {
     fprintf (stderr, "control: realloc receive memory %zd -> %zd\n", sc->max_size, need);
     sc->max_size = need;
-    hdr = sc->data = sc->free_data = realloc (sc->free_data, need);
+    if (sc->free_data == NULL) {
+      sc->free_data = malloc (need);
+      memcpy (sc->free_data, sc->data, len);
+    } else {
+      sc->free_data = realloc (sc->free_data, need);
+    }
+    hdr = sc->data = sc->free_data;
   }
   sc->size = need;
 

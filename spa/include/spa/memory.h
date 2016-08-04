@@ -25,6 +25,7 @@ extern "C" {
 #endif
 
 typedef struct _SpaMemory SpaMemory;
+typedef struct _SpaMemoryRef SpaMemoryRef;
 typedef struct _SpaMemoryPool SpaMemoryPool;
 
 #include <spa/defs.h>
@@ -44,6 +45,16 @@ typedef enum {
 #define SPA_MEMORY_FLAG_READWRITE   (SPA_MEMORY_FLAG_READABLE|SPA_MEMORY_FLAG_WRITABLE)
 
 /**
+ * SpaMemoryRef:
+ * @pool_id: the pool id
+ * @id: mem_id
+ */
+struct _SpaMemoryRef {
+  uint32_t  pool_id;
+  uint32_t  id;
+};
+
+/**
  * SpaMemory:
  * @refcount: a refcount
  * @notify: notify when refcount is 0
@@ -58,8 +69,7 @@ typedef enum {
 struct _SpaMemory {
   int             refcount;
   SpaNotify       notify;
-  uint32_t        pool_id;
-  uint32_t        id;
+  SpaMemoryRef    mem;
   SpaMemoryFlags  flags;
   const char     *type;
   int             fd;
@@ -75,10 +85,10 @@ void             spa_memory_pool_free      (uint32_t);
 
 SpaMemory *      spa_memory_alloc          (uint32_t pool_id);
 SpaMemory *      spa_memory_alloc_with_fd  (uint32_t pool_id, void *data, size_t size);
-SpaResult        spa_memory_free           (uint32_t pool_id, uint32_t id);
-SpaMemory *      spa_memory_import         (uint32_t pool_id, uint32_t id);
 
-SpaMemory *      spa_memory_find           (uint32_t pool_id, uint32_t id);
+SpaResult        spa_memory_free           (SpaMemoryRef *ref);
+SpaMemory *      spa_memory_import         (SpaMemoryRef *ref);
+SpaMemory *      spa_memory_find           (SpaMemoryRef *ref);
 
 void *           spa_memory_ensure_ptr     (SpaMemory *mem);
 

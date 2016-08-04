@@ -28,6 +28,7 @@ typedef struct _SpaBuffer SpaBuffer;
 typedef struct _SpaBufferGroup SpaBufferGroup;
 
 #include <spa/defs.h>
+#include <spa/memory.h>
 
 /**
  * SpaMetaType:
@@ -89,7 +90,7 @@ typedef struct {
 /**
  * SpaMeta:
  * @type: metadata type
- * @offset: offset of metadata
+ * @offset: offset of metadata in the buffer structure
  * @size: size of metadata
  */
 typedef struct {
@@ -100,13 +101,13 @@ typedef struct {
 
 /**
  * SpaData:
- * @mem_id: the memory id to use
- * @offset: offset of memory
+ * @mem: reference to the memory to use
+ * @offset: ofset in memory
  * @size: size of memory
  * @stride: stride of memory if applicable
  */
 typedef struct {
-  uint32_t     mem_id;
+  SpaMemoryRef mem;
   off_t        offset;
   size_t       size;
   size_t       stride;
@@ -115,9 +116,9 @@ typedef struct {
 /**
  * SpaBuffer:
  * @id: buffer id
- * @mem_id: memory id of the buffer
- * @offset: offset into the memory
- * @size: total size of the buffer structure
+ * @mem: reference to the memory for this buffer
+ * @offset: offset inside memory
+ * @size: of of memory
  * @n_metas: number of metadata
  * @metas: offset of array of @n_metas metadata
  * @n_datas: number of data pointers
@@ -125,7 +126,7 @@ typedef struct {
  */
 struct _SpaBuffer {
   uint32_t          id;
-  uint32_t          mem_id;
+  SpaMemoryRef      mem;
   off_t             offset;
   size_t            size;
   unsigned int      n_metas;

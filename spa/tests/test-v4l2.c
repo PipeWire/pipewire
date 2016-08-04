@@ -150,7 +150,7 @@ on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
           fprintf (stderr, "Couldn't lock texture: %s\n", SDL_GetError());
           return;
         }
-        mem = spa_memory_find (0, datas[0].mem_id);
+        mem = spa_memory_find (&datas[0].mem);
         mem->ptr = sdata;
         mem->type = "sysmem";
         mem->size = sstride * 240;
@@ -162,7 +162,7 @@ on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
           fprintf (stderr, "Couldn't lock texture: %s\n", SDL_GetError());
           return;
         }
-        mem = spa_memory_find (0, datas[0].mem_id);
+        mem = spa_memory_find (&datas[0].mem);
 
         sdata = spa_memory_ensure_ptr (mem);
         sstride = datas[0].stride;
@@ -252,6 +252,9 @@ alloc_buffers (AppData *data)
     }
 
     b->buffer.id = i;
+    b->buffer.mem.pool_id = SPA_ID_INVALID;
+    b->buffer.mem.id = SPA_ID_INVALID;
+    b->buffer.offset = 0;
     b->buffer.size = sizeof (SDLBuffer);
     b->buffer.n_metas = 2;
     b->buffer.metas = offsetof (SDLBuffer, metas);
@@ -279,7 +282,7 @@ alloc_buffers (AppData *data)
     mem->ptr = ptr;
     mem->size = stride * 240;
 
-    b->datas[0].mem_id = mem->id;
+    b->datas[0].mem = mem->mem;
     b->datas[0].offset = 0;
     b->datas[0].size = mem->size;
     b->datas[0].stride = stride;

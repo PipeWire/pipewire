@@ -27,10 +27,14 @@ extern "C" {
 #include <spa/defs.h>
 #include <spa/port.h>
 #include <spa/buffer.h>
+#include <spa/props.h>
+#include <spa/format.h>
 
 SpaResult spa_debug_port_info (const SpaPortInfo *info);
 SpaResult spa_debug_buffer (const SpaBuffer *buffer);
-SpaResult spa_debug_dump_mem  (void *data, size_t size);
+SpaResult spa_debug_props (const SpaProps *props, bool print_ranges);
+SpaResult spa_debug_format (const SpaFormat *format);
+SpaResult spa_debug_dump_mem  (const void *data, size_t size);
 
 #ifdef __cplusplus
 }  /* extern "C" */

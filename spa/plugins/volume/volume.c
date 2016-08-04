@@ -583,8 +583,8 @@ spa_volume_node_port_pull_output (SpaNode        *node,
     sd = &SPA_BUFFER_DATAS (sbuf)[si];
     dd = &SPA_BUFFER_DATAS (dbuf)[di];
 
-    sm = spa_memory_find (0, sd->mem_id);
-    dm = spa_memory_find (0, dd->mem_id);
+    sm = spa_memory_find (&sd->mem);
+    dm = spa_memory_find (&dd->mem);
 
     src = (uint16_t*) ((uint8_t*)sm->ptr + sd->offset + soff);
     dst = (uint16_t*) ((uint8_t*)dm->ptr + dd->offset + doff);

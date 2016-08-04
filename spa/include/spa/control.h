@@ -144,8 +144,8 @@ typedef struct {
 
 /* SPA_CONTROL_CMD_SET_FORMAT */
 typedef struct {
-  uint32_t         port_id;
-  const SpaFormat *format;
+  uint32_t     port_id;
+  SpaFormat   *format;
 } SpaControlCmdSetFormat;
 
 /* SPA_CONTROL_CMD_SET_PROPERTY */
@@ -161,27 +161,27 @@ typedef struct {
 
 /* SPA_CONTROL_CMD_ADD_MEM */
 typedef struct {
-  uint32_t port_id;
-  uint32_t mem_id;
-  uint32_t mem_type;
-  uint32_t fd_index;
-  uint32_t flags;
-  uint64_t size;
+  uint32_t     port_id;
+  SpaMemoryRef mem;
+  uint32_t     mem_type;
+  uint32_t     fd_index;
+  uint32_t     flags;
+  uint64_t     size;
 } SpaControlCmdAddMem;
 
 /* SPA_CONTROL_CMD_REMOVE_MEM */
 typedef struct {
   uint32_t port_id;
-  uint32_t mem_id;
+  SpaMemoryRef mem;
 } SpaControlCmdRemoveMem;
 
 /* SPA_CONTROL_CMD_ADD_BUFFER */
 typedef struct {
-  uint32_t port_id;
-  uint32_t buffer_id;
-  uint32_t mem_id;
-  uint64_t offset;
-  uint64_t size;
+  uint32_t     port_id;
+  uint32_t     buffer_id;
+  SpaMemoryRef mem;
+  off_t        offset;
+  size_t       size;
 } SpaControlCmdAddBuffer;
 
 /* SPA_CONTROL_CMD_REMOVE_BUFFER */
@@ -205,8 +205,6 @@ typedef struct {
   uint64_t offset;
   uint64_t size;
 } SpaControlCmdReuseBuffer;
-
-
 
 
 struct _SpaControlIter {

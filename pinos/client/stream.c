@@ -603,7 +603,7 @@ parse_control (PinosStream *stream,
         /* FIXME send update port status */
 
         /* send state-change */
-        spa_control_builder_init_into (&builder, buffer, 1024, NULL, 0);
+        spa_control_builder_init_into (&builder, buffer, sizeof(buffer), NULL, 0);
         sc.state = SPA_NODE_STATE_READY;
         spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_STATE_CHANGE, &sc);
         spa_control_builder_end (&builder, &control);
@@ -611,6 +611,7 @@ parse_control (PinosStream *stream,
         if (spa_control_write (&control, priv->fd) < 0)
           g_warning ("stream %p: error writing control", stream);
 
+        spa_control_clear (&control);
         break;
       }
       case SPA_CONTROL_CMD_SET_PROPERTY:
@@ -647,8 +648,8 @@ parse_control (PinosStream *stream,
         if (fd == -1)
           break;
 
-        g_debug ("add mem %d, %d, %d", p.mem_id, fd, p.flags);
-        mem = spa_memory_import (0, p.mem_id);
+        g_debug ("add mem %d,%d, %d, %d", p.mem.pool_id, p.mem.id, fd, p.flags);
+        mem = spa_memory_import (&p.mem);
         mem->flags = p.flags;
         mem->fd = fd;
         mem->ptr = NULL;
@@ -664,7 +665,7 @@ parse_control (PinosStream *stream,
           break;
 
         g_debug ("stream %p: stop", stream);
-        mem = spa_memory_find (0, p.mem_id);
+        mem = spa_memory_find (&p.mem);
         if (--mem->refcount == 0)
           mem->notify (mem);
         break;
@@ -679,13 +680,12 @@ parse_control (PinosStream *stream,
           break;
 
         g_debug ("add buffer %d", p.buffer_id);
-        mem = spa_memory_find (0, p.mem_id);
+        mem = spa_memory_find (&p.mem);
         bid.cleanup = false;
         bid.id = p.buffer_id;
         bid.offset = p.offset;
         bid.size = p.size;
-        bid.buf = (SpaBuffer *)((uint8_t*) spa_memory_ensure_ptr (mem) + p.offset);
-        spa_debug_buffer (bid.buf);
+        bid.buf = SPA_MEMBER (spa_memory_ensure_ptr (mem), p.offset, SpaBuffer);
 
         g_array_append_val (priv->buffer_ids, bid);
         break;
@@ -711,11 +711,8 @@ parse_control (PinosStream *stream,
         if (spa_control_iter_parse_cmd (&it, &p) < 0)
           break;
 
-        if ((bid = find_buffer (stream, p.buffer_id))) {
+        if ((bid = find_buffer (stream, p.buffer_id)))
           priv->buffer = bid->buf;
-          spa_debug_buffer (bid->buf);
-        }
-
         break;
       }
       case SPA_CONTROL_CMD_REUSE_BUFFER:

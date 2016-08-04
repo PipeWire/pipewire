@@ -388,7 +388,7 @@ on_new_buffer (GObject    *gobject,
     SpaData *d = &SPA_BUFFER_DATAS (b)[i];
     SpaMemory *mem;
 
-    mem = spa_memory_find (0, d->mem_id);
+    mem = spa_memory_find (&d->mem);
 
     if (mem->fd) {
       GstMemory *fdmem = NULL;

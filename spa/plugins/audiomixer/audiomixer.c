@@ -597,12 +597,12 @@ add_port_data (SpaAudioMixer *this, SpaBuffer *out, SpaAudioMixerPort *port)
 
   while (true) {
     if (op == NULL) {
-      mem = spa_memory_find (0, odatas[oi].mem_id);
+      mem = spa_memory_find (&odatas[oi].mem);
       op = (uint8_t*)mem->ptr + odatas[oi].offset;
       os = odatas[oi].size;
     }
     if (ip == NULL) {
-      mem = spa_memory_find (0, idatas[port->buffer_index].mem_id);
+      mem = spa_memory_find (&idatas[port->buffer_index].mem);
       ip = (uint8_t*)mem->ptr + odatas[oi].offset;
       is = idatas[port->buffer_index].size;
       ip += port->buffer_offset;

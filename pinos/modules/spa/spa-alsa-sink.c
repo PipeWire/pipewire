@@ -444,7 +444,7 @@ on_received_buffer (PinosPort   *port,
     uint8_t *data;
     size_t size, towrite, total;
 
-    mem = spa_memory_find (0, d[i].mem_id);
+    mem = spa_memory_find (&d[i].mem);
 
     size = d[i].size;
     data = (guint8*)mem->ptr + d[i].offset;

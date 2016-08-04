@@ -504,7 +504,7 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   GstMemory *mem = NULL;
   GstClockTime pts, dts, base;
   gsize size;
-  gboolean tmpfile, res;
+  gboolean res;
 
   pinossink = GST_PINOS_SINK (bsink);
 
@@ -517,6 +517,9 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
 
   b = g_slice_new (SinkBuffer);
   b->buffer.id = pinos_fd_manager_get_id (pinossink->fdmanager);
+  b->buffer.mem.pool_id = SPA_ID_INVALID;
+  b->buffer.mem.id = SPA_ID_INVALID;
+  b->buffer.offset = 0;
   b->buffer.size = sizeof (SinkBuffer);
   b->buffer.n_metas = 1;
   b->buffer.metas = offsetof (SinkBuffer, metas);
@@ -541,7 +544,6 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   if (gst_buffer_n_memory (buffer) == 1
       && gst_is_fd_memory (gst_buffer_peek_memory (buffer, 0))) {
     mem = gst_buffer_get_memory (buffer, 0);
-    tmpfile = gst_is_tmpfile_memory (mem);
   } else {
     GstMapInfo minfo;
     GstAllocationParams params = {0, 0, 0, 0, { NULL, }};
@@ -553,7 +555,6 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
       goto map_error;
     gst_buffer_extract (buffer, 0, minfo.data, size);
     gst_memory_unmap (mem, &minfo);
-    tmpfile = TRUE;
   }
 
   pinos_main_loop_lock (pinossink->loop);
@@ -563,7 +564,8 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   b->mem = mem;
   b->fd = gst_fd_memory_get_fd (mem);
 
-  b->datas[0].mem_id = 0;
+  b->datas[0].mem.pool_id = SPA_ID_INVALID;
+  b->datas[0].mem.id = SPA_ID_INVALID;
   b->datas[0].offset = mem->offset;
   b->datas[0].size = mem->size;
   b->datas[0].stride = 0;

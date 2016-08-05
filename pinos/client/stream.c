@@ -21,6 +21,10 @@
 #include <string.h>
 #include <sys/mman.h>
 
+#include "spa/include/spa/control.h"
+#include "spa/include/spa/debug.h"
+#include "spa/include/spa/memory.h"
+
 #include <gio/gio.h>
 #include <gio/gunixfdlist.h>
 #include <gio/gunixfdmessage.h>
@@ -30,11 +34,8 @@
 #include "pinos/client/context.h"
 #include "pinos/client/stream.h"
 #include "pinos/client/enumtypes.h"
-
+#include "pinos/client/format.h"
 #include "pinos/client/private.h"
-#include "spa/include/spa/control.h"
-#include "spa/include/spa/debug.h"
-#include "spa/include/spa/memory.h"
 
 #define MAX_BUFFER_SIZE 1024
 #define MAX_FDS         16
@@ -70,10 +71,11 @@ struct _PinosStreamPrivate
 
   PinosDirection direction;
   gchar *path;
-  GBytes *possible_formats;
-  PinosStreamFlags flags;
 
-  GBytes *format;
+  GPtrArray *possible_formats;
+  SpaFormat *format;
+
+  PinosStreamFlags flags;
 
   GDBusProxy *node;
   gboolean disconnecting;
@@ -188,7 +190,7 @@ pinos_stream_set_property (GObject      *_object,
 
     case PROP_FORMAT:
       if (priv->format)
-        g_bytes_unref (priv->format);
+        spa_format_unref (priv->format);
       priv->format = g_value_dup_boxed (value);
       break;
 
@@ -279,9 +281,9 @@ pinos_stream_finalize (GObject * object)
   g_clear_object (&priv->node);
 
   if (priv->possible_formats)
-    g_bytes_unref (priv->possible_formats);
+    g_ptr_array_unref (priv->possible_formats);
   if (priv->format)
-    g_bytes_unref (priv->format);
+    spa_format_unref (priv->format);
 
   g_free (priv->path);
   g_clear_error (&priv->error);
@@ -375,7 +377,7 @@ pinos_stream_class_init (PinosStreamClass * klass)
                                    g_param_spec_boxed ("possible-formats",
                                                        "Possible Formats",
                                                        "The possbile formats of the stream",
-                                                       G_TYPE_BYTES,
+                                                       G_TYPE_PTR_ARRAY,
                                                        G_PARAM_READABLE |
                                                        G_PARAM_STATIC_STRINGS));
   /**
@@ -388,7 +390,7 @@ pinos_stream_class_init (PinosStreamClass * klass)
                                    g_param_spec_boxed ("format",
                                                        "Format",
                                                        "The format of the stream",
-                                                       G_TYPE_BYTES,
+                                                       SPA_TYPE_FORMAT,
                                                        G_PARAM_READWRITE |
                                                        G_PARAM_STATIC_STRINGS));
   /**
@@ -584,23 +586,17 @@ parse_control (PinosStream *stream,
         SpaControlBuilder builder;
         SpaControl control;
         SpaControlCmdStateChange sc;
-        guint8 buffer[1024];
-        const gchar *str;
+        guint8 buffer[64];
 
         if (spa_control_iter_parse_cmd (&it, &p) < 0)
           break;
 
         if (priv->format)
-          g_bytes_unref (priv->format);
-        str = "video/x-raw,"
-              " format=(string)YUY2,"
-              " width=(int)320,"
-              " height=(int)240,"
-              " framerate=(fraction)30/1";
-        priv->format = g_bytes_new_static (str, strlen (str)+1);
-        g_object_notify (G_OBJECT (stream), "format");
+          spa_format_unref (priv->format);
+        priv->format = p.format;
 
-        spa_format_unref (p.format);
+        spa_debug_format (p.format);
+        g_object_notify (G_OBJECT (stream), "format");
 
         /* FIXME send update port status */
 
@@ -650,12 +646,17 @@ parse_control (PinosStream *stream,
         if (fd == -1)
           break;
 
-        g_debug ("add mem %d,%d, %d, %d", p.mem.pool_id, p.mem.id, fd, p.flags);
         mem = spa_memory_import (&p.mem);
-        mem->flags = p.flags;
-        mem->fd = fd;
-        mem->ptr = NULL;
-        mem->size = p.size;
+        if (mem->fd == -1) {
+          g_debug ("add mem %d,%d, %d, %d", p.mem.pool_id, p.mem.id, fd, p.flags);
+          mem->flags = p.flags;
+          mem->fd = fd;
+          mem->ptr = NULL;
+          mem->size = p.size;
+        } else {
+          g_debug ("duplicated mem %d,%d, %d, %d", p.mem.pool_id, p.mem.id, fd, p.flags);
+          close (fd);
+        }
         break;
       }
       case SPA_CONTROL_CMD_REMOVE_MEM:
@@ -681,13 +682,13 @@ parse_control (PinosStream *stream,
         if (spa_control_iter_parse_cmd (&it, &p) < 0)
           break;
 
-        g_debug ("add buffer %d", p.buffer_id);
-        mem = spa_memory_find (&p.mem);
+        g_debug ("add buffer %d, %d", p.buffer_id, p.mem.mem.id);
+        mem = spa_memory_find (&p.mem.mem);
         bid.cleanup = false;
         bid.id = p.buffer_id;
-        bid.offset = p.offset;
-        bid.size = p.size;
-        bid.buf = SPA_MEMBER (spa_memory_ensure_ptr (mem), p.offset, SpaBuffer);
+        bid.offset = p.mem.offset;
+        bid.size = p.mem.size;
+        bid.buf = SPA_MEMBER (spa_memory_ensure_ptr (mem), p.mem.offset, SpaBuffer);
 
         g_array_append_val (priv->buffer_ids, bid);
         break;
@@ -957,7 +958,7 @@ do_connect (PinosStream *stream)
   g_variant_builder_open (&b, G_VARIANT_TYPE ("(uusa{sv}s)"));
   g_variant_builder_add (&b, "u", priv->direction);
   g_variant_builder_add (&b, "u", 0);
-  g_variant_builder_add (&b, "s", g_bytes_get_data (priv->possible_formats, NULL));
+  g_variant_builder_add (&b, "s", "");
   g_variant_builder_add_value (&b, pinos_properties_to_variant (priv->properties));
   g_variant_builder_add (&b, "s", priv->path == NULL ? "" : priv->path);
   g_variant_builder_close (&b);
@@ -983,7 +984,7 @@ do_connect (PinosStream *stream)
  * @direction: the stream direction
  * @port_path: the port path to connect to or %NULL to get the default port
  * @flags: a #PinosStreamFlags
- * @possible_formats: (transfer full): a #GBytes with possible accepted formats
+ * @possible_formats: (transfer full): a #GPtrArray with possible accepted formats
  *
  * Connect @stream for input or output on @port_path.
  *
@@ -994,7 +995,7 @@ pinos_stream_connect (PinosStream      *stream,
                       PinosDirection    direction,
                       const gchar      *port_path,
                       PinosStreamFlags  flags,
-                      GBytes           *possible_formats)
+                      GPtrArray        *possible_formats)
 {
   PinosStreamPrivate *priv;
   PinosContext *context;
@@ -1011,7 +1012,7 @@ pinos_stream_connect (PinosStream      *stream,
   g_free (priv->path);
   priv->path = g_strdup (port_path);
   if (priv->possible_formats)
-    g_bytes_unref (priv->possible_formats);
+    g_ptr_array_unref (priv->possible_formats);
   priv->flags = flags;
   priv->possible_formats = possible_formats;
 
@@ -1067,7 +1068,7 @@ do_start (PinosStream *stream)
 /**
  * pinos_stream_start:
  * @stream: a #PinosStream
- * @format: (transfer full): a #GBytes with format
+ * @format: (transfer full): a #SpaFormat with format
  * @mode: a #PinosStreamMode
  *
  * Start capturing from @stream in @format.
@@ -1083,7 +1084,7 @@ do_start (PinosStream *stream)
  */
 gboolean
 pinos_stream_start (PinosStream     *stream,
-                    GBytes          *format,
+                    SpaFormat       *format,
                     PinosStreamMode  mode)
 {
   PinosStreamPrivate *priv;

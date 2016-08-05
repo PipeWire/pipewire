@@ -81,17 +81,14 @@ on_stream_notify (GObject    *gobject,
 
     case PINOS_STREAM_STATE_READY:
     {
-      GBytes *possible, *format;
-      GstCaps *caps;
-      GstStructure *structure;
-      gchar *str;
+      GPtrArray *possible;
+      SpaFormat *format;
 
       g_object_get (s, "possible-formats", &possible, NULL);
 
-      caps = gst_caps_from_string (g_bytes_get_data (possible, NULL));
+      format = g_ptr_array_index (possible, 0);
 
-      structure = gst_caps_get_structure (caps, 0);
-
+#if 0
       /* set some reasonable defaults */
       if (gst_structure_has_field (structure, "width"))
         gst_structure_fixate_field_nearest_int (structure, "width", 320);
@@ -104,8 +101,9 @@ on_stream_notify (GObject    *gobject,
       caps = gst_caps_fixate (caps);
       str = gst_caps_to_string (caps);
       gst_caps_unref (caps);
-
       format = g_bytes_new_static (str, strlen (str) + 1);
+#endif
+
       pinos_stream_start (s, format, PINOS_STREAM_MODE_SOCKET);
       break;
     }
@@ -136,14 +134,14 @@ on_state_notify (GObject    *gobject,
     case PINOS_CONTEXT_STATE_CONNECTED:
     {
       PinosStream *stream;
-      GBytes *format;
+      GPtrArray *possible;
 
       stream = pinos_stream_new (c, "test", NULL);
       g_signal_connect (stream, "notify::state", (GCallback) on_stream_notify, stream);
       g_signal_connect (stream, "notify::socket", (GCallback) on_socket_notify, stream);
 
-      format = g_bytes_new_static (ANY_CAPS, strlen (ANY_CAPS) + 1);
-      pinos_stream_connect (stream, PINOS_DIRECTION_OUTPUT, NULL, 0, format);
+      possible = NULL;
+      pinos_stream_connect (stream, PINOS_DIRECTION_OUTPUT, NULL, 0, possible);
       break;
     }
     default:

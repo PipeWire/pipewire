@@ -166,6 +166,7 @@ pinosgstsource = gst/gsttmpfileallocator.h gst/gsttmpfileallocator.c
 pinosinclude_HEADERS = \
 		client/context.h \
 		client/enumtypes.h \
+		client/format.h \
 		client/introspect.h \
 		client/mainloop.h \
 		client/pinos.h \
@@ -180,6 +181,7 @@ lib_LTLIBRARIES = \
 libpinos_@PINOS_MAJORMINOR@_la_SOURCES = \
 		client/context.h client/context.c \
 		client/enumtypes.h client/enumtypes.c \
+		client/format.h client/format.c \
 		client/introspect.h client/introspect.c \
 		client/mainloop.h client/mainloop.c \
 		client/properties.h client/properties.c \
@@ -193,7 +195,7 @@ libpinos_@PINOS_MAJORMINOR@_la_SOURCES = \
 
 libpinos_@PINOS_MAJORMINOR@_la_CFLAGS = $(AM_CFLAGS) $(GST_CFLAGS)
 libpinos_@PINOS_MAJORMINOR@_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version
-libpinos_@PINOS_MAJORMINOR@_la_LIBADD = $(AM_LIBADD) $(LTLIBICONV) $(GST_LIBS) $(GST_BASE_LIBS) -lgstvideo-1.0
+libpinos_@PINOS_MAJORMINOR@_la_LIBADD = $(AM_LIBADD) $(LTLIBICONV) $(GST_LIBS) $(GST_BASE_LIBS) -lgstvideo-1.0 -lgstaudio-1.0
 
 ###################################
 #      Daemon core library        #
@@ -235,6 +237,7 @@ plugin_LTLIBRARIES = libgstpinos.la
 libgstpinos_la_SOURCES = \
                         gst/gstburstcache.c \
                         gst/gstpinos.c \
+                        gst/gstpinosformat.c \
                         gst/gstpinosdeviceprovider.c \
                         gst/gstpinossrc.c \
                         gst/gstpinossink.c
@@ -253,6 +256,7 @@ libgstpinos_la_LIBTOOLFLAGS = $(GST_PLUGIN_LIBTOOLFLAGS)
 noinst_HEADERS = gst/gstburstcache.h gst/gstpinossrc.h \
 		 gst/gstpinossocketsink.h gst/gstpinosportsink.h \
 		 gst/gstpinosportsrc.h \
+		 gst/gstpinosformat.h \
 		 gst/gstpinossink.h gst/gstpinospay.h \
 		 gst/gstpinosdepay.h gst/gstpinosdeviceprovider.h
 

@@ -92,10 +92,10 @@ spa_debug_buffer (const SpaBuffer *buffer)
 
   fprintf (stderr, "SpaBuffer %p:\n", buffer);
   fprintf (stderr, " id:      %08X\n", buffer->id);
-  fprintf (stderr, " pool_id: %08X\n", buffer->mem.pool_id);
-  fprintf (stderr, " mem_id:  %08X\n", buffer->mem.id);
-  fprintf (stderr, " offset:  %zd\n", buffer->offset);
-  fprintf (stderr, " size:    %zd\n", buffer->size);
+  fprintf (stderr, " pool_id: %08X\n", buffer->mem.mem.pool_id);
+  fprintf (stderr, " mem_id:  %08X\n", buffer->mem.mem.id);
+  fprintf (stderr, " offset:  %zd\n", buffer->mem.offset);
+  fprintf (stderr, " size:    %zd\n", buffer->mem.size);
   fprintf (stderr, " n_metas: %u (offset %zd)\n", buffer->n_metas, buffer->metas);
   for (i = 0; i < buffer->n_metas; i++) {
     SpaMeta *m = &SPA_BUFFER_METAS (buffer)[i];
@@ -129,7 +129,7 @@ spa_debug_buffer (const SpaBuffer *buffer)
     SpaData *d = &SPA_BUFFER_DATAS (buffer)[i];
     SpaMemory *mem;
 
-    mem = spa_memory_find (&d->mem);
+    mem = spa_memory_find (&d->mem.mem);
     fprintf (stderr, "  data %d: (memory %p)\n", i, mem);
     if (mem) {
       fprintf (stderr, "    pool_id: %u\n", mem->mem.pool_id);
@@ -142,8 +142,8 @@ spa_debug_buffer (const SpaBuffer *buffer)
     } else {
       fprintf (stderr, "    invalid memory reference\n");
     }
-    fprintf (stderr, "   offset: %zd\n", d->offset);
-    fprintf (stderr, "   size:   %zd\n", d->size);
+    fprintf (stderr, "   offset: %zd\n", d->mem.offset);
+    fprintf (stderr, "   size:   %zd\n", d->mem.size);
     fprintf (stderr, "   stride: %zd\n", d->stride);
   }
   return SPA_RESULT_OK;

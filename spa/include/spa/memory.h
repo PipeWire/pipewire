@@ -26,6 +26,7 @@ extern "C" {
 
 typedef struct _SpaMemory SpaMemory;
 typedef struct _SpaMemoryRef SpaMemoryRef;
+typedef struct _SpaMemoryChunk SpaMemoryChunk;
 typedef struct _SpaMemoryPool SpaMemoryPool;
 
 #include <spa/defs.h>
@@ -48,12 +49,27 @@ typedef enum {
  * SpaMemoryRef:
  * @pool_id: the pool id
  * @id: mem_id
+ *
+ * A reference to a block of memory
  */
 struct _SpaMemoryRef {
   uint32_t  pool_id;
   uint32_t  id;
 };
 
+/**
+ * SpaMemoryChunk:
+ * @mem: the memory
+ * @offset: the offset in the memory
+ * @size: the size in the memory
+ *
+ * A reference to a part of memory
+ */
+struct _SpaMemoryChunk {
+  SpaMemoryRef mem;
+  off_t        offset;
+  size_t       size;
+};
 /**
  * SpaMemory:
  * @refcount: a refcount

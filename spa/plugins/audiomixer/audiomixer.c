@@ -550,7 +550,7 @@ spa_audiomixer_node_port_push_input (SpaNode        *node,
         continue;
       }
       this->ports[idx].buffer = buffer;
-      this->ports[idx].buffer_queued = buffer->size;
+      this->ports[idx].buffer_queued = buffer->mem.size;
       this->ports[idx].buffer_index = 0;
       this->ports[idx].buffer_offset = 0;
       this->port_queued++;
@@ -597,14 +597,14 @@ add_port_data (SpaAudioMixer *this, SpaBuffer *out, SpaAudioMixerPort *port)
 
   while (true) {
     if (op == NULL) {
-      mem = spa_memory_find (&odatas[oi].mem);
-      op = (uint8_t*)mem->ptr + odatas[oi].offset;
-      os = odatas[oi].size;
+      mem = spa_memory_find (&odatas[oi].mem.mem);
+      op = (uint8_t*)mem->ptr + odatas[oi].mem.offset;
+      os = odatas[oi].mem.size;
     }
     if (ip == NULL) {
-      mem = spa_memory_find (&idatas[port->buffer_index].mem);
-      ip = (uint8_t*)mem->ptr + odatas[oi].offset;
-      is = idatas[port->buffer_index].size;
+      mem = spa_memory_find (&idatas[port->buffer_index].mem.mem);
+      ip = (uint8_t*)mem->ptr + odatas[oi].mem.offset;
+      is = idatas[port->buffer_index].mem.size;
       ip += port->buffer_offset;
       is -= port->buffer_offset;
     }

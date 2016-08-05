@@ -537,16 +537,16 @@ spa_v4l2_import_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_bu
     SpaData *d = SPA_BUFFER_DATAS (buffers[i]);
 
     b = &state->alloc_buffers[i];
-    b->buffer.mem = state->alloc_mem->mem;
-    b->buffer.offset = sizeof (V4l2Buffer) * i;
-    b->buffer.size = sizeof (V4l2Buffer);
+    b->buffer.mem.mem = state->alloc_mem->mem;
+    b->buffer.mem.offset = sizeof (V4l2Buffer) * i;
+    b->buffer.mem.size = sizeof (V4l2Buffer);
     b->buffer.id = SPA_ID_INVALID;
     b->outbuf = buffers[i];
     b->outstanding = true;
 
     fprintf (stderr, "import buffer %p\n", buffers[i]);
 
-    mem_ref = &SPA_BUFFER_DATAS (buffers[i])[0].mem;
+    mem_ref = &SPA_BUFFER_DATAS (buffers[i])[0].mem.mem;
     if (!(mem = spa_memory_find (mem_ref))) {
       fprintf (stderr, "invalid memory on buffer %p\n", buffers[i]);
       continue;
@@ -556,8 +556,8 @@ spa_v4l2_import_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_bu
     b->v4l2_buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     b->v4l2_buffer.memory = state->memtype;
     b->v4l2_buffer.index = i;
-    b->v4l2_buffer.m.userptr = (unsigned long) ((uint8_t*)mem->ptr + d[0].offset);
-    b->v4l2_buffer.length = d[0].size;
+    b->v4l2_buffer.m.userptr = (unsigned long) ((uint8_t*)mem->ptr + d[0].mem.offset);
+    b->v4l2_buffer.length = d[0].mem.size;
 
     spa_v4l2_buffer_recycle (this, buffers[i]->id);
   }
@@ -625,9 +625,9 @@ mmap_init (SpaV4l2Source   *this,
 
     b = &state->alloc_buffers[i];
     b->buffer.id = i;
-    b->buffer.mem = state->alloc_mem->mem;
-    b->buffer.offset = sizeof (V4l2Buffer) * i;
-    b->buffer.size = sizeof (V4l2Buffer);
+    b->buffer.mem.mem = state->alloc_mem->mem;
+    b->buffer.mem.offset = sizeof (V4l2Buffer) * i;
+    b->buffer.mem.size = sizeof (V4l2Buffer);
 
     buffers[i] = &b->buffer;
 
@@ -648,9 +648,9 @@ mmap_init (SpaV4l2Source   *this,
     mem = spa_memory_alloc (SPA_MEMORY_POOL_SHARED);
     mem->flags = SPA_MEMORY_FLAG_READABLE;
     mem->size = buf.length;
-    b->datas[0].mem = mem->mem;
-    b->datas[0].offset = 0;
-    b->datas[0].size = buf.length;
+    b->datas[0].mem.mem = mem->mem;
+    b->datas[0].mem.offset = 0;
+    b->datas[0].mem.size = buf.length;
     b->datas[0].stride = state->fmt.fmt.pix.bytesperline;
 
     if (state->export_buf) {
@@ -797,7 +797,7 @@ spa_v4l2_stop (SpaV4l2Source *this)
       fprintf (stderr, "queueing outstanding buffer %p\n", b);
       spa_v4l2_buffer_recycle (this, i);
     }
-    mem = spa_memory_find (&b->datas[0].mem);
+    mem = spa_memory_find (&b->datas[0].mem.mem);
     if (state->export_buf) {
       close (mem->fd);
     } else {

@@ -46,6 +46,7 @@
 #include <spa/include/spa/buffer.h>
 
 #include "gsttmpfileallocator.h"
+#include "gstpinosformat.h"
 
 
 GST_DEBUG_CATEGORY_STATIC (pinos_sink_debug);
@@ -412,15 +413,17 @@ static gboolean
 gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
 {
   GstPinosSink *pinossink;
-  gchar *str;
-  GBytes *format;
+  GPtrArray *possible;
+  SpaFormat *format;
   PinosStreamState state;
   gboolean res = FALSE;
 
   pinossink = GST_PINOS_SINK (bsink);
 
-  str = gst_caps_to_string (caps);
-  format = g_bytes_new_take (str, strlen (str) + 1);
+  format = gst_caps_to_format (caps, 0);
+  possible = g_ptr_array_new ();
+  spa_format_ref (format);
+  g_ptr_array_insert (possible, -1, format);
 
   pinos_main_loop_lock (pinossink->loop);
   state = pinos_stream_get_state (pinossink->stream);
@@ -438,7 +441,7 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
                           PINOS_DIRECTION_OUTPUT,
                           pinossink->path,
                           flags,
-                          g_bytes_ref (format));
+                          possible);
 
     while (TRUE) {
       state = pinos_stream_get_state (pinossink->stream);
@@ -455,7 +458,7 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
 
   if (state != PINOS_STREAM_STATE_STREAMING) {
     res = pinos_stream_start (pinossink->stream,
-                             g_bytes_ref (format),
+                             format,
                              PINOS_STREAM_MODE_BUFFER);
 
     while (TRUE) {
@@ -471,7 +474,6 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
     }
   }
   pinos_main_loop_unlock (pinossink->loop);
-  g_bytes_unref (format);
 
   pinossink->negotiated = res;
 
@@ -481,7 +483,7 @@ start_error:
   {
     GST_ERROR ("could not start stream");
     pinos_main_loop_unlock (pinossink->loop);
-    g_bytes_unref (format);
+    spa_format_unref (format);
     return FALSE;
   }
 }
@@ -517,10 +519,10 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
 
   b = g_slice_new (SinkBuffer);
   b->buffer.id = pinos_fd_manager_get_id (pinossink->fdmanager);
-  b->buffer.mem.pool_id = SPA_ID_INVALID;
-  b->buffer.mem.id = SPA_ID_INVALID;
-  b->buffer.offset = 0;
-  b->buffer.size = sizeof (SinkBuffer);
+  b->buffer.mem.mem.pool_id = SPA_ID_INVALID;
+  b->buffer.mem.mem.id = SPA_ID_INVALID;
+  b->buffer.mem.offset = 0;
+  b->buffer.mem.size = sizeof (SinkBuffer);
   b->buffer.n_metas = 1;
   b->buffer.metas = offsetof (SinkBuffer, metas);
   b->buffer.n_datas = 1;
@@ -564,10 +566,10 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   b->mem = mem;
   b->fd = gst_fd_memory_get_fd (mem);
 
-  b->datas[0].mem.pool_id = SPA_ID_INVALID;
-  b->datas[0].mem.id = SPA_ID_INVALID;
-  b->datas[0].offset = mem->offset;
-  b->datas[0].size = mem->size;
+  b->datas[0].mem.mem.pool_id = SPA_ID_INVALID;
+  b->datas[0].mem.mem.id = SPA_ID_INVALID;
+  b->datas[0].mem.offset = mem->offset;
+  b->datas[0].mem.size = mem->size;
   b->datas[0].stride = 0;
 
   if (!(res = pinos_stream_send_buffer (pinossink->stream, &b->buffer)))

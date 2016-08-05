@@ -91,8 +91,8 @@ typedef enum {
 /*  SPA_CONTROL_CMD_NODE_UPDATE */
 typedef struct {
   uint32_t        change_mask;
-  uint32_t        max_input_ports;
-  uint32_t        max_output_ports;
+  unsigned int    max_input_ports;
+  unsigned int    max_output_ports;
   const SpaProps *props;
 } SpaControlCmdNodeUpdate;
 
@@ -100,8 +100,8 @@ typedef struct {
 typedef struct {
   uint32_t           port_id;
   uint32_t           change_mask;
-  uint32_t           direction;
-  uint32_t           n_possible_formats;
+  SpaDirection       direction;
+  unsigned int       n_possible_formats;
   const SpaFormat  **possible_formats;
   const SpaProps    *props;
   const SpaPortInfo *info;
@@ -132,8 +132,8 @@ typedef struct {
 
 /* SPA_CONTROL_CMD_ADD_PORT */
 typedef struct {
-  uint32_t port_id;
-  uint32_t direction;
+  uint32_t     port_id;
+  SpaDirection direction;
 } SpaControlCmdAddPort;
 
 /* SPA_CONTROL_CMD_REMOVE_PORT */
@@ -152,7 +152,7 @@ typedef struct {
 typedef struct {
   uint32_t   port_id;
   uint32_t   id;
-  uint32_t   size;
+  size_t     size;
   void      *value;
 } SpaControlCmdSetProperty;
 
@@ -164,24 +164,22 @@ typedef struct {
   uint32_t     port_id;
   SpaMemoryRef mem;
   uint32_t     mem_type;
-  uint32_t     fd_index;
+  unsigned int fd_index;
   uint32_t     flags;
-  uint64_t     size;
+  size_t       size;
 } SpaControlCmdAddMem;
 
 /* SPA_CONTROL_CMD_REMOVE_MEM */
 typedef struct {
-  uint32_t port_id;
+  uint32_t     port_id;
   SpaMemoryRef mem;
 } SpaControlCmdRemoveMem;
 
 /* SPA_CONTROL_CMD_ADD_BUFFER */
 typedef struct {
-  uint32_t     port_id;
-  uint32_t     buffer_id;
-  SpaMemoryRef mem;
-  off_t        offset;
-  size_t       size;
+  uint32_t       port_id;
+  uint32_t       buffer_id;
+  SpaMemoryChunk mem;
 } SpaControlCmdAddBuffer;
 
 /* SPA_CONTROL_CMD_REMOVE_BUFFER */
@@ -194,16 +192,16 @@ typedef struct {
 typedef struct {
   uint32_t port_id;
   uint32_t buffer_id;
-  uint64_t offset;
-  uint64_t size;
+  off_t    offset;
+  size_t   size;
 } SpaControlCmdProcessBuffer;
 
 /* SPA_CONTROL_CMD_REUSE_BUFFER */
 typedef struct {
   uint32_t port_id;
   uint32_t buffer_id;
-  uint64_t offset;
-  uint64_t size;
+  off_t    offset;
+  size_t   size;
 } SpaControlCmdReuseBuffer;
 
 
@@ -221,7 +219,8 @@ SpaResult          spa_control_iter_next        (SpaControlIter *iter);
 SpaResult          spa_control_iter_end         (SpaControlIter *iter);
 
 SpaControlCmd      spa_control_iter_get_cmd     (SpaControlIter *iter);
-void *             spa_control_iter_get_data    (SpaControlIter *iter, size_t *size);
+void *             spa_control_iter_get_data    (SpaControlIter *iter,
+                                                 size_t *size);
 
 SpaResult          spa_control_iter_parse_cmd   (SpaControlIter *iter,
                                                  void           *command);

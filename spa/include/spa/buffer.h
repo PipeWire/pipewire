@@ -102,37 +102,29 @@ typedef struct {
 /**
  * SpaData:
  * @mem: reference to the memory to use
- * @offset: ofset in memory
- * @size: size of memory
  * @stride: stride of memory if applicable
  */
 typedef struct {
-  SpaMemoryRef mem;
-  off_t        offset;
-  size_t       size;
-  size_t       stride;
+  SpaMemoryChunk mem;
+  ssize_t        stride;
 } SpaData;
 
 /**
  * SpaBuffer:
  * @id: buffer id
  * @mem: reference to the memory for this buffer
- * @offset: offset inside memory
- * @size: of of memory
  * @n_metas: number of metadata
  * @metas: offset of array of @n_metas metadata
  * @n_datas: number of data pointers
  * @datas: offset of array of @n_datas data pointers
  */
 struct _SpaBuffer {
-  uint32_t          id;
-  SpaMemoryRef      mem;
-  off_t             offset;
-  size_t            size;
-  unsigned int      n_metas;
-  off_t             metas;
-  unsigned int      n_datas;
-  off_t             datas;
+  uint32_t       id;
+  SpaMemoryChunk mem;
+  unsigned int   n_metas;
+  off_t          metas;
+  unsigned int   n_datas;
+  off_t          datas;
 };
 
 #define SPA_BUFFER_METAS(b)        (SPA_MEMBER ((b), (b)->metas, SpaMeta))

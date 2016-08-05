@@ -32,6 +32,7 @@
 #include "config.h"
 #endif
 #include "gstpinossrc.h"
+#include "gstpinosformat.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -388,19 +389,19 @@ on_new_buffer (GObject    *gobject,
     SpaData *d = &SPA_BUFFER_DATAS (b)[i];
     SpaMemory *mem;
 
-    mem = spa_memory_find (&d->mem);
+    mem = spa_memory_find (&d->mem.mem);
 
     if (mem->fd) {
       GstMemory *fdmem = NULL;
 
       fdmem = gst_fd_allocator_alloc (pinossrc->fd_allocator, dup (mem->fd),
-                d->offset + d->size, GST_FD_MEMORY_FLAG_NONE);
-      gst_memory_resize (fdmem, d->offset, d->size);
+                d->mem.offset + d->mem.size, GST_FD_MEMORY_FLAG_NONE);
+      gst_memory_resize (fdmem, d->mem.offset, d->mem.size);
       gst_buffer_append_memory (buf, fdmem);
     } else {
       gst_buffer_append_memory (buf,
-               gst_memory_new_wrapped (0, mem->ptr, mem->size, d->offset,
-                                       d->size, NULL, NULL));
+               gst_memory_new_wrapped (0, mem->ptr, mem->size, d->mem.offset,
+                                       d->mem.size, NULL, NULL));
     }
   }
 
@@ -485,15 +486,14 @@ parse_stream_properties (GstPinosSrc *pinossrc, PinosProperties *props)
 static gboolean
 gst_pinos_src_stream_start (GstPinosSrc *pinossrc, GstCaps * caps)
 {
-  gchar *str;
-  GBytes *format = NULL;
+  SpaFormat *format;
   gboolean res;
   PinosProperties *props;
 
-  if (caps) {
-    str = gst_caps_to_string (caps);
-    format = g_bytes_new_take (str, strlen (str) + 1);
-  }
+  if (caps)
+    format = gst_caps_to_format (caps, 0);
+  else
+    format = NULL;
 
   pinos_main_loop_lock (pinossrc->loop);
   res = pinos_stream_start (pinossrc->stream, format, PINOS_STREAM_MODE_BUFFER);
@@ -515,9 +515,9 @@ gst_pinos_src_stream_start (GstPinosSrc *pinossrc, GstCaps * caps)
   pinos_main_loop_unlock (pinossrc->loop);
 
   if (format) {
-    caps = gst_caps_from_string (g_bytes_get_data (format, NULL));
+    caps = gst_caps_from_format (format);
     gst_base_src_set_caps (GST_BASE_SRC (pinossrc), caps);
-    g_bytes_unref (format);
+    spa_format_unref (format);
   }
 
   parse_stream_properties (pinossrc, props);
@@ -555,8 +555,7 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
   GstCaps *caps = NULL;
   GstCaps *peercaps = NULL;
   gboolean result = FALSE;
-  GBytes *possible;
-  gchar *str;
+  GPtrArray *possible;
 
   /* first see what is possible on our source pad */
   thiscaps = gst_pad_query_caps (GST_BASE_SRC_PAD (basesrc), NULL);
@@ -585,8 +584,7 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
   GST_DEBUG_OBJECT (basesrc, "have common caps: %" GST_PTR_FORMAT, caps);
 
   /* open a connection with these caps */
-  str = gst_caps_to_string (caps);
-  possible = g_bytes_new_take (str, strlen (str) + 1);
+  possible = gst_caps_to_format_all (caps);
 
   /* first disconnect */
   pinos_main_loop_lock (pinossrc->loop);
@@ -600,7 +598,7 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
         break;
 
       if (state == PINOS_STREAM_STATE_ERROR) {
-        g_bytes_unref (possible);
+        g_ptr_array_unref (possible);
         goto connect_error;
       }
 
@@ -672,12 +670,12 @@ on_format_notify (GObject    *gobject,
                   gpointer    user_data)
 {
   GstPinosSrc *pinossrc = user_data;
-  GBytes *format;
+  SpaFormat *format;
   GstCaps *caps;
 
   g_object_get (gobject, "format", &format, NULL);
 
-  caps = gst_caps_from_string (g_bytes_get_data (format, NULL));
+  caps = gst_caps_from_format (format);
   gst_base_src_set_caps (GST_BASE_SRC (pinossrc), caps);
   gst_caps_unref (caps);
 }

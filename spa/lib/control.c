@@ -353,7 +353,9 @@ iter_parse_set_format (struct stack_iter *si, SpaControlCmdSetFormat *cmd)
   cmd->port_id = *p++;
   mem = spa_memory_alloc_size (SPA_MEMORY_POOL_LOCAL, p, si->size - 4);
   cmd->format = spa_memory_ensure_ptr (mem);
-  cmd->format->mem = mem->mem;
+  cmd->format->mem.mem = mem->mem;
+  cmd->format->mem.offset = 0;
+  cmd->format->mem.size = mem->size;
 
   tp = (SpaProps *) &cmd->format->props;
   tp->prop_info = SPA_MEMBER (tp, SPA_PTR_TO_INT (tp->prop_info), SpaPropInfo);
@@ -763,10 +765,10 @@ builder_add_set_format (struct stack_builder *sb, SpaControlCmdSetFormat *sf)
 
   tp = SPA_MEMBER (tf, offsetof (SpaFormat, props), SpaProps);
   tp->n_prop_info = sp->n_prop_info;
-  tp->prop_info = SPA_INT_TO_PTR (sizeof (SpaProps) + sizeof (uint32_t));
+  tp->prop_info = SPA_INT_TO_PTR (sizeof (SpaFormat) + sizeof (uint32_t));
 
   /* write propinfo array, adjust offset of mask */
-  bpi = pi = (SpaPropInfo *) ((uint8_t *)tp + sizeof (SpaProps) + sizeof (uint32_t));
+  bpi = pi = (SpaPropInfo *) ((uint8_t *)tp + sizeof (SpaFormat) + sizeof (uint32_t));
   for (i = 0; i < tp->n_prop_info; i++) {
     memcpy (pi, &sp->prop_info[i], sizeof (SpaPropInfo));
     pi->mask_offset = sizeof (SpaFormat);

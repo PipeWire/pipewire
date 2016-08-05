@@ -29,6 +29,7 @@
 #include <fcntl.h>
 
 #include "spa/memory.h"
+#include "memfd-wrappers.h"
 
 #define MAX_POOLS       16
 #define MAX_MEMORIES    1024
@@ -144,17 +145,23 @@ SpaMemory *
 spa_memory_alloc_with_fd  (uint32_t pool_id, void *data, size_t size)
 {
   SpaMemory *mem;
-  char filename[] = "/dev/shm/spa-tmpfile.XXXXXX";
 
   if (!(mem = spa_memory_alloc (pool_id)))
     return NULL;
 
-  mem->fd = mkostemp (filename, O_CLOEXEC);
-  if (mem->fd == -1) {
-    fprintf (stderr, "Failed to create temporary file: %s\n", strerror (errno));
-    return NULL;
+#if 0
+  {
+    char filename[] = "/dev/shm/spa-tmpfile.XXXXXX";
+    mem->fd = mkostemp (filename, O_CLOEXEC);
+    if (mem->fd == -1) {
+      fprintf (stderr, "Failed to create temporary file: %s\n", strerror (errno));
+      return NULL;
+    }
+    unlink (filename);
   }
-  unlink (filename);
+#else
+  mem->fd = memfd_create ("spa-memfd", MFD_CLOEXEC | MFD_ALLOW_SEALING);
+#endif
 
   if (data) {
     if (write (mem->fd, data, size) != (ssize_t) size) {
@@ -169,6 +176,18 @@ spa_memory_alloc_with_fd  (uint32_t pool_id, void *data, size_t size)
       return NULL;
     }
   }
+#if 1
+  {
+    unsigned int seals;
+
+    seals = F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL;
+    if (fcntl (mem->fd, F_ADD_SEALS, seals) == -1) {
+      fprintf (stderr, "Failed to write data: %s\n", strerror (errno));
+      close (mem->fd);
+      return NULL;
+    }
+  }
+#endif
 
   mem->flags = SPA_MEMORY_FLAG_READWRITE;
   mem->size = size;
@@ -209,6 +228,8 @@ spa_memory_import (SpaMemoryRef *ref)
     mem->mem = *ref;
     mem->ptr = NULL;
     mem->fd = -1;
+  } else {
+    mem->refcount++;
   }
 
   return mem;
@@ -236,6 +257,9 @@ spa_memory_free (SpaMemory *mem)
     if (mem->ptr)
       munmap (mem->ptr, mem->size);
     close (mem->fd);
+  } else {
+    if (mem->ptr)
+      free (mem->ptr);
   }
   pool = &pools[mem->mem.pool_id];
   pool->free_mem[pool->n_free] = mem->mem.id;

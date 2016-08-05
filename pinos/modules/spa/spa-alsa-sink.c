@@ -444,10 +444,10 @@ on_received_buffer (PinosPort   *port,
     uint8_t *data;
     size_t size, towrite, total;
 
-    mem = spa_memory_find (&d[i].mem);
+    mem = spa_memory_find (&d[i].mem.mem);
 
-    size = d[i].size;
-    data = (guint8*)mem->ptr + d[i].offset;
+    size = d[i].mem.size;
+    data = SPA_MEMBER (mem->ptr, d[i].mem.offset, uint8_t);
 
     pinos_ringbuffer_get_write_areas (priv->ringbuffer, areas);
 

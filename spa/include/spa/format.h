@@ -62,21 +62,33 @@ typedef enum {
  * @media_type: media type
  * @media_subtype: subtype
  * @mem: memory reference
+ * @offset: offset in memory
+ * @size: size in memory
  */
 struct _SpaFormat {
   SpaProps         props;
   SpaMediaType     media_type;
   SpaMediaSubType  media_subtype;
-  SpaMemoryRef     mem;
+  SpaMemoryChunk   mem;
 };
 
-#define spa_format_ref(f)    spa_memory_ref(&(f)->mem)
-#define spa_format_unref(f)  spa_memory_unref(&(f)->mem)
+static inline void
+spa_format_ref (SpaFormat *format)
+{
+  spa_memory_ref (&format->mem.mem);
+}
+
+static inline void
+spa_format_unref (SpaFormat *format)
+{
+  spa_memory_unref (&format->mem.mem);
+}
 
 typedef enum {
   SPA_PROP_ID_INVALID            = 0,
   SPA_PROP_ID_MEDIA_CUSTOM_START = 200,
 } SpaFormatProps;
+
 
 #ifdef __cplusplus
 }  /* extern "C" */

@@ -269,8 +269,8 @@ do_negotiate (PinosLink *this)
   value.type = SPA_PROP_TYPE_RECTANGLE;
   value.size = sizeof (SpaRectangle);
   value.value = &rect;
-  rect.width = 320;
-  rect.height = 240;
+  rect.width = 640;
+  rect.height = 480;
   if ((res = spa_props_set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_SIZE), &value)) < 0)
     return res;
 

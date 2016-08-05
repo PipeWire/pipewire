@@ -583,13 +583,13 @@ spa_volume_node_port_pull_output (SpaNode        *node,
     sd = &SPA_BUFFER_DATAS (sbuf)[si];
     dd = &SPA_BUFFER_DATAS (dbuf)[di];
 
-    sm = spa_memory_find (&sd->mem);
-    dm = spa_memory_find (&dd->mem);
+    sm = spa_memory_find (&sd->mem.mem);
+    dm = spa_memory_find (&dd->mem.mem);
 
-    src = (uint16_t*) ((uint8_t*)sm->ptr + sd->offset + soff);
-    dst = (uint16_t*) ((uint8_t*)dm->ptr + dd->offset + doff);
+    src = (uint16_t*) ((uint8_t*)sm->ptr + sd->mem.offset + soff);
+    dst = (uint16_t*) ((uint8_t*)dm->ptr + dd->mem.offset + doff);
 
-    n_bytes = SPA_MIN (sd->size - soff, dd->size - doff);
+    n_bytes = SPA_MIN (sd->mem.size - soff, dd->mem.size - doff);
     n_samples = n_bytes / sizeof (uint16_t);
 
     for (i = 0; i < n_samples; i++)
@@ -598,11 +598,11 @@ spa_volume_node_port_pull_output (SpaNode        *node,
     soff += n_bytes;
     doff += n_bytes;
 
-    if (soff >= sd->size) {
+    if (soff >= sd->mem.size) {
       si++;
       soff = 0;
     }
-    if (doff >= dd->size) {
+    if (doff >= dd->mem.size) {
       di++;
       doff = 0;
     }

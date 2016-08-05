@@ -23,6 +23,7 @@
 #include <glib-object.h>
 
 #include <spa/include/spa/buffer.h>
+#include <spa/include/spa/format.h>
 
 #include <pinos/client/context.h>
 
@@ -99,11 +100,11 @@ gboolean         pinos_stream_connect           (PinosStream      *stream,
                                                  PinosDirection    direction,
                                                  const gchar      *port_path,
                                                  PinosStreamFlags  flags,
-                                                 GBytes           *possible_formats);
+                                                 GPtrArray        *possible_formats);
 gboolean         pinos_stream_disconnect        (PinosStream      *stream);
 
 gboolean         pinos_stream_start             (PinosStream     *stream,
-                                                 GBytes          *format,
+                                                 SpaFormat       *format,
                                                  PinosStreamMode  mode);
 gboolean         pinos_stream_stop              (PinosStream     *stream);
 

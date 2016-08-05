@@ -74,18 +74,18 @@ typedef struct {
  * @SPA_PORT_INFO_FLAG_NONE: no flags
  * @SPA_PORT_INFO_FLAG_REMOVABLE: port can be removed
  * @SPA_PORT_INFO_FLAG_OPTIONAL: processing on port is optional
- * @SPA_PORT_INFO_FLAG_CAN_GIVE_BUFFER: the port can give a buffer
- * @SPA_PORT_INFO_FLAG_CAN_USE_BUFFER: the port can use a provided buffer
+ * @SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS: the port can give a buffer
+ * @SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS: the port can use a provided buffer
  * @SPA_PORT_INFO_FLAG_IN_PLACE: the port can process data in-place and will need
- *    a writable input buffer when no output buffer is specified.
+ *    a writable input buffer
  * @SPA_PORT_INFO_FLAG_NO_REF: the port does not keep a ref on the buffer
  */
 typedef enum {
   SPA_PORT_INFO_FLAG_NONE                  = 0,
   SPA_PORT_INFO_FLAG_REMOVABLE             = 1 << 0,
   SPA_PORT_INFO_FLAG_OPTIONAL              = 1 << 1,
-  SPA_PORT_INFO_FLAG_CAN_GIVE_BUFFER       = 1 << 2,
-  SPA_PORT_INFO_FLAG_CAN_USE_BUFFER        = 1 << 3,
+  SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS     = 1 << 2,
+  SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS       = 1 << 3,
   SPA_PORT_INFO_FLAG_IN_PLACE              = 1 << 4,
   SPA_PORT_INFO_FLAG_NO_REF                = 1 << 5,
 } SpaPortInfoFlags;
@@ -103,10 +103,10 @@ typedef enum {
  */
 typedef struct {
   SpaPortInfoFlags    flags;
-  unsigned int        maxbuffering;
+  uint64_t            maxbuffering;
   uint64_t            latency;
   SpaAllocParam     **params;
-  uint32_t            n_params;
+  unsigned int        n_params;
   const char        **features;
 } SpaPortInfo;
 

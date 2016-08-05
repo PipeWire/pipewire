@@ -398,7 +398,8 @@ spa_v4l2_set_format (SpaV4l2Source *this, V4l2Format *f, bool try_only)
     return 0;
 
   state->fmt = fmt;
-  state->info.flags = SPA_PORT_INFO_FLAG_CAN_GIVE_BUFFER;
+  state->info.flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS |
+                      SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
   state->info.maxbuffering = -1;
   state->info.latency = -1;
 

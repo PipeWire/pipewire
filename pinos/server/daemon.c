@@ -187,7 +187,6 @@ handle_create_client_node (PinosDaemon1           *interface,
                            GDBusMethodInvocation  *invocation,
                            const gchar            *arg_name,
                            GVariant               *arg_properties,
-                           GVariant               *arg_ports,
                            gpointer                user_data)
 {
   PinosDaemon *daemon = user_data;
@@ -210,56 +209,11 @@ handle_create_client_node (PinosDaemon1           *interface,
                                  arg_name,
                                  props);
 
-  client = sender_get_client (daemon, sender);
-
-  {
-    GVariantIter it;
-    guint direction;
-    guint id;
-    const gchar *format_str, *target_node;
-    GVariant *port_props;
-
-    g_variant_iter_init (&it, arg_ports);
-    while (g_variant_iter_loop (&it, "(uu&s@a{sv}&s)", &direction, &id, &format_str, &port_props, &target_node)) {
-      PinosPort *port, *target;
-      PinosProperties *pprops;
-      GBytes *formats;
-      PinosLink *link;
-
-      port = pinos_node_add_port (node, direction, id, &error);
-      if (port == NULL)
-        goto add_failed;
-
-      pprops = pinos_properties_from_variant (port_props);
-      formats = g_bytes_new (format_str, strlen (format_str) + 1);
-
-      g_object_set (port, "possible-formats", formats,
-                          "properties", port_props,
-                          NULL);
-
-      target = pinos_daemon_find_port (daemon,
-                                       pinos_direction_reverse (direction),
-                                       target_node,
-                                       pprops,
-                                       formats,
-                                       &error);
-      if (target == NULL) {
-        g_warning ("daemon %p: can't find port target: %s", daemon, error->message);
-        g_clear_error (&error);
-        continue;
-      }
-
-//      pinos_client_add_object (client, G_OBJECT (target));
-
-      link = pinos_link_new (daemon, port, target, NULL);
-      pinos_client_add_object (client, G_OBJECT (link));
-    }
-  }
-
   socket = pinos_client_node_get_socket_pair (PINOS_CLIENT_NODE (node), &error);
   if (socket == NULL)
     goto no_socket;
 
+  client = sender_get_client (daemon, sender);
   pinos_client_add_object (client, G_OBJECT (node));
 
   object_path = pinos_node_get_object_path (PINOS_NODE (node));
@@ -277,11 +231,6 @@ handle_create_client_node (PinosDaemon1           *interface,
 no_socket:
   {
     g_debug ("daemon %p: could not create node %s", daemon, error->message);
-    goto exit_error;
-  }
-add_failed:
-  {
-    g_debug ("daemon %p: failed to add port %s", daemon, error->message);
     goto exit_error;
   }
 exit_error:

@@ -398,8 +398,13 @@ spa_control_iter_parse_cmd (SpaControlIter *iter,
   switch (si->cmd) {
     /* C -> S */
     case SPA_CONTROL_CMD_NODE_UPDATE:
-    case SPA_CONTROL_CMD_PORT_UPDATE:
       fprintf (stderr, "implement iter of %d\n", si->cmd);
+      break;
+
+    case SPA_CONTROL_CMD_PORT_UPDATE:
+      if (si->size < sizeof (SpaControlCmdPortUpdate))
+        return SPA_RESULT_ERROR;
+      memcpy (command, si->data, sizeof (SpaControlCmdPortUpdate));
       break;
 
     case SPA_CONTROL_CMD_PORT_REMOVED:
@@ -722,6 +727,55 @@ builder_add_cmd (struct stack_builder *sb, SpaControlCmd cmd, size_t size)
   return p;
 }
 
+static size_t
+calc_props_len (const SpaProps *props)
+{
+  size_t len;
+  unsigned int i, j;
+  SpaPropInfo *pi;
+  SpaPropRangeInfo *ri;
+
+  /* props and unset mask */
+  len = sizeof (SpaProps) + sizeof (uint32_t);
+  for (i = 0; i < props->n_prop_info; i++) {
+    pi = (SpaPropInfo *) &props->prop_info[i];
+    len += sizeof (SpaPropInfo);
+    len += pi->name ? strlen (pi->name) + 1 : 0;
+    len += pi->description ? strlen (pi->description) + 1 : 0;
+    /* for the value and the default value */
+    len += pi->maxsize + pi->default_size;
+    for (j = 0; j < pi->n_range_values; j++) {
+      ri = (SpaPropRangeInfo *)&pi->range_values[j];
+      len += sizeof (SpaPropRangeInfo);
+      len += ri->name ? strlen (ri->name) + 1 : 0;
+      len += ri->description ? strlen (ri->description) + 1 : 0;
+      /* the size of the range value */
+      len += ri->size;
+    }
+  }
+  return len;
+}
+
+static size_t
+calc_format_len (const SpaFormat *format)
+{
+  return calc_props_len (&format->props) - sizeof (SpaProps) + sizeof (SpaFormat);
+}
+
+static void
+builder_add_port_update (struct stack_builder *sb, SpaControlCmdPortUpdate *pu)
+{
+  size_t len;
+  void *base;
+
+  /* calc len */
+  len = sizeof (SpaControlCmdPortUpdate);
+  base = builder_add_cmd (sb, SPA_CONTROL_CMD_PORT_UPDATE, len);
+  memcpy (base, pu, sizeof (SpaControlCmdPortUpdate));
+
+  /* FIXME add more things */
+}
+
 static void
 builder_add_set_format (struct stack_builder *sb, SpaControlCmdSetFormat *sf)
 {
@@ -738,24 +792,7 @@ builder_add_set_format (struct stack_builder *sb, SpaControlCmdSetFormat *sf)
 
   /* calculate length */
   /* port_id + format + mask  */
-  len = sizeof (uint32_t) + sizeof (SpaFormat) + sizeof (uint32_t);
-  for (i = 0; i < sp->n_prop_info; i++) {
-    pi = (SpaPropInfo *) &sp->prop_info[i];
-    len += sizeof (SpaPropInfo);
-    len += pi->name ? strlen (pi->name) + 1 : 0;
-    len += pi->description ? strlen (pi->description) + 1 : 0;
-    /* for the value and the default value */
-    len += pi->maxsize + pi->default_size;
-    for (j = 0; j < pi->n_range_values; j++) {
-      ri = (SpaPropRangeInfo *)&pi->range_values[j];
-      len += sizeof (SpaPropRangeInfo);
-      len += ri->name ? strlen (ri->name) + 1 : 0;
-      len += ri->description ? strlen (ri->description) + 1 : 0;
-      /* the size of the range value */
-      len += ri->size;
-    }
-  }
-
+  len = sizeof (uint32_t) + calc_format_len (sf->format);
   base = builder_add_cmd (sb, SPA_CONTROL_CMD_SET_FORMAT, len);
   memcpy (base, &sf->port_id, sizeof (uint32_t));
 
@@ -881,8 +918,11 @@ spa_control_builder_add_cmd (SpaControlBuilder *builder,
   switch (cmd) {
     /* C -> S */
     case SPA_CONTROL_CMD_NODE_UPDATE:
-    case SPA_CONTROL_CMD_PORT_UPDATE:
       fprintf (stderr, "implement builder of %d\n", cmd);
+      break;
+
+    case SPA_CONTROL_CMD_PORT_UPDATE:
+      builder_add_port_update (sb, command);
       break;
 
     case SPA_CONTROL_CMD_PORT_REMOVED:

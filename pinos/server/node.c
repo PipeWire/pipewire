@@ -81,6 +81,12 @@ node_set_state (PinosNode       *node,
   return FALSE;
 }
 
+static void
+do_remove_port (PinosPort *port, PinosNode *node)
+{
+  pinos_node_remove_port (node, port->id);
+}
+
 static PinosPort *
 node_add_port (PinosNode       *node,
                PinosDirection   direction,
@@ -96,6 +102,10 @@ node_add_port (PinosNode       *node,
                        "direction", direction,
                        "id", id,
                        NULL);
+  if (port) {
+    g_hash_table_insert (priv->ports, GUINT_TO_POINTER (id), port);
+    g_signal_connect (port, "remove", (GCallback) do_remove_port, node);
+  }
   return port;
 }
 
@@ -103,6 +113,9 @@ static gboolean
 node_remove_port (PinosNode       *node,
                   guint            id)
 {
+  PinosNodePrivate *priv = node->priv;
+  g_debug ("node %p: removed port %u", node, id);
+  g_hash_table_remove (priv->ports, GUINT_TO_POINTER (id));
   return TRUE;
 }
 
@@ -670,12 +683,6 @@ pinos_node_remove (PinosNode *node)
   g_signal_emit (node, signals[SIGNAL_REMOVE], 0, NULL);
 }
 
-static void
-do_remove_port (PinosPort *port, PinosNode *node)
-{
-  pinos_node_remove_port (node, port->id);
-}
-
 /**
  * pinos_node_add_port:
  * @node: a #PinosNode
@@ -693,11 +700,9 @@ pinos_node_add_port (PinosNode       *node,
                      GError         **error)
 {
   PinosNodeClass *klass;
-  PinosNodePrivate *priv;
   PinosPort *port;
 
   g_return_val_if_fail (PINOS_IS_NODE (node), NULL);
-  priv = node->priv;
 
   klass = PINOS_NODE_GET_CLASS (node);
   if (!klass->add_port) {
@@ -708,10 +713,6 @@ pinos_node_add_port (PinosNode       *node,
   g_debug ("node %p: add port", node);
   port = klass->add_port (node, direction, id, error);
 
-  if (port) {
-    g_hash_table_insert (priv->ports, GUINT_TO_POINTER (id), port);
-    g_signal_connect (port, "remove", (GCallback) do_remove_port, node);
-  }
   return port;
 }
 
@@ -727,12 +728,10 @@ pinos_node_add_port (PinosNode       *node,
 gboolean
 pinos_node_remove_port (PinosNode *node, guint id)
 {
-  PinosNodePrivate *priv;
   PinosNodeClass *klass;
   gboolean res = FALSE;
 
   g_return_val_if_fail (PINOS_IS_NODE (node), FALSE);
-  priv = node->priv;
 
   klass = PINOS_NODE_GET_CLASS (node);
 
@@ -740,10 +739,6 @@ pinos_node_remove_port (PinosNode *node, guint id)
     return FALSE;
 
   res = klass->remove_port (node, id);
-  if (res) {
-    g_debug ("node %p: removed port %u", node, id);
-    g_hash_table_remove (priv->ports, GUINT_TO_POINTER (id));
-  }
   return res;
 }
 

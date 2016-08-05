@@ -391,6 +391,59 @@ communication channel
                          +----+
 
 
+    Client                                  Proxy
+                                              |                         INIT
+                     node-update              |
+       -------------------------------------->|
+                     port-update              |
+       -------------------------------------->|
+                 state-change CONFIGURE       |                         CONFIGURE
+       -------------------------------------->|
+                                              |<--- enum-ports
+                                              |<--- enum-formats
+                                              |<--- add-port
+                                              |<--- remove-port
+                       set-property           |<--- set-property
+       <--------------------------------------|
+                       set-format             |<--- set-format
+       <--------------------------------------|
+                                              |
+                       port-update            |
+       -------------------------------------->|
+                   state-change READY         |                         READY
+       -------------------------------------->|
+                                              |<--- port memory requirements
+                       add-mem                |<--- use-buffers
+       <--------------------------------------|
+                       remove-mem             |
+       <--------------------------------------|
+                       add-buffer             |
+       <--------------------------------------|
+                    remove-buffer             |
+       <--------------------------------------|
+                                              |
+                       pause                  |<--- stop
+       <--------------------------------------|
+                   state-change PAUSED        |                         PAUSED
+       -------------------------------------->|
+                                              |
+                       play                   |<--- start
+       <--------------------------------------|
+                   state-change STREAMING     |                         STREAMING
+       -------------------------------------->|
+                                              |
+                   need-input                 |
+       <------------------------------------->|
+                   have-output                |
+       <------------------------------------->|
+                   process-buffer             |
+       <------------------------------------->|
+                   reuse-buffer               |
+       <------------------------------------->|
+
+
+
+
 1) Update config C->S                 INIT
 
    node-update

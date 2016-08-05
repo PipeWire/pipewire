@@ -41,15 +41,13 @@
     <!-- CreateClientNode:
          @name: the name of the node
          @Properties: extra properties
-         @ports: the port descriptions
          @node: the Node1 object path
 
-         Create a new Node with given name and properties and ports.
+         Create a new Node
     -->
     <method name='CreateClientNode'>
       <arg type='s' name='name' direction='in' />
       <arg type='a{sv}' name='properties' direction='in'/>
-      <arg type='a(uusa{sv}s)' name='ports' direction='in'/>
       <arg type='o' name='node' direction='out'/>
       <arg type='h' name='fd' direction='out'/>
     </method>

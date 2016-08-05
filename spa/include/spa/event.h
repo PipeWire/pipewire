@@ -49,6 +49,8 @@ typedef struct _SpaEvent SpaEvent;
  */
 typedef enum {
   SPA_EVENT_TYPE_INVALID                  = 0,
+  SPA_EVENT_TYPE_PORT_ADDED,
+  SPA_EVENT_TYPE_PORT_REMOVED,
   SPA_EVENT_TYPE_STATE_CHANGE,
   SPA_EVENT_TYPE_CAN_PULL_OUTPUT,
   SPA_EVENT_TYPE_CAN_PUSH_INPUT,
@@ -69,6 +71,10 @@ struct _SpaEvent {
   void          *data;
   size_t         size;
 };
+
+typedef struct {
+  SpaDirection direction;
+} SpaEventPortAdded;
 
 typedef struct {
   uint32_t buffer_id;

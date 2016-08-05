@@ -275,7 +275,7 @@ spa_audiomixer_node_add_port (SpaNode        *node,
   this->ports[port_id].valid = true;
   this->port_count++;
 
-  this->ports[port_id].info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFER |
+  this->ports[port_id].info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
                                     SPA_PORT_INFO_FLAG_REMOVABLE |
                                     SPA_PORT_INFO_FLAG_OPTIONAL |
                                     SPA_PORT_INFO_FLAG_IN_PLACE;
@@ -798,8 +798,8 @@ spa_audiomixer_init (const SpaHandleFactory *factory,
   reset_audiomixer_props (&this->props[1]);
 
   this->ports[0].valid = true;
-  this->ports[0].info.flags = SPA_PORT_INFO_FLAG_CAN_GIVE_BUFFER |
-                              SPA_PORT_INFO_FLAG_CAN_USE_BUFFER |
+  this->ports[0].info.flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS |
+                              SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
                               SPA_PORT_INFO_FLAG_NO_REF;
   return SPA_RESULT_OK;
 }

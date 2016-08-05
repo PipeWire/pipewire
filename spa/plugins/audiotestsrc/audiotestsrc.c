@@ -585,7 +585,7 @@ audiotestsrc_init (const SpaHandleFactory  *factory,
   this->props[1].props.prop_info = prop_info;
   reset_audiotestsrc_props (&this->props[1]);
 
-  this->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFER |
+  this->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
                      SPA_PORT_INFO_FLAG_NO_REF;
   this->status.flags = SPA_PORT_STATUS_FLAG_HAVE_OUTPUT;
 

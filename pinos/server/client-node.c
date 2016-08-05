@@ -38,6 +38,7 @@
 #include "pinos/server/daemon.h"
 #include "pinos/server/client-node.h"
 #include "pinos/server/utils.h"
+#include "pinos/server/link.h"
 
 #include "pinos/dbus/org-pinos.h"
 
@@ -174,8 +175,6 @@ static gboolean
 on_received_buffer (PinosPort *port, uint32_t buffer_id, GError **error, gpointer user_data)
 {
   PinosNode *node = user_data;
-  PinosClientNode *this = PINOS_CLIENT_NODE (node);
-  PinosClientNodePrivate *priv = this->priv;
   SpaResult res;
   SpaInputInfo info[1];
 
@@ -195,8 +194,6 @@ static gboolean
 on_received_event (PinosPort *port, SpaEvent *event, GError **error, gpointer user_data)
 {
   PinosNode *node = user_data;
-  PinosClientNode *this = PINOS_CLIENT_NODE (node);
-  PinosClientNodePrivate *priv = this->priv;
   SpaResult res;
 
   if ((res = spa_node_port_push_event (node->node, port->id, event)) < 0)
@@ -271,6 +268,45 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
   PinosClientNodePrivate *priv = this->priv;
 
   switch (event->type) {
+    case SPA_EVENT_TYPE_PORT_ADDED:
+    {
+      SpaEventPortAdded *pa = event->data;
+      PinosPort *port, *target;
+      PinosLink *link;
+      PinosNode *pnode = PINOS_NODE (this);
+      GError *error = NULL;
+
+      port = PINOS_NODE_CLASS (pinos_client_node_parent_class)->add_port (pnode,
+                                                                          pa->direction,
+                                                                          event->port_id,
+                                                                          &error);
+
+      if (port == NULL) {
+        g_warning ("proxy %p: can't create port: %s", this, error->message);
+        g_clear_error (&error);
+        break;
+      }
+      pinos_port_set_received_cb (port, on_received_buffer, on_received_event, this, NULL);
+
+      target = pinos_daemon_find_port (pinos_node_get_daemon (pnode),
+                                       pinos_direction_reverse (pa->direction),
+                                       "/org/pinos/node_8",
+                                       NULL,
+                                       NULL,
+                                       &error);
+      if (target == NULL) {
+        g_warning ("proxy %p: can't find port target: %s", this, error->message);
+        g_clear_error (&error);
+        break;
+      }
+      link = pinos_link_new (pinos_node_get_daemon (pnode), port, target, NULL);
+
+      break;
+    }
+    case SPA_EVENT_TYPE_PORT_REMOVED:
+    {
+      break;
+    }
     case SPA_EVENT_TYPE_STATE_CHANGE:
     {
       SpaEventStateChange *sc = event->data;

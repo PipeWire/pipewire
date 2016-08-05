@@ -695,10 +695,10 @@ volume_instantiate (const SpaHandleFactory  *factory,
   this->props[1].props.prop_info = prop_info;
   reset_volume_props (&this->props[1]);
 
-  this->ports[0].info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFER |
+  this->ports[0].info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
                               SPA_PORT_INFO_FLAG_IN_PLACE;
-  this->ports[1].info.flags = SPA_PORT_INFO_FLAG_CAN_GIVE_BUFFER |
-                              SPA_PORT_INFO_FLAG_CAN_USE_BUFFER |
+  this->ports[1].info.flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS |
+                              SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
                               SPA_PORT_INFO_FLAG_NO_REF;
 
   this->ports[0].status.flags = SPA_PORT_STATUS_FLAG_NEED_INPUT;

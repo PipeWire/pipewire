@@ -34,7 +34,7 @@ spa_debug_port_info (const SpaPortInfo *info)
 
   fprintf (stderr, "SpaPortInfo %p:\n", info);
   fprintf (stderr, " flags: \t%08x\n", info->flags);
-  fprintf (stderr, " maxbuffering: \t%u\n", info->maxbuffering);
+  fprintf (stderr, " maxbuffering: \t%"PRIu64"\n", info->maxbuffering);
   fprintf (stderr, " latency: \t%" PRIu64 "\n", info->latency);
   fprintf (stderr, " n_params: \t%d\n", info->n_params);
   for (i = 0; i < info->n_params; i++) {

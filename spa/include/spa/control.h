@@ -96,6 +96,10 @@ typedef struct {
   const SpaProps *props;
 } SpaControlCmdNodeUpdate;
 
+#define SPA_CONTROL_CMD_NODE_UPDATE_MAX_INPUTS   (1 << 0)
+#define SPA_CONTROL_CMD_NODE_UPDATE_MAX_OUTPUTS  (1 << 1)
+#define SPA_CONTROL_CMD_NODE_UPDATE_PROPS        (1 << 2)
+
 /* SPA_CONTROL_CMD_PORT_UPDATE */
 typedef struct {
   uint32_t           port_id;
@@ -106,6 +110,11 @@ typedef struct {
   const SpaProps    *props;
   const SpaPortInfo *info;
 } SpaControlCmdPortUpdate;
+
+#define SPA_CONTROL_CMD_PORT_UPDATE_DIRECTION         (1 << 0)
+#define SPA_CONTROL_CMD_PORT_UPDATE_POSSIBLE_FORMATS  (1 << 1)
+#define SPA_CONTROL_CMD_PORT_UPDATE_PROPS             (1 << 2)
+#define SPA_CONTROL_CMD_PORT_UPDATE_INFO              (1 << 3)
 
 /* SPA_CONTROL_CMD_PORT_REMOVED */
 typedef struct {

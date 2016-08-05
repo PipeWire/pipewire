@@ -74,6 +74,7 @@ struct _PinosStreamPrivate
 
   GPtrArray *possible_formats;
   SpaFormat *format;
+  SpaPortInfo port_info;
 
   PinosStreamFlags flags;
 
@@ -513,16 +514,27 @@ pinos_stream_get_error (PinosStream *stream)
 }
 
 static void
+control_builder_init (PinosStream  *stream, SpaControlBuilder *builder)
+{
+  PinosStreamPrivate *priv = stream->priv;
+
+  spa_control_builder_init_into (builder,
+                                 priv->send_data,
+                                 MAX_BUFFER_SIZE,
+                                 priv->send_fds,
+                                 MAX_FDS);
+}
+
+static void
 send_need_input (PinosStream *stream, uint32_t port_id, uint32_t buffer_id)
 {
   PinosStreamPrivate *priv = stream->priv;
   SpaControlBuilder builder;
   SpaControl control;
-  guint8 buffer[64];
   SpaControlCmdNeedInput ni;
   SpaControlCmdReuseBuffer rb;
 
-  spa_control_builder_init_into (&builder, buffer, 64, NULL, 0);
+  control_builder_init (stream, &builder);
   if (buffer_id != SPA_ID_INVALID) {
     rb.port_id = port_id;
     rb.buffer_id = buffer_id;
@@ -586,7 +598,6 @@ parse_control (PinosStream *stream,
         SpaControlBuilder builder;
         SpaControl control;
         SpaControlCmdStateChange sc;
-        guint8 buffer[64];
 
         if (spa_control_iter_parse_cmd (&it, &p) < 0)
           break;
@@ -598,10 +609,11 @@ parse_control (PinosStream *stream,
         spa_debug_format (p.format);
         g_object_notify (G_OBJECT (stream), "format");
 
+        control_builder_init (stream, &builder);
+
         /* FIXME send update port status */
 
         /* send state-change */
-        spa_control_builder_init_into (&builder, buffer, sizeof(buffer), NULL, 0);
         sc.state = SPA_NODE_STATE_READY;
         spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_STATE_CHANGE, &sc);
         spa_control_builder_end (&builder, &control);
@@ -852,6 +864,44 @@ unhandle_socket (PinosStream *stream)
   }
 }
 
+static void
+do_node_init (PinosStream *stream)
+{
+  PinosStreamPrivate *priv = stream->priv;
+  SpaControlCmdNodeUpdate nu;
+  SpaControlCmdPortUpdate pu;
+  SpaControlBuilder builder;
+  SpaControl control;
+
+  control_builder_init (stream, &builder);
+  nu.change_mask = SPA_CONTROL_CMD_NODE_UPDATE_MAX_INPUTS |
+                   SPA_CONTROL_CMD_NODE_UPDATE_MAX_OUTPUTS;
+  nu.max_input_ports = 1;
+  nu.max_output_ports = 0;
+  nu.props = NULL;
+  spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_NODE_UPDATE, &nu);
+
+  pu.port_id = 0;
+  pu.change_mask = SPA_CONTROL_CMD_PORT_UPDATE_DIRECTION |
+                   SPA_CONTROL_CMD_PORT_UPDATE_POSSIBLE_FORMATS |
+                   SPA_CONTROL_CMD_PORT_UPDATE_INFO;
+
+  pu.direction = priv->direction;
+  pu.n_possible_formats = priv->possible_formats->len;
+  pu.possible_formats = (const SpaFormat **)priv->possible_formats->pdata;
+  pu.props = NULL;
+  pu.info = &priv->port_info;
+  priv->port_info.flags = SPA_PORT_INFO_FLAG_NONE |
+                          SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+  spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_PORT_UPDATE, &pu);
+  spa_control_builder_end (&builder, &control);
+
+  if (spa_control_write (&control, priv->fd) < 0)
+    g_warning ("stream %p: error writing control", stream);
+
+  spa_control_clear (&control);
+}
+
 
 static void
 on_node_proxy (GObject      *source_object,
@@ -868,6 +918,8 @@ on_node_proxy (GObject      *source_object,
                                                  &error);
   if (priv->node == NULL)
     goto node_failed;
+
+  do_node_init (stream);
 
   stream_set_state (stream, PINOS_STREAM_STATE_READY, NULL);
   g_object_unref (stream);
@@ -951,25 +1003,12 @@ do_connect (PinosStream *stream)
 {
   PinosStreamPrivate *priv = stream->priv;
   PinosContext *context = priv->context;
-  GVariantBuilder b;
-  GVariant *ports;
-
-  g_variant_builder_init (&b, G_VARIANT_TYPE ("a(uusa{sv}s)"));
-  g_variant_builder_open (&b, G_VARIANT_TYPE ("(uusa{sv}s)"));
-  g_variant_builder_add (&b, "u", priv->direction);
-  g_variant_builder_add (&b, "u", 0);
-  g_variant_builder_add (&b, "s", "");
-  g_variant_builder_add_value (&b, pinos_properties_to_variant (priv->properties));
-  g_variant_builder_add (&b, "s", priv->path == NULL ? "" : priv->path);
-  g_variant_builder_close (&b);
-  ports = g_variant_builder_end (&b);
 
   g_dbus_proxy_call (context->priv->daemon,
                      "CreateClientNode",
-                     g_variant_new ("(s@a{sv}@a(uusa{sv}s))",
+                     g_variant_new ("(s@a{sv})",
                        "client-node",
-                       pinos_properties_to_variant (priv->properties),
-                       ports),
+                       pinos_properties_to_variant (priv->properties)),
                      G_DBUS_CALL_FLAGS_NONE,
                      -1,
                      NULL, /* GCancellable *cancellable */
@@ -1025,40 +1064,25 @@ pinos_stream_connect (PinosStream      *stream,
   return TRUE;
 }
 
-static void
-control_builder_init (PinosStream  *stream, SpaControlBuilder *builder)
-{
-  PinosStreamPrivate *priv = stream->priv;
-
-  spa_control_builder_init_into (builder,
-                                 priv->send_data,
-                                 MAX_BUFFER_SIZE,
-                                 priv->send_fds,
-                                 MAX_FDS);
-}
-
 static gboolean
 do_start (PinosStream *stream)
 {
   PinosStreamPrivate *priv = stream->priv;
   SpaControlBuilder builder;
-  SpaControlCmdPortUpdate pu;
   SpaControlCmdStateChange sc;
   SpaControl control;
 
   handle_socket (stream, priv->fd);
 
   control_builder_init (stream, &builder);
-  pu.port_id = 0;
-  pu.change_mask = 0;
-
-  spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_PORT_UPDATE, &pu);
   sc.state = SPA_NODE_STATE_CONFIGURE;
   spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_STATE_CHANGE, &sc);
   spa_control_builder_end (&builder, &control);
 
   if (spa_control_write (&control, priv->fd) < 0)
     g_warning ("stream %p: failed to write control", stream);
+
+  spa_control_clear (&control);
 
   g_object_unref (stream);
 

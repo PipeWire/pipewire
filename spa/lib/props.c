@@ -47,10 +47,8 @@ spa_props_set_prop (SpaProps           *props,
   if (info->offset != 0)
     memcpy ((uint8_t*)props + info->offset, value->value, value->size);
 
-  if (info->mask_offset != 0) {
-    uint32_t *mask = (uint32_t *)((uint8_t *)props + info->mask_offset);
-    *mask &= ~info->unset_mask;
-  }
+  props->unset_mask &= ~(1 << index);
+
   return SPA_RESULT_OK;
 }
 
@@ -71,11 +69,9 @@ spa_props_get_prop (const SpaProps *props,
   if ((info->flags & SPA_PROP_FLAG_READABLE) == 0)
     return SPA_RESULT_INVALID_PROPERTY_ACCESS;
 
-  if (info->mask_offset != 0) {
-    uint32_t *mask = (uint32_t *)((uint8_t *)props + info->mask_offset);
-    if ((*mask & info->unset_mask))
-      return SPA_RESULT_PROPERTY_UNSET;
-  }
+  if (props->unset_mask & (1 << index))
+    return SPA_RESULT_PROPERTY_UNSET;
+
   value->type = info->type;
   value->size = info->maxsize;
   if (info->offset != 0)
@@ -109,10 +105,8 @@ spa_props_copy (const SpaProps *src,
 
     if (info->offset)
       memcpy ((uint8_t*)dest + info->offset, value.value, value.size);
-    if (info->mask_offset != 0) {
-      uint32_t *mask = (uint32_t *)((uint8_t *)dest + info->mask_offset);
-      *mask &= ~info->unset_mask;
-    }
+
+    dest->unset_mask &= ~(1 << i);
   }
   return SPA_RESULT_OK;
 }

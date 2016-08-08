@@ -90,9 +90,7 @@ static const SpaPropInfo prop_info[PROP_ID_LAST] =
                                sizeof (int), NULL,
                                SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                NULL,
-                               offsetof (SpaProxyProps, socketfd),
-                               0, 0,
-                               NULL },
+                               offsetof (SpaProxyProps, socketfd) },
 };
 
 static void
@@ -920,6 +918,7 @@ parse_control (SpaProxy   *this,
       {
         SpaControlCmdPortUpdate pu;
         SpaProxyPort *port;
+        unsigned int i;
 
         fprintf (stderr, "proxy %p: got port update %d\n", this, cmd);
         if (spa_control_iter_parse_cmd (&it, &pu) < 0)
@@ -929,6 +928,12 @@ parse_control (SpaProxy   *this,
           break;
 
         port = &this->ports[pu.port_id];
+
+        for (i = 0; i < pu.n_possible_formats; i++)
+          spa_debug_format (pu.possible_formats[i]);
+
+        spa_debug_props (pu.props, true);
+
         if (!port->valid && pu.direction != SPA_DIRECTION_INVALID) {
           do_init_port (this, pu.port_id, pu.direction);
         } else {

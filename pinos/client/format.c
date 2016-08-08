@@ -23,11 +23,16 @@ static SpaFormat *
 format_copy (SpaFormat *format)
 {
   SpaMemory *mem;
+  SpaFormat *f;
 
   if (format == NULL)
     return NULL;
 
   mem = spa_memory_alloc_size (format->mem.mem.pool_id, format, format->mem.size);
+  f = spa_memory_ensure_ptr (mem);
+  f->mem.mem = mem->mem;
+  f->mem.offset = 0;
+  f->mem.size = format->mem.size;
 
   return spa_memory_ensure_ptr (mem);
 }

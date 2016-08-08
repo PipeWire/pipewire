@@ -144,9 +144,6 @@ typedef struct {
   const SpaPropRangeInfo   *range_values;
   const char              **tags;
   size_t                    offset;
-  size_t                    mask_offset;
-  uint32_t                  unset_mask;
-  const void               *priv;
 } SpaPropInfo;
 
 typedef struct {
@@ -160,12 +157,14 @@ typedef struct {
  * @n_prop_info: number of elements in @prop_info
  * @prop_info: array of #SpaPropInfo. Contains info about the
  *             properties. Can be %NULL when unspecified.
+ * @unset_mask: mask of unset properties
  *
  * Generic propertiers.
  */
 struct _SpaProps {
   unsigned int       n_prop_info;
   const SpaPropInfo *prop_info;
+  uint32_t           unset_mask;
 };
 
 static inline unsigned int

@@ -81,18 +81,14 @@ static const SpaPropInfo prop_info[] =
                                sizeof (double), &default_volume,
                                SPA_PROP_RANGE_TYPE_MIN_MAX, 2, volume_range,
                                NULL,
-                               offsetof (SpaVolumeProps, volume),
-                               0, 0,
-                               NULL },
+                               offsetof (SpaVolumeProps, volume) },
   { PROP_ID_MUTE,              "mute", "Mute",
                                SPA_PROP_FLAG_READWRITE,
                                SPA_PROP_TYPE_BOOL, sizeof (bool),
                                sizeof (bool), &default_mute,
                                SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                NULL,
-                               offsetof (SpaVolumeProps, mute),
-                               0, 0,
-                               NULL },
+                               offsetof (SpaVolumeProps, mute) },
 };
 
 static void

@@ -49,7 +49,6 @@ typedef enum {
 
 struct _SpaVideoRawFormat {
   SpaFormat format;
-  uint32_t unset_mask;
   SpaVideoRawInfo info;
 };
 

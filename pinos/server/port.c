@@ -273,8 +273,11 @@ static void
 pinos_port_dispose (GObject * object)
 {
   PinosPort *port = PINOS_PORT (object);
+  PinosPortPrivate *priv = port->priv;
 
-  g_debug ("port %p: dispose", port);
+  g_debug ("port %p: dispose %d", port, priv->active_count);
+  if (priv->active_count == 1)
+    g_signal_emit (port, signals[SIGNAL_DEACTIVATE], 0, NULL);
 
   G_OBJECT_CLASS (pinos_port_parent_class)->dispose (object);
 }
@@ -437,7 +440,7 @@ pinos_port_class_init (PinosPortClass * klass)
 static void
 pinos_port_init (PinosPort * port)
 {
-  PinosPortPrivate *priv = port->priv = PINOS_PORT_GET_PRIVATE (port);
+  port->priv = PINOS_PORT_GET_PRIVATE (port);
 
   g_debug ("port %p: new", port);
   port->direction = PINOS_DIRECTION_INVALID;

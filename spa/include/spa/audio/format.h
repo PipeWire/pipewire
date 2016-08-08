@@ -41,7 +41,6 @@ typedef enum {
 
 struct _SpaAudioRawFormat {
   SpaFormat format;
-  uint32_t unset_mask;
   SpaAudioRawInfo info;
 };
 

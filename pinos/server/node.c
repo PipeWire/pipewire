@@ -69,6 +69,8 @@ enum
 enum
 {
   SIGNAL_REMOVE,
+  SIGNAL_PORT_ADDED,
+  SIGNAL_PORT_REMOVED,
   LAST_SIGNAL
 };
 
@@ -105,6 +107,7 @@ node_add_port (PinosNode       *node,
   if (port) {
     g_hash_table_insert (priv->ports, GUINT_TO_POINTER (id), port);
     g_signal_connect (port, "remove", (GCallback) do_remove_port, node);
+    g_signal_emit (node, signals[SIGNAL_PORT_ADDED], 0, port);
   }
   return port;
 }
@@ -114,8 +117,14 @@ node_remove_port (PinosNode       *node,
                   guint            id)
 {
   PinosNodePrivate *priv = node->priv;
+  PinosPort *port;
+
   g_debug ("node %p: removed port %u", node, id);
-  g_hash_table_remove (priv->ports, GUINT_TO_POINTER (id));
+  port = g_hash_table_lookup (priv->ports, GUINT_TO_POINTER (id));
+  if (port) {
+    g_signal_emit (node, signals[SIGNAL_PORT_REMOVED], 0, port);
+    g_hash_table_remove (priv->ports, GUINT_TO_POINTER (id));
+  }
   return TRUE;
 }
 
@@ -497,6 +506,26 @@ pinos_node_class_init (PinosNodeClass * klass)
                                          G_TYPE_NONE,
                                          0,
                                          G_TYPE_NONE);
+  signals[SIGNAL_PORT_ADDED] = g_signal_new ("port-added",
+                                             G_TYPE_FROM_CLASS (klass),
+                                             G_SIGNAL_RUN_LAST,
+                                             0,
+                                             NULL,
+                                             NULL,
+                                             g_cclosure_marshal_generic,
+                                             G_TYPE_NONE,
+                                             0,
+                                             PINOS_TYPE_PORT);
+  signals[SIGNAL_PORT_REMOVED] = g_signal_new ("port-removed",
+                                               G_TYPE_FROM_CLASS (klass),
+                                               G_SIGNAL_RUN_LAST,
+                                               0,
+                                               NULL,
+                                               NULL,
+                                               g_cclosure_marshal_generic,
+                                               G_TYPE_NONE,
+                                               0,
+                                               PINOS_TYPE_PORT);
 
   node_class->set_state = node_set_state;
   node_class->add_port = node_add_port;
@@ -522,7 +551,10 @@ pinos_node_init (PinosNode * node)
   priv->state = PINOS_NODE_STATE_SUSPENDED;
   pinos_node1_set_state (priv->iface, PINOS_NODE_STATE_SUSPENDED);
 
-  priv->ports = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL, (GDestroyNotify) g_object_unref);
+  priv->ports = g_hash_table_new_full (g_direct_hash,
+                                       g_direct_equal,
+                                       NULL,
+                                       (GDestroyNotify) g_object_unref);
 }
 
 /**

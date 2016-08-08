@@ -279,13 +279,12 @@ again:
   fmt->fmt.media_subtype = info->media_subtype;
   fmt->fmt.props.prop_info = fmt->infos;
   fmt->fmt.props.n_prop_info = pi = 0;
-  fmt->unset_mask = 0;
+  fmt->fmt.props.unset_mask = 0;
 
   if (info->media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
     spa_video_raw_fill_prop_info (&fmt->infos[pi],
                                   SPA_PROP_ID_VIDEO_FORMAT,
                                   offsetof (V4l2Format, format));
-    fmt->infos[pi].mask_offset = offsetof (V4l2Format, unset_mask);
     fmt->format = info->format;
     pi = ++fmt->fmt.props.n_prop_info;
   }
@@ -293,7 +292,6 @@ again:
   spa_video_raw_fill_prop_info (&fmt->infos[pi],
                                 SPA_PROP_ID_VIDEO_SIZE,
                                 offsetof (V4l2Format, size));
-  fmt->infos[pi].mask_offset = offsetof (V4l2Format, unset_mask);
   fmt->size.width = state->frmsize.discrete.width;
   fmt->size.height = state->frmsize.discrete.height;
   pi = ++fmt->fmt.props.n_prop_info;
@@ -301,7 +299,6 @@ again:
   spa_video_raw_fill_prop_info (&fmt->infos[pi],
                                 SPA_PROP_ID_VIDEO_FRAMERATE,
                                 offsetof (V4l2Format, framerate));
-  fmt->infos[pi].mask_offset = offsetof (V4l2Format, unset_mask);
   fmt->infos[pi].range_type = SPA_PROP_RANGE_TYPE_ENUM;
   fmt->infos[pi].range_values = fmt->ranges;
   fmt->infos[pi].n_range_values = 0;
@@ -328,8 +325,7 @@ again:
     i = ++state->frmival.index;
   }
   fmt->infos[pi].n_range_values = i;
-  fmt->infos[pi].unset_mask = 1 << i;
-  fmt->unset_mask |= fmt->infos[pi].unset_mask;
+  fmt->fmt.props.unset_mask |= 1 << pi;
   pi = ++fmt->fmt.props.n_prop_info;
 
   *format = &state->format[0].fmt;

@@ -174,13 +174,13 @@ pinos_link_set_property (GObject      *_object,
       break;
 
     case PROP_OUTPUT:
-      priv->output = g_value_dup_object (value);
+      priv->output = g_value_get_object (value);
       priv->output_node = priv->output->node->node;
       priv->output_port = priv->output->id;
       break;
 
     case PROP_INPUT:
-      priv->input = g_value_dup_object (value);
+      priv->input = g_value_get_object (value);
       priv->input_node = priv->input->node->node;
       priv->input_port = priv->input->id;
       break;
@@ -277,7 +277,7 @@ do_negotiate (PinosLink *this)
   value.type = SPA_PROP_TYPE_FRACTION;
   value.size = sizeof (SpaFraction);
   value.value = &frac;
-  frac.num = 25;
+  frac.num = 20;
   frac.denom = 1;
   if ((res = spa_props_set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_FRAMERATE), &value)) < 0)
     return res;
@@ -334,12 +334,12 @@ on_activate (PinosPort *port, gpointer user_data)
 
   if (priv->active)
     return TRUE;
+  priv->active = TRUE;
 
   if (priv->input == port)
     pinos_port_activate (priv->output);
   else
     pinos_port_activate (priv->input);
-  priv->active = TRUE;
 
   if (!priv->negotiated)
     do_negotiate (this);
@@ -367,12 +367,12 @@ on_deactivate (PinosPort *port, gpointer user_data)
 
   if (!priv->active)
     return TRUE;
+  priv->active = FALSE;
 
   if (priv->input == port)
     pinos_port_deactivate (priv->output);
   else
     pinos_port_deactivate (priv->input);
-  priv->active = FALSE;
 
   cmd.type = SPA_COMMAND_STOP;
   if ((res = spa_node_send_command (priv->input_node, &cmd)) < 0)

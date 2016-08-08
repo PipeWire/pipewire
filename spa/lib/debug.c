@@ -248,7 +248,7 @@ print_value (const SpaPropInfo *info, int size, const void *value)
       fprintf (stderr, "%" PRIu16, *(uint16_t *)value);
       break;
     case SPA_PROP_TYPE_INT32:
-      fprintf (stderr, stderr, "%" PRIi32, *(int32_t *)value);
+      fprintf (stderr, "%" PRIi32, *(int32_t *)value);
       break;
     case SPA_PROP_TYPE_UINT32:
       fprintf (stderr, "%" PRIu32, *(uint32_t *)value);

@@ -31,7 +31,7 @@
 
 typedef struct _SpaV4l2Source SpaV4l2Source;
 
-static const char default_device[] = "/dev/video1";
+static const char default_device[] = "/dev/video0";
 
 typedef struct {
   SpaProps props;
@@ -66,7 +66,6 @@ typedef struct _V4l2Format V4l2Format;
 
 struct _V4l2Format {
   SpaFormat fmt;
-  uint32_t unset_mask;
   SpaVideoFormat            format;
   SpaRectangle              size;
   SpaFraction               framerate;
@@ -146,27 +145,21 @@ static const SpaPropInfo prop_info[] =
                                 strlen (default_device)+1, default_device,
                                 SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                 NULL,
-                                offsetof (SpaV4l2SourceProps, device),
-                                0, 0,
-                                NULL },
+                                offsetof (SpaV4l2SourceProps, device) },
   { PROP_ID_DEVICE_NAME,       "device-name", "Human-readable name of the device",
                                 SPA_PROP_FLAG_READABLE,
                                 SPA_PROP_TYPE_STRING, 127,
                                 0, NULL,
                                 SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                 NULL,
-                                offsetof (SpaV4l2SourceProps, device_name),
-                                0, 0,
-                                NULL },
+                                offsetof (SpaV4l2SourceProps, device_name) },
   { PROP_ID_DEVICE_FD,          "device-fd", "Device file descriptor",
                                 SPA_PROP_FLAG_READABLE,
                                 SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                 0, NULL,
                                 SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                 NULL,
-                                offsetof (SpaV4l2SourceProps, device_fd),
-                                0, 0,
-                                NULL },
+                                offsetof (SpaV4l2SourceProps, device_fd) },
 };
 
 static SpaResult
@@ -347,20 +340,12 @@ spa_v4l2_format_init (V4l2Format *f)
   spa_video_raw_fill_prop_info (&f->infos[0],
                                 SPA_PROP_ID_VIDEO_FORMAT,
                                 offsetof (V4l2Format, format));
-  f->infos[0].mask_offset = offsetof (V4l2Format, unset_mask);
-  f->infos[0].unset_mask = 1 << 0;
-
   spa_video_raw_fill_prop_info (&f->infos[1],
                                 SPA_PROP_ID_VIDEO_SIZE,
                                 offsetof (V4l2Format, size));
-  f->infos[1].mask_offset = offsetof (V4l2Format, unset_mask);
-  f->infos[1].unset_mask = 1 << 1;
-
   spa_video_raw_fill_prop_info (&f->infos[2],
                                 SPA_PROP_ID_VIDEO_FRAMERATE,
                                 offsetof (V4l2Format, framerate));
-  f->infos[2].mask_offset = offsetof (V4l2Format, unset_mask);
-  f->infos[2].unset_mask = 1 << 2;
 }
 
 static SpaResult

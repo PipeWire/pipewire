@@ -55,7 +55,7 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
     if (!gst_structure_get_int (cs, "height", &i))
       goto done;
     f->info.size.height = i;
-    f->unset_mask = 0;
+    f->format.props.unset_mask = 0;
 
     res = &f->format;
   } else if (gst_structure_has_name (cs, "audio/x-raw")) {
@@ -81,7 +81,7 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
     if (!gst_structure_get_int (cs, "channels", &i))
       goto done;
     f->info.channels = i;
-    f->unset_mask = 0;
+    f->format.props.unset_mask = 0;
 
     res = &f->format;
   }
@@ -150,6 +150,7 @@ gst_caps_from_format (SpaFormat *format)
           "format", G_TYPE_STRING, gst_video_format_to_string (f.info.format),
           "width", G_TYPE_INT, f.info.size.width,
           "height", G_TYPE_INT, f.info.size.height,
+          "framerate", GST_TYPE_FRACTION, f.info.framerate.num, f.info.framerate.denom,
           NULL);
     }
   } else if (format->media_type == SPA_MEDIA_TYPE_AUDIO) {

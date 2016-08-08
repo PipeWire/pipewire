@@ -182,6 +182,18 @@ no_node:
   }
 }
 
+static void
+on_port_added (PinosNode *node, PinosPort *port, PinosClient *client)
+{
+  pinos_client_add_object (client, G_OBJECT (port));
+}
+
+static void
+on_port_removed (PinosNode *node, PinosPort *port, PinosClient *client)
+{
+  pinos_client_remove_object (client, G_OBJECT (port));
+}
+
 static gboolean
 handle_create_client_node (PinosDaemon1           *interface,
                            GDBusMethodInvocation  *invocation,
@@ -215,6 +227,9 @@ handle_create_client_node (PinosDaemon1           *interface,
 
   client = sender_get_client (daemon, sender);
   pinos_client_add_object (client, G_OBJECT (node));
+
+  g_signal_connect (node, "port-added", (GCallback) on_port_added, client);
+  g_signal_connect (node, "port-removed", (GCallback) on_port_removed, client);
 
   object_path = pinos_node_get_object_path (PINOS_NODE (node));
   g_debug ("daemon %p: add client-node %p, %s", daemon, node, object_path);

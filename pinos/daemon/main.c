@@ -42,8 +42,6 @@ main (gint argc, gchar *argv[])
   props = pinos_properties_new ("test", "test", NULL);
   daemon = pinos_daemon_new (props);
 
-  pinos_gst_manager_new (daemon);
-
   factory = pinos_gst_node_factory_new ("gst-node-factory");
   pinos_daemon_add_node_factory (daemon, factory);
 

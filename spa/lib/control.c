@@ -340,24 +340,15 @@ spa_control_iter_get_data (SpaControlIter *iter, size_t *size)
   return si->data;
 }
 
-static void
-iter_parse_set_format (struct stack_iter *si, SpaControlCmdSetFormat *cmd)
+static SpaProps *
+parse_props (SpaMemory *mem, void *p, off_t offset)
 {
-  uint32_t *p = si->data;
   SpaProps *tp;
   unsigned int i, j;
   SpaPropInfo *pi;
   SpaPropRangeInfo *ri;
-  SpaMemory *mem;
 
-  cmd->port_id = *p++;
-  mem = spa_memory_alloc_size (SPA_MEMORY_POOL_LOCAL, p, si->size - 4);
-  cmd->format = spa_memory_ensure_ptr (mem);
-  cmd->format->mem.mem = mem->mem;
-  cmd->format->mem.offset = 0;
-  cmd->format->mem.size = mem->size;
-
-  tp = (SpaProps *) &cmd->format->props;
+  tp = SPA_MEMBER (p, offset, SpaProps);
   tp->prop_info = SPA_MEMBER (tp, SPA_PTR_TO_INT (tp->prop_info), SpaPropInfo);
 
   /* now fix all the pointers */
@@ -382,8 +373,66 @@ iter_parse_set_format (struct stack_iter *si, SpaControlCmdSetFormat *cmd)
         ri->value = SPA_MEMBER (tp, SPA_PTR_TO_INT (ri->value), void);
     }
   }
+  return tp;
 }
 
+static SpaFormat *
+parse_format (SpaMemory *mem, void *p, off_t offset)
+{
+  SpaFormat *f;
+
+  if (offset == 0)
+    return NULL;
+
+  f = SPA_MEMBER (p, offset, SpaFormat);
+  f->mem.mem = mem->mem;
+  f->mem.offset = offset;
+  f->mem.size = mem->size - offset;
+
+  parse_props (mem, f, offsetof (SpaFormat, props));
+
+  return f;
+}
+
+static void
+iter_parse_port_update (struct stack_iter *si, SpaControlCmdPortUpdate *pu)
+{
+  void *p;
+  SpaMemory *mem;
+  unsigned int i;
+
+  memcpy (pu, si->data, sizeof (SpaControlCmdPortUpdate));
+
+  mem = spa_memory_alloc_size (SPA_MEMORY_POOL_LOCAL, si->data, si->size);
+  p = spa_memory_ensure_ptr (mem);
+
+  if (pu->possible_formats)
+    pu->possible_formats = SPA_MEMBER (p,
+                        SPA_PTR_TO_INT (pu->possible_formats), const SpaFormat *);
+  for (i = 0; i < pu->n_possible_formats; i++) {
+    pu->possible_formats[i] = parse_format (mem, p,
+                        SPA_PTR_TO_INT (pu->possible_formats[i]));
+  }
+
+  if (pu->props)
+    pu->props = parse_props (mem, p, SPA_PTR_TO_INT (pu->props));
+  if (pu->info)
+    pu->info = SPA_MEMBER (p, SPA_PTR_TO_INT (pu->info), SpaPortInfo);
+}
+
+static void
+iter_parse_set_format (struct stack_iter *si, SpaControlCmdSetFormat *cmd)
+{
+  void *p;
+  SpaMemory *mem;
+
+  memcpy (cmd, si->data, sizeof (SpaControlCmdSetFormat));
+
+  mem = spa_memory_alloc_size (SPA_MEMORY_POOL_LOCAL, si->data, si->size);
+  p = spa_memory_ensure_ptr (mem);
+
+  cmd->format = parse_format (mem, p, SPA_PTR_TO_INT (cmd->format));
+}
 
 SpaResult
 spa_control_iter_parse_cmd (SpaControlIter *iter,
@@ -402,9 +451,7 @@ spa_control_iter_parse_cmd (SpaControlIter *iter,
       break;
 
     case SPA_CONTROL_CMD_PORT_UPDATE:
-      if (si->size < sizeof (SpaControlCmdPortUpdate))
-        return SPA_RESULT_ERROR;
-      memcpy (command, si->data, sizeof (SpaControlCmdPortUpdate));
+      iter_parse_port_update (si, command);
       break;
 
     case SPA_CONTROL_CMD_PORT_REMOVED:
@@ -449,10 +496,8 @@ spa_control_iter_parse_cmd (SpaControlIter *iter,
       break;
 
     case SPA_CONTROL_CMD_SET_FORMAT:
-    {
       iter_parse_set_format (si, command);
       break;
-    }
 
     case SPA_CONTROL_CMD_SET_PROPERTY:
       fprintf (stderr, "implement iter of %d\n", si->cmd);
@@ -735,6 +780,9 @@ calc_props_len (const SpaProps *props)
   SpaPropInfo *pi;
   SpaPropRangeInfo *ri;
 
+  if (props == NULL)
+    return 0;
+
   /* props and unset mask */
   len = sizeof (SpaProps) + sizeof (uint32_t);
   for (i = 0; i < props->n_prop_info; i++) {
@@ -757,59 +805,22 @@ calc_props_len (const SpaProps *props)
 }
 
 static size_t
-calc_format_len (const SpaFormat *format)
-{
-  return calc_props_len (&format->props) - sizeof (SpaProps) + sizeof (SpaFormat);
-}
-
-static void
-builder_add_port_update (struct stack_builder *sb, SpaControlCmdPortUpdate *pu)
-{
-  size_t len;
-  void *base;
-
-  /* calc len */
-  len = sizeof (SpaControlCmdPortUpdate);
-  base = builder_add_cmd (sb, SPA_CONTROL_CMD_PORT_UPDATE, len);
-  memcpy (base, pu, sizeof (SpaControlCmdPortUpdate));
-
-  /* FIXME add more things */
-}
-
-static void
-builder_add_set_format (struct stack_builder *sb, SpaControlCmdSetFormat *sf)
+write_props (void *p, const SpaProps *props, off_t offset)
 {
   size_t len, slen;
   unsigned int i, j;
-  void *p, *base;
-  SpaFormat *tf;
   SpaProps *tp;
-  const SpaProps *sp;
   SpaPropInfo *pi, *bpi;
   SpaPropRangeInfo *ri, *bri;
 
-  sp = &sf->format->props;
+  tp = p;
+  memcpy (tp, props, sizeof (SpaProps));
+  tp->prop_info = SPA_INT_TO_PTR (offset + sizeof (uint32_t));
 
-  /* calculate length */
-  /* port_id + format + mask  */
-  len = sizeof (uint32_t) + calc_format_len (sf->format);
-  base = builder_add_cmd (sb, SPA_CONTROL_CMD_SET_FORMAT, len);
-  memcpy (base, &sf->port_id, sizeof (uint32_t));
-
-  tf = SPA_MEMBER (base, sizeof (uint32_t), SpaFormat);
-  tf->media_type = sf->format->media_type;
-  tf->media_subtype = sf->format->media_subtype;
-
-  tp = SPA_MEMBER (tf, offsetof (SpaFormat, props), SpaProps);
-  tp->n_prop_info = sp->n_prop_info;
-  tp->prop_info = SPA_INT_TO_PTR (sizeof (SpaFormat) + sizeof (uint32_t));
-
-  /* write propinfo array, adjust offset of mask */
-  bpi = pi = (SpaPropInfo *) ((uint8_t *)tp + sizeof (SpaFormat) + sizeof (uint32_t));
+  /* write propinfo array */
+  bpi = pi = SPA_MEMBER (tp, SPA_PTR_TO_INT (tp->prop_info), SpaPropInfo);
   for (i = 0; i < tp->n_prop_info; i++) {
-    memcpy (pi, &sp->prop_info[i], sizeof (SpaPropInfo));
-    pi->mask_offset = sizeof (SpaFormat);
-    pi->priv = NULL;
+    memcpy (pi, &props->prop_info[i], sizeof (SpaPropInfo));
     pi++;
   }
   bri = ri = (SpaPropRangeInfo *) pi;
@@ -818,7 +829,7 @@ builder_add_set_format (struct stack_builder *sb, SpaControlCmdSetFormat *sf)
   for (i = 0; i < tp->n_prop_info; i++) {
     pi->range_values = SPA_INT_TO_PTR (SPA_PTRDIFF (ri, tp));
     for (j = 0; j < pi->n_range_values; j++) {
-      memcpy (ri, &sp->prop_info[i].range_values[j], sizeof (SpaPropRangeInfo));
+      memcpy (ri, &props->prop_info[i].range_values[j], sizeof (SpaPropRangeInfo));
       ri++;
     }
     pi++;
@@ -883,7 +894,7 @@ builder_add_set_format (struct stack_builder *sb, SpaControlCmdSetFormat *sf)
   pi = bpi;
   for (i = 0; i < tp->n_prop_info; i++) {
     if (pi->offset) {
-      memcpy (p, SPA_MEMBER (sp, pi->offset, void), pi->maxsize);
+      memcpy (p, SPA_MEMBER (props, pi->offset, void), pi->maxsize);
       pi->offset = SPA_PTRDIFF (p, tp);
       p += pi->maxsize;
     } else {
@@ -891,6 +902,95 @@ builder_add_set_format (struct stack_builder *sb, SpaControlCmdSetFormat *sf)
     }
     pi++;
   }
+
+  len = SPA_PTRDIFF (p, tp);
+
+  return len;
+}
+
+static size_t
+calc_format_len (const SpaFormat *format)
+{
+  if (format == NULL)
+    return 0;
+
+  return calc_props_len (&format->props) - sizeof (SpaProps) + sizeof (SpaFormat);
+}
+
+static size_t
+write_format (void *p, const SpaFormat *format)
+{
+  SpaFormat *tf;
+
+  tf = p;
+  tf->media_type = format->media_type;
+  tf->media_subtype = format->media_subtype;
+
+  p = SPA_MEMBER (tf, offsetof (SpaFormat, props), void);
+  return write_props (p, &format->props, sizeof (SpaFormat));
+}
+
+static void
+builder_add_port_update (struct stack_builder *sb, SpaControlCmdPortUpdate *pu)
+{
+  size_t len;
+  void *p, *base;
+  int i;
+  SpaFormat **bfa;
+  SpaControlCmdPortUpdate *d;
+
+  /* calc len */
+  len = sizeof (SpaControlCmdPortUpdate);
+  len += pu->n_possible_formats * sizeof (SpaFormat *);
+  for (i = 0; i < pu->n_possible_formats; i++)
+    len += calc_format_len (pu->possible_formats[i]);
+  len += calc_props_len (pu->props);
+
+  base = builder_add_cmd (sb, SPA_CONTROL_CMD_PORT_UPDATE, len);
+  memcpy (base, pu, sizeof (SpaControlCmdPortUpdate));
+  d = base;
+
+  p = SPA_MEMBER (d, sizeof (SpaControlCmdPortUpdate), void);
+  bfa = p;
+  if (pu->n_possible_formats)
+    d->possible_formats = SPA_INT_TO_PTR (SPA_PTRDIFF (p, base));
+  else
+    d->possible_formats = 0;
+
+  p = SPA_MEMBER (p, sizeof (SpaFormat*) * pu->n_possible_formats, void);
+
+  for (i = 0; i < pu->n_possible_formats; i++) {
+    len = write_format (p, pu->possible_formats[i]);
+    bfa[i] = SPA_INT_TO_PTR (SPA_PTRDIFF (p, base));
+    p = SPA_MEMBER (p, len, void);
+  }
+  if (pu->props) {
+    len = write_props (p, pu->props, sizeof (SpaProps));
+    d->props = SPA_INT_TO_PTR (SPA_PTRDIFF (p, base));
+    p = SPA_MEMBER (p, len, void);
+  } else {
+    d->props = 0;
+  }
+
+  /* FIXME add more things */
+}
+
+static void
+builder_add_set_format (struct stack_builder *sb, SpaControlCmdSetFormat *sf)
+{
+  size_t len;
+  void *p, *base;
+
+  /* calculate length */
+  /* port_id + format + mask  */
+  len = sizeof (SpaControlCmdSetFormat) + calc_format_len (sf->format);
+  base = builder_add_cmd (sb, SPA_CONTROL_CMD_SET_FORMAT, len);
+  memcpy (base, sf, sizeof (SpaControlCmdSetFormat));
+  sf = base;
+
+  p = SPA_MEMBER (sf, sizeof (SpaControlCmdSetFormat), void);
+  len = write_format (p, sf->format);
+  sf->format = SPA_INT_TO_PTR (SPA_PTRDIFF (p, sf));
 }
 
 /**

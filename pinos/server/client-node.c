@@ -290,7 +290,7 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
 
       target = pinos_daemon_find_port (pinos_node_get_daemon (pnode),
                                        pinos_direction_reverse (pa->direction),
-                                       "/org/pinos/node_8",
+                                       "/org/pinos/node_1",
                                        NULL,
                                        NULL,
                                        &error);

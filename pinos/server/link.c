@@ -56,9 +56,6 @@ struct _PinosLinkPrivate
   SpaNode *input_node;
   uint32_t input_port;
 
-  GBytes *possible_formats;
-  GBytes *format;
-
   SpaBuffer *buffers[16];
   unsigned int n_buffers;
 };
@@ -72,8 +69,6 @@ enum
   PROP_OUTPUT,
   PROP_INPUT,
   PROP_OBJECT_PATH,
-  PROP_POSSIBLE_FORMATS,
-  PROP_FORMAT,
 };
 
 enum
@@ -146,14 +141,6 @@ pinos_link_get_property (GObject    *_object,
       g_value_set_string (value, priv->object_path);
       break;
 
-    case PROP_POSSIBLE_FORMATS:
-      g_value_set_boxed (value, priv->possible_formats);
-      break;
-
-    case PROP_FORMAT:
-      g_value_set_boxed (value, priv->format);
-      break;
-
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (link, prop_id, pspec);
       break;
@@ -188,18 +175,6 @@ pinos_link_set_property (GObject      *_object,
 
     case PROP_OBJECT_PATH:
       priv->object_path = g_value_dup_string (value);
-      break;
-
-    case PROP_POSSIBLE_FORMATS:
-      if (priv->possible_formats)
-        g_bytes_unref (priv->possible_formats);
-      priv->possible_formats = g_value_dup_boxed (value);
-      break;
-
-    case PROP_FORMAT:
-      if (priv->format)
-        g_bytes_unref (priv->format);
-      priv->format = g_value_dup_boxed (value);
       break;
 
     default:
@@ -430,8 +405,6 @@ pinos_link_finalize (GObject * object)
   PinosLinkPrivate *priv = link->priv;
 
   g_debug ("link %p: finalize", link);
-  g_clear_pointer (&priv->possible_formats, g_bytes_unref);
-  g_clear_pointer (&priv->format, g_bytes_unref);
   g_clear_object (&priv->daemon);
   g_clear_object (&priv->iface);
   g_free (priv->object_path);
@@ -483,26 +456,6 @@ pinos_link_class_init (PinosLinkClass * klass)
                                                         G_PARAM_CONSTRUCT |
                                                         G_PARAM_STATIC_STRINGS));
 
-  g_object_class_install_property (gobject_class,
-                                   PROP_POSSIBLE_FORMATS,
-                                   g_param_spec_boxed ("possible-formats",
-                                                       "Possible Formats",
-                                                       "The possbile formats of the link",
-                                                       G_TYPE_BYTES,
-                                                       G_PARAM_READWRITE |
-                                                       G_PARAM_CONSTRUCT |
-                                                       G_PARAM_STATIC_STRINGS));
-
-  g_object_class_install_property (gobject_class,
-                                   PROP_FORMAT,
-                                   g_param_spec_boxed ("format",
-                                                       "Format",
-                                                       "The format of the link",
-                                                       G_TYPE_BYTES,
-                                                       G_PARAM_READWRITE |
-                                                       G_PARAM_CONSTRUCT |
-                                                       G_PARAM_STATIC_STRINGS));
-
   signals[SIGNAL_REMOVE] = g_signal_new ("remove",
                                          G_TYPE_FROM_CLASS (klass),
                                          G_SIGNAL_RUN_LAST,
@@ -527,8 +480,7 @@ pinos_link_init (PinosLink * link)
 PinosLink *
 pinos_link_new (PinosDaemon *daemon,
                 PinosPort   *output,
-                PinosPort   *input,
-                GBytes      *format_filter)
+                PinosPort   *input)
 {
   PinosLink *link;
   PinosPort *tmp;
@@ -543,7 +495,6 @@ pinos_link_new (PinosDaemon *daemon,
                        "daemon", daemon,
                        "output", output,
                        "input", input,
-                       "possible-formats", format_filter,
                        NULL);
 
   return link;
@@ -581,42 +532,4 @@ pinos_link_get_object_path (PinosLink *link)
   priv = link->priv;
 
   return priv->object_path;
-}
-
-/**
- * pinos_link_get_possible_formats:
- * @link: a #PinosLink
- *
- * Get the possible formats of @link
- *
- * Returns: the possible formats or %NULL
- */
-GBytes *
-pinos_link_get_possible_formats (PinosLink *link)
-{
-  PinosLinkPrivate *priv;
-
-  g_return_val_if_fail (PINOS_IS_LINK (link), NULL);
-  priv = link->priv;
-
-  return priv->possible_formats;
-}
-
-/**
- * pinos_link_get_format:
- * @link: a #PinosLink
- *
- * Get the format of @link
- *
- * Returns: the format or %NULL
- */
-GBytes *
-pinos_link_get_format (PinosLink *link)
-{
-  PinosLinkPrivate *priv;
-
-  g_return_val_if_fail (PINOS_IS_LINK (link), NULL);
-  priv = link->priv;
-
-  return priv->format;
 }

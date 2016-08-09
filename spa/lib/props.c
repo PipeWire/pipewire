@@ -68,6 +68,7 @@ spa_props_get_prop (const SpaProps *props,
   info = &props->prop_info[index];
   if ((info->flags & SPA_PROP_FLAG_READABLE) == 0)
     return SPA_RESULT_INVALID_PROPERTY_ACCESS;
+
   if (props->unset_mask & (1u << index))
     return SPA_RESULT_PROPERTY_UNSET;
 

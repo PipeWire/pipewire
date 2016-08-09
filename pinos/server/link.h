@@ -64,13 +64,10 @@ GType               pinos_link_get_type             (void);
 
 PinosLink *         pinos_link_new                  (PinosDaemon *daemon,
                                                      PinosPort   *output,
-                                                     PinosPort   *input,
-                                                     GBytes      *format_filter);
+                                                     PinosPort   *input);
 
 void                pinos_link_remove               (PinosLink *link);
 
-GBytes *            pinos_link_get_possible_formats (PinosLink *link);
-GBytes *            pinos_link_get_format           (PinosLink *link);
 PinosProperties *   pinos_link_get_properties       (PinosLink *link);
 
 const gchar *       pinos_link_get_object_path      (PinosLink *link);

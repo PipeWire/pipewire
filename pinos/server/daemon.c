@@ -210,7 +210,7 @@ on_port_added (PinosNode *node, PinosPort *port, PinosClient *client)
       g_clear_error (&error);
       return;
     }
-    link = pinos_link_new (pinos_node_get_daemon (node), port, target, NULL);
+    link = pinos_link_new (pinos_node_get_daemon (node), port, target);
     pinos_client_add_object (client, G_OBJECT (link));
   }
 }

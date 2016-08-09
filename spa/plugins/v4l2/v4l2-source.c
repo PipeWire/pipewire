@@ -402,11 +402,15 @@ spa_v4l2_source_node_port_set_format (SpaNode            *node,
   tf = &state->format[1];
   fs = sizeof (V4l2Format);
 
-  spa_v4l2_format_init (f);
-  f->fmt.media_type = format->media_type;
-  f->fmt.media_subtype = format->media_subtype;
-  if ((res = spa_props_copy (&format->props, &f->fmt.props) < 0))
-    return res;
+  if ((SpaFormat*)f != format) {
+    spa_v4l2_format_init (f);
+    f->fmt.media_type = format->media_type;
+    f->fmt.media_subtype = format->media_subtype;
+    if ((res = spa_props_copy (&format->props, &f->fmt.props) < 0))
+      return res;
+  } else {
+    f = (V4l2Format*)format;
+  }
 
   if (spa_v4l2_set_format (this, f, flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY) < 0)
     return SPA_RESULT_INVALID_MEDIA_TYPE;

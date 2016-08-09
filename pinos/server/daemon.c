@@ -202,6 +202,7 @@ on_port_added (PinosNode *node, PinosPort *port, PinosClient *client)
                                      pinos_direction_reverse (port->direction),
                                      path,
                                      NULL,
+                                     0,
                                      NULL,
                                      &error);
     if (target == NULL) {
@@ -521,7 +522,8 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
                         PinosDirection   direction,
                         const gchar     *name,
                         PinosProperties *props,
-                        GBytes          *format_filter,
+                        unsigned int     n_format_filters,
+                        SpaFormat      **format_filters,
                         GError         **error)
 {
   PinosDaemonPrivate *priv;
@@ -534,7 +536,7 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
 
   have_name = name ? strlen (name) > 0 : FALSE;
 
-  g_debug ("name \"%s\", format %s, %d", name, (gchar*)g_bytes_get_data (format_filter, NULL), have_name);
+  g_debug ("name \"%s\", %d", name, have_name);
 
   for (nodes = priv->nodes; nodes; nodes = g_list_next (nodes)) {
     PinosNode *n = nodes->data;
@@ -554,16 +556,13 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
     for (ports = pinos_node_get_ports (n); ports; ports = g_list_next (ports)) {
       PinosPort *p = ports->data;
       PinosDirection dir;
-      GBytes *format;
 
       g_object_get (p, "direction", &dir, NULL);
       if (dir != direction)
         continue;
 
-      format = pinos_port_filter_formats (p, format_filter, NULL);
-      if (format != NULL) {
+      if (pinos_port_have_common_format (p, n_format_filters, format_filters, NULL)) {
         g_debug ("port %p matches filter", p);
-        g_bytes_unref (format);
         best = p;
         node_found = TRUE;
         break;

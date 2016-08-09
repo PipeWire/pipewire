@@ -90,17 +90,12 @@ gulong              pinos_port_add_send_cb            (PinosPort *port,
 void                pinos_port_remove_send_cb         (PinosPort *port,
                                                        gulong     id);
 
-void                pinos_port_remove               (PinosPort *port);
+void                pinos_port_remove                 (PinosPort *port);
 
-const gchar *       pinos_port_get_name             (PinosPort *port);
-PinosProperties *   pinos_port_get_properties       (PinosPort *port);
-
-GBytes *            pinos_port_get_possible_formats (PinosPort *port);
-GBytes *            pinos_port_filter_formats       (PinosPort *port,
-                                                     GBytes    *filter,
-                                                     GError   **error);
-GBytes *            pinos_port_get_format           (PinosPort *port);
-
+gboolean            pinos_port_have_common_format     (PinosPort  *port,
+                                                       guint       n_filter_formats,
+                                                       SpaFormat **filter_formats,
+                                                       GError    **error);
 
 void                pinos_port_activate             (PinosPort *port);
 void                pinos_port_deactivate           (PinosPort *port);

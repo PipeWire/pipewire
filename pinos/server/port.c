@@ -51,10 +51,6 @@ struct _PinosPortPrivate
 
   gulong data_id;
 
-  GBytes *possible_formats;
-  GBytes *format;
-  PinosProperties *properties;
-
   PinosBufferCallback received_buffer_cb;
   PinosEventCallback received_event_cb;
   gpointer received_data;
@@ -74,14 +70,10 @@ enum
   PROP_NODE,
   PROP_DIRECTION,
   PROP_ID,
-  PROP_POSSIBLE_FORMATS,
-  PROP_FORMAT,
-  PROP_PROPERTIES,
 };
 
 enum
 {
-  SIGNAL_FORMAT_REQUEST,
   SIGNAL_REMOVE,
   SIGNAL_ACTIVATE,
   SIGNAL_DEACTIVATE,
@@ -191,18 +183,6 @@ pinos_port_get_property (GObject    *_object,
       g_value_set_uint (value, port->id);
       break;
 
-    case PROP_POSSIBLE_FORMATS:
-      g_value_set_boxed (value, priv->possible_formats);
-      break;
-
-    case PROP_FORMAT:
-      g_value_set_boxed (value, priv->format);
-      break;
-
-    case PROP_PROPERTIES:
-      g_value_set_boxed (value, priv->properties);
-      break;
-
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (port, prop_id, pspec);
       break;
@@ -233,24 +213,6 @@ pinos_port_set_property (GObject      *_object,
 
     case PROP_ID:
       port->id = g_value_get_uint (value);
-      break;
-
-    case PROP_POSSIBLE_FORMATS:
-      if (priv->possible_formats)
-        g_bytes_unref (priv->possible_formats);
-      priv->possible_formats = g_value_dup_boxed (value);
-      break;
-
-    case PROP_FORMAT:
-      if (priv->format)
-        g_bytes_unref (priv->format);
-      priv->format = g_value_dup_boxed (value);
-      break;
-
-    case PROP_PROPERTIES:
-      if (priv->properties)
-        pinos_properties_free (priv->properties);
-      priv->properties = g_value_dup_boxed (value);
       break;
 
     default:
@@ -290,9 +252,6 @@ pinos_port_finalize (GObject * object)
   GList *walk;
 
   g_debug ("port %p: finalize", port);
-  g_clear_pointer (&priv->possible_formats, g_bytes_unref);
-  g_clear_pointer (&priv->format, g_bytes_unref);
-  g_clear_pointer (&priv->properties, pinos_properties_free);
   if (priv->received_notify)
     priv->received_notify (priv->received_data);
   for (walk = priv->send_datas; walk; walk = g_list_next (walk)) {
@@ -363,48 +322,6 @@ pinos_port_class_init (PinosPortClass * klass)
                                                       G_PARAM_CONSTRUCT_ONLY |
                                                       G_PARAM_STATIC_STRINGS));
 
-  g_object_class_install_property (gobject_class,
-                                   PROP_POSSIBLE_FORMATS,
-                                   g_param_spec_boxed ("possible-formats",
-                                                       "Possible Formats",
-                                                       "The possbile formats of the port",
-                                                       G_TYPE_BYTES,
-                                                       G_PARAM_READWRITE |
-                                                       G_PARAM_CONSTRUCT |
-                                                       G_PARAM_STATIC_STRINGS));
-
-  g_object_class_install_property (gobject_class,
-                                   PROP_FORMAT,
-                                   g_param_spec_boxed ("format",
-                                                       "Format",
-                                                       "The format of the port",
-                                                       G_TYPE_BYTES,
-                                                       G_PARAM_READWRITE |
-                                                       G_PARAM_CONSTRUCT |
-                                                       G_PARAM_STATIC_STRINGS));
-
-  g_object_class_install_property (gobject_class,
-                                   PROP_PROPERTIES,
-                                   g_param_spec_boxed ("properties",
-                                                       "Properties",
-                                                       "The properties of the port",
-                                                       PINOS_TYPE_PROPERTIES,
-                                                       G_PARAM_READWRITE |
-                                                       G_PARAM_CONSTRUCT |
-                                                       G_PARAM_STATIC_STRINGS));
-
-
-  signals[SIGNAL_FORMAT_REQUEST] = g_signal_new ("format-request",
-                                                 G_TYPE_FROM_CLASS (klass),
-                                                 G_SIGNAL_RUN_LAST,
-                                                 0,
-                                                 NULL,
-                                                 NULL,
-                                                 g_cclosure_marshal_generic,
-                                                 G_TYPE_NONE,
-                                                 0,
-                                                 G_TYPE_NONE);
-
   signals[SIGNAL_REMOVE] = g_signal_new ("remove",
                                          G_TYPE_FROM_CLASS (klass),
                                          G_SIGNAL_RUN_LAST,
@@ -461,89 +378,25 @@ pinos_port_remove (PinosPort *port)
   g_signal_emit (port, signals[SIGNAL_REMOVE], 0, NULL);
 }
 
-/**
- * pinos_port_get_possible_formats:
- * @port: a #PinosPort
- *
- * Get the possible formats of @port
- *
- * Returns: the possible formats or %NULL
- */
-GBytes *
-pinos_port_get_possible_formats (PinosPort *port)
-{
-  PinosPortPrivate *priv;
-
-  g_return_val_if_fail (PINOS_IS_PORT (port), NULL);
-  priv = port->priv;
-
-  g_signal_emit (port, signals[SIGNAL_FORMAT_REQUEST], 0, NULL);
-  return priv->possible_formats;
-}
 
 /**
- * pinos_port_get_format:
+ * pinos_port_have_common_format:
  * @port: a #PinosPort
- *
- * Get the format of @port
- *
- * Returns: the format or %NULL
- */
-GBytes *
-pinos_port_get_format (PinosPort *port)
-{
-  PinosPortPrivate *priv;
-
-  g_return_val_if_fail (PINOS_IS_PORT (port), NULL);
-  priv = port->priv;
-
-  return priv->format;
-}
-
-/**
- * pinos_port_get_properties:
- * @port: a #PinosPort
- *
- * Get the properties of @port
- *
- * Returns: the properties or %NULL
- */
-PinosProperties *
-pinos_port_get_properties (PinosPort *port)
-{
-  PinosPortPrivate *priv;
-
-  g_return_val_if_fail (PINOS_IS_PORT (port), NULL);
-  priv = port->priv;
-
-  return priv->properties;
-}
-
-/**
- * pinos_port_filter_formats:
- * @port: a #PinosPort
- * @filter: a #GBytes
  * @error: a #GError or %NULL
  *
- * Get all the currently supported formats for @port and filter the
- * results with @filter.
+ * Check if @port accepts any of the give formats
  *
- * Returns: the list of supported format. If %NULL is returned, @error will
- * be set.
+ * Returns: %TRUE if there exists a matching format
  */
-GBytes *
-pinos_port_filter_formats (PinosPort  *port,
-                           GBytes     *filter,
-                           GError    **error)
+gboolean
+pinos_port_have_common_format (PinosPort  *port,
+                               guint       n_filter_formats,
+                               SpaFormat **filter_formats,
+                               GError    **error)
 {
-  PinosPortPrivate *priv;
+  g_return_val_if_fail (PINOS_IS_PORT (port), FALSE);
 
-  g_return_val_if_fail (PINOS_IS_PORT (port), NULL);
-  priv = port->priv;
-
-  g_signal_emit (port, signals[SIGNAL_FORMAT_REQUEST], 0, NULL);
-
-  return pinos_format_filter (priv->possible_formats, filter, error);
+  return TRUE;
 }
 
 void

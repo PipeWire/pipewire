@@ -81,7 +81,8 @@ PinosPort *       pinos_daemon_find_port         (PinosDaemon     *daemon,
                                                   PinosDirection   direction,
                                                   const gchar     *name,
                                                   PinosProperties *props,
-                                                  GBytes          *format_filter,
+                                                  unsigned int     n_format_filters,
+                                                  SpaFormat      **format_filters,
                                                   GError         **error);
 
 void              pinos_daemon_add_node_factory  (PinosDaemon *daemon,

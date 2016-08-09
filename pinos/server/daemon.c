@@ -185,13 +185,11 @@ no_node:
 static void
 on_port_added (PinosNode *node, PinosPort *port, PinosClient *client)
 {
-  pinos_client_add_object (client, G_OBJECT (port));
 }
 
 static void
 on_port_removed (PinosNode *node, PinosPort *port, PinosClient *client)
 {
-  pinos_client_remove_object (client, G_OBJECT (port));
 }
 
 static gboolean

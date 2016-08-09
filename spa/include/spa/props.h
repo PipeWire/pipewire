@@ -126,9 +126,6 @@ typedef struct {
  * @range_values: array of possible values
  * @tags: extra tags, NULL terminated
  * @offset: offset in structure with data
- * @mask_offset: offset in structure for the mask
- * @unset_mask: mask to clear when value is set
- * @priv: extra private data
  */
 typedef struct {
   uint32_t                  id;

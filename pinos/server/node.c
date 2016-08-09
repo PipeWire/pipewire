@@ -514,7 +514,7 @@ pinos_node_class_init (PinosNodeClass * klass)
                                              NULL,
                                              g_cclosure_marshal_generic,
                                              G_TYPE_NONE,
-                                             0,
+                                             1,
                                              PINOS_TYPE_PORT);
   signals[SIGNAL_PORT_REMOVED] = g_signal_new ("port-removed",
                                                G_TYPE_FROM_CLASS (klass),
@@ -524,7 +524,7 @@ pinos_node_class_init (PinosNodeClass * klass)
                                                NULL,
                                                g_cclosure_marshal_generic,
                                                G_TYPE_NONE,
-                                               0,
+                                               1,
                                                PINOS_TYPE_PORT);
 
   node_class->set_state = node_set_state;

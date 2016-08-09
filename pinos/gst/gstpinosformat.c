@@ -17,6 +17,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <stdio.h>
+
 #include <gst/gst.h>
 #include <gst/video/video.h>
 #include <gst/audio/audio.h>
@@ -27,67 +29,355 @@
 
 #include "gstpinosformat.h"
 
+static guint
+calc_range_size (const GValue *val)
+{
+  guint res = 0;
+
+  if (G_VALUE_TYPE (val) == GST_TYPE_LIST)
+    res += gst_value_list_get_size (val);
+  else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY)
+    res += gst_value_array_get_size (val);
+  else if (G_VALUE_TYPE (val) == GST_TYPE_INT_RANGE)
+    res += 2;
+  else if (G_VALUE_TYPE (val) == GST_TYPE_INT64_RANGE)
+    res += 2;
+  else if (G_VALUE_TYPE (val) == GST_TYPE_DOUBLE_RANGE)
+    res += 2;
+  else if (G_VALUE_TYPE (val) == GST_TYPE_FRACTION_RANGE)
+    res += 2;
+
+  return res;
+}
+
+static void
+calc_size (GstCapsFeatures *cf, GstStructure *cs, guint *n_infos, guint *n_ranges, guint *n_datas)
+{
+  guint c;
+  const GValue *val;
+
+  if (gst_structure_has_name (cs, "video/x-raw")) {
+    if ((val = gst_structure_get_value (cs, "format"))) {
+      c = calc_range_size (val);
+      n_infos[0] += 1;
+      n_ranges[0] += c;
+      n_datas[0] += (1 + c) * sizeof (SpaVideoFormat);
+    }
+    if ((val = gst_structure_get_value (cs, "width")) ||
+        (val = gst_structure_get_value (cs, "height"))) {
+      c = calc_range_size (val);
+      n_infos[0]++;
+      n_ranges[0] += c;
+      n_datas[0] += (1 + c) * sizeof (SpaRectangle);
+    }
+    if ((val = gst_structure_get_value (cs, "framerate"))) {
+      c = calc_range_size (val);
+      n_infos[0]++;
+      n_ranges[0] += c;
+      n_datas[0] += (1 + c) * sizeof (SpaFraction);
+    }
+  } else if (gst_structure_has_name (cs, "audio/x-raw")) {
+    if ((val = gst_structure_get_value (cs, "format"))) {
+      c = calc_range_size (val);
+      n_infos[0]++;
+      n_ranges[0] += c;
+      n_datas[0] += (1 + c) * sizeof (SpaAudioFormat);
+    }
+    if ((val = gst_structure_get_value (cs, "layout"))) {
+      c = calc_range_size (val);
+      n_infos[0]++;
+      n_ranges[0] += c;
+      n_datas[0] += (1 + c) * sizeof (SpaAudioLayout);
+    }
+    if ((val = gst_structure_get_value (cs, "rate"))) {
+      c = calc_range_size (val);
+      n_infos[0]++;
+      n_ranges[0] += c;
+      n_datas[0] += (1 + c) * sizeof (uint32_t);
+    }
+    if ((val = gst_structure_get_value (cs, "channels"))) {
+      c = calc_range_size (val);
+      n_infos[0]++;
+      n_ranges[0] += c;
+      n_datas[0] += (1 + c) * sizeof (uint32_t);
+    }
+  }
+}
+
 static SpaFormat *
 convert_1 (GstCapsFeatures *cf, GstStructure *cs)
 {
   SpaMemory *mem;
-  SpaFormat *res = NULL;
-  const gchar *s;
-  int i;
+  SpaFormat *f;
+  guint size, n_infos = 0, n_ranges = 0, n_datas = 0;
+  SpaPropInfo *bpi;
+  SpaPropRangeInfo *bri;
+  int pi, ri;
+  void *p;
+  const GValue *val, *val2;
+
+  calc_size (cf, cs, &n_infos, &n_ranges, &n_datas);
+
+  size = sizeof (SpaFormat);
+  size += n_infos * sizeof (SpaPropInfo);
+  size += n_ranges * sizeof (SpaPropRangeInfo);
+  size += n_datas;
+
+  mem = spa_memory_alloc_size (SPA_MEMORY_POOL_LOCAL, NULL, size);
+  f = spa_memory_ensure_ptr (mem);
+  f->mem.mem = mem->mem;
+  f->mem.offset = 0;
+  f->mem.size = mem->size;
+
+  bpi = SPA_MEMBER (f, sizeof (SpaFormat), SpaPropInfo);
+  bri = SPA_MEMBER (bpi, n_infos * sizeof (SpaPropInfo), SpaPropRangeInfo);
+  p = SPA_MEMBER (bri, n_ranges * sizeof (SpaPropRangeInfo), void);
+
+  pi = ri = 0;
+
+  f->props.n_prop_info = n_infos;
+  f->props.prop_info = bpi;
+  f->props.unset_mask = 0;
 
   if (gst_structure_has_name (cs, "video/x-raw")) {
-    SpaVideoRawFormat *f;
+    f->media_type = SPA_MEDIA_TYPE_VIDEO;
+    f->media_subtype = SPA_MEDIA_SUBTYPE_RAW;
 
-    mem = spa_memory_alloc_size (SPA_MEMORY_POOL_LOCAL, NULL, sizeof (SpaVideoRawFormat));
-    f = spa_memory_ensure_ptr (mem);
-    f->format.mem.mem = mem->mem;
-    f->format.mem.offset = 0;
-    f->format.mem.size = mem->size;
+    val = gst_structure_get_value (cs, "format");
+    if (val) {
+      SpaVideoFormat *sv = p;
 
-    spa_video_raw_format_init (f);
+      spa_video_raw_fill_prop_info (&bpi[pi],
+                                    SPA_PROP_ID_VIDEO_FORMAT,
+                                    SPA_PTRDIFF (p, f));
 
-    if (!(s = gst_structure_get_string (cs, "format")))
-      goto done;
-    f->info.format = gst_video_format_from_string (s);
-    if (!gst_structure_get_int (cs, "width", &i))
-      goto done;
-    f->info.size.width = i;
-    if (!gst_structure_get_int (cs, "height", &i))
-      goto done;
-    f->info.size.height = i;
-    f->format.props.unset_mask = 0;
+      if (G_VALUE_TYPE (val) == G_TYPE_STRING) {
+        *sv = gst_video_format_from_string (g_value_get_string (val));
+        p = ++sv;
+      } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
+        fprintf (stderr, "implement me\n");
+        f->props.unset_mask |= (1u << pi);
+      } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
+        fprintf (stderr, "implement me\n");
+        f->props.unset_mask |= (1u << pi);
+      } else {
+        fprintf (stderr, "implement me\n");
+        f->props.unset_mask |= (1u << pi);
+      }
+      pi++;
+    }
+    val = gst_structure_get_value (cs, "width");
+    val2 = gst_structure_get_value (cs, "height");
+    if (val || val2) {
+      SpaRectangle *sv = p;
 
-    res = &f->format;
+      spa_video_raw_fill_prop_info (&bpi[pi],
+                                    SPA_PROP_ID_VIDEO_SIZE,
+                                    SPA_PTRDIFF (p, f));
+
+      if (val && val2 && G_VALUE_TYPE (val) == G_VALUE_TYPE (val2)) {
+        if (G_VALUE_TYPE (val) == G_TYPE_INT) {
+          sv->width = g_value_get_int (val);
+          sv->height = g_value_get_int (val2);
+          p = ++sv;
+          bpi[pi].range_type = SPA_PROP_RANGE_TYPE_NONE;
+          bpi[pi].n_range_values = 0;
+          bpi[pi].range_values = NULL;
+        } else if (G_VALUE_TYPE (val) == GST_TYPE_INT_RANGE) {
+          bpi[pi].range_type = SPA_PROP_RANGE_TYPE_MIN_MAX;
+          bpi[pi].n_range_values = 2;
+          bpi[pi].range_values = &bri[ri];
+
+          bri[ri].name = NULL;
+          bri[ri].description = NULL;
+          bri[ri].size = sizeof (SpaRectangle);
+          bri[ri].value = p;
+          sv->width = gst_value_get_int_range_min (val);
+          sv->height = gst_value_get_int_range_min (val2);
+          p = ++sv;
+          ri++;
+
+          bri[ri].name = NULL;
+          bri[ri].description = NULL;
+          bri[ri].size = sizeof (SpaRectangle);
+          bri[ri].value = p;
+          sv->width = gst_value_get_int_range_max (val);
+          sv->height = gst_value_get_int_range_max (val2);
+          p = ++sv;
+          ri++;
+
+          f->props.unset_mask |= (1u << pi);
+        } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
+          fprintf (stderr, "implement me\n");
+          f->props.unset_mask |= (1u << pi);
+        } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
+          fprintf (stderr, "implement me\n");
+          f->props.unset_mask |= (1u << pi);
+        } else {
+          fprintf (stderr, "implement me\n");
+          f->props.unset_mask |= (1u << pi);
+        }
+      }
+      pi++;
+    }
+    val = gst_structure_get_value (cs, "framerate");
+    if (val) {
+      SpaFraction *sv = p;
+
+      spa_video_raw_fill_prop_info (&bpi[pi],
+                                    SPA_PROP_ID_VIDEO_FRAMERATE,
+                                    SPA_PTRDIFF (p, f));
+
+      if (G_VALUE_TYPE (val) == GST_TYPE_FRACTION) {
+        sv->num = gst_value_get_fraction_numerator (val);
+        sv->denom = gst_value_get_fraction_denominator (val);
+        p = ++sv;
+        bpi[pi].range_type = SPA_PROP_RANGE_TYPE_NONE;
+        bpi[pi].n_range_values = 0;
+        bpi[pi].range_values = NULL;
+      } else if (G_VALUE_TYPE (val) == GST_TYPE_FRACTION_RANGE) {
+        const GValue *min, *max;
+
+        min = gst_value_get_fraction_range_min (val);
+        max = gst_value_get_fraction_range_max (val);
+
+        bpi[pi].range_type = SPA_PROP_RANGE_TYPE_MIN_MAX;
+        bpi[pi].n_range_values = 2;
+        bpi[pi].range_values = &bri[ri];
+
+        bri[ri].name = NULL;
+        bri[ri].description = NULL;
+        bri[ri].size = sizeof (SpaFraction);
+        bri[ri].value = p;
+        sv->num = gst_value_get_fraction_numerator (min);
+        sv->denom = gst_value_get_fraction_denominator (min);
+        p = ++sv;
+        ri++;
+
+        bri[ri].name = NULL;
+        bri[ri].description = NULL;
+        bri[ri].size = sizeof (SpaFraction);
+        bri[ri].value = p;
+        sv->num = gst_value_get_fraction_numerator (max);
+        sv->denom = gst_value_get_fraction_denominator (max);
+        p = ++sv;
+        ri++;
+
+        f->props.unset_mask |= (1u << pi);
+      } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
+        fprintf (stderr, "implement me\n");
+        f->props.unset_mask |= (1u << pi);
+      } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
+        fprintf (stderr, "implement me\n");
+        f->props.unset_mask |= (1u << pi);
+      } else {
+        fprintf (stderr, "implement me\n");
+        f->props.unset_mask |= (1u << pi);
+      }
+      pi++;
+    }
   } else if (gst_structure_has_name (cs, "audio/x-raw")) {
-    SpaAudioRawFormat *f;
+    f->media_type = SPA_MEDIA_TYPE_AUDIO;
+    f->media_subtype = SPA_MEDIA_SUBTYPE_RAW;
 
-    mem = spa_memory_alloc_size (SPA_MEMORY_POOL_LOCAL, NULL, sizeof (SpaAudioRawFormat));
-    f = spa_memory_ensure_ptr (mem);
-    f->format.mem.mem = mem->mem;
-    f->format.mem.offset = 0;
-    f->format.mem.size = mem->size;
+    val = gst_structure_get_value (cs, "format");
+    if (val) {
+      SpaAudioFormat *sv = p;
 
-    spa_audio_raw_format_init (f);
+      spa_audio_raw_fill_prop_info (&bpi[pi],
+                                    SPA_PROP_ID_AUDIO_FORMAT,
+                                    SPA_PTRDIFF (p, f));
 
-    if (!(s = gst_structure_get_string (cs, "format")))
-      goto done;
-    f->info.format = gst_audio_format_from_string (s);
-    if (!(s = gst_structure_get_string (cs, "layout")))
-      goto done;
-    f->info.layout = 0;
-    if (!gst_structure_get_int (cs, "rate", &i))
-      goto done;
-    f->info.rate = i;
-    if (!gst_structure_get_int (cs, "channels", &i))
-      goto done;
-    f->info.channels = i;
-    f->format.props.unset_mask = 0;
+      if (G_VALUE_TYPE (val) == G_TYPE_STRING) {
+        *sv = gst_audio_format_from_string (g_value_get_string (val));
+        p = ++sv;
+      } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
+        fprintf (stderr, "implement me\n");
+        f->props.unset_mask |= (1u << pi);
+      } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
+        fprintf (stderr, "implement me\n");
+        f->props.unset_mask |= (1u << pi);
+      } else {
+        fprintf (stderr, "implement me\n");
+        f->props.unset_mask |= (1u << pi);
+      }
+      pi++;
+    }
+    val = gst_structure_get_value (cs, "layout");
+    if (val) {
+      SpaAudioLayout *sv = p;
 
-    res = &f->format;
+      spa_audio_raw_fill_prop_info (&bpi[pi],
+                                    SPA_PROP_ID_AUDIO_LAYOUT,
+                                    SPA_PTRDIFF (p, f));
+
+      if (G_VALUE_TYPE (val) == G_TYPE_STRING) {
+        const gchar *s = g_value_get_string (val);
+        if (!strcmp (s, "interleaved"))
+          *sv = SPA_AUDIO_LAYOUT_INTERLEAVED;
+        else if (!strcmp (s, "non-interleaved"))
+          *sv = SPA_AUDIO_LAYOUT_NON_INTERLEAVED;
+        p = ++sv;
+      } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
+        fprintf (stderr, "implement me\n");
+        f->props.unset_mask |= (1u << pi);
+      } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
+        fprintf (stderr, "implement me\n");
+        f->props.unset_mask |= (1u << pi);
+      } else {
+        fprintf (stderr, "implement me\n");
+        f->props.unset_mask |= (1u << pi);
+      }
+      pi++;
+    }
+    val = gst_structure_get_value (cs, "rate");
+    if (val) {
+      uint32_t *sv = p;
+
+      spa_audio_raw_fill_prop_info (&bpi[pi],
+                                    SPA_PROP_ID_AUDIO_RATE,
+                                    SPA_PTRDIFF (p, f));
+
+      if (G_VALUE_TYPE (val) == G_TYPE_INT) {
+        *sv = g_value_get_int (val);
+        p = ++sv;
+      } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
+        fprintf (stderr, "implement me\n");
+        f->props.unset_mask |= (1u << pi);
+      } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
+        fprintf (stderr, "implement me\n");
+        f->props.unset_mask |= (1u << pi);
+      } else {
+        fprintf (stderr, "implement me\n");
+        f->props.unset_mask |= (1u << pi);
+      }
+      pi++;
+    }
+    val = gst_structure_get_value (cs, "channels");
+    if (val) {
+      uint32_t *sv = p;
+
+      spa_audio_raw_fill_prop_info (&bpi[pi],
+                                    SPA_PROP_ID_AUDIO_CHANNELS,
+                                    SPA_PTRDIFF (p, f));
+
+      if (G_VALUE_TYPE (val) == G_TYPE_INT) {
+        *sv = g_value_get_int (val);
+        p = ++sv;
+      } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
+        fprintf (stderr, "implement me\n");
+        f->props.unset_mask |= (1u << pi);
+      } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
+        fprintf (stderr, "implement me\n");
+        f->props.unset_mask |= (1u << pi);
+      } else {
+        fprintf (stderr, "implement me\n");
+        f->props.unset_mask |= (1u << pi);
+      }
+      pi++;
+    }
   }
-
-done:
-  return res;
+  return f;
 }
 
 SpaFormat *

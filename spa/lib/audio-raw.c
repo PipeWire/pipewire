@@ -234,3 +234,23 @@ fallback:
 
   return res;
 }
+
+SpaResult
+spa_audio_raw_fill_prop_info (SpaPropInfo    *info,
+                              SpaPropIdAudio  id,
+                              size_t          offset)
+{
+  unsigned int i;
+
+  if (info == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  for (i = 0; i < SPA_N_ELEMENTS (raw_format_prop_info); i++) {
+    if (raw_format_prop_info[i].id == id) {
+      memcpy (info, &raw_format_prop_info[i], sizeof (SpaPropInfo));
+      info->offset = offset;
+      return SPA_RESULT_OK;
+    }
+  }
+  return SPA_RESULT_INVALID_PROPERTY_INDEX;
+}

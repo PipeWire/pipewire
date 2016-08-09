@@ -72,10 +72,10 @@ typedef struct {
  */
 SpaResult
 spa_control_init_data (SpaControl       *control,
-                       void              *data,
-                       size_t             size,
-                       int               *fds,
-                       unsigned int       n_fds)
+                       void             *data,
+                       size_t            size,
+                       int              *fds,
+                       unsigned int      n_fds)
 {
   SpaStackControl *sc = SSC (control);
 

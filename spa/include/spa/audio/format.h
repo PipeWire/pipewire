@@ -48,6 +48,9 @@ SpaResult   spa_audio_raw_format_init    (SpaAudioRawFormat *format);
 SpaResult   spa_audio_raw_format_parse   (const SpaFormat *format,
                                           SpaAudioRawFormat *rawformat);
 
+SpaResult   spa_audio_raw_fill_prop_info (SpaPropInfo     *info,
+                                          SpaPropIdAudio   id,
+                                          size_t           offset);
 
 #ifdef __cplusplus
 }  /* extern "C" */

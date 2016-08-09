@@ -395,6 +395,21 @@ parse_format (SpaMemory *mem, void *p, off_t offset)
 }
 
 static void
+iter_parse_node_update (struct stack_iter *si, SpaControlCmdNodeUpdate *nu)
+{
+  void *p;
+  SpaMemory *mem;
+
+  memcpy (nu, si->data, sizeof (SpaControlCmdNodeUpdate));
+
+  mem = spa_memory_alloc_size (SPA_MEMORY_POOL_LOCAL, si->data, si->size);
+  p = spa_memory_ensure_ptr (mem);
+
+  if (nu->props)
+    nu->props = parse_props (mem, p, SPA_PTR_TO_INT (nu->props));
+}
+
+static void
 iter_parse_port_update (struct stack_iter *si, SpaControlCmdPortUpdate *pu)
 {
   void *p;
@@ -447,7 +462,7 @@ spa_control_iter_parse_cmd (SpaControlIter *iter,
   switch (si->cmd) {
     /* C -> S */
     case SPA_CONTROL_CMD_NODE_UPDATE:
-      fprintf (stderr, "implement iter of %d\n", si->cmd);
+      iter_parse_node_update (si, command);
       break;
 
     case SPA_CONTROL_CMD_PORT_UPDATE:
@@ -931,6 +946,30 @@ write_format (void *p, const SpaFormat *format)
 }
 
 static void
+builder_add_node_update (struct stack_builder *sb, SpaControlCmdNodeUpdate *nu)
+{
+  size_t len;
+  void *p, *base;
+  SpaControlCmdNodeUpdate *d;
+
+  /* calc len */
+  len = sizeof (SpaControlCmdNodeUpdate);
+  len += calc_props_len (nu->props);
+
+  base = builder_add_cmd (sb, SPA_CONTROL_CMD_NODE_UPDATE, len);
+  memcpy (base, nu, sizeof (SpaControlCmdNodeUpdate));
+  d = base;
+
+  p = SPA_MEMBER (d, sizeof (SpaControlCmdNodeUpdate), void);
+  if (nu->props) {
+    len = write_props (p, nu->props, sizeof (SpaProps));
+    d->props = SPA_INT_TO_PTR (SPA_PTRDIFF (p, base));
+  } else {
+    d->props = 0;
+  }
+}
+
+static void
 builder_add_port_update (struct stack_builder *sb, SpaControlCmdPortUpdate *pu)
 {
   size_t len;
@@ -974,7 +1013,6 @@ builder_add_port_update (struct stack_builder *sb, SpaControlCmdPortUpdate *pu)
 
   /* FIXME add more things */
 }
-
 static void
 builder_add_set_format (struct stack_builder *sb, SpaControlCmdSetFormat *sf)
 {
@@ -1018,7 +1056,7 @@ spa_control_builder_add_cmd (SpaControlBuilder *builder,
   switch (cmd) {
     /* C -> S */
     case SPA_CONTROL_CMD_NODE_UPDATE:
-      fprintf (stderr, "implement builder of %d\n", cmd);
+      builder_add_node_update (sb, command);
       break;
 
     case SPA_CONTROL_CMD_PORT_UPDATE:

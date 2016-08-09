@@ -73,7 +73,9 @@ struct _SpaProxy {
   SpaPollFd fds[1];
   SpaPollItem poll;
 
+  unsigned int max_inputs;
   unsigned int n_inputs;
+  unsigned int max_outputs;
   unsigned int n_outputs;
   SpaProxyPort ports[MAX_PORTS];
 };
@@ -293,9 +295,9 @@ spa_proxy_node_get_n_ports (SpaNode       *node,
   if (n_output_ports)
     *n_output_ports = this->n_outputs;
   if (max_input_ports)
-    *max_input_ports = MAX_INPUTS;
+    *max_input_ports = this->max_inputs;
   if (max_output_ports)
-    *max_output_ports = MAX_OUTPUTS;
+    *max_output_ports = this->max_outputs;
 
   return SPA_RESULT_OK;
 }
@@ -914,10 +916,22 @@ parse_control (SpaProxy   *this,
         fprintf (stderr, "proxy %p: got unexpected control %d\n", this, cmd);
         break;
 
-      case SPA_CONTROL_CMD_NODE_UPDATE:
       case SPA_CONTROL_CMD_PORT_REMOVED:
         fprintf (stderr, "proxy %p: command not implemented %d\n", this, cmd);
         break;
+
+      case SPA_CONTROL_CMD_NODE_UPDATE:
+      {
+        SpaControlCmdNodeUpdate nu;
+
+        fprintf (stderr, "proxy %p: got node update %d\n", this, cmd);
+        if (spa_control_iter_parse_cmd (&it, &nu) < 0)
+          break;
+
+        this->max_inputs = nu.max_input_ports;
+        this->max_outputs = nu.max_output_ports;
+        break;
+      }
 
       case SPA_CONTROL_CMD_PORT_UPDATE:
       {

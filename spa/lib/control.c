@@ -408,7 +408,7 @@ iter_parse_port_update (struct stack_iter *si, SpaControlCmdPortUpdate *pu)
 
   if (pu->possible_formats)
     pu->possible_formats = SPA_MEMBER (p,
-                        SPA_PTR_TO_INT (pu->possible_formats), const SpaFormat *);
+                        SPA_PTR_TO_INT (pu->possible_formats), SpaFormat *);
   for (i = 0; i < pu->n_possible_formats; i++) {
     pu->possible_formats[i] = parse_format (mem, p,
                         SPA_PTR_TO_INT (pu->possible_formats[i]));

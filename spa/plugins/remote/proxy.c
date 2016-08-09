@@ -49,14 +49,15 @@ typedef struct {
 } SpaProxyProps;
 
 typedef struct {
-  SpaDirection direction;
-  bool valid;
-  bool have_format;
-  SpaPortInfo info;
-  SpaPortStatus status;
-  SpaFormat formats[2];
-  unsigned int n_buffers;
-  SpaBuffer **buffers;
+  bool           valid;
+  SpaDirection   direction;
+  SpaPortInfo    info;
+  SpaFormat     *format;
+  unsigned int   n_formats;
+  SpaFormat    **formats;
+  SpaPortStatus  status;
+  unsigned int   n_buffers;
+  SpaBuffer    **buffers;
 } SpaProxyPort;
 
 struct _SpaProxy {
@@ -334,7 +335,9 @@ spa_proxy_node_get_port_ids (SpaNode       *node,
 static void
 do_init_port (SpaProxy     *this,
               uint32_t      port_id,
-              SpaDirection  direction)
+              SpaDirection  direction,
+              unsigned int  n_formats,
+              SpaFormat   **formats)
 {
   SpaEvent event;
   SpaProxyPort *port;
@@ -344,7 +347,9 @@ do_init_port (SpaProxy     *this,
   port = &this->ports[port_id];
   port->direction = direction;
   port->valid = true;
-  port->have_format = false;
+  port->format = NULL;
+  port->n_formats = n_formats;
+  port->formats = formats;
 
   if (direction == SPA_DIRECTION_INPUT)
     this->n_inputs++;
@@ -376,7 +381,9 @@ do_uninit_port (SpaProxy     *this,
 
   port->direction = SPA_DIRECTION_INVALID;
   port->valid = false;
-  port->have_format = false;
+  if (port->format)
+    spa_format_unref (port->format);
+  port->format = NULL;
 
   event.type = SPA_EVENT_TYPE_PORT_REMOVED;
   event.port_id = port_id;
@@ -400,7 +407,7 @@ spa_proxy_node_add_port (SpaNode        *node,
   if (!CHECK_FREE_PORT_ID (this, port_id))
     return SPA_RESULT_INVALID_PORT;
 
-  do_init_port (this, port_id, direction);
+  do_init_port (this, port_id, direction, 0, NULL);
 
   return SPA_RESULT_OK;
 }
@@ -447,13 +454,10 @@ spa_proxy_node_port_enum_formats (SpaNode          *node,
 
   index = (*state == NULL ? 0 : *(int*)state);
 
-  switch (index) {
-    case 0:
-      break;
-    default:
-      return SPA_RESULT_ENUM_END;
-  }
-  *format = &port->formats[0];
+  if (index >= port->n_formats)
+    return SPA_RESULT_ENUM_END;
+
+  *format = port->formats[index];
   *(int*)state = ++index;
 
   return SPA_RESULT_OK;
@@ -473,7 +477,7 @@ spa_proxy_node_port_set_format (SpaNode            *node,
   uint8_t buf[128];
   SpaResult res;
 
-  if (node == NULL || node->handle == NULL || format == NULL)
+  if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this  = (SpaProxy *) node->handle;
@@ -486,9 +490,6 @@ spa_proxy_node_port_set_format (SpaNode            *node,
   spa_control_builder_init_into (&builder, buf, sizeof (buf), NULL, 0);
   sf.port_id = port_id;
   sf.format = (SpaFormat *) format;
-
-  spa_debug_format (sf.format);
-
   spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_SET_FORMAT, &sf);
   spa_control_builder_end (&builder, &control);
 
@@ -497,7 +498,11 @@ spa_proxy_node_port_set_format (SpaNode            *node,
 
   spa_control_clear (&control);
 
-  port->have_format = format != NULL;
+  if (port->format)
+    spa_format_unref (port->format);
+  if (format)
+    spa_format_ref ((SpaFormat *) format);
+  port->format = (SpaFormat *)format;
 
   return SPA_RESULT_OK;
 }
@@ -520,10 +525,10 @@ spa_proxy_node_port_get_format (SpaNode          *node,
 
   port = &this->ports[port_id];
 
-  if (!port->have_format)
+  if (!port->format)
     return SPA_RESULT_NO_FORMAT;
 
-  *format = &port->formats[1];
+  *format = port->format;
 
   return SPA_RESULT_OK;
 }
@@ -585,7 +590,7 @@ spa_proxy_node_port_get_status (SpaNode              *node,
 
   port = &this->ports[port_id];
 
-  if (!port->have_format)
+  if (!port->format)
     return SPA_RESULT_NO_FORMAT;
 
   *status = &port->status;
@@ -720,7 +725,7 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
 
   port = &this->ports[port_id];
 
-  if (!port->have_format)
+  if (!port->format)
     return SPA_RESULT_NO_FORMAT;
 
   for (i = 0; i < port->n_buffers; i++)
@@ -760,7 +765,7 @@ spa_proxy_node_port_alloc_buffers (SpaNode         *node,
 
   port = &this->ports[port_id];
 
-  if (!port->have_format)
+  if (!port->format)
     return SPA_RESULT_NO_FORMAT;
 
   return SPA_RESULT_NOT_IMPLEMENTED;
@@ -807,7 +812,7 @@ spa_proxy_node_port_push_input (SpaNode        *node,
     }
     port = &this->ports[info[i].port_id];
 
-    if (!port->have_format) {
+    if (!port->format) {
       info[i].status = SPA_RESULT_NO_FORMAT;
       have_error = true;
       continue;
@@ -867,7 +872,7 @@ spa_proxy_node_port_pull_output (SpaNode        *node,
 
     port = &this->ports[info[i].port_id];
 
-    if (!port->have_format) {
+    if (!port->format) {
       info[i].status = SPA_RESULT_NO_FORMAT;
       have_error = true;
       continue;
@@ -918,7 +923,6 @@ parse_control (SpaProxy   *this,
       {
         SpaControlCmdPortUpdate pu;
         SpaProxyPort *port;
-        unsigned int i;
 
         fprintf (stderr, "proxy %p: got port update %d\n", this, cmd);
         if (spa_control_iter_parse_cmd (&it, &pu) < 0)
@@ -929,13 +933,12 @@ parse_control (SpaProxy   *this,
 
         port = &this->ports[pu.port_id];
 
-        for (i = 0; i < pu.n_possible_formats; i++)
-          spa_debug_format (pu.possible_formats[i]);
-
-        spa_debug_props (pu.props, true);
-
         if (!port->valid && pu.direction != SPA_DIRECTION_INVALID) {
-          do_init_port (this, pu.port_id, pu.direction);
+          do_init_port (this,
+                        pu.port_id,
+                        pu.direction,
+                        pu.n_possible_formats,
+                        pu.possible_formats);
         } else {
           do_uninit_port (this, pu.port_id);
         }

@@ -22,6 +22,7 @@
 #include <gio/gio.h>
 
 #include <spa/include/spa/video/format.h>
+#include <spa/include/spa/debug.h>
 
 #include "pinos/client/pinos.h"
 #include "pinos/client/enumtypes.h"
@@ -241,46 +242,35 @@ do_negotiate (PinosLink *this)
 {
   PinosLinkPrivate *priv = this->priv;
   SpaResult res;
-  SpaFormat *format;
-  SpaProps *props;
-  uint32_t val;
-  SpaPropValue value;
-  void *state = NULL;
-  SpaFraction frac;
-  SpaRectangle rect;
+  SpaFormat *filter, *format;
+  void *istate = NULL, *ostate = NULL;
 
   g_debug ("link %p: doing set format", this);
 
-  if ((res = spa_node_port_enum_formats (priv->output_node, priv->output_port, &format, NULL, &state)) < 0) {
+again:
+  if ((res = spa_node_port_enum_formats (priv->input_node,
+                                         priv->input_port,
+                                         &filter,
+                                         NULL,
+                                         &istate)) < 0) {
     g_warning ("error enum formats: %d", res);
     return res;
   }
+  spa_debug_format (filter);
 
-  props = &format->props;
-
-  value.type = SPA_PROP_TYPE_UINT32;
-  value.size = sizeof (uint32_t);
-  value.value = &val;
-
-  val = SPA_VIDEO_FORMAT_YUY2;
-  if ((res = spa_props_set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_FORMAT), &value)) < 0)
+  if ((res = spa_node_port_enum_formats (priv->output_node,
+                                         priv->output_port,
+                                         &format,
+                                         filter,
+                                         &ostate)) < 0) {
+    if (res == SPA_RESULT_ENUM_END) {
+      ostate = NULL;
+      goto again;
+    }
+    g_warning ("error enum formats: %d", res);
     return res;
-
-  value.type = SPA_PROP_TYPE_RECTANGLE;
-  value.size = sizeof (SpaRectangle);
-  value.value = &rect;
-  rect.width = 640;
-  rect.height = 480;
-  if ((res = spa_props_set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_SIZE), &value)) < 0)
-    return res;
-
-  value.type = SPA_PROP_TYPE_FRACTION;
-  value.size = sizeof (SpaFraction);
-  value.value = &frac;
-  frac.num = 20;
-  frac.denom = 1;
-  if ((res = spa_props_set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_FRAMERATE), &value)) < 0)
-    return res;
+  }
+  spa_debug_format (format);
 
   if ((res = spa_node_port_set_format (priv->output_node, priv->output_port, 0, format)) < 0) {
     g_warning ("error set format output: %d", res);

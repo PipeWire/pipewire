@@ -106,7 +106,7 @@ typedef struct {
   uint32_t           change_mask;
   SpaDirection       direction;
   unsigned int       n_possible_formats;
-  const SpaFormat  **possible_formats;
+  SpaFormat        **possible_formats;
   const SpaProps    *props;
   const SpaPortInfo *info;
 } SpaControlCmdPortUpdate;

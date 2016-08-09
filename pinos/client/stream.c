@@ -864,23 +864,6 @@ unhandle_socket (PinosStream *stream)
   }
 }
 
-typedef struct {
-  SpaProps props;
-  uint32_t unset_mask;
-  char target_node[64];
-} PortProps;
-
-static const SpaPropInfo port_props_info[] =
-{
-  { 0,                              "pinos.target.node", "The pinos target node",
-                                    SPA_PROP_FLAG_READWRITE,
-                                    SPA_PROP_TYPE_STRING, 64,
-                                    0, NULL,
-                                    SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
-                                    NULL,
-                                    offsetof (PortProps, target_node) },
-};
-
 static void
 do_node_init (PinosStream *stream)
 {
@@ -889,7 +872,6 @@ do_node_init (PinosStream *stream)
   SpaControlCmdPortUpdate pu;
   SpaControlBuilder builder;
   SpaControl control;
-  PortProps port_props;
 
   control_builder_init (stream, &builder);
   nu.change_mask = SPA_CONTROL_CMD_NODE_UPDATE_MAX_INPUTS |
@@ -899,11 +881,6 @@ do_node_init (PinosStream *stream)
   nu.props = NULL;
   spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_NODE_UPDATE, &nu);
 
-  port_props.props.n_prop_info = SPA_N_ELEMENTS (port_props_info);
-  port_props.props.prop_info = port_props_info;
-  strncpy (port_props.target_node, priv->path, 64);
-  port_props.target_node[63] = '\0';
-
   pu.port_id = 0;
   pu.change_mask = SPA_CONTROL_CMD_PORT_UPDATE_DIRECTION |
                    SPA_CONTROL_CMD_PORT_UPDATE_POSSIBLE_FORMATS |
@@ -912,7 +889,7 @@ do_node_init (PinosStream *stream)
   pu.direction = priv->direction;
   pu.n_possible_formats = priv->possible_formats->len;
   pu.possible_formats = (const SpaFormat **)priv->possible_formats->pdata;
-  pu.props = &port_props.props;
+  pu.props = NULL;
   pu.info = &priv->port_info;
   priv->port_info.flags = SPA_PORT_INFO_FLAG_NONE |
                           SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
@@ -1026,6 +1003,11 @@ do_connect (PinosStream *stream)
 {
   PinosStreamPrivate *priv = stream->priv;
   PinosContext *context = priv->context;
+
+  if (priv->properties == NULL)
+    priv->properties = pinos_properties_new (NULL, NULL);
+  pinos_properties_set (priv->properties,
+                        "pinos.target.node", priv->path);
 
   g_dbus_proxy_call (context->priv->daemon,
                      "CreateClientNode",

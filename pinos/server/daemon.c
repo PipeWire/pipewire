@@ -185,6 +185,33 @@ no_node:
 static void
 on_port_added (PinosNode *node, PinosPort *port, PinosClient *client)
 {
+  PinosDaemon *this;
+  PinosProperties *props;
+  PinosPort *target;
+  const gchar *path;
+  GError *error = NULL;
+  PinosLink *link;
+
+  this = pinos_node_get_daemon (node);
+
+  props = pinos_node_get_properties (node);
+  path = pinos_properties_get (props, "pinos.target.node");
+
+  if (path) {
+    target = pinos_daemon_find_port (this,
+                                     pinos_direction_reverse (port->direction),
+                                     path,
+                                     NULL,
+                                     NULL,
+                                     &error);
+    if (target == NULL) {
+      g_warning ("daemon %p: can't find port target: %s", this, error->message);
+      g_clear_error (&error);
+      return;
+    }
+    link = pinos_link_new (pinos_node_get_daemon (node), port, target, NULL);
+    pinos_client_add_object (client, G_OBJECT (link));
+  }
 }
 
 static void

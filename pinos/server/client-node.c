@@ -271,8 +271,7 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
     case SPA_EVENT_TYPE_PORT_ADDED:
     {
       SpaEventPortAdded *pa = event->data;
-      PinosPort *port, *target;
-      PinosLink *link;
+      PinosPort *port;
       PinosNode *pnode = PINOS_NODE (this);
       GError *error = NULL;
 
@@ -287,19 +286,6 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
         break;
       }
       pinos_port_set_received_cb (port, on_received_buffer, on_received_event, this, NULL);
-
-      target = pinos_daemon_find_port (pinos_node_get_daemon (pnode),
-                                       pinos_direction_reverse (pa->direction),
-                                       "/org/pinos/node_1",
-                                       NULL,
-                                       NULL,
-                                       &error);
-      if (target == NULL) {
-        g_warning ("proxy %p: can't find port target: %s", this, error->message);
-        g_clear_error (&error);
-        break;
-      }
-      link = pinos_link_new (pinos_node_get_daemon (pnode), port, target, NULL);
 
       break;
     }

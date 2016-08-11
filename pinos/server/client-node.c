@@ -37,7 +37,6 @@
 
 #include "pinos/server/daemon.h"
 #include "pinos/server/client-node.h"
-#include "pinos/server/utils.h"
 #include "pinos/server/link.h"
 
 #include "pinos/dbus/org-pinos.h"

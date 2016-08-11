@@ -105,7 +105,7 @@ node_add_port (PinosNode       *node,
                        "id", id,
                        NULL);
   if (port) {
-    g_hash_table_insert (priv->ports, GUINT_TO_POINTER (id), port);
+    g_hash_table_insert (priv->ports, GUINT_TO_POINTER (port->id), port);
     g_signal_connect (port, "remove", (GCallback) do_remove_port, node);
     g_signal_emit (node, signals[SIGNAL_PORT_ADDED], 0, port);
   }

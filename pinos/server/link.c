@@ -267,12 +267,22 @@ do_allocation (PinosLink *this)
 {
   PinosLinkPrivate *priv = this->priv;
   SpaResult res;
+  const SpaPortInfo *iinfo, *oinfo;
 
   g_debug ("link %p: doing alloc buffers", this);
+  /* find out what's possible */
+  if ((res = spa_node_port_get_info (priv->output_node, priv->output_port, &oinfo)) < 0) {
+    g_warning ("error get port info: %d", res);
+    return res;
+  }
+  if ((res = spa_node_port_get_info (priv->input_node, priv->input_port, &iinfo)) < 0) {
+    g_warning ("error get port info: %d", res);
+    return res;
+  }
 
   priv->n_buffers = 16;
   if ((res = spa_node_port_alloc_buffers (priv->output_node, priv->output_port,
-                                          NULL, 0,
+                                          iinfo->params, iinfo->n_params,
                                           priv->buffers, &priv->n_buffers)) < 0) {
     g_warning ("error alloc buffers: %d", res);
     return res;

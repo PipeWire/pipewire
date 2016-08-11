@@ -212,7 +212,6 @@ libpinoscore_@PINOS_MAJORMINOR@_la_SOURCES = \
 		server/node.c server/node.h \
 		server/port.c server/port.h \
 		server/node-factory.c server/node-factory.h \
-		server/utils.c server/utils.h \
 		modules/gst/gst-manager.c modules/gst/gst-manager.h \
 		modules/gst/gst-source.c modules/gst/gst-source.h \
 		modules/gst/gst-sink.c modules/gst/gst-sink.h \

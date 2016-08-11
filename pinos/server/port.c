@@ -26,7 +26,6 @@
 
 #include "pinos/server/port.h"
 #include "pinos/server/node.h"
-#include "pinos/server/utils.h"
 
 #define PINOS_PORT_GET_PRIVATE(obj)  \
    (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_PORT, PinosPortPrivate))

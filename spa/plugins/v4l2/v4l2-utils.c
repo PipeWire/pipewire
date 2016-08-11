@@ -325,7 +325,11 @@ again:
     i = ++state->frmival.index;
   }
   fmt->infos[pi].n_range_values = i;
-  fmt->fmt.props.unset_mask |= 1 << pi;
+  if (i == 1) {
+    fmt->framerate = fmt->framerates[0];
+  } else {
+    fmt->fmt.props.unset_mask |= 1 << pi;
+  }
   pi = ++fmt->fmt.props.n_prop_info;
 
   *format = &state->format[0].fmt;
@@ -488,11 +492,46 @@ spa_v4l2_buffer_recycle (SpaV4l2Source *this, uint32_t buffer_id)
   SpaV4l2State *state = &this->state[0];
   V4l2Buffer *b = &state->alloc_buffers[buffer_id];
 
+  if (!b->outstanding)
+    return;
+
   b->outstanding = false;
 
   if (xioctl (state->fd, VIDIOC_QBUF, &b->v4l2_buffer) < 0) {
     perror ("VIDIOC_QBUF");
   }
+}
+
+static void
+clear_buffers (SpaV4l2Source *this)
+{
+  SpaV4l2State *state = &this->state[0];
+  int i;
+
+  if (!state->have_buffers)
+    return;
+
+  for (i = 0; i < state->reqbuf.count; i++) {
+    V4l2Buffer *b;
+    SpaMemory *mem;
+
+    b = &state->alloc_buffers[i];
+    if (b->outstanding) {
+      fprintf (stderr, "queueing outstanding buffer %p\n", b);
+      spa_v4l2_buffer_recycle (this, i);
+    }
+    mem = spa_memory_find (&b->datas[0].mem.mem);
+    if (state->export_buf) {
+      close (mem->fd);
+    } else {
+      munmap (mem->ptr, mem->size);
+    }
+    spa_memory_unref (&mem->mem);
+  }
+  if (state->alloc_mem)
+    spa_memory_unref (&state->alloc_mem->mem);
+
+  state->have_buffers = false;
 }
 
 static SpaResult
@@ -501,6 +540,11 @@ spa_v4l2_import_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_bu
   SpaV4l2State *state = &this->state[0];
   struct v4l2_requestbuffers reqbuf;
   int i;
+
+  if (buffers == NULL) {
+    clear_buffers (this);
+    return SPA_RESULT_OK;
+  }
 
   state->memtype = V4L2_MEMORY_USERPTR;
 
@@ -715,6 +759,18 @@ spa_v4l2_alloc_buffers (SpaV4l2Source   *this,
 {
   SpaResult res;
   SpaV4l2State *state = &this->state[0];
+  unsigned int i;
+
+  if (state->have_buffers) {
+    if (*n_buffers < state->reqbuf.count)
+      return SPA_RESULT_NO_BUFFERS;
+
+    *n_buffers = state->reqbuf.count;
+    for (i = 0; i < state->reqbuf.count; i++) {
+      buffers[i] = &state->alloc_buffers[i].buffer;
+    }
+    return SPA_RESULT_OK;
+  }
 
   if (state->cap.capabilities & V4L2_CAP_STREAMING) {
     if ((res = mmap_init (this, params, n_params, buffers, n_buffers)) < 0)
@@ -774,7 +830,6 @@ spa_v4l2_stop (SpaV4l2Source *this)
   SpaV4l2State *state = &this->state[0];
   enum v4l2_buf_type type;
   SpaEvent event;
-  int i;
 
   if (!state->opened)
     return SPA_RESULT_OK;
@@ -785,24 +840,7 @@ spa_v4l2_stop (SpaV4l2Source *this)
     return SPA_RESULT_ERROR;
   }
 
-  for (i = 0; i < state->reqbuf.count; i++) {
-    V4l2Buffer *b;
-    SpaMemory *mem;
-
-    b = &state->alloc_buffers[i];
-    if (b->outstanding) {
-      fprintf (stderr, "queueing outstanding buffer %p\n", b);
-      spa_v4l2_buffer_recycle (this, i);
-    }
-    mem = spa_memory_find (&b->datas[0].mem.mem);
-    if (state->export_buf) {
-      close (mem->fd);
-    } else {
-      munmap (mem->ptr, mem->size);
-    }
-    spa_memory_unref (&mem->mem);
-  }
-  state->have_buffers = false;
+  clear_buffers (this);
 
   event.type = SPA_EVENT_TYPE_REMOVE_POLL;
   event.port_id = 0;

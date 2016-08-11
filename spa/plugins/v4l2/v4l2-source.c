@@ -91,7 +91,7 @@ typedef struct {
   void *cookie;
 
   V4l2Format format[2];
-  SpaFormat *current_format;
+  V4l2Format *current_format;
 
   int fd;
   bool opened;
@@ -412,12 +412,21 @@ spa_v4l2_source_node_port_set_format (SpaNode            *node,
     f = (V4l2Format*)format;
   }
 
+  if (state->current_format) {
+    if (f->fmt.media_type == state->current_format->fmt.media_type &&
+       f->fmt.media_subtype == state->current_format->fmt.media_subtype &&
+       f->format == state->current_format->format &&
+       f->size.width == state->current_format->size.width &&
+       f->size.height == state->current_format->size.height)
+      return SPA_RESULT_OK;
+  }
+
   if (spa_v4l2_set_format (this, f, flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY) < 0)
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
   if (!(flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY)) {
     memcpy (tf, f, fs);
-    state->current_format = &tf->fmt;
+    state->current_format = tf;
   }
 
   return SPA_RESULT_OK;
@@ -444,7 +453,7 @@ spa_v4l2_source_node_port_get_format (SpaNode          *node,
   if (state->current_format == NULL)
     return SPA_RESULT_NO_FORMAT;
 
-  *format = state->current_format;
+  *format = &state->current_format->fmt;
 
   return SPA_RESULT_OK;
 }

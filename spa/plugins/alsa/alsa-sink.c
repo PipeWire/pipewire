@@ -52,6 +52,7 @@ reset_alsa_sink_props (SpaALSASinkProps *props)
 
 typedef struct {
   bool opened;
+  bool have_buffers;
   snd_pcm_t *handle;
   snd_output_t *output;
   snd_pcm_sframes_t buffer_size;
@@ -390,6 +391,9 @@ spa_alsa_sink_node_port_set_format (SpaNode            *node,
 
   if ((res = spa_audio_raw_format_parse (format, &this->current_format)) < 0)
     return res;
+
+  if (alsa_set_format (this, &this->current_format, false) < 0)
+    return SPA_RESULT_ERROR;
 
   this->have_format = true;
 

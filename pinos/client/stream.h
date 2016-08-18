@@ -60,9 +60,8 @@ typedef enum {
 } PinosStreamFlags;
 
 typedef enum {
-  PINOS_STREAM_MODE_SOCKET = 0,
-  PINOS_STREAM_MODE_BUFFER = 1,
-  PINOS_STREAM_MODE_RINGBUFFER = 2,
+  PINOS_STREAM_MODE_BUFFER = 0,
+  PINOS_STREAM_MODE_RINGBUFFER = 1,
 } PinosStreamMode;
 
 /**
@@ -98,14 +97,13 @@ const GError *   pinos_stream_get_error         (PinosStream *stream);
 
 gboolean         pinos_stream_connect           (PinosStream      *stream,
                                                  PinosDirection    direction,
+                                                 PinosStreamMode   mode,
                                                  const gchar      *port_path,
                                                  PinosStreamFlags  flags,
                                                  GPtrArray        *possible_formats);
 gboolean         pinos_stream_disconnect        (PinosStream      *stream);
 
-gboolean         pinos_stream_start             (PinosStream     *stream,
-                                                 SpaFormat       *format,
-                                                 PinosStreamMode  mode);
+gboolean         pinos_stream_start             (PinosStream     *stream);
 gboolean         pinos_stream_stop              (PinosStream     *stream);
 
 SpaBuffer *      pinos_stream_peek_buffer       (PinosStream     *stream);

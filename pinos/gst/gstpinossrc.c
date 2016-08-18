@@ -484,19 +484,14 @@ parse_stream_properties (GstPinosSrc *pinossrc, PinosProperties *props)
 
 
 static gboolean
-gst_pinos_src_stream_start (GstPinosSrc *pinossrc, GstCaps * caps)
+gst_pinos_src_stream_start (GstPinosSrc *pinossrc)
 {
   SpaFormat *format;
   gboolean res;
   PinosProperties *props;
 
-  if (caps)
-    format = gst_caps_to_format (caps, 0);
-  else
-    format = NULL;
-
   pinos_main_loop_lock (pinossrc->loop);
-  res = pinos_stream_start (pinossrc->stream, format, PINOS_STREAM_MODE_BUFFER);
+  res = pinos_stream_start (pinossrc->stream);
   while (TRUE) {
     PinosStreamState state = pinos_stream_get_state (pinossrc->stream);
 
@@ -515,8 +510,9 @@ gst_pinos_src_stream_start (GstPinosSrc *pinossrc, GstCaps * caps)
   pinos_main_loop_unlock (pinossrc->loop);
 
   if (format) {
-    caps = gst_caps_from_format (format);
+    GstCaps *caps = gst_caps_from_format (format);
     gst_base_src_set_caps (GST_BASE_SRC (pinossrc), caps);
+    gst_caps_unref (caps);
     spa_format_unref (format);
   }
 
@@ -609,6 +605,7 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
   GST_DEBUG_OBJECT (basesrc, "connect capture with path %s", pinossrc->path);
   pinos_stream_connect (pinossrc->stream,
                         PINOS_DIRECTION_INPUT,
+                        PINOS_STREAM_MODE_BUFFER,
                         pinossrc->path,
                         PINOS_STREAM_FLAG_AUTOCONNECT,
                         possible);
@@ -626,7 +623,7 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
   }
   pinos_main_loop_unlock (pinossrc->loop);
 
-  result = gst_pinos_src_stream_start (pinossrc, NULL);
+  result = gst_pinos_src_stream_start (pinossrc);
 
   pinossrc->negotiated = result;
 

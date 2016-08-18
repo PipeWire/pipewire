@@ -11,6 +11,48 @@ static int verbose = 0;					/* verbose flag */
 
 #define CHECK(s,msg) if ((err = (s)) < 0) { printf (msg ": %s\n", snd_strerror(err)); return err; }
 
+static int
+spa_alsa_open (SpaALSASink *this)
+{
+  SpaALSAState *state = &this->state;
+  int err;
+  SpaALSASinkProps *props = &this->props[1];
+
+  if (state->opened)
+    return 0;
+
+  CHECK (snd_output_stdio_attach (&state->output, stdout, 0), "attach failed");
+
+  printf ("Playback device is '%s'\n", props->device);
+  CHECK (snd_pcm_open (&state->handle,
+                       props->device,
+                       SND_PCM_STREAM_PLAYBACK,
+                       SND_PCM_NONBLOCK |
+                       SND_PCM_NO_AUTO_RESAMPLE |
+                       SND_PCM_NO_AUTO_CHANNELS |
+                       SND_PCM_NO_AUTO_FORMAT), "open failed");
+
+  state->opened = true;
+
+  return 0;
+}
+
+static int
+spa_alsa_close (SpaALSASink *this)
+{
+  SpaALSAState *state = &this->state;
+  int err = 0;
+
+  if (!state->opened)
+    return 0;
+
+  CHECK (snd_pcm_close (state->handle), "close failed");
+
+  state->opened = false;
+
+  return err;
+}
+
 static snd_pcm_format_t
 spa_alsa_format_to_alsa (SpaAudioFormat format)
 {
@@ -63,7 +105,7 @@ spa_alsa_format_to_alsa (SpaAudioFormat format)
 }
 
 static int
-set_hwparams (SpaALSASink *this)
+alsa_set_format (SpaALSASink *this, SpaAudioRawFormat *fmt, bool try_only)
 {
   unsigned int rrate;
   snd_pcm_uframes_t size;
@@ -71,12 +113,16 @@ set_hwparams (SpaALSASink *this)
   snd_pcm_hw_params_t *params;
   snd_pcm_format_t format;
   SpaALSAState *state = &this->state;
-  SpaAudioRawFormat *fmt = &this->current_format;
   SpaAudioRawInfo *info = &fmt->info;
-  snd_pcm_t *handle = state->handle;
+  snd_pcm_t *handle;
   unsigned int buffer_time;
   unsigned int period_time;
   SpaALSASinkProps *props = &this->props[1];
+
+  if ((err = spa_alsa_open (this)) < 0)
+    return err;
+
+  handle = state->handle;
 
   snd_pcm_hw_params_alloca (&params);
   /* choose all parameters */
@@ -173,32 +219,6 @@ xrun_recovery (snd_pcm_t *handle, int err)
     return 0;
   }
   return err;
-}
-
-static int
-spa_alsa_open (SpaALSASink *this)
-{
-  SpaALSAState *state = &this->state;
-  int err;
-  SpaALSASinkProps *props = &this->props[1];
-
-  if (state->opened)
-    return 0;
-
-  CHECK (snd_output_stdio_attach (&state->output, stdout, 0), "attach failed");
-
-  printf ("Playback device is '%s'\n", props->device);
-  CHECK (snd_pcm_open (&state->handle,
-                       props->device,
-                       SND_PCM_STREAM_PLAYBACK,
-                       SND_PCM_NONBLOCK |
-                       SND_PCM_NO_AUTO_RESAMPLE |
-                       SND_PCM_NO_AUTO_CHANNELS |
-                       SND_PCM_NO_AUTO_FORMAT), "open failed");
-
-  state->opened = true;
-
-  return 0;
 }
 
 static void
@@ -304,22 +324,6 @@ alsa_on_fd_events (SpaPollNotifyData *data)
 }
 
 static int
-spa_alsa_close (SpaALSASink *this)
-{
-  SpaALSAState *state = &this->state;
-  int err = 0;
-
-  if (!state->opened)
-    return 0;
-
-  CHECK (snd_pcm_close (state->handle), "close failed");
-
-  state->opened = false;
-
-  return err;
-}
-
-static int
 spa_alsa_start (SpaALSASink *this)
 {
   SpaALSAState *state = &this->state;
@@ -329,7 +333,9 @@ spa_alsa_start (SpaALSASink *this)
   if (spa_alsa_open (this) < 0)
     return -1;
 
-  CHECK (set_hwparams (this), "hwparams");
+  if (!state->have_buffers)
+    return -1;
+
   CHECK (set_swparams (this), "swparams");
 
   snd_pcm_dump (state->handle, state->output);

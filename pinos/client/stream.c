@@ -123,8 +123,6 @@ enum
 
 static guint signals[LAST_SIGNAL] = { 0 };
 
-static void unhandle_socket (PinosStream *stream);
-
 static void
 pinos_stream_get_property (GObject    *_object,
                            guint       prop_id,
@@ -674,15 +672,12 @@ parse_control (PinosStream *stream,
       case SPA_CONTROL_CMD_REMOVE_MEM:
       {
         SpaControlCmdRemoveMem p;
-        SpaMemory *mem;
 
         if (spa_control_iter_parse_cmd (&it, &p) < 0)
           break;
 
-        g_debug ("stream %p: stop", stream);
-        mem = spa_memory_find (&p.mem);
-        if (--mem->refcount == 0)
-          mem->notify (mem);
+        g_debug ("stream %p: remove mem", stream);
+        spa_memory_unref (&p.mem);
         break;
       }
       case SPA_CONTROL_CMD_ADD_BUFFER:
@@ -813,23 +808,11 @@ handle_socket (PinosStream *stream, gint fd)
   if (priv->socket == NULL)
     goto socket_failed;
 
-  switch (priv->mode) {
-    case PINOS_STREAM_MODE_SOCKET:
-      g_object_notify (G_OBJECT (stream), "socket");
-      break;
+  priv->fd = g_socket_get_fd (priv->socket);
+  priv->socket_source = g_socket_create_source (priv->socket, G_IO_IN, NULL);
+  g_source_set_callback (priv->socket_source, (GSourceFunc) on_socket_condition, stream, NULL);
+  g_source_attach (priv->socket_source, priv->context->priv->context);
 
-    case PINOS_STREAM_MODE_BUFFER:
-    {
-      priv->fd = g_socket_get_fd (priv->socket);
-      priv->socket_source = g_socket_create_source (priv->socket, G_IO_IN, NULL);
-      g_source_set_callback (priv->socket_source, (GSourceFunc) on_socket_condition, stream, NULL);
-      g_source_attach (priv->socket_source, priv->context->priv->context);
-      break;
-    }
-
-    default:
-      break;
-  }
   return;
 
   /* ERRORS */
@@ -846,21 +829,9 @@ unhandle_socket (PinosStream *stream)
 {
   PinosStreamPrivate *priv = stream->priv;
 
-  switch (priv->mode) {
-    case PINOS_STREAM_MODE_SOCKET:
-      g_clear_object (&priv->socket);
-      g_object_notify (G_OBJECT (stream), "socket");
-      break;
-
-    case PINOS_STREAM_MODE_BUFFER:
-      if (priv->socket_source) {
-        g_source_destroy (priv->socket_source);
-        g_clear_pointer (&priv->socket_source, g_source_unref);
-      }
-      break;
-
-    default:
-      break;
+  if (priv->socket_source) {
+    g_source_destroy (priv->socket_source);
+    g_clear_pointer (&priv->socket_source, g_source_unref);
   }
 }
 
@@ -876,8 +847,8 @@ do_node_init (PinosStream *stream)
   control_builder_init (stream, &builder);
   nu.change_mask = SPA_CONTROL_CMD_NODE_UPDATE_MAX_INPUTS |
                    SPA_CONTROL_CMD_NODE_UPDATE_MAX_OUTPUTS;
-  nu.max_input_ports = 1;
-  nu.max_output_ports = 0;
+  nu.max_input_ports = priv->direction == PINOS_DIRECTION_INPUT ? 1 : 0;
+  nu.max_output_ports = priv->direction == PINOS_DIRECTION_OUTPUT ? 1 : 0;
   nu.props = NULL;
   spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_NODE_UPDATE, &nu);
 
@@ -964,8 +935,9 @@ on_node_created (GObject      *source_object,
     goto fd_failed;
 
   priv->fd = fd;
-
   g_object_unref (fd_list);
+
+  handle_socket (stream, priv->fd);
 
   pinos_subscribe_get_proxy (context->priv->subscribe,
                              PINOS_DBUS_SERVICE,
@@ -1026,17 +998,23 @@ do_connect (PinosStream *stream)
  * pinos_stream_connect:
  * @stream: a #PinosStream
  * @direction: the stream direction
+ * @mode: a #PinosStreamMode
  * @port_path: the port path to connect to or %NULL to get the default port
  * @flags: a #PinosStreamFlags
  * @possible_formats: (transfer full): a #GPtrArray with possible accepted formats
  *
  * Connect @stream for input or output on @port_path.
  *
+ * When @mode is #PINOS_STREAM_MODE_BUFFER, you should connect to the new-buffer
+ * signal and use pinos_stream_capture_buffer() to get the latest metadata and
+ * data.
+ *
  * Returns: %TRUE on success.
  */
 gboolean
 pinos_stream_connect (PinosStream      *stream,
                       PinosDirection    direction,
+                      PinosStreamMode   mode,
                       const gchar      *port_path,
                       PinosStreamFlags  flags,
                       GPtrArray        *possible_formats)
@@ -1053,6 +1031,7 @@ pinos_stream_connect (PinosStream      *stream,
   g_return_val_if_fail (pinos_stream_get_state (stream) == PINOS_STREAM_STATE_UNCONNECTED, FALSE);
 
   priv->direction = direction;
+  priv->mode = mode;
   g_free (priv->path);
   priv->path = g_strdup (port_path);
   priv->flags = flags;
@@ -1077,8 +1056,6 @@ do_start (PinosStream *stream)
   SpaControlCmdStateChange sc;
   SpaControl control;
 
-  handle_socket (stream, priv->fd);
-
   control_builder_init (stream, &builder);
   sc.state = SPA_NODE_STATE_CONFIGURE;
   spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_STATE_CHANGE, &sc);
@@ -1097,24 +1074,14 @@ do_start (PinosStream *stream)
 /**
  * pinos_stream_start:
  * @stream: a #PinosStream
- * @format: (transfer full): a #SpaFormat with format
- * @mode: a #PinosStreamMode
  *
- * Start capturing from @stream in @format.
+ * Start capturing from @stream.
  *
- * When @mode is #PINOS_STREAM_MODE_SOCKET, you should connect to the notify::socket
- * signal to obtain a readable socket with metadata and data.
- *
- * When @mode is #PINOS_STREAM_MODE_BUFFER, you should connect to the new-buffer
- * signal and use pinos_stream_capture_buffer() to get the latest metadata and
- * data.
  *
  * Returns: %TRUE on success.
  */
 gboolean
-pinos_stream_start (PinosStream     *stream,
-                    SpaFormat       *format,
-                    PinosStreamMode  mode)
+pinos_stream_start (PinosStream     *stream)
 {
   PinosStreamPrivate *priv;
 
@@ -1122,9 +1089,6 @@ pinos_stream_start (PinosStream     *stream,
 
   priv = stream->priv;
   g_return_val_if_fail (priv->state == PINOS_STREAM_STATE_READY, FALSE);
-
-  priv->mode = mode;
-  priv->format = format;
 
   stream_set_state (stream, PINOS_STREAM_STATE_STARTING, NULL);
 
@@ -1192,6 +1156,8 @@ on_node_removed (GObject      *source_object,
     goto proxy_failed;
 
   g_variant_unref (ret);
+
+  unhandle_socket (stream);
 
   stream_set_state (stream, PINOS_STREAM_STATE_UNCONNECTED, NULL);
   g_object_unref (stream);

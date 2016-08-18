@@ -414,16 +414,12 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
 {
   GstPinosSink *pinossink;
   GPtrArray *possible;
-  SpaFormat *format;
   PinosStreamState state;
   gboolean res = FALSE;
 
   pinossink = GST_PINOS_SINK (bsink);
 
-  format = gst_caps_to_format (caps, 0);
-  possible = g_ptr_array_new ();
-  spa_format_ref (format);
-  g_ptr_array_insert (possible, -1, format);
+  possible = gst_caps_to_format_all (caps);
 
   pinos_main_loop_lock (pinossink->loop);
   state = pinos_stream_get_state (pinossink->stream);
@@ -439,6 +435,7 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
 
     pinos_stream_connect (pinossink->stream,
                           PINOS_DIRECTION_OUTPUT,
+                          PINOS_STREAM_MODE_BUFFER,
                           pinossink->path,
                           flags,
                           possible);
@@ -457,9 +454,7 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
   }
 
   if (state != PINOS_STREAM_STATE_STREAMING) {
-    res = pinos_stream_start (pinossink->stream,
-                             format,
-                             PINOS_STREAM_MODE_BUFFER);
+    res = pinos_stream_start (pinossink->stream);
 
     while (TRUE) {
       state = pinos_stream_get_state (pinossink->stream);
@@ -483,7 +478,7 @@ start_error:
   {
     GST_ERROR ("could not start stream");
     pinos_main_loop_unlock (pinossink->loop);
-    spa_format_unref (format);
+    g_ptr_array_unref (possible);
     return FALSE;
   }
 }

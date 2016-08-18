@@ -80,33 +80,8 @@ on_stream_notify (GObject    *gobject,
       break;
 
     case PINOS_STREAM_STATE_READY:
-    {
-      GPtrArray *possible;
-      SpaFormat *format;
-
-      g_object_get (s, "possible-formats", &possible, NULL);
-
-      format = g_ptr_array_index (possible, 0);
-
-#if 0
-      /* set some reasonable defaults */
-      if (gst_structure_has_field (structure, "width"))
-        gst_structure_fixate_field_nearest_int (structure, "width", 320);
-      if (gst_structure_has_field (structure, "height"))
-        gst_structure_fixate_field_nearest_int (structure, "height", 240);
-      if (gst_structure_has_field (structure, "framerate"))
-        gst_structure_fixate_field_nearest_fraction (structure, "framerate", 30, 1);
-
-      /* use random fixation otherwise */
-      caps = gst_caps_fixate (caps);
-      str = gst_caps_to_string (caps);
-      gst_caps_unref (caps);
-      format = g_bytes_new_static (str, strlen (str) + 1);
-#endif
-
-      pinos_stream_start (s, format, PINOS_STREAM_MODE_SOCKET);
+      pinos_stream_start (s);
       break;
-    }
 
     case PINOS_STREAM_STATE_STREAMING:
       break;
@@ -141,7 +116,12 @@ on_state_notify (GObject    *gobject,
       g_signal_connect (stream, "notify::socket", (GCallback) on_socket_notify, stream);
 
       possible = NULL;
-      pinos_stream_connect (stream, PINOS_DIRECTION_OUTPUT, NULL, 0, possible);
+      pinos_stream_connect (stream,
+                            PINOS_DIRECTION_OUTPUT,
+                            PINOS_STREAM_MODE_BUFFER,
+                            NULL,
+                            0,
+                            possible);
       break;
     }
     default:

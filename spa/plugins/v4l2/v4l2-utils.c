@@ -66,6 +66,24 @@ spa_v4l2_open (SpaV4l2Source *this)
   return 0;
 }
 
+static int
+spa_v4l2_close (SpaV4l2Source *this)
+{
+  SpaV4l2State *state = &this->state[0];
+
+  if (!state->opened)
+    return 0;
+
+  fprintf (stderr, "close\n");
+  if (close(state->fd))
+    perror ("close");
+
+  state->fd = -1;
+  state->opened = false;
+
+  return 0;
+}
+
 typedef struct {
   uint32_t fourcc;
   SpaVideoFormat format;
@@ -414,24 +432,6 @@ spa_v4l2_set_format (SpaV4l2Source *this, V4l2Format *f, bool try_only)
   state->param_buffers.max_buffers = MAX_BUFFERS;
   state->param_buffers.align = 16;
   state->info.features = NULL;
-
-  return 0;
-}
-
-static int
-spa_v4l2_close (SpaV4l2Source *this)
-{
-  SpaV4l2State *state = &this->state[0];
-
-  if (!state->opened)
-    return 0;
-
-  fprintf (stderr, "close\n");
-  if (close(state->fd))
-    perror ("close");
-
-  state->fd = -1;
-  state->opened = false;
 
   return 0;
 }

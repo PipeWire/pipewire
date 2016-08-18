@@ -118,6 +118,7 @@ typedef enum {
  * @buffer_id: a buffer id will be set
  * @offset: offset to get
  * @size: size to get
+ * @event: output event
  * @status: a status
  *
  * Output information for a node.
@@ -128,6 +129,7 @@ typedef struct {
   uint32_t        buffer_id;
   off_t           offset;
   size_t          size;
+  SpaEvent       *event;
   SpaResult       status;
 } SpaOutputInfo;
 

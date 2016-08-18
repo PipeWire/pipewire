@@ -64,24 +64,6 @@ typedef enum {
 
 const gchar * pinos_direction_as_string (PinosDirection direction);
 
-/**
- * PinosPortState:
- * @PINOS_PORT_STATE_ERROR: the port is in error
- * @PINOS_PORT_STATE_STOPPED: the port is stopped
- * @PINOS_PORT_STATE_STARTING: the port is starting
- * @PINOS_PORT_STATE_STREAMING: the port is streaming
- *
- * The different port states
- */
-typedef enum {
-  PINOS_PORT_STATE_ERROR = -1,
-  PINOS_PORT_STATE_STOPPED = 0,
-  PINOS_PORT_STATE_STARTING = 1,
-  PINOS_PORT_STATE_STREAMING = 2,
-} PinosPortState;
-
-const gchar * pinos_port_state_as_string (PinosPortState state);
-
 #include <pinos/client/context.h>
 #include <pinos/client/properties.h>
 
@@ -261,217 +243,60 @@ void            pinos_context_get_node_info_by_id   (PinosContext *context,
 
 
 /**
- * PinosPortInfo:
- * @id: generic id of the port
- * @port_path: the unique path of the port, suitable for connecting
- * @node_path: the node path of the port
- * @direction: the direction of the port
- * @change_mask: bitfield of changed fields since last call
- * @name: name the port, suitable for display
- * @peers: paths to peer ports
- * @properties: the properties of the port
- * @possible_formats: the possible formats this port can consume
- * @format: the current format on this port
- *
- * The port information. Extra information can be added in later
- * versions.
- */
-typedef struct {
-  gpointer id;
-  const char *port_path;
-  const char *node_path;
-  PinosDirection direction;
-  guint64 change_mask;
-  const char *name;
-  PinosProperties *properties;
-  gchar **peers;
-  GBytes *possible_formats;
-  GBytes *format;
-} PinosPortInfo;
-
-/**
- * PinosPortInfoFlags:
- * @PINOS_PORT_INFO_FLAGS_NONE: no flags
- * @PINOS_PORT_INFO_FLAGS_FORMATS: include formats
- *
- * Extra flags to pass to pinos_context_get_port_info_list.
- */
-typedef enum {
-  PINOS_PORT_INFO_FLAGS_NONE            = 0,
-  PINOS_PORT_INFO_FLAGS_FORMATS         = (1 << 0)
-} PinosPortInfoFlags;
-
-/**
- * PinosPortInfoCallback:
- * @c: a #PinosContext
- * @info: a #PinosPortInfo
- * @user_data: user data
- *
- * Callback with information about the Pinos port in @info.
- */
-typedef void (*PinosPortInfoCallback)  (PinosContext        *c,
-                                        const PinosPortInfo *info,
-                                        gpointer             user_data);
-
-void            pinos_context_list_port_info      (PinosContext *context,
-                                                   PinosPortInfoFlags flags,
-                                                   PinosPortInfoCallback cb,
-                                                   GCancellable *cancellable,
-                                                   GAsyncReadyCallback callback,
-                                                   gpointer user_data);
-void            pinos_context_get_port_info_by_id (PinosContext *context,
-                                                   gpointer id,
-                                                   PinosPortInfoFlags flags,
-                                                   PinosPortInfoCallback cb,
-                                                   GCancellable *cancellable,
-                                                   GAsyncReadyCallback callback,
-                                                   gpointer user_data);
-
-
-/**
- * PinosChannelState:
- * @PINOS_CHANNEL_STATE_ERROR: the channel is in error
- * @PINOS_CHANNEL_STATE_STOPPED: the channel is stopped
- * @PINOS_CHANNEL_STATE_STARTING: the channel is starting
- * @PINOS_CHANNEL_STATE_STREAMING: the channel is streaming
- *
- * The different channel states
- */
-typedef enum {
-  PINOS_CHANNEL_STATE_ERROR = -1,
-  PINOS_CHANNEL_STATE_STOPPED = 0,
-  PINOS_CHANNEL_STATE_STARTING = 1,
-  PINOS_CHANNEL_STATE_STREAMING = 2,
-} PinosChannelState;
-
-const gchar * pinos_channel_state_as_string (PinosChannelState state);
-
-/**
- * PinosChannelInfo:
- * @id: generic id of the channel_
- * @channel_path: the unique path of the channel
- * @direction: the channel direction
- * @client_path: the owner client
- * @change_mask: bitfield of changed fields since last call
- * @port_path: the owner port
- * @properties: the properties of the channel
- * @state: the state
- * @possible_formats: the possible formats
- * @format: when streaming, the current format
- *
- * The channel information. Extra information can be added in later
- * versions.
- */
-typedef struct {
-  gpointer id;
-  const char *channel_path;
-  PinosDirection direction;
-  const char *client_path;
-  guint64 change_mask;
-  const char *port_path;
-  PinosProperties *properties;
-  PinosChannelState state;
-  GBytes *possible_formats;
-  GBytes *format;
-} PinosChannelInfo;
-
-/**
- * PinosChannelInfoFlags:
- * @PINOS_CHANNEL_INFO_FLAGS_NONE: no flags
- * @PINOS_CHANNEL_INFO_FLAGS_NO_INPUT: don't list input channels
- * @PINOS_CHANNEL_INFO_FLAGS_NO_OUTPUT: don't list output channels
- *
- * Extra flags to pass to pinos_context_list_channel_info() and
- * pinos_context_get_channel_info_by_id().
- */
-typedef enum {
-  PINOS_CHANNEL_INFO_FLAGS_NONE            = 0,
-  PINOS_CHANNEL_INFO_FLAGS_NO_INPUT       = (1 << 0),
-  PINOS_CHANNEL_INFO_FLAGS_NO_OUTPUT      = (1 << 1),
-} PinosChannelInfoFlags;
-
-
-/**
- * PinosChannelInfoCallback:
- * @c: a #PinosContext
- * @info: a #PinosChannelInfo
- * @user_data: user data
- *
- * Callback with information about the Pinos channel in @info.
- */
-typedef void (*PinosChannelInfoCallback)       (PinosContext           *c,
-                                                const PinosChannelInfo *info,
-                                                gpointer                user_data);
-
-void            pinos_context_list_channel_info      (PinosContext *context,
-                                                      PinosChannelInfoFlags flags,
-                                                      PinosChannelInfoCallback cb,
-                                                      GCancellable *cancellable,
-                                                      GAsyncReadyCallback callback,
-                                                      gpointer user_data);
-void            pinos_context_get_channel_info_by_id (PinosContext *context,
-                                                      gpointer id,
-                                                      PinosChannelInfoFlags flags,
-                                                      PinosChannelInfoCallback cb,
-                                                      GCancellable *cancellable,
-                                                      GAsyncReadyCallback callback,
-                                                      gpointer user_data);
-
-/**
- * PinosConnectionInfo:
- * @id: generic id of the connection
- * @connection_path: the unique path of the connection
+ * PinosLinkInfo:
+ * @id: generic id of the link
+ * @link_path: the unique path of the link
  * @change_mask: bitfield of changed fields since last call
  * @source_port_path: the source port
  * @destination_port_path: the destination port
  *
- * The connection information. Extra information can be added in later
+ * The link information. Extra information can be added in later
  * versions.
  */
 typedef struct {
   gpointer id;
-  const char *connection_path;
+  const char *link_path;
   guint64 change_mask;
   const char *source_port_path;
   const char *destination_port_path;
-} PinosConnectionInfo;
+} PinosLinkInfo;
 
 /**
- * PinosConnectionInfoFlags:
- * @PINOS_CONNECTION_INFO_FLAGS_NONE: no flags
+ * PinosLinkInfoFlags:
+ * @PINOS_LINK_INFO_FLAGS_NONE: no flags
  *
- * Extra flags to pass to pinos_context_list_connection_info() and
- * pinos_context_get_connection_info_by_id().
+ * Extra flags to pass to pinos_context_list_link_info() and
+ * pinos_context_get_link_info_by_id().
  */
 typedef enum {
-  PINOS_CONNECTION_INFO_FLAGS_NONE            = 0,
-} PinosConnectionInfoFlags;
+  PINOS_LINK_INFO_FLAGS_NONE            = 0,
+} PinosLinkInfoFlags;
 
 /**
- * PinosConnectionInfoCallback:
+ * PinosLinkInfoCallback:
  * @c: a #PinosContext
- * @info: a #PinosConnectionInfo
+ * @info: a #PinosLinkInfo
  * @user_data: user data
  *
- * Callback with information about the Pinos connection in @info.
+ * Callback with information about the Pinos link in @info.
  */
-typedef void (*PinosConnectionInfoCallback)       (PinosContext              *c,
-                                                   const PinosConnectionInfo *info,
-                                                   gpointer                   user_data);
+typedef void (*PinosLinkInfoCallback)               (PinosContext              *c,
+                                                     const PinosLinkInfo *info,
+                                                     gpointer                   user_data);
 
-void            pinos_context_list_connection_info      (PinosContext *context,
-                                                         PinosConnectionInfoFlags flags,
-                                                         PinosConnectionInfoCallback cb,
-                                                         GCancellable *cancellable,
-                                                         GAsyncReadyCallback callback,
-                                                         gpointer user_data);
-void            pinos_context_get_connection_info_by_id (PinosContext *context,
-                                                         gpointer id,
-                                                         PinosConnectionInfoFlags flags,
-                                                         PinosConnectionInfoCallback cb,
-                                                         GCancellable *cancellable,
-                                                         GAsyncReadyCallback callback,
-                                                         gpointer user_data);
+void            pinos_context_list_link_info        (PinosContext *context,
+                                                     PinosLinkInfoFlags flags,
+                                                     PinosLinkInfoCallback cb,
+                                                     GCancellable *cancellable,
+                                                     GAsyncReadyCallback callback,
+                                                     gpointer user_data);
+void            pinos_context_get_link_info_by_id   (PinosContext *context,
+                                                     gpointer id,
+                                                     PinosLinkInfoFlags flags,
+                                                     PinosLinkInfoCallback cb,
+                                                     GCancellable *cancellable,
+                                                     GAsyncReadyCallback callback,
+                                                     gpointer user_data);
 G_END_DECLS
 
 #endif /* __PINOS_INTROSPECT_H__ */

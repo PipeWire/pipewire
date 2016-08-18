@@ -23,60 +23,6 @@
 
 static GMainLoop *loop;
 
-static gboolean
-print_field (GQuark field, const GValue * value, gpointer user_data)
-{
-  gchar *mark = user_data;
-  gchar *str = gst_value_serialize (value);
-
-  g_print ("%c\t\t%15s: %s\n", *mark, g_quark_to_string (field), str);
-  g_free (str);
-  return TRUE;
-}
-
-static void
-print_formats (const gchar *name, GBytes *formats, gchar mark)
-{
-  GstCaps *caps = NULL;
-  guint i;
-
-  if (formats == NULL)
-    goto done;
-
-  caps = gst_caps_from_string (g_bytes_get_data (formats, NULL));
-  g_print ("%c\t%s:\n", mark, name);
-
-  if (gst_caps_is_any (caps)) {
-    g_print ("%c\t\tANY\n", mark);
-    goto done;
-  }
-  if (gst_caps_is_empty (caps)) {
-    g_print ("%c\t\tEMPTY\n", mark);
-    goto done;
-  }
-  for (i = 0; i < gst_caps_get_size (caps); i++) {
-    GstStructure *structure = gst_caps_get_structure (caps, i);
-    GstCapsFeatures *features = gst_caps_get_features (caps, i);
-
-    if (features && (gst_caps_features_is_any (features) ||
-            !gst_caps_features_is_equal (features,
-                GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY))) {
-      gchar *features_string = gst_caps_features_to_string (features);
-
-      g_print ("%c\t\t%s(%s)\n", mark, gst_structure_get_name (structure),
-          features_string);
-      g_free (features_string);
-    } else {
-      g_print ("%c\t\t%s\n", mark, gst_structure_get_name (structure));
-    }
-    gst_structure_foreach (structure, print_field, &mark);
-  }
-
-done:
-  if (caps)
-    gst_caps_unref (caps);
-}
-
 static void
 print_properties (PinosProperties *props, gchar mark)
 {
@@ -90,32 +36,6 @@ print_properties (PinosProperties *props, gchar mark)
   while ((key = pinos_properties_iterate (props, &state))) {
     g_print ("%c\t\t%s = \"%s\"\n", mark, key, pinos_properties_get (props, key));
   }
-}
-
-static void
-print_peers (gchar **peers, gchar mark)
-{
-  GValue list = G_VALUE_INIT;
-  gint idx = 0;
-  gchar *str;
-
-  g_value_init (&list, GST_TYPE_LIST);
-
-  if (peers != NULL) {
-    while (peers[idx]) {
-      GValue peer = G_VALUE_INIT;
-
-      g_value_init (&peer, G_TYPE_STRING);
-      g_value_set_string (&peer, peers[idx]);
-      gst_value_list_append_and_take_value (&list, &peer);
-      idx++;
-    }
-  }
-
-  str = gst_value_serialize (&list);
-  g_print ("%c\tpeers: %s\n", mark, str);
-  g_free (str);
-  g_value_unset (&list);
 }
 
 static void
@@ -182,56 +102,17 @@ dump_node_info (PinosContext *c, const PinosNodeInfo *info, gpointer user_data)
 }
 
 static void
-dump_port_info (PinosContext *c, const PinosPortInfo *info, gpointer user_data)
+dump_link_info (PinosContext *c, const PinosLinkInfo *info, gpointer user_data)
 {
   DumpData *data = user_data;
 
   g_print ("\tid: %p\n", info->id);
-  g_print ("\tport-path: \"%s\"\n", info->port_path);
-  if (data->print_all) {
-    g_print ("\tnode-path: \"%s\"\n", info->node_path);
-    g_print ("\tdirection: \"%s\"\n", pinos_direction_as_string (info->direction));
-    g_print ("%c\tname: \"%s\"\n", MARK_CHANGE (0), info->name);
-    print_peers (info->peers, MARK_CHANGE (1));
-    print_properties (info->properties, MARK_CHANGE (2));
-    print_formats ("possible formats", info->possible_formats, MARK_CHANGE (3));
-    print_formats ("format", info->format, MARK_CHANGE (4));
-  }
-}
-
-static void
-dump_channel_info (PinosContext *c, const PinosChannelInfo *info, gpointer user_data)
-{
-  DumpData *data = user_data;
-
-  g_print ("\tid: %p\n", info->id);
-  g_print ("\tchannel-path: \"%s\"\n", info->channel_path);
-  if (data->print_all) {
-    g_print ("\tdirection: \"%s\"\n", pinos_direction_as_string (info->direction));
-    g_print ("\tclient-path: \"%s\"\n", info->client_path);
-
-    g_print ("%c\tnode-path: \"%s\"\n", MARK_CHANGE (0), info->port_path);
-    print_properties (info->properties, MARK_CHANGE (1));
-    g_print ("%c\tstate: \"%s\"\n", MARK_CHANGE (2), pinos_channel_state_as_string (info->state));
-    print_formats ("possible formats", info->possible_formats, MARK_CHANGE (3));
-    print_formats ("format", info->format, MARK_CHANGE (4));
-  }
-}
-
-#if 0
-static void
-dump_connection_info (PinosContext *c, const PinosConnectionInfo *info, gpointer user_data)
-{
-  DumpData *data = user_data;
-
-  g_print ("\tid: %p\n", info->id);
-  g_print ("\tconnection-path: \"%s\"\n", info->connection_path);
+  g_print ("\tlink-path: \"%s\"\n", info->link_path);
   if (data->print_all) {
     g_print ("%c\tsource-port-path: \"%s\"\n", MARK_CHANGE (0), info->source_port_path);
     g_print ("%c\tdestination-port-path: \"%s\"\n", MARK_CHANGE (1), info->destination_port_path);
   }
 }
-#endif
 
 static void
 dump_object (PinosContext *context, gpointer id, PinosSubscriptionFlags flags,
@@ -263,23 +144,14 @@ dump_object (PinosContext *context, gpointer id, PinosSubscriptionFlags flags,
                                        info_ready,
                                        data);
   }
-  else if (flags & PINOS_SUBSCRIPTION_FLAG_PORT) {
-    pinos_context_get_port_info_by_id (context,
+  else if (flags & PINOS_SUBSCRIPTION_FLAG_LINK) {
+    pinos_context_get_link_info_by_id (context,
                                        id,
-                                       PINOS_PORT_INFO_FLAGS_FORMATS,
-                                       dump_port_info,
+                                       PINOS_LINK_INFO_FLAGS_NONE,
+                                       dump_link_info,
                                        NULL,
                                        info_ready,
                                        data);
-  }
-  else if (flags & PINOS_SUBSCRIPTION_FLAG_CHANNEL) {
-    pinos_context_get_channel_info_by_id (context,
-                                          id,
-                                          PINOS_CHANNEL_INFO_FLAGS_NONE,
-                                          dump_channel_info,
-                                          NULL,
-                                          info_ready,
-                                          data);
   }
 }
 

@@ -44,8 +44,7 @@ spa_props_set_prop (SpaProps           *props,
   if (info->maxsize < value->size)
     return SPA_RESULT_WRONG_PROPERTY_SIZE;
 
-  if (info->offset != 0)
-    memcpy ((uint8_t*)props + info->offset, value->value, value->size);
+  memcpy (SPA_MEMBER (props, info->offset, void), value->value, value->size);
 
   props->unset_mask &= ~(1u << index);
 
@@ -74,8 +73,7 @@ spa_props_get_prop (const SpaProps *props,
 
   value->type = info->type;
   value->size = info->maxsize;
-  if (info->offset != 0)
-    value->value = (uint8_t*)props + info->offset;
+  value->value = SPA_MEMBER (props, info->offset, void);
 
   return SPA_RESULT_OK;
 }
@@ -103,8 +101,7 @@ spa_props_copy (const SpaProps *src,
     if (value.size > info->maxsize)
       return SPA_RESULT_WRONG_PROPERTY_SIZE;
 
-    if (info->offset)
-      memcpy ((uint8_t*)dest + info->offset, value.value, value.size);
+    memcpy (SPA_MEMBER (dest, info->offset, void), value.value, value.size);
 
     dest->unset_mask &= ~(1u << i);
   }

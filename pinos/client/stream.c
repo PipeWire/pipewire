@@ -240,14 +240,14 @@ subscription_cb (PinosSubscribe         *subscribe,
   PinosStreamPrivate *priv = stream->priv;
 
   switch (flags) {
-    case PINOS_SUBSCRIPTION_FLAG_CHANNEL:
+    case PINOS_SUBSCRIPTION_FLAG_NODE:
       if (event == PINOS_SUBSCRIPTION_EVENT_REMOVE) {
         if (object == priv->node && !priv->disconnecting) {
           stream_set_state (stream,
                             PINOS_STREAM_STATE_ERROR,
                             g_error_new_literal (G_IO_ERROR,
                                                  G_IO_ERROR_CLOSED,
-                                                 "Channel disappeared"));
+                                                 "Node disappeared"));
         }
       }
       break;
@@ -888,7 +888,7 @@ do_node_init (PinosStream *stream)
 
   pu.direction = priv->direction;
   pu.n_possible_formats = priv->possible_formats->len;
-  pu.possible_formats = (const SpaFormat **)priv->possible_formats->pdata;
+  pu.possible_formats = (SpaFormat **)priv->possible_formats->pdata;
   pu.props = NULL;
   pu.info = &priv->port_info;
   priv->port_info.flags = SPA_PORT_INFO_FLAG_NONE |

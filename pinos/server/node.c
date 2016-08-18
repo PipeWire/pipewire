@@ -374,8 +374,8 @@ pinos_node_constructed (GObject * obj)
 
   if (priv->sender == NULL) {
     priv->sender = g_strdup (pinos_daemon_get_sender (priv->daemon));
-    pinos_node1_set_owner (priv->iface, priv->sender);
   }
+  on_property_notify (G_OBJECT (node), NULL, node);
 
   node_register_object (node);
 }

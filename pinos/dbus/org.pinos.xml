@@ -53,8 +53,8 @@
     </method>
 
     <method name='LinkNodes'>
-      <arg type='o' name='src_node' direction='in' />
-      <arg type='o' name='dest_node' direction='in' />
+      <arg type='s' name='src_port' direction='in' />
+      <arg type='s' name='dest_port' direction='in' />
       <arg type='s' name='format_filter' direction='in'/>
       <arg type='a{sv}' name='properties' direction='in'/>
       <arg type='o' name='link' direction='out' />
@@ -132,8 +132,8 @@
     <!-- Owner: the owner path of this link -->
     <property name='Owner' type='s' access='read' />
 
-    <property name='SrcNode' type='o' access='read' />
-    <property name='DestNode' type='o' access='read' />
+    <property name='SrcPort' type='s' access='read' />
+    <property name='DestPort' type='s' access='read' />
 
     <property name='Properties' type='a{sv}' access='read' />
 

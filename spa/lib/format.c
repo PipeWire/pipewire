@@ -32,9 +32,5 @@ spa_format_to_string (const SpaFormat *format, char **result)
   if (format == NULL || result == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-
-
-
-
   return SPA_RESULT_OK;
 }

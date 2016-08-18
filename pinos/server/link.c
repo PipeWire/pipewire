@@ -359,6 +359,29 @@ on_deactivate (PinosPort *port, gpointer user_data)
 }
 
 static void
+on_property_notify (GObject    *obj,
+                    GParamSpec *pspec,
+                    gpointer    user_data)
+{
+  PinosLink *link = user_data;
+  PinosLinkPrivate *priv = link->priv;
+
+  if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "output") == 0) {
+    gchar *port = g_strdup_printf ("%s:%d", pinos_node_get_object_path (priv->output->node),
+                                priv->output->id);
+    pinos_link1_set_src_port (priv->iface, port);
+    g_free (port);
+  }
+  if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "input") == 0) {
+    gchar *port = g_strdup_printf ("%s:%d", pinos_node_get_object_path (priv->input->node),
+                                priv->input->id);
+    pinos_link1_set_dest_port (priv->iface, port);
+    g_free (port);
+  }
+}
+
+
+static void
 pinos_link_constructed (GObject * object)
 {
   PinosLink *link = PINOS_LINK (object);
@@ -380,10 +403,13 @@ pinos_link_constructed (GObject * object)
   g_signal_connect (priv->output, "activate", (GCallback) on_activate, link);
   g_signal_connect (priv->output, "deactivate", (GCallback) on_deactivate, link);
 
-  g_debug ("link %p: constructed", link);
-  link_register_object (link);
+  g_signal_connect (link, "notify", (GCallback) on_property_notify, link);
 
   G_OBJECT_CLASS (pinos_link_parent_class)->constructed (object);
+
+  on_property_notify (G_OBJECT (link), NULL, link);
+  g_debug ("link %p: constructed", link);
+  link_register_object (link);
 }
 
 static void

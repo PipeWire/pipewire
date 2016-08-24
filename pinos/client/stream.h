@@ -104,7 +104,8 @@ gboolean         pinos_stream_connect           (PinosStream      *stream,
 gboolean         pinos_stream_disconnect        (PinosStream      *stream);
 
 gboolean         pinos_stream_start_allocation  (PinosStream     *stream,
-                                                 PinosProperties *props);
+                                                 SpaAllocParam  **params,
+                                                 unsigned int     n_params);
 
 gboolean         pinos_stream_start             (PinosStream     *stream);
 gboolean         pinos_stream_stop              (PinosStream     *stream);

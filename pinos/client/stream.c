@@ -76,9 +76,6 @@ struct _PinosStreamPrivate
   GPtrArray *possible_formats;
   SpaFormat *format;
   SpaPortInfo port_info;
-  SpaAllocParam *port_params[2];
-  SpaAllocParamMetaEnable param_meta_enable;
-  SpaAllocParamBuffers param_buffers;
 
   PinosStreamFlags flags;
 
@@ -1204,7 +1201,8 @@ pinos_stream_connect (PinosStream      *stream,
  */
 gboolean
 pinos_stream_start_allocation (PinosStream     *stream,
-                               PinosProperties *props)
+                               SpaAllocParam  **params,
+                               unsigned int     n_params)
 {
   PinosStreamPrivate *priv;
   PinosContext *context;
@@ -1219,17 +1217,8 @@ pinos_stream_start_allocation (PinosStream     *stream,
 
   control_builder_init (stream, &builder);
 
-  priv->port_info.params = priv->port_params;
-  priv->port_info.n_params = 1;
-
-  priv->port_params[0] = &priv->param_buffers.param;
-  priv->param_buffers.param.type = SPA_ALLOC_PARAM_TYPE_BUFFERS;
-  priv->param_buffers.param.size = sizeof (SpaAllocParamBuffers);
-  priv->param_buffers.minsize = 115200;
-  priv->param_buffers.stride = 640;
-  priv->param_buffers.min_buffers = 0;
-  priv->param_buffers.max_buffers = 0;
-  priv->param_buffers.align = 16;
+  priv->port_info.params = params;
+  priv->port_info.n_params = n_params;
 
   /* send update port status */
   add_port_update (stream, &builder, SPA_CONTROL_CMD_PORT_UPDATE_INFO);

@@ -723,10 +723,7 @@ on_format_notify (GObject    *gobject,
   gst_base_src_set_caps (GST_BASE_SRC (pinossrc), caps);
   gst_caps_unref (caps);
 
-
-
-
-  pinos_stream_start_allocation (pinossrc->stream, NULL);
+  pinos_stream_start_allocation (pinossrc->stream, NULL, 0);
 }
 
 static gboolean

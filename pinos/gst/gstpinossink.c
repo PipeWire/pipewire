@@ -220,8 +220,6 @@ gst_pinos_sink_init (GstPinosSink * sink)
   sink->pool =  gst_pinos_pool_new ();
   sink->client_name = pinos_client_name();
   sink->mode = DEFAULT_PROP_MODE;
-  g_queue_init (&sink->empty);
-  g_queue_init (&sink->filled);
 
   sink->buf_ids = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL,
       (GDestroyNotify) gst_buffer_unref);
@@ -409,10 +407,9 @@ on_add_buffer (GObject    *gobject,
                              g_slice_dup (ProcessMemData, &data),
                              process_mem_data_destroy);
 
-  gst_pinos_pool_add_buffer (GST_PINOS_POOL (pinossink->pool), buf);
+  gst_pinos_pool_add_buffer (pinossink->pool, buf);
   g_hash_table_insert (pinossink->buf_ids, GINT_TO_POINTER (id), buf);
 
-  g_queue_push_tail (&pinossink->empty, buf);
   pinos_main_loop_signal (pinossink->loop, FALSE);
 }
 
@@ -428,9 +425,7 @@ on_remove_buffer (GObject    *gobject,
   buf = g_hash_table_lookup (pinossink->buf_ids, GINT_TO_POINTER (id));
   GST_MINI_OBJECT_CAST (buf)->dispose = NULL;
 
-  gst_pinos_pool_remove_buffer (GST_PINOS_POOL (pinossink->pool), buf);
-  g_queue_remove (&pinossink->empty, buf);
-  g_queue_remove (&pinossink->filled, buf);
+  gst_pinos_pool_remove_buffer (pinossink->pool, buf);
   g_hash_table_remove (pinossink->buf_ids, GINT_TO_POINTER (id));
 }
 
@@ -451,8 +446,6 @@ on_new_buffer (GObject    *gobject,
 
   g_debug ("recycle buffer %d %p", id, buf);
   if (buf) {
-    g_queue_remove (&pinossink->filled, buf);
-    g_queue_push_tail (&pinossink->empty, buf);
     pinos_main_loop_signal (pinossink->loop, FALSE);
   }
 }
@@ -490,12 +483,6 @@ on_format_notify (GObject    *gobject,
                   GParamSpec *pspec,
                   gpointer    user_data)
 {
-  GstPinosSink *pinossink = user_data;
-  SpaFormat *format;
-  PinosProperties *props = NULL;
-
-  g_object_get (gobject, "format", &format, NULL);
-
 }
 
 static gboolean
@@ -594,15 +581,9 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   if (buffer->pool != GST_BUFFER_POOL_CAST (pinossink->pool)) {
     GstBuffer *b = NULL;
 
-    while (TRUE) {
-      b = g_queue_peek_head (&pinossink->empty);
-      if (b)
-        break;
+    gst_buffer_pool_acquire_buffer (GST_BUFFER_POOL_CAST (pinossink->pool), &b, NULL);
 
-      pinos_main_loop_wait (pinossink->loop);
-    }
-    g_queue_push_tail (&pinossink->filled, b);
-
+    /* FIXME, copy */
     buffer = b;
   }
 

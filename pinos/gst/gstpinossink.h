@@ -87,9 +87,6 @@ struct _GstPinosSink {
 
   GstPinosPool *pool;
   GHashTable *buf_ids;
-
-  GQueue empty;
-  GQueue filled;
 };
 
 struct _GstPinosSinkClass {

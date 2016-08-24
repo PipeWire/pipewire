@@ -71,8 +71,6 @@ enum
   LAST_SIGNAL
 };
 
-static guint signals[LAST_SIGNAL] = { 0 };
-
 static void
 pinos_ringbuffer_get_property (GObject    *_object,
                                 guint       prop_id,
@@ -367,7 +365,8 @@ pinos_ringbuffer_read_advance (PinosRingbuffer      *rbuf,
 
   if (priv->mode == PINOS_RINGBUFFER_MODE_READ) {
     val = 1;
-    write (priv->semaphore, &val, 8);
+    if (write (priv->semaphore, &val, 8) != 8)
+      g_warning ("error writing semaphore");
   }
 
   return TRUE;
@@ -387,7 +386,8 @@ pinos_ringbuffer_write_advance (PinosRingbuffer      *rbuf,
 
   if (priv->mode == PINOS_RINGBUFFER_MODE_WRITE) {
     val = 1;
-    write (priv->semaphore, &val, 8);
+    if (write (priv->semaphore, &val, 8) != 8)
+      g_warning ("error writing semaphore");
   }
   return TRUE;
 }

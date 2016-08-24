@@ -431,8 +431,17 @@ iter_parse_port_update (struct stack_iter *si, SpaControlCmdPortUpdate *pu)
 
   if (pu->props)
     pu->props = parse_props (mem, p, SPA_PTR_TO_INT (pu->props));
-  if (pu->info)
-    pu->info = SPA_MEMBER (p, SPA_PTR_TO_INT (pu->info), SpaPortInfo);
+  if (pu->info) {
+    SpaPortInfo *pi;
+
+    pu->info = p = SPA_MEMBER (p, SPA_PTR_TO_INT (pu->info), SpaPortInfo);
+
+    pi = (SpaPortInfo *) pu->info;
+    pi->params = SPA_MEMBER (p, SPA_PTR_TO_INT (pi->params), SpaAllocParam *);
+    for (i = 0; i < pi->n_params; i++) {
+      pi->params[i] = SPA_MEMBER (p, SPA_PTR_TO_INT (pi->params[i]), SpaAllocParam);
+    }
+  }
 }
 
 static void
@@ -945,25 +954,55 @@ write_format (void *p, const SpaFormat *format)
   return write_props (p, &format->props, sizeof (SpaFormat));
 }
 
+static size_t
+write_port_info (void *p, const SpaPortInfo *info)
+{
+  SpaPortInfo *tp;
+  SpaAllocParam **ap;
+  int i;
+  size_t len;
+
+  tp = p;
+  memcpy (tp, info, sizeof (SpaPortInfo));
+
+  p = SPA_MEMBER (tp, sizeof (SpaPortInfo), SpaAllocParam *);
+  ap = p;
+  if (info->n_params)
+    tp->params = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tp));
+  else
+    tp->params = 0;
+  tp->features = 0;
+
+  p = SPA_MEMBER (p, sizeof (SpaAllocParam*) * info->n_params, void);
+
+  for (i = 0; i < info->n_params; i++) {
+    len = info->params[i]->size;
+    memcpy (p, info->params[i], len);
+    ap[i] = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tp));
+    p = SPA_MEMBER (p, len, void);
+  }
+  return SPA_PTRDIFF (p, tp);
+}
+
 static void
 builder_add_node_update (struct stack_builder *sb, SpaControlCmdNodeUpdate *nu)
 {
   size_t len;
-  void *p, *base;
+  void *p;
   SpaControlCmdNodeUpdate *d;
 
   /* calc len */
   len = sizeof (SpaControlCmdNodeUpdate);
   len += calc_props_len (nu->props);
 
-  base = builder_add_cmd (sb, SPA_CONTROL_CMD_NODE_UPDATE, len);
-  memcpy (base, nu, sizeof (SpaControlCmdNodeUpdate));
-  d = base;
+  p = builder_add_cmd (sb, SPA_CONTROL_CMD_NODE_UPDATE, len);
+  memcpy (p, nu, sizeof (SpaControlCmdNodeUpdate));
+  d = p;
 
   p = SPA_MEMBER (d, sizeof (SpaControlCmdNodeUpdate), void);
   if (nu->props) {
     len = write_props (p, nu->props, sizeof (SpaProps));
-    d->props = SPA_INT_TO_PTR (SPA_PTRDIFF (p, base));
+    d->props = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
   } else {
     d->props = 0;
   }
@@ -973,7 +1012,7 @@ static void
 builder_add_port_update (struct stack_builder *sb, SpaControlCmdPortUpdate *pu)
 {
   size_t len;
-  void *p, *base;
+  void *p;
   int i;
   SpaFormat **bfa;
   SpaControlCmdPortUpdate *d;
@@ -984,15 +1023,21 @@ builder_add_port_update (struct stack_builder *sb, SpaControlCmdPortUpdate *pu)
   for (i = 0; i < pu->n_possible_formats; i++)
     len += calc_format_len (pu->possible_formats[i]);
   len += calc_props_len (pu->props);
+  if (pu->info) {
+    len += sizeof (SpaPortInfo);
+    len += pu->info->n_params * sizeof (SpaAllocParam *);
+    for (i = 0; i < pu->info->n_params; i++)
+      len += pu->info->params[i]->size;
+  }
 
-  base = builder_add_cmd (sb, SPA_CONTROL_CMD_PORT_UPDATE, len);
-  memcpy (base, pu, sizeof (SpaControlCmdPortUpdate));
-  d = base;
+  p = builder_add_cmd (sb, SPA_CONTROL_CMD_PORT_UPDATE, len);
+  memcpy (p, pu, sizeof (SpaControlCmdPortUpdate));
+  d = p;
 
   p = SPA_MEMBER (d, sizeof (SpaControlCmdPortUpdate), void);
   bfa = p;
   if (pu->n_possible_formats)
-    d->possible_formats = SPA_INT_TO_PTR (SPA_PTRDIFF (p, base));
+    d->possible_formats = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
   else
     d->possible_formats = 0;
 
@@ -1000,31 +1045,36 @@ builder_add_port_update (struct stack_builder *sb, SpaControlCmdPortUpdate *pu)
 
   for (i = 0; i < pu->n_possible_formats; i++) {
     len = write_format (p, pu->possible_formats[i]);
-    bfa[i] = SPA_INT_TO_PTR (SPA_PTRDIFF (p, base));
+    bfa[i] = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
     p = SPA_MEMBER (p, len, void);
   }
   if (pu->props) {
     len = write_props (p, pu->props, sizeof (SpaProps));
-    d->props = SPA_INT_TO_PTR (SPA_PTRDIFF (p, base));
+    d->props = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
     p = SPA_MEMBER (p, len, void);
   } else {
     d->props = 0;
   }
-
-  /* FIXME add more things */
+  if (pu->info) {
+    len = write_port_info (p, pu->info);
+    d->info = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
+    p = SPA_MEMBER (p, len, void);
+  } else {
+    d->info = 0;
+  }
 }
 static void
 builder_add_set_format (struct stack_builder *sb, SpaControlCmdSetFormat *sf)
 {
   size_t len;
-  void *p, *base;
+  void *p;
 
   /* calculate length */
   /* port_id + format + mask  */
   len = sizeof (SpaControlCmdSetFormat) + calc_format_len (sf->format);
-  base = builder_add_cmd (sb, SPA_CONTROL_CMD_SET_FORMAT, len);
-  memcpy (base, sf, sizeof (SpaControlCmdSetFormat));
-  sf = base;
+  p = builder_add_cmd (sb, SPA_CONTROL_CMD_SET_FORMAT, len);
+  memcpy (p, sf, sizeof (SpaControlCmdSetFormat));
+  sf = p;
 
   p = SPA_MEMBER (sf, sizeof (SpaControlCmdSetFormat), void);
   len = write_format (p, sf->format);

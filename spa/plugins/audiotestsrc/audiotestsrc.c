@@ -424,9 +424,7 @@ spa_audiotestsrc_node_port_alloc_buffers (SpaNode         *node,
 static SpaResult
 spa_audiotestsrc_node_port_reuse_buffer (SpaNode         *node,
                                          uint32_t         port_id,
-                                         uint32_t         buffer_id,
-                                         off_t            offset,
-                                         size_t           size)
+                                         uint32_t         buffer_id)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
@@ -492,7 +490,7 @@ spa_audiotestsrc_node_port_pull_output (SpaNode       *node,
       continue;
     }
 
-    size = info[i].size;
+    size = 0;
 
     for (j = 0; j < size; j++)
       ptr[j] = rand();

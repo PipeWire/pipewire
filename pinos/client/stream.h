@@ -103,12 +103,19 @@ gboolean         pinos_stream_connect           (PinosStream      *stream,
                                                  GPtrArray        *possible_formats);
 gboolean         pinos_stream_disconnect        (PinosStream      *stream);
 
+gboolean         pinos_stream_start_allocation  (PinosStream     *stream,
+                                                 PinosProperties *props);
+
 gboolean         pinos_stream_start             (PinosStream     *stream);
 gboolean         pinos_stream_stop              (PinosStream     *stream);
 
-SpaBuffer *      pinos_stream_peek_buffer       (PinosStream     *stream);
+guint            pinos_stream_get_empty_buffer  (PinosStream     *stream);
+gboolean         pinos_stream_recycle_buffer    (PinosStream     *stream,
+                                                 guint            id);
+SpaBuffer *      pinos_stream_peek_buffer       (PinosStream     *stream,
+                                                 guint            id);
 gboolean         pinos_stream_send_buffer       (PinosStream     *stream,
-                                                 SpaBuffer       *buffer);
+                                                 guint            id);
 G_END_DECLS
 
 #endif /* __PINOS_STREAM_H__ */

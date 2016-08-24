@@ -213,6 +213,7 @@ print_value (const SpaPropInfo *info, int size, const void *value)
 {
   SpaPropType type = info->type;
   bool enum_string = false;
+  const void *enum_value;
 
   if (info->range_type == SPA_PROP_RANGE_TYPE_ENUM) {
     int i;
@@ -220,8 +221,7 @@ print_value (const SpaPropInfo *info, int size, const void *value)
     for (i = 0; i < info->n_range_values; i++) {
       if (memcmp (info->range_values[i].value, value, size) == 0) {
         if (info->range_values[i].name) {
-          type = SPA_PROP_TYPE_STRING;
-          value = info->range_values[i].name;
+          enum_value = info->range_values[i].name;
           enum_string = true;
         }
       }
@@ -272,10 +272,7 @@ print_value (const SpaPropInfo *info, int size, const void *value)
       fprintf (stderr, "%g", *(double *)value);
       break;
     case SPA_PROP_TYPE_STRING:
-      if (enum_string)
-        fprintf (stderr, "%s", (char *)value);
-      else
-        fprintf (stderr, "\"%s\"", (char *)value);
+      fprintf (stderr, "\"%s\"", (char *)value);
       break;
     case SPA_PROP_TYPE_RECTANGLE:
     {
@@ -297,6 +294,8 @@ print_value (const SpaPropInfo *info, int size, const void *value)
     default:
       break;
   }
+  if (enum_string)
+    fprintf (stderr, " (%s)", (char *)enum_value);
 }
 
 SpaResult

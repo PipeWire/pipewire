@@ -187,7 +187,7 @@ gst_pinos_src_finalize (GObject * object)
     gst_object_unref (pinossrc->clock);
   g_free (pinossrc->path);
   g_free (pinossrc->client_name);
-  g_hash_table_unref (pinossrc->mem_ids);
+  g_hash_table_unref (pinossrc->buf_ids);
 
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }
@@ -274,7 +274,7 @@ gst_pinos_src_init (GstPinosSrc * src)
 
   src->fd_allocator = gst_fd_allocator_new ();
   src->client_name = pinos_client_name ();
-  src->mem_ids = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL, (GDestroyNotify) gst_memory_unref);
+  src->buf_ids = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL, (GDestroyNotify) gst_buffer_unref);
 }
 
 static GstCaps *
@@ -326,7 +326,9 @@ gst_pinos_src_src_fixate (GstBaseSrc * bsrc, GstCaps * caps)
 
 typedef struct {
   GstPinosSrc *src;
-  SpaBuffer *buffer;
+  guint id;
+  SpaMetaHeader *header;
+  guint flags;
 } ProcessMemData;
 
 static void
@@ -338,8 +340,24 @@ process_mem_data_destroy (gpointer user_data)
   g_slice_free (ProcessMemData, data);
 }
 
+static gboolean
+buffer_recycle (GstMiniObject *obj)
+{
+  ProcessMemData *data;
+
+  gst_mini_object_ref (obj);
+  data = gst_mini_object_get_qdata (obj,
+                                    process_mem_data_quark);
+  GST_BUFFER_FLAGS (obj) = data->flags;
+
+  pinos_stream_recycle_buffer (data->src->stream, data->id);
+
+  return FALSE;
+}
+
 static void
-on_new_buffer (GObject    *gobject,
+on_add_buffer (GObject    *gobject,
+               guint       id,
                gpointer    user_data)
 {
   GstPinosSrc *pinossrc = user_data;
@@ -348,39 +366,27 @@ on_new_buffer (GObject    *gobject,
   unsigned int i;
   ProcessMemData data;
 
-  GST_LOG_OBJECT (pinossrc, "got new buffer");
-  if (!(b = pinos_stream_peek_buffer (pinossrc->stream))) {
-    g_warning ("failed to capture buffer");
+  GST_LOG_OBJECT (pinossrc, "add buffer");
+
+  if (!(b = pinos_stream_peek_buffer (pinossrc->stream, id))) {
+    g_warning ("failed to peek buffer");
     return;
   }
 
   buf = gst_buffer_new ();
+  GST_MINI_OBJECT_CAST (buf)->dispose = buffer_recycle;
 
   data.src = gst_object_ref (pinossrc);
-  data.buffer = b;
-  gst_mini_object_set_qdata (GST_MINI_OBJECT_CAST (buf),
-                             process_mem_data_quark,
-                             g_slice_dup (ProcessMemData, &data),
-                             process_mem_data_destroy);
+  data.id = id;
+  data.header = NULL;
 
   for (i = 0; i < b->n_metas; i++) {
     SpaMeta *m = &SPA_BUFFER_METAS(b)[i];
 
     switch (m->type) {
       case SPA_META_TYPE_HEADER:
-      {
-        SpaMetaHeader *h = SPA_MEMBER (b, m->offset, SpaMetaHeader);
-
-        GST_INFO ("pts %" G_GUINT64_FORMAT ", dts_offset %"G_GUINT64_FORMAT, h->pts, h->dts_offset);
-
-        if (GST_CLOCK_TIME_IS_VALID (h->pts)) {
-          GST_BUFFER_PTS (buf) = h->pts;
-          if (GST_BUFFER_PTS (buf) + h->dts_offset > 0)
-            GST_BUFFER_DTS (buf) = GST_BUFFER_PTS (buf) + h->dts_offset;
-        }
-        GST_BUFFER_OFFSET (buf) = h->seq;
+        data.header = SPA_MEMBER (b, m->offset, SpaMetaHeader);
         break;
-      }
       default:
         break;
     }
@@ -404,8 +410,59 @@ on_new_buffer (GObject    *gobject,
                                        d->mem.size, NULL, NULL));
     }
   }
+  data.flags = GST_BUFFER_FLAGS (buf);
+  gst_mini_object_set_qdata (GST_MINI_OBJECT_CAST (buf),
+                             process_mem_data_quark,
+                             g_slice_dup (ProcessMemData, &data),
+                             process_mem_data_destroy);
+
+  g_hash_table_insert (pinossrc->buf_ids, GINT_TO_POINTER (id), buf);
+}
+
+static void
+on_remove_buffer (GObject    *gobject,
+                  guint       id,
+                  gpointer    user_data)
+{
+  GstPinosSrc *pinossrc = user_data;
+  GstBuffer *buf;
+
+  GST_LOG_OBJECT (pinossrc, "remove buffer");
+  buf = g_hash_table_lookup (pinossrc->buf_ids, GINT_TO_POINTER (id));
+  GST_MINI_OBJECT_CAST (buf)->dispose = NULL;
+
+  g_hash_table_remove (pinossrc->buf_ids, GINT_TO_POINTER (id));
+}
+
+static void
+on_new_buffer (GObject    *gobject,
+               guint       id,
+               gpointer    user_data)
+{
+  GstPinosSrc *pinossrc = user_data;
+  GstBuffer *buf;
+
+  GST_LOG_OBJECT (pinossrc, "got new buffer");
+  buf = g_hash_table_lookup (pinossrc->buf_ids, GINT_TO_POINTER (id));
 
   if (buf) {
+    ProcessMemData *data;
+    SpaMetaHeader *h;
+
+    data = gst_mini_object_get_qdata (GST_MINI_OBJECT_CAST (buf),
+                                    process_mem_data_quark);
+    h = data->header;
+    if (h) {
+      GST_INFO ("pts %" G_GUINT64_FORMAT ", dts_offset %"G_GUINT64_FORMAT, h->pts, h->dts_offset);
+
+      if (GST_CLOCK_TIME_IS_VALID (h->pts)) {
+        GST_BUFFER_PTS (buf) = h->pts;
+        if (GST_BUFFER_PTS (buf) + h->dts_offset > 0)
+          GST_BUFFER_DTS (buf) = GST_BUFFER_PTS (buf) + h->dts_offset;
+      }
+      GST_BUFFER_OFFSET (buf) = h->seq;
+    }
+
     g_queue_push_tail (&pinossrc->queue, buf);
 
     pinos_main_loop_signal (pinossrc->loop, FALSE);
@@ -486,7 +543,6 @@ parse_stream_properties (GstPinosSrc *pinossrc, PinosProperties *props)
 static gboolean
 gst_pinos_src_stream_start (GstPinosSrc *pinossrc)
 {
-  SpaFormat *format;
   gboolean res;
   PinosProperties *props;
 
@@ -505,16 +561,7 @@ gst_pinos_src_stream_start (GstPinosSrc *pinossrc)
   }
 
   g_object_get (pinossrc->stream, "properties", &props, NULL);
-  g_object_get (pinossrc->stream, "format", &format, NULL);
-
   pinos_main_loop_unlock (pinossrc->loop);
-
-  if (format) {
-    GstCaps *caps = gst_caps_from_format (format);
-    gst_base_src_set_caps (GST_BASE_SRC (pinossrc), caps);
-    gst_caps_unref (caps);
-    spa_format_unref (format);
-  }
 
   parse_stream_properties (pinossrc, props);
   pinos_properties_free (props);
@@ -675,6 +722,11 @@ on_format_notify (GObject    *gobject,
   caps = gst_caps_from_format (format);
   gst_base_src_set_caps (GST_BASE_SRC (pinossrc), caps);
   gst_caps_unref (caps);
+
+
+
+
+  pinos_stream_start_allocation (pinossrc->stream, NULL);
 }
 
 static gboolean
@@ -944,6 +996,8 @@ gst_pinos_src_open (GstPinosSrc * pinossrc)
   pinossrc->stream = pinos_stream_new (pinossrc->ctx, pinossrc->client_name, props);
   g_signal_connect (pinossrc->stream, "notify::state", (GCallback) on_stream_notify, pinossrc);
   g_signal_connect (pinossrc->stream, "notify::format", (GCallback) on_format_notify, pinossrc);
+  g_signal_connect (pinossrc->stream, "add-buffer", (GCallback) on_add_buffer, pinossrc);
+  g_signal_connect (pinossrc->stream, "remove-buffer", (GCallback) on_remove_buffer, pinossrc);
   g_signal_connect (pinossrc->stream, "new-buffer", (GCallback) on_new_buffer, pinossrc);
   pinos_main_loop_unlock (pinossrc->loop);
 

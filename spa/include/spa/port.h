@@ -24,6 +24,8 @@
 extern "C" {
 #endif
 
+typedef struct _SpaAllocParam SpaAllocParam;
+
 #include <spa/defs.h>
 #include <spa/buffer.h>
 
@@ -41,10 +43,10 @@ typedef enum {
   SPA_ALLOC_PARAM_TYPE_VIDEO_PADDING,
 } SpaAllocParamType;
 
-typedef struct {
+struct _SpaAllocParam {
   uint32_t  type;
   size_t    size;
-} SpaAllocParam;
+};
 
 typedef struct {
   SpaAllocParam  param;

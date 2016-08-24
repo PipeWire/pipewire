@@ -159,20 +159,15 @@ on_sink_event (SpaNode *node, SpaEvent *event, void *user_data)
   PinosSpaAlsaSinkPrivate *priv = this->priv;
 
   switch (event->type) {
-    case SPA_EVENT_TYPE_PULL_INPUT:
+    case SPA_EVENT_TYPE_NEED_INPUT:
     {
       SpaInputInfo iinfo;
       SpaResult res;
       PinosRingbufferArea areas[2];
       uint8_t *data;
       size_t size, towrite, total;
-      SpaEventPullInput *pi;
 
-      pi = event->data;
-
-      g_debug ("pull ringbuffer %zd", pi->size);
-
-      size = pi->size;
+      size = 0;
       data = NULL;
 
       pinos_ringbuffer_get_read_areas (priv->ringbuffer, areas);
@@ -194,8 +189,6 @@ on_sink_event (SpaNode *node, SpaEvent *event, void *user_data)
       iinfo.port_id = event->port_id;
       iinfo.flags = SPA_INPUT_FLAG_NONE;
       iinfo.buffer_id = 0;
-      iinfo.offset = 0;
-      iinfo.size = total;
 
       g_debug ("push sink %d", iinfo.buffer_id);
       if ((res = spa_node_port_push_input (node, 1, &iinfo)) < 0)
@@ -223,7 +216,13 @@ on_sink_event (SpaNode *node, SpaEvent *event, void *user_data)
       }
       break;
     }
+    case SPA_EVENT_TYPE_STATE_CHANGE:
+    {
+      SpaEventStateChange *sc = event->data;
 
+      pinos_node_update_node_state (PINOS_NODE (this), sc->state);
+      break;
+    }
     default:
       g_debug ("got event %d", event->type);
       break;
@@ -244,7 +243,7 @@ setup_node (PinosSpaAlsaSink *this)
     g_debug ("got get_props error %d", res);
 
   value.type = SPA_PROP_TYPE_STRING;
-  value.value = "hw:0";
+  value.value = "hw:1";
   value.size = strlen (value.value)+1;
   spa_props_set_prop (props, spa_props_index_for_name (props, "device"), &value);
 
@@ -376,7 +375,7 @@ on_received_buffer (PinosPort   *port,
   PinosSpaAlsaSink *this = user_data;
   PinosSpaAlsaSinkPrivate *priv = this->priv;
   unsigned int i;
-  SpaBuffer *buffer = NULL;
+  SpaBuffer *buffer = port->buffers[buffer_id];
 
   for (i = 0; i < buffer->n_datas; i++) {
     SpaData *d = SPA_BUFFER_DATAS (buffer);

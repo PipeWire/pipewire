@@ -71,7 +71,7 @@ struct _GstPinosSrc {
   GstAllocator *fd_allocator;
   GstStructure *properties;
 
-  GHashTable *mem_ids;
+  GHashTable *buf_ids;
   GQueue queue;
   GstClock *clock;
 };

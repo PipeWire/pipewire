@@ -418,9 +418,7 @@ spa_volume_node_port_alloc_buffers (SpaNode         *node,
 static SpaResult
 spa_volume_node_port_reuse_buffer (SpaNode         *node,
                                    uint32_t         port_id,
-                                   uint32_t         buffer_id,
-                                   off_t            offset,
-                                   size_t           size)
+                                   uint32_t         buffer_id)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
@@ -530,8 +528,6 @@ release_buffer (SpaVolume *this, SpaBuffer *buffer)
   event.data = &rb;
   event.size = sizeof (rb);
   rb.buffer_id = buffer->id;
-  rb.offset = 0;
-  rb.size = -1;
   this->event_cb (&this->node, &event, this->user_data);
 }
 

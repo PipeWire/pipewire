@@ -452,9 +452,7 @@ spa_xv_sink_node_port_alloc_buffers (SpaNode         *node,
 static SpaResult
 spa_xv_sink_node_port_reuse_buffer (SpaNode         *node,
                                     uint32_t         port_id,
-                                    uint32_t         buffer_id,
-                                    off_t            offset,
-                                    size_t           size)
+                                    uint32_t         buffer_id)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }

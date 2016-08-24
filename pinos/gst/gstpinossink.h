@@ -24,6 +24,7 @@
 #include <gst/base/gstbasesink.h>
 
 #include <client/pinos.h>
+#include <gst/gstpinospool.h>
 
 G_BEGIN_DECLS
 
@@ -84,8 +85,11 @@ struct _GstPinosSink {
   GstStructure *properties;
   GstPinosSinkMode mode;
 
-  PinosFdManager *fdmanager;
-  GHashTable *mem_ids;
+  GstPinosPool *pool;
+  GHashTable *buf_ids;
+
+  GQueue empty;
+  GQueue filled;
 };
 
 struct _GstPinosSinkClass {

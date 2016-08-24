@@ -110,7 +110,7 @@ bus_handler (GstBus     *bus,
       GST_INFO ("clock lost %s", GST_OBJECT_NAME (clock));
 
       g_object_get (node, "properties", &props, NULL);
-      pinos_properties_remove (props, "gst.pipeline.clock");
+      pinos_properties_set (props, "gst.pipeline.clock", NULL);
       g_object_set (node, "properties", props, NULL);
       pinos_properties_free (props);
 

@@ -44,8 +44,6 @@ void              pinos_properties_setf     (PinosProperties *properties,
                                              ...) G_GNUC_PRINTF (3, 4);
 const gchar *     pinos_properties_get      (PinosProperties *properties,
                                              const gchar     *key);
-void              pinos_properties_remove   (PinosProperties *properties,
-                                             const gchar     *key);
 
 const gchar *     pinos_properties_iterate  (PinosProperties     *properties,
                                              gpointer            *state);

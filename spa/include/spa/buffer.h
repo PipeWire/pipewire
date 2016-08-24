@@ -27,9 +27,6 @@ extern "C" {
 typedef struct _SpaBuffer SpaBuffer;
 typedef struct _SpaBufferGroup SpaBufferGroup;
 
-#include <spa/defs.h>
-#include <spa/memory.h>
-
 /**
  * SpaMetaType:
  * @SPA_META_TYPE_INVALID: invalid metadata, should be ignored
@@ -40,7 +37,12 @@ typedef enum {
   SPA_META_TYPE_HEADER,
   SPA_META_TYPE_POINTER,
   SPA_META_TYPE_VIDEO_CROP,
+  SPA_META_TYPE_RINGBUFFER,
 } SpaMetaType;
+
+#include <spa/defs.h>
+#include <spa/memory.h>
+#include <spa/port.h>
 
 /**
  * SpaBufferFlags:
@@ -88,6 +90,20 @@ typedef struct {
 } SpaMetaVideoCrop;
 
 /**
+ * SpaMetaRingbuffer:
+ * @readindex:
+ * @writeindex:
+ * @size:
+ * @size_mask:
+ */
+typedef struct {
+  volatile int readindex;
+  volatile int writeindex;
+  int          size;
+  int          size_mask;
+} SpaMetaRingbuffer;
+
+/**
  * SpaMeta:
  * @type: metadata type
  * @offset: offset of metadata in the buffer structure
@@ -132,6 +148,11 @@ struct _SpaBuffer {
 
 #define spa_buffer_ref(b)    spa_memory_ref (&(b)->mem)
 #define spa_buffer_unref(b)  spa_memory_unref (&(b)->mem)
+
+SpaResult    spa_buffer_alloc   (SpaAllocParam     **params,
+                                 unsigned int        n_params,
+                                 SpaBuffer         **buffers,
+                                 unsigned int       *n_buffers);
 
 #ifdef __cplusplus
 }  /* extern "C" */

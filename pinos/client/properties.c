@@ -131,7 +131,8 @@ pinos_properties_free (PinosProperties *properties)
  * @value: a value
  *
  * Set the property in @properties with @key to @value. Any previous value
- * of @key will be overwritten.
+ * of @key will be overwritten. When @value is %NULL, the key will be
+ * removed.
  */
 void
 pinos_properties_set (PinosProperties *properties,
@@ -140,9 +141,11 @@ pinos_properties_set (PinosProperties *properties,
 {
   g_return_if_fail (properties != NULL);
   g_return_if_fail (key != NULL);
-  g_return_if_fail (value != NULL);
 
-  g_hash_table_replace (properties->hashtable, g_strdup (key), g_strdup (value));
+  if (value == NULL)
+    g_hash_table_remove (properties->hashtable, key);
+  else
+    g_hash_table_replace (properties->hashtable, g_strdup (key), g_strdup (value));
 }
 
 /**
@@ -191,23 +194,6 @@ pinos_properties_get (PinosProperties *properties,
   g_return_val_if_fail (key != NULL, NULL);
 
   return g_hash_table_lookup (properties->hashtable, key);
-}
-
-/**
- * pinos_properties_remove:
- * @properties: a #PinosProperties
- * @key: a key
- *
- * Remove the property in @properties with @key.
- */
-void
-pinos_properties_remove (PinosProperties *properties,
-                         const gchar     *key)
-{
-  g_return_if_fail (properties != NULL);
-  g_return_if_fail (key != NULL);
-
-  g_hash_table_remove (properties->hashtable, key);
 }
 
 /**

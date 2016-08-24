@@ -56,8 +56,13 @@ struct _PinosLinkPrivate
   SpaNode *input_node;
   uint32_t input_port;
 
-  SpaBuffer *buffers[16];
-  unsigned int n_buffers;
+  SpaNodeState input_state;
+  SpaNodeState output_state;
+
+  SpaBuffer *in_buffers[16];
+  unsigned int n_in_buffers;
+  SpaBuffer *out_buffers[16];
+  unsigned int n_out_buffers;
 };
 
 G_DEFINE_TYPE (PinosLink, pinos_link, G_TYPE_OBJECT);
@@ -268,8 +273,9 @@ do_allocation (PinosLink *this)
   PinosLinkPrivate *priv = this->priv;
   SpaResult res;
   const SpaPortInfo *iinfo, *oinfo;
+  SpaPortInfoFlags in_flags, out_flags;
 
-  g_debug ("link %p: doing alloc buffers", this);
+  g_debug ("link %p: doing alloc buffers %p %p", this, priv->output_node, priv->input_node);
   /* find out what's possible */
   if ((res = spa_node_port_get_info (priv->output_node, priv->output_port, &oinfo)) < 0) {
     g_warning ("error get port info: %d", res);
@@ -280,18 +286,79 @@ do_allocation (PinosLink *this)
     return res;
   }
 
-  priv->n_buffers = 16;
-  if ((res = spa_node_port_alloc_buffers (priv->output_node, priv->output_port,
-                                          iinfo->params, iinfo->n_params,
-                                          priv->buffers, &priv->n_buffers)) < 0) {
-    g_warning ("error alloc buffers: %d", res);
-    return res;
+  spa_debug_port_info (oinfo);
+  spa_debug_port_info (iinfo);
+
+  priv->n_in_buffers = 16;
+  priv->n_out_buffers = 16;
+
+  if ((oinfo->flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) &&
+      (iinfo->flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS)) {
+    out_flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
+    in_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+  } else if ((oinfo->flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS) &&
+      (iinfo->flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS)) {
+    out_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+    in_flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
+  } else if ((oinfo->flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS) &&
+      (iinfo->flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS)) {
+    out_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+    in_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+
+    if ((res = spa_buffer_alloc (oinfo->params, oinfo->n_params,
+                                 priv->in_buffers,
+                                 &priv->n_in_buffers)) < 0) {
+      g_warning ("error alloc buffers: %d", res);
+      return res;
+    }
+    memcpy (priv->out_buffers, priv->in_buffers, priv->n_in_buffers * sizeof (SpaBuffer*));
+    priv->n_out_buffers = priv->n_in_buffers;
+  } else if ((oinfo->flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) &&
+      (iinfo->flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS)) {
+    out_flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
+    in_flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
+  } else {
+    g_warning ("error no common allocation found");
+    return SPA_RESULT_ERROR;
   }
 
-  if ((res = spa_node_port_use_buffers (priv->input_node, priv->input_port,
-                                        priv->buffers, priv->n_buffers)) < 0) {
-    g_warning ("error alloc buffers: %d", res);
-    return res;
+  if (in_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
+    if ((res = spa_node_port_alloc_buffers (priv->input_node, priv->input_port,
+                                            oinfo->params, oinfo->n_params,
+                                            priv->in_buffers, &priv->n_in_buffers)) < 0) {
+      g_warning ("error alloc buffers: %d", res);
+      return res;
+    }
+    priv->input->n_buffers = priv->n_in_buffers;
+    priv->input->buffers = priv->in_buffers;
+  }
+  if (out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
+    if ((res = spa_node_port_alloc_buffers (priv->output_node, priv->output_port,
+                                            iinfo->params, iinfo->n_params,
+                                            priv->out_buffers, &priv->n_out_buffers)) < 0) {
+      g_warning ("error alloc buffers: %d", res);
+      return res;
+    }
+    priv->output->n_buffers = priv->n_out_buffers;
+    priv->output->buffers = priv->out_buffers;
+  }
+  if (in_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS) {
+    if ((res = spa_node_port_use_buffers (priv->input_node, priv->input_port,
+                                          priv->out_buffers, priv->n_out_buffers)) < 0) {
+      g_warning ("error use buffers: %d", res);
+      return res;
+    }
+    priv->input->n_buffers = priv->n_out_buffers;
+    priv->input->buffers = priv->out_buffers;
+  }
+  if (out_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS) {
+    if ((res = spa_node_port_use_buffers (priv->output_node, priv->output_port,
+                                          priv->in_buffers, priv->n_in_buffers)) < 0) {
+      g_warning ("error use buffers: %d", res);
+      return res;
+    }
+    priv->output->n_buffers = priv->n_in_buffers;
+    priv->output->buffers = priv->in_buffers;
   }
 
   priv->allocated = TRUE;
@@ -299,13 +366,86 @@ do_allocation (PinosLink *this)
   return SPA_RESULT_OK;
 }
 
+static SpaResult
+do_start (PinosLink *this)
+{
+  PinosLinkPrivate *priv = this->priv;
+  SpaCommand cmd;
+  SpaResult res;
+
+  cmd.type = SPA_COMMAND_START;
+  if ((res = spa_node_send_command (priv->input_node, &cmd)) < 0)
+    g_warning ("got error %d", res);
+  if ((res = spa_node_send_command (priv->output_node, &cmd)) < 0)
+    g_warning ("got error %d", res);
+
+  return res;
+}
+
+static SpaResult
+do_stop (PinosLink *this)
+{
+  PinosLinkPrivate *priv = this->priv;
+  SpaCommand cmd;
+  SpaResult res;
+
+  cmd.type = SPA_COMMAND_STOP;
+  if ((res = spa_node_send_command (priv->input_node, &cmd)) < 0)
+    g_warning ("got error %d", res);
+  if ((res = spa_node_send_command (priv->output_node, &cmd)) < 0)
+    g_warning ("got error %d", res);
+
+  return res;
+}
+
+static SpaResult
+check_states (PinosLink *this)
+{
+  PinosLinkPrivate *priv = this->priv;
+  SpaResult res;
+
+  g_debug ("link %p: input %d, output %d", this, priv->input_state, priv->output_state);
+
+  if (priv->input_state == SPA_NODE_STATE_CONFIGURE &&
+      priv->output_state == SPA_NODE_STATE_CONFIGURE &&
+      !priv->negotiated) {
+    if ((res = do_negotiate (this)) < 0)
+      return res;
+  }
+  if (priv->input_state == SPA_NODE_STATE_READY &&
+      priv->output_state == SPA_NODE_STATE_READY &&
+      !priv->allocated) {
+    if ((res = do_allocation (this)) < 0)
+      return res;
+
+    if ((res = do_start (this)) < 0)
+      return res;
+  }
+  return SPA_RESULT_OK;
+}
+
+static void
+on_node_state_notify (GObject    *obj,
+                      GParamSpec *pspec,
+                      gpointer    user_data)
+{
+  PinosLink *this = user_data;
+  PinosLinkPrivate *priv = this->priv;
+
+  g_debug ("link %p: node %p state change", this, obj);
+  if (obj == G_OBJECT (priv->input->node))
+    priv->input_state = priv->input->node->node_state;
+  else
+    priv->output_state = priv->output->node->node_state;
+
+  check_states (this);
+}
+
 static gboolean
 on_activate (PinosPort *port, gpointer user_data)
 {
   PinosLink *this = user_data;
   PinosLinkPrivate *priv = this->priv;
-  SpaCommand cmd;
-  SpaResult res;
 
   if (priv->active)
     return TRUE;
@@ -316,18 +456,7 @@ on_activate (PinosPort *port, gpointer user_data)
   else
     pinos_port_activate (priv->input);
 
-  if (!priv->negotiated)
-    do_negotiate (this);
-
-  /* negotiate allocation */
-  if (!priv->allocated)
-    do_allocation (this);
-
-  cmd.type = SPA_COMMAND_START;
-  if ((res = spa_node_send_command (priv->input_node, &cmd)) < 0)
-    g_warning ("got error %d", res);
-  if ((res = spa_node_send_command (priv->output_node, &cmd)) < 0)
-    g_warning ("got error %d", res);
+  check_states (this);
 
   return TRUE;
 }
@@ -335,10 +464,8 @@ on_activate (PinosPort *port, gpointer user_data)
 static gboolean
 on_deactivate (PinosPort *port, gpointer user_data)
 {
-  PinosLink *link = user_data;
-  PinosLinkPrivate *priv = link->priv;
-  SpaCommand cmd;
-  SpaResult res;
+  PinosLink *this = user_data;
+  PinosLinkPrivate *priv = this->priv;
 
   if (!priv->active)
     return TRUE;
@@ -349,11 +476,7 @@ on_deactivate (PinosPort *port, gpointer user_data)
   else
     pinos_port_deactivate (priv->input);
 
-  cmd.type = SPA_COMMAND_STOP;
-  if ((res = spa_node_send_command (priv->input_node, &cmd)) < 0)
-    g_warning ("got error %d", res);
-  if ((res = spa_node_send_command (priv->output_node, &cmd)) < 0)
-    g_warning ("got error %d", res);
+  do_stop (this);
 
   return TRUE;
 }
@@ -363,8 +486,8 @@ on_property_notify (GObject    *obj,
                     GParamSpec *pspec,
                     gpointer    user_data)
 {
-  PinosLink *link = user_data;
-  PinosLinkPrivate *priv = link->priv;
+  PinosLink *this = user_data;
+  PinosLinkPrivate *priv = this->priv;
 
   if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "output") == 0) {
     gchar *port = g_strdup_printf ("%s:%d", pinos_node_get_object_path (priv->output->node),
@@ -384,32 +507,38 @@ on_property_notify (GObject    *obj,
 static void
 pinos_link_constructed (GObject * object)
 {
-  PinosLink *link = PINOS_LINK (object);
-  PinosLinkPrivate *priv = link->priv;
+  PinosLink *this = PINOS_LINK (object);
+  PinosLinkPrivate *priv = this->priv;
 
   priv->output_id = pinos_port_add_send_cb (priv->output,
                                  on_output_buffer,
                                  on_output_event,
-                                 link,
+                                 this,
                                  NULL);
   priv->input_id = pinos_port_add_send_cb (priv->input,
                                  on_input_buffer,
                                  on_input_event,
-                                 link,
+                                 this,
                                  NULL);
 
-  g_signal_connect (priv->input, "activate", (GCallback) on_activate, link);
-  g_signal_connect (priv->input, "deactivate", (GCallback) on_deactivate, link);
-  g_signal_connect (priv->output, "activate", (GCallback) on_activate, link);
-  g_signal_connect (priv->output, "deactivate", (GCallback) on_deactivate, link);
+  priv->input_state = priv->input->node->node_state;
+  priv->output_state = priv->output->node->node_state;
 
-  g_signal_connect (link, "notify", (GCallback) on_property_notify, link);
+  g_signal_connect (priv->input->node, "notify::node-state", (GCallback) on_node_state_notify, this);
+  g_signal_connect (priv->output->node, "notify::node-state", (GCallback) on_node_state_notify, this);
+
+  g_signal_connect (priv->input, "activate", (GCallback) on_activate, this);
+  g_signal_connect (priv->input, "deactivate", (GCallback) on_deactivate, this);
+  g_signal_connect (priv->output, "activate", (GCallback) on_activate, this);
+  g_signal_connect (priv->output, "deactivate", (GCallback) on_deactivate, this);
+
+  g_signal_connect (this, "notify", (GCallback) on_property_notify, this);
 
   G_OBJECT_CLASS (pinos_link_parent_class)->constructed (object);
 
-  on_property_notify (G_OBJECT (link), NULL, link);
-  g_debug ("link %p: constructed", link);
-  link_register_object (link);
+  on_property_notify (G_OBJECT (this), NULL, this);
+  g_debug ("link %p: constructed", this);
+  link_register_object (this);
 }
 
 static void
@@ -427,8 +556,8 @@ pinos_link_dispose (GObject * object)
     pinos_port_deactivate (priv->input);
     pinos_port_deactivate (priv->output);
   }
-  g_clear_object (&priv->input);
-  g_clear_object (&priv->output);
+  priv->input = NULL;
+  priv->output = NULL;
   link_unregister_object (link);
 
   G_OBJECT_CLASS (pinos_link_parent_class)->dispose (object);

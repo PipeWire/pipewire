@@ -201,16 +201,12 @@ typedef struct {
 typedef struct {
   uint32_t port_id;
   uint32_t buffer_id;
-  off_t    offset;
-  size_t   size;
 } SpaControlCmdProcessBuffer;
 
 /* SPA_CONTROL_CMD_REUSE_BUFFER */
 typedef struct {
   uint32_t port_id;
   uint32_t buffer_id;
-  off_t    offset;
-  size_t   size;
 } SpaControlCmdReuseBuffer;
 
 

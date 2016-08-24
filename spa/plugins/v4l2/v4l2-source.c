@@ -203,6 +203,20 @@ spa_v4l2_source_node_set_props (SpaNode         *node,
   return res;
 }
 
+static void
+send_state_change (SpaV4l2Source *this, SpaNodeState state)
+{
+  SpaEvent event;
+  SpaEventStateChange sc;
+
+  event.type = SPA_EVENT_TYPE_STATE_CHANGE;
+  event.port_id = -1;
+  event.data = &sc;
+  event.size = sizeof (sc);
+  sc.state = state;
+  this->event_cb (&this->node, &event, this->user_data);
+}
+
 static SpaResult
 spa_v4l2_source_node_send_command (SpaNode       *node,
                                    SpaCommand    *command)
@@ -221,34 +235,12 @@ spa_v4l2_source_node_send_command (SpaNode       *node,
     case SPA_COMMAND_START:
       spa_v4l2_start (this);
 
-      if (this->event_cb) {
-        SpaEvent event;
-        SpaEventStateChange sc;
-
-        event.type = SPA_EVENT_TYPE_STATE_CHANGE;
-        event.port_id = -1;
-        event.data = &sc;
-        event.size = sizeof (sc);
-        sc.state = SPA_NODE_STATE_STREAMING;
-
-        this->event_cb (node, &event, this->user_data);
-      }
+      send_state_change (this, SPA_NODE_STATE_STREAMING);
       break;
     case SPA_COMMAND_STOP:
       spa_v4l2_stop (this);
 
-      if (this->event_cb) {
-        SpaEvent event;
-        SpaEventStateChange sc;
-
-        event.type = SPA_EVENT_TYPE_STATE_CHANGE;
-        event.port_id = -1;
-        event.data = &sc;
-        event.size = sizeof (sc);
-        sc.state = SPA_NODE_STATE_PAUSED;
-
-        this->event_cb (node, &event, this->user_data);
-      }
+      send_state_change (this, SPA_NODE_STATE_PAUSED);
       break;
 
     case SPA_COMMAND_FLUSH:
@@ -273,6 +265,8 @@ spa_v4l2_source_node_set_event_callback (SpaNode       *node,
 
   this->event_cb = event;
   this->user_data = user_data;
+
+  send_state_change (this, SPA_NODE_STATE_CONFIGURE);
 
   return SPA_RESULT_OK;
 }
@@ -427,6 +421,8 @@ spa_v4l2_source_node_port_set_format (SpaNode            *node,
   if (!(flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY)) {
     memcpy (tf, f, fs);
     state->current_format = tf;
+
+    send_state_change (this, SPA_NODE_STATE_READY);
   }
 
   return SPA_RESULT_OK;
@@ -525,7 +521,7 @@ spa_v4l2_source_node_port_alloc_buffers (SpaNode         *node,
 {
   SpaV4l2Source *this;
 
-  if (node == NULL || node->handle == NULL)
+  if (node == NULL || node->handle == NULL || buffers == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = (SpaV4l2Source *) node->handle;
@@ -541,9 +537,7 @@ spa_v4l2_source_node_port_alloc_buffers (SpaNode         *node,
 static SpaResult
 spa_v4l2_source_node_port_reuse_buffer (SpaNode         *node,
                                         uint32_t         port_id,
-                                        uint32_t         buffer_id,
-                                        off_t            offset,
-                                        size_t           size)
+                                        uint32_t         buffer_id)
 {
   SpaV4l2Source *this;
 

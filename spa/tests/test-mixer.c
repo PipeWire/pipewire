@@ -94,19 +94,14 @@ on_mix_event (SpaNode *node, SpaEvent *event, void *user_data)
   AppData *data = user_data;
 
   switch (event->type) {
-    case SPA_EVENT_TYPE_PULL_INPUT:
+    case SPA_EVENT_TYPE_NEED_INPUT:
     {
       SpaInputInfo iinfo;
       SpaOutputInfo oinfo;
       SpaResult res;
-      SpaEventPullInput *pi;
-
-      pi = event->data;
 
       oinfo.port_id = 0;
       oinfo.flags = SPA_OUTPUT_FLAG_NONE;
-      oinfo.size = pi->size;
-      oinfo.offset = pi->offset;
 
       if (event->port_id == data->mix_ports[0]) {
         if ((res = spa_node_port_pull_output (data->source1, 1, &oinfo)) < 0)
@@ -136,19 +131,14 @@ on_sink_event (SpaNode *node, SpaEvent *event, void *user_data)
   AppData *data = user_data;
 
   switch (event->type) {
-    case SPA_EVENT_TYPE_PULL_INPUT:
+    case SPA_EVENT_TYPE_NEED_INPUT:
     {
       SpaInputInfo iinfo;
       SpaOutputInfo oinfo;
       SpaResult res;
-      SpaEventPullInput *pi;
-
-      pi = event->data;
 
       oinfo.port_id = 0;
       oinfo.flags = SPA_OUTPUT_FLAG_PULL;
-      oinfo.offset = pi->offset;
-      oinfo.size = pi->size;
 
       if ((res = spa_node_port_pull_output (data->mix, 1, &oinfo)) < 0)
         printf ("got error %d\n", res);

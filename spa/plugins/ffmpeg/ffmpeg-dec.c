@@ -428,9 +428,7 @@ spa_ffmpeg_dec_node_port_alloc_buffers (SpaNode         *node,
 static SpaResult
 spa_ffmpeg_dec_node_port_reuse_buffer (SpaNode         *node,
                                        uint32_t         port_id,
-                                       uint32_t         buffer_id,
-                                       off_t            offse,
-                                       size_t           size)
+                                       uint32_t         buffer_id)
 {
   if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;

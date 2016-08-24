@@ -48,6 +48,7 @@
 #include "gsttmpfileallocator.h"
 #include "gstpinosformat.h"
 
+static GQuark process_mem_data_quark;
 
 GST_DEBUG_CATEGORY_STATIC (pinos_sink_debug);
 #define GST_CAT_DEFAULT pinos_sink_debug
@@ -120,8 +121,9 @@ gst_pinos_sink_finalize (GObject * object)
 
   if (pinossink->properties)
     gst_structure_free (pinossink->properties);
-  g_hash_table_unref (pinossink->mem_ids);
   g_object_unref (pinossink->allocator);
+  g_object_unref (pinossink->pool);
+  g_hash_table_unref (pinossink->buf_ids);
   g_free (pinossink->path);
   g_free (pinossink->client_name);
 
@@ -133,7 +135,7 @@ gst_pinos_sink_propose_allocation (GstBaseSink * bsink, GstQuery * query)
 {
   GstPinosSink *pinossink = GST_PINOS_SINK (bsink);
 
-  gst_query_add_allocation_param (query, pinossink->allocator, NULL);
+  gst_query_add_allocation_pool (query, GST_BUFFER_POOL_CAST (pinossink->pool), 0, 0, 0);
   return TRUE;
 }
 
@@ -207,18 +209,22 @@ gst_pinos_sink_class_init (GstPinosSinkClass * klass)
 
   GST_DEBUG_CATEGORY_INIT (pinos_sink_debug, "pinossink", 0,
       "Pinos Sink");
+
+  process_mem_data_quark = g_quark_from_static_string ("GstPinosSinkProcessMemQuark");
 }
 
 static void
 gst_pinos_sink_init (GstPinosSink * sink)
 {
   sink->allocator = gst_tmpfile_allocator_new ();
-  sink->fdmanager = pinos_fd_manager_get (PINOS_FD_MANAGER_DEFAULT);
+  sink->pool =  gst_pinos_pool_new ();
   sink->client_name = pinos_client_name();
   sink->mode = DEFAULT_PROP_MODE;
+  g_queue_init (&sink->empty);
+  g_queue_init (&sink->filled);
 
-  sink->mem_ids = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL,
-      (GDestroyNotify) gst_memory_unref);
+  sink->buf_ids = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL,
+      (GDestroyNotify) gst_buffer_unref);
 }
 
 static GstCaps *
@@ -327,58 +333,128 @@ gst_pinos_sink_get_property (GObject * object, guint prop_id,
   }
 }
 
+typedef struct {
+  GstPinosSink *sink;
+  guint id;
+  SpaMetaHeader *header;
+  guint flags;
+} ProcessMemData;
+
 static void
-on_new_buffer (GObject    *gobject,
+process_mem_data_destroy (gpointer user_data)
+{
+  ProcessMemData *data = user_data;
+
+  gst_object_unref (data->sink);
+  g_slice_free (ProcessMemData, data);
+}
+
+static void
+on_add_buffer (GObject    *gobject,
+               guint       id,
                gpointer    user_data)
 {
   GstPinosSink *pinossink = user_data;
   SpaBuffer *b;
+  GstBuffer *buf;
+  unsigned int i;
+  ProcessMemData data;
+
+  GST_LOG_OBJECT (pinossink, "add buffer");
+
+  if (!(b = pinos_stream_peek_buffer (pinossink->stream, id))) {
+    g_warning ("failed to peek buffer");
+    return;
+  }
+
+  buf = gst_buffer_new ();
+
+  data.sink = gst_object_ref (pinossink);
+  data.id = id;
+  data.header = NULL;
+
+  for (i = 0; i < b->n_metas; i++) {
+    SpaMeta *m = &SPA_BUFFER_METAS(b)[i];
+
+    switch (m->type) {
+      case SPA_META_TYPE_HEADER:
+        data.header = SPA_MEMBER (b, m->offset, SpaMetaHeader);
+        break;
+      default:
+        break;
+    }
+  }
+  for (i = 0; i < b->n_datas; i++) {
+    SpaData *d = &SPA_BUFFER_DATAS (b)[i];
+    SpaMemory *mem;
+
+    mem = spa_memory_find (&d->mem.mem);
+
+    if (mem->fd) {
+      GstMemory *fdmem = NULL;
+
+      fdmem = gst_fd_allocator_alloc (pinossink->allocator, dup (mem->fd),
+                d->mem.offset + d->mem.size, GST_FD_MEMORY_FLAG_NONE);
+      gst_memory_resize (fdmem, d->mem.offset, d->mem.size);
+      gst_buffer_append_memory (buf, fdmem);
+    } else {
+      gst_buffer_append_memory (buf,
+               gst_memory_new_wrapped (0, mem->ptr, mem->size, d->mem.offset,
+                                       d->mem.size, NULL, NULL));
+    }
+  }
+  data.flags = GST_BUFFER_FLAGS (buf);
+  gst_mini_object_set_qdata (GST_MINI_OBJECT_CAST (buf),
+                             process_mem_data_quark,
+                             g_slice_dup (ProcessMemData, &data),
+                             process_mem_data_destroy);
+
+  gst_pinos_pool_add_buffer (GST_PINOS_POOL (pinossink->pool), buf);
+  g_hash_table_insert (pinossink->buf_ids, GINT_TO_POINTER (id), buf);
+
+  g_queue_push_tail (&pinossink->empty, buf);
+  pinos_main_loop_signal (pinossink->loop, FALSE);
+}
+
+static void
+on_remove_buffer (GObject    *gobject,
+                  guint       id,
+                  gpointer    user_data)
+{
+  GstPinosSink *pinossink = user_data;
+  GstBuffer *buf;
+
+  GST_LOG_OBJECT (pinossink, "remove buffer");
+  buf = g_hash_table_lookup (pinossink->buf_ids, GINT_TO_POINTER (id));
+  GST_MINI_OBJECT_CAST (buf)->dispose = NULL;
+
+  gst_pinos_pool_remove_buffer (GST_PINOS_POOL (pinossink->pool), buf);
+  g_queue_remove (&pinossink->empty, buf);
+  g_queue_remove (&pinossink->filled, buf);
+  g_hash_table_remove (pinossink->buf_ids, GINT_TO_POINTER (id));
+}
+
+static void
+on_new_buffer (GObject    *gobject,
+               guint       id,
+               gpointer    user_data)
+{
+  GstPinosSink *pinossink = user_data;
+  GstBuffer *buf;
 
   GST_LOG_OBJECT (pinossink, "got new buffer");
   if (pinossink->stream == NULL) {
     GST_LOG_OBJECT (pinossink, "no stream");
     return;
   }
+  buf = g_hash_table_lookup (pinossink->buf_ids, GINT_TO_POINTER (id));
 
-  if (!(b = pinos_stream_peek_buffer (pinossink->stream))) {
-    g_warning ("failed to capture buffer");
-    return;
+  g_debug ("recycle buffer %d %p", id, buf);
+  if (buf) {
+    g_queue_remove (&pinossink->filled, buf);
+    g_queue_push_tail (&pinossink->empty, buf);
+    pinos_main_loop_signal (pinossink->loop, FALSE);
   }
-
-#if 0
-  pinos_buffer_iter_init (&it, pbuf);
-  while (pinos_buffer_iter_next (&it)) {
-    switch (pinos_buffer_iter_get_type (&it)) {
-      case PINOS_PACKET_TYPE_REUSE_MEM:
-      {
-        PinosPacketReuseMem p;
-
-        if (!pinos_buffer_iter_parse_reuse_mem (&it, &p))
-          continue;
-
-        GST_LOG ("mem index %d is reused", p.id);
-        g_hash_table_remove (pinossink->mem_ids, GINT_TO_POINTER (p.id));
-        break;
-      }
-      case PINOS_PACKET_TYPE_REFRESH_REQUEST:
-      {
-        PinosPacketRefreshRequest p;
-
-        if (!pinos_buffer_iter_parse_refresh_request (&it, &p))
-          continue;
-
-        GST_LOG ("refresh request");
-        gst_pad_push_event (GST_BASE_SINK_PAD (pinossink),
-            gst_video_event_new_upstream_force_key_unit (p.pts,
-            p.request_type == 1, 0));
-        break;
-      }
-      default:
-        break;
-    }
-  }
-  pinos_buffer_iter_end (&it);
-#endif
 }
 
 static void
@@ -407,6 +483,19 @@ on_stream_notify (GObject    *gobject,
       break;
   }
   pinos_main_loop_signal (pinossink->loop, FALSE);
+}
+
+static void
+on_format_notify (GObject    *gobject,
+                  GParamSpec *pspec,
+                  gpointer    user_data)
+{
+  GstPinosSink *pinossink = user_data;
+  SpaFormat *format;
+  PinosProperties *props = NULL;
+
+  g_object_get (gobject, "format", &format, NULL);
+
 }
 
 static gboolean
@@ -452,7 +541,9 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
       pinos_main_loop_wait (pinossink->loop);
     }
   }
+  res = TRUE;
 
+#if 0
   if (state != PINOS_STREAM_STATE_STREAMING) {
     res = pinos_stream_start (pinossink->stream);
 
@@ -468,6 +559,7 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
       pinos_main_loop_wait (pinossink->loop);
     }
   }
+#endif
   pinos_main_loop_unlock (pinossink->loop);
 
   pinossink->negotiated = res;
@@ -483,97 +575,44 @@ start_error:
   }
 }
 
-typedef struct {
-  SpaBuffer buffer;
-  SpaMeta metas[1];
-  SpaMetaHeader header;
-  SpaData datas[1];
-  GstMemory *mem;
-  GstPinosSink *pinossink;
-  int fd;
-} SinkBuffer;
-
 static GstFlowReturn
 gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
 {
   GstPinosSink *pinossink;
-  SinkBuffer *b;
-  GstMemory *mem = NULL;
-  GstClockTime pts, dts, base;
-  gsize size;
   gboolean res;
+  ProcessMemData *data;
 
   pinossink = GST_PINOS_SINK (bsink);
 
   if (!pinossink->negotiated)
     goto not_negotiated;
 
-  base = GST_ELEMENT_CAST (bsink)->base_time;
-
-  size = gst_buffer_get_size (buffer);
-
-  b = g_slice_new (SinkBuffer);
-  b->buffer.id = pinos_fd_manager_get_id (pinossink->fdmanager);
-  b->buffer.mem.mem.pool_id = SPA_ID_INVALID;
-  b->buffer.mem.mem.id = SPA_ID_INVALID;
-  b->buffer.mem.offset = 0;
-  b->buffer.mem.size = sizeof (SinkBuffer);
-  b->buffer.n_metas = 1;
-  b->buffer.metas = offsetof (SinkBuffer, metas);
-  b->buffer.n_datas = 1;
-  b->buffer.datas = offsetof (SinkBuffer, datas);
-
-  pts = GST_BUFFER_PTS (buffer);
-  dts = GST_BUFFER_DTS (buffer);
-  if (!GST_CLOCK_TIME_IS_VALID (pts))
-    pts = dts;
-  else if (!GST_CLOCK_TIME_IS_VALID (dts))
-    dts = pts;
-
-  b->header.flags = 0;
-  b->header.seq = GST_BUFFER_OFFSET (buffer);
-  b->header.pts = GST_CLOCK_TIME_IS_VALID (pts) ? pts + base : base;
-  b->header.dts_offset = GST_CLOCK_TIME_IS_VALID (dts) && GST_CLOCK_TIME_IS_VALID (pts) ? pts - dts : 0;
-  b->metas[0].type = SPA_META_TYPE_HEADER;
-  b->metas[0].offset = offsetof (SinkBuffer, header);
-  b->metas[0].size = sizeof (b->header);
-
-  if (gst_buffer_n_memory (buffer) == 1
-      && gst_is_fd_memory (gst_buffer_peek_memory (buffer, 0))) {
-    mem = gst_buffer_get_memory (buffer, 0);
-  } else {
-    GstMapInfo minfo;
-    GstAllocationParams params = {0, 0, 0, 0, { NULL, }};
-
-    GST_INFO_OBJECT (bsink, "Buffer cannot be payloaded without copying");
-
-    mem = gst_allocator_alloc (pinossink->allocator, size, &params);
-    if (!gst_memory_map (mem, &minfo, GST_MAP_WRITE))
-      goto map_error;
-    gst_buffer_extract (buffer, 0, minfo.data, size);
-    gst_memory_unmap (mem, &minfo);
-  }
-
   pinos_main_loop_lock (pinossink->loop);
   if (pinos_stream_get_state (pinossink->stream) != PINOS_STREAM_STATE_STREAMING)
     goto streaming_error;
 
-  b->mem = mem;
-  b->fd = gst_fd_memory_get_fd (mem);
+  if (buffer->pool != GST_BUFFER_POOL_CAST (pinossink->pool)) {
+    GstBuffer *b = NULL;
 
-  b->datas[0].mem.mem.pool_id = SPA_ID_INVALID;
-  b->datas[0].mem.mem.id = SPA_ID_INVALID;
-  b->datas[0].mem.offset = mem->offset;
-  b->datas[0].mem.size = mem->size;
-  b->datas[0].stride = 0;
+    while (TRUE) {
+      b = g_queue_peek_head (&pinossink->empty);
+      if (b)
+        break;
 
-  if (!(res = pinos_stream_send_buffer (pinossink->stream, &b->buffer)))
+      pinos_main_loop_wait (pinossink->loop);
+    }
+    g_queue_push_tail (&pinossink->filled, b);
+
+    buffer = b;
+  }
+
+  data = gst_mini_object_get_qdata (GST_MINI_OBJECT_CAST (buffer),
+                                    process_mem_data_quark);
+
+  if (!(res = pinos_stream_send_buffer (pinossink->stream, data->id)))
     g_warning ("can't send buffer");
 
   pinos_main_loop_unlock (pinossink->loop);
-
-  /* keep the memory around until we get the reuse mem message */
-  g_hash_table_insert (pinossink->mem_ids, GINT_TO_POINTER (b->buffer.id), b);
 
   return GST_FLOW_OK;
 
@@ -581,17 +620,9 @@ not_negotiated:
   {
     return GST_FLOW_NOT_NEGOTIATED;
   }
-map_error:
-  {
-    GST_ELEMENT_ERROR (pinossink, RESOURCE, FAILED,
-        ("failed to map buffer"), (NULL));
-    gst_memory_unref (mem);
-    return GST_FLOW_ERROR;
-  }
 streaming_error:
   {
     pinos_main_loop_unlock (pinossink->loop);
-    gst_memory_unref (mem);
     return GST_FLOW_ERROR;
   }
 }
@@ -627,7 +658,11 @@ gst_pinos_sink_start (GstBaseSink * basesink)
 
   pinos_main_loop_lock (pinossink->loop);
   pinossink->stream = pinos_stream_new (pinossink->ctx, pinossink->client_name, props);
+  pinossink->pool->stream = pinossink->stream;
   g_signal_connect (pinossink->stream, "notify::state", (GCallback) on_stream_notify, pinossink);
+  g_signal_connect (pinossink->stream, "notify::format", (GCallback) on_format_notify, pinossink);
+  g_signal_connect (pinossink->stream, "add-buffer", (GCallback) on_add_buffer, pinossink);
+  g_signal_connect (pinossink->stream, "remove-buffer", (GCallback) on_remove_buffer, pinossink);
   g_signal_connect (pinossink->stream, "new-buffer", (GCallback) on_new_buffer, pinossink);
   pinos_main_loop_unlock (pinossink->loop);
 
@@ -644,6 +679,7 @@ gst_pinos_sink_stop (GstBaseSink * basesink)
     pinos_stream_stop (pinossink->stream);
     pinos_stream_disconnect (pinossink->stream);
     g_clear_object (&pinossink->stream);
+    pinossink->pool->stream = NULL;
   }
   pinos_main_loop_unlock (pinossink->loop);
 
@@ -787,10 +823,10 @@ gst_pinos_sink_change_state (GstElement * element, GstStateChange transition)
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
       break;
     case GST_STATE_CHANGE_PAUSED_TO_READY:
-      g_hash_table_remove_all (this->mem_ids);
+      g_hash_table_remove_all (this->buf_ids);
       break;
     case GST_STATE_CHANGE_READY_TO_NULL:
-      g_hash_table_remove_all (this->mem_ids);
+      g_hash_table_remove_all (this->buf_ids);
       gst_pinos_sink_close (this);
       break;
     default:

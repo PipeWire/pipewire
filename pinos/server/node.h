@@ -52,6 +52,7 @@ struct _PinosNode {
   GObject object;
 
   SpaNode *node;
+  SpaNodeState node_state;
 
   PinosNodePrivate *priv;
 };
@@ -110,6 +111,8 @@ void                pinos_node_update_state            (PinosNode *node, PinosNo
 void                pinos_node_report_error            (PinosNode *node, GError *error);
 void                pinos_node_report_idle             (PinosNode *node);
 void                pinos_node_report_busy             (PinosNode *node);
+
+void                pinos_node_update_node_state       (PinosNode *node, SpaNodeState state);
 
 G_END_DECLS
 

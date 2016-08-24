@@ -180,8 +180,6 @@ on_received_buffer (PinosPort *port, uint32_t buffer_id, GError **error, gpointe
   info[0].port_id =  port->id;
   info[0].buffer_id = buffer_id;
   info[0].flags = SPA_INPUT_FLAG_NONE;
-  info[0].offset = 0;
-  info[0].size = -1;
 
   if ((res = spa_node_port_push_input (node->node, 1, info)) < 0)
     g_warning ("client-node %p: error pushing buffer: %d, %d", node, res, info[0].status);
@@ -296,6 +294,8 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
     {
       SpaEventStateChange *sc = event->data;
 
+      pinos_node_update_node_state (PINOS_NODE (this), sc->state);
+
       switch (sc->state) {
         case SPA_NODE_STATE_CONFIGURE:
         {
@@ -327,6 +327,24 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
     case SPA_EVENT_TYPE_REMOVE_POLL:
     {
       stop_thread (this);
+      break;
+    }
+    case SPA_EVENT_TYPE_HAVE_OUTPUT:
+    {
+      PinosPort *port;
+      SpaOutputInfo info[1] = { 0, };
+      SpaResult res;
+      GError *error = NULL;
+
+      if ((res = spa_node_port_pull_output (node, 1, info)) < 0)
+        g_debug ("client-node %p: got pull error %d, %d", this, res, info[0].status);
+
+      port = pinos_node_find_port (PINOS_NODE (this), info[0].port_id);
+
+      if (!pinos_port_send_buffer (port, info[0].buffer_id, &error)) {
+        g_debug ("send failed: %s", error->message);
+        g_clear_error (&error);
+      }
       break;
     }
     case SPA_EVENT_TYPE_REUSE_BUFFER:

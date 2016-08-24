@@ -64,6 +64,7 @@ enum
   PROP_STATE,
   PROP_PROPERTIES,
   PROP_NODE,
+  PROP_NODE_STATE,
 };
 
 enum
@@ -264,6 +265,10 @@ pinos_node_get_property (GObject    *_object,
 
     case PROP_NODE:
       g_value_set_pointer (value, node->node);
+      break;
+
+    case PROP_NODE_STATE:
+      g_value_set_uint (value, node->node_state);
       break;
 
     default:
@@ -495,6 +500,17 @@ pinos_node_class_init (PinosNodeClass * klass)
                                                          G_PARAM_READWRITE |
                                                          G_PARAM_CONSTRUCT_ONLY |
                                                          G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_NODE_STATE,
+                                   g_param_spec_uint ("node-state",
+                                                      "Node State",
+                                                      "The state of the SPA node",
+                                                      0,
+                                                      G_MAXUINT,
+                                                      SPA_NODE_STATE_INIT,
+                                                      G_PARAM_READABLE |
+                                                      G_PARAM_STATIC_STRINGS));
 
   signals[SIGNAL_REMOVE] = g_signal_new ("remove",
                                          G_TYPE_FROM_CLASS (klass),
@@ -953,4 +969,25 @@ pinos_node_report_busy (PinosNode *node)
 
   g_debug ("node %p: report busy", node);
   pinos_node_set_state (node, PINOS_NODE_STATE_RUNNING);
+}
+
+/**
+ * pinos_node_update_node_state:
+ * @node: a #PinosNode
+ * @state: a #SpaNodeState
+ *
+ * Update the state of a SPA node. This method is used from
+ * inside @node itself.
+ */
+void
+pinos_node_update_node_state (PinosNode    *node,
+                              SpaNodeState  state)
+{
+  g_return_if_fail (PINOS_IS_NODE (node));
+
+  if (node->node_state != state) {
+    g_debug ("node %p: update SPA state to %d", node, state);
+    node->node_state = state;
+    g_object_notify (G_OBJECT (node), "node-state");
+  }
 }

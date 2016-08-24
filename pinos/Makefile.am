@@ -239,7 +239,8 @@ libgstpinos_la_SOURCES = \
                         gst/gstpinosformat.c \
                         gst/gstpinosdeviceprovider.c \
                         gst/gstpinossrc.c \
-                        gst/gstpinossink.c
+                        gst/gstpinossink.c  \
+                        gst/gstpinospool.c
                         #gst/gstpinosdepay.c
                         #gst/gstpinosportsrc.c
                         #gst/gstpinosportsink.c

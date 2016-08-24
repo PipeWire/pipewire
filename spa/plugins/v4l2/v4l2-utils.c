@@ -477,7 +477,7 @@ v4l2_on_fd_events (SpaPollNotifyData *data)
   if (mmap_read (this) < 0)
     return 0;
 
-  event.type = SPA_EVENT_TYPE_CAN_PULL_OUTPUT;
+  event.type = SPA_EVENT_TYPE_HAVE_OUTPUT;
   event.port_id = 0;
   event.size = 0;
   event.data = NULL;

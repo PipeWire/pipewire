@@ -139,7 +139,7 @@ on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
   PinosSpaV4l2SourcePrivate *priv = this->priv;
 
   switch (event->type) {
-    case SPA_EVENT_TYPE_CAN_PULL_OUTPUT:
+    case SPA_EVENT_TYPE_HAVE_OUTPUT:
     {
       SpaOutputInfo info[1] = { 0, };
       SpaResult res;
@@ -188,6 +188,13 @@ on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
       }
       break;
     }
+    case SPA_EVENT_TYPE_STATE_CHANGE:
+    {
+      SpaEventStateChange *sc = event->data;
+
+      pinos_node_update_node_state (PINOS_NODE (this), sc->state);
+      break;
+    }
     default:
       g_debug ("got event %d", event->type);
       break;
@@ -208,7 +215,7 @@ setup_node (PinosSpaV4l2Source *this)
     g_debug ("got get_props error %d", res);
 
   value.type = SPA_PROP_TYPE_STRING;
-  value.value = "/dev/video0";
+  value.value = "/dev/video1";
   value.size = strlen (value.value)+1;
   spa_props_set_prop (props, spa_props_index_for_name (props, "device"), &value);
 
@@ -363,9 +370,7 @@ on_received_event (PinosPort *port, SpaEvent *event, GError **error, gpointer us
 
       if ((res = spa_node_port_reuse_buffer (node->node,
                                              event->port_id,
-                                             rb->buffer_id,
-                                             rb->offset,
-                                             rb->size)) < 0)
+                                             rb->buffer_id)) < 0)
         g_warning ("client-node %p: error reuse buffer: %d", node, res);
       break;
     }

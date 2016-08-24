@@ -55,6 +55,9 @@ struct _PinosPort {
   uint32_t id;
   PinosNode *node;
 
+  SpaBuffer **buffers;
+  guint       n_buffers;
+
   PinosPortPrivate *priv;
 };
 

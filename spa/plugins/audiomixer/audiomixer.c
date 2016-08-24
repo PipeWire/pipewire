@@ -469,9 +469,7 @@ spa_audiomixer_node_port_alloc_buffers (SpaNode         *node,
 static SpaResult
 spa_audiomixer_node_port_reuse_buffer (SpaNode         *node,
                                        uint32_t         port_id,
-                                       uint32_t         buffer_id,
-                                       off_t            offset,
-                                       size_t           size)
+                                       uint32_t         buffer_id)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
@@ -571,15 +569,11 @@ static void
 pull_port (SpaAudioMixer *this, uint32_t port_id, SpaOutputInfo *info, size_t pull_size)
 {
   SpaEvent event;
-  MixerBuffer *buffer = &this->ports[port_id].mix;
-  SpaEventPullInput pi;
 
-  event.type = SPA_EVENT_TYPE_PULL_INPUT;
+  event.type = SPA_EVENT_TYPE_NEED_INPUT;
   event.port_id = port_id;
-  event.data = &pi;
-  pi.buffer_id = buffer->buffer.id;
-  pi.offset = 0;
-  pi.size = pull_size;
+  event.size = 0;
+  event.data = NULL;
   this->event_cb (&this->node, &event, this->user_data);
 }
 
@@ -645,7 +639,7 @@ mix_data (SpaAudioMixer *this, SpaOutputInfo *info)
   if (info->port_id != 0)
     return SPA_RESULT_INVALID_PORT;
 
-  pull_size = info->size;
+  pull_size = 0;
 
   min_size = 0;
   min_port = 0;

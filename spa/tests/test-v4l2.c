@@ -115,7 +115,7 @@ on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
   AppData *data = user_data;
 
   switch (event->type) {
-    case SPA_EVENT_TYPE_CAN_PULL_OUTPUT:
+    case SPA_EVENT_TYPE_HAVE_OUTPUT:
     {
       SpaOutputInfo info[1] = { 0, };
       SpaResult res;
@@ -178,7 +178,7 @@ on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
         SDL_RenderCopy (data->renderer, data->texture, NULL, NULL);
         SDL_RenderPresent (data->renderer);
       }
-      spa_node_port_reuse_buffer (data->source, 0, info->buffer_id, info->offset, info->size);
+      spa_node_port_reuse_buffer (data->source, 0, info->buffer_id);
       break;
     }
     case SPA_EVENT_TYPE_ADD_POLL:

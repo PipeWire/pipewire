@@ -67,9 +67,10 @@ typedef struct _ALSABuffer ALSABuffer;
 
 struct _ALSABuffer {
   SpaBuffer buffer;
-  SpaMeta meta[1];
+  SpaMeta metas[2];
   SpaMetaHeader header;
-  SpaData data[1];
+  SpaMetaRingbuffer ringbuffer;
+  SpaData datas[1];
 };
 
 struct _SpaALSASink {
@@ -88,12 +89,15 @@ struct _SpaALSASink {
   SpaALSAState state;
 
   SpaPortInfo info;
+  SpaAllocParam *params[1];
+  SpaAllocParamBuffers param_buffers;
   SpaPortStatus status;
 
   SpaBuffer *buffers;
   unsigned int n_buffers;
   uint32_t input_buffer;
 
+  SpaMemory *mem;
   ALSABuffer buffer;
 };
 
@@ -395,6 +399,20 @@ spa_alsa_sink_node_port_set_format (SpaNode            *node,
   if (alsa_set_format (this, &this->current_format, false) < 0)
     return SPA_RESULT_ERROR;
 
+  this->info.flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
+  this->info.maxbuffering = -1;
+  this->info.latency = -1;
+  this->info.n_params = 1;
+  this->params[0] = &this->param_buffers.param;
+  this->param_buffers.param.type = SPA_ALLOC_PARAM_TYPE_BUFFERS;
+  this->param_buffers.param.size = sizeof (this->param_buffers);
+  this->param_buffers.minsize = 1;
+  this->param_buffers.stride = 0;
+  this->param_buffers.min_buffers = 1;
+  this->param_buffers.max_buffers = 8;
+  this->param_buffers.align = 16;
+  this->info.features = NULL;
+
   this->have_format = true;
 
   return SPA_RESULT_OK;
@@ -476,15 +494,71 @@ spa_alsa_sink_node_port_alloc_buffers (SpaNode         *node,
                                        SpaBuffer      **buffers,
                                        uint32_t        *n_buffers)
 {
-  return SPA_RESULT_NOT_IMPLEMENTED;
+  SpaALSASink *this;
+  ALSABuffer *b;
+  SpaALSAState *state;
+
+  if (node == NULL || node->handle == NULL || buffers == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  if (port_id != 0)
+    return SPA_RESULT_INVALID_PORT;
+
+  this = (SpaALSASink *) node->handle;
+
+  if (!this->have_format)
+    return SPA_RESULT_NO_FORMAT;
+
+  state = &this->state;
+
+  if (!this->mem)
+    this->mem = spa_memory_alloc_with_fd (SPA_MEMORY_POOL_SHARED, NULL, state->buffer_size);
+
+  b = &this->buffer;
+  b->buffer.id = 0;
+  b->buffer.mem.mem.pool_id = -1;
+  b->buffer.mem.mem.id = -1;
+  b->buffer.mem.offset = 0;
+  b->buffer.mem.size = sizeof (ALSABuffer);
+
+  b->buffer.n_metas = 2;
+  b->buffer.metas = offsetof (ALSABuffer, metas);
+  b->buffer.n_datas = 1;
+  b->buffer.datas = offsetof (ALSABuffer, datas);
+
+  b->header.flags = 0;
+  b->header.seq = 0;
+  b->header.pts = 0;
+  b->header.dts_offset = 0;
+
+  b->metas[0].type = SPA_META_TYPE_HEADER;
+  b->metas[0].offset = offsetof (ALSABuffer, header);
+  b->metas[0].size = sizeof (b->header);
+
+  b->ringbuffer.readindex = 0;
+  b->ringbuffer.writeindex = 0;
+  b->ringbuffer.size = 0;
+  b->ringbuffer.size_mask = 0;
+
+  b->metas[1].type = SPA_META_TYPE_RINGBUFFER;
+  b->metas[1].offset = offsetof (ALSABuffer, ringbuffer);
+  b->metas[1].size = sizeof (b->ringbuffer);
+
+  b->datas[0].mem.mem = this->mem->mem;
+  b->datas[0].mem.offset = 0;
+  b->datas[0].mem.size = state->buffer_size;
+  b->datas[0].stride = 0;
+
+  buffers[0] = &b->buffer;
+  *n_buffers = 1;
+
+  return SPA_RESULT_OK;
 }
 
 static SpaResult
 spa_alsa_sink_node_port_reuse_buffer (SpaNode         *node,
                                       uint32_t         port_id,
-                                      uint32_t         buffer_id,
-                                      off_t            offset,
-                                      size_t           size)
+                                      uint32_t         buffer_id)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
@@ -627,7 +701,6 @@ alsa_sink_init (const SpaHandleFactory  *factory,
   this->props[1].props.prop_info = prop_info;
   reset_alsa_sink_props (&this->props[1]);
 
-  this->info.flags = SPA_PORT_INFO_FLAG_NONE;
   this->status.flags = SPA_PORT_STATUS_FLAG_NEED_INPUT;
 
   return SPA_RESULT_OK;

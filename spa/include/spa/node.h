@@ -31,6 +31,7 @@ typedef struct _SpaNode SpaNode;
  * @SPA_NODE_STATE_INIT: the node is initializing
  * @SPA_NODE_STATE_CONFIGURE: the node needs at least one port format
  * @SPA_NODE_STATE_READY: the node is ready for memory allocation
+ * @SPA_NODE_STATE_PAUSED: the node is paused
  * @SPA_NODE_STATE_STREAMING: the node is streaming
  * @SPA_NODE_STATE_ERROR: the node is in error
  */
@@ -81,8 +82,6 @@ typedef enum {
  * @port_id: the port id
  * @flags: extra flags
  * @buffer_id: a buffer id
- * @offset: offset of data in @id
- * @size: size of data in @id
  * @status: status
  *
  * Input information for a node.
@@ -91,8 +90,6 @@ typedef struct {
   uint32_t        port_id;
   SpaInputFlags   flags;
   uint32_t        buffer_id;
-  off_t           offset;
-  size_t          size;
   SpaResult       status;
 } SpaInputInfo;
 
@@ -116,8 +113,6 @@ typedef enum {
  * @port_id: the port id
  * @flags: extra flags
  * @buffer_id: a buffer id will be set
- * @offset: offset to get
- * @size: size to get
  * @event: output event
  * @status: a status
  *
@@ -127,8 +122,6 @@ typedef struct {
   uint32_t        port_id;
   SpaOutputFlags  flags;
   uint32_t        buffer_id;
-  off_t           offset;
-  size_t          size;
   SpaEvent       *event;
   SpaResult       status;
 } SpaOutputInfo;
@@ -416,9 +409,7 @@ struct _SpaNode {
 
   SpaResult   (*port_reuse_buffer)    (SpaNode              *node,
                                        uint32_t              port_id,
-                                       uint32_t              buffer_id,
-                                       off_t                 offset,
-                                       size_t                size);
+                                       uint32_t              buffer_id);
 
   SpaResult   (*port_get_status)      (SpaNode              *node,
                                        uint32_t              port_id,

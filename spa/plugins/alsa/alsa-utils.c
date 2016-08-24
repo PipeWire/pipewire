@@ -225,17 +225,11 @@ static void
 pull_input (SpaALSASink *this, void *data, snd_pcm_uframes_t frames)
 {
   SpaEvent event;
-  SpaEventPullInput pi;
 
-  event.type = SPA_EVENT_TYPE_PULL_INPUT;
+  event.type = SPA_EVENT_TYPE_NEED_INPUT;
   event.port_id = 0;
-  event.size = frames * sizeof (uint16_t) * 2;
-  event.data = &pi;
-
-  pi.buffer_id = this->buffer.buffer.id;
-  pi.offset = 0;
-  pi.size = frames * sizeof (uint16_t) * 2;
-
+  event.size = 0;
+  event.data = NULL;
   this->event_cb (&this->node, &event, this->user_data);
 }
 
@@ -372,6 +366,9 @@ spa_alsa_stop (SpaALSASink *this)
 {
   SpaALSAState *state = &this->state;
   SpaEvent event;
+
+  if (!state->opened)
+    return 0;
 
   snd_pcm_drop (state->handle);
 

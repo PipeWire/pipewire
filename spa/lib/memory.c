@@ -182,7 +182,7 @@ spa_memory_alloc_with_fd  (uint32_t pool_id, void *data, size_t size)
 
     seals = F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL;
     if (fcntl (mem->fd, F_ADD_SEALS, seals) == -1) {
-      fprintf (stderr, "Failed to write data: %s\n", strerror (errno));
+      fprintf (stderr, "Failed to add seals: %s\n", strerror (errno));
       close (mem->fd);
       return NULL;
     }
@@ -320,7 +320,7 @@ spa_memory_ensure_ptr (SpaMemory *mem)
   mem->ptr = mmap (NULL, mem->size, prot, MAP_SHARED, mem->fd, 0);
   if (mem->ptr == MAP_FAILED) {
     mem->ptr = NULL;
-    fprintf (stderr, "Failed to mmap memory %p: %s\n", mem, strerror (errno));
+    fprintf (stderr, "Failed to mmap memory %zd %p: %s\n", mem->size, mem, strerror (errno));
   }
   return mem->ptr;
 }

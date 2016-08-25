@@ -358,8 +358,6 @@ parse_props (SpaMemory *mem, void *p, off_t offset)
       pi->name = SPA_MEMBER (tp, SPA_PTR_TO_INT (pi->name), char);
     if (pi->description)
       pi->description = SPA_MEMBER (tp, SPA_PTR_TO_INT (pi->description), char);
-    if (pi->default_value)
-      pi->default_value = SPA_MEMBER (tp, SPA_PTR_TO_INT (pi->default_value), void);
     if (pi->range_values)
       pi->range_values = SPA_MEMBER (tp, SPA_PTR_TO_INT (pi->range_values), SpaPropRangeInfo);
 
@@ -528,7 +526,7 @@ spa_control_iter_parse_cmd (SpaControlIter *iter,
       break;
 
     case SPA_CONTROL_CMD_START:
-    case SPA_CONTROL_CMD_STOP:
+    case SPA_CONTROL_CMD_PAUSE:
       break;
 
     /* bidirectional */
@@ -814,8 +812,8 @@ calc_props_len (const SpaProps *props)
     len += sizeof (SpaPropInfo);
     len += pi->name ? strlen (pi->name) + 1 : 0;
     len += pi->description ? strlen (pi->description) + 1 : 0;
-    /* for the value and the default value */
-    len += pi->maxsize + pi->default_size;
+    /* for the value */
+    len += pi->maxsize;
     for (j = 0; j < pi->n_range_values; j++) {
       ri = (SpaPropRangeInfo *)&pi->range_values[j];
       len += sizeof (SpaPropRangeInfo);
@@ -878,13 +876,6 @@ write_props (void *p, const SpaProps *props, off_t offset)
       p += slen;
     } else {
       pi->description = 0;
-    }
-    if (pi->default_value) {
-      memcpy (p, pi->default_value, pi->default_size);
-      pi->default_value = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tp));
-      p += pi->default_size;
-    } else {
-      pi->default_value = 0;
     }
     for (j = 0; j < pi->n_range_values; j++) {
       if (ri->name) {
@@ -1157,7 +1148,7 @@ spa_control_builder_add_cmd (SpaControlBuilder *builder,
       break;
 
     case SPA_CONTROL_CMD_START:
-    case SPA_CONTROL_CMD_STOP:
+    case SPA_CONTROL_CMD_PAUSE:
       p = builder_add_cmd (sb, cmd, 0);
       break;
 

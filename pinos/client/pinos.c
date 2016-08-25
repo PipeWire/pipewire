@@ -17,7 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include <gst/gst.h>
+#include <glib.h>
 
 #include "pinos/client/pinos.h"
 #include "spa/include/spa/memory.h"
@@ -33,7 +33,6 @@
 void
 pinos_init (int *argc, char **argv[])
 {
-  gst_init (argc, argv);
   spa_memory_init ();
 }
 

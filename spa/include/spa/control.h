@@ -75,7 +75,7 @@ typedef enum {
   SPA_CONTROL_CMD_SET_PROPERTY             = 35,
 
   SPA_CONTROL_CMD_START                    = 36,
-  SPA_CONTROL_CMD_STOP                     = 37,
+  SPA_CONTROL_CMD_PAUSE                    = 37,
 
   /* both */
   SPA_CONTROL_CMD_ADD_MEM                  = 64,

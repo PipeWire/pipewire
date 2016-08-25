@@ -27,10 +27,53 @@
 SpaResult
 spa_format_to_string (const SpaFormat *format, char **result)
 {
-  SpaResult res;
-
   if (format == NULL || result == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
+  return SPA_RESULT_OK;
+}
+
+SpaResult
+spa_format_fixate (SpaFormat *format)
+{
+  unsigned int i, j;
+  SpaProps *props;
+  uint32_t mask;
+
+  if (format == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  props = &format->props;
+  mask = props->unset_mask;
+
+  for (i = 0; i < props->n_prop_info; i++) {
+    if (mask & 1) {
+      const SpaPropInfo *pi = &props->prop_info[i];
+
+      switch (pi->range_type) {
+        case SPA_PROP_RANGE_TYPE_NONE:
+          break;
+	case SPA_PROP_RANGE_TYPE_MIN_MAX:
+          break;
+	case SPA_PROP_RANGE_TYPE_STEP:
+          break;
+	case SPA_PROP_RANGE_TYPE_ENUM:
+        {
+          for (j = 0; j < pi->n_range_values; j++) {
+            const SpaPropRangeInfo *ri = &pi->range_values[j];
+            memcpy (SPA_MEMBER (props, pi->offset, void), ri->value, ri->size);
+            props->unset_mask &= ~(1 << i);
+            break;
+          }
+          break;
+        }
+	case SPA_PROP_RANGE_TYPE_FLAGS:
+          break;
+        default:
+          break;
+      }
+    }
+    mask >>= 1;
+  }
   return SPA_RESULT_OK;
 }

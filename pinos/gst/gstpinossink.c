@@ -45,7 +45,6 @@
 
 #include <spa/include/spa/buffer.h>
 
-#include "gsttmpfileallocator.h"
 #include "gstpinosformat.h"
 
 static GQuark process_mem_data_quark;
@@ -216,7 +215,7 @@ gst_pinos_sink_class_init (GstPinosSinkClass * klass)
 static void
 gst_pinos_sink_init (GstPinosSink * sink)
 {
-  sink->allocator = gst_tmpfile_allocator_new ();
+  sink->allocator = gst_fd_allocator_new ();
   sink->pool =  gst_pinos_pool_new ();
   sink->client_name = pinos_client_name();
   sink->mode = DEFAULT_PROP_MODE;

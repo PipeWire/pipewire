@@ -142,21 +142,18 @@ static const SpaPropInfo prop_info[] =
   { PROP_ID_DEVICE,            "device", "V4l2 device location",
                                 SPA_PROP_FLAG_READWRITE,
                                 SPA_PROP_TYPE_STRING, 63,
-                                strlen (default_device)+1, default_device,
                                 SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                 NULL,
                                 offsetof (SpaV4l2SourceProps, device) },
   { PROP_ID_DEVICE_NAME,       "device-name", "Human-readable name of the device",
                                 SPA_PROP_FLAG_READABLE,
                                 SPA_PROP_TYPE_STRING, 127,
-                                0, NULL,
                                 SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                 NULL,
                                 offsetof (SpaV4l2SourceProps, device_name) },
   { PROP_ID_DEVICE_FD,          "device-fd", "Device file descriptor",
                                 SPA_PROP_FLAG_READABLE,
                                 SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
-                                0, NULL,
                                 SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                 NULL,
                                 offsetof (SpaV4l2SourceProps, device_fd) },
@@ -237,7 +234,7 @@ spa_v4l2_source_node_send_command (SpaNode       *node,
 
       send_state_change (this, SPA_NODE_STATE_STREAMING);
       break;
-    case SPA_COMMAND_STOP:
+    case SPA_COMMAND_PAUSE:
       spa_v4l2_stop (this);
 
       send_state_change (this, SPA_NODE_STATE_PAUSED);

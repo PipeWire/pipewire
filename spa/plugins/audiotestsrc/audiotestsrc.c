@@ -87,21 +87,18 @@ static const SpaPropInfo prop_info[] =
   { PROP_ID_WAVE,              "wave", "Oscillator waveform",
                                SPA_PROP_FLAG_READWRITE,
                                SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
-                               sizeof (uint32_t), &default_wave,
                                SPA_PROP_RANGE_TYPE_ENUM, SPA_N_ELEMENTS (wave_range), wave_range,
                                NULL,
                                offsetof (SpaAudioTestSrcProps, wave) },
   { PROP_ID_FREQ,              "freq", "Frequency of test signal. The sample rate needs to be at least 4 times higher",
                                SPA_PROP_FLAG_READWRITE,
                                SPA_PROP_TYPE_DOUBLE, sizeof (double),
-                               sizeof (double), &default_freq,
                                SPA_PROP_RANGE_TYPE_MIN_MAX, 2, freq_range,
                                NULL,
                                offsetof (SpaAudioTestSrcProps, freq) },
   { PROP_ID_VOLUME,            "volume", "The Volume factor",
                                SPA_PROP_FLAG_READWRITE,
                                SPA_PROP_TYPE_DOUBLE, sizeof (double),
-                               sizeof (double), &default_volume,
                                SPA_PROP_RANGE_TYPE_MIN_MAX, 2, volume_range,
                                NULL,
                                offsetof (SpaAudioTestSrcProps, volume) },
@@ -185,7 +182,7 @@ spa_audiotestsrc_node_send_command (SpaNode       *node,
       }
       break;
 
-    case SPA_COMMAND_STOP:
+    case SPA_COMMAND_PAUSE:
       if (this->event_cb) {
         SpaEvent event;
         SpaEventStateChange sc;

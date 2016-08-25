@@ -156,7 +156,7 @@ spa_ffmpeg_enc_node_send_command (SpaNode       *node,
         this->event_cb (node, &event, this->user_data);
       }
       break;
-    case SPA_COMMAND_STOP:
+    case SPA_COMMAND_PAUSE:
       if (this->event_cb) {
         SpaEvent event;
         SpaEventStateChange sc;

@@ -89,6 +89,8 @@ typedef enum {
   SPA_PROP_ID_MEDIA_CUSTOM_START = 200,
 } SpaFormatProps;
 
+SpaResult  spa_format_fixate (SpaFormat *format);
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

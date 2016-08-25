@@ -385,13 +385,13 @@ spa_v4l2_set_format (SpaV4l2Source *this, V4l2Format *f, bool try_only)
   fmt.fmt.pix.field = V4L2_FIELD_ANY;
   fmt.fmt.pix.width = f->size.width;
   fmt.fmt.pix.height = f->size.height;
-  streamparm.parm.capture.timeperframe.numerator = f->framerate.denom;
-  streamparm.parm.capture.timeperframe.denominator = f->framerate.num;
+  streamparm.parm.capture.timeperframe.numerator = f->framerate.num;
+  streamparm.parm.capture.timeperframe.denominator = f->framerate.denom;
 
   fprintf (stderr, "set %08x %dx%d %d/%d\n", fmt.fmt.pix.pixelformat,
       fmt.fmt.pix.width, fmt.fmt.pix.height,
-      streamparm.parm.capture.timeperframe.denominator,
-      streamparm.parm.capture.timeperframe.numerator);
+      streamparm.parm.capture.timeperframe.numerator,
+      streamparm.parm.capture.timeperframe.denominator);
 
   reqfmt = fmt;
 
@@ -406,6 +406,11 @@ spa_v4l2_set_format (SpaV4l2Source *this, V4l2Format *f, bool try_only)
   /* some cheap USB cam's won't accept any change */
   if (xioctl (state->fd, VIDIOC_S_PARM, &streamparm) < 0)
     perror ("VIDIOC_S_PARM");
+
+  fprintf (stderr, "got %08x %dx%d %d/%d\n", fmt.fmt.pix.pixelformat,
+      fmt.fmt.pix.width, fmt.fmt.pix.height,
+      streamparm.parm.capture.timeperframe.numerator,
+      streamparm.parm.capture.timeperframe.denominator);
 
   if (reqfmt.fmt.pix.pixelformat != fmt.fmt.pix.pixelformat ||
       reqfmt.fmt.pix.width != fmt.fmt.pix.width ||

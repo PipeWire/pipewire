@@ -78,14 +78,12 @@ static const SpaPropInfo prop_info[] =
   { PROP_ID_VOLUME,            "volume", "The Volume factor",
                                SPA_PROP_FLAG_READWRITE,
                                SPA_PROP_TYPE_DOUBLE, sizeof (double),
-                               sizeof (double), &default_volume,
                                SPA_PROP_RANGE_TYPE_MIN_MAX, 2, volume_range,
                                NULL,
                                offsetof (SpaVolumeProps, volume) },
   { PROP_ID_MUTE,              "mute", "Mute",
                                SPA_PROP_FLAG_READWRITE,
                                SPA_PROP_TYPE_BOOL, sizeof (bool),
-                               sizeof (bool), &default_mute,
                                SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                NULL,
                                offsetof (SpaVolumeProps, mute) },
@@ -168,7 +166,7 @@ spa_volume_node_send_command (SpaNode       *node,
       }
       break;
 
-    case SPA_COMMAND_STOP:
+    case SPA_COMMAND_PAUSE:
       if (this->event_cb) {
         SpaEvent event;
         SpaEventStateChange sc;

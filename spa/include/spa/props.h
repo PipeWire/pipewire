@@ -119,8 +119,6 @@ typedef struct {
  * @flags: property flags
  * @type: property type
  * @max_size: maximum size of property value
- * @default_size: size of default value
- * @default_value: default value of property
  * @range_type: type of the range values
  * @n_range_values: number of elements in @range_values
  * @range_values: array of possible values
@@ -134,8 +132,6 @@ typedef struct {
   SpaPropFlags              flags;
   SpaPropType               type;
   size_t                    maxsize;
-  size_t                    default_size;
-  const void               *default_value;
   SpaPropRangeType          range_type;
   unsigned int              n_range_values;
   const SpaPropRangeInfo   *range_values;

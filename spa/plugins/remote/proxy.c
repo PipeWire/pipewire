@@ -91,7 +91,6 @@ static const SpaPropInfo prop_info[PROP_ID_LAST] =
   { PROP_ID_SOCKET,            "socket", "The Socket factor",
                                SPA_PROP_FLAG_READWRITE,
                                SPA_PROP_TYPE_INT, sizeof (int),
-                               sizeof (int), NULL,
                                SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                NULL,
                                offsetof (SpaProxyProps, socketfd) },
@@ -234,7 +233,7 @@ spa_proxy_node_send_command (SpaNode       *node,
       break;
     }
 
-    case SPA_COMMAND_STOP:
+    case SPA_COMMAND_PAUSE:
     {
       SpaControlBuilder builder;
       SpaControl control;
@@ -242,7 +241,7 @@ spa_proxy_node_send_command (SpaNode       *node,
 
       /* send start */
       spa_control_builder_init_into (&builder, buf, sizeof (buf), NULL, 0);
-      spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_STOP, NULL);
+      spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_PAUSE, NULL);
       spa_control_builder_end (&builder, &control);
 
       if ((res = spa_control_write (&control, this->fds[0].fd)) < 0)
@@ -342,13 +341,16 @@ do_update_port (SpaProxy                *this,
   SpaEvent event;
   SpaProxyPort *port;
   SpaEventPortAdded pa;
+  unsigned int i;
 
   port = &this->ports[pu->port_id];
-
 
   if (pu->change_mask & SPA_CONTROL_CMD_PORT_UPDATE_POSSIBLE_FORMATS) {
     port->n_formats = pu->n_possible_formats;
     port->formats = pu->possible_formats;
+
+    for (i = 0; i < port->n_formats; i++)
+      spa_debug_format (port->formats[i]);
   }
 
   if (pu->change_mask & SPA_CONTROL_CMD_PORT_UPDATE_PROPS) {
@@ -969,7 +971,7 @@ parse_control (SpaProxy   *this,
       case SPA_CONTROL_CMD_SET_FORMAT:
       case SPA_CONTROL_CMD_SET_PROPERTY:
       case SPA_CONTROL_CMD_START:
-      case SPA_CONTROL_CMD_STOP:
+      case SPA_CONTROL_CMD_PAUSE:
         fprintf (stderr, "proxy %p: got unexpected control %d\n", this, cmd);
         break;
 

@@ -100,21 +100,18 @@ static const SpaPropInfo prop_info[] =
   { PROP_ID_DEVICE,            "device", "Xv device location",
                                 SPA_PROP_FLAG_READWRITE,
                                 SPA_PROP_TYPE_STRING, 63,
-                                strlen (default_device)+1, default_device,
                                 SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                 NULL,
                                 offsetof (SpaXvSinkProps, device) },
   { PROP_ID_DEVICE_NAME,       "device-name", "Human-readable name of the device",
                                 SPA_PROP_FLAG_READABLE,
                                 SPA_PROP_TYPE_STRING, 127,
-                                0, NULL,
                                 SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                 NULL,
                                 offsetof (SpaXvSinkProps, device_name) },
   { PROP_ID_DEVICE_FD,          "device-fd", "Device file descriptor",
                                 SPA_PROP_FLAG_READABLE,
                                 SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
-                                0, NULL,
                                 SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                 NULL,
                                 offsetof (SpaXvSinkProps, device_fd) },
@@ -192,7 +189,7 @@ spa_xv_sink_node_send_command (SpaNode       *node,
         this->event_cb (node, &event, this->user_data);
       }
       break;
-    case SPA_COMMAND_STOP:
+    case SPA_COMMAND_PAUSE:
       spa_xv_stop (this);
 
       if (this->event_cb) {

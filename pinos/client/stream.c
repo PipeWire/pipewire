@@ -769,7 +769,7 @@ parse_control (PinosStream *stream,
         stream_set_state (stream, PINOS_STREAM_STATE_STREAMING, NULL);
         break;
       }
-      case SPA_CONTROL_CMD_STOP:
+      case SPA_CONTROL_CMD_PAUSE:
       {
         SpaControlBuilder builder;
         SpaControl control;
@@ -1292,7 +1292,7 @@ do_stop (PinosStream *stream)
   SpaControlBuilder builder;
 
   control_builder_init (stream, &builder);
-  spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_STOP, NULL);
+  spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_PAUSE, NULL);
   g_object_unref (stream);
 
   return FALSE;

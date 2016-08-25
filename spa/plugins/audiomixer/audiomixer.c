@@ -161,7 +161,7 @@ spa_audiomixer_node_send_command (SpaNode       *node,
       }
       break;
 
-    case SPA_COMMAND_STOP:
+    case SPA_COMMAND_PAUSE:
       if (this->event_cb) {
         SpaEvent event;
         SpaEventStateChange sc;

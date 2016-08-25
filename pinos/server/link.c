@@ -252,6 +252,8 @@ again:
   }
   spa_debug_format (format);
 
+  spa_format_fixate (format);
+
   if ((res = spa_node_port_set_format (priv->output_node, priv->output_port, 0, format)) < 0) {
     g_warning ("error set format output: %d", res);
     return res;
@@ -383,13 +385,13 @@ do_start (PinosLink *this)
 }
 
 static SpaResult
-do_stop (PinosLink *this)
+do_pause (PinosLink *this)
 {
   PinosLinkPrivate *priv = this->priv;
   SpaCommand cmd;
   SpaResult res;
 
-  cmd.type = SPA_COMMAND_STOP;
+  cmd.type = SPA_COMMAND_PAUSE;
   if ((res = spa_node_send_command (priv->input_node, &cmd)) < 0)
     g_warning ("got error %d", res);
   if ((res = spa_node_send_command (priv->output_node, &cmd)) < 0)
@@ -476,7 +478,7 @@ on_deactivate (PinosPort *port, gpointer user_data)
   else
     pinos_port_deactivate (priv->input);
 
-  do_stop (this);
+  do_pause (this);
 
   return TRUE;
 }

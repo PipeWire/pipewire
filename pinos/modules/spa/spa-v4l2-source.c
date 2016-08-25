@@ -238,7 +238,7 @@ stop_pipeline (PinosSpaV4l2Source *this)
     pthread_join (priv->thread, NULL);
   }
 
-  cmd.type = SPA_COMMAND_STOP;
+  cmd.type = SPA_COMMAND_PAUSE;
   if ((res = spa_node_send_command (node->node, &cmd)) < 0)
     g_debug ("got error %d", res);
 }

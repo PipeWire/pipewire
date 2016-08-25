@@ -328,12 +328,6 @@ spa_debug_props (const SpaProps *props, bool print_ranges)
 
     fprintf (stderr, "%-23.23s %s. ", "", prop_type_names[info->type].CCName);
 
-    fprintf (stderr, "Default: ");
-    if (info->default_value)
-      print_value (info, info->default_size, info->default_value);
-    else
-      fprintf (stderr, "None");
-
     res = spa_props_get_prop (props, i, &value);
 
     fprintf (stderr, ". Current: ");

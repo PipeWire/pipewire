@@ -161,8 +161,6 @@ pinos_monitor_LDFLAGS = $(AM_LDFLAGS) $(BINLDFLAGS)
 #         Client library          #
 ###################################
 
-pinosgstsource = gst/gsttmpfileallocator.h gst/gsttmpfileallocator.c
-
 pinosinclude_HEADERS = \
 		client/context.h \
 		client/enumtypes.h \
@@ -189,13 +187,11 @@ libpinos_@PINOS_MAJORMINOR@_la_SOURCES = \
 		client/pinos.c client/pinos.h \
 		client/fdmanager.c client/fdmanager.h \
 		client/ringbuffer.c client/ringbuffer.h \
-		client/subscribe.c client/subscribe.h \
-		$(pinosgstsource)
+		client/subscribe.c client/subscribe.h
 
-
-libpinos_@PINOS_MAJORMINOR@_la_CFLAGS = $(AM_CFLAGS) $(GST_CFLAGS)
+libpinos_@PINOS_MAJORMINOR@_la_CFLAGS = $(AM_CFLAGS)
 libpinos_@PINOS_MAJORMINOR@_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version
-libpinos_@PINOS_MAJORMINOR@_la_LIBADD = $(AM_LIBADD) $(LTLIBICONV) $(GST_LIBS) $(GST_BASE_LIBS) -lgstvideo-1.0 -lgstaudio-1.0
+libpinos_@PINOS_MAJORMINOR@_la_LIBADD = $(AM_LIBADD) $(LTLIBICONV)
 
 ###################################
 #      Daemon core library        #
@@ -241,24 +237,16 @@ libgstpinos_la_SOURCES = \
                         gst/gstpinossrc.c \
                         gst/gstpinossink.c  \
                         gst/gstpinospool.c
-                        #gst/gstpinosdepay.c
-                        #gst/gstpinosportsrc.c
-                        #gst/gstpinosportsink.c
-                        #gst/gstpinossocketsink.c
-                        #gst/gstpinospay.c
 
 libgstpinos_la_CFLAGS = $(GST_PLUGINS_BASE_CFLAGS) $(GST_BASE_CFLAGS) $(GST_CFLAGS) $(GLIB_CFLAGS)
 libgstpinos_la_LDFLAGS = $(AM_LDFLAGS) $(GST_PLUGIN_LDFLAGS)
-libgstpinos_la_LIBADD =  $(GST_BASE_LIBS) $(GST_LIBS) $(GLIB_LIBS) $(LIBM) -lgstvideo-1.0 \
+libgstpinos_la_LIBADD =  $(GST_BASE_LIBS) $(GST_LIBS) $(GLIB_LIBS) $(LIBM) -lgstvideo-1.0 -lgstaudio-1.0 \
 			 libpinos-@PINOS_MAJORMINOR@.la libpinoscore-@PINOS_MAJORMINOR@.la $(AM_LIBADD)
 libgstpinos_la_LIBTOOLFLAGS = $(GST_PLUGIN_LIBTOOLFLAGS)
 
 noinst_HEADERS = gst/gstburstcache.h gst/gstpinossrc.h \
-		 gst/gstpinossocketsink.h gst/gstpinosportsink.h \
-		 gst/gstpinosportsrc.h \
 		 gst/gstpinosformat.h \
-		 gst/gstpinossink.h gst/gstpinospay.h \
-		 gst/gstpinosdepay.h gst/gstpinosdeviceprovider.h
+		 gst/gstpinossink.h gst/gstpinosdeviceprovider.h
 
 ###################################
 #        Some minor stuff         #

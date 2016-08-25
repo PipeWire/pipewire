@@ -331,7 +331,7 @@ run_async_sink (AppData *data)
     pthread_join (data->thread, NULL);
   }
 
-  cmd.type = SPA_COMMAND_STOP;
+  cmd.type = SPA_COMMAND_PAUSE;
   if ((res = spa_node_send_command (data->sink, &cmd)) < 0)
     printf ("got error %d\n", res);
 }

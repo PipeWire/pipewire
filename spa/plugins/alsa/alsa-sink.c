@@ -126,42 +126,36 @@ static const SpaPropInfo prop_info[] =
   { PROP_ID_DEVICE,            "device", "ALSA device, as defined in an asound configuration file",
                                 SPA_PROP_FLAG_READWRITE,
                                 SPA_PROP_TYPE_STRING, 63,
-                                strlen (default_device)+1, default_device,
                                 SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                 NULL,
                                 offsetof (SpaALSASinkProps, device) },
   { PROP_ID_DEVICE_NAME,       "device-name", "Human-readable name of the sound device",
                                 SPA_PROP_FLAG_READABLE,
                                 SPA_PROP_TYPE_STRING, 127,
-                                0, NULL,
                                 SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                 NULL,
                                 offsetof (SpaALSASinkProps, device_name) },
   { PROP_ID_CARD_NAME,         "card-name", "Human-readable name of the sound card",
                                 SPA_PROP_FLAG_READABLE,
                                 SPA_PROP_TYPE_STRING, 127,
-                                0, NULL,
                                 SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                 NULL,
                                 offsetof (SpaALSASinkProps, card_name) },
   { PROP_ID_BUFFER_TIME,       "buffer-time", "The total size of the buffer in time",
                                 SPA_PROP_FLAG_READWRITE,
                                 SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
-                                sizeof (uint32_t), &default_buffer_time,
                                 SPA_PROP_RANGE_TYPE_MIN_MAX, 2, uint32_range,
                                 NULL,
                                 offsetof (SpaALSASinkProps, buffer_time) },
   { PROP_ID_PERIOD_TIME,       "period-time", "The size of a period in time",
                                 SPA_PROP_FLAG_READWRITE,
                                 SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
-                                sizeof (uint32_t), &default_period_time,
                                 SPA_PROP_RANGE_TYPE_MIN_MAX, 2, uint32_range,
                                 NULL,
                                 offsetof (SpaALSASinkProps, period_time) },
   { PROP_ID_PERIOD_EVENT,      "period-event", "Generate an event each period",
                                 SPA_PROP_FLAG_READWRITE,
                                 SPA_PROP_TYPE_BOOL, sizeof (bool),
-                                sizeof (bool), &default_period_event,
                                 SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                 NULL,
                                 offsetof (SpaALSASinkProps, period_event) },
@@ -239,7 +233,7 @@ spa_alsa_sink_node_send_command (SpaNode       *node,
         this->event_cb (node, &event, this->user_data);
       }
       break;
-    case SPA_COMMAND_STOP:
+    case SPA_COMMAND_PAUSE:
       spa_alsa_stop (this);
 
       if (this->event_cb) {
@@ -250,7 +244,7 @@ spa_alsa_sink_node_send_command (SpaNode       *node,
         event.port_id = -1;
         event.data = &sc;
         event.size = sizeof (sc);
-        sc.state = SPA_NODE_STATE_STREAMING;
+        sc.state = SPA_NODE_STATE_PAUSED;
 
         this->event_cb (node, &event, this->user_data);
       }

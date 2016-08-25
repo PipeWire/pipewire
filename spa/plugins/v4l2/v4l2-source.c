@@ -119,6 +119,7 @@ typedef struct {
 struct _SpaV4l2Source {
   SpaHandle handle;
   SpaNode node;
+  SpaNodeState node_state;
 
   SpaV4l2SourceProps props[2];
 
@@ -201,10 +202,15 @@ spa_v4l2_source_node_set_props (SpaNode         *node,
 }
 
 static void
-send_state_change (SpaV4l2Source *this, SpaNodeState state)
+update_state (SpaV4l2Source *this, SpaNodeState state)
 {
   SpaEvent event;
   SpaEventStateChange sc;
+
+  if (this->node_state == state)
+    return;
+
+  this->node_state = state;
 
   event.type = SPA_EVENT_TYPE_STATE_CHANGE;
   event.port_id = -1;
@@ -219,6 +225,7 @@ spa_v4l2_source_node_send_command (SpaNode       *node,
                                    SpaCommand    *command)
 {
   SpaV4l2Source *this;
+  SpaResult res;
 
   if (node == NULL || node->handle == NULL || command == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -230,15 +237,37 @@ spa_v4l2_source_node_send_command (SpaNode       *node,
       return SPA_RESULT_INVALID_COMMAND;
 
     case SPA_COMMAND_START:
-      spa_v4l2_start (this);
+    {
+      SpaV4l2State *state = &this->state[0];
 
-      send_state_change (this, SPA_NODE_STATE_STREAMING);
+      if (state->current_format == NULL)
+        return SPA_RESULT_NO_FORMAT;
+
+      if (!state->have_buffers)
+        return SPA_RESULT_NO_BUFFERS;
+
+      if ((res = spa_v4l2_start (this)) < 0)
+        return res;
+
+      update_state (this, SPA_NODE_STATE_STREAMING);
       break;
+    }
     case SPA_COMMAND_PAUSE:
-      spa_v4l2_stop (this);
+    {
+      SpaV4l2State *state = &this->state[0];
 
-      send_state_change (this, SPA_NODE_STATE_PAUSED);
+      if (state->current_format == NULL)
+        return SPA_RESULT_NO_FORMAT;
+
+      if (!state->have_buffers)
+        return SPA_RESULT_NO_BUFFERS;
+
+      if ((res = spa_v4l2_pause (this)) < 0)
+        return res;
+
+      update_state (this, SPA_NODE_STATE_PAUSED);
       break;
+    }
 
     case SPA_COMMAND_FLUSH:
     case SPA_COMMAND_DRAIN:
@@ -263,7 +292,7 @@ spa_v4l2_source_node_set_event_callback (SpaNode       *node,
   this->event_cb = event;
   this->user_data = user_data;
 
-  send_state_change (this, SPA_NODE_STATE_CONFIGURE);
+  update_state (this, SPA_NODE_STATE_CONFIGURE);
 
   return SPA_RESULT_OK;
 }
@@ -385,6 +414,8 @@ spa_v4l2_source_node_port_set_format (SpaNode            *node,
   state = &this->state[port_id];
 
   if (format == NULL) {
+    spa_v4l2_clear_buffers (this);
+    spa_v4l2_close (this);
     state->current_format = NULL;
     return SPA_RESULT_OK;
   }
@@ -410,6 +441,11 @@ spa_v4l2_source_node_port_set_format (SpaNode            *node,
        f->size.width == state->current_format->size.width &&
        f->size.height == state->current_format->size.height)
       return SPA_RESULT_OK;
+
+    if (!(flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY)) {
+      spa_v4l2_use_buffers (this, NULL, 0);
+      state->current_format = NULL;
+    }
   }
 
   if (spa_v4l2_set_format (this, f, flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY) < 0)
@@ -419,7 +455,7 @@ spa_v4l2_source_node_port_set_format (SpaNode            *node,
     memcpy (tf, f, fs);
     state->current_format = tf;
 
-    send_state_change (this, SPA_NODE_STATE_READY);
+    update_state (this, SPA_NODE_STATE_READY);
   }
 
   return SPA_RESULT_OK;
@@ -494,6 +530,8 @@ spa_v4l2_source_node_port_use_buffers (SpaNode         *node,
                                        uint32_t         n_buffers)
 {
   SpaV4l2Source *this;
+  SpaV4l2State *state;
+  SpaResult res;
 
   if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -503,9 +541,26 @@ spa_v4l2_source_node_port_use_buffers (SpaNode         *node,
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
 
-  spa_v4l2_import_buffers (this, buffers, n_buffers);
+  state = &this->state[port_id];
 
-  return SPA_RESULT_OK;
+  if (state->current_format == NULL)
+    return SPA_RESULT_NO_FORMAT;
+
+  if (state->have_buffers) {
+    if ((res = spa_v4l2_clear_buffers (this)) < 0)
+      return res;
+  }
+  if (buffers != NULL) {
+    if ((res = spa_v4l2_use_buffers (this, buffers, n_buffers)) < 0)
+      return res;
+  }
+
+  if (state->have_buffers)
+    update_state (this, SPA_NODE_STATE_PAUSED);
+  else
+    update_state (this, SPA_NODE_STATE_READY);
+
+  return res;
 }
 
 static SpaResult
@@ -517,6 +572,8 @@ spa_v4l2_source_node_port_alloc_buffers (SpaNode         *node,
                                          unsigned int    *n_buffers)
 {
   SpaV4l2Source *this;
+  SpaV4l2State *state;
+  SpaResult res;
 
   if (node == NULL || node->handle == NULL || buffers == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -526,9 +583,17 @@ spa_v4l2_source_node_port_alloc_buffers (SpaNode         *node,
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
 
-  spa_v4l2_alloc_buffers (this, params, n_params, buffers, n_buffers);
+  state = &this->state[port_id];
 
-  return SPA_RESULT_OK;
+  if (state->current_format == NULL)
+    return SPA_RESULT_NO_FORMAT;
+
+  res = spa_v4l2_alloc_buffers (this, params, n_params, buffers, n_buffers);
+
+  if (state->have_buffers)
+    update_state (this, SPA_NODE_STATE_PAUSED);
+
+  return res;
 }
 
 static SpaResult
@@ -537,6 +602,8 @@ spa_v4l2_source_node_port_reuse_buffer (SpaNode         *node,
                                         uint32_t         buffer_id)
 {
   SpaV4l2Source *this;
+  SpaV4l2State *state;
+  SpaResult res;
 
   if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -546,9 +613,17 @@ spa_v4l2_source_node_port_reuse_buffer (SpaNode         *node,
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
 
-  spa_v4l2_buffer_recycle (this, buffer_id);
+  state = &this->state[port_id];
 
-  return SPA_RESULT_OK;
+  if (!state->have_buffers)
+    return SPA_RESULT_NO_BUFFERS;
+
+  if (buffer_id >= state->reqbuf.count)
+    return SPA_RESULT_INVALID_BUFFER_ID;
+
+  res = spa_v4l2_buffer_recycle (this, buffer_id);
+
+  return res;
 }
 
 static SpaResult
@@ -709,6 +784,8 @@ v4l2_source_init (const SpaHandleFactory  *factory,
   this->state[0].status.flags = SPA_PORT_STATUS_FLAG_NONE;
 
   this->state[0].export_buf = true;
+
+  this->node_state = SPA_NODE_STATE_INIT;
 
   return SPA_RESULT_OK;
 }

@@ -38,7 +38,7 @@
 #include "pinos/client/private.h"
 
 #define MAX_BUFFER_SIZE 4096
-#define MAX_FDS         16
+#define MAX_FDS         32
 
 typedef struct {
   bool cleanup;
@@ -808,9 +808,6 @@ parse_control (PinosStream *stream,
           mem->fd = fd;
           mem->ptr = NULL;
           mem->size = p.size;
-        } else {
-          g_debug ("duplicated mem %d,%d, %d, %d", p.mem.pool_id, p.mem.id, fd, p.flags);
-          close (fd);
         }
         break;
       }

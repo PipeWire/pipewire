@@ -723,10 +723,15 @@ spa_control_builder_add_fd (SpaControlBuilder *builder,
                             bool               close)
 {
   struct stack_builder *sb = SCSB (builder);
-  int index;
+  int index, i;
 
   if (!is_valid_builder (builder) || fd < 0)
     return -1;
+
+  for (i = 0; i < sb->control.n_fds; i++) {
+    if (sb->control.fds[i] == fd || sb->control.fds[i] == -fd)
+      return i;
+  }
 
   if (sb->control.n_fds >= sb->control.max_fds) {
     int new_size = sb->control.max_fds + 8;

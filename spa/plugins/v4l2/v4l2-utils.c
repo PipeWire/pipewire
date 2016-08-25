@@ -66,12 +66,66 @@ spa_v4l2_open (SpaV4l2Source *this)
   return 0;
 }
 
+static SpaResult
+spa_v4l2_buffer_recycle (SpaV4l2Source *this, uint32_t buffer_id)
+{
+  SpaV4l2State *state = &this->state[0];
+  V4l2Buffer *b = &state->alloc_buffers[buffer_id];
+
+  if (!b->outstanding)
+    return SPA_RESULT_OK;
+
+  b->outstanding = false;
+
+  if (xioctl (state->fd, VIDIOC_QBUF, &b->v4l2_buffer) < 0) {
+    perror ("VIDIOC_QBUF");
+  }
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
+spa_v4l2_clear_buffers (SpaV4l2Source *this)
+{
+  SpaV4l2State *state = &this->state[0];
+  int i;
+
+  if (!state->have_buffers)
+    return SPA_RESULT_OK;
+
+  for (i = 0; i < state->reqbuf.count; i++) {
+    V4l2Buffer *b;
+    SpaMemory *mem;
+
+    b = &state->alloc_buffers[i];
+    if (b->outstanding) {
+      fprintf (stderr, "queueing outstanding buffer %p\n", b);
+      spa_v4l2_buffer_recycle (this, i);
+    }
+    mem = spa_memory_find (&b->datas[0].mem.mem);
+    if (state->export_buf) {
+      close (mem->fd);
+    } else {
+      munmap (mem->ptr, mem->size);
+    }
+    spa_memory_unref (&mem->mem);
+  }
+  if (state->alloc_mem)
+    spa_memory_unref (&state->alloc_mem->mem);
+
+  state->have_buffers = false;
+
+  return SPA_RESULT_OK;
+}
+
 static int
 spa_v4l2_close (SpaV4l2Source *this)
 {
   SpaV4l2State *state = &this->state[0];
 
   if (!state->opened)
+    return 0;
+
+  if (state->have_buffers)
     return 0;
 
   fprintf (stderr, "close\n");
@@ -491,65 +545,12 @@ v4l2_on_fd_events (SpaPollNotifyData *data)
   return 0;
 }
 
-static void
-spa_v4l2_buffer_recycle (SpaV4l2Source *this, uint32_t buffer_id)
-{
-  SpaV4l2State *state = &this->state[0];
-  V4l2Buffer *b = &state->alloc_buffers[buffer_id];
-
-  if (!b->outstanding)
-    return;
-
-  b->outstanding = false;
-
-  if (xioctl (state->fd, VIDIOC_QBUF, &b->v4l2_buffer) < 0) {
-    perror ("VIDIOC_QBUF");
-  }
-}
-
-static void
-clear_buffers (SpaV4l2Source *this)
-{
-  SpaV4l2State *state = &this->state[0];
-  int i;
-
-  if (!state->have_buffers)
-    return;
-
-  for (i = 0; i < state->reqbuf.count; i++) {
-    V4l2Buffer *b;
-    SpaMemory *mem;
-
-    b = &state->alloc_buffers[i];
-    if (b->outstanding) {
-      fprintf (stderr, "queueing outstanding buffer %p\n", b);
-      spa_v4l2_buffer_recycle (this, i);
-    }
-    mem = spa_memory_find (&b->datas[0].mem.mem);
-    if (state->export_buf) {
-      close (mem->fd);
-    } else {
-      munmap (mem->ptr, mem->size);
-    }
-    spa_memory_unref (&mem->mem);
-  }
-  if (state->alloc_mem)
-    spa_memory_unref (&state->alloc_mem->mem);
-
-  state->have_buffers = false;
-}
-
 static SpaResult
-spa_v4l2_import_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffers)
+spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffers)
 {
   SpaV4l2State *state = &this->state[0];
   struct v4l2_requestbuffers reqbuf;
   int i;
-
-  if (buffers == NULL) {
-    clear_buffers (this);
-    return SPA_RESULT_OK;
-  }
 
   state->memtype = V4L2_MEMORY_USERPTR;
 
@@ -797,11 +798,11 @@ spa_v4l2_start (SpaV4l2Source *this)
   enum v4l2_buf_type type;
   SpaEvent event;
 
-  if (spa_v4l2_open (this) < 0)
+  type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  if (xioctl (state->fd, VIDIOC_STREAMON, &type) < 0) {
+    perror ("VIDIOC_STREAMON");
     return SPA_RESULT_ERROR;
-
-  if (!state->have_buffers)
-    return SPA_RESULT_NO_BUFFERS;
+  }
 
   event.type = SPA_EVENT_TYPE_ADD_POLL;
   event.port_id = 0;
@@ -821,31 +822,15 @@ spa_v4l2_start (SpaV4l2Source *this)
   state->poll.user_data = this;
   this->event_cb (&this->node, &event, this->user_data);
 
-  type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-  if (xioctl (state->fd, VIDIOC_STREAMON, &type) < 0) {
-    perror ("VIDIOC_STREAMON");
-    return SPA_RESULT_ERROR;
-  }
   return SPA_RESULT_OK;
 }
 
 static SpaResult
-spa_v4l2_stop (SpaV4l2Source *this)
+spa_v4l2_pause (SpaV4l2Source *this)
 {
   SpaV4l2State *state = &this->state[0];
   enum v4l2_buf_type type;
   SpaEvent event;
-
-  if (!state->opened)
-    return SPA_RESULT_OK;
-
-  type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-  if (xioctl (state->fd, VIDIOC_STREAMOFF, &type) < 0) {
-    perror ("VIDIOC_STREAMOFF");
-    return SPA_RESULT_ERROR;
-  }
-
-  clear_buffers (this);
 
   event.type = SPA_EVENT_TYPE_REMOVE_POLL;
   event.port_id = 0;
@@ -853,7 +838,11 @@ spa_v4l2_stop (SpaV4l2Source *this)
   event.size = sizeof (state->poll);
   this->event_cb (&this->node, &event, this->user_data);
 
-  spa_v4l2_close (this);
+  type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  if (xioctl (state->fd, VIDIOC_STREAMOFF, &type) < 0) {
+    perror ("VIDIOC_STREAMOFF");
+    return SPA_RESULT_ERROR;
+  }
 
   return SPA_RESULT_OK;
 }

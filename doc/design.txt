@@ -27,16 +27,9 @@ Daemon1:   the main pinos daemon
 Client1:   a connected client, the result object from call
            Daemon1.ConnectClient
            /org/pinos/client*
-Device1:   a physical device on the machine, devices can provide
-           processing nodes
-           /org/pinos/device*
 Node1:     a processing node, this can be a source, sink or transform
-           element.
+           element. Nodes have ports
            /org/pinos/node*
-Port1:     a port on a Node1, ports can be input or output ports
-           /org/pinos/node*/port*
-Channel1:  a communication channel between a client and port
-           /org/pinos/client/channel*
 Link1:     a link between 2 ports
            /org/pinos/link*
 
@@ -47,138 +40,23 @@ DBus protocol
 The main daemon is registered on the session bus with name: org.pinos
 
 Various Node1 objects are registered in the server based on the available
-sources or sinks of content. Source1 has properties and has format descriptions of
-what it can provide.
+sources or sinks of content. Node1 has properties and its ports have format
+descriptions of what it can provide or consume.
 
-First a client needs to register with pinos by calling 
-org.pinos.Daemon1.ConnectClient(). This creates a new Client1 object that
-the client must use for further communication.
+First a client needs to register a Node1 with pinos by calling
+org.pinos.Daemon1.CreateClientNode(). This creates a new Client1 object and
+a Node 1 object that the client must use for further communication.
 
-A client can then do org.pinos.Client1.CreateChannel() to create a
-new Channel to retrieve/send data from/to a node. It can specify a node/port
-explicitly or let the server choose a port. The client must provide a list
-of formats it can handle along with extra properties that can help with 
-selecting an appropriate port.
-
-A client can then call org.pinos.Channel1.Start() to negotiate the final
-media format and start the data transfer. A new fd is returned to the client
-along with the negotiated format and properties.
-
-All further media transport is then performed on the fd. The client will read
-from the fd to get data and metadata from the server. The wire format is
-generic and extensible and allows for inline serialized events such as
-property changes and format changes.
+A client then needs to use the pinos protocol to control the Node1. It will
+also receive commands and notifications from pinos.
 
 
 fd management
 -------------
 
-Pinos shares data between clients by using fd passing. Sometimes the memory
-referenced by the fd needs to be reused. It is important that all pinos
-clients lost their reference to the fd before it can be reused.
-
-What follows are some scenarios of how the lifecycle of the fds are
-managed.
-
-* server side
-
-          v4l2src    pinossocketsink
-              |          |
-              |          |
-make buffer   |--------->|
-              |          | (1)
-              |          | (2) ----->
-              |          | (3)
-              |...       | ...
-              |          |
-              |          | (4) <-----
-              |<---------|
-
-
-(1) pinossocketsink generates the pinos message from the v4l2 input
-    buffer. It is assumed in the next steps that the sink
-    receives fd-memory from v4l2src and that the memory is only
-    freed again when no clients are looking at the fd.
-(2) pinossocketsink sends the buffer to N Pinos clients
-(3) for each client that is sent a buffer, pinossocketsink uses the
-    fdmanager object to map the fd-index that was
-    sent, to the buffer and client. The buffer is reffed and kept
-    alive for as long as the client is using the buffer.
-(4) when a message is received from a client, pinossocketsink
-    parses the message and instructs the fdmanager to release
-    the fd-index again. When all clients release the fd, the buffer
-    will be unreffed and v4l2src can reuse the memory.
-
-* client consumer
-
-            pinossrc           xvimagesink
-               |                    |
-   -------> (1)|------------------->| (2)
-               |                    |
-               |         (3)        |
-               |<-------------------|
-   <------- (4)|                    |
-               |                    |
-
-
-(1) pinossrc receives a buffer from Pinos and wraps the fd with data
-    in an fd-memory. It remembers the fd-index as qdata on the memory.
-    It has a special DestroyNotify on the qdata.
-(2) xvimagesink renders the buffer and frees the buffer.
-(3) freeing the buffer causes the qdata DestoyNotify to be called.
-(4) pinossrc constructs a release-fd message and sends it to Pinos
-
-* client producer
-
-
-          videotestsrc          pinossink
-               |                    |
-            (1)|------------------->|
-               |                    | (2) ----->
-               |                    |
-               |  (4)               | (3) <-----
-               |<-------------------|
-
-
-(1) videotestsrc produces a buffer
-(2) pinossink makes a PinosBuffer from the input buffer. It will also
-    keep the buffer in a hash table indexed by the fd-index.
-(3) pinossink receives an fd-release message from Pinos. It removes
-    the fd-index from the hashtable and
-    the hashtable and the buffer is unreffed
-(4) the fd is returned to videotestsrc for reuse.
-
-
-* client producer, server side
-
-          socketsrc    pinossocketsink
-              |            |
-  ------> (1) |         (2)|
-              |----------->|
-              |            | (3) -------->
-              |            |  ....
-              |         (4)|
-              |            |  ....
-              |            |
-              |         (6)| (5) <--------
-  <------- (7)|<-----------|
-              |            |
-
-
-(1) pinos buffer arrives from a client. socketsrc wraps the
-    fd
-(2) pinossocketsink sets a weak-ref on the buffer to know when it is
-    freed.
-(3) pinossocketsink sends the buffer to the clients
-(4) for each buffer that is sent, the sink uses the fdmanager to map the
-    fd-index to a buffer and a client. it keeps a ref on the buffer
-(5) release-fd is received from a client
-(6) pinossocketsink removes the fd-index from the fdmanager. If all
-    clients released the fd, the buffer will be freeds, triggering
-    the DestroyNotify. This will then trigger an event with a release-fd
-    message to the source.
-(7) the source sends the release-fd message to Pinos
-
+Clients receive fds with buffers and memory after a format was negotiated.
+Updates to these buffers are notified by a message containing the id of the
+buffer.
 
 * client remove
 
@@ -187,194 +65,11 @@ that it received. Pinos will force a release and will reuse the fd-indexes
 when the client disconnects.
 
 
-
 Wire
 ----
 
-Fixed header
-
-
-  0                   1                   2                   3
-  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |                           Version                             |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |                            Flags                              |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |                           Length                              |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-Version     : 4 bytes       : message version
-Flags       : 4 bytes       : extra flags
-Length      : 4 bytes       : total message length
-
-
-Followed by 1 or more type-length-data sections
-
-  0                   1                   2                   3
-  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |  Type         |         Len    ...                            |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |                           Data  ....                          |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-<type>   : 1 byte
-<length> : variable length, 7 bits, high bit is continuation marker
-<data>   : <length> bytes, see below for contents based on <type>
-
-Types:
-
- 1: continuation section
-
-  0                   1                   2                   3
-  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |                          Offset ...                           |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |  ....                                                         |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |                          Size   ...                           |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |  ....                                                         |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-   Rest of the commands can be found in the shared memory region at
-   @offset and @size. A shared memory region is negotiated when the client
-   connects to the server.
-
-   <offset>     : 8 bytes      : offset
-   <size>       : 8 bytes      : size
-
- 2: header
-
-   Header for payload
-
-  0                   1                   2                   3
-  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |                          flags                                |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |                           seq                                 |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |                          PTS    ...                           |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |  ....                                                         |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |                        DTS-offset ...                         |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |  ....                                                         |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-
-   <flags>      : 4 bytes      : buffer flags
-   <seq>        : 4 bytes      : sequence number
-   <pts>        : 8 bytes      : presentation time
-   <dts-offset> : 8 bytes      : dts-offset
-
- 3: fd-payload section
-
-   Used to send a block of data between client and server. The type of fd and
-   the possible operations on it are negotiated when the client connects.
-
-  0                   1                   2                   3
-  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |                          id                                   |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |                         offset ...                            |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |  ....                                                         |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |                         size   ...                            |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |  ....                                                         |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |                         fd-index                              |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-   <id>         : 4 bytes      : id of the fd-payload
-   <offset>     : 8 bytes      : offset
-   <size>       : 8 bytes      : size
-   <fd-index>   : 4 bytes      : index of fd
-
- 4: release fd-payload
-
-   Release a fd-payload with <id>
-
-  0                   1                   2                   3
-  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |                          id                                   |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-   <id>         : 4 bytes      : the id number of the released fd-payload
-
- 5: format change
-
-   Perform an in-band format change. The following data blocks will be in this
-   new format.
-
-  0                   1                   2                   3
-  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |    id         |          format .....                         |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |    ......                                                     |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-   <format-id>  : 1 byte       : format id
-   <format>     : 0-terminated : contains serialized format
-
- 6: property changes
-
-   Notify a property change.
-
-  0                   1                   2                   3
-  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |    key  ....                        ..                        |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |    ......                                                     |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |    value ....                                                 |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |    ......                                                     |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-   <key>       : 0-terminated   : key
-   <value>     : 0-terminated   : value
-   ...                          : more key/values to fill length, 0 key or
-                                  message length is end
-
-
-7: refresh request
-
-  Request a new refresh point
-
-  0                   1                   2                   3
-  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |                           last-id                             |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |                        request-type                           |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |                          PTS    ...                           |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |  ....                                                         |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-   <last-id>      : the last seen id
-   <request-type> : the type of request
-                     0 = keyframe
-                     1 = keyframe+full headers
-   <PTS>          : the timestamp when the refresh should be,
-                     0 for as soon as possible
-
-
-
-communication channel
----------------------
+The wire protocol for the node control channel is a serialization of
+structures.
 
 
                +-----+   +----+   +----+

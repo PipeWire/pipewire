@@ -58,6 +58,7 @@ typedef enum {
   SPA_RESULT_UNEXPECTED                = -26,
   SPA_RESULT_NO_BUFFERS                = -27,
   SPA_RESULT_INVALID_BUFFER_ID         = -28,
+  SPA_RESULT_WRONG_STATE               = -29,
 } SpaResult;
 
 typedef enum {

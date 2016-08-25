@@ -68,10 +68,6 @@
     <property name='Sender' type='s' access='read' />
     <!-- Name: Properties of the client -->
     <property name='Properties' type='a{sv}' access='read' />
-
-
-
-
   </interface>
 
   <!--

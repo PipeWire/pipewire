@@ -457,7 +457,7 @@ static const SpaPropInfo format_prop_info[] =
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                     SPA_PROP_RANGE_TYPE_ENUM, SPA_N_ELEMENTS (color_primaries_range), color_primaries_range,
                                     NULL },
-  { SPA_PROP_ID_VIDEO_RAW_INFO,     0,
+  { SPA_PROP_ID_VIDEO_INFO_RAW,     0,
                                     "info", "the SpaVideoRawInfo structure",
                                     SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL,
                                     SPA_PROP_TYPE_POINTER, sizeof (SpaVideoInfoRaw),
@@ -491,38 +491,87 @@ spa_format_video_init (SpaMediaType     type,
                        SpaMediaSubType  subtype,
                        SpaFormatVideo  *format)
 {
-  static SpaPropInfo raw_format_prop_info[] = {
-    { SPA_PROP_ID_VIDEO_FORMAT,             offsetof (SpaFormatVideo, info.raw.format) },
-    { SPA_PROP_ID_VIDEO_SIZE,               offsetof (SpaFormatVideo, info.raw.size) },
-    { SPA_PROP_ID_VIDEO_FRAMERATE,          offsetof (SpaFormatVideo, info.raw.framerate) },
-    { SPA_PROP_ID_VIDEO_MAX_FRAMERATE,      offsetof (SpaFormatVideo, info.raw.max_framerate) },
-    { SPA_PROP_ID_VIDEO_VIEWS,              offsetof (SpaFormatVideo, info.raw.views) },
-    { SPA_PROP_ID_VIDEO_INTERLACE_MODE,     offsetof (SpaFormatVideo, info.raw.interlace_mode) },
-    { SPA_PROP_ID_VIDEO_PIXEL_ASPECT_RATIO, offsetof (SpaFormatVideo, info.raw.pixel_aspect_ratio) },
-    { SPA_PROP_ID_VIDEO_MULTIVIEW_MODE,     offsetof (SpaFormatVideo, info.raw.multiview_mode) },
-    { SPA_PROP_ID_VIDEO_MULTIVIEW_FLAGS,    offsetof (SpaFormatVideo, info.raw.multiview_flags) },
-    { SPA_PROP_ID_VIDEO_CHROMA_SITE,        offsetof (SpaFormatVideo, info.raw.chroma_site) },
-    { SPA_PROP_ID_VIDEO_COLOR_RANGE,        offsetof (SpaFormatVideo, info.raw.color_range) },
-    { SPA_PROP_ID_VIDEO_COLOR_MATRIX,       offsetof (SpaFormatVideo, info.raw.color_matrix) },
-    { SPA_PROP_ID_VIDEO_TRANSFER_FUNCTION,  offsetof (SpaFormatVideo, info.raw.transfer_function) },
-    { SPA_PROP_ID_VIDEO_COLOR_PRIMARIES,    offsetof (SpaFormatVideo, info.raw.color_primaries) },
-    { SPA_PROP_ID_VIDEO_RAW_INFO,           offsetof (SpaFormatVideo, info.raw ) },
-  };
+  SpaPropInfo *prop_info = NULL;
+  unsigned int n_prop_info = 0;
+  int i;
 
-  if (raw_format_prop_info[0].name == NULL) {
-    int i;
-    for (i = 0; i < SPA_N_ELEMENTS (raw_format_prop_info); i++)
-      spa_prop_info_fill_video (&raw_format_prop_info[i],
-                                raw_format_prop_info[i].id,
-                                raw_format_prop_info[i].offset);
+  if (type != SPA_MEDIA_TYPE_VIDEO)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  switch (subtype) {
+    case SPA_MEDIA_SUBTYPE_RAW:
+    {
+      static SpaPropInfo raw_prop_info[] = {
+        { SPA_PROP_ID_VIDEO_FORMAT,             offsetof (SpaFormatVideo, info.raw.format) },
+        { SPA_PROP_ID_VIDEO_SIZE,               offsetof (SpaFormatVideo, info.raw.size) },
+        { SPA_PROP_ID_VIDEO_FRAMERATE,          offsetof (SpaFormatVideo, info.raw.framerate) },
+        { SPA_PROP_ID_VIDEO_MAX_FRAMERATE,      offsetof (SpaFormatVideo, info.raw.max_framerate) },
+        { SPA_PROP_ID_VIDEO_VIEWS,              offsetof (SpaFormatVideo, info.raw.views) },
+        { SPA_PROP_ID_VIDEO_INTERLACE_MODE,     offsetof (SpaFormatVideo, info.raw.interlace_mode) },
+        { SPA_PROP_ID_VIDEO_PIXEL_ASPECT_RATIO, offsetof (SpaFormatVideo, info.raw.pixel_aspect_ratio) },
+        { SPA_PROP_ID_VIDEO_MULTIVIEW_MODE,     offsetof (SpaFormatVideo, info.raw.multiview_mode) },
+        { SPA_PROP_ID_VIDEO_MULTIVIEW_FLAGS,    offsetof (SpaFormatVideo, info.raw.multiview_flags) },
+        { SPA_PROP_ID_VIDEO_CHROMA_SITE,        offsetof (SpaFormatVideo, info.raw.chroma_site) },
+        { SPA_PROP_ID_VIDEO_COLOR_RANGE,        offsetof (SpaFormatVideo, info.raw.color_range) },
+        { SPA_PROP_ID_VIDEO_COLOR_MATRIX,       offsetof (SpaFormatVideo, info.raw.color_matrix) },
+        { SPA_PROP_ID_VIDEO_TRANSFER_FUNCTION,  offsetof (SpaFormatVideo, info.raw.transfer_function) },
+        { SPA_PROP_ID_VIDEO_COLOR_PRIMARIES,    offsetof (SpaFormatVideo, info.raw.color_primaries) },
+        { SPA_PROP_ID_VIDEO_INFO_RAW,           offsetof (SpaFormatVideo, info.raw) },
+      };
+      prop_info = raw_prop_info;
+      n_prop_info = SPA_N_ELEMENTS (raw_prop_info);
+      format->format.props.unset_mask = (1 << 14)-1;
+      format->info.raw = default_raw_info;
+      break;
+    }
+
+    case SPA_MEDIA_SUBTYPE_H264:
+      return SPA_RESULT_NOT_IMPLEMENTED;
+
+    case SPA_MEDIA_SUBTYPE_MJPG:
+    {
+      static SpaPropInfo mjpg_prop_info[] = {
+        { SPA_PROP_ID_VIDEO_SIZE,               offsetof (SpaFormatVideo, info.mjpg.size) },
+        { SPA_PROP_ID_VIDEO_FRAMERATE,          offsetof (SpaFormatVideo, info.mjpg.framerate) },
+        { SPA_PROP_ID_VIDEO_MAX_FRAMERATE,      offsetof (SpaFormatVideo, info.mjpg.max_framerate) },
+        { SPA_PROP_ID_VIDEO_INFO_MJPG,          offsetof (SpaFormatVideo, info.mjpg) },
+      };
+      prop_info = mjpg_prop_info;
+      n_prop_info = SPA_N_ELEMENTS (mjpg_prop_info);
+      format->format.props.unset_mask = (1 << 3)-1;
+      format->info.raw = default_raw_info;
+      break;
+    }
+
+    case SPA_MEDIA_SUBTYPE_DV:
+    case SPA_MEDIA_SUBTYPE_MPEGTS:
+    case SPA_MEDIA_SUBTYPE_H263:
+    case SPA_MEDIA_SUBTYPE_MPEG1:
+    case SPA_MEDIA_SUBTYPE_MPEG2:
+    case SPA_MEDIA_SUBTYPE_MPEG4:
+    case SPA_MEDIA_SUBTYPE_XVID:
+    case SPA_MEDIA_SUBTYPE_VC1:
+    case SPA_MEDIA_SUBTYPE_VP8:
+    case SPA_MEDIA_SUBTYPE_VP9:
+    case SPA_MEDIA_SUBTYPE_JPEG:
+    case SPA_MEDIA_SUBTYPE_BAYER:
+      return SPA_RESULT_NOT_IMPLEMENTED;
+
+    default:
+      return SPA_RESULT_INVALID_ARGUMENTS;
+  }
+
+  if (prop_info && prop_info[0].name == NULL) {
+    for (i = 0; i < n_prop_info; i++)
+      spa_prop_info_fill_video (&prop_info[i],
+                                prop_info[i].id,
+                                prop_info[i].offset);
   }
 
   format->format.media_type = type;
   format->format.media_subtype = subtype;
-  format->format.props.n_prop_info = SPA_N_ELEMENTS (raw_format_prop_info);
-  format->format.props.prop_info = raw_format_prop_info;
-  format->format.props.unset_mask = (1 << 14)-1;
-  format->info.raw = default_raw_info;
+  format->format.props.n_prop_info = n_prop_info;
+  format->format.props.prop_info = prop_info;
 
   return SPA_RESULT_OK;
 }
@@ -546,7 +595,7 @@ spa_format_video_parse (const SpaFormat *format,
                          vformat);
 
   props = &format->props;
-  if ((res = spa_props_get_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_RAW_INFO), &value)) < 0)
+  if ((res = spa_props_get_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_INFO_RAW), &value)) < 0)
     goto fallback;
 
   if (value.type != SPA_PROP_TYPE_POINTER)

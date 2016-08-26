@@ -24,12 +24,12 @@
 extern "C" {
 #endif
 
-typedef struct _SpaVideoInfoJPEG SpaVideoInfoJPEG;
+typedef struct _SpaVideoInfoMJPG SpaVideoInfoMJPG;
 
 #include <spa/format.h>
 #include <spa/video/format.h>
 
-struct _SpaVideoInfoJPEG {
+struct _SpaVideoInfoMJPG {
   SpaRectangle              size;
   SpaFraction               framerate;
   SpaFraction               max_framerate;

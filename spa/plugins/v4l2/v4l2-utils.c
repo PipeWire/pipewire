@@ -463,7 +463,7 @@ static int
 spa_v4l2_set_format (SpaV4l2Source *this, V4l2Format *f, bool try_only)
 {
   SpaV4l2State *state = &this->state[0];
-  int cmd = try_only ? VIDIOC_TRY_FMT : VIDIOC_S_FMT;
+  int cmd;
   struct v4l2_format reqfmt, fmt;
   struct v4l2_streamparm streamparm;
   const FormatInfo *info = NULL;
@@ -500,6 +500,7 @@ spa_v4l2_set_format (SpaV4l2Source *this, V4l2Format *f, bool try_only)
   if (spa_v4l2_open (this) < 0)
     return -1;
 
+  cmd = try_only ? VIDIOC_TRY_FMT : VIDIOC_S_FMT;
   if (xioctl (state->fd, cmd, &fmt) < 0) {
     perror ("VIDIOC_S_FMT");
     return -1;

@@ -173,7 +173,7 @@ static const SpaPropInfo format_prop_info[] =
                                     SPA_PROP_TYPE_BITMASK, sizeof (uint32_t),
                                     SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                     NULL },
-  { SPA_PROP_ID_AUDIO_RAW_INFO,     0,
+  { SPA_PROP_ID_AUDIO_INFO_RAW,     0,
                                     "info", "the SpaAudioInfoRaw structure",
                                     SPA_PROP_FLAG_READWRITE,
                                     SPA_PROP_TYPE_POINTER, sizeof (SpaAudioInfoRaw),
@@ -186,52 +186,84 @@ spa_prop_info_fill_audio (SpaPropInfo    *info,
                           SpaPropIdAudio  id,
                           size_t          offset)
 {
-  unsigned int i;
+  int i;
 
   if (info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  for (i = 0; i < SPA_N_ELEMENTS (format_prop_info); i++) {
-    if (format_prop_info[i].id == id) {
-      memcpy (info, &format_prop_info[i], sizeof (SpaPropInfo));
-      info->offset = offset;
-      return SPA_RESULT_OK;
-    }
-  }
-  return SPA_RESULT_INVALID_PROPERTY_INDEX;
+  i = id - SPA_PROP_ID_MEDIA_CUSTOM_START;
+
+  if (i < 0 || i >= SPA_N_ELEMENTS (format_prop_info))
+    return SPA_RESULT_INVALID_PROPERTY_INDEX;
+
+  memcpy (info, &format_prop_info[i], sizeof (SpaPropInfo));
+  info->offset = offset;
+
+  return SPA_RESULT_OK;
 }
+
 
 SpaResult
 spa_format_audio_init (SpaMediaType     type,
                        SpaMediaSubType  subtype,
                        SpaFormatAudio  *format)
 {
-  static SpaPropInfo raw_format_prop_info[] =
-  {
-    { SPA_PROP_ID_AUDIO_FORMAT,       offsetof (SpaFormatAudio, info.raw.format), },
-    { SPA_PROP_ID_AUDIO_FLAGS,        offsetof (SpaFormatAudio, info.raw.flags), },
-    { SPA_PROP_ID_AUDIO_LAYOUT,       offsetof (SpaFormatAudio, info.raw.layout), },
-    { SPA_PROP_ID_AUDIO_RATE,         offsetof (SpaFormatAudio, info.raw.rate), },
-    { SPA_PROP_ID_AUDIO_CHANNELS,     offsetof (SpaFormatAudio, info.raw.channels), },
-    { SPA_PROP_ID_AUDIO_CHANNEL_MASK, offsetof (SpaFormatAudio, info.raw.channel_mask), },
-    { SPA_PROP_ID_AUDIO_RAW_INFO,     offsetof (SpaFormatAudio, info), },
-  };
+  SpaPropInfo *prop_info = NULL;
+  unsigned int n_prop_info = 0;
+  int i;
 
-  if (raw_format_prop_info[0].name == NULL) {
-    int i;
+  if (type != SPA_MEDIA_TYPE_AUDIO)
+    return SPA_RESULT_INVALID_ARGUMENTS;
 
-    for (i = 0; i < SPA_N_ELEMENTS (raw_format_prop_info); i++)
-      spa_prop_info_fill_audio (&raw_format_prop_info[i],
-                                raw_format_prop_info[i].id,
-                                raw_format_prop_info[i].offset);
+  switch (subtype) {
+    case SPA_MEDIA_SUBTYPE_RAW:
+    {
+      static SpaPropInfo raw_format_prop_info[] =
+      {
+        { SPA_PROP_ID_AUDIO_FORMAT,       offsetof (SpaFormatAudio, info.raw.format), },
+        { SPA_PROP_ID_AUDIO_FLAGS,        offsetof (SpaFormatAudio, info.raw.flags), },
+        { SPA_PROP_ID_AUDIO_LAYOUT,       offsetof (SpaFormatAudio, info.raw.layout), },
+        { SPA_PROP_ID_AUDIO_RATE,         offsetof (SpaFormatAudio, info.raw.rate), },
+        { SPA_PROP_ID_AUDIO_CHANNELS,     offsetof (SpaFormatAudio, info.raw.channels), },
+        { SPA_PROP_ID_AUDIO_CHANNEL_MASK, offsetof (SpaFormatAudio, info.raw.channel_mask), },
+        { SPA_PROP_ID_AUDIO_INFO_RAW,     offsetof (SpaFormatAudio, info), },
+      };
+      prop_info = raw_format_prop_info;
+      n_prop_info = SPA_N_ELEMENTS (raw_format_prop_info);
+      format->format.props.unset_mask = (1 << 0) | (1 << 2) | (1 << 3) | (1 << 4);
+      format->info.raw = default_raw_info;
+      break;
+    }
+
+    case SPA_MEDIA_SUBTYPE_MP3:
+    case SPA_MEDIA_SUBTYPE_AAC:
+    case SPA_MEDIA_SUBTYPE_VORBIS:
+    case SPA_MEDIA_SUBTYPE_WMA:
+    case SPA_MEDIA_SUBTYPE_RA:
+    case SPA_MEDIA_SUBTYPE_SBC:
+    case SPA_MEDIA_SUBTYPE_ADPCM:
+    case SPA_MEDIA_SUBTYPE_G723:
+    case SPA_MEDIA_SUBTYPE_G726:
+    case SPA_MEDIA_SUBTYPE_G729:
+    case SPA_MEDIA_SUBTYPE_AMR:
+    case SPA_MEDIA_SUBTYPE_GSM:
+      break;
+
+    default:
+      return SPA_RESULT_INVALID_ARGUMENTS;
+  }
+
+  if (prop_info && prop_info[0].name == NULL) {
+    for (i = 0; i < n_prop_info; i++)
+      spa_prop_info_fill_audio (&prop_info[i],
+                                prop_info[i].id,
+                                prop_info[i].offset);
   }
 
   format->format.media_type = type;
   format->format.media_subtype = subtype;
-  format->format.props.n_prop_info = SPA_N_ELEMENTS (raw_format_prop_info);
-  format->format.props.prop_info = raw_format_prop_info;
-  format->format.props.unset_mask = (1 << 0) | (1 << 2) | (1 << 3) | (1 << 4);
-  format->info.raw = default_raw_info;
+  format->format.props.n_prop_info = n_prop_info;
+  format->format.props.prop_info = prop_info;
 
   return SPA_RESULT_OK;
 }
@@ -255,7 +287,7 @@ spa_format_audio_parse (const SpaFormat *format,
                          aformat);
 
   props = &format->props;
-  if ((res = spa_props_get_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_RAW_INFO), &value)) < 0)
+  if ((res = spa_props_get_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_INFO_RAW), &value)) < 0)
     goto fallback;
 
   if (value.type != SPA_PROP_TYPE_POINTER || value.size != sizeof (SpaAudioInfoRaw))

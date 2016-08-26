@@ -36,7 +36,7 @@ typedef enum {
   SPA_PROP_ID_AUDIO_RATE,
   SPA_PROP_ID_AUDIO_CHANNELS,
   SPA_PROP_ID_AUDIO_CHANNEL_MASK,
-  SPA_PROP_ID_AUDIO_RAW_INFO,
+  SPA_PROP_ID_AUDIO_INFO_RAW,
 } SpaPropIdAudio;
 
 SpaResult   spa_prop_info_fill_audio (SpaPropInfo     *info,

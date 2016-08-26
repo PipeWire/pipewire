@@ -168,18 +168,23 @@ spa_debug_dump_mem (const void *mem, size_t size)
 
 struct media_type_name {
   const char *name;
+  unsigned int first;
+  unsigned int last;
+  unsigned int idx;
 } media_type_names[] = {
-  { "invalid" },
-  { "audio" },
-  { "video" },
-  { "image" },
+  { "invalid", 0, 0, 0 },
+  { "audio", SPA_MEDIA_SUBTYPE_AUDIO_FIRST, SPA_MEDIA_SUBTYPE_AUDIO_LAST, 16 },
+  { "video", SPA_MEDIA_SUBTYPE_VIDEO_FIRST, SPA_MEDIA_SUBTYPE_VIDEO_LAST, 2 },
+  { "image", 0, 0 },
 };
 
 struct media_subtype_name {
   const char *name;
 } media_subtype_names[] = {
   { "invalid" },
+
   { "raw" },
+
   { "h264" },
   { "mjpg" },
   { "dv" },
@@ -194,8 +199,19 @@ struct media_subtype_name {
   { "vp9" },
   { "jpeg" },
   { "bayer" },
+
   { "mp3" },
   { "aac" },
+  { "vorbis" },
+  { "wma" },
+  { "ra" },
+  { "sbc" },
+  { "adpcm" },
+  { "g723" },
+  { "g726" },
+  { "g729" },
+  { "amr" },
+  { "gsm" },
 };
 
 struct prop_type_name {
@@ -400,7 +416,7 @@ SpaResult
 spa_debug_format (const SpaFormat *format)
 {
   const SpaProps *props;
-  int i;
+  int i, first, last, idx;
   const char *media_type;
   const char *media_subtype;
 
@@ -409,13 +425,22 @@ spa_debug_format (const SpaFormat *format)
 
   props = &format->props;
 
-  if (format->media_type > 0 && format->media_type < SPA_N_ELEMENTS (media_type_names))
+  if (format->media_type > 0 && format->media_type < SPA_N_ELEMENTS (media_type_names)) {
     media_type = media_type_names[format->media_type].name;
-  else
+    first = media_type_names[format->media_type].first;
+    last = media_type_names[format->media_type].last;
+    idx = media_type_names[format->media_type].idx;
+  }
+  else {
     media_type = "unknown";
+    idx = first = last = -1;
+  }
 
-  if (format->media_subtype > 0 && format->media_subtype < SPA_N_ELEMENTS (media_subtype_names))
+  if (format->media_subtype >= SPA_MEDIA_SUBTYPE_ANY_FIRST &&
+      format->media_subtype <= SPA_MEDIA_SUBTYPE_ANY_LAST) {
     media_subtype = media_subtype_names[format->media_subtype].name;
+  } else if (format->media_subtype >= first && format->media_subtype <= last)
+    media_subtype = media_subtype_names[format->media_subtype - first + idx].name;
   else
     media_subtype = "unknown";
 

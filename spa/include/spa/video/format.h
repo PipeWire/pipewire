@@ -45,7 +45,8 @@ typedef enum {
   SPA_PROP_ID_VIDEO_COLOR_MATRIX,
   SPA_PROP_ID_VIDEO_TRANSFER_FUNCTION,
   SPA_PROP_ID_VIDEO_COLOR_PRIMARIES,
-  SPA_PROP_ID_VIDEO_RAW_INFO,
+  SPA_PROP_ID_VIDEO_INFO_RAW,
+  SPA_PROP_ID_VIDEO_INFO_MJPG,
 } SpaPropIdVideo;
 
 SpaResult   spa_prop_info_fill_video    (SpaPropInfo     *info,
@@ -62,7 +63,7 @@ struct _SpaFormatVideo {
   SpaFormat format;
   union {
     SpaVideoInfoRaw raw;
-    SpaVideoInfoJPEG jpeg;
+    SpaVideoInfoMJPG mjpg;
   } info;
 };
 

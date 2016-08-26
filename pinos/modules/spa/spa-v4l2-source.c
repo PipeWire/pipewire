@@ -224,23 +224,30 @@ setup_node (PinosSpaV4l2Source *this)
 }
 
 static void
-stop_pipeline (PinosSpaV4l2Source *this)
+pause_pipeline (PinosSpaV4l2Source *this)
 {
-  PinosSpaV4l2SourcePrivate *priv = this->priv;
   PinosNode *node = PINOS_NODE (this);
   SpaResult res;
   SpaCommand cmd;
 
-  g_debug ("spa-v4l2-source %p: stopping pipeline", this);
-
-  if (priv->running) {
-    priv->running = false;
-    pthread_join (priv->thread, NULL);
-  }
+  g_debug ("spa-v4l2-source %p: pause pipeline", this);
 
   cmd.type = SPA_COMMAND_PAUSE;
   if ((res = spa_node_send_command (node->node, &cmd)) < 0)
     g_debug ("got error %d", res);
+}
+
+static void
+suspend_pipeline (PinosSpaV4l2Source *this)
+{
+  PinosNode *node = PINOS_NODE (this);
+  SpaResult res;
+
+  g_debug ("spa-v4l2-source %p: suspend pipeline", this);
+
+  if ((res = spa_node_port_set_format (node->node, 0, 0, NULL)) < 0) {
+    g_warning ("error unset format output: %d", res);
+  }
 }
 
 static void
@@ -259,13 +266,14 @@ set_state (PinosNode      *node,
 
   switch (state) {
     case PINOS_NODE_STATE_SUSPENDED:
+      suspend_pipeline (this);
       break;
 
     case PINOS_NODE_STATE_INITIALIZING:
       break;
 
     case PINOS_NODE_STATE_IDLE:
-      stop_pipeline (this);
+      pause_pipeline (this);
       break;
 
     case PINOS_NODE_STATE_RUNNING:

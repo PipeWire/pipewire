@@ -88,12 +88,12 @@ enum {
 
 static const SpaPropInfo prop_info[PROP_ID_LAST] =
 {
-  { PROP_ID_SOCKET,            "socket", "The Socket factor",
+  { PROP_ID_SOCKET,            offsetof (SpaProxyProps, socketfd),
+                               "socket", "The Socket factor",
                                SPA_PROP_FLAG_READWRITE,
                                SPA_PROP_TYPE_INT, sizeof (int),
                                SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
-                               NULL,
-                               offsetof (SpaProxyProps, socketfd) },
+                               NULL },
 };
 
 static void
@@ -626,10 +626,9 @@ spa_proxy_node_port_get_status (SpaNode              *node,
 }
 
 static SpaResult
-add_buffer (SpaProxy *this, SpaControlBuilder *builder, uint32_t port_id, SpaBuffer *buffer)
+add_buffer_mem (SpaProxy *this, SpaControlBuilder *builder, uint32_t port_id, SpaBuffer *buffer)
 {
   SpaControlCmdAddMem am;
-  SpaControlCmdAddBuffer ab;
   int i;
   SpaBuffer *b;
   SpaMemory *bmem;
@@ -661,6 +660,10 @@ add_buffer (SpaProxy *this, SpaControlBuilder *builder, uint32_t port_id, SpaBuf
       fprintf (stderr, "proxy %p: error invalid memory\n", this);
       continue;
     }
+    if (mem->fd == -1) {
+      fprintf (stderr, "proxy %p: error memory without fd\n", this);
+      continue;
+    }
 
     am.port_id = port_id;
     am.mem = mem->mem;
@@ -670,41 +673,9 @@ add_buffer (SpaProxy *this, SpaControlBuilder *builder, uint32_t port_id, SpaBuf
     am.size = mem->size;
     spa_control_builder_add_cmd (builder, SPA_CONTROL_CMD_ADD_MEM, &am);
   }
-  ab.port_id = port_id;
-  ab.buffer_id = b->id;
-  ab.mem.mem = bmem->mem;
-  ab.mem.offset = b->mem.offset;
-  ab.mem.size = b->mem.size;
-  spa_control_builder_add_cmd (builder, SPA_CONTROL_CMD_ADD_BUFFER, &ab);
 
   return SPA_RESULT_OK;
 }
-
-static SpaResult
-remove_buffer (SpaProxy *this, SpaControlBuilder *builder, uint32_t port_id, SpaBuffer *buffer)
-{
-  SpaControlCmdRemoveBuffer rb;
-  SpaControlCmdRemoveMem rm;
-  unsigned int i;
-
-  rb.port_id = port_id;
-  rb.buffer_id = buffer->id;
-  spa_control_builder_add_cmd (builder, SPA_CONTROL_CMD_REMOVE_BUFFER, &rb);
-  rm.port_id = port_id;
-  rm.mem = buffer->mem.mem;
-  spa_control_builder_add_cmd (builder, SPA_CONTROL_CMD_REMOVE_MEM, &rm);
-
-  for (i = 0; i < buffer->n_datas; i++) {
-    SpaData *d = &SPA_BUFFER_DATAS (buffer)[i];
-
-    rm.port_id = port_id;
-    rm.mem = d->mem.mem;
-    spa_control_builder_add_cmd (builder, SPA_CONTROL_CMD_REMOVE_MEM, &rm);
-  }
-
-  return SPA_RESULT_OK;
-}
-
 
 static SpaResult
 spa_proxy_node_port_use_buffers (SpaNode         *node,
@@ -720,6 +691,7 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
   uint8_t buf[4096];
   int fds[32];
   SpaResult res;
+  SpaControlCmdUseBuffers ub;
 
   if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -737,9 +709,6 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
 
   spa_control_builder_init_into (&builder, buf, sizeof (buf), fds, sizeof (fds));
 
-  for (i = 0; i < port->n_buffers; i++)
-    remove_buffer (this, &builder, port_id, port->buffers[i]);
-
   if (buffers == NULL || n_buffers == 0) {
     port->buffers = NULL;
     port->n_buffers = 0;
@@ -748,7 +717,12 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
     port->n_buffers = n_buffers;
   }
   for (i = 0; i < port->n_buffers; i++)
-    add_buffer (this, &builder, port_id, port->buffers[i]);
+    add_buffer_mem (this, &builder, port_id, port->buffers[i]);
+
+  ub.port_id = port_id;
+  ub.n_buffers = port->n_buffers;
+  ub.buffers = port->buffers;
+  spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_USE_BUFFERS, &ub);
 
   spa_control_builder_end (&builder, &control);
 
@@ -1044,9 +1018,7 @@ parse_control (SpaProxy   *this,
         break;
       case SPA_CONTROL_CMD_REMOVE_MEM:
         break;
-      case SPA_CONTROL_CMD_ADD_BUFFER:
-        break;
-      case SPA_CONTROL_CMD_REMOVE_BUFFER:
+      case SPA_CONTROL_CMD_USE_BUFFERS:
         break;
 
       case SPA_CONTROL_CMD_PROCESS_BUFFER:

@@ -135,55 +135,95 @@ static const SpaPropRangeInfo uint32_range[] = {
   { "max", "Maximum value", 4, &max_uint32 },
 };
 
-static const SpaPropInfo raw_format_prop_info[] =
+static const SpaPropInfo format_prop_info[] =
 {
-  { SPA_PROP_ID_AUDIO_FORMAT,       "format", "The media format",
+  { SPA_PROP_ID_AUDIO_FORMAT,       0,
+                                    "format", "The media format",
                                     SPA_PROP_FLAG_READWRITE,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                     SPA_PROP_RANGE_TYPE_ENUM, SPA_N_ELEMENTS (format_format_range), format_format_range,
-                                    NULL,
-                                    offsetof (SpaAudioRawFormat, info.format) },
-  { SPA_PROP_ID_AUDIO_FLAGS,        "flags", "Sample Flags",
+                                    NULL },
+  { SPA_PROP_ID_AUDIO_FLAGS,        0,
+                                    "flags", "Sample Flags",
                                     SPA_PROP_FLAG_READWRITE,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                     SPA_PROP_RANGE_TYPE_FLAGS, SPA_N_ELEMENTS (flags_range), flags_range,
-                                    NULL,
-                                    offsetof (SpaAudioRawFormat, info.flags) },
-  { SPA_PROP_ID_AUDIO_LAYOUT,       "layout", "Sample Layout",
+                                    NULL },
+  { SPA_PROP_ID_AUDIO_LAYOUT,       0,
+                                    "layout", "Sample Layout",
                                     SPA_PROP_FLAG_READWRITE,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                     SPA_PROP_RANGE_TYPE_ENUM, SPA_N_ELEMENTS (layouts_range), layouts_range,
-                                    NULL,
-                                    offsetof (SpaAudioRawFormat, info.layout) },
-  { SPA_PROP_ID_AUDIO_RATE,         "rate", "Audio sample rate",
+                                    NULL },
+  { SPA_PROP_ID_AUDIO_RATE,         0,
+                                    "rate", "Audio sample rate",
                                     SPA_PROP_FLAG_READWRITE,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                     SPA_PROP_RANGE_TYPE_MIN_MAX, 2, uint32_range,
-                                    NULL,
-                                    offsetof (SpaAudioRawFormat, info.rate) },
-  { SPA_PROP_ID_AUDIO_CHANNELS,     "channels", "Audio channels",
+                                    NULL },
+  { SPA_PROP_ID_AUDIO_CHANNELS,     0,
+                                    "channels", "Audio channels",
                                     SPA_PROP_FLAG_READWRITE,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                     SPA_PROP_RANGE_TYPE_MIN_MAX, 2, uint32_range,
-                                    NULL,
-                                    offsetof (SpaAudioRawFormat, info.channels) },
-  { SPA_PROP_ID_AUDIO_CHANNEL_MASK, "channel-mask", "Audio channel mask",
+                                    NULL },
+  { SPA_PROP_ID_AUDIO_CHANNEL_MASK, 0,
+                                    "channel-mask", "Audio channel mask",
                                     SPA_PROP_FLAG_READWRITE,
                                     SPA_PROP_TYPE_BITMASK, sizeof (uint32_t),
                                     SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
-                                    NULL,
-                                    offsetof (SpaAudioRawFormat, info.channel_mask) },
-  { SPA_PROP_ID_AUDIO_RAW_INFO,     "info", "the SpaAudioRawInfo structure",
+                                    NULL },
+  { SPA_PROP_ID_AUDIO_RAW_INFO,     0,
+                                    "info", "the SpaAudioRawInfo structure",
                                     SPA_PROP_FLAG_READWRITE,
                                     SPA_PROP_TYPE_POINTER, sizeof (SpaAudioRawInfo),
                                     SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
-                                    NULL,
-                                    offsetof (SpaAudioRawFormat, info) },
+                                    NULL },
 };
+
+SpaResult
+spa_prop_info_fill_audio (SpaPropInfo    *info,
+                          SpaPropIdAudio  id,
+                          size_t          offset)
+{
+  unsigned int i;
+
+  if (info == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  for (i = 0; i < SPA_N_ELEMENTS (format_prop_info); i++) {
+    if (format_prop_info[i].id == id) {
+      memcpy (info, &format_prop_info[i], sizeof (SpaPropInfo));
+      info->offset = offset;
+      return SPA_RESULT_OK;
+    }
+  }
+  return SPA_RESULT_INVALID_PROPERTY_INDEX;
+}
 
 SpaResult
 spa_audio_raw_format_init (SpaAudioRawFormat *format)
 {
+  static SpaPropInfo raw_format_prop_info[] =
+  {
+    { SPA_PROP_ID_AUDIO_FORMAT,       offsetof (SpaAudioRawFormat, info.format), },
+    { SPA_PROP_ID_AUDIO_FLAGS,        offsetof (SpaAudioRawFormat, info.flags), },
+    { SPA_PROP_ID_AUDIO_LAYOUT,       offsetof (SpaAudioRawFormat, info.layout), },
+    { SPA_PROP_ID_AUDIO_RATE,         offsetof (SpaAudioRawFormat, info.rate), },
+    { SPA_PROP_ID_AUDIO_CHANNELS,     offsetof (SpaAudioRawFormat, info.channels), },
+    { SPA_PROP_ID_AUDIO_CHANNEL_MASK, offsetof (SpaAudioRawFormat, info.channel_mask), },
+    { SPA_PROP_ID_AUDIO_RAW_INFO,     offsetof (SpaAudioRawFormat, info), },
+  };
+
+  if (raw_format_prop_info[0].name == NULL) {
+    int i;
+
+    for (i = 0; i < SPA_N_ELEMENTS (raw_format_prop_info); i++)
+      spa_prop_info_fill_audio (&raw_format_prop_info[i],
+                                raw_format_prop_info[i].id,
+                                raw_format_prop_info[i].offset);
+  }
+
   format->format.media_type = SPA_MEDIA_TYPE_AUDIO;
   format->format.media_subtype = SPA_MEDIA_SUBTYPE_RAW;
   format->format.props.n_prop_info = SPA_N_ELEMENTS (raw_format_prop_info);
@@ -226,24 +266,4 @@ fallback:
   res = spa_props_copy (props, &rawformat->format.props);
 
   return res;
-}
-
-SpaResult
-spa_audio_raw_fill_prop_info (SpaPropInfo    *info,
-                              SpaPropIdAudio  id,
-                              size_t          offset)
-{
-  unsigned int i;
-
-  if (info == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
-  for (i = 0; i < SPA_N_ELEMENTS (raw_format_prop_info); i++) {
-    if (raw_format_prop_info[i].id == id) {
-      memcpy (info, &raw_format_prop_info[i], sizeof (SpaPropInfo));
-      info->offset = offset;
-      return SPA_RESULT_OK;
-    }
-  }
-  return SPA_RESULT_INVALID_PROPERTY_INDEX;
 }

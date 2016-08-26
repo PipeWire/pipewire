@@ -24,7 +24,7 @@
 extern "C" {
 #endif
 
-typedef struct _SpaVideoRawInfo SpaVideoRawInfo;
+typedef struct _SpaVideoInfoRaw SpaVideoInfoRaw;
 
 #include <spa/props.h>
 #include <spa/video/chroma.h>
@@ -146,7 +146,7 @@ typedef enum {
 } SpaVideoInterlaceMode;
 
 /**
- * SpaVideoRawInfo:
+ * SpaVideoInfoRaw:
  * @format: the format
  * @size: the frame size of the video
  * @framerate: the framerate of the video 0/1 means variable rate
@@ -165,7 +165,7 @@ typedef enum {
  * @transfer_function: the transfer function. used to convert between R'G'B' and RGB
  * @color_primaries: color primaries. used to convert between R'G'B' and CIE XYZ
  */
-struct _SpaVideoRawInfo {
+struct _SpaVideoInfoRaw {
   SpaVideoFormat            format;
   SpaRectangle              size;
   SpaFraction               framerate;

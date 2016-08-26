@@ -101,6 +101,7 @@ calc_size (GstCapsFeatures *cf, GstStructure *cs, guint *n_infos, guint *n_range
       n_ranges[0] += c;
       n_datas[0] += (1 + c) * sizeof (uint32_t);
     }
+  } else if (gst_structure_has_name (cs, "image/jpeg")) {
   }
 }
 
@@ -147,9 +148,9 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
     if (val) {
       SpaVideoFormat *sv = p;
 
-      spa_video_raw_fill_prop_info (&bpi[pi],
-                                    SPA_PROP_ID_VIDEO_FORMAT,
-                                    SPA_PTRDIFF (p, f));
+      spa_prop_info_fill_video (&bpi[pi],
+                                SPA_PROP_ID_VIDEO_FORMAT,
+                                SPA_PTRDIFF (p, f));
 
       if (G_VALUE_TYPE (val) == G_TYPE_STRING) {
         *sv = gst_video_format_from_string (g_value_get_string (val));
@@ -171,7 +172,7 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
     if (val || val2) {
       SpaRectangle *sv = p;
 
-      spa_video_raw_fill_prop_info (&bpi[pi],
+      spa_prop_info_fill_video (&bpi[pi],
                                     SPA_PROP_ID_VIDEO_SIZE,
                                     SPA_PTRDIFF (p, f));
 
@@ -224,9 +225,9 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
     if (val) {
       SpaFraction *sv = p;
 
-      spa_video_raw_fill_prop_info (&bpi[pi],
-                                    SPA_PROP_ID_VIDEO_FRAMERATE,
-                                    SPA_PTRDIFF (p, f));
+      spa_prop_info_fill_video (&bpi[pi],
+                                SPA_PROP_ID_VIDEO_FRAMERATE,
+                                SPA_PTRDIFF (p, f));
 
       if (G_VALUE_TYPE (val) == GST_TYPE_FRACTION) {
         sv->num = gst_value_get_fraction_numerator (val);
@@ -284,9 +285,9 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
     if (val) {
       SpaAudioFormat *sv = p;
 
-      spa_audio_raw_fill_prop_info (&bpi[pi],
-                                    SPA_PROP_ID_AUDIO_FORMAT,
-                                    SPA_PTRDIFF (p, f));
+      spa_prop_info_fill_audio (&bpi[pi],
+                                SPA_PROP_ID_AUDIO_FORMAT,
+                                SPA_PTRDIFF (p, f));
 
       if (G_VALUE_TYPE (val) == G_TYPE_STRING) {
         *sv = gst_audio_format_from_string (g_value_get_string (val));
@@ -307,9 +308,9 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
     if (val) {
       SpaAudioLayout *sv = p;
 
-      spa_audio_raw_fill_prop_info (&bpi[pi],
-                                    SPA_PROP_ID_AUDIO_LAYOUT,
-                                    SPA_PTRDIFF (p, f));
+      spa_prop_info_fill_audio (&bpi[pi],
+                                SPA_PROP_ID_AUDIO_LAYOUT,
+                                SPA_PTRDIFF (p, f));
 
       if (G_VALUE_TYPE (val) == G_TYPE_STRING) {
         const gchar *s = g_value_get_string (val);
@@ -334,9 +335,9 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
     if (val) {
       uint32_t *sv = p;
 
-      spa_audio_raw_fill_prop_info (&bpi[pi],
-                                    SPA_PROP_ID_AUDIO_RATE,
-                                    SPA_PTRDIFF (p, f));
+      spa_prop_info_fill_audio (&bpi[pi],
+                                SPA_PROP_ID_AUDIO_RATE,
+                                SPA_PTRDIFF (p, f));
 
       if (G_VALUE_TYPE (val) == G_TYPE_INT) {
         *sv = g_value_get_int (val);
@@ -357,9 +358,9 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
     if (val) {
       uint32_t *sv = p;
 
-      spa_audio_raw_fill_prop_info (&bpi[pi],
-                                    SPA_PROP_ID_AUDIO_CHANNELS,
-                                    SPA_PTRDIFF (p, f));
+      spa_prop_info_fill_audio (&bpi[pi],
+                                SPA_PROP_ID_AUDIO_CHANNELS,
+                                SPA_PTRDIFF (p, f));
 
       if (G_VALUE_TYPE (val) == G_TYPE_INT) {
         *sv = g_value_get_int (val);
@@ -376,6 +377,9 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
       }
       pi++;
     }
+  } else if (gst_structure_has_name (cs, "image/jpeg")) {
+    f->media_type = SPA_MEDIA_TYPE_VIDEO;
+    f->media_subtype = SPA_MEDIA_SUBTYPE_MJPG;
   }
   return f;
 }
@@ -431,16 +435,21 @@ gst_caps_from_format (SpaFormat *format)
   GstCaps *res = NULL;
 
   if (format->media_type == SPA_MEDIA_TYPE_VIDEO) {
+    SpaFormatVideo f;
+
+    spa_format_video_parse (format, &f);
+
     if (format->media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
-      SpaVideoRawFormat f;
-
-      spa_video_raw_format_parse (format, &f);
-
       res = gst_caps_new_simple ("video/x-raw",
-          "format", G_TYPE_STRING, gst_video_format_to_string (f.info.format),
-          "width", G_TYPE_INT, f.info.size.width,
-          "height", G_TYPE_INT, f.info.size.height,
-          "framerate", GST_TYPE_FRACTION, f.info.framerate.num, f.info.framerate.denom,
+          "format", G_TYPE_STRING, gst_video_format_to_string (f.info.raw.format),
+          "width", G_TYPE_INT, f.info.raw.size.width,
+          "height", G_TYPE_INT, f.info.raw.size.height,
+          "framerate", GST_TYPE_FRACTION, f.info.raw.framerate.num, f.info.raw.framerate.denom,
+          NULL);
+    }
+    else if (format->media_subtype == SPA_MEDIA_SUBTYPE_MJPG) {
+      res = gst_caps_new_simple ("image/jpeg",
+          "framerate", GST_TYPE_FRACTION, f.info.jpeg.framerate.num, f.info.jpeg.framerate.denom,
           NULL);
     }
   } else if (format->media_type == SPA_MEDIA_TYPE_AUDIO) {

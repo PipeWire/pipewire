@@ -75,18 +75,18 @@ enum {
 
 static const SpaPropInfo prop_info[] =
 {
-  { PROP_ID_VOLUME,            "volume", "The Volume factor",
+  { PROP_ID_VOLUME,            offsetof (SpaVolumeProps, volume),
+                               "volume", "The Volume factor",
                                SPA_PROP_FLAG_READWRITE,
                                SPA_PROP_TYPE_DOUBLE, sizeof (double),
                                SPA_PROP_RANGE_TYPE_MIN_MAX, 2, volume_range,
-                               NULL,
-                               offsetof (SpaVolumeProps, volume) },
-  { PROP_ID_MUTE,              "mute", "Mute",
+                               NULL },
+  { PROP_ID_MUTE,              offsetof (SpaVolumeProps, mute),
+                               "mute", "Mute",
                                SPA_PROP_FLAG_READWRITE,
                                SPA_PROP_TYPE_BOOL, sizeof (bool),
                                SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
-                               NULL,
-                               offsetof (SpaVolumeProps, mute) },
+                               NULL },
 };
 
 static void

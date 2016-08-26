@@ -25,7 +25,7 @@
 #include <spa/video/raw.h>
 #include <spa/video/format.h>
 
-static const SpaVideoRawInfo default_info = {
+static const SpaVideoInfoRaw default_raw_info = {
   SPA_VIDEO_FORMAT_UNKNOWN,
   { 320, 240 },
   { 0, 1 },
@@ -371,175 +371,193 @@ static const SpaPropRangeInfo framerate_range[] = {
   { "max", "Maximum value", sizeof (SpaFraction), &max_framerate },
 };
 
-static const SpaPropInfo raw_format_prop_info[] =
+static const SpaPropInfo format_prop_info[] =
 {
-  { SPA_PROP_ID_VIDEO_FORMAT,       "format", "The media format",
+  { SPA_PROP_ID_VIDEO_FORMAT,       0,
+                                    "format", "The media format",
                                     SPA_PROP_FLAG_READWRITE,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                     SPA_PROP_RANGE_TYPE_ENUM, SPA_N_ELEMENTS (format_range), format_range,
-                                    NULL,
-                                    offsetof (SpaVideoRawFormat, info.format) },
-  { SPA_PROP_ID_VIDEO_SIZE,         "size", "Video size",
+                                    NULL },
+  { SPA_PROP_ID_VIDEO_SIZE,         0,
+                                    "size", "Video size",
                                     SPA_PROP_FLAG_READWRITE,
                                     SPA_PROP_TYPE_RECTANGLE, sizeof (SpaRectangle),
                                     SPA_PROP_RANGE_TYPE_MIN_MAX, 2, size_range,
-                                    NULL,
-                                    offsetof (SpaVideoRawFormat, info.size) },
-  { SPA_PROP_ID_VIDEO_FRAMERATE,    "framerate", "Video framerate",
+                                    NULL },
+  { SPA_PROP_ID_VIDEO_FRAMERATE,    0,
+                                    "framerate", "Video framerate",
                                     SPA_PROP_FLAG_READWRITE,
                                     SPA_PROP_TYPE_FRACTION, sizeof (SpaFraction),
                                     SPA_PROP_RANGE_TYPE_MIN_MAX, 2, framerate_range,
-                                    NULL,
-                                    offsetof (SpaVideoRawFormat, info.framerate) },
-  { SPA_PROP_ID_VIDEO_MAX_FRAMERATE, "max-framerate", "Video max framerate",
+                                    NULL },
+  { SPA_PROP_ID_VIDEO_MAX_FRAMERATE, 0,
+                                    "max-framerate", "Video max framerate",
                                     SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL,
                                     SPA_PROP_TYPE_FRACTION, sizeof (SpaFraction),
                                     SPA_PROP_RANGE_TYPE_MIN_MAX, 2, framerate_range,
-                                    NULL,
-                                    offsetof (SpaVideoRawFormat, info.max_framerate) },
-  { SPA_PROP_ID_VIDEO_VIEWS,        "views", "Video number of views",
+                                    NULL },
+  { SPA_PROP_ID_VIDEO_VIEWS,        0,
+                                    "views", "Video number of views",
                                     SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                     SPA_PROP_RANGE_TYPE_MIN_MAX, 2, uint32_range,
-                                    NULL,
-                                    offsetof (SpaVideoRawFormat, info.views) },
-  { SPA_PROP_ID_VIDEO_INTERLACE_MODE, "interlace-mode", "Interlace mode",
+                                    NULL },
+  { SPA_PROP_ID_VIDEO_INTERLACE_MODE, 0,
+                                    "interlace-mode", "Interlace mode",
                                     SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                     SPA_PROP_RANGE_TYPE_ENUM, SPA_N_ELEMENTS (interlace_mode_range), interlace_mode_range,
-                                    NULL,
-                                    offsetof (SpaVideoRawFormat, info.interlace_mode) },
-  { SPA_PROP_ID_VIDEO_PIXEL_ASPECT_RATIO, "pixel-aspect-ratio", "Video pixel aspect ratio",
+                                    NULL },
+  { SPA_PROP_ID_VIDEO_PIXEL_ASPECT_RATIO, 0,
+                                    "pixel-aspect-ratio", "Video pixel aspect ratio",
                                     SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL,
                                     SPA_PROP_TYPE_FRACTION, sizeof (SpaFraction),
                                     SPA_PROP_RANGE_TYPE_MIN_MAX, 2, framerate_range,
-                                    NULL,
-                                    offsetof (SpaVideoRawFormat, info.pixel_aspect_ratio) },
-  { SPA_PROP_ID_VIDEO_MULTIVIEW_MODE, "multiview-mode", "Multiview mode",
+                                    NULL },
+  { SPA_PROP_ID_VIDEO_MULTIVIEW_MODE, 0,
+                                    "multiview-mode", "Multiview mode",
                                     SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                     SPA_PROP_RANGE_TYPE_ENUM, SPA_N_ELEMENTS (multiview_mode_range), multiview_mode_range,
-                                    NULL,
-                                    offsetof (SpaVideoRawFormat, info.multiview_mode) },
-  { SPA_PROP_ID_VIDEO_MULTIVIEW_FLAGS, "multiview-flags", "Multiview flags",
+                                    NULL },
+  { SPA_PROP_ID_VIDEO_MULTIVIEW_FLAGS, 0,
+                                    "multiview-flags", "Multiview flags",
                                     SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                     SPA_PROP_RANGE_TYPE_FLAGS, SPA_N_ELEMENTS (multiview_flags_range), multiview_flags_range,
-                                    NULL,
-                                    offsetof (SpaVideoRawFormat, info.multiview_flags) },
-  { SPA_PROP_ID_VIDEO_CHROMA_SITE,  "chroma-site", "Chroma site",
+                                    NULL },
+  { SPA_PROP_ID_VIDEO_CHROMA_SITE,  0,
+                                    "chroma-site", "Chroma site",
                                     SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                     SPA_PROP_RANGE_TYPE_FLAGS, SPA_N_ELEMENTS (chroma_site_range), chroma_site_range,
-                                    NULL,
-                                    offsetof (SpaVideoRawFormat, info.chroma_site) },
-  { SPA_PROP_ID_VIDEO_COLOR_RANGE,  "color-range", "Color range",
+                                    NULL },
+  { SPA_PROP_ID_VIDEO_COLOR_RANGE,  0,
+                                    "color-range", "Color range",
                                     SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                     SPA_PROP_RANGE_TYPE_ENUM, SPA_N_ELEMENTS (color_range_range), color_range_range,
-                                    NULL,
-                                    offsetof (SpaVideoRawFormat, info.color_range) },
-  { SPA_PROP_ID_VIDEO_COLOR_MATRIX,  "color-matrix", "Color matrix",
+                                    NULL },
+  { SPA_PROP_ID_VIDEO_COLOR_MATRIX,  0,
+                                    "color-matrix", "Color matrix",
                                     SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                     SPA_PROP_RANGE_TYPE_ENUM, SPA_N_ELEMENTS (color_matrix_range), color_matrix_range,
-                                    NULL,
-                                    offsetof (SpaVideoRawFormat, info.color_matrix) },
-  { SPA_PROP_ID_VIDEO_TRANSFER_FUNCTION,  "transfer-function", "Transfer function",
+                                    NULL },
+  { SPA_PROP_ID_VIDEO_TRANSFER_FUNCTION,  0,
+                                    "transfer-function", "Transfer function",
                                     SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                     SPA_PROP_RANGE_TYPE_ENUM, SPA_N_ELEMENTS (transfer_function_range), transfer_function_range,
-                                    NULL,
-                                    offsetof (SpaVideoRawFormat, info.transfer_function) },
-  { SPA_PROP_ID_VIDEO_COLOR_PRIMARIES,  "color-primaries", "Color primaries",
+                                    NULL },
+  { SPA_PROP_ID_VIDEO_COLOR_PRIMARIES,  0,
+                                    "color-primaries", "Color primaries",
                                     SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL,
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                     SPA_PROP_RANGE_TYPE_ENUM, SPA_N_ELEMENTS (color_primaries_range), color_primaries_range,
-                                    NULL,
-                                    offsetof (SpaVideoRawFormat, info.color_primaries) },
-  { SPA_PROP_ID_VIDEO_RAW_INFO,     "info", "the SpaVideoRawInfo structure",
+                                    NULL },
+  { SPA_PROP_ID_VIDEO_RAW_INFO,     0,
+                                    "info", "the SpaVideoRawInfo structure",
                                     SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL,
-                                    SPA_PROP_TYPE_POINTER, sizeof (SpaVideoRawInfo),
+                                    SPA_PROP_TYPE_POINTER, sizeof (SpaVideoInfoRaw),
                                     SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
-                                    NULL,
-                                    offsetof (SpaVideoRawFormat, info) },
+                                    NULL },
 };
 
 SpaResult
-spa_video_raw_format_init (SpaVideoRawFormat *format)
+spa_prop_info_fill_video (SpaPropInfo    *info,
+                          SpaPropIdVideo  id,
+                          size_t          offset)
 {
-  format->format.media_type = SPA_MEDIA_TYPE_VIDEO;
-  format->format.media_subtype = SPA_MEDIA_SUBTYPE_RAW;
-  format->format.props.n_prop_info = SPA_N_ELEMENTS (raw_format_prop_info);
-  format->format.props.prop_info = raw_format_prop_info;
-  format->format.props.unset_mask = (1 << 14)-1;
-  format->info = default_info;
+  int i;
+
+  if (info == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  i = id - SPA_PROP_ID_MEDIA_CUSTOM_START;
+
+  if (i < 0 || i >= SPA_N_ELEMENTS (format_prop_info))
+    return SPA_RESULT_INVALID_PROPERTY_INDEX;
+
+  memcpy (info, &format_prop_info[i], sizeof (SpaPropInfo));
+  info->offset = offset;
 
   return SPA_RESULT_OK;
 }
 
 SpaResult
-spa_video_raw_format_parse (const SpaFormat *format,
-                            SpaVideoRawFormat *rawformat)
+spa_format_video_init (SpaMediaType     type,
+                       SpaMediaSubType  subtype,
+                       SpaFormatVideo  *format)
+{
+  static SpaPropInfo raw_format_prop_info[] = {
+    { SPA_PROP_ID_VIDEO_FORMAT,             offsetof (SpaFormatVideo, info.raw.format) },
+    { SPA_PROP_ID_VIDEO_SIZE,               offsetof (SpaFormatVideo, info.raw.size) },
+    { SPA_PROP_ID_VIDEO_FRAMERATE,          offsetof (SpaFormatVideo, info.raw.framerate) },
+    { SPA_PROP_ID_VIDEO_MAX_FRAMERATE,      offsetof (SpaFormatVideo, info.raw.max_framerate) },
+    { SPA_PROP_ID_VIDEO_VIEWS,              offsetof (SpaFormatVideo, info.raw.views) },
+    { SPA_PROP_ID_VIDEO_INTERLACE_MODE,     offsetof (SpaFormatVideo, info.raw.interlace_mode) },
+    { SPA_PROP_ID_VIDEO_PIXEL_ASPECT_RATIO, offsetof (SpaFormatVideo, info.raw.pixel_aspect_ratio) },
+    { SPA_PROP_ID_VIDEO_MULTIVIEW_MODE,     offsetof (SpaFormatVideo, info.raw.multiview_mode) },
+    { SPA_PROP_ID_VIDEO_MULTIVIEW_FLAGS,    offsetof (SpaFormatVideo, info.raw.multiview_flags) },
+    { SPA_PROP_ID_VIDEO_CHROMA_SITE,        offsetof (SpaFormatVideo, info.raw.chroma_site) },
+    { SPA_PROP_ID_VIDEO_COLOR_RANGE,        offsetof (SpaFormatVideo, info.raw.color_range) },
+    { SPA_PROP_ID_VIDEO_COLOR_MATRIX,       offsetof (SpaFormatVideo, info.raw.color_matrix) },
+    { SPA_PROP_ID_VIDEO_TRANSFER_FUNCTION,  offsetof (SpaFormatVideo, info.raw.transfer_function) },
+    { SPA_PROP_ID_VIDEO_COLOR_PRIMARIES,    offsetof (SpaFormatVideo, info.raw.color_primaries) },
+    { SPA_PROP_ID_VIDEO_RAW_INFO,           offsetof (SpaFormatVideo, info.raw ) },
+  };
+
+  if (raw_format_prop_info[0].name == NULL) {
+    int i;
+    for (i = 0; i < SPA_N_ELEMENTS (raw_format_prop_info); i++)
+      spa_prop_info_fill_video (&raw_format_prop_info[i],
+                                raw_format_prop_info[i].id,
+                                raw_format_prop_info[i].offset);
+  }
+
+  format->format.media_type = type;
+  format->format.media_subtype = subtype;
+  format->format.props.n_prop_info = SPA_N_ELEMENTS (raw_format_prop_info);
+  format->format.props.prop_info = raw_format_prop_info;
+  format->format.props.unset_mask = (1 << 14)-1;
+  format->info.raw = default_raw_info;
+
+  return SPA_RESULT_OK;
+}
+
+SpaResult
+spa_format_video_parse (const SpaFormat *format,
+                        SpaFormatVideo  *vformat)
 {
   SpaPropValue value;
   const SpaProps *props;
   SpaResult res;
 
-  if ((void *)format == (void *)rawformat)
+  if ((void *)format == (void *)vformat)
     return SPA_RESULT_OK;
 
-  if (format->media_type != SPA_MEDIA_TYPE_VIDEO ||
-      format->media_subtype != SPA_MEDIA_SUBTYPE_RAW)
+  if (format->media_type != SPA_MEDIA_TYPE_VIDEO)
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
-  spa_video_raw_format_init (rawformat);
+  spa_format_video_init (format->media_type,
+                         format->media_subtype,
+                         vformat);
 
   props = &format->props;
   if ((res = spa_props_get_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_RAW_INFO), &value)) < 0)
     goto fallback;
 
-  if (value.type != SPA_PROP_TYPE_POINTER || value.size != sizeof (SpaVideoRawInfo))
+  if (value.type != SPA_PROP_TYPE_POINTER)
     goto fallback;
 
-  memcpy (&rawformat->info, value.value, sizeof (SpaVideoRawInfo));
+  memcpy (&vformat->info, value.value, value.size);
 
   return SPA_RESULT_OK;
 
 fallback:
-  res = spa_props_copy (props, &rawformat->format.props);
+  res = spa_props_copy (props, &vformat->format.props);
 
   return res;
-}
-
-SpaResult
-spa_video_raw_fill_default_info (SpaVideoRawInfo *info)
-{
-  if (info == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
-  memcpy (info, &default_info, sizeof (SpaVideoRawInfo));
-
-  return SPA_RESULT_OK;
-}
-
-
-SpaResult
-spa_video_raw_fill_prop_info (SpaPropInfo    *info,
-                              SpaPropIdVideo  id,
-                              size_t          offset)
-{
-  unsigned int i;
-
-  if (info == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
-  for (i = 0; i < SPA_N_ELEMENTS (raw_format_prop_info); i++) {
-    if (raw_format_prop_info[i].id == id) {
-      memcpy (info, &raw_format_prop_info[i], sizeof (SpaPropInfo));
-      info->offset = offset;
-      return SPA_RESULT_OK;
-    }
-  }
-  return SPA_RESULT_INVALID_PROPERTY_INDEX;
 }

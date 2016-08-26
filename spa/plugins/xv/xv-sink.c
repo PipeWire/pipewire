@@ -76,7 +76,7 @@ struct _SpaXvSink {
   SpaEventCallback event_cb;
   void *user_data;
 
-  SpaVideoRawFormat raw_format[2];
+  SpaFormatVideo format[2];
   SpaFormat *current_format;
 
   SpaXvState state;
@@ -97,24 +97,24 @@ enum {
 
 static const SpaPropInfo prop_info[] =
 {
-  { PROP_ID_DEVICE,            "device", "Xv device location",
+  { PROP_ID_DEVICE,             offsetof (SpaXvSinkProps, device),
+                                "device", "Xv device location",
                                 SPA_PROP_FLAG_READWRITE,
                                 SPA_PROP_TYPE_STRING, 63,
                                 SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
-                                NULL,
-                                offsetof (SpaXvSinkProps, device) },
-  { PROP_ID_DEVICE_NAME,       "device-name", "Human-readable name of the device",
+                                NULL },
+  { PROP_ID_DEVICE_NAME,        offsetof (SpaXvSinkProps, device_name),
+                                "device-name", "Human-readable name of the device",
                                 SPA_PROP_FLAG_READABLE,
                                 SPA_PROP_TYPE_STRING, 127,
                                 SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
-                                NULL,
-                                offsetof (SpaXvSinkProps, device_name) },
-  { PROP_ID_DEVICE_FD,          "device-fd", "Device file descriptor",
+                                NULL },
+  { PROP_ID_DEVICE_FD,          offsetof (SpaXvSinkProps, device_fd),
+                                "device-fd", "Device file descriptor",
                                 SPA_PROP_FLAG_READABLE,
                                 SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                 SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
-                                NULL,
-                                offsetof (SpaXvSinkProps, device_fd) },
+                                NULL },
 };
 
 static SpaResult
@@ -308,12 +308,14 @@ spa_xv_sink_node_port_enum_formats (SpaNode         *node,
 
   switch (index) {
     case 0:
-      spa_video_raw_format_init (&this->raw_format[0]);
+      spa_format_video_init (SPA_MEDIA_TYPE_VIDEO,
+                             SPA_MEDIA_SUBTYPE_RAW,
+                             &this->format[0]);
       break;
     default:
       return SPA_RESULT_ENUM_END;
   }
-  *format = &this->raw_format[0].format;
+  *format = &this->format[0].format;
   *(int*)state = ++index;
 
   return SPA_RESULT_OK;
@@ -345,12 +347,12 @@ spa_xv_sink_node_port_set_format (SpaNode            *node,
 
   if (format->media_type == SPA_MEDIA_TYPE_VIDEO) {
     if (format->media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
-      if ((res = spa_video_raw_format_parse (format, &this->raw_format[0]) < 0))
+      if ((res = spa_format_video_parse (format, &this->format[0]) < 0))
         return res;
 
-      f = &this->raw_format[0].format;
-      tf = &this->raw_format[1].format;
-      fs = sizeof (SpaVideoRawFormat);
+      f = &this->format[0].format;
+      tf = &this->format[1].format;
+      fs = sizeof (SpaVideoFormat);
     } else
       return SPA_RESULT_INVALID_MEDIA_TYPE;
   } else

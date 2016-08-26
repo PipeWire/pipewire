@@ -114,6 +114,7 @@ typedef struct {
 /**
  * SpaPropInfo:
  * @id: unique id
+ * @offset: offset in structure with data
  * @name: human readable name
  * @description: description of the property
  * @flags: property flags
@@ -123,10 +124,10 @@ typedef struct {
  * @n_range_values: number of elements in @range_values
  * @range_values: array of possible values
  * @tags: extra tags, NULL terminated
- * @offset: offset in structure with data
  */
 typedef struct {
   uint32_t                  id;
+  size_t                    offset;
   const char               *name;
   const char               *description;
   SpaPropFlags              flags;
@@ -136,7 +137,6 @@ typedef struct {
   unsigned int              n_range_values;
   const SpaPropRangeInfo   *range_values;
   const char              **tags;
-  size_t                    offset;
 } SpaPropInfo;
 
 typedef struct {

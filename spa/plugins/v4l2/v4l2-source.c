@@ -140,24 +140,24 @@ enum {
 
 static const SpaPropInfo prop_info[] =
 {
-  { PROP_ID_DEVICE,            "device", "V4l2 device location",
+  { PROP_ID_DEVICE,             offsetof (SpaV4l2SourceProps, device),
+                                "device", "V4l2 device location",
                                 SPA_PROP_FLAG_READWRITE,
                                 SPA_PROP_TYPE_STRING, 63,
                                 SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
-                                NULL,
-                                offsetof (SpaV4l2SourceProps, device) },
-  { PROP_ID_DEVICE_NAME,       "device-name", "Human-readable name of the device",
+                                NULL },
+  { PROP_ID_DEVICE_NAME,        offsetof (SpaV4l2SourceProps, device_name),
+                                "device-name", "Human-readable name of the device",
                                 SPA_PROP_FLAG_READABLE,
                                 SPA_PROP_TYPE_STRING, 127,
                                 SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
-                                NULL,
-                                offsetof (SpaV4l2SourceProps, device_name) },
-  { PROP_ID_DEVICE_FD,          "device-fd", "Device file descriptor",
+                                NULL },
+  { PROP_ID_DEVICE_FD,          offsetof (SpaV4l2SourceProps, device_fd),
+                                "device-fd", "Device file descriptor",
                                 SPA_PROP_FLAG_READABLE,
                                 SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                 SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
-                                NULL,
-                                offsetof (SpaV4l2SourceProps, device_fd) },
+                                NULL },
 };
 
 static SpaResult
@@ -357,15 +357,15 @@ spa_v4l2_format_init (V4l2Format *f)
   f->fmt.props.n_prop_info = 3;
   f->fmt.props.prop_info = f->infos;
 
-  spa_video_raw_fill_prop_info (&f->infos[0],
-                                SPA_PROP_ID_VIDEO_FORMAT,
-                                offsetof (V4l2Format, format));
-  spa_video_raw_fill_prop_info (&f->infos[1],
-                                SPA_PROP_ID_VIDEO_SIZE,
-                                offsetof (V4l2Format, size));
-  spa_video_raw_fill_prop_info (&f->infos[2],
-                                SPA_PROP_ID_VIDEO_FRAMERATE,
-                                offsetof (V4l2Format, framerate));
+  spa_prop_info_fill_video (&f->infos[0],
+                            SPA_PROP_ID_VIDEO_FORMAT,
+                            offsetof (V4l2Format, format));
+  spa_prop_info_fill_video (&f->infos[1],
+                            SPA_PROP_ID_VIDEO_SIZE,
+                            offsetof (V4l2Format, size));
+  spa_prop_info_fill_video (&f->infos[2],
+                            SPA_PROP_ID_VIDEO_FRAMERATE,
+                            offsetof (V4l2Format, framerate));
 }
 
 static SpaResult
@@ -386,7 +386,7 @@ spa_v4l2_source_node_port_enum_formats (SpaNode         *node,
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
 
-  res = spa_v4l2_enum_format (this, format, state);
+  res = spa_v4l2_enum_format (this, format, filter, state);
 
   return res;
 }
@@ -403,7 +403,7 @@ spa_v4l2_source_node_port_set_format (SpaNode            *node,
   V4l2Format *f, *tf;
   size_t fs;
 
-  if (node == NULL || node->handle == NULL || format == NULL)
+  if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = (SpaV4l2Source *) node->handle;
@@ -417,6 +417,7 @@ spa_v4l2_source_node_port_set_format (SpaNode            *node,
     spa_v4l2_clear_buffers (this);
     spa_v4l2_close (this);
     state->current_format = NULL;
+    update_state (this, SPA_NODE_STATE_CONFIGURE);
     return SPA_RESULT_OK;
   }
 

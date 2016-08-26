@@ -84,24 +84,24 @@ enum {
 
 static const SpaPropInfo prop_info[] =
 {
-  { PROP_ID_WAVE,              "wave", "Oscillator waveform",
+  { PROP_ID_WAVE,              offsetof (SpaAudioTestSrcProps, wave),
+                               "wave", "Oscillator waveform",
                                SPA_PROP_FLAG_READWRITE,
                                SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                SPA_PROP_RANGE_TYPE_ENUM, SPA_N_ELEMENTS (wave_range), wave_range,
-                               NULL,
-                               offsetof (SpaAudioTestSrcProps, wave) },
-  { PROP_ID_FREQ,              "freq", "Frequency of test signal. The sample rate needs to be at least 4 times higher",
+                               NULL },
+  { PROP_ID_FREQ,              offsetof (SpaAudioTestSrcProps, freq),
+                               "freq", "Frequency of test signal. The sample rate needs to be at least 4 times higher",
                                SPA_PROP_FLAG_READWRITE,
                                SPA_PROP_TYPE_DOUBLE, sizeof (double),
                                SPA_PROP_RANGE_TYPE_MIN_MAX, 2, freq_range,
-                               NULL,
-                               offsetof (SpaAudioTestSrcProps, freq) },
-  { PROP_ID_VOLUME,            "volume", "The Volume factor",
+                               NULL },
+  { PROP_ID_VOLUME,            offsetof (SpaAudioTestSrcProps, volume),
+                               "volume", "The Volume factor",
                                SPA_PROP_FLAG_READWRITE,
                                SPA_PROP_TYPE_DOUBLE, sizeof (double),
                                SPA_PROP_RANGE_TYPE_MIN_MAX, 2, volume_range,
-                               NULL,
-                               offsetof (SpaAudioTestSrcProps, volume) },
+                               NULL },
 };
 
 static void
@@ -465,7 +465,7 @@ spa_audiotestsrc_node_port_pull_output (SpaNode       *node,
 {
   SpaAudioTestSrc *this;
   size_t j, size;
-  uint8_t *ptr;
+  uint8_t *ptr = NULL;
   unsigned int i;
   bool have_error = false;
 

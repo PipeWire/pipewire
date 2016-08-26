@@ -43,9 +43,6 @@
 typedef struct {
   bool cleanup;
   uint32_t id;
-  int fd;
-  off_t offset;
-  size_t size;
   bool used;
   SpaBuffer *buf;
 } BufferId;
@@ -53,10 +50,8 @@ typedef struct {
 static void
 clear_buffer_id (BufferId *id)
 {
-  munmap (id->buf, id->size);
+  spa_memory_unref (&id->buf->mem.mem);
   id->buf = NULL;
-  close (id->fd);
-  id->fd = -1;
 }
 
 struct _PinosStreamPrivate
@@ -822,45 +817,46 @@ parse_control (PinosStream *stream,
         spa_memory_unref (&p.mem);
         break;
       }
-      case SPA_CONTROL_CMD_ADD_BUFFER:
+      case SPA_CONTROL_CMD_USE_BUFFERS:
       {
-        SpaControlCmdAddBuffer p;
+        SpaControlCmdUseBuffers p;
         BufferId bid;
-        SpaMemory *mem;
+        unsigned int i;
+        SpaControlBuilder builder;
+        SpaControl control;
 
         if (spa_control_iter_parse_cmd (&it, &p) < 0)
           break;
 
-        g_debug ("add buffer %d, %d", p.buffer_id, p.mem.mem.id);
-        mem = spa_memory_find (&p.mem.mem);
-        bid.cleanup = false;
-        bid.id = p.buffer_id;
-        bid.offset = p.mem.offset;
-        bid.size = p.mem.size;
-        bid.buf = SPA_MEMBER (spa_memory_ensure_ptr (mem), p.mem.offset, SpaBuffer);
+        /* clear previous buffers */
+        g_array_set_size (priv->buffer_ids, 0);
 
-        if (bid.id != priv->buffer_ids->len) {
-          g_warning ("unexpected id %u found, expected %u", bid.id, priv->buffer_ids->len);
-          priv->in_order = FALSE;
+        for (i = 0; i < p.n_buffers; i++) {
+          bid.buf = p.buffers[i];
+          bid.cleanup = false;
+          bid.id = bid.buf->id;
+          g_debug ("add buffer %d, %d", bid.id, bid.buf->mem.mem.id);
+
+          if (bid.id != priv->buffer_ids->len) {
+            g_warning ("unexpected id %u found, expected %u", bid.id, priv->buffer_ids->len);
+            priv->in_order = FALSE;
+          }
+          g_array_append_val (priv->buffer_ids, bid);
+          g_signal_emit (stream, signals[SIGNAL_ADD_BUFFER], 0, bid.id);
         }
-        g_array_append_val (priv->buffer_ids, bid);
-        g_signal_emit (stream, signals[SIGNAL_ADD_BUFFER], 0, p.buffer_id);
-        break;
-      }
-      case SPA_CONTROL_CMD_REMOVE_BUFFER:
-      {
-        SpaControlCmdRemoveBuffer p;
-        BufferId *bid;
 
-        if (spa_control_iter_parse_cmd (&it, &p) < 0)
-          break;
-
-        g_debug ("remove buffer %d", p.buffer_id);
-        if ((bid = find_buffer (stream, p.buffer_id))) {
-          bid->cleanup = TRUE;
-          bid->used = TRUE;
-          g_signal_emit (stream, signals[SIGNAL_REMOVE_BUFFER], 0, p.buffer_id);
+        control_builder_init (stream, &builder);
+        if (p.n_buffers) {
+          add_state_change (stream, &builder, SPA_NODE_STATE_PAUSED);
+        } else {
+          add_state_change (stream, &builder, SPA_NODE_STATE_READY);
         }
+        spa_control_builder_end (&builder, &control);
+
+        if (spa_control_write (&control, priv->fd) < 0)
+          g_warning ("stream %p: error writing control", stream);
+
+        spa_control_clear (&control);
         break;
       }
       case SPA_CONTROL_CMD_PROCESS_BUFFER:
@@ -875,7 +871,7 @@ parse_control (PinosStream *stream,
 
         g_signal_emit (stream, signals[SIGNAL_NEW_BUFFER], 0, p.buffer_id);
 
-          send_need_input (stream, 0);
+        send_need_input (stream, 0);
         break;
       }
       case SPA_CONTROL_CMD_REUSE_BUFFER:
@@ -919,7 +915,6 @@ on_socket_condition (GSocket      *socket,
     case G_IO_IN:
     {
       SpaControl *control = &priv->recv_control;
-      guint i;
 
       if (spa_control_read (control,
                             priv->fd,
@@ -932,17 +927,6 @@ on_socket_condition (GSocket      *socket,
       }
 
       parse_control (stream, control);
-
-      for (i = 0; i < priv->buffer_ids->len; i++) {
-        BufferId *bid = &g_array_index (priv->buffer_ids, BufferId, i);
-        if (bid->cleanup) {
-          g_array_remove_index_fast (priv->buffer_ids, i);
-          i--;
-          priv->in_order = FALSE;
-        }
-      }
-      if (!priv->in_order && priv->buffer_ids->len == 0)
-        priv->in_order = TRUE;
 
       spa_control_clear (control);
       break;

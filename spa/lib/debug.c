@@ -169,18 +169,31 @@ spa_debug_dump_mem (const void *mem, size_t size)
 struct media_type_name {
   const char *name;
 } media_type_names[] = {
-  { "unknown" },
+  { "invalid" },
   { "audio" },
   { "video" },
+  { "image" },
 };
 
 struct media_subtype_name {
   const char *name;
 } media_subtype_names[] = {
-  { "unknown" },
+  { "invalid" },
   { "raw" },
   { "h264" },
   { "mjpg" },
+  { "dv" },
+  { "mpegts" },
+  { "h263" },
+  { "mpeg1" },
+  { "mpeg2" },
+  { "mpeg4" },
+  { "xvid" },
+  { "vc1" },
+  { "vp8" },
+  { "vp9" },
+  { "jpeg" },
+  { "bayer" },
 };
 
 struct prop_type_name {
@@ -330,7 +343,7 @@ spa_debug_props (const SpaProps *props, bool print_ranges)
 
     res = spa_props_get_prop (props, i, &value);
 
-    fprintf (stderr, ". Current: ");
+    fprintf (stderr, "Current: ");
     if (res == SPA_RESULT_OK)
       print_value (info, value.size, value.value);
     else if (res == SPA_RESULT_PROPERTY_UNSET)
@@ -386,14 +399,25 @@ spa_debug_format (const SpaFormat *format)
 {
   const SpaProps *props;
   int i;
+  const char *media_type;
+  const char *media_subtype;
 
   if (format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   props = &format->props;
 
-  fprintf (stderr, "%-6s %s/%s\n", "", media_type_names[format->media_type].name,
-                        media_subtype_names[format->media_subtype].name);
+  if (format->media_type > 0 && format->media_type < SPA_N_ELEMENTS (media_type_names))
+    media_type = media_type_names[format->media_type].name;
+  else
+    media_type = "unknown";
+
+  if (format->media_subtype > 0 && format->media_subtype < SPA_N_ELEMENTS (media_subtype_names))
+    media_subtype = media_subtype_names[format->media_subtype].name;
+  else
+    media_subtype = "unknown";
+
+  fprintf (stderr, "%-6s %s/%s\n", "", media_type, media_subtype);
 
   for (i = 0; i < props->n_prop_info; i++) {
     const SpaPropInfo *info = &props->prop_info[i];

@@ -81,10 +81,9 @@ typedef enum {
   SPA_CONTROL_CMD_ADD_MEM                  = 64,
   SPA_CONTROL_CMD_REMOVE_MEM               = 65,
 
-  SPA_CONTROL_CMD_ADD_BUFFER               = 66,
-  SPA_CONTROL_CMD_REMOVE_BUFFER            = 67,
-  SPA_CONTROL_CMD_PROCESS_BUFFER           = 68,
-  SPA_CONTROL_CMD_REUSE_BUFFER             = 69,
+  SPA_CONTROL_CMD_USE_BUFFERS              = 66,
+  SPA_CONTROL_CMD_PROCESS_BUFFER           = 67,
+  SPA_CONTROL_CMD_REUSE_BUFFER             = 68,
 
 } SpaControlCmd;
 
@@ -184,18 +183,12 @@ typedef struct {
   SpaMemoryRef mem;
 } SpaControlCmdRemoveMem;
 
-/* SPA_CONTROL_CMD_ADD_BUFFER */
+/* SPA_CONTROL_CMD_USE_BUFFERS */
 typedef struct {
-  uint32_t       port_id;
-  uint32_t       buffer_id;
-  SpaMemoryChunk mem;
-} SpaControlCmdAddBuffer;
-
-/* SPA_CONTROL_CMD_REMOVE_BUFFER */
-typedef struct {
-  uint32_t port_id;
-  uint32_t buffer_id;
-} SpaControlCmdRemoveBuffer;
+  uint32_t        port_id;
+  unsigned int    n_buffers;
+  SpaBuffer     **buffers;
+} SpaControlCmdUseBuffers;
 
 /* SPA_CONTROL_CMD_PROCESS_BUFFER */
 typedef struct {

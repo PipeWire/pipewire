@@ -55,7 +55,7 @@ struct _FFMpegBuffer {
 };
 
 typedef struct {
-  SpaVideoRawFormat raw_format[2];
+  SpaFormatVideo format[2];
   SpaFormat *current_format;
   bool have_buffers;
   FFMpegBuffer buffers[MAX_BUFFERS];
@@ -278,12 +278,14 @@ spa_ffmpeg_enc_node_port_enum_formats (SpaNode         *node,
 
   switch (index) {
     case 0:
-      spa_video_raw_format_init (&s->raw_format[0]);
+      spa_format_video_init (SPA_MEDIA_TYPE_VIDEO,
+                             SPA_MEDIA_SUBTYPE_RAW,
+                             &s->format[0]);
       break;
     default:
       return SPA_RESULT_ENUM_END;
   }
-  *format = &s->raw_format[0].format;
+  *format = &s->format[0].format;
   *(int*)state = ++index;
 
   return SPA_RESULT_OK;
@@ -298,8 +300,6 @@ spa_ffmpeg_enc_node_port_set_format (SpaNode            *node,
   SpaFFMpegEnc *this;
   SpaFFMpegState *state;
   SpaResult res;
-  SpaFormat *f, *tf;
-  size_t fs;
 
   if (node == NULL || node->handle == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -315,23 +315,16 @@ spa_ffmpeg_enc_node_port_set_format (SpaNode            *node,
     state->current_format = NULL;
     return SPA_RESULT_OK;
   }
+  if ((res = spa_format_video_parse (format, &state->format[0]) < 0))
+    return res;
 
-  if (format->media_type == SPA_MEDIA_TYPE_VIDEO) {
-    if (format->media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
-      if ((res = spa_video_raw_format_parse (format, &state->raw_format[0]) < 0))
-        return res;
-
-      f = &state->raw_format[0].format;
-      tf = &state->raw_format[1].format;
-      fs = sizeof (SpaVideoRawFormat);
-    } else
-      return SPA_RESULT_INVALID_MEDIA_TYPE;
-  } else
+  if (format->media_type != SPA_MEDIA_TYPE_VIDEO ||
+      format->media_subtype != SPA_MEDIA_SUBTYPE_RAW)
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
   if (!(flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY)) {
-    memcpy (tf, f, fs);
-    state->current_format = tf;
+    memcpy (&state->format[1], &state->format[0], sizeof (SpaFormatVideo));
+    state->current_format = &state->format[1].format;
   }
 
   return SPA_RESULT_OK;

@@ -318,20 +318,20 @@ negotiate_formats (AppData *data)
   f.fmt.props.n_prop_info = 3;
   f.fmt.props.prop_info = f.infos;
 
-  spa_video_raw_fill_prop_info (&f.infos[0],
-                                SPA_PROP_ID_VIDEO_FORMAT,
-                                offsetof (VideoFormat, format));
+  spa_prop_info_fill_video (&f.infos[0],
+                            SPA_PROP_ID_VIDEO_FORMAT,
+                            offsetof (VideoFormat, format));
   f.format = SPA_VIDEO_FORMAT_YUY2;
 
-  spa_video_raw_fill_prop_info (&f.infos[1],
-                                SPA_PROP_ID_VIDEO_SIZE,
-                                offsetof (VideoFormat, size));
+  spa_prop_info_fill_video (&f.infos[1],
+                            SPA_PROP_ID_VIDEO_SIZE,
+                            offsetof (VideoFormat, size));
   f.size.width = 320;
   f.size.height = 240;
 
-  spa_video_raw_fill_prop_info (&f.infos[2],
-                                SPA_PROP_ID_VIDEO_FRAMERATE,
-                                offsetof (VideoFormat, framerate));
+  spa_prop_info_fill_video (&f.infos[2],
+                            SPA_PROP_ID_VIDEO_FRAMERATE,
+                            offsetof (VideoFormat, framerate));
   f.framerate.num = 25;
   f.framerate.denom = 1;
 #endif

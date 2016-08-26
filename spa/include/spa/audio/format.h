@@ -39,6 +39,10 @@ typedef enum {
   SPA_PROP_ID_AUDIO_RAW_INFO,
 } SpaPropIdAudio;
 
+SpaResult   spa_prop_info_fill_audio (SpaPropInfo     *info,
+                                      SpaPropIdAudio   id,
+                                      size_t           offset);
+
 struct _SpaAudioRawFormat {
   SpaFormat format;
   SpaAudioRawInfo info;
@@ -47,10 +51,6 @@ struct _SpaAudioRawFormat {
 SpaResult   spa_audio_raw_format_init    (SpaAudioRawFormat *format);
 SpaResult   spa_audio_raw_format_parse   (const SpaFormat *format,
                                           SpaAudioRawFormat *rawformat);
-
-SpaResult   spa_audio_raw_fill_prop_info (SpaPropInfo     *info,
-                                          SpaPropIdAudio   id,
-                                          size_t           offset);
 
 #ifdef __cplusplus
 }  /* extern "C" */

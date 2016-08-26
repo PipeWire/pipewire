@@ -456,6 +456,27 @@ iter_parse_set_format (struct stack_iter *si, SpaControlCmdSetFormat *cmd)
   cmd->format = parse_format (mem, p, SPA_PTR_TO_INT (cmd->format));
 }
 
+static void
+iter_parse_use_buffers (struct stack_iter *si, SpaControlCmdUseBuffers *cmd)
+{
+  void *p;
+  int i;
+
+  p = si->data;
+  memcpy (cmd, p, sizeof (SpaControlCmdUseBuffers));
+  if (cmd->buffers)
+    cmd->buffers = SPA_MEMBER (p, SPA_PTR_TO_INT (cmd->buffers), SpaBuffer *);
+  for (i = 0; i < cmd->n_buffers; i++) {
+    SpaMemoryChunk *mc;
+    SpaMemory *mem;
+
+    mc = SPA_MEMBER (p, SPA_PTR_TO_INT (cmd->buffers[i]), SpaMemoryChunk);
+    mem = spa_memory_find (&mc->mem);
+
+    cmd->buffers[i] = SPA_MEMBER (spa_memory_ensure_ptr (mem), mc->offset, SpaBuffer);
+  }
+}
+
 SpaResult
 spa_control_iter_parse_cmd (SpaControlIter *iter,
                             void           *command)
@@ -542,16 +563,8 @@ spa_control_iter_parse_cmd (SpaControlIter *iter,
       memcpy (command, si->data, sizeof (SpaControlCmdRemoveMem));
       break;
 
-    case SPA_CONTROL_CMD_ADD_BUFFER:
-      if (si->size < sizeof (SpaControlCmdAddBuffer))
-        return SPA_RESULT_ERROR;
-      memcpy (command, si->data, sizeof (SpaControlCmdAddBuffer));
-      break;
-
-    case SPA_CONTROL_CMD_REMOVE_BUFFER:
-      if (si->size < sizeof (SpaControlCmdRemoveBuffer))
-        return SPA_RESULT_ERROR;
-      memcpy (command, si->data, sizeof (SpaControlCmdRemoveBuffer));
+    case SPA_CONTROL_CMD_USE_BUFFERS:
+      iter_parse_use_buffers (si, command);
       break;
 
     case SPA_CONTROL_CMD_PROCESS_BUFFER:
@@ -1077,6 +1090,41 @@ builder_add_set_format (struct stack_builder *sb, SpaControlCmdSetFormat *sf)
   sf->format = SPA_INT_TO_PTR (SPA_PTRDIFF (p, sf));
 }
 
+static void
+builder_add_use_buffers (struct stack_builder *sb, SpaControlCmdUseBuffers *ub)
+{
+  size_t len;
+  void *p;
+  int i;
+  SpaMemoryChunk **bmc;
+  SpaControlCmdUseBuffers *d;
+
+  /* calculate length */
+  /* port_id + format + mask  */
+  len = sizeof (SpaControlCmdUseBuffers);
+  len += ub->n_buffers * sizeof (SpaBuffer *);
+  len += ub->n_buffers * sizeof (SpaMemoryChunk);
+
+  p = builder_add_cmd (sb, SPA_CONTROL_CMD_USE_BUFFERS, len);
+  memcpy (p, ub, sizeof (SpaControlCmdUseBuffers));
+  d = p;
+
+  p = SPA_MEMBER (d, sizeof (SpaControlCmdUseBuffers), void);
+  bmc = p;
+
+  if (d->n_buffers)
+    d->buffers = SPA_INT_TO_PTR (SPA_PTRDIFF (bmc, d));
+  else
+    d->buffers = 0;
+
+  p = SPA_MEMBER (p, sizeof (SpaMemoryChunk*) * ub->n_buffers, void);
+  for (i = 0; i < ub->n_buffers; i++) {
+    memcpy (p, &ub->buffers[i]->mem, sizeof (SpaMemoryChunk));
+    bmc[i] = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
+    p = SPA_MEMBER (p, sizeof (SpaMemoryChunk), void);
+  }
+}
+
 /**
  * spa_control_builder_add_cmd:
  * @builder: a #SpaControlBuilder
@@ -1168,14 +1216,8 @@ spa_control_builder_add_cmd (SpaControlBuilder *builder,
       memcpy (p, command, sizeof (SpaControlCmdRemoveMem));
       break;
 
-    case SPA_CONTROL_CMD_ADD_BUFFER:
-      p = builder_add_cmd (sb, cmd, sizeof (SpaControlCmdAddBuffer));
-      memcpy (p, command, sizeof (SpaControlCmdAddBuffer));
-      break;
-
-    case SPA_CONTROL_CMD_REMOVE_BUFFER:
-      p = builder_add_cmd (sb, cmd, sizeof (SpaControlCmdRemoveBuffer));
-      memcpy (p, command, sizeof (SpaControlCmdRemoveBuffer));
+    case SPA_CONTROL_CMD_USE_BUFFERS:
+      builder_add_use_buffers (sb, command);
       break;
 
     case SPA_CONTROL_CMD_PROCESS_BUFFER:

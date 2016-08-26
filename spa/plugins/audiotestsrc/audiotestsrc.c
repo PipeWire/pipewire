@@ -45,8 +45,8 @@ struct _SpaAudioTestSrc {
   SpaPortStatus status;
 
   bool have_format;
-  SpaAudioRawFormat query_format;
-  SpaAudioRawFormat current_format;
+  SpaFormatAudio query_format;
+  SpaFormatAudio current_format;
 };
 
 static const uint32_t default_wave = 1.0;
@@ -298,7 +298,9 @@ spa_audiotestsrc_node_port_enum_formats (SpaNode          *node,
 
   switch (index) {
     case 0:
-      spa_audio_raw_format_init (&this->query_format);
+      spa_format_audio_init (SPA_MEDIA_TYPE_AUDIO,
+                             SPA_MEDIA_SUBTYPE_RAW,
+                             &this->query_format);
       break;
     default:
       return SPA_RESULT_ENUM_END;
@@ -331,7 +333,7 @@ spa_audiotestsrc_node_port_set_format (SpaNode            *node,
     return SPA_RESULT_OK;
   }
 
-  if ((res = spa_audio_raw_format_parse (format, &this->current_format)) < 0)
+  if ((res = spa_format_audio_parse (format, &this->current_format)) < 0)
     return res;
 
   this->have_format = true;

@@ -477,8 +477,11 @@ spa_v4l2_set_format (SpaV4l2Source *this, V4l2Format *f, bool try_only)
                                          f->fmt.media_subtype,
                                          f->format,
                                          0);
-  if (info == NULL)
+  if (info == NULL) {
+    fprintf (stderr, "unknown media type %d %d %d\n", f->fmt.media_type,
+        f->fmt.media_subtype, f->format);
     return -1;
+  }
 
   fmt.fmt.pix.pixelformat = info->fourcc;
   fmt.fmt.pix.field = V4L2_FIELD_ANY;

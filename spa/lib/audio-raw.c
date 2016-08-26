@@ -25,7 +25,7 @@
 #include <spa/audio/raw.h>
 #include <spa/audio/format.h>
 
-static const SpaAudioRawInfo default_info = {
+static const SpaAudioInfoRaw default_raw_info = {
   SPA_AUDIO_FORMAT_S16,
   SPA_AUDIO_FLAG_NONE,
   SPA_AUDIO_LAYOUT_INTERLEAVED,
@@ -174,9 +174,9 @@ static const SpaPropInfo format_prop_info[] =
                                     SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                     NULL },
   { SPA_PROP_ID_AUDIO_RAW_INFO,     0,
-                                    "info", "the SpaAudioRawInfo structure",
+                                    "info", "the SpaAudioInfoRaw structure",
                                     SPA_PROP_FLAG_READWRITE,
-                                    SPA_PROP_TYPE_POINTER, sizeof (SpaAudioRawInfo),
+                                    SPA_PROP_TYPE_POINTER, sizeof (SpaAudioInfoRaw),
                                     SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                     NULL },
 };
@@ -202,17 +202,19 @@ spa_prop_info_fill_audio (SpaPropInfo    *info,
 }
 
 SpaResult
-spa_audio_raw_format_init (SpaAudioRawFormat *format)
+spa_format_audio_init (SpaMediaType     type,
+                       SpaMediaSubType  subtype,
+                       SpaFormatAudio  *format)
 {
   static SpaPropInfo raw_format_prop_info[] =
   {
-    { SPA_PROP_ID_AUDIO_FORMAT,       offsetof (SpaAudioRawFormat, info.format), },
-    { SPA_PROP_ID_AUDIO_FLAGS,        offsetof (SpaAudioRawFormat, info.flags), },
-    { SPA_PROP_ID_AUDIO_LAYOUT,       offsetof (SpaAudioRawFormat, info.layout), },
-    { SPA_PROP_ID_AUDIO_RATE,         offsetof (SpaAudioRawFormat, info.rate), },
-    { SPA_PROP_ID_AUDIO_CHANNELS,     offsetof (SpaAudioRawFormat, info.channels), },
-    { SPA_PROP_ID_AUDIO_CHANNEL_MASK, offsetof (SpaAudioRawFormat, info.channel_mask), },
-    { SPA_PROP_ID_AUDIO_RAW_INFO,     offsetof (SpaAudioRawFormat, info), },
+    { SPA_PROP_ID_AUDIO_FORMAT,       offsetof (SpaFormatAudio, info.raw.format), },
+    { SPA_PROP_ID_AUDIO_FLAGS,        offsetof (SpaFormatAudio, info.raw.flags), },
+    { SPA_PROP_ID_AUDIO_LAYOUT,       offsetof (SpaFormatAudio, info.raw.layout), },
+    { SPA_PROP_ID_AUDIO_RATE,         offsetof (SpaFormatAudio, info.raw.rate), },
+    { SPA_PROP_ID_AUDIO_CHANNELS,     offsetof (SpaFormatAudio, info.raw.channels), },
+    { SPA_PROP_ID_AUDIO_CHANNEL_MASK, offsetof (SpaFormatAudio, info.raw.channel_mask), },
+    { SPA_PROP_ID_AUDIO_RAW_INFO,     offsetof (SpaFormatAudio, info), },
   };
 
   if (raw_format_prop_info[0].name == NULL) {
@@ -224,46 +226,47 @@ spa_audio_raw_format_init (SpaAudioRawFormat *format)
                                 raw_format_prop_info[i].offset);
   }
 
-  format->format.media_type = SPA_MEDIA_TYPE_AUDIO;
-  format->format.media_subtype = SPA_MEDIA_SUBTYPE_RAW;
+  format->format.media_type = type;
+  format->format.media_subtype = subtype;
   format->format.props.n_prop_info = SPA_N_ELEMENTS (raw_format_prop_info);
   format->format.props.prop_info = raw_format_prop_info;
   format->format.props.unset_mask = (1 << 0) | (1 << 2) | (1 << 3) | (1 << 4);
-  format->info = default_info;
+  format->info.raw = default_raw_info;
 
   return SPA_RESULT_OK;
 }
 
 SpaResult
-spa_audio_raw_format_parse (const SpaFormat *format,
-                            SpaAudioRawFormat *rawformat)
+spa_format_audio_parse (const SpaFormat *format,
+                        SpaFormatAudio  *aformat)
 {
   SpaPropValue value;
   const SpaProps *props;
   SpaResult res;
 
-  if ((void *)format == (void *)rawformat)
+  if ((void *)format == (void *)aformat)
     return SPA_RESULT_OK;
 
-  if (format->media_type != SPA_MEDIA_TYPE_AUDIO ||
-      format->media_subtype != SPA_MEDIA_SUBTYPE_RAW)
+  if (format->media_type != SPA_MEDIA_TYPE_AUDIO)
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
-  spa_audio_raw_format_init (rawformat);
+  spa_format_audio_init (format->media_type,
+                         format->media_subtype,
+                         aformat);
 
   props = &format->props;
   if ((res = spa_props_get_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_RAW_INFO), &value)) < 0)
     goto fallback;
 
-  if (value.type != SPA_PROP_TYPE_POINTER || value.size != sizeof (SpaAudioRawInfo))
+  if (value.type != SPA_PROP_TYPE_POINTER || value.size != sizeof (SpaAudioInfoRaw))
     goto fallback;
 
-  memcpy (&rawformat->info, value.value, sizeof (SpaAudioRawInfo));
+  memcpy (&aformat->info, value.value, sizeof (SpaAudioInfoRaw));
 
   return SPA_RESULT_OK;
 
 fallback:
-  res = spa_props_copy (props, &rawformat->format.props);
+  res = spa_props_copy (props, &aformat->format.props);
 
   return res;
 }

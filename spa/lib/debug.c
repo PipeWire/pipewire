@@ -194,6 +194,8 @@ struct media_subtype_name {
   { "vp9" },
   { "jpeg" },
   { "bayer" },
+  { "mp3" },
+  { "aac" },
 };
 
 struct prop_type_name {

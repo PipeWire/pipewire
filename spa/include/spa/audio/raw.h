@@ -24,7 +24,7 @@
 extern "C" {
 #endif
 
-typedef struct _SpaAudioRawInfo SpaAudioRawInfo;
+typedef struct _SpaAudioInfoRaw SpaAudioInfoRaw;
 
 #include <endian.h>
 
@@ -121,7 +121,7 @@ typedef enum {
 } SpaAudioLayout;
 
 /**
- * SpaAudioRawInfo:
+ * SpaAudioInfoRaw:
  * @format: the format
  * @flags: extra flags
  * @layout: the sample layout
@@ -129,7 +129,7 @@ typedef enum {
  * @channels: the number of channels
  * @channel_mask: the channel mask
  */
-struct _SpaAudioRawInfo {
+struct _SpaAudioInfoRaw {
   SpaAudioFormat format;
   SpaAudioFlags  flags;
   SpaAudioLayout layout;

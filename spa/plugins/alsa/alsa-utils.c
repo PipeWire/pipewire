@@ -105,7 +105,7 @@ spa_alsa_format_to_alsa (SpaAudioFormat format)
 }
 
 static int
-alsa_set_format (SpaALSASink *this, SpaAudioRawFormat *fmt, bool try_only)
+alsa_set_format (SpaALSASink *this, SpaFormatAudio *fmt, bool try_only)
 {
   unsigned int rrate;
   snd_pcm_uframes_t size;
@@ -113,7 +113,7 @@ alsa_set_format (SpaALSASink *this, SpaAudioRawFormat *fmt, bool try_only)
   snd_pcm_hw_params_t *params;
   snd_pcm_format_t format;
   SpaALSAState *state = &this->state;
-  SpaAudioRawInfo *info = &fmt->info;
+  SpaAudioInfoRaw *info = &fmt->info.raw;
   snd_pcm_t *handle;
   unsigned int buffer_time;
   unsigned int period_time;

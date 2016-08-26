@@ -453,16 +453,16 @@ gst_caps_from_format (SpaFormat *format)
           NULL);
     }
   } else if (format->media_type == SPA_MEDIA_TYPE_AUDIO) {
+    SpaFormatAudio f;
+
+    spa_format_audio_parse (format, &f);
+
     if (format->media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
-      SpaAudioRawFormat f;
-
-      spa_audio_raw_format_parse (format, &f);
-
       res = gst_caps_new_simple ("audio/x-raw",
-          "format", G_TYPE_STRING, gst_audio_format_to_string (f.info.format),
+          "format", G_TYPE_STRING, gst_audio_format_to_string (f.info.raw.format),
           "layout", G_TYPE_STRING, "interleaved",
-          "rate", G_TYPE_INT, f.info.rate,
-          "channels", G_TYPE_INT, f.info.channels,
+          "rate", G_TYPE_INT, f.info.raw.rate,
+          "channels", G_TYPE_INT, f.info.raw.channels,
           NULL);
     }
   }

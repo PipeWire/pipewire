@@ -54,6 +54,8 @@ typedef enum {
   SPA_MEDIA_SUBTYPE_VP9             = 13,
   SPA_MEDIA_SUBTYPE_JPEG            = 14,
   SPA_MEDIA_SUBTYPE_BAYER           = 15,
+  SPA_MEDIA_SUBTYPE_MP3             = 16,
+  SPA_MEDIA_SUBTYPE_AAC             = 17,
 } SpaMediaSubType;
 
 /**

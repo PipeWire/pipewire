@@ -46,6 +46,9 @@ AM_LDFLAGS = $(NODELETE_LDFLAGS) -Wl,-rpath=/home/wim/gst/head/pinos/spa/build/l
 
 FOREIGN_CFLAGS = -w
 
+MODULE_LDFLAGS = $(AM_LDFLAGS) $(AM_LIBLDFLAGS) -module -avoid-version
+MODULE_LIBADD = $(AM_LIBADD) libpinoscore-@PINOS_MAJORMINOR@.la
+
 ###################################
 #          Extra files            #
 ###################################
@@ -208,10 +211,6 @@ libpinoscore_@PINOS_MAJORMINOR@_la_SOURCES = \
 		server/node.c server/node.h \
 		server/port.c server/port.h \
 		server/node-factory.c server/node-factory.h \
-		modules/gst/gst-manager.c modules/gst/gst-manager.h \
-		modules/gst/gst-source.c modules/gst/gst-source.h \
-		modules/gst/gst-sink.c modules/gst/gst-sink.h \
-		modules/gst/gst-node-factory.c modules/gst/gst-node-factory.h \
 		modules/spa/spa-alsa-sink.c modules/spa/spa-alsa-sink.h \
 		modules/spa/spa-v4l2-source.c modules/spa/spa-v4l2-source.h \
 		dbus/org-pinos.c dbus/org-pinos.h
@@ -220,6 +219,26 @@ libpinoscore_@PINOS_MAJORMINOR@_la_CFLAGS = $(AM_CFLAGS) $(SERVER_CFLAGS)
 libpinoscore_@PINOS_MAJORMINOR@_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version
 libpinoscore_@PINOS_MAJORMINOR@_la_LIBADD = $(LIBLTDL) $(LTLIBICONV) \
 			 libpinos-@PINOS_MAJORMINOR@.la $(AM_LIBADD)
+
+###################################
+#      Modules                    #
+###################################
+
+module_LTLIBRARIES =
+
+if BUILD_MODULE_GST
+module_LTLIBRARIES += module-gst.la
+
+module_gst_la_SOURCES = \
+		modules/gst/gst-manager.c \
+		modules/gst/gst-node-factory.c \
+		modules/gst/gst-sink.c \
+		modules/gst/gst-source.c \
+		modules/gst/module.c
+module_gst_la_CFLAGS = $(AM_CFLAGS) $(GST_CFLAGS)
+module_gst_la_LDFLAGS = $(MODULE_LDFLAGS)
+module_gst_la_LIBADD = $(MODULE_LIBADD)
+endif
 
 ###################################
 #      GStreamer Plugin           #

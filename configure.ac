@@ -249,6 +249,17 @@ PKG_CHECK_MODULES(ALSA, alsa >= 0.9.1, dummy=yes,
 AC_SUBST(ALSA_CFLAGS)
 AC_SUBST(ALSA_LIBS)
 
+###################################
+#      Modules                    #
+###################################
+
+#### module-gst (Gstreamer module) ####
+AC_ARG_ENABLE([module-gst],
+    AS_HELP_STRING([--disable-module-gst],[Disable building of GStreamer module]))
+
+AM_CONDITIONAL([BUILD_MODULE_GST], [test "x$enable_module_gst" != "xno"])
+AS_IF([test "x$enable_module_gst" != "xno"], ENABLE_MODULE_GST=yes, ENABLE_MODULE_GST=no)
+
 #### Build and Install man pages ####
 
 AC_ARG_ENABLE([manpages],
@@ -278,6 +289,9 @@ Configuration
 	Prefix                     : ${prefix}
 	Moduledir                  : ${moduledir}
 	Compiler                   : ${CC}
+
+Modules
+	module-gst                 : ${ENABLE_MODULE_GST}
 
 pinos configured. Type 'make' to build.
 "

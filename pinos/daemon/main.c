@@ -19,13 +19,10 @@
 
 #include <gio/gio.h>
 #include <glib.h>
-#include <gst/gst.h>
 
 #include <client/pinos.h>
 #include <server/daemon.h>
 #include <server/module.h>
-#include <modules/gst/gst-manager.h>
-#include <modules/gst/gst-node-factory.h>
 #include <spa/include/spa/memory.h>
 
 gint
@@ -34,7 +31,7 @@ main (gint argc, gchar *argv[])
   PinosDaemon *daemon;
   GMainLoop *loop;
   PinosProperties *props;
-  PinosNodeFactory *factory;
+  GError *err = NULL;
 
   pinos_init (&argc, &argv);
   spa_memory_init ();
@@ -44,8 +41,10 @@ main (gint argc, gchar *argv[])
   props = pinos_properties_new ("test", "test", NULL);
   daemon = pinos_daemon_new (props);
 
-  factory = pinos_gst_node_factory_new ("gst-node-factory");
-  pinos_daemon_add_node_factory (daemon, factory);
+  if (pinos_module_load (daemon, "module-gst", &err) == NULL) {
+    g_error ("could not load module-gst: %s", err->message);
+    g_clear_error (&err);
+  }
 
   pinos_spa_alsa_sink_new (daemon, "alsa-sink", NULL);
   pinos_spa_v4l2_source_new (daemon, "v4l2-source", NULL);
@@ -55,7 +54,6 @@ main (gint argc, gchar *argv[])
 
   pinos_properties_free (props);
   g_main_loop_unref (loop);
-  g_object_unref (factory);
   g_object_unref (daemon);
 
   return 0;

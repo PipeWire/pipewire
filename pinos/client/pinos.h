@@ -22,7 +22,6 @@
 
 #include <pinos/client/context.h>
 #include <pinos/client/enumtypes.h>
-#include <pinos/client/fdmanager.h>
 #include <pinos/client/introspect.h>
 #include <pinos/client/mainloop.h>
 #include <pinos/client/properties.h>

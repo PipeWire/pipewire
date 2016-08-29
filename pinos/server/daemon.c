@@ -169,6 +169,7 @@ handle_create_node (PinosDaemon1           *interface,
   g_debug ("daemon %p: added node %p with path %s", daemon, node, object_path);
   g_dbus_method_invocation_return_value (invocation,
                                          g_variant_new ("(o)", object_path));
+  g_object_unref (node);
 
   return TRUE;
 
@@ -212,6 +213,7 @@ on_port_added (PinosNode *node, PinosPort *port, PinosClient *client)
     }
     link = pinos_link_new (pinos_node_get_daemon (node), port, target);
     pinos_client_add_object (client, G_OBJECT (link));
+    g_object_unref (link);
   }
 }
 
@@ -259,6 +261,7 @@ handle_create_client_node (PinosDaemon1           *interface,
 
   object_path = pinos_node_get_object_path (PINOS_NODE (node));
   g_debug ("daemon %p: add client-node %p, %s", daemon, node, object_path);
+  g_object_unref (node);
 
   fdlist = g_unix_fd_list_new ();
   fdidx = g_unix_fd_list_append (fdlist, g_socket_get_fd (socket), &error);
@@ -271,7 +274,8 @@ handle_create_client_node (PinosDaemon1           *interface,
 
 no_socket:
   {
-    g_debug ("daemon %p: could not create node %s", daemon, error->message);
+    g_debug ("daemon %p: could not create socket %s", daemon, error->message);
+    g_object_unref (node);
     goto exit_error;
   }
 exit_error:

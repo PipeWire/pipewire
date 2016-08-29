@@ -34,7 +34,6 @@ struct _PinosClientPrivate
   gchar *object_path;
   PinosProperties *properties;
 
-  PinosFdManager *fdmanager;
   GList *objects;
 };
 
@@ -208,8 +207,6 @@ pinos_client_dispose (GObject * object)
   GList *copy;
 
   g_debug ("client %p: dispose", client);
-  pinos_fd_manager_remove_all (priv->fdmanager, priv->object_path);
-
   copy = g_list_copy (priv->objects);
   g_list_free_full (copy, g_object_unref);
 
@@ -231,7 +228,6 @@ pinos_client_finalize (GObject * object)
   g_free (priv->object_path);
   if (priv->properties)
     pinos_properties_free (priv->properties);
-  g_clear_object (&priv->fdmanager);
 
   G_OBJECT_CLASS (pinos_client_parent_class)->finalize (object);
 }
@@ -339,7 +335,6 @@ pinos_client_init (PinosClient * client)
 
   priv->iface = pinos_client1_skeleton_new ();
   g_debug ("client %p: new", client);
-  priv->fdmanager = pinos_fd_manager_get (PINOS_FD_MANAGER_DEFAULT);
 }
 
 /**
@@ -391,7 +386,7 @@ pinos_client_add_object (PinosClient *client,
   g_return_if_fail (G_IS_OBJECT (object));
   priv = client->priv;
 
-  priv->objects = g_list_prepend (priv->objects, object);
+  priv->objects = g_list_prepend (priv->objects, g_object_ref (object));
 }
 
 void

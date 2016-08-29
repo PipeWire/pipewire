@@ -452,7 +452,7 @@ again:
   if (i == 1) {
     fmt->framerate = fmt->framerates[0];
   } else {
-    fmt->fmt.props.unset_mask |= 1 << pi;
+    SPA_PROPS_INDEX_UNSET (&fmt->fmt.props, pi);
   }
   pi = ++fmt->fmt.props.n_prop_info;
 

@@ -62,7 +62,7 @@ spa_format_fixate (SpaFormat *format)
           for (j = 0; j < pi->n_range_values; j++) {
             const SpaPropRangeInfo *ri = &pi->range_values[j];
             memcpy (SPA_MEMBER (props, pi->offset, void), ri->value, ri->size);
-            props->unset_mask &= ~(1 << i);
+            SPA_PROPS_INDEX_SET (props, i);
             break;
           }
           break;

@@ -157,13 +157,13 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
         p = ++sv;
       } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
         fprintf (stderr, "implement me\n");
-        f->props.unset_mask |= (1u << pi);
+        SPA_PROPS_INDEX_UNSET (&f->props, pi);
       } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
         fprintf (stderr, "implement me\n");
-        f->props.unset_mask |= (1u << pi);
+        SPA_PROPS_INDEX_UNSET (&f->props, pi);
       } else {
         fprintf (stderr, "implement me\n");
-        f->props.unset_mask |= (1u << pi);
+        SPA_PROPS_INDEX_UNSET (&f->props, pi);
       }
       pi++;
     }
@@ -207,16 +207,16 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
           p = ++sv;
           ri++;
 
-          f->props.unset_mask |= (1u << pi);
+          SPA_PROPS_INDEX_UNSET (&f->props, pi);
         } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
           fprintf (stderr, "implement me\n");
-          f->props.unset_mask |= (1u << pi);
+          SPA_PROPS_INDEX_UNSET (&f->props, pi);
         } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
           fprintf (stderr, "implement me\n");
-          f->props.unset_mask |= (1u << pi);
+          SPA_PROPS_INDEX_UNSET (&f->props, pi);
         } else {
           fprintf (stderr, "implement me\n");
-          f->props.unset_mask |= (1u << pi);
+          SPA_PROPS_INDEX_UNSET (&f->props, pi);
         }
       }
       pi++;
@@ -264,16 +264,16 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
         p = ++sv;
         ri++;
 
-        f->props.unset_mask |= (1u << pi);
+        SPA_PROPS_INDEX_UNSET (&f->props, pi);
       } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
         fprintf (stderr, "implement me\n");
-        f->props.unset_mask |= (1u << pi);
+        SPA_PROPS_INDEX_UNSET (&f->props, pi);
       } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
         fprintf (stderr, "implement me\n");
-        f->props.unset_mask |= (1u << pi);
+        SPA_PROPS_INDEX_UNSET (&f->props, pi);
       } else {
         fprintf (stderr, "implement me\n");
-        f->props.unset_mask |= (1u << pi);
+        SPA_PROPS_INDEX_UNSET (&f->props, pi);
       }
       pi++;
     }
@@ -294,13 +294,13 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
         p = ++sv;
       } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
         fprintf (stderr, "implement me\n");
-        f->props.unset_mask |= (1u << pi);
+        SPA_PROPS_INDEX_UNSET (&f->props, pi);
       } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
         fprintf (stderr, "implement me\n");
-        f->props.unset_mask |= (1u << pi);
+        SPA_PROPS_INDEX_UNSET (&f->props, pi);
       } else {
         fprintf (stderr, "implement me\n");
-        f->props.unset_mask |= (1u << pi);
+        SPA_PROPS_INDEX_UNSET (&f->props, pi);
       }
       pi++;
     }
@@ -321,13 +321,13 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
         p = ++sv;
       } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
         fprintf (stderr, "implement me\n");
-        f->props.unset_mask |= (1u << pi);
+        SPA_PROPS_INDEX_UNSET (&f->props, pi);
       } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
         fprintf (stderr, "implement me\n");
-        f->props.unset_mask |= (1u << pi);
+        SPA_PROPS_INDEX_UNSET (&f->props, pi);
       } else {
         fprintf (stderr, "implement me\n");
-        f->props.unset_mask |= (1u << pi);
+        SPA_PROPS_INDEX_UNSET (&f->props, pi);
       }
       pi++;
     }
@@ -344,13 +344,13 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
         p = ++sv;
       } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
         fprintf (stderr, "implement me\n");
-        f->props.unset_mask |= (1u << pi);
+        SPA_PROPS_INDEX_UNSET (&f->props, pi);
       } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
         fprintf (stderr, "implement me\n");
-        f->props.unset_mask |= (1u << pi);
+        SPA_PROPS_INDEX_UNSET (&f->props, pi);
       } else {
         fprintf (stderr, "implement me\n");
-        f->props.unset_mask |= (1u << pi);
+        SPA_PROPS_INDEX_UNSET (&f->props, pi);
       }
       pi++;
     }
@@ -367,13 +367,13 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
         p = ++sv;
       } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
         fprintf (stderr, "implement me\n");
-        f->props.unset_mask |= (1u << pi);
+        SPA_PROPS_INDEX_UNSET (&f->props, pi);
       } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
         fprintf (stderr, "implement me\n");
-        f->props.unset_mask |= (1u << pi);
+        SPA_PROPS_INDEX_UNSET (&f->props, pi);
       } else {
         fprintf (stderr, "implement me\n");
-        f->props.unset_mask |= (1u << pi);
+        SPA_PROPS_INDEX_UNSET (&f->props, pi);
       }
       pi++;
     }

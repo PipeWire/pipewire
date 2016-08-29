@@ -442,8 +442,8 @@ again:
     fmt->ranges[i].name = NULL;
     fmt->ranges[i].description = NULL;
     fmt->ranges[i].size = sizeof (SpaFraction);
-    fmt->framerates[i].num = state->frmival.discrete.numerator;
-    fmt->framerates[i].denom = state->frmival.discrete.denominator;
+    fmt->framerates[i].num = state->frmival.discrete.denominator;
+    fmt->framerates[i].denom = state->frmival.discrete.numerator;
     fmt->ranges[i].value = &fmt->framerates[i];
 
     i = ++state->frmival.index;
@@ -489,8 +489,8 @@ spa_v4l2_set_format (SpaV4l2Source *this, V4l2Format *f, bool try_only)
   fmt.fmt.pix.field = V4L2_FIELD_ANY;
   fmt.fmt.pix.width = f->size.width;
   fmt.fmt.pix.height = f->size.height;
-  streamparm.parm.capture.timeperframe.numerator = f->framerate.num;
-  streamparm.parm.capture.timeperframe.denominator = f->framerate.denom;
+  streamparm.parm.capture.timeperframe.numerator = f->framerate.denom;
+  streamparm.parm.capture.timeperframe.denominator = f->framerate.num;
 
   fprintf (stderr, "set %08x %dx%d %d/%d\n", fmt.fmt.pix.pixelformat,
       fmt.fmt.pix.width, fmt.fmt.pix.height,

@@ -46,7 +46,7 @@ spa_props_set_prop (SpaProps           *props,
 
   memcpy (SPA_MEMBER (props, info->offset, void), value->value, value->size);
 
-  props->unset_mask &= ~(1u << index);
+  SPA_PROPS_INDEX_SET (props, index);
 
   return SPA_RESULT_OK;
 }
@@ -68,7 +68,7 @@ spa_props_get_prop (const SpaProps *props,
   if ((info->flags & SPA_PROP_FLAG_READABLE) == 0)
     return SPA_RESULT_INVALID_PROPERTY_ACCESS;
 
-  if (props->unset_mask & (1u << index))
+  if (SPA_PROPS_INDEX_IS_UNSET (props, index))
     return SPA_RESULT_PROPERTY_UNSET;
 
   value->type = info->type;
@@ -103,7 +103,7 @@ spa_props_copy (const SpaProps *src,
 
     memcpy (SPA_MEMBER (dest, info->offset, void), value.value, value.size);
 
-    dest->unset_mask &= ~(1u << i);
+    SPA_PROPS_INDEX_SET (dest, i);
   }
   return SPA_RESULT_OK;
 }

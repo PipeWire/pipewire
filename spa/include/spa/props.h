@@ -139,6 +139,14 @@ typedef struct {
   const char              **tags;
 } SpaPropInfo;
 
+/**
+ * SpaPropValue:
+ * @type: a property type
+ * @size: the property size
+ * @value: the property value.
+ *
+ * The structure to set and get properties.
+ */
 typedef struct {
   SpaPropType  type;
   size_t       size;
@@ -150,7 +158,10 @@ typedef struct {
  * @n_prop_info: number of elements in @prop_info
  * @prop_info: array of #SpaPropInfo. Contains info about the
  *             properties. Can be %NULL when unspecified.
- * @unset_mask: mask of unset properties
+ * @unset_mask: mask of unset properties. For each property in @prop_info there
+ *              is a corresponding bit that specifies if the property is currently
+ *              unset. When more that 32 properties are present, more uint32_t
+ *              fields follow this one.
  *
  * Generic propertiers.
  */
@@ -159,6 +170,10 @@ struct _SpaProps {
   const SpaPropInfo *prop_info;
   uint32_t           unset_mask;
 };
+
+#define SPA_PROPS_INDEX_IS_UNSET(p,idx) ((&(p)->unset_mask)[(idx) >> 5] & (1U << ((idx) & 31)))
+#define SPA_PROPS_INDEX_UNSET(p,idx)    ((&(p)->unset_mask)[(idx) >> 5] |= (1U << ((idx) & 31)))
+#define SPA_PROPS_INDEX_SET(p,idx)      ((&(p)->unset_mask)[(idx) >> 5] &= ~(1U << ((idx) & 31)))
 
 static inline unsigned int
 spa_props_index_for_id (const SpaProps *props, uint32_t id)

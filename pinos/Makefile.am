@@ -36,7 +36,7 @@ AM_CPPFLAGS = \
 	-I$(top_builddir)/pinos/modules \
 	-DPINOS_SRCDIR=\"$(abs_srcdir)\" \
 	-DPINOS_BUILDDIR=\"$(abs_builddir)\"
-AM_CFLAGS = $(GLIB_CFLAGS) $(GST_CFLAGS)
+AM_CFLAGS = $(GLIB_CFLAGS)
 AM_CXXFLAGS = $(AM_CFLAGS)
 SERVER_CFLAGS = -D__INCLUDED_FROM_PINOS
 
@@ -55,9 +55,13 @@ MODULE_LIBADD = $(AM_LIBADD) libpinoscore-@PINOS_MAJORMINOR@.la
 
 EXTRA_DIST = \
 		daemon/pinos-system.conf \
+		daemon/pinos.conf.in \
 		daemon/pinos.desktop.in \
 		dbus/org.pinos.xml  \
 		client/private.h
+
+pinosconf_DATA = \
+		daemon/pinos.conf
 
 dbuspolicy_DATA = \
 		daemon/pinos-system.conf
@@ -121,6 +125,7 @@ CLEANFILES = $(built_header_make) $(built_source_make)
 bin_PROGRAMS = pinos
 
 pinos_SOURCES = \
+		daemon/daemon-config.h daemon/daemon-config.c \
 		daemon/main.c
 
 pinos_CFLAGS = $(AM_CFLAGS)
@@ -205,14 +210,13 @@ lib_LTLIBRARIES += libpinoscore-@PINOS_MAJORMINOR@.la
 libpinoscore_@PINOS_MAJORMINOR@_la_SOURCES = \
 		server/client.c server/client.h \
 		server/client-node.c server/client-node.h \
+		server/command.c server/command.h \
 		server/daemon.c server/daemon.h \
 		server/link.c server/link.h \
 		server/module.c server/module.h \
 		server/node.c server/node.h \
 		server/port.c server/port.h \
 		server/node-factory.c server/node-factory.h \
-		modules/spa/spa-alsa-sink.c modules/spa/spa-alsa-sink.h \
-		modules/spa/spa-v4l2-source.c modules/spa/spa-v4l2-source.h \
 		dbus/org-pinos.c dbus/org-pinos.h
 
 libpinoscore_@PINOS_MAJORMINOR@_la_CFLAGS = $(AM_CFLAGS) $(SERVER_CFLAGS)
@@ -239,6 +243,21 @@ module_gst_la_CFLAGS = $(AM_CFLAGS) $(GST_CFLAGS)
 module_gst_la_LDFLAGS = $(MODULE_LDFLAGS)
 module_gst_la_LIBADD = $(MODULE_LIBADD)
 endif
+
+if BUILD_MODULE_SPA
+module_LTLIBRARIES += module-spa.la
+
+module_spa_la_SOURCES = \
+		modules/spa/spa-alsa-sink.c \
+		modules/spa/spa-v4l2-source.c \
+		modules/spa/module.c
+module_spa_la_CFLAGS = $(AM_CFLAGS)
+module_spa_la_LDFLAGS = $(MODULE_LDFLAGS)
+module_spa_la_LIBADD = $(MODULE_LIBADD)
+endif
+
+
+
 
 ###################################
 #      GStreamer Plugin           #

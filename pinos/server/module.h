@@ -81,18 +81,20 @@ typedef enum
 /**
  * PinosModuleInitFunc:
  * @module: A #PinosModule
+ * @args: Arguments to the module
  *
  * A module should provide an init function with this signature. This function
  * will be called when a module is loaded.
  *
  * Returns: %TRUE on success, %FALSE otherwise
  */
-typedef gboolean (*PinosModuleInitFunc) (PinosModule *module);
+typedef gboolean (*PinosModuleInitFunc) (PinosModule *module, gchar *args);
 
 GType             pinos_module_get_type          (void);
 
 PinosModule *     pinos_module_load              (PinosDaemon *daemon,
                                                   const gchar *name,
+                                                  const gchar *args,
                                                   GError **err);
 
 G_END_DECLS

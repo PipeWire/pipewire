@@ -25,11 +25,14 @@
 #include <server/module.h>
 #include <spa/include/spa/memory.h>
 
+#include "daemon-config.h"
+
 gint
 main (gint argc, gchar *argv[])
 {
   PinosDaemon *daemon;
   GMainLoop *loop;
+  PinosDaemonConfig *config;
   PinosProperties *props;
   GError *err = NULL;
 
@@ -38,16 +41,18 @@ main (gint argc, gchar *argv[])
 
   loop = g_main_loop_new (NULL, FALSE);
 
-  props = pinos_properties_new ("test", "test", NULL);
-  daemon = pinos_daemon_new (props);
-
-  if (pinos_module_load (daemon, "module-gst", &err) == NULL) {
-    g_error ("could not load module-gst: %s", err->message);
+  /* parse configuration */
+  config = pinos_daemon_config_new ();
+  if (!pinos_daemon_config_load (config, &err)) {
+    g_error ("failed to parse config: %s", err->message);
     g_clear_error (&err);
   }
 
-  pinos_spa_alsa_sink_new (daemon, "alsa-sink", NULL);
-  pinos_spa_v4l2_source_new (daemon, "v4l2-source", NULL);
+  props = pinos_properties_new ("test", "test", NULL);
+  daemon = pinos_daemon_new (props);
+
+  pinos_daemon_config_run_commands (config, daemon);
+
   pinos_daemon_start (daemon);
 
   g_main_loop_run (loop);

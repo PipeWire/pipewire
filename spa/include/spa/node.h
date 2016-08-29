@@ -311,6 +311,8 @@ struct _SpaNode {
    *
    * When @format is %NULL, the current format will be removed.
    *
+   * This function takes a copy of the format.
+   *
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_INVALID_ARGUMENTS when node is %NULL
    *          #SPA_RESULT_INVALID_PORT when port_id is not valid
@@ -364,12 +366,11 @@ struct _SpaNode {
    *
    * For an input port, all the buffers will remain dequeued. Once a buffer
    * has been pushed on a port with port_push_input, it should not be reused
-   * until the buffer refcount reached 0 and the notify is called.
+   * until the REUSE_BUFFER event is notified.
    *
    * For output ports, all buffers will be queued in the port. with
-   * port_pull_output, a buffer can be dequeued. The notify of the buffers
-   * will be set by @node so that buffers will be reused when the refcount
-   * reaches 0.
+   * port_pull_output, a buffer can be dequeued. When a buffer can be reused,
+   * port_reuse_buffer() should be called.
    *
    * Passing %NULL as @buffers will remove the reference that the port has
    * on the buffers.
@@ -395,8 +396,8 @@ struct _SpaNode {
    * and pushed into the port. A notify should be configured so that you can
    * know when a buffer can be reused.
    *
-   * For output ports, the buffers remain queued. The notify will be configured
-   * so that buffers can be reused when no longer in use.
+   * For output ports, the buffers remain queued. port_reuse_buffer() should
+   * be called when a buffer can be reused.
    *
    * Returns: #SPA_RESULT_OK on success
    */
@@ -407,6 +408,17 @@ struct _SpaNode {
                                        SpaBuffer           **buffers,
                                        unsigned int         *n_buffers);
 
+  /**
+   * SpaNode::port_reuse_buffer:
+   * @node: a #SpaNode
+   * @port_id: a port id
+   * @buffer_id: a buffer id to reuse
+   *
+   * Tell an output port to reuse a buffer.
+   *
+   * Returns: #SPA_RESULT_OK on success
+   *          #SPA_RESULT_INVALID_ARGUMENTS when node is %NULL
+   */
   SpaResult   (*port_reuse_buffer)    (SpaNode              *node,
                                        uint32_t              port_id,
                                        uint32_t              buffer_id);

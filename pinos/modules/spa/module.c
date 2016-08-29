@@ -21,22 +21,16 @@
 #include <server/daemon.h>
 #include <server/module.h>
 
-#include "gst-manager.h"
-#include "gst-node-factory.h"
+#include "spa-alsa-sink.h"
+#include "spa-v4l2-source.h"
 
 gboolean pinos__module_init (PinosModule *module, const gchar * args);
 
 G_MODULE_EXPORT gboolean
 pinos__module_init (PinosModule * module, G_GNUC_UNUSED const gchar * args)
 {
-  PinosNodeFactory *factory;
-
-  pinos_gst_manager_new (module->daemon);
-
-  factory = pinos_gst_node_factory_new ("gst-node-factory");
-  pinos_daemon_add_node_factory (module->daemon, factory);
-
-  g_object_unref (factory);
+  pinos_spa_alsa_sink_new (module->daemon, "alsa-sink", NULL);
+  pinos_spa_v4l2_source_new (module->daemon, "v4l2-source", NULL);
 
   return TRUE;
 }

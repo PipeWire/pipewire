@@ -205,6 +205,7 @@ find_module (const gchar * path, const gchar *name)
  * pinos_module_load:
  * @daemon: a #PinosDaemon
  * @name: name of the module to load
+ * @args: A string with arguments for the module
  * @err: Return location for a #GError, or %NULL
  *
  * Load module with @name.
@@ -212,7 +213,10 @@ find_module (const gchar * path, const gchar *name)
  * Returns: A #PinosModule if the module could be loaded, or %NULL on failure.
  */
 PinosModule *
-pinos_module_load (PinosDaemon * daemon, const gchar * name, GError ** err)
+pinos_module_load (PinosDaemon  * daemon,
+                   const gchar  * name,
+                   const gchar  * args,
+                   GError      ** err)
 {
   PinosModule *module;
   PinosModulePrivate *priv;
@@ -280,7 +284,7 @@ pinos_module_load (PinosDaemon * daemon, const gchar * name, GError ** err)
   /* don't unload this module again */
   g_module_make_resident (gmodule);
 
-  if (!init_func (module)) {
+  if (!init_func (module, (gchar *) args)) {
     g_set_error (err, PINOS_MODULE_ERROR, PINOS_MODULE_ERROR_INIT,
         "\"%s\" failed to initialize", name);
     g_object_unref (module);

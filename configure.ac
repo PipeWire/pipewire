@@ -177,6 +177,12 @@ AS_IF([test "x$LIBLTDL" = "x"],
     [AC_MSG_ERROR([Unable to find libltdl version 2. Makes sure you have libtool 2.4 or later installed.])])
 AC_SUBST([LIBLTDL])
 
+
+#### Pinos runtime environment ####
+
+AC_SUBST(pinosconfdir, ["${sysconfdir}/pinos"])
+AX_DEFINE_DIR(PINOS_CONFIG_DIR, pinosconfdir, [Directory for configuration files])
+
 ###################################
 #      External libraries         #
 ###################################
@@ -260,6 +266,14 @@ AC_ARG_ENABLE([module-gst],
 AM_CONDITIONAL([BUILD_MODULE_GST], [test "x$enable_module_gst" != "xno"])
 AS_IF([test "x$enable_module_gst" != "xno"], ENABLE_MODULE_GST=yes, ENABLE_MODULE_GST=no)
 
+#### module-spa (SPA module) ####
+AC_ARG_ENABLE([module-spa],
+    AS_HELP_STRING([--disable-module-spa],[Disable building of SPA module]))
+
+AM_CONDITIONAL([BUILD_MODULE_SPA], [test "x$enable_module_spa" != "xno"])
+AS_IF([test "x$enable_module_spa" != "xno"], ENABLE_MODULE_SPA=yes, ENABLE_MODULE_SPA=no)
+
+
 #### Build and Install man pages ####
 
 AC_ARG_ENABLE([manpages],
@@ -273,6 +287,7 @@ dnl keep this alphabetic per directory, please
 AC_CONFIG_FILES([
 Makefile
 pinos/Makefile
+pinos/daemon/pinos.conf
 man/Makefile
 man/pinos.1.xml
 man/pinos-monitor.1.xml
@@ -292,6 +307,7 @@ Configuration
 
 Modules
 	module-gst                 : ${ENABLE_MODULE_GST}
+	module-spa                 : ${ENABLE_MODULE_SPA}
 
 pinos configured. Type 'make' to build.
 "

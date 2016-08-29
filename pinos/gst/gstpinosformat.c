@@ -449,7 +449,7 @@ gst_caps_from_format (SpaFormat *format)
     }
     else if (format->media_subtype == SPA_MEDIA_SUBTYPE_MJPG) {
       res = gst_caps_new_simple ("image/jpeg",
-          "framerate", GST_TYPE_FRACTION, f.info.jpeg.framerate.num, f.info.jpeg.framerate.denom,
+          "framerate", GST_TYPE_FRACTION, f.info.mjpg.framerate.num, f.info.mjpg.framerate.denom,
           NULL);
     }
   } else if (format->media_type == SPA_MEDIA_TYPE_AUDIO) {

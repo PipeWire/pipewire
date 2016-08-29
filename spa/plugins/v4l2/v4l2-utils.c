@@ -409,6 +409,8 @@ again:
                               offsetof (V4l2Format, format));
     fmt->format = info->format;
     pi = ++fmt->fmt.props.n_prop_info;
+  } else {
+    fmt->format = info->format;
   }
 
   spa_prop_info_fill_video (&fmt->infos[pi],

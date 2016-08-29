@@ -90,6 +90,14 @@ USE_NLS=no
 AC_SUBST(USE_NLS)
 fi
 
+AC_ARG_WITH([module-dir],
+  AS_HELP_STRING([--with-module-dir=PATH],
+    [Directory where modules are located (default is ${libdir}/pinos/modules]),
+  [moduledir=$withval],
+  [moduledir="${libdir}/pinos-${PINOS_MAJORMINOR}/modules"])
+AC_SUBST(moduledir)
+AX_DEFINE_DIR(MODULEDIR, moduledir, [Directory where modules are located])
+
 #### Compiler flags ####
 
 AX_APPEND_COMPILE_FLAGS(
@@ -193,6 +201,11 @@ PKG_CHECK_MODULES(GIOUNIX, gio-unix-2.0 >= 2.32, dummy=yes,
 GLIB_CFLAGS="$GLIB_CFLAGS $GIOUNIX_CFLAGS"
 GLIB_LIBS="$GLIB_LIBS $GIOUNIX_LIBS"
 
+PKG_CHECK_MODULES(GMODULE, gmodule-no-export-2.0 >= 2.32, dummy=yes,
+                    AC_MSG_ERROR(GModule >= 2.32 is required))
+GLIB_CFLAGS="$GLIB_CFLAGS $GMODULE_CFLAGS"
+GLIB_LIBS="$GLIB_LIBS $GMODULE_LIBS"
+
 AC_MSG_CHECKING([for glib-mkenums script])
 GLIB_MKENUMS=`$PKG_CONFIG --variable=glib_mkenums glib-2.0`
 AS_IF([test "x$GLIB_MKENUMS" = "x"],
@@ -263,6 +276,7 @@ Configuration
 	Version                    : ${VERSION}
 	Source code location       : ${srcdir}
 	Prefix                     : ${prefix}
+	Moduledir                  : ${moduledir}
 	Compiler                   : ${CC}
 
 pinos configured. Type 'make' to build.

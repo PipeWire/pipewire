@@ -204,6 +204,7 @@ libpinoscore_@PINOS_MAJORMINOR@_la_SOURCES = \
 		server/client-node.c server/client-node.h \
 		server/daemon.c server/daemon.h \
 		server/link.c server/link.h \
+		server/module.c server/module.h \
 		server/node.c server/node.h \
 		server/port.c server/port.h \
 		server/node-factory.c server/node-factory.h \
@@ -253,12 +254,14 @@ noinst_HEADERS = gst/gstburstcache.h gst/gstpinossrc.h \
 
 CLEANFILES += daemon/pinos.desktop
 DISTCLEANFILES =
+INSTALL_DIRS = $(moduledir)
 
-install-exec-hook:
-	rm -f $(DESTDIR)$(modlibexecdir)/*.la
+install-directories-hook:
+	$(MKDIR_P) $(addprefix $(DESTDIR),$(INSTALL_DIRS))
 
-uninstall-hook:
-	rm -f $(DESTDIR)$(modlibexecdir)/*.so
+INSTALL_EXEC_HOOKS = install-directories-hook
+
+install-exec-hook: $(INSTALL_EXEC_HOOKS)
 
 # Automatically generate linker version script. We use the same one for all public .sos
 update-map-file:
@@ -271,4 +274,4 @@ update-map-file:
 
 update-all: update-map-file
 
-.PHONY: update-all update-map-file coverage
+.PHONY: update-all update-map-file coverage $(INSTALL_EXEC_HOOKS)

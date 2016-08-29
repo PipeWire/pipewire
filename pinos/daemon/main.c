@@ -18,10 +18,12 @@
  */
 
 #include <gio/gio.h>
+#include <glib.h>
 #include <gst/gst.h>
 
 #include <client/pinos.h>
 #include <server/daemon.h>
+#include <server/module.h>
 #include <modules/gst/gst-manager.h>
 #include <modules/gst/gst-node-factory.h>
 #include <spa/include/spa/memory.h>

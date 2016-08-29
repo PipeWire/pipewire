@@ -433,7 +433,7 @@ free_source_port_data (SourcePortData *data)
 
 static gboolean
 remove_port (PinosNode       *node,
-             guint            id)
+             PinosPort       *port)
 {
   PinosGstSource *source = PINOS_GST_SOURCE (node);
   PinosGstSourcePrivate *priv = source->priv;
@@ -442,7 +442,7 @@ remove_port (PinosNode       *node,
   for (walk = priv->ports; walk; walk = g_list_next (walk)) {
     SourcePortData *data = walk->data;
 
-    if (data->id == id) {
+    if (data->port == port) {
       free_source_port_data (data);
       priv->ports = g_list_delete_link (priv->ports, walk);
       break;
@@ -552,7 +552,6 @@ create_best_element (GstCaps *caps)
 
 static PinosPort *
 add_port (PinosNode       *node,
-          PinosDirection   direction,
           guint            id,
           GError         **error)
 {
@@ -577,9 +576,8 @@ add_port (PinosNode       *node,
 
   data = g_slice_new0 (SourcePortData);
   data->source = source;
-  data->id = id;
   data->port = PINOS_NODE_CLASS (pinos_gst_source_parent_class)
-                ->add_port (node, direction, id, error);
+                ->add_port (node, id, error);
 
   g_debug ("connecting signals");
   g_signal_connect (data->port, "activate", (GCallback) on_activate, data);

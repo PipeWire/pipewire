@@ -39,7 +39,8 @@
 
 #define CHECK_FREE_PORT_ID(this,id)     ((id) < MAX_PORTS && !(this)->ports[id].valid)
 #define CHECK_PORT_ID(this,id)          ((id) < MAX_PORTS && (this)->ports[id].valid)
-#define CHECK_PORT_ID_DIR(this,id,dir)  (CHECK_PORT_ID(this,id) && (this)->ports[i].direction == (dir))
+#define CHECK_PORT_ID_IN(this,id)       (CHECK_PORT_ID(this,id) && (id < this->max_inputs))
+#define CHECK_PORT_ID_OUT(this,id)      (CHECK_PORT_ID(this,id) && (id >= this->max_inputs))
 
 typedef struct _SpaProxy SpaProxy;
 
@@ -50,7 +51,6 @@ typedef struct {
 
 typedef struct {
   bool           valid;
-  SpaDirection   direction;
   SpaPortInfo    info;
   SpaFormat     *format;
   unsigned int   n_formats;
@@ -112,7 +112,6 @@ update_poll (SpaProxy *this, int socketfd)
 
   if (p->socketfd != -1) {
     event.type = SPA_EVENT_TYPE_REMOVE_POLL;
-    event.port_id = 0;
     event.data = &this->poll;
     event.size = sizeof (this->poll);
     this->event_cb (&this->node, &event, this->user_data);
@@ -122,7 +121,6 @@ update_poll (SpaProxy *this, int socketfd)
   if (p->socketfd != -1) {
     this->fds[0].fd = p->socketfd;
     event.type = SPA_EVENT_TYPE_ADD_POLL;
-    event.port_id = 0;
     event.data = &this->poll;
     event.size = sizeof (this->poll);
     this->event_cb (&this->node, &event, this->user_data);
@@ -139,7 +137,6 @@ update_state (SpaProxy *this, SpaNodeState state)
     this->state = state;
 
     event.type = SPA_EVENT_TYPE_STATE_CHANGE;
-    event.port_id = -1;
     event.data = &sc;
     event.size = sizeof (sc);
     sc.state = state;
@@ -318,17 +315,15 @@ spa_proxy_node_get_port_ids (SpaNode       *node,
   this = (SpaProxy *) node->handle;
 
   if (input_ids) {
-    n_input_ports = SPA_MIN (n_input_ports, MAX_PORTS);
-    for (c = 0, i = 0; i < n_input_ports; i++) {
-      if (this->ports[i].valid && this->ports[i].direction == SPA_DIRECTION_INPUT)
+    for (c = 0, i = 0; i < MAX_INPUTS && c < n_input_ports; i++) {
+      if (this->ports[i].valid)
         input_ids[c++] = i;
     }
   }
   if (output_ids) {
-    n_output_ports = SPA_MIN (n_output_ports, MAX_PORTS);
-    for (c = 0, i = 0; i < n_output_ports; i++) {
-      if (this->ports[i].valid && this->ports[i].direction == SPA_DIRECTION_OUTPUT)
-        output_ids[c++] = i;
+    for (c = 0, i = 0; i < MAX_OUTPUTS && c < n_output_ports; i++) {
+      if (this->ports[MAX_INPUTS + i].valid)
+        output_ids[c++] = MAX_INPUTS + i;
     }
   }
   return SPA_RESULT_OK;
@@ -361,21 +356,19 @@ do_update_port (SpaProxy                *this,
   }
 
   if (!port->valid) {
-    fprintf (stderr, "%p: adding port %d, %d\n", this, pu->port_id, pu->direction);
-    port->direction = pu->direction;
+    fprintf (stderr, "%p: adding port %d\n", this, pu->port_id);
     port->format = NULL;
     port->valid = true;
 
-    if (pu->direction == SPA_DIRECTION_INPUT)
+    if (pu->port_id < MAX_INPUTS)
       this->n_inputs++;
     else
       this->n_outputs++;
 
     event.type = SPA_EVENT_TYPE_PORT_ADDED;
-    event.port_id = pu->port_id;
-    event.data = &pa;
     event.size = sizeof (pa);
-    pa.direction = pu->direction;
+    event.data = &pa;
+    pa.port_id = pu->port_id;
     this->event_cb (&this->node, &event, this->user_data);
   }
 }
@@ -386,31 +379,30 @@ do_uninit_port (SpaProxy     *this,
 {
   SpaEvent event;
   SpaProxyPort *port;
+  SpaEventPortRemoved pr;
 
   fprintf (stderr, "%p: removing port %d\n", this, port_id);
   port = &this->ports[port_id];
 
-  if (port->direction == SPA_DIRECTION_INPUT)
+  if (port_id < MAX_INPUTS)
     this->n_inputs--;
   else
     this->n_outputs--;
 
-  port->direction = SPA_DIRECTION_INVALID;
   port->valid = false;
   if (port->format)
     spa_format_unref (port->format);
   port->format = NULL;
 
   event.type = SPA_EVENT_TYPE_PORT_REMOVED;
-  event.port_id = port_id;
-  event.data = NULL;
-  event.size = 0;
+  event.size = sizeof (pr);
+  event.data = &pr;
+  pr.port_id = port_id;
   this->event_cb (&this->node, &event, this->user_data);
 }
 
 static SpaResult
 spa_proxy_node_add_port (SpaNode        *node,
-                         SpaDirection    direction,
                          uint32_t        port_id)
 {
   SpaProxy *this;
@@ -424,12 +416,10 @@ spa_proxy_node_add_port (SpaNode        *node,
   if (!CHECK_FREE_PORT_ID (this, port_id))
     return SPA_RESULT_INVALID_PORT;
 
-  pu.change_mask = SPA_CONTROL_CMD_PORT_UPDATE_DIRECTION |
-                   SPA_CONTROL_CMD_PORT_UPDATE_POSSIBLE_FORMATS |
+  pu.change_mask = SPA_CONTROL_CMD_PORT_UPDATE_POSSIBLE_FORMATS |
                    SPA_CONTROL_CMD_PORT_UPDATE_PROPS |
                    SPA_CONTROL_CMD_PORT_UPDATE_INFO;
   pu.port_id = port_id;
-  pu.direction = direction;
   pu.n_possible_formats = 0;
   pu.possible_formats = NULL;
   pu.props = NULL;
@@ -793,7 +783,7 @@ spa_proxy_node_port_push_input (SpaNode        *node,
   spa_control_builder_init_into (&builder, buf, sizeof(buf), NULL, 0);
 
   for (i = 0; i < n_info; i++) {
-    if (!CHECK_PORT_ID_DIR (this, info[i].port_id, SPA_DIRECTION_INPUT)) {
+    if (!CHECK_PORT_ID_IN (this, info[i].port_id)) {
       info[i].status = SPA_RESULT_INVALID_PORT;
       have_error = true;
       continue;
@@ -852,7 +842,7 @@ spa_proxy_node_port_pull_output (SpaNode        *node,
   this = (SpaProxy *) node->handle;
 
   for (i = 0; i < n_info; i++) {
-    if (!CHECK_PORT_ID_DIR (this, info[i].port_id, SPA_DIRECTION_OUTPUT)) {
+    if (!CHECK_PORT_ID_OUT (this, info[i].port_id)) {
       info[i].status = SPA_RESULT_INVALID_PORT;
       have_error = true;
       continue;
@@ -901,7 +891,7 @@ spa_proxy_node_port_push_event (SpaNode        *node,
 
       /* send start */
       spa_control_builder_init_into (&builder, buf, sizeof (buf), NULL, 0);
-      crb.port_id = event->port_id;
+      crb.port_id = rb->port_id;
       crb.buffer_id = rb->buffer_id;
       spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_REUSE_BUFFER, &crb);
       spa_control_builder_end (&builder, &control);
@@ -946,12 +936,13 @@ parse_control (SpaProxy   *this,
       {
         SpaControlCmdNodeUpdate nu;
 
-        fprintf (stderr, "proxy %p: got node update %d\n", this, cmd);
         if (spa_control_iter_parse_cmd (&it, &nu) < 0)
           break;
 
         this->max_inputs = nu.max_input_ports;
         this->max_outputs = nu.max_output_ports;
+        fprintf (stderr, "proxy %p: got node update %d, %u, %u\n", this, cmd,
+            this->max_inputs, this->max_outputs);
         break;
       }
 
@@ -967,8 +958,7 @@ parse_control (SpaProxy   *this,
         if (pu.port_id >= MAX_PORTS)
           break;
 
-        remove = (pu.change_mask & SPA_CONTROL_CMD_PORT_UPDATE_DIRECTION) &&
-                 (pu.direction == SPA_DIRECTION_INVALID);
+        remove = (pu.change_mask == 0);
 
         if (remove) {
           do_uninit_port (this, pu.port_id);
@@ -1001,15 +991,16 @@ parse_control (SpaProxy   *this,
       case SPA_CONTROL_CMD_HAVE_OUTPUT:
       {
         SpaEvent event;
+        SpaEventHaveOutput hu;
         SpaControlCmdHaveOutput cmd;
 
         if (spa_control_iter_parse_cmd (&it, &cmd) < 0)
           break;
 
         event.type = SPA_EVENT_TYPE_HAVE_OUTPUT;
-        event.port_id = cmd.port_id;
-        event.data = NULL;
-        event.size = 0;
+        event.data = &hu;
+        event.size = sizeof (hu);
+        hu.port_id = cmd.port_id;
         this->event_cb (&this->node, &event, this->user_data);
         break;
       }
@@ -1043,9 +1034,9 @@ parse_control (SpaProxy   *this,
           break;
 
         event.type = SPA_EVENT_TYPE_REUSE_BUFFER;
-        event.port_id = crb.port_id;
         event.data = &rb;
         event.size = sizeof (rb);
+        rb.port_id = crb.port_id;
         rb.buffer_id = crb.buffer_id;
         this->event_cb (&this->node, &event, this->user_data);
 

@@ -213,7 +213,6 @@ update_state (SpaV4l2Source *this, SpaNodeState state)
   this->node_state = state;
 
   event.type = SPA_EVENT_TYPE_STATE_CHANGE;
-  event.port_id = -1;
   event.data = &sc;
   event.size = sizeof (sc);
   sc.state = state;
@@ -309,10 +308,10 @@ spa_v4l2_source_node_get_n_ports (SpaNode       *node,
 
   if (n_input_ports)
     *n_input_ports = 0;
-  if (n_output_ports)
-    *n_output_ports = 1;
   if (max_input_ports)
     *max_input_ports = 0;
+  if (n_output_ports)
+    *n_output_ports = 1;
   if (max_output_ports)
     *max_output_ports = 1;
 
@@ -338,7 +337,6 @@ spa_v4l2_source_node_get_port_ids (SpaNode       *node,
 
 static SpaResult
 spa_v4l2_source_node_add_port (SpaNode        *node,
-                               SpaDirection    direction,
                                uint32_t        port_id)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
@@ -382,6 +380,8 @@ spa_v4l2_source_node_port_enum_formats (SpaNode         *node,
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = (SpaV4l2Source *) node->handle;
+
+  fprintf (stderr, "%d\n", port_id);
 
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;

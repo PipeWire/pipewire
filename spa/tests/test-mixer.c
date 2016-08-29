@@ -99,11 +99,12 @@ on_mix_event (SpaNode *node, SpaEvent *event, void *user_data)
       SpaInputInfo iinfo;
       SpaOutputInfo oinfo;
       SpaResult res;
+      SpaEventNeedInput *ni = event->data;
 
       oinfo.port_id = 0;
       oinfo.flags = SPA_OUTPUT_FLAG_NONE;
 
-      if (event->port_id == data->mix_ports[0]) {
+      if (ni->port_id == data->mix_ports[0]) {
         if ((res = spa_node_port_pull_output (data->source1, 1, &oinfo)) < 0)
           printf ("got error %d\n", res);
       } else {
@@ -111,7 +112,7 @@ on_mix_event (SpaNode *node, SpaEvent *event, void *user_data)
           printf ("got error %d\n", res);
       }
 
-      iinfo.port_id = event->port_id;
+      iinfo.port_id = ni->port_id;
       iinfo.flags = SPA_INPUT_FLAG_NONE;
       iinfo.buffer_id = oinfo.buffer_id;
 
@@ -136,6 +137,7 @@ on_sink_event (SpaNode *node, SpaEvent *event, void *user_data)
       SpaInputInfo iinfo;
       SpaOutputInfo oinfo;
       SpaResult res;
+      SpaEventNeedInput *ni = event->data;
 
       oinfo.port_id = 0;
       oinfo.flags = SPA_OUTPUT_FLAG_PULL;
@@ -143,7 +145,7 @@ on_sink_event (SpaNode *node, SpaEvent *event, void *user_data)
       if ((res = spa_node_port_pull_output (data->mix, 1, &oinfo)) < 0)
         printf ("got error %d\n", res);
 
-      iinfo.port_id = event->port_id;
+      iinfo.port_id = ni->port_id;
       iinfo.flags = SPA_INPUT_FLAG_NONE;
       iinfo.buffer_id = oinfo.buffer_id;
 
@@ -251,7 +253,7 @@ negotiate_formats (AppData *data)
     return res;
 
   data->mix_ports[0] = 0;
-  if ((res = spa_node_add_port (data->mix, SPA_DIRECTION_INPUT, 0)) < 0)
+  if ((res = spa_node_add_port (data->mix, 0)) < 0)
     return res;
 
   if ((res = spa_node_port_set_format (data->mix, data->mix_ports[0], false, format)) < 0)
@@ -261,7 +263,7 @@ negotiate_formats (AppData *data)
     return res;
 
   data->mix_ports[1] = 0;
-  if ((res = spa_node_add_port (data->mix, SPA_DIRECTION_INPUT, 1)) < 0)
+  if ((res = spa_node_add_port (data->mix, 1)) < 0)
     return res;
 
   if ((res = spa_node_port_set_format (data->mix, data->mix_ports[1], false, format)) < 0)

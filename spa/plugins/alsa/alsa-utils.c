@@ -225,11 +225,12 @@ static void
 pull_input (SpaALSASink *this, void *data, snd_pcm_uframes_t frames)
 {
   SpaEvent event;
+  SpaEventNeedInput ni;
 
   event.type = SPA_EVENT_TYPE_NEED_INPUT;
-  event.port_id = 0;
-  event.size = 0;
-  event.data = NULL;
+  event.size = sizeof (ni);
+  event.data = &ni;
+  ni.port_id = 0;
   this->event_cb (&this->node, &event, this->user_data);
 }
 
@@ -344,7 +345,6 @@ spa_alsa_start (SpaALSASink *this)
   }
 
   event.type = SPA_EVENT_TYPE_ADD_POLL;
-  event.port_id = 0;
   event.data = &state->poll;
   event.size = sizeof (state->poll);
 
@@ -373,7 +373,6 @@ spa_alsa_stop (SpaALSASink *this)
   snd_pcm_drop (state->handle);
 
   event.type = SPA_EVENT_TYPE_REMOVE_POLL;
-  event.port_id = 0;
   event.data = &state->poll;
   event.size = sizeof (state->poll);
   this->event_cb (&this->node, &event, this->user_data);

@@ -273,8 +273,7 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
       GError *error = NULL;
 
       port = PINOS_NODE_CLASS (pinos_client_node_parent_class)->add_port (pnode,
-                                                                          pa->direction,
-                                                                          event->port_id,
+                                                                          pa->port_id,
                                                                           &error);
 
       if (port == NULL) {
@@ -339,7 +338,7 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
       if ((res = spa_node_port_pull_output (node, 1, info)) < 0)
         g_debug ("client-node %p: got pull error %d, %d", this, res, info[0].status);
 
-      port = pinos_node_find_port (PINOS_NODE (this), info[0].port_id);
+      port = pinos_node_find_port_by_id (PINOS_NODE (this), info[0].port_id);
 
       if (!pinos_port_send_buffer (port, info[0].buffer_id, &error)) {
         g_debug ("send failed: %s", error->message);
@@ -351,8 +350,9 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
     {
       PinosPort *port;
       GError *error = NULL;
+      SpaEventReuseBuffer *rb = event->data;
 
-      port = pinos_node_find_port (PINOS_NODE (this), event->port_id);
+      port = pinos_node_find_port_by_id (PINOS_NODE (this), rb->port_id);
       pinos_port_send_event (port, event, &error);
       break;
     }
@@ -374,16 +374,15 @@ setup_node (PinosClientNode *this)
 
 static PinosPort *
 add_port (PinosNode       *node,
-          PinosDirection   direction,
           guint            id,
           GError         **error)
 {
   PinosPort *port;
 
-  if (spa_node_add_port (node->node, direction, id) < 0)
+  if (spa_node_add_port (node->node, id) < 0)
     g_warning ("client-node %p: error adding port", node);
 
-  port = PINOS_NODE_CLASS (pinos_client_node_parent_class)->add_port (node, direction, id, error);
+  port = PINOS_NODE_CLASS (pinos_client_node_parent_class)->add_port (node, id, error);
 
   if (port) {
     pinos_port_set_received_cb (port, on_received_buffer, on_received_event, node, NULL);
@@ -393,12 +392,12 @@ add_port (PinosNode       *node,
 
 static gboolean
 remove_port (PinosNode       *node,
-             guint            id)
+             PinosPort       *port)
 {
-  if (spa_node_remove_port (node->node, id) < 0)
+  if (spa_node_remove_port (node->node, port->id) < 0)
     g_warning ("client-node %p: error removing port", node);
 
-  return PINOS_NODE_CLASS (pinos_client_node_parent_class)->remove_port (node, id);
+  return PINOS_NODE_CLASS (pinos_client_node_parent_class)->remove_port (node, port);
 }
 
 static void

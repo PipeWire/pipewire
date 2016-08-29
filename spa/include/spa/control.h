@@ -103,17 +103,15 @@ typedef struct {
 typedef struct {
   uint32_t           port_id;
   uint32_t           change_mask;
-  SpaDirection       direction;
   unsigned int       n_possible_formats;
   SpaFormat        **possible_formats;
   const SpaProps    *props;
   const SpaPortInfo *info;
 } SpaControlCmdPortUpdate;
 
-#define SPA_CONTROL_CMD_PORT_UPDATE_DIRECTION         (1 << 0)
-#define SPA_CONTROL_CMD_PORT_UPDATE_POSSIBLE_FORMATS  (1 << 1)
-#define SPA_CONTROL_CMD_PORT_UPDATE_PROPS             (1 << 2)
-#define SPA_CONTROL_CMD_PORT_UPDATE_INFO              (1 << 3)
+#define SPA_CONTROL_CMD_PORT_UPDATE_POSSIBLE_FORMATS  (1 << 0)
+#define SPA_CONTROL_CMD_PORT_UPDATE_PROPS             (1 << 1)
+#define SPA_CONTROL_CMD_PORT_UPDATE_INFO              (1 << 2)
 
 /* SPA_CONTROL_CMD_PORT_REMOVED */
 typedef struct {
@@ -141,7 +139,6 @@ typedef struct {
 /* SPA_CONTROL_CMD_ADD_PORT */
 typedef struct {
   uint32_t     port_id;
-  SpaDirection direction;
 } SpaControlCmdAddPort;
 
 /* SPA_CONTROL_CMD_REMOVE_PORT */

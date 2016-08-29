@@ -61,12 +61,6 @@ typedef enum {
   SPA_RESULT_WRONG_STATE               = -29,
 } SpaResult;
 
-typedef enum {
-  SPA_DIRECTION_INVALID         = 0,
-  SPA_DIRECTION_INPUT,
-  SPA_DIRECTION_OUTPUT
-} SpaDirection;
-
 typedef void (*SpaNotify) (void *data);
 
 #define SPA_N_ELEMENTS(arr)  (sizeof (arr) / sizeof ((arr)[0]))

@@ -38,7 +38,6 @@
 typedef struct {
   PinosSpaAlsaSink *sink;
 
-  guint id;
   PinosPort *port;
 } SinkPortData;
 
@@ -166,6 +165,7 @@ on_sink_event (SpaNode *node, SpaEvent *event, void *user_data)
       PinosRingbufferArea areas[2];
       uint8_t *data;
       size_t size, towrite, total;
+      SpaEventNeedInput *ni = event->data;
 
       size = 0;
       data = NULL;
@@ -186,7 +186,7 @@ on_sink_event (SpaNode *node, SpaEvent *event, void *user_data)
 
       pinos_ringbuffer_read_advance (priv->ringbuffer, total);
 
-      iinfo.port_id = event->port_id;
+      iinfo.port_id = ni->port_id;
       iinfo.flags = SPA_INPUT_FLAG_NONE;
       iinfo.buffer_id = 0;
 
@@ -417,7 +417,6 @@ on_received_event (PinosPort   *port,
 
 static PinosPort *
 add_port (PinosNode       *node,
-          PinosDirection   direction,
           guint            id,
           GError         **error)
 {
@@ -427,9 +426,8 @@ add_port (PinosNode       *node,
 
   data = g_slice_new0 (SinkPortData);
   data->sink = sink;
-  data->id = id;
   data->port = PINOS_NODE_CLASS (pinos_spa_alsa_sink_parent_class)
-                ->add_port (node, direction, id, error);
+                ->add_port (node, id, error);
 
   pinos_port_set_received_cb (data->port, on_received_buffer, on_received_event, sink, NULL);
 
@@ -444,7 +442,7 @@ add_port (PinosNode       *node,
 
 static gboolean
 remove_port (PinosNode       *node,
-             guint            id)
+             PinosPort       *port)
 {
   PinosSpaAlsaSink *sink = PINOS_SPA_ALSA_SINK (node);
   PinosSpaAlsaSinkPrivate *priv = sink->priv;
@@ -453,7 +451,7 @@ remove_port (PinosNode       *node,
   for (walk = priv->ports; walk; walk = g_list_next (walk)) {
     SinkPortData *data = walk->data;
 
-    if (data->id == id) {
+    if (data->port == port) {
       free_sink_port_data (data);
       priv->ports = g_list_delete_link (priv->ports, walk);
       break;

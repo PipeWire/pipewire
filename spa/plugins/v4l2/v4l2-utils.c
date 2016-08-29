@@ -583,14 +583,15 @@ v4l2_on_fd_events (SpaPollNotifyData *data)
 {
   SpaV4l2Source *this = data->user_data;
   SpaEvent event;
+  SpaEventHaveOutput ho;
 
   if (mmap_read (this) < 0)
     return 0;
 
   event.type = SPA_EVENT_TYPE_HAVE_OUTPUT;
-  event.port_id = 0;
-  event.size = 0;
-  event.data = NULL;
+  event.size = sizeof (ho);
+  event.data = &ho;
+  ho.port_id = 0;
   this->event_cb (&this->node, &event, this->user_data);
 
   return 0;
@@ -856,7 +857,6 @@ spa_v4l2_start (SpaV4l2Source *this)
   }
 
   event.type = SPA_EVENT_TYPE_ADD_POLL;
-  event.port_id = 0;
   event.data = &state->poll;
   event.size = sizeof (state->poll);
 
@@ -884,7 +884,6 @@ spa_v4l2_pause (SpaV4l2Source *this)
   SpaEvent event;
 
   event.type = SPA_EVENT_TYPE_REMOVE_POLL;
-  event.port_id = 0;
   event.data = &state->poll;
   event.size = sizeof (state->poll);
   this->event_cb (&this->node, &event, this->user_data);

@@ -573,11 +573,21 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
       }
     }
     if (best == NULL && node_found) {
-      g_debug ("node %p: making port", n);
-      best = pinos_node_add_port (n, direction, 0, NULL);
-      if (best != NULL) {
-        created_port = TRUE;
-        break;
+      guint id;
+
+      id = pinos_node_get_free_port_id (n, direction);
+      if (id != SPA_ID_INVALID) {
+        g_debug ("node %p: making port with id %u", n, id);
+        best = pinos_node_add_port (n, id, NULL);
+        if (best != NULL) {
+          created_port = TRUE;
+          break;
+        }
+      } else {
+        g_debug ("node %p: using port with id %u", n, id);
+        best = pinos_node_find_port_by_id (n, id);
+        if (best != NULL)
+          break;
       }
     }
   }

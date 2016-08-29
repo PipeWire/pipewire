@@ -70,11 +70,10 @@ struct _PinosNodeClass {
                                PinosNodeState   state);
 
   PinosPort * (*add_port)     (PinosNode       *node,
-                               PinosDirection   direction,
                                guint            id,
                                GError         **error);
   gboolean    (*remove_port)  (PinosNode       *node,
-                               guint            id);
+                               PinosPort       *port);
 };
 
 /* normal GObject stuff */
@@ -94,13 +93,14 @@ PinosDaemon *       pinos_node_get_daemon              (PinosNode       *node);
 const gchar *       pinos_node_get_sender              (PinosNode       *node);
 const gchar *       pinos_node_get_object_path         (PinosNode       *node);
 
+guint               pinos_node_get_free_port_id        (PinosNode       *node,
+                                                        PinosDirection   direction);
 PinosPort *         pinos_node_add_port                (PinosNode       *node,
-                                                        PinosDirection   direction,
                                                         guint            id,
                                                         GError         **error);
 gboolean            pinos_node_remove_port             (PinosNode       *node,
-                                                        guint            id);
-PinosPort *         pinos_node_find_port               (PinosNode       *node,
+                                                        PinosPort       *port);
+PinosPort *         pinos_node_find_port_by_id         (PinosNode       *node,
                                                         guint            id);
 GList *             pinos_node_get_ports               (PinosNode       *node);
 

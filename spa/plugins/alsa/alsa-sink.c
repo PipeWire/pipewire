@@ -225,7 +225,6 @@ spa_alsa_sink_node_send_command (SpaNode       *node,
         SpaEventStateChange sc;
 
         event.type = SPA_EVENT_TYPE_STATE_CHANGE;
-        event.port_id = -1;
         event.data = &sc;
         event.size = sizeof (sc);
         sc.state = SPA_NODE_STATE_STREAMING;
@@ -241,7 +240,6 @@ spa_alsa_sink_node_send_command (SpaNode       *node,
         SpaEventStateChange sc;
 
         event.type = SPA_EVENT_TYPE_STATE_CHANGE;
-        event.port_id = -1;
         event.data = &sc;
         event.size = sizeof (sc);
         sc.state = SPA_NODE_STATE_PAUSED;
@@ -316,7 +314,6 @@ spa_alsa_sink_node_get_port_ids (SpaNode       *node,
 
 static SpaResult
 spa_alsa_sink_node_add_port (SpaNode        *node,
-                             SpaDirection    direction,
                              uint32_t        port_id)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;

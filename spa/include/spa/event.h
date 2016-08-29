@@ -66,20 +66,32 @@ typedef enum {
 
 struct _SpaEvent {
   SpaEventType   type;
-  uint32_t       port_id;
   void          *data;
   size_t         size;
 };
 
 typedef struct {
-  SpaDirection direction;
+  uint32_t     port_id;
 } SpaEventPortAdded;
+
+typedef struct {
+  uint32_t     port_id;
+} SpaEventPortRemoved;
 
 typedef struct {
   SpaNodeState state;
 } SpaEventStateChange;
 
 typedef struct {
+  uint32_t     port_id;
+} SpaEventHaveOutput;
+
+typedef struct {
+  uint32_t     port_id;
+} SpaEventNeedInput;
+
+typedef struct {
+  uint32_t port_id;
   uint32_t buffer_id;
 } SpaEventReuseBuffer;
 

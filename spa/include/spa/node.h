@@ -267,8 +267,22 @@ struct _SpaNode {
                                        unsigned int      n_output_ports,
                                        uint32_t         *output_ids);
 
+  /**
+   * SpaNode::add_port:
+   * @node: a #SpaNode
+   * @port_id: an unused port id
+   *
+   * Make a new port with @port_id. The called should use get_port_ids() to
+   * find an unused id.
+   *
+   * Input port ids should be between 0 and max_input_ports and output ports
+   * between max_input_ports and max_input_ports + max_output_ports as obtained
+   * from get_port_ids().
+   *
+   * Returns: #SPA_RESULT_OK on success
+   *          #SPA_RESULT_INVALID_ARGUMENTS when node is %NULL
+   */
   SpaResult   (*add_port)             (SpaNode          *node,
-                                       SpaDirection      direction,
                                        uint32_t          port_id);
   SpaResult   (*remove_port)          (SpaNode          *node,
                                        uint32_t          port_id);

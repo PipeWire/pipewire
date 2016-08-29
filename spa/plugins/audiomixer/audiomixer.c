@@ -152,7 +152,6 @@ spa_audiomixer_node_send_command (SpaNode       *node,
         SpaEventStateChange sc;
 
         event.type = SPA_EVENT_TYPE_STATE_CHANGE;
-        event.port_id = -1;
         event.data = &sc;
         event.size = sizeof (sc);
         sc.state = SPA_NODE_STATE_STREAMING;
@@ -167,7 +166,6 @@ spa_audiomixer_node_send_command (SpaNode       *node,
         SpaEventStateChange sc;
 
         event.type = SPA_EVENT_TYPE_STATE_CHANGE;
-        event.port_id = -1;
         event.data = &sc;
         event.size = sizeof (sc);
         sc.state = SPA_NODE_STATE_PAUSED;
@@ -253,7 +251,6 @@ spa_audiomixer_node_get_port_ids (SpaNode       *node,
 
 static SpaResult
 spa_audiomixer_node_add_port (SpaNode        *node,
-                              SpaDirection    direction,
                               uint32_t        port_id)
 {
   SpaAudioMixer *this;
@@ -262,9 +259,6 @@ spa_audiomixer_node_add_port (SpaNode        *node,
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = (SpaAudioMixer *) node->handle;
-
-  if (direction != SPA_DIRECTION_INPUT)
-    return SPA_RESULT_INVALID_DIRECTION;
 
   if (port_id >= MAX_PORTS)
     return SPA_RESULT_INVALID_PORT;
@@ -571,11 +565,12 @@ static void
 pull_port (SpaAudioMixer *this, uint32_t port_id, SpaOutputInfo *info, size_t pull_size)
 {
   SpaEvent event;
+  SpaEventNeedInput ni;
 
   event.type = SPA_EVENT_TYPE_NEED_INPUT;
-  event.port_id = port_id;
-  event.size = 0;
-  event.data = NULL;
+  event.size = sizeof (ni);
+  event.data = &ni;
+  ni.port_id = port_id;
   this->event_cb (&this->node, &event, this->user_data);
 }
 

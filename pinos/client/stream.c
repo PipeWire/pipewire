@@ -575,8 +575,6 @@ add_port_update (PinosStream *stream, SpaControlBuilder *builder, uint32_t chang
 
   pu.port_id = 0;
   pu.change_mask = change_mask;
-  if (change_mask & SPA_CONTROL_CMD_PORT_UPDATE_DIRECTION)
-    pu.direction = priv->direction;
   if (change_mask & SPA_CONTROL_CMD_PORT_UPDATE_POSSIBLE_FORMATS) {
     pu.n_possible_formats = priv->possible_formats->len;
     pu.possible_formats = (SpaFormat **)priv->possible_formats->pdata;
@@ -1003,8 +1001,7 @@ on_node_proxy (GObject      *source_object,
                                      SPA_CONTROL_CMD_NODE_UPDATE_MAX_OUTPUTS);
 
   priv->port_info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
-  add_port_update (stream, &builder, SPA_CONTROL_CMD_PORT_UPDATE_DIRECTION |
-                                     SPA_CONTROL_CMD_PORT_UPDATE_POSSIBLE_FORMATS |
+  add_port_update (stream, &builder, SPA_CONTROL_CMD_PORT_UPDATE_POSSIBLE_FORMATS |
                                      SPA_CONTROL_CMD_PORT_UPDATE_INFO);
 
   add_state_change (stream, &builder, SPA_NODE_STATE_CONFIGURE);

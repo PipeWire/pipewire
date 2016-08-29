@@ -332,10 +332,10 @@ on_deactivate (PinosPort *port, gpointer user_data)
 
 static gboolean
 remove_port (PinosNode       *node,
-             guint            id)
+             PinosPort       *port)
 {
   return PINOS_NODE_CLASS (pinos_spa_v4l2_source_parent_class)
-                    ->remove_port (node, id);
+                    ->remove_port (node, port);
 }
 
 static void
@@ -377,7 +377,7 @@ on_received_event (PinosPort *port, SpaEvent *event, GError **error, gpointer us
       SpaEventReuseBuffer *rb = event->data;
 
       if ((res = spa_node_port_reuse_buffer (node->node,
-                                             event->port_id,
+                                             rb->port_id,
                                              rb->buffer_id)) < 0)
         g_warning ("client-node %p: error reuse buffer: %d", node, res);
       break;
@@ -393,7 +393,6 @@ on_received_event (PinosPort *port, SpaEvent *event, GError **error, gpointer us
 
 static PinosPort *
 add_port (PinosNode       *node,
-          PinosDirection   direction,
           guint            id,
           GError         **error)
 {
@@ -401,7 +400,7 @@ add_port (PinosNode       *node,
   PinosPort *port;
 
   port = PINOS_NODE_CLASS (pinos_spa_v4l2_source_parent_class)
-                    ->add_port (node, direction, id, error);
+                    ->add_port (node, id, error);
 
   pinos_port_set_received_cb (port, on_received_buffer, on_received_event, node, NULL);
 

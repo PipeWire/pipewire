@@ -46,8 +46,6 @@ struct _PinosSpaV4l2SourcePrivate
 
   gboolean running;
   pthread_t thread;
-
-  GBytes *format;
 };
 
 enum {
@@ -143,13 +141,13 @@ on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
     {
       SpaOutputInfo info[1] = { 0, };
       SpaResult res;
-      GList *walk;
+      GList *ports, *walk;
 
       if ((res = spa_node_port_pull_output (node, 1, info)) < 0)
         g_debug ("spa-v4l2-source %p: got pull error %d, %d", this, res, info[0].status);
 
-      walk = pinos_node_get_ports (PINOS_NODE (this));
-      for (; walk; walk = g_list_next (walk)) {
+      ports = pinos_node_get_ports (PINOS_NODE (this));
+      for (walk = ports; walk; walk = g_list_next (walk)) {
         PinosPort *port = walk->data;
         GError *error = NULL;
 
@@ -158,6 +156,7 @@ on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
           g_clear_error (&error);
         }
       }
+      g_list_free (ports);
       break;
     }
 
@@ -351,10 +350,14 @@ source_constructed (GObject * object)
 static void
 source_finalize (GObject * object)
 {
+  PinosNode *node = PINOS_NODE (object);
   PinosSpaV4l2Source *source = PINOS_SPA_V4L2_SOURCE (object);
 
   g_debug ("spa-source %p: dispose", source);
   destroy_pipeline (source);
+
+  spa_handle_clear (node->node->handle);
+  g_free (node->node->handle);
 
   G_OBJECT_CLASS (pinos_spa_v4l2_source_parent_class)->finalize (object);
 }

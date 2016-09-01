@@ -48,7 +48,20 @@ struct _SpaHandle {
   SpaResult   (*get_interface)        (SpaHandle               *handle,
                                        uint32_t                 interface_id,
                                        void                   **interface);
+  /**
+   * SpaHandle::clear
+   * @handle: a pointer to memory
+   *
+   * Clean up the memory of @handle. After this, @handle should not be used
+   * anymore.
+   *
+   * Returns: #SPA_RESULT_OK on success
+   */
+  SpaResult   (*clear)                (SpaHandle               *handle);
 };
+
+#define spa_handle_get_interface(h,...)  (h)->get_interface((h),__VA_ARGS__)
+#define spa_handle_clear(h)              (h)->clear((h))
 
 /**
  * SpaInterfaceInfo:
@@ -99,6 +112,7 @@ struct _SpaHandleFactory {
    */
   SpaResult   (*init)                 (const SpaHandleFactory  *factory,
                                        SpaHandle               *handle);
+
   /**
    * SpaHandle::enum_interface_info:
    * @factory: a #SpaHandleFactory
@@ -116,6 +130,9 @@ struct _SpaHandleFactory {
                                        const SpaInterfaceInfo **info,
                                        void                   **state);
 };
+
+#define spa_handle_factory_init(h,...)                (h)->init((h),__VA_ARGS__)
+#define spa_handle_factory_enum_interface_info(h,...) (h)->enum_interface_info((h),__VA_ARGS__)
 
 /**
  * SpaEnumHandleFactoryFunc:

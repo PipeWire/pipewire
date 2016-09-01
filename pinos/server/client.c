@@ -209,6 +209,7 @@ pinos_client_dispose (GObject * object)
   g_debug ("client %p: dispose", client);
   copy = g_list_copy (priv->objects);
   g_list_free_full (copy, g_object_unref);
+  g_list_free (priv->objects);
 
   client_unregister_object (client);
 

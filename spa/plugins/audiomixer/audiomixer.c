@@ -771,6 +771,12 @@ spa_audiomixer_get_interface (SpaHandle   *handle,
 }
 
 static SpaResult
+spa_audiomixer_clear (SpaHandle *handle)
+{
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
 spa_audiomixer_init (const SpaHandleFactory *factory,
                      SpaHandle              *handle)
 {
@@ -780,6 +786,7 @@ spa_audiomixer_init (const SpaHandleFactory *factory,
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   handle->get_interface = spa_audiomixer_get_interface;
+  handle->clear = spa_audiomixer_clear;
 
   this = (SpaAudioMixer *) handle;
   this->node = audiomixer_node;

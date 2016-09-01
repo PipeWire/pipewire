@@ -248,6 +248,7 @@ handle_create_client_node (PinosDaemon1           *interface,
                                  sender,
                                  arg_name,
                                  props);
+  pinos_properties_free (props);
 
   socket = pinos_client_node_get_socket_pair (PINOS_CLIENT_NODE (node), &error);
   if (socket == NULL)
@@ -265,6 +266,7 @@ handle_create_client_node (PinosDaemon1           *interface,
 
   fdlist = g_unix_fd_list_new ();
   fdidx = g_unix_fd_list_append (fdlist, g_socket_get_fd (socket), &error);
+  g_object_unref (socket);
 
   g_dbus_method_invocation_return_value_with_unix_fd_list (invocation,
            g_variant_new ("(oh)", object_path, fdidx), fdlist);
@@ -532,7 +534,7 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
 {
   PinosDaemonPrivate *priv;
   PinosPort *best = NULL;
-  GList *nodes, *ports;
+  GList *nodes, *ports, *walk;
   gboolean have_name, created_port = FALSE;
 
   g_return_val_if_fail (PINOS_IS_DAEMON (daemon), NULL);
@@ -557,8 +559,9 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
       node_found = TRUE;
     }
 
-    for (ports = pinos_node_get_ports (n); ports; ports = g_list_next (ports)) {
-      PinosPort *p = ports->data;
+    ports = pinos_node_get_ports (n);
+    for (walk = ports; walk; walk = g_list_next (walk)) {
+      PinosPort *p = walk->data;
       PinosDirection dir;
 
       g_object_get (p, "direction", &dir, NULL);
@@ -572,6 +575,8 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
         break;
       }
     }
+    g_list_free (ports);
+
     if (best == NULL && node_found) {
       guint id;
 

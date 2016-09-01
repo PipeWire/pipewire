@@ -679,6 +679,12 @@ spa_alsa_sink_get_interface (SpaHandle               *handle,
 }
 
 static SpaResult
+alsa_sink_clear (SpaHandle *handle)
+{
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
 alsa_sink_init (const SpaHandleFactory  *factory,
                 SpaHandle               *handle)
 {
@@ -688,6 +694,7 @@ alsa_sink_init (const SpaHandleFactory  *factory,
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   handle->get_interface = spa_alsa_sink_get_interface;
+  handle->clear = alsa_sink_clear;
 
   this = (SpaALSASink *) handle;
   this->node = alsasink_node;

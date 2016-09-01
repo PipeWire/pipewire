@@ -191,6 +191,7 @@ find_module (const gchar * path, const gchar *name)
     if (g_file_test (newpath, G_FILE_TEST_IS_DIR)) {
       filename = find_module (newpath, name);
     }
+    g_free (newpath);
 
     if (filename != NULL)
       break;
@@ -263,6 +264,8 @@ pinos_module_load (PinosDaemon  * daemon,
   g_debug ("trying to load module: %s (%s)", name, filename);
 
   gmodule = g_module_open (filename, G_MODULE_BIND_LOCAL);
+  g_free (filename);
+
   if (gmodule == NULL) {
     g_set_error (err, PINOS_MODULE_ERROR, PINOS_MODULE_ERROR_LOADING,
         "Failed to open module: %s", g_module_error ());

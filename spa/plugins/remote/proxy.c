@@ -1121,8 +1121,14 @@ spa_proxy_get_interface (SpaHandle               *handle,
 }
 
 static SpaResult
-proxy_instantiate (const SpaHandleFactory  *factory,
-                   SpaHandle               *handle)
+proxy_clear (SpaHandle *handle)
+{
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
+proxy_init (const SpaHandleFactory  *factory,
+            SpaHandle               *handle)
 {
   SpaProxy *this;
 
@@ -1130,6 +1136,7 @@ proxy_instantiate (const SpaHandleFactory  *factory,
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   handle->get_interface = spa_proxy_get_interface;
+  handle->clear = proxy_clear;
 
   this = (SpaProxy *) handle;
   this->node = proxy_node;
@@ -1189,6 +1196,6 @@ const SpaHandleFactory spa_proxy_factory =
 { "proxy",
   NULL,
   sizeof (SpaProxy),
-  proxy_instantiate,
+  proxy_init,
   proxy_enum_interface_info,
 };

@@ -35,21 +35,6 @@
 #define PINOS_SPA_ALSA_SINK_GET_PRIVATE(obj)  \
      (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_SPA_ALSA_SINK, PinosSpaAlsaSinkPrivate))
 
-typedef struct {
-  PinosSpaAlsaSink *sink;
-
-  PinosPort *port;
-} SinkPortData;
-
-typedef struct {
-  guint32 id;
-  guint32 type;
-  int fd;
-  guint64 offset;
-  guint64 size;
-  void *data;
-} MemBlock;
-
 struct _PinosSpaAlsaSinkPrivate
 {
   PinosProperties *props;
@@ -61,10 +46,6 @@ struct _PinosSpaAlsaSinkPrivate
 
   gboolean running;
   pthread_t thread;
-
-  GHashTable *mem_ids;
-
-  GList *ports;
 };
 
 enum {
@@ -216,6 +197,14 @@ on_sink_event (SpaNode *node, SpaEvent *event, void *user_data)
       }
       break;
     }
+    case SPA_EVENT_TYPE_REMOVE_POLL:
+    {
+      if (priv->running) {
+        priv->running = false;
+        pthread_join (priv->thread, NULL);
+      }
+      break;
+    }
     case SPA_EVENT_TYPE_STATE_CHANGE:
     {
       SpaEventStateChange *sc = event->data;
@@ -252,23 +241,30 @@ setup_node (PinosSpaAlsaSink *this)
 }
 
 static void
-stop_pipeline (PinosSpaAlsaSink *sink)
+pause_pipeline (PinosSpaAlsaSink *sink)
 {
   PinosNode *node = PINOS_NODE (sink);
-  PinosSpaAlsaSinkPrivate *priv = sink->priv;
   SpaResult res;
   SpaCommand cmd;
 
-  g_debug ("spa-alsa-sink %p: stopping pipeline", sink);
-
-  if (priv->running) {
-    priv->running = false;
-    pthread_join (priv->thread, NULL);
-  }
+  g_debug ("spa-alsa-sink %p: pausing pipeline", sink);
 
   cmd.type = SPA_COMMAND_PAUSE;
   if ((res = spa_node_send_command (node->node, &cmd)) < 0)
     g_debug ("got error %d", res);
+}
+
+static void
+suspend_pipeline (PinosSpaAlsaSink *this)
+{
+  PinosNode *node = PINOS_NODE (this);
+  SpaResult res;
+
+  g_debug ("spa-alsa-sink %p: suspend pipeline", this);
+
+  if ((res = spa_node_port_set_format (node->node, 0, 0, NULL)) < 0) {
+    g_warning ("error unset format output: %d", res);
+  }
 }
 
 static void
@@ -287,13 +283,14 @@ set_state (PinosNode      *node,
 
   switch (state) {
     case PINOS_NODE_STATE_SUSPENDED:
+      suspend_pipeline (this);
       break;
 
     case PINOS_NODE_STATE_INITIALIZING:
       break;
 
     case PINOS_NODE_STATE_IDLE:
-      stop_pipeline (this);
+      pause_pipeline (this);
       break;
 
     case PINOS_NODE_STATE_RUNNING:
@@ -335,8 +332,7 @@ set_property (GObject      *object,
 static void
 on_activate (PinosPort *port, gpointer user_data)
 {
-  SinkPortData *data = user_data;
-  PinosNode *node = PINOS_NODE (data->sink);
+  PinosNode *node = user_data;
 
   g_debug ("port %p: activate", port);
 
@@ -346,24 +342,10 @@ on_activate (PinosPort *port, gpointer user_data)
 static void
 on_deactivate (PinosPort *port, gpointer user_data)
 {
-  SinkPortData *data = user_data;
-  PinosNode *node = PINOS_NODE (data->sink);
+  PinosNode *node = user_data;
 
   g_debug ("port %p: deactivate", port);
   pinos_node_report_idle (node);
-}
-
-static void
-free_sink_port_data (SinkPortData *data)
-{
-  g_slice_free (SinkPortData, data);
-}
-
-static void
-free_mem_block (MemBlock *b)
-{
-  munmap (b->data, b->size);
-  g_slice_free (MemBlock, b);
 }
 
 static gboolean
@@ -421,46 +403,26 @@ add_port (PinosNode       *node,
           GError         **error)
 {
   PinosSpaAlsaSink *sink = PINOS_SPA_ALSA_SINK (node);
-  PinosSpaAlsaSinkPrivate *priv = sink->priv;
-  SinkPortData *data;
+  PinosPort *port;
 
-  data = g_slice_new0 (SinkPortData);
-  data->sink = sink;
-  data->port = PINOS_NODE_CLASS (pinos_spa_alsa_sink_parent_class)
+  port = PINOS_NODE_CLASS (pinos_spa_alsa_sink_parent_class)
                 ->add_port (node, id, error);
 
-  pinos_port_set_received_cb (data->port, on_received_buffer, on_received_event, sink, NULL);
+  pinos_port_set_received_cb (port, on_received_buffer, on_received_event, sink, NULL);
 
   g_debug ("connecting signals");
-  g_signal_connect (data->port, "activate", (GCallback) on_activate, data);
-  g_signal_connect (data->port, "deactivate", (GCallback) on_deactivate, data);
+  g_signal_connect (port, "activate", (GCallback) on_activate, sink);
+  g_signal_connect (port, "deactivate", (GCallback) on_deactivate, sink);
 
-  priv->ports = g_list_append (priv->ports, data);
-
-  return data->port;
+  return port;
 }
 
 static gboolean
 remove_port (PinosNode       *node,
              PinosPort       *port)
 {
-  PinosSpaAlsaSink *sink = PINOS_SPA_ALSA_SINK (node);
-  PinosSpaAlsaSinkPrivate *priv = sink->priv;
-  GList *walk;
-
-  for (walk = priv->ports; walk; walk = g_list_next (walk)) {
-    SinkPortData *data = walk->data;
-
-    if (data->port == port) {
-      free_sink_port_data (data);
-      priv->ports = g_list_delete_link (priv->ports, walk);
-      break;
-    }
-  }
-  if (priv->ports == NULL)
-    pinos_node_report_idle (node);
-
-  return TRUE;
+  return PINOS_NODE_CLASS (pinos_spa_alsa_sink_parent_class)
+                          ->remove_port (node, port);
 }
 
 static void
@@ -481,7 +443,6 @@ sink_finalize (GObject * object)
 
   destroy_pipeline (sink);
   pinos_properties_free (priv->props);
-  g_hash_table_unref (priv->mem_ids);
 
   G_OBJECT_CLASS (pinos_spa_alsa_sink_parent_class)->finalize (object);
 }
@@ -507,11 +468,8 @@ pinos_spa_alsa_sink_class_init (PinosSpaAlsaSinkClass * klass)
 static void
 pinos_spa_alsa_sink_init (PinosSpaAlsaSink * sink)
 {
-  PinosSpaAlsaSinkPrivate *priv;
-
-  priv = sink->priv = PINOS_SPA_ALSA_SINK_GET_PRIVATE (sink);
+  PinosSpaAlsaSinkPrivate *priv = sink->priv = PINOS_SPA_ALSA_SINK_GET_PRIVATE (sink);
   priv->props = pinos_properties_new (NULL, NULL);
-  priv->mem_ids = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL, (GDestroyNotify) free_mem_block);
 }
 
 PinosNode *

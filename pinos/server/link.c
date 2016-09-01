@@ -572,6 +572,8 @@ pinos_link_dispose (GObject * object)
 
   g_debug ("link %p: dispose", this);
 
+  do_pause (this);
+
   g_signal_handlers_disconnect_by_data (priv->input, this);
   g_signal_handlers_disconnect_by_data (priv->output, this);
   g_signal_handlers_disconnect_by_data (priv->input->node, this);

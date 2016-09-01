@@ -27,7 +27,7 @@
 #include <fcntl.h>
 #include <dlfcn.h>
 #include <poll.h>
-
+#include <sys/eventfd.h>
 
 #include <gio/gunixfdlist.h>
 
@@ -220,6 +220,13 @@ loop (void *user_data)
       g_debug ("client-node %p: select timeout", this);
       break;
     }
+    if (priv->fds[0].revents & POLLIN) {
+      uint64_t u;
+      if (read (priv->fds[0].fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
+        g_warning ("client-node %p: failed to read fd", strerror (errno));
+      break;
+    }
+
     if (priv->poll.after_cb) {
       ndata.fds = priv->poll.fds;
       ndata.n_fds = priv->poll.n_fds;
@@ -241,7 +248,7 @@ start_thread (PinosClientNode *this)
   if (!priv->running) {
     priv->running = true;
     if ((err = pthread_create (&priv->thread, NULL, loop, this)) != 0) {
-      g_debug ("client-node %p: can't create thread", strerror (err));
+      g_warning ("client-node %p: can't create thread", strerror (err));
       priv->running = false;
     }
   }
@@ -253,6 +260,11 @@ stop_thread (PinosClientNode *this)
   PinosClientNodePrivate *priv = this->priv;
 
   if (priv->running) {
+    uint64_t u = 1;
+
+    if (write (priv->fds[0].fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
+      g_warning ("client-node %p: failed to write fd", strerror (errno));
+
     priv->running = false;
     pthread_join (priv->thread, NULL);
   }
@@ -305,6 +317,7 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
             PinosPort *port = walk->data;
             pinos_port_activate (port);
           }
+          g_list_free (ports);
         }
         default:
           break;
@@ -314,11 +327,12 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
     case SPA_EVENT_TYPE_ADD_POLL:
     {
       SpaPollItem *poll = event->data;
+      unsigned int i;
 
       priv->poll = *poll;
-      priv->fds[0] = poll->fds[0];
-      priv->n_fds = 1;
-      priv->poll.fds = priv->fds;
+      priv->poll.fds = &priv->fds[priv->n_fds];
+      for (i = 0; i < poll->n_fds; i++)
+        priv->fds[priv->n_fds++] = poll->fds[i];
 
       start_thread (this);
       break;
@@ -406,6 +420,7 @@ pinos_client_node_dispose (GObject * object)
   PinosClientNode *this = PINOS_CLIENT_NODE (object);
 
   g_debug ("client-node %p: dispose", this);
+  stop_thread (this);
 
   G_OBJECT_CLASS (pinos_client_node_parent_class)->dispose (object);
 }
@@ -413,9 +428,16 @@ pinos_client_node_dispose (GObject * object)
 static void
 pinos_client_node_finalize (GObject * object)
 {
+  PinosNode *node = PINOS_NODE (object);
   PinosClientNode *this = PINOS_CLIENT_NODE (object);
+  PinosClientNodePrivate *priv = this->priv;
 
   g_debug ("client-node %p: finalize", this);
+
+  g_clear_object (&priv->sockets[0]);
+  g_clear_object (&priv->sockets[1]);
+  spa_handle_clear (node->node->handle);
+  g_free (node->node->handle);
 
   G_OBJECT_CLASS (pinos_client_node_parent_class)->finalize (object);
 }
@@ -424,10 +446,16 @@ static void
 pinos_client_node_constructed (GObject * object)
 {
   PinosClientNode *this = PINOS_CLIENT_NODE (object);
+  PinosClientNodePrivate *priv = this->priv;
 
   g_debug ("client-node %p: constructed", this);
 
   G_OBJECT_CLASS (pinos_client_node_parent_class)->constructed (object);
+
+  priv->fds[0].fd = eventfd (0, 0);
+  priv->fds[0].events = POLLIN | POLLPRI | POLLERR;
+  priv->fds[0].revents = 0;
+  priv->n_fds = 1;
 
   setup_node (this);
 }

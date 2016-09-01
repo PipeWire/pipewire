@@ -764,6 +764,12 @@ spa_v4l2_source_get_interface (SpaHandle               *handle,
 }
 
 static SpaResult
+v4l2_source_clear (SpaHandle *handle)
+{
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
 v4l2_source_init (const SpaHandleFactory  *factory,
                   SpaHandle               *handle)
 {
@@ -773,6 +779,7 @@ v4l2_source_init (const SpaHandleFactory  *factory,
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   handle->get_interface = spa_v4l2_source_get_interface;
+  handle->clear = v4l2_source_clear,
 
   this = (SpaV4l2Source *) handle;
   this->node = v4l2source_node;

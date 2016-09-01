@@ -546,6 +546,12 @@ spa_xv_sink_get_interface (SpaHandle               *handle,
 }
 
 static SpaResult
+xv_sink_clear (SpaHandle *handle)
+{
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
 xv_sink_init (const SpaHandleFactory  *factory,
               SpaHandle               *handle)
 {
@@ -555,6 +561,7 @@ xv_sink_init (const SpaHandleFactory  *factory,
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   handle->get_interface = spa_xv_sink_get_interface;
+  handle->clear = xv_sink_clear;
 
   this = (SpaXvSink *) handle;
   this->node = xvsink_node;

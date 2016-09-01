@@ -556,6 +556,12 @@ spa_audiotestsrc_get_interface (SpaHandle         *handle,
 }
 
 static SpaResult
+audiotestsrc_clear (SpaHandle *handle)
+{
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
 audiotestsrc_init (const SpaHandleFactory  *factory,
                    SpaHandle               *handle)
 {
@@ -565,6 +571,7 @@ audiotestsrc_init (const SpaHandleFactory  *factory,
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   handle->get_interface = spa_audiotestsrc_get_interface;
+  handle->clear = audiotestsrc_clear;
 
   this = (SpaAudioTestSrc *) handle;
   this->node = audiotestsrc_node;

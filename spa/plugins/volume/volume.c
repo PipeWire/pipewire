@@ -667,8 +667,14 @@ spa_volume_get_interface (SpaHandle               *handle,
 }
 
 static SpaResult
-volume_instantiate (const SpaHandleFactory  *factory,
-                    SpaHandle               *handle)
+volume_clear (SpaHandle *handle)
+{
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
+volume_init (const SpaHandleFactory  *factory,
+             SpaHandle               *handle)
 {
   SpaVolume *this;
 
@@ -676,6 +682,7 @@ volume_instantiate (const SpaHandleFactory  *factory,
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   handle->get_interface = spa_volume_get_interface;
+  handle->clear = volume_clear;
 
   this = (SpaVolume *) handle;
   this->node = volume_node;
@@ -732,6 +739,6 @@ const SpaHandleFactory spa_volume_factory =
 { "volume",
   NULL,
   sizeof (SpaVolume),
-  volume_instantiate,
+  volume_init,
   volume_enum_interface_info,
 };

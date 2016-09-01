@@ -390,6 +390,7 @@ node_unregister_object (PinosNode *node)
 
   g_debug ("node %p: unregister object %s", node, priv->object_path);
   pinos_daemon_unexport (priv->daemon, priv->object_path);
+  g_clear_pointer (&priv->object_path, g_free);
   pinos_daemon_remove_node (priv->daemon, node);
 }
 

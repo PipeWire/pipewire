@@ -149,7 +149,7 @@ spa_memory_alloc_with_fd  (uint32_t pool_id, void *data, size_t size)
   if (!(mem = spa_memory_alloc (pool_id)))
     return NULL;
 
-#if 0
+#if 1
   {
     char filename[] = "/dev/shm/spa-tmpfile.XXXXXX";
     mem->fd = mkostemp (filename, O_CLOEXEC);
@@ -176,7 +176,7 @@ spa_memory_alloc_with_fd  (uint32_t pool_id, void *data, size_t size)
       return NULL;
     }
   }
-#if 1
+#if 0
   {
     unsigned int seals;
 

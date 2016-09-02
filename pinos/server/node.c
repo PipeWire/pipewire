@@ -286,8 +286,15 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
     {
       SpaEventStateChange *sc = event->data;
 
-      pinos_node_update_node_state (PINOS_NODE (this), sc->state);
+      if (this->node_state != sc->state) {
+        g_debug ("node %p: update SPA state to %d", this, sc->state);
+        this->node_state = sc->state;
+        g_object_notify (G_OBJECT (this), "node-state");
 
+        if (sc->state == SPA_NODE_STATE_CONFIGURE) {
+          update_port_ids (this, FALSE);
+        }
+      }
       switch (sc->state) {
         case SPA_NODE_STATE_CONFIGURE:
         {
@@ -1187,29 +1194,4 @@ pinos_node_report_busy (PinosNode *node)
 
   g_debug ("node %p: report busy", node);
   pinos_node_set_state (node, PINOS_NODE_STATE_RUNNING);
-}
-
-/**
- * pinos_node_update_node_state:
- * @node: a #PinosNode
- * @state: a #SpaNodeState
- *
- * Update the state of a SPA node. This method is used from
- * inside @node itself.
- */
-void
-pinos_node_update_node_state (PinosNode    *node,
-                              SpaNodeState  state)
-{
-  g_return_if_fail (PINOS_IS_NODE (node));
-
-  if (node->node_state != state) {
-    g_debug ("node %p: update SPA state to %d", node, state);
-    node->node_state = state;
-    g_object_notify (G_OBJECT (node), "node-state");
-
-    if (state == SPA_NODE_STATE_CONFIGURE) {
-      update_port_ids (node, FALSE);
-    }
-  }
 }

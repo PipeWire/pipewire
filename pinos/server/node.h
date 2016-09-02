@@ -107,8 +107,6 @@ void                pinos_node_report_error            (PinosNode *node, GError 
 void                pinos_node_report_idle             (PinosNode *node);
 void                pinos_node_report_busy             (PinosNode *node);
 
-void                pinos_node_update_node_state       (PinosNode *node, SpaNodeState state);
-
 G_END_DECLS
 
 #endif /* __PINOS_NODE_H__ */

@@ -293,18 +293,6 @@ exit_error:
   }
 }
 
-static gboolean
-handle_link_nodes (PinosDaemon1           *interface,
-                   GDBusMethodInvocation  *invocation,
-                   const gchar            *arg_node,
-                   const gchar            *arg_port,
-                   const gchar            *arg_possible_formats,
-                   GVariant               *arg_properties,
-                   gpointer                user_data)
-{
-  return TRUE;
-}
-
 static void
 export_server_object (PinosDaemon              *daemon,
                       GDBusObjectManagerServer *manager)
@@ -709,7 +697,6 @@ pinos_daemon_init (PinosDaemon * daemon)
   priv->iface = pinos_daemon1_skeleton_new ();
   g_signal_connect (priv->iface, "handle-create-node", (GCallback) handle_create_node, daemon);
   g_signal_connect (priv->iface, "handle-create-client-node", (GCallback) handle_create_client_node, daemon);
-  g_signal_connect (priv->iface, "handle-link-nodes", (GCallback) handle_link_nodes, daemon);
 
   priv->server_manager = g_dbus_object_manager_server_new (PINOS_DBUS_OBJECT_PREFIX);
   priv->clients = g_hash_table_new (g_str_hash, g_str_equal);

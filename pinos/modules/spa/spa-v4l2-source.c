@@ -114,12 +114,6 @@ setup_node (PinosSpaV4l2Source *this)
 }
 
 static void
-destroy_pipeline (PinosSpaV4l2Source *this)
-{
-  g_debug ("spa-v4l2-source %p: destroy pipeline", this);
-}
-
-static void
 get_property (GObject    *object,
               guint       prop_id,
               GValue     *value,
@@ -162,8 +156,6 @@ source_finalize (GObject * object)
   PinosSpaV4l2Source *source = PINOS_SPA_V4L2_SOURCE (object);
 
   g_debug ("spa-source %p: dispose", source);
-  destroy_pipeline (source);
-
   spa_handle_clear (node->node->handle);
   g_free (node->node->handle);
 

@@ -38,18 +38,10 @@
 struct _PinosSpaAlsaSinkPrivate
 {
   PinosRingbuffer *ringbuffer;
-
-  SpaPollFd fds[16];
-  unsigned int n_fds;
-  SpaPollItem poll;
-
-  gboolean running;
-  pthread_t thread;
 };
 
 enum {
   PROP_0,
-  PROP_POSSIBLE_FORMATS
 };
 
 G_DEFINE_TYPE (PinosSpaAlsaSink, pinos_spa_alsa_sink, PINOS_TYPE_NODE);
@@ -98,39 +90,7 @@ make_node (SpaNode **node, const char *lib, const char *name)
   return SPA_RESULT_ERROR;
 }
 
-static void *
-loop (void *user_data)
-{
-  PinosSpaAlsaSink *this = user_data;
-  PinosSpaAlsaSinkPrivate *priv = this->priv;
-  int r;
-
-  g_debug ("spa-alsa-sink %p: enter thread", this);
-  while (priv->running) {
-    SpaPollNotifyData ndata;
-
-    r = poll ((struct pollfd *) priv->fds, priv->n_fds, -1);
-    if (r < 0) {
-      if (errno == EINTR)
-        continue;
-      break;
-    }
-    if (r == 0) {
-      g_debug ("spa-alsa-sink %p: select timeout", this);
-      break;
-    }
-    if (priv->poll.after_cb) {
-      ndata.fds = priv->poll.fds;
-      ndata.n_fds = priv->poll.n_fds;
-      ndata.user_data = priv->poll.user_data;
-      priv->poll.after_cb (&ndata);
-    }
-  }
-  g_debug ("spa-alsa-sink %p: leave thread", this);
-
-  return NULL;
-}
-
+#if 0
 static void
 on_sink_event (SpaNode *node, SpaEvent *event, void *user_data)
 {
@@ -175,47 +135,12 @@ on_sink_event (SpaNode *node, SpaEvent *event, void *user_data)
         g_debug ("got error %d", res);
       break;
     }
-
-    case SPA_EVENT_TYPE_ADD_POLL:
-    {
-      SpaPollItem *poll = event->data;
-      int err;
-
-      g_debug ("add poll");
-      priv->poll = *poll;
-      priv->fds[0] = poll->fds[0];
-      priv->n_fds = 1;
-      priv->poll.fds = priv->fds;
-
-      if (!priv->running) {
-        priv->running = true;
-        if ((err = pthread_create (&priv->thread, NULL, loop, this)) != 0) {
-          g_debug ("spa-v4l2-source %p: can't create thread", strerror (err));
-          priv->running = false;
-        }
-      }
-      break;
-    }
-    case SPA_EVENT_TYPE_REMOVE_POLL:
-    {
-      if (priv->running) {
-        priv->running = false;
-        pthread_join (priv->thread, NULL);
-      }
-      break;
-    }
-    case SPA_EVENT_TYPE_STATE_CHANGE:
-    {
-      SpaEventStateChange *sc = event->data;
-
-      pinos_node_update_node_state (PINOS_NODE (this), sc->state);
-      break;
-    }
     default:
       g_debug ("got event %d", event->type);
       break;
   }
 }
+#endif
 
 static void
 setup_node (PinosSpaAlsaSink *this)
@@ -224,8 +149,6 @@ setup_node (PinosSpaAlsaSink *this)
   SpaResult res;
   SpaProps *props;
   SpaPropValue value;
-
-  spa_node_set_event_callback (node->node, on_sink_event, this);
 
   if ((res = spa_node_get_props (node->node, &props)) < 0)
     g_debug ("got get_props error %d", res);
@@ -237,69 +160,6 @@ setup_node (PinosSpaAlsaSink *this)
 
   if ((res = spa_node_set_props (node->node, props)) < 0)
     g_debug ("got set_props error %d", res);
-}
-
-static void
-pause_pipeline (PinosSpaAlsaSink *sink)
-{
-  PinosNode *node = PINOS_NODE (sink);
-  SpaResult res;
-  SpaCommand cmd;
-
-  g_debug ("spa-alsa-sink %p: pausing pipeline", sink);
-
-  cmd.type = SPA_COMMAND_PAUSE;
-  if ((res = spa_node_send_command (node->node, &cmd)) < 0)
-    g_debug ("got error %d", res);
-}
-
-static void
-suspend_pipeline (PinosSpaAlsaSink *this)
-{
-  PinosNode *node = PINOS_NODE (this);
-  SpaResult res;
-
-  g_debug ("spa-alsa-sink %p: suspend pipeline", this);
-
-  if ((res = spa_node_port_set_format (node->node, 0, 0, NULL)) < 0) {
-    g_warning ("error unset format output: %d", res);
-  }
-}
-
-static void
-destroy_pipeline (PinosSpaAlsaSink *sink)
-{
-  g_debug ("spa-alsa-sink %p: destroy pipeline", sink);
-}
-
-static gboolean
-set_state (PinosNode      *node,
-           PinosNodeState  state)
-{
-  PinosSpaAlsaSink *this = PINOS_SPA_ALSA_SINK (node);
-
-  g_debug ("spa-alsa-sink %p: set state %s", node, pinos_node_state_as_string (state));
-
-  switch (state) {
-    case PINOS_NODE_STATE_SUSPENDED:
-      suspend_pipeline (this);
-      break;
-
-    case PINOS_NODE_STATE_INITIALIZING:
-      break;
-
-    case PINOS_NODE_STATE_IDLE:
-      pause_pipeline (this);
-      break;
-
-    case PINOS_NODE_STATE_RUNNING:
-      break;
-
-    case PINOS_NODE_STATE_ERROR:
-      break;
-  }
-  pinos_node_update_state (node, state);
-  return TRUE;
 }
 
 static void
@@ -383,9 +243,12 @@ sink_constructed (GObject * object)
 static void
 sink_finalize (GObject * object)
 {
+  PinosNode *node = PINOS_NODE (object);
   PinosSpaAlsaSink *sink = PINOS_SPA_ALSA_SINK (object);
 
-  destroy_pipeline (sink);
+  g_debug ("alsa-sink %p: dispose", sink);
+  spa_handle_clear (node->node->handle);
+  g_free (node->node->handle);
 
   G_OBJECT_CLASS (pinos_spa_alsa_sink_parent_class)->finalize (object);
 }
@@ -394,7 +257,6 @@ static void
 pinos_spa_alsa_sink_class_init (PinosSpaAlsaSinkClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
-  PinosNodeClass *node_class = PINOS_NODE_CLASS (klass);
 
   g_type_class_add_private (klass, sizeof (PinosSpaAlsaSinkPrivate));
 
@@ -402,8 +264,6 @@ pinos_spa_alsa_sink_class_init (PinosSpaAlsaSinkClass * klass)
   gobject_class->finalize = sink_finalize;
   gobject_class->get_property = get_property;
   gobject_class->set_property = set_property;
-
-  node_class->set_state = set_state;
 }
 
 static void

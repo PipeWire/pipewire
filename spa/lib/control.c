@@ -958,6 +958,10 @@ write_format (void *p, const SpaFormat *format)
   tf = p;
   tf->media_type = format->media_type;
   tf->media_subtype = format->media_subtype;
+  tf->mem.mem.pool_id = SPA_ID_INVALID;
+  tf->mem.mem.id = SPA_ID_INVALID;
+  tf->mem.offset = 0;
+  tf->mem.size = 0;
 
   p = SPA_MEMBER (tf, offsetof (SpaFormat, props), void);
   return write_props (p, &format->props, sizeof (SpaFormat));
@@ -970,6 +974,9 @@ write_port_info (void *p, const SpaPortInfo *info)
   SpaAllocParam **ap;
   int i;
   size_t len;
+
+  if (info == NULL)
+    return 0;
 
   tp = p;
   memcpy (tp, info, sizeof (SpaPortInfo));
@@ -1086,8 +1093,11 @@ builder_add_set_format (struct stack_builder *sb, SpaControlCmdSetFormat *sf)
   sf = p;
 
   p = SPA_MEMBER (sf, sizeof (SpaControlCmdSetFormat), void);
-  len = write_format (p, sf->format);
-  sf->format = SPA_INT_TO_PTR (SPA_PTRDIFF (p, sf));
+  if (sf->format) {
+    len = write_format (p, sf->format);
+    sf->format = SPA_INT_TO_PTR (SPA_PTRDIFF (p, sf));
+  } else
+    sf->format = 0;
 }
 
 static void

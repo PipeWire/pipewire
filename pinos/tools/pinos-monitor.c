@@ -107,8 +107,10 @@ dump_link_info (PinosContext *c, const PinosLinkInfo *info, gpointer user_data)
   g_print ("\tid: %p\n", info->id);
   g_print ("\tlink-path: \"%s\"\n", info->link_path);
   if (data->print_all) {
-    g_print ("%c\tsource-port-path: \"%s\"\n", MARK_CHANGE (0), info->source_port_path);
-    g_print ("%c\tdestination-port-path: \"%s\"\n", MARK_CHANGE (1), info->destination_port_path);
+    g_print ("%c\toutput-node-path: \"%s\"\n", MARK_CHANGE (0), info->output_node_path);
+    g_print ("%c\toutput-port: %u\n", MARK_CHANGE (1), info->output_port);
+    g_print ("%c\tinput-node-path: \"%s\"\n", MARK_CHANGE (2), info->input_node_path);
+    g_print ("%c\tinput-port: %u\n", MARK_CHANGE (3), info->input_port);
   }
 }
 

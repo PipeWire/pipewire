@@ -442,8 +442,10 @@ link_fill_info (PinosLinkInfo *info, GDBusProxy *proxy)
   info->link_path = g_dbus_proxy_get_object_path (proxy);
 
   info->change_mask = 0;
-  SET_STRING ("SrcPort", source_port_path, 0);
-  SET_STRING ("DestPort", destination_port_path, 1);
+  SET_STRING ("OutputNode", output_node_path, 0);
+  SET_UINT32 ("OutputPort", output_port, 1, -1);
+  SET_STRING ("InputNode", input_node_path, 2);
+  SET_UINT32 ("InputPort", input_port, 3, -1);
 
   if (changed)
     g_hash_table_remove_all (changed);

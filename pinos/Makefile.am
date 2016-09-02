@@ -215,7 +215,6 @@ libpinoscore_@PINOS_MAJORMINOR@_la_SOURCES = \
 		server/link.c server/link.h \
 		server/module.c server/module.h \
 		server/node.c server/node.h \
-		server/port.c server/port.h \
 		server/node-factory.c server/node-factory.h \
 		dbus/org-pinos.c dbus/org-pinos.h
 
@@ -236,8 +235,6 @@ module_LTLIBRARIES += module-gst.la
 module_gst_la_SOURCES = \
 		modules/gst/gst-manager.c \
 		modules/gst/gst-node-factory.c \
-		modules/gst/gst-sink.c \
-		modules/gst/gst-source.c \
 		modules/gst/module.c
 module_gst_la_CFLAGS = $(AM_CFLAGS) $(GST_CFLAGS)
 module_gst_la_LDFLAGS = $(MODULE_LDFLAGS)

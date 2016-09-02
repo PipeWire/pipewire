@@ -82,6 +82,7 @@ struct _V4l2Format {
 typedef struct {
   bool export_buf;
   bool have_buffers;
+  bool started;
 
   bool next_fmtdesc;
   struct v4l2_fmtdesc fmtdesc;
@@ -381,8 +382,6 @@ spa_v4l2_source_node_port_enum_formats (SpaNode         *node,
 
   this = (SpaV4l2Source *) node->handle;
 
-  fprintf (stderr, "%d\n", port_id);
-
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
 
@@ -414,6 +413,7 @@ spa_v4l2_source_node_port_set_format (SpaNode            *node,
   state = &this->state[port_id];
 
   if (format == NULL) {
+    spa_v4l2_pause (this);
     spa_v4l2_clear_buffers (this);
     spa_v4l2_close (this);
     state->current_format = NULL;

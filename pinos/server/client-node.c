@@ -48,13 +48,6 @@ struct _PinosClientNodePrivate
 {
   int fd;
   GSocket *sockets[2];
-
-  SpaPollFd fds[16];
-  unsigned int n_fds;
-  SpaPollItem poll;
-
-  gboolean running;
-  pthread_t thread;
 };
 
 #define PINOS_CLIENT_NODE_GET_PRIVATE(obj)  \
@@ -170,257 +163,12 @@ create_failed:
   }
 }
 
-static gboolean
-on_received_buffer (PinosPort *port, uint32_t buffer_id, GError **error, gpointer user_data)
-{
-  PinosNode *node = user_data;
-  SpaResult res;
-  SpaInputInfo info[1];
-
-  info[0].port_id =  port->id;
-  info[0].buffer_id = buffer_id;
-  info[0].flags = SPA_INPUT_FLAG_NONE;
-
-  if ((res = spa_node_port_push_input (node->node, 1, info)) < 0)
-    g_warning ("client-node %p: error pushing buffer: %d, %d", node, res, info[0].status);
-
-  return TRUE;
-}
-
-static gboolean
-on_received_event (PinosPort *port, SpaEvent *event, GError **error, gpointer user_data)
-{
-  PinosNode *node = user_data;
-  SpaResult res;
-
-  if ((res = spa_node_port_push_event (node->node, port->id, event)) < 0)
-    g_warning ("client-node %p: error pushing event: %d", node, res);
-
-  return TRUE;
-}
-
-static void *
-loop (void *user_data)
-{
-  PinosClientNode *this = user_data;
-  PinosClientNodePrivate *priv = this->priv;
-  int r;
-
-  g_debug ("client-node %p: enter thread", this);
-  while (priv->running) {
-    SpaPollNotifyData ndata;
-
-    r = poll ((struct pollfd *) priv->fds, priv->n_fds, -1);
-    if (r < 0) {
-      if (errno == EINTR)
-        continue;
-      break;
-    }
-    if (r == 0) {
-      g_debug ("client-node %p: select timeout", this);
-      break;
-    }
-    if (priv->fds[0].revents & POLLIN) {
-      uint64_t u;
-      if (read (priv->fds[0].fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
-        g_warning ("client-node %p: failed to read fd", strerror (errno));
-      break;
-    }
-
-    if (priv->poll.after_cb) {
-      ndata.fds = priv->poll.fds;
-      ndata.n_fds = priv->poll.n_fds;
-      ndata.user_data = priv->poll.user_data;
-      priv->poll.after_cb (&ndata);
-    }
-  }
-  g_debug ("client-node %p: leave thread", this);
-
-  return NULL;
-}
-
-static void
-start_thread (PinosClientNode *this)
-{
-  PinosClientNodePrivate *priv = this->priv;
-  int err;
-
-  if (!priv->running) {
-    priv->running = true;
-    if ((err = pthread_create (&priv->thread, NULL, loop, this)) != 0) {
-      g_warning ("client-node %p: can't create thread", strerror (err));
-      priv->running = false;
-    }
-  }
-}
-
-static void
-stop_thread (PinosClientNode *this)
-{
-  PinosClientNodePrivate *priv = this->priv;
-
-  if (priv->running) {
-    uint64_t u = 1;
-
-    if (write (priv->fds[0].fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
-      g_warning ("client-node %p: failed to write fd", strerror (errno));
-
-    priv->running = false;
-    pthread_join (priv->thread, NULL);
-  }
-}
-
-static void
-on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
-{
-  PinosClientNode *this = user_data;
-  PinosClientNodePrivate *priv = this->priv;
-
-  switch (event->type) {
-    case SPA_EVENT_TYPE_PORT_ADDED:
-    {
-      SpaEventPortAdded *pa = event->data;
-      PinosPort *port;
-      PinosNode *pnode = PINOS_NODE (this);
-      GError *error = NULL;
-
-      port = PINOS_NODE_CLASS (pinos_client_node_parent_class)->add_port (pnode,
-                                                                          pa->port_id,
-                                                                          &error);
-
-      if (port == NULL) {
-        g_warning ("proxy %p: can't create port: %s", this, error->message);
-        g_clear_error (&error);
-        break;
-      }
-      pinos_port_set_received_cb (port, on_received_buffer, on_received_event, this, NULL);
-
-      break;
-    }
-    case SPA_EVENT_TYPE_PORT_REMOVED:
-    {
-      break;
-    }
-    case SPA_EVENT_TYPE_STATE_CHANGE:
-    {
-      SpaEventStateChange *sc = event->data;
-
-      pinos_node_update_node_state (PINOS_NODE (this), sc->state);
-
-      switch (sc->state) {
-        case SPA_NODE_STATE_CONFIGURE:
-        {
-          GList *ports, *walk;
-
-          ports = pinos_node_get_ports (PINOS_NODE (this));
-          for (walk = ports; walk; walk = g_list_next (walk)) {
-            PinosPort *port = walk->data;
-            pinos_port_activate (port);
-          }
-          g_list_free (ports);
-        }
-        default:
-          break;
-      }
-      break;
-    }
-    case SPA_EVENT_TYPE_ADD_POLL:
-    {
-      SpaPollItem *poll = event->data;
-      unsigned int i;
-
-      priv->poll = *poll;
-      priv->poll.fds = &priv->fds[priv->n_fds];
-      for (i = 0; i < poll->n_fds; i++)
-        priv->fds[priv->n_fds++] = poll->fds[i];
-
-      start_thread (this);
-      break;
-    }
-    case SPA_EVENT_TYPE_REMOVE_POLL:
-    {
-      stop_thread (this);
-      break;
-    }
-    case SPA_EVENT_TYPE_HAVE_OUTPUT:
-    {
-      PinosPort *port;
-      SpaOutputInfo info[1] = { 0, };
-      SpaResult res;
-      GError *error = NULL;
-
-      if ((res = spa_node_port_pull_output (node, 1, info)) < 0)
-        g_debug ("client-node %p: got pull error %d, %d", this, res, info[0].status);
-
-      port = pinos_node_find_port_by_id (PINOS_NODE (this), info[0].port_id);
-
-      if (!pinos_port_send_buffer (port, info[0].buffer_id, &error)) {
-        g_debug ("send failed: %s", error->message);
-        g_clear_error (&error);
-      }
-      break;
-    }
-    case SPA_EVENT_TYPE_REUSE_BUFFER:
-    {
-      PinosPort *port;
-      GError *error = NULL;
-      SpaEventReuseBuffer *rb = event->data;
-
-      port = pinos_node_find_port_by_id (PINOS_NODE (this), rb->port_id);
-      pinos_port_send_event (port, event, &error);
-      break;
-    }
-    default:
-      g_debug ("client-node %p: got event %d", this, event->type);
-      break;
-  }
-}
-
-static void
-setup_node (PinosClientNode *this)
-{
-  PinosNode *node = PINOS_NODE (this);
-  SpaResult res;
-
-  if ((res = spa_node_set_event_callback (node->node, on_node_event, this)) < 0)
-    g_warning ("client-node %p: error setting callback", this);
-}
-
-static PinosPort *
-add_port (PinosNode       *node,
-          guint            id,
-          GError         **error)
-{
-  PinosPort *port;
-
-  if (spa_node_add_port (node->node, id) < 0)
-    g_warning ("client-node %p: error adding port", node);
-
-  port = PINOS_NODE_CLASS (pinos_client_node_parent_class)->add_port (node, id, error);
-
-  if (port) {
-    pinos_port_set_received_cb (port, on_received_buffer, on_received_event, node, NULL);
-  }
-  return port;
-}
-
-static gboolean
-remove_port (PinosNode       *node,
-             PinosPort       *port)
-{
-  if (spa_node_remove_port (node->node, port->id) < 0)
-    g_warning ("client-node %p: error removing port", node);
-
-  return PINOS_NODE_CLASS (pinos_client_node_parent_class)->remove_port (node, port);
-}
-
 static void
 pinos_client_node_dispose (GObject * object)
 {
   PinosClientNode *this = PINOS_CLIENT_NODE (object);
 
   g_debug ("client-node %p: dispose", this);
-  stop_thread (this);
 
   G_OBJECT_CLASS (pinos_client_node_parent_class)->dispose (object);
 }
@@ -446,25 +194,16 @@ static void
 pinos_client_node_constructed (GObject * object)
 {
   PinosClientNode *this = PINOS_CLIENT_NODE (object);
-  PinosClientNodePrivate *priv = this->priv;
 
   g_debug ("client-node %p: constructed", this);
 
   G_OBJECT_CLASS (pinos_client_node_parent_class)->constructed (object);
-
-  priv->fds[0].fd = eventfd (0, 0);
-  priv->fds[0].events = POLLIN | POLLPRI | POLLERR;
-  priv->fds[0].revents = 0;
-  priv->n_fds = 1;
-
-  setup_node (this);
 }
 
 static void
 pinos_client_node_class_init (PinosClientNodeClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
-  PinosNodeClass *node_class = PINOS_NODE_CLASS (klass);
 
   g_type_class_add_private (klass, sizeof (PinosClientNodePrivate));
 
@@ -473,9 +212,6 @@ pinos_client_node_class_init (PinosClientNodeClass * klass)
   gobject_class->finalize = pinos_client_node_finalize;
   gobject_class->set_property = pinos_client_node_set_property;
   gobject_class->get_property = pinos_client_node_get_property;
-
-  node_class->add_port = add_port;
-  node_class->remove_port = remove_port;
 }
 
 static void

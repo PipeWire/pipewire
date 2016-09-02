@@ -512,8 +512,6 @@ pinos_gst_sink_class_init (PinosGstSinkClass * klass)
                                                         G_PARAM_CONSTRUCT_ONLY |
                                                         G_PARAM_STATIC_STRINGS));
   node_class->set_state = set_state;
-  node_class->add_port = add_port;
-  node_class->remove_port = remove_port;
 }
 
 static void

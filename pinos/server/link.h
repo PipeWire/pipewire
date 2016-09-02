@@ -47,6 +47,11 @@ typedef struct _PinosLinkPrivate PinosLinkPrivate;
 struct _PinosLink {
   GObject object;
 
+  PinosNode *output_node;
+  guint      output_port;
+  PinosNode *input_node;
+  guint      input_port;
+
   PinosLinkPrivate *priv;
 };
 
@@ -62,11 +67,10 @@ struct _PinosLinkClass {
 /* normal GObject stuff */
 GType               pinos_link_get_type             (void);
 
-PinosLink *         pinos_link_new                  (PinosDaemon *daemon,
-                                                     PinosPort   *output,
-                                                     PinosPort   *input);
-
 void                pinos_link_remove               (PinosLink *link);
+
+gboolean            pinos_link_activate             (PinosLink *link);
+gboolean            pinos_link_deactivate           (PinosLink *link);
 
 PinosProperties *   pinos_link_get_properties       (PinosLink *link);
 

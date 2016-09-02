@@ -184,11 +184,11 @@ no_node:
 }
 
 static void
-on_port_added (PinosNode *node, PinosPort *port, PinosClient *client)
+on_port_added (PinosNode *node, PinosDirection direction, guint port_id, PinosClient *client)
 {
   PinosDaemon *this;
   PinosProperties *props;
-  PinosPort *target;
+  PinosNode *target;
   const gchar *path;
   GError *error = NULL;
   PinosLink *link;
@@ -199,26 +199,31 @@ on_port_added (PinosNode *node, PinosPort *port, PinosClient *client)
   path = pinos_properties_get (props, "pinos.target.node");
 
   if (path) {
-    target = pinos_daemon_find_port (this,
-                                     pinos_direction_reverse (port->direction),
+    guint new_port;
+
+    target = pinos_daemon_find_node (this,
+                                     pinos_direction_reverse (direction),
                                      path,
                                      NULL,
                                      0,
                                      NULL,
                                      &error);
     if (target == NULL) {
-      g_warning ("daemon %p: can't find port target: %s", this, error->message);
+      g_warning ("daemon %p: can't find node target: %s", this, error->message);
       g_clear_error (&error);
       return;
     }
-    link = pinos_link_new (pinos_node_get_daemon (node), port, target);
+
+    new_port = pinos_node_get_free_port_id (target, pinos_direction_reverse (direction));
+    link = pinos_node_link (node, port_id, target, new_port, NULL, NULL);
+
     pinos_client_add_object (client, G_OBJECT (link));
     g_object_unref (link);
   }
 }
 
 static void
-on_port_removed (PinosNode *node, PinosPort *port, PinosClient *client)
+on_port_removed (PinosNode *node, guint port_id, PinosClient *client)
 {
 }
 
@@ -511,7 +516,7 @@ pinos_daemon_remove_node (PinosDaemon *daemon,
 }
 
 /**
- * pinos_daemon_find_port:
+ * pinos_daemon_find_node:
  * @daemon: a #PinosDaemon
  * @name: a port name
  * @props: port properties
@@ -523,8 +528,8 @@ pinos_daemon_remove_node (PinosDaemon *daemon,
  * Returns: a #PinosPort or %NULL when no port could be found. unref the port
  *          after usage.
  */
-PinosPort *
-pinos_daemon_find_port (PinosDaemon     *daemon,
+PinosNode *
+pinos_daemon_find_node (PinosDaemon     *daemon,
                         PinosDirection   direction,
                         const gchar     *name,
                         PinosProperties *props,
@@ -533,9 +538,9 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
                         GError         **error)
 {
   PinosDaemonPrivate *priv;
-  PinosPort *best = NULL;
-  GList *nodes, *ports, *walk;
-  gboolean have_name, created_port = FALSE;
+  PinosNode *best = NULL;
+  GList *nodes;
+  gboolean have_name;
 
   g_return_val_if_fail (PINOS_IS_DAEMON (daemon), NULL);
   priv = daemon->priv;
@@ -546,65 +551,25 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
 
   for (nodes = priv->nodes; nodes; nodes = g_list_next (nodes)) {
     PinosNode *n = nodes->data;
-    gboolean node_found = FALSE;
 
     g_debug ("node path \"%s\"", pinos_node_get_object_path (n));
 
-    /* we found the node */
-    if (have_name) {
-      if (!g_str_has_suffix (pinos_node_get_object_path (n), name))
-        continue;
+    if (!g_str_has_suffix (pinos_node_get_object_path (n), name))
+      continue;
 
-      g_debug ("name \"%s\" matches node %p", name, n);
-      node_found = TRUE;
-    }
-
-    ports = pinos_node_get_ports (n);
-    for (walk = ports; walk; walk = g_list_next (walk)) {
-      PinosPort *p = walk->data;
-      PinosDirection dir;
-
-      g_object_get (p, "direction", &dir, NULL);
-      if (dir != direction)
-        continue;
-
-      if (pinos_port_have_common_format (p, n_format_filters, format_filters, NULL)) {
-        g_debug ("port %p matches filter", p);
-        best = p;
-        node_found = TRUE;
-        break;
-      }
-    }
-    g_list_free (ports);
-
-    if (best == NULL && node_found) {
-      guint id;
-
-      id = pinos_node_get_free_port_id (n, direction);
-      if (id != SPA_ID_INVALID) {
-        g_debug ("node %p: making port with id %u", n, id);
-        best = pinos_node_add_port (n, id, NULL);
-        if (best != NULL) {
-          created_port = TRUE;
-          break;
-        }
-      } else {
-        g_debug ("node %p: using port with id %u", n, id);
-        best = pinos_node_find_port_by_id (n, id);
-        if (best != NULL)
-          break;
-      }
-    }
+    g_debug ("name \"%s\" matches node %p", name, n);
+    best = n;
+    break;
   }
   if (best == NULL) {
     g_set_error (error,
                  G_IO_ERROR,
                  G_IO_ERROR_NOT_FOUND,
-                 "No matching Port found");
-  } else if (!created_port)
+                 "No matching Node found");
+  } else
     g_object_ref (best);
 
-  return PINOS_PORT (best);
+  return best;
 }
 
 

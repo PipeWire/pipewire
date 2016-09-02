@@ -159,6 +159,8 @@ spa_debug_dump_mem (const void *mem, size_t size)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   for (i = 0; i < size; i++) {
+    if (i % 16 == 0)
+      printf ("%p: ", &t[i]);
     printf ("%02x ", t[i]);
     if (i % 16 == 15 || i == size - 1)
       printf ("\n");

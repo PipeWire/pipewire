@@ -247,8 +247,10 @@ void            pinos_context_get_node_info_by_id   (PinosContext *context,
  * @id: generic id of the link
  * @link_path: the unique path of the link
  * @change_mask: bitfield of changed fields since last call
- * @source_port_path: the source port
- * @destination_port_path: the destination port
+ * @output_node_path: the output node
+ * @output_port: the output port
+ * @input_node_path: the input node
+ * @input_port: the input port
  *
  * The link information. Extra information can be added in later
  * versions.
@@ -257,8 +259,10 @@ typedef struct {
   gpointer id;
   const char *link_path;
   guint64 change_mask;
-  const char *source_port_path;
-  const char *destination_port_path;
+  const char *output_node_path;
+  guint       output_port;
+  const char *input_node_path;
+  guint       input_port;
 } PinosLinkInfo;
 
 /**

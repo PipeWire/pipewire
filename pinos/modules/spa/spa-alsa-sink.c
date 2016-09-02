@@ -37,7 +37,6 @@
 
 struct _PinosSpaAlsaSinkPrivate
 {
-  PinosProperties *props;
   PinosRingbuffer *ringbuffer;
 
   SpaPollFd fds[16];
@@ -329,25 +328,7 @@ set_property (GObject      *object,
   }
 }
 
-static void
-on_activate (PinosPort *port, gpointer user_data)
-{
-  PinosNode *node = user_data;
-
-  g_debug ("port %p: activate", port);
-
-  pinos_node_report_busy (node);
-}
-
-static void
-on_deactivate (PinosPort *port, gpointer user_data)
-{
-  PinosNode *node = user_data;
-
-  g_debug ("port %p: deactivate", port);
-  pinos_node_report_idle (node);
-}
-
+#if 0
 static gboolean
 on_received_buffer (PinosPort   *port,
                     uint32_t     buffer_id,
@@ -357,7 +338,7 @@ on_received_buffer (PinosPort   *port,
   PinosSpaAlsaSink *this = user_data;
   PinosSpaAlsaSinkPrivate *priv = this->priv;
   unsigned int i;
-  SpaBuffer *buffer = port->buffers[buffer_id];
+  SpaBuffer *buffer = NULL; //port->buffers[buffer_id];
 
   for (i = 0; i < buffer->n_datas; i++) {
     SpaData *d = SPA_BUFFER_DATAS (buffer);
@@ -387,43 +368,7 @@ on_received_buffer (PinosPort   *port,
 
   return TRUE;
 }
-
-static gboolean
-on_received_event (PinosPort   *port,
-                   SpaEvent    *event,
-                   GError     **error,
-                   gpointer     user_data)
-{
-  return TRUE;
-}
-
-static PinosPort *
-add_port (PinosNode       *node,
-          guint            id,
-          GError         **error)
-{
-  PinosSpaAlsaSink *sink = PINOS_SPA_ALSA_SINK (node);
-  PinosPort *port;
-
-  port = PINOS_NODE_CLASS (pinos_spa_alsa_sink_parent_class)
-                ->add_port (node, id, error);
-
-  pinos_port_set_received_cb (port, on_received_buffer, on_received_event, sink, NULL);
-
-  g_debug ("connecting signals");
-  g_signal_connect (port, "activate", (GCallback) on_activate, sink);
-  g_signal_connect (port, "deactivate", (GCallback) on_deactivate, sink);
-
-  return port;
-}
-
-static gboolean
-remove_port (PinosNode       *node,
-             PinosPort       *port)
-{
-  return PINOS_NODE_CLASS (pinos_spa_alsa_sink_parent_class)
-                          ->remove_port (node, port);
-}
+#endif
 
 static void
 sink_constructed (GObject * object)
@@ -439,10 +384,8 @@ static void
 sink_finalize (GObject * object)
 {
   PinosSpaAlsaSink *sink = PINOS_SPA_ALSA_SINK (object);
-  PinosSpaAlsaSinkPrivate *priv = sink->priv;
 
   destroy_pipeline (sink);
-  pinos_properties_free (priv->props);
 
   G_OBJECT_CLASS (pinos_spa_alsa_sink_parent_class)->finalize (object);
 }
@@ -461,15 +404,12 @@ pinos_spa_alsa_sink_class_init (PinosSpaAlsaSinkClass * klass)
   gobject_class->set_property = set_property;
 
   node_class->set_state = set_state;
-  node_class->add_port = add_port;
-  node_class->remove_port = remove_port;
 }
 
 static void
 pinos_spa_alsa_sink_init (PinosSpaAlsaSink * sink)
 {
-  PinosSpaAlsaSinkPrivate *priv = sink->priv = PINOS_SPA_ALSA_SINK_GET_PRIVATE (sink);
-  priv->props = pinos_properties_new (NULL, NULL);
+  sink->priv = PINOS_SPA_ALSA_SINK_GET_PRIVATE (sink);
 }
 
 PinosNode *

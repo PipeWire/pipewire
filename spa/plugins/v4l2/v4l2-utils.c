@@ -402,6 +402,7 @@ again:
   fmt->fmt.props.prop_info = fmt->infos;
   fmt->fmt.props.n_prop_info = pi = 0;
   fmt->fmt.props.unset_mask = 0;
+  fmt->fmt.mem.mem.pool_id = SPA_ID_INVALID;
 
   if (info->media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
     spa_prop_info_fill_video (&fmt->infos[pi],
@@ -850,6 +851,9 @@ spa_v4l2_start (SpaV4l2Source *this)
   enum v4l2_buf_type type;
   SpaEvent event;
 
+  if (state->started)
+    return SPA_RESULT_OK;
+
   type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   if (xioctl (state->fd, VIDIOC_STREAMON, &type) < 0) {
     perror ("VIDIOC_STREAMON");
@@ -873,6 +877,8 @@ spa_v4l2_start (SpaV4l2Source *this)
   state->poll.user_data = this;
   this->event_cb (&this->node, &event, this->user_data);
 
+  state->started = true;
+
   return SPA_RESULT_OK;
 }
 
@@ -883,10 +889,15 @@ spa_v4l2_pause (SpaV4l2Source *this)
   enum v4l2_buf_type type;
   SpaEvent event;
 
+  if (!state->started)
+    return SPA_RESULT_OK;
+
   event.type = SPA_EVENT_TYPE_REMOVE_POLL;
   event.data = &state->poll;
   event.size = sizeof (state->poll);
   this->event_cb (&this->node, &event, this->user_data);
+
+  state->started = false;
 
   type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   if (xioctl (state->fd, VIDIOC_STREAMOFF, &type) < 0) {

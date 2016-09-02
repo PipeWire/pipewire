@@ -356,7 +356,7 @@ do_update_port (SpaProxy                *this,
   }
 
   if (!port->valid) {
-    fprintf (stderr, "%p: adding port %d\n", this, pu->port_id);
+    fprintf (stderr, "proxy %p: adding port %d\n", this, pu->port_id);
     port->format = NULL;
     port->valid = true;
 
@@ -381,7 +381,7 @@ do_uninit_port (SpaProxy     *this,
   SpaProxyPort *port;
   SpaEventPortRemoved pr;
 
-  fprintf (stderr, "%p: removing port %d\n", this, port_id);
+  fprintf (stderr, "proxy %p: removing port %d\n", this, port_id);
   port = &this->ports[port_id];
 
   if (port_id < MAX_INPUTS)
@@ -784,6 +784,7 @@ spa_proxy_node_port_push_input (SpaNode        *node,
 
   for (i = 0; i < n_info; i++) {
     if (!CHECK_PORT_ID_IN (this, info[i].port_id)) {
+      printf ("invalid port %d\n", info[i].port_id);
       info[i].status = SPA_RESULT_INVALID_PORT;
       have_error = true;
       continue;

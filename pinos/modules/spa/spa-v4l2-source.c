@@ -40,12 +40,7 @@
 
 struct _PinosSpaV4l2SourcePrivate
 {
-  SpaPollFd fds[16];
-  unsigned int n_fds;
-  SpaPollItem poll;
-
-  gboolean running;
-  pthread_t thread;
+  gint dummy;
 };
 
 enum {
@@ -98,108 +93,6 @@ make_node (SpaNode **node, const char *lib, const char *name)
   return SPA_RESULT_ERROR;
 }
 
-static void *
-loop (void *user_data)
-{
-  PinosSpaV4l2Source *this = user_data;
-  PinosSpaV4l2SourcePrivate *priv = this->priv;
-  int r;
-
-  g_debug ("spa-v4l2-source %p: enter thread", this);
-  while (priv->running) {
-    SpaPollNotifyData ndata;
-
-    r = poll ((struct pollfd *) priv->fds, priv->n_fds, -1);
-    if (r < 0) {
-      if (errno == EINTR)
-        continue;
-      break;
-    }
-    if (r == 0) {
-      g_debug ("spa-v4l2-source %p: select timeout", this);
-      break;
-    }
-    if (priv->poll.after_cb) {
-      ndata.fds = priv->poll.fds;
-      ndata.n_fds = priv->poll.n_fds;
-      ndata.user_data = priv->poll.user_data;
-      priv->poll.after_cb (&ndata);
-    }
-  }
-  g_debug ("spa-v4l2-source %p: leave thread", this);
-  return NULL;
-}
-
-static void
-on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
-{
-  PinosSpaV4l2Source *this = user_data;
-  PinosSpaV4l2SourcePrivate *priv = this->priv;
-
-  switch (event->type) {
-    case SPA_EVENT_TYPE_HAVE_OUTPUT:
-    {
-      SpaOutputInfo info[1] = { 0, };
-      SpaResult res;
-      GList *ports, *walk;
-
-      if ((res = spa_node_port_pull_output (node, 1, info)) < 0)
-        g_debug ("spa-v4l2-source %p: got pull error %d, %d", this, res, info[0].status);
-
-      ports = pinos_node_get_ports (PINOS_NODE (this));
-      for (walk = ports; walk; walk = g_list_next (walk)) {
-        PinosPort *port = walk->data;
-        GError *error = NULL;
-
-        if (!pinos_port_send_buffer (port, info[0].buffer_id, &error)) {
-          g_debug ("send failed: %s", error->message);
-          g_clear_error (&error);
-        }
-      }
-      g_list_free (ports);
-      break;
-    }
-
-    case SPA_EVENT_TYPE_ADD_POLL:
-    {
-      SpaPollItem *poll = event->data;
-      int err;
-
-      priv->poll = *poll;
-      priv->fds[0] = poll->fds[0];
-      priv->n_fds = 1;
-      priv->poll.fds = priv->fds;
-
-      if (!priv->running) {
-        priv->running = true;
-        if ((err = pthread_create (&priv->thread, NULL, loop, this)) != 0) {
-          g_debug ("spa-v4l2-source %p: can't create thread: %s", this, strerror (err));
-          priv->running = false;
-        }
-      }
-      break;
-    }
-    case SPA_EVENT_TYPE_REMOVE_POLL:
-    {
-      if (priv->running) {
-        priv->running = false;
-        pthread_join (priv->thread, NULL);
-      }
-      break;
-    }
-    case SPA_EVENT_TYPE_STATE_CHANGE:
-    {
-      SpaEventStateChange *sc = event->data;
-
-      pinos_node_update_node_state (PINOS_NODE (this), sc->state);
-      break;
-    }
-    default:
-      g_debug ("got event %d", event->type);
-      break;
-  }
-}
-
 static void
 setup_node (PinosSpaV4l2Source *this)
 {
@@ -207,8 +100,6 @@ setup_node (PinosSpaV4l2Source *this)
   SpaResult res;
   SpaProps *props;
   SpaPropValue value;
-
-  spa_node_set_event_callback (node->node, on_source_event, this);
 
   if ((res = spa_node_get_props (node->node, &props)) < 0)
     g_debug ("got get_props error %d", res);
@@ -223,66 +114,9 @@ setup_node (PinosSpaV4l2Source *this)
 }
 
 static void
-pause_pipeline (PinosSpaV4l2Source *this)
-{
-  PinosNode *node = PINOS_NODE (this);
-  SpaResult res;
-  SpaCommand cmd;
-
-  g_debug ("spa-v4l2-source %p: pause pipeline", this);
-
-  cmd.type = SPA_COMMAND_PAUSE;
-  if ((res = spa_node_send_command (node->node, &cmd)) < 0)
-    g_debug ("got error %d", res);
-}
-
-static void
-suspend_pipeline (PinosSpaV4l2Source *this)
-{
-  PinosNode *node = PINOS_NODE (this);
-  SpaResult res;
-
-  g_debug ("spa-v4l2-source %p: suspend pipeline", this);
-
-  if ((res = spa_node_port_set_format (node->node, 0, 0, NULL)) < 0) {
-    g_warning ("error unset format output: %d", res);
-  }
-}
-
-static void
 destroy_pipeline (PinosSpaV4l2Source *this)
 {
   g_debug ("spa-v4l2-source %p: destroy pipeline", this);
-}
-
-static gboolean
-set_state (PinosNode      *node,
-           PinosNodeState  state)
-{
-  PinosSpaV4l2Source *this = PINOS_SPA_V4L2_SOURCE (node);
-
-  g_debug ("spa-source %p: set state %s", node, pinos_node_state_as_string (state));
-
-  switch (state) {
-    case PINOS_NODE_STATE_SUSPENDED:
-      suspend_pipeline (this);
-      break;
-
-    case PINOS_NODE_STATE_INITIALIZING:
-      break;
-
-    case PINOS_NODE_STATE_IDLE:
-      pause_pipeline (this);
-      break;
-
-    case PINOS_NODE_STATE_RUNNING:
-      break;
-
-    case PINOS_NODE_STATE_ERROR:
-      break;
-  }
-  pinos_node_update_state (node, state);
-  return TRUE;
 }
 
 static void
@@ -311,32 +145,6 @@ set_property (GObject      *object,
   }
 }
 
-static gboolean
-on_activate (PinosPort *port, gpointer user_data)
-{
-  PinosSpaV4l2Source *source = user_data;
-
-  pinos_node_report_busy (PINOS_NODE (source));
-
-  return TRUE;
-}
-
-static void
-on_deactivate (PinosPort *port, gpointer user_data)
-{
-  PinosSpaV4l2Source *source = user_data;
-
-  pinos_node_report_idle (PINOS_NODE (source));
-}
-
-static gboolean
-remove_port (PinosNode       *node,
-             PinosPort       *port)
-{
-  return PINOS_NODE_CLASS (pinos_spa_v4l2_source_parent_class)
-                    ->remove_port (node, port);
-}
-
 static void
 source_constructed (GObject * object)
 {
@@ -362,63 +170,10 @@ source_finalize (GObject * object)
   G_OBJECT_CLASS (pinos_spa_v4l2_source_parent_class)->finalize (object);
 }
 
-static gboolean
-on_received_buffer (PinosPort *port, uint32_t buffer_id, GError **error, gpointer user_data)
-{
-  return FALSE;
-}
-
-static gboolean
-on_received_event (PinosPort *port, SpaEvent *event, GError **error, gpointer user_data)
-{
-  PinosNode *node = user_data;
-  SpaResult res;
-
-  switch (event->type) {
-    case SPA_EVENT_TYPE_REUSE_BUFFER:
-    {
-      SpaEventReuseBuffer *rb = event->data;
-
-      if ((res = spa_node_port_reuse_buffer (node->node,
-                                             rb->port_id,
-                                             rb->buffer_id)) < 0)
-        g_warning ("client-node %p: error reuse buffer: %d", node, res);
-      break;
-    }
-    default:
-      if ((res = spa_node_port_push_event (node->node, port->id, event)) < 0)
-        g_warning ("client-node %p: error pushing event: %d", node, res);
-      break;
-  }
-  return TRUE;
-}
-
-
-static PinosPort *
-add_port (PinosNode       *node,
-          guint            id,
-          GError         **error)
-{
-  PinosSpaV4l2Source *source = PINOS_SPA_V4L2_SOURCE (node);
-  PinosPort *port;
-
-  port = PINOS_NODE_CLASS (pinos_spa_v4l2_source_parent_class)
-                    ->add_port (node, id, error);
-
-  pinos_port_set_received_cb (port, on_received_buffer, on_received_event, node, NULL);
-
-  g_debug ("connecting signals");
-  g_signal_connect (port, "activate", (GCallback) on_activate, source);
-  g_signal_connect (port, "deactivate", (GCallback) on_deactivate, source);
-
-  return port;
-}
-
 static void
 pinos_spa_v4l2_source_class_init (PinosSpaV4l2SourceClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
-  PinosNodeClass *node_class = PINOS_NODE_CLASS (klass);
 
   g_type_class_add_private (klass, sizeof (PinosSpaV4l2SourcePrivate));
 
@@ -426,10 +181,6 @@ pinos_spa_v4l2_source_class_init (PinosSpaV4l2SourceClass * klass)
   gobject_class->finalize = source_finalize;
   gobject_class->get_property = get_property;
   gobject_class->set_property = set_property;
-
-  node_class->set_state = set_state;
-  node_class->add_port = add_port;
-  node_class->remove_port = remove_port;
 }
 
 static void

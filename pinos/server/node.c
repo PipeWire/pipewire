@@ -403,12 +403,23 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
     case SPA_EVENT_TYPE_REMOVE_POLL:
     {
       SpaPollItem *poll = event->data;
+      unsigned int i;
 
       g_debug ("node %p: remove poll %d", this, poll->n_fds);
-      priv->rebuild_fds = true;
-      wakeup_thread (this);
-
-      stop_thread (this);
+      for (i = 0; i < priv->n_poll; i++) {
+        if (priv->poll[i].id == poll->id) {
+          priv->n_poll--;
+          for (; i < priv->n_poll; i++)
+            priv->poll[i] = priv->poll[i+1];
+          break;
+        }
+      }
+      if (priv->n_poll > 0) {
+        priv->rebuild_fds = true;
+        wakeup_thread (this);
+      } else {
+        stop_thread (this);
+      }
       break;
     }
     case SPA_EVENT_TYPE_HAVE_OUTPUT:

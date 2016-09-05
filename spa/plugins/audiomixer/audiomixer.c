@@ -725,6 +725,7 @@ spa_audiomixer_node_port_push_event (SpaNode        *node,
 static const SpaNode audiomixer_node = {
   NULL,
   sizeof (SpaNode),
+  SPA_NODE_STATE_INIT,
   spa_audiomixer_node_get_props,
   spa_audiomixer_node_set_props,
   spa_audiomixer_node_send_command,

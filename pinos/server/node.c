@@ -59,9 +59,12 @@ struct _PinosNodePrivate
 
   PinosProperties *properties;
 
+  unsigned int n_poll;
+  SpaPollItem poll[16];
+
+  bool rebuild_fds;
   SpaPollFd fds[16];
   unsigned int n_fds;
-  SpaPollItem poll;
 
   gboolean running;
   pthread_t thread;
@@ -119,6 +122,8 @@ update_port_ids (PinosNode *node, gboolean create)
                         &priv->n_output_ports,
                         &priv->max_output_ports);
 
+  g_debug ("node %p: update_port ids %u, %u", node, priv->max_input_ports, priv->max_output_ports);
+
   priv->input_port_ids = g_realloc_n (priv->input_port_ids, priv->max_input_ports, sizeof (uint32_t));
   priv->output_port_ids = g_realloc_n (priv->output_port_ids, priv->max_output_ports, sizeof (uint32_t));
 
@@ -134,11 +139,58 @@ loop (void *user_data)
 {
   PinosNode *this = user_data;
   PinosNodePrivate *priv = this->priv;
-  int r;
+  unsigned int i, j;
 
   g_debug ("node %p: enter thread", this);
   while (priv->running) {
     SpaPollNotifyData ndata;
+    unsigned int n_idle = 0;
+    int r;
+
+    /* prepare */
+    for (i = 0; i < priv->n_poll; i++) {
+      SpaPollItem *p = &priv->poll[i];
+
+      if (p->enabled && p->idle_cb) {
+        ndata.fds = NULL;
+        ndata.n_fds = 0;
+        ndata.user_data = p->user_data;
+        p->idle_cb (&ndata);
+        n_idle++;
+      }
+    }
+    if (n_idle > 0)
+      continue;
+
+    /* rebuild */
+    if (priv->rebuild_fds) {
+      g_debug ("node %p: rebuild fds", this);
+      priv->n_fds = 1;
+      for (i = 0; i < priv->n_poll; i++) {
+        SpaPollItem *p = &priv->poll[i];
+
+        if (!p->enabled)
+          continue;
+
+        for (j = 0; j < p->n_fds; j++)
+          priv->fds[priv->n_fds + j] = p->fds[j];
+        p->fds = &priv->fds[priv->n_fds];
+        priv->n_fds += p->n_fds;
+      }
+      priv->rebuild_fds = false;
+    }
+
+    /* before */
+    for (i = 0; i < priv->n_poll; i++) {
+      SpaPollItem *p = &priv->poll[i];
+
+      if (p->enabled && p->before_cb) {
+        ndata.fds = p->fds;
+        ndata.n_fds = p->n_fds;
+        ndata.user_data = p->user_data;
+        p->before_cb (&ndata);
+      }
+    }
 
     r = poll ((struct pollfd *) priv->fds, priv->n_fds, -1);
     if (r < 0) {
@@ -150,19 +202,25 @@ loop (void *user_data)
       g_debug ("node %p: select timeout", this);
       break;
     }
+
+    /* check wakeup */
     if (priv->fds[0].revents & POLLIN) {
       uint64_t u;
       if (read (priv->fds[0].fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
         g_warning ("node %p: failed to read fd", strerror (errno));
-      g_debug ("node %p: event signaled", this);
-      break;
+      continue;
     }
 
-    if (priv->poll.after_cb) {
-      ndata.fds = priv->poll.fds;
-      ndata.n_fds = priv->poll.n_fds;
-      ndata.user_data = priv->poll.user_data;
-      priv->poll.after_cb (&ndata);
+    /* after */
+    for (i = 0; i < priv->n_poll; i++) {
+      SpaPollItem *p = &priv->poll[i];
+
+      if (p->enabled && p->after_cb) {
+        ndata.fds = p->fds;
+        ndata.n_fds = p->n_fds;
+        ndata.user_data = p->user_data;
+        p->after_cb (&ndata);
+      }
     }
   }
   g_debug ("node %p: leave thread", this);
@@ -170,6 +228,15 @@ loop (void *user_data)
   return NULL;
 }
 
+static void
+wakeup_thread (PinosNode *this)
+{
+  PinosNodePrivate *priv = this->priv;
+  uint64_t u = 1;
+
+  if (write (priv->fds[0].fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
+    g_warning ("node %p: failed to write fd", strerror (errno));
+}
 
 static void
 start_thread (PinosNode *this)
@@ -192,12 +259,8 @@ stop_thread (PinosNode *this)
   PinosNodePrivate *priv = this->priv;
 
   if (priv->running) {
-    uint64_t u = 1;
-
-    if (write (priv->fds[0].fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
-      g_warning ("node %p: failed to write fd", strerror (errno));
-
     priv->running = false;
+    wakeup_thread (this);
     pthread_join (priv->thread, NULL);
   }
 }
@@ -286,14 +349,11 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
     {
       SpaEventStateChange *sc = event->data;
 
-      if (this->node_state != sc->state) {
-        g_debug ("node %p: update SPA state to %d", this, sc->state);
-        this->node_state = sc->state;
-        g_object_notify (G_OBJECT (this), "node-state");
+      g_debug ("node %p: update SPA state to %d", this, sc->state);
+      g_object_notify (G_OBJECT (this), "node-state");
 
-        if (sc->state == SPA_NODE_STATE_CONFIGURE) {
-          update_port_ids (this, FALSE);
-        }
+      if (sc->state == SPA_NODE_STATE_CONFIGURE) {
+        update_port_ids (this, FALSE);
       }
       switch (sc->state) {
         case SPA_NODE_STATE_CONFIGURE:
@@ -315,15 +375,29 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
     case SPA_EVENT_TYPE_ADD_POLL:
     {
       SpaPollItem *poll = event->data;
-      unsigned int i;
 
       g_debug ("node %p: add poll %d", this, poll->n_fds);
-      priv->poll = *poll;
-      priv->poll.fds = &priv->fds[priv->n_fds];
-      for (i = 0; i < poll->n_fds; i++)
-        priv->fds[priv->n_fds++] = poll->fds[i];
+      priv->poll[priv->n_poll] = *poll;
+      priv->n_poll++;
+      if (poll->n_fds)
+        priv->rebuild_fds = true;
+      wakeup_thread (this);
 
       start_thread (this);
+      break;
+    }
+    case SPA_EVENT_TYPE_UPDATE_POLL:
+    {
+      unsigned int i;
+      SpaPollItem *poll = event->data;
+
+      for (i = 0; i < priv->n_poll; i++) {
+        if (priv->poll[i].id == poll->id)
+          priv->poll[i] = *poll;
+      }
+      if (poll->n_fds)
+        priv->rebuild_fds = true;
+      wakeup_thread (this);
       break;
     }
     case SPA_EVENT_TYPE_REMOVE_POLL:
@@ -331,7 +405,8 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
       SpaPollItem *poll = event->data;
 
       g_debug ("node %p: remove poll %d", this, poll->n_fds);
-      priv->n_fds -= poll->n_fds;
+      priv->rebuild_fds = true;
+      wakeup_thread (this);
 
       stop_thread (this);
       break;
@@ -433,7 +508,7 @@ pinos_node_get_property (GObject    *_object,
       break;
 
     case PROP_NODE_STATE:
-      g_value_set_uint (value, node->node_state);
+      g_value_set_uint (value, node->node->state);
       break;
 
     default:

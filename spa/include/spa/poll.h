@@ -24,8 +24,6 @@
 extern "C" {
 #endif
 
-typedef struct _SpaEvent SpaEvent;
-
 #include <spa/defs.h>
 
 /**
@@ -63,6 +61,7 @@ typedef int (*SpaPollNotify) (SpaPollNotifyData *data);
 /**
  * SpaPollItem:
  * @id: id of the poll item
+ * @enabled: if the item is enabled
  * @fds: array of file descriptors to watch
  * @n_fds: number of elements in @fds
  * @idle_cb: callback called when there is no other work
@@ -72,6 +71,7 @@ typedef int (*SpaPollNotify) (SpaPollNotifyData *data);
  */
 typedef struct {
   uint32_t       id;
+  bool           enabled;
   SpaPollFd     *fds;
   unsigned int   n_fds;
   SpaPollNotify  idle_cb;

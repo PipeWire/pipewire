@@ -52,7 +52,6 @@ struct _PinosNode {
   GObject object;
 
   SpaNode *node;
-  SpaNodeState node_state;
 
   PinosNodePrivate *priv;
 };

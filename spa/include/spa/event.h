@@ -40,6 +40,7 @@ typedef struct _SpaEvent SpaEvent;
  * @SPA_EVENT_TYPE_NEED_INPUT: emited when more data can be pushed to an async node
  * @SPA_EVENT_TYPE_REUSE_BUFFER: emited when a buffer can be reused
  * @SPA_EVENT_TYPE_ADD_POLL: emited when a pollfd should be added. data points to #SpaPollItem
+ * @SPA_EVENT_TYPE_UPDATE_POLL: update the pollfd item
  * @SPA_EVENT_TYPE_REMOVE_POLL: emited when a pollfd should be removed. data points to #SpaPollItem
  * @SPA_EVENT_TYPE_DRAINED: emited when DRAIN command completed
  * @SPA_EVENT_TYPE_MARKER: emited when MARK command completed
@@ -56,6 +57,7 @@ typedef enum {
   SPA_EVENT_TYPE_NEED_INPUT,
   SPA_EVENT_TYPE_REUSE_BUFFER,
   SPA_EVENT_TYPE_ADD_POLL,
+  SPA_EVENT_TYPE_UPDATE_POLL,
   SPA_EVENT_TYPE_REMOVE_POLL,
   SPA_EVENT_TYPE_DRAINED,
   SPA_EVENT_TYPE_MARKER,

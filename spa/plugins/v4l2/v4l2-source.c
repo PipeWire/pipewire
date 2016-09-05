@@ -120,7 +120,6 @@ typedef struct {
 struct _SpaV4l2Source {
   SpaHandle handle;
   SpaNode node;
-  SpaNodeState node_state;
 
   SpaV4l2SourceProps props[2];
 
@@ -208,10 +207,10 @@ update_state (SpaV4l2Source *this, SpaNodeState state)
   SpaEvent event;
   SpaEventStateChange sc;
 
-  if (this->node_state == state)
+  if (this->node.state == state)
     return;
 
-  this->node_state = state;
+  this->node.state = state;
 
   event.type = SPA_EVENT_TYPE_STATE_CHANGE;
   event.data = &sc;
@@ -329,7 +328,7 @@ spa_v4l2_source_node_get_port_ids (SpaNode       *node,
   if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  if (n_output_ports > 0)
+  if (n_output_ports > 0 && output_ids != NULL)
     output_ids[0] = 0;
 
   return SPA_RESULT_OK;
@@ -718,6 +717,7 @@ spa_v4l2_source_node_port_push_event (SpaNode    *node,
 static const SpaNode v4l2source_node = {
   NULL,
   sizeof (SpaNode),
+  SPA_NODE_STATE_INIT,
   spa_v4l2_source_node_get_props,
   spa_v4l2_source_node_set_props,
   spa_v4l2_source_node_send_command,
@@ -792,8 +792,6 @@ v4l2_source_init (const SpaHandleFactory  *factory,
   this->state[0].status.flags = SPA_PORT_STATUS_FLAG_NONE;
 
   this->state[0].export_buf = true;
-
-  this->node_state = SPA_NODE_STATE_INIT;
 
   return SPA_RESULT_OK;
 }

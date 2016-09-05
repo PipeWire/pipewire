@@ -620,6 +620,7 @@ spa_volume_node_port_push_event (SpaNode        *node,
 static const SpaNode volume_node = {
   NULL,
   sizeof (SpaNode),
+  SPA_NODE_STATE_INIT,
   spa_volume_node_get_props,
   spa_volume_node_set_props,
   spa_volume_node_send_command,

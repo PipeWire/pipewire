@@ -625,9 +625,9 @@ spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffe
 
   if (state->alloc_mem)
     spa_memory_unref (&state->alloc_mem->mem);
-  state->alloc_mem = spa_memory_alloc_with_fd (SPA_MEMORY_POOL_SHARED,
-                                               NULL,
-                                               sizeof (V4l2Buffer) * reqbuf.count);
+  state->alloc_mem = spa_memory_alloc_size (SPA_MEMORY_POOL_LOCAL,
+                                            NULL,
+                                            sizeof (V4l2Buffer) * reqbuf.count);
   state->alloc_buffers = spa_memory_ensure_ptr (state->alloc_mem);
 
   for (i = 0; i < reqbuf.count; i++) {
@@ -646,7 +646,7 @@ spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffe
 
     fprintf (stderr, "import buffer %p\n", buffers[i]);
 
-    mem_ref = &SPA_BUFFER_DATAS (buffers[i])[0].mem.mem;
+    mem_ref = &d[0].mem.mem;
     if (!(mem = spa_memory_find (mem_ref))) {
       fprintf (stderr, "invalid memory on buffer %p\n", buffers[i]);
       continue;
@@ -656,7 +656,7 @@ spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffe
     b->v4l2_buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     b->v4l2_buffer.memory = state->memtype;
     b->v4l2_buffer.index = i;
-    b->v4l2_buffer.m.userptr = (unsigned long) ((uint8_t*)mem->ptr + d[0].mem.offset);
+    b->v4l2_buffer.m.userptr = (unsigned long) SPA_MEMBER (mem->ptr, d[0].mem.offset, void *);
     b->v4l2_buffer.length = d[0].mem.size;
 
     spa_v4l2_buffer_recycle (this, buffers[i]->id);
@@ -869,6 +869,7 @@ spa_v4l2_start (SpaV4l2Source *this)
   state->fds[0].revents = 0;
 
   state->poll.id = 0;
+  state->poll.enabled = true;
   state->poll.fds = state->fds;
   state->poll.n_fds = 1;
   state->poll.idle_cb = NULL;

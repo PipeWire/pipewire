@@ -227,9 +227,9 @@ spa_ffmpeg_enc_node_get_port_ids (SpaNode       *node,
   if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  if (n_input_ports > 0)
+  if (n_input_ports > 0 && input_ids != NULL)
     input_ids[0] = 0;
-  if (n_output_ports > 0)
+  if (n_output_ports > 0 && output_ids != NULL)
     output_ids[0] = 1;
 
   return SPA_RESULT_OK;
@@ -505,6 +505,7 @@ spa_ffmpeg_enc_node_port_push_event (SpaNode    *node,
 static const SpaNode ffmpeg_enc_node = {
   NULL,
   sizeof (SpaNode),
+  SPA_NODE_STATE_INIT,
   spa_ffmpeg_enc_node_get_props,
   spa_ffmpeg_enc_node_set_props,
   spa_ffmpeg_enc_node_send_command,
@@ -569,6 +570,8 @@ spa_ffmpeg_enc_init (SpaHandle *handle)
 
   this->state[OUTPUT_PORT_ID].info.flags = SPA_PORT_INFO_FLAG_NONE;
   this->state[OUTPUT_PORT_ID].status.flags = SPA_PORT_STATUS_FLAG_NONE;
+
+  this->node.state = SPA_NODE_STATE_CONFIGURE;
 
   return SPA_RESULT_OK;
 }

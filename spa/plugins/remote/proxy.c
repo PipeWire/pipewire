@@ -64,7 +64,6 @@ typedef struct {
 struct _SpaProxy {
   SpaHandle  handle;
   SpaNode    node;
-  SpaNodeState state;
 
   SpaProxyProps props[2];
 
@@ -130,11 +129,11 @@ update_poll (SpaProxy *this, int socketfd)
 static SpaResult
 update_state (SpaProxy *this, SpaNodeState state)
 {
-  if (this->state != state) {
+  if (this->node.state != state) {
     SpaEvent event;
     SpaEventStateChange sc;
 
-    this->state = state;
+    this->node.state = state;
 
     event.type = SPA_EVENT_TYPE_STATE_CHANGE;
     event.data = &sc;
@@ -1077,6 +1076,7 @@ proxy_on_fd_events (SpaPollNotifyData *data)
 static const SpaNode proxy_node = {
   NULL,
   sizeof (SpaNode),
+  SPA_NODE_STATE_INIT,
   spa_proxy_node_get_props,
   spa_proxy_node_set_props,
   spa_proxy_node_send_command,
@@ -1151,6 +1151,7 @@ proxy_init (const SpaHandleFactory  *factory,
   this->fds[0].events = POLLIN | POLLPRI | POLLERR;
   this->fds[0].revents = 0;
   this->poll.id = 0;
+  this->poll.enabled = true;
   this->poll.fds = this->fds;
   this->poll.n_fds = 1;
   this->poll.idle_cb = NULL;

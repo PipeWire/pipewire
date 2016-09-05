@@ -348,6 +348,8 @@ spa_alsa_start (SpaALSASink *this)
   event.data = &state->poll;
   event.size = sizeof (state->poll);
 
+  state->poll.id = 0;
+  state->poll.enabled = true;
   state->poll.fds = state->fds;
   state->poll.idle_cb = NULL;
   state->poll.before_cb = NULL;

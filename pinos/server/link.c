@@ -410,8 +410,8 @@ check_states (PinosLink *this)
   SpaResult res;
   SpaNodeState in_state, out_state;
 
-  in_state = this->input_node->node_state;
-  out_state = this->output_node->node_state;
+  in_state = this->input_node->node->state;
+  out_state = this->output_node->node->state;
 
   g_debug ("link %p: input %d, output %d", this, in_state, out_state);
 

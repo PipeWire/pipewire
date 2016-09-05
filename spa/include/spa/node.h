@@ -155,6 +155,12 @@ struct _SpaNode {
    * structure in the future */
   size_t size;
   /**
+   * SpaNode::state:
+   *
+   * The current state of the node
+   */
+  SpaNodeState state;
+  /**
    * SpaNode::get_props:
    * @node: a #SpaNode
    * @props: a location for a #SpaProps pointer

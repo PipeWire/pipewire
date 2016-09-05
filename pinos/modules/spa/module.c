@@ -23,6 +23,7 @@
 
 #include "spa-alsa-sink.h"
 #include "spa-v4l2-source.h"
+#include "spa-audiotestsrc.h"
 
 gboolean pinos__module_init (PinosModule *module, const gchar * args);
 
@@ -31,6 +32,7 @@ pinos__module_init (PinosModule * module, G_GNUC_UNUSED const gchar * args)
 {
   pinos_spa_alsa_sink_new (module->daemon, "alsa-sink", NULL);
   pinos_spa_v4l2_source_new (module->daemon, "v4l2-source", NULL);
+  pinos_spa_audiotestsrc_new (module->daemon, "audiotestsrc", NULL);
 
   return TRUE;
 }

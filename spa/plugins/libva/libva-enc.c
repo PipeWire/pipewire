@@ -219,9 +219,9 @@ spa_libva_enc_node_get_port_ids (SpaHandle     *handle,
   if (handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  if (n_input_ports > 0)
+  if (n_input_ports > 0 && input_ids != NULL)
     input_ids[0] = 0;
-  if (n_output_ports > 0)
+  if (n_output_ports > 0 && output_ids != NULL)
     output_ids[0] = 1;
 
   return SPA_RESULT_OK;

@@ -833,7 +833,7 @@ parse_control (PinosStream *stream,
           bid.buf = p.buffers[i];
           bid.cleanup = false;
           bid.id = bid.buf->id;
-          g_debug ("add buffer %d, %d", bid.id, bid.buf->mem.mem.id);
+          g_debug ("add buffer %d, %d, %zd, %zd", bid.id, bid.buf->mem.mem.id, bid.buf->mem.offset, bid.buf->mem.size);
 
           if (bid.id != priv->buffer_ids->len) {
             g_warning ("unexpected id %u found, expected %u", bid.id, priv->buffer_ids->len);

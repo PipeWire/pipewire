@@ -69,9 +69,6 @@ GType               pinos_link_get_type             (void);
 
 void                pinos_link_remove               (PinosLink *link);
 
-gboolean            pinos_link_activate             (PinosLink *link);
-gboolean            pinos_link_deactivate           (PinosLink *link);
-
 PinosProperties *   pinos_link_get_properties       (PinosLink *link);
 
 const gchar *       pinos_link_get_object_path      (PinosLink *link);

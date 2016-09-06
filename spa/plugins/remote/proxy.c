@@ -67,7 +67,7 @@ struct _SpaProxy {
 
   SpaProxyProps props[2];
 
-  SpaEventCallback event_cb;
+  SpaNodeEventCallback event_cb;
   void *user_data;
 
   SpaPollFd fds[1];
@@ -104,13 +104,13 @@ reset_proxy_props (SpaProxyProps *props)
 static void
 update_poll (SpaProxy *this, int socketfd)
 {
-  SpaEvent event;
+  SpaNodeEvent event;
   SpaProxyProps *p;
 
   p = &this->props[1];
 
   if (p->socketfd != -1) {
-    event.type = SPA_EVENT_TYPE_REMOVE_POLL;
+    event.type = SPA_NODE_EVENT_TYPE_REMOVE_POLL;
     event.data = &this->poll;
     event.size = sizeof (this->poll);
     this->event_cb (&this->node, &event, this->user_data);
@@ -119,7 +119,7 @@ update_poll (SpaProxy *this, int socketfd)
 
   if (p->socketfd != -1) {
     this->fds[0].fd = p->socketfd;
-    event.type = SPA_EVENT_TYPE_ADD_POLL;
+    event.type = SPA_NODE_EVENT_TYPE_ADD_POLL;
     event.data = &this->poll;
     event.size = sizeof (this->poll);
     this->event_cb (&this->node, &event, this->user_data);
@@ -130,12 +130,12 @@ static SpaResult
 update_state (SpaProxy *this, SpaNodeState state)
 {
   if (this->node.state != state) {
-    SpaEvent event;
-    SpaEventStateChange sc;
+    SpaNodeEvent event;
+    SpaNodeEventStateChange sc;
 
     this->node.state = state;
 
-    event.type = SPA_EVENT_TYPE_STATE_CHANGE;
+    event.type = SPA_NODE_EVENT_TYPE_STATE_CHANGE;
     event.data = &sc;
     event.size = sizeof (sc);
     sc.state = state;
@@ -196,8 +196,8 @@ spa_proxy_node_set_props (SpaNode         *node,
 }
 
 static SpaResult
-spa_proxy_node_send_command (SpaNode       *node,
-                             SpaCommand    *command)
+spa_proxy_node_send_command (SpaNode        *node,
+                             SpaNodeCommand *command)
 {
   SpaProxy *this;
   SpaResult res;
@@ -208,10 +208,10 @@ spa_proxy_node_send_command (SpaNode       *node,
   this = (SpaProxy *) node->handle;
 
   switch (command->type) {
-    case SPA_COMMAND_INVALID:
+    case SPA_NODE_COMMAND_INVALID:
       return SPA_RESULT_INVALID_COMMAND;
 
-    case SPA_COMMAND_START:
+    case SPA_NODE_COMMAND_START:
     {
       SpaControlBuilder builder;
       SpaControl control;
@@ -229,7 +229,7 @@ spa_proxy_node_send_command (SpaNode       *node,
       break;
     }
 
-    case SPA_COMMAND_PAUSE:
+    case SPA_NODE_COMMAND_PAUSE:
     {
       SpaControlBuilder builder;
       SpaControl control;
@@ -247,18 +247,18 @@ spa_proxy_node_send_command (SpaNode       *node,
       break;
     }
 
-    case SPA_COMMAND_FLUSH:
-    case SPA_COMMAND_DRAIN:
-    case SPA_COMMAND_MARKER:
+    case SPA_NODE_COMMAND_FLUSH:
+    case SPA_NODE_COMMAND_DRAIN:
+    case SPA_NODE_COMMAND_MARKER:
       return SPA_RESULT_NOT_IMPLEMENTED;
   }
   return SPA_RESULT_OK;
 }
 
 static SpaResult
-spa_proxy_node_set_event_callback (SpaNode          *node,
-                                   SpaEventCallback  event,
-                                   void             *user_data)
+spa_proxy_node_set_event_callback (SpaNode              *node,
+                                   SpaNodeEventCallback  event,
+                                   void                 *user_data)
 {
   SpaProxy *this;
 
@@ -332,9 +332,9 @@ static void
 do_update_port (SpaProxy                *this,
                 SpaControlCmdPortUpdate *pu)
 {
-  SpaEvent event;
+  SpaNodeEvent event;
   SpaProxyPort *port;
-  SpaEventPortAdded pa;
+  SpaNodeEventPortAdded pa;
   unsigned int i;
 
   port = &this->ports[pu->port_id];
@@ -364,7 +364,7 @@ do_update_port (SpaProxy                *this,
     else
       this->n_outputs++;
 
-    event.type = SPA_EVENT_TYPE_PORT_ADDED;
+    event.type = SPA_NODE_EVENT_TYPE_PORT_ADDED;
     event.size = sizeof (pa);
     event.data = &pa;
     pa.port_id = pu->port_id;
@@ -376,9 +376,9 @@ static void
 do_uninit_port (SpaProxy     *this,
                 uint32_t      port_id)
 {
-  SpaEvent event;
+  SpaNodeEvent event;
   SpaProxyPort *port;
-  SpaEventPortRemoved pr;
+  SpaNodeEventPortRemoved pr;
 
   fprintf (stderr, "proxy %p: removing port %d\n", this, port_id);
   port = &this->ports[port_id];
@@ -393,7 +393,7 @@ do_uninit_port (SpaProxy     *this,
     spa_format_unref (port->format);
   port->format = NULL;
 
-  event.type = SPA_EVENT_TYPE_PORT_REMOVED;
+  event.type = SPA_NODE_EVENT_TYPE_PORT_REMOVED;
   event.size = sizeof (pr);
   event.data = &pr;
   pr.port_id = port_id;
@@ -755,13 +755,40 @@ spa_proxy_node_port_reuse_buffer (SpaNode         *node,
                                   uint32_t         port_id,
                                   uint32_t         buffer_id)
 {
-  return SPA_RESULT_NOT_IMPLEMENTED;
+  SpaProxy *this;
+  SpaControlCmdReuseBuffer crb;
+  SpaControlBuilder builder;
+  SpaControl control;
+  uint8_t buf[128];
+  SpaResult res;
+
+  if (node == NULL || node->handle == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaProxy *) node->handle;
+
+  if (!CHECK_PORT_ID (this, port_id))
+    return SPA_RESULT_INVALID_PORT;
+
+  /* send start */
+  spa_control_builder_init_into (&builder, buf, sizeof (buf), NULL, 0);
+  crb.port_id = port_id;
+  crb.buffer_id = buffer_id;
+  spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_REUSE_BUFFER, &crb);
+  spa_control_builder_end (&builder, &control);
+
+  if ((res = spa_control_write (&control, this->fds[0].fd)) < 0)
+    fprintf (stderr, "proxy %p: error writing control %d\n", this, res);
+
+  spa_control_clear (&control);
+
+  return res;
 }
 
 static SpaResult
-spa_proxy_node_port_push_input (SpaNode        *node,
-                                unsigned int    n_info,
-                                SpaInputInfo   *info)
+spa_proxy_node_port_push_input (SpaNode          *node,
+                                unsigned int      n_info,
+                                SpaPortInputInfo *info)
 {
   SpaProxy *this;
   SpaProxyPort *port;
@@ -826,9 +853,9 @@ spa_proxy_node_port_push_input (SpaNode        *node,
 }
 
 static SpaResult
-spa_proxy_node_port_pull_output (SpaNode        *node,
-                                 unsigned int    n_info,
-                                 SpaOutputInfo  *info)
+spa_proxy_node_port_pull_output (SpaNode           *node,
+                                 unsigned int       n_info,
+                                 SpaPortOutputInfo *info)
 {
   SpaProxy *this;
   SpaProxyPort *port;
@@ -868,9 +895,9 @@ spa_proxy_node_port_pull_output (SpaNode        *node,
 }
 
 static SpaResult
-spa_proxy_node_port_push_event (SpaNode        *node,
-                                uint32_t        port_id,
-                                SpaEvent       *event)
+spa_proxy_node_port_push_event (SpaNode      *node,
+                                uint32_t      port_id,
+                                SpaNodeEvent *event)
 {
   SpaProxy *this;
   SpaResult res;
@@ -881,9 +908,9 @@ spa_proxy_node_port_push_event (SpaNode        *node,
   this = (SpaProxy *) node->handle;
 
   switch (event->type) {
-    case SPA_EVENT_TYPE_REUSE_BUFFER:
+    case SPA_NODE_EVENT_TYPE_REUSE_BUFFER:
     {
-      SpaEventReuseBuffer *rb = event->data;
+      SpaNodeEventReuseBuffer *rb = event->data;
       SpaControlCmdReuseBuffer crb;
       SpaControlBuilder builder;
       SpaControl control;
@@ -990,14 +1017,14 @@ parse_control (SpaProxy   *this,
       }
       case SPA_CONTROL_CMD_HAVE_OUTPUT:
       {
-        SpaEvent event;
-        SpaEventHaveOutput hu;
+        SpaNodeEvent event;
+        SpaNodeEventHaveOutput hu;
         SpaControlCmdHaveOutput cmd;
 
         if (spa_control_iter_parse_cmd (&it, &cmd) < 0)
           break;
 
-        event.type = SPA_EVENT_TYPE_HAVE_OUTPUT;
+        event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
         event.data = &hu;
         event.size = sizeof (hu);
         hu.port_id = cmd.port_id;
@@ -1026,14 +1053,14 @@ parse_control (SpaProxy   *this,
       }
       case SPA_CONTROL_CMD_REUSE_BUFFER:
       {
-        SpaEvent event;
-        SpaEventReuseBuffer rb;
+        SpaNodeEvent event;
+        SpaNodeEventReuseBuffer rb;
         SpaControlCmdReuseBuffer crb;
 
         if (spa_control_iter_parse_cmd (&it, &crb) < 0)
           break;
 
-        event.type = SPA_EVENT_TYPE_REUSE_BUFFER;
+        event.type = SPA_NODE_EVENT_TYPE_REUSE_BUFFER;
         event.data = &rb;
         event.size = sizeof (rb);
         rb.port_id = crb.port_id;

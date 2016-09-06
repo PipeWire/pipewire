@@ -40,19 +40,13 @@ struct _PinosLinkPrivate
   PinosLink1 *iface;
 
   gchar *object_path;
-
-  gboolean active;
-  gboolean negotiated;
-  gboolean allocated;
-  gboolean started;
+  GPtrArray *format_filter;
+  PinosProperties *properties;
 
   SpaBuffer *in_buffers[16];
   unsigned int n_in_buffers;
   SpaBuffer *out_buffers[16];
   unsigned int n_out_buffers;
-
-  GPtrArray *format_filter;
-  PinosProperties *properties;
 };
 
 G_DEFINE_TYPE (PinosLink, pinos_link, G_TYPE_OBJECT);
@@ -73,8 +67,6 @@ enum
 enum
 {
   SIGNAL_REMOVE,
-  SIGNAL_ACTIVATE,
-  SIGNAL_DEACTIVATE,
   LAST_SIGNAL
 };
 
@@ -206,70 +198,88 @@ link_unregister_object (PinosLink *this)
 }
 
 static SpaResult
-do_negotiate (PinosLink *this)
+do_negotiate (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
 {
-  PinosLinkPrivate *priv = this->priv;
   SpaResult res;
   SpaFormat *filter, *format;
   void *istate = NULL, *ostate = NULL;
 
-  g_debug ("link %p: doing set format", this);
-
-  priv->negotiated = TRUE;
-
+  /* both ports need a format */
+  if (in_state == SPA_NODE_STATE_CONFIGURE && out_state == SPA_NODE_STATE_CONFIGURE) {
+    g_debug ("link %p: doing negotiate format", this);
 again:
-  if ((res = spa_node_port_enum_formats (this->input_node->node,
-                                         this->input_port,
-                                         &filter,
-                                         NULL,
-                                         &istate)) < 0) {
-    g_warning ("error input enum formats: %d", res);
-    goto error;
-  }
-  spa_debug_format (filter);
-
-  if ((res = spa_node_port_enum_formats (this->output_node->node,
-                                         this->output_port,
-                                         &format,
-                                         filter,
-                                         &ostate)) < 0) {
-    if (res == SPA_RESULT_ENUM_END) {
-      ostate = NULL;
-      goto again;
+    if ((res = spa_node_port_enum_formats (this->input_node->node,
+                                           this->input_port,
+                                           &filter,
+                                           NULL,
+                                           &istate)) < 0) {
+      g_warning ("error input enum formats: %d", res);
+      goto error;
     }
-    g_warning ("error output enum formats: %d", res);
-    goto error;
-  }
-  spa_format_fixate (format);
+    spa_debug_format (filter);
 
+    if ((res = spa_node_port_enum_formats (this->output_node->node,
+                                           this->output_port,
+                                           &format,
+                                           filter,
+                                           &ostate)) < 0) {
+      if (res == SPA_RESULT_ENUM_END) {
+        ostate = NULL;
+        goto again;
+      }
+      g_warning ("error output enum formats: %d", res);
+      goto error;
+    }
+    spa_format_fixate (format);
+  } else if (in_state == SPA_NODE_STATE_CONFIGURE) {
+    /* only input needs format */
+    if ((res = spa_node_port_get_format (this->output_node->node, this->output_port, (const SpaFormat **)&format)) < 0) {
+      g_warning ("error get format output: %d", res);
+      goto error;
+    }
+  } else if (out_state == SPA_NODE_STATE_CONFIGURE) {
+    /* only output needs format */
+    if ((res = spa_node_port_get_format (this->input_node->node, this->input_port, (const SpaFormat **)&format)) < 0) {
+      g_warning ("error get format input: %d", res);
+      goto error;
+    }
+  } else
+    return SPA_RESULT_OK;
+
+  g_debug ("link %p: doing set format", this);
   spa_debug_format (format);
 
-  if ((res = spa_node_port_set_format (this->output_node->node, this->output_port, 0, format)) < 0) {
-    g_warning ("error set format output: %d", res);
-    goto error;
+  if (out_state == SPA_NODE_STATE_CONFIGURE) {
+    if ((res = spa_node_port_set_format (this->output_node->node, this->output_port, 0, format)) < 0) {
+      g_warning ("error set format output: %d", res);
+      goto error;
+    }
   }
 
-  if ((res = spa_node_port_set_format (this->input_node->node, this->input_port, 0, format)) < 0) {
-    g_warning ("error set format input: %d", res);
-    goto error;
+  if (in_state == SPA_NODE_STATE_CONFIGURE) {
+    if ((res = spa_node_port_set_format (this->input_node->node, this->input_port, 0, format)) < 0) {
+      g_warning ("error set format input: %d", res);
+      goto error;
+    }
   }
-
   return SPA_RESULT_OK;
 
 error:
   {
-    priv->negotiated = FALSE;
     return res;
   }
 }
 
 static SpaResult
-do_allocation (PinosLink *this)
+do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
 {
   PinosLinkPrivate *priv = this->priv;
   SpaResult res;
   const SpaPortInfo *iinfo, *oinfo;
   SpaPortInfoFlags in_flags, out_flags;
+
+  if (in_state != SPA_NODE_STATE_READY || out_state != SPA_NODE_STATE_READY)
+    return SPA_RESULT_OK;
 
   g_debug ("link %p: doing alloc buffers %p %p", this, this->output_node, this->input_node);
   /* find out what's possible */
@@ -281,8 +291,6 @@ do_allocation (PinosLink *this)
     g_warning ("error get port info: %d", res);
     goto error;
   }
-
-  priv->allocated = TRUE;
 
   spa_debug_port_info (oinfo);
   spa_debug_port_info (iinfo);
@@ -356,49 +364,25 @@ do_allocation (PinosLink *this)
 
 error:
   {
-    priv->allocated = FALSE;
     return res;
   }
 }
 
 static SpaResult
-do_start (PinosLink *this)
+do_start (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
 {
-  PinosLinkPrivate *priv = this->priv;
-  SpaCommand cmd;
-  SpaResult res;
+  SpaNodeCommand cmd;
+  SpaResult res = SPA_RESULT_OK;
 
-  if (priv->started)
-    return SPA_RESULT_OK;
-
-  priv->started = TRUE;
-
-  cmd.type = SPA_COMMAND_START;
-  if ((res = spa_node_send_command (this->input_node->node, &cmd)) < 0)
-    g_warning ("got error %d", res);
-  if ((res = spa_node_send_command (this->output_node->node, &cmd)) < 0)
-    g_warning ("got error %d", res);
-
-  return res;
-}
-
-static SpaResult
-do_pause (PinosLink *this)
-{
-  PinosLinkPrivate *priv = this->priv;
-  SpaCommand cmd;
-  SpaResult res;
-
-  if (!priv->started)
-    return SPA_RESULT_OK;
-
-  priv->started = FALSE;
-
-  cmd.type = SPA_COMMAND_PAUSE;
-  if ((res = spa_node_send_command (this->input_node->node, &cmd)) < 0)
-    g_warning ("got error %d", res);
-  if ((res = spa_node_send_command (this->output_node->node, &cmd)) < 0)
-    g_warning ("got error %d", res);
+  cmd.type = SPA_NODE_COMMAND_START;
+  if (in_state == SPA_NODE_STATE_PAUSED) {
+    if ((res = spa_node_send_command (this->input_node->node, &cmd)) < 0)
+      g_warning ("got error %d", res);
+  }
+  if (out_state == SPA_NODE_STATE_PAUSED) {
+    if ((res = spa_node_send_command (this->output_node->node, &cmd)) < 0)
+      g_warning ("got error %d", res);
+  }
 
   return res;
 }
@@ -406,7 +390,6 @@ do_pause (PinosLink *this)
 static SpaResult
 check_states (PinosLink *this)
 {
-  PinosLinkPrivate *priv = this->priv;
   SpaResult res;
   SpaNodeState in_state, out_state;
 
@@ -415,24 +398,15 @@ check_states (PinosLink *this)
 
   g_debug ("link %p: input %d, output %d", this, in_state, out_state);
 
-  if (in_state == SPA_NODE_STATE_CONFIGURE &&
-      out_state == SPA_NODE_STATE_CONFIGURE &&
-      !priv->negotiated) {
-    if ((res = do_negotiate (this)) < 0)
-      return res;
-  }
-  if (in_state == SPA_NODE_STATE_READY &&
-      out_state == SPA_NODE_STATE_READY &&
-      !priv->allocated) {
-    if ((res = do_allocation (this)) < 0)
-      return res;
-  }
-  if (in_state == SPA_NODE_STATE_PAUSED &&
-      out_state == SPA_NODE_STATE_PAUSED &&
-      !priv->started) {
-    if ((res = do_start (this)) < 0)
-      return res;
-  }
+  if ((res = do_negotiate (this, in_state, out_state)) < 0)
+    return res;
+
+  if ((res = do_allocation (this, in_state, out_state)) < 0)
+    return res;
+
+  if ((res = do_start (this, in_state, out_state)) < 0)
+    return res;
+
   return SPA_RESULT_OK;
 }
 
@@ -486,26 +460,25 @@ pinos_link_constructed (GObject * object)
   g_debug ("link %p: constructed %p:%d -> %p:%d", this, this->output_node, this->output_port,
                                                   this->input_node, this->input_port);
   link_register_object (this);
+
+  check_states (this);
 }
 
 static void
 pinos_link_dispose (GObject * object)
 {
   PinosLink *this = PINOS_LINK (object);
-  PinosLinkPrivate *priv = this->priv;
 
   g_debug ("link %p: dispose", this);
-  g_signal_emit (this, signals[SIGNAL_REMOVE], 0, NULL);
 
   g_signal_handlers_disconnect_by_data (this->input_node, this);
   g_signal_handlers_disconnect_by_data (this->output_node, this);
 
+  g_signal_emit (this, signals[SIGNAL_REMOVE], 0, NULL);
+
   g_clear_object (&this->input_node);
   g_clear_object (&this->output_node);
 
-  if (priv->active) {
-    priv->active = FALSE;
-  }
   link_unregister_object (this);
 
   G_OBJECT_CLASS (pinos_link_parent_class)->dispose (object);
@@ -623,26 +596,6 @@ pinos_link_class_init (PinosLinkClass * klass)
                                          G_TYPE_NONE,
                                          0,
                                          G_TYPE_NONE);
-  signals[SIGNAL_ACTIVATE] = g_signal_new ("activate",
-                                           G_TYPE_FROM_CLASS (klass),
-                                           G_SIGNAL_RUN_LAST,
-                                           0,
-                                           NULL,
-                                           NULL,
-                                           g_cclosure_marshal_generic,
-                                           G_TYPE_NONE,
-                                           0,
-                                           G_TYPE_NONE);
-  signals[SIGNAL_DEACTIVATE] = g_signal_new ("deactivate",
-                                             G_TYPE_FROM_CLASS (klass),
-                                             G_SIGNAL_RUN_LAST,
-                                             0,
-                                             NULL,
-                                             NULL,
-                                             g_cclosure_marshal_generic,
-                                             G_TYPE_NONE,
-                                             0,
-                                             G_TYPE_NONE);
 }
 
 static void
@@ -684,24 +637,4 @@ pinos_link_get_object_path (PinosLink *this)
   priv = this->priv;
 
   return priv->object_path;
-}
-
-gboolean
-pinos_link_activate (PinosLink *this)
-{
-  g_return_val_if_fail (PINOS_IS_LINK (this), FALSE);
-
-  g_signal_emit (this, signals[SIGNAL_ACTIVATE], 0, NULL);
-  return TRUE;
-}
-
-gboolean
-pinos_link_deactivate (PinosLink *this)
-{
-  g_return_val_if_fail (PINOS_IS_LINK (this), FALSE);
-
-  do_pause (this);
-
-  g_signal_emit (this, signals[SIGNAL_DEACTIVATE], 0, NULL);
-  return TRUE;
 }

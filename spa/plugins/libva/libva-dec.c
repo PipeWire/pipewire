@@ -70,7 +70,7 @@ struct _SpaLibvaDec {
 
   SpaLibvaDecProps props[2];
 
-  SpaEventCallback event_cb;
+  SpaNodeEventCallback event_cb;
   void *user_data;
 
   SpaLibvaState state[2];
@@ -136,11 +136,11 @@ spa_libva_dec_node_send_command (SpaHandle     *handle,
 
     case SPA_COMMAND_START:
       if (this->event_cb) {
-        SpaEvent event;
+        SpaNodeEvent event;
 
         event.refcount = 1;
         event.notify = NULL;
-        event.type = SPA_EVENT_TYPE_STARTED;
+        event.type = SPA_NODE_EVENT_TYPE_STARTED;
         event.port_id = -1;
         event.data = NULL;
         event.size = 0;
@@ -150,11 +150,11 @@ spa_libva_dec_node_send_command (SpaHandle     *handle,
       break;
     case SPA_COMMAND_STOP:
       if (this->event_cb) {
-        SpaEvent event;
+        SpaNodeEvent event;
 
         event.refcount = 1;
         event.notify = NULL;
-        event.type = SPA_EVENT_TYPE_STOPPED;
+        event.type = SPA_NODE_EVENT_TYPE_STOPPED;
         event.port_id = -1;
         event.data = NULL;
         event.size = 0;
@@ -172,9 +172,9 @@ spa_libva_dec_node_send_command (SpaHandle     *handle,
 }
 
 static SpaResult
-spa_libva_dec_node_set_event_callback (SpaHandle     *handle,
-                                       SpaEventCallback event,
-                                       void          *user_data)
+spa_libva_dec_node_set_event_callback (SpaHandle            *handle,
+                                       SpaNodeEventCallback  event,
+                                       void                 *user_data)
 {
   SpaLibvaDec *this = (SpaLibvaDec *) handle;
 

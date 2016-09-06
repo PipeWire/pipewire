@@ -28,8 +28,8 @@
 static const SpaVideoInfoRaw default_raw_info = {
   SPA_VIDEO_FORMAT_UNKNOWN,
   { 320, 240 },
-  { 0, 1 },
-  { 0, 1 },
+  { 1, 25 },
+  { 1, 25 },
   1,
   SPA_VIDEO_INTERLACE_MODE_PROGRESSIVE,
   { 1, 1},

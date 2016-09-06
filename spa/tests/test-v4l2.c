@@ -110,14 +110,14 @@ make_node (SpaNode **node, const char *lib, const char *name)
 }
 
 static void
-on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
+on_source_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
 {
   AppData *data = user_data;
 
   switch (event->type) {
-    case SPA_EVENT_TYPE_HAVE_OUTPUT:
+    case SPA_NODE_EVENT_TYPE_HAVE_OUTPUT:
     {
-      SpaOutputInfo info[1] = { 0, };
+      SpaPortOutputInfo info[1] = { 0, };
       SpaResult res;
       SpaBuffer *b;
       void *sdata, *ddata;
@@ -181,7 +181,7 @@ on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
       spa_node_port_reuse_buffer (data->source, 0, info->buffer_id);
       break;
     }
-    case SPA_EVENT_TYPE_ADD_POLL:
+    case SPA_NODE_EVENT_TYPE_ADD_POLL:
     {
       SpaPollItem *poll = event->data;
 
@@ -402,11 +402,11 @@ static void
 run_async_source (AppData *data)
 {
   SpaResult res;
-  SpaCommand cmd;
+  SpaNodeCommand cmd;
   bool done = false;
   int err;
 
-  cmd.type = SPA_COMMAND_START;
+  cmd.type = SPA_NODE_COMMAND_START;
   if ((res = spa_node_send_command (data->source, &cmd)) < 0)
     printf ("got error %d\n", res);
 
@@ -439,7 +439,7 @@ run_async_source (AppData *data)
     pthread_join (data->thread, NULL);
   }
 
-  cmd.type = SPA_COMMAND_PAUSE;
+  cmd.type = SPA_NODE_COMMAND_PAUSE;
   if ((res = spa_node_send_command (data->source, &cmd)) < 0)
     printf ("got error %d\n", res);
 }

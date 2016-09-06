@@ -224,10 +224,10 @@ xrun_recovery (snd_pcm_t *handle, int err)
 static void
 pull_input (SpaALSASink *this, void *data, snd_pcm_uframes_t frames)
 {
-  SpaEvent event;
-  SpaEventNeedInput ni;
+  SpaNodeEvent event;
+  SpaNodeEventNeedInput ni;
 
-  event.type = SPA_EVENT_TYPE_NEED_INPUT;
+  event.type = SPA_NODE_EVENT_TYPE_NEED_INPUT;
   event.size = sizeof (ni);
   event.data = &ni;
   ni.port_id = 0;
@@ -323,7 +323,7 @@ spa_alsa_start (SpaALSASink *this)
 {
   SpaALSAState *state = &this->state;
   int err;
-  SpaEvent event;
+  SpaNodeEvent event;
 
   if (spa_alsa_open (this) < 0)
     return -1;
@@ -344,7 +344,7 @@ spa_alsa_start (SpaALSASink *this)
     return err;
   }
 
-  event.type = SPA_EVENT_TYPE_ADD_POLL;
+  event.type = SPA_NODE_EVENT_TYPE_ADD_POLL;
   event.data = &state->poll;
   event.size = sizeof (state->poll);
 
@@ -367,14 +367,14 @@ static int
 spa_alsa_stop (SpaALSASink *this)
 {
   SpaALSAState *state = &this->state;
-  SpaEvent event;
+  SpaNodeEvent event;
 
   if (!state->opened)
     return 0;
 
   snd_pcm_drop (state->handle);
 
-  event.type = SPA_EVENT_TYPE_REMOVE_POLL;
+  event.type = SPA_NODE_EVENT_TYPE_REMOVE_POLL;
   event.data = &state->poll;
   event.size = sizeof (state->poll);
   this->event_cb (&this->node, &event, this->user_data);

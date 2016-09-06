@@ -89,20 +89,20 @@ make_node (SpaNode **node, const char *lib, const char *name)
 }
 
 static void
-on_mix_event (SpaNode *node, SpaEvent *event, void *user_data)
+on_mix_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
 {
   AppData *data = user_data;
 
   switch (event->type) {
-    case SPA_EVENT_TYPE_NEED_INPUT:
+    case SPA_NODE_EVENT_TYPE_NEED_INPUT:
     {
-      SpaInputInfo iinfo;
-      SpaOutputInfo oinfo;
+      SpaPortInputInfo iinfo;
+      SpaPortOutputInfo oinfo;
       SpaResult res;
-      SpaEventNeedInput *ni = event->data;
+      SpaNodeEventNeedInput *ni = event->data;
 
       oinfo.port_id = 0;
-      oinfo.flags = SPA_OUTPUT_FLAG_NONE;
+      oinfo.flags = SPA_PORT_OUTPUT_FLAG_NONE;
 
       if (ni->port_id == data->mix_ports[0]) {
         if ((res = spa_node_port_pull_output (data->source1, 1, &oinfo)) < 0)
@@ -113,7 +113,7 @@ on_mix_event (SpaNode *node, SpaEvent *event, void *user_data)
       }
 
       iinfo.port_id = ni->port_id;
-      iinfo.flags = SPA_INPUT_FLAG_NONE;
+      iinfo.flags = SPA_PORT_INPUT_FLAG_NONE;
       iinfo.buffer_id = oinfo.buffer_id;
 
       if ((res = spa_node_port_push_input (data->mix, 1, &iinfo)) < 0)
@@ -127,33 +127,33 @@ on_mix_event (SpaNode *node, SpaEvent *event, void *user_data)
 }
 
 static void
-on_sink_event (SpaNode *node, SpaEvent *event, void *user_data)
+on_sink_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
 {
   AppData *data = user_data;
 
   switch (event->type) {
-    case SPA_EVENT_TYPE_NEED_INPUT:
+    case SPA_NODE_EVENT_TYPE_NEED_INPUT:
     {
-      SpaInputInfo iinfo;
-      SpaOutputInfo oinfo;
+      SpaPortInputInfo iinfo;
+      SpaPortOutputInfo oinfo;
       SpaResult res;
-      SpaEventNeedInput *ni = event->data;
+      SpaNodeEventNeedInput *ni = event->data;
 
       oinfo.port_id = 0;
-      oinfo.flags = SPA_OUTPUT_FLAG_PULL;
+      oinfo.flags = SPA_PORT_OUTPUT_FLAG_PULL;
 
       if ((res = spa_node_port_pull_output (data->mix, 1, &oinfo)) < 0)
         printf ("got error %d\n", res);
 
       iinfo.port_id = ni->port_id;
-      iinfo.flags = SPA_INPUT_FLAG_NONE;
+      iinfo.flags = SPA_PORT_INPUT_FLAG_NONE;
       iinfo.buffer_id = oinfo.buffer_id;
 
       if ((res = spa_node_port_push_input (data->sink, 1, &iinfo)) < 0)
         printf ("got error %d\n", res);
       break;
     }
-    case SPA_EVENT_TYPE_ADD_POLL:
+    case SPA_NODE_EVENT_TYPE_ADD_POLL:
     {
       SpaPollItem *poll = event->data;
       int i;
@@ -312,10 +312,10 @@ static void
 run_async_sink (AppData *data)
 {
   SpaResult res;
-  SpaCommand cmd;
+  SpaNodeCommand cmd;
   int err;
 
-  cmd.type = SPA_COMMAND_START;
+  cmd.type = SPA_NODE_COMMAND_START;
   if ((res = spa_node_send_command (data->sink, &cmd)) < 0)
     printf ("got error %d\n", res);
 
@@ -333,7 +333,7 @@ run_async_sink (AppData *data)
     pthread_join (data->thread, NULL);
   }
 
-  cmd.type = SPA_COMMAND_PAUSE;
+  cmd.type = SPA_NODE_COMMAND_PAUSE;
   if ((res = spa_node_send_command (data->sink, &cmd)) < 0)
     printf ("got error %d\n", res);
 }

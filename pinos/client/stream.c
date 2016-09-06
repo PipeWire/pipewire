@@ -883,7 +883,6 @@ parse_control (PinosStream *stream,
         if (spa_control_iter_parse_cmd (&it, &p) < 0)
           break;
 
-        g_debug ("reuse buffer %d", p.buffer_id);
         if ((bid = find_buffer (stream, p.buffer_id))) {
           bid->used = FALSE;
           g_signal_emit (stream, signals[SIGNAL_NEW_BUFFER], 0, p.buffer_id);

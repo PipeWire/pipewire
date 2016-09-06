@@ -36,13 +36,18 @@ spa_format_to_string (const SpaFormat *format, char **result)
 SpaResult
 spa_format_fixate (SpaFormat *format)
 {
+#if 0
   unsigned int i, j;
   SpaProps *props;
   uint32_t mask;
+#endif
 
   if (format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
+  format->props.unset_mask = 0;
+
+#if 0
   props = &format->props;
   mask = props->unset_mask;
 
@@ -75,5 +80,6 @@ spa_format_fixate (SpaFormat *format)
     }
     mask >>= 1;
   }
+#endif
   return SPA_RESULT_OK;
 }

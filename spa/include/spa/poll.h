@@ -65,8 +65,8 @@ typedef int (*SpaPollNotify) (SpaPollNotifyData *data);
  * @fds: array of file descriptors to watch
  * @n_fds: number of elements in @fds
  * @idle_cb: callback called when there is no other work
- * @idle_cb: callback called before starting the poll
- * @idle_cb: callback called after the poll loop
+ * @before_cb: callback called before starting the poll
+ * @after_cb: callback called after the poll loop
  * @user_data: user data pass to callbacks
  */
 typedef struct {

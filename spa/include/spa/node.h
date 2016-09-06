@@ -49,9 +49,9 @@ typedef enum {
 #include <spa/plugin.h>
 #include <spa/props.h>
 #include <spa/port.h>
-#include <spa/event.h>
+#include <spa/node-event.h>
+#include <spa/node-command.h>
 #include <spa/buffer.h>
-#include <spa/command.h>
 #include <spa/format.h>
 
 /**
@@ -70,15 +70,15 @@ typedef enum {
 } SpaPortFormatFlags;
 
 /**
- * SpaInputFlags:
+ * SpaPortInputFlags:
  * @SPA_INPUT_FLAG_NONE: no flag
  */
 typedef enum {
-  SPA_INPUT_FLAG_NONE                  =  0,
-} SpaInputFlags;
+  SPA_PORT_INPUT_FLAG_NONE                  =  0,
+} SpaPortInputFlags;
 
 /**
- * SpaInputInfo:
+ * SpaPortInputInfo:
  * @port_id: the port id
  * @flags: extra flags
  * @buffer_id: a buffer id
@@ -87,29 +87,29 @@ typedef enum {
  * Input information for a node.
  */
 typedef struct {
-  uint32_t        port_id;
-  SpaInputFlags   flags;
-  uint32_t        buffer_id;
-  SpaResult       status;
-} SpaInputInfo;
+  uint32_t          port_id;
+  SpaPortInputFlags flags;
+  uint32_t          buffer_id;
+  SpaResult         status;
+} SpaPortInputInfo;
 
 /**
- * SpaOutputFlags:
- * @SPA_OUTPUT_FLAG_NONE: no flag
- * @SPA_OUTPUT_FLAG_PULL: force a #SPA_EVENT_NEED_INPUT event on the
+ * SpaPortOutputFlags:
+ * @SPA_PORT_OUTPUT_FLAG_NONE: no flag
+ * @SPA_PORT_OUTPUT_FLAG_PULL: force a #SPA_NODE_EVENT_NEED_INPUT event on the
  *                        peer input ports when no data is available.
- * @SPA_OUTPUT_FLAG_DISCARD: discard the buffer data
- * @SPA_OUTPUT_FLAG_NO_BUFFER: no buffer was produced on the port
+ * @SPA_PORT_OUTPUT_FLAG_DISCARD: discard the buffer data
+ * @SPA_PORT_OUTPUT_FLAG_NO_BUFFER: no buffer was produced on the port
  */
 typedef enum {
-  SPA_OUTPUT_FLAG_NONE                  =  0,
-  SPA_OUTPUT_FLAG_PULL                  = (1 << 0),
-  SPA_OUTPUT_FLAG_DISCARD               = (1 << 1),
-  SPA_OUTPUT_FLAG_NO_BUFFER             = (1 << 2),
-} SpaOutputFlags;
+  SPA_PORT_OUTPUT_FLAG_NONE                  =  0,
+  SPA_PORT_OUTPUT_FLAG_PULL                  = (1 << 0),
+  SPA_PORT_OUTPUT_FLAG_DISCARD               = (1 << 1),
+  SPA_PORT_OUTPUT_FLAG_NO_BUFFER             = (1 << 2),
+} SpaPortOutputFlags;
 
 /**
- * SpaOutputInfo:
+ * SpaPortOutputInfo:
  * @port_id: the port id
  * @flags: extra flags
  * @buffer_id: a buffer id will be set
@@ -119,15 +119,15 @@ typedef enum {
  * Output information for a node.
  */
 typedef struct {
-  uint32_t        port_id;
-  SpaOutputFlags  flags;
-  uint32_t        buffer_id;
-  SpaEvent       *event;
-  SpaResult       status;
-} SpaOutputInfo;
+  uint32_t           port_id;
+  SpaPortOutputFlags flags;
+  uint32_t           buffer_id;
+  SpaNodeEvent      *event;
+  SpaResult          status;
+} SpaPortOutputInfo;
 
 /**
- * SpaEventCallback:
+ * SpaNodeCallback:
  * @node: a #SpaNode emiting the event
  * @event: the event that was emited
  * @user_data: user data provided when registering the callback
@@ -135,9 +135,9 @@ typedef struct {
  * This will be called when an out-of-bound event is notified
  * on @node.
  */
-typedef void   (*SpaEventCallback)   (SpaNode     *node,
-                                      SpaEvent    *event,
-                                      void        *user_data);
+typedef void   (*SpaNodeEventCallback)   (SpaNode      *node,
+                                          SpaNodeEvent *event,
+                                          void         *user_data);
 
 #define SPA_INTERFACE_ID_NODE                   0
 #define SPA_INTERFACE_ID_NODE_NAME              "Node interface"
@@ -205,7 +205,7 @@ struct _SpaNode {
   /**
    * SpaNode::send_command:
    * @node: a #SpaNode
-   * @command: a #SpaCommand
+   * @command: a #SpaNodeCommand
    *
    * Send a command to @node.
    *
@@ -215,7 +215,7 @@ struct _SpaNode {
    *          #SPA_RESULT_INVALID_COMMAND @command is an invalid command
    */
   SpaResult   (*send_command)         (SpaNode          *node,
-                                       SpaCommand       *command);
+                                       SpaNodeCommand   *command);
   /**
    * SpaNode::set_event_callback:
    * @node: a #SpaNode
@@ -231,9 +231,9 @@ struct _SpaNode {
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_INVALID_ARGUMENTS when node is %NULL
    */
-  SpaResult   (*set_event_callback)   (SpaNode          *node,
-                                       SpaEventCallback  callback,
-                                       void             *user_data);
+  SpaResult   (*set_event_callback)   (SpaNode              *node,
+                                       SpaNodeEventCallback  callback,
+                                       void                 *user_data);
   /**
    * SpaNode::get_n_ports:
    * @node: a #SpaNode
@@ -450,8 +450,8 @@ struct _SpaNode {
   /**
    * SpaNode::port_push_input:
    * @node: a #SpaNode
-   * @n_info: number of #SpaInputInfo in @info
-   * @info: array of #SpaInputInfo
+   * @n_info: number of #SpaPortInputInfo in @info
+   * @info: array of #SpaPortInputInfo
    *
    * Push a buffer id into one or more input ports of @node.
    *
@@ -464,12 +464,12 @@ struct _SpaNode {
    */
   SpaResult   (*port_push_input)      (SpaNode          *node,
                                        unsigned int      n_info,
-                                       SpaInputInfo     *info);
+                                       SpaPortInputInfo *info);
   /**
    * SpaNode::port_pull_output:
    * @node: a #SpaNode
-   * @n_info: number of #SpaOutputInfo in @info
-   * @info: array of #SpaOutputInfo
+   * @n_info: number of #SpaPortOutputInfo in @info
+   * @info: array of #SpaPortOutputInfo
    *
    * Pull a buffer id from one or more output ports of @node.
    *
@@ -486,13 +486,13 @@ struct _SpaNode {
    *          #SPA_RESULT_NEED_MORE_INPUT when no output can be produced
    *                   because more input is needed.
    */
-  SpaResult   (*port_pull_output)     (SpaNode          *node,
-                                       unsigned int      n_info,
-                                       SpaOutputInfo    *info);
+  SpaResult   (*port_pull_output)     (SpaNode           *node,
+                                       unsigned int       n_info,
+                                       SpaPortOutputInfo *info);
 
   SpaResult   (*port_push_event)      (SpaNode          *node,
                                        uint32_t          port_id,
-                                       SpaEvent         *event);
+                                       SpaNodeEvent     *event);
 
 };
 

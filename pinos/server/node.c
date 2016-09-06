@@ -269,11 +269,11 @@ static void
 pause_node (PinosNode *this)
 {
   SpaResult res;
-  SpaCommand cmd;
+  SpaNodeCommand cmd;
 
   g_debug ("node %p: pause node", this);
 
-  cmd.type = SPA_COMMAND_PAUSE;
+  cmd.type = SPA_NODE_COMMAND_PAUSE;
   if ((res = spa_node_send_command (this->node, &cmd)) < 0)
     g_debug ("got error %d", res);
 }
@@ -319,64 +319,78 @@ node_set_state (PinosNode       *this,
 }
 
 
+typedef struct {
+  PinosNode *node;
+  PinosDirection direction;
+  guint port_id;
+} PortData;
+
+static gboolean
+do_signal_port_added (PortData *data)
+{
+  g_signal_emit (data->node, signals[SIGNAL_PORT_ADDED], 0, data->direction, data->port_id);
+  g_slice_free (PortData, data);
+  return FALSE;
+}
+
+static gboolean
+do_signal_port_removed (PortData *data)
+{
+  g_signal_emit (data->node, signals[SIGNAL_PORT_REMOVED], 0, data->port_id);
+  g_slice_free (PortData, data);
+  return FALSE;
+}
+
 static void
-on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
+on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
 {
   PinosNode *this = user_data;
   PinosNodePrivate *priv = this->priv;
 
   switch (event->type) {
-    case SPA_EVENT_TYPE_PORT_ADDED:
+    case SPA_NODE_EVENT_TYPE_PORT_ADDED:
     {
-      SpaEventPortAdded *pa = event->data;
+      SpaNodeEventPortAdded *pa = event->data;
+      PortData *data;
 
       update_port_ids (this, FALSE);
 
-      g_signal_emit (this, signals[SIGNAL_PORT_ADDED], 0, get_port_direction (this, pa->port_id),
-                                                          pa->port_id);
+      data = g_slice_new (PortData);
+      data->node = this;
+      data->direction = get_port_direction (this, pa->port_id);
+      data->port_id = pa->port_id;
+      g_main_context_invoke (NULL, (GSourceFunc) do_signal_port_added, data);
       break;
     }
-    case SPA_EVENT_TYPE_PORT_REMOVED:
+    case SPA_NODE_EVENT_TYPE_PORT_REMOVED:
     {
-      SpaEventPortRemoved *pr = event->data;
+      SpaNodeEventPortRemoved *pr = event->data;
+      PortData *data;
 
       update_port_ids (this, FALSE);
 
-      g_signal_emit (this, signals[SIGNAL_PORT_REMOVED], 0, pr->port_id);
+      data = g_slice_new (PortData);
+      data->node = this;
+      data->port_id = pr->port_id;
+      g_main_context_invoke (NULL, (GSourceFunc) do_signal_port_removed, data);
       break;
     }
-    case SPA_EVENT_TYPE_STATE_CHANGE:
+    case SPA_NODE_EVENT_TYPE_STATE_CHANGE:
     {
-      SpaEventStateChange *sc = event->data;
+      SpaNodeEventStateChange *sc = event->data;
 
       g_debug ("node %p: update SPA state to %d", this, sc->state);
-      g_object_notify (G_OBJECT (this), "node-state");
-
       if (sc->state == SPA_NODE_STATE_CONFIGURE) {
         update_port_ids (this, FALSE);
       }
-      switch (sc->state) {
-        case SPA_NODE_STATE_CONFIGURE:
-        {
-          GList *links, *walk;
-
-          links = pinos_node_get_links (this);
-          for (walk = links; walk; walk = g_list_next (walk)) {
-            PinosLink *link = walk->data;
-            pinos_link_activate (link);
-          }
-          g_list_free (links);
-        }
-        default:
-          break;
-      }
+      g_object_notify (G_OBJECT (this), "node-state");
       break;
     }
-    case SPA_EVENT_TYPE_ADD_POLL:
+    case SPA_NODE_EVENT_TYPE_ADD_POLL:
     {
       SpaPollItem *poll = event->data;
 
-      g_debug ("node %p: add poll %d", this, poll->n_fds);
+      g_debug ("node %p: add poll %d, n_fds %d", this, poll->id, poll->n_fds);
       priv->poll[priv->n_poll] = *poll;
       priv->n_poll++;
       if (poll->n_fds)
@@ -386,7 +400,7 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
       start_thread (this);
       break;
     }
-    case SPA_EVENT_TYPE_UPDATE_POLL:
+    case SPA_NODE_EVENT_TYPE_UPDATE_POLL:
     {
       unsigned int i;
       SpaPollItem *poll = event->data;
@@ -400,12 +414,12 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
       wakeup_thread (this);
       break;
     }
-    case SPA_EVENT_TYPE_REMOVE_POLL:
+    case SPA_NODE_EVENT_TYPE_REMOVE_POLL:
     {
       SpaPollItem *poll = event->data;
       unsigned int i;
 
-      g_debug ("node %p: remove poll %d", this, poll->n_fds);
+      g_debug ("node %p: remove poll %d %d", this, poll->n_fds, priv->n_poll);
       for (i = 0; i < priv->n_poll; i++) {
         if (priv->poll[i].id == poll->id) {
           priv->n_poll--;
@@ -422,33 +436,35 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
       }
       break;
     }
-    case SPA_EVENT_TYPE_HAVE_OUTPUT:
+    case SPA_NODE_EVENT_TYPE_HAVE_OUTPUT:
     {
       PinosLink *link;
-      SpaOutputInfo oinfo[1] = { 0, };
+      SpaPortOutputInfo oinfo[1] = { 0, };
       SpaResult res;
 
-      if ((res = spa_node_port_pull_output (node, 1, oinfo)) < 0)
+      if ((res = spa_node_port_pull_output (node, 1, oinfo)) < 0) {
         g_warning ("node %p: got pull error %d, %d", this, res, oinfo[0].status);
+        break;
+      }
 
       link = g_hash_table_lookup (priv->links, GUINT_TO_POINTER (oinfo[0].port_id));
       if (link) {
-        SpaInputInfo iinfo[1];
+        SpaPortInputInfo iinfo[1];
 
         iinfo[0].port_id = link->input_port;
         iinfo[0].buffer_id = oinfo[0].buffer_id;
-        iinfo[0].flags = SPA_INPUT_FLAG_NONE;
+        iinfo[0].flags = SPA_PORT_INPUT_FLAG_NONE;
 
         if ((res = spa_node_port_push_input (link->input_node->node, 1, iinfo)) < 0)
           g_warning ("node %p: error pushing buffer: %d, %d", this, res, iinfo[0].status);
       }
       break;
     }
-    case SPA_EVENT_TYPE_REUSE_BUFFER:
+    case SPA_NODE_EVENT_TYPE_REUSE_BUFFER:
     {
       PinosLink *link;
       SpaResult res;
-      SpaEventReuseBuffer *rb = event->data;
+      SpaNodeEventReuseBuffer *rb = event->data;
 
       link = g_hash_table_lookup (priv->links, GUINT_TO_POINTER (rb->port_id));
       if (link) {

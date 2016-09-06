@@ -234,7 +234,6 @@ spa_format_audio_init (SpaMediaType     type,
       format->info.raw = default_raw_info;
       break;
     }
-
     case SPA_MEDIA_SUBTYPE_MP3:
     case SPA_MEDIA_SUBTYPE_AAC:
     case SPA_MEDIA_SUBTYPE_VORBIS:

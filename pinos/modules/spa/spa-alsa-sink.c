@@ -92,20 +92,20 @@ make_node (SpaNode **node, const char *lib, const char *name)
 
 #if 0
 static void
-on_sink_event (SpaNode *node, SpaEvent *event, void *user_data)
+on_sink_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
 {
   PinosSpaAlsaSink *this = user_data;
   PinosSpaAlsaSinkPrivate *priv = this->priv;
 
   switch (event->type) {
-    case SPA_EVENT_TYPE_NEED_INPUT:
+    case SPA_NODE_EVENT_TYPE_NEED_INPUT:
     {
-      SpaInputInfo iinfo;
+      SpaPortInputInfo iinfo;
       SpaResult res;
       PinosRingbufferArea areas[2];
       uint8_t *data;
       size_t size, towrite, total;
-      SpaEventNeedInput *ni = event->data;
+      SpaNodeEventNeedInput *ni = event->data;
 
       size = 0;
       data = NULL;
@@ -127,7 +127,7 @@ on_sink_event (SpaNode *node, SpaEvent *event, void *user_data)
       pinos_ringbuffer_read_advance (priv->ringbuffer, total);
 
       iinfo.port_id = ni->port_id;
-      iinfo.flags = SPA_INPUT_FLAG_NONE;
+      iinfo.flags = SPA_PORT_INPUT_FLAG_NONE;
       iinfo.buffer_id = 0;
 
       g_debug ("push sink %d", iinfo.buffer_id);

@@ -53,7 +53,7 @@ struct _SpaAudioTestSrc {
 
   SpaAudioTestSrcProps props[2];
 
-  SpaEventCallback event_cb;
+  SpaNodeEventCallback event_cb;
   void *user_data;
 
   SpaPollItem idle;
@@ -185,11 +185,11 @@ spa_audiotestsrc_node_set_props (SpaNode         *node,
 static SpaResult
 send_have_output (SpaAudioTestSrc *this)
 {
-  SpaEvent event;
-  SpaEventHaveOutput ho;
+  SpaNodeEvent event;
+  SpaNodeEventHaveOutput ho;
 
   if (this->event_cb) {
-    event.type = SPA_EVENT_TYPE_HAVE_OUTPUT;
+    event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
     event.size = sizeof (ho);
     event.data = &ho;
     ho.port_id = 0;
@@ -202,8 +202,8 @@ send_have_output (SpaAudioTestSrc *this)
 static void
 update_state (SpaAudioTestSrc *this, SpaNodeState state)
 {
-  SpaEvent event;
-  SpaEventStateChange sc;
+  SpaNodeEvent event;
+  SpaNodeEventStateChange sc;
 
   if (this->node.state == state)
     return;
@@ -211,7 +211,7 @@ update_state (SpaAudioTestSrc *this, SpaNodeState state)
   this->node.state = state;
 
   if (this->event_cb) {
-    event.type = SPA_EVENT_TYPE_STATE_CHANGE;
+    event.type = SPA_NODE_EVENT_TYPE_STATE_CHANGE;
     event.data = &sc;
     event.size = sizeof (sc);
     sc.state = state;
@@ -222,11 +222,11 @@ update_state (SpaAudioTestSrc *this, SpaNodeState state)
 static SpaResult
 update_idle_enabled (SpaAudioTestSrc *this, bool enabled)
 {
-  SpaEvent event;
+  SpaNodeEvent event;
 
   if (this->event_cb) {
     this->idle.enabled = enabled;
-    event.type = SPA_EVENT_TYPE_UPDATE_POLL;
+    event.type = SPA_NODE_EVENT_TYPE_UPDATE_POLL;
     event.data = &this->idle;
     event.size = sizeof (this->idle);
     this->event_cb (&this->node, &event, this->user_data);
@@ -235,8 +235,8 @@ update_idle_enabled (SpaAudioTestSrc *this, bool enabled)
 }
 
 static SpaResult
-spa_audiotestsrc_node_send_command (SpaNode       *node,
-                                    SpaCommand    *command)
+spa_audiotestsrc_node_send_command (SpaNode        *node,
+                                    SpaNodeCommand *command)
 {
   SpaAudioTestSrc *this;
 
@@ -246,10 +246,10 @@ spa_audiotestsrc_node_send_command (SpaNode       *node,
   this = (SpaAudioTestSrc *) node->handle;
 
   switch (command->type) {
-    case SPA_COMMAND_INVALID:
+    case SPA_NODE_COMMAND_INVALID:
       return SPA_RESULT_INVALID_COMMAND;
 
-    case SPA_COMMAND_START:
+    case SPA_NODE_COMMAND_START:
     {
       if (!this->have_format)
         return SPA_RESULT_NO_FORMAT;
@@ -262,7 +262,7 @@ spa_audiotestsrc_node_send_command (SpaNode       *node,
       update_state (this, SPA_NODE_STATE_STREAMING);
       break;
     }
-    case SPA_COMMAND_PAUSE:
+    case SPA_NODE_COMMAND_PAUSE:
     {
       if (!this->have_format)
         return SPA_RESULT_NO_FORMAT;
@@ -275,21 +275,21 @@ spa_audiotestsrc_node_send_command (SpaNode       *node,
       update_state (this, SPA_NODE_STATE_PAUSED);
       break;
     }
-    case SPA_COMMAND_FLUSH:
-    case SPA_COMMAND_DRAIN:
-    case SPA_COMMAND_MARKER:
+    case SPA_NODE_COMMAND_FLUSH:
+    case SPA_NODE_COMMAND_DRAIN:
+    case SPA_NODE_COMMAND_MARKER:
       return SPA_RESULT_NOT_IMPLEMENTED;
   }
   return SPA_RESULT_OK;
 }
 
 static SpaResult
-spa_audiotestsrc_node_set_event_callback (SpaNode          *node,
-                                          SpaEventCallback  event_cb,
-                                          void             *user_data)
+spa_audiotestsrc_node_set_event_callback (SpaNode              *node,
+                                          SpaNodeEventCallback  event_cb,
+                                          void                 *user_data)
 {
   SpaAudioTestSrc *this;
-  SpaEvent event;
+  SpaNodeEvent event;
 
   if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -297,7 +297,7 @@ spa_audiotestsrc_node_set_event_callback (SpaNode          *node,
   this = (SpaAudioTestSrc *) node->handle;
 
   if (event_cb == NULL && this->event_cb) {
-    event.type = SPA_EVENT_TYPE_REMOVE_POLL;
+    event.type = SPA_NODE_EVENT_TYPE_REMOVE_POLL;
     event.data = &this->idle;
     event.size = sizeof (this->idle);
     this->event_cb (&this->node, &event, this->user_data);
@@ -307,7 +307,7 @@ spa_audiotestsrc_node_set_event_callback (SpaNode          *node,
   this->user_data = user_data;
 
   if (this->event_cb) {
-    event.type = SPA_EVENT_TYPE_ADD_POLL;
+    event.type = SPA_NODE_EVENT_TYPE_ADD_POLL;
     event.data = &this->idle;
     event.size = sizeof (this->idle);
     this->event_cb (&this->node, &event, this->user_data);
@@ -663,9 +663,9 @@ spa_audiotestsrc_node_port_get_status (SpaNode              *node,
 
 
 static SpaResult
-spa_audiotestsrc_node_port_push_input (SpaNode       *node,
-                                       unsigned int   n_info,
-                                       SpaInputInfo  *info)
+spa_audiotestsrc_node_port_push_input (SpaNode          *node,
+                                       unsigned int      n_info,
+                                       SpaPortInputInfo *info)
 {
   return SPA_RESULT_INVALID_PORT;
 }
@@ -707,9 +707,9 @@ audiotestsrc_idle (SpaPollNotifyData *data)
 }
 
 static SpaResult
-spa_audiotestsrc_node_port_pull_output (SpaNode       *node,
-                                        unsigned int   n_info,
-                                        SpaOutputInfo *info)
+spa_audiotestsrc_node_port_pull_output (SpaNode           *node,
+                                        unsigned int       n_info,
+                                        SpaPortOutputInfo *info)
 {
   SpaAudioTestSrc *this;
   unsigned int i;
@@ -755,9 +755,9 @@ spa_audiotestsrc_node_port_pull_output (SpaNode       *node,
 }
 
 static SpaResult
-spa_audiotestsrc_node_port_push_event (SpaNode   *node,
-                                       uint32_t   port_id,
-                                       SpaEvent  *event)
+spa_audiotestsrc_node_port_push_event (SpaNode      *node,
+                                       uint32_t      port_id,
+                                       SpaNodeEvent *event)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }

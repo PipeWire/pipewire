@@ -450,9 +450,8 @@ again:
     i = ++state->frmival.index;
   }
   fmt->infos[pi].n_range_values = i;
-  if (i == 1) {
-    fmt->framerate = fmt->framerates[0];
-  } else {
+  fmt->framerate = fmt->framerates[0];
+  if (i > 1) {
     SPA_PROPS_INDEX_UNSET (&fmt->fmt.props, pi);
   }
   pi = ++fmt->fmt.props.n_prop_info;
@@ -561,10 +560,11 @@ mmap_read (SpaV4l2Source *this)
   if (xioctl (state->fd, VIDIOC_DQBUF, &buf) < 0) {
     switch (errno) {
       case EAGAIN:
-        return 0;
+        return SPA_RESULT_ERROR;
       case EIO:
       default:
         perror ("VIDIOC_DQBUF");
+        usleep (50 * 1000);
         return SPA_RESULT_ERROR;
     }
   }
@@ -583,13 +583,13 @@ static int
 v4l2_on_fd_events (SpaPollNotifyData *data)
 {
   SpaV4l2Source *this = data->user_data;
-  SpaEvent event;
-  SpaEventHaveOutput ho;
+  SpaNodeEvent event;
+  SpaNodeEventHaveOutput ho;
 
   if (mmap_read (this) < 0)
     return 0;
 
-  event.type = SPA_EVENT_TYPE_HAVE_OUTPUT;
+  event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
   event.size = sizeof (ho);
   event.data = &ho;
   ho.port_id = 0;
@@ -849,7 +849,7 @@ spa_v4l2_start (SpaV4l2Source *this)
 {
   SpaV4l2State *state = &this->state[0];
   enum v4l2_buf_type type;
-  SpaEvent event;
+  SpaNodeEvent event;
 
   if (state->started)
     return SPA_RESULT_OK;
@@ -859,8 +859,10 @@ spa_v4l2_start (SpaV4l2Source *this)
     perror ("VIDIOC_STREAMON");
     return SPA_RESULT_ERROR;
   }
+  state->started = true;
+  update_state (this, SPA_NODE_STATE_STREAMING);
 
-  event.type = SPA_EVENT_TYPE_ADD_POLL;
+  event.type = SPA_NODE_EVENT_TYPE_ADD_POLL;
   event.data = &state->poll;
   event.size = sizeof (state->poll);
 
@@ -878,8 +880,6 @@ spa_v4l2_start (SpaV4l2Source *this)
   state->poll.user_data = this;
   this->event_cb (&this->node, &event, this->user_data);
 
-  state->started = true;
-
   return SPA_RESULT_OK;
 }
 
@@ -888,12 +888,12 @@ spa_v4l2_pause (SpaV4l2Source *this)
 {
   SpaV4l2State *state = &this->state[0];
   enum v4l2_buf_type type;
-  SpaEvent event;
+  SpaNodeEvent event;
 
   if (!state->started)
     return SPA_RESULT_OK;
 
-  event.type = SPA_EVENT_TYPE_REMOVE_POLL;
+  event.type = SPA_NODE_EVENT_TYPE_REMOVE_POLL;
   event.data = &state->poll;
   event.size = sizeof (state->poll);
   this->event_cb (&this->node, &event, this->user_data);
@@ -905,6 +905,7 @@ spa_v4l2_pause (SpaV4l2Source *this)
     perror ("VIDIOC_STREAMOFF");
     return SPA_RESULT_ERROR;
   }
+  update_state (this, SPA_NODE_STATE_PAUSED);
 
   return SPA_RESULT_OK;
 }

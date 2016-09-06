@@ -443,7 +443,6 @@ on_new_buffer (GObject    *gobject,
   }
   buf = g_hash_table_lookup (pinossink->buf_ids, GINT_TO_POINTER (id));
 
-  g_debug ("recycle buffer %d %p", id, buf);
   if (buf) {
     pinos_main_loop_signal (pinossink->loop, FALSE);
   }

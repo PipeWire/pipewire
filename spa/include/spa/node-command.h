@@ -17,35 +17,35 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __SPA_COMMAND_H__
-#define __SPA_COMMAND_H__
+#ifndef __SPA_NODE_COMMAND_H__
+#define __SPA_NODE_COMMAND_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct _SpaCommand SpaCommand;
+typedef struct _SpaNodeCommand SpaNodeCommand;
 
 #include <spa/defs.h>
 
 typedef enum {
-  SPA_COMMAND_INVALID                 =  0,
-  SPA_COMMAND_PAUSE,
-  SPA_COMMAND_START,
-  SPA_COMMAND_FLUSH,
-  SPA_COMMAND_DRAIN,
-  SPA_COMMAND_MARKER,
-} SpaCommandType;
+  SPA_NODE_COMMAND_INVALID                 =  0,
+  SPA_NODE_COMMAND_PAUSE,
+  SPA_NODE_COMMAND_START,
+  SPA_NODE_COMMAND_FLUSH,
+  SPA_NODE_COMMAND_DRAIN,
+  SPA_NODE_COMMAND_MARKER,
+} SpaNodeCommandType;
 
-struct _SpaCommand {
-  SpaCommandType type;
-  uint32_t       port_id;
-  void          *data;
-  size_t         size;
+struct _SpaNodeCommand {
+  SpaNodeCommandType type;
+  uint32_t           port_id;
+  void              *data;
+  size_t             size;
 };
 
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_COMMAND_H__ */
+#endif /* __SPA_NODE_COMMAND_H__ */

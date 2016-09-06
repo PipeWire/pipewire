@@ -79,7 +79,7 @@ struct _SpaALSASink {
 
   SpaALSASinkProps props[2];
 
-  SpaEventCallback event_cb;
+  SpaNodeEventCallback event_cb;
   void *user_data;
 
   bool have_format;
@@ -203,8 +203,8 @@ spa_alsa_sink_node_set_props (SpaNode         *node,
 }
 
 static SpaResult
-spa_alsa_sink_node_send_command (SpaNode       *node,
-                                 SpaCommand    *command)
+spa_alsa_sink_node_send_command (SpaNode        *node,
+                                 SpaNodeCommand *command)
 {
   SpaALSASink *this;
 
@@ -214,17 +214,17 @@ spa_alsa_sink_node_send_command (SpaNode       *node,
   this = (SpaALSASink *) node->handle;
 
   switch (command->type) {
-    case SPA_COMMAND_INVALID:
+    case SPA_NODE_COMMAND_INVALID:
       return SPA_RESULT_INVALID_COMMAND;
 
-    case SPA_COMMAND_START:
+    case SPA_NODE_COMMAND_START:
       spa_alsa_start (this);
 
       if (this->event_cb) {
-        SpaEvent event;
-        SpaEventStateChange sc;
+        SpaNodeEvent event;
+        SpaNodeEventStateChange sc;
 
-        event.type = SPA_EVENT_TYPE_STATE_CHANGE;
+        event.type = SPA_NODE_EVENT_TYPE_STATE_CHANGE;
         event.data = &sc;
         event.size = sizeof (sc);
         sc.state = SPA_NODE_STATE_STREAMING;
@@ -232,14 +232,14 @@ spa_alsa_sink_node_send_command (SpaNode       *node,
         this->event_cb (node, &event, this->user_data);
       }
       break;
-    case SPA_COMMAND_PAUSE:
+    case SPA_NODE_COMMAND_PAUSE:
       spa_alsa_stop (this);
 
       if (this->event_cb) {
-        SpaEvent event;
-        SpaEventStateChange sc;
+        SpaNodeEvent event;
+        SpaNodeEventStateChange sc;
 
-        event.type = SPA_EVENT_TYPE_STATE_CHANGE;
+        event.type = SPA_NODE_EVENT_TYPE_STATE_CHANGE;
         event.data = &sc;
         event.size = sizeof (sc);
         sc.state = SPA_NODE_STATE_PAUSED;
@@ -247,18 +247,18 @@ spa_alsa_sink_node_send_command (SpaNode       *node,
         this->event_cb (node, &event, this->user_data);
       }
       break;
-    case SPA_COMMAND_FLUSH:
-    case SPA_COMMAND_DRAIN:
-    case SPA_COMMAND_MARKER:
+    case SPA_NODE_COMMAND_FLUSH:
+    case SPA_NODE_COMMAND_DRAIN:
+    case SPA_NODE_COMMAND_MARKER:
       return SPA_RESULT_NOT_IMPLEMENTED;
   }
   return SPA_RESULT_OK;
 }
 
 static SpaResult
-spa_alsa_sink_node_set_event_callback (SpaNode          *node,
-                                       SpaEventCallback  event,
-                                       void             *user_data)
+spa_alsa_sink_node_set_event_callback (SpaNode              *node,
+                                       SpaNodeEventCallback  event,
+                                       void                 *user_data)
 {
   SpaALSASink *this;
 
@@ -579,9 +579,9 @@ spa_alsa_sink_node_port_get_status (SpaNode              *node,
 }
 
 static SpaResult
-spa_alsa_sink_node_port_push_input (SpaNode        *node,
-                                    unsigned int    n_info,
-                                    SpaInputInfo   *info)
+spa_alsa_sink_node_port_push_input (SpaNode          *node,
+                                    unsigned int      n_info,
+                                    SpaPortInputInfo *info)
 {
   SpaALSASink *this;
   unsigned int i;
@@ -624,9 +624,9 @@ spa_alsa_sink_node_port_push_input (SpaNode        *node,
 }
 
 static SpaResult
-spa_alsa_sink_node_port_pull_output (SpaNode        *node,
-                                     unsigned int    n_info,
-                                     SpaOutputInfo  *info)
+spa_alsa_sink_node_port_pull_output (SpaNode           *node,
+                                     unsigned int       n_info,
+                                     SpaPortOutputInfo *info)
 {
   return SPA_RESULT_INVALID_PORT;
 }

@@ -636,7 +636,7 @@ have_size:
       /* check against filter */
       idx = spa_props_index_for_id (&filter->props, SPA_PROP_ID_VIDEO_FRAMERATE);
       if (idx == SPA_IDX_INVALID)
-        return SPA_RESULT_ENUM_END;
+        goto have_framerate;
 
       pi = &filter->props.prop_info[idx];
       if (pi->type != SPA_PROP_TYPE_FRACTION)

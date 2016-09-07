@@ -213,7 +213,6 @@ make_nodes (AppData *data, const char *device)
   if ((res = spa_node_get_props (data->source, &props)) < 0)
     printf ("got get_props error %d\n", res);
 
-  value.type = SPA_PROP_TYPE_STRING;
   value.value = device ? device : "/dev/video0";
   value.size = strlen (value.value)+1;
   spa_props_set_prop (props, spa_props_index_for_name (props, "device"), &value);

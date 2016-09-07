@@ -191,8 +191,8 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
 
           bri[ri].name = NULL;
           bri[ri].description = NULL;
-          bri[ri].size = sizeof (SpaRectangle);
-          bri[ri].value = p;
+          bri[ri].val.size = sizeof (SpaRectangle);
+          bri[ri].val.value = p;
           sv->width = gst_value_get_int_range_min (val);
           sv->height = gst_value_get_int_range_min (val2);
           p = ++sv;
@@ -200,8 +200,8 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
 
           bri[ri].name = NULL;
           bri[ri].description = NULL;
-          bri[ri].size = sizeof (SpaRectangle);
-          bri[ri].value = p;
+          bri[ri].val.size = sizeof (SpaRectangle);
+          bri[ri].val.value = p;
           sv->width = gst_value_get_int_range_max (val);
           sv->height = gst_value_get_int_range_max (val2);
           p = ++sv;
@@ -248,8 +248,8 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
 
         bri[ri].name = NULL;
         bri[ri].description = NULL;
-        bri[ri].size = sizeof (SpaFraction);
-        bri[ri].value = p;
+        bri[ri].val.size = sizeof (SpaFraction);
+        bri[ri].val.value = p;
         sv->num = gst_value_get_fraction_numerator (min);
         sv->denom = gst_value_get_fraction_denominator (min);
         p = ++sv;
@@ -257,8 +257,8 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
 
         bri[ri].name = NULL;
         bri[ri].description = NULL;
-        bri[ri].size = sizeof (SpaFraction);
-        bri[ri].value = p;
+        bri[ri].val.size = sizeof (SpaFraction);
+        bri[ri].val.value = p;
         sv->num = gst_value_get_fraction_numerator (max);
         sv->denom = gst_value_get_fraction_denominator (max);
         p = ++sv;
@@ -380,6 +380,9 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
   } else if (gst_structure_has_name (cs, "image/jpeg")) {
     f->media_type = SPA_MEDIA_TYPE_VIDEO;
     f->media_subtype = SPA_MEDIA_SUBTYPE_MJPG;
+  } else if (gst_structure_has_name (cs, "video/x-h264")) {
+    f->media_type = SPA_MEDIA_TYPE_VIDEO;
+    f->media_subtype = SPA_MEDIA_SUBTYPE_H264;
   }
   return f;
 }
@@ -437,7 +440,8 @@ gst_caps_from_format (SpaFormat *format)
   if (format->media_type == SPA_MEDIA_TYPE_VIDEO) {
     SpaFormatVideo f;
 
-    spa_format_video_parse (format, &f);
+    if (spa_format_video_parse (format, &f) < 0)
+      return NULL;
 
     if (format->media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
       res = gst_caps_new_simple ("video/x-raw",
@@ -454,10 +458,20 @@ gst_caps_from_format (SpaFormat *format)
           "framerate", GST_TYPE_FRACTION, f.info.mjpg.framerate.num, f.info.mjpg.framerate.denom,
           NULL);
     }
+    else if (format->media_subtype == SPA_MEDIA_SUBTYPE_H264) {
+      res = gst_caps_new_simple ("video/x-h264",
+          "width", G_TYPE_INT, f.info.h264.size.width,
+          "height", G_TYPE_INT, f.info.h264.size.height,
+          "framerate", GST_TYPE_FRACTION, f.info.h264.framerate.num, f.info.h264.framerate.denom,
+          "stream-format", G_TYPE_STRING, "byte-stream",
+          "alignment", G_TYPE_STRING, "au",
+          NULL);
+    }
   } else if (format->media_type == SPA_MEDIA_TYPE_AUDIO) {
     SpaFormatAudio f;
 
-    spa_format_audio_parse (format, &f);
+    if (spa_format_audio_parse (format, &f) < 0)
+      return NULL;
 
     if (format->media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
       res = gst_caps_new_simple ("audio/x-raw",

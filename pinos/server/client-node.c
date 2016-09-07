@@ -138,7 +138,6 @@ pinos_client_node_get_socket_pair (PinosClientNode  *this,
     priv->fd = g_socket_get_fd (priv->sockets[0]);
 
     spa_node_get_props (node->node, &props);
-    value.type = SPA_PROP_TYPE_INT;
     value.value = &priv->fd;
     value.size = sizeof (int);
     spa_props_set_prop (props, spa_props_index_for_name (props, "socket"), &value);

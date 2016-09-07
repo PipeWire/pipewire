@@ -88,21 +88,21 @@ static const double min_freq = 0.0;
 static const double max_freq = 50000000.0;
 
 static const SpaPropRangeInfo volume_range[] = {
-  { "min", "Minimum value", sizeof (double), &min_volume },
-  { "max", "Maximum value", sizeof (double), &max_volume },
+  { "min", "Minimum value", { sizeof (double), &min_volume } },
+  { "max", "Maximum value", { sizeof (double), &max_volume } },
 };
 
 static const uint32_t wave_val_sine = 0;
 static const uint32_t wave_val_square = 1;
 
 static const SpaPropRangeInfo wave_range[] = {
-  { "sine", "Sine", sizeof (uint32_t), &wave_val_sine },
-  { "square", "Square", sizeof (uint32_t), &wave_val_square },
+  { "sine", "Sine", { sizeof (uint32_t), &wave_val_sine } },
+  { "square", "Square", { sizeof (uint32_t), &wave_val_square } },
 };
 
 static const SpaPropRangeInfo freq_range[] = {
-  { "min", "Minimum value", sizeof (double), &min_freq },
-  { "max", "Maximum value", sizeof (double), &max_freq },
+  { "min", "Minimum value", { sizeof (double), &min_freq } },
+  { "max", "Maximum value", { sizeof (double), &max_freq } },
 };
 
 enum {

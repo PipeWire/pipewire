@@ -31,7 +31,8 @@ extern "C" {
 typedef struct _SpaFormatVideo SpaFormatVideo;
 
 typedef enum {
-  SPA_PROP_ID_VIDEO_FORMAT = SPA_PROP_ID_MEDIA_CUSTOM_START,
+  SPA_PROP_ID_VIDEO_INFO = SPA_PROP_ID_MEDIA_CUSTOM_START,
+  SPA_PROP_ID_VIDEO_FORMAT,
   SPA_PROP_ID_VIDEO_SIZE,
   SPA_PROP_ID_VIDEO_FRAMERATE,
   SPA_PROP_ID_VIDEO_MAX_FRAMERATE,
@@ -45,8 +46,10 @@ typedef enum {
   SPA_PROP_ID_VIDEO_COLOR_MATRIX,
   SPA_PROP_ID_VIDEO_TRANSFER_FUNCTION,
   SPA_PROP_ID_VIDEO_COLOR_PRIMARIES,
-  SPA_PROP_ID_VIDEO_INFO_RAW,
-  SPA_PROP_ID_VIDEO_INFO_MJPG,
+  SPA_PROP_ID_VIDEO_PROFILE,
+  SPA_PROP_ID_VIDEO_LEVEL,
+  SPA_PROP_ID_VIDEO_STREAM_FORMAT,
+  SPA_PROP_ID_VIDEO_ALIGNMENT,
 } SpaPropIdVideo;
 
 SpaResult   spa_prop_info_fill_video    (SpaPropInfo     *info,
@@ -63,6 +66,7 @@ struct _SpaFormatVideo {
   SpaFormat format;
   union {
     SpaVideoInfoRaw raw;
+    SpaVideoInfoH264 h264;
     SpaVideoInfoMJPG mjpg;
   } info;
 };

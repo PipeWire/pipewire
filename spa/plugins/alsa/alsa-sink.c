@@ -107,8 +107,8 @@ static const uint32_t min_uint32 = 1;
 static const uint32_t max_uint32 = UINT32_MAX;
 
 static const SpaPropRangeInfo uint32_range[] = {
-  { "min", "Minimum value", 4, &min_uint32 },
-  { "max", "Maximum value", 4, &max_uint32 },
+  { "min", "Minimum value", { 4, &min_uint32 } },
+  { "max", "Maximum value", { 4, &max_uint32 } },
 };
 
 enum {

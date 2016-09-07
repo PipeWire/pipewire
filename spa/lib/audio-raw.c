@@ -75,36 +75,36 @@ static const uint32_t format_values[] = {
 };
 
 static const SpaPropRangeInfo format_format_range[] = {
-  { "S8", "S8", sizeof (uint32_t), &format_values[0] },
-  { "U8", "U8", sizeof (uint32_t), &format_values[1] },
-  { "S16LE", "S16LE", sizeof (uint32_t), &format_values[2] },
-  { "S16BE", "S16BE", sizeof (uint32_t), &format_values[3] },
-  { "U16LE", "U16LE", sizeof (uint32_t), &format_values[4] },
-  { "U16BE", "U16BE", sizeof (uint32_t), &format_values[5] },
-  { "S24_32LE", "S24_32LE", sizeof (uint32_t), &format_values[6] },
-  { "S24_32BE", "S24_32BE", sizeof (uint32_t), &format_values[7] },
-  { "U24_32LE", "U24_32LE", sizeof (uint32_t), &format_values[8] },
-  { "U24_32BE", "U24_32BE", sizeof (uint32_t), &format_values[9] },
-  { "S32LE", "S32LE", sizeof (uint32_t), &format_values[10] },
-  { "S32BE", "S32BE", sizeof (uint32_t), &format_values[11] },
-  { "U32LE", "U32LE", sizeof (uint32_t), &format_values[12] },
-  { "U32BE", "U32BE", sizeof (uint32_t), &format_values[13] },
-  { "S24LE", "S24LE", sizeof (uint32_t), &format_values[14] },
-  { "S24BE", "S24BE", sizeof (uint32_t), &format_values[15] },
-  { "U24LE", "U24LE", sizeof (uint32_t), &format_values[16] },
-  { "U24BE", "U24BE", sizeof (uint32_t), &format_values[17] },
-  { "S20LE", "S20LE", sizeof (uint32_t), &format_values[18] },
-  { "S20BE", "S20BE", sizeof (uint32_t), &format_values[19] },
-  { "U20LE", "U20LE", sizeof (uint32_t), &format_values[20] },
-  { "U20BE", "U20BE", sizeof (uint32_t), &format_values[21] },
-  { "S18LE", "S18LE", sizeof (uint32_t), &format_values[22] },
-  { "S18BE", "S18BE", sizeof (uint32_t), &format_values[23] },
-  { "U18LE", "U18LE", sizeof (uint32_t), &format_values[24] },
-  { "U18BE", "U18BE", sizeof (uint32_t), &format_values[25] },
-  { "F32LE", "F32LE", sizeof (uint32_t), &format_values[26] },
-  { "F32BE", "F32BE", sizeof (uint32_t), &format_values[27] },
-  { "F64LE", "F64LE", sizeof (uint32_t), &format_values[28] },
-  { "F64BE", "F64BE", sizeof (uint32_t), &format_values[29] },
+  { "S8", "S8", { sizeof (uint32_t), &format_values[0] } },
+  { "U8", "U8", { sizeof (uint32_t), &format_values[1] } },
+  { "S16LE", "S16LE", { sizeof (uint32_t), &format_values[2] } },
+  { "S16BE", "S16BE", { sizeof (uint32_t), &format_values[3] } },
+  { "U16LE", "U16LE", { sizeof (uint32_t), &format_values[4] } },
+  { "U16BE", "U16BE", { sizeof (uint32_t), &format_values[5] } },
+  { "S24_32LE", "S24_32LE", { sizeof (uint32_t), &format_values[6] } },
+  { "S24_32BE", "S24_32BE", { sizeof (uint32_t), &format_values[7] } },
+  { "U24_32LE", "U24_32LE", { sizeof (uint32_t), &format_values[8] } },
+  { "U24_32BE", "U24_32BE", { sizeof (uint32_t), &format_values[9] } },
+  { "S32LE", "S32LE", { sizeof (uint32_t), &format_values[10] } },
+  { "S32BE", "S32BE", { sizeof (uint32_t), &format_values[11] } },
+  { "U32LE", "U32LE", { sizeof (uint32_t), &format_values[12] } },
+  { "U32BE", "U32BE", { sizeof (uint32_t), &format_values[13] } },
+  { "S24LE", "S24LE", { sizeof (uint32_t), &format_values[14] } },
+  { "S24BE", "S24BE", { sizeof (uint32_t), &format_values[15] } },
+  { "U24LE", "U24LE", { sizeof (uint32_t), &format_values[16] } },
+  { "U24BE", "U24BE", { sizeof (uint32_t), &format_values[17] } },
+  { "S20LE", "S20LE", { sizeof (uint32_t), &format_values[18] } },
+  { "S20BE", "S20BE", { sizeof (uint32_t), &format_values[19] } },
+  { "U20LE", "U20LE", { sizeof (uint32_t), &format_values[20] } },
+  { "U20BE", "U20BE", { sizeof (uint32_t), &format_values[21] } },
+  { "S18LE", "S18LE", { sizeof (uint32_t), &format_values[22] } },
+  { "S18BE", "S18BE", { sizeof (uint32_t), &format_values[23] } },
+  { "U18LE", "U18LE", { sizeof (uint32_t), &format_values[24] } },
+  { "U18BE", "U18BE", { sizeof (uint32_t), &format_values[25] } },
+  { "F32LE", "F32LE", { sizeof (uint32_t), &format_values[26] } },
+  { "F32BE", "F32BE", { sizeof (uint32_t), &format_values[27] } },
+  { "F64LE", "F64LE", { sizeof (uint32_t), &format_values[28] } },
+  { "F64BE", "F64BE", { sizeof (uint32_t), &format_values[29] } },
 };
 
 static const uint32_t format_layouts[] = {
@@ -113,8 +113,8 @@ static const uint32_t format_layouts[] = {
 };
 
 static const SpaPropRangeInfo layouts_range[] = {
-  { "interleaved", "Interleaved samples", sizeof (uint32_t), &format_layouts[0] },
-  { "non-interleaved", "Non-interleaved samples", sizeof (uint32_t), &format_layouts[1] },
+  { "interleaved", "Interleaved samples", { sizeof (uint32_t), &format_layouts[0] } },
+  { "non-interleaved", "Non-interleaved samples", { sizeof (uint32_t), &format_layouts[1] } },
 };
 
 static const uint32_t format_flags[] = {
@@ -123,16 +123,16 @@ static const uint32_t format_flags[] = {
 };
 
 static const SpaPropRangeInfo flags_range[] = {
-  { "none", "No flags", sizeof (uint32_t), &format_flags[0] },
-  { "unpositioned", "Unpositioned channels", sizeof (uint32_t), &format_flags[1] },
+  { "none", "No flags", { sizeof (uint32_t), &format_flags[0] } },
+  { "unpositioned", "Unpositioned channels", { sizeof (uint32_t), &format_flags[1] } },
 };
 
 static const uint32_t min_uint32 = 1;
 static const uint32_t max_uint32 = UINT32_MAX;
 
 static const SpaPropRangeInfo uint32_range[] = {
-  { "min", "Minimum value", 4, &min_uint32 },
-  { "max", "Maximum value", 4, &max_uint32 },
+  { "min", "Minimum value", { sizeof (uint32_t), &min_uint32 } },
+  { "max", "Maximum value", { sizeof (uint32_t), &max_uint32 } },
 };
 
 static const SpaPropInfo format_prop_info[] =
@@ -274,6 +274,7 @@ spa_format_audio_parse (const SpaFormat *format,
   SpaPropValue value;
   const SpaProps *props;
   SpaResult res;
+  unsigned int idx;
 
   if ((void *)format == (void *)aformat)
     return SPA_RESULT_OK;
@@ -281,18 +282,20 @@ spa_format_audio_parse (const SpaFormat *format,
   if (format->media_type != SPA_MEDIA_TYPE_AUDIO)
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
-  spa_format_audio_init (format->media_type,
-                         format->media_subtype,
-                         aformat);
+  if ((res = spa_format_audio_init (format->media_type,
+                                    format->media_subtype,
+                                    aformat)) < 0)
+    return res;
 
   props = &format->props;
-  if ((res = spa_props_get_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_INFO_RAW), &value)) < 0)
+  idx = spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_INFO_RAW);
+  if ((res = spa_props_get_prop (props, idx, &value)) < 0)
     goto fallback;
 
-  if (value.type != SPA_PROP_TYPE_POINTER || value.size != sizeof (SpaAudioInfoRaw))
+  if (props->prop_info[idx].type != SPA_PROP_TYPE_POINTER)
     goto fallback;
 
-  memcpy (&aformat->info, value.value, sizeof (SpaAudioInfoRaw));
+  memcpy (&aformat->info, value.value, SPA_MIN (value.size, sizeof (SpaAudioInfoRaw)));
 
   return SPA_RESULT_OK;
 

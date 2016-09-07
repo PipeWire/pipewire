@@ -324,7 +324,7 @@ enum_filter_format (const SpaFormat *filter, unsigned int index)
       } else if (res == SPA_RESULT_PROPERTY_UNSET) {
 
         if (index < pi->n_range_values)
-          video_format = *((SpaVideoFormat *)pi->range_values[index].value);
+          video_format = *((SpaVideoFormat *)pi->range_values[index].val.value);
       }
     } else {
       if (index == 0)
@@ -536,20 +536,20 @@ do_frmsize:
       pi = &filter->props.prop_info[idx];
 
       if (pi->range_type == SPA_PROP_RANGE_TYPE_MIN_MAX) {
-        if (filter_framesize (&state->frmsize, pi->range_values[0].value,
-                                               pi->range_values[1].value,
+        if (filter_framesize (&state->frmsize, pi->range_values[0].val.value,
+                                               pi->range_values[1].val.value,
                                                &step))
           goto have_size;
       } else if (pi->range_type == SPA_PROP_RANGE_TYPE_STEP) {
-        if (filter_framesize (&state->frmsize, pi->range_values[0].value,
-                                               pi->range_values[1].value,
-                                               pi->range_values[2].value))
+        if (filter_framesize (&state->frmsize, pi->range_values[0].val.value,
+                                               pi->range_values[1].val.value,
+                                               pi->range_values[2].val.value))
           goto have_size;
       } else if (pi->range_type == SPA_PROP_RANGE_TYPE_ENUM) {
         unsigned int i;
         for (i = 0; i < pi->n_range_values; i++) {
-          if (filter_framesize (&state->frmsize, pi->range_values[i].value,
-                                                 pi->range_values[i].value,
+          if (filter_framesize (&state->frmsize, pi->range_values[i].val.value,
+                                                 pi->range_values[i].val.value,
                                                  &step))
             goto have_size;
         }
@@ -649,20 +649,20 @@ have_size:
                                                &step))
           goto have_framerate;
       } else if (pi->range_type == SPA_PROP_RANGE_TYPE_MIN_MAX) {
-        if (filter_framerate (&state->frmival, pi->range_values[0].value,
-                                               pi->range_values[1].value,
+        if (filter_framerate (&state->frmival, pi->range_values[0].val.value,
+                                               pi->range_values[1].val.value,
                                                &step))
           goto have_framerate;
       } else if (pi->range_type == SPA_PROP_RANGE_TYPE_STEP) {
-        if (filter_framerate (&state->frmival, pi->range_values[0].value,
-                                               pi->range_values[1].value,
-                                               pi->range_values[2].value))
+        if (filter_framerate (&state->frmival, pi->range_values[0].val.value,
+                                               pi->range_values[1].val.value,
+                                               pi->range_values[2].val.value))
           goto have_framerate;
       } else if (pi->range_type == SPA_PROP_RANGE_TYPE_ENUM) {
         unsigned int i;
         for (i = 0; i < pi->n_range_values; i++) {
-          if (filter_framerate (&state->frmival, pi->range_values[i].value,
-                                                 pi->range_values[i].value,
+          if (filter_framerate (&state->frmival, pi->range_values[i].val.value,
+                                                 pi->range_values[i].val.value,
                                                  &step))
             goto have_framerate;
         }
@@ -676,20 +676,22 @@ have_framerate:
     fmt->ranges[i].description = NULL;
     if (state->frmival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
       fmt->infos[pi].range_type = SPA_PROP_RANGE_TYPE_ENUM;
-      fmt->ranges[i].size = sizeof (SpaFraction);
       fmt->framerates[i].num = state->frmival.discrete.denominator;
       fmt->framerates[i].denom = state->frmival.discrete.numerator;
-      fmt->ranges[i].value = &fmt->framerates[i];
+      fmt->ranges[i].val.size = sizeof (SpaFraction);
+      fmt->ranges[i].val.value = &fmt->framerates[i];
       i++;
       state->frmival.index++;
     } else if (state->frmival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS ||
                state->frmival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
       fmt->framerates[0].num = state->frmival.stepwise.min.denominator;
       fmt->framerates[0].denom = state->frmival.stepwise.min.numerator;
-      fmt->ranges[0].value = &fmt->framerates[0];
+      fmt->ranges[0].val.size = sizeof (SpaFraction);
+      fmt->ranges[0].val.value = &fmt->framerates[0];
       fmt->framerates[1].num = state->frmival.stepwise.max.denominator;
       fmt->framerates[1].denom = state->frmival.stepwise.max.numerator;
-      fmt->ranges[1].value = &fmt->framerates[1];
+      fmt->ranges[1].val.size = sizeof (SpaFraction);
+      fmt->ranges[1].val.value = &fmt->framerates[1];
       if (state->frmival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS) {
         fmt->infos[pi].range_type = SPA_PROP_RANGE_TYPE_MIN_MAX;
         i = 2;
@@ -697,7 +699,8 @@ have_framerate:
         fmt->infos[pi].range_type = SPA_PROP_RANGE_TYPE_STEP;
         fmt->framerates[2].num = state->frmival.stepwise.step.denominator;
         fmt->framerates[2].denom = state->frmival.stepwise.step.numerator;
-        fmt->ranges[2].value = &fmt->framerates[2];
+        fmt->ranges[2].val.size = sizeof (SpaFraction);
+        fmt->ranges[2].val.value = &fmt->framerates[2];
         i = 3;
       }
       break;

@@ -367,8 +367,8 @@ parse_props (SpaMemory *mem, void *p, off_t offset)
         ri->name = SPA_MEMBER (tp, SPA_PTR_TO_INT (ri->name), char);
       if (ri->description)
         ri->description = SPA_MEMBER (tp, SPA_PTR_TO_INT (ri->description), char);
-      if (ri->value)
-        ri->value = SPA_MEMBER (tp, SPA_PTR_TO_INT (ri->value), void);
+      if (ri->val.value)
+        ri->val.value = SPA_MEMBER (tp, SPA_PTR_TO_INT (ri->val.value), void);
     }
   }
   return tp;
@@ -838,7 +838,7 @@ calc_props_len (const SpaProps *props)
       len += ri->name ? strlen (ri->name) + 1 : 0;
       len += ri->description ? strlen (ri->description) + 1 : 0;
       /* the size of the range value */
-      len += ri->size;
+      len += ri->val.size;
     }
   }
   return len;
@@ -912,12 +912,12 @@ write_props (void *p, const SpaProps *props, off_t offset)
       } else {
         ri->description = 0;
       }
-      if (ri->size) {
-        memcpy (p, ri->value, ri->size);
-        ri->value = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tp));
-        p += ri->size;
+      if (ri->val.size) {
+        memcpy (p, ri->val.value, ri->val.size);
+        ri->val.value = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tp));
+        p += ri->val.size;
       } else {
-        ri->value = 0;
+        ri->val.value = 0;
       }
       ri++;
     }

@@ -94,7 +94,6 @@ setup_node (PinosSpaAudioTestSrc *this)
   if ((res = spa_node_get_props (node->node, &props)) < 0)
     g_debug ("got get_props error %d", res);
 
-  value.type = SPA_PROP_TYPE_STRING;
   value.value = "hw:1";
   value.size = strlen (value.value)+1;
   spa_props_set_prop (props, spa_props_index_for_name (props, "device"), &value);

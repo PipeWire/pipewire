@@ -188,7 +188,6 @@ make_nodes (AppData *data)
   if ((res = spa_node_get_props (data->sink, &props)) < 0)
     printf ("got get_props error %d\n", res);
 
-  value.type = SPA_PROP_TYPE_STRING;
   value.value = "hw:0";
   value.size = strlen (value.value)+1;
   spa_props_set_prop (props, spa_props_index_for_name (props, "device"), &value);
@@ -229,7 +228,6 @@ negotiate_formats (AppData *data)
 
   props = &format->props;
 
-  value.type = SPA_PROP_TYPE_UINT32;
   value.size = sizeof (uint32_t);
   value.value = &val;
 

@@ -25,23 +25,6 @@
 #include <spa/video/raw.h>
 #include <spa/video/format.h>
 
-static const SpaVideoInfoRaw default_raw_info = {
-  SPA_VIDEO_FORMAT_UNKNOWN,
-  { 320, 240 },
-  { 1, 25 },
-  { 1, 25 },
-  1,
-  SPA_VIDEO_INTERLACE_MODE_PROGRESSIVE,
-  { 1, 1},
-  SPA_VIDEO_MULTIVIEW_MODE_MONO,
-  SPA_VIDEO_MULTIVIEW_FLAGS_NONE,
-  SPA_VIDEO_CHROMA_SITE_UNKNOWN,
-  SPA_VIDEO_COLOR_RANGE_UNKNOWN,
-  SPA_VIDEO_COLOR_MATRIX_UNKNOWN,
-  SPA_VIDEO_TRANSFER_UNKNOWN,
-  SPA_VIDEO_COLOR_PRIMARIES_UNKNOWN
-};
-
 static const uint32_t format_values[] = {
   SPA_VIDEO_FORMAT_UNKNOWN,
   SPA_VIDEO_FORMAT_ENCODED,
@@ -110,77 +93,77 @@ static const uint32_t format_values[] = {
 };
 
 static const SpaPropRangeInfo format_range[] = {
-  { "ENCODED", "ENCODED", sizeof (uint32_t), &format_values[1] },
-  { "I420", "I420", sizeof (uint32_t), &format_values[2] },
-  { "YV12", "YV12", sizeof (uint32_t), &format_values[3] },
-  { "YUY2", "YUY2", sizeof (uint32_t), &format_values[4] },
-  { "UYVY", "UYVY", sizeof (uint32_t), &format_values[5] },
-  { "AYUV", "AYUV", sizeof (uint32_t), &format_values[6] },
-  { "RGBx", "RGBx", sizeof (uint32_t), &format_values[7] },
-  { "BGRx", "BGRx", sizeof (uint32_t), &format_values[8] },
-  { "xRGB", "xRGB", sizeof (uint32_t), &format_values[9] },
-  { "xBGR", "xBGR", sizeof (uint32_t), &format_values[10] },
-  { "RGBA", "RGBA", sizeof (uint32_t), &format_values[11] },
-  { "BGRA", "BGRA", sizeof (uint32_t), &format_values[12] },
-  { "ARGB", "ARGB", sizeof (uint32_t), &format_values[13] },
-  { "ABGR", "ABGR", sizeof (uint32_t), &format_values[14] },
-  { "RGB", "RGB", sizeof (uint32_t), &format_values[15] },
-  { "BGR", "BGR", sizeof (uint32_t), &format_values[16] },
-  { "Y41B", "Y41B", sizeof (uint32_t), &format_values[17] },
-  { "Y42B", "Y42B", sizeof (uint32_t), &format_values[18] },
-  { "YVYU", "YVYU", sizeof (uint32_t), &format_values[19] },
-  { "Y444", "Y444", sizeof (uint32_t), &format_values[20] },
-  { "v210", "v210", sizeof (uint32_t), &format_values[21] },
-  { "v216", "v216", sizeof (uint32_t), &format_values[22] },
-  { "NV12", "NV12", sizeof (uint32_t), &format_values[23] },
-  { "NV21", "NV21", sizeof (uint32_t), &format_values[24] },
-  { "GRAY8", "GRAY8", sizeof (uint32_t), &format_values[25] },
-  { "GRAY16_BE", "GRAY16_BE", sizeof (uint32_t), &format_values[26] },
-  { "GRAY16_LE", "GRAY16_LE", sizeof (uint32_t), &format_values[27] },
-  { "v308", "v308", sizeof (uint32_t), &format_values[28] },
-  { "RGB16", "RGB16", sizeof (uint32_t), &format_values[29] },
-  { "BGR16", "BGR16", sizeof (uint32_t), &format_values[30] },
-  { "RGB15", "RGB15", sizeof (uint32_t), &format_values[31] },
-  { "BGR15", "BGR15", sizeof (uint32_t), &format_values[32] },
-  { "UYVP", "UYVP", sizeof (uint32_t), &format_values[33] },
-  { "A420", "A420", sizeof (uint32_t), &format_values[34] },
-  { "RGB8P", "RGB8P", sizeof (uint32_t), &format_values[35] },
-  { "YUV9", "YUV9", sizeof (uint32_t), &format_values[36] },
-  { "YVU9", "YVU9", sizeof (uint32_t), &format_values[37] },
-  { "IYU1", "IYU1", sizeof (uint32_t), &format_values[38] },
-  { "ARGB64", "ARGB64", sizeof (uint32_t), &format_values[39] },
-  { "AYUV64", "AYUV64", sizeof (uint32_t), &format_values[40] },
-  { "r210", "r210", sizeof (uint32_t), &format_values[41] },
-  { "I420_10BE", "I420_10BE", sizeof (uint32_t), &format_values[42] },
-  { "I420_10LE", "I420_10LE", sizeof (uint32_t), &format_values[43] },
-  { "I422_10BE", "I422_10BE", sizeof (uint32_t), &format_values[44] },
-  { "I422_10LE", "I422_10LE", sizeof (uint32_t), &format_values[45] },
-  { "I444_10BE", "I444_10BE", sizeof (uint32_t), &format_values[46] },
-  { "I444_10LE", "I444_10LE", sizeof (uint32_t), &format_values[47] },
-  { "GBR", "GBR", sizeof (uint32_t), &format_values[48] },
-  { "GBR_10BE", "GBR_10BE", sizeof (uint32_t), &format_values[49] },
-  { "GBR_10LE", "GBR_10LE", sizeof (uint32_t), &format_values[50] },
-  { "NV16", "NV16", sizeof (uint32_t), &format_values[51] },
-  { "NV24", "NV24", sizeof (uint32_t), &format_values[52] },
-  { "NV12_64Z32", "NV12_64Z32", sizeof (uint32_t), &format_values[53] },
-  { "A420_10BE", "A420_10BE", sizeof (uint32_t), &format_values[54] },
-  { "A420_10LE", "A420_10LE", sizeof (uint32_t), &format_values[55] },
-  { "A422_10BE", "A422_10BE", sizeof (uint32_t), &format_values[56] },
-  { "A422_10LE", "A422_10LE", sizeof (uint32_t), &format_values[57] },
-  { "A444_10BE", "A444_10BE", sizeof (uint32_t), &format_values[58] },
-  { "A444_10LE", "A444_10LE", sizeof (uint32_t), &format_values[59] },
-  { "NV61", "NV61", sizeof (uint32_t), &format_values[60] },
-  { "P010_10BE", "P010_10BE", sizeof (uint32_t), &format_values[61] },
-  { "P010_10LE", "P010_10LE", sizeof (uint32_t), &format_values[62] },
-  { "IYU2", "IYU2", sizeof (uint32_t), &format_values[63] },
+  { "ENCODED", "ENCODED", { sizeof (uint32_t), &format_values[1] } },
+  { "I420", "I420", { sizeof (uint32_t), &format_values[2] } },
+  { "YV12", "YV12", { sizeof (uint32_t), &format_values[3] } },
+  { "YUY2", "YUY2", { sizeof (uint32_t), &format_values[4] } },
+  { "UYVY", "UYVY", { sizeof (uint32_t), &format_values[5] } },
+  { "AYUV", "AYUV", { sizeof (uint32_t), &format_values[6] } },
+  { "RGBx", "RGBx", { sizeof (uint32_t), &format_values[7] } },
+  { "BGRx", "BGRx", { sizeof (uint32_t), &format_values[8] } },
+  { "xRGB", "xRGB", { sizeof (uint32_t), &format_values[9] } },
+  { "xBGR", "xBGR", { sizeof (uint32_t), &format_values[10] } },
+  { "RGBA", "RGBA", { sizeof (uint32_t), &format_values[11] } },
+  { "BGRA", "BGRA", { sizeof (uint32_t), &format_values[12] } },
+  { "ARGB", "ARGB", { sizeof (uint32_t), &format_values[13] } },
+  { "ABGR", "ABGR", { sizeof (uint32_t), &format_values[14] } },
+  { "RGB", "RGB", { sizeof (uint32_t), &format_values[15] } },
+  { "BGR", "BGR", { sizeof (uint32_t), &format_values[16] } },
+  { "Y41B", "Y41B", { sizeof (uint32_t), &format_values[17] } },
+  { "Y42B", "Y42B", { sizeof (uint32_t), &format_values[18] } },
+  { "YVYU", "YVYU", { sizeof (uint32_t), &format_values[19] } },
+  { "Y444", "Y444", { sizeof (uint32_t), &format_values[20] } },
+  { "v210", "v210", { sizeof (uint32_t), &format_values[21] } },
+  { "v216", "v216", { sizeof (uint32_t), &format_values[22] } },
+  { "NV12", "NV12", { sizeof (uint32_t), &format_values[23] } },
+  { "NV21", "NV21", { sizeof (uint32_t), &format_values[24] } },
+  { "GRAY8", "GRAY8", { sizeof (uint32_t), &format_values[25] } },
+  { "GRAY16_BE", "GRAY16_BE", { sizeof (uint32_t), &format_values[26] } },
+  { "GRAY16_LE", "GRAY16_LE", { sizeof (uint32_t), &format_values[27] } },
+  { "v308", "v308", { sizeof (uint32_t), &format_values[28] } },
+  { "RGB16", "RGB16", { sizeof (uint32_t), &format_values[29] } },
+  { "BGR16", "BGR16", { sizeof (uint32_t), &format_values[30] } },
+  { "RGB15", "RGB15", { sizeof (uint32_t), &format_values[31] } },
+  { "BGR15", "BGR15", { sizeof (uint32_t), &format_values[32] } },
+  { "UYVP", "UYVP", { sizeof (uint32_t), &format_values[33] } },
+  { "A420", "A420", { sizeof (uint32_t), &format_values[34] } },
+  { "RGB8P", "RGB8P", { sizeof (uint32_t), &format_values[35] } },
+  { "YUV9", "YUV9", { sizeof (uint32_t), &format_values[36] } },
+  { "YVU9", "YVU9", { sizeof (uint32_t), &format_values[37] } },
+  { "IYU1", "IYU1", { sizeof (uint32_t), &format_values[38] } },
+  { "ARGB64", "ARGB64", { sizeof (uint32_t), &format_values[39] } },
+  { "AYUV64", "AYUV64", { sizeof (uint32_t), &format_values[40] } },
+  { "r210", "r210", { sizeof (uint32_t), &format_values[41] } },
+  { "I420_10BE", "I420_10BE", { sizeof (uint32_t), &format_values[42] } },
+  { "I420_10LE", "I420_10LE", { sizeof (uint32_t), &format_values[43] } },
+  { "I422_10BE", "I422_10BE", { sizeof (uint32_t), &format_values[44] } },
+  { "I422_10LE", "I422_10LE", { sizeof (uint32_t), &format_values[45] } },
+  { "I444_10BE", "I444_10BE", { sizeof (uint32_t), &format_values[46] } },
+  { "I444_10LE", "I444_10LE", { sizeof (uint32_t), &format_values[47] } },
+  { "GBR", "GBR", { sizeof (uint32_t), &format_values[48] } },
+  { "GBR_10BE", "GBR_10BE", { sizeof (uint32_t), &format_values[49] } },
+  { "GBR_10LE", "GBR_10LE", { sizeof (uint32_t), &format_values[50] } },
+  { "NV16", "NV16", { sizeof (uint32_t), &format_values[51] } },
+  { "NV24", "NV24", { sizeof (uint32_t), &format_values[52] } },
+  { "NV12_64Z32", "NV12_64Z32", { sizeof (uint32_t), &format_values[53] } },
+  { "A420_10BE", "A420_10BE", { sizeof (uint32_t), &format_values[54] } },
+  { "A420_10LE", "A420_10LE", { sizeof (uint32_t), &format_values[55] } },
+  { "A422_10BE", "A422_10BE", { sizeof (uint32_t), &format_values[56] } },
+  { "A422_10LE", "A422_10LE", { sizeof (uint32_t), &format_values[57] } },
+  { "A444_10BE", "A444_10BE", { sizeof (uint32_t), &format_values[58] } },
+  { "A444_10LE", "A444_10LE", { sizeof (uint32_t), &format_values[59] } },
+  { "NV61", "NV61", { sizeof (uint32_t), &format_values[60] } },
+  { "P010_10BE", "P010_10BE", { sizeof (uint32_t), &format_values[61] } },
+  { "P010_10LE", "P010_10LE", { sizeof (uint32_t), &format_values[62] } },
+  { "IYU2", "IYU2", { sizeof (uint32_t), &format_values[63] } },
 };
 
 static const SpaRectangle min_size = { 1, 1 };
 static const SpaRectangle max_size = { UINT32_MAX, UINT32_MAX };
 
 static const SpaPropRangeInfo size_range[] = {
-  { "min", "Minimum value", sizeof (SpaRectangle), &min_size },
-  { "max", "Maximum value", sizeof (SpaRectangle), &max_size },
+  { "min", "Minimum value", { sizeof (SpaRectangle), &min_size } },
+  { "max", "Maximum value", { sizeof (SpaRectangle), &max_size } },
 };
 
 static const uint32_t interlace_modes[] = {
@@ -191,10 +174,10 @@ static const uint32_t interlace_modes[] = {
 };
 
 static const SpaPropRangeInfo interlace_mode_range[] = {
-  { "progressive", "Progressive video", sizeof (uint32_t), &interlace_modes[0] },
-  { "interleaved", "Interleaved video", sizeof (uint32_t), &interlace_modes[1] },
-  { "mixed", "Mixed interlaced video", sizeof (uint32_t), &interlace_modes[2] },
-  { "fields", "Fields interlaced video", sizeof (uint32_t), &interlace_modes[3] },
+  { "progressive", "Progressive video", { sizeof (uint32_t), &interlace_modes[0] } },
+  { "interleaved", "Interleaved video", { sizeof (uint32_t), &interlace_modes[1] } },
+  { "mixed", "Mixed interlaced video", { sizeof (uint32_t), &interlace_modes[2] } },
+  { "fields", "Fields interlaced video", { sizeof (uint32_t), &interlace_modes[3] } },
 };
 
 
@@ -215,18 +198,18 @@ static const uint32_t multiview_modes[] = {
 };
 
 static const SpaPropRangeInfo multiview_mode_range[] = {
-  { "mono", "Mono", sizeof (uint32_t), &multiview_modes[1] },
-  { "left", "Left", sizeof (uint32_t), &multiview_modes[2] },
-  { "right", "Right", sizeof (uint32_t), &multiview_modes[3] },
-  { "side-by-side", "Side by side", sizeof (uint32_t), &multiview_modes[4] },
-  { "side-by-side-quincunx", "Side by side Cuincunx", sizeof (uint32_t), &multiview_modes[5] },
-  { "column-interleaved", "Column Interleaved", sizeof (uint32_t), &multiview_modes[6] },
-  { "row-interleaved", "Row Interleaved", sizeof (uint32_t), &multiview_modes[7] },
-  { "top-bottom", "Top Bottom", sizeof (uint32_t), &multiview_modes[8] },
-  { "checkerboard", "Checkerboard", sizeof (uint32_t), &multiview_modes[9] },
-  { "frame-by-frame", "Frame by frame", sizeof (uint32_t), &multiview_modes[10] },
-  { "multiview-frame-by-frame", "Multiview Frame by frame", sizeof (uint32_t), &multiview_modes[11] },
-  { "separated", "Separated", sizeof (uint32_t), &multiview_modes[12] },
+  { "mono", "Mono", { sizeof (uint32_t), &multiview_modes[1] } },
+  { "left", "Left", { sizeof (uint32_t), &multiview_modes[2] } },
+  { "right", "Right", { sizeof (uint32_t), &multiview_modes[3] } },
+  { "side-by-side", "Side by side", { sizeof (uint32_t), &multiview_modes[4] } },
+  { "side-by-side-quincunx", "Side by side Cuincunx", { sizeof (uint32_t), &multiview_modes[5] } },
+  { "column-interleaved", "Column Interleaved", { sizeof (uint32_t), &multiview_modes[6] } },
+  { "row-interleaved", "Row Interleaved", { sizeof (uint32_t), &multiview_modes[7] } },
+  { "top-bottom", "Top Bottom", { sizeof (uint32_t), &multiview_modes[8] } },
+  { "checkerboard", "Checkerboard", { sizeof (uint32_t), &multiview_modes[9] } },
+  { "frame-by-frame", "Frame by frame", { sizeof (uint32_t), &multiview_modes[10] } },
+  { "multiview-frame-by-frame", "Multiview Frame by frame", { sizeof (uint32_t), &multiview_modes[11] } },
+  { "separated", "Separated", { sizeof (uint32_t), &multiview_modes[12] } },
 };
 
 static const uint32_t multiview_flags[] = {
@@ -241,14 +224,14 @@ static const uint32_t multiview_flags[] = {
 };
 
 static const SpaPropRangeInfo multiview_flags_range[] = {
-  { "none", "None", sizeof (uint32_t), &multiview_flags[0] },
-  { "right-view-first", "Right view first", sizeof (uint32_t), &multiview_flags[1] },
-  { "left-flipped", "Left flipped", sizeof (uint32_t), &multiview_flags[2] },
-  { "left-flopped", "Left flopped", sizeof (uint32_t), &multiview_flags[3] },
-  { "right-flipped", "Right flipped", sizeof (uint32_t), &multiview_flags[4] },
-  { "right-flopped", "Right flopped", sizeof (uint32_t), &multiview_flags[5] },
-  { "half-aspect", "Half aspect", sizeof (uint32_t), &multiview_flags[6] },
-  { "mixed-mono", "Mixed mono", sizeof (uint32_t), &multiview_flags[7] },
+  { "none", "None", { sizeof (uint32_t), &multiview_flags[0] } },
+  { "right-view-first", "Right view first", { sizeof (uint32_t), &multiview_flags[1] } },
+  { "left-flipped", "Left flipped", { sizeof (uint32_t), &multiview_flags[2] } },
+  { "left-flopped", "Left flopped", { sizeof (uint32_t), &multiview_flags[3] } },
+  { "right-flipped", "Right flipped", { sizeof (uint32_t), &multiview_flags[4] } },
+  { "right-flopped", "Right flopped", { sizeof (uint32_t), &multiview_flags[5] } },
+  { "half-aspect", "Half aspect", { sizeof (uint32_t), &multiview_flags[6] } },
+  { "mixed-mono", "Mixed mono", { sizeof (uint32_t), &multiview_flags[7] } },
 };
 
 static const uint32_t chroma_sites[] = {
@@ -260,11 +243,11 @@ static const uint32_t chroma_sites[] = {
 };
 
 static const SpaPropRangeInfo chroma_site_range[] = {
-  { "unknown", "Unknown", sizeof (uint32_t), &chroma_sites[0] },
-  { "none", "None", sizeof (uint32_t), &chroma_sites[1] },
-  { "h-cosited", "H-cosited", sizeof (uint32_t), &chroma_sites[2] },
-  { "v-cosited", "V-cosited", sizeof (uint32_t), &chroma_sites[3] },
-  { "alt-line", "Alt line", sizeof (uint32_t), &chroma_sites[4] }
+  { "unknown", "Unknown", { sizeof (uint32_t), &chroma_sites[0] } },
+  { "none", "None", { sizeof (uint32_t), &chroma_sites[1] } },
+  { "h-cosited", "H-cosited", { sizeof (uint32_t), &chroma_sites[2] } },
+  { "v-cosited", "V-cosited", { sizeof (uint32_t), &chroma_sites[3] } },
+  { "alt-line", "Alt line", { sizeof (uint32_t), &chroma_sites[4] } }
 };
 
 static const uint32_t color_ranges[] = {
@@ -274,9 +257,9 @@ static const uint32_t color_ranges[] = {
 };
 
 static const SpaPropRangeInfo color_range_range[] = {
-  { "unknown", "Unknown color range", sizeof (uint32_t), &color_ranges[0] },
-  { "0_255", "0-255", sizeof (uint32_t), &color_ranges[1] },
-  { "16_235", "16-235", sizeof (uint32_t), &color_ranges[2] },
+  { "unknown", "Unknown color range", { sizeof (uint32_t), &color_ranges[0] } },
+  { "0_255", "0-255", { sizeof (uint32_t), &color_ranges[1] } },
+  { "16_235", "16-235", { sizeof (uint32_t), &color_ranges[2] } },
 };
 
 static const uint32_t color_matrices[] = {
@@ -290,13 +273,13 @@ static const uint32_t color_matrices[] = {
 };
 
 static const SpaPropRangeInfo color_matrix_range[] = {
-  { "unknown", "Unknown color matrix", sizeof (uint32_t), &color_matrices[0] },
-  { "rgb", "identity matrix", sizeof (uint32_t), &color_matrices[1] },
-  { "fcc", "FCC color matrix", sizeof (uint32_t), &color_matrices[2] },
-  { "bt709", "ITU-R BT.709 color matrix", sizeof (uint32_t), &color_matrices[3] },
-  { "bt601", "ITU-R BT.601 color matrix", sizeof (uint32_t), &color_matrices[4] },
-  { "smpte240m", "SMPTE 240M color matrix", sizeof (uint32_t), &color_matrices[5] },
-  { "bt2020", "ITU-R BT.2020 color matrix", sizeof (uint32_t), &color_matrices[6] },
+  { "unknown", "Unknown color matrix", { sizeof (uint32_t), &color_matrices[0] } },
+  { "rgb", "identity matrix", { sizeof (uint32_t), &color_matrices[1] } },
+  { "fcc", "FCC color matrix", { sizeof (uint32_t), &color_matrices[2] } },
+  { "bt709", "ITU-R BT.709 color matrix", { sizeof (uint32_t), &color_matrices[3] } },
+  { "bt601", "ITU-R BT.601 color matrix", { sizeof (uint32_t), &color_matrices[4] } },
+  { "smpte240m", "SMPTE 240M color matrix", { sizeof (uint32_t), &color_matrices[5] } },
+  { "bt2020", "ITU-R BT.2020 color matrix", { sizeof (uint32_t), &color_matrices[6] } },
 };
 
 static const uint32_t transfer_functions[] = {
@@ -316,19 +299,19 @@ static const uint32_t transfer_functions[] = {
 };
 
 static const SpaPropRangeInfo transfer_function_range[] = {
-  { "unknown", "Unknown transfer function", sizeof (uint32_t), &transfer_functions[0] },
-  { "gamma10", "linear RGB, gamma 1.0 curve", sizeof (uint32_t), &transfer_functions[1] },
-  { "gamma18", "gamma 1.8 curve", sizeof (uint32_t), &transfer_functions[2] },
-  { "gamma20", "gamma 2.0 curve", sizeof (uint32_t), &transfer_functions[3] },
-  { "gamma22", "gamma 2.2 curve", sizeof (uint32_t), &transfer_functions[4] },
-  { "bt709", "Gamma 2.2 curve with a linear segment", sizeof (uint32_t), &transfer_functions[5] },
-  { "smpte240m", "Gamma 2.2 curve with a linear segment", sizeof (uint32_t), &transfer_functions[6] },
-  { "srgb", "Gamma 2.4 curve with a linear segment", sizeof (uint32_t), &transfer_functions[7] },
-  { "gamma28", "Gamma 2.8 curve", sizeof (uint32_t), &transfer_functions[8] },
-  { "log100", "Logarithmic transfer characteristic 100:1 range", sizeof (uint32_t), &transfer_functions[9] },
-  { "log316", "Logarithmic transfer characteristic 316.22777:1 range", sizeof (uint32_t), &transfer_functions[10] },
-  { "bt2020_12", "Gamma 2.2 curve with a linear segment", sizeof (uint32_t), &transfer_functions[11] },
-  { "adobergb", "Gamma 2.19921875", sizeof (uint32_t), &transfer_functions[12] },
+  { "unknown", "Unknown transfer function", { sizeof (uint32_t), &transfer_functions[0] } },
+  { "gamma10", "linear RGB, gamma 1.0 curve", { sizeof (uint32_t), &transfer_functions[1] } },
+  { "gamma18", "gamma 1.8 curve", { sizeof (uint32_t), &transfer_functions[2] } },
+  { "gamma20", "gamma 2.0 curve", { sizeof (uint32_t), &transfer_functions[3] } },
+  { "gamma22", "gamma 2.2 curve", { sizeof (uint32_t), &transfer_functions[4] } },
+  { "bt709", "Gamma 2.2 curve with a linear segment", { sizeof (uint32_t), &transfer_functions[5] } },
+  { "smpte240m", "Gamma 2.2 curve with a linear segment", { sizeof (uint32_t), &transfer_functions[6] } },
+  { "srgb", "Gamma 2.4 curve with a linear segment", { sizeof (uint32_t), &transfer_functions[7] } },
+  { "gamma28", "Gamma 2.8 curve", { sizeof (uint32_t), &transfer_functions[8] } },
+  { "log100", "Logarithmic transfer characteristic 100:1 range", { sizeof (uint32_t), &transfer_functions[9] } },
+  { "log316", "Logarithmic transfer characteristic 316.22777:1 range", { sizeof (uint32_t), &transfer_functions[10] } },
+  { "bt2020_12", "Gamma 2.2 curve with a linear segment", { sizeof (uint32_t), &transfer_functions[11] } },
+  { "adobergb", "Gamma 2.19921875", { sizeof (uint32_t), &transfer_functions[12] } },
 };
 
 static const uint32_t color_primaries[] = {
@@ -344,35 +327,41 @@ static const uint32_t color_primaries[] = {
 };
 
 static const SpaPropRangeInfo color_primaries_range[] = {
-  { "unknown", "Unknown color primaries", sizeof (uint32_t), &color_primaries[0] },
-  { "bt709", "BT709 primaries", sizeof (uint32_t), &color_primaries[1] },
-  { "bt470M", "BT470M primaries", sizeof (uint32_t), &color_primaries[2] },
-  { "bt470BG", "BT470BG primaries", sizeof (uint32_t), &color_primaries[3] },
-  { "smpte170m", "SMPTE170M primaries", sizeof (uint32_t), &color_primaries[4] },
-  { "smpte240m", "SMPTE240M primaries", sizeof (uint32_t), &color_primaries[5] },
-  { "film", "Generic film primaries", sizeof (uint32_t), &color_primaries[6] },
-  { "bt2020", "BT2020 primaries", sizeof (uint32_t), &color_primaries[7] },
-  { "adobergb", "Adobe RGB primaries", sizeof (uint32_t), &color_primaries[8] },
+  { "unknown", "Unknown color primaries", { sizeof (uint32_t), &color_primaries[0] } },
+  { "bt709", "BT709 primaries", { sizeof (uint32_t), &color_primaries[1] } },
+  { "bt470M", "BT470M primaries", { sizeof (uint32_t), &color_primaries[2] } },
+  { "bt470BG", "BT470BG primaries", { sizeof (uint32_t), &color_primaries[3] } },
+  { "smpte170m", "SMPTE170M primaries", { sizeof (uint32_t), &color_primaries[4] } },
+  { "smpte240m", "SMPTE240M primaries", { sizeof (uint32_t), &color_primaries[5] } },
+  { "film", "Generic film primaries", { sizeof (uint32_t), &color_primaries[6] } },
+  { "bt2020", "BT2020 primaries", { sizeof (uint32_t), &color_primaries[7] } },
+  { "adobergb", "Adobe RGB primaries", { sizeof (uint32_t), &color_primaries[8] } },
 };
 
 static const uint32_t min_uint32 = 1;
 static const uint32_t max_uint32 = UINT32_MAX;
 
 static const SpaPropRangeInfo uint32_range[] = {
-  { "min", "Minimum value", sizeof (uint32_t), &min_uint32 },
-  { "max", "Maximum value", sizeof (uint32_t), &max_uint32 },
+  { "min", "Minimum value", { sizeof (uint32_t), &min_uint32 } },
+  { "max", "Maximum value", { sizeof (uint32_t), &max_uint32 } },
 };
 
 static const SpaFraction min_framerate = { 0, 1 };
 static const SpaFraction max_framerate = { UINT32_MAX, 1 };
 
 static const SpaPropRangeInfo framerate_range[] = {
-  { "min", "Minimum value", sizeof (SpaFraction), &min_framerate },
-  { "max", "Maximum value", sizeof (SpaFraction), &max_framerate },
+  { "min", "Minimum value", { sizeof (SpaFraction), &min_framerate } },
+  { "max", "Maximum value", { sizeof (SpaFraction), &max_framerate } },
 };
 
 static const SpaPropInfo format_prop_info[] =
 {
+  { SPA_PROP_ID_VIDEO_INFO,         0,
+                                    "info", "the SpaVideoInfo structure",
+                                    SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL,
+                                    SPA_PROP_TYPE_POINTER, sizeof (SpaVideoInfoRaw),
+                                    SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
+                                    NULL },
   { SPA_PROP_ID_VIDEO_FORMAT,       0,
                                     "format", "The media format",
                                     SPA_PROP_FLAG_READWRITE,
@@ -457,12 +446,6 @@ static const SpaPropInfo format_prop_info[] =
                                     SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                     SPA_PROP_RANGE_TYPE_ENUM, SPA_N_ELEMENTS (color_primaries_range), color_primaries_range,
                                     NULL },
-  { SPA_PROP_ID_VIDEO_INFO_RAW,     0,
-                                    "info", "the SpaVideoRawInfo structure",
-                                    SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL,
-                                    SPA_PROP_TYPE_POINTER, sizeof (SpaVideoInfoRaw),
-                                    SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
-                                    NULL },
 };
 
 SpaResult
@@ -502,6 +485,7 @@ spa_format_video_init (SpaMediaType     type,
     case SPA_MEDIA_SUBTYPE_RAW:
     {
       static SpaPropInfo raw_prop_info[] = {
+        { SPA_PROP_ID_VIDEO_INFO,               offsetof (SpaFormatVideo, info.raw) },
         { SPA_PROP_ID_VIDEO_FORMAT,             offsetof (SpaFormatVideo, info.raw.format) },
         { SPA_PROP_ID_VIDEO_SIZE,               offsetof (SpaFormatVideo, info.raw.size) },
         { SPA_PROP_ID_VIDEO_FRAMERATE,          offsetof (SpaFormatVideo, info.raw.framerate) },
@@ -516,7 +500,22 @@ spa_format_video_init (SpaMediaType     type,
         { SPA_PROP_ID_VIDEO_COLOR_MATRIX,       offsetof (SpaFormatVideo, info.raw.color_matrix) },
         { SPA_PROP_ID_VIDEO_TRANSFER_FUNCTION,  offsetof (SpaFormatVideo, info.raw.transfer_function) },
         { SPA_PROP_ID_VIDEO_COLOR_PRIMARIES,    offsetof (SpaFormatVideo, info.raw.color_primaries) },
-        { SPA_PROP_ID_VIDEO_INFO_RAW,           offsetof (SpaFormatVideo, info.raw) },
+      };
+      static const SpaVideoInfoRaw default_raw_info = {
+        SPA_VIDEO_FORMAT_UNKNOWN,
+        { 320, 240 },
+        { 1, 25 },
+        { 1, 25 },
+        1,
+        SPA_VIDEO_INTERLACE_MODE_PROGRESSIVE,
+        { 1, 1},
+        SPA_VIDEO_MULTIVIEW_MODE_MONO,
+        SPA_VIDEO_MULTIVIEW_FLAGS_NONE,
+        SPA_VIDEO_CHROMA_SITE_UNKNOWN,
+        SPA_VIDEO_COLOR_RANGE_UNKNOWN,
+        SPA_VIDEO_COLOR_MATRIX_UNKNOWN,
+        SPA_VIDEO_TRANSFER_UNKNOWN,
+        SPA_VIDEO_COLOR_PRIMARIES_UNKNOWN
       };
       prop_info = raw_prop_info;
       n_prop_info = SPA_N_ELEMENTS (raw_prop_info);
@@ -526,20 +525,42 @@ spa_format_video_init (SpaMediaType     type,
     }
 
     case SPA_MEDIA_SUBTYPE_H264:
-      return SPA_RESULT_NOT_IMPLEMENTED;
+    {
+      static SpaPropInfo h264_prop_info[] = {
+        { SPA_PROP_ID_VIDEO_INFO,               offsetof (SpaFormatVideo, info.h264) },
+        { SPA_PROP_ID_VIDEO_SIZE,               offsetof (SpaFormatVideo, info.h264.size) },
+        { SPA_PROP_ID_VIDEO_FRAMERATE,          offsetof (SpaFormatVideo, info.h264.framerate) },
+        { SPA_PROP_ID_VIDEO_MAX_FRAMERATE,      offsetof (SpaFormatVideo, info.h264.max_framerate) },
+      };
+      static const SpaVideoInfoH264 default_h264_info = {
+        { 320, 240 },
+        { 1, 25 },
+        { 1, 25 }
+      };
+      prop_info = h264_prop_info;
+      n_prop_info = SPA_N_ELEMENTS (h264_prop_info);
+      format->format.props.unset_mask = (1 << 3)-1;
+      format->info.h264 = default_h264_info;
+      break;
+    }
 
     case SPA_MEDIA_SUBTYPE_MJPG:
     {
       static SpaPropInfo mjpg_prop_info[] = {
+        { SPA_PROP_ID_VIDEO_INFO,               offsetof (SpaFormatVideo, info.mjpg) },
         { SPA_PROP_ID_VIDEO_SIZE,               offsetof (SpaFormatVideo, info.mjpg.size) },
         { SPA_PROP_ID_VIDEO_FRAMERATE,          offsetof (SpaFormatVideo, info.mjpg.framerate) },
         { SPA_PROP_ID_VIDEO_MAX_FRAMERATE,      offsetof (SpaFormatVideo, info.mjpg.max_framerate) },
-        { SPA_PROP_ID_VIDEO_INFO_MJPG,          offsetof (SpaFormatVideo, info.mjpg) },
+      };
+      static const SpaVideoInfoMJPG default_mjpg_info = {
+        { 320, 240 },
+        { 1, 25 },
+        { 1, 25 }
       };
       prop_info = mjpg_prop_info;
       n_prop_info = SPA_N_ELEMENTS (mjpg_prop_info);
       format->format.props.unset_mask = (1 << 3)-1;
-      format->info.raw = default_raw_info;
+      format->info.mjpg = default_mjpg_info;
       break;
     }
 
@@ -583,6 +604,7 @@ spa_format_video_parse (const SpaFormat *format,
   SpaPropValue value;
   const SpaProps *props;
   SpaResult res;
+  unsigned int idx;
 
   if ((void *)format == (void *)vformat)
     return SPA_RESULT_OK;
@@ -590,18 +612,20 @@ spa_format_video_parse (const SpaFormat *format,
   if (format->media_type != SPA_MEDIA_TYPE_VIDEO)
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
-  spa_format_video_init (format->media_type,
-                         format->media_subtype,
-                         vformat);
+  if ((res = spa_format_video_init (format->media_type,
+                                    format->media_subtype,
+                                    vformat)) < 0)
+    return res;
 
   props = &format->props;
-  if ((res = spa_props_get_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_INFO_RAW), &value)) < 0)
+  idx = spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_INFO);
+  if ((res = spa_props_get_prop (props, idx, &value)) < 0)
     goto fallback;
 
-  if (value.type != SPA_PROP_TYPE_POINTER)
+  if (props->prop_info[idx].type != SPA_PROP_TYPE_POINTER)
     goto fallback;
 
-  memcpy (&vformat->info, value.value, value.size);
+  memcpy (&vformat->info, value.value, SPA_MIN (value.size, sizeof (SpaVideoInfoRaw)));
 
   return SPA_RESULT_OK;
 

@@ -242,7 +242,7 @@ struct prop_type_name {
 };
 
 static void
-print_value (const SpaPropInfo *info, int size, const void *value)
+print_value (const SpaPropInfo *info, const SpaPropValue *val)
 {
   SpaPropType type = info->type;
   bool enum_string = false;
@@ -252,7 +252,7 @@ print_value (const SpaPropInfo *info, int size, const void *value)
     int i;
 
     for (i = 0; i < info->n_range_values; i++) {
-      if (memcmp (info->range_values[i].value, value, size) == 0) {
+      if (memcmp (info->range_values[i].val.value, val->value, val->size) == 0) {
         if (info->range_values[i].name) {
           enum_value = info->range_values[i].name;
           enum_string = true;
@@ -266,63 +266,63 @@ print_value (const SpaPropInfo *info, int size, const void *value)
       fprintf (stderr, "invalid");
       break;
     case SPA_PROP_TYPE_BOOL:
-      fprintf (stderr, "%s", *(bool *)value ? "true" : "false");
+      fprintf (stderr, "%s", *(bool *)val->value ? "true" : "false");
       break;
     case SPA_PROP_TYPE_INT8:
-      fprintf (stderr, "%" PRIi8, *(int8_t *)value);
+      fprintf (stderr, "%" PRIi8, *(int8_t *)val->value);
       break;
     case SPA_PROP_TYPE_UINT8:
-      fprintf (stderr, "%" PRIu8, *(uint8_t *)value);
+      fprintf (stderr, "%" PRIu8, *(uint8_t *)val->value);
       break;
     case SPA_PROP_TYPE_INT16:
-      fprintf (stderr, "%" PRIi16, *(int16_t *)value);
+      fprintf (stderr, "%" PRIi16, *(int16_t *)val->value);
       break;
     case SPA_PROP_TYPE_UINT16:
-      fprintf (stderr, "%" PRIu16, *(uint16_t *)value);
+      fprintf (stderr, "%" PRIu16, *(uint16_t *)val->value);
       break;
     case SPA_PROP_TYPE_INT32:
-      fprintf (stderr, "%" PRIi32, *(int32_t *)value);
+      fprintf (stderr, "%" PRIi32, *(int32_t *)val->value);
       break;
     case SPA_PROP_TYPE_UINT32:
-      fprintf (stderr, "%" PRIu32, *(uint32_t *)value);
+      fprintf (stderr, "%" PRIu32, *(uint32_t *)val->value);
       break;
     case SPA_PROP_TYPE_INT64:
-      fprintf (stderr, "%" PRIi64 "\n", *(int64_t *)value);
+      fprintf (stderr, "%" PRIi64 "\n", *(int64_t *)val->value);
       break;
     case SPA_PROP_TYPE_UINT64:
-      fprintf (stderr, "%" PRIu64 "\n", *(uint64_t *)value);
+      fprintf (stderr, "%" PRIu64 "\n", *(uint64_t *)val->value);
       break;
     case SPA_PROP_TYPE_INT:
-      fprintf (stderr, "%d", *(int *)value);
+      fprintf (stderr, "%d", *(int *)val->value);
       break;
     case SPA_PROP_TYPE_UINT:
-      fprintf (stderr, "%u", *(unsigned int *)value);
+      fprintf (stderr, "%u", *(unsigned int *)val->value);
       break;
     case SPA_PROP_TYPE_FLOAT:
-      fprintf (stderr, "%f", *(float *)value);
+      fprintf (stderr, "%f", *(float *)val->value);
       break;
     case SPA_PROP_TYPE_DOUBLE:
-      fprintf (stderr, "%g", *(double *)value);
+      fprintf (stderr, "%g", *(double *)val->value);
       break;
     case SPA_PROP_TYPE_STRING:
-      fprintf (stderr, "\"%s\"", (char *)value);
+      fprintf (stderr, "\"%s\"", (char *)val->value);
       break;
     case SPA_PROP_TYPE_RECTANGLE:
     {
-      const SpaRectangle *r = value;
+      const SpaRectangle *r = val->value;
       fprintf (stderr, "%"PRIu32"x%"PRIu32, r->width, r->height);
       break;
     }
     case SPA_PROP_TYPE_FRACTION:
     {
-      const SpaFraction *f = value;
+      const SpaFraction *f = val->value;
       fprintf (stderr, "%"PRIu32"/%"PRIu32, f->num, f->denom);
       break;
     }
     case SPA_PROP_TYPE_BITMASK:
       break;
     case SPA_PROP_TYPE_POINTER:
-      fprintf (stderr, "%p", value);
+      fprintf (stderr, "%p", val->value);
       break;
     default:
       break;
@@ -365,7 +365,7 @@ spa_debug_props (const SpaProps *props, bool print_ranges)
 
     fprintf (stderr, "Current: ");
     if (res == SPA_RESULT_OK)
-      print_value (info, value.size, value.value);
+      print_value (info, &value);
     else if (res == SPA_RESULT_PROPERTY_UNSET)
       fprintf (stderr, "Unset");
     else
@@ -399,7 +399,7 @@ spa_debug_props (const SpaProps *props, bool print_ranges)
       for (j = 0; j < info->n_range_values; j++) {
         const SpaPropRangeInfo *rinfo = &info->range_values[j];
         fprintf (stderr, "%-23.23s   ", "");
-        print_value (info, rinfo->size, rinfo->value);
+        print_value (info, &rinfo->val);
         fprintf (stderr, "\t: %-12s - %s \n", rinfo->name, rinfo->description);
       }
     }
@@ -460,7 +460,7 @@ spa_debug_format (const SpaFormat *format)
 
     fprintf (stderr, "  %20s : (%s) ", info->name, prop_type_names[info->type].name);
     if (res == SPA_RESULT_OK) {
-      print_value (info, value.size, value.value);
+      print_value (info, &value);
     } else if (res == SPA_RESULT_PROPERTY_UNSET) {
       int j;
       const char *ssep, *esep, *sep;
@@ -484,7 +484,7 @@ spa_debug_format (const SpaFormat *format)
       fprintf (stderr, ssep);
       for (j = 0; j < info->n_range_values; j++) {
         const SpaPropRangeInfo *rinfo = &info->range_values[j];
-        print_value (info, rinfo->size, rinfo->value);
+        print_value (info, &rinfo->val);
         fprintf (stderr, "%s", j + 1 < info->n_range_values ? sep : "");
       }
       fprintf (stderr, esep);

@@ -39,8 +39,6 @@ spa_props_set_prop (SpaProps           *props,
   info = &props->prop_info[index];
   if ((info->flags & SPA_PROP_FLAG_WRITABLE) == 0)
     return SPA_RESULT_INVALID_PROPERTY_ACCESS;
-  if (info->type != value->type)
-    return SPA_RESULT_WRONG_PROPERTY_TYPE;
   if (info->maxsize < value->size)
     return SPA_RESULT_WRONG_PROPERTY_SIZE;
 
@@ -71,7 +69,6 @@ spa_props_get_prop (const SpaProps *props,
   if (SPA_PROPS_INDEX_IS_UNSET (props, index))
     return SPA_RESULT_PROPERTY_UNSET;
 
-  value->type = info->type;
   value->size = info->maxsize;
   value->value = SPA_MEMBER (props, info->offset, void);
 
@@ -96,8 +93,6 @@ spa_props_copy (const SpaProps *src,
       continue;
     if ((res = spa_props_get_prop (src, spa_props_index_for_id (src, info->id), &value)) < 0)
       continue;
-    if (value.type != info->type)
-      return SPA_RESULT_WRONG_PROPERTY_TYPE;
     if (value.size > info->maxsize)
       return SPA_RESULT_WRONG_PROPERTY_SIZE;
 

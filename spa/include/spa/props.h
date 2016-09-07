@@ -98,17 +98,27 @@ typedef enum {
 } SpaPropRangeType;
 
 /**
+ * SpaPropValue:
+ * @size: the property size
+ * @value: the property value.
+ *
+ * The structure to set and get properties.
+ */
+typedef struct {
+  size_t       size;
+  const void  *value;
+} SpaPropValue;
+
+/**
  * SpaPropRangeInfo:
  * @name: name of this value
  * @description: user visible description of this value
- * @size: the size of value
- * @value: a possible value
+ * @val: the value
  */
 typedef struct {
   const char    *name;
   const char    *description;
-  size_t         size;
-  const void    *value;
+  SpaPropValue   val;
 } SpaPropRangeInfo;
 
 /**
@@ -138,20 +148,6 @@ typedef struct {
   const SpaPropRangeInfo   *range_values;
   const char              **tags;
 } SpaPropInfo;
-
-/**
- * SpaPropValue:
- * @type: a property type
- * @size: the property size
- * @value: the property value.
- *
- * The structure to set and get properties.
- */
-typedef struct {
-  SpaPropType  type;
-  size_t       size;
-  const void  *value;
-} SpaPropValue;
 
 /**
  * SpaProps:

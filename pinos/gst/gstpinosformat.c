@@ -449,6 +449,8 @@ gst_caps_from_format (SpaFormat *format)
     }
     else if (format->media_subtype == SPA_MEDIA_SUBTYPE_MJPG) {
       res = gst_caps_new_simple ("image/jpeg",
+          "width", G_TYPE_INT, f.info.mjpg.size.width,
+          "height", G_TYPE_INT, f.info.mjpg.size.height,
           "framerate", GST_TYPE_FRACTION, f.info.mjpg.framerate.num, f.info.mjpg.framerate.denom,
           NULL);
     }

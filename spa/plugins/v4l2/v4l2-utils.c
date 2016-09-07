@@ -297,6 +297,129 @@ find_format_info_by_media_type (SpaMediaType    type,
   return NULL;
 }
 
+static SpaVideoFormat
+enum_filter_format (const SpaFormat *filter, unsigned int index)
+{
+  SpaVideoFormat video_format = SPA_VIDEO_FORMAT_UNKNOWN;
+
+  if ((filter->media_type == SPA_MEDIA_TYPE_VIDEO || filter->media_type == SPA_MEDIA_TYPE_IMAGE)) {
+    if (filter->media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
+      SpaPropValue val;
+      SpaResult res;
+      unsigned int idx;
+      const SpaPropInfo *pi;
+
+      idx = spa_props_index_for_id (&filter->props, SPA_PROP_ID_VIDEO_FORMAT);
+      if (idx == SPA_IDX_INVALID)
+        return SPA_VIDEO_FORMAT_UNKNOWN;
+
+      pi = &filter->props.prop_info[idx];
+      if (pi->type != SPA_PROP_TYPE_UINT32)
+        return SPA_VIDEO_FORMAT_UNKNOWN;
+
+      res = spa_props_get_prop (&filter->props, idx, &val);
+      if (res >= 0) {
+        if (index == 0)
+          video_format = *((SpaVideoFormat *)val.value);
+      } else if (res == SPA_RESULT_PROPERTY_UNSET) {
+
+        if (index < pi->n_range_values)
+          video_format = *((SpaVideoFormat *)pi->range_values[index].value);
+      }
+    } else {
+      if (index == 0)
+        video_format = SPA_VIDEO_FORMAT_ENCODED;
+    }
+  }
+  return video_format;
+}
+
+static bool
+filter_framesize (struct v4l2_frmsizeenum *frmsize,
+                  const SpaRectangle      *min,
+                  const SpaRectangle      *max,
+                  const SpaRectangle      *step)
+{
+  if (frmsize->type == V4L2_FRMSIZE_TYPE_DISCRETE) {
+    if (frmsize->discrete.width < min->width ||
+        frmsize->discrete.height < min->height ||
+        frmsize->discrete.width > max->width ||
+        frmsize->discrete.height > max->height) {
+      return false;
+    }
+  } else if (frmsize->type == V4L2_FRMSIZE_TYPE_CONTINUOUS ||
+             frmsize->type == V4L2_FRMSIZE_TYPE_STEPWISE) {
+    /* FIXME, use LCM */
+    frmsize->stepwise.step_width *= step->width;
+    frmsize->stepwise.step_height *= step->height;
+
+    if (frmsize->stepwise.max_width < min->width ||
+        frmsize->stepwise.max_height < min->height ||
+        frmsize->stepwise.min_width > max->width ||
+        frmsize->stepwise.min_height > max->height)
+      return false;
+
+    frmsize->stepwise.min_width = SPA_MAX (frmsize->stepwise.min_width, min->width);
+    frmsize->stepwise.min_height = SPA_MAX (frmsize->stepwise.min_height, min->height);
+    frmsize->stepwise.max_width = SPA_MIN (frmsize->stepwise.max_width, max->width);
+    frmsize->stepwise.max_height = SPA_MIN (frmsize->stepwise.max_height, max->height);
+  } else
+    return false;
+
+  return true;
+}
+
+static int
+compare_fraction (struct v4l2_fract *f1, const SpaFraction *f2)
+{
+  uint64_t n1, n2;
+
+  /* fractions are reduced when set, so we can quickly see if they're equal */
+  if (f1->denominator == f2->num && f1->numerator == f2->denom)
+    return 0;
+
+  /* extend to 64 bits */
+  n1 = ((int64_t) f1->denominator) * f2->denom;
+  n2 = ((int64_t) f1->numerator) * f2->num;
+  if (n1 < n2)
+    return -1;
+  return 1;
+}
+
+static bool
+filter_framerate (struct v4l2_frmivalenum *frmival,
+                  const SpaFraction       *min,
+                  const SpaFraction       *max,
+                  const SpaFraction       *step)
+{
+  if (frmival->type == V4L2_FRMIVAL_TYPE_DISCRETE) {
+    if (compare_fraction (&frmival->discrete, min) < 0 ||
+        compare_fraction (&frmival->discrete, max) > 0)
+      return false;
+  } else if (frmival->type == V4L2_FRMIVAL_TYPE_CONTINUOUS ||
+             frmival->type == V4L2_FRMIVAL_TYPE_STEPWISE) {
+    /* FIXME, use LCM */
+    frmival->stepwise.step.denominator *= step->num;
+    frmival->stepwise.step.numerator *= step->denom;
+
+    if (compare_fraction (&frmival->stepwise.max, min) < 0 ||
+        compare_fraction (&frmival->stepwise.min, max) > 0)
+      return false;
+
+    if (compare_fraction (&frmival->stepwise.min, min) < 0) {
+      frmival->stepwise.min.denominator = min->num;
+      frmival->stepwise.min.numerator = min->denom;
+    }
+    if (compare_fraction (&frmival->stepwise.max, max) > 0) {
+      frmival->stepwise.max.denominator = max->num;
+      frmival->stepwise.max.numerator = max->denom;
+    }
+  } else
+    return false;
+
+  return true;
+}
+
 #define FOURCC_ARGS(f) (f)&0x7f,((f)>>8)&0x7f,((f)>>16)&0x7f,((f)>>24)&0x7f
 
 static SpaResult
@@ -306,7 +429,6 @@ spa_v4l2_enum_format (SpaV4l2Source *this, SpaFormat **format, const SpaFormat *
   int res, i, pi;
   V4l2Format *fmt;
   const FormatInfo *info;
-  SpaVideoFormat video_format;
 
   if (spa_v4l2_open (this) < 0)
     return SPA_RESULT_ERROR;
@@ -324,29 +446,18 @@ spa_v4l2_enum_format (SpaV4l2Source *this, SpaFormat **format, const SpaFormat *
     *cookie = state;
   }
 
+  if (false) {
+next_fmtdesc:
+    state->fmtdesc.index++;
+    state->next_fmtdesc = true;
+  }
 
-again:
-  if (state->next_fmtdesc) {
+  while (state->next_fmtdesc) {
     if (filter) {
-      SpaPropValue val;
+      SpaVideoFormat video_format;
 
-      if (state->fmtdesc.index == 1)
-        return SPA_RESULT_ENUM_END;
-
-      video_format = SPA_VIDEO_FORMAT_UNKNOWN;
-      if ((filter->media_type == SPA_MEDIA_TYPE_VIDEO)) {
-        if (filter->media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
-          if (spa_props_get_prop (&filter->props,
-                                  spa_props_index_for_id (&filter->props, SPA_PROP_ID_VIDEO_FORMAT),
-                                  &val) >= 0) {
-            video_format = *((SpaVideoFormat *)val.value);
-          }
-        } else {
-          video_format = SPA_VIDEO_FORMAT_ENCODED;
-        }
-      } else if ((filter->media_type == SPA_MEDIA_TYPE_IMAGE)) {
-        video_format = SPA_VIDEO_FORMAT_ENCODED;
-      } else
+      video_format = enum_filter_format (filter, state->fmtdesc.index);
+      if (video_format == SPA_VIDEO_FORMAT_UNKNOWN)
         return SPA_RESULT_ENUM_END;
 
       info = find_format_info_by_media_type (filter->media_type,
@@ -354,7 +465,7 @@ again:
                                              video_format,
                                              0);
       if (info == NULL)
-        return SPA_RESULT_ENUM_END;
+        goto next_fmtdesc;
 
       state->fmtdesc.pixelformat = info->fourcc;
     } else {
@@ -370,29 +481,104 @@ again:
     state->next_frmsize = true;
   }
 
-  if (!(info = fourcc_to_format_info (state->fmtdesc.pixelformat))) {
-    state->fmtdesc.index++;
-    state->next_fmtdesc = true;
-    goto again;
-  }
+  if (!(info = fourcc_to_format_info (state->fmtdesc.pixelformat)))
+    goto next_fmtdesc;
 
-  if (state->next_frmsize) {
-    if ((res = xioctl (state->fd, VIDIOC_ENUM_FRAMESIZES, &state->frmsize)) < 0) {
-      if (errno == EINVAL) {
-        state->fmtdesc.index++;
-        state->next_fmtdesc = true;
-        goto again;
+next_frmsize:
+  while (state->next_frmsize) {
+    if (filter) {
+      const SpaPropInfo *pi;
+      unsigned int idx;
+      SpaPropValue val;
+      SpaResult res;
+
+      /* check if we have a fixed frame size */
+      idx = spa_props_index_for_id (&filter->props, SPA_PROP_ID_VIDEO_SIZE);
+      if (idx == SPA_IDX_INVALID)
+        goto do_frmsize;
+
+      pi = &filter->props.prop_info[idx];
+      if (pi->type != SPA_PROP_TYPE_RECTANGLE)
+        return SPA_RESULT_ENUM_END;
+
+      res = spa_props_get_prop (&filter->props, idx, &val);
+      if (res >= 0) {
+        const SpaRectangle *size = val.value;
+
+        if (state->frmsize.index > 0)
+          goto next_fmtdesc;
+
+        state->frmsize.type = V4L2_FRMSIZE_TYPE_DISCRETE;
+        state->frmsize.discrete.width = size->width;
+        state->frmsize.discrete.height = size->height;
+        goto have_size;
       }
+    }
+do_frmsize:
+    if ((res = xioctl (state->fd, VIDIOC_ENUM_FRAMESIZES, &state->frmsize)) < 0) {
+      if (errno == EINVAL)
+        goto next_fmtdesc;
+
       perror ("VIDIOC_ENUM_FRAMESIZES");
       return SPA_RESULT_ENUM_END;
     }
-    state->next_frmsize = false;
+    if (filter) {
+      const SpaPropInfo *pi;
+      unsigned int idx;
+      const SpaRectangle step = { 1, 1 };
 
+      /* check if we have a fixed frame size */
+      idx = spa_props_index_for_id (&filter->props, SPA_PROP_ID_VIDEO_SIZE);
+      if (idx == SPA_IDX_INVALID)
+        goto have_size;
+
+      /* checked above */
+      pi = &filter->props.prop_info[idx];
+
+      if (pi->range_type == SPA_PROP_RANGE_TYPE_MIN_MAX) {
+        if (filter_framesize (&state->frmsize, pi->range_values[0].value,
+                                               pi->range_values[1].value,
+                                               &step))
+          goto have_size;
+      } else if (pi->range_type == SPA_PROP_RANGE_TYPE_STEP) {
+        if (filter_framesize (&state->frmsize, pi->range_values[0].value,
+                                               pi->range_values[1].value,
+                                               pi->range_values[2].value))
+          goto have_size;
+      } else if (pi->range_type == SPA_PROP_RANGE_TYPE_ENUM) {
+        unsigned int i;
+        for (i = 0; i < pi->n_range_values; i++) {
+          if (filter_framesize (&state->frmsize, pi->range_values[i].value,
+                                                 pi->range_values[i].value,
+                                                 &step))
+            goto have_size;
+        }
+      }
+      /* nothing matches the filter, get next frame size */
+      state->frmsize.index++;
+      continue;
+    }
+
+have_size:
     if (state->frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) {
+      /* we have a fixed size, use this to get the frame intervals */
       state->frmival.index = 0;
       state->frmival.pixel_format = state->frmsize.pixel_format;
       state->frmival.width = state->frmsize.discrete.width;
       state->frmival.height = state->frmsize.discrete.height;
+      state->next_frmsize = false;
+    }
+    else if (state->frmsize.type == V4L2_FRMSIZE_TYPE_CONTINUOUS ||
+             state->frmsize.type == V4L2_FRMSIZE_TYPE_STEPWISE) {
+      /* we have a non fixed size, fix to something sensible to get the
+       * framerate */
+      state->frmival.index = 0;
+      state->frmival.pixel_format = state->frmsize.pixel_format;
+      state->frmival.width = state->frmsize.stepwise.min_width;
+      state->frmival.height = state->frmsize.stepwise.min_height;
+      state->next_frmsize = false;
+    } else {
+      state->frmsize.index++;
     }
   }
 
@@ -424,7 +610,6 @@ again:
   spa_prop_info_fill_video (&fmt->infos[pi],
                             SPA_PROP_ID_VIDEO_FRAMERATE,
                             offsetof (V4l2Format, framerate));
-  fmt->infos[pi].range_type = SPA_PROP_RANGE_TYPE_ENUM;
   fmt->infos[pi].range_values = fmt->ranges;
   fmt->infos[pi].n_range_values = 0;
   i = state->frmival.index = 0;
@@ -434,20 +619,89 @@ again:
       if (errno == EINVAL) {
         state->frmsize.index++;
         state->next_frmsize = true;
+        if (i == 0)
+          goto next_frmsize;
         break;
       }
       perror ("VIDIOC_ENUM_FRAMEINTERVALS");
       return SPA_RESULT_ENUM_END;
     }
+    if (filter) {
+      SpaPropValue val;
+      const SpaPropInfo *pi;
+      unsigned int idx;
+      SpaResult res;
+      const SpaFraction step = { 1, 1 };
 
+      /* check against filter */
+      idx = spa_props_index_for_id (&filter->props, SPA_PROP_ID_VIDEO_FRAMERATE);
+      if (idx == SPA_IDX_INVALID)
+        return SPA_RESULT_ENUM_END;
+
+      pi = &filter->props.prop_info[idx];
+      if (pi->type != SPA_PROP_TYPE_FRACTION)
+        return SPA_RESULT_ENUM_END;
+
+      res = spa_props_get_prop (&filter->props, idx, &val);
+      if (res == 0) {
+        if (filter_framerate (&state->frmival, val.value,
+                                               val.value,
+                                               &step))
+          goto have_framerate;
+      } else if (pi->range_type == SPA_PROP_RANGE_TYPE_MIN_MAX) {
+        if (filter_framerate (&state->frmival, pi->range_values[0].value,
+                                               pi->range_values[1].value,
+                                               &step))
+          goto have_framerate;
+      } else if (pi->range_type == SPA_PROP_RANGE_TYPE_STEP) {
+        if (filter_framerate (&state->frmival, pi->range_values[0].value,
+                                               pi->range_values[1].value,
+                                               pi->range_values[2].value))
+          goto have_framerate;
+      } else if (pi->range_type == SPA_PROP_RANGE_TYPE_ENUM) {
+        unsigned int i;
+        for (i = 0; i < pi->n_range_values; i++) {
+          if (filter_framerate (&state->frmival, pi->range_values[i].value,
+                                                 pi->range_values[i].value,
+                                                 &step))
+            goto have_framerate;
+        }
+      }
+      state->frmival.index++;
+      continue;
+    }
+
+have_framerate:
     fmt->ranges[i].name = NULL;
     fmt->ranges[i].description = NULL;
-    fmt->ranges[i].size = sizeof (SpaFraction);
-    fmt->framerates[i].num = state->frmival.discrete.denominator;
-    fmt->framerates[i].denom = state->frmival.discrete.numerator;
-    fmt->ranges[i].value = &fmt->framerates[i];
-
-    i = ++state->frmival.index;
+    if (state->frmival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
+      fmt->infos[pi].range_type = SPA_PROP_RANGE_TYPE_ENUM;
+      fmt->ranges[i].size = sizeof (SpaFraction);
+      fmt->framerates[i].num = state->frmival.discrete.denominator;
+      fmt->framerates[i].denom = state->frmival.discrete.numerator;
+      fmt->ranges[i].value = &fmt->framerates[i];
+      i++;
+      state->frmival.index++;
+    } else if (state->frmival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS ||
+               state->frmival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
+      fmt->framerates[0].num = state->frmival.stepwise.min.denominator;
+      fmt->framerates[0].denom = state->frmival.stepwise.min.numerator;
+      fmt->ranges[0].value = &fmt->framerates[0];
+      fmt->framerates[1].num = state->frmival.stepwise.max.denominator;
+      fmt->framerates[1].denom = state->frmival.stepwise.max.numerator;
+      fmt->ranges[1].value = &fmt->framerates[1];
+      if (state->frmival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS) {
+        fmt->infos[pi].range_type = SPA_PROP_RANGE_TYPE_MIN_MAX;
+        i = 2;
+      } else {
+        fmt->infos[pi].range_type = SPA_PROP_RANGE_TYPE_STEP;
+        fmt->framerates[2].num = state->frmival.stepwise.step.denominator;
+        fmt->framerates[2].denom = state->frmival.stepwise.step.numerator;
+        fmt->ranges[2].value = &fmt->framerates[2];
+        i = 3;
+      }
+      break;
+    }
   }
   fmt->infos[pi].n_range_values = i;
   fmt->framerate = fmt->framerates[0];

@@ -184,7 +184,7 @@ spa_props_index_for_id (const SpaProps *props, uint32_t id)
      if (props->prop_info[i].id == id)
        return i;
   }
-  return -1;
+  return SPA_IDX_INVALID;
 }
 
 static inline unsigned int
@@ -196,7 +196,7 @@ spa_props_index_for_name (const SpaProps *props, const char *name)
      if (strcmp (props->prop_info[i].name, name) == 0)
        return i;
   }
-  return -1;
+  return SPA_IDX_INVALID;
 }
 
 

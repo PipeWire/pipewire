@@ -110,7 +110,7 @@ static const uint32_t format_values[] = {
 };
 
 static const SpaPropRangeInfo format_range[] = {
-  { "ENCODED,", "ENCODED", sizeof (uint32_t), &format_values[1] },
+  { "ENCODED", "ENCODED", sizeof (uint32_t), &format_values[1] },
   { "I420", "I420", sizeof (uint32_t), &format_values[2] },
   { "YV12", "YV12", sizeof (uint32_t), &format_values[3] },
   { "YUY2", "YUY2", sizeof (uint32_t), &format_values[4] },

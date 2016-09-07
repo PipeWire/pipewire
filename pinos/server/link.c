@@ -230,6 +230,7 @@ again:
       g_warning ("error output enum formats: %d", res);
       goto error;
     }
+    spa_debug_format (format);
     spa_format_fixate (format);
   } else if (in_state == SPA_NODE_STATE_CONFIGURE) {
     /* only input needs format */

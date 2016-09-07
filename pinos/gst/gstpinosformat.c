@@ -101,21 +101,198 @@ calc_size (GstCapsFeatures *cf, GstStructure *cs, guint *n_infos, guint *n_range
       n_ranges[0] += c;
       n_datas[0] += (1 + c) * sizeof (uint32_t);
     }
-  } else if (gst_structure_has_name (cs, "image/jpeg")) {
+  } else if (gst_structure_has_name (cs, "image/jpeg") ||
+             gst_structure_has_name (cs, "video/x-h264")) {
+    if ((val = gst_structure_get_value (cs, "width")) ||
+        (val = gst_structure_get_value (cs, "height"))) {
+      c = calc_range_size (val);
+      n_infos[0]++;
+      n_ranges[0] += c;
+      n_datas[0] += (1 + c) * sizeof (SpaRectangle);
+    }
+    if ((val = gst_structure_get_value (cs, "framerate"))) {
+      c = calc_range_size (val);
+      n_infos[0]++;
+      n_ranges[0] += c;
+      n_datas[0] += (1 + c) * sizeof (SpaFraction);
+    }
+  }
+}
+
+typedef struct {
+  GstCapsFeatures *cf;
+  GstStructure *cs;
+  SpaFormat *f;
+  SpaPropInfo *bpi;
+  SpaPropRangeInfo *bri;
+  int pi, ri;
+  void *p;
+} ConvertData;
+
+static void
+handle_video_format (ConvertData *d)
+{
+  const GValue *val;
+
+  val = gst_structure_get_value (d->cs, "format");
+  if (val) {
+    SpaVideoFormat *sv = d->p;
+
+    spa_prop_info_fill_video (&d->bpi[d->pi],
+                              SPA_PROP_ID_VIDEO_FORMAT,
+                              SPA_PTRDIFF (d->p, d->f));
+
+    if (G_VALUE_TYPE (val) == G_TYPE_STRING) {
+      *sv = gst_video_format_from_string (g_value_get_string (val));
+      d->p = ++sv;
+    } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
+      fprintf (stderr, "implement me\n");
+      SPA_PROPS_INDEX_UNSET (&d->f->props, d->pi);
+    } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
+      fprintf (stderr, "implement me\n");
+      SPA_PROPS_INDEX_UNSET (&d->f->props, d->pi);
+    } else {
+      fprintf (stderr, "implement me\n");
+      SPA_PROPS_INDEX_UNSET (&d->f->props, d->pi);
+    }
+    d->pi++;
+  }
+}
+
+static void
+handle_video_size (ConvertData *d)
+{
+  const GValue *val, *val2;
+
+  val = gst_structure_get_value (d->cs, "width");
+  val2 = gst_structure_get_value (d->cs, "height");
+  if (val || val2) {
+    SpaRectangle *sv = d->p;
+
+    spa_prop_info_fill_video (&d->bpi[d->pi],
+                              SPA_PROP_ID_VIDEO_SIZE,
+                              SPA_PTRDIFF (d->p, d->f));
+
+    if (val && val2 && G_VALUE_TYPE (val) == G_VALUE_TYPE (val2)) {
+      if (G_VALUE_TYPE (val) == G_TYPE_INT) {
+        sv->width = g_value_get_int (val);
+        sv->height = g_value_get_int (val2);
+        d->p = ++sv;
+        d->bpi[d->pi].range_type = SPA_PROP_RANGE_TYPE_NONE;
+        d->bpi[d->pi].n_range_values = 0;
+        d->bpi[d->pi].range_values = NULL;
+      } else if (G_VALUE_TYPE (val) == GST_TYPE_INT_RANGE) {
+        d->bpi[d->pi].range_type = SPA_PROP_RANGE_TYPE_MIN_MAX;
+        d->bpi[d->pi].n_range_values = 2;
+        d->bpi[d->pi].range_values = &d->bri[d->ri];
+
+        d->bri[d->ri].name = NULL;
+        d->bri[d->ri].description = NULL;
+        d->bri[d->ri].val.size = sizeof (SpaRectangle);
+        d->bri[d->ri].val.value = d->p;
+        sv->width = gst_value_get_int_range_min (val);
+        sv->height = gst_value_get_int_range_min (val2);
+        d->p = ++sv;
+        d->ri++;
+
+        d->bri[d->ri].name = NULL;
+        d->bri[d->ri].description = NULL;
+        d->bri[d->ri].val.size = sizeof (SpaRectangle);
+        d->bri[d->ri].val.value = d->p;
+        sv->width = gst_value_get_int_range_max (val);
+        sv->height = gst_value_get_int_range_max (val2);
+        d->p = ++sv;
+        d->ri++;
+
+        SPA_PROPS_INDEX_UNSET (&d->f->props, d->pi);
+      } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
+        fprintf (stderr, "implement me\n");
+        SPA_PROPS_INDEX_UNSET (&d->f->props, d->pi);
+      } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
+        fprintf (stderr, "implement me\n");
+        SPA_PROPS_INDEX_UNSET (&d->f->props, d->pi);
+      } else {
+        fprintf (stderr, "implement me\n");
+        SPA_PROPS_INDEX_UNSET (&d->f->props, d->pi);
+      }
+    }
+    d->pi++;
+  }
+}
+
+static void
+handle_video_framerate (ConvertData *d)
+{
+  const GValue *val;
+
+  val = gst_structure_get_value (d->cs, "framerate");
+  if (val) {
+    SpaFraction *sv = d->p;
+
+    spa_prop_info_fill_video (&d->bpi[d->pi],
+                              SPA_PROP_ID_VIDEO_FRAMERATE,
+                              SPA_PTRDIFF (d->p, d->f));
+
+    if (G_VALUE_TYPE (val) == GST_TYPE_FRACTION) {
+      sv->num = gst_value_get_fraction_numerator (val);
+      sv->denom = gst_value_get_fraction_denominator (val);
+      d->p = ++sv;
+      d->bpi[d->pi].range_type = SPA_PROP_RANGE_TYPE_NONE;
+      d->bpi[d->pi].n_range_values = 0;
+      d->bpi[d->pi].range_values = NULL;
+    } else if (G_VALUE_TYPE (val) == GST_TYPE_FRACTION_RANGE) {
+      const GValue *min, *max;
+
+      min = gst_value_get_fraction_range_min (val);
+      max = gst_value_get_fraction_range_max (val);
+
+      d->bpi[d->pi].range_type = SPA_PROP_RANGE_TYPE_MIN_MAX;
+      d->bpi[d->pi].n_range_values = 2;
+      d->bpi[d->pi].range_values = &d->bri[d->ri];
+
+      d->bri[d->ri].name = NULL;
+      d->bri[d->ri].description = NULL;
+      d->bri[d->ri].val.size = sizeof (SpaFraction);
+      d->bri[d->ri].val.value = d->p;
+      sv->num = gst_value_get_fraction_numerator (min);
+      sv->denom = gst_value_get_fraction_denominator (min);
+      d->p = ++sv;
+      d->ri++;
+
+      d->bri[d->ri].name = NULL;
+      d->bri[d->ri].description = NULL;
+      d->bri[d->ri].val.size = sizeof (SpaFraction);
+      d->bri[d->ri].val.value = d->p;
+      sv->num = gst_value_get_fraction_numerator (max);
+      sv->denom = gst_value_get_fraction_denominator (max);
+      d->p = ++sv;
+      d->ri++;
+
+      SPA_PROPS_INDEX_UNSET (&d->f->props, d->pi);
+    } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
+      fprintf (stderr, "implement me\n");
+      SPA_PROPS_INDEX_UNSET (&d->f->props, d->pi);
+    } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
+      fprintf (stderr, "implement me\n");
+      SPA_PROPS_INDEX_UNSET (&d->f->props, d->pi);
+    } else {
+      fprintf (stderr, "implement me\n");
+      SPA_PROPS_INDEX_UNSET (&d->f->props, d->pi);
+    }
+    d->pi++;
   }
 }
 
 static SpaFormat *
 convert_1 (GstCapsFeatures *cf, GstStructure *cs)
 {
-  SpaMemory *mem;
-  SpaFormat *f;
+  const GValue *val;
   guint size, n_infos = 0, n_ranges = 0, n_datas = 0;
-  SpaPropInfo *bpi;
-  SpaPropRangeInfo *bri;
-  int pi, ri;
-  void *p;
-  const GValue *val, *val2;
+  SpaMemory *mem;
+  ConvertData d;
+
+  d.cf = cf;
+  d.cs = cs;
 
   calc_size (cf, cs, &n_infos, &n_ranges, &n_datas);
 
@@ -125,192 +302,61 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
   size += n_datas;
 
   mem = spa_memory_alloc_size (SPA_MEMORY_POOL_LOCAL, NULL, size);
-  f = spa_memory_ensure_ptr (mem);
-  f->mem.mem = mem->mem;
-  f->mem.offset = 0;
-  f->mem.size = mem->size;
+  d.f = spa_memory_ensure_ptr (mem);
+  d.f->mem.mem = mem->mem;
+  d.f->mem.offset = 0;
+  d.f->mem.size = mem->size;
 
-  bpi = SPA_MEMBER (f, sizeof (SpaFormat), SpaPropInfo);
-  bri = SPA_MEMBER (bpi, n_infos * sizeof (SpaPropInfo), SpaPropRangeInfo);
-  p = SPA_MEMBER (bri, n_ranges * sizeof (SpaPropRangeInfo), void);
+  d.bpi = SPA_MEMBER (d.f, sizeof (SpaFormat), SpaPropInfo);
+  d.bri = SPA_MEMBER (d.bpi, n_infos * sizeof (SpaPropInfo), SpaPropRangeInfo);
+  d.p = SPA_MEMBER (d.bri, n_ranges * sizeof (SpaPropRangeInfo), void);
 
-  pi = ri = 0;
+  d.pi = d.ri = 0;
 
-  f->props.n_prop_info = n_infos;
-  f->props.prop_info = bpi;
-  f->props.unset_mask = 0;
+  d.f->props.n_prop_info = n_infos;
+  d.f->props.prop_info = d.bpi;
+  d.f->props.unset_mask = 0;
 
-  if (gst_structure_has_name (cs, "video/x-raw")) {
-    f->media_type = SPA_MEDIA_TYPE_VIDEO;
-    f->media_subtype = SPA_MEDIA_SUBTYPE_RAW;
+  if (gst_structure_has_name (d.cs, "video/x-raw")) {
+    d.f->media_type = SPA_MEDIA_TYPE_VIDEO;
+    d.f->media_subtype = SPA_MEDIA_SUBTYPE_RAW;
+    handle_video_format (&d);
+    handle_video_size (&d);
+    handle_video_framerate (&d);
+  } else if (gst_structure_has_name (d.cs, "audio/x-raw")) {
+    d.f->media_type = SPA_MEDIA_TYPE_AUDIO;
+    d.f->media_subtype = SPA_MEDIA_SUBTYPE_RAW;
 
-    val = gst_structure_get_value (cs, "format");
+    val = gst_structure_get_value (d.cs, "format");
     if (val) {
-      SpaVideoFormat *sv = p;
+      SpaAudioFormat *sv = d.p;
 
-      spa_prop_info_fill_video (&bpi[pi],
-                                SPA_PROP_ID_VIDEO_FORMAT,
-                                SPA_PTRDIFF (p, f));
-
-      if (G_VALUE_TYPE (val) == G_TYPE_STRING) {
-        *sv = gst_video_format_from_string (g_value_get_string (val));
-        p = ++sv;
-      } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
-        fprintf (stderr, "implement me\n");
-        SPA_PROPS_INDEX_UNSET (&f->props, pi);
-      } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
-        fprintf (stderr, "implement me\n");
-        SPA_PROPS_INDEX_UNSET (&f->props, pi);
-      } else {
-        fprintf (stderr, "implement me\n");
-        SPA_PROPS_INDEX_UNSET (&f->props, pi);
-      }
-      pi++;
-    }
-    val = gst_structure_get_value (cs, "width");
-    val2 = gst_structure_get_value (cs, "height");
-    if (val || val2) {
-      SpaRectangle *sv = p;
-
-      spa_prop_info_fill_video (&bpi[pi],
-                                    SPA_PROP_ID_VIDEO_SIZE,
-                                    SPA_PTRDIFF (p, f));
-
-      if (val && val2 && G_VALUE_TYPE (val) == G_VALUE_TYPE (val2)) {
-        if (G_VALUE_TYPE (val) == G_TYPE_INT) {
-          sv->width = g_value_get_int (val);
-          sv->height = g_value_get_int (val2);
-          p = ++sv;
-          bpi[pi].range_type = SPA_PROP_RANGE_TYPE_NONE;
-          bpi[pi].n_range_values = 0;
-          bpi[pi].range_values = NULL;
-        } else if (G_VALUE_TYPE (val) == GST_TYPE_INT_RANGE) {
-          bpi[pi].range_type = SPA_PROP_RANGE_TYPE_MIN_MAX;
-          bpi[pi].n_range_values = 2;
-          bpi[pi].range_values = &bri[ri];
-
-          bri[ri].name = NULL;
-          bri[ri].description = NULL;
-          bri[ri].val.size = sizeof (SpaRectangle);
-          bri[ri].val.value = p;
-          sv->width = gst_value_get_int_range_min (val);
-          sv->height = gst_value_get_int_range_min (val2);
-          p = ++sv;
-          ri++;
-
-          bri[ri].name = NULL;
-          bri[ri].description = NULL;
-          bri[ri].val.size = sizeof (SpaRectangle);
-          bri[ri].val.value = p;
-          sv->width = gst_value_get_int_range_max (val);
-          sv->height = gst_value_get_int_range_max (val2);
-          p = ++sv;
-          ri++;
-
-          SPA_PROPS_INDEX_UNSET (&f->props, pi);
-        } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
-          fprintf (stderr, "implement me\n");
-          SPA_PROPS_INDEX_UNSET (&f->props, pi);
-        } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
-          fprintf (stderr, "implement me\n");
-          SPA_PROPS_INDEX_UNSET (&f->props, pi);
-        } else {
-          fprintf (stderr, "implement me\n");
-          SPA_PROPS_INDEX_UNSET (&f->props, pi);
-        }
-      }
-      pi++;
-    }
-    val = gst_structure_get_value (cs, "framerate");
-    if (val) {
-      SpaFraction *sv = p;
-
-      spa_prop_info_fill_video (&bpi[pi],
-                                SPA_PROP_ID_VIDEO_FRAMERATE,
-                                SPA_PTRDIFF (p, f));
-
-      if (G_VALUE_TYPE (val) == GST_TYPE_FRACTION) {
-        sv->num = gst_value_get_fraction_numerator (val);
-        sv->denom = gst_value_get_fraction_denominator (val);
-        p = ++sv;
-        bpi[pi].range_type = SPA_PROP_RANGE_TYPE_NONE;
-        bpi[pi].n_range_values = 0;
-        bpi[pi].range_values = NULL;
-      } else if (G_VALUE_TYPE (val) == GST_TYPE_FRACTION_RANGE) {
-        const GValue *min, *max;
-
-        min = gst_value_get_fraction_range_min (val);
-        max = gst_value_get_fraction_range_max (val);
-
-        bpi[pi].range_type = SPA_PROP_RANGE_TYPE_MIN_MAX;
-        bpi[pi].n_range_values = 2;
-        bpi[pi].range_values = &bri[ri];
-
-        bri[ri].name = NULL;
-        bri[ri].description = NULL;
-        bri[ri].val.size = sizeof (SpaFraction);
-        bri[ri].val.value = p;
-        sv->num = gst_value_get_fraction_numerator (min);
-        sv->denom = gst_value_get_fraction_denominator (min);
-        p = ++sv;
-        ri++;
-
-        bri[ri].name = NULL;
-        bri[ri].description = NULL;
-        bri[ri].val.size = sizeof (SpaFraction);
-        bri[ri].val.value = p;
-        sv->num = gst_value_get_fraction_numerator (max);
-        sv->denom = gst_value_get_fraction_denominator (max);
-        p = ++sv;
-        ri++;
-
-        SPA_PROPS_INDEX_UNSET (&f->props, pi);
-      } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
-        fprintf (stderr, "implement me\n");
-        SPA_PROPS_INDEX_UNSET (&f->props, pi);
-      } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
-        fprintf (stderr, "implement me\n");
-        SPA_PROPS_INDEX_UNSET (&f->props, pi);
-      } else {
-        fprintf (stderr, "implement me\n");
-        SPA_PROPS_INDEX_UNSET (&f->props, pi);
-      }
-      pi++;
-    }
-  } else if (gst_structure_has_name (cs, "audio/x-raw")) {
-    f->media_type = SPA_MEDIA_TYPE_AUDIO;
-    f->media_subtype = SPA_MEDIA_SUBTYPE_RAW;
-
-    val = gst_structure_get_value (cs, "format");
-    if (val) {
-      SpaAudioFormat *sv = p;
-
-      spa_prop_info_fill_audio (&bpi[pi],
+      spa_prop_info_fill_audio (&d.bpi[d.pi],
                                 SPA_PROP_ID_AUDIO_FORMAT,
-                                SPA_PTRDIFF (p, f));
+                                SPA_PTRDIFF (d.p, d.f));
 
       if (G_VALUE_TYPE (val) == G_TYPE_STRING) {
         *sv = gst_audio_format_from_string (g_value_get_string (val));
-        p = ++sv;
+        d.p = ++sv;
       } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
         fprintf (stderr, "implement me\n");
-        SPA_PROPS_INDEX_UNSET (&f->props, pi);
+        SPA_PROPS_INDEX_UNSET (&d.f->props, d.pi);
       } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
         fprintf (stderr, "implement me\n");
-        SPA_PROPS_INDEX_UNSET (&f->props, pi);
+        SPA_PROPS_INDEX_UNSET (&d.f->props, d.pi);
       } else {
         fprintf (stderr, "implement me\n");
-        SPA_PROPS_INDEX_UNSET (&f->props, pi);
+        SPA_PROPS_INDEX_UNSET (&d.f->props, d.pi);
       }
-      pi++;
+      d.pi++;
     }
-    val = gst_structure_get_value (cs, "layout");
+    val = gst_structure_get_value (d.cs, "layout");
     if (val) {
-      SpaAudioLayout *sv = p;
+      SpaAudioLayout *sv = d.p;
 
-      spa_prop_info_fill_audio (&bpi[pi],
+      spa_prop_info_fill_audio (&d.bpi[d.pi],
                                 SPA_PROP_ID_AUDIO_LAYOUT,
-                                SPA_PTRDIFF (p, f));
+                                SPA_PTRDIFF (d.p, d.f));
 
       if (G_VALUE_TYPE (val) == G_TYPE_STRING) {
         const gchar *s = g_value_get_string (val);
@@ -318,73 +364,77 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
           *sv = SPA_AUDIO_LAYOUT_INTERLEAVED;
         else if (!strcmp (s, "non-interleaved"))
           *sv = SPA_AUDIO_LAYOUT_NON_INTERLEAVED;
-        p = ++sv;
+        d.p = ++sv;
       } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
         fprintf (stderr, "implement me\n");
-        SPA_PROPS_INDEX_UNSET (&f->props, pi);
+        SPA_PROPS_INDEX_UNSET (&d.f->props, d.pi);
       } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
         fprintf (stderr, "implement me\n");
-        SPA_PROPS_INDEX_UNSET (&f->props, pi);
+        SPA_PROPS_INDEX_UNSET (&d.f->props, d.pi);
       } else {
         fprintf (stderr, "implement me\n");
-        SPA_PROPS_INDEX_UNSET (&f->props, pi);
+        SPA_PROPS_INDEX_UNSET (&d.f->props, d.pi);
       }
-      pi++;
+      d.pi++;
     }
-    val = gst_structure_get_value (cs, "rate");
+    val = gst_structure_get_value (d.cs, "rate");
     if (val) {
-      uint32_t *sv = p;
+      uint32_t *sv = d.p;
 
-      spa_prop_info_fill_audio (&bpi[pi],
+      spa_prop_info_fill_audio (&d.bpi[d.pi],
                                 SPA_PROP_ID_AUDIO_RATE,
-                                SPA_PTRDIFF (p, f));
+                                SPA_PTRDIFF (d.p, d.f));
 
       if (G_VALUE_TYPE (val) == G_TYPE_INT) {
         *sv = g_value_get_int (val);
-        p = ++sv;
+        d.p = ++sv;
       } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
         fprintf (stderr, "implement me\n");
-        SPA_PROPS_INDEX_UNSET (&f->props, pi);
+        SPA_PROPS_INDEX_UNSET (&d.f->props, d.pi);
       } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
         fprintf (stderr, "implement me\n");
-        SPA_PROPS_INDEX_UNSET (&f->props, pi);
+        SPA_PROPS_INDEX_UNSET (&d.f->props, d.pi);
       } else {
         fprintf (stderr, "implement me\n");
-        SPA_PROPS_INDEX_UNSET (&f->props, pi);
+        SPA_PROPS_INDEX_UNSET (&d.f->props, d.pi);
       }
-      pi++;
+      d.pi++;
     }
     val = gst_structure_get_value (cs, "channels");
     if (val) {
-      uint32_t *sv = p;
+      uint32_t *sv = d.p;
 
-      spa_prop_info_fill_audio (&bpi[pi],
+      spa_prop_info_fill_audio (&d.bpi[d.pi],
                                 SPA_PROP_ID_AUDIO_CHANNELS,
-                                SPA_PTRDIFF (p, f));
+                                SPA_PTRDIFF (d.p, d.f));
 
       if (G_VALUE_TYPE (val) == G_TYPE_INT) {
         *sv = g_value_get_int (val);
-        p = ++sv;
+        d.p = ++sv;
       } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
         fprintf (stderr, "implement me\n");
-        SPA_PROPS_INDEX_UNSET (&f->props, pi);
+        SPA_PROPS_INDEX_UNSET (&d.f->props, d.pi);
       } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
         fprintf (stderr, "implement me\n");
-        SPA_PROPS_INDEX_UNSET (&f->props, pi);
+        SPA_PROPS_INDEX_UNSET (&d.f->props, d.pi);
       } else {
         fprintf (stderr, "implement me\n");
-        SPA_PROPS_INDEX_UNSET (&f->props, pi);
+        SPA_PROPS_INDEX_UNSET (&d.f->props, d.pi);
       }
-      pi++;
+      d.pi++;
     }
   } else if (gst_structure_has_name (cs, "image/jpeg")) {
-    f->media_type = SPA_MEDIA_TYPE_VIDEO;
-    f->media_subtype = SPA_MEDIA_SUBTYPE_MJPG;
+    d.f->media_type = SPA_MEDIA_TYPE_VIDEO;
+    d.f->media_subtype = SPA_MEDIA_SUBTYPE_MJPG;
+    handle_video_size (&d);
+    handle_video_framerate (&d);
   } else if (gst_structure_has_name (cs, "video/x-h264")) {
-    f->media_type = SPA_MEDIA_TYPE_VIDEO;
-    f->media_subtype = SPA_MEDIA_SUBTYPE_H264;
+    d.f->media_type = SPA_MEDIA_TYPE_VIDEO;
+    d.f->media_subtype = SPA_MEDIA_SUBTYPE_H264;
+    handle_video_size (&d);
+    handle_video_framerate (&d);
   }
-  return f;
+  return d.f;
 }
 
 SpaFormat *

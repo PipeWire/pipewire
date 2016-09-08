@@ -30,13 +30,13 @@ extern "C" {
 typedef struct _SpaFormatAudio SpaFormatAudio;
 
 typedef enum {
-  SPA_PROP_ID_AUDIO_FORMAT = SPA_PROP_ID_MEDIA_CUSTOM_START,
+  SPA_PROP_ID_AUDIO_INFO = SPA_PROP_ID_MEDIA_CUSTOM_START,
+  SPA_PROP_ID_AUDIO_FORMAT,
   SPA_PROP_ID_AUDIO_FLAGS,
   SPA_PROP_ID_AUDIO_LAYOUT,
   SPA_PROP_ID_AUDIO_RATE,
   SPA_PROP_ID_AUDIO_CHANNELS,
   SPA_PROP_ID_AUDIO_CHANNEL_MASK,
-  SPA_PROP_ID_AUDIO_INFO_RAW,
 } SpaPropIdAudio;
 
 SpaResult   spa_prop_info_fill_audio (SpaPropInfo     *info,

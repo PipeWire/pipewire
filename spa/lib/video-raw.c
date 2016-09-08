@@ -358,7 +358,7 @@ static const SpaPropInfo format_prop_info[] =
 {
   { SPA_PROP_ID_VIDEO_INFO,         0,
                                     "info", "the SpaVideoInfo structure",
-                                    SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL,
+                                    SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL | SPA_PROP_FLAG_INFO,
                                     SPA_PROP_TYPE_POINTER, sizeof (SpaVideoInfoRaw),
                                     SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                     NULL },
@@ -519,7 +519,7 @@ spa_format_video_init (SpaMediaType     type,
       };
       prop_info = raw_prop_info;
       n_prop_info = SPA_N_ELEMENTS (raw_prop_info);
-      format->format.props.unset_mask = (1 << 14)-1;
+      format->format.props.unset_mask = (1 << 15)-2;
       format->info.raw = default_raw_info;
       break;
     }
@@ -539,7 +539,7 @@ spa_format_video_init (SpaMediaType     type,
       };
       prop_info = h264_prop_info;
       n_prop_info = SPA_N_ELEMENTS (h264_prop_info);
-      format->format.props.unset_mask = (1 << 3)-1;
+      format->format.props.unset_mask = (1 << 4)-2;
       format->info.h264 = default_h264_info;
       break;
     }
@@ -559,7 +559,7 @@ spa_format_video_init (SpaMediaType     type,
       };
       prop_info = mjpg_prop_info;
       n_prop_info = SPA_N_ELEMENTS (mjpg_prop_info);
-      format->format.props.unset_mask = (1 << 3)-1;
+      format->format.props.unset_mask = (1 << 4)-2;
       format->info.mjpg = default_mjpg_info;
       break;
     }

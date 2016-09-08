@@ -72,6 +72,7 @@ typedef struct {
  * @SPA_PROP_FLAG_WRITABLE: property is writable
  * @SPA_PROP_FLAG_READWRITE: property is readable and writable
  * @SPA_PROP_FLAG_DEPRECATED: property is deprecated and should not be used
+ * @SPA_PROP_FLAG_INFO: property is to get/set the complete structure
  */
 typedef enum {
   SPA_PROP_FLAG_NONE            = 0,
@@ -80,6 +81,7 @@ typedef enum {
   SPA_PROP_FLAG_WRITABLE        = (1 << 2),
   SPA_PROP_FLAG_READWRITE       = SPA_PROP_FLAG_READABLE | SPA_PROP_FLAG_WRITABLE,
   SPA_PROP_FLAG_DEPRECATED      = (1 << 3),
+  SPA_PROP_FLAG_INFO            = (1 << 4),
 } SpaPropFlags;
 
 /* SpaPropRangeType:

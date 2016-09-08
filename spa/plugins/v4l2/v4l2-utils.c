@@ -682,6 +682,8 @@ have_framerate:
       fmt->ranges[i].val.value = &fmt->framerates[i];
       i++;
       state->frmival.index++;
+      if (i == 16)
+        break;
     } else if (state->frmival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS ||
                state->frmival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
       fmt->framerates[0].num = state->frmival.stepwise.min.denominator;

@@ -455,6 +455,8 @@ spa_debug_format (const SpaFormat *format)
 
     res = spa_props_get_prop (props, i, &value);
 
+    if (info->flags & SPA_PROP_FLAG_INFO)
+      continue;
     if (res == SPA_RESULT_PROPERTY_UNSET && info->flags & SPA_PROP_FLAG_OPTIONAL)
       continue;
 

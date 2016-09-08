@@ -137,6 +137,12 @@ static const SpaPropRangeInfo uint32_range[] = {
 
 static const SpaPropInfo format_prop_info[] =
 {
+  { SPA_PROP_ID_AUDIO_INFO,         0,
+                                    "info", "the SpaAudioInfo structure",
+                                    SPA_PROP_FLAG_READWRITE | SPA_PROP_FLAG_OPTIONAL | SPA_PROP_FLAG_INFO,
+                                    SPA_PROP_TYPE_POINTER, sizeof (SpaAudioInfoRaw),
+                                    SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
+                                    NULL },
   { SPA_PROP_ID_AUDIO_FORMAT,       0,
                                     "format", "The media format",
                                     SPA_PROP_FLAG_READWRITE,
@@ -171,12 +177,6 @@ static const SpaPropInfo format_prop_info[] =
                                     "channel-mask", "Audio channel mask",
                                     SPA_PROP_FLAG_READWRITE,
                                     SPA_PROP_TYPE_BITMASK, sizeof (uint32_t),
-                                    SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
-                                    NULL },
-  { SPA_PROP_ID_AUDIO_INFO_RAW,     0,
-                                    "info", "the SpaAudioInfoRaw structure",
-                                    SPA_PROP_FLAG_READWRITE,
-                                    SPA_PROP_TYPE_POINTER, sizeof (SpaAudioInfoRaw),
                                     SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                     NULL },
 };
@@ -220,17 +220,17 @@ spa_format_audio_init (SpaMediaType     type,
     {
       static SpaPropInfo raw_format_prop_info[] =
       {
+        { SPA_PROP_ID_AUDIO_INFO,         offsetof (SpaFormatAudio, info), },
         { SPA_PROP_ID_AUDIO_FORMAT,       offsetof (SpaFormatAudio, info.raw.format), },
         { SPA_PROP_ID_AUDIO_FLAGS,        offsetof (SpaFormatAudio, info.raw.flags), },
         { SPA_PROP_ID_AUDIO_LAYOUT,       offsetof (SpaFormatAudio, info.raw.layout), },
         { SPA_PROP_ID_AUDIO_RATE,         offsetof (SpaFormatAudio, info.raw.rate), },
         { SPA_PROP_ID_AUDIO_CHANNELS,     offsetof (SpaFormatAudio, info.raw.channels), },
         { SPA_PROP_ID_AUDIO_CHANNEL_MASK, offsetof (SpaFormatAudio, info.raw.channel_mask), },
-        { SPA_PROP_ID_AUDIO_INFO_RAW,     offsetof (SpaFormatAudio, info), },
       };
       prop_info = raw_format_prop_info;
       n_prop_info = SPA_N_ELEMENTS (raw_format_prop_info);
-      format->format.props.unset_mask = (1 << 0) | (1 << 2) | (1 << 3) | (1 << 4);
+      format->format.props.unset_mask = (1 << 1) | (1 << 3) | (1 << 4) | (1 << 5);
       format->info.raw = default_raw_info;
       break;
     }
@@ -288,7 +288,7 @@ spa_format_audio_parse (const SpaFormat *format,
     return res;
 
   props = &format->props;
-  idx = spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_INFO_RAW);
+  idx = spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_INFO);
   if ((res = spa_props_get_prop (props, idx, &value)) < 0)
     goto fallback;
 

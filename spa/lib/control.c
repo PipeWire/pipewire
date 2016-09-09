@@ -477,6 +477,28 @@ iter_parse_use_buffers (struct stack_iter *si, SpaControlCmdUseBuffers *cmd)
   }
 }
 
+static void
+iter_parse_node_event (struct stack_iter *si, SpaControlCmdNodeEvent *cmd)
+{
+  void *p = si->data;
+  memcpy (cmd, p, sizeof (SpaControlCmdNodeEvent));
+  if (cmd->event)
+    cmd->event = SPA_MEMBER (p, SPA_PTR_TO_INT (cmd->event), SpaNodeEvent);
+  if (cmd->event->data)
+    cmd->event->data = SPA_MEMBER (p, SPA_PTR_TO_INT (cmd->event->data), void);
+}
+
+static void
+iter_parse_node_command (struct stack_iter *si, SpaControlCmdNodeCommand *cmd)
+{
+  void *p = si->data;
+  memcpy (cmd, p, sizeof (SpaControlCmdNodeCommand));
+  if (cmd->command)
+    cmd->command = SPA_MEMBER (p, SPA_PTR_TO_INT (cmd->command), SpaNodeCommand);
+  if (cmd->command->data)
+    cmd->command->data = SPA_MEMBER (p, SPA_PTR_TO_INT (cmd->command->data), void);
+}
+
 SpaResult
 spa_control_iter_parse_cmd (SpaControlIter *iter,
                             void           *command)
@@ -503,26 +525,8 @@ spa_control_iter_parse_cmd (SpaControlIter *iter,
       memcpy (command, si->data, sizeof (SpaControlCmdPortRemoved));
       break;
 
-    case SPA_CONTROL_CMD_STATE_CHANGE:
-      if (si->size < sizeof (SpaControlCmdStateChange))
-        return SPA_RESULT_ERROR;
-      memcpy (command, si->data, sizeof (SpaControlCmdStateChange));
-      break;
-
     case SPA_CONTROL_CMD_PORT_STATUS_CHANGE:
       fprintf (stderr, "implement iter of %d\n", si->cmd);
-      break;
-
-    case SPA_CONTROL_CMD_NEED_INPUT:
-      if (si->size < sizeof (SpaControlCmdNeedInput))
-        return SPA_RESULT_ERROR;
-      memcpy (command, si->data, sizeof (SpaControlCmdNeedInput));
-      break;
-
-    case SPA_CONTROL_CMD_HAVE_OUTPUT:
-      if (si->size < sizeof (SpaControlCmdHaveOutput))
-        return SPA_RESULT_ERROR;
-      memcpy (command, si->data, sizeof (SpaControlCmdHaveOutput));
       break;
 
     /* S -> C */
@@ -544,10 +548,6 @@ spa_control_iter_parse_cmd (SpaControlIter *iter,
 
     case SPA_CONTROL_CMD_SET_PROPERTY:
       fprintf (stderr, "implement iter of %d\n", si->cmd);
-      break;
-
-    case SPA_CONTROL_CMD_START:
-    case SPA_CONTROL_CMD_PAUSE:
       break;
 
     /* bidirectional */
@@ -573,10 +573,12 @@ spa_control_iter_parse_cmd (SpaControlIter *iter,
       memcpy (command, si->data, sizeof (SpaControlCmdProcessBuffer));
       break;
 
-    case SPA_CONTROL_CMD_REUSE_BUFFER:
-      if (si->size < sizeof (SpaControlCmdReuseBuffer))
-        return SPA_RESULT_ERROR;
-      memcpy (command, si->data, sizeof (SpaControlCmdReuseBuffer));
+    case SPA_CONTROL_CMD_NODE_EVENT:
+      iter_parse_node_event (si, command);
+      break;
+
+    case SPA_CONTROL_CMD_NODE_COMMAND:
+      iter_parse_node_command (si, command);
       break;
 
     case SPA_CONTROL_CMD_INVALID:
@@ -1135,6 +1137,61 @@ builder_add_use_buffers (struct stack_builder *sb, SpaControlCmdUseBuffers *ub)
   }
 }
 
+static void
+builder_add_node_event (struct stack_builder *sb, SpaControlCmdNodeEvent *ev)
+{
+  size_t len;
+  void *p;
+  SpaControlCmdNodeEvent *d;
+  SpaNodeEvent *ne;
+
+  /* calculate length */
+  len = sizeof (SpaControlCmdNodeEvent);
+  len += sizeof (SpaNodeEvent);
+  len += ev->event->size;
+
+  p = builder_add_cmd (sb, SPA_CONTROL_CMD_NODE_EVENT, len);
+  memcpy (p, ev, sizeof (SpaControlCmdNodeEvent));
+  d = p;
+
+  p = SPA_MEMBER (d, sizeof (SpaControlCmdNodeEvent), void);
+  d->event = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
+
+  ne = p;
+  memcpy (p, ev->event, sizeof (SpaNodeEvent));
+  p = SPA_MEMBER (p, sizeof (SpaNodeEvent), void);
+  ne->data = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
+  memcpy (p, ev->event->data, ev->event->size);
+}
+
+
+static void
+builder_add_node_command (struct stack_builder *sb, SpaControlCmdNodeCommand *cm)
+{
+  size_t len;
+  void *p;
+  SpaControlCmdNodeCommand *d;
+  SpaNodeCommand *nc;
+
+  /* calculate length */
+  len = sizeof (SpaControlCmdNodeCommand);
+  len += sizeof (SpaNodeCommand);
+  len += cm->command->size;
+
+  p = builder_add_cmd (sb, SPA_CONTROL_CMD_NODE_COMMAND, len);
+  memcpy (p, cm, sizeof (SpaControlCmdNodeCommand));
+  d = p;
+
+  p = SPA_MEMBER (d, sizeof (SpaControlCmdNodeCommand), void);
+  d->command = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
+
+  nc = p;
+  memcpy (p, cm->command, sizeof (SpaNodeCommand));
+  p = SPA_MEMBER (p, sizeof (SpaNodeCommand), void);
+  nc->data = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
+  memcpy (p, cm->command->data, cm->command->size);
+}
+
 /**
  * spa_control_builder_add_cmd:
  * @builder: a #SpaControlBuilder
@@ -1172,23 +1229,8 @@ spa_control_builder_add_cmd (SpaControlBuilder *builder,
       memcpy (p, command, sizeof (SpaControlCmdPortRemoved));
       break;
 
-    case SPA_CONTROL_CMD_STATE_CHANGE:
-      p = builder_add_cmd (sb, cmd, sizeof (SpaControlCmdStateChange));
-      memcpy (p, command, sizeof (SpaControlCmdStateChange));
-      break;
-
     case SPA_CONTROL_CMD_PORT_STATUS_CHANGE:
       p = builder_add_cmd (sb, cmd, 0);
-      break;
-
-    case SPA_CONTROL_CMD_NEED_INPUT:
-      p = builder_add_cmd (sb, cmd, sizeof (SpaControlCmdNeedInput));
-      memcpy (p, command, sizeof (SpaControlCmdNeedInput));
-      break;
-
-    case SPA_CONTROL_CMD_HAVE_OUTPUT:
-      p = builder_add_cmd (sb, cmd, sizeof (SpaControlCmdHaveOutput));
-      memcpy (p, command, sizeof (SpaControlCmdHaveOutput));
       break;
 
     /* S -> C */
@@ -1208,11 +1250,6 @@ spa_control_builder_add_cmd (SpaControlBuilder *builder,
 
     case SPA_CONTROL_CMD_SET_PROPERTY:
       fprintf (stderr, "implement builder of %d\n", cmd);
-      break;
-
-    case SPA_CONTROL_CMD_START:
-    case SPA_CONTROL_CMD_PAUSE:
-      p = builder_add_cmd (sb, cmd, 0);
       break;
 
     /* bidirectional */
@@ -1235,9 +1272,12 @@ spa_control_builder_add_cmd (SpaControlBuilder *builder,
       memcpy (p, command, sizeof (SpaControlCmdProcessBuffer));
       break;
 
-    case SPA_CONTROL_CMD_REUSE_BUFFER:
-      p = builder_add_cmd (sb, cmd, sizeof (SpaControlCmdReuseBuffer));
-      memcpy (p, command, sizeof (SpaControlCmdReuseBuffer));
+    case SPA_CONTROL_CMD_NODE_EVENT:
+      builder_add_node_event (sb, command);
+      break;
+
+    case SPA_CONTROL_CMD_NODE_COMMAND:
+      builder_add_node_command (sb, command);
       break;
 
     default:

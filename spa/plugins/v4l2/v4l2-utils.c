@@ -811,6 +811,7 @@ mmap_read (SpaV4l2Source *this)
   SpaV4l2State *state = &this->state[0];
   struct v4l2_buffer buf;
   V4l2Buffer *b;
+  SpaData *d;
 
   CLEAR(buf);
   buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -829,8 +830,22 @@ mmap_read (SpaV4l2Source *this)
   }
 
   b = &state->alloc_buffers[buf.index];
+  b->header.flags = SPA_BUFFER_FLAG_NONE;
+  if (buf.flags & V4L2_BUF_FLAG_ERROR)
+    b->header.flags |= SPA_BUFFER_FLAG_CORRUPTED;
+
   b->header.seq = buf.sequence;
   b->header.pts = (uint64_t)buf.timestamp.tv_sec * 1000000000lu + (uint64_t)buf.timestamp.tv_usec * 1000lu;
+  state->last_timestamp = b->header.pts;
+
+  if (buf.flags & V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC)
+    state->last_monotonic = state->last_timestamp;
+  else
+    state->last_monotonic = SPA_TIME_INVALID;
+
+  d = SPA_BUFFER_DATAS (b->outbuf);
+  d[0].mem.size = buf.bytesused;
+
   b->next = state->ready;
   state->ready = b;
   state->ready_count++;
@@ -893,7 +908,7 @@ spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffe
     V4l2Buffer *b;
     SpaMemoryRef *mem_ref;
     SpaMemory *mem;
-    SpaData *d = SPA_BUFFER_DATAS (buffers[i]);
+    SpaData *d;
 
     b = &state->alloc_buffers[i];
     b->buffer.mem.mem = state->alloc_mem->mem;
@@ -910,6 +925,12 @@ spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffe
       fprintf (stderr, "invalid memory on buffer %p\n", buffers[i]);
       continue;
     }
+
+    if (buffers[i]->n_datas < 1) {
+      fprintf (stderr, "invalid memory on buffer %p\n", buffers[i]);
+      continue;
+    }
+    d = SPA_BUFFER_DATAS (buffers[i]);
 
     CLEAR (b->v4l2_buffer);
     b->v4l2_buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;

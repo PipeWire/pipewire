@@ -327,6 +327,7 @@ gst_pinos_src_src_fixate (GstBaseSrc * bsrc, GstCaps * caps)
 typedef struct {
   GstPinosSrc *src;
   guint id;
+  SpaBuffer *buf;
   SpaMetaHeader *header;
   guint flags;
 } ProcessMemData;
@@ -345,12 +346,15 @@ buffer_recycle (GstMiniObject *obj)
 {
   ProcessMemData *data;
 
+  GST_LOG_OBJECT (obj, "recycle buffer");
+
   gst_mini_object_ref (obj);
   data = gst_mini_object_get_qdata (obj,
                                     process_mem_data_quark);
   GST_BUFFER_FLAGS (obj) = data->flags;
 
   pinos_stream_recycle_buffer (data->src->stream, data->id);
+  GST_LOG_OBJECT (obj, "recycle buffer");
 
   return FALSE;
 }
@@ -378,6 +382,7 @@ on_add_buffer (GObject    *gobject,
 
   data.src = gst_object_ref (pinossrc);
   data.id = id;
+  data.buf = b;
   data.header = NULL;
 
   for (i = 0; i < b->n_metas; i++) {
@@ -392,23 +397,21 @@ on_add_buffer (GObject    *gobject,
     }
   }
   for (i = 0; i < b->n_datas; i++) {
-    SpaData *d = &SPA_BUFFER_DATAS (b)[i];
+    SpaData *d = &SPA_BUFFER_DATAS(b)[i];
     SpaMemory *mem;
+    GstMemory *gmem;
 
     mem = spa_memory_find (&d->mem.mem);
 
     if (mem->fd) {
-      GstMemory *fdmem = NULL;
-
-      fdmem = gst_fd_allocator_alloc (pinossrc->fd_allocator, dup (mem->fd),
+      gmem = gst_fd_allocator_alloc (pinossrc->fd_allocator, dup (mem->fd),
                 d->mem.offset + d->mem.size, GST_FD_MEMORY_FLAG_NONE);
-      gst_memory_resize (fdmem, d->mem.offset, d->mem.size);
-      gst_buffer_append_memory (buf, fdmem);
+      gst_memory_resize (gmem, d->mem.offset, d->mem.size);
     } else {
-      gst_buffer_append_memory (buf,
-               gst_memory_new_wrapped (0, mem->ptr, mem->size, d->mem.offset,
-                                       d->mem.size, NULL, NULL));
+      gmem = gst_memory_new_wrapped (0, mem->ptr, mem->size, d->mem.offset,
+                d->mem.size, NULL, NULL);
     }
+    gst_buffer_append_memory (buf, gmem);
   }
   data.flags = GST_BUFFER_FLAGS (buf);
   gst_mini_object_set_qdata (GST_MINI_OBJECT_CAST (buf),
@@ -448,6 +451,7 @@ on_new_buffer (GObject    *gobject,
   if (buf) {
     ProcessMemData *data;
     SpaMetaHeader *h;
+    guint i;
 
     data = gst_mini_object_get_qdata (GST_MINI_OBJECT_CAST (buf),
                                     process_mem_data_quark);
@@ -462,7 +466,11 @@ on_new_buffer (GObject    *gobject,
       }
       GST_BUFFER_OFFSET (buf) = h->seq;
     }
-
+    for (i = 0; i < data->buf->n_datas; i++) {
+      SpaData *d = &SPA_BUFFER_DATAS(data->buf)[i];
+      GstMemory *mem = gst_buffer_get_memory (buf, i);
+      gst_memory_resize (mem, 0, d->mem.size);
+    }
     g_queue_push_tail (&pinossrc->queue, buf);
 
     pinos_main_loop_signal (pinossrc->loop, FALSE);

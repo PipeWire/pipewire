@@ -172,6 +172,7 @@ spa_ffmpeg_enc_node_send_command (SpaNode        *node,
     case SPA_NODE_COMMAND_FLUSH:
     case SPA_NODE_COMMAND_DRAIN:
     case SPA_NODE_COMMAND_MARKER:
+    case SPA_NODE_COMMAND_CLOCK_UPDATE:
       return SPA_RESULT_NOT_IMPLEMENTED;
   }
   return SPA_RESULT_OK;

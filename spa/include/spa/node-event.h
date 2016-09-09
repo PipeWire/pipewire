@@ -64,6 +64,7 @@ typedef enum {
   SPA_NODE_EVENT_TYPE_ERROR,
   SPA_NODE_EVENT_TYPE_BUFFERING,
   SPA_NODE_EVENT_TYPE_REQUEST_REFRESH,
+  SPA_NODE_EVENT_TYPE_REQUEST_CLOCK_UPDATE,
 } SpaNodeEventType;
 
 struct _SpaNodeEvent {
@@ -96,6 +97,15 @@ typedef struct {
   uint32_t port_id;
   uint32_t buffer_id;
 } SpaNodeEventReuseBuffer;
+
+typedef struct {
+#define SPA_NODE_EVENT_REQUEST_CLOCK_UPDATE_TIME        (1 << 0)
+#define SPA_NODE_EVENT_REQUEST_CLOCK_UPDATE_SCALE       (1 << 1)
+#define SPA_NODE_EVENT_REQUEST_CLOCK_UPDATE_STATE       (1 << 2)
+  uint32_t      update_mask;
+  int64_t       timestamp;
+  int64_t       offset;
+} SpaNodeEventRequestClockUpdate;
 
 #ifdef __cplusplus
 }  /* extern "C" */

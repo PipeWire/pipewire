@@ -60,12 +60,7 @@ typedef enum {
   SPA_CONTROL_CMD_PORT_UPDATE              = 2,
   SPA_CONTROL_CMD_PORT_REMOVED             = 3,
 
-  SPA_CONTROL_CMD_STATE_CHANGE             = 4,
-
-  SPA_CONTROL_CMD_PORT_STATUS_CHANGE       = 5,
-
-  SPA_CONTROL_CMD_NEED_INPUT               = 6,
-  SPA_CONTROL_CMD_HAVE_OUTPUT              = 7,
+  SPA_CONTROL_CMD_PORT_STATUS_CHANGE       = 4,
 
   /* server to client */
   SPA_CONTROL_CMD_ADD_PORT                 = 32,
@@ -74,8 +69,7 @@ typedef enum {
   SPA_CONTROL_CMD_SET_FORMAT               = 34,
   SPA_CONTROL_CMD_SET_PROPERTY             = 35,
 
-  SPA_CONTROL_CMD_START                    = 36,
-  SPA_CONTROL_CMD_PAUSE                    = 37,
+  SPA_CONTROL_CMD_NODE_COMMAND             = 36,
 
   /* both */
   SPA_CONTROL_CMD_ADD_MEM                  = 64,
@@ -83,25 +77,28 @@ typedef enum {
 
   SPA_CONTROL_CMD_USE_BUFFERS              = 66,
   SPA_CONTROL_CMD_PROCESS_BUFFER           = 67,
-  SPA_CONTROL_CMD_REUSE_BUFFER             = 68,
 
+  SPA_CONTROL_CMD_NODE_EVENT               = 68,
 } SpaControlCmd;
 
 /*  SPA_CONTROL_CMD_NODE_UPDATE */
 typedef struct {
+#define SPA_CONTROL_CMD_NODE_UPDATE_MAX_INPUTS   (1 << 0)
+#define SPA_CONTROL_CMD_NODE_UPDATE_MAX_OUTPUTS  (1 << 1)
+#define SPA_CONTROL_CMD_NODE_UPDATE_PROPS        (1 << 2)
   uint32_t        change_mask;
   unsigned int    max_input_ports;
   unsigned int    max_output_ports;
   const SpaProps *props;
 } SpaControlCmdNodeUpdate;
 
-#define SPA_CONTROL_CMD_NODE_UPDATE_MAX_INPUTS   (1 << 0)
-#define SPA_CONTROL_CMD_NODE_UPDATE_MAX_OUTPUTS  (1 << 1)
-#define SPA_CONTROL_CMD_NODE_UPDATE_PROPS        (1 << 2)
 
 /* SPA_CONTROL_CMD_PORT_UPDATE */
 typedef struct {
   uint32_t           port_id;
+#define SPA_CONTROL_CMD_PORT_UPDATE_POSSIBLE_FORMATS  (1 << 0)
+#define SPA_CONTROL_CMD_PORT_UPDATE_PROPS             (1 << 1)
+#define SPA_CONTROL_CMD_PORT_UPDATE_INFO              (1 << 2)
   uint32_t           change_mask;
   unsigned int       n_possible_formats;
   SpaFormat        **possible_formats;
@@ -109,32 +106,12 @@ typedef struct {
   const SpaPortInfo *info;
 } SpaControlCmdPortUpdate;
 
-#define SPA_CONTROL_CMD_PORT_UPDATE_POSSIBLE_FORMATS  (1 << 0)
-#define SPA_CONTROL_CMD_PORT_UPDATE_PROPS             (1 << 1)
-#define SPA_CONTROL_CMD_PORT_UPDATE_INFO              (1 << 2)
-
 /* SPA_CONTROL_CMD_PORT_REMOVED */
 typedef struct {
   uint32_t port_id;
 } SpaControlCmdPortRemoved;
 
-/* SPA_CONTROL_CMD_STATE_CHANGE */
-typedef struct {
-  SpaNodeState state;
-} SpaControlCmdStateChange;
-
 /* SPA_CONTROL_CMD_PORT_STATUS_CHANGE */
-
-/* SPA_CONTROL_CMD_NEED_INPUT */
-typedef struct {
-  uint32_t port_id;
-} SpaControlCmdNeedInput;
-
-/* SPA_CONTROL_CMD_HAVE_OUTPUT */
-typedef struct {
-  uint32_t port_id;
-} SpaControlCmdHaveOutput;
-
 
 /* SPA_CONTROL_CMD_ADD_PORT */
 typedef struct {
@@ -161,8 +138,10 @@ typedef struct {
   void      *value;
 } SpaControlCmdSetProperty;
 
-/* SPA_CONTROL_CMD_PAUSE */
-/* SPA_CONTROL_CMD_START */
+/* SPA_CONTROL_CMD_NODE_COMMAND */
+typedef struct {
+  SpaNodeCommand *command;
+} SpaControlCmdNodeCommand;
 
 /* SPA_CONTROL_CMD_ADD_MEM */
 typedef struct {
@@ -193,12 +172,10 @@ typedef struct {
   uint32_t buffer_id;
 } SpaControlCmdProcessBuffer;
 
-/* SPA_CONTROL_CMD_REUSE_BUFFER */
+/* SPA_CONTROL_CMD_NODE_EVENT */
 typedef struct {
-  uint32_t port_id;
-  uint32_t buffer_id;
-} SpaControlCmdReuseBuffer;
-
+  SpaNodeEvent *event;
+} SpaControlCmdNodeEvent;
 
 struct _SpaControlIter {
   /*< private >*/

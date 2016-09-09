@@ -27,6 +27,7 @@ extern "C" {
 typedef struct _SpaNodeCommand SpaNodeCommand;
 
 #include <spa/defs.h>
+#include <spa/clock.h>
 
 typedef enum {
   SPA_NODE_COMMAND_INVALID                 =  0,
@@ -35,14 +36,37 @@ typedef enum {
   SPA_NODE_COMMAND_FLUSH,
   SPA_NODE_COMMAND_DRAIN,
   SPA_NODE_COMMAND_MARKER,
+  SPA_NODE_COMMAND_CLOCK_UPDATE
 } SpaNodeCommandType;
 
 struct _SpaNodeCommand {
   SpaNodeCommandType type;
-  uint32_t           port_id;
   void              *data;
   size_t             size;
 };
+
+/**
+ * SpaNodeCommandClockUpdate:
+ * @change_mask: marks which fields are updated
+ * @timestamp: the new timestamp, when @change_mask = 1<<0
+ * @monotonic_time: the new monotonic time associated with @timestamp, when
+ *                  @change_mask = 1<<0
+ * @offset: the difference between the time when this update was generated
+ *          and @monotonic_time
+ * @scale: update to the speed stored as Q16.16, @change_mask = 1<<1
+ * @state: the new clock state, when @change_mask = 1<<2
+ */
+typedef struct {
+#define SPA_NODE_COMMAND_CLOCK_UPDATE_TIME        (1 << 0)
+#define SPA_NODE_COMMAND_CLOCK_UPDATE_SCALE       (1 << 1)
+#define SPA_NODE_COMMAND_CLOCK_UPDATE_STATE       (1 << 2)
+  uint32_t      change_mask;
+  int64_t       timestamp;
+  int64_t       monotonic_time;
+  int64_t       offset;
+  int32_t       scale;
+  SpaClockState state;
+} SpaNodeCommandClockUpdate;
 
 #ifdef __cplusplus
 }  /* extern "C" */

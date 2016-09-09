@@ -29,8 +29,6 @@
 #include <poll.h>
 #include <sys/eventfd.h>
 
-#include <gio/gunixfdlist.h>
-
 #include "pinos/client/pinos.h"
 #include "pinos/client/enumtypes.h"
 #include "pinos/client/private.h"

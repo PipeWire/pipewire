@@ -70,6 +70,8 @@ struct _PinosNodePrivate
   pthread_t thread;
 
   GHashTable *links;
+
+  SpaClock *clock;
 };
 
 G_DEFINE_ABSTRACT_TYPE (PinosNode, pinos_node, G_TYPE_OBJECT);
@@ -436,6 +438,10 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
       }
       break;
     }
+    case SPA_NODE_EVENT_TYPE_NEED_INPUT:
+    {
+      break;
+    }
     case SPA_NODE_EVENT_TYPE_HAVE_OUTPUT:
     {
       PinosLink *link;
@@ -472,6 +478,27 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
                                                link->output_port,
                                                rb->buffer_id)) < 0)
           g_warning ("node %p: error reuse buffer: %d", node, res);
+      }
+      break;
+    }
+    case SPA_NODE_EVENT_TYPE_REQUEST_CLOCK_UPDATE:
+    {
+      SpaResult res;
+
+      if (priv->clock) {
+        SpaNodeCommand cmd;
+        SpaNodeCommandClockUpdate cu;
+
+        cmd.type = SPA_NODE_COMMAND_CLOCK_UPDATE;
+        cmd.data = &cu;
+        cmd.size = sizeof (cu);
+        cu.change_mask = SPA_NODE_COMMAND_CLOCK_UPDATE_TIME;
+        res = spa_clock_get_time (priv->clock, &cu.timestamp, &cu.monotonic_time);
+        cu.scale = (1 << 16) | 1;
+        cu.state = SPA_CLOCK_STATE_RUNNING;
+
+        if ((res = spa_node_send_command (this->node, &cmd)) < 0)
+          g_debug ("got error %d", res);
       }
       break;
     }
@@ -573,9 +600,13 @@ pinos_node_set_property (GObject      *_object,
       break;
 
     case PROP_NODE:
+    {
+      void *iface;
       node->node = g_value_get_pointer (value);
+      if (node->node->handle->get_interface (node->node->handle, SPA_INTERFACE_ID_CLOCK, &iface) >= 0)
+        priv->clock = iface;
       break;
-
+    }
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (node, prop_id, pspec);
       break;
@@ -1115,6 +1146,8 @@ pinos_node_link (PinosNode       *output_node,
     link->input_port = input_port;
     g_object_ref (link);
   } else {
+    if (output_node->priv->clock)
+      input_node->priv->clock = output_node->priv->clock;
 
     link = g_object_new (PINOS_TYPE_LINK,
                         "daemon", priv->daemon,

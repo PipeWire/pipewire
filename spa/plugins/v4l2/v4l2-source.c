@@ -115,11 +115,14 @@ typedef struct {
   SpaAllocParamBuffers param_buffers;
   SpaPortStatus status;
 
+  int64_t last_timestamp;
+  int64_t last_monotonic;
 } SpaV4l2State;
 
 struct _SpaV4l2Source {
   SpaHandle handle;
   SpaNode node;
+  SpaClock clock;
 
   SpaV4l2SourceProps props[2];
 
@@ -269,6 +272,7 @@ spa_v4l2_source_node_send_command (SpaNode        *node,
     case SPA_NODE_COMMAND_FLUSH:
     case SPA_NODE_COMMAND_DRAIN:
     case SPA_NODE_COMMAND_MARKER:
+    case SPA_NODE_COMMAND_CLOCK_UPDATE:
       return SPA_RESULT_NOT_IMPLEMENTED;
   }
   return SPA_RESULT_OK;
@@ -740,6 +744,51 @@ static const SpaNode v4l2source_node = {
 };
 
 static SpaResult
+spa_v4l2_source_clock_get_props (SpaClock  *clock,
+                                 SpaProps **props)
+{
+  return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
+static SpaResult
+spa_v4l2_source_clock_set_props (SpaClock       *clock,
+                                 const SpaProps *props)
+{
+  return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
+static SpaResult
+spa_v4l2_source_clock_get_time (SpaClock         *clock,
+                                int64_t          *clock_time,
+                                int64_t          *monotonic_time)
+{
+  SpaV4l2Source *this;
+  SpaV4l2State *state;
+
+  if (clock == NULL || clock->handle == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaV4l2Source *) clock->handle;
+  state = &this->state[0];
+
+  if (clock_time)
+    *clock_time = state->last_timestamp;
+  if (monotonic_time)
+    *monotonic_time = state->last_monotonic;
+
+  return SPA_RESULT_OK;
+}
+
+static const SpaClock v4l2source_clock = {
+  NULL,
+  sizeof (SpaClock),
+  SPA_CLOCK_STATE_STOPPED,
+  spa_v4l2_source_clock_get_props,
+  spa_v4l2_source_clock_set_props,
+  spa_v4l2_source_clock_get_time,
+};
+
+static SpaResult
 spa_v4l2_source_get_interface (SpaHandle               *handle,
                                uint32_t                 interface_id,
                                void                   **interface)
@@ -754,6 +803,9 @@ spa_v4l2_source_get_interface (SpaHandle               *handle,
   switch (interface_id) {
     case SPA_INTERFACE_ID_NODE:
       *interface = &this->node;
+      break;
+    case SPA_INTERFACE_ID_CLOCK:
+      *interface = &this->clock;
       break;
     default:
       return SPA_RESULT_UNKNOWN_INTERFACE;
@@ -782,6 +834,8 @@ v4l2_source_init (const SpaHandleFactory  *factory,
   this = (SpaV4l2Source *) handle;
   this->node = v4l2source_node;
   this->node.handle = handle;
+  this->clock = v4l2source_clock;
+  this->clock.handle = handle;
   this->props[1].props.n_prop_info = PROP_ID_LAST;
   this->props[1].props.prop_info = prop_info;
   reset_v4l2_source_props (&this->props[1]);
@@ -800,6 +854,10 @@ static const SpaInterfaceInfo v4l2_source_interfaces[] =
     SPA_INTERFACE_ID_NODE_NAME,
     SPA_INTERFACE_ID_NODE_DESCRIPTION,
   },
+  { SPA_INTERFACE_ID_CLOCK,
+    SPA_INTERFACE_ID_CLOCK_NAME,
+    SPA_INTERFACE_ID_CLOCK_DESCRIPTION,
+  },
 };
 
 static SpaResult
@@ -814,13 +872,10 @@ v4l2_source_enum_interface_info (const SpaHandleFactory  *factory,
 
   index = (*state == NULL ? 0 : *(int*)state);
 
-  switch (index) {
-    case 0:
-      *info = &v4l2_source_interfaces[index];
-      break;
-    default:
-      return SPA_RESULT_ENUM_END;
-  }
+  if (index < 0 || index >= SPA_N_ELEMENTS (v4l2_source_interfaces))
+    return SPA_RESULT_ENUM_END;
+
+  *info = &v4l2_source_interfaces[index];
   *(int*)state = ++index;
   return SPA_RESULT_OK;
 }

@@ -248,6 +248,7 @@ module_spa_la_SOURCES = \
 		modules/spa/spa-audiotestsrc.c \
 		modules/spa/spa-alsa-monitor.c \
 		modules/spa/spa-v4l2-monitor.c \
+		modules/spa/spa-videotestsrc.c \
 		modules/spa/module.c
 module_spa_la_CFLAGS = $(AM_CFLAGS)
 module_spa_la_LDFLAGS = $(MODULE_LDFLAGS)

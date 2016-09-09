@@ -24,6 +24,7 @@
 #include "spa-alsa-monitor.h"
 #include "spa-v4l2-monitor.h"
 #include "spa-audiotestsrc.h"
+#include "spa-videotestsrc.h"
 
 gboolean pinos__module_init (PinosModule *module, const gchar * args);
 
@@ -33,6 +34,7 @@ pinos__module_init (PinosModule * module, G_GNUC_UNUSED const gchar * args)
   pinos_spa_alsa_monitor_new (module->daemon);
   pinos_spa_v4l2_monitor_new (module->daemon);
   pinos_spa_audiotestsrc_new (module->daemon, "audiotestsrc", NULL);
+  pinos_spa_videotestsrc_new (module->daemon, "videotestsrc", NULL);
 
   return TRUE;
 }

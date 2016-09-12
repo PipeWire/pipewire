@@ -57,8 +57,10 @@ enum
   PROP_DAEMON,
   PROP_OBJECT_PATH,
   PROP_OUTPUT_NODE,
+  PROP_OUTPUT_ID,
   PROP_OUTPUT_PORT,
   PROP_INPUT_NODE,
+  PROP_INPUT_ID,
   PROP_INPUT_PORT,
   PROP_FORMAT_FILTER,
   PROP_PROPERTIES,
@@ -94,12 +96,20 @@ pinos_link_get_property (GObject    *_object,
       g_value_set_object (value, this->output_node);
       break;
 
+    case PROP_OUTPUT_ID:
+      g_value_set_uint (value, this->output_id);
+      break;
+
     case PROP_OUTPUT_PORT:
       g_value_set_uint (value, this->output_port);
       break;
 
     case PROP_INPUT_NODE:
       g_value_set_object (value, this->input_node);
+      break;
+
+    case PROP_INPUT_ID:
+      g_value_set_uint (value, this->input_id);
       break;
 
     case PROP_INPUT_PORT:
@@ -142,12 +152,20 @@ pinos_link_set_property (GObject      *_object,
       this->output_node = g_value_dup_object (value);
       break;
 
+    case PROP_OUTPUT_ID:
+      this->output_id = g_value_get_uint (value);
+      break;
+
     case PROP_OUTPUT_PORT:
       this->output_port = g_value_get_uint (value);
       break;
 
     case PROP_INPUT_NODE:
       this->input_node = g_value_dup_object (value);
+      break;
+
+    case PROP_INPUT_ID:
+      this->input_id = g_value_get_uint (value);
       break;
 
     case PROP_INPUT_PORT:
@@ -279,7 +297,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
   const SpaPortInfo *iinfo, *oinfo;
   SpaPortInfoFlags in_flags, out_flags;
 
-  if (in_state != SPA_NODE_STATE_READY || out_state != SPA_NODE_STATE_READY)
+  if (in_state < SPA_NODE_STATE_READY || out_state < SPA_NODE_STATE_READY)
     return SPA_RESULT_OK;
 
   g_debug ("link %p: doing alloc buffers %p %p", this, this->output_node, this->input_node);
@@ -296,9 +314,6 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
   spa_debug_port_info (oinfo);
   spa_debug_port_info (iinfo);
 
-  priv->n_in_buffers = 16;
-  priv->n_out_buffers = 16;
-
   if ((oinfo->flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) &&
       (iinfo->flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS)) {
     out_flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
@@ -309,6 +324,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
     in_flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
   } else if ((oinfo->flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS) &&
       (iinfo->flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS)) {
+    priv->n_in_buffers = 16;
     out_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
     in_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
 
@@ -330,7 +346,13 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
     goto error;
   }
 
+  if (in_state > SPA_NODE_STATE_READY)
+    in_flags &= ~SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+  if (out_state > SPA_NODE_STATE_READY)
+    out_flags &= ~SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+
   if (in_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
+    priv->n_in_buffers = 16;
     if ((res = spa_node_port_alloc_buffers (this->input_node->node, this->input_port,
                                             oinfo->params, oinfo->n_params,
                                             priv->in_buffers, &priv->n_in_buffers)) < 0) {
@@ -339,6 +361,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
     }
   }
   if (out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
+    priv->n_out_buffers = 16;
     if ((res = spa_node_port_alloc_buffers (this->output_node->node, this->output_port,
                                             iinfo->params, iinfo->n_params,
                                             priv->out_buffers, &priv->n_out_buffers)) < 0) {
@@ -460,8 +483,9 @@ pinos_link_constructed (GObject * object)
   G_OBJECT_CLASS (pinos_link_parent_class)->constructed (object);
 
   on_property_notify (G_OBJECT (this), NULL, this);
-  g_debug ("link %p: constructed %p:%d -> %p:%d", this, this->output_node, this->output_port,
-                                                  this->input_node, this->input_port);
+  g_debug ("link %p: constructed %p:%d:%d -> %p:%d:%d", this,
+                                                  this->output_node, this->output_id, this->output_port,
+                                                  this->input_node, this->input_id, this->input_port);
   link_register_object (this);
 
   check_states (this);
@@ -536,6 +560,18 @@ pinos_link_class_init (PinosLinkClass * klass)
                                                         G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class,
+                                   PROP_OUTPUT_ID,
+                                   g_param_spec_uint ("output-id",
+                                                      "Output Id",
+                                                      "The output id",
+                                                      0,
+                                                      G_MAXUINT,
+                                                      -1,
+                                                      G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT |
+                                                      G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class,
                                    PROP_OUTPUT_PORT,
                                    g_param_spec_uint ("output-port",
                                                       "Output Port",
@@ -556,6 +592,18 @@ pinos_link_class_init (PinosLinkClass * klass)
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_CONSTRUCT |
                                                         G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_INPUT_ID,
+                                   g_param_spec_uint ("input-id",
+                                                      "Input Id",
+                                                      "The input id",
+                                                      0,
+                                                      G_MAXUINT,
+                                                      -1,
+                                                      G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT |
+                                                      G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class,
                                    PROP_INPUT_PORT,

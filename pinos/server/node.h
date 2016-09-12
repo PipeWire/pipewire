@@ -86,13 +86,13 @@ PinosDaemon *       pinos_node_get_daemon              (PinosNode       *node);
 const gchar *       pinos_node_get_sender              (PinosNode       *node);
 const gchar *       pinos_node_get_object_path         (PinosNode       *node);
 
-guint               pinos_node_get_free_port_id        (PinosNode       *node,
+guint               pinos_node_get_free_port           (PinosNode       *node,
                                                         PinosDirection   direction);
 
 PinosLink *         pinos_node_link                    (PinosNode       *output_node,
-                                                        guint            output_port,
+                                                        guint            output_id,
                                                         PinosNode       *input_node,
-                                                        guint            input_port,
+                                                        guint            input_id,
                                                         GPtrArray       *format_filter,
                                                         PinosProperties *properties);
 GList *             pinos_node_get_links               (PinosNode       *node);

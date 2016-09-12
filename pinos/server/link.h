@@ -48,9 +48,11 @@ struct _PinosLink {
   GObject object;
 
   PinosNode *output_node;
-  guint      output_port;
+  guint      output_id;
+  uint32_t   output_port;
   PinosNode *input_node;
-  guint      input_port;
+  guint      input_id;
+  uint32_t   input_port;
 
   PinosLinkPrivate *priv;
 };

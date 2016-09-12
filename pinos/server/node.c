@@ -37,6 +37,10 @@
 #define PINOS_NODE_GET_PRIVATE(node)  \
    (G_TYPE_INSTANCE_GET_PRIVATE ((node), PINOS_TYPE_NODE, PinosNodePrivate))
 
+typedef struct {
+  PinosLink *link;
+} NodeLink;
+
 struct _PinosNodePrivate
 {
   PinosDaemon *daemon;
@@ -69,7 +73,10 @@ struct _PinosNodePrivate
   gboolean running;
   pthread_t thread;
 
-  GHashTable *links;
+  GArray *output_links;
+  guint   n_used_output_links;
+  GArray *input_links;
+  guint   n_used_input_links;
 
   SpaClock *clock;
 };
@@ -469,38 +476,47 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
     }
     case SPA_NODE_EVENT_TYPE_HAVE_OUTPUT:
     {
-      PinosLink *link;
       SpaPortOutputInfo oinfo[1] = { 0, };
       SpaResult res;
+      guint i;
 
       if ((res = spa_node_port_pull_output (node, 1, oinfo)) < 0) {
         g_warning ("node %p: got pull error %d, %d", this, res, oinfo[0].status);
         break;
       }
 
-      link = g_hash_table_lookup (priv->links, GUINT_TO_POINTER (oinfo[0].port_id));
-      if (link) {
+      for (i = 0; i < priv->output_links->len; i++) {
+        NodeLink *link = &g_array_index (priv->output_links, NodeLink, i);
+        PinosLink *pl = link->link;
         SpaPortInputInfo iinfo[1];
 
-        iinfo[0].port_id = link->input_port;
+        if (pl == NULL || pl->output_node->node != node || pl->output_port != oinfo[0].port_id)
+          continue;
+
+        iinfo[0].port_id = pl->input_port;
         iinfo[0].buffer_id = oinfo[0].buffer_id;
         iinfo[0].flags = SPA_PORT_INPUT_FLAG_NONE;
 
-        if ((res = spa_node_port_push_input (link->input_node->node, 1, iinfo)) < 0)
+        if ((res = spa_node_port_push_input (pl->input_node->node, 1, iinfo)) < 0)
           g_warning ("node %p: error pushing buffer: %d, %d", this, res, iinfo[0].status);
       }
       break;
     }
     case SPA_NODE_EVENT_TYPE_REUSE_BUFFER:
     {
-      PinosLink *link;
       SpaResult res;
       SpaNodeEventReuseBuffer *rb = event->data;
+      guint i;
 
-      link = g_hash_table_lookup (priv->links, GUINT_TO_POINTER (rb->port_id));
-      if (link) {
-        if ((res = spa_node_port_reuse_buffer (link->output_node->node,
-                                               link->output_port,
+      for (i = 0; i < priv->input_links->len; i++) {
+        NodeLink *link = &g_array_index (priv->input_links, NodeLink, i);
+        PinosLink *pl = link->link;
+
+        if (pl == NULL || pl->input_node->node != node || pl->input_port != rb->port_id)
+          continue;
+
+        if ((res = spa_node_port_reuse_buffer (pl->output_node->node,
+                                               pl->output_port,
                                                rb->buffer_id)) < 0)
           g_warning ("node %p: error reuse buffer: %d", node, res);
       }
@@ -715,7 +731,8 @@ pinos_node_dispose (GObject * obj)
 
   node_unregister_object (node);
 
-  g_hash_table_unref (priv->links);
+  g_array_free (priv->input_links, TRUE);
+  g_array_free (priv->output_links, TRUE);
 
   G_OBJECT_CLASS (pinos_node_parent_class)->dispose (obj);
 }
@@ -881,7 +898,8 @@ pinos_node_init (PinosNode * node)
   priv->state = PINOS_NODE_STATE_SUSPENDED;
   pinos_node1_set_state (priv->iface, PINOS_NODE_STATE_SUSPENDED);
 
-  priv->links = g_hash_table_new (g_direct_hash, g_direct_equal);
+  priv->input_links = g_array_new (FALSE, TRUE, sizeof (NodeLink));
+  priv->output_links = g_array_new (FALSE, TRUE, sizeof (NodeLink));
 }
 
 /**
@@ -1042,63 +1060,102 @@ pinos_node_remove (PinosNode *node)
   g_signal_emit (node, signals[SIGNAL_REMOVE], 0, NULL);
 }
 
-/**
- * pinos_node_get_free_port_id:
- * @node: a #PinosNode
- * @direction: a #PinosDirection
- *
- * Find a new unused port id in @node with @direction
- *
- * Returns: the new port id of %SPA_INVALID_ID on error
- */
-guint
-pinos_node_get_free_port_id (PinosNode       *node,
-                             PinosDirection   direction)
+static uint32_t
+get_free_node_port (PinosNode      *node,
+                    PinosDirection  direction)
 {
-  PinosNodePrivate *priv;
-  guint i, free_port = 0, n_ports, max_ports;
+  PinosNodePrivate *priv = node->priv;
+  guint i, free_port, n_ports, max_ports;
   uint32_t *ports;
-
-  g_return_val_if_fail (PINOS_IS_NODE (node), -1);
-  priv = node->priv;
 
   if (direction == PINOS_DIRECTION_INPUT) {
     max_ports = priv->max_input_ports;
     n_ports = priv->n_input_ports;
     ports = priv->input_port_ids;
+    free_port = 0;
   } else {
     max_ports = priv->max_output_ports;
     n_ports = priv->n_output_ports;
     ports = priv->output_port_ids;
+    free_port = priv->max_input_ports;
   }
+  if (max_ports == n_ports)
+    return SPA_ID_INVALID;
 
   g_debug ("node %p: direction %d max %u, n %u", node, direction, max_ports, n_ports);
 
   for (i = 0; i < n_ports; i++) {
     if (free_port < ports[i])
       break;
-
-    if (g_hash_table_lookup (priv->links, GUINT_TO_POINTER (free_port)) == NULL && free_port < max_ports)
-      return free_port;
-
     free_port = ports[i] + 1;
   }
   if (free_port >= max_ports)
-    return -1;
+    return SPA_ID_INVALID;
 
   return free_port;
+}
+
+/**
+ * pinos_node_get_free_port:
+ * @node: a #PinosNode
+ * @direction: a #PinosDirection
+ *
+ * Find a new unused port id in @node with @direction
+ *
+ * Returns: the new port id or %SPA_ID_INVALID on error
+ */
+guint
+pinos_node_get_free_port (PinosNode       *node,
+                          PinosDirection   direction)
+{
+  PinosNodePrivate *priv;
+  guint i, n_ports;
+  NodeLink *links;
+
+  g_return_val_if_fail (PINOS_IS_NODE (node), SPA_ID_INVALID);
+  priv = node->priv;
+
+  if (direction == PINOS_DIRECTION_INPUT) {
+    n_ports = priv->input_links->len;
+    links = (NodeLink *)priv->input_links->data;
+  } else {
+    n_ports = priv->output_links->len;
+    links = (NodeLink *)priv->output_links->data;
+  }
+
+  for (i = 0; i < n_ports; i++) {
+    if (!links[i].link)
+      return i;
+  }
+  return n_ports;
 }
 
 static void
 do_remove_link (PinosLink *link, PinosNode *node)
 {
-  g_hash_table_remove (link->output_node->priv->links, GUINT_TO_POINTER (link->output_port));
-  if (g_hash_table_size (link->output_node->priv->links) == 0)
-    pinos_node_report_idle (link->output_node);
+  guint i, n_links;
+  GArray *links;
 
-  g_hash_table_remove (link->input_node->priv->links, GUINT_TO_POINTER (link->input_port));
-  if (g_hash_table_size (link->input_node->priv->links) == 0)
-    pinos_node_report_idle (link->input_node);
+  links = link->output_node->priv->output_links;
+  n_links = links->len;
+  for (i = 0; i < n_links; i++) {
+    NodeLink *l = &g_array_index (links, NodeLink, i);
+    if (l->link == link) {
+      l->link = NULL;
+      if (--link->output_node->priv->n_used_output_links == 0)
+        pinos_node_report_idle (link->output_node);
+    }
+  }
+  links = link->input_node->priv->input_links;
+  n_links = links->len;
+  for (i = 0; i < n_links; i++) {
+    NodeLink *l = &g_array_index (links, NodeLink, i);
+    if (l->link == link) {
+      l->link = NULL;
+      if (--link->input_node->priv->n_used_input_links == 0)
+        pinos_node_report_idle (link->input_node);
+    }
+  }
 }
 
 /**
@@ -1121,61 +1178,74 @@ do_remove_link (PinosLink *link, PinosNode *node)
  */
 PinosLink *
 pinos_node_link (PinosNode       *output_node,
-                 guint            output_port,
+                 guint            output_id,
                  PinosNode       *input_node,
-                 guint            input_port,
+                 guint            input_id,
                  GPtrArray       *format_filter,
                  PinosProperties *properties)
 {
   PinosNodePrivate *priv;
-  PinosLink *link;
+  NodeLink *olink, *ilink;
+  PinosLink *pl;
 
   g_return_val_if_fail (PINOS_IS_NODE (output_node), NULL);
   g_return_val_if_fail (PINOS_IS_NODE (input_node), NULL);
 
-  if (get_port_direction (output_node, output_port) != PINOS_DIRECTION_OUTPUT) {
-    PinosNode *tmp;
-    guint tmp_port;
-
-    tmp = output_node;
-    output_node = input_node;
-    input_node = tmp;
-
-    tmp_port = output_port;
-    output_port = input_port;
-    input_port = tmp_port;
-  }
-
   priv = output_node->priv;
 
-  link = g_hash_table_lookup (priv->links, GUINT_TO_POINTER (output_port));
-  if (link) {
-    link->input_node = input_node;
-    link->input_port = input_port;
-    g_object_ref (link);
+  g_debug ("node %p: link %u %p:%u", output_node, output_id, input_node, input_id);
+
+  if (output_id >= priv->output_links->len)
+    g_array_set_size (priv->output_links, output_id + 1);
+  if (input_id >= input_node->priv->input_links->len)
+    g_array_set_size (input_node->priv->input_links, input_id + 1);
+
+  olink = &g_array_index (priv->output_links, NodeLink, output_id);
+  ilink = &g_array_index (input_node->priv->input_links, NodeLink, input_id);
+  pl = olink->link;
+
+  if (pl)  {
+    /* FIXME */
+    pl->input_node = input_node;
+    pl->input_id = input_id;
+    g_object_ref (pl);
   } else {
+    uint32_t input_port, output_port;
+
     if (output_node->priv->clock)
       input_node->priv->clock = output_node->priv->clock;
 
-    link = g_object_new (PINOS_TYPE_LINK,
-                        "daemon", priv->daemon,
-                        "output-node", output_node,
-                        "output-port", output_port,
-                        "input-node", input_node,
-                        "input-port", input_port,
-                        "format-filter", format_filter,
-                        "properties", properties,
-                        NULL);
+    output_port = get_free_node_port (output_node, PINOS_DIRECTION_OUTPUT);
+    if (output_port == SPA_ID_INVALID)
+      output_port = output_node->priv->output_port_ids[0];
 
-    g_signal_connect (link,
+    input_port = get_free_node_port (input_node, PINOS_DIRECTION_INPUT);
+    if (input_port == SPA_ID_INVALID)
+      input_port = input_node->priv->input_port_ids[0];
+
+    pl = g_object_new (PINOS_TYPE_LINK,
+                       "daemon", priv->daemon,
+                       "output-node", output_node,
+                       "output-id", output_id,
+                       "output-port", output_port,
+                       "input-node", input_node,
+                       "input-id", input_id,
+                       "input-port", input_port,
+                       "format-filter", format_filter,
+                       "properties", properties,
+                       NULL);
+
+    g_signal_connect (pl,
                       "remove",
                       (GCallback) do_remove_link,
                       output_node);
 
-    g_hash_table_insert (priv->links, GUINT_TO_POINTER (output_port), link);
-    g_hash_table_insert (input_node->priv->links, GUINT_TO_POINTER (input_port), link);
+    output_node->priv->n_used_output_links++;
+    input_node->priv->n_used_input_links++;
+    olink->link = pl;
+    ilink->link = pl;
   }
-  return link;
+  return pl;
 }
 
 /**
@@ -1194,7 +1264,7 @@ pinos_node_get_links (PinosNode *node)
   g_return_val_if_fail (PINOS_IS_NODE (node), NULL);
   priv = node->priv;
 
-  return g_hash_table_get_values (priv->links);
+  return NULL;
 }
 
 static void

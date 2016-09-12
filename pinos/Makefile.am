@@ -268,6 +268,7 @@ plugin_LTLIBRARIES = libgstpinos.la
 libgstpinos_la_SOURCES = \
                         gst/gstburstcache.c \
                         gst/gstpinos.c \
+                        gst/gstpinosclock.c \
                         gst/gstpinosformat.c \
                         gst/gstpinosdeviceprovider.c \
                         gst/gstpinossrc.c \
@@ -281,7 +282,7 @@ libgstpinos_la_LIBADD =  $(GST_BASE_LIBS) $(GST_LIBS) $(GLIB_LIBS) $(LIBM) -lgst
 libgstpinos_la_LIBTOOLFLAGS = $(GST_PLUGIN_LIBTOOLFLAGS)
 
 noinst_HEADERS = gst/gstburstcache.h gst/gstpinossrc.h \
-		 gst/gstpinosformat.h \
+		 gst/gstpinosclock.h gst/gstpinosformat.h \
 		 gst/gstpinossink.h gst/gstpinosdeviceprovider.h
 
 ###################################

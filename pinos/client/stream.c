@@ -95,7 +95,8 @@ struct _PinosStreamPrivate
   GArray *buffer_ids;
   gboolean in_order;
 
-  gint64 last_timestamp;
+  gint64 last_ticks;
+  gint32 last_rate;
   gint64 last_monotonic;
 };
 
@@ -638,6 +639,23 @@ send_need_input (PinosStream *stream, uint32_t port_id)
 }
 
 static void
+add_request_clock_update (PinosStream *stream, SpaControlBuilder *builder)
+{
+  SpaControlCmdNodeEvent cne;
+  SpaNodeEvent ne;
+  SpaNodeEventRequestClockUpdate rcu;
+
+  cne.event = &ne;
+  ne.type = SPA_NODE_EVENT_TYPE_REQUEST_CLOCK_UPDATE;
+  ne.data = &rcu;
+  ne.size = sizeof (rcu);
+  rcu.update_mask = SPA_NODE_EVENT_REQUEST_CLOCK_UPDATE_TIME;
+  rcu.timestamp = 0;
+  rcu.offset = 0;
+  spa_control_builder_add_cmd (builder, SPA_CONTROL_CMD_NODE_EVENT, &cne);
+}
+
+static void
 send_reuse_buffer (PinosStream *stream, uint32_t port_id, uint32_t buffer_id)
 {
   PinosStreamPrivate *priv = stream->priv;
@@ -794,6 +812,7 @@ handle_node_command (PinosStream    *stream,
 
       g_debug ("stream %p: start", stream);
       control_builder_init (stream, &builder);
+      add_request_clock_update (stream, &builder);
       if (priv->direction == PINOS_DIRECTION_INPUT)
         add_need_input (stream, &builder, 0);
       add_state_change (stream, &builder, SPA_NODE_STATE_STREAMING);
@@ -816,8 +835,8 @@ handle_node_command (PinosStream    *stream,
     case SPA_NODE_COMMAND_CLOCK_UPDATE:
     {
       SpaNodeCommandClockUpdate *cu = command->data;
-      g_debug ("got clock update %"PRId64", %"PRId64, cu->timestamp, cu->monotonic_time);
-      priv->last_timestamp = cu->timestamp;
+      priv->last_ticks = cu->ticks;
+      priv->last_rate = cu->rate;
       priv->last_monotonic = cu->monotonic_time;
       break;
     }
@@ -1050,20 +1069,9 @@ on_timeout (gpointer user_data)
   PinosStreamPrivate *priv = stream->priv;
   SpaControlBuilder builder;
   SpaControl control;
-  SpaControlCmdNodeEvent cne;
-  SpaNodeEvent ne;
-  SpaNodeEventRequestClockUpdate rcu;
-
-  cne.event = &ne;
-  ne.type = SPA_NODE_EVENT_TYPE_REQUEST_CLOCK_UPDATE;
-  ne.data = &rcu;
-  ne.size = sizeof (rcu);
-  rcu.update_mask = SPA_NODE_EVENT_REQUEST_CLOCK_UPDATE_TIME;
-  rcu.timestamp = 0;
-  rcu.offset = 0;
 
   control_builder_init (stream, &builder);
-  spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_NODE_EVENT, &cne);
+  add_request_clock_update (stream, &builder);
   spa_control_builder_end (&builder, &control);
 
   if (spa_control_write (&control, priv->fd) < 0)
@@ -1536,6 +1544,26 @@ pinos_stream_disconnect (PinosStream *stream)
   g_main_context_invoke (context->priv->context,
                          (GSourceFunc) do_disconnect,
                          g_object_ref (stream));
+
+  return TRUE;
+}
+
+gboolean
+pinos_stream_get_time (PinosStream     *stream,
+                       PinosTime       *time)
+{
+  PinosStreamPrivate *priv;
+  gint64 now, elapsed;
+
+  g_return_val_if_fail (PINOS_IS_STREAM (stream), FALSE);
+  priv = stream->priv;
+  g_return_val_if_fail (time, FALSE);
+
+  now = g_get_monotonic_time ();
+  elapsed = now - (priv->last_monotonic / 1000);
+
+  time->ticks = priv->last_ticks + (elapsed * priv->last_rate) / G_USEC_PER_SEC;
+  time->rate = priv->last_rate;
 
   return TRUE;
 }

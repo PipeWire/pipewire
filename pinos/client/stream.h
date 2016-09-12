@@ -64,6 +64,11 @@ typedef enum {
   PINOS_STREAM_MODE_RINGBUFFER = 1,
 } PinosStreamMode;
 
+typedef struct {
+  gint64 ticks;
+  gint32 rate;
+} PinosTime;
+
 /**
  * PinosStream:
  *
@@ -109,6 +114,9 @@ gboolean         pinos_stream_start_allocation  (PinosStream     *stream,
 
 gboolean         pinos_stream_start             (PinosStream     *stream);
 gboolean         pinos_stream_stop              (PinosStream     *stream);
+
+gboolean         pinos_stream_get_time          (PinosStream     *stream,
+                                                 PinosTime       *time);
 
 guint            pinos_stream_get_empty_buffer  (PinosStream     *stream);
 gboolean         pinos_stream_recycle_buffer    (PinosStream     *stream,

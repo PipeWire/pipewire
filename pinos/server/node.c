@@ -292,6 +292,29 @@ suspend_node (PinosNode *this)
 
 }
 
+static void
+send_clock_update (PinosNode *this)
+{
+  PinosNodePrivate *priv = this->priv;
+
+  if (priv->clock) {
+    SpaNodeCommand cmd;
+    SpaNodeCommandClockUpdate cu;
+    SpaResult res;
+
+    cmd.type = SPA_NODE_COMMAND_CLOCK_UPDATE;
+    cmd.data = &cu;
+    cmd.size = sizeof (cu);
+    cu.change_mask = SPA_NODE_COMMAND_CLOCK_UPDATE_TIME;
+    res = spa_clock_get_time (priv->clock, &cu.rate, &cu.ticks, &cu.monotonic_time);
+    cu.scale = (1 << 16) | 1;
+    cu.state = SPA_CLOCK_STATE_RUNNING;
+
+    if ((res = spa_node_send_command (this->node, &cmd)) < 0)
+      g_debug ("got error %d", res);
+  }
+}
+
 static gboolean
 node_set_state (PinosNode       *this,
                 PinosNodeState   state)
@@ -482,26 +505,9 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
       break;
     }
     case SPA_NODE_EVENT_TYPE_REQUEST_CLOCK_UPDATE:
-    {
-      SpaResult res;
-
-      if (priv->clock) {
-        SpaNodeCommand cmd;
-        SpaNodeCommandClockUpdate cu;
-
-        cmd.type = SPA_NODE_COMMAND_CLOCK_UPDATE;
-        cmd.data = &cu;
-        cmd.size = sizeof (cu);
-        cu.change_mask = SPA_NODE_COMMAND_CLOCK_UPDATE_TIME;
-        res = spa_clock_get_time (priv->clock, &cu.timestamp, &cu.monotonic_time);
-        cu.scale = (1 << 16) | 1;
-        cu.state = SPA_CLOCK_STATE_RUNNING;
-
-        if ((res = spa_node_send_command (this->node, &cmd)) < 0)
-          g_debug ("got error %d", res);
-      }
+      send_clock_update (this);
       break;
-    }
+
     default:
       g_debug ("node %p: got event %d", this, event->type);
       break;

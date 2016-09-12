@@ -107,7 +107,8 @@ struct _SpaClock {
                                       const SpaProps   *props);
 
   SpaResult   (*get_time)            (SpaClock         *clock,
-                                      int64_t          *clock_time,
+                                      int32_t          *rate,
+                                      int64_t          *ticks,
                                       int64_t          *monotonic_time);
 };
 

@@ -48,6 +48,7 @@
 #include <spa/include/spa/memory.h>
 #include <spa/include/spa/buffer.h>
 
+#include "gstpinosclock.h"
 
 static GQuark process_mem_data_quark;
 
@@ -269,6 +270,7 @@ gst_pinos_src_init (GstPinosSrc * src)
   gst_base_src_set_format (GST_BASE_SRC (src), GST_FORMAT_TIME);
 
   GST_OBJECT_FLAG_SET (src, GST_ELEMENT_FLAG_PROVIDE_CLOCK);
+  gst_base_src_set_live (GST_BASE_SRC (src), TRUE);
 
   g_queue_init (&src->queue);
 
@@ -523,30 +525,10 @@ parse_stream_properties (GstPinosSrc *pinossrc, PinosProperties *props)
   var = pinos_properties_get (props, "pinos.latency.max");
   pinossrc->max_latency = var ? (GstClockTime) atoi (var) : GST_CLOCK_TIME_NONE;
 
-  var = pinos_properties_get (props, "pinos.clock.type");
-  if (var != NULL) {
-    GST_DEBUG_OBJECT (pinossrc, "got clock type %s", var);
-    if (strcmp (var, "gst.net.time.provider") == 0) {
-      const gchar *address;
-      gint port;
-      GstClockTime base_time;
-
-      address = pinos_properties_get (props, "pinos.clock.address");
-      port = atoi (pinos_properties_get (props, "pinos.clock.port"));
-      base_time = atoll (pinos_properties_get (props, "pinos.clock.base-time"));
-
-      GST_DEBUG_OBJECT (pinossrc, "making net clock for %s:%d %" G_GUINT64_FORMAT, address, port, base_time);
-      if (pinossrc->clock)
-        gst_object_unref (pinossrc->clock);
-      pinossrc->clock = gst_net_client_clock_new ("pinosclock", address, port, base_time);
-
-      gst_element_post_message (GST_ELEMENT_CAST (pinossrc),
-          gst_message_new_clock_provide (GST_OBJECT_CAST (pinossrc),
-            pinossrc->clock, TRUE));
-    }
-  }
+  pinossrc->is_live = TRUE;
+  pinossrc->min_latency = 100000000;
+  pinossrc->max_latency = GST_CLOCK_TIME_NONE;
 }
-
 
 static gboolean
 gst_pinos_src_stream_start (GstPinosSrc *pinossrc)
@@ -817,6 +799,8 @@ gst_pinos_src_query (GstBaseSrc * src, GstQuery * query)
 
   switch (GST_QUERY_TYPE (query)) {
     case GST_QUERY_LATENCY:
+      pinossrc->min_latency = 10000000;
+      pinossrc->max_latency = GST_CLOCK_TIME_NONE;
       gst_query_set_latency (query, pinossrc->is_live, pinossrc->min_latency, pinossrc->max_latency);
       res = TRUE;
       break;
@@ -1004,6 +988,7 @@ gst_pinos_src_open (GstPinosSrc * pinossrc)
   g_signal_connect (pinossrc->stream, "add-buffer", (GCallback) on_add_buffer, pinossrc);
   g_signal_connect (pinossrc->stream, "remove-buffer", (GCallback) on_remove_buffer, pinossrc);
   g_signal_connect (pinossrc->stream, "new-buffer", (GCallback) on_new_buffer, pinossrc);
+  pinossrc->clock = gst_pinos_clock_new (pinossrc->stream);
   pinos_main_loop_unlock (pinossrc->loop);
 
   return TRUE;
@@ -1031,6 +1016,7 @@ gst_pinos_src_close (GstPinosSrc * pinossrc)
   g_main_context_unref (pinossrc->context);
   GST_OBJECT_LOCK (pinossrc);
   pinossrc->stream_state = PINOS_STREAM_STATE_UNCONNECTED;
+  g_clear_object (&pinossrc->clock);
   g_clear_object (&pinossrc->stream);
   GST_OBJECT_UNLOCK (pinossrc);
   clear_queue (pinossrc);

@@ -788,7 +788,8 @@ spa_v4l2_set_format (SpaV4l2Source *this, V4l2Format *f, bool try_only)
   state->info.flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS |
                       SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
   state->info.maxbuffering = -1;
-  state->info.latency = -1;
+  state->info.latency = (streamparm.parm.capture.timeperframe.numerator * 1000000000LL) /
+                        streamparm.parm.capture.timeperframe.denominator;
 
   state->info.n_params = 1;
   state->info.params = state->params;
@@ -834,12 +835,13 @@ mmap_read (SpaV4l2Source *this)
   if (buf.flags & V4L2_BUF_FLAG_ERROR)
     b->header.flags |= SPA_BUFFER_FLAG_CORRUPTED;
 
+  state->last_ticks = (int64_t)buf.timestamp.tv_sec * 1000000 + (uint64_t)buf.timestamp.tv_usec;
+
   b->header.seq = buf.sequence;
-  b->header.pts = (uint64_t)buf.timestamp.tv_sec * 1000000000lu + (uint64_t)buf.timestamp.tv_usec * 1000lu;
-  state->last_timestamp = b->header.pts;
+  b->header.pts = state->last_ticks * 1000;
 
   if (buf.flags & V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC)
-    state->last_monotonic = state->last_timestamp;
+    state->last_monotonic = b->header.pts;
   else
     state->last_monotonic = SPA_TIME_INVALID;
 

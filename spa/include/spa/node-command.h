@@ -48,11 +48,12 @@ struct _SpaNodeCommand {
 /**
  * SpaNodeCommandClockUpdate:
  * @change_mask: marks which fields are updated
- * @timestamp: the new timestamp, when @change_mask = 1<<0
- * @monotonic_time: the new monotonic time associated with @timestamp, when
- *                  @change_mask = 1<<0
+ * @rate: the number of  @ticks per second
+ * @ticks: the new ticks, when @change_mask = 1<<0
+ * @monotonic_time: the new monotonic time in nanoseconds associated with
+ *                  @ticks, when @change_mask = 1<<0
  * @offset: the difference between the time when this update was generated
- *          and @monotonic_time
+ *          and @monotonic_time in nanoseconds
  * @scale: update to the speed stored as Q16.16, @change_mask = 1<<1
  * @state: the new clock state, when @change_mask = 1<<2
  */
@@ -61,7 +62,8 @@ typedef struct {
 #define SPA_NODE_COMMAND_CLOCK_UPDATE_SCALE       (1 << 1)
 #define SPA_NODE_COMMAND_CLOCK_UPDATE_STATE       (1 << 2)
   uint32_t      change_mask;
-  int64_t       timestamp;
+  int32_t       rate;
+  int64_t       ticks;
   int64_t       monotonic_time;
   int64_t       offset;
   int32_t       scale;

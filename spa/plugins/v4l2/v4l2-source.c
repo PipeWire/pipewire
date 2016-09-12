@@ -115,7 +115,7 @@ typedef struct {
   SpaAllocParamBuffers param_buffers;
   SpaPortStatus status;
 
-  int64_t last_timestamp;
+  int64_t last_ticks;
   int64_t last_monotonic;
 } SpaV4l2State;
 
@@ -759,7 +759,8 @@ spa_v4l2_source_clock_set_props (SpaClock       *clock,
 
 static SpaResult
 spa_v4l2_source_clock_get_time (SpaClock         *clock,
-                                int64_t          *clock_time,
+                                int32_t          *rate,
+                                int64_t          *ticks,
                                 int64_t          *monotonic_time)
 {
   SpaV4l2Source *this;
@@ -771,8 +772,10 @@ spa_v4l2_source_clock_get_time (SpaClock         *clock,
   this = (SpaV4l2Source *) clock->handle;
   state = &this->state[0];
 
-  if (clock_time)
-    *clock_time = state->last_timestamp;
+  if (rate)
+    *rate = 1000000;
+  if (ticks)
+    *ticks = state->last_ticks;
   if (monotonic_time)
     *monotonic_time = state->last_monotonic;
 

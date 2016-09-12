@@ -276,6 +276,8 @@ pause_node (PinosNode *this)
   g_debug ("node %p: pause node", this);
 
   cmd.type = SPA_NODE_COMMAND_PAUSE;
+  cmd.data = NULL;
+  cmd.size = 0;
   if ((res = spa_node_send_command (this->node, &cmd)) < 0)
     g_debug ("got error %d", res);
 }

@@ -97,9 +97,28 @@ struct _SpaALSASink {
   unsigned int n_buffers;
   uint32_t input_buffer;
 
-  SpaMemory *mem;
-  ALSABuffer buffer;
+  SpaMemory *alloc_bufmem;
+  SpaMemory *alloc_mem;
+  ALSABuffer *alloc_buffers;
 };
+
+static void
+update_state (SpaALSASink *this, SpaNodeState state)
+{
+  SpaNodeEvent event;
+  SpaNodeEventStateChange sc;
+
+  if (this->node.state == state)
+    return;
+
+  this->node.state = state;
+
+  event.type = SPA_NODE_EVENT_TYPE_STATE_CHANGE;
+  event.data = &sc;
+  event.size = sizeof (sc);
+  sc.state = state;
+  this->event_cb (&this->node, &event, this->user_data);
+}
 
 #include "alsa-utils.c"
 
@@ -220,32 +239,12 @@ spa_alsa_sink_node_send_command (SpaNode        *node,
     case SPA_NODE_COMMAND_START:
       spa_alsa_start (this);
 
-      if (this->event_cb) {
-        SpaNodeEvent event;
-        SpaNodeEventStateChange sc;
-
-        event.type = SPA_NODE_EVENT_TYPE_STATE_CHANGE;
-        event.data = &sc;
-        event.size = sizeof (sc);
-        sc.state = SPA_NODE_STATE_STREAMING;
-
-        this->event_cb (node, &event, this->user_data);
-      }
+      update_state (this, SPA_NODE_STATE_STREAMING);
       break;
     case SPA_NODE_COMMAND_PAUSE:
       spa_alsa_stop (this);
 
-      if (this->event_cb) {
-        SpaNodeEvent event;
-        SpaNodeEventStateChange sc;
-
-        event.type = SPA_NODE_EVENT_TYPE_STATE_CHANGE;
-        event.data = &sc;
-        event.size = sizeof (sc);
-        sc.state = SPA_NODE_STATE_PAUSED;
-
-        this->event_cb (node, &event, this->user_data);
-      }
+      update_state (this, SPA_NODE_STATE_PAUSED);
       break;
     case SPA_NODE_COMMAND_FLUSH:
     case SPA_NODE_COMMAND_DRAIN:
@@ -270,6 +269,8 @@ spa_alsa_sink_node_set_event_callback (SpaNode              *node,
 
   this->event_cb = event;
   this->user_data = user_data;
+
+  update_state (this, SPA_NODE_STATE_CONFIGURE);
 
   return SPA_RESULT_OK;
 }
@@ -386,6 +387,7 @@ spa_alsa_sink_node_port_set_format (SpaNode            *node,
 
   if (format == NULL) {
     this->have_format = false;
+    update_state (this, SPA_NODE_STATE_CONFIGURE);
     return SPA_RESULT_OK;
   }
 
@@ -399,6 +401,7 @@ spa_alsa_sink_node_port_set_format (SpaNode            *node,
   this->info.maxbuffering = -1;
   this->info.latency = -1;
   this->info.n_params = 1;
+  this->info.params = this->params;
   this->params[0] = &this->param_buffers.param;
   this->param_buffers.param.type = SPA_ALLOC_PARAM_TYPE_BUFFERS;
   this->param_buffers.param.size = sizeof (this->param_buffers);
@@ -410,6 +413,7 @@ spa_alsa_sink_node_port_set_format (SpaNode            *node,
   this->info.features = NULL;
 
   this->have_format = true;
+  update_state (this, SPA_NODE_STATE_READY);
 
   return SPA_RESULT_OK;
 }
@@ -493,6 +497,7 @@ spa_alsa_sink_node_port_alloc_buffers (SpaNode         *node,
   SpaALSASink *this;
   ALSABuffer *b;
   SpaALSAState *state;
+  unsigned int i, n_bufs;
 
   if (node == NULL || node->handle == NULL || buffers == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -507,46 +512,55 @@ spa_alsa_sink_node_port_alloc_buffers (SpaNode         *node,
 
   state = &this->state;
 
-  if (!this->mem)
-    this->mem = spa_memory_alloc_with_fd (SPA_MEMORY_POOL_SHARED, NULL, state->buffer_size);
+  n_bufs = *n_buffers;
 
-  b = &this->buffer;
-  b->buffer.id = 0;
-  b->buffer.mem.mem.pool_id = -1;
-  b->buffer.mem.mem.id = -1;
-  b->buffer.mem.offset = 0;
-  b->buffer.mem.size = sizeof (ALSABuffer);
+  if (!this->alloc_bufmem)
+    this->alloc_bufmem = spa_memory_alloc_with_fd (SPA_MEMORY_POOL_SHARED, NULL, state->buffer_size * n_bufs);
 
-  b->buffer.n_metas = 2;
-  b->buffer.metas = offsetof (ALSABuffer, metas);
-  b->buffer.n_datas = 1;
-  b->buffer.datas = offsetof (ALSABuffer, datas);
+  if (!this->alloc_mem)
+    this->alloc_mem = spa_memory_alloc_with_fd (SPA_MEMORY_POOL_SHARED, NULL, sizeof (ALSABuffer) * n_bufs);
+  this->alloc_buffers = spa_memory_ensure_ptr (this->alloc_mem);
 
-  b->header.flags = 0;
-  b->header.seq = 0;
-  b->header.pts = 0;
-  b->header.dts_offset = 0;
+  for (i = 0; i < n_bufs; i++) {
+    b = &this->alloc_buffers[i];
+    b->buffer.id = i;
+    b->buffer.mem.mem = this->alloc_mem->mem;
+    b->buffer.mem.offset = sizeof (ALSABuffer) * i;
+    b->buffer.mem.size = sizeof (ALSABuffer);
 
-  b->metas[0].type = SPA_META_TYPE_HEADER;
-  b->metas[0].offset = offsetof (ALSABuffer, header);
-  b->metas[0].size = sizeof (b->header);
+    b->buffer.n_metas = 2;
+    b->buffer.metas = offsetof (ALSABuffer, metas);
+    b->buffer.n_datas = 1;
+    b->buffer.datas = offsetof (ALSABuffer, datas);
 
-  b->ringbuffer.readindex = 0;
-  b->ringbuffer.writeindex = 0;
-  b->ringbuffer.size = 0;
-  b->ringbuffer.size_mask = 0;
+    b->header.flags = 0;
+    b->header.seq = 0;
+    b->header.pts = 0;
+    b->header.dts_offset = 0;
 
-  b->metas[1].type = SPA_META_TYPE_RINGBUFFER;
-  b->metas[1].offset = offsetof (ALSABuffer, ringbuffer);
-  b->metas[1].size = sizeof (b->ringbuffer);
+    b->metas[0].type = SPA_META_TYPE_HEADER;
+    b->metas[0].offset = offsetof (ALSABuffer, header);
+    b->metas[0].size = sizeof (b->header);
 
-  b->datas[0].mem.mem = this->mem->mem;
-  b->datas[0].mem.offset = 0;
-  b->datas[0].mem.size = state->buffer_size;
-  b->datas[0].stride = 0;
+    b->ringbuffer.readindex = 0;
+    b->ringbuffer.writeindex = 0;
+    b->ringbuffer.size = 0;
+    b->ringbuffer.size_mask = 0;
 
-  buffers[0] = &b->buffer;
-  *n_buffers = 1;
+    b->metas[1].type = SPA_META_TYPE_RINGBUFFER;
+    b->metas[1].offset = offsetof (ALSABuffer, ringbuffer);
+    b->metas[1].size = sizeof (b->ringbuffer);
+
+    b->datas[0].mem.mem = this->alloc_bufmem->mem;
+    b->datas[0].mem.offset = state->buffer_size * i;
+    b->datas[0].mem.size = state->buffer_size;
+    b->datas[0].stride = 0;
+
+    buffers[i] = &b->buffer;
+  }
+  *n_buffers = n_bufs;
+
+  update_state (this, SPA_NODE_STATE_PAUSED);
 
   return SPA_RESULT_OK;
 }

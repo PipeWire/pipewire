@@ -251,13 +251,13 @@ again:
   spa_debug_format (format);
 
   if (out_state == SPA_NODE_STATE_CONFIGURE) {
+    g_debug ("link %p: doing set format on output", this);
     if ((res = spa_node_port_set_format (this->output_node->node, this->output_port, 0, format)) < 0) {
       g_warning ("error set format output: %d", res);
       goto error;
     }
-  }
-
-  if (in_state == SPA_NODE_STATE_CONFIGURE) {
+  } else if (in_state == SPA_NODE_STATE_CONFIGURE) {
+    g_debug ("link %p: doing set format on input", this);
     if ((res = spa_node_port_set_format (this->input_node->node, this->input_port, 0, format)) < 0) {
       g_warning ("error set format input: %d", res);
       goto error;
@@ -376,6 +376,8 @@ do_start (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
   SpaResult res = SPA_RESULT_OK;
 
   cmd.type = SPA_NODE_COMMAND_START;
+  cmd.data = NULL;
+  cmd.size = 0;
   if (in_state == SPA_NODE_STATE_PAUSED) {
     if ((res = spa_node_send_command (this->input_node->node, &cmd)) < 0)
       g_warning ("got error %d", res);
@@ -397,7 +399,7 @@ check_states (PinosLink *this)
   in_state = this->input_node->node->state;
   out_state = this->output_node->node->state;
 
-  g_debug ("link %p: input %d, output %d", this, in_state, out_state);
+  g_debug ("link %p: input state %d, output state %d", this, in_state, out_state);
 
   if ((res = do_negotiate (this, in_state, out_state)) < 0)
     return res;

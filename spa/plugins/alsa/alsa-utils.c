@@ -21,9 +21,9 @@ spa_alsa_open (SpaALSASink *this)
   if (state->opened)
     return 0;
 
-  CHECK (snd_output_stdio_attach (&state->output, stdout, 0), "attach failed");
+  CHECK (snd_output_stdio_attach (&state->output, stderr, 0), "attach failed");
 
-  printf ("Playback device is '%s'\n", props->device);
+  printf ("Playback device open '%s'\n", props->device);
   CHECK (snd_pcm_open (&state->handle,
                        props->device,
                        SND_PCM_STREAM_PLAYBACK,
@@ -46,6 +46,7 @@ spa_alsa_close (SpaALSASink *this)
   if (!state->opened)
     return 0;
 
+  printf ("Playback device closing\n");
   CHECK (snd_pcm_close (state->handle), "close failed");
 
   state->opened = false;
@@ -265,11 +266,11 @@ mmap_write (SpaALSASink *this)
                 (uint8_t *)my_areas[0].addr + (offset * sizeof (uint16_t) * 2),
                 frames);
 
-    if (this->input_buffer) {
-      if (this->input_buffer != this->buffer.buffer.id) {
+    if (this->input_buffer != SPA_ID_INVALID) {
+      if (this->input_buffer != this->alloc_buffers[0].buffer.id) {
         /* FIXME, copy input */
       }
-      this->input_buffer = -1;
+      this->input_buffer = SPA_ID_INVALID;
     }
 
     commitres = snd_pcm_mmap_commit (handle, offset, frames);

@@ -812,7 +812,6 @@ handle_node_command (PinosStream    *stream,
 
       g_debug ("stream %p: start", stream);
       control_builder_init (stream, &builder);
-      add_request_clock_update (stream, &builder);
       if (priv->direction == PINOS_DIRECTION_INPUT)
         add_need_input (stream, &builder, 0);
       add_state_change (stream, &builder, SPA_NODE_STATE_STREAMING);

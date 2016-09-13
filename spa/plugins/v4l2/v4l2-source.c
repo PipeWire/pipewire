@@ -272,8 +272,12 @@ spa_v4l2_source_node_send_command (SpaNode        *node,
     case SPA_NODE_COMMAND_FLUSH:
     case SPA_NODE_COMMAND_DRAIN:
     case SPA_NODE_COMMAND_MARKER:
-    case SPA_NODE_COMMAND_CLOCK_UPDATE:
       return SPA_RESULT_NOT_IMPLEMENTED;
+
+    case SPA_NODE_COMMAND_CLOCK_UPDATE:
+    {
+      return SPA_RESULT_OK;
+    }
   }
   return SPA_RESULT_OK;
 }
@@ -592,8 +596,12 @@ spa_v4l2_source_node_port_alloc_buffers (SpaNode         *node,
 
   res = spa_v4l2_alloc_buffers (this, params, n_params, buffers, n_buffers);
 
-  if (state->have_buffers)
-    update_state (this, SPA_NODE_STATE_PAUSED);
+  if (state->have_buffers) {
+    if (state->started)
+      update_state (this, SPA_NODE_STATE_STREAMING);
+    else
+      update_state (this, SPA_NODE_STATE_PAUSED);
+  }
 
   return res;
 }

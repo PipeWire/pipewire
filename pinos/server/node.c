@@ -290,6 +290,21 @@ pause_node (PinosNode *this)
 }
 
 static void
+start_node (PinosNode *this)
+{
+  SpaResult res;
+  SpaNodeCommand cmd;
+
+  g_debug ("node %p: start node", this);
+
+  cmd.type = SPA_NODE_COMMAND_START;
+  cmd.data = NULL;
+  cmd.size = 0;
+  if ((res = spa_node_send_command (this->node, &cmd)) < 0)
+    g_debug ("got error %d", res);
+}
+
+static void
 suspend_node (PinosNode *this)
 {
   SpaResult res;
@@ -343,6 +358,8 @@ node_set_state (PinosNode       *this,
       break;
 
     case PINOS_NODE_STATE_RUNNING:
+      send_clock_update (this);
+      start_node (this);
       break;
 
     case PINOS_NODE_STATE_ERROR:
@@ -424,7 +441,7 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
     {
       SpaPollItem *poll = event->data;
 
-      g_debug ("node %p: add poll %d, n_fds %d", this, poll->id, poll->n_fds);
+      g_debug ("node %p: add pollid %d, n_poll %d, n_fds %d", this, poll->id, priv->n_poll, poll->n_fds);
       priv->poll[priv->n_poll] = *poll;
       priv->n_poll++;
       if (poll->n_fds)
@@ -1214,6 +1231,8 @@ pinos_node_link (PinosNode       *output_node,
 
     if (output_node->priv->clock)
       input_node->priv->clock = output_node->priv->clock;
+
+    g_debug ("node %p: clock %p", output_node, output_node->priv->clock);
 
     output_port = get_free_node_port (output_node, PINOS_DIRECTION_OUTPUT);
     if (output_port == SPA_ID_INVALID)

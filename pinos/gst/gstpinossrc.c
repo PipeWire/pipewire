@@ -407,7 +407,7 @@ on_add_buffer (GObject    *gobject,
 
     if (mem->fd) {
       gmem = gst_fd_allocator_alloc (pinossrc->fd_allocator, dup (mem->fd),
-                d->mem.offset + d->mem.size, GST_FD_MEMORY_FLAG_NONE);
+                mem->size, GST_FD_MEMORY_FLAG_NONE);
       gst_memory_resize (gmem, d->mem.offset, d->mem.size);
     } else {
       gmem = gst_memory_new_wrapped (0, mem->ptr, mem->size, d->mem.offset,

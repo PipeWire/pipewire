@@ -256,7 +256,6 @@ spa_proxy_node_send_command (SpaNode        *node,
 
       spa_control_clear (&control);
       break;
-      break;
     }
   }
   return SPA_RESULT_OK;
@@ -702,6 +701,9 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
 
   if (!port->format)
     return SPA_RESULT_NO_FORMAT;
+
+  if (port->n_buffers == n_buffers && port->buffers == buffers)
+    return SPA_RESULT_OK;
 
   spa_control_builder_init_into (&builder, buf, sizeof (buf), fds, sizeof (fds));
 

@@ -862,6 +862,13 @@ v4l2_on_fd_events (SpaPollNotifyData *data)
   SpaNodeEvent event;
   SpaNodeEventHaveOutput ho;
 
+  if (data->fds[0].revents & POLLERR) {
+
+    return -1;
+  }
+
+
+
   if (mmap_read (this) < 0)
     return 0;
 
@@ -1171,21 +1178,30 @@ spa_v4l2_pause (SpaV4l2Source *this)
   SpaV4l2State *state = &this->state[0];
   enum v4l2_buf_type type;
   SpaNodeEvent event;
+  int i;
 
   if (!state->started)
     return SPA_RESULT_OK;
+
+  state->started = false;
 
   event.type = SPA_NODE_EVENT_TYPE_REMOVE_POLL;
   event.data = &state->poll;
   event.size = sizeof (state->poll);
   this->event_cb (&this->node, &event, this->user_data);
 
-  state->started = false;
-
   type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   if (xioctl (state->fd, VIDIOC_STREAMOFF, &type) < 0) {
     perror ("VIDIOC_STREAMOFF");
     return SPA_RESULT_ERROR;
+  }
+  for (i = 0; i < state->reqbuf.count; i++) {
+    V4l2Buffer *b;
+
+    b = &state->alloc_buffers[i];
+    if (!b->outstanding)
+      if (xioctl (state->fd, VIDIOC_QBUF, &b->v4l2_buffer) < 0)
+        perror ("VIDIOC_QBUF");
   }
   update_state (this, SPA_NODE_STATE_PAUSED);
 

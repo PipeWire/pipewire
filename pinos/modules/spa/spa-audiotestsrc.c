@@ -86,6 +86,7 @@ make_node (SpaNode **node, const char *lib, const char *name)
 static void
 setup_node (PinosSpaAudioTestSrc *this)
 {
+#if 0
   PinosNode *node = PINOS_NODE (this);
   SpaResult res;
   SpaProps *props;
@@ -94,12 +95,9 @@ setup_node (PinosSpaAudioTestSrc *this)
   if ((res = spa_node_get_props (node->node, &props)) < 0)
     g_debug ("got get_props error %d", res);
 
-  value.value = "hw:1";
-  value.size = strlen (value.value)+1;
-  spa_props_set_prop (props, spa_props_index_for_name (props, "device"), &value);
-
   if ((res = spa_node_set_props (node->node, props)) < 0)
     g_debug ("got set_props error %d", res);
+#endif
 }
 
 static void

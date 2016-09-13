@@ -664,8 +664,9 @@ send_reuse_buffer (PinosStream *stream, uint32_t port_id, uint32_t buffer_id)
   SpaControlCmdNodeEvent cne;
   SpaNodeEvent ne;
   SpaNodeEventReuseBuffer rb;
+  guint8 buffer[128];
 
-  control_builder_init (stream, &builder);
+  spa_control_builder_init_into (&builder, buffer, sizeof (buffer), NULL, 0);
   cne.event = &ne;
   ne.type = SPA_NODE_EVENT_TYPE_REUSE_BUFFER;
   ne.data = &rb;
@@ -791,7 +792,7 @@ handle_node_command (PinosStream    *stream,
       SpaControlBuilder builder;
       SpaControl control;
 
-      g_debug ("stream %p: stop", stream);
+      g_debug ("stream %p: pause", stream);
 
       control_builder_init (stream, &builder);
       add_state_change (stream, &builder, SPA_NODE_STATE_PAUSED);
@@ -834,6 +835,12 @@ handle_node_command (PinosStream    *stream,
     case SPA_NODE_COMMAND_CLOCK_UPDATE:
     {
       SpaNodeCommandClockUpdate *cu = command->data;
+      if (cu->flags & SPA_NODE_COMMAND_CLOCK_UPDATE_FLAG_LIVE) {
+        pinos_properties_set (priv->properties,
+                          "pinos.latency.is-live", "1");
+        pinos_properties_setf (priv->properties,
+                          "pinos.latency.min", "%"PRId64, cu->latency);
+      }
       priv->last_ticks = cu->ticks;
       priv->last_rate = cu->rate;
       priv->last_monotonic = cu->monotonic_time;

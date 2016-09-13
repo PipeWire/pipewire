@@ -25,15 +25,6 @@
 #include <spa/audio/raw.h>
 #include <spa/audio/format.h>
 
-static const SpaAudioInfoRaw default_raw_info = {
-  SPA_AUDIO_FORMAT_S16,
-  SPA_AUDIO_FLAG_NONE,
-  SPA_AUDIO_LAYOUT_INTERLEAVED,
-  44100,
-  2,
-  0
-};
-
 static const uint32_t format_values[] = {
   SPA_AUDIO_FORMAT_S8,
   SPA_AUDIO_FORMAT_U8,
@@ -228,6 +219,14 @@ spa_format_audio_init (SpaMediaType     type,
         { SPA_PROP_ID_AUDIO_CHANNELS,     offsetof (SpaFormatAudio, info.raw.channels), },
         { SPA_PROP_ID_AUDIO_CHANNEL_MASK, offsetof (SpaFormatAudio, info.raw.channel_mask), },
       };
+      static const SpaAudioInfoRaw default_raw_info = {
+        SPA_AUDIO_FORMAT_S16,
+        SPA_AUDIO_FLAG_NONE,
+        SPA_AUDIO_LAYOUT_INTERLEAVED,
+        44100,
+        2,
+        0
+      };
       prop_info = raw_format_prop_info;
       n_prop_info = SPA_N_ELEMENTS (raw_format_prop_info);
       format->format.props.unset_mask = (1 << 1) | (1 << 3) | (1 << 4) | (1 << 5);
@@ -295,7 +294,8 @@ spa_format_audio_parse (const SpaFormat *format,
   if (props->prop_info[idx].type != SPA_PROP_TYPE_POINTER)
     goto fallback;
 
-  memcpy (&aformat->info, value.value, SPA_MIN (value.size, sizeof (SpaAudioInfoRaw)));
+  memcpy (&aformat->info, value.value, SPA_MIN (value.size, sizeof (aformat->info)));
+  aformat->format.props.unset_mask = props->unset_mask;
 
   return SPA_RESULT_OK;
 

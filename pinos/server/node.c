@@ -320,23 +320,32 @@ static void
 send_clock_update (PinosNode *this)
 {
   PinosNodePrivate *priv = this->priv;
+  SpaNodeCommand cmd;
+  SpaNodeCommandClockUpdate cu;
+  SpaResult res;
 
+  cmd.type = SPA_NODE_COMMAND_CLOCK_UPDATE;
+  cmd.data = &cu;
+  cmd.size = sizeof (cu);
+
+  cu.flags = 0;
+  cu.change_mask = SPA_NODE_COMMAND_CLOCK_UPDATE_TIME |
+                   SPA_NODE_COMMAND_CLOCK_UPDATE_SCALE |
+                   SPA_NODE_COMMAND_CLOCK_UPDATE_STATE |
+                   SPA_NODE_COMMAND_CLOCK_UPDATE_LATENCY;
   if (priv->clock) {
-    SpaNodeCommand cmd;
-    SpaNodeCommandClockUpdate cu;
-    SpaResult res;
-
-    cmd.type = SPA_NODE_COMMAND_CLOCK_UPDATE;
-    cmd.data = &cu;
-    cmd.size = sizeof (cu);
-    cu.change_mask = SPA_NODE_COMMAND_CLOCK_UPDATE_TIME;
+    cu.flags = SPA_NODE_COMMAND_CLOCK_UPDATE_FLAG_LIVE;
     res = spa_clock_get_time (priv->clock, &cu.rate, &cu.ticks, &cu.monotonic_time);
-    cu.scale = (1 << 16) | 1;
-    cu.state = SPA_CLOCK_STATE_RUNNING;
-
-    if ((res = spa_node_send_command (this->node, &cmd)) < 0)
-      g_debug ("got error %d", res);
+  } else {
+    cu.rate = 1;
+    cu.ticks = 0;
+    cu.monotonic_time = 0;
   }
+  cu.scale = (1 << 16) | 1;
+  cu.state = SPA_CLOCK_STATE_RUNNING;
+
+  if ((res = spa_node_send_command (this->node, &cmd)) < 0)
+    g_debug ("got error %d", res);
 }
 
 static gboolean
@@ -508,6 +517,9 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
         SpaPortInputInfo iinfo[1];
 
         if (pl == NULL || pl->output_node->node != node || pl->output_port != oinfo[0].port_id)
+          continue;
+
+        if (pl->input_node->node->state != SPA_NODE_STATE_STREAMING)
           continue;
 
         iinfo[0].port_id = pl->input_port;
@@ -1229,19 +1241,22 @@ pinos_node_link (PinosNode       *output_node,
   } else {
     uint32_t input_port, output_port;
 
+    output_port = get_free_node_port (output_node, PINOS_DIRECTION_OUTPUT);
+    if (output_port == SPA_ID_INVALID && output_node->priv->n_output_ports > 0)
+      output_port = output_node->priv->output_port_ids[0];
+    else
+      return NULL;
+
+    input_port = get_free_node_port (input_node, PINOS_DIRECTION_INPUT);
+    if (input_port == SPA_ID_INVALID && input_node->priv->n_input_ports > 0)
+      input_port = input_node->priv->input_port_ids[0];
+    else
+      return NULL;
+
     if (output_node->priv->clock)
       input_node->priv->clock = output_node->priv->clock;
 
     g_debug ("node %p: clock %p", output_node, output_node->priv->clock);
-
-    output_port = get_free_node_port (output_node, PINOS_DIRECTION_OUTPUT);
-    if (output_port == SPA_ID_INVALID)
-      output_port = output_node->priv->output_port_ids[0];
-
-    input_port = get_free_node_port (input_node, PINOS_DIRECTION_INPUT);
-    if (input_port == SPA_ID_INVALID)
-      input_port = input_node->priv->input_port_ids[0];
-
     pl = g_object_new (PINOS_TYPE_LINK,
                        "daemon", priv->daemon,
                        "output-node", output_node,

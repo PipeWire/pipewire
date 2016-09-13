@@ -31,6 +31,14 @@
 #include "spa/memory.h"
 #include "memfd-wrappers.h"
 
+#undef USE_MEMFD
+
+#if 0
+#define SPA_DEBUG_MEMORY(format,args...) fprintf(stderr,format,##args)
+#else
+#define SPA_DEBUG_MEMORY(format,args...)
+#endif
+
 #define MAX_POOLS       16
 #define MAX_MEMORIES    1024
 
@@ -121,6 +129,8 @@ spa_memory_alloc (uint32_t pool_id)
   mem->mem.pool_id = pool_id;
   mem->mem.id = id;
 
+  SPA_DEBUG_MEMORY ("mem %p: alloc\n", mem);
+
   return mem;
 }
 
@@ -149,7 +159,9 @@ spa_memory_alloc_with_fd  (uint32_t pool_id, void *data, size_t size)
   if (!(mem = spa_memory_alloc (pool_id)))
     return NULL;
 
-#if 1
+#ifdef USE_MEMFD
+  mem->fd = memfd_create ("spa-memfd", MFD_CLOEXEC | MFD_ALLOW_SEALING);
+#else
   {
     char filename[] = "/dev/shm/spa-tmpfile.XXXXXX";
     mem->fd = mkostemp (filename, O_CLOEXEC);
@@ -159,8 +171,6 @@ spa_memory_alloc_with_fd  (uint32_t pool_id, void *data, size_t size)
     }
     unlink (filename);
   }
-#else
-  mem->fd = memfd_create ("spa-memfd", MFD_CLOEXEC | MFD_ALLOW_SEALING);
 #endif
 
   if (data) {
@@ -176,7 +186,7 @@ spa_memory_alloc_with_fd  (uint32_t pool_id, void *data, size_t size)
       return NULL;
     }
   }
-#if 0
+#ifdef USE_MEMFD
   {
     unsigned int seals;
 
@@ -231,6 +241,7 @@ spa_memory_import (SpaMemoryRef *ref)
   } else {
     mem->refcount++;
   }
+  SPA_DEBUG_MEMORY ("mem %p: import %u:%u\n", mem, pool_id, id);
 
   return mem;
 }
@@ -252,6 +263,8 @@ static void
 spa_memory_free (SpaMemory *mem)
 {
   SpaMemoryPool *pool;
+
+  SPA_DEBUG_MEMORY ("mem %p: free\n", mem);
 
   if (mem->fd != -1) {
     if (mem->ptr)

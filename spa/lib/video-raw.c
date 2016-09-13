@@ -625,7 +625,8 @@ spa_format_video_parse (const SpaFormat *format,
   if (props->prop_info[idx].type != SPA_PROP_TYPE_POINTER)
     goto fallback;
 
-  memcpy (&vformat->info, value.value, SPA_MIN (value.size, sizeof (SpaVideoInfoRaw)));
+  memcpy (&vformat->info, value.value, SPA_MIN (value.size, sizeof (vformat->info)));
+  vformat->format.props.unset_mask = props->unset_mask;
 
   return SPA_RESULT_OK;
 

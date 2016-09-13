@@ -216,13 +216,18 @@ on_port_added (PinosNode *node, PinosDirection direction, guint port_id, PinosCl
 
     new_port = pinos_node_get_free_port (target, pinos_direction_reverse (direction));
     if (new_port == SPA_ID_INVALID) {
-      g_debug ("daemon %p: can't create free port", this);
+      g_warning ("daemon %p: can't get free port", this);
       return;
     }
     if (direction == PINOS_DIRECTION_OUTPUT)
       link = pinos_node_link (node, port_id, target, new_port, NULL, NULL);
     else
       link = pinos_node_link (target, new_port, node, port_id, NULL, NULL);
+
+    if (link == NULL) {
+      g_warning ("daemon %p: can't link nodes", this);
+      return;
+    }
 
     pinos_client_add_object (client, G_OBJECT (link));
     g_object_unref (link);

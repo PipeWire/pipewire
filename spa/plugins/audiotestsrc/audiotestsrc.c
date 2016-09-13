@@ -67,11 +67,9 @@ struct _SpaAudioTestSrc {
   SpaFormatAudio query_format;
   SpaFormatAudio current_format;
 
+  bool have_buffers;
   SpaMemory *alloc_mem;
   ATSBuffer *alloc_buffers;
-
-  bool have_buffers;
-  SpaBuffer **buffers;
   unsigned int n_buffers;
 
   ATSBuffer *empty;
@@ -407,6 +405,20 @@ spa_audiotestsrc_node_port_enum_formats (SpaNode          *node,
 }
 
 static SpaResult
+clear_buffers (SpaAudioTestSrc *this)
+{
+  if (this->have_buffers) {
+    fprintf (stderr, "clear buffers");
+    if (this->alloc_mem)
+      spa_memory_unref (&this->alloc_mem->mem);
+    this->alloc_mem = NULL;
+    this->n_buffers = 0;
+    this->have_buffers = false;
+  }
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
 spa_audiotestsrc_node_port_set_format (SpaNode            *node,
                                        uint32_t            port_id,
                                        SpaPortFormatFlags  flags,
@@ -425,7 +437,7 @@ spa_audiotestsrc_node_port_set_format (SpaNode            *node,
 
   if (format == NULL) {
     this->have_format = false;
-    this->have_buffers = false;
+    clear_buffers (this);
   } else {
     if ((res = spa_format_audio_parse (format, &this->current_format)) < 0)
       return res;
@@ -535,14 +547,7 @@ spa_audiotestsrc_node_port_use_buffers (SpaNode         *node,
   if (!this->have_format)
     return SPA_RESULT_NO_FORMAT;
 
-  if (this->have_buffers) {
-    if (this->alloc_mem)
-      spa_memory_unref (&this->alloc_mem->mem);
-    this->alloc_mem = NULL;
-    this->buffers = NULL;
-    this->n_buffers = 0;
-    this->have_buffers = false;
-  }
+  clear_buffers (this);
   if (buffers != NULL && n_buffers != 0) {
     unsigned int i;
 
@@ -578,16 +583,16 @@ spa_audiotestsrc_node_port_use_buffers (SpaNode         *node,
       b->ptr = SPA_MEMBER (spa_memory_ensure_ptr (mem), d[0].mem.offset, void);
       b->size = d[0].mem.size;
     }
-    this->buffers = buffers;
     this->n_buffers = n_buffers;
     this->have_buffers = true;
     this->empty = this->alloc_buffers;
   }
 
-  if (this->have_buffers)
+  if (this->have_buffers) {
     update_state (this, SPA_NODE_STATE_PAUSED);
-  else
+  } else {
     update_state (this, SPA_NODE_STATE_READY);
+  }
 
   return SPA_RESULT_OK;
 }
@@ -600,6 +605,22 @@ spa_audiotestsrc_node_port_alloc_buffers (SpaNode         *node,
                                           SpaBuffer      **buffers,
                                           uint32_t        *n_buffers)
 {
+  SpaAudioTestSrc *this;
+
+  if (node == NULL || node->handle == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaAudioTestSrc *) node->handle;
+
+  if (port_id != 0)
+    return SPA_RESULT_INVALID_PORT;
+
+  if (!this->have_format)
+    return SPA_RESULT_NO_FORMAT;
+
+  if (!this->have_buffers)
+    return SPA_RESULT_NO_BUFFERS;
+
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 

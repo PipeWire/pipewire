@@ -270,7 +270,6 @@ gst_pinos_src_init (GstPinosSrc * src)
   gst_base_src_set_format (GST_BASE_SRC (src), GST_FORMAT_TIME);
 
   GST_OBJECT_FLAG_SET (src, GST_ELEMENT_FLAG_PROVIDE_CLOCK);
-  gst_base_src_set_live (GST_BASE_SRC (src), TRUE);
 
   g_queue_init (&src->queue);
 
@@ -347,16 +346,16 @@ static gboolean
 buffer_recycle (GstMiniObject *obj)
 {
   ProcessMemData *data;
-
-  GST_LOG_OBJECT (obj, "recycle buffer");
+  GstPinosSrc *src;
 
   gst_mini_object_ref (obj);
   data = gst_mini_object_get_qdata (obj,
                                     process_mem_data_quark);
   GST_BUFFER_FLAGS (obj) = data->flags;
+  src = data->src;
 
-  pinos_stream_recycle_buffer (data->src->stream, data->id);
   GST_LOG_OBJECT (obj, "recycle buffer");
+  pinos_stream_recycle_buffer (src->stream, data->id);
 
   return FALSE;
 }
@@ -524,10 +523,6 @@ parse_stream_properties (GstPinosSrc *pinossrc, PinosProperties *props)
 
   var = pinos_properties_get (props, "pinos.latency.max");
   pinossrc->max_latency = var ? (GstClockTime) atoi (var) : GST_CLOCK_TIME_NONE;
-
-  pinossrc->is_live = TRUE;
-  pinossrc->min_latency = 100000000;
-  pinossrc->max_latency = GST_CLOCK_TIME_NONE;
 }
 
 static gboolean

@@ -862,12 +862,8 @@ v4l2_on_fd_events (SpaPollNotifyData *data)
   SpaNodeEvent event;
   SpaNodeEventHaveOutput ho;
 
-  if (data->fds[0].revents & POLLERR) {
-
+  if (data->fds[0].revents & POLLERR)
     return -1;
-  }
-
-
 
   if (mmap_read (this) < 0)
     return 0;

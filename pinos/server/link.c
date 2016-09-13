@@ -219,7 +219,7 @@ static SpaResult
 do_negotiate (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
 {
   SpaResult res;
-  SpaFormat *filter, *format;
+  SpaFormat *filter = NULL, *format;
   void *istate = NULL, *ostate = NULL;
 
   /* both ports need a format */
@@ -231,8 +231,10 @@ again:
                                            &filter,
                                            NULL,
                                            &istate)) < 0) {
-      g_warning ("error input enum formats: %d", res);
-      goto error;
+      if (res == SPA_RESULT_ENUM_END && istate != NULL) {
+        g_warning ("error input enum formats: %d", res);
+        goto error;
+      }
     }
     spa_debug_format (filter);
 
@@ -336,6 +338,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       }
       memcpy (priv->out_buffers, priv->in_buffers, priv->n_in_buffers * sizeof (SpaBuffer*));
       priv->n_out_buffers = priv->n_in_buffers;
+      g_debug ("allocated out_buffers %p, in_buffers %p", priv->out_buffers, priv->in_buffers);
     } else if ((out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) &&
         (in_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS)) {
       out_flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
@@ -347,8 +350,10 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
     }
   } else if (in_state == SPA_NODE_STATE_READY && out_state > SPA_NODE_STATE_READY) {
     out_flags &= ~SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+    in_flags &= ~SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
   } else if (out_state == SPA_NODE_STATE_READY && in_state > SPA_NODE_STATE_READY) {
     in_flags &= ~SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+    out_flags &= ~SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
   } else
     return SPA_RESULT_OK;
 
@@ -363,6 +368,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       g_warning ("error alloc buffers: %d", res);
       goto error;
     }
+    g_debug ("allocated in_buffers %p", priv->in_buffers);
   }
   else if (out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
     priv->n_out_buffers = 16;
@@ -372,8 +378,10 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       g_warning ("error alloc buffers: %d", res);
       goto error;
     }
+    g_debug ("allocated out_buffers %p", priv->out_buffers);
   }
   if (in_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS) {
+    g_debug ("using out_buffers %p", priv->out_buffers);
     if ((res = spa_node_port_use_buffers (this->input_node->node, this->input_port,
                                           priv->out_buffers, priv->n_out_buffers)) < 0) {
       g_warning ("error use buffers: %d", res);
@@ -381,12 +389,14 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
     }
   }
   else if (out_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS) {
+    g_debug ("using in_buffers %p", priv->out_buffers);
     if ((res = spa_node_port_use_buffers (this->output_node->node, this->output_port,
                                           priv->in_buffers, priv->n_in_buffers)) < 0) {
       g_warning ("error use buffers: %d", res);
       goto error;
     }
-  }
+  } else
+    return SPA_RESULT_NO_BUFFERS;
 
   return SPA_RESULT_OK;
 

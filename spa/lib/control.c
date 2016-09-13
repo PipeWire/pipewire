@@ -1366,7 +1366,7 @@ spa_control_read (SpaControl   *control,
       break;
     }
     if (len != hdr->length)
-      return SPA_RESULT_ERROR;
+      goto wrong_length;
   }
 
   /* handle control messages */
@@ -1387,6 +1387,11 @@ spa_control_read (SpaControl   *control,
 recv_error:
   {
     fprintf (stderr, "could not recvmsg: %s\n", strerror (errno));
+    return SPA_RESULT_ERROR;
+  }
+wrong_length:
+  {
+    fprintf (stderr, "wrong header length %zd != %u\n", len, hdr->length);
     return SPA_RESULT_ERROR;
   }
 }

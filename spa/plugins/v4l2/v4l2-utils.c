@@ -94,20 +94,14 @@ spa_v4l2_clear_buffers (SpaV4l2Source *this)
 
   for (i = 0; i < state->reqbuf.count; i++) {
     V4l2Buffer *b;
-    SpaMemory *mem;
 
     b = &state->alloc_buffers[i];
     if (b->outstanding) {
       fprintf (stderr, "queueing outstanding buffer %p\n", b);
       spa_v4l2_buffer_recycle (this, i);
     }
-    mem = spa_memory_find (&b->datas[0].mem.mem);
-    if (state->export_buf) {
-      close (mem->fd);
-    } else {
-      munmap (mem->ptr, mem->size);
-    }
-    spa_memory_unref (&mem->mem);
+    if (b->buffer.n_datas > 0)
+      spa_memory_unref (&b->datas[0].mem.mem);
   }
   if (state->alloc_mem)
     spa_memory_unref (&state->alloc_mem->mem);
@@ -825,7 +819,6 @@ mmap_read (SpaV4l2Source *this)
       case EIO:
       default:
         perror ("VIDIOC_DQBUF");
-        usleep (50 * 1000);
         return SPA_RESULT_ERROR;
     }
   }
@@ -920,11 +913,14 @@ spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffe
     b->buffer.mem.offset = sizeof (V4l2Buffer) * i;
     b->buffer.mem.size = sizeof (V4l2Buffer);
     b->buffer.id = SPA_ID_INVALID;
+    b->buffer.n_metas = 0;
+    b->buffer.n_datas = 0;
     b->outbuf = buffers[i];
     b->outstanding = true;
 
     fprintf (stderr, "import buffer %p\n", buffers[i]);
 
+    d = SPA_BUFFER_DATAS (buffers[i]);
     mem_ref = &d[0].mem.mem;
     if (!(mem = spa_memory_find (mem_ref))) {
       fprintf (stderr, "invalid memory on buffer %p\n", buffers[i]);
@@ -935,7 +931,6 @@ spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffe
       fprintf (stderr, "invalid memory on buffer %p\n", buffers[i]);
       continue;
     }
-    d = SPA_BUFFER_DATAS (buffers[i]);
 
     CLEAR (b->v4l2_buffer);
     b->v4l2_buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;

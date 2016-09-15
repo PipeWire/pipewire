@@ -728,6 +728,7 @@ spa_v4l2_source_node_port_push_event (SpaNode      *node,
 static const SpaNode v4l2source_node = {
   NULL,
   sizeof (SpaNode),
+  NULL,
   SPA_NODE_STATE_INIT,
   spa_v4l2_source_node_get_props,
   spa_v4l2_source_node_set_props,
@@ -835,9 +836,10 @@ v4l2_source_clear (SpaHandle *handle)
 static SpaResult
 v4l2_source_init (const SpaHandleFactory  *factory,
                   SpaHandle               *handle,
-                  const void              *config)
+                  const SpaDict           *info)
 {
   SpaV4l2Source *this;
+  unsigned int i;
 
   if (factory == NULL || handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -858,6 +860,13 @@ v4l2_source_init (const SpaHandleFactory  *factory,
   this->state[0].status.flags = SPA_PORT_STATUS_FLAG_NONE;
 
   this->state[0].export_buf = true;
+
+  for (i = 0; info && i < info->n_items; i ++) {
+    if (!strcmp (info->items[i].key, "device.path")) {
+      strncpy (this->props[1].device, info->items[i].value, 63);
+      this->props[1].props.unset_mask &= ~1;
+    }
+  }
 
   return SPA_RESULT_OK;
 }

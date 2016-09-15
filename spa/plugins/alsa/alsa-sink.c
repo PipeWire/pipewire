@@ -649,6 +649,7 @@ spa_alsa_sink_node_port_pull_output (SpaNode           *node,
 static const SpaNode alsasink_node = {
   NULL,
   sizeof (SpaNode),
+  NULL,
   SPA_NODE_STATE_INIT,
   spa_alsa_sink_node_get_props,
   spa_alsa_sink_node_set_props,
@@ -703,7 +704,7 @@ alsa_sink_clear (SpaHandle *handle)
 static SpaResult
 alsa_sink_init (const SpaHandleFactory  *factory,
                 SpaHandle               *handle,
-                const void              *config)
+                const SpaDict           *info)
 {
   SpaALSASink *this;
 

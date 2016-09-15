@@ -54,7 +54,6 @@ typedef struct {
   const char              *klass;
   const SpaDict           *info;
   const SpaHandleFactory  *factory;
-  const void              *config;
 } SpaMonitorItem;
 
 /**

@@ -1099,6 +1099,7 @@ proxy_on_fd_events (SpaPollNotifyData *data)
 static const SpaNode proxy_node = {
   NULL,
   sizeof (SpaNode),
+  NULL,
   SPA_NODE_STATE_INIT,
   spa_proxy_node_get_props,
   spa_proxy_node_set_props,
@@ -1153,7 +1154,7 @@ proxy_clear (SpaHandle *handle)
 static SpaResult
 proxy_init (const SpaHandleFactory  *factory,
             SpaHandle               *handle,
-            const void              *config)
+            const SpaDict           *info)
 {
   SpaProxy *this;
 

@@ -247,7 +247,7 @@ module_LTLIBRARIES += module-spa.la
 module_spa_la_SOURCES = \
 		modules/spa/spa-audiotestsrc.c \
 		modules/spa/spa-alsa-sink.c \
-		modules/spa/spa-v4l2-source.c \
+		modules/spa/spa-v4l2-monitor.c \
 		modules/spa/module.c
 module_spa_la_CFLAGS = $(AM_CFLAGS)
 module_spa_la_LDFLAGS = $(MODULE_LDFLAGS)

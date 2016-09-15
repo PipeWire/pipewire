@@ -479,12 +479,23 @@ on_property_notify (GObject    *obj,
   }
 }
 
+static void
+on_node_remove (PinosNode *node, PinosLink *this)
+{
+  g_signal_handlers_disconnect_by_data (node, this);
+  if (node == this->input_node)
+    g_clear_object (&this->input_node);
+  else
+    g_clear_object (&this->output_node);
+}
 
 static void
 pinos_link_constructed (GObject * object)
 {
   PinosLink *this = PINOS_LINK (object);
 
+  g_signal_connect (this->input_node, "remove", (GCallback) on_node_remove, this);
+  g_signal_connect (this->output_node, "remove", (GCallback) on_node_remove, this);
   g_signal_connect (this->input_node, "notify::node-state", (GCallback) on_node_state_notify, this);
   g_signal_connect (this->output_node, "notify::node-state", (GCallback) on_node_state_notify, this);
 
@@ -508,8 +519,10 @@ pinos_link_dispose (GObject * object)
 
   g_debug ("link %p: dispose", this);
 
-  g_signal_handlers_disconnect_by_data (this->input_node, this);
-  g_signal_handlers_disconnect_by_data (this->output_node, this);
+  if (this->input_node)
+    g_signal_handlers_disconnect_by_data (this->input_node, this);
+  if (this->output_node)
+    g_signal_handlers_disconnect_by_data (this->output_node, this);
 
   g_signal_emit (this, signals[SIGNAL_REMOVE], 0, NULL);
 

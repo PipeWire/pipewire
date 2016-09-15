@@ -31,6 +31,8 @@
 #include <spa/memory.h>
 #include <spa/debug.h>
 
+extern const SpaHandleFactory spa_v4l2_source_factory;
+
 typedef struct _SpaV4l2Monitor SpaV4l2Monitor;
 
 typedef struct {
@@ -81,16 +83,14 @@ fill_item (V4l2Item *item, struct udev_device *udevice)
   if (udevice == NULL)
     return;
 
-  item->item.id = udev_device_get_devnode (item->udevice);
+  item->item.id = udev_device_get_syspath (item->udevice);
   item->item.flags = 0;
   item->item.state = SPA_MONITOR_ITEM_STATE_AVAILABLE;
   item->item.klass = "Video/Source";
   item->item.info = &item->info;
-  item->item.factory = NULL;
-  item->item.config = NULL;
+  item->item.factory = &spa_v4l2_source_factory;
 
   item->info.items = item->info_items;
-
   i = 0;
   item->info_items[i].key = "udev-probed";
   item->info_items[i++].value = "1";
@@ -351,7 +351,7 @@ v4l2_monitor_clear (SpaHandle *handle)
 static SpaResult
 v4l2_monitor_init (const SpaHandleFactory  *factory,
                    SpaHandle               *handle,
-                   const void              *config)
+                   const SpaDict           *info)
 {
   SpaV4l2Monitor *this;
 

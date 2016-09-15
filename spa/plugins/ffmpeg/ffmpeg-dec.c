@@ -503,6 +503,7 @@ spa_ffmpeg_dec_node_port_push_event (SpaNode      *node,
 static const SpaNode ffmpeg_dec_node = {
   NULL,
   sizeof (SpaNode),
+  NULL,
   SPA_NODE_STATE_INIT,
   spa_ffmpeg_dec_node_get_props,
   spa_ffmpeg_dec_node_set_props,

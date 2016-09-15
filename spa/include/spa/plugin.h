@@ -102,8 +102,8 @@ struct _SpaHandleFactory {
    * SpaHandleFactory::init
    * @factory: a #SpaHandleFactory
    * @handle: a pointer to memory
-   * @config: extra handle specific config information, usually obtained from
-   *          a #SpaMonitor.
+   * @info: extra handle specific information, usually obtained
+   *        from a #SpaMonitor. This can be used to configure the handle.
    *
    * Initialize an instance of this factory. The caller should allocate
    * memory at least SpaHandleFactory::size bytes and pass this as @handle.
@@ -114,7 +114,7 @@ struct _SpaHandleFactory {
    */
   SpaResult   (*init)                 (const SpaHandleFactory  *factory,
                                        SpaHandle               *handle,
-                                       const void              *config);
+                                       const SpaDict           *info);
 
   /**
    * SpaHandle::enum_interface_info:

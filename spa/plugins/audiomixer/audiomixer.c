@@ -726,6 +726,7 @@ spa_audiomixer_node_port_push_event (SpaNode      *node,
 static const SpaNode audiomixer_node = {
   NULL,
   sizeof (SpaNode),
+  NULL,
   SPA_NODE_STATE_INIT,
   spa_audiomixer_node_get_props,
   spa_audiomixer_node_set_props,
@@ -781,7 +782,7 @@ spa_audiomixer_clear (SpaHandle *handle)
 static SpaResult
 spa_audiomixer_init (const SpaHandleFactory *factory,
                      SpaHandle              *handle,
-                     const void             *config)
+                     const SpaDict          *info)
 {
   SpaAudioMixer *this;
 

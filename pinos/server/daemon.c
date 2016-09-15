@@ -525,8 +525,7 @@ pinos_daemon_remove_node (PinosDaemon *daemon,
  *
  * Find the best port in @daemon that matches the given parameters.
  *
- * Returns: a #PinosPort or %NULL when no port could be found. unref the port
- *          after usage.
+ * Returns: a #PinosPort or %NULL when no port could be found.
  */
 PinosNode *
 pinos_daemon_find_node (PinosDaemon     *daemon,
@@ -566,9 +565,7 @@ pinos_daemon_find_node (PinosDaemon     *daemon,
                  G_IO_ERROR,
                  G_IO_ERROR_NOT_FOUND,
                  "No matching Node found");
-  } else
-    g_object_ref (best);
-
+  }
   return best;
 }
 

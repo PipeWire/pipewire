@@ -501,6 +501,7 @@ spa_xv_sink_node_port_push_event (SpaNode      *node,
 static const SpaNode xvsink_node = {
   NULL,
   sizeof (SpaNode),
+  NULL,
   SPA_NODE_STATE_INIT,
   spa_xv_sink_node_get_props,
   spa_xv_sink_node_set_props,
@@ -556,7 +557,7 @@ xv_sink_clear (SpaHandle *handle)
 static SpaResult
 xv_sink_init (const SpaHandleFactory  *factory,
               SpaHandle               *handle,
-              const void              *config)
+              const SpaDict           *info)
 {
   SpaXvSink *this;
 

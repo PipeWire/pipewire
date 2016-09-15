@@ -787,6 +787,7 @@ spa_audiotestsrc_node_port_push_event (SpaNode      *node,
 static const SpaNode audiotestsrc_node = {
   NULL,
   sizeof (SpaNode),
+  NULL,
   SPA_NODE_STATE_INIT,
   spa_audiotestsrc_node_get_props,
   spa_audiotestsrc_node_set_props,
@@ -842,7 +843,7 @@ audiotestsrc_clear (SpaHandle *handle)
 static SpaResult
 audiotestsrc_init (const SpaHandleFactory  *factory,
                    SpaHandle               *handle,
-                   const void              *config)
+                   const SpaDict           *info)
 {
   SpaAudioTestSrc *this;
 

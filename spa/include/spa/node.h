@@ -155,6 +155,12 @@ struct _SpaNode {
    * structure in the future */
   size_t size;
   /**
+   * SpaNode::info
+   *
+   * Extra information about the node
+   */
+  const SpaDict * info;
+  /**
    * SpaNode::state:
    *
    * The current state of the node

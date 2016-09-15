@@ -81,7 +81,7 @@ struct _PinosNodePrivate
   SpaClock *clock;
 };
 
-G_DEFINE_ABSTRACT_TYPE (PinosNode, pinos_node, G_TYPE_OBJECT);
+G_DEFINE_TYPE (PinosNode, pinos_node, G_TYPE_OBJECT);
 
 enum
 {
@@ -735,14 +735,26 @@ pinos_node_constructed (GObject * obj)
   priv->fds[0].revents = 0;
   priv->n_fds = 1;
 
+  if (this->node->info) {
+    unsigned int i;
+
+    if (priv->properties == NULL)
+      priv->properties = pinos_properties_new (NULL, NULL);
+
+    for (i = 0; i < this->node->info->n_items; i++)
+      pinos_properties_set (priv->properties,
+                            this->node->info->items[i].key,
+                            this->node->info->items[i].value);
+  }
+
   if ((res = spa_node_set_event_callback (this->node, on_node_event, this)) < 0)
     g_warning ("node %p: error setting callback", this);
 
   update_port_ids (this, TRUE);
 
-  if (priv->sender == NULL) {
+  if (priv->sender == NULL)
     priv->sender = g_strdup (pinos_daemon_get_sender (priv->daemon));
-  }
+
   on_property_notify (G_OBJECT (this), NULL, this);
 
   node_register_object (this);
@@ -1165,24 +1177,28 @@ do_remove_link (PinosLink *link, PinosNode *node)
   guint i, n_links;
   GArray *links;
 
-  links = link->output_node->priv->output_links;
-  n_links = links->len;
-  for (i = 0; i < n_links; i++) {
-    NodeLink *l = &g_array_index (links, NodeLink, i);
-    if (l->link == link) {
-      l->link = NULL;
-      if (--link->output_node->priv->n_used_output_links == 0)
-        pinos_node_report_idle (link->output_node);
+  if (link->output_node) {
+    links = link->output_node->priv->output_links;
+    n_links = links->len;
+    for (i = 0; i < n_links; i++) {
+      NodeLink *l = &g_array_index (links, NodeLink, i);
+      if (l->link == link) {
+        l->link = NULL;
+        if (--link->output_node->priv->n_used_output_links == 0)
+          pinos_node_report_idle (link->output_node);
+      }
     }
   }
-  links = link->input_node->priv->input_links;
-  n_links = links->len;
-  for (i = 0; i < n_links; i++) {
-    NodeLink *l = &g_array_index (links, NodeLink, i);
-    if (l->link == link) {
-      l->link = NULL;
-      if (--link->input_node->priv->n_used_input_links == 0)
-        pinos_node_report_idle (link->input_node);
+  if (link->input_node) {
+    links = link->input_node->priv->input_links;
+    n_links = links->len;
+    for (i = 0; i < n_links; i++) {
+      NodeLink *l = &g_array_index (links, NodeLink, i);
+      if (l->link == link) {
+        l->link = NULL;
+        if (--link->input_node->priv->n_used_input_links == 0)
+          pinos_node_report_idle (link->input_node);
+      }
     }
   }
 }

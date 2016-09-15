@@ -497,3 +497,17 @@ spa_debug_format (const SpaFormat *format)
   }
   return SPA_RESULT_OK;
 }
+
+SpaResult
+spa_debug_dict (const SpaDict *dict)
+{
+  unsigned int i;
+
+  if (dict == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  for (i = 0; i < dict->n_items; i++)
+    fprintf (stderr, "          %s = \"%s\"\n", dict->items[i].key, dict->items[i].value);
+
+  return SPA_RESULT_OK;
+}

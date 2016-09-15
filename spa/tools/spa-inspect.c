@@ -35,18 +35,18 @@ inspect_node (SpaNode *node)
   SpaFormat *format;
   void *state = NULL;
 
-  if ((res = node->get_props (node, &props)) < 0)
+  if ((res = spa_node_get_props (node, &props)) < 0)
     printf ("can't get properties: %d\n", res);
   else
     spa_debug_props (props, true);
 
-  if ((res = node->get_n_ports (node, &n_input, &max_input, &n_output, &max_output)) < 0)
+  if ((res = spa_node_get_n_ports (node, &n_input, &max_input, &n_output, &max_output)) < 0)
     printf ("can't get n_ports: %d\n", res);
   else
     printf ("supported ports %d %d %d %d\n", n_input, max_input, n_output, max_output);
 
   while (true) {
-    if ((res = node->port_enum_formats (node, 0, &format, NULL, &state)) < 0) {
+    if ((res = spa_node_port_enum_formats (node, 0, &format, NULL, &state)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
         printf ("got error %d\n", res);
       break;
@@ -54,7 +54,7 @@ inspect_node (SpaNode *node)
     if (format)
       spa_debug_format (format);
   }
-  if ((res = node->port_get_props (node, 0, &props)) < 0)
+  if ((res = spa_node_port_get_props (node, 0, &props)) < 0)
     printf ("port_get_props error: %d\n", res);
   else
     spa_debug_props (props, true);
@@ -71,12 +71,12 @@ inspect_factory (const SpaHandleFactory *factory)
   printf ("factory name:\t\t'%s'\n", factory->name);
   printf ("factory info:\n");
   if (factory->info)
-    spa_debug_props (factory->info, true);
+    spa_debug_dict (factory->info);
   else
     printf ("  none\n");
 
   handle = calloc (1, factory->size);
-  if ((res = factory->init (factory, handle)) < 0) {
+  if ((res = spa_handle_factory_init (factory, handle, NULL)) < 0) {
     printf ("can't make factory instance: %d\n", res);
     return;
   }
@@ -86,7 +86,7 @@ inspect_factory (const SpaHandleFactory *factory)
   while (true) {
     const SpaInterfaceInfo *info;
 
-    if ((res = factory->enum_interface_info (factory, &info, &state)) < 0) {
+    if ((res = spa_handle_factory_enum_interface_info (factory, &info, &state)) < 0) {
       if (res == SPA_RESULT_ENUM_END)
         break;
       else
@@ -94,7 +94,7 @@ inspect_factory (const SpaHandleFactory *factory)
     }
     printf (" interface: (%d) '%s' : '%s'\n", info->interface_id, info->name, info->description);
 
-    if ((res = handle->get_interface (handle, info->interface_id, &interface)) < 0) {
+    if ((res = spa_handle_get_interface (handle, info->interface_id, &interface)) < 0) {
       printf ("can't get interface: %d\n", res);
       continue;
     }
@@ -117,6 +117,11 @@ main (int argc, char *argv[])
   void *handle;
   SpaEnumHandleFactoryFunc enum_func;
   void *state = NULL;
+
+  if (argc < 2) {
+    printf ("usage: %s <plugin.so>\n", argv[0]);
+    return -1;
+  }
 
   if ((handle = dlopen (argv[1], RTLD_NOW)) == NULL) {
     printf ("can't load %s\n", argv[1]);

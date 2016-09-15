@@ -1152,7 +1152,8 @@ proxy_clear (SpaHandle *handle)
 
 static SpaResult
 proxy_init (const SpaHandleFactory  *factory,
-            SpaHandle               *handle)
+            SpaHandle               *handle,
+            const void              *config)
 {
   SpaProxy *this;
 

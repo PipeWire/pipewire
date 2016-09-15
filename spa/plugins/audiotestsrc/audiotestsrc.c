@@ -841,7 +841,8 @@ audiotestsrc_clear (SpaHandle *handle)
 
 static SpaResult
 audiotestsrc_init (const SpaHandleFactory  *factory,
-                   SpaHandle               *handle)
+                   SpaHandle               *handle,
+                   const void              *config)
 {
   SpaAudioTestSrc *this;
 

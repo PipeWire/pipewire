@@ -555,7 +555,8 @@ xv_sink_clear (SpaHandle *handle)
 
 static SpaResult
 xv_sink_init (const SpaHandleFactory  *factory,
-              SpaHandle               *handle)
+              SpaHandle               *handle,
+              const void              *config)
 {
   SpaXvSink *this;
 

@@ -158,7 +158,7 @@ typedef struct {
  *             properties. Can be %NULL when unspecified.
  * @unset_mask: mask of unset properties. For each property in @prop_info there
  *              is a corresponding bit that specifies if the property is currently
- *              unset. When more that 32 properties are present, more uint32_t
+ *              unset. When more than 32 properties are present, more uint32_t
  *              fields follow this one.
  *
  * Generic propertiers.

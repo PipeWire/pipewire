@@ -74,11 +74,11 @@ make_node (SpaNode **node, const char *lib, const char *name)
       continue;
 
     handle = calloc (1, factory->size);
-    if ((res = factory->init (factory, handle)) < 0) {
+    if ((res = spa_handle_factory_init (factory, handle, NULL)) < 0) {
       printf ("can't make factory instance: %d\n", res);
       return res;
     }
-    if ((res = handle->get_interface (handle, SPA_INTERFACE_ID_NODE, &iface)) < 0) {
+    if ((res = spa_handle_get_interface (handle, SPA_INTERFACE_ID_NODE, &iface)) < 0) {
       printf ("can't get interface %d\n", res);
       return res;
     }

@@ -58,6 +58,12 @@ struct _SpaClock {
    * structure in the future */
   size_t size;
   /**
+   * SpaClock::info
+   *
+   * Extra information about the clock
+   */
+  const SpaDict *info;
+  /**
    * SpaClock::state:
    *
    * The current state of the clock

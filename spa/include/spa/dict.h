@@ -1,4 +1,4 @@
-/* Spa V4l2 support
+/* Simple Plugin API
  * Copyright (C) 2016 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -17,34 +17,29 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include <spa/plugin.h>
-#include <spa/node.h>
+#ifndef __SPA_DICT_H__
+#define __SPA_DICT_H__
 
-extern const SpaHandleFactory spa_v4l2_source_factory;
-extern const SpaHandleFactory spa_v4l2_monitor_factory;
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-SpaResult
-spa_enum_handle_factory (const SpaHandleFactory **factory,
-                         void                   **state)
-{
-  int index;
+typedef struct _SpaDict SpaDict;
 
-  if (factory == NULL || state == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+#include <spa/defs.h>
 
-  index = (*state == NULL ? 0 : *(int*)state);
+typedef struct {
+  const char *key;
+  const char *value;
+} SpaDictItem;
 
-  switch (index) {
-    case 0:
-      *factory = &spa_v4l2_source_factory;
-      break;
-    case 1:
-      *factory = &spa_v4l2_monitor_factory;
-      break;
-    default:
-      return SPA_RESULT_ENUM_END;
-  }
-  *(int*)state = ++index;
+struct _SpaDict {
+  unsigned int  n_items;
+  SpaDictItem  *items;
+};
 
-  return SPA_RESULT_OK;
-}
+#ifdef __cplusplus
+}  /* extern "C" */
+#endif
+
+#endif /* __SPA_DICT_H__ */

@@ -249,7 +249,7 @@ make_node (SpaNode **node, const char *lib, const char *name)
       continue;
 
     handle = calloc (1, factory->size);
-    if ((res = factory->init (factory, handle)) < 0) {
+    if ((res = factory->init (factory, handle, NULL)) < 0) {
       g_error ("can't make factory instance: %d", res);
       return res;
     }

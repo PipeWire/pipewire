@@ -8,6 +8,7 @@ avcodec_dep = dependency('libavcodec')
 avformat_dep = dependency('libavformat')
 avfilter_dep = dependency('libavfilter')
 libva_dep = dependency('libva')
+libudev_dep = dependency('libudev')
 
 cc = meson.get_compiler('c')
 

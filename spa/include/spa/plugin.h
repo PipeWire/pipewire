@@ -25,7 +25,7 @@ extern "C" {
 #endif
 
 #include <spa/defs.h>
-#include <spa/props.h>
+#include <spa/dict.h>
 
 typedef struct _SpaHandle SpaHandle;
 typedef struct _SpaHandleFactory SpaHandleFactory;
@@ -90,7 +90,7 @@ struct _SpaHandleFactory {
    *
    * Extra information about the handles of this factory.
    */
-  const SpaProps * info;
+  const SpaDict * info;
   /**
    * SpaHandleFactory::size
    *
@@ -102,6 +102,8 @@ struct _SpaHandleFactory {
    * SpaHandleFactory::init
    * @factory: a #SpaHandleFactory
    * @handle: a pointer to memory
+   * @config: extra handle specific config information, usually obtained from
+   *          a #SpaMonitor.
    *
    * Initialize an instance of this factory. The caller should allocate
    * memory at least SpaHandleFactory::size bytes and pass this as @handle.
@@ -111,7 +113,8 @@ struct _SpaHandleFactory {
    *          #SPA_RESULT_INVALID_ARGUMENTS when factory or handle are %NULL
    */
   SpaResult   (*init)                 (const SpaHandleFactory  *factory,
-                                       SpaHandle               *handle);
+                                       SpaHandle               *handle,
+                                       const void              *config);
 
   /**
    * SpaHandle::enum_interface_info:

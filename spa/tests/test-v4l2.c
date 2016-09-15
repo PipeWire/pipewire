@@ -95,11 +95,11 @@ make_node (SpaNode **node, const char *lib, const char *name)
       continue;
 
     handle = calloc (1, factory->size);
-    if ((res = factory->init (factory, handle)) < 0) {
+    if ((res = spa_handle_factory_init (factory, handle, NULL)) < 0) {
       printf ("can't make factory instance: %d\n", res);
       return res;
     }
-    if ((res = handle->get_interface (handle, SPA_INTERFACE_ID_NODE, &iface)) < 0) {
+    if ((res = spa_handle_get_interface (handle, SPA_INTERFACE_ID_NODE, &iface)) < 0) {
       printf ("can't get interface %d\n", res);
       return res;
     }
@@ -402,7 +402,6 @@ run_async_source (AppData *data)
 {
   SpaResult res;
   SpaNodeCommand cmd;
-  bool done = false;
   int err;
 
   cmd.type = SPA_NODE_COMMAND_START;
@@ -415,23 +414,7 @@ run_async_source (AppData *data)
     data->running = false;
   }
 
-  while (!done) {
-    SDL_Event event;
-
-    while (SDL_PollEvent (&event)) {
-      switch (event.type) {
-        case SDL_KEYDOWN:
-          if (event.key.keysym.sym == SDLK_ESCAPE) {
-            done = SDL_TRUE;
-          }
-          break;
-        case SDL_QUIT:
-          done = SDL_TRUE;
-          break;
-      }
-      sleep (1);
-    }
-  }
+  sleep (10);
 
   if (data->running) {
     data->running = false;

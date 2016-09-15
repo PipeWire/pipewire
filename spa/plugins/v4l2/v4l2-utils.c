@@ -31,6 +31,11 @@ spa_v4l2_open (SpaV4l2Source *this)
   if (state->opened)
     return 0;
 
+  if (props->props.unset_mask & 1) {
+    fprintf(stderr, "Device property not set\n");
+    return -1;
+  }
+
   fprintf (stderr, "Playback device is '%s'\n", props->device);
 
   if (stat (props->device, &st) < 0) {

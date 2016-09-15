@@ -44,6 +44,7 @@ static void
 reset_v4l2_source_props (SpaV4l2SourceProps *props)
 {
   strncpy (props->device, default_device, 64);
+  props->props.unset_mask = 7;
 }
 
 #define MAX_BUFFERS     256
@@ -793,6 +794,7 @@ spa_v4l2_source_clock_get_time (SpaClock         *clock,
 static const SpaClock v4l2source_clock = {
   NULL,
   sizeof (SpaClock),
+  NULL,
   SPA_CLOCK_STATE_STOPPED,
   spa_v4l2_source_clock_get_props,
   spa_v4l2_source_clock_set_props,
@@ -832,7 +834,8 @@ v4l2_source_clear (SpaHandle *handle)
 
 static SpaResult
 v4l2_source_init (const SpaHandleFactory  *factory,
-                  SpaHandle               *handle)
+                  SpaHandle               *handle,
+                  const void              *config)
 {
   SpaV4l2Source *this;
 

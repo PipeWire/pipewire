@@ -780,7 +780,8 @@ spa_audiomixer_clear (SpaHandle *handle)
 
 static SpaResult
 spa_audiomixer_init (const SpaHandleFactory *factory,
-                     SpaHandle              *handle)
+                     SpaHandle              *handle,
+                     const void             *config)
 {
   SpaAudioMixer *this;
 

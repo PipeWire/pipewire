@@ -231,6 +231,34 @@ stream_set_state (PinosStream      *stream,
 }
 
 static void
+on_node_info (PinosContext        *c,
+              const PinosNodeInfo *info,
+              gpointer             user_data)
+{
+  PinosStream *stream = PINOS_STREAM (user_data);
+
+  if (info->state == PINOS_NODE_STATE_ERROR) {
+    g_debug ("stream %p: node %s in error", stream, info->node_path);
+    stream_set_state (stream,
+                      PINOS_STREAM_STATE_ERROR,
+                      g_error_new (PINOS_ERROR,
+                                   PINOS_ERROR_NODE_STATE,
+                                   "node is in error"));
+  }
+}
+
+static void
+info_ready (GObject *o, GAsyncResult *res, gpointer user_data)
+{
+  GError *error = NULL;
+
+  if (!pinos_context_info_finish (o, res, &error)) {
+    g_printerr ("introspection failure: %s\n", error->message);
+    g_clear_error (&error);
+  }
+}
+
+static void
 subscription_cb (PinosSubscribe         *subscribe,
                  PinosSubscriptionEvent  event,
                  PinosSubscriptionFlags  flags,
@@ -249,6 +277,16 @@ subscription_cb (PinosSubscribe         *subscribe,
                             g_error_new_literal (G_IO_ERROR,
                                                  G_IO_ERROR_CLOSED,
                                                  "Node disappeared"));
+        }
+      } else if (event == PINOS_SUBSCRIPTION_EVENT_CHANGE) {
+        if (object == priv->node && !priv->disconnecting) {
+          pinos_context_get_node_info_by_id (priv->context,
+                                             object,
+                                             PINOS_NODE_INFO_FLAGS_NONE,
+                                             on_node_info,
+                                             NULL,
+                                             info_ready,
+                                             stream);
         }
       }
       break;

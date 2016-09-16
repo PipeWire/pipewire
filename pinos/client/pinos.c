@@ -22,6 +22,16 @@
 #include "pinos/client/pinos.h"
 #include "spa/include/spa/memory.h"
 
+GQuark
+pinos_error_quark (void)
+{
+  static GQuark quark = 0;
+  if (!quark)
+    quark = g_quark_from_static_string ("pinos-error-quark");
+  return quark;
+}
+
+
 /**
  * pinos_init:
  * @argc: pointer to argc

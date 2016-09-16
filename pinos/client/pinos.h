@@ -36,6 +36,18 @@
 #define PINOS_DBUS_OBJECT_NODE PINOS_DBUS_OBJECT_PREFIX "/node"
 #define PINOS_DBUS_OBJECT_LINK PINOS_DBUS_OBJECT_PREFIX "/link"
 
+typedef enum {
+  PINOS_ERROR_FAILED,
+  PINOS_ERROR_FORMAT_NEGOTIATION,
+  PINOS_ERROR_BUFFER_ALLOCATION,
+  PINOS_ERROR_NODE_STATE,
+  PINOS_ERROR_NODE_PORT,
+  PINOS_ERROR_NODE_LINK,
+} PinosErrorEnum;
+
+GQuark pinos_error_quark (void);
+#define PINOS_ERROR pinos_error_quark()
+
 void pinos_init (int *argc, char **argv[]);
 
 gchar *pinos_client_name (void);

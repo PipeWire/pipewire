@@ -157,7 +157,7 @@ gst_pinos_src_provide_clock (GstElement * elem)
   if (!GST_OBJECT_FLAG_IS_SET (pinossrc, GST_ELEMENT_FLAG_PROVIDE_CLOCK))
     goto clock_disabled;
 
-  if (pinossrc->clock)
+  if (pinossrc->clock && pinossrc->is_live)
     clock = GST_CLOCK_CAST (gst_object_ref (pinossrc->clock));
   else
     clock = NULL;
@@ -489,10 +489,6 @@ on_stream_notify (GObject    *gobject,
 
   GST_DEBUG ("got stream state %d", state);
 
-  GST_OBJECT_LOCK (pinossrc);
-  pinossrc->stream_state = state;
-  GST_OBJECT_UNLOCK (pinossrc);
-
   switch (state) {
     case PINOS_STREAM_STATE_UNCONNECTED:
     case PINOS_STREAM_STATE_CONNECTING:
@@ -513,16 +509,20 @@ static void
 parse_stream_properties (GstPinosSrc *pinossrc, PinosProperties *props)
 {
   const gchar *var;
+  gboolean is_live;
 
+  GST_OBJECT_LOCK (pinossrc);
   var = pinos_properties_get (props, "pinos.latency.is-live");
-  pinossrc->is_live = var ? (atoi (var) == 1) : FALSE;
-  gst_base_src_set_live (GST_BASE_SRC (pinossrc), pinossrc->is_live);
+  is_live = pinossrc->is_live = var ? (atoi (var) == 1) : FALSE;
 
   var = pinos_properties_get (props, "pinos.latency.min");
   pinossrc->min_latency = var ? (GstClockTime) atoi (var) : 0;
 
   var = pinos_properties_get (props, "pinos.latency.max");
   pinossrc->max_latency = var ? (GstClockTime) atoi (var) : GST_CLOCK_TIME_NONE;
+  GST_OBJECT_UNLOCK (pinossrc);
+
+  gst_base_src_set_live (GST_BASE_SRC (pinossrc), is_live);
 }
 
 static gboolean
@@ -561,18 +561,31 @@ gst_pinos_src_stream_start (GstPinosSrc *pinossrc)
 start_error:
   {
     GST_DEBUG_OBJECT (pinossrc, "error starting stream");
+    pinos_main_loop_unlock (pinossrc->loop);
     return FALSE;
   }
 }
 
-static void
+static PinosStreamState
 wait_negotiated (GstPinosSrc *this)
 {
+  PinosStreamState state;
+
   pinos_main_loop_lock (this->loop);
-  while (!this->started) {
+  while (TRUE) {
+    state = pinos_stream_get_state (this->stream);
+
+    if (state == PINOS_STREAM_STATE_ERROR)
+      break;
+
+    if (this->started)
+      break;
+
     pinos_main_loop_wait (this->loop);
   }
   pinos_main_loop_unlock (this->loop);
+
+  return state;
 }
 
 static gboolean
@@ -794,9 +807,11 @@ gst_pinos_src_query (GstBaseSrc * src, GstQuery * query)
 
   switch (GST_QUERY_TYPE (query)) {
     case GST_QUERY_LATENCY:
+      GST_OBJECT_LOCK (pinossrc);
       pinossrc->min_latency = 10000000;
       pinossrc->max_latency = GST_CLOCK_TIME_NONE;
       gst_query_set_latency (query, pinossrc->is_live, pinossrc->min_latency, pinossrc->max_latency);
+      GST_OBJECT_UNLOCK (pinossrc);
       res = TRUE;
       break;
     default:
@@ -1010,7 +1025,6 @@ gst_pinos_src_close (GstPinosSrc * pinossrc)
   g_clear_object (&pinossrc->ctx);
   g_main_context_unref (pinossrc->context);
   GST_OBJECT_LOCK (pinossrc);
-  pinossrc->stream_state = PINOS_STREAM_STATE_UNCONNECTED;
   g_clear_object (&pinossrc->clock);
   g_clear_object (&pinossrc->stream);
   GST_OBJECT_UNLOCK (pinossrc);
@@ -1047,7 +1061,9 @@ gst_pinos_src_change_state (GstElement * element, GstStateChange transition)
 
   switch (transition) {
     case GST_STATE_CHANGE_READY_TO_PAUSED:
-      wait_negotiated (this);
+      if (wait_negotiated (this) == PINOS_STREAM_STATE_ERROR)
+        goto open_failed;
+
       if (gst_base_src_is_live (GST_BASE_SRC (element)))
         ret = GST_STATE_CHANGE_NO_PREROLL;
       break;

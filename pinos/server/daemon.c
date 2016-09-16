@@ -184,6 +184,38 @@ no_node:
 }
 
 static void
+on_link_state_notify (GObject     *obj,
+                      GParamSpec  *pspec,
+                      PinosClient *client)
+{
+  PinosLink *link = PINOS_LINK (obj);
+  GError *error = NULL;
+  PinosLinkState state;
+
+  state = pinos_link_get_state (link, &error);
+  switch (state) {
+    case PINOS_LINK_STATE_ERROR:
+      g_warning ("link %p: state error: %s", link, error->message);
+
+      if (link->input_node && pinos_client_has_object (client, G_OBJECT (link->input_node))) {
+        pinos_node_report_error (link->input_node, g_error_copy (error));
+      }
+      if (link->output_node && pinos_client_has_object (client, G_OBJECT (link->output_node))) {
+        pinos_node_report_error (link->output_node, g_error_copy (error));
+      }
+      break;
+    case PINOS_LINK_STATE_UNLINKED:
+      break;
+    case PINOS_LINK_STATE_INIT:
+    case PINOS_LINK_STATE_NEGOTIATING:
+    case PINOS_LINK_STATE_ALLOCATING:
+    case PINOS_LINK_STATE_PAUSED:
+    case PINOS_LINK_STATE_RUNNING:
+      break;
+  }
+}
+
+static void
 on_port_added (PinosNode *node, PinosDirection direction, guint port_id, PinosClient *client)
 {
   PinosDaemon *this;
@@ -209,27 +241,34 @@ on_port_added (PinosNode *node, PinosDirection direction, guint port_id, PinosCl
                                      NULL,
                                      &error);
     if (target == NULL) {
-      g_warning ("daemon %p: can't find node target: %s", this, error->message);
-      g_clear_error (&error);
+      pinos_node_report_error (node, error);
       return;
     }
 
     new_port = pinos_node_get_free_port (target, pinos_direction_reverse (direction));
     if (new_port == SPA_ID_INVALID) {
-      g_warning ("daemon %p: can't get free port", this);
+      g_set_error (&error,
+                   PINOS_ERROR,
+                   PINOS_ERROR_NODE_PORT,
+                   "can't get free port from node %s", pinos_node_get_object_path (target));
+      pinos_node_report_error (node, error);
       return;
     }
     if (direction == PINOS_DIRECTION_OUTPUT)
-      link = pinos_node_link (node, port_id, target, new_port, NULL, NULL);
+      link = pinos_node_link (node, port_id, target, new_port, NULL, NULL, &error);
     else
-      link = pinos_node_link (target, new_port, node, port_id, NULL, NULL);
+      link = pinos_node_link (target, new_port, node, port_id, NULL, NULL, &error);
 
     if (link == NULL) {
-      g_warning ("daemon %p: can't link nodes", this);
+      pinos_node_report_error (node, error);
       return;
     }
 
     pinos_client_add_object (client, G_OBJECT (link));
+
+    g_signal_connect (link, "notify::state", (GCallback) on_link_state_notify, client);
+    pinos_link_activate (link);
+
     g_object_unref (link);
   }
 }

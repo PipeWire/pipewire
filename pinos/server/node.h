@@ -72,30 +72,31 @@ struct _PinosNodeClass {
 /* normal GObject stuff */
 GType               pinos_node_get_type                (void);
 
-PinosNode *         pinos_node_new                     (PinosDaemon     *daemon,
-                                                        const gchar     *sender,
-                                                        const gchar     *name,
-                                                        PinosProperties *properties,
-                                                        SpaNode         *node);
+PinosNode *         pinos_node_new                     (PinosDaemon      *daemon,
+                                                        const gchar      *sender,
+                                                        const gchar      *name,
+                                                        PinosProperties  *properties,
+                                                        SpaNode          *node);
 void                pinos_node_remove                  (PinosNode *node);
 
 const gchar *       pinos_node_get_name                (PinosNode *node);
 PinosProperties *   pinos_node_get_properties          (PinosNode *node);
 
-PinosDaemon *       pinos_node_get_daemon              (PinosNode       *node);
-const gchar *       pinos_node_get_sender              (PinosNode       *node);
-const gchar *       pinos_node_get_object_path         (PinosNode       *node);
+PinosDaemon *       pinos_node_get_daemon              (PinosNode        *node);
+const gchar *       pinos_node_get_sender              (PinosNode        *node);
+const gchar *       pinos_node_get_object_path         (PinosNode        *node);
 
-guint               pinos_node_get_free_port           (PinosNode       *node,
-                                                        PinosDirection   direction);
+guint               pinos_node_get_free_port           (PinosNode        *node,
+                                                        PinosDirection    direction);
 
-PinosLink *         pinos_node_link                    (PinosNode       *output_node,
-                                                        guint            output_id,
-                                                        PinosNode       *input_node,
-                                                        guint            input_id,
-                                                        GPtrArray       *format_filter,
-                                                        PinosProperties *properties);
-GList *             pinos_node_get_links               (PinosNode       *node);
+PinosLink *         pinos_node_link                    (PinosNode        *output_node,
+                                                        guint             output_id,
+                                                        PinosNode        *input_node,
+                                                        guint             input_id,
+                                                        GPtrArray        *format_filter,
+                                                        PinosProperties  *properties,
+                                                        GError          **error);
+GList *             pinos_node_get_links               (PinosNode        *node);
 
 
 PinosNodeState      pinos_node_get_state               (PinosNode *node);

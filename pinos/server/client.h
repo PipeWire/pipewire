@@ -75,6 +75,8 @@ void            pinos_client_add_object           (PinosClient *client,
                                                    GObject     *object);
 void            pinos_client_remove_object        (PinosClient *client,
                                                    GObject     *object);
+gboolean        pinos_client_has_object           (PinosClient *client,
+                                                   GObject     *object);
 
 G_END_DECLS
 

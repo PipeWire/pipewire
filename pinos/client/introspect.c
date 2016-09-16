@@ -433,6 +433,26 @@ pinos_direction_as_string (PinosDirection direction)
   return val == NULL ? "invalid-direction" : val->value_nick;
 }
 
+/**
+ * pinos_link_state_as_string:
+ * @state: a #PinosLinkeState
+ *
+ * Return the string representation of @state.
+ *
+ * Returns: the string representation of @state.
+ */
+const gchar *
+pinos_link_state_as_string (PinosLinkState state)
+{
+  GEnumValue *val;
+
+  val = g_enum_get_value (G_ENUM_CLASS (g_type_class_ref (PINOS_TYPE_LINK_STATE)),
+                          state);
+
+  return val == NULL ? "invalid-state" : val->value_nick;
+}
+
+
 static void
 link_fill_info (PinosLinkInfo *info, GDBusProxy *proxy)
 {

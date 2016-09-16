@@ -64,6 +64,30 @@ typedef enum {
 
 const gchar * pinos_direction_as_string (PinosDirection direction);
 
+/**
+ * PinosLinkState:
+ * @PINOS_LINK_STATE_ERROR: the link is in error
+ * @PINOS_LINK_STATE_UNLINKED: the link is unlinked
+ * @PINOS_LINK_STATE_INIT: the link is initialized
+ * @PINOS_LINK_STATE_NEGOTIATING: the link is negotiating formats
+ * @PINOS_LINK_STATE_ALLOCATING: the link is allocating buffers
+ * @PINOS_LINK_STATE_PAUSED: the link is paused
+ * @PINOS_LINK_STATE_RUNNING: the link is running
+ *
+ * The different link states
+ */
+typedef enum {
+  PINOS_LINK_STATE_ERROR = -2,
+  PINOS_LINK_STATE_UNLINKED = -1,
+  PINOS_LINK_STATE_INIT = 0,
+  PINOS_LINK_STATE_NEGOTIATING = 1,
+  PINOS_LINK_STATE_ALLOCATING = 2,
+  PINOS_LINK_STATE_PAUSED = 3,
+  PINOS_LINK_STATE_RUNNING = 4,
+} PinosLinkState;
+
+const gchar * pinos_link_state_as_string (PinosLinkState state);
+
 #include <pinos/client/context.h>
 #include <pinos/client/properties.h>
 

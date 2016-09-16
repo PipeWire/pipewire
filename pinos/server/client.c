@@ -404,6 +404,22 @@ pinos_client_remove_object (PinosClient *client,
   g_object_unref (object);
 }
 
+gboolean
+pinos_client_has_object (PinosClient *client,
+                         GObject     *object)
+{
+  PinosClientPrivate *priv;
+  GList *found;
+
+  g_return_val_if_fail (PINOS_IS_CLIENT (client), FALSE);
+  g_return_val_if_fail (G_IS_OBJECT (object), FALSE);
+  priv = client->priv;
+
+  found = g_list_find (priv->objects, object);
+
+  return found != NULL;
+}
+
 /**
  * pinos_client_get_sender:
  * @client: a #PinosClient

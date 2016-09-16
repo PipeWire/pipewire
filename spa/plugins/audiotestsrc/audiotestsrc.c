@@ -408,7 +408,7 @@ static SpaResult
 clear_buffers (SpaAudioTestSrc *this)
 {
   if (this->have_buffers) {
-    fprintf (stderr, "clear buffers");
+    fprintf (stderr, "audiotestsrc %p: clear buffers\n", this);
     if (this->alloc_mem)
       spa_memory_unref (&this->alloc_mem->mem);
     this->alloc_mem = NULL;
@@ -577,7 +577,7 @@ spa_audiotestsrc_node_port_use_buffers (SpaNode         *node,
 
       mem_ref = &d[0].mem.mem;
       if (!(mem = spa_memory_find (mem_ref))) {
-        fprintf (stderr, "invalid memory on buffer %p\n", buffers[i]);
+        fprintf (stderr, "audiotestsrc %p: invalid memory on buffer %p\n", this, buffers[i]);
         continue;
       }
       b->ptr = SPA_MEMBER (spa_memory_ensure_ptr (mem), d[0].mem.offset, void);

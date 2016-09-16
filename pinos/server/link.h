@@ -75,6 +75,12 @@ PinosProperties *   pinos_link_get_properties       (PinosLink *link);
 
 const gchar *       pinos_link_get_object_path      (PinosLink *link);
 
+gboolean            pinos_link_activate             (PinosLink *link);
+gboolean            pinos_link_deactivate           (PinosLink *link);
+
+PinosLinkState      pinos_link_get_state            (PinosLink  *link,
+                                                     GError    **error);
+
 G_END_DECLS
 
 #endif /* __PINOS_LINK_H__ */

@@ -1206,20 +1206,21 @@ do_remove_link (PinosLink *link, PinosNode *node)
 /**
  * pinos_node_link:
  * @output_node: a #PinosNode
- * @output_port: a port
+ * @output_id: an output link id
  * @input_node: a #PinosNode
- * @input_port: a port
+ * @input_id: an input link id
  * @format_filter: a format filter
  * @properties: extra properties
+ * @error: an error or %NULL
  *
- * Make a link between @output_node and @input_node on the given ports.
+ * Make a link between @output_node and @input_node with the given ids
  *
- * If the ports were already linked, the existing linke will be returned.
+ * If the ports were already linked, the existing links will be returned.
  *
- * If the source port was linked to a different destination node or port, it
+ * If the output id was linked to a different input node or id, it
  * will be relinked.
  *
- * Returns: a new #PinosLink
+ * Returns: a new #PinosLink or %NULL and @error is set.
  */
 PinosLink *
 pinos_node_link (PinosNode       *output_node,
@@ -1227,7 +1228,8 @@ pinos_node_link (PinosNode       *output_node,
                  PinosNode       *input_node,
                  guint            input_id,
                  GPtrArray       *format_filter,
-                 PinosProperties *properties)
+                 PinosProperties *properties,
+                 GError         **error)
 {
   PinosNodePrivate *priv;
   NodeLink *olink, *ilink;
@@ -1239,6 +1241,9 @@ pinos_node_link (PinosNode       *output_node,
   priv = output_node->priv;
 
   g_debug ("node %p: link %u %p:%u", output_node, output_id, input_node, input_id);
+
+  if (output_node == input_node)
+    goto same_node;
 
   if (output_id >= priv->output_links->len)
     g_array_set_size (priv->output_links, output_id + 1);
@@ -1261,13 +1266,13 @@ pinos_node_link (PinosNode       *output_node,
     if (output_port == SPA_ID_INVALID && output_node->priv->n_output_ports > 0)
       output_port = output_node->priv->output_port_ids[0];
     else
-      return NULL;
+      goto no_output_ports;
 
     input_port = get_free_node_port (input_node, PINOS_DIRECTION_INPUT);
     if (input_port == SPA_ID_INVALID && input_node->priv->n_input_ports > 0)
       input_port = input_node->priv->input_port_ids[0];
     else
-      return NULL;
+      goto no_input_ports;
 
     if (output_node->priv->clock)
       input_node->priv->clock = output_node->priv->clock;
@@ -1296,6 +1301,31 @@ pinos_node_link (PinosNode       *output_node,
     ilink->link = pl;
   }
   return pl;
+
+same_node:
+  {
+    g_set_error (error,
+                 PINOS_ERROR,
+                 PINOS_ERROR_NODE_LINK,
+                 "can't link a node to itself");
+    return NULL;
+  }
+no_input_ports:
+  {
+    g_set_error (error,
+                 PINOS_ERROR,
+                 PINOS_ERROR_NODE_LINK,
+                 "can't get an input port to link to");
+    return NULL;
+  }
+no_output_ports:
+  {
+    g_set_error (error,
+                 PINOS_ERROR,
+                 PINOS_ERROR_NODE_LINK,
+                 "can't get an output port to link to");
+    return NULL;
+  }
 }
 
 /**
@@ -1309,11 +1339,7 @@ pinos_node_link (PinosNode       *output_node,
 GList *
 pinos_node_get_links (PinosNode *node)
 {
-  PinosNodePrivate *priv;
-
   g_return_val_if_fail (PINOS_IS_NODE (node), NULL);
-  priv = node->priv;
-
   return NULL;
 }
 
@@ -1405,6 +1431,7 @@ pinos_node_report_error (PinosNode *node,
   priv->error = error;
   priv->state = PINOS_NODE_STATE_ERROR;
   g_debug ("node %p: got error state %s", node, error->message);
+  pinos_node1_set_state (priv->iface, PINOS_NODE_STATE_ERROR);
   g_object_notify (G_OBJECT (node), "state");
 }
 

@@ -73,8 +73,9 @@ struct _SpaAudioTestSrc {
   struct itimerspec timerspec;
 
   SpaPortInfo info;
-  SpaAllocParam *params[1];
+  SpaAllocParam *params[2];
   SpaAllocParamBuffers param_buffers;
+  SpaAllocParamMetaEnable param_meta;
   SpaPortStatus status;
 
   bool have_format;
@@ -243,50 +244,12 @@ fill_buffer (SpaAudioTestSrc *this, ATSBuffer *b)
     p[i] = rand();
   }
 
-  this->sample_count += b->size / this->bpf;
-  this->elapsed_time = SAMPLES_TO_TIME (this, this->sample_count);
-
   return SPA_RESULT_OK;
 }
 
 static int audiotestsrc_on_output (SpaPollNotifyData *data);
 
-static SpaResult
-update_poll_enabled (SpaAudioTestSrc *this, bool enabled)
-{
-  SpaNodeEvent event;
-
-  if (this->event_cb) {
-    event.type = SPA_NODE_EVENT_TYPE_UPDATE_POLL;
-    this->timer.enabled = enabled;
-    if (this->props[1].live) {
-      if (enabled) {
-        uint64_t next_time = this->start_time + this->elapsed_time;
-        fprintf (stderr, "%"PRIu64"\n", next_time);
-        this->timerspec.it_value.tv_sec = next_time / 1000000000;
-        this->timerspec.it_value.tv_nsec = next_time % 1000000000;
-      }
-      else {
-        this->timerspec.it_value.tv_sec = 0;
-        this->timerspec.it_value.tv_nsec = 0;
-      }
-      timerfd_settime (this->fds[0].fd, TFD_TIMER_ABSTIME, &this->timerspec, NULL);
-      this->timer.fds = this->fds;
-      this->timer.n_fds = 1;
-      this->timer.idle_cb = NULL;
-      this->timer.after_cb = audiotestsrc_on_output;
-    } else {
-      this->timer.fds = NULL;
-      this->timer.n_fds = 0;
-      this->timer.idle_cb = audiotestsrc_on_output;
-      this->timer.after_cb = NULL;
-    }
-    event.data = &this->timer;
-    event.size = sizeof (this->timer);
-    this->event_cb (&this->node, &event, this->user_data);
-  }
-  return SPA_RESULT_OK;
-}
+static SpaResult update_poll_enabled (SpaAudioTestSrc *this, bool enabled);
 
 static int
 audiotestsrc_on_output (SpaPollNotifyData *data)
@@ -295,13 +258,22 @@ audiotestsrc_on_output (SpaPollNotifyData *data)
   ATSBuffer *b;
 
   SPA_QUEUE_POP_HEAD (&this->empty, ATSBuffer, next, b);
-  fprintf (stderr, "on_output %p\n", b);
   if (b == NULL) {
-    update_poll_enabled (this, false);
+    if (!this->props[1].live)
+      update_poll_enabled (this, false);
     return 0;
   }
 
   fill_buffer (this, b);
+
+  if (b->h) {
+    b->h->seq = this->sample_count;
+    b->h->pts = this->start_time + this->elapsed_time;
+    b->h->dts_offset = 0;
+  }
+
+  this->sample_count += b->size / this->bpf;
+  this->elapsed_time = SAMPLES_TO_TIME (this, this->sample_count);
 
   if (this->props[1].live) {
     uint64_t expirations, next_time;
@@ -343,6 +315,42 @@ update_state (SpaAudioTestSrc *this, SpaNodeState state)
 }
 
 static SpaResult
+update_poll_enabled (SpaAudioTestSrc *this, bool enabled)
+{
+  SpaNodeEvent event;
+
+  if (this->event_cb) {
+    event.type = SPA_NODE_EVENT_TYPE_UPDATE_POLL;
+    this->timer.enabled = enabled;
+    if (this->props[1].live) {
+      if (enabled) {
+        uint64_t next_time = this->start_time + this->elapsed_time;
+        this->timerspec.it_value.tv_sec = next_time / 1000000000;
+        this->timerspec.it_value.tv_nsec = next_time % 1000000000;
+      }
+      else {
+        this->timerspec.it_value.tv_sec = 0;
+        this->timerspec.it_value.tv_nsec = 0;
+      }
+      timerfd_settime (this->fds[0].fd, TFD_TIMER_ABSTIME, &this->timerspec, NULL);
+      this->timer.fds = this->fds;
+      this->timer.n_fds = 1;
+      this->timer.idle_cb = NULL;
+      this->timer.after_cb = audiotestsrc_on_output;
+    } else {
+      this->timer.fds = NULL;
+      this->timer.n_fds = 0;
+      this->timer.idle_cb = audiotestsrc_on_output;
+      this->timer.after_cb = NULL;
+    }
+    event.data = &this->timer;
+    event.size = sizeof (this->timer);
+    this->event_cb (&this->node, &event, this->user_data);
+  }
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
 spa_audiotestsrc_node_send_command (SpaNode        *node,
                                     SpaNodeCommand *command)
 {
@@ -372,6 +380,7 @@ spa_audiotestsrc_node_send_command (SpaNode        *node,
 
       clock_gettime (CLOCK_MONOTONIC, &now);
       this->start_time = TIMESPEC_TO_TIME (&now);
+      this->sample_count = 0;
       this->elapsed_time = 0;
 
       this->started = true;
@@ -573,7 +582,7 @@ spa_audiotestsrc_node_port_set_format (SpaNode            *node,
     this->info.maxbuffering = -1;
     this->info.latency = BYTES_TO_TIME (this, 1024);
 
-    this->info.n_params = 1;
+    this->info.n_params = 2;
     this->info.params = this->params;
     this->params[0] = &this->param_buffers.param;
     this->param_buffers.param.type = SPA_ALLOC_PARAM_TYPE_BUFFERS;
@@ -583,6 +592,10 @@ spa_audiotestsrc_node_port_set_format (SpaNode            *node,
     this->param_buffers.min_buffers = 2;
     this->param_buffers.max_buffers = 32;
     this->param_buffers.align = 16;
+    this->params[1] = &this->param_meta.param;
+    this->param_meta.param.type = SPA_ALLOC_PARAM_TYPE_META_ENABLE;
+    this->param_meta.param.size = sizeof (this->param_meta);
+    this->param_meta.type = SPA_META_TYPE_HEADER;
     this->info.features = NULL;
     update_state (this, SPA_NODE_STATE_READY);
   }
@@ -672,7 +685,7 @@ spa_audiotestsrc_node_port_use_buffers (SpaNode         *node,
 
   clear_buffers (this);
   if (buffers != NULL && n_buffers != 0) {
-    unsigned int i;
+    unsigned int i, j;
 
     this->alloc_mem = spa_memory_alloc_size (SPA_MEMORY_POOL_LOCAL,
                                              NULL,
@@ -684,6 +697,7 @@ spa_audiotestsrc_node_port_use_buffers (SpaNode         *node,
       SpaMemoryRef *mem_ref;
       SpaMemory *mem;
       SpaData *d = SPA_BUFFER_DATAS (buffers[i]);
+      SpaMeta *m = SPA_BUFFER_METAS (buffers[i]);
 
       b = &this->alloc_buffers[i];
       b->buffer.mem.mem = this->alloc_mem->mem;
@@ -692,6 +706,17 @@ spa_audiotestsrc_node_port_use_buffers (SpaNode         *node,
       b->buffer.id = SPA_ID_INVALID;
       b->outbuf = buffers[i];
       b->outstanding = true;
+      b->h = NULL;
+
+      for (j = 0; j < buffers[i]->n_metas; j++) {
+        switch (m[j].type) {
+          case SPA_META_TYPE_HEADER:
+            b->h = SPA_MEMBER (buffers[i], m[j].offset, SpaMetaHeader);
+            break;
+          default:
+            break;
+        }
+      }
 
       mem_ref = &d[0].mem.mem;
       if (!(mem = spa_memory_find (mem_ref))) {

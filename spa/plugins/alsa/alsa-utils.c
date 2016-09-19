@@ -301,13 +301,10 @@ mmap_read (SpaALSAState *state)
   snd_pcm_status_get_htstamp (status, &htstamp);
   now = (int64_t)htstamp.tv_sec * 1000000000ll + (int64_t)htstamp.tv_nsec;
 
-  b = state->free_head;
-  if (b == NULL)
+  SPA_QUEUE_POP_HEAD (&state->free, SpaALSABuffer, b);
+  if (b == NULL) {
     fprintf (stderr, "no more buffers\n");
-  else {
-    state->free_head = b->next;
-    if (state->free_head == NULL)
-      state->free_tail = NULL;
+  } else {
     b->next = NULL;
     dest = b->ptr;
   }
@@ -349,12 +346,7 @@ mmap_read (SpaALSAState *state)
     d = SPA_BUFFER_DATAS (b->outbuf);
     d[0].mem.size = avail * state->frame_size;
 
-    if (state->ready_tail)
-      state->ready_tail->next = b;
-    state->ready_tail = b;
-    if (state->ready_head == NULL)
-      state->ready_head = b;
-    state->ready_count++;
+    SPA_QUEUE_PUSH_TAIL (&state->ready, SpaALSABuffer, b);
 
     event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
     event.size = sizeof (ho);

@@ -315,7 +315,7 @@ spa_alsa_sink_node_port_set_format (SpaNode            *node,
   SpaALSASink *this;
   SpaResult res;
 
-  if (node == NULL || node->handle == NULL || format == NULL)
+  if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = (SpaALSASink *) node->handle;
@@ -325,6 +325,7 @@ spa_alsa_sink_node_port_set_format (SpaNode            *node,
 
   if (format == NULL) {
     this->have_format = false;
+    this->have_buffers = false;
     update_state (this, SPA_NODE_STATE_CONFIGURE);
     return SPA_RESULT_OK;
   }
@@ -501,6 +502,7 @@ spa_alsa_sink_node_port_alloc_buffers (SpaNode         *node,
     buffers[i] = &b->buffer;
   }
   *n_buffers = n_bufs;
+  this->have_buffers = true;
 
   update_state (this, SPA_NODE_STATE_PAUSED);
 
@@ -563,13 +565,12 @@ spa_alsa_sink_node_port_push_input (SpaNode          *node,
         continue;
       }
 
-      if (this->ready_head != NULL) {
+      if (this->ready.length != 0) {
         info[i].status = SPA_RESULT_HAVE_ENOUGH_INPUT;
         have_enough = true;
         continue;
       }
-
-      this->ready_head = &this->alloc_buffers[info[i].buffer_id];
+      SPA_QUEUE_PUSH_TAIL (&this->ready, SpaALSABuffer, &this->alloc_buffers[info[i].buffer_id]);
     }
     info[i].status = SPA_RESULT_OK;
   }

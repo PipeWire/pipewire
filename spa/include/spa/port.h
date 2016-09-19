@@ -81,6 +81,8 @@ typedef struct {
  * @SPA_PORT_INFO_FLAG_IN_PLACE: the port can process data in-place and will need
  *    a writable input buffer
  * @SPA_PORT_INFO_FLAG_NO_REF: the port does not keep a ref on the buffer
+ * @SPA_PORT_INFO_FLAG_LIVE: output buffers from this port are timestamped against
+ *                           a live clock.
  */
 typedef enum {
   SPA_PORT_INFO_FLAG_NONE                  = 0,
@@ -90,6 +92,7 @@ typedef enum {
   SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS       = 1 << 3,
   SPA_PORT_INFO_FLAG_IN_PLACE              = 1 << 4,
   SPA_PORT_INFO_FLAG_NO_REF                = 1 << 5,
+  SPA_PORT_INFO_FLAG_LIVE                  = 1 << 6,
 } SpaPortInfoFlags;
 
 /**

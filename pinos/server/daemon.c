@@ -216,7 +216,7 @@ on_link_state_notify (GObject     *obj,
 }
 
 static void
-on_port_added (PinosNode *node, PinosDirection direction, guint port_id, PinosClient *client)
+on_port_added (PinosNode *node, PinosDirection direction, uint32_t port_id, PinosClient *client)
 {
   PinosDaemon *this;
   PinosProperties *props;
@@ -231,7 +231,8 @@ on_port_added (PinosNode *node, PinosDirection direction, guint port_id, PinosCl
   path = pinos_properties_get (props, "pinos.target.node");
 
   if (path) {
-    guint new_port;
+    guint target_port;
+    guint node_port;
 
     target = pinos_daemon_find_node (this,
                                      pinos_direction_reverse (direction),
@@ -240,29 +241,33 @@ on_port_added (PinosNode *node, PinosDirection direction, guint port_id, PinosCl
                                      0,
                                      NULL,
                                      &error);
-    if (target == NULL) {
-      pinos_node_report_error (node, error);
-      return;
-    }
+    if (target == NULL)
+      goto error;
 
-    new_port = pinos_node_get_free_port (target, pinos_direction_reverse (direction));
-    if (new_port == SPA_ID_INVALID) {
+    target_port = pinos_node_get_free_port (target, pinos_direction_reverse (direction));
+    if (target_port == SPA_ID_INVALID) {
       g_set_error (&error,
                    PINOS_ERROR,
                    PINOS_ERROR_NODE_PORT,
-                   "can't get free port from node %s", pinos_node_get_object_path (target));
-      pinos_node_report_error (node, error);
-      return;
+                   "can't get free port from target %s", pinos_node_get_object_path (target));
+      goto error;
     }
-    if (direction == PINOS_DIRECTION_OUTPUT)
-      link = pinos_node_link (node, port_id, target, new_port, NULL, NULL, &error);
-    else
-      link = pinos_node_link (target, new_port, node, port_id, NULL, NULL, &error);
+    node_port = pinos_node_get_free_port (node, direction);
+    if (node_port == SPA_ID_INVALID) {
+      g_set_error (&error,
+                   PINOS_ERROR,
+                   PINOS_ERROR_NODE_PORT,
+                   "can't get free port from node %s", pinos_node_get_object_path (node));
+      goto error;
+    }
 
-    if (link == NULL) {
-      pinos_node_report_error (node, error);
-      return;
-    }
+    if (direction == PINOS_DIRECTION_OUTPUT)
+      link = pinos_node_link (node, node_port, target, target_port, NULL, NULL, &error);
+    else
+      link = pinos_node_link (target, target_port, node, node_port, NULL, NULL, &error);
+
+    if (link == NULL)
+      goto error;
 
     pinos_client_add_object (client, G_OBJECT (link));
 
@@ -271,10 +276,17 @@ on_port_added (PinosNode *node, PinosDirection direction, guint port_id, PinosCl
 
     g_object_unref (link);
   }
+  return;
+
+error:
+  {
+    pinos_node_report_error (node, error);
+    return;
+  }
 }
 
 static void
-on_port_removed (PinosNode *node, guint port_id, PinosClient *client)
+on_port_removed (PinosNode *node, uint32_t port_id, PinosClient *client)
 {
 }
 

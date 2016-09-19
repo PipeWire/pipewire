@@ -21,7 +21,7 @@
 #include <server/daemon.h>
 #include <server/module.h>
 
-#include "spa-alsa-sink.h"
+#include "spa-alsa-monitor.h"
 #include "spa-v4l2-monitor.h"
 #include "spa-audiotestsrc.h"
 
@@ -30,7 +30,7 @@ gboolean pinos__module_init (PinosModule *module, const gchar * args);
 G_MODULE_EXPORT gboolean
 pinos__module_init (PinosModule * module, G_GNUC_UNUSED const gchar * args)
 {
-  pinos_spa_alsa_sink_new (module->daemon, "alsa-sink", NULL);
+  pinos_spa_alsa_monitor_new (module->daemon);
   pinos_spa_v4l2_monitor_new (module->daemon);
   pinos_spa_audiotestsrc_new (module->daemon, "audiotestsrc", NULL);
 

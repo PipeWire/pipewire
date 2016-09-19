@@ -24,83 +24,23 @@
 #include <spa/node.h>
 #include <spa/audio/format.h>
 
-typedef struct _SpaALSASink SpaALSASink;
+#include "alsa-utils.h"
+
+typedef struct _SpaALSAState SpaALSASink;
 
 static const char default_device[] = "default";
 static const uint32_t default_buffer_time = 10000;
 static const uint32_t default_period_time = 5000;
 static const bool default_period_event = 0;
 
-typedef struct {
-  SpaProps props;
-  char device[64];
-  char device_name[128];
-  char card_name[128];
-  uint32_t buffer_time;
-  uint32_t period_time;
-  bool period_event;
-} SpaALSASinkProps;
-
 static void
-reset_alsa_sink_props (SpaALSASinkProps *props)
+reset_alsa_sink_props (SpaALSAProps *props)
 {
   strncpy (props->device, default_device, 64);
   props->buffer_time = default_buffer_time;
   props->period_time = default_period_time;
   props->period_event = default_period_event;
 }
-
-typedef struct {
-  bool opened;
-  bool have_buffers;
-  snd_pcm_t *handle;
-  snd_output_t *output;
-  snd_pcm_sframes_t buffer_size;
-  snd_pcm_sframes_t period_size;
-  snd_pcm_channel_area_t areas[16];
-  bool running;
-  SpaPollFd fds[16];
-  SpaPollItem poll;
-} SpaALSAState;
-
-typedef struct _ALSABuffer ALSABuffer;
-
-struct _ALSABuffer {
-  SpaBuffer buffer;
-  SpaMeta metas[2];
-  SpaMetaHeader header;
-  SpaMetaRingbuffer ringbuffer;
-  SpaData datas[1];
-};
-
-struct _SpaALSASink {
-  SpaHandle handle;
-  SpaNode node;
-
-  SpaALSASinkProps props[2];
-
-  SpaNodeEventCallback event_cb;
-  void *user_data;
-
-  bool have_format;
-  SpaFormatAudio query_format;
-  SpaFormatAudio current_format;
-
-  SpaALSAState state;
-
-  SpaPortInfo info;
-  SpaAllocParam *params[1];
-  SpaAllocParamBuffers param_buffers;
-  SpaPortStatus status;
-
-  SpaBuffer *buffers;
-  unsigned int n_buffers;
-  uint32_t input_buffer;
-
-  SpaMemory *alloc_bufmem;
-  SpaMemory *alloc_mem;
-  ALSABuffer *alloc_buffers;
-};
 
 static void
 update_state (SpaALSASink *this, SpaNodeState state)
@@ -119,8 +59,6 @@ update_state (SpaALSASink *this, SpaNodeState state)
   sc.state = state;
   this->event_cb (&this->node, &event, this->user_data);
 }
-
-#include "alsa-utils.c"
 
 static const uint32_t min_uint32 = 1;
 static const uint32_t max_uint32 = UINT32_MAX;
@@ -142,37 +80,37 @@ enum {
 
 static const SpaPropInfo prop_info[] =
 {
-  { PROP_ID_DEVICE,             offsetof (SpaALSASinkProps, device),
+  { PROP_ID_DEVICE,             offsetof (SpaALSAProps, device),
                                 "device", "ALSA device, as defined in an asound configuration file",
                                 SPA_PROP_FLAG_READWRITE,
                                 SPA_PROP_TYPE_STRING, 63,
                                 SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                 NULL },
-  { PROP_ID_DEVICE_NAME,        offsetof (SpaALSASinkProps, device_name),
+  { PROP_ID_DEVICE_NAME,        offsetof (SpaALSAProps, device_name),
                                 "device-name", "Human-readable name of the sound device",
                                 SPA_PROP_FLAG_READABLE,
                                 SPA_PROP_TYPE_STRING, 127,
                                 SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                 NULL },
-  { PROP_ID_CARD_NAME,          offsetof (SpaALSASinkProps, card_name),
+  { PROP_ID_CARD_NAME,          offsetof (SpaALSAProps, card_name),
                                 "card-name", "Human-readable name of the sound card",
                                 SPA_PROP_FLAG_READABLE,
                                 SPA_PROP_TYPE_STRING, 127,
                                 SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                 NULL },
-  { PROP_ID_BUFFER_TIME,        offsetof (SpaALSASinkProps, buffer_time),
+  { PROP_ID_BUFFER_TIME,        offsetof (SpaALSAProps, buffer_time),
                                 "buffer-time", "The total size of the buffer in time",
                                 SPA_PROP_FLAG_READWRITE,
                                 SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                 SPA_PROP_RANGE_TYPE_MIN_MAX, 2, uint32_range,
                                 NULL },
-  { PROP_ID_PERIOD_TIME,        offsetof (SpaALSASinkProps, period_time),
+  { PROP_ID_PERIOD_TIME,        offsetof (SpaALSAProps, period_time),
                                 "period-time", "The size of a period in time",
                                 SPA_PROP_FLAG_READWRITE,
                                 SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                 SPA_PROP_RANGE_TYPE_MIN_MAX, 2, uint32_range,
                                 NULL },
-  { PROP_ID_PERIOD_EVENT,       offsetof (SpaALSASinkProps, period_event),
+  { PROP_ID_PERIOD_EVENT,       offsetof (SpaALSAProps, period_event),
                                 "period-event", "Generate an event each period",
                                 SPA_PROP_FLAG_READWRITE,
                                 SPA_PROP_TYPE_BOOL, sizeof (bool),
@@ -202,7 +140,7 @@ spa_alsa_sink_node_set_props (SpaNode         *node,
                               const SpaProps  *props)
 {
   SpaALSASink *this;
-  SpaALSASinkProps *p;
+  SpaALSAProps *p;
   SpaResult res;
 
   if (node == NULL || node->handle == NULL)
@@ -394,7 +332,7 @@ spa_alsa_sink_node_port_set_format (SpaNode            *node,
   if ((res = spa_format_audio_parse (format, &this->current_format)) < 0)
     return res;
 
-  if (alsa_set_format (this, &this->current_format, false) < 0)
+  if (spa_alsa_set_format (this, &this->current_format, false) < 0)
     return SPA_RESULT_ERROR;
 
   this->info.flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
@@ -495,9 +433,10 @@ spa_alsa_sink_node_port_alloc_buffers (SpaNode         *node,
                                        uint32_t        *n_buffers)
 {
   SpaALSASink *this;
-  ALSABuffer *b;
-  SpaALSAState *state;
+  SpaALSABuffer *b;
   unsigned int i, n_bufs;
+  size_t buffer_size;
+  uint8_t *bufmem;
 
   if (node == NULL || node->handle == NULL || buffers == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -510,28 +449,30 @@ spa_alsa_sink_node_port_alloc_buffers (SpaNode         *node,
   if (!this->have_format)
     return SPA_RESULT_NO_FORMAT;
 
-  state = &this->state;
-
   n_bufs = *n_buffers;
 
+  buffer_size = this->buffer_frames * this->frame_size;
+
   if (!this->alloc_bufmem)
-    this->alloc_bufmem = spa_memory_alloc_with_fd (SPA_MEMORY_POOL_SHARED, NULL, state->buffer_size * n_bufs);
+    this->alloc_bufmem = spa_memory_alloc_with_fd (SPA_MEMORY_POOL_SHARED, NULL, buffer_size * n_bufs);
+  bufmem = spa_memory_ensure_ptr (this->alloc_bufmem);
 
   if (!this->alloc_mem)
-    this->alloc_mem = spa_memory_alloc_with_fd (SPA_MEMORY_POOL_SHARED, NULL, sizeof (ALSABuffer) * n_bufs);
+    this->alloc_mem = spa_memory_alloc_with_fd (SPA_MEMORY_POOL_SHARED, NULL, sizeof (SpaALSABuffer) * n_bufs);
   this->alloc_buffers = spa_memory_ensure_ptr (this->alloc_mem);
+  this->n_buffers = n_bufs;
 
   for (i = 0; i < n_bufs; i++) {
     b = &this->alloc_buffers[i];
     b->buffer.id = i;
     b->buffer.mem.mem = this->alloc_mem->mem;
-    b->buffer.mem.offset = sizeof (ALSABuffer) * i;
-    b->buffer.mem.size = sizeof (ALSABuffer);
+    b->buffer.mem.offset = sizeof (SpaALSABuffer) * i;
+    b->buffer.mem.size = sizeof (SpaALSABuffer);
 
     b->buffer.n_metas = 2;
-    b->buffer.metas = offsetof (ALSABuffer, metas);
+    b->buffer.metas = offsetof (SpaALSABuffer, metas);
     b->buffer.n_datas = 1;
-    b->buffer.datas = offsetof (ALSABuffer, datas);
+    b->buffer.datas = offsetof (SpaALSABuffer, datas);
 
     b->header.flags = 0;
     b->header.seq = 0;
@@ -539,7 +480,7 @@ spa_alsa_sink_node_port_alloc_buffers (SpaNode         *node,
     b->header.dts_offset = 0;
 
     b->metas[0].type = SPA_META_TYPE_HEADER;
-    b->metas[0].offset = offsetof (ALSABuffer, header);
+    b->metas[0].offset = offsetof (SpaALSABuffer, header);
     b->metas[0].size = sizeof (b->header);
 
     b->ringbuffer.readindex = 0;
@@ -548,13 +489,14 @@ spa_alsa_sink_node_port_alloc_buffers (SpaNode         *node,
     b->ringbuffer.size_mask = 0;
 
     b->metas[1].type = SPA_META_TYPE_RINGBUFFER;
-    b->metas[1].offset = offsetof (ALSABuffer, ringbuffer);
+    b->metas[1].offset = offsetof (SpaALSABuffer, ringbuffer);
     b->metas[1].size = sizeof (b->ringbuffer);
 
     b->datas[0].mem.mem = this->alloc_bufmem->mem;
-    b->datas[0].mem.offset = state->buffer_size * i;
-    b->datas[0].mem.size = state->buffer_size;
+    b->datas[0].mem.offset = buffer_size * i;
+    b->datas[0].mem.size = buffer_size;
     b->datas[0].stride = 0;
+    b->ptr = bufmem + buffer_size * i;
 
     buffers[i] = &b->buffer;
   }
@@ -621,12 +563,13 @@ spa_alsa_sink_node_port_push_input (SpaNode          *node,
         continue;
       }
 
-      if (this->input_buffer != -1) {
+      if (this->ready_head != NULL) {
         info[i].status = SPA_RESULT_HAVE_ENOUGH_INPUT;
         have_enough = true;
         continue;
       }
-      this->input_buffer = info[i].buffer_id;
+
+      this->ready_head = &this->alloc_buffers[info[i].buffer_id];
     }
     info[i].status = SPA_RESULT_OK;
   }
@@ -719,6 +662,7 @@ alsa_sink_init (const SpaHandleFactory  *factory,
   this->node.handle = handle;
   this->props[1].props.n_prop_info = PROP_ID_LAST;
   this->props[1].props.prop_info = prop_info;
+  this->stream = SND_PCM_STREAM_PLAYBACK;
   reset_alsa_sink_props (&this->props[1]);
 
   this->status.flags = SPA_PORT_STATUS_FLAG_NEED_INPUT;

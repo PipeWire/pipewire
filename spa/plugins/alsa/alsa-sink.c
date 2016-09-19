@@ -570,7 +570,7 @@ spa_alsa_sink_node_port_push_input (SpaNode          *node,
         have_enough = true;
         continue;
       }
-      SPA_QUEUE_PUSH_TAIL (&this->ready, SpaALSABuffer, &this->alloc_buffers[info[i].buffer_id]);
+      SPA_QUEUE_PUSH_TAIL (&this->ready, SpaALSABuffer, next, &this->alloc_buffers[info[i].buffer_id]);
     }
     info[i].status = SPA_RESULT_OK;
   }

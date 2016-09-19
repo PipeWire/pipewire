@@ -1,4 +1,5 @@
-/* Spa Video Test Source
+/* Spa
+ * Copyright (C) 2016 Wim Taymans <wim.taymans@gmail.com>
  * Copyright (C) 2016 Axis Communications AB
  *
  * This library is free software; you can redistribute it and/or
@@ -17,30 +18,33 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include <spa/node.h>
-#include <spa/memory.h>
-#include <spa/video/format.h>
-#include <spa/debug.h>
-
+#include <stddef.h>
+#include <unistd.h>
+#include <string.h>
 #include <stdio.h>
-#include <pthread.h>
+#include <sys/timerfd.h>
+#include <poll.h>
 
-#define MAX_BUFFERS     256
-#define PIXEL_SIZE      3
+#include <spa/node.h>
+#include <spa/queue.h>
+#include <spa/video/format.h>
 
-#define CLEAR(x) memset(&(x), 0, sizeof(x))
+#define TIMESPEC_TO_TIME(ts)      ((ts)->tv_sec * 1000000000ll + (ts)->tv_nsec)
+#define FRAMES_TO_TIME(this,f)    ((this->current_format.info.raw.framerate.num * (f) * 1000000000ll) / \
+                                   (this->current_format.info.raw.framerate.denom))
 
-#define STATE_GET_IMAGE_WIDTH(state)   state->current_format.info.raw.size.width
-#define STATE_GET_IMAGE_HEIGHT(state)  state->current_format.info.raw.size.height
+#define STATE_GET_IMAGE_WIDTH(this)   this->current_format.info.raw.size.width
+#define STATE_GET_IMAGE_HEIGHT(this)  this->current_format.info.raw.size.height
 
-#define STATE_GET_IMAGE_SIZE(state)  \
-  (PIXEL_SIZE * STATE_GET_IMAGE_WIDTH(state) * STATE_GET_IMAGE_HEIGHT(state))
-
-#define STATE_GET_FRAME_INTERVAL_NS(state)  \
-  ((uint64_t)state->current_format.info.raw.framerate.denom * 1000000000lu / \
-   (uint64_t)state->current_format.info.raw.framerate.num)
+#define STATE_GET_IMAGE_SIZE(this)  \
+    (this->bpp * STATE_GET_IMAGE_WIDTH(this) * STATE_GET_IMAGE_HEIGHT(this))
 
 typedef struct _SpaVideoTestSrc SpaVideoTestSrc;
+
+typedef struct {
+  SpaProps props;
+  bool live;
+} SpaVideoTestSrcProps;
 
 typedef struct _VTSBuffer VTSBuffer;
 
@@ -51,472 +55,191 @@ struct _VTSBuffer {
   SpaData datas[1];
   SpaBuffer *outbuf;
   bool outstanding;
-  bool queued;
   VTSBuffer *next;
+  SpaMetaHeader *h;
+  void *ptr;
+  size_t stride;
 };
-
-typedef struct {
-  bool have_buffers;
-  bool started;
-
-  void *cookie;
-
-  bool have_format;
-  SpaFormatVideo query_format;
-  SpaFormatVideo current_format;
-
-  pthread_t thread;
-  int next_sequence;
-
-  int n_buffers;
-  SpaMemory *alloc_mem;
-  VTSBuffer *alloc_buffers;
-  VTSBuffer *ready;
-  uint32_t ready_count;
-  pthread_mutex_t queue_mutex;
-  pthread_cond_t queue_cond;
-
-  SpaPortInfo info;
-  SpaAllocParam *params[1];
-  SpaAllocParamBuffers param_buffers;
-  SpaPortStatus status;
-
-} SpaVideoTestSrcState;
 
 struct _SpaVideoTestSrc {
   SpaHandle handle;
   SpaNode node;
+  SpaClock clock;
+
+  SpaVideoTestSrcProps props[2];
 
   SpaNodeEventCallback event_cb;
   void *user_data;
 
-  SpaPollItem idle;
+  SpaPollItem timer;
+  SpaPollFd fds[1];
+  struct itimerspec timerspec;
 
-  SpaVideoTestSrcState state[1];
+  SpaPortInfo info;
+  SpaAllocParam *params[2];
+  SpaAllocParamBuffers param_buffers;
+  SpaAllocParamMetaEnable param_meta;
+  SpaPortStatus status;
+
+  bool have_format;
+  SpaFormatVideo query_format;
+  SpaFormatVideo current_format;
+  size_t bpp;
+
+  bool have_buffers;
+  SpaMemory *alloc_mem;
+  VTSBuffer *alloc_buffers;
+  unsigned int n_buffers;
+
+  bool started;
+  uint64_t start_time;
+  uint64_t elapsed_time;
+
+  uint64_t frame_count;
+  SpaQueue empty;
+  SpaQueue ready;
 };
 
-enum
-{
-  GRAY = 0,
-  YELLOW,
-  CYAN,
-  GREEN,
-  MAGENTA,
-  RED,
-  BLUE,
-  BLACK,
-  NEG_I,
-  WHITE,
-  POS_Q,
-  DARK_BLACK,
-  LIGHT_BLACK,
-  N_COLORS
+#define DEFAULT_LIVE true
+
+enum {
+  PROP_ID_LIVE,
+  PROP_ID_LAST,
 };
 
-struct pixel
+static const SpaPropInfo prop_info[] =
 {
-  char R;
-  char G;
-  char B;
+  { PROP_ID_LIVE,              offsetof (SpaVideoTestSrcProps, live),
+                               "live", "Timestamp against the clock",
+                               SPA_PROP_FLAG_READWRITE,
+                               SPA_PROP_TYPE_BOOL, sizeof (bool),
+                               SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
+                               NULL },
 };
 
-static struct pixel colors[N_COLORS] =
+static SpaResult
+reset_videotestsrc_props (SpaVideoTestSrcProps *props)
 {
-  {191, 191, 191}, /* GRAY */
-  {191, 191, 0},   /* YELLOW */
-  {0, 191, 191},   /* CYAN */
-  {0, 191, 0},     /* GREEN */
-  {191, 0, 191},   /* MAGENTA */
-  {191, 0, 0},     /* RED */
-  {0, 0, 191},     /* BLUE */
-  {19, 19, 19},    /* BLACK */
-  {0, 33, 76},     /* NEGATIVE I */
-  {255, 255, 255}, /* WHITE */
-  {49, 0, 107},    /* POSITIVE Q */
-  {9, 9, 9},       /* DARK BLACK */
-  {29, 29, 29},    /* LIGHT BLACK */
-};
+  props->live = DEFAULT_LIVE;
 
-static void
-draw_line (char *data, struct pixel *c, int w)
-{
-  int i;
-
-  for (i = 0; i < w; i++) {
-    data[i * PIXEL_SIZE + 0] = c->R;
-    data[i * PIXEL_SIZE + 1] = c->G;
-    data[i * PIXEL_SIZE + 2] = c->B;
-  }
+  return SPA_RESULT_OK;
 }
 
-#define DRAW_LINE(data,line,offset,color,width) \
-  draw_line (data + (line * w + offset) * PIXEL_SIZE, colors + color, width);
-
-static void
-draw_smpte_snow (SpaVideoTestSrcState *state, char *data)
+static SpaResult
+spa_videotestsrc_node_get_props (SpaNode       *node,
+                                 SpaProps     **props)
 {
-  int h, w;
-  int y1, y2;
-  int i, j;
+  SpaVideoTestSrc *this;
 
-  w = STATE_GET_IMAGE_WIDTH (state);
-  h = STATE_GET_IMAGE_HEIGHT (state);
-  y1 = 2 * h / 3;
-  y2 = 3 * h / 4;
+  if (node == NULL || node->handle == NULL || props == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
 
-  for (i = 0; i < y1; i++) {
-    for (j = 0; j < 7; j++) {
-      int x1 = j * w / 7;
-      int x2 = (j + 1) * w / 7;
-      DRAW_LINE (data, i, x1, j, x2 - x1);
-    }
-  }
+  this = (SpaVideoTestSrc *) node->handle;
 
-  for (i = y1; i < y2; i++) {
-    for (j = 0; j < 7; j++) {
-      int x1 = j * w / 7;
-      int x2 = (j + 1) * w / 7;
-      int c = (j & 1) ? BLACK : BLUE - j;
+  memcpy (&this->props[0], &this->props[1], sizeof (this->props[1]));
+  *props = &this->props[0].props;
 
-      DRAW_LINE (data, i, x1, c, x2 - x1);
-    }
-  }
-
-  for (i = y2; i < h; i++) {
-    int x = 0;
-
-    /* negative I */
-    DRAW_LINE (data, i, x, NEG_I, w / 6);
-    x += w / 6;
-
-    /* white */
-    DRAW_LINE (data, i, x, WHITE, w / 6);
-    x += w / 6;
-
-    /* positive Q */
-    DRAW_LINE (data, i, x, POS_Q, w / 6);
-    x += w / 6;
-
-    /* pluge */
-    DRAW_LINE (data, i, x, DARK_BLACK, w / 12);
-    x += w / 12;
-    DRAW_LINE (data, i, x, BLACK, w / 12);
-    x += w / 12;
-    DRAW_LINE (data, i, x, LIGHT_BLACK, w / 12);
-    x += w / 12;
-
-    /* war of the ants (a.k.a. snow) */
-    for (j = x; j < w; j++) {
-      unsigned char r = rand ();
-      data[(i * w + j) * PIXEL_SIZE + 0] = r;
-      data[(i * w + j) * PIXEL_SIZE + 1] = r;
-      data[(i * w + j) * PIXEL_SIZE + 2] = r;
-    }
-  }
+  return SPA_RESULT_OK;
 }
 
-static int
-spa_videotestsrc_draw (SpaVideoTestSrcState *state, VTSBuffer *b)
+static SpaResult
+spa_videotestsrc_node_set_props (SpaNode         *node,
+                                 const SpaProps  *props)
 {
-  SpaMemoryRef *mem_ref;
-  SpaMemory *mem;
-  char *ptr;
+  SpaVideoTestSrc *this;
+  SpaVideoTestSrcProps *p;
+  SpaResult res;
 
-  mem_ref = &b->datas[0].mem.mem;
-  spa_memory_ref (mem_ref);
-  mem = spa_memory_find (mem_ref);
-  ptr = spa_memory_ensure_ptr (mem);
-  if (ptr == NULL) {
-    return -1;
+  if (node == NULL || node->handle == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaVideoTestSrc *) node->handle;
+  p = &this->props[1];
+
+  if (props == NULL) {
+    res = reset_videotestsrc_props (p);
+  } else {
+    res = spa_props_copy (props, &p->props);
   }
 
-  draw_smpte_snow (state, ptr);
+  if (this->props[1].live)
+    this->info.flags |= SPA_PORT_INFO_FLAG_LIVE;
+  else
+    this->info.flags &= ~SPA_PORT_INFO_FLAG_LIVE;
 
-  spa_memory_unref (mem_ref);
-
-  return 0;
+  return res;
 }
 
-static VTSBuffer *
-find_queued_buffer (SpaVideoTestSrcState *state)
+static SpaResult
+send_have_output (SpaVideoTestSrc *this)
 {
-  int i;
-
-  for (i = 0; i < state->n_buffers; i++) {
-    VTSBuffer *b = &state->alloc_buffers[i];
-
-    if (b->queued) {
-      return b;
-    }
-  }
-
-  return NULL;
-}
-
-static int
-spa_videotestsrc_idle (SpaPollNotifyData *data)
-{
-  SpaVideoTestSrc *this = data->user_data;
   SpaNodeEvent event;
   SpaNodeEventHaveOutput ho;
 
-  event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
-  event.size = sizeof (ho);
-  event.data = &ho;
-  ho.port_id = 0;
-  this->event_cb (&this->node, &event, this->user_data);
-
-  return 0;
-}
-
-static SpaResult
-update_idle_enabled (SpaVideoTestSrc *this, bool enabled)
-{
-  SpaNodeEvent event;
-
   if (this->event_cb) {
-    this->idle.enabled = enabled;
-    event.type = SPA_NODE_EVENT_TYPE_UPDATE_POLL;
-    event.data = &this->idle;
-    event.size = sizeof (this->idle);
+    event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
+    event.size = sizeof (ho);
+    event.data = &ho;
+    ho.port_id = 0;
     this->event_cb (&this->node, &event, this->user_data);
   }
+
   return SPA_RESULT_OK;
 }
 
-static void *
-loop (void *user_data)
-{
-  SpaVideoTestSrc *this = user_data;
-  SpaVideoTestSrcState *state = &this->state[0];
-  uint64_t last_pts = -1;
-
-  while (state->started) {
-    VTSBuffer *b;
-    struct timespec ts;
-    uint64_t now;
-    uint64_t pts;
-
-    pthread_mutex_lock (&state->queue_mutex);
-    b = find_queued_buffer (state);
-    while (b == NULL && state->started) {
-      pthread_cond_wait (&state->queue_cond, &state->queue_mutex);
-      b = find_queued_buffer (state);
-    }
-    pthread_mutex_unlock (&state->queue_mutex);
-
-    if (!state->started)
-      goto done;
-
-    if (spa_videotestsrc_draw (state, b) < 0)
-      goto done;
-
-    if (!state->started)
-      goto done;
-
-    clock_gettime (CLOCK_MONOTONIC, &ts);
-    now = (uint64_t)ts.tv_sec * 1000000000lu + (uint64_t)ts.tv_nsec;
-
-    if (last_pts == -1) {
-      pts = now;
-    } else {
-      uint64_t next_pts = last_pts + STATE_GET_FRAME_INTERVAL_NS (state);
-      if (next_pts > now) {
-        uint64_t diff = next_pts - now;
-
-        ts.tv_sec = diff / 1000000000lu;
-        ts.tv_nsec = diff % 1000000000lu;
-        nanosleep (&ts, NULL);
-
-        pts = next_pts;
-      } else {
-        pts = now;
-      }
-    }
-
-    b->header.pts = pts;
-    last_pts = pts;
-
-    b->header.seq = state->next_sequence;
-    state->next_sequence++;
-
-    pthread_mutex_lock (&state->queue_mutex);
-    b->queued = false;
-    pthread_mutex_unlock (&state->queue_mutex);
-
-    b->next = state->ready;
-    state->ready = b;
-    state->ready_count++;
-
-    update_idle_enabled (this, true);
-  }
-
-done:
-  return NULL;
-}
+#include "draw.c"
 
 static SpaResult
-spa_videotestsrc_buffer_recycle (SpaVideoTestSrc *this, uint32_t buffer_id)
+fill_buffer (SpaVideoTestSrc *this, VTSBuffer *b)
 {
-  SpaVideoTestSrcState *state = &this->state[0];
-  VTSBuffer *b = &state->alloc_buffers[buffer_id];
-
-  if (!b->outstanding)
-    return SPA_RESULT_OK;
-
-  pthread_mutex_lock (&state->queue_mutex);
-  b->queued = true;
-  pthread_cond_signal (&state->queue_cond);
-  pthread_mutex_unlock (&state->queue_mutex);
+  draw_smpte_snow (this, b->ptr);
 
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_videotestsrc_clear_buffers (SpaVideoTestSrc *this)
+static SpaResult update_poll_enabled (SpaVideoTestSrc *this, bool enabled);
+
+static int
+videotestsrc_on_output (SpaPollNotifyData *data)
 {
-  SpaVideoTestSrcState *state = &this->state[0];
-  int i;
+  SpaVideoTestSrc *this = data->user_data;
+  VTSBuffer *b;
 
-  if (!state->have_buffers)
-    return SPA_RESULT_OK;
-
-  for (i = 0; i < state->n_buffers; i++) {
-    VTSBuffer *b;
-    SpaMemory *mem;
-
-    b = &state->alloc_buffers[i];
-    if (b->outstanding) {
-      fprintf (stderr, "queueing outstanding buffer %p\n", b);
-      spa_videotestsrc_buffer_recycle (this, i);
-    }
-    mem = spa_memory_find (&b->datas[0].mem.mem);
-    spa_memory_unref (&mem->mem);
-  }
-  if (state->alloc_mem)
-    spa_memory_unref (&state->alloc_mem->mem);
-
-  state->have_buffers = false;
-
-  return SPA_RESULT_OK;
-}
-
-static SpaResult
-spa_videotestsrc_use_buffers (SpaVideoTestSrc *this, SpaBuffer **buffers, uint32_t n_buffers)
-{
-  SpaVideoTestSrcState *state = &this->state[0];
-  int i;
-
-  state->n_buffers = n_buffers;
-
-  if (state->alloc_mem)
-    spa_memory_unref (&state->alloc_mem->mem);
-  state->alloc_mem = spa_memory_alloc_size (SPA_MEMORY_POOL_LOCAL,
-                                            NULL,
-                                            sizeof (VTSBuffer) * state->n_buffers);
-  state->alloc_buffers = spa_memory_ensure_ptr (state->alloc_mem);
-
-  for (i = 0; i < state->n_buffers; i++) {
-    VTSBuffer *b;
-    SpaMemoryRef *mem_ref;
-    SpaMemory *mem;
-    SpaData *d = SPA_BUFFER_DATAS (buffers[i]);
-
-    b = &state->alloc_buffers[i];
-    b->buffer.mem.mem = state->alloc_mem->mem;
-    b->buffer.mem.offset = sizeof (VTSBuffer) * i;
-    b->buffer.mem.size = sizeof (VTSBuffer);
-    b->buffer.id = SPA_ID_INVALID;
-    b->outbuf = buffers[i];
-    b->outstanding = true;
-
-    fprintf (stderr, "import buffer %p\n", buffers[i]);
-
-    mem_ref = &d[0].mem.mem;
-    if (!(mem = spa_memory_find (mem_ref))) {
-      fprintf (stderr, "invalid memory on buffer %p\n", buffers[i]);
-      continue;
-    }
-
-    spa_videotestsrc_buffer_recycle (this, buffers[i]->id);
-  }
-  state->have_buffers = true;
-
-  return SPA_RESULT_OK;
-}
-
-static SpaResult
-spa_videotestsrc_alloc_buffers (SpaVideoTestSrc   *this,
-                        SpaAllocParam  **params,
-                        unsigned int     n_params,
-                        SpaBuffer      **buffers,
-                        unsigned int    *n_buffers)
-{
-  SpaVideoTestSrcState *state = &this->state[0];
-  unsigned int i;
-
-  if (state->have_buffers) {
-    if (*n_buffers < state->n_buffers)
-      return SPA_RESULT_NO_BUFFERS;
-
-    *n_buffers = state->n_buffers;
-    for (i = 0; i < state->n_buffers; i++) {
-      buffers[i] = &state->alloc_buffers[i].buffer;
-    }
-    return SPA_RESULT_OK;
+  SPA_QUEUE_POP_HEAD (&this->empty, VTSBuffer, next, b);
+  if (b == NULL) {
+    if (!this->props[1].live)
+      update_poll_enabled (this, false);
+    return 0;
   }
 
-  state->n_buffers = *n_buffers;
+  fill_buffer (this, b);
 
-  if (state->alloc_mem)
-    spa_memory_unref (&state->alloc_mem->mem);
-  state->alloc_mem = spa_memory_alloc_with_fd (SPA_MEMORY_POOL_SHARED,
-                                               NULL,
-                                               sizeof (VTSBuffer) * state->n_buffers);
-  state->alloc_buffers = spa_memory_ensure_ptr (state->alloc_mem);
-
-  for (i = 0; i < state->n_buffers; i++) {
-    VTSBuffer *b;
-    SpaMemory *mem;
-
-    b = &state->alloc_buffers[i];
-    b->buffer.id = i;
-    b->buffer.mem.mem = state->alloc_mem->mem;
-    b->buffer.mem.offset = sizeof (VTSBuffer) * i;
-    b->buffer.mem.size = sizeof (VTSBuffer);
-
-    buffers[i] = &b->buffer;
-
-    b->buffer.n_metas = 1;
-    b->buffer.metas = offsetof (VTSBuffer, metas);
-    b->buffer.n_datas = 1;
-    b->buffer.datas = offsetof (VTSBuffer, datas);
-
-    b->header.flags = 0;
-    b->header.seq = 0;
-    b->header.pts = 0;
-    b->header.dts_offset = 0;
-
-    b->metas[0].type = SPA_META_TYPE_HEADER;
-    b->metas[0].offset = offsetof (VTSBuffer, header);
-    b->metas[0].size = sizeof (b->header);
-
-    mem = spa_memory_alloc_with_fd (SPA_MEMORY_POOL_SHARED, NULL,
-        STATE_GET_IMAGE_SIZE (state));
-    b->datas[0].mem.mem = mem->mem;
-    b->datas[0].mem.offset = 0;
-    b->datas[0].mem.size = STATE_GET_IMAGE_SIZE (state);
-    b->datas[0].stride = PIXEL_SIZE * STATE_GET_IMAGE_WIDTH (state);
-
-    b->outbuf = &b->buffer;
-    b->outstanding = true;
-
-    spa_videotestsrc_buffer_recycle (this, i);
+  if (b->h) {
+    b->h->seq = this->frame_count;
+    b->h->pts = this->start_time + this->elapsed_time;
+    b->h->dts_offset = 0;
   }
 
-  state->have_buffers = true;
+  this->frame_count++;
+  this->elapsed_time = FRAMES_TO_TIME (this, this->frame_count);
 
-  return SPA_RESULT_OK;
+  if (this->props[1].live) {
+    uint64_t expirations, next_time;
+
+    if (read (this->fds[0].fd, &expirations, sizeof (uint64_t)) < sizeof (uint64_t))
+      perror ("read timerfd");
+
+    next_time = this->start_time + this->elapsed_time;
+    this->timerspec.it_value.tv_sec = next_time / 1000000000;
+    this->timerspec.it_value.tv_nsec = next_time % 1000000000;
+    timerfd_settime (this->fds[0].fd, TFD_TIMER_ABSTIME, &this->timerspec, NULL);
+  }
+
+  b->next = NULL;
+  SPA_QUEUE_PUSH_TAIL (&this->ready, VTSBuffer, next, b);
+  send_have_output (this);
+
+  return 0;
 }
 
 static void
@@ -530,60 +253,49 @@ update_state (SpaVideoTestSrc *this, SpaNodeState state)
 
   this->node.state = state;
 
-  event.type = SPA_NODE_EVENT_TYPE_STATE_CHANGE;
-  event.data = &sc;
-  event.size = sizeof (sc);
-  sc.state = state;
-  this->event_cb (&this->node, &event, this->user_data);
-}
-
-static SpaResult
-spa_videotestsrc_start (SpaVideoTestSrc *this)
-{
-  SpaVideoTestSrcState *state = &this->state[0];
-
-  if (state->started)
-    return SPA_RESULT_OK;
-
-  state->started = true;
-
-  if (pthread_create (&state->thread, NULL, loop, this) != 0) {
-    return SPA_RESULT_ERROR;
+  if (this->event_cb) {
+    event.type = SPA_NODE_EVENT_TYPE_STATE_CHANGE;
+    event.data = &sc;
+    event.size = sizeof (sc);
+    sc.state = state;
+    this->event_cb (&this->node, &event, this->user_data);
   }
-  state->started = true;
-  update_state (this, SPA_NODE_STATE_STREAMING);
+}
 
+static SpaResult
+update_poll_enabled (SpaVideoTestSrc *this, bool enabled)
+{
+  SpaNodeEvent event;
+
+  if (this->event_cb && this->timer.enabled != enabled) {
+    event.type = SPA_NODE_EVENT_TYPE_UPDATE_POLL;
+    this->timer.enabled = enabled;
+    if (this->props[1].live) {
+      if (enabled) {
+        uint64_t next_time = this->start_time + this->elapsed_time;
+        this->timerspec.it_value.tv_sec = next_time / 1000000000;
+        this->timerspec.it_value.tv_nsec = next_time % 1000000000;
+      }
+      else {
+        this->timerspec.it_value.tv_sec = 0;
+        this->timerspec.it_value.tv_nsec = 0;
+      }
+      timerfd_settime (this->fds[0].fd, TFD_TIMER_ABSTIME, &this->timerspec, NULL);
+      this->timer.fds = this->fds;
+      this->timer.n_fds = 1;
+      this->timer.idle_cb = NULL;
+      this->timer.after_cb = videotestsrc_on_output;
+    } else {
+      this->timer.fds = NULL;
+      this->timer.n_fds = 0;
+      this->timer.idle_cb = videotestsrc_on_output;
+      this->timer.after_cb = NULL;
+    }
+    event.data = &this->timer;
+    event.size = sizeof (this->timer);
+    this->event_cb (&this->node, &event, this->user_data);
+  }
   return SPA_RESULT_OK;
-}
-
-static SpaResult
-spa_videotestsrc_pause (SpaVideoTestSrc *this)
-{
-  SpaVideoTestSrcState *state = &this->state[0];
-
-  if (!state->started)
-    return SPA_RESULT_OK;
-
-  update_idle_enabled (this, false);
-
-  state->started = false;
-  pthread_join (state->thread, NULL);
-
-  return SPA_RESULT_OK;
-}
-
-static SpaResult
-spa_videotestsrc_node_get_props (SpaNode       *node,
-                                 SpaProps     **props)
-{
-  return SPA_RESULT_NOT_IMPLEMENTED;
-}
-
-static SpaResult
-spa_videotestsrc_node_set_props (SpaNode         *node,
-                                 const SpaProps  *props)
-{
-  return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult
@@ -591,7 +303,6 @@ spa_videotestsrc_node_send_command (SpaNode        *node,
                                     SpaNodeCommand *command)
 {
   SpaVideoTestSrc *this;
-  SpaResult res;
 
   if (node == NULL || node->handle == NULL || command == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -604,35 +315,43 @@ spa_videotestsrc_node_send_command (SpaNode        *node,
 
     case SPA_NODE_COMMAND_START:
     {
-      SpaVideoTestSrcState *state = &this->state[0];
+      struct timespec now;
 
-      if (!state->have_format)
+      if (!this->have_format)
         return SPA_RESULT_NO_FORMAT;
 
-      if (!state->have_buffers)
+      if (!this->have_buffers)
         return SPA_RESULT_NO_BUFFERS;
 
-      if ((res = spa_videotestsrc_start (this)) < 0)
-        return res;
+      if (this->started)
+        return SPA_RESULT_OK;
 
+      clock_gettime (CLOCK_MONOTONIC, &now);
+      this->start_time = TIMESPEC_TO_TIME (&now);
+      this->frame_count = 0;
+      this->elapsed_time = 0;
+
+      this->started = true;
+      update_poll_enabled (this, true);
+      update_state (this, SPA_NODE_STATE_STREAMING);
       break;
     }
     case SPA_NODE_COMMAND_PAUSE:
     {
-      SpaVideoTestSrcState *state = &this->state[0];
-
-      if (!state->have_format)
+      if (!this->have_format)
         return SPA_RESULT_NO_FORMAT;
 
-      if (!state->have_buffers)
+      if (!this->have_buffers)
         return SPA_RESULT_NO_BUFFERS;
 
-      if ((res = spa_videotestsrc_pause (this)) < 0)
-        return res;
+      if (!this->started)
+        return SPA_RESULT_OK;
 
+      this->started = false;
+      update_poll_enabled (this, false);
+      update_state (this, SPA_NODE_STATE_PAUSED);
       break;
     }
-
     case SPA_NODE_COMMAND_FLUSH:
     case SPA_NODE_COMMAND_DRAIN:
     case SPA_NODE_COMMAND_MARKER:
@@ -657,8 +376,8 @@ spa_videotestsrc_node_set_event_callback (SpaNode              *node,
 
   if (event_cb == NULL && this->event_cb) {
     event.type = SPA_NODE_EVENT_TYPE_REMOVE_POLL;
-    event.data = &this->idle;
-    event.size = sizeof (this->idle);
+    event.data = &this->timer;
+    event.size = sizeof (this->timer);
     this->event_cb (&this->node, &event, this->user_data);
   }
 
@@ -667,32 +386,29 @@ spa_videotestsrc_node_set_event_callback (SpaNode              *node,
 
   if (this->event_cb) {
     event.type = SPA_NODE_EVENT_TYPE_ADD_POLL;
-    event.data = &this->idle;
-    event.size = sizeof (this->idle);
+    event.data = &this->timer;
+    event.size = sizeof (this->timer);
     this->event_cb (&this->node, &event, this->user_data);
   }
-
-  update_state (this, SPA_NODE_STATE_CONFIGURE);
-
   return SPA_RESULT_OK;
 }
 
 static SpaResult
 spa_videotestsrc_node_get_n_ports (SpaNode       *node,
-                                  unsigned int  *n_input_ports,
-                                  unsigned int  *max_input_ports,
-                                  unsigned int  *n_output_ports,
-                                  unsigned int  *max_output_ports)
+                                   unsigned int  *n_input_ports,
+                                   unsigned int  *max_input_ports,
+                                   unsigned int  *n_output_ports,
+                                   unsigned int  *max_output_ports)
 {
   if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   if (n_input_ports)
     *n_input_ports = 0;
-  if (max_input_ports)
-    *max_input_ports = 0;
   if (n_output_ports)
     *n_output_ports = 1;
+  if (max_input_ports)
+    *max_input_ports = 0;
   if (max_output_ports)
     *max_output_ports = 1;
 
@@ -714,7 +430,6 @@ spa_videotestsrc_node_get_port_ids (SpaNode       *node,
 
   return SPA_RESULT_OK;
 }
-
 
 static SpaResult
 spa_videotestsrc_node_add_port (SpaNode        *node,
@@ -738,12 +453,7 @@ spa_videotestsrc_node_port_enum_formats (SpaNode          *node,
                                          void            **state)
 {
   SpaVideoTestSrc *this;
-  SpaVideoTestSrcState *src_state;
   int index;
-  unsigned int idx;
-  SpaVideoFormat video_format;
-  SpaPropValue val;
-  SpaProps *props;
 
   if (node == NULL || node->handle == NULL || format == NULL || state == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -753,50 +463,38 @@ spa_videotestsrc_node_port_enum_formats (SpaNode          *node,
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
 
-  src_state = &this->state[port_id];
-
   index = (*state == NULL ? 0 : *(int*)state);
-  if (index != 0)
-    return SPA_RESULT_ENUM_END;
 
-  if (filter) {
-    SpaResult res;
-    const SpaPropInfo *pi;
-
-    idx = spa_props_index_for_id (&filter->props, SPA_PROP_ID_VIDEO_FORMAT);
-    if (idx == SPA_IDX_INVALID)
+  switch (index) {
+    case 0:
+      if (filter)
+        spa_format_video_parse (filter, &this->query_format);
+      else
+        spa_format_video_init (SPA_MEDIA_TYPE_VIDEO,
+                               SPA_MEDIA_SUBTYPE_RAW,
+                               &this->query_format);
+      break;
+    default:
       return SPA_RESULT_ENUM_END;
-
-    pi = &filter->props.prop_info[idx];
-    if (pi->type != SPA_PROP_TYPE_UINT32)
-      return SPA_RESULT_ENUM_END;
-
-    res = spa_props_get_prop (&filter->props, idx, &val);
-    if (res >= 0) {
-      video_format = *((SpaVideoFormat *)val.value);
-      if (video_format != SPA_VIDEO_FORMAT_RGB)
-        return SPA_RESULT_ENUM_END;
-    }
-
-    spa_format_video_parse (filter, &src_state->query_format);
-  } else {
-    spa_format_video_init (SPA_MEDIA_TYPE_VIDEO,
-                           SPA_MEDIA_SUBTYPE_RAW,
-                           &src_state->query_format);
   }
-
-  props = &src_state->query_format.format.props;
-  idx = spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_FORMAT);
-  if (idx == SPA_IDX_INVALID)
-    return SPA_RESULT_ENUM_END;
-  video_format = SPA_VIDEO_FORMAT_RGB;
-  val.value = &video_format;
-  val.size = sizeof video_format;
-  spa_props_set_prop (props, idx, &val);
-
-  *format = &src_state->query_format.format;
+  *format = &this->query_format.format;
   *(int*)state = ++index;
 
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
+clear_buffers (SpaVideoTestSrc *this)
+{
+  if (this->have_buffers) {
+    fprintf (stderr, "videotestsrc %p: clear buffers\n", this);
+    if (this->alloc_mem)
+      spa_memory_unref (&this->alloc_mem->mem);
+    this->alloc_mem = NULL;
+    this->alloc_buffers = NULL;
+    this->n_buffers = 0;
+    this->have_buffers = false;
+  }
   return SPA_RESULT_OK;
 }
 
@@ -807,7 +505,6 @@ spa_videotestsrc_node_port_set_format (SpaNode            *node,
                                        const SpaFormat    *format)
 {
   SpaVideoTestSrc *this;
-  SpaVideoTestSrcState *state;
   SpaResult res;
 
   if (node == NULL || node->handle == NULL)
@@ -818,34 +515,37 @@ spa_videotestsrc_node_port_set_format (SpaNode            *node,
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
 
-  state = &this->state[port_id];
-
   if (format == NULL) {
-    state->have_format = false;
-    state->have_buffers = false;
+    this->have_format = false;
+    clear_buffers (this);
   } else {
-    if ((res = spa_format_video_parse (format, &state->current_format)) < 0)
+    if ((res = spa_format_video_parse (format, &this->current_format)) < 0)
       return res;
 
-    state->have_format = true;
+    this->have_format = true;
   }
 
-  if (state->have_format) {
-    state->info.flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS |
-                        SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
-    state->info.maxbuffering = -1;
-    state->info.latency = -1;
-    state->info.n_params = 1;
-    state->info.params = state->params;
-    state->params[0] = &state->param_buffers.param;
-    state->param_buffers.param.type = SPA_ALLOC_PARAM_TYPE_BUFFERS;
-    state->param_buffers.param.size = sizeof (state->param_buffers);
-    state->param_buffers.minsize = STATE_GET_IMAGE_SIZE (state);
-    state->param_buffers.stride = PIXEL_SIZE * STATE_GET_IMAGE_WIDTH (state);
-    state->param_buffers.min_buffers = 2;
-    state->param_buffers.max_buffers = MAX_BUFFERS;
-    state->param_buffers.align = 16;
-    state->info.features = NULL;
+  if (this->have_format) {
+    this->info.maxbuffering = -1;
+    this->info.latency = 0;
+
+    this->bpp = 3;
+
+    this->info.n_params = 2;
+    this->info.params = this->params;
+    this->params[0] = &this->param_buffers.param;
+    this->param_buffers.param.type = SPA_ALLOC_PARAM_TYPE_BUFFERS;
+    this->param_buffers.param.size = sizeof (this->param_buffers);
+    this->param_buffers.minsize = STATE_GET_IMAGE_SIZE (this);
+    this->param_buffers.stride = this->bpp * STATE_GET_IMAGE_WIDTH (this);
+    this->param_buffers.min_buffers = 2;
+    this->param_buffers.max_buffers = 32;
+    this->param_buffers.align = 16;
+    this->params[1] = &this->param_meta.param;
+    this->param_meta.param.type = SPA_ALLOC_PARAM_TYPE_META_ENABLE;
+    this->param_meta.param.size = sizeof (this->param_meta);
+    this->param_meta.type = SPA_META_TYPE_HEADER;
+    this->info.features = NULL;
     update_state (this, SPA_NODE_STATE_READY);
   }
   else
@@ -860,7 +560,6 @@ spa_videotestsrc_node_port_get_format (SpaNode          *node,
                                        const SpaFormat **format)
 {
   SpaVideoTestSrc *this;
-  SpaVideoTestSrcState *state;
 
   if (node == NULL || node->handle == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -870,12 +569,10 @@ spa_videotestsrc_node_port_get_format (SpaNode          *node,
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
 
-  state = &this->state[port_id];
-
-  if (!state->have_format)
+  if (!this->have_format)
     return SPA_RESULT_NO_FORMAT;
 
-  *format = &state->current_format.format;
+  *format = &this->current_format.format;
 
   return SPA_RESULT_OK;
 }
@@ -895,23 +592,23 @@ spa_videotestsrc_node_port_get_info (SpaNode            *node,
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
 
-  *info = &this->state[port_id].info;
+  *info = &this->info;
 
   return SPA_RESULT_OK;
 }
 
 static SpaResult
-spa_videotestsrc_node_port_get_props (SpaNode    *node,
-                                      uint32_t    port_id,
-                                      SpaProps  **props)
+spa_videotestsrc_node_port_get_props (SpaNode   *node,
+                                      uint32_t   port_id,
+                                      SpaProps **props)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult
-spa_videotestsrc_node_port_set_props (SpaNode         *node,
-                                      uint32_t         port_id,
-                                      const SpaProps  *props)
+spa_videotestsrc_node_port_set_props (SpaNode        *node,
+                                      uint32_t        port_id,
+                                      const SpaProps *props)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
@@ -923,8 +620,6 @@ spa_videotestsrc_node_port_use_buffers (SpaNode         *node,
                                         uint32_t         n_buffers)
 {
   SpaVideoTestSrc *this;
-  SpaVideoTestSrcState *state;
-  SpaResult res;
 
   if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -934,41 +629,79 @@ spa_videotestsrc_node_port_use_buffers (SpaNode         *node,
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
 
-  state = &this->state[port_id];
-
-  if (!state->have_format)
+  if (!this->have_format)
     return SPA_RESULT_NO_FORMAT;
 
-  if (state->have_buffers) {
-    if ((res = spa_videotestsrc_clear_buffers (this)) < 0)
-      return res;
-  }
-  if (buffers != NULL) {
-    if ((res = spa_videotestsrc_use_buffers (this, buffers, n_buffers)) < 0)
-      return res;
+  clear_buffers (this);
+  if (buffers != NULL && n_buffers != 0) {
+    unsigned int i, j;
+
+    this->alloc_mem = spa_memory_alloc_size (SPA_MEMORY_POOL_LOCAL,
+                                             NULL,
+                                             sizeof (VTSBuffer) * n_buffers);
+    this->alloc_buffers = spa_memory_ensure_ptr (this->alloc_mem);
+
+    for (i = 0; i < n_buffers; i++) {
+      VTSBuffer *b;
+      SpaMemoryRef *mem_ref;
+      SpaMemory *mem;
+      SpaData *d = SPA_BUFFER_DATAS (buffers[i]);
+      SpaMeta *m = SPA_BUFFER_METAS (buffers[i]);
+
+      b = &this->alloc_buffers[i];
+      b->buffer.mem.mem = this->alloc_mem->mem;
+      b->buffer.mem.offset = sizeof (VTSBuffer) * i;
+      b->buffer.mem.size = sizeof (VTSBuffer);
+      b->buffer.id = SPA_ID_INVALID;
+      b->outbuf = buffers[i];
+      b->outstanding = true;
+      b->h = NULL;
+
+      for (j = 0; j < buffers[i]->n_metas; j++) {
+        switch (m[j].type) {
+          case SPA_META_TYPE_HEADER:
+            b->h = SPA_MEMBER (buffers[i], m[j].offset, SpaMetaHeader);
+            break;
+          default:
+            break;
+        }
+      }
+
+      mem_ref = &d[0].mem.mem;
+      if (!(mem = spa_memory_find (mem_ref))) {
+        fprintf (stderr, "videotestsrc %p: invalid memory on buffer %p\n", this, buffers[i]);
+        continue;
+      }
+      b->ptr = SPA_MEMBER (spa_memory_ensure_ptr (mem), d[0].mem.offset, void);
+      b->stride = d[0].stride;
+
+      b->next = NULL;
+      SPA_QUEUE_PUSH_TAIL (&this->empty, VTSBuffer, next, b);
+    }
+    this->n_buffers = n_buffers;
+    this->have_buffers = true;
   }
 
-  if (state->have_buffers)
+  if (this->have_buffers) {
     update_state (this, SPA_NODE_STATE_PAUSED);
-  else
+  } else {
     update_state (this, SPA_NODE_STATE_READY);
+  }
 
-  return res;
+  return SPA_RESULT_OK;
 }
 
 static SpaResult
 spa_videotestsrc_node_port_alloc_buffers (SpaNode         *node,
                                           uint32_t         port_id,
                                           SpaAllocParam  **params,
-                                          unsigned int     n_params,
+                                          uint32_t         n_params,
                                           SpaBuffer      **buffers,
-                                          unsigned int    *n_buffers)
+                                          uint32_t        *n_buffers)
 {
   SpaVideoTestSrc *this;
-  SpaVideoTestSrcState *state;
-  SpaResult res;
 
-  if (node == NULL || node->handle == NULL || buffers == NULL)
+  if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = (SpaVideoTestSrc *) node->handle;
@@ -976,17 +709,13 @@ spa_videotestsrc_node_port_alloc_buffers (SpaNode         *node,
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
 
-  state = &this->state[port_id];
-
-  if (!state->have_format)
+  if (!this->have_format)
     return SPA_RESULT_NO_FORMAT;
 
-  res = spa_videotestsrc_alloc_buffers (this, params, n_params, buffers, n_buffers);
+  if (!this->have_buffers)
+    return SPA_RESULT_NO_BUFFERS;
 
-  if (state->have_buffers)
-    update_state (this, SPA_NODE_STATE_PAUSED);
-
-  return res;
+  return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult
@@ -995,8 +724,7 @@ spa_videotestsrc_node_port_reuse_buffer (SpaNode         *node,
                                          uint32_t         buffer_id)
 {
   SpaVideoTestSrc *this;
-  SpaVideoTestSrcState *state;
-  SpaResult res;
+  VTSBuffer *b;
 
   if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -1006,17 +734,24 @@ spa_videotestsrc_node_port_reuse_buffer (SpaNode         *node,
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
 
-  state = &this->state[port_id];
-
-  if (!state->have_buffers)
+  if (!this->have_buffers)
     return SPA_RESULT_NO_BUFFERS;
 
-  if (buffer_id >= state->n_buffers)
+  if (buffer_id >= this->n_buffers)
     return SPA_RESULT_INVALID_BUFFER_ID;
 
-  res = spa_videotestsrc_buffer_recycle (this, buffer_id);
+  b = &this->alloc_buffers[buffer_id];
+  if (!b->outstanding)
+    return SPA_RESULT_OK;
 
-  return res;
+  b->outstanding = false;
+  b->next = NULL;
+  SPA_QUEUE_PUSH_TAIL (&this->empty, VTSBuffer, next, b);
+
+  if (this->empty.length == 1 && !this->props[1].live)
+    update_poll_enabled (this, true);
+
+  return SPA_RESULT_OK;
 }
 
 static SpaResult
@@ -1034,10 +769,14 @@ spa_videotestsrc_node_port_get_status (SpaNode              *node,
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
 
-  *status = &this->state[port_id].status;
+  if (!this->have_format)
+    return SPA_RESULT_NO_FORMAT;
+
+  *status = &this->status;
 
   return SPA_RESULT_OK;
 }
+
 
 static SpaResult
 spa_videotestsrc_node_port_push_input (SpaNode          *node,
@@ -1046,14 +785,12 @@ spa_videotestsrc_node_port_push_input (SpaNode          *node,
 {
   return SPA_RESULT_INVALID_PORT;
 }
-
 static SpaResult
 spa_videotestsrc_node_port_pull_output (SpaNode           *node,
                                         unsigned int       n_info,
                                         SpaPortOutputInfo *info)
 {
   SpaVideoTestSrc *this;
-  SpaVideoTestSrcState *state;
   unsigned int i;
   bool have_error = false;
 
@@ -1070,26 +807,20 @@ spa_videotestsrc_node_port_pull_output (SpaNode           *node,
       have_error = true;
       continue;
     }
-    state = &this->state[info[i].port_id];
 
-    if (!state->have_format) {
+    if (!this->have_format) {
       info[i].status = SPA_RESULT_NO_FORMAT;
       have_error = true;
       continue;
     }
-    if (state->ready_count == 0) {
+
+    SPA_QUEUE_POP_HEAD (&this->ready, VTSBuffer, next, b);
+    if (b == NULL) {
       info[i].status = SPA_RESULT_UNEXPECTED;
       have_error = true;
       continue;
     }
-
-    b = state->ready;
-    state->ready = b->next;
-    state->ready_count--;
-
     b->outstanding = true;
-
-    update_idle_enabled (this, false);
 
     info[i].buffer_id = b->outbuf->id;
     info[i].status = SPA_RESULT_OK;
@@ -1107,7 +838,6 @@ spa_videotestsrc_node_port_push_event (SpaNode      *node,
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
-
 
 static const SpaNode videotestsrc_node = {
   NULL,
@@ -1138,9 +868,59 @@ static const SpaNode videotestsrc_node = {
 };
 
 static SpaResult
-spa_videotestsrc_get_interface (SpaHandle               *handle,
-                                uint32_t                 interface_id,
-                                void                   **interface)
+spa_videotestsrc_clock_get_props (SpaClock  *clock,
+                                  SpaProps **props)
+{
+  return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
+static SpaResult
+spa_videotestsrc_clock_set_props (SpaClock       *clock,
+                                  const SpaProps *props)
+{
+  return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
+static SpaResult
+spa_videotestsrc_clock_get_time (SpaClock         *clock,
+                                 int32_t          *rate,
+                                 int64_t          *ticks,
+                                 int64_t          *monotonic_time)
+{
+  struct timespec now;
+  uint64_t tnow;
+
+  if (clock == NULL || clock->handle == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  if (rate)
+    *rate = 1000000000;
+
+  clock_gettime (CLOCK_MONOTONIC, &now);
+  tnow = TIMESPEC_TO_TIME (&now);
+
+  if (ticks)
+    *ticks = tnow;
+  if (monotonic_time)
+    *monotonic_time = tnow;
+
+  return SPA_RESULT_OK;
+}
+
+static const SpaClock videotestsrc_clock = {
+  NULL,
+  sizeof (SpaClock),
+  NULL,
+  SPA_CLOCK_STATE_STOPPED,
+  spa_videotestsrc_clock_get_props,
+  spa_videotestsrc_clock_set_props,
+  spa_videotestsrc_clock_get_time,
+};
+
+static SpaResult
+spa_videotestsrc_get_interface (SpaHandle         *handle,
+                                uint32_t           interface_id,
+                                void             **interface)
 {
   SpaVideoTestSrc *this;
 
@@ -1153,6 +933,9 @@ spa_videotestsrc_get_interface (SpaHandle               *handle,
     case SPA_INTERFACE_ID_NODE:
       *interface = &this->node;
       break;
+    case SPA_INTERFACE_ID_CLOCK:
+      *interface = &this->clock;
+      break;
     default:
       return SPA_RESULT_UNKNOWN_INTERFACE;
   }
@@ -1160,20 +943,24 @@ spa_videotestsrc_get_interface (SpaHandle               *handle,
 }
 
 static SpaResult
-spa_videotestsrc_clear (SpaHandle *handle)
+videotestsrc_clear (SpaHandle *handle)
 {
-  SpaVideoTestSrc *this = (SpaVideoTestSrc *) handle;
+  SpaVideoTestSrc *this;
 
-  pthread_mutex_destroy (&this->state[0].queue_mutex);
-  pthread_cond_destroy (&this->state[0].queue_cond);
+  if (handle == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaVideoTestSrc *) handle;
+
+  close (this->fds[0].fd);
 
   return SPA_RESULT_OK;
 }
 
 static SpaResult
-spa_videotestsrc_init (const SpaHandleFactory  *factory,
-                       SpaHandle               *handle,
-                       const SpaDict           *info)
+videotestsrc_init (const SpaHandleFactory  *factory,
+                   SpaHandle               *handle,
+                   const SpaDict           *info)
 {
   SpaVideoTestSrc *this;
 
@@ -1181,42 +968,63 @@ spa_videotestsrc_init (const SpaHandleFactory  *factory,
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   handle->get_interface = spa_videotestsrc_get_interface;
-  handle->clear = spa_videotestsrc_clear;
+  handle->clear = videotestsrc_clear;
 
   this = (SpaVideoTestSrc *) handle;
   this->node = videotestsrc_node;
   this->node.handle = handle;
+  this->clock = videotestsrc_clock;
+  this->clock.handle = handle;
+  this->props[1].props.n_prop_info = PROP_ID_LAST;
+  this->props[1].props.prop_info = prop_info;
+  reset_videotestsrc_props (&this->props[1]);
 
-  this->idle.id = 0;
-  this->idle.enabled = false;
-  this->idle.fds = NULL;
-  this->idle.n_fds = 0;
-  this->idle.idle_cb = spa_videotestsrc_idle;
-  this->idle.before_cb = NULL;
-  this->idle.after_cb = NULL;
-  this->idle.user_data = this;
+  SPA_QUEUE_INIT (&this->empty);
+  SPA_QUEUE_INIT (&this->ready);
 
-  this->state[0].info.flags = SPA_PORT_INFO_FLAG_NONE;
-  this->state[0].status.flags = SPA_PORT_STATUS_FLAG_NONE;
+  this->fds[0].fd = timerfd_create (CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
+  this->fds[0].events = POLLIN | POLLPRI | POLLERR;
+  this->fds[0].revents = 0;
+  this->timerspec.it_value.tv_sec = 0;
+  this->timerspec.it_value.tv_nsec = 0;
+  this->timerspec.it_interval.tv_sec = 0;
+  this->timerspec.it_interval.tv_nsec = 0;
 
-  pthread_mutex_init (&this->state[0].queue_mutex, NULL);
-  pthread_cond_init (&this->state[0].queue_cond, NULL);
+  this->timer.id = 0;
+  this->timer.enabled = false;
+  this->timer.idle_cb = NULL;
+  this->timer.before_cb = NULL;
+  this->timer.after_cb = NULL;
+  this->timer.user_data = this;
+
+  this->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
+                     SPA_PORT_INFO_FLAG_NO_REF;
+  if (this->props[1].live)
+    this->info.flags |= SPA_PORT_INFO_FLAG_LIVE;
+
+  this->status.flags = SPA_PORT_STATUS_FLAG_NONE;
+
+  this->node.state = SPA_NODE_STATE_CONFIGURE;
 
   return SPA_RESULT_OK;
 }
 
-static const SpaInterfaceInfo spa_videotestsrc_interfaces[] =
+static const SpaInterfaceInfo videotestsrc_interfaces[] =
 {
   { SPA_INTERFACE_ID_NODE,
     SPA_INTERFACE_ID_NODE_NAME,
     SPA_INTERFACE_ID_NODE_DESCRIPTION,
   },
+  { SPA_INTERFACE_ID_CLOCK,
+    SPA_INTERFACE_ID_CLOCK_NAME,
+    SPA_INTERFACE_ID_CLOCK_DESCRIPTION,
+  },
 };
 
 static SpaResult
-spa_videotestsrc_enum_interface_info (const SpaHandleFactory  *factory,
-                                      const SpaInterfaceInfo **info,
-                                      void                   **state)
+videotestsrc_enum_interface_info (const SpaHandleFactory  *factory,
+                                  const SpaInterfaceInfo **info,
+                                  void			 **state)
 {
   int index;
 
@@ -1227,7 +1035,7 @@ spa_videotestsrc_enum_interface_info (const SpaHandleFactory  *factory,
 
   switch (index) {
     case 0:
-      *info = &spa_videotestsrc_interfaces[index];
+      *info = &videotestsrc_interfaces[index];
       break;
     default:
       return SPA_RESULT_ENUM_END;
@@ -1240,6 +1048,6 @@ const SpaHandleFactory spa_videotestsrc_factory =
 { "videotestsrc",
   NULL,
   sizeof (SpaVideoTestSrc),
-  spa_videotestsrc_init,
-  spa_videotestsrc_enum_interface_info,
+  videotestsrc_init,
+  videotestsrc_enum_interface_info,
 };

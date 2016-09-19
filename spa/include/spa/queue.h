@@ -39,7 +39,7 @@ struct _SpaQueue {
     (q)->length = 0;                            \
   } while (0);
 
-#define SPA_QUEUE_PUSH_TAIL(q,t,i)              \
+#define SPA_QUEUE_PUSH_TAIL(q,t,next,i)         \
   do {                                          \
     if ((q)->tail)                              \
       ((t*)(q)->tail)->next = (i);              \
@@ -49,7 +49,7 @@ struct _SpaQueue {
     (q)->length++;                              \
   } while (0);
 
-#define SPA_QUEUE_POP_HEAD(q,t,i)               \
+#define SPA_QUEUE_POP_HEAD(q,t,next,i)          \
   do {                                          \
     if (((i) = (t*)((q)->head)) == NULL)        \
       break;                                    \

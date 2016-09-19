@@ -77,8 +77,6 @@ struct _PinosNodePrivate
   guint   n_used_output_links;
   GArray *input_links;
   guint   n_used_input_links;
-
-  SpaClock *clock;
 };
 
 G_DEFINE_TYPE (PinosNode, pinos_node, G_TYPE_OBJECT);
@@ -319,7 +317,6 @@ suspend_node (PinosNode *this)
 static void
 send_clock_update (PinosNode *this)
 {
-  PinosNodePrivate *priv = this->priv;
   SpaNodeCommand cmd;
   SpaNodeCommandClockUpdate cu;
   SpaResult res;
@@ -333,9 +330,9 @@ send_clock_update (PinosNode *this)
                    SPA_NODE_COMMAND_CLOCK_UPDATE_SCALE |
                    SPA_NODE_COMMAND_CLOCK_UPDATE_STATE |
                    SPA_NODE_COMMAND_CLOCK_UPDATE_LATENCY;
-  if (priv->clock) {
+  if (this->clock && this->live) {
     cu.flags = SPA_NODE_COMMAND_CLOCK_UPDATE_FLAG_LIVE;
-    res = spa_clock_get_time (priv->clock, &cu.rate, &cu.ticks, &cu.monotonic_time);
+    res = spa_clock_get_time (this->clock, &cu.rate, &cu.ticks, &cu.monotonic_time);
   } else {
     cu.rate = 1;
     cu.ticks = 0;
@@ -519,8 +516,11 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
         if (pl == NULL || pl->output_node->node != node || pl->output_port != oinfo[0].port_id)
           continue;
 
-        if (pl->input_node->node->state != SPA_NODE_STATE_STREAMING)
+        if (pl->input_node->node->state != SPA_NODE_STATE_STREAMING) {
+          if ((res = spa_node_port_reuse_buffer (node, oinfo[0].port_id, oinfo[0].buffer_id)) < 0)
+            g_warning ("node %p: error reuse buffer: %d", node, res);
           continue;
+        }
 
         iinfo[0].port_id = pl->input_port;
         iinfo[0].buffer_id = oinfo[0].buffer_id;
@@ -657,7 +657,7 @@ pinos_node_set_property (GObject      *_object,
       void *iface;
       node->node = g_value_get_pointer (value);
       if (node->node->handle->get_interface (node->node->handle, SPA_INTERFACE_ID_CLOCK, &iface) >= 0)
-        priv->clock = iface;
+        node->clock = iface;
       break;
     }
     default:
@@ -1274,10 +1274,11 @@ pinos_node_link (PinosNode       *output_node,
     else
       goto no_input_ports;
 
-    if (output_node->priv->clock)
-      input_node->priv->clock = output_node->priv->clock;
+    input_node->live = output_node->live;
+    if (output_node->clock)
+      input_node->clock = output_node->clock;
 
-    g_debug ("node %p: clock %p", output_node, output_node->priv->clock);
+    g_debug ("node %p: clock %p", output_node, output_node->clock);
     pl = g_object_new (PINOS_TYPE_LINK,
                        "daemon", priv->daemon,
                        "output-node", output_node,

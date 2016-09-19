@@ -53,6 +53,9 @@ struct _PinosNode {
 
   SpaNode *node;
 
+  bool live;
+  SpaClock *clock;
+
   PinosNodePrivate *priv;
 };
 

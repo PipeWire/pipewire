@@ -386,6 +386,11 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
   in_flags = iinfo->flags;
   out_flags = oinfo->flags;
 
+  if (out_flags & SPA_PORT_INFO_FLAG_LIVE) {
+    this->output_node->live = true;
+    this->input_node->live = true;
+  }
+
   if (in_state == SPA_NODE_STATE_READY && out_state == SPA_NODE_STATE_READY) {
     if ((out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) &&
         (in_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS)) {

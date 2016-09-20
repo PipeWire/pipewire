@@ -341,7 +341,7 @@ spa_control_iter_get_data (SpaControlIter *iter, size_t *size)
 }
 
 static SpaProps *
-parse_props (SpaMemory *mem, void *p, off_t offset)
+parse_props (void *p, off_t offset)
 {
   SpaProps *tp;
   unsigned int i, j;
@@ -375,7 +375,7 @@ parse_props (SpaMemory *mem, void *p, off_t offset)
 }
 
 static SpaFormat *
-parse_format (SpaMemory *mem, void *p, off_t offset)
+parse_format (void *p, size_t size, off_t offset)
 {
   SpaFormat *f;
 
@@ -383,11 +383,12 @@ parse_format (SpaMemory *mem, void *p, off_t offset)
     return NULL;
 
   f = SPA_MEMBER (p, offset, SpaFormat);
-  f->mem.mem = mem->mem;
+  f->mem.mem.pool_id = 0;
+  f->mem.mem.id = 0;
   f->mem.offset = offset;
-  f->mem.size = mem->size - offset;
+  f->mem.size = size - offset;
 
-  parse_props (mem, f, offsetof (SpaFormat, props));
+  parse_props (f, offsetof (SpaFormat, props));
 
   return f;
 }
@@ -395,40 +396,31 @@ parse_format (SpaMemory *mem, void *p, off_t offset)
 static void
 iter_parse_node_update (struct stack_iter *si, SpaControlCmdNodeUpdate *nu)
 {
-  void *p;
-  SpaMemory *mem;
-
   memcpy (nu, si->data, sizeof (SpaControlCmdNodeUpdate));
-
-  mem = spa_memory_alloc_size (SPA_MEMORY_POOL_LOCAL, si->data, si->size);
-  p = spa_memory_ensure_ptr (mem);
-
   if (nu->props)
-    nu->props = parse_props (mem, p, SPA_PTR_TO_INT (nu->props));
+    nu->props = parse_props (si->data, SPA_PTR_TO_INT (nu->props));
 }
 
 static void
 iter_parse_port_update (struct stack_iter *si, SpaControlCmdPortUpdate *pu)
 {
   void *p;
-  SpaMemory *mem;
   unsigned int i;
 
   memcpy (pu, si->data, sizeof (SpaControlCmdPortUpdate));
 
-  mem = spa_memory_alloc_size (SPA_MEMORY_POOL_LOCAL, si->data, si->size);
-  p = spa_memory_ensure_ptr (mem);
+  p = si->data;
 
   if (pu->possible_formats)
     pu->possible_formats = SPA_MEMBER (p,
                         SPA_PTR_TO_INT (pu->possible_formats), SpaFormat *);
   for (i = 0; i < pu->n_possible_formats; i++) {
-    pu->possible_formats[i] = parse_format (mem, p,
+    pu->possible_formats[i] = parse_format (p, si->size,
                         SPA_PTR_TO_INT (pu->possible_formats[i]));
   }
 
   if (pu->props)
-    pu->props = parse_props (mem, p, SPA_PTR_TO_INT (pu->props));
+    pu->props = parse_props (p, SPA_PTR_TO_INT (pu->props));
   if (pu->info) {
     SpaPortInfo *pi;
 
@@ -445,15 +437,8 @@ iter_parse_port_update (struct stack_iter *si, SpaControlCmdPortUpdate *pu)
 static void
 iter_parse_set_format (struct stack_iter *si, SpaControlCmdSetFormat *cmd)
 {
-  void *p;
-  SpaMemory *mem;
-
   memcpy (cmd, si->data, sizeof (SpaControlCmdSetFormat));
-
-  mem = spa_memory_alloc_size (SPA_MEMORY_POOL_LOCAL, si->data, si->size);
-  p = spa_memory_ensure_ptr (mem);
-
-  cmd->format = parse_format (mem, p, SPA_PTR_TO_INT (cmd->format));
+  cmd->format = parse_format (si->data, si->size, SPA_PTR_TO_INT (cmd->format));
 }
 
 static void
@@ -473,7 +458,7 @@ iter_parse_use_buffers (struct stack_iter *si, SpaControlCmdUseBuffers *cmd)
     mc = SPA_MEMBER (p, SPA_PTR_TO_INT (cmd->buffers[i]), SpaMemoryChunk);
     mem = spa_memory_find (&mc->mem);
 
-    cmd->buffers[i] = SPA_MEMBER (spa_memory_ensure_ptr (mem), mc->offset, SpaBuffer);
+    cmd->buffers[i] = mem ? SPA_MEMBER (spa_memory_ensure_ptr (mem), mc->offset, SpaBuffer) : NULL;
   }
 }
 

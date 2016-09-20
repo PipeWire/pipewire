@@ -34,6 +34,8 @@
 #define PINOS_LINK_GET_PRIVATE(obj)  \
    (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_LINK, PinosLinkPrivate))
 
+#define MAX_BUFFERS     64
+
 struct _PinosLinkPrivate
 {
   PinosDaemon *daemon;
@@ -46,9 +48,9 @@ struct _PinosLinkPrivate
   PinosLinkState state;
   GError *error;
 
-  SpaBuffer *in_buffers[16];
+  SpaBuffer *in_buffers[MAX_BUFFERS];
   unsigned int n_in_buffers;
-  SpaBuffer *out_buffers[16];
+  SpaBuffer *out_buffers[MAX_BUFFERS];
   unsigned int n_out_buffers;
 };
 
@@ -359,6 +361,18 @@ error:
   }
 }
 
+static void *
+find_param (const SpaPortInfo *info, SpaAllocParamType type)
+{
+  unsigned int i;
+
+  for (i = 0; i < info->n_params; i++) {
+    if (info->params[i]->type == type)
+      return info->params[i];
+  }
+  return NULL;
+}
+
 static SpaResult
 do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
 {
@@ -367,6 +381,8 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
   const SpaPortInfo *iinfo, *oinfo;
   SpaPortInfoFlags in_flags, out_flags;
   GError *error = NULL;
+  unsigned int max_buffers = MAX_BUFFERS;
+  SpaAllocParamBuffers *in_alloc, *out_alloc;
 
   if (in_state != SPA_NODE_STATE_READY && out_state != SPA_NODE_STATE_READY)
     return SPA_RESULT_OK;
@@ -392,6 +408,14 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
   in_flags = iinfo->flags;
   out_flags = oinfo->flags;
 
+  max_buffers = MAX_BUFFERS;
+  in_alloc = find_param (iinfo, SPA_ALLOC_PARAM_TYPE_BUFFERS);
+  if (in_alloc)
+    max_buffers = in_alloc->max_buffers == 0 ? max_buffers : SPA_MIN (in_alloc->max_buffers, max_buffers);
+  out_alloc = find_param (oinfo, SPA_ALLOC_PARAM_TYPE_BUFFERS);
+  if (out_alloc)
+    max_buffers = out_alloc->max_buffers == 0 ? max_buffers : SPA_MIN (out_alloc->max_buffers, max_buffers);
+
   if (out_flags & SPA_PORT_INFO_FLAG_LIVE) {
     this->output_node->live = true;
     this->input_node->live = true;
@@ -408,7 +432,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       in_flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
     } else if ((out_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS) &&
         (in_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS)) {
-      priv->n_in_buffers = 16;
+      priv->n_in_buffers = max_buffers;
       out_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
       in_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
 
@@ -448,8 +472,8 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
   spa_debug_port_info (oinfo);
   spa_debug_port_info (iinfo);
 
-  if (in_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
-    priv->n_in_buffers = 16;
+  if (in_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS && priv->n_in_buffers == 0) {
+    priv->n_in_buffers = max_buffers;
     if ((res = spa_node_port_alloc_buffers (this->input_node->node, this->input_port,
                                             oinfo->params, oinfo->n_params,
                                             priv->in_buffers, &priv->n_in_buffers)) < 0) {
@@ -459,10 +483,10 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
                    "error alloc input buffers: %d", res);
       goto error;
     }
-    g_debug ("allocated in_buffers %p", priv->in_buffers);
+    g_debug ("allocated in_buffers %p from input port", priv->in_buffers);
   }
-  else if (out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
-    priv->n_out_buffers = 16;
+  else if (out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS && priv->n_out_buffers == 0) {
+    priv->n_out_buffers = max_buffers;
     if ((res = spa_node_port_alloc_buffers (this->output_node->node, this->output_port,
                                             iinfo->params, iinfo->n_params,
                                             priv->out_buffers, &priv->n_out_buffers)) < 0) {
@@ -472,10 +496,10 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
                    "error alloc output buffers: %d", res);
       goto error;
     }
-    g_debug ("allocated out_buffers %p", priv->out_buffers);
+    g_debug ("allocated out_buffers %p from output port", priv->out_buffers);
   }
-  if (in_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS) {
-    g_debug ("using out_buffers %p", priv->out_buffers);
+  else if (in_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS) {
+    g_debug ("using out_buffers %p on input port", priv->out_buffers);
     if ((res = spa_node_port_use_buffers (this->input_node->node, this->input_port,
                                           priv->out_buffers, priv->n_out_buffers)) < 0) {
       g_set_error (&error,
@@ -486,7 +510,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
     }
   }
   else if (out_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS) {
-    g_debug ("using in_buffers %p", priv->out_buffers);
+    g_debug ("using in_buffers %p on output port", priv->in_buffers);
     if ((res = spa_node_port_use_buffers (this->output_node->node, this->output_port,
                                           priv->in_buffers, priv->n_in_buffers)) < 0) {
       g_set_error (&error,

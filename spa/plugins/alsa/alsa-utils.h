@@ -52,6 +52,7 @@ struct _SpaALSABuffer {
   SpaMetaRingbuffer ringbuffer;
   SpaData datas[1];
   SpaBuffer *outbuf;
+  SpaMetaHeader *h;
   void *ptr;
   bool outstanding;
   SpaALSABuffer *next;
@@ -89,7 +90,6 @@ struct _SpaALSAState {
   SpaPortStatus status;
 
   bool have_buffers;
-
   SpaMemory *alloc_bufmem;
   SpaMemory *alloc_mem;
   SpaALSABuffer *alloc_buffers;
@@ -102,6 +102,7 @@ struct _SpaALSAState {
   SpaPollFd fds[16];
   SpaPollItem poll;
 
+  int64_t sample_count;
   int64_t last_ticks;
   int64_t last_monotonic;
 };

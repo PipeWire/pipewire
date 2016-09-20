@@ -403,6 +403,10 @@ on_add_buffer (GObject    *gobject,
     GstMemory *gmem;
 
     mem = spa_memory_find (&d->mem.mem);
+    if (mem == NULL) {
+      g_warning ("failed to get buffer memory");
+      continue;
+    }
 
     if (mem->fd) {
       gmem = gst_fd_allocator_alloc (pinossrc->fd_allocator, dup (mem->fd),

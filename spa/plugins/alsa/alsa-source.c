@@ -48,8 +48,8 @@ update_state (SpaALSASource *this, SpaNodeState state)
 }
 
 static const char default_device[] = "hw:0";
-static const uint32_t default_buffer_time = 1000;
-static const uint32_t default_period_time = 100;
+static const uint32_t default_buffer_time = 100000;
+static const uint32_t default_period_time = 10000;
 static const bool default_period_event = 0;
 
 static void
@@ -310,6 +310,49 @@ spa_alsa_source_node_port_enum_formats (SpaNode         *node,
   return SPA_RESULT_OK;
 }
 
+static void
+recycle_buffer (SpaALSASource *this, uint32_t buffer_id)
+{
+  SpaALSABuffer *b;
+
+  b = &this->alloc_buffers[buffer_id];
+  if (!b->outstanding)
+    return;
+
+  b->outstanding = false;
+  SPA_QUEUE_PUSH_TAIL (&this->free, SpaALSABuffer, next, b);
+}
+
+static SpaResult
+spa_alsa_clear_buffers (SpaALSASource *this)
+{
+  int i;
+
+  if (!this->have_buffers)
+    return SPA_RESULT_OK;
+
+  for (i = 0; i < this->n_buffers; i++) {
+    SpaALSABuffer *b;
+
+    b = &this->alloc_buffers[i];
+    if (b->outstanding) {
+      fprintf (stderr, "queueing outstanding buffer %p\n", b);
+      recycle_buffer (this, i);
+    }
+  }
+  if (this->alloc_bufmem)
+    spa_memory_unref (&this->alloc_bufmem->mem);
+  if (this->alloc_mem)
+    spa_memory_unref (&this->alloc_mem->mem);
+
+  this->alloc_mem = NULL;
+  this->alloc_bufmem = NULL;
+  this->n_buffers = 0;
+  this->have_buffers = false;
+
+  return SPA_RESULT_OK;
+}
+
 static SpaResult
 spa_alsa_source_node_port_set_format (SpaNode            *node,
                                       uint32_t            port_id,
@@ -329,6 +372,7 @@ spa_alsa_source_node_port_set_format (SpaNode            *node,
 
   if (format == NULL) {
     this->have_format = false;
+    spa_alsa_clear_buffers (this);
     update_state (this, SPA_NODE_STATE_CONFIGURE);
     return SPA_RESULT_OK;
   }
@@ -351,7 +395,7 @@ spa_alsa_source_node_port_set_format (SpaNode            *node,
   this->param_buffers.minsize = this->period_frames * this->frame_size;
   this->param_buffers.stride = 0;
   this->param_buffers.min_buffers = 1;
-  this->param_buffers.max_buffers = 16;
+  this->param_buffers.max_buffers = 32;
   this->param_buffers.align = 16;
   this->info.features = NULL;
 
@@ -423,25 +467,39 @@ spa_alsa_source_node_port_set_props (SpaNode         *node,
 
 static SpaResult
 spa_alsa_source_node_port_use_buffers (SpaNode         *node,
-                                     uint32_t         port_id,
-                                     SpaBuffer      **buffers,
-                                     uint32_t         n_buffers)
+                                       uint32_t         port_id,
+                                       SpaBuffer      **buffers,
+                                       uint32_t         n_buffers)
 {
-  return SPA_RESULT_NOT_IMPLEMENTED;
+  SpaALSASource *this;
+  SpaResult res;
+
+  if (node == NULL || node->handle == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  if (port_id != 0)
+    return SPA_RESULT_INVALID_PORT;
+
+  this = (SpaALSASource *) node->handle;
+
+  if (!this->have_format)
+    return SPA_RESULT_NO_FORMAT;
+
+  if (this->have_buffers) {
+    if ((res = spa_alsa_clear_buffers (this)) < 0)
+      return res;
+  }
+  if (buffers != NULL)
+    return SPA_RESULT_NOT_IMPLEMENTED;
+
+  if (this->have_buffers)
+    update_state (this, SPA_NODE_STATE_PAUSED);
+  else
+    update_state (this, SPA_NODE_STATE_READY);
+
+  return SPA_RESULT_OK;
 }
 
-static void
-recycle_buffer (SpaALSASource *this, uint32_t buffer_id)
-{
-  SpaALSABuffer *b;
-
-  b = &this->alloc_buffers[buffer_id];
-  if (!b->outstanding)
-    return;
-
-  b->outstanding = false;
-  SPA_QUEUE_PUSH_TAIL (&this->free, SpaALSABuffer, next, b);
-}
 
 static SpaResult
 spa_alsa_source_node_port_alloc_buffers (SpaNode         *node,
@@ -521,6 +579,7 @@ spa_alsa_source_node_port_alloc_buffers (SpaNode         *node,
     b->datas[0].mem.size = buffer_size;
     b->datas[0].stride = 0;
     b->ptr = bufmem + buffer_size * i;
+    b->h = &b->header;
 
     buffers[i] = b->outbuf = &b->buffer;
 

@@ -33,7 +33,7 @@
 
 #undef USE_MEMFD
 
-#if 0
+#if 1
 #define SPA_DEBUG_MEMORY(format,args...) fprintf(stderr,format,##args)
 #else
 #define SPA_DEBUG_MEMORY(format,args...)
@@ -60,7 +60,7 @@ spa_memory_pool_init (SpaMemoryPool *pool, uint32_t id)
   memset (pool, 0, sizeof (SpaMemoryPool));
   for (i = 0; i < MAX_MEMORIES; i++)
     pool->free_mem[i] = MAX_MEMORIES - 1 - i;
-  pool->n_free = MAX_MEMORIES;
+  pool->n_free = MAX_MEMORIES - 1;
   pool->id = id;
   pool->valid = true;
 }
@@ -129,7 +129,7 @@ spa_memory_alloc (uint32_t pool_id)
   mem->mem.pool_id = pool_id;
   mem->mem.id = id;
 
-  SPA_DEBUG_MEMORY ("mem %p: alloc\n", mem);
+  SPA_DEBUG_MEMORY ("mem %p: alloc %u:%u\n", mem, pool_id, id);
 
   return mem;
 }
@@ -254,7 +254,8 @@ spa_memory_ref (SpaMemoryRef *ref)
   if (!(mem = spa_memory_find (ref)))
     return SPA_RESULT_ERROR;
 
-  mem->refcount++;
+  if (mem->mem.id > 0)
+    mem->refcount++;
 
   return SPA_RESULT_OK;
 }
@@ -264,7 +265,7 @@ spa_memory_free (SpaMemory *mem)
 {
   SpaMemoryPool *pool;
 
-  SPA_DEBUG_MEMORY ("mem %p: free\n", mem);
+  SPA_DEBUG_MEMORY ("mem %p: free %u:%u\n", mem, mem->mem.pool_id, mem->mem.id);
 
   if (mem->fd != -1) {
     if (mem->ptr)
@@ -287,7 +288,7 @@ spa_memory_unref (SpaMemoryRef *ref)
   if (!(mem = spa_memory_find (ref)))
     return SPA_RESULT_ERROR;
 
-  if (--mem->refcount == 0) {
+  if (mem->mem.id > 0 && --mem->refcount == 0) {
     if (mem->notify)
       mem->notify (mem);
 
@@ -303,13 +304,14 @@ spa_memory_find (SpaMemoryRef *ref)
 {
   SpaMemoryPool *pool;
 
-  if (ref == NULL || ref->pool_id >= MAX_POOLS || !pools[ref->pool_id].valid)
+  if (ref == NULL || ref->pool_id >= MAX_POOLS || !pools[ref->pool_id].valid || ref->id <= 0)
     return NULL;
 
   pool = &pools[ref->pool_id];
 
-  if (ref->id >= MAX_MEMORIES || pool->memories[ref->id].refcount <= 0)
-    return NULL;
+  if (ref->id >= MAX_MEMORIES || pool->memories[ref->id].refcount <= 0) {
+    SPA_DEBUG_MEMORY ("can't find mem %u:%u\n", ref->pool_id, ref->id);
+  }
 
   return &pool->memories[ref->id];
 }

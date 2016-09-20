@@ -28,8 +28,7 @@
 #include <spa/queue.h>
 #include <spa/audio/format.h>
 
-#define TIMESPEC_TO_TIME(ts)      ((ts)->tv_sec * 1000000000ll + (ts)->tv_nsec)
-#define SAMPLES_TO_TIME(this,s)   ((s) * 1000000000ll / (this)->current_format.info.raw.rate)
+#define SAMPLES_TO_TIME(this,s)   ((s) * SPA_NSEC_PER_SEC / (this)->current_format.info.raw.rate)
 #define BYTES_TO_SAMPLES(this,b)  ((b)/(this)->bpf)
 #define BYTES_TO_TIME(this,b)     SAMPLES_TO_TIME(this, BYTES_TO_SAMPLES (this, b))
 
@@ -100,7 +99,7 @@ struct _SpaAudioTestSrc {
 #define DEFAULT_WAVE 0
 #define DEFAULT_VOLUME 1.0
 #define DEFAULT_FREQ 440.0
-#define DEFAULT_LIVE true
+#define DEFAULT_LIVE false
 
 static const double min_volume = 0.0;
 static const double max_volume = 10.0;
@@ -282,8 +281,8 @@ audiotestsrc_on_output (SpaPollNotifyData *data)
       perror ("read timerfd");
 
     next_time = this->start_time + this->elapsed_time;
-    this->timerspec.it_value.tv_sec = next_time / 1000000000;
-    this->timerspec.it_value.tv_nsec = next_time % 1000000000;
+    this->timerspec.it_value.tv_sec = next_time / SPA_NSEC_PER_SEC;
+    this->timerspec.it_value.tv_nsec = next_time % SPA_NSEC_PER_SEC;
     timerfd_settime (this->fds[0].fd, TFD_TIMER_ABSTIME, &this->timerspec, NULL);
   }
 
@@ -325,8 +324,8 @@ update_poll_enabled (SpaAudioTestSrc *this, bool enabled)
     if (this->props[1].live) {
       if (enabled) {
         uint64_t next_time = this->start_time + this->elapsed_time;
-        this->timerspec.it_value.tv_sec = next_time / 1000000000;
-        this->timerspec.it_value.tv_nsec = next_time % 1000000000;
+        this->timerspec.it_value.tv_sec = next_time / SPA_NSEC_PER_SEC;
+        this->timerspec.it_value.tv_nsec = next_time % SPA_NSEC_PER_SEC;
       }
       else {
         this->timerspec.it_value.tv_sec = 0;
@@ -379,7 +378,10 @@ spa_audiotestsrc_node_send_command (SpaNode        *node,
         return SPA_RESULT_OK;
 
       clock_gettime (CLOCK_MONOTONIC, &now);
-      this->start_time = TIMESPEC_TO_TIME (&now);
+      if (this->props[1].live)
+        this->start_time = SPA_TIMESPEC_TO_TIME (&now);
+      else
+        this->start_time = 0;
       this->sample_count = 0;
       this->elapsed_time = 0;
 
@@ -945,10 +947,10 @@ spa_audiotestsrc_clock_get_time (SpaClock         *clock,
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   if (rate)
-    *rate = 1000000000;
+    *rate = SPA_NSEC_PER_SEC;
 
   clock_gettime (CLOCK_MONOTONIC, &now);
-  tnow = TIMESPEC_TO_TIME (&now);
+  tnow = SPA_TIMESPEC_TO_TIME (&now);
 
   if (ticks)
     *ticks = tnow;

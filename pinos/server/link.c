@@ -327,7 +327,10 @@ again:
 
   if (out_state == SPA_NODE_STATE_CONFIGURE) {
     g_debug ("link %p: doing set format on output", this);
-    if ((res = spa_node_port_set_format (this->output_node->node, this->output_port, 0, format)) < 0) {
+    if ((res = spa_node_port_set_format (this->output_node->node,
+                                         this->output_port,
+                                         SPA_PORT_FORMAT_FLAG_NEAREST,
+                                         format)) < 0) {
       g_set_error (&error,
                    PINOS_ERROR,
                    PINOS_ERROR_FORMAT_NEGOTIATION,
@@ -336,7 +339,10 @@ again:
     }
   } else if (in_state == SPA_NODE_STATE_CONFIGURE) {
     g_debug ("link %p: doing set format on input", this);
-    if ((res = spa_node_port_set_format (this->input_node->node, this->input_port, 0, format)) < 0) {
+    if ((res = spa_node_port_set_format (this->input_node->node,
+                                         this->input_port,
+                                         SPA_PORT_FORMAT_FLAG_NEAREST,
+                                         format)) < 0) {
       g_set_error (&error,
                    PINOS_ERROR,
                    PINOS_ERROR_FORMAT_NEGOTIATION,

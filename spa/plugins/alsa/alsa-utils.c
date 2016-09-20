@@ -106,9 +106,9 @@ spa_alsa_format_to_alsa (SpaAudioFormat format)
 }
 
 int
-spa_alsa_set_format (SpaALSAState *state, SpaFormatAudio *fmt, bool try_only)
+spa_alsa_set_format (SpaALSAState *state, SpaFormatAudio *fmt, SpaPortFormatFlags flags)
 {
-  unsigned int rrate;
+  unsigned int rrate, rchannels;
   snd_pcm_uframes_t size;
   int err, dir;
   snd_pcm_hw_params_t *params;
@@ -136,16 +136,32 @@ spa_alsa_set_format (SpaALSAState *state, SpaFormatAudio *fmt, bool try_only)
   format = spa_alsa_format_to_alsa (info->format);
   printf ("Stream parameters are %iHz, %s, %i channels\n", info->rate, snd_pcm_format_name(format), info->channels);
   CHECK (snd_pcm_hw_params_set_format (hndl, params, format), "set_format");
+
   /* set the count of channels */
-  CHECK (snd_pcm_hw_params_set_channels (hndl, params, info->channels), "set_channels");
+  rchannels = info->channels;
+  CHECK (snd_pcm_hw_params_set_channels_near (hndl, params, &rchannels), "set_channels");
+  if (rchannels != info->channels) {
+    fprintf (stderr, "Channels doesn't match (requested %u, get %u\n", info->channels, rchannels);
+    if (flags & SPA_PORT_FORMAT_FLAG_NEAREST)
+      info->channels = rchannels;
+    else
+      return -EINVAL;
+  }
+
   /* set the stream rate */
   rrate = info->rate;
   CHECK (snd_pcm_hw_params_set_rate_near (hndl, params, &rrate, 0), "set_rate_near");
   if (rrate != info->rate) {
-    printf("Rate doesn't match (requested %iHz, get %iHz)\n", info->rate, rrate);
-    return -EINVAL;
+    fprintf (stderr, "Rate doesn't match (requested %iHz, get %iHz)\n", info->rate, rrate);
+    if (flags & SPA_PORT_FORMAT_FLAG_NEAREST)
+      info->rate = rrate;
+    else
+      return -EINVAL;
   }
 
+  state->format = format;
+  state->channels = info->channels;
+  state->rate = info->rate;
   state->frame_size = info->channels * 2;
 
   /* set the buffer time */
@@ -178,6 +194,9 @@ set_swparams (SpaALSAState *state)
 
   /* get the current params */
   CHECK (snd_pcm_sw_params_current (hndl, params), "sw_params_current");
+
+  CHECK (snd_pcm_sw_params_set_tstamp_mode (hndl, params, SND_PCM_TSTAMP_ENABLE), "sw_params_set_tstamp_mode");
+
   /* start the transfer when the buffer is almost full: */
   /* (buffer_frames / avail_min) * avail_min */
   CHECK (snd_pcm_sw_params_set_start_threshold (hndl, params,
@@ -305,7 +324,6 @@ mmap_read (SpaALSAState *state)
   if (b == NULL) {
     fprintf (stderr, "no more buffers\n");
   } else {
-    b->next = NULL;
     dest = b->ptr;
   }
 
@@ -326,6 +344,8 @@ mmap_read (SpaALSAState *state)
               (uint8_t *)my_areas[0].addr + (offset * state->frame_size),
               n_bytes);
       dest += n_bytes;
+    } else {
+      snd_pcm_areas_silence (my_areas, offset, state->channels, frames, state->format);
     }
 
     commitres = snd_pcm_mmap_commit (hndl, offset, frames);
@@ -346,6 +366,7 @@ mmap_read (SpaALSAState *state)
     d = SPA_BUFFER_DATAS (b->outbuf);
     d[0].mem.size = avail * state->frame_size;
 
+    b->next = NULL;
     SPA_QUEUE_PUSH_TAIL (&state->ready, SpaALSABuffer, next, b);
 
     event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
@@ -450,12 +471,12 @@ spa_alsa_stop (SpaALSAState *state)
   if (!state->opened)
     return 0;
 
-  snd_pcm_drop (state->hndl);
-
   event.type = SPA_NODE_EVENT_TYPE_REMOVE_POLL;
   event.data = &state->poll;
   event.size = sizeof (state->poll);
   state->event_cb (&state->node, &event, state->user_data);
+
+  snd_pcm_drop (state->hndl);
 
   spa_alsa_close (state);
 

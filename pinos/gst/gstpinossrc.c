@@ -854,7 +854,11 @@ gst_pinos_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
   }
   pinos_main_loop_unlock (pinossrc->loop);
 
-  base_time = GST_ELEMENT_CAST (psrc)->base_time;
+  if (pinossrc->is_live)
+    base_time = GST_ELEMENT_CAST (psrc)->base_time;
+  else
+    base_time = 0;
+
   pts = GST_BUFFER_PTS (*buffer);
   dts = GST_BUFFER_DTS (*buffer);
 

@@ -29,8 +29,7 @@
 #include <spa/queue.h>
 #include <spa/video/format.h>
 
-#define TIMESPEC_TO_TIME(ts)      ((ts)->tv_sec * 1000000000ll + (ts)->tv_nsec)
-#define FRAMES_TO_TIME(this,f)    ((this->current_format.info.raw.framerate.num * (f) * 1000000000ll) / \
+#define FRAMES_TO_TIME(this,f)    ((this->current_format.info.raw.framerate.num * (f) * SPA_NSEC_PER_SEC) / \
                                    (this->current_format.info.raw.framerate.denom))
 
 #define STATE_GET_IMAGE_WIDTH(this)   this->current_format.info.raw.size.width
@@ -100,7 +99,7 @@ struct _SpaVideoTestSrc {
   SpaQueue ready;
 };
 
-#define DEFAULT_LIVE true
+#define DEFAULT_LIVE false
 
 enum {
   PROP_ID_LIVE,
@@ -230,8 +229,8 @@ videotestsrc_on_output (SpaPollNotifyData *data)
       perror ("read timerfd");
 
     next_time = this->start_time + this->elapsed_time;
-    this->timerspec.it_value.tv_sec = next_time / 1000000000;
-    this->timerspec.it_value.tv_nsec = next_time % 1000000000;
+    this->timerspec.it_value.tv_sec = next_time / SPA_NSEC_PER_SEC;
+    this->timerspec.it_value.tv_nsec = next_time % SPA_NSEC_PER_SEC;
     timerfd_settime (this->fds[0].fd, TFD_TIMER_ABSTIME, &this->timerspec, NULL);
   }
 
@@ -273,8 +272,8 @@ update_poll_enabled (SpaVideoTestSrc *this, bool enabled)
     if (this->props[1].live) {
       if (enabled) {
         uint64_t next_time = this->start_time + this->elapsed_time;
-        this->timerspec.it_value.tv_sec = next_time / 1000000000;
-        this->timerspec.it_value.tv_nsec = next_time % 1000000000;
+        this->timerspec.it_value.tv_sec = next_time / SPA_NSEC_PER_SEC;
+        this->timerspec.it_value.tv_nsec = next_time % SPA_NSEC_PER_SEC;
       }
       else {
         this->timerspec.it_value.tv_sec = 0;
@@ -327,7 +326,10 @@ spa_videotestsrc_node_send_command (SpaNode        *node,
         return SPA_RESULT_OK;
 
       clock_gettime (CLOCK_MONOTONIC, &now);
-      this->start_time = TIMESPEC_TO_TIME (&now);
+      if (this->props[1].live)
+        this->start_time = SPA_TIMESPEC_TO_TIME (&now);
+      else
+        this->start_time = 0;
       this->frame_count = 0;
       this->elapsed_time = 0;
 
@@ -894,10 +896,10 @@ spa_videotestsrc_clock_get_time (SpaClock         *clock,
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   if (rate)
-    *rate = 1000000000;
+    *rate = SPA_NSEC_PER_SEC;
 
   clock_gettime (CLOCK_MONOTONIC, &now);
-  tnow = TIMESPEC_TO_TIME (&now);
+  tnow = SPA_TIMESPEC_TO_TIME (&now);
 
   if (ticks)
     *ticks = tnow;

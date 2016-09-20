@@ -223,7 +223,7 @@ spa_format_audio_init (SpaMediaType     type,
         SPA_AUDIO_FORMAT_S16,
         SPA_AUDIO_FLAG_NONE,
         SPA_AUDIO_LAYOUT_INTERLEAVED,
-        32000,
+        44100,
         2,
         0
       };

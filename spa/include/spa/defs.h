@@ -76,9 +76,16 @@ typedef void (*SpaNotify) (void *data);
 #define SPA_PTR_TO_UINT32(p) ((uint32_t) ((uintptr_t) (p)))
 #define SPA_UINT32_TO_PTR(u) ((void*) ((uintptr_t) (u)))
 
-#define SPA_TIME_INVALID  ((uint64_t)-1)
+#define SPA_TIME_INVALID  ((int64_t)INT64_MIN)
 #define SPA_IDX_INVALID  ((unsigned int)-1)
 #define SPA_ID_INVALID  ((uint32_t)0xffffffff)
+
+#define SPA_NSEC_PER_SEC (1000000000ll)
+#define SPA_USEC_PER_SEC (1000000ll)
+#define SPA_MSEC_PER_SEC (1000ll)
+
+#define SPA_TIMESPEC_TO_TIME(ts) ((ts)->tv_sec * SPA_NSEC_PER_SEC + (ts)->tv_nsec)
+#define SPA_TIMEVAL_TO_TIME(tv)  ((tv)->tv_sec * SPA_NSEC_PER_SEC + (tv)->tv_usec * 1000ll)
 
 
 #ifdef __cplusplus

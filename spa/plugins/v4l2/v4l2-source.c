@@ -783,7 +783,7 @@ spa_v4l2_source_clock_get_time (SpaClock         *clock,
   state = &this->state[0];
 
   if (rate)
-    *rate = 1000000;
+    *rate = SPA_USEC_PER_SEC;
   if (ticks)
     *ticks = state->last_ticks;
   if (monotonic_time)
@@ -856,12 +856,12 @@ v4l2_source_init (const SpaHandleFactory  *factory,
   this->props[1].props.prop_info = prop_info;
   reset_v4l2_source_props (&this->props[1]);
 
-  this->state[0].info.flags = SPA_PORT_INFO_FLAG_NONE;
+  this->state[0].info.flags = SPA_PORT_INFO_FLAG_LIVE;
   this->state[0].status.flags = SPA_PORT_STATUS_FLAG_NONE;
 
   this->state[0].export_buf = true;
 
-  for (i = 0; info && i < info->n_items; i ++) {
+  for (i = 0; info && i < info->n_items; i++) {
     if (!strcmp (info->items[i].key, "device.path")) {
       strncpy (this->props[1].device, info->items[i].value, 63);
       this->props[1].props.unset_mask &= ~1;

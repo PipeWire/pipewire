@@ -418,6 +418,8 @@ iter_parse_port_update (struct stack_iter *si, SpaControlCmdPortUpdate *pu)
     pu->possible_formats[i] = parse_format (p, si->size,
                         SPA_PTR_TO_INT (pu->possible_formats[i]));
   }
+  if (pu->format)
+    pu->format = parse_format (p, si->size, SPA_PTR_TO_INT (pu->format));
 
   if (pu->props)
     pu->props = parse_props (p, SPA_PTR_TO_INT (pu->props));
@@ -485,6 +487,26 @@ iter_parse_node_command (struct stack_iter *si, SpaControlCmdNodeCommand *cmd)
 }
 
 SpaResult
+spa_control_iter_set_data (SpaControlIter *iter,
+                           void           *data,
+                           size_t          size)
+{
+  struct stack_iter *si = SCSI (iter);
+  SpaResult res = SPA_RESULT_OK;
+
+  if (!is_valid_iter (iter))
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  if (si->size > size)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  si->size = size;
+  si->data = data;
+
+  return SPA_RESULT_OK;
+}
+
+SpaResult
 spa_control_iter_parse_cmd (SpaControlIter *iter,
                             void           *command)
 {
@@ -512,6 +534,12 @@ spa_control_iter_parse_cmd (SpaControlIter *iter,
 
     case SPA_CONTROL_CMD_PORT_STATUS_CHANGE:
       fprintf (stderr, "implement iter of %d\n", si->cmd);
+      break;
+
+    case SPA_CONTROL_CMD_NODE_STATE_CHANGE:
+      if (si->size < sizeof (SpaControlCmdNodeStateChange))
+        return SPA_RESULT_ERROR;
+      memcpy (command, si->data, sizeof (SpaControlCmdNodeStateChange));
       break;
 
     /* S -> C */
@@ -571,7 +599,6 @@ spa_control_iter_parse_cmd (SpaControlIter *iter,
   }
   return res;
 }
-
 
 struct stack_builder {
   size_t          magic;
@@ -945,8 +972,8 @@ write_format (void *p, const SpaFormat *format)
   tf = p;
   tf->media_type = format->media_type;
   tf->media_subtype = format->media_subtype;
-  tf->mem.mem.pool_id = SPA_ID_INVALID;
-  tf->mem.mem.id = SPA_ID_INVALID;
+  tf->mem.mem.pool_id = 0;
+  tf->mem.mem.id = 0;
   tf->mem.offset = 0;
   tf->mem.size = 0;
 
@@ -1025,6 +1052,7 @@ builder_add_port_update (struct stack_builder *sb, SpaControlCmdPortUpdate *pu)
   len += pu->n_possible_formats * sizeof (SpaFormat *);
   for (i = 0; i < pu->n_possible_formats; i++)
     len += calc_format_len (pu->possible_formats[i]);
+  len += calc_format_len (pu->format);
   len += calc_props_len (pu->props);
   if (pu->info) {
     len += sizeof (SpaPortInfo);
@@ -1051,6 +1079,13 @@ builder_add_port_update (struct stack_builder *sb, SpaControlCmdPortUpdate *pu)
     bfa[i] = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
     p = SPA_MEMBER (p, len, void);
   }
+  if (pu->format) {
+    len = write_format (p, pu->format);
+    d->format = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
+    p = SPA_MEMBER (p, len, void);
+  } else {
+    d->format = 0;
+  }
   if (pu->props) {
     len = write_props (p, pu->props, sizeof (SpaProps));
     d->props = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
@@ -1066,6 +1101,7 @@ builder_add_port_update (struct stack_builder *sb, SpaControlCmdPortUpdate *pu)
     d->info = 0;
   }
 }
+
 static void
 builder_add_set_format (struct stack_builder *sb, SpaControlCmdSetFormat *sf)
 {
@@ -1218,6 +1254,11 @@ spa_control_builder_add_cmd (SpaControlBuilder *builder,
       p = builder_add_cmd (sb, cmd, 0);
       break;
 
+    case SPA_CONTROL_CMD_NODE_STATE_CHANGE:
+      p = builder_add_cmd (sb, cmd, sizeof (SpaControlCmdNodeStateChange));
+      memcpy (p, command, sizeof (SpaControlCmdNodeStateChange));
+      break;
+
     /* S -> C */
     case SPA_CONTROL_CMD_ADD_PORT:
       p = builder_add_cmd (sb, cmd, sizeof (SpaControlCmdAddPort));
@@ -1265,7 +1306,6 @@ spa_control_builder_add_cmd (SpaControlBuilder *builder,
       builder_add_node_command (sb, command);
       break;
 
-    default:
     case SPA_CONTROL_CMD_INVALID:
       return SPA_RESULT_INVALID_ARGUMENTS;
   }

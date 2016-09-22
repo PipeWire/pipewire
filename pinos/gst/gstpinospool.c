@@ -124,7 +124,7 @@ do_start (GstBufferPool * pool)
   param_meta_enable.param.size = sizeof (SpaAllocParamMetaEnable);
   param_meta_enable.type = SPA_META_TYPE_HEADER;
 
-  pinos_stream_start_allocation (p->stream, port_params, 2);
+  pinos_stream_finish_format (p->stream, SPA_RESULT_OK, port_params, 2);
 
   return TRUE;
 }

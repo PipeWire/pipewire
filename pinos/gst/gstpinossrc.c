@@ -718,14 +718,19 @@ on_format_notify (GObject    *gobject,
   GstPinosSrc *pinossrc = user_data;
   SpaFormat *format;
   GstCaps *caps;
+  gboolean res;
 
   g_object_get (gobject, "format", &format, NULL);
 
   caps = gst_caps_from_format (format);
-  gst_base_src_set_caps (GST_BASE_SRC (pinossrc), caps);
+  res = gst_base_src_set_caps (GST_BASE_SRC (pinossrc), caps);
   gst_caps_unref (caps);
 
-  pinos_stream_start_allocation (pinossrc->stream, NULL, 0);
+  if (res) {
+    pinos_stream_finish_format (pinossrc->stream, SPA_RESULT_OK, NULL, 0);
+  } else {
+    pinos_stream_finish_format (pinossrc->stream, SPA_RESULT_INVALID_MEDIA_TYPE, NULL, 0);
+  }
 }
 
 static gboolean

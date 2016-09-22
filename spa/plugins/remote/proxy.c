@@ -78,6 +78,8 @@ struct _SpaProxy {
   unsigned int max_outputs;
   unsigned int n_outputs;
   SpaProxyPort ports[MAX_PORTS];
+
+  uint32_t seq;
 };
 
 enum {
@@ -101,11 +103,12 @@ reset_proxy_props (SpaProxyProps *props)
   props->socketfd = -1;
 }
 
-static void
+static SpaResult
 update_poll (SpaProxy *this, int socketfd)
 {
   SpaNodeEvent event;
   SpaProxyProps *p;
+  SpaResult res = SPA_RESULT_OK;
 
   p = &this->props[1];
 
@@ -124,6 +127,21 @@ update_poll (SpaProxy *this, int socketfd)
     event.size = sizeof (this->poll);
     this->event_cb (&this->node, &event, this->user_data);
   }
+  return res;
+}
+
+static void
+send_async_complete (SpaProxy *this, uint32_t seq, SpaResult res)
+{
+  SpaNodeEvent event;
+  SpaNodeEventAsyncComplete ac;
+
+  event.type = SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE;
+  event.data = &ac;
+  event.size = sizeof (ac);
+  ac.seq = seq;
+  ac.res = res;
+  this->event_cb (&this->node, &event, this->user_data);
 }
 
 static SpaResult
@@ -169,7 +187,7 @@ spa_proxy_node_set_props (SpaNode         *node,
 
   /* compare changes */
   if (op->socketfd != np->socketfd)
-    update_poll (this, np->socketfd);
+    res = update_poll (this, np->socketfd);
 
   /* commit changes */
   memcpy (op, np, sizeof (*np));
@@ -182,7 +200,7 @@ spa_proxy_node_send_command (SpaNode        *node,
                              SpaNodeCommand *command)
 {
   SpaProxy *this;
-  SpaResult res;
+  SpaResult res = SPA_RESULT_OK;
 
   if (node == NULL || node->handle == NULL || command == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -194,49 +212,31 @@ spa_proxy_node_send_command (SpaNode        *node,
       return SPA_RESULT_INVALID_COMMAND;
 
     case SPA_NODE_COMMAND_START:
-    {
-      SpaControlBuilder builder;
-      SpaControl control;
-      uint8_t buf[128];
-      SpaControlCmdNodeCommand cnc;
-
-      /* send start */
-      spa_control_builder_init_into (&builder, buf, sizeof (buf), NULL, 0);
-      cnc.command = command;
-      spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_NODE_COMMAND, &cnc);
-      spa_control_builder_end (&builder, &control);
-
-      if ((res = spa_control_write (&control, this->fds[0].fd)) < 0)
-        fprintf (stderr, "proxy %p: error writing control %d\n", this, res);
-
-      spa_control_clear (&control);
-      break;
-    }
-
     case SPA_NODE_COMMAND_PAUSE:
-    {
-      SpaControlBuilder builder;
-      SpaControl control;
-      uint8_t buf[128];
-      SpaControlCmdNodeCommand cnc;
-
-      /* send start */
-      spa_control_builder_init_into (&builder, buf, sizeof (buf), NULL, 0);
-      cnc.command = command;
-      spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_NODE_COMMAND, &cnc);
-      spa_control_builder_end (&builder, &control);
-
-      if ((res = spa_control_write (&control, this->fds[0].fd)) < 0)
-        fprintf (stderr, "proxy %p: error writing control %d\n", this, res);
-
-      spa_control_clear (&control);
-      break;
-    }
-
     case SPA_NODE_COMMAND_FLUSH:
     case SPA_NODE_COMMAND_DRAIN:
     case SPA_NODE_COMMAND_MARKER:
-      return SPA_RESULT_NOT_IMPLEMENTED;
+    {
+      SpaControlBuilder builder;
+      SpaControl control;
+      uint8_t buf[128];
+      SpaControlCmdNodeCommand cnc;
+
+      /* send start */
+      spa_control_builder_init_into (&builder, buf, sizeof (buf), NULL, 0);
+      cnc.seq = this->seq++;
+      cnc.command = command;
+      spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_NODE_COMMAND, &cnc);
+      spa_control_builder_end (&builder, &control);
+
+      if ((res = spa_control_write (&control, this->fds[0].fd)) < 0)
+        fprintf (stderr, "proxy %p: error writing control %d\n", this, res);
+
+      spa_control_clear (&control);
+
+      res = SPA_RESULT_RETURN_ASYNC (cnc.seq);
+      break;
+    }
 
     case SPA_NODE_COMMAND_CLOCK_UPDATE:
     {
@@ -258,7 +258,7 @@ spa_proxy_node_send_command (SpaNode        *node,
       break;
     }
   }
-  return SPA_RESULT_OK;
+  return res;
 }
 
 static SpaResult
@@ -502,7 +502,7 @@ spa_proxy_node_port_set_format (SpaNode            *node,
   if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this  = (SpaProxy *) node->handle;
+  this = (SpaProxy *) node->handle;
 
   if (!CHECK_PORT_ID (this, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -510,6 +510,7 @@ spa_proxy_node_port_set_format (SpaNode            *node,
   port = &this->ports[port_id];
 
   spa_control_builder_init_into (&builder, buf, sizeof (buf), NULL, 0);
+  sf.seq = this->seq++;
   sf.port_id = port_id;
   sf.format = (SpaFormat *) format;
   spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_SET_FORMAT, &sf);
@@ -520,13 +521,9 @@ spa_proxy_node_port_set_format (SpaNode            *node,
 
   spa_control_clear (&control);
 
-  if (port->format)
-    spa_format_unref (port->format);
-  if (format)
-    spa_format_ref ((SpaFormat *) format);
-  port->format = (SpaFormat *)format;
+  port->format = format;
 
-  return SPA_RESULT_OK;
+  return SPA_RESULT_RETURN_ASYNC (sf.seq);
 }
 
 static SpaResult
@@ -705,7 +702,7 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
   if (port->n_buffers == n_buffers && port->buffers == buffers)
     return SPA_RESULT_OK;
 
-  spa_control_builder_init_into (&builder, buf, sizeof (buf), fds, sizeof (fds));
+  spa_control_builder_init_into (&builder, buf, sizeof (buf), fds, SPA_N_ELEMENTS (fds));
 
   if (buffers == NULL || n_buffers == 0) {
     port->buffers = NULL;
@@ -717,6 +714,7 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
   for (i = 0; i < port->n_buffers; i++)
     add_buffer_mem (this, &builder, port_id, port->buffers[i]);
 
+  ub.seq = this->seq++;
   ub.port_id = port_id;
   ub.n_buffers = port->n_buffers;
   ub.buffers = port->buffers;
@@ -729,7 +727,7 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
 
   spa_control_clear (&control);
 
-  return SPA_RESULT_OK;
+  return SPA_RESULT_RETURN_ASYNC (ub.seq);
 }
 
 static SpaResult
@@ -885,6 +883,7 @@ spa_proxy_node_port_pull_output (SpaNode           *node,
 
   for (i = 0; i < n_info; i++) {
     if (!CHECK_PORT_ID_OUT (this, info[i].port_id)) {
+      fprintf (stderr, "invalid port %u\n", info[i].port_id);
       info[i].status = SPA_RESULT_INVALID_PORT;
       have_error = true;
       continue;
@@ -933,23 +932,11 @@ handle_node_event (SpaProxy     *this,
 {
   switch (event->type) {
     case SPA_NODE_EVENT_TYPE_INVALID:
+      break;
+
     case SPA_NODE_EVENT_TYPE_PORT_ADDED:
     case SPA_NODE_EVENT_TYPE_PORT_REMOVED:
-      this->event_cb (&this->node, event, this->user_data);
-      break;
-
-    case SPA_NODE_EVENT_TYPE_STATE_CHANGE:
-    {
-      SpaNodeEventStateChange *sc = event->data;
-
-      fprintf (stderr, "proxy %p: got state-change to %d\n", this, sc->state);
-      if (this->node.state != sc->state) {
-        this->node.state = sc->state;
-        this->event_cb (&this->node, event, this->user_data);
-      }
-      break;
-    }
-
+    case SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE:
     case SPA_NODE_EVENT_TYPE_HAVE_OUTPUT:
     case SPA_NODE_EVENT_TYPE_NEED_INPUT:
     case SPA_NODE_EVENT_TYPE_REUSE_BUFFER:
@@ -980,6 +967,7 @@ parse_control (SpaProxy   *this,
     SpaControlCmd cmd = spa_control_iter_get_cmd (&it);
 
     switch (cmd) {
+      case SPA_CONTROL_CMD_INVALID:
       case SPA_CONTROL_CMD_ADD_PORT:
       case SPA_CONTROL_CMD_REMOVE_PORT:
       case SPA_CONTROL_CMD_SET_FORMAT:
@@ -999,10 +987,14 @@ parse_control (SpaProxy   *this,
         if (spa_control_iter_parse_cmd (&it, &nu) < 0)
           break;
 
-        this->max_inputs = nu.max_input_ports;
-        this->max_outputs = nu.max_output_ports;
-        fprintf (stderr, "proxy %p: got node update %d, %u, %u\n", this, cmd,
+        if (nu.change_mask & SPA_CONTROL_CMD_NODE_UPDATE_MAX_INPUTS)
+          this->max_inputs = nu.max_input_ports;
+        if (nu.change_mask & SPA_CONTROL_CMD_NODE_UPDATE_MAX_OUTPUTS)
+          this->max_outputs = nu.max_output_ports;
+
+        fprintf (stderr, "proxy %p: got node update %d, max_in %u, max_out %u\n", this, cmd,
             this->max_inputs, this->max_outputs);
+
         break;
       }
 
@@ -1010,13 +1002,24 @@ parse_control (SpaProxy   *this,
       {
         SpaControlCmdPortUpdate pu;
         bool remove;
+        SpaMemory *mem;
+        void *data;
+        size_t size;
+
+        data = spa_control_iter_get_data (&it, &size);
+        mem = spa_memory_alloc_size (SPA_MEMORY_POOL_LOCAL, data, size);
+        spa_control_iter_set_data (&it, spa_memory_ensure_ptr (mem), size);
 
         fprintf (stderr, "proxy %p: got port update %d\n", this, cmd);
-        if (spa_control_iter_parse_cmd (&it, &pu) < 0)
+        if (spa_control_iter_parse_cmd (&it, &pu) < 0) {
+          spa_memory_unref (&mem->mem);
           break;
+        }
 
-        if (pu.port_id >= MAX_PORTS)
+        if (pu.port_id >= MAX_PORTS) {
+          spa_memory_unref (&mem->mem);
           break;
+        }
 
         remove = (pu.change_mask == 0);
 
@@ -1033,6 +1036,24 @@ parse_control (SpaProxy   *this,
         fprintf (stderr, "proxy %p: command not implemented %d\n", this, cmd);
         break;
       }
+
+      case SPA_CONTROL_CMD_NODE_STATE_CHANGE:
+      {
+        SpaControlCmdNodeStateChange sc;
+        SpaNodeState old = this->node.state;
+
+        if (spa_control_iter_parse_cmd (&it, &sc) < 0)
+          break;
+
+        this->node.state = sc.state;
+        if (old == SPA_NODE_STATE_INIT)
+          send_async_complete (this, 0, SPA_RESULT_OK);
+
+        fprintf (stderr, "proxy %p: got node state change %d\n", this, this->node.state);
+
+        break;
+      }
+
       case SPA_CONTROL_CMD_ADD_MEM:
         break;
       case SPA_CONTROL_CMD_REMOVE_MEM:
@@ -1065,9 +1086,6 @@ parse_control (SpaProxy   *this,
         handle_node_event (this, cne.event);
         break;
       }
-      default:
-        fprintf (stderr, "proxy %p: command unhandled %d\n", this, cmd);
-        break;
     }
   }
   spa_control_iter_end (&it);
@@ -1184,7 +1202,7 @@ proxy_init (const SpaHandleFactory  *factory,
   this->poll.after_cb = proxy_on_fd_events;
   this->poll.user_data = this;
 
-  return SPA_RESULT_OK;
+  return SPA_RESULT_RETURN_ASYNC (this->seq++);
 }
 
 static const SpaInterfaceInfo proxy_interfaces[] =

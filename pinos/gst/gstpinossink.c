@@ -481,6 +481,33 @@ on_format_notify (GObject    *gobject,
                   GParamSpec *pspec,
                   gpointer    user_data)
 {
+  GstPinosSink *pinossink = user_data;
+  GstStructure *config;
+  GstCaps *caps;
+  guint size;
+  guint min_buffers;
+  guint max_buffers;
+  SpaAllocParam *port_params[2];
+  SpaAllocParamMetaEnable param_meta_enable;
+  SpaAllocParamBuffers param_buffers;
+
+  config = gst_buffer_pool_get_config (GST_BUFFER_POOL (pinossink->pool));
+  gst_buffer_pool_config_get_params (config, &caps, &size, &min_buffers, &max_buffers);
+
+  port_params[0] = &param_buffers.param;
+  param_buffers.param.type = SPA_ALLOC_PARAM_TYPE_BUFFERS;
+  param_buffers.param.size = sizeof (SpaAllocParamBuffers);
+  param_buffers.minsize = size;
+  param_buffers.stride = 0;
+  param_buffers.min_buffers = min_buffers;
+  param_buffers.max_buffers = max_buffers;
+  param_buffers.align = 16;
+  port_params[1] = &param_meta_enable.param;
+  param_meta_enable.param.type = SPA_ALLOC_PARAM_TYPE_META_ENABLE;
+  param_meta_enable.param.size = sizeof (SpaAllocParamMetaEnable);
+  param_meta_enable.type = SPA_META_TYPE_HEADER;
+
+  pinos_stream_finish_format (pinossink->stream, SPA_RESULT_OK, port_params, 2);
 }
 
 static gboolean

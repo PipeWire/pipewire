@@ -215,10 +215,13 @@ struct _SpaNode {
    *
    * Send a command to @node.
    *
+   * Upon completion, a command might change the state of a node.
+   *
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_INVALID_ARGUMENTS when node or command is %NULL
    *          #SPA_RESULT_NOT_IMPLEMENTED when this node can't process commands
    *          #SPA_RESULT_INVALID_COMMAND @command is an invalid command
+   *          #SPA_RESULT_ASYNC @command is executed asynchronously
    */
   SpaResult   (*send_command)         (SpaNode          *node,
                                        SpaNodeCommand   *command);
@@ -339,14 +342,20 @@ struct _SpaNode {
    *
    * This function takes a copy of the format.
    *
+   * Upon completion, this function might change the state of a node to
+   * the READY state or to CONFIGURE when @format is NULL.
+   *
    * Returns: #SPA_RESULT_OK on success
+   *          #SPA_RESULT_OK_RECHECK on success
    *          #SPA_RESULT_INVALID_ARGUMENTS when node is %NULL
    *          #SPA_RESULT_INVALID_PORT when port_id is not valid
    *          #SPA_RESULT_INVALID_MEDIA_TYPE when the media type is not valid
    *          #SPA_RESULT_INVALID_FORMAT_PROPERTIES when one of the mandatory format
-   *                 properties is not specified.
+   *                 properties is not specified and #SPA_PORT_FORMAT_FLAG_FIXATE was
+   *                 not set in @flags.
    *          #SPA_RESULT_WRONG_PROPERTY_TYPE when the type or size of a property
    *                 is not correct.
+   *          #SPA_RESULT_ASYNC the function is executed asynchronously
    */
   SpaResult   (*port_set_format)      (SpaNode           *node,
                                        uint32_t           port_id,
@@ -401,7 +410,12 @@ struct _SpaNode {
    * Passing %NULL as @buffers will remove the reference that the port has
    * on the buffers.
    *
+   * Upon completion, this function might change the state of the
+   * node to PAUSED, when the node has enough buffers, or READY when
+   * @buffers are %NULL.
+   *
    * Returns: #SPA_RESULT_OK on success
+   *          #SPA_RESULT_ASYNC the function is executed asynchronously
    */
   SpaResult   (*port_use_buffers)     (SpaNode              *node,
                                        uint32_t              port_id,

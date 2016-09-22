@@ -36,50 +36,10 @@ spa_format_to_string (const SpaFormat *format, char **result)
 SpaResult
 spa_format_fixate (SpaFormat *format)
 {
-#if 0
-  unsigned int i, j;
-  SpaProps *props;
-  uint32_t mask;
-#endif
-
   if (format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   format->props.unset_mask = 0;
 
-#if 0
-  props = &format->props;
-  mask = props->unset_mask;
-
-  for (i = 0; i < props->n_prop_info; i++) {
-    if (mask & 1) {
-      const SpaPropInfo *pi = &props->prop_info[i];
-
-      switch (pi->range_type) {
-        case SPA_PROP_RANGE_TYPE_NONE:
-          break;
-	case SPA_PROP_RANGE_TYPE_MIN_MAX:
-          break;
-	case SPA_PROP_RANGE_TYPE_STEP:
-          break;
-	case SPA_PROP_RANGE_TYPE_ENUM:
-        {
-          for (j = 0; j < pi->n_range_values; j++) {
-            const SpaPropRangeInfo *ri = &pi->range_values[j];
-            memcpy (SPA_MEMBER (props, pi->offset, void), ri->value, ri->size);
-            SPA_PROPS_INDEX_SET (props, i);
-            break;
-          }
-          break;
-        }
-	case SPA_PROP_RANGE_TYPE_FLAGS:
-          break;
-        default:
-          break;
-      }
-    }
-    mask >>= 1;
-  }
-#endif
   return SPA_RESULT_OK;
 }

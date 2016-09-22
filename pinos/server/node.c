@@ -311,7 +311,6 @@ suspend_node (PinosNode *this)
 
   if ((res = spa_node_port_set_format (this->node, 0, 0, NULL)) < 0)
     g_warning ("error unset format output: %d", res);
-
 }
 
 static void
@@ -405,6 +404,23 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
   PinosNodePrivate *priv = this->priv;
 
   switch (event->type) {
+    case SPA_NODE_EVENT_TYPE_INVALID:
+    case SPA_NODE_EVENT_TYPE_DRAINED:
+    case SPA_NODE_EVENT_TYPE_MARKER:
+    case SPA_NODE_EVENT_TYPE_ERROR:
+    case SPA_NODE_EVENT_TYPE_BUFFERING:
+    case SPA_NODE_EVENT_TYPE_REQUEST_REFRESH:
+      break;
+
+    case SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE:
+    {
+      SpaNodeEventAsyncComplete *ac = event->data;
+      g_debug ("async complete %u %d", ac->seq, ac->res);
+      if (SPA_RESULT_IS_OK (ac->res))
+        g_object_notify (G_OBJECT (this), "node-state");
+      break;
+    }
+
     case SPA_NODE_EVENT_TYPE_PORT_ADDED:
     {
       SpaNodeEventPortAdded *pa = event->data;
@@ -430,17 +446,6 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
       data->node = this;
       data->port_id = pr->port_id;
       g_main_context_invoke (NULL, (GSourceFunc) do_signal_port_removed, data);
-      break;
-    }
-    case SPA_NODE_EVENT_TYPE_STATE_CHANGE:
-    {
-      SpaNodeEventStateChange *sc = event->data;
-
-      g_debug ("node %p: update SPA state to %d", this, sc->state);
-      if (sc->state == SPA_NODE_STATE_CONFIGURE) {
-        update_port_ids (this, FALSE);
-      }
-      g_object_notify (G_OBJECT (this), "node-state");
       break;
     }
     case SPA_NODE_EVENT_TYPE_ADD_POLL:
@@ -499,9 +504,12 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
     }
     case SPA_NODE_EVENT_TYPE_HAVE_OUTPUT:
     {
+      SpaNodeEventHaveOutput *ho = event->data;
       SpaPortOutputInfo oinfo[1] = { 0, };
       SpaResult res;
       guint i;
+
+      oinfo[0].port_id = ho->port_id;
 
       if ((res = spa_node_port_pull_output (node, 1, oinfo)) < 0) {
         g_warning ("node %p: got pull error %d, %d", this, res, oinfo[0].status);
@@ -553,10 +561,6 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
     }
     case SPA_NODE_EVENT_TYPE_REQUEST_CLOCK_UPDATE:
       send_clock_update (this);
-      break;
-
-    default:
-      g_debug ("node %p: got event %d", this, event->type);
       break;
   }
 }

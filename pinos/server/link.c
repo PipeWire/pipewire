@@ -34,7 +34,7 @@
 #define PINOS_LINK_GET_PRIVATE(obj)  \
    (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_LINK, PinosLinkPrivate))
 
-#define MAX_BUFFERS     64
+#define MAX_BUFFERS     16
 
 struct _PinosLinkPrivate
 {
@@ -498,7 +498,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
     }
     g_debug ("allocated out_buffers %p from output port", priv->out_buffers);
   }
-  else if (in_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS) {
+  if (in_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS) {
     g_debug ("using out_buffers %p on input port", priv->out_buffers);
     if ((res = spa_node_port_use_buffers (this->input_node->node, this->input_port,
                                           priv->out_buffers, priv->n_out_buffers)) < 0) {
@@ -563,6 +563,7 @@ check_states (PinosLink *this)
   SpaResult res;
   SpaNodeState in_state, out_state;
 
+again:
   in_state = this->input_node->node->state;
   out_state = this->output_node->node->state;
 
@@ -577,7 +578,19 @@ check_states (PinosLink *this)
   if ((res = do_start (this, in_state, out_state)) < 0)
     return res;
 
+  if (this->input_node->node->state != in_state)
+    goto again;
+  if (this->output_node->node->state != out_state)
+    goto again;
+
   return SPA_RESULT_OK;
+}
+
+static gboolean
+do_check_states (PinosLink *this)
+{
+  check_states (this);
+  return G_SOURCE_REMOVE;
 }
 
 static void
@@ -588,7 +601,7 @@ on_node_state_notify (GObject    *obj,
   PinosLink *this = user_data;
 
   g_debug ("link %p: node %p state change", this, obj);
-  check_states (this);
+  g_idle_add ((GSourceFunc) do_check_states, this);
 }
 
 static void

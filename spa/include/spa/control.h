@@ -35,6 +35,7 @@ typedef struct _SpaControlBuilder SpaControlBuilder;
 #include <spa/format.h>
 #include <spa/port.h>
 #include <spa/node.h>
+#include <spa/memory.h>
 
 struct _SpaControl {
   size_t x[16];
@@ -59,8 +60,9 @@ typedef enum {
   SPA_CONTROL_CMD_NODE_UPDATE              = 1,
   SPA_CONTROL_CMD_PORT_UPDATE              = 2,
   SPA_CONTROL_CMD_PORT_REMOVED             = 3,
+  SPA_CONTROL_CMD_NODE_STATE_CHANGE        = 4,
 
-  SPA_CONTROL_CMD_PORT_STATUS_CHANGE       = 4,
+  SPA_CONTROL_CMD_PORT_STATUS_CHANGE       = 5,
 
   /* server to client */
   SPA_CONTROL_CMD_ADD_PORT                 = 32,
@@ -92,16 +94,17 @@ typedef struct {
   const SpaProps *props;
 } SpaControlCmdNodeUpdate;
 
-
 /* SPA_CONTROL_CMD_PORT_UPDATE */
 typedef struct {
   uint32_t           port_id;
 #define SPA_CONTROL_CMD_PORT_UPDATE_POSSIBLE_FORMATS  (1 << 0)
-#define SPA_CONTROL_CMD_PORT_UPDATE_PROPS             (1 << 1)
-#define SPA_CONTROL_CMD_PORT_UPDATE_INFO              (1 << 2)
+#define SPA_CONTROL_CMD_PORT_UPDATE_FORMAT            (1 << 1)
+#define SPA_CONTROL_CMD_PORT_UPDATE_PROPS             (1 << 2)
+#define SPA_CONTROL_CMD_PORT_UPDATE_INFO              (1 << 3)
   uint32_t           change_mask;
   unsigned int       n_possible_formats;
   SpaFormat        **possible_formats;
+  SpaFormat         *format;
   const SpaProps    *props;
   const SpaPortInfo *info;
 } SpaControlCmdPortUpdate;
@@ -113,25 +116,34 @@ typedef struct {
 
 /* SPA_CONTROL_CMD_PORT_STATUS_CHANGE */
 
+/* SPA_CONTROL_CMD_NODE_STATE_CHANGE */
+typedef struct {
+  SpaNodeState    state;
+} SpaControlCmdNodeStateChange;
+
 /* SPA_CONTROL_CMD_ADD_PORT */
 typedef struct {
-  uint32_t     port_id;
+  uint32_t seq;
+  uint32_t port_id;
 } SpaControlCmdAddPort;
 
 /* SPA_CONTROL_CMD_REMOVE_PORT */
 typedef struct {
+  uint32_t seq;
   uint32_t port_id;
 } SpaControlCmdRemovePort;
 
 
 /* SPA_CONTROL_CMD_SET_FORMAT */
 typedef struct {
+  uint32_t     seq;
   uint32_t     port_id;
   SpaFormat   *format;
 } SpaControlCmdSetFormat;
 
 /* SPA_CONTROL_CMD_SET_PROPERTY */
 typedef struct {
+  uint32_t   seq;
   uint32_t   port_id;
   uint32_t   id;
   size_t     size;
@@ -140,11 +152,13 @@ typedef struct {
 
 /* SPA_CONTROL_CMD_NODE_COMMAND */
 typedef struct {
+  uint32_t        seq;
   SpaNodeCommand *command;
 } SpaControlCmdNodeCommand;
 
 /* SPA_CONTROL_CMD_ADD_MEM */
 typedef struct {
+  uint32_t     seq;
   uint32_t     port_id;
   SpaMemoryRef mem;
   uint32_t     mem_type;
@@ -155,12 +169,14 @@ typedef struct {
 
 /* SPA_CONTROL_CMD_REMOVE_MEM */
 typedef struct {
+  uint32_t     seq;
   uint32_t     port_id;
   SpaMemoryRef mem;
 } SpaControlCmdRemoveMem;
 
 /* SPA_CONTROL_CMD_USE_BUFFERS */
 typedef struct {
+  uint32_t        seq;
   uint32_t        port_id;
   unsigned int    n_buffers;
   SpaBuffer     **buffers;
@@ -192,7 +208,10 @@ SpaResult          spa_control_iter_end         (SpaControlIter *iter);
 
 SpaControlCmd      spa_control_iter_get_cmd     (SpaControlIter *iter);
 void *             spa_control_iter_get_data    (SpaControlIter *iter,
-                                                 size_t *size);
+                                                 size_t         *size);
+SpaResult          spa_control_iter_set_data    (SpaControlIter *iter,
+                                                 void           *data,
+                                                 size_t          size);
 
 SpaResult          spa_control_iter_parse_cmd   (SpaControlIter *iter,
                                                  void           *command);

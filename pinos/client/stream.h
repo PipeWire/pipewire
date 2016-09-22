@@ -108,7 +108,8 @@ gboolean         pinos_stream_connect           (PinosStream      *stream,
                                                  GPtrArray        *possible_formats);
 gboolean         pinos_stream_disconnect        (PinosStream      *stream);
 
-gboolean         pinos_stream_start_allocation  (PinosStream     *stream,
+gboolean         pinos_stream_finish_format     (PinosStream     *stream,
+                                                 SpaResult        res,
                                                  SpaAllocParam  **params,
                                                  unsigned int     n_params);
 

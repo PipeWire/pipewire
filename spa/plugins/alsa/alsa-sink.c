@@ -45,19 +45,7 @@ reset_alsa_sink_props (SpaALSAProps *props)
 static void
 update_state (SpaALSASink *this, SpaNodeState state)
 {
-  SpaNodeEvent event;
-  SpaNodeEventStateChange sc;
-
-  if (this->node.state == state)
-    return;
-
   this->node.state = state;
-
-  event.type = SPA_NODE_EVENT_TYPE_STATE_CHANGE;
-  event.data = &sc;
-  event.size = sizeof (sc);
-  sc.state = state;
-  this->event_cb (&this->node, &event, this->user_data);
 }
 
 static const uint32_t min_uint32 = 1;

@@ -117,6 +117,12 @@ static const SpaPropInfo prop_info[] =
                                 NULL },
 };
 
+static void
+update_state (SpaXvSink *this, SpaNodeState state)
+{
+  this->node.state = state;
+}
+
 static SpaResult
 spa_xv_sink_node_get_props (SpaNode       *node,
                             SpaProps     **props)
@@ -176,32 +182,12 @@ spa_xv_sink_node_send_command (SpaNode        *node,
     case SPA_NODE_COMMAND_START:
       spa_xv_start (this);
 
-      if (this->event_cb) {
-        SpaNodeEvent event;
-        SpaNodeEventStateChange sc;
-
-        event.type = SPA_NODE_EVENT_TYPE_STATE_CHANGE;
-        event.data = &sc;
-        event.size = sizeof (sc);
-        sc.state = SPA_NODE_STATE_STREAMING;
-
-        this->event_cb (node, &event, this->user_data);
-      }
+      update_state (this, SPA_NODE_STATE_STREAMING);
       break;
     case SPA_NODE_COMMAND_PAUSE:
       spa_xv_stop (this);
 
-      if (this->event_cb) {
-        SpaNodeEvent event;
-        SpaNodeEventStateChange sc;
-
-        event.type = SPA_NODE_EVENT_TYPE_STATE_CHANGE;
-        event.data = &sc;
-        event.size = sizeof (sc);
-        sc.state = SPA_NODE_STATE_PAUSED;
-
-        this->event_cb (node, &event, this->user_data);
-      }
+      update_state (this, SPA_NODE_STATE_PAUSED);
       break;
 
     case SPA_NODE_COMMAND_FLUSH:

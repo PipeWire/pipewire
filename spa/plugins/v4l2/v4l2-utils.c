@@ -111,6 +111,7 @@ spa_v4l2_clear_buffers (SpaV4l2Source *this)
   if (state->alloc_mem)
     spa_memory_unref (&state->alloc_mem->mem);
 
+  state->alloc_mem = NULL;
   state->have_buffers = false;
 
   return SPA_RESULT_OK;

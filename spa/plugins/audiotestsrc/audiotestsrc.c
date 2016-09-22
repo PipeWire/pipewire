@@ -296,21 +296,7 @@ audiotestsrc_on_output (SpaPollNotifyData *data)
 static void
 update_state (SpaAudioTestSrc *this, SpaNodeState state)
 {
-  SpaNodeEvent event;
-  SpaNodeEventStateChange sc;
-
-  if (this->node.state == state)
-    return;
-
   this->node.state = state;
-
-  if (this->event_cb) {
-    event.type = SPA_NODE_EVENT_TYPE_STATE_CHANGE;
-    event.data = &sc;
-    event.size = sizeof (sc);
-    sc.state = state;
-    this->event_cb (&this->node, &event, this->user_data);
-  }
 }
 
 static SpaResult

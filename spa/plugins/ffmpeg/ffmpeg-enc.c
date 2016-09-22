@@ -86,6 +86,12 @@ static const SpaPropInfo prop_info[] =
   { 0, },
 };
 
+static void
+update_state (SpaFFMpegEnc *this, SpaNodeState state)
+{
+  this->node.state = state;
+}
+
 static SpaResult
 spa_ffmpeg_enc_node_get_props (SpaNode       *node,
                                SpaProps     **props)
@@ -143,30 +149,11 @@ spa_ffmpeg_enc_node_send_command (SpaNode        *node,
       return SPA_RESULT_INVALID_COMMAND;
 
     case SPA_NODE_COMMAND_START:
-      if (this->event_cb) {
-        SpaNodeEvent event;
-        SpaNodeEventStateChange sc;
-
-        event.type = SPA_NODE_EVENT_TYPE_STATE_CHANGE;
-        event.data = &sc;
-        event.size = sizeof (sc);
-        sc.state = SPA_NODE_STATE_STREAMING;
-
-        this->event_cb (node, &event, this->user_data);
-      }
+      update_state (this, SPA_NODE_STATE_STREAMING);
       break;
+
     case SPA_NODE_COMMAND_PAUSE:
-      if (this->event_cb) {
-        SpaNodeEvent event;
-        SpaNodeEventStateChange sc;
-
-        event.type = SPA_NODE_EVENT_TYPE_STATE_CHANGE;
-        event.data = &sc;
-        event.size = sizeof (sc);
-        sc.state = SPA_NODE_STATE_PAUSED;
-
-        this->event_cb (node, &event, this->user_data);
-      }
+      update_state (this, SPA_NODE_STATE_PAUSED);
       break;
 
     case SPA_NODE_COMMAND_FLUSH:

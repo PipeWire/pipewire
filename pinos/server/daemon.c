@@ -83,13 +83,14 @@ handle_client_vanished (PinosClient *client, gpointer user_data)
 
 static PinosClient *
 sender_get_client (PinosDaemon *daemon,
-                   const gchar *sender)
+                   const gchar *sender,
+                   gboolean create)
 {
   PinosDaemonPrivate *priv = daemon->priv;
   PinosClient *client;
 
   client = g_hash_table_lookup (priv->clients, sender);
-  if (client == NULL) {
+  if (client == NULL && create) {
     client = pinos_client_new (daemon, sender, NULL);
 
     g_debug ("daemon %p: new client %p for %s", daemon, client, sender);
@@ -157,7 +158,7 @@ handle_create_node (PinosDaemon1           *interface,
   if (node == NULL)
     goto no_node;
 
-  client = sender_get_client (daemon, sender);
+  client = sender_get_client (daemon, sender, TRUE);
   pinos_client_add_object (client, G_OBJECT (node));
 
   g_signal_connect (node,
@@ -205,6 +206,7 @@ on_link_state_notify (GObject     *obj,
       }
       break;
     case PINOS_LINK_STATE_UNLINKED:
+      g_warning ("link %p: unlinked", link);
       break;
     case PINOS_LINK_STATE_INIT:
     case PINOS_LINK_STATE_NEGOTIATING:
@@ -216,21 +218,20 @@ on_link_state_notify (GObject     *obj,
 }
 
 static void
-on_port_added (PinosNode *node, PinosDirection direction, uint32_t port_id, PinosClient *client)
+on_port_added (PinosNode *node, PinosDirection direction, PinosDaemon *this)
 {
-  PinosDaemon *this;
+  PinosClient *client;
   PinosProperties *props;
   PinosNode *target;
   const gchar *path;
   GError *error = NULL;
   PinosLink *link;
 
-  this = pinos_node_get_daemon (node);
-
   props = pinos_node_get_properties (node);
   path = pinos_properties_get (props, "pinos.target.node");
 
   if (path) {
+    const gchar *sender;
     guint target_port;
     guint node_port;
 
@@ -269,9 +270,12 @@ on_port_added (PinosNode *node, PinosDirection direction, uint32_t port_id, Pino
     if (link == NULL)
       goto error;
 
-    pinos_client_add_object (client, G_OBJECT (link));
+    sender = pinos_node_get_sender (node);
+    if (sender && (client = sender_get_client (this, sender, FALSE))) {
+      pinos_client_add_object (client, G_OBJECT (link));
+    }
 
-    g_signal_connect (link, "notify::state", (GCallback) on_link_state_notify, client);
+    g_signal_connect (link, "notify::state", (GCallback) on_link_state_notify, daemon);
     pinos_link_activate (link);
 
     g_object_unref (link);
@@ -286,8 +290,58 @@ error:
 }
 
 static void
-on_port_removed (PinosNode *node, uint32_t port_id, PinosClient *client)
+on_port_removed (PinosNode *node, PinosDaemon *daemon)
 {
+}
+
+static void
+handle_node_connections (PinosDaemon *daemon,
+                         PinosNode   *node)
+{
+  PinosDirection direction;
+
+  direction = node->have_inputs ? PINOS_DIRECTION_INPUT : PINOS_DIRECTION_OUTPUT;
+
+  on_port_added (node, direction, daemon);
+}
+
+static void
+on_node_state_change (PinosNode      *node,
+                      PinosNodeState  old,
+                      PinosNodeState  state,
+                      PinosDaemon    *daemon)
+{
+  g_debug ("daemon %p: node %p state change %s -> %s", daemon, node,
+                        pinos_node_state_as_string (old),
+                        pinos_node_state_as_string (state));
+
+  if (old == PINOS_NODE_STATE_CREATING && state == PINOS_NODE_STATE_SUSPENDED)
+    handle_node_connections (daemon, node);
+}
+
+static void
+on_node_added (PinosDaemon *daemon, PinosNode *node)
+{
+  PinosNodeState state;
+
+  g_debug ("daemon %p: node %p added", daemon, node);
+
+  g_signal_connect (node, "state-change", (GCallback) on_node_state_change, daemon);
+
+  state = pinos_node_get_state (node);
+  if (state > PINOS_NODE_STATE_CREATING) {
+    handle_node_connections (daemon, node);
+  }
+  g_signal_connect (node, "port-added", (GCallback) on_port_added, daemon);
+  g_signal_connect (node, "port-removed", (GCallback) on_port_removed, daemon);
+}
+
+static void
+on_node_removed (PinosDaemon *daemon, PinosNode *node)
+{
+  g_debug ("daemon %p: node %p removed", daemon, node);
+
+  g_signal_handlers_disconnect_by_data (node, daemon);
 }
 
 static gboolean
@@ -322,11 +376,8 @@ handle_create_client_node (PinosDaemon1           *interface,
   if (socket == NULL)
     goto no_socket;
 
-  client = sender_get_client (daemon, sender);
+  client = sender_get_client (daemon, sender, TRUE);
   pinos_client_add_object (client, G_OBJECT (node));
-
-  g_signal_connect (node, "port-added", (GCallback) on_port_added, client);
-  g_signal_connect (node, "port-removed", (GCallback) on_port_removed, client);
 
   object_path = pinos_node_get_object_path (PINOS_NODE (node));
   g_debug ("daemon %p: add client-node %p, %s", daemon, node, object_path);
@@ -544,6 +595,7 @@ pinos_daemon_add_node (PinosDaemon *daemon,
   priv = daemon->priv;
 
   priv->nodes = g_list_prepend (priv->nodes, node);
+  on_node_added (daemon, node);
 }
 
 /**
@@ -563,6 +615,7 @@ pinos_daemon_remove_node (PinosDaemon *daemon,
   g_return_if_fail (PINOS_IS_NODE (node));
   priv = daemon->priv;
 
+  on_node_removed (daemon, node);
   priv->nodes = g_list_remove (priv->nodes, node);
 }
 
@@ -604,12 +657,12 @@ pinos_daemon_find_node (PinosDaemon     *daemon,
 
     g_debug ("node path \"%s\"", pinos_node_get_object_path (n));
 
-    if (!g_str_has_suffix (pinos_node_get_object_path (n), name))
-      continue;
+    if (have_name && g_str_has_suffix (pinos_node_get_object_path (n), name)) {
+      g_debug ("name \"%s\" matches node %p", name, n);
+      best = n;
+      break;
+    }
 
-    g_debug ("name \"%s\" matches node %p", name, n);
-    best = n;
-    break;
   }
   if (best == NULL) {
     g_set_error (error,

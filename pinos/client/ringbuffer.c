@@ -177,7 +177,7 @@ pinos_ringbuffer_constructed (GObject * obj)
   }
   priv->data = mmap (NULL, priv->fdsize, PROT_READ | PROT_WRITE, MAP_SHARED, priv->fd, 0);
 
-  spa_ringbuffer_init (&priv->data->rbuf, (guint8 *)priv->data + sizeof (PinosRingbufferData), priv->size);
+  spa_ringbuffer_init (&priv->data->rbuf, priv->size);
 
   G_OBJECT_CLASS (pinos_ringbuffer_parent_class)->constructed (obj);
 }

@@ -50,6 +50,7 @@ struct _PinosNodePrivate
   gchar *object_path;
   gchar *name;
 
+  gboolean async_init;
   unsigned int max_input_ports;
   unsigned int max_output_ports;
   unsigned int n_input_ports;
@@ -77,6 +78,8 @@ struct _PinosNodePrivate
   guint   n_used_output_links;
   GArray *input_links;
   guint   n_used_input_links;
+
+  SpaNodeEventAsyncComplete ac;
 };
 
 G_DEFINE_TYPE (PinosNode, pinos_node, G_TYPE_OBJECT);
@@ -88,40 +91,42 @@ enum
   PROP_SENDER,
   PROP_OBJECT_PATH,
   PROP_NAME,
-  PROP_STATE,
   PROP_PROPERTIES,
   PROP_NODE,
-  PROP_NODE_STATE,
 };
 
 enum
 {
   SIGNAL_REMOVE,
+  SIGNAL_STATE_CHANGE,
   SIGNAL_PORT_ADDED,
   SIGNAL_PORT_REMOVED,
+  SIGNAL_ASYNC_COMPLETE,
   LAST_SIGNAL
 };
 
+static void init_complete (PinosNode *this);
+
 static guint signals[LAST_SIGNAL] = { 0 };
-
-static PinosDirection
-get_port_direction (PinosNode *node, guint id)
-{
-  PinosNodePrivate *priv = node->priv;
-  PinosDirection direction;
-
-  direction = id < priv->max_input_ports ? PINOS_DIRECTION_INPUT : PINOS_DIRECTION_OUTPUT;
-
-  return direction;
-}
 
 static void
 update_port_ids (PinosNode *node, gboolean create)
 {
   PinosNodePrivate *priv = node->priv;
+  uint32_t *in_ports, *out_ports;
+  guint n_input_ports, n_output_ports;
+  guint i, j;
 
   if (node->node == NULL)
     return;
+
+  n_input_ports = priv->n_input_ports;
+  n_output_ports = priv->n_output_ports;
+
+  in_ports = g_alloca (sizeof (uint32_t) * n_input_ports);
+  out_ports = g_alloca (sizeof (uint32_t) * n_output_ports);
+  memcpy (in_ports, priv->input_port_ids, sizeof (uint32_t) * n_input_ports);
+  memcpy (out_ports, priv->output_port_ids, sizeof (uint32_t) * n_output_ports);
 
   spa_node_get_n_ports (node->node,
                         &priv->n_input_ports,
@@ -129,7 +134,11 @@ update_port_ids (PinosNode *node, gboolean create)
                         &priv->n_output_ports,
                         &priv->max_output_ports);
 
-  g_debug ("node %p: update_port ids %u, %u", node, priv->max_input_ports, priv->max_output_ports);
+  node->have_inputs = priv->n_input_ports > 0;
+  node->have_outputs = priv->n_output_ports > 0;
+
+  g_debug ("node %p: update_port ids %u/%u, %u/%u", node,
+      priv->n_input_ports, priv->max_input_ports, priv->n_output_ports, priv->max_output_ports);
 
   priv->input_port_ids = g_realloc_n (priv->input_port_ids, priv->max_input_ports, sizeof (uint32_t));
   priv->output_port_ids = g_realloc_n (priv->output_port_ids, priv->max_output_ports, sizeof (uint32_t));
@@ -139,6 +148,45 @@ update_port_ids (PinosNode *node, gboolean create)
                          priv->input_port_ids,
                          priv->max_output_ports,
                          priv->output_port_ids);
+
+  i = j = 0;
+  while (true) {
+    if (i < priv->n_input_ports && j < n_input_ports && priv->input_port_ids[i] == in_ports[j]) {
+      i++;
+      j++;
+    } else if ((i < priv->n_input_ports && j < n_input_ports &&
+               priv->input_port_ids[i] < in_ports[j]) || i < priv->n_input_ports) {
+      g_debug ("node %p: input port added %d", node, priv->input_port_ids[i]);
+      if (!priv->async_init)
+        g_signal_emit (node, signals[SIGNAL_PORT_ADDED], 0, PINOS_DIRECTION_INPUT);
+      i++;
+    } else if (j < n_input_ports) {
+      g_debug ("node %p: input port removed %d", node, in_ports[j]);
+      if (!priv->async_init)
+        g_signal_emit (node, signals[SIGNAL_PORT_REMOVED], 0, PINOS_DIRECTION_INPUT);
+      j++;
+    } else
+      break;
+  }
+  i = j = 0;
+  while (true) {
+    if (i < priv->n_output_ports && j < n_output_ports && priv->output_port_ids[i] == out_ports[j]) {
+      i++;
+      j++;
+    } else if ((i < priv->n_output_ports && j < n_output_ports &&
+               priv->output_port_ids[i] < out_ports[j]) || i < priv->n_output_ports) {
+      g_debug ("node %p: output port added %d", node, priv->output_port_ids[i]);
+      if (!priv->async_init)
+        g_signal_emit (node, signals[SIGNAL_PORT_ADDED], 0, PINOS_DIRECTION_OUTPUT);
+      i++;
+    } else if (j < n_output_ports) {
+      g_debug ("node %p: output port removed %d", node, out_ports[j]);
+      if (!priv->async_init)
+        g_signal_emit (node, signals[SIGNAL_PORT_REMOVED], 0, PINOS_DIRECTION_OUTPUT);
+      j++;
+    } else
+      break;
+  }
 }
 
 static void *
@@ -261,18 +309,20 @@ start_thread (PinosNode *this)
 }
 
 static void
-stop_thread (PinosNode *this)
+stop_thread (PinosNode *this, gboolean in_thread)
 {
   PinosNodePrivate *priv = this->priv;
 
   if (priv->running) {
     priv->running = false;
-    wakeup_thread (this);
-    pthread_join (priv->thread, NULL);
+    if (!in_thread) {
+      wakeup_thread (this);
+      pthread_join (priv->thread, NULL);
+    }
   }
 }
 
-static void
+static SpaResult
 pause_node (PinosNode *this)
 {
   SpaResult res;
@@ -285,9 +335,11 @@ pause_node (PinosNode *this)
   cmd.size = 0;
   if ((res = spa_node_send_command (this->node, &cmd)) < 0)
     g_debug ("got error %d", res);
+
+  return res;
 }
 
-static void
+static SpaResult
 start_node (PinosNode *this)
 {
   SpaResult res;
@@ -300,9 +352,11 @@ start_node (PinosNode *this)
   cmd.size = 0;
   if ((res = spa_node_send_command (this->node, &cmd)) < 0)
     g_debug ("got error %d", res);
+
+  return res;
 }
 
-static void
+static SpaResult
 suspend_node (PinosNode *this)
 {
   SpaResult res;
@@ -311,6 +365,8 @@ suspend_node (PinosNode *this)
 
   if ((res = spa_node_port_set_format (this->node, 0, 0, NULL)) < 0)
     g_warning ("error unset format output: %d", res);
+
+  return res;
 }
 
 static void
@@ -348,53 +404,85 @@ static gboolean
 node_set_state (PinosNode       *this,
                 PinosNodeState   state)
 {
+  SpaResult res = SPA_RESULT_OK;
+
   g_debug ("node %p: set state %s", this, pinos_node_state_as_string (state));
 
   switch (state) {
+    case PINOS_NODE_STATE_CREATING:
+      return FALSE;
+
     case PINOS_NODE_STATE_SUSPENDED:
-      suspend_node (this);
+      res = suspend_node (this);
       break;
 
     case PINOS_NODE_STATE_INITIALIZING:
       break;
 
     case PINOS_NODE_STATE_IDLE:
-      pause_node (this);
+      res = pause_node (this);
       break;
 
     case PINOS_NODE_STATE_RUNNING:
       send_clock_update (this);
-      start_node (this);
+      res = start_node (this);
       break;
 
     case PINOS_NODE_STATE_ERROR:
       break;
   }
+  if (SPA_RESULT_IS_ERROR (res))
+    return FALSE;
+
   pinos_node_update_state (this, state);
+
   return TRUE;
 }
 
-
-typedef struct {
-  PinosNode *node;
-  PinosDirection direction;
-  guint port_id;
-} PortData;
-
 static gboolean
-do_signal_port_added (PortData *data)
+do_read_link (PinosNode *this, PinosLink *link)
 {
-  g_signal_emit (data->node, signals[SIGNAL_PORT_ADDED], 0, data->direction, data->port_id);
-  g_slice_free (PortData, data);
-  return FALSE;
+  SpaRingbufferArea areas[2];
+  SpaResult res;
+  gboolean pushed = FALSE;
+
+  spa_ringbuffer_get_read_areas (&link->ringbuffer, areas);
+
+  if (areas[0].len > 0) {
+    SpaPortInputInfo iinfo[1];
+
+    if (link->in_ready <= 0)
+      return FALSE;
+
+    link->in_ready--;
+
+    iinfo[0].port_id = link->input_port;
+    iinfo[0].buffer_id = link->queue[areas[0].offset];
+    iinfo[0].flags = SPA_PORT_INPUT_FLAG_NONE;
+
+    if ((res = spa_node_port_push_input (link->input_node->node, 1, iinfo)) < 0)
+      g_warning ("node %p: error pushing buffer: %d, %d", this, res, iinfo[0].status);
+    else
+      pushed = TRUE;
+
+    spa_ringbuffer_read_advance (&link->ringbuffer, 1);
+  }
+  return pushed;
 }
 
-static gboolean
-do_signal_port_removed (PortData *data)
+static void
+do_handle_async_complete (PinosNode *this)
 {
-  g_signal_emit (data->node, signals[SIGNAL_PORT_REMOVED], 0, data->port_id);
-  g_slice_free (PortData, data);
-  return FALSE;
+  PinosNodePrivate *priv = this->priv;
+  SpaNodeEventAsyncComplete *ac = &priv->ac;
+
+  g_debug ("node %p: async complete %u %d", this, ac->seq, ac->res);
+
+  if (priv->async_init) {
+    init_complete (this);
+    priv->async_init = FALSE;
+  }
+  g_signal_emit (this, signals[SIGNAL_ASYNC_COMPLETE], 0, ac->seq, ac->res);
 }
 
 static void
@@ -402,6 +490,7 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
 {
   PinosNode *this = user_data;
   PinosNodePrivate *priv = this->priv;
+  gboolean in_thread = pthread_equal (priv->thread, pthread_self());
 
   switch (event->type) {
     case SPA_NODE_EVENT_TYPE_INVALID:
@@ -415,39 +504,14 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
     case SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE:
     {
       SpaNodeEventAsyncComplete *ac = event->data;
-      g_debug ("async complete %u %d", ac->seq, ac->res);
-      if (SPA_RESULT_IS_OK (ac->res))
-        g_object_notify (G_OBJECT (this), "node-state");
+
+      priv->ac = *ac;
+      g_main_context_invoke (NULL,
+                            (GSourceFunc) do_handle_async_complete,
+                            this);
       break;
     }
 
-    case SPA_NODE_EVENT_TYPE_PORT_ADDED:
-    {
-      SpaNodeEventPortAdded *pa = event->data;
-      PortData *data;
-
-      update_port_ids (this, FALSE);
-
-      data = g_slice_new (PortData);
-      data->node = this;
-      data->direction = get_port_direction (this, pa->port_id);
-      data->port_id = pa->port_id;
-      g_main_context_invoke (NULL, (GSourceFunc) do_signal_port_added, data);
-      break;
-    }
-    case SPA_NODE_EVENT_TYPE_PORT_REMOVED:
-    {
-      SpaNodeEventPortRemoved *pr = event->data;
-      PortData *data;
-
-      update_port_ids (this, FALSE);
-
-      data = g_slice_new (PortData);
-      data->node = this;
-      data->port_id = pr->port_id;
-      g_main_context_invoke (NULL, (GSourceFunc) do_signal_port_removed, data);
-      break;
-    }
     case SPA_NODE_EVENT_TYPE_ADD_POLL:
     {
       SpaPollItem *poll = event->data;
@@ -457,9 +521,11 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
       priv->n_poll++;
       if (poll->n_fds)
         priv->rebuild_fds = true;
-      wakeup_thread (this);
 
-      start_thread (this);
+      if (!in_thread) {
+        wakeup_thread (this);
+        start_thread (this);
+      }
       break;
     }
     case SPA_NODE_EVENT_TYPE_UPDATE_POLL:
@@ -473,7 +539,9 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
       }
       if (poll->n_fds)
         priv->rebuild_fds = true;
-      wakeup_thread (this);
+
+      if (!in_thread)
+        wakeup_thread (this);
       break;
     }
     case SPA_NODE_EVENT_TYPE_REMOVE_POLL:
@@ -492,14 +560,28 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
       }
       if (priv->n_poll > 0) {
         priv->rebuild_fds = true;
-        wakeup_thread (this);
+        if (!in_thread)
+          wakeup_thread (this);
       } else {
-        stop_thread (this);
+        stop_thread (this, in_thread);
       }
       break;
     }
     case SPA_NODE_EVENT_TYPE_NEED_INPUT:
     {
+      guint i;
+      SpaNodeEventNeedInput *ni = event->data;
+
+      for (i = 0; i < priv->input_links->len; i++) {
+        NodeLink *link = &g_array_index (priv->input_links, NodeLink, i);
+        PinosLink *pl = link->link;
+
+        if (pl == NULL || pl->input_node->node != node || pl->input_port != ni->port_id)
+          continue;
+
+        pl->in_ready++;
+        do_read_link (this, pl);
+      }
       break;
     }
     case SPA_NODE_EVENT_TYPE_HAVE_OUTPUT:
@@ -508,6 +590,7 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
       SpaPortOutputInfo oinfo[1] = { 0, };
       SpaResult res;
       guint i;
+      gboolean pushed = FALSE;
 
       oinfo[0].port_id = ho->port_id;
 
@@ -519,23 +602,23 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
       for (i = 0; i < priv->output_links->len; i++) {
         NodeLink *link = &g_array_index (priv->output_links, NodeLink, i);
         PinosLink *pl = link->link;
-        SpaPortInputInfo iinfo[1];
+        SpaRingbufferArea areas[2];
 
         if (pl == NULL || pl->output_node->node != node || pl->output_port != oinfo[0].port_id)
           continue;
 
-        if (pl->input_node->node->state != SPA_NODE_STATE_STREAMING) {
-          if ((res = spa_node_port_reuse_buffer (node, oinfo[0].port_id, oinfo[0].buffer_id)) < 0)
-            g_warning ("node %p: error reuse buffer: %d", node, res);
-          continue;
+        spa_ringbuffer_get_write_areas (&pl->ringbuffer, areas);
+        if (areas[0].len > 0) {
+          pl->queue[areas[0].offset] = oinfo[0].buffer_id;
+          spa_ringbuffer_write_advance (&pl->ringbuffer, 1);
+
+          pushed = do_read_link (this, pl);
         }
-
-        iinfo[0].port_id = pl->input_port;
-        iinfo[0].buffer_id = oinfo[0].buffer_id;
-        iinfo[0].flags = SPA_PORT_INPUT_FLAG_NONE;
-
-        if ((res = spa_node_port_push_input (pl->input_node->node, 1, iinfo)) < 0)
-          g_warning ("node %p: error pushing buffer: %d, %d", this, res, iinfo[0].status);
+      }
+      if (!pushed) {
+        g_debug ("node %p: discarded buffer %u", this, oinfo[0].buffer_id);
+        if ((res = spa_node_port_reuse_buffer (node, oinfo[0].port_id, oinfo[0].buffer_id)) < 0)
+          g_warning ("node %p: error reuse buffer: %d", node, res);
       }
       break;
     }
@@ -606,20 +689,12 @@ pinos_node_get_property (GObject    *_object,
       g_value_set_string (value, priv->name);
       break;
 
-    case PROP_STATE:
-      g_value_set_enum (value, priv->state);
-      break;
-
     case PROP_PROPERTIES:
       g_value_set_boxed (value, priv->properties);
       break;
 
     case PROP_NODE:
       g_value_set_pointer (value, node->node);
-      break;
-
-    case PROP_NODE_STATE:
-      g_value_set_uint (value, node->node->state);
       break;
 
     default:
@@ -723,6 +798,18 @@ on_property_notify (GObject    *obj,
 }
 
 static void
+init_complete (PinosNode *this)
+{
+  PinosNodePrivate *priv = this->priv;
+
+  update_port_ids (this, FALSE);
+  g_debug ("node %p: init completed", this);
+  priv->async_init = FALSE;
+  on_property_notify (G_OBJECT (this), NULL, this);
+  pinos_node_update_state (this, PINOS_NODE_STATE_SUSPENDED);
+}
+
+static void
 pinos_node_constructed (GObject * obj)
 {
   PinosNode *this = PINOS_NODE (obj);
@@ -754,13 +841,14 @@ pinos_node_constructed (GObject * obj)
   if ((res = spa_node_set_event_callback (this->node, on_node_event, this)) < 0)
     g_warning ("node %p: error setting callback", this);
 
-  update_port_ids (this, TRUE);
-
   if (priv->sender == NULL)
     priv->sender = g_strdup (pinos_daemon_get_sender (priv->daemon));
 
-  on_property_notify (G_OBJECT (this), NULL, this);
-
+  if (this->node->state > SPA_NODE_STATE_INIT) {
+    init_complete (this);
+  } else {
+    priv->async_init = TRUE;
+  }
   node_register_object (this);
 }
 
@@ -772,7 +860,7 @@ pinos_node_dispose (GObject * obj)
 
   g_debug ("node %p: dispose", node);
   pinos_node_set_state (node, PINOS_NODE_STATE_SUSPENDED);
-  stop_thread (node);
+  stop_thread (node, FALSE);
 
   node_unregister_object (node);
 
@@ -856,16 +944,6 @@ pinos_node_class_init (PinosNodeClass * klass)
                                                         G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class,
-                                   PROP_STATE,
-                                   g_param_spec_enum ("state",
-                                                      "State",
-                                                      "The state of the node",
-                                                      PINOS_TYPE_NODE_STATE,
-                                                      PINOS_NODE_STATE_SUSPENDED,
-                                                      G_PARAM_READABLE |
-                                                      G_PARAM_STATIC_STRINGS));
-
-  g_object_class_install_property (gobject_class,
                                    PROP_PROPERTIES,
                                    g_param_spec_boxed ("properties",
                                                        "Properties",
@@ -884,17 +962,6 @@ pinos_node_class_init (PinosNodeClass * klass)
                                                          G_PARAM_CONSTRUCT_ONLY |
                                                          G_PARAM_STATIC_STRINGS));
 
-  g_object_class_install_property (gobject_class,
-                                   PROP_NODE_STATE,
-                                   g_param_spec_uint ("node-state",
-                                                      "Node State",
-                                                      "The state of the SPA node",
-                                                      0,
-                                                      G_MAXUINT,
-                                                      SPA_NODE_STATE_INIT,
-                                                      G_PARAM_READABLE |
-                                                      G_PARAM_STATIC_STRINGS));
-
   signals[SIGNAL_REMOVE] = g_signal_new ("remove",
                                          G_TYPE_FROM_CLASS (klass),
                                          G_SIGNAL_RUN_LAST,
@@ -905,6 +972,17 @@ pinos_node_class_init (PinosNodeClass * klass)
                                          G_TYPE_NONE,
                                          0,
                                          G_TYPE_NONE);
+  signals[SIGNAL_STATE_CHANGE] = g_signal_new ("state-change",
+                                               G_TYPE_FROM_CLASS (klass),
+                                               G_SIGNAL_RUN_LAST,
+                                               0,
+                                               NULL,
+                                               NULL,
+                                               g_cclosure_marshal_generic,
+                                               G_TYPE_NONE,
+                                               2,
+                                               PINOS_TYPE_NODE_STATE,
+                                               PINOS_TYPE_NODE_STATE);
   signals[SIGNAL_PORT_ADDED] = g_signal_new ("port-added",
                                              G_TYPE_FROM_CLASS (klass),
                                              G_SIGNAL_RUN_LAST,
@@ -913,9 +991,8 @@ pinos_node_class_init (PinosNodeClass * klass)
                                              NULL,
                                              g_cclosure_marshal_generic,
                                              G_TYPE_NONE,
-                                             2,
-                                             PINOS_TYPE_DIRECTION,
-                                             G_TYPE_UINT);
+                                             1,
+                                             PINOS_TYPE_DIRECTION);
   signals[SIGNAL_PORT_REMOVED] = g_signal_new ("port-removed",
                                                G_TYPE_FROM_CLASS (klass),
                                                G_SIGNAL_RUN_LAST,
@@ -925,6 +1002,17 @@ pinos_node_class_init (PinosNodeClass * klass)
                                                g_cclosure_marshal_generic,
                                                G_TYPE_NONE,
                                                1,
+                                               PINOS_TYPE_DIRECTION);
+  signals[SIGNAL_ASYNC_COMPLETE] = g_signal_new ("async-complete",
+                                               G_TYPE_FROM_CLASS (klass),
+                                               G_SIGNAL_RUN_LAST,
+                                               0,
+                                               NULL,
+                                               NULL,
+                                               g_cclosure_marshal_generic,
+                                               G_TYPE_NONE,
+                                               2,
+                                               G_TYPE_UINT,
                                                G_TYPE_UINT);
 
   node_class->set_state = node_set_state;
@@ -940,8 +1028,8 @@ pinos_node_init (PinosNode * node)
   g_signal_connect (priv->iface, "handle-remove",
                                  (GCallback) handle_remove,
                                  node);
-  priv->state = PINOS_NODE_STATE_SUSPENDED;
-  pinos_node1_set_state (priv->iface, PINOS_NODE_STATE_SUSPENDED);
+  priv->state = PINOS_NODE_STATE_CREATING;
+  pinos_node1_set_state (priv->iface, priv->state);
 
   priv->input_links = g_array_new (FALSE, TRUE, sizeof (NodeLink));
   priv->output_links = g_array_new (FALSE, TRUE, sizeof (NodeLink));
@@ -1273,6 +1361,7 @@ pinos_node_link (PinosNode       *output_node,
       goto no_output_ports;
 
     input_port = get_free_node_port (input_node, PINOS_DIRECTION_INPUT);
+    g_debug ("node %p: port %u, %u", input_node, input_port, input_node->priv->n_input_ports);
     if (input_port == SPA_ID_INVALID && input_node->priv->n_input_ports > 0)
       input_port = input_node->priv->input_port_ids[0];
     else
@@ -1403,15 +1492,19 @@ pinos_node_update_state (PinosNode      *node,
                          PinosNodeState  state)
 {
   PinosNodePrivate *priv;
+  PinosNodeState old;
 
   g_return_if_fail (PINOS_IS_NODE (node));
   priv = node->priv;
 
-  if (priv->state != state) {
-    g_debug ("node %p: update state to %s", node, pinos_node_state_as_string (state));
+  old = priv->state;
+  if (old != state) {
+    g_debug ("node %p: update state from %s -> %s", node,
+        pinos_node_state_as_string (old),
+        pinos_node_state_as_string (state));
     priv->state = state;
     pinos_node1_set_state (priv->iface, state);
-    g_object_notify (G_OBJECT (node), "state");
+    g_signal_emit (node, signals[SIGNAL_STATE_CHANGE], 0, old, priv->state);
   }
 }
 

@@ -34,8 +34,6 @@ typedef struct _SpaNodeEvent SpaNodeEvent;
  * SpaEventType:
  * @SPA_NODE_EVENT_TYPE_INVALID: invalid event, should be ignored
  * @SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE: an async operation completed
- * @SPA_NODE_EVENT_TYPE_PORT_ADDED: a new port is added
- * @SPA_NODE_EVENT_TYPE_PORT_REMOVED: a port is removed
  * @SPA_NODE_EVENT_TYPE_HAVE_OUTPUT: emited when an async node has output that can be pulled
  * @SPA_NODE_EVENT_TYPE_NEED_INPUT: emited when more data can be pushed to an async node
  * @SPA_NODE_EVENT_TYPE_REUSE_BUFFER: emited when a buffer can be reused
@@ -47,12 +45,11 @@ typedef struct _SpaNodeEvent SpaNodeEvent;
  * @SPA_NODE_EVENT_TYPE_ERROR: emited when error occured
  * @SPA_NODE_EVENT_TYPE_BUFFERING: emited when buffering is in progress
  * @SPA_NODE_EVENT_TYPE_REQUEST_REFRESH: emited when a keyframe refresh is needed
+ * @SPA_NODE_EVENT_TYPE_REQUEST_CLOCK_UPDATE: the element asks for a clock update
  */
 typedef enum {
   SPA_NODE_EVENT_TYPE_INVALID                  = 0,
   SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE,
-  SPA_NODE_EVENT_TYPE_PORT_ADDED,
-  SPA_NODE_EVENT_TYPE_PORT_REMOVED,
   SPA_NODE_EVENT_TYPE_HAVE_OUTPUT,
   SPA_NODE_EVENT_TYPE_NEED_INPUT,
   SPA_NODE_EVENT_TYPE_REUSE_BUFFER,

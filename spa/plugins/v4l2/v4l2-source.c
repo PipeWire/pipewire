@@ -28,6 +28,7 @@
 #include <spa/memory.h>
 #include <spa/video/format.h>
 #include <spa/debug.h>
+#include <spa/queue.h>
 
 typedef struct _SpaV4l2Source SpaV4l2Source;
 
@@ -105,8 +106,7 @@ typedef struct {
   struct v4l2_requestbuffers reqbuf;
   SpaMemory *alloc_mem;
   V4l2Buffer *alloc_buffers;
-  V4l2Buffer *ready;
-  uint32_t ready_count;
+  SpaQueue    ready;
 
   SpaPollFd fds[1];
   SpaPollItem poll;
@@ -683,16 +683,13 @@ spa_v4l2_source_node_port_pull_output (SpaNode           *node,
       have_error = true;
       continue;
     }
-    if (state->ready_count == 0) {
+
+    SPA_QUEUE_POP_HEAD (&state->ready, V4l2Buffer, next, b);
+    if (b == NULL) {
       info[i].status = SPA_RESULT_UNEXPECTED;
       have_error = true;
       continue;
     }
-
-    b = state->ready;
-    state->ready = b->next;
-    state->ready_count--;
-
     b->outstanding = true;
 
     info[i].buffer_id = b->outbuf->id;
@@ -843,6 +840,8 @@ v4l2_source_init (const SpaHandleFactory  *factory,
   this->props[1].props.n_prop_info = PROP_ID_LAST;
   this->props[1].props.prop_info = prop_info;
   reset_v4l2_source_props (&this->props[1]);
+
+  SPA_QUEUE_INIT (&this->state[0].ready);
 
   this->state[0].info.flags = SPA_PORT_INFO_FLAG_LIVE;
   this->state[0].status.flags = SPA_PORT_STATUS_FLAG_NONE;

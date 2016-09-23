@@ -833,8 +833,6 @@ handle_node_event (PinosStream  *stream,
 
   switch (event->type) {
     case SPA_NODE_EVENT_TYPE_INVALID:
-    case SPA_NODE_EVENT_TYPE_PORT_ADDED:
-    case SPA_NODE_EVENT_TYPE_PORT_REMOVED:
     case SPA_NODE_EVENT_TYPE_HAVE_OUTPUT:
     case SPA_NODE_EVENT_TYPE_NEED_INPUT:
     case SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE:
@@ -974,7 +972,6 @@ parse_control (PinosStream *stream,
     switch (cmd) {
       case SPA_CONTROL_CMD_NODE_UPDATE:
       case SPA_CONTROL_CMD_PORT_UPDATE:
-      case SPA_CONTROL_CMD_PORT_REMOVED:
       case SPA_CONTROL_CMD_PORT_STATUS_CHANGE:
       case SPA_CONTROL_CMD_NODE_STATE_CHANGE:
         g_warning ("got unexpected control %d", cmd);
@@ -1472,21 +1469,7 @@ pinos_stream_finish_format (PinosStream     *stream,
 static gboolean
 do_start (PinosStream *stream)
 {
-  PinosStreamPrivate *priv = stream->priv;
-  SpaControlBuilder builder;
-  SpaControl control;
-
-  control_builder_init (stream, &builder);
-  add_state_change (stream, &builder, SPA_NODE_STATE_CONFIGURE);
-  spa_control_builder_end (&builder, &control);
-
-  if (spa_control_write (&control, priv->fd) < 0)
-    g_warning ("stream %p: failed to write control", stream);
-
-  spa_control_clear (&control);
-
   g_object_unref (stream);
-
   return FALSE;
 }
 

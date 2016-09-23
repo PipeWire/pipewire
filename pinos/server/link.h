@@ -29,6 +29,7 @@ typedef struct _PinosLinkClass PinosLinkClass;
 typedef struct _PinosLinkPrivate PinosLinkPrivate;
 
 #include <pinos/server/daemon.h>
+#include <spa/include/spa/ringbuffer.h>
 
 #define PINOS_TYPE_LINK             (pinos_link_get_type ())
 #define PINOS_IS_LINK(obj)          (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_LINK))
@@ -53,6 +54,10 @@ struct _PinosLink {
   PinosNode *input_node;
   guint      input_id;
   uint32_t   input_port;
+
+  uint32_t      queue[16];
+  SpaRingbuffer ringbuffer;
+  gint          in_ready;
 
   PinosLinkPrivate *priv;
 };

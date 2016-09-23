@@ -59,10 +59,9 @@ typedef enum {
   /* client to server */
   SPA_CONTROL_CMD_NODE_UPDATE              = 1,
   SPA_CONTROL_CMD_PORT_UPDATE              = 2,
-  SPA_CONTROL_CMD_PORT_REMOVED             = 3,
-  SPA_CONTROL_CMD_NODE_STATE_CHANGE        = 4,
+  SPA_CONTROL_CMD_NODE_STATE_CHANGE        = 3,
 
-  SPA_CONTROL_CMD_PORT_STATUS_CHANGE       = 5,
+  SPA_CONTROL_CMD_PORT_STATUS_CHANGE       = 4,
 
   /* server to client */
   SPA_CONTROL_CMD_ADD_PORT                 = 32,
@@ -108,11 +107,6 @@ typedef struct {
   const SpaProps    *props;
   const SpaPortInfo *info;
 } SpaControlCmdPortUpdate;
-
-/* SPA_CONTROL_CMD_PORT_REMOVED */
-typedef struct {
-  uint32_t port_id;
-} SpaControlCmdPortRemoved;
 
 /* SPA_CONTROL_CMD_PORT_STATUS_CHANGE */
 

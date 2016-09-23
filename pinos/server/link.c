@@ -232,8 +232,10 @@ pinos_link_update_state (PinosLink *link, PinosLinkState state)
 
   if (state != priv->state) {
     g_clear_error (&priv->error);
+    g_debug ("link %p: update state %s -> %s", link,
+        pinos_link_state_as_string (priv->state),
+        pinos_link_state_as_string (state));
     priv->state = state;
-    g_debug ("link %p: got state %s", link, pinos_link_state_as_string (state));
     g_object_notify (G_OBJECT (link), "state");
   }
 }
@@ -280,6 +282,7 @@ again:
         goto error;
       }
     }
+    g_debug ("Try filter:");
     spa_debug_format (filter);
 
     if ((res = spa_node_port_enum_formats (this->output_node->node,
@@ -297,6 +300,7 @@ again:
                    "error output enum formats: %d", res);
       goto error;
     }
+    g_debug ("Got filtered:");
     spa_debug_format (format);
     spa_format_fixate (format);
   } else if (in_state == SPA_NODE_STATE_CONFIGURE && out_state > SPA_NODE_STATE_CONFIGURE) {
@@ -543,17 +547,17 @@ do_start (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
 
   if (in_state < SPA_NODE_STATE_PAUSED || out_state < SPA_NODE_STATE_PAUSED)
     return SPA_RESULT_OK;
+  else if (in_state == SPA_NODE_STATE_STREAMING && out_state == SPA_NODE_STATE_STREAMING) {
+    pinos_link_update_state (this, PINOS_LINK_STATE_RUNNING);
+  } else {
+    pinos_link_update_state (this, PINOS_LINK_STATE_PAUSED);
 
-  pinos_link_update_state (this, PINOS_LINK_STATE_PAUSED);
+    if (in_state == SPA_NODE_STATE_PAUSED)
+      pinos_node_set_state (this->input_node, PINOS_NODE_STATE_RUNNING);
 
-  if (in_state == SPA_NODE_STATE_PAUSED)
-    pinos_node_set_state (this->input_node, PINOS_NODE_STATE_RUNNING);
-
-  if (out_state == SPA_NODE_STATE_PAUSED)
-    pinos_node_set_state (this->output_node, PINOS_NODE_STATE_RUNNING);
-
-  pinos_link_update_state (this, PINOS_LINK_STATE_RUNNING);
-
+    if (out_state == SPA_NODE_STATE_PAUSED)
+      pinos_node_set_state (this->output_node, PINOS_NODE_STATE_RUNNING);
+  }
   return res;
 }
 
@@ -594,13 +598,12 @@ do_check_states (PinosLink *this)
 }
 
 static void
-on_node_state_notify (GObject    *obj,
-                      GParamSpec *pspec,
-                      gpointer    user_data)
+on_async_complete_notify (PinosNode  *node,
+                          guint       seq,
+                          guint       res,
+                          PinosLink  *this)
 {
-  PinosLink *this = user_data;
-
-  g_debug ("link %p: node %p state change", this, obj);
+  g_debug ("link %p: node %p async complete %d %d", this, node, seq, res);
   g_idle_add ((GSourceFunc) do_check_states, this);
 }
 
@@ -646,8 +649,8 @@ pinos_link_constructed (GObject * object)
   g_signal_connect (this->input_node, "remove", (GCallback) on_node_remove, this);
   g_signal_connect (this->output_node, "remove", (GCallback) on_node_remove, this);
 
-  g_signal_connect (this->input_node, "notify::node-state", (GCallback) on_node_state_notify, this);
-  g_signal_connect (this->output_node, "notify::node-state", (GCallback) on_node_state_notify, this);
+  g_signal_connect (this->input_node, "async-complete", (GCallback) on_async_complete_notify, this);
+  g_signal_connect (this->output_node, "async-complete", (GCallback) on_async_complete_notify, this);
 
   g_signal_connect (this, "notify", (GCallback) on_property_notify, this);
 
@@ -891,6 +894,7 @@ pinos_link_activate (PinosLink *this)
 {
   g_return_val_if_fail (PINOS_IS_LINK (this), FALSE);
 
+  spa_ringbuffer_init (&this->ringbuffer, SPA_N_ELEMENTS (this->queue));
   check_states (this);
 
   return TRUE;
@@ -899,5 +903,6 @@ pinos_link_activate (PinosLink *this)
 gboolean
 pinos_link_deactivate (PinosLink *this)
 {
+  spa_ringbuffer_clear (&this->ringbuffer);
   return TRUE;
 }

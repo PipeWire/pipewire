@@ -28,6 +28,7 @@ G_BEGIN_DECLS
 /**
  * PinosNodeState:
  * @PINOS_NODE_STATE_ERROR: the node is in error
+ * @PINOS_NODE_STATE_CREATING: the node is being created
  * @PINOS_NODE_STATE_SUSPENDED: the node is suspended, the device might
  *                             be closed
  * @PINOS_NODE_STATE_INITIALIZING: the node is initializing, the device is
@@ -40,10 +41,11 @@ G_BEGIN_DECLS
  */
 typedef enum {
   PINOS_NODE_STATE_ERROR = -1,
-  PINOS_NODE_STATE_SUSPENDED = 0,
-  PINOS_NODE_STATE_INITIALIZING = 1,
-  PINOS_NODE_STATE_IDLE = 2,
-  PINOS_NODE_STATE_RUNNING = 3,
+  PINOS_NODE_STATE_CREATING = 0,
+  PINOS_NODE_STATE_SUSPENDED = 1,
+  PINOS_NODE_STATE_INITIALIZING = 2,
+  PINOS_NODE_STATE_IDLE = 3,
+  PINOS_NODE_STATE_RUNNING = 4,
 } PinosNodeState;
 
 const gchar * pinos_node_state_as_string (PinosNodeState state);

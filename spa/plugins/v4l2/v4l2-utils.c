@@ -848,9 +848,7 @@ mmap_read (SpaV4l2Source *this)
   d = SPA_BUFFER_DATAS (b->outbuf);
   d[0].mem.size = buf.bytesused;
 
-  b->next = state->ready;
-  state->ready = b;
-  state->ready_count++;
+  SPA_QUEUE_PUSH_TAIL (&state->ready, V4l2Buffer, next, b);
 
   return SPA_RESULT_OK;
 }

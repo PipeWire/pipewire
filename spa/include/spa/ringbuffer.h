@@ -29,20 +29,18 @@ typedef struct _SpaRingbuffer SpaRingbuffer;
 #include <spa/defs.h>
 
 typedef struct {
-  uint8_t *data;
-  size_t   len;
+  off_t   offset;
+  size_t  len;
 } SpaRingbufferArea;
 
 /**
  * SpaRingbuffer:
- * @data: pointer to data
  * @readindex: the current read index
  * @writeindex: the current write index
  * @size: the size of the ringbuffer
  * @size_mask: mask if @size is power of 2
  */
 struct _SpaRingbuffer {
-  uint8_t            *data;
   volatile size_t     readindex;
   volatile size_t     writeindex;
   size_t              size;
@@ -50,7 +48,7 @@ struct _SpaRingbuffer {
 };
 
 SpaResult   spa_ringbuffer_init              (SpaRingbuffer *rbuf,
-                                              uint8_t *data, size_t size);
+                                              size_t size);
 
 SpaResult   spa_ringbuffer_clear             (SpaRingbuffer *rbuf);
 

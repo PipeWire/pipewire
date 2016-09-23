@@ -173,14 +173,11 @@ fill_item (ALSAItem *item, struct udev_device *udevice)
     item->info_items[i].key = "device.product.id";
     item->info_items[i++].value = str;
   }
-  str = udev_device_get_property_value (item->udevice, "ID_V4L_PRODUCT");
+  str = udev_device_get_property_value (item->udevice, "ID_MODEL_FROM_DATABASE");
   if (!(str && *str)) {
-    str = udev_device_get_property_value (item->udevice, "ID_MODEL_FROM_DATABASE");
+    str = udev_device_get_property_value (item->udevice, "ID_MODEL_ENC");
     if (!(str && *str)) {
-      str = udev_device_get_property_value (item->udevice, "ID_MODEL_ENC");
-      if (!(str && *str)) {
-        str = udev_device_get_property_value (item->udevice, "ID_MODEL");
-      }
+      str = udev_device_get_property_value (item->udevice, "ID_MODEL");
     }
   }
   if (str && *str) {
@@ -194,8 +191,8 @@ fill_item (ALSAItem *item, struct udev_device *udevice)
     item->info_items[i].key = "device.serial";
     item->info_items[i++].value = str;
   }
-  if ((str = udev_device_get_property_value (item->udevice, "ID_V4L_CAPABILITIES")) && *str) {
-    item->info_items[i].key = "device.capabilities";
+  if ((str = udev_device_get_property_value (item->udevice, "SOUND_FORM_FACTOR")) && *str) {
+    item->info_items[i].key = "device.form_factor";
     item->info_items[i++].value = str;
   }
   item->info.n_items = i;

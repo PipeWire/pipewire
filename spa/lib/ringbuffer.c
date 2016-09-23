@@ -22,8 +22,8 @@
 /**
  * spa_ringbuffer_init:
  * @rbuf: a #SpaRingbuffer
- * @data: pointer to data
- * @size: size of @data
+ * @data: pointer to an array
+ * @size: the number of elements in @data
  *
  * Initialize a #SpaRingbuffer with @data and @size.
  * When size is a power of 2, size_mask will be set with the mask to
@@ -34,12 +34,11 @@
  */
 SpaResult
 spa_ringbuffer_init (SpaRingbuffer *rbuf,
-                     uint8_t *data, size_t size)
+                     size_t size)
 {
-  if (rbuf == NULL || data == NULL || size == 0)
+  if (rbuf == NULL || size == 0)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  rbuf->data = data;
   rbuf->size = size;
   rbuf->readindex = 0;
   rbuf->writeindex = 0;
@@ -93,13 +92,14 @@ spa_ringbuffer_get_read_areas (SpaRingbuffer      *rbuf,
     avail = (rbuf->size_mask ? avail & rbuf->size_mask : avail % rbuf->size);
   }
   end = r + avail;
+
+  areas[0].offset = r;
+  areas[1].offset = 0;
+
   if (end > rbuf->size) {
-    areas[0].data = &rbuf->data[r];
     areas[0].len = rbuf->size - r;
-    areas[1].data = rbuf->data;
     areas[1].len = end - rbuf->size;
   } else {
-    areas[0].data = &rbuf->data[r];
     areas[0].len = avail;
     areas[1].len = 0;
   }
@@ -146,20 +146,21 @@ spa_ringbuffer_get_write_areas (SpaRingbuffer      *rbuf,
   if (w > r) {
     avail = (r - w + rbuf->size);
     avail = (rbuf->size_mask ? avail & rbuf->size_mask : avail % rbuf->size);
-    avail -= 1;
   } else if (w < r) {
-    avail = r - w - 1;
+    avail = r - w;
   } else {
-    avail = rbuf->size - 1;
+    avail = rbuf->size;
   }
+  avail -= 1;
   end = w + avail;
+
+  areas[0].offset = w;
+  areas[1].offset = 0;
+
   if (end > rbuf->size) {
-    areas[0].data = &rbuf->data[w];
     areas[0].len = rbuf->size - w;
-    areas[1].data = rbuf->data;
     areas[1].len = end - rbuf->size;
   } else {
-    areas[0].data = &rbuf->data[w];
     areas[0].len = avail;
     areas[1].len = 0;
   }

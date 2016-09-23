@@ -56,6 +56,9 @@ struct _PinosNode {
   bool live;
   SpaClock *clock;
 
+  gboolean have_inputs;
+  gboolean have_outputs;
+
   PinosNodePrivate *priv;
 };
 

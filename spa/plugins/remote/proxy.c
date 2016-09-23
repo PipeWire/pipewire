@@ -338,9 +338,7 @@ static void
 do_update_port (SpaProxy                *this,
                 SpaControlCmdPortUpdate *pu)
 {
-  SpaNodeEvent event;
   SpaProxyPort *port;
-  SpaNodeEventPortAdded pa;
   unsigned int i;
 
   port = &this->ports[pu->port_id];
@@ -369,12 +367,6 @@ do_update_port (SpaProxy                *this,
       this->n_inputs++;
     else
       this->n_outputs++;
-
-    event.type = SPA_NODE_EVENT_TYPE_PORT_ADDED;
-    event.size = sizeof (pa);
-    event.data = &pa;
-    pa.port_id = pu->port_id;
-    this->event_cb (&this->node, &event, this->user_data);
   }
 }
 
@@ -382,9 +374,7 @@ static void
 do_uninit_port (SpaProxy     *this,
                 uint32_t      port_id)
 {
-  SpaNodeEvent event;
   SpaProxyPort *port;
-  SpaNodeEventPortRemoved pr;
 
   fprintf (stderr, "proxy %p: removing port %d\n", this, port_id);
   port = &this->ports[port_id];
@@ -398,12 +388,6 @@ do_uninit_port (SpaProxy     *this,
   if (port->format)
     spa_format_unref (port->format);
   port->format = NULL;
-
-  event.type = SPA_NODE_EVENT_TYPE_PORT_REMOVED;
-  event.size = sizeof (pr);
-  event.data = &pr;
-  pr.port_id = port_id;
-  this->event_cb (&this->node, &event, this->user_data);
 }
 
 static SpaResult
@@ -934,8 +918,6 @@ handle_node_event (SpaProxy     *this,
     case SPA_NODE_EVENT_TYPE_INVALID:
       break;
 
-    case SPA_NODE_EVENT_TYPE_PORT_ADDED:
-    case SPA_NODE_EVENT_TYPE_PORT_REMOVED:
     case SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE:
     case SPA_NODE_EVENT_TYPE_HAVE_OUTPUT:
     case SPA_NODE_EVENT_TYPE_NEED_INPUT:
@@ -974,10 +956,6 @@ parse_control (SpaProxy   *this,
       case SPA_CONTROL_CMD_SET_PROPERTY:
       case SPA_CONTROL_CMD_NODE_COMMAND:
         fprintf (stderr, "proxy %p: got unexpected control %d\n", this, cmd);
-        break;
-
-      case SPA_CONTROL_CMD_PORT_REMOVED:
-        fprintf (stderr, "proxy %p: command not implemented %d\n", this, cmd);
         break;
 
       case SPA_CONTROL_CMD_NODE_UPDATE:
@@ -1045,11 +1023,10 @@ parse_control (SpaProxy   *this,
         if (spa_control_iter_parse_cmd (&it, &sc) < 0)
           break;
 
+        fprintf (stderr, "proxy %p: got node state change %d -> %d\n", this, old, sc.state);
         this->node.state = sc.state;
         if (old == SPA_NODE_STATE_INIT)
           send_async_complete (this, 0, SPA_RESULT_OK);
-
-        fprintf (stderr, "proxy %p: got node state change %d\n", this, this->node.state);
 
         break;
       }

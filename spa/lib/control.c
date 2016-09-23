@@ -492,7 +492,6 @@ spa_control_iter_set_data (SpaControlIter *iter,
                            size_t          size)
 {
   struct stack_iter *si = SCSI (iter);
-  SpaResult res = SPA_RESULT_OK;
 
   if (!is_valid_iter (iter))
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -524,12 +523,6 @@ spa_control_iter_parse_cmd (SpaControlIter *iter,
 
     case SPA_CONTROL_CMD_PORT_UPDATE:
       iter_parse_port_update (si, command);
-      break;
-
-    case SPA_CONTROL_CMD_PORT_REMOVED:
-      if (si->size < sizeof (SpaControlCmdPortRemoved))
-        return SPA_RESULT_ERROR;
-      memcpy (command, si->data, sizeof (SpaControlCmdPortRemoved));
       break;
 
     case SPA_CONTROL_CMD_PORT_STATUS_CHANGE:
@@ -1243,11 +1236,6 @@ spa_control_builder_add_cmd (SpaControlBuilder *builder,
 
     case SPA_CONTROL_CMD_PORT_UPDATE:
       builder_add_port_update (sb, command);
-      break;
-
-    case SPA_CONTROL_CMD_PORT_REMOVED:
-      p = builder_add_cmd (sb, cmd, sizeof (SpaControlCmdPortRemoved));
-      memcpy (p, command, sizeof (SpaControlCmdPortRemoved));
       break;
 
     case SPA_CONTROL_CMD_PORT_STATUS_CHANGE:

@@ -48,6 +48,8 @@ struct _PinosLinkPrivate
   PinosLinkState state;
   GError *error;
 
+  uint32_t async_busy;
+
   SpaBuffer *in_buffers[MAX_BUFFERS];
   unsigned int n_in_buffers;
   SpaBuffer *out_buffers[MAX_BUFFERS];
@@ -356,7 +358,7 @@ again:
       goto error;
     }
   }
-  return SPA_RESULT_OK;
+  return res;
 
 error:
   {
@@ -531,7 +533,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       goto error;
   }
 
-  return SPA_RESULT_OK;
+  return res;
 
 error:
   {
@@ -564,23 +566,27 @@ do_start (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
 static SpaResult
 check_states (PinosLink *this)
 {
+  PinosLinkPrivate *priv = this->priv;
   SpaResult res;
   SpaNodeState in_state, out_state;
 
 again:
+   if (priv->async_busy != SPA_ID_INVALID)
+     return SPA_RESULT_OK;
+
   in_state = this->input_node->node->state;
   out_state = this->output_node->node->state;
 
   g_debug ("link %p: input state %d, output state %d", this, in_state, out_state);
 
-  if ((res = do_negotiate (this, in_state, out_state)) < 0)
-    return res;
+  if ((res = do_negotiate (this, in_state, out_state)) != SPA_RESULT_OK)
+    goto exit;
 
-  if ((res = do_allocation (this, in_state, out_state)) < 0)
-    return res;
+  if ((res = do_allocation (this, in_state, out_state)) != SPA_RESULT_OK)
+    goto exit;
 
-  if ((res = do_start (this, in_state, out_state)) < 0)
-    return res;
+  if ((res = do_start (this, in_state, out_state)) != SPA_RESULT_OK)
+    goto exit;
 
   if (this->input_node->node->state != in_state)
     goto again;
@@ -588,11 +594,20 @@ again:
     goto again;
 
   return SPA_RESULT_OK;
+
+exit:
+  if (SPA_RESULT_IS_ASYNC (res)) {
+    priv->async_busy = SPA_RESULT_ASYNC_SEQ (res);
+    g_debug ("link %p: waiting for async complete %d", this, priv->async_busy);
+  }
+  return res;
 }
 
 static gboolean
 do_check_states (PinosLink *this)
 {
+  PinosLinkPrivate *priv = this->priv;
+  priv->async_busy = SPA_ID_INVALID;
   check_states (this);
   return G_SOURCE_REMOVE;
 }

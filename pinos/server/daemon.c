@@ -228,6 +228,9 @@ on_port_added (PinosNode *node, PinosDirection direction, PinosDaemon *this)
   PinosLink *link;
 
   props = pinos_node_get_properties (node);
+  if (props == NULL)
+    return;
+
   path = pinos_properties_get (props, "pinos.target.node");
 
   if (path) {

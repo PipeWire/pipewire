@@ -25,6 +25,7 @@
 #include <glib.h>
 #include <gmodule.h>
 
+#include "pinos/client/pinos.h"
 #include "pinos/server/module.h"
 
 #define PINOS_SYMBOL_MODULE_INIT "pinos__module_init"

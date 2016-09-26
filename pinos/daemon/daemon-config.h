@@ -25,7 +25,7 @@
 
 G_BEGIN_DECLS
 
-#include <server/daemon.h>
+#include <pinos/server/daemon.h>
 
 #define PINOS_TYPE_DAEMON_CONFIG           (pinos_daemon_config_get_type ())
 

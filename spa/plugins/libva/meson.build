@@ -7,4 +7,5 @@ libvalib = shared_library('spa-libva',
                           include_directories : inc,
                           dependencies : libva_dep,
                           link_with : spalib,
-                          install : true)
+                          install : true,
+                          install_dir : '@0@/spa'.format(get_option('libdir')))

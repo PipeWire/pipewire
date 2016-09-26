@@ -496,6 +496,7 @@ spa_proxy_node_port_set_format (SpaNode            *node,
   spa_control_builder_init_into (&builder, buf, sizeof (buf), NULL, 0);
   sf.seq = this->seq++;
   sf.port_id = port_id;
+  sf.flags = flags;
   sf.format = (SpaFormat *) format;
   spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_SET_FORMAT, &sf);
   spa_control_builder_end (&builder, &control);

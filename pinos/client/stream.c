@@ -632,8 +632,10 @@ add_state_change (PinosStream *stream, SpaControlBuilder *builder, SpaNodeState 
   PinosStreamPrivate *priv = stream->priv;
   SpaControlCmdNodeStateChange sc;
 
-  sc.state = priv->node_state = state;
-  spa_control_builder_add_cmd (builder, SPA_CONTROL_CMD_NODE_STATE_CHANGE, &sc);
+  if (priv->node_state != state) {
+    sc.state = priv->node_state = state;
+    spa_control_builder_add_cmd (builder, SPA_CONTROL_CMD_NODE_STATE_CHANGE, &sc);
+  }
 }
 
 static void
@@ -1504,27 +1506,7 @@ pinos_stream_start (PinosStream     *stream)
 static gboolean
 do_stop (PinosStream *stream)
 {
-  PinosStreamPrivate *priv = stream->priv;
-  SpaControlBuilder builder;
-  SpaControl control;
-  SpaControlCmdNodeCommand cnc;
-  SpaNodeCommand nc;
-
-  control_builder_init (stream, &builder);
-  cnc.command = &nc;
-  nc.type = SPA_NODE_COMMAND_PAUSE;
-  nc.data = NULL;
-  nc.size = 0;
-  spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_NODE_COMMAND, &cnc);
-  spa_control_builder_end (&builder, &control);
-
-  if (spa_control_write (&control, priv->fd) < 0)
-    g_warning ("stream %p: failed to write control", stream);
-
-  spa_control_clear (&control);
-
   g_object_unref (stream);
-
   return FALSE;
 }
 

@@ -25,7 +25,7 @@
 
 G_BEGIN_DECLS
 
-#include <server/daemon.h>
+#include <pinos/server/daemon.h>
 
 typedef struct _PinosCommand PinosCommand;
 

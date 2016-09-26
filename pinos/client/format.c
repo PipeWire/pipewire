@@ -17,6 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <pinos/client/pinos.h>
 #include <pinos/client/format.h>
 
 static SpaFormat *

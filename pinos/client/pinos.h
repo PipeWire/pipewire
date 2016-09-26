@@ -20,6 +20,8 @@
 #ifndef __PINOS_H__
 #define __PINOS_H__
 
+extern const char             g_log_domain_pinos[];
+
 #include <pinos/client/context.h>
 #include <pinos/client/enumtypes.h>
 #include <pinos/client/introspect.h>

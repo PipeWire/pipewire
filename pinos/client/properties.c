@@ -19,6 +19,7 @@
 
 #include <glib-object.h>
 
+#include "pinos/client/pinos.h"
 #include "pinos/client/properties.h"
 
 struct _PinosProperties {

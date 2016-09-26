@@ -130,9 +130,10 @@ typedef struct {
 
 /* SPA_CONTROL_CMD_SET_FORMAT */
 typedef struct {
-  uint32_t     seq;
-  uint32_t     port_id;
-  SpaFormat   *format;
+  uint32_t            seq;
+  uint32_t            port_id;
+  SpaPortFormatFlags  flags;
+  SpaFormat          *format;
 } SpaControlCmdSetFormat;
 
 /* SPA_CONTROL_CMD_SET_PROPERTY */

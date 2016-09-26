@@ -80,6 +80,8 @@ struct _PinosNodePrivate
   guint   n_used_input_links;
 
   SpaNodeEventAsyncComplete ac;
+  uint32_t pending_state_seq;
+  PinosNodeState pending_state;
 };
 
 G_DEFINE_TYPE (PinosNode, pinos_node, G_TYPE_OBJECT);
@@ -359,13 +361,20 @@ start_node (PinosNode *this)
 static SpaResult
 suspend_node (PinosNode *this)
 {
-  SpaResult res;
+  PinosNodePrivate *priv = this->priv;
+  SpaResult res = SPA_RESULT_OK;
+  guint i;
 
   g_debug ("node %p: suspend node", this);
 
-  if ((res = spa_node_port_set_format (this->node, 0, 0, NULL)) < 0)
-    g_warning ("error unset format output: %d", res);
-
+  for (i = 0; i < priv->n_input_ports; i++) {
+    if ((res = spa_node_port_set_format (this->node, priv->input_port_ids[i], 0, NULL)) < 0)
+      g_warning ("error unset format output: %d", res);
+  }
+  for (i = 0; i < priv->n_output_ports; i++) {
+    if ((res = spa_node_port_set_format (this->node, priv->output_port_ids[i], 0, NULL)) < 0)
+      g_warning ("error unset format output: %d", res);
+  }
   return res;
 }
 
@@ -404,6 +413,7 @@ static gboolean
 node_set_state (PinosNode       *this,
                 PinosNodeState   state)
 {
+  PinosNodePrivate *priv = this->priv;
   SpaResult res = SPA_RESULT_OK;
 
   g_debug ("node %p: set state %s", this, pinos_node_state_as_string (state));
@@ -434,7 +444,12 @@ node_set_state (PinosNode       *this,
   if (SPA_RESULT_IS_ERROR (res))
     return FALSE;
 
-  pinos_node_update_state (this, state);
+  if (SPA_RESULT_IS_ASYNC (res)) {
+    priv->pending_state_seq = SPA_RESULT_ASYNC_SEQ (res);
+    priv->pending_state = state;
+  } else {
+    pinos_node_update_state (this, state);
+  }
 
   return TRUE;
 }
@@ -481,6 +496,9 @@ do_handle_async_complete (PinosNode *this)
   if (priv->async_init) {
     init_complete (this);
     priv->async_init = FALSE;
+  }
+  if (priv->pending_state_seq == ac->seq) {
+    pinos_node_update_state (this, priv->pending_state);
   }
   g_signal_emit (this, signals[SIGNAL_ASYNC_COMPLETE], 0, ac->seq, ac->res);
 }
@@ -1029,6 +1047,7 @@ pinos_node_init (PinosNode * node)
                                  (GCallback) handle_remove,
                                  node);
   priv->state = PINOS_NODE_STATE_CREATING;
+  priv->pending_state_seq = SPA_ID_INVALID;
   pinos_node1_set_state (priv->iface, priv->state);
 
   priv->input_links = g_array_new (FALSE, TRUE, sizeof (NodeLink));

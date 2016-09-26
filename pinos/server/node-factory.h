@@ -28,7 +28,7 @@ typedef struct _PinosNodeFactory PinosNodeFactory;
 typedef struct _PinosNodeFactoryClass PinosNodeFactoryClass;
 typedef struct _PinosNodeFactoryPrivate PinosNodeFactoryPrivate;
 
-#include <server/daemon.h>
+#include <pinos/server/daemon.h>
 
 #define PINOS_TYPE_NODE_FACTORY                 (pinos_node_factory_get_type ())
 #define PINOS_IS_NODE_FACTORY(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_NODE_FACTORY))

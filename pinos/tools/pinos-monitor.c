@@ -17,7 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include <client/pinos.h>
+#include <pinos/client/pinos.h>
 
 static GMainLoop *loop;
 

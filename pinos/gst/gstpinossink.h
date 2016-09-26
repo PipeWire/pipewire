@@ -23,8 +23,8 @@
 #include <gst/gst.h>
 #include <gst/base/gstbasesink.h>
 
-#include <client/pinos.h>
-#include <gst/gstpinospool.h>
+#include <pinos/client/pinos.h>
+#include <pinos/gst/gstpinospool.h>
 
 G_BEGIN_DECLS
 

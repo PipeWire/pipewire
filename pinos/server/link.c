@@ -554,11 +554,17 @@ do_start (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
   } else {
     pinos_link_update_state (this, PINOS_LINK_STATE_PAUSED);
 
-    if (in_state == SPA_NODE_STATE_PAUSED)
+    if (in_state == SPA_NODE_STATE_PAUSED) {
       pinos_node_set_state (this->input_node, PINOS_NODE_STATE_RUNNING);
+      if (pinos_node_get_state (this->input_node) != PINOS_NODE_STATE_RUNNING)
+        res = SPA_RESULT_RETURN_ASYNC (0);
+    }
 
-    if (out_state == SPA_NODE_STATE_PAUSED)
+    if (out_state == SPA_NODE_STATE_PAUSED) {
       pinos_node_set_state (this->output_node, PINOS_NODE_STATE_RUNNING);
+      if (pinos_node_get_state (this->output_node) != PINOS_NODE_STATE_RUNNING)
+        res = SPA_RESULT_RETURN_ASYNC (0);
+    }
   }
   return res;
 }

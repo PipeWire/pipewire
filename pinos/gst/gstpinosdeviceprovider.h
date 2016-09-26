@@ -28,7 +28,7 @@
 #include "config.h"
 #endif
 
-#include <client/pinos.h>
+#include <pinos/client/pinos.h>
 
 #include <gst/gst.h>
 

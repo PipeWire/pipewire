@@ -20,9 +20,9 @@
 #include <gio/gio.h>
 #include <glib.h>
 
-#include <client/pinos.h>
-#include <server/daemon.h>
-#include <server/module.h>
+#include <pinos/client/pinos.h>
+#include <pinos/server/daemon.h>
+#include <pinos/server/module.h>
 #include <spa/include/spa/memory.h>
 
 #include "daemon-config.h"

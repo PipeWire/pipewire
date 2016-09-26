@@ -2,6 +2,7 @@ remote_sources = ['proxy.c', 'plugin.c']
 
 remotelib = shared_library('spa-remote',
                            remote_sources,
-                           include_directories : inc,
+                           include_directories : spa_inc,
                            link_with : spalib,
-                           install : true)
+                           install : true,
+                           install_dir : '@0@/spa'.format(get_option('libdir')))

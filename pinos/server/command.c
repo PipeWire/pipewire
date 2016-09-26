@@ -21,7 +21,8 @@
 #include <glib.h>
 #include <string.h>
 
-#include <server/module.h>
+#include <pinos/client/pinos.h>
+#include <pinos/server/module.h>
 
 #include "command.h"
 

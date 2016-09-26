@@ -17,8 +17,6 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#define _GNU_SOURCE
-
 #include <dlfcn.h>
 #include <errno.h>
 #include <poll.h>

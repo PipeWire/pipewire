@@ -22,6 +22,8 @@
 #include "pinos/client/pinos.h"
 #include "spa/include/spa/memory.h"
 
+const gchar g_log_domain_pinos[] = "Pinos";
+
 GQuark
 pinos_error_quark (void)
 {

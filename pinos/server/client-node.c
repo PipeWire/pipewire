@@ -17,8 +17,6 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#define _GNU_SOURCE
-
 #include <string.h>
 #include <sys/socket.h>
 #include <errno.h>

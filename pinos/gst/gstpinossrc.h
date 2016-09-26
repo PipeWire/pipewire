@@ -23,7 +23,7 @@
 #include <gst/gst.h>
 #include <gst/base/gstpushsrc.h>
 
-#include <client/pinos.h>
+#include <pinos/client/pinos.h>
 
 G_BEGIN_DECLS
 

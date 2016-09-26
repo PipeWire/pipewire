@@ -17,6 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include "pinos.h"
 #include "mainloop.h"
 
 struct _PinosMainLoopPrivate

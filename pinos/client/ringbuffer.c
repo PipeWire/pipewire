@@ -17,8 +17,6 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#define _GNU_SOURCE
-
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -28,6 +26,7 @@
 #include <gio/gio.h>
 #include <glib-object.h>
 
+#include <pinos/client/pinos.h>
 #include <pinos/client/enumtypes.h>
 #include <pinos/client/ringbuffer.h>
 

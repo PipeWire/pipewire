@@ -25,7 +25,8 @@
 #include <glib.h>
 #include <string.h>
 
-#include <server/command.h>
+#include <pinos/client/pinos.h>
+#include <pinos/server/command.h>
 
 #include "pinos/daemon/daemon-config.h"
 

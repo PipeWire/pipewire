@@ -255,7 +255,7 @@ spa_alsa_monitor_set_event_callback (SpaMonitor              *monitor,
       return SPA_RESULT_ERROR;
 
     udev_monitor_filter_add_match_subsystem_devtype (this->umonitor,
-                                                     "video4linux",
+                                                     "sound",
                                                      NULL);
 
     udev_monitor_enable_receiving (this->umonitor);

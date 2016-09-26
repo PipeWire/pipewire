@@ -31,6 +31,7 @@
 #include "pinos/server/client-node.h"
 #include "pinos/server/client.h"
 #include "pinos/server/link.h"
+#include "pinos/server/rt-loop.h"
 
 #include "pinos/dbus/org-pinos.h"
 
@@ -47,6 +48,7 @@ struct _PinosDaemonPrivate
   GList *nodes;
 
   GHashTable *clients;
+  PinosRTLoop *loop;
 
   PinosProperties *properties;
 
@@ -326,8 +328,11 @@ static void
 on_node_added (PinosDaemon *daemon, PinosNode *node)
 {
   PinosNodeState state;
+  PinosDaemonPrivate *priv = daemon->priv;
 
   g_debug ("daemon %p: node %p added", daemon, node);
+
+  g_object_set (node, "rt-loop", priv->loop, NULL);
 
   g_signal_connect (node, "state-change", (GCallback) on_node_state_change, daemon);
 
@@ -763,6 +768,7 @@ pinos_daemon_finalize (GObject * object)
   g_debug ("daemon %p: finalize", object);
   g_clear_object (&priv->server_manager);
   g_clear_object (&priv->iface);
+  g_clear_object (&priv->loop);
   g_hash_table_unref (priv->clients);
   g_hash_table_unref (priv->node_factories);
 
@@ -820,6 +826,7 @@ pinos_daemon_init (PinosDaemon * daemon)
                                                 g_str_equal,
                                                 g_free,
                                                 g_object_unref);
+  priv->loop = pinos_rtloop_new();
 }
 
 /**

@@ -987,12 +987,23 @@ parse_control (PinosStream *stream,
       case SPA_CONTROL_CMD_SET_FORMAT:
       {
         SpaControlCmdSetFormat p;
+        SpaMemory *mem;
+        void *data;
+        size_t size;
 
-        if (spa_control_iter_parse_cmd (&it, &p) < 0)
+        data = spa_control_iter_get_data (&it, &size);
+        mem = spa_memory_alloc_size (SPA_MEMORY_POOL_LOCAL, data, size);
+        spa_control_iter_set_data (&it, spa_memory_ensure_ptr (mem), size);
+
+        if (spa_control_iter_parse_cmd (&it, &p) < 0) {
+          spa_memory_unref (&mem->mem);
           break;
+        }
 
         if (priv->format)
           spa_format_unref (priv->format);
+        if (p.format)
+          p.format->mem.mem = mem->mem;
         priv->format = p.format;
 
         spa_debug_format (p.format);

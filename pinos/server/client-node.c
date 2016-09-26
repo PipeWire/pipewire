@@ -162,8 +162,18 @@ static void
 pinos_client_node_dispose (GObject * object)
 {
   PinosClientNode *this = PINOS_CLIENT_NODE (object);
+  PinosNode *node = PINOS_NODE (this);
+  SpaProps *props;
+  SpaPropValue value;
+  int fd = -1;
 
   g_debug ("client-node %p: dispose", this);
+
+  spa_node_get_props (node->node, &props);
+  value.value = &fd;
+  value.size = sizeof (int);
+  spa_props_set_prop (props, spa_props_index_for_name (props, "socket"), &value);
+  spa_node_set_props (node->node, props);
 
   G_OBJECT_CLASS (pinos_client_node_parent_class)->dispose (object);
 }

@@ -43,8 +43,6 @@ typedef struct {
  * @user_data: user data
  * @fds: array of file descriptors
  * @n_fds: number of elements in @fds
- * @now: the current time
- * @timeout: the next desired wakeup time relative to @now
  *
  * Data passed to #SpaPollNotify.
  */
@@ -52,8 +50,6 @@ typedef struct {
   void *user_data;
   SpaPollFd *fds;
   unsigned int n_fds;
-  uint64_t now;
-  uint64_t timeout;
 } SpaPollNotifyData;
 
 typedef int (*SpaPollNotify) (SpaPollNotifyData *data);
@@ -67,7 +63,7 @@ typedef int (*SpaPollNotify) (SpaPollNotifyData *data);
  * @idle_cb: callback called when there is no other work
  * @before_cb: callback called before starting the poll
  * @after_cb: callback called after the poll loop
- * @user_data: user data pass to callbacks
+ * @user_data: user data passed to callbacks
  */
 typedef struct {
   uint32_t       id;

@@ -200,8 +200,6 @@ spa_alsa_source_node_set_event_callback (SpaNode              *node,
   this->event_cb = event;
   this->user_data = user_data;
 
-  update_state (this, SPA_NODE_STATE_CONFIGURE);
-
   return SPA_RESULT_OK;
 }
 
@@ -820,6 +818,9 @@ alsa_source_init (const SpaHandleFactory  *factory,
       this->props[1].props.unset_mask &= ~1;
     }
   }
+
+  update_state (this, SPA_NODE_STATE_CONFIGURE);
+
   return SPA_RESULT_OK;
 }
 

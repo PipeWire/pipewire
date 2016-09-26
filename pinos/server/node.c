@@ -19,17 +19,13 @@
 
 #include <string.h>
 #include <stdlib.h>
-#include <poll.h>
 #include <errno.h>
-#include <sys/eventfd.h>
-
-#include <gio/gio.h>
-#include <gio/gunixfdlist.h>
 
 #include "pinos/client/pinos.h"
 #include "pinos/client/enumtypes.h"
 
 #include "pinos/server/node.h"
+#include "pinos/server/rt-loop.h"
 #include "pinos/server/daemon.h"
 
 #include "pinos/dbus/org-pinos.h"
@@ -64,15 +60,7 @@ struct _PinosNodePrivate
 
   PinosProperties *properties;
 
-  unsigned int n_poll;
-  SpaPollItem poll[16];
-
-  bool rebuild_fds;
-  SpaPollFd fds[16];
-  unsigned int n_fds;
-
-  gboolean running;
-  pthread_t thread;
+  PinosRTLoop *loop;
 
   GArray *output_links;
   guint   n_used_output_links;
@@ -91,6 +79,7 @@ enum
   PROP_0,
   PROP_DAEMON,
   PROP_SENDER,
+  PROP_RTLOOP,
   PROP_OBJECT_PATH,
   PROP_NAME,
   PROP_PROPERTIES,
@@ -188,139 +177,6 @@ update_port_ids (PinosNode *node, gboolean create)
       j++;
     } else
       break;
-  }
-}
-
-static void *
-loop (void *user_data)
-{
-  PinosNode *this = user_data;
-  PinosNodePrivate *priv = this->priv;
-  unsigned int i, j;
-
-  g_debug ("node %p: enter thread", this);
-  while (priv->running) {
-    SpaPollNotifyData ndata;
-    unsigned int n_idle = 0;
-    int r;
-
-    /* prepare */
-    for (i = 0; i < priv->n_poll; i++) {
-      SpaPollItem *p = &priv->poll[i];
-
-      if (p->enabled && p->idle_cb) {
-        ndata.fds = NULL;
-        ndata.n_fds = 0;
-        ndata.user_data = p->user_data;
-        p->idle_cb (&ndata);
-        n_idle++;
-      }
-    }
-    if (n_idle > 0)
-      continue;
-
-    /* rebuild */
-    if (priv->rebuild_fds) {
-      g_debug ("node %p: rebuild fds", this);
-      priv->n_fds = 1;
-      for (i = 0; i < priv->n_poll; i++) {
-        SpaPollItem *p = &priv->poll[i];
-
-        if (!p->enabled)
-          continue;
-
-        for (j = 0; j < p->n_fds; j++)
-          priv->fds[priv->n_fds + j] = p->fds[j];
-        p->fds = &priv->fds[priv->n_fds];
-        priv->n_fds += p->n_fds;
-      }
-      priv->rebuild_fds = false;
-    }
-
-    /* before */
-    for (i = 0; i < priv->n_poll; i++) {
-      SpaPollItem *p = &priv->poll[i];
-
-      if (p->enabled && p->before_cb) {
-        ndata.fds = p->fds;
-        ndata.n_fds = p->n_fds;
-        ndata.user_data = p->user_data;
-        p->before_cb (&ndata);
-      }
-    }
-
-    r = poll ((struct pollfd *) priv->fds, priv->n_fds, -1);
-    if (r < 0) {
-      if (errno == EINTR)
-        continue;
-      break;
-    }
-    if (r == 0) {
-      g_debug ("node %p: select timeout", this);
-      break;
-    }
-
-    /* check wakeup */
-    if (priv->fds[0].revents & POLLIN) {
-      uint64_t u;
-      if (read (priv->fds[0].fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
-        g_warning ("node %p: failed to read fd", strerror (errno));
-      continue;
-    }
-
-    /* after */
-    for (i = 0; i < priv->n_poll; i++) {
-      SpaPollItem *p = &priv->poll[i];
-
-      if (p->enabled && p->after_cb) {
-        ndata.fds = p->fds;
-        ndata.n_fds = p->n_fds;
-        ndata.user_data = p->user_data;
-        p->after_cb (&ndata);
-      }
-    }
-  }
-  g_debug ("node %p: leave thread", this);
-
-  return NULL;
-}
-
-static void
-wakeup_thread (PinosNode *this)
-{
-  PinosNodePrivate *priv = this->priv;
-  uint64_t u = 1;
-
-  if (write (priv->fds[0].fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
-    g_warning ("node %p: failed to write fd", strerror (errno));
-}
-
-static void
-start_thread (PinosNode *this)
-{
-  PinosNodePrivate *priv = this->priv;
-  int err;
-
-  if (!priv->running) {
-    priv->running = true;
-    if ((err = pthread_create (&priv->thread, NULL, loop, this)) != 0) {
-      g_warning ("node %p: can't create thread", strerror (err));
-      priv->running = false;
-    }
-  }
-}
-
-static void
-stop_thread (PinosNode *this, gboolean in_thread)
-{
-  PinosNodePrivate *priv = this->priv;
-
-  if (priv->running) {
-    priv->running = false;
-    if (!in_thread) {
-      wakeup_thread (this);
-      pthread_join (priv->thread, NULL);
-    }
   }
 }
 
@@ -508,7 +364,6 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
 {
   PinosNode *this = user_data;
   PinosNodePrivate *priv = this->priv;
-  gboolean in_thread = pthread_equal (priv->thread, pthread_self());
 
   switch (event->type) {
     case SPA_NODE_EVENT_TYPE_INVALID:
@@ -532,57 +387,20 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
 
     case SPA_NODE_EVENT_TYPE_ADD_POLL:
     {
-      SpaPollItem *poll = event->data;
-
-      g_debug ("node %p: add pollid %d, n_poll %d, n_fds %d", this, poll->id, priv->n_poll, poll->n_fds);
-      priv->poll[priv->n_poll] = *poll;
-      priv->n_poll++;
-      if (poll->n_fds)
-        priv->rebuild_fds = true;
-
-      if (!in_thread) {
-        wakeup_thread (this);
-        start_thread (this);
-      }
+      SpaPollItem *item = event->data;
+      pinos_rtloop_add_poll (priv->loop, item);
       break;
     }
     case SPA_NODE_EVENT_TYPE_UPDATE_POLL:
     {
-      unsigned int i;
-      SpaPollItem *poll = event->data;
-
-      for (i = 0; i < priv->n_poll; i++) {
-        if (priv->poll[i].id == poll->id)
-          priv->poll[i] = *poll;
-      }
-      if (poll->n_fds)
-        priv->rebuild_fds = true;
-
-      if (!in_thread)
-        wakeup_thread (this);
+      SpaPollItem *item = event->data;
+      pinos_rtloop_update_poll (priv->loop, item);
       break;
     }
     case SPA_NODE_EVENT_TYPE_REMOVE_POLL:
     {
-      SpaPollItem *poll = event->data;
-      unsigned int i;
-
-      g_debug ("node %p: remove poll %d %d", this, poll->n_fds, priv->n_poll);
-      for (i = 0; i < priv->n_poll; i++) {
-        if (priv->poll[i].id == poll->id) {
-          priv->n_poll--;
-          for (; i < priv->n_poll; i++)
-            priv->poll[i] = priv->poll[i+1];
-          break;
-        }
-      }
-      if (priv->n_poll > 0) {
-        priv->rebuild_fds = true;
-        if (!in_thread)
-          wakeup_thread (this);
-      } else {
-        stop_thread (this, in_thread);
-      }
+      SpaPollItem *item = event->data;
+      pinos_rtloop_remove_poll (priv->loop, item);
       break;
     }
     case SPA_NODE_EVENT_TYPE_NEED_INPUT:
@@ -671,10 +489,10 @@ handle_remove (PinosNode1             *interface,
                GDBusMethodInvocation  *invocation,
                gpointer                user_data)
 {
-  PinosNode *node = user_data;
+  PinosNode *this = user_data;
 
-  g_debug ("node %p: remove", node);
-  pinos_node_remove (node);
+  g_debug ("node %p: remove", this);
+  pinos_node_remove (this);
 
   g_dbus_method_invocation_return_value (invocation,
                                          g_variant_new ("()"));
@@ -687,8 +505,8 @@ pinos_node_get_property (GObject    *_object,
                          GValue     *value,
                          GParamSpec *pspec)
 {
-  PinosNode *node = PINOS_NODE (_object);
-  PinosNodePrivate *priv = node->priv;
+  PinosNode *this = PINOS_NODE (_object);
+  PinosNodePrivate *priv = this->priv;
 
   switch (prop_id) {
     case PROP_DAEMON:
@@ -697,6 +515,10 @@ pinos_node_get_property (GObject    *_object,
 
     case PROP_SENDER:
       g_value_set_string (value, priv->sender);
+      break;
+
+    case PROP_RTLOOP:
+      g_value_set_object (value, priv->loop);
       break;
 
     case PROP_OBJECT_PATH:
@@ -712,11 +534,11 @@ pinos_node_get_property (GObject    *_object,
       break;
 
     case PROP_NODE:
-      g_value_set_pointer (value, node->node);
+      g_value_set_pointer (value, this->node);
       break;
 
     default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (node, prop_id, pspec);
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (this, prop_id, pspec);
       break;
   }
 }
@@ -727,8 +549,8 @@ pinos_node_set_property (GObject      *_object,
                          const GValue *value,
                          GParamSpec   *pspec)
 {
-  PinosNode *node = PINOS_NODE (_object);
-  PinosNodePrivate *priv = node->priv;
+  PinosNode *this = PINOS_NODE (_object);
+  PinosNodePrivate *priv = this->priv;
 
   switch (prop_id) {
     case PROP_DAEMON:
@@ -738,6 +560,21 @@ pinos_node_set_property (GObject      *_object,
     case PROP_SENDER:
       priv->sender = g_value_dup_string (value);
       break;
+
+    case PROP_RTLOOP:
+    {
+      SpaResult res;
+
+      if (priv->loop)
+        g_object_unref (priv->loop);
+      priv->loop = g_value_dup_object (value);
+
+      if (priv->loop) {
+        if ((res = spa_node_set_event_callback (this->node, on_node_event, this)) < 0)
+         g_warning ("node %p: error setting callback", this);
+      }
+      break;
+    }
 
     case PROP_NAME:
       priv->name = g_value_dup_string (value);
@@ -752,21 +589,21 @@ pinos_node_set_property (GObject      *_object,
     case PROP_NODE:
     {
       void *iface;
-      node->node = g_value_get_pointer (value);
-      if (node->node->handle->get_interface (node->node->handle, SPA_INTERFACE_ID_CLOCK, &iface) >= 0)
-        node->clock = iface;
+      this->node = g_value_get_pointer (value);
+      if (this->node->handle->get_interface (this->node->handle, SPA_INTERFACE_ID_CLOCK, &iface) >= 0)
+        this->clock = iface;
       break;
     }
     default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (node, prop_id, pspec);
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (this, prop_id, pspec);
       break;
   }
 }
 
 static void
-node_register_object (PinosNode *node)
+node_register_object (PinosNode *this)
 {
-  PinosNodePrivate *priv = node->priv;
+  PinosNodePrivate *priv = this->priv;
   PinosDaemon *daemon = priv->daemon;
   PinosObjectSkeleton *skel;
 
@@ -778,21 +615,21 @@ node_register_object (PinosNode *node)
   priv->object_path = pinos_daemon_export_uniquely (daemon, G_DBUS_OBJECT_SKELETON (skel));
   g_object_unref (skel);
 
-  g_debug ("node %p: register object %s", node, priv->object_path);
-  pinos_daemon_add_node (daemon, node);
+  g_debug ("node %p: register object %s", this, priv->object_path);
+  pinos_daemon_add_node (daemon, this);
 
   return;
 }
 
 static void
-node_unregister_object (PinosNode *node)
+node_unregister_object (PinosNode *this)
 {
-  PinosNodePrivate *priv = node->priv;
+  PinosNodePrivate *priv = this->priv;
 
-  g_debug ("node %p: unregister object %s", node, priv->object_path);
+  g_debug ("node %p: unregister object %s", this, priv->object_path);
   pinos_daemon_unexport (priv->daemon, priv->object_path);
   g_clear_pointer (&priv->object_path, g_free);
-  pinos_daemon_remove_node (priv->daemon, node);
+  pinos_daemon_remove_node (priv->daemon, this);
 }
 
 static void
@@ -800,17 +637,17 @@ on_property_notify (GObject    *obj,
                     GParamSpec *pspec,
                     gpointer    user_data)
 {
-  PinosNode *node = user_data;
-  PinosNodePrivate *priv = node->priv;
+  PinosNode *this = user_data;
+  PinosNodePrivate *priv = this->priv;
 
   if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "sender") == 0) {
     pinos_node1_set_owner (priv->iface, priv->sender);
   }
   if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "name") == 0) {
-    pinos_node1_set_name (priv->iface, pinos_node_get_name (node));
+    pinos_node1_set_name (priv->iface, pinos_node_get_name (this));
   }
   if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "properties") == 0) {
-    PinosProperties *props = pinos_node_get_properties (node);
+    PinosProperties *props = pinos_node_get_properties (this);
     pinos_node1_set_properties (priv->iface, props ? pinos_properties_to_variant (props) : NULL);
   }
 }
@@ -832,17 +669,11 @@ pinos_node_constructed (GObject * obj)
 {
   PinosNode *this = PINOS_NODE (obj);
   PinosNodePrivate *priv = this->priv;
-  SpaResult res;
 
   g_debug ("node %p: constructed", this);
 
   g_signal_connect (this, "notify", (GCallback) on_property_notify, this);
   G_OBJECT_CLASS (pinos_node_parent_class)->constructed (obj);
-
-  priv->fds[0].fd = eventfd (0, 0);
-  priv->fds[0].events = POLLIN | POLLPRI | POLLERR;
-  priv->fds[0].revents = 0;
-  priv->n_fds = 1;
 
   if (this->node->info) {
     unsigned int i;
@@ -855,9 +686,6 @@ pinos_node_constructed (GObject * obj)
                             this->node->info->items[i].key,
                             this->node->info->items[i].value);
   }
-
-  if ((res = spa_node_set_event_callback (this->node, on_node_event, this)) < 0)
-    g_warning ("node %p: error setting callback", this);
 
   if (priv->sender == NULL)
     priv->sender = g_strdup (pinos_daemon_get_sender (priv->daemon));
@@ -878,7 +706,6 @@ pinos_node_dispose (GObject * obj)
 
   g_debug ("node %p: dispose", node);
   pinos_node_set_state (node, PINOS_NODE_STATE_SUSPENDED);
-  stop_thread (node, FALSE);
 
   node_unregister_object (node);
 
@@ -897,6 +724,7 @@ pinos_node_finalize (GObject * obj)
   g_debug ("node %p: finalize", node);
   g_clear_object (&priv->daemon);
   g_clear_object (&priv->iface);
+  g_clear_object (&priv->loop);
   g_free (priv->sender);
   g_free (priv->name);
   g_clear_error (&priv->error);
@@ -979,6 +807,15 @@ pinos_node_class_init (PinosNodeClass * klass)
                                                          G_PARAM_READWRITE |
                                                          G_PARAM_CONSTRUCT_ONLY |
                                                          G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (gobject_class,
+                                   PROP_RTLOOP,
+                                   g_param_spec_object ("rt-loop",
+                                                        "RTLoop",
+                                                        "The RTLoop",
+                                                        PINOS_TYPE_RTLOOP,
+                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_CONSTRUCT |
+                                                        G_PARAM_STATIC_STRINGS));
 
   signals[SIGNAL_REMOVE] = g_signal_new ("remove",
                                          G_TYPE_FROM_CLASS (klass),
@@ -1539,17 +1376,19 @@ pinos_node_report_error (PinosNode *node,
                          GError    *error)
 {
   PinosNodePrivate *priv;
+  PinosNodeState old;
 
   g_return_if_fail (PINOS_IS_NODE (node));
   priv = node->priv;
 
+  old = priv->state;
   g_clear_error (&priv->error);
   remove_idle_timeout (node);
   priv->error = error;
   priv->state = PINOS_NODE_STATE_ERROR;
   g_debug ("node %p: got error state %s", node, error->message);
   pinos_node1_set_state (priv->iface, PINOS_NODE_STATE_ERROR);
-  g_object_notify (G_OBJECT (node), "state");
+  g_signal_emit (node, signals[SIGNAL_STATE_CHANGE], 0, old, priv->state);
 }
 
 static gboolean

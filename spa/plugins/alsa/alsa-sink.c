@@ -196,8 +196,6 @@ spa_alsa_sink_node_set_event_callback (SpaNode              *node,
   this->event_cb = event;
   this->user_data = user_data;
 
-  update_state (this, SPA_NODE_STATE_CONFIGURE);
-
   return SPA_RESULT_OK;
 }
 
@@ -655,6 +653,8 @@ alsa_sink_init (const SpaHandleFactory  *factory,
   reset_alsa_sink_props (&this->props[1]);
 
   this->status.flags = SPA_PORT_STATUS_FLAG_NEED_INPUT;
+
+  update_state (this, SPA_NODE_STATE_CONFIGURE);
 
   return SPA_RESULT_OK;
 }

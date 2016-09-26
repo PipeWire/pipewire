@@ -284,7 +284,7 @@ pinos_client_node_new (PinosDaemon     *daemon,
   g_return_val_if_fail (PINOS_IS_DAEMON (daemon), NULL);
 
   if ((res = make_node (&n,
-                        "spa/build/plugins/remote/libspa-remote.so",
+                        "build/spa/plugins/remote/libspa-remote.so",
                         "proxy")) < 0) {
     g_error ("can't create proxy: %d", res);
     return NULL;

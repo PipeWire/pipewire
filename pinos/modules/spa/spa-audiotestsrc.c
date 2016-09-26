@@ -178,7 +178,7 @@ pinos_spa_audiotestsrc_new (PinosDaemon *daemon,
   SpaResult res;
 
   if ((res = make_node (&n,
-                        "spa/build/plugins/audiotestsrc/libspa-audiotestsrc.so",
+                        "build/spa/plugins/audiotestsrc/libspa-audiotestsrc.so",
                         "audiotestsrc")) < 0) {
     g_error ("can't create audiotestsrc: %d", res);
     return NULL;

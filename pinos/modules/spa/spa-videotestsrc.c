@@ -149,7 +149,7 @@ pinos_spa_videotestsrc_new (PinosDaemon *daemon,
   SpaResult res;
 
   if ((res = make_node (&n,
-                        "spa/build/plugins/videotestsrc/libspa-videotestsrc.so",
+                        "build/spa/plugins/videotestsrc/libspa-videotestsrc.so",
                         "videotestsrc")) < 0) {
     g_error ("can't create videotestsrc: %d", res);
     return NULL;

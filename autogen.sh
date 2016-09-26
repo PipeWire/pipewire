@@ -17,6 +17,6 @@
 
 # Only there to make jhbuild happy
 
-NOCONFIGURE=1 ./bootstrap.sh
-
-exec ./configure  "$@"
+rm -rf ./build
+mkdir build
+meson build $@

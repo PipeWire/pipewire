@@ -366,7 +366,7 @@ pinos_spa_alsa_monitor_new (PinosDaemon *daemon)
   void *iface;
 
   if ((res = make_handle (&handle,
-                        "spa/build/plugins/alsa/libspa-alsa.so",
+                        "build/spa/plugins/alsa/libspa-alsa.so",
                         "alsa-monitor",
                         NULL)) < 0) {
     g_error ("can't create alsa-monitor: %d", res);

@@ -366,7 +366,7 @@ pinos_spa_v4l2_monitor_new (PinosDaemon *daemon)
   void *iface;
 
   if ((res = make_handle (&handle,
-                        "spa/build/plugins/v4l2/libspa-v4l2.so",
+                        "build/spa/plugins/v4l2/libspa-v4l2.so",
                         "v4l2-monitor",
                         NULL)) < 0) {
     g_error ("can't create v4l2-monitor: %d", res);

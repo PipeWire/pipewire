@@ -22,9 +22,13 @@
 
 #include <glib-object.h>
 
-#include <pinos/server/daemon.h>
-
 G_BEGIN_DECLS
+
+typedef struct _PinosClient PinosClient;
+typedef struct _PinosClientClass PinosClientClass;
+typedef struct _PinosClientPrivate PinosClientPrivate;
+
+#include <pinos/server/daemon.h>
 
 #define PINOS_TYPE_CLIENT                 (pinos_client_get_type ())
 #define PINOS_IS_CLIENT(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_CLIENT))
@@ -34,10 +38,6 @@ G_BEGIN_DECLS
 #define PINOS_CLIENT_CLASS(klass)         (G_TYPE_CHECK_CLASS_CAST ((klass), PINOS_TYPE_CLIENT, PinosClientClass))
 #define PINOS_CLIENT_CAST(obj)            ((PinosClient*)(obj))
 #define PINOS_CLIENT_CLASS_CAST(klass)    ((PinosClientClass*)(klass))
-
-typedef struct _PinosClient PinosClient;
-typedef struct _PinosClientClass PinosClientClass;
-typedef struct _PinosClientPrivate PinosClientPrivate;
 
 /**
  * PinosClient:

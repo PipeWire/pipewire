@@ -42,7 +42,7 @@ struct _PinosNodePrivate
   PinosDaemon *daemon;
   PinosNode1 *iface;
 
-  gchar *sender;
+  PinosClient *client;
   gchar *object_path;
   gchar *name;
 
@@ -78,7 +78,7 @@ enum
 {
   PROP_0,
   PROP_DAEMON,
-  PROP_SENDER,
+  PROP_CLIENT,
   PROP_RTLOOP,
   PROP_OBJECT_PATH,
   PROP_NAME,
@@ -513,8 +513,8 @@ pinos_node_get_property (GObject    *_object,
       g_value_set_object (value, priv->daemon);
       break;
 
-    case PROP_SENDER:
-      g_value_set_string (value, priv->sender);
+    case PROP_CLIENT:
+      g_value_set_object (value, priv->client);
       break;
 
     case PROP_RTLOOP:
@@ -557,8 +557,8 @@ pinos_node_set_property (GObject      *_object,
       priv->daemon = g_value_dup_object (value);
       break;
 
-    case PROP_SENDER:
-      priv->sender = g_value_dup_string (value);
+    case PROP_CLIENT:
+      priv->client = g_value_get_object (value);
       break;
 
     case PROP_RTLOOP:
@@ -640,8 +640,11 @@ on_property_notify (GObject    *obj,
   PinosNode *this = user_data;
   PinosNodePrivate *priv = this->priv;
 
-  if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "sender") == 0) {
-    pinos_node1_set_owner (priv->iface, priv->sender);
+  if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "client") == 0) {
+    if (priv->client)
+      pinos_node1_set_owner (priv->iface, pinos_client_get_object_path (priv->client));
+    else
+      pinos_node1_set_owner (priv->iface, pinos_daemon_get_object_path (priv->daemon));
   }
   if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "name") == 0) {
     pinos_node1_set_name (priv->iface, pinos_node_get_name (this));
@@ -687,9 +690,6 @@ pinos_node_constructed (GObject * obj)
                             this->node->info->items[i].value);
   }
 
-  if (priv->sender == NULL)
-    priv->sender = g_strdup (pinos_daemon_get_sender (priv->daemon));
-
   if (this->node->state > SPA_NODE_STATE_INIT) {
     init_complete (this);
   } else {
@@ -725,7 +725,6 @@ pinos_node_finalize (GObject * obj)
   g_clear_object (&priv->daemon);
   g_clear_object (&priv->iface);
   g_clear_object (&priv->loop);
-  g_free (priv->sender);
   g_free (priv->name);
   g_clear_error (&priv->error);
   if (priv->properties)
@@ -761,11 +760,11 @@ pinos_node_class_init (PinosNodeClass * klass)
                                                         G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class,
-                                   PROP_SENDER,
-                                   g_param_spec_string ("sender",
-                                                        "Sender",
-                                                        "The Sender",
-                                                        NULL,
+                                   PROP_CLIENT,
+                                   g_param_spec_object ("client",
+                                                        "Client",
+                                                        "The Client",
+                                                        PINOS_TYPE_CLIENT,
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_CONSTRUCT_ONLY |
                                                         G_PARAM_STATIC_STRINGS));
@@ -894,7 +893,7 @@ pinos_node_init (PinosNode * node)
 /**
  * pinos_node_new:
  * @daemon: a #PinosDaemon
- * @sender: the path of the owner
+ * @client: the client owner
  * @name: a name
  * @properties: extra properties
  *
@@ -904,7 +903,7 @@ pinos_node_init (PinosNode * node)
  */
 PinosNode *
 pinos_node_new (PinosDaemon     *daemon,
-                const gchar     *sender,
+                PinosClient     *client,
                 const gchar     *name,
                 PinosProperties *properties,
                 SpaNode         *node)
@@ -913,7 +912,7 @@ pinos_node_new (PinosDaemon     *daemon,
 
   return g_object_new (PINOS_TYPE_NODE,
                        "daemon", daemon,
-                       "sender", sender,
+                       "client", client,
                        "name", name,
                        "properties", properties,
                        "node", node,
@@ -997,22 +996,22 @@ pinos_node_get_daemon (PinosNode *node)
 }
 
 /**
- * pinos_node_get_sender:
+ * pinos_node_get_client:
  * @node: a #PinosNode
  *
- * Get the owner path of @node.
+ * Get the owner client of @node.
  *
- * Returns: the owner path of @node.
+ * Returns: the owner client of @node.
  */
-const gchar *
-pinos_node_get_sender (PinosNode *node)
+PinosClient *
+pinos_node_get_client (PinosNode *node)
 {
   PinosNodePrivate *priv;
 
   g_return_val_if_fail (PINOS_IS_NODE (node), NULL);
   priv = node->priv;
 
-  return priv->sender;
+  return priv->client;
 }
 /**
  * pinos_node_get_object_path:

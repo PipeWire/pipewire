@@ -45,6 +45,8 @@ struct _PinosDaemonPrivate
   GDBusConnection *connection;
   GDBusObjectManagerServer *server_manager;
 
+  gchar *object_path;
+
   GList *nodes;
 
   GHashTable *clients;
@@ -60,6 +62,7 @@ enum
   PROP_0,
   PROP_CONNECTION,
   PROP_PROPERTIES,
+  PROP_OBJECT_PATH,
 };
 
 static void
@@ -135,6 +138,7 @@ handle_create_node (PinosDaemon1           *interface,
   PinosProperties *props;
 
   sender = g_dbus_method_invocation_get_sender (invocation);
+  client = sender_get_client (daemon, sender, TRUE);
 
   g_debug ("daemon %p: create node: %s", daemon, sender);
 
@@ -144,12 +148,12 @@ handle_create_node (PinosDaemon1           *interface,
   if (factory != NULL) {
     node = pinos_node_factory_create_node (factory,
                                            daemon,
-                                           sender,
+                                           client,
                                            arg_name,
                                            props);
   } else {
     node = pinos_node_new (daemon,
-                           sender,
+                           client,
                            arg_name,
                            props,
                            NULL);
@@ -160,7 +164,6 @@ handle_create_node (PinosDaemon1           *interface,
   if (node == NULL)
     goto no_node;
 
-  client = sender_get_client (daemon, sender, TRUE);
   pinos_client_add_object (client, G_OBJECT (node));
 
   g_signal_connect (node,
@@ -189,7 +192,7 @@ no_node:
 static void
 on_link_state_notify (GObject     *obj,
                       GParamSpec  *pspec,
-                      PinosClient *client)
+                      PinosDaemon *daemon)
 {
   PinosLink *link = PINOS_LINK (obj);
   GError *error = NULL;
@@ -198,17 +201,20 @@ on_link_state_notify (GObject     *obj,
   state = pinos_link_get_state (link, &error);
   switch (state) {
     case PINOS_LINK_STATE_ERROR:
-      g_warning ("link %p: state error: %s", link, error->message);
+    {
+      g_warning ("daemon %p: link %p: state error: %s", daemon, link, error->message);
 
-      if (link->input_node && pinos_client_has_object (client, G_OBJECT (link->input_node))) {
+      if (link->input_node) {
         pinos_node_report_error (link->input_node, g_error_copy (error));
       }
-      if (link->output_node && pinos_client_has_object (client, G_OBJECT (link->output_node))) {
+      if (link->output_node) {
         pinos_node_report_error (link->output_node, g_error_copy (error));
       }
       break;
+    }
+
     case PINOS_LINK_STATE_UNLINKED:
-      g_warning ("link %p: unlinked", link);
+      g_warning ("daemon %p: link %p: unlinked", daemon, link);
       break;
     case PINOS_LINK_STATE_INIT:
     case PINOS_LINK_STATE_NEGOTIATING:
@@ -236,7 +242,6 @@ on_port_added (PinosNode *node, PinosDirection direction, PinosDaemon *this)
   path = pinos_properties_get (props, "pinos.target.node");
 
   if (path) {
-    const gchar *sender;
     guint target_port;
     guint node_port;
 
@@ -275,8 +280,8 @@ on_port_added (PinosNode *node, PinosDirection direction, PinosDaemon *this)
     if (link == NULL)
       goto error;
 
-    sender = pinos_node_get_sender (node);
-    if (sender && (client = sender_get_client (this, sender, FALSE))) {
+    client = pinos_node_get_client (node);
+    if (client) {
       pinos_client_add_object (client, G_OBJECT (link));
     }
 
@@ -370,12 +375,13 @@ handle_create_client_node (PinosDaemon1           *interface,
   gint fdidx;
 
   sender = g_dbus_method_invocation_get_sender (invocation);
+  client = sender_get_client (daemon, sender, TRUE);
 
   g_debug ("daemon %p: create client-node: %s", daemon, sender);
   props = pinos_properties_from_variant (arg_properties);
 
   node =  pinos_client_node_new (daemon,
-                                 sender,
+                                 client,
                                  arg_name,
                                  props);
   pinos_properties_free (props);
@@ -384,7 +390,6 @@ handle_create_client_node (PinosDaemon1           *interface,
   if (socket == NULL)
     goto no_socket;
 
-  client = sender_get_client (daemon, sender, TRUE);
   pinos_client_add_object (client, G_OBJECT (node));
 
   object_path = pinos_node_get_object_path (PINOS_NODE (node));
@@ -427,6 +432,8 @@ export_server_object (PinosDaemon              *daemon,
   pinos_object_skeleton_set_daemon1 (skel, priv->iface);
 
   g_dbus_object_manager_server_export (manager, G_DBUS_OBJECT_SKELETON (skel));
+  g_free (priv->object_path);
+  priv->object_path = g_strdup (g_dbus_object_get_object_path (G_DBUS_OBJECT (skel)));
   g_object_unref (skel);
 }
 
@@ -464,6 +471,7 @@ name_lost_handler (GDBusConnection *connection,
 
   g_dbus_object_manager_server_unexport (manager, PINOS_DBUS_OBJECT_SERVER);
   g_dbus_object_manager_server_set_connection (manager, connection);
+  g_clear_pointer (&priv->object_path, g_free);
   priv->connection = connection;
 }
 
@@ -482,20 +490,14 @@ pinos_daemon_new (PinosProperties *properties)
 }
 
 const gchar *
-pinos_daemon_get_sender (PinosDaemon *daemon)
+pinos_daemon_get_object_path (PinosDaemon *daemon)
 {
   PinosDaemonPrivate *priv;
-  const gchar *res;
 
   g_return_val_if_fail (PINOS_IS_DAEMON (daemon), NULL);
   priv = daemon->priv;
 
-  if (priv->connection)
-    res = g_dbus_connection_get_unique_name (priv->connection);
-  else
-    res = NULL;
-
-  return res;
+  return priv->object_path;
 }
 
 /**
@@ -702,6 +704,10 @@ pinos_daemon_get_property (GObject    *_object,
       g_value_set_object (value, priv->connection);
       break;
 
+    case PROP_OBJECT_PATH:
+      g_value_set_string (value, priv->object_path);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (daemon, prop_id, pspec);
       break;
@@ -807,6 +813,15 @@ pinos_daemon_class_init (PinosDaemonClass * klass)
                                                        G_PARAM_READWRITE |
                                                        G_PARAM_CONSTRUCT |
                                                        G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_OBJECT_PATH,
+                                   g_param_spec_string ("object-path",
+                                                        "Object Path",
+                                                        "The object path",
+                                                        NULL,
+                                                        G_PARAM_READABLE |
+                                                        G_PARAM_STATIC_STRINGS));
 
 }
 

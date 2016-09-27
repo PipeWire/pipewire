@@ -274,7 +274,7 @@ make_node (SpaNode **node, const char *lib, const char *name)
 /**
  * pinos_client_node_new:
  * @daemon: a #PinosDaemon
- * @sender: the path of the owner
+ * @client: the client owner
  * @name: a name
  * @properties: extra properties
  *
@@ -284,7 +284,7 @@ make_node (SpaNode **node, const char *lib, const char *name)
  */
 PinosNode *
 pinos_client_node_new (PinosDaemon     *daemon,
-                       const gchar     *sender,
+                       PinosClient     *client,
                        const gchar     *name,
                        PinosProperties *properties)
 {
@@ -302,7 +302,7 @@ pinos_client_node_new (PinosDaemon     *daemon,
 
   return g_object_new (PINOS_TYPE_CLIENT_NODE,
                        "daemon", daemon,
-                       "sender", sender,
+                       "client", client,
                        "name", name,
                        "properties", properties,
                        "node", n,

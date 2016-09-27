@@ -153,7 +153,7 @@ pinos_node_factory_get_name (PinosNodeFactory *factory)
  * pinos_node_factory_create_node:
  * @factory: A #PinosNodeFactory
  * @daemon: a #PinosDaemon
- * @sender: the path of the owner
+ * @client: the owner client
  * @name: node name
  * @props: #PinosProperties for the node
  *
@@ -164,7 +164,7 @@ pinos_node_factory_get_name (PinosNodeFactory *factory)
 PinosNode *
 pinos_node_factory_create_node (PinosNodeFactory *factory,
                                 PinosDaemon *daemon,
-                                const gchar *sender,
+                                PinosClient *client,
                                 const gchar *name,
                                 PinosProperties *props)
 {
@@ -177,5 +177,5 @@ pinos_node_factory_create_node (PinosNodeFactory *factory,
     return NULL;
 
   g_debug ("node factory %p: create node", factory);
-  return klass->create_node (factory, daemon, sender, name, props);
+  return klass->create_node (factory, daemon, client, name, props);
 }

@@ -99,7 +99,7 @@ struct _SpaVideoTestSrc {
   SpaQueue ready;
 };
 
-#define DEFAULT_LIVE false
+#define DEFAULT_LIVE true
 
 enum {
   PROP_ID_LIVE,
@@ -482,6 +482,9 @@ clear_buffers (SpaVideoTestSrc *this)
     this->alloc_buffers = NULL;
     this->n_buffers = 0;
     this->have_buffers = false;
+    this->info.flags &= ~SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
+    SPA_QUEUE_INIT (&this->empty);
+    SPA_QUEUE_INIT (&this->ready);
   }
   return SPA_RESULT_OK;
 }
@@ -668,6 +671,9 @@ spa_videotestsrc_node_port_use_buffers (SpaNode         *node,
     }
     this->n_buffers = n_buffers;
     this->have_buffers = true;
+    this->info.flags |= SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
+  } else {
+    this->info.flags &= ~SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
   }
 
   if (this->have_buffers) {
@@ -688,6 +694,7 @@ spa_videotestsrc_node_port_alloc_buffers (SpaNode         *node,
                                           uint32_t        *n_buffers)
 {
   SpaVideoTestSrc *this;
+  unsigned int i;
 
   if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -703,7 +710,12 @@ spa_videotestsrc_node_port_alloc_buffers (SpaNode         *node,
   if (!this->have_buffers)
     return SPA_RESULT_NO_BUFFERS;
 
-  return SPA_RESULT_NOT_IMPLEMENTED;
+  *n_buffers = SPA_MIN (*n_buffers, this->n_buffers);
+
+  for (i = 0; i < *n_buffers; i++)
+    buffers[i] = this->alloc_buffers[i].outbuf;
+
+  return SPA_RESULT_OK;
 }
 
 static SpaResult

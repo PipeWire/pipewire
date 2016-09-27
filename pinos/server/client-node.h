@@ -63,7 +63,7 @@ struct _PinosClientNodeClass {
 GType              pinos_client_node_get_type             (void);
 
 PinosNode *        pinos_client_node_new                  (PinosDaemon     *daemon,
-                                                           const gchar     *sender,
+                                                           PinosClient     *client,
                                                            const gchar     *name,
                                                            PinosProperties *properties);
 

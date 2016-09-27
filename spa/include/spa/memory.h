@@ -74,7 +74,7 @@ struct _SpaMemoryChunk {
  * SpaMemory:
  * @refcount: a refcount
  * @notify: notify when refcount is 0
- * @user_data: owner specific used data
+ * @user_data: owner specific user data
  * @pool_id: the id of the pool
  * @id: the memory id
  * @flags: extra memory flags

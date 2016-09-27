@@ -33,6 +33,7 @@ typedef struct _PinosNodePrivate PinosNodePrivate;
 #include <pinos/client/introspect.h>
 #include <pinos/server/daemon.h>
 #include <pinos/server/link.h>
+#include <pinos/server/client.h>
 
 #define PINOS_TYPE_NODE                 (pinos_node_get_type ())
 #define PINOS_IS_NODE(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_NODE))
@@ -79,7 +80,7 @@ struct _PinosNodeClass {
 GType               pinos_node_get_type                (void);
 
 PinosNode *         pinos_node_new                     (PinosDaemon      *daemon,
-                                                        const gchar      *sender,
+                                                        PinosClient      *client,
                                                         const gchar      *name,
                                                         PinosProperties  *properties,
                                                         SpaNode          *node);
@@ -89,7 +90,7 @@ const gchar *       pinos_node_get_name                (PinosNode *node);
 PinosProperties *   pinos_node_get_properties          (PinosNode *node);
 
 PinosDaemon *       pinos_node_get_daemon              (PinosNode        *node);
-const gchar *       pinos_node_get_sender              (PinosNode        *node);
+PinosClient *       pinos_node_get_client              (PinosNode        *node);
 const gchar *       pinos_node_get_object_path         (PinosNode        *node);
 
 guint               pinos_node_get_free_port           (PinosNode        *node,

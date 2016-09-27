@@ -35,9 +35,10 @@ struct _PinosRTLoopPrivate
 {
   unsigned int n_poll;
   SpaPollItem poll[16];
+  int idx[16];
 
   bool rebuild_fds;
-  SpaPollFd fds[16];
+  SpaPollFd fds[32];
   unsigned int n_fds;
 
   gboolean running;
@@ -81,8 +82,8 @@ loop (void *user_data)
         n_idle++;
       }
     }
-    if (n_idle > 0)
-      continue;
+//    if (n_idle > 0)
+//      continue;
 
     /* rebuild */
     if (priv->rebuild_fds) {
@@ -96,7 +97,7 @@ loop (void *user_data)
 
         for (j = 0; j < p->n_fds; j++)
           priv->fds[priv->n_fds + j] = p->fds[j];
-        p->fds = &priv->fds[priv->n_fds];
+        priv->idx[i] = priv->n_fds;
         priv->n_fds += p->n_fds;
       }
       priv->rebuild_fds = false;
@@ -107,7 +108,7 @@ loop (void *user_data)
       SpaPollItem *p = &priv->poll[i];
 
       if (p->enabled && p->before_cb) {
-        ndata.fds = p->fds;
+        ndata.fds = &priv->fds[priv->idx[i]];
         ndata.n_fds = p->n_fds;
         ndata.user_data = p->user_data;
         p->before_cb (&ndata);
@@ -138,7 +139,7 @@ loop (void *user_data)
       SpaPollItem *p = &priv->poll[i];
 
       if (p->enabled && p->after_cb) {
-        ndata.fds = p->fds;
+        ndata.fds = &priv->fds[priv->idx[i]];
         ndata.n_fds = p->n_fds;
         ndata.user_data = p->user_data;
         p->after_cb (&ndata);

@@ -29,6 +29,7 @@ typedef struct _PinosNodeFactoryClass PinosNodeFactoryClass;
 typedef struct _PinosNodeFactoryPrivate PinosNodeFactoryPrivate;
 
 #include <pinos/server/daemon.h>
+#include <pinos/server/client.h>
 
 #define PINOS_TYPE_NODE_FACTORY                 (pinos_node_factory_get_type ())
 #define PINOS_IS_NODE_FACTORY(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_NODE_FACTORY))
@@ -61,7 +62,7 @@ struct _PinosNodeFactoryClass {
 
   PinosNode *      (*create_node) (PinosNodeFactory *factory,
                                    PinosDaemon *daemon,
-                                   const gchar *sender,
+                                   PinosClient *client,
                                    const gchar *name,
                                    PinosProperties *properties);
 };
@@ -69,12 +70,13 @@ struct _PinosNodeFactoryClass {
 /* normal GObject stuff */
 GType               pinos_node_factory_get_type         (void);
 
-const gchar *       pinos_node_factory_get_name         (PinosNodeFactory *node_factory);
 PinosNode *         pinos_node_factory_create_node      (PinosNodeFactory *factory,
                                                          PinosDaemon *daemon,
-                                                         const gchar *sender,
+                                                         PinosClient *client,
                                                          const gchar *name,
                                                          PinosProperties *props);
+
+const gchar *       pinos_node_factory_get_name         (PinosNodeFactory *node_factory);
 
 G_END_DECLS
 

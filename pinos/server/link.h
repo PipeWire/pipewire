@@ -40,6 +40,14 @@ typedef struct _PinosLinkPrivate PinosLinkPrivate;
 #define PINOS_LINK_CAST(obj)        ((PinosLink*)(obj))
 #define PINOS_LINK_CLASS_CAST(klass)((PinosLinkClass*)(klass))
 
+typedef struct {
+  PinosNode  *node;
+  uint32_t    port;
+  gboolean    allocated;
+  SpaBuffer  *buffers[16];
+  guint       n_buffers;
+} PinosPort;
+
 /**
  * PinosLink:
  *
@@ -48,12 +56,8 @@ typedef struct _PinosLinkPrivate PinosLinkPrivate;
 struct _PinosLink {
   GObject object;
 
-  PinosNode *output_node;
-  guint      output_id;
-  uint32_t   output_port;
-  PinosNode *input_node;
-  guint      input_id;
-  uint32_t   input_port;
+  PinosPort    *output;
+  PinosPort    *input;
 
   uint32_t      queue[16];
   SpaRingbuffer ringbuffer;

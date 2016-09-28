@@ -204,11 +204,11 @@ on_link_state_notify (GObject     *obj,
     {
       g_warning ("daemon %p: link %p: state error: %s", daemon, link, error->message);
 
-      if (link->input_node) {
-        pinos_node_report_error (link->input_node, g_error_copy (error));
+      if (link->input->node) {
+        pinos_node_report_error (link->input->node, g_error_copy (error));
       }
-      if (link->output_node) {
-        pinos_node_report_error (link->output_node, g_error_copy (error));
+      if (link->output->node) {
+        pinos_node_report_error (link->output->node, g_error_copy (error));
       }
       break;
     }

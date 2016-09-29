@@ -340,65 +340,12 @@ spa_control_iter_get_data (SpaControlIter *iter, size_t *size)
   return si->data;
 }
 
-static SpaProps *
-parse_props (void *p, off_t offset)
-{
-  SpaProps *tp;
-  unsigned int i, j;
-  SpaPropInfo *pi;
-  SpaPropRangeInfo *ri;
-
-  tp = SPA_MEMBER (p, offset, SpaProps);
-  tp->prop_info = SPA_MEMBER (tp, SPA_PTR_TO_INT (tp->prop_info), SpaPropInfo);
-
-  /* now fix all the pointers */
-  for (i = 0; i < tp->n_prop_info; i++) {
-    pi = (SpaPropInfo *) &tp->prop_info[i];
-    if (pi->name)
-      pi->name = SPA_MEMBER (tp, SPA_PTR_TO_INT (pi->name), char);
-    if (pi->description)
-      pi->description = SPA_MEMBER (tp, SPA_PTR_TO_INT (pi->description), char);
-    if (pi->range_values)
-      pi->range_values = SPA_MEMBER (tp, SPA_PTR_TO_INT (pi->range_values), SpaPropRangeInfo);
-
-    for (j = 0; j < pi->n_range_values; j++) {
-      ri = (SpaPropRangeInfo *) &pi->range_values[j];
-      if (ri->name)
-        ri->name = SPA_MEMBER (tp, SPA_PTR_TO_INT (ri->name), char);
-      if (ri->description)
-        ri->description = SPA_MEMBER (tp, SPA_PTR_TO_INT (ri->description), char);
-      if (ri->val.value)
-        ri->val.value = SPA_MEMBER (tp, SPA_PTR_TO_INT (ri->val.value), void);
-    }
-  }
-  return tp;
-}
-
-static SpaFormat *
-parse_format (void *p, size_t size, off_t offset)
-{
-  SpaFormat *f;
-
-  if (offset == 0)
-    return NULL;
-
-  f = SPA_MEMBER (p, offset, SpaFormat);
-  f->mem.mem.pool_id = 0;
-  f->mem.mem.id = 0;
-  f->mem.offset = offset;
-  f->mem.size = size - offset;
-
-  parse_props (f, offsetof (SpaFormat, props));
-
-  return f;
-}
-
 static void
 iter_parse_node_update (struct stack_iter *si, SpaControlCmdNodeUpdate *nu)
 {
   memcpy (nu, si->data, sizeof (SpaControlCmdNodeUpdate));
   if (nu->props)
-    nu->props = parse_props (si->data, SPA_PTR_TO_INT (nu->props));
+    nu->props = spa_props_deserialize (si->data, SPA_PTR_TO_INT (nu->props));
 }
 
 static void
@@ -415,14 +362,16 @@ iter_parse_port_update (struct stack_iter *si, SpaControlCmdPortUpdate *pu)
     pu->possible_formats = SPA_MEMBER (p,
                         SPA_PTR_TO_INT (pu->possible_formats), SpaFormat *);
   for (i = 0; i < pu->n_possible_formats; i++) {
-    pu->possible_formats[i] = parse_format (p, si->size,
-                        SPA_PTR_TO_INT (pu->possible_formats[i]));
+    if (pu->possible_formats[i]) {
+      pu->possible_formats[i] = spa_format_deserialize (p,
+                          SPA_PTR_TO_INT (pu->possible_formats[i]));
+    }
   }
   if (pu->format)
-    pu->format = parse_format (p, si->size, SPA_PTR_TO_INT (pu->format));
+    pu->format = spa_format_deserialize (p, SPA_PTR_TO_INT (pu->format));
 
   if (pu->props)
-    pu->props = parse_props (p, SPA_PTR_TO_INT (pu->props));
+    pu->props = spa_props_deserialize (p, SPA_PTR_TO_INT (pu->props));
   if (pu->info) {
     SpaPortInfo *pi;
 
@@ -440,28 +389,19 @@ static void
 iter_parse_set_format (struct stack_iter *si, SpaControlCmdSetFormat *cmd)
 {
   memcpy (cmd, si->data, sizeof (SpaControlCmdSetFormat));
-  cmd->format = parse_format (si->data, si->size, SPA_PTR_TO_INT (cmd->format));
+  if (cmd->format)
+    cmd->format = spa_format_deserialize (si->data, SPA_PTR_TO_INT (cmd->format));
 }
 
 static void
 iter_parse_use_buffers (struct stack_iter *si, SpaControlCmdUseBuffers *cmd)
 {
   void *p;
-  int i;
 
   p = si->data;
   memcpy (cmd, p, sizeof (SpaControlCmdUseBuffers));
   if (cmd->buffers)
-    cmd->buffers = SPA_MEMBER (p, SPA_PTR_TO_INT (cmd->buffers), SpaBuffer *);
-  for (i = 0; i < cmd->n_buffers; i++) {
-    SpaMemoryChunk *mc;
-    SpaMemory *mem;
-
-    mc = SPA_MEMBER (p, SPA_PTR_TO_INT (cmd->buffers[i]), SpaMemoryChunk);
-    mem = spa_memory_find (&mc->mem);
-
-    cmd->buffers[i] = mem ? SPA_MEMBER (spa_memory_ensure_ptr (mem), mc->offset, SpaBuffer) : NULL;
-  }
+    cmd->buffers = SPA_MEMBER (p, SPA_PTR_TO_INT (cmd->buffers), SpaControlMemRef);
 }
 
 static void
@@ -820,161 +760,6 @@ builder_add_cmd (struct stack_builder *sb, SpaControlCmd cmd, size_t size)
 }
 
 static size_t
-calc_props_len (const SpaProps *props)
-{
-  size_t len;
-  unsigned int i, j;
-  SpaPropInfo *pi;
-  SpaPropRangeInfo *ri;
-
-  if (props == NULL)
-    return 0;
-
-  /* props and unset mask */
-  len = sizeof (SpaProps) + sizeof (uint32_t);
-  for (i = 0; i < props->n_prop_info; i++) {
-    pi = (SpaPropInfo *) &props->prop_info[i];
-    len += sizeof (SpaPropInfo);
-    len += pi->name ? strlen (pi->name) + 1 : 0;
-    len += pi->description ? strlen (pi->description) + 1 : 0;
-    /* for the value */
-    len += pi->maxsize;
-    for (j = 0; j < pi->n_range_values; j++) {
-      ri = (SpaPropRangeInfo *)&pi->range_values[j];
-      len += sizeof (SpaPropRangeInfo);
-      len += ri->name ? strlen (ri->name) + 1 : 0;
-      len += ri->description ? strlen (ri->description) + 1 : 0;
-      /* the size of the range value */
-      len += ri->val.size;
-    }
-  }
-  return len;
-}
-
-static size_t
-write_props (void *p, const SpaProps *props, off_t offset)
-{
-  size_t len, slen;
-  unsigned int i, j;
-  SpaProps *tp;
-  SpaPropInfo *pi, *bpi;
-  SpaPropRangeInfo *ri, *bri;
-
-  tp = p;
-  memcpy (tp, props, sizeof (SpaProps));
-  tp->prop_info = SPA_INT_TO_PTR (offset + sizeof (uint32_t));
-
-  /* write propinfo array */
-  bpi = pi = SPA_MEMBER (tp, SPA_PTR_TO_INT (tp->prop_info), SpaPropInfo);
-  for (i = 0; i < tp->n_prop_info; i++) {
-    memcpy (pi, &props->prop_info[i], sizeof (SpaPropInfo));
-    pi++;
-  }
-  bri = ri = (SpaPropRangeInfo *) pi;
-  pi = bpi;
-  /* write range info arrays, adjust offset to it */
-  for (i = 0; i < tp->n_prop_info; i++) {
-    pi->range_values = SPA_INT_TO_PTR (SPA_PTRDIFF (ri, tp));
-    for (j = 0; j < pi->n_range_values; j++) {
-      memcpy (ri, &props->prop_info[i].range_values[j], sizeof (SpaPropRangeInfo));
-      ri++;
-    }
-    pi++;
-  }
-  p = ri;
-  pi = bpi;
-  ri = bri;
-  /* strings and default values from props and ranges */
-  for (i = 0; i < tp->n_prop_info; i++) {
-    if (pi->name) {
-      slen = strlen (pi->name) + 1;
-      memcpy (p, pi->name, slen);
-      pi->name = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tp));
-      p += slen;
-    } else {
-      pi->name = 0;
-    }
-    if (pi->description) {
-      slen = strlen (pi->description) + 1;
-      memcpy (p, pi->description, slen);
-      pi->description = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tp));
-      p += slen;
-    } else {
-      pi->description = 0;
-    }
-    for (j = 0; j < pi->n_range_values; j++) {
-      if (ri->name) {
-        slen = strlen (ri->name) + 1;
-        memcpy (p, ri->name, slen);
-        ri->name = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tp));
-        p += slen;
-      } else {
-        ri->name = 0;
-      }
-      if (ri->description) {
-        slen = strlen (ri->description) + 1;
-        memcpy (p, ri->description, slen);
-        ri->description = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tp));
-        p += slen;
-      } else {
-        ri->description = 0;
-      }
-      if (ri->val.size) {
-        memcpy (p, ri->val.value, ri->val.size);
-        ri->val.value = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tp));
-        p += ri->val.size;
-      } else {
-        ri->val.value = 0;
-      }
-      ri++;
-    }
-    pi++;
-  }
-  /* and the actual values */
-  pi = bpi;
-  for (i = 0; i < tp->n_prop_info; i++) {
-    if (pi->offset) {
-      memcpy (p, SPA_MEMBER (props, pi->offset, void), pi->maxsize);
-      pi->offset = SPA_PTRDIFF (p, tp);
-      p += pi->maxsize;
-    } else {
-      pi->offset = 0;
-    }
-    pi++;
-  }
-
-  len = SPA_PTRDIFF (p, tp);
-
-  return len;
-}
-
-static size_t
-calc_format_len (const SpaFormat *format)
-{
-  if (format == NULL)
-    return 0;
-
-  return calc_props_len (&format->props) - sizeof (SpaProps) + sizeof (SpaFormat);
-}
-
-static size_t
-write_format (void *p, const SpaFormat *format)
-{
-  SpaFormat *tf;
-
-  tf = p;
-  tf->media_type = format->media_type;
-  tf->media_subtype = format->media_subtype;
-  tf->mem.mem.pool_id = 0;
-  tf->mem.mem.id = 0;
-  tf->mem.offset = 0;
-  tf->mem.size = 0;
-
-  p = SPA_MEMBER (tf, offsetof (SpaFormat, props), void);
-  return write_props (p, &format->props, sizeof (SpaFormat));
-}
-
-static size_t
 write_port_info (void *p, const SpaPortInfo *info)
 {
   SpaPortInfo *tp;
@@ -1016,7 +801,7 @@ builder_add_node_update (struct stack_builder *sb, SpaControlCmdNodeUpdate *nu)
 
   /* calc len */
   len = sizeof (SpaControlCmdNodeUpdate);
-  len += calc_props_len (nu->props);
+  len += spa_props_get_size (nu->props);
 
   p = builder_add_cmd (sb, SPA_CONTROL_CMD_NODE_UPDATE, len);
   memcpy (p, nu, sizeof (SpaControlCmdNodeUpdate));
@@ -1024,7 +809,7 @@ builder_add_node_update (struct stack_builder *sb, SpaControlCmdNodeUpdate *nu)
 
   p = SPA_MEMBER (d, sizeof (SpaControlCmdNodeUpdate), void);
   if (nu->props) {
-    len = write_props (p, nu->props, sizeof (SpaProps));
+    len = spa_props_serialize (p, nu->props);
     d->props = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
   } else {
     d->props = 0;
@@ -1043,10 +828,11 @@ builder_add_port_update (struct stack_builder *sb, SpaControlCmdPortUpdate *pu)
   /* calc len */
   len = sizeof (SpaControlCmdPortUpdate);
   len += pu->n_possible_formats * sizeof (SpaFormat *);
-  for (i = 0; i < pu->n_possible_formats; i++)
-    len += calc_format_len (pu->possible_formats[i]);
-  len += calc_format_len (pu->format);
-  len += calc_props_len (pu->props);
+  for (i = 0; i < pu->n_possible_formats; i++) {
+    len += spa_format_get_size (pu->possible_formats[i]);
+  }
+  len += spa_format_get_size (pu->format);
+  len += spa_props_get_size (pu->props);
   if (pu->info) {
     len += sizeof (SpaPortInfo);
     len += pu->info->n_params * sizeof (SpaAllocParam *);
@@ -1068,19 +854,19 @@ builder_add_port_update (struct stack_builder *sb, SpaControlCmdPortUpdate *pu)
   p = SPA_MEMBER (p, sizeof (SpaFormat*) * pu->n_possible_formats, void);
 
   for (i = 0; i < pu->n_possible_formats; i++) {
-    len = write_format (p, pu->possible_formats[i]);
+    len = spa_format_serialize (p, pu->possible_formats[i]);
     bfa[i] = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
     p = SPA_MEMBER (p, len, void);
   }
   if (pu->format) {
-    len = write_format (p, pu->format);
+    len = spa_format_serialize (p, pu->format);
     d->format = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
     p = SPA_MEMBER (p, len, void);
   } else {
     d->format = 0;
   }
   if (pu->props) {
-    len = write_props (p, pu->props, sizeof (SpaProps));
+    len = spa_props_serialize (p, pu->props);
     d->props = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
     p = SPA_MEMBER (p, len, void);
   } else {
@@ -1103,14 +889,14 @@ builder_add_set_format (struct stack_builder *sb, SpaControlCmdSetFormat *sf)
 
   /* calculate length */
   /* port_id + format + mask  */
-  len = sizeof (SpaControlCmdSetFormat) + calc_format_len (sf->format);
+  len = sizeof (SpaControlCmdSetFormat) + spa_format_get_size (sf->format);
   p = builder_add_cmd (sb, SPA_CONTROL_CMD_SET_FORMAT, len);
   memcpy (p, sf, sizeof (SpaControlCmdSetFormat));
   sf = p;
 
   p = SPA_MEMBER (sf, sizeof (SpaControlCmdSetFormat), void);
   if (sf->format) {
-    len = write_format (p, sf->format);
+    len = spa_format_serialize (p, sf->format);
     sf->format = SPA_INT_TO_PTR (SPA_PTRDIFF (p, sf));
   } else
     sf->format = 0;
@@ -1120,35 +906,26 @@ static void
 builder_add_use_buffers (struct stack_builder *sb, SpaControlCmdUseBuffers *ub)
 {
   size_t len;
-  void *p;
   int i;
-  SpaMemoryChunk **bmc;
   SpaControlCmdUseBuffers *d;
+  SpaControlMemRef *mr;
 
   /* calculate length */
-  /* port_id + format + mask  */
   len = sizeof (SpaControlCmdUseBuffers);
-  len += ub->n_buffers * sizeof (SpaBuffer *);
-  len += ub->n_buffers * sizeof (SpaMemoryChunk);
+  len += ub->n_buffers * sizeof (SpaControlMemRef);
 
-  p = builder_add_cmd (sb, SPA_CONTROL_CMD_USE_BUFFERS, len);
-  memcpy (p, ub, sizeof (SpaControlCmdUseBuffers));
-  d = p;
+  d = builder_add_cmd (sb, SPA_CONTROL_CMD_USE_BUFFERS, len);
+  memcpy (d, ub, sizeof (SpaControlCmdUseBuffers));
 
-  p = SPA_MEMBER (d, sizeof (SpaControlCmdUseBuffers), void);
-  bmc = p;
+  mr = SPA_MEMBER (d, sizeof (SpaControlCmdUseBuffers), void);
 
   if (d->n_buffers)
-    d->buffers = SPA_INT_TO_PTR (SPA_PTRDIFF (bmc, d));
+    d->buffers = SPA_INT_TO_PTR (SPA_PTRDIFF (mr, d));
   else
     d->buffers = 0;
 
-  p = SPA_MEMBER (p, sizeof (SpaMemoryChunk*) * ub->n_buffers, void);
-  for (i = 0; i < ub->n_buffers; i++) {
-    memcpy (p, &ub->buffers[i]->mem, sizeof (SpaMemoryChunk));
-    bmc[i] = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
-    p = SPA_MEMBER (p, sizeof (SpaMemoryChunk), void);
-  }
+  for (i = 0; i < ub->n_buffers; i++)
+    memcpy (&mr[i], &ub->buffers[i], sizeof (SpaControlMemRef));
 }
 
 static void

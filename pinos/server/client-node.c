@@ -136,7 +136,7 @@ pinos_client_node_get_socket_pair (PinosClientNode  *this,
     spa_node_get_props (node->node, &props);
     value.value = &priv->fd;
     value.size = sizeof (int);
-    spa_props_set_prop (props, spa_props_index_for_name (props, "socket"), &value);
+    spa_props_set_value (props, spa_props_index_for_name (props, "socket"), &value);
     spa_node_set_props (node->node, props);
   }
   return g_object_ref (priv->sockets[1]);
@@ -172,7 +172,7 @@ pinos_client_node_dispose (GObject * object)
   spa_node_get_props (node->node, &props);
   value.value = &fd;
   value.size = sizeof (int);
-  spa_props_set_prop (props, spa_props_index_for_name (props, "socket"), &value);
+  spa_props_set_value (props, spa_props_index_for_name (props, "socket"), &value);
   spa_node_set_props (node->node, props);
 
   G_OBJECT_CLASS (pinos_client_node_parent_class)->dispose (object);

@@ -45,12 +45,9 @@ typedef struct {
   bool period_event;
 } SpaALSAProps;
 
+#define MAX_BUFFERS 16
+
 struct _SpaALSABuffer {
-  SpaBuffer buffer;
-  SpaMeta metas[2];
-  SpaMetaHeader header;
-  SpaMetaRingbuffer ringbuffer;
-  SpaData datas[1];
   SpaBuffer *outbuf;
   SpaMetaHeader *h;
   void *ptr;
@@ -90,9 +87,7 @@ struct _SpaALSAState {
   SpaPortStatus status;
 
   bool have_buffers;
-  SpaMemory *alloc_bufmem;
-  SpaMemory *alloc_mem;
-  SpaALSABuffer *alloc_buffers;
+  SpaALSABuffer buffers[MAX_BUFFERS];
   unsigned int n_buffers;
 
   SpaQueue free;

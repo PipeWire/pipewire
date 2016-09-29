@@ -199,7 +199,7 @@ spa_props_index_for_name (const SpaProps *props, const char *name)
 
 
 /**
- * spa_props_set_prop:
+ * spa_props_set_value:
  * @props: a #SpaProps
  * @index: the index of the property in the prop_info array
  * @value: the value to set
@@ -212,27 +212,34 @@ spa_props_index_for_name (const SpaProps *props, const char *name)
  *          #SPA_RESULT_INVALID_PROPERTY_INDEX when @index is not valid
  *          #SPA_RESULT_WRONG_PROPERTY_TYPE when type is not correct
  */
-SpaResult       spa_props_set_prop    (SpaProps           *props,
+SpaResult       spa_props_set_value   (SpaProps           *props,
                                        unsigned int        index,
                                        const SpaPropValue *value);
 /**
- * spa_props_get_prop:
+ * spa_props_get_value:
  * @props: a #SpaProps
  * @index: the property index in the prop_info array
  * @value: a location for the type, size and value
  *
- * Get the type, size and value of the property at @index.
+ * Get the size and value of the property at @index.
  *
  * Returns: #SPA_RESULT_OK on success.
  *          #SPA_RESULT_INVALID_PROPERTY_INDEX when @index is not valid
  *          #SPA_RESULT_PROPERTY_UNSET when no value has been set yet
  */
-SpaResult	spa_props_get_prop    (const SpaProps     *props,
+SpaResult	spa_props_get_value   (const SpaProps     *props,
                                        unsigned int        index,
                                        SpaPropValue       *value);
 
-SpaResult       spa_props_copy        (const SpaProps *src,
+SpaResult       spa_props_copy_values (const SpaProps *src,
                                        SpaProps       *dest);
+
+
+size_t          spa_props_get_size    (const SpaProps *props);
+size_t          spa_props_serialize   (void *dest, const SpaProps *props);
+SpaProps *      spa_props_deserialize (void *src, off_t offset);
+
+SpaProps *      spa_props_copy_into   (void *dest, const SpaProps *props);
 
 
 #ifdef __cplusplus

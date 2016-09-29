@@ -464,7 +464,7 @@ spa_prop_info_fill_video (SpaPropInfo    *info,
     return SPA_RESULT_INVALID_PROPERTY_INDEX;
 
   memcpy (info, &format_prop_info[i], sizeof (SpaPropInfo));
-  info->offset = offset;
+  info->offset = offset - sizeof (SpaFormat) + sizeof (SpaProps);
 
   return SPA_RESULT_OK;
 }
@@ -619,7 +619,7 @@ spa_format_video_parse (const SpaFormat *format,
 
   props = &format->props;
   idx = spa_props_index_for_id (props, SPA_PROP_ID_VIDEO_INFO);
-  if ((res = spa_props_get_prop (props, idx, &value)) < 0)
+  if ((res = spa_props_get_value (props, idx, &value)) < 0)
     goto fallback;
 
   if (props->prop_info[idx].type != SPA_PROP_TYPE_POINTER)
@@ -631,7 +631,7 @@ spa_format_video_parse (const SpaFormat *format,
   return SPA_RESULT_OK;
 
 fallback:
-  res = spa_props_copy (props, &vformat->format.props);
+  res = spa_props_copy_values (props, &vformat->format.props);
 
   return res;
 }

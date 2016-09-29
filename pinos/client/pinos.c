@@ -20,7 +20,6 @@
 #include <glib.h>
 
 #include "pinos/client/pinos.h"
-#include "spa/include/spa/memory.h"
 
 const gchar g_log_domain_pinos[] = "Pinos";
 
@@ -45,7 +44,6 @@ pinos_error_quark (void)
 void
 pinos_init (int *argc, char **argv[])
 {
-  spa_memory_init ();
 }
 
 /**

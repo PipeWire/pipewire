@@ -23,7 +23,6 @@
 #include <pinos/client/pinos.h>
 #include <pinos/server/daemon.h>
 #include <pinos/server/module.h>
-#include <spa/include/spa/memory.h>
 
 #include "daemon-config.h"
 
@@ -37,7 +36,6 @@ main (gint argc, gchar *argv[])
   GError *err = NULL;
 
   pinos_init (&argc, &argv);
-  spa_memory_init ();
 
   loop = g_main_loop_new (NULL, FALSE);
 

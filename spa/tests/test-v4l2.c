@@ -30,7 +30,6 @@
 
 #include <spa/node.h>
 #include <spa/debug.h>
-#include <spa/memory.h>
 #include <spa/video/format.h>
 
 #define MAX_BUFFERS     8
@@ -126,19 +125,18 @@ on_source_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
       uint8_t *src, *dst;
       SpaMeta *metas;
       SpaData *datas;
-      SpaMemory *mem;
 
       if ((res = spa_node_port_pull_output (data->source, 1, info)) < 0)
         printf ("got pull error %d\n", res);
 
       b = data->bp[info->buffer_id];
-      metas = SPA_BUFFER_METAS (b);
-      datas = SPA_BUFFER_DATAS (b);
+      metas = b->metas;
+      datas = b->datas;
 
       if (metas[1].type == SPA_META_TYPE_POINTER &&
-          strcmp (SPA_MEMBER (b, metas[1].offset, SpaMetaPointer)->ptr_type, "SDL_Texture") == 0) {
+          strcmp (((SpaMetaPointer *)metas[1].data)->ptr_type, "SDL_Texture") == 0) {
         SDL_Texture *texture;
-        texture = SPA_MEMBER (b, metas[1].offset, SpaMetaPointer)->ptr;
+        texture = ((SpaMetaPointer *)metas[1].data)->ptr;
 
         SDL_UnlockTexture(texture);
 
@@ -150,21 +148,17 @@ on_source_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
           fprintf (stderr, "Couldn't lock texture: %s\n", SDL_GetError());
           return;
         }
-        mem = spa_memory_find (&datas[0].mem.mem);
-        mem->ptr = sdata;
-        mem->type = "sysmem";
-        mem->size = sstride * 240;
-
-        datas[0].mem.size = sstride * 240;
+        datas[0].type = SPA_DATA_TYPE_MEMPTR;
+        datas[0].data = sdata;
+        datas[0].offset = 0;
+        datas[0].size = sstride * 240;
         datas[0].stride = sstride;
       } else {
         if (SDL_LockTexture (data->texture, NULL, &ddata, &dstride) < 0) {
           fprintf (stderr, "Couldn't lock texture: %s\n", SDL_GetError());
           return;
         }
-        mem = spa_memory_find (&datas[0].mem.mem);
-
-        sdata = spa_memory_ensure_ptr (mem);
+        sdata = datas[0].data;
         sstride = datas[0].stride;
 
         for (i = 0; i < 240; i++) {
@@ -204,7 +198,7 @@ make_nodes (AppData *data, const char *device)
   SpaProps *props;
   SpaPropValue value;
 
-  if ((res = make_node (&data->source, "plugins/v4l2/libspa-v4l2.so", "v4l2-source")) < 0) {
+  if ((res = make_node (&data->source, "spa/plugins/v4l2/libspa-v4l2.so", "v4l2-source")) < 0) {
     printf ("can't create v4l2-source: %d\n", res);
     return res;
   }
@@ -215,7 +209,7 @@ make_nodes (AppData *data, const char *device)
 
   value.value = device ? device : "/dev/video0";
   value.size = strlen (value.value)+1;
-  spa_props_set_prop (props, spa_props_index_for_name (props, "device"), &value);
+  spa_props_set_value (props, spa_props_index_for_name (props, "device"), &value);
 
   if ((res = spa_node_set_props (data->source, props)) < 0)
     printf ("got set_props error %d\n", res);
@@ -231,7 +225,6 @@ alloc_buffers (AppData *data)
   for (i = 0; i < MAX_BUFFERS; i++) {
     SDLBuffer *b = &data->buffers[i];
     SDL_Texture *texture;
-    SpaMemory *mem;
     void *ptr;
     int stride;
 
@@ -251,39 +244,29 @@ alloc_buffers (AppData *data)
     }
 
     b->buffer.id = i;
-    b->buffer.mem.mem.pool_id = SPA_ID_INVALID;
-    b->buffer.mem.mem.id = SPA_ID_INVALID;
-    b->buffer.mem.offset = 0;
-    b->buffer.mem.size = sizeof (SDLBuffer);
     b->buffer.n_metas = 2;
-    b->buffer.metas = offsetof (SDLBuffer, metas);
+    b->buffer.metas = b->metas;
     b->buffer.n_datas = 1;
-    b->buffer.datas = offsetof (SDLBuffer, datas);
+    b->buffer.datas = b->datas;
 
     b->header.flags = 0;
     b->header.seq = 0;
     b->header.pts = 0;
     b->header.dts_offset = 0;
     b->metas[0].type = SPA_META_TYPE_HEADER;
-    b->metas[0].offset = offsetof (SDLBuffer, header);
+    b->metas[0].data = &b->header;
     b->metas[0].size = sizeof (b->header);
 
     b->ptr.ptr_type = "SDL_Texture";
     b->ptr.ptr = texture;
     b->metas[1].type = SPA_META_TYPE_POINTER;
-    b->metas[1].offset = offsetof (SDLBuffer, ptr);
+    b->metas[1].data = &b->ptr;
     b->metas[1].size = sizeof (b->ptr);
 
-    mem = spa_memory_alloc (SPA_MEMORY_POOL_LOCAL);
-    mem->flags = SPA_MEMORY_FLAG_READWRITE;
-    mem->type = "sysmem";
-    mem->fd = -1;
-    mem->ptr = ptr;
-    mem->size = stride * 240;
-
-    b->datas[0].mem.mem = mem->mem;
-    b->datas[0].mem.offset = 0;
-    b->datas[0].mem.size = mem->size;
+    b->datas[0].type = SPA_DATA_TYPE_MEMPTR;
+    b->datas[0].data = ptr;
+    b->datas[0].offset = 0;
+    b->datas[0].size = stride * 240;
     b->datas[0].stride = stride;
   }
   data->n_buffers = MAX_BUFFERS;
@@ -431,8 +414,6 @@ main (int argc, char *argv[])
 {
   AppData data;
   SpaResult res;
-
-  spa_memory_init ();
 
   data.use_buffer = true;
 

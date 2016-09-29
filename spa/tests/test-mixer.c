@@ -190,7 +190,7 @@ make_nodes (AppData *data)
 
   value.value = "hw:0";
   value.size = strlen (value.value)+1;
-  spa_props_set_prop (props, spa_props_index_for_name (props, "device"), &value);
+  spa_props_set_value (props, spa_props_index_for_name (props, "device"), &value);
 
   if ((res = spa_node_set_props (data->sink, props)) < 0)
     printf ("got set_props error %d\n", res);
@@ -232,16 +232,16 @@ negotiate_formats (AppData *data)
   value.value = &val;
 
   val = SPA_AUDIO_FORMAT_S16LE;
-  if ((res = spa_props_set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_FORMAT), &value)) < 0)
+  if ((res = spa_props_set_value (props, spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_FORMAT), &value)) < 0)
     return res;
   val = 1;
-  if ((res = spa_props_set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_LAYOUT), &value)) < 0)
+  if ((res = spa_props_set_value (props, spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_LAYOUT), &value)) < 0)
     return res;
   val = 44100;
-  if ((res = spa_props_set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_RATE), &value)) < 0)
+  if ((res = spa_props_set_value (props, spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_RATE), &value)) < 0)
     return res;
   val = 2;
-  if ((res = spa_props_set_prop (props, spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_CHANNELS), &value)) < 0)
+  if ((res = spa_props_set_value (props, spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_CHANNELS), &value)) < 0)
     return res;
 
   if ((res = spa_node_port_set_format (data->sink, 0, false, format)) < 0)

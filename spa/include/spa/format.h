@@ -28,7 +28,6 @@ typedef struct _SpaFormat SpaFormat;
 
 #include <spa/defs.h>
 #include <spa/props.h>
-#include <spa/memory.h>
 
 typedef enum {
   SPA_MEDIA_TYPE_INVALID         = 0,
@@ -83,38 +82,30 @@ typedef enum {
 
 /**
  * SpaFormat:
- * @props: properties
  * @media_type: media type
  * @media_subtype: subtype
- * @mem: memory reference
- * @offset: offset in memory
- * @size: size in memory
+ * @props: properties
  */
 struct _SpaFormat {
-  SpaProps         props;
   SpaMediaType     media_type;
   SpaMediaSubType  media_subtype;
-  SpaMemoryChunk   mem;
+  SpaProps         props;
 };
-
-static inline void
-spa_format_ref (SpaFormat *format)
-{
-  spa_memory_ref (&format->mem.mem);
-}
-
-static inline void
-spa_format_unref (SpaFormat *format)
-{
-  spa_memory_unref (&format->mem.mem);
-}
 
 typedef enum {
   SPA_PROP_ID_INVALID            = 0,
   SPA_PROP_ID_MEDIA_CUSTOM_START = 200,
 } SpaFormatProps;
 
-SpaResult  spa_format_fixate (SpaFormat *format);
+
+SpaResult   spa_format_fixate      (SpaFormat *format);
+
+size_t      spa_format_get_size    (const SpaFormat *format);
+size_t      spa_format_serialize   (void *dest, const SpaFormat *format);
+SpaFormat * spa_format_deserialize (void *src, off_t offset);
+
+SpaFormat * spa_format_copy_into   (void *dest, const SpaFormat *format);
+
 
 #ifdef __cplusplus
 }  /* extern "C" */

@@ -45,7 +45,6 @@
 #include <gst/allocators/gstfdmemory.h>
 #include <gst/video/video.h>
 
-#include <spa/include/spa/memory.h>
 #include <spa/include/spa/buffer.h>
 
 #include "gstpinosclock.h"
@@ -387,34 +386,29 @@ on_add_buffer (GObject    *gobject,
   data.header = NULL;
 
   for (i = 0; i < b->n_metas; i++) {
-    SpaMeta *m = &SPA_BUFFER_METAS(b)[i];
+    SpaMeta *m = &b->metas[i];
 
     switch (m->type) {
       case SPA_META_TYPE_HEADER:
-        data.header = SPA_MEMBER (b, m->offset, SpaMetaHeader);
+        data.header = m->data;
         break;
       default:
         break;
     }
   }
   for (i = 0; i < b->n_datas; i++) {
-    SpaData *d = &SPA_BUFFER_DATAS(b)[i];
-    SpaMemory *mem;
+    SpaData *d = &b->datas[i];
     GstMemory *gmem;
 
-    mem = spa_memory_find (&d->mem.mem);
-    if (mem == NULL) {
-      g_warning ("failed to get buffer memory");
-      continue;
-    }
+    if (d->type == SPA_DATA_TYPE_FD) {
+      gint fd = SPA_PTR_TO_INT (d->data);
 
-    if (mem->fd) {
-      gmem = gst_fd_allocator_alloc (pinossrc->fd_allocator, dup (mem->fd),
-                mem->size, GST_FD_MEMORY_FLAG_NONE);
-      gst_memory_resize (gmem, d->mem.offset, d->mem.size);
+      gmem = gst_fd_allocator_alloc (pinossrc->fd_allocator, dup (fd),
+                d->offset + d->size, GST_FD_MEMORY_FLAG_NONE);
+      gst_memory_resize (gmem, d->offset, d->size);
     } else {
-      gmem = gst_memory_new_wrapped (0, mem->ptr, mem->size, d->mem.offset,
-                d->mem.size, NULL, NULL);
+      gmem = gst_memory_new_wrapped (0, d->data, d->offset + d->size, d->offset,
+                d->size, NULL, NULL);
     }
     gst_buffer_append_memory (buf, gmem);
   }
@@ -472,9 +466,9 @@ on_new_buffer (GObject    *gobject,
       GST_BUFFER_OFFSET (buf) = h->seq;
     }
     for (i = 0; i < data->buf->n_datas; i++) {
-      SpaData *d = &SPA_BUFFER_DATAS(data->buf)[i];
+      SpaData *d = &data->buf->datas[i];
       GstMemory *mem = gst_buffer_get_memory (buf, i);
-      gst_memory_resize (mem, 0, d->mem.size);
+      gst_memory_resize (mem, 0, d->size);
     }
     g_queue_push_tail (&pinossrc->queue, buf);
 

@@ -122,7 +122,7 @@ spa_ffmpeg_dec_node_set_props (SpaNode         *node,
     return SPA_RESULT_OK;
   }
 
-  res = spa_props_copy (props, &p->props);
+  res = spa_props_copy_values (props, &p->props);
 
   return res;
 }

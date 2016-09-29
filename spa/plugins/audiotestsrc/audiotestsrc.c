@@ -42,13 +42,11 @@ typedef struct {
   bool live;
 } SpaAudioTestSrcProps;
 
+#define MAX_BUFFERS 16
+
 typedef struct _ATSBuffer ATSBuffer;
 
 struct _ATSBuffer {
-  SpaBuffer buffer;
-  SpaMeta metas[1];
-  SpaMetaHeader header;
-  SpaData datas[1];
   SpaBuffer *outbuf;
   bool outstanding;
   ATSBuffer *next;
@@ -83,8 +81,7 @@ struct _SpaAudioTestSrc {
   size_t bpf;
 
   bool have_buffers;
-  SpaMemory *alloc_mem;
-  ATSBuffer *alloc_buffers;
+  ATSBuffer buffers[MAX_BUFFERS];
   unsigned int n_buffers;
 
   bool started;
@@ -205,7 +202,7 @@ spa_audiotestsrc_node_set_props (SpaNode         *node,
   if (props == NULL) {
     res = reset_audiotestsrc_props (p);
   } else {
-    res = spa_props_copy (props, &p->props);
+    res = spa_props_copy_values (props, &p->props);
   }
 
   if (this->props[1].live)
@@ -528,13 +525,8 @@ clear_buffers (SpaAudioTestSrc *this)
 {
   if (this->have_buffers) {
     fprintf (stderr, "audiotestsrc %p: clear buffers\n", this);
-    if (this->alloc_mem)
-      spa_memory_unref (&this->alloc_mem->mem);
-    this->alloc_mem = NULL;
-    this->alloc_buffers = NULL;
     this->n_buffers = 0;
     this->have_buffers = false;
-    this->info.flags &= ~SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
     SPA_QUEUE_INIT (&this->empty);
     SPA_QUEUE_INIT (&this->ready);
   }
@@ -675,26 +667,16 @@ spa_audiotestsrc_node_port_use_buffers (SpaNode         *node,
     return SPA_RESULT_NO_FORMAT;
 
   clear_buffers (this);
+
   if (buffers != NULL && n_buffers != 0) {
     unsigned int i, j;
 
-    this->alloc_mem = spa_memory_alloc_size (SPA_MEMORY_POOL_LOCAL,
-                                             NULL,
-                                             sizeof (ATSBuffer) * n_buffers);
-    this->alloc_buffers = spa_memory_ensure_ptr (this->alloc_mem);
-
     for (i = 0; i < n_buffers; i++) {
       ATSBuffer *b;
-      SpaMemoryRef *mem_ref;
-      SpaMemory *mem;
-      SpaData *d = SPA_BUFFER_DATAS (buffers[i]);
-      SpaMeta *m = SPA_BUFFER_METAS (buffers[i]);
+      SpaData *d = buffers[i]->datas;
+      SpaMeta *m = buffers[i]->metas;
 
-      b = &this->alloc_buffers[i];
-      b->buffer.mem.mem = this->alloc_mem->mem;
-      b->buffer.mem.offset = sizeof (ATSBuffer) * i;
-      b->buffer.mem.size = sizeof (ATSBuffer);
-      b->buffer.id = SPA_ID_INVALID;
+      b = &this->buffers[i];
       b->outbuf = buffers[i];
       b->outstanding = true;
       b->h = NULL;
@@ -702,29 +684,25 @@ spa_audiotestsrc_node_port_use_buffers (SpaNode         *node,
       for (j = 0; j < buffers[i]->n_metas; j++) {
         switch (m[j].type) {
           case SPA_META_TYPE_HEADER:
-            b->h = SPA_MEMBER (buffers[i], m[j].offset, SpaMetaHeader);
+            b->h = m[j].data;
             break;
           default:
             break;
         }
       }
 
-      mem_ref = &d[0].mem.mem;
-      if (!(mem = spa_memory_find (mem_ref))) {
+      if (buffers[i]->n_datas < 1 || d[0].type != SPA_DATA_TYPE_MEMPTR) {
         fprintf (stderr, "audiotestsrc %p: invalid memory on buffer %p\n", this, buffers[i]);
         continue;
       }
-      b->ptr = SPA_MEMBER (spa_memory_ensure_ptr (mem), d[0].mem.offset, void);
-      b->size = d[0].mem.size;
 
+      b->ptr = SPA_MEMBER (d[0].data, d[0].offset, void);
+      b->size = d[0].size;
       b->next = NULL;
       SPA_QUEUE_PUSH_TAIL (&this->empty, ATSBuffer, next, b);
     }
     this->n_buffers = n_buffers;
     this->have_buffers = true;
-    this->info.flags |= SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
-  } else {
-    this->info.flags &= ~SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
   }
 
   if (this->have_buffers) {
@@ -745,7 +723,6 @@ spa_audiotestsrc_node_port_alloc_buffers (SpaNode         *node,
                                           uint32_t        *n_buffers)
 {
   SpaAudioTestSrc *this;
-  unsigned int i;
 
   if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -761,12 +738,7 @@ spa_audiotestsrc_node_port_alloc_buffers (SpaNode         *node,
   if (!this->have_buffers)
     return SPA_RESULT_NO_BUFFERS;
 
-  *n_buffers = SPA_MIN (*n_buffers, this->n_buffers);
-
-  for (i = 0; i < *n_buffers; i++)
-    buffers[i] = this->alloc_buffers[i].outbuf;
-
-  return SPA_RESULT_OK;
+  return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult
@@ -791,7 +763,7 @@ spa_audiotestsrc_node_port_reuse_buffer (SpaNode         *node,
   if (buffer_id >= this->n_buffers)
     return SPA_RESULT_INVALID_BUFFER_ID;
 
-  b = &this->alloc_buffers[buffer_id];
+  b = &this->buffers[buffer_id];
   if (!b->outstanding)
     return SPA_RESULT_OK;
 

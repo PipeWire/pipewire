@@ -28,7 +28,6 @@
 
 #include <spa/poll.h>
 #include <spa/monitor.h>
-#include <spa/memory.h>
 #include <spa/debug.h>
 
 extern const SpaHandleFactory spa_alsa_source_factory;

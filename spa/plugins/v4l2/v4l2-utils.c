@@ -75,7 +75,7 @@ static SpaResult
 spa_v4l2_buffer_recycle (SpaV4l2Source *this, uint32_t buffer_id)
 {
   SpaV4l2State *state = &this->state[0];
-  V4l2Buffer *b = &state->alloc_buffers[buffer_id];
+  V4l2Buffer *b = &state->buffers[buffer_id];
 
   if (!b->outstanding)
     return SPA_RESULT_OK;
@@ -100,18 +100,13 @@ spa_v4l2_clear_buffers (SpaV4l2Source *this)
   for (i = 0; i < state->reqbuf.count; i++) {
     V4l2Buffer *b;
 
-    b = &state->alloc_buffers[i];
+    b = &state->buffers[i];
     if (b->outstanding) {
       fprintf (stderr, "queueing outstanding buffer %p\n", b);
       spa_v4l2_buffer_recycle (this, i);
     }
-    if (b->buffer.n_datas > 0)
-      spa_memory_unref (&b->datas[0].mem.mem);
   }
-  if (state->alloc_mem)
-    spa_memory_unref (&state->alloc_mem->mem);
 
-  state->alloc_mem = NULL;
   state->have_buffers = false;
 
   return SPA_RESULT_OK;
@@ -317,7 +312,7 @@ enum_filter_format (const SpaFormat *filter, unsigned int index)
       if (pi->type != SPA_PROP_TYPE_UINT32)
         return SPA_VIDEO_FORMAT_UNKNOWN;
 
-      res = spa_props_get_prop (&filter->props, idx, &val);
+      res = spa_props_get_value (&filter->props, idx, &val);
       if (res >= 0) {
         if (index == 0)
           video_format = *((SpaVideoFormat *)val.value);
@@ -501,7 +496,7 @@ next_frmsize:
       if (pi->type != SPA_PROP_TYPE_RECTANGLE)
         return SPA_RESULT_ENUM_END;
 
-      res = spa_props_get_prop (&filter->props, idx, &val);
+      res = spa_props_get_value (&filter->props, idx, &val);
       if (res >= 0) {
         const SpaRectangle *size = val.value;
 
@@ -588,7 +583,6 @@ have_size:
   fmt->fmt.props.prop_info = fmt->infos;
   fmt->fmt.props.n_prop_info = pi = 0;
   fmt->fmt.props.unset_mask = 0;
-  fmt->fmt.mem.mem.pool_id = SPA_ID_INVALID;
 
   if (info->media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
     spa_prop_info_fill_video (&fmt->infos[pi],
@@ -642,7 +636,7 @@ have_size:
       if (pi->type != SPA_PROP_TYPE_FRACTION)
         return SPA_RESULT_ENUM_END;
 
-      res = spa_props_get_prop (&filter->props, idx, &val);
+      res = spa_props_get_value (&filter->props, idx, &val);
       if (res == 0) {
         if (filter_framerate (&state->frmival, val.value,
                                                val.value,
@@ -814,6 +808,7 @@ mmap_read (SpaV4l2Source *this)
   struct v4l2_buffer buf;
   V4l2Buffer *b;
   SpaData *d;
+  int64_t pts;
 
   CLEAR(buf);
   buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -830,24 +825,27 @@ mmap_read (SpaV4l2Source *this)
     }
   }
 
-  b = &state->alloc_buffers[buf.index];
-  b->header.flags = SPA_BUFFER_FLAG_NONE;
-  if (buf.flags & V4L2_BUF_FLAG_ERROR)
-    b->header.flags |= SPA_BUFFER_FLAG_CORRUPTED;
-
   state->last_ticks = (int64_t)buf.timestamp.tv_sec * SPA_USEC_PER_SEC + (uint64_t)buf.timestamp.tv_usec;
-
-  b->header.seq = buf.sequence;
-  b->header.pts = state->last_ticks * 1000;
+  pts = state->last_ticks * 1000;
 
   if (buf.flags & V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC)
-    state->last_monotonic = b->header.pts;
+    state->last_monotonic = pts;
   else
     state->last_monotonic = SPA_TIME_INVALID;
 
-  d = SPA_BUFFER_DATAS (b->outbuf);
-  d[0].mem.size = buf.bytesused;
+  b = &state->buffers[buf.index];
+  if (b->h) {
+    b->h->flags = SPA_BUFFER_FLAG_NONE;
+    if (buf.flags & V4L2_BUF_FLAG_ERROR)
+      b->h->flags |= SPA_BUFFER_FLAG_CORRUPTED;
+    b->h->seq = buf.sequence;
+    b->h->pts = pts;
+  }
 
+  d = b->outbuf->datas;
+  d[0].size = buf.bytesused;
+
+  b->next = NULL;
   SPA_QUEUE_PUSH_TAIL (&state->ready, V4l2Buffer, next, b);
 
   return SPA_RESULT_OK;
@@ -900,49 +898,28 @@ spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffe
   }
   state->reqbuf = reqbuf;
 
-  if (state->alloc_mem)
-    spa_memory_unref (&state->alloc_mem->mem);
-  state->alloc_mem = spa_memory_alloc_size (SPA_MEMORY_POOL_LOCAL,
-                                            NULL,
-                                            sizeof (V4l2Buffer) * reqbuf.count);
-  state->alloc_buffers = spa_memory_ensure_ptr (state->alloc_mem);
-
   for (i = 0; i < reqbuf.count; i++) {
     V4l2Buffer *b;
-    SpaMemoryRef *mem_ref;
-    SpaMemory *mem;
     SpaData *d;
 
-    b = &state->alloc_buffers[i];
-    b->buffer.mem.mem = state->alloc_mem->mem;
-    b->buffer.mem.offset = sizeof (V4l2Buffer) * i;
-    b->buffer.mem.size = sizeof (V4l2Buffer);
-    b->buffer.id = SPA_ID_INVALID;
-    b->buffer.n_metas = 0;
-    b->buffer.n_datas = 0;
+    b = &state->buffers[i];
     b->outbuf = buffers[i];
     b->outstanding = true;
 
     fprintf (stderr, "import buffer %p\n", buffers[i]);
 
-    d = SPA_BUFFER_DATAS (buffers[i]);
-    mem_ref = &d[0].mem.mem;
-    if (!(mem = spa_memory_find (mem_ref))) {
-      fprintf (stderr, "invalid memory on buffer %p\n", buffers[i]);
-      continue;
-    }
-
     if (buffers[i]->n_datas < 1) {
       fprintf (stderr, "invalid memory on buffer %p\n", buffers[i]);
       continue;
     }
+    d = buffers[i]->datas;
 
     CLEAR (b->v4l2_buffer);
     b->v4l2_buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     b->v4l2_buffer.memory = state->memtype;
     b->v4l2_buffer.index = i;
-    b->v4l2_buffer.m.userptr = (unsigned long) SPA_MEMBER (mem->ptr, d[0].mem.offset, void *);
-    b->v4l2_buffer.length = d[0].mem.size;
+    b->v4l2_buffer.m.userptr = (unsigned long) SPA_MEMBER (d[0].data, d[0].offset, void *);
+    b->v4l2_buffer.length = d[0].size;
 
     spa_v4l2_buffer_recycle (this, buffers[i]->id);
   }
@@ -986,57 +963,33 @@ mmap_init (SpaV4l2Source   *this,
 
   state->reqbuf = reqbuf;
 
-  if (state->alloc_mem)
-    spa_memory_unref (&state->alloc_mem->mem);
-  state->alloc_mem = spa_memory_alloc_with_fd (SPA_MEMORY_POOL_SHARED,
-                                               NULL,
-                                               sizeof (V4l2Buffer) * reqbuf.count);
-  state->alloc_buffers = spa_memory_ensure_ptr (state->alloc_mem);
-
   for (i = 0; i < reqbuf.count; i++) {
-    struct v4l2_buffer buf;
     V4l2Buffer *b;
-    SpaMemory *mem;
+    SpaData *d;
 
-    CLEAR (buf);
-    buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    buf.memory = state->memtype;
-    buf.index = i;
+    if (buffers[i]->n_datas < 1) {
+      fprintf (stderr, "invalid buffer data\n");
+      return SPA_RESULT_ERROR;
+    }
 
-    if (xioctl (state->fd, VIDIOC_QUERYBUF, &buf) < 0) {
+    b = &state->buffers[i];
+    b->outbuf = buffers[i];
+    b->outstanding = true;
+
+    CLEAR (b->v4l2_buffer);
+    b->v4l2_buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    b->v4l2_buffer.memory = state->memtype;
+    b->v4l2_buffer.index = i;
+
+    if (xioctl (state->fd, VIDIOC_QUERYBUF, &b->v4l2_buffer) < 0) {
       perror ("VIDIOC_QUERYBUF");
       return SPA_RESULT_ERROR;
     }
 
-    b = &state->alloc_buffers[i];
-    b->buffer.id = i;
-    b->buffer.mem.mem = state->alloc_mem->mem;
-    b->buffer.mem.offset = sizeof (V4l2Buffer) * i;
-    b->buffer.mem.size = sizeof (V4l2Buffer);
-
-    buffers[i] = &b->buffer;
-
-    b->buffer.n_metas = 1;
-    b->buffer.metas = offsetof (V4l2Buffer, metas);
-    b->buffer.n_datas = 1;
-    b->buffer.datas = offsetof (V4l2Buffer, datas);
-
-    b->header.flags = 0;
-    b->header.seq = 0;
-    b->header.pts = 0;
-    b->header.dts_offset = 0;
-
-    b->metas[0].type = SPA_META_TYPE_HEADER;
-    b->metas[0].offset = offsetof (V4l2Buffer, header);
-    b->metas[0].size = sizeof (b->header);
-
-    mem = spa_memory_alloc (SPA_MEMORY_POOL_SHARED);
-    mem->flags = SPA_MEMORY_FLAG_READABLE;
-    mem->size = buf.length;
-    b->datas[0].mem.mem = mem->mem;
-    b->datas[0].mem.offset = 0;
-    b->datas[0].mem.size = buf.length;
-    b->datas[0].stride = state->fmt.fmt.pix.bytesperline;
+    d = buffers[i]->datas;
+    d[0].offset = 0;
+    d[0].size = b->v4l2_buffer.length;
+    d[0].stride = state->fmt.fmt.pix.bytesperline;
 
     if (state->export_buf) {
       struct v4l2_exportbuffer expbuf;
@@ -1048,33 +1001,21 @@ mmap_init (SpaV4l2Source   *this,
         perror("VIDIOC_EXPBUF");
         continue;
       }
-
-      mem->fd = expbuf.fd;
-      mem->type = "dmabuf";
-      mem->ptr = NULL;
-      b->dmafd = expbuf.fd;
+      d[0].type = SPA_DATA_TYPE_FD;
+      d[0].data = SPA_INT_TO_PTR (expbuf.fd);
     } else {
-      mem->fd = -1;
-      mem->type = "sysmem";
-      mem->ptr = mmap (NULL,
-                       buf.length,
-                       PROT_READ | PROT_WRITE,
-                       MAP_SHARED,
-                       state->fd,
-                       buf.m.offset);
-      if (mem->ptr == MAP_FAILED) {
+      d[0].type = SPA_DATA_TYPE_MEMPTR;
+      d[0].data = mmap (NULL,
+                        b->v4l2_buffer.length,
+                        PROT_READ | PROT_WRITE,
+                        MAP_SHARED,
+                        state->fd,
+                        b->v4l2_buffer.m.offset);
+      if (d[0].data == MAP_FAILED) {
         perror ("mmap");
         continue;
       }
     }
-    b->outbuf = &b->buffer;
-    b->outstanding = true;
-
-    CLEAR (b->v4l2_buffer);
-    b->v4l2_buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    b->v4l2_buffer.memory = state->memtype;
-    b->v4l2_buffer.index = i;
-
     spa_v4l2_buffer_recycle (this, i);
   }
   state->have_buffers = true;
@@ -1103,18 +1044,9 @@ spa_v4l2_alloc_buffers (SpaV4l2Source   *this,
 {
   SpaResult res;
   SpaV4l2State *state = &this->state[0];
-  unsigned int i;
 
-  if (state->have_buffers) {
-    if (*n_buffers < state->reqbuf.count)
-      return SPA_RESULT_NO_BUFFERS;
-
-    *n_buffers = state->reqbuf.count;
-    for (i = 0; i < state->reqbuf.count; i++) {
-      buffers[i] = &state->alloc_buffers[i].buffer;
-    }
-    return SPA_RESULT_OK;
-  }
+  if (state->have_buffers)
+    return SPA_RESULT_ERROR;
 
   if (state->cap.capabilities & V4L2_CAP_STREAMING) {
     if ((res = mmap_init (this, params, n_params, buffers, n_buffers)) < 0)
@@ -1194,7 +1126,7 @@ spa_v4l2_pause (SpaV4l2Source *this)
   for (i = 0; i < state->reqbuf.count; i++) {
     V4l2Buffer *b;
 
-    b = &state->alloc_buffers[i];
+    b = &state->buffers[i];
     if (!b->outstanding)
       if (xioctl (state->fd, VIDIOC_QBUF, &b->v4l2_buffer) < 0)
         perror ("VIDIOC_QBUF");

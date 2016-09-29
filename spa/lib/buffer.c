@@ -35,16 +35,16 @@ typedef struct {
 } Buffer;
 
 SpaResult
-spa_buffer_alloc (SpaAllocParam     **params,
-                  unsigned int        n_params,
-                  SpaBuffer         **buffers,
-                  unsigned int       *n_buffers)
+spa_buffer_alloc (SpaBufferAllocFlags   flags,
+                  SpaAllocParam       **params,
+                  unsigned int          n_params,
+                  SpaBuffer           **buffers,
+                  unsigned int         *n_buffers)
 {
   unsigned int i, nbufs;
   size_t size = 0, stride = 0;
-  SpaMemory *bmem, *dmem;
+  void *mem;
   Buffer *bufs;
-  Buffer *b;
   bool add_header = false;
   int n_metas = 0;
 
@@ -91,28 +91,26 @@ spa_buffer_alloc (SpaAllocParam     **params,
 
   *n_buffers = nbufs;
 
-  bmem = spa_memory_alloc_with_fd (SPA_MEMORY_POOL_SHARED,
-                                   NULL, sizeof (Buffer) * nbufs);
-  dmem = spa_memory_alloc_with_fd (SPA_MEMORY_POOL_SHARED,
-                                   NULL, size * nbufs);
+  if (flags & SPA_BUFFER_ALLOC_FLAG_NO_MEM)
+    size = 0;
 
-  bufs = spa_memory_ensure_ptr (bmem);
+  mem = calloc (nbufs, sizeof (Buffer) + size);
+
+  bufs = mem;
 
   for (i = 0; i < nbufs; i++) {
     int mi = 0;
+    Buffer *b;
 
     b = &bufs[i];
     b->buffer.id = i;
-    b->buffer.mem.mem = bmem->mem;
-    b->buffer.mem.offset = sizeof (Buffer) * i;
-    b->buffer.mem.size = sizeof (Buffer);
 
     buffers[i] = &b->buffer;
 
     b->buffer.n_metas = n_metas;
-    b->buffer.metas = offsetof (Buffer, metas);
+    b->buffer.metas = b->metas;
     b->buffer.n_datas = 1;
-    b->buffer.datas = offsetof (Buffer, datas);
+    b->buffer.datas = b->datas;
 
     if (add_header) {
       b->header.flags = 0;
@@ -121,15 +119,92 @@ spa_buffer_alloc (SpaAllocParam     **params,
       b->header.dts_offset = 0;
 
       b->metas[mi].type = SPA_META_TYPE_HEADER;
-      b->metas[mi].offset = offsetof (Buffer, header);
+      b->metas[mi].data = &b->header;
       b->metas[mi].size = sizeof (b->header);
       mi++;
     }
 
-    b->datas[0].mem.mem = dmem->mem;
-    b->datas[0].mem.offset = size * i;
-    b->datas[0].mem.size = size;
+    if (size == 0) {
+      b->datas[0].type = SPA_DATA_TYPE_INVALID;
+      b->datas[0].data = NULL;
+    } else {
+      b->datas[0].type = SPA_DATA_TYPE_MEMPTR;
+      b->datas[0].data = mem + sizeof (Buffer);
+    }
+    b->datas[0].offset = size * i;
+    b->datas[0].size = size;
     b->datas[0].stride = stride;
   }
   return SPA_RESULT_OK;
+}
+
+
+size_t
+spa_buffer_get_size (const SpaBuffer *buffer)
+{
+  size_t size;
+  unsigned int i;
+
+  if (buffer == NULL)
+    return 0;
+
+  size = sizeof (SpaBuffer);
+  for (i = 0; i < buffer->n_metas; i++)
+    size += buffer->metas[i].size * sizeof (SpaMeta);
+  for (i = 0; i < buffer->n_datas; i++)
+    size += sizeof (SpaData);
+  return size;
+}
+
+size_t
+spa_buffer_serialize (void *dest, const SpaBuffer *buffer)
+{
+  SpaBuffer *tb;
+  SpaMeta *mp;
+  SpaData *dp;
+  void *p;
+  unsigned int i;
+
+  if (buffer == NULL)
+    return 0;
+
+  tb = dest;
+  memcpy (tb, buffer, sizeof (SpaBuffer));
+  mp = SPA_MEMBER (tb, sizeof(SpaBuffer), SpaMeta);
+  dp = SPA_MEMBER (mp, sizeof(SpaMeta) * tb->n_metas, SpaData);
+  p = SPA_MEMBER (dp, sizeof(SpaData) * tb->n_datas, void);
+
+  tb->metas = SPA_INT_TO_PTR (SPA_PTRDIFF (mp, tb));
+  tb->datas = SPA_INT_TO_PTR (SPA_PTRDIFF (dp, tb));
+
+  for (i = 0; i < tb->n_metas; i++) {
+    memcpy (&mp[i], &buffer->metas[i], sizeof (SpaMeta));
+    memcpy (p, mp[i].data, mp[i].size);
+    mp[i].data = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tb));
+    p += mp[i].size;
+  }
+  for (i = 0; i < tb->n_datas; i++)
+    memcpy (&dp[i], &buffer->datas[i], sizeof (SpaData));
+
+  return SPA_PTRDIFF (p, tb);
+}
+
+SpaBuffer *
+spa_buffer_deserialize (void *src, off_t offset)
+{
+  SpaBuffer *b;
+  unsigned int i;
+
+  b = SPA_MEMBER (src, offset, SpaBuffer);
+  if (b->metas)
+    b->metas = SPA_MEMBER (b, SPA_PTR_TO_INT (b->metas), SpaMeta);
+  for (i = 0; i < b->n_metas; i++) {
+    SpaMeta *m = &b->metas[i];
+    if (m->data)
+      m->data = SPA_MEMBER (b, SPA_PTR_TO_INT (m->data), void);
+  }
+  if (b->datas)
+    b->datas = SPA_MEMBER (b, SPA_PTR_TO_INT (b->datas), SpaData);
+
+  return b;
 }

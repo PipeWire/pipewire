@@ -309,7 +309,7 @@ mmap_read (SpaALSAState *state)
   SpaALSABuffer *b;
   snd_htimestamp_t htstamp = { 0, 0 };
   int64_t now;
-  uint8_t *dest;
+  uint8_t *dest = NULL;
 
   snd_pcm_status_alloca(&status);
 
@@ -374,8 +374,8 @@ mmap_read (SpaALSAState *state)
     SpaNodeEventHaveOutput ho;
     SpaData *d;
 
-    d = SPA_BUFFER_DATAS (b->outbuf);
-    d[0].mem.size = avail * state->frame_size;
+    d = b->outbuf->datas;
+    d[0].size = avail * state->frame_size;
 
     b->next = NULL;
     SPA_QUEUE_PUSH_TAIL (&state->ready, SpaALSABuffer, next, b);

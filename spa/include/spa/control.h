@@ -35,7 +35,6 @@ typedef struct _SpaControlBuilder SpaControlBuilder;
 #include <spa/format.h>
 #include <spa/port.h>
 #include <spa/node.h>
-#include <spa/memory.h>
 
 struct _SpaControl {
   size_t x[16];
@@ -153,28 +152,32 @@ typedef struct {
 
 /* SPA_CONTROL_CMD_ADD_MEM */
 typedef struct {
-  uint32_t     seq;
   uint32_t     port_id;
-  SpaMemoryRef mem;
-  uint32_t     mem_type;
+  uint32_t     mem_id;
   unsigned int fd_index;
   uint32_t     flags;
+  off_t        offset;
   size_t       size;
 } SpaControlCmdAddMem;
 
 /* SPA_CONTROL_CMD_REMOVE_MEM */
 typedef struct {
-  uint32_t     seq;
   uint32_t     port_id;
-  SpaMemoryRef mem;
+  uint32_t     mem_id;
 } SpaControlCmdRemoveMem;
+
+typedef struct {
+  uint32_t    mem_id;
+  off_t       offset;
+  size_t      size;
+} SpaControlMemRef;
 
 /* SPA_CONTROL_CMD_USE_BUFFERS */
 typedef struct {
-  uint32_t        seq;
-  uint32_t        port_id;
-  unsigned int    n_buffers;
-  SpaBuffer     **buffers;
+  uint32_t          seq;
+  uint32_t          port_id;
+  unsigned int      n_buffers;
+  SpaControlMemRef *buffers;
 } SpaControlCmdUseBuffers;
 
 /* SPA_CONTROL_CMD_PROCESS_BUFFER */

@@ -25,7 +25,6 @@ extern "C" {
 #endif
 
 typedef struct _SpaBuffer SpaBuffer;
-typedef struct _SpaBufferGroup SpaBufferGroup;
 
 /**
  * SpaMetaType:
@@ -41,7 +40,6 @@ typedef enum {
 } SpaMetaType;
 
 #include <spa/defs.h>
-#include <spa/memory.h>
 #include <spa/port.h>
 
 /**
@@ -106,29 +104,48 @@ typedef struct {
 /**
  * SpaMeta:
  * @type: metadata type
- * @offset: offset of metadata in the buffer structure
+ * @data: pointer to metadata
  * @size: size of metadata
  */
 typedef struct {
   SpaMetaType  type;
-  off_t        offset;
+  void        *data;
   size_t       size;
 } SpaMeta;
 
 /**
+ * SpaDataType:
+ * @SPA_DATA_TYPE_INVALID: invalid data, should be ignored
+ * @SPA_DATA_TYPE_MEMPTR: data points to CPU accessible memory
+ * @SPA_DATA_TYPE_FD: data is an int file descriptor, use SPA_PTR_TO_INT
+ * @SPA_DATA_TYPE_ID: data is an id use SPA_PTR_TO_INT32
+ */
+typedef enum {
+  SPA_DATA_TYPE_INVALID               = 0,
+  SPA_DATA_TYPE_MEMPTR,
+  SPA_DATA_TYPE_FD,
+  SPA_DATA_TYPE_ID,
+} SpaDataType;
+
+/**
  * SpaData:
- * @mem: reference to the memory to use
- * @stride: stride of memory if applicable
+ * @type: memory type
+ * @data: pointer to memory
+ * @offset: offset in @data
+ * @size: size of @data
+ * @stride: stride of data if applicable
  */
 typedef struct {
-  SpaMemoryChunk mem;
+  SpaDataType    type;
+  void          *data;
+  off_t          offset;
+  size_t         size;
   ssize_t        stride;
 } SpaData;
 
 /**
  * SpaBuffer:
  * @id: buffer id
- * @mem: reference to the memory for this buffer
  * @n_metas: number of metadata
  * @metas: offset of array of @n_metas metadata
  * @n_datas: number of data pointers
@@ -136,23 +153,32 @@ typedef struct {
  */
 struct _SpaBuffer {
   uint32_t       id;
-  SpaMemoryChunk mem;
   unsigned int   n_metas;
-  off_t          metas;
+  SpaMeta       *metas;
   unsigned int   n_datas;
-  off_t          datas;
+  SpaData       *datas;
 };
 
-#define SPA_BUFFER_METAS(b)        (SPA_MEMBER ((b), (b)->metas, SpaMeta))
-#define SPA_BUFFER_DATAS(b)        (SPA_MEMBER ((b), (b)->datas, SpaData))
 
-#define spa_buffer_ref(b)    spa_memory_ref (&(b)->mem)
-#define spa_buffer_unref(b)  spa_memory_unref (&(b)->mem)
+size_t       spa_buffer_get_size    (const SpaBuffer *buffer);
+size_t       spa_buffer_serialize   (void *dest, const SpaBuffer *buffer);
+SpaBuffer *  spa_buffer_deserialize (void *src, off_t offset);
 
-SpaResult    spa_buffer_alloc   (SpaAllocParam     **params,
-                                 unsigned int        n_params,
-                                 SpaBuffer         **buffers,
-                                 unsigned int       *n_buffers);
+/**
+ * SpaBufferAllocFlags:
+ * @SPA_BUFFER_ALLOC_FLAG_NONE: no flags
+ * @SPA_BUFFER_ALLOC_FLAG_NO_MEM: don't allocate memory
+ */
+typedef enum {
+  SPA_BUFFER_ALLOC_FLAG_NONE    = 0,
+  SPA_BUFFER_ALLOC_FLAG_NO_MEM,
+} SpaBufferAllocFlags;
+
+SpaResult    spa_buffer_alloc       (SpaBufferAllocFlags   flags,
+                                     SpaAllocParam       **params,
+                                     unsigned int          n_params,
+                                     SpaBuffer           **buffers,
+                                     unsigned int         *n_buffers);
 
 #ifdef __cplusplus
 }  /* extern "C" */

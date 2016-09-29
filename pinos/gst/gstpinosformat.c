@@ -288,7 +288,6 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
 {
   const GValue *val;
   guint size, n_infos = 0, n_ranges = 0, n_datas = 0;
-  SpaMemory *mem;
   ConvertData d;
 
   d.cf = cf;
@@ -301,12 +300,7 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
   size += n_ranges * sizeof (SpaPropRangeInfo);
   size += n_datas;
 
-  mem = spa_memory_alloc_size (SPA_MEMORY_POOL_LOCAL, NULL, size);
-  d.f = spa_memory_ensure_ptr (mem);
-  d.f->mem.mem = mem->mem;
-  d.f->mem.offset = 0;
-  d.f->mem.size = mem->size;
-
+  d.f = malloc (size);
   d.bpi = SPA_MEMBER (d.f, sizeof (SpaFormat), SpaPropInfo);
   d.bri = SPA_MEMBER (d.bpi, n_infos * sizeof (SpaPropInfo), SpaPropRangeInfo);
   d.p = SPA_MEMBER (d.bri, n_ranges * sizeof (SpaPropRangeInfo), void);
@@ -474,9 +468,7 @@ gst_caps_to_format_all (GstCaps *caps)
 {
   GPtrArray *res;
 
-  res = g_ptr_array_new_full (gst_caps_get_size (caps),
-                              (GDestroyNotify)spa_format_unref);
-
+  res = g_ptr_array_new_full (gst_caps_get_size (caps), (GDestroyNotify)g_free);
   gst_caps_foreach (caps, (GstCapsForeachFunc) foreach_func, res);
 
   return res;

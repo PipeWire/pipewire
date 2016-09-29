@@ -371,33 +371,31 @@ on_add_buffer (GObject    *gobject,
   data.header = NULL;
 
   for (i = 0; i < b->n_metas; i++) {
-    SpaMeta *m = &SPA_BUFFER_METAS(b)[i];
+    SpaMeta *m = &b->metas[i];
 
     switch (m->type) {
       case SPA_META_TYPE_HEADER:
-        data.header = SPA_MEMBER (b, m->offset, SpaMetaHeader);
+        data.header = m->data;
         break;
       default:
         break;
     }
   }
   for (i = 0; i < b->n_datas; i++) {
-    SpaData *d = &SPA_BUFFER_DATAS (b)[i];
-    SpaMemory *mem;
+    SpaData *d = &b->datas[i];
 
-    mem = spa_memory_find (&d->mem.mem);
-
-    if (mem->fd) {
+    if (d->type == SPA_DATA_TYPE_FD) {
       GstMemory *fdmem = NULL;
+      gint fd = *(int*)d->data;
 
-      fdmem = gst_fd_allocator_alloc (pinossink->allocator, dup (mem->fd),
-                d->mem.offset + d->mem.size, GST_FD_MEMORY_FLAG_NONE);
-      gst_memory_resize (fdmem, d->mem.offset, d->mem.size);
+      fdmem = gst_fd_allocator_alloc (pinossink->allocator, dup (fd),
+                d->offset + d->size, GST_FD_MEMORY_FLAG_NONE);
+      gst_memory_resize (fdmem, d->offset, d->size);
       gst_buffer_append_memory (buf, fdmem);
     } else {
       gst_buffer_append_memory (buf,
-               gst_memory_new_wrapped (0, mem->ptr, mem->size, d->mem.offset,
-                                       d->mem.size, NULL, NULL));
+               gst_memory_new_wrapped (0, d->data, d->offset + d->size, d->offset,
+                                       d->size, NULL, NULL));
     }
   }
   data.flags = GST_BUFFER_FLAGS (buf);

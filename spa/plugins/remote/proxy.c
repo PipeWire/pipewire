@@ -30,12 +30,16 @@
 
 #include <spa/control.h>
 #include <spa/debug.h>
-#include <spa/memory.h>
 #include <spa/node.h>
+#include <spa/queue.h>
+#include <spa/queue.h>
+#include "../lib/memfd-wrappers.h"
 
 #define MAX_INPUTS       64
 #define MAX_OUTPUTS      64
 #define MAX_PORTS        (MAX_INPUTS + MAX_OUTPUTS)
+
+#define MAX_BUFFERS      16
 
 #define CHECK_FREE_PORT_ID(this,id)     ((id) < MAX_PORTS && !(this)->ports[id].valid)
 #define CHECK_PORT_ID(this,id)          ((id) < MAX_PORTS && (this)->ports[id].valid)
@@ -43,6 +47,16 @@
 #define CHECK_PORT_ID_OUT(this,id)      (CHECK_PORT_ID(this,id) && (id >= this->max_inputs))
 
 typedef struct _SpaProxy SpaProxy;
+typedef struct _ProxyBuffer ProxyBuffer;
+
+struct _ProxyBuffer {
+  SpaBuffer *outbuf;
+
+  SpaBuffer  buffer;
+  SpaData    datas[4];
+  off_t      offset;
+  size_t     size;
+};
 
 typedef struct {
   SpaProps props;
@@ -56,9 +70,17 @@ typedef struct {
   unsigned int   n_formats;
   SpaFormat    **formats;
   SpaPortStatus  status;
+
   unsigned int   n_buffers;
-  SpaBuffer    **buffers;
+  ProxyBuffer    buffers[MAX_BUFFERS];
+
+  uint32_t       buffer_mem_id;
+  int            buffer_mem_fd;
+  size_t         buffer_mem_size;
+  void          *buffer_mem_ptr;
+
   uint32_t       buffer_id;
+  SpaQueue       ready;
 } SpaProxyPort;
 
 struct _SpaProxy {
@@ -145,6 +167,19 @@ send_async_complete (SpaProxy *this, uint32_t seq, SpaResult res)
 }
 
 static SpaResult
+clear_buffers (SpaProxy *this, SpaProxyPort *port)
+{
+  if (port->n_buffers) {
+    fprintf (stderr, "proxy %p: clear buffers\n", this);
+
+
+    port->n_buffers = 0;
+    SPA_QUEUE_INIT (&port->ready);
+  }
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
 spa_proxy_node_get_props (SpaNode       *node,
                           SpaProps     **props)
 {
@@ -183,7 +218,7 @@ spa_proxy_node_set_props (SpaNode         *node,
   }
 
   /* copy new properties */
-  res = spa_props_copy (props, &np->props);
+  res = spa_props_copy_values (props, &np->props);
 
   /* compare changes */
   if (op->socketfd != np->socketfd)
@@ -340,15 +375,26 @@ do_update_port (SpaProxy                *this,
 {
   SpaProxyPort *port;
   unsigned int i;
+  size_t size;
 
   port = &this->ports[pu->port_id];
 
   if (pu->change_mask & SPA_CONTROL_CMD_PORT_UPDATE_POSSIBLE_FORMATS) {
-    port->n_formats = pu->n_possible_formats;
-    port->formats = pu->possible_formats;
-
     for (i = 0; i < port->n_formats; i++)
+      free (port->formats[i]);
+    port->n_formats = pu->n_possible_formats;
+    port->formats = realloc (port->formats, port->n_formats * sizeof (SpaFormat *));
+    for (i = 0; i < port->n_formats; i++) {
+      size = spa_format_get_size (pu->possible_formats[i]);
+      port->formats[i] = spa_format_copy_into (malloc (size), pu->possible_formats[i]);
       spa_debug_format (port->formats[i]);
+    }
+  }
+  if (pu->change_mask & SPA_CONTROL_CMD_PORT_UPDATE_FORMAT) {
+    if (port->format)
+      free (port->format);
+    size = spa_format_get_size (pu->format);
+    port->format = spa_format_copy_into (malloc (size), pu->format);
   }
 
   if (pu->change_mask & SPA_CONTROL_CMD_PORT_UPDATE_PROPS) {
@@ -386,7 +432,7 @@ do_uninit_port (SpaProxy     *this,
 
   port->valid = false;
   if (port->format)
-    spa_format_unref (port->format);
+    free (port->format);
   port->format = NULL;
 }
 
@@ -406,11 +452,13 @@ spa_proxy_node_add_port (SpaNode        *node,
     return SPA_RESULT_INVALID_PORT;
 
   pu.change_mask = SPA_CONTROL_CMD_PORT_UPDATE_POSSIBLE_FORMATS |
+                   SPA_CONTROL_CMD_PORT_UPDATE_FORMAT |
                    SPA_CONTROL_CMD_PORT_UPDATE_PROPS |
                    SPA_CONTROL_CMD_PORT_UPDATE_INFO;
   pu.port_id = port_id;
   pu.n_possible_formats = 0;
   pu.possible_formats = NULL;
+  pu.format = NULL;
   pu.props = NULL;
   pu.info = NULL;
   do_update_port (this, &pu);
@@ -476,7 +524,6 @@ spa_proxy_node_port_set_format (SpaNode            *node,
                                 const SpaFormat    *format)
 {
   SpaProxy *this;
-  SpaProxyPort *port;
   SpaControl control;
   SpaControlBuilder builder;
   SpaControlCmdSetFormat sf;
@@ -491,11 +538,8 @@ spa_proxy_node_port_set_format (SpaNode            *node,
   if (!CHECK_PORT_ID (this, port_id))
     return SPA_RESULT_INVALID_PORT;
 
-  port = &this->ports[port_id];
-
   spa_control_builder_init_into (&builder, buf, sizeof (buf), NULL, 0);
   sf.seq = this->seq++;
-  sf.port_id = port_id;
   sf.flags = flags;
   sf.format = (SpaFormat *) format;
   spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_SET_FORMAT, &sf);
@@ -505,8 +549,6 @@ spa_proxy_node_port_set_format (SpaNode            *node,
     fprintf (stderr, "proxy %p: error writing control\n", this);
 
   spa_control_clear (&control);
-
-  port->format = format;
 
   return SPA_RESULT_RETURN_ASYNC (sf.seq);
 }
@@ -603,58 +645,6 @@ spa_proxy_node_port_get_status (SpaNode              *node,
 }
 
 static SpaResult
-add_buffer_mem (SpaProxy *this, SpaControlBuilder *builder, uint32_t port_id, SpaBuffer *buffer)
-{
-  SpaControlCmdAddMem am;
-  int i;
-  SpaBuffer *b;
-  SpaMemory *bmem;
-
-  if (buffer->mem.mem.id == SPA_ID_INVALID) {
-    fprintf (stderr, "proxy %p: alloc buffer space %zd\n", this, buffer->mem.size);
-    bmem = spa_memory_alloc_with_fd (SPA_MEMORY_POOL_SHARED, buffer, buffer->mem.size);
-    b = spa_memory_ensure_ptr (bmem);
-    b->mem.mem = bmem->mem;
-    b->mem.offset = 0;
-  } else {
-    bmem = spa_memory_find (&buffer->mem.mem);
-    b = buffer;
-  }
-
-  am.port_id = port_id;
-  am.mem = bmem->mem;
-  am.mem_type = 0;
-  am.fd_index = spa_control_builder_add_fd (builder, bmem->fd, false);
-  am.flags = bmem->flags;
-  am.size = bmem->size;
-  spa_control_builder_add_cmd (builder, SPA_CONTROL_CMD_ADD_MEM, &am);
-
-  for (i = 0; i < b->n_datas; i++) {
-    SpaData *d = &SPA_BUFFER_DATAS (b)[i];
-    SpaMemory *mem;
-
-    if (!(mem = spa_memory_find (&d->mem.mem))) {
-      fprintf (stderr, "proxy %p: error invalid memory\n", this);
-      continue;
-    }
-    if (mem->fd == -1) {
-      fprintf (stderr, "proxy %p: error memory without fd\n", this);
-      continue;
-    }
-
-    am.port_id = port_id;
-    am.mem = mem->mem;
-    am.mem_type = 0;
-    am.fd_index = spa_control_builder_add_fd (builder, mem->fd, false);
-    am.flags = mem->flags;
-    am.size = mem->size;
-    spa_control_builder_add_cmd (builder, SPA_CONTROL_CMD_ADD_MEM, &am);
-  }
-
-  return SPA_RESULT_OK;
-}
-
-static SpaResult
 spa_proxy_node_port_use_buffers (SpaNode         *node,
                                  uint32_t         port_id,
                                  SpaBuffer      **buffers,
@@ -662,13 +652,17 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
 {
   SpaProxy *this;
   SpaProxyPort *port;
-  unsigned int i;
+  unsigned int i, j;
   SpaControl control;
   SpaControlBuilder builder;
   uint8_t buf[4096];
   int fds[32];
   SpaResult res;
+  SpaControlCmdAddMem am;
   SpaControlCmdUseBuffers ub;
+  size_t size, n_mem;
+  SpaControlMemRef *memref;
+  void *p;
 
   if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -684,25 +678,85 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
   if (!port->format)
     return SPA_RESULT_NO_FORMAT;
 
-  if (port->n_buffers == n_buffers && port->buffers == buffers)
-    return SPA_RESULT_OK;
+  clear_buffers (this, port);
 
   spa_control_builder_init_into (&builder, buf, sizeof (buf), fds, SPA_N_ELEMENTS (fds));
 
-  if (buffers == NULL || n_buffers == 0) {
-    port->buffers = NULL;
-    port->n_buffers = 0;
-  } else {
-    port->buffers = buffers;
-    port->n_buffers = n_buffers;
+  /* find size to store buffers */
+  size = 0;
+  n_mem = 0;
+  for (i = 0; i < n_buffers; i++) {
+    ProxyBuffer *b = &port->buffers[i];
+
+    b->outbuf = buffers[i];
+    memcpy (&b->buffer, buffers[i], sizeof (SpaBuffer));
+    b->buffer.datas = b->datas;
+
+    b->size = spa_buffer_get_size (buffers[i]);
+    b->offset = size;
+
+    size += b->size;
+
+    for (j = 0; j < buffers[i]->n_datas; j++) {
+      SpaData *d = &buffers[i]->datas[j];
+
+      memcpy (&b->buffer.datas[j], d, sizeof (SpaData));
+
+      am.port_id = port_id;
+      am.mem_id = n_mem;
+      am.fd_index = spa_control_builder_add_fd (&builder, SPA_PTR_TO_INT (d->data), false);
+      am.flags = 0;
+      am.offset = d->offset;
+      am.size = d->size;
+      spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_ADD_MEM, &am);
+
+      b->buffer.datas[j].data = SPA_UINT32_TO_PTR (n_mem);
+      n_mem++;
+    }
   }
-  for (i = 0; i < port->n_buffers; i++)
-    add_buffer_mem (this, &builder, port_id, port->buffers[i]);
+
+  /* make mem for the buffers */
+  port->buffer_mem_id = n_mem;
+  port->buffer_mem_size = size;
+  port->buffer_mem_fd = memfd_create ("spa-memfd", MFD_CLOEXEC | MFD_ALLOW_SEALING);
+
+  if (ftruncate (port->buffer_mem_fd, size) < 0) {
+    fprintf (stderr, "Failed to truncate temporary file: %s\n", strerror (errno));
+    close (port->buffer_mem_fd);
+  }
+  {
+    unsigned int seals = F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL;
+    if (fcntl (port->buffer_mem_fd, F_ADD_SEALS, seals) == -1) {
+      fprintf (stderr, "Failed to add seals: %s\n", strerror (errno));
+      close (port->buffer_mem_fd);
+    }
+  }
+  p = port->buffer_mem_ptr = mmap (NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, port->buffer_mem_fd, 0);
+
+  for (i = 0; i < n_buffers; i++)
+    p += spa_buffer_serialize (p, &port->buffers[i].buffer);
+
+  am.port_id = port_id;
+  am.mem_id = port->buffer_mem_id;
+  am.fd_index = spa_control_builder_add_fd (&builder, port->buffer_mem_fd, false);
+  am.flags = 0;
+  am.offset = 0;
+  am.size = size;
+  spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_ADD_MEM, &am);
+
+  memref = alloca (n_mem * sizeof (SpaControlMemRef));
+  for (i = 0; i < n_buffers; i++) {
+    memref[i].mem_id = port->buffer_mem_id;
+    memref[i].offset = port->buffers[i].offset;
+    memref[i].size = port->buffers[i].size;
+  }
+
+  port->n_buffers = n_buffers;
 
   ub.seq = this->seq++;
   ub.port_id = port_id;
   ub.n_buffers = port->n_buffers;
-  ub.buffers = port->buffers;
+  ub.buffers = memref;
   spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_USE_BUFFERS, &ub);
 
   spa_control_builder_end (&builder, &control);
@@ -981,24 +1035,13 @@ parse_control (SpaProxy   *this,
       {
         SpaControlCmdPortUpdate pu;
         bool remove;
-        SpaMemory *mem;
-        void *data;
-        size_t size;
-
-        data = spa_control_iter_get_data (&it, &size);
-        mem = spa_memory_alloc_size (SPA_MEMORY_POOL_LOCAL, data, size);
-        spa_control_iter_set_data (&it, spa_memory_ensure_ptr (mem), size);
 
         fprintf (stderr, "proxy %p: got port update %d\n", this, cmd);
-        if (spa_control_iter_parse_cmd (&it, &pu) < 0) {
-          spa_memory_unref (&mem->mem);
+        if (spa_control_iter_parse_cmd (&it, &pu) < 0)
           break;
-        }
 
-        if (pu.port_id >= MAX_PORTS) {
-          spa_memory_unref (&mem->mem);
+        if (pu.port_id >= MAX_PORTS)
           break;
-        }
 
         remove = (pu.change_mask == 0);
 

@@ -21,7 +21,6 @@
 #include <stddef.h>
 
 #include <spa/node.h>
-#include <spa/memory.h>
 #include <spa/audio/format.h>
 
 typedef struct _SpaVolume SpaVolume;
@@ -137,7 +136,7 @@ spa_volume_node_set_props (SpaNode          *node,
     reset_volume_props (p);
     return SPA_RESULT_OK;
   }
-  res = spa_props_copy (props, &p->props);
+  res = spa_props_copy_values (props, &p->props);
 
   return res;
 }
@@ -527,7 +526,6 @@ spa_volume_node_port_pull_output (SpaNode           *node,
   SpaData *sd, *dd;
   uint16_t *src, *dst;
   double volume;
-  SpaMemory *sm, *dm;
 
   if (node == NULL || node->handle == NULL || n_info == 0 || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -556,16 +554,13 @@ spa_volume_node_port_pull_output (SpaNode           *node,
     if (si == sbuf->n_datas || di == dbuf->n_datas)
       break;
 
-    sd = &SPA_BUFFER_DATAS (sbuf)[si];
-    dd = &SPA_BUFFER_DATAS (dbuf)[di];
+    sd = &sbuf->datas[si];
+    dd = &dbuf->datas[di];
 
-    sm = spa_memory_find (&sd->mem.mem);
-    dm = spa_memory_find (&dd->mem.mem);
+    src = (uint16_t*) ((uint8_t*)sd->data + sd->offset + soff);
+    dst = (uint16_t*) ((uint8_t*)dd->data + dd->offset + doff);
 
-    src = (uint16_t*) ((uint8_t*)sm->ptr + sd->mem.offset + soff);
-    dst = (uint16_t*) ((uint8_t*)dm->ptr + dd->mem.offset + doff);
-
-    n_bytes = SPA_MIN (sd->mem.size - soff, dd->mem.size - doff);
+    n_bytes = SPA_MIN (sd->size - soff, dd->size - doff);
     n_samples = n_bytes / sizeof (uint16_t);
 
     for (i = 0; i < n_samples; i++)
@@ -574,11 +569,11 @@ spa_volume_node_port_pull_output (SpaNode           *node,
     soff += n_bytes;
     doff += n_bytes;
 
-    if (soff >= sd->mem.size) {
+    if (soff >= sd->size) {
       si++;
       soff = 0;
     }
-    if (doff >= dd->mem.size) {
+    if (doff >= dd->size) {
       di++;
       doff = 0;
     }

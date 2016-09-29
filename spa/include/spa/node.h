@@ -430,7 +430,7 @@ struct _SpaNode {
    * @buffers: an array of buffer pointers
    * @n_buffers: number of elements in @buffers
    *
-   * Tell the port to allocate buffers.
+   * Tell the port to allocate memory for @buffers.
    *
    * For input ports, the buffers will be dequeued and ready to be filled
    * and pushed into the port. A notify should be configured so that you can

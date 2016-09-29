@@ -142,7 +142,7 @@ spa_alsa_sink_node_set_props (SpaNode         *node,
     return SPA_RESULT_OK;
   }
 
-  res = spa_props_copy (props, &p->props);
+  res = spa_props_copy_values (props, &p->props);
 
   return res;
 }
@@ -420,10 +420,6 @@ spa_alsa_sink_node_port_alloc_buffers (SpaNode         *node,
                                        uint32_t        *n_buffers)
 {
   SpaALSASink *this;
-  SpaALSABuffer *b;
-  unsigned int i, n_bufs;
-  size_t buffer_size;
-  uint8_t *bufmem;
 
   if (node == NULL || node->handle == NULL || buffers == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -436,63 +432,7 @@ spa_alsa_sink_node_port_alloc_buffers (SpaNode         *node,
   if (!this->have_format)
     return SPA_RESULT_NO_FORMAT;
 
-  n_bufs = *n_buffers;
-
-  buffer_size = this->buffer_frames * this->frame_size;
-
-  if (!this->alloc_bufmem)
-    this->alloc_bufmem = spa_memory_alloc_with_fd (SPA_MEMORY_POOL_SHARED, NULL, buffer_size * n_bufs);
-  bufmem = spa_memory_ensure_ptr (this->alloc_bufmem);
-
-  if (!this->alloc_mem)
-    this->alloc_mem = spa_memory_alloc_with_fd (SPA_MEMORY_POOL_SHARED, NULL, sizeof (SpaALSABuffer) * n_bufs);
-  this->alloc_buffers = spa_memory_ensure_ptr (this->alloc_mem);
-  this->n_buffers = n_bufs;
-
-  for (i = 0; i < n_bufs; i++) {
-    b = &this->alloc_buffers[i];
-    b->buffer.id = i;
-    b->buffer.mem.mem = this->alloc_mem->mem;
-    b->buffer.mem.offset = sizeof (SpaALSABuffer) * i;
-    b->buffer.mem.size = sizeof (SpaALSABuffer);
-
-    b->buffer.n_metas = 2;
-    b->buffer.metas = offsetof (SpaALSABuffer, metas);
-    b->buffer.n_datas = 1;
-    b->buffer.datas = offsetof (SpaALSABuffer, datas);
-
-    b->header.flags = 0;
-    b->header.seq = 0;
-    b->header.pts = 0;
-    b->header.dts_offset = 0;
-
-    b->metas[0].type = SPA_META_TYPE_HEADER;
-    b->metas[0].offset = offsetof (SpaALSABuffer, header);
-    b->metas[0].size = sizeof (b->header);
-
-    b->ringbuffer.readindex = 0;
-    b->ringbuffer.writeindex = 0;
-    b->ringbuffer.size = 0;
-    b->ringbuffer.size_mask = 0;
-
-    b->metas[1].type = SPA_META_TYPE_RINGBUFFER;
-    b->metas[1].offset = offsetof (SpaALSABuffer, ringbuffer);
-    b->metas[1].size = sizeof (b->ringbuffer);
-
-    b->datas[0].mem.mem = this->alloc_bufmem->mem;
-    b->datas[0].mem.offset = buffer_size * i;
-    b->datas[0].mem.size = buffer_size;
-    b->datas[0].stride = 0;
-    b->ptr = bufmem + buffer_size * i;
-
-    buffers[i] = &b->buffer;
-  }
-  *n_buffers = n_bufs;
-  this->have_buffers = true;
-
-  update_state (this, SPA_NODE_STATE_PAUSED);
-
-  return SPA_RESULT_OK;
+  return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult
@@ -556,7 +496,7 @@ spa_alsa_sink_node_port_push_input (SpaNode          *node,
         have_enough = true;
         continue;
       }
-      SPA_QUEUE_PUSH_TAIL (&this->ready, SpaALSABuffer, next, &this->alloc_buffers[info[i].buffer_id]);
+      SPA_QUEUE_PUSH_TAIL (&this->ready, SpaALSABuffer, next, &this->buffers[info[i].buffer_id]);
     }
     info[i].status = SPA_RESULT_OK;
   }

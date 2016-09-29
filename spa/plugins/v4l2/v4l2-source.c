@@ -25,7 +25,6 @@
 #include <linux/videodev2.h>
 
 #include <spa/node.h>
-#include <spa/memory.h>
 #include <spa/video/format.h>
 #include <spa/debug.h>
 #include <spa/queue.h>
@@ -53,15 +52,11 @@ reset_v4l2_source_props (SpaV4l2SourceProps *props)
 typedef struct _V4l2Buffer V4l2Buffer;
 
 struct _V4l2Buffer {
-  SpaBuffer buffer;
-  SpaMeta metas[1];
-  SpaMetaHeader header;
-  SpaData datas[1];
   SpaBuffer *outbuf;
+  SpaMetaHeader *h;
   bool outstanding;
   struct v4l2_buffer v4l2_buffer;
   V4l2Buffer *next;
-  int dmafd;
 };
 
 typedef struct _V4l2Format V4l2Format;
@@ -104,8 +99,7 @@ typedef struct {
   enum v4l2_memory memtype;
 
   struct v4l2_requestbuffers reqbuf;
-  SpaMemory *alloc_mem;
-  V4l2Buffer *alloc_buffers;
+  V4l2Buffer  buffers[MAX_BUFFERS];
   SpaQueue    ready;
 
   SpaPollFd fds[1];
@@ -206,7 +200,7 @@ spa_v4l2_source_node_set_props (SpaNode         *node,
     return SPA_RESULT_OK;
   }
 
-  res = spa_props_copy (props, &p->props);
+  res = spa_props_copy_values (props, &p->props);
 
   return res;
 }
@@ -421,7 +415,7 @@ spa_v4l2_source_node_port_set_format (SpaNode            *node,
     spa_v4l2_format_init (f);
     f->fmt.media_type = format->media_type;
     f->fmt.media_subtype = format->media_subtype;
-    if ((res = spa_props_copy (&format->props, &f->fmt.props) < 0))
+    if ((res = spa_props_copy_values (&format->props, &f->fmt.props) < 0))
       return res;
   } else {
     f = (V4l2Format*)format;

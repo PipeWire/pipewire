@@ -62,7 +62,6 @@ find_node_port (GList *ports, PinosNode *node, uint32_t port)
   GList *walk;
   for (walk = ports; walk; walk = g_list_next (walk)) {
     NodePort *np = walk->data;
-    g_debug ("%p %d <-> %p %d", np->port.node, np->port.port, node, port);
     if (np->port.node == node && np->port.port == port)
       return np;
   }
@@ -285,14 +284,12 @@ suspend_node (PinosNode *this)
     if ((res = spa_node_port_set_format (this->node, p->port.port, 0, NULL)) < 0)
       g_warning ("error unset format output: %d", res);
     p->port.allocated = FALSE;
-    p->port.n_buffers = 0;
   }
   for (walk = priv->output_ports; walk; walk = g_list_next (walk)) {
     NodePort *p = walk->data;
     if ((res = spa_node_port_set_format (this->node, p->port.port, 0, NULL)) < 0)
       g_warning ("error unset format output: %d", res);
     p->port.allocated = FALSE;
-    p->port.n_buffers = 0;
   }
   return res;
 }

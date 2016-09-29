@@ -20,7 +20,6 @@
 #include <stdio.h>
 
 #include "spa/debug.h"
-#include "spa/memory.h"
 #include "spa/props.h"
 #include "spa/format.h"
 
@@ -92,18 +91,14 @@ spa_debug_buffer (const SpaBuffer *buffer)
 
   fprintf (stderr, "SpaBuffer %p:\n", buffer);
   fprintf (stderr, " id:      %08X\n", buffer->id);
-  fprintf (stderr, " pool_id: %08X\n", buffer->mem.mem.pool_id);
-  fprintf (stderr, " mem_id:  %08X\n", buffer->mem.mem.id);
-  fprintf (stderr, " offset:  %zd\n", buffer->mem.offset);
-  fprintf (stderr, " size:    %zd\n", buffer->mem.size);
-  fprintf (stderr, " n_metas: %u (offset %zd)\n", buffer->n_metas, buffer->metas);
+  fprintf (stderr, " n_metas: %u (at %p)\n", buffer->n_metas, buffer->metas);
   for (i = 0; i < buffer->n_metas; i++) {
-    SpaMeta *m = &SPA_BUFFER_METAS (buffer)[i];
-    fprintf (stderr, "  meta %d: type %d, offset %zd, size %zd:\n", i, m->type, m->offset, m->size);
+    SpaMeta *m = &buffer->metas[i];
+    fprintf (stderr, "  meta %d: type %d, data %p, size %zd:\n", i, m->type, m->data, m->size);
     switch (m->type) {
       case SPA_META_TYPE_HEADER:
       {
-        SpaMetaHeader *h = SPA_MEMBER (buffer, m->offset, SpaMetaHeader);
+        SpaMetaHeader *h = m->data;
         fprintf (stderr, "    SpaMetaHeader:\n");
         fprintf (stderr, "      flags:      %08x\n", h->flags);
         fprintf (stderr, "      seq:        %u\n", h->seq);
@@ -113,37 +108,24 @@ spa_debug_buffer (const SpaBuffer *buffer)
       }
       case SPA_META_TYPE_POINTER:
         fprintf (stderr, "    SpaMetaPointer:\n");
-        spa_debug_dump_mem (SPA_MEMBER (buffer, m->offset, void), m->size);
+        spa_debug_dump_mem (m->data, m->size);
         break;
       case SPA_META_TYPE_VIDEO_CROP:
         fprintf (stderr, "    SpaMetaVideoCrop:\n");
-        spa_debug_dump_mem (SPA_MEMBER (buffer, m->offset, void), m->size);
+        spa_debug_dump_mem (m->data, m->size);
         break;
       default:
-        spa_debug_dump_mem (SPA_MEMBER (buffer, m->offset, void), m->size);
+        spa_debug_dump_mem (m->data, m->size);
         break;
     }
   }
-  fprintf (stderr, " n_datas: \t%u (offset %zd)\n", buffer->n_datas, buffer->datas);
+  fprintf (stderr, " n_datas: \t%u (at %p)\n", buffer->n_datas, buffer->datas);
   for (i = 0; i < buffer->n_datas; i++) {
-    SpaData *d = &SPA_BUFFER_DATAS (buffer)[i];
-    SpaMemory *mem;
-
-    mem = spa_memory_find (&d->mem.mem);
-    fprintf (stderr, "  data %d: (memory %p)\n", i, mem);
-    if (mem) {
-      fprintf (stderr, "    pool_id: %u\n", mem->mem.pool_id);
-      fprintf (stderr, "    id:      %u\n", mem->mem.id);
-      fprintf (stderr, "    flags:   %08x\n", mem->flags);
-      fprintf (stderr, "    type:    %s\n", mem->type ? mem->type : "*unknown*");
-      fprintf (stderr, "    fd:      %d\n", mem->fd);
-      fprintf (stderr, "    ptr:     %p\n", mem->ptr);
-      fprintf (stderr, "    size:    %zd\n", mem->size);
-    } else {
-      fprintf (stderr, "    invalid memory reference\n");
-    }
-    fprintf (stderr, "   offset: %zd\n", d->mem.offset);
-    fprintf (stderr, "   size:   %zd\n", d->mem.size);
+    SpaData *d = &buffer->datas[i];
+    fprintf (stderr, "   type:   %d\n", d->type);
+    fprintf (stderr, "   data:   %p\n", d->data);
+    fprintf (stderr, "   offset: %zd\n", d->offset);
+    fprintf (stderr, "   size:   %zd\n", d->size);
     fprintf (stderr, "   stride: %zd\n", d->stride);
   }
   return SPA_RESULT_OK;
@@ -361,7 +343,7 @@ spa_debug_props (const SpaProps *props, bool print_ranges)
 
     fprintf (stderr, "%-23.23s %s. ", "", prop_type_names[info->type].CCName);
 
-    res = spa_props_get_prop (props, i, &value);
+    res = spa_props_get_value (props, i, &value);
 
     fprintf (stderr, "Current: ");
     if (res == SPA_RESULT_OK)
@@ -453,7 +435,7 @@ spa_debug_format (const SpaFormat *format)
     SpaPropValue value;
     SpaResult res;
 
-    res = spa_props_get_prop (props, i, &value);
+    res = spa_props_get_value (props, i, &value);
 
     if (info->flags & SPA_PROP_FLAG_INFO)
       continue;

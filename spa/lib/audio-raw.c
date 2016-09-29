@@ -288,7 +288,7 @@ spa_format_audio_parse (const SpaFormat *format,
 
   props = &format->props;
   idx = spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_INFO);
-  if ((res = spa_props_get_prop (props, idx, &value)) < 0)
+  if ((res = spa_props_get_value (props, idx, &value)) < 0)
     goto fallback;
 
   if (props->prop_info[idx].type != SPA_PROP_TYPE_POINTER)
@@ -300,7 +300,7 @@ spa_format_audio_parse (const SpaFormat *format,
   return SPA_RESULT_OK;
 
 fallback:
-  res = spa_props_copy (props, &aformat->format.props);
+  res = spa_props_copy_values (props, &aformat->format.props);
 
   return res;
 }

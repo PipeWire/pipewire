@@ -23,27 +23,21 @@
 static SpaFormat *
 format_copy (SpaFormat *format)
 {
-  SpaMemory *mem;
-  SpaFormat *f;
+  void *p;
+  size_t size;
 
   if (format == NULL)
     return NULL;
 
-  mem = spa_memory_alloc_size (format->mem.mem.pool_id, format, format->mem.size);
-  f = spa_memory_ensure_ptr (mem);
-  f->mem.mem = mem->mem;
-  f->mem.offset = 0;
-  f->mem.size = format->mem.size;
-
-  return spa_memory_ensure_ptr (mem);
+  size = spa_format_get_size (format);
+  p = malloc (size);
+  return spa_format_copy_into (p, format);
 }
 
 static void
 format_free (SpaFormat *format)
 {
-  g_return_if_fail (format != NULL);
-
-  spa_memory_unref (&format->mem.mem);
+  g_free (format);
 }
 
 G_DEFINE_BOXED_TYPE (SpaFormat, spa_format,

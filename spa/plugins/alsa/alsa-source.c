@@ -144,7 +144,7 @@ spa_alsa_source_node_set_props (SpaNode         *node,
     return SPA_RESULT_OK;
   }
 
-  res = spa_props_copy (props, &p->props);
+  res = spa_props_copy_values (props, &p->props);
 
   return res;
 }
@@ -301,38 +301,23 @@ recycle_buffer (SpaALSASource *this, uint32_t buffer_id)
 {
   SpaALSABuffer *b;
 
-  b = &this->alloc_buffers[buffer_id];
+  b = &this->buffers[buffer_id];
   if (!b->outstanding)
     return;
 
   b->outstanding = false;
+  b->next = NULL;
   SPA_QUEUE_PUSH_TAIL (&this->free, SpaALSABuffer, next, b);
 }
 
 static SpaResult
 spa_alsa_clear_buffers (SpaALSASource *this)
 {
-  int i;
-
   if (!this->have_buffers)
     return SPA_RESULT_OK;
 
-  for (i = 0; i < this->n_buffers; i++) {
-    SpaALSABuffer *b;
-
-    b = &this->alloc_buffers[i];
-    if (b->outstanding) {
-      fprintf (stderr, "queueing outstanding buffer %p\n", b);
-      recycle_buffer (this, i);
-    }
-  }
-  if (this->alloc_bufmem)
-    spa_memory_unref (&this->alloc_bufmem->mem);
-  if (this->alloc_mem)
-    spa_memory_unref (&this->alloc_mem->mem);
-
-  this->alloc_mem = NULL;
-  this->alloc_bufmem = NULL;
+  SPA_QUEUE_INIT (&this->free);
+  SPA_QUEUE_INIT (&this->ready);
   this->n_buffers = 0;
   this->have_buffers = false;
 
@@ -459,6 +444,7 @@ spa_alsa_source_node_port_use_buffers (SpaNode         *node,
 {
   SpaALSASource *this;
   SpaResult res;
+  int i;
 
   if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -475,8 +461,17 @@ spa_alsa_source_node_port_use_buffers (SpaNode         *node,
     if ((res = spa_alsa_clear_buffers (this)) < 0)
       return res;
   }
-  if (buffers != NULL)
-    return SPA_RESULT_NOT_IMPLEMENTED;
+  if (n_buffers > 0) {
+    for (i = 0; i < n_buffers; i++) {
+      SpaALSABuffer *b = &this->buffers[i];
+      b->outbuf = buffers[i];
+      b->outstanding = false;
+      b->next = NULL;
+      SPA_QUEUE_PUSH_TAIL (&this->free, SpaALSABuffer, next, b);
+    }
+    this->n_buffers = n_buffers;
+    this->have_buffers = true;
+  }
 
   if (this->have_buffers)
     update_state (this, SPA_NODE_STATE_PAUSED);
@@ -496,10 +491,6 @@ spa_alsa_source_node_port_alloc_buffers (SpaNode         *node,
                                          uint32_t        *n_buffers)
 {
   SpaALSASource *this;
-  SpaALSABuffer *b;
-  unsigned int i, n_bufs;
-  uint8_t *bufmem;
-  size_t buffer_size;
 
   if (node == NULL || node->handle == NULL || buffers == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -512,73 +503,7 @@ spa_alsa_source_node_port_alloc_buffers (SpaNode         *node,
   if (!this->have_format)
     return SPA_RESULT_NO_FORMAT;
 
-  n_bufs = *n_buffers;
-
-  SPA_QUEUE_INIT (&this->free);
-  SPA_QUEUE_INIT (&this->ready);
-
-  buffer_size = this->buffer_frames * this->frame_size;
-
-  if (!this->alloc_bufmem)
-    this->alloc_bufmem = spa_memory_alloc_with_fd (SPA_MEMORY_POOL_SHARED,
-                                                   NULL,
-                                                   buffer_size * n_bufs);
-  bufmem = spa_memory_ensure_ptr (this->alloc_bufmem);
-
-  if (!this->alloc_mem)
-    this->alloc_mem = spa_memory_alloc_with_fd (SPA_MEMORY_POOL_SHARED, NULL, sizeof (SpaALSABuffer) * n_bufs);
-  this->alloc_buffers = spa_memory_ensure_ptr (this->alloc_mem);
-  this->n_buffers = n_bufs;
-
-  for (i = 0; i < n_bufs; i++) {
-    b = &this->alloc_buffers[i];
-    b->buffer.id = i;
-    b->buffer.mem.mem = this->alloc_mem->mem;
-    b->buffer.mem.offset = sizeof (SpaALSABuffer) * i;
-    b->buffer.mem.size = sizeof (SpaALSABuffer);
-
-    b->buffer.n_metas = 2;
-    b->buffer.metas = offsetof (SpaALSABuffer, metas);
-    b->buffer.n_datas = 1;
-    b->buffer.datas = offsetof (SpaALSABuffer, datas);
-
-    b->header.flags = 0;
-    b->header.seq = 0;
-    b->header.pts = 0;
-    b->header.dts_offset = 0;
-
-    b->metas[0].type = SPA_META_TYPE_HEADER;
-    b->metas[0].offset = offsetof (SpaALSABuffer, header);
-    b->metas[0].size = sizeof (b->header);
-
-    b->ringbuffer.readindex = 0;
-    b->ringbuffer.writeindex = 0;
-    b->ringbuffer.size = 0;
-    b->ringbuffer.size_mask = 0;
-
-    b->metas[1].type = SPA_META_TYPE_RINGBUFFER;
-    b->metas[1].offset = offsetof (SpaALSABuffer, ringbuffer);
-    b->metas[1].size = sizeof (b->ringbuffer);
-
-    b->datas[0].mem.mem = this->alloc_bufmem->mem;
-    b->datas[0].mem.offset = buffer_size * i;
-    b->datas[0].mem.size = buffer_size;
-    b->datas[0].stride = 0;
-    b->ptr = bufmem + buffer_size * i;
-    b->h = &b->header;
-
-    buffers[i] = b->outbuf = &b->buffer;
-
-    b->outstanding = true;
-    recycle_buffer (this, b->outbuf->id);
-  }
-  *n_buffers = n_bufs;
-
-  this->have_buffers = true;
-
-  update_state (this, SPA_NODE_STATE_PAUSED);
-
-  return SPA_RESULT_OK;
+  return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult

@@ -132,7 +132,8 @@ typedef enum {
  * @type: memory type
  * @data: pointer to memory
  * @offset: offset in @data
- * @size: size of @data
+ * @size: valid size of @data
+ * @maxsize: size of @data
  * @stride: stride of data if applicable
  */
 typedef struct {
@@ -140,6 +141,7 @@ typedef struct {
   void          *data;
   off_t          offset;
   size_t         size;
+  size_t         maxsize;
   ssize_t        stride;
 } SpaData;
 

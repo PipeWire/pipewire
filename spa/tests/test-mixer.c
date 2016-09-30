@@ -179,7 +179,7 @@ make_nodes (AppData *data)
   SpaProps *props;
   SpaPropValue value;
 
-  if ((res = make_node (&data->sink, "plugins/alsa/libspa-alsa.so", "alsa-sink")) < 0) {
+  if ((res = make_node (&data->sink, "spa/plugins/alsa/libspa-alsa.so", "alsa-sink")) < 0) {
     printf ("can't create alsa-sink: %d\n", res);
     return res;
   }
@@ -188,7 +188,7 @@ make_nodes (AppData *data)
   if ((res = spa_node_get_props (data->sink, &props)) < 0)
     printf ("got get_props error %d\n", res);
 
-  value.value = "hw:0";
+  value.value = "hw:1";
   value.size = strlen (value.value)+1;
   spa_props_set_value (props, spa_props_index_for_name (props, "device"), &value);
 
@@ -196,17 +196,17 @@ make_nodes (AppData *data)
     printf ("got set_props error %d\n", res);
 
 
-  if ((res = make_node (&data->mix, "plugins/audiomixer/libspa-audiomixer.so", "audiomixer")) < 0) {
+  if ((res = make_node (&data->mix, "spa/plugins/audiomixer/libspa-audiomixer.so", "audiomixer")) < 0) {
     printf ("can't create audiomixer: %d\n", res);
     return res;
   }
   spa_node_set_event_callback (data->mix, on_mix_event, data);
 
-  if ((res = make_node (&data->source1, "plugins/audiotestsrc/libspa-audiotestsrc.so", "audiotestsrc")) < 0) {
+  if ((res = make_node (&data->source1, "spa/plugins/audiotestsrc/libspa-audiotestsrc.so", "audiotestsrc")) < 0) {
     printf ("can't create audiotestsrc: %d\n", res);
     return res;
   }
-  if ((res = make_node (&data->source2, "plugins/audiotestsrc/libspa-audiotestsrc.so", "audiotestsrc")) < 0) {
+  if ((res = make_node (&data->source2, "spa/plugins/audiotestsrc/libspa-audiotestsrc.so", "audiotestsrc")) < 0) {
     printf ("can't create audiotestsrc: %d\n", res);
     return res;
   }
@@ -247,7 +247,7 @@ negotiate_formats (AppData *data)
   if ((res = spa_node_port_set_format (data->sink, 0, false, format)) < 0)
     return res;
 
-  if ((res = spa_node_port_set_format (data->mix, 0, false, format)) < 0)
+  if ((res = spa_node_port_set_format (data->mix, 128, false, format)) < 0)
     return res;
 
   data->mix_ports[0] = 0;
@@ -260,7 +260,7 @@ negotiate_formats (AppData *data)
   if ((res = spa_node_port_set_format (data->source1, 0, false, format)) < 0)
     return res;
 
-  data->mix_ports[1] = 0;
+  data->mix_ports[1] = 1;
   if ((res = spa_node_add_port (data->mix, 1)) < 0)
     return res;
 

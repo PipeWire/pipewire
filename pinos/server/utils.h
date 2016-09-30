@@ -26,8 +26,6 @@ G_BEGIN_DECLS
 
 typedef struct _PinosMemblock PinosMemblock;
 
-#include <pinos/server/daemon.h>
-
 typedef enum {
   PINOS_MEMBLOCK_FLAG_NONE           = 0,
   PINOS_MEMBLOCK_FLAG_WITH_FD        = (1 << 0),

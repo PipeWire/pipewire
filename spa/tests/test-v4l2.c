@@ -152,6 +152,7 @@ on_source_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
         datas[0].data = sdata;
         datas[0].offset = 0;
         datas[0].size = sstride * 240;
+        datas[0].maxsize = sstride * 240;
         datas[0].stride = sstride;
       } else {
         if (SDL_LockTexture (data->texture, NULL, &ddata, &dstride) < 0) {
@@ -267,6 +268,7 @@ alloc_buffers (AppData *data)
     b->datas[0].data = ptr;
     b->datas[0].offset = 0;
     b->datas[0].size = stride * 240;
+    b->datas[0].maxsize = stride * 240;
     b->datas[0].stride = stride;
   }
   data->n_buffers = MAX_BUFFERS;

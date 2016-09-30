@@ -29,6 +29,7 @@ typedef struct _PinosLinkClass PinosLinkClass;
 typedef struct _PinosLinkPrivate PinosLinkPrivate;
 
 #include <pinos/server/daemon.h>
+#include <pinos/server/utils.h>
 #include <spa/include/spa/ringbuffer.h>
 
 #define PINOS_TYPE_LINK             (pinos_link_get_type ())
@@ -41,11 +42,12 @@ typedef struct _PinosLinkPrivate PinosLinkPrivate;
 #define PINOS_LINK_CLASS_CAST(klass)((PinosLinkClass*)(klass))
 
 typedef struct {
-  PinosNode  *node;
-  uint32_t    port;
-  gboolean    allocated;
-  SpaBuffer **buffers;
-  guint       n_buffers;
+  PinosNode      *node;
+  uint32_t        port;
+  gboolean        allocated;
+  PinosMemblock   buffer_mem;
+  SpaBuffer     **buffers;
+  guint           n_buffers;
 } PinosPort;
 
 /**

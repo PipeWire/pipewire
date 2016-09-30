@@ -188,7 +188,7 @@ spa_prop_info_fill_audio (SpaPropInfo    *info,
     return SPA_RESULT_INVALID_PROPERTY_INDEX;
 
   memcpy (info, &format_prop_info[i], sizeof (SpaPropInfo));
-  info->offset = offset;
+  info->offset = offset - sizeof (SpaFormat) + sizeof (SpaProps);
 
   return SPA_RESULT_OK;
 }

@@ -404,10 +404,10 @@ on_add_buffer (GObject    *gobject,
       gint fd = SPA_PTR_TO_INT (d->data);
 
       gmem = gst_fd_allocator_alloc (pinossrc->fd_allocator, dup (fd),
-                d->offset + d->size, GST_FD_MEMORY_FLAG_NONE);
+                d->offset + d->maxsize, GST_FD_MEMORY_FLAG_NONE);
       gst_memory_resize (gmem, d->offset, d->size);
     } else {
-      gmem = gst_memory_new_wrapped (0, d->data, d->offset + d->size, d->offset,
+      gmem = gst_memory_new_wrapped (0, d->data, d->offset + d->maxsize, d->offset,
                 d->size, NULL, NULL);
     }
     gst_buffer_append_memory (buf, gmem);

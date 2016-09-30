@@ -285,6 +285,8 @@ suspend_node (PinosNode *this)
       g_warning ("error unset format output: %d", res);
     p->port.buffers = NULL;
     p->port.n_buffers = 0;
+    if (p->port.allocated)
+      pinos_memblock_free (&p->port.buffer_mem);
     p->port.allocated = FALSE;
   }
   for (walk = priv->output_ports; walk; walk = g_list_next (walk)) {
@@ -293,6 +295,8 @@ suspend_node (PinosNode *this)
       g_warning ("error unset format output: %d", res);
     p->port.buffers = NULL;
     p->port.n_buffers = 0;
+    if (p->port.allocated)
+      pinos_memblock_free (&p->port.buffer_mem);
     p->port.allocated = FALSE;
   }
   return res;

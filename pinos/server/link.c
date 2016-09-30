@@ -491,6 +491,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       this->input->buffers = priv->buffers;
       this->input->n_buffers = priv->n_buffers;
       this->input->allocated = TRUE;
+      this->input->buffer_mem = priv->buffer_mem;
       priv->allocated = FALSE;
       g_debug ("allocated %d buffers %p from input port", priv->n_buffers, priv->buffers);
     }
@@ -507,6 +508,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       this->output->buffers = priv->buffers;
       this->output->n_buffers = priv->n_buffers;
       this->output->allocated = TRUE;
+      this->output->buffer_mem = priv->buffer_mem;
       priv->allocated = FALSE;
       g_debug ("allocated %d buffers %p from output port", priv->n_buffers, priv->buffers);
     }

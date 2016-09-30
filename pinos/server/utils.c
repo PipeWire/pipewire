@@ -24,10 +24,13 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 #include "memfd-wrappers.h"
 
 #include <pinos/server/utils.h>
+
+#undef USE_MEMFD
 
 gboolean
 pinos_memblock_alloc (PinosMemblockFlags  flags,
@@ -41,19 +44,35 @@ pinos_memblock_alloc (PinosMemblockFlags  flags,
   mem->size = size;
 
   if (flags & PINOS_MEMBLOCK_FLAG_WITH_FD) {
+#ifdef USE_MEMFD
     mem->fd = memfd_create ("pinos-memfd", MFD_CLOEXEC | MFD_ALLOW_SEALING);
+    if (mem->fd == -1) {
+      fprintf (stderr, "Failed to create memfd: %s\n", strerror (errno));
+      return FALSE;
+    }
+#else
+    char filename[] = "/dev/shm/spa-tmpfile.XXXXXX";
+    mem->fd = mkostemp (filename, O_CLOEXEC);
+    if (mem->fd == -1) {
+      fprintf (stderr, "Failed to create temporary file: %s\n", strerror (errno));
+      return FALSE;
+    }
+    unlink (filename);
+#endif
 
     if (ftruncate (mem->fd, size) < 0) {
       g_warning ("Failed to truncate temporary file: %s", strerror (errno));
       close (mem->fd);
       return FALSE;
     }
+#ifdef USE_MEMFD
     if (flags & PINOS_MEMBLOCK_FLAG_SEAL) {
       unsigned int seals = F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL;
       if (fcntl (mem->fd, F_ADD_SEALS, seals) == -1) {
         g_warning ("Failed to add seals: %s", strerror (errno));
       }
     }
+#endif
     if (flags & PINOS_MEMBLOCK_FLAG_MAP_READWRITE) {
       int prot = 0;
 

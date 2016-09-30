@@ -389,12 +389,12 @@ on_add_buffer (GObject    *gobject,
       gint fd = *(int*)d->data;
 
       fdmem = gst_fd_allocator_alloc (pinossink->allocator, dup (fd),
-                d->offset + d->size, GST_FD_MEMORY_FLAG_NONE);
+                d->offset + d->maxsize, GST_FD_MEMORY_FLAG_NONE);
       gst_memory_resize (fdmem, d->offset, d->size);
       gst_buffer_append_memory (buf, fdmem);
     } else {
       gst_buffer_append_memory (buf,
-               gst_memory_new_wrapped (0, d->data, d->offset + d->size, d->offset,
+               gst_memory_new_wrapped (0, d->data, d->offset + d->maxsize, d->offset,
                                        d->size, NULL, NULL));
     }
   }

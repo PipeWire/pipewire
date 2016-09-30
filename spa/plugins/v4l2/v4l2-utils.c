@@ -948,7 +948,7 @@ spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffe
     b->v4l2_buffer.memory = state->memtype;
     b->v4l2_buffer.index = i;
     b->v4l2_buffer.m.userptr = (unsigned long) SPA_MEMBER (d[0].data, d[0].offset, void *);
-    b->v4l2_buffer.length = d[0].size;
+    b->v4l2_buffer.length = d[0].maxsize;
 
     spa_v4l2_buffer_recycle (this, buffers[i]->id);
   }
@@ -1017,6 +1017,7 @@ mmap_init (SpaV4l2Source   *this,
     d = buffers[i]->datas;
     d[0].offset = 0;
     d[0].size = b->v4l2_buffer.length;
+    d[0].maxsize = b->v4l2_buffer.length;
     d[0].stride = state->fmt.fmt.pix.bytesperline;
 
     if (state->export_buf) {

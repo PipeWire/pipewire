@@ -73,7 +73,7 @@ struct _SpaAudioMixer {
 
   int port_count;
   int port_queued;
-  SpaAudioMixerPort ports[MAX_PORTS];
+  SpaAudioMixerPort ports[MAX_PORTS + 1];
 };
 
 enum {
@@ -224,13 +224,13 @@ spa_audiomixer_node_get_port_ids (SpaNode       *node,
   this = (SpaAudioMixer *) node->handle;
 
   if (input_ids) {
-    for (i = 1, idx = 0; i < MAX_PORTS && idx < n_input_ports; i++) {
+    for (i = 0, idx = 0; i < MAX_PORTS && idx < n_input_ports; i++) {
       if (this->ports[i].valid)
         input_ids[idx++] = i;
     }
   }
   if (n_output_ports > 0 && output_ids)
-    output_ids[0] = 0;
+    output_ids[0] = MAX_PORTS;
 
   return SPA_RESULT_OK;
 }
@@ -261,7 +261,7 @@ spa_audiomixer_node_add_port (SpaNode        *node,
                                     SPA_PORT_INFO_FLAG_IN_PLACE;
   this->ports[port_id].status.flags = SPA_PORT_STATUS_FLAG_NEED_INPUT;
 
-  this->ports[0].status.flags &= ~SPA_PORT_STATUS_FLAG_HAVE_OUTPUT;
+  this->ports[MAX_PORTS].status.flags &= ~SPA_PORT_STATUS_FLAG_HAVE_OUTPUT;
 
   return SPA_RESULT_OK;
 }
@@ -277,7 +277,7 @@ spa_audiomixer_node_remove_port (SpaNode        *node,
 
   this = (SpaAudioMixer *) node->handle;
 
-  if (port_id == 0 || port_id >= MAX_PORTS || !this->ports[port_id].valid)
+  if (port_id >= MAX_PORTS || !this->ports[port_id].valid)
     return SPA_RESULT_INVALID_PORT;
 
   this->ports[port_id].valid = false;
@@ -287,7 +287,7 @@ spa_audiomixer_node_remove_port (SpaNode        *node,
     this->port_queued--;
   }
   if (this->port_count == this->port_queued)
-    this->ports[0].status.flags |= SPA_PORT_STATUS_FLAG_HAVE_OUTPUT;
+    this->ports[MAX_PORTS].status.flags |= SPA_PORT_STATUS_FLAG_HAVE_OUTPUT;
 
   return SPA_RESULT_OK;
 }
@@ -377,7 +377,7 @@ spa_audiomixer_node_port_get_format (SpaNode          *node,
 
   this = (SpaAudioMixer *) node->handle;
 
-  if (port_id >= MAX_PORTS || !this->ports[port_id].valid)
+  if (port_id > MAX_PORTS || !this->ports[port_id].valid)
     return SPA_RESULT_INVALID_PORT;
 
   port = &this->ports[port_id];
@@ -403,7 +403,7 @@ spa_audiomixer_node_port_get_info (SpaNode            *node,
 
   this = (SpaAudioMixer *) node->handle;
 
-  if (port_id >= MAX_PORTS || !this->ports[port_id].valid)
+  if (port_id > MAX_PORTS || !this->ports[port_id].valid)
     return SPA_RESULT_INVALID_PORT;
 
   port = &this->ports[port_id];
@@ -469,7 +469,7 @@ spa_audiomixer_node_port_get_status (SpaNode              *node,
 
   this = (SpaAudioMixer *) node->handle;
 
-  if (port_id >= MAX_PORTS || !this->ports[port_id].valid)
+  if (port_id > MAX_PORTS || !this->ports[port_id].valid)
     return SPA_RESULT_INVALID_PORT;
 
   port = &this->ports[port_id];
@@ -495,7 +495,7 @@ spa_audiomixer_node_port_push_input (SpaNode          *node,
 
   this = (SpaAudioMixer *) node->handle;
 
-  if (this->ports[0].status.flags & SPA_PORT_STATUS_FLAG_HAVE_OUTPUT)
+  if (this->ports[MAX_PORTS].status.flags & SPA_PORT_STATUS_FLAG_HAVE_OUTPUT)
     return SPA_RESULT_HAVE_ENOUGH_INPUT;
 
   for (i = 0; i < n_info; i++) {
@@ -673,7 +673,7 @@ spa_audiomixer_node_port_pull_output (SpaNode           *node,
 
   this = (SpaAudioMixer *) node->handle;
 
-  if (info->port_id != 0)
+  if (info->port_id != MAX_PORTS)
     return SPA_RESULT_INVALID_PORT;
 
   port = &this->ports[info->port_id];
@@ -781,10 +781,10 @@ spa_audiomixer_init (const SpaHandleFactory *factory,
   this->props[1].props.prop_info = prop_info;
   reset_audiomixer_props (&this->props[1]);
 
-  this->ports[0].valid = true;
-  this->ports[0].info.flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS |
-                              SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
-                              SPA_PORT_INFO_FLAG_NO_REF;
+  this->ports[MAX_PORTS].valid = true;
+  this->ports[MAX_PORTS].info.flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS |
+                                      SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
+                                      SPA_PORT_INFO_FLAG_NO_REF;
   return SPA_RESULT_OK;
 }
 

@@ -419,6 +419,27 @@ do_update_port (SpaProxy                *this,
 }
 
 static void
+clear_port (SpaProxy     *this,
+            SpaProxyPort *port,
+            uint32_t      port_id)
+{
+  SpaControlCmdPortUpdate pu;
+
+  pu.change_mask = SPA_CONTROL_CMD_PORT_UPDATE_POSSIBLE_FORMATS |
+                   SPA_CONTROL_CMD_PORT_UPDATE_FORMAT |
+                   SPA_CONTROL_CMD_PORT_UPDATE_PROPS |
+                   SPA_CONTROL_CMD_PORT_UPDATE_INFO;
+  pu.port_id = port_id;
+  pu.n_possible_formats = 0;
+  pu.possible_formats = NULL;
+  pu.format = NULL;
+  pu.props = NULL;
+  pu.info = NULL;
+  do_update_port (this, &pu);
+  clear_buffers (this, port);
+}
+
+static void
 do_uninit_port (SpaProxy     *this,
                 uint32_t      port_id)
 {
@@ -432,10 +453,8 @@ do_uninit_port (SpaProxy     *this,
   else
     this->n_outputs--;
 
+  clear_port (this, port, port_id);
   port->valid = false;
-  if (port->format)
-    free (port->format);
-  port->format = NULL;
 }
 
 static SpaResult
@@ -443,7 +462,7 @@ spa_proxy_node_add_port (SpaNode        *node,
                          uint32_t        port_id)
 {
   SpaProxy *this;
-  SpaControlCmdPortUpdate pu;
+  SpaProxyPort *port;
 
   if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -453,17 +472,8 @@ spa_proxy_node_add_port (SpaNode        *node,
   if (!CHECK_FREE_PORT_ID (this, port_id))
     return SPA_RESULT_INVALID_PORT;
 
-  pu.change_mask = SPA_CONTROL_CMD_PORT_UPDATE_POSSIBLE_FORMATS |
-                   SPA_CONTROL_CMD_PORT_UPDATE_FORMAT |
-                   SPA_CONTROL_CMD_PORT_UPDATE_PROPS |
-                   SPA_CONTROL_CMD_PORT_UPDATE_INFO;
-  pu.port_id = port_id;
-  pu.n_possible_formats = 0;
-  pu.possible_formats = NULL;
-  pu.format = NULL;
-  pu.props = NULL;
-  pu.info = NULL;
-  do_update_port (this, &pu);
+  port = &this->ports[port_id];
+  clear_port (this, port, port_id);
 
   return SPA_RESULT_OK;
 }
@@ -714,7 +724,7 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
       am.fd_index = spa_control_builder_add_fd (&builder, SPA_PTR_TO_INT (d->data), false);
       am.flags = 0;
       am.offset = d->offset;
-      am.size = d->size;
+      am.size = d->maxsize;
       spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_ADD_MEM, &am);
 
       b->buffer.datas[j].data = SPA_UINT32_TO_PTR (n_mem);
@@ -732,12 +742,14 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
     close (port->buffer_mem_fd);
     return SPA_RESULT_ERROR;
   }
+#if 0
   {
     unsigned int seals = F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL;
     if (fcntl (port->buffer_mem_fd, F_ADD_SEALS, seals) == -1) {
       fprintf (stderr, "Failed to add seals: %s\n", strerror (errno));
     }
   }
+#endif
   p = port->buffer_mem_ptr = mmap (NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, port->buffer_mem_fd, 0);
 
   for (i = 0; i < n_buffers; i++) {
@@ -749,6 +761,7 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
     len = spa_buffer_serialize (p, &b->buffer);
 
     sb = p;
+    b->buffer.datas = SPA_MEMBER (sb, SPA_PTR_TO_INT (sb->datas), SpaData);
     sbm = SPA_MEMBER (sb, SPA_PTR_TO_INT (sb->metas), SpaMeta);
 
     for (j = 0; j < b->buffer.n_metas; j++)
@@ -868,6 +881,9 @@ copy_meta (SpaProxy *this, SpaProxyPort *port, uint32_t buffer_id)
     SpaMeta *sm = &b->outbuf->metas[i];
     SpaMeta *dm = &b->buffer.metas[i];
     memcpy (dm->data, sm->data, dm->size);
+  }
+  for (i = 0; i < b->outbuf->n_datas; i++) {
+    b->buffer.datas[i].size = b->outbuf->datas[i].size;
   }
 }
 
@@ -1223,6 +1239,19 @@ spa_proxy_get_interface (SpaHandle               *handle,
 static SpaResult
 proxy_clear (SpaHandle *handle)
 {
+  SpaProxy *this;
+  unsigned int i;
+
+  if (handle == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaProxy *) handle;
+
+  for (i = 0; i < MAX_PORTS; i++) {
+    if (this->ports[i].valid)
+      clear_port (this, &this->ports[i], i);
+  }
+
   return SPA_RESULT_OK;
 }
 

@@ -8,6 +8,7 @@ pinoscore_headers = [
   'node.h',
   'node-factory.h',
   'rt-loop.h',
+  'utils.h',
 ]
 
 pinoscore_sources = [
@@ -20,6 +21,7 @@ pinoscore_sources = [
   'node.c',
   'node-factory.c',
   'rt-loop.c',
+  'utils.c',
 ]
 
 libpinoscore_c_args = [

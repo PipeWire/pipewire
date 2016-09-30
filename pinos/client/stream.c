@@ -1048,7 +1048,7 @@ parse_control (PinosStream *stream,
         mid.ptr = NULL;
         mid.size = p.size;
 
-        g_debug ("add mem %u, fd %d, flags %d", p.mem_id, fd, p.flags);
+        g_debug ("add mem %u, fd %d, flags %d, size %zd", p.mem_id, fd, p.flags, p.size);
         g_array_append_val (priv->mem_ids, mid);
         break;
       }
@@ -1098,9 +1098,7 @@ parse_control (PinosStream *stream,
           bid.buf = spa_buffer_deserialize (mid->ptr, p.buffers[i].offset);
           bid.id = bid.buf->id;
 
-          spa_debug_dump_mem (mid->ptr, 256);
-
-          g_debug ("add buffer %d %zd", bid.id, p.buffers[i].offset);
+          g_debug ("add buffer %d %d %zd", mid->id, bid.id, p.buffers[i].offset);
 
           for (j = 0; j < bid.buf->n_datas; j++) {
             SpaData *d = &bid.buf->datas[j];

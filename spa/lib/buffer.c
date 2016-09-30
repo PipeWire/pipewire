@@ -25,62 +25,35 @@
 #include <spa/buffer.h>
 #include <spa/port.h>
 
-typedef struct {
-  SpaBuffer buffer;
-  SpaMeta metas[3];
-  SpaMetaHeader header;
-  SpaMetaRingbuffer ringbuffer;
-  SpaMetaVideoCrop crop;
-  SpaData datas[4];
-} Buffer;
+static const size_t header_sizes[] = {
+  0,
+  sizeof (SpaMetaHeader),
+  sizeof (SpaMetaPointer),
+  sizeof (SpaMetaVideoCrop),
+  sizeof (SpaMetaRingbuffer),
+};
 
 SpaResult
-spa_buffer_alloc (SpaBufferAllocFlags   flags,
-                  SpaAllocParam       **params,
-                  unsigned int          n_params,
-                  SpaBuffer           **buffers,
-                  unsigned int         *n_buffers)
+spa_alloc_params_get_header_size (SpaAllocParam       **params,
+                                  unsigned int          n_params,
+                                  unsigned int          n_datas,
+                                  size_t               *size)
 {
-  unsigned int i, nbufs;
-  size_t size = 0, stride = 0;
-  void *mem;
-  Buffer *bufs;
-  bool add_header = false;
-  int n_metas = 0;
+  unsigned int i, n_metas = 0;
 
-  nbufs = *n_buffers;
-  if (nbufs == 0)
-    return SPA_RESULT_ERROR;
+  *size = sizeof (SpaBuffer);
 
   for (i = 0; i < n_params; i++) {
     SpaAllocParam *p = params[i];
 
     switch (p->type) {
-      case SPA_ALLOC_PARAM_TYPE_BUFFERS:
-      {
-        SpaAllocParamBuffers *b = (SpaAllocParamBuffers *) p;
-
-        size = SPA_MAX (size, b->minsize);
-        break;
-      }
       case SPA_ALLOC_PARAM_TYPE_META_ENABLE:
       {
         SpaAllocParamMetaEnable *b = (SpaAllocParamMetaEnable *) p;
 
-        switch (b->type) {
-          case SPA_META_TYPE_HEADER:
-            if (!add_header)
-              n_metas++;
-            add_header = true;
-            break;
-          case SPA_META_TYPE_POINTER:
-            break;
-          case SPA_META_TYPE_VIDEO_CROP:
-            break;
-          case SPA_META_TYPE_RINGBUFFER:
-            break;
-          default:
-            break;
+        if (b->type > 0 && b->type < SPA_N_ELEMENTS (header_sizes)) {
+          n_metas++;
+          *size += header_sizes[b->type];
         }
         break;
       }
@@ -88,52 +61,71 @@ spa_buffer_alloc (SpaBufferAllocFlags   flags,
         break;
     }
   }
+  *size += n_metas * sizeof (SpaMeta);
+  *size += n_datas * sizeof (SpaData);
 
-  *n_buffers = nbufs;
+  return SPA_RESULT_OK;
+}
 
-  if (flags & SPA_BUFFER_ALLOC_FLAG_NO_MEM)
-    size = 0;
+SpaResult
+spa_buffer_init_headers (SpaAllocParam       **params,
+                         unsigned int          n_params,
+                         unsigned int          n_datas,
+                         SpaBuffer           **buffers,
+                         unsigned int          n_buffers)
+{
+  unsigned int i;
+  int n_metas = 0;
 
-  mem = calloc (nbufs, sizeof (Buffer) + size);
+  for (i = 0; i < n_params; i++) {
+    SpaAllocParam *p = params[i];
 
-  bufs = mem;
-
-  for (i = 0; i < nbufs; i++) {
-    int mi = 0;
-    Buffer *b;
-
-    b = &bufs[i];
-    b->buffer.id = i;
-
-    buffers[i] = &b->buffer;
-
-    b->buffer.n_metas = n_metas;
-    b->buffer.metas = b->metas;
-    b->buffer.n_datas = 1;
-    b->buffer.datas = b->datas;
-
-    if (add_header) {
-      b->header.flags = 0;
-      b->header.seq = 0;
-      b->header.pts = 0;
-      b->header.dts_offset = 0;
-
-      b->metas[mi].type = SPA_META_TYPE_HEADER;
-      b->metas[mi].data = &b->header;
-      b->metas[mi].size = sizeof (b->header);
-      mi++;
+    switch (p->type) {
+      case SPA_ALLOC_PARAM_TYPE_META_ENABLE:
+      {
+        SpaAllocParamMetaEnable *b = (SpaAllocParamMetaEnable *) p;
+        if (b->type > 0 && b->type <= SPA_N_ELEMENTS (header_sizes))
+          n_metas++;
+      }
+      default:
+        break;
     }
+  }
 
-    if (size == 0) {
-      b->datas[0].type = SPA_DATA_TYPE_INVALID;
-      b->datas[0].data = NULL;
-    } else {
-      b->datas[0].type = SPA_DATA_TYPE_MEMPTR;
-      b->datas[0].data = mem + sizeof (Buffer);
+  for (i = 0; i < n_buffers; i++) {
+    int mi = 0, j;
+    SpaBuffer *b;
+    void *p;
+
+    b = buffers[i];
+    b->id = i;
+    b->n_metas = n_metas;
+    b->metas = SPA_MEMBER (b, sizeof (SpaBuffer), SpaMeta);
+    b->n_datas = n_datas;
+    b->datas = SPA_MEMBER (b->metas, sizeof (SpaMeta) * n_metas, SpaData);
+    p = SPA_MEMBER (b->datas, sizeof (SpaData) * n_datas, void);
+
+    for (j = 0, mi = 0; j < n_params; j++) {
+      SpaAllocParam *prm = params[j];
+
+      switch (prm->type) {
+        case SPA_ALLOC_PARAM_TYPE_META_ENABLE:
+        {
+          SpaAllocParamMetaEnable *pme = (SpaAllocParamMetaEnable *) prm;
+
+          if (pme->type > 0 && pme->type <= SPA_N_ELEMENTS (header_sizes)) {
+            b->metas[mi].type = pme->type;
+            b->metas[mi].data = p;
+            b->metas[mi].size = header_sizes[pme->type];
+            p = SPA_MEMBER (p, header_sizes[pme->type], void);
+            mi++;
+          }
+          break;
+        }
+        default:
+          break;
+      }
     }
-    b->datas[0].offset = size * i;
-    b->datas[0].size = size;
-    b->datas[0].stride = stride;
   }
   return SPA_RESULT_OK;
 }
@@ -150,7 +142,7 @@ spa_buffer_get_size (const SpaBuffer *buffer)
 
   size = sizeof (SpaBuffer);
   for (i = 0; i < buffer->n_metas; i++)
-    size += buffer->metas[i].size * sizeof (SpaMeta);
+    size += sizeof (SpaMeta) + buffer->metas[i].size;
   for (i = 0; i < buffer->n_datas; i++)
     size += sizeof (SpaData);
   return size;

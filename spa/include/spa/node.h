@@ -346,7 +346,9 @@ struct _SpaNode {
    * the READY state or to CONFIGURE when @format is NULL.
    *
    * Returns: #SPA_RESULT_OK on success
-   *          #SPA_RESULT_OK_RECHECK on success
+   *          #SPA_RESULT_OK_RECHECK on success, the value of @format might have been
+   *                 changed depending on @flags and the final value can be found by
+   *                 doing SpaNode::get_format.
    *          #SPA_RESULT_INVALID_ARGUMENTS when node is %NULL
    *          #SPA_RESULT_INVALID_PORT when port_id is not valid
    *          #SPA_RESULT_INVALID_MEDIA_TYPE when the media type is not valid
@@ -411,8 +413,8 @@ struct _SpaNode {
    * on the buffers.
    *
    * Upon completion, this function might change the state of the
-   * node to PAUSED, when the node has enough buffers, or READY when
-   * @buffers are %NULL.
+   * node to PAUSED, when the node has enough buffers on all ports, or READY
+   * when @buffers are %NULL.
    *
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_ASYNC the function is executed asynchronously
@@ -432,6 +434,10 @@ struct _SpaNode {
    *
    * Tell the port to allocate memory for @buffers.
    *
+   * @params should contain an array of pointers to buffers. The data
+   * in the buffers should point to an array of at least 1 SPA_DATA_TYPE_INVALID
+   * data pointers that will be filled by this function.
+   *
    * For input ports, the buffers will be dequeued and ready to be filled
    * and pushed into the port. A notify should be configured so that you can
    * know when a buffer can be reused.
@@ -439,7 +445,15 @@ struct _SpaNode {
    * For output ports, the buffers remain queued. port_reuse_buffer() should
    * be called when a buffer can be reused.
    *
+   * Upon completion, this function might change the state of the
+   * node to PAUSED, when the node has enough buffers on all ports.
+   *
+   * Once the port has allocated buffers, the memory of the buffers can be
+   * released again by calling SpaNode::port_use_buffers with %NULL.
+   *
    * Returns: #SPA_RESULT_OK on success
+   *          #SPA_RESULT_ERROR when the node already has allocated buffers.
+   *          #SPA_RESULT_ASYNC the function is executed asynchronously
    */
   SpaResult   (*port_alloc_buffers)   (SpaNode              *node,
                                        uint32_t              port_id,

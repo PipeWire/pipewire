@@ -283,12 +283,16 @@ suspend_node (PinosNode *this)
     NodePort *p = walk->data;
     if ((res = spa_node_port_set_format (this->node, p->port.port, 0, NULL)) < 0)
       g_warning ("error unset format output: %d", res);
+    p->port.buffers = NULL;
+    p->port.n_buffers = 0;
     p->port.allocated = FALSE;
   }
   for (walk = priv->output_ports; walk; walk = g_list_next (walk)) {
     NodePort *p = walk->data;
     if ((res = spa_node_port_set_format (this->node, p->port.port, 0, NULL)) < 0)
       g_warning ("error unset format output: %d", res);
+    p->port.buffers = NULL;
+    p->port.n_buffers = 0;
     p->port.allocated = FALSE;
   }
   return res;

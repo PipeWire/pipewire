@@ -51,8 +51,8 @@ typedef struct _ProxyBuffer ProxyBuffer;
 
 struct _ProxyBuffer {
   SpaBuffer *outbuf;
-
   SpaBuffer  buffer;
+  SpaMeta    metas[4];
   SpaData    datas[4];
   off_t      offset;
   size_t     size;
@@ -172,6 +172,8 @@ clear_buffers (SpaProxy *this, SpaProxyPort *port)
   if (port->n_buffers) {
     fprintf (stderr, "proxy %p: clear buffers\n", this);
 
+    munmap (port->buffer_mem_ptr, port->buffer_mem_size);
+    close (port->buffer_mem_fd);
 
     port->n_buffers = 0;
     SPA_QUEUE_INIT (&port->ready);
@@ -400,7 +402,7 @@ do_update_port (SpaProxy                *this,
   if (pu->change_mask & SPA_CONTROL_CMD_PORT_UPDATE_PROPS) {
   }
 
-  if (pu->change_mask & SPA_CONTROL_CMD_PORT_UPDATE_INFO) {
+  if (pu->change_mask & SPA_CONTROL_CMD_PORT_UPDATE_INFO && pu->info) {
     port->info = *pu->info;
   }
 
@@ -691,11 +693,16 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
     b->outbuf = buffers[i];
     memcpy (&b->buffer, buffers[i], sizeof (SpaBuffer));
     b->buffer.datas = b->datas;
+    b->buffer.metas = b->metas;
 
     b->size = spa_buffer_get_size (buffers[i]);
     b->offset = size;
 
     size += b->size;
+
+    for (j = 0; j < buffers[i]->n_datas; j++) {
+      memcpy (&b->buffer.metas[j], &buffers[i]->metas[j], sizeof (SpaMeta));
+    }
 
     for (j = 0; j < buffers[i]->n_datas; j++) {
       SpaData *d = &buffers[i]->datas[j];
@@ -723,18 +730,32 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
   if (ftruncate (port->buffer_mem_fd, size) < 0) {
     fprintf (stderr, "Failed to truncate temporary file: %s\n", strerror (errno));
     close (port->buffer_mem_fd);
+    return SPA_RESULT_ERROR;
   }
   {
     unsigned int seals = F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL;
     if (fcntl (port->buffer_mem_fd, F_ADD_SEALS, seals) == -1) {
       fprintf (stderr, "Failed to add seals: %s\n", strerror (errno));
-      close (port->buffer_mem_fd);
     }
   }
   p = port->buffer_mem_ptr = mmap (NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, port->buffer_mem_fd, 0);
 
-  for (i = 0; i < n_buffers; i++)
-    p += spa_buffer_serialize (p, &port->buffers[i].buffer);
+  for (i = 0; i < n_buffers; i++) {
+    ProxyBuffer *b = &port->buffers[i];
+    size_t len;
+    SpaBuffer *sb;
+    SpaMeta *sbm;
+
+    len = spa_buffer_serialize (p, &b->buffer);
+
+    sb = p;
+    sbm = SPA_MEMBER (sb, SPA_PTR_TO_INT (sb->metas), SpaMeta);
+
+    for (j = 0; j < b->buffer.n_metas; j++)
+      b->metas[j].data = SPA_MEMBER (sb, SPA_PTR_TO_INT (sbm[j].data), void);
+
+    p += len;
+  }
 
   am.port_id = port_id;
   am.mem_id = port->buffer_mem_id;
@@ -837,6 +858,19 @@ spa_proxy_node_port_reuse_buffer (SpaNode         *node,
   return res;
 }
 
+static void
+copy_meta (SpaProxy *this, SpaProxyPort *port, uint32_t buffer_id)
+{
+  ProxyBuffer *b = &port->buffers[buffer_id];
+  unsigned int i;
+
+  for (i = 0; i < b->outbuf->n_metas; i++) {
+    SpaMeta *sm = &b->outbuf->metas[i];
+    SpaMeta *dm = &b->buffer.metas[i];
+    memcpy (dm->data, sm->data, dm->size);
+  }
+}
+
 static SpaResult
 spa_proxy_node_port_push_input (SpaNode          *node,
                                 unsigned int      n_info,
@@ -882,6 +916,8 @@ spa_proxy_node_port_push_input (SpaNode          *node,
       have_error = true;
       continue;
     }
+
+    copy_meta (this, port, info[i].buffer_id);
 
     pb.port_id = info[i].port_id;
     pb.buffer_id = info[i].buffer_id;

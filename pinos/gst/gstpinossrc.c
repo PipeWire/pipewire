@@ -721,7 +721,15 @@ on_format_notify (GObject    *gobject,
   gst_caps_unref (caps);
 
   if (res) {
-    pinos_stream_finish_format (pinossrc->stream, SPA_RESULT_OK, NULL, 0);
+    SpaAllocParam *params[1];
+    SpaAllocParamMetaEnable param_meta;
+
+    params[0] = &param_meta.param;
+    param_meta.param.type = SPA_ALLOC_PARAM_TYPE_META_ENABLE;
+    param_meta.param.size = sizeof (param_meta);
+    param_meta.type = SPA_META_TYPE_HEADER;
+
+    pinos_stream_finish_format (pinossrc->stream, SPA_RESULT_OK, params, 1);
   } else {
     pinos_stream_finish_format (pinossrc->stream, SPA_RESULT_INVALID_MEDIA_TYPE, NULL, 0);
   }

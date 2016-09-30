@@ -78,7 +78,6 @@ struct _V4l2Format {
 
 typedef struct {
   bool export_buf;
-  bool have_buffers;
   bool started;
 
   bool next_fmtdesc;
@@ -98,16 +97,17 @@ typedef struct {
   enum v4l2_buf_type type;
   enum v4l2_memory memtype;
 
-  struct v4l2_requestbuffers reqbuf;
-  V4l2Buffer  buffers[MAX_BUFFERS];
-  SpaQueue    ready;
+  V4l2Buffer   buffers[MAX_BUFFERS];
+  unsigned int n_buffers;
+  SpaQueue     ready;
 
   SpaPollFd fds[1];
   SpaPollItem poll;
 
   SpaPortInfo info;
-  SpaAllocParam *params[1];
+  SpaAllocParam *params[2];
   SpaAllocParamBuffers param_buffers;
+  SpaAllocParamMetaEnable param_meta;
   SpaPortStatus status;
 
   int64_t last_ticks;
@@ -228,7 +228,7 @@ spa_v4l2_source_node_send_command (SpaNode        *node,
       if (state->current_format == NULL)
         return SPA_RESULT_NO_FORMAT;
 
-      if (!state->have_buffers)
+      if (state->n_buffers == 0)
         return SPA_RESULT_NO_BUFFERS;
 
       if ((res = spa_v4l2_start (this)) < 0)
@@ -243,7 +243,7 @@ spa_v4l2_source_node_send_command (SpaNode        *node,
       if (state->current_format == NULL)
         return SPA_RESULT_NO_FORMAT;
 
-      if (!state->have_buffers)
+      if (state->n_buffers == 0)
         return SPA_RESULT_NO_BUFFERS;
 
       if ((res = spa_v4l2_pause (this)) < 0)
@@ -533,7 +533,7 @@ spa_v4l2_source_node_port_use_buffers (SpaNode         *node,
   if (state->current_format == NULL)
     return SPA_RESULT_NO_FORMAT;
 
-  if (state->have_buffers) {
+  if (state->n_buffers) {
     if ((res = spa_v4l2_clear_buffers (this)) < 0)
       return res;
   }
@@ -542,12 +542,12 @@ spa_v4l2_source_node_port_use_buffers (SpaNode         *node,
       return res;
   }
 
-  if (state->have_buffers)
+  if (state->n_buffers)
     update_state (this, SPA_NODE_STATE_PAUSED);
   else
     update_state (this, SPA_NODE_STATE_READY);
 
-  return res;
+  return SPA_RESULT_OK;
 }
 
 static SpaResult
@@ -577,7 +577,7 @@ spa_v4l2_source_node_port_alloc_buffers (SpaNode         *node,
 
   res = spa_v4l2_alloc_buffers (this, params, n_params, buffers, n_buffers);
 
-  if (state->have_buffers) {
+  if (state->n_buffers) {
     if (state->started)
       update_state (this, SPA_NODE_STATE_STREAMING);
     else
@@ -606,10 +606,10 @@ spa_v4l2_source_node_port_reuse_buffer (SpaNode         *node,
 
   state = &this->state[port_id];
 
-  if (!state->have_buffers)
+  if (state->n_buffers == 0)
     return SPA_RESULT_NO_BUFFERS;
 
-  if (buffer_id >= state->reqbuf.count)
+  if (buffer_id >= state->n_buffers)
     return SPA_RESULT_INVALID_BUFFER_ID;
 
   res = spa_v4l2_buffer_recycle (this, buffer_id);

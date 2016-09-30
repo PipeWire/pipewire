@@ -44,6 +44,8 @@ typedef struct {
   PinosNode  *node;
   uint32_t    port;
   gboolean    allocated;
+  SpaBuffer **buffers;
+  guint       n_buffers;
 } PinosPort;
 
 /**

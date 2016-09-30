@@ -92,12 +92,13 @@ static SpaResult
 spa_v4l2_clear_buffers (SpaV4l2Source *this)
 {
   SpaV4l2State *state = &this->state[0];
+  struct v4l2_requestbuffers reqbuf;
   int i;
 
-  if (!state->have_buffers)
+  if (state->n_buffers == 0)
     return SPA_RESULT_OK;
 
-  for (i = 0; i < state->reqbuf.count; i++) {
+  for (i = 0; i < state->n_buffers; i++) {
     V4l2Buffer *b;
 
     b = &state->buffers[i];
@@ -105,9 +106,20 @@ spa_v4l2_clear_buffers (SpaV4l2Source *this)
       fprintf (stderr, "queueing outstanding buffer %p\n", b);
       spa_v4l2_buffer_recycle (this, i);
     }
+    if (state->export_buf) {
+      close (SPA_PTR_TO_INT (b->outbuf->datas[0].data));
+    }
   }
 
-  state->have_buffers = false;
+  CLEAR(reqbuf);
+  reqbuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  reqbuf.memory = state->memtype;
+  reqbuf.count = 0;
+
+  if (xioctl (state->fd, VIDIOC_REQBUFS, &reqbuf) < 0) {
+    perror ("VIDIOC_REQBUFS");
+  }
+  state->n_buffers = 0;
 
   return SPA_RESULT_OK;
 }
@@ -120,7 +132,7 @@ spa_v4l2_close (SpaV4l2Source *this)
   if (!state->opened)
     return 0;
 
-  if (state->have_buffers)
+  if (state->n_buffers > 0)
     return 0;
 
   fprintf (stderr, "close\n");
@@ -786,7 +798,7 @@ spa_v4l2_set_format (SpaV4l2Source *this, V4l2Format *f, bool try_only)
   state->info.latency = (streamparm.parm.capture.timeperframe.numerator * SPA_NSEC_PER_SEC) /
                         streamparm.parm.capture.timeperframe.denominator;
 
-  state->info.n_params = 1;
+  state->info.n_params = 2;
   state->info.params = state->params;
   state->params[0] = &state->param_buffers.param;
   state->param_buffers.param.type = SPA_ALLOC_PARAM_TYPE_BUFFERS;
@@ -796,6 +808,11 @@ spa_v4l2_set_format (SpaV4l2Source *this, V4l2Format *f, bool try_only)
   state->param_buffers.min_buffers = 2;
   state->param_buffers.max_buffers = MAX_BUFFERS;
   state->param_buffers.align = 16;
+  state->params[1] = &state->param_meta.param;
+  state->param_meta.param.type = SPA_ALLOC_PARAM_TYPE_META_ENABLE;
+  state->param_meta.param.size = sizeof (state->param_meta);
+  state->param_meta.type = SPA_META_TYPE_HEADER;
+
   state->info.features = NULL;
 
   return 0;
@@ -873,6 +890,18 @@ v4l2_on_fd_events (SpaPollNotifyData *data)
   return 0;
 }
 
+static void *
+find_meta_data (SpaBuffer *b, SpaMetaType type)
+{
+  unsigned int i;
+
+  for (i = 0; i < b->n_metas; i++)
+    if (b->metas[i].type == type)
+      return b->metas[i].data;
+  return NULL;
+}
+
+
 static SpaResult
 spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffers)
 {
@@ -896,7 +925,6 @@ spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffe
     fprintf (stderr, "can't allocate enough buffers\n");
     return SPA_RESULT_ERROR;
   }
-  state->reqbuf = reqbuf;
 
   for (i = 0; i < reqbuf.count; i++) {
     V4l2Buffer *b;
@@ -905,6 +933,7 @@ spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffe
     b = &state->buffers[i];
     b->outbuf = buffers[i];
     b->outstanding = true;
+    b->h = find_meta_data (b->outbuf, SPA_META_TYPE_HEADER);
 
     fprintf (stderr, "import buffer %p\n", buffers[i]);
 
@@ -923,7 +952,7 @@ spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffe
 
     spa_v4l2_buffer_recycle (this, buffers[i]->id);
   }
-  state->have_buffers = true;
+  state->n_buffers = reqbuf.count;
 
   return SPA_RESULT_OK;
 }
@@ -961,8 +990,6 @@ mmap_init (SpaV4l2Source   *this,
   if (state->export_buf)
     fprintf (stderr, "using EXPBUF\n");
 
-  state->reqbuf = reqbuf;
-
   for (i = 0; i < reqbuf.count; i++) {
     V4l2Buffer *b;
     SpaData *d;
@@ -975,6 +1002,7 @@ mmap_init (SpaV4l2Source   *this,
     b = &state->buffers[i];
     b->outbuf = buffers[i];
     b->outstanding = true;
+    b->h = find_meta_data (b->outbuf, SPA_META_TYPE_HEADER);
 
     CLEAR (b->v4l2_buffer);
     b->v4l2_buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -997,17 +1025,19 @@ mmap_init (SpaV4l2Source   *this,
       CLEAR (expbuf);
       expbuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
       expbuf.index = i;
+      expbuf.flags = O_CLOEXEC | O_RDONLY;
       if (xioctl (state->fd, VIDIOC_EXPBUF, &expbuf) < 0) {
         perror("VIDIOC_EXPBUF");
         continue;
       }
+      fprintf (stderr, "expbuf %d\n", expbuf.fd);
       d[0].type = SPA_DATA_TYPE_FD;
       d[0].data = SPA_INT_TO_PTR (expbuf.fd);
     } else {
       d[0].type = SPA_DATA_TYPE_MEMPTR;
       d[0].data = mmap (NULL,
                         b->v4l2_buffer.length,
-                        PROT_READ | PROT_WRITE,
+                        PROT_READ,
                         MAP_SHARED,
                         state->fd,
                         b->v4l2_buffer.m.offset);
@@ -1018,7 +1048,7 @@ mmap_init (SpaV4l2Source   *this,
     }
     spa_v4l2_buffer_recycle (this, i);
   }
-  state->have_buffers = true;
+  state->n_buffers = reqbuf.count;
 
   return SPA_RESULT_OK;
 }
@@ -1045,7 +1075,7 @@ spa_v4l2_alloc_buffers (SpaV4l2Source   *this,
   SpaResult res;
   SpaV4l2State *state = &this->state[0];
 
-  if (state->have_buffers)
+  if (state->n_buffers > 0)
     return SPA_RESULT_ERROR;
 
   if (state->cap.capabilities & V4L2_CAP_STREAMING) {
@@ -1123,7 +1153,7 @@ spa_v4l2_pause (SpaV4l2Source *this)
     perror ("VIDIOC_STREAMOFF");
     return SPA_RESULT_ERROR;
   }
-  for (i = 0; i < state->reqbuf.count; i++) {
+  for (i = 0; i < state->n_buffers; i++) {
     V4l2Buffer *b;
 
     b = &state->buffers[i];

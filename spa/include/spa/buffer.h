@@ -164,21 +164,18 @@ size_t       spa_buffer_get_size    (const SpaBuffer *buffer);
 size_t       spa_buffer_serialize   (void *dest, const SpaBuffer *buffer);
 SpaBuffer *  spa_buffer_deserialize (void *src, off_t offset);
 
-/**
- * SpaBufferAllocFlags:
- * @SPA_BUFFER_ALLOC_FLAG_NONE: no flags
- * @SPA_BUFFER_ALLOC_FLAG_NO_MEM: don't allocate memory
- */
-typedef enum {
-  SPA_BUFFER_ALLOC_FLAG_NONE    = 0,
-  SPA_BUFFER_ALLOC_FLAG_NO_MEM,
-} SpaBufferAllocFlags;
 
-SpaResult    spa_buffer_alloc       (SpaBufferAllocFlags   flags,
-                                     SpaAllocParam       **params,
-                                     unsigned int          n_params,
-                                     SpaBuffer           **buffers,
-                                     unsigned int         *n_buffers);
+
+SpaResult    spa_alloc_params_get_header_size  (SpaAllocParam **params,
+                                                unsigned int    n_params,
+                                                unsigned int    n_datas,
+                                                size_t         *size);
+
+SpaResult    spa_buffer_init_headers   (SpaAllocParam       **params,
+                                        unsigned int          n_params,
+                                        unsigned int          n_datas,
+                                        SpaBuffer           **buffers,
+                                        unsigned int          n_buffers);
 
 #ifdef __cplusplus
 }  /* extern "C" */

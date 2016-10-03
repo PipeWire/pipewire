@@ -281,7 +281,7 @@ suspend_node (PinosNode *this)
 
   for (walk = priv->input_ports; walk; walk = g_list_next (walk)) {
     NodePort *p = walk->data;
-    if ((res = spa_node_port_set_format (this->node, p->port.port, 0, NULL)) < 0)
+    if ((res = spa_node_port_set_format (this->node, SPA_DIRECTION_INPUT, p->port.port, 0, NULL)) < 0)
       g_warning ("error unset format output: %d", res);
     p->port.buffers = NULL;
     p->port.n_buffers = 0;
@@ -291,7 +291,7 @@ suspend_node (PinosNode *this)
   }
   for (walk = priv->output_ports; walk; walk = g_list_next (walk)) {
     NodePort *p = walk->data;
-    if ((res = spa_node_port_set_format (this->node, p->port.port, 0, NULL)) < 0)
+    if ((res = spa_node_port_set_format (this->node, SPA_DIRECTION_OUTPUT, p->port.port, 0, NULL)) < 0)
       g_warning ("error unset format output: %d", res);
     p->port.buffers = NULL;
     p->port.n_buffers = 0;
@@ -1132,15 +1132,14 @@ pinos_node_get_free_port (PinosNode       *node,
     max_ports = priv->max_input_ports;
     n_ports = priv->n_input_ports;
     ports = priv->input_ports;
-    free_port = 0;
   } else {
     max_ports = priv->max_output_ports;
     n_ports = priv->n_output_ports;
     ports = priv->output_ports;
-    free_port = priv->max_input_ports;
   }
+  free_port = 0;
 
-  g_debug ("node %p: direction %d max %u, n %u", node, direction, max_ports, n_ports);
+  g_debug ("node %p: direction %d max %u, n %u, free_port %u", node, direction, max_ports, n_ports, free_port);
 
   for (walk = ports; walk; walk = g_list_next (walk)) {
     PinosPort *p = walk->data;

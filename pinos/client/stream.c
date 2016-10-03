@@ -54,7 +54,9 @@ typedef struct {
 typedef struct {
   uint32_t id;
   bool used;
+  void *buf_ptr;
   SpaBuffer *buf;
+  SpaData *datas;
 } BufferId;
 
 struct _PinosStreamPrivate
@@ -68,13 +70,13 @@ struct _PinosStreamPrivate
   PinosStreamState state;
   GError *error;
 
-  PinosDirection direction;
   gchar *path;
 
   SpaNodeState node_state;
   GPtrArray *possible_formats;
   SpaFormat *format;
   SpaPortInfo port_info;
+  SpaDirection direction;
   uint32_t port_id;
   uint32_t pending_seq;
 
@@ -628,9 +630,9 @@ add_node_update (PinosStream *stream, SpaControlBuilder *builder, uint32_t chang
 
   nu.change_mask = change_mask;
   if (change_mask & SPA_CONTROL_CMD_NODE_UPDATE_MAX_INPUTS)
-    nu.max_input_ports = priv->direction == PINOS_DIRECTION_INPUT ? 1 : 0;
+    nu.max_input_ports = priv->direction == SPA_DIRECTION_INPUT ? 1 : 0;
   if (change_mask & SPA_CONTROL_CMD_NODE_UPDATE_MAX_OUTPUTS)
-    nu.max_output_ports = priv->direction == PINOS_DIRECTION_OUTPUT ? 1 : 0;
+    nu.max_output_ports = priv->direction == SPA_DIRECTION_OUTPUT ? 1 : 0;
   nu.props = NULL;
   spa_control_builder_add_cmd (builder, SPA_CONTROL_CMD_NODE_UPDATE, &nu);
 }
@@ -653,6 +655,7 @@ add_port_update (PinosStream *stream, SpaControlBuilder *builder, uint32_t chang
   PinosStreamPrivate *priv = stream->priv;
   SpaControlCmdPortUpdate pu = { 0, };;
 
+  pu.direction = priv->direction;
   pu.port_id = priv->port_id;
   pu.change_mask = change_mask;
   if (change_mask & SPA_CONTROL_CMD_PORT_UPDATE_POSSIBLE_FORMATS) {
@@ -663,8 +666,10 @@ add_port_update (PinosStream *stream, SpaControlBuilder *builder, uint32_t chang
     pu.format = priv->format;
   }
   pu.props = NULL;
-  if (change_mask & SPA_CONTROL_CMD_PORT_UPDATE_INFO)
+  if (change_mask & SPA_CONTROL_CMD_PORT_UPDATE_INFO) {
     pu.info = &priv->port_info;
+    spa_debug_port_info (pu.info);
+  }
   spa_control_builder_add_cmd (builder, SPA_CONTROL_CMD_PORT_UPDATE, &pu);
 }
 
@@ -775,6 +780,7 @@ send_process_buffer (PinosStream *stream, uint32_t port_id, uint32_t buffer_id)
   SpaNodeEventHaveOutput ho;
 
   control_builder_init (stream, &builder);
+  pb.direction = priv->direction;
   pb.port_id = port_id;
   pb.buffer_id = buffer_id;
   spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_PROCESS_BUFFER, &pb);
@@ -871,7 +877,7 @@ handle_node_event (PinosStream  *stream,
 
       if (p->port_id != priv->port_id)
         break;
-      if (priv->direction != PINOS_DIRECTION_OUTPUT)
+      if (priv->direction != SPA_DIRECTION_OUTPUT)
         break;
 
       if ((bid = find_buffer (stream, p->buffer_id))) {
@@ -932,7 +938,7 @@ handle_node_command (PinosStream    *stream,
 
       g_debug ("stream %p: start", stream);
       control_builder_init (stream, &builder);
-      if (priv->direction == PINOS_DIRECTION_INPUT)
+      if (priv->direction == SPA_DIRECTION_INPUT)
         add_need_input (stream, &builder, priv->port_id);
       add_state_change (stream, &builder, SPA_NODE_STATE_STREAMING);
       add_async_complete (stream, &builder, seq, SPA_RESULT_OK);
@@ -1072,6 +1078,7 @@ parse_control (PinosStream *stream,
         unsigned int i, j;
         SpaControlBuilder builder;
         SpaControl control;
+        SpaBuffer *b;
 
         if (spa_control_iter_parse_cmd (&it, &p) < 0)
           break;
@@ -1095,16 +1102,62 @@ parse_control (PinosStream *stream,
             }
           }
 
-          bid.buf = spa_buffer_deserialize (mid->ptr, p.buffers[i].offset);
-          bid.id = bid.buf->id;
+          bid.buf_ptr = SPA_MEMBER (mid->ptr, p.buffers[i].offset, void);
+          {
+            size_t size;
+            unsigned int i;
+            SpaMeta *m;
+
+            b = bid.buf_ptr;
+            size = sizeof (SpaBuffer);
+            m = SPA_MEMBER (b, SPA_PTR_TO_INT (b->metas), SpaMeta);
+            for (i = 0; i < b->n_metas; i++)
+              size += sizeof (SpaMeta) + m[i].size;
+            for (i = 0; i < b->n_datas; i++)
+              size += sizeof (SpaData);
+
+            b = bid.buf = g_memdup (bid.buf_ptr, size);
+
+            if (b->metas)
+              b->metas = SPA_MEMBER (b, SPA_PTR_TO_INT (b->metas), SpaMeta);
+            if (b->datas) {
+              bid.datas = SPA_MEMBER (bid.buf_ptr, SPA_PTR_TO_INT (b->datas), SpaData);
+              b->datas = SPA_MEMBER (b, SPA_PTR_TO_INT (b->datas), SpaData);
+            }
+          }
+
+          bid.id = b->id;
 
           g_debug ("add buffer %d %d %zd", mid->id, bid.id, p.buffers[i].offset);
 
-          for (j = 0; j < bid.buf->n_datas; j++) {
-            SpaData *d = &bid.buf->datas[j];
-            MemId *bmid = find_mem (stream, SPA_PTR_TO_UINT32 (d->data));
-            d->data = SPA_INT_TO_PTR (bmid->fd);
-            g_debug (" data %d %u -> %d", j, bmid->id, bmid->fd);
+          for (j = 0; j < b->n_metas; j++) {
+            SpaMeta *m = &b->metas[j];
+            if (m->data)
+              m->data = SPA_MEMBER (bid.buf_ptr, SPA_PTR_TO_INT (m->data), void);
+          }
+
+          for (j = 0; j < b->n_datas; j++) {
+            SpaData *d = &b->datas[j];
+
+            switch (d->type) {
+              case SPA_DATA_TYPE_ID:
+              {
+                MemId *bmid = find_mem (stream, SPA_PTR_TO_UINT32 (d->data));
+                d->type = SPA_DATA_TYPE_FD;
+                d->data = SPA_INT_TO_PTR (bmid->fd);
+                g_debug (" data %d %u -> %d", j, bmid->id, bmid->fd);
+                break;
+              }
+              case SPA_DATA_TYPE_MEMPTR:
+              {
+                d->data = SPA_MEMBER (bid.buf_ptr, SPA_PTR_TO_INT (d->data), void);
+                g_debug (" data %d %u -> %p", j, bid.id, d->data);
+                break;
+              }
+              default:
+                g_warning ("unknown buffer data type %d", d->type);
+                break;
+            }
           }
 
           if (bid.id != priv->buffer_ids->len) {
@@ -1133,16 +1186,23 @@ parse_control (PinosStream *stream,
       case SPA_CONTROL_CMD_PROCESS_BUFFER:
       {
         SpaControlCmdProcessBuffer p;
+        guint i;
+        BufferId *bid;
 
-        if (priv->direction != PINOS_DIRECTION_INPUT)
+        if (priv->direction != SPA_DIRECTION_INPUT)
           break;
 
         if (spa_control_iter_parse_cmd (&it, &p) < 0)
           break;
 
-        g_signal_emit (stream, signals[SIGNAL_NEW_BUFFER], 0, p.buffer_id);
+        if ((bid = find_buffer (stream, p.buffer_id))) {
+          for (i = 0; i < bid->buf->n_datas; i++) {
+            bid->buf->datas[i].size = bid->datas[i].size;
+          }
+          g_signal_emit (stream, signals[SIGNAL_NEW_BUFFER], 0, p.buffer_id);
 
-        send_need_input (stream, priv->port_id);
+          send_need_input (stream, priv->port_id);
+        }
         break;
       }
       case SPA_CONTROL_CMD_NODE_EVENT:
@@ -1434,8 +1494,8 @@ pinos_stream_connect (PinosStream      *stream,
   g_return_val_if_fail (pinos_context_get_state (context) == PINOS_CONTEXT_STATE_CONNECTED, FALSE);
   g_return_val_if_fail (pinos_stream_get_state (stream) == PINOS_STREAM_STATE_UNCONNECTED, FALSE);
 
-  priv->direction = direction;
-  priv->port_id = direction == PINOS_DIRECTION_INPUT ? 0 : MAX_INPUTS;
+  priv->direction = direction == PINOS_DIRECTION_INPUT ? SPA_DIRECTION_INPUT : SPA_DIRECTION_OUTPUT;
+  priv->port_id = 0;
   priv->mode = mode;
   g_free (priv->path);
   priv->path = g_strdup (port_path);
@@ -1502,6 +1562,9 @@ pinos_stream_finish_format (PinosStream     *stream,
       add_state_change (stream, &builder, SPA_NODE_STATE_CONFIGURE);
     }
   }
+  priv->port_info.params = NULL;
+  priv->port_info.n_params = 0;
+
   add_async_complete (stream, &builder, priv->pending_seq, res);
   spa_control_builder_end (&builder, &control);
 
@@ -1705,7 +1768,7 @@ pinos_stream_get_empty_buffer (PinosStream *stream)
 
   g_return_val_if_fail (PINOS_IS_STREAM (stream), FALSE);
   priv = stream->priv;
-  g_return_val_if_fail (priv->direction == PINOS_DIRECTION_OUTPUT, FALSE);
+  g_return_val_if_fail (priv->direction == SPA_DIRECTION_OUTPUT, FALSE);
 
   for (i = 0; i < priv->buffer_ids->len; i++) {
     BufferId *bid = &g_array_index (priv->buffer_ids, BufferId, i);
@@ -1733,7 +1796,7 @@ pinos_stream_recycle_buffer (PinosStream     *stream,
   g_return_val_if_fail (PINOS_IS_STREAM (stream), FALSE);
   g_return_val_if_fail (id != SPA_ID_INVALID, FALSE);
   priv = stream->priv;
-  g_return_val_if_fail (priv->direction == PINOS_DIRECTION_INPUT, FALSE);
+  g_return_val_if_fail (priv->direction == SPA_DIRECTION_INPUT, FALSE);
 
   send_reuse_buffer (stream, priv->port_id, id);
 
@@ -1783,14 +1846,18 @@ pinos_stream_send_buffer (PinosStream     *stream,
 {
   PinosStreamPrivate *priv;
   BufferId *bid;
+  guint i;
 
   g_return_val_if_fail (PINOS_IS_STREAM (stream), FALSE);
   g_return_val_if_fail (id != SPA_ID_INVALID, FALSE);
   priv = stream->priv;
-  g_return_val_if_fail (priv->direction == PINOS_DIRECTION_OUTPUT, FALSE);
+  g_return_val_if_fail (priv->direction == SPA_DIRECTION_OUTPUT, FALSE);
 
   if ((bid = find_buffer (stream, id))) {
     bid->used = TRUE;
+    for (i = 0; i < bid->buf->n_datas; i++) {
+      bid->datas[i].size = bid->buf->datas[i].size;
+    }
     send_process_buffer (stream, priv->port_id, id);
     return TRUE;
   } else {

@@ -27,6 +27,8 @@
 
 #include "alsa-utils.h"
 
+#define CHECK_PORT(this,d,p)    ((d) == SPA_DIRECTION_OUTPUT && (p) == 0)
+
 typedef struct _SpaALSAState SpaALSASource;
 
 static void
@@ -244,20 +246,23 @@ spa_alsa_source_node_get_port_ids (SpaNode       *node,
 
 static SpaResult
 spa_alsa_source_node_add_port (SpaNode        *node,
-                             uint32_t        port_id)
+                               SpaDirection    direction,
+                               uint32_t        port_id)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult
 spa_alsa_source_node_remove_port (SpaNode        *node,
-                                uint32_t        port_id)
+                                  SpaDirection    direction,
+                                  uint32_t        port_id)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult
 spa_alsa_source_node_port_enum_formats (SpaNode         *node,
+                                        SpaDirection     direction,
                                         uint32_t         port_id,
                                         SpaFormat      **format,
                                         const SpaFormat *filter,
@@ -271,7 +276,7 @@ spa_alsa_source_node_port_enum_formats (SpaNode         *node,
 
   this = (SpaALSASource *) node->handle;
 
-  if (port_id != 0)
+  if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
 
   index = (*state == NULL ? 0 : *(int*)state);
@@ -326,6 +331,7 @@ spa_alsa_clear_buffers (SpaALSASource *this)
 
 static SpaResult
 spa_alsa_source_node_port_set_format (SpaNode            *node,
+                                      SpaDirection        direction,
                                       uint32_t            port_id,
                                       SpaPortFormatFlags  flags,
                                       const SpaFormat    *format)
@@ -338,7 +344,7 @@ spa_alsa_source_node_port_set_format (SpaNode            *node,
 
   this = (SpaALSASource *) node->handle;
 
-  if (port_id != 0)
+  if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
 
   if (format == NULL) {
@@ -379,8 +385,9 @@ spa_alsa_source_node_port_set_format (SpaNode            *node,
 
 static SpaResult
 spa_alsa_source_node_port_get_format (SpaNode          *node,
-                                    uint32_t          port_id,
-                                    const SpaFormat **format)
+                                      SpaDirection      direction,
+                                      uint32_t          port_id,
+                                      const SpaFormat **format)
 {
   SpaALSASource *this;
 
@@ -389,7 +396,7 @@ spa_alsa_source_node_port_get_format (SpaNode          *node,
 
   this = (SpaALSASource *) node->handle;
 
-  if (port_id != 0)
+  if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
 
   if (!this->have_format)
@@ -402,8 +409,9 @@ spa_alsa_source_node_port_get_format (SpaNode          *node,
 
 static SpaResult
 spa_alsa_source_node_port_get_info (SpaNode            *node,
-                                  uint32_t            port_id,
-                                  const SpaPortInfo **info)
+                                    SpaDirection        direction,
+                                    uint32_t            port_id,
+                                    const SpaPortInfo **info)
 {
   SpaALSASource *this;
 
@@ -412,7 +420,7 @@ spa_alsa_source_node_port_get_info (SpaNode            *node,
 
   this = (SpaALSASource *) node->handle;
 
-  if (port_id != 0)
+  if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
 
   *info = &this->info;
@@ -421,23 +429,26 @@ spa_alsa_source_node_port_get_info (SpaNode            *node,
 }
 
 static SpaResult
-spa_alsa_source_node_port_get_props (SpaNode    *node,
-                                   uint32_t    port_id,
-                                   SpaProps  **props)
+spa_alsa_source_node_port_get_props (SpaNode       *node,
+                                     SpaDirection   direction,
+                                     uint32_t       port_id,
+                                     SpaProps     **props)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult
 spa_alsa_source_node_port_set_props (SpaNode         *node,
-                                   uint32_t         port_id,
-                                   const SpaProps  *props)
+                                     SpaDirection     direction,
+                                     uint32_t         port_id,
+                                     const SpaProps  *props)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult
 spa_alsa_source_node_port_use_buffers (SpaNode         *node,
+                                       SpaDirection     direction,
                                        uint32_t         port_id,
                                        SpaBuffer      **buffers,
                                        uint32_t         n_buffers)
@@ -449,7 +460,7 @@ spa_alsa_source_node_port_use_buffers (SpaNode         *node,
   if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  if (port_id != 0)
+  if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
 
   this = (SpaALSASource *) node->handle;
@@ -484,6 +495,7 @@ spa_alsa_source_node_port_use_buffers (SpaNode         *node,
 
 static SpaResult
 spa_alsa_source_node_port_alloc_buffers (SpaNode         *node,
+                                         SpaDirection     direction,
                                          uint32_t         port_id,
                                          SpaAllocParam  **params,
                                          uint32_t         n_params,
@@ -495,7 +507,7 @@ spa_alsa_source_node_port_alloc_buffers (SpaNode         *node,
   if (node == NULL || node->handle == NULL || buffers == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  if (port_id != 0)
+  if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
 
   this = (SpaALSASource *) node->handle;
@@ -507,33 +519,8 @@ spa_alsa_source_node_port_alloc_buffers (SpaNode         *node,
 }
 
 static SpaResult
-spa_alsa_source_node_port_reuse_buffer (SpaNode         *node,
-                                        uint32_t         port_id,
-                                        uint32_t         buffer_id)
-{
-  SpaALSASource *this;
-
-  if (node == NULL || node->handle == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
-  this = (SpaALSASource *) node->handle;
-
-  if (port_id != 0)
-    return SPA_RESULT_INVALID_PORT;
-
-  if (!this->have_buffers)
-    return SPA_RESULT_NO_BUFFERS;
-
-  if (buffer_id >= this->n_buffers)
-    return SPA_RESULT_INVALID_BUFFER_ID;
-
-  recycle_buffer (this, buffer_id);
-
-  return SPA_RESULT_OK;
-}
-
-static SpaResult
 spa_alsa_source_node_port_get_status (SpaNode              *node,
+                                      SpaDirection          direction,
                                       uint32_t              port_id,
                                       const SpaPortStatus **status)
 {
@@ -544,7 +531,7 @@ spa_alsa_source_node_port_get_status (SpaNode              *node,
 
   this = (SpaALSASource *) node->handle;
 
-  if (port_id != 0)
+  if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
 
   *status = &this->status;
@@ -554,16 +541,16 @@ spa_alsa_source_node_port_get_status (SpaNode              *node,
 
 static SpaResult
 spa_alsa_source_node_port_push_input (SpaNode          *node,
-                                    unsigned int      n_info,
-                                    SpaPortInputInfo *info)
+                                      unsigned int      n_info,
+                                      SpaPortInputInfo *info)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult
 spa_alsa_source_node_port_pull_output (SpaNode           *node,
-                                     unsigned int       n_info,
-                                     SpaPortOutputInfo *info)
+                                       unsigned int       n_info,
+                                       SpaPortOutputInfo *info)
 {
   SpaALSASource *this;
   unsigned int i;
@@ -607,6 +594,41 @@ spa_alsa_source_node_port_pull_output (SpaNode           *node,
 
 }
 
+static SpaResult
+spa_alsa_source_node_port_reuse_buffer (SpaNode         *node,
+                                        uint32_t         port_id,
+                                        uint32_t         buffer_id)
+{
+  SpaALSASource *this;
+
+  if (node == NULL || node->handle == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = (SpaALSASource *) node->handle;
+
+  if (port_id != 0)
+    return SPA_RESULT_INVALID_PORT;
+
+  if (!this->have_buffers)
+    return SPA_RESULT_NO_BUFFERS;
+
+  if (buffer_id >= this->n_buffers)
+    return SPA_RESULT_INVALID_BUFFER_ID;
+
+  recycle_buffer (this, buffer_id);
+
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
+spa_alsa_source_node_port_push_event (SpaNode          *node,
+                                      SpaDirection      direction,
+                                      uint32_t          port_id,
+                                      SpaNodeEvent     *event)
+{
+  return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
 static const SpaNode alsasource_node = {
   NULL,
   sizeof (SpaNode),
@@ -628,11 +650,13 @@ static const SpaNode alsasource_node = {
   spa_alsa_source_node_port_set_props,
   spa_alsa_source_node_port_use_buffers,
   spa_alsa_source_node_port_alloc_buffers,
-  spa_alsa_source_node_port_reuse_buffer,
   spa_alsa_source_node_port_get_status,
   spa_alsa_source_node_port_push_input,
   spa_alsa_source_node_port_pull_output,
+  spa_alsa_source_node_port_reuse_buffer,
+  spa_alsa_source_node_port_push_event,
 };
+
 static SpaResult
 spa_alsa_source_clock_get_props (SpaClock  *clock,
                                  SpaProps **props)

@@ -76,14 +76,6 @@ typedef struct {
 } SpaNodeEventAsyncComplete;
 
 typedef struct {
-  uint32_t     port_id;
-} SpaNodeEventPortAdded;
-
-typedef struct {
-  uint32_t     port_id;
-} SpaNodeEventPortRemoved;
-
-typedef struct {
   SpaNodeState state;
 } SpaNodeEventStateChange;
 

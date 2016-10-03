@@ -74,6 +74,12 @@ typedef enum {
 #define SPA_RESULT_ASYNC_SEQ(res)       ((res) & SPA_ASYNC_SEQ_MASK)
 #define SPA_RESULT_RETURN_ASYNC(seq)    (SPA_RESULT_ASYNC | ((seq) & SPA_ASYNC_SEQ_MASK))
 
+typedef enum {
+  SPA_DIRECTION_INVALID = 0,
+  SPA_DIRECTION_INPUT,
+  SPA_DIRECTION_OUTPUT,
+} SpaDirection;
+
 typedef void (*SpaNotify) (void *data);
 
 #define SPA_N_ELEMENTS(arr)  (sizeof (arr) / sizeof ((arr)[0]))

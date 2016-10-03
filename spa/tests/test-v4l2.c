@@ -273,7 +273,7 @@ alloc_buffers (AppData *data)
   }
   data->n_buffers = MAX_BUFFERS;
 
-  spa_node_port_use_buffers (data->source, 0, data->bp, MAX_BUFFERS);
+  spa_node_port_use_buffers (data->source, SPA_DIRECTION_OUTPUT, 0, data->bp, MAX_BUFFERS);
 }
 
 typedef struct {
@@ -320,10 +320,10 @@ negotiate_formats (AppData *data)
   f.framerate.denom = 1;
 #endif
 
-  if ((res = spa_node_port_set_format (data->source, 0, false, &f.fmt)) < 0)
+  if ((res = spa_node_port_set_format (data->source, SPA_DIRECTION_OUTPUT, 0, false, &f.fmt)) < 0)
     return res;
 
-  if ((res = spa_node_port_get_info (data->source, 0, &info)) < 0)
+  if ((res = spa_node_port_get_info (data->source, SPA_DIRECTION_OUTPUT, 0, &info)) < 0)
     return res;
 
   spa_debug_port_info (info);
@@ -342,7 +342,7 @@ negotiate_formats (AppData *data)
       return -1;
     }
     n_buffers = MAX_BUFFERS;
-    if ((res = spa_node_port_alloc_buffers (data->source, 0, NULL, 0, data->bp, &n_buffers)) < 0) {
+    if ((res = spa_node_port_alloc_buffers (data->source, SPA_DIRECTION_OUTPUT, 0, NULL, 0, data->bp, &n_buffers)) < 0) {
       printf ("can't allocate buffers: %s\n", SDL_GetError ());
       return -1;
     }

@@ -404,20 +404,6 @@ spa_ffmpeg_enc_node_port_alloc_buffers (SpaNode         *node,
 }
 
 static SpaResult
-spa_ffmpeg_enc_node_port_reuse_buffer (SpaNode         *node,
-                                       uint32_t         port_id,
-                                       uint32_t         buffer_id)
-{
-  if (node == NULL || node->handle == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
-  if (!IS_VALID_PORT (port_id))
-    return SPA_RESULT_INVALID_PORT;
-
-  return SPA_RESULT_NOT_IMPLEMENTED;
-}
-
-static SpaResult
 spa_ffmpeg_enc_node_port_get_status (SpaNode              *node,
                                      uint32_t              port_id,
                                      const SpaPortStatus **status)
@@ -483,6 +469,20 @@ spa_ffmpeg_enc_node_port_pull_output (SpaNode           *node,
 }
 
 static SpaResult
+spa_ffmpeg_enc_node_port_reuse_buffer (SpaNode         *node,
+                                       uint32_t         port_id,
+                                       uint32_t         buffer_id)
+{
+  if (node == NULL || node->handle == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  if (!IS_VALID_PORT (port_id))
+    return SPA_RESULT_INVALID_PORT;
+
+  return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
+static SpaResult
 spa_ffmpeg_enc_node_port_push_event (SpaNode      *node,
                                      uint32_t      port_id,
                                      SpaNodeEvent *event)
@@ -511,10 +511,10 @@ static const SpaNode ffmpeg_enc_node = {
   spa_ffmpeg_enc_node_port_set_props,
   spa_ffmpeg_enc_node_port_use_buffers,
   spa_ffmpeg_enc_node_port_alloc_buffers,
-  spa_ffmpeg_enc_node_port_reuse_buffer,
   spa_ffmpeg_enc_node_port_get_status,
   spa_ffmpeg_enc_node_port_push_input,
   spa_ffmpeg_enc_node_port_pull_output,
+  spa_ffmpeg_enc_node_port_reuse_buffer,
   spa_ffmpeg_enc_node_port_push_event,
 };
 

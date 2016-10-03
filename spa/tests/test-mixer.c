@@ -223,7 +223,7 @@ negotiate_formats (AppData *data)
   SpaPropValue value;
   void *state = NULL;
 
-  if ((res = spa_node_port_enum_formats (data->sink, 0, &format, NULL, &state)) < 0)
+  if ((res = spa_node_port_enum_formats (data->sink, SPA_DIRECTION_INPUT, 0, &format, NULL, &state)) < 0)
     return res;
 
   props = &format->props;
@@ -244,30 +244,30 @@ negotiate_formats (AppData *data)
   if ((res = spa_props_set_value (props, spa_props_index_for_id (props, SPA_PROP_ID_AUDIO_CHANNELS), &value)) < 0)
     return res;
 
-  if ((res = spa_node_port_set_format (data->sink, 0, false, format)) < 0)
+  if ((res = spa_node_port_set_format (data->sink, SPA_DIRECTION_INPUT, 0, false, format)) < 0)
     return res;
 
-  if ((res = spa_node_port_set_format (data->mix, 128, false, format)) < 0)
+  if ((res = spa_node_port_set_format (data->mix, SPA_DIRECTION_OUTPUT, 0, false, format)) < 0)
     return res;
 
   data->mix_ports[0] = 0;
-  if ((res = spa_node_add_port (data->mix, 0)) < 0)
+  if ((res = spa_node_add_port (data->mix, SPA_DIRECTION_INPUT, 0)) < 0)
     return res;
 
-  if ((res = spa_node_port_set_format (data->mix, data->mix_ports[0], false, format)) < 0)
+  if ((res = spa_node_port_set_format (data->mix, SPA_DIRECTION_INPUT, data->mix_ports[0], false, format)) < 0)
     return res;
 
-  if ((res = spa_node_port_set_format (data->source1, 0, false, format)) < 0)
+  if ((res = spa_node_port_set_format (data->source1, SPA_DIRECTION_OUTPUT, 0, false, format)) < 0)
     return res;
 
   data->mix_ports[1] = 1;
-  if ((res = spa_node_add_port (data->mix, 1)) < 0)
+  if ((res = spa_node_add_port (data->mix, SPA_DIRECTION_INPUT, 1)) < 0)
     return res;
 
-  if ((res = spa_node_port_set_format (data->mix, data->mix_ports[1], false, format)) < 0)
+  if ((res = spa_node_port_set_format (data->mix, SPA_DIRECTION_INPUT, data->mix_ports[1], false, format)) < 0)
     return res;
 
-  if ((res = spa_node_port_set_format (data->source2, 0, false, format)) < 0)
+  if ((res = spa_node_port_set_format (data->source2, SPA_DIRECTION_OUTPUT, 0, false, format)) < 0)
     return res;
 
 

@@ -26,14 +26,37 @@
 #include <spa/node.h>
 #include <spa/debug.h>
 
+
+static void
+inspect_port (SpaNode *node, SpaDirection direction, uint32_t port_id)
+{
+  SpaResult res;
+  SpaFormat *format;
+  void *state = NULL;
+  SpaProps *props;
+
+  while (true) {
+    if ((res = spa_node_port_enum_formats (node, direction, port_id, &format, NULL, &state)) < 0) {
+      if (res != SPA_RESULT_ENUM_END)
+        printf ("got error %d\n", res);
+      break;
+    }
+    if (format)
+      spa_debug_format (format);
+  }
+  if ((res = spa_node_port_get_props (node, direction, port_id, &props)) < 0)
+    printf ("port_get_props error: %d\n", res);
+  else
+    spa_debug_props (props, true);
+}
+
 static void
 inspect_node (SpaNode *node)
 {
   SpaResult res;
+  unsigned int i, n_input, max_input, n_output, max_output;
+  uint32_t *in_ports, *out_ports;
   SpaProps *props;
-  unsigned int n_input, max_input, n_output, max_output;
-  SpaFormat *format;
-  void *state = NULL;
 
   if ((res = spa_node_get_props (node, &props)) < 0)
     printf ("can't get properties: %d\n", res);
@@ -45,19 +68,21 @@ inspect_node (SpaNode *node)
   else
     printf ("supported ports %d %d %d %d\n", n_input, max_input, n_output, max_output);
 
-  while (true) {
-    if ((res = spa_node_port_enum_formats (node, 0, &format, NULL, &state)) < 0) {
-      if (res != SPA_RESULT_ENUM_END)
-        printf ("got error %d\n", res);
-      break;
-    }
-    if (format)
-      spa_debug_format (format);
+  in_ports = alloca (n_input * sizeof (uint32_t));
+  out_ports = alloca (n_input * sizeof (uint32_t));
+
+  if ((res = spa_node_get_port_ids (node, n_input, in_ports, n_output, out_ports)) < 0)
+    printf ("can't get port ids: %d\n", res);
+
+  for (i = 0; i < n_input; i++) {
+    printf (" input port: %08x\n", in_ports[i]);
+    inspect_port (node, SPA_DIRECTION_INPUT, in_ports[i]);
   }
-  if ((res = spa_node_port_get_props (node, 0, &props)) < 0)
-    printf ("port_get_props error: %d\n", res);
-  else
-    spa_debug_props (props, true);
+  for (i = 0; i < n_output; i++) {
+    printf (" output port: %08x\n", out_ports[i]);
+    inspect_port (node, SPA_DIRECTION_OUTPUT, out_ports[i]);
+  }
+
 }
 
 static void

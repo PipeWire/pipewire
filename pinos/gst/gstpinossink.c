@@ -333,6 +333,7 @@ gst_pinos_sink_get_property (GObject * object, guint prop_id,
 typedef struct {
   GstPinosSink *sink;
   guint id;
+  SpaBuffer *buf;
   SpaMetaHeader *header;
   guint flags;
 } ProcessMemData;
@@ -368,6 +369,7 @@ on_add_buffer (GObject    *gobject,
 
   data.sink = gst_object_ref (pinossink);
   data.id = id;
+  data.buf = b;
   data.header = NULL;
 
   for (i = 0; i < b->n_metas; i++) {
@@ -591,6 +593,7 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   GstPinosSink *pinossink;
   gboolean res;
   ProcessMemData *data;
+  guint i;
 
   pinossink = GST_PINOS_SINK (bsink);
 
@@ -599,7 +602,8 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
 
   pinos_main_loop_lock (pinossink->loop);
   if (pinos_stream_get_state (pinossink->stream) != PINOS_STREAM_STATE_STREAMING)
-    goto streaming_error;
+    goto done;
+//    goto streaming_error;
 
   if (buffer->pool != GST_BUFFER_POOL_CAST (pinossink->pool)) {
     GstBuffer *b = NULL;
@@ -613,9 +617,22 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   data = gst_mini_object_get_qdata (GST_MINI_OBJECT_CAST (buffer),
                                     process_mem_data_quark);
 
+  if (data->header) {
+    data->header->seq = GST_BUFFER_OFFSET (buffer);
+    data->header->pts = GST_BUFFER_PTS (buffer);
+    data->header->dts_offset = GST_BUFFER_DTS (buffer);
+  }
+  for (i = 0; i < data->buf->n_datas; i++) {
+    SpaData *d = &data->buf->datas[i];
+    GstMemory *mem = gst_buffer_get_memory (buffer, i);
+    d->offset = mem->offset;
+    d->size = mem->size;
+  }
+
   if (!(res = pinos_stream_send_buffer (pinossink->stream, data->id)))
     g_warning ("can't send buffer");
 
+done:
   pinos_main_loop_unlock (pinossink->loop);
 
   return GST_FLOW_OK;
@@ -624,11 +641,11 @@ not_negotiated:
   {
     return GST_FLOW_NOT_NEGOTIATED;
   }
-streaming_error:
-  {
-    pinos_main_loop_unlock (pinossink->loop);
-    return GST_FLOW_ERROR;
-  }
+//streaming_error:
+//  {
+//    pinos_main_loop_unlock (pinossink->loop);
+//    return GST_FLOW_ERROR;
+//  }
 }
 
 static gboolean

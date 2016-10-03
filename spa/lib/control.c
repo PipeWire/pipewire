@@ -369,20 +369,10 @@ iter_parse_port_update (struct stack_iter *si, SpaControlCmdPortUpdate *pu)
   }
   if (pu->format)
     pu->format = spa_format_deserialize (p, SPA_PTR_TO_INT (pu->format));
-
   if (pu->props)
     pu->props = spa_props_deserialize (p, SPA_PTR_TO_INT (pu->props));
-  if (pu->info) {
-    SpaPortInfo *pi;
-
-    pu->info = p = SPA_MEMBER (p, SPA_PTR_TO_INT (pu->info), SpaPortInfo);
-
-    pi = (SpaPortInfo *) pu->info;
-    pi->params = SPA_MEMBER (p, SPA_PTR_TO_INT (pi->params), SpaAllocParam *);
-    for (i = 0; i < pi->n_params; i++) {
-      pi->params[i] = SPA_MEMBER (p, SPA_PTR_TO_INT (pi->params[i]), SpaAllocParam);
-    }
-  }
+  if (pu->info)
+    pu->info = spa_port_info_deserialize (p, SPA_PTR_TO_INT (pu->info));
 }
 
 static void
@@ -759,39 +749,6 @@ builder_add_cmd (struct stack_builder *sb, SpaControlCmd cmd, size_t size)
   return p;
 }
 
-static size_t
-write_port_info (void *p, const SpaPortInfo *info)
-{
-  SpaPortInfo *tp;
-  SpaAllocParam **ap;
-  int i;
-  size_t len;
-
-  if (info == NULL)
-    return 0;
-
-  tp = p;
-  memcpy (tp, info, sizeof (SpaPortInfo));
-
-  p = SPA_MEMBER (tp, sizeof (SpaPortInfo), SpaAllocParam *);
-  ap = p;
-  if (info->n_params)
-    tp->params = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tp));
-  else
-    tp->params = 0;
-  tp->features = 0;
-
-  p = SPA_MEMBER (p, sizeof (SpaAllocParam*) * info->n_params, void);
-
-  for (i = 0; i < info->n_params; i++) {
-    len = info->params[i]->size;
-    memcpy (p, info->params[i], len);
-    ap[i] = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tp));
-    p = SPA_MEMBER (p, len, void);
-  }
-  return SPA_PTRDIFF (p, tp);
-}
-
 static void
 builder_add_node_update (struct stack_builder *sb, SpaControlCmdNodeUpdate *nu)
 {
@@ -833,12 +790,8 @@ builder_add_port_update (struct stack_builder *sb, SpaControlCmdPortUpdate *pu)
   }
   len += spa_format_get_size (pu->format);
   len += spa_props_get_size (pu->props);
-  if (pu->info) {
-    len += sizeof (SpaPortInfo);
-    len += pu->info->n_params * sizeof (SpaAllocParam *);
-    for (i = 0; i < pu->info->n_params; i++)
-      len += pu->info->params[i]->size;
-  }
+  if (pu->info)
+    len += spa_port_info_get_size (pu->info);
 
   p = builder_add_cmd (sb, SPA_CONTROL_CMD_PORT_UPDATE, len);
   memcpy (p, pu, sizeof (SpaControlCmdPortUpdate));
@@ -873,7 +826,7 @@ builder_add_port_update (struct stack_builder *sb, SpaControlCmdPortUpdate *pu)
     d->props = 0;
   }
   if (pu->info) {
-    len = write_port_info (p, pu->info);
+    len = spa_port_info_serialize (p, pu->info);
     d->info = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
     p = SPA_MEMBER (p, len, void);
   } else {

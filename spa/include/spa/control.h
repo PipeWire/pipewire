@@ -94,6 +94,7 @@ typedef struct {
 
 /* SPA_CONTROL_CMD_PORT_UPDATE */
 typedef struct {
+  SpaDirection       direction;
   uint32_t           port_id;
 #define SPA_CONTROL_CMD_PORT_UPDATE_POSSIBLE_FORMATS  (1 << 0)
 #define SPA_CONTROL_CMD_PORT_UPDATE_FORMAT            (1 << 1)
@@ -116,20 +117,23 @@ typedef struct {
 
 /* SPA_CONTROL_CMD_ADD_PORT */
 typedef struct {
-  uint32_t seq;
-  uint32_t port_id;
+  uint32_t     seq;
+  SpaDirection direction;
+  uint32_t     port_id;
 } SpaControlCmdAddPort;
 
 /* SPA_CONTROL_CMD_REMOVE_PORT */
 typedef struct {
-  uint32_t seq;
-  uint32_t port_id;
+  uint32_t     seq;
+  SpaDirection direction;
+  uint32_t     port_id;
 } SpaControlCmdRemovePort;
 
 
 /* SPA_CONTROL_CMD_SET_FORMAT */
 typedef struct {
   uint32_t            seq;
+  SpaDirection        direction;
   uint32_t            port_id;
   SpaPortFormatFlags  flags;
   SpaFormat          *format;
@@ -137,11 +141,12 @@ typedef struct {
 
 /* SPA_CONTROL_CMD_SET_PROPERTY */
 typedef struct {
-  uint32_t   seq;
-  uint32_t   port_id;
-  uint32_t   id;
-  size_t     size;
-  void      *value;
+  uint32_t     seq;
+  SpaDirection direction;
+  uint32_t     port_id;
+  uint32_t     id;
+  size_t       size;
+  void        *value;
 } SpaControlCmdSetProperty;
 
 /* SPA_CONTROL_CMD_NODE_COMMAND */
@@ -152,6 +157,7 @@ typedef struct {
 
 /* SPA_CONTROL_CMD_ADD_MEM */
 typedef struct {
+  SpaDirection direction;
   uint32_t     port_id;
   uint32_t     mem_id;
   unsigned int fd_index;
@@ -162,6 +168,7 @@ typedef struct {
 
 /* SPA_CONTROL_CMD_REMOVE_MEM */
 typedef struct {
+  SpaDirection direction;
   uint32_t     port_id;
   uint32_t     mem_id;
 } SpaControlCmdRemoveMem;
@@ -175,6 +182,7 @@ typedef struct {
 /* SPA_CONTROL_CMD_USE_BUFFERS */
 typedef struct {
   uint32_t          seq;
+  SpaDirection      direction;
   uint32_t          port_id;
   unsigned int      n_buffers;
   SpaControlMemRef *buffers;
@@ -182,8 +190,9 @@ typedef struct {
 
 /* SPA_CONTROL_CMD_PROCESS_BUFFER */
 typedef struct {
-  uint32_t port_id;
-  uint32_t buffer_id;
+  SpaDirection direction;
+  uint32_t     port_id;
+  uint32_t     buffer_id;
 } SpaControlCmdProcessBuffer;
 
 /* SPA_CONTROL_CMD_NODE_EVENT */

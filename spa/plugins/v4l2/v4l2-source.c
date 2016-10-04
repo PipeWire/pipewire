@@ -47,7 +47,7 @@ reset_v4l2_source_props (SpaV4l2SourceProps *props)
   props->props.unset_mask = 7;
 }
 
-#define MAX_BUFFERS     256
+#define MAX_BUFFERS     64
 
 typedef struct _V4l2Buffer V4l2Buffer;
 
@@ -57,6 +57,8 @@ struct _V4l2Buffer {
   bool outstanding;
   struct v4l2_buffer v4l2_buffer;
   V4l2Buffer *next;
+  void *ptr;
+  size_t size;
 };
 
 typedef struct _V4l2Format V4l2Format;

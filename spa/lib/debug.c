@@ -23,6 +23,30 @@
 #include "spa/props.h"
 #include "spa/format.h"
 
+struct meta_type_name {
+  const char *name;
+} meta_type_names[] = {
+  { "invalid" },
+  { "SpaMetaHeader" },
+  { "SpaMetaPointer" },
+  { "SpaMetaVideoCrop" },
+  { "SpaMetaRingbuffer" },
+  { "invalid" },
+};
+#define META_TYPE_NAME(t)  meta_type_names[SPA_CLAMP(t,0,SPA_N_ELEMENTS(meta_type_names)-1)].name
+
+struct data_type_name {
+  const char *name;
+} data_type_names[] = {
+  { "invalid" },
+  { "memptr" },
+  { "memfd" },
+  { "dmabuf" },
+  { "ID" },
+  { "invalid" },
+};
+#define DATA_TYPE_NAME(t)  data_type_names[SPA_CLAMP(t,0,SPA_N_ELEMENTS(data_type_names)-1)].name
+
 SpaResult
 spa_debug_port_info (const SpaPortInfo *info)
 {
@@ -58,7 +82,7 @@ spa_debug_port_info (const SpaPortInfo *info)
       {
         SpaAllocParamMetaEnable *p = (SpaAllocParamMetaEnable *)param;
         fprintf (stderr, "   SpaAllocParamMetaEnable:\n");
-        fprintf (stderr, "    type: \t%d\n", p->type);
+        fprintf (stderr, "    type: \t%d (%s)\n", p->type, META_TYPE_NAME(p->type));
         break;
       }
       case SPA_ALLOC_PARAM_TYPE_VIDEO_PADDING:
@@ -94,7 +118,7 @@ spa_debug_buffer (const SpaBuffer *buffer)
   fprintf (stderr, " n_metas: %u (at %p)\n", buffer->n_metas, buffer->metas);
   for (i = 0; i < buffer->n_metas; i++) {
     SpaMeta *m = &buffer->metas[i];
-    fprintf (stderr, "  meta %d: type %d, data %p, size %zd:\n", i, m->type, m->data, m->size);
+    fprintf (stderr, "  meta %d: type %d (%s), data %p, size %zd:\n", i, m->type, META_TYPE_NAME (m->type), m->data, m->size);
     switch (m->type) {
       case SPA_META_TYPE_HEADER:
       {
@@ -107,13 +131,34 @@ spa_debug_buffer (const SpaBuffer *buffer)
         break;
       }
       case SPA_META_TYPE_POINTER:
+      {
+        SpaMetaPointer *h = m->data;
         fprintf (stderr, "    SpaMetaPointer:\n");
+        fprintf (stderr, "      ptr_type:   %s\n", h->ptr_type);
+        fprintf (stderr, "      ptr:        %p\n", h->ptr);
         spa_debug_dump_mem (m->data, m->size);
         break;
+      }
       case SPA_META_TYPE_VIDEO_CROP:
+      {
+        SpaMetaVideoCrop *h = m->data;
         fprintf (stderr, "    SpaMetaVideoCrop:\n");
-        spa_debug_dump_mem (m->data, m->size);
+        fprintf (stderr, "      x:      %d\n", h->x);
+        fprintf (stderr, "      y:      %d\n", h->y);
+        fprintf (stderr, "      width:  %d\n", h->width);
+        fprintf (stderr, "      height: %d\n", h->height);
         break;
+      }
+      case SPA_META_TYPE_RINGBUFFER:
+      {
+        SpaMetaRingbuffer *h = m->data;
+        fprintf (stderr, "    SpaMetaRingbuffer:\n");
+        fprintf (stderr, "      readindex:   %d\n", h->readindex);
+        fprintf (stderr, "      writeindex:  %d\n", h->writeindex);
+        fprintf (stderr, "      size:        %d\n", h->size);
+        fprintf (stderr, "      size_mask:   %d\n", h->size_mask);
+        break;
+      }
       default:
         spa_debug_dump_mem (m->data, m->size);
         break;
@@ -122,7 +167,7 @@ spa_debug_buffer (const SpaBuffer *buffer)
   fprintf (stderr, " n_datas: \t%u (at %p)\n", buffer->n_datas, buffer->datas);
   for (i = 0; i < buffer->n_datas; i++) {
     SpaData *d = &buffer->datas[i];
-    fprintf (stderr, "   type:    %d\n", d->type);
+    fprintf (stderr, "   type:    %d (%s)\n", d->type, DATA_TYPE_NAME (d->type));
     fprintf (stderr, "   data:    %p\n", d->data);
     fprintf (stderr, "   offset:  %zd\n", d->offset);
     fprintf (stderr, "   size:    %zd\n", d->size);

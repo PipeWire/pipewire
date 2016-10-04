@@ -30,6 +30,9 @@ typedef struct _SpaBuffer SpaBuffer;
  * SpaMetaType:
  * @SPA_META_TYPE_INVALID: invalid metadata, should be ignored
  * @SPA_META_TYPE_HEADER: header metadata
+ * @SPA_META_TYPE_POINTER: a generic pointer
+ * @SPA_META_TYPE_VIDEO_CROP: video cropping region
+ * @SPA_META_TYPE_RINGBUFFER: a ringbuffer
  */
 typedef enum {
   SPA_META_TYPE_INVALID               = 0,
@@ -38,6 +41,23 @@ typedef enum {
   SPA_META_TYPE_VIDEO_CROP,
   SPA_META_TYPE_RINGBUFFER,
 } SpaMetaType;
+
+/**
+ * SpaDataType:
+ * @SPA_DATA_TYPE_INVALID: invalid data, should be ignored
+ * @SPA_DATA_TYPE_MEMPTR: data points to CPU accessible memory
+ * @SPA_DATA_TYPE_MEMFD: data is an int file descriptor, use SPA_PTR_TO_INT
+ * @SPA_DATA_TYPE_DMABUF: data is an int file descriptor, use SPA_PTR_TO_INT
+ * @SPA_DATA_TYPE_ID: data is an id use SPA_PTR_TO_INT32. The definition of
+ *          the ID is conveyed in some other way
+ */
+typedef enum {
+  SPA_DATA_TYPE_INVALID               = 0,
+  SPA_DATA_TYPE_MEMPTR,
+  SPA_DATA_TYPE_MEMFD,
+  SPA_DATA_TYPE_DMABUF,
+  SPA_DATA_TYPE_ID,
+} SpaDataType;
 
 #include <spa/defs.h>
 #include <spa/port.h>
@@ -114,34 +134,20 @@ typedef struct {
 } SpaMeta;
 
 /**
- * SpaDataType:
- * @SPA_DATA_TYPE_INVALID: invalid data, should be ignored
- * @SPA_DATA_TYPE_MEMPTR: data points to CPU accessible memory
- * @SPA_DATA_TYPE_FD: data is an int file descriptor, use SPA_PTR_TO_INT
- * @SPA_DATA_TYPE_ID: data is an id use SPA_PTR_TO_INT32
- */
-typedef enum {
-  SPA_DATA_TYPE_INVALID               = 0,
-  SPA_DATA_TYPE_MEMPTR,
-  SPA_DATA_TYPE_FD,
-  SPA_DATA_TYPE_ID,
-} SpaDataType;
-
-/**
  * SpaData:
  * @type: memory type
  * @data: pointer to memory
+ * @maxsize: size of @data
  * @offset: offset in @data
  * @size: valid size of @data
- * @maxsize: size of @data
  * @stride: stride of data if applicable
  */
 typedef struct {
   SpaDataType    type;
   void          *data;
+  size_t         maxsize;
   off_t          offset;
   size_t         size;
-  size_t         maxsize;
   ssize_t        stride;
 } SpaData;
 
@@ -168,16 +174,7 @@ SpaBuffer *  spa_buffer_deserialize (void *src, off_t offset);
 
 
 
-SpaResult    spa_alloc_params_get_header_size  (SpaAllocParam **params,
-                                                unsigned int    n_params,
-                                                unsigned int    n_datas,
-                                                size_t         *size);
-
-SpaResult    spa_buffer_init_headers   (SpaAllocParam       **params,
-                                        unsigned int          n_params,
-                                        unsigned int          n_datas,
-                                        SpaBuffer           **buffers,
-                                        unsigned int          n_buffers);
+size_t       spa_meta_type_get_size  (SpaMetaType  type);
 
 #ifdef __cplusplus
 }  /* extern "C" */

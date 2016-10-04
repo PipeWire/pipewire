@@ -747,10 +747,12 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
       memcpy (&b->buffer.datas[j], d, sizeof (SpaData));
 
       switch (d->type) {
-        case SPA_DATA_TYPE_FD:
+        case SPA_DATA_TYPE_DMABUF:
+        case SPA_DATA_TYPE_MEMFD:
           am.direction = direction;
           am.port_id = port_id;
           am.mem_id = n_mem;
+          am.type = d->type;
           am.fd_index = spa_control_builder_add_fd (&builder, SPA_PTR_TO_INT (d->data), false);
           am.flags = 0;
           am.offset = d->offset;
@@ -821,6 +823,7 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
   am.direction = direction;
   am.port_id = port_id;
   am.mem_id = port->buffer_mem_id;
+  am.type = SPA_DATA_TYPE_MEMFD;
   am.fd_index = spa_control_builder_add_fd (&builder, port->buffer_mem_fd, false);
   am.flags = 0;
   am.offset = 0;
@@ -901,7 +904,7 @@ copy_meta_in (SpaProxy *this, SpaProxyPort *port, uint32_t buffer_id)
 }
 
 static void
-copy_meta (SpaProxy *this, SpaProxyPort *port, uint32_t buffer_id)
+copy_meta_out (SpaProxy *this, SpaProxyPort *port, uint32_t buffer_id)
 {
   ProxyBuffer *b = &port->buffers[buffer_id];
   unsigned int i;
@@ -966,7 +969,7 @@ spa_proxy_node_port_push_input (SpaNode          *node,
       continue;
     }
 
-    copy_meta (this, port, info[i].buffer_id);
+    copy_meta_out (this, port, info[i].buffer_id);
 
     pb.direction = SPA_DIRECTION_INPUT;
     pb.port_id = info[i].port_id;

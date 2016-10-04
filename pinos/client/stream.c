@@ -1143,15 +1143,15 @@ parse_control (PinosStream *stream,
               case SPA_DATA_TYPE_ID:
               {
                 MemId *bmid = find_mem (stream, SPA_PTR_TO_UINT32 (d->data));
-                d->type = SPA_DATA_TYPE_FD;
+                d->type = SPA_DATA_TYPE_MEMFD;
                 d->data = SPA_INT_TO_PTR (bmid->fd);
-                g_debug (" data %d %u -> %d", j, bmid->id, bmid->fd);
+                g_debug (" data %d %u -> fd %d", j, bmid->id, bmid->fd);
                 break;
               }
               case SPA_DATA_TYPE_MEMPTR:
               {
                 d->data = SPA_MEMBER (bid.buf_ptr, SPA_PTR_TO_INT (d->data), void);
-                g_debug (" data %d %u -> %p", j, bid.id, d->data);
+                g_debug (" data %d %u -> mem %p", j, bid.id, d->data);
                 break;
               }
               default:

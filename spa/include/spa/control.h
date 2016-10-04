@@ -160,6 +160,7 @@ typedef struct {
   SpaDirection direction;
   uint32_t     port_id;
   uint32_t     mem_id;
+  SpaDataType  type;
   unsigned int fd_index;
   uint32_t     flags;
   off_t        offset;

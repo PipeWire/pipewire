@@ -33,103 +33,14 @@ static const size_t header_sizes[] = {
   sizeof (SpaMetaRingbuffer),
 };
 
-SpaResult
-spa_alloc_params_get_header_size (SpaAllocParam       **params,
-                                  unsigned int          n_params,
-                                  unsigned int          n_datas,
-                                  size_t               *size)
+size_t
+spa_meta_type_get_size (SpaMetaType  type)
 {
-  unsigned int i, n_metas = 0;
+  if (type <= 0 || type >= SPA_N_ELEMENTS (header_sizes))
+    return 0;
 
-  *size = sizeof (SpaBuffer);
-
-  for (i = 0; i < n_params; i++) {
-    SpaAllocParam *p = params[i];
-
-    switch (p->type) {
-      case SPA_ALLOC_PARAM_TYPE_META_ENABLE:
-      {
-        SpaAllocParamMetaEnable *b = (SpaAllocParamMetaEnable *) p;
-
-        if (b->type > 0 && b->type < SPA_N_ELEMENTS (header_sizes)) {
-          n_metas++;
-          *size += header_sizes[b->type];
-        }
-        break;
-      }
-      default:
-        break;
-    }
-  }
-  *size += n_metas * sizeof (SpaMeta);
-  *size += n_datas * sizeof (SpaData);
-
-  return SPA_RESULT_OK;
+  return header_sizes[type];
 }
-
-SpaResult
-spa_buffer_init_headers (SpaAllocParam       **params,
-                         unsigned int          n_params,
-                         unsigned int          n_datas,
-                         SpaBuffer           **buffers,
-                         unsigned int          n_buffers)
-{
-  unsigned int i;
-  int n_metas = 0;
-
-  for (i = 0; i < n_params; i++) {
-    SpaAllocParam *p = params[i];
-
-    switch (p->type) {
-      case SPA_ALLOC_PARAM_TYPE_META_ENABLE:
-      {
-        SpaAllocParamMetaEnable *b = (SpaAllocParamMetaEnable *) p;
-        if (b->type > 0 && b->type <= SPA_N_ELEMENTS (header_sizes))
-          n_metas++;
-      }
-      default:
-        break;
-    }
-  }
-
-  for (i = 0; i < n_buffers; i++) {
-    int mi = 0, j;
-    SpaBuffer *b;
-    void *p;
-
-    b = buffers[i];
-    b->id = i;
-    b->n_metas = n_metas;
-    b->metas = SPA_MEMBER (b, sizeof (SpaBuffer), SpaMeta);
-    b->n_datas = n_datas;
-    b->datas = SPA_MEMBER (b->metas, sizeof (SpaMeta) * n_metas, SpaData);
-    p = SPA_MEMBER (b->datas, sizeof (SpaData) * n_datas, void);
-
-    for (j = 0, mi = 0; j < n_params; j++) {
-      SpaAllocParam *prm = params[j];
-
-      switch (prm->type) {
-        case SPA_ALLOC_PARAM_TYPE_META_ENABLE:
-        {
-          SpaAllocParamMetaEnable *pme = (SpaAllocParamMetaEnable *) prm;
-
-          if (pme->type > 0 && pme->type <= SPA_N_ELEMENTS (header_sizes)) {
-            b->metas[mi].type = pme->type;
-            b->metas[mi].data = p;
-            b->metas[mi].size = header_sizes[pme->type];
-            p = SPA_MEMBER (p, header_sizes[pme->type], void);
-            mi++;
-          }
-          break;
-        }
-        default:
-          break;
-      }
-    }
-  }
-  return SPA_RESULT_OK;
-}
-
 
 size_t
 spa_buffer_get_size (const SpaBuffer *buffer)

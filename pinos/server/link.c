@@ -433,24 +433,26 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
 
   if (priv->buffers == NULL) {
     SpaAllocParamBuffers *in_alloc, *out_alloc;
-    guint max_buffers = MAX_BUFFERS, min_size = 4096;
-    gboolean alloc_data = TRUE;
+    guint max_buffers = MAX_BUFFERS;
+    size_t minsize = 4096, stride = 0;
 
     max_buffers = MAX_BUFFERS;
     in_alloc = find_param (iinfo, SPA_ALLOC_PARAM_TYPE_BUFFERS);
     if (in_alloc) {
       max_buffers = in_alloc->max_buffers == 0 ? max_buffers : SPA_MIN (in_alloc->max_buffers, max_buffers);
-      min_size = SPA_MAX (min_size, in_alloc->minsize);
+      minsize = SPA_MAX (minsize, in_alloc->minsize);
+      stride = SPA_MAX (stride, in_alloc->stride);
     }
     out_alloc = find_param (oinfo, SPA_ALLOC_PARAM_TYPE_BUFFERS);
     if (out_alloc) {
       max_buffers = out_alloc->max_buffers == 0 ? max_buffers : SPA_MIN (out_alloc->max_buffers, max_buffers);
-      min_size = SPA_MAX (min_size, out_alloc->minsize);
+      minsize = SPA_MAX (minsize, out_alloc->minsize);
+      stride = SPA_MAX (stride, out_alloc->stride);
     }
 
     if ((in_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) ||
         (out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS))
-      alloc_data = FALSE;
+      minsize = 0;
 
     if (this->output->allocated) {
       out_flags = 0;
@@ -460,77 +462,88 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       priv->allocated = FALSE;
       g_debug ("reusing %d output buffers %p", priv->n_buffers, priv->buffers);
     } else {
-      guint i;
-      size_t hdr_size, data_size, buf_size;
+      guint i, j;
+      size_t hdr_size, buf_size, arr_size;
       void *p;
+      guint n_metas, n_datas;
 
-      spa_alloc_params_get_header_size (oinfo->params, oinfo->n_params, 1, &hdr_size);
-      if (alloc_data)
-        data_size = min_size;
-      else
-        data_size = 0;
+      n_metas = 0;
+      n_datas = 1;
 
-      buf_size = hdr_size + data_size;
+      hdr_size = sizeof (SpaBuffer);
+      hdr_size += n_datas * sizeof (SpaData);
+      for (i = 0; i < oinfo->n_params; i++) {
+        SpaAllocParam *ap = oinfo->params[i];
+
+        if (ap->type == SPA_ALLOC_PARAM_TYPE_META_ENABLE) {
+          SpaAllocParamMetaEnable *pme = (SpaAllocParamMetaEnable *) ap;
+
+          hdr_size += spa_meta_type_get_size (pme->type);
+          n_metas++;
+        }
+      }
+      hdr_size += n_metas * sizeof (SpaMeta);
+
+      buf_size = hdr_size + minsize;
 
       priv->n_buffers = max_buffers;
-
       pinos_memblock_alloc (PINOS_MEMBLOCK_FLAG_WITH_FD |
                             PINOS_MEMBLOCK_FLAG_MAP_READWRITE |
                             PINOS_MEMBLOCK_FLAG_SEAL,
                             priv->n_buffers * (sizeof (SpaBuffer*) + buf_size),
                             &priv->buffer_mem);
 
+      arr_size = priv->n_buffers * sizeof (SpaBuffer*);
       priv->buffers = p = priv->buffer_mem.ptr;
-      p = SPA_MEMBER (p, priv->n_buffers * sizeof (SpaBuffer*), void);
-      for (i = 0; i < priv->n_buffers; i++)
-        priv->buffers[i] = SPA_MEMBER (p, buf_size * i, SpaBuffer);
+      p = SPA_MEMBER (p, arr_size, void);
 
-      if ((res = spa_buffer_init_headers (oinfo->params,
-                                          oinfo->n_params,
-                                          1,
-                                          priv->buffers,
-                                          priv->n_buffers)) < 0) {
-        g_set_error (&error,
-                     PINOS_ERROR,
-                     PINOS_ERROR_BUFFER_ALLOCATION,
-                     "error buffer alloc: %d", res);
-        goto error;
-      }
       for (i = 0; i < priv->n_buffers; i++) {
-        SpaData *d = &priv->buffers[i]->datas[0];
+        SpaBuffer *b;
+        SpaData *d;
+        void *pd;
+        guint mi;
 
-        g_debug (" buffers %p %d", priv->buffers[i], priv->buffers[i]->id);
-        d->type = SPA_DATA_TYPE_MEMPTR;
-        d->data = SPA_MEMBER (priv->buffers[i], hdr_size, void);
-        d->size = data_size;
-        d->maxsize = data_size;
-        d->offset = 0;
-        d->stride = 0;
+        b = priv->buffers[i] = SPA_MEMBER (p, buf_size * i, SpaBuffer);
+
+        b->id = i;
+        b->n_metas = n_metas;
+        b->metas = SPA_MEMBER (b, sizeof (SpaBuffer), SpaMeta);
+        b->n_datas = n_datas;
+        b->datas = SPA_MEMBER (b->metas, sizeof (SpaMeta) * n_metas, SpaData);
+        pd = SPA_MEMBER (b->datas, sizeof (SpaData) * n_datas, void);
+
+        for (j = 0, mi = 0; j < oinfo->n_params; j++) {
+          SpaAllocParam *ap = oinfo->params[j];
+
+          if (ap->type == SPA_ALLOC_PARAM_TYPE_META_ENABLE) {
+            SpaAllocParamMetaEnable *pme = (SpaAllocParamMetaEnable *) ap;
+
+            b->metas[mi].type = pme->type;
+            b->metas[mi].data = pd;
+            b->metas[mi].size = spa_meta_type_get_size (pme->type);
+            pd = SPA_MEMBER (pd, b->metas[mi].size, void);
+            mi++;
+          }
+        }
+
+        d = &b->datas[0];
+        if (minsize > 0) {
+          d->type = SPA_DATA_TYPE_MEMFD;
+          d->data = SPA_INT_TO_PTR (priv->buffer_mem.fd);
+          d->maxsize = priv->buffer_mem.size;
+          d->offset = arr_size + hdr_size + (buf_size * i);
+          d->size = minsize;
+          d->stride = stride;
+        } else {
+          d->type = SPA_DATA_TYPE_INVALID;
+          d->data = NULL;
+        }
       }
       g_debug ("allocated %d buffers %p", priv->n_buffers, priv->buffers);
       priv->allocated = TRUE;
     }
 
-    if (in_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
-      if ((res = spa_node_port_alloc_buffers (this->input->node->node,
-                                              SPA_DIRECTION_INPUT,
-                                              this->input->port,
-                                              oinfo->params, oinfo->n_params,
-                                              priv->buffers, &priv->n_buffers)) < 0) {
-        g_set_error (&error,
-                     PINOS_ERROR,
-                     PINOS_ERROR_BUFFER_ALLOCATION,
-                     "error alloc input buffers: %d", res);
-        goto error;
-      }
-      this->input->buffers = priv->buffers;
-      this->input->n_buffers = priv->n_buffers;
-      this->input->allocated = TRUE;
-      this->input->buffer_mem = priv->buffer_mem;
-      priv->allocated = FALSE;
-      g_debug ("allocated %d buffers %p from input port", priv->n_buffers, priv->buffers);
-    }
-    else if (out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
+    if (out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
       if ((res = spa_node_port_alloc_buffers (this->output->node->node,
                                               SPA_DIRECTION_OUTPUT,
                                               this->output->port,
@@ -548,6 +561,24 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       this->output->buffer_mem = priv->buffer_mem;
       priv->allocated = FALSE;
       g_debug ("allocated %d buffers %p from output port", priv->n_buffers, priv->buffers);
+    } else if (in_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
+      if ((res = spa_node_port_alloc_buffers (this->input->node->node,
+                                              SPA_DIRECTION_INPUT,
+                                              this->input->port,
+                                              oinfo->params, oinfo->n_params,
+                                              priv->buffers, &priv->n_buffers)) < 0) {
+        g_set_error (&error,
+                     PINOS_ERROR,
+                     PINOS_ERROR_BUFFER_ALLOCATION,
+                     "error alloc input buffers: %d", res);
+        goto error;
+      }
+      this->input->buffers = priv->buffers;
+      this->input->n_buffers = priv->n_buffers;
+      this->input->allocated = TRUE;
+      this->input->buffer_mem = priv->buffer_mem;
+      priv->allocated = FALSE;
+      g_debug ("allocated %d buffers %p from input port", priv->n_buffers, priv->buffers);
     }
   }
 
@@ -770,9 +801,28 @@ pinos_link_dispose (GObject * object)
 
   g_signal_emit (this, signals[SIGNAL_REMOVE], 0, NULL);
 
-  this->input = NULL;
-  this->output = NULL;
-
+  if (this->input) {
+    if (!this->input->allocated) {
+      spa_node_port_use_buffers (this->input->node->node,
+                                 SPA_DIRECTION_INPUT,
+                                 this->input->port,
+                                 NULL, 0);
+      this->input->buffers = NULL;
+      this->input->n_buffers = 0;
+    }
+    this->input = NULL;
+  }
+  if (this->output) {
+    if (!this->output->allocated) {
+      spa_node_port_use_buffers (this->output->node->node,
+                                 SPA_DIRECTION_OUTPUT,
+                                 this->output->port,
+                                 NULL, 0);
+      this->output->buffers = NULL;
+      this->output->n_buffers = 0;
+    }
+    this->output = NULL;
+  }
   link_unregister_object (this);
 
   G_OBJECT_CLASS (pinos_link_parent_class)->dispose (object);
@@ -789,8 +839,9 @@ pinos_link_finalize (GObject * object)
   g_clear_object (&priv->iface);
   g_free (priv->object_path);
 
-  if (priv->allocated)
+  if (priv->allocated) {
     pinos_memblock_free (&priv->buffer_mem);
+  }
 
   G_OBJECT_CLASS (pinos_link_parent_class)->finalize (object);
 }

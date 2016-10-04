@@ -168,10 +168,12 @@ spa_debug_buffer (const SpaBuffer *buffer)
   for (i = 0; i < buffer->n_datas; i++) {
     SpaData *d = &buffer->datas[i];
     fprintf (stderr, "   type:    %d (%s)\n", d->type, DATA_TYPE_NAME (d->type));
+    fprintf (stderr, "   flags:   %d\n", d->flags);
     fprintf (stderr, "   data:    %p\n", d->data);
+    fprintf (stderr, "   fd:      %d\n", d->fd);
+    fprintf (stderr, "   maxsize: %zd\n", d->maxsize);
     fprintf (stderr, "   offset:  %zd\n", d->offset);
     fprintf (stderr, "   size:    %zd\n", d->size);
-    fprintf (stderr, "   maxsize: %zd\n", d->maxsize);
     fprintf (stderr, "   stride:  %zd\n", d->stride);
   }
   return SPA_RESULT_OK;

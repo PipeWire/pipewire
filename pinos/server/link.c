@@ -434,7 +434,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
   if (priv->buffers == NULL) {
     SpaAllocParamBuffers *in_alloc, *out_alloc;
     guint max_buffers = MAX_BUFFERS;
-    size_t minsize = 4096, stride = 0;
+    size_t minsize = 0, stride = 0;
 
     max_buffers = MAX_BUFFERS;
     in_alloc = find_param (iinfo, SPA_ALLOC_PARAM_TYPE_BUFFERS);
@@ -529,7 +529,9 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
         d = &b->datas[0];
         if (minsize > 0) {
           d->type = SPA_DATA_TYPE_MEMFD;
-          d->data = SPA_INT_TO_PTR (priv->buffer_mem.fd);
+          d->flags = 0;
+          d->data = priv->buffer_mem.ptr;
+          d->fd = priv->buffer_mem.fd;
           d->maxsize = priv->buffer_mem.size;
           d->offset = arr_size + hdr_size + (buf_size * i);
           d->size = minsize;

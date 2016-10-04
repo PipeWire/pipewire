@@ -46,8 +46,8 @@ typedef enum {
  * SpaDataType:
  * @SPA_DATA_TYPE_INVALID: invalid data, should be ignored
  * @SPA_DATA_TYPE_MEMPTR: data points to CPU accessible memory
- * @SPA_DATA_TYPE_MEMFD: data is an int file descriptor, use SPA_PTR_TO_INT
- * @SPA_DATA_TYPE_DMABUF: data is an int file descriptor, use SPA_PTR_TO_INT
+ * @SPA_DATA_TYPE_MEMFD: fd is memfd, data can be mmapped
+ * @SPA_DATA_TYPE_DMABUF: fd is dmabuf, data can be mmapped
  * @SPA_DATA_TYPE_ID: data is an id use SPA_PTR_TO_INT32. The definition of
  *          the ID is conveyed in some other way
  */
@@ -136,15 +136,19 @@ typedef struct {
 /**
  * SpaData:
  * @type: memory type
+ * @flags: memory flags
  * @data: pointer to memory
- * @maxsize: size of @data
+ * @fd: file descriptor
+ * @maxsize: maximum size of the memory
  * @offset: offset in @data
  * @size: valid size of @data
  * @stride: stride of data if applicable
  */
 typedef struct {
   SpaDataType    type;
+  int            flags;
   void          *data;
+  int            fd;
   size_t         maxsize;
   off_t          offset;
   size_t         size;
@@ -167,12 +171,20 @@ struct _SpaBuffer {
   SpaData       *datas;
 };
 
+inline void *
+spa_buffer_find_meta (SpaBuffer *b, SpaMetaType type)
+{
+  unsigned int i;
+
+  for (i = 0; i < b->n_metas; i++)
+    if (b->metas[i].type == type)
+      return b->metas[i].data;
+  return NULL;
+}
 
 size_t       spa_buffer_get_size    (const SpaBuffer *buffer);
 size_t       spa_buffer_serialize   (void *dest, const SpaBuffer *buffer);
 SpaBuffer *  spa_buffer_deserialize (void *src, off_t offset);
-
-
 
 size_t       spa_meta_type_get_size  (SpaMetaType  type);
 

@@ -106,12 +106,13 @@ spa_v4l2_clear_buffers (SpaV4l2Source *this)
       fprintf (stderr, "v4l2: queueing outstanding buffer %p\n", b);
       spa_v4l2_buffer_recycle (this, i);
     }
-    if (b->ptr) {
-      munmap (b->ptr, b->size);
-      b->ptr = NULL;
+    if (b->allocated) {
+      if (b->outbuf->datas[0].data)
+        munmap (b->outbuf->datas[0].data, b->outbuf->datas[0].maxsize);
+      if (b->outbuf->datas[0].fd != -1)
+        close (b->outbuf->datas[0].fd);
+      b->outbuf->datas[0].type = SPA_DATA_TYPE_INVALID;
     }
-    if (b->outbuf->datas[0].type == SPA_DATA_TYPE_DMABUF)
-      close (SPA_PTR_TO_INT (b->outbuf->datas[0].data));
   }
 
   CLEAR(reqbuf);
@@ -893,18 +894,6 @@ v4l2_on_fd_events (SpaPollNotifyData *data)
   return 0;
 }
 
-static void *
-find_meta_data (SpaBuffer *b, SpaMetaType type)
-{
-  unsigned int i;
-
-  for (i = 0; i < b->n_metas; i++)
-    if (b->metas[i].type == type)
-      return b->metas[i].data;
-  return NULL;
-}
-
-
 static SpaResult
 spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffers)
 {
@@ -949,8 +938,8 @@ spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffe
     b = &state->buffers[i];
     b->outbuf = buffers[i];
     b->outstanding = true;
-    b->h = find_meta_data (b->outbuf, SPA_META_TYPE_HEADER);
-    b->ptr = NULL;
+    b->allocated = false;
+    b->h = spa_buffer_find_meta (b->outbuf, SPA_META_TYPE_HEADER);
 
     fprintf (stderr, "v4l2: import buffer %p\n", buffers[i]);
 
@@ -966,27 +955,16 @@ spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffe
     b->v4l2_buffer.index = i;
     switch (d[0].type) {
       case SPA_DATA_TYPE_MEMPTR:
+      case SPA_DATA_TYPE_MEMFD:
+        if (d[0].data == NULL) {
+          fprintf (stderr, "v4l2: need mmaped memory\n");
+          continue;
+        }
         b->v4l2_buffer.m.userptr = (unsigned long) SPA_MEMBER (d[0].data, d[0].offset, void *);
         b->v4l2_buffer.length = d[0].size;
         break;
-      case SPA_DATA_TYPE_MEMFD:
-        b->v4l2_buffer.length = d[0].size;
-        b->ptr = mmap (NULL,
-                       d[0].maxsize,
-                       PROT_READ | PROT_WRITE,
-                       MAP_SHARED,
-                       SPA_PTR_TO_INT (d[0].data),
-                       0);
-        if (b->ptr == MAP_FAILED) {
-          perror ("mmap");
-          b->ptr = NULL;
-          continue;
-        }
-        b->size = d[0].maxsize;
-        b->v4l2_buffer.m.userptr = (unsigned long) SPA_MEMBER (b->ptr, d[0].offset, void *);
-        break;
       case SPA_DATA_TYPE_DMABUF:
-        b->v4l2_buffer.m.fd = SPA_PTR_TO_INT (d[0].data);
+        b->v4l2_buffer.m.fd = d[0].fd;
         break;
       default:
         break;
@@ -1043,8 +1021,8 @@ mmap_init (SpaV4l2Source   *this,
     b = &state->buffers[i];
     b->outbuf = buffers[i];
     b->outstanding = true;
-    b->h = find_meta_data (b->outbuf, SPA_META_TYPE_HEADER);
-    b->ptr = NULL;
+    b->allocated = true;
+    b->h = spa_buffer_find_meta (b->outbuf, SPA_META_TYPE_HEADER);
 
     CLEAR (b->v4l2_buffer);
     b->v4l2_buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -1074,9 +1052,11 @@ mmap_init (SpaV4l2Source   *this,
         continue;
       }
       d[0].type = SPA_DATA_TYPE_DMABUF;
-      d[0].data = SPA_INT_TO_PTR (expbuf.fd);
+      d[0].fd = expbuf.fd;
+      d[0].data = NULL;
     } else {
       d[0].type = SPA_DATA_TYPE_MEMPTR;
+      d[0].fd = -1;
       d[0].data = mmap (NULL,
                         b->v4l2_buffer.length,
                         PROT_READ,
@@ -1087,8 +1067,6 @@ mmap_init (SpaV4l2Source   *this,
         perror ("mmap");
         continue;
       }
-      b->ptr = d[0].data;
-      b->size = b->v4l2_buffer.length;
     }
     spa_v4l2_buffer_recycle (this, i);
   }

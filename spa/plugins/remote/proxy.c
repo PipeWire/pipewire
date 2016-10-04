@@ -753,8 +753,8 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
           am.port_id = port_id;
           am.mem_id = n_mem;
           am.type = d->type;
-          am.fd_index = spa_control_builder_add_fd (&builder, SPA_PTR_TO_INT (d->data), false);
-          am.flags = 0;
+          am.fd_index = spa_control_builder_add_fd (&builder, d->fd, false);
+          am.flags = d->flags;
           am.offset = d->offset;
           am.size = d->maxsize;
           spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_ADD_MEM, &am);

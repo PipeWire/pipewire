@@ -83,7 +83,6 @@ struct _SpaVideoTestSrc {
   SpaFormatVideo current_format;
   size_t bpp;
 
-  bool have_buffers;
   VTSBuffer buffers[MAX_BUFFERS];
   unsigned int n_buffers;
 
@@ -304,7 +303,7 @@ spa_videotestsrc_node_send_command (SpaNode        *node,
       if (!this->have_format)
         return SPA_RESULT_NO_FORMAT;
 
-      if (!this->have_buffers)
+      if (this->n_buffers == 0)
         return SPA_RESULT_NO_BUFFERS;
 
       if (this->started)
@@ -328,7 +327,7 @@ spa_videotestsrc_node_send_command (SpaNode        *node,
       if (!this->have_format)
         return SPA_RESULT_NO_FORMAT;
 
-      if (!this->have_buffers)
+      if (this->n_buffers == 0)
         return SPA_RESULT_NO_BUFFERS;
 
       if (!this->started)
@@ -476,10 +475,9 @@ spa_videotestsrc_node_port_enum_formats (SpaNode          *node,
 static SpaResult
 clear_buffers (SpaVideoTestSrc *this)
 {
-  if (this->have_buffers) {
+  if (this->n_buffers > 0) {
     fprintf (stderr, "videotestsrc %p: clear buffers\n", this);
     this->n_buffers = 0;
-    this->have_buffers = false;
     SPA_QUEUE_INIT (&this->empty);
     SPA_QUEUE_INIT (&this->ready);
   }
@@ -614,6 +612,7 @@ spa_videotestsrc_node_port_use_buffers (SpaNode         *node,
                                         uint32_t         n_buffers)
 {
   SpaVideoTestSrc *this;
+  unsigned int i;
 
   if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -627,47 +626,36 @@ spa_videotestsrc_node_port_use_buffers (SpaNode         *node,
     return SPA_RESULT_NO_FORMAT;
 
   clear_buffers (this);
-  if (buffers != NULL && n_buffers != 0) {
-    unsigned int i, j;
 
-    for (i = 0; i < n_buffers; i++) {
-      VTSBuffer *b = &this->buffers[i];
-      SpaData *d = buffers[i]->datas;
-      SpaMeta *m = buffers[i]->metas;
+  for (i = 0; i < n_buffers; i++) {
+    VTSBuffer *b = &this->buffers[i];
+    SpaData *d = buffers[i]->datas;
 
-      b = &this->buffers[i];
-      b->outbuf = buffers[i];
-      b->outstanding = true;
-      b->h = NULL;
+    b = &this->buffers[i];
+    b->outbuf = buffers[i];
+    b->outstanding = true;
+    b->h = spa_buffer_find_meta (buffers[i], SPA_META_TYPE_HEADER);
 
-      for (j = 0; j < buffers[i]->n_metas; j++) {
-        switch (m[j].type) {
-          case SPA_META_TYPE_HEADER:
-            b->h = m[j].data;
-            break;
-          default:
-            break;
+    switch (d[0].type) {
+      case SPA_DATA_TYPE_MEMPTR:
+      case SPA_DATA_TYPE_MEMFD:
+      case SPA_DATA_TYPE_DMABUF:
+        if (d[0].data == NULL) {
+          fprintf (stderr, "videotestsrc %p: invalid memory on buffer %p\n", this, buffers[i]);
+          continue;
         }
-      }
-
-      if (d[0].type != SPA_DATA_TYPE_MEMPTR) {
-        fprintf (stderr, "videotestsrc %p: invalid memory on buffer %p\n", this, buffers[i]);
-        continue;
-      }
-      b->ptr = SPA_MEMBER (d[0].data, d[0].offset, void);
-      b->stride = d[0].stride;
-
-      b->next = NULL;
-      SPA_QUEUE_PUSH_TAIL (&this->empty, VTSBuffer, next, b);
+        b->ptr = SPA_MEMBER (d[0].data, d[0].offset, void);
+        b->stride = d[0].stride;
+        break;
+      default:
+        break;
     }
-    this->n_buffers = n_buffers;
-    this->have_buffers = true;
-    this->info.flags |= SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
-  } else {
-    this->info.flags &= ~SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
+    b->next = NULL;
+    SPA_QUEUE_PUSH_TAIL (&this->empty, VTSBuffer, next, b);
   }
+  this->n_buffers = n_buffers;
 
-  if (this->have_buffers) {
+  if (this->n_buffers > 0) {
     update_state (this, SPA_NODE_STATE_PAUSED);
   } else {
     update_state (this, SPA_NODE_STATE_READY);
@@ -686,7 +674,6 @@ spa_videotestsrc_node_port_alloc_buffers (SpaNode         *node,
                                           uint32_t        *n_buffers)
 {
   SpaVideoTestSrc *this;
-  unsigned int i;
 
   if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -699,15 +686,10 @@ spa_videotestsrc_node_port_alloc_buffers (SpaNode         *node,
   if (!this->have_format)
     return SPA_RESULT_NO_FORMAT;
 
-  if (!this->have_buffers)
+  if (this->n_buffers == 0)
     return SPA_RESULT_NO_BUFFERS;
 
-  *n_buffers = SPA_MIN (*n_buffers, this->n_buffers);
-
-  for (i = 0; i < *n_buffers; i++)
-    buffers[i] = this->buffers[i].outbuf;
-
-  return SPA_RESULT_OK;
+  return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult
@@ -804,7 +786,7 @@ spa_videotestsrc_node_port_reuse_buffer (SpaNode         *node,
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
 
-  if (!this->have_buffers)
+  if (this->n_buffers == 0)
     return SPA_RESULT_NO_BUFFERS;
 
   if (buffer_id >= this->n_buffers)

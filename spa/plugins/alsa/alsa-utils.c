@@ -310,6 +310,7 @@ mmap_read (SpaALSAState *state)
   snd_htimestamp_t htstamp = { 0, 0 };
   int64_t now;
   uint8_t *dest = NULL;
+  size_t destsize;
 
   snd_pcm_status_alloca(&status);
 
@@ -327,12 +328,15 @@ mmap_read (SpaALSAState *state)
   if (b == NULL) {
     fprintf (stderr, "no more buffers\n");
   } else {
-    dest = b->ptr;
+    dest = SPA_MEMBER (b->outbuf->datas[0].data, b->outbuf->datas[0].offset, void);
+    destsize = b->outbuf->datas[0].size;
+
     if (b->h) {
       b->h->seq = state->sample_count;
       b->h->pts = state->last_monotonic;
       b->h->dts_offset = 0;
     }
+    avail = SPA_MIN (avail, destsize / state->frame_size);
   }
 
   state->sample_count += avail;
@@ -439,7 +443,7 @@ spa_alsa_start (SpaALSAState *state)
   if (spa_alsa_open (state) < 0)
     return -1;
 
-  if (!state->have_buffers)
+  if (state->n_buffers == 0)
     return -1;
 
   CHECK (set_swparams (state), "swparams");

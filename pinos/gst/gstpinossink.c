@@ -391,9 +391,7 @@ on_add_buffer (GObject    *gobject,
       case SPA_DATA_TYPE_MEMFD:
       case SPA_DATA_TYPE_DMABUF:
       {
-        gint fd = SPA_PTR_TO_INT (d->data);
-
-        gmem = gst_fd_allocator_alloc (pinossink->allocator, dup (fd),
+        gmem = gst_fd_allocator_alloc (pinossink->allocator, dup (d->fd),
                   d->maxsize, GST_FD_MEMORY_FLAG_NONE);
         gst_memory_resize (gmem, d->offset, d->size);
         break;

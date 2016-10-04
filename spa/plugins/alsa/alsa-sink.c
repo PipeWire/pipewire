@@ -317,7 +317,7 @@ spa_alsa_sink_node_port_set_format (SpaNode            *node,
 
   if (format == NULL) {
     this->have_format = false;
-    this->have_buffers = false;
+    this->n_buffers = 0;
     update_state (this, SPA_NODE_STATE_CONFIGURE);
     return SPA_RESULT_OK;
   }
@@ -328,7 +328,7 @@ spa_alsa_sink_node_port_set_format (SpaNode            *node,
   if (spa_alsa_set_format (this, &this->current_format, false) < 0)
     return SPA_RESULT_ERROR;
 
-  this->info.flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
+  this->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
   this->info.maxbuffering = -1;
   this->info.latency = -1;
   this->info.n_params = 1;

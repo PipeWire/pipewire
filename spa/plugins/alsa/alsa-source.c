@@ -318,14 +318,11 @@ recycle_buffer (SpaALSASource *this, uint32_t buffer_id)
 static SpaResult
 spa_alsa_clear_buffers (SpaALSASource *this)
 {
-  if (!this->have_buffers)
-    return SPA_RESULT_OK;
-
-  SPA_QUEUE_INIT (&this->free);
-  SPA_QUEUE_INIT (&this->ready);
-  this->n_buffers = 0;
-  this->have_buffers = false;
-
+  if (this->n_buffers > 0) {
+    SPA_QUEUE_INIT (&this->free);
+    SPA_QUEUE_INIT (&this->ready);
+    this->n_buffers = 0;
+  }
   return SPA_RESULT_OK;
 }
 
@@ -360,11 +357,11 @@ spa_alsa_source_node_port_set_format (SpaNode            *node,
   if (spa_alsa_set_format (this, &this->current_format, flags) < 0)
     return SPA_RESULT_ERROR;
 
-  this->info.flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS |
+  this->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
                      SPA_PORT_INFO_FLAG_LIVE;
   this->info.maxbuffering = this->buffer_frames * this->frame_size;
   this->info.latency = (this->period_frames * SPA_NSEC_PER_SEC) / this->rate;
-  this->info.n_params = 1;
+  this->info.n_params = 2;
   this->info.params = this->params;
   this->params[0] = &this->param_buffers.param;
   this->param_buffers.param.type = SPA_ALLOC_PARAM_TYPE_BUFFERS;
@@ -374,6 +371,10 @@ spa_alsa_source_node_port_set_format (SpaNode            *node,
   this->param_buffers.min_buffers = 1;
   this->param_buffers.max_buffers = 32;
   this->param_buffers.align = 16;
+  this->params[1] = &this->param_meta.param;
+  this->param_meta.param.type = SPA_ALLOC_PARAM_TYPE_META_ENABLE;
+  this->param_meta.param.size = sizeof (this->param_meta);
+  this->param_meta.type = SPA_META_TYPE_HEADER;
   this->info.features = NULL;
 
   this->have_format = true;
@@ -468,23 +469,35 @@ spa_alsa_source_node_port_use_buffers (SpaNode         *node,
   if (!this->have_format)
     return SPA_RESULT_NO_FORMAT;
 
-  if (this->have_buffers) {
+  if (this->n_buffers > 0) {
     if ((res = spa_alsa_clear_buffers (this)) < 0)
       return res;
   }
-  if (n_buffers > 0) {
-    for (i = 0; i < n_buffers; i++) {
-      SpaALSABuffer *b = &this->buffers[i];
-      b->outbuf = buffers[i];
-      b->outstanding = false;
-      b->next = NULL;
-      SPA_QUEUE_PUSH_TAIL (&this->free, SpaALSABuffer, next, b);
-    }
-    this->n_buffers = n_buffers;
-    this->have_buffers = true;
-  }
+  for (i = 0; i < n_buffers; i++) {
+    SpaALSABuffer *b = &this->buffers[i];
+    b->outbuf = buffers[i];
+    b->outstanding = false;
 
-  if (this->have_buffers)
+    b->h = spa_buffer_find_meta (b->outbuf, SPA_META_TYPE_HEADER);
+
+    switch (buffers[i]->datas[0].type) {
+      case SPA_DATA_TYPE_MEMFD:
+      case SPA_DATA_TYPE_DMABUF:
+      case SPA_DATA_TYPE_MEMPTR:
+        if (buffers[i]->datas[0].data == NULL) {
+          fprintf (stderr, "alsa-source: need mapped memory\n");
+          continue;
+        }
+        break;
+      default:
+        break;
+    }
+    b->next = NULL;
+    SPA_QUEUE_PUSH_TAIL (&this->free, SpaALSABuffer, next, b);
+  }
+  this->n_buffers = n_buffers;
+
+  if (this->n_buffers > 0)
     update_state (this, SPA_NODE_STATE_PAUSED);
   else
     update_state (this, SPA_NODE_STATE_READY);
@@ -512,7 +525,7 @@ spa_alsa_source_node_port_alloc_buffers (SpaNode         *node,
 
   this = (SpaALSASource *) node->handle;
 
-  if (!this->have_format)
+  if (this->n_buffers == 0)
     return SPA_RESULT_NO_FORMAT;
 
   return SPA_RESULT_NOT_IMPLEMENTED;
@@ -609,7 +622,7 @@ spa_alsa_source_node_port_reuse_buffer (SpaNode         *node,
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
 
-  if (!this->have_buffers)
+  if (this->n_buffers == 0)
     return SPA_RESULT_NO_BUFFERS;
 
   if (buffer_id >= this->n_buffers)

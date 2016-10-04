@@ -55,10 +55,9 @@ struct _V4l2Buffer {
   SpaBuffer *outbuf;
   SpaMetaHeader *h;
   bool outstanding;
+  bool allocated;
   struct v4l2_buffer v4l2_buffer;
   V4l2Buffer *next;
-  void *ptr;
-  size_t size;
 };
 
 typedef struct _V4l2Format V4l2Format;

@@ -50,7 +50,6 @@ typedef struct {
 struct _SpaALSABuffer {
   SpaBuffer *outbuf;
   SpaMetaHeader *h;
-  void *ptr;
   bool outstanding;
   SpaALSABuffer *next;
 };
@@ -82,11 +81,11 @@ struct _SpaALSAState {
   size_t frame_size;
 
   SpaPortInfo info;
-  SpaAllocParam *params[1];
+  SpaAllocParam *params[2];
   SpaAllocParamBuffers param_buffers;
+  SpaAllocParamMetaEnable param_meta;
   SpaPortStatus status;
 
-  bool have_buffers;
   SpaALSABuffer buffers[MAX_BUFFERS];
   unsigned int n_buffers;
 

@@ -32,8 +32,8 @@ static SpaResult
 ffmpeg_dec_init (const SpaHandleFactory  *factory,
                  SpaHandle               *handle,
                  const SpaDict           *info,
-                 const SpaInterface     **platform,
-                 unsigned int             n_platform)
+                 const SpaSupport       **support,
+                 unsigned int             n_support)
 {
   if (factory == NULL || handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -45,8 +45,8 @@ static SpaResult
 ffmpeg_enc_init (const SpaHandleFactory  *factory,
                  SpaHandle               *handle,
                  const SpaDict           *info,
-                 const SpaInterface     **platform,
-                 unsigned int             n_platform)
+                 const SpaSupport       **support,
+                 unsigned int             n_support)
 {
   if (factory == NULL || handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;

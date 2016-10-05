@@ -831,8 +831,8 @@ static SpaResult
 v4l2_source_init (const SpaHandleFactory  *factory,
                   SpaHandle               *handle,
                   const SpaDict           *info,
-                  const SpaInterface     **platform,
-                  unsigned int             n_platform)
+                  const SpaSupport       **support,
+                  unsigned int             n_support)
 {
   SpaV4l2Source *this;
   unsigned int i;

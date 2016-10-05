@@ -79,17 +79,17 @@ typedef struct {
 } SpaInterfaceInfo;
 
 /**
- * SpaInterface:
- * @interface_id: the id of the interface
- * @interface: an interface instance
+ * SpaSupport:
+ * @support_id: the id of the support item
+ * @data: specific data for the item
  *
- * An interface instance that is usually passed to the init() function of
- * a factory to provide extra API such as logging.
+ * Extra supporting infrastructure passed to the init() function of
+ * a factory. It can be extra information or interfaces such as logging.
  */
 typedef struct {
-  uint32_t  interface_id;
-  void     *interface;
-} SpaInterface;
+  uint32_t  support_id;
+  void     *data;
+} SpaSupport;
 
 struct _SpaHandleFactory {
   /**
@@ -117,14 +117,14 @@ struct _SpaHandleFactory {
    * @handle: a pointer to memory
    * @info: extra handle specific information, usually obtained
    *        from a #SpaMonitor. This can be used to configure the handle.
-   * @platform: platform interfaces
-   * @n_platform: number of elements in @platform
+   * @support: support items
+   * @n_support: number of elements in @support
    *
    * Initialize an instance of this factory. The caller should allocate
    * memory at least SpaHandleFactory::size bytes and pass this as @handle.
    *
-   * @platform can optionally contain extra interfaces that the plugin can
-   * use such as a logger.
+   * @support can optionally contain extra interfaces or data ites that the
+   * plugin can use such as a logger.
    *
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_NOT_IMPLEMENTED when an instance can't be made
@@ -133,8 +133,8 @@ struct _SpaHandleFactory {
   SpaResult   (*init)                 (const SpaHandleFactory  *factory,
                                        SpaHandle               *handle,
                                        const SpaDict           *info,
-                                       const SpaInterface     **platform,
-                                       unsigned int             n_platform);
+                                       const SpaSupport       **support,
+                                       unsigned int             n_support);
 
   /**
    * SpaHandle::enum_interface_info:

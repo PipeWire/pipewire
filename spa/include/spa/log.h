@@ -31,6 +31,7 @@ typedef struct _SpaLog SpaLog;
 #include <spa/defs.h>
 #include <spa/plugin.h>
 
+#define SPA_SUPPORT_ID_LOG                     3
 #define SPA_INTERFACE_ID_LOG                   3
 #define SPA_INTERFACE_ID_LOG_NAME              "Log interface"
 #define SPA_INTERFACE_ID_LOG_DESCRIPTION       "Log interface"

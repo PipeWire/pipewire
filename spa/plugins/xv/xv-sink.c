@@ -558,8 +558,8 @@ static SpaResult
 xv_sink_init (const SpaHandleFactory  *factory,
               SpaHandle               *handle,
               const SpaDict           *info,
-              const SpaInterface     **platform,
-              unsigned int             n_platform)
+              const SpaSupport       **support,
+              unsigned int             n_support)
 {
   SpaXvSink *this;
 

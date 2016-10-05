@@ -74,7 +74,7 @@ make_node (SpaNode **node, const char *lib, const char *name)
       continue;
 
     handle = calloc (1, factory->size);
-    if ((res = spa_handle_factory_init (factory, handle, NULL)) < 0) {
+    if ((res = spa_handle_factory_init (factory, handle, NULL, NULL, 0)) < 0) {
       printf ("can't make factory instance: %d\n", res);
       return res;
     }

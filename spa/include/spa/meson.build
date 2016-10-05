@@ -6,6 +6,7 @@ spa_headers = [
   'defs.h',
   'dict.h',
   'format.h',
+  'log.h',
   'monitor.h',
   'node-command.h',
   'node-event.h',

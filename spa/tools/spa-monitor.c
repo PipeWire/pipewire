@@ -211,7 +211,7 @@ main (int argc, char *argv[])
         void *interface;
 
         handle = calloc (1, factory->size);
-        if ((res = spa_handle_factory_init (factory, handle, NULL)) < 0) {
+        if ((res = spa_handle_factory_init (factory, handle, NULL, NULL, 0)) < 0) {
           printf ("can't make factory instance: %d\n", res);
           continue;
         }

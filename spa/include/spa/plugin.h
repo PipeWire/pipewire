@@ -78,6 +78,19 @@ typedef struct {
   const char *description;
 } SpaInterfaceInfo;
 
+/**
+ * SpaInterface:
+ * @interface_id: the id of the interface
+ * @interface: an interface instance
+ *
+ * An interface instance that is usually passed to the init() function of
+ * a factory to provide extra API such as logging.
+ */
+typedef struct {
+  uint32_t  interface_id;
+  void     *interface;
+} SpaInterface;
+
 struct _SpaHandleFactory {
   /**
    * SpaHandleFactory::name
@@ -104,9 +117,14 @@ struct _SpaHandleFactory {
    * @handle: a pointer to memory
    * @info: extra handle specific information, usually obtained
    *        from a #SpaMonitor. This can be used to configure the handle.
+   * @platform: platform interfaces
+   * @n_platform: number of elements in @platform
    *
    * Initialize an instance of this factory. The caller should allocate
    * memory at least SpaHandleFactory::size bytes and pass this as @handle.
+   *
+   * @platform can optionally contain extra interfaces that the plugin can
+   * use such as a logger.
    *
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_NOT_IMPLEMENTED when an instance can't be made
@@ -114,7 +132,9 @@ struct _SpaHandleFactory {
    */
   SpaResult   (*init)                 (const SpaHandleFactory  *factory,
                                        SpaHandle               *handle,
-                                       const SpaDict           *info);
+                                       const SpaDict           *info,
+                                       const SpaInterface     **platform,
+                                       unsigned int             n_platform);
 
   /**
    * SpaHandle::enum_interface_info:

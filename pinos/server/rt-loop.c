@@ -138,7 +138,7 @@ loop (void *user_data)
     for (i = 0; i < priv->n_poll; i++) {
       SpaPollItem *p = &priv->poll[i];
 
-      if (p->enabled && p->after_cb) {
+      if (p->enabled && p->after_cb && (p->n_fds == 0 || priv->fds[priv->idx[i]].revents != 0)) {
         ndata.fds = &priv->fds[priv->idx[i]];
         ndata.n_fds = p->n_fds;
         ndata.user_data = p->user_data;

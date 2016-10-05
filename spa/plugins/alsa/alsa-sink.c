@@ -598,7 +598,9 @@ alsa_sink_clear (SpaHandle *handle)
 static SpaResult
 alsa_sink_init (const SpaHandleFactory  *factory,
                 SpaHandle               *handle,
-                const SpaDict           *info)
+                const SpaDict           *info,
+                const SpaInterface     **platform,
+                unsigned int             n_platform)
 {
   SpaALSASink *this;
 

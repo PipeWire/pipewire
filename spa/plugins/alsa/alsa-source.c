@@ -751,7 +751,9 @@ alsa_source_clear (SpaHandle *handle)
 static SpaResult
 alsa_source_init (const SpaHandleFactory  *factory,
                   SpaHandle               *handle,
-                  const SpaDict           *info)
+                  const SpaDict           *info,
+                  const SpaInterface     **platform,
+                  unsigned int             n_platform)
 {
   SpaALSASource *this;
   unsigned int i;

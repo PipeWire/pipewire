@@ -28,6 +28,7 @@
 #include <spa/video/format.h>
 #include <spa/debug.h>
 #include <spa/queue.h>
+#include <spa/log.h>
 
 typedef struct _SpaV4l2Source SpaV4l2Source;
 
@@ -110,6 +111,8 @@ typedef struct {
   SpaAllocParamBuffers param_buffers;
   SpaAllocParamMetaEnable param_meta;
   SpaPortStatus status;
+
+  SpaLog *log;
 
   int64_t last_ticks;
   int64_t last_monotonic;
@@ -827,7 +830,9 @@ v4l2_source_clear (SpaHandle *handle)
 static SpaResult
 v4l2_source_init (const SpaHandleFactory  *factory,
                   SpaHandle               *handle,
-                  const SpaDict           *info)
+                  const SpaDict           *info,
+                  const SpaInterface     **platform,
+                  unsigned int             n_platform)
 {
   SpaV4l2Source *this;
   unsigned int i;
@@ -849,6 +854,7 @@ v4l2_source_init (const SpaHandleFactory  *factory,
 
   SPA_QUEUE_INIT (&this->state[0].ready);
 
+  this->state[0].log = NULL;
   this->state[0].info.flags = SPA_PORT_INFO_FLAG_LIVE;
   this->state[0].status.flags = SPA_PORT_STATUS_FLAG_NONE;
 

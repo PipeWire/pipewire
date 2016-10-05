@@ -88,7 +88,7 @@ make_handle (SpaHandle **handle, const char *lib, const char *name, const SpaDic
       continue;
 
     *handle = g_malloc0 (factory->size);
-    if ((res = spa_handle_factory_init (factory, *handle, info)) < 0) {
+    if ((res = spa_handle_factory_init (factory, *handle, info, NULL, 0)) < 0) {
       g_error ("can't make factory instance: %d", res);
       return res;
     }
@@ -110,7 +110,7 @@ add_item (PinosSpaALSAMonitor *this, SpaMonitorItem *item)
   g_debug ("alsa-monitor %p: add: \"%s\" (%s)", this, item->name, item->id);
 
   handle = calloc (1, item->factory->size);
-  if ((res = spa_handle_factory_init (item->factory, handle, item->info)) < 0) {
+  if ((res = spa_handle_factory_init (item->factory, handle, item->info, NULL, 0)) < 0) {
     g_error ("can't make factory instance: %d", res);
     return;
   }

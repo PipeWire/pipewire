@@ -107,6 +107,12 @@ typedef void (*SpaNotify) (void *data);
 #define SPA_TIMESPEC_TO_TIME(ts) ((ts)->tv_sec * SPA_NSEC_PER_SEC + (ts)->tv_nsec)
 #define SPA_TIMEVAL_TO_TIME(tv)  ((tv)->tv_sec * SPA_NSEC_PER_SEC + (tv)->tv_usec * 1000ll)
 
+#ifdef __GNUC__
+# define SPA_PRINTF_FUNC(fmt, arg1) __attribute__((format(printf, fmt, arg1)))
+#else
+# define SPA_PRINTF_FUNC(fmt, arg1)
+#endif
+
 
 #ifdef __cplusplus
 }  /* extern "C" */

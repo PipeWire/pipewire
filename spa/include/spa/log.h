@@ -87,7 +87,7 @@ struct _SpaLog {
                            const char    *file,
                            int            line,
                            const char    *func,
-                           const char    *fmt, ...);
+                           const char    *fmt, ...) SPA_PRINTF_FUNC(6, 7);
 
   /**
    * SpaLog::logv
@@ -107,7 +107,7 @@ struct _SpaLog {
                            int            line,
                            const char    *func,
                            const char    *fmt,
-                           va_list        args);
+                           va_list        args) SPA_PRINTF_FUNC(6, 0);
 };
 
 #if __STDC_VERSION__ >= 199901L

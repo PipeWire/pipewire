@@ -1,8 +1,13 @@
 all:
-	cd build && ninja-build
+	ninja-build -C build
 
 install:
-	cd build && ninja-build install
+	ninja-build -C build install
 
 clean:
-	cd build && ninja-build clean
+	ninja-build -C build clean
+
+run:
+	PINOS_MODULE_DIR=build \
+	PINOS_CONFIG_FILE=build/pinos/daemon/pinos.conf \
+	build/pinos/daemon/pinos

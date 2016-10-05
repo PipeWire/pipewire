@@ -1,1 +1,1 @@
-load-module module-gst
+load-module libpinos-module-spa

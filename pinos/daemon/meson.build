@@ -13,6 +13,14 @@ pinos_c_args = [
   '-DG_LOG_DOMAIN=g_log_domain_pinos',
 ]
 
+conf_config = configuration_data()
+conf_install_dir = '@0@/etc/pinos'.format(get_option('prefix'))
+
+configure_file(input : 'pinos.conf.in',
+               output : 'pinos.conf',
+               configuration : conf_config,
+               install_dir : conf_install_dir)
+
 executable('pinos',
   pinos_sources,
   install: true,

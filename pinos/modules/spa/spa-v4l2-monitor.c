@@ -49,11 +49,6 @@ struct _PinosSpaV4l2MonitorPrivate
 
   URI uri;
 
-  GSource *watch_source;
-
-  unsigned int n_poll;
-  SpaPollItem poll[16];
-
   GHashTable *nodes;
 };
 
@@ -165,30 +160,12 @@ remove_item (PinosSpaV4l2Monitor *this, SpaMonitorItem *item)
   }
 }
 
-static gboolean
-poll_event (GIOChannel *source,
-            GIOCondition condition,
-            gpointer user_data)
-{
-  PinosSpaV4l2Monitor *this = user_data;
-  PinosSpaV4l2MonitorPrivate *priv = this->priv;
-  SpaPollNotifyData data;
-
-  data.user_data = priv->poll[0].user_data;
-  data.fds = priv->poll[0].fds;
-  data.n_fds = priv->poll[0].n_fds;
-  priv->poll[0].after_cb (&data);
-
-  return TRUE;
-}
-
 static void
 on_monitor_event  (SpaMonitor      *monitor,
                    SpaMonitorEvent *event,
                    void            *user_data)
 {
   PinosSpaV4l2Monitor *this = user_data;
-  PinosSpaV4l2MonitorPrivate *priv = this->priv;
 
   switch (event->type) {
     case SPA_MONITOR_EVENT_TYPE_ADDED:
@@ -206,31 +183,6 @@ on_monitor_event  (SpaMonitor      *monitor,
     {
       SpaMonitorItem *item = event->data;
       g_debug ("v4l2-monitor %p: changed: \"%s\"", this, item->name);
-      break;
-    }
-    case SPA_MONITOR_EVENT_TYPE_ADD_POLL:
-    {
-      SpaPollItem *item = event->data;
-      GIOChannel *channel;
-
-      priv->poll[priv->n_poll] = *item;
-      priv->n_poll++;
-
-      channel = g_io_channel_unix_new (item->fds[0].fd);
-      priv->watch_source = g_io_create_watch (channel, G_IO_IN);
-      g_io_channel_unref (channel);
-      g_source_set_callback (priv->watch_source, (GSourceFunc) poll_event, this, NULL);
-      g_source_attach (priv->watch_source, g_main_context_get_thread_default ());
-      g_source_unref (priv->watch_source);
-      break;
-    }
-    case SPA_MONITOR_EVENT_TYPE_UPDATE_POLL:
-      break;
-    case SPA_MONITOR_EVENT_TYPE_REMOVE_POLL:
-    {
-      priv->n_poll--;
-      g_source_destroy (priv->watch_source);
-      priv->watch_source = NULL;
       break;
     }
     default:

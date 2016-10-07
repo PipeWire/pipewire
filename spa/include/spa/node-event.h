@@ -41,6 +41,7 @@ typedef struct _SpaNodeEvent SpaNodeEvent;
 #define SPA_NODE_EVENT__Marker                SPA_NODE_EVENT_PREFIX "Marker"
 #define SPA_NODE_EVENT__Error                 SPA_NODE_EVENT_PREFIX "Error"
 #define SPA_NODE_EVENT__Buffering             SPA_NODE_EVENT_PREFIX "Buffering"
+#define SPA_NODE_EVENT__RequestRefresh        SPA_NODE_EVENT_PREFIX "RequestRefresh"
 #define SPA_NODE_EVENT__RequestClockUpdate    SPA_NODE_EVENT_PREFIX "RequestClockUpdate"
 
 /**
@@ -81,10 +82,6 @@ typedef struct {
   uint32_t     seq;
   SpaResult    res;
 } SpaNodeEventAsyncComplete;
-
-typedef struct {
-  SpaNodeState state;
-} SpaNodeEventStateChange;
 
 typedef struct {
   uint32_t     port_id;

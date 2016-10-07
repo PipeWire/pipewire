@@ -57,8 +57,9 @@ struct _PinosDaemonPrivate
 
   GHashTable *node_factories;
 
-  SpaSupport support[3];
+  SpaSupport support[4];
   SpaLog log;
+  SpaPoll main_loop;
 };
 
 enum
@@ -868,6 +869,69 @@ do_log (SpaLog        *log,
   va_end (args);
 }
 
+typedef struct {
+  PinosDaemonPrivate *priv;
+  SpaPollItem item;
+} PollData;
+
+static gboolean
+poll_event (GIOChannel *source,
+            GIOCondition condition,
+            gpointer user_data)
+{
+  PollData *data = user_data;
+  SpaPollNotifyData d;
+
+  d.user_data = data->item.user_data;
+  d.fds = data->item.fds;
+  d.n_fds = data->item.n_fds;
+  data->item.after_cb (&d);
+
+  return TRUE;
+}
+
+static SpaResult
+do_add_item (SpaPoll     *poll,
+             SpaPollItem *item)
+{
+  PinosDaemonPrivate *priv = SPA_CONTAINER_OF (poll, PinosDaemonPrivate, main_loop);
+  GIOChannel *channel;
+  GSource *source;
+  PollData data;
+
+  channel = g_io_channel_unix_new (item->fds[0].fd);
+  source = g_io_create_watch (channel, G_IO_IN);
+  g_io_channel_unref (channel);
+
+  data.priv = priv;
+  data.item = *item;
+
+  g_source_set_callback (source, (GSourceFunc) poll_event, g_slice_dup (PollData, &data) , NULL);
+  item->id = g_source_attach (source, g_main_context_get_thread_default ());
+  g_source_unref (source);
+
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
+do_update_item (SpaPoll     *poll,
+                SpaPollItem *item)
+{
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
+do_remove_item (SpaPoll     *poll,
+                SpaPollItem *item)
+{
+  GSource *source;
+
+  source = g_main_context_find_source_by_id (g_main_context_get_thread_default (), item->id);
+  g_source_destroy (source);
+
+  return SPA_RESULT_OK;
+}
+
 static void
 pinos_daemon_init (PinosDaemon * daemon)
 {
@@ -886,6 +950,14 @@ pinos_daemon_init (PinosDaemon * daemon)
                                                 g_object_unref);
   priv->loop = pinos_rtloop_new();
 
+  priv->main_loop.handle = NULL;
+  priv->main_loop.size = sizeof (SpaPoll);
+  priv->main_loop.info = NULL;
+  priv->main_loop.info = NULL;
+  priv->main_loop.add_item = do_add_item;
+  priv->main_loop.update_item = do_update_item;
+  priv->main_loop.remove_item = do_remove_item;
+
   priv->log.handle = NULL;
   priv->log.size = sizeof (SpaLog);
   priv->log.info = NULL;
@@ -902,8 +974,10 @@ pinos_daemon_init (PinosDaemon * daemon)
   priv->support[1].data = daemon->log;
   priv->support[2].uri = SPA_POLL__DataLoop;
   priv->support[2].data = &priv->loop->poll;
+  priv->support[3].uri = SPA_POLL__MainLoop;
+  priv->support[3].data = &priv->main_loop;
   daemon->support = priv->support;
-  daemon->n_support = 3;
+  daemon->n_support = 4;
 }
 
 /**

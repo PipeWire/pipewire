@@ -54,6 +54,7 @@ struct _SpaALSAMonitor {
   URI uri;
   SpaIDMap *map;
   SpaLog *log;
+  SpaPoll *main_loop;
 
   SpaMonitorEventCallback event_cb;
   void *user_data;
@@ -245,7 +246,6 @@ spa_alsa_monitor_set_event_callback (SpaMonitor              *monitor,
 {
   SpaResult res;
   SpaALSAMonitor *this;
-  SpaMonitorEvent event;
 
   if (monitor == NULL || monitor->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -269,11 +269,6 @@ spa_alsa_monitor_set_event_callback (SpaMonitor              *monitor,
 
     udev_monitor_enable_receiving (this->umonitor);
     this->fd = udev_monitor_get_fd (this->umonitor);;
-
-    event.type = SPA_MONITOR_EVENT_TYPE_ADD_POLL;
-    event.data = &this->poll;
-    event.size = sizeof (this->poll);
-
     this->fds[0].fd = this->fd;
     this->fds[0].events = POLLIN | POLLPRI | POLLERR;
     this->fds[0].revents = 0;
@@ -286,12 +281,9 @@ spa_alsa_monitor_set_event_callback (SpaMonitor              *monitor,
     this->poll.before_cb = NULL;
     this->poll.after_cb = alsa_on_fd_events;
     this->poll.user_data = this;
-    this->event_cb (&this->monitor, &event, this->user_data);
+    spa_poll_add_item (this->main_loop, &this->poll);
   } else {
-    event.type = SPA_MONITOR_EVENT_TYPE_REMOVE_POLL;
-    event.data = &this->poll;
-    event.size = sizeof (this->poll);
-    this->event_cb (&this->monitor, &event, this->user_data);
+    spa_poll_remove_item (this->main_loop, &this->poll);
   }
 
   return SPA_RESULT_OK;
@@ -407,9 +399,15 @@ alsa_monitor_init (const SpaHandleFactory  *factory,
       this->map = support[i].data;
     else if (strcmp (support[i].uri, SPA_LOG_URI) == 0)
       this->log = support[i].data;
+    else if (strcmp (support[i].uri, SPA_POLL__MainLoop) == 0)
+      this->main_loop = support[i].data;
   }
   if (this->map == NULL) {
     spa_log_error (this->log, "an id-map is needed");
+    return SPA_RESULT_ERROR;
+  }
+  if (this->main_loop == NULL) {
+    spa_log_error (this->log, "a main-loop is needed");
     return SPA_RESULT_ERROR;
   }
   this->uri.monitor = spa_id_map_get_id (this->map, SPA_MONITOR_URI);

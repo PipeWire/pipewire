@@ -40,8 +40,9 @@ typedef struct {
 
   SpaIDMap *map;
   SpaLog *log;
+  SpaPoll main_loop;
 
-  SpaSupport support[2];
+  SpaSupport support[3];
   unsigned int n_support;
 
   unsigned int n_poll;
@@ -67,8 +68,6 @@ on_monitor_event  (SpaMonitor      *monitor,
                    SpaMonitorEvent *event,
                    void            *user_data)
 {
-  AppData *data = user_data;
-
   switch (event->type) {
     case SPA_MONITOR_EVENT_TYPE_ADDED:
     {
@@ -91,26 +90,37 @@ on_monitor_event  (SpaMonitor      *monitor,
       inspect_item (item);
       break;
     }
-    case SPA_MONITOR_EVENT_TYPE_ADD_POLL:
-    {
-      SpaPollItem *item = event->data;
-
-      data->poll[data->n_poll] = *item;
-      data->n_poll++;
-      if (item->n_fds)
-        data->rebuild_fds = true;
-      break;
-    }
-
-    case SPA_MONITOR_EVENT_TYPE_UPDATE_POLL:
-      break;
-    case SPA_MONITOR_EVENT_TYPE_REMOVE_POLL:
-      break;
     default:
       break;
   }
 }
 
+static SpaResult
+do_add_item (SpaPoll     *poll,
+             SpaPollItem *item)
+{
+  AppData *data = SPA_CONTAINER_OF (poll, AppData, main_loop);
+
+  data->poll[data->n_poll] = *item;
+  data->n_poll++;
+  if (item->n_fds)
+    data->rebuild_fds = true;
+
+  return SPA_RESULT_OK;
+}
+static SpaResult
+do_update_item (SpaPoll     *poll,
+                SpaPollItem *item)
+{
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
+do_remove_item (SpaPoll     *poll,
+                SpaPollItem *item)
+{
+  return SPA_RESULT_OK;
+}
 static void
 handle_monitor (AppData *data, SpaMonitor *monitor)
 {
@@ -182,7 +192,7 @@ handle_monitor (AppData *data, SpaMonitor *monitor)
 int
 main (int argc, char *argv[])
 {
-  AppData data;
+  AppData data = { 0 };
   SpaResult res;
   void *handle;
   SpaEnumHandleFactoryFunc enum_func;
@@ -190,12 +200,20 @@ main (int argc, char *argv[])
 
   data.map = spa_id_map_get_default ();
   data.log = NULL;
+  data.main_loop.handle = NULL;
+  data.main_loop.size = sizeof (SpaPoll);
+  data.main_loop.info = NULL;
+  data.main_loop.add_item = do_add_item;
+  data.main_loop.update_item = do_update_item;
+  data.main_loop.remove_item = do_remove_item;
 
   data.support[0].uri = SPA_ID_MAP_URI;
   data.support[0].data = data.map;
   data.support[1].uri = SPA_LOG_URI;
   data.support[1].data = data.log;
-  data.n_support = 2;
+  data.support[2].uri = SPA_POLL__MainLoop;
+  data.support[2].data = &data.main_loop;
+  data.n_support = 3;
 
   data.uri.monitor = spa_id_map_get_id (data.map, SPA_MONITOR_URI);
 

@@ -65,18 +65,12 @@ typedef struct {
  * @SPA_MONITOR_EVENT_TYPE_ADDED: an item was added, data points to #SpaMonitorItem
  * @SPA_MONITOR_EVENT_TYPE_REMOVED: an item was removed, data points to #SpaMonitorItem
  * @SPA_MONITOR_EVENT_TYPE_CHANGED: an item was changed, data points to #SpaMonitorItem
- * @SPA_MONITOR_EVENT_TYPE_ADD_POLL: add fd for polling, data points to #SpaPollItem
- * @SPA_MONITOR_EVENT_TYPE_UPDATE_POLL: update fd for polling, data points to #SpaPollItem
- * @SPA_MONITOR_EVENT_TYPE_REMOVE_POLL: remov fd for polling, data points to #SpaPollItem
  */
 typedef enum {
   SPA_MONITOR_EVENT_TYPE_INVALID = 0,
   SPA_MONITOR_EVENT_TYPE_ADDED,
   SPA_MONITOR_EVENT_TYPE_REMOVED,
   SPA_MONITOR_EVENT_TYPE_CHANGED,
-  SPA_MONITOR_EVENT_TYPE_ADD_POLL,
-  SPA_MONITOR_EVENT_TYPE_UPDATE_POLL,
-  SPA_MONITOR_EVENT_TYPE_REMOVE_POLL,
 } SpaMonitorEventType;
 
 typedef struct {

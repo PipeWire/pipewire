@@ -47,6 +47,8 @@ typedef struct _PinosRTLoopPrivate PinosRTLoopPrivate;
 struct _PinosRTLoop {
   GObject object;
 
+  SpaPoll poll;
+
   PinosRTLoopPrivate *priv;
 };
 
@@ -63,6 +65,7 @@ struct _PinosRTLoopClass {
 GType               pinos_rtloop_get_type                (void);
 
 PinosRTLoop *       pinos_rtloop_new                     (void);
+
 
 gboolean            pinos_rtloop_add_poll                (PinosRTLoop *loop,
                                                           SpaPollItem *item);

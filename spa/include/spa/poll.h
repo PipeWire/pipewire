@@ -24,7 +24,16 @@
 extern "C" {
 #endif
 
+typedef struct _SpaPoll SpaPoll;
+
+#define SPA_POLL_URI             "http://spaplug.in/ns/poll"
+#define SPA_POLL_PREFIX          SPA_POLL_URI "#"
+#define SPA_POLL__MainLoop       SPA_POLL_PREFIX "MainLoop"
+#define SPA_POLL__DataLoop       SPA_POLL_PREFIX "DataLoop"
+
 #include <spa/defs.h>
+#include <spa/plugin.h>
+#include <spa/dict.h>
 
 /**
  * SpaPollFd:
@@ -56,7 +65,8 @@ typedef int (*SpaPollNotify) (SpaPollNotifyData *data);
 
 /**
  * SpaPollItem:
- * @id: id of the poll item
+ * @id: id of the poll item. This will be set when
+ *      adding the item to #SpaPoll.
  * @enabled: if the item is enabled
  * @fds: array of file descriptors to watch
  * @n_fds: number of elements in @fds
@@ -75,6 +85,50 @@ typedef struct {
   SpaPollNotify  after_cb;
   void          *user_data;
 } SpaPollItem;
+
+/**
+ * SpaPoll:
+ *
+ * Register poll events
+ */
+struct _SpaPoll {
+  /* pointer to the handle owning this interface */
+  SpaHandle *handle;
+  /* the total size of this structure. This can be used to expand this
+   * structure in the future */
+  size_t size;
+  /**
+   * SpaPoll::info
+   *
+   * Extra information
+   */
+  const SpaDict *info;
+  /**
+   * SpaPoll::add_item:
+   * @poll: a #SpaPoll
+   * @item: a #SpaPollItem
+   *
+   * Add @item to the list of polled items.
+   *
+   * The id in @item will be set and must be passed when updating or removing
+   * the @item.
+   *
+   * Returns: #SPA_RESULT_OK on success
+   *          #SPA_RESULT_INVALID_ARGUMENTS when @poll or @item is %NULL
+   */
+  SpaResult   (*add_item)            (SpaPoll         *poll,
+                                      SpaPollItem     *item);
+
+  SpaResult   (*update_item)         (SpaPoll         *poll,
+                                      SpaPollItem     *item);
+
+  SpaResult   (*remove_item)         (SpaPoll         *poll,
+                                      SpaPollItem     *item);
+};
+
+#define spa_poll_add_item(n,...)          (n)->add_item((n),__VA_ARGS__)
+#define spa_poll_update_item(n,...)       (n)->update_item((n),__VA_ARGS__)
+#define spa_poll_remove_item(n,...)       (n)->remove_item((n),__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

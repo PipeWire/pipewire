@@ -70,9 +70,10 @@ struct _SpaVideoTestSrc {
   SpaNode node;
   SpaClock clock;
 
+  URI uri;
   SpaIDMap *map;
   SpaLog *log;
-  URI uri;
+  SpaPoll *data_loop;
 
   SpaVideoTestSrcProps props[2];
 
@@ -259,10 +260,7 @@ update_state (SpaVideoTestSrc *this, SpaNodeState state)
 static SpaResult
 update_poll_enabled (SpaVideoTestSrc *this, bool enabled)
 {
-  SpaNodeEvent event;
-
   if (this->event_cb && this->timer.enabled != enabled) {
-    event.type = SPA_NODE_EVENT_TYPE_UPDATE_POLL;
     this->timer.enabled = enabled;
     if (this->props[1].live) {
       if (enabled) {
@@ -285,9 +283,7 @@ update_poll_enabled (SpaVideoTestSrc *this, bool enabled)
       this->timer.idle_cb = videotestsrc_on_output;
       this->timer.after_cb = NULL;
     }
-    event.data = &this->timer;
-    event.size = sizeof (this->timer);
-    this->event_cb (&this->node, &event, this->user_data);
+    spa_poll_update_item (this->data_loop, &this->timer);
   }
   return SPA_RESULT_OK;
 }
@@ -364,7 +360,6 @@ spa_videotestsrc_node_set_event_callback (SpaNode              *node,
                                           void                 *user_data)
 {
   SpaVideoTestSrc *this;
-  SpaNodeEvent event;
 
   if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -372,20 +367,14 @@ spa_videotestsrc_node_set_event_callback (SpaNode              *node,
   this = (SpaVideoTestSrc *) node->handle;
 
   if (event_cb == NULL && this->event_cb) {
-    event.type = SPA_NODE_EVENT_TYPE_REMOVE_POLL;
-    event.data = &this->timer;
-    event.size = sizeof (this->timer);
-    this->event_cb (&this->node, &event, this->user_data);
+    spa_poll_remove_item (this->data_loop, &this->timer);
   }
 
   this->event_cb = event_cb;
   this->user_data = user_data;
 
   if (this->event_cb) {
-    event.type = SPA_NODE_EVENT_TYPE_ADD_POLL;
-    event.data = &this->timer;
-    event.size = sizeof (this->timer);
-    this->event_cb (&this->node, &event, this->user_data);
+    spa_poll_add_item (this->data_loop, &this->timer);
   }
   return SPA_RESULT_OK;
 }
@@ -964,6 +953,8 @@ videotestsrc_init (const SpaHandleFactory  *factory,
       this->map = support[i].data;
     else if (strcmp (support[i].uri, SPA_LOG_URI) == 0)
       this->log = support[i].data;
+    else if (strcmp (support[i].uri, SPA_POLL__DataLoop) == 0)
+      this->data_loop = support[i].data;
   }
   if (this->map == NULL) {
     spa_log_error (this->log, "an id-map is needed");

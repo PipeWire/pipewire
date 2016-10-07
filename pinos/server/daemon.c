@@ -57,7 +57,7 @@ struct _PinosDaemonPrivate
 
   GHashTable *node_factories;
 
-  SpaSupport support[2];
+  SpaSupport support[3];
   SpaLog log;
 };
 
@@ -842,11 +842,12 @@ do_logv (SpaLog        *log,
 {
   char text[16*1024], location[128];
   static const char *levels[] = {
-    "NONE",
-    "ERROR",
-    "WARN",
-    "INFO",
-    "TRACE",
+    "-",
+    "E",
+    "W",
+    "I",
+    "D",
+    "T",
   };
   vsnprintf (text, sizeof(text), fmt, args);
   snprintf (location, sizeof(location), "%s:%i %s()", file, line, func);
@@ -899,8 +900,10 @@ pinos_daemon_init (PinosDaemon * daemon)
   priv->support[0].data = daemon->map;
   priv->support[1].uri = SPA_LOG_URI;
   priv->support[1].data = daemon->log;
+  priv->support[2].uri = SPA_POLL__DataLoop;
+  priv->support[2].data = &priv->loop->poll;
   daemon->support = priv->support;
-  daemon->n_support = 2;
+  daemon->n_support = 3;
 }
 
 /**

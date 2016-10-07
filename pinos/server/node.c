@@ -453,24 +453,6 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
       break;
     }
 
-    case SPA_NODE_EVENT_TYPE_ADD_POLL:
-    {
-      SpaPollItem *item = event->data;
-      pinos_rtloop_add_poll (priv->loop, item);
-      break;
-    }
-    case SPA_NODE_EVENT_TYPE_UPDATE_POLL:
-    {
-      SpaPollItem *item = event->data;
-      pinos_rtloop_update_poll (priv->loop, item);
-      break;
-    }
-    case SPA_NODE_EVENT_TYPE_REMOVE_POLL:
-    {
-      SpaPollItem *item = event->data;
-      pinos_rtloop_remove_poll (priv->loop, item);
-      break;
-    }
     case SPA_NODE_EVENT_TYPE_NEED_INPUT:
     {
       SpaNodeEventNeedInput *ni = event->data;

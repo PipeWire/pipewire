@@ -70,6 +70,7 @@ struct _SpaAudioTestSrc {
   URI uri;
   SpaIDMap *map;
   SpaLog *log;
+  SpaPoll *data_loop;
 
   SpaAudioTestSrcProps props[2];
 
@@ -311,10 +312,7 @@ update_state (SpaAudioTestSrc *this, SpaNodeState state)
 static SpaResult
 update_poll_enabled (SpaAudioTestSrc *this, bool enabled)
 {
-  SpaNodeEvent event;
-
   if (this->event_cb) {
-    event.type = SPA_NODE_EVENT_TYPE_UPDATE_POLL;
     this->timer.enabled = enabled;
     if (this->props[1].live) {
       if (enabled) {
@@ -337,9 +335,7 @@ update_poll_enabled (SpaAudioTestSrc *this, bool enabled)
       this->timer.idle_cb = audiotestsrc_on_output;
       this->timer.after_cb = NULL;
     }
-    event.data = &this->timer;
-    event.size = sizeof (this->timer);
-    this->event_cb (&this->node, &event, this->user_data);
+    spa_poll_update_item (this->data_loop, &this->timer);
   }
   return SPA_RESULT_OK;
 }
@@ -416,7 +412,6 @@ spa_audiotestsrc_node_set_event_callback (SpaNode              *node,
                                           void                 *user_data)
 {
   SpaAudioTestSrc *this;
-  SpaNodeEvent event;
 
   if (node == NULL || node->handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -424,20 +419,14 @@ spa_audiotestsrc_node_set_event_callback (SpaNode              *node,
   this = (SpaAudioTestSrc *) node->handle;
 
   if (event_cb == NULL && this->event_cb) {
-    event.type = SPA_NODE_EVENT_TYPE_REMOVE_POLL;
-    event.data = &this->timer;
-    event.size = sizeof (this->timer);
-    this->event_cb (&this->node, &event, this->user_data);
+    spa_poll_remove_item (this->data_loop, &this->timer);
   }
 
   this->event_cb = event_cb;
   this->user_data = user_data;
 
   if (this->event_cb) {
-    event.type = SPA_NODE_EVENT_TYPE_ADD_POLL;
-    event.data = &this->timer;
-    event.size = sizeof (this->timer);
-    this->event_cb (&this->node, &event, this->user_data);
+    spa_poll_add_item (this->data_loop, &this->timer);
   }
   return SPA_RESULT_OK;
 }
@@ -1016,9 +1005,15 @@ audiotestsrc_init (const SpaHandleFactory  *factory,
       this->map = support[i].data;
     else if (strcmp (support[i].uri, SPA_LOG_URI) == 0)
       this->log = support[i].data;
+    else if (strcmp (support[i].uri, SPA_POLL__DataLoop) == 0)
+      this->data_loop = support[i].data;
   }
   if (this->map == NULL) {
     spa_log_error (this->log, "an id-map is needed");
+    return SPA_RESULT_ERROR;
+  }
+  if (this->data_loop == NULL) {
+    spa_log_error (this->log, "a data_loop is needed");
     return SPA_RESULT_ERROR;
   }
   this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);

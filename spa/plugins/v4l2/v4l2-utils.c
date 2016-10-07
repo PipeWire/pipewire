@@ -1121,7 +1121,6 @@ spa_v4l2_start (SpaV4l2Source *this)
 {
   SpaV4l2State *state = &this->state[0];
   enum v4l2_buf_type type;
-  SpaNodeEvent event;
 
   if (state->started)
     return SPA_RESULT_OK;
@@ -1133,10 +1132,6 @@ spa_v4l2_start (SpaV4l2Source *this)
   }
   state->started = true;
   update_state (this, SPA_NODE_STATE_STREAMING);
-
-  event.type = SPA_NODE_EVENT_TYPE_ADD_POLL;
-  event.data = &state->poll;
-  event.size = sizeof (state->poll);
 
   state->fds[0].fd = state->fd;
   state->fds[0].events = POLLIN | POLLPRI | POLLERR;
@@ -1150,7 +1145,7 @@ spa_v4l2_start (SpaV4l2Source *this)
   state->poll.before_cb = NULL;
   state->poll.after_cb = v4l2_on_fd_events;
   state->poll.user_data = this;
-  this->event_cb (&this->node, &event, this->user_data);
+  spa_poll_add_item (state->data_loop, &state->poll);
 
   return SPA_RESULT_OK;
 }
@@ -1160,7 +1155,6 @@ spa_v4l2_pause (SpaV4l2Source *this)
 {
   SpaV4l2State *state = &this->state[0];
   enum v4l2_buf_type type;
-  SpaNodeEvent event;
   int i;
 
   if (!state->started)
@@ -1168,10 +1162,7 @@ spa_v4l2_pause (SpaV4l2Source *this)
 
   state->started = false;
 
-  event.type = SPA_NODE_EVENT_TYPE_REMOVE_POLL;
-  event.data = &state->poll;
-  event.size = sizeof (state->poll);
-  this->event_cb (&this->node, &event, this->user_data);
+  spa_poll_remove_item (state->data_loop, &state->poll);
 
   type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   if (xioctl (state->fd, VIDIOC_STREAMOFF, &type) < 0) {

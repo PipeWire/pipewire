@@ -86,6 +86,7 @@ typedef struct {
 
 typedef struct {
   SpaLog *log;
+  SpaPoll *data_loop;
 
   bool export_buf;
   bool started;
@@ -843,6 +844,7 @@ v4l2_source_init (const SpaHandleFactory  *factory,
 {
   SpaV4l2Source *this;
   unsigned int i;
+  const char *str;
 
   if (factory == NULL || handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -857,9 +859,15 @@ v4l2_source_init (const SpaHandleFactory  *factory,
       this->map = support[i].data;
     else if (strcmp (support[i].uri, SPA_LOG_URI) == 0)
       this->log = support[i].data;
+    else if (strcmp (support[i].uri, SPA_POLL__DataLoop) == 0)
+      this->state[0].data_loop = support[i].data;
   }
   if (this->map == NULL) {
     spa_log_error (this->log, "an id-map is needed");
+    return SPA_RESULT_ERROR;
+  }
+  if (this->state[0].data_loop == NULL) {
+    spa_log_error (this->log, "a data_loop is needed");
     return SPA_RESULT_ERROR;
   }
   this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
@@ -881,11 +889,9 @@ v4l2_source_init (const SpaHandleFactory  *factory,
 
   this->state[0].export_buf = true;
 
-  for (i = 0; info && i < info->n_items; i++) {
-    if (!strcmp (info->items[i].key, "device.path")) {
-      strncpy (this->props[1].device, info->items[i].value, 63);
-      this->props[1].props.unset_mask &= ~1;
-    }
+  if (info && (str = spa_dict_lookup (info, "device.path"))) {
+    strncpy (this->props[1].device, str, 63);
+    this->props[1].props.unset_mask &= ~1;
   }
 
   update_state (this, SPA_NODE_STATE_CONFIGURE);

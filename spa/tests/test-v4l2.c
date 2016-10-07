@@ -71,6 +71,7 @@ typedef struct {
   unsigned int n_support;
   SpaIDMap *map;
   SpaLog *log;
+  SpaPoll data_loop;
   URI uri;
 } AppData;
 
@@ -106,7 +107,7 @@ make_node (AppData *data, SpaNode **node, const char *lib, const char *name)
       continue;
 
     handle = calloc (1, factory->size);
-    if ((res = spa_handle_factory_init (factory, handle, NULL, NULL, 0)) < 0) {
+    if ((res = spa_handle_factory_init (factory, handle, NULL, data->support, data->n_support)) < 0) {
       printf ("can't make factory instance: %d\n", res);
       return res;
     }
@@ -188,20 +189,41 @@ on_source_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
       spa_node_port_reuse_buffer (data->source, 0, info->buffer_id);
       break;
     }
-    case SPA_NODE_EVENT_TYPE_ADD_POLL:
-    {
-      SpaPollItem *poll = event->data;
-
-      data->poll = *poll;
-      data->fds[0] = poll->fds[0];
-      data->n_fds = 1;
-      data->poll.fds = data->fds;
-      break;
-    }
     default:
       printf ("got event %d\n", event->type);
       break;
   }
+}
+
+static SpaResult
+do_add_item (SpaPoll     *poll,
+             SpaPollItem *item)
+{
+  AppData *data = SPA_CONTAINER_OF (poll, AppData, data_loop);
+  int i;
+
+  data->poll = *item;
+  for (i = 0; i < data->poll.n_fds; i++) {
+    data->fds[i] = item->fds[i];
+  }
+  data->n_fds = data->poll.n_fds;
+  data->poll.fds = data->fds;
+
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
+do_update_item (SpaPoll     *poll,
+             SpaPollItem *item)
+{
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
+do_remove_item (SpaPoll     *poll,
+             SpaPollItem *item)
+{
+  return SPA_RESULT_OK;
 }
 
 static SpaResult
@@ -220,7 +242,7 @@ make_nodes (AppData *data, const char *device)
   if ((res = spa_node_get_props (data->source, &props)) < 0)
     printf ("got get_props error %d\n", res);
 
-  value.value = device ? device : "/dev/video0";
+  value.value = device ? device : "/dev/video7";
   value.size = strlen (value.value)+1;
   spa_props_set_value (props, spa_props_index_for_name (props, "device"), &value);
 
@@ -433,9 +455,18 @@ main (int argc, char *argv[])
 
   data.map = spa_id_map_get_default ();
 
+  data.data_loop.handle = NULL;
+  data.data_loop.size = sizeof (SpaPoll);
+  data.data_loop.info = NULL;
+  data.data_loop.add_item = do_add_item;
+  data.data_loop.update_item = do_update_item;
+  data.data_loop.remove_item = do_remove_item;
+
   data.support[0].uri = SPA_ID_MAP_URI;
   data.support[0].data = data.map;
-  data.n_support = 1;
+  data.support[1].uri = SPA_POLL__DataLoop;
+  data.support[1].data = &data.data_loop;
+  data.n_support = 2;
 
   data.uri.node = spa_id_map_get_id (data.map, SPA_NODE_URI);
 

@@ -51,6 +51,7 @@ typedef struct {
   unsigned int n_support;
   SpaIDMap *map;
   SpaLog *log;
+  SpaPoll data_loop;
   URI uri;
 } AppData;
 
@@ -165,23 +166,27 @@ on_sink_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
         printf ("got error %d\n", res);
       break;
     }
-    case SPA_NODE_EVENT_TYPE_ADD_POLL:
-    {
-      SpaPollItem *poll = event->data;
-      int i;
-
-      data->poll = *poll;
-      for (i = 0; i < data->poll.n_fds; i++) {
-        data->fds[i] = poll->fds[i];
-      }
-      data->n_fds = data->poll.n_fds;
-      data->poll.fds = data->fds;
-      break;
-    }
     default:
       printf ("got event %d\n", event->type);
       break;
   }
+}
+
+static SpaResult
+do_add_item (SpaPoll     *poll,
+             SpaPollItem *item)
+{
+  AppData *data = SPA_CONTAINER_OF (poll, AppData, data_loop);
+  int i;
+
+  data->poll = *item;
+  for (i = 0; i < data->poll.n_fds; i++) {
+    data->fds[i] = item->fds[i];
+  }
+  data->n_fds = data->poll.n_fds;
+  data->poll.fds = data->fds;
+
+  return SPA_RESULT_OK;
 }
 
 static SpaResult
@@ -355,9 +360,18 @@ main (int argc, char *argv[])
   SpaResult res;
 
   data.map = spa_id_map_get_default();
+  data.data_loop.handle = NULL;
+  data.data_loop.size = sizeof (SpaPoll);
+  data.data_loop.info = NULL;
+  data.data_loop.add_item = do_add_item;
+  data.data_loop.update_item = NULL;
+  data.data_loop.remove_item = NULL;
+
   data.support[0].uri = SPA_ID_MAP_URI;
   data.support[0].data = data.map;
-  data.n_support = 1;
+  data.support[1].uri = SPA_POLL__DataLoop;
+  data.support[1].data = &data.data_loop;
+  data.n_support = 2;
 
   data.uri.node = spa_id_map_get_id (data.map, SPA_NODE_URI);
 

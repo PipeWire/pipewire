@@ -69,6 +69,7 @@ struct _SpaALSAState {
   URI uri;
   SpaIDMap *map;
   SpaLog *log;
+  SpaPoll *data_loop;
 
   snd_pcm_stream_t stream;
   snd_output_t *output;

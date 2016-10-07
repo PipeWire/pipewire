@@ -886,9 +886,6 @@ handle_node_event (PinosStream  *stream,
       }
       break;
     }
-    case SPA_NODE_EVENT_TYPE_ADD_POLL:
-    case SPA_NODE_EVENT_TYPE_UPDATE_POLL:
-    case SPA_NODE_EVENT_TYPE_REMOVE_POLL:
     case SPA_NODE_EVENT_TYPE_DRAINED:
     case SPA_NODE_EVENT_TYPE_MARKER:
     case SPA_NODE_EVENT_TYPE_ERROR:

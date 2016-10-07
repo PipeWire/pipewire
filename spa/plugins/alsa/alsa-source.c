@@ -768,6 +768,8 @@ alsa_source_init (const SpaHandleFactory  *factory,
       this->map = support[i].data;
     else if (strcmp (support[i].uri, SPA_LOG_URI) == 0)
       this->log = support[i].data;
+    else if (strcmp (support[i].uri, SPA_POLL__DataLoop) == 0)
+      this->data_loop = support[i].data;
   }
   if (this->map == NULL) {
     spa_log_error (this->log, "an id-map is needed");

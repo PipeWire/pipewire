@@ -26,6 +26,8 @@ extern "C" {
 
 typedef struct _SpaDict SpaDict;
 
+#include <string.h>
+
 #include <spa/defs.h>
 
 typedef struct {
@@ -37,6 +39,18 @@ struct _SpaDict {
   unsigned int  n_items;
   SpaDictItem  *items;
 };
+
+static inline const char *
+spa_dict_lookup (const SpaDict *dict, const char *key)
+{
+  unsigned int i;
+
+  for (i = 0; i < dict->n_items; i++) {
+    if (!strcmp (dict->items[i].key, key))
+      return dict->items[i].value;
+  }
+  return NULL;
+}
 
 #ifdef __cplusplus
 }  /* extern "C" */

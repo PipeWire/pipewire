@@ -190,9 +190,11 @@ stop_thread (PinosRTLoop *this, gboolean in_thread)
   }
 }
 
-gboolean
-pinos_rtloop_add_poll (PinosRTLoop *this, SpaPollItem *item)
+static SpaResult
+do_add_item (SpaPoll         *poll,
+             SpaPollItem     *item)
 {
+  PinosRTLoop *this = SPA_CONTAINER_OF (poll, PinosRTLoop, poll);
   PinosRTLoopPrivate *priv = this->priv;
   gboolean in_thread = pthread_equal (priv->thread, pthread_self());
   unsigned int i;
@@ -211,12 +213,15 @@ pinos_rtloop_add_poll (PinosRTLoop *this, SpaPollItem *item)
     if (priv->poll[i].fds)
       g_debug ("poll %d: %p %d", i, priv->poll[i].user_data, priv->poll[i].fds[0].fd);
   }
-  return TRUE;
+  return SPA_RESULT_OK;
 }
 
-gboolean
-pinos_rtloop_update_poll (PinosRTLoop *this, SpaPollItem *item)
+
+static SpaResult
+do_update_item (SpaPoll         *poll,
+                SpaPollItem     *item)
 {
+  PinosRTLoop *this = SPA_CONTAINER_OF (poll, PinosRTLoop, poll);
   PinosRTLoopPrivate *priv = this->priv;
   gboolean in_thread = pthread_equal (priv->thread, pthread_self());
   unsigned int i;
@@ -231,13 +236,14 @@ pinos_rtloop_update_poll (PinosRTLoop *this, SpaPollItem *item)
   if (!in_thread)
     wakeup_thread (this);
 
-  return TRUE;
+  return SPA_RESULT_OK;
 }
 
-
-gboolean
-pinos_rtloop_remove_poll (PinosRTLoop *this, SpaPollItem *item)
+static SpaResult
+do_remove_item (SpaPoll         *poll,
+                SpaPollItem     *item)
 {
+  PinosRTLoop *this = SPA_CONTAINER_OF (poll, PinosRTLoop, poll);
   PinosRTLoopPrivate *priv = this->priv;
   gboolean in_thread = pthread_equal (priv->thread, pthread_self());
   unsigned int i;
@@ -263,7 +269,7 @@ pinos_rtloop_remove_poll (PinosRTLoop *this, SpaPollItem *item)
     if (priv->poll[i].fds)
       g_debug ("poll %d: %p %d", i, priv->poll[i].user_data, priv->poll[i].fds[0].fd);
   }
-  return TRUE;
+  return SPA_RESULT_OK;
 }
 
 static void
@@ -321,6 +327,13 @@ pinos_rtloop_init (PinosRTLoop * this)
   this->priv = PINOS_RTLOOP_GET_PRIVATE (this);
 
   g_debug ("rt-loop %p: new", this);
+
+  this->poll.handle = NULL;
+  this->poll.size = sizeof (SpaPoll);
+  this->poll.info = NULL;
+  this->poll.add_item = do_add_item;
+  this->poll.update_item = do_update_item;
+  this->poll.remove_item = do_remove_item;
 }
 
 /**

@@ -31,6 +31,7 @@
 #include <spa/node.h>
 #include <spa/node-command.h>
 #include <spa/node-event.h>
+#include <spa/poll.h>
 #include <spa/port.h>
 #include <spa/props.h>
 #include <spa/queue.h>
@@ -51,6 +52,8 @@ static const char *uris[] = {
   SPA_PROPS_URI,
   SPA_QUEUE_URI,
   SPA_RINGBUFFER_URI,
+  SPA_POLL__MainLoop,
+  SPA_POLL__DataLoop,
 };
 
 static uint32_t

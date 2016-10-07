@@ -37,9 +37,6 @@ typedef struct _SpaNodeEvent SpaNodeEvent;
 #define SPA_NODE_EVENT__HaveOutput            SPA_NODE_EVENT_PREFIX "HaveOutput"
 #define SPA_NODE_EVENT__NeedInput             SPA_NODE_EVENT_PREFIX "NeedInput"
 #define SPA_NODE_EVENT__ReuseBuffer           SPA_NODE_EVENT_PREFIX "ReuseBuffer"
-#define SPA_NODE_EVENT__AddPoll               SPA_NODE_EVENT_PREFIX "AddPoll"
-#define SPA_NODE_EVENT__UpdatePoll            SPA_NODE_EVENT_PREFIX "UpdatePoll"
-#define SPA_NODE_EVENT__RemovePoll            SPA_NODE_EVENT_PREFIX "RemovePoll"
 #define SPA_NODE_EVENT__Drained               SPA_NODE_EVENT_PREFIX "Drained"
 #define SPA_NODE_EVENT__Marker                SPA_NODE_EVENT_PREFIX "Marker"
 #define SPA_NODE_EVENT__Error                 SPA_NODE_EVENT_PREFIX "Error"
@@ -53,9 +50,6 @@ typedef struct _SpaNodeEvent SpaNodeEvent;
  * @SPA_NODE_EVENT_TYPE_HAVE_OUTPUT: emited when an async node has output that can be pulled
  * @SPA_NODE_EVENT_TYPE_NEED_INPUT: emited when more data can be pushed to an async node
  * @SPA_NODE_EVENT_TYPE_REUSE_BUFFER: emited when a buffer can be reused
- * @SPA_NODE_EVENT_TYPE_ADD_POLL: emited when a pollfd should be added. data points to #SpaPollItem
- * @SPA_NODE_EVENT_TYPE_UPDATE_POLL: update the pollfd item
- * @SPA_NODE_EVENT_TYPE_REMOVE_POLL: emited when a pollfd should be removed. data points to #SpaPollItem
  * @SPA_NODE_EVENT_TYPE_DRAINED: emited when DRAIN command completed
  * @SPA_NODE_EVENT_TYPE_MARKER: emited when MARK command completed
  * @SPA_NODE_EVENT_TYPE_ERROR: emited when error occured
@@ -69,9 +63,6 @@ typedef enum {
   SPA_NODE_EVENT_TYPE_HAVE_OUTPUT,
   SPA_NODE_EVENT_TYPE_NEED_INPUT,
   SPA_NODE_EVENT_TYPE_REUSE_BUFFER,
-  SPA_NODE_EVENT_TYPE_ADD_POLL,
-  SPA_NODE_EVENT_TYPE_UPDATE_POLL,
-  SPA_NODE_EVENT_TYPE_REMOVE_POLL,
   SPA_NODE_EVENT_TYPE_DRAINED,
   SPA_NODE_EVENT_TYPE_MARKER,
   SPA_NODE_EVENT_TYPE_ERROR,

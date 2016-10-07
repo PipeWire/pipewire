@@ -434,7 +434,6 @@ int
 spa_alsa_start (SpaALSAState *state)
 {
   int err;
-  SpaNodeEvent event;
 
   if (spa_alsa_open (state) < 0)
     return -1;
@@ -455,10 +454,6 @@ spa_alsa_start (SpaALSAState *state)
     return err;
   }
 
-  event.type = SPA_NODE_EVENT_TYPE_ADD_POLL;
-  event.data = &state->poll;
-  event.size = sizeof (state->poll);
-
   state->poll.id = 0;
   state->poll.enabled = true;
   state->poll.fds = state->fds;
@@ -466,7 +461,7 @@ spa_alsa_start (SpaALSAState *state)
   state->poll.before_cb = NULL;
   state->poll.after_cb = alsa_on_fd_events;
   state->poll.user_data = state;
-  state->event_cb (&state->node, &event, state->user_data);
+  spa_poll_add_item (state->data_loop, &state->poll);
 
   mmap_write (state);
   err = snd_pcm_start (state->hndl);
@@ -477,18 +472,11 @@ spa_alsa_start (SpaALSAState *state)
 int
 spa_alsa_stop (SpaALSAState *state)
 {
-  SpaNodeEvent event;
-
   if (!state->opened)
     return 0;
 
-  event.type = SPA_NODE_EVENT_TYPE_REMOVE_POLL;
-  event.data = &state->poll;
-  event.size = sizeof (state->poll);
-  state->event_cb (&state->node, &event, state->user_data);
-
+  spa_poll_remove_item (state->data_loop, &state->poll);
   snd_pcm_drop (state->hndl);
-
   spa_alsa_close (state);
 
   return 0;

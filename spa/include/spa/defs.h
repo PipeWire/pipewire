@@ -88,6 +88,9 @@ typedef void (*SpaNotify) (void *data);
 #define SPA_CLAMP(v,a,b)  ((v)>(b) ? (b) : ((v) < (a) ? (a) : (v)))
 
 #define SPA_MEMBER(b,o,t) ((t*)((uint8_t*)(b) + (o)))
+
+#define SPA_CONTAINER_OF(p,t,m) (t*)((uint8_t*)p - offsetof (t,m))
+
 #define SPA_PTRDIFF(p1,p2) ((uint8_t*)(p1) - (uint8_t*)(p2))
 
 #define SPA_PTR_TO_INT(p) ((int) ((intptr_t) (p)))

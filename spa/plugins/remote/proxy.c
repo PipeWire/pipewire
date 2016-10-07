@@ -100,6 +100,7 @@ struct _SpaProxy {
   URI uri;
   SpaIDMap *map;
   SpaLog *log;
+  SpaPoll *data_loop;
 
   SpaProxyProps props[2];
 
@@ -143,26 +144,19 @@ reset_proxy_props (SpaProxyProps *props)
 static SpaResult
 update_poll (SpaProxy *this, int socketfd)
 {
-  SpaNodeEvent event;
   SpaProxyProps *p;
   SpaResult res = SPA_RESULT_OK;
 
   p = &this->props[1];
 
   if (p->socketfd != -1) {
-    event.type = SPA_NODE_EVENT_TYPE_REMOVE_POLL;
-    event.data = &this->poll;
-    event.size = sizeof (this->poll);
-    this->event_cb (&this->node, &event, this->user_data);
+    spa_poll_remove_item (this->data_loop, &this->poll);
   }
   p->socketfd = socketfd;
 
   if (p->socketfd != -1) {
     this->fds[0].fd = p->socketfd;
-    event.type = SPA_NODE_EVENT_TYPE_ADD_POLL;
-    event.data = &this->poll;
-    event.size = sizeof (this->poll);
-    this->event_cb (&this->node, &event, this->user_data);
+    spa_poll_add_item (this->data_loop, &this->poll);
   }
   return res;
 }
@@ -1121,9 +1115,6 @@ handle_node_event (SpaProxy     *this,
     case SPA_NODE_EVENT_TYPE_HAVE_OUTPUT:
     case SPA_NODE_EVENT_TYPE_NEED_INPUT:
     case SPA_NODE_EVENT_TYPE_REUSE_BUFFER:
-    case SPA_NODE_EVENT_TYPE_ADD_POLL:
-    case SPA_NODE_EVENT_TYPE_UPDATE_POLL:
-    case SPA_NODE_EVENT_TYPE_REMOVE_POLL:
     case SPA_NODE_EVENT_TYPE_DRAINED:
     case SPA_NODE_EVENT_TYPE_MARKER:
     case SPA_NODE_EVENT_TYPE_ERROR:
@@ -1377,9 +1368,15 @@ proxy_init (const SpaHandleFactory  *factory,
       this->map = support[i].data;
     else if (strcmp (support[i].uri, SPA_LOG_URI) == 0)
       this->log = support[i].data;
+    else if (strcmp (support[i].uri, SPA_POLL__DataLoop) == 0)
+      this->data_loop = support[i].data;
   }
   if (this->map == NULL) {
     spa_log_error (this->log, "an id-map is needed");
+    return SPA_RESULT_ERROR;
+  }
+  if (this->data_loop == NULL) {
+    spa_log_error (this->log, "a data-loop is needed");
     return SPA_RESULT_ERROR;
   }
   this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);

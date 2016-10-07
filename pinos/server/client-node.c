@@ -228,7 +228,7 @@ pinos_client_node_init (PinosClientNode * node)
 }
 
 static SpaResult
-make_node (SpaNode **node, const char *lib, const char *name)
+make_node (PinosDaemon *daemon, SpaNode **node, const char *lib, const char *name)
 {
   SpaHandle *handle;
   SpaResult res;
@@ -257,11 +257,17 @@ make_node (SpaNode **node, const char *lib, const char *name)
       continue;
 
     handle = calloc (1, factory->size);
-    if ((res = factory->init (factory, handle, NULL, NULL, 0)) < 0) {
+    if ((res = factory->init (factory,
+                              handle,
+                              NULL,
+                              daemon->support,
+                              daemon->n_support)) < 0) {
       g_error ("can't make factory instance: %d", res);
       return res;
     }
-    if ((res = handle->get_interface (handle, SPA_INTERFACE_ID_NODE, &iface)) < 0) {
+    if ((res = handle->get_interface (handle,
+                                      spa_id_map_get_id (daemon->map, SPA_NODE_URI),
+                                      &iface)) < 0) {
       g_error ("can't get interface %d", res);
       return res;
     }
@@ -293,7 +299,8 @@ pinos_client_node_new (PinosDaemon     *daemon,
 
   g_return_val_if_fail (PINOS_IS_DAEMON (daemon), NULL);
 
-  if ((res = make_node (&n,
+  if ((res = make_node (daemon,
+                        &n,
                         "build/spa/plugins/remote/libspa-remote.so",
                         "proxy")) < 0) {
     g_error ("can't create proxy: %d", res);

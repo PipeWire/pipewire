@@ -29,6 +29,7 @@
 #include <spa/debug.h>
 #include <spa/queue.h>
 #include <spa/log.h>
+#include <spa/id-map.h>
 
 typedef struct _SpaV4l2Source SpaV4l2Source;
 
@@ -79,6 +80,13 @@ struct _V4l2Format {
 };
 
 typedef struct {
+  uint32_t node;
+  uint32_t clock;
+} URI;
+
+typedef struct {
+  SpaLog *log;
+
   bool export_buf;
   bool started;
 
@@ -112,8 +120,6 @@ typedef struct {
   SpaAllocParamMetaEnable param_meta;
   SpaPortStatus status;
 
-  SpaLog *log;
-
   int64_t last_ticks;
   int64_t last_monotonic;
 } SpaV4l2State;
@@ -122,6 +128,10 @@ struct _SpaV4l2Source {
   SpaHandle handle;
   SpaNode node;
   SpaClock clock;
+
+  URI uri;
+  SpaIDMap *map;
+  SpaLog *log;
 
   SpaV4l2SourceProps props[2];
 
@@ -808,16 +818,13 @@ spa_v4l2_source_get_interface (SpaHandle               *handle,
 
   this = (SpaV4l2Source *) handle;
 
-  switch (interface_id) {
-    case SPA_INTERFACE_ID_NODE:
-      *interface = &this->node;
-      break;
-    case SPA_INTERFACE_ID_CLOCK:
-      *interface = &this->clock;
-      break;
-    default:
-      return SPA_RESULT_UNKNOWN_INTERFACE;
-  }
+  if (interface_id == this->uri.node)
+    *interface = &this->node;
+  else if (interface_id == this->uri.clock)
+    *interface = &this->clock;
+  else
+    return SPA_RESULT_UNKNOWN_INTERFACE;
+
   return SPA_RESULT_OK;
 }
 
@@ -831,7 +838,7 @@ static SpaResult
 v4l2_source_init (const SpaHandleFactory  *factory,
                   SpaHandle               *handle,
                   const SpaDict           *info,
-                  const SpaSupport       **support,
+                  const SpaSupport        *support,
                   unsigned int             n_support)
 {
   SpaV4l2Source *this;
@@ -844,6 +851,20 @@ v4l2_source_init (const SpaHandleFactory  *factory,
   handle->clear = v4l2_source_clear,
 
   this = (SpaV4l2Source *) handle;
+
+  for (i = 0; i < n_support; i++) {
+    if (strcmp (support[i].uri, SPA_ID_MAP_URI) == 0)
+      this->map = support[i].data;
+    else if (strcmp (support[i].uri, SPA_LOG_URI) == 0)
+      this->log = support[i].data;
+  }
+  if (this->map == NULL) {
+    spa_log_error (this->log, "an id-map is needed");
+    return SPA_RESULT_ERROR;
+  }
+  this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
+  this->uri.clock = spa_id_map_get_id (this->map, SPA_CLOCK_URI);
+
   this->node = v4l2source_node;
   this->node.handle = handle;
   this->clock = v4l2source_clock;
@@ -854,7 +875,7 @@ v4l2_source_init (const SpaHandleFactory  *factory,
 
   SPA_QUEUE_INIT (&this->state[0].ready);
 
-  this->state[0].log = NULL;
+  this->state[0].log = this->log;
   this->state[0].info.flags = SPA_PORT_INFO_FLAG_LIVE;
   this->state[0].status.flags = SPA_PORT_STATUS_FLAG_NONE;
 
@@ -874,14 +895,8 @@ v4l2_source_init (const SpaHandleFactory  *factory,
 
 static const SpaInterfaceInfo v4l2_source_interfaces[] =
 {
-  { SPA_INTERFACE_ID_NODE,
-    SPA_INTERFACE_ID_NODE_NAME,
-    SPA_INTERFACE_ID_NODE_DESCRIPTION,
-  },
-  { SPA_INTERFACE_ID_CLOCK,
-    SPA_INTERFACE_ID_CLOCK_NAME,
-    SPA_INTERFACE_ID_CLOCK_DESCRIPTION,
-  },
+  { SPA_NODE_URI, },
+  { SPA_CLOCK_URI, },
 };
 
 static SpaResult

@@ -579,13 +579,11 @@ spa_alsa_sink_get_interface (SpaHandle               *handle,
 
   this = (SpaALSASink *) handle;
 
-  switch (interface_id) {
-    case SPA_INTERFACE_ID_NODE:
-      *interface = &this->node;
-      break;
-    default:
-      return SPA_RESULT_UNKNOWN_INTERFACE;
-  }
+  if (interface_id == this->uri.node)
+    *interface = &this->node;
+  else
+    return SPA_RESULT_UNKNOWN_INTERFACE;
+
   return SPA_RESULT_OK;
 }
 
@@ -599,10 +597,11 @@ static SpaResult
 alsa_sink_init (const SpaHandleFactory  *factory,
                 SpaHandle               *handle,
                 const SpaDict           *info,
-                const SpaSupport       **support,
+                const SpaSupport        *support,
                 unsigned int             n_support)
 {
   SpaALSASink *this;
+  unsigned int i;
 
   if (factory == NULL || handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -611,6 +610,19 @@ alsa_sink_init (const SpaHandleFactory  *factory,
   handle->clear = alsa_sink_clear;
 
   this = (SpaALSASink *) handle;
+
+  for (i = 0; i < n_support; i++) {
+    if (strcmp (support[i].uri, SPA_ID_MAP_URI) == 0)
+      this->map = support[i].data;
+    else if (strcmp (support[i].uri, SPA_LOG_URI) == 0)
+      this->log = support[i].data;
+  }
+  if (this->map == NULL) {
+    spa_log_error (this->log, "an id-map is needed");
+    return SPA_RESULT_ERROR;
+  }
+  this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
+
   this->node = alsasink_node;
   this->node.handle = handle;
   this->props[1].props.n_prop_info = PROP_ID_LAST;
@@ -627,10 +639,7 @@ alsa_sink_init (const SpaHandleFactory  *factory,
 
 static const SpaInterfaceInfo alsa_sink_interfaces[] =
 {
-  { SPA_INTERFACE_ID_NODE,
-    SPA_INTERFACE_ID_NODE_NAME,
-    SPA_INTERFACE_ID_NODE_DESCRIPTION,
-  },
+  { SPA_NODE_URI, },
 };
 
 static SpaResult

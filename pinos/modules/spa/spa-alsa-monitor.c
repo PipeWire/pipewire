@@ -36,12 +36,18 @@
 #define PINOS_SPA_ALSA_MONITOR_GET_PRIVATE(obj)  \
      (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_SPA_ALSA_MONITOR, PinosSpaALSAMonitorPrivate))
 
+typedef struct {
+  uint32_t node;
+} URI;
+
 struct _PinosSpaALSAMonitorPrivate
 {
   PinosDaemon *daemon;
 
   SpaHandle *handle;
   SpaMonitor *monitor;
+
+  URI uri;
 
   GSource *watch_source;
 
@@ -61,7 +67,7 @@ enum
 G_DEFINE_TYPE (PinosSpaALSAMonitor, pinos_spa_alsa_monitor, G_TYPE_OBJECT);
 
 static SpaResult
-make_handle (SpaHandle **handle, const char *lib, const char *name, const SpaDict *info)
+make_handle (PinosDaemon *daemon, SpaHandle **handle, const char *lib, const char *name, const SpaDict *info)
 {
   SpaResult res;
   void *hnd, *state = NULL;
@@ -88,7 +94,7 @@ make_handle (SpaHandle **handle, const char *lib, const char *name, const SpaDic
       continue;
 
     *handle = g_malloc0 (factory->size);
-    if ((res = spa_handle_factory_init (factory, *handle, info, NULL, 0)) < 0) {
+    if ((res = spa_handle_factory_init (factory, *handle, info, daemon->support, daemon->n_support)) < 0) {
       g_error ("can't make factory instance: %d", res);
       return res;
     }
@@ -110,11 +116,15 @@ add_item (PinosSpaALSAMonitor *this, SpaMonitorItem *item)
   g_debug ("alsa-monitor %p: add: \"%s\" (%s)", this, item->name, item->id);
 
   handle = calloc (1, item->factory->size);
-  if ((res = spa_handle_factory_init (item->factory, handle, item->info, NULL, 0)) < 0) {
+  if ((res = spa_handle_factory_init (item->factory,
+                                      handle,
+                                      item->info,
+                                      priv->daemon->support,
+                                      priv->daemon->n_support)) < 0) {
     g_error ("can't make factory instance: %d", res);
     return;
   }
-  if ((res = spa_handle_get_interface (handle, SPA_INTERFACE_ID_NODE, &iface)) < 0) {
+  if ((res = spa_handle_get_interface (handle, priv->uri.node, &iface)) < 0) {
     g_error ("can't get MONITOR interface: %d", res);
     return;
   }
@@ -239,6 +249,8 @@ monitor_constructed (GObject * object)
   g_debug ("spa-monitor %p: constructed", this);
 
   G_OBJECT_CLASS (pinos_spa_alsa_monitor_parent_class)->constructed (object);
+
+  priv->uri.node = spa_id_map_get_id (priv->daemon->map, SPA_NODE_URI);
 
   while (TRUE) {
     SpaMonitorItem *item;
@@ -365,15 +377,18 @@ pinos_spa_alsa_monitor_new (PinosDaemon *daemon)
   SpaResult res;
   void *iface;
 
-  if ((res = make_handle (&handle,
-                        "build/spa/plugins/alsa/libspa-alsa.so",
-                        "alsa-monitor",
-                        NULL)) < 0) {
+  if ((res = make_handle (daemon, &handle,
+                          "build/spa/plugins/alsa/libspa-alsa.so",
+                          "alsa-monitor",
+                          NULL)) < 0) {
     g_error ("can't create alsa-monitor: %d", res);
     return NULL;
   }
 
-  if ((res = spa_handle_get_interface (handle, SPA_INTERFACE_ID_MONITOR, &iface)) < 0) {
+
+  if ((res = spa_handle_get_interface (handle,
+                                       spa_id_map_get_id (daemon->map, SPA_MONITOR_URI),
+                                       &iface)) < 0) {
     g_free (handle);
     g_error ("can't get MONITOR interface: %d", res);
     return NULL;

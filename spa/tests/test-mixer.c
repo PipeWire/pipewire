@@ -27,7 +27,13 @@
 #include <poll.h>
 
 #include <spa/node.h>
+#include <spa/log.h>
+#include <spa/id-map.h>
 #include <spa/audio/format.h>
+
+typedef struct {
+  uint32_t node;
+} URI;
 
 typedef struct {
   SpaNode *sink;
@@ -40,10 +46,16 @@ typedef struct {
   SpaPollFd fds[16];
   unsigned int n_fds;
   SpaPollItem poll;
+
+  SpaSupport support[2];
+  unsigned int n_support;
+  SpaIDMap *map;
+  SpaLog *log;
+  URI uri;
 } AppData;
 
 static SpaResult
-make_node (SpaNode **node, const char *lib, const char *name)
+make_node (AppData *data, SpaNode **node, const char *lib, const char *name)
 {
   SpaHandle *handle;
   SpaResult res;
@@ -74,11 +86,11 @@ make_node (SpaNode **node, const char *lib, const char *name)
       continue;
 
     handle = calloc (1, factory->size);
-    if ((res = spa_handle_factory_init (factory, handle, NULL, NULL, 0)) < 0) {
+    if ((res = spa_handle_factory_init (factory, handle, NULL, data->support, data->n_support)) < 0) {
       printf ("can't make factory instance: %d\n", res);
       return res;
     }
-    if ((res = spa_handle_get_interface (handle, SPA_INTERFACE_ID_NODE, &iface)) < 0) {
+    if ((res = spa_handle_get_interface (handle, data->uri.node, &iface)) < 0) {
       printf ("can't get interface %d\n", res);
       return res;
     }
@@ -179,7 +191,7 @@ make_nodes (AppData *data)
   SpaProps *props;
   SpaPropValue value;
 
-  if ((res = make_node (&data->sink, "spa/plugins/alsa/libspa-alsa.so", "alsa-sink")) < 0) {
+  if ((res = make_node (data, &data->sink, "spa/plugins/alsa/libspa-alsa.so", "alsa-sink")) < 0) {
     printf ("can't create alsa-sink: %d\n", res);
     return res;
   }
@@ -196,17 +208,17 @@ make_nodes (AppData *data)
     printf ("got set_props error %d\n", res);
 
 
-  if ((res = make_node (&data->mix, "spa/plugins/audiomixer/libspa-audiomixer.so", "audiomixer")) < 0) {
+  if ((res = make_node (data, &data->mix, "spa/plugins/audiomixer/libspa-audiomixer.so", "audiomixer")) < 0) {
     printf ("can't create audiomixer: %d\n", res);
     return res;
   }
   spa_node_set_event_callback (data->mix, on_mix_event, data);
 
-  if ((res = make_node (&data->source1, "spa/plugins/audiotestsrc/libspa-audiotestsrc.so", "audiotestsrc")) < 0) {
+  if ((res = make_node (data, &data->source1, "spa/plugins/audiotestsrc/libspa-audiotestsrc.so", "audiotestsrc")) < 0) {
     printf ("can't create audiotestsrc: %d\n", res);
     return res;
   }
-  if ((res = make_node (&data->source2, "spa/plugins/audiotestsrc/libspa-audiotestsrc.so", "audiotestsrc")) < 0) {
+  if ((res = make_node (data, &data->source2, "spa/plugins/audiotestsrc/libspa-audiotestsrc.so", "audiotestsrc")) < 0) {
     printf ("can't create audiotestsrc: %d\n", res);
     return res;
   }
@@ -341,6 +353,13 @@ main (int argc, char *argv[])
 {
   AppData data;
   SpaResult res;
+
+  data.map = spa_id_map_get_default();
+  data.support[0].uri = SPA_ID_MAP_URI;
+  data.support[0].data = data.map;
+  data.n_support = 1;
+
+  data.uri.node = spa_id_map_get_id (data.map, SPA_NODE_URI);
 
   if ((res = make_nodes (&data)) < 0) {
     printf ("can't make nodes: %d\n", res);

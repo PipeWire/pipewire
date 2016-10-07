@@ -25,6 +25,8 @@
 #include <sys/timerfd.h>
 #include <poll.h>
 
+#include <spa/id-map.h>
+#include <spa/log.h>
 #include <spa/node.h>
 #include <spa/queue.h>
 #include <spa/video/format.h>
@@ -37,6 +39,11 @@
 
 #define STATE_GET_IMAGE_SIZE(this)  \
     (this->bpp * STATE_GET_IMAGE_WIDTH(this) * STATE_GET_IMAGE_HEIGHT(this))
+
+typedef struct {
+  uint32_t node;
+  uint32_t clock;
+} URI;
 
 typedef struct _SpaVideoTestSrc SpaVideoTestSrc;
 
@@ -62,6 +69,10 @@ struct _SpaVideoTestSrc {
   SpaHandle handle;
   SpaNode node;
   SpaClock clock;
+
+  SpaIDMap *map;
+  SpaLog *log;
+  URI uri;
 
   SpaVideoTestSrcProps props[2];
 
@@ -476,7 +487,7 @@ static SpaResult
 clear_buffers (SpaVideoTestSrc *this)
 {
   if (this->n_buffers > 0) {
-    fprintf (stderr, "videotestsrc %p: clear buffers\n", this);
+    spa_log_info (this->log, "videotestsrc %p: clear buffers\n", this);
     this->n_buffers = 0;
     SPA_QUEUE_INIT (&this->empty);
     SPA_QUEUE_INIT (&this->ready);
@@ -641,7 +652,7 @@ spa_videotestsrc_node_port_use_buffers (SpaNode         *node,
       case SPA_DATA_TYPE_MEMFD:
       case SPA_DATA_TYPE_DMABUF:
         if (d[0].data == NULL) {
-          fprintf (stderr, "videotestsrc %p: invalid memory on buffer %p\n", this, buffers[i]);
+          spa_log_error (this->log, "videotestsrc %p: invalid memory on buffer %p\n", this, buffers[i]);
           continue;
         }
         b->ptr = SPA_MEMBER (d[0].data, d[0].offset, void);
@@ -905,16 +916,13 @@ spa_videotestsrc_get_interface (SpaHandle         *handle,
 
   this = (SpaVideoTestSrc *) handle;
 
-  switch (interface_id) {
-    case SPA_INTERFACE_ID_NODE:
-      *interface = &this->node;
-      break;
-    case SPA_INTERFACE_ID_CLOCK:
-      *interface = &this->clock;
-      break;
-    default:
-      return SPA_RESULT_UNKNOWN_INTERFACE;
-  }
+  if (interface_id == this->uri.node)
+    *interface = &this->node;
+  else if (interface_id == this->uri.clock)
+    *interface = &this->clock;
+  else
+    return SPA_RESULT_UNKNOWN_INTERFACE;
+
   return SPA_RESULT_OK;
 }
 
@@ -937,10 +945,11 @@ static SpaResult
 videotestsrc_init (const SpaHandleFactory  *factory,
                    SpaHandle               *handle,
                    const SpaDict           *info,
-                   const SpaSupport       **support,
+                   const SpaSupport        *support,
                    unsigned int             n_support)
 {
   SpaVideoTestSrc *this;
+  unsigned int i;
 
   if (factory == NULL || handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -949,6 +958,20 @@ videotestsrc_init (const SpaHandleFactory  *factory,
   handle->clear = videotestsrc_clear;
 
   this = (SpaVideoTestSrc *) handle;
+
+  for (i = 0; i < n_support; i++) {
+    if (strcmp (support[i].uri, SPA_ID_MAP_URI) == 0)
+      this->map = support[i].data;
+    else if (strcmp (support[i].uri, SPA_LOG_URI) == 0)
+      this->log = support[i].data;
+  }
+  if (this->map == NULL) {
+    spa_log_error (this->log, "an id-map is needed");
+    return SPA_RESULT_ERROR;
+  }
+  this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
+  this->uri.clock = spa_id_map_get_id (this->map, SPA_CLOCK_URI);
+
   this->node = videotestsrc_node;
   this->node.handle = handle;
   this->clock = videotestsrc_clock;
@@ -989,14 +1012,8 @@ videotestsrc_init (const SpaHandleFactory  *factory,
 
 static const SpaInterfaceInfo videotestsrc_interfaces[] =
 {
-  { SPA_INTERFACE_ID_NODE,
-    SPA_INTERFACE_ID_NODE_NAME,
-    SPA_INTERFACE_ID_NODE_DESCRIPTION,
-  },
-  { SPA_INTERFACE_ID_CLOCK,
-    SPA_INTERFACE_ID_CLOCK_NAME,
-    SPA_INTERFACE_ID_CLOCK_DESCRIPTION,
-  },
+  { SPA_NODE_URI, },
+  { SPA_CLOCK_URI, },
 };
 
 static SpaResult

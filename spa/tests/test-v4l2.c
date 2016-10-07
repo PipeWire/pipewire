@@ -28,6 +28,8 @@
 
 #include <SDL2/SDL.h>
 
+#include <spa/id-map.h>
+#include <spa/log.h>
 #include <spa/node.h>
 #include <spa/debug.h>
 #include <spa/video/format.h>
@@ -41,6 +43,10 @@ typedef struct {
   SpaMetaPointer ptr;
   SpaData datas[1];
 } SDLBuffer;
+
+typedef struct {
+  uint32_t node;
+} URI;
 
 typedef struct {
   SpaNode *source;
@@ -60,10 +66,16 @@ typedef struct {
   SpaBuffer *bp[MAX_BUFFERS];
   SDLBuffer buffers[MAX_BUFFERS];
   unsigned int n_buffers;
+
+  SpaSupport support[2];
+  unsigned int n_support;
+  SpaIDMap *map;
+  SpaLog *log;
+  URI uri;
 } AppData;
 
 static SpaResult
-make_node (SpaNode **node, const char *lib, const char *name)
+make_node (AppData *data, SpaNode **node, const char *lib, const char *name)
 {
   SpaHandle *handle;
   SpaResult res;
@@ -98,7 +110,7 @@ make_node (SpaNode **node, const char *lib, const char *name)
       printf ("can't make factory instance: %d\n", res);
       return res;
     }
-    if ((res = spa_handle_get_interface (handle, SPA_INTERFACE_ID_NODE, &iface)) < 0) {
+    if ((res = spa_handle_get_interface (handle, data->uri.node, &iface)) < 0) {
       printf ("can't get interface %d\n", res);
       return res;
     }
@@ -199,7 +211,7 @@ make_nodes (AppData *data, const char *device)
   SpaProps *props;
   SpaPropValue value;
 
-  if ((res = make_node (&data->source, "spa/plugins/v4l2/libspa-v4l2.so", "v4l2-source")) < 0) {
+  if ((res = make_node (data, &data->source, "spa/plugins/v4l2/libspa-v4l2.so", "v4l2-source")) < 0) {
     printf ("can't create v4l2-source: %d\n", res);
     return res;
   }
@@ -418,6 +430,14 @@ main (int argc, char *argv[])
   SpaResult res;
 
   data.use_buffer = true;
+
+  data.map = spa_id_map_get_default ();
+
+  data.support[0].uri = SPA_ID_MAP_URI;
+  data.support[0].data = data.map;
+  data.n_support = 1;
+
+  data.uri.node = spa_id_map_get_id (data.map, SPA_NODE_URI);
 
   if (SDL_Init (SDL_INIT_VIDEO) < 0) {
     printf ("can't initialize SDL: %s\n", SDL_GetError ());

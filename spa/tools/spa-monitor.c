@@ -25,9 +25,33 @@
 #include <errno.h>
 #include <poll.h>
 
+#include <spa/log.h>
+#include <spa/id-map.h>
 #include <spa/monitor.h>
 #include <spa/poll.h>
 #include <spa/debug.h>
+
+typedef struct {
+  uint32_t monitor;
+} URI;
+
+typedef struct {
+  URI uri;
+
+  SpaIDMap *map;
+  SpaLog *log;
+
+  SpaSupport support[2];
+  unsigned int n_support;
+
+  unsigned int n_poll;
+  SpaPollItem poll[16];
+
+  bool rebuild_fds;
+  SpaPollFd fds[16];
+  unsigned int n_fds;
+} AppData;
+
 
 static void
 inspect_item (SpaMonitorItem *item)
@@ -38,21 +62,12 @@ inspect_item (SpaMonitorItem *item)
     spa_debug_dict (item->info);
 }
 
-typedef struct {
-  unsigned int n_poll;
-  SpaPollItem poll[16];
-
-  bool rebuild_fds;
-  SpaPollFd fds[16];
-  unsigned int n_fds;
-} PollData;
-
 static void
 on_monitor_event  (SpaMonitor      *monitor,
                    SpaMonitorEvent *event,
                    void            *user_data)
 {
-  PollData *data = user_data;
+  AppData *data = user_data;
 
   switch (event->type) {
     case SPA_MONITOR_EVENT_TYPE_ADDED:
@@ -97,11 +112,10 @@ on_monitor_event  (SpaMonitor      *monitor,
 }
 
 static void
-handle_monitor (SpaMonitor *monitor)
+handle_monitor (AppData *data, SpaMonitor *monitor)
 {
   SpaResult res;
   void *state = NULL;
-  PollData data = { 0, };
 
   if (monitor->info)
     spa_debug_dict (monitor->info);
@@ -124,23 +138,23 @@ handle_monitor (SpaMonitor *monitor)
     int i, j, r;
 
     /* rebuild */
-    if (data.rebuild_fds) {
-      data.n_fds = 0;
-      for (i = 0; i < data.n_poll; i++) {
-        SpaPollItem *p = &data.poll[i];
+    if (data->rebuild_fds) {
+      data->n_fds = 0;
+      for (i = 0; i < data->n_poll; i++) {
+        SpaPollItem *p = &data->poll[i];
 
         if (!p->enabled)
           continue;
 
         for (j = 0; j < p->n_fds; j++)
-          data.fds[data.n_fds + j] = p->fds[j];
-        p->fds = &data.fds[data.n_fds];
-        data.n_fds += p->n_fds;
+          data->fds[data->n_fds + j] = p->fds[j];
+        p->fds = &data->fds[data->n_fds];
+        data->n_fds += p->n_fds;
       }
-      data.rebuild_fds = false;
+      data->rebuild_fds = false;
     }
 
-    r = poll ((struct pollfd *) data.fds, data.n_fds, -1);
+    r = poll ((struct pollfd *) data->fds, data->n_fds, -1);
     if (r < 0) {
       if (errno == EINTR)
         continue;
@@ -152,8 +166,8 @@ handle_monitor (SpaMonitor *monitor)
     }
 
     /* after */
-    for (i = 0; i < data.n_poll; i++) {
-      SpaPollItem *p = &data.poll[i];
+    for (i = 0; i < data->n_poll; i++) {
+      SpaPollItem *p = &data->poll[i];
 
       if (p->enabled && p->after_cb) {
         ndata.fds = p->fds;
@@ -168,10 +182,22 @@ handle_monitor (SpaMonitor *monitor)
 int
 main (int argc, char *argv[])
 {
+  AppData data;
   SpaResult res;
   void *handle;
   SpaEnumHandleFactoryFunc enum_func;
   void *fstate = NULL;
+
+  data.map = spa_id_map_get_default ();
+  data.log = NULL;
+
+  data.support[0].uri = SPA_ID_MAP_URI;
+  data.support[0].data = data.map;
+  data.support[1].uri = SPA_LOG_URI;
+  data.support[1].data = data.log;
+  data.n_support = 2;
+
+  data.uri.monitor = spa_id_map_get_id (data.map, SPA_MONITOR_URI);
 
   if (argc < 2) {
     printf ("usage: %s <plugin.so>\n", argv[0]);
@@ -206,21 +232,21 @@ main (int argc, char *argv[])
         break;
       }
 
-      if (info->interface_id == SPA_INTERFACE_ID_MONITOR) {
+      if (!strcmp (info->uri, SPA_MONITOR_URI)) {
         SpaHandle *handle;
         void *interface;
 
         handle = calloc (1, factory->size);
-        if ((res = spa_handle_factory_init (factory, handle, NULL, NULL, 0)) < 0) {
+        if ((res = spa_handle_factory_init (factory, handle, NULL, data.support, data.n_support)) < 0) {
           printf ("can't make factory instance: %d\n", res);
           continue;
         }
 
-        if ((res = spa_handle_get_interface (handle, info->interface_id, &interface)) < 0) {
+        if ((res = spa_handle_get_interface (handle, data.uri.monitor, &interface)) < 0) {
           printf ("can't get interface: %d\n", res);
           continue;
         }
-        handle_monitor (interface);
+        handle_monitor (&data, interface);
       }
     }
   }

@@ -28,6 +28,8 @@ extern "C" {
 
 #include <asoundlib.h>
 
+#include <spa/id-map.h>
+#include <spa/log.h>
 #include <spa/queue.h>
 #include <spa/node.h>
 #include <spa/audio/format.h>
@@ -54,10 +56,19 @@ struct _SpaALSABuffer {
   SpaALSABuffer *next;
 };
 
+typedef struct {
+  uint32_t node;
+  uint32_t clock;
+} URI;
+
 struct _SpaALSAState {
   SpaHandle handle;
   SpaNode node;
   SpaClock clock;
+
+  URI uri;
+  SpaIDMap *map;
+  SpaLog *log;
 
   snd_pcm_stream_t stream;
   snd_output_t *output;

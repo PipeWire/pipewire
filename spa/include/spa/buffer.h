@@ -26,6 +26,9 @@ extern "C" {
 
 typedef struct _SpaBuffer SpaBuffer;
 
+#define SPA_BUFFER_URI             "http://spaplug.in/ns/buffer"
+#define SPA_BUFFER_PREFIX          SPA_BUFFER_URI "#"
+
 /**
  * SpaMetaType:
  * @SPA_META_TYPE_INVALID: invalid metadata, should be ignored

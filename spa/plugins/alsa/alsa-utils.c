@@ -9,9 +9,7 @@
 
 #include "alsa-utils.h"
 
-static int verbose = 0;					/* verbose flag */
-
-#define CHECK(s,msg) if ((err = (s)) < 0) { printf (msg ": %s\n", snd_strerror(err)); return err; }
+#define CHECK(s,msg) if ((err = (s)) < 0) { spa_log_error (state->log, msg ": %s\n", snd_strerror(err)); return err; }
 
 static int
 spa_alsa_open (SpaALSAState *state)
@@ -24,7 +22,7 @@ spa_alsa_open (SpaALSAState *state)
 
   CHECK (snd_output_stdio_attach (&state->output, stderr, 0), "attach failed");
 
-  printf ("ALSA device open '%s'\n", props->device);
+  spa_log_info (state->log, "ALSA device open '%s'\n", props->device);
   CHECK (snd_pcm_open (&state->hndl,
                        props->device,
                        state->stream,
@@ -46,7 +44,7 @@ spa_alsa_close (SpaALSAState *state)
   if (!state->opened)
     return 0;
 
-  printf ("Playback device closing\n");
+  spa_log_info (state->log, "Playback device closing\n");
   CHECK (snd_pcm_close (state->hndl), "close failed");
 
   state->opened = false;
@@ -134,14 +132,14 @@ spa_alsa_set_format (SpaALSAState *state, SpaFormatAudio *fmt, SpaPortFormatFlag
 
   /* set the sample format */
   format = spa_alsa_format_to_alsa (info->format);
-  printf ("Stream parameters are %iHz, %s, %i channels\n", info->rate, snd_pcm_format_name(format), info->channels);
+  spa_log_info (state->log, "Stream parameters are %iHz, %s, %i channels\n", info->rate, snd_pcm_format_name(format), info->channels);
   CHECK (snd_pcm_hw_params_set_format (hndl, params, format), "set_format");
 
   /* set the count of channels */
   rchannels = info->channels;
   CHECK (snd_pcm_hw_params_set_channels_near (hndl, params, &rchannels), "set_channels");
   if (rchannels != info->channels) {
-    fprintf (stderr, "Channels doesn't match (requested %u, get %u\n", info->channels, rchannels);
+    spa_log_info (state->log, "Channels doesn't match (requested %u, get %u\n", info->channels, rchannels);
     if (flags & SPA_PORT_FORMAT_FLAG_NEAREST)
       info->channels = rchannels;
     else
@@ -152,7 +150,7 @@ spa_alsa_set_format (SpaALSAState *state, SpaFormatAudio *fmt, SpaPortFormatFlag
   rrate = info->rate;
   CHECK (snd_pcm_hw_params_set_rate_near (hndl, params, &rrate, 0), "set_rate_near");
   if (rrate != info->rate) {
-    fprintf (stderr, "Rate doesn't match (requested %iHz, get %iHz)\n", info->rate, rrate);
+    spa_log_info (state->log, "Rate doesn't match (requested %iHz, get %iHz)\n", info->rate, rrate);
     if (flags & SPA_PORT_FORMAT_FLAG_NEAREST)
       info->rate = rrate;
     else
@@ -220,14 +218,12 @@ set_swparams (SpaALSAState *state)
  *   Underrun and suspend recovery
  */
 static int
-xrun_recovery (snd_pcm_t *hndl, int err)
+xrun_recovery (SpaALSAState *state, snd_pcm_t *hndl, int err)
 {
-  if (verbose)
-    printf("stream recovery\n");
   if (err == -EPIPE) {	/* under-run */
     err = snd_pcm_prepare(hndl);
     if (err < 0)
-      printf("Can't recovery from underrun, prepare failed: %s\n", snd_strerror(err));
+      spa_log_error (state->log, "Can't recovery from underrun, prepare failed: %s\n", snd_strerror(err));
     return 0;
   } else if (err == -ESTRPIPE) {
     while ((err = snd_pcm_resume(hndl)) == -EAGAIN)
@@ -235,7 +231,7 @@ xrun_recovery (snd_pcm_t *hndl, int err)
     if (err < 0) {
       err = snd_pcm_prepare(hndl);
       if (err < 0)
-        printf("Can't recovery from suspend, prepare failed: %s\n", snd_strerror(err));
+        spa_log_error (state->log, "Can't recovery from suspend, prepare failed: %s\n", snd_strerror(err));
     }
     return 0;
   }
@@ -265,8 +261,8 @@ mmap_write (SpaALSAState *state)
   const snd_pcm_channel_area_t *my_areas;
 
   if ((avail = snd_pcm_avail_update (hndl)) < 0) {
-    if ((err = xrun_recovery (hndl, avail)) < 0) {
-      printf ("Write error: %s\n", snd_strerror (err));
+    if ((err = xrun_recovery (state, hndl, avail)) < 0) {
+      spa_log_error (state->log, "Write error: %s\n", snd_strerror (err));
       return -1;
     }
   }
@@ -275,8 +271,8 @@ mmap_write (SpaALSAState *state)
   while (size > 0) {
     frames = size;
     if ((err = snd_pcm_mmap_begin (hndl, &my_areas, &offset, &frames)) < 0) {
-      if ((err = xrun_recovery(hndl, err)) < 0) {
-        printf("MMAP begin avail error: %s\n", snd_strerror(err));
+      if ((err = xrun_recovery (state, hndl, err)) < 0) {
+        spa_log_error (state->log, "MMAP begin avail error: %s\n", snd_strerror(err));
         return -1;
       }
     }
@@ -287,8 +283,8 @@ mmap_write (SpaALSAState *state)
 
     commitres = snd_pcm_mmap_commit (hndl, offset, frames);
     if (commitres < 0 || (snd_pcm_uframes_t)commitres != frames) {
-      if ((err = xrun_recovery (hndl, commitres >= 0 ? -EPIPE : commitres)) < 0) {
-        printf("MMAP commit error: %s\n", snd_strerror(err));
+      if ((err = xrun_recovery (state, hndl, commitres >= 0 ? -EPIPE : commitres)) < 0) {
+        spa_log_error (state->log, "MMAP commit error: %s\n", snd_strerror(err));
         return -1;
       }
     }
@@ -326,7 +322,7 @@ mmap_read (SpaALSAState *state)
 
   SPA_QUEUE_POP_HEAD (&state->free, SpaALSABuffer, next, b);
   if (b == NULL) {
-    fprintf (stderr, "no more buffers\n");
+    spa_log_warn (state->log, "no more buffers\n");
   } else {
     dest = SPA_MEMBER (b->outbuf->datas[0].data, b->outbuf->datas[0].offset, void);
     destsize = b->outbuf->datas[0].size;
@@ -345,8 +341,8 @@ mmap_read (SpaALSAState *state)
   while (size > 0) {
     frames = size;
     if ((err = snd_pcm_mmap_begin (hndl, &my_areas, &offset, &frames)) < 0) {
-      if ((err = xrun_recovery(hndl, err)) < 0) {
-        printf("MMAP begin avail error: %s\n", snd_strerror (err));
+      if ((err = xrun_recovery (state, hndl, err)) < 0) {
+        spa_log_error (state->log, "MMAP begin avail error: %s\n", snd_strerror (err));
         return -1;
       }
     }
@@ -364,8 +360,8 @@ mmap_read (SpaALSAState *state)
 
     commitres = snd_pcm_mmap_commit (hndl, offset, frames);
     if (commitres < 0 || (snd_pcm_uframes_t)commitres != frames) {
-      if ((err = xrun_recovery (hndl, commitres >= 0 ? -EPIPE : commitres)) < 0) {
-        printf("MMAP commit error: %s\n", snd_strerror(err));
+      if ((err = xrun_recovery (state, hndl, commitres >= 0 ? -EPIPE : commitres)) < 0) {
+        spa_log_error (state->log, "MMAP commit error: %s\n", snd_strerror(err));
         return -1;
       }
     }
@@ -409,12 +405,12 @@ alsa_on_fd_events (SpaPollNotifyData *data)
     if (snd_pcm_state (hndl) == SND_PCM_STATE_XRUN ||
         snd_pcm_state (hndl) == SND_PCM_STATE_SUSPENDED) {
       err = snd_pcm_state (hndl) == SND_PCM_STATE_XRUN ? -EPIPE : -ESTRPIPE;
-      if ((err = xrun_recovery (hndl, err)) < 0) {
-        printf ("error: %s\n", snd_strerror (err));
+      if ((err = xrun_recovery (state, hndl, err)) < 0) {
+        spa_log_error (state->log, "error: %s\n", snd_strerror (err));
         return -1;
       }
     } else {
-      printf("Wait for poll failed\n");
+      spa_log_error (state->log, "Wait for poll failed\n");
       return -1;
     }
   }
@@ -451,11 +447,11 @@ spa_alsa_start (SpaALSAState *state)
   snd_pcm_dump (state->hndl, state->output);
 
   if ((state->poll.n_fds = snd_pcm_poll_descriptors_count (state->hndl)) <= 0) {
-    printf ("Invalid poll descriptors count\n");
+    spa_log_error (state->log, "Invalid poll descriptors count\n");
     return state->poll.n_fds;
   }
   if ((err = snd_pcm_poll_descriptors (state->hndl, (struct pollfd *)state->fds, state->poll.n_fds)) < 0) {
-    printf ("Unable to obtain poll descriptors for playback: %s\n", snd_strerror(err));
+    spa_log_error (state->log, "Unable to obtain poll descriptors for playback: %s\n", snd_strerror(err));
     return err;
   }
 

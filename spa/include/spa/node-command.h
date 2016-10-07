@@ -29,6 +29,16 @@ typedef struct _SpaNodeCommand SpaNodeCommand;
 #include <spa/defs.h>
 #include <spa/clock.h>
 
+#define SPA_NODE_COMMAND_URI             "http://spaplug.in/ns/node-command"
+#define SPA_NODE_COMMAND_PREFIX          SPA_NODE_COMMAND_URI "#"
+
+#define SPA_NODE_COMMAND__Pause          SPA_NODE_COMMAND_PREFIX "Pause"
+#define SPA_NODE_COMMAND__Start          SPA_NODE_COMMAND_PREFIX "Start"
+#define SPA_NODE_COMMAND__Flush          SPA_NODE_COMMAND_PREFIX "Flush"
+#define SPA_NODE_COMMAND__Drain          SPA_NODE_COMMAND_PREFIX "Drain"
+#define SPA_NODE_COMMAND__Marker         SPA_NODE_COMMAND_PREFIX "Marker"
+#define SPA_NODE_COMMAND__ClockUpdate    SPA_NODE_COMMAND_PREFIX "ClockUpdate"
+
 typedef enum {
   SPA_NODE_COMMAND_INVALID                 =  0,
   SPA_NODE_COMMAND_PAUSE,

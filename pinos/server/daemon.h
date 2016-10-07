@@ -37,6 +37,9 @@ typedef struct _PinosDaemon PinosDaemon;
 typedef struct _PinosDaemonClass PinosDaemonClass;
 typedef struct _PinosDaemonPrivate PinosDaemonPrivate;
 
+#include <spa/include/spa/plugin.h>
+#include <spa/include/spa/log.h>
+#include <spa/include/spa/id-map.h>
 #include <pinos/server/node.h>
 #include <pinos/server/node-factory.h>
 #include <pinos/client/properties.h>
@@ -48,6 +51,12 @@ typedef struct _PinosDaemonPrivate PinosDaemonPrivate;
  */
 struct _PinosDaemon {
   GObject object;
+
+  SpaIDMap *map;
+  SpaLog *log;
+
+  SpaSupport *support;
+  unsigned int n_support;
 
   PinosDaemonPrivate *priv;
 };

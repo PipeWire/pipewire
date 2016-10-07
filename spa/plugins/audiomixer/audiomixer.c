@@ -20,6 +20,8 @@
 #include <string.h>
 #include <stdio.h>
 
+#include <spa/log.h>
+#include <spa/id-map.h>
 #include <spa/node.h>
 #include <spa/audio/format.h>
 
@@ -62,9 +64,17 @@ typedef struct {
   SpaBuffer *buffer;
 } SpaAudioMixerPort;
 
+typedef struct {
+  uint32_t node;
+} URI;
+
 struct _SpaAudioMixer {
   SpaHandle  handle;
   SpaNode  node;
+
+  URI uri;
+  SpaIDMap *map;
+  SpaLog *log;
 
   SpaAudioMixerProps props[2];
 
@@ -692,7 +702,7 @@ spa_audiomixer_node_port_pull_output (SpaNode           *node,
 
   for (i = 0; i < n_info; i++) {
     if ((info[i].status = mix_data (this, &info[i])) < 0) {
-      printf ("error mixing: %d\n", info[i].status);
+      spa_log_error (this->log, "error mixing: %d\n", info[i].status);
       have_error = true;
       continue;
     }
@@ -760,13 +770,11 @@ spa_audiomixer_get_interface (SpaHandle   *handle,
 
   this = (SpaAudioMixer *) handle;
 
-  switch (interface_id) {
-    case SPA_INTERFACE_ID_NODE:
-      *interface = &this->node;
-      break;
-    default:
-      return SPA_RESULT_UNKNOWN_INTERFACE;
-  }
+  if (interface_id == this->uri.node)
+    *interface = &this->node;
+  else
+    return SPA_RESULT_UNKNOWN_INTERFACE;
+
   return SPA_RESULT_OK;
 }
 
@@ -780,10 +788,11 @@ static SpaResult
 spa_audiomixer_init (const SpaHandleFactory *factory,
                      SpaHandle              *handle,
                      const SpaDict          *info,
-                     const SpaSupport      **support,
+                     const SpaSupport       *support,
                      unsigned int            n_support)
 {
   SpaAudioMixer *this;
+  unsigned int i;
 
   if (factory == NULL || handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -792,6 +801,19 @@ spa_audiomixer_init (const SpaHandleFactory *factory,
   handle->clear = spa_audiomixer_clear;
 
   this = (SpaAudioMixer *) handle;
+
+  for (i = 0; i < n_support; i++) {
+    if (strcmp (support[i].uri, SPA_ID_MAP_URI) == 0)
+      this->map = support[i].data;
+    else if (strcmp (support[i].uri, SPA_LOG_URI) == 0)
+      this->log = support[i].data;
+  }
+  if (this->map == NULL) {
+    spa_log_error (this->log, "an id-map is needed");
+    return SPA_RESULT_ERROR;
+  }
+  this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
+
   this->node = audiomixer_node;
   this->node.handle = handle;
   this->props[1].props.n_prop_info = PROP_ID_LAST;
@@ -807,10 +829,7 @@ spa_audiomixer_init (const SpaHandleFactory *factory,
 
 static const SpaInterfaceInfo audiomixer_interfaces[] =
 {
-  { SPA_INTERFACE_ID_NODE,
-    SPA_INTERFACE_ID_NODE_NAME,
-    SPA_INTERFACE_ID_NODE_DESCRIPTION,
-  },
+  { SPA_NODE_URI, },
 };
 
 static SpaResult

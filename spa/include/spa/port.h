@@ -29,6 +29,13 @@ typedef struct _SpaAllocParam SpaAllocParam;
 #include <spa/defs.h>
 #include <spa/buffer.h>
 
+#define SPA_ALLOC_PARAM_URI             "http://spaplug.in/ns/alloc-param"
+#define SPA_ALLOC_PARAM_PREFIX          SPA_ALLOC_PARAM_URI "#"
+
+#define SPA_ALLOC_PARAM__Buffers        SPA_ALLOC_PARAM_PREFIX "Buffers"
+#define SPA_ALLOC_PARAM__MetaEnable     SPA_ALLOC_PARAM_PREFIX "MetaEnable"
+#define SPA_ALLOC_PARAM__VideoPadding   SPA_ALLOC_PARAM_PREFIX "VideoPadding"
+
 /**
  * SpaAllocParamType:
  * @SPA_ALLOC_PARAM_TYPE_INVALID: invalid type, should be ignored

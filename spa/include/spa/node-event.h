@@ -30,6 +30,22 @@ typedef struct _SpaNodeEvent SpaNodeEvent;
 #include <spa/poll.h>
 #include <spa/node.h>
 
+#define SPA_NODE_EVENT_URI             "http://spaplug.in/ns/node-event"
+#define SPA_NODE_EVENT_PREFIX          SPA_NODE_EVENT_URI "#"
+
+#define SPA_NODE_EVENT__AsyncComplete         SPA_NODE_EVENT_PREFIX "AsyncComplete"
+#define SPA_NODE_EVENT__HaveOutput            SPA_NODE_EVENT_PREFIX "HaveOutput"
+#define SPA_NODE_EVENT__NeedInput             SPA_NODE_EVENT_PREFIX "NeedInput"
+#define SPA_NODE_EVENT__ReuseBuffer           SPA_NODE_EVENT_PREFIX "ReuseBuffer"
+#define SPA_NODE_EVENT__AddPoll               SPA_NODE_EVENT_PREFIX "AddPoll"
+#define SPA_NODE_EVENT__UpdatePoll            SPA_NODE_EVENT_PREFIX "UpdatePoll"
+#define SPA_NODE_EVENT__RemovePoll            SPA_NODE_EVENT_PREFIX "RemovePoll"
+#define SPA_NODE_EVENT__Drained               SPA_NODE_EVENT_PREFIX "Drained"
+#define SPA_NODE_EVENT__Marker                SPA_NODE_EVENT_PREFIX "Marker"
+#define SPA_NODE_EVENT__Error                 SPA_NODE_EVENT_PREFIX "Error"
+#define SPA_NODE_EVENT__Buffering             SPA_NODE_EVENT_PREFIX "Buffering"
+#define SPA_NODE_EVENT__RequestClockUpdate    SPA_NODE_EVENT_PREFIX "RequestClockUpdate"
+
 /**
  * SpaEventType:
  * @SPA_NODE_EVENT_TYPE_INVALID: invalid event, should be ignored

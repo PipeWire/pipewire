@@ -26,6 +26,9 @@ extern "C" {
 
 typedef struct _SpaClock SpaClock;
 
+#define SPA_CLOCK_URI             "http://spaplug.in/ns/clock"
+#define SPA_CLOCK_PREFIX          SPA_CLOCK_URI "#"
+
 /**
  * SpaClockState:
  * @SPA_CLOCK_STATE_STOPPED: the clock is stopped
@@ -41,10 +44,6 @@ typedef enum {
 #include <spa/defs.h>
 #include <spa/plugin.h>
 #include <spa/props.h>
-
-#define SPA_INTERFACE_ID_CLOCK                   1
-#define SPA_INTERFACE_ID_CLOCK_NAME              "Clock interface"
-#define SPA_INTERFACE_ID_CLOCK_DESCRIPTION       "Clock interface"
 
 /**
  * SpaClock:

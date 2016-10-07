@@ -26,15 +26,13 @@ extern "C" {
 
 typedef struct _SpaLog SpaLog;
 
+#define SPA_LOG_URI             "http://spaplug.in/ns/log"
+#define SPA_LOG_PREFIX          SPA_LOG_URI "#"
+
 #include <stdarg.h>
 
 #include <spa/defs.h>
 #include <spa/plugin.h>
-
-#define SPA_SUPPORT_ID_LOG                     3
-#define SPA_INTERFACE_ID_LOG                   3
-#define SPA_INTERFACE_ID_LOG_NAME              "Log interface"
-#define SPA_INTERFACE_ID_LOG_DESCRIPTION       "Log interface"
 
 typedef enum
 {
@@ -114,7 +112,7 @@ struct _SpaLog {
 #if __STDC_VERSION__ >= 199901L
 
 #define spa_log_log(l,lev,...)          \
-  if ((l) && (l)->level > lev)          \
+  if ((l) && (l)->level >= lev)         \
     (l)->log((l),lev,__VA_ARGS__)
 
 #define spa_log_error(l,...)           spa_log_log(l,SPA_LOG_LEVEL_ERROR,__FILE__,__LINE__,__func__,__VA_ARGS__)
@@ -128,7 +126,7 @@ struct _SpaLog {
 #define SPA_LOG_FUNC(name,lev)                                                  \
 static inline void spa_log_##name (SpaLog *l, const char *format, ...)          \
 {                                                                               \
-  if ((l) && (l)->level > lev) {                                                \
+  if ((l) && (l)->level >= lev) {                                               \
     va_list varargs;                                                            \
     va_start (varargs, format);                                                 \
     (l)->logv((l),lev,__FILE__,__LINE__,__func__,format,varargs);               \

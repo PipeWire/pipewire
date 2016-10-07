@@ -26,6 +26,9 @@ extern "C" {
 
 typedef struct _SpaMonitor SpaMonitor;
 
+#define SPA_MONITOR_URI             "http://spaplug.in/ns/monitor"
+#define SPA_MONITOR_PREFIX          SPA_MONITOR_URI "#"
+
 #include <spa/defs.h>
 #include <spa/dict.h>
 #include <spa/plugin.h>
@@ -94,10 +97,6 @@ typedef struct {
 typedef void   (*SpaMonitorEventCallback)  (SpaMonitor      *monitor,
                                             SpaMonitorEvent *event,
                                             void            *user_data);
-
-#define SPA_INTERFACE_ID_MONITOR                   2
-#define SPA_INTERFACE_ID_MONITOR_NAME              "Monitor interface"
-#define SPA_INTERFACE_ID_MONITOR_DESCRIPTION       "Device Monitor interface"
 
 /**
  * SpaMonitor:

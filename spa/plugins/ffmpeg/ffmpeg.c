@@ -25,40 +25,38 @@
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 
-SpaResult spa_ffmpeg_dec_init (SpaHandle *handle);
-SpaResult spa_ffmpeg_enc_init (SpaHandle *handle);
+SpaResult spa_ffmpeg_dec_init (SpaHandle *handle, const SpaDict *info, const SpaSupport *support, unsigned int n_support);
+SpaResult spa_ffmpeg_enc_init (SpaHandle *handle, const SpaDict *info, const SpaSupport *support, unsigned int n_support);
 
 static SpaResult
 ffmpeg_dec_init (const SpaHandleFactory  *factory,
                  SpaHandle               *handle,
                  const SpaDict           *info,
-                 const SpaSupport       **support,
+                 const SpaSupport        *support,
                  unsigned int             n_support)
 {
   if (factory == NULL || handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  return spa_ffmpeg_dec_init (handle);
+  return spa_ffmpeg_dec_init (handle, info, support, n_support);
 }
 
 static SpaResult
 ffmpeg_enc_init (const SpaHandleFactory  *factory,
                  SpaHandle               *handle,
                  const SpaDict           *info,
-                 const SpaSupport       **support,
+                 const SpaSupport        *support,
                  unsigned int             n_support)
 {
   if (factory == NULL || handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  return spa_ffmpeg_enc_init (handle);
+  return spa_ffmpeg_enc_init (handle, info, support, n_support);
 }
 
 static const SpaInterfaceInfo ffmpeg_interfaces[] =
 {
-  { SPA_INTERFACE_ID_NODE,
-    SPA_INTERFACE_ID_NODE_NAME,
-    SPA_INTERFACE_ID_NODE_DESCRIPTION,
+  { SPA_NODE_URI,
   },
 };
 

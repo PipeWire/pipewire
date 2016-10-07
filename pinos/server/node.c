@@ -658,7 +658,9 @@ pinos_node_set_property (GObject      *_object,
     {
       void *iface;
       this->node = g_value_get_pointer (value);
-      if (this->node->handle->get_interface (this->node->handle, SPA_INTERFACE_ID_CLOCK, &iface) >= 0)
+      if (this->node->handle->get_interface (this->node->handle,
+                                             spa_id_map_get_id (priv->daemon->map, SPA_CLOCK_URI),
+                                             &iface) >= 0)
         this->clock = iface;
       break;
     }

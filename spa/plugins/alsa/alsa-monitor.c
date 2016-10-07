@@ -26,6 +26,8 @@
 
 #include <libudev.h>
 
+#include <spa/log.h>
+#include <spa/id-map.h>
 #include <spa/poll.h>
 #include <spa/monitor.h>
 #include <spa/debug.h>
@@ -41,9 +43,17 @@ typedef struct {
   SpaDictItem info_items[32];
 } ALSAItem;
 
+typedef struct {
+  uint32_t monitor;
+} URI;
+
 struct _SpaALSAMonitor {
   SpaHandle handle;
   SpaMonitor monitor;
+
+  URI uri;
+  SpaIDMap *map;
+  SpaLog *log;
 
   SpaMonitorEventCallback event_cb;
   void *user_data;
@@ -360,13 +370,11 @@ spa_alsa_monitor_get_interface (SpaHandle               *handle,
 
   this = (SpaALSAMonitor *) handle;
 
-  switch (interface_id) {
-    case SPA_INTERFACE_ID_MONITOR:
-      *interface = &this->monitor;
-      break;
-    default:
-      return SPA_RESULT_UNKNOWN_INTERFACE;
-  }
+  if (interface_id == this->uri.monitor)
+    *interface = &this->monitor;
+  else
+    return SPA_RESULT_UNKNOWN_INTERFACE;
+
   return SPA_RESULT_OK;
 }
 
@@ -380,10 +388,11 @@ static SpaResult
 alsa_monitor_init (const SpaHandleFactory  *factory,
                    SpaHandle               *handle,
                    const SpaDict           *info,
-                   const SpaSupport       **support,
+                   const SpaSupport        *support,
                    unsigned int             n_support)
 {
   SpaALSAMonitor *this;
+  unsigned int i;
 
   if (factory == NULL || handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -392,6 +401,19 @@ alsa_monitor_init (const SpaHandleFactory  *factory,
   handle->clear = alsa_monitor_clear,
 
   this = (SpaALSAMonitor *) handle;
+
+  for (i = 0; i < n_support; i++) {
+    if (strcmp (support[i].uri, SPA_ID_MAP_URI) == 0)
+      this->map = support[i].data;
+    else if (strcmp (support[i].uri, SPA_LOG_URI) == 0)
+      this->log = support[i].data;
+  }
+  if (this->map == NULL) {
+    spa_log_error (this->log, "an id-map is needed");
+    return SPA_RESULT_ERROR;
+  }
+  this->uri.monitor = spa_id_map_get_id (this->map, SPA_MONITOR_URI);
+
   this->monitor = alsamonitor;
   this->monitor.handle = handle;
 
@@ -400,10 +422,7 @@ alsa_monitor_init (const SpaHandleFactory  *factory,
 
 static const SpaInterfaceInfo alsa_monitor_interfaces[] =
 {
-  { SPA_INTERFACE_ID_MONITOR,
-    SPA_INTERFACE_ID_MONITOR_NAME,
-    SPA_INTERFACE_ID_MONITOR_DESCRIPTION,
-  },
+  { SPA_MONITOR_URI, },
 };
 
 static SpaResult

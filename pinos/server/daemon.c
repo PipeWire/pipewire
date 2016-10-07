@@ -18,6 +18,7 @@
  */
 
 #include <string.h>
+#include <stdio.h>
 
 #include <gio/gio.h>
 #include <gio/gunixfdlist.h>
@@ -55,6 +56,9 @@ struct _PinosDaemonPrivate
   PinosProperties *properties;
 
   GHashTable *node_factories;
+
+  SpaSupport support[2];
+  SpaLog log;
 };
 
 enum
@@ -64,6 +68,7 @@ enum
   PROP_PROPERTIES,
   PROP_OBJECT_PATH,
 };
+
 
 static void
 handle_client_appeared (PinosClient *client, gpointer user_data)
@@ -826,6 +831,43 @@ pinos_daemon_class_init (PinosDaemonClass * klass)
 }
 
 static void
+do_logv (SpaLog        *log,
+         SpaLogLevel    level,
+         const char    *file,
+         int            line,
+         const char    *func,
+         const char    *fmt,
+         va_list        args)
+
+{
+  char text[16*1024], location[128];
+  static const char *levels[] = {
+    "NONE",
+    "ERROR",
+    "WARN",
+    "INFO",
+    "TRACE",
+  };
+  vsnprintf (text, sizeof(text), fmt, args);
+  snprintf (location, sizeof(location), "%s:%i %s()", file, line, func);
+  fprintf(stderr, "[%s][%s] %s", levels[level], location, text);
+}
+
+static void
+do_log (SpaLog        *log,
+        SpaLogLevel    level,
+        const char    *file,
+        int            line,
+        const char    *func,
+        const char    *fmt, ...)
+{
+  va_list args;
+  va_start (args, fmt);
+  do_logv (log, level, file, line, func, fmt, args);
+  va_end (args);
+}
+
+static void
 pinos_daemon_init (PinosDaemon * daemon)
 {
   PinosDaemonPrivate *priv = daemon->priv = PINOS_DAEMON_GET_PRIVATE (daemon);
@@ -842,6 +884,23 @@ pinos_daemon_init (PinosDaemon * daemon)
                                                 g_free,
                                                 g_object_unref);
   priv->loop = pinos_rtloop_new();
+
+  priv->log.handle = NULL;
+  priv->log.size = sizeof (SpaLog);
+  priv->log.info = NULL;
+  priv->log.level = SPA_LOG_LEVEL_INFO;
+  priv->log.log = do_log;
+  priv->log.logv = do_logv;
+
+  daemon->map = spa_id_map_get_default();
+  daemon->log = &priv->log;
+
+  priv->support[0].uri = SPA_ID_MAP_URI;
+  priv->support[0].data = daemon->map;
+  priv->support[1].uri = SPA_LOG_URI;
+  priv->support[1].data = daemon->log;
+  daemon->support = priv->support;
+  daemon->n_support = 2;
 }
 
 /**

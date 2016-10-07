@@ -26,6 +26,9 @@ extern "C" {
 
 typedef struct _SpaQueue SpaQueue;
 
+#define SPA_QUEUE_URI             "http://spaplug.in/ns/queue"
+#define SPA_QUEUE_PREFIX          SPA_QUEUE_URI "#"
+
 #include <spa/defs.h>
 
 struct _SpaQueue {

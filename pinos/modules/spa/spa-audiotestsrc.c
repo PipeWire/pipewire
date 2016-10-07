@@ -40,7 +40,7 @@ enum {
 G_DEFINE_TYPE (PinosSpaAudioTestSrc, pinos_spa_audiotestsrc, PINOS_TYPE_NODE);
 
 static SpaResult
-make_node (SpaNode **node, const char *lib, const char *name)
+make_node (PinosDaemon *daemon, SpaNode **node, const char *lib, const char *name)
 {
   SpaHandle *handle;
   SpaResult res;
@@ -69,11 +69,17 @@ make_node (SpaNode **node, const char *lib, const char *name)
       continue;
 
     handle = calloc (1, factory->size);
-    if ((res = spa_handle_factory_init (factory, handle, NULL, NULL, 0)) < 0) {
+    if ((res = spa_handle_factory_init (factory,
+                                        handle,
+                                        NULL,
+                                        daemon->support,
+                                        daemon->n_support)) < 0) {
       g_error ("can't make factory instance: %d", res);
       return res;
     }
-    if ((res = spa_handle_get_interface (handle, SPA_INTERFACE_ID_NODE, &iface)) < 0) {
+    if ((res = spa_handle_get_interface (handle,
+                                         spa_id_map_get_id (daemon->map, SPA_NODE_URI),
+                                         &iface)) < 0) {
       g_error ("can't get interface %d", res);
       return res;
     }
@@ -177,7 +183,8 @@ pinos_spa_audiotestsrc_new (PinosDaemon *daemon,
   SpaNode *n;
   SpaResult res;
 
-  if ((res = make_node (&n,
+  if ((res = make_node (daemon,
+                        &n,
                         "build/spa/plugins/audiotestsrc/libspa-audiotestsrc.so",
                         "audiotestsrc")) < 0) {
     g_error ("can't create audiotestsrc: %d", res);

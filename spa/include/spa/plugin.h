@@ -65,30 +65,26 @@ struct _SpaHandle {
 
 /**
  * SpaInterfaceInfo:
- * @interface_id: the id of the interface, can be used to get the interface
- * @name: name of the interface
- * @description: Human readable description of the interface.
+ * @uri: the uri of the interface, can be used to get the interface
  *
  * This structure lists the information about available interfaces on
  * handles.
  */
 typedef struct {
-  uint32_t    interface_id;
-  const char *name;
-  const char *description;
+  const char *uri;
 } SpaInterfaceInfo;
 
 /**
  * SpaSupport:
- * @support_id: the id of the support item
+ * @uri: the uri of the support item
  * @data: specific data for the item
  *
  * Extra supporting infrastructure passed to the init() function of
  * a factory. It can be extra information or interfaces such as logging.
  */
 typedef struct {
-  uint32_t  support_id;
-  void     *data;
+  const char  *uri;
+  void        *data;
 } SpaSupport;
 
 struct _SpaHandleFactory {
@@ -133,7 +129,7 @@ struct _SpaHandleFactory {
   SpaResult   (*init)                 (const SpaHandleFactory  *factory,
                                        SpaHandle               *handle,
                                        const SpaDict           *info,
-                                       const SpaSupport       **support,
+                                       const SpaSupport        *support,
                                        unsigned int             n_support);
 
   /**

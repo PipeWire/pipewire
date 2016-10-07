@@ -26,6 +26,9 @@ extern "C" {
 
 typedef struct _SpaNode SpaNode;
 
+#define SPA_NODE_URI                            "http://spaplug.in/ns/node"
+#define SPA_NODE_PREFIX                         SPA_NODE_URI "#"
+
 /**
  * SpaNodeState:
  * @SPA_NODE_STATE_INIT: the node is initializing
@@ -138,10 +141,6 @@ typedef struct {
 typedef void   (*SpaNodeEventCallback)   (SpaNode      *node,
                                           SpaNodeEvent *event,
                                           void         *user_data);
-
-#define SPA_INTERFACE_ID_NODE                   0
-#define SPA_INTERFACE_ID_NODE_NAME              "Node interface"
-#define SPA_INTERFACE_ID_NODE_DESCRIPTION       "Main processing node interface"
 
 /**
  * SpaNode:

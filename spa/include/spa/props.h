@@ -26,6 +26,9 @@ extern "C" {
 
 typedef struct _SpaProps SpaProps;
 
+#define SPA_PROPS_URI             "http://spaplug.in/ns/props"
+#define SPA_PROPS_PREFIX          SPA_PROPS_URI "#"
+
 #include <string.h>
 #include <spa/defs.h>
 

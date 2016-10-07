@@ -22,6 +22,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#include <spa/id-map.h>
+#include <spa/log.h>
 #include <spa/node.h>
 #include <spa/video/format.h>
 
@@ -58,9 +60,17 @@ typedef struct {
   SpaPortStatus status;
 } SpaFFMpegPort;
 
+typedef struct {
+  uint32_t node;
+} URI;
+
 struct _SpaFFMpegDec {
   SpaHandle handle;
   SpaNode   node;
+
+  URI uri;
+  SpaIDMap *map;
+  SpaLog *log;
 
   SpaFFMpegDecProps props[2];
 
@@ -537,24 +547,39 @@ spa_ffmpeg_dec_get_interface (SpaHandle         *handle,
 
   this = (SpaFFMpegDec *) handle;
 
-  switch (interface_id) {
-    case SPA_INTERFACE_ID_NODE:
-      *interface = &this->node;
-      break;
-    default:
-      return SPA_RESULT_UNKNOWN_INTERFACE;
-  }
+  if (interface_id == this->uri.node)
+    *interface = &this->node;
+  else
+    return SPA_RESULT_UNKNOWN_INTERFACE;
+
   return SPA_RESULT_OK;
 }
 
 SpaResult
-spa_ffmpeg_dec_init (SpaHandle *handle)
+spa_ffmpeg_dec_init (SpaHandle         *handle,
+                     const SpaDict     *info,
+                     const SpaSupport  *support,
+                     unsigned int       n_support)
 {
   SpaFFMpegDec *this;
+  unsigned int i;
 
   handle->get_interface = spa_ffmpeg_dec_get_interface;
 
   this = (SpaFFMpegDec *) handle;
+
+  for (i = 0; i < n_support; i++) {
+    if (strcmp (support[i].uri, SPA_ID_MAP_URI) == 0)
+      this->map = support[i].data;
+    else if (strcmp (support[i].uri, SPA_LOG_URI) == 0)
+      this->log = support[i].data;
+  }
+  if (this->map == NULL) {
+    spa_log_error (this->log, "an id-map is needed");
+    return SPA_RESULT_ERROR;
+  }
+  this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
+
   this->node = ffmpeg_dec_node;
   this->node.handle = handle;
   this->props[1].props.n_prop_info = PROP_ID_LAST;

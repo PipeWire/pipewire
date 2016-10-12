@@ -50,9 +50,9 @@ typedef enum {
 } SpaNodeCommandType;
 
 struct _SpaNodeCommand {
-  SpaNodeCommandType type;
-  void              *data;
-  size_t             size;
+  SpaNodeCommandType  type;
+  void               *data;
+  size_t              size;
 };
 
 /**

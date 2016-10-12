@@ -132,13 +132,17 @@ SpaPortInfo *   spa_port_info_copy_into   (void *dest, const SpaPortInfo *info);
 /**
  * SpaPortStatusFlags:
  * @SPA_PORT_STATUS_FLAG_NONE: no status flags
+ * @SPA_PORT_STATUS_FLAG_HAVE_FORMAT: port has a format
+ * @SPA_PORT_STATUS_FLAG_HAVE_BUFFERS: port has buffers
  * @SPA_PORT_STATUS_FLAG_HAVE_OUTPUT: port has output
  * @SPA_PORT_STATUS_FLAG_NEED_INPUT: port needs input
  */
 typedef enum {
   SPA_PORT_STATUS_FLAG_NONE                  = 0,
-  SPA_PORT_STATUS_FLAG_HAVE_OUTPUT           = 1 << 0,
-  SPA_PORT_STATUS_FLAG_NEED_INPUT            = 1 << 1,
+  SPA_PORT_STATUS_FLAG_HAVE_FORMAT           = 1 << 0,
+  SPA_PORT_STATUS_FLAG_HAVE_BUFFERS          = 1 << 1,
+  SPA_PORT_STATUS_FLAG_HAVE_OUTPUT           = 1 << 2,
+  SPA_PORT_STATUS_FLAG_NEED_INPUT            = 1 << 3,
 } SpaPortStatusFlags;
 
 /**

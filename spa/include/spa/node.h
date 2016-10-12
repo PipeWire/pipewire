@@ -532,9 +532,9 @@ struct _SpaNode {
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_INVALID_ARGUMENTS when node is %NULL
    */
-  SpaResult   (*port_reuse_buffer)    (SpaNode              *node,
-                                       uint32_t              port_id,
-                                       uint32_t              buffer_id);
+  SpaResult   (*port_reuse_buffer)    (SpaNode          *node,
+                                       uint32_t          port_id,
+                                       uint32_t          buffer_id);
 
   SpaResult   (*port_push_event)      (SpaNode          *node,
                                        SpaDirection      direction,

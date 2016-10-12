@@ -6,7 +6,6 @@ spalib_sources = ['audio-raw.c',
                   'mapper.c',
                   'port.c',
                   'props.c',
-                  'ringbuffer.c',
                   'video-raw.c']
 
 spalib = shared_library('spa-lib',

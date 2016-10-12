@@ -50,20 +50,190 @@ struct _SpaRingbuffer {
   size_t              size_mask;
 };
 
-SpaResult   spa_ringbuffer_init              (SpaRingbuffer *rbuf,
-                                              size_t size);
+/**
+ * spa_ringbuffer_init:
+ * @rbuf: a #SpaRingbuffer
+ * @data: pointer to an array
+ * @size: the number of elements in @data
+ *
+ * Initialize a #SpaRingbuffer with @data and @size.
+ * When size is a power of 2, size_mask will be set with the mask to
+ * efficiently wrap around the indexes.
+ */
+static inline void
+spa_ringbuffer_init (SpaRingbuffer *rbuf,
+                     size_t size)
+{
+  rbuf->size = size;
+  rbuf->readindex = 0;
+  rbuf->writeindex = 0;
+  if ((size & (size - 1)) == 0)
+    rbuf->size_mask = size - 1;
+  else
+    rbuf->size_mask = 0;
+}
 
-SpaResult   spa_ringbuffer_clear             (SpaRingbuffer *rbuf);
+/**
+ * spa_ringbuffer_clear:
+ * @rbuf: a #SpaRingbuffer
+ *
+ * Clear @rbuf
+ */
+static inline void
+spa_ringbuffer_clear (SpaRingbuffer *rbuf)
+{
+  rbuf->readindex = 0;
+  rbuf->writeindex = 0;
+}
 
-SpaResult   spa_ringbuffer_get_read_areas    (SpaRingbuffer      *rbuf,
-                                              SpaRingbufferArea   areas[2]);
-SpaResult   spa_ringbuffer_read_advance      (SpaRingbuffer      *rbuf,
-                                              ssize_t             len);
+/**
+ * spa_ringbuffer_get_read_areas:
+ * @rbuf: a #SpaRingbuffer
+ * @areas: an array of #SpaRingbufferArea
+ *
+ * Fill @areas with pointers to read from. The total amount of
+ * bytes that can be read can be obtained by summing the areas len fields.
+ */
+static inline void
+spa_ringbuffer_get_read_areas (SpaRingbuffer      *rbuf,
+                               SpaRingbufferArea   areas[2])
+{
+  size_t avail, end, w, r;
 
-SpaResult   spa_ringbuffer_get_write_areas   (SpaRingbuffer      *rbuf,
-                                              SpaRingbufferArea   areas[2]);
-SpaResult   spa_ringbuffer_write_advance     (SpaRingbuffer      *rbuf,
-                                              ssize_t             len);
+  w = rbuf->writeindex;
+  r = rbuf->readindex;
+
+  if (w > r) {
+    avail = w - r;
+  } else {
+    avail = (w - r + rbuf->size);
+    avail = (rbuf->size_mask ? avail & rbuf->size_mask : avail % rbuf->size);
+  }
+  end = r + avail;
+
+  areas[0].offset = r;
+  areas[1].offset = 0;
+
+  if (end > rbuf->size) {
+    areas[0].len = rbuf->size - r;
+    areas[1].len = end - rbuf->size;
+  } else {
+    areas[0].len = avail;
+    areas[1].len = 0;
+  }
+}
+
+static inline size_t
+spa_ringbuffer_get_read_offset (SpaRingbuffer *rbuf,
+                                size_t        *offset)
+{
+  size_t avail, w, r;
+
+  w = rbuf->writeindex;
+  r = rbuf->readindex;
+
+  if (w > r) {
+    avail = w - r;
+  } else {
+    avail = (w - r + rbuf->size);
+    avail = (rbuf->size_mask ? avail & rbuf->size_mask : avail % rbuf->size);
+  }
+  *offset = r;
+  return avail;
+}
+
+/**
+ * spa_ringbuffer_read_advance:
+ * @rbuf: a #SpaRingbuffer
+ * @len: number of bytes to advance
+ *
+ * Advance the read pointer by @len
+ */
+static inline void
+spa_ringbuffer_read_advance (SpaRingbuffer      *rbuf,
+                             ssize_t             len)
+{
+  size_t tmp = rbuf->readindex + len;
+  rbuf->readindex = (rbuf->size_mask ? tmp & rbuf->size_mask : tmp % rbuf->size);
+}
+
+/**
+ * spa_ringbuffer_get_write_areas:
+ * @rbuf: a #SpaRingbuffer
+ * @areas: an array of #SpaRingbufferArea
+ *
+ * Fill @areas with pointers to write to. The total amount of
+ * bytes that can be written can be obtained by summing the areas len fields.
+ */
+static inline void
+spa_ringbuffer_get_write_areas (SpaRingbuffer      *rbuf,
+                                SpaRingbufferArea   areas[2])
+{
+  size_t avail, end, w, r;
+
+  w = rbuf->writeindex;
+  r = rbuf->readindex;
+
+  if (w > r) {
+    avail = (r - w + rbuf->size);
+    avail = (rbuf->size_mask ? avail & rbuf->size_mask : avail % rbuf->size);
+  } else if (w < r) {
+    avail = r - w;
+  } else {
+    avail = rbuf->size;
+  }
+  avail -= 1;
+  end = w + avail;
+
+  areas[0].offset = w;
+  areas[1].offset = 0;
+
+  if (end > rbuf->size) {
+    areas[0].len = rbuf->size - w;
+    areas[1].len = end - rbuf->size;
+  } else {
+    areas[0].len = avail;
+    areas[1].len = 0;
+  }
+}
+
+static inline size_t
+spa_ringbuffer_get_write_offset (SpaRingbuffer *rbuf,
+                                 size_t        *offset)
+{
+  size_t avail, w, r;
+
+  w = rbuf->writeindex;
+  r = rbuf->readindex;
+
+  if (w > r) {
+    avail = (r - w + rbuf->size);
+    avail = (rbuf->size_mask ? avail & rbuf->size_mask : avail % rbuf->size);
+  } else if (w < r) {
+    avail = r - w;
+  } else {
+    avail = rbuf->size;
+  }
+  avail -= 1;
+  *offset = w;
+  return avail;
+}
+
+/**
+ * spa_ringbuffer_write_advance:
+ * @rbuf: a #SpaRingbuffer
+ * @len: number of bytes to advance
+ *
+ * Advance the write pointer by @len
+ *
+ */
+static inline void
+spa_ringbuffer_write_advance (SpaRingbuffer      *rbuf,
+                              ssize_t             len)
+{
+  size_t tmp = rbuf->writeindex + len;
+  rbuf->writeindex = (rbuf->size_mask ? tmp & rbuf->size_mask : tmp % rbuf->size);
+}
 
 #ifdef __cplusplus
 }  /* extern "C" */

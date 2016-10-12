@@ -78,13 +78,16 @@ inspect_node (SpaNode *node)
   else
     spa_debug_props (props, true);
 
-  if ((res = spa_node_get_n_ports (node, &n_input, &max_input, &n_output, &max_output)) < 0)
+  if ((res = spa_node_get_n_ports (node, &n_input, &max_input, &n_output, &max_output)) < 0) {
     printf ("can't get n_ports: %d\n", res);
-  else
-    printf ("supported ports %d %d %d %d\n", n_input, max_input, n_output, max_output);
+    return;
+  }
+  printf ("supported ports:\n");
+  printf ("input ports:  %d/%d\n", n_input, max_input);
+  printf ("output ports: %d/%d\n", n_output, max_output);
 
   in_ports = alloca (n_input * sizeof (uint32_t));
-  out_ports = alloca (n_input * sizeof (uint32_t));
+  out_ports = alloca (n_output * sizeof (uint32_t));
 
   if ((res = spa_node_get_port_ids (node, n_input, in_ports, n_output, out_ports)) < 0)
     printf ("can't get port ids: %d\n", res);
@@ -93,6 +96,7 @@ inspect_node (SpaNode *node)
     printf (" input port: %08x\n", in_ports[i]);
     inspect_port (node, SPA_DIRECTION_INPUT, in_ports[i]);
   }
+
   for (i = 0; i < n_output; i++) {
     printf (" output port: %08x\n", out_ports[i]);
     inspect_port (node, SPA_DIRECTION_OUTPUT, out_ports[i]);

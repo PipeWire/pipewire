@@ -31,7 +31,6 @@
 #include <pinos/client/ringbuffer.h>
 
 #include <spa/include/spa/ringbuffer.h>
-#include <spa/lib/ringbuffer.c>
 
 #define PINOS_RINGBUFFER_GET_PRIVATE(rb)  \
    (G_TYPE_INSTANCE_GET_PRIVATE ((rb), PINOS_TYPE_RINGBUFFER, PinosRingbufferPrivate))

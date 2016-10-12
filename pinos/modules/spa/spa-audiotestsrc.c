@@ -31,6 +31,8 @@
 struct _PinosSpaAudioTestSrcPrivate
 {
   PinosRingbuffer *ringbuffer;
+
+  SpaHandle *handle;
 };
 
 enum {
@@ -40,9 +42,8 @@ enum {
 G_DEFINE_TYPE (PinosSpaAudioTestSrc, pinos_spa_audiotestsrc, PINOS_TYPE_NODE);
 
 static SpaResult
-make_node (PinosDaemon *daemon, SpaNode **node, const char *lib, const char *name)
+make_node (PinosDaemon *daemon, SpaHandle **handle, SpaNode **node, const char *lib, const char *name)
 {
-  SpaHandle *handle;
   SpaResult res;
   void *hnd, *state = NULL;
   SpaEnumHandleFactoryFunc enum_func;
@@ -68,16 +69,16 @@ make_node (PinosDaemon *daemon, SpaNode **node, const char *lib, const char *nam
     if (strcmp (factory->name, name))
       continue;
 
-    handle = calloc (1, factory->size);
+    *handle = calloc (1, factory->size);
     if ((res = spa_handle_factory_init (factory,
-                                        handle,
+                                        *handle,
                                         NULL,
                                         daemon->support,
                                         daemon->n_support)) < 0) {
       g_error ("can't make factory instance: %d", res);
       return res;
     }
-    if ((res = spa_handle_get_interface (handle,
+    if ((res = spa_handle_get_interface (*handle,
                                          spa_id_map_get_id (daemon->map, SPA_NODE_URI),
                                          &iface)) < 0) {
       g_error ("can't get interface %d", res);
@@ -145,12 +146,12 @@ src_constructed (GObject * object)
 static void
 src_finalize (GObject * object)
 {
-  PinosNode *node = PINOS_NODE (object);
   PinosSpaAudioTestSrc *src = PINOS_SPA_AUDIOTESTSRC (object);
+  PinosSpaAudioTestSrcPrivate *priv = src->priv;
 
   g_debug ("audiotestsrc %p: dispose", src);
-  spa_handle_clear (node->node->handle);
-  g_free (node->node->handle);
+  spa_handle_clear (priv->handle);
+  g_free (priv->handle);
 
   G_OBJECT_CLASS (pinos_spa_audiotestsrc_parent_class)->finalize (object);
 }
@@ -182,8 +183,10 @@ pinos_spa_audiotestsrc_new (PinosDaemon *daemon,
   PinosNode *node;
   SpaNode *n;
   SpaResult res;
+  SpaHandle *handle;
 
   if ((res = make_node (daemon,
+                        &handle,
                         &n,
                         "build/spa/plugins/audiotestsrc/libspa-audiotestsrc.so",
                         "audiotestsrc")) < 0) {
@@ -197,6 +200,8 @@ pinos_spa_audiotestsrc_new (PinosDaemon *daemon,
                        "properties", properties,
                        "node", n,
                        NULL);
+
+  PINOS_SPA_AUDIOTESTSRC (node)->priv->handle = handle;
 
   return node;
 }

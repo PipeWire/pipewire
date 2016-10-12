@@ -116,6 +116,46 @@ typedef void (*SpaNotify) (void *data);
 # define SPA_PRINTF_FUNC(fmt, arg1)
 #endif
 
+#ifndef SPA_LIKELY
+#ifdef __GNUC__
+#define SPA_LIKELY(x) (__builtin_expect(!!(x),1))
+#define SPA_UNLIKELY(x) (__builtin_expect(!!(x),0))
+#else
+#define SPA_LIKELY(x) (x)
+#define SPA_UNLIKELY(x) (x)
+#endif
+#endif
+
+
+#define spa_return_if_fail (log, expr)                                  \
+    do {                                                                \
+        if (SPA_UNLIKELY (!(expr))) {                                   \
+            spa_log_debug(log, "Assertion '%s' failed\n", #expr);	\
+            return;                                                     \
+        }                                                               \
+    } while(false)
+
+#define spa_return_val_if_fail (log, expr, val)                         \
+    do {                                                                \
+        if (SPA_UNLIKELY(!(expr))) {                                    \
+            spa_log_debug (log, "Assertion '%s' failed\n", #expr);      \
+            return (val);                                               \
+        }                                                               \
+    } while(false)
+
+/* spa_assert_se() is an assert which guarantees side effects of x,
+ * i.e. is never optimized away, regardless of NDEBUG or FASTPATH. */
+#define spa_assert_se (expr)                                            \
+    do {                                                                \
+        if (SPA_UNLIKELY(!(expr))) {                                    \
+            spa_log_error("Assertion '%s' failed, Aborting\n.", #expr); \
+            abort();                                                    \
+        }                                                               \
+    } while (false)
+
+/* Does exactly nothing */
+#define spa_nop() do {} while (false)
+
 
 #ifdef __cplusplus
 }  /* extern "C" */

@@ -122,10 +122,10 @@ spa_volume_node_get_props (SpaNode        *node,
 {
   SpaVolume *this;
 
-  if (node == NULL || node->handle == NULL || props == NULL)
+  if (node == NULL || props == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaVolume *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaVolume, node);
 
   memcpy (&this->props[0], &this->props[1], sizeof (this->props[1]));
   *props = &this->props[0].props;
@@ -141,10 +141,10 @@ spa_volume_node_set_props (SpaNode          *node,
   SpaVolumeProps *p;
   SpaResult res;
 
-  if (node == NULL || node->handle == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaVolume *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaVolume, node);
   p = &this->props[1];
 
   if (props == NULL) {
@@ -162,10 +162,10 @@ spa_volume_node_send_command (SpaNode        *node,
 {
   SpaVolume *this;
 
-  if (node == NULL || node->handle == NULL || command == NULL)
+  if (node == NULL || command == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaVolume *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaVolume, node);
 
   switch (command->type) {
     case SPA_NODE_COMMAND_INVALID:
@@ -195,10 +195,10 @@ spa_volume_node_set_event_callback (SpaNode              *node,
 {
   SpaVolume *this;
 
-  if (node == NULL || node->handle == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaVolume *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaVolume, node);
 
   this->event_cb = event;
   this->user_data = user_data;
@@ -213,7 +213,7 @@ spa_volume_node_get_n_ports (SpaNode       *node,
                              unsigned int  *n_output_ports,
                              unsigned int  *max_output_ports)
 {
-  if (node == NULL || node->handle == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   if (n_input_ports)
@@ -235,7 +235,7 @@ spa_volume_node_get_port_ids (SpaNode       *node,
                               unsigned int   n_output_ports,
                               uint32_t      *output_ids)
 {
-  if (node == NULL || node->handle == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   if (n_input_ports > 0 && input_ids)
@@ -274,10 +274,10 @@ spa_volume_node_port_enum_formats (SpaNode          *node,
   SpaVolume *this;
   int index;
 
-  if (node == NULL || node->handle == NULL || format == NULL || state == NULL)
+  if (node == NULL || format == NULL || state == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaVolume *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaVolume, node);
 
   if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -310,10 +310,10 @@ spa_volume_node_port_set_format (SpaNode            *node,
   SpaVolumePort *port;
   SpaResult res;
 
-  if (node == NULL || node->handle == NULL || format == NULL)
+  if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaVolume *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaVolume, node);
 
   if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -342,10 +342,10 @@ spa_volume_node_port_get_format (SpaNode          *node,
   SpaVolume *this;
   SpaVolumePort *port;
 
-  if (node == NULL || node->handle == NULL || format == NULL)
+  if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaVolume *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaVolume, node);
 
   if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -369,10 +369,10 @@ spa_volume_node_port_get_info (SpaNode            *node,
   SpaVolume *this;
   SpaVolumePort *port;
 
-  if (node == NULL || node->handle == NULL || info == NULL)
+  if (node == NULL || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaVolume *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaVolume, node);
 
   if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -432,10 +432,10 @@ spa_volume_node_port_get_status (SpaNode              *node,
   SpaVolume *this;
   SpaVolumePort *port;
 
-  if (node == NULL || node->handle == NULL || status == NULL)
+  if (node == NULL || status == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaVolume *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaVolume, node);
 
   if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -461,10 +461,10 @@ spa_volume_node_port_push_input (SpaNode          *node,
   bool have_error = false;
   bool have_enough = false;
 
-  if (node == NULL || node->handle == NULL || n_info == 0 || info == NULL)
+  if (node == NULL || n_info == 0 || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaVolume *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaVolume, node);
 
   for (i = 0; i < n_info; i++) {
     SpaVolumePort *port;
@@ -545,10 +545,10 @@ spa_volume_node_port_pull_output (SpaNode           *node,
   uint16_t *src, *dst;
   double volume;
 
-  if (node == NULL || node->handle == NULL || n_info == 0 || info == NULL)
+  if (node == NULL || n_info == 0 || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaVolume *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaVolume, node);
 
   if (info[0].port_id != 0)
     return SPA_RESULT_INVALID_PORT;
@@ -627,7 +627,6 @@ spa_volume_node_port_push_event (SpaNode      *node,
 }
 
 static const SpaNode volume_node = {
-  NULL,
   sizeof (SpaNode),
   NULL,
   SPA_NODE_STATE_INIT,
@@ -711,7 +710,6 @@ volume_init (const SpaHandleFactory  *factory,
   this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
 
   this->node = volume_node;
-  this->node.handle = handle;
   this->props[1].props.n_prop_info = PROP_ID_LAST;
   this->props[1].props.prop_info = prop_info;
   reset_volume_props (&this->props[1]);

@@ -96,10 +96,10 @@ spa_ffmpeg_dec_node_get_props (SpaNode       *node,
 {
   SpaFFMpegDec *this;
 
-  if (node == NULL || node->handle == NULL || props == NULL)
+  if (node == NULL || props == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaFFMpegDec *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaFFMpegDec, node);
 
   memcpy (&this->props[0], &this->props[1], sizeof (this->props[1]));
   *props = &this->props[0].props;
@@ -115,10 +115,10 @@ spa_ffmpeg_dec_node_set_props (SpaNode         *node,
   SpaFFMpegDecProps *p;
   SpaResult res;
 
-  if (node == NULL || node->handle == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaFFMpegDec *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaFFMpegDec, node);
   p = &this->props[1];
 
   if (props == NULL) {
@@ -143,10 +143,10 @@ spa_ffmpeg_dec_node_send_command (SpaNode        *node,
 {
   SpaFFMpegDec *this;
 
-  if (node == NULL || node->handle == NULL || command == NULL)
+  if (node == NULL || command == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaFFMpegDec *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaFFMpegDec, node);
 
   switch (command->type) {
     case SPA_NODE_COMMAND_INVALID:
@@ -176,10 +176,10 @@ spa_ffmpeg_dec_node_set_event_callback (SpaNode              *node,
 {
   SpaFFMpegDec *this;
 
-  if (node == NULL || node->handle == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaFFMpegDec *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaFFMpegDec, node);
 
   this->event_cb = event;
   this->user_data = user_data;
@@ -194,7 +194,7 @@ spa_ffmpeg_dec_node_get_n_ports (SpaNode       *node,
                                  unsigned int  *n_output_ports,
                                  unsigned int  *max_output_ports)
 {
-  if (node == NULL || node->handle == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   if (n_input_ports)
@@ -216,7 +216,7 @@ spa_ffmpeg_dec_node_get_port_ids (SpaNode       *node,
                                   unsigned int   n_output_ports,
                                   uint32_t      *output_ids)
 {
-  if (node == NULL || node->handle == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   if (n_input_ports > 0 && input_ids != NULL)
@@ -256,10 +256,10 @@ spa_ffmpeg_dec_node_port_enum_formats (SpaNode         *node,
   SpaFFMpegPort *port;
   int index;
 
-  if (node == NULL || node->handle == NULL || format == NULL || state == NULL)
+  if (node == NULL || format == NULL || state == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaFFMpegDec *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaFFMpegDec, node);
 
   if (!IS_VALID_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -294,10 +294,10 @@ spa_ffmpeg_dec_node_port_set_format (SpaNode            *node,
   SpaFFMpegPort *port;
   SpaResult res;
 
-  if (node == NULL || node->handle == NULL || format == NULL)
+  if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaFFMpegDec *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaFFMpegDec, node);
 
   if (!IS_VALID_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -329,10 +329,10 @@ spa_ffmpeg_dec_node_port_get_format (SpaNode          *node,
   SpaFFMpegDec *this;
   SpaFFMpegPort *port;
 
-  if (node == NULL || node->handle == NULL || format == NULL)
+  if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaFFMpegDec *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaFFMpegDec, node);
 
   if (!IS_VALID_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -356,10 +356,10 @@ spa_ffmpeg_dec_node_port_get_info (SpaNode            *node,
   SpaFFMpegDec *this;
   SpaFFMpegPort *port;
 
-  if (node == NULL || node->handle == NULL || info == NULL)
+  if (node == NULL || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaFFMpegDec *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaFFMpegDec, node);
 
   if (!IS_VALID_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -395,7 +395,7 @@ spa_ffmpeg_dec_node_port_use_buffers (SpaNode         *node,
                                       SpaBuffer      **buffers,
                                       uint32_t         n_buffers)
 {
-  if (node == NULL || node->handle == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   if (!IS_VALID_PORT (node, direction, port_id))
@@ -425,10 +425,10 @@ spa_ffmpeg_dec_node_port_get_status (SpaNode              *node,
   SpaFFMpegDec *this;
   SpaFFMpegPort *port;
 
-  if (node == NULL || node->handle == NULL || status == NULL)
+  if (node == NULL || status == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaFFMpegDec *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaFFMpegDec, node);
 
   if (!IS_VALID_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -457,10 +457,10 @@ spa_ffmpeg_dec_node_port_pull_output (SpaNode           *node,
   unsigned int i;
   bool have_error = false;
 
-  if (node == NULL || node->handle == NULL || n_info == 0 || info == NULL)
+  if (node == NULL || n_info == 0 || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaFFMpegDec *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaFFMpegDec, node);
 
   for (i = 0; i < n_info; i++) {
     if (info[i].port_id != 0) {
@@ -488,7 +488,7 @@ spa_ffmpeg_dec_node_port_reuse_buffer (SpaNode         *node,
                                        uint32_t         port_id,
                                        uint32_t         buffer_id)
 {
-  if (node == NULL || node->handle == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   if (port_id != 0)
@@ -508,7 +508,6 @@ spa_ffmpeg_dec_node_port_push_event (SpaNode      *node,
 
 
 static const SpaNode ffmpeg_dec_node = {
-  NULL,
   sizeof (SpaNode),
   NULL,
   SPA_NODE_STATE_INIT,
@@ -581,7 +580,6 @@ spa_ffmpeg_dec_init (SpaHandle         *handle,
   this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
 
   this->node = ffmpeg_dec_node;
-  this->node.handle = handle;
   this->props[1].props.n_prop_info = PROP_ID_LAST;
   this->props[1].props.prop_info = prop_info;
   reset_ffmpeg_dec_props (&this->props[1]);

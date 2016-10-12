@@ -112,10 +112,10 @@ spa_audiomixer_node_get_props (SpaNode       *node,
 {
   SpaAudioMixer *this;
 
-  if (node == NULL || node->handle == NULL || props == NULL)
+  if (node == NULL || props == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaAudioMixer *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
 
   memcpy (&this->props[0], &this->props[1], sizeof (this->props[1]));
   *props = &this->props[0].props;
@@ -131,10 +131,10 @@ spa_audiomixer_node_set_props (SpaNode         *node,
   SpaAudioMixerProps *p;
   SpaResult res;
 
-  if (node == NULL || node->handle == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaAudioMixer *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
   p = &this->props[1];
 
   if (props == NULL) {
@@ -158,10 +158,10 @@ spa_audiomixer_node_send_command (SpaNode        *node,
 {
   SpaAudioMixer *this;
 
-  if (node == NULL || node->handle == NULL || command == NULL)
+  if (node == NULL || command == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaAudioMixer *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
 
   switch (command->type) {
     case SPA_NODE_COMMAND_INVALID:
@@ -191,10 +191,10 @@ spa_audiomixer_node_set_event_callback (SpaNode              *node,
 {
   SpaAudioMixer *this;
 
-  if (node == NULL || node->handle == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaAudioMixer *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
 
   this->event_cb = event;
   this->user_data = user_data;
@@ -209,7 +209,7 @@ spa_audiomixer_node_get_n_ports (SpaNode       *node,
                                  unsigned int  *n_output_ports,
                                  unsigned int  *max_output_ports)
 {
-  if (node == NULL || node->handle == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   if (n_input_ports)
@@ -234,10 +234,10 @@ spa_audiomixer_node_get_port_ids (SpaNode       *node,
   SpaAudioMixer *this;
   int i, idx;
 
-  if (node == NULL || node->handle == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaAudioMixer *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
 
   if (input_ids) {
     for (i = 0, idx = 0; i < MAX_PORTS && idx < n_input_ports; i++) {
@@ -258,10 +258,10 @@ spa_audiomixer_node_add_port (SpaNode        *node,
 {
   SpaAudioMixer *this;
 
-  if (node == NULL || node->handle == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaAudioMixer *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
 
   if (!CHECK_FREE_IN_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -287,10 +287,10 @@ spa_audiomixer_node_remove_port (SpaNode        *node,
 {
   SpaAudioMixer *this;
 
-  if (node == NULL || node->handle == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaAudioMixer *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
 
   if (!CHECK_IN_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -320,10 +320,10 @@ spa_audiomixer_node_port_enum_formats (SpaNode         *node,
   SpaAudioMixerPort *port;
   int index;
 
-  if (node == NULL || node->handle == NULL || format == NULL || state == NULL)
+  if (node == NULL || format == NULL || state == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaAudioMixer *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
 
   if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -358,10 +358,10 @@ spa_audiomixer_node_port_set_format (SpaNode            *node,
   SpaAudioMixerPort *port;
   SpaResult res;
 
-  if (node == NULL || node->handle == NULL || format == NULL)
+  if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaAudioMixer *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
 
   if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -390,10 +390,10 @@ spa_audiomixer_node_port_get_format (SpaNode          *node,
   SpaAudioMixer *this;
   SpaAudioMixerPort *port;
 
-  if (node == NULL || node->handle == NULL || format == NULL)
+  if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaAudioMixer *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
 
   if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -417,10 +417,10 @@ spa_audiomixer_node_port_get_info (SpaNode            *node,
   SpaAudioMixer *this;
   SpaAudioMixerPort *port;
 
-  if (node == NULL || node->handle == NULL || info == NULL)
+  if (node == NULL || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaAudioMixer *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
 
   if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -480,10 +480,10 @@ spa_audiomixer_node_port_get_status (SpaNode              *node,
   SpaAudioMixer *this;
   SpaAudioMixerPort *port;
 
-  if (node == NULL || node->handle == NULL || status == NULL)
+  if (node == NULL || status == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaAudioMixer *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
 
   if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -506,10 +506,10 @@ spa_audiomixer_node_port_push_input (SpaNode          *node,
   unsigned int i;
   bool have_error = false;
 
-  if (node == NULL || node->handle == NULL || n_info == 0 || info == NULL)
+  if (node == NULL || n_info == 0 || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaAudioMixer *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
 
   if (this->out_ports[0].status.flags & SPA_PORT_STATUS_FLAG_HAVE_OUTPUT)
     return SPA_RESULT_HAVE_ENOUGH_INPUT;
@@ -684,10 +684,10 @@ spa_audiomixer_node_port_pull_output (SpaNode           *node,
   int i;
   bool have_error = false;
 
-  if (node == NULL || node->handle == NULL || n_info == 0 || info == NULL)
+  if (node == NULL || n_info == 0 || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaAudioMixer *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
 
   if (!CHECK_OUT_PORT (this, SPA_DIRECTION_OUTPUT, info->port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -731,7 +731,6 @@ spa_audiomixer_node_port_push_event (SpaNode      *node,
 }
 
 static const SpaNode audiomixer_node = {
-  NULL,
   sizeof (SpaNode),
   NULL,
   SPA_NODE_STATE_INIT,
@@ -815,7 +814,6 @@ spa_audiomixer_init (const SpaHandleFactory *factory,
   this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
 
   this->node = audiomixer_node;
-  this->node.handle = handle;
   this->props[1].props.n_prop_info = PROP_ID_LAST;
   this->props[1].props.prop_info = prop_info;
   reset_audiomixer_props (&this->props[1]);

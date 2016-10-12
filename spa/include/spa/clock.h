@@ -51,8 +51,6 @@ typedef enum {
  * The main processing clocks.
  */
 struct _SpaClock {
-  /* pointer to the handle owning this interface */
-  SpaHandle *handle;
   /* the total size of this clock. This can be used to expand this
    * structure in the future */
   size_t size;

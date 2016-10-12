@@ -44,6 +44,7 @@ struct _PinosClientNodePrivate
 {
   int fd;
   GSocket *sockets[2];
+  SpaHandle *handle;
 };
 
 #define PINOS_CLIENT_NODE_GET_PRIVATE(obj)  \
@@ -181,7 +182,6 @@ pinos_client_node_dispose (GObject * object)
 static void
 pinos_client_node_finalize (GObject * object)
 {
-  PinosNode *node = PINOS_NODE (object);
   PinosClientNode *this = PINOS_CLIENT_NODE (object);
   PinosClientNodePrivate *priv = this->priv;
 
@@ -189,8 +189,8 @@ pinos_client_node_finalize (GObject * object)
 
   g_clear_object (&priv->sockets[0]);
   g_clear_object (&priv->sockets[1]);
-  spa_handle_clear (node->node->handle);
-  g_free (node->node->handle);
+  spa_handle_clear (priv->handle);
+  g_free (priv->handle);
 
   G_OBJECT_CLASS (pinos_client_node_parent_class)->finalize (object);
 }
@@ -228,9 +228,8 @@ pinos_client_node_init (PinosClientNode * node)
 }
 
 static SpaResult
-make_node (PinosDaemon *daemon, SpaNode **node, const char *lib, const char *name)
+make_node (PinosDaemon *daemon, SpaHandle **handle, SpaNode **node, const char *lib, const char *name)
 {
-  SpaHandle *handle;
   SpaResult res;
   void *hnd, *state = NULL;
   SpaEnumHandleFactoryFunc enum_func;
@@ -256,16 +255,16 @@ make_node (PinosDaemon *daemon, SpaNode **node, const char *lib, const char *nam
     if (strcmp (factory->name, name))
       continue;
 
-    handle = calloc (1, factory->size);
+    *handle = calloc (1, factory->size);
     if ((res = factory->init (factory,
-                              handle,
+                              *handle,
                               NULL,
                               daemon->support,
                               daemon->n_support)) < 0) {
       g_error ("can't make factory instance: %d", res);
       return res;
     }
-    if ((res = handle->get_interface (handle,
+    if ((res = spa_handle_get_interface (*handle,
                                       spa_id_map_get_id (daemon->map, SPA_NODE_URI),
                                       &iface)) < 0) {
       g_error ("can't get interface %d", res);
@@ -296,10 +295,13 @@ pinos_client_node_new (PinosDaemon     *daemon,
 {
   SpaNode *n;
   SpaResult res;
+  SpaHandle *handle;
+  PinosNode *node;
 
   g_return_val_if_fail (PINOS_IS_DAEMON (daemon), NULL);
 
   if ((res = make_node (daemon,
+                        &handle,
                         &n,
                         "build/spa/plugins/remote/libspa-remote.so",
                         "proxy")) < 0) {
@@ -307,11 +309,15 @@ pinos_client_node_new (PinosDaemon     *daemon,
     return NULL;
   }
 
-  return g_object_new (PINOS_TYPE_CLIENT_NODE,
+  node =  g_object_new (PINOS_TYPE_CLIENT_NODE,
                        "daemon", daemon,
                        "client", client,
                        "name", name,
                        "properties", properties,
                        "node", n,
                        NULL);
+
+  PINOS_CLIENT_NODE (node)->priv->handle = handle;
+
+  return node;
 }

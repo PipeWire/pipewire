@@ -112,6 +112,7 @@ enum
   PROP_NAME,
   PROP_PROPERTIES,
   PROP_NODE,
+  PROP_CLOCK,
 };
 
 enum
@@ -587,6 +588,10 @@ pinos_node_get_property (GObject    *_object,
       g_value_set_pointer (value, this->node);
       break;
 
+    case PROP_CLOCK:
+      g_value_set_pointer (value, this->clock);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (this, prop_id, pspec);
       break;
@@ -638,14 +643,20 @@ pinos_node_set_property (GObject      *_object,
 
     case PROP_NODE:
     {
-      void *iface;
       this->node = g_value_get_pointer (value);
+#if 0
+      void *iface;
       if (this->node->handle->get_interface (this->node->handle,
                                              spa_id_map_get_id (priv->daemon->map, SPA_CLOCK_URI),
                                              &iface) >= 0)
         this->clock = iface;
+#endif
       break;
     }
+    case PROP_CLOCK:
+      this->clock = g_value_get_pointer (value);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (this, prop_id, pspec);
       break;
@@ -850,6 +861,14 @@ pinos_node_class_init (PinosNodeClass * klass)
                                    g_param_spec_pointer ("node",
                                                          "Node",
                                                          "The SPA node",
+                                                         G_PARAM_READWRITE |
+                                                         G_PARAM_CONSTRUCT_ONLY |
+                                                         G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (gobject_class,
+                                   PROP_CLOCK,
+                                   g_param_spec_pointer ("clock",
+                                                         "Clock",
+                                                         "The SPA clock",
                                                          G_PARAM_READWRITE |
                                                          G_PARAM_CONSTRUCT_ONLY |
                                                          G_PARAM_STATIC_STRINGS));

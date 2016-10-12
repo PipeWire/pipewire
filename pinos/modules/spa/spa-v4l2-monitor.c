@@ -38,6 +38,7 @@
 
 typedef struct {
   uint32_t node;
+  uint32_t clock;
 } URI;
 
 struct _PinosSpaV4l2MonitorPrivate
@@ -105,7 +106,8 @@ add_item (PinosSpaV4l2Monitor *this, SpaMonitorItem *item)
   SpaResult res;
   SpaHandle *handle;
   PinosNode *node;
-  void *iface;
+  void *node_iface;
+  void *clock_iface;
   PinosProperties *props = NULL;
 
   g_debug ("v4l2-monitor %p: add: \"%s\" (%s)", this, item->name, item->id);
@@ -119,8 +121,12 @@ add_item (PinosSpaV4l2Monitor *this, SpaMonitorItem *item)
     g_error ("can't make factory instance: %d", res);
     return;
   }
-  if ((res = spa_handle_get_interface (handle, priv->uri.node, &iface)) < 0) {
+  if ((res = spa_handle_get_interface (handle, priv->uri.node, &node_iface)) < 0) {
     g_error ("can't get NODE interface: %d", res);
+    return;
+  }
+  if ((res = spa_handle_get_interface (handle, priv->uri.clock, &clock_iface)) < 0) {
+    g_error ("can't get CLOCK interface: %d", res);
     return;
   }
 
@@ -138,7 +144,8 @@ add_item (PinosSpaV4l2Monitor *this, SpaMonitorItem *item)
   node = g_object_new (PINOS_TYPE_NODE,
                        "daemon", priv->daemon,
                        "name", item->factory->name,
-                       "node", iface,
+                       "node", node_iface,
+                       "clock", clock_iface,
                        "properties", props,
                        NULL);
 
@@ -203,6 +210,7 @@ monitor_constructed (GObject * object)
   G_OBJECT_CLASS (pinos_spa_v4l2_monitor_parent_class)->constructed (object);
 
   priv->uri.node = spa_id_map_get_id (priv->daemon->map, SPA_NODE_URI);
+  priv->uri.clock = spa_id_map_get_id (priv->daemon->map, SPA_CLOCK_URI);
 
   while (TRUE) {
     SpaMonitorItem *item;

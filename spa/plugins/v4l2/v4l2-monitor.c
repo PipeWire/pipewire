@@ -218,10 +218,10 @@ spa_v4l2_monitor_set_event_callback (SpaMonitor              *monitor,
   SpaResult res;
   SpaV4l2Monitor *this;
 
-  if (monitor == NULL || monitor->handle == NULL)
+  if (monitor == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaV4l2Monitor *) monitor->handle;
+  this = SPA_CONTAINER_OF (monitor, SpaV4l2Monitor, monitor);
 
   this->event_cb = callback;
   this->user_data = user_data;
@@ -271,10 +271,10 @@ spa_v4l2_monitor_enum_items (SpaMonitor       *monitor,
   struct udev_list_entry *devices;
   struct udev_device *dev;
 
-  if (monitor == NULL || monitor->handle == NULL || item == NULL || state == NULL)
+  if (monitor == NULL || item == NULL || state == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaV4l2Monitor *) monitor->handle;
+  this = SPA_CONTAINER_OF (monitor, SpaV4l2Monitor, monitor);
 
   if ((res = v4l2_udev_open (this)) < 0)
     return res;
@@ -315,7 +315,6 @@ spa_v4l2_monitor_enum_items (SpaMonitor       *monitor,
 }
 
 static const SpaMonitor v4l2monitor = {
-  NULL,
   NULL,
   sizeof (SpaMonitor),
   spa_v4l2_monitor_set_event_callback,
@@ -385,7 +384,6 @@ v4l2_monitor_init (const SpaHandleFactory  *factory,
   this->uri.monitor = spa_id_map_get_id (this->map, SPA_MONITOR_URI);
 
   this->monitor = v4l2monitor;
-  this->monitor.handle = handle;
 
   return SPA_RESULT_OK;
 }

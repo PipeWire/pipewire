@@ -196,10 +196,10 @@ spa_proxy_node_get_props (SpaNode       *node,
 {
   SpaProxy *this;
 
-  if (node == NULL || node->handle == NULL || props == NULL)
+  if (node == NULL || props == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaProxy *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
   memcpy (&this->props[0], &this->props[1], sizeof (this->props[1]));
   *props = &this->props[0].props;
@@ -215,10 +215,10 @@ spa_proxy_node_set_props (SpaNode         *node,
   SpaProxyProps *op, *np;
   SpaResult res;
 
-  if (node == NULL || node->handle == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaProxy *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
   op = &this->props[1];
   np = &this->props[0];
@@ -248,10 +248,10 @@ spa_proxy_node_send_command (SpaNode        *node,
   SpaProxy *this;
   SpaResult res = SPA_RESULT_OK;
 
-  if (node == NULL || node->handle == NULL || command == NULL)
+  if (node == NULL || command == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaProxy *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
   switch (command->type) {
     case SPA_NODE_COMMAND_INVALID:
@@ -314,10 +314,10 @@ spa_proxy_node_set_event_callback (SpaNode              *node,
 {
   SpaProxy *this;
 
-  if (node == NULL || node->handle == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaProxy *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaProxy, node);
   this->event_cb = event;
   this->user_data = user_data;
 
@@ -333,10 +333,10 @@ spa_proxy_node_get_n_ports (SpaNode       *node,
 {
   SpaProxy *this;
 
-  if (node == NULL || node->handle == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaProxy *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
   if (n_input_ports)
     *n_input_ports = this->n_inputs;
@@ -360,10 +360,10 @@ spa_proxy_node_get_port_ids (SpaNode       *node,
   SpaProxy *this;
   int c, i;
 
-  if (node == NULL || node->handle == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaProxy *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
   if (input_ids) {
     for (c = 0, i = 0; i < MAX_INPUTS && c < n_input_ports; i++) {
@@ -485,10 +485,10 @@ spa_proxy_node_add_port (SpaNode        *node,
   SpaProxy *this;
   SpaProxyPort *port;
 
-  if (node == NULL || node->handle == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaProxy *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
   if (!CHECK_FREE_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -506,10 +506,10 @@ spa_proxy_node_remove_port (SpaNode        *node,
 {
   SpaProxy *this;
 
-  if (node == NULL || node->handle == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaProxy *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
   if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -531,10 +531,10 @@ spa_proxy_node_port_enum_formats (SpaNode          *node,
   SpaProxyPort *port;
   int index;
 
-  if (node == NULL || node->handle == NULL || format == NULL || state == NULL)
+  if (node == NULL || format == NULL || state == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaProxy *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
   if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -566,10 +566,10 @@ spa_proxy_node_port_set_format (SpaNode            *node,
   uint8_t buf[128];
   SpaResult res;
 
-  if (node == NULL || node->handle == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaProxy *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
   if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -600,10 +600,10 @@ spa_proxy_node_port_get_format (SpaNode          *node,
   SpaProxy *this;
   SpaProxyPort *port;
 
-  if (node == NULL || node->handle == NULL || format == NULL)
+  if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaProxy *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
   if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -627,10 +627,10 @@ spa_proxy_node_port_get_info (SpaNode            *node,
   SpaProxy *this;
   SpaProxyPort *port;
 
-  if (node == NULL || node->handle == NULL || info == NULL)
+  if (node == NULL || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaProxy *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
   if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -669,10 +669,10 @@ spa_proxy_node_port_get_status (SpaNode              *node,
   SpaProxy *this;
   SpaProxyPort *port;
 
-  if (node == NULL || node->handle == NULL || status == NULL)
+  if (node == NULL || status == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaProxy *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
   if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -708,10 +708,10 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
   SpaControlMemRef *memref;
   void *p;
 
-  if (node == NULL || node->handle == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaProxy *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaProxy, node);
   spa_log_info (this->log, "proxy %p: use buffers %p %u\n", this, buffers, n_buffers);
 
   if (!CHECK_PORT (this, direction, port_id))
@@ -870,10 +870,10 @@ spa_proxy_node_port_alloc_buffers (SpaNode         *node,
   SpaProxy *this;
   SpaProxyPort *port;
 
-  if (node == NULL || node->handle == NULL || buffers == NULL)
+  if (node == NULL || buffers == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaProxy *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
   if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -942,10 +942,10 @@ spa_proxy_node_port_push_input (SpaNode          *node,
   uint8_t buf[64];
   SpaResult res;
 
-  if (node == NULL || node->handle == NULL || n_info == 0 || info == NULL)
+  if (node == NULL || n_info == 0 || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaProxy *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
   spa_control_builder_init_into (&builder, buf, sizeof(buf), NULL, 0);
 
@@ -1007,10 +1007,10 @@ spa_proxy_node_port_pull_output (SpaNode           *node,
   bool have_error = false;
   bool need_more = false;
 
-  if (node == NULL || node->handle == NULL || n_info == 0 || info == NULL)
+  if (node == NULL || n_info == 0 || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaProxy *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
   for (i = 0; i < n_info; i++) {
     if (!CHECK_OUT_PORT (this, SPA_DIRECTION_OUTPUT, info[i].port_id)) {
@@ -1055,10 +1055,10 @@ spa_proxy_node_port_reuse_buffer (SpaNode         *node,
   SpaNodeEvent ne;
   SpaNodeEventReuseBuffer rb;
 
-  if (node == NULL || node->handle == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaProxy *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
   if (!CHECK_OUT_PORT (this, SPA_DIRECTION_OUTPUT, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -1090,10 +1090,10 @@ spa_proxy_node_port_push_event (SpaNode      *node,
 {
   SpaProxy *this;
 
-  if (node == NULL || node->handle == NULL || event == NULL)
+  if (node == NULL || event == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaProxy *) node->handle;
+  this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
   switch (event->type) {
     default:
@@ -1277,7 +1277,6 @@ proxy_on_fd_events (SpaPollNotifyData *data)
 }
 
 static const SpaNode proxy_node = {
-  NULL,
   sizeof (SpaNode),
   NULL,
   SPA_NODE_STATE_INIT,
@@ -1382,7 +1381,6 @@ proxy_init (const SpaHandleFactory  *factory,
   this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
 
   this->node = proxy_node;
-  this->node.handle = handle;
   this->props[1].props.n_prop_info = PROP_ID_LAST;
   this->props[1].props.prop_info = prop_info;
   reset_proxy_props (&this->props[1]);

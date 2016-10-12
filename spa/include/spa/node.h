@@ -148,8 +148,6 @@ typedef void   (*SpaNodeEventCallback)   (SpaNode      *node,
  * The main processing nodes.
  */
 struct _SpaNode {
-  /* pointer to the handle owning this interface */
-  SpaHandle *handle;
   /* the total size of this node. This can be used to expand this
    * structure in the future */
   size_t size;

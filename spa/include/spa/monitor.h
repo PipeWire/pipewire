@@ -98,8 +98,6 @@ typedef void   (*SpaMonitorEventCallback)  (SpaMonitor      *monitor,
  * The device monitor interface.
  */
 struct _SpaMonitor {
-  /* pointer to the handle owning this interface */
-  SpaHandle *handle;
   /**
    * SpaMonitor::info
    *

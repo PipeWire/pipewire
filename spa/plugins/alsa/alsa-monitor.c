@@ -247,10 +247,10 @@ spa_alsa_monitor_set_event_callback (SpaMonitor              *monitor,
   SpaResult res;
   SpaALSAMonitor *this;
 
-  if (monitor == NULL || monitor->handle == NULL)
+  if (monitor == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaALSAMonitor *) monitor->handle;
+  this = SPA_CONTAINER_OF (monitor, SpaALSAMonitor, monitor);
 
   this->event_cb = callback;
   this->user_data = user_data;
@@ -299,10 +299,10 @@ spa_alsa_monitor_enum_items (SpaMonitor       *monitor,
   struct udev_list_entry *devices;
   struct udev_device *dev;
 
-  if (monitor == NULL || monitor->handle == NULL || item == NULL || state == NULL)
+  if (monitor == NULL || item == NULL || state == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaALSAMonitor *) monitor->handle;
+  this = SPA_CONTAINER_OF (monitor, SpaALSAMonitor, monitor);
 
   if ((res = alsa_udev_open (this)) < 0)
     return res;
@@ -343,7 +343,6 @@ again:
 }
 
 static const SpaMonitor alsamonitor = {
-  NULL,
   NULL,
   sizeof (SpaMonitor),
   spa_alsa_monitor_set_event_callback,
@@ -413,7 +412,6 @@ alsa_monitor_init (const SpaHandleFactory  *factory,
   this->uri.monitor = spa_id_map_get_id (this->map, SPA_MONITOR_URI);
 
   this->monitor = alsamonitor;
-  this->monitor.handle = handle;
 
   return SPA_RESULT_OK;
 }

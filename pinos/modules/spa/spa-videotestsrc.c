@@ -29,7 +29,7 @@
 
 struct _PinosSpaVideoTestSrcPrivate
 {
-  gint dummy;
+  SpaHandle *handle;
 };
 
 enum {
@@ -39,9 +39,8 @@ enum {
 G_DEFINE_TYPE (PinosSpaVideoTestSrc, pinos_spa_videotestsrc, PINOS_TYPE_NODE);
 
 static SpaResult
-make_node (PinosDaemon *daemon, SpaNode **node, const char *lib, const char *name)
+make_node (PinosDaemon *daemon, SpaHandle **handle, SpaNode **node, const char *lib, const char *name)
 {
-  SpaHandle *handle;
   SpaResult res;
   void *hnd, *state = NULL;
   SpaEnumHandleFactoryFunc enum_func;
@@ -67,14 +66,14 @@ make_node (PinosDaemon *daemon, SpaNode **node, const char *lib, const char *nam
     if (strcmp (factory->name, name))
       continue;
 
-    handle = calloc (1, factory->size);
-    if ((res = factory->init (factory, handle, NULL, daemon->support, daemon->n_support)) < 0) {
+    *handle = calloc (1, factory->size);
+    if ((res = spa_handle_factory_init (factory, *handle, NULL, daemon->support, daemon->n_support)) < 0) {
       g_error ("can't make factory instance: %d", res);
       return res;
     }
-    if ((res = handle->get_interface (handle,
-                                      spa_id_map_get_id (daemon->map, SPA_NODE_URI),
-                                      &iface)) < 0) {
+    if ((res = spa_handle_get_interface (*handle,
+                                         spa_id_map_get_id (daemon->map, SPA_NODE_URI),
+                                         &iface)) < 0) {
       g_error ("can't get interface %d", res);
       return res;
     }
@@ -113,12 +112,12 @@ set_property (GObject      *object,
 static void
 source_finalize (GObject * object)
 {
-  PinosNode *node = PINOS_NODE (object);
   PinosSpaVideoTestSrc *source = PINOS_SPA_VIDEOTESTSRC (object);
+  PinosSpaVideoTestSrcPrivate *priv = source->priv;
 
   g_debug ("spa-source %p: dispose", source);
-  spa_handle_clear (node->node->handle);
-  g_free (node->node->handle);
+  spa_handle_clear (priv->handle);
+  g_free (priv->handle);
 
   G_OBJECT_CLASS (pinos_spa_videotestsrc_parent_class)->finalize (object);
 }
@@ -149,8 +148,10 @@ pinos_spa_videotestsrc_new (PinosDaemon *daemon,
   PinosNode *node;
   SpaNode *n;
   SpaResult res;
+  SpaHandle *handle;
 
   if ((res = make_node (daemon,
+                        &handle,
                         &n,
                         "build/spa/plugins/videotestsrc/libspa-videotestsrc.so",
                         "videotestsrc")) < 0) {
@@ -164,6 +165,8 @@ pinos_spa_videotestsrc_new (PinosDaemon *daemon,
                        "properties", properties,
                        "node", n,
                        NULL);
+
+  PINOS_SPA_VIDEOTESTSRC (node)->priv->handle = handle;
 
   return node;
 }

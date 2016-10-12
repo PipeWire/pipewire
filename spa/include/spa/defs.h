@@ -127,30 +127,24 @@ typedef void (*SpaNotify) (void *data);
 #endif
 
 
-#define spa_return_if_fail (log, expr)                                  \
+#define spa_return_if_fail(expr)                                        \
     do {                                                                \
-        if (SPA_UNLIKELY (!(expr))) {                                   \
-            spa_log_debug(log, "Assertion '%s' failed\n", #expr);	\
+        if (SPA_UNLIKELY (!(expr)))                                     \
             return;                                                     \
-        }                                                               \
     } while(false)
 
-#define spa_return_val_if_fail (log, expr, val)                         \
+#define spa_return_val_if_fail(expr, val)                               \
     do {                                                                \
-        if (SPA_UNLIKELY(!(expr))) {                                    \
-            spa_log_debug (log, "Assertion '%s' failed\n", #expr);      \
+        if (SPA_UNLIKELY(!(expr)))                                      \
             return (val);                                               \
-        }                                                               \
     } while(false)
 
 /* spa_assert_se() is an assert which guarantees side effects of x,
  * i.e. is never optimized away, regardless of NDEBUG or FASTPATH. */
-#define spa_assert_se (expr)                                            \
+#define spa_assert_se(expr)                                             \
     do {                                                                \
-        if (SPA_UNLIKELY(!(expr))) {                                    \
-            spa_log_error("Assertion '%s' failed, Aborting\n.", #expr); \
+        if (SPA_UNLIKELY(!(expr)))                                      \
             abort();                                                    \
-        }                                                               \
     } while (false)
 
 /* Does exactly nothing */

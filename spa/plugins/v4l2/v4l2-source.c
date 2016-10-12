@@ -699,21 +699,14 @@ spa_v4l2_source_node_port_reuse_buffer (SpaNode         *node,
   SpaV4l2State *state;
   SpaResult res;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (port_id == 0, SPA_RESULT_INVALID_PORT);
 
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
-
-  if (port_id != 0)
-    return SPA_RESULT_INVALID_PORT;
-
   state = &this->state[port_id];
 
-  if (state->n_buffers == 0)
-    return SPA_RESULT_NO_BUFFERS;
-
-  if (buffer_id >= state->n_buffers)
-    return SPA_RESULT_INVALID_BUFFER_ID;
+  spa_return_val_if_fail (state->n_buffers > 0, SPA_RESULT_NO_BUFFERS);
+  spa_return_val_if_fail (buffer_id < state->n_buffers, SPA_RESULT_INVALID_BUFFER_ID);
 
   res = spa_v4l2_buffer_recycle (this, buffer_id);
 

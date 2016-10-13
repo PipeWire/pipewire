@@ -77,8 +77,8 @@ static const double max_volume = 10.0;
 static const bool default_mute = false;
 
 static const SpaPropRangeInfo volume_range[] = {
-  { "min", "Minimum value", { sizeof (double), &min_volume } },
-  { "max", "Maximum value", { sizeof (double), &max_volume } },
+  { "min", { sizeof (double), &min_volume } },
+  { "max", { sizeof (double), &max_volume } },
 };
 
 enum {
@@ -90,13 +90,13 @@ enum {
 static const SpaPropInfo prop_info[] =
 {
   { PROP_ID_VOLUME,            offsetof (SpaVolumeProps, volume),
-                               "volume", "The Volume factor",
+                               "volume",
                                SPA_PROP_FLAG_READWRITE,
                                SPA_PROP_TYPE_DOUBLE, sizeof (double),
                                SPA_PROP_RANGE_TYPE_MIN_MAX, 2, volume_range,
                                NULL },
   { PROP_ID_MUTE,              offsetof (SpaVolumeProps, mute),
-                               "mute", "Mute",
+                               "mute",
                                SPA_PROP_FLAG_READWRITE,
                                SPA_PROP_TYPE_BOOL, sizeof (bool),
                                SPA_PROP_RANGE_TYPE_NONE, 0, NULL,

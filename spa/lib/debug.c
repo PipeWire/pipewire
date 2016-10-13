@@ -377,7 +377,7 @@ spa_debug_props (const SpaProps *props, bool print_ranges)
 
     info = &props->prop_info[i];
 
-    fprintf (stderr, "  %-20s: %s\n", info->name, info->description);
+    fprintf (stderr, "  %-20s\n", info->name);
     fprintf (stderr, "%-23.23s flags: ", "");
     if (info->flags & SPA_PROP_FLAG_READABLE)
       fprintf (stderr, "readable ");
@@ -430,7 +430,7 @@ spa_debug_props (const SpaProps *props, bool print_ranges)
         const SpaPropRangeInfo *rinfo = &info->range_values[j];
         fprintf (stderr, "%-23.23s   ", "");
         print_value (info, &rinfo->val);
-        fprintf (stderr, "\t: %-12s - %s \n", rinfo->name, rinfo->description);
+        fprintf (stderr, "\t: %-12s\n", rinfo->name);
       }
     }
     if (info->tags) {

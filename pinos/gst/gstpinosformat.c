@@ -187,7 +187,6 @@ handle_video_size (ConvertData *d)
         d->bpi[d->pi].range_values = &d->bri[d->ri];
 
         d->bri[d->ri].name = NULL;
-        d->bri[d->ri].description = NULL;
         d->bri[d->ri].val.size = sizeof (SpaRectangle);
         d->bri[d->ri].val.value = d->p;
         sv->width = gst_value_get_int_range_min (val);
@@ -196,7 +195,6 @@ handle_video_size (ConvertData *d)
         d->ri++;
 
         d->bri[d->ri].name = NULL;
-        d->bri[d->ri].description = NULL;
         d->bri[d->ri].val.size = sizeof (SpaRectangle);
         d->bri[d->ri].val.value = d->p;
         sv->width = gst_value_get_int_range_max (val);
@@ -251,7 +249,6 @@ handle_video_framerate (ConvertData *d)
       d->bpi[d->pi].range_values = &d->bri[d->ri];
 
       d->bri[d->ri].name = NULL;
-      d->bri[d->ri].description = NULL;
       d->bri[d->ri].val.size = sizeof (SpaFraction);
       d->bri[d->ri].val.value = d->p;
       sv->num = gst_value_get_fraction_numerator (min);
@@ -260,7 +257,6 @@ handle_video_framerate (ConvertData *d)
       d->ri++;
 
       d->bri[d->ri].name = NULL;
-      d->bri[d->ri].description = NULL;
       d->bri[d->ri].val.size = sizeof (SpaFraction);
       d->bri[d->ri].val.value = d->p;
       sv->num = gst_value_get_fraction_numerator (max);

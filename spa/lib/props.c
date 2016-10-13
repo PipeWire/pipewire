@@ -119,14 +119,12 @@ spa_props_get_size (const SpaProps *props)
     pi = (SpaPropInfo *) &props->prop_info[i];
     len += sizeof (SpaPropInfo);
     len += pi->name ? strlen (pi->name) + 1 : 0;
-    len += pi->description ? strlen (pi->description) + 1 : 0;
     /* for the value */
     len += pi->maxsize;
     for (j = 0; j < pi->n_range_values; j++) {
       ri = (SpaPropRangeInfo *)&pi->range_values[j];
       len += sizeof (SpaPropRangeInfo);
       len += ri->name ? strlen (ri->name) + 1 : 0;
-      len += ri->description ? strlen (ri->description) + 1 : 0;
       /* the size of the range value */
       len += ri->val.size;
     }
@@ -172,14 +170,6 @@ spa_props_serialize (void *p, const SpaProps *props)
     } else {
       pi[i].name = 0;
     }
-    if (pi[i].description) {
-      slen = strlen (pi[i].description) + 1;
-      memcpy (p, pi[i].description, slen);
-      pi[i].description = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tp));
-      p += slen;
-    } else {
-      pi[i].description = 0;
-    }
     for (j = 0; j < pi[i].n_range_values; j++, c++) {
       if (ri[c].name) {
         slen = strlen (ri[c].name) + 1;
@@ -188,14 +178,6 @@ spa_props_serialize (void *p, const SpaProps *props)
         p += slen;
       } else {
         ri[c].name = 0;
-      }
-      if (ri[c].description) {
-        slen = strlen (ri[c].description) + 1;
-        memcpy (p, ri[c].description, slen);
-        ri[c].description = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tp));
-        p += slen;
-      } else {
-        ri[c].description = 0;
       }
       if (ri[c].val.size) {
         memcpy (p, ri[c].val.value, ri[c].val.size);
@@ -237,8 +219,6 @@ spa_props_deserialize (void *p, off_t offset)
     pi = (SpaPropInfo *) &tp->prop_info[i];
     if (pi->name)
       pi->name = SPA_MEMBER (tp, SPA_PTR_TO_INT (pi->name), char);
-    if (pi->description)
-      pi->description = SPA_MEMBER (tp, SPA_PTR_TO_INT (pi->description), char);
     if (pi->range_values)
       pi->range_values = SPA_MEMBER (tp, SPA_PTR_TO_INT (pi->range_values), SpaPropRangeInfo);
 
@@ -246,8 +226,6 @@ spa_props_deserialize (void *p, off_t offset)
       ri = (SpaPropRangeInfo *) &pi->range_values[j];
       if (ri->name)
         ri->name = SPA_MEMBER (tp, SPA_PTR_TO_INT (ri->name), char);
-      if (ri->description)
-        ri->description = SPA_MEMBER (tp, SPA_PTR_TO_INT (ri->description), char);
       if (ri->val.value)
         ri->val.value = SPA_MEMBER (tp, SPA_PTR_TO_INT (ri->val.value), void);
     }

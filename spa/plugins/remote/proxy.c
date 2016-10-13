@@ -128,7 +128,7 @@ enum {
 static const SpaPropInfo prop_info[PROP_ID_LAST] =
 {
   { PROP_ID_SOCKET,            offsetof (SpaProxyProps, socketfd),
-                               "socket", "The Socket factor",
+                               "socket",
                                SPA_PROP_FLAG_READWRITE,
                                SPA_PROP_TYPE_INT, sizeof (int),
                                SPA_PROP_RANGE_TYPE_NONE, 0, NULL,

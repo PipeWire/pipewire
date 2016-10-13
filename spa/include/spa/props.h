@@ -117,12 +117,10 @@ typedef struct {
 /**
  * SpaPropRangeInfo:
  * @name: name of this value
- * @description: user visible description of this value
  * @val: the value
  */
 typedef struct {
   const char    *name;
-  const char    *description;
   SpaPropValue   val;
 } SpaPropRangeInfo;
 
@@ -131,7 +129,6 @@ typedef struct {
  * @id: unique id
  * @offset: offset in structure with data
  * @name: human readable name
- * @description: description of the property
  * @flags: property flags
  * @type: property type
  * @max_size: maximum size of property value
@@ -144,7 +141,6 @@ typedef struct {
   uint32_t                  id;
   size_t                    offset;
   const char               *name;
-  const char               *description;
   SpaPropFlags              flags;
   SpaPropType               type;
   size_t                    maxsize;

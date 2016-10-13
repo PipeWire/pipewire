@@ -683,7 +683,6 @@ have_size:
 
 have_framerate:
     fmt->ranges[i].name = NULL;
-    fmt->ranges[i].description = NULL;
     if (state->frmival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
       fmt->infos[pi].range_type = SPA_PROP_RANGE_TYPE_ENUM;
       fmt->framerates[i].num = state->frmival.discrete.denominator;

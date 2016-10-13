@@ -119,7 +119,7 @@ enum {
 static const SpaPropInfo prop_info[] =
 {
   { PROP_ID_LIVE,              offsetof (SpaVideoTestSrcProps, live),
-                               "live", "Timestamp against the clock",
+                               "live",
                                SPA_PROP_FLAG_READWRITE,
                                SPA_PROP_TYPE_BOOL, sizeof (bool),
                                SPA_PROP_RANGE_TYPE_NONE, 0, NULL,

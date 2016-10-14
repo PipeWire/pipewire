@@ -28,7 +28,7 @@
 #include <spa/control.h>
 #include <spa/debug.h>
 
-#if 1
+#if 0
 #define SPA_DEBUG_CONTROL(format,args...) fprintf(stderr,format,##args)
 #else
 #define SPA_DEBUG_CONTROL(format,args...)

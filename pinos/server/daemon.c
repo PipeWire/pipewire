@@ -949,8 +949,6 @@ poll_event (GIOChannel *source,
   PollData *data = user_data;
   SpaPollNotifyData d;
 
-  g_debug ("poll event %d", data->item.fds[0].fd);
-
   d.user_data = data->item.user_data;
   d.fds = data->item.fds;
   d.fds[0].revents = condition;
@@ -969,7 +967,6 @@ do_add_item (SpaPoll     *poll,
   GSource *source;
   PollData data;
 
-  g_debug ("add main poll");
   channel = g_io_channel_unix_new (item->fds[0].fd);
   source = g_io_create_watch (channel, G_IO_IN);
   g_io_channel_unref (channel);
@@ -981,6 +978,8 @@ do_add_item (SpaPoll     *poll,
   item->id = g_source_attach (source, g_main_context_get_thread_default ());
   g_source_unref (source);
 
+  g_debug ("added main poll %d", item->id);
+
   return SPA_RESULT_OK;
 }
 
@@ -988,6 +987,7 @@ static SpaResult
 do_update_item (SpaPoll     *poll,
                 SpaPollItem *item)
 {
+  g_debug ("update main poll %d", item->id);
   return SPA_RESULT_OK;
 }
 

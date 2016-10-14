@@ -90,6 +90,9 @@ struct _PinosStreamPrivate
   GSocket *socket;
   GSource *socket_source;
   int fd;
+  GSocket *rtsocket;
+  GSource *rtsocket_source;
+  int rtfd;
 
   GSource *timeout_source;
 
@@ -700,7 +703,7 @@ send_need_input (PinosStream *stream, uint32_t port_id)
   add_need_input (stream, &builder, port_id);
   spa_control_builder_end (&builder, &control);
 
-  if (spa_control_write (&control, priv->fd) < 0)
+  if (spa_control_write (&control, priv->rtfd) < 0)
     g_warning ("stream %p: error writing control", stream);
 
   spa_control_clear (&control);
@@ -763,7 +766,7 @@ send_reuse_buffer (PinosStream *stream, uint32_t port_id, uint32_t buffer_id)
   spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_NODE_EVENT, &cne);
   spa_control_builder_end (&builder, &control);
 
-  if (spa_control_write (&control, priv->fd) < 0)
+  if (spa_control_write (&control, priv->rtfd) < 0)
     g_warning ("stream %p: error writing control", stream);
 
   spa_control_clear (&control);
@@ -795,7 +798,7 @@ send_process_buffer (PinosStream *stream, uint32_t port_id, uint32_t buffer_id)
 
   spa_control_builder_end (&builder, &control);
 
-  if (spa_control_write (&control, priv->fd) < 0)
+  if (spa_control_write (&control, priv->rtfd) < 0)
     g_warning ("stream %p: error writing control", stream);
 
   spa_control_clear (&control);
@@ -861,13 +864,44 @@ static gboolean
 handle_node_event (PinosStream  *stream,
                    SpaNodeEvent *event)
 {
-  PinosStreamPrivate *priv = stream->priv;
-
   switch (event->type) {
     case SPA_NODE_EVENT_TYPE_INVALID:
     case SPA_NODE_EVENT_TYPE_HAVE_OUTPUT:
     case SPA_NODE_EVENT_TYPE_NEED_INPUT:
     case SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE:
+    case SPA_NODE_EVENT_TYPE_REUSE_BUFFER:
+    case SPA_NODE_EVENT_TYPE_DRAINED:
+    case SPA_NODE_EVENT_TYPE_MARKER:
+    case SPA_NODE_EVENT_TYPE_ERROR:
+    case SPA_NODE_EVENT_TYPE_BUFFERING:
+    case SPA_NODE_EVENT_TYPE_REQUEST_REFRESH:
+    case SPA_NODE_EVENT_TYPE_REQUEST_CLOCK_UPDATE:
+      g_warning ("unhandled node event %d", event->type);
+      break;
+  }
+  return TRUE;
+}
+
+static gboolean
+handle_rtnode_event (PinosStream  *stream,
+                     SpaNodeEvent *event)
+{
+  PinosStreamPrivate *priv = stream->priv;
+
+  switch (event->type) {
+    case SPA_NODE_EVENT_TYPE_INVALID:
+    case SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE:
+    case SPA_NODE_EVENT_TYPE_DRAINED:
+    case SPA_NODE_EVENT_TYPE_MARKER:
+    case SPA_NODE_EVENT_TYPE_ERROR:
+    case SPA_NODE_EVENT_TYPE_BUFFERING:
+    case SPA_NODE_EVENT_TYPE_REQUEST_REFRESH:
+    case SPA_NODE_EVENT_TYPE_REQUEST_CLOCK_UPDATE:
+      g_warning ("unexpected node event %d", event->type);
+      break;
+
+    case SPA_NODE_EVENT_TYPE_HAVE_OUTPUT:
+    case SPA_NODE_EVENT_TYPE_NEED_INPUT:
       g_warning ("unhandled node event %d", event->type);
       break;
 
@@ -887,14 +921,6 @@ handle_node_event (PinosStream  *stream,
       }
       break;
     }
-    case SPA_NODE_EVENT_TYPE_DRAINED:
-    case SPA_NODE_EVENT_TYPE_MARKER:
-    case SPA_NODE_EVENT_TYPE_ERROR:
-    case SPA_NODE_EVENT_TYPE_BUFFERING:
-    case SPA_NODE_EVENT_TYPE_REQUEST_REFRESH:
-    case SPA_NODE_EVENT_TYPE_REQUEST_CLOCK_UPDATE:
-      g_warning ("unhandled node event %d", event->type);
-      break;
   }
   return TRUE;
 }
@@ -1003,6 +1029,7 @@ parse_control (PinosStream *stream,
       case SPA_CONTROL_CMD_PORT_UPDATE:
       case SPA_CONTROL_CMD_PORT_STATUS_CHANGE:
       case SPA_CONTROL_CMD_NODE_STATE_CHANGE:
+      case SPA_CONTROL_CMD_PROCESS_BUFFER:
         g_warning ("got unexpected control %d", cmd);
         break;
 
@@ -1183,6 +1210,65 @@ parse_control (PinosStream *stream,
         spa_control_clear (&control);
         break;
       }
+      case SPA_CONTROL_CMD_NODE_EVENT:
+      {
+        SpaControlCmdNodeEvent p;
+
+        if (spa_control_iter_parse_cmd (&it, &p) < 0)
+          break;
+
+        handle_node_event (stream, p.event);
+        break;
+      }
+      case SPA_CONTROL_CMD_NODE_COMMAND:
+      {
+        SpaControlCmdNodeCommand p;
+
+        if (spa_control_iter_parse_cmd (&it, &p) < 0)
+          break;
+
+        handle_node_command (stream, p.seq, p.command);
+        break;
+      }
+
+      case SPA_CONTROL_CMD_INVALID:
+        g_warning ("unhandled command %d", cmd);
+        break;
+    }
+  }
+  spa_control_iter_end (&it);
+
+  return TRUE;
+}
+
+static gboolean
+parse_rtcontrol (PinosStream *stream,
+                 SpaControl  *ctrl)
+{
+  SpaControlIter it;
+  PinosStreamPrivate *priv = stream->priv;
+
+  spa_control_iter_init (&it, ctrl);
+  while (spa_control_iter_next (&it) == SPA_RESULT_OK) {
+    SpaControlCmd cmd = spa_control_iter_get_cmd (&it);
+
+    switch (cmd) {
+      case SPA_CONTROL_CMD_INVALID:
+      case SPA_CONTROL_CMD_NODE_UPDATE:
+      case SPA_CONTROL_CMD_PORT_UPDATE:
+      case SPA_CONTROL_CMD_PORT_STATUS_CHANGE:
+      case SPA_CONTROL_CMD_NODE_STATE_CHANGE:
+      case SPA_CONTROL_CMD_ADD_PORT:
+      case SPA_CONTROL_CMD_REMOVE_PORT:
+      case SPA_CONTROL_CMD_SET_FORMAT:
+      case SPA_CONTROL_CMD_SET_PROPERTY:
+      case SPA_CONTROL_CMD_ADD_MEM:
+      case SPA_CONTROL_CMD_REMOVE_MEM:
+      case SPA_CONTROL_CMD_USE_BUFFERS:
+      case SPA_CONTROL_CMD_NODE_COMMAND:
+        g_warning ("got unexpected control %d", cmd);
+        break;
+
       case SPA_CONTROL_CMD_PROCESS_BUFFER:
       {
         SpaControlCmdProcessBuffer p;
@@ -1212,23 +1298,9 @@ parse_control (PinosStream *stream,
         if (spa_control_iter_parse_cmd (&it, &p) < 0)
           break;
 
-        handle_node_event (stream, p.event);
+        handle_rtnode_event (stream, p.event);
         break;
       }
-      case SPA_CONTROL_CMD_NODE_COMMAND:
-      {
-        SpaControlCmdNodeCommand p;
-
-        if (spa_control_iter_parse_cmd (&it, &p) < 0)
-          break;
-
-        handle_node_command (stream, p.seq, p.command);
-        break;
-      }
-
-      case SPA_CONTROL_CMD_INVALID:
-        g_warning ("unhandled command %d", cmd);
-        break;
     }
   }
   spa_control_iter_end (&it);
@@ -1276,6 +1348,46 @@ on_socket_condition (GSocket      *socket,
 }
 
 static gboolean
+on_rtsocket_condition (GSocket      *socket,
+                       GIOCondition  condition,
+                       gpointer      user_data)
+{
+  PinosStream *stream = user_data;
+  PinosStreamPrivate *priv = stream->priv;
+
+  switch (condition) {
+    case G_IO_IN:
+    {
+      SpaControl *control = &priv->recv_control;
+      guint8 buffer[4096];
+
+      if (spa_control_read (control,
+                            priv->rtfd,
+                            buffer,
+                            sizeof (buffer),
+                            NULL,
+                            0) < 0) {
+        g_warning ("stream %p: failed to read buffer", stream);
+        return TRUE;
+      }
+
+      parse_rtcontrol (stream, control);
+
+      spa_control_clear (control);
+      break;
+    }
+
+    case G_IO_OUT:
+      g_warning ("can do IO\n");
+      break;
+
+    default:
+      break;
+  }
+  return TRUE;
+}
+
+static gboolean
 on_timeout (gpointer user_data)
 {
   PinosStream *stream = user_data;
@@ -1296,7 +1408,7 @@ on_timeout (gpointer user_data)
 }
 
 static void
-handle_socket (PinosStream *stream, gint fd)
+handle_socket (PinosStream *stream, gint fd, gint rtfd)
 {
   PinosStreamPrivate *priv = stream->priv;
   GError *error = NULL;
@@ -1304,11 +1416,19 @@ handle_socket (PinosStream *stream, gint fd)
   priv->socket = g_socket_new_from_fd (fd, &error);
   if (priv->socket == NULL)
     goto socket_failed;
+  priv->rtsocket = g_socket_new_from_fd (rtfd, &error);
+  if (priv->rtsocket == NULL)
+    goto socket_failed;
 
   priv->fd = g_socket_get_fd (priv->socket);
   priv->socket_source = g_socket_create_source (priv->socket, G_IO_IN, NULL);
   g_source_set_callback (priv->socket_source, (GSourceFunc) on_socket_condition, stream, NULL);
   g_source_attach (priv->socket_source, priv->context->priv->context);
+
+  priv->rtfd = g_socket_get_fd (priv->rtsocket);
+  priv->rtsocket_source = g_socket_create_source (priv->rtsocket, G_IO_IN, NULL);
+  g_source_set_callback (priv->rtsocket_source, (GSourceFunc) on_rtsocket_condition, stream, NULL);
+  g_source_attach (priv->rtsocket_source, priv->context->priv->context);
 
   priv->timeout_source = g_timeout_source_new (100);
   g_source_set_callback (priv->timeout_source, (GSourceFunc) on_timeout, stream, NULL);
@@ -1333,6 +1453,10 @@ unhandle_socket (PinosStream *stream)
   if (priv->socket_source) {
     g_source_destroy (priv->socket_source);
     g_clear_pointer (&priv->socket_source, g_source_unref);
+  }
+  if (priv->rtsocket_source) {
+    g_source_destroy (priv->rtsocket_source);
+    g_clear_pointer (&priv->rtsocket_source, g_source_unref);
   }
 }
 
@@ -1382,6 +1506,7 @@ on_node_created (GObject      *source_object,
   const gchar *node_path;
   GUnixFDList *fd_list;
   gint fd_idx, fd;
+  gint rtfd_idx, rtfd;
 
   g_assert (context->priv->daemon == G_DBUS_PROXY (source_object));
 
@@ -1391,16 +1516,19 @@ on_node_created (GObject      *source_object,
   if (ret == NULL)
     goto create_failed;
 
-  g_variant_get (ret, "(&oh)", &node_path, &fd_idx);
+  g_variant_get (ret, "(&ohh)", &node_path, &fd_idx, &rtfd_idx);
   g_variant_unref (ret);
 
   if ((fd = g_unix_fd_list_get (fd_list, fd_idx, &error)) < 0)
     goto fd_failed;
+  if ((rtfd = g_unix_fd_list_get (fd_list, rtfd_idx, &error)) < 0)
+    goto fd_failed;
 
   priv->fd = fd;
+  priv->rtfd = rtfd;
   g_object_unref (fd_list);
 
-  handle_socket (stream, priv->fd);
+  handle_socket (stream, priv->fd, priv->rtfd);
 
   pinos_subscribe_get_proxy (context->priv->subscribe,
                              PINOS_DBUS_SERVICE,
@@ -1462,7 +1590,7 @@ on_node_registered (GObject      *source_object,
   priv->fd = fd;
   g_object_unref (fd_list);
 
-  handle_socket (stream, priv->fd);
+  handle_socket (stream, -1, priv->fd);
 
   return;
 

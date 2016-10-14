@@ -378,8 +378,8 @@ handle_create_client_node (PinosDaemon1           *interface,
   PinosProperties *props;
   GError *error = NULL;
   GUnixFDList *fdlist;
-  GSocket *socket;
-  gint fdidx;
+  GSocket *socket, *rtsocket;
+  gint fdidx, rtfdidx;
 
   sender = g_dbus_method_invocation_get_sender (invocation);
   client = sender_get_client (daemon, sender, TRUE);
@@ -397,6 +397,10 @@ handle_create_client_node (PinosDaemon1           *interface,
   if (socket == NULL)
     goto no_socket;
 
+  rtsocket = pinos_client_node_get_rtsocket_pair (PINOS_CLIENT_NODE (node), &error);
+  if (rtsocket == NULL)
+    goto no_socket;
+
   pinos_client_add_object (client, G_OBJECT (node));
 
   object_path = pinos_node_get_object_path (PINOS_NODE (node));
@@ -405,10 +409,12 @@ handle_create_client_node (PinosDaemon1           *interface,
 
   fdlist = g_unix_fd_list_new ();
   fdidx = g_unix_fd_list_append (fdlist, g_socket_get_fd (socket), &error);
+  rtfdidx = g_unix_fd_list_append (fdlist, g_socket_get_fd (rtsocket), &error);
   g_object_unref (socket);
+  g_object_unref (rtsocket);
 
   g_dbus_method_invocation_return_value_with_unix_fd_list (invocation,
-           g_variant_new ("(oh)", object_path, fdidx), fdlist);
+           g_variant_new ("(ohh)", object_path, fdidx, rtfdidx), fdlist);
   g_object_unref (fdlist);
 
   return TRUE;
@@ -943,8 +949,11 @@ poll_event (GIOChannel *source,
   PollData *data = user_data;
   SpaPollNotifyData d;
 
+  g_debug ("poll event %d", data->item.fds[0].fd);
+
   d.user_data = data->item.user_data;
   d.fds = data->item.fds;
+  d.fds[0].revents = condition;
   d.n_fds = data->item.n_fds;
   data->item.after_cb (&d);
 
@@ -960,6 +969,7 @@ do_add_item (SpaPoll     *poll,
   GSource *source;
   PollData data;
 
+  g_debug ("add main poll");
   channel = g_io_channel_unix_new (item->fds[0].fd);
   source = g_io_create_watch (channel, G_IO_IN);
   g_io_channel_unref (channel);
@@ -987,6 +997,7 @@ do_remove_item (SpaPoll     *poll,
 {
   GSource *source;
 
+  g_debug ("remove main poll %d", item->id);
   source = g_main_context_find_source_by_id (g_main_context_get_thread_default (), item->id);
   g_source_destroy (source);
 

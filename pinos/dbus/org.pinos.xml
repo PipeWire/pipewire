@@ -50,6 +50,7 @@
       <arg type='a{sv}' name='properties' direction='in'/>
       <arg type='o' name='node' direction='out'/>
       <arg type='h' name='fd' direction='out'/>
+      <arg type='h' name='rtfd' direction='out'/>
     </method>
 
     <method name='RegisterClientNode'>

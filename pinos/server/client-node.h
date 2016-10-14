@@ -69,6 +69,8 @@ PinosNode *        pinos_client_node_new                  (PinosDaemon     *daem
 
 GSocket *          pinos_client_node_get_socket_pair      (PinosClientNode  *node,
                                                            GError          **error);
+GSocket *          pinos_client_node_get_rtsocket_pair    (PinosClientNode  *node,
+                                                           GError          **error);
 
 G_END_DECLS
 

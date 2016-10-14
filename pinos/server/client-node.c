@@ -40,7 +40,9 @@
 struct _PinosClientNodePrivate
 {
   int fd;
+  int rtfd;
   GSocket *sockets[2];
+  GSocket *rtsockets[2];
   SpaHandle *handle;
 };
 
@@ -104,7 +106,7 @@ pinos_client_node_set_property (GObject      *_object,
  */
 GSocket *
 pinos_client_node_get_socket_pair (PinosClientNode  *this,
-                                   GError          **error)
+                                     GError          **error)
 {
   PinosNode *node;
   PinosClientNodePrivate *priv;
@@ -156,6 +158,70 @@ create_failed:
   }
 }
 
+/**
+ * pinos_client_node_get_rtsocket_pair:
+ * @node: a #PinosClientNode
+ * @error: a #GError
+ *
+ * Create or return a previously create socket pair for @node. The
+ * Socket for the other end is returned.
+ *
+ * Returns: a #GSocket that can be used to send/receive buffers to node.
+ */
+GSocket *
+pinos_client_node_get_rtsocket_pair (PinosClientNode  *this,
+                                     GError          **error)
+{
+  PinosNode *node;
+  PinosClientNodePrivate *priv;
+
+  g_return_val_if_fail (PINOS_IS_CLIENT_NODE (this), FALSE);
+  node = PINOS_NODE (this);
+  priv = this->priv;
+
+  if (priv->rtsockets[1] == NULL) {
+    SpaProps *props;
+    SpaPropValue value;
+    int fd[2];
+
+    if (socketpair (AF_UNIX, SOCK_STREAM, 0, fd) != 0)
+      goto no_sockets;
+
+    priv->rtsockets[0] = g_socket_new_from_fd (fd[0], error);
+    if (priv->rtsockets[0] == NULL)
+      goto create_failed;
+
+    priv->rtsockets[1] = g_socket_new_from_fd (fd[1], error);
+    if (priv->rtsockets[1] == NULL)
+      goto create_failed;
+
+    priv->rtfd = g_socket_get_fd (priv->rtsockets[0]);
+
+    spa_node_get_props (node->node, &props);
+    value.value = &priv->rtfd;
+    value.size = sizeof (int);
+    spa_props_set_value (props, spa_props_index_for_name (props, "rt-socket"), &value);
+    spa_node_set_props (node->node, props);
+  }
+  return g_object_ref (priv->rtsockets[1]);
+
+  /* ERRORS */
+no_sockets:
+  {
+    g_set_error (error,
+                 G_IO_ERROR,
+                 g_io_error_from_errno (errno),
+                 "could not create socketpair: %s", strerror (errno));
+    return NULL;
+  }
+create_failed:
+  {
+    g_clear_object (&priv->rtsockets[0]);
+    g_clear_object (&priv->rtsockets[1]);
+    return NULL;
+  }
+}
+
 static void
 pinos_client_node_dispose (GObject * object)
 {
@@ -171,6 +237,7 @@ pinos_client_node_dispose (GObject * object)
   value.value = &fd;
   value.size = sizeof (int);
   spa_props_set_value (props, spa_props_index_for_name (props, "socket"), &value);
+  spa_props_set_value (props, spa_props_index_for_name (props, "rt-socket"), &value);
   spa_node_set_props (node->node, props);
 
   G_OBJECT_CLASS (pinos_client_node_parent_class)->dispose (object);
@@ -186,6 +253,8 @@ pinos_client_node_finalize (GObject * object)
 
   g_clear_object (&priv->sockets[0]);
   g_clear_object (&priv->sockets[1]);
+  g_clear_object (&priv->rtsockets[0]);
+  g_clear_object (&priv->rtsockets[1]);
   spa_handle_clear (priv->handle);
   g_free (priv->handle);
 

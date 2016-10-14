@@ -28,7 +28,7 @@
 #include <spa/control.h>
 #include <spa/debug.h>
 
-#if 0
+#if 1
 #define SPA_DEBUG_CONTROL(format,args...) fprintf(stderr,format,##args)
 #else
 #define SPA_DEBUG_CONTROL(format,args...)
@@ -1122,7 +1122,7 @@ spa_control_read (SpaControl   *control,
   }
   sc->magic = SSC_MAGIC;
 
-  SPA_DEBUG_CONTROL ("control %p: read %zd bytes and %d fds\n", sc, len, sc->n_fds);
+  SPA_DEBUG_CONTROL ("control %p: %d read %zd bytes and %d fds\n", sc, fd, len, sc->n_fds);
 
   return SPA_RESULT_OK;
 
@@ -1185,7 +1185,7 @@ spa_control_write (SpaControl *control,
   if (len != (ssize_t) sc->size)
     return SPA_RESULT_ERROR;
 
-  SPA_DEBUG_CONTROL ("control %p: written %zd bytes and %d fds\n", sc, len, sc->n_fds);
+  SPA_DEBUG_CONTROL ("control %p: %d written %zd bytes and %d fds\n", sc, fd, len, sc->n_fds);
 
   return SPA_RESULT_OK;
 

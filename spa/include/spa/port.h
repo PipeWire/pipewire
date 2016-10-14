@@ -28,6 +28,7 @@ typedef struct _SpaAllocParam SpaAllocParam;
 
 #include <spa/defs.h>
 #include <spa/buffer.h>
+#include <spa/dict.h>
 
 #define SPA_ALLOC_PARAM_URI             "http://spaplug.in/ns/alloc-param"
 #define SPA_ALLOC_PARAM_PREFIX          SPA_ALLOC_PARAM_URI "#"
@@ -110,7 +111,7 @@ typedef enum {
  * @latency: latency on this port in nanoseconds
  * @params: extra allocation parameters
  * @n_params: number of elements in @params;
- * @features: NULL terminated array of extra port features
+ * @extra: a dictionary of extra port info
  *
  */
 typedef struct {
@@ -119,7 +120,7 @@ typedef struct {
   uint64_t            latency;
   SpaAllocParam     **params;
   unsigned int        n_params;
-  const char        **features;
+  SpaDict            *extra;
 } SpaPortInfo;
 
 

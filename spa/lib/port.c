@@ -62,7 +62,7 @@ spa_port_info_serialize (void *p, const SpaPortInfo *info)
     pi->params = SPA_INT_TO_PTR (SPA_PTRDIFF (ap, pi));
   else
     pi->params = 0;
-  pi->features = 0;
+  pi->extra = 0;
 
   p = SPA_MEMBER (ap, sizeof (SpaAllocParam*) * info->n_params, void);
 

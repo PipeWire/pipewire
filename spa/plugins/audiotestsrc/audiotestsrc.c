@@ -583,7 +583,7 @@ spa_audiotestsrc_node_port_set_format (SpaNode            *node,
     this->param_meta.param.type = SPA_ALLOC_PARAM_TYPE_META_ENABLE;
     this->param_meta.param.size = sizeof (this->param_meta);
     this->param_meta.type = SPA_META_TYPE_HEADER;
-    this->info.features = NULL;
+    this->info.extra = NULL;
     update_state (this, SPA_NODE_STATE_READY);
   }
   else

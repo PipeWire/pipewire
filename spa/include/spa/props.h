@@ -136,7 +136,7 @@ typedef struct {
  * @range_type: type of the range values
  * @n_range_values: number of elements in @range_values
  * @range_values: array of possible values
- * @info: extra info
+ * @extra: extra info
  */
 typedef struct {
   uint32_t                  id;
@@ -148,7 +148,7 @@ typedef struct {
   SpaPropRangeType          range_type;
   unsigned int              n_range_values;
   const SpaPropRangeInfo   *range_values;
-  SpaDict                  *info;
+  SpaDict                  *extra;
 } SpaPropInfo;
 
 /**

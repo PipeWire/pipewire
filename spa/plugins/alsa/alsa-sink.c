@@ -341,7 +341,7 @@ spa_alsa_sink_node_port_set_format (SpaNode            *node,
   this->param_buffers.min_buffers = 1;
   this->param_buffers.max_buffers = 8;
   this->param_buffers.align = 16;
-  this->info.features = NULL;
+  this->info.extra = NULL;
 
   this->have_format = true;
   update_state (this, SPA_NODE_STATE_READY);

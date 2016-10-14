@@ -432,9 +432,9 @@ spa_debug_props (const SpaProps *props, bool print_ranges)
         fprintf (stderr, "\t: %-12s\n", rinfo->name);
       }
     }
-    if (info->info) {
-      fprintf (stderr, "Info:  \n");
-      spa_debug_dict (info->info);
+    if (info->extra) {
+      fprintf (stderr, "Extra info:  \n");
+      spa_debug_dict (info->extra);
     }
   }
   return SPA_RESULT_OK;

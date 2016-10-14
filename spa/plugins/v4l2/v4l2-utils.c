@@ -816,7 +816,7 @@ spa_v4l2_set_format (SpaV4l2Source *this, V4l2Format *f, bool try_only)
   state->param_meta.param.size = sizeof (state->param_meta);
   state->param_meta.type = SPA_META_TYPE_HEADER;
 
-  state->info.features = NULL;
+  state->info.extra = NULL;
 
   return 0;
 }

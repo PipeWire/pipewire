@@ -32,22 +32,24 @@
 #include "pinos/client/private.h"
 
 #include "pinos/server/daemon.h"
-#include "pinos/server/client-node.h"
+#include "pinos/server/dbus-client-node.h"
+
+#include "pinos/dbus/org-pinos.h"
 
 #include "spa/include/spa/control.h"
 
 
-struct _PinosClientNodePrivate
+struct _PinosDBusClientNodePrivate
 {
   int fd;
   GSocket *sockets[2];
   SpaHandle *handle;
 };
 
-#define PINOS_CLIENT_NODE_GET_PRIVATE(obj)  \
-   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_CLIENT_NODE, PinosClientNodePrivate))
+#define PINOS_DBUS_CLIENT_NODE_GET_PRIVATE(obj)  \
+   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_DBUS_CLIENT_NODE, PinosDBusClientNodePrivate))
 
-G_DEFINE_TYPE (PinosClientNode, pinos_client_node, PINOS_TYPE_NODE);
+G_DEFINE_TYPE (PinosDBusClientNode, pinos_dbus_client_node, PINOS_TYPE_NODE);
 
 enum
 {
@@ -63,12 +65,12 @@ enum
 //static guint signals[LAST_SIGNAL] = { 0 };
 
 static void
-pinos_client_node_get_property (GObject    *_object,
+pinos_dbus_client_node_get_property (GObject    *_object,
                                   guint       prop_id,
                                   GValue     *value,
                                   GParamSpec *pspec)
 {
-  PinosClientNode *node = PINOS_CLIENT_NODE (_object);
+  PinosDBusClientNode *node = PINOS_DBUS_CLIENT_NODE (_object);
 
   switch (prop_id) {
     default:
@@ -78,12 +80,12 @@ pinos_client_node_get_property (GObject    *_object,
 }
 
 static void
-pinos_client_node_set_property (GObject      *_object,
+pinos_dbus_client_node_set_property (GObject      *_object,
                             guint         prop_id,
                             const GValue *value,
                             GParamSpec   *pspec)
 {
-  PinosClientNode *node = PINOS_CLIENT_NODE (_object);
+  PinosDBusClientNode *node = PINOS_DBUS_CLIENT_NODE (_object);
 
   switch (prop_id) {
     default:
@@ -93,8 +95,8 @@ pinos_client_node_set_property (GObject      *_object,
 }
 
 /**
- * pinos_client_node_get_socket_pair:
- * @node: a #PinosClientNode
+ * pinos_dbus_client_node_get_socket_pair:
+ * @node: a #PinosDBusClientNode
  * @error: a #GError
  *
  * Create or return a previously create socket pair for @node. The
@@ -103,13 +105,13 @@ pinos_client_node_set_property (GObject      *_object,
  * Returns: a #GSocket that can be used to send/receive buffers to node.
  */
 GSocket *
-pinos_client_node_get_socket_pair (PinosClientNode  *this,
+pinos_dbus_client_node_get_socket_pair (PinosDBusClientNode  *this,
                                    GError          **error)
 {
   PinosNode *node;
-  PinosClientNodePrivate *priv;
+  PinosDBusClientNodePrivate *priv;
 
-  g_return_val_if_fail (PINOS_IS_CLIENT_NODE (this), FALSE);
+  g_return_val_if_fail (PINOS_IS_DBUS_CLIENT_NODE (this), FALSE);
   node = PINOS_NODE (this);
   priv = this->priv;
 
@@ -157,9 +159,9 @@ create_failed:
 }
 
 static void
-pinos_client_node_dispose (GObject * object)
+pinos_dbus_client_node_dispose (GObject * object)
 {
-  PinosClientNode *this = PINOS_CLIENT_NODE (object);
+  PinosDBusClientNode *this = PINOS_DBUS_CLIENT_NODE (object);
   PinosNode *node = PINOS_NODE (this);
   SpaProps *props;
   SpaPropValue value;
@@ -171,16 +173,20 @@ pinos_client_node_dispose (GObject * object)
   value.value = &fd;
   value.size = sizeof (int);
   spa_props_set_value (props, spa_props_index_for_name (props, "socket"), &value);
+
+  value.value = NULL;
+  value.size = sizeof (void *);
+  spa_props_set_value (props, spa_props_index_for_name (props, "connection"), &value);
   spa_node_set_props (node->node, props);
 
-  G_OBJECT_CLASS (pinos_client_node_parent_class)->dispose (object);
+  G_OBJECT_CLASS (pinos_dbus_client_node_parent_class)->dispose (object);
 }
 
 static void
-pinos_client_node_finalize (GObject * object)
+pinos_dbus_client_node_finalize (GObject * object)
 {
-  PinosClientNode *this = PINOS_CLIENT_NODE (object);
-  PinosClientNodePrivate *priv = this->priv;
+  PinosDBusClientNode *this = PINOS_DBUS_CLIENT_NODE (object);
+  PinosDBusClientNodePrivate *priv = this->priv;
 
   g_debug ("client-node %p: finalize", this);
 
@@ -189,37 +195,37 @@ pinos_client_node_finalize (GObject * object)
   spa_handle_clear (priv->handle);
   g_free (priv->handle);
 
-  G_OBJECT_CLASS (pinos_client_node_parent_class)->finalize (object);
+  G_OBJECT_CLASS (pinos_dbus_client_node_parent_class)->finalize (object);
 }
 
 static void
-pinos_client_node_constructed (GObject * object)
+pinos_dbus_client_node_constructed (GObject * object)
 {
-  PinosClientNode *this = PINOS_CLIENT_NODE (object);
+  PinosDBusClientNode *this = PINOS_DBUS_CLIENT_NODE (object);
 
   g_debug ("client-node %p: constructed", this);
 
-  G_OBJECT_CLASS (pinos_client_node_parent_class)->constructed (object);
+  G_OBJECT_CLASS (pinos_dbus_client_node_parent_class)->constructed (object);
 }
 
 static void
-pinos_client_node_class_init (PinosClientNodeClass * klass)
+pinos_dbus_client_node_class_init (PinosDBusClientNodeClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
 
-  g_type_class_add_private (klass, sizeof (PinosClientNodePrivate));
+  g_type_class_add_private (klass, sizeof (PinosDBusClientNodePrivate));
 
-  gobject_class->constructed = pinos_client_node_constructed;
-  gobject_class->dispose = pinos_client_node_dispose;
-  gobject_class->finalize = pinos_client_node_finalize;
-  gobject_class->set_property = pinos_client_node_set_property;
-  gobject_class->get_property = pinos_client_node_get_property;
+  gobject_class->constructed = pinos_dbus_client_node_constructed;
+  gobject_class->dispose = pinos_dbus_client_node_dispose;
+  gobject_class->finalize = pinos_dbus_client_node_finalize;
+  gobject_class->set_property = pinos_dbus_client_node_set_property;
+  gobject_class->get_property = pinos_dbus_client_node_get_property;
 }
 
 static void
-pinos_client_node_init (PinosClientNode * node)
+pinos_dbus_client_node_init (PinosDBusClientNode * node)
 {
-  node->priv = PINOS_CLIENT_NODE_GET_PRIVATE (node);
+  node->priv = PINOS_DBUS_CLIENT_NODE_GET_PRIVATE (node);
 
   g_debug ("client-node %p: new", node);
 }
@@ -274,10 +280,10 @@ make_node (PinosDaemon *daemon, SpaHandle **handle, SpaNode **node, const char *
 }
 
 /**
- * pinos_client_node_new:
+ * pinos_dbus_client_node_new:
  * @daemon: a #PinosDaemon
  * @client: the client owner
- * @name: a name
+ * @path: a dbus path
  * @properties: extra properties
  *
  * Create a new #PinosNode.
@@ -285,15 +291,17 @@ make_node (PinosDaemon *daemon, SpaHandle **handle, SpaNode **node, const char *
  * Returns: a new #PinosNode
  */
 PinosNode *
-pinos_client_node_new (PinosDaemon     *daemon,
-                       PinosClient     *client,
-                       const gchar     *name,
-                       PinosProperties *properties)
+pinos_dbus_client_node_new (PinosDaemon     *daemon,
+                            PinosClient     *client,
+                            const gchar     *path,
+                            PinosProperties *properties)
 {
   SpaNode *n;
   SpaResult res;
   SpaHandle *handle;
   PinosNode *node;
+  SpaProps *props;
+  SpaPropValue value;
 
   g_return_val_if_fail (PINOS_IS_DAEMON (daemon), NULL);
 
@@ -301,20 +309,26 @@ pinos_client_node_new (PinosDaemon     *daemon,
                         &handle,
                         &n,
                         "build/spa/plugins/remote/libspa-remote.so",
-                        "proxy")) < 0) {
+                        "dbus-proxy")) < 0) {
     g_error ("can't create proxy: %d", res);
     return NULL;
   }
 
-  node =  g_object_new (PINOS_TYPE_CLIENT_NODE,
+  spa_node_get_props (n, &props);
+  g_object_get (daemon, "connection", &value.value, NULL);
+  value.size = sizeof (void *);
+  spa_props_set_value (props, spa_props_index_for_name (props, "connection"), &value);
+  spa_node_set_props (n, props);
+
+  node =  g_object_new (PINOS_TYPE_DBUS_CLIENT_NODE,
                        "daemon", daemon,
                        "client", client,
-                       "name", name,
+                       "name", path,
                        "properties", properties,
                        "node", n,
                        NULL);
 
-  PINOS_CLIENT_NODE (node)->priv->handle = handle;
+  PINOS_DBUS_CLIENT_NODE (node)->priv->handle = handle;
 
   return node;
 }

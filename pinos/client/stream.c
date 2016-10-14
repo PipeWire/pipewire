@@ -29,6 +29,7 @@
 #include <gio/gunixfdlist.h>
 #include <gio/gunixfdmessage.h>
 
+#include "pinos/dbus/org-pinos.h"
 #include "pinos/server/daemon.h"
 #include "pinos/client/pinos.h"
 #include "pinos/client/context.h"
@@ -1431,6 +1432,60 @@ exit_error:
   }
 }
 
+static void
+on_node_registered (GObject      *source_object,
+                    GAsyncResult *res,
+                    gpointer      user_data)
+{
+  PinosStream *stream = user_data;
+  PinosStreamPrivate *priv = stream->priv;
+  PinosContext *context = priv->context;
+  GVariant *ret;
+  GError *error = NULL;
+  GUnixFDList *fd_list;
+  gint fd_idx, fd;
+
+  g_assert (context->priv->daemon == G_DBUS_PROXY (source_object));
+
+  ret = g_dbus_proxy_call_with_unix_fd_list_finish (context->priv->daemon,
+                                                    &fd_list,
+                                                    res, &error);
+  if (ret == NULL)
+    goto create_failed;
+
+  g_variant_get (ret, "(h)", &fd_idx);
+  g_variant_unref (ret);
+
+  if ((fd = g_unix_fd_list_get (fd_list, fd_idx, &error)) < 0)
+    goto fd_failed;
+
+  priv->fd = fd;
+  g_object_unref (fd_list);
+
+  handle_socket (stream, priv->fd);
+
+  return;
+
+  /* ERRORS */
+create_failed:
+  {
+    g_warning ("failed to connect: %s", error->message);
+    goto exit_error;
+  }
+fd_failed:
+  {
+    g_warning ("failed to get FD: %s", error->message);
+    g_object_unref (fd_list);
+    goto exit_error;
+  }
+exit_error:
+  {
+    stream_set_state (stream, PINOS_STREAM_STATE_ERROR, error);
+    g_object_unref (stream);
+    return;
+  }
+}
+
 
 static gboolean
 do_connect (PinosStream *stream)
@@ -1444,16 +1499,38 @@ do_connect (PinosStream *stream)
     pinos_properties_set (priv->properties,
                           "pinos.target.node", priv->path);
 
-  g_dbus_proxy_call (context->priv->daemon,
-                     "CreateClientNode",
-                     g_variant_new ("(s@a{sv})",
-                       "client-node",
-                       pinos_properties_to_variant (priv->properties)),
-                     G_DBUS_CALL_FLAGS_NONE,
-                     -1,
-                     NULL, /* GCancellable *cancellable */
-                     on_node_created,
-                     stream);
+  if (FALSE) {
+    PinosClientNode1 *iface;
+
+    iface = pinos_client_node1_skeleton_new ();
+
+    g_dbus_interface_skeleton_export (G_DBUS_INTERFACE_SKELETON (iface),
+                                      priv->context->priv->connection,
+                                      "/org/pinos/stream",
+                                      NULL);
+
+    g_dbus_proxy_call (context->priv->daemon,
+                       "RegisterClientNode",
+                       g_variant_new ("(@a{sv}o)",
+                         pinos_properties_to_variant (priv->properties),
+                         "/org/pinos/stream"),
+                       G_DBUS_CALL_FLAGS_NONE,
+                       -1,
+                       NULL, /* GCancellable *cancellable */
+                       on_node_registered,
+                       stream);
+  } else {
+    g_dbus_proxy_call (context->priv->daemon,
+                       "CreateClientNode",
+                       g_variant_new ("(s@a{sv})",
+                         "client-node",
+                         pinos_properties_to_variant (priv->properties)),
+                       G_DBUS_CALL_FLAGS_NONE,
+                       -1,
+                       NULL, /* GCancellable *cancellable */
+                       on_node_created,
+                       stream);
+  }
   return FALSE;
 }
 

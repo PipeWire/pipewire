@@ -52,6 +52,12 @@
       <arg type='h' name='fd' direction='out'/>
     </method>
 
+    <method name='RegisterClientNode'>
+      <arg type='a{sv}' name='properties' direction='in'/>
+      <arg type='o' name='node' direction='in'/>
+      <arg type='h' name='fd' direction='out'/>
+    </method>
+
   </interface>
 
   <interface name='org.pinos.Client1'>
@@ -110,6 +116,79 @@
          Remove the node
     -->
     <method name='Remove'/>
+  </interface>
+
+  <interface name='org.pinos.ClientNode1'>
+    <!-- Info: extra node info -->
+    <property name='Info' type='a{sv}' access='read' />
+    <!-- State: the node state -->
+    <property name='State' type='u' access='read' />
+
+    <property type='a{sv}' name='props' access='read'/>
+
+    <property type='u' name='max_input_ports' access='read'/>
+    <property type='au' name='input_ports' access='read'/>
+    <property type='u' name='max_output_ports' access='read'/>
+    <property type='uau' name='output_ports' access='read'/>
+
+    <method name='SetProps'>
+      <arg type='a{sv}' name='props' direction='in'/>
+    </method>
+
+    <method name='SendCommand'>
+      <arg type='sv' name='command' direction='in'/>
+    </method>
+
+    <signal name='Event'>
+      <arg type='sv' name='event'/>
+    </signal>
+
+    <method name='AddPort'>
+      <arg type='uu' name='port' direction='in'/>
+    </method>
+    <method name='RemovePort'>
+      <arg type='uu' name='port' direction='in'/>
+    </method>
+
+    <method name='GetPortInfo'>
+      <arg type='uu' name='port' direction='in'/>
+      <arg type='a{sv}' name='props' direction='out'/>
+      <arg type='ay' name='format' direction='out'/>
+      <arg type='ay' name='info' direction='out'/>
+    </method>
+
+    <method name='PortEnumFormats'>
+      <arg type='uu' name='port' direction='in'/>
+      <arg type='ay' name='filter' direction='in'/>
+      <arg type='x' name='state' direction='in'/>
+      <arg type='ay' name='format' direction='out'/>
+      <arg type='x' name='new_state' direction='out'/>
+    </method>
+
+    <method name='PortSetFormat'>
+      <arg type='uu' name='port' direction='in'/>
+      <arg type='u' name='flags' direction='in'/>
+      <arg type='ay' name='format' direction='in'/>
+    </method>
+
+    <signal name='PortChanged'>
+      <arg type='uu' name='port'/>
+      <arg type='u' name='mask'/>
+      <arg type='a{sv}' name='props'/>
+      <arg type='ay' name='format'/>
+      <arg type='ay' name='info'/>
+    </signal>
+
+    <method name='PortSetProps'>
+      <arg type='uu' name='port' direction='in'/>
+      <arg type='a{sv}' name='props' direction='in'/>
+    </method>
+
+    <method name='PortUseBuffers'>
+      <arg type='uu' name='port' direction='in'/>
+      <arg type='ah' name='mem' direction='in'/>
+      <arg type='ay' name='buffers' direction='in'/>
+    </method>
   </interface>
 
   <interface name='org.pinos.Link1'>

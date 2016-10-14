@@ -21,6 +21,7 @@
 #include <spa/node.h>
 
 extern const SpaHandleFactory spa_proxy_factory;
+extern const SpaHandleFactory spa_dbus_proxy_factory;
 
 SpaResult
 spa_enum_handle_factory (const SpaHandleFactory **factory,
@@ -36,6 +37,9 @@ spa_enum_handle_factory (const SpaHandleFactory **factory,
   switch (index) {
     case 0:
      *factory = &spa_proxy_factory;
+      break;
+    case 1:
+     *factory = &spa_dbus_proxy_factory;
       break;
     default:
       return SPA_RESULT_ENUM_END;

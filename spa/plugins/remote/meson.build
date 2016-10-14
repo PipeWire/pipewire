@@ -1,4 +1,6 @@
-remote_sources = ['proxy.c', 'plugin.c']
+remote_sources = ['proxy.c',
+                  'dbus-proxy.c',
+                  'plugin.c']
 
 remotelib = shared_library('spa-remote',
                            remote_sources,

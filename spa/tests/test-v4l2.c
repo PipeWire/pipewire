@@ -455,7 +455,6 @@ main (int argc, char *argv[])
 
   data.map = spa_id_map_get_default ();
 
-  data.data_loop.handle = NULL;
   data.data_loop.size = sizeof (SpaPoll);
   data.data_loop.info = NULL;
   data.data_loop.add_item = do_add_item;

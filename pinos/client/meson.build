@@ -20,6 +20,7 @@ pinos_sources = [
   'pinos.c',
   'ringbuffer.c',
   'subscribe.c',
+  gdbus_target,
 ]
 
 install_headers(pinos_headers, subdir : 'pinos/client')
@@ -44,7 +45,6 @@ enumtypes_c = custom_target('enumtypes_c',
 libpinos_c_args = [
   '-DHAVE_CONFIG_H',
   '-D_GNU_SOURCE',
-  '-DG_LOG_DOMAIN=g_log_domain_pinos',
 ]
 
 

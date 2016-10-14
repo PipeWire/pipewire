@@ -328,7 +328,6 @@ pinos_rtloop_init (PinosRTLoop * this)
 
   g_debug ("rt-loop %p: new", this);
 
-  this->poll.handle = NULL;
   this->poll.size = sizeof (SpaPoll);
   this->poll.info = NULL;
   this->poll.add_item = do_add_item;

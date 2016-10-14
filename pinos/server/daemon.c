@@ -30,6 +30,7 @@
 #include "pinos/server/daemon.h"
 #include "pinos/server/node.h"
 #include "pinos/server/client-node.h"
+#include "pinos/server/dbus-client-node.h"
 #include "pinos/server/client.h"
 #include "pinos/server/link.h"
 #include "pinos/server/rt-loop.h"
@@ -408,6 +409,66 @@ handle_create_client_node (PinosDaemon1           *interface,
 
   g_dbus_method_invocation_return_value_with_unix_fd_list (invocation,
            g_variant_new ("(oh)", object_path, fdidx), fdlist);
+  g_object_unref (fdlist);
+
+  return TRUE;
+
+no_socket:
+  {
+    g_debug ("daemon %p: could not create socket %s", daemon, error->message);
+    g_object_unref (node);
+    goto exit_error;
+  }
+exit_error:
+  {
+    g_dbus_method_invocation_return_gerror (invocation, error);
+    g_clear_error (&error);
+    return TRUE;
+  }
+}
+
+static gboolean
+handle_register_client_node (PinosDaemon1           *interface,
+                             GDBusMethodInvocation  *invocation,
+                             GVariant               *arg_properties,
+                             const gchar            *arg_path,
+                             gpointer                user_data)
+{
+  PinosDaemon *daemon = user_data;
+  PinosNode *node;
+  PinosClient *client;
+  const gchar *sender;
+  PinosProperties *props;
+  GError *error = NULL;
+  GUnixFDList *fdlist;
+  gint fdidx;
+  GSocket *socket;
+
+  sender = g_dbus_method_invocation_get_sender (invocation);
+  client = sender_get_client (daemon, sender, TRUE);
+
+  g_debug ("daemon %p: register client-node: %s", daemon, sender);
+  props = pinos_properties_from_variant (arg_properties);
+
+  node =  pinos_dbus_client_node_new (daemon,
+                                      client,
+                                      arg_path,
+                                      props);
+  pinos_properties_free (props);
+
+  socket = pinos_dbus_client_node_get_socket_pair (PINOS_DBUS_CLIENT_NODE (node), &error);
+  if (socket == NULL)
+    goto no_socket;
+
+  pinos_client_add_object (client, G_OBJECT (node));
+  g_object_unref (node);
+
+  fdlist = g_unix_fd_list_new ();
+  fdidx = g_unix_fd_list_append (fdlist, g_socket_get_fd (socket), &error);
+  g_object_unref (socket);
+
+  g_dbus_method_invocation_return_value_with_unix_fd_list (invocation,
+           g_variant_new ("(h)", fdidx), fdlist);
   g_object_unref (fdlist);
 
   return TRUE;
@@ -941,6 +1002,7 @@ pinos_daemon_init (PinosDaemon * daemon)
   priv->iface = pinos_daemon1_skeleton_new ();
   g_signal_connect (priv->iface, "handle-create-node", (GCallback) handle_create_node, daemon);
   g_signal_connect (priv->iface, "handle-create-client-node", (GCallback) handle_create_client_node, daemon);
+  g_signal_connect (priv->iface, "handle-register-client-node", (GCallback) handle_register_client_node, daemon);
 
   priv->server_manager = g_dbus_object_manager_server_new (PINOS_DBUS_OBJECT_PREFIX);
   priv->clients = g_hash_table_new (g_str_hash, g_str_equal);
@@ -950,7 +1012,6 @@ pinos_daemon_init (PinosDaemon * daemon)
                                                 g_object_unref);
   priv->loop = pinos_rtloop_new();
 
-  priv->main_loop.handle = NULL;
   priv->main_loop.size = sizeof (SpaPoll);
   priv->main_loop.info = NULL;
   priv->main_loop.info = NULL;
@@ -958,7 +1019,6 @@ pinos_daemon_init (PinosDaemon * daemon)
   priv->main_loop.update_item = do_update_item;
   priv->main_loop.remove_item = do_remove_item;
 
-  priv->log.handle = NULL;
   priv->log.size = sizeof (SpaLog);
   priv->log.info = NULL;
   priv->log.level = SPA_LOG_LEVEL_INFO;

@@ -78,7 +78,6 @@ id_map_get_uri (SpaIDMap *map, uint32_t id)
 }
 
 static const SpaIDMap default_map = {
-  NULL,
   sizeof (SpaIDMap),
   NULL,
   id_map_get_id,

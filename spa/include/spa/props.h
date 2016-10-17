@@ -235,13 +235,6 @@ SpaResult       spa_props_copy_values (const SpaProps *src,
                                        SpaProps       *dest);
 
 
-size_t          spa_props_get_size    (const SpaProps *props);
-size_t          spa_props_serialize   (void *dest, const SpaProps *props);
-SpaProps *      spa_props_deserialize (void *src, off_t offset);
-
-SpaProps *      spa_props_copy_into   (void *dest, const SpaProps *props);
-
-
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

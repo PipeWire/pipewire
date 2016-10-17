@@ -107,6 +107,8 @@ struct _SpaLog {
                            va_list        args) SPA_PRINTF_FUNC(6, 0);
 };
 
+#define spa_log_level_enabled(l,lev) ((l) && (l)->level >= (lev))
+
 #if __STDC_VERSION__ >= 199901L
 
 #define spa_log_log(l,lev,...)          \
@@ -124,7 +126,7 @@ struct _SpaLog {
 #define SPA_LOG_FUNC(name,lev)                                                  \
 static inline void spa_log_##name (SpaLog *l, const char *format, ...)          \
 {                                                                               \
-  if ((l) && (l)->level >= lev) {                                               \
+  if (spa_log_level_enabled (l, lev)) {                                         \
     va_list varargs;                                                            \
     va_start (varargs, format);                                                 \
     (l)->logv((l),lev,__FILE__,__LINE__,__func__,format,varargs);               \

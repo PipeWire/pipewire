@@ -124,12 +124,6 @@ typedef struct {
 } SpaPortInfo;
 
 
-size_t          spa_port_info_get_size    (const SpaPortInfo *info);
-size_t          spa_port_info_serialize   (void *dest, const SpaPortInfo *info);
-SpaPortInfo *   spa_port_info_deserialize (void *src, off_t offset);
-
-SpaPortInfo *   spa_port_info_copy_into   (void *dest, const SpaPortInfo *info);
-
 /**
  * SpaPortStatusFlags:
  * @SPA_PORT_STATUS_FLAG_NONE: no status flags

@@ -174,7 +174,7 @@ struct _SpaBuffer {
   SpaData       *datas;
 };
 
-inline void *
+static inline void *
 spa_buffer_find_meta (SpaBuffer *b, SpaMetaType type)
 {
   unsigned int i;
@@ -185,11 +185,20 @@ spa_buffer_find_meta (SpaBuffer *b, SpaMetaType type)
   return NULL;
 }
 
-size_t       spa_buffer_get_size    (const SpaBuffer *buffer);
-size_t       spa_buffer_serialize   (void *dest, const SpaBuffer *buffer);
-SpaBuffer *  spa_buffer_deserialize (void *src, off_t offset);
-
-size_t       spa_meta_type_get_size  (SpaMetaType  type);
+static inline size_t
+spa_meta_type_get_size (SpaMetaType  type)
+{
+  static const size_t header_sizes[] = {
+    0,
+    sizeof (SpaMetaHeader),
+    sizeof (SpaMetaPointer),
+    sizeof (SpaMetaVideoCrop),
+    sizeof (SpaMetaRingbuffer),
+  };
+  if (type <= 0 || type >= SPA_N_ELEMENTS (header_sizes))
+    return 0;
+  return header_sizes[type];
+}
 
 #ifdef __cplusplus
 }  /* extern "C" */

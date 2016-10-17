@@ -19,6 +19,7 @@
 
 #include <pinos/client/pinos.h>
 #include <pinos/client/format.h>
+#include <pinos/client/serialize.h>
 
 static SpaFormat *
 format_copy (SpaFormat *format)
@@ -29,9 +30,9 @@ format_copy (SpaFormat *format)
   if (format == NULL)
     return NULL;
 
-  size = spa_format_get_size (format);
+  size = spa_serialize_format_get_size (format);
   p = malloc (size);
-  return spa_format_copy_into (p, format);
+  return spa_serialize_format_copy_into (p, format);
 }
 
 static void

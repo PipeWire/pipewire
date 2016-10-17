@@ -36,9 +36,6 @@
 
 #include "pinos/dbus/org-pinos.h"
 
-#include "spa/include/spa/control.h"
-
-
 struct _PinosDBusClientNodePrivate
 {
   int fd;

@@ -1,10 +1,6 @@
 spalib_sources = ['audio-raw.c',
-                  'buffer.c',
-                  'control.c',
                   'debug.c',
-                  'format.c',
                   'mapper.c',
-                  'port.c',
                   'props.c',
                   'video-raw.c']
 

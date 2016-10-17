@@ -38,54 +38,53 @@
 #include <spa/ringbuffer.h>
 #include <spa/debug.h>
 
-static const char *uris[] = {
-  NULL,
-  SPA_ID_MAP_URI,
-  SPA_LOG_URI,
-  SPA_BUFFER_URI,
-  SPA_CLOCK_URI,
-  SPA_MONITOR_URI,
-  SPA_NODE_URI,
-  SPA_NODE_COMMAND_URI,
-  SPA_NODE_EVENT_URI,
-  SPA_ALLOC_PARAM_URI,
-  SPA_PROPS_URI,
-  SPA_QUEUE_URI,
-  SPA_RINGBUFFER_URI,
-  SPA_POLL__MainLoop,
-  SPA_POLL__DataLoop,
-};
+#define MAX_URIS 4096
+
+typedef struct {
+  SpaIDMap map;
+  char *uris[MAX_URIS];
+  unsigned int n_uris;
+} IDMap;
 
 static uint32_t
 id_map_get_id (SpaIDMap *map, const char *uri)
 {
+  IDMap *this = SPA_CONTAINER_OF (map, IDMap, map);
+  unsigned int i = 0;
+
   if (uri != NULL) {
-    unsigned int i;
-    for (i = 1; i < SPA_N_ELEMENTS (uris); i++) {
-      if (strcmp (uris[i], uri) == 0)
+    for (i = 1; i <= this->n_uris; i++) {
+      if (strcmp (this->uris[i], uri) == 0)
         return i;
     }
+    this->uris[i] = (char *)uri;
+    this->n_uris++;
   }
-  return 0;
+  return i;
 }
 
 static const char *
 id_map_get_uri (SpaIDMap *map, uint32_t id)
 {
-  if (id < SPA_N_ELEMENTS (uris))
-    return uris[id];
+  IDMap *this = SPA_CONTAINER_OF (map, IDMap, map);
+
+  if (id < this->n_uris)
+    return this->uris[id];
   return 0;
 }
 
-static const SpaIDMap default_map = {
-  sizeof (SpaIDMap),
-  NULL,
-  id_map_get_id,
-  id_map_get_uri,
+static IDMap default_id_map = {
+  { sizeof (SpaIDMap),
+    NULL,
+    id_map_get_id,
+    id_map_get_uri,
+  },
+  { NULL, },
+  0
 };
 
 SpaIDMap *
 spa_id_map_get_default (void)
 {
-  return (SpaIDMap *) &default_map;
+  return &default_id_map.map;
 }

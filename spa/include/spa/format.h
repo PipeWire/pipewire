@@ -98,14 +98,15 @@ typedef enum {
 } SpaFormatProps;
 
 
-SpaResult   spa_format_fixate      (SpaFormat *format);
+static inline SpaResult
+spa_format_fixate (SpaFormat *format)
+{
+  if (format == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
 
-size_t      spa_format_get_size    (const SpaFormat *format);
-size_t      spa_format_serialize   (void *dest, const SpaFormat *format);
-SpaFormat * spa_format_deserialize (void *src, off_t offset);
-
-SpaFormat * spa_format_copy_into   (void *dest, const SpaFormat *format);
-
+  format->props.unset_mask = 0;
+  return SPA_RESULT_OK;
+}
 
 #ifdef __cplusplus
 }  /* extern "C" */

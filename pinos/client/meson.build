@@ -12,10 +12,12 @@ pinos_headers = [
 
 pinos_sources = [
   'context.c',
+  'control.c',
   'format.c',
   'introspect.c',
   'mainloop.c',
   'properties.c',
+  'serialize.c',
   'stream.c',
   'pinos.c',
   'ringbuffer.c',

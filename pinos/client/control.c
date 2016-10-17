@@ -25,20 +25,14 @@
 #include <unistd.h>
 #include <sys/socket.h>
 
-#include <spa/control.h>
-#include <spa/debug.h>
+#include "control.h"
+#include "serialize.h"
 
 #if 0
 #define SPA_DEBUG_CONTROL(format,args...) fprintf(stderr,format,##args)
 #else
 #define SPA_DEBUG_CONTROL(format,args...)
 #endif
-
-typedef struct {
-  uint32_t version;
-  uint32_t flags;
-  uint32_t length;
-} SpaStackHeader;
 
 typedef struct {
   void   *data;
@@ -92,27 +86,6 @@ spa_control_init_data (SpaControl       *control,
   sc->free_fds = NULL;
 
   return SPA_RESULT_OK;
-}
-
-/**
- * spa_control_get_version
- * @control: a #SpaControl
- *
- * Get the control version
- *
- * Returns: the control version.
- */
-uint32_t
-spa_control_get_version (SpaControl *control)
-{
-  SpaStackControl *sc = SSC (control);
-  SpaStackHeader *hdr;
-
-  if (!is_valid_control (control))
-    return -1;
-
-  hdr = sc->data;
-  return hdr->version;
 }
 
 /**
@@ -180,7 +153,6 @@ spa_control_clear (SpaControl *control)
  */
 struct stack_iter {
   size_t           magic;
-  uint32_t         version;
   SpaStackControl *control;
   size_t           offset;
 
@@ -202,9 +174,8 @@ struct stack_iter {
  * Initialize @iter to iterate the packets in @control.
  */
 SpaResult
-spa_control_iter_init_full (SpaControlIter *iter,
-                            SpaControl     *control,
-                            uint32_t        version)
+spa_control_iter_init (SpaControlIter *iter,
+                       SpaControl     *control)
 {
   struct stack_iter *si = SCSI (iter);
 
@@ -212,11 +183,10 @@ spa_control_iter_init_full (SpaControlIter *iter,
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   si->magic = SCSI_MAGIC;
-  si->version = version;
   si->control = SSC (control);
   si->offset = 0;
   si->cmd = SPA_CONTROL_CMD_INVALID;
-  si->size = sizeof (SpaStackHeader);
+  si->size = 0;
   si->data = NULL;
 
   return SPA_RESULT_OK;
@@ -272,6 +242,7 @@ spa_control_iter_next (SpaControlIter *iter)
   /* now read packet */
   data = si->control->data;
   size = si->control->size;
+
   if (si->offset >= size)
     return SPA_RESULT_ERROR;
 
@@ -345,7 +316,7 @@ iter_parse_node_update (struct stack_iter *si, SpaControlCmdNodeUpdate *nu)
 {
   memcpy (nu, si->data, sizeof (SpaControlCmdNodeUpdate));
   if (nu->props)
-    nu->props = spa_props_deserialize (si->data, SPA_PTR_TO_INT (nu->props));
+    nu->props = spa_serialize_props_deserialize (si->data, SPA_PTR_TO_INT (nu->props));
 }
 
 static void
@@ -363,16 +334,16 @@ iter_parse_port_update (struct stack_iter *si, SpaControlCmdPortUpdate *pu)
                         SPA_PTR_TO_INT (pu->possible_formats), SpaFormat *);
   for (i = 0; i < pu->n_possible_formats; i++) {
     if (pu->possible_formats[i]) {
-      pu->possible_formats[i] = spa_format_deserialize (p,
+      pu->possible_formats[i] = spa_serialize_format_deserialize (p,
                           SPA_PTR_TO_INT (pu->possible_formats[i]));
     }
   }
   if (pu->format)
-    pu->format = spa_format_deserialize (p, SPA_PTR_TO_INT (pu->format));
+    pu->format = spa_serialize_format_deserialize (p, SPA_PTR_TO_INT (pu->format));
   if (pu->props)
-    pu->props = spa_props_deserialize (p, SPA_PTR_TO_INT (pu->props));
+    pu->props = spa_serialize_props_deserialize (p, SPA_PTR_TO_INT (pu->props));
   if (pu->info)
-    pu->info = spa_port_info_deserialize (p, SPA_PTR_TO_INT (pu->info));
+    pu->info = spa_serialize_port_info_deserialize (p, SPA_PTR_TO_INT (pu->info));
 }
 
 static void
@@ -380,7 +351,7 @@ iter_parse_set_format (struct stack_iter *si, SpaControlCmdSetFormat *cmd)
 {
   memcpy (cmd, si->data, sizeof (SpaControlCmdSetFormat));
   if (cmd->format)
-    cmd->format = spa_format_deserialize (si->data, SPA_PTR_TO_INT (cmd->format));
+    cmd->format = spa_serialize_format_deserialize (si->data, SPA_PTR_TO_INT (cmd->format));
 }
 
 static void
@@ -526,7 +497,7 @@ spa_control_iter_parse_cmd (SpaControlIter *iter,
 struct stack_builder {
   size_t          magic;
 
-  SpaStackHeader *sh;
+  void           *data;
   SpaStackControl control;
 
   SpaControlCmd   cmd;
@@ -540,34 +511,31 @@ struct stack_builder {
 
 
 /**
- * spa_control_builder_init_full:
+ * spa_control_builder_init_into:
  * @builder: a #SpaControlBuilder
- * @version: a version
  * @data: data to build into or %NULL to allocate
  * @max_data: allocated size of @data
  * @fds: memory for fds
  * @max_fds: maximum number of fds in @fds
  *
- * Initialize a stack allocated @builder and set the @version.
+ * Initialize a stack allocated @builder
  */
 SpaResult
-spa_control_builder_init_full (SpaControlBuilder *builder,
-                               uint32_t           version,
+spa_control_builder_init_into (SpaControlBuilder *builder,
                                void              *data,
                                size_t             max_data,
                                int               *fds,
                                unsigned int       max_fds)
 {
   struct stack_builder *sb = SCSB (builder);
-  SpaStackHeader *sh;
 
   if (builder == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   sb->magic = SCSB_MAGIC;
 
-  if (max_data < sizeof (SpaStackHeader) || data == NULL) {
-    sb->control.max_size = sizeof (SpaStackHeader) + 128;
+  if (max_data < 8 || data == NULL) {
+    sb->control.max_size = 128;
     sb->control.data = malloc (sb->control.max_size);
     sb->control.free_data = sb->control.data;
     fprintf (stderr, "builder %p: alloc control memory %zd -> %zd\n",
@@ -577,17 +545,12 @@ spa_control_builder_init_full (SpaControlBuilder *builder,
     sb->control.data = data;
     sb->control.free_data = NULL;
   }
-  sb->control.size = sizeof (SpaStackHeader);
+  sb->control.size = 0;
 
   sb->control.fds = fds;
   sb->control.max_fds = max_fds;
   sb->control.n_fds = 0;
   sb->control.free_fds = NULL;
-
-  sh = sb->sh = sb->control.data;
-  sh->version = version;
-  sh->flags = 0;
-  sh->length = 0;
 
   sb->cmd = 0;
   sb->offset = 0;
@@ -642,7 +605,6 @@ spa_control_builder_end (SpaControlBuilder *builder,
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   sb->magic = 0;
-  sb->sh->length = sb->control.size - sizeof (SpaStackHeader);
 
   sc->magic = SSC_MAGIC;
   sc->data = sb->control.data;
@@ -718,7 +680,7 @@ builder_ensure_size (struct stack_builder *sb, size_t size)
     } else {
       sb->control.free_data = realloc (sb->control.free_data, new_size);
     }
-    sb->sh = sb->control.data = sb->control.free_data;
+    sb->control.data = sb->control.free_data;
   }
   return (uint8_t *) sb->control.data + sb->control.size;
 }
@@ -758,7 +720,7 @@ builder_add_node_update (struct stack_builder *sb, SpaControlCmdNodeUpdate *nu)
 
   /* calc len */
   len = sizeof (SpaControlCmdNodeUpdate);
-  len += spa_props_get_size (nu->props);
+  len += spa_serialize_props_get_size (nu->props);
 
   p = builder_add_cmd (sb, SPA_CONTROL_CMD_NODE_UPDATE, len);
   memcpy (p, nu, sizeof (SpaControlCmdNodeUpdate));
@@ -766,7 +728,7 @@ builder_add_node_update (struct stack_builder *sb, SpaControlCmdNodeUpdate *nu)
 
   p = SPA_MEMBER (d, sizeof (SpaControlCmdNodeUpdate), void);
   if (nu->props) {
-    len = spa_props_serialize (p, nu->props);
+    len = spa_serialize_props_serialize (p, nu->props);
     d->props = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
   } else {
     d->props = 0;
@@ -786,12 +748,12 @@ builder_add_port_update (struct stack_builder *sb, SpaControlCmdPortUpdate *pu)
   len = sizeof (SpaControlCmdPortUpdate);
   len += pu->n_possible_formats * sizeof (SpaFormat *);
   for (i = 0; i < pu->n_possible_formats; i++) {
-    len += spa_format_get_size (pu->possible_formats[i]);
+    len += spa_serialize_format_get_size (pu->possible_formats[i]);
   }
-  len += spa_format_get_size (pu->format);
-  len += spa_props_get_size (pu->props);
+  len += spa_serialize_format_get_size (pu->format);
+  len += spa_serialize_props_get_size (pu->props);
   if (pu->info)
-    len += spa_port_info_get_size (pu->info);
+    len += spa_serialize_port_info_get_size (pu->info);
 
   p = builder_add_cmd (sb, SPA_CONTROL_CMD_PORT_UPDATE, len);
   memcpy (p, pu, sizeof (SpaControlCmdPortUpdate));
@@ -807,26 +769,26 @@ builder_add_port_update (struct stack_builder *sb, SpaControlCmdPortUpdate *pu)
   p = SPA_MEMBER (p, sizeof (SpaFormat*) * pu->n_possible_formats, void);
 
   for (i = 0; i < pu->n_possible_formats; i++) {
-    len = spa_format_serialize (p, pu->possible_formats[i]);
+    len = spa_serialize_format_serialize (p, pu->possible_formats[i]);
     bfa[i] = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
     p = SPA_MEMBER (p, len, void);
   }
   if (pu->format) {
-    len = spa_format_serialize (p, pu->format);
+    len = spa_serialize_format_serialize (p, pu->format);
     d->format = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
     p = SPA_MEMBER (p, len, void);
   } else {
     d->format = 0;
   }
   if (pu->props) {
-    len = spa_props_serialize (p, pu->props);
+    len = spa_serialize_props_serialize (p, pu->props);
     d->props = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
     p = SPA_MEMBER (p, len, void);
   } else {
     d->props = 0;
   }
   if (pu->info) {
-    len = spa_port_info_serialize (p, pu->info);
+    len = spa_serialize_port_info_serialize (p, pu->info);
     d->info = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
     p = SPA_MEMBER (p, len, void);
   } else {
@@ -842,14 +804,14 @@ builder_add_set_format (struct stack_builder *sb, SpaControlCmdSetFormat *sf)
 
   /* calculate length */
   /* port_id + format + mask  */
-  len = sizeof (SpaControlCmdSetFormat) + spa_format_get_size (sf->format);
+  len = sizeof (SpaControlCmdSetFormat) + spa_serialize_format_get_size (sf->format);
   p = builder_add_cmd (sb, SPA_CONTROL_CMD_SET_FORMAT, len);
   memcpy (p, sf, sizeof (SpaControlCmdSetFormat));
   sf = p;
 
   p = SPA_MEMBER (sf, sizeof (SpaControlCmdSetFormat), void);
   if (sf->format) {
-    len = spa_format_serialize (p, sf->format);
+    len = spa_serialize_format_serialize (p, sf->format);
     sf->format = SPA_INT_TO_PTR (SPA_PTRDIFF (p, sf));
   } else
     sf->format = 0;
@@ -1040,9 +1002,7 @@ spa_control_read (SpaControl   *control,
                   unsigned int  max_fds)
 {
   ssize_t len;
-  SpaStackHeader *hdr;
   SpaStackControl *sc = (SpaStackControl *) control;
-  size_t need;
   struct cmsghdr *cmsg;
   struct msghdr msg = {0};
   struct iovec iov[1];
@@ -1056,11 +1016,10 @@ spa_control_read (SpaControl   *control,
   sc->max_fds = max_fds;
   sc->n_fds = 0;
   sc->free_fds = NULL;
-  hdr = sc->data;
 
   /* read header and control messages first */
-  iov[0].iov_base = hdr;
-  iov[0].iov_len = sizeof (SpaStackHeader);;
+  iov[0].iov_base = sc->data;
+  iov[0].iov_len = sc->max_size;
   msg.msg_iov = iov;
   msg.msg_iovlen = 1;
   msg.msg_control = cmsgbuf;
@@ -1077,24 +1036,18 @@ spa_control_read (SpaControl   *control,
     }
     break;
   }
-  if (len != sizeof (SpaStackHeader))
+
+  if (len < 4)
     return SPA_RESULT_ERROR;
 
-  /* now we know the total length */
-  need = sizeof (SpaStackHeader) + hdr->length;
-
+  sc->size = len;
+#if 0
   if (sc->max_size < need) {
     fprintf (stderr, "control: realloc receive memory %zd -> %zd\n", sc->max_size, need);
     sc->max_size = need;
-    if (sc->free_data == NULL) {
-      sc->free_data = malloc (need);
-      memcpy (sc->free_data, sc->data, len);
-    } else {
-      sc->free_data = realloc (sc->free_data, need);
-    }
+    sc->free_data = realloc (sc->free_data, need);
     hdr = sc->data = sc->free_data;
   }
-  sc->size = need;
 
   if (hdr->length > 0) {
     /* read data */
@@ -1111,6 +1064,7 @@ spa_control_read (SpaControl   *control,
     if (len != hdr->length)
       goto wrong_length;
   }
+#endif
 
   /* handle control messages */
   for (cmsg = CMSG_FIRSTHDR (&msg); cmsg != NULL; cmsg = CMSG_NXTHDR (&msg, cmsg)) {
@@ -1130,11 +1084,6 @@ spa_control_read (SpaControl   *control,
 recv_error:
   {
     fprintf (stderr, "could not recvmsg: %s\n", strerror (errno));
-    return SPA_RESULT_ERROR;
-  }
-wrong_length:
-  {
-    fprintf (stderr, "wrong header length %zd != %u\n", len, hdr->length);
     return SPA_RESULT_ERROR;
   }
 }

@@ -22,7 +22,6 @@
 #include <sys/mman.h>
 #include <errno.h>
 
-#include "spa/include/spa/control.h"
 #include "spa/include/spa/debug.h"
 
 #include <gio/gio.h>
@@ -32,11 +31,13 @@
 #include "pinos/dbus/org-pinos.h"
 #include "pinos/server/daemon.h"
 #include "pinos/client/pinos.h"
+#include "pinos/client/control.h"
 #include "pinos/client/context.h"
 #include "pinos/client/stream.h"
 #include "pinos/client/enumtypes.h"
 #include "pinos/client/format.h"
 #include "pinos/client/private.h"
+#include "pinos/client/serialize.h"
 
 #define MAX_BUFFER_SIZE 4096
 #define MAX_FDS         32
@@ -1048,8 +1049,8 @@ parse_control (PinosStream *stream,
 
         if (priv->format)
           g_free (priv->format);
-        mem = malloc (spa_format_get_size (p.format));
-        priv->format = spa_format_copy_into (mem, p.format);
+        mem = malloc (spa_serialize_format_get_size (p.format));
+        priv->format = spa_serialize_format_copy_into (mem, p.format);
 
         spa_debug_format (p.format);
         priv->pending_seq = p.seq;

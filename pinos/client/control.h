@@ -48,7 +48,6 @@ SpaResult          spa_control_init_data        (SpaControl       *control,
 
 SpaResult          spa_control_clear            (SpaControl       *control);
 
-uint32_t           spa_control_get_version      (SpaControl       *control);
 int                spa_control_get_fd           (SpaControl       *control,
                                                  unsigned int      index,
                                                  bool              close);
@@ -206,10 +205,8 @@ struct _SpaControlIter {
   size_t x[16];
 };
 
-SpaResult          spa_control_iter_init_full   (SpaControlIter *iter,
-                                                 SpaControl     *control,
-                                                 uint32_t        version);
-#define spa_control_iter_init(i,b)   spa_control_iter_init_full(i,b, SPA_CONTROL_VERSION);
+SpaResult          spa_control_iter_init        (SpaControlIter *iter,
+                                                 SpaControl     *control);
 
 SpaResult          spa_control_iter_next        (SpaControlIter *iter);
 SpaResult          spa_control_iter_end         (SpaControlIter *iter);
@@ -232,13 +229,11 @@ struct _SpaControlBuilder {
   size_t x[16];
 };
 
-SpaResult          spa_control_builder_init_full  (SpaControlBuilder *builder,
-                                                   uint32_t           version,
+SpaResult          spa_control_builder_init_into  (SpaControlBuilder *builder,
                                                    void              *data,
                                                    size_t             max_data,
                                                    int               *fds,
                                                    unsigned int       max_fds);
-#define spa_control_builder_init_into(b,d,md,f,mf) spa_control_builder_init_full(b, SPA_CONTROL_VERSION,d,md,f,mf);
 #define spa_control_builder_init(b)                spa_control_builder_init_into(b, NULL, 0, NULL, 0);
 
 SpaResult          spa_control_builder_clear      (SpaControlBuilder *builder);

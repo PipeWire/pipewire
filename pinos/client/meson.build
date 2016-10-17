@@ -11,8 +11,8 @@ pinos_headers = [
 ]
 
 pinos_sources = [
+  'connection.c',
   'context.c',
-  'control.c',
   'format.c',
   'introspect.c',
   'mainloop.c',

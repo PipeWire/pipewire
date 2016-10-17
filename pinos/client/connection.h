@@ -24,33 +24,13 @@
 extern "C" {
 #endif
 
-typedef struct _SpaControl SpaControl;
-typedef struct _SpaControlIter SpaControlIter;
-typedef struct _SpaControlBuilder SpaControlBuilder;
-
-#define SPA_CONTROL_VERSION 0
-
 #include <spa/defs.h>
 #include <spa/props.h>
 #include <spa/format.h>
 #include <spa/port.h>
 #include <spa/node.h>
 
-struct _SpaControl {
-  size_t x[16];
-};
-
-SpaResult          spa_control_init_data        (SpaControl       *control,
-                                                 void             *data,
-                                                 size_t            size,
-                                                 int              *fds,
-                                                 unsigned int      n_fds);
-
-SpaResult          spa_control_clear            (SpaControl       *control);
-
-int                spa_control_get_fd           (SpaControl       *control,
-                                                 unsigned int      index,
-                                                 bool              close);
+typedef struct _SpaConnection SpaConnection;
 
 typedef enum {
   SPA_CONTROL_CMD_INVALID                  = 0,
@@ -200,63 +180,27 @@ typedef struct {
   SpaNodeEvent *event;
 } SpaControlCmdNodeEvent;
 
-struct _SpaControlIter {
-  /*< private >*/
-  size_t x[16];
-};
 
-SpaResult          spa_control_iter_init        (SpaControlIter *iter,
-                                                 SpaControl     *control);
+SpaConnection *    spa_connection_new             (int            fd);
+void               spa_connection_free            (SpaConnection *conn);
 
-SpaResult          spa_control_iter_next        (SpaControlIter *iter);
-SpaResult          spa_control_iter_end         (SpaControlIter *iter);
+SpaResult          spa_connection_has_next        (SpaConnection *conn);
+SpaControlCmd      spa_connection_get_cmd         (SpaConnection *conn);
+SpaResult          spa_connection_parse_cmd       (SpaConnection *conn,
+                                                   void          *command);
+int                spa_connection_get_fd          (SpaConnection *conn,
+                                                   unsigned int   index,
+                                                   bool           close);
 
-SpaControlCmd      spa_control_iter_get_cmd     (SpaControlIter *iter);
-void *             spa_control_iter_get_data    (SpaControlIter *iter,
-                                                 size_t         *size);
-SpaResult          spa_control_iter_set_data    (SpaControlIter *iter,
-                                                 void           *data,
-                                                 size_t          size);
+int                spa_connection_add_fd          (SpaConnection *conn,
+                                                   int            fd,
+                                                   bool           close);
+SpaResult          spa_connection_add_cmd         (SpaConnection *conn,
+                                                   SpaControlCmd  cmd,
+                                                   void          *command);
 
-SpaResult          spa_control_iter_parse_cmd   (SpaControlIter *iter,
-                                                 void           *command);
-
-/**
- * SpaControlBuilder:
- */
-struct _SpaControlBuilder {
-  /*< private >*/
-  size_t x[16];
-};
-
-SpaResult          spa_control_builder_init_into  (SpaControlBuilder *builder,
-                                                   void              *data,
-                                                   size_t             max_data,
-                                                   int               *fds,
-                                                   unsigned int       max_fds);
-#define spa_control_builder_init(b)                spa_control_builder_init_into(b, NULL, 0, NULL, 0);
-
-SpaResult          spa_control_builder_clear      (SpaControlBuilder *builder);
-SpaResult          spa_control_builder_end        (SpaControlBuilder *builder,
-                                                   SpaControl        *control);
-
-int                spa_control_builder_add_fd     (SpaControlBuilder *builder,
-                                                   int                fd,
-                                                   bool               close);
-
-SpaResult          spa_control_builder_add_cmd    (SpaControlBuilder *builder,
-                                                   SpaControlCmd      cmd,
-                                                   void              *command);
-
-/* IO */
-SpaResult          spa_control_read               (SpaControl   *control,
-                                                   int           fd,
-                                                   void         *data,
-                                                   size_t        max_data,
-                                                   int          *fds,
-                                                   unsigned int  max_fds);
-SpaResult          spa_control_write              (SpaControl   *control,
-                                                   int           fd);
+SpaResult          spa_connection_flush           (SpaConnection *conn);
+SpaResult          spa_connection_clear           (SpaConnection *conn);
 
 #ifdef __cplusplus
 }  /* extern "C" */

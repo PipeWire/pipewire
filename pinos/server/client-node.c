@@ -32,7 +32,7 @@
 #include "pinos/client/pinos.h"
 #include "pinos/client/enumtypes.h"
 #include "pinos/client/private.h"
-#include "pinos/client/control.h"
+#include "pinos/client/connection.h"
 #include "pinos/client/serialize.h"
 
 #include "pinos/server/daemon.h"
@@ -103,8 +103,11 @@ struct _SpaProxy
 
   SpaPollFd fds[1];
   SpaPollItem poll;
+  SpaConnection *conn;
+
   SpaPollFd rtfds[1];
   SpaPollItem rtpoll;
+  SpaConnection *rtconn;
 
   unsigned int max_inputs;
   unsigned int n_inputs;
@@ -207,22 +210,15 @@ spa_proxy_node_send_command (SpaNode        *node,
     case SPA_NODE_COMMAND_DRAIN:
     case SPA_NODE_COMMAND_MARKER:
     {
-      SpaControlBuilder builder;
-      SpaControl control;
-      uint8_t buf[128];
       SpaControlCmdNodeCommand cnc;
 
       /* send start */
-      spa_control_builder_init_into (&builder, buf, sizeof (buf), NULL, 0);
       cnc.seq = this->seq++;
       cnc.command = command;
-      spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_NODE_COMMAND, &cnc);
-      spa_control_builder_end (&builder, &control);
+      spa_connection_add_cmd (this->conn, SPA_CONTROL_CMD_NODE_COMMAND, &cnc);
 
-      if ((res = spa_control_write (&control, this->fds[0].fd)) < 0)
-        spa_log_error (this->log, "proxy %p: error writing control %d\n", this, res);
-
-      spa_control_clear (&control);
+      if ((res = spa_connection_flush (this->conn)) < 0)
+        spa_log_error (this->log, "proxy %p: error writing connection %d\n", this, res);
 
       res = SPA_RESULT_RETURN_ASYNC (cnc.seq);
       break;
@@ -230,21 +226,15 @@ spa_proxy_node_send_command (SpaNode        *node,
 
     case SPA_NODE_COMMAND_CLOCK_UPDATE:
     {
-      SpaControlBuilder builder;
-      SpaControl control;
-      uint8_t buf[128];
       SpaControlCmdNodeCommand cnc;
 
       /* send start */
-      spa_control_builder_init_into (&builder, buf, sizeof (buf), NULL, 0);
       cnc.command = command;
-      spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_NODE_COMMAND, &cnc);
-      spa_control_builder_end (&builder, &control);
+      spa_connection_add_cmd (this->conn, SPA_CONTROL_CMD_NODE_COMMAND, &cnc);
 
-      if ((res = spa_control_write (&control, this->fds[0].fd)) < 0)
-        spa_log_error (this->log, "proxy %p: error writing control %d\n", this, res);
+      if ((res = spa_connection_flush (this->conn)) < 0)
+        spa_log_error (this->log, "proxy %p: error writing connection %d\n", this, res);
 
-      spa_control_clear (&control);
       break;
     }
   }
@@ -502,10 +492,7 @@ spa_proxy_node_port_set_format (SpaNode            *node,
                                 const SpaFormat    *format)
 {
   SpaProxy *this;
-  SpaControl control;
-  SpaControlBuilder builder;
   SpaControlCmdSetFormat sf;
-  uint8_t buf[128];
   SpaResult res;
 
   if (node == NULL)
@@ -516,19 +503,15 @@ spa_proxy_node_port_set_format (SpaNode            *node,
   if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
 
-  spa_control_builder_init_into (&builder, buf, sizeof (buf), NULL, 0);
   sf.seq = this->seq++;
   sf.direction = direction;
   sf.port_id = port_id;
   sf.flags = flags;
   sf.format = (SpaFormat *) format;
-  spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_SET_FORMAT, &sf);
-  spa_control_builder_end (&builder, &control);
+  spa_connection_add_cmd (this->conn, SPA_CONTROL_CMD_SET_FORMAT, &sf);
 
-  if ((res = spa_control_write (&control, this->fds[0].fd)) < 0)
-    spa_log_error (this->log, "proxy %p: error writing control\n", this);
-
-  spa_control_clear (&control);
+  if ((res = spa_connection_flush (this->conn)) < 0)
+    spa_log_error (this->log, "proxy %p: error writing connection\n", this);
 
   return SPA_RESULT_RETURN_ASYNC (sf.seq);
 }
@@ -639,10 +622,6 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
   SpaProxy *this;
   SpaProxyPort *port;
   unsigned int i, j;
-  SpaControl control;
-  SpaControlBuilder builder;
-  uint8_t buf[4096];
-  int fds[32];
   SpaResult res;
   SpaControlCmdAddMem am;
   SpaControlCmdUseBuffers ub;
@@ -665,8 +644,6 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
     return SPA_RESULT_NO_FORMAT;
 
   clear_buffers (this, port);
-
-  spa_control_builder_init_into (&builder, buf, sizeof (buf), fds, SPA_N_ELEMENTS (fds));
 
   /* find size to store buffers */
   size = 0;
@@ -698,11 +675,11 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
           am.port_id = port_id;
           am.mem_id = n_mem;
           am.type = d->type;
-          am.fd_index = spa_control_builder_add_fd (&builder, d->fd, false);
+          am.fd_index = spa_connection_add_fd (this->conn, d->fd, false);
           am.flags = d->flags;
           am.offset = d->offset;
           am.size = d->maxsize;
-          spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_ADD_MEM, &am);
+          spa_connection_add_cmd (this->conn, SPA_CONTROL_CMD_ADD_MEM, &am);
 
           b->buffer.datas[j].type = SPA_DATA_TYPE_ID;
           b->buffer.datas[j].data = SPA_UINT32_TO_PTR (n_mem);
@@ -770,11 +747,11 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
     am.port_id = port_id;
     am.mem_id = port->buffer_mem_id;
     am.type = SPA_DATA_TYPE_MEMFD;
-    am.fd_index = spa_control_builder_add_fd (&builder, port->buffer_mem_fd, false);
+    am.fd_index = spa_connection_add_fd (this->conn, port->buffer_mem_fd, false);
     am.flags = 0;
     am.offset = 0;
     am.size = size;
-    spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_ADD_MEM, &am);
+    spa_connection_add_cmd (this->conn, SPA_CONTROL_CMD_ADD_MEM, &am);
 
     memref = alloca (n_buffers * sizeof (SpaControlMemRef));
     for (i = 0; i < n_buffers; i++) {
@@ -792,14 +769,10 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
   ub.port_id = port_id;
   ub.n_buffers = n_buffers;
   ub.buffers = memref;
-  spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_USE_BUFFERS, &ub);
+  spa_connection_add_cmd (this->conn, SPA_CONTROL_CMD_USE_BUFFERS, &ub);
 
-  spa_control_builder_end (&builder, &control);
-
-  if ((res = spa_control_write (&control, this->fds[0].fd)) < 0)
-    spa_log_error (this->log, "proxy %p: error writing control\n", this);
-
-  spa_control_clear (&control);
+  if ((res = spa_connection_flush (this->conn)) < 0)
+    spa_log_error (this->log, "proxy %p: error writing connection\n", this);
 
   return SPA_RESULT_RETURN_ASYNC (ub.seq);
 }
@@ -882,18 +855,13 @@ spa_proxy_node_port_push_input (SpaNode          *node,
   unsigned int i;
   bool have_error = false;
   bool have_enough = false;
-  SpaControl control;
-  SpaControlBuilder builder;
   SpaControlCmdProcessBuffer pb;
-  uint8_t buf[64];
   SpaResult res;
 
   if (node == NULL || n_info == 0 || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaProxy, node);
-
-  spa_control_builder_init_into (&builder, buf, sizeof(buf), NULL, 0);
 
   for (i = 0; i < n_info; i++) {
     if (!CHECK_IN_PORT (this, SPA_DIRECTION_INPUT, info[i].port_id)) {
@@ -923,21 +891,18 @@ spa_proxy_node_port_push_input (SpaNode          *node,
     pb.direction = SPA_DIRECTION_INPUT;
     pb.port_id = info[i].port_id;
     pb.buffer_id = info[i].buffer_id;
-    spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_PROCESS_BUFFER, &pb);
+    spa_connection_add_cmd (this->rtconn, SPA_CONTROL_CMD_PROCESS_BUFFER, &pb);
 
     info[i].status = SPA_RESULT_OK;
   }
-  spa_control_builder_end (&builder, &control);
 
   if (have_error)
     return SPA_RESULT_ERROR;
   if (have_enough)
     return SPA_RESULT_HAVE_ENOUGH_INPUT;
 
-  if ((res = spa_control_write (&control, this->rtfds[0].fd)) < 0)
-    spa_log_error (this->log, "proxy %p: error writing control\n", this);
-
-  spa_control_clear (&control);
+  if ((res = spa_connection_flush (this->rtconn)) < 0)
+    spa_log_error (this->log, "proxy %p: error writing connection\n", this);
 
   return SPA_RESULT_OK;
 }
@@ -993,9 +958,6 @@ spa_proxy_node_port_reuse_buffer (SpaNode         *node,
                                   uint32_t         buffer_id)
 {
   SpaProxy *this;
-  SpaControlBuilder builder;
-  SpaControl control;
-  uint8_t buf[128];
   SpaResult res;
   SpaControlCmdNodeEvent cne;
   SpaNodeEvent ne;
@@ -1010,20 +972,16 @@ spa_proxy_node_port_reuse_buffer (SpaNode         *node,
     return SPA_RESULT_INVALID_PORT;
 
   /* send start */
-  spa_control_builder_init_into (&builder, buf, sizeof (buf), NULL, 0);
   cne.event = &ne;
   ne.type = SPA_NODE_EVENT_TYPE_REUSE_BUFFER;
   ne.data = &rb;
   ne.size = sizeof (rb);
   rb.port_id = port_id;
   rb.buffer_id = buffer_id;
-  spa_control_builder_add_cmd (&builder, SPA_CONTROL_CMD_NODE_EVENT, &cne);
-  spa_control_builder_end (&builder, &control);
+  spa_connection_add_cmd (this->rtconn, SPA_CONTROL_CMD_NODE_EVENT, &cne);
 
-  if ((res = spa_control_write (&control, this->rtfds[0].fd)) < 0)
-    spa_log_error (this->log, "proxy %p: error writing control %d\n", this, res);
-
-  spa_control_clear (&control);
+  if ((res = spa_connection_flush (this->rtconn)) < 0)
+    spa_log_error (this->log, "proxy %p: error writing connection %d\n", this, res);
 
   return res;
 }
@@ -1075,14 +1033,12 @@ handle_node_event (SpaProxy     *this,
 }
 
 static SpaResult
-parse_control (SpaProxy   *this,
-               SpaControl *ctrl)
+parse_connection (SpaProxy   *this)
 {
-  SpaControlIter it;
+  SpaConnection *conn = this->conn;
 
-  spa_control_iter_init (&it, ctrl);
-  while (spa_control_iter_next (&it) == SPA_RESULT_OK) {
-    SpaControlCmd cmd = spa_control_iter_get_cmd (&it);
+  while (spa_connection_has_next (conn) == SPA_RESULT_OK) {
+    SpaControlCmd cmd = spa_connection_get_cmd (conn);
 
     switch (cmd) {
       case SPA_CONTROL_CMD_INVALID:
@@ -1092,14 +1048,14 @@ parse_control (SpaProxy   *this,
       case SPA_CONTROL_CMD_SET_PROPERTY:
       case SPA_CONTROL_CMD_NODE_COMMAND:
       case SPA_CONTROL_CMD_PROCESS_BUFFER:
-        spa_log_error (this->log, "proxy %p: got unexpected control %d\n", this, cmd);
+        spa_log_error (this->log, "proxy %p: got unexpected connection %d\n", this, cmd);
         break;
 
       case SPA_CONTROL_CMD_NODE_UPDATE:
       {
         SpaControlCmdNodeUpdate nu;
 
-        if (spa_control_iter_parse_cmd (&it, &nu) < 0)
+        if (spa_connection_parse_cmd (conn, &nu) < 0)
           break;
 
         if (nu.change_mask & SPA_CONTROL_CMD_NODE_UPDATE_MAX_INPUTS)
@@ -1119,7 +1075,7 @@ parse_control (SpaProxy   *this,
         bool remove;
 
         spa_log_info (this->log, "proxy %p: got port update %d\n", this, cmd);
-        if (spa_control_iter_parse_cmd (&it, &pu) < 0)
+        if (spa_connection_parse_cmd (conn, &pu) < 0)
           break;
 
         if (!CHECK_PORT_ID (this, pu.direction, pu.port_id))
@@ -1146,7 +1102,7 @@ parse_control (SpaProxy   *this,
         SpaControlCmdNodeStateChange sc;
         SpaNodeState old = this->node.state;
 
-        if (spa_control_iter_parse_cmd (&it, &sc) < 0)
+        if (spa_connection_parse_cmd (conn, &sc) < 0)
           break;
 
         spa_log_info (this->log, "proxy %p: got node state change %d -> %d\n", this, old, sc.state);
@@ -1168,7 +1124,7 @@ parse_control (SpaProxy   *this,
       {
         SpaControlCmdNodeEvent cne;
 
-        if (spa_control_iter_parse_cmd (&it, &cne) < 0)
+        if (spa_connection_parse_cmd (conn, &cne) < 0)
           break;
 
         handle_node_event (this, cne.event);
@@ -1176,20 +1132,17 @@ parse_control (SpaProxy   *this,
       }
     }
   }
-  spa_control_iter_end (&it);
 
   return SPA_RESULT_OK;
 }
 
 static SpaResult
-parse_rtcontrol (SpaProxy   *this,
-                 SpaControl *ctrl)
+parse_rtconnection (SpaProxy   *this)
 {
-  SpaControlIter it;
+  SpaConnection *conn = this->rtconn;
 
-  spa_control_iter_init (&it, ctrl);
-  while (spa_control_iter_next (&it) == SPA_RESULT_OK) {
-    SpaControlCmd cmd = spa_control_iter_get_cmd (&it);
+  while (spa_connection_has_next (conn) == SPA_RESULT_OK) {
+    SpaControlCmd cmd = spa_connection_get_cmd (conn);
 
     switch (cmd) {
       case SPA_CONTROL_CMD_INVALID:
@@ -1205,7 +1158,7 @@ parse_rtcontrol (SpaProxy   *this,
       case SPA_CONTROL_CMD_ADD_MEM:
       case SPA_CONTROL_CMD_REMOVE_MEM:
       case SPA_CONTROL_CMD_USE_BUFFERS:
-        spa_log_error (this->log, "proxy %p: got unexpected control %d\n", this, cmd);
+        spa_log_error (this->log, "proxy %p: got unexpected connection %d\n", this, cmd);
         break;
 
       case SPA_CONTROL_CMD_PROCESS_BUFFER:
@@ -1213,7 +1166,7 @@ parse_rtcontrol (SpaProxy   *this,
         SpaControlCmdProcessBuffer cmd;
         SpaProxyPort *port;
 
-        if (spa_control_iter_parse_cmd (&it, &cmd) < 0)
+        if (spa_connection_parse_cmd (conn, &cmd) < 0)
           break;
 
         if (!CHECK_PORT (this, cmd.direction, cmd.port_id))
@@ -1233,7 +1186,7 @@ parse_rtcontrol (SpaProxy   *this,
       {
         SpaControlCmdNodeEvent cne;
 
-        if (spa_control_iter_parse_cmd (&it, &cne) < 0)
+        if (spa_connection_parse_cmd (conn, &cne) < 0)
           break;
 
         handle_node_event (this, cne.event);
@@ -1241,7 +1194,6 @@ parse_rtcontrol (SpaProxy   *this,
       }
     }
   }
-  spa_control_iter_end (&it);
 
   return SPA_RESULT_OK;
 }
@@ -1250,19 +1202,9 @@ static int
 proxy_on_fd_events (SpaPollNotifyData *data)
 {
   SpaProxy *this = data->user_data;
-  SpaResult res;
 
   if (data->fds[0].revents & POLLIN) {
-    SpaControl control;
-    uint8_t buf[1024];
-    int fds[16];
-
-    if ((res = spa_control_read (&control, data->fds[0].fd, buf, sizeof (buf), fds, 16)) < 0) {
-      spa_log_error (this->log, "proxy %p: failed to read control: %d\n", this, res);
-      return 0;
-    }
-    parse_control (this, &control);
-    spa_control_clear (&control);
+    parse_connection (this);
   }
   return 0;
 }
@@ -1271,18 +1213,9 @@ static int
 proxy_on_rtfd_events (SpaPollNotifyData *data)
 {
   SpaProxy *this = data->user_data;
-  SpaResult res;
 
   if (data->fds[0].revents & POLLIN) {
-    SpaControl control;
-    uint8_t buf[1024];
-
-    if ((res = spa_control_read (&control, data->fds[0].fd, buf, sizeof (buf), NULL, 0)) < 0) {
-      spa_log_error (this->log, "proxy %p: failed to read control: %d\n", this, res);
-      return 0;
-    }
-    parse_rtcontrol (this, &control);
-    spa_control_clear (&control);
+    parse_rtconnection (this);
   }
   return 0;
 }
@@ -1552,7 +1485,10 @@ pinos_client_node_get_socket_pair (PinosClientNode  *this,
       goto create_failed;
 
     priv->proxy->fds[0].fd = g_socket_get_fd (priv->sockets[0]);
+    priv->proxy->conn = spa_connection_new (priv->proxy->fds[0].fd);
+
     spa_poll_add_item (priv->proxy->main_loop, &priv->proxy->poll);
+
   }
   return g_object_ref (priv->sockets[1]);
 
@@ -1607,6 +1543,8 @@ pinos_client_node_get_rtsocket_pair (PinosClientNode  *this,
       goto create_failed;
 
     priv->proxy->rtfds[0].fd = g_socket_get_fd (priv->rtsockets[0]);
+    priv->proxy->rtconn = spa_connection_new (priv->proxy->rtfds[0].fd);
+
     spa_poll_add_item (priv->proxy->data_loop, &priv->proxy->rtpoll);
   }
   return g_object_ref (priv->rtsockets[1]);

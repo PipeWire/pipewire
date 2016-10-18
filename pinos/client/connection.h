@@ -17,12 +17,12 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __SPA_CONTROL_H__
-#define __SPA_CONTROL_H__
+#ifndef __PINOS_CONTROL_H__
+#define __PINOS_CONTROL_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <glib-object.h>
+
+G_BEGIN_DECLS
 
 #include <spa/defs.h>
 #include <spa/props.h>
@@ -30,95 +30,95 @@ extern "C" {
 #include <spa/port.h>
 #include <spa/node.h>
 
-typedef struct _SpaConnection SpaConnection;
+typedef struct _PinosConnection PinosConnection;
 
 typedef enum {
-  SPA_CONTROL_CMD_INVALID                  = 0,
+  PINOS_CONTROL_CMD_INVALID                  = 0,
   /* client to server */
-  SPA_CONTROL_CMD_NODE_UPDATE              = 1,
-  SPA_CONTROL_CMD_PORT_UPDATE              = 2,
-  SPA_CONTROL_CMD_NODE_STATE_CHANGE        = 3,
+  PINOS_CONTROL_CMD_NODE_UPDATE              = 1,
+  PINOS_CONTROL_CMD_PORT_UPDATE              = 2,
+  PINOS_CONTROL_CMD_NODE_STATE_CHANGE        = 3,
 
-  SPA_CONTROL_CMD_PORT_STATUS_CHANGE       = 4,
+  PINOS_CONTROL_CMD_PORT_STATUS_CHANGE       = 4,
 
   /* server to client */
-  SPA_CONTROL_CMD_ADD_PORT                 = 32,
-  SPA_CONTROL_CMD_REMOVE_PORT              = 33,
+  PINOS_CONTROL_CMD_ADD_PORT                 = 32,
+  PINOS_CONTROL_CMD_REMOVE_PORT              = 33,
 
-  SPA_CONTROL_CMD_SET_FORMAT               = 34,
-  SPA_CONTROL_CMD_SET_PROPERTY             = 35,
+  PINOS_CONTROL_CMD_SET_FORMAT               = 34,
+  PINOS_CONTROL_CMD_SET_PROPERTY             = 35,
 
-  SPA_CONTROL_CMD_NODE_COMMAND             = 36,
+  PINOS_CONTROL_CMD_NODE_COMMAND             = 36,
 
   /* both */
-  SPA_CONTROL_CMD_ADD_MEM                  = 64,
-  SPA_CONTROL_CMD_REMOVE_MEM               = 65,
+  PINOS_CONTROL_CMD_ADD_MEM                  = 64,
+  PINOS_CONTROL_CMD_REMOVE_MEM               = 65,
 
-  SPA_CONTROL_CMD_USE_BUFFERS              = 66,
-  SPA_CONTROL_CMD_PROCESS_BUFFER           = 67,
+  PINOS_CONTROL_CMD_USE_BUFFERS              = 66,
+  PINOS_CONTROL_CMD_PROCESS_BUFFER           = 67,
 
-  SPA_CONTROL_CMD_NODE_EVENT               = 68,
-} SpaControlCmd;
+  PINOS_CONTROL_CMD_NODE_EVENT               = 68,
+} PinosControlCmd;
 
-/*  SPA_CONTROL_CMD_NODE_UPDATE */
+/*  PINOS_CONTROL_CMD_NODE_UPDATE */
 typedef struct {
-#define SPA_CONTROL_CMD_NODE_UPDATE_MAX_INPUTS   (1 << 0)
-#define SPA_CONTROL_CMD_NODE_UPDATE_MAX_OUTPUTS  (1 << 1)
-#define SPA_CONTROL_CMD_NODE_UPDATE_PROPS        (1 << 2)
+#define PINOS_CONTROL_CMD_NODE_UPDATE_MAX_INPUTS   (1 << 0)
+#define PINOS_CONTROL_CMD_NODE_UPDATE_MAX_OUTPUTS  (1 << 1)
+#define PINOS_CONTROL_CMD_NODE_UPDATE_PROPS        (1 << 2)
   uint32_t        change_mask;
   unsigned int    max_input_ports;
   unsigned int    max_output_ports;
   const SpaProps *props;
-} SpaControlCmdNodeUpdate;
+} PinosControlCmdNodeUpdate;
 
-/* SPA_CONTROL_CMD_PORT_UPDATE */
+/* PINOS_CONTROL_CMD_PORT_UPDATE */
 typedef struct {
   SpaDirection       direction;
   uint32_t           port_id;
-#define SPA_CONTROL_CMD_PORT_UPDATE_POSSIBLE_FORMATS  (1 << 0)
-#define SPA_CONTROL_CMD_PORT_UPDATE_FORMAT            (1 << 1)
-#define SPA_CONTROL_CMD_PORT_UPDATE_PROPS             (1 << 2)
-#define SPA_CONTROL_CMD_PORT_UPDATE_INFO              (1 << 3)
+#define PINOS_CONTROL_CMD_PORT_UPDATE_POSSIBLE_FORMATS  (1 << 0)
+#define PINOS_CONTROL_CMD_PORT_UPDATE_FORMAT            (1 << 1)
+#define PINOS_CONTROL_CMD_PORT_UPDATE_PROPS             (1 << 2)
+#define PINOS_CONTROL_CMD_PORT_UPDATE_INFO              (1 << 3)
   uint32_t           change_mask;
   unsigned int       n_possible_formats;
   SpaFormat        **possible_formats;
   SpaFormat         *format;
   const SpaProps    *props;
   const SpaPortInfo *info;
-} SpaControlCmdPortUpdate;
+} PinosControlCmdPortUpdate;
 
-/* SPA_CONTROL_CMD_PORT_STATUS_CHANGE */
+/* PINOS_CONTROL_CMD_PORT_STATUS_CHANGE */
 
-/* SPA_CONTROL_CMD_NODE_STATE_CHANGE */
+/* PINOS_CONTROL_CMD_NODE_STATE_CHANGE */
 typedef struct {
   SpaNodeState    state;
-} SpaControlCmdNodeStateChange;
+} PinosControlCmdNodeStateChange;
 
-/* SPA_CONTROL_CMD_ADD_PORT */
+/* PINOS_CONTROL_CMD_ADD_PORT */
 typedef struct {
   uint32_t     seq;
   SpaDirection direction;
   uint32_t     port_id;
-} SpaControlCmdAddPort;
+} PinosControlCmdAddPort;
 
-/* SPA_CONTROL_CMD_REMOVE_PORT */
+/* PINOS_CONTROL_CMD_REMOVE_PORT */
 typedef struct {
   uint32_t     seq;
   SpaDirection direction;
   uint32_t     port_id;
-} SpaControlCmdRemovePort;
+} PinosControlCmdRemovePort;
 
 
-/* SPA_CONTROL_CMD_SET_FORMAT */
+/* PINOS_CONTROL_CMD_SET_FORMAT */
 typedef struct {
   uint32_t            seq;
   SpaDirection        direction;
   uint32_t            port_id;
   SpaPortFormatFlags  flags;
   SpaFormat          *format;
-} SpaControlCmdSetFormat;
+} PinosControlCmdSetFormat;
 
-/* SPA_CONTROL_CMD_SET_PROPERTY */
+/* PINOS_CONTROL_CMD_SET_PROPERTY */
 typedef struct {
   uint32_t     seq;
   SpaDirection direction;
@@ -126,15 +126,15 @@ typedef struct {
   uint32_t     id;
   size_t       size;
   void        *value;
-} SpaControlCmdSetProperty;
+} PinosControlCmdSetProperty;
 
-/* SPA_CONTROL_CMD_NODE_COMMAND */
+/* PINOS_CONTROL_CMD_NODE_COMMAND */
 typedef struct {
   uint32_t        seq;
   SpaNodeCommand *command;
-} SpaControlCmdNodeCommand;
+} PinosControlCmdNodeCommand;
 
-/* SPA_CONTROL_CMD_ADD_MEM */
+/* PINOS_CONTROL_CMD_ADD_MEM */
 typedef struct {
   SpaDirection direction;
   uint32_t     port_id;
@@ -144,66 +144,64 @@ typedef struct {
   uint32_t     flags;
   off_t        offset;
   size_t       size;
-} SpaControlCmdAddMem;
+} PinosControlCmdAddMem;
 
-/* SPA_CONTROL_CMD_REMOVE_MEM */
+/* PINOS_CONTROL_CMD_REMOVE_MEM */
 typedef struct {
   SpaDirection direction;
   uint32_t     port_id;
   uint32_t     mem_id;
-} SpaControlCmdRemoveMem;
+} PinosControlCmdRemoveMem;
 
 typedef struct {
   uint32_t    mem_id;
   off_t       offset;
   size_t      size;
-} SpaControlMemRef;
+} PinosControlMemRef;
 
-/* SPA_CONTROL_CMD_USE_BUFFERS */
+/* PINOS_CONTROL_CMD_USE_BUFFERS */
 typedef struct {
-  uint32_t          seq;
-  SpaDirection      direction;
-  uint32_t          port_id;
-  unsigned int      n_buffers;
-  SpaControlMemRef *buffers;
-} SpaControlCmdUseBuffers;
+  uint32_t            seq;
+  SpaDirection        direction;
+  uint32_t            port_id;
+  unsigned int        n_buffers;
+  PinosControlMemRef *buffers;
+} PinosControlCmdUseBuffers;
 
-/* SPA_CONTROL_CMD_PROCESS_BUFFER */
+/* PINOS_CONTROL_CMD_PROCESS_BUFFER */
 typedef struct {
   SpaDirection direction;
   uint32_t     port_id;
   uint32_t     buffer_id;
-} SpaControlCmdProcessBuffer;
+} PinosControlCmdProcessBuffer;
 
-/* SPA_CONTROL_CMD_NODE_EVENT */
+/* PINOS_CONTROL_CMD_NODE_EVENT */
 typedef struct {
   SpaNodeEvent *event;
-} SpaControlCmdNodeEvent;
+} PinosControlCmdNodeEvent;
 
 
-SpaConnection *    spa_connection_new             (int            fd);
-void               spa_connection_free            (SpaConnection *conn);
+PinosConnection *  pinos_connection_new             (int              fd);
+void               pinos_connection_free            (PinosConnection *conn);
 
-SpaResult          spa_connection_has_next        (SpaConnection *conn);
-SpaControlCmd      spa_connection_get_cmd         (SpaConnection *conn);
-SpaResult          spa_connection_parse_cmd       (SpaConnection *conn,
-                                                   void          *command);
-int                spa_connection_get_fd          (SpaConnection *conn,
-                                                   unsigned int   index,
-                                                   bool           close);
+gboolean           pinos_connection_has_next        (PinosConnection *conn);
+PinosControlCmd    pinos_connection_get_cmd         (PinosConnection *conn);
+gboolean           pinos_connection_parse_cmd       (PinosConnection *conn,
+                                                     gpointer         command);
+int                pinos_connection_get_fd          (PinosConnection *conn,
+                                                     guint            index,
+                                                     gboolean         close);
 
-int                spa_connection_add_fd          (SpaConnection *conn,
-                                                   int            fd,
-                                                   bool           close);
-SpaResult          spa_connection_add_cmd         (SpaConnection *conn,
-                                                   SpaControlCmd  cmd,
-                                                   void          *command);
+int                pinos_connection_add_fd          (PinosConnection *conn,
+                                                     int              fd,
+                                                     gboolean         close);
+gboolean           pinos_connection_add_cmd         (PinosConnection *conn,
+                                                     PinosControlCmd  cmd,
+                                                     gpointer         command);
 
-SpaResult          spa_connection_flush           (SpaConnection *conn);
-SpaResult          spa_connection_clear           (SpaConnection *conn);
+gboolean           pinos_connection_flush           (PinosConnection *conn);
+gboolean           pinos_connection_clear           (PinosConnection *conn);
 
-#ifdef __cplusplus
-}  /* extern "C" */
-#endif
+G_END_DECLS
 
-#endif /* __SPA_CONTROL_H__ */
+#endif /* __PINOS_CONTROL_H__ */

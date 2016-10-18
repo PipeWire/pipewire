@@ -38,7 +38,7 @@ typedef struct {
   int             fds[MAX_FDS];
   unsigned int    n_fds;
 
-  SpaControlCmd   cmd;
+  PinosControlCmd cmd;
   off_t           offset;
   void           *data;
   size_t          size;
@@ -46,15 +46,15 @@ typedef struct {
   bool            update;
 } ConnectionBuffer;
 
-struct _SpaConnection {
+struct _PinosConnection {
   ConnectionBuffer in, out;
   int fd;
 };
 
 #if 0
-#define SPA_DEBUG_CONTROL(format,args...) fprintf(stderr,format,##args)
+#define PINOS_DEBUG_CONTROL(format,args...) g_debug(format,##args)
 #else
-#define SPA_DEBUG_CONTROL(format,args...)
+#define PINOS_DEBUG_CONTROL(format,args...)
 #endif
 
 static bool
@@ -80,20 +80,20 @@ read_length (uint8_t * data, unsigned int size, size_t * length, size_t * skip)
 }
 
 static void
-connection_parse_node_update (SpaConnection *conn, SpaControlCmdNodeUpdate *nu)
+connection_parse_node_update (PinosConnection *conn, PinosControlCmdNodeUpdate *nu)
 {
-  memcpy (nu, conn->in.data, sizeof (SpaControlCmdNodeUpdate));
+  memcpy (nu, conn->in.data, sizeof (PinosControlCmdNodeUpdate));
   if (nu->props)
     nu->props = spa_serialize_props_deserialize (conn->in.data, SPA_PTR_TO_INT (nu->props));
 }
 
 static void
-connection_parse_port_update (SpaConnection *conn, SpaControlCmdPortUpdate *pu)
+connection_parse_port_update (PinosConnection *conn, PinosControlCmdPortUpdate *pu)
 {
   void *p;
   unsigned int i;
 
-  memcpy (pu, conn->in.data, sizeof (SpaControlCmdPortUpdate));
+  memcpy (pu, conn->in.data, sizeof (PinosControlCmdPortUpdate));
 
   p = conn->in.data;
 
@@ -115,29 +115,29 @@ connection_parse_port_update (SpaConnection *conn, SpaControlCmdPortUpdate *pu)
 }
 
 static void
-connection_parse_set_format (SpaConnection *conn, SpaControlCmdSetFormat *cmd)
+connection_parse_set_format (PinosConnection *conn, PinosControlCmdSetFormat *cmd)
 {
-  memcpy (cmd, conn->in.data, sizeof (SpaControlCmdSetFormat));
+  memcpy (cmd, conn->in.data, sizeof (PinosControlCmdSetFormat));
   if (cmd->format)
     cmd->format = spa_serialize_format_deserialize (conn->in.data, SPA_PTR_TO_INT (cmd->format));
 }
 
 static void
-connection_parse_use_buffers (SpaConnection *conn, SpaControlCmdUseBuffers *cmd)
+connection_parse_use_buffers (PinosConnection *conn, PinosControlCmdUseBuffers *cmd)
 {
   void *p;
 
   p = conn->in.data;
-  memcpy (cmd, p, sizeof (SpaControlCmdUseBuffers));
+  memcpy (cmd, p, sizeof (PinosControlCmdUseBuffers));
   if (cmd->buffers)
-    cmd->buffers = SPA_MEMBER (p, SPA_PTR_TO_INT (cmd->buffers), SpaControlMemRef);
+    cmd->buffers = SPA_MEMBER (p, SPA_PTR_TO_INT (cmd->buffers), PinosControlMemRef);
 }
 
 static void
-connection_parse_node_event (SpaConnection *conn, SpaControlCmdNodeEvent *cmd)
+connection_parse_node_event (PinosConnection *conn, PinosControlCmdNodeEvent *cmd)
 {
   void *p = conn->in.data;
-  memcpy (cmd, p, sizeof (SpaControlCmdNodeEvent));
+  memcpy (cmd, p, sizeof (PinosControlCmdNodeEvent));
   if (cmd->event)
     cmd->event = SPA_MEMBER (p, SPA_PTR_TO_INT (cmd->event), SpaNodeEvent);
   if (cmd->event->data)
@@ -145,31 +145,29 @@ connection_parse_node_event (SpaConnection *conn, SpaControlCmdNodeEvent *cmd)
 }
 
 static void
-connection_parse_node_command (SpaConnection *conn, SpaControlCmdNodeCommand *cmd)
+connection_parse_node_command (PinosConnection *conn, PinosControlCmdNodeCommand *cmd)
 {
   void *p = conn->in.data;
-  memcpy (cmd, p, sizeof (SpaControlCmdNodeCommand));
+  memcpy (cmd, p, sizeof (PinosControlCmdNodeCommand));
   if (cmd->command)
     cmd->command = SPA_MEMBER (p, SPA_PTR_TO_INT (cmd->command), SpaNodeCommand);
   if (cmd->command->data)
     cmd->command->data = SPA_MEMBER (p, SPA_PTR_TO_INT (cmd->command->data), void);
 }
 
-#define MAX(a,b)  ((a) > (b) ? (a) : (b))
-
 static void *
-connection_ensure_size (SpaConnection *conn, ConnectionBuffer *buf, size_t size)
+connection_ensure_size (PinosConnection *conn, ConnectionBuffer *buf, size_t size)
 {
   if (buf->buffer_size + size > buf->buffer_maxsize) {
     buf->buffer_maxsize = buf->buffer_size + MAX_BUFFER_SIZE * ((size + MAX_BUFFER_SIZE-1) / MAX_BUFFER_SIZE);
     buf->buffer_data = realloc (buf->buffer_data, buf->buffer_maxsize);
-    fprintf (stderr, "connection %p: resize buffer to %zd\n", conn, buf->buffer_maxsize);
+    g_warning ("connection %p: resize buffer to %zd\n", conn, buf->buffer_maxsize);
   }
   return (uint8_t *) buf->buffer_data + buf->buffer_size;
 }
 
 static void *
-connection_add_cmd (SpaConnection *conn, SpaControlCmd cmd, size_t size)
+connection_add_cmd (PinosConnection *conn, PinosControlCmd cmd, size_t size)
 {
   uint8_t *p;
   unsigned int plen;
@@ -196,21 +194,21 @@ connection_add_cmd (SpaConnection *conn, SpaControlCmd cmd, size_t size)
 }
 
 static void
-connection_add_node_update (SpaConnection *conn, SpaControlCmdNodeUpdate *nu)
+connection_add_node_update (PinosConnection *conn, PinosControlCmdNodeUpdate *nu)
 {
   size_t len;
   void *p;
-  SpaControlCmdNodeUpdate *d;
+  PinosControlCmdNodeUpdate *d;
 
   /* calc len */
-  len = sizeof (SpaControlCmdNodeUpdate);
+  len = sizeof (PinosControlCmdNodeUpdate);
   len += spa_serialize_props_get_size (nu->props);
 
-  p = connection_add_cmd (conn, SPA_CONTROL_CMD_NODE_UPDATE, len);
-  memcpy (p, nu, sizeof (SpaControlCmdNodeUpdate));
+  p = connection_add_cmd (conn, PINOS_CONTROL_CMD_NODE_UPDATE, len);
+  memcpy (p, nu, sizeof (PinosControlCmdNodeUpdate));
   d = p;
 
-  p = SPA_MEMBER (d, sizeof (SpaControlCmdNodeUpdate), void);
+  p = SPA_MEMBER (d, sizeof (PinosControlCmdNodeUpdate), void);
   if (nu->props) {
     len = spa_serialize_props_serialize (p, nu->props);
     d->props = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
@@ -220,16 +218,16 @@ connection_add_node_update (SpaConnection *conn, SpaControlCmdNodeUpdate *nu)
 }
 
 static void
-connection_add_port_update (SpaConnection *conn, SpaControlCmdPortUpdate *pu)
+connection_add_port_update (PinosConnection *conn, PinosControlCmdPortUpdate *pu)
 {
   size_t len;
   void *p;
   int i;
   SpaFormat **bfa;
-  SpaControlCmdPortUpdate *d;
+  PinosControlCmdPortUpdate *d;
 
   /* calc len */
-  len = sizeof (SpaControlCmdPortUpdate);
+  len = sizeof (PinosControlCmdPortUpdate);
   len += pu->n_possible_formats * sizeof (SpaFormat *);
   for (i = 0; i < pu->n_possible_formats; i++) {
     len += spa_serialize_format_get_size (pu->possible_formats[i]);
@@ -239,11 +237,11 @@ connection_add_port_update (SpaConnection *conn, SpaControlCmdPortUpdate *pu)
   if (pu->info)
     len += spa_serialize_port_info_get_size (pu->info);
 
-  p = connection_add_cmd (conn, SPA_CONTROL_CMD_PORT_UPDATE, len);
-  memcpy (p, pu, sizeof (SpaControlCmdPortUpdate));
+  p = connection_add_cmd (conn, PINOS_CONTROL_CMD_PORT_UPDATE, len);
+  memcpy (p, pu, sizeof (PinosControlCmdPortUpdate));
   d = p;
 
-  p = SPA_MEMBER (d, sizeof (SpaControlCmdPortUpdate), void);
+  p = SPA_MEMBER (d, sizeof (PinosControlCmdPortUpdate), void);
   bfa = p;
   if (pu->n_possible_formats)
     d->possible_formats = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
@@ -281,19 +279,19 @@ connection_add_port_update (SpaConnection *conn, SpaControlCmdPortUpdate *pu)
 }
 
 static void
-connection_add_set_format (SpaConnection *conn, SpaControlCmdSetFormat *sf)
+connection_add_set_format (PinosConnection *conn, PinosControlCmdSetFormat *sf)
 {
   size_t len;
   void *p;
 
   /* calculate length */
   /* port_id + format + mask  */
-  len = sizeof (SpaControlCmdSetFormat) + spa_serialize_format_get_size (sf->format);
-  p = connection_add_cmd (conn, SPA_CONTROL_CMD_SET_FORMAT, len);
-  memcpy (p, sf, sizeof (SpaControlCmdSetFormat));
+  len = sizeof (PinosControlCmdSetFormat) + spa_serialize_format_get_size (sf->format);
+  p = connection_add_cmd (conn, PINOS_CONTROL_CMD_SET_FORMAT, len);
+  memcpy (p, sf, sizeof (PinosControlCmdSetFormat));
   sf = p;
 
-  p = SPA_MEMBER (sf, sizeof (SpaControlCmdSetFormat), void);
+  p = SPA_MEMBER (sf, sizeof (PinosControlCmdSetFormat), void);
   if (sf->format) {
     len = spa_serialize_format_serialize (p, sf->format);
     sf->format = SPA_INT_TO_PTR (SPA_PTRDIFF (p, sf));
@@ -302,21 +300,21 @@ connection_add_set_format (SpaConnection *conn, SpaControlCmdSetFormat *sf)
 }
 
 static void
-connection_add_use_buffers (SpaConnection *conn, SpaControlCmdUseBuffers *ub)
+connection_add_use_buffers (PinosConnection *conn, PinosControlCmdUseBuffers *ub)
 {
   size_t len;
   int i;
-  SpaControlCmdUseBuffers *d;
-  SpaControlMemRef *mr;
+  PinosControlCmdUseBuffers *d;
+  PinosControlMemRef *mr;
 
   /* calculate length */
-  len = sizeof (SpaControlCmdUseBuffers);
-  len += ub->n_buffers * sizeof (SpaControlMemRef);
+  len = sizeof (PinosControlCmdUseBuffers);
+  len += ub->n_buffers * sizeof (PinosControlMemRef);
 
-  d = connection_add_cmd (conn, SPA_CONTROL_CMD_USE_BUFFERS, len);
-  memcpy (d, ub, sizeof (SpaControlCmdUseBuffers));
+  d = connection_add_cmd (conn, PINOS_CONTROL_CMD_USE_BUFFERS, len);
+  memcpy (d, ub, sizeof (PinosControlCmdUseBuffers));
 
-  mr = SPA_MEMBER (d, sizeof (SpaControlCmdUseBuffers), void);
+  mr = SPA_MEMBER (d, sizeof (PinosControlCmdUseBuffers), void);
 
   if (d->n_buffers)
     d->buffers = SPA_INT_TO_PTR (SPA_PTRDIFF (mr, d));
@@ -324,27 +322,27 @@ connection_add_use_buffers (SpaConnection *conn, SpaControlCmdUseBuffers *ub)
     d->buffers = 0;
 
   for (i = 0; i < ub->n_buffers; i++)
-    memcpy (&mr[i], &ub->buffers[i], sizeof (SpaControlMemRef));
+    memcpy (&mr[i], &ub->buffers[i], sizeof (PinosControlMemRef));
 }
 
 static void
-connection_add_node_event (SpaConnection *conn, SpaControlCmdNodeEvent *ev)
+connection_add_node_event (PinosConnection *conn, PinosControlCmdNodeEvent *ev)
 {
   size_t len;
   void *p;
-  SpaControlCmdNodeEvent *d;
+  PinosControlCmdNodeEvent *d;
   SpaNodeEvent *ne;
 
   /* calculate length */
-  len = sizeof (SpaControlCmdNodeEvent);
+  len = sizeof (PinosControlCmdNodeEvent);
   len += sizeof (SpaNodeEvent);
   len += ev->event->size;
 
-  p = connection_add_cmd (conn, SPA_CONTROL_CMD_NODE_EVENT, len);
-  memcpy (p, ev, sizeof (SpaControlCmdNodeEvent));
+  p = connection_add_cmd (conn, PINOS_CONTROL_CMD_NODE_EVENT, len);
+  memcpy (p, ev, sizeof (PinosControlCmdNodeEvent));
   d = p;
 
-  p = SPA_MEMBER (d, sizeof (SpaControlCmdNodeEvent), void);
+  p = SPA_MEMBER (d, sizeof (PinosControlCmdNodeEvent), void);
   d->event = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
 
   ne = p;
@@ -356,23 +354,23 @@ connection_add_node_event (SpaConnection *conn, SpaControlCmdNodeEvent *ev)
 
 
 static void
-connection_add_node_command (SpaConnection *conn, SpaControlCmdNodeCommand *cm)
+connection_add_node_command (PinosConnection *conn, PinosControlCmdNodeCommand *cm)
 {
   size_t len;
   void *p;
-  SpaControlCmdNodeCommand *d;
+  PinosControlCmdNodeCommand *d;
   SpaNodeCommand *nc;
 
   /* calculate length */
-  len = sizeof (SpaControlCmdNodeCommand);
+  len = sizeof (PinosControlCmdNodeCommand);
   len += sizeof (SpaNodeCommand);
   len += cm->command->size;
 
-  p = connection_add_cmd (conn, SPA_CONTROL_CMD_NODE_COMMAND, len);
-  memcpy (p, cm, sizeof (SpaControlCmdNodeCommand));
+  p = connection_add_cmd (conn, PINOS_CONTROL_CMD_NODE_COMMAND, len);
+  memcpy (p, cm, sizeof (PinosControlCmdNodeCommand));
   d = p;
 
-  p = SPA_MEMBER (d, sizeof (SpaControlCmdNodeCommand), void);
+  p = SPA_MEMBER (d, sizeof (PinosControlCmdNodeCommand), void);
   d->command = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
 
   nc = p;
@@ -382,8 +380,8 @@ connection_add_node_command (SpaConnection *conn, SpaControlCmdNodeCommand *cm)
   memcpy (p, cm->command->data, cm->command->size);
 }
 
-static SpaResult
-refill_buffer (SpaConnection *conn, ConnectionBuffer *buf)
+static gboolean
+refill_buffer (PinosConnection *conn, ConnectionBuffer *buf)
 {
   ssize_t len;
   struct cmsghdr *cmsg;
@@ -411,7 +409,7 @@ refill_buffer (SpaConnection *conn, ConnectionBuffer *buf)
   }
 
   if (len < 4)
-    return SPA_RESULT_ERROR;
+    return FALSE;
 
   buf->buffer_size += len;
 
@@ -423,15 +421,15 @@ refill_buffer (SpaConnection *conn, ConnectionBuffer *buf)
     buf->n_fds = (cmsg->cmsg_len - ((char *)CMSG_DATA (cmsg) - (char *)cmsg)) / sizeof (int);
     memcpy (buf->fds, CMSG_DATA (cmsg), buf->n_fds * sizeof (int));
   }
-  SPA_DEBUG_CONTROL ("connection %p: %d read %zd bytes and %d fds\n", conn, conn->fd, len, buf->n_fds);
+  PINOS_DEBUG_CONTROL ("connection %p: %d read %zd bytes and %d fds\n", conn, conn->fd, len, buf->n_fds);
 
-  return SPA_RESULT_OK;
+  return TRUE;
 
   /* ERRORS */
 recv_error:
   {
-    fprintf (stderr, "could not recvmsg on fd %d: %s\n", conn->fd, strerror (errno));
-    return SPA_RESULT_ERROR;
+    g_warning ("could not recvmsg on fd %d: %s\n", conn->fd, strerror (errno));
+    return FALSE;
   }
 }
 
@@ -447,18 +445,18 @@ clear_buffer (ConnectionBuffer *buf)
     }
   }
   buf->n_fds = 0;
-  buf->cmd = SPA_CONTROL_CMD_INVALID;
+  buf->cmd = PINOS_CONTROL_CMD_INVALID;
   buf->offset = 0;
   buf->size = 0;
   buf->buffer_size = 0;
 }
 
-SpaConnection *
-spa_connection_new (int fd)
+PinosConnection *
+pinos_connection_new (int fd)
 {
-  SpaConnection *c;
+  PinosConnection *c;
 
-  c = calloc (1, sizeof (SpaConnection));
+  c = calloc (1, sizeof (PinosConnection));
   c->fd = fd;
   c->out.buffer_data = malloc (MAX_BUFFER_SIZE);
   c->out.buffer_maxsize = MAX_BUFFER_SIZE;
@@ -470,7 +468,7 @@ spa_connection_new (int fd)
 }
 
 void
-spa_connection_free (SpaConnection *conn)
+pinos_connection_free (PinosConnection *conn)
 {
   free (conn->out.buffer_data);
   free (conn->in.buffer_data);
@@ -478,22 +476,21 @@ spa_connection_free (SpaConnection *conn)
 }
 
 /**
- * spa_connection_has_next:
- * @iter: a #SpaConnection
+ * pinos_connection_has_next:
+ * @iter: a #PinosConnection
  *
  * Move to the next packet in @conn.
  *
- * Returns: %SPA_RESULT_OK if more packets are available.
+ * Returns: %TRUE if more packets are available.
  */
-SpaResult
-spa_connection_has_next (SpaConnection *conn)
+gboolean
+pinos_connection_has_next (PinosConnection *conn)
 {
   size_t len, size, skip;
   uint8_t *data;
   ConnectionBuffer *buf;
 
-  if (conn == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  g_return_val_if_fail (conn != NULL, FALSE);
 
   buf = &conn->in;
 
@@ -513,7 +510,7 @@ again:
   if (buf->offset >= size) {
     clear_buffer (buf);
     buf->update = true;
-    return SPA_RESULT_ERROR;
+    return FALSE;
   }
 
   data += buf->offset;
@@ -532,108 +529,104 @@ again:
   buf->data = data + skip;
   buf->offset += 1 + skip;
 
-  return SPA_RESULT_OK;
+  return TRUE;
 }
 
-SpaControlCmd
-spa_connection_get_cmd (SpaConnection *conn)
+PinosControlCmd
+pinos_connection_get_cmd (PinosConnection *conn)
 {
-  if (conn == NULL)
-    return SPA_CONTROL_CMD_INVALID;
+  g_return_val_if_fail (conn != NULL, PINOS_CONTROL_CMD_INVALID);
 
   return conn->in.cmd;
 }
 
-SpaResult
-spa_connection_parse_cmd (SpaConnection *conn,
-                          void          *command)
+gboolean
+pinos_connection_parse_cmd (PinosConnection *conn,
+                            gpointer         command)
 {
-  SpaResult res = SPA_RESULT_OK;
-
-  if (conn == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  g_return_val_if_fail (conn != NULL, FALSE);
 
   switch (conn->in.cmd) {
     /* C -> S */
-    case SPA_CONTROL_CMD_NODE_UPDATE:
+    case PINOS_CONTROL_CMD_NODE_UPDATE:
       connection_parse_node_update (conn, command);
       break;
 
-    case SPA_CONTROL_CMD_PORT_UPDATE:
+    case PINOS_CONTROL_CMD_PORT_UPDATE:
       connection_parse_port_update (conn, command);
       break;
 
-    case SPA_CONTROL_CMD_PORT_STATUS_CHANGE:
-      fprintf (stderr, "implement iter of %d\n", conn->in.cmd);
+    case PINOS_CONTROL_CMD_PORT_STATUS_CHANGE:
+      g_warning ("implement iter of %d\n", conn->in.cmd);
       break;
 
-    case SPA_CONTROL_CMD_NODE_STATE_CHANGE:
-      if (conn->in.size < sizeof (SpaControlCmdNodeStateChange))
-        return SPA_RESULT_ERROR;
-      memcpy (command, conn->in.data, sizeof (SpaControlCmdNodeStateChange));
+    case PINOS_CONTROL_CMD_NODE_STATE_CHANGE:
+      if (conn->in.size < sizeof (PinosControlCmdNodeStateChange))
+        return FALSE;
+      memcpy (command, conn->in.data, sizeof (PinosControlCmdNodeStateChange));
       break;
 
     /* S -> C */
-    case SPA_CONTROL_CMD_ADD_PORT:
-      if (conn->in.size < sizeof (SpaControlCmdAddPort))
-        return SPA_RESULT_ERROR;
-      memcpy (command, conn->in.data, sizeof (SpaControlCmdAddPort));
+    case PINOS_CONTROL_CMD_ADD_PORT:
+      if (conn->in.size < sizeof (PinosControlCmdAddPort))
+        return FALSE;
+      memcpy (command, conn->in.data, sizeof (PinosControlCmdAddPort));
       break;
 
-    case SPA_CONTROL_CMD_REMOVE_PORT:
-      if (conn->in.size < sizeof (SpaControlCmdRemovePort))
-        return SPA_RESULT_ERROR;
-      memcpy (command, conn->in.data, sizeof (SpaControlCmdRemovePort));
+    case PINOS_CONTROL_CMD_REMOVE_PORT:
+      if (conn->in.size < sizeof (PinosControlCmdRemovePort))
+        return FALSE;
+      memcpy (command, conn->in.data, sizeof (PinosControlCmdRemovePort));
       break;
 
-    case SPA_CONTROL_CMD_SET_FORMAT:
+    case PINOS_CONTROL_CMD_SET_FORMAT:
       connection_parse_set_format (conn, command);
       break;
 
-    case SPA_CONTROL_CMD_SET_PROPERTY:
-      fprintf (stderr, "implement iter of %d\n", conn->in.cmd);
+    case PINOS_CONTROL_CMD_SET_PROPERTY:
+      g_warning ("implement iter of %d\n", conn->in.cmd);
       break;
 
     /* bidirectional */
-    case SPA_CONTROL_CMD_ADD_MEM:
-      if (conn->in.size < sizeof (SpaControlCmdAddMem))
-        return SPA_RESULT_ERROR;
-      memcpy (command, conn->in.data, sizeof (SpaControlCmdAddMem));
+    case PINOS_CONTROL_CMD_ADD_MEM:
+      if (conn->in.size < sizeof (PinosControlCmdAddMem))
+        return FALSE;
+      memcpy (command, conn->in.data, sizeof (PinosControlCmdAddMem));
       break;
 
-    case SPA_CONTROL_CMD_REMOVE_MEM:
-      if (conn->in.size < sizeof (SpaControlCmdRemoveMem))
-        return SPA_RESULT_ERROR;
-      memcpy (command, conn->in.data, sizeof (SpaControlCmdRemoveMem));
+    case PINOS_CONTROL_CMD_REMOVE_MEM:
+      if (conn->in.size < sizeof (PinosControlCmdRemoveMem))
+        return FALSE;
+      memcpy (command, conn->in.data, sizeof (PinosControlCmdRemoveMem));
       break;
 
-    case SPA_CONTROL_CMD_USE_BUFFERS:
+    case PINOS_CONTROL_CMD_USE_BUFFERS:
       connection_parse_use_buffers (conn, command);
       break;
 
-    case SPA_CONTROL_CMD_PROCESS_BUFFER:
-      if (conn->in.size < sizeof (SpaControlCmdProcessBuffer))
-        return SPA_RESULT_ERROR;
-      memcpy (command, conn->in.data, sizeof (SpaControlCmdProcessBuffer));
+    case PINOS_CONTROL_CMD_PROCESS_BUFFER:
+      if (conn->in.size < sizeof (PinosControlCmdProcessBuffer))
+        return FALSE;
+      memcpy (command, conn->in.data, sizeof (PinosControlCmdProcessBuffer));
       break;
 
-    case SPA_CONTROL_CMD_NODE_EVENT:
+    case PINOS_CONTROL_CMD_NODE_EVENT:
       connection_parse_node_event (conn, command);
       break;
 
-    case SPA_CONTROL_CMD_NODE_COMMAND:
+    case PINOS_CONTROL_CMD_NODE_COMMAND:
       connection_parse_node_command (conn, command);
       break;
 
-    case SPA_CONTROL_CMD_INVALID:
-      return SPA_RESULT_ERROR;
+    case PINOS_CONTROL_CMD_INVALID:
+      return FALSE;
   }
-  return res;
+  return TRUE;
 }
 
 /**
- * spa_connection_get_fd:
- * @conn: a #SpaConnection
+ * pinos_connection_get_fd:
+ * @conn: a #PinosConnection
  * @index: an index
  * @steal: steal the fd
  *
@@ -643,14 +636,14 @@ spa_connection_parse_cmd (SpaConnection *conn,
  * is not duplicated in any way. -1 is returned on error.
  */
 int
-spa_connection_get_fd (SpaConnection *conn,
-                       unsigned int   index,
-                       bool           close)
+pinos_connection_get_fd (PinosConnection *conn,
+                         guint            index,
+                         gboolean         close)
 {
   int fd;
 
-  if (conn == NULL || conn->in.n_fds < index)
-    return -1;
+  g_return_val_if_fail (conn != NULL, -1);
+  g_return_val_if_fail (index < conn->in.n_fds, -1);
 
   fd = conn->in.fds[index];
   if (fd < 0)
@@ -661,8 +654,8 @@ spa_connection_get_fd (SpaConnection *conn,
 }
 
 /**
- * spa_connection_add_fd:
- * @conn: a #SpaConnection
+ * pinos_connection_add_fd:
+ * @conn: a #PinosConnection
  * @fd: a valid fd
  * @close: if the descriptor should be closed when sent
  *
@@ -671,14 +664,13 @@ spa_connection_get_fd (SpaConnection *conn,
  * Returns: the index of the file descriptor in @builder.
  */
 int
-spa_connection_add_fd (SpaConnection *conn,
-                       int            fd,
-                       bool           close)
+pinos_connection_add_fd (PinosConnection *conn,
+                         int              fd,
+                         gboolean         close)
 {
   int index, i;
 
-  if (conn == NULL)
-    return -1;
+  g_return_val_if_fail (conn != NULL, -1);
 
   for (i = 0; i < conn->out.n_fds; i++) {
     if (conn->out.fds[i] == fd || conn->out.fds[i] == -fd)
@@ -693,99 +685,99 @@ spa_connection_add_fd (SpaConnection *conn,
 }
 
 /**
- * spa_connection_add_cmd:
- * @conn: a #SpaConnection
- * @cmd: a #SpaControlCmd
+ * pinos_connection_add_cmd:
+ * @conn: a #PinosConnection
+ * @cmd: a #PinosControlCmd
  * @command: a command
  *
  * Add a @cmd to @conn with data from @command.
  *
- * Returns: %SPA_RESULT_OK on success.
+ * Returns: %TRUE on success.
  */
-SpaResult
-spa_connection_add_cmd (SpaConnection *conn,
-                        SpaControlCmd  cmd,
-                        void          *command)
+gboolean
+pinos_connection_add_cmd (PinosConnection *conn,
+                          PinosControlCmd  cmd,
+                          gpointer         command)
 {
   void *p;
 
-  if (conn == NULL || command == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  g_return_val_if_fail (conn != NULL, FALSE);
+  g_return_val_if_fail (command != NULL, FALSE);
 
   switch (cmd) {
     /* C -> S */
-    case SPA_CONTROL_CMD_NODE_UPDATE:
+    case PINOS_CONTROL_CMD_NODE_UPDATE:
       connection_add_node_update (conn, command);
       break;
 
-    case SPA_CONTROL_CMD_PORT_UPDATE:
+    case PINOS_CONTROL_CMD_PORT_UPDATE:
       connection_add_port_update (conn, command);
       break;
 
-    case SPA_CONTROL_CMD_PORT_STATUS_CHANGE:
+    case PINOS_CONTROL_CMD_PORT_STATUS_CHANGE:
       p = connection_add_cmd (conn, cmd, 0);
       break;
 
-    case SPA_CONTROL_CMD_NODE_STATE_CHANGE:
-      p = connection_add_cmd (conn, cmd, sizeof (SpaControlCmdNodeStateChange));
-      memcpy (p, command, sizeof (SpaControlCmdNodeStateChange));
+    case PINOS_CONTROL_CMD_NODE_STATE_CHANGE:
+      p = connection_add_cmd (conn, cmd, sizeof (PinosControlCmdNodeStateChange));
+      memcpy (p, command, sizeof (PinosControlCmdNodeStateChange));
       break;
 
     /* S -> C */
-    case SPA_CONTROL_CMD_ADD_PORT:
-      p = connection_add_cmd (conn, cmd, sizeof (SpaControlCmdAddPort));
-      memcpy (p, command, sizeof (SpaControlCmdAddPort));
+    case PINOS_CONTROL_CMD_ADD_PORT:
+      p = connection_add_cmd (conn, cmd, sizeof (PinosControlCmdAddPort));
+      memcpy (p, command, sizeof (PinosControlCmdAddPort));
       break;
 
-    case SPA_CONTROL_CMD_REMOVE_PORT:
-      p = connection_add_cmd (conn, cmd, sizeof (SpaControlCmdRemovePort));
-      memcpy (p, command, sizeof (SpaControlCmdRemovePort));
+    case PINOS_CONTROL_CMD_REMOVE_PORT:
+      p = connection_add_cmd (conn, cmd, sizeof (PinosControlCmdRemovePort));
+      memcpy (p, command, sizeof (PinosControlCmdRemovePort));
       break;
 
-    case SPA_CONTROL_CMD_SET_FORMAT:
+    case PINOS_CONTROL_CMD_SET_FORMAT:
       connection_add_set_format (conn, command);
       break;
 
-    case SPA_CONTROL_CMD_SET_PROPERTY:
-      fprintf (stderr, "implement builder of %d\n", cmd);
+    case PINOS_CONTROL_CMD_SET_PROPERTY:
+      g_warning ("implement builder of %d\n", cmd);
       break;
 
     /* bidirectional */
-    case SPA_CONTROL_CMD_ADD_MEM:
-      p = connection_add_cmd (conn, cmd, sizeof (SpaControlCmdAddMem));
-      memcpy (p, command, sizeof (SpaControlCmdAddMem));
+    case PINOS_CONTROL_CMD_ADD_MEM:
+      p = connection_add_cmd (conn, cmd, sizeof (PinosControlCmdAddMem));
+      memcpy (p, command, sizeof (PinosControlCmdAddMem));
       break;
 
-    case SPA_CONTROL_CMD_REMOVE_MEM:
-      p = connection_add_cmd (conn, cmd, sizeof (SpaControlCmdRemoveMem));
-      memcpy (p, command, sizeof (SpaControlCmdRemoveMem));
+    case PINOS_CONTROL_CMD_REMOVE_MEM:
+      p = connection_add_cmd (conn, cmd, sizeof (PinosControlCmdRemoveMem));
+      memcpy (p, command, sizeof (PinosControlCmdRemoveMem));
       break;
 
-    case SPA_CONTROL_CMD_USE_BUFFERS:
+    case PINOS_CONTROL_CMD_USE_BUFFERS:
       connection_add_use_buffers (conn, command);
       break;
 
-    case SPA_CONTROL_CMD_PROCESS_BUFFER:
-      p = connection_add_cmd (conn, cmd, sizeof (SpaControlCmdProcessBuffer));
-      memcpy (p, command, sizeof (SpaControlCmdProcessBuffer));
+    case PINOS_CONTROL_CMD_PROCESS_BUFFER:
+      p = connection_add_cmd (conn, cmd, sizeof (PinosControlCmdProcessBuffer));
+      memcpy (p, command, sizeof (PinosControlCmdProcessBuffer));
       break;
 
-    case SPA_CONTROL_CMD_NODE_EVENT:
+    case PINOS_CONTROL_CMD_NODE_EVENT:
       connection_add_node_event (conn, command);
       break;
 
-    case SPA_CONTROL_CMD_NODE_COMMAND:
+    case PINOS_CONTROL_CMD_NODE_COMMAND:
       connection_add_node_command (conn, command);
       break;
 
-    case SPA_CONTROL_CMD_INVALID:
-      return SPA_RESULT_INVALID_ARGUMENTS;
+    case PINOS_CONTROL_CMD_INVALID:
+      return FALSE;
   }
-  return SPA_RESULT_OK;
+  return TRUE;
 }
 
-SpaResult
-spa_connection_flush (SpaConnection *conn)
+gboolean
+pinos_connection_flush (PinosConnection *conn)
 {
   ssize_t len;
   struct msghdr msg = {0};
@@ -795,13 +787,12 @@ spa_connection_flush (SpaConnection *conn)
   int *cm, i, fds_len;
   ConnectionBuffer *buf;
 
-  if (conn == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  g_return_val_if_fail (conn != NULL, FALSE);
 
   buf = &conn->out;
 
   if (buf->buffer_size == 0)
-    return SPA_RESULT_OK;
+    return TRUE;
 
   fds_len = buf->n_fds * sizeof (int);
 
@@ -839,27 +830,26 @@ spa_connection_flush (SpaConnection *conn)
   buf->buffer_size -= len;
   buf->n_fds = 0;
 
-  SPA_DEBUG_CONTROL ("connection %p: %d written %zd bytes and %u fds\n", conn, conn->fd, len, buf->n_fds);
+  PINOS_DEBUG_CONTROL ("connection %p: %d written %zd bytes and %u fds\n", conn, conn->fd, len, buf->n_fds);
 
-  return SPA_RESULT_OK;
+  return TRUE;
 
   /* ERRORS */
 send_error:
   {
-    fprintf (stderr, "could not sendmsg: %s\n", strerror (errno));
-    return SPA_RESULT_ERROR;
+    g_warning ("could not sendmsg: %s\n", strerror (errno));
+    return FALSE;
   }
 }
 
-SpaResult
-spa_connection_clear (SpaConnection *conn)
+gboolean
+pinos_connection_clear (PinosConnection *conn)
 {
-  if (conn == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  g_return_val_if_fail (conn != NULL, FALSE);
 
   clear_buffer (&conn->out);
   clear_buffer (&conn->in);
   conn->in.update = true;
 
-  return SPA_RESULT_OK;
+  return TRUE;
 }

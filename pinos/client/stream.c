@@ -662,7 +662,7 @@ add_port_update (PinosStream *stream, uint32_t change_mask)
 }
 
 static void
-add_need_input (PinosStream *stream, uint32_t port_id)
+send_need_input (PinosStream *stream, uint32_t port_id)
 {
   PinosStreamPrivate *priv = stream->priv;
   SpaControlCmdNodeEvent cne;
@@ -675,14 +675,6 @@ add_need_input (PinosStream *stream, uint32_t port_id)
   ne.size = sizeof (ni);
   ni.port_id = port_id;
   spa_connection_add_cmd (priv->rtconn, SPA_CONTROL_CMD_NODE_EVENT, &cne);
-}
-
-static void
-send_need_input (PinosStream *stream, uint32_t port_id)
-{
-  PinosStreamPrivate *priv = stream->priv;
-
-  add_need_input (stream, port_id);
 
   if (spa_connection_flush (priv->rtconn) < 0)
     g_warning ("stream %p: error writing connection", stream);
@@ -917,11 +909,8 @@ handle_node_command (PinosStream    *stream,
       if (spa_connection_flush (priv->conn) < 0)
         g_warning ("stream %p: error writing connection", stream);
 
-      if (priv->direction == SPA_DIRECTION_INPUT) {
-        add_need_input (stream, priv->port_id);
-        if (spa_connection_flush (priv->rtconn) < 0)
-          g_warning ("stream %p: error writing connection", stream);
-      }
+      if (priv->direction == SPA_DIRECTION_INPUT)
+        send_need_input (stream, priv->port_id);
 
       stream_set_state (stream, PINOS_STREAM_STATE_STREAMING, NULL);
       break;

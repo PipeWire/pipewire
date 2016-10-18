@@ -1048,7 +1048,7 @@ parse_connection (SpaProxy   *this)
       case SPA_CONTROL_CMD_SET_PROPERTY:
       case SPA_CONTROL_CMD_NODE_COMMAND:
       case SPA_CONTROL_CMD_PROCESS_BUFFER:
-        spa_log_error (this->log, "proxy %p: got unexpected connection %d\n", this, cmd);
+        spa_log_error (this->log, "proxy %p: got unexpected command %d\n", this, cmd);
         break;
 
       case SPA_CONTROL_CMD_NODE_UPDATE:

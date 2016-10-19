@@ -33,36 +33,32 @@
 #define PINOS_NODE_GET_PRIVATE(node)  \
    (G_TYPE_INSTANCE_GET_PRIVATE ((node), PINOS_TYPE_NODE, PinosNodePrivate))
 
-typedef struct {
-  PinosPort port;
-  GPtrArray *links;
-} NodePort;
-
-static NodePort *
-new_node_port (PinosNode *node, uint32_t port)
+static PinosPort *
+new_pinos_port (PinosNode *node, PinosDirection direction, uint32_t port)
 {
-  NodePort *np;
-  np = g_slice_new0 (NodePort);
-  np->port.node = node;
-  np->port.port = port;
+  PinosPort *np;
+  np = g_slice_new0 (PinosPort);
+  np->node = node;
+  np->direction = direction;
+  np->port = port;
   np->links = g_ptr_array_new ();
   return np;
 }
 
 static void
-free_node_port (NodePort *np)
+free_node_port (PinosPort *np)
 {
   g_ptr_array_free (np->links, TRUE);
-  g_slice_free (NodePort, np);
+  g_slice_free (PinosPort, np);
 }
 
-static NodePort *
+static PinosPort *
 find_node_port (GList *ports, PinosNode *node, uint32_t port)
 {
   GList *walk;
   for (walk = ports; walk; walk = g_list_next (walk)) {
-    NodePort *np = walk->data;
-    if (np->port.node == node && np->port.port == port)
+    PinosPort *np = walk->data;
+    if (np->node == node && np->port == port)
       return np;
   }
   return NULL;
@@ -162,33 +158,33 @@ update_port_ids (PinosNode *node, gboolean create)
   i = 0;
   ports = priv->input_ports;
   while (true) {
-    NodePort *p = (ports ? ports->data : NULL);
+    PinosPort *p = (ports ? ports->data : NULL);
 
-    if (p && i < n_input_ports && p->port.port == input_port_ids[i]) {
+    if (p && i < n_input_ports && p->port == input_port_ids[i]) {
       i++;
       ports = g_list_next (ports);
-    } else if ((p && i < n_input_ports && input_port_ids[i] < p->port.port) || i < n_input_ports) {
-      NodePort *np;
+    } else if ((p && i < n_input_ports && input_port_ids[i] < p->port) || i < n_input_ports) {
+      PinosPort *np;
       g_debug ("node %p: input port added %d", node, input_port_ids[i]);
 
-      np = new_node_port (node, input_port_ids[i]);
+      np = new_pinos_port (node, PINOS_DIRECTION_INPUT, input_port_ids[i]);
       priv->input_ports = g_list_insert_before (priv->input_ports, ports, np);
 
       if (!priv->async_init)
-        g_signal_emit (node, signals[SIGNAL_PORT_ADDED], 0, PINOS_DIRECTION_INPUT);
+        g_signal_emit (node, signals[SIGNAL_PORT_ADDED], 0, np);
       i++;
     } else if (p) {
       GList *next;
-      g_debug ("node %p: input port removed %d", node, p->port.port);
+      g_debug ("node %p: input port removed %d", node, p->port);
 
       next = g_list_next (ports);
       priv->input_ports = g_list_delete_link (priv->input_ports, ports);
       ports = next;
 
-      free_node_port (p);
-
       if (!priv->async_init)
-        g_signal_emit (node, signals[SIGNAL_PORT_REMOVED], 0, PINOS_DIRECTION_INPUT);
+        g_signal_emit (node, signals[SIGNAL_PORT_REMOVED], 0, p);
+
+      free_node_port (p);
     } else
       break;
   }
@@ -196,33 +192,33 @@ update_port_ids (PinosNode *node, gboolean create)
   i = 0;
   ports = priv->output_ports;
   while (true) {
-    NodePort *p = (ports ? ports->data : NULL);
+    PinosPort *p = (ports ? ports->data : NULL);
 
-    if (p && i < n_output_ports && p->port.port == output_port_ids[i]) {
+    if (p && i < n_output_ports && p->port == output_port_ids[i]) {
       i++;
       ports = g_list_next (ports);
-    } else if ((p && i < n_output_ports && output_port_ids[i] < p->port.port) || i < n_output_ports) {
-      NodePort *np;
+    } else if ((p && i < n_output_ports && output_port_ids[i] < p->port) || i < n_output_ports) {
+      PinosPort *np;
       g_debug ("node %p: output port added %d", node, output_port_ids[i]);
 
-      np = new_node_port (node, output_port_ids[i]);
+      np = new_pinos_port (node, PINOS_DIRECTION_OUTPUT, output_port_ids[i]);
       priv->output_ports = g_list_insert_before (priv->output_ports, ports, np);
 
       if (!priv->async_init)
-        g_signal_emit (node, signals[SIGNAL_PORT_ADDED], 0, PINOS_DIRECTION_INPUT);
+        g_signal_emit (node, signals[SIGNAL_PORT_ADDED], 0, np);
       i++;
     } else if (p) {
       GList *next;
-      g_debug ("node %p: output port removed %d", node, p->port.port);
+      g_debug ("node %p: output port removed %d", node, p->port);
 
       next = g_list_next (ports);
       priv->output_ports = g_list_delete_link (priv->output_ports, ports);
       ports = next;
 
-      free_node_port (p);
-
       if (!priv->async_init)
-        g_signal_emit (node, signals[SIGNAL_PORT_REMOVED], 0, PINOS_DIRECTION_INPUT);
+        g_signal_emit (node, signals[SIGNAL_PORT_REMOVED], 0, p);
+
+      free_node_port (p);
     } else
       break;
   }
@@ -281,24 +277,24 @@ suspend_node (PinosNode *this)
   g_debug ("node %p: suspend node", this);
 
   for (walk = priv->input_ports; walk; walk = g_list_next (walk)) {
-    NodePort *p = walk->data;
-    if ((res = spa_node_port_set_format (this->node, SPA_DIRECTION_INPUT, p->port.port, 0, NULL)) < 0)
+    PinosPort *p = walk->data;
+    if ((res = spa_node_port_set_format (this->node, SPA_DIRECTION_INPUT, p->port, 0, NULL)) < 0)
       g_warning ("error unset format output: %d", res);
-    p->port.buffers = NULL;
-    p->port.n_buffers = 0;
-    if (p->port.allocated)
-      pinos_memblock_free (&p->port.buffer_mem);
-    p->port.allocated = FALSE;
+    p->buffers = NULL;
+    p->n_buffers = 0;
+    if (p->allocated)
+      pinos_memblock_free (&p->buffer_mem);
+    p->allocated = FALSE;
   }
   for (walk = priv->output_ports; walk; walk = g_list_next (walk)) {
-    NodePort *p = walk->data;
-    if ((res = spa_node_port_set_format (this->node, SPA_DIRECTION_OUTPUT, p->port.port, 0, NULL)) < 0)
+    PinosPort *p = walk->data;
+    if ((res = spa_node_port_set_format (this->node, SPA_DIRECTION_OUTPUT, p->port, 0, NULL)) < 0)
       g_warning ("error unset format output: %d", res);
-    p->port.buffers = NULL;
-    p->port.n_buffers = 0;
-    if (p->port.allocated)
-      pinos_memblock_free (&p->port.buffer_mem);
-    p->port.allocated = FALSE;
+    p->buffers = NULL;
+    p->n_buffers = 0;
+    if (p->allocated)
+      pinos_memblock_free (&p->buffer_mem);
+    p->allocated = FALSE;
   }
   return res;
 }
@@ -457,7 +453,7 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
     case SPA_NODE_EVENT_TYPE_NEED_INPUT:
     {
       SpaNodeEventNeedInput *ni = event->data;
-      NodePort *p;
+      PinosPort *p;
       guint i;
 
       if (!(p = find_node_port (priv->input_ports, this, ni->port_id)))
@@ -477,7 +473,7 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
       SpaPortOutputInfo oinfo[1] = { 0, };
       SpaResult res;
       gboolean pushed = FALSE;
-      NodePort *p;
+      PinosPort *p;
       guint i;
 
       oinfo[0].port_id = ho->port_id;
@@ -513,7 +509,7 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
     {
       SpaResult res;
       SpaNodeEventReuseBuffer *rb = event->data;
-      NodePort *p;
+      PinosPort *p;
       guint i;
 
       if (!(p = find_node_port (priv->input_ports, this, rb->port_id)))
@@ -912,7 +908,7 @@ pinos_node_class_init (PinosNodeClass * klass)
                                              g_cclosure_marshal_generic,
                                              G_TYPE_NONE,
                                              1,
-                                             PINOS_TYPE_DIRECTION);
+                                             G_TYPE_POINTER);
   signals[SIGNAL_PORT_REMOVED] = g_signal_new ("port-removed",
                                                G_TYPE_FROM_CLASS (klass),
                                                G_SIGNAL_RUN_LAST,
@@ -922,7 +918,7 @@ pinos_node_class_init (PinosNodeClass * klass)
                                                g_cclosure_marshal_generic,
                                                G_TYPE_NONE,
                                                1,
-                                               PINOS_TYPE_DIRECTION);
+                                               G_TYPE_POINTER);
   signals[SIGNAL_ASYNC_COMPLETE] = g_signal_new ("async-complete",
                                                G_TYPE_FROM_CLASS (klass),
                                                G_SIGNAL_RUN_LAST,
@@ -951,35 +947,6 @@ pinos_node_init (PinosNode * node)
   priv->state = PINOS_NODE_STATE_CREATING;
   priv->pending_state_seq = SPA_ID_INVALID;
   pinos_node1_set_state (priv->iface, priv->state);
-}
-
-/**
- * pinos_node_new:
- * @daemon: a #PinosDaemon
- * @client: the client owner
- * @name: a name
- * @properties: extra properties
- *
- * Create a new #PinosNode.
- *
- * Returns: a new #PinosNode
- */
-PinosNode *
-pinos_node_new (PinosDaemon     *daemon,
-                PinosClient     *client,
-                const gchar     *name,
-                PinosProperties *properties,
-                SpaNode         *node)
-{
-  g_return_val_if_fail (PINOS_IS_DAEMON (daemon), NULL);
-
-  return g_object_new (PINOS_TYPE_NODE,
-                       "daemon", daemon,
-                       "client", client,
-                       "name", name,
-                       "properties", properties,
-                       "node", node,
-                       NULL);
 }
 
 /**
@@ -1120,15 +1087,16 @@ pinos_node_remove (PinosNode *node)
  *
  * Returns: the new port id or %SPA_ID_INVALID on error
  */
-guint
+PinosPort *
 pinos_node_get_free_port (PinosNode       *node,
                           PinosDirection   direction)
 {
   PinosNodePrivate *priv;
   guint free_port, n_ports, max_ports;
   GList *ports, *walk;
+  PinosPort *port = NULL;
 
-  g_return_val_if_fail (PINOS_IS_NODE (node), SPA_ID_INVALID);
+  g_return_val_if_fail (PINOS_IS_NODE (node), NULL);
   priv = node->priv;
 
   if (direction == PINOS_DIRECTION_INPUT) {
@@ -1147,26 +1115,25 @@ pinos_node_get_free_port (PinosNode       *node,
   for (walk = ports; walk; walk = g_list_next (walk)) {
     PinosPort *p = walk->data;
 
-    if (free_port < p->port)
+    if (free_port < p->port) {
+      port = p;
       break;
-
+    }
     free_port = p->port + 1;
   }
   if (free_port >= max_ports && ports) {
-    PinosPort *p = ports->data;
-
-    free_port = p->port;
+    port = ports->data;
   } else
-    return SPA_ID_INVALID;
+    return NULL;
 
-  return free_port;
+  return port;
 
 }
 
 static void
 do_remove_link (PinosLink *link, PinosNode *node)
 {
-  NodePort *p;
+  PinosPort *p;
   PinosNode *n;
 
   if (link->output) {
@@ -1195,13 +1162,12 @@ do_remove_link (PinosLink *link, PinosNode *node)
  * pinos_node_link:
  * @output_node: a #PinosNode
  * @output_port: an output port
- * @input_node: a #PinosNode
  * @input_port: an input port
  * @format_filter: a format filter
  * @properties: extra properties
  * @error: an error or %NULL
  *
- * Make a link between @output_node and @input_node with the given ids
+ * Make a link between @output_port and @input_port with the given ids
  *
  * If the ports were already linked, the existing links will be returned.
  *
@@ -1212,47 +1178,41 @@ do_remove_link (PinosLink *link, PinosNode *node)
  */
 PinosLink *
 pinos_node_link (PinosNode       *output_node,
-                 guint            output_port,
-                 PinosNode       *input_node,
-                 guint            input_port,
+                 PinosPort       *output_port,
+                 PinosPort       *input_port,
                  GPtrArray       *format_filter,
                  PinosProperties *properties,
                  GError         **error)
 {
   PinosNodePrivate *priv;
-  NodePort *onp, *inp;
+  PinosNode *input_node;
   PinosLink *link = NULL;
   guint i;
 
   g_return_val_if_fail (PINOS_IS_NODE (output_node), NULL);
-  g_return_val_if_fail (PINOS_IS_NODE (input_node), NULL);
+  g_return_val_if_fail (output_port != NULL, NULL);
+  g_return_val_if_fail (input_port != NULL, NULL);
 
   priv = output_node->priv;
+  input_node = input_port->node;
 
-  g_debug ("node %p: link %u %p:%u", output_node, output_port, input_node, input_port);
+  g_debug ("node %p: link %u %p:%u", output_node, output_port->port, input_node, input_port->port);
 
   if (output_node == input_node)
     goto same_node;
 
-  onp = find_node_port (priv->output_ports, output_node, output_port);
-  if (onp == NULL)
-      goto no_output_ports;
-
-  for (i = 0; i < onp->links->len; i++) {
-    PinosLink *pl = g_ptr_array_index (onp->links, i);
-    if (pl->input->node == input_node && pl->input->port == input_port) {
+  for (i = 0; i < output_port->links->len; i++) {
+    PinosLink *pl = g_ptr_array_index (output_port->links, i);
+    if (pl->input->node == input_node && pl->input == input_port) {
       link = pl;
       break;
     }
   }
-  inp = find_node_port (input_node->priv->input_ports, input_node, input_port);
-  if (inp == NULL)
-      goto no_input_ports;
 
   if (link)  {
     /* FIXME */
     link->input->node = input_node;
-    link->input->port = input_port;
+    link->input = input_port;
     g_object_ref (link);
   } else {
     input_node->live = output_node->live;
@@ -1262,14 +1222,14 @@ pinos_node_link (PinosNode       *output_node,
 
     link = g_object_new (PINOS_TYPE_LINK,
                        "daemon", priv->daemon,
-                       "output-port", &onp->port,
-                       "input-port", &inp->port,
+                       "output-port", output_port,
+                       "input-port", input_port,
                        "format-filter", format_filter,
                        "properties", properties,
                        NULL);
 
-    g_ptr_array_add (onp->links, link);
-    g_ptr_array_add (inp->links, link);
+    g_ptr_array_add (output_port->links, link);
+    g_ptr_array_add (input_port->links, link);
 
     g_signal_connect (link,
                       "remove",
@@ -1289,37 +1249,32 @@ same_node:
                  "can't link a node to itself");
     return NULL;
   }
-no_input_ports:
-  {
-    g_set_error (error,
-                 PINOS_ERROR,
-                 PINOS_ERROR_NODE_LINK,
-                 "can't get an input port to link to");
-    return NULL;
-  }
-no_output_ports:
-  {
-    g_set_error (error,
-                 PINOS_ERROR,
-                 PINOS_ERROR_NODE_LINK,
-                 "can't get an output port to link to");
-    return NULL;
-  }
 }
 
 /**
- * pinos_node_get_links:
+ * pinos_node_get_ports:
  * @node: a #PinosNode
+ * @direction: a #PinosDirection
  *
- * Get the links in @node.
+ * Get the port in @node.
  *
- * Returns: a #GList of #PinosLink g_list_free after usage.
+ * Returns: a #GList of #PinosPort g_list_free after usage.
  */
 GList *
-pinos_node_get_links (PinosNode *node)
+pinos_node_get_ports (PinosNode *node, PinosDirection direction)
 {
+  GList *ports;
+  PinosNodePrivate *priv;
+
   g_return_val_if_fail (PINOS_IS_NODE (node), NULL);
-  return NULL;
+  priv = node->priv;
+
+  if (direction == PINOS_DIRECTION_INPUT) {
+    ports = priv->input_ports;
+  } else {
+    ports = priv->output_ports;
+  }
+  return ports;
 }
 
 static void

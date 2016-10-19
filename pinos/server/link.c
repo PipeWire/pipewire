@@ -74,6 +74,8 @@ enum
 enum
 {
   SIGNAL_REMOVE,
+  SIGNAL_INPUT_UNLINKED,
+  SIGNAL_OUTPUT_UNLINKED,
   LAST_SIGNAL
 };
 
@@ -735,12 +737,22 @@ on_property_notify (GObject    *obj,
   PinosLinkPrivate *priv = this->priv;
 
   if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "output-port") == 0) {
-    pinos_link1_set_output_node (priv->iface, pinos_node_get_object_path (this->output->node));
-    pinos_link1_set_output_port (priv->iface, this->output->port);
+    if (this->output) {
+      pinos_link1_set_output_node (priv->iface, pinos_node_get_object_path (this->output->node));
+      pinos_link1_set_output_port (priv->iface, this->output->port);
+    } else {
+      pinos_link1_set_output_node (priv->iface, "/");
+      pinos_link1_set_output_port (priv->iface, -1);
+    }
   }
   if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "input-port") == 0) {
-    pinos_link1_set_input_node (priv->iface, pinos_node_get_object_path (this->input->node));
-    pinos_link1_set_input_port (priv->iface, this->input->port);
+    if (this->input) {
+      pinos_link1_set_input_node (priv->iface, pinos_node_get_object_path (this->input->node));
+      pinos_link1_set_input_port (priv->iface, this->input->port);
+    } else {
+      pinos_link1_set_input_node (priv->iface, "/");
+      pinos_link1_set_input_port (priv->iface, -1);
+    }
   }
 }
 
@@ -756,15 +768,20 @@ on_node_remove (PinosNode *node, PinosLink *this)
       priv->n_buffers = 0;
     }
     this->input = NULL;
+    g_object_notify (G_OBJECT (this), "input-port");
+    g_signal_emit (this, signals[SIGNAL_INPUT_UNLINKED], 0, node);
   } else {
     if (this->output->allocated) {
       priv->buffers = NULL;
       priv->n_buffers = 0;
     }
     this->output = NULL;
+    g_object_notify (G_OBJECT (this), "output-port");
+    g_signal_emit (this, signals[SIGNAL_OUTPUT_UNLINKED], 0, node);
   }
 
-  pinos_link_update_state (this, PINOS_LINK_STATE_UNLINKED);
+  if (this->input == NULL || this->output == NULL)
+    pinos_link_update_state (this, PINOS_LINK_STATE_UNLINKED);
 }
 
 static void
@@ -796,9 +813,9 @@ pinos_link_dispose (GObject * object)
 
   g_debug ("link %p: dispose", this);
 
-  if (this->input->node)
+  if (this->input && this->input->node)
     g_signal_handlers_disconnect_by_data (this->input->node, this);
-  if (this->output->node)
+  if (this->output && this->output->node)
     g_signal_handlers_disconnect_by_data (this->output->node, this);
 
   g_signal_emit (this, signals[SIGNAL_REMOVE], 0, NULL);
@@ -929,6 +946,26 @@ pinos_link_class_init (PinosLinkClass * klass)
                                          G_TYPE_NONE,
                                          0,
                                          G_TYPE_NONE);
+  signals[SIGNAL_INPUT_UNLINKED] = g_signal_new ("input-unlinked",
+                                         G_TYPE_FROM_CLASS (klass),
+                                         G_SIGNAL_RUN_LAST,
+                                         0,
+                                         NULL,
+                                         NULL,
+                                         g_cclosure_marshal_generic,
+                                         G_TYPE_NONE,
+                                         1,
+                                         G_TYPE_POINTER);
+  signals[SIGNAL_OUTPUT_UNLINKED] = g_signal_new ("output-unlinked",
+                                         G_TYPE_FROM_CLASS (klass),
+                                         G_SIGNAL_RUN_LAST,
+                                         0,
+                                         NULL,
+                                         NULL,
+                                         g_cclosure_marshal_generic,
+                                         G_TYPE_NONE,
+                                         1,
+                                         G_TYPE_POINTER);
 }
 
 static void

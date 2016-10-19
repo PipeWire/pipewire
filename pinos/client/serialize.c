@@ -20,7 +20,7 @@
 #include "serialize.h"
 
 size_t
-spa_serialize_buffer_get_size (const SpaBuffer *buffer)
+pinos_serialize_buffer_get_size (const SpaBuffer *buffer)
 {
   size_t size;
   unsigned int i;
@@ -37,7 +37,7 @@ spa_serialize_buffer_get_size (const SpaBuffer *buffer)
 }
 
 size_t
-spa_serialize_buffer_serialize (void *dest, const SpaBuffer *buffer)
+pinos_serialize_buffer_serialize (void *dest, const SpaBuffer *buffer)
 {
   SpaBuffer *tb;
   SpaMeta *mp;
@@ -70,7 +70,7 @@ spa_serialize_buffer_serialize (void *dest, const SpaBuffer *buffer)
 }
 
 SpaBuffer *
-spa_serialize_buffer_deserialize (void *src, off_t offset)
+pinos_serialize_buffer_deserialize (void *src, off_t offset)
 {
   SpaBuffer *b;
   unsigned int i;
@@ -91,16 +91,16 @@ spa_serialize_buffer_deserialize (void *src, off_t offset)
 
 
 size_t
-spa_serialize_format_get_size (const SpaFormat *format)
+pinos_serialize_format_get_size (const SpaFormat *format)
 {
   if (format == NULL)
     return 0;
 
-  return spa_serialize_props_get_size (&format->props) - sizeof (SpaProps) + sizeof (SpaFormat);
+  return pinos_serialize_props_get_size (&format->props) - sizeof (SpaProps) + sizeof (SpaFormat);
 }
 
 size_t
-spa_serialize_format_serialize (void *dest, const SpaFormat *format)
+pinos_serialize_format_serialize (void *dest, const SpaFormat *format)
 {
   SpaFormat *tf;
   size_t size;
@@ -113,34 +113,34 @@ spa_serialize_format_serialize (void *dest, const SpaFormat *format)
   tf->media_subtype = format->media_subtype;
 
   dest = SPA_MEMBER (tf, offsetof (SpaFormat, props), void);
-  size = spa_serialize_props_serialize (dest, &format->props) - sizeof (SpaProps) + sizeof (SpaFormat);
+  size = pinos_serialize_props_serialize (dest, &format->props) - sizeof (SpaProps) + sizeof (SpaFormat);
 
   return size;
 }
 
 SpaFormat *
-spa_serialize_format_deserialize (void *src, off_t offset)
+pinos_serialize_format_deserialize (void *src, off_t offset)
 {
   SpaFormat *f;
 
   f = SPA_MEMBER (src, offset, SpaFormat);
-  spa_serialize_props_deserialize (f, offsetof (SpaFormat, props));
+  pinos_serialize_props_deserialize (f, offsetof (SpaFormat, props));
 
   return f;
 }
 
 SpaFormat *
-spa_serialize_format_copy_into (void *dest, const SpaFormat *format)
+pinos_serialize_format_copy_into (void *dest, const SpaFormat *format)
 {
   if (format == NULL)
     return NULL;
 
-  spa_serialize_format_serialize (dest, format);
-  return spa_serialize_format_deserialize (dest, 0);
+  pinos_serialize_format_serialize (dest, format);
+  return pinos_serialize_format_deserialize (dest, 0);
 }
 
 size_t
-spa_serialize_port_info_get_size (const SpaPortInfo *info)
+pinos_serialize_port_info_get_size (const SpaPortInfo *info)
 {
   size_t len;
   unsigned int i;
@@ -157,7 +157,7 @@ spa_serialize_port_info_get_size (const SpaPortInfo *info)
 }
 
 size_t
-spa_serialize_port_info_serialize (void *p, const SpaPortInfo *info)
+pinos_serialize_port_info_serialize (void *p, const SpaPortInfo *info)
 {
   SpaPortInfo *pi;
   SpaAllocParam **ap;
@@ -189,7 +189,7 @@ spa_serialize_port_info_serialize (void *p, const SpaPortInfo *info)
 }
 
 SpaPortInfo *
-spa_serialize_port_info_deserialize (void *p, off_t offset)
+pinos_serialize_port_info_deserialize (void *p, off_t offset)
 {
   SpaPortInfo *pi;
   unsigned int i;
@@ -204,17 +204,17 @@ spa_serialize_port_info_deserialize (void *p, off_t offset)
 }
 
 SpaPortInfo *
-spa_serialize_port_info_copy_into (void *dest, const SpaPortInfo *info)
+pinos_serialize_port_info_copy_into (void *dest, const SpaPortInfo *info)
 {
   if (info == NULL)
     return NULL;
 
-  spa_serialize_port_info_serialize (dest, info);
-  return spa_serialize_port_info_deserialize (dest, 0);
+  pinos_serialize_port_info_serialize (dest, info);
+  return pinos_serialize_port_info_deserialize (dest, 0);
 }
 
 size_t
-spa_serialize_props_get_size (const SpaProps *props)
+pinos_serialize_props_get_size (const SpaProps *props)
 {
   size_t len;
   unsigned int i, j;
@@ -243,7 +243,7 @@ spa_serialize_props_get_size (const SpaProps *props)
 }
 
 size_t
-spa_serialize_props_serialize (void *p, const SpaProps *props)
+pinos_serialize_props_serialize (void *p, const SpaProps *props)
 {
   size_t len, slen;
   unsigned int i, j, c;
@@ -314,7 +314,7 @@ spa_serialize_props_serialize (void *p, const SpaProps *props)
 }
 
 SpaProps *
-spa_serialize_props_deserialize (void *p, off_t offset)
+pinos_serialize_props_deserialize (void *p, off_t offset)
 {
   SpaProps *tp;
   unsigned int i, j;
@@ -344,11 +344,11 @@ spa_serialize_props_deserialize (void *p, off_t offset)
 }
 
 SpaProps *
-spa_serialize_props_copy_into (void *dest, const SpaProps *props)
+pinos_serialize_props_copy_into (void *dest, const SpaProps *props)
 {
   if (props == NULL)
     return NULL;
 
-  spa_serialize_props_serialize (dest, props);
-  return spa_serialize_props_deserialize (dest, 0);
+  pinos_serialize_props_serialize (dest, props);
+  return pinos_serialize_props_deserialize (dest, 0);
 }

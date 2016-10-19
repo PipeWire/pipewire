@@ -146,13 +146,13 @@ handle_video_format (ConvertData *d)
       *sv = gst_video_format_from_string (g_value_get_string (val));
       d->p = ++sv;
     } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
-      fprintf (stderr, "implement me\n");
+      g_debug ("implement me");
       SPA_PROPS_INDEX_UNSET (&d->f->props, d->pi);
     } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
-      fprintf (stderr, "implement me\n");
+      g_debug ("implement me");
       SPA_PROPS_INDEX_UNSET (&d->f->props, d->pi);
     } else {
-      fprintf (stderr, "implement me\n");
+      g_debug ("implement me");
       SPA_PROPS_INDEX_UNSET (&d->f->props, d->pi);
     }
     d->pi++;
@@ -204,13 +204,13 @@ handle_video_size (ConvertData *d)
 
         SPA_PROPS_INDEX_UNSET (&d->f->props, d->pi);
       } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
-        fprintf (stderr, "implement me\n");
+        g_debug ("implement me");
         SPA_PROPS_INDEX_UNSET (&d->f->props, d->pi);
       } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
-        fprintf (stderr, "implement me\n");
+        g_debug ("implement me");
         SPA_PROPS_INDEX_UNSET (&d->f->props, d->pi);
       } else {
-        fprintf (stderr, "implement me\n");
+        g_debug ("implement me");
         SPA_PROPS_INDEX_UNSET (&d->f->props, d->pi);
       }
     }
@@ -266,13 +266,13 @@ handle_video_framerate (ConvertData *d)
 
       SPA_PROPS_INDEX_UNSET (&d->f->props, d->pi);
     } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
-      fprintf (stderr, "implement me\n");
+      g_debug ("implement me");
       SPA_PROPS_INDEX_UNSET (&d->f->props, d->pi);
     } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
-      fprintf (stderr, "implement me\n");
+      g_debug ("implement me");
       SPA_PROPS_INDEX_UNSET (&d->f->props, d->pi);
     } else {
-      fprintf (stderr, "implement me\n");
+      g_debug ("implement me");
       SPA_PROPS_INDEX_UNSET (&d->f->props, d->pi);
     }
     d->pi++;
@@ -329,13 +329,13 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
         *sv = gst_audio_format_from_string (g_value_get_string (val));
         d.p = ++sv;
       } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
-        fprintf (stderr, "implement me\n");
+        g_debug ("implement me");
         SPA_PROPS_INDEX_UNSET (&d.f->props, d.pi);
       } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
-        fprintf (stderr, "implement me\n");
+        g_debug ("implement me");
         SPA_PROPS_INDEX_UNSET (&d.f->props, d.pi);
       } else {
-        fprintf (stderr, "implement me\n");
+        g_debug ("implement me");
         SPA_PROPS_INDEX_UNSET (&d.f->props, d.pi);
       }
       d.pi++;
@@ -356,13 +356,13 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
           *sv = SPA_AUDIO_LAYOUT_NON_INTERLEAVED;
         d.p = ++sv;
       } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
-        fprintf (stderr, "implement me\n");
+        g_debug ("implement me");
         SPA_PROPS_INDEX_UNSET (&d.f->props, d.pi);
       } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
-        fprintf (stderr, "implement me\n");
+        g_debug ("implement me");
         SPA_PROPS_INDEX_UNSET (&d.f->props, d.pi);
       } else {
-        fprintf (stderr, "implement me\n");
+        g_debug ("implement me");
         SPA_PROPS_INDEX_UNSET (&d.f->props, d.pi);
       }
       d.pi++;
@@ -379,13 +379,13 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
         *sv = g_value_get_int (val);
         d.p = ++sv;
       } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
-        fprintf (stderr, "implement me\n");
+        g_debug ("implement me");
         SPA_PROPS_INDEX_UNSET (&d.f->props, d.pi);
       } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
-        fprintf (stderr, "implement me\n");
+        g_debug ("implement me");
         SPA_PROPS_INDEX_UNSET (&d.f->props, d.pi);
       } else {
-        fprintf (stderr, "implement me\n");
+        g_debug ("implement me");
         SPA_PROPS_INDEX_UNSET (&d.f->props, d.pi);
       }
       d.pi++;
@@ -402,13 +402,13 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
         *sv = g_value_get_int (val);
         d.p = ++sv;
       } else if (G_VALUE_TYPE (val) == GST_TYPE_LIST) {
-        fprintf (stderr, "implement me\n");
+        g_debug ("implement me");
         SPA_PROPS_INDEX_UNSET (&d.f->props, d.pi);
       } else if (G_VALUE_TYPE (val) == GST_TYPE_ARRAY) {
-        fprintf (stderr, "implement me\n");
+        g_debug ("implement me");
         SPA_PROPS_INDEX_UNSET (&d.f->props, d.pi);
       } else {
-        fprintf (stderr, "implement me\n");
+        g_debug ("implement me");
         SPA_PROPS_INDEX_UNSET (&d.f->props, d.pi);
       }
       d.pi++;

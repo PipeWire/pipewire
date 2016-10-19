@@ -656,7 +656,6 @@ add_port_update (PinosStream *stream, uint32_t change_mask)
   pu.props = NULL;
   if (change_mask & PINOS_CONTROL_CMD_PORT_UPDATE_INFO) {
     pu.info = &priv->port_info;
-    spa_debug_port_info (pu.info);
   }
   pinos_connection_add_cmd (priv->conn, PINOS_CONTROL_CMD_PORT_UPDATE, &pu);
 }
@@ -978,10 +977,9 @@ parse_connection (PinosStream *stream)
 
         if (priv->format)
           g_free (priv->format);
-        mem = malloc (spa_serialize_format_get_size (p.format));
-        priv->format = spa_serialize_format_copy_into (mem, p.format);
+        mem = malloc (pinos_serialize_format_get_size (p.format));
+        priv->format = pinos_serialize_format_copy_into (mem, p.format);
 
-        spa_debug_format (p.format);
         priv->pending_seq = p.seq;
         g_object_notify (G_OBJECT (stream), "format");
         break;

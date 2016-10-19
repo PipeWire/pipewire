@@ -152,20 +152,14 @@ handle_create_node (PinosDaemon1           *interface,
   props = pinos_properties_from_variant (arg_properties);
 
   factory = g_hash_table_lookup (priv->node_factories, arg_factory_name);
-  if (factory != NULL) {
-    node = pinos_node_factory_create_node (factory,
-                                           daemon,
-                                           client,
-                                           arg_name,
-                                           props);
-  } else {
-    node = pinos_node_new (daemon,
-                           client,
-                           arg_name,
-                           props,
-                           NULL);
-  }
+  if (factory == NULL)
+    goto no_factory;
 
+  node = pinos_node_factory_create_node (factory,
+                                         daemon,
+                                         client,
+                                         arg_name,
+                                         props);
   pinos_properties_free (props);
 
   if (node == NULL)
@@ -187,6 +181,13 @@ handle_create_node (PinosDaemon1           *interface,
   return TRUE;
 
   /* ERRORS */
+no_factory:
+  {
+    g_debug ("daemon %p: could find factory named %s", daemon, arg_factory_name);
+    g_dbus_method_invocation_return_dbus_error (invocation,
+                 "org.pinos.Error", "can't find factory");
+    return TRUE;
+  }
 no_node:
   {
     g_debug ("daemon %p: could create node named %s from factory %s", daemon, arg_name, arg_factory_name);
@@ -194,6 +195,29 @@ no_node:
                  "org.pinos.Error", "can't create node");
     return TRUE;
   }
+}
+
+static void
+on_node_remove_signal (PinosNode   *node,
+                       PinosDaemon *daemon)
+{
+  g_debug ("daemon %p: node %p remove", daemon, node);
+}
+
+static void
+on_link_input_unlinked (PinosLink   *link,
+                        PinosPort   *port,
+                        PinosDaemon *daemon)
+{
+  g_debug ("daemon %p: link %p: input unlinked", daemon, link);
+}
+
+static void
+on_link_output_unlinked (PinosLink   *link,
+                         PinosPort   *port,
+                         PinosDaemon *daemon)
+{
+  g_debug ("daemon %p: link %p: output unlinked", daemon, link);
 }
 
 static void
@@ -209,20 +233,29 @@ on_link_state_notify (GObject     *obj,
   switch (state) {
     case PINOS_LINK_STATE_ERROR:
     {
-      g_warning ("daemon %p: link %p: state error: %s", daemon, link, error->message);
+      g_debug ("daemon %p: link %p: state error: %s", daemon, link, error->message);
 
-      if (link->input->node) {
+      if (link->input && link->input->node)
         pinos_node_report_error (link->input->node, g_error_copy (error));
-      }
-      if (link->output->node) {
+      if (link->output && link->output->node)
         pinos_node_report_error (link->output->node, g_error_copy (error));
-      }
       break;
     }
 
     case PINOS_LINK_STATE_UNLINKED:
-      g_warning ("daemon %p: link %p: unlinked", daemon, link);
+      g_debug ("daemon %p: link %p: unlinked", daemon, link);
+
+      g_set_error (&error,
+                   PINOS_ERROR,
+                   PINOS_ERROR_NODE_LINK,
+                   "error node unlinked");
+
+      if (link->input && link->input->node)
+        pinos_node_report_error (link->input->node, g_error_copy (error));
+      if (link->output && link->output->node)
+        pinos_node_report_error (link->output->node, g_error_copy (error));
       break;
+
     case PINOS_LINK_STATE_INIT:
     case PINOS_LINK_STATE_NEGOTIATING:
     case PINOS_LINK_STATE_ALLOCATING:
@@ -233,14 +266,14 @@ on_link_state_notify (GObject     *obj,
 }
 
 static void
-on_port_added (PinosNode *node, PinosDirection direction, PinosDaemon *this)
+on_port_added (PinosNode *node, PinosPort *port, PinosDaemon *this)
 {
   PinosClient *client;
   PinosProperties *props;
-  PinosNode *target;
   const gchar *path;
   GError *error = NULL;
   PinosLink *link;
+  PinosDirection direction = port->direction;
 
   props = pinos_node_get_properties (node);
   if (props == NULL)
@@ -249,10 +282,9 @@ on_port_added (PinosNode *node, PinosDirection direction, PinosDaemon *this)
   path = pinos_properties_get (props, "pinos.target.node");
 
   if (path) {
-    guint target_port;
-    guint node_port;
+    PinosPort *target;
 
-    target = pinos_daemon_find_node (this,
+    target = pinos_daemon_find_port (this,
                                      pinos_direction_reverse (direction),
                                      path,
                                      NULL,
@@ -262,36 +294,21 @@ on_port_added (PinosNode *node, PinosDirection direction, PinosDaemon *this)
     if (target == NULL)
       goto error;
 
-    target_port = pinos_node_get_free_port (target, pinos_direction_reverse (direction));
-    if (target_port == SPA_ID_INVALID) {
-      g_set_error (&error,
-                   PINOS_ERROR,
-                   PINOS_ERROR_NODE_PORT,
-                   "can't get free port from target %s", pinos_node_get_object_path (target));
-      goto error;
-    }
-    node_port = pinos_node_get_free_port (node, direction);
-    if (node_port == SPA_ID_INVALID) {
-      g_set_error (&error,
-                   PINOS_ERROR,
-                   PINOS_ERROR_NODE_PORT,
-                   "can't get free port from node %s", pinos_node_get_object_path (node));
-      goto error;
-    }
-
     if (direction == PINOS_DIRECTION_OUTPUT)
-      link = pinos_node_link (node, node_port, target, target_port, NULL, NULL, &error);
+      link = pinos_node_link (node, port, target, NULL, NULL, &error);
     else
-      link = pinos_node_link (target, target_port, node, node_port, NULL, NULL, &error);
+      link = pinos_node_link (target->node, target, port, NULL, NULL, &error);
 
     if (link == NULL)
       goto error;
 
     client = pinos_node_get_client (node);
-    if (client) {
+    if (client)
       pinos_client_add_object (client, G_OBJECT (link));
-    }
 
+    g_signal_connect (target->node, "remove", (GCallback) on_node_remove_signal, daemon);
+    g_signal_connect (link, "input-unlinked", (GCallback) on_link_input_unlinked, daemon);
+    g_signal_connect (link, "output-unlinked", (GCallback) on_link_output_unlinked, daemon);
     g_signal_connect (link, "notify::state", (GCallback) on_link_state_notify, daemon);
     pinos_link_activate (link);
 
@@ -307,20 +324,28 @@ error:
 }
 
 static void
-on_port_removed (PinosNode *node, PinosDaemon *daemon)
+on_port_removed (PinosNode *node, PinosPort *port, PinosDaemon *daemon)
 {
 }
 
 static void
-handle_node_connections (PinosDaemon *daemon,
-                         PinosNode   *node)
+on_node_created (PinosNode      *node,
+                 PinosDaemon    *daemon)
 {
-  PinosDirection direction;
+  GList *ports, *walk;
 
-  direction = node->have_inputs ? PINOS_DIRECTION_INPUT : PINOS_DIRECTION_OUTPUT;
+  ports = pinos_node_get_ports (node, PINOS_DIRECTION_INPUT);
+  for (walk = ports; walk; walk = g_list_next (walk))
+    on_port_added (node, walk->data, daemon);
 
-  on_port_added (node, direction, daemon);
+  ports = pinos_node_get_ports (node, PINOS_DIRECTION_OUTPUT);
+  for (walk = ports; walk; walk = g_list_next (walk))
+    on_port_added (node, walk->data, daemon);
+
+  g_signal_connect (node, "port-added", (GCallback) on_port_added, daemon);
+  g_signal_connect (node, "port-removed", (GCallback) on_port_removed, daemon);
 }
+
 
 static void
 on_node_state_change (PinosNode      *node,
@@ -333,7 +358,7 @@ on_node_state_change (PinosNode      *node,
                         pinos_node_state_as_string (state));
 
   if (old == PINOS_NODE_STATE_CREATING && state == PINOS_NODE_STATE_SUSPENDED)
-    handle_node_connections (daemon, node);
+    on_node_created (node, daemon);
 }
 
 static void
@@ -350,17 +375,14 @@ on_node_added (PinosDaemon *daemon, PinosNode *node)
 
   state = pinos_node_get_state (node);
   if (state > PINOS_NODE_STATE_CREATING) {
-    handle_node_connections (daemon, node);
+    on_node_created (node, daemon);
   }
-  g_signal_connect (node, "port-added", (GCallback) on_port_added, daemon);
-  g_signal_connect (node, "port-removed", (GCallback) on_port_removed, daemon);
 }
 
 static void
 on_node_removed (PinosDaemon *daemon, PinosNode *node)
 {
   g_debug ("daemon %p: node %p removed", daemon, node);
-
   g_signal_handlers_disconnect_by_data (node, daemon);
 }
 
@@ -703,7 +725,7 @@ pinos_daemon_remove_node (PinosDaemon *daemon,
 }
 
 /**
- * pinos_daemon_find_node:
+ * pinos_daemon_find_port:
  * @daemon: a #PinosDaemon
  * @name: a port name
  * @props: port properties
@@ -714,8 +736,8 @@ pinos_daemon_remove_node (PinosDaemon *daemon,
  *
  * Returns: a #PinosPort or %NULL when no port could be found.
  */
-PinosNode *
-pinos_daemon_find_node (PinosDaemon     *daemon,
+PinosPort *
+pinos_daemon_find_port (PinosDaemon     *daemon,
                         PinosDirection   direction,
                         const gchar     *name,
                         PinosProperties *props,
@@ -724,7 +746,7 @@ pinos_daemon_find_node (PinosDaemon     *daemon,
                         GError         **error)
 {
   PinosDaemonPrivate *priv;
-  PinosNode *best = NULL;
+  PinosPort *best = NULL;
   GList *nodes;
   gboolean have_name;
 
@@ -740,12 +762,16 @@ pinos_daemon_find_node (PinosDaemon     *daemon,
 
     g_debug ("node path \"%s\"", pinos_node_get_object_path (n));
 
-    if (have_name && g_str_has_suffix (pinos_node_get_object_path (n), name)) {
-      g_debug ("name \"%s\" matches node %p", name, n);
-      best = n;
-      break;
-    }
+    if (have_name) {
+      if (g_str_has_suffix (pinos_node_get_object_path (n), name)) {
+        g_debug ("name \"%s\" matches node %p", name, n);
 
+        best = pinos_node_get_free_port (n, direction);
+        if (best)
+          break;
+      }
+    } else {
+    }
   }
   if (best == NULL) {
     g_set_error (error,
@@ -1024,7 +1050,6 @@ pinos_daemon_init (PinosDaemon * daemon)
   priv->loop = pinos_rtloop_new();
 
   priv->main_loop.size = sizeof (SpaPoll);
-  priv->main_loop.info = NULL;
   priv->main_loop.info = NULL;
   priv->main_loop.add_item = do_add_item;
   priv->main_loop.update_item = do_update_item;

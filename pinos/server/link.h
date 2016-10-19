@@ -41,15 +41,6 @@ typedef struct _PinosLinkPrivate PinosLinkPrivate;
 #define PINOS_LINK_CAST(obj)        ((PinosLink*)(obj))
 #define PINOS_LINK_CLASS_CAST(klass)((PinosLinkClass*)(klass))
 
-typedef struct {
-  PinosNode      *node;
-  uint32_t        port;
-  gboolean        allocated;
-  PinosMemblock   buffer_mem;
-  SpaBuffer     **buffers;
-  guint           n_buffers;
-} PinosPort;
-
 /**
  * PinosLink:
  *

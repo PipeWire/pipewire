@@ -30,9 +30,9 @@ format_copy (SpaFormat *format)
   if (format == NULL)
     return NULL;
 
-  size = spa_serialize_format_get_size (format);
+  size = pinos_serialize_format_get_size (format);
   p = malloc (size);
-  return spa_serialize_format_copy_into (p, format);
+  return pinos_serialize_format_copy_into (p, format);
 }
 
 static void

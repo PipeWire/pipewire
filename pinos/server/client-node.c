@@ -334,15 +334,15 @@ do_update_port (SpaProxy                *this,
     port->n_formats = pu->n_possible_formats;
     port->formats = realloc (port->formats, port->n_formats * sizeof (SpaFormat *));
     for (i = 0; i < port->n_formats; i++) {
-      size = spa_serialize_format_get_size (pu->possible_formats[i]);
-      port->formats[i] = spa_serialize_format_copy_into (malloc (size), pu->possible_formats[i]);
+      size = pinos_serialize_format_get_size (pu->possible_formats[i]);
+      port->formats[i] = pinos_serialize_format_copy_into (malloc (size), pu->possible_formats[i]);
     }
   }
   if (pu->change_mask & PINOS_CONTROL_CMD_PORT_UPDATE_FORMAT) {
     if (port->format)
       free (port->format);
-    size = spa_serialize_format_get_size (pu->format);
-    port->format = spa_serialize_format_copy_into (malloc (size), pu->format);
+    size = pinos_serialize_format_get_size (pu->format);
+    port->format = pinos_serialize_format_copy_into (malloc (size), pu->format);
   }
 
   if (pu->change_mask & PINOS_CONTROL_CMD_PORT_UPDATE_PROPS) {
@@ -351,8 +351,8 @@ do_update_port (SpaProxy                *this,
   if (pu->change_mask & PINOS_CONTROL_CMD_PORT_UPDATE_INFO && pu->info) {
     if (port->info)
       free (port->info);
-    size = spa_serialize_port_info_get_size (pu->info);
-    port->info = spa_serialize_port_info_copy_into (malloc (size), pu->info);
+    size = pinos_serialize_port_info_get_size (pu->info);
+    port->info = pinos_serialize_port_info_copy_into (malloc (size), pu->info);
   }
 
   if (!port->valid) {
@@ -654,7 +654,7 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
     b->buffer.datas = b->datas;
     b->buffer.metas = b->metas;
 
-    b->size = spa_serialize_buffer_get_size (buffers[i]);
+    b->size = pinos_serialize_buffer_get_size (buffers[i]);
     b->offset = size;
 
     for (j = 0; j < buffers[i]->n_metas; j++) {
@@ -724,7 +724,7 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
       SpaMeta *sbm;
       SpaData *sbd;
 
-      spa_serialize_buffer_serialize (p, &b->buffer);
+      pinos_serialize_buffer_serialize (p, &b->buffer);
 
       sb = p;
       b->buffer.datas = SPA_MEMBER (sb, SPA_PTR_TO_INT (sb->datas), SpaData);

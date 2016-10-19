@@ -84,7 +84,7 @@ connection_parse_node_update (PinosConnection *conn, PinosControlCmdNodeUpdate *
 {
   memcpy (nu, conn->in.data, sizeof (PinosControlCmdNodeUpdate));
   if (nu->props)
-    nu->props = spa_serialize_props_deserialize (conn->in.data, SPA_PTR_TO_INT (nu->props));
+    nu->props = pinos_serialize_props_deserialize (conn->in.data, SPA_PTR_TO_INT (nu->props));
 }
 
 static void
@@ -102,16 +102,16 @@ connection_parse_port_update (PinosConnection *conn, PinosControlCmdPortUpdate *
                         SPA_PTR_TO_INT (pu->possible_formats), SpaFormat *);
   for (i = 0; i < pu->n_possible_formats; i++) {
     if (pu->possible_formats[i]) {
-      pu->possible_formats[i] = spa_serialize_format_deserialize (p,
+      pu->possible_formats[i] = pinos_serialize_format_deserialize (p,
                           SPA_PTR_TO_INT (pu->possible_formats[i]));
     }
   }
   if (pu->format)
-    pu->format = spa_serialize_format_deserialize (p, SPA_PTR_TO_INT (pu->format));
+    pu->format = pinos_serialize_format_deserialize (p, SPA_PTR_TO_INT (pu->format));
   if (pu->props)
-    pu->props = spa_serialize_props_deserialize (p, SPA_PTR_TO_INT (pu->props));
+    pu->props = pinos_serialize_props_deserialize (p, SPA_PTR_TO_INT (pu->props));
   if (pu->info)
-    pu->info = spa_serialize_port_info_deserialize (p, SPA_PTR_TO_INT (pu->info));
+    pu->info = pinos_serialize_port_info_deserialize (p, SPA_PTR_TO_INT (pu->info));
 }
 
 static void
@@ -119,7 +119,7 @@ connection_parse_set_format (PinosConnection *conn, PinosControlCmdSetFormat *cm
 {
   memcpy (cmd, conn->in.data, sizeof (PinosControlCmdSetFormat));
   if (cmd->format)
-    cmd->format = spa_serialize_format_deserialize (conn->in.data, SPA_PTR_TO_INT (cmd->format));
+    cmd->format = pinos_serialize_format_deserialize (conn->in.data, SPA_PTR_TO_INT (cmd->format));
 }
 
 static void
@@ -161,7 +161,7 @@ connection_ensure_size (PinosConnection *conn, ConnectionBuffer *buf, size_t siz
   if (buf->buffer_size + size > buf->buffer_maxsize) {
     buf->buffer_maxsize = buf->buffer_size + MAX_BUFFER_SIZE * ((size + MAX_BUFFER_SIZE-1) / MAX_BUFFER_SIZE);
     buf->buffer_data = realloc (buf->buffer_data, buf->buffer_maxsize);
-    g_warning ("connection %p: resize buffer to %zd\n", conn, buf->buffer_maxsize);
+    g_debug ("connection %p: resize buffer to %zd", conn, buf->buffer_maxsize);
   }
   return (uint8_t *) buf->buffer_data + buf->buffer_size;
 }
@@ -202,7 +202,7 @@ connection_add_node_update (PinosConnection *conn, PinosControlCmdNodeUpdate *nu
 
   /* calc len */
   len = sizeof (PinosControlCmdNodeUpdate);
-  len += spa_serialize_props_get_size (nu->props);
+  len += pinos_serialize_props_get_size (nu->props);
 
   p = connection_add_cmd (conn, PINOS_CONTROL_CMD_NODE_UPDATE, len);
   memcpy (p, nu, sizeof (PinosControlCmdNodeUpdate));
@@ -210,7 +210,7 @@ connection_add_node_update (PinosConnection *conn, PinosControlCmdNodeUpdate *nu
 
   p = SPA_MEMBER (d, sizeof (PinosControlCmdNodeUpdate), void);
   if (nu->props) {
-    len = spa_serialize_props_serialize (p, nu->props);
+    len = pinos_serialize_props_serialize (p, nu->props);
     d->props = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
   } else {
     d->props = 0;
@@ -230,12 +230,12 @@ connection_add_port_update (PinosConnection *conn, PinosControlCmdPortUpdate *pu
   len = sizeof (PinosControlCmdPortUpdate);
   len += pu->n_possible_formats * sizeof (SpaFormat *);
   for (i = 0; i < pu->n_possible_formats; i++) {
-    len += spa_serialize_format_get_size (pu->possible_formats[i]);
+    len += pinos_serialize_format_get_size (pu->possible_formats[i]);
   }
-  len += spa_serialize_format_get_size (pu->format);
-  len += spa_serialize_props_get_size (pu->props);
+  len += pinos_serialize_format_get_size (pu->format);
+  len += pinos_serialize_props_get_size (pu->props);
   if (pu->info)
-    len += spa_serialize_port_info_get_size (pu->info);
+    len += pinos_serialize_port_info_get_size (pu->info);
 
   p = connection_add_cmd (conn, PINOS_CONTROL_CMD_PORT_UPDATE, len);
   memcpy (p, pu, sizeof (PinosControlCmdPortUpdate));
@@ -251,26 +251,26 @@ connection_add_port_update (PinosConnection *conn, PinosControlCmdPortUpdate *pu
   p = SPA_MEMBER (p, sizeof (SpaFormat*) * pu->n_possible_formats, void);
 
   for (i = 0; i < pu->n_possible_formats; i++) {
-    len = spa_serialize_format_serialize (p, pu->possible_formats[i]);
+    len = pinos_serialize_format_serialize (p, pu->possible_formats[i]);
     bfa[i] = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
     p = SPA_MEMBER (p, len, void);
   }
   if (pu->format) {
-    len = spa_serialize_format_serialize (p, pu->format);
+    len = pinos_serialize_format_serialize (p, pu->format);
     d->format = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
     p = SPA_MEMBER (p, len, void);
   } else {
     d->format = 0;
   }
   if (pu->props) {
-    len = spa_serialize_props_serialize (p, pu->props);
+    len = pinos_serialize_props_serialize (p, pu->props);
     d->props = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
     p = SPA_MEMBER (p, len, void);
   } else {
     d->props = 0;
   }
   if (pu->info) {
-    len = spa_serialize_port_info_serialize (p, pu->info);
+    len = pinos_serialize_port_info_serialize (p, pu->info);
     d->info = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
     p = SPA_MEMBER (p, len, void);
   } else {
@@ -286,14 +286,14 @@ connection_add_set_format (PinosConnection *conn, PinosControlCmdSetFormat *sf)
 
   /* calculate length */
   /* port_id + format + mask  */
-  len = sizeof (PinosControlCmdSetFormat) + spa_serialize_format_get_size (sf->format);
+  len = sizeof (PinosControlCmdSetFormat) + pinos_serialize_format_get_size (sf->format);
   p = connection_add_cmd (conn, PINOS_CONTROL_CMD_SET_FORMAT, len);
   memcpy (p, sf, sizeof (PinosControlCmdSetFormat));
   sf = p;
 
   p = SPA_MEMBER (sf, sizeof (PinosControlCmdSetFormat), void);
   if (sf->format) {
-    len = spa_serialize_format_serialize (p, sf->format);
+    len = pinos_serialize_format_serialize (p, sf->format);
     sf->format = SPA_INT_TO_PTR (SPA_PTRDIFF (p, sf));
   } else
     sf->format = 0;
@@ -428,7 +428,7 @@ refill_buffer (PinosConnection *conn, ConnectionBuffer *buf)
   /* ERRORS */
 recv_error:
   {
-    g_warning ("could not recvmsg on fd %d: %s\n", conn->fd, strerror (errno));
+    g_warning ("could not recvmsg on fd %d: %s", conn->fd, strerror (errno));
     return FALSE;
   }
 }
@@ -557,7 +557,7 @@ pinos_connection_parse_cmd (PinosConnection *conn,
       break;
 
     case PINOS_CONTROL_CMD_PORT_STATUS_CHANGE:
-      g_warning ("implement iter of %d\n", conn->in.cmd);
+      g_warning ("implement iter of %d", conn->in.cmd);
       break;
 
     case PINOS_CONTROL_CMD_NODE_STATE_CHANGE:
@@ -584,7 +584,7 @@ pinos_connection_parse_cmd (PinosConnection *conn,
       break;
 
     case PINOS_CONTROL_CMD_SET_PROPERTY:
-      g_warning ("implement iter of %d\n", conn->in.cmd);
+      g_warning ("implement iter of %d", conn->in.cmd);
       break;
 
     /* bidirectional */
@@ -739,7 +739,7 @@ pinos_connection_add_cmd (PinosConnection *conn,
       break;
 
     case PINOS_CONTROL_CMD_SET_PROPERTY:
-      g_warning ("implement builder of %d\n", cmd);
+      g_warning ("implement builder of %d", cmd);
       break;
 
     /* bidirectional */
@@ -837,7 +837,7 @@ pinos_connection_flush (PinosConnection *conn)
   /* ERRORS */
 send_error:
   {
-    g_warning ("could not sendmsg: %s\n", strerror (errno));
+    g_warning ("could not sendmsg: %s", strerror (errno));
     return FALSE;
   }
 }

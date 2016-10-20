@@ -154,6 +154,7 @@ spa_ringbuffer_read_advance (SpaRingbuffer      *rbuf,
                              ssize_t             len)
 {
   size_t tmp = rbuf->readindex + len;
+  __sync_synchronize();
   rbuf->readindex = (rbuf->size_mask ? tmp & rbuf->size_mask : tmp % rbuf->size);
 }
 
@@ -232,6 +233,7 @@ spa_ringbuffer_write_advance (SpaRingbuffer      *rbuf,
                               ssize_t             len)
 {
   size_t tmp = rbuf->writeindex + len;
+  __sync_synchronize();
   rbuf->writeindex = (rbuf->size_mask ? tmp & rbuf->size_mask : tmp % rbuf->size);
 }
 

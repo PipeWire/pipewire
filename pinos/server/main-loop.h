@@ -78,6 +78,7 @@ gulong              pinos_main_loop_defer                   (PinosMainLoop  *loo
                                                              gpointer        data,
                                                              GDestroyNotify  notify);
 void                pinos_main_loop_defer_cancel            (PinosMainLoop  *loop,
+                                                             gpointer        obj,
                                                              gulong          id);
 void                pinos_main_loop_defer_complete          (PinosMainLoop  *loop,
                                                              gpointer        obj,

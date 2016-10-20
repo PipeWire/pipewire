@@ -267,20 +267,26 @@ pinos_main_loop_defer (PinosMainLoop  *loop,
 
 void
 pinos_main_loop_defer_cancel (PinosMainLoop  *loop,
+                              gpointer        obj,
                               gulong          id)
 {
   GList *walk;
   PinosMainLoopPrivate *priv;
+  gboolean have_work = FALSE;
 
   g_return_if_fail (PINOS_IS_MAIN_LOOP (loop));
   priv = loop->priv;
 
   for (walk = priv->work.head; walk; walk = g_list_next (walk)) {
     WorkItem *i = walk->data;
-    if (i->id == id) {
+    if ((id == 0 || i->id == id) && (obj == NULL || i->obj == obj)) {
+      i->seq = SPA_ID_INVALID;
       i->func = NULL;
+      have_work = TRUE;
     }
   }
+  if (priv->work_id == 0 && have_work)
+    priv->work_id = g_idle_add ((GSourceFunc) process_work_queue, loop);
 }
 
 void

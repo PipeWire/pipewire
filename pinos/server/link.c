@@ -844,6 +844,7 @@ static void
 pinos_link_dispose (GObject * object)
 {
   PinosLink *this = PINOS_LINK (object);
+  PinosLinkPrivate *priv = this->priv;
 
   g_debug ("link %p: dispose", this);
 
@@ -877,6 +878,8 @@ pinos_link_dispose (GObject * object)
     this->output = NULL;
   }
   link_unregister_object (this);
+
+  pinos_main_loop_defer_cancel (priv->main_loop, this, 0);
 
   G_OBJECT_CLASS (pinos_link_parent_class)->dispose (object);
 }

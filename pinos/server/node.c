@@ -759,12 +759,14 @@ static void
 pinos_node_dispose (GObject * obj)
 {
   PinosNode *node = PINOS_NODE (obj);
-  //PinosNodePrivate *priv = node->priv;
+  PinosNodePrivate *priv = node->priv;
 
   g_debug ("node %p: dispose", node);
   pinos_node_set_state (node, PINOS_NODE_STATE_SUSPENDED);
 
   node_unregister_object (node);
+
+  pinos_main_loop_defer_cancel (priv->main_loop, node, 0);
 
   G_OBJECT_CLASS (pinos_node_parent_class)->dispose (obj);
 }

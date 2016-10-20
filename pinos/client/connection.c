@@ -421,7 +421,7 @@ refill_buffer (PinosConnection *conn, ConnectionBuffer *buf)
     buf->n_fds = (cmsg->cmsg_len - ((char *)CMSG_DATA (cmsg) - (char *)cmsg)) / sizeof (int);
     memcpy (buf->fds, CMSG_DATA (cmsg), buf->n_fds * sizeof (int));
   }
-  PINOS_DEBUG_CONTROL ("connection %p: %d read %zd bytes and %d fds\n", conn, conn->fd, len, buf->n_fds);
+  PINOS_DEBUG_CONTROL ("connection %p: %d read %zd bytes and %d fds", conn, conn->fd, len, buf->n_fds);
 
   return TRUE;
 
@@ -594,12 +594,6 @@ pinos_connection_parse_cmd (PinosConnection *conn,
       memcpy (command, conn->in.data, sizeof (PinosControlCmdAddMem));
       break;
 
-    case PINOS_CONTROL_CMD_REMOVE_MEM:
-      if (conn->in.size < sizeof (PinosControlCmdRemoveMem))
-        return FALSE;
-      memcpy (command, conn->in.data, sizeof (PinosControlCmdRemoveMem));
-      break;
-
     case PINOS_CONTROL_CMD_USE_BUFFERS:
       connection_parse_use_buffers (conn, command);
       break;
@@ -748,11 +742,6 @@ pinos_connection_add_cmd (PinosConnection *conn,
       memcpy (p, command, sizeof (PinosControlCmdAddMem));
       break;
 
-    case PINOS_CONTROL_CMD_REMOVE_MEM:
-      p = connection_add_cmd (conn, cmd, sizeof (PinosControlCmdRemoveMem));
-      memcpy (p, command, sizeof (PinosControlCmdRemoveMem));
-      break;
-
     case PINOS_CONTROL_CMD_USE_BUFFERS:
       connection_add_use_buffers (conn, command);
       break;
@@ -830,7 +819,7 @@ pinos_connection_flush (PinosConnection *conn)
   buf->buffer_size -= len;
   buf->n_fds = 0;
 
-  PINOS_DEBUG_CONTROL ("connection %p: %d written %zd bytes and %u fds\n", conn, conn->fd, len, buf->n_fds);
+  PINOS_DEBUG_CONTROL ("connection %p: %d written %zd bytes and %u fds", conn, conn->fd, len, buf->n_fds);
 
   return TRUE;
 

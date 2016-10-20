@@ -18,9 +18,9 @@
  */
 
 #include "pinos.h"
-#include "mainloop.h"
+#include "thread-mainloop.h"
 
-struct _PinosMainLoopPrivate
+struct _PinosThreadMainLoopPrivate
 {
   GMainContext *maincontext;
   GMainLoop *mainloop;
@@ -38,10 +38,10 @@ struct _PinosMainLoopPrivate
   gint n_waiting_for_accept;
 };
 
-#define PINOS_MAIN_LOOP_GET_PRIVATE(obj)  \
-   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_MAIN_LOOP, PinosMainLoopPrivate))
+#define PINOS_THREAD_MAIN_LOOP_GET_PRIVATE(obj)  \
+   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_THREAD_MAIN_LOOP, PinosThreadMainLoopPrivate))
 
-G_DEFINE_TYPE (PinosMainLoop, pinos_main_loop, G_TYPE_OBJECT);
+G_DEFINE_TYPE (PinosThreadMainLoop, pinos_thread_main_loop, G_TYPE_OBJECT);
 
 enum
 {
@@ -52,13 +52,13 @@ enum
 };
 
 static void
-pinos_main_loop_get_property (GObject    *_object,
+pinos_thread_main_loop_get_property (GObject    *_object,
                               guint       prop_id,
                               GValue     *value,
                               GParamSpec *pspec)
 {
-  PinosMainLoop *loop = PINOS_MAIN_LOOP (_object);
-  PinosMainLoopPrivate *priv = loop->priv;
+  PinosThreadMainLoop *loop = PINOS_THREAD_MAIN_LOOP (_object);
+  PinosThreadMainLoopPrivate *priv = loop->priv;
 
   switch (prop_id) {
     case PROP_MAIN_CONTEXT:
@@ -80,13 +80,13 @@ pinos_main_loop_get_property (GObject    *_object,
 }
 
 static void
-pinos_main_loop_set_property (GObject      *_object,
+pinos_thread_main_loop_set_property (GObject      *_object,
                            guint         prop_id,
                            const GValue *value,
                            GParamSpec   *pspec)
 {
-  PinosMainLoop *loop = PINOS_MAIN_LOOP (_object);
-  PinosMainLoopPrivate *priv = loop->priv;
+  PinosThreadMainLoop *loop = PINOS_THREAD_MAIN_LOOP (_object);
+  PinosThreadMainLoopPrivate *priv = loop->priv;
 
   switch (prop_id) {
     case PROP_MAIN_CONTEXT:
@@ -104,22 +104,22 @@ pinos_main_loop_set_property (GObject      *_object,
 }
 
 static void
-pinos_main_loop_constructed (GObject * object)
+pinos_thread_main_loop_constructed (GObject * object)
 {
-  PinosMainLoop *loop = PINOS_MAIN_LOOP (object);
-  PinosMainLoopPrivate *priv = loop->priv;
+  PinosThreadMainLoop *loop = PINOS_THREAD_MAIN_LOOP (object);
+  PinosThreadMainLoopPrivate *priv = loop->priv;
 
   priv->mainloop = g_main_loop_new (priv->maincontext, FALSE);
-  g_debug ("mainloop %p: contructed %p %p", loop, priv->maincontext, priv->mainloop);
+  g_debug ("thread-mainloop %p: contructed %p %p", loop, priv->maincontext, priv->mainloop);
 
-  G_OBJECT_CLASS (pinos_main_loop_parent_class)->constructed (object);
+  G_OBJECT_CLASS (pinos_thread_main_loop_parent_class)->constructed (object);
 }
 
 static void
-pinos_main_loop_finalize (GObject * object)
+pinos_thread_main_loop_finalize (GObject * object)
 {
-  PinosMainLoop *loop = PINOS_MAIN_LOOP (object);
-  PinosMainLoopPrivate *priv = loop->priv;
+  PinosThreadMainLoop *loop = PINOS_THREAD_MAIN_LOOP (object);
+  PinosThreadMainLoopPrivate *priv = loop->priv;
 
   if (priv->maincontext)
     g_main_context_unref (priv->maincontext);
@@ -130,23 +130,23 @@ pinos_main_loop_finalize (GObject * object)
   g_cond_clear (&priv->cond);
   g_cond_clear (&priv->accept_cond);
 
-  G_OBJECT_CLASS (pinos_main_loop_parent_class)->finalize (object);
+  G_OBJECT_CLASS (pinos_thread_main_loop_parent_class)->finalize (object);
 }
 
 static void
-pinos_main_loop_class_init (PinosMainLoopClass * klass)
+pinos_thread_main_loop_class_init (PinosThreadMainLoopClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
 
-  g_type_class_add_private (klass, sizeof (PinosMainLoopPrivate));
+  g_type_class_add_private (klass, sizeof (PinosThreadMainLoopPrivate));
 
-  gobject_class->constructed = pinos_main_loop_constructed;
-  gobject_class->finalize = pinos_main_loop_finalize;
-  gobject_class->set_property = pinos_main_loop_set_property;
-  gobject_class->get_property = pinos_main_loop_get_property;
+  gobject_class->constructed = pinos_thread_main_loop_constructed;
+  gobject_class->finalize = pinos_thread_main_loop_finalize;
+  gobject_class->set_property = pinos_thread_main_loop_set_property;
+  gobject_class->get_property = pinos_thread_main_loop_get_property;
 
   /**
-   * PinosMainLoop:main-context
+   * PinosThreadMainLoop:main-context
    *
    * The GMainContext of the loop.
    */
@@ -160,7 +160,7 @@ pinos_main_loop_class_init (PinosMainLoopClass * klass)
                                                        G_PARAM_CONSTRUCT_ONLY |
                                                        G_PARAM_STATIC_STRINGS));
   /**
-   * PinosMainLoop:name
+   * PinosThreadMainLoop:name
    *
    * The name of the loop as specified at construction time.
    */
@@ -174,7 +174,7 @@ pinos_main_loop_class_init (PinosMainLoopClass * klass)
                                                         G_PARAM_CONSTRUCT_ONLY |
                                                         G_PARAM_STATIC_STRINGS));
   /**
-   * PinosMainLoop:main-loop
+   * PinosThreadMainLoop:main-loop
    *
    * The GMainLoop of the loop.
    */
@@ -189,9 +189,9 @@ pinos_main_loop_class_init (PinosMainLoopClass * klass)
 }
 
 static void
-pinos_main_loop_init (PinosMainLoop * loop)
+pinos_thread_main_loop_init (PinosThreadMainLoop * loop)
 {
-  PinosMainLoopPrivate *priv = loop->priv = PINOS_MAIN_LOOP_GET_PRIVATE (loop);
+  PinosThreadMainLoopPrivate *priv = loop->priv = PINOS_THREAD_MAIN_LOOP_GET_PRIVATE (loop);
 
   g_mutex_init (&priv->lock);
   g_cond_init (&priv->cond);
@@ -199,21 +199,21 @@ pinos_main_loop_init (PinosMainLoop * loop)
 }
 
 /**
- * pinos_main_loop_new:
+ * pinos_thread_main_loop_new:
  * @context: a #GMainContext
  * @name: a thread name
  *
- * Make a new #PinosMainLoop that will run a mainloop on @context in
+ * Make a new #PinosThreadMainLoop that will run a mainloop on @context in
  * a thread with @name.
  *
- * Returns: a #PinosMainLoop
+ * Returns: a #PinosThreadMainLoop
  */
-PinosMainLoop *
-pinos_main_loop_new (GMainContext * context, const gchar *name)
+PinosThreadMainLoop *
+pinos_thread_main_loop_new (GMainContext * context, const gchar *name)
 {
-  PinosMainLoop *loop;
+  PinosThreadMainLoop *loop;
 
-  loop = g_object_new (PINOS_TYPE_MAIN_LOOP,
+  loop = g_object_new (PINOS_TYPE_THREAD_MAIN_LOOP,
                        "main-context", context,
                        "name", name,
                        NULL);
@@ -221,8 +221,8 @@ pinos_main_loop_new (GMainContext * context, const gchar *name)
 }
 
 /**
- * pinos_main_loop_get_impl:
- * @loop: a #PinosMainLoop
+ * pinos_thread_main_loop_get_impl:
+ * @loop: a #PinosThreadMainLoop
  *
  * Get the #GMainLoop used by @loop.
  *
@@ -230,11 +230,11 @@ pinos_main_loop_new (GMainContext * context, const gchar *name)
  *          @loop is valid.
  */
 GMainLoop *
-pinos_main_loop_get_impl (PinosMainLoop *loop)
+pinos_thread_main_loop_get_impl (PinosThreadMainLoop *loop)
 {
-  PinosMainLoopPrivate *priv;
+  PinosThreadMainLoopPrivate *priv;
 
-  g_return_val_if_fail (PINOS_IS_MAIN_LOOP (loop), NULL);
+  g_return_val_if_fail (PINOS_IS_THREAD_MAIN_LOOP (loop), NULL);
 
   priv = loop->priv;
 
@@ -247,8 +247,8 @@ static gint
 do_poll (GPollFD *ufds, guint nfsd, gint timeout_)
 {
   gint res;
-  PinosMainLoop *loop = g_private_get (&loop_key);
-  PinosMainLoopPrivate *priv = loop->priv;
+  PinosThreadMainLoop *loop = g_private_get (&loop_key);
+  PinosThreadMainLoopPrivate *priv = loop->priv;
 
   g_mutex_unlock (&priv->lock);
   res = priv->poll_func (ufds, nfsd, timeout_);
@@ -258,9 +258,9 @@ do_poll (GPollFD *ufds, guint nfsd, gint timeout_)
 }
 
 static gpointer
-handle_mainloop (PinosMainLoop *loop)
+handle_mainloop (PinosThreadMainLoop *loop)
 {
-  PinosMainLoopPrivate *priv = loop->priv;
+  PinosThreadMainLoopPrivate *priv = loop->priv;
 
   g_mutex_lock (&priv->lock);
   g_private_set (&loop_key, loop);
@@ -269,9 +269,9 @@ handle_mainloop (PinosMainLoop *loop)
   g_main_context_set_poll_func (priv->maincontext, do_poll);
 
   g_main_context_push_thread_default (priv->maincontext);
-  g_debug ("mainloop %p: run mainloop %p context %p", loop, priv->mainloop, priv->maincontext);
+  g_debug ("thread-mainloop %p: run mainloop %p context %p", loop, priv->mainloop, priv->maincontext);
   g_main_loop_run (priv->mainloop);
-  g_debug ("mainloop %p: done", loop);
+  g_debug ("thread-mainloop %p: done", loop);
   g_main_context_pop_thread_default (priv->maincontext);
 
   g_main_context_set_poll_func (priv->maincontext, priv->poll_func);
@@ -283,8 +283,8 @@ handle_mainloop (PinosMainLoop *loop)
 
 
 /**
- * pinos_main_loop_start:
- * @loop: a #PinosMainLoop
+ * pinos_thread_main_loop_start:
+ * @loop: a #PinosThreadMainLoop
  * @error: am optional #GError
  *
  * Start the thread to handle @loop.
@@ -293,11 +293,11 @@ handle_mainloop (PinosMainLoop *loop)
  *          and @error will contain more information.
  */
 gboolean
-pinos_main_loop_start (PinosMainLoop *loop, GError **error)
+pinos_thread_main_loop_start (PinosThreadMainLoop *loop, GError **error)
 {
-  PinosMainLoopPrivate *priv;
+  PinosThreadMainLoopPrivate *priv;
 
-  g_return_val_if_fail (PINOS_IS_MAIN_LOOP (loop), FALSE);
+  g_return_val_if_fail (PINOS_IS_THREAD_MAIN_LOOP (loop), FALSE);
   priv = loop->priv;
   g_return_val_if_fail (priv->thread == NULL, FALSE);
 
@@ -307,21 +307,21 @@ pinos_main_loop_start (PinosMainLoop *loop, GError **error)
 }
 
 /**
- * pinos_main_loop_stop:
- * @loop: a #PinosMainLoop
+ * pinos_thread_main_loop_stop:
+ * @loop: a #PinosThreadMainLoop
  *
  * Quit the main loop and stop its thread.
  */
 void
-pinos_main_loop_stop (PinosMainLoop *loop)
+pinos_thread_main_loop_stop (PinosThreadMainLoop *loop)
 {
-  PinosMainLoopPrivate *priv;
+  PinosThreadMainLoopPrivate *priv;
 
-  g_return_if_fail (PINOS_IS_MAIN_LOOP (loop));
+  g_return_if_fail (PINOS_IS_THREAD_MAIN_LOOP (loop));
   priv = loop->priv;
 
   g_return_if_fail (priv->thread != NULL);
-  g_return_if_fail (!pinos_main_loop_in_thread (loop));
+  g_return_if_fail (!pinos_thread_main_loop_in_thread (loop));
 
   g_mutex_lock (&priv->lock);
   g_main_loop_quit (priv->mainloop);
@@ -332,54 +332,54 @@ pinos_main_loop_stop (PinosMainLoop *loop)
 }
 
 /**
- * pinos_main_loop_lock:
- * @loop: a #PinosMainLoop
+ * pinos_thread_main_loop_lock:
+ * @loop: a #PinosThreadMainLoop
  *
  * Lock the mutex associated with @loop.
  */
 void
-pinos_main_loop_lock (PinosMainLoop *loop)
+pinos_thread_main_loop_lock (PinosThreadMainLoop *loop)
 {
-  PinosMainLoopPrivate *priv;
+  PinosThreadMainLoopPrivate *priv;
 
-  g_return_if_fail (PINOS_IS_MAIN_LOOP (loop));
+  g_return_if_fail (PINOS_IS_THREAD_MAIN_LOOP (loop));
   priv = loop->priv;
-  g_return_if_fail (!pinos_main_loop_in_thread (loop));
+  g_return_if_fail (!pinos_thread_main_loop_in_thread (loop));
 
   g_mutex_lock (&priv->lock);
 }
 
 /**
- * pinos_main_loop_unlock:
- * @loop: a #PinosMainLoop
+ * pinos_thread_main_loop_unlock:
+ * @loop: a #PinosThreadMainLoop
  *
  * Unlock the mutex associated with @loop.
  */
 void
-pinos_main_loop_unlock (PinosMainLoop *loop)
+pinos_thread_main_loop_unlock (PinosThreadMainLoop *loop)
 {
-  PinosMainLoopPrivate *priv;
+  PinosThreadMainLoopPrivate *priv;
 
-  g_return_if_fail (PINOS_IS_MAIN_LOOP (loop));
+  g_return_if_fail (PINOS_IS_THREAD_MAIN_LOOP (loop));
   priv = loop->priv;
-  g_return_if_fail (!pinos_main_loop_in_thread (loop));
+  g_return_if_fail (!pinos_thread_main_loop_in_thread (loop));
 
   g_mutex_unlock (&priv->lock);
 }
 
 /**
- * pinos_main_loop_signal:
- * @loop: a #PinosMainLoop
+ * pinos_thread_main_loop_signal:
+ * @loop: a #PinosThreadMainLoop
  *
  * Signal the main thread of @loop. If @wait_for_accept is %TRUE,
- * this function waits until pinos_main_loop_accept() is called.
+ * this function waits until pinos_thread_main_loop_accept() is called.
  */
 void
-pinos_main_loop_signal (PinosMainLoop *loop, gboolean wait_for_accept)
+pinos_thread_main_loop_signal (PinosThreadMainLoop *loop, gboolean wait_for_accept)
 {
-  PinosMainLoopPrivate *priv;
+  PinosThreadMainLoopPrivate *priv;
 
-  g_return_if_fail (PINOS_IS_MAIN_LOOP (loop));
+  g_return_if_fail (PINOS_IS_THREAD_MAIN_LOOP (loop));
   priv = loop->priv;
 
   if (priv->n_waiting > 0)
@@ -394,19 +394,19 @@ pinos_main_loop_signal (PinosMainLoop *loop, gboolean wait_for_accept)
 }
 
 /**
- * pinos_main_loop_wait:
- * @loop: a #PinosMainLoop
+ * pinos_thread_main_loop_wait:
+ * @loop: a #PinosThreadMainLoop
  *
- * Wait for the loop thread to call pinos_main_loop_signal().
+ * Wait for the loop thread to call pinos_thread_main_loop_signal().
  */
 void
-pinos_main_loop_wait (PinosMainLoop *loop)
+pinos_thread_main_loop_wait (PinosThreadMainLoop *loop)
 {
-  PinosMainLoopPrivate *priv;
+  PinosThreadMainLoopPrivate *priv;
 
-  g_return_if_fail (PINOS_IS_MAIN_LOOP (loop));
+  g_return_if_fail (PINOS_IS_THREAD_MAIN_LOOP (loop));
   priv = loop->priv;
-  g_return_if_fail (!pinos_main_loop_in_thread (loop));
+  g_return_if_fail (!pinos_thread_main_loop_in_thread (loop));
 
   priv->n_waiting ++;
 
@@ -417,19 +417,19 @@ pinos_main_loop_wait (PinosMainLoop *loop)
 }
 
 /**
- * pinos_main_loop_accept:
- * @loop: a #PinosMainLoop
+ * pinos_thread_main_loop_accept:
+ * @loop: a #PinosThreadMainLoop
  *
- * Signal the loop thread waiting for accept with pinos_main_loop_signal().
+ * Signal the loop thread waiting for accept with pinos_thread_main_loop_signal().
  */
 void
-pinos_main_loop_accept (PinosMainLoop *loop)
+pinos_thread_main_loop_accept (PinosThreadMainLoop *loop)
 {
-  PinosMainLoopPrivate *priv;
+  PinosThreadMainLoopPrivate *priv;
 
-  g_return_if_fail (PINOS_IS_MAIN_LOOP (loop));
+  g_return_if_fail (PINOS_IS_THREAD_MAIN_LOOP (loop));
   priv = loop->priv;
-  g_return_if_fail (!pinos_main_loop_in_thread (loop));
+  g_return_if_fail (!pinos_thread_main_loop_in_thread (loop));
 
   g_assert (priv->n_waiting_for_accept > 0);
   priv->n_waiting_for_accept--;
@@ -438,17 +438,17 @@ pinos_main_loop_accept (PinosMainLoop *loop)
 }
 
 /**
- * pinos_main_loop_in_thread:
- * @loop: a #PinosMainLoop
+ * pinos_thread_main_loop_in_thread:
+ * @loop: a #PinosThreadMainLoop
  *
  * Check if we are inside the thread of @loop.
  *
  * Returns: %TRUE when called inside the thread of @loop.
  */
 gboolean
-pinos_main_loop_in_thread (PinosMainLoop *loop)
+pinos_thread_main_loop_in_thread (PinosThreadMainLoop *loop)
 {
-  g_return_val_if_fail (PINOS_IS_MAIN_LOOP (loop), FALSE);
+  g_return_val_if_fail (PINOS_IS_THREAD_MAIN_LOOP (loop), FALSE);
 
   return g_thread_self() == loop->priv->thread;
 }

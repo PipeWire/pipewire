@@ -2,12 +2,12 @@ pinos_headers = [
   'context.h',
   'format.h',
   'introspect.h',
-  'mainloop.h',
   'pinos.h',
   'properties.h',
   'stream.h',
   'ringbuffer.h',
   'subscribe.h',
+  'thread-mainloop.h',
 ]
 
 pinos_sources = [
@@ -15,13 +15,13 @@ pinos_sources = [
   'context.c',
   'format.c',
   'introspect.c',
-  'mainloop.c',
   'properties.c',
   'serialize.c',
   'stream.c',
   'pinos.c',
   'ringbuffer.c',
   'subscribe.c',
+  'thread-mainloop.c',
   gdbus_target,
 ]
 

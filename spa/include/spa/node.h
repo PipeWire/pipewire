@@ -39,12 +39,12 @@ typedef struct _SpaNode SpaNode;
  * @SPA_NODE_STATE_ERROR: the node is in error
  */
 typedef enum {
-  SPA_NODE_STATE_INIT,
+  SPA_NODE_STATE_ERROR       = -1,
+  SPA_NODE_STATE_INIT        = 0,
   SPA_NODE_STATE_CONFIGURE,
   SPA_NODE_STATE_READY,
   SPA_NODE_STATE_PAUSED,
   SPA_NODE_STATE_STREAMING,
-  SPA_NODE_STATE_ERROR
 } SpaNodeState;
 
 

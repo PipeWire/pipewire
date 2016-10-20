@@ -3,12 +3,13 @@ pinoscore_headers = [
   'client-node.h',
   'command.h',
   'daemon.h',
+  'data-loop.h',
   'dbus-client-node.h',
   'link.h',
+  'main-loop.h',
   'module.h',
   'node.h',
   'node-factory.h',
-  'rt-loop.h',
   'utils.h',
 ]
 
@@ -17,12 +18,13 @@ pinoscore_sources = [
   'client-node.c',
   'command.c',
   'daemon.c',
+  'data-loop.c',
   'dbus-client-node.c',
   'link.c',
+  'main-loop.c',
   'module.c',
   'node.c',
   'node-factory.c',
-  'rt-loop.c',
   'utils.c',
 ]
 

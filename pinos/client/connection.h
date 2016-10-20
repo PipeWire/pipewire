@@ -52,8 +52,6 @@ typedef enum {
 
   /* both */
   PINOS_CONTROL_CMD_ADD_MEM                  = 64,
-  PINOS_CONTROL_CMD_REMOVE_MEM               = 65,
-
   PINOS_CONTROL_CMD_USE_BUFFERS              = 66,
   PINOS_CONTROL_CMD_PROCESS_BUFFER           = 67,
 
@@ -145,13 +143,6 @@ typedef struct {
   off_t        offset;
   size_t       size;
 } PinosControlCmdAddMem;
-
-/* PINOS_CONTROL_CMD_REMOVE_MEM */
-typedef struct {
-  SpaDirection direction;
-  uint32_t     port_id;
-  uint32_t     mem_id;
-} PinosControlCmdRemoveMem;
 
 typedef struct {
   uint32_t    mem_id;

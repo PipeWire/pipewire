@@ -64,7 +64,7 @@ struct _GstPinosSrc {
   GstClockTime max_latency;
 
   GMainContext *context;
-  PinosMainLoop *loop;
+  PinosThreadMainLoop *loop;
   PinosContext *ctx;
   PinosStream *stream;
   GstAllocator *fd_allocator;

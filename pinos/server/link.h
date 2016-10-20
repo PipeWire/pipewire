@@ -30,6 +30,7 @@ typedef struct _PinosLinkPrivate PinosLinkPrivate;
 
 #include <pinos/server/daemon.h>
 #include <pinos/server/utils.h>
+#include <pinos/server/main-loop.h>
 #include <spa/include/spa/ringbuffer.h>
 
 #define PINOS_TYPE_LINK             (pinos_link_get_type ())

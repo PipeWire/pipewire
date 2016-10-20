@@ -33,7 +33,8 @@
 #include "pinos/server/dbus-client-node.h"
 #include "pinos/server/client.h"
 #include "pinos/server/link.h"
-#include "pinos/server/rt-loop.h"
+#include "pinos/server/data-loop.h"
+#include "pinos/server/main-loop.h"
 
 #include "pinos/dbus/org-pinos.h"
 
@@ -52,7 +53,8 @@ struct _PinosDaemonPrivate
   GList *nodes;
 
   GHashTable *clients;
-  PinosRTLoop *loop;
+  PinosDataLoop *data_loop;
+  PinosMainLoop *main_loop;
 
   PinosProperties *properties;
 
@@ -60,7 +62,6 @@ struct _PinosDaemonPrivate
 
   SpaSupport support[4];
   SpaLog log;
-  SpaPoll main_loop;
 };
 
 enum
@@ -71,6 +72,7 @@ enum
   PROP_OBJECT_PATH,
 };
 
+static void try_link_port (PinosNode *node, PinosPort *port, PinosDaemon *this);
 
 static void
 handle_client_appeared (PinosClient *client, gpointer user_data)
@@ -197,27 +199,30 @@ no_node:
   }
 }
 
+
 static void
 on_node_remove_signal (PinosNode   *node,
-                       PinosDaemon *daemon)
+                       PinosDaemon *this)
 {
-  g_debug ("daemon %p: node %p remove", daemon, node);
+  g_debug ("daemon %p: node %p remove", this, node);
 }
 
 static void
 on_link_input_unlinked (PinosLink   *link,
                         PinosPort   *port,
-                        PinosDaemon *daemon)
+                        PinosDaemon *this)
 {
-  g_debug ("daemon %p: link %p: input unlinked", daemon, link);
+  g_debug ("daemon %p: link %p: input unlinked", this, link);
 }
 
 static void
 on_link_output_unlinked (PinosLink   *link,
                          PinosPort   *port,
-                         PinosDaemon *daemon)
+                         PinosDaemon *this)
 {
-  g_debug ("daemon %p: link %p: output unlinked", daemon, link);
+  g_debug ("daemon %p: link %p: output unlinked", this, link);
+
+  try_link_port (link->input->node, link->input, this);
 }
 
 static void
@@ -245,6 +250,7 @@ on_link_state_notify (GObject     *obj,
     case PINOS_LINK_STATE_UNLINKED:
       g_debug ("daemon %p: link %p: unlinked", daemon, link);
 
+#if 0
       g_set_error (&error,
                    PINOS_ERROR,
                    PINOS_ERROR_NODE_LINK,
@@ -254,6 +260,7 @@ on_link_state_notify (GObject     *obj,
         pinos_node_report_error (link->input->node, g_error_copy (error));
       if (link->output && link->output->node)
         pinos_node_report_error (link->output->node, g_error_copy (error));
+#endif
       break;
 
     case PINOS_LINK_STATE_INIT:
@@ -266,14 +273,13 @@ on_link_state_notify (GObject     *obj,
 }
 
 static void
-on_port_added (PinosNode *node, PinosPort *port, PinosDaemon *this)
+try_link_port (PinosNode *node, PinosPort *port, PinosDaemon *this)
 {
   PinosClient *client;
   PinosProperties *props;
   const gchar *path;
   GError *error = NULL;
   PinosLink *link;
-  PinosDirection direction = port->direction;
 
   props = pinos_node_get_properties (node);
   if (props == NULL)
@@ -285,16 +291,15 @@ on_port_added (PinosNode *node, PinosPort *port, PinosDaemon *this)
     PinosPort *target;
 
     target = pinos_daemon_find_port (this,
-                                     pinos_direction_reverse (direction),
+                                     port,
                                      path,
                                      NULL,
-                                     0,
                                      NULL,
                                      &error);
     if (target == NULL)
       goto error;
 
-    if (direction == PINOS_DIRECTION_OUTPUT)
+    if (port->direction == PINOS_DIRECTION_OUTPUT)
       link = pinos_node_link (node, port, target, NULL, NULL, &error);
     else
       link = pinos_node_link (target->node, target, port, NULL, NULL, &error);
@@ -306,10 +311,10 @@ on_port_added (PinosNode *node, PinosPort *port, PinosDaemon *this)
     if (client)
       pinos_client_add_object (client, G_OBJECT (link));
 
-    g_signal_connect (target->node, "remove", (GCallback) on_node_remove_signal, daemon);
-    g_signal_connect (link, "input-unlinked", (GCallback) on_link_input_unlinked, daemon);
-    g_signal_connect (link, "output-unlinked", (GCallback) on_link_output_unlinked, daemon);
-    g_signal_connect (link, "notify::state", (GCallback) on_link_state_notify, daemon);
+    g_signal_connect (target->node, "remove", (GCallback) on_node_remove_signal, this);
+    g_signal_connect (link, "input-unlinked", (GCallback) on_link_input_unlinked, this);
+    g_signal_connect (link, "output-unlinked", (GCallback) on_link_output_unlinked, this);
+    g_signal_connect (link, "notify::state", (GCallback) on_link_state_notify, this);
     pinos_link_activate (link);
 
     g_object_unref (link);
@@ -324,26 +329,32 @@ error:
 }
 
 static void
-on_port_removed (PinosNode *node, PinosPort *port, PinosDaemon *daemon)
+on_port_added (PinosNode *node, PinosPort *port, PinosDaemon *this)
+{
+  try_link_port (node, port, this);
+}
+
+static void
+on_port_removed (PinosNode *node, PinosPort *port, PinosDaemon *this)
 {
 }
 
 static void
 on_node_created (PinosNode      *node,
-                 PinosDaemon    *daemon)
+                 PinosDaemon    *this)
 {
   GList *ports, *walk;
 
   ports = pinos_node_get_ports (node, PINOS_DIRECTION_INPUT);
   for (walk = ports; walk; walk = g_list_next (walk))
-    on_port_added (node, walk->data, daemon);
+    on_port_added (node, walk->data, this);
 
   ports = pinos_node_get_ports (node, PINOS_DIRECTION_OUTPUT);
   for (walk = ports; walk; walk = g_list_next (walk))
-    on_port_added (node, walk->data, daemon);
+    on_port_added (node, walk->data, this);
 
-  g_signal_connect (node, "port-added", (GCallback) on_port_added, daemon);
-  g_signal_connect (node, "port-removed", (GCallback) on_port_removed, daemon);
+  g_signal_connect (node, "port-added", (GCallback) on_port_added, this);
+  g_signal_connect (node, "port-removed", (GCallback) on_port_removed, this);
 }
 
 
@@ -351,14 +362,14 @@ static void
 on_node_state_change (PinosNode      *node,
                       PinosNodeState  old,
                       PinosNodeState  state,
-                      PinosDaemon    *daemon)
+                      PinosDaemon    *this)
 {
-  g_debug ("daemon %p: node %p state change %s -> %s", daemon, node,
+  g_debug ("daemon %p: node %p state change %s -> %s", this, node,
                         pinos_node_state_as_string (old),
                         pinos_node_state_as_string (state));
 
   if (old == PINOS_NODE_STATE_CREATING && state == PINOS_NODE_STATE_SUSPENDED)
-    on_node_created (node, daemon);
+    on_node_created (node, this);
 }
 
 static void
@@ -369,7 +380,7 @@ on_node_added (PinosDaemon *daemon, PinosNode *node)
 
   g_debug ("daemon %p: node %p added", daemon, node);
 
-  g_object_set (node, "rt-loop", priv->loop, NULL);
+  g_object_set (node, "data-loop", priv->data_loop, NULL);
 
   g_signal_connect (node, "state-change", (GCallback) on_node_state_change, daemon);
 
@@ -727,6 +738,7 @@ pinos_daemon_remove_node (PinosDaemon *daemon,
 /**
  * pinos_daemon_find_port:
  * @daemon: a #PinosDaemon
+ * @other_port: a port to be compatible with
  * @name: a port name
  * @props: port properties
  * @format_filter: a format filter
@@ -738,11 +750,10 @@ pinos_daemon_remove_node (PinosDaemon *daemon,
  */
 PinosPort *
 pinos_daemon_find_port (PinosDaemon     *daemon,
-                        PinosDirection   direction,
+                        PinosPort       *other_port,
                         const gchar     *name,
                         PinosProperties *props,
-                        unsigned int     n_format_filters,
-                        SpaFormat      **format_filters,
+                        GPtrArray       *format_filters,
                         GError         **error)
 {
   PinosDaemonPrivate *priv;
@@ -766,7 +777,7 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
       if (g_str_has_suffix (pinos_node_get_object_path (n), name)) {
         g_debug ("name \"%s\" matches node %p", name, n);
 
-        best = pinos_node_get_free_port (n, direction);
+        best = pinos_node_get_free_port (n, pinos_direction_reverse (other_port->direction));
         if (best)
           break;
       }
@@ -873,7 +884,7 @@ pinos_daemon_finalize (GObject * object)
   g_debug ("daemon %p: finalize", object);
   g_clear_object (&priv->server_manager);
   g_clear_object (&priv->iface);
-  g_clear_object (&priv->loop);
+  g_clear_object (&priv->data_loop);
   g_hash_table_unref (priv->clients);
   g_hash_table_unref (priv->node_factories);
 
@@ -962,74 +973,6 @@ do_log (SpaLog        *log,
   va_end (args);
 }
 
-typedef struct {
-  PinosDaemonPrivate *priv;
-  SpaPollItem item;
-} PollData;
-
-static gboolean
-poll_event (GIOChannel *source,
-            GIOCondition condition,
-            gpointer user_data)
-{
-  PollData *data = user_data;
-  SpaPollNotifyData d;
-
-  d.user_data = data->item.user_data;
-  d.fds = data->item.fds;
-  d.fds[0].revents = condition;
-  d.n_fds = data->item.n_fds;
-  data->item.after_cb (&d);
-
-  return TRUE;
-}
-
-static SpaResult
-do_add_item (SpaPoll     *poll,
-             SpaPollItem *item)
-{
-  PinosDaemonPrivate *priv = SPA_CONTAINER_OF (poll, PinosDaemonPrivate, main_loop);
-  GIOChannel *channel;
-  GSource *source;
-  PollData data;
-
-  channel = g_io_channel_unix_new (item->fds[0].fd);
-  source = g_io_create_watch (channel, G_IO_IN);
-  g_io_channel_unref (channel);
-
-  data.priv = priv;
-  data.item = *item;
-
-  g_source_set_callback (source, (GSourceFunc) poll_event, g_slice_dup (PollData, &data) , NULL);
-  item->id = g_source_attach (source, g_main_context_get_thread_default ());
-  g_source_unref (source);
-
-  g_debug ("added main poll %d", item->id);
-
-  return SPA_RESULT_OK;
-}
-
-static SpaResult
-do_update_item (SpaPoll     *poll,
-                SpaPollItem *item)
-{
-  g_debug ("update main poll %d", item->id);
-  return SPA_RESULT_OK;
-}
-
-static SpaResult
-do_remove_item (SpaPoll     *poll,
-                SpaPollItem *item)
-{
-  GSource *source;
-
-  g_debug ("remove main poll %d", item->id);
-  source = g_main_context_find_source_by_id (g_main_context_get_thread_default (), item->id);
-  g_source_destroy (source);
-
-  return SPA_RESULT_OK;
-}
-
 static void
 pinos_daemon_init (PinosDaemon * daemon)
 {
@@ -1047,13 +990,9 @@ pinos_daemon_init (PinosDaemon * daemon)
                                                 g_str_equal,
                                                 g_free,
                                                 g_object_unref);
-  priv->loop = pinos_rtloop_new();
+  daemon->main_loop = pinos_main_loop_new();
 
-  priv->main_loop.size = sizeof (SpaPoll);
-  priv->main_loop.info = NULL;
-  priv->main_loop.add_item = do_add_item;
-  priv->main_loop.update_item = do_update_item;
-  priv->main_loop.remove_item = do_remove_item;
+  priv->data_loop = pinos_data_loop_new();
 
   priv->log.size = sizeof (SpaLog);
   priv->log.info = NULL;
@@ -1069,9 +1008,9 @@ pinos_daemon_init (PinosDaemon * daemon)
   priv->support[1].uri = SPA_LOG_URI;
   priv->support[1].data = daemon->log;
   priv->support[2].uri = SPA_POLL__DataLoop;
-  priv->support[2].data = &priv->loop->poll;
+  priv->support[2].data = &priv->data_loop->poll;
   priv->support[3].uri = SPA_POLL__MainLoop;
-  priv->support[3].data = &priv->main_loop;
+  priv->support[3].data = &daemon->main_loop->poll;
   daemon->support = priv->support;
   daemon->n_support = 4;
 }

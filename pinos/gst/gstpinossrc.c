@@ -479,7 +479,7 @@ on_new_buffer (GObject    *gobject,
     }
     g_queue_push_tail (&pinossrc->queue, buf);
 
-    pinos_main_loop_signal (pinossrc->loop, FALSE);
+    pinos_thread_main_loop_signal (pinossrc->loop, FALSE);
   }
   return;
 }
@@ -507,7 +507,7 @@ on_stream_notify (GObject    *gobject,
             pinos_stream_get_error (pinossrc->stream)->message), (NULL));
       break;
   }
-  pinos_main_loop_signal (pinossrc->loop, FALSE);
+  pinos_thread_main_loop_signal (pinossrc->loop, FALSE);
 }
 
 static void
@@ -536,7 +536,7 @@ gst_pinos_src_stream_start (GstPinosSrc *pinossrc)
   gboolean res;
   PinosProperties *props;
 
-  pinos_main_loop_lock (pinossrc->loop);
+  pinos_thread_main_loop_lock (pinossrc->loop);
   res = pinos_stream_start (pinossrc->stream);
   while (TRUE) {
     PinosStreamState state = pinos_stream_get_state (pinossrc->stream);
@@ -547,26 +547,26 @@ gst_pinos_src_stream_start (GstPinosSrc *pinossrc)
     if (state == PINOS_STREAM_STATE_ERROR)
       goto start_error;
 
-    pinos_main_loop_wait (pinossrc->loop);
+    pinos_thread_main_loop_wait (pinossrc->loop);
   }
 
   g_object_get (pinossrc->stream, "properties", &props, NULL);
-  pinos_main_loop_unlock (pinossrc->loop);
+  pinos_thread_main_loop_unlock (pinossrc->loop);
 
   parse_stream_properties (pinossrc, props);
   pinos_properties_free (props);
 
-  pinos_main_loop_lock (pinossrc->loop);
+  pinos_thread_main_loop_lock (pinossrc->loop);
   pinossrc->started = TRUE;
-  pinos_main_loop_signal (pinossrc->loop, FALSE);
-  pinos_main_loop_unlock (pinossrc->loop);
+  pinos_thread_main_loop_signal (pinossrc->loop, FALSE);
+  pinos_thread_main_loop_unlock (pinossrc->loop);
 
   return res;
 
 start_error:
   {
     GST_DEBUG_OBJECT (pinossrc, "error starting stream");
-    pinos_main_loop_unlock (pinossrc->loop);
+    pinos_thread_main_loop_unlock (pinossrc->loop);
     return FALSE;
   }
 }
@@ -576,7 +576,7 @@ wait_negotiated (GstPinosSrc *this)
 {
   PinosStreamState state;
 
-  pinos_main_loop_lock (this->loop);
+  pinos_thread_main_loop_lock (this->loop);
   while (TRUE) {
     state = pinos_stream_get_state (this->stream);
 
@@ -586,9 +586,9 @@ wait_negotiated (GstPinosSrc *this)
     if (this->started)
       break;
 
-    pinos_main_loop_wait (this->loop);
+    pinos_thread_main_loop_wait (this->loop);
   }
-  pinos_main_loop_unlock (this->loop);
+  pinos_thread_main_loop_unlock (this->loop);
 
   return state;
 }
@@ -633,7 +633,7 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
   possible = gst_caps_to_format_all (caps);
 
   /* first disconnect */
-  pinos_main_loop_lock (pinossrc->loop);
+  pinos_thread_main_loop_lock (pinossrc->loop);
   if (pinos_stream_get_state (pinossrc->stream) != PINOS_STREAM_STATE_UNCONNECTED) {
     GST_DEBUG_OBJECT (basesrc, "disconnect capture");
     pinos_stream_disconnect (pinossrc->stream);
@@ -648,7 +648,7 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
         goto connect_error;
       }
 
-      pinos_main_loop_wait (pinossrc->loop);
+      pinos_thread_main_loop_wait (pinossrc->loop);
     }
   }
 
@@ -669,9 +669,9 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
     if (state == PINOS_STREAM_STATE_ERROR)
       goto connect_error;
 
-    pinos_main_loop_wait (pinossrc->loop);
+    pinos_thread_main_loop_wait (pinossrc->loop);
   }
-  pinos_main_loop_unlock (pinossrc->loop);
+  pinos_thread_main_loop_unlock (pinossrc->loop);
 
   result = gst_pinos_src_stream_start (pinossrc);
 
@@ -706,7 +706,7 @@ no_common_caps:
   }
 connect_error:
   {
-    pinos_main_loop_unlock (pinossrc->loop);
+    pinos_thread_main_loop_unlock (pinossrc->loop);
     return FALSE;
   }
 }
@@ -747,11 +747,11 @@ gst_pinos_src_unlock (GstBaseSrc * basesrc)
 {
   GstPinosSrc *pinossrc = GST_PINOS_SRC (basesrc);
 
-  pinos_main_loop_lock (pinossrc->loop);
+  pinos_thread_main_loop_lock (pinossrc->loop);
   GST_DEBUG_OBJECT (pinossrc, "setting flushing");
   pinossrc->flushing = TRUE;
-  pinos_main_loop_signal (pinossrc->loop, FALSE);
-  pinos_main_loop_unlock (pinossrc->loop);
+  pinos_thread_main_loop_signal (pinossrc->loop, FALSE);
+  pinos_thread_main_loop_unlock (pinossrc->loop);
 
   return TRUE;
 }
@@ -761,10 +761,10 @@ gst_pinos_src_unlock_stop (GstBaseSrc * basesrc)
 {
   GstPinosSrc *pinossrc = GST_PINOS_SRC (basesrc);
 
-  pinos_main_loop_lock (pinossrc->loop);
+  pinos_thread_main_loop_lock (pinossrc->loop);
   GST_DEBUG_OBJECT (pinossrc, "unsetting flushing");
   pinossrc->flushing = FALSE;
-  pinos_main_loop_unlock (pinossrc->loop);
+  pinos_thread_main_loop_unlock (pinossrc->loop);
 
   return TRUE;
 }
@@ -850,7 +850,7 @@ gst_pinos_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
   if (!pinossrc->negotiated)
     goto not_negotiated;
 
-  pinos_main_loop_lock (pinossrc->loop);
+  pinos_thread_main_loop_lock (pinossrc->loop);
   while (TRUE) {
     PinosStreamState state;
 
@@ -868,9 +868,9 @@ gst_pinos_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
     if (*buffer != NULL)
       break;
 
-    pinos_main_loop_wait (pinossrc->loop);
+    pinos_thread_main_loop_wait (pinossrc->loop);
   }
-  pinos_main_loop_unlock (pinossrc->loop);
+  pinos_thread_main_loop_unlock (pinossrc->loop);
 
   if (pinossrc->is_live)
     base_time = GST_ELEMENT_CAST (psrc)->base_time;
@@ -901,12 +901,12 @@ not_negotiated:
   }
 streaming_error:
   {
-    pinos_main_loop_unlock (pinossrc->loop);
+    pinos_thread_main_loop_unlock (pinossrc->loop);
     return GST_FLOW_ERROR;
   }
 streaming_stopped:
   {
-    pinos_main_loop_unlock (pinossrc->loop);
+    pinos_thread_main_loop_unlock (pinossrc->loop);
     return GST_FLOW_FLUSHING;
   }
 }
@@ -931,9 +931,9 @@ gst_pinos_src_stop (GstBaseSrc * basesrc)
 
   pinossrc = GST_PINOS_SRC (basesrc);
 
-  pinos_main_loop_lock (pinossrc->loop);
+  pinos_thread_main_loop_lock (pinossrc->loop);
   clear_queue (pinossrc);
-  pinos_main_loop_unlock (pinossrc->loop);
+  pinos_thread_main_loop_unlock (pinossrc->loop);
 
   return TRUE;
 }
@@ -959,7 +959,7 @@ on_context_notify (GObject    *gobject,
             pinos_context_get_error (pinossrc->ctx)->message), (NULL));
       break;
   }
-  pinos_main_loop_signal (pinossrc->loop, FALSE);
+  pinos_thread_main_loop_signal (pinossrc->loop, FALSE);
 }
 
 static gboolean
@@ -985,11 +985,11 @@ gst_pinos_src_open (GstPinosSrc * pinossrc)
   pinossrc->context = g_main_context_new ();
   GST_DEBUG ("context %p", pinossrc->context);
 
-  pinossrc->loop = pinos_main_loop_new (pinossrc->context, "pinos-main-loop");
-  if (!pinos_main_loop_start (pinossrc->loop, &error))
+  pinossrc->loop = pinos_thread_main_loop_new (pinossrc->context, "pinos-main-loop");
+  if (!pinos_thread_main_loop_start (pinossrc->loop, &error))
     goto mainloop_failed;
 
-  pinos_main_loop_lock (pinossrc->loop);
+  pinos_thread_main_loop_lock (pinossrc->loop);
   pinossrc->ctx = pinos_context_new (pinossrc->context, g_get_application_name (), NULL);
   g_signal_connect (pinossrc->ctx, "notify::state", (GCallback) on_context_notify, pinossrc);
 
@@ -1004,7 +1004,7 @@ gst_pinos_src_open (GstPinosSrc * pinossrc)
     if (state == PINOS_CONTEXT_STATE_ERROR)
       goto connect_error;
 
-    pinos_main_loop_wait (pinossrc->loop);
+    pinos_thread_main_loop_wait (pinossrc->loop);
   }
 
   if (pinossrc->properties) {
@@ -1021,7 +1021,7 @@ gst_pinos_src_open (GstPinosSrc * pinossrc)
   g_signal_connect (pinossrc->stream, "remove-buffer", (GCallback) on_remove_buffer, pinossrc);
   g_signal_connect (pinossrc->stream, "new-buffer", (GCallback) on_new_buffer, pinossrc);
   pinossrc->clock = gst_pinos_clock_new (pinossrc->stream);
-  pinos_main_loop_unlock (pinossrc->loop);
+  pinos_thread_main_loop_unlock (pinossrc->loop);
 
   return TRUE;
 
@@ -1034,7 +1034,7 @@ mainloop_failed:
   }
 connect_error:
   {
-    pinos_main_loop_unlock (pinossrc->loop);
+    pinos_thread_main_loop_unlock (pinossrc->loop);
     return FALSE;
   }
 }
@@ -1042,7 +1042,7 @@ connect_error:
 static void
 gst_pinos_src_close (GstPinosSrc * pinossrc)
 {
-  pinos_main_loop_stop (pinossrc->loop);
+  pinos_thread_main_loop_stop (pinossrc->loop);
   g_clear_object (&pinossrc->loop);
   g_clear_object (&pinossrc->ctx);
   g_main_context_unref (pinossrc->context);

@@ -82,7 +82,7 @@ struct _GstPinosDeviceProvider {
   gchar *client_name;
 
   GMainContext *maincontext;
-  PinosMainLoop *loop;
+  PinosThreadMainLoop *loop;
 
   PinosContext *context;
 };

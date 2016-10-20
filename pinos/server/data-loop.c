@@ -26,12 +26,12 @@
 #include <gio/gio.h>
 #include <gio/gunixfdlist.h>
 
-#include "pinos/server/rt-loop.h"
+#include "pinos/server/data-loop.h"
 
-#define PINOS_RTLOOP_GET_PRIVATE(loop)  \
-   (G_TYPE_INSTANCE_GET_PRIVATE ((loop), PINOS_TYPE_RTLOOP, PinosRTLoopPrivate))
+#define PINOS_DATA_LOOP_GET_PRIVATE(loop)  \
+   (G_TYPE_INSTANCE_GET_PRIVATE ((loop), PINOS_TYPE_DATA_LOOP, PinosDataLoopPrivate))
 
-struct _PinosRTLoopPrivate
+struct _PinosDataLoopPrivate
 {
   unsigned int n_poll;
   SpaPollItem poll[16];
@@ -45,7 +45,7 @@ struct _PinosRTLoopPrivate
   pthread_t thread;
 };
 
-G_DEFINE_TYPE (PinosRTLoop, pinos_rtloop, G_TYPE_OBJECT);
+G_DEFINE_TYPE (PinosDataLoop, pinos_data_loop, G_TYPE_OBJECT);
 
 enum
 {
@@ -60,11 +60,11 @@ enum
 static void *
 loop (void *user_data)
 {
-  PinosRTLoop *this = user_data;
-  PinosRTLoopPrivate *priv = this->priv;
+  PinosDataLoop *this = user_data;
+  PinosDataLoopPrivate *priv = this->priv;
   unsigned int i, j;
 
-  g_debug ("rt-loop %p: enter thread", this);
+  g_debug ("data-loop %p: enter thread", this);
   while (priv->running) {
     SpaPollNotifyData ndata;
     unsigned int n_idle = 0;
@@ -87,7 +87,7 @@ loop (void *user_data)
 
     /* rebuild */
     if (priv->rebuild_fds) {
-      g_debug ("rt-loop %p: rebuild fds", this);
+      g_debug ("data-loop %p: rebuild fds", this);
       priv->n_fds = 1;
       for (i = 0; i < priv->n_poll; i++) {
         SpaPollItem *p = &priv->poll[i];
@@ -122,7 +122,7 @@ loop (void *user_data)
       break;
     }
     if (r == 0) {
-      g_debug ("rt-loop %p: select timeout", this);
+      g_debug ("data-loop %p: select timeout", this);
       break;
     }
 
@@ -130,7 +130,7 @@ loop (void *user_data)
     if (priv->fds[0].revents & POLLIN) {
       uint64_t u;
       if (read (priv->fds[0].fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
-        g_warning ("rt-loop %p: failed to read fd", strerror (errno));
+        g_warning ("data-loop %p: failed to read fd", strerror (errno));
       continue;
     }
 
@@ -146,40 +146,40 @@ loop (void *user_data)
       }
     }
   }
-  g_debug ("rt-loop %p: leave thread", this);
+  g_debug ("data-loop %p: leave thread", this);
 
   return NULL;
 }
 
 static void
-wakeup_thread (PinosRTLoop *this)
+wakeup_thread (PinosDataLoop *this)
 {
-  PinosRTLoopPrivate *priv = this->priv;
+  PinosDataLoopPrivate *priv = this->priv;
   uint64_t u = 1;
 
   if (write (priv->fds[0].fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
-    g_warning ("rt-loop %p: failed to write fd", strerror (errno));
+    g_warning ("data-loop %p: failed to write fd", strerror (errno));
 }
 
 static void
-start_thread (PinosRTLoop *this)
+start_thread (PinosDataLoop *this)
 {
-  PinosRTLoopPrivate *priv = this->priv;
+  PinosDataLoopPrivate *priv = this->priv;
   int err;
 
   if (!priv->running) {
     priv->running = true;
     if ((err = pthread_create (&priv->thread, NULL, loop, this)) != 0) {
-      g_warning ("rt-loop %p: can't create thread", strerror (err));
+      g_warning ("data-loop %p: can't create thread", strerror (err));
       priv->running = false;
     }
   }
 }
 
 static void
-stop_thread (PinosRTLoop *this, gboolean in_thread)
+stop_thread (PinosDataLoop *this, gboolean in_thread)
 {
-  PinosRTLoopPrivate *priv = this->priv;
+  PinosDataLoopPrivate *priv = this->priv;
 
   if (priv->running) {
     priv->running = false;
@@ -194,12 +194,12 @@ static SpaResult
 do_add_item (SpaPoll         *poll,
              SpaPollItem     *item)
 {
-  PinosRTLoop *this = SPA_CONTAINER_OF (poll, PinosRTLoop, poll);
-  PinosRTLoopPrivate *priv = this->priv;
+  PinosDataLoop *this = SPA_CONTAINER_OF (poll, PinosDataLoop, poll);
+  PinosDataLoopPrivate *priv = this->priv;
   gboolean in_thread = pthread_equal (priv->thread, pthread_self());
   unsigned int i;
 
-  g_debug ("rt-loop %p: %d: add pollid %d, n_poll %d, n_fds %d", this, in_thread, item->id, priv->n_poll, item->n_fds);
+  g_debug ("data-loop %p: %d: add pollid %d, n_poll %d, n_fds %d", this, in_thread, item->id, priv->n_poll, item->n_fds);
   priv->poll[priv->n_poll] = *item;
   priv->n_poll++;
   if (item->n_fds)
@@ -221,8 +221,8 @@ static SpaResult
 do_update_item (SpaPoll         *poll,
                 SpaPollItem     *item)
 {
-  PinosRTLoop *this = SPA_CONTAINER_OF (poll, PinosRTLoop, poll);
-  PinosRTLoopPrivate *priv = this->priv;
+  PinosDataLoop *this = SPA_CONTAINER_OF (poll, PinosDataLoop, poll);
+  PinosDataLoopPrivate *priv = this->priv;
   gboolean in_thread = pthread_equal (priv->thread, pthread_self());
   unsigned int i;
 
@@ -243,12 +243,12 @@ static SpaResult
 do_remove_item (SpaPoll         *poll,
                 SpaPollItem     *item)
 {
-  PinosRTLoop *this = SPA_CONTAINER_OF (poll, PinosRTLoop, poll);
-  PinosRTLoopPrivate *priv = this->priv;
+  PinosDataLoop *this = SPA_CONTAINER_OF (poll, PinosDataLoop, poll);
+  PinosDataLoopPrivate *priv = this->priv;
   gboolean in_thread = pthread_equal (priv->thread, pthread_self());
   unsigned int i;
 
-  g_debug ("rt-loop %p: remove poll %d %d", this, item->n_fds, priv->n_poll);
+  g_debug ("data-loop %p: remove poll %d %d", this, item->n_fds, priv->n_poll);
   for (i = 0; i < priv->n_poll; i++) {
     if (priv->poll[i].id == item->id && priv->poll[i].user_data == item->user_data) {
       priv->n_poll--;
@@ -273,14 +273,14 @@ do_remove_item (SpaPoll         *poll,
 }
 
 static void
-pinos_rtloop_constructed (GObject * obj)
+pinos_data_loop_constructed (GObject * obj)
 {
-  PinosRTLoop *this = PINOS_RTLOOP (obj);
-  PinosRTLoopPrivate *priv = this->priv;
+  PinosDataLoop *this = PINOS_DATA_LOOP (obj);
+  PinosDataLoopPrivate *priv = this->priv;
 
-  g_debug ("rt-loop %p: constructed", this);
+  g_debug ("data-loop %p: constructed", this);
 
-  G_OBJECT_CLASS (pinos_rtloop_parent_class)->constructed (obj);
+  G_OBJECT_CLASS (pinos_data_loop_parent_class)->constructed (obj);
 
   priv->fds[0].fd = eventfd (0, 0);
   priv->fds[0].events = POLLIN | POLLPRI | POLLERR;
@@ -289,44 +289,44 @@ pinos_rtloop_constructed (GObject * obj)
 }
 
 static void
-pinos_rtloop_dispose (GObject * obj)
+pinos_data_loop_dispose (GObject * obj)
 {
-  PinosRTLoop *this = PINOS_RTLOOP (obj);
+  PinosDataLoop *this = PINOS_DATA_LOOP (obj);
 
-  g_debug ("rt-loop %p: dispose", this);
+  g_debug ("data-loop %p: dispose", this);
   stop_thread (this, FALSE);
 
-  G_OBJECT_CLASS (pinos_rtloop_parent_class)->dispose (obj);
+  G_OBJECT_CLASS (pinos_data_loop_parent_class)->dispose (obj);
 }
 
 static void
-pinos_rtloop_finalize (GObject * obj)
+pinos_data_loop_finalize (GObject * obj)
 {
-  PinosRTLoop *this = PINOS_RTLOOP (obj);
+  PinosDataLoop *this = PINOS_DATA_LOOP (obj);
 
-  g_debug ("rt-loop %p: finalize", this);
+  g_debug ("data-loop %p: finalize", this);
 
-  G_OBJECT_CLASS (pinos_rtloop_parent_class)->finalize (obj);
+  G_OBJECT_CLASS (pinos_data_loop_parent_class)->finalize (obj);
 }
 
 static void
-pinos_rtloop_class_init (PinosRTLoopClass * klass)
+pinos_data_loop_class_init (PinosDataLoopClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
 
-  g_type_class_add_private (klass, sizeof (PinosRTLoopPrivate));
+  g_type_class_add_private (klass, sizeof (PinosDataLoopPrivate));
 
-  gobject_class->constructed = pinos_rtloop_constructed;
-  gobject_class->dispose = pinos_rtloop_dispose;
-  gobject_class->finalize = pinos_rtloop_finalize;
+  gobject_class->constructed = pinos_data_loop_constructed;
+  gobject_class->dispose = pinos_data_loop_dispose;
+  gobject_class->finalize = pinos_data_loop_finalize;
 }
 
 static void
-pinos_rtloop_init (PinosRTLoop * this)
+pinos_data_loop_init (PinosDataLoop * this)
 {
-  this->priv = PINOS_RTLOOP_GET_PRIVATE (this);
+  this->priv = PINOS_DATA_LOOP_GET_PRIVATE (this);
 
-  g_debug ("rt-loop %p: new", this);
+  g_debug ("data-loop %p: new", this);
 
   this->poll.size = sizeof (SpaPoll);
   this->poll.info = NULL;
@@ -336,14 +336,14 @@ pinos_rtloop_init (PinosRTLoop * this)
 }
 
 /**
- * pinos_rtloop_new:
+ * pinos_data_loop_new:
  *
- * Create a new #PinosRTLoop.
+ * Create a new #PinosDataLoop.
  *
- * Returns: a new #PinosRTLoop
+ * Returns: a new #PinosDataLoop
  */
-PinosRTLoop *
-pinos_rtloop_new (void)
+PinosDataLoop *
+pinos_data_loop_new (void)
 {
-  return g_object_new (PINOS_TYPE_RTLOOP, NULL);
+  return g_object_new (PINOS_TYPE_DATA_LOOP, NULL);
 }

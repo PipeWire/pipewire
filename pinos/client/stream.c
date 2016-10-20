@@ -992,7 +992,7 @@ parse_connection (PinosStream *stream)
       {
         PinosControlCmdAddMem p;
         int fd;
-        MemId mid;
+        MemId mid, *m;
 
         if (!pinos_connection_parse_cmd (conn, &p))
           break;
@@ -1001,27 +1001,25 @@ parse_connection (PinosStream *stream)
         if (fd == -1)
           break;
 
-        mid.id = p.mem_id;
-        mid.fd = fd;
-        mid.flags = p.flags;
-        mid.ptr = NULL;
-        mid.size = p.size;
+        m = find_mem (stream, p.mem_id);
+        if (m) {
+          g_debug ("update mem %u, fd %d, flags %d, size %zd", p.mem_id, fd, p.flags, p.size);
 
-        g_debug ("add mem %u, fd %d, flags %d, size %zd", p.mem_id, fd, p.flags, p.size);
-        g_array_append_val (priv->mem_ids, mid);
-        break;
-      }
-      case PINOS_CONTROL_CMD_REMOVE_MEM:
-      {
-        PinosControlCmdRemoveMem p;
-        MemId *mid;
+          m->id = p.mem_id;
+          m->fd = fd;
+          m->flags = p.flags;
+          m->ptr = NULL;
+          m->size = p.size;
+        } else {
+          mid.id = p.mem_id;
+          mid.fd = fd;
+          mid.flags = p.flags;
+          mid.ptr = NULL;
+          mid.size = p.size;
 
-        if (!pinos_connection_parse_cmd (conn, &p))
-          break;
-
-        g_debug ("stream %p: remove mem %d", stream, p.mem_id);
-        if ((mid = find_mem (stream, p.mem_id)))
-          mid->cleanup = true;
+          g_debug ("add mem %u, fd %d, flags %d, size %zd", p.mem_id, fd, p.flags, p.size);
+          g_array_append_val (priv->mem_ids, mid);
+        }
         break;
       }
       case PINOS_CONTROL_CMD_USE_BUFFERS:
@@ -1181,7 +1179,6 @@ parse_rtconnection (PinosStream *stream)
       case PINOS_CONTROL_CMD_SET_FORMAT:
       case PINOS_CONTROL_CMD_SET_PROPERTY:
       case PINOS_CONTROL_CMD_ADD_MEM:
-      case PINOS_CONTROL_CMD_REMOVE_MEM:
       case PINOS_CONTROL_CMD_USE_BUFFERS:
       case PINOS_CONTROL_CMD_NODE_COMMAND:
         g_warning ("got unexpected connection %d", cmd);

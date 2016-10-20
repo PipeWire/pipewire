@@ -42,6 +42,7 @@ typedef struct _PinosDaemonPrivate PinosDaemonPrivate;
 #include <spa/include/spa/id-map.h>
 #include <pinos/server/node.h>
 #include <pinos/server/node-factory.h>
+#include <pinos/server/main-loop.h>
 #include <pinos/client/properties.h>
 
 /**
@@ -54,6 +55,8 @@ struct _PinosDaemon {
 
   SpaIDMap *map;
   SpaLog *log;
+
+  PinosMainLoop *main_loop;
 
   SpaSupport *support;
   unsigned int n_support;
@@ -86,11 +89,10 @@ void              pinos_daemon_add_node          (PinosDaemon *daemon, PinosNode
 void              pinos_daemon_remove_node       (PinosDaemon *daemon, PinosNode *node);
 
 PinosPort *       pinos_daemon_find_port         (PinosDaemon     *daemon,
-                                                  PinosDirection   direction,
+                                                  PinosPort       *other_port,
                                                   const gchar     *name,
                                                   PinosProperties *props,
-                                                  unsigned int     n_format_filters,
-                                                  SpaFormat      **format_filters,
+                                                  GPtrArray       *format_filter,
                                                   GError         **error);
 
 void              pinos_daemon_add_node_factory  (PinosDaemon *daemon,

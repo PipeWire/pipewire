@@ -451,7 +451,7 @@ context_state_notify (GObject    *gobject,
             pinos_context_get_error (context)->message);
       break;
   }
-  pinos_main_loop_signal (self->loop, FALSE);
+  pinos_thread_main_loop_signal (self->loop, FALSE);
 }
 
 static gboolean
@@ -465,23 +465,23 @@ gst_pinos_device_provider_start (GstDeviceProvider * provider)
 
   c = g_main_context_new ();
 
-  if (!(self->loop = pinos_main_loop_new (c, "pinos-device-monitor"))) {
+  if (!(self->loop = pinos_thread_main_loop_new (c, "pinos-device-monitor"))) {
     GST_ERROR_OBJECT (self, "Could not create pinos mainloop");
     goto failed;
   }
 
-  if (!pinos_main_loop_start (self->loop, &error)) {
+  if (!pinos_thread_main_loop_start (self->loop, &error)) {
     GST_ERROR_OBJECT (self, "Could not start pinos mainloop: %s", error->message);
     g_clear_object (&self->loop);
     goto failed;
   }
 
-  pinos_main_loop_lock (self->loop);
+  pinos_thread_main_loop_lock (self->loop);
 
   if (!(self->context = pinos_context_new (c, self->client_name, NULL))) {
     GST_ERROR_OBJECT (self, "Failed to create context");
-    pinos_main_loop_unlock (self->loop);
-    pinos_main_loop_stop (self->loop);
+    pinos_thread_main_loop_unlock (self->loop);
+    pinos_thread_main_loop_stop (self->loop);
     g_clear_object (&self->loop);
     goto failed;
   }
@@ -515,7 +515,7 @@ gst_pinos_device_provider_start (GstDeviceProvider * provider)
       break;
 
     /* Wait until something happens */
-    pinos_main_loop_wait (self->loop);
+    pinos_thread_main_loop_wait (self->loop);
   }
   GST_DEBUG_OBJECT (self, "connected");
   pinos_context_get_daemon_info (self->context,
@@ -524,7 +524,7 @@ gst_pinos_device_provider_start (GstDeviceProvider * provider)
                                  NULL,
                                  NULL,
                                  self);
-  pinos_main_loop_unlock (self->loop);
+  pinos_thread_main_loop_unlock (self->loop);
 
   g_main_context_unref (c);
 
@@ -537,8 +537,8 @@ failed:
   }
 not_running:
   {
-    pinos_main_loop_unlock (self->loop);
-    pinos_main_loop_stop (self->loop);
+    pinos_thread_main_loop_unlock (self->loop);
+    pinos_thread_main_loop_stop (self->loop);
     g_clear_object (&self->context);
     g_clear_object (&self->loop);
     return TRUE;
@@ -554,7 +554,7 @@ gst_pinos_device_provider_stop (GstDeviceProvider * provider)
     pinos_context_disconnect (self->context);
   }
   if (self->loop) {
-    pinos_main_loop_stop (self->loop);
+    pinos_thread_main_loop_stop (self->loop);
   }
   g_clear_object (&self->context);
   g_clear_object (&self->loop);

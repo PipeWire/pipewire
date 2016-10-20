@@ -46,10 +46,10 @@ struct _PinosLinkPrivate
   GPtrArray *format_filter;
   PinosProperties *properties;
 
+  PinosMainLoop *main_loop;
+
   PinosLinkState state;
   GError *error;
-
-  uint32_t async_busy;
 
   gboolean allocated;
   PinosMemblock buffer_mem;
@@ -656,29 +656,24 @@ do_start (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
 
     if (in_state == SPA_NODE_STATE_PAUSED) {
       pinos_node_set_state (this->input->node, PINOS_NODE_STATE_RUNNING);
-      if (pinos_node_get_state (this->input->node) != PINOS_NODE_STATE_RUNNING)
-        res = SPA_RESULT_RETURN_ASYNC (0);
     }
 
     if (out_state == SPA_NODE_STATE_PAUSED) {
       pinos_node_set_state (this->output->node, PINOS_NODE_STATE_RUNNING);
-      if (pinos_node_get_state (this->output->node) != PINOS_NODE_STATE_RUNNING)
-        res = SPA_RESULT_RETURN_ASYNC (0);
     }
   }
   return res;
 }
 
 static SpaResult
-check_states (PinosLink *this)
+check_states (PinosLink *this, SpaResult res)
 {
-  PinosLinkPrivate *priv = this->priv;
-  SpaResult res;
   SpaNodeState in_state, out_state;
+  PinosLinkPrivate *priv = this->priv;
 
 again:
-   if (priv->async_busy != SPA_ID_INVALID)
-     return SPA_RESULT_OK;
+  if (this->input == NULL || this->output == NULL)
+    return SPA_RESULT_OK;
 
   in_state = this->input->node->node->state;
   out_state = this->output->node->node->state;
@@ -702,20 +697,8 @@ again:
   return SPA_RESULT_OK;
 
 exit:
-  if (SPA_RESULT_IS_ASYNC (res)) {
-    priv->async_busy = SPA_RESULT_ASYNC_SEQ (res);
-    g_debug ("link %p: waiting for async complete %d", this, priv->async_busy);
-  }
+  pinos_main_loop_defer (priv->main_loop, this, res, (PinosDeferFunc) check_states, this, NULL);
   return res;
-}
-
-static gboolean
-do_check_states (PinosLink *this)
-{
-  PinosLinkPrivate *priv = this->priv;
-  priv->async_busy = SPA_ID_INVALID;
-  check_states (this);
-  return G_SOURCE_REMOVE;
 }
 
 static void
@@ -724,8 +707,9 @@ on_async_complete_notify (PinosNode  *node,
                           guint       res,
                           PinosLink  *this)
 {
+  PinosLinkPrivate *priv = this->priv;
   g_debug ("link %p: node %p async complete %d %d", this, node, seq, res);
-  g_idle_add ((GSourceFunc) do_check_states, this);
+  pinos_main_loop_defer_complete (priv->main_loop, this, seq, res);
 }
 
 static void
@@ -756,28 +740,75 @@ on_property_notify (GObject    *obj,
   }
 }
 
+typedef struct {
+  PinosLink *link;
+  PinosPort *port;
+} UnlinkedData;
+
+static void
+on_input_unlinked (UnlinkedData *data)
+{
+  g_signal_emit (data->link, signals[SIGNAL_INPUT_UNLINKED], 0, data->port);
+}
+
+static void
+on_output_unlinked (UnlinkedData *data)
+{
+  g_signal_emit (data->link, signals[SIGNAL_OUTPUT_UNLINKED], 0, data->port);
+}
+
 static void
 on_node_remove (PinosNode *node, PinosLink *this)
 {
   PinosLinkPrivate *priv = this->priv;
+  SpaResult res = SPA_RESULT_OK;
+  UnlinkedData data;
+
+  data.link = this;
 
   g_signal_handlers_disconnect_by_data (node, this);
   if (node == this->input->node) {
     if (this->input->allocated) {
       priv->buffers = NULL;
       priv->n_buffers = 0;
+
+      if ((res = spa_node_port_use_buffers (this->output->node->node,
+                                            SPA_DIRECTION_OUTPUT,
+                                            this->output->port,
+                                            priv->buffers,
+                                            priv->n_buffers)) < 0) {
+        g_warning ("link %p: failed to clear output buffers: %d", this, res);
+      }
     }
+    data.port = this->input;
     this->input = NULL;
-    g_object_notify (G_OBJECT (this), "input-port");
-    g_signal_emit (this, signals[SIGNAL_INPUT_UNLINKED], 0, node);
+    pinos_main_loop_defer (priv->main_loop,
+                           this,
+                           res,
+                           (PinosDeferFunc) on_input_unlinked,
+                           g_memdup (&data, sizeof (UnlinkedData)),
+                           g_free);
   } else {
     if (this->output->allocated) {
       priv->buffers = NULL;
       priv->n_buffers = 0;
+
+      if ((res = spa_node_port_use_buffers (this->input->node->node,
+                                            SPA_DIRECTION_INPUT,
+                                            this->input->port,
+                                            priv->buffers,
+                                            priv->n_buffers)) < 0) {
+        g_warning ("link %p: failed to clear input buffers: %d", this, res);
+      }
     }
+    data.port = this->output;
     this->output = NULL;
-    g_object_notify (G_OBJECT (this), "output-port");
-    g_signal_emit (this, signals[SIGNAL_OUTPUT_UNLINKED], 0, node);
+    pinos_main_loop_defer (priv->main_loop,
+                           this,
+                           res,
+                           (PinosDeferFunc) on_output_unlinked,
+                           g_memdup (&data, sizeof (UnlinkedData)),
+                           g_free);
   }
 
   if (this->input == NULL || this->output == NULL)
@@ -788,6 +819,9 @@ static void
 pinos_link_constructed (GObject * object)
 {
   PinosLink *this = PINOS_LINK (object);
+  PinosLinkPrivate *priv = this->priv;
+
+  priv->main_loop = priv->daemon->main_loop;
 
   g_signal_connect (this->input->node, "remove", (GCallback) on_node_remove, this);
   g_signal_connect (this->output->node, "remove", (GCallback) on_node_remove, this);
@@ -1031,7 +1065,7 @@ pinos_link_activate (PinosLink *this)
   g_return_val_if_fail (PINOS_IS_LINK (this), FALSE);
 
   spa_ringbuffer_init (&this->ringbuffer, SPA_N_ELEMENTS (this->queue));
-  check_states (this);
+  check_states (this, SPA_RESULT_OK);
 
   return TRUE;
 }

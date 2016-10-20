@@ -1,5 +1,5 @@
 /* Pinos
- * Copyright (C) 2015 Wim Taymans <wim.taymans@gmail.com>
+ * Copyright (C) 2016 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,6 +24,12 @@
 
 G_BEGIN_DECLS
 
+#include <spa/include/spa/poll.h>
+
+typedef struct _PinosMainLoop PinosMainLoop;
+typedef struct _PinosMainLoopClass PinosMainLoopClass;
+typedef struct _PinosMainLoopPrivate PinosMainLoopPrivate;
+
 #define PINOS_TYPE_MAIN_LOOP                 (pinos_main_loop_get_type ())
 #define PINOS_IS_MAIN_LOOP(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_MAIN_LOOP))
 #define PINOS_IS_MAIN_LOOP_CLASS(klass)      (G_TYPE_CHECK_CLASS_TYPE ((klass), PINOS_TYPE_MAIN_LOOP))
@@ -33,18 +39,15 @@ G_BEGIN_DECLS
 #define PINOS_MAIN_LOOP_CAST(obj)            ((PinosMainLoop*)(obj))
 #define PINOS_MAIN_LOOP_CLASS_CAST(klass)    ((PinosMainLoopClass*)(klass))
 
-typedef struct _PinosMainLoop PinosMainLoop;
-typedef struct _PinosMainLoopClass PinosMainLoopClass;
-typedef struct _PinosMainLoopPrivate PinosMainLoopPrivate;
-
-
 /**
  * PinosMainLoop:
  *
- * Pinos main loop object class.
+ * Pinos rt-loop class.
  */
 struct _PinosMainLoop {
   GObject object;
+
+  SpaPoll poll;
 
   PinosMainLoopPrivate *priv;
 };
@@ -52,32 +55,34 @@ struct _PinosMainLoop {
 /**
  * PinosMainLoopClass:
  *
- * Pinos main loop object class.
+ * Pinos rt-loop class.
  */
 struct _PinosMainLoopClass {
   GObjectClass parent_class;
 };
 
+typedef void (*PinosDeferFunc) (gpointer       data,
+                                SpaResult      res,
+                                gulong         id);
+
 /* normal GObject stuff */
-GType            pinos_main_loop_get_type        (void);
+GType               pinos_main_loop_get_type                (void);
 
-PinosMainLoop *  pinos_main_loop_new             (GMainContext * context,
-                                                  const gchar   *name);
+PinosMainLoop *     pinos_main_loop_new                     (void);
 
-GMainLoop *      pinos_main_loop_get_impl        (PinosMainLoop *loop);
 
-gboolean         pinos_main_loop_start           (PinosMainLoop *loop, GError **error);
-void             pinos_main_loop_stop            (PinosMainLoop *loop);
-
-void             pinos_main_loop_lock            (PinosMainLoop *loop);
-void             pinos_main_loop_unlock          (PinosMainLoop *loop);
-
-void             pinos_main_loop_wait            (PinosMainLoop *loop);
-void             pinos_main_loop_signal          (PinosMainLoop *loop, gboolean wait_for_accept);
-void             pinos_main_loop_accept          (PinosMainLoop *loop);
-
-gboolean         pinos_main_loop_in_thread       (PinosMainLoop *loop);
-
+gulong              pinos_main_loop_defer                   (PinosMainLoop  *loop,
+                                                             gpointer        obj,
+                                                             SpaResult       res,
+                                                             PinosDeferFunc  func,
+                                                             gpointer        data,
+                                                             GDestroyNotify  notify);
+void                pinos_main_loop_defer_cancel            (PinosMainLoop  *loop,
+                                                             gulong          id);
+void                pinos_main_loop_defer_complete          (PinosMainLoop  *loop,
+                                                             gpointer        obj,
+                                                             uint32_t        seq,
+                                                             SpaResult       res);
 
 G_END_DECLS
 

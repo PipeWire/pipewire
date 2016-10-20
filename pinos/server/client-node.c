@@ -1111,8 +1111,6 @@ parse_connection (SpaProxy   *this)
 
       case PINOS_CONTROL_CMD_ADD_MEM:
         break;
-      case PINOS_CONTROL_CMD_REMOVE_MEM:
-        break;
       case PINOS_CONTROL_CMD_USE_BUFFERS:
         break;
 
@@ -1152,7 +1150,6 @@ parse_rtconnection (SpaProxy   *this)
       case PINOS_CONTROL_CMD_SET_PROPERTY:
       case PINOS_CONTROL_CMD_NODE_COMMAND:
       case PINOS_CONTROL_CMD_ADD_MEM:
-      case PINOS_CONTROL_CMD_REMOVE_MEM:
       case PINOS_CONTROL_CMD_USE_BUFFERS:
         spa_log_error (this->log, "proxy %p: got unexpected connection %d\n", this, cmd);
         break;

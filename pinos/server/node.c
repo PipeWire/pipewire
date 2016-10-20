@@ -25,7 +25,8 @@
 #include "pinos/client/enumtypes.h"
 
 #include "pinos/server/node.h"
-#include "pinos/server/rt-loop.h"
+#include "pinos/server/data-loop.h"
+#include "pinos/server/main-loop.h"
 #include "pinos/server/daemon.h"
 
 #include "pinos/dbus/org-pinos.h"
@@ -89,11 +90,8 @@ struct _PinosNodePrivate
 
   PinosProperties *properties;
 
-  PinosRTLoop *loop;
-
-  SpaNodeEventAsyncComplete ac;
-  uint32_t pending_state_seq;
-  PinosNodeState pending_state;
+  PinosDataLoop *data_loop;
+  PinosMainLoop *main_loop;
 };
 
 G_DEFINE_TYPE (PinosNode, pinos_node, G_TYPE_OBJECT);
@@ -103,7 +101,7 @@ enum
   PROP_0,
   PROP_DAEMON,
   PROP_CLIENT,
-  PROP_RTLOOP,
+  PROP_DATA_LOOP,
   PROP_OBJECT_PATH,
   PROP_NAME,
   PROP_PROPERTIES,
@@ -330,12 +328,24 @@ send_clock_update (PinosNode *this)
     g_debug ("got error %d", res);
 }
 
+typedef struct {
+  PinosNode *node;
+  PinosNodeState state;
+} StateData;
+
+static void
+on_state_complete (StateData *data)
+{
+  pinos_node_update_state (data->node, data->state);
+}
+
 static gboolean
 node_set_state (PinosNode       *this,
                 PinosNodeState   state)
 {
   PinosNodePrivate *priv = this->priv;
   SpaResult res = SPA_RESULT_OK;
+  StateData data;
 
   g_debug ("node %p: set state %s", this, pinos_node_state_as_string (state));
 
@@ -365,12 +375,15 @@ node_set_state (PinosNode       *this,
   if (SPA_RESULT_IS_ERROR (res))
     return FALSE;
 
-  if (SPA_RESULT_IS_ASYNC (res)) {
-    priv->pending_state_seq = SPA_RESULT_ASYNC_SEQ (res);
-    priv->pending_state = state;
-  } else {
-    pinos_node_update_state (this, state);
-  }
+  data.node = this;
+  data.state = state;
+
+  pinos_main_loop_defer (priv->main_loop,
+                         this,
+                         res,
+                         (PinosDeferFunc) on_state_complete,
+                         g_memdup (&data, sizeof (StateData)),
+                         g_free);
 
   return TRUE;
 }
@@ -387,7 +400,7 @@ do_read_link (PinosNode *this, PinosLink *link)
   if (areas[0].len > 0) {
     SpaPortInputInfo iinfo[1];
 
-    if (link->in_ready <= 0)
+    if (link->in_ready <= 0 || link->input == NULL)
       return FALSE;
 
     link->in_ready--;
@@ -404,24 +417,6 @@ do_read_link (PinosNode *this, PinosLink *link)
     spa_ringbuffer_read_advance (&link->ringbuffer, 1);
   }
   return pushed;
-}
-
-static void
-do_handle_async_complete (PinosNode *this)
-{
-  PinosNodePrivate *priv = this->priv;
-  SpaNodeEventAsyncComplete *ac = &priv->ac;
-
-  g_debug ("node %p: async complete %u %d", this, ac->seq, ac->res);
-
-  if (priv->async_init) {
-    init_complete (this);
-    priv->async_init = FALSE;
-  }
-  if (priv->pending_state_seq == ac->seq) {
-    pinos_node_update_state (this, priv->pending_state);
-  }
-  g_signal_emit (this, signals[SIGNAL_ASYNC_COMPLETE], 0, ac->seq, ac->res);
 }
 
 static void
@@ -443,10 +438,9 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
     {
       SpaNodeEventAsyncComplete *ac = event->data;
 
-      priv->ac = *ac;
-      g_main_context_invoke (NULL,
-                            (GSourceFunc) do_handle_async_complete,
-                            this);
+      g_debug ("node %p: async complete event %d %d", this, ac->seq, ac->res);
+      pinos_main_loop_defer_complete (priv->main_loop, this, ac->seq, ac->res);
+      g_signal_emit (this, signals[SIGNAL_ASYNC_COMPLETE], 0, ac->seq, ac->res);
       break;
     }
 
@@ -518,6 +512,9 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
       for (i = 0; i < p->links->len; i++) {
         PinosLink *link = g_ptr_array_index (p->links, i);
 
+        if (link->output == NULL)
+          continue;
+
         if ((res = spa_node_port_reuse_buffer (link->output->node->node,
                                                link->output->port,
                                                rb->buffer_id)) < 0)
@@ -564,8 +561,8 @@ pinos_node_get_property (GObject    *_object,
       g_value_set_object (value, priv->client);
       break;
 
-    case PROP_RTLOOP:
-      g_value_set_object (value, priv->loop);
+    case PROP_DATA_LOOP:
+      g_value_set_object (value, priv->data_loop);
       break;
 
     case PROP_OBJECT_PATH:
@@ -612,15 +609,15 @@ pinos_node_set_property (GObject      *_object,
       priv->client = g_value_get_object (value);
       break;
 
-    case PROP_RTLOOP:
+    case PROP_DATA_LOOP:
     {
       SpaResult res;
 
-      if (priv->loop)
-        g_object_unref (priv->loop);
-      priv->loop = g_value_dup_object (value);
+      if (priv->data_loop)
+        g_object_unref (priv->data_loop);
+      priv->data_loop = g_value_dup_object (value);
 
-      if (priv->loop) {
+      if (priv->data_loop) {
         if ((res = spa_node_set_event_callback (this->node, on_node_event, this)) < 0)
          g_warning ("node %p: error setting callback", this);
       }
@@ -640,13 +637,6 @@ pinos_node_set_property (GObject      *_object,
     case PROP_NODE:
     {
       this->node = g_value_get_pointer (value);
-#if 0
-      void *iface;
-      if (this->node->handle->get_interface (this->node->handle,
-                                             spa_id_map_get_id (priv->daemon->map, SPA_CLOCK_URI),
-                                             &iface) >= 0)
-        this->clock = iface;
-#endif
       break;
     }
     case PROP_CLOCK:
@@ -734,6 +724,8 @@ pinos_node_constructed (GObject * obj)
 
   g_debug ("node %p: constructed", this);
 
+  priv->main_loop = priv->daemon->main_loop;
+
   g_signal_connect (this, "notify", (GCallback) on_property_notify, this);
   G_OBJECT_CLASS (pinos_node_parent_class)->constructed (obj);
 
@@ -753,6 +745,12 @@ pinos_node_constructed (GObject * obj)
     init_complete (this);
   } else {
     priv->async_init = TRUE;
+    pinos_main_loop_defer (priv->main_loop,
+                           this,
+                           SPA_RESULT_RETURN_ASYNC (0),
+                           (PinosDeferFunc) init_complete,
+                           this,
+                           NULL);
   }
   node_register_object (this);
 }
@@ -780,7 +778,7 @@ pinos_node_finalize (GObject * obj)
   g_debug ("node %p: finalize", node);
   g_clear_object (&priv->daemon);
   g_clear_object (&priv->iface);
-  g_clear_object (&priv->loop);
+  g_clear_object (&priv->data_loop);
   g_free (priv->name);
   g_clear_error (&priv->error);
   if (priv->properties)
@@ -869,11 +867,11 @@ pinos_node_class_init (PinosNodeClass * klass)
                                                          G_PARAM_CONSTRUCT_ONLY |
                                                          G_PARAM_STATIC_STRINGS));
   g_object_class_install_property (gobject_class,
-                                   PROP_RTLOOP,
-                                   g_param_spec_object ("rt-loop",
-                                                        "RTLoop",
-                                                        "The RTLoop",
-                                                        PINOS_TYPE_RTLOOP,
+                                   PROP_DATA_LOOP,
+                                   g_param_spec_object ("data-loop",
+                                                        "Data Loop",
+                                                        "The Data Loop",
+                                                        PINOS_TYPE_DATA_LOOP,
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_CONSTRUCT |
                                                         G_PARAM_STATIC_STRINGS));
@@ -945,7 +943,6 @@ pinos_node_init (PinosNode * node)
                                  (GCallback) handle_remove,
                                  node);
   priv->state = PINOS_NODE_STATE_CREATING;
-  priv->pending_state_seq = SPA_ID_INVALID;
   pinos_node1_set_state (priv->iface, priv->state);
 }
 

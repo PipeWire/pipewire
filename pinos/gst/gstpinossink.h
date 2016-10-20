@@ -78,7 +78,7 @@ struct _GstPinosSink {
   gboolean negotiated;
 
   GMainContext *context;
-  PinosMainLoop *loop;
+  PinosThreadMainLoop *loop;
   PinosContext *ctx;
   PinosStream *stream;
   GstAllocator *allocator;

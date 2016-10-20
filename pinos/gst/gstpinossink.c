@@ -415,7 +415,7 @@ on_add_buffer (GObject    *gobject,
   gst_pinos_pool_add_buffer (pinossink->pool, buf);
   g_hash_table_insert (pinossink->buf_ids, GINT_TO_POINTER (id), buf);
 
-  pinos_main_loop_signal (pinossink->loop, FALSE);
+  pinos_thread_main_loop_signal (pinossink->loop, FALSE);
 }
 
 static void
@@ -450,7 +450,7 @@ on_new_buffer (GObject    *gobject,
   buf = g_hash_table_lookup (pinossink->buf_ids, GINT_TO_POINTER (id));
 
   if (buf) {
-    pinos_main_loop_signal (pinossink->loop, FALSE);
+    pinos_thread_main_loop_signal (pinossink->loop, FALSE);
   }
 }
 
@@ -479,7 +479,7 @@ on_stream_notify (GObject    *gobject,
             pinos_stream_get_error (stream)->message), (NULL));
       break;
   }
-  pinos_main_loop_signal (pinossink->loop, FALSE);
+  pinos_thread_main_loop_signal (pinossink->loop, FALSE);
 }
 
 static void
@@ -528,7 +528,7 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
 
   possible = gst_caps_to_format_all (caps);
 
-  pinos_main_loop_lock (pinossink->loop);
+  pinos_thread_main_loop_lock (pinossink->loop);
   state = pinos_stream_get_state (pinossink->stream);
 
   if (state == PINOS_STREAM_STATE_ERROR)
@@ -556,7 +556,7 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
       if (state == PINOS_STREAM_STATE_ERROR)
         goto start_error;
 
-      pinos_main_loop_wait (pinossink->loop);
+      pinos_thread_main_loop_wait (pinossink->loop);
     }
   }
   res = TRUE;
@@ -574,11 +574,11 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
       if (state == PINOS_STREAM_STATE_ERROR)
         goto start_error;
 
-      pinos_main_loop_wait (pinossink->loop);
+      pinos_thread_main_loop_wait (pinossink->loop);
     }
   }
 #endif
-  pinos_main_loop_unlock (pinossink->loop);
+  pinos_thread_main_loop_unlock (pinossink->loop);
 
   pinossink->negotiated = res;
 
@@ -587,7 +587,7 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
 start_error:
   {
     GST_ERROR ("could not start stream");
-    pinos_main_loop_unlock (pinossink->loop);
+    pinos_thread_main_loop_unlock (pinossink->loop);
     g_ptr_array_unref (possible);
     return FALSE;
   }
@@ -606,7 +606,7 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   if (!pinossink->negotiated)
     goto not_negotiated;
 
-  pinos_main_loop_lock (pinossink->loop);
+  pinos_thread_main_loop_lock (pinossink->loop);
   if (pinos_stream_get_state (pinossink->stream) != PINOS_STREAM_STATE_STREAMING)
     goto done;
 //    goto streaming_error;
@@ -639,7 +639,7 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
     g_warning ("can't send buffer");
 
 done:
-  pinos_main_loop_unlock (pinossink->loop);
+  pinos_thread_main_loop_unlock (pinossink->loop);
 
   return GST_FLOW_OK;
 
@@ -649,7 +649,7 @@ not_negotiated:
   }
 //streaming_error:
 //  {
-//    pinos_main_loop_unlock (pinossink->loop);
+//    pinos_thread_main_loop_unlock (pinossink->loop);
 //    return GST_FLOW_ERROR;
 //  }
 }
@@ -683,7 +683,7 @@ gst_pinos_sink_start (GstBaseSink * basesink)
     props = NULL;
   }
 
-  pinos_main_loop_lock (pinossink->loop);
+  pinos_thread_main_loop_lock (pinossink->loop);
   pinossink->stream = pinos_stream_new (pinossink->ctx, pinossink->client_name, props);
   pinossink->pool->stream = pinossink->stream;
   g_signal_connect (pinossink->stream, "notify::state", (GCallback) on_stream_notify, pinossink);
@@ -691,7 +691,7 @@ gst_pinos_sink_start (GstBaseSink * basesink)
   g_signal_connect (pinossink->stream, "add-buffer", (GCallback) on_add_buffer, pinossink);
   g_signal_connect (pinossink->stream, "remove-buffer", (GCallback) on_remove_buffer, pinossink);
   g_signal_connect (pinossink->stream, "new-buffer", (GCallback) on_new_buffer, pinossink);
-  pinos_main_loop_unlock (pinossink->loop);
+  pinos_thread_main_loop_unlock (pinossink->loop);
 
   return TRUE;
 }
@@ -701,14 +701,14 @@ gst_pinos_sink_stop (GstBaseSink * basesink)
 {
   GstPinosSink *pinossink = GST_PINOS_SINK (basesink);
 
-  pinos_main_loop_lock (pinossink->loop);
+  pinos_thread_main_loop_lock (pinossink->loop);
   if (pinossink->stream) {
     pinos_stream_stop (pinossink->stream);
     pinos_stream_disconnect (pinossink->stream);
     g_clear_object (&pinossink->stream);
     pinossink->pool->stream = NULL;
   }
-  pinos_main_loop_unlock (pinossink->loop);
+  pinos_thread_main_loop_unlock (pinossink->loop);
 
   pinossink->negotiated = FALSE;
 
@@ -738,7 +738,7 @@ on_context_notify (GObject    *gobject,
             pinos_context_get_error (pinossink->ctx)->message), (NULL));
       break;
   }
-  pinos_main_loop_signal (pinossink->loop, FALSE);
+  pinos_thread_main_loop_signal (pinossink->loop, FALSE);
 }
 
 static gboolean
@@ -749,11 +749,11 @@ gst_pinos_sink_open (GstPinosSink * pinossink)
   pinossink->context = g_main_context_new ();
   GST_DEBUG ("context %p", pinossink->context);
 
-  pinossink->loop = pinos_main_loop_new (pinossink->context, "pinos-sink-loop");
-  if (!pinos_main_loop_start (pinossink->loop, &error))
+  pinossink->loop = pinos_thread_main_loop_new (pinossink->context, "pinos-sink-loop");
+  if (!pinos_thread_main_loop_start (pinossink->loop, &error))
     goto mainloop_error;
 
-  pinos_main_loop_lock (pinossink->loop);
+  pinos_thread_main_loop_lock (pinossink->loop);
   pinossink->ctx = pinos_context_new (pinossink->context, g_get_application_name (), NULL);
   g_signal_connect (pinossink->ctx, "notify::state", (GCallback) on_context_notify, pinossink);
 
@@ -768,9 +768,9 @@ gst_pinos_sink_open (GstPinosSink * pinossink)
     if (state == PINOS_CONTEXT_STATE_ERROR)
       goto connect_error;
 
-    pinos_main_loop_wait (pinossink->loop);
+    pinos_thread_main_loop_wait (pinossink->loop);
   }
-  pinos_main_loop_unlock (pinossink->loop);
+  pinos_thread_main_loop_unlock (pinossink->loop);
 
   return TRUE;
 
@@ -783,7 +783,7 @@ mainloop_error:
   }
 connect_error:
   {
-    pinos_main_loop_unlock (pinossink->loop);
+    pinos_thread_main_loop_unlock (pinossink->loop);
     return FALSE;
   }
 }
@@ -791,7 +791,7 @@ connect_error:
 static gboolean
 gst_pinos_sink_close (GstPinosSink * pinossink)
 {
-  pinos_main_loop_lock (pinossink->loop);
+  pinos_thread_main_loop_lock (pinossink->loop);
   if (pinossink->stream) {
     pinos_stream_disconnect (pinossink->stream);
   }
@@ -807,12 +807,12 @@ gst_pinos_sink_close (GstPinosSink * pinossink)
       if (state == PINOS_CONTEXT_STATE_ERROR)
         break;
 
-      pinos_main_loop_wait (pinossink->loop);
+      pinos_thread_main_loop_wait (pinossink->loop);
     }
   }
-  pinos_main_loop_unlock (pinossink->loop);
+  pinos_thread_main_loop_unlock (pinossink->loop);
 
-  pinos_main_loop_stop (pinossink->loop);
+  pinos_thread_main_loop_stop (pinossink->loop);
   g_clear_object (&pinossink->loop);
   g_clear_object (&pinossink->stream);
   g_clear_object (&pinossink->ctx);

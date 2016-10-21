@@ -14,7 +14,7 @@ pinos_c_args = [
 ]
 
 conf_config = configuration_data()
-conf_install_dir = '@0@/etc/pinos'.format(get_option('prefix'))
+conf_install_dir = '@0@/pinos'.format(get_option('sysconfdir'))
 
 configure_file(input : 'pinos.conf.in',
                output : 'pinos.conf',

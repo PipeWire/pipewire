@@ -1,6 +1,6 @@
 project('pinos', 'c',
   version : '0.0.1.1',
-  meson_version : '>= 0.33.0',
+  meson_version : '>= 0.36.0',
   default_options : [ 'warning_level=1',
                       'c_std=gnu99',
                       'buildtype=debugoptimized' ])
@@ -50,7 +50,7 @@ cdata.set('PACKAGE_TARNAME', '"pinos"')
 cdata.set('PACKAGE_URL', '""')
 cdata.set('PACKAGE_VERSION', '"@0@"'.format(pinos_version))
 cdata.set('MODULEDIR', '"@0@/@1@/pinos-@2@"'.format(get_option('prefix'),get_option('libdir'),apiversion))
-cdata.set('PINOS_CONFIG_DIR', '"@0@/etc/pinos"'.format(get_option('prefix')))
+cdata.set('PINOS_CONFIG_DIR', '"@0@/pinos"'.format(join_paths(get_option('prefix'), get_option('sysconfdir'))))
 cdata.set('VERSION', '"@0@"'.format(pinos_version))
 # FIXME: --with-memory-alignment],[8,N,malloc,pagesize (default is 32)]) option
 cdata.set('MEMORY_ALIGNMENT_MALLOC', 1)

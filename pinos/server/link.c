@@ -655,11 +655,10 @@ do_start (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
     pinos_link_update_state (this, PINOS_LINK_STATE_PAUSED);
 
     if (in_state == SPA_NODE_STATE_PAUSED) {
-      pinos_node_set_state (this->input->node, PINOS_NODE_STATE_RUNNING);
+      res = pinos_node_set_state (this->input->node, PINOS_NODE_STATE_RUNNING);
     }
-
     if (out_state == SPA_NODE_STATE_PAUSED) {
-      pinos_node_set_state (this->output->node, PINOS_NODE_STATE_RUNNING);
+      res = pinos_node_set_state (this->output->node, PINOS_NODE_STATE_RUNNING);
     }
   }
   return res;

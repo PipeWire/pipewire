@@ -807,10 +807,10 @@ spa_videotestsrc_node_port_reuse_buffer (SpaNode         *node,
 }
 
 static SpaResult
-spa_videotestsrc_node_port_push_event (SpaNode      *node,
-                                       SpaDirection  direction,
-                                       uint32_t      port_id,
-                                       SpaNodeEvent *event)
+spa_videotestsrc_node_port_send_command (SpaNode        *node,
+                                         SpaDirection    direction,
+                                         uint32_t        port_id,
+                                         SpaNodeCommand *command)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
@@ -839,7 +839,7 @@ static const SpaNode videotestsrc_node = {
   spa_videotestsrc_node_port_push_input,
   spa_videotestsrc_node_port_pull_output,
   spa_videotestsrc_node_port_reuse_buffer,
-  spa_videotestsrc_node_port_push_event,
+  spa_videotestsrc_node_port_send_command,
 };
 
 static SpaResult

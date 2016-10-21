@@ -859,10 +859,10 @@ spa_audiotestsrc_node_port_reuse_buffer (SpaNode         *node,
 }
 
 static SpaResult
-spa_audiotestsrc_node_port_push_event (SpaNode      *node,
-                                       SpaDirection  direction,
-                                       uint32_t      port_id,
-                                       SpaNodeEvent *event)
+spa_audiotestsrc_node_port_send_command (SpaNode        *node,
+                                         SpaDirection    direction,
+                                         uint32_t        port_id,
+                                         SpaNodeCommand *command)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
@@ -891,7 +891,7 @@ static const SpaNode audiotestsrc_node = {
   spa_audiotestsrc_node_port_push_input,
   spa_audiotestsrc_node_port_pull_output,
   spa_audiotestsrc_node_port_reuse_buffer,
-  spa_audiotestsrc_node_port_push_event,
+  spa_audiotestsrc_node_port_send_command,
 };
 
 static SpaResult

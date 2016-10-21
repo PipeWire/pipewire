@@ -41,6 +41,8 @@ struct _PinosDataLoopPrivate
   SpaPollFd fds[32];
   unsigned int n_fds;
 
+  uint32_t counter;
+
   gboolean running;
   pthread_t thread;
 };
@@ -78,7 +80,8 @@ loop (void *user_data)
         ndata.fds = NULL;
         ndata.n_fds = 0;
         ndata.user_data = p->user_data;
-        p->idle_cb (&ndata);
+        if (p->idle_cb (&ndata) < 0)
+          p->enabled = false;
         n_idle++;
       }
     }
@@ -199,6 +202,7 @@ do_add_item (SpaPoll         *poll,
   gboolean in_thread = pthread_equal (priv->thread, pthread_self());
   unsigned int i;
 
+  item->id = ++priv->counter;
   g_debug ("data-loop %p: %d: add pollid %d, n_poll %d, n_fds %d", this, in_thread, item->id, priv->n_poll, item->n_fds);
   priv->poll[priv->n_poll] = *item;
   priv->n_poll++;
@@ -210,8 +214,8 @@ do_add_item (SpaPoll         *poll,
     start_thread (this);
   }
   for (i = 0; i < priv->n_poll; i++) {
-    if (priv->poll[i].fds)
-      g_debug ("poll %d: %p %d", i, priv->poll[i].user_data, priv->poll[i].fds[0].fd);
+    if (priv->poll[i].n_fds > 0)
+      g_debug ("poll %d: %d %d", i, priv->poll[i].id, priv->poll[i].fds[0].fd);
   }
   return SPA_RESULT_OK;
 }
@@ -227,7 +231,7 @@ do_update_item (SpaPoll         *poll,
   unsigned int i;
 
   for (i = 0; i < priv->n_poll; i++) {
-    if (priv->poll[i].id == item->id && priv->poll[i].user_data == item->user_data)
+    if (priv->poll[i].id == item->id)
       priv->poll[i] = *item;
   }
   if (item->n_fds)
@@ -248,9 +252,9 @@ do_remove_item (SpaPoll         *poll,
   gboolean in_thread = pthread_equal (priv->thread, pthread_self());
   unsigned int i;
 
-  g_debug ("data-loop %p: remove poll %d %d", this, item->n_fds, priv->n_poll);
+  g_debug ("data-loop %p: %d: remove poll %d %d", this, item->id, item->n_fds, priv->n_poll);
   for (i = 0; i < priv->n_poll; i++) {
-    if (priv->poll[i].id == item->id && priv->poll[i].user_data == item->user_data) {
+    if (priv->poll[i].id == item->id) {
       priv->n_poll--;
       for (; i < priv->n_poll; i++)
         priv->poll[i] = priv->poll[i+1];
@@ -266,8 +270,8 @@ do_remove_item (SpaPoll         *poll,
     stop_thread (this, in_thread);
   }
   for (i = 0; i < priv->n_poll; i++) {
-    if (priv->poll[i].fds)
-      g_debug ("poll %d: %p %d", i, priv->poll[i].user_data, priv->poll[i].fds[0].fd);
+    if (priv->poll[i].n_fds > 0)
+      g_debug ("poll %d: %d %d", i, priv->poll[i].id, priv->poll[i].fds[0].fd);
   }
   return SPA_RESULT_OK;
 }

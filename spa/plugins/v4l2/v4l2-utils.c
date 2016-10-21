@@ -9,6 +9,8 @@
 
 #define CLEAR(x) memset(&(x), 0, sizeof(x))
 
+static int v4l2_on_fd_events (SpaPollNotifyData *data);
+
 static int
 xioctl (int fd, int request, void *arg)
 {
@@ -66,6 +68,21 @@ spa_v4l2_open (SpaV4l2Source *this)
     spa_log_error (state->log, "v4l2: %s is no video capture device\n", props->device);
     return -1;
   }
+
+  state->fds[0].fd = state->fd;
+  state->fds[0].events = POLLIN | POLLPRI | POLLERR;
+  state->fds[0].revents = 0;
+
+  state->poll.id = 0;
+  state->poll.enabled = false;
+  state->poll.fds = state->fds;
+  state->poll.n_fds = 1;
+  state->poll.idle_cb = NULL;
+  state->poll.before_cb = NULL;
+  state->poll.after_cb = v4l2_on_fd_events;
+  state->poll.user_data = this;
+  spa_poll_add_item (state->data_loop, &state->poll);
+
   state->opened = true;
 
   return 0;
@@ -140,6 +157,9 @@ spa_v4l2_close (SpaV4l2Source *this)
     return 0;
 
   spa_log_info (state->log, "v4l2: close\n");
+
+  spa_poll_remove_item (state->data_loop, &state->poll);
+
   if (close(state->fd))
     perror ("close");
 
@@ -1132,19 +1152,8 @@ spa_v4l2_start (SpaV4l2Source *this)
   state->started = true;
   update_state (this, SPA_NODE_STATE_STREAMING);
 
-  state->fds[0].fd = state->fd;
-  state->fds[0].events = POLLIN | POLLPRI | POLLERR;
-  state->fds[0].revents = 0;
-
-  state->poll.id = 0;
   state->poll.enabled = true;
-  state->poll.fds = state->fds;
-  state->poll.n_fds = 1;
-  state->poll.idle_cb = NULL;
-  state->poll.before_cb = NULL;
-  state->poll.after_cb = v4l2_on_fd_events;
-  state->poll.user_data = this;
-  spa_poll_add_item (state->data_loop, &state->poll);
+  spa_poll_update_item (state->data_loop, &state->poll);
 
   return SPA_RESULT_OK;
 }
@@ -1161,7 +1170,8 @@ spa_v4l2_pause (SpaV4l2Source *this)
 
   state->started = false;
 
-  spa_poll_remove_item (state->data_loop, &state->poll);
+  state->poll.enabled = false;
+  spa_poll_update_item (state->data_loop, &state->poll);
 
   type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   if (xioctl (state->fd, VIDIOC_STREAMOFF, &type) < 0) {

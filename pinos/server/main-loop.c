@@ -280,6 +280,7 @@ pinos_main_loop_defer_cancel (PinosMainLoop  *loop,
   for (walk = priv->work.head; walk; walk = g_list_next (walk)) {
     WorkItem *i = walk->data;
     if ((id == 0 || i->id == id) && (obj == NULL || i->obj == obj)) {
+      g_debug ("main-loop %p: cancel defer %d for object %p", loop, i->seq, i->obj);
       i->seq = SPA_ID_INVALID;
       i->func = NULL;
       have_work = TRUE;

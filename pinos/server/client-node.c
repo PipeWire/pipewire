@@ -983,21 +983,21 @@ spa_proxy_node_port_reuse_buffer (SpaNode         *node,
 }
 
 static SpaResult
-spa_proxy_node_port_push_event (SpaNode      *node,
-                                SpaDirection  direction,
-                                uint32_t      port_id,
-                                SpaNodeEvent *event)
+spa_proxy_node_port_send_command (SpaNode        *node,
+                                  SpaDirection    direction,
+                                  uint32_t        port_id,
+                                  SpaNodeCommand *command)
 {
   SpaProxy *this;
 
-  if (node == NULL || event == NULL)
+  if (node == NULL || command == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
-  switch (event->type) {
+  switch (command->type) {
     default:
-      spa_log_warn (this->log, "unhandled event %d\n", event->type);
+      spa_log_warn (this->log, "unhandled command %d\n", command->type);
       break;
   }
   return SPA_RESULT_NOT_IMPLEMENTED;
@@ -1015,8 +1015,6 @@ handle_node_event (SpaProxy     *this,
     case SPA_NODE_EVENT_TYPE_HAVE_OUTPUT:
     case SPA_NODE_EVENT_TYPE_NEED_INPUT:
     case SPA_NODE_EVENT_TYPE_REUSE_BUFFER:
-    case SPA_NODE_EVENT_TYPE_DRAINED:
-    case SPA_NODE_EVENT_TYPE_MARKER:
     case SPA_NODE_EVENT_TYPE_ERROR:
     case SPA_NODE_EVENT_TYPE_BUFFERING:
     case SPA_NODE_EVENT_TYPE_REQUEST_REFRESH:
@@ -1237,7 +1235,7 @@ static const SpaNode proxy_node = {
   spa_proxy_node_port_push_input,
   spa_proxy_node_port_pull_output,
   spa_proxy_node_port_reuse_buffer,
-  spa_proxy_node_port_push_event,
+  spa_proxy_node_port_send_command,
 };
 
 static SpaResult

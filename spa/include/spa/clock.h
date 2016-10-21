@@ -48,7 +48,7 @@ typedef enum {
 /**
  * SpaClock:
  *
- * The main processing clocks.
+ * A time provider.
  */
 struct _SpaClock {
   /* the total size of this clock. This can be used to expand this

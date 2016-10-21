@@ -130,7 +130,7 @@ typedef struct {
 } SpaPortOutputInfo;
 
 /**
- * SpaNodeCallback:
+ * SpaNodeEventCallback:
  * @node: a #SpaNode emiting the event
  * @event: the event that was emited
  * @user_data: user data provided when registering the callback
@@ -174,6 +174,8 @@ struct _SpaNode {
    * can be modified. The modifications will take effect after a call
    * to SpaNode::set_props.
    *
+   * This function must be called from the main thread.
+   *
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_INVALID_ARGUMENTS when node or props are %NULL
    *          #SPA_RESULT_NOT_IMPLEMENTED when there are no properties
@@ -196,6 +198,8 @@ struct _SpaNode {
    *
    * If @props is NULL, all the properties are reset to their defaults.
    *
+   * This function must be called from the main thread.
+   *
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_INVALID_ARGUMENTS when node is %NULL
    *          #SPA_RESULT_NOT_IMPLEMENTED when no properties can be
@@ -213,6 +217,8 @@ struct _SpaNode {
    * Send a command to @node.
    *
    * Upon completion, a command might change the state of a node.
+   *
+   * This function must be called from the main thread.
    *
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_INVALID_ARGUMENTS when node or command is %NULL
@@ -234,6 +240,8 @@ struct _SpaNode {
    * The callback can be emited from any thread. The caller should take
    * appropriate actions to node the event in other threads when needed.
    *
+   * This function must be called from the main thread.
+   *
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_INVALID_ARGUMENTS when node is %NULL
    */
@@ -250,6 +258,8 @@ struct _SpaNode {
    *
    * Get the current number of input and output ports and also the maximum
    * number of ports.
+   *
+   * This function must be called from the main thread.
    *
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_INVALID_ARGUMENTS when node is %NULL
@@ -268,6 +278,8 @@ struct _SpaNode {
    * @output_ids: array to store the output stream ids
    *
    * Get the ids of the currently available ports.
+   *
+   * This function must be called from the main thread.
    *
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_INVALID_ARGUMENTS when node is %NULL
@@ -288,6 +300,8 @@ struct _SpaNode {
    * find an unused id for the given @direction.
    *
    * Port ids should be between 0 and max_ports as obtained from get_n_ports().
+   *
+   * This function must be called from the main thread.
    *
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_INVALID_ARGUMENTS when node is %NULL
@@ -317,6 +331,8 @@ struct _SpaNode {
    * The result format can be queried and modified and ultimately be used
    * to call SpaNode::port_set_format.
    *
+   * This function must be called from the main thread.
+   *
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_INVALID_ARGUMENTS when node or format is %NULL
    *          #SPA_RESULT_INVALID_PORT when port_id is not valid
@@ -344,6 +360,8 @@ struct _SpaNode {
    *
    * Upon completion, this function might change the state of a node to
    * the READY state or to CONFIGURE when @format is NULL.
+   *
+   * This function must be called from the main thread.
    *
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_OK_RECHECK on success, the value of @format might have been
@@ -373,6 +391,8 @@ struct _SpaNode {
    *
    * Get the format on @port_id of @node. The result #SpaFormat can
    * not be modified.
+   *
+   * This function must be called from the main thread.
    *
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_INVALID_ARGUMENTS when @node or @format is %NULL
@@ -423,6 +443,8 @@ struct _SpaNode {
    * node to PAUSED, when the node has enough buffers on all ports, or READY
    * when @buffers are %NULL.
    *
+   * This function must be called from the main thread.
+   *
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_ASYNC the function is executed asynchronously
    */
@@ -460,6 +482,8 @@ struct _SpaNode {
    * Once the port has allocated buffers, the memory of the buffers can be
    * released again by calling SpaNode::port_use_buffers with %NULL.
    *
+   * This function must be called from the main thread.
+   *
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_ERROR when the node already has allocated buffers.
    *          #SPA_RESULT_ASYNC the function is executed asynchronously
@@ -485,6 +509,8 @@ struct _SpaNode {
    *
    * Push a buffer id into one or more input ports of @node.
    *
+   * This function must be called from the data thread.
+   *
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_INVALID_ARGUMENTS when node or info is %NULL
    *          #SPA_RESULT_ERROR when one or more of the @info has an
@@ -502,6 +528,8 @@ struct _SpaNode {
    * @info: array of #SpaPortOutputInfo
    *
    * Pull a buffer id from one or more output ports of @node.
+   *
+   * This function must be called from the data thread.
    *
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_INVALID_ARGUMENTS when node or info is %NULL
@@ -527,6 +555,8 @@ struct _SpaNode {
    *
    * Tell an output port to reuse a buffer.
    *
+   * This function must be called from the data thread.
+   *
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_INVALID_ARGUMENTS when node is %NULL
    */
@@ -534,10 +564,10 @@ struct _SpaNode {
                                        uint32_t          port_id,
                                        uint32_t          buffer_id);
 
-  SpaResult   (*port_push_event)      (SpaNode          *node,
+  SpaResult   (*port_send_command)    (SpaNode          *node,
                                        SpaDirection      direction,
                                        uint32_t          port_id,
-                                       SpaNodeEvent     *event);
+                                       SpaNodeCommand   *command);
 
 };
 
@@ -561,7 +591,7 @@ struct _SpaNode {
 #define spa_node_port_push_input(n,...)    (n)->port_push_input((n),__VA_ARGS__)
 #define spa_node_port_pull_output(n,...)   (n)->port_pull_output((n),__VA_ARGS__)
 #define spa_node_port_reuse_buffer(n,...)  (n)->port_reuse_buffer((n),__VA_ARGS__)
-#define spa_node_port_push_event(n,...)    (n)->port_push_event((n),__VA_ARGS__)
+#define spa_node_port_send_command(n,...)  (n)->port_send_command((n),__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

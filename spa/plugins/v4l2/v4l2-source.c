@@ -226,7 +226,6 @@ spa_v4l2_source_node_send_command (SpaNode        *node,
                                    SpaNodeCommand *command)
 {
   SpaV4l2Source *this;
-  SpaResult res;
 
   if (node == NULL || command == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -247,10 +246,7 @@ spa_v4l2_source_node_send_command (SpaNode        *node,
       if (state->n_buffers == 0)
         return SPA_RESULT_NO_BUFFERS;
 
-      if ((res = spa_v4l2_start (this)) < 0)
-        return res;
-
-      break;
+      return spa_v4l2_start (this);
     }
     case SPA_NODE_COMMAND_PAUSE:
     {
@@ -262,12 +258,8 @@ spa_v4l2_source_node_send_command (SpaNode        *node,
       if (state->n_buffers == 0)
         return SPA_RESULT_NO_BUFFERS;
 
-      if ((res = spa_v4l2_pause (this)) < 0)
-        return res;
-
-      break;
+      return spa_v4l2_pause (this);
     }
-
     case SPA_NODE_COMMAND_FLUSH:
     case SPA_NODE_COMMAND_DRAIN:
     case SPA_NODE_COMMAND_MARKER:
@@ -714,14 +706,13 @@ spa_v4l2_source_node_port_reuse_buffer (SpaNode         *node,
 }
 
 static SpaResult
-spa_v4l2_source_node_port_push_event (SpaNode      *node,
-                                      SpaDirection  direction,
-                                      uint32_t      port_id,
-                                      SpaNodeEvent *event)
+spa_v4l2_source_node_port_send_command (SpaNode        *node,
+                                        SpaDirection    direction,
+                                        uint32_t        port_id,
+                                        SpaNodeCommand *command)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
-
 
 static const SpaNode v4l2source_node = {
   sizeof (SpaNode),
@@ -747,7 +738,7 @@ static const SpaNode v4l2source_node = {
   spa_v4l2_source_node_port_push_input,
   spa_v4l2_source_node_port_pull_output,
   spa_v4l2_source_node_port_reuse_buffer,
-  spa_v4l2_source_node_port_push_event,
+  spa_v4l2_source_node_port_send_command,
 };
 
 static SpaResult

@@ -328,66 +328,6 @@ send_clock_update (PinosNode *this)
     g_debug ("got error %d", res);
 }
 
-typedef struct {
-  PinosNode *node;
-  PinosNodeState state;
-} StateData;
-
-static void
-on_state_complete (StateData *data)
-{
-  pinos_node_update_state (data->node, data->state);
-}
-
-static gboolean
-node_set_state (PinosNode       *this,
-                PinosNodeState   state)
-{
-  PinosNodePrivate *priv = this->priv;
-  SpaResult res = SPA_RESULT_OK;
-  StateData data;
-
-  g_debug ("node %p: set state %s", this, pinos_node_state_as_string (state));
-
-  switch (state) {
-    case PINOS_NODE_STATE_CREATING:
-      return FALSE;
-
-    case PINOS_NODE_STATE_SUSPENDED:
-      res = suspend_node (this);
-      break;
-
-    case PINOS_NODE_STATE_INITIALIZING:
-      break;
-
-    case PINOS_NODE_STATE_IDLE:
-      res = pause_node (this);
-      break;
-
-    case PINOS_NODE_STATE_RUNNING:
-      send_clock_update (this);
-      res = start_node (this);
-      break;
-
-    case PINOS_NODE_STATE_ERROR:
-      break;
-  }
-  if (SPA_RESULT_IS_ERROR (res))
-    return FALSE;
-
-  data.node = this;
-  data.state = state;
-
-  pinos_main_loop_defer (priv->main_loop,
-                         this,
-                         res,
-                         (PinosDeferFunc) on_state_complete,
-                         g_memdup (&data, sizeof (StateData)),
-                         g_free);
-
-  return TRUE;
-}
-
 static gboolean
 do_read_link (PinosNode *this, PinosLink *link)
 {
@@ -427,8 +367,6 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
 
   switch (event->type) {
     case SPA_NODE_EVENT_TYPE_INVALID:
-    case SPA_NODE_EVENT_TYPE_DRAINED:
-    case SPA_NODE_EVENT_TYPE_MARKER:
     case SPA_NODE_EVENT_TYPE_ERROR:
     case SPA_NODE_EVENT_TYPE_BUFFERING:
     case SPA_NODE_EVENT_TYPE_REQUEST_REFRESH:
@@ -793,7 +731,6 @@ static void
 pinos_node_class_init (PinosNodeClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
-  PinosNodeClass *node_class = PINOS_NODE_CLASS (klass);
 
   g_type_class_add_private (klass, sizeof (PinosNodePrivate));
 
@@ -930,8 +867,6 @@ pinos_node_class_init (PinosNodeClass * klass)
                                                2,
                                                G_TYPE_UINT,
                                                G_TYPE_UINT);
-
-  node_class->set_state = node_set_state;
 }
 
 static void
@@ -1287,6 +1222,17 @@ remove_idle_timeout (PinosNode *node)
   }
 }
 
+typedef struct {
+  PinosNode *node;
+  PinosNodeState state;
+} StateData;
+
+static void
+on_state_complete (StateData *data)
+{
+  pinos_node_update_state (data->node, data->state);
+}
+
 /**
  * pinos_node_set_state:
  * @node: a #PinosNode
@@ -1294,26 +1240,58 @@ remove_idle_timeout (PinosNode *node)
  *
  * Set the state of @node to @state.
  *
- * Returns: %TRUE on success.
+ * Returns: a #SpaResult
  */
-gboolean
+SpaResult
 pinos_node_set_state (PinosNode      *node,
                       PinosNodeState  state)
 {
-  PinosNodeClass *klass;
-  gboolean res;
+  PinosNodePrivate *priv;
+  SpaResult res = SPA_RESULT_OK;
+  StateData data;
 
-  g_return_val_if_fail (PINOS_IS_NODE (node), FALSE);
-
-  klass = PINOS_NODE_GET_CLASS (node);
+  g_return_val_if_fail (PINOS_IS_NODE (node), SPA_RESULT_INVALID_ARGUMENTS);
+  priv = node->priv;
 
   remove_idle_timeout (node);
 
-  g_debug ("node %p: set state to %s", node, pinos_node_state_as_string (state));
-  if (klass->set_state)
-    res = klass->set_state (node, state);
-  else
-    res = FALSE;
+  g_debug ("node %p: set state %s", node, pinos_node_state_as_string (state));
+
+  switch (state) {
+    case PINOS_NODE_STATE_CREATING:
+      return SPA_RESULT_ERROR;
+
+    case PINOS_NODE_STATE_SUSPENDED:
+      res = suspend_node (node);
+      break;
+
+    case PINOS_NODE_STATE_INITIALIZING:
+      break;
+
+    case PINOS_NODE_STATE_IDLE:
+      res = pause_node (node);
+      break;
+
+    case PINOS_NODE_STATE_RUNNING:
+      send_clock_update (node);
+      res = start_node (node);
+      break;
+
+    case PINOS_NODE_STATE_ERROR:
+      break;
+  }
+  if (SPA_RESULT_IS_ERROR (res))
+    return res;
+
+  data.node = node;
+  data.state = state;
+
+  pinos_main_loop_defer (priv->main_loop,
+                         node,
+                         res,
+                         (PinosDeferFunc) on_state_complete,
+                         g_memdup (&data, sizeof (StateData)),
+                         g_free);
 
   return res;
 }

@@ -37,8 +37,6 @@ typedef struct _SpaNodeEvent SpaNodeEvent;
 #define SPA_NODE_EVENT__HaveOutput            SPA_NODE_EVENT_PREFIX "HaveOutput"
 #define SPA_NODE_EVENT__NeedInput             SPA_NODE_EVENT_PREFIX "NeedInput"
 #define SPA_NODE_EVENT__ReuseBuffer           SPA_NODE_EVENT_PREFIX "ReuseBuffer"
-#define SPA_NODE_EVENT__Drained               SPA_NODE_EVENT_PREFIX "Drained"
-#define SPA_NODE_EVENT__Marker                SPA_NODE_EVENT_PREFIX "Marker"
 #define SPA_NODE_EVENT__Error                 SPA_NODE_EVENT_PREFIX "Error"
 #define SPA_NODE_EVENT__Buffering             SPA_NODE_EVENT_PREFIX "Buffering"
 #define SPA_NODE_EVENT__RequestRefresh        SPA_NODE_EVENT_PREFIX "RequestRefresh"
@@ -51,8 +49,6 @@ typedef struct _SpaNodeEvent SpaNodeEvent;
  * @SPA_NODE_EVENT_TYPE_HAVE_OUTPUT: emited when an async node has output that can be pulled
  * @SPA_NODE_EVENT_TYPE_NEED_INPUT: emited when more data can be pushed to an async node
  * @SPA_NODE_EVENT_TYPE_REUSE_BUFFER: emited when a buffer can be reused
- * @SPA_NODE_EVENT_TYPE_DRAINED: emited when DRAIN command completed
- * @SPA_NODE_EVENT_TYPE_MARKER: emited when MARK command completed
  * @SPA_NODE_EVENT_TYPE_ERROR: emited when error occured
  * @SPA_NODE_EVENT_TYPE_BUFFERING: emited when buffering is in progress
  * @SPA_NODE_EVENT_TYPE_REQUEST_REFRESH: emited when a keyframe refresh is needed
@@ -64,8 +60,6 @@ typedef enum {
   SPA_NODE_EVENT_TYPE_HAVE_OUTPUT,
   SPA_NODE_EVENT_TYPE_NEED_INPUT,
   SPA_NODE_EVENT_TYPE_REUSE_BUFFER,
-  SPA_NODE_EVENT_TYPE_DRAINED,
-  SPA_NODE_EVENT_TYPE_MARKER,
   SPA_NODE_EVENT_TYPE_ERROR,
   SPA_NODE_EVENT_TYPE_BUFFERING,
   SPA_NODE_EVENT_TYPE_REQUEST_REFRESH,

@@ -84,9 +84,6 @@ struct _PinosNode {
  */
 struct _PinosNodeClass {
   GObjectClass parent_class;
-
-  gboolean    (*set_state)    (PinosNode       *node,
-                               PinosNodeState   state);
 };
 
 /* normal GObject stuff */

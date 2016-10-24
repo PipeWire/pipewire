@@ -156,7 +156,6 @@ loop (void *user_data)
 
       while (spa_ringbuffer_get_read_offset (&priv->buffer, &offset) > 0) {
         InvokeItem *item = SPA_MEMBER (priv->buffer_data, offset, InvokeItem);
-        g_debug ("data-loop %p: invoke %d", this, item->seq);
         item->func (p, true, item->seq, item->size, item->data, item->user_data);
         spa_ringbuffer_read_advance (&priv->buffer, item->item_size);
       }
@@ -347,7 +346,10 @@ do_invoke (SpaPoll           *poll,
 
     wakeup_thread (this);
 
-    res = SPA_RESULT_RETURN_ASYNC (seq);
+    if (seq != SPA_ID_INVALID)
+      res = SPA_RESULT_RETURN_ASYNC (seq);
+    else
+      res = SPA_RESULT_OK;
   }
   return res;
 }

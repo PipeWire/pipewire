@@ -87,6 +87,21 @@ typedef struct {
 } SpaPollItem;
 
 
+/**
+ * SpaPollInvokeFunc:
+ * @poll: a #SpaPoll
+ * @async: If this function was called async
+ * @seq: sequence number
+ * @size: size of data
+ * @data: data
+ * @user_data: extra user data
+ *
+ * Function called from SpaPoll::invoke. If @async is %true, invoke returned
+ * an async return value and this function should possibly schedule an async
+ * reply.
+ *
+ * Returns: the result of the invoke function
+ */
 typedef SpaResult (*SpaPollInvokeFunc)  (SpaPoll        *poll,
                                          bool            async,
                                          uint32_t        seq,
@@ -132,6 +147,22 @@ struct _SpaPoll {
   SpaResult   (*remove_item)         (SpaPoll         *poll,
                                       SpaPollItem     *item);
 
+  /**
+   * SpaPoll::invoke:
+   * @poll: a #SpaPoll
+   * @func: function to call
+   * @seq: sequence number
+   * @size: size of data
+   * @data: data
+   * @user_data: extra user data
+   *
+   * Invoke @func from the poll context of @poll. @seq, @data, @size and
+   * @user_data are passed to @func.
+   *
+   * Returns: The result of @func when this function is already called in
+   *    the @poll context, otherwise an async return value with @seq or, when
+   *    @seq is %SPA_ID_INVALID, %SPA_RETURN_OK.
+   */
   SpaResult   (*invoke)              (SpaPoll            *poll,
                                       SpaPollInvokeFunc   func,
                                       uint32_t            seq,

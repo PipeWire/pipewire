@@ -260,7 +260,7 @@ do_start (SpaPoll        *poll,
     ac.res = res;
     spa_poll_invoke (this->state[0].main_loop,
                      do_send_event,
-                     seq,
+                     SPA_ID_INVALID,
                      sizeof (ac),
                      &ac,
                      this);
@@ -289,7 +289,7 @@ do_pause (SpaPoll        *poll,
     ac.res = res;
     spa_poll_invoke (this->state[0].main_loop,
                      do_send_event,
-                     seq,
+                     SPA_ID_INVALID,
                      sizeof (ac),
                      &ac,
                      this);

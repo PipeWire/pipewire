@@ -241,14 +241,12 @@ xrun_recovery (SpaALSAState *state, snd_pcm_t *hndl, int err)
 static void
 pull_input (SpaALSAState *state, void *data, snd_pcm_uframes_t frames)
 {
-  SpaNodeEvent event;
   SpaNodeEventNeedInput ni;
 
-  event.type = SPA_NODE_EVENT_TYPE_NEED_INPUT;
-  event.size = sizeof (ni);
-  event.data = &ni;
+  ni.event.type = SPA_NODE_EVENT_TYPE_NEED_INPUT;
+  ni.event.size = sizeof (ni);
   ni.port_id = 0;
-  state->event_cb (&state->node, &event, state->user_data);
+  state->event_cb (&state->node, &ni.event, state->user_data);
 }
 
 static int
@@ -370,7 +368,6 @@ mmap_read (SpaALSAState *state)
 
 
   if (b) {
-    SpaNodeEvent event;
     SpaNodeEventHaveOutput ho;
     SpaData *d;
 
@@ -380,11 +377,10 @@ mmap_read (SpaALSAState *state)
     b->next = NULL;
     SPA_QUEUE_PUSH_TAIL (&state->ready, SpaALSABuffer, next, b);
 
-    event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
-    event.size = sizeof (ho);
-    event.data = &ho;
+    ho.event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
+    ho.event.size = sizeof (ho);
     ho.port_id = 0;
-    state->event_cb (&state->node, &event, state->user_data);
+    state->event_cb (&state->node, &ho.event, state->user_data);
   }
   return 0;
 }

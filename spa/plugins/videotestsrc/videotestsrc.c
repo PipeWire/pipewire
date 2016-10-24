@@ -182,15 +182,13 @@ spa_videotestsrc_node_set_props (SpaNode         *node,
 static SpaResult
 send_have_output (SpaVideoTestSrc *this)
 {
-  SpaNodeEvent event;
   SpaNodeEventHaveOutput ho;
 
   if (this->event_cb) {
-    event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
-    event.size = sizeof (ho);
-    event.data = &ho;
+    ho.event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
+    ho.event.size = sizeof (ho);
     ho.port_id = 0;
-    this->event_cb (&this->node, &event, this->user_data);
+    this->event_cb (&this->node, &ho.event, this->user_data);
   }
 
   return SPA_RESULT_OK;

@@ -157,7 +157,7 @@ loop (void *user_data)
       while (spa_ringbuffer_get_read_offset (&priv->buffer, &offset) > 0) {
         InvokeItem *item = SPA_MEMBER (priv->buffer_data, offset, InvokeItem);
         g_debug ("data-loop %p: invoke %d", this, item->seq);
-        item->func (p, item->seq, item->size, item->data, item->user_data);
+        item->func (p, true, item->seq, item->size, item->data, item->user_data);
         spa_ringbuffer_read_advance (&priv->buffer, item->item_size);
       }
       continue;
@@ -313,36 +313,43 @@ do_invoke (SpaPoll           *poll,
 {
   PinosDataLoop *this = SPA_CONTAINER_OF (poll, PinosDataLoop, poll);
   PinosDataLoopPrivate *priv = this->priv;
+  gboolean in_thread = pthread_equal (priv->thread, pthread_self());
   SpaRingbufferArea areas[2];
   InvokeItem *item;
+  SpaResult res;
 
-  spa_ringbuffer_get_write_areas (&priv->buffer, areas);
-  if (areas[0].len < sizeof (InvokeItem)) {
-    g_warning ("queue full");
-    return SPA_RESULT_ERROR;
-  }
-  item = SPA_MEMBER (priv->buffer_data, areas[0].offset, InvokeItem);
-  item->seq = seq;
-  item->func = func;
-  item->user_data = user_data;
-  item->size = size;
-
-  if (areas[0].len > sizeof (InvokeItem) + size) {
-    item->data = SPA_MEMBER (item, sizeof (InvokeItem), void);
-    item->item_size = sizeof (InvokeItem) + size;
-    if (areas[0].len < sizeof (InvokeItem) + item->item_size)
-      item->item_size = areas[0].len;
+  if (in_thread) {
+    res = func (poll, false, seq, size, data, user_data);
   } else {
-    item->data = SPA_MEMBER (priv->buffer_data, areas[1].offset, void);
-    item->item_size = areas[0].len + 1 + size;
+    spa_ringbuffer_get_write_areas (&priv->buffer, areas);
+    if (areas[0].len < sizeof (InvokeItem)) {
+      g_warning ("queue full");
+      return SPA_RESULT_ERROR;
+    }
+    item = SPA_MEMBER (priv->buffer_data, areas[0].offset, InvokeItem);
+    item->seq = seq;
+    item->func = func;
+    item->user_data = user_data;
+    item->size = size;
+
+    if (areas[0].len > sizeof (InvokeItem) + size) {
+      item->data = SPA_MEMBER (item, sizeof (InvokeItem), void);
+      item->item_size = sizeof (InvokeItem) + size;
+      if (areas[0].len < sizeof (InvokeItem) + item->item_size)
+        item->item_size = areas[0].len;
+    } else {
+      item->data = SPA_MEMBER (priv->buffer_data, areas[1].offset, void);
+      item->item_size = areas[0].len + 1 + size;
+    }
+    memcpy (item->data, data, size);
+
+    spa_ringbuffer_write_advance (&priv->buffer, item->item_size);
+
+    wakeup_thread (this);
+
+    res = SPA_RESULT_RETURN_ASYNC (seq);
   }
-  memcpy (item->data, data, size);
-
-  spa_ringbuffer_write_advance (&priv->buffer, item->item_size);
-
-  wakeup_thread (this);
-
-  return SPA_RESULT_RETURN_ASYNC (seq);
+  return res;
 }
 
 static void

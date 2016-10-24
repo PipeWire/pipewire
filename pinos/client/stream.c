@@ -665,13 +665,11 @@ send_need_input (PinosStream *stream, uint32_t port_id)
 {
   PinosStreamPrivate *priv = stream->priv;
   PinosControlCmdNodeEvent cne;
-  SpaNodeEvent ne;
   SpaNodeEventNeedInput ni;
 
-  cne.event = &ne;
-  ne.type = SPA_NODE_EVENT_TYPE_NEED_INPUT;
-  ne.data = &ni;
-  ne.size = sizeof (ni);
+  cne.event = &ni.event;
+  ni.event.type = SPA_NODE_EVENT_TYPE_NEED_INPUT;
+  ni.event.size = sizeof (ni);
   ni.port_id = port_id;
   pinos_connection_add_cmd (priv->rtconn, PINOS_CONTROL_CMD_NODE_EVENT, &cne);
 
@@ -684,13 +682,11 @@ add_request_clock_update (PinosStream *stream)
 {
   PinosStreamPrivate *priv = stream->priv;
   PinosControlCmdNodeEvent cne;
-  SpaNodeEvent ne;
   SpaNodeEventRequestClockUpdate rcu;
 
-  cne.event = &ne;
-  ne.type = SPA_NODE_EVENT_TYPE_REQUEST_CLOCK_UPDATE;
-  ne.data = &rcu;
-  ne.size = sizeof (rcu);
+  cne.event = &rcu.event;
+  rcu.event.type = SPA_NODE_EVENT_TYPE_REQUEST_CLOCK_UPDATE;
+  rcu.event.size = sizeof (rcu);
   rcu.update_mask = SPA_NODE_EVENT_REQUEST_CLOCK_UPDATE_TIME;
   rcu.timestamp = 0;
   rcu.offset = 0;
@@ -704,13 +700,11 @@ add_async_complete (PinosStream       *stream,
 {
   PinosStreamPrivate *priv = stream->priv;
   PinosControlCmdNodeEvent cne;
-  SpaNodeEvent ne;
   SpaNodeEventAsyncComplete ac;
 
-  cne.event = &ne;
-  ne.type = SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE;
-  ne.data = &ac;
-  ne.size = sizeof (ac);
+  cne.event = &ac.event;
+  ac.event.type = SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE;
+  ac.event.size = sizeof (ac);
   ac.seq = seq;
   ac.res = res;
   pinos_connection_add_cmd (priv->conn, PINOS_CONTROL_CMD_NODE_EVENT, &cne);
@@ -721,13 +715,11 @@ send_reuse_buffer (PinosStream *stream, uint32_t port_id, uint32_t buffer_id)
 {
   PinosStreamPrivate *priv = stream->priv;
   PinosControlCmdNodeEvent cne;
-  SpaNodeEvent ne;
   SpaNodeEventReuseBuffer rb;
 
-  cne.event = &ne;
-  ne.type = SPA_NODE_EVENT_TYPE_REUSE_BUFFER;
-  ne.data = &rb;
-  ne.size = sizeof (rb);
+  cne.event = &rb.event;
+  rb.event.type = SPA_NODE_EVENT_TYPE_REUSE_BUFFER;
+  rb.event.size = sizeof (rb);
   rb.port_id = port_id;
   rb.buffer_id = buffer_id;
   pinos_connection_add_cmd (priv->rtconn, PINOS_CONTROL_CMD_NODE_EVENT, &cne);
@@ -742,7 +734,6 @@ send_process_buffer (PinosStream *stream, uint32_t port_id, uint32_t buffer_id)
   PinosStreamPrivate *priv = stream->priv;
   PinosControlCmdProcessBuffer pb;
   PinosControlCmdNodeEvent cne;
-  SpaNodeEvent ne;
   SpaNodeEventHaveOutput ho;
 
   pb.direction = priv->direction;
@@ -750,10 +741,9 @@ send_process_buffer (PinosStream *stream, uint32_t port_id, uint32_t buffer_id)
   pb.buffer_id = buffer_id;
   pinos_connection_add_cmd (priv->rtconn, PINOS_CONTROL_CMD_PROCESS_BUFFER, &pb);
 
-  cne.event = &ne;
-  ne.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
-  ne.data = &ho;
-  ne.size = sizeof (ho);
+  cne.event = &ho.event;
+  ho.event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
+  ho.event.size = sizeof (ho);
   ho.port_id = port_id;
   pinos_connection_add_cmd (priv->rtconn, PINOS_CONTROL_CMD_NODE_EVENT, &cne);
 
@@ -854,7 +844,7 @@ handle_rtnode_event (PinosStream  *stream,
 
     case SPA_NODE_EVENT_TYPE_REUSE_BUFFER:
     {
-      SpaNodeEventReuseBuffer *p = event->data;
+      SpaNodeEventReuseBuffer *p = (SpaNodeEventReuseBuffer *) event;
       BufferId *bid;
 
       if (p->port_id != priv->port_id)
@@ -924,7 +914,7 @@ handle_node_command (PinosStream    *stream,
 
     case SPA_NODE_COMMAND_CLOCK_UPDATE:
     {
-      SpaNodeCommandClockUpdate *cu = command->data;
+      SpaNodeCommandClockUpdate *cu = (SpaNodeCommandClockUpdate *) command;
       if (cu->flags & SPA_NODE_COMMAND_CLOCK_UPDATE_FLAG_LIVE) {
         pinos_properties_set (priv->properties,
                           "pinos.latency.is-live", "1");

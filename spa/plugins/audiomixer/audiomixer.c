@@ -566,14 +566,12 @@ spa_audiomixer_node_port_push_input (SpaNode          *node,
 static void
 pull_port (SpaAudioMixer *this, uint32_t port_id, SpaPortOutputInfo *info, size_t pull_size)
 {
-  SpaNodeEvent event;
   SpaNodeEventNeedInput ni;
 
-  event.type = SPA_NODE_EVENT_TYPE_NEED_INPUT;
-  event.size = sizeof (ni);
-  event.data = &ni;
+  ni.event.type = SPA_NODE_EVENT_TYPE_NEED_INPUT;
+  ni.event.size = sizeof (ni);
   ni.port_id = port_id;
-  this->event_cb (&this->node, &event, this->user_data);
+  this->event_cb (&this->node, &ni.event, this->user_data);
 }
 
 static void

@@ -51,7 +51,6 @@ typedef enum {
 
 struct _SpaNodeCommand {
   SpaNodeCommandType  type;
-  void               *data;
   size_t              size;
 };
 
@@ -68,20 +67,21 @@ struct _SpaNodeCommand {
  * @state: the new clock state, when @change_mask = 1<<2
  */
 typedef struct {
+  SpaNodeCommand command;
 #define SPA_NODE_COMMAND_CLOCK_UPDATE_TIME        (1 << 0)
 #define SPA_NODE_COMMAND_CLOCK_UPDATE_SCALE       (1 << 1)
 #define SPA_NODE_COMMAND_CLOCK_UPDATE_STATE       (1 << 2)
 #define SPA_NODE_COMMAND_CLOCK_UPDATE_LATENCY     (1 << 3)
-  uint32_t      change_mask;
-  int32_t       rate;
-  int64_t       ticks;
-  int64_t       monotonic_time;
-  int64_t       offset;
-  int32_t       scale;
-  SpaClockState state;
+  uint32_t       change_mask;
+  int32_t        rate;
+  int64_t        ticks;
+  int64_t        monotonic_time;
+  int64_t        offset;
+  int32_t        scale;
+  SpaClockState  state;
 #define SPA_NODE_COMMAND_CLOCK_UPDATE_FLAG_LIVE   (1 << 0)
-  uint32_t      flags;
-  int64_t       latency;
+  uint32_t       flags;
+  int64_t        latency;
 } SpaNodeCommandClockUpdate;
 
 #ifdef __cplusplus

@@ -176,18 +176,18 @@ on_monitor_event  (SpaMonitor      *monitor,
   switch (event->type) {
     case SPA_MONITOR_EVENT_TYPE_ADDED:
     {
-      SpaMonitorItem *item = event->data;
+      SpaMonitorItem *item = (SpaMonitorItem *) event;
       add_item (this, item);
       break;
     }
     case SPA_MONITOR_EVENT_TYPE_REMOVED:
     {
-      SpaMonitorItem *item = event->data;
+      SpaMonitorItem *item = (SpaMonitorItem *) event;
       remove_item (this, item);
     }
     case SPA_MONITOR_EVENT_TYPE_CHANGED:
     {
-      SpaMonitorItem *item = event->data;
+      SpaMonitorItem *item = (SpaMonitorItem *) event;
       g_debug ("alsa-monitor %p: changed: \"%s\"", this, item->name);
       break;
     }

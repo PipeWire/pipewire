@@ -33,6 +33,25 @@ typedef struct _SpaMonitor SpaMonitor;
 #include <spa/dict.h>
 #include <spa/plugin.h>
 
+/**
+ * SpaMonitorEventType:
+ * @SPA_MONITOR_EVENT_TYPE_INVALID: invalid event
+ * @SPA_MONITOR_EVENT_TYPE_ADDED: an item was added, data points to #SpaMonitorItem
+ * @SPA_MONITOR_EVENT_TYPE_REMOVED: an item was removed, data points to #SpaMonitorItem
+ * @SPA_MONITOR_EVENT_TYPE_CHANGED: an item was changed, data points to #SpaMonitorItem
+ */
+typedef enum {
+  SPA_MONITOR_EVENT_TYPE_INVALID = 0,
+  SPA_MONITOR_EVENT_TYPE_ADDED,
+  SPA_MONITOR_EVENT_TYPE_REMOVED,
+  SPA_MONITOR_EVENT_TYPE_CHANGED,
+} SpaMonitorEventType;
+
+typedef struct {
+  SpaMonitorEventType  type;
+  size_t               size;
+} SpaMonitorEvent;
+
 typedef enum {
   SPA_MONITOR_ITEM_FLAG_NONE    = 0,
 } SpaMonitorItemFlags;
@@ -50,6 +69,7 @@ typedef enum {
 } SpaMonitorItemState;
 
 typedef struct {
+  SpaMonitorEvent          event;
   const char              *id;
   SpaMonitorItemFlags      flags;
   SpaMonitorItemState      state;
@@ -58,26 +78,6 @@ typedef struct {
   const SpaDict           *info;
   const SpaHandleFactory  *factory;
 } SpaMonitorItem;
-
-/**
- * SpaMonitorEventType:
- * @SPA_MONITOR_EVENT_TYPE_INVALID: invalid event
- * @SPA_MONITOR_EVENT_TYPE_ADDED: an item was added, data points to #SpaMonitorItem
- * @SPA_MONITOR_EVENT_TYPE_REMOVED: an item was removed, data points to #SpaMonitorItem
- * @SPA_MONITOR_EVENT_TYPE_CHANGED: an item was changed, data points to #SpaMonitorItem
- */
-typedef enum {
-  SPA_MONITOR_EVENT_TYPE_INVALID = 0,
-  SPA_MONITOR_EVENT_TYPE_ADDED,
-  SPA_MONITOR_EVENT_TYPE_REMOVED,
-  SPA_MONITOR_EVENT_TYPE_CHANGED,
-} SpaMonitorEventType;
-
-typedef struct {
-  SpaMonitorEventType  type;
-  void                *data;
-  size_t               size;
-} SpaMonitorEvent;
 
 /**
  * SpaMonitorCallback:

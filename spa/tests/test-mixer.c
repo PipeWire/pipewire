@@ -112,7 +112,7 @@ on_mix_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
       SpaPortInputInfo iinfo;
       SpaPortOutputInfo oinfo;
       SpaResult res;
-      SpaNodeEventNeedInput *ni = event->data;
+      SpaNodeEventNeedInput *ni = (SpaNodeEventNeedInput *) event;
 
       oinfo.port_id = 0;
       oinfo.flags = SPA_PORT_OUTPUT_FLAG_NONE;
@@ -150,7 +150,7 @@ on_sink_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
       SpaPortInputInfo iinfo;
       SpaPortOutputInfo oinfo;
       SpaResult res;
-      SpaNodeEventNeedInput *ni = event->data;
+      SpaNodeEventNeedInput *ni = (SpaNodeEventNeedInput *)event;
 
       oinfo.port_id = 0;
       oinfo.flags = SPA_PORT_OUTPUT_FLAG_PULL;

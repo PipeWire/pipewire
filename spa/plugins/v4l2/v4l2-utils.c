@@ -895,7 +895,6 @@ static int
 v4l2_on_fd_events (SpaPollNotifyData *data)
 {
   SpaV4l2Source *this = data->user_data;
-  SpaNodeEvent event;
   SpaNodeEventHaveOutput ho;
 
   if (data->fds[0].revents & POLLERR)
@@ -907,11 +906,10 @@ v4l2_on_fd_events (SpaPollNotifyData *data)
   if (mmap_read (this) < 0)
     return 0;
 
-  event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
-  event.size = sizeof (ho);
-  event.data = &ho;
+  ho.event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
+  ho.event.size = sizeof (ho);
   ho.port_id = 0;
-  this->event_cb (&this->node, &event, this->user_data);
+  this->event_cb (&this->node, &ho.event, this->user_data);
 
   return 0;
 }

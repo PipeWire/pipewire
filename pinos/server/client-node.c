@@ -148,15 +148,13 @@ enum
 static void
 send_async_complete (SpaProxy *this, uint32_t seq, SpaResult res)
 {
-  SpaNodeEvent event;
   SpaNodeEventAsyncComplete ac;
 
-  event.type = SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE;
-  event.data = &ac;
-  event.size = sizeof (ac);
+  ac.event.type = SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE;
+  ac.event.size = sizeof (ac);
   ac.seq = seq;
   ac.res = res;
-  this->event_cb (&this->node, &event, this->user_data);
+  this->event_cb (&this->node, &ac.event, this->user_data);
 }
 
 static SpaResult
@@ -220,8 +218,7 @@ spa_proxy_node_send_command (SpaNode        *node,
       if (!pinos_connection_flush (this->conn)) {
         spa_log_error (this->log, "proxy %p: error writing connection\n", this);
         res = SPA_RESULT_ERROR;
-      }
-      else
+      } else
         res = SPA_RESULT_RETURN_ASYNC (cnc.seq);
       break;
     }
@@ -238,7 +235,6 @@ spa_proxy_node_send_command (SpaNode        *node,
         spa_log_error (this->log, "proxy %p: error writing connection\n", this);
         res = SPA_RESULT_ERROR;
       }
-
       break;
     }
   }
@@ -960,7 +956,6 @@ spa_proxy_node_port_reuse_buffer (SpaNode         *node,
 {
   SpaProxy *this;
   PinosControlCmdNodeEvent cne;
-  SpaNodeEvent ne;
   SpaNodeEventReuseBuffer rb;
 
   if (node == NULL)
@@ -972,10 +967,9 @@ spa_proxy_node_port_reuse_buffer (SpaNode         *node,
     return SPA_RESULT_INVALID_PORT;
 
   /* send start */
-  cne.event = &ne;
-  ne.type = SPA_NODE_EVENT_TYPE_REUSE_BUFFER;
-  ne.data = &rb;
-  ne.size = sizeof (rb);
+  cne.event = &rb.event;
+  rb.event.type = SPA_NODE_EVENT_TYPE_REUSE_BUFFER;
+  rb.event.size = sizeof (rb);
   rb.port_id = port_id;
   rb.buffer_id = buffer_id;
   pinos_connection_add_cmd (this->rtconn, PINOS_CONTROL_CMD_NODE_EVENT, &cne);

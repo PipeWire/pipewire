@@ -225,25 +225,23 @@ spa_v4l2_source_node_set_props (SpaNode         *node,
 }
 
 static SpaResult
-do_command_complete (SpaPoll        *poll,
-                     uint32_t        seq,
-                     size_t          size,
-                     void           *data,
-                     void           *user_data)
+do_send_event (SpaPoll        *poll,
+               bool            async,
+               uint32_t        seq,
+               size_t          size,
+               void           *data,
+               void           *user_data)
 {
   SpaV4l2Source *this = user_data;
-  SpaNodeEvent event;
 
-  event.type = SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE;
-  event.size = size;
-  event.data = data;
-  this->event_cb (&this->node, &event, this->user_data);
+  this->event_cb (&this->node, data, this->user_data);
 
   return SPA_RESULT_OK;
 }
 
 static SpaResult
 do_start (SpaPoll        *poll,
+          bool            async,
           uint32_t        seq,
           size_t          size,
           void           *data,
@@ -255,19 +253,24 @@ do_start (SpaPoll        *poll,
 
   res = spa_v4l2_start (this);
 
-  ac.seq = seq;
-  ac.res = res;
-  spa_poll_invoke (this->state[0].main_loop,
-                   do_command_complete,
-                   seq,
-                   sizeof (ac),
-                   &ac,
-                   this);
+  if (async) {
+    ac.event.type = SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE;
+    ac.event.size = sizeof (SpaNodeEventAsyncComplete);
+    ac.seq = seq;
+    ac.res = res;
+    spa_poll_invoke (this->state[0].main_loop,
+                     do_send_event,
+                     seq,
+                     sizeof (ac),
+                     &ac,
+                     this);
+  }
   return res;
 }
 
 static SpaResult
 do_pause (SpaPoll        *poll,
+          bool            async,
           uint32_t        seq,
           size_t          size,
           void           *data,
@@ -279,17 +282,20 @@ do_pause (SpaPoll        *poll,
 
   res = spa_v4l2_pause (this);
 
-  ac.seq = seq;
-  ac.res = res;
-  spa_poll_invoke (this->state[0].main_loop,
-                   do_command_complete,
-                   seq,
-                   sizeof (ac),
-                   &ac,
-                   this);
+  if (async) {
+    ac.event.type = SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE;
+    ac.event.size = sizeof (SpaNodeEventAsyncComplete);
+    ac.seq = seq;
+    ac.res = res;
+    spa_poll_invoke (this->state[0].main_loop,
+                     do_send_event,
+                     seq,
+                     sizeof (ac),
+                     &ac,
+                     this);
+  }
   return res;
 }
-
 
 static SpaResult
 spa_v4l2_source_node_send_command (SpaNode        *node,

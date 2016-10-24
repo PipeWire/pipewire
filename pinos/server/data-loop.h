@@ -62,10 +62,6 @@ struct _PinosDataLoopClass {
   GObjectClass parent_class;
 };
 
-typedef void (*PinosCommandFunc) (SpaNodeCommand *command,
-                                  uint32_t        seq,
-                                  void           *user_data);
-
 /* normal GObject stuff */
 GType               pinos_data_loop_get_type         (void);
 

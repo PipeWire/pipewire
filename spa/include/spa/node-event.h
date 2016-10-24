@@ -68,29 +68,33 @@ typedef enum {
 
 struct _SpaNodeEvent {
   SpaNodeEventType  type;
-  void             *data;
   size_t            size;
 };
 
 typedef struct {
+  SpaNodeEvent event;
   uint32_t     seq;
   SpaResult    res;
 } SpaNodeEventAsyncComplete;
 
 typedef struct {
+  SpaNodeEvent event;
   uint32_t     port_id;
 } SpaNodeEventHaveOutput;
 
 typedef struct {
+  SpaNodeEvent event;
   uint32_t     port_id;
 } SpaNodeEventNeedInput;
 
 typedef struct {
+  SpaNodeEvent event;
   uint32_t port_id;
   uint32_t buffer_id;
 } SpaNodeEventReuseBuffer;
 
 typedef struct {
+  SpaNodeEvent event;
 #define SPA_NODE_EVENT_REQUEST_CLOCK_UPDATE_TIME        (1 << 0)
 #define SPA_NODE_EVENT_REQUEST_CLOCK_UPDATE_SCALE       (1 << 1)
 #define SPA_NODE_EVENT_REQUEST_CLOCK_UPDATE_STATE       (1 << 2)

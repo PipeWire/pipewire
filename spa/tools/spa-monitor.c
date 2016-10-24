@@ -71,21 +71,21 @@ on_monitor_event  (SpaMonitor      *monitor,
   switch (event->type) {
     case SPA_MONITOR_EVENT_TYPE_ADDED:
     {
-      SpaMonitorItem *item = event->data;
+      SpaMonitorItem *item = (SpaMonitorItem *) event;
       fprintf (stderr, "added:\n");
       inspect_item (item);
       break;
     }
     case SPA_MONITOR_EVENT_TYPE_REMOVED:
     {
-      SpaMonitorItem *item = event->data;
+      SpaMonitorItem *item = (SpaMonitorItem *) event;
       fprintf (stderr, "removed:\n");
       inspect_item (item);
       break;
     }
     case SPA_MONITOR_EVENT_TYPE_CHANGED:
     {
-      SpaMonitorItem *item = event->data;
+      SpaMonitorItem *item = (SpaMonitorItem *) event;
       fprintf (stderr, "changed:\n");
       inspect_item (item);
       break;

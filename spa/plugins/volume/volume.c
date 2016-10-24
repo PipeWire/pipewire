@@ -521,15 +521,13 @@ find_free_buffer (SpaVolume *this, SpaVolumePort *port)
 static void
 release_buffer (SpaVolume *this, SpaBuffer *buffer)
 {
-  SpaNodeEvent event;
   SpaNodeEventReuseBuffer rb;
 
-  event.type = SPA_NODE_EVENT_TYPE_REUSE_BUFFER;
-  event.data = &rb;
-  event.size = sizeof (rb);
+  rb.event.type = SPA_NODE_EVENT_TYPE_REUSE_BUFFER;
+  rb.event.size = sizeof (rb);
   rb.port_id = 0;
   rb.buffer_id = buffer->id;
-  this->event_cb (&this->node, &event, this->user_data);
+  this->event_cb (&this->node, &rb.event, this->user_data);
 }
 
 static SpaResult

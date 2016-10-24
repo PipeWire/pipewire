@@ -62,9 +62,6 @@ struct _PinosMainLoopClass {
   GObjectClass parent_class;
 };
 
-typedef void (*PinosEventFunc) (SpaNodeEvent *event,
-                                void         *user_data);
-
 typedef void (*PinosDeferFunc) (gpointer       obj,
                                 gpointer       data,
                                 SpaResult      res,

@@ -140,8 +140,6 @@ connection_parse_node_event (PinosConnection *conn, PinosControlCmdNodeEvent *cm
   memcpy (cmd, p, sizeof (PinosControlCmdNodeEvent));
   if (cmd->event)
     cmd->event = SPA_MEMBER (p, SPA_PTR_TO_INT (cmd->event), SpaNodeEvent);
-  if (cmd->event->data)
-    cmd->event->data = SPA_MEMBER (p, SPA_PTR_TO_INT (cmd->event->data), void);
 }
 
 static void
@@ -151,8 +149,6 @@ connection_parse_node_command (PinosConnection *conn, PinosControlCmdNodeCommand
   memcpy (cmd, p, sizeof (PinosControlCmdNodeCommand));
   if (cmd->command)
     cmd->command = SPA_MEMBER (p, SPA_PTR_TO_INT (cmd->command), SpaNodeCommand);
-  if (cmd->command->data)
-    cmd->command->data = SPA_MEMBER (p, SPA_PTR_TO_INT (cmd->command->data), void);
 }
 
 static void *
@@ -331,11 +327,9 @@ connection_add_node_event (PinosConnection *conn, PinosControlCmdNodeEvent *ev)
   size_t len;
   void *p;
   PinosControlCmdNodeEvent *d;
-  SpaNodeEvent *ne;
 
   /* calculate length */
   len = sizeof (PinosControlCmdNodeEvent);
-  len += sizeof (SpaNodeEvent);
   len += ev->event->size;
 
   p = connection_add_cmd (conn, PINOS_CONTROL_CMD_NODE_EVENT, len);
@@ -345,13 +339,8 @@ connection_add_node_event (PinosConnection *conn, PinosControlCmdNodeEvent *ev)
   p = SPA_MEMBER (d, sizeof (PinosControlCmdNodeEvent), void);
   d->event = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
 
-  ne = p;
-  memcpy (p, ev->event, sizeof (SpaNodeEvent));
-  p = SPA_MEMBER (p, sizeof (SpaNodeEvent), void);
-  ne->data = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
-  memcpy (p, ev->event->data, ev->event->size);
+  memcpy (p, ev->event, ev->event->size);
 }
-
 
 static void
 connection_add_node_command (PinosConnection *conn, PinosControlCmdNodeCommand *cm)
@@ -359,11 +348,9 @@ connection_add_node_command (PinosConnection *conn, PinosControlCmdNodeCommand *
   size_t len;
   void *p;
   PinosControlCmdNodeCommand *d;
-  SpaNodeCommand *nc;
 
   /* calculate length */
   len = sizeof (PinosControlCmdNodeCommand);
-  len += sizeof (SpaNodeCommand);
   len += cm->command->size;
 
   p = connection_add_cmd (conn, PINOS_CONTROL_CMD_NODE_COMMAND, len);
@@ -373,11 +360,7 @@ connection_add_node_command (PinosConnection *conn, PinosControlCmdNodeCommand *
   p = SPA_MEMBER (d, sizeof (PinosControlCmdNodeCommand), void);
   d->command = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
 
-  nc = p;
-  memcpy (p, cm->command, sizeof (SpaNodeCommand));
-  p = SPA_MEMBER (p, sizeof (SpaNodeCommand), void);
-  nc->data = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
-  memcpy (p, cm->command->data, cm->command->size);
+  memcpy (p, cm->command, cm->command->size);
 }
 
 static gboolean

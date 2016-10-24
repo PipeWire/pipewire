@@ -186,7 +186,8 @@ v4l2_on_fd_events (SpaPollNotifyData *data)
   SpaV4l2Monitor *this = data->user_data;
   struct udev_device *dev;
   const char *action;
-  SpaMonitorEvent event;
+  SpaMonitorItem *item;
+
 
   dev = udev_monitor_receive_device (this->umonitor);
   fill_item (&this->uitem, dev);
@@ -196,16 +197,17 @@ v4l2_on_fd_events (SpaPollNotifyData *data)
   if ((action = udev_device_get_action (dev)) == NULL)
     action = "change";
 
+  item = &this->uitem.item;
+
   if (strcmp (action, "add") == 0) {
-    event.type = SPA_MONITOR_EVENT_TYPE_ADDED;
+    item->event.type = SPA_MONITOR_EVENT_TYPE_ADDED;
   } else if (strcmp (action, "change") == 0) {
-    event.type = SPA_MONITOR_EVENT_TYPE_CHANGED;
+    item->event.type = SPA_MONITOR_EVENT_TYPE_CHANGED;
   } else if (strcmp (action, "remove") == 0) {
-    event.type = SPA_MONITOR_EVENT_TYPE_REMOVED;
+    item->event.type = SPA_MONITOR_EVENT_TYPE_REMOVED;
   }
-  event.data = &this->uitem.item;
-  event.size = sizeof (this->uitem);
-  this->event_cb (&this->monitor, &event, this->user_data);
+  item->event.size = sizeof (this->uitem);
+  this->event_cb (&this->monitor, &item->event, this->user_data);
 
   return 0;
 }

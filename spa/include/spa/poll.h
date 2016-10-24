@@ -88,6 +88,7 @@ typedef struct {
 
 
 typedef SpaResult (*SpaPollInvokeFunc)  (SpaPoll        *poll,
+                                         bool            async,
                                          uint32_t        seq,
                                          size_t          size,
                                          void           *data,
@@ -130,7 +131,6 @@ struct _SpaPoll {
 
   SpaResult   (*remove_item)         (SpaPoll         *poll,
                                       SpaPollItem     *item);
-
 
   SpaResult   (*invoke)              (SpaPoll            *poll,
                                       SpaPollInvokeFunc   func,

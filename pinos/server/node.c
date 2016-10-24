@@ -240,8 +240,7 @@ pause_node (PinosNode *this)
   g_debug ("node %p: pause node", this);
 
   cmd.type = SPA_NODE_COMMAND_PAUSE;
-  cmd.data = NULL;
-  cmd.size = 0;
+  cmd.size = sizeof (cmd);
   if ((res = spa_node_send_command (this->node, &cmd)) < 0)
     g_debug ("got error %d", res);
 
@@ -257,8 +256,7 @@ start_node (PinosNode *this)
   g_debug ("node %p: start node", this);
 
   cmd.type = SPA_NODE_COMMAND_START;
-  cmd.data = NULL;
-  cmd.size = 0;
+  cmd.size = sizeof (cmd);
   if ((res = spa_node_send_command (this->node, &cmd)) < 0)
     g_debug ("got error %d", res);
 
@@ -300,14 +298,11 @@ suspend_node (PinosNode *this)
 static void
 send_clock_update (PinosNode *this)
 {
-  SpaNodeCommand cmd;
   SpaNodeCommandClockUpdate cu;
   SpaResult res;
 
-  cmd.type = SPA_NODE_COMMAND_CLOCK_UPDATE;
-  cmd.data = &cu;
-  cmd.size = sizeof (cu);
-
+  cu.command.type = SPA_NODE_COMMAND_CLOCK_UPDATE;
+  cu.command.size = sizeof (cu);
   cu.flags = 0;
   cu.change_mask = SPA_NODE_COMMAND_CLOCK_UPDATE_TIME |
                    SPA_NODE_COMMAND_CLOCK_UPDATE_SCALE |
@@ -324,7 +319,7 @@ send_clock_update (PinosNode *this)
   cu.scale = (1 << 16) | 1;
   cu.state = SPA_CLOCK_STATE_RUNNING;
 
-  if ((res = spa_node_send_command (this->node, &cmd)) < 0)
+  if ((res = spa_node_send_command (this->node, &cu.command)) < 0)
     g_debug ("got error %d", res);
 }
 
@@ -374,7 +369,7 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
 
     case SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE:
     {
-      SpaNodeEventAsyncComplete *ac = event->data;
+      SpaNodeEventAsyncComplete *ac = (SpaNodeEventAsyncComplete *) event;
 
       g_debug ("node %p: async complete event %d %d", this, ac->seq, ac->res);
       pinos_main_loop_defer_complete (priv->main_loop, this, ac->seq, ac->res);
@@ -384,7 +379,7 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
 
     case SPA_NODE_EVENT_TYPE_NEED_INPUT:
     {
-      SpaNodeEventNeedInput *ni = event->data;
+      SpaNodeEventNeedInput *ni = (SpaNodeEventNeedInput *) event;
       PinosPort *p;
       guint i;
 
@@ -401,7 +396,7 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
     }
     case SPA_NODE_EVENT_TYPE_HAVE_OUTPUT:
     {
-      SpaNodeEventHaveOutput *ho = event->data;
+      SpaNodeEventHaveOutput *ho = (SpaNodeEventHaveOutput *) event;
       SpaPortOutputInfo oinfo[1] = { 0, };
       SpaResult res;
       gboolean pushed = FALSE;
@@ -440,7 +435,7 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
     case SPA_NODE_EVENT_TYPE_REUSE_BUFFER:
     {
       SpaResult res;
-      SpaNodeEventReuseBuffer *rb = event->data;
+      SpaNodeEventReuseBuffer *rb = (SpaNodeEventReuseBuffer *) event;
       PinosPort *p;
       guint i;
 

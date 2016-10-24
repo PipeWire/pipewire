@@ -687,7 +687,7 @@ pinos_node_constructed (GObject * obj)
                            this,
                            SPA_RESULT_RETURN_ASYNC (0),
                            (PinosDeferFunc) init_complete,
-                           this,
+                           NULL,
                            NULL);
   }
   node_register_object (this);
@@ -1222,15 +1222,22 @@ remove_idle_timeout (PinosNode *node)
   }
 }
 
-typedef struct {
-  PinosNode *node;
-  PinosNodeState state;
-} StateData;
-
 static void
-on_state_complete (StateData *data)
+on_state_complete (PinosNode *node,
+                   gpointer   data,
+                   SpaResult  res)
 {
-  pinos_node_update_state (data->node, data->state);
+  PinosNodeState state = GPOINTER_TO_INT (data);
+
+  if (SPA_RESULT_IS_ERROR (res)) {
+    GError *error = NULL;
+    g_set_error (&error,
+                 PINOS_ERROR,
+                 PINOS_ERROR_NODE_STATE,
+                 "error changing node state: %d", res);
+    pinos_node_report_error (node, error);
+  } else
+    pinos_node_update_state (node, state);
 }
 
 /**
@@ -1248,7 +1255,6 @@ pinos_node_set_state (PinosNode      *node,
 {
   PinosNodePrivate *priv;
   SpaResult res = SPA_RESULT_OK;
-  StateData data;
 
   g_return_val_if_fail (PINOS_IS_NODE (node), SPA_RESULT_INVALID_ARGUMENTS);
   priv = node->priv;
@@ -1283,15 +1289,12 @@ pinos_node_set_state (PinosNode      *node,
   if (SPA_RESULT_IS_ERROR (res))
     return res;
 
-  data.node = node;
-  data.state = state;
-
   pinos_main_loop_defer (priv->main_loop,
                          node,
                          res,
                          (PinosDeferFunc) on_state_complete,
-                         g_memdup (&data, sizeof (StateData)),
-                         g_free);
+                         GINT_TO_POINTER (state),
+                         NULL);
 
   return res;
 }

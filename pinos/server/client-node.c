@@ -217,10 +217,12 @@ spa_proxy_node_send_command (SpaNode        *node,
       cnc.command = command;
       pinos_connection_add_cmd (this->conn, PINOS_CONTROL_CMD_NODE_COMMAND, &cnc);
 
-      if (!pinos_connection_flush (this->conn))
+      if (!pinos_connection_flush (this->conn)) {
         spa_log_error (this->log, "proxy %p: error writing connection\n", this);
-
-      res = SPA_RESULT_RETURN_ASYNC (cnc.seq);
+        res = SPA_RESULT_ERROR;
+      }
+      else
+        res = SPA_RESULT_RETURN_ASYNC (cnc.seq);
       break;
     }
 
@@ -232,8 +234,10 @@ spa_proxy_node_send_command (SpaNode        *node,
       cnc.command = command;
       pinos_connection_add_cmd (this->conn, PINOS_CONTROL_CMD_NODE_COMMAND, &cnc);
 
-      if (!pinos_connection_flush (this->conn))
+      if (!pinos_connection_flush (this->conn)) {
         spa_log_error (this->log, "proxy %p: error writing connection\n", this);
+        res = SPA_RESULT_ERROR;
+      }
 
       break;
     }
@@ -1287,7 +1291,7 @@ proxy_init (SpaProxy         *this,
   this->rtpoll.after_cb = proxy_on_rtfd_events;
   this->rtpoll.user_data = this;
 
-  return SPA_RESULT_OK;
+  return SPA_RESULT_RETURN_ASYNC (this->seq++);
 }
 
 static SpaResult

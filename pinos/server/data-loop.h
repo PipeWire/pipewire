@@ -25,6 +25,7 @@
 G_BEGIN_DECLS
 
 #include <spa/include/spa/poll.h>
+#include <spa/include/spa/node-command.h>
 
 typedef struct _PinosDataLoop PinosDataLoop;
 typedef struct _PinosDataLoopClass PinosDataLoopClass;
@@ -61,10 +62,14 @@ struct _PinosDataLoopClass {
   GObjectClass parent_class;
 };
 
-/* normal GObject stuff */
-GType               pinos_data_loop_get_type                (void);
+typedef void (*PinosCommandFunc) (SpaNodeCommand *command,
+                                  uint32_t        seq,
+                                  void           *user_data);
 
-PinosDataLoop *     pinos_data_loop_new                     (void);
+/* normal GObject stuff */
+GType               pinos_data_loop_get_type         (void);
+
+PinosDataLoop *     pinos_data_loop_new              (void);
 
 G_END_DECLS
 

@@ -86,6 +86,7 @@ typedef struct {
 
 typedef struct {
   SpaLog *log;
+  SpaPoll *main_loop;
   SpaPoll *data_loop;
 
   bool export_buf;
@@ -133,6 +134,8 @@ struct _SpaV4l2Source {
   URI uri;
   SpaIDMap *map;
   SpaLog *log;
+
+  uint32_t seq;
 
   SpaV4l2SourceProps props[2];
 
@@ -222,6 +225,73 @@ spa_v4l2_source_node_set_props (SpaNode         *node,
 }
 
 static SpaResult
+do_command_complete (SpaPoll        *poll,
+                     uint32_t        seq,
+                     size_t          size,
+                     void           *data,
+                     void           *user_data)
+{
+  SpaV4l2Source *this = user_data;
+  SpaNodeEvent event;
+
+  event.type = SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE;
+  event.size = size;
+  event.data = data;
+  this->event_cb (&this->node, &event, this->user_data);
+
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
+do_start (SpaPoll        *poll,
+          uint32_t        seq,
+          size_t          size,
+          void           *data,
+          void           *user_data)
+{
+  SpaV4l2Source *this = user_data;
+  SpaResult res;
+  SpaNodeEventAsyncComplete ac;
+
+  res = spa_v4l2_start (this);
+
+  ac.seq = seq;
+  ac.res = res;
+  spa_poll_invoke (this->state[0].main_loop,
+                   do_command_complete,
+                   seq,
+                   sizeof (ac),
+                   &ac,
+                   this);
+  return res;
+}
+
+static SpaResult
+do_pause (SpaPoll        *poll,
+          uint32_t        seq,
+          size_t          size,
+          void           *data,
+          void           *user_data)
+{
+  SpaV4l2Source *this = user_data;
+  SpaResult res;
+  SpaNodeEventAsyncComplete ac;
+
+  res = spa_v4l2_pause (this);
+
+  ac.seq = seq;
+  ac.res = res;
+  spa_poll_invoke (this->state[0].main_loop,
+                   do_command_complete,
+                   seq,
+                   sizeof (ac),
+                   &ac,
+                   this);
+  return res;
+}
+
+
+static SpaResult
 spa_v4l2_source_node_send_command (SpaNode        *node,
                                    SpaNodeCommand *command)
 {
@@ -246,7 +316,12 @@ spa_v4l2_source_node_send_command (SpaNode        *node,
       if (state->n_buffers == 0)
         return SPA_RESULT_NO_BUFFERS;
 
-      return spa_v4l2_start (this);
+      return spa_poll_invoke (this->state[0].data_loop,
+                              do_start,
+                              ++this->seq,
+                              0,
+                              NULL,
+                              this);
     }
     case SPA_NODE_COMMAND_PAUSE:
     {
@@ -258,7 +333,12 @@ spa_v4l2_source_node_send_command (SpaNode        *node,
       if (state->n_buffers == 0)
         return SPA_RESULT_NO_BUFFERS;
 
-      return spa_v4l2_pause (this);
+      return spa_poll_invoke (this->state[0].data_loop,
+                              do_pause,
+                              ++this->seq,
+                              0,
+                              NULL,
+                              this);
     }
     case SPA_NODE_COMMAND_FLUSH:
     case SPA_NODE_COMMAND_DRAIN:
@@ -841,11 +921,17 @@ v4l2_source_init (const SpaHandleFactory  *factory,
       this->map = support[i].data;
     else if (strcmp (support[i].uri, SPA_LOG_URI) == 0)
       this->log = support[i].data;
+    else if (strcmp (support[i].uri, SPA_POLL__MainLoop) == 0)
+      this->state[0].main_loop = support[i].data;
     else if (strcmp (support[i].uri, SPA_POLL__DataLoop) == 0)
       this->state[0].data_loop = support[i].data;
   }
   if (this->map == NULL) {
     spa_log_error (this->log, "an id-map is needed");
+    return SPA_RESULT_ERROR;
+  }
+  if (this->state[0].main_loop == NULL) {
+    spa_log_error (this->log, "a main_loop is needed");
     return SPA_RESULT_ERROR;
   }
   if (this->state[0].data_loop == NULL) {

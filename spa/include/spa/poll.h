@@ -61,7 +61,7 @@ typedef struct {
   unsigned int n_fds;
 } SpaPollNotifyData;
 
-typedef int (*SpaPollNotify) (SpaPollNotifyData *data);
+typedef SpaResult (*SpaPollNotify) (SpaPollNotifyData *data);
 
 /**
  * SpaPollItem:
@@ -85,6 +85,14 @@ typedef struct {
   SpaPollNotify  after_cb;
   void          *user_data;
 } SpaPollItem;
+
+
+typedef SpaResult (*SpaPollInvokeFunc)  (SpaPoll        *poll,
+                                         uint32_t        seq,
+                                         size_t          size,
+                                         void           *data,
+                                         void           *user_data);
+
 
 /**
  * SpaPoll:
@@ -122,11 +130,20 @@ struct _SpaPoll {
 
   SpaResult   (*remove_item)         (SpaPoll         *poll,
                                       SpaPollItem     *item);
+
+
+  SpaResult   (*invoke)              (SpaPoll            *poll,
+                                      SpaPollInvokeFunc   func,
+                                      uint32_t            seq,
+                                      size_t              size,
+                                      void               *data,
+                                      void               *user_data);
 };
 
 #define spa_poll_add_item(n,...)          (n)->add_item((n),__VA_ARGS__)
 #define spa_poll_update_item(n,...)       (n)->update_item((n),__VA_ARGS__)
 #define spa_poll_remove_item(n,...)       (n)->remove_item((n),__VA_ARGS__)
+#define spa_poll_invoke(n,...)            (n)->invoke((n),__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

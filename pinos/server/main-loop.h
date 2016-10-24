@@ -25,6 +25,7 @@
 G_BEGIN_DECLS
 
 #include <spa/include/spa/poll.h>
+#include <spa/include/spa/node-event.h>
 
 typedef struct _PinosMainLoop PinosMainLoop;
 typedef struct _PinosMainLoopClass PinosMainLoopClass;
@@ -61,7 +62,11 @@ struct _PinosMainLoopClass {
   GObjectClass parent_class;
 };
 
-typedef void (*PinosDeferFunc) (gpointer       data,
+typedef void (*PinosEventFunc) (SpaNodeEvent *event,
+                                void         *user_data);
+
+typedef void (*PinosDeferFunc) (gpointer       obj,
+                                gpointer       data,
                                 SpaResult      res,
                                 gulong         id);
 

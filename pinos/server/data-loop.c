@@ -24,15 +24,29 @@
 #include <sys/eventfd.h>
 
 #include <gio/gio.h>
-#include <gio/gunixfdlist.h>
 
+#include "spa/include/spa/ringbuffer.h"
 #include "pinos/server/data-loop.h"
 
 #define PINOS_DATA_LOOP_GET_PRIVATE(loop)  \
    (G_TYPE_INSTANCE_GET_PRIVATE ((loop), PINOS_TYPE_DATA_LOOP, PinosDataLoopPrivate))
 
+#define DATAS_SIZE (4096 * 8)
+
+typedef struct {
+  size_t             item_size;
+  SpaPollInvokeFunc  func;
+  uint32_t           seq;
+  size_t             size;
+  void              *data;
+  void              *user_data;
+} InvokeItem;
+
 struct _PinosDataLoopPrivate
 {
+  SpaRingbuffer buffer;
+  uint8_t       buffer_data[DATAS_SIZE];
+
   unsigned int n_poll;
   SpaPollItem poll[16];
   int idx[16];
@@ -42,6 +56,7 @@ struct _PinosDataLoopPrivate
   unsigned int n_fds;
 
   uint32_t counter;
+  uint32_t seq;
 
   gboolean running;
   pthread_t thread;
@@ -64,6 +79,7 @@ loop (void *user_data)
 {
   PinosDataLoop *this = user_data;
   PinosDataLoopPrivate *priv = this->priv;
+  SpaPoll *p = &this->poll;
   unsigned int i, j;
 
   g_debug ("data-loop %p: enter thread", this);
@@ -80,7 +96,7 @@ loop (void *user_data)
         ndata.fds = NULL;
         ndata.n_fds = 0;
         ndata.user_data = p->user_data;
-        if (p->idle_cb (&ndata) < 0)
+        if (SPA_RESULT_IS_ERROR (p->idle_cb (&ndata)))
           p->enabled = false;
         n_idle++;
       }
@@ -114,7 +130,8 @@ loop (void *user_data)
         ndata.fds = &priv->fds[priv->idx[i]];
         ndata.n_fds = p->n_fds;
         ndata.user_data = p->user_data;
-        p->before_cb (&ndata);
+        if (SPA_RESULT_IS_ERROR (p->before_cb (&ndata)))
+          p->enabled = false;
       }
     }
 
@@ -125,15 +142,24 @@ loop (void *user_data)
       break;
     }
     if (r == 0) {
-      g_debug ("data-loop %p: select timeout", this);
-      break;
+      g_debug ("data-loop %p: select timeout should not happen", this);
+      continue;
     }
 
     /* check wakeup */
     if (priv->fds[0].revents & POLLIN) {
       uint64_t u;
+      size_t offset;
+
       if (read (priv->fds[0].fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
-        g_warning ("data-loop %p: failed to read fd", strerror (errno));
+        g_warning ("data-loop %p: failed to read fd: %s", this, strerror (errno));
+
+      while (spa_ringbuffer_get_read_offset (&priv->buffer, &offset) > 0) {
+        InvokeItem *item = SPA_MEMBER (priv->buffer_data, offset, InvokeItem);
+        g_debug ("data-loop %p: invoke %d", this, item->seq);
+        item->func (p, item->seq, item->size, item->data, item->user_data);
+        spa_ringbuffer_read_advance (&priv->buffer, item->item_size);
+      }
       continue;
     }
 
@@ -145,7 +171,8 @@ loop (void *user_data)
         ndata.fds = &priv->fds[priv->idx[i]];
         ndata.n_fds = p->n_fds;
         ndata.user_data = p->user_data;
-        p->after_cb (&ndata);
+        if (SPA_RESULT_IS_ERROR (p->after_cb (&ndata)))
+          p->enabled = false;
       }
     }
   }
@@ -161,7 +188,7 @@ wakeup_thread (PinosDataLoop *this)
   uint64_t u = 1;
 
   if (write (priv->fds[0].fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
-    g_warning ("data-loop %p: failed to write fd", strerror (errno));
+    g_warning ("data-loop %p: failed to write fd: %s", this, strerror (errno));
 }
 
 static void
@@ -173,7 +200,7 @@ start_thread (PinosDataLoop *this)
   if (!priv->running) {
     priv->running = true;
     if ((err = pthread_create (&priv->thread, NULL, loop, this)) != 0) {
-      g_warning ("data-loop %p: can't create thread", strerror (err));
+      g_warning ("data-loop %p: can't create thread: %s", this, strerror (err));
       priv->running = false;
     }
   }
@@ -276,6 +303,48 @@ do_remove_item (SpaPoll         *poll,
   return SPA_RESULT_OK;
 }
 
+static SpaResult
+do_invoke (SpaPoll           *poll,
+           SpaPollInvokeFunc  func,
+           uint32_t           seq,
+           size_t             size,
+           void              *data,
+           void              *user_data)
+{
+  PinosDataLoop *this = SPA_CONTAINER_OF (poll, PinosDataLoop, poll);
+  PinosDataLoopPrivate *priv = this->priv;
+  SpaRingbufferArea areas[2];
+  InvokeItem *item;
+
+  spa_ringbuffer_get_write_areas (&priv->buffer, areas);
+  if (areas[0].len < sizeof (InvokeItem)) {
+    g_warning ("queue full");
+    return SPA_RESULT_ERROR;
+  }
+  item = SPA_MEMBER (priv->buffer_data, areas[0].offset, InvokeItem);
+  item->seq = seq;
+  item->func = func;
+  item->user_data = user_data;
+  item->size = size;
+
+  if (areas[0].len > sizeof (InvokeItem) + size) {
+    item->data = SPA_MEMBER (item, sizeof (InvokeItem), void);
+    item->item_size = sizeof (InvokeItem) + size;
+    if (areas[0].len < sizeof (InvokeItem) + item->item_size)
+      item->item_size = areas[0].len;
+  } else {
+    item->data = SPA_MEMBER (priv->buffer_data, areas[1].offset, void);
+    item->item_size = areas[0].len + 1 + size;
+  }
+  memcpy (item->data, data, size);
+
+  spa_ringbuffer_write_advance (&priv->buffer, item->item_size);
+
+  wakeup_thread (this);
+
+  return SPA_RESULT_RETURN_ASYNC (seq);
+}
+
 static void
 pinos_data_loop_constructed (GObject * obj)
 {
@@ -328,7 +397,7 @@ pinos_data_loop_class_init (PinosDataLoopClass * klass)
 static void
 pinos_data_loop_init (PinosDataLoop * this)
 {
-  this->priv = PINOS_DATA_LOOP_GET_PRIVATE (this);
+  PinosDataLoopPrivate *priv = this->priv = PINOS_DATA_LOOP_GET_PRIVATE (this);
 
   g_debug ("data-loop %p: new", this);
 
@@ -337,6 +406,9 @@ pinos_data_loop_init (PinosDataLoop * this)
   this->poll.add_item = do_add_item;
   this->poll.update_item = do_update_item;
   this->poll.remove_item = do_remove_item;
+  this->poll.invoke = do_invoke;
+
+  spa_ringbuffer_init (&priv->buffer, DATAS_SIZE);
 }
 
 /**

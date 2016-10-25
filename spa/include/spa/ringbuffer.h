@@ -30,6 +30,7 @@ typedef struct _SpaRingbuffer SpaRingbuffer;
 #define SPA_RINGBUFFER_PREFIX          SPA_RINGBUFFER_URI "#"
 
 #include <spa/defs.h>
+#include <spa/barrier.h>
 
 typedef struct {
   off_t   offset;
@@ -47,7 +48,8 @@ struct _SpaRingbuffer {
   volatile size_t     readindex;
   volatile size_t     writeindex;
   size_t              size;
-  size_t              size_mask;
+  size_t              mask;
+  size_t              mask2;
 };
 
 /**
@@ -57,20 +59,24 @@ struct _SpaRingbuffer {
  * @size: the number of elements in @data
  *
  * Initialize a #SpaRingbuffer with @data and @size.
- * When size is a power of 2, size_mask will be set with the mask to
- * efficiently wrap around the indexes.
+ * Size must be a power of 2.
+ *
+ * Returns: %SPA_RESULT_OK, unless size is not a power of 2.
  */
-static inline void
+static inline SpaResult
 spa_ringbuffer_init (SpaRingbuffer *rbuf,
                      size_t size)
 {
+  if ((size & (size - 1)) != 0)
+    return SPA_RESULT_ERROR;
+
   rbuf->size = size;
+  rbuf->mask = size - 1;
+  rbuf->mask2 = (size << 1) - 1;
   rbuf->readindex = 0;
   rbuf->writeindex = 0;
-  if ((size & (size - 1)) == 0)
-    rbuf->size_mask = size - 1;
-  else
-    rbuf->size_mask = 0;
+
+  return SPA_RESULT_OK;
 }
 
 /**
@@ -86,6 +92,21 @@ spa_ringbuffer_clear (SpaRingbuffer *rbuf)
   rbuf->writeindex = 0;
 }
 
+static inline size_t
+spa_ringbuffer_get_read_offset (SpaRingbuffer *rbuf,
+                                size_t        *offset)
+{
+  size_t avail, r;
+
+  r = rbuf->readindex;
+  *offset = r & rbuf->mask;
+  avail = (rbuf->writeindex - r) & rbuf->mask2;
+
+  spa_barrier_read();
+
+  return avail;
+}
+
 /**
  * spa_ringbuffer_get_read_areas:
  * @rbuf: a #SpaRingbuffer
@@ -98,17 +119,9 @@ static inline void
 spa_ringbuffer_get_read_areas (SpaRingbuffer      *rbuf,
                                SpaRingbufferArea   areas[2])
 {
-  size_t avail, end, w, r;
+  size_t avail, end, r;
 
-  w = rbuf->writeindex;
-  r = rbuf->readindex;
-
-  if (w > r) {
-    avail = w - r;
-  } else {
-    avail = (w - r + rbuf->size);
-    avail = (rbuf->size_mask ? avail & rbuf->size_mask : avail % rbuf->size);
-  }
+  avail = spa_ringbuffer_get_read_offset (rbuf, &r);
   end = r + avail;
 
   areas[0].offset = r;
@@ -123,25 +136,6 @@ spa_ringbuffer_get_read_areas (SpaRingbuffer      *rbuf,
   }
 }
 
-static inline size_t
-spa_ringbuffer_get_read_offset (SpaRingbuffer *rbuf,
-                                size_t        *offset)
-{
-  size_t avail, w, r;
-
-  w = rbuf->writeindex;
-  r = rbuf->readindex;
-
-  if (w > r) {
-    avail = w - r;
-  } else {
-    avail = (w - r + rbuf->size);
-    avail = (rbuf->size_mask ? avail & rbuf->size_mask : avail % rbuf->size);
-  }
-  *offset = r;
-  return avail;
-}
-
 /**
  * spa_ringbuffer_read_advance:
  * @rbuf: a #SpaRingbuffer
@@ -153,9 +147,22 @@ static inline void
 spa_ringbuffer_read_advance (SpaRingbuffer      *rbuf,
                              ssize_t             len)
 {
-  size_t tmp = rbuf->readindex + len;
-  __sync_synchronize();
-  rbuf->readindex = (rbuf->size_mask ? tmp & rbuf->size_mask : tmp % rbuf->size);
+  spa_barrier_full();
+  rbuf->readindex = (rbuf->readindex + len) & rbuf->mask2;
+}
+
+static inline size_t
+spa_ringbuffer_get_write_offset (SpaRingbuffer *rbuf,
+                                 size_t        *offset)
+{
+  size_t avail, w;
+
+  w = rbuf->writeindex;
+  *offset = w & rbuf->mask;
+  avail = rbuf->size - ((w - rbuf->readindex) & rbuf->mask2);
+  spa_barrier_full();
+
+  return avail;
 }
 
 /**
@@ -170,20 +177,9 @@ static inline void
 spa_ringbuffer_get_write_areas (SpaRingbuffer      *rbuf,
                                 SpaRingbufferArea   areas[2])
 {
-  size_t avail, end, w, r;
+  size_t avail, end, w;
 
-  w = rbuf->writeindex;
-  r = rbuf->readindex;
-
-  if (w > r) {
-    avail = (r - w + rbuf->size);
-    avail = (rbuf->size_mask ? avail & rbuf->size_mask : avail % rbuf->size);
-  } else if (w < r) {
-    avail = r - w;
-  } else {
-    avail = rbuf->size;
-  }
-  avail -= 1;
+  avail = spa_ringbuffer_get_write_offset (rbuf, &w);
   end = w + avail;
 
   areas[0].offset = w;
@@ -198,28 +194,6 @@ spa_ringbuffer_get_write_areas (SpaRingbuffer      *rbuf,
   }
 }
 
-static inline size_t
-spa_ringbuffer_get_write_offset (SpaRingbuffer *rbuf,
-                                 size_t        *offset)
-{
-  size_t avail, w, r;
-
-  w = rbuf->writeindex;
-  r = rbuf->readindex;
-
-  if (w > r) {
-    avail = (r - w + rbuf->size);
-    avail = (rbuf->size_mask ? avail & rbuf->size_mask : avail % rbuf->size);
-  } else if (w < r) {
-    avail = r - w;
-  } else {
-    avail = rbuf->size;
-  }
-  avail -= 1;
-  *offset = w;
-  return avail;
-}
-
 /**
  * spa_ringbuffer_write_advance:
  * @rbuf: a #SpaRingbuffer
@@ -232,9 +206,8 @@ static inline void
 spa_ringbuffer_write_advance (SpaRingbuffer      *rbuf,
                               ssize_t             len)
 {
-  size_t tmp = rbuf->writeindex + len;
-  __sync_synchronize();
-  rbuf->writeindex = (rbuf->size_mask ? tmp & rbuf->size_mask : tmp % rbuf->size);
+  spa_barrier_write();
+  rbuf->writeindex = (rbuf->writeindex + len) & rbuf->mask2;
 }
 
 #ifdef __cplusplus

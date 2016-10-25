@@ -354,7 +354,9 @@ buffer_recycle (GstMiniObject *obj)
   src = data->src;
 
   GST_LOG_OBJECT (obj, "recycle buffer");
+  pinos_thread_main_loop_lock (src->loop);
   pinos_stream_recycle_buffer (src->stream, data->id);
+  pinos_thread_main_loop_unlock (src->loop);
 
   return FALSE;
 }

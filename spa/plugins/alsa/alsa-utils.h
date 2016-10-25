@@ -66,9 +66,12 @@ struct _SpaALSAState {
   SpaNode node;
   SpaClock clock;
 
+  uint32_t seq;
+
   URI uri;
   SpaIDMap *map;
   SpaLog *log;
+  SpaPoll *main_loop;
   SpaPoll *data_loop;
 
   snd_pcm_stream_t stream;
@@ -104,7 +107,7 @@ struct _SpaALSAState {
   SpaQueue free;
   SpaQueue ready;
 
-  bool running;
+  bool started;
   SpaPollFd fds[16];
   SpaPollItem poll;
 
@@ -117,8 +120,9 @@ int spa_alsa_set_format (SpaALSAState *state,
                          SpaFormatAudio *fmt,
                          SpaPortFormatFlags flags);
 
-int spa_alsa_start (SpaALSAState *state);
-int spa_alsa_stop (SpaALSAState *state);
+SpaResult spa_alsa_start (SpaALSAState *state);
+SpaResult spa_alsa_pause (SpaALSAState *state);
+SpaResult spa_alsa_close (SpaALSAState *state);
 
 #ifdef __cplusplus
 }  /* extern "C" */

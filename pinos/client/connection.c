@@ -156,8 +156,8 @@ connection_ensure_size (PinosConnection *conn, ConnectionBuffer *buf, size_t siz
 {
   if (buf->buffer_size + size > buf->buffer_maxsize) {
     buf->buffer_maxsize = buf->buffer_size + MAX_BUFFER_SIZE * ((size + MAX_BUFFER_SIZE-1) / MAX_BUFFER_SIZE);
-    buf->buffer_data = realloc (buf->buffer_data, buf->buffer_maxsize);
     g_debug ("connection %p: resize buffer to %zd", conn, buf->buffer_maxsize);
+    buf->buffer_data = realloc (buf->buffer_data, buf->buffer_maxsize);
   }
   return (uint8_t *) buf->buffer_data + buf->buffer_size;
 }

@@ -990,7 +990,8 @@ pinos_daemon_init (PinosDaemon * daemon)
                                                 g_str_equal,
                                                 g_free,
                                                 g_object_unref);
-  daemon->main_loop = pinos_main_loop_new();
+
+  daemon->main_loop = pinos_main_loop_new (g_main_context_get_thread_default ());
 
   priv->data_loop = pinos_data_loop_new();
 

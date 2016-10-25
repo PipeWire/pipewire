@@ -327,36 +327,39 @@ send_clock_update (PinosNode *this)
     g_debug ("got error %d", res);
 }
 
-static gboolean
-do_read_link (PinosNode *this, PinosLink *link)
+static SpaResult
+do_read_link (SpaPoll        *poll,
+              bool            async,
+              uint32_t        seq,
+              size_t          size,
+              void           *data,
+              void           *user_data)
 {
-  SpaRingbufferArea areas[2];
+  PinosNode *this = user_data;
+  PinosLink *link = ((PinosLink**)data)[0];
+  size_t offset;
   SpaResult res;
-  gboolean pushed = FALSE;
 
-  spa_ringbuffer_get_read_areas (&link->ringbuffer, areas);
-
-  if (areas[0].len > 0) {
+  if (spa_ringbuffer_get_read_offset (&link->ringbuffer, &offset) > 0) {
     SpaPortInputInfo iinfo[1];
 
     if (link->in_ready <= 0 || link->input == NULL)
-      return FALSE;
+      return SPA_RESULT_OK;
 
     link->in_ready--;
 
     iinfo[0].port_id = link->input->port;
-    iinfo[0].buffer_id = link->queue[areas[0].offset];
+    iinfo[0].buffer_id = link->queue[offset];
     iinfo[0].flags = SPA_PORT_INPUT_FLAG_NONE;
 
     if ((res = spa_node_port_push_input (link->input->node->node, 1, iinfo)) < 0)
       g_warning ("node %p: error pushing buffer: %d, %d", this, res, iinfo[0].status);
-    else
-      pushed = TRUE;
 
     spa_ringbuffer_read_advance (&link->ringbuffer, 1);
   }
-  return pushed;
+  return SPA_RESULT_OK;
 }
+
 
 static void
 on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
@@ -393,7 +396,12 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
           continue;
 
         link->in_ready++;
-        do_read_link (this, link);
+        spa_poll_invoke (&link->input->node->priv->data_loop->poll,
+                         do_read_link,
+                         SPA_ID_INVALID,
+                         sizeof (PinosLink *),
+                         &link,
+                         link->input->node);
       }
       break;
     }
@@ -414,17 +422,22 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
 
       for (i = 0; i < priv->rt.links->len; i++) {
         PinosLink *link = g_ptr_array_index (priv->rt.links, i);
-        SpaRingbufferArea areas[2];
+        size_t offset;
 
         if (link->output == NULL || link->output->port != ho->port_id)
           continue;
 
-        spa_ringbuffer_get_write_areas (&link->ringbuffer, areas);
-        if (areas[0].len > 0) {
-          link->queue[areas[0].offset] = oinfo[0].buffer_id;
+        if (spa_ringbuffer_get_write_offset (&link->ringbuffer, &offset) > 0) {
+          link->queue[offset] = oinfo[0].buffer_id;
           spa_ringbuffer_write_advance (&link->ringbuffer, 1);
 
-          pushed = do_read_link (this, link);
+          spa_poll_invoke (&link->input->node->priv->data_loop->poll,
+                           do_read_link,
+                           SPA_ID_INVALID,
+                           sizeof (PinosLink *),
+                           &link,
+                           link->input->node);
+          pushed = TRUE;
         }
       }
       if (!pushed) {
@@ -443,7 +456,7 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
       for (i = 0; i < priv->rt.links->len; i++) {
         PinosLink *link = g_ptr_array_index (priv->rt.links, i);
 
-        if (link->output == NULL || link->output->port != rb->port_id)
+        if (link->input == NULL || link->input->port != rb->port_id)
           continue;
 
         if ((res = spa_node_port_reuse_buffer (link->output->node->node,

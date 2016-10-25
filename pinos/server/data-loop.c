@@ -106,7 +106,6 @@ loop (void *user_data)
 
     /* rebuild */
     if (priv->rebuild_fds) {
-      g_debug ("data-loop %p: rebuild fds", this);
       priv->n_fds = 1;
       for (i = 0; i < priv->n_poll; i++) {
         SpaPollItem *p = &priv->poll[i];
@@ -142,7 +141,7 @@ loop (void *user_data)
       break;
     }
     if (r == 0) {
-      g_debug ("data-loop %p: select timeout should not happen", this);
+      g_warning ("data-loop %p: select timeout should not happen", this);
       continue;
     }
 
@@ -226,10 +225,8 @@ do_add_item (SpaPoll         *poll,
   PinosDataLoop *this = SPA_CONTAINER_OF (poll, PinosDataLoop, poll);
   PinosDataLoopPrivate *priv = this->priv;
   gboolean in_thread = pthread_equal (priv->thread, pthread_self());
-  unsigned int i;
 
   item->id = ++priv->counter;
-  g_debug ("data-loop %p: %d: add pollid %d, n_poll %d, n_fds %d", this, in_thread, item->id, priv->n_poll, item->n_fds);
   priv->poll[priv->n_poll] = *item;
   priv->n_poll++;
   if (item->n_fds)
@@ -238,10 +235,6 @@ do_add_item (SpaPoll         *poll,
   if (!in_thread) {
     wakeup_thread (this);
     start_thread (this);
-  }
-  for (i = 0; i < priv->n_poll; i++) {
-    if (priv->poll[i].n_fds > 0)
-      g_debug ("poll %d: %d %d", i, priv->poll[i].id, priv->poll[i].fds[0].fd);
   }
   return SPA_RESULT_OK;
 }
@@ -278,7 +271,6 @@ do_remove_item (SpaPoll         *poll,
   gboolean in_thread = pthread_equal (priv->thread, pthread_self());
   unsigned int i;
 
-  g_debug ("data-loop %p: %d: remove poll %d %d", this, item->id, item->n_fds, priv->n_poll);
   for (i = 0; i < priv->n_poll; i++) {
     if (priv->poll[i].id == item->id) {
       priv->n_poll--;
@@ -294,10 +286,6 @@ do_remove_item (SpaPoll         *poll,
   }
   if (priv->n_poll == 0) {
     stop_thread (this, in_thread);
-  }
-  for (i = 0; i < priv->n_poll; i++) {
-    if (priv->poll[i].n_fds > 0)
-      g_debug ("poll %d: %d %d", i, priv->poll[i].id, priv->poll[i].fds[0].fd);
   }
   return SPA_RESULT_OK;
 }
@@ -431,4 +419,10 @@ PinosDataLoop *
 pinos_data_loop_new (void)
 {
   return g_object_new (PINOS_TYPE_DATA_LOOP, NULL);
+}
+
+gboolean
+pinos_data_loop_in_thread (PinosDataLoop *loop)
+{
+  return pthread_equal (loop->priv->thread, pthread_self());
 }

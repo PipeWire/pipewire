@@ -11,6 +11,8 @@
 
 #define CHECK(s,msg) if ((err = (s)) < 0) { spa_log_error (state->log, msg ": %s\n", snd_strerror(err)); return err; }
 
+static int alsa_on_fd_events (SpaPollNotifyData *data);
+
 static int
 spa_alsa_open (SpaALSAState *state)
 {
@@ -31,12 +33,30 @@ spa_alsa_open (SpaALSAState *state)
                        SND_PCM_NO_AUTO_CHANNELS |
                        SND_PCM_NO_AUTO_FORMAT), "open failed");
 
+  if ((state->poll.n_fds = snd_pcm_poll_descriptors_count (state->hndl)) <= 0) {
+    spa_log_error (state->log, "Invalid poll descriptors count %d\n", state->poll.n_fds);
+    return SPA_RESULT_ERROR;
+  }
+  if ((err = snd_pcm_poll_descriptors (state->hndl, (struct pollfd *)state->fds, state->poll.n_fds)) < 0) {
+    spa_log_error (state->log, "Unable to obtain poll descriptors for playback: %s\n", snd_strerror(err));
+    return SPA_RESULT_ERROR;
+  }
+
+  state->poll.id = 0;
+  state->poll.enabled = false;
+  state->poll.fds = state->fds;
+  state->poll.idle_cb = NULL;
+  state->poll.before_cb = NULL;
+  state->poll.after_cb = alsa_on_fd_events;
+  state->poll.user_data = state;
+  spa_poll_add_item (state->data_loop, &state->poll);
+
   state->opened = true;
 
   return 0;
 }
 
-static int
+int
 spa_alsa_close (SpaALSAState *state)
 {
   int err = 0;
@@ -44,7 +64,9 @@ spa_alsa_close (SpaALSAState *state)
   if (!state->opened)
     return 0;
 
-  spa_log_info (state->log, "Playback device closing\n");
+  spa_poll_remove_item (state->data_loop, &state->poll);
+
+  spa_log_info (state->log, "Device closing\n");
   CHECK (snd_pcm_close (state->hndl), "close failed");
 
   state->opened = false;
@@ -426,54 +448,41 @@ alsa_on_fd_events (SpaPollNotifyData *data)
   return 0;
 }
 
-int
+SpaResult
 spa_alsa_start (SpaALSAState *state)
 {
   int err;
 
-  if (spa_alsa_open (state) < 0)
-    return -1;
-
-  if (state->n_buffers == 0)
-    return -1;
+  if (state->started)
+    return SPA_RESULT_OK;
 
   CHECK (set_swparams (state), "swparams");
-
   snd_pcm_dump (state->hndl, state->output);
 
-  if ((state->poll.n_fds = snd_pcm_poll_descriptors_count (state->hndl)) <= 0) {
-    spa_log_error (state->log, "Invalid poll descriptors count\n");
-    return state->poll.n_fds;
-  }
-  if ((err = snd_pcm_poll_descriptors (state->hndl, (struct pollfd *)state->fds, state->poll.n_fds)) < 0) {
-    spa_log_error (state->log, "Unable to obtain poll descriptors for playback: %s\n", snd_strerror(err));
-    return err;
+  if (state->stream == SND_PCM_STREAM_PLAYBACK) {
+    mmap_write (state);
   }
 
-  state->poll.id = 0;
   state->poll.enabled = true;
-  state->poll.fds = state->fds;
-  state->poll.idle_cb = NULL;
-  state->poll.before_cb = NULL;
-  state->poll.after_cb = alsa_on_fd_events;
-  state->poll.user_data = state;
-  spa_poll_add_item (state->data_loop, &state->poll);
+  spa_poll_update_item (state->data_loop, &state->poll);
 
-  mmap_write (state);
   err = snd_pcm_start (state->hndl);
+  state->started = true;
 
-  return err;
+  return SPA_RESULT_OK;
 }
 
-int
-spa_alsa_stop (SpaALSAState *state)
+SpaResult
+spa_alsa_pause (SpaALSAState *state)
 {
-  if (!state->opened)
-    return 0;
+  if (!state->started)
+    return SPA_RESULT_OK;
 
-  spa_poll_remove_item (state->data_loop, &state->poll);
+  state->poll.enabled = false;
+  spa_poll_update_item (state->data_loop, &state->poll);
+
   snd_pcm_drop (state->hndl);
-  spa_alsa_close (state);
+  state->started = false;
 
-  return 0;
+  return SPA_RESULT_OK;
 }

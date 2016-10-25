@@ -38,8 +38,8 @@ update_state (SpaALSASource *this, SpaNodeState state)
 }
 
 static const char default_device[] = "hw:0";
-static const uint32_t default_buffer_time = 100000;
-static const uint32_t default_period_time = 10000;
+static const uint32_t default_buffer_time = 1000;
+static const uint32_t default_period_time = 100;
 static const bool default_period_event = 0;
 
 static void
@@ -152,8 +152,85 @@ spa_alsa_source_node_set_props (SpaNode         *node,
 }
 
 static SpaResult
+do_send_event (SpaPoll        *poll,
+               bool            async,
+               uint32_t        seq,
+               size_t          size,
+               void           *data,
+               void           *user_data)
+{
+  SpaALSASource *this = user_data;
+
+  this->event_cb (&this->node, data, this->user_data);
+
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
+do_start (SpaPoll        *poll,
+          bool            async,
+          uint32_t        seq,
+          size_t          size,
+          void           *data,
+          void           *user_data)
+{
+  SpaALSASource *this = user_data;
+  SpaResult res;
+  SpaNodeEventAsyncComplete ac;
+
+  if (SPA_RESULT_IS_OK (res = spa_alsa_start (this))) {
+    update_state (this, SPA_NODE_STATE_STREAMING);
+  }
+
+  if (async) {
+    ac.event.type = SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE;
+    ac.event.size = sizeof (SpaNodeEventAsyncComplete);
+    ac.seq = seq;
+    ac.res = res;
+    spa_poll_invoke (this->main_loop,
+                     do_send_event,
+                     SPA_ID_INVALID,
+                     sizeof (ac),
+                     &ac,
+                     this);
+  }
+  return res;
+}
+
+static SpaResult
+do_pause (SpaPoll        *poll,
+          bool            async,
+          uint32_t        seq,
+          size_t          size,
+          void           *data,
+          void           *user_data)
+{
+  SpaALSASource *this = user_data;
+  SpaResult res;
+  SpaNodeEventAsyncComplete ac;
+
+  if (SPA_RESULT_IS_OK (res = spa_alsa_pause (this))) {
+    update_state (this, SPA_NODE_STATE_PAUSED);
+  }
+
+  if (async) {
+    ac.event.type = SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE;
+    ac.event.size = sizeof (SpaNodeEventAsyncComplete);
+    ac.seq = seq;
+    ac.res = res;
+    spa_poll_invoke (this->main_loop,
+                     do_send_event,
+                     SPA_ID_INVALID,
+                     sizeof (ac),
+                     &ac,
+                     this);
+  }
+  return res;
+}
+
+static SpaResult
 spa_alsa_source_node_send_command (SpaNode        *node,
-                                 SpaNodeCommand *command)
+                                   SpaNodeCommand *command)
 {
   SpaALSASource *this;
 
@@ -167,17 +244,36 @@ spa_alsa_source_node_send_command (SpaNode        *node,
       return SPA_RESULT_INVALID_COMMAND;
 
     case SPA_NODE_COMMAND_START:
-      if (spa_alsa_start (this) < 0)
-        return SPA_RESULT_ERROR;
+    {
+      if (!this->have_format)
+        return SPA_RESULT_NO_FORMAT;
 
-      update_state (this, SPA_NODE_STATE_STREAMING);
-      break;
+      if (this->n_buffers == 0)
+        return SPA_RESULT_NO_BUFFERS;
+
+      return spa_poll_invoke (this->data_loop,
+                              do_start,
+                              ++this->seq,
+                              0,
+                              NULL,
+                              this);
+
+    }
     case SPA_NODE_COMMAND_PAUSE:
-      if (spa_alsa_stop (this) < 0)
-        return SPA_RESULT_ERROR;
+    {
+      if (!this->have_format)
+        return SPA_RESULT_NO_FORMAT;
 
-      update_state (this, SPA_NODE_STATE_PAUSED);
-      break;
+      if (this->n_buffers == 0)
+        return SPA_RESULT_NO_BUFFERS;
+
+      return spa_poll_invoke (this->data_loop,
+                              do_pause,
+                              ++this->seq,
+                              0,
+                              NULL,
+                              this);
+    }
     case SPA_NODE_COMMAND_FLUSH:
     case SPA_NODE_COMMAND_DRAIN:
     case SPA_NODE_COMMAND_MARKER:
@@ -345,8 +441,10 @@ spa_alsa_source_node_port_set_format (SpaNode            *node,
     return SPA_RESULT_INVALID_PORT;
 
   if (format == NULL) {
-    this->have_format = false;
+    spa_alsa_pause (this);
     spa_alsa_clear_buffers (this);
+    spa_alsa_close (this);
+    this->have_format = false;
     update_state (this, SPA_NODE_STATE_CONFIGURE);
     return SPA_RESULT_OK;
   }
@@ -768,6 +866,8 @@ alsa_source_init (const SpaHandleFactory  *factory,
       this->log = support[i].data;
     else if (strcmp (support[i].uri, SPA_POLL__DataLoop) == 0)
       this->data_loop = support[i].data;
+    else if (strcmp (support[i].uri, SPA_POLL__MainLoop) == 0)
+      this->main_loop = support[i].data;
   }
   if (this->map == NULL) {
     spa_log_error (this->log, "an id-map is needed");

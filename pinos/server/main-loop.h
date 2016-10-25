@@ -70,8 +70,11 @@ typedef void (*PinosDeferFunc) (gpointer       obj,
 /* normal GObject stuff */
 GType               pinos_main_loop_get_type                (void);
 
-PinosMainLoop *     pinos_main_loop_new                     (void);
+PinosMainLoop *     pinos_main_loop_new                     (GMainContext *context);
 
+GMainLoop *         pinos_main_loop_get_impl                (PinosMainLoop  *loop);
+void                pinos_main_loop_run                     (PinosMainLoop  *loop);
+void                pinos_main_loop_quit                    (PinosMainLoop  *loop);
 
 gulong              pinos_main_loop_defer                   (PinosMainLoop  *loop,
                                                              gpointer        obj,

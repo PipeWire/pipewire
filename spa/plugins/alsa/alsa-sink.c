@@ -170,7 +170,7 @@ spa_alsa_sink_node_send_command (SpaNode        *node,
       update_state (this, SPA_NODE_STATE_STREAMING);
       break;
     case SPA_NODE_COMMAND_PAUSE:
-      spa_alsa_stop (this);
+      spa_alsa_pause (this);
 
       update_state (this, SPA_NODE_STATE_PAUSED);
       break;

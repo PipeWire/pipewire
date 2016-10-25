@@ -58,6 +58,9 @@ struct _WorkItem {
 
 struct _PinosMainLoopPrivate
 {
+  GMainContext *context;
+  GMainLoop *loop;
+
   gulong counter;
 
   SpaRingbuffer buffer;
@@ -77,6 +80,7 @@ G_DEFINE_TYPE (PinosMainLoop, pinos_main_loop, G_TYPE_OBJECT);
 enum
 {
   PROP_0,
+  PROP_MAIN_CONTEXT,
 };
 
 enum
@@ -226,12 +230,54 @@ do_invoke (SpaPoll           *poll,
 }
 
 static void
+pinos_main_loop_get_property (GObject    *_object,
+                              guint       prop_id,
+                              GValue     *value,
+                              GParamSpec *pspec)
+{
+  PinosMainLoop *loop = PINOS_MAIN_LOOP (_object);
+  PinosMainLoopPrivate *priv = loop->priv;
+
+  switch (prop_id) {
+    case PROP_MAIN_CONTEXT:
+      g_value_set_boxed (value, priv->context);
+      break;
+
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (loop, prop_id, pspec);
+      break;
+  }
+}
+
+static void
+pinos_main_loop_set_property (GObject      *_object,
+                              guint         prop_id,
+                              const GValue *value,
+                              GParamSpec   *pspec)
+{
+  PinosMainLoop *loop = PINOS_MAIN_LOOP (_object);
+  PinosMainLoopPrivate *priv = loop->priv;
+
+  switch (prop_id) {
+    case PROP_MAIN_CONTEXT:
+      priv->context = g_value_dup_boxed (value);
+      break;
+
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (loop, prop_id, pspec);
+      break;
+  }
+}
+
+
+static void
 pinos_main_loop_constructed (GObject * obj)
 {
   PinosMainLoop *this = PINOS_MAIN_LOOP (obj);
   PinosMainLoopPrivate *priv = this->priv;
 
   g_debug ("main-loop %p: constructed", this);
+  priv->loop = g_main_loop_new (priv->context, FALSE);
 
   priv->fds[0].fd = eventfd (0, 0);
   priv->fds[0].events = POLLIN | POLLPRI | POLLERR;
@@ -264,8 +310,11 @@ static void
 pinos_main_loop_finalize (GObject * obj)
 {
   PinosMainLoop *this = PINOS_MAIN_LOOP (obj);
+  PinosMainLoopPrivate *priv = this->priv;
 
   g_debug ("main-loop %p: finalize", this);
+
+  g_slice_free_chain (WorkItem, priv->free_list, next);
 
   G_OBJECT_CLASS (pinos_main_loop_parent_class)->finalize (obj);
 }
@@ -280,6 +329,19 @@ pinos_main_loop_class_init (PinosMainLoopClass * klass)
   gobject_class->constructed = pinos_main_loop_constructed;
   gobject_class->dispose = pinos_main_loop_dispose;
   gobject_class->finalize = pinos_main_loop_finalize;
+  gobject_class->set_property = pinos_main_loop_set_property;
+  gobject_class->get_property = pinos_main_loop_get_property;
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_MAIN_CONTEXT,
+                                   g_param_spec_boxed ("main-context",
+                                                       "Main Context",
+                                                       "The main context to use",
+                                                       G_TYPE_MAIN_CONTEXT,
+                                                       G_PARAM_READWRITE |
+                                                       G_PARAM_CONSTRUCT_ONLY |
+                                                       G_PARAM_STATIC_STRINGS));
+
 }
 
 static void
@@ -302,15 +364,18 @@ pinos_main_loop_init (PinosMainLoop * this)
 
 /**
  * pinos_main_loop_new:
+ * @context: a #GMainContext or %NULL to use the default context
  *
  * Create a new #PinosMainLoop.
  *
  * Returns: a new #PinosMainLoop
  */
 PinosMainLoop *
-pinos_main_loop_new (void)
+pinos_main_loop_new (GMainContext *context)
 {
-  return g_object_new (PINOS_TYPE_MAIN_LOOP, NULL);
+  return g_object_new (PINOS_TYPE_MAIN_LOOP,
+                       "main-context", context,
+                       NULL);
 }
 
 static gboolean
@@ -340,7 +405,10 @@ process_work_queue (PinosMainLoop *this)
       item->func (item->obj, item->data, item->res, item->id);
     if (item->notify)
       item->notify (item->data);
-    g_slice_free (WorkItem, item);
+
+    item->next = priv->free_list;
+    priv->free_list = item;
+
     item = prev;
   }
   return FALSE;
@@ -361,7 +429,12 @@ pinos_main_loop_defer (PinosMainLoop  *loop,
   g_return_val_if_fail (PINOS_IS_MAIN_LOOP (loop), 0);
   priv = loop->priv;
 
-  item = g_slice_new (WorkItem);
+  if (priv->free_list) {
+    item = priv->free_list;
+    priv->free_list = item->next;
+  } else {
+    item = g_slice_new (WorkItem);
+  }
   item->id = ++priv->counter;
   item->obj = obj;
   item->func = func;
@@ -439,4 +512,28 @@ pinos_main_loop_defer_complete (PinosMainLoop  *loop,
 
   if (priv->work_id == 0 && have_work)
     priv->work_id = g_idle_add ((GSourceFunc) process_work_queue, loop);
+}
+
+GMainLoop *
+pinos_main_loop_get_impl (PinosMainLoop *loop)
+{
+  g_return_val_if_fail (PINOS_IS_MAIN_LOOP (loop), NULL);
+
+  return loop->priv->loop;
+}
+
+void
+pinos_main_loop_quit (PinosMainLoop *loop)
+{
+  g_return_if_fail (PINOS_IS_MAIN_LOOP (loop));
+
+  g_main_loop_quit (loop->priv->loop);
+}
+
+void
+pinos_main_loop_run (PinosMainLoop *loop)
+{
+  g_return_if_fail (PINOS_IS_MAIN_LOOP (loop));
+
+  g_main_loop_run (loop->priv->loop);
 }

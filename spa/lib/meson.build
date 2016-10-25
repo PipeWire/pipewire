@@ -5,6 +5,8 @@ spalib_sources = ['debug.c',
 
 spalib = shared_library('spa-lib',
                          spalib_sources,
+                         version : libversion,
+                         soversion : soversion,
                          include_directories : [ spa_inc, spa_libinc ],
                          install : true)
 

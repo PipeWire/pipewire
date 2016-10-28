@@ -23,6 +23,8 @@
 #include <gio/gio.h>
 #include <glib-object.h>
 
+#include <spa/include/spa/defs.h>
+
 G_BEGIN_DECLS
 
 /**
@@ -59,9 +61,9 @@ const gchar * pinos_node_state_as_string (PinosNodeState state);
  * The direction of a port
  */
 typedef enum {
-  PINOS_DIRECTION_INVALID = 0,
-  PINOS_DIRECTION_INPUT = 1,
-  PINOS_DIRECTION_OUTPUT = 2
+  PINOS_DIRECTION_INVALID = SPA_DIRECTION_INVALID,
+  PINOS_DIRECTION_INPUT = SPA_DIRECTION_INPUT,
+  PINOS_DIRECTION_OUTPUT = SPA_DIRECTION_OUTPUT
 } PinosDirection;
 
 const gchar * pinos_direction_as_string (PinosDirection direction);

@@ -17,15 +17,20 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <poll.h>
 #include <errno.h>
 #include <sys/eventfd.h>
+#include <limits.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 
 #include <gio/gio.h>
 
 #include "spa/include/spa/ringbuffer.h"
+#include "pinos/client/rtkit.h"
 #include "pinos/server/data-loop.h"
 
 #define PINOS_DATA_LOOP_GET_PRIVATE(loop)  \
@@ -60,6 +65,7 @@ struct _PinosDataLoopPrivate
 
   gboolean running;
   pthread_t thread;
+
 };
 
 G_DEFINE_TYPE (PinosDataLoop, pinos_data_loop, G_TYPE_OBJECT);
@@ -74,6 +80,52 @@ enum
   LAST_SIGNAL
 };
 
+static void
+make_realtime (PinosDataLoop *this)
+{
+  struct sched_param sp;
+  GDBusConnection *system_bus;
+  GError *error = NULL;
+  struct rlimit rl;
+  int r, rtprio;
+  long long rttime;
+
+  rtprio = 20;
+  rttime = 20000;
+
+  spa_zero (sp);
+  sp.sched_priority = rtprio;
+
+  if (pthread_setschedparam (pthread_self(), SCHED_RR|SCHED_RESET_ON_FORK, &sp) == 0) {
+    g_debug ("SCHED_OTHER|SCHED_RESET_ON_FORK worked.");
+    return;
+  }
+  system_bus = g_bus_get_sync (G_BUS_TYPE_SYSTEM, NULL, NULL);
+
+  rl.rlim_cur = rl.rlim_max = rttime;
+  if ((r = setrlimit (RLIMIT_RTTIME, &rl)) < 0)
+    g_debug ("setrlimit() failed: %s", strerror (errno));
+
+  if (rttime >= 0) {
+    r = getrlimit (RLIMIT_RTTIME, &rl);
+    if (r >= 0 && (long long) rl.rlim_max > rttime) {
+      g_debug ("Clamping rlimit-rttime to %lld for RealtimeKit", rttime);
+      rl.rlim_cur = rl.rlim_max = rttime;
+
+      if ((r = setrlimit (RLIMIT_RTTIME, &rl)) < 0)
+        g_debug ("setrlimit() failed: %s", strerror (errno));
+    }
+  }
+
+  if (!pinos_rtkit_make_realtime (system_bus, 0, rtprio, &error)) {
+    g_debug ("could not make thread realtime: %s", error->message);
+    g_clear_error (&error);
+  } else {
+    g_debug ("thread made realtime");
+  }
+  g_object_unref (system_bus);
+}
+
 static void *
 loop (void *user_data)
 {
@@ -82,11 +134,14 @@ loop (void *user_data)
   SpaPoll *p = &this->poll;
   unsigned int i, j;
 
+  make_realtime (this);
+
   g_debug ("data-loop %p: enter thread", this);
   while (priv->running) {
     SpaPollNotifyData ndata;
     unsigned int n_idle = 0;
     int r;
+    struct timespec ts;
 
     /* prepare */
     for (i = 0; i < priv->n_poll; i++) {
@@ -160,6 +215,9 @@ loop (void *user_data)
       }
       continue;
     }
+
+//    clock_gettime (CLOCK_MONOTONIC, &ts);
+//    fprintf (stderr, "%llu\n", SPA_TIMESPEC_TO_TIME (&ts));
 
     /* after */
     for (i = 0; i < priv->n_poll; i++) {
@@ -283,9 +341,6 @@ do_remove_item (SpaPoll         *poll,
     priv->rebuild_fds = true;
     if (!in_thread)
       wakeup_thread (this);
-  }
-  if (priv->n_poll == 0) {
-    stop_thread (this, in_thread);
   }
   return SPA_RESULT_OK;
 }

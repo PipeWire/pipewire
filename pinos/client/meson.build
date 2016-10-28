@@ -4,8 +4,9 @@ pinos_headers = [
   'introspect.h',
   'pinos.h',
   'properties.h',
-  'stream.h',
   'ringbuffer.h',
+  'rtkit.h',
+  'stream.h',
   'subscribe.h',
   'thread-mainloop.h',
 ]
@@ -20,6 +21,7 @@ pinos_sources = [
   'stream.c',
   'pinos.c',
   'ringbuffer.c',
+  'rtkit.c',
   'subscribe.c',
   'thread-mainloop.c',
   gdbus_target,

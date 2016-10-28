@@ -52,6 +52,9 @@ struct _SpaQueue {
     (q)->length++;                              \
   } while (0);
 
+#define SPA_QUEUE_PEEK_HEAD(q,t,i)              \
+    ((i) = (t*)((q)->head));
+
 #define SPA_QUEUE_POP_HEAD(q,t,next,i)          \
   do {                                          \
     if (((i) = (t*)((q)->head)) == NULL)        \

@@ -85,7 +85,7 @@ gulong              pinos_main_loop_defer                   (PinosMainLoop  *loo
 void                pinos_main_loop_defer_cancel            (PinosMainLoop  *loop,
                                                              gpointer        obj,
                                                              gulong          id);
-void                pinos_main_loop_defer_complete          (PinosMainLoop  *loop,
+gboolean            pinos_main_loop_defer_complete          (PinosMainLoop  *loop,
                                                              gpointer        obj,
                                                              uint32_t        seq,
                                                              SpaResult       res);

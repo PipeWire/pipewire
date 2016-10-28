@@ -47,7 +47,7 @@ typedef struct {
   bool period_event;
 } SpaALSAProps;
 
-#define MAX_BUFFERS 16
+#define MAX_BUFFERS 64
 
 struct _SpaALSABuffer {
   SpaBuffer *outbuf;
@@ -106,6 +106,7 @@ struct _SpaALSAState {
 
   SpaQueue free;
   SpaQueue ready;
+  size_t ready_offset;
 
   bool started;
   SpaPollFd fds[16];
@@ -120,8 +121,8 @@ int spa_alsa_set_format (SpaALSAState *state,
                          SpaFormatAudio *fmt,
                          SpaPortFormatFlags flags);
 
-SpaResult spa_alsa_start (SpaALSAState *state);
-SpaResult spa_alsa_pause (SpaALSAState *state);
+SpaResult spa_alsa_start (SpaALSAState *state, bool xrun_recover);
+SpaResult spa_alsa_pause (SpaALSAState *state, bool xrun_recover);
 SpaResult spa_alsa_close (SpaALSAState *state);
 
 #ifdef __cplusplus

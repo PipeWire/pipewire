@@ -125,8 +125,8 @@ add_item (PinosSpaALSAMonitor *this, SpaMonitorItem *item)
     return;
   }
   if ((res = spa_handle_get_interface (handle, priv->uri.clock, &clock_iface)) < 0) {
-    g_error ("can't get CLOCK interface: %d", res);
-    return;
+    g_debug ("can't get CLOCK interface: %d", res);
+    clock_iface = NULL;
   }
 
   if (item->info) {

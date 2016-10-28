@@ -33,18 +33,11 @@ spa_alsa_open (SpaALSAState *state)
                        SND_PCM_NO_AUTO_CHANNELS |
                        SND_PCM_NO_AUTO_FORMAT), "open failed");
 
-  if ((state->poll.n_fds = snd_pcm_poll_descriptors_count (state->hndl)) <= 0) {
-    spa_log_error (state->log, "Invalid poll descriptors count %d\n", state->poll.n_fds);
-    return SPA_RESULT_ERROR;
-  }
-  if ((err = snd_pcm_poll_descriptors (state->hndl, (struct pollfd *)state->fds, state->poll.n_fds)) < 0) {
-    spa_log_error (state->log, "Unable to obtain poll descriptors for playback: %s\n", snd_strerror(err));
-    return SPA_RESULT_ERROR;
-  }
 
   state->poll.id = 0;
   state->poll.enabled = false;
   state->poll.fds = state->fds;
+  state->poll.n_fds = 0;
   state->poll.idle_cb = NULL;
   state->poll.before_cb = NULL;
   state->poll.after_cb = alsa_on_fd_events;
@@ -242,33 +235,31 @@ set_swparams (SpaALSAState *state)
 static int
 xrun_recovery (SpaALSAState *state, snd_pcm_t *hndl, int err)
 {
-  if (err == -EPIPE) {	/* under-run */
-    err = snd_pcm_prepare(hndl);
-    if (err < 0)
-      spa_log_error (state->log, "Can't recovery from underrun, prepare failed: %s\n", snd_strerror(err));
-    return 0;
-  } else if (err == -ESTRPIPE) {
-    while ((err = snd_pcm_resume(hndl)) == -EAGAIN)
-      sleep(1);	/* wait until the suspend flag is released */
-    if (err < 0) {
-      err = snd_pcm_prepare(hndl);
-      if (err < 0)
-        spa_log_error (state->log, "Can't recovery from suspend, prepare failed: %s\n", snd_strerror(err));
-    }
-    return 0;
+  snd_pcm_status_t *status;
+
+  snd_pcm_status_alloca (&status);
+
+  if ((err = snd_pcm_status (hndl, status)) < 0) {
+    spa_log_error (state->log, "snd_pcm_status error: %s\n", snd_strerror (err));
   }
+
+  if (snd_pcm_status_get_state (status) == SND_PCM_STATE_SUSPENDED) {
+    spa_log_info (state->log, "SUSPENDED, trying to resume\n");
+
+    if ((err = snd_pcm_prepare (hndl)) < 0) {
+      spa_log_error (state->log, "snd_pcm_prepare error: %s\n", snd_strerror (err));
+    }
+  }
+  if (snd_pcm_status_get_state (status) == SND_PCM_STATE_XRUN) {
+    spa_log_info (state->log, "XRUN\n");
+  }
+
+  if (spa_alsa_pause (state, true) != SPA_RESULT_OK)
+    return -1;
+  if (spa_alsa_start (state, true) != SPA_RESULT_OK)
+    return -1;
+
   return err;
-}
-
-static void
-pull_input (SpaALSAState *state, void *data, snd_pcm_uframes_t frames)
-{
-  SpaNodeEventNeedInput ni;
-
-  ni.event.type = SPA_NODE_EVENT_TYPE_NEED_INPUT;
-  ni.event.size = sizeof (ni);
-  ni.port_id = 0;
-  state->event_cb (&state->node, &ni.event, state->user_data);
 }
 
 static int
@@ -276,37 +267,73 @@ mmap_write (SpaALSAState *state)
 {
   snd_pcm_t *hndl = state->hndl;
   int err;
-  snd_pcm_sframes_t avail, commitres;
+  snd_pcm_sframes_t avail;
   snd_pcm_uframes_t offset, frames, size;
   const snd_pcm_channel_area_t *my_areas;
+  SpaNodeEventNeedInput ni;
+  SpaALSABuffer *b;
+  snd_pcm_status_t *status;
 
-  if ((avail = snd_pcm_avail_update (hndl)) < 0) {
-    if ((err = xrun_recovery (state, hndl, avail)) < 0) {
-      spa_log_error (state->log, "Write error: %s\n", snd_strerror (err));
-      return -1;
-    }
+  snd_pcm_status_alloca (&status);
+
+  if ((err = snd_pcm_status (hndl, status)) < 0) {
+    spa_log_error (state->log, "snd_pcm_status error: %s\n", snd_strerror (err));
+    return -1;
   }
+
+  avail = snd_pcm_status_get_avail (status);
 
   size = avail;
   while (size > 0) {
     frames = size;
     if ((err = snd_pcm_mmap_begin (hndl, &my_areas, &offset, &frames)) < 0) {
-      if ((err = xrun_recovery (state, hndl, err)) < 0) {
-        spa_log_error (state->log, "MMAP begin avail error: %s\n", snd_strerror(err));
-        return -1;
-      }
+      spa_log_error (state->log, "snd_pcm_mmap_begin error: %s\n", snd_strerror(err));
+      return -1;
     }
 
-    pull_input (state,
-                (uint8_t *)my_areas[0].addr + (offset * sizeof (uint16_t) * 2),
-                frames);
+    ni.event.type = SPA_NODE_EVENT_TYPE_NEED_INPUT;
+    ni.event.size = sizeof (ni);
+    ni.port_id = 0;
+    state->event_cb (&state->node, &ni.event, state->user_data);
 
-    commitres = snd_pcm_mmap_commit (hndl, offset, frames);
-    if (commitres < 0 || (snd_pcm_uframes_t)commitres != frames) {
-      if ((err = xrun_recovery (state, hndl, commitres >= 0 ? -EPIPE : commitres)) < 0) {
-        spa_log_error (state->log, "MMAP commit error: %s\n", snd_strerror(err));
-        return -1;
+    SPA_QUEUE_PEEK_HEAD (&state->ready, SpaALSABuffer, b);
+
+    if (b) {
+      uint8_t *src;
+      size_t n_bytes;
+
+      src = SPA_MEMBER (b->outbuf->datas[0].data, b->outbuf->datas[0].offset + state->ready_offset, void);
+      n_bytes = SPA_MIN (b->outbuf->datas[0].size - state->ready_offset, frames * state->frame_size);
+      frames = SPA_MIN (frames, n_bytes / state->frame_size);
+
+      memcpy ((uint8_t *)my_areas[0].addr + (offset * state->frame_size),
+              src,
+              n_bytes);
+
+      state->ready_offset += n_bytes;
+      if (state->ready_offset >= b->outbuf->datas[0].size) {
+        SpaNodeEventReuseBuffer rb;
+
+        SPA_QUEUE_POP_HEAD (&state->ready, SpaALSABuffer, next, b);
+        b->outstanding = true;
+
+        rb.event.type = SPA_NODE_EVENT_TYPE_REUSE_BUFFER;
+        rb.event.size = sizeof (rb);
+        rb.port_id = 0;
+        rb.buffer_id = b->outbuf->id;
+        state->event_cb (&state->node, &rb.event, state->user_data);
+
+        state->ready_offset = 0;
       }
+    } else {
+      spa_log_warn (state->log, "underrun\n");
+      snd_pcm_areas_silence (my_areas, offset, state->channels, frames, state->format);
+    }
+
+    if ((err = snd_pcm_mmap_commit (hndl, offset, frames)) < 0) {
+      spa_log_error (state->log, "snd_pcm_mmap_commit error: %s\n", snd_strerror(err));
+      if (err != -EPIPE && err != -ESTRPIPE)
+        return -1;
     }
     size -= frames;
   }
@@ -318,7 +345,7 @@ mmap_read (SpaALSAState *state)
 {
   snd_pcm_t *hndl = state->hndl;
   int err;
-  snd_pcm_sframes_t avail, commitres;
+  snd_pcm_sframes_t avail;
   snd_pcm_uframes_t offset, frames, size;
   snd_pcm_status_t *status;
   const snd_pcm_channel_area_t *my_areas;
@@ -330,8 +357,10 @@ mmap_read (SpaALSAState *state)
 
   snd_pcm_status_alloca(&status);
 
-  if ((err = snd_pcm_status (hndl, status)) < 0)
+  if ((err = snd_pcm_status (hndl, status)) < 0) {
+    spa_log_error (state->log, "snd_pcm_status error: %s\n", snd_strerror(err));
     return err;
+  }
 
   avail = snd_pcm_status_get_avail (status);
   snd_pcm_status_get_htstamp (status, &htstamp);
@@ -361,10 +390,8 @@ mmap_read (SpaALSAState *state)
   while (size > 0) {
     frames = size;
     if ((err = snd_pcm_mmap_begin (hndl, &my_areas, &offset, &frames)) < 0) {
-      if ((err = xrun_recovery (state, hndl, err)) < 0) {
-        spa_log_error (state->log, "MMAP begin avail error: %s\n", snd_strerror (err));
-        return -1;
-      }
+      spa_log_error (state->log, "snd_pcm_mmap_begin error: %s\n", snd_strerror (err));
+      return -1;
     }
 
     if (b) {
@@ -374,16 +401,11 @@ mmap_read (SpaALSAState *state)
               (uint8_t *)my_areas[0].addr + (offset * state->frame_size),
               n_bytes);
       dest += n_bytes;
-    } else {
-      snd_pcm_areas_silence (my_areas, offset, state->channels, frames, state->format);
     }
 
-    commitres = snd_pcm_mmap_commit (hndl, offset, frames);
-    if (commitres < 0 || (snd_pcm_uframes_t)commitres != frames) {
-      if ((err = xrun_recovery (state, hndl, commitres >= 0 ? -EPIPE : commitres)) < 0) {
-        spa_log_error (state->log, "MMAP commit error: %s\n", snd_strerror(err));
-        return -1;
-      }
+    if ((err = snd_pcm_mmap_commit (hndl, offset, frames)) < 0) {
+      spa_log_error (state->log, "snd_pcm_mmap_commit error: %s\n", snd_strerror(err));
+      return -1;
     }
     size -= frames;
   }
@@ -413,34 +435,27 @@ alsa_on_fd_events (SpaPollNotifyData *data)
   SpaALSAState *state = data->user_data;
   snd_pcm_t *hndl = state->hndl;
   int err;
-  unsigned short revents;
+  unsigned short revents = 0;
 
   snd_pcm_poll_descriptors_revents (hndl,
                                     (struct pollfd *)data->fds,
                                     data->n_fds,
                                     &revents);
   if (revents & POLLERR) {
-    if (snd_pcm_state (hndl) == SND_PCM_STATE_XRUN ||
-        snd_pcm_state (hndl) == SND_PCM_STATE_SUSPENDED) {
-      err = snd_pcm_state (hndl) == SND_PCM_STATE_XRUN ? -EPIPE : -ESTRPIPE;
-      if ((err = xrun_recovery (state, hndl, err)) < 0) {
-        spa_log_error (state->log, "error: %s\n", snd_strerror (err));
-        return -1;
-      }
-    } else {
-      spa_log_error (state->log, "Wait for poll failed\n");
+    if ((err = xrun_recovery (state, hndl, err)) < 0) {
+      spa_log_error (state->log, "error: %s\n", snd_strerror (err));
       return -1;
     }
   }
 
   if (state->stream == SND_PCM_STREAM_CAPTURE) {
     if (!(revents & POLLIN))
-      return -1;
+      return 0;
 
     mmap_read (state);
   } else {
     if (!(revents & POLLOUT))
-      return -1;
+      return 0;
 
     mmap_write (state);
   }
@@ -449,7 +464,7 @@ alsa_on_fd_events (SpaPollNotifyData *data)
 }
 
 SpaResult
-spa_alsa_start (SpaALSAState *state)
+spa_alsa_start (SpaALSAState *state, bool xrun_recover)
 {
   int err;
 
@@ -457,31 +472,58 @@ spa_alsa_start (SpaALSAState *state)
     return SPA_RESULT_OK;
 
   CHECK (set_swparams (state), "swparams");
-  snd_pcm_dump (state->hndl, state->output);
+  if (!xrun_recover)
+    snd_pcm_dump (state->hndl, state->output);
+
+  if ((err = snd_pcm_prepare (state->hndl)) < 0) {
+    spa_log_error (state->log, "snd_pcm_prepare error: %s\n", snd_strerror (err));
+    return SPA_RESULT_ERROR;
+  }
+
+  if ((state->poll.n_fds = snd_pcm_poll_descriptors_count (state->hndl)) <= 0) {
+    spa_log_error (state->log, "Invalid poll descriptors count %d\n", state->poll.n_fds);
+    return SPA_RESULT_ERROR;
+  }
+  if ((err = snd_pcm_poll_descriptors (state->hndl, (struct pollfd *)state->fds, state->poll.n_fds)) < 0) {
+    spa_log_error (state->log, "snd_pcm_poll_descriptors: %s\n", snd_strerror(err));
+    return SPA_RESULT_ERROR;
+  }
+
+  if (!xrun_recover) {
+    state->poll.enabled = true;
+    spa_poll_update_item (state->data_loop, &state->poll);
+  }
 
   if (state->stream == SND_PCM_STREAM_PLAYBACK) {
     mmap_write (state);
   }
 
-  state->poll.enabled = true;
-  spa_poll_update_item (state->data_loop, &state->poll);
+  if ((err = snd_pcm_start (state->hndl)) < 0) {
+    spa_log_error (state->log, "snd_pcm_start: %s\n", snd_strerror (err));
+    return SPA_RESULT_ERROR;
+  }
 
-  err = snd_pcm_start (state->hndl);
   state->started = true;
 
   return SPA_RESULT_OK;
 }
 
 SpaResult
-spa_alsa_pause (SpaALSAState *state)
+spa_alsa_pause (SpaALSAState *state, bool xrun_recover)
 {
+  int err;
+
   if (!state->started)
     return SPA_RESULT_OK;
 
-  state->poll.enabled = false;
-  spa_poll_update_item (state->data_loop, &state->poll);
+  if (!xrun_recover) {
+    state->poll.enabled = false;
+    spa_poll_update_item (state->data_loop, &state->poll);
+  }
 
-  snd_pcm_drop (state->hndl);
+  if ((err = snd_pcm_drop (state->hndl)) < 0)
+    spa_log_error (state->log, "snd_pcm_drop %s\n", snd_strerror (err));
+
   state->started = false;
 
   return SPA_RESULT_OK;

@@ -874,7 +874,7 @@ handle_node_command (PinosStream    *stream,
       break;
     case SPA_NODE_COMMAND_PAUSE:
     {
-      g_debug ("stream %p: pause", stream);
+      g_debug ("stream %p: pause %d", stream, seq);
 
       add_state_change (stream, SPA_NODE_STATE_PAUSED);
       add_async_complete (stream, seq, SPA_RESULT_OK);
@@ -882,12 +882,12 @@ handle_node_command (PinosStream    *stream,
       if (!pinos_connection_flush (priv->conn))
         g_warning ("stream %p: error writing connection", stream);
 
-      stream_set_state (stream, PINOS_STREAM_STATE_READY, NULL);
+      stream_set_state (stream, PINOS_STREAM_STATE_PAUSED, NULL);
       break;
     }
     case SPA_NODE_COMMAND_START:
     {
-      g_debug ("stream %p: start", stream);
+      g_debug ("stream %p: start %d", stream, seq);
       add_state_change (stream, SPA_NODE_STATE_STREAMING);
       add_async_complete (stream, seq, SPA_RESULT_OK);
 
@@ -911,7 +911,6 @@ handle_node_command (PinosStream    *stream,
         g_warning ("stream %p: error writing connection", stream);
       break;
     }
-
     case SPA_NODE_COMMAND_CLOCK_UPDATE:
     {
       SpaNodeCommandClockUpdate *cu = (SpaNodeCommandClockUpdate *) command;
@@ -945,7 +944,7 @@ parse_connection (PinosStream *stream)
       case PINOS_CONTROL_CMD_PORT_STATUS_CHANGE:
       case PINOS_CONTROL_CMD_NODE_STATE_CHANGE:
       case PINOS_CONTROL_CMD_PROCESS_BUFFER:
-        g_warning ("got unexpected connection %d", cmd);
+        g_warning ("got unexpected command %d", cmd);
         break;
 
       case PINOS_CONTROL_CMD_ADD_PORT:
@@ -968,6 +967,7 @@ parse_connection (PinosStream *stream)
 
         priv->pending_seq = p.seq;
         g_object_notify (G_OBJECT (stream), "format");
+        stream_set_state (stream, PINOS_STREAM_STATE_READY, NULL);
         break;
       }
       case PINOS_CONTROL_CMD_SET_PROPERTY:
@@ -1114,6 +1114,11 @@ parse_connection (PinosStream *stream)
 
         if (!pinos_connection_flush (conn))
           g_warning ("stream %p: error writing connection", stream);
+
+        if (p.n_buffers)
+          stream_set_state (stream, PINOS_STREAM_STATE_PAUSED, NULL);
+        else
+          stream_set_state (stream, PINOS_STREAM_STATE_READY, NULL);
         break;
       }
       case PINOS_CONTROL_CMD_NODE_EVENT:
@@ -1136,7 +1141,15 @@ parse_connection (PinosStream *stream)
         handle_node_command (stream, p.seq, p.command);
         break;
       }
+      case PINOS_CONTROL_CMD_PORT_COMMAND:
+      {
+        PinosControlCmdPortCommand p;
 
+        if (!pinos_connection_parse_cmd (conn, &p))
+          break;
+
+        break;
+      }
       case PINOS_CONTROL_CMD_INVALID:
         g_warning ("unhandled command %d", cmd);
         break;
@@ -1167,7 +1180,7 @@ parse_rtconnection (PinosStream *stream)
       case PINOS_CONTROL_CMD_ADD_MEM:
       case PINOS_CONTROL_CMD_USE_BUFFERS:
       case PINOS_CONTROL_CMD_NODE_COMMAND:
-        g_warning ("got unexpected connection %d", cmd);
+        g_warning ("got unexpected command %d", cmd);
         break;
 
       case PINOS_CONTROL_CMD_PROCESS_BUFFER:
@@ -1200,6 +1213,10 @@ parse_rtconnection (PinosStream *stream)
           break;
 
         handle_rtnode_event (stream, p.event);
+        break;
+      }
+      case PINOS_CONTROL_CMD_PORT_COMMAND:
+      {
         break;
       }
     }
@@ -1344,7 +1361,7 @@ on_node_proxy (GObject      *source_object,
 
   do_node_init (stream);
 
-  stream_set_state (stream, PINOS_STREAM_STATE_READY, NULL);
+  stream_set_state (stream, PINOS_STREAM_STATE_CONFIGURE, NULL);
   g_object_unref (stream);
 
   return;
@@ -1664,9 +1681,7 @@ pinos_stream_start (PinosStream     *stream)
   g_return_val_if_fail (PINOS_IS_STREAM (stream), FALSE);
 
   priv = stream->priv;
-  g_return_val_if_fail (priv->state == PINOS_STREAM_STATE_READY, FALSE);
-
-  stream_set_state (stream, PINOS_STREAM_STATE_STARTING, NULL);
+  //g_return_val_if_fail (priv->state == PINOS_STREAM_STATE_PAUSED, FALSE);
 
   g_main_context_invoke (priv->context->priv->context,
                          (GSourceFunc) do_start,
@@ -1709,8 +1724,8 @@ pinos_stream_stop (PinosStream *stream)
 
 static void
 on_node_removed (GObject      *source_object,
-                          GAsyncResult *res,
-                          gpointer      user_data)
+                 GAsyncResult *res,
+                 gpointer      user_data)
 {
   PinosStream *stream = user_data;
   PinosStreamPrivate *priv = stream->priv;

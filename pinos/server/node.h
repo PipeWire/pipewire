@@ -29,6 +29,12 @@ typedef struct _PinosNode PinosNode;
 typedef struct _PinosNodeClass PinosNodeClass;
 typedef struct _PinosNodePrivate PinosNodePrivate;
 
+
+typedef enum {
+  PINOS_NODE_FLAG_NONE          = 0,
+  PINOS_NODE_FLAG_REMOVING      = (1 << 0),
+} PinosNodeFlags;
+
 #include <spa/include/spa/node.h>
 
 #include <pinos/client/introspect.h>
@@ -64,6 +70,8 @@ struct _PinosPort {
  */
 struct _PinosNode {
   GObject object;
+
+  PinosNodeFlags flags;
 
   SpaNode *node;
 
@@ -101,12 +109,6 @@ const gchar *       pinos_node_get_object_path         (PinosNode        *node);
 PinosPort *         pinos_node_get_free_port           (PinosNode        *node,
                                                         PinosDirection    direction);
 
-PinosLink *         pinos_node_link                    (PinosNode        *output_node,
-                                                        PinosPort        *output_port,
-                                                        PinosPort        *input_port,
-                                                        GPtrArray        *format_filter,
-                                                        PinosProperties  *properties,
-                                                        GError          **error);
 GList *             pinos_node_get_ports               (PinosNode        *node,
                                                         PinosDirection    direction);
 
@@ -117,6 +119,17 @@ void                pinos_node_update_state            (PinosNode *node, PinosNo
 void                pinos_node_report_error            (PinosNode *node, GError *error);
 void                pinos_node_report_idle             (PinosNode *node);
 void                pinos_node_report_busy             (PinosNode *node);
+
+PinosLink *         pinos_port_link                    (PinosPort        *output_port,
+                                                        PinosPort        *input_port,
+                                                        GPtrArray        *format_filter,
+                                                        PinosProperties  *properties,
+                                                        GError          **error);
+SpaResult           pinos_port_unlink                  (PinosPort        *port,
+                                                        PinosLink        *link);
+
+SpaResult           pinos_port_clear_buffers           (PinosPort        *port);
+
 
 G_END_DECLS
 

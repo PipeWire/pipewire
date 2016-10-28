@@ -389,11 +389,9 @@ process_work_queue (PinosMainLoop *this)
   for (item = priv->work.head, prev = NULL; item; prev = item, item = next) {
     next = item->next;
 
-    g_debug ("main-loop %p: peek work queue item %p seq %d, prev %p next %p", this, item->obj, item->seq, prev, next);
     if (item->seq != SPA_ID_INVALID)
       continue;
 
-    g_debug ("main-loop %p: process work item %p", this, item->obj);
     if (priv->work.tail == item)
       priv->work.tail = prev;
     if (prev == NULL)
@@ -401,8 +399,10 @@ process_work_queue (PinosMainLoop *this)
     else
       prev->next = next;
 
-    if (item->func)
+    if (item->func) {
+      g_debug ("main-loop %p: process work item %p", this, item->obj);
       item->func (item->obj, item->data, item->res, item->id);
+    }
     if (item->notify)
       item->notify (item->data);
 
@@ -484,7 +484,7 @@ pinos_main_loop_defer_cancel (PinosMainLoop  *loop,
     priv->work_id = g_idle_add ((GSourceFunc) process_work_queue, loop);
 }
 
-void
+gboolean
 pinos_main_loop_defer_complete (PinosMainLoop  *loop,
                                 gpointer        obj,
                                 uint32_t        seq,
@@ -494,10 +494,8 @@ pinos_main_loop_defer_complete (PinosMainLoop  *loop,
   PinosMainLoopPrivate *priv;
   gboolean have_work = FALSE;
 
-  g_return_if_fail (PINOS_IS_MAIN_LOOP (loop));
+  g_return_val_if_fail (PINOS_IS_MAIN_LOOP (loop), FALSE);
   priv = loop->priv;
-
-  g_debug ("main-loop %p: async complete %d %d for object %p", loop, seq, res, obj);
 
   for (item = priv->work.head; item; item = item->next) {
     if (item->obj == obj && item->seq == seq) {
@@ -512,6 +510,8 @@ pinos_main_loop_defer_complete (PinosMainLoop  *loop,
 
   if (priv->work_id == 0 && have_work)
     priv->work_id = g_idle_add ((GSourceFunc) process_work_queue, loop);
+
+  return have_work;
 }
 
 GMainLoop *

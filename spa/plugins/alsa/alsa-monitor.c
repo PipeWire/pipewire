@@ -25,6 +25,7 @@
 #include <poll.h>
 
 #include <libudev.h>
+#include <asoundlib.h>
 
 #include <spa/log.h>
 #include <spa/id-map.h>
@@ -32,6 +33,7 @@
 #include <spa/monitor.h>
 #include <spa/debug.h>
 
+extern const SpaHandleFactory spa_alsa_sink_factory;
 extern const SpaHandleFactory spa_alsa_source_factory;
 
 typedef struct _SpaALSAMonitor SpaALSAMonitor;
@@ -98,11 +100,16 @@ path_get_card_id (const char *path)
   return e + 5;
 }
 
+#define CHECK(s,msg) if ((err = (s)) < 0) { spa_log_error (state->log, msg ": %s\n", snd_strerror(err)); return err; }
+
 static int
-fill_item (ALSAItem *item, struct udev_device *udevice)
+fill_item (SpaALSAMonitor *this, ALSAItem *item, struct udev_device *udevice)
 {
+  int err;
   unsigned int i;
   const char *str;
+  snd_pcm_t *hndl;
+  char device[64];
 
   if (item->udevice)
     udev_device_unref (item->udevice);
@@ -120,12 +127,39 @@ fill_item (ALSAItem *item, struct udev_device *udevice)
   if ((str = path_get_card_id (udev_device_get_property_value (udevice, "DEVPATH"))) == NULL)
     return -1;
 
+  snprintf (device, 63, "hw:%s", str);
+
+  if ((err = snd_pcm_open (&hndl,
+                    device,
+                    SND_PCM_STREAM_PLAYBACK,
+                    SND_PCM_NONBLOCK |
+                    SND_PCM_NO_AUTO_RESAMPLE |
+                    SND_PCM_NO_AUTO_CHANNELS |
+                    SND_PCM_NO_AUTO_FORMAT)) < 0) {
+    spa_log_error (this->log, "PLAYBACK open failed: %s\n", snd_strerror(err));
+    if ((err = snd_pcm_open (&hndl,
+                      device,
+                      SND_PCM_STREAM_CAPTURE,
+                      SND_PCM_NONBLOCK |
+                      SND_PCM_NO_AUTO_RESAMPLE |
+                      SND_PCM_NO_AUTO_CHANNELS |
+                      SND_PCM_NO_AUTO_FORMAT)) < 0) {
+      spa_log_error (this->log, "CAPTURE open failed: %s\n", snd_strerror(err));
+      return -1;
+    } else {
+      item->item.factory = &spa_alsa_source_factory;
+      snd_pcm_close (hndl);
+    }
+  } else {
+    item->item.factory = &spa_alsa_sink_factory;
+    snd_pcm_close (hndl);
+  }
+
   item->item.id = udev_device_get_syspath (item->udevice);
   item->item.flags = 0;
   item->item.state = SPA_MONITOR_ITEM_STATE_AVAILABLE;
   item->item.klass = "Audio/Device";
   item->item.info = &item->info;
-  item->item.factory = &spa_alsa_source_factory;
 
   item->info.items = item->info_items;
   i = 0;
@@ -219,7 +253,7 @@ alsa_on_fd_events (SpaPollNotifyData *data)
   SpaMonitorItem *item;
 
   dev = udev_monitor_receive_device (this->umonitor);
-  if (fill_item (&this->uitem, dev) < 0)
+  if (fill_item (this, &this->uitem, dev) < 0)
     return 0;
 
   if ((str = udev_device_get_action (dev)) == NULL)
@@ -325,7 +359,7 @@ again:
   }
 
   if (*state == (void*)1) {
-    fill_item (&this->uitem, NULL);
+    fill_item (this, &this->uitem, NULL);
     return SPA_RESULT_ENUM_END;
   }
 
@@ -335,7 +369,7 @@ again:
   if ((*state = udev_list_entry_get_next (devices)) == NULL)
     *state = (void*)1;
 
-  if (fill_item (&this->uitem, dev) < 0)
+  if (fill_item (this, &this->uitem, dev) < 0)
     goto again;
 
   *item = &this->uitem.item;

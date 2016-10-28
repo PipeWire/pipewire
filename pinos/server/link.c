@@ -74,8 +74,7 @@ enum
 enum
 {
   SIGNAL_REMOVE,
-  SIGNAL_INPUT_UNLINKED,
-  SIGNAL_OUTPUT_UNLINKED,
+  SIGNAL_PORT_UNLINKED,
   LAST_SIGNAL
 };
 
@@ -388,10 +387,14 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
                  "error get input port info: %d", res);
     goto error;
   }
+  spa_debug_port_info (oinfo);
+  spa_debug_port_info (iinfo);
+
   in_flags = iinfo->flags;
   out_flags = oinfo->flags;
 
   if (out_flags & SPA_PORT_INFO_FLAG_LIVE) {
+    g_debug ("setting link as live");
     this->output->node->live = true;
     this->input->node->live = true;
   }
@@ -429,9 +432,6 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
     out_flags &= ~SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
   } else
     return SPA_RESULT_OK;
-
-  spa_debug_port_info (oinfo);
-  spa_debug_port_info (iinfo);
 
   if (priv->buffers == NULL) {
     SpaAllocParamBuffers *in_alloc, *out_alloc;
@@ -486,7 +486,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       }
       hdr_size += n_metas * sizeof (SpaMeta);
 
-      buf_size = hdr_size + minsize;
+      buf_size = SPA_ROUND_UP_N (hdr_size + minsize, 64);
 
       priv->n_buffers = max_buffers;
       pinos_memblock_alloc (PINOS_MEMBLOCK_FLAG_WITH_FD |
@@ -543,7 +543,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
           d->data = NULL;
         }
       }
-      g_debug ("allocated %d buffers %p", priv->n_buffers, priv->buffers);
+      g_debug ("allocated %d buffers %p %zd", priv->n_buffers, priv->buffers, minsize);
       priv->allocated = TRUE;
     }
 
@@ -665,10 +665,17 @@ do_start (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
 }
 
 static SpaResult
-check_states (PinosLink *this, SpaResult res)
+check_states (PinosLink *this,
+              gpointer   user_data,
+              SpaResult  res)
 {
   SpaNodeState in_state, out_state;
   PinosLinkPrivate *priv = this->priv;
+
+  if (res != SPA_RESULT_OK) {
+    g_warning ("link %p: error: %d", this, res);
+    return res;
+  }
 
 again:
   if (this->input == NULL || this->output == NULL)
@@ -745,15 +752,12 @@ typedef struct {
 } UnlinkedData;
 
 static void
-on_input_unlinked (UnlinkedData *data)
+on_port_unlinked (PinosPort *port, PinosLink *this, SpaResult res, gulong id)
 {
-  g_signal_emit (data->link, signals[SIGNAL_INPUT_UNLINKED], 0, data->port);
-}
+  g_signal_emit (this, signals[SIGNAL_PORT_UNLINKED], 0, port);
 
-static void
-on_output_unlinked (UnlinkedData *data)
-{
-  g_signal_emit (data->link, signals[SIGNAL_OUTPUT_UNLINKED], 0, data->port);
+  if (this->input == NULL || this->output == NULL)
+    pinos_link_update_state (this, PINOS_LINK_STATE_UNLINKED);
 }
 
 static void
@@ -761,57 +765,34 @@ on_node_remove (PinosNode *node, PinosLink *this)
 {
   PinosLinkPrivate *priv = this->priv;
   SpaResult res = SPA_RESULT_OK;
-  UnlinkedData data;
-
-  data.link = this;
+  PinosPort *port, *other;
 
   g_signal_handlers_disconnect_by_data (node, this);
-  if (node == this->input->node) {
-    if (this->input->allocated) {
-      priv->buffers = NULL;
-      priv->n_buffers = 0;
 
-      if ((res = spa_node_port_use_buffers (this->output->node->node,
-                                            SPA_DIRECTION_OUTPUT,
-                                            this->output->port,
-                                            priv->buffers,
-                                            priv->n_buffers)) < 0) {
-        g_warning ("link %p: failed to clear output buffers: %d", this, res);
-      }
-    }
-    data.port = this->input;
-    this->input = NULL;
-    pinos_main_loop_defer (priv->main_loop,
-                           this,
-                           res,
-                           (PinosDeferFunc) on_input_unlinked,
-                           g_memdup (&data, sizeof (UnlinkedData)),
-                           g_free);
-  } else {
-    if (this->output->allocated) {
-      priv->buffers = NULL;
-      priv->n_buffers = 0;
+  if (this->input && node == this->input->node) {
+    port = this->input;
+    other = this->output;
+  } else if (this->output && node == this->output->node) {
+    port = this->output;
+    other = this->input;
+  } else
+    return;
 
-      if ((res = spa_node_port_use_buffers (this->input->node->node,
-                                            SPA_DIRECTION_INPUT,
-                                            this->input->port,
-                                            priv->buffers,
-                                            priv->n_buffers)) < 0) {
-        g_warning ("link %p: failed to clear input buffers: %d", this, res);
-      }
-    }
-    data.port = this->output;
-    this->output = NULL;
-    pinos_main_loop_defer (priv->main_loop,
-                           this,
-                           res,
-                           (PinosDeferFunc) on_output_unlinked,
-                           g_memdup (&data, sizeof (UnlinkedData)),
-                           g_free);
+  if (port->allocated) {
+    priv->buffers = NULL;
+    priv->n_buffers = 0;
+
+    g_debug ("link %p: clear input allocated buffers on port %p", link, other);
+    pinos_port_clear_buffers (other);
   }
 
-  if (this->input == NULL || this->output == NULL)
-    pinos_link_update_state (this, PINOS_LINK_STATE_UNLINKED);
+  res = pinos_port_unlink (port, this);
+  pinos_main_loop_defer (priv->main_loop,
+                         port,
+                         res,
+                         (PinosDeferFunc) on_port_unlinked,
+                         g_object_ref (this),
+                         g_object_unref);
 }
 
 static void
@@ -854,28 +835,11 @@ pinos_link_dispose (GObject * object)
 
   g_signal_emit (this, signals[SIGNAL_REMOVE], 0, NULL);
 
-  if (this->input) {
-    if (!this->input->allocated) {
-      spa_node_port_use_buffers (this->input->node->node,
-                                 SPA_DIRECTION_INPUT,
-                                 this->input->port,
-                                 NULL, 0);
-      this->input->buffers = NULL;
-      this->input->n_buffers = 0;
-    }
-    this->input = NULL;
-  }
-  if (this->output) {
-    if (!this->output->allocated) {
-      spa_node_port_use_buffers (this->output->node->node,
-                                 SPA_DIRECTION_OUTPUT,
-                                 this->output->port,
-                                 NULL, 0);
-      this->output->buffers = NULL;
-      this->output->n_buffers = 0;
-    }
-    this->output = NULL;
-  }
+  if (this->input)
+    pinos_port_unlink (this->input, this);
+  if (this->output)
+    pinos_port_unlink (this->output, this);
+
   link_unregister_object (this);
 
   pinos_main_loop_defer_cancel (priv->main_loop, this, 0);
@@ -894,9 +858,8 @@ pinos_link_finalize (GObject * object)
   g_clear_object (&priv->iface);
   g_free (priv->object_path);
 
-  if (priv->allocated) {
+  if (priv->allocated)
     pinos_memblock_free (&priv->buffer_mem);
-  }
 
   G_OBJECT_CLASS (pinos_link_parent_class)->finalize (object);
 }
@@ -982,17 +945,7 @@ pinos_link_class_init (PinosLinkClass * klass)
                                          G_TYPE_NONE,
                                          0,
                                          G_TYPE_NONE);
-  signals[SIGNAL_INPUT_UNLINKED] = g_signal_new ("input-unlinked",
-                                         G_TYPE_FROM_CLASS (klass),
-                                         G_SIGNAL_RUN_LAST,
-                                         0,
-                                         NULL,
-                                         NULL,
-                                         g_cclosure_marshal_generic,
-                                         G_TYPE_NONE,
-                                         1,
-                                         G_TYPE_POINTER);
-  signals[SIGNAL_OUTPUT_UNLINKED] = g_signal_new ("output-unlinked",
+  signals[SIGNAL_PORT_UNLINKED] = g_signal_new ("port-unlinked",
                                          G_TYPE_FROM_CLASS (klass),
                                          G_SIGNAL_RUN_LAST,
                                          0,
@@ -1067,7 +1020,7 @@ pinos_link_activate (PinosLink *this)
   g_return_val_if_fail (PINOS_IS_LINK (this), FALSE);
 
   spa_ringbuffer_init (&this->ringbuffer, SPA_N_ELEMENTS (this->queue));
-  check_states (this, SPA_RESULT_OK);
+  check_states (this, NULL, SPA_RESULT_OK);
 
   return TRUE;
 }

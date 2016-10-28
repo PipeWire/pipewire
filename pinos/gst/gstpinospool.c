@@ -92,6 +92,7 @@ release_buffer (GstBufferPool * pool, GstBuffer *buffer)
   GST_DEBUG ("release buffer %p", buffer);
   GST_OBJECT_LOCK (pool);
   g_queue_push_tail (&p->available, buffer);
+  g_cond_signal (&p->cond);
   GST_OBJECT_UNLOCK (pool);
 }
 

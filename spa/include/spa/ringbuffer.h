@@ -67,7 +67,7 @@ static inline SpaResult
 spa_ringbuffer_init (SpaRingbuffer *rbuf,
                      size_t size)
 {
-  if ((size & (size - 1)) != 0)
+  if (SPA_UNLIKELY ((size & (size - 1)) != 0))
     return SPA_RESULT_ERROR;
 
   rbuf->size = size;
@@ -127,7 +127,7 @@ spa_ringbuffer_get_read_areas (SpaRingbuffer      *rbuf,
   areas[0].offset = r;
   areas[1].offset = 0;
 
-  if (end > rbuf->size) {
+  if (SPA_UNLIKELY (end > rbuf->size)) {
     areas[0].len = rbuf->size - r;
     areas[1].len = end - rbuf->size;
   } else {
@@ -185,7 +185,7 @@ spa_ringbuffer_get_write_areas (SpaRingbuffer      *rbuf,
   areas[0].offset = w;
   areas[1].offset = 0;
 
-  if (end > rbuf->size) {
+  if (SPA_UNLIKELY (end > rbuf->size)) {
     areas[0].len = rbuf->size - w;
     areas[1].len = end - rbuf->size;
   } else {

@@ -111,8 +111,8 @@ struct _SpaLog {
 
 #if __STDC_VERSION__ >= 199901L
 
-#define spa_log_log(l,lev,...)          \
-  if ((l) && (l)->level >= lev)         \
+#define spa_log_log(l,lev,...)                          \
+  if (SPA_UNLIKELY (spa_log_level_enabled (l, lev)))    \
     (l)->log((l),lev,__VA_ARGS__)
 
 #define spa_log_error(l,...)           spa_log_log(l,SPA_LOG_LEVEL_ERROR,__FILE__,__LINE__,__func__,__VA_ARGS__)
@@ -126,7 +126,7 @@ struct _SpaLog {
 #define SPA_LOG_FUNC(name,lev)                                                  \
 static inline void spa_log_##name (SpaLog *l, const char *format, ...)          \
 {                                                                               \
-  if (spa_log_level_enabled (l, lev)) {                                         \
+  if (SPA_UNLIKELY (spa_log_level_enabled (l, lev))) {                          \
     va_list varargs;                                                            \
     va_start (varargs, format);                                                 \
     (l)->logv((l),lev,__FILE__,__LINE__,__func__,format,varargs);               \

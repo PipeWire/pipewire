@@ -116,6 +116,8 @@ typedef void (*SpaNotify) (void *data);
 # define SPA_PRINTF_FUNC(fmt, arg1)
 #endif
 
+#define SPA_ROUND_UP_N(num,align) ((((num) + ((align) - 1)) & ~((align) - 1)))
+
 #ifndef SPA_LIKELY
 #ifdef __GNUC__
 #define SPA_LIKELY(x) (__builtin_expect(!!(x),1))
@@ -125,7 +127,6 @@ typedef void (*SpaNotify) (void *data);
 #define SPA_UNLIKELY(x) (x)
 #endif
 #endif
-
 
 #define spa_return_if_fail(expr)                                        \
     do {                                                                \
@@ -150,6 +151,8 @@ typedef void (*SpaNotify) (void *data);
 /* Does exactly nothing */
 #define spa_nop() do {} while (false)
 
+#define spa_memzero(x,l) (memset((x), 0, (l)))
+#define spa_zero(x) (spa_memzero(&(x), sizeof(x)))
 
 #ifdef __cplusplus
 }  /* extern "C" */

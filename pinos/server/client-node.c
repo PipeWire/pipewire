@@ -45,7 +45,7 @@
 #define MAX_INPUTS       64
 #define MAX_OUTPUTS      64
 
-#define MAX_BUFFERS      16
+#define MAX_BUFFERS      64
 
 #define CHECK_IN_PORT_ID(this,d,p)       ((d) == SPA_DIRECTION_INPUT && (p) < MAX_INPUTS)
 #define CHECK_OUT_PORT_ID(this,d,p)      ((d) == SPA_DIRECTION_OUTPUT && (p) < MAX_OUTPUTS)
@@ -57,16 +57,20 @@
 #define CHECK_OUT_PORT(this,d,p)         (CHECK_OUT_PORT_ID(this,d,p) && (this)->out_ports[p].valid)
 #define CHECK_PORT(this,d,p)             (CHECK_IN_PORT (this,d,p) || CHECK_OUT_PORT (this,d,p))
 
+#define CHECK_PORT_BUFFER(this,b,p)      (b < p->n_buffers)
+
 typedef struct _SpaProxy SpaProxy;
 typedef struct _ProxyBuffer ProxyBuffer;
 
 struct _ProxyBuffer {
-  SpaBuffer *outbuf;
-  SpaBuffer  buffer;
-  SpaMeta    metas[4];
-  SpaData    datas[4];
-  off_t      offset;
-  size_t     size;
+  SpaBuffer   *outbuf;
+  SpaBuffer    buffer;
+  SpaMeta      metas[4];
+  SpaData      datas[4];
+  off_t        offset;
+  size_t       size;
+  bool         outstanding;
+  ProxyBuffer *next;
 };
 
 typedef struct {
@@ -85,7 +89,6 @@ typedef struct {
   size_t         buffer_mem_size;
   void          *buffer_mem_ptr;
 
-  uint32_t       buffer_id;
   SpaQueue       ready;
 } SpaProxyPort;
 
@@ -654,7 +657,7 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
     b->buffer.datas = b->datas;
     b->buffer.metas = b->metas;
 
-    b->size = pinos_serialize_buffer_get_size (buffers[i]);
+    b->size = SPA_ROUND_UP_N (pinos_serialize_buffer_get_size (buffers[i]), 64);
     b->offset = size;
 
     for (j = 0; j < buffers[i]->n_metas; j++) {
@@ -810,7 +813,7 @@ copy_meta_in (SpaProxy *this, SpaProxyPort *port, uint32_t buffer_id)
   unsigned int i;
 
   for (i = 0; i < b->outbuf->n_metas; i++) {
-    SpaMeta *sm = &b->metas[i];
+    SpaMeta *sm = &b->buffer.metas[i];
     SpaMeta *dm = &b->outbuf->metas[i];
     memcpy (dm->data, sm->data, dm->size);
   }
@@ -852,7 +855,6 @@ spa_proxy_node_port_push_input (SpaNode          *node,
   SpaProxyPort *port;
   unsigned int i;
   bool have_error = false;
-  bool have_enough = false;
   PinosControlCmdProcessBuffer pb;
 
   if (node == NULL || n_info == 0 || info == NULL)
@@ -874,7 +876,7 @@ spa_proxy_node_port_push_input (SpaNode          *node,
       have_error = true;
       continue;
     }
-    if (info[i].buffer_id >= port->n_buffers) {
+    if (!CHECK_PORT_BUFFER (this, info[i].buffer_id, port)) {
       if (port->n_buffers == 0)
         info[i].status = SPA_RESULT_NO_BUFFERS;
       else
@@ -895,8 +897,6 @@ spa_proxy_node_port_push_input (SpaNode          *node,
 
   if (have_error)
     return SPA_RESULT_ERROR;
-  if (have_enough)
-    return SPA_RESULT_HAVE_ENOUGH_INPUT;
 
   if (!pinos_connection_flush (this->rtconn))
     spa_log_error (this->log, "proxy %p: error writing connection\n", this);
@@ -913,7 +913,6 @@ spa_proxy_node_port_pull_output (SpaNode           *node,
   SpaProxyPort *port;
   unsigned int i;
   bool have_error = false;
-  bool need_more = false;
 
   if (node == NULL || n_info == 0 || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -921,6 +920,8 @@ spa_proxy_node_port_pull_output (SpaNode           *node,
   this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
   for (i = 0; i < n_info; i++) {
+    ProxyBuffer *b;
+
     if (!CHECK_OUT_PORT (this, SPA_DIRECTION_OUTPUT, info[i].port_id)) {
       spa_log_warn (this->log, "invalid port %u\n", info[i].port_id);
       info[i].status = SPA_RESULT_INVALID_PORT;
@@ -936,15 +937,19 @@ spa_proxy_node_port_pull_output (SpaNode           *node,
       continue;
     }
 
-    info[i].buffer_id = port->buffer_id;
-    info[i].status = SPA_RESULT_OK;
+    SPA_QUEUE_POP_HEAD (&port->ready, ProxyBuffer, next, b);
+    if (b == NULL) {
+      info[i].status = SPA_RESULT_UNEXPECTED;
+      have_error = true;
+      continue;
+    }
+    b->outstanding = true;
 
-    port->buffer_id = SPA_ID_INVALID;
+    info[i].buffer_id = b->outbuf->id;
+    info[i].status = SPA_RESULT_OK;
   }
   if (have_error)
     return SPA_RESULT_ERROR;
-  if (need_more)
-    return SPA_RESULT_NEED_MORE_INPUT;
 
   return SPA_RESULT_OK;
 }
@@ -987,6 +992,7 @@ spa_proxy_node_port_send_command (SpaNode        *node,
                                   SpaNodeCommand *command)
 {
   SpaProxy *this;
+  SpaResult res = SPA_RESULT_OK;
 
   if (node == NULL || command == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -994,11 +1000,34 @@ spa_proxy_node_port_send_command (SpaNode        *node,
   this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
   switch (command->type) {
+    case SPA_NODE_COMMAND_INVALID:
+      return SPA_RESULT_INVALID_COMMAND;
+
+    case SPA_NODE_COMMAND_START:
+    case SPA_NODE_COMMAND_PAUSE:
+    case SPA_NODE_COMMAND_FLUSH:
+    case SPA_NODE_COMMAND_DRAIN:
+    case SPA_NODE_COMMAND_MARKER:
+    {
+      PinosControlCmdPortCommand cpc;
+
+      cpc.port_id = port_id;
+      cpc.command = command;
+      pinos_connection_add_cmd (this->rtconn, PINOS_CONTROL_CMD_PORT_COMMAND, &cpc);
+
+      if (!pinos_connection_flush (this->rtconn)) {
+        spa_log_error (this->log, "proxy %p: error writing connection\n", this);
+        res = SPA_RESULT_ERROR;
+      }
+      break;
+    }
+
     default:
       spa_log_warn (this->log, "unhandled command %d\n", command->type);
+      res = SPA_RESULT_NOT_IMPLEMENTED;
       break;
   }
-  return SPA_RESULT_NOT_IMPLEMENTED;
+  return res;
 }
 
 static SpaResult
@@ -1039,6 +1068,7 @@ parse_connection (SpaProxy   *this)
       case PINOS_CONTROL_CMD_SET_FORMAT:
       case PINOS_CONTROL_CMD_SET_PROPERTY:
       case PINOS_CONTROL_CMD_NODE_COMMAND:
+      case PINOS_CONTROL_CMD_PORT_COMMAND:
       case PINOS_CONTROL_CMD_PROCESS_BUFFER:
         spa_log_error (this->log, "proxy %p: got unexpected command %d\n", this, cmd);
         break;
@@ -1154,6 +1184,7 @@ parse_rtconnection (SpaProxy   *this)
       {
         PinosControlCmdProcessBuffer cmd;
         SpaProxyPort *port;
+        ProxyBuffer *b;
 
         if (!pinos_connection_parse_cmd (conn, &cmd))
           break;
@@ -1163,12 +1194,14 @@ parse_rtconnection (SpaProxy   *this)
 
         port = cmd.direction == SPA_DIRECTION_INPUT ? &this->in_ports[cmd.port_id] : &this->out_ports[cmd.port_id];
 
-        if (port->buffer_id != SPA_ID_INVALID)
-          spa_log_warn (this->log, "proxy %p: unprocessed buffer: %d\n", this, port->buffer_id);
+        if (!CHECK_PORT_BUFFER (this, cmd.buffer_id, port))
+          break;
 
         copy_meta_in (this, port, cmd.buffer_id);
 
-        port->buffer_id = cmd.buffer_id;
+        b = &port->buffers[cmd.buffer_id];
+        b->next = NULL;
+        SPA_QUEUE_PUSH_TAIL (&port->ready, ProxyBuffer, next, b);
         break;
       }
       case PINOS_CONTROL_CMD_NODE_EVENT:
@@ -1179,6 +1212,15 @@ parse_rtconnection (SpaProxy   *this)
           break;
 
         handle_node_event (this, cne.event);
+        break;
+      }
+      case PINOS_CONTROL_CMD_PORT_COMMAND:
+      {
+        PinosControlCmdPortCommand cm;
+
+        if (!pinos_connection_parse_cmd (conn, &cm))
+          break;
+
         break;
       }
     }

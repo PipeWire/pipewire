@@ -1134,46 +1134,38 @@ spa_v4l2_alloc_buffers (SpaV4l2Source   *this,
 }
 
 static SpaResult
-spa_v4l2_start (SpaV4l2Source *this)
+spa_v4l2_stream_on (SpaV4l2Source *this)
 {
   SpaV4l2State *state = &this->state[0];
   enum v4l2_buf_type type;
 
-  if (state->started)
-    return SPA_RESULT_OK;
-
   type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   if (xioctl (state->fd, VIDIOC_STREAMON, &type) < 0) {
-    perror ("VIDIOC_STREAMON");
+    spa_log_error (this->log, "VIDIOC_STREAMON: %s", strerror (errno));
     return SPA_RESULT_ERROR;
   }
-  state->started = true;
-  update_state (this, SPA_NODE_STATE_STREAMING);
-
-  state->poll.enabled = true;
-  spa_poll_update_item (state->data_loop, &state->poll);
-
   return SPA_RESULT_OK;
 }
 
 static SpaResult
-spa_v4l2_pause (SpaV4l2Source *this)
+spa_v4l2_port_set_enabled (SpaV4l2Source *this, bool enabled)
+{
+  SpaV4l2State *state = &this->state[0];
+  state->poll.enabled = enabled;
+  spa_poll_update_item (state->data_loop, &state->poll);
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
+spa_v4l2_stream_off (SpaV4l2Source *this)
 {
   SpaV4l2State *state = &this->state[0];
   enum v4l2_buf_type type;
   int i;
 
-  if (!state->started)
-    return SPA_RESULT_OK;
-
-  state->started = false;
-
-  state->poll.enabled = false;
-  spa_poll_update_item (state->data_loop, &state->poll);
-
   type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   if (xioctl (state->fd, VIDIOC_STREAMOFF, &type) < 0) {
-    perror ("VIDIOC_STREAMOFF");
+    spa_log_error (this->log, "VIDIOC_STREAMOFF: %s", strerror (errno));
     return SPA_RESULT_ERROR;
   }
   for (i = 0; i < state->n_buffers; i++) {
@@ -1182,9 +1174,8 @@ spa_v4l2_pause (SpaV4l2Source *this)
     b = &state->buffers[i];
     if (!b->outstanding)
       if (xioctl (state->fd, VIDIOC_QBUF, &b->v4l2_buffer) < 0)
-        perror ("VIDIOC_QBUF");
+        spa_log_warn (this->log, "VIDIOC_QBUF: %s", strerror (errno));
   }
-  update_state (this, SPA_NODE_STATE_PAUSED);
 
   return SPA_RESULT_OK;
 }

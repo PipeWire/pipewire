@@ -151,6 +151,15 @@ connection_parse_node_command (PinosConnection *conn, PinosControlCmdNodeCommand
     cmd->command = SPA_MEMBER (p, SPA_PTR_TO_INT (cmd->command), SpaNodeCommand);
 }
 
+static void
+connection_parse_port_command (PinosConnection *conn, PinosControlCmdPortCommand *cmd)
+{
+  void *p = conn->in.data;
+  memcpy (cmd, p, sizeof (PinosControlCmdPortCommand));
+  if (cmd->command)
+    cmd->command = SPA_MEMBER (p, SPA_PTR_TO_INT (cmd->command), SpaNodeCommand);
+}
+
 static void *
 connection_ensure_size (PinosConnection *conn, ConnectionBuffer *buf, size_t size)
 {
@@ -358,6 +367,27 @@ connection_add_node_command (PinosConnection *conn, PinosControlCmdNodeCommand *
   d = p;
 
   p = SPA_MEMBER (d, sizeof (PinosControlCmdNodeCommand), void);
+  d->command = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
+
+  memcpy (p, cm->command, cm->command->size);
+}
+
+static void
+connection_add_port_command (PinosConnection *conn, PinosControlCmdPortCommand *cm)
+{
+  size_t len;
+  void *p;
+  PinosControlCmdPortCommand *d;
+
+  /* calculate length */
+  len = sizeof (PinosControlCmdPortCommand);
+  len += cm->command->size;
+
+  p = connection_add_cmd (conn, PINOS_CONTROL_CMD_PORT_COMMAND, len);
+  memcpy (p, cm, sizeof (PinosControlCmdPortCommand));
+  d = p;
+
+  p = SPA_MEMBER (d, sizeof (PinosControlCmdPortCommand), void);
   d->command = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
 
   memcpy (p, cm->command, cm->command->size);
@@ -595,6 +625,10 @@ pinos_connection_parse_cmd (PinosConnection *conn,
       connection_parse_node_command (conn, command);
       break;
 
+    case PINOS_CONTROL_CMD_PORT_COMMAND:
+      connection_parse_port_command (conn, command);
+      break;
+
     case PINOS_CONTROL_CMD_INVALID:
       return FALSE;
   }
@@ -740,6 +774,10 @@ pinos_connection_add_cmd (PinosConnection *conn,
 
     case PINOS_CONTROL_CMD_NODE_COMMAND:
       connection_add_node_command (conn, command);
+      break;
+
+    case PINOS_CONTROL_CMD_PORT_COMMAND:
+      connection_add_port_command (conn, command);
       break;
 
     case PINOS_CONTROL_CMD_INVALID:

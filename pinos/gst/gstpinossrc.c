@@ -451,38 +451,39 @@ on_new_buffer (GObject    *gobject,
 {
   GstPinosSrc *pinossrc = user_data;
   GstBuffer *buf;
+  ProcessMemData *data;
+  SpaMetaHeader *h;
+  guint i;
 
   GST_LOG_OBJECT (pinossrc, "got new buffer");
   buf = g_hash_table_lookup (pinossrc->buf_ids, GINT_TO_POINTER (id));
-
-  if (buf) {
-    ProcessMemData *data;
-    SpaMetaHeader *h;
-    guint i;
-
-    data = gst_mini_object_get_qdata (GST_MINI_OBJECT_CAST (buf),
-                                    process_mem_data_quark);
-    h = data->header;
-    if (h) {
-      GST_INFO ("pts %" G_GUINT64_FORMAT ", dts_offset %"G_GUINT64_FORMAT, h->pts, h->dts_offset);
-
-      if (GST_CLOCK_TIME_IS_VALID (h->pts)) {
-        GST_BUFFER_PTS (buf) = h->pts;
-        if (GST_BUFFER_PTS (buf) + h->dts_offset > 0)
-          GST_BUFFER_DTS (buf) = GST_BUFFER_PTS (buf) + h->dts_offset;
-      }
-      GST_BUFFER_OFFSET (buf) = h->seq;
-    }
-    for (i = 0; i < data->buf->n_datas; i++) {
-      SpaData *d = &data->buf->datas[i];
-      GstMemory *mem = gst_buffer_peek_memory (buf, i);
-      mem->offset = d->offset;
-      mem->size = d->size;
-    }
-    g_queue_push_tail (&pinossrc->queue, buf);
-
-    pinos_thread_main_loop_signal (pinossrc->loop, FALSE);
+  if (buf == NULL) {
+    g_warning ("unknown buffer %d", id);
+    return;
   }
+
+  data = gst_mini_object_get_qdata (GST_MINI_OBJECT_CAST (buf),
+                                  process_mem_data_quark);
+  h = data->header;
+  if (h) {
+    GST_INFO ("pts %" G_GUINT64_FORMAT ", dts_offset %"G_GUINT64_FORMAT, h->pts, h->dts_offset);
+
+    if (GST_CLOCK_TIME_IS_VALID (h->pts)) {
+      GST_BUFFER_PTS (buf) = h->pts;
+      if (GST_BUFFER_PTS (buf) + h->dts_offset > 0)
+        GST_BUFFER_DTS (buf) = GST_BUFFER_PTS (buf) + h->dts_offset;
+    }
+    GST_BUFFER_OFFSET (buf) = h->seq;
+  }
+  for (i = 0; i < data->buf->n_datas; i++) {
+    SpaData *d = &data->buf->datas[i];
+    GstMemory *mem = gst_buffer_peek_memory (buf, i);
+    mem->offset = d->offset;
+    mem->size = d->size;
+  }
+  g_queue_push_tail (&pinossrc->queue, buf);
+
+  pinos_thread_main_loop_signal (pinossrc->loop, FALSE);
   return;
 }
 
@@ -494,14 +495,15 @@ on_stream_notify (GObject    *gobject,
   GstPinosSrc *pinossrc = user_data;
   PinosStreamState state = pinos_stream_get_state (pinossrc->stream);
 
-  GST_DEBUG ("got stream state %d", state);
+  GST_DEBUG ("got stream state %s", pinos_stream_state_as_string (state));
 
   switch (state) {
     case PINOS_STREAM_STATE_UNCONNECTED:
     case PINOS_STREAM_STATE_CONNECTING:
-    case PINOS_STREAM_STATE_STARTING:
-    case PINOS_STREAM_STATE_STREAMING:
+    case PINOS_STREAM_STATE_CONFIGURE:
     case PINOS_STREAM_STATE_READY:
+    case PINOS_STREAM_STATE_PAUSED:
+    case PINOS_STREAM_STATE_STREAMING:
       break;
     case PINOS_STREAM_STATE_ERROR:
       GST_ELEMENT_ERROR (pinossrc, RESOURCE, FAILED,
@@ -529,6 +531,8 @@ parse_stream_properties (GstPinosSrc *pinossrc, PinosProperties *props)
   pinossrc->max_latency = var ? (GstClockTime) atoi (var) : GST_CLOCK_TIME_NONE;
   GST_OBJECT_UNLOCK (pinossrc);
 
+  GST_DEBUG_OBJECT (pinossrc, "live %d", is_live);
+
   gst_base_src_set_live (GST_BASE_SRC (pinossrc), is_live);
 }
 
@@ -539,10 +543,12 @@ gst_pinos_src_stream_start (GstPinosSrc *pinossrc)
   PinosProperties *props;
 
   pinos_thread_main_loop_lock (pinossrc->loop);
+  GST_DEBUG_OBJECT (pinossrc, "doing stream start");
   res = pinos_stream_start (pinossrc->stream);
   while (TRUE) {
     PinosStreamState state = pinos_stream_get_state (pinossrc->stream);
 
+    GST_DEBUG_OBJECT (pinossrc, "waiting for STREAMING, now %s", pinos_stream_state_as_string (state));
     if (state == PINOS_STREAM_STATE_STREAMING)
       break;
 
@@ -559,6 +565,7 @@ gst_pinos_src_stream_start (GstPinosSrc *pinossrc)
   pinos_properties_free (props);
 
   pinos_thread_main_loop_lock (pinossrc->loop);
+  GST_DEBUG_OBJECT (pinossrc, "signal started");
   pinossrc->started = TRUE;
   pinos_thread_main_loop_signal (pinossrc->loop, FALSE);
   pinos_thread_main_loop_unlock (pinossrc->loop);
@@ -582,6 +589,8 @@ wait_negotiated (GstPinosSrc *this)
   while (TRUE) {
     state = pinos_stream_get_state (this->stream);
 
+    GST_DEBUG_OBJECT (this, "waiting for started signal, state now %s",
+        pinos_stream_state_as_string (state));
     if (state == PINOS_STREAM_STATE_ERROR)
       break;
 
@@ -590,6 +599,7 @@ wait_negotiated (GstPinosSrc *this)
 
     pinos_thread_main_loop_wait (this->loop);
   }
+  GST_DEBUG_OBJECT (this, "got started signal");
   pinos_thread_main_loop_unlock (this->loop);
 
   return state;
@@ -642,6 +652,7 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
     while (TRUE) {
       PinosStreamState state = pinos_stream_get_state (pinossrc->stream);
 
+      GST_DEBUG_OBJECT (basesrc, "waiting for UNCONNECTED, now %s", pinos_stream_state_as_string (state));
       if (state == PINOS_STREAM_STATE_UNCONNECTED)
         break;
 
@@ -665,7 +676,9 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
   while (TRUE) {
     PinosStreamState state = pinos_stream_get_state (pinossrc->stream);
 
-    if (state == PINOS_STREAM_STATE_READY)
+    GST_DEBUG_OBJECT (basesrc, "waiting for PAUSED, now %s", pinos_stream_state_as_string (state));
+    if (state == PINOS_STREAM_STATE_PAUSED ||
+        state == PINOS_STREAM_STATE_STREAMING)
       break;
 
     if (state == PINOS_STREAM_STATE_ERROR)
@@ -726,6 +739,7 @@ on_format_notify (GObject    *gobject,
   g_object_get (gobject, "format", &format, NULL);
 
   caps = gst_caps_from_format (format);
+  GST_DEBUG_OBJECT (pinossrc, "we got format %" GST_PTR_FORMAT, caps);
   res = gst_base_src_set_caps (GST_BASE_SRC (pinossrc), caps);
   gst_caps_unref (caps);
 
@@ -738,8 +752,10 @@ on_format_notify (GObject    *gobject,
     param_meta.param.size = sizeof (param_meta);
     param_meta.type = SPA_META_TYPE_HEADER;
 
+    GST_DEBUG_OBJECT (pinossrc, "doing finish format");
     pinos_stream_finish_format (pinossrc->stream, SPA_RESULT_OK, params, 1);
   } else {
+    GST_WARNING_OBJECT (pinossrc, "finish format with error");
     pinos_stream_finish_format (pinossrc->stream, SPA_RESULT_INVALID_MEDIA_TYPE, NULL, 0);
   }
 }
@@ -948,7 +964,7 @@ on_context_notify (GObject    *gobject,
   GstPinosSrc *pinossrc = user_data;
   PinosContextState state = pinos_context_get_state (pinossrc->ctx);
 
-  GST_DEBUG ("got context state %d", state);
+  GST_DEBUG ("got context state %s", pinos_context_state_as_string (state));
 
   switch (state) {
     case PINOS_CONTEXT_STATE_UNCONNECTED:
@@ -1000,6 +1016,7 @@ gst_pinos_src_open (GstPinosSrc * pinossrc)
   while (TRUE) {
     PinosContextState state = pinos_context_get_state (pinossrc->ctx);
 
+    GST_DEBUG ("waiting for CONNECTED, now %s", pinos_context_state_as_string (state));
     if (state == PINOS_CONTEXT_STATE_CONNECTED)
       break;
 

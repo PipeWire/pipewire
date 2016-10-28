@@ -53,7 +53,7 @@ struct _PinosLink {
   PinosPort    *output;
   PinosPort    *input;
 
-  uint32_t      queue[16];
+  uint32_t      queue[64];
   SpaRingbuffer ringbuffer;
   gint          in_ready;
 

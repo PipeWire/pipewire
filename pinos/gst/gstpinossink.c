@@ -450,6 +450,7 @@ on_new_buffer (GObject    *gobject,
   buf = g_hash_table_lookup (pinossink->buf_ids, GINT_TO_POINTER (id));
 
   if (buf) {
+    gst_buffer_unref (buf);
     pinos_thread_main_loop_signal (pinossink->loop, FALSE);
   }
 }
@@ -469,9 +470,10 @@ on_stream_notify (GObject    *gobject,
   switch (state) {
     case PINOS_STREAM_STATE_UNCONNECTED:
     case PINOS_STREAM_STATE_CONNECTING:
-    case PINOS_STREAM_STATE_STARTING:
-    case PINOS_STREAM_STATE_STREAMING:
+    case PINOS_STREAM_STATE_CONFIGURE:
     case PINOS_STREAM_STATE_READY:
+    case PINOS_STREAM_STATE_PAUSED:
+    case PINOS_STREAM_STATE_STREAMING:
       break;
     case PINOS_STREAM_STATE_ERROR:
       GST_ELEMENT_ERROR (pinossink, RESOURCE, FAILED,
@@ -487,6 +489,7 @@ on_format_notify (GObject    *gobject,
                   GParamSpec *pspec,
                   gpointer    user_data)
 {
+#if 0
   GstPinosSink *pinossink = user_data;
   GstStructure *config;
   GstCaps *caps;
@@ -514,6 +517,7 @@ on_format_notify (GObject    *gobject,
   param_meta_enable.type = SPA_META_TYPE_HEADER;
 
   pinos_stream_finish_format (pinossink->stream, SPA_RESULT_OK, port_params, 2);
+#endif
 }
 
 static gboolean
@@ -634,9 +638,11 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
     d->offset = mem->offset;
     d->size = mem->size;
   }
+  gst_buffer_ref (buffer);
 
   if (!(res = pinos_stream_send_buffer (pinossink->stream, data->id)))
     g_warning ("can't send buffer");
+
 
 done:
   pinos_thread_main_loop_unlock (pinossink->loop);

@@ -38,8 +38,8 @@ update_state (SpaALSASource *this, SpaNodeState state)
 }
 
 static const char default_device[] = "hw:0";
-static const uint32_t default_buffer_time = 1000;
-static const uint32_t default_period_time = 100;
+static const uint32_t default_buffer_time = 10000;
+static const uint32_t default_period_time = 1000;
 static const bool default_period_event = 0;
 
 static void
@@ -178,7 +178,7 @@ do_start (SpaPoll        *poll,
   SpaResult res;
   SpaNodeEventAsyncComplete ac;
 
-  if (SPA_RESULT_IS_OK (res = spa_alsa_start (this))) {
+  if (SPA_RESULT_IS_OK (res = spa_alsa_start (this, false))) {
     update_state (this, SPA_NODE_STATE_STREAMING);
   }
 
@@ -209,7 +209,7 @@ do_pause (SpaPoll        *poll,
   SpaResult res;
   SpaNodeEventAsyncComplete ac;
 
-  if (SPA_RESULT_IS_OK (res = spa_alsa_pause (this))) {
+  if (SPA_RESULT_IS_OK (res = spa_alsa_pause (this, false))) {
     update_state (this, SPA_NODE_STATE_PAUSED);
   }
 
@@ -441,7 +441,7 @@ spa_alsa_source_node_port_set_format (SpaNode            *node,
     return SPA_RESULT_INVALID_PORT;
 
   if (format == NULL) {
-    spa_alsa_pause (this);
+    spa_alsa_pause (this, false);
     spa_alsa_clear_buffers (this);
     spa_alsa_close (this);
     this->have_format = false;
@@ -697,6 +697,7 @@ spa_alsa_source_node_port_pull_output (SpaNode           *node,
 
     info[i].buffer_id = b->outbuf->id;
     info[i].status = SPA_RESULT_OK;
+    spa_log_debug (this->log, "pull buffer %u\n", b->outbuf->id);
   }
   if (have_error)
     return SPA_RESULT_ERROR;
@@ -726,6 +727,7 @@ spa_alsa_source_node_port_reuse_buffer (SpaNode         *node,
   if (buffer_id >= this->n_buffers)
     return SPA_RESULT_INVALID_BUFFER_ID;
 
+  spa_log_debug (this->log, "recycle buffer %u\n", buffer_id);
   recycle_buffer (this, buffer_id);
 
   return SPA_RESULT_OK;
@@ -737,7 +739,37 @@ spa_alsa_source_node_port_send_command (SpaNode          *node,
                                         uint32_t          port_id,
                                         SpaNodeCommand   *command)
 {
-  return SPA_RESULT_NOT_IMPLEMENTED;
+  SpaALSASource *this;
+  SpaResult res;
+
+  if (node == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = SPA_CONTAINER_OF (node, SpaALSASource, node);
+
+  if (port_id != 0)
+    return SPA_RESULT_INVALID_PORT;
+
+  switch (command->type) {
+    case SPA_NODE_COMMAND_PAUSE:
+    {
+      if (SPA_RESULT_IS_OK (res = spa_alsa_pause (this, false))) {
+        update_state (this, SPA_NODE_STATE_PAUSED);
+      }
+      break;
+    }
+    case SPA_NODE_COMMAND_START:
+    {
+      if (SPA_RESULT_IS_OK (res = spa_alsa_start (this, false))) {
+        update_state (this, SPA_NODE_STATE_STREAMING);
+      }
+      break;
+    }
+    default:
+      res = SPA_RESULT_NOT_IMPLEMENTED;
+      break;
+  }
+  return res;
 }
 
 static const SpaNode alsasource_node = {

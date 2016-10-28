@@ -201,28 +201,14 @@ no_node:
 
 
 static void
-on_node_remove_signal (PinosNode   *node,
+on_link_port_unlinked (PinosLink   *link,
+                       PinosPort   *port,
                        PinosDaemon *this)
 {
-  g_debug ("daemon %p: node %p remove", this, node);
-}
+  g_debug ("daemon %p: link %p: port %p unlinked", this, link, port);
 
-static void
-on_link_input_unlinked (PinosLink   *link,
-                        PinosPort   *port,
-                        PinosDaemon *this)
-{
-  g_debug ("daemon %p: link %p: input unlinked", this, link);
-}
-
-static void
-on_link_output_unlinked (PinosLink   *link,
-                         PinosPort   *port,
-                         PinosDaemon *this)
-{
-  g_debug ("daemon %p: link %p: output unlinked", this, link);
-
-  try_link_port (link->input->node, link->input, this);
+  if (port->direction == PINOS_DIRECTION_OUTPUT && link->input)
+    try_link_port (link->input->node, link->input, this);
 }
 
 static void
@@ -300,9 +286,9 @@ try_link_port (PinosNode *node, PinosPort *port, PinosDaemon *this)
       goto error;
 
     if (port->direction == PINOS_DIRECTION_OUTPUT)
-      link = pinos_node_link (node, port, target, NULL, NULL, &error);
+      link = pinos_port_link (port, target, NULL, NULL, &error);
     else
-      link = pinos_node_link (target->node, target, port, NULL, NULL, &error);
+      link = pinos_port_link (target, port, NULL, NULL, &error);
 
     if (link == NULL)
       goto error;
@@ -311,9 +297,7 @@ try_link_port (PinosNode *node, PinosPort *port, PinosDaemon *this)
     if (client)
       pinos_client_add_object (client, G_OBJECT (link));
 
-    g_signal_connect (target->node, "remove", (GCallback) on_node_remove_signal, this);
-    g_signal_connect (link, "input-unlinked", (GCallback) on_link_input_unlinked, this);
-    g_signal_connect (link, "output-unlinked", (GCallback) on_link_output_unlinked, this);
+    g_signal_connect (link, "port-unlinked", (GCallback) on_link_port_unlinked, this);
     g_signal_connect (link, "notify::state", (GCallback) on_link_state_notify, this);
     pinos_link_activate (link);
 
@@ -770,6 +754,9 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
 
   for (nodes = priv->nodes; nodes; nodes = g_list_next (nodes)) {
     PinosNode *n = nodes->data;
+
+    if (n->flags & PINOS_NODE_FLAG_REMOVING)
+      continue;
 
     g_debug ("node path \"%s\"", pinos_node_get_object_path (n));
 

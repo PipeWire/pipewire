@@ -150,6 +150,7 @@ struct _SpaV4l2Source {
 static void
 update_state (SpaV4l2Source *this, SpaNodeState state)
 {
+  spa_log_info (this->log, "state: %d\n", state);
   this->node.state = state;
 }
 #include "v4l2-utils.c"
@@ -225,7 +226,7 @@ spa_v4l2_source_node_set_props (SpaNode         *node,
 }
 
 static SpaResult
-do_send_event (SpaPoll        *poll,
+do_pause_done (SpaPoll        *poll,
                bool            async,
                uint32_t        seq,
                size_t          size,
@@ -233,8 +234,70 @@ do_send_event (SpaPoll        *poll,
                void           *user_data)
 {
   SpaV4l2Source *this = user_data;
+  SpaV4l2State *state = &this->state[0];
+  SpaNodeEventAsyncComplete *ac = data;
 
-  this->event_cb (&this->node, data, this->user_data);
+
+  if (SPA_RESULT_IS_OK (ac->res))
+    ac->res = spa_v4l2_stream_off (this);
+
+  if (SPA_RESULT_IS_OK (ac->res)) {
+    state->started = false;
+    update_state (this, SPA_NODE_STATE_PAUSED);
+  }
+  this->event_cb (&this->node, &ac->event, this->user_data);
+
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
+do_pause (SpaPoll        *poll,
+          bool            async,
+          uint32_t        seq,
+          size_t          size,
+          void           *data,
+          void           *user_data)
+{
+  SpaV4l2Source *this = user_data;
+  SpaResult res;
+  SpaNodeEventAsyncComplete ac;
+  SpaNodeCommand *cmd = data;
+
+  res = spa_node_port_send_command (&this->node,
+                                    SPA_DIRECTION_OUTPUT,
+                                    0,
+                                    cmd);
+
+  ac.event.type = SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE;
+  ac.event.size = sizeof (SpaNodeEventAsyncComplete);
+  ac.seq = seq;
+  ac.res = res;
+  spa_poll_invoke (this->state[0].main_loop,
+                   do_pause_done,
+                   seq,
+                   sizeof (ac),
+                   &ac,
+                   this);
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
+do_start_done (SpaPoll        *poll,
+               bool            async,
+               uint32_t        seq,
+               size_t          size,
+               void           *data,
+               void           *user_data)
+{
+  SpaV4l2Source *this = user_data;
+  SpaV4l2State *state = &this->state[0];
+  SpaNodeEventAsyncComplete *ac = data;
+
+  if (SPA_RESULT_IS_OK (ac->res)) {
+    state->started = true;
+    update_state (this, SPA_NODE_STATE_STREAMING);
+  }
+  this->event_cb (&this->node, &ac->event, this->user_data);
 
   return SPA_RESULT_OK;
 }
@@ -250,51 +313,25 @@ do_start (SpaPoll        *poll,
   SpaV4l2Source *this = user_data;
   SpaResult res;
   SpaNodeEventAsyncComplete ac;
+  SpaNodeCommand *cmd = data;
 
-  res = spa_v4l2_start (this);
+  res = spa_node_port_send_command (&this->node,
+                                    SPA_DIRECTION_OUTPUT,
+                                    0,
+                                    cmd);
 
-  if (async) {
-    ac.event.type = SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE;
-    ac.event.size = sizeof (SpaNodeEventAsyncComplete);
-    ac.seq = seq;
-    ac.res = res;
-    spa_poll_invoke (this->state[0].main_loop,
-                     do_send_event,
-                     SPA_ID_INVALID,
-                     sizeof (ac),
-                     &ac,
-                     this);
-  }
-  return res;
-}
+  ac.event.type = SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE;
+  ac.event.size = sizeof (SpaNodeEventAsyncComplete);
+  ac.seq = seq;
+  ac.res = res;
+  spa_poll_invoke (this->state[0].main_loop,
+                   do_start_done,
+                   seq,
+                   sizeof (ac),
+                   &ac,
+                   this);
 
-static SpaResult
-do_pause (SpaPoll        *poll,
-          bool            async,
-          uint32_t        seq,
-          size_t          size,
-          void           *data,
-          void           *user_data)
-{
-  SpaV4l2Source *this = user_data;
-  SpaResult res;
-  SpaNodeEventAsyncComplete ac;
-
-  res = spa_v4l2_pause (this);
-
-  if (async) {
-    ac.event.type = SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE;
-    ac.event.size = sizeof (SpaNodeEventAsyncComplete);
-    ac.seq = seq;
-    ac.res = res;
-    spa_poll_invoke (this->state[0].main_loop,
-                     do_send_event,
-                     SPA_ID_INVALID,
-                     sizeof (ac),
-                     &ac,
-                     this);
-  }
-  return res;
+  return SPA_RESULT_OK;
 }
 
 static SpaResult
@@ -315,6 +352,7 @@ spa_v4l2_source_node_send_command (SpaNode        *node,
     case SPA_NODE_COMMAND_START:
     {
       SpaV4l2State *state = &this->state[0];
+      SpaResult res;
 
       if (state->current_format == NULL)
         return SPA_RESULT_NO_FORMAT;
@@ -322,11 +360,17 @@ spa_v4l2_source_node_send_command (SpaNode        *node,
       if (state->n_buffers == 0)
         return SPA_RESULT_NO_BUFFERS;
 
+      if (state->started)
+        return SPA_RESULT_OK;
+
+      if ((res = spa_v4l2_stream_on (this)) < 0)
+        return res;
+
       return spa_poll_invoke (this->state[0].data_loop,
                               do_start,
                               ++this->seq,
-                              0,
-                              NULL,
+                              command->size,
+                              command,
                               this);
     }
     case SPA_NODE_COMMAND_PAUSE:
@@ -339,13 +383,17 @@ spa_v4l2_source_node_send_command (SpaNode        *node,
       if (state->n_buffers == 0)
         return SPA_RESULT_NO_BUFFERS;
 
+      if (!state->started)
+        return SPA_RESULT_OK;
+
       return spa_poll_invoke (this->state[0].data_loop,
                               do_pause,
                               ++this->seq,
-                              0,
-                              NULL,
+                              command->size,
+                              command,
                               this);
     }
+
     case SPA_NODE_COMMAND_FLUSH:
     case SPA_NODE_COMMAND_DRAIN:
     case SPA_NODE_COMMAND_MARKER:
@@ -497,7 +545,7 @@ spa_v4l2_source_node_port_set_format (SpaNode            *node,
   state = &this->state[port_id];
 
   if (format == NULL) {
-    spa_v4l2_pause (this);
+    spa_v4l2_stream_off (this);
     spa_v4l2_clear_buffers (this);
     spa_v4l2_close (this);
     state->current_format = NULL;
@@ -797,7 +845,31 @@ spa_v4l2_source_node_port_send_command (SpaNode        *node,
                                         uint32_t        port_id,
                                         SpaNodeCommand *command)
 {
-  return SPA_RESULT_NOT_IMPLEMENTED;
+  SpaV4l2Source *this;
+  SpaResult res;
+
+  if (node == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
+
+  if (port_id != 0)
+    return SPA_RESULT_INVALID_PORT;
+
+  switch (command->type) {
+    case SPA_NODE_COMMAND_PAUSE:
+      res = spa_v4l2_port_set_enabled (this, false);
+      break;
+
+    case SPA_NODE_COMMAND_START:
+      res = spa_v4l2_port_set_enabled (this, true);
+      break;
+
+    default:
+      res = SPA_RESULT_NOT_IMPLEMENTED;
+      break;
+  }
+  return res;
 }
 
 static const SpaNode v4l2source_node = {

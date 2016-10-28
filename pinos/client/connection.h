@@ -49,6 +49,7 @@ typedef enum {
   PINOS_CONTROL_CMD_SET_PROPERTY             = 35,
 
   PINOS_CONTROL_CMD_NODE_COMMAND             = 36,
+  PINOS_CONTROL_CMD_PORT_COMMAND             = 37,
 
   /* both */
   PINOS_CONTROL_CMD_ADD_MEM                  = 64,
@@ -131,6 +132,12 @@ typedef struct {
   uint32_t        seq;
   SpaNodeCommand *command;
 } PinosControlCmdNodeCommand;
+
+/* PINOS_CONTROL_CMD_PORT_COMMAND */
+typedef struct {
+  uint32_t        port_id;
+  SpaNodeCommand *command;
+} PinosControlCmdPortCommand;
 
 /* PINOS_CONTROL_CMD_ADD_MEM */
 typedef struct {

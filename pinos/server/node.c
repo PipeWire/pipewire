@@ -1281,7 +1281,10 @@ do_remove_link (SpaPoll        *poll,
   PinosLink *link = ((PinosLink**)data)[0];
   SpaResult res;
 
+#if 0
+  /* FIXME we should only pause when all links are gone */
   pinos_port_pause (port);
+#endif
 
   g_ptr_array_remove_fast (priv->rt.links, link);
 

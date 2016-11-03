@@ -506,8 +506,8 @@ spa_format_video_init (SpaMediaType     type,
       static const SpaVideoInfoRaw default_raw_info = {
         SPA_VIDEO_FORMAT_UNKNOWN,
         { 320, 240 },
-        { 1, 25 },
-        { 1, 25 },
+        { 25, 1 },
+        { 25, 1 },
         1,
         SPA_VIDEO_INTERLACE_MODE_PROGRESSIVE,
         { 1, 1},
@@ -536,8 +536,8 @@ spa_format_video_init (SpaMediaType     type,
       };
       static const SpaVideoInfoH264 default_h264_info = {
         { 320, 240 },
-        { 1, 25 },
-        { 1, 25 }
+        { 25, 1 },
+        { 25, 1 }
       };
       prop_info = h264_prop_info;
       n_prop_info = SPA_N_ELEMENTS (h264_prop_info);
@@ -556,8 +556,8 @@ spa_format_video_init (SpaMediaType     type,
       };
       static const SpaVideoInfoMJPG default_mjpg_info = {
         { 320, 240 },
-        { 1, 25 },
-        { 1, 25 }
+        { 25, 1 },
+        { 25, 1 }
       };
       prop_info = mjpg_prop_info;
       n_prop_info = SPA_N_ELEMENTS (mjpg_prop_info);

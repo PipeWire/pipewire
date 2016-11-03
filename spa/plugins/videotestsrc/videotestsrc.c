@@ -32,8 +32,8 @@
 #include <spa/video/format.h>
 #include <lib/props.h>
 
-#define FRAMES_TO_TIME(this,f)    ((this->current_format.info.raw.framerate.num * (f) * SPA_NSEC_PER_SEC) / \
-                                   (this->current_format.info.raw.framerate.denom))
+#define FRAMES_TO_TIME(this,f)    ((this->current_format.info.raw.framerate.denom * (f) * SPA_NSEC_PER_SEC) / \
+                                   (this->current_format.info.raw.framerate.num))
 
 #define STATE_GET_IMAGE_WIDTH(this)   this->current_format.info.raw.size.width
 #define STATE_GET_IMAGE_HEIGHT(this)  this->current_format.info.raw.size.height

@@ -20,9 +20,9 @@
 #ifndef __PINOS_SERIALIZE_H__
 #define __PINOS_SERIALIZE_H__
 
-#include <glib-object.h>
-
-G_BEGIN_DECLS
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <spa/include/spa/buffer.h>
 #include <spa/include/spa/format.h>
@@ -48,6 +48,8 @@ size_t          pinos_serialize_props_serialize       (void *dest, const SpaProp
 SpaProps *      pinos_serialize_props_deserialize     (void *src, off_t offset);
 SpaProps *      pinos_serialize_props_copy_into       (void *dest, const SpaProps *props);
 
-G_END_DECLS
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __PINOS_SERIALIZE_H__ */

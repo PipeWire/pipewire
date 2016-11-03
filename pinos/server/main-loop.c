@@ -27,6 +27,7 @@
 
 #include "spa/include/spa/queue.h"
 #include "spa/include/spa/ringbuffer.h"
+#include "pinos/client/log.h"
 #include "pinos/server/main-loop.h"
 
 #define PINOS_MAIN_LOOP_GET_PRIVATE(loop)  \
@@ -130,7 +131,7 @@ do_add_item (SpaPoll     *poll,
   item->id = g_source_attach (source, g_main_context_get_thread_default ());
   g_source_unref (source);
 
-  g_debug ("added main poll %d", item->id);
+  pinos_log_debug ("added main poll %d", item->id);
 
   return SPA_RESULT_OK;
 }
@@ -139,7 +140,7 @@ static SpaResult
 do_update_item (SpaPoll     *poll,
                 SpaPollItem *item)
 {
-  g_debug ("update main poll %d", item->id);
+  pinos_log_debug ("update main poll %d", item->id);
   return SPA_RESULT_OK;
 }
 
@@ -149,7 +150,7 @@ do_remove_item (SpaPoll     *poll,
 {
   GSource *source;
 
-  g_debug ("remove main poll %d", item->id);
+  pinos_log_debug ("remove main poll %d", item->id);
   source = g_main_context_find_source_by_id (g_main_context_get_thread_default (), item->id);
   g_source_destroy (source);
 
@@ -167,7 +168,7 @@ main_loop_dispatch (SpaPollNotifyData *data)
   InvokeItem *item;
 
   if (read (priv->fds[0].fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
-    g_warning ("main-loop %p: failed to read fd", strerror (errno));
+    pinos_log_warn ("main-loop %p: failed to read fd", strerror (errno));
 
   while (spa_ringbuffer_get_read_offset (&priv->buffer, &offset) > 0) {
     item = SPA_MEMBER (priv->buffer_data, offset, InvokeItem);
@@ -199,7 +200,7 @@ do_invoke (SpaPoll           *poll,
   } else {
     spa_ringbuffer_get_write_areas (&priv->buffer, areas);
     if (areas[0].len < sizeof (InvokeItem)) {
-      g_warning ("queue full");
+      pinos_log_warn ("queue full");
       return SPA_RESULT_ERROR;
     }
     item = SPA_MEMBER (priv->buffer_data, areas[0].offset, InvokeItem);
@@ -222,7 +223,7 @@ do_invoke (SpaPoll           *poll,
     spa_ringbuffer_write_advance (&priv->buffer, item->item_size);
 
     if (write (priv->fds[0].fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
-      g_warning ("data-loop %p: failed to write fd", strerror (errno));
+      pinos_log_warn ("data-loop %p: failed to write fd", strerror (errno));
 
     res = SPA_RESULT_RETURN_ASYNC (seq);
   }
@@ -276,7 +277,7 @@ pinos_main_loop_constructed (GObject * obj)
   PinosMainLoop *this = PINOS_MAIN_LOOP (obj);
   PinosMainLoopPrivate *priv = this->priv;
 
-  g_debug ("main-loop %p: constructed", this);
+  pinos_log_debug ("main-loop %p: constructed", this);
   priv->loop = g_main_loop_new (priv->context, FALSE);
 
   priv->fds[0].fd = eventfd (0, 0);
@@ -301,7 +302,7 @@ pinos_main_loop_dispose (GObject * obj)
 {
   PinosMainLoop *this = PINOS_MAIN_LOOP (obj);
 
-  g_debug ("main-loop %p: dispose", this);
+  pinos_log_debug ("main-loop %p: dispose", this);
 
   G_OBJECT_CLASS (pinos_main_loop_parent_class)->dispose (obj);
 }
@@ -312,7 +313,7 @@ pinos_main_loop_finalize (GObject * obj)
   PinosMainLoop *this = PINOS_MAIN_LOOP (obj);
   PinosMainLoopPrivate *priv = this->priv;
 
-  g_debug ("main-loop %p: finalize", this);
+  pinos_log_debug ("main-loop %p: finalize", this);
 
   g_slice_free_chain (WorkItem, priv->free_list, next);
 
@@ -349,7 +350,7 @@ pinos_main_loop_init (PinosMainLoop * this)
 {
   PinosMainLoopPrivate *priv = this->priv = PINOS_MAIN_LOOP_GET_PRIVATE (this);
 
-  g_debug ("main-loop %p: new", this);
+  pinos_log_debug ("main-loop %p: new", this);
 
   this->poll.size = sizeof (SpaPoll);
   this->poll.info = NULL;
@@ -400,7 +401,7 @@ process_work_queue (PinosMainLoop *this)
       prev->next = next;
 
     if (item->func) {
-      g_debug ("main-loop %p: process work item %p", this, item->obj);
+      pinos_log_debug ("main-loop %p: process work item %p", this, item->obj);
       item->func (item->obj, item->data, item->res, item->id);
     }
     if (item->notify)
@@ -445,12 +446,12 @@ pinos_main_loop_defer (PinosMainLoop  *loop,
   if (SPA_RESULT_IS_ASYNC (res)) {
     item->seq = SPA_RESULT_ASYNC_SEQ (res);
     item->res = res;
-    g_debug ("main-loop %p: defer async %d for object %p", loop, item->seq, obj);
+    pinos_log_debug ("main-loop %p: defer async %d for object %p", loop, item->seq, obj);
   } else {
     item->seq = SPA_ID_INVALID;
     item->res = res;
     have_work = TRUE;
-    g_debug ("main-loop %p: defer object %p", loop, obj);
+    pinos_log_debug ("main-loop %p: defer object %p", loop, obj);
   }
   SPA_QUEUE_PUSH_TAIL (&priv->work, WorkItem, next, item);
 
@@ -474,7 +475,7 @@ pinos_main_loop_defer_cancel (PinosMainLoop  *loop,
 
   for (item = priv->work.head; item; item = item->next) {
     if ((id == 0 || item->id == id) && (obj == NULL || item->obj == obj)) {
-      g_debug ("main-loop %p: cancel defer %d for object %p", loop, item->seq, item->obj);
+      pinos_log_debug ("main-loop %p: cancel defer %d for object %p", loop, item->seq, item->obj);
       item->seq = SPA_ID_INVALID;
       item->func = NULL;
       have_work = TRUE;
@@ -499,14 +500,14 @@ pinos_main_loop_defer_complete (PinosMainLoop  *loop,
 
   for (item = priv->work.head; item; item = item->next) {
     if (item->obj == obj && item->seq == seq) {
-      g_debug ("main-loop %p: found defered %d for object %p", loop, seq, obj);
+      pinos_log_debug ("main-loop %p: found defered %d for object %p", loop, seq, obj);
       item->seq = SPA_ID_INVALID;
       item->res = res;
       have_work = TRUE;
     }
   }
   if (!have_work)
-    g_debug ("main-loop %p: no defered %d found for object %p", loop, seq, obj);
+    pinos_log_debug ("main-loop %p: no defered %d found for object %p", loop, seq, obj);
 
   if (priv->work_id == 0 && have_work)
     priv->work_id = g_idle_add ((GSourceFunc) process_work_queue, loop);

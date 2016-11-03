@@ -31,8 +31,10 @@
 #include <spa/id-map.h>
 #include <spa/log.h>
 #include <spa/node.h>
-#include <spa/debug.h>
 #include <spa/video/format.h>
+#include <lib/debug.h>
+#include <lib/props.h>
+#include <lib/mapper.h>
 
 #define MAX_BUFFERS     8
 

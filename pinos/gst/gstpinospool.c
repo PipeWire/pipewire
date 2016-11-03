@@ -105,9 +105,10 @@ do_start (GstBufferPool * pool)
   guint size;
   guint min_buffers;
   guint max_buffers;
-  SpaAllocParam *port_params[2];
-  SpaAllocParamMetaEnable param_meta_enable;
+  SpaAllocParam *port_params[3];
   SpaAllocParamBuffers param_buffers;
+  SpaAllocParamMetaEnable param_meta_enable;
+  SpaAllocParamMetaEnableRingbuffer param_meta_enable_rb;
 
   config = gst_buffer_pool_get_config (pool);
   gst_buffer_pool_config_get_params (config, &caps, &size, &min_buffers, &max_buffers);
@@ -124,6 +125,14 @@ do_start (GstBufferPool * pool)
   param_meta_enable.param.type = SPA_ALLOC_PARAM_TYPE_META_ENABLE;
   param_meta_enable.param.size = sizeof (SpaAllocParamMetaEnable);
   param_meta_enable.type = SPA_META_TYPE_HEADER;
+  port_params[2] = &param_meta_enable_rb.param;
+  param_meta_enable_rb.param.type = SPA_ALLOC_PARAM_TYPE_META_ENABLE;
+  param_meta_enable_rb.param.size = sizeof (SpaAllocParamMetaEnableRingbuffer);
+  param_meta_enable_rb.type = SPA_META_TYPE_RINGBUFFER;
+  param_meta_enable_rb.minsize = size * SPA_MAX (4, SPA_MAX (min_buffers, max_buffers));
+  param_meta_enable_rb.stride = 0;
+  param_meta_enable_rb.blocks = 1;
+  param_meta_enable_rb.align = 16;
 
   pinos_stream_finish_format (p->stream, SPA_RESULT_OK, port_params, 2);
 

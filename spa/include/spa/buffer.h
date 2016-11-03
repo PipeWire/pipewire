@@ -64,6 +64,7 @@ typedef enum {
 
 #include <spa/defs.h>
 #include <spa/port.h>
+#include <spa/ringbuffer.h>
 
 /**
  * SpaBufferFlags:
@@ -112,16 +113,10 @@ typedef struct {
 
 /**
  * SpaMetaRingbuffer:
- * @readindex:
- * @writeindex:
- * @size:
- * @size_mask:
+ * @ringbuffer:
  */
 typedef struct {
-  volatile int readindex;
-  volatile int writeindex;
-  int          size;
-  int          size_mask;
+  SpaRingbuffer ringbuffer;
 } SpaMetaRingbuffer;
 
 /**

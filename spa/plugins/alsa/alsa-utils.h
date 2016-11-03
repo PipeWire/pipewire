@@ -32,6 +32,7 @@ extern "C" {
 #include <spa/log.h>
 #include <spa/queue.h>
 #include <spa/node.h>
+#include <spa/ringbuffer.h>
 #include <spa/audio/format.h>
 
 typedef struct _SpaALSAState SpaALSAState;
@@ -52,6 +53,7 @@ typedef struct {
 struct _SpaALSABuffer {
   SpaBuffer *outbuf;
   SpaMetaHeader *h;
+  SpaMetaRingbuffer *rb;
   bool outstanding;
   SpaALSABuffer *next;
 };
@@ -96,13 +98,16 @@ struct _SpaALSAState {
   size_t frame_size;
 
   SpaPortInfo info;
-  SpaAllocParam *params[2];
+  SpaAllocParam *params[3];
   SpaAllocParamBuffers param_buffers;
   SpaAllocParamMetaEnable param_meta;
+  SpaAllocParamMetaEnableRingbuffer param_meta_rb;
   SpaPortStatus status;
 
   SpaALSABuffer buffers[MAX_BUFFERS];
   unsigned int n_buffers;
+  bool use_ringbuffer;
+  SpaALSABuffer *ringbuffer;
 
   SpaQueue free;
   SpaQueue ready;

@@ -23,6 +23,7 @@
 
 #include <spa/node.h>
 #include <spa/audio/format.h>
+#include <lib/props.h>
 
 #include "alsa-utils.h"
 
@@ -47,7 +48,7 @@ reset_alsa_sink_props (SpaALSAProps *props)
 static void
 update_state (SpaALSASink *this, SpaNodeState state)
 {
-  spa_log_info (this->log, "update state %d\n", state);
+  spa_log_info (this->log, "update state %d", state);
   this->node.state = state;
 }
 
@@ -367,6 +368,7 @@ spa_alsa_clear_buffers (SpaALSASink *this)
   if (this->n_buffers > 0) {
     SPA_QUEUE_INIT (&this->ready);
     this->n_buffers = 0;
+    this->ringbuffer = NULL;
   }
   return SPA_RESULT_OK;
 }
@@ -390,7 +392,7 @@ spa_alsa_sink_node_port_set_format (SpaNode            *node,
     return SPA_RESULT_INVALID_PORT;
 
   if (format == NULL) {
-    spa_log_info (this->log, "clear format\n");
+    spa_log_info (this->log, "clear format");
     spa_alsa_pause (this, false);
     spa_alsa_clear_buffers (this);
     spa_alsa_close (this);
@@ -409,7 +411,7 @@ spa_alsa_sink_node_port_set_format (SpaNode            *node,
                      SPA_PORT_INFO_FLAG_LIVE;
   this->info.maxbuffering = this->buffer_frames * this->frame_size;
   this->info.latency = (this->period_frames * SPA_NSEC_PER_SEC) / this->rate;
-  this->info.n_params = 2;
+  this->info.n_params = 3;
   this->info.params = this->params;
   this->params[0] = &this->param_buffers.param;
   this->param_buffers.param.type = SPA_ALLOC_PARAM_TYPE_BUFFERS;
@@ -423,6 +425,14 @@ spa_alsa_sink_node_port_set_format (SpaNode            *node,
   this->param_meta.param.type = SPA_ALLOC_PARAM_TYPE_META_ENABLE;
   this->param_meta.param.size = sizeof (this->param_meta);
   this->param_meta.type = SPA_META_TYPE_HEADER;
+  this->params[2] = &this->param_meta_rb.param;
+  this->param_meta_rb.param.type = SPA_ALLOC_PARAM_TYPE_META_ENABLE;
+  this->param_meta_rb.param.size = sizeof (this->param_meta_rb);
+  this->param_meta_rb.type = SPA_META_TYPE_RINGBUFFER;
+  this->param_meta_rb.minsize = this->period_frames * this->frame_size * 32;
+  this->param_meta_rb.stride = 0;
+  this->param_meta_rb.blocks = 1;
+  this->param_meta_rb.align = 16;
   this->info.extra = NULL;
 
   this->have_format = true;
@@ -512,7 +522,7 @@ spa_alsa_sink_node_port_use_buffers (SpaNode         *node,
 
   this = SPA_CONTAINER_OF (node, SpaALSASink, node);
 
-  spa_log_info (this->log, "use buffers %d\n", n_buffers);
+  spa_log_info (this->log, "use buffers %d", n_buffers);
 
   if (!this->have_format)
     return SPA_RESULT_NO_FORMAT;
@@ -530,13 +540,16 @@ spa_alsa_sink_node_port_use_buffers (SpaNode         *node,
     b->outstanding = true;
 
     b->h = spa_buffer_find_meta (b->outbuf, SPA_META_TYPE_HEADER);
+    b->rb = spa_buffer_find_meta (b->outbuf, SPA_META_TYPE_RINGBUFFER);
+    if (b->rb)
+      this->ringbuffer = b;
 
     switch (buffers[i]->datas[0].type) {
       case SPA_DATA_TYPE_MEMFD:
       case SPA_DATA_TYPE_DMABUF:
       case SPA_DATA_TYPE_MEMPTR:
         if (buffers[i]->datas[0].data == NULL) {
-          spa_log_error (this->log, "alsa-source: need mapped memory\n");
+          spa_log_error (this->log, "alsa-source: need mapped memory");
           continue;
         }
         break;
@@ -637,9 +650,14 @@ spa_alsa_sink_node_port_push_input (SpaNode          *node,
       have_error = true;
       continue;
     }
+    if (this->ringbuffer) {
+      this->ringbuffer->outstanding = true;
+      this->ringbuffer = b;
+    } else {
+      b->next = NULL;
+      SPA_QUEUE_PUSH_TAIL (&this->ready, SpaALSABuffer, next, b);
+    }
     b->outstanding = false;
-    b->next = NULL;
-    SPA_QUEUE_PUSH_TAIL (&this->ready, SpaALSABuffer, next, b);
     info[i].status = SPA_RESULT_OK;
   }
   if (have_error)

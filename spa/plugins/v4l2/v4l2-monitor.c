@@ -30,7 +30,7 @@
 #include <spa/id-map.h>
 #include <spa/poll.h>
 #include <spa/monitor.h>
-#include <spa/debug.h>
+#include <lib/debug.h>
 
 extern const SpaHandleFactory spa_v4l2_source_factory;
 

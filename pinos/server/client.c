@@ -70,7 +70,7 @@ client_name_appeared_handler (GDBusConnection *connection,
 {
   PinosClient *client = user_data;
 
-  g_debug ("client %p: appeared %s %s", client, name, name_owner);
+  pinos_log_debug ("client %p: appeared %s %s", client, name, name_owner);
 
   g_signal_emit (client, signals[SIGNAL_APPEARED], 0, NULL);
 }
@@ -83,7 +83,7 @@ client_name_vanished_handler (GDBusConnection *connection,
   PinosClient *client = user_data;
   PinosClientPrivate *priv = client->priv;
 
-  g_debug ("client %p: vanished %s", client, name);
+  pinos_log_debug ("client %p: vanished %s", client, name);
 
   g_signal_emit (client, signals[SIGNAL_VANISHED], 0, NULL);
   g_bus_unwatch_name (priv->id);
@@ -186,7 +186,9 @@ client_register_object (PinosClient *client)
   priv->object_path = pinos_daemon_export_uniquely (daemon, G_DBUS_OBJECT_SKELETON (skel));
   g_object_unref (skel);
 
-  g_debug ("client %p: register %s", client, priv->object_path);
+  client->id = pinos_map_insert_new (&daemon->registry.clients, client);
+
+  pinos_log_debug ("client %p: register %s", client, priv->object_path);
 }
 
 static void
@@ -195,8 +197,9 @@ client_unregister_object (PinosClient *client)
   PinosClientPrivate *priv = client->priv;
   PinosDaemon *daemon = priv->daemon;
 
-  g_debug ("client %p: unregister", client);
+  pinos_log_debug ("client %p: unregister", client);
   pinos_daemon_unexport (daemon, priv->object_path);
+  pinos_map_remove (&daemon->registry.clients, client->id);
 }
 
 static void
@@ -206,7 +209,7 @@ pinos_client_dispose (GObject * object)
   PinosClientPrivate *priv = client->priv;
   GList *copy;
 
-  g_debug ("client %p: dispose", client);
+  pinos_log_debug ("client %p: dispose", client);
   copy = g_list_copy (priv->objects);
   g_list_free_full (copy, g_object_unref);
   g_list_free (priv->objects);
@@ -222,7 +225,7 @@ pinos_client_finalize (GObject * object)
   PinosClient *client = PINOS_CLIENT (object);
   PinosClientPrivate *priv = client->priv;
 
-  g_debug ("client %p: finalize", client);
+  pinos_log_debug ("client %p: finalize", client);
   g_clear_object (&priv->daemon);
   g_clear_object (&priv->iface);
   g_free (priv->sender);
@@ -238,7 +241,7 @@ pinos_client_constructed (GObject * object)
 {
   PinosClient *client = PINOS_CLIENT (object);
 
-  g_debug ("client %p: constructed", client);
+  pinos_log_debug ("client %p: constructed", client);
   client_watch_name (client);
   client_register_object (client);
 
@@ -335,7 +338,7 @@ pinos_client_init (PinosClient * client)
   PinosClientPrivate *priv = client->priv = PINOS_CLIENT_GET_PRIVATE (client);
 
   priv->iface = pinos_client1_skeleton_new ();
-  g_debug ("client %p: new", client);
+  pinos_log_debug ("client %p: new", client);
 }
 
 /**
@@ -373,7 +376,7 @@ pinos_client_remove (PinosClient *client)
 {
   g_return_if_fail (PINOS_IS_CLIENT (client));
 
-  g_debug ("client %p: remove", client);
+  pinos_log_debug ("client %p: remove", client);
   g_signal_emit (client, signals[SIGNAL_REMOVE], 0, NULL);
 }
 

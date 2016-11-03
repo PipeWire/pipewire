@@ -17,12 +17,12 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __PINOS_CONTROL_H__
-#define __PINOS_CONTROL_H__
+#ifndef __PINOS_CONNECTION_H__
+#define __PINOS_CONNECTION_H__
 
-#include <glib-object.h>
-
-G_BEGIN_DECLS
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <spa/defs.h>
 #include <spa/props.h>
@@ -33,113 +33,116 @@ G_BEGIN_DECLS
 typedef struct _PinosConnection PinosConnection;
 
 typedef enum {
-  PINOS_CONTROL_CMD_INVALID                  = 0,
+  PINOS_MESSAGE_INVALID                  = 0,
   /* client to server */
-  PINOS_CONTROL_CMD_NODE_UPDATE              = 1,
-  PINOS_CONTROL_CMD_PORT_UPDATE              = 2,
-  PINOS_CONTROL_CMD_NODE_STATE_CHANGE        = 3,
+  PINOS_MESSAGE_NODE_UPDATE              = 1,
+  PINOS_MESSAGE_PORT_UPDATE              = 2,
+  PINOS_MESSAGE_NODE_STATE_CHANGE        = 3,
 
-  PINOS_CONTROL_CMD_PORT_STATUS_CHANGE       = 4,
+  PINOS_MESSAGE_PORT_STATUS_CHANGE       = 4,
+  PINOS_MESSAGE_NODE_EVENT               = 5,
 
   /* server to client */
-  PINOS_CONTROL_CMD_ADD_PORT                 = 32,
-  PINOS_CONTROL_CMD_REMOVE_PORT              = 33,
+  PINOS_MESSAGE_ADD_PORT                 = 32,
+  PINOS_MESSAGE_REMOVE_PORT              = 33,
 
-  PINOS_CONTROL_CMD_SET_FORMAT               = 34,
-  PINOS_CONTROL_CMD_SET_PROPERTY             = 35,
+  PINOS_MESSAGE_SET_FORMAT               = 34,
+  PINOS_MESSAGE_SET_PROPERTY             = 35,
 
-  PINOS_CONTROL_CMD_NODE_COMMAND             = 36,
-  PINOS_CONTROL_CMD_PORT_COMMAND             = 37,
+  PINOS_MESSAGE_NODE_COMMAND             = 36,
+  PINOS_MESSAGE_PORT_COMMAND             = 37,
 
   /* both */
-  PINOS_CONTROL_CMD_ADD_MEM                  = 64,
-  PINOS_CONTROL_CMD_USE_BUFFERS              = 66,
-  PINOS_CONTROL_CMD_PROCESS_BUFFER           = 67,
+  PINOS_MESSAGE_ADD_MEM                  = 64,
+  PINOS_MESSAGE_USE_BUFFERS              = 66,
+  PINOS_MESSAGE_PROCESS_BUFFER           = 67,
 
-  PINOS_CONTROL_CMD_NODE_EVENT               = 68,
-} PinosControlCmd;
+} PinosMessageType;
 
-/*  PINOS_CONTROL_CMD_NODE_UPDATE */
+/*  PINOS_MESSAGE_NODE_UPDATE */
 typedef struct {
-#define PINOS_CONTROL_CMD_NODE_UPDATE_MAX_INPUTS   (1 << 0)
-#define PINOS_CONTROL_CMD_NODE_UPDATE_MAX_OUTPUTS  (1 << 1)
-#define PINOS_CONTROL_CMD_NODE_UPDATE_PROPS        (1 << 2)
+#define PINOS_MESSAGE_NODE_UPDATE_MAX_INPUTS   (1 << 0)
+#define PINOS_MESSAGE_NODE_UPDATE_MAX_OUTPUTS  (1 << 1)
+#define PINOS_MESSAGE_NODE_UPDATE_PROPS        (1 << 2)
   uint32_t        change_mask;
   unsigned int    max_input_ports;
   unsigned int    max_output_ports;
   const SpaProps *props;
-} PinosControlCmdNodeUpdate;
+} PinosMessageNodeUpdate;
 
-/* PINOS_CONTROL_CMD_PORT_UPDATE */
+/* PINOS_MESSAGE_PORT_UPDATE */
 typedef struct {
   SpaDirection       direction;
   uint32_t           port_id;
-#define PINOS_CONTROL_CMD_PORT_UPDATE_POSSIBLE_FORMATS  (1 << 0)
-#define PINOS_CONTROL_CMD_PORT_UPDATE_FORMAT            (1 << 1)
-#define PINOS_CONTROL_CMD_PORT_UPDATE_PROPS             (1 << 2)
-#define PINOS_CONTROL_CMD_PORT_UPDATE_INFO              (1 << 3)
+#define PINOS_MESSAGE_PORT_UPDATE_POSSIBLE_FORMATS  (1 << 0)
+#define PINOS_MESSAGE_PORT_UPDATE_FORMAT            (1 << 1)
+#define PINOS_MESSAGE_PORT_UPDATE_PROPS             (1 << 2)
+#define PINOS_MESSAGE_PORT_UPDATE_INFO              (1 << 3)
   uint32_t           change_mask;
   unsigned int       n_possible_formats;
   SpaFormat        **possible_formats;
   SpaFormat         *format;
   const SpaProps    *props;
   const SpaPortInfo *info;
-} PinosControlCmdPortUpdate;
+} PinosMessagePortUpdate;
 
-/* PINOS_CONTROL_CMD_PORT_STATUS_CHANGE */
-
-/* PINOS_CONTROL_CMD_NODE_STATE_CHANGE */
+/* PINOS_MESSAGE_NODE_STATE_CHANGE */
 typedef struct {
   SpaNodeState    state;
-} PinosControlCmdNodeStateChange;
+} PinosMessageNodeStateChange;
 
-/* PINOS_CONTROL_CMD_ADD_PORT */
+/* PINOS_MESSAGE_PORT_STATUS_CHANGE */
+
+/* PINOS_MESSAGE_NODE_EVENT */
+typedef struct {
+  SpaNodeEvent *event;
+} PinosMessageNodeEvent;
+
+/* PINOS_MESSAGE_ADD_PORT */
 typedef struct {
   uint32_t     seq;
   SpaDirection direction;
   uint32_t     port_id;
-} PinosControlCmdAddPort;
+} PinosMessageAddPort;
 
-/* PINOS_CONTROL_CMD_REMOVE_PORT */
+/* PINOS_MESSAGE_REMOVE_PORT */
 typedef struct {
   uint32_t     seq;
   SpaDirection direction;
   uint32_t     port_id;
-} PinosControlCmdRemovePort;
+} PinosMessageRemovePort;
 
 
-/* PINOS_CONTROL_CMD_SET_FORMAT */
+/* PINOS_MESSAGE_SET_FORMAT */
 typedef struct {
   uint32_t            seq;
   SpaDirection        direction;
   uint32_t            port_id;
   SpaPortFormatFlags  flags;
   SpaFormat          *format;
-} PinosControlCmdSetFormat;
+} PinosMessageSetFormat;
 
-/* PINOS_CONTROL_CMD_SET_PROPERTY */
+/* PINOS_MESSAGE_SET_PROPERTY */
 typedef struct {
   uint32_t     seq;
-  SpaDirection direction;
-  uint32_t     port_id;
   uint32_t     id;
   size_t       size;
   void        *value;
-} PinosControlCmdSetProperty;
+} PinosMessageSetProperty;
 
-/* PINOS_CONTROL_CMD_NODE_COMMAND */
+/* PINOS_MESSAGE_NODE_COMMAND */
 typedef struct {
   uint32_t        seq;
   SpaNodeCommand *command;
-} PinosControlCmdNodeCommand;
+} PinosMessageNodeCommand;
 
-/* PINOS_CONTROL_CMD_PORT_COMMAND */
+/* PINOS_MESSAGE_PORT_COMMAND */
 typedef struct {
   uint32_t        port_id;
   SpaNodeCommand *command;
-} PinosControlCmdPortCommand;
+} PinosMessagePortCommand;
 
-/* PINOS_CONTROL_CMD_ADD_MEM */
+/* PINOS_MESSAGE_ADD_MEM */
 typedef struct {
   SpaDirection direction;
   uint32_t     port_id;
@@ -149,57 +152,53 @@ typedef struct {
   uint32_t     flags;
   off_t        offset;
   size_t       size;
-} PinosControlCmdAddMem;
+} PinosMessageAddMem;
 
 typedef struct {
   uint32_t    mem_id;
   off_t       offset;
   size_t      size;
-} PinosControlMemRef;
+} PinosMessageMemRef;
 
-/* PINOS_CONTROL_CMD_USE_BUFFERS */
+/* PINOS_MESSAGE_USE_BUFFERS */
 typedef struct {
   uint32_t            seq;
   SpaDirection        direction;
   uint32_t            port_id;
   unsigned int        n_buffers;
-  PinosControlMemRef *buffers;
-} PinosControlCmdUseBuffers;
+  PinosMessageMemRef *buffers;
+} PinosMessageUseBuffers;
 
-/* PINOS_CONTROL_CMD_PROCESS_BUFFER */
+/* PINOS_MESSAGE_PROCESS_BUFFER */
 typedef struct {
   SpaDirection direction;
   uint32_t     port_id;
   uint32_t     buffer_id;
-} PinosControlCmdProcessBuffer;
-
-/* PINOS_CONTROL_CMD_NODE_EVENT */
-typedef struct {
-  SpaNodeEvent *event;
-} PinosControlCmdNodeEvent;
-
+} PinosMessageProcessBuffer;
 
 PinosConnection *  pinos_connection_new             (int              fd);
 void               pinos_connection_free            (PinosConnection *conn);
 
-gboolean           pinos_connection_has_next        (PinosConnection *conn);
-PinosControlCmd    pinos_connection_get_cmd         (PinosConnection *conn);
-gboolean           pinos_connection_parse_cmd       (PinosConnection *conn,
-                                                     gpointer         command);
+bool               pinos_connection_has_next        (PinosConnection *conn);
+PinosMessageType   pinos_connection_get_type        (PinosConnection *conn);
+bool               pinos_connection_parse_message   (PinosConnection *conn,
+                                                     void            *msg);
 int                pinos_connection_get_fd          (PinosConnection *conn,
-                                                     guint            index,
-                                                     gboolean         close);
+                                                     unsigned int     index,
+                                                     bool             close);
 
 int                pinos_connection_add_fd          (PinosConnection *conn,
                                                      int              fd,
-                                                     gboolean         close);
-gboolean           pinos_connection_add_cmd         (PinosConnection *conn,
-                                                     PinosControlCmd  cmd,
-                                                     gpointer         command);
+                                                     bool             close);
+bool               pinos_connection_add_message     (PinosConnection *conn,
+                                                     PinosMessageType type,
+                                                     void            *msg);
 
-gboolean           pinos_connection_flush           (PinosConnection *conn);
-gboolean           pinos_connection_clear           (PinosConnection *conn);
+bool               pinos_connection_flush           (PinosConnection *conn);
+bool               pinos_connection_clear           (PinosConnection *conn);
 
-G_END_DECLS
+#ifdef __cplusplus
+}  /* extern "C" */
+#endif
 
-#endif /* __PINOS_CONTROL_H__ */
+#endif /* __PINOS_CONNECTION_H__ */

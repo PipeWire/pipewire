@@ -34,27 +34,27 @@ spa_v4l2_open (SpaV4l2Source *this)
     return 0;
 
   if (props->props.unset_mask & 1) {
-    spa_log_error (state->log, "v4l2: Device property not set\n");
+    spa_log_error (state->log, "v4l2: Device property not set");
     return -1;
   }
 
-  spa_log_info (state->log, "v4l2: Playback device is '%s'\n", props->device);
+  spa_log_info (state->log, "v4l2: Playback device is '%s'", props->device);
 
   if (stat (props->device, &st) < 0) {
-    spa_log_error (state->log, "v4l2: Cannot identify '%s': %d, %s\n",
+    spa_log_error (state->log, "v4l2: Cannot identify '%s': %d, %s",
             props->device, errno, strerror (errno));
     return -1;
   }
 
   if (!S_ISCHR (st.st_mode)) {
-    spa_log_error (state->log, "v4l2: %s is no device\n", props->device);
+    spa_log_error (state->log, "v4l2: %s is no device", props->device);
     return -1;
   }
 
   state->fd = open (props->device, O_RDWR | O_NONBLOCK, 0);
 
   if (state->fd == -1) {
-    spa_log_error (state->log, "v4l2: Cannot open '%s': %d, %s\n",
+    spa_log_error (state->log, "v4l2: Cannot open '%s': %d, %s",
             props->device, errno, strerror (errno));
     return -1;
   }
@@ -65,7 +65,7 @@ spa_v4l2_open (SpaV4l2Source *this)
   }
 
   if ((state->cap.capabilities & V4L2_CAP_VIDEO_CAPTURE) == 0) {
-    spa_log_error (state->log, "v4l2: %s is no video capture device\n", props->device);
+    spa_log_error (state->log, "v4l2: %s is no video capture device", props->device);
     return -1;
   }
 
@@ -120,7 +120,7 @@ spa_v4l2_clear_buffers (SpaV4l2Source *this)
 
     b = &state->buffers[i];
     if (b->outstanding) {
-      spa_log_info (state->log, "v4l2: queueing outstanding buffer %p\n", b);
+      spa_log_info (state->log, "v4l2: queueing outstanding buffer %p", b);
       spa_v4l2_buffer_recycle (this, i);
     }
     if (b->allocated) {
@@ -156,7 +156,7 @@ spa_v4l2_close (SpaV4l2Source *this)
   if (state->n_buffers > 0)
     return 0;
 
-  spa_log_info (state->log, "v4l2: close\n");
+  spa_log_info (state->log, "v4l2: close");
 
   spa_poll_remove_item (state->data_loop, &state->poll);
 
@@ -768,7 +768,7 @@ spa_v4l2_set_format (SpaV4l2Source *this, V4l2Format *f, bool try_only)
                                          f->format,
                                          0);
   if (info == NULL) {
-    spa_log_error (state->log, "v4l2: unknown media type %d %d %d\n", f->fmt.media_type,
+    spa_log_error (state->log, "v4l2: unknown media type %d %d %d", f->fmt.media_type,
         f->fmt.media_subtype, f->format);
     return -1;
   }
@@ -780,7 +780,7 @@ spa_v4l2_set_format (SpaV4l2Source *this, V4l2Format *f, bool try_only)
   streamparm.parm.capture.timeperframe.numerator = f->framerate.denom;
   streamparm.parm.capture.timeperframe.denominator = f->framerate.num;
 
-  spa_log_info (state->log, "v4l2: set %08x %dx%d %d/%d\n", fmt.fmt.pix.pixelformat,
+  spa_log_info (state->log, "v4l2: set %08x %dx%d %d/%d", fmt.fmt.pix.pixelformat,
       fmt.fmt.pix.width, fmt.fmt.pix.height,
       streamparm.parm.capture.timeperframe.numerator,
       streamparm.parm.capture.timeperframe.denominator);
@@ -800,7 +800,7 @@ spa_v4l2_set_format (SpaV4l2Source *this, V4l2Format *f, bool try_only)
   if (xioctl (state->fd, VIDIOC_S_PARM, &streamparm) < 0)
     perror ("VIDIOC_S_PARM");
 
-  spa_log_info (state->log, "v4l2: got %08x %dx%d %d/%d\n", fmt.fmt.pix.pixelformat,
+  spa_log_info (state->log, "v4l2: got %08x %dx%d %d/%d", fmt.fmt.pix.pixelformat,
       fmt.fmt.pix.width, fmt.fmt.pix.height,
       streamparm.parm.capture.timeperframe.numerator,
       streamparm.parm.capture.timeperframe.denominator);
@@ -932,7 +932,7 @@ spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffe
         state->memtype = V4L2_MEMORY_DMABUF;
         break;
       default:
-        spa_log_error (state->log, "v4l2: can't use buffers\n");
+        spa_log_error (state->log, "v4l2: can't use buffers");
         return SPA_RESULT_ERROR;
     }
   }
@@ -946,9 +946,9 @@ spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffe
     perror ("VIDIOC_REQBUFS");
     return SPA_RESULT_ERROR;
   }
-  spa_log_info (state->log, "v4l2: got %d buffers\n", reqbuf.count);
+  spa_log_info (state->log, "v4l2: got %d buffers", reqbuf.count);
   if (reqbuf.count < 2) {
-    spa_log_error (state->log, "v4l2: can't allocate enough buffers\n");
+    spa_log_error (state->log, "v4l2: can't allocate enough buffers");
     return SPA_RESULT_ERROR;
   }
 
@@ -961,10 +961,10 @@ spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffe
     b->allocated = false;
     b->h = spa_buffer_find_meta (b->outbuf, SPA_META_TYPE_HEADER);
 
-    spa_log_info (state->log, "v4l2: import buffer %p\n", buffers[i]);
+    spa_log_info (state->log, "v4l2: import buffer %p", buffers[i]);
 
     if (buffers[i]->n_datas < 1) {
-      spa_log_error (state->log, "v4l2: invalid memory on buffer %p\n", buffers[i]);
+      spa_log_error (state->log, "v4l2: invalid memory on buffer %p", buffers[i]);
       continue;
     }
     d = buffers[i]->datas;
@@ -977,7 +977,7 @@ spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffe
       case SPA_DATA_TYPE_MEMPTR:
       case SPA_DATA_TYPE_MEMFD:
         if (d[0].data == NULL) {
-          spa_log_error (state->log, "v4l2: need mmaped memory\n");
+          spa_log_error (state->log, "v4l2: need mmaped memory");
           continue;
         }
         b->v4l2_buffer.m.userptr = (unsigned long) SPA_MEMBER (d[0].data, d[0].offset, void *);
@@ -1019,22 +1019,22 @@ mmap_init (SpaV4l2Source   *this,
     return SPA_RESULT_ERROR;
   }
 
-  spa_log_info (state->log, "v4l2: got %d buffers\n", reqbuf.count);
+  spa_log_info (state->log, "v4l2: got %d buffers", reqbuf.count);
   *n_buffers = reqbuf.count;
 
   if (reqbuf.count < 2) {
-    spa_log_error (state->log, "v4l2: can't allocate enough buffers\n");
+    spa_log_error (state->log, "v4l2: can't allocate enough buffers");
     return SPA_RESULT_ERROR;
   }
   if (state->export_buf)
-    spa_log_info (state->log, "v4l2: using EXPBUF\n");
+    spa_log_info (state->log, "v4l2: using EXPBUF");
 
   for (i = 0; i < reqbuf.count; i++) {
     V4l2Buffer *b;
     SpaData *d;
 
     if (buffers[i]->n_datas < 1) {
-      spa_log_error (state->log, "v4l2: invalid buffer data\n");
+      spa_log_error (state->log, "v4l2: invalid buffer data");
       return SPA_RESULT_ERROR;
     }
 

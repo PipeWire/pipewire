@@ -137,7 +137,7 @@ pinos_context_finalize (GObject * object)
   PinosContext *context = PINOS_CONTEXT (object);
   PinosContextPrivate *priv = context->priv;
 
-  g_debug ("free context %p", context);
+  pinos_log_debug ("free context %p", context);
 
   if (priv->id)
     g_bus_unwatch_name(priv->id);
@@ -277,7 +277,7 @@ pinos_context_init (PinosContext * context)
 {
   PinosContextPrivate *priv = context->priv = PINOS_CONTEXT_GET_PRIVATE (context);
 
-  g_debug ("new context %p", context);
+  pinos_log_debug ("new context %p", context);
 
   priv->state = PINOS_CONTEXT_STATE_UNCONNECTED;
 

@@ -100,10 +100,10 @@ setup_node (PinosSpaAudioTestSrc *this)
   SpaPropValue value;
 
   if ((res = spa_node_get_props (node->node, &props)) < 0)
-    g_debug ("got get_props error %d", res);
+    pinos_log_debug ("got get_props error %d", res);
 
   if ((res = spa_node_set_props (node->node, props)) < 0)
-    g_debug ("got set_props error %d", res);
+    pinos_log_debug ("got set_props error %d", res);
 #endif
 }
 
@@ -149,7 +149,7 @@ src_finalize (GObject * object)
   PinosSpaAudioTestSrc *src = PINOS_SPA_AUDIOTESTSRC (object);
   PinosSpaAudioTestSrcPrivate *priv = src->priv;
 
-  g_debug ("audiotestsrc %p: dispose", src);
+  pinos_log_debug ("audiotestsrc %p: dispose", src);
   spa_handle_clear (priv->handle);
   g_free (priv->handle);
 

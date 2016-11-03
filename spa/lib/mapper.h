@@ -17,48 +17,19 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __SPA_ID_MAP_H__
-#define __SPA_ID_MAP_H__
+#ifndef __SPA_LIBMAPPER_H__
+#define __SPA_LIBMAPPER_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct _SpaIDMap SpaIDMap;
+#include <spa/id-map.h>
 
-#include <spa/defs.h>
-#include <spa/plugin.h>
-
-#define SPA_ID_MAP_URI                            "http://spaplug.in/ns/id-map"
-
-/**
- * SpaIDMap:
- *
- * Maps between uri and its id
- */
-struct _SpaIDMap {
-  /* the total size of this structure. This can be used to expand this
-   * structure in the future */
-  size_t size;
-  /**
-   * SpaIDMap::info
-   *
-   * Extra information about the map
-   */
-  const SpaDict *info;
-
-  uint32_t      (*get_id)    (SpaIDMap   *map,
-                              const char *uri);
-
-  const char *  (*get_uri)   (SpaIDMap   *map,
-                              uint32_t    id);
-};
-
-#define spa_id_map_get_id(n,...)            (n)->get_id((n),__VA_ARGS__)
-#define spa_id_map_get_uri(n,...)           (n)->get_uri((n),__VA_ARGS__)
+SpaIDMap * spa_id_map_get_default (void);
 
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_ID_MAP_H__ */
+#endif /* __SPA_LIBMAPPER_H__ */

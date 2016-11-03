@@ -4,7 +4,7 @@ v4l2_sources = ['v4l2.c',
 
 v4l2lib = shared_library('spa-v4l2',
                           v4l2_sources,
-                          include_directories : spa_inc,
+                          include_directories : [ spa_inc, spa_libinc ],
                           dependencies : [ v4l2_dep, libudev_dep ],
                           link_with : spalib,
                           install : true,

@@ -180,7 +180,7 @@ find_module (const gchar * path, const gchar *name)
 
   dir = g_dir_open (path, 0, &err);
   if (dir == NULL) {
-    g_warning ("could not open %s: %s", path, err->message);
+    pinos_log_warn ("could not open %s: %s", path, err->message);
     g_error_free (err);
     return NULL;
   }
@@ -241,7 +241,7 @@ pinos_module_load (PinosDaemon  * daemon,
     gchar **l;
     gint i;
 
-    g_debug ("PINOS_MODULE_DIR set to: %s", module_dir);
+    pinos_log_debug ("PINOS_MODULE_DIR set to: %s", module_dir);
 
     l = g_strsplit (module_dir, G_SEARCHPATH_SEPARATOR_S, 0);
     for (i = 0; l[i] != NULL; i++) {
@@ -251,7 +251,7 @@ pinos_module_load (PinosDaemon  * daemon,
     }
     g_strfreev (l);
   } else {
-    g_debug ("moduledir set to: %s", MODULEDIR);
+    pinos_log_debug ("moduledir set to: %s", MODULEDIR);
 
     filename = find_module (MODULEDIR, name);
   }
@@ -262,7 +262,7 @@ pinos_module_load (PinosDaemon  * daemon,
     return NULL;
   }
 
-  g_debug ("trying to load module: %s (%s)", name, filename);
+  pinos_log_debug ("trying to load module: %s (%s)", name, filename);
 
   gmodule = g_module_open (filename, G_MODULE_BIND_LOCAL);
   g_free (filename);
@@ -295,7 +295,7 @@ pinos_module_load (PinosDaemon  * daemon,
     return NULL;
   }
 
-  g_debug ("loaded module: %s", module->name);
+  pinos_log_debug ("loaded module: %s", module->name);
 
   return module;
 }

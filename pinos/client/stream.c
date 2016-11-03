@@ -22,7 +22,7 @@
 #include <sys/mman.h>
 #include <errno.h>
 
-#include "spa/include/spa/debug.h"
+#include "spa/lib/debug.h"
 
 #include <gio/gio.h>
 #include <gio/gunixfdlist.h>
@@ -50,7 +50,6 @@ typedef struct {
   uint32_t flags;
   void *ptr;
   size_t size;
-  bool cleanup;
 } MemId;
 
 typedef struct {
@@ -100,8 +99,8 @@ struct _PinosStreamPrivate
 
   GSource *timeout_source;
 
-  GArray *mem_ids;
-  GArray *buffer_ids;
+  PinosArray mem_ids;
+  PinosArray buffer_ids;
   gboolean in_order;
 
   gint64 last_ticks;
@@ -139,15 +138,13 @@ static void
 clear_buffers (PinosStream *stream)
 {
   PinosStreamPrivate *priv = stream->priv;
-  guint i;
+  BufferId *bid;
 
-  for (i = 0; i < priv->buffer_ids->len; i++) {
-    BufferId *bid = &g_array_index (priv->buffer_ids, BufferId, i);
-
+  pinos_array_for_each (bid, &priv->buffer_ids) {
     g_signal_emit (stream, signals[SIGNAL_REMOVE_BUFFER], 0, bid->id);
     bid->buf = NULL;
   }
-  g_array_set_size (priv->buffer_ids, 0);
+  priv->buffer_ids.size = 0;
   priv->in_order = TRUE;
 }
 
@@ -263,7 +260,7 @@ on_node_info (PinosContext        *c,
   PinosStream *stream = PINOS_STREAM (user_data);
 
   if (info->state == PINOS_NODE_STATE_ERROR) {
-    g_debug ("stream %p: node %s in error", stream, info->node_path);
+    pinos_log_debug ("stream %p: node %s in error", stream, info->node_path);
     stream_set_state (stream,
                       PINOS_STREAM_STATE_ERROR,
                       g_error_new (PINOS_ERROR,
@@ -278,7 +275,7 @@ info_ready (GObject *o, GAsyncResult *res, gpointer user_data)
   GError *error = NULL;
 
   if (!pinos_context_info_finish (o, res, &error)) {
-    g_printerr ("introspection failure: %s\n", error->message);
+    pinos_log_error ("introspection failure: %s\n", error->message);
     g_clear_error (&error);
   }
 }
@@ -341,7 +338,7 @@ pinos_stream_finalize (GObject * object)
   PinosStream *stream = PINOS_STREAM (object);
   PinosStreamPrivate *priv = stream->priv;
 
-  g_debug ("free stream %p", stream);
+  pinos_log_debug ("free stream %p", stream);
 
   g_clear_object (&priv->node);
 
@@ -352,6 +349,9 @@ pinos_stream_finalize (GObject * object)
 
   g_free (priv->path);
   g_clear_error (&priv->error);
+
+  pinos_array_clear (&priv->buffer_ids);
+  pinos_array_clear (&priv->mem_ids);
 
   if (priv->properties)
     pinos_properties_free (priv->properties);
@@ -513,12 +513,14 @@ pinos_stream_init (PinosStream * stream)
 {
   PinosStreamPrivate *priv = stream->priv = PINOS_STREAM_GET_PRIVATE (stream);
 
-  g_debug ("new stream %p", stream);
+  pinos_log_debug ("new stream %p", stream);
 
   priv->state = PINOS_STREAM_STATE_UNCONNECTED;
   priv->node_state = SPA_NODE_STATE_INIT;
-  priv->mem_ids = g_array_sized_new (FALSE, FALSE, sizeof (MemId), 64);
-  priv->buffer_ids = g_array_sized_new (FALSE, FALSE, sizeof (BufferId), 64);
+  pinos_array_init (&priv->mem_ids);
+  pinos_array_ensure_size (&priv->mem_ids, sizeof (MemId) * 64);
+  pinos_array_init (&priv->buffer_ids);
+  pinos_array_ensure_size (&priv->buffer_ids, sizeof (BufferId) * 64);
   priv->pending_seq = SPA_ID_INVALID;
 }
 
@@ -614,26 +616,26 @@ static void
 add_node_update (PinosStream *stream, uint32_t change_mask)
 {
   PinosStreamPrivate *priv = stream->priv;
-  PinosControlCmdNodeUpdate nu = { 0, };
+  PinosMessageNodeUpdate nu = { 0, };
 
   nu.change_mask = change_mask;
-  if (change_mask & PINOS_CONTROL_CMD_NODE_UPDATE_MAX_INPUTS)
+  if (change_mask & PINOS_MESSAGE_NODE_UPDATE_MAX_INPUTS)
     nu.max_input_ports = priv->direction == SPA_DIRECTION_INPUT ? 1 : 0;
-  if (change_mask & PINOS_CONTROL_CMD_NODE_UPDATE_MAX_OUTPUTS)
+  if (change_mask & PINOS_MESSAGE_NODE_UPDATE_MAX_OUTPUTS)
     nu.max_output_ports = priv->direction == SPA_DIRECTION_OUTPUT ? 1 : 0;
   nu.props = NULL;
-  pinos_connection_add_cmd (priv->conn, PINOS_CONTROL_CMD_NODE_UPDATE, &nu);
+  pinos_connection_add_message (priv->conn, PINOS_MESSAGE_NODE_UPDATE, &nu);
 }
 
 static void
 add_state_change (PinosStream *stream, SpaNodeState state)
 {
   PinosStreamPrivate *priv = stream->priv;
-  PinosControlCmdNodeStateChange sc;
+  PinosMessageNodeStateChange sc;
 
   if (priv->node_state != state) {
     sc.state = priv->node_state = state;
-    pinos_connection_add_cmd (priv->conn, PINOS_CONTROL_CMD_NODE_STATE_CHANGE, &sc);
+    pinos_connection_add_message (priv->conn, PINOS_MESSAGE_NODE_STATE_CHANGE, &sc);
   }
 }
 
@@ -641,47 +643,47 @@ static void
 add_port_update (PinosStream *stream, uint32_t change_mask)
 {
   PinosStreamPrivate *priv = stream->priv;
-  PinosControlCmdPortUpdate pu = { 0, };;
+  PinosMessagePortUpdate pu = { 0, };;
 
   pu.direction = priv->direction;
   pu.port_id = priv->port_id;
   pu.change_mask = change_mask;
-  if (change_mask & PINOS_CONTROL_CMD_PORT_UPDATE_POSSIBLE_FORMATS) {
+  if (change_mask & PINOS_MESSAGE_PORT_UPDATE_POSSIBLE_FORMATS) {
     pu.n_possible_formats = priv->possible_formats->len;
     pu.possible_formats = (SpaFormat **)priv->possible_formats->pdata;
   }
-  if (change_mask & PINOS_CONTROL_CMD_PORT_UPDATE_FORMAT) {
+  if (change_mask & PINOS_MESSAGE_PORT_UPDATE_FORMAT) {
     pu.format = priv->format;
   }
   pu.props = NULL;
-  if (change_mask & PINOS_CONTROL_CMD_PORT_UPDATE_INFO) {
+  if (change_mask & PINOS_MESSAGE_PORT_UPDATE_INFO) {
     pu.info = &priv->port_info;
   }
-  pinos_connection_add_cmd (priv->conn, PINOS_CONTROL_CMD_PORT_UPDATE, &pu);
+  pinos_connection_add_message (priv->conn, PINOS_MESSAGE_PORT_UPDATE, &pu);
 }
 
 static void
 send_need_input (PinosStream *stream, uint32_t port_id)
 {
   PinosStreamPrivate *priv = stream->priv;
-  PinosControlCmdNodeEvent cne;
+  PinosMessageNodeEvent cne;
   SpaNodeEventNeedInput ni;
 
   cne.event = &ni.event;
   ni.event.type = SPA_NODE_EVENT_TYPE_NEED_INPUT;
   ni.event.size = sizeof (ni);
   ni.port_id = port_id;
-  pinos_connection_add_cmd (priv->rtconn, PINOS_CONTROL_CMD_NODE_EVENT, &cne);
+  pinos_connection_add_message (priv->rtconn, PINOS_MESSAGE_NODE_EVENT, &cne);
 
   if (!pinos_connection_flush (priv->rtconn))
-    g_warning ("stream %p: error writing connection", stream);
+    pinos_log_warn ("stream %p: error writing connection", stream);
 }
 
 static void
 add_request_clock_update (PinosStream *stream)
 {
   PinosStreamPrivate *priv = stream->priv;
-  PinosControlCmdNodeEvent cne;
+  PinosMessageNodeEvent cne;
   SpaNodeEventRequestClockUpdate rcu;
 
   cne.event = &rcu.event;
@@ -690,7 +692,7 @@ add_request_clock_update (PinosStream *stream)
   rcu.update_mask = SPA_NODE_EVENT_REQUEST_CLOCK_UPDATE_TIME;
   rcu.timestamp = 0;
   rcu.offset = 0;
-  pinos_connection_add_cmd (priv->conn, PINOS_CONTROL_CMD_NODE_EVENT, &cne);
+  pinos_connection_add_message (priv->conn, PINOS_MESSAGE_NODE_EVENT, &cne);
 }
 
 static void
@@ -699,7 +701,7 @@ add_async_complete (PinosStream       *stream,
                     SpaResult          res)
 {
   PinosStreamPrivate *priv = stream->priv;
-  PinosControlCmdNodeEvent cne;
+  PinosMessageNodeEvent cne;
   SpaNodeEventAsyncComplete ac;
 
   cne.event = &ac.event;
@@ -707,14 +709,14 @@ add_async_complete (PinosStream       *stream,
   ac.event.size = sizeof (ac);
   ac.seq = seq;
   ac.res = res;
-  pinos_connection_add_cmd (priv->conn, PINOS_CONTROL_CMD_NODE_EVENT, &cne);
+  pinos_connection_add_message (priv->conn, PINOS_MESSAGE_NODE_EVENT, &cne);
 }
 
 static void
 send_reuse_buffer (PinosStream *stream, uint32_t port_id, uint32_t buffer_id)
 {
   PinosStreamPrivate *priv = stream->priv;
-  PinosControlCmdNodeEvent cne;
+  PinosMessageNodeEvent cne;
   SpaNodeEventReuseBuffer rb;
 
   cne.event = &rb.event;
@@ -722,33 +724,33 @@ send_reuse_buffer (PinosStream *stream, uint32_t port_id, uint32_t buffer_id)
   rb.event.size = sizeof (rb);
   rb.port_id = port_id;
   rb.buffer_id = buffer_id;
-  pinos_connection_add_cmd (priv->rtconn, PINOS_CONTROL_CMD_NODE_EVENT, &cne);
+  pinos_connection_add_message (priv->rtconn, PINOS_MESSAGE_NODE_EVENT, &cne);
 
   if (!pinos_connection_flush (priv->rtconn))
-    g_warning ("stream %p: error writing connection", stream);
+    pinos_log_warn ("stream %p: error writing connection", stream);
 }
 
 static void
 send_process_buffer (PinosStream *stream, uint32_t port_id, uint32_t buffer_id)
 {
   PinosStreamPrivate *priv = stream->priv;
-  PinosControlCmdProcessBuffer pb;
-  PinosControlCmdNodeEvent cne;
+  PinosMessageProcessBuffer pb;
+  PinosMessageNodeEvent cne;
   SpaNodeEventHaveOutput ho;
 
   pb.direction = priv->direction;
   pb.port_id = port_id;
   pb.buffer_id = buffer_id;
-  pinos_connection_add_cmd (priv->rtconn, PINOS_CONTROL_CMD_PROCESS_BUFFER, &pb);
+  pinos_connection_add_message (priv->rtconn, PINOS_MESSAGE_PROCESS_BUFFER, &pb);
 
   cne.event = &ho.event;
   ho.event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
   ho.event.size = sizeof (ho);
   ho.port_id = port_id;
-  pinos_connection_add_cmd (priv->rtconn, PINOS_CONTROL_CMD_NODE_EVENT, &cne);
+  pinos_connection_add_message (priv->rtconn, PINOS_MESSAGE_NODE_EVENT, &cne);
 
   if (!pinos_connection_flush (priv->rtconn))
-    g_warning ("stream %p: error writing connection", stream);
+    pinos_log_warn ("stream %p: error writing connection", stream);
 }
 
 static void
@@ -756,27 +758,26 @@ do_node_init (PinosStream *stream)
 {
   PinosStreamPrivate *priv = stream->priv;
 
-  add_node_update (stream, PINOS_CONTROL_CMD_NODE_UPDATE_MAX_INPUTS |
-                           PINOS_CONTROL_CMD_NODE_UPDATE_MAX_OUTPUTS);
+  add_node_update (stream, PINOS_MESSAGE_NODE_UPDATE_MAX_INPUTS |
+                           PINOS_MESSAGE_NODE_UPDATE_MAX_OUTPUTS);
 
   priv->port_info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
-  add_port_update (stream, PINOS_CONTROL_CMD_PORT_UPDATE_POSSIBLE_FORMATS |
-                           PINOS_CONTROL_CMD_PORT_UPDATE_INFO);
+  add_port_update (stream, PINOS_MESSAGE_PORT_UPDATE_POSSIBLE_FORMATS |
+                           PINOS_MESSAGE_PORT_UPDATE_INFO);
 
   add_state_change (stream, SPA_NODE_STATE_CONFIGURE);
 
   if (!pinos_connection_flush (priv->conn))
-    g_warning ("stream %p: error writing connection", stream);
+    pinos_log_warn ("stream %p: error writing connection", stream);
 }
 
 static MemId *
 find_mem (PinosStream *stream, uint32_t id)
 {
   PinosStreamPrivate *priv = stream->priv;
-  guint i;
+  MemId *mid;
 
-  for (i = 0; i < priv->mem_ids->len; i++) {
-    MemId *mid = &g_array_index (priv->mem_ids, MemId, i);
+  pinos_array_for_each (mid, &priv->mem_ids) {
     if (mid->id == id)
       return mid;
   }
@@ -787,13 +788,13 @@ static BufferId *
 find_buffer (PinosStream *stream, uint32_t id)
 {
   PinosStreamPrivate *priv = stream->priv;
-  guint i;
 
-  if (priv->in_order && id < priv->buffer_ids->len) {
-    return &g_array_index (priv->buffer_ids, BufferId, id);
+  if (priv->in_order && pinos_array_check_index (&priv->buffer_ids, id, BufferId)) {
+    return pinos_array_get_unchecked (&priv->buffer_ids, id, BufferId);
   } else {
-    for (i = 0; i < priv->buffer_ids->len; i++) {
-      BufferId *bid = &g_array_index (priv->buffer_ids, BufferId, i);
+    BufferId *bid;
+
+    pinos_array_for_each (bid, &priv->buffer_ids) {
       if (bid->id == id)
         return bid;
     }
@@ -815,7 +816,7 @@ handle_node_event (PinosStream  *stream,
     case SPA_NODE_EVENT_TYPE_BUFFERING:
     case SPA_NODE_EVENT_TYPE_REQUEST_REFRESH:
     case SPA_NODE_EVENT_TYPE_REQUEST_CLOCK_UPDATE:
-      g_warning ("unhandled node event %d", event->type);
+      pinos_log_warn ("unhandled node event %d", event->type);
       break;
   }
   return TRUE;
@@ -834,12 +835,12 @@ handle_rtnode_event (PinosStream  *stream,
     case SPA_NODE_EVENT_TYPE_BUFFERING:
     case SPA_NODE_EVENT_TYPE_REQUEST_REFRESH:
     case SPA_NODE_EVENT_TYPE_REQUEST_CLOCK_UPDATE:
-      g_warning ("unexpected node event %d", event->type);
+      pinos_log_warn ("unexpected node event %d", event->type);
       break;
 
     case SPA_NODE_EVENT_TYPE_HAVE_OUTPUT:
     case SPA_NODE_EVENT_TYPE_NEED_INPUT:
-      g_warning ("unhandled node event %d", event->type);
+      pinos_log_warn ("unhandled node event %d", event->type);
       break;
 
     case SPA_NODE_EVENT_TYPE_REUSE_BUFFER:
@@ -874,25 +875,25 @@ handle_node_command (PinosStream    *stream,
       break;
     case SPA_NODE_COMMAND_PAUSE:
     {
-      g_debug ("stream %p: pause %d", stream, seq);
+      pinos_log_debug ("stream %p: pause %d", stream, seq);
 
       add_state_change (stream, SPA_NODE_STATE_PAUSED);
       add_async_complete (stream, seq, SPA_RESULT_OK);
 
       if (!pinos_connection_flush (priv->conn))
-        g_warning ("stream %p: error writing connection", stream);
+        pinos_log_warn ("stream %p: error writing connection", stream);
 
       stream_set_state (stream, PINOS_STREAM_STATE_PAUSED, NULL);
       break;
     }
     case SPA_NODE_COMMAND_START:
     {
-      g_debug ("stream %p: start %d", stream, seq);
+      pinos_log_debug ("stream %p: start %d", stream, seq);
       add_state_change (stream, SPA_NODE_STATE_STREAMING);
       add_async_complete (stream, seq, SPA_RESULT_OK);
 
       if (!pinos_connection_flush (priv->conn))
-        g_warning ("stream %p: error writing connection", stream);
+        pinos_log_warn ("stream %p: error writing connection", stream);
 
       if (priv->direction == SPA_DIRECTION_INPUT)
         send_need_input (stream, priv->port_id);
@@ -904,11 +905,11 @@ handle_node_command (PinosStream    *stream,
     case SPA_NODE_COMMAND_DRAIN:
     case SPA_NODE_COMMAND_MARKER:
     {
-      g_warning ("unhandled node command %d", command->type);
+      pinos_log_warn ("unhandled node command %d", command->type);
       add_async_complete (stream, seq, SPA_RESULT_NOT_IMPLEMENTED);
 
       if (!pinos_connection_flush (priv->conn))
-        g_warning ("stream %p: error writing connection", stream);
+        pinos_log_warn ("stream %p: error writing connection", stream);
       break;
     }
     case SPA_NODE_COMMAND_CLOCK_UPDATE:
@@ -936,28 +937,28 @@ parse_connection (PinosStream *stream)
   PinosConnection *conn = priv->conn;
 
   while (pinos_connection_has_next (conn)) {
-    PinosControlCmd cmd = pinos_connection_get_cmd (conn);
+    PinosMessageType type = pinos_connection_get_type (conn);
 
-    switch (cmd) {
-      case PINOS_CONTROL_CMD_NODE_UPDATE:
-      case PINOS_CONTROL_CMD_PORT_UPDATE:
-      case PINOS_CONTROL_CMD_PORT_STATUS_CHANGE:
-      case PINOS_CONTROL_CMD_NODE_STATE_CHANGE:
-      case PINOS_CONTROL_CMD_PROCESS_BUFFER:
-        g_warning ("got unexpected command %d", cmd);
+    switch (type) {
+      case PINOS_MESSAGE_NODE_UPDATE:
+      case PINOS_MESSAGE_PORT_UPDATE:
+      case PINOS_MESSAGE_PORT_STATUS_CHANGE:
+      case PINOS_MESSAGE_NODE_STATE_CHANGE:
+      case PINOS_MESSAGE_PROCESS_BUFFER:
+        pinos_log_warn ("got unexpected message %d", type);
         break;
 
-      case PINOS_CONTROL_CMD_ADD_PORT:
-      case PINOS_CONTROL_CMD_REMOVE_PORT:
-        g_warning ("add/remove port not supported");
+      case PINOS_MESSAGE_ADD_PORT:
+      case PINOS_MESSAGE_REMOVE_PORT:
+        pinos_log_warn ("add/remove port not supported");
         break;
 
-      case PINOS_CONTROL_CMD_SET_FORMAT:
+      case PINOS_MESSAGE_SET_FORMAT:
       {
-        PinosControlCmdSetFormat p;
+        PinosMessageSetFormat p;
         gpointer mem;
 
-        if (!pinos_connection_parse_cmd (conn, &p))
+        if (!pinos_connection_parse_message (conn, &p))
           break;
 
         if (priv->format)
@@ -970,17 +971,17 @@ parse_connection (PinosStream *stream)
         stream_set_state (stream, PINOS_STREAM_STATE_READY, NULL);
         break;
       }
-      case PINOS_CONTROL_CMD_SET_PROPERTY:
-        g_warning ("set property not implemented");
+      case PINOS_MESSAGE_SET_PROPERTY:
+        pinos_log_warn ("set property not implemented");
         break;
 
-      case PINOS_CONTROL_CMD_ADD_MEM:
+      case PINOS_MESSAGE_ADD_MEM:
       {
-        PinosControlCmdAddMem p;
+        PinosMessageAddMem p;
         int fd;
-        MemId mid, *m;
+        MemId *m;
 
-        if (!pinos_connection_parse_cmd (conn, &p))
+        if (!pinos_connection_parse_message (conn, &p))
           break;
 
         fd = pinos_connection_get_fd (conn, p.fd_index, false);
@@ -989,33 +990,26 @@ parse_connection (PinosStream *stream)
 
         m = find_mem (stream, p.mem_id);
         if (m) {
-          g_debug ("update mem %u, fd %d, flags %d, size %zd", p.mem_id, fd, p.flags, p.size);
-
-          m->id = p.mem_id;
-          m->fd = fd;
-          m->flags = p.flags;
-          m->ptr = NULL;
-          m->size = p.size;
+          pinos_log_debug ("update mem %u, fd %d, flags %d, size %zd", p.mem_id, fd, p.flags, p.size);
         } else {
-          mid.id = p.mem_id;
-          mid.fd = fd;
-          mid.flags = p.flags;
-          mid.ptr = NULL;
-          mid.size = p.size;
-
-          g_debug ("add mem %u, fd %d, flags %d, size %zd", p.mem_id, fd, p.flags, p.size);
-          g_array_append_val (priv->mem_ids, mid);
+          m = pinos_array_add (&priv->mem_ids, sizeof (MemId));
+          pinos_log_debug ("add mem %u, fd %d, flags %d, size %zd", p.mem_id, fd, p.flags, p.size);
         }
+        m->id = p.mem_id;
+        m->fd = fd;
+        m->flags = p.flags;
+        m->ptr = NULL;
+        m->size = p.size;
         break;
       }
-      case PINOS_CONTROL_CMD_USE_BUFFERS:
+      case PINOS_MESSAGE_USE_BUFFERS:
       {
-        PinosControlCmdUseBuffers p;
-        BufferId bid;
-        unsigned int i, j;
+        PinosMessageUseBuffers p;
+        BufferId *bid;
+        unsigned int i, j, len;
         SpaBuffer *b;
 
-        if (!pinos_connection_parse_cmd (conn, &p))
+        if (!pinos_connection_parse_message (conn, &p))
           break;
 
         /* clear previous buffers */
@@ -1024,7 +1018,7 @@ parse_connection (PinosStream *stream)
         for (i = 0; i < p.n_buffers; i++) {
           MemId *mid = find_mem (stream, p.buffers[i].mem_id);
           if (mid == NULL) {
-            g_warning ("unknown memory id %u", mid->id);
+            pinos_log_warn ("unknown memory id %u", mid->id);
             continue;
           }
 
@@ -1032,18 +1026,20 @@ parse_connection (PinosStream *stream)
             mid->ptr = mmap (NULL, mid->size, PROT_READ | PROT_WRITE, MAP_SHARED, mid->fd, 0);
             if (mid->ptr == MAP_FAILED) {
               mid->ptr = NULL;
-              g_warning ("Failed to mmap memory %zd %p: %s", mid->size, mid, strerror (errno));
+              pinos_log_warn ("Failed to mmap memory %zd %p: %s", mid->size, mid, strerror (errno));
               continue;
             }
           }
+          len = pinos_array_get_len (&priv->buffer_ids, BufferId);
+          bid = pinos_array_add (&priv->buffer_ids, sizeof (BufferId));
 
-          bid.buf_ptr = SPA_MEMBER (mid->ptr, p.buffers[i].offset, void);
+          bid->buf_ptr = SPA_MEMBER (mid->ptr, p.buffers[i].offset, void);
           {
             size_t size;
             unsigned int i;
             SpaMeta *m;
 
-            b = bid.buf_ptr;
+            b = bid->buf_ptr;
             size = sizeof (SpaBuffer);
             m = SPA_MEMBER (b, SPA_PTR_TO_INT (b->metas), SpaMeta);
             for (i = 0; i < b->n_metas; i++)
@@ -1051,24 +1047,28 @@ parse_connection (PinosStream *stream)
             for (i = 0; i < b->n_datas; i++)
               size += sizeof (SpaData);
 
-            b = bid.buf = g_memdup (bid.buf_ptr, size);
+            b = bid->buf = g_memdup (bid->buf_ptr, size);
 
             if (b->metas)
               b->metas = SPA_MEMBER (b, SPA_PTR_TO_INT (b->metas), SpaMeta);
             if (b->datas) {
-              bid.datas = SPA_MEMBER (bid.buf_ptr, SPA_PTR_TO_INT (b->datas), SpaData);
+              bid->datas = SPA_MEMBER (bid->buf_ptr, SPA_PTR_TO_INT (b->datas), SpaData);
               b->datas = SPA_MEMBER (b, SPA_PTR_TO_INT (b->datas), SpaData);
             }
           }
 
-          bid.id = b->id;
+          bid->id = b->id;
 
-          g_debug ("add buffer %d %d %zd", mid->id, bid.id, p.buffers[i].offset);
+          if (bid->id != len) {
+            pinos_log_warn ("unexpected id %u found, expected %u", bid->id, len);
+            priv->in_order = FALSE;
+          }
+          pinos_log_debug ("add buffer %d %d %zd", mid->id, bid->id, p.buffers[i].offset);
 
           for (j = 0; j < b->n_metas; j++) {
             SpaMeta *m = &b->metas[j];
             if (m->data)
-              m->data = SPA_MEMBER (bid.buf_ptr, SPA_PTR_TO_INT (m->data), void);
+              m->data = SPA_MEMBER (bid->buf_ptr, SPA_PTR_TO_INT (m->data), void);
           }
 
           for (j = 0; j < b->n_datas; j++) {
@@ -1081,28 +1081,23 @@ parse_connection (PinosStream *stream)
                 d->type = SPA_DATA_TYPE_MEMFD;
                 d->data = NULL;
                 d->fd = bmid->fd;
-                g_debug (" data %d %u -> fd %d", j, bmid->id, bmid->fd);
+                pinos_log_debug (" data %d %u -> fd %d", j, bmid->id, bmid->fd);
                 break;
               }
               case SPA_DATA_TYPE_MEMPTR:
               {
-                d->data = SPA_MEMBER (bid.buf_ptr, SPA_PTR_TO_INT (d->data), void);
+                d->data = SPA_MEMBER (bid->buf_ptr, SPA_PTR_TO_INT (d->data), void);
                 d->fd = -1;
-                g_debug (" data %d %u -> mem %p", j, bid.id, d->data);
+                pinos_log_debug (" data %d %u -> mem %p", j, bid->id, d->data);
                 break;
               }
               default:
-                g_warning ("unknown buffer data type %d", d->type);
+                pinos_log_warn ("unknown buffer data type %d", d->type);
                 break;
             }
           }
 
-          if (bid.id != priv->buffer_ids->len) {
-            g_warning ("unexpected id %u found, expected %u", bid.id, priv->buffer_ids->len);
-            priv->in_order = FALSE;
-          }
-          g_array_append_val (priv->buffer_ids, bid);
-          g_signal_emit (stream, signals[SIGNAL_ADD_BUFFER], 0, bid.id);
+          g_signal_emit (stream, signals[SIGNAL_ADD_BUFFER], 0, bid->id);
         }
 
         if (p.n_buffers) {
@@ -1113,7 +1108,7 @@ parse_connection (PinosStream *stream)
         add_async_complete (stream, p.seq, SPA_RESULT_OK);
 
         if (!pinos_connection_flush (conn))
-          g_warning ("stream %p: error writing connection", stream);
+          pinos_log_warn ("stream %p: error writing connection", stream);
 
         if (p.n_buffers)
           stream_set_state (stream, PINOS_STREAM_STATE_PAUSED, NULL);
@@ -1121,37 +1116,37 @@ parse_connection (PinosStream *stream)
           stream_set_state (stream, PINOS_STREAM_STATE_READY, NULL);
         break;
       }
-      case PINOS_CONTROL_CMD_NODE_EVENT:
+      case PINOS_MESSAGE_NODE_EVENT:
       {
-        PinosControlCmdNodeEvent p;
+        PinosMessageNodeEvent p;
 
-        if (!pinos_connection_parse_cmd (conn, &p))
+        if (!pinos_connection_parse_message (conn, &p))
           break;
 
         handle_node_event (stream, p.event);
         break;
       }
-      case PINOS_CONTROL_CMD_NODE_COMMAND:
+      case PINOS_MESSAGE_NODE_COMMAND:
       {
-        PinosControlCmdNodeCommand p;
+        PinosMessageNodeCommand p;
 
-        if (!pinos_connection_parse_cmd (conn, &p))
+        if (!pinos_connection_parse_message (conn, &p))
           break;
 
         handle_node_command (stream, p.seq, p.command);
         break;
       }
-      case PINOS_CONTROL_CMD_PORT_COMMAND:
+      case PINOS_MESSAGE_PORT_COMMAND:
       {
-        PinosControlCmdPortCommand p;
+        PinosMessagePortCommand p;
 
-        if (!pinos_connection_parse_cmd (conn, &p))
+        if (!pinos_connection_parse_message (conn, &p))
           break;
 
         break;
       }
-      case PINOS_CONTROL_CMD_INVALID:
-        g_warning ("unhandled command %d", cmd);
+      case PINOS_MESSAGE_INVALID:
+        pinos_log_warn ("unhandled message %d", type);
         break;
     }
   }
@@ -1165,34 +1160,34 @@ parse_rtconnection (PinosStream *stream)
   PinosConnection *conn = priv->rtconn;
 
   while (pinos_connection_has_next (conn)) {
-    PinosControlCmd cmd = pinos_connection_get_cmd (conn);
+    PinosMessageType type = pinos_connection_get_type (conn);
 
-    switch (cmd) {
-      case PINOS_CONTROL_CMD_INVALID:
-      case PINOS_CONTROL_CMD_NODE_UPDATE:
-      case PINOS_CONTROL_CMD_PORT_UPDATE:
-      case PINOS_CONTROL_CMD_PORT_STATUS_CHANGE:
-      case PINOS_CONTROL_CMD_NODE_STATE_CHANGE:
-      case PINOS_CONTROL_CMD_ADD_PORT:
-      case PINOS_CONTROL_CMD_REMOVE_PORT:
-      case PINOS_CONTROL_CMD_SET_FORMAT:
-      case PINOS_CONTROL_CMD_SET_PROPERTY:
-      case PINOS_CONTROL_CMD_ADD_MEM:
-      case PINOS_CONTROL_CMD_USE_BUFFERS:
-      case PINOS_CONTROL_CMD_NODE_COMMAND:
-        g_warning ("got unexpected command %d", cmd);
+    switch (type) {
+      case PINOS_MESSAGE_INVALID:
+      case PINOS_MESSAGE_NODE_UPDATE:
+      case PINOS_MESSAGE_PORT_UPDATE:
+      case PINOS_MESSAGE_PORT_STATUS_CHANGE:
+      case PINOS_MESSAGE_NODE_STATE_CHANGE:
+      case PINOS_MESSAGE_ADD_PORT:
+      case PINOS_MESSAGE_REMOVE_PORT:
+      case PINOS_MESSAGE_SET_FORMAT:
+      case PINOS_MESSAGE_SET_PROPERTY:
+      case PINOS_MESSAGE_ADD_MEM:
+      case PINOS_MESSAGE_USE_BUFFERS:
+      case PINOS_MESSAGE_NODE_COMMAND:
+        pinos_log_warn ("got unexpected command %d", type);
         break;
 
-      case PINOS_CONTROL_CMD_PROCESS_BUFFER:
+      case PINOS_MESSAGE_PROCESS_BUFFER:
       {
-        PinosControlCmdProcessBuffer p;
+        PinosMessageProcessBuffer p;
         guint i;
         BufferId *bid;
 
         if (priv->direction != SPA_DIRECTION_INPUT)
           break;
 
-        if (!pinos_connection_parse_cmd (conn, &p))
+        if (!pinos_connection_parse_message (conn, &p))
           break;
 
         if ((bid = find_buffer (stream, p.buffer_id))) {
@@ -1205,17 +1200,17 @@ parse_rtconnection (PinosStream *stream)
         }
         break;
       }
-      case PINOS_CONTROL_CMD_NODE_EVENT:
+      case PINOS_MESSAGE_NODE_EVENT:
       {
-        PinosControlCmdNodeEvent p;
+        PinosMessageNodeEvent p;
 
-        if (!pinos_connection_parse_cmd (conn, &p))
+        if (!pinos_connection_parse_message (conn, &p))
           break;
 
         handle_rtnode_event (stream, p.event);
         break;
       }
-      case PINOS_CONTROL_CMD_PORT_COMMAND:
+      case PINOS_MESSAGE_PORT_COMMAND:
       {
         break;
       }
@@ -1240,7 +1235,7 @@ on_socket_condition (GSocket      *socket,
     }
 
     case G_IO_OUT:
-      g_warning ("can do IO\n");
+      pinos_log_warn ("can do IO\n");
       break;
 
     default:
@@ -1264,7 +1259,7 @@ on_rtsocket_condition (GSocket      *socket,
     }
 
     case G_IO_OUT:
-      g_warning ("can do IO\n");
+      pinos_log_warn ("can do IO\n");
       break;
 
     default:
@@ -1282,7 +1277,7 @@ on_timeout (gpointer user_data)
   add_request_clock_update (stream);
 
   if (!pinos_connection_flush (priv->conn))
-    g_warning ("stream %p: error writing connection", stream);
+    pinos_log_warn ("stream %p: error writing connection", stream);
 
   return G_SOURCE_CONTINUE;
 }
@@ -1321,7 +1316,7 @@ handle_socket (PinosStream *stream, gint fd, gint rtfd)
   /* ERRORS */
 socket_failed:
   {
-    g_warning ("failed to create socket: %s", error->message);
+    pinos_log_warn ("failed to create socket: %s", error->message);
     stream_set_state (stream, PINOS_STREAM_STATE_ERROR, error);
     return;
   }
@@ -1368,7 +1363,7 @@ on_node_proxy (GObject      *source_object,
 
 node_failed:
   {
-    g_warning ("failed to get node proxy: %s", error->message);
+    pinos_log_warn ("failed to get node proxy: %s", error->message);
     stream_set_state (stream, PINOS_STREAM_STATE_ERROR, error);
     g_object_unref (stream);
     return;
@@ -1425,12 +1420,12 @@ on_node_created (GObject      *source_object,
   /* ERRORS */
 create_failed:
   {
-    g_warning ("failed to connect: %s", error->message);
+    pinos_log_warn ("failed to connect: %s", error->message);
     goto exit_error;
   }
 fd_failed:
   {
-    g_warning ("failed to get FD: %s", error->message);
+    pinos_log_warn ("failed to get FD: %s", error->message);
     g_object_unref (fd_list);
     goto exit_error;
   }
@@ -1479,12 +1474,12 @@ on_node_registered (GObject      *source_object,
   /* ERRORS */
 create_failed:
   {
-    g_warning ("failed to connect: %s", error->message);
+    pinos_log_warn ("failed to connect: %s", error->message);
     goto exit_error;
   }
 fd_failed:
   {
-    g_warning ("failed to get FD: %s", error->message);
+    pinos_log_warn ("failed to get FD: %s", error->message);
     g_object_unref (fd_list);
     goto exit_error;
   }
@@ -1635,8 +1630,8 @@ pinos_stream_finish_format (PinosStream     *stream,
   priv->port_info.n_params = n_params;
 
   if (SPA_RESULT_IS_OK (res)) {
-    add_port_update (stream, PINOS_CONTROL_CMD_PORT_UPDATE_INFO |
-                             PINOS_CONTROL_CMD_PORT_UPDATE_FORMAT);
+    add_port_update (stream, PINOS_MESSAGE_PORT_UPDATE_INFO |
+                             PINOS_MESSAGE_PORT_UPDATE_FORMAT);
     if (priv->format) {
       add_state_change (stream, SPA_NODE_STATE_READY);
     } else {
@@ -1652,7 +1647,7 @@ pinos_stream_finish_format (PinosStream     *stream,
   priv->pending_seq = SPA_ID_INVALID;
 
   if (!pinos_connection_flush (priv->conn))
-    g_warning ("stream %p: error writing connection", stream);
+    pinos_log_warn ("stream %p: error writing connection", stream);
 
   return TRUE;
 }
@@ -1752,7 +1747,7 @@ on_node_removed (GObject      *source_object,
   /* ERRORS */
 proxy_failed:
   {
-    g_warning ("failed to disconnect: %s", error->message);
+    pinos_log_warn ("failed to disconnect: %s", error->message);
     stream_set_state (stream, PINOS_STREAM_STATE_ERROR, error);
     g_object_unref (stream);
     return;
@@ -1841,14 +1836,13 @@ guint
 pinos_stream_get_empty_buffer (PinosStream *stream)
 {
   PinosStreamPrivate *priv;
-  guint i;
+  BufferId *bid;
 
   g_return_val_if_fail (PINOS_IS_STREAM (stream), FALSE);
   priv = stream->priv;
   g_return_val_if_fail (priv->direction == SPA_DIRECTION_OUTPUT, FALSE);
 
-  for (i = 0; i < priv->buffer_ids->len; i++) {
-    BufferId *bid = &g_array_index (priv->buffer_ids, BufferId, i);
+  pinos_array_for_each (bid, &priv->buffer_ids) {
     if (!bid->used)
       return bid->id;
   }

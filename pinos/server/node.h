@@ -44,6 +44,7 @@ typedef enum {
 #include <pinos/server/utils.h>
 
 struct _PinosPort {
+  uint32_t        id;
   PinosNode      *node;
   PinosDirection  direction;
   uint32_t        port;
@@ -70,6 +71,8 @@ struct _PinosPort {
  */
 struct _PinosNode {
   GObject object;
+
+  uint32_t id;
 
   PinosNodeFlags flags;
 

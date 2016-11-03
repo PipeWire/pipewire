@@ -26,10 +26,9 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
-#include <gio/gio.h>
-
 #include <spa/include/spa/node.h>
 #include <spa/include/spa/monitor.h>
+#include <pinos/client/log.h>
 
 #include "spa-v4l2-monitor.h"
 
@@ -110,7 +109,7 @@ add_item (PinosSpaV4l2Monitor *this, SpaMonitorItem *item)
   void *clock_iface;
   PinosProperties *props = NULL;
 
-  g_debug ("v4l2-monitor %p: add: \"%s\" (%s)", this, item->name, item->id);
+  pinos_log_debug ("v4l2-monitor %p: add: \"%s\" (%s)", this, item->name, item->id);
 
   handle = calloc (1, item->factory->size);
   if ((res = spa_handle_factory_init (item->factory,
@@ -158,7 +157,7 @@ remove_item (PinosSpaV4l2Monitor *this, SpaMonitorItem *item)
   PinosSpaV4l2MonitorPrivate *priv = this->priv;
   PinosNode *node;
 
-  g_debug ("v4l2-monitor %p: remove: \"%s\" (%s)", this, item->name, item->id);
+  pinos_log_debug ("v4l2-monitor %p: remove: \"%s\" (%s)", this, item->name, item->id);
 
   node = g_hash_table_lookup (priv->nodes, item->id);
   if (node) {
@@ -189,7 +188,7 @@ on_monitor_event  (SpaMonitor      *monitor,
     case SPA_MONITOR_EVENT_TYPE_CHANGED:
     {
       SpaMonitorItem *item = (SpaMonitorItem *) event;
-      g_debug ("v4l2-monitor %p: changed: \"%s\"", this, item->name);
+      pinos_log_debug ("v4l2-monitor %p: changed: \"%s\"", this, item->name);
       break;
     }
     default:
@@ -205,7 +204,7 @@ monitor_constructed (GObject * object)
   SpaResult res;
   void *state = NULL;
 
-  g_debug ("spa-monitor %p: constructed", this);
+  pinos_log_debug ("spa-monitor %p: constructed", this);
 
   G_OBJECT_CLASS (pinos_spa_v4l2_monitor_parent_class)->constructed (object);
 
@@ -217,7 +216,7 @@ monitor_constructed (GObject * object)
 
     if ((res = spa_monitor_enum_items (priv->monitor, &item, &state)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
-        g_debug ("spa_monitor_enum_items: got error %d\n", res);
+        pinos_log_debug ("spa_monitor_enum_items: got error %d\n", res);
       break;
     }
     add_item (this, item);
@@ -279,7 +278,7 @@ monitor_finalize (GObject * object)
   PinosSpaV4l2Monitor *this = PINOS_SPA_V4L2_MONITOR (object);
   PinosSpaV4l2MonitorPrivate *priv = this->priv;
 
-  g_debug ("spa-monitor %p: dispose", this);
+  pinos_log_debug ("spa-monitor %p: dispose", this);
   spa_handle_clear (priv->handle);
   g_free (priv->handle);
   g_hash_table_unref (priv->nodes);

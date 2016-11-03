@@ -135,7 +135,7 @@ pinos_daemon_config_load_file (PinosDaemonConfig  * config,
   g_return_val_if_fail (config != NULL, FALSE);
   g_return_val_if_fail (filename != NULL && *filename != '\0', FALSE);
 
-  g_debug ("deamon-config %p loading file %s", config, filename);
+  pinos_log_debug ("deamon-config %p loading file %s", config, filename);
 
   if (!g_file_get_contents (filename, &data, NULL, err)) {
     return FALSE;
@@ -175,7 +175,7 @@ pinos_daemon_config_load (PinosDaemonConfig  * config,
 
   filename = g_getenv ("PINOS_CONFIG_FILE");
   if (filename != NULL && *filename != '\0') {
-    g_debug ("PINOS_CONFIG_FILE set to: %s", filename);
+    pinos_log_debug ("PINOS_CONFIG_FILE set to: %s", filename);
   } else {
     filename = DEFAULT_CONFIG_FILE;
   }
@@ -206,7 +206,7 @@ pinos_daemon_config_run_commands (PinosDaemonConfig  * config,
   for (walk = config->commands; walk != NULL; walk = walk->next) {
     PinosCommand *command = (PinosCommand *)walk->data;
     if (!pinos_command_run (command, daemon, &err)) {
-      g_warning ("could not run command %s: %s",
+      pinos_log_warn ("could not run command %s: %s",
           pinos_command_get_name (command), err->message);
       g_clear_error (&err);
       ret = FALSE;

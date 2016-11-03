@@ -67,7 +67,7 @@ GType               pinos_data_loop_get_type         (void);
 
 PinosDataLoop *     pinos_data_loop_new              (void);
 
-gboolean            pinos_data_loop_in_thread        (PinosDataLoop *loop);
+bool                pinos_data_loop_in_thread        (PinosDataLoop *loop);
 
 G_END_DECLS
 

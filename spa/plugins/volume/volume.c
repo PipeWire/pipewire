@@ -24,6 +24,7 @@
 #include <spa/id-map.h>
 #include <spa/node.h>
 #include <spa/audio/format.h>
+#include <lib/props.h>
 
 typedef struct _SpaVolume SpaVolume;
 

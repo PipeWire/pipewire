@@ -29,7 +29,8 @@
 #include <spa/id-map.h>
 #include <spa/monitor.h>
 #include <spa/poll.h>
-#include <spa/debug.h>
+#include <lib/debug.h>
+#include <lib/mapper.h>
 
 typedef struct {
   uint32_t monitor;

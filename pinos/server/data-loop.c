@@ -27,9 +27,8 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
-#include <gio/gio.h>
-
 #include "spa/include/spa/ringbuffer.h"
+#include "pinos/client/log.h"
 #include "pinos/client/rtkit.h"
 #include "pinos/server/data-loop.h"
 
@@ -63,7 +62,7 @@ struct _PinosDataLoopPrivate
   uint32_t counter;
   uint32_t seq;
 
-  gboolean running;
+  bool running;
   pthread_t thread;
 
 };
@@ -97,31 +96,31 @@ make_realtime (PinosDataLoop *this)
   sp.sched_priority = rtprio;
 
   if (pthread_setschedparam (pthread_self(), SCHED_RR|SCHED_RESET_ON_FORK, &sp) == 0) {
-    g_debug ("SCHED_OTHER|SCHED_RESET_ON_FORK worked.");
+    pinos_log_debug ("SCHED_OTHER|SCHED_RESET_ON_FORK worked.");
     return;
   }
   system_bus = g_bus_get_sync (G_BUS_TYPE_SYSTEM, NULL, NULL);
 
   rl.rlim_cur = rl.rlim_max = rttime;
   if ((r = setrlimit (RLIMIT_RTTIME, &rl)) < 0)
-    g_debug ("setrlimit() failed: %s", strerror (errno));
+    pinos_log_debug ("setrlimit() failed: %s", strerror (errno));
 
   if (rttime >= 0) {
     r = getrlimit (RLIMIT_RTTIME, &rl);
     if (r >= 0 && (long long) rl.rlim_max > rttime) {
-      g_debug ("Clamping rlimit-rttime to %lld for RealtimeKit", rttime);
+      pinos_log_debug ("Clamping rlimit-rttime to %lld for RealtimeKit", rttime);
       rl.rlim_cur = rl.rlim_max = rttime;
 
       if ((r = setrlimit (RLIMIT_RTTIME, &rl)) < 0)
-        g_debug ("setrlimit() failed: %s", strerror (errno));
+        pinos_log_debug ("setrlimit() failed: %s", strerror (errno));
     }
   }
 
   if (!pinos_rtkit_make_realtime (system_bus, 0, rtprio, &error)) {
-    g_debug ("could not make thread realtime: %s", error->message);
+    pinos_log_debug ("could not make thread realtime: %s", error->message);
     g_clear_error (&error);
   } else {
-    g_debug ("thread made realtime");
+    pinos_log_debug ("thread made realtime");
   }
   g_object_unref (system_bus);
 }
@@ -136,7 +135,7 @@ loop (void *user_data)
 
   make_realtime (this);
 
-  g_debug ("data-loop %p: enter thread", this);
+  pinos_log_debug ("data-loop %p: enter thread", this);
   while (priv->running) {
     SpaPollNotifyData ndata;
     unsigned int n_idle = 0;
@@ -196,7 +195,7 @@ loop (void *user_data)
       break;
     }
     if (r == 0) {
-      g_warning ("data-loop %p: select timeout should not happen", this);
+      pinos_log_warn ("data-loop %p: select timeout should not happen", this);
       continue;
     }
 
@@ -206,7 +205,7 @@ loop (void *user_data)
       size_t offset;
 
       if (read (priv->fds[0].fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
-        g_warning ("data-loop %p: failed to read fd: %s", this, strerror (errno));
+        pinos_log_warn ("data-loop %p: failed to read fd: %s", this, strerror (errno));
 
       while (spa_ringbuffer_get_read_offset (&priv->buffer, &offset) > 0) {
         InvokeItem *item = SPA_MEMBER (priv->buffer_data, offset, InvokeItem);
@@ -232,7 +231,7 @@ loop (void *user_data)
       }
     }
   }
-  g_debug ("data-loop %p: leave thread", this);
+  pinos_log_debug ("data-loop %p: leave thread", this);
 
   return NULL;
 }
@@ -244,7 +243,7 @@ wakeup_thread (PinosDataLoop *this)
   uint64_t u = 1;
 
   if (write (priv->fds[0].fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
-    g_warning ("data-loop %p: failed to write fd: %s", this, strerror (errno));
+    pinos_log_warn ("data-loop %p: failed to write fd: %s", this, strerror (errno));
 }
 
 static void
@@ -256,14 +255,14 @@ start_thread (PinosDataLoop *this)
   if (!priv->running) {
     priv->running = true;
     if ((err = pthread_create (&priv->thread, NULL, loop, this)) != 0) {
-      g_warning ("data-loop %p: can't create thread: %s", this, strerror (err));
+      pinos_log_warn ("data-loop %p: can't create thread: %s", this, strerror (err));
       priv->running = false;
     }
   }
 }
 
 static void
-stop_thread (PinosDataLoop *this, gboolean in_thread)
+stop_thread (PinosDataLoop *this, bool in_thread)
 {
   PinosDataLoopPrivate *priv = this->priv;
 
@@ -282,7 +281,7 @@ do_add_item (SpaPoll         *poll,
 {
   PinosDataLoop *this = SPA_CONTAINER_OF (poll, PinosDataLoop, poll);
   PinosDataLoopPrivate *priv = this->priv;
-  gboolean in_thread = pthread_equal (priv->thread, pthread_self());
+  bool in_thread = pthread_equal (priv->thread, pthread_self());
 
   item->id = ++priv->counter;
   priv->poll[priv->n_poll] = *item;
@@ -304,7 +303,7 @@ do_update_item (SpaPoll         *poll,
 {
   PinosDataLoop *this = SPA_CONTAINER_OF (poll, PinosDataLoop, poll);
   PinosDataLoopPrivate *priv = this->priv;
-  gboolean in_thread = pthread_equal (priv->thread, pthread_self());
+  bool in_thread = pthread_equal (priv->thread, pthread_self());
   unsigned int i;
 
   for (i = 0; i < priv->n_poll; i++) {
@@ -326,7 +325,7 @@ do_remove_item (SpaPoll         *poll,
 {
   PinosDataLoop *this = SPA_CONTAINER_OF (poll, PinosDataLoop, poll);
   PinosDataLoopPrivate *priv = this->priv;
-  gboolean in_thread = pthread_equal (priv->thread, pthread_self());
+  bool in_thread = pthread_equal (priv->thread, pthread_self());
   unsigned int i;
 
   for (i = 0; i < priv->n_poll; i++) {
@@ -355,7 +354,7 @@ do_invoke (SpaPoll           *poll,
 {
   PinosDataLoop *this = SPA_CONTAINER_OF (poll, PinosDataLoop, poll);
   PinosDataLoopPrivate *priv = this->priv;
-  gboolean in_thread = pthread_equal (priv->thread, pthread_self());
+  bool in_thread = pthread_equal (priv->thread, pthread_self());
   SpaRingbufferArea areas[2];
   InvokeItem *item;
   SpaResult res;
@@ -365,7 +364,7 @@ do_invoke (SpaPoll           *poll,
   } else {
     spa_ringbuffer_get_write_areas (&priv->buffer, areas);
     if (areas[0].len < sizeof (InvokeItem)) {
-      g_warning ("queue full");
+      pinos_log_warn ("queue full");
       return SPA_RESULT_ERROR;
     }
     item = SPA_MEMBER (priv->buffer_data, areas[0].offset, InvokeItem);
@@ -403,7 +402,7 @@ pinos_data_loop_constructed (GObject * obj)
   PinosDataLoop *this = PINOS_DATA_LOOP (obj);
   PinosDataLoopPrivate *priv = this->priv;
 
-  g_debug ("data-loop %p: constructed", this);
+  pinos_log_debug ("data-loop %p: constructed", this);
 
   G_OBJECT_CLASS (pinos_data_loop_parent_class)->constructed (obj);
 
@@ -418,7 +417,7 @@ pinos_data_loop_dispose (GObject * obj)
 {
   PinosDataLoop *this = PINOS_DATA_LOOP (obj);
 
-  g_debug ("data-loop %p: dispose", this);
+  pinos_log_debug ("data-loop %p: dispose", this);
   stop_thread (this, FALSE);
 
   G_OBJECT_CLASS (pinos_data_loop_parent_class)->dispose (obj);
@@ -429,7 +428,7 @@ pinos_data_loop_finalize (GObject * obj)
 {
   PinosDataLoop *this = PINOS_DATA_LOOP (obj);
 
-  g_debug ("data-loop %p: finalize", this);
+  pinos_log_debug ("data-loop %p: finalize", this);
 
   G_OBJECT_CLASS (pinos_data_loop_parent_class)->finalize (obj);
 }
@@ -451,7 +450,7 @@ pinos_data_loop_init (PinosDataLoop * this)
 {
   PinosDataLoopPrivate *priv = this->priv = PINOS_DATA_LOOP_GET_PRIVATE (this);
 
-  g_debug ("data-loop %p: new", this);
+  pinos_log_debug ("data-loop %p: new", this);
 
   this->poll.size = sizeof (SpaPoll);
   this->poll.info = NULL;
@@ -476,7 +475,7 @@ pinos_data_loop_new (void)
   return g_object_new (PINOS_TYPE_DATA_LOOP, NULL);
 }
 
-gboolean
+bool
 pinos_data_loop_in_thread (PinosDataLoop *loop)
 {
   return pthread_equal (loop->priv->thread, pthread_self());

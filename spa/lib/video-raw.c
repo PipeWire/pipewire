@@ -25,6 +25,8 @@
 #include <spa/video/raw.h>
 #include <spa/video/format.h>
 
+#include "props.h"
+
 static const uint32_t format_values[] = {
   SPA_VIDEO_FORMAT_UNKNOWN,
   SPA_VIDEO_FORMAT_ENCODED,

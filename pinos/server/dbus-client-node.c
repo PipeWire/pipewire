@@ -27,6 +27,8 @@
 #include <poll.h>
 #include <sys/eventfd.h>
 
+#include "spa/lib/props.h"
+
 #include "pinos/client/pinos.h"
 #include "pinos/client/enumtypes.h"
 #include "pinos/client/private.h"

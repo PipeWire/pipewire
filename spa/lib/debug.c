@@ -19,9 +19,8 @@
 
 #include <stdio.h>
 
-#include "spa/debug.h"
-#include "spa/props.h"
-#include "spa/format.h"
+#include "debug.h"
+#include "props.h"
 
 struct meta_type_name {
   const char *name;
@@ -83,6 +82,19 @@ spa_debug_port_info (const SpaPortInfo *info)
         SpaAllocParamMetaEnable *p = (SpaAllocParamMetaEnable *)param;
         fprintf (stderr, "   SpaAllocParamMetaEnable:\n");
         fprintf (stderr, "    type: \t%d (%s)\n", p->type, META_TYPE_NAME(p->type));
+        switch (p->type) {
+          case SPA_META_TYPE_RINGBUFFER:
+          {
+            SpaAllocParamMetaEnableRingbuffer *rb = (SpaAllocParamMetaEnableRingbuffer *)p;
+            fprintf (stderr, "    minsize: \t\t%zd\n", rb->minsize);
+            fprintf (stderr, "    stride: \t\t%zd\n", rb->stride);
+            fprintf (stderr, "    blocks: \t\t%zd\n", rb->blocks);
+            fprintf (stderr, "    align: \t\t%d\n", rb->align);
+            break;
+          }
+          default:
+            break;
+        }
         break;
       }
       case SPA_ALLOC_PARAM_TYPE_VIDEO_PADDING:
@@ -153,10 +165,11 @@ spa_debug_buffer (const SpaBuffer *buffer)
       {
         SpaMetaRingbuffer *h = m->data;
         fprintf (stderr, "    SpaMetaRingbuffer:\n");
-        fprintf (stderr, "      readindex:   %d\n", h->readindex);
-        fprintf (stderr, "      writeindex:  %d\n", h->writeindex);
-        fprintf (stderr, "      size:        %d\n", h->size);
-        fprintf (stderr, "      size_mask:   %d\n", h->size_mask);
+        fprintf (stderr, "      readindex:   %zd\n", h->ringbuffer.readindex);
+        fprintf (stderr, "      writeindex:  %zd\n", h->ringbuffer.writeindex);
+        fprintf (stderr, "      size:        %zd\n", h->ringbuffer.size);
+        fprintf (stderr, "      mask:        %zd\n", h->ringbuffer.mask);
+        fprintf (stderr, "      mask2:       %zd\n", h->ringbuffer.mask2);
         break;
       }
       default:

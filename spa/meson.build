@@ -17,6 +17,7 @@ dl_lib = cc.find_library('dl', required : true)
 pthread_lib = cc.find_library('pthread', required : true)
 
 spa_inc = include_directories('include')
+spa_libinc = include_directories('.')
 
 subdir('include')
 subdir('lib')

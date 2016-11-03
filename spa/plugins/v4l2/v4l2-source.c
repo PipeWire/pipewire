@@ -26,10 +26,11 @@
 
 #include <spa/node.h>
 #include <spa/video/format.h>
-#include <spa/debug.h>
 #include <spa/queue.h>
 #include <spa/log.h>
 #include <spa/id-map.h>
+#include <lib/debug.h>
+#include <lib/props.h>
 
 typedef struct _SpaV4l2Source SpaV4l2Source;
 
@@ -150,7 +151,7 @@ struct _SpaV4l2Source {
 static void
 update_state (SpaV4l2Source *this, SpaNodeState state)
 {
-  spa_log_info (this->log, "state: %d\n", state);
+  spa_log_info (this->log, "state: %d", state);
   this->node.state = state;
 }
 #include "v4l2-utils.c"

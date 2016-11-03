@@ -48,6 +48,8 @@ typedef struct _PinosNodeFactoryPrivate PinosNodeFactoryPrivate;
 struct _PinosNodeFactory {
   GObject object;
 
+  uint32_t id;
+
   PinosNodeFactoryPrivate *priv;
 };
 
@@ -71,7 +73,6 @@ struct _PinosNodeFactoryClass {
 GType               pinos_node_factory_get_type         (void);
 
 PinosNode *         pinos_node_factory_create_node      (PinosNodeFactory *factory,
-                                                         PinosDaemon *daemon,
                                                          PinosClient *client,
                                                          const gchar *name,
                                                          PinosProperties *props);

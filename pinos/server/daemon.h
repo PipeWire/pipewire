@@ -44,6 +44,7 @@ typedef struct _PinosDaemonPrivate PinosDaemonPrivate;
 #include <pinos/server/node-factory.h>
 #include <pinos/server/main-loop.h>
 #include <pinos/client/properties.h>
+#include <pinos/server/registry.h>
 
 /**
  * PinosDaemon:
@@ -60,6 +61,8 @@ struct _PinosDaemon {
 
   SpaSupport *support;
   unsigned int n_support;
+
+  PinosRegistry registry;
 
   PinosDaemonPrivate *priv;
 };

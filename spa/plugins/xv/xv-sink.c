@@ -28,6 +28,7 @@
 #include <spa/log.h>
 #include <spa/node.h>
 #include <spa/video/format.h>
+#include <lib/props.h>
 
 typedef struct _SpaXvSink SpaXvSink;
 

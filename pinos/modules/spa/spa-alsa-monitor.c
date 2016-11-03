@@ -31,6 +31,8 @@
 #include <spa/include/spa/node.h>
 #include <spa/include/spa/monitor.h>
 
+#include <pinos/client/log.h>
+
 #include "spa-alsa-monitor.h"
 
 #define PINOS_SPA_ALSA_MONITOR_GET_PRIVATE(obj)  \
@@ -109,7 +111,7 @@ add_item (PinosSpaALSAMonitor *this, SpaMonitorItem *item)
   void *node_iface, *clock_iface;
   PinosProperties *props = NULL;
 
-  g_debug ("alsa-monitor %p: add: \"%s\" (%s)", this, item->name, item->id);
+  pinos_log_debug ("alsa-monitor %p: add: \"%s\" (%s)", this, item->name, item->id);
 
   handle = calloc (1, item->factory->size);
   if ((res = spa_handle_factory_init (item->factory,
@@ -125,7 +127,7 @@ add_item (PinosSpaALSAMonitor *this, SpaMonitorItem *item)
     return;
   }
   if ((res = spa_handle_get_interface (handle, priv->uri.clock, &clock_iface)) < 0) {
-    g_debug ("can't get CLOCK interface: %d", res);
+    pinos_log_debug ("can't get CLOCK interface: %d", res);
     clock_iface = NULL;
   }
 
@@ -157,7 +159,7 @@ remove_item (PinosSpaALSAMonitor *this, SpaMonitorItem *item)
   PinosSpaALSAMonitorPrivate *priv = this->priv;
   PinosNode *node;
 
-  g_debug ("alsa-monitor %p: remove: \"%s\" (%s)", this, item->name, item->id);
+  pinos_log_debug ("alsa-monitor %p: remove: \"%s\" (%s)", this, item->name, item->id);
 
   node = g_hash_table_lookup (priv->nodes, item->id);
   if (node) {
@@ -188,7 +190,7 @@ on_monitor_event  (SpaMonitor      *monitor,
     case SPA_MONITOR_EVENT_TYPE_CHANGED:
     {
       SpaMonitorItem *item = (SpaMonitorItem *) event;
-      g_debug ("alsa-monitor %p: changed: \"%s\"", this, item->name);
+      pinos_log_debug ("alsa-monitor %p: changed: \"%s\"", this, item->name);
       break;
     }
     default:
@@ -204,7 +206,7 @@ monitor_constructed (GObject * object)
   SpaResult res;
   void *state = NULL;
 
-  g_debug ("spa-monitor %p: constructed", this);
+  pinos_log_debug ("spa-monitor %p: constructed", this);
 
   G_OBJECT_CLASS (pinos_spa_alsa_monitor_parent_class)->constructed (object);
 
@@ -216,7 +218,7 @@ monitor_constructed (GObject * object)
 
     if ((res = spa_monitor_enum_items (priv->monitor, &item, &state)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
-        g_debug ("spa_monitor_enum_items: got error %d\n", res);
+        pinos_log_debug ("spa_monitor_enum_items: got error %d\n", res);
       break;
     }
     add_item (this, item);
@@ -278,7 +280,7 @@ monitor_finalize (GObject * object)
   PinosSpaALSAMonitor *this = PINOS_SPA_ALSA_MONITOR (object);
   PinosSpaALSAMonitorPrivate *priv = this->priv;
 
-  g_debug ("spa-monitor %p: dispose", this);
+  pinos_log_debug ("spa-monitor %p: dispose", this);
   spa_handle_clear (priv->handle);
   g_free (priv->handle);
   g_hash_table_unref (priv->nodes);

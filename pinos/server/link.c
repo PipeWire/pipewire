@@ -22,7 +22,7 @@
 #include <gio/gio.h>
 
 #include <spa/include/spa/video/format.h>
-#include <spa/include/spa/debug.h>
+#include <spa/lib/debug.h>
 
 #include "pinos/client/pinos.h"
 #include "pinos/client/enumtypes.h"
@@ -181,7 +181,9 @@ link_register_object (PinosLink *this)
   priv->object_path = pinos_daemon_export_uniquely (priv->daemon, G_DBUS_OBJECT_SKELETON (skel));
   g_object_unref (skel);
 
-  g_debug ("link %p: register object %s", this, priv->object_path);
+  this->id = pinos_map_insert_new (&priv->daemon->registry.links, this);
+
+  pinos_log_debug ("link %p: register object %s, id %u", this, priv->object_path, this->id);
 }
 
 static void
@@ -189,8 +191,9 @@ link_unregister_object (PinosLink *this)
 {
   PinosLinkPrivate *priv = this->priv;
 
-  g_debug ("link %p: unregister object", this);
+  pinos_log_debug ("link %p: unregister object", this);
   pinos_daemon_unexport (priv->daemon, priv->object_path);
+  pinos_map_remove (&priv->daemon->registry.links, this->id);
 }
 
 static void
@@ -200,7 +203,7 @@ pinos_link_update_state (PinosLink *link, PinosLinkState state)
 
   if (state != priv->state) {
     g_clear_error (&priv->error);
-    g_debug ("link %p: update state %s -> %s", link,
+    pinos_log_debug ("link %p: update state %s -> %s", link,
         pinos_link_state_as_string (priv->state),
         pinos_link_state_as_string (state));
     priv->state = state;
@@ -216,7 +219,7 @@ pinos_link_report_error (PinosLink *link, GError *error)
   g_clear_error (&priv->error);
   priv->error = error;
   priv->state = PINOS_LINK_STATE_ERROR;
-  g_debug ("link %p: got error state %s", link, error->message);
+  pinos_log_debug ("link %p: got error state %s", link, error->message);
   g_object_notify (G_OBJECT (link), "state");
 }
 
@@ -235,7 +238,7 @@ do_negotiate (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
 
   /* both ports need a format */
   if (in_state == SPA_NODE_STATE_CONFIGURE && out_state == SPA_NODE_STATE_CONFIGURE) {
-    g_debug ("link %p: doing negotiate format", this);
+    pinos_log_debug ("link %p: doing negotiate format", this);
 again:
     if ((res = spa_node_port_enum_formats (this->input->node->node,
                                            SPA_DIRECTION_INPUT,
@@ -251,7 +254,7 @@ again:
         goto error;
       }
     }
-    g_debug ("Try filter:");
+    pinos_log_debug ("Try filter:");
     spa_debug_format (filter);
 
     if ((res = spa_node_port_enum_formats (this->output->node->node,
@@ -270,7 +273,7 @@ again:
                    "error output enum formats: %d", res);
       goto error;
     }
-    g_debug ("Got filtered:");
+    pinos_log_debug ("Got filtered:");
     spa_debug_format (format);
     spa_format_fixate (format);
   } else if (in_state == SPA_NODE_STATE_CONFIGURE && out_state > SPA_NODE_STATE_CONFIGURE) {
@@ -300,11 +303,11 @@ again:
   } else
     return SPA_RESULT_OK;
 
-  g_debug ("link %p: doing set format", this);
+  pinos_log_debug ("link %p: doing set format", this);
   spa_debug_format (format);
 
   if (out_state == SPA_NODE_STATE_CONFIGURE) {
-    g_debug ("link %p: doing set format on output", this);
+    pinos_log_debug ("link %p: doing set format on output", this);
     if ((res = spa_node_port_set_format (this->output->node->node,
                                          SPA_DIRECTION_OUTPUT,
                                          this->output->port,
@@ -317,7 +320,7 @@ again:
       goto error;
     }
   } else if (in_state == SPA_NODE_STATE_CONFIGURE) {
-    g_debug ("link %p: doing set format on input", this);
+    pinos_log_debug ("link %p: doing set format on input", this);
     if ((res = spa_node_port_set_format (this->input->node->node,
                                          SPA_DIRECTION_INPUT,
                                          this->input->port,
@@ -351,6 +354,20 @@ find_param (const SpaPortInfo *info, SpaAllocParamType type)
   return NULL;
 }
 
+static void *
+find_meta_enable (const SpaPortInfo *info, SpaMetaType type)
+{
+  unsigned int i;
+
+  for (i = 0; i < info->n_params; i++) {
+    if (info->params[i]->type == SPA_ALLOC_PARAM_TYPE_META_ENABLE &&
+        ((SpaAllocParamMetaEnable*)info->params[i])->type == type) {
+      return info->params[i];
+    }
+  }
+  return NULL;
+}
+
 static SpaResult
 do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
 {
@@ -365,7 +382,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
 
   pinos_link_update_state (this, PINOS_LINK_STATE_ALLOCATING);
 
-  g_debug ("link %p: doing alloc buffers %p %p", this, this->output->node, this->input->node);
+  pinos_log_debug ("link %p: doing alloc buffers %p %p", this, this->output->node, this->input->node);
   /* find out what's possible */
   if ((res = spa_node_port_get_info (this->output->node->node,
                                      SPA_DIRECTION_OUTPUT,
@@ -394,7 +411,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
   out_flags = oinfo->flags;
 
   if (out_flags & SPA_PORT_INFO_FLAG_LIVE) {
-    g_debug ("setting link as live");
+    pinos_log_debug ("setting link as live");
     this->output->node->live = true;
     this->input->node->live = true;
   }
@@ -435,21 +452,33 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
 
   if (priv->buffers == NULL) {
     SpaAllocParamBuffers *in_alloc, *out_alloc;
-    guint max_buffers = MAX_BUFFERS;
-    size_t minsize = 0, stride = 0;
+    SpaAllocParamMetaEnableRingbuffer *in_me, *out_me;
+    guint max_buffers;
+    size_t minsize, stride, blocks;
 
-    max_buffers = MAX_BUFFERS;
-    in_alloc = find_param (iinfo, SPA_ALLOC_PARAM_TYPE_BUFFERS);
-    if (in_alloc) {
-      max_buffers = in_alloc->max_buffers == 0 ? max_buffers : SPA_MIN (in_alloc->max_buffers, max_buffers);
-      minsize = SPA_MAX (minsize, in_alloc->minsize);
-      stride = SPA_MAX (stride, in_alloc->stride);
-    }
-    out_alloc = find_param (oinfo, SPA_ALLOC_PARAM_TYPE_BUFFERS);
-    if (out_alloc) {
-      max_buffers = out_alloc->max_buffers == 0 ? max_buffers : SPA_MIN (out_alloc->max_buffers, max_buffers);
-      minsize = SPA_MAX (minsize, out_alloc->minsize);
-      stride = SPA_MAX (stride, out_alloc->stride);
+    in_me = find_meta_enable (iinfo, SPA_META_TYPE_RINGBUFFER);
+    out_me = find_meta_enable (oinfo, SPA_META_TYPE_RINGBUFFER);
+    if (in_me && out_me) {
+      max_buffers = 1;
+      minsize = SPA_MAX (out_me->minsize, in_me->minsize);
+      stride = SPA_MAX (out_me->stride, in_me->stride);
+      blocks = SPA_MAX (1, SPA_MAX (out_me->blocks, in_me->blocks));
+    } else {
+      max_buffers = MAX_BUFFERS;
+      minsize = stride = 0;
+      blocks = 1;
+      in_alloc = find_param (iinfo, SPA_ALLOC_PARAM_TYPE_BUFFERS);
+      if (in_alloc) {
+        max_buffers = in_alloc->max_buffers == 0 ? max_buffers : SPA_MIN (in_alloc->max_buffers, max_buffers);
+        minsize = SPA_MAX (minsize, in_alloc->minsize);
+        stride = SPA_MAX (stride, in_alloc->stride);
+      }
+      out_alloc = find_param (oinfo, SPA_ALLOC_PARAM_TYPE_BUFFERS);
+      if (out_alloc) {
+        max_buffers = out_alloc->max_buffers == 0 ? max_buffers : SPA_MIN (out_alloc->max_buffers, max_buffers);
+        minsize = SPA_MAX (minsize, out_alloc->minsize);
+        stride = SPA_MAX (stride, out_alloc->stride);
+      }
     }
 
     if ((in_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) ||
@@ -462,7 +491,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       priv->n_buffers = this->output->n_buffers;
       priv->buffers = this->output->buffers;
       priv->allocated = FALSE;
-      g_debug ("reusing %d output buffers %p", priv->n_buffers, priv->buffers);
+      pinos_log_debug ("reusing %d output buffers %p", priv->n_buffers, priv->buffers);
     } else {
       guint i, j;
       size_t hdr_size, buf_size, arr_size;
@@ -486,7 +515,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       }
       hdr_size += n_metas * sizeof (SpaMeta);
 
-      buf_size = SPA_ROUND_UP_N (hdr_size + minsize, 64);
+      buf_size = SPA_ROUND_UP_N (hdr_size + (minsize * blocks), 64);
 
       priv->n_buffers = max_buffers;
       pinos_memblock_alloc (PINOS_MEMBLOCK_FLAG_WITH_FD |
@@ -523,6 +552,17 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
             b->metas[mi].type = pme->type;
             b->metas[mi].data = pd;
             b->metas[mi].size = spa_meta_type_get_size (pme->type);
+
+            switch (pme->type) {
+              case SPA_META_TYPE_RINGBUFFER:
+              {
+                SpaMetaRingbuffer *rb = pd;
+                spa_ringbuffer_init (&rb->ringbuffer, minsize);
+                break;
+              }
+              default:
+                break;
+            }
             pd = SPA_MEMBER (pd, b->metas[mi].size, void);
             mi++;
           }
@@ -543,7 +583,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
           d->data = NULL;
         }
       }
-      g_debug ("allocated %d buffers %p %zd", priv->n_buffers, priv->buffers, minsize);
+      pinos_log_debug ("allocated %d buffers %p %zd", priv->n_buffers, priv->buffers, minsize);
       priv->allocated = TRUE;
     }
 
@@ -564,7 +604,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       this->output->allocated = TRUE;
       this->output->buffer_mem = priv->buffer_mem;
       priv->allocated = FALSE;
-      g_debug ("allocated %d buffers %p from output port", priv->n_buffers, priv->buffers);
+      pinos_log_debug ("allocated %d buffers %p from output port", priv->n_buffers, priv->buffers);
     } else if (in_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
       if ((res = spa_node_port_alloc_buffers (this->input->node->node,
                                               SPA_DIRECTION_INPUT,
@@ -582,12 +622,12 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       this->input->allocated = TRUE;
       this->input->buffer_mem = priv->buffer_mem;
       priv->allocated = FALSE;
-      g_debug ("allocated %d buffers %p from input port", priv->n_buffers, priv->buffers);
+      pinos_log_debug ("allocated %d buffers %p from input port", priv->n_buffers, priv->buffers);
     }
   }
 
   if (in_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS) {
-    g_debug ("using %d buffers %p on input port", priv->n_buffers, priv->buffers);
+    pinos_log_debug ("using %d buffers %p on input port", priv->n_buffers, priv->buffers);
     if ((res = spa_node_port_use_buffers (this->input->node->node,
                                           SPA_DIRECTION_INPUT,
                                           this->input->port,
@@ -604,7 +644,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
     this->input->allocated = FALSE;
   }
   else if (out_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS) {
-    g_debug ("using %d buffers %p on output port", priv->n_buffers, priv->buffers);
+    pinos_log_debug ("using %d buffers %p on output port", priv->n_buffers, priv->buffers);
     if ((res = spa_node_port_use_buffers (this->output->node->node,
                                           SPA_DIRECTION_OUTPUT,
                                           this->output->port,
@@ -673,7 +713,7 @@ check_states (PinosLink *this,
   PinosLinkPrivate *priv = this->priv;
 
   if (res != SPA_RESULT_OK) {
-    g_warning ("link %p: error: %d", this, res);
+    pinos_log_warn ("link %p: error: %d", this, res);
     return res;
   }
 
@@ -684,7 +724,7 @@ again:
   in_state = this->input->node->node->state;
   out_state = this->output->node->node->state;
 
-  g_debug ("link %p: input state %d, output state %d", this, in_state, out_state);
+  pinos_log_debug ("link %p: input state %d, output state %d", this, in_state, out_state);
 
   if ((res = do_negotiate (this, in_state, out_state)) != SPA_RESULT_OK)
     goto exit;
@@ -714,7 +754,7 @@ on_async_complete_notify (PinosNode  *node,
                           PinosLink  *this)
 {
   PinosLinkPrivate *priv = this->priv;
-  g_debug ("link %p: node %p async complete %d %d", this, node, seq, res);
+  pinos_log_debug ("link %p: node %p async complete %d %d", this, node, seq, res);
   pinos_main_loop_defer_complete (priv->main_loop, this, seq, res);
 }
 
@@ -782,7 +822,7 @@ on_node_remove (PinosNode *node, PinosLink *this)
     priv->buffers = NULL;
     priv->n_buffers = 0;
 
-    g_debug ("link %p: clear input allocated buffers on port %p", link, other);
+    pinos_log_debug ("link %p: clear input allocated buffers on port %p", link, other);
     pinos_port_clear_buffers (other);
   }
 
@@ -814,7 +854,7 @@ pinos_link_constructed (GObject * object)
   G_OBJECT_CLASS (pinos_link_parent_class)->constructed (object);
 
   on_property_notify (G_OBJECT (this), NULL, this);
-  g_debug ("link %p: constructed %p:%d -> %p:%d", this,
+  pinos_log_debug ("link %p: constructed %p:%d -> %p:%d", this,
                                                   this->output->node, this->output->port,
                                                   this->input->node, this->input->port);
   link_register_object (this);
@@ -826,7 +866,7 @@ pinos_link_dispose (GObject * object)
   PinosLink *this = PINOS_LINK (object);
   PinosLinkPrivate *priv = this->priv;
 
-  g_debug ("link %p: dispose", this);
+  pinos_log_debug ("link %p: dispose", this);
 
   if (this->input && this->input->node)
     g_signal_handlers_disconnect_by_data (this->input->node, this);
@@ -853,7 +893,7 @@ pinos_link_finalize (GObject * object)
   PinosLink *this = PINOS_LINK (object);
   PinosLinkPrivate *priv = this->priv;
 
-  g_debug ("link %p: finalize", this);
+  pinos_log_debug ("link %p: finalize", this);
   g_clear_object (&priv->daemon);
   g_clear_object (&priv->iface);
   g_free (priv->object_path);
@@ -963,7 +1003,7 @@ pinos_link_init (PinosLink * this)
   PinosLinkPrivate *priv = this->priv = PINOS_LINK_GET_PRIVATE (this);
 
   priv->iface = pinos_link1_skeleton_new ();
-  g_debug ("link %p: new", this);
+  pinos_log_debug ("link %p: new", this);
   priv->state = PINOS_LINK_STATE_INIT;
 }
 
@@ -976,7 +1016,7 @@ pinos_link_init (PinosLink * this)
 void
 pinos_link_remove (PinosLink *this)
 {
-  g_debug ("link %p: remove", this);
+  pinos_log_debug ("link %p: remove", this);
   g_signal_emit (this, signals[SIGNAL_REMOVE], 0, NULL);
 }
 

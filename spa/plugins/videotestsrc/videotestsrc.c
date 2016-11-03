@@ -30,6 +30,7 @@
 #include <spa/node.h>
 #include <spa/queue.h>
 #include <spa/video/format.h>
+#include <lib/props.h>
 
 #define FRAMES_TO_TIME(this,f)    ((this->current_format.info.raw.framerate.num * (f) * SPA_NSEC_PER_SEC) / \
                                    (this->current_format.info.raw.framerate.denom))
@@ -474,7 +475,7 @@ static SpaResult
 clear_buffers (SpaVideoTestSrc *this)
 {
   if (this->n_buffers > 0) {
-    spa_log_info (this->log, "videotestsrc %p: clear buffers\n", this);
+    spa_log_info (this->log, "videotestsrc %p: clear buffers", this);
     this->n_buffers = 0;
     SPA_QUEUE_INIT (&this->empty);
     SPA_QUEUE_INIT (&this->ready);
@@ -639,7 +640,7 @@ spa_videotestsrc_node_port_use_buffers (SpaNode         *node,
       case SPA_DATA_TYPE_MEMFD:
       case SPA_DATA_TYPE_DMABUF:
         if (d[0].data == NULL) {
-          spa_log_error (this->log, "videotestsrc %p: invalid memory on buffer %p\n", this, buffers[i]);
+          spa_log_error (this->log, "videotestsrc %p: invalid memory on buffer %p", this, buffers[i]);
           continue;
         }
         b->ptr = SPA_MEMBER (d[0].data, d[0].offset, void);

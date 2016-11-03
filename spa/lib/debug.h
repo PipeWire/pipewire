@@ -17,8 +17,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __SPA_DEBUG_H__
-#define __SPA_DEBUG_H__
+#ifndef __SPA_LIBDEBUG_H__
+#define __SPA_LIBDEBUG_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,4 +43,4 @@ SpaResult spa_debug_dict  (const SpaDict *dict);
 #endif
 
 
-#endif /* __SPA_DEBUG_H__ */
+#endif /* __SPA_LIBDEBUG_H__ */

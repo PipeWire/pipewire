@@ -23,43 +23,28 @@
 #include <string.h>
 
 #include <spa/id-map.h>
-#include <spa/log.h>
-#include <spa/buffer.h>
-#include <spa/clock.h>
-#include <spa/format.h>
-#include <spa/monitor.h>
-#include <spa/node.h>
-#include <spa/node-command.h>
-#include <spa/node-event.h>
-#include <spa/poll.h>
-#include <spa/port.h>
-#include <spa/props.h>
-#include <spa/queue.h>
-#include <spa/ringbuffer.h>
 
-#include <lib/debug.h>
+#include <pinos/client/map.h>
 
 #define MAX_URIS 4096
 
 typedef struct {
   SpaIDMap map;
-  char *uris[MAX_URIS];
-  unsigned int n_uris;
+  PinosMap uris;
 } IDMap;
 
 static uint32_t
 id_map_get_id (SpaIDMap *map, const char *uri)
 {
   IDMap *this = SPA_CONTAINER_OF (map, IDMap, map);
-  unsigned int i = 0;
+  uint32_t i = 0;
 
   if (uri != NULL) {
-    for (i = 1; i <= this->n_uris; i++) {
-      if (strcmp (this->uris[i], uri) == 0)
+    for (i = 0; i < pinos_map_get_size (&this->uris); i++) {
+      if (strcmp (pinos_map_lookup_unchecked (&this->uris, i), uri) == 0)
         return i;
     }
-    this->uris[i] = (char *)uri;
-    this->n_uris++;
+    i = pinos_map_insert_new (&this->uris, (char *)uri);
   }
   return i;
 }
@@ -68,10 +53,9 @@ static const char *
 id_map_get_uri (SpaIDMap *map, uint32_t id)
 {
   IDMap *this = SPA_CONTAINER_OF (map, IDMap, map);
-
-  if (id < this->n_uris)
-    return this->uris[id];
-  return 0;
+  if (id == SPA_ID_INVALID)
+    return NULL;
+  return pinos_map_lookup (&this->uris, id);
 }
 
 static IDMap default_id_map = {
@@ -80,12 +64,11 @@ static IDMap default_id_map = {
     id_map_get_id,
     id_map_get_uri,
   },
-  { NULL, },
-  0
+  { { NULL, } },
 };
 
 SpaIDMap *
-spa_id_map_get_default (void)
+pinos_id_map_get_default (void)
 {
   return &default_id_map.map;
 }

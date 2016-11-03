@@ -26,7 +26,8 @@
 #include <spa/id-map.h>
 #include <spa/log.h>
 #include <spa/node.h>
-#include <spa/debug.h>
+#include <lib/debug.h>
+#include <lib/mapper.h>
 
 typedef struct {
   uint32_t node;

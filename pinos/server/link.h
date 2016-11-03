@@ -50,6 +50,8 @@ typedef struct _PinosLinkPrivate PinosLinkPrivate;
 struct _PinosLink {
   GObject object;
 
+  uint32_t id;
+
   PinosPort    *output;
   PinosPort    *input;
 

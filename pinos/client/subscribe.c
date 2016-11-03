@@ -196,7 +196,7 @@ on_proxy_created (GObject      *source_object,
   data->proxy = g_dbus_proxy_new_finish (res, &error);
   if (data->proxy == NULL) {
     priv->objects = g_list_remove (priv->objects, data);
-    g_warning ("could not create proxy: %s", error->message);
+    pinos_log_warn ("could not create proxy: %s", error->message);
     subscription_set_state (subscribe, PINOS_SUBSCRIPTION_STATE_ERROR);
     priv->error = error;
     return;
@@ -365,7 +365,7 @@ on_managed_objects_ready (GObject      *source_object,
 
   objects = g_dbus_proxy_call_finish (priv->manager_proxy, res, &error);
   if (objects == NULL) {
-    g_warning ("could not get objects: %s", error->message);
+    pinos_log_warn ("could not get objects: %s", error->message);
     subscription_set_state (subscribe, PINOS_SUBSCRIPTION_STATE_ERROR);
     priv->error = error;
     return;
@@ -464,7 +464,7 @@ on_manager_proxy_ready (GObject      *source_object,
   /* ERRORS */
 manager_error:
   {
-    g_warning ("could not create client manager: %s", error->message);
+    pinos_log_warn ("could not create client manager: %s", error->message);
     subscription_set_state (subscribe, PINOS_SUBSCRIPTION_STATE_ERROR);
     priv->error = error;
     g_object_unref (subscribe);

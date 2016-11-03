@@ -110,7 +110,7 @@ pinos_thread_main_loop_constructed (GObject * object)
   PinosThreadMainLoopPrivate *priv = loop->priv;
 
   priv->mainloop = g_main_loop_new (priv->maincontext, FALSE);
-  g_debug ("thread-mainloop %p: contructed %p %p", loop, priv->maincontext, priv->mainloop);
+  pinos_log_debug ("thread-mainloop %p: contructed %p %p", loop, priv->maincontext, priv->mainloop);
 
   G_OBJECT_CLASS (pinos_thread_main_loop_parent_class)->constructed (object);
 }
@@ -269,9 +269,9 @@ handle_mainloop (PinosThreadMainLoop *loop)
   g_main_context_set_poll_func (priv->maincontext, do_poll);
 
   g_main_context_push_thread_default (priv->maincontext);
-  g_debug ("thread-mainloop %p: run mainloop %p context %p", loop, priv->mainloop, priv->maincontext);
+  pinos_log_debug ("thread-mainloop %p: run mainloop %p context %p", loop, priv->mainloop, priv->maincontext);
   g_main_loop_run (priv->mainloop);
-  g_debug ("thread-mainloop %p: done", loop);
+  pinos_log_debug ("thread-mainloop %p: done", loop);
   g_main_context_pop_thread_default (priv->maincontext);
 
   g_main_context_set_poll_func (priv->maincontext, priv->poll_func);

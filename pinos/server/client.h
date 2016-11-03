@@ -47,6 +47,8 @@ typedef struct _PinosClientPrivate PinosClientPrivate;
 struct _PinosClient {
   GObject object;
 
+  uint32_t  id;
+
   PinosClientPrivate *priv;
 };
 

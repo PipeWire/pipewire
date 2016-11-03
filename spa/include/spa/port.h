@@ -71,6 +71,15 @@ typedef struct {
 } SpaAllocParamMetaEnable;
 
 typedef struct {
+  SpaAllocParam  param;
+  SpaMetaType    type;
+  size_t         minsize;
+  size_t         stride;
+  size_t         blocks;
+  uint32_t       align;
+} SpaAllocParamMetaEnableRingbuffer;
+
+typedef struct {
   SpaAllocParam param;
   unsigned int  padding_top;
   unsigned int  padding_bottom;

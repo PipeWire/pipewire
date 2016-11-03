@@ -30,6 +30,8 @@
 #include <spa/log.h>
 #include <spa/id-map.h>
 #include <spa/audio/format.h>
+#include <lib/mapper.h>
+#include <lib/props.h>
 
 typedef struct {
   uint32_t node;

@@ -31,7 +31,7 @@
 #include <spa/id-map.h>
 #include <spa/poll.h>
 #include <spa/monitor.h>
-#include <spa/debug.h>
+#include <lib/debug.h>
 
 extern const SpaHandleFactory spa_alsa_sink_factory;
 extern const SpaHandleFactory spa_alsa_source_factory;
@@ -100,7 +100,7 @@ path_get_card_id (const char *path)
   return e + 5;
 }
 
-#define CHECK(s,msg) if ((err = (s)) < 0) { spa_log_error (state->log, msg ": %s\n", snd_strerror(err)); return err; }
+#define CHECK(s,msg) if ((err = (s)) < 0) { spa_log_error (state->log, msg ": %s", snd_strerror(err)); return err; }
 
 static int
 fill_item (SpaALSAMonitor *this, ALSAItem *item, struct udev_device *udevice)
@@ -136,7 +136,7 @@ fill_item (SpaALSAMonitor *this, ALSAItem *item, struct udev_device *udevice)
                     SND_PCM_NO_AUTO_RESAMPLE |
                     SND_PCM_NO_AUTO_CHANNELS |
                     SND_PCM_NO_AUTO_FORMAT)) < 0) {
-    spa_log_error (this->log, "PLAYBACK open failed: %s\n", snd_strerror(err));
+    spa_log_error (this->log, "PLAYBACK open failed: %s", snd_strerror(err));
     if ((err = snd_pcm_open (&hndl,
                       device,
                       SND_PCM_STREAM_CAPTURE,
@@ -144,7 +144,7 @@ fill_item (SpaALSAMonitor *this, ALSAItem *item, struct udev_device *udevice)
                       SND_PCM_NO_AUTO_RESAMPLE |
                       SND_PCM_NO_AUTO_CHANNELS |
                       SND_PCM_NO_AUTO_FORMAT)) < 0) {
-      spa_log_error (this->log, "CAPTURE open failed: %s\n", snd_strerror(err));
+      spa_log_error (this->log, "CAPTURE open failed: %s", snd_strerror(err));
       return -1;
     } else {
       item->item.factory = &spa_alsa_source_factory;

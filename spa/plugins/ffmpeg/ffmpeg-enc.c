@@ -26,6 +26,7 @@
 #include <spa/id-map.h>
 #include <spa/node.h>
 #include <spa/video/format.h>
+#include <lib/props.h>
 
 typedef struct _SpaFFMpegEnc SpaFFMpegEnc;
 

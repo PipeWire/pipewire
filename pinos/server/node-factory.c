@@ -25,6 +25,8 @@
 
 struct _PinosNodeFactoryPrivate
 {
+  PinosDaemon *daemon;
+
   gchar *name;
 };
 
@@ -33,6 +35,7 @@ G_DEFINE_ABSTRACT_TYPE (PinosNodeFactory, pinos_node_factory, G_TYPE_OBJECT);
 enum
 {
   PROP_0,
+  PROP_DAEMON,
   PROP_NAME,
 };
 
@@ -46,6 +49,10 @@ pinos_node_factory_get_property (GObject    *_object,
   PinosNodeFactoryPrivate *priv = factory->priv;
 
   switch (prop_id) {
+    case PROP_DAEMON:
+      g_value_set_object (value, priv->daemon);
+      break;
+
     case PROP_NAME:
       g_value_set_string (value, priv->name);
       break;
@@ -66,6 +73,10 @@ pinos_node_factory_set_property (GObject      *_object,
   PinosNodeFactoryPrivate *priv = factory->priv;
 
   switch (prop_id) {
+    case PROP_DAEMON:
+      priv->daemon = g_value_dup_object (value);
+      break;
+
     case PROP_NAME:
       priv->name = g_value_dup_string (value);
       break;
@@ -80,8 +91,11 @@ static void
 pinos_node_factory_constructed (GObject * obj)
 {
   PinosNodeFactory *factory = PINOS_NODE_FACTORY (obj);
+  PinosNodeFactoryPrivate *priv = factory->priv;
 
   g_debug ("node factory %p: constructed", factory);
+
+  factory->id = pinos_map_insert_new (&priv->daemon->registry.node_factories, factory);
 
   G_OBJECT_CLASS (pinos_node_factory_parent_class)->constructed (obj);
 }
@@ -93,6 +107,7 @@ pinos_node_factory_finalize (GObject * obj)
   PinosNodeFactoryPrivate *priv = factory->priv;
 
   g_debug ("node factory %p: finalize", factory);
+  pinos_map_remove (&priv->daemon->registry.node_factories, factory->id);
 
   g_free (priv->name);
 
@@ -110,6 +125,16 @@ pinos_node_factory_class_init (PinosNodeFactoryClass * klass)
   gobject_class->finalize = pinos_node_factory_finalize;
   gobject_class->set_property = pinos_node_factory_set_property;
   gobject_class->get_property = pinos_node_factory_get_property;
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_DAEMON,
+                                   g_param_spec_object ("daemon",
+                                                        "Daemon",
+                                                        "The Daemon",
+                                                        PINOS_TYPE_DAEMON,
+                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_CONSTRUCT_ONLY |
+                                                        G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class,
                                    PROP_NAME,
@@ -152,7 +177,6 @@ pinos_node_factory_get_name (PinosNodeFactory *factory)
 /**
  * pinos_node_factory_create_node:
  * @factory: A #PinosNodeFactory
- * @daemon: a #PinosDaemon
  * @client: the owner client
  * @name: node name
  * @props: #PinosProperties for the node
@@ -163,7 +187,6 @@ pinos_node_factory_get_name (PinosNodeFactory *factory)
  */
 PinosNode *
 pinos_node_factory_create_node (PinosNodeFactory *factory,
-                                PinosDaemon *daemon,
                                 PinosClient *client,
                                 const gchar *name,
                                 PinosProperties *props)
@@ -177,5 +200,5 @@ pinos_node_factory_create_node (PinosNodeFactory *factory,
     return NULL;
 
   g_debug ("node factory %p: create node", factory);
-  return klass->create_node (factory, daemon, client, name, props);
+  return klass->create_node (factory, factory->priv->daemon, client, name, props);
 }

@@ -24,6 +24,7 @@
 #include <spa/id-map.h>
 #include <spa/node.h>
 #include <spa/audio/format.h>
+#include <lib/props.h>
 
 #define MAX_PORTS       128
 
@@ -700,7 +701,7 @@ spa_audiomixer_node_port_pull_output (SpaNode           *node,
 
   for (i = 0; i < n_info; i++) {
     if ((info[i].status = mix_data (this, &info[i])) < 0) {
-      spa_log_error (this->log, "error mixing: %d\n", info[i].status);
+      spa_log_error (this->log, "error mixing: %d", info[i].status);
       have_error = true;
       continue;
     }

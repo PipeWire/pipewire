@@ -46,30 +46,27 @@ typedef struct {
   int    memfd;
   off_t  offset;
   size_t size;
-  int    fd;
 } PinosTransportInfo;
 
 struct _PinosTransportArea {
-  unsigned int       max_input_info;
-  unsigned int       n_input_info;
-  unsigned int       max_output_info;
-  unsigned int       n_output_info;
+  unsigned int       max_inputs;
+  unsigned int       n_inputs;
+  unsigned int       max_outputs;
+  unsigned int       n_outputs;
 };
 
 struct _PinosTransport {
   PinosTransportArea *area;
-  SpaPortInputInfo   *input_info;
-  SpaPortOutputInfo  *output_info;
+  SpaPortInput       *inputs;
+  SpaPortOutput      *outputs;
   void               *input_data;
   SpaRingbuffer      *input_buffer;
   void               *output_data;
   SpaRingbuffer      *output_buffer;
-  int fd;
 };
 
-PinosTransport * pinos_transport_new            (unsigned int max_input_info,
-                                                 unsigned int max_output_info,
-                                                 int          fd);
+PinosTransport * pinos_transport_new            (unsigned int max_inputs,
+                                                 unsigned int max_outputs);
 PinosTransport * pinos_transport_new_from_info  (PinosTransportInfo *info);
 
 void             pinos_transport_free           (PinosTransport     *trans);
@@ -84,29 +81,6 @@ SpaResult        pinos_transport_next_event     (PinosTransport *trans,
                                                  SpaNodeEvent   *event);
 SpaResult        pinos_transport_parse_event    (PinosTransport *trans,
                                                  void           *event);
-
-static inline void
-pinos_transport_write_cmd (PinosTransport *trans,
-                           uint8_t         cmd)
-{
-  write (trans->fd, &cmd, 1);
-}
-
-static inline void
-pinos_transport_read_cmd (PinosTransport *trans,
-                          uint8_t        *cmd)
-{
-  read (trans->fd, cmd, 1);
-}
-
-static inline void
-pinos_transport_sync_cmd (PinosTransport *trans,
-                          uint8_t         out_cmd,
-                          uint8_t        *in_cmd)
-{
-  write (trans->fd, &out_cmd, 1);
-  read (trans->fd, in_cmd, 1);
-}
 
 #ifdef __cplusplus
 }  /* extern "C" */

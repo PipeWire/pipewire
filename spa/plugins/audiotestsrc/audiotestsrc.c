@@ -86,7 +86,6 @@ struct _SpaAudioTestSrc {
   SpaAllocParam *params[2];
   SpaAllocParamBuffers param_buffers;
   SpaAllocParamMetaEnable param_meta;
-  SpaPortStatus status;
 
   bool have_format;
   SpaFormatAudio query_format;
@@ -95,6 +94,8 @@ struct _SpaAudioTestSrc {
 
   ATSBuffer buffers[MAX_BUFFERS];
   unsigned int n_buffers;
+
+  SpaPortOutput *output;
 
   bool started;
   uint64_t start_time;
@@ -743,83 +744,33 @@ spa_audiotestsrc_node_port_alloc_buffers (SpaNode         *node,
 }
 
 static SpaResult
-spa_audiotestsrc_node_port_get_status (SpaNode              *node,
-                                       SpaDirection          direction,
-                                       uint32_t              port_id,
-                                       const SpaPortStatus **status)
+spa_audiotestsrc_node_port_set_input (SpaNode      *node,
+                                      uint32_t      port_id,
+                                      SpaPortInput *input)
+{
+  return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
+static SpaResult
+spa_audiotestsrc_node_port_set_output (SpaNode       *node,
+                                       uint32_t       port_id,
+                                       SpaPortOutput *output)
 {
   SpaAudioTestSrc *this;
 
-  if (node == NULL || status == NULL)
+  if (node == NULL || output == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaAudioTestSrc, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
+  if (!CHECK_PORT (this, SPA_DIRECTION_INPUT, port_id))
     return SPA_RESULT_INVALID_PORT;
 
-  if (!this->have_format)
-    return SPA_RESULT_NO_FORMAT;
-
-  *status = &this->status;
+  this->output = output;
 
   return SPA_RESULT_OK;
 }
 
-
-static SpaResult
-spa_audiotestsrc_node_port_push_input (SpaNode          *node,
-                                       unsigned int      n_info,
-                                       SpaPortInputInfo *info)
-{
-  return SPA_RESULT_INVALID_PORT;
-}
-
-static SpaResult
-spa_audiotestsrc_node_port_pull_output (SpaNode           *node,
-                                        unsigned int       n_info,
-                                        SpaPortOutputInfo *info)
-{
-  SpaAudioTestSrc *this;
-  unsigned int i;
-  bool have_error = false;
-
-  if (node == NULL || n_info == 0 || info == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
-  this = SPA_CONTAINER_OF (node, SpaAudioTestSrc, node);
-
-  for (i = 0; i < n_info; i++) {
-    ATSBuffer *b;
-
-    if (info[i].port_id != 0) {
-      info[i].status = SPA_RESULT_INVALID_PORT;
-      have_error = true;
-      continue;
-    }
-
-    if (!this->have_format) {
-      info[i].status = SPA_RESULT_NO_FORMAT;
-      have_error = true;
-      continue;
-    }
-
-    SPA_QUEUE_POP_HEAD (&this->ready, ATSBuffer, next, b);
-    if (b == NULL) {
-      info[i].status = SPA_RESULT_UNEXPECTED;
-      have_error = true;
-      continue;
-    }
-    b->outstanding = true;
-
-    info[i].buffer_id = b->outbuf->id;
-    info[i].status = SPA_RESULT_OK;
-  }
-  if (have_error)
-    return SPA_RESULT_ERROR;
-
-  return SPA_RESULT_OK;
-}
 
 static SpaResult
 spa_audiotestsrc_node_port_reuse_buffer (SpaNode         *node,
@@ -866,6 +817,39 @@ spa_audiotestsrc_node_port_send_command (SpaNode        *node,
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
+static SpaResult
+spa_audiotestsrc_node_process_input (SpaNode *node)
+{
+  return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
+static SpaResult
+spa_audiotestsrc_node_process_output (SpaNode *node)
+{
+  SpaAudioTestSrc *this;
+  SpaPortOutput *output;
+  ATSBuffer *b;
+
+  if (node == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = SPA_CONTAINER_OF (node, SpaAudioTestSrc, node);
+  if ((output = this->output) == NULL)
+    return SPA_RESULT_OK;
+
+  SPA_QUEUE_POP_HEAD (&this->ready, ATSBuffer, next, b);
+  if (b == NULL) {
+    output->status = SPA_RESULT_UNEXPECTED;
+    return SPA_RESULT_ERROR;
+  }
+  b->outstanding = true;
+
+  output->buffer_id = b->outbuf->id;
+  output->status = SPA_RESULT_OK;
+
+  return SPA_RESULT_OK;
+}
+
 static const SpaNode audiotestsrc_node = {
   sizeof (SpaNode),
   NULL,
@@ -886,11 +870,12 @@ static const SpaNode audiotestsrc_node = {
   spa_audiotestsrc_node_port_set_props,
   spa_audiotestsrc_node_port_use_buffers,
   spa_audiotestsrc_node_port_alloc_buffers,
-  spa_audiotestsrc_node_port_get_status,
-  spa_audiotestsrc_node_port_push_input,
-  spa_audiotestsrc_node_port_pull_output,
+  spa_audiotestsrc_node_port_set_input,
+  spa_audiotestsrc_node_port_set_output,
   spa_audiotestsrc_node_port_reuse_buffer,
   spa_audiotestsrc_node_port_send_command,
+  spa_audiotestsrc_node_process_input,
+  spa_audiotestsrc_node_process_output,
 };
 
 static SpaResult
@@ -1044,8 +1029,6 @@ audiotestsrc_init (const SpaHandleFactory  *factory,
                      SPA_PORT_INFO_FLAG_NO_REF;
   if (this->props[1].live)
     this->info.flags |= SPA_PORT_INFO_FLAG_LIVE;
-
-  this->status.flags = SPA_PORT_STATUS_FLAG_NONE;
 
   this->node.state = SPA_NODE_STATE_CONFIGURE;
 

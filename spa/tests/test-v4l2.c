@@ -131,7 +131,7 @@ on_source_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
   switch (event->type) {
     case SPA_NODE_EVENT_TYPE_HAVE_OUTPUT:
     {
-      SpaPortOutputInfo info[1] = { 0, };
+      SpaPortOutput po = { 0, };
       SpaResult res;
       SpaBuffer *b;
       void *sdata, *ddata;
@@ -141,10 +141,11 @@ on_source_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
       SpaMeta *metas;
       SpaData *datas;
 
-      if ((res = spa_node_port_pull_output (data->source, 1, info)) < 0)
+      spa_node_port_set_output (data->source, 0, &po);
+      if ((res = spa_node_process_output (data->source)) < 0)
         printf ("got pull error %d\n", res);
 
-      b = data->bp[info->buffer_id];
+      b = data->bp[po.buffer_id];
       metas = b->metas;
       datas = b->datas;
 
@@ -188,7 +189,7 @@ on_source_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
         SDL_RenderCopy (data->renderer, data->texture, NULL, NULL);
         SDL_RenderPresent (data->renderer);
       }
-      spa_node_port_reuse_buffer (data->source, 0, info->buffer_id);
+      spa_node_port_reuse_buffer (data->source, 0, po.buffer_id);
       break;
     }
     default:

@@ -54,7 +54,6 @@ typedef struct {
   SpaFormatAudio format[2];
   SpaAudioMixerPortProps props[2];
   SpaPortInfo info;
-  SpaPortStatus status;
   size_t buffer_index;
   size_t buffer_offset;
   size_t buffer_queued;
@@ -63,6 +62,7 @@ typedef struct {
   SpaBuffer **buffers;
   unsigned int n_buffers;
   SpaBuffer *buffer;
+  void *io;
 } SpaAudioMixerPort;
 
 typedef struct {
@@ -274,10 +274,6 @@ spa_audiomixer_node_add_port (SpaNode        *node,
                                     SPA_PORT_INFO_FLAG_REMOVABLE |
                                     SPA_PORT_INFO_FLAG_OPTIONAL |
                                     SPA_PORT_INFO_FLAG_IN_PLACE;
-  this->in_ports[port_id].status.flags = SPA_PORT_STATUS_FLAG_NEED_INPUT;
-
-  this->out_ports[0].status.flags &= ~SPA_PORT_STATUS_FLAG_HAVE_OUTPUT;
-
   return SPA_RESULT_OK;
 }
 
@@ -287,23 +283,25 @@ spa_audiomixer_node_remove_port (SpaNode        *node,
                                  uint32_t        port_id)
 {
   SpaAudioMixer *this;
+  SpaPortInput *input;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
 
-  if (!CHECK_IN_PORT (this, direction, port_id))
+  if (!CHECK_IN_PORT (this, SPA_DIRECTION_INPUT, port_id))
     return SPA_RESULT_INVALID_PORT;
 
   this->in_ports[port_id].valid = false;
   this->port_count--;
-  if (this->in_ports[port_id].buffer) {
-    this->in_ports[port_id].buffer = NULL;
+
+  input = this->in_ports[port_id].io;
+  if (input && input->buffer_id) {
     this->port_queued--;
   }
   if (this->port_count == this->port_queued)
-    this->out_ports[0].status.flags |= SPA_PORT_STATUS_FLAG_HAVE_OUTPUT;
+    ((SpaPortOutput*)this->out_ports[0].io)->flags |= SPA_PORT_STATUS_FLAG_HAVE_OUTPUT;
 
   return SPA_RESULT_OK;
 }
@@ -473,90 +471,102 @@ spa_audiomixer_node_port_alloc_buffers (SpaNode         *node,
 }
 
 static SpaResult
-spa_audiomixer_node_port_get_status (SpaNode              *node,
-                                     SpaDirection          direction,
-                                     uint32_t              port_id,
-                                     const SpaPortStatus **status)
+spa_audiomixer_node_port_set_input (SpaNode      *node,
+                                    uint32_t      port_id,
+                                    SpaPortInput *input)
 {
   SpaAudioMixer *this;
-  SpaAudioMixerPort *port;
 
-  if (node == NULL || status == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
+  if (!CHECK_PORT (this, SPA_DIRECTION_INPUT, port_id))
     return SPA_RESULT_INVALID_PORT;
 
-  port = direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[0];
-  if (!port->have_format)
-    return SPA_RESULT_NO_FORMAT;
-
-  *status = &port->status;
+  this->in_ports[port_id].io = input;
 
   return SPA_RESULT_OK;
 }
 
 static SpaResult
-spa_audiomixer_node_port_push_input (SpaNode          *node,
-                                     unsigned int      n_info,
-                                     SpaPortInputInfo *info)
+spa_audiomixer_node_port_set_output (SpaNode       *node,
+                                     uint32_t       port_id,
+                                     SpaPortOutput *output)
 {
   SpaAudioMixer *this;
-  unsigned int i;
-  bool have_error = false;
 
-  if (node == NULL || n_info == 0 || info == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
 
-  if (this->out_ports[0].status.flags & SPA_PORT_STATUS_FLAG_HAVE_OUTPUT)
+  if (!CHECK_PORT (this, SPA_DIRECTION_OUTPUT, port_id))
+    return SPA_RESULT_INVALID_PORT;
+
+  this->out_ports[port_id].io = output;
+
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
+spa_audiomixer_node_port_reuse_buffer (SpaNode         *node,
+                                       uint32_t         port_id,
+                                       uint32_t         buffer_id)
+{
+  return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
+static SpaResult
+spa_audiomixer_node_port_send_command (SpaNode        *node,
+                                       SpaDirection    direction,
+                                       uint32_t        port_id,
+                                       SpaNodeCommand *command)
+{
+  return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
+static SpaResult
+spa_audiomixer_node_process_input (SpaNode *node)
+{
+  SpaAudioMixer *this;
+  unsigned int i;
+  bool have_error = false;
+  SpaPortOutput *output;
+
+  if (node == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
+
+  if ((output = this->out_ports[0].io) == NULL)
+    return SPA_RESULT_OK;
+
+  if (output->flags & SPA_PORT_STATUS_FLAG_HAVE_OUTPUT)
     return SPA_RESULT_HAVE_ENOUGH_INPUT;
 
-  for (i = 0; i < n_info; i++) {
-    SpaBuffer *buffer;
-    SpaAudioMixerPort *port;
-    int idx = info[i].port_id;
+  this->port_queued = 0;
 
-    if (!CHECK_IN_PORT (this, SPA_DIRECTION_INPUT, idx)) {
-      info[i].status = SPA_RESULT_INVALID_PORT;
+  for (i = 0; i < MAX_PORTS; i++) {
+    SpaAudioMixerPort *port = &this->in_ports[i];
+    SpaPortInput *input;
+
+    if ((input = port->io) == NULL)
+      continue;
+
+    if (input->buffer_id >= port->n_buffers) {
+      input->status = SPA_RESULT_INVALID_BUFFER_ID;
       have_error = true;
       continue;
     }
-    port = &this->in_ports[idx];
-    buffer = port->buffers[info[i].buffer_id];
-
-    if (buffer == NULL) {
-      info[i].status = SPA_RESULT_INVALID_ARGUMENTS;
-      have_error = true;
-      continue;
-    }
-
-    if (buffer) {
-      if (!port->have_format) {
-        info[i].status = SPA_RESULT_NO_FORMAT;
-        have_error = true;
-        continue;
-      }
-
-      if (port->buffer != NULL) {
-        info[i].status = SPA_RESULT_HAVE_ENOUGH_INPUT;
-        have_error = true;
-        continue;
-      }
-      port->buffer = buffer;
-      port->buffer_queued = 0;
-      port->buffer_index = 0;
-      port->buffer_offset = 0;
-      this->port_queued++;
-
-      if (this->port_queued == this->port_count)
-        this->out_ports[0].status.flags |= SPA_PORT_STATUS_FLAG_HAVE_OUTPUT;
-    }
-    info[i].status = SPA_RESULT_OK;
+    port->buffer = port->buffers[port->n_buffers];
+    input->status = SPA_RESULT_OK;
+    this->port_queued++;
   }
+  if (this->port_queued == this->port_count)
+    output->flags |= SPA_PORT_STATUS_FLAG_HAVE_OUTPUT;
+
   if (have_error)
     return SPA_RESULT_ERROR;
 
@@ -565,7 +575,7 @@ spa_audiomixer_node_port_push_input (SpaNode          *node,
 
 
 static void
-pull_port (SpaAudioMixer *this, uint32_t port_id, SpaPortOutputInfo *info, size_t pull_size)
+pull_port (SpaAudioMixer *this, uint32_t port_id, SpaPortOutput *output, size_t pull_size)
 {
   SpaNodeEventNeedInput ni;
 
@@ -606,8 +616,8 @@ add_port_data (SpaAudioMixer *this, SpaBuffer *out, SpaAudioMixerPort *port)
     if ((is -= chunk) == 0) {
       if (++port->buffer_index == port->buffer->n_datas) {
         port->buffer = NULL;
-        port->status.flags = SPA_PORT_STATUS_FLAG_NEED_INPUT;
-        this->out_ports[0].status.flags &= ~SPA_PORT_STATUS_FLAG_HAVE_OUTPUT;
+        ((SpaPortInput*)port->io)->flags = SPA_PORT_STATUS_FLAG_NEED_INPUT;
+        ((SpaPortOutput*)this->out_ports[0].io)->flags = SPA_PORT_STATUS_FLAG_HAVE_OUTPUT;
         break;
       }
       port->buffer_offset = 0;
@@ -626,13 +636,10 @@ add_port_data (SpaAudioMixer *this, SpaBuffer *out, SpaAudioMixerPort *port)
 }
 
 static SpaResult
-mix_data (SpaAudioMixer *this, SpaPortOutputInfo *info)
+mix_data (SpaAudioMixer *this, SpaPortOutput *output)
 {
   int i, min_size, min_port, pull_size;
   SpaBuffer *buf;
-
-  if (info->port_id != 0)
-    return SPA_RESULT_INVALID_PORT;
 
   pull_size = 0;
 
@@ -643,8 +650,8 @@ mix_data (SpaAudioMixer *this, SpaPortOutputInfo *info)
       continue;
 
     if (this->in_ports[i].buffer == NULL) {
-      if (pull_size && info->flags & SPA_PORT_OUTPUT_FLAG_PULL) {
-        pull_port (this, i, info, pull_size);
+      if (pull_size && output->flags & SPA_PORT_OUTPUT_FLAG_PULL) {
+        pull_port (this, i, output, pull_size);
       }
       if (this->in_ports[i].buffer == NULL)
         return SPA_RESULT_NEED_MORE_INPUT;
@@ -659,10 +666,11 @@ mix_data (SpaAudioMixer *this, SpaPortOutputInfo *info)
     return SPA_RESULT_NEED_MORE_INPUT;
 
   buf = this->in_ports[min_port].buffer;
-  info->buffer_id = buf->id;
+  output->buffer_id = buf->id;
   this->in_ports[min_port].buffer = NULL;
-  this->in_ports[min_port].status.flags = SPA_PORT_STATUS_FLAG_NEED_INPUT;
-  this->out_ports[0].status.flags &= ~SPA_PORT_STATUS_FLAG_HAVE_OUTPUT;
+
+  ((SpaPortInput*)this->in_ports[min_port].io)->flags = SPA_PORT_STATUS_FLAG_NEED_INPUT;
+  ((SpaPortOutput*)this->out_ports[0].io)->flags &= ~SPA_PORT_STATUS_FLAG_HAVE_OUTPUT;
 
   for (i = 0; i < MAX_PORTS; i++) {
     if (!this->in_ports[i].valid || this->in_ports[i].buffer == NULL)
@@ -674,59 +682,31 @@ mix_data (SpaAudioMixer *this, SpaPortOutputInfo *info)
 }
 
 static SpaResult
-spa_audiomixer_node_port_pull_output (SpaNode           *node,
-                                      unsigned int       n_info,
-                                      SpaPortOutputInfo *info)
+spa_audiomixer_node_process_output (SpaNode *node)
 {
   SpaAudioMixer *this;
   SpaAudioMixerPort *port;
-  int i;
-  bool have_error = false;
+  SpaPortOutput *output;
 
-  if (node == NULL || n_info == 0 || info == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
 
-  if (!CHECK_OUT_PORT (this, SPA_DIRECTION_OUTPUT, info->port_id))
-    return SPA_RESULT_INVALID_PORT;
-
-  port = &this->out_ports[info->port_id];
+  port = &this->out_ports[0];
+  if ((output = port->io) == NULL)
+    return SPA_RESULT_ERROR;
 
   if (!port->have_format)
     return SPA_RESULT_NO_FORMAT;
 
-//  if (!(this->ports[0].status.flags & SPA_PORT_STATUS_FLAG_HAVE_OUTPUT))
+//  if (!(output->flags & SPA_PORT_STATUS_FLAG_HAVE_OUTPUT))
 //    return SPA_RESULT_NEED_MORE_INPUT;
 
-  for (i = 0; i < n_info; i++) {
-    if ((info[i].status = mix_data (this, &info[i])) < 0) {
-      spa_log_error (this->log, "error mixing: %d", info[i].status);
-      have_error = true;
-      continue;
-    }
-  }
-  if (have_error)
+  if ((output->status = mix_data (this, output)) < 0)
     return SPA_RESULT_ERROR;
 
   return SPA_RESULT_OK;
-}
-
-static SpaResult
-spa_audiomixer_node_port_reuse_buffer (SpaNode         *node,
-                                       uint32_t         port_id,
-                                       uint32_t         buffer_id)
-{
-  return SPA_RESULT_NOT_IMPLEMENTED;
-}
-
-static SpaResult
-spa_audiomixer_node_port_send_command (SpaNode        *node,
-                                       SpaDirection    direction,
-                                       uint32_t        port_id,
-                                       SpaNodeCommand *command)
-{
-  return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static const SpaNode audiomixer_node = {
@@ -749,11 +729,12 @@ static const SpaNode audiomixer_node = {
   spa_audiomixer_node_port_set_props,
   spa_audiomixer_node_port_use_buffers,
   spa_audiomixer_node_port_alloc_buffers,
-  spa_audiomixer_node_port_get_status,
-  spa_audiomixer_node_port_push_input,
-  spa_audiomixer_node_port_pull_output,
+  spa_audiomixer_node_port_set_input,
+  spa_audiomixer_node_port_set_output,
   spa_audiomixer_node_port_reuse_buffer,
   spa_audiomixer_node_port_send_command,
+  spa_audiomixer_node_process_input,
+  spa_audiomixer_node_process_output,
 };
 
 static SpaResult

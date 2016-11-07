@@ -121,7 +121,7 @@ typedef struct {
   SpaAllocParam *params[2];
   SpaAllocParamBuffers param_buffers;
   SpaAllocParamMetaEnable param_meta;
-  SpaPortStatus status;
+  void *io;
 
   int64_t last_ticks;
   int64_t last_monotonic;
@@ -741,81 +741,33 @@ spa_v4l2_source_node_port_alloc_buffers (SpaNode         *node,
 }
 
 static SpaResult
-spa_v4l2_source_node_port_get_status (SpaNode              *node,
-                                      SpaDirection          direction,
-                                      uint32_t              port_id,
-                                      const SpaPortStatus **status)
+spa_v4l2_source_node_port_set_input (SpaNode      *node,
+                                     uint32_t      port_id,
+                                     SpaPortInput *input)
+{
+  return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
+static SpaResult
+spa_v4l2_source_node_port_set_output (SpaNode       *node,
+                                      uint32_t       port_id,
+                                      SpaPortOutput *output)
 {
   SpaV4l2Source *this;
 
-  if (node == NULL || status == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
+  if (!CHECK_PORT (this, SPA_DIRECTION_OUTPUT, port_id))
     return SPA_RESULT_INVALID_PORT;
 
-  *status = &this->state[port_id].status;
+  this->state[port_id].io = output;
 
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_v4l2_source_node_port_push_input (SpaNode          *node,
-                                      unsigned int      n_info,
-                                      SpaPortInputInfo *info)
-{
-  return SPA_RESULT_INVALID_PORT;
-}
-
-static SpaResult
-spa_v4l2_source_node_port_pull_output (SpaNode           *node,
-                                       unsigned int       n_info,
-                                       SpaPortOutputInfo *info)
-{
-  SpaV4l2Source *this;
-  SpaV4l2State *state;
-  unsigned int i;
-  bool have_error = false;
-
-  if (node == NULL || n_info == 0 || info == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
-  this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
-
-  for (i = 0; i < n_info; i++) {
-    V4l2Buffer *b;
-
-    if (info[i].port_id != 0) {
-      info[i].status = SPA_RESULT_INVALID_PORT;
-      have_error = true;
-      continue;
-    }
-    state = &this->state[info[i].port_id];
-
-    if (state->current_format == NULL) {
-      info[i].status = SPA_RESULT_NO_FORMAT;
-      have_error = true;
-      continue;
-    }
-
-    SPA_QUEUE_POP_HEAD (&state->ready, V4l2Buffer, next, b);
-    if (b == NULL) {
-      info[i].status = SPA_RESULT_UNEXPECTED;
-      have_error = true;
-      continue;
-    }
-    b->outstanding = true;
-
-    info[i].buffer_id = b->outbuf->id;
-    info[i].status = SPA_RESULT_OK;
-  }
-  if (have_error)
-    return SPA_RESULT_ERROR;
-
-  return SPA_RESULT_OK;
-}
 
 static SpaResult
 spa_v4l2_source_node_port_reuse_buffer (SpaNode         *node,
@@ -873,6 +825,48 @@ spa_v4l2_source_node_port_send_command (SpaNode        *node,
   return res;
 }
 
+static SpaResult
+spa_v4l2_source_node_process_input (SpaNode *node)
+{
+  return SPA_RESULT_INVALID_PORT;
+}
+
+static SpaResult
+spa_v4l2_source_node_process_output (SpaNode *node)
+{
+  SpaV4l2Source *this;
+  SpaV4l2State *state;
+  SpaPortOutput *output;
+  V4l2Buffer *b;
+
+  if (node == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
+
+  state = &this->state[0];
+
+  if ((output = state->io) == NULL)
+    return SPA_RESULT_OK;
+
+  if (state->current_format == NULL) {
+    output->status = SPA_RESULT_NO_FORMAT;
+    return SPA_RESULT_ERROR;
+  }
+
+  SPA_QUEUE_POP_HEAD (&state->ready, V4l2Buffer, next, b);
+  if (b == NULL) {
+    output->status = SPA_RESULT_UNEXPECTED;
+    return SPA_RESULT_ERROR;
+  }
+  b->outstanding = true;
+
+  output->buffer_id = b->outbuf->id;
+  output->status = SPA_RESULT_OK;
+
+  return SPA_RESULT_OK;
+}
+
 static const SpaNode v4l2source_node = {
   sizeof (SpaNode),
   NULL,
@@ -893,11 +887,12 @@ static const SpaNode v4l2source_node = {
   spa_v4l2_source_node_port_set_props,
   spa_v4l2_source_node_port_use_buffers,
   spa_v4l2_source_node_port_alloc_buffers,
-  spa_v4l2_source_node_port_get_status,
-  spa_v4l2_source_node_port_push_input,
-  spa_v4l2_source_node_port_pull_output,
+  spa_v4l2_source_node_port_set_input,
+  spa_v4l2_source_node_port_set_output,
   spa_v4l2_source_node_port_reuse_buffer,
   spa_v4l2_source_node_port_send_command,
+  spa_v4l2_source_node_process_input,
+  spa_v4l2_source_node_process_output,
 };
 
 static SpaResult
@@ -1030,7 +1025,6 @@ v4l2_source_init (const SpaHandleFactory  *factory,
 
   this->state[0].log = this->log;
   this->state[0].info.flags = SPA_PORT_INFO_FLAG_LIVE;
-  this->state[0].status.flags = SPA_PORT_STATUS_FLAG_NONE;
 
   this->state[0].export_buf = true;
 

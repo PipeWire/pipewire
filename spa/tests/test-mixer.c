@@ -111,27 +111,25 @@ on_mix_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
   switch (event->type) {
     case SPA_NODE_EVENT_TYPE_NEED_INPUT:
     {
-      SpaPortInputInfo iinfo;
-      SpaPortOutputInfo oinfo;
+      SpaPortInput pi = { 0, };
+      SpaPortOutput po = { 0, };
       SpaResult res;
       SpaNodeEventNeedInput *ni = (SpaNodeEventNeedInput *) event;
+      SpaNode *peer;
 
-      oinfo.port_id = 0;
-      oinfo.flags = SPA_PORT_OUTPUT_FLAG_NONE;
+      if (ni->port_id == data->mix_ports[0])
+        peer = data->source1;
+      else
+        peer = data->source2;
 
-      if (ni->port_id == data->mix_ports[0]) {
-        if ((res = spa_node_port_pull_output (data->source1, 1, &oinfo)) < 0)
-          printf ("got error %d\n", res);
-      } else {
-        if ((res = spa_node_port_pull_output (data->source2, 1, &oinfo)) < 0)
-          printf ("got error %d\n", res);
-      }
+      spa_node_port_set_output (peer, 0, &po);
+      if ((res = spa_node_process_output (peer)) < 0)
+        printf ("got error %d\n", res);
 
-      iinfo.port_id = ni->port_id;
-      iinfo.flags = SPA_PORT_INPUT_FLAG_NONE;
-      iinfo.buffer_id = oinfo.buffer_id;
+      pi.buffer_id = po.buffer_id;
 
-      if ((res = spa_node_port_push_input (data->mix, 1, &iinfo)) < 0)
+      spa_node_port_set_input (data->mix, ni->port_id, &pi);
+      if ((res = spa_node_process_input (data->mix)) < 0)
         printf ("got error from mixer %d\n", res);
       break;
     }
@@ -149,22 +147,21 @@ on_sink_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
   switch (event->type) {
     case SPA_NODE_EVENT_TYPE_NEED_INPUT:
     {
-      SpaPortInputInfo iinfo;
-      SpaPortOutputInfo oinfo;
+      SpaPortInput pi = { 0, };
+      SpaPortOutput po = { 0, };
       SpaResult res;
       SpaNodeEventNeedInput *ni = (SpaNodeEventNeedInput *)event;
 
-      oinfo.port_id = 0;
-      oinfo.flags = SPA_PORT_OUTPUT_FLAG_PULL;
+      po.flags = SPA_PORT_OUTPUT_FLAG_PULL;
 
-      if ((res = spa_node_port_pull_output (data->mix, 1, &oinfo)) < 0)
+      spa_node_port_set_output (data->mix, 0, &po);
+      if ((res = spa_node_process_output (data->mix)) < 0)
         printf ("got error %d\n", res);
 
-      iinfo.port_id = ni->port_id;
-      iinfo.flags = SPA_PORT_INPUT_FLAG_NONE;
-      iinfo.buffer_id = oinfo.buffer_id;
+      pi.buffer_id = po.buffer_id;
 
-      if ((res = spa_node_port_push_input (data->sink, 1, &iinfo)) < 0)
+      spa_node_port_set_input (data->mix, ni->port_id, &pi);
+      if ((res = spa_node_process_input (data->sink)) < 0)
         printf ("got error %d\n", res);
       break;
     }

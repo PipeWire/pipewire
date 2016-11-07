@@ -371,10 +371,11 @@ mmap_write (SpaALSAState *state)
   snd_pcm_sframes_t avail;
   snd_pcm_uframes_t offset, frames, size;
   const snd_pcm_channel_area_t *my_areas;
-  snd_pcm_status_t *status;
   SpaNodeEventNeedInput ni;
 
 #if 0
+  snd_pcm_status_t *status;
+
   snd_pcm_status_alloca (&status);
 
   if ((err = snd_pcm_status (hndl, status)) < 0) {

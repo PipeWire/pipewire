@@ -45,8 +45,8 @@ transport_area_get_size (PinosTransportArea *area)
 {
   size_t size;
   size = sizeof (PinosTransportArea);
-  size += area->max_input_info * sizeof (SpaPortInputInfo);
-  size += area->max_output_info * sizeof (SpaPortOutputInfo);
+  size += area->max_inputs * sizeof (SpaPortInput);
+  size += area->max_outputs * sizeof (SpaPortOutput);
   size += sizeof (SpaRingbuffer);
   size += INPUT_BUFFER_SIZE;
   size += sizeof (SpaRingbuffer);
@@ -60,13 +60,13 @@ transport_setup_area (void *p, PinosTransport *trans)
   PinosTransportArea *a;
 
   trans->area = a = p;
-  p = SPA_MEMBER (p, sizeof (PinosTransportArea), SpaPortInputInfo);
+  p = SPA_MEMBER (p, sizeof (PinosTransportArea), SpaPortInput);
 
-  trans->input_info = p;
-  p = SPA_MEMBER (p, a->max_input_info * sizeof (SpaPortInputInfo), void);
+  trans->inputs = p;
+  p = SPA_MEMBER (p, a->max_inputs * sizeof (SpaPortInput), void);
 
-  trans->output_info = p;
-  p = SPA_MEMBER (p, a->max_output_info * sizeof (SpaPortOutputInfo), void);
+  trans->outputs = p;
+  p = SPA_MEMBER (p, a->max_outputs * sizeof (SpaPortOutput), void);
 
   trans->input_buffer = p;
   spa_ringbuffer_init (trans->input_buffer, INPUT_BUFFER_SIZE);
@@ -84,24 +84,22 @@ transport_setup_area (void *p, PinosTransport *trans)
 }
 
 PinosTransport *
-pinos_transport_new (unsigned int max_input_info,
-                     unsigned int max_output_info,
-                     int fd)
+pinos_transport_new (unsigned int max_inputs,
+                     unsigned int max_outputs)
 {
   PinosTransportImpl *impl;
   PinosTransport *trans;
   PinosTransportArea area;
 
-  area.max_input_info = max_input_info;
-  area.n_input_info = 0;
-  area.max_output_info = max_output_info;
-  area.n_output_info = 0;
+  area.max_inputs = max_inputs;
+  area.n_inputs = 0;
+  area.max_outputs = max_outputs;
+  area.n_outputs = 0;
 
   impl = calloc (1, sizeof (PinosTransportImpl));
   impl->offset = 0;
 
   trans = &impl->trans;
-  trans->fd = fd;
 
   pinos_memblock_alloc (PINOS_MEMBLOCK_FLAG_WITH_FD |
                         PINOS_MEMBLOCK_FLAG_MAP_READWRITE |
@@ -127,7 +125,6 @@ pinos_transport_new_from_info (PinosTransportInfo *info)
 
   impl = calloc (1, sizeof (PinosTransportImpl));
   trans = &impl->trans;
-  trans->fd = info->fd;
 
   impl->mem.flags = PINOS_MEMBLOCK_FLAG_MAP_READWRITE |
                     PINOS_MEMBLOCK_FLAG_WITH_FD;
@@ -159,8 +156,6 @@ pinos_transport_free (PinosTransport *trans)
     return;
 
   pinos_memblock_free (&impl->mem);
-  if (trans->fd != -1)
-    close (trans->fd);
   free (impl);
 }
 
@@ -176,7 +171,6 @@ pinos_transport_get_info (PinosTransport     *trans,
   info->memfd = impl->mem.fd;
   info->offset = impl->offset;
   info->size = impl->mem.size;
-  info->fd = trans->fd;
 
   return SPA_RESULT_OK;
 }

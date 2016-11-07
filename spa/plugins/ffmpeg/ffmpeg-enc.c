@@ -63,9 +63,8 @@ typedef struct {
   SpaPortInfo info;
   SpaAllocParam *params[1];
   SpaAllocParamBuffers param_buffers;
-  SpaPortStatus status;
+  void *io;
 } SpaFFMpegPort;
-
 
 typedef struct {
   uint32_t node;
@@ -84,8 +83,8 @@ struct _SpaFFMpegEnc {
   SpaNodeEventCallback event_cb;
   void *user_data;
 
-  SpaFFMpegPort in_ports[0];
-  SpaFFMpegPort out_ports[0];
+  SpaFFMpegPort in_ports[1];
+  SpaFFMpegPort out_ports[1];
 };
 
 enum {
@@ -427,69 +426,41 @@ spa_ffmpeg_enc_node_port_alloc_buffers (SpaNode         *node,
 }
 
 static SpaResult
-spa_ffmpeg_enc_node_port_get_status (SpaNode              *node,
-                                     SpaDirection          direction,
-                                     uint32_t              port_id,
-                                     const SpaPortStatus **status)
+spa_ffmpeg_enc_node_port_set_input (SpaNode      *node,
+                                    uint32_t      port_id,
+                                    SpaPortInput *input)
 {
   SpaFFMpegEnc *this;
-  SpaFFMpegPort *port;
 
-  if (node == NULL || status == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaFFMpegEnc, node);
 
-  if (!IS_VALID_PORT (this, direction, port_id))
+  if (!IS_VALID_PORT (this, SPA_DIRECTION_INPUT, port_id))
     return SPA_RESULT_INVALID_PORT;
 
-  port = direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
-  *status = &port->status;
+  this->in_ports[port_id].io = input;
 
   return SPA_RESULT_OK;
 }
 
 static SpaResult
-spa_ffmpeg_enc_node_port_push_input (SpaNode          *node,
-                                     unsigned int      n_info,
-                                     SpaPortInputInfo *info)
-{
-  return SPA_RESULT_INVALID_PORT;
-}
-
-static SpaResult
-spa_ffmpeg_enc_node_port_pull_output (SpaNode           *node,
-                                      unsigned int       n_info,
-                                      SpaPortOutputInfo *info)
+spa_ffmpeg_enc_node_port_set_output (SpaNode       *node,
+                                     uint32_t       port_id,
+                                     SpaPortOutput *output)
 {
   SpaFFMpegEnc *this;
-  SpaFFMpegPort *port;
-  unsigned int i;
-  bool have_error = false;
 
-  if (node == NULL || n_info == 0 || info == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaFFMpegEnc, node);
 
+  if (!IS_VALID_PORT (this, SPA_DIRECTION_OUTPUT, port_id))
+    return SPA_RESULT_INVALID_PORT;
 
-  for (i = 0; i < n_info; i++) {
-    if (info[i].port_id != 0) {
-      info[i].status = SPA_RESULT_INVALID_PORT;
-      have_error = true;
-      continue;
-    }
-    port = &this->out_ports[info[i].port_id];
-
-    if (port->current_format == NULL) {
-      info[i].status = SPA_RESULT_NO_FORMAT;
-      have_error = true;
-      continue;
-    }
-    info[i].status = SPA_RESULT_OK;
-  }
-  if (have_error)
-    return SPA_RESULT_ERROR;
+  this->out_ports[port_id].io = output;
 
   return SPA_RESULT_OK;
 }
@@ -517,6 +488,38 @@ spa_ffmpeg_enc_node_port_send_command (SpaNode        *node,
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
+static SpaResult
+spa_ffmpeg_enc_node_process_input (SpaNode *node)
+{
+  return SPA_RESULT_INVALID_PORT;
+}
+
+static SpaResult
+spa_ffmpeg_enc_node_process_output (SpaNode *node)
+{
+  SpaFFMpegEnc *this;
+  SpaFFMpegPort *port;
+  SpaPortOutput *output;
+
+  if (node == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = SPA_CONTAINER_OF (node, SpaFFMpegEnc, node);
+
+  if ((output = this->out_ports[0].io) == NULL)
+    return SPA_RESULT_OK;
+
+  port = &this->out_ports[0];
+
+  if (port->current_format == NULL) {
+    output->status = SPA_RESULT_NO_FORMAT;
+    return SPA_RESULT_ERROR;
+  }
+  output->status = SPA_RESULT_OK;
+
+  return SPA_RESULT_OK;
+}
+
 static const SpaNode ffmpeg_enc_node = {
   sizeof (SpaNode),
   NULL,
@@ -537,11 +540,12 @@ static const SpaNode ffmpeg_enc_node = {
   spa_ffmpeg_enc_node_port_set_props,
   spa_ffmpeg_enc_node_port_use_buffers,
   spa_ffmpeg_enc_node_port_alloc_buffers,
-  spa_ffmpeg_enc_node_port_get_status,
-  spa_ffmpeg_enc_node_port_push_input,
-  spa_ffmpeg_enc_node_port_pull_output,
+  spa_ffmpeg_enc_node_port_set_input,
+  spa_ffmpeg_enc_node_port_set_output,
   spa_ffmpeg_enc_node_port_reuse_buffer,
   spa_ffmpeg_enc_node_port_send_command,
+  spa_ffmpeg_enc_node_process_input,
+  spa_ffmpeg_enc_node_process_output,
 };
 
 static SpaResult
@@ -595,10 +599,7 @@ spa_ffmpeg_enc_init (SpaHandle         *handle,
   reset_ffmpeg_enc_props (&this->props[1]);
 
   this->in_ports[0].info.flags = SPA_PORT_INFO_FLAG_NONE;
-  this->in_ports[0].status.flags = SPA_PORT_STATUS_FLAG_NONE;
-
   this->out_ports[0].info.flags = SPA_PORT_INFO_FLAG_NONE;
-  this->out_ports[0].status.flags = SPA_PORT_STATUS_FLAG_NONE;
 
   this->node.state = SPA_NODE_STATE_CONFIGURE;
 

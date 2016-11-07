@@ -65,10 +65,6 @@ struct _PinosNodePrivate
   uint32_t seq;
 
   gboolean async_init;
-  unsigned int max_input_ports;
-  unsigned int max_output_ports;
-  unsigned int n_input_ports;
-  unsigned int n_output_ports;
   GList *input_ports;
   GList *output_ports;
   guint n_used_output_links;
@@ -101,6 +97,7 @@ enum
   PROP_PROPERTIES,
   PROP_NODE,
   PROP_CLOCK,
+  PROP_TRANSPORT,
 };
 
 enum
@@ -215,13 +212,21 @@ update_port_ids (PinosNode *node, gboolean create)
       break;
   }
 
-  priv->max_input_ports = max_input_ports;
-  priv->max_output_ports = max_output_ports;
-  priv->n_input_ports = n_input_ports;
-  priv->n_output_ports = n_output_ports;
+  node->have_inputs = n_input_ports > 0;
+  node->have_outputs = n_output_ports > 0;
 
-  node->have_inputs = priv->n_input_ports > 0;
-  node->have_outputs = priv->n_output_ports > 0;
+  node->transport = pinos_transport_new (max_input_ports,
+                                         max_output_ports);
+
+  node->transport->area->n_inputs = n_input_ports;
+  node->transport->area->n_outputs = n_output_ports;
+
+  for (i = 0; i < max_input_ports; i++)
+    spa_node_port_set_input (node->node, i, &node->transport->inputs[i]);
+  for (i = 0; i < max_output_ports; i++)
+    spa_node_port_set_output (node->node, i, &node->transport->outputs[i]);
+
+  g_object_notify (G_OBJECT (node), "transport");
 }
 
 static SpaResult
@@ -333,14 +338,12 @@ do_read_link (SpaPoll        *poll,
     return SPA_RESULT_OK;
 
   while (link->in_ready > 0 && spa_ringbuffer_get_read_offset (&link->ringbuffer, &offset) > 0) {
-    SpaPortInputInfo iinfo[1];
+    SpaPortInput *input = &this->transport->inputs[link->input->port];
 
-    iinfo[0].port_id = link->input->port;
-    iinfo[0].buffer_id = link->queue[offset];
-    iinfo[0].flags = SPA_PORT_INPUT_FLAG_NONE;
+    input->buffer_id = link->queue[offset];
 
-    if ((res = spa_node_port_push_input (link->input->node->node, 1, iinfo)) < 0)
-      pinos_log_warn ("node %p: error pushing buffer: %d, %d", this, res, iinfo[0].status);
+    if ((res = spa_node_process_input (link->input->node->node)) < 0)
+      pinos_log_warn ("node %p: error pushing buffer: %d, %d", this, res, input->status);
 
     spa_ringbuffer_read_advance (&link->ringbuffer, 1);
     link->in_ready--;
@@ -396,15 +399,13 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
     case SPA_NODE_EVENT_TYPE_HAVE_OUTPUT:
     {
       SpaNodeEventHaveOutput *ho = (SpaNodeEventHaveOutput *) event;
-      SpaPortOutputInfo oinfo[1] = { 0, };
       SpaResult res;
       guint i;
       gboolean pushed = FALSE;
+      SpaPortOutput *po = &this->transport->outputs[ho->port_id];
 
-      oinfo[0].port_id = ho->port_id;
-
-      if ((res = spa_node_port_pull_output (node, 1, oinfo)) < 0) {
-        pinos_log_warn ("node %p: got pull error %d, %d", this, res, oinfo[0].status);
+      if ((res = spa_node_process_output (node)) < 0) {
+        pinos_log_warn ("node %p: got pull error %d, %d", this, res, po->status);
         break;
       }
 
@@ -419,7 +420,7 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
           continue;
 
         if (spa_ringbuffer_get_write_offset (&link->ringbuffer, &offset) > 0) {
-          link->queue[offset] = oinfo[0].buffer_id;
+          link->queue[offset] = po->buffer_id;
           spa_ringbuffer_write_advance (&link->ringbuffer, 1);
 
           spa_poll_invoke (&link->input->node->priv->data_loop->poll,
@@ -432,7 +433,7 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
         }
       }
       if (!pushed) {
-        if ((res = spa_node_port_reuse_buffer (node, oinfo[0].port_id, oinfo[0].buffer_id)) < 0)
+        if ((res = spa_node_port_reuse_buffer (node, ho->port_id, po->buffer_id)) < 0)
           pinos_log_warn ("node %p: error reuse buffer: %d", node, res);
       }
       break;
@@ -517,6 +518,10 @@ pinos_node_get_property (GObject    *_object,
 
     case PROP_CLOCK:
       g_value_set_pointer (value, this->clock);
+      break;
+
+    case PROP_TRANSPORT:
+      g_value_set_pointer (value, this->transport);
       break;
 
     default:
@@ -813,6 +818,13 @@ pinos_node_class_init (PinosNodeClass * klass)
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_CONSTRUCT |
                                                         G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (gobject_class,
+                                   PROP_TRANSPORT,
+                                   g_param_spec_pointer ("transport",
+                                                         "Transport",
+                                                         "The Transport",
+                                                         G_PARAM_READABLE |
+                                                         G_PARAM_STATIC_STRINGS));
 
   signals[SIGNAL_REMOVE] = g_signal_new ("remove",
                                          G_TYPE_FROM_CLASS (klass),
@@ -1038,12 +1050,12 @@ pinos_node_get_free_port (PinosNode       *node,
   priv = node->priv;
 
   if (direction == PINOS_DIRECTION_INPUT) {
-    max_ports = priv->max_input_ports;
-    n_ports = priv->n_input_ports;
+    max_ports = node->transport->area->max_inputs;
+    n_ports = node->transport->area->n_inputs;
     ports = priv->input_ports;
   } else {
-    max_ports = priv->max_output_ports;
-    n_ports = priv->n_output_ports;
+    max_ports = node->transport->area->max_outputs;
+    n_ports = node->transport->area->n_outputs;
     ports = priv->output_ports;
   }
   free_port = 0;

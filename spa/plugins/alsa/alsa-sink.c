@@ -32,7 +32,7 @@
 typedef struct _SpaALSAState SpaALSASink;
 
 static const char default_device[] = "default";
-static const uint32_t default_buffer_time = 10000;
+static const uint32_t default_buffer_time = 4000;
 static const uint32_t default_period_time = 1000;
 static const bool default_period_event = 0;
 
@@ -590,88 +590,31 @@ spa_alsa_sink_node_port_alloc_buffers (SpaNode         *node,
 }
 
 static SpaResult
-spa_alsa_sink_node_port_get_status (SpaNode              *node,
-                                    SpaDirection          direction,
-                                    uint32_t              port_id,
-                                    const SpaPortStatus **status)
+spa_alsa_sink_node_port_set_input (SpaNode      *node,
+                                   uint32_t      port_id,
+                                   SpaPortInput *input)
 {
   SpaALSASink *this;
 
-  if (node == NULL || status == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaALSASink, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
+  if (!CHECK_PORT (this, SPA_DIRECTION_INPUT, port_id))
     return SPA_RESULT_INVALID_PORT;
 
-  *status = &this->status;
+  this->io = input;
 
   return SPA_RESULT_OK;
 }
 
 static SpaResult
-spa_alsa_sink_node_port_push_input (SpaNode          *node,
-                                    unsigned int      n_info,
-                                    SpaPortInputInfo *info)
+spa_alsa_sink_node_port_set_output (SpaNode       *node,
+                                    uint32_t       port_id,
+                                    SpaPortOutput *output)
 {
-  SpaALSASink *this;
-  unsigned int i;
-  bool have_error = false;
-
-  if (node == NULL || n_info == 0 || info == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
-  this = SPA_CONTAINER_OF (node, SpaALSASink, node);
-
-  for (i = 0; i < n_info; i++) {
-    SpaALSABuffer *b;
-
-    if (info[i].port_id != 0) {
-      info[i].status = SPA_RESULT_INVALID_PORT;
-      have_error = true;
-      continue;
-    }
-    if (!this->have_format) {
-      info[i].status = SPA_RESULT_NO_FORMAT;
-      have_error = true;
-      continue;
-    }
-
-    if (info[i].buffer_id >= this->n_buffers) {
-      info[i].status = SPA_RESULT_INVALID_BUFFER_ID;
-      have_error = true;
-      continue;
-    }
-
-    b = &this->buffers[info[i].buffer_id];
-    if (!b->outstanding) {
-      info[i].status = SPA_RESULT_INVALID_BUFFER_ID;
-      have_error = true;
-      continue;
-    }
-    if (this->ringbuffer) {
-      this->ringbuffer->outstanding = true;
-      this->ringbuffer = b;
-    } else {
-      b->next = NULL;
-      SPA_QUEUE_PUSH_TAIL (&this->ready, SpaALSABuffer, next, b);
-    }
-    b->outstanding = false;
-    info[i].status = SPA_RESULT_OK;
-  }
-  if (have_error)
-    return SPA_RESULT_ERROR;
-
-  return SPA_RESULT_OK;
-}
-
-static SpaResult
-spa_alsa_sink_node_port_pull_output (SpaNode           *node,
-                                     unsigned int       n_info,
-                                     SpaPortOutputInfo *info)
-{
-  return SPA_RESULT_INVALID_PORT;
+  return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult
@@ -721,6 +664,55 @@ spa_alsa_sink_node_port_send_command (SpaNode          *node,
   return res;
 }
 
+static SpaResult
+spa_alsa_sink_node_process_input (SpaNode *node)
+{
+  SpaALSASink *this;
+  SpaPortInput *input;
+  SpaALSABuffer *b;
+
+  if (node == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = SPA_CONTAINER_OF (node, SpaALSASink, node);
+
+  if ((input = this->io) == NULL)
+    return SPA_RESULT_OK;
+
+  if (!this->have_format) {
+    input->status = SPA_RESULT_NO_FORMAT;
+    return SPA_RESULT_ERROR;
+  }
+
+  if (input->buffer_id >= this->n_buffers) {
+    input->status = SPA_RESULT_INVALID_BUFFER_ID;
+    return SPA_RESULT_ERROR;
+  }
+
+  b = &this->buffers[input->buffer_id];
+  if (!b->outstanding) {
+    input->status = SPA_RESULT_INVALID_BUFFER_ID;
+    return SPA_RESULT_ERROR;
+  }
+  if (this->ringbuffer) {
+    this->ringbuffer->outstanding = true;
+    this->ringbuffer = b;
+  } else {
+    b->next = NULL;
+    SPA_QUEUE_PUSH_TAIL (&this->ready, SpaALSABuffer, next, b);
+  }
+  b->outstanding = false;
+  input->status = SPA_RESULT_OK;
+
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
+spa_alsa_sink_node_process_output (SpaNode *node)
+{
+  return SPA_RESULT_INVALID_PORT;
+}
+
 
 static const SpaNode alsasink_node = {
   sizeof (SpaNode),
@@ -742,11 +734,12 @@ static const SpaNode alsasink_node = {
   spa_alsa_sink_node_port_set_props,
   spa_alsa_sink_node_port_use_buffers,
   spa_alsa_sink_node_port_alloc_buffers,
-  spa_alsa_sink_node_port_get_status,
-  spa_alsa_sink_node_port_push_input,
-  spa_alsa_sink_node_port_pull_output,
+  spa_alsa_sink_node_port_set_input,
+  spa_alsa_sink_node_port_set_output,
   spa_alsa_sink_node_port_reuse_buffer,
   spa_alsa_sink_node_port_send_command,
+  spa_alsa_sink_node_process_input,
+  spa_alsa_sink_node_process_output,
 };
 
 static SpaResult
@@ -814,8 +807,6 @@ alsa_sink_init (const SpaHandleFactory  *factory,
   this->props[1].props.prop_info = prop_info;
   this->stream = SND_PCM_STREAM_PLAYBACK;
   reset_alsa_sink_props (&this->props[1]);
-
-  this->status.flags = SPA_PORT_STATUS_FLAG_NONE;
 
   for (i = 0; info && i < info->n_items; i++) {
     if (!strcmp (info->items[i].key, "alsa.card")) {

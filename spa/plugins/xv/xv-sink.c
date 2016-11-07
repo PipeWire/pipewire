@@ -90,11 +90,10 @@ struct _SpaXvSink {
   SpaFormatVideo format[2];
   SpaFormat *current_format;
 
+  SpaPortInfo info;
   SpaXvState state;
 
-  SpaPortInfo info;
-  SpaPortStatus status;
-
+  SpaPortInput *input;
 };
 
 #define CHECK_PORT(this,d,p)  ((d) == SPA_DIRECTION_OUTPUT && (p) == 0)
@@ -456,40 +455,31 @@ spa_xv_sink_node_port_alloc_buffers (SpaNode         *node,
 }
 
 static SpaResult
-spa_xv_sink_node_port_get_status (SpaNode              *node,
-                                  SpaDirection          direction,
-                                  uint32_t              port_id,
-                                  const SpaPortStatus **status)
+spa_xv_sink_node_port_set_input (SpaNode      *node,
+                                 uint32_t      port_id,
+                                 SpaPortInput *input)
 {
   SpaXvSink *this;
 
-  if (node == NULL || status == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaXvSink, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
+  if (!CHECK_PORT (this, SPA_DIRECTION_INPUT, port_id))
     return SPA_RESULT_INVALID_PORT;
 
-  *status = &this->status;
+  this->input = input;
 
   return SPA_RESULT_OK;
 }
 
 static SpaResult
-spa_xv_sink_node_port_push_input (SpaNode          *node,
-                                  unsigned int      n_info,
-                                  SpaPortInputInfo *info)
+spa_xv_sink_node_port_set_output (SpaNode       *node,
+                                  uint32_t       port_id,
+                                  SpaPortOutput *output)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
-}
-
-static SpaResult
-spa_xv_sink_node_port_pull_output (SpaNode           *node,
-                                   unsigned int       n_info,
-                                   SpaPortOutputInfo *info)
-{
-  return SPA_RESULT_INVALID_PORT;
 }
 
 static SpaResult
@@ -507,6 +497,18 @@ spa_xv_sink_node_port_send_command (SpaNode        *node,
                                     SpaNodeCommand *command)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
+static SpaResult
+spa_xv_sink_node_process_input (SpaNode          *node)
+{
+  return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
+static SpaResult
+spa_xv_sink_node_process_output (SpaNode           *node)
+{
+  return SPA_RESULT_INVALID_PORT;
 }
 
 static const SpaNode xvsink_node = {
@@ -529,11 +531,12 @@ static const SpaNode xvsink_node = {
   spa_xv_sink_node_port_set_props,
   spa_xv_sink_node_port_use_buffers,
   spa_xv_sink_node_port_alloc_buffers,
-  spa_xv_sink_node_port_get_status,
-  spa_xv_sink_node_port_push_input,
-  spa_xv_sink_node_port_pull_output,
+  spa_xv_sink_node_port_set_input,
+  spa_xv_sink_node_port_set_output,
   spa_xv_sink_node_port_reuse_buffer,
   spa_xv_sink_node_port_send_command,
+  spa_xv_sink_node_process_input,
+  spa_xv_sink_node_process_output,
 };
 
 static SpaResult
@@ -598,7 +601,6 @@ xv_sink_init (const SpaHandleFactory  *factory,
   reset_xv_sink_props (&this->props[1]);
 
   this->info.flags = SPA_PORT_INFO_FLAG_NONE;
-  this->status.flags = SPA_PORT_STATUS_FLAG_NONE;
 
   return SPA_RESULT_OK;
 }

@@ -631,80 +631,31 @@ spa_alsa_source_node_port_alloc_buffers (SpaNode         *node,
 }
 
 static SpaResult
-spa_alsa_source_node_port_get_status (SpaNode              *node,
-                                      SpaDirection          direction,
-                                      uint32_t              port_id,
-                                      const SpaPortStatus **status)
-{
-  SpaALSASource *this;
-
-  if (node == NULL || status == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
-  this = SPA_CONTAINER_OF (node, SpaALSASource, node);
-
-  if (!CHECK_PORT (this, direction, port_id))
-    return SPA_RESULT_INVALID_PORT;
-
-  *status = &this->status;
-
-  return SPA_RESULT_OK;
-}
-
-static SpaResult
-spa_alsa_source_node_port_push_input (SpaNode          *node,
-                                      unsigned int      n_info,
-                                      SpaPortInputInfo *info)
+spa_alsa_source_node_port_set_input (SpaNode      *node,
+                                     uint32_t      port_id,
+                                     SpaPortInput *input)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult
-spa_alsa_source_node_port_pull_output (SpaNode           *node,
-                                       unsigned int       n_info,
-                                       SpaPortOutputInfo *info)
+spa_alsa_source_node_port_set_output (SpaNode       *node,
+                                      uint32_t       port_id,
+                                      SpaPortOutput *output)
 {
   SpaALSASource *this;
-  unsigned int i;
-  bool have_error = false;
 
-  if (node == NULL || n_info == 0 || info == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaALSASource, node);
 
-  for (i = 0; i < n_info; i++) {
-    SpaALSABuffer *b;
+  if (!CHECK_PORT (this, SPA_DIRECTION_OUTPUT, port_id))
+    return SPA_RESULT_INVALID_PORT;
 
-    if (info[i].port_id != 0) {
-      info[i].status = SPA_RESULT_INVALID_PORT;
-      have_error = true;
-      continue;
-    }
-
-    if (!this->have_format) {
-      info[i].status = SPA_RESULT_NO_FORMAT;
-      have_error = true;
-      continue;
-    }
-
-    SPA_QUEUE_POP_HEAD (&this->ready, SpaALSABuffer, next, b);
-    if (b == NULL) {
-      info[i].status = SPA_RESULT_UNEXPECTED;
-      have_error = true;
-      continue;
-    }
-    b->outstanding = true;
-
-    info[i].buffer_id = b->outbuf->id;
-    info[i].status = SPA_RESULT_OK;
-    spa_log_trace (this->log, "pull buffer %u", b->outbuf->id);
-  }
-  if (have_error)
-    return SPA_RESULT_ERROR;
+  this->io = output;
 
   return SPA_RESULT_OK;
-
 }
 
 static SpaResult
@@ -773,6 +724,46 @@ spa_alsa_source_node_port_send_command (SpaNode          *node,
   return res;
 }
 
+static SpaResult
+spa_alsa_source_node_process_input (SpaNode *node)
+{
+  return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
+static SpaResult
+spa_alsa_source_node_process_output (SpaNode *node)
+{
+  SpaALSASource *this;
+  SpaPortOutput *output;
+  SpaALSABuffer *b;
+
+  if (node == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = SPA_CONTAINER_OF (node, SpaALSASource, node);
+
+  output = this->io;
+
+  if (!this->have_format) {
+    output->status = SPA_RESULT_NO_FORMAT;
+    return SPA_RESULT_ERROR;
+  }
+
+  SPA_QUEUE_POP_HEAD (&this->ready, SpaALSABuffer, next, b);
+  if (b == NULL) {
+    output->status = SPA_RESULT_UNEXPECTED;
+    return SPA_RESULT_ERROR;
+  }
+  b->outstanding = true;
+
+  output->buffer_id = b->outbuf->id;
+  output->status = SPA_RESULT_OK;
+
+  spa_log_trace (this->log, "pull buffer %u", b->outbuf->id);
+
+  return SPA_RESULT_OK;
+}
+
 static const SpaNode alsasource_node = {
   sizeof (SpaNode),
   NULL,
@@ -793,11 +784,12 @@ static const SpaNode alsasource_node = {
   spa_alsa_source_node_port_set_props,
   spa_alsa_source_node_port_use_buffers,
   spa_alsa_source_node_port_alloc_buffers,
-  spa_alsa_source_node_port_get_status,
-  spa_alsa_source_node_port_push_input,
-  spa_alsa_source_node_port_pull_output,
+  spa_alsa_source_node_port_set_input,
+  spa_alsa_source_node_port_set_output,
   spa_alsa_source_node_port_reuse_buffer,
   spa_alsa_source_node_port_send_command,
+  spa_alsa_source_node_process_input,
+  spa_alsa_source_node_process_output,
 };
 
 static SpaResult
@@ -915,8 +907,6 @@ alsa_source_init (const SpaHandleFactory  *factory,
   this->props[1].props.prop_info = prop_info;
   this->stream = SND_PCM_STREAM_CAPTURE;
   reset_alsa_props (&this->props[1]);
-
-  this->status.flags = SPA_PORT_STATUS_FLAG_NEED_INPUT;
 
   for (i = 0; info && i < info->n_items; i++) {
     if (!strcmp (info->items[i].key, "alsa.card")) {

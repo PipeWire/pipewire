@@ -668,7 +668,9 @@ static inline void
 send_need_input (PinosStream *stream)
 {
   PinosStreamPrivate *priv = stream->priv;
-  pinos_transport_write_cmd (priv->trans, PINOS_TRANSPORT_CMD_NEED_DATA);
+  uint8_t cmd = PINOS_TRANSPORT_CMD_NEED_DATA;
+  write (priv->rtfd, &cmd, 1);
+
 }
 
 static void
@@ -1068,7 +1070,6 @@ parse_connection (PinosStream *stream)
           break;
         info.offset = p.offset;
         info.size = p.size;
-        info.fd = priv->rtfd;
 
         pinos_log_debug ("transport update %d %p", priv->rtfd, priv->trans);
 
@@ -1165,24 +1166,24 @@ on_rtsocket_condition (GSocket      *socket,
       uint8_t cmd;
       int i;
 
-      pinos_transport_read_cmd (priv->trans, &cmd);
+      read (priv->rtfd, &cmd, 1);
 
       if (cmd & PINOS_TRANSPORT_CMD_HAVE_DATA) {
         BufferId *bid;
 
-        for (i = 0; i < priv->trans->area->n_input_info; i++) {
-          SpaPortInputInfo *info = &priv->trans->input_info[i];
+        for (i = 0; i < priv->trans->area->n_inputs; i++) {
+          SpaPortInput *input = &priv->trans->inputs[i];
 
-          if (info->buffer_id == SPA_ID_INVALID)
+          if (input->buffer_id == SPA_ID_INVALID)
             continue;
 
-          if ((bid = find_buffer (stream, info->buffer_id))) {
+          if ((bid = find_buffer (stream, input->buffer_id))) {
             for (i = 0; i < bid->buf->n_datas; i++) {
               bid->buf->datas[i].size = bid->datas[i].size;
             }
             g_signal_emit (stream, signals[SIGNAL_NEW_BUFFER], 0, bid->id);
           }
-          info->buffer_id = SPA_ID_INVALID;
+          input->buffer_id = SPA_ID_INVALID;
         }
         send_need_input (stream);
       }
@@ -1804,6 +1805,7 @@ pinos_stream_recycle_buffer (PinosStream     *stream,
 {
   PinosStreamPrivate *priv;
   SpaNodeEventReuseBuffer rb;
+  uint8_t cmd = PINOS_TRANSPORT_CMD_HAVE_EVENT;
 
   g_return_val_if_fail (PINOS_IS_STREAM (stream), FALSE);
   g_return_val_if_fail (id != SPA_ID_INVALID, FALSE);
@@ -1815,7 +1817,7 @@ pinos_stream_recycle_buffer (PinosStream     *stream,
   rb.port_id = priv->port_id;
   rb.buffer_id = id;
   pinos_transport_add_event (priv->trans, &rb.event);
-  pinos_transport_write_cmd (priv->trans, PINOS_TRANSPORT_CMD_HAVE_EVENT);
+  write (priv->rtfd, &cmd, 1);
 
   return TRUE;
 }
@@ -1871,13 +1873,15 @@ pinos_stream_send_buffer (PinosStream     *stream,
   g_return_val_if_fail (priv->direction == SPA_DIRECTION_OUTPUT, FALSE);
 
   if ((bid = find_buffer (stream, id))) {
+    uint8_t cmd = PINOS_TRANSPORT_CMD_HAVE_DATA;
+
     bid->used = TRUE;
     for (i = 0; i < bid->buf->n_datas; i++) {
       bid->datas[i].size = bid->buf->datas[i].size;
     }
-    priv->trans->output_info[0].buffer_id = id;
-    priv->trans->output_info[0].status = SPA_RESULT_OK;
-    pinos_transport_write_cmd (priv->trans, PINOS_TRANSPORT_CMD_HAVE_DATA);
+    priv->trans->outputs[0].buffer_id = id;
+    priv->trans->outputs[0].status = SPA_RESULT_OK;
+    write (priv->rtfd, &cmd, 1);
     return TRUE;
   } else {
     return FALSE;

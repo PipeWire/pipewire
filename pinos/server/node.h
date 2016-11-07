@@ -39,6 +39,7 @@ typedef enum {
 
 #include <pinos/client/introspect.h>
 #include <pinos/client/mem.h>
+#include <pinos/client/transport.h>
 
 #include <pinos/server/daemon.h>
 #include <pinos/server/link.h>
@@ -84,6 +85,8 @@ struct _PinosNode {
 
   gboolean have_inputs;
   gboolean have_outputs;
+
+  PinosTransport *transport;
 
   PinosNodePrivate *priv;
 };

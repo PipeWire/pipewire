@@ -38,10 +38,11 @@ typedef enum {
 #include <spa/include/spa/node.h>
 
 #include <pinos/client/introspect.h>
+#include <pinos/client/mem.h>
+
 #include <pinos/server/daemon.h>
 #include <pinos/server/link.h>
 #include <pinos/server/client.h>
-#include <pinos/server/utils.h>
 
 struct _PinosPort {
   uint32_t        id;

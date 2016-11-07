@@ -17,12 +17,14 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __PINOS_UTILS_H__
-#define __PINOS_UTILS_H__
+#ifndef __PINOS_MEM_H__
+#define __PINOS_MEM_H__
 
-#include <glib-object.h>
+#include <spa/defs.h>
 
-G_BEGIN_DECLS
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct _PinosMemblock PinosMemblock;
 
@@ -39,15 +41,17 @@ typedef enum {
 struct _PinosMemblock {
   PinosMemblockFlags flags;
   int                fd;
-  gpointer          *ptr;
-  gsize              size;
+  void              *ptr;
+  size_t             size;
 };
 
-gboolean      pinos_memblock_alloc     (PinosMemblockFlags  flags,
-                                        gsize               size,
+SpaResult     pinos_memblock_alloc     (PinosMemblockFlags  flags,
+                                        size_t              size,
                                         PinosMemblock      *mem);
 void          pinos_memblock_free      (PinosMemblock      *mem);
 
-G_END_DECLS
+#ifdef __cplusplus
+}
+#endif
 
-#endif /* __PINOS_UTILS_H__ */
+#endif /* __PINOS_MEM_H__ */

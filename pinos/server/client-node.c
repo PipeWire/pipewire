@@ -34,6 +34,7 @@
 #include "pinos/client/private.h"
 #include "pinos/client/connection.h"
 #include "pinos/client/serialize.h"
+#include "pinos/client/transport.h"
 
 #include "pinos/server/daemon.h"
 #include "pinos/server/client-node.h"
@@ -110,7 +111,6 @@ struct _SpaProxy
 
   SpaPollFd rtfds[1];
   SpaPollItem rtpoll;
-  PinosConnection *rtconn;
 
   unsigned int max_inputs;
   unsigned int n_inputs;
@@ -118,6 +118,8 @@ struct _SpaProxy
   unsigned int n_outputs;
   SpaProxyPort in_ports[MAX_INPUTS];
   SpaProxyPort out_ports[MAX_OUTPUTS];
+
+  PinosTransport *trans;
 
   uint32_t seq;
 };
@@ -852,10 +854,8 @@ spa_proxy_node_port_push_input (SpaNode          *node,
                                 SpaPortInputInfo *info)
 {
   SpaProxy *this;
-  SpaProxyPort *port;
   unsigned int i;
   bool have_error = false;
-  PinosMessageProcessBuffer pb;
 
   if (node == NULL || n_info == 0 || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -863,13 +863,16 @@ spa_proxy_node_port_push_input (SpaNode          *node,
   this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
   for (i = 0; i < n_info; i++) {
-    if (!CHECK_IN_PORT (this, SPA_DIRECTION_INPUT, info[i].port_id)) {
-      spa_log_warn (this->log, "invalid port %d", info[i].port_id);
+    SpaProxyPort *port;
+    uint32_t port_id = info[i].port_id;
+
+    if (!CHECK_IN_PORT (this, SPA_DIRECTION_INPUT, port_id)) {
+      spa_log_warn (this->log, "invalid port %d", port_id);
       info[i].status = SPA_RESULT_INVALID_PORT;
       have_error = true;
       continue;
     }
-    port = &this->in_ports[info[i].port_id];
+    port = &this->in_ports[port_id];
 
     if (!port->format) {
       info[i].status = SPA_RESULT_NO_FORMAT;
@@ -877,29 +880,19 @@ spa_proxy_node_port_push_input (SpaNode          *node,
       continue;
     }
     if (!CHECK_PORT_BUFFER (this, info[i].buffer_id, port)) {
-      if (port->n_buffers == 0)
-        info[i].status = SPA_RESULT_NO_BUFFERS;
-      else
-        info[i].status = SPA_RESULT_INVALID_BUFFER_ID;
+      info[i].status = SPA_RESULT_INVALID_BUFFER_ID;
       have_error = true;
       continue;
     }
 
     copy_meta_out (this, port, info[i].buffer_id);
-
-    pb.direction = SPA_DIRECTION_INPUT;
-    pb.port_id = info[i].port_id;
-    pb.buffer_id = info[i].buffer_id;
-    pinos_connection_add_message (this->rtconn, PINOS_MESSAGE_PROCESS_BUFFER, &pb);
-
-    info[i].status = SPA_RESULT_OK;
+    this->trans->input_info[i] = *info;
   }
-
+  this->trans->area->n_input_info = n_info;
   if (have_error)
     return SPA_RESULT_ERROR;
 
-  if (!pinos_connection_flush (this->rtconn))
-    spa_log_error (this->log, "proxy %p: error writing connection", this);
+  pinos_transport_write_cmd (this->trans, PINOS_TRANSPORT_CMD_HAVE_DATA);
 
   return SPA_RESULT_OK;
 }
@@ -910,7 +903,6 @@ spa_proxy_node_port_pull_output (SpaNode           *node,
                                  SpaPortOutputInfo *info)
 {
   SpaProxy *this;
-  SpaProxyPort *port;
   unsigned int i;
   bool have_error = false;
 
@@ -920,33 +912,28 @@ spa_proxy_node_port_pull_output (SpaNode           *node,
   this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
   for (i = 0; i < n_info; i++) {
-    ProxyBuffer *b;
+    SpaProxyPort *port;
+    uint32_t port_id = info[i].port_id;
 
-    if (!CHECK_OUT_PORT (this, SPA_DIRECTION_OUTPUT, info[i].port_id)) {
-      spa_log_warn (this->log, "invalid port %u", info[i].port_id);
+    if (!CHECK_OUT_PORT (this, SPA_DIRECTION_OUTPUT, port_id)) {
       info[i].status = SPA_RESULT_INVALID_PORT;
       have_error = true;
       continue;
     }
+    port = &this->out_ports[port_id];
 
-    port = &this->out_ports[info[i].port_id];
+    info[i] = this->trans->output_info[port_id];
 
-    if (!port->format) {
-      info[i].status = SPA_RESULT_NO_FORMAT;
+    if (!CHECK_PORT_BUFFER (this, info[i].buffer_id, port)) {
+      info[i].status = SPA_RESULT_INVALID_BUFFER_ID;
       have_error = true;
       continue;
     }
 
-    SPA_QUEUE_POP_HEAD (&port->ready, ProxyBuffer, next, b);
-    if (b == NULL) {
-      info[i].status = SPA_RESULT_UNEXPECTED;
-      have_error = true;
-      continue;
-    }
-    b->outstanding = true;
+    copy_meta_in (this, port, info[i].buffer_id);
 
-    info[i].buffer_id = b->outbuf->id;
-    info[i].status = SPA_RESULT_OK;
+    if (info[i].status != SPA_RESULT_OK)
+      have_error = true;
   }
   if (have_error)
     return SPA_RESULT_ERROR;
@@ -960,7 +947,6 @@ spa_proxy_node_port_reuse_buffer (SpaNode         *node,
                                   uint32_t         buffer_id)
 {
   SpaProxy *this;
-  PinosMessageNodeEvent cne;
   SpaNodeEventReuseBuffer rb;
 
   if (node == NULL)
@@ -971,16 +957,12 @@ spa_proxy_node_port_reuse_buffer (SpaNode         *node,
   if (!CHECK_OUT_PORT (this, SPA_DIRECTION_OUTPUT, port_id))
     return SPA_RESULT_INVALID_PORT;
 
-  /* send start */
-  cne.event = &rb.event;
   rb.event.type = SPA_NODE_EVENT_TYPE_REUSE_BUFFER;
   rb.event.size = sizeof (rb);
   rb.port_id = port_id;
   rb.buffer_id = buffer_id;
-  pinos_connection_add_message (this->rtconn, PINOS_MESSAGE_NODE_EVENT, &cne);
-
-  if (!pinos_connection_flush (this->rtconn))
-    spa_log_error (this->log, "proxy %p: error writing connection", this);
+  pinos_transport_add_event (this->trans, &rb.event);
+  pinos_transport_write_cmd (this->trans, PINOS_TRANSPORT_CMD_HAVE_EVENT);
 
   return SPA_RESULT_OK;
 }
@@ -1008,19 +990,7 @@ spa_proxy_node_port_send_command (SpaNode        *node,
     case SPA_NODE_COMMAND_FLUSH:
     case SPA_NODE_COMMAND_DRAIN:
     case SPA_NODE_COMMAND_MARKER:
-    {
-      PinosMessagePortCommand cpc;
-
-      cpc.port_id = port_id;
-      cpc.command = command;
-      pinos_connection_add_message (this->rtconn, PINOS_MESSAGE_PORT_COMMAND, &cpc);
-
-      if (!pinos_connection_flush (this->rtconn)) {
-        spa_log_error (this->log, "proxy %p: error writing connection", this);
-        res = SPA_RESULT_ERROR;
-      }
       break;
-    }
 
     default:
       spa_log_warn (this->log, "unhandled command %d", command->type);
@@ -1070,12 +1040,15 @@ parse_connection (SpaProxy   *this)
       case PINOS_MESSAGE_NODE_COMMAND:
       case PINOS_MESSAGE_PORT_COMMAND:
       case PINOS_MESSAGE_PROCESS_BUFFER:
+      case PINOS_MESSAGE_TRANSPORT_UPDATE:
         spa_log_error (this->log, "proxy %p: got unexpected command %d", this, type);
         break;
 
       case PINOS_MESSAGE_NODE_UPDATE:
       {
         PinosMessageNodeUpdate nu;
+        PinosTransportInfo info;
+        PinosMessageTransportUpdate tu;
 
         if (!pinos_connection_parse_message (conn, &nu))
           break;
@@ -1088,6 +1061,19 @@ parse_connection (SpaProxy   *this)
         spa_log_info (this->log, "proxy %p: got node update %d, max_in %u, max_out %u", this, type,
             this->max_inputs, this->max_outputs);
 
+        this->trans = pinos_transport_new (this->max_inputs,
+                                           this->max_outputs,
+                                           this->rtfds[0].fd);
+
+        pinos_transport_get_info (this->trans, &info);
+
+        tu.memfd_index = pinos_connection_add_fd (conn, info.memfd, false);
+        tu.offset = info.offset;
+        tu.size = info.size;
+        pinos_connection_add_message (conn, PINOS_MESSAGE_TRANSPORT_UPDATE, &tu);
+
+        if (!pinos_connection_flush (conn))
+          spa_log_error (this->log, "proxy %p: error writing connection", this);
         break;
       }
 
@@ -1156,79 +1142,6 @@ parse_connection (SpaProxy   *this)
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-parse_rtconnection (SpaProxy   *this)
-{
-  PinosConnection *conn = this->rtconn;
-
-  while (pinos_connection_has_next (conn)) {
-    PinosMessageType type = pinos_connection_get_type (conn);
-
-    switch (type) {
-      case PINOS_MESSAGE_INVALID:
-      case PINOS_MESSAGE_NODE_UPDATE:
-      case PINOS_MESSAGE_PORT_UPDATE:
-      case PINOS_MESSAGE_NODE_STATE_CHANGE:
-      case PINOS_MESSAGE_PORT_STATUS_CHANGE:
-      case PINOS_MESSAGE_ADD_PORT:
-      case PINOS_MESSAGE_REMOVE_PORT:
-      case PINOS_MESSAGE_SET_FORMAT:
-      case PINOS_MESSAGE_SET_PROPERTY:
-      case PINOS_MESSAGE_NODE_COMMAND:
-      case PINOS_MESSAGE_ADD_MEM:
-      case PINOS_MESSAGE_USE_BUFFERS:
-        spa_log_error (this->log, "proxy %p: got unexpected message %d", this, type);
-        break;
-
-      case PINOS_MESSAGE_PROCESS_BUFFER:
-      {
-        PinosMessageProcessBuffer msg;
-        SpaProxyPort *port;
-        ProxyBuffer *b;
-
-        if (!pinos_connection_parse_message (conn, &msg))
-          break;
-
-        if (!CHECK_PORT (this, msg.direction, msg.port_id))
-          break;
-
-        port = msg.direction == SPA_DIRECTION_INPUT ? &this->in_ports[msg.port_id] : &this->out_ports[msg.port_id];
-
-        if (!CHECK_PORT_BUFFER (this, msg.buffer_id, port))
-          break;
-
-        copy_meta_in (this, port, msg.buffer_id);
-
-        b = &port->buffers[msg.buffer_id];
-        b->next = NULL;
-        SPA_QUEUE_PUSH_TAIL (&port->ready, ProxyBuffer, next, b);
-        break;
-      }
-      case PINOS_MESSAGE_NODE_EVENT:
-      {
-        PinosMessageNodeEvent cne;
-
-        if (!pinos_connection_parse_message (conn, &cne))
-          break;
-
-        handle_node_event (this, cne.event);
-        break;
-      }
-      case PINOS_MESSAGE_PORT_COMMAND:
-      {
-        PinosMessagePortCommand cm;
-
-        if (!pinos_connection_parse_message (conn, &cm))
-          break;
-
-        break;
-      }
-    }
-  }
-
-  return SPA_RESULT_OK;
-}
-
 static int
 proxy_on_fd_events (SpaPollNotifyData *data)
 {
@@ -1246,7 +1159,32 @@ proxy_on_rtfd_events (SpaPollNotifyData *data)
   SpaProxy *this = data->user_data;
 
   if (data->fds[0].revents & POLLIN) {
-    parse_rtconnection (this);
+    uint8_t cmd;
+
+    pinos_transport_read_cmd (this->trans, &cmd);
+
+    if (cmd & PINOS_TRANSPORT_CMD_HAVE_EVENT) {
+      SpaNodeEvent event;
+      while (pinos_transport_next_event (this->trans, &event) == SPA_RESULT_OK) {
+        SpaNodeEvent *ev = alloca (event.size);
+        pinos_transport_parse_event (this->trans, ev);
+        this->event_cb (&this->node, ev, this->user_data);
+      }
+    }
+    if (cmd & PINOS_TRANSPORT_CMD_HAVE_DATA) {
+      SpaNodeEventHaveOutput ho;
+      ho.event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
+      ho.event.size = sizeof (ho);
+      ho.port_id = 0;
+      this->event_cb (&this->node, &ho.event, this->user_data);
+    }
+    if (cmd & PINOS_TRANSPORT_CMD_NEED_DATA) {
+      SpaNodeEventNeedInput ni;
+      ni.event.type = SPA_NODE_EVENT_TYPE_NEED_INPUT;
+      ni.event.size = sizeof (ni);
+      ni.port_id = 0;
+      this->event_cb (&this->node, &ni.event, this->user_data);
+    }
   }
   return 0;
 }
@@ -1504,7 +1442,7 @@ pinos_client_node_get_socket_pair (PinosClientNode  *this,
   if (priv->sockets[1] == NULL) {
     int fd[2];
 
-    if (socketpair (AF_UNIX, SOCK_STREAM, 0, fd) != 0)
+    if (socketpair (AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, fd) != 0)
       goto no_sockets;
 
     priv->sockets[0] = g_socket_new_from_fd (fd[0], error);
@@ -1574,7 +1512,6 @@ pinos_client_node_get_rtsocket_pair (PinosClientNode  *this,
       goto create_failed;
 
     priv->proxy->rtfds[0].fd = g_socket_get_fd (priv->rtsockets[0]);
-    priv->proxy->rtconn = pinos_connection_new (priv->proxy->rtfds[0].fd);
 
     spa_poll_add_item (priv->proxy->data_loop, &priv->proxy->rtpoll);
   }

@@ -26,8 +26,6 @@ extern "C" {
 
 typedef struct _PinosArray PinosArray;
 
-#include <string.h>
-
 #include <spa/defs.h>
 
 struct _PinosArray {
@@ -52,7 +50,8 @@ struct _PinosArray {
 static inline void
 pinos_array_init (PinosArray *arr)
 {
-  memset (arr, 0, sizeof (PinosArray));
+  arr->data = NULL;
+  arr->size = arr->alloc = 0;
 }
 
 static inline void

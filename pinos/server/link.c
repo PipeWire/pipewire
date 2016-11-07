@@ -28,7 +28,6 @@
 #include "pinos/client/enumtypes.h"
 
 #include "pinos/server/link.h"
-#include "pinos/server/utils.h"
 
 #include "pinos/dbus/org-pinos.h"
 

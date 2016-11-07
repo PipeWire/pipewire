@@ -222,7 +222,6 @@ update_port_ids (PinosNode *node, gboolean create)
 
   node->have_inputs = priv->n_input_ports > 0;
   node->have_outputs = priv->n_output_ports > 0;
-
 }
 
 static SpaResult

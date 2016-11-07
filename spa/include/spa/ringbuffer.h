@@ -29,6 +29,8 @@ typedef struct _SpaRingbuffer SpaRingbuffer;
 #define SPA_RINGBUFFER_URI             "http://spaplug.in/ns/ringbuffer"
 #define SPA_RINGBUFFER_PREFIX          SPA_RINGBUFFER_URI "#"
 
+#include <string.h>
+
 #include <spa/defs.h>
 #include <spa/barrier.h>
 
@@ -115,7 +117,7 @@ spa_ringbuffer_get_read_offset (SpaRingbuffer *rbuf,
  * Fill @areas with pointers to read from. The total amount of
  * bytes that can be read can be obtained by summing the areas len fields.
  */
-static inline void
+static inline size_t
 spa_ringbuffer_get_read_areas (SpaRingbuffer      *rbuf,
                                SpaRingbufferArea   areas[2])
 {
@@ -133,6 +135,22 @@ spa_ringbuffer_get_read_areas (SpaRingbuffer      *rbuf,
   } else {
     areas[0].len = avail;
     areas[1].len = 0;
+  }
+  return avail;
+}
+
+static inline void
+spa_ringbuffer_read_data (SpaRingbuffer      *rbuf,
+                          void               *buffer,
+                          SpaRingbufferArea   areas[2],
+                          void               *data,
+                          size_t              size)
+{
+  if (SPA_LIKELY (size < areas[0].len))
+    memcpy (data, buffer + areas[0].offset, size);
+  else {
+    memcpy (data, buffer + areas[0].offset, areas[0].len);
+    memcpy (data + areas[0].len, buffer, size - areas[0].len);
   }
 }
 
@@ -173,7 +191,7 @@ spa_ringbuffer_get_write_offset (SpaRingbuffer *rbuf,
  * Fill @areas with pointers to write to. The total amount of
  * bytes that can be written can be obtained by summing the areas len fields.
  */
-static inline void
+static inline size_t
 spa_ringbuffer_get_write_areas (SpaRingbuffer      *rbuf,
                                 SpaRingbufferArea   areas[2])
 {
@@ -192,6 +210,22 @@ spa_ringbuffer_get_write_areas (SpaRingbuffer      *rbuf,
     areas[0].len = avail;
     areas[1].len = 0;
   }
+  return avail;
+}
+
+static inline void
+spa_ringbuffer_write_data (SpaRingbuffer      *rbuf,
+                           void               *buffer,
+                           SpaRingbufferArea   areas[2],
+                           void               *data,
+                           size_t              size)
+{
+  if (SPA_LIKELY (size < areas[0].len))
+    memcpy (buffer + areas[0].offset, data, size);
+  else {
+    memcpy (buffer + areas[0].offset, data, areas[0].len);
+    memcpy (buffer, data + areas[0].len, size - areas[0].len);
+  }
 }
 
 /**
@@ -209,6 +243,7 @@ spa_ringbuffer_write_advance (SpaRingbuffer      *rbuf,
   spa_barrier_write();
   rbuf->writeindex = (rbuf->writeindex + len) & rbuf->mask2;
 }
+
 
 #ifdef __cplusplus
 }  /* extern "C" */

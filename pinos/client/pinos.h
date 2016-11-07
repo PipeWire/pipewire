@@ -26,11 +26,13 @@ extern const char             g_log_domain_pinos[];
 #include <pinos/client/enumtypes.h>
 #include <pinos/client/introspect.h>
 #include <pinos/client/log.h>
+#include <pinos/client/mem.h>
 #include <pinos/client/thread-mainloop.h>
 #include <pinos/client/properties.h>
 #include <pinos/client/ringbuffer.h>
 #include <pinos/client/stream.h>
 #include <pinos/client/subscribe.h>
+
 #include <spa/include/spa/id-map.h>
 
 #define PINOS_DBUS_SERVICE "org.pinos"

@@ -26,6 +26,8 @@
 extern "C" {
 #endif
 
+extern SpaLogLevel pinos_log_level;
+
 SpaLog *      pinos_log_get    (void);
 
 
@@ -43,21 +45,27 @@ void          pinos_log_logv   (SpaLogLevel  level,
 
 #if __STDC_VERSION__ >= 199901L
 
-#define pinos_log_error(...)           pinos_log_log(SPA_LOG_LEVEL_ERROR,__FILE__,__LINE__,__func__,__VA_ARGS__)
-#define pinos_log_warn(...)            pinos_log_log(SPA_LOG_LEVEL_WARN,__FILE__,__LINE__,__func__,__VA_ARGS__)
-#define pinos_log_info(...)            pinos_log_log(SPA_LOG_LEVEL_INFO,__FILE__,__LINE__,__func__,__VA_ARGS__)
-#define pinos_log_debug(...)           pinos_log_log(SPA_LOG_LEVEL_DEBUG,__FILE__,__LINE__,__func__,__VA_ARGS__)
-#define pinos_log_trace(...)           pinos_log_log(SPA_LOG_LEVEL_TRACE,__FILE__,__LINE__,__func__,__VA_ARGS__)
+#define pinos_log_logc(lev,...)                         \
+  if (SPA_UNLIKELY (lev >= pinos_log_level))            \
+    pinos_log_log(lev,__VA_ARGS__)
+
+#define pinos_log_error(...)           pinos_log_logc(SPA_LOG_LEVEL_ERROR,__FILE__,__LINE__,__func__,__VA_ARGS__)
+#define pinos_log_warn(...)            pinos_log_logc(SPA_LOG_LEVEL_WARN,__FILE__,__LINE__,__func__,__VA_ARGS__)
+#define pinos_log_info(...)            pinos_log_logc(SPA_LOG_LEVEL_INFO,__FILE__,__LINE__,__func__,__VA_ARGS__)
+#define pinos_log_debug(...)           pinos_log_logc(SPA_LOG_LEVEL_DEBUG,__FILE__,__LINE__,__func__,__VA_ARGS__)
+#define pinos_log_trace(...)           pinos_log_logc(SPA_LOG_LEVEL_TRACE,__FILE__,__LINE__,__func__,__VA_ARGS__)
 
 #else
 
 #define PINOS_LOG_FUNC(name,lev)                                                \
 static inline void pinos_log_##name (const char *format, ...)                   \
 {                                                                               \
-  va_list varargs;                                                              \
-  va_start (varargs, format);                                                   \
-  pinos_log_logv (lev,__FILE__,__LINE__,__func__,format,varargs);               \
-  va_end (varargs);                                                             \
+  if (lev >= pinos_log_level) {                                                 \
+    va_list varargs;                                                            \
+    va_start (varargs, format);                                                 \
+    pinos_log_logv (lev,__FILE__,__LINE__,__func__,format,varargs);             \
+    va_end (varargs);                                                           \
+  }                                                                             \
 }
 PINOS_LOG_FUNC(error, SPA_LOG_LEVEL_ERROR)
 PINOS_LOG_FUNC(warn, SPA_LOG_LEVEL_WARN)

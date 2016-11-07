@@ -630,6 +630,12 @@ pinos_connection_parse_message (PinosConnection *conn,
       connection_parse_port_command (conn, message);
       break;
 
+    case PINOS_MESSAGE_TRANSPORT_UPDATE:
+      if (conn->in.size < sizeof (PinosMessageTransportUpdate))
+        return false;
+      memcpy (message, conn->in.data, sizeof (PinosMessageTransportUpdate));
+      break;
+
     case PINOS_MESSAGE_INVALID:
       return false;
   }
@@ -779,6 +785,11 @@ pinos_connection_add_message (PinosConnection  *conn,
 
     case PINOS_MESSAGE_PORT_COMMAND:
       connection_add_port_command (conn, message);
+      break;
+
+    case PINOS_MESSAGE_TRANSPORT_UPDATE:
+      p = connection_add_message (conn, type, sizeof (PinosMessageTransportUpdate));
+      memcpy (p, message, sizeof (PinosMessageTransportUpdate));
       break;
 
     case PINOS_MESSAGE_INVALID:

@@ -28,10 +28,12 @@ typedef struct _PinosLink PinosLink;
 typedef struct _PinosLinkClass PinosLinkClass;
 typedef struct _PinosLinkPrivate PinosLinkPrivate;
 
-#include <pinos/server/daemon.h>
-#include <pinos/server/utils.h>
-#include <pinos/server/main-loop.h>
 #include <spa/include/spa/ringbuffer.h>
+
+#include <pinos/client/mem.h>
+
+#include <pinos/server/daemon.h>
+#include <pinos/server/main-loop.h>
 
 #define PINOS_TYPE_LINK             (pinos_link_get_type ())
 #define PINOS_IS_LINK(obj)          (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_LINK))

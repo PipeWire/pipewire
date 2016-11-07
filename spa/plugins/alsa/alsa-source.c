@@ -698,7 +698,7 @@ spa_alsa_source_node_port_pull_output (SpaNode           *node,
 
     info[i].buffer_id = b->outbuf->id;
     info[i].status = SPA_RESULT_OK;
-    spa_log_debug (this->log, "pull buffer %u", b->outbuf->id);
+    spa_log_trace (this->log, "pull buffer %u", b->outbuf->id);
   }
   if (have_error)
     return SPA_RESULT_ERROR;
@@ -728,7 +728,7 @@ spa_alsa_source_node_port_reuse_buffer (SpaNode         *node,
   if (buffer_id >= this->n_buffers)
     return SPA_RESULT_INVALID_BUFFER_ID;
 
-  spa_log_debug (this->log, "recycle buffer %u", buffer_id);
+  spa_log_trace (this->log, "recycle buffer %u", buffer_id);
   recycle_buffer (this, buffer_id);
 
   return SPA_RESULT_OK;

@@ -43,18 +43,21 @@ typedef enum {
   PINOS_MESSAGE_NODE_EVENT               = 5,
 
   /* server to client */
-  PINOS_MESSAGE_ADD_PORT                 = 32,
-  PINOS_MESSAGE_REMOVE_PORT              = 33,
+  PINOS_MESSAGE_TRANSPORT_UPDATE         = 32,
 
-  PINOS_MESSAGE_SET_FORMAT               = 34,
-  PINOS_MESSAGE_SET_PROPERTY             = 35,
+  PINOS_MESSAGE_ADD_PORT                 = 33,
+  PINOS_MESSAGE_REMOVE_PORT              = 34,
 
-  PINOS_MESSAGE_NODE_COMMAND             = 36,
-  PINOS_MESSAGE_PORT_COMMAND             = 37,
+  PINOS_MESSAGE_SET_FORMAT               = 35,
+  PINOS_MESSAGE_SET_PROPERTY             = 36,
+
+  PINOS_MESSAGE_NODE_COMMAND             = 37,
+  PINOS_MESSAGE_PORT_COMMAND             = 38,
 
   /* both */
   PINOS_MESSAGE_ADD_MEM                  = 64,
   PINOS_MESSAGE_USE_BUFFERS              = 66,
+
   PINOS_MESSAGE_PROCESS_BUFFER           = 67,
 
 } PinosMessageType;
@@ -141,6 +144,13 @@ typedef struct {
   uint32_t        port_id;
   SpaNodeCommand *command;
 } PinosMessagePortCommand;
+
+/* PINOS_MESSAGE_TRANSPORT_UPDATE */
+typedef struct {
+  unsigned int memfd_index;
+  off_t        offset;
+  size_t       size;
+} PinosMessageTransportUpdate;
 
 /* PINOS_MESSAGE_ADD_MEM */
 typedef struct {

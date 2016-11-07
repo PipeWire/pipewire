@@ -21,6 +21,8 @@
 
 #include <pinos/client/log.h>
 
+SpaLogLevel pinos_log_level = SPA_LOG_LEVEL_DEBUG;
+
 static void
 do_logv (SpaLog        *log,
          SpaLogLevel    level,

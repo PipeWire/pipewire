@@ -221,14 +221,20 @@ set_swparams (SpaALSAState *state)
 
   CHECK (snd_pcm_sw_params_set_silence_threshold (hndl, params, 0U), "set_silence_threshold");
 
+#if 1
   /* allow the transfer when at least period_size samples can be processed */
   /* or disable this mechanism when period event is enabled (aka interrupt like style processing) */
   CHECK (snd_pcm_sw_params_set_avail_min (hndl, params,
         props->period_event ? state->buffer_frames : state->period_frames), "set_avail_min");
+
   /* enable period events when requested */
   if (props->period_event) {
     CHECK (snd_pcm_sw_params_set_period_event (hndl, params, 1), "set_period_event");
   }
+#else
+  CHECK (snd_pcm_sw_params_set_avail_min (hndl, params, 0), "set_avail_min");
+#endif
+
   /* write the parameters to the playback device */
   CHECK (snd_pcm_sw_params (hndl, params), "sw_params");
 
@@ -328,8 +334,7 @@ pull_frames_ringbuffer (SpaALSAState *state,
   src = SPA_MEMBER (b->outbuf->datas[0].data, b->outbuf->datas[0].offset, void);
   dst = SPA_MEMBER (my_areas[0].addr, offset * state->frame_size, uint8_t);
 
-  spa_ringbuffer_get_read_areas (&b->rb->ringbuffer, areas);
-  avail = areas[0].len + areas[1].len;
+  avail = spa_ringbuffer_get_read_areas (&b->rb->ringbuffer, areas);
   size = SPA_MIN (avail, frames * state->frame_size);
 
   spa_log_debug (state->log, "%zd %zd %zd %zd %zd %zd",
@@ -337,13 +342,11 @@ pull_frames_ringbuffer (SpaALSAState *state,
       areas[1].offset, areas[1].len, offset, size);
 
   if (size > 0) {
-    areas[0].len = SPA_MIN (areas[0].len, size);
-    areas[1].len = SPA_MIN (areas[1].len, size - areas[0].len);
-
-    memcpy (dst, src + areas[0].offset, areas[0].len);
-    if (areas[1].len)
-      memcpy (dst + areas[0].len, src + areas[1].offset, areas[1].len);
-
+    spa_ringbuffer_read_data (&b->rb->ringbuffer,
+                              src,
+                              areas,
+                              dst,
+                              size);
     spa_ringbuffer_read_advance (&b->rb->ringbuffer, size);
     frames = size / state->frame_size;
   } else {
@@ -371,6 +374,7 @@ mmap_write (SpaALSAState *state)
   snd_pcm_status_t *status;
   SpaNodeEventNeedInput ni;
 
+#if 0
   snd_pcm_status_alloca (&status);
 
   if ((err = snd_pcm_status (hndl, status)) < 0) {
@@ -379,6 +383,12 @@ mmap_write (SpaALSAState *state)
   }
 
   avail = snd_pcm_status_get_avail (status);
+#else
+  if ((avail = snd_pcm_avail_update (hndl)) < 0) {
+    spa_log_error (state->log, "snd_pcm_avail_update error: %s", snd_strerror (avail));
+    return -1;
+  }
+#endif
 
   ni.event.type = SPA_NODE_EVENT_TYPE_NEED_INPUT;
   ni.event.size = sizeof (ni);
@@ -403,7 +413,6 @@ mmap_write (SpaALSAState *state)
       if (err != -EPIPE && err != -ESTRPIPE)
         return -1;
     }
-    spa_log_debug (state->log, "write %zd/%zd/%zd %u", frames, size, avail, state->ready.length);
     size -= frames;
   }
   return 0;
@@ -552,6 +561,7 @@ spa_alsa_start (SpaALSAState *state, bool xrun_recover)
     spa_log_error (state->log, "Invalid poll descriptors count %d", state->poll.n_fds);
     return SPA_RESULT_ERROR;
   }
+
   if ((err = snd_pcm_poll_descriptors (state->hndl, (struct pollfd *)state->fds, state->poll.n_fds)) < 0) {
     spa_log_error (state->log, "snd_pcm_poll_descriptors: %s", snd_strerror(err));
     return SPA_RESULT_ERROR;

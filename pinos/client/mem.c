@@ -25,21 +25,59 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
-
-#include "memfd-wrappers.h"
+#include <sys/syscall.h>
 
 #include <pinos/client/log.h>
-#include <pinos/server/utils.h>
+#include <pinos/client/mem.h>
+
+/*
+ * No glibc wrappers exist for memfd_create(2), so provide our own.
+ *
+ * Also define memfd fcntl sealing macros. While they are already
+ * defined in the kernel header file <linux/fcntl.h>, that file as
+ * a whole conflicts with the original glibc header <fnctl.h>.
+ */
+
+static inline int memfd_create(const char *name, unsigned int flags) {
+    return syscall(SYS_memfd_create, name, flags);
+}
+
+/* memfd_create(2) flags */
+
+#ifndef MFD_CLOEXEC
+#define MFD_CLOEXEC       0x0001U
+#endif
+
+#ifndef MFD_ALLOW_SEALING
+#define MFD_ALLOW_SEALING 0x0002U
+#endif
+
+/* fcntl() seals-related flags */
+
+#ifndef F_LINUX_SPECIFIC_BASE
+#define F_LINUX_SPECIFIC_BASE 1024
+#endif
+
+#ifndef F_ADD_SEALS
+#define F_ADD_SEALS (F_LINUX_SPECIFIC_BASE + 9)
+#define F_GET_SEALS (F_LINUX_SPECIFIC_BASE + 10)
+
+#define F_SEAL_SEAL     0x0001  /* prevent further seals from being set */
+#define F_SEAL_SHRINK   0x0002  /* prevent file from shrinking */
+#define F_SEAL_GROW     0x0004  /* prevent file from growing */
+#define F_SEAL_WRITE    0x0008  /* prevent writes */
+#endif
+
 
 #undef USE_MEMFD
 
-gboolean
+SpaResult
 pinos_memblock_alloc (PinosMemblockFlags  flags,
-                      gsize               size,
+                      size_t              size,
                       PinosMemblock      *mem)
 {
-  g_return_val_if_fail (mem != NULL, FALSE);
-  g_return_val_if_fail (size > 0, FALSE);
+  if (mem == NULL || size == 0)
+    return SPA_RESULT_INVALID_ARGUMENTS;
 
   mem->flags = flags;
   mem->size = size;
@@ -49,14 +87,14 @@ pinos_memblock_alloc (PinosMemblockFlags  flags,
     mem->fd = memfd_create ("pinos-memfd", MFD_CLOEXEC | MFD_ALLOW_SEALING);
     if (mem->fd == -1) {
       pinos_log_error ("Failed to create memfd: %s\n", strerror (errno));
-      return FALSE;
+      return SPA_RESULT_ERROR;
     }
 #else
     char filename[] = "/dev/shm/spa-tmpfile.XXXXXX";
     mem->fd = mkostemp (filename, O_CLOEXEC);
     if (mem->fd == -1) {
       pinos_log_error ("Failed to create temporary file: %s\n", strerror (errno));
-      return FALSE;
+      return SPA_RESULT_ERROR;
     }
     unlink (filename);
 #endif
@@ -64,7 +102,7 @@ pinos_memblock_alloc (PinosMemblockFlags  flags,
     if (ftruncate (mem->fd, size) < 0) {
       pinos_log_warn ("Failed to truncate temporary file: %s", strerror (errno));
       close (mem->fd);
-      return FALSE;
+      return SPA_RESULT_ERROR;
     }
 #ifdef USE_MEMFD
     if (flags & PINOS_MEMBLOCK_FLAG_SEAL) {
@@ -87,16 +125,17 @@ pinos_memblock_alloc (PinosMemblockFlags  flags,
       mem->ptr = NULL;
     }
   } else {
-    mem->ptr = g_malloc (size);
+    mem->ptr = malloc (size);
     mem->fd = -1;
   }
-  return TRUE;
+  return SPA_RESULT_OK;
 }
 
 void
 pinos_memblock_free  (PinosMemblock *mem)
 {
-  g_return_if_fail (mem != NULL);
+  if (mem == NULL)
+    return;
 
   if (mem->flags & PINOS_MEMBLOCK_FLAG_WITH_FD) {
     if (mem->ptr)
@@ -104,7 +143,7 @@ pinos_memblock_free  (PinosMemblock *mem)
     if (mem->fd != -1)
       close (mem->fd);
   } else {
-    g_free (mem->ptr);
+    free (mem->ptr);
   }
   mem->ptr = NULL;
   mem->fd = -1;

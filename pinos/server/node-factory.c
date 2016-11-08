@@ -95,7 +95,12 @@ pinos_node_factory_constructed (GObject * obj)
 
   g_debug ("node factory %p: constructed", factory);
 
-  factory->id = pinos_map_insert_new (&priv->daemon->registry.node_factories, factory);
+  pinos_object_init (&factory->object,
+                     priv->daemon->registry.uri.node_factory,
+                     factory,
+                     NULL);
+
+  pinos_registry_add_object (&priv->daemon->registry, &factory->object);
 
   G_OBJECT_CLASS (pinos_node_factory_parent_class)->constructed (obj);
 }
@@ -107,7 +112,7 @@ pinos_node_factory_finalize (GObject * obj)
   PinosNodeFactoryPrivate *priv = factory->priv;
 
   g_debug ("node factory %p: finalize", factory);
-  pinos_map_remove (&priv->daemon->registry.node_factories, factory->id);
+  pinos_registry_remove_object (&priv->daemon->registry, &factory->object);
 
   g_free (priv->name);
 

@@ -20,14 +20,32 @@
 #ifndef __PINOS_REGISTRY_H__
 #define __PINOS_REGISTRY_H__
 
-#include <glib-object.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-G_BEGIN_DECLS
+#define PINOS_REGISTRY_URI                            "http://pinos.org/ns/registry"
+#define PINOS_REGISTRY_PREFIX                         PINOS_REGISTRY_URI "#"
 
 #include <pinos/client/map.h>
+#include <pinos/client/signal.h>
+#include <pinos/client/object.h>
 #include <spa/include/spa/id-map.h>
 
 typedef struct _PinosRegistry PinosRegistry;
+
+typedef struct {
+  uint32_t daemon;
+  uint32_t registry;
+  uint32_t node;
+  uint32_t port;
+  uint32_t link;
+  uint32_t node_factory;
+  uint32_t client;
+  uint32_t spa_node;
+  uint32_t spa_clock;
+  uint32_t spa_monitor;
+} PinosURI;
 
 /**
  * PinosRegistry:
@@ -35,23 +53,36 @@ typedef struct _PinosRegistry PinosRegistry;
  * Pinos registry struct.
  */
 struct _PinosRegistry {
-  SpaIDMap *map;
+  PinosObject object;
 
+  SpaIDMap *map;
+  PinosURI uri;
   PinosMap objects;
 
-  PinosMap clients;
-  PinosMap node_factories;
-  PinosMap nodes;
-  PinosMap ports;
-  PinosMap links;
-  PinosMap modules;
-  PinosMap monitors;
-  PinosMap devices;
+  PinosSignal object_added;
+  PinosSignal object_removed;
 };
 
+void pinos_registry_init (PinosRegistry *reg);
 
-void    pinos_registry_init     (PinosRegistry *reg);
+static inline void
+pinos_registry_add_object (PinosRegistry *reg,
+                           PinosObject   *object)
+{
+  object->id = pinos_map_insert_new (&reg->objects, object);
+  pinos_signal_emit (&reg->object_added, object);
+}
 
-G_END_DECLS
+static inline void
+pinos_registry_remove_object (PinosRegistry *reg,
+                              PinosObject   *object)
+{
+  pinos_signal_emit (&reg->object_removed, object);
+  pinos_map_remove (&reg->objects, object->id);
+}
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __PINOS_REGISTRY_H__ */

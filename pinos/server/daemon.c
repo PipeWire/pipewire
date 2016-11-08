@@ -44,6 +44,8 @@
 
 struct _PinosDaemonPrivate
 {
+  PinosDaemon *daemon;
+
   PinosDaemon1 *iface;
   guint id;
   GDBusConnection *connection;
@@ -56,6 +58,9 @@ struct _PinosDaemonPrivate
   PinosMainLoop *main_loop;
 
   PinosProperties *properties;
+
+  PinosListener object_added;
+  PinosListener object_removed;
 
   GHashTable *node_factories;
 
@@ -447,66 +452,6 @@ exit_error:
   }
 }
 
-static gboolean
-handle_register_client_node (PinosDaemon1           *interface,
-                             GDBusMethodInvocation  *invocation,
-                             GVariant               *arg_properties,
-                             const gchar            *arg_path,
-                             gpointer                user_data)
-{
-  PinosDaemon *daemon = user_data;
-  PinosNode *node;
-  PinosClient *client;
-  const gchar *sender;
-  PinosProperties *props;
-  GError *error = NULL;
-  GUnixFDList *fdlist;
-  gint fdidx;
-  GSocket *socket;
-
-  sender = g_dbus_method_invocation_get_sender (invocation);
-  client = sender_get_client (daemon, sender, TRUE);
-
-  pinos_log_debug ("daemon %p: register client-node: %s", daemon, sender);
-  props = pinos_properties_from_variant (arg_properties);
-
-  node =  pinos_dbus_client_node_new (daemon,
-                                      client,
-                                      arg_path,
-                                      props);
-  pinos_properties_free (props);
-
-  socket = pinos_dbus_client_node_get_socket_pair (PINOS_DBUS_CLIENT_NODE (node), &error);
-  if (socket == NULL)
-    goto no_socket;
-
-  pinos_client_add_object (client, G_OBJECT (node));
-  g_object_unref (node);
-
-  fdlist = g_unix_fd_list_new ();
-  fdidx = g_unix_fd_list_append (fdlist, g_socket_get_fd (socket), &error);
-  g_object_unref (socket);
-
-  g_dbus_method_invocation_return_value_with_unix_fd_list (invocation,
-           g_variant_new ("(h)", fdidx), fdlist);
-  g_object_unref (fdlist);
-
-  return TRUE;
-
-no_socket:
-  {
-    pinos_log_debug ("daemon %p: could not create socket %s", daemon, error->message);
-    g_object_unref (node);
-    goto exit_error;
-  }
-exit_error:
-  {
-    g_dbus_method_invocation_return_gerror (invocation, error);
-    g_clear_error (&error);
-    return TRUE;
-  }
-}
-
 static void
 export_server_object (PinosDaemon              *daemon,
                       GDBusObjectManagerServer *manager)
@@ -674,38 +619,47 @@ pinos_daemon_unexport (PinosDaemon *daemon,
   g_dbus_object_manager_server_unexport (daemon->priv->server_manager, object_path);
 }
 
-/**
- * pinos_daemon_add_node:
- * @daemon: a #PinosDaemon
- * @node: a #PinosNode
- *
- * Add @node to @daemon.
- */
-void
-pinos_daemon_add_node (PinosDaemon *daemon,
-                       PinosNode   *node)
+static void
+on_registry_object_added (PinosListener *listener,
+                          void          *data)
 {
-  g_return_if_fail (PINOS_IS_DAEMON (daemon));
-  g_return_if_fail (PINOS_IS_NODE (node));
+  PinosObject *object = data;
+  PinosDaemonPrivate *priv = SPA_CONTAINER_OF (listener, PinosDaemonPrivate, object_added);
+  PinosDaemon *daemon = priv->daemon;
 
-  on_node_added (daemon, node);
+  if (object->type == daemon->registry.uri.node) {
+    PinosNode *node = object->implementation;
+
+    on_node_added (daemon, node);
+  } else if (object->type == daemon->registry.uri.node_factory) {
+    PinosNodeFactory *factory = object->implementation;
+    gchar *name;
+
+    g_object_get (factory, "name", &name, NULL);
+    g_hash_table_insert (priv->node_factories, name, g_object_ref (factory));
+  }
 }
 
-/**
- * pinos_daemon_remove_node:
- * @daemon: a #PinosDaemon
- * @node: a #PinosNode
- *
- * Remove @node from @daemon.
- */
-void
-pinos_daemon_remove_node (PinosDaemon *daemon,
-                          PinosNode   *node)
+static void
+on_registry_object_removed (PinosListener *listener,
+                            void          *data)
 {
-  g_return_if_fail (PINOS_IS_DAEMON (daemon));
-  g_return_if_fail (PINOS_IS_NODE (node));
+  PinosObject *object = data;
+  PinosDaemonPrivate *priv = SPA_CONTAINER_OF (listener, PinosDaemonPrivate, object_added);
+  PinosDaemon *daemon = priv->daemon;
 
-  on_node_removed (daemon, node);
+  if (object->type == daemon->registry.uri.node) {
+    PinosNode *node = object->implementation;
+
+    on_node_removed (daemon, node);
+  } else if (object->type == daemon->registry.uri.node_factory) {
+    PinosNodeFactory *factory = object->implementation;
+    gchar *name;
+
+    g_object_get (factory, "name", &name, NULL);
+    g_hash_table_remove (priv->node_factories, name);
+    g_free (name);
+  }
 }
 
 /**
@@ -739,9 +693,14 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
 
   pinos_log_debug ("name \"%s\", %d", name, have_name);
 
-  for (i = 0; i < pinos_map_get_size (&daemon->registry.nodes); i++) {
-    PinosNode *n = pinos_map_lookup (&daemon->registry.nodes, i);
+  for (i = 0; i < pinos_map_get_size (&daemon->registry.objects); i++) {
+    PinosObject *o = pinos_map_lookup (&daemon->registry.objects, i);
+    PinosNode *n;
 
+    if (o->type != daemon->registry.uri.node)
+      continue;
+
+    n = o->implementation;
     if (n == NULL || n->flags & PINOS_NODE_FLAG_REMOVING)
       continue;
 
@@ -823,8 +782,8 @@ pinos_daemon_set_property (GObject      *_object,
 static void
 pinos_daemon_constructed (GObject * object)
 {
-  PinosDaemon *daemon = PINOS_DAEMON_CAST (object);
-  PinosDaemonPrivate *priv = daemon->priv;
+  PinosDaemon *this = PINOS_DAEMON_CAST (object);
+  PinosDaemonPrivate *priv = this->priv;
 
   pinos_log_debug ("daemon %p: constructed", object);
   pinos_daemon1_set_user_name (priv->iface, g_get_user_name ());
@@ -835,16 +794,24 @@ pinos_daemon_constructed (GObject * object)
   pinos_daemon1_set_properties (priv->iface, pinos_properties_to_variant (priv->properties));
 
   G_OBJECT_CLASS (pinos_daemon_parent_class)->constructed (object);
+
+  pinos_object_init (&this->object,
+                     this->registry.uri.daemon,
+                     this,
+                     NULL);
+  pinos_registry_add_object (&this->registry, &this->object);
 }
 
 static void
 pinos_daemon_dispose (GObject * object)
 {
-  PinosDaemon *daemon = PINOS_DAEMON_CAST (object);
+  PinosDaemon *this = PINOS_DAEMON_CAST (object);
 
   pinos_log_debug ("daemon %p: dispose", object);
 
-  pinos_daemon_stop (daemon);
+  pinos_daemon_stop (this);
+
+  pinos_registry_remove_object (&this->registry, &this->object);
 
   G_OBJECT_CLASS (pinos_daemon_parent_class)->dispose (object);
 }
@@ -914,13 +881,19 @@ pinos_daemon_init (PinosDaemon * daemon)
 {
   PinosDaemonPrivate *priv = daemon->priv = PINOS_DAEMON_GET_PRIVATE (daemon);
 
+  priv->daemon = daemon;
+
   pinos_log_debug ("daemon %p: new", daemon);
   priv->iface = pinos_daemon1_skeleton_new ();
   g_signal_connect (priv->iface, "handle-create-node", (GCallback) handle_create_node, daemon);
   g_signal_connect (priv->iface, "handle-create-client-node", (GCallback) handle_create_client_node, daemon);
-  g_signal_connect (priv->iface, "handle-register-client-node", (GCallback) handle_register_client_node, daemon);
+
+  priv->object_added.notify = on_registry_object_added;
+  priv->object_removed.notify = on_registry_object_removed;
 
   pinos_registry_init (&daemon->registry);
+  pinos_signal_add (&daemon->registry.object_added, &priv->object_added);
+  pinos_signal_add (&daemon->registry.object_removed, &priv->object_removed);
 
   priv->server_manager = g_dbus_object_manager_server_new (PINOS_DBUS_OBJECT_PREFIX);
   priv->clients = g_hash_table_new (g_str_hash, g_str_equal);
@@ -932,11 +905,10 @@ pinos_daemon_init (PinosDaemon * daemon)
   daemon->main_loop = pinos_main_loop_new (g_main_context_get_thread_default ());
   priv->data_loop = pinos_data_loop_new();
 
-  daemon->map = pinos_id_map_get_default();
   daemon->log = pinos_log_get();
 
   priv->support[0].uri = SPA_ID_MAP_URI;
-  priv->support[0].data = daemon->map;
+  priv->support[0].data = daemon->registry.map;
   priv->support[1].uri = SPA_LOG_URI;
   priv->support[1].data = daemon->log;
   priv->support[2].uri = SPA_POLL__DataLoop;
@@ -945,47 +917,4 @@ pinos_daemon_init (PinosDaemon * daemon)
   priv->support[3].data = &daemon->main_loop->poll;
   daemon->support = priv->support;
   daemon->n_support = 4;
-}
-
-/**
- * pinos_daemon_add_node_factory:
- * @daemon: a #PinosDaemon
- * @factory: a #PinosNodeFactory
- *
- * Add a #PinosNodeFactory in the daemon that will be used for creating nodes.
- */
-void
-pinos_daemon_add_node_factory  (PinosDaemon *daemon,
-                                PinosNodeFactory *factory)
-{
-  PinosDaemonPrivate *priv = daemon->priv;
-  gchar *name;
-
-  g_return_if_fail (PINOS_IS_DAEMON (daemon));
-  g_return_if_fail (PINOS_IS_NODE_FACTORY (factory));
-
-  g_object_get (factory, "name", &name, NULL);
-  g_hash_table_insert (priv->node_factories, name, g_object_ref (factory));
-}
-
-/**
- * pinos_daemon_add_node_factory:
- * @daemon: a #PinosDaemon
- * @factory: a #PinosNodeFactory
- *
- * Remove a #PinosNodeFactory from the daemon.
- */
-void
-pinos_daemon_remove_node_factory (PinosDaemon *daemon,
-                                  PinosNodeFactory *factory)
-{
-  PinosDaemonPrivate *priv = daemon->priv;
-  gchar *name;
-
-  g_return_if_fail (PINOS_IS_DAEMON (daemon));
-  g_return_if_fail (PINOS_IS_NODE_FACTORY (factory));
-
-  g_object_get (factory, "name", &name, NULL);
-  g_hash_table_remove (priv->node_factories, name);
-  g_free (name);
 }

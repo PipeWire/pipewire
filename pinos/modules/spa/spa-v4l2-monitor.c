@@ -35,19 +35,12 @@
 #define PINOS_SPA_V4L2_MONITOR_GET_PRIVATE(obj)  \
      (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_SPA_V4L2_MONITOR, PinosSpaV4l2MonitorPrivate))
 
-typedef struct {
-  uint32_t node;
-  uint32_t clock;
-} URI;
-
 struct _PinosSpaV4l2MonitorPrivate
 {
   PinosDaemon *daemon;
 
   SpaHandle *handle;
   SpaMonitor *monitor;
-
-  URI uri;
 
   GHashTable *nodes;
 };
@@ -120,11 +113,11 @@ add_item (PinosSpaV4l2Monitor *this, SpaMonitorItem *item)
     g_error ("can't make factory instance: %d", res);
     return;
   }
-  if ((res = spa_handle_get_interface (handle, priv->uri.node, &node_iface)) < 0) {
+  if ((res = spa_handle_get_interface (handle, priv->daemon->registry.uri.spa_node, &node_iface)) < 0) {
     g_error ("can't get NODE interface: %d", res);
     return;
   }
-  if ((res = spa_handle_get_interface (handle, priv->uri.clock, &clock_iface)) < 0) {
+  if ((res = spa_handle_get_interface (handle, priv->daemon->registry.uri.spa_clock, &clock_iface)) < 0) {
     g_error ("can't get CLOCK interface: %d", res);
     return;
   }
@@ -207,9 +200,6 @@ monitor_constructed (GObject * object)
   pinos_log_debug ("spa-monitor %p: constructed", this);
 
   G_OBJECT_CLASS (pinos_spa_v4l2_monitor_parent_class)->constructed (object);
-
-  priv->uri.node = spa_id_map_get_id (priv->daemon->map, SPA_NODE_URI);
-  priv->uri.clock = spa_id_map_get_id (priv->daemon->map, SPA_CLOCK_URI);
 
   while (TRUE) {
     SpaMonitorItem *item;
@@ -346,7 +336,7 @@ pinos_spa_v4l2_monitor_new (PinosDaemon *daemon)
   }
 
   if ((res = spa_handle_get_interface (handle,
-                                       spa_id_map_get_id (daemon->map, SPA_MONITOR_URI),
+                                       daemon->registry.uri.spa_monitor,
                                        &iface)) < 0) {
     g_free (handle);
     g_error ("can't get MONITOR interface: %d", res);

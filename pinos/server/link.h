@@ -24,6 +24,9 @@
 
 G_BEGIN_DECLS
 
+#define PINOS_LINK_URI                            "http://pinos.org/ns/link"
+#define PINOS_LINK_PREFIX                         PINOS_LINK_URI "#"
+
 typedef struct _PinosLink PinosLink;
 typedef struct _PinosLinkClass PinosLinkClass;
 typedef struct _PinosLinkPrivate PinosLinkPrivate;
@@ -31,6 +34,7 @@ typedef struct _PinosLinkPrivate PinosLinkPrivate;
 #include <spa/include/spa/ringbuffer.h>
 
 #include <pinos/client/mem.h>
+#include <pinos/client/object.h>
 
 #include <pinos/server/daemon.h>
 #include <pinos/server/main-loop.h>
@@ -50,9 +54,9 @@ typedef struct _PinosLinkPrivate PinosLinkPrivate;
  * Pinos link object class.
  */
 struct _PinosLink {
-  GObject object;
+  GObject obj;
 
-  uint32_t id;
+  PinosObject object;
 
   PinosPort    *output;
   PinosPort    *input;

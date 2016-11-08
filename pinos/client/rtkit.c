@@ -18,25 +18,68 @@
  */
 
 #include <sys/syscall.h>
+#include <string.h>
+#include <errno.h>
 
 #include "rtkit.h"
+
+#include <gio/gio.h>
+
+struct _PinosRTKitBus {
+  GDBusConnection *bus;
+};
 
 static pid_t _gettid(void) {
   return (pid_t) syscall(SYS_gettid);
 }
 
-gboolean
-pinos_rtkit_make_realtime (GDBusConnection     *system_bus,
+static int
+translate_error (GError *error)
+{
+  const gchar *name = g_dbus_error_get_remote_error (error);
+
+  if (strcmp (name, "org.freedesktop.DBus.Error.NoMemory") == 0)
+    return -ENOMEM;
+  if (strcmp (name, "org.freedesktop.DBus.Error.ServiceUnknown") == 0 ||
+      strcmp (name, "org.freedesktop.DBus.Error.NameHasNoOwner") == 0)
+    return -ENOENT;
+  if (strcmp (name, "org.freedesktop.DBus.Error.AccessDenied") == 0 ||
+      strcmp (name, "org.freedesktop.DBus.Error.AuthFailed") == 0)
+    return -EACCES;
+
+  return -EIO;
+}
+
+PinosRTKitBus *
+pinos_rtkit_bus_get_system   (void)
+{
+  PinosRTKitBus *bus;
+
+  bus = g_slice_new (PinosRTKitBus);
+  bus->bus = g_bus_get_sync (G_BUS_TYPE_SYSTEM, NULL, NULL);
+
+  return bus;
+}
+
+void
+pinos_rtkit_bus_free (PinosRTKitBus *system_bus)
+{
+  g_object_unref (system_bus->bus);
+  g_slice_free (PinosRTKitBus, system_bus);
+}
+
+int
+pinos_rtkit_make_realtime (PinosRTKitBus       *system_bus,
                            pid_t                thread,
-                           gint                 priority,
-                           GError             **error)
+                           int                  priority)
 {
   GVariant *v;
+  GError *error = NULL;
 
   if (thread == 0)
     thread = _gettid();
 
-  v = g_dbus_connection_call_sync (system_bus,
+  v = g_dbus_connection_call_sync (system_bus->bus,
                                    RTKIT_SERVICE_NAME,
                                    RTKIT_OBJECT_PATH,
                                    "org.freedesktop.RealtimeKit1",
@@ -48,25 +91,27 @@ pinos_rtkit_make_realtime (GDBusConnection     *system_bus,
                                    G_DBUS_CALL_FLAGS_NONE,
                                    -1,
                                    NULL,
-                                   error);
-  if (v)
-    g_variant_unref (v);
+                                   &error);
+  if (v == NULL)
+    return translate_error (error);
 
-  return v != NULL;
+  g_variant_unref (v);
+
+  return 0;
 }
 
-gboolean
-pinos_rtkit_make_high_priority (GDBusConnection     *system_bus,
+int
+pinos_rtkit_make_high_priority (PinosRTKitBus       *system_bus,
                                 pid_t                thread,
-                                gint                 nice_level,
-                                GError             **error)
+                                int                  nice_level)
 {
   GVariant *v;
+  GError *error = NULL;
 
   if (thread == 0)
     thread = _gettid();
 
-  v = g_dbus_connection_call_sync (system_bus,
+  v = g_dbus_connection_call_sync (system_bus->bus,
                                    RTKIT_SERVICE_NAME,
                                    RTKIT_OBJECT_PATH,
                                    "org.freedesktop.RealtimeKit1",
@@ -78,19 +123,20 @@ pinos_rtkit_make_high_priority (GDBusConnection     *system_bus,
                                    G_DBUS_CALL_FLAGS_NONE,
                                    -1,
                                    NULL,
-                                   error);
-  if (v)
-    g_variant_unref (v);
+                                   &error);
+  if (v == NULL)
+    return translate_error (error);
+  g_variant_unref (v);
 
-  return v != NULL;
+  return 0;
 }
 
-int pinos_rtkit_get_max_realtime_priority (GDBusConnection *system_bus)
+int pinos_rtkit_get_max_realtime_priority (PinosRTKitBus *system_bus)
 {
   return 0;
 }
 
-int pinos_rtkit_get_min_nice_level (GDBusConnection *system_bus, int* min_nice_level)
+int pinos_rtkit_get_min_nice_level (PinosRTKitBus *system_bus, int* min_nice_level)
 {
   return 0;
 }
@@ -98,7 +144,7 @@ int pinos_rtkit_get_min_nice_level (GDBusConnection *system_bus, int* min_nice_l
 /* Return the maximum value of RLIMIT_RTTIME to set before attempting a
  * realtime request. A negative value is an errno style error code.
  */
-long long rtkit_get_rttime_usec_max (GDBusConnection *system_bus)
+long long pinos_rtkit_get_rttime_usec_max (PinosRTKitBus *system_bus)
 {
   return 0;
 }

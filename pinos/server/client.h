@@ -24,10 +24,14 @@
 
 G_BEGIN_DECLS
 
+#define PINOS_CLIENT_URI                            "http://pinos.org/ns/client"
+#define PINOS_CLIENT_PREFIX                         PINOS_CLIENT_URI "#"
+
 typedef struct _PinosClient PinosClient;
 typedef struct _PinosClientClass PinosClientClass;
 typedef struct _PinosClientPrivate PinosClientPrivate;
 
+#include <pinos/client/object.h>
 #include <pinos/server/daemon.h>
 
 #define PINOS_TYPE_CLIENT                 (pinos_client_get_type ())
@@ -45,9 +49,9 @@ typedef struct _PinosClientPrivate PinosClientPrivate;
  * Pinos client object class.
  */
 struct _PinosClient {
-  GObject object;
+  GObject obj;
 
-  uint32_t  id;
+  PinosObject object;
 
   PinosClientPrivate *priv;
 };

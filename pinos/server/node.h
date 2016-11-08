@@ -24,6 +24,11 @@
 
 G_BEGIN_DECLS
 
+#define PINOS_NODE_URI                            "http://pinos.org/ns/node"
+#define PINOS_NODE_PREFIX                         PINOS_NODE_URI "#"
+
+#define PINOS_PORT_URI                            PINOS_NODE_PREFIX "Port"
+
 typedef struct _PinosPort PinosPort;
 typedef struct _PinosNode PinosNode;
 typedef struct _PinosNodeClass PinosNodeClass;
@@ -46,7 +51,7 @@ typedef enum {
 #include <pinos/server/client.h>
 
 struct _PinosPort {
-  uint32_t        id;
+  PinosObject     object;
   PinosNode      *node;
   PinosDirection  direction;
   uint32_t        port;
@@ -72,9 +77,9 @@ struct _PinosPort {
  * Pinos node class.
  */
 struct _PinosNode {
-  GObject object;
+  GObject obj;
 
-  uint32_t id;
+  PinosObject object;
 
   PinosNodeFlags flags;
 

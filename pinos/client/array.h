@@ -42,7 +42,7 @@ struct _PinosArray {
 #define pinos_array_get_unchecked(a,idx,t)      pinos_array_get_unchecked_s(a,idx,sizeof(t),t)
 #define pinos_array_check_index(a,idx,t)        pinos_array_check_index_s(a,idx,sizeof(t))
 
-#define pinos_array_for_each(pos, array)                                        \
+#define PINOS_ARRAY_FOREACH(pos, array)                                         \
     for (pos = (array)->data;                                                   \
          (const char *) pos < ((const char *) (array)->data + (array)->size);   \
          (pos)++)
@@ -67,7 +67,7 @@ pinos_array_ensure_size (PinosArray *arr,
   size_t alloc, need;
 
   alloc = arr->alloc;
-  need = alloc + size;
+  need = arr->size + size;
 
   if (SPA_UNLIKELY (alloc < need)) {
     void *data;
@@ -89,6 +89,21 @@ pinos_array_add (PinosArray *arr,
   void *p;
 
   if (!pinos_array_ensure_size (arr, size))
+    return NULL;
+
+  p = arr->data + arr->size;
+  arr->size += size;
+
+  return p;
+}
+
+static inline void *
+pinos_array_add_fixed (PinosArray *arr,
+                       size_t      size)
+{
+  void *p;
+
+  if (SPA_UNLIKELY (arr->alloc < arr->size + size))
     return NULL;
 
   p = arr->data + arr->size;

@@ -180,9 +180,7 @@ link_register_object (PinosLink *this)
   priv->object_path = pinos_daemon_export_uniquely (priv->daemon, G_DBUS_OBJECT_SKELETON (skel));
   g_object_unref (skel);
 
-  this->id = pinos_map_insert_new (&priv->daemon->registry.links, this);
-
-  pinos_log_debug ("link %p: register object %s, id %u", this, priv->object_path, this->id);
+  pinos_log_debug ("link %p: register object %s, id %u", this, priv->object_path, this->object.id);
 }
 
 static void
@@ -192,7 +190,6 @@ link_unregister_object (PinosLink *this)
 
   pinos_log_debug ("link %p: unregister object", this);
   pinos_daemon_unexport (priv->daemon, priv->object_path);
-  pinos_map_remove (&priv->daemon->registry.links, this->id);
 }
 
 static void
@@ -852,6 +849,12 @@ pinos_link_constructed (GObject * object)
 
   G_OBJECT_CLASS (pinos_link_parent_class)->constructed (object);
 
+  pinos_object_init (&this->object,
+                     priv->daemon->registry.uri.link,
+                     this,
+                     NULL);
+  pinos_registry_add_object (&priv->daemon->registry, &this->object);
+
   on_property_notify (G_OBJECT (this), NULL, this);
   pinos_log_debug ("link %p: constructed %p:%d -> %p:%d", this,
                                                   this->output->node, this->output->port,
@@ -878,6 +881,8 @@ pinos_link_dispose (GObject * object)
     pinos_port_unlink (this->input, this);
   if (this->output)
     pinos_port_unlink (this->output, this);
+
+  pinos_registry_remove_object (&priv->daemon->registry, &this->object);
 
   link_unregister_object (this);
 

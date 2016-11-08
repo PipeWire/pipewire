@@ -86,9 +86,7 @@ typedef struct {
   ProxyBuffer    buffers[MAX_BUFFERS];
 
   uint32_t       buffer_mem_id;
-  int            buffer_mem_fd;
-  size_t         buffer_mem_size;
-  void          *buffer_mem_ptr;
+  PinosMemblock  buffer_mem;
 
   SpaQueue       ready;
 } SpaProxyPort;
@@ -168,8 +166,7 @@ clear_buffers (SpaProxy *this, SpaProxyPort *port)
   if (port->n_buffers) {
     spa_log_info (this->log, "proxy %p: clear buffers", this);
 
-    munmap (port->buffer_mem_ptr, port->buffer_mem_size);
-    close (port->buffer_mem_fd);
+    pinos_memblock_free (&port->buffer_mem);
 
     port->n_buffers = 0;
     SPA_QUEUE_INIT (&port->ready);
@@ -718,23 +715,15 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
   if (n_buffers > 0) {
     /* make mem for the buffers */
     port->buffer_mem_id = n_mem++;
-    port->buffer_mem_size = size;
-    port->buffer_mem_fd = memfd_create ("spa-memfd", MFD_CLOEXEC | MFD_ALLOW_SEALING);
-
-    if (ftruncate (port->buffer_mem_fd, size) < 0) {
-      spa_log_error (this->log, "Failed to truncate temporary file: %s", strerror (errno));
-      close (port->buffer_mem_fd);
+    if (pinos_memblock_alloc (PINOS_MEMBLOCK_FLAG_WITH_FD |
+                              PINOS_MEMBLOCK_FLAG_MAP_READWRITE |
+                              PINOS_MEMBLOCK_FLAG_SEAL,
+                              size,
+                              &port->buffer_mem) < 0) {
+      spa_log_error (this->log, "Failed to allocate buffer memory");
       return SPA_RESULT_ERROR;
     }
-#if 0
-    {
-      unsigned int seals = F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL;
-      if (fcntl (port->buffer_mem_fd, F_ADD_SEALS, seals) == -1) {
-        spa_log_error (this->log, "Failed to add seals: %s", strerror (errno));
-      }
-    }
-#endif
-    p = port->buffer_mem_ptr = mmap (NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, port->buffer_mem_fd, 0);
+    p = port->buffer_mem.ptr;
 
     for (i = 0; i < n_buffers; i++) {
       ProxyBuffer *b = &port->buffers[i];
@@ -763,7 +752,7 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
     am.port_id = port_id;
     am.mem_id = port->buffer_mem_id;
     am.type = SPA_DATA_TYPE_MEMFD;
-    am.fd_index = pinos_connection_add_fd (this->conn, port->buffer_mem_fd, false);
+    am.fd_index = pinos_connection_add_fd (this->conn, port->buffer_mem.fd, false);
     am.flags = 0;
     am.offset = 0;
     am.size = size;
@@ -1049,8 +1038,6 @@ parse_connection (SpaProxy   *this)
         spa_log_info (this->log, "proxy %p: got node update %d, max_in %u, max_out %u", this, type,
             this->max_inputs, this->max_outputs);
 
-#if 0
-#endif
         break;
       }
 

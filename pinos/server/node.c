@@ -603,10 +603,7 @@ node_register_object (PinosNode *this)
   priv->object_path = pinos_daemon_export_uniquely (daemon, G_DBUS_OBJECT_SKELETON (skel));
   g_object_unref (skel);
 
-  this->id = pinos_map_insert_new (&daemon->registry.nodes, this);
-  pinos_log_debug ("node %p: register object %s, id %u", this, priv->object_path, this->id);
-
-  pinos_daemon_add_node (daemon, this);
+  pinos_log_debug ("node %p: register object %s, id %u", this, priv->object_path, this->object.id);
 
   return;
 }
@@ -619,8 +616,6 @@ node_unregister_object (PinosNode *this)
   pinos_log_debug ("node %p: unregister object %s", this, priv->object_path);
   pinos_daemon_unexport (priv->daemon, priv->object_path);
   g_clear_pointer (&priv->object_path, g_free);
-  pinos_daemon_remove_node (priv->daemon, this);
-  pinos_map_remove (&priv->daemon->registry.nodes, this->id);
 }
 
 static void
@@ -671,6 +666,13 @@ pinos_node_constructed (GObject * obj)
   g_signal_connect (this, "notify", (GCallback) on_property_notify, this);
   G_OBJECT_CLASS (pinos_node_parent_class)->constructed (obj);
 
+  pinos_object_init (&this->object,
+                     priv->daemon->registry.uri.node,
+                     this,
+                     NULL);
+
+  pinos_registry_add_object (&priv->daemon->registry, &this->object);
+
   if (this->node->info) {
     unsigned int i;
 
@@ -706,6 +708,7 @@ pinos_node_dispose (GObject * obj)
   pinos_log_debug ("node %p: dispose", node);
   pinos_node_set_state (node, PINOS_NODE_STATE_SUSPENDED);
 
+  pinos_registry_remove_object (&priv->daemon->registry, &node->object);
   node_unregister_object (node);
 
   pinos_main_loop_defer_cancel (priv->main_loop, node, 0);

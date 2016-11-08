@@ -83,8 +83,7 @@ static void
 make_realtime (PinosDataLoop *this)
 {
   struct sched_param sp;
-  GDBusConnection *system_bus;
-  GError *error = NULL;
+  PinosRTKitBus *system_bus;
   struct rlimit rl;
   int r, rtprio;
   long long rttime;
@@ -99,7 +98,7 @@ make_realtime (PinosDataLoop *this)
     pinos_log_debug ("SCHED_OTHER|SCHED_RESET_ON_FORK worked.");
     return;
   }
-  system_bus = g_bus_get_sync (G_BUS_TYPE_SYSTEM, NULL, NULL);
+  system_bus = pinos_rtkit_bus_get_system ();
 
   rl.rlim_cur = rl.rlim_max = rttime;
   if ((r = setrlimit (RLIMIT_RTTIME, &rl)) < 0)
@@ -116,13 +115,12 @@ make_realtime (PinosDataLoop *this)
     }
   }
 
-  if (!pinos_rtkit_make_realtime (system_bus, 0, rtprio, &error)) {
-    pinos_log_debug ("could not make thread realtime: %s", error->message);
-    g_clear_error (&error);
+  if ((r = pinos_rtkit_make_realtime (system_bus, 0, rtprio)) < 0) {
+    pinos_log_debug ("could not make thread realtime: %s", strerror (r));
   } else {
     pinos_log_debug ("thread made realtime");
   }
-  g_object_unref (system_bus);
+  pinos_rtkit_bus_free (system_bus);
 }
 
 static void *

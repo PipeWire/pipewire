@@ -186,8 +186,6 @@ client_register_object (PinosClient *client)
   priv->object_path = pinos_daemon_export_uniquely (daemon, G_DBUS_OBJECT_SKELETON (skel));
   g_object_unref (skel);
 
-  client->id = pinos_map_insert_new (&daemon->registry.clients, client);
-
   pinos_log_debug ("client %p: register %s", client, priv->object_path);
 }
 
@@ -199,7 +197,6 @@ client_unregister_object (PinosClient *client)
 
   pinos_log_debug ("client %p: unregister", client);
   pinos_daemon_unexport (daemon, priv->object_path);
-  pinos_map_remove (&daemon->registry.clients, client->id);
 }
 
 static void
@@ -214,6 +211,7 @@ pinos_client_dispose (GObject * object)
   g_list_free_full (copy, g_object_unref);
   g_list_free (priv->objects);
 
+  pinos_registry_remove_object (&priv->daemon->registry, &client->object);
   client_unregister_object (client);
 
   G_OBJECT_CLASS (pinos_client_parent_class)->dispose (object);
@@ -240,8 +238,17 @@ static void
 pinos_client_constructed (GObject * object)
 {
   PinosClient *client = PINOS_CLIENT (object);
+  PinosClientPrivate *priv = client->priv;
 
   pinos_log_debug ("client %p: constructed", client);
+
+  pinos_object_init (&client->object,
+                     priv->daemon->registry.uri.client,
+                     client,
+                     NULL);
+
+  pinos_registry_add_object (&priv->daemon->registry, &client->object);
+
   client_watch_name (client);
   client_register_object (client);
 

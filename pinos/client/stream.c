@@ -142,7 +142,7 @@ clear_buffers (PinosStream *stream)
   PinosStreamPrivate *priv = stream->priv;
   BufferId *bid;
 
-  pinos_array_for_each (bid, &priv->buffer_ids) {
+  PINOS_ARRAY_FOREACH (bid, &priv->buffer_ids) {
     g_signal_emit (stream, signals[SIGNAL_REMOVE_BUFFER], 0, bid->id);
     bid->buf = NULL;
   }
@@ -730,7 +730,7 @@ find_mem (PinosStream *stream, uint32_t id)
   PinosStreamPrivate *priv = stream->priv;
   MemId *mid;
 
-  pinos_array_for_each (mid, &priv->mem_ids) {
+  PINOS_ARRAY_FOREACH (mid, &priv->mem_ids) {
     if (mid->id == id)
       return mid;
   }
@@ -747,7 +747,7 @@ find_buffer (PinosStream *stream, uint32_t id)
   } else {
     BufferId *bid;
 
-    pinos_array_for_each (bid, &priv->buffer_ids) {
+    PINOS_ARRAY_FOREACH (bid, &priv->buffer_ids) {
       if (bid->id == id)
         return bid;
     }
@@ -1378,61 +1378,6 @@ exit_error:
   }
 }
 
-static void
-on_node_registered (GObject      *source_object,
-                    GAsyncResult *res,
-                    gpointer      user_data)
-{
-  PinosStream *stream = user_data;
-  PinosStreamPrivate *priv = stream->priv;
-  PinosContext *context = priv->context;
-  GVariant *ret;
-  GError *error = NULL;
-  GUnixFDList *fd_list;
-  gint fd_idx, fd;
-
-  g_assert (context->priv->daemon == G_DBUS_PROXY (source_object));
-
-  ret = g_dbus_proxy_call_with_unix_fd_list_finish (context->priv->daemon,
-                                                    &fd_list,
-                                                    res, &error);
-  if (ret == NULL)
-    goto create_failed;
-
-  g_variant_get (ret, "(h)", &fd_idx);
-  g_variant_unref (ret);
-
-  if ((fd = g_unix_fd_list_get (fd_list, fd_idx, &error)) < 0)
-    goto fd_failed;
-
-  priv->fd = fd;
-  g_object_unref (fd_list);
-
-  handle_socket (stream, -1, priv->fd);
-
-  return;
-
-  /* ERRORS */
-create_failed:
-  {
-    pinos_log_warn ("failed to connect: %s", error->message);
-    goto exit_error;
-  }
-fd_failed:
-  {
-    pinos_log_warn ("failed to get FD: %s", error->message);
-    g_object_unref (fd_list);
-    goto exit_error;
-  }
-exit_error:
-  {
-    stream_set_state (stream, PINOS_STREAM_STATE_ERROR, error);
-    g_object_unref (stream);
-    return;
-  }
-}
-
-
 static gboolean
 do_connect (PinosStream *stream)
 {
@@ -1445,38 +1390,16 @@ do_connect (PinosStream *stream)
     pinos_properties_set (priv->properties,
                           "pinos.target.node", priv->path);
 
-  if (FALSE) {
-    PinosClientNode1 *iface;
-
-    iface = pinos_client_node1_skeleton_new ();
-
-    g_dbus_interface_skeleton_export (G_DBUS_INTERFACE_SKELETON (iface),
-                                      priv->context->priv->connection,
-                                      "/org/pinos/stream",
-                                      NULL);
-
-    g_dbus_proxy_call (context->priv->daemon,
-                       "RegisterClientNode",
-                       g_variant_new ("(@a{sv}o)",
-                         pinos_properties_to_variant (priv->properties),
-                         "/org/pinos/stream"),
-                       G_DBUS_CALL_FLAGS_NONE,
-                       -1,
-                       NULL, /* GCancellable *cancellable */
-                       on_node_registered,
-                       stream);
-  } else {
-    g_dbus_proxy_call (context->priv->daemon,
-                       "CreateClientNode",
-                       g_variant_new ("(s@a{sv})",
-                         "client-node",
-                         pinos_properties_to_variant (priv->properties)),
-                       G_DBUS_CALL_FLAGS_NONE,
-                       -1,
-                       NULL, /* GCancellable *cancellable */
-                       on_node_created,
-                       stream);
-  }
+  g_dbus_proxy_call (context->priv->daemon,
+                     "CreateClientNode",
+                     g_variant_new ("(s@a{sv})",
+                       "client-node",
+                       pinos_properties_to_variant (priv->properties)),
+                     G_DBUS_CALL_FLAGS_NONE,
+                     -1,
+                     NULL, /* GCancellable *cancellable */
+                     on_node_created,
+                     stream);
   return FALSE;
 }
 
@@ -1783,7 +1706,7 @@ pinos_stream_get_empty_buffer (PinosStream *stream)
   priv = stream->priv;
   g_return_val_if_fail (priv->direction == SPA_DIRECTION_OUTPUT, FALSE);
 
-  pinos_array_for_each (bid, &priv->buffer_ids) {
+  PINOS_ARRAY_FOREACH (bid, &priv->buffer_ids) {
     if (!bid->used)
       return bid->id;
   }

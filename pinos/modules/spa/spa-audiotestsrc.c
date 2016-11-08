@@ -79,7 +79,7 @@ make_node (PinosDaemon *daemon, SpaHandle **handle, SpaNode **node, const char *
       return res;
     }
     if ((res = spa_handle_get_interface (*handle,
-                                         spa_id_map_get_id (daemon->map, SPA_NODE_URI),
+                                         daemon->registry.uri.spa_node,
                                          &iface)) < 0) {
       g_error ("can't get interface %d", res);
       return res;

@@ -20,17 +20,33 @@
 #include <string.h>
 
 #include "pinos/client/pinos.h"
+#include "pinos/server/daemon.h"
 #include "pinos/server/registry.h"
+#include "pinos/server/node.h"
+#include "pinos/server/node-factory.h"
+#include "pinos/server/client.h"
+
+#include "spa/include/spa/monitor.h"
 
 void
 pinos_registry_init (PinosRegistry *reg)
 {
   reg->map = pinos_id_map_get_default();
 
-  pinos_map_init (&reg->clients, 64);
-  pinos_map_init (&reg->nodes, 128);
-  pinos_map_init (&reg->ports, 512);
-  pinos_map_init (&reg->links, 256);
-  pinos_map_init (&reg->modules, 128);
-  pinos_map_init (&reg->monitors, 64);
+  reg->uri.daemon = spa_id_map_get_id (reg->map, PINOS_DAEMON_URI);
+  reg->uri.registry = spa_id_map_get_id (reg->map, PINOS_REGISTRY_URI);
+  reg->uri.node = spa_id_map_get_id (reg->map, PINOS_NODE_URI);
+  reg->uri.port = spa_id_map_get_id (reg->map, PINOS_PORT_URI);
+  reg->uri.link = spa_id_map_get_id (reg->map, PINOS_LINK_URI);
+  reg->uri.node_factory = spa_id_map_get_id (reg->map, PINOS_NODE_FACTORY_URI);
+  reg->uri.client = spa_id_map_get_id (reg->map, PINOS_CLIENT_URI);
+
+  reg->uri.spa_node = spa_id_map_get_id (reg->map, SPA_NODE_URI);
+  reg->uri.spa_clock = spa_id_map_get_id (reg->map, SPA_CLOCK_URI);
+  reg->uri.spa_monitor = spa_id_map_get_id (reg->map, SPA_MONITOR_URI);
+
+  pinos_map_init (&reg->objects, 512);
+
+  pinos_signal_init (&reg->object_added);
+  pinos_signal_init (&reg->object_removed);
 }

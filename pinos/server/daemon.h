@@ -24,6 +24,9 @@
 
 G_BEGIN_DECLS
 
+#define PINOS_DAEMON_URI                            "http://pinos.org/ns/daemon"
+#define PINOS_DAEMON_PREFIX                         PINOS_DAEMON_URI "#"
+
 #define PINOS_TYPE_DAEMON                 (pinos_daemon_get_type ())
 #define PINOS_IS_DAEMON(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_DAEMON))
 #define PINOS_IS_DAEMON_CLASS(klass)      (G_TYPE_CHECK_CLASS_TYPE ((klass), PINOS_TYPE_DAEMON))
@@ -52,9 +55,10 @@ typedef struct _PinosDaemonPrivate PinosDaemonPrivate;
  * Pinos daemon object class.
  */
 struct _PinosDaemon {
-  GObject object;
+  GObject obj;
 
-  SpaIDMap *map;
+  PinosObject object;
+
   SpaLog *log;
 
   PinosMainLoop *main_loop;
@@ -88,20 +92,12 @@ void              pinos_daemon_stop              (PinosDaemon *daemon);
 gchar *           pinos_daemon_export_uniquely   (PinosDaemon *daemon, GDBusObjectSkeleton *skel);
 void              pinos_daemon_unexport          (PinosDaemon *daemon, const gchar *name);
 
-void              pinos_daemon_add_node          (PinosDaemon *daemon, PinosNode *node);
-void              pinos_daemon_remove_node       (PinosDaemon *daemon, PinosNode *node);
-
 PinosPort *       pinos_daemon_find_port         (PinosDaemon     *daemon,
                                                   PinosPort       *other_port,
                                                   const gchar     *name,
                                                   PinosProperties *props,
                                                   GPtrArray       *format_filter,
                                                   GError         **error);
-
-void              pinos_daemon_add_node_factory  (PinosDaemon *daemon,
-                                                  PinosNodeFactory *factory);
-void              pinos_daemon_remove_node_factory (PinosDaemon *daemon,
-                                                  PinosNodeFactory *factory);
 
 G_END_DECLS
 

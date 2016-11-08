@@ -24,6 +24,9 @@
 
 G_BEGIN_DECLS
 
+#define PINOS_NODE_FACTORY_URI                            "http://pinos.org/ns/node-factory"
+#define PINOS_NODE_FACTORY_PREFIX                         PINOS_NODE_FACTORY_URI "#"
+
 typedef struct _PinosNodeFactory PinosNodeFactory;
 typedef struct _PinosNodeFactoryClass PinosNodeFactoryClass;
 typedef struct _PinosNodeFactoryPrivate PinosNodeFactoryPrivate;
@@ -46,9 +49,9 @@ typedef struct _PinosNodeFactoryPrivate PinosNodeFactoryPrivate;
  * Pinos node factory class.
  */
 struct _PinosNodeFactory {
-  GObject object;
+  GObject obj;
 
-  uint32_t id;
+  PinosObject object;
 
   PinosNodeFactoryPrivate *priv;
 };

@@ -708,7 +708,6 @@ pinos_node_dispose (GObject * obj)
   pinos_log_debug ("node %p: dispose", node);
   pinos_node_set_state (node, PINOS_NODE_STATE_SUSPENDED);
 
-  pinos_registry_remove_object (&priv->daemon->registry, &node->object);
   node_unregister_object (node);
 
   pinos_main_loop_defer_cancel (priv->main_loop, node, 0);
@@ -723,6 +722,9 @@ pinos_node_finalize (GObject * obj)
   PinosNodePrivate *priv = node->priv;
 
   pinos_log_debug ("node %p: finalize", node);
+
+  pinos_registry_remove_object (&priv->daemon->registry, &node->object);
+
   g_clear_object (&priv->daemon);
   g_clear_object (&priv->iface);
   g_clear_object (&priv->data_loop);

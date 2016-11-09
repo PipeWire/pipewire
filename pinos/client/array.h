@@ -42,7 +42,7 @@ struct _PinosArray {
 #define pinos_array_get_unchecked(a,idx,t)      pinos_array_get_unchecked_s(a,idx,sizeof(t),t)
 #define pinos_array_check_index(a,idx,t)        pinos_array_check_index_s(a,idx,sizeof(t))
 
-#define PINOS_ARRAY_FOREACH(pos, array)                                         \
+#define pinos_array_for_each(pos, array)                                        \
     for (pos = (array)->data;                                                   \
          (const char *) pos < ((const char *) (array)->data + (array)->size);   \
          (pos)++)

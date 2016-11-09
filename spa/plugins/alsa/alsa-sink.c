@@ -33,7 +33,7 @@ typedef struct _SpaALSAState SpaALSASink;
 
 static const char default_device[] = "default";
 static const uint32_t default_buffer_time = 4000;
-static const uint32_t default_period_time = 1000;
+static const uint32_t default_period_time = 500;
 static const bool default_period_event = 0;
 
 static void
@@ -366,7 +366,7 @@ static SpaResult
 spa_alsa_clear_buffers (SpaALSASink *this)
 {
   if (this->n_buffers > 0) {
-    SPA_QUEUE_INIT (&this->ready);
+    spa_list_init (&this->ready);
     this->n_buffers = 0;
     this->ringbuffer = NULL;
   }
@@ -698,8 +698,7 @@ spa_alsa_sink_node_process_input (SpaNode *node)
     this->ringbuffer->outstanding = true;
     this->ringbuffer = b;
   } else {
-    b->next = NULL;
-    SPA_QUEUE_PUSH_TAIL (&this->ready, SpaALSABuffer, next, b);
+    spa_list_insert (this->ready.prev, &b->list);
   }
   b->outstanding = false;
   input->status = SPA_RESULT_OK;
@@ -807,6 +806,8 @@ alsa_sink_init (const SpaHandleFactory  *factory,
   this->props[1].props.prop_info = prop_info;
   this->stream = SND_PCM_STREAM_PLAYBACK;
   reset_alsa_sink_props (&this->props[1]);
+
+  spa_list_init (&this->ready);
 
   for (i = 0; info && i < info->n_items; i++) {
     if (!strcmp (info->items[i].key, "alsa.card")) {

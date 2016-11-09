@@ -22,7 +22,7 @@
 #include <asoundlib.h>
 
 #include <spa/node.h>
-#include <spa/queue.h>
+#include <spa/list.h>
 #include <spa/audio/format.h>
 #include <lib/props.h>
 
@@ -408,16 +408,15 @@ recycle_buffer (SpaALSASource *this, uint32_t buffer_id)
     return;
 
   b->outstanding = false;
-  b->next = NULL;
-  SPA_QUEUE_PUSH_TAIL (&this->free, SpaALSABuffer, next, b);
+  spa_list_insert (this->free.prev, &b->list);
 }
 
 static SpaResult
 spa_alsa_clear_buffers (SpaALSASource *this)
 {
   if (this->n_buffers > 0) {
-    SPA_QUEUE_INIT (&this->free);
-    SPA_QUEUE_INIT (&this->ready);
+    spa_list_init (&this->free);
+    spa_list_init (&this->ready);
     this->n_buffers = 0;
   }
   return SPA_RESULT_OK;
@@ -591,8 +590,7 @@ spa_alsa_source_node_port_use_buffers (SpaNode         *node,
       default:
         break;
     }
-    b->next = NULL;
-    SPA_QUEUE_PUSH_TAIL (&this->free, SpaALSABuffer, next, b);
+    spa_list_insert (this->free.prev, &b->list);
   }
   this->n_buffers = n_buffers;
 
@@ -749,11 +747,12 @@ spa_alsa_source_node_process_output (SpaNode *node)
     return SPA_RESULT_ERROR;
   }
 
-  SPA_QUEUE_POP_HEAD (&this->ready, SpaALSABuffer, next, b);
-  if (b == NULL) {
+  if (spa_list_is_empty (&this->ready)) {
     output->status = SPA_RESULT_UNEXPECTED;
     return SPA_RESULT_ERROR;
   }
+  b = spa_list_first (&this->ready, SpaALSABuffer, list);
+  spa_list_remove (&b->list);
   b->outstanding = true;
 
   output->buffer_id = b->outbuf->id;

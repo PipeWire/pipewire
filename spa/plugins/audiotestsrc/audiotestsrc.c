@@ -27,7 +27,7 @@
 #include <spa/id-map.h>
 #include <spa/log.h>
 #include <spa/node.h>
-#include <spa/queue.h>
+#include <spa/list.h>
 #include <spa/audio/format.h>
 #include <lib/props.h>
 
@@ -52,10 +52,10 @@ typedef struct _ATSBuffer ATSBuffer;
 struct _ATSBuffer {
   SpaBuffer *outbuf;
   bool outstanding;
-  ATSBuffer *next;
   SpaMetaHeader *h;
   void *ptr;
   size_t size;
+  SpaList list;
 };
 
 typedef struct {
@@ -102,8 +102,8 @@ struct _SpaAudioTestSrc {
   uint64_t elapsed_time;
 
   uint64_t sample_count;
-  SpaQueue empty;
-  SpaQueue ready;
+  SpaList empty;
+  SpaList ready;
 };
 
 #define CHECK_PORT(this,d,p)  ((d) == SPA_DIRECTION_OUTPUT && (p) == 0)
@@ -266,12 +266,13 @@ audiotestsrc_on_output (SpaPollNotifyData *data)
   SpaAudioTestSrc *this = data->user_data;
   ATSBuffer *b;
 
-  SPA_QUEUE_POP_HEAD (&this->empty, ATSBuffer, next, b);
-  if (b == NULL) {
+  if (spa_list_is_empty (&this->empty)) {
     if (!this->props[1].live)
       update_poll_enabled (this, false);
     return 0;
   }
+  b = spa_list_first (&this->empty, ATSBuffer, list);
+  spa_list_remove (&b->list);
 
   fill_buffer (this, b);
 
@@ -296,8 +297,7 @@ audiotestsrc_on_output (SpaPollNotifyData *data)
     timerfd_settime (this->fds[0].fd, TFD_TIMER_ABSTIME, &this->timerspec, NULL);
   }
 
-  b->next = NULL;
-  SPA_QUEUE_PUSH_TAIL (&this->ready, ATSBuffer, next, b);
+  spa_list_insert (this->ready.prev, &b->list);
   send_have_output (this);
 
   return 0;
@@ -530,8 +530,8 @@ clear_buffers (SpaAudioTestSrc *this)
   if (this->n_buffers > 0) {
     spa_log_info (this->log, "audiotestsrc %p: clear buffers", this);
     this->n_buffers = 0;
-    SPA_QUEUE_INIT (&this->empty);
-    SPA_QUEUE_INIT (&this->ready);
+    spa_list_init (&this->empty);
+    spa_list_init (&this->ready);
   }
   return SPA_RESULT_OK;
 }
@@ -701,8 +701,7 @@ spa_audiotestsrc_node_port_use_buffers (SpaNode         *node,
       default:
         break;
     }
-    b->next = NULL;
-    SPA_QUEUE_PUSH_TAIL (&this->empty, ATSBuffer, next, b);
+    spa_list_insert (this->empty.prev, &b->list);
   }
   this->n_buffers = n_buffers;
 
@@ -799,10 +798,9 @@ spa_audiotestsrc_node_port_reuse_buffer (SpaNode         *node,
     return SPA_RESULT_OK;
 
   b->outstanding = false;
-  b->next = NULL;
-  SPA_QUEUE_PUSH_TAIL (&this->empty, ATSBuffer, next, b);
+  spa_list_insert (this->empty.prev, &b->list);
 
-  if (this->empty.length == 1 && !this->props[1].live)
+  if (!this->props[1].live)
     update_poll_enabled (this, true);
 
   return SPA_RESULT_OK;
@@ -837,11 +835,12 @@ spa_audiotestsrc_node_process_output (SpaNode *node)
   if ((output = this->output) == NULL)
     return SPA_RESULT_OK;
 
-  SPA_QUEUE_POP_HEAD (&this->ready, ATSBuffer, next, b);
-  if (b == NULL) {
+  if (spa_list_is_empty (&this->ready)) {
     output->status = SPA_RESULT_UNEXPECTED;
     return SPA_RESULT_ERROR;
   }
+  b = spa_list_first (&this->ready, ATSBuffer, list);
+  spa_list_remove (&b->list);
   b->outstanding = true;
 
   output->buffer_id = b->outbuf->id;
@@ -1007,8 +1006,8 @@ audiotestsrc_init (const SpaHandleFactory  *factory,
   this->props[1].props.prop_info = prop_info;
   reset_audiotestsrc_props (&this->props[1]);
 
-  SPA_QUEUE_INIT (&this->empty);
-  SPA_QUEUE_INIT (&this->ready);
+  spa_list_init (&this->empty);
+  spa_list_init (&this->ready);
 
   this->fds[0].fd = timerfd_create (CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
   this->fds[0].events = POLLIN | POLLPRI | POLLERR;

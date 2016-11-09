@@ -882,8 +882,6 @@ pinos_link_dispose (GObject * object)
   if (this->output)
     pinos_port_unlink (this->output, this);
 
-  pinos_registry_remove_object (&priv->daemon->registry, &this->object);
-
   link_unregister_object (this);
 
   pinos_main_loop_defer_cancel (priv->main_loop, this, 0);
@@ -898,6 +896,9 @@ pinos_link_finalize (GObject * object)
   PinosLinkPrivate *priv = this->priv;
 
   pinos_log_debug ("link %p: finalize", this);
+
+  pinos_registry_remove_object (&priv->daemon->registry, &this->object);
+
   g_clear_object (&priv->daemon);
   g_clear_object (&priv->iface);
   g_free (priv->object_path);

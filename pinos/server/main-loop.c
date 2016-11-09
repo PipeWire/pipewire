@@ -25,7 +25,7 @@
 
 #include <gio/gio.h>
 
-#include "spa/include/spa/queue.h"
+#include "spa/include/spa/list.h"
 #include "spa/include/spa/ringbuffer.h"
 #include "pinos/client/log.h"
 #include "pinos/server/main-loop.h"
@@ -54,7 +54,7 @@ struct _WorkItem {
   PinosDeferFunc  func;
   gpointer       *data;
   GDestroyNotify  notify;
-  WorkItem       *next;
+  SpaList         list;
 };
 
 struct _PinosMainLoopPrivate
@@ -70,7 +70,7 @@ struct _PinosMainLoopPrivate
   SpaPollFd fds[1];
   SpaPollItem wakeup;
 
-  SpaQueue  work;
+  SpaList  work;
   WorkItem *free_list;
 
   gulong work_id;
@@ -315,7 +315,7 @@ pinos_main_loop_finalize (GObject * obj)
 
   pinos_log_debug ("main-loop %p: finalize", this);
 
-  g_slice_free_chain (WorkItem, priv->free_list, next);
+  g_slice_free_chain (WorkItem, priv->free_list, list.next);
 
   G_OBJECT_CLASS (pinos_main_loop_parent_class)->finalize (obj);
 }
@@ -359,7 +359,7 @@ pinos_main_loop_init (PinosMainLoop * this)
   this->poll.remove_item = do_remove_item;
   this->poll.invoke = do_invoke;
 
-  SPA_QUEUE_INIT (&priv->work);
+  spa_list_init (&priv->work);
   spa_ringbuffer_init (&priv->buffer, DATAS_SIZE);
 }
 
@@ -383,22 +383,15 @@ static gboolean
 process_work_queue (PinosMainLoop *this)
 {
   PinosMainLoopPrivate *priv = this->priv;
-  WorkItem *prev, *item, *next;
+  WorkItem *item, *tmp;
 
   priv->work_id = 0;
 
-  for (item = priv->work.head, prev = NULL; item; prev = item, item = next) {
-    next = item->next;
-
+  spa_list_for_each_safe (item, tmp, &priv->work, list) {
     if (item->seq != SPA_ID_INVALID)
       continue;
 
-    if (priv->work.tail == item)
-      priv->work.tail = prev;
-    if (prev == NULL)
-      priv->work.head = next;
-    else
-      prev->next = next;
+    spa_list_remove (&item->list);
 
     if (item->func) {
       pinos_log_debug ("main-loop %p: process work item %p", this, item->obj);
@@ -407,10 +400,8 @@ process_work_queue (PinosMainLoop *this)
     if (item->notify)
       item->notify (item->data);
 
-    item->next = priv->free_list;
+    item->list.next = &priv->free_list->list;
     priv->free_list = item;
-
-    item = prev;
   }
   return FALSE;
 }
@@ -432,7 +423,7 @@ pinos_main_loop_defer (PinosMainLoop  *loop,
 
   if (priv->free_list) {
     item = priv->free_list;
-    priv->free_list = item->next;
+    priv->free_list = SPA_CONTAINER_OF (item->list.next, WorkItem, list);
   } else {
     item = g_slice_new (WorkItem);
   }
@@ -441,7 +432,6 @@ pinos_main_loop_defer (PinosMainLoop  *loop,
   item->func = func;
   item->data = data;
   item->notify = notify;
-  item->next = NULL;
 
   if (SPA_RESULT_IS_ASYNC (res)) {
     item->seq = SPA_RESULT_ASYNC_SEQ (res);
@@ -453,7 +443,7 @@ pinos_main_loop_defer (PinosMainLoop  *loop,
     have_work = TRUE;
     pinos_log_debug ("main-loop %p: defer object %p", loop, obj);
   }
-  SPA_QUEUE_PUSH_TAIL (&priv->work, WorkItem, next, item);
+  spa_list_insert (priv->work.prev, &item->list);
 
   if (priv->work_id == 0 && have_work)
     priv->work_id = g_idle_add ((GSourceFunc) process_work_queue, loop);
@@ -473,7 +463,7 @@ pinos_main_loop_defer_cancel (PinosMainLoop  *loop,
   g_return_if_fail (PINOS_IS_MAIN_LOOP (loop));
   priv = loop->priv;
 
-  for (item = priv->work.head; item; item = item->next) {
+  spa_list_for_each (item, &priv->work, list) {
     if ((id == 0 || item->id == id) && (obj == NULL || item->obj == obj)) {
       pinos_log_debug ("main-loop %p: cancel defer %d for object %p", loop, item->seq, item->obj);
       item->seq = SPA_ID_INVALID;
@@ -498,7 +488,7 @@ pinos_main_loop_defer_complete (PinosMainLoop  *loop,
   g_return_val_if_fail (PINOS_IS_MAIN_LOOP (loop), FALSE);
   priv = loop->priv;
 
-  for (item = priv->work.head; item; item = item->next) {
+  spa_list_for_each (item, &priv->work, list) {
     if (item->obj == obj && item->seq == seq) {
       pinos_log_debug ("main-loop %p: found defered %d for object %p", loop, seq, obj);
       item->seq = SPA_ID_INVALID;

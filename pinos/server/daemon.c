@@ -735,8 +735,8 @@ pinos_daemon_get_property (GObject    *_object,
                            GValue     *value,
                            GParamSpec *pspec)
 {
-  PinosDaemon *daemon = PINOS_DAEMON (_object);
-  PinosDaemonPrivate *priv = daemon->priv;
+  PinosDaemon *this = PINOS_DAEMON (_object);
+  PinosDaemonPrivate *priv = this->priv;
 
   switch (prop_id) {
     case PROP_PROPERTIES:
@@ -752,7 +752,7 @@ pinos_daemon_get_property (GObject    *_object,
       break;
 
     default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (daemon, prop_id, pspec);
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (this, prop_id, pspec);
       break;
   }
 }
@@ -763,8 +763,8 @@ pinos_daemon_set_property (GObject      *_object,
                            const GValue *value,
                            GParamSpec   *pspec)
 {
-  PinosDaemon *daemon = PINOS_DAEMON (_object);
-  PinosDaemonPrivate *priv = daemon->priv;
+  PinosDaemon *this = PINOS_DAEMON (_object);
+  PinosDaemonPrivate *priv = this->priv;
 
   switch (prop_id) {
     case PROP_PROPERTIES:
@@ -774,7 +774,7 @@ pinos_daemon_set_property (GObject      *_object,
       break;
 
     default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (daemon, prop_id, pspec);
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (this, prop_id, pspec);
       break;
   }
 }
@@ -811,7 +811,6 @@ pinos_daemon_dispose (GObject * object)
 
   pinos_daemon_stop (this);
 
-  pinos_registry_remove_object (&this->registry, &this->object);
 
   G_OBJECT_CLASS (pinos_daemon_parent_class)->dispose (object);
 }
@@ -819,10 +818,13 @@ pinos_daemon_dispose (GObject * object)
 static void
 pinos_daemon_finalize (GObject * object)
 {
-  PinosDaemon *daemon = PINOS_DAEMON_CAST (object);
-  PinosDaemonPrivate *priv = daemon->priv;
+  PinosDaemon *this = PINOS_DAEMON_CAST (object);
+  PinosDaemonPrivate *priv = this->priv;
 
   pinos_log_debug ("daemon %p: finalize", object);
+
+  pinos_registry_remove_object (&this->registry, &this->object);
+
   g_clear_object (&priv->server_manager);
   g_clear_object (&priv->iface);
   g_clear_object (&priv->data_loop);
@@ -888,11 +890,12 @@ pinos_daemon_init (PinosDaemon * daemon)
   g_signal_connect (priv->iface, "handle-create-node", (GCallback) handle_create_node, daemon);
   g_signal_connect (priv->iface, "handle-create-client-node", (GCallback) handle_create_client_node, daemon);
 
-  priv->object_added.notify = on_registry_object_added;
-  priv->object_removed.notify = on_registry_object_removed;
-
   pinos_registry_init (&daemon->registry);
+
+  priv->object_added.notify = on_registry_object_added;
   pinos_signal_add (&daemon->registry.object_added, &priv->object_added);
+
+  priv->object_removed.notify = on_registry_object_removed;
   pinos_signal_add (&daemon->registry.object_removed, &priv->object_removed);
 
   priv->server_manager = g_dbus_object_manager_server_new (PINOS_DBUS_OBJECT_PREFIX);

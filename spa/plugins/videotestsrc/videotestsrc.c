@@ -28,7 +28,7 @@
 #include <spa/id-map.h>
 #include <spa/log.h>
 #include <spa/node.h>
-#include <spa/queue.h>
+#include <spa/list.h>
 #include <spa/video/format.h>
 #include <lib/props.h>
 
@@ -60,10 +60,10 @@ typedef struct _VTSBuffer VTSBuffer;
 struct _VTSBuffer {
   SpaBuffer *outbuf;
   bool outstanding;
-  VTSBuffer *next;
   SpaMetaHeader *h;
   void *ptr;
   size_t stride;
+  SpaList list;
 };
 
 struct _SpaVideoTestSrc {
@@ -104,8 +104,8 @@ struct _SpaVideoTestSrc {
   uint64_t elapsed_time;
 
   uint64_t frame_count;
-  SpaQueue empty;
-  SpaQueue ready;
+  SpaList empty;
+  SpaList ready;
 };
 
 #define CHECK_PORT(this,d,p)  ((d) == SPA_DIRECTION_OUTPUT && (p) == 0)
@@ -213,12 +213,13 @@ videotestsrc_on_output (SpaPollNotifyData *data)
   SpaVideoTestSrc *this = data->user_data;
   VTSBuffer *b;
 
-  SPA_QUEUE_POP_HEAD (&this->empty, VTSBuffer, next, b);
-  if (b == NULL) {
+  if (spa_list_is_empty (&this->empty)) {
     if (!this->props[1].live)
       update_poll_enabled (this, false);
     return 0;
   }
+  b = spa_list_first (&this->empty, VTSBuffer, list);
+  spa_list_remove (&b->list);
 
   fill_buffer (this, b);
 
@@ -243,8 +244,7 @@ videotestsrc_on_output (SpaPollNotifyData *data)
     timerfd_settime (this->fds[0].fd, TFD_TIMER_ABSTIME, &this->timerspec, NULL);
   }
 
-  b->next = NULL;
-  SPA_QUEUE_PUSH_TAIL (&this->ready, VTSBuffer, next, b);
+  spa_list_insert (this->ready.prev, &b->list);
   send_have_output (this);
 
   return 0;
@@ -477,8 +477,8 @@ clear_buffers (SpaVideoTestSrc *this)
   if (this->n_buffers > 0) {
     spa_log_info (this->log, "videotestsrc %p: clear buffers", this);
     this->n_buffers = 0;
-    SPA_QUEUE_INIT (&this->empty);
-    SPA_QUEUE_INIT (&this->ready);
+    spa_list_init (&this->empty);
+    spa_list_init (&this->ready);
   }
   return SPA_RESULT_OK;
 }
@@ -649,8 +649,7 @@ spa_videotestsrc_node_port_use_buffers (SpaNode         *node,
       default:
         break;
     }
-    b->next = NULL;
-    SPA_QUEUE_PUSH_TAIL (&this->empty, VTSBuffer, next, b);
+    spa_list_insert (this->empty.prev, &b->list);
   }
   this->n_buffers = n_buffers;
 
@@ -746,10 +745,9 @@ spa_videotestsrc_node_port_reuse_buffer (SpaNode         *node,
     return SPA_RESULT_OK;
 
   b->outstanding = false;
-  b->next = NULL;
-  SPA_QUEUE_PUSH_TAIL (&this->empty, VTSBuffer, next, b);
+  spa_list_insert (this->empty.prev, &b->list);
 
-  if (this->empty.length == 1 && !this->props[1].live)
+  if (!this->props[1].live)
     update_poll_enabled (this, true);
 
   return SPA_RESULT_OK;
@@ -790,11 +788,11 @@ spa_videotestsrc_node_process_output (SpaNode *node)
     return SPA_RESULT_ERROR;
   }
 
-  SPA_QUEUE_POP_HEAD (&this->ready, VTSBuffer, next, b);
-  if (b == NULL) {
+  if (spa_list_is_empty (&this->ready)) {
     output->status = SPA_RESULT_UNEXPECTED;
     return SPA_RESULT_ERROR;
   }
+  b = spa_list_first (&this->ready, VTSBuffer, list);
   b->outstanding = true;
 
   output->buffer_id = b->outbuf->id;
@@ -956,8 +954,8 @@ videotestsrc_init (const SpaHandleFactory  *factory,
   this->props[1].props.prop_info = prop_info;
   reset_videotestsrc_props (&this->props[1]);
 
-  SPA_QUEUE_INIT (&this->empty);
-  SPA_QUEUE_INIT (&this->ready);
+  spa_list_init (&this->empty);
+  spa_list_init (&this->ready);
 
   this->fds[0].fd = timerfd_create (CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
   this->fds[0].events = POLLIN | POLLPRI | POLLERR;

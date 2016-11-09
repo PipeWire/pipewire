@@ -26,7 +26,7 @@
 
 #include <spa/node.h>
 #include <spa/video/format.h>
-#include <spa/queue.h>
+#include <spa/list.h>
 #include <spa/log.h>
 #include <spa/id-map.h>
 #include <lib/debug.h>
@@ -60,7 +60,8 @@ struct _V4l2Buffer {
   bool outstanding;
   bool allocated;
   struct v4l2_buffer v4l2_buffer;
-  V4l2Buffer *next;
+//  V4l2Buffer *next;
+  SpaList list;
 };
 
 typedef struct _V4l2Format V4l2Format;
@@ -112,7 +113,7 @@ typedef struct {
 
   V4l2Buffer   buffers[MAX_BUFFERS];
   unsigned int n_buffers;
-  SpaQueue     ready;
+  SpaList     ready;
 
   SpaPollFd fds[1];
   SpaPollItem poll;
@@ -854,11 +855,17 @@ spa_v4l2_source_node_process_output (SpaNode *node)
     return SPA_RESULT_ERROR;
   }
 
-  SPA_QUEUE_POP_HEAD (&state->ready, V4l2Buffer, next, b);
+  if (spa_list_is_empty (&state->ready)) {
+    output->status = SPA_RESULT_UNEXPECTED;
+    return SPA_RESULT_ERROR;
+  }
+
+  b = spa_list_first (&state->ready, V4l2Buffer, list);
   if (b == NULL) {
     output->status = SPA_RESULT_UNEXPECTED;
     return SPA_RESULT_ERROR;
   }
+  spa_list_remove (&b->list);
   b->outstanding = true;
 
   output->buffer_id = b->outbuf->id;
@@ -1021,7 +1028,8 @@ v4l2_source_init (const SpaHandleFactory  *factory,
   this->props[1].props.prop_info = prop_info;
   reset_v4l2_source_props (&this->props[1]);
 
-  SPA_QUEUE_INIT (&this->state[0].ready);
+  spa_list_init (&this->state[0].ready);
+//  SPA_QUEUE_INIT (&this->state[0].ready);
 
   this->state[0].log = this->log;
   this->state[0].info.flags = SPA_PORT_INFO_FLAG_LIVE;

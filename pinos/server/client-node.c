@@ -40,7 +40,6 @@
 #include "pinos/server/client-node.h"
 
 #include "spa/include/spa/node.h"
-#include "spa/include/spa/queue.h"
 #include "spa/lib/memfd-wrappers.h"
 
 #define MAX_INPUTS       64
@@ -87,8 +86,6 @@ typedef struct {
 
   uint32_t       buffer_mem_id;
   PinosMemblock  buffer_mem;
-
-  SpaQueue       ready;
 } SpaProxyPort;
 
 struct _SpaProxy
@@ -169,7 +166,6 @@ clear_buffers (SpaProxy *this, SpaProxyPort *port)
     pinos_memblock_free (&port->buffer_mem);
 
     port->n_buffers = 0;
-    SPA_QUEUE_INIT (&port->ready);
   }
   return SPA_RESULT_OK;
 }

@@ -30,7 +30,7 @@ extern "C" {
 
 #include <spa/id-map.h>
 #include <spa/log.h>
-#include <spa/queue.h>
+#include <spa/list.h>
 #include <spa/node.h>
 #include <spa/ringbuffer.h>
 #include <spa/audio/format.h>
@@ -55,7 +55,7 @@ struct _SpaALSABuffer {
   SpaMetaHeader *h;
   SpaMetaRingbuffer *rb;
   bool outstanding;
-  SpaALSABuffer *next;
+  SpaList list;
 };
 
 typedef struct {
@@ -109,8 +109,8 @@ struct _SpaALSAState {
   bool use_ringbuffer;
   SpaALSABuffer *ringbuffer;
 
-  SpaQueue free;
-  SpaQueue ready;
+  SpaList free;
+  SpaList ready;
   size_t ready_offset;
 
   bool started;

@@ -23,19 +23,6 @@
 #include <string.h>
 
 #include <spa/id-map.h>
-#include <spa/log.h>
-#include <spa/buffer.h>
-#include <spa/clock.h>
-#include <spa/format.h>
-#include <spa/monitor.h>
-#include <spa/node.h>
-#include <spa/node-command.h>
-#include <spa/node-event.h>
-#include <spa/poll.h>
-#include <spa/port.h>
-#include <spa/props.h>
-#include <spa/queue.h>
-#include <spa/ringbuffer.h>
 
 #include <lib/debug.h>
 

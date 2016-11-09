@@ -142,7 +142,7 @@ clear_buffers (PinosStream *stream)
   PinosStreamPrivate *priv = stream->priv;
   BufferId *bid;
 
-  PINOS_ARRAY_FOREACH (bid, &priv->buffer_ids) {
+  pinos_array_for_each (bid, &priv->buffer_ids) {
     g_signal_emit (stream, signals[SIGNAL_REMOVE_BUFFER], 0, bid->id);
     bid->buf = NULL;
   }
@@ -730,7 +730,7 @@ find_mem (PinosStream *stream, uint32_t id)
   PinosStreamPrivate *priv = stream->priv;
   MemId *mid;
 
-  PINOS_ARRAY_FOREACH (mid, &priv->mem_ids) {
+  pinos_array_for_each (mid, &priv->mem_ids) {
     if (mid->id == id)
       return mid;
   }
@@ -747,7 +747,7 @@ find_buffer (PinosStream *stream, uint32_t id)
   } else {
     BufferId *bid;
 
-    PINOS_ARRAY_FOREACH (bid, &priv->buffer_ids) {
+    pinos_array_for_each (bid, &priv->buffer_ids) {
       if (bid->id == id)
         return bid;
     }
@@ -1706,7 +1706,7 @@ pinos_stream_get_empty_buffer (PinosStream *stream)
   priv = stream->priv;
   g_return_val_if_fail (priv->direction == SPA_DIRECTION_OUTPUT, FALSE);
 
-  PINOS_ARRAY_FOREACH (bid, &priv->buffer_ids) {
+  pinos_array_for_each (bid, &priv->buffer_ids) {
     if (!bid->used)
       return bid->id;
   }

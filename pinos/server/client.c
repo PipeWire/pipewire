@@ -211,7 +211,6 @@ pinos_client_dispose (GObject * object)
   g_list_free_full (copy, g_object_unref);
   g_list_free (priv->objects);
 
-  pinos_registry_remove_object (&priv->daemon->registry, &client->object);
   client_unregister_object (client);
 
   G_OBJECT_CLASS (pinos_client_parent_class)->dispose (object);
@@ -224,6 +223,9 @@ pinos_client_finalize (GObject * object)
   PinosClientPrivate *priv = client->priv;
 
   pinos_log_debug ("client %p: finalize", client);
+
+  pinos_registry_remove_object (&priv->daemon->registry, &client->object);
+
   g_clear_object (&priv->daemon);
   g_clear_object (&priv->iface);
   g_free (priv->sender);

@@ -280,13 +280,12 @@ pull_frames_queue (SpaALSAState *state,
                    snd_pcm_uframes_t offset,
                    snd_pcm_uframes_t frames)
 {
-  SpaALSABuffer *b;
-
-  SPA_QUEUE_PEEK_HEAD (&state->ready, SpaALSABuffer, b);
-
-  if (b) {
+  if (!spa_list_is_empty (&state->ready)) {
     uint8_t *src, *dst;
     size_t n_bytes;
+    SpaALSABuffer *b;
+
+    b = spa_list_first (&state->ready, SpaALSABuffer, list);
 
     src = SPA_MEMBER (b->outbuf->datas[0].data, b->outbuf->datas[0].offset + state->ready_offset, uint8_t);
     dst = SPA_MEMBER (my_areas[0].addr, offset * state->frame_size, uint8_t);
@@ -299,7 +298,7 @@ pull_frames_queue (SpaALSAState *state,
     if (state->ready_offset >= b->outbuf->datas[0].size) {
       SpaNodeEventReuseBuffer rb;
 
-      SPA_QUEUE_POP_HEAD (&state->ready, SpaALSABuffer, next, b);
+      spa_list_remove (&b->list);
       b->outstanding = true;
 
       rb.event.type = SPA_NODE_EVENT_TYPE_REUSE_BUFFER;
@@ -448,10 +447,13 @@ mmap_read (SpaALSAState *state)
   state->last_ticks = state->sample_count * SPA_USEC_PER_SEC / state->rate;
   state->last_monotonic = now;
 
-  SPA_QUEUE_POP_HEAD (&state->free, SpaALSABuffer, next, b);
-  if (b == NULL) {
+  if (spa_list_is_empty (&state->free)) {
+    b = NULL;
     spa_log_warn (state->log, "no more buffers");
   } else {
+    b = spa_list_first (&state->free, SpaALSABuffer, list);
+    spa_list_remove (&b->list);
+
     dest = SPA_MEMBER (b->outbuf->datas[0].data, b->outbuf->datas[0].offset, void);
     destsize = b->outbuf->datas[0].size;
 
@@ -496,8 +498,7 @@ mmap_read (SpaALSAState *state)
     d = b->outbuf->datas;
     d[0].size = avail * state->frame_size;
 
-    b->next = NULL;
-    SPA_QUEUE_PUSH_TAIL (&state->ready, SpaALSABuffer, next, b);
+    spa_list_insert (state->ready.prev, &b->list);
 
     ho.event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
     ho.event.size = sizeof (ho);

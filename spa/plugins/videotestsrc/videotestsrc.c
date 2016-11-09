@@ -45,6 +45,7 @@ typedef struct _SpaVideoTestSrc SpaVideoTestSrc;
 typedef struct {
   SpaProps props;
   bool live;
+  uint32_t pattern;
 } SpaVideoTestSrcProps;
 
 #define MAX_BUFFERS 16
@@ -105,9 +106,19 @@ struct _SpaVideoTestSrc {
 #define CHECK_PORT(this,d,p)  ((d) == SPA_DIRECTION_OUTPUT && (p) == 0)
 
 #define DEFAULT_LIVE true
+#define DEFAULT_PATTERN 0
+
+static const uint32_t pattern_val_smpte_snow = 0;
+static const uint32_t pattern_val_snow = 1;
+
+static const SpaPropRangeInfo pattern_range[] = {
+  { "smpte-snow", { sizeof (uint32_t), &pattern_val_smpte_snow } },
+  { "snow", { sizeof (uint32_t), &pattern_val_snow } },
+};
 
 enum {
   PROP_ID_LIVE,
+  PROP_ID_PATTERN,
   PROP_ID_LAST,
 };
 
@@ -119,12 +130,19 @@ static const SpaPropInfo prop_info[] =
                                SPA_PROP_TYPE_BOOL, sizeof (bool),
                                SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                NULL },
+  { PROP_ID_PATTERN,           offsetof (SpaVideoTestSrcProps, pattern),
+                               "pattern",
+                               SPA_PROP_FLAG_READWRITE,
+                               SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
+                               SPA_PROP_RANGE_TYPE_ENUM, SPA_N_ELEMENTS (pattern_range), pattern_range,
+                               NULL },
 };
 
 static SpaResult
 reset_videotestsrc_props (SpaVideoTestSrcProps *props)
 {
   props->live = DEFAULT_LIVE;
+  props->pattern = DEFAULT_PATTERN;
 
   return SPA_RESULT_OK;
 }

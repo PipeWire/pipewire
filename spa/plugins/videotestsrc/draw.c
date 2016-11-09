@@ -249,11 +249,33 @@ draw_smpte_snow (DrawingData *dd)
   }
 }
 
+static void
+draw_snow (DrawingData *dd)
+{
+  int x, y;
+
+  for (y = 0; y < dd->height; y++) {
+    for (x = 0; x < dd->width; x++) {
+      Pixel p;
+      unsigned char r = rand ();
+
+      p.R = r;
+      p.G = r;
+      p.B = r;
+      update_yuv (&p);
+      dd->draw_pixel (dd, x, &p);
+    }
+
+    next_line (dd);
+  }
+}
+
 static SpaResult
 draw (SpaVideoTestSrc *this, char *data)
 {
   DrawingData dd;
   SpaResult res;
+  uint32_t pattern;
 
   init_colors ();
 
@@ -261,7 +283,13 @@ draw (SpaVideoTestSrc *this, char *data)
   if (res != SPA_RESULT_OK)
     return res;
 
-  draw_smpte_snow (&dd);
+  pattern = this->props[1].pattern;
+  if (pattern == pattern_val_smpte_snow)
+    draw_smpte_snow (&dd);
+  else if (pattern == pattern_val_snow)
+    draw_snow (&dd);
+  else
+    return SPA_RESULT_NOT_IMPLEMENTED;
 
-  return res;
+  return SPA_RESULT_OK;
 }

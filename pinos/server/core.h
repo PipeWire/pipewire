@@ -17,26 +17,42 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __PINOS_SPA_V4L2_MONITOR_H__
-#define __PINOS_SPA_V4L2_MONITOR_H__
-
-#include <pinos/server/core.h>
+#ifndef __PINOS_CORE_H__
+#define __PINOS_CORE_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct _PinosSpaV4l2Monitor PinosSpaV4l2Monitor;
+#define PINOS_CORE_URI                            "http://pinos.org/ns/core"
+#define PINOS_CORE_PREFIX                         PINOS_CORE_URI "#"
 
-struct _PinosSpaV4l2Monitor {
-  SpaMonitor *monitor;
+typedef struct _PinosCore PinosCore;
+
+#include <spa/include/spa/log.h>
+#include <pinos/server/main-loop.h>
+#include <pinos/server/registry.h>
+
+/**
+ * PinosCore:
+ *
+ * Pinos core object class.
+ */
+struct _PinosCore {
+  PinosObject object;
+
+  PinosRegistry registry;
+
+  PinosMainLoop *main_loop;
+
+  SpaSupport *support;
+  unsigned int n_support;
 };
 
-PinosSpaV4l2Monitor *      pinos_spa_v4l2_monitor_new      (PinosCore *core);
-void                       pinos_spa_v4l2_monitor_destroy  (PinosSpaV4l2Monitor *monitor);
+PinosCore *     pinos_core_new        (PinosMainLoop *main_loop);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __PINOS_SPA_V4L2_MONITOR_H__ */
+#endif /* __PINOS_CORE_H__ */

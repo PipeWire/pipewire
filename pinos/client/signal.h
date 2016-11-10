@@ -31,8 +31,7 @@ typedef struct _PinosListener PinosListener;
 
 struct _PinosListener {
   SpaList         link;
-  void (*notify) (PinosListener *listener, void *data);
-  void            *user_data;
+  void (*notify) (PinosListener *listener, void *object, void *data);
 };
 
 struct _PinosSignal {
@@ -53,13 +52,20 @@ pinos_signal_add (PinosSignal   *signal,
 }
 
 static inline void
+pinos_signal_remove (PinosListener *listener)
+{
+  spa_list_remove (&listener->link);
+}
+
+static inline void
 pinos_signal_emit (PinosSignal *signal,
+                   void        *object,
                    void        *data)
 {
   PinosListener *l, *next;
 
   spa_list_for_each_safe (l, next, &signal->listeners, link)
-    l->notify (l, data);
+    l->notify (l, object, data);
 }
 
 #ifdef __cplusplus

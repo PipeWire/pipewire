@@ -28,6 +28,7 @@
 #include "spa/include/spa/list.h"
 #include "spa/include/spa/ringbuffer.h"
 #include "pinos/client/log.h"
+#include "pinos/client/object.h"
 #include "pinos/server/main-loop.h"
 
 #define PINOS_MAIN_LOOP_GET_PRIVATE(loop)  \
@@ -48,21 +49,27 @@ typedef struct _WorkItem WorkItem;
 
 struct _WorkItem {
   gulong          id;
-  gpointer        obj;
+  void           *obj;
   uint32_t        seq;
   SpaResult       res;
   PinosDeferFunc  func;
-  gpointer       *data;
+  void           *data;
   GDestroyNotify  notify;
   SpaList         list;
 };
 
-struct _PinosMainLoopPrivate
+typedef struct
 {
+  PinosMainLoop this;
+
+  PinosObject object;
+
+  SpaPoll poll;
+
   GMainContext *context;
   GMainLoop *loop;
 
-  gulong counter;
+  uint32_t counter;
 
   SpaRingbuffer buffer;
   uint8_t       buffer_data[DATAS_SIZE];
@@ -74,20 +81,7 @@ struct _PinosMainLoopPrivate
   WorkItem *free_list;
 
   gulong work_id;
-};
-
-G_DEFINE_TYPE (PinosMainLoop, pinos_main_loop, G_TYPE_OBJECT);
-
-enum
-{
-  PROP_0,
-  PROP_MAIN_CONTEXT,
-};
-
-enum
-{
-  LAST_SIGNAL
-};
+} PinosMainLoopImpl;
 
 typedef struct {
   PinosMainLoop *loop;
@@ -97,7 +91,7 @@ typedef struct {
 static gboolean
 poll_event (GIOChannel *source,
             GIOCondition condition,
-            gpointer user_data)
+            void * user_data)
 {
   PollData *data = user_data;
   SpaPollNotifyData d;
@@ -160,20 +154,19 @@ do_remove_item (SpaPoll     *poll,
 static int
 main_loop_dispatch (SpaPollNotifyData *data)
 {
-  PinosMainLoop *this = data->user_data;
-  PinosMainLoopPrivate *priv = this->priv;
-  SpaPoll *p = &this->poll;
+  PinosMainLoopImpl *impl = data->user_data;
+  SpaPoll *p = &impl->poll;
   uint64_t u;
   size_t offset;
   InvokeItem *item;
 
-  if (read (priv->fds[0].fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
+  if (read (impl->fds[0].fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
     pinos_log_warn ("main-loop %p: failed to read fd", strerror (errno));
 
-  while (spa_ringbuffer_get_read_offset (&priv->buffer, &offset) > 0) {
-    item = SPA_MEMBER (priv->buffer_data, offset, InvokeItem);
+  while (spa_ringbuffer_get_read_offset (&impl->buffer, &offset) > 0) {
+    item = SPA_MEMBER (impl->buffer_data, offset, InvokeItem);
     item->func (p, true, item->seq, item->size, item->data, item->user_data);
-    spa_ringbuffer_read_advance (&priv->buffer, item->item_size);
+    spa_ringbuffer_read_advance (&impl->buffer, item->item_size);
   }
 
   return 0;
@@ -187,8 +180,7 @@ do_invoke (SpaPoll           *poll,
            void              *data,
            void              *user_data)
 {
-  PinosMainLoop *this = SPA_CONTAINER_OF (poll, PinosMainLoop, poll);
-  PinosMainLoopPrivate *priv = this->priv;
+  PinosMainLoopImpl *impl = SPA_CONTAINER_OF (poll, PinosMainLoopImpl, poll);
   gboolean in_thread = FALSE;
   SpaRingbufferArea areas[2];
   InvokeItem *item;
@@ -198,12 +190,12 @@ do_invoke (SpaPoll           *poll,
   if (in_thread) {
     res = func (poll, false, seq, size, data, user_data);
   } else {
-    spa_ringbuffer_get_write_areas (&priv->buffer, areas);
+    spa_ringbuffer_get_write_areas (&impl->buffer, areas);
     if (areas[0].len < sizeof (InvokeItem)) {
       pinos_log_warn ("queue full");
       return SPA_RESULT_ERROR;
     }
-    item = SPA_MEMBER (priv->buffer_data, areas[0].offset, InvokeItem);
+    item = SPA_MEMBER (impl->buffer_data, areas[0].offset, InvokeItem);
     item->seq = seq;
     item->func = func;
     item->user_data = user_data;
@@ -215,14 +207,14 @@ do_invoke (SpaPoll           *poll,
       if (areas[0].len < sizeof (InvokeItem) + item->item_size)
         item->item_size = areas[0].len;
     } else {
-      item->data = SPA_MEMBER (priv->buffer_data, areas[1].offset, void);
+      item->data = SPA_MEMBER (impl->buffer_data, areas[1].offset, void);
       item->item_size = areas[0].len + 1 + size;
     }
     memcpy (item->data, data, size);
 
-    spa_ringbuffer_write_advance (&priv->buffer, item->item_size);
+    spa_ringbuffer_write_advance (&impl->buffer, item->item_size);
 
-    if (write (priv->fds[0].fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
+    if (write (impl->fds[0].fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
       pinos_log_warn ("data-loop %p: failed to write fd", strerror (errno));
 
     res = SPA_RESULT_RETURN_ASYNC (seq);
@@ -230,164 +222,15 @@ do_invoke (SpaPoll           *poll,
   return res;
 }
 
-static void
-pinos_main_loop_get_property (GObject    *_object,
-                              guint       prop_id,
-                              GValue     *value,
-                              GParamSpec *pspec)
-{
-  PinosMainLoop *loop = PINOS_MAIN_LOOP (_object);
-  PinosMainLoopPrivate *priv = loop->priv;
-
-  switch (prop_id) {
-    case PROP_MAIN_CONTEXT:
-      g_value_set_boxed (value, priv->context);
-      break;
-
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (loop, prop_id, pspec);
-      break;
-  }
-}
-
-static void
-pinos_main_loop_set_property (GObject      *_object,
-                              guint         prop_id,
-                              const GValue *value,
-                              GParamSpec   *pspec)
-{
-  PinosMainLoop *loop = PINOS_MAIN_LOOP (_object);
-  PinosMainLoopPrivate *priv = loop->priv;
-
-  switch (prop_id) {
-    case PROP_MAIN_CONTEXT:
-      priv->context = g_value_dup_boxed (value);
-      break;
-
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (loop, prop_id, pspec);
-      break;
-  }
-}
-
-
-static void
-pinos_main_loop_constructed (GObject * obj)
-{
-  PinosMainLoop *this = PINOS_MAIN_LOOP (obj);
-  PinosMainLoopPrivate *priv = this->priv;
-
-  pinos_log_debug ("main-loop %p: constructed", this);
-  priv->loop = g_main_loop_new (priv->context, FALSE);
-
-  priv->fds[0].fd = eventfd (0, 0);
-  priv->fds[0].events = POLLIN | POLLPRI | POLLERR;
-  priv->fds[0].revents = 0;
-
-  priv->wakeup.id = SPA_ID_INVALID;
-  priv->wakeup.enabled = false;
-  priv->wakeup.fds = priv->fds;
-  priv->wakeup.n_fds = 1;
-  priv->wakeup.idle_cb = NULL;
-  priv->wakeup.before_cb = NULL;
-  priv->wakeup.after_cb = main_loop_dispatch;
-  priv->wakeup.user_data = this;
-  do_add_item (&this->poll, &priv->wakeup);
-
-  G_OBJECT_CLASS (pinos_main_loop_parent_class)->constructed (obj);
-}
-
-static void
-pinos_main_loop_dispose (GObject * obj)
-{
-  PinosMainLoop *this = PINOS_MAIN_LOOP (obj);
-
-  pinos_log_debug ("main-loop %p: dispose", this);
-
-  G_OBJECT_CLASS (pinos_main_loop_parent_class)->dispose (obj);
-}
-
-static void
-pinos_main_loop_finalize (GObject * obj)
-{
-  PinosMainLoop *this = PINOS_MAIN_LOOP (obj);
-  PinosMainLoopPrivate *priv = this->priv;
-
-  pinos_log_debug ("main-loop %p: finalize", this);
-
-  g_slice_free_chain (WorkItem, priv->free_list, list.next);
-
-  G_OBJECT_CLASS (pinos_main_loop_parent_class)->finalize (obj);
-}
-
-static void
-pinos_main_loop_class_init (PinosMainLoopClass * klass)
-{
-  GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
-
-  g_type_class_add_private (klass, sizeof (PinosMainLoopPrivate));
-
-  gobject_class->constructed = pinos_main_loop_constructed;
-  gobject_class->dispose = pinos_main_loop_dispose;
-  gobject_class->finalize = pinos_main_loop_finalize;
-  gobject_class->set_property = pinos_main_loop_set_property;
-  gobject_class->get_property = pinos_main_loop_get_property;
-
-  g_object_class_install_property (gobject_class,
-                                   PROP_MAIN_CONTEXT,
-                                   g_param_spec_boxed ("main-context",
-                                                       "Main Context",
-                                                       "The main context to use",
-                                                       G_TYPE_MAIN_CONTEXT,
-                                                       G_PARAM_READWRITE |
-                                                       G_PARAM_CONSTRUCT_ONLY |
-                                                       G_PARAM_STATIC_STRINGS));
-
-}
-
-static void
-pinos_main_loop_init (PinosMainLoop * this)
-{
-  PinosMainLoopPrivate *priv = this->priv = PINOS_MAIN_LOOP_GET_PRIVATE (this);
-
-  pinos_log_debug ("main-loop %p: new", this);
-
-  this->poll.size = sizeof (SpaPoll);
-  this->poll.info = NULL;
-  this->poll.add_item = do_add_item;
-  this->poll.update_item = do_update_item;
-  this->poll.remove_item = do_remove_item;
-  this->poll.invoke = do_invoke;
-
-  spa_list_init (&priv->work);
-  spa_ringbuffer_init (&priv->buffer, DATAS_SIZE);
-}
-
-/**
- * pinos_main_loop_new:
- * @context: a #GMainContext or %NULL to use the default context
- *
- * Create a new #PinosMainLoop.
- *
- * Returns: a new #PinosMainLoop
- */
-PinosMainLoop *
-pinos_main_loop_new (GMainContext *context)
-{
-  return g_object_new (PINOS_TYPE_MAIN_LOOP,
-                       "main-context", context,
-                       NULL);
-}
-
 static gboolean
 process_work_queue (PinosMainLoop *this)
 {
-  PinosMainLoopPrivate *priv = this->priv;
+  PinosMainLoopImpl *impl = SPA_CONTAINER_OF (this, PinosMainLoopImpl, this);
   WorkItem *item, *tmp;
 
-  priv->work_id = 0;
+  impl->work_id = 0;
 
-  spa_list_for_each_safe (item, tmp, &priv->work, list) {
+  spa_list_for_each_safe (item, tmp, &impl->work, list) {
     if (item->seq != SPA_ID_INVALID)
       continue;
 
@@ -400,34 +243,31 @@ process_work_queue (PinosMainLoop *this)
     if (item->notify)
       item->notify (item->data);
 
-    item->list.next = &priv->free_list->list;
-    priv->free_list = item;
+    item->list.next = &impl->free_list->list;
+    impl->free_list = item;
   }
   return FALSE;
 }
 
-gulong
-pinos_main_loop_defer (PinosMainLoop  *loop,
-                       gpointer        obj,
-                       SpaResult       res,
-                       PinosDeferFunc  func,
-                       gpointer        data,
-                       GDestroyNotify  notify)
+static uint32_t
+main_loop_defer (PinosMainLoop  *loop,
+                 void           *obj,
+                 SpaResult       res,
+                 PinosDeferFunc  func,
+                 void           *data,
+                 GDestroyNotify  notify)
 {
-  PinosMainLoopPrivate *priv;
+  PinosMainLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosMainLoopImpl, this);
   WorkItem *item;
-  gboolean have_work = FALSE;
+  bool have_work = false;
 
-  g_return_val_if_fail (PINOS_IS_MAIN_LOOP (loop), 0);
-  priv = loop->priv;
-
-  if (priv->free_list) {
-    item = priv->free_list;
-    priv->free_list = SPA_CONTAINER_OF (item->list.next, WorkItem, list);
+  if (impl->free_list) {
+    item = impl->free_list;
+    impl->free_list = SPA_CONTAINER_OF (item->list.next, WorkItem, list);
   } else {
     item = g_slice_new (WorkItem);
   }
-  item->id = ++priv->counter;
+  item->id = ++impl->counter;
   item->obj = obj;
   item->func = func;
   item->data = data;
@@ -443,52 +283,46 @@ pinos_main_loop_defer (PinosMainLoop  *loop,
     have_work = TRUE;
     pinos_log_debug ("main-loop %p: defer object %p", loop, obj);
   }
-  spa_list_insert (priv->work.prev, &item->list);
+  spa_list_insert (impl->work.prev, &item->list);
 
-  if (priv->work_id == 0 && have_work)
-    priv->work_id = g_idle_add ((GSourceFunc) process_work_queue, loop);
+  if (impl->work_id == 0 && have_work)
+    impl->work_id = g_idle_add ((GSourceFunc) process_work_queue, loop);
 
   return item->id;
 }
 
-void
-pinos_main_loop_defer_cancel (PinosMainLoop  *loop,
-                              gpointer        obj,
-                              gulong          id)
+static void
+main_loop_defer_cancel (PinosMainLoop  *loop,
+                        void           *obj,
+                        uint32_t        id)
 {
-  PinosMainLoopPrivate *priv;
-  gboolean have_work = FALSE;
+  PinosMainLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosMainLoopImpl, this);
+  bool have_work = false;
   WorkItem *item;
 
-  g_return_if_fail (PINOS_IS_MAIN_LOOP (loop));
-  priv = loop->priv;
-
-  spa_list_for_each (item, &priv->work, list) {
+  spa_list_for_each (item, &impl->work, list) {
     if ((id == 0 || item->id == id) && (obj == NULL || item->obj == obj)) {
       pinos_log_debug ("main-loop %p: cancel defer %d for object %p", loop, item->seq, item->obj);
       item->seq = SPA_ID_INVALID;
       item->func = NULL;
-      have_work = TRUE;
+      have_work = true;
     }
   }
-  if (priv->work_id == 0 && have_work)
-    priv->work_id = g_idle_add ((GSourceFunc) process_work_queue, loop);
+  if (impl->work_id == 0 && have_work)
+    impl->work_id = g_idle_add ((GSourceFunc) process_work_queue, loop);
 }
 
-gboolean
-pinos_main_loop_defer_complete (PinosMainLoop  *loop,
-                                gpointer        obj,
-                                uint32_t        seq,
-                                SpaResult       res)
+static bool
+main_loop_defer_complete (PinosMainLoop  *loop,
+                          void           *obj,
+                          uint32_t        seq,
+                          SpaResult       res)
 {
   WorkItem *item;
-  PinosMainLoopPrivate *priv;
-  gboolean have_work = FALSE;
+  PinosMainLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosMainLoopImpl, this);
+  bool have_work = false;
 
-  g_return_val_if_fail (PINOS_IS_MAIN_LOOP (loop), FALSE);
-  priv = loop->priv;
-
-  spa_list_for_each (item, &priv->work, list) {
+  spa_list_for_each (item, &impl->work, list) {
     if (item->obj == obj && item->seq == seq) {
       pinos_log_debug ("main-loop %p: found defered %d for object %p", loop, seq, obj);
       item->seq = SPA_ID_INVALID;
@@ -499,32 +333,88 @@ pinos_main_loop_defer_complete (PinosMainLoop  *loop,
   if (!have_work)
     pinos_log_debug ("main-loop %p: no defered %d found for object %p", loop, seq, obj);
 
-  if (priv->work_id == 0 && have_work)
-    priv->work_id = g_idle_add ((GSourceFunc) process_work_queue, loop);
+  if (impl->work_id == 0 && have_work)
+    impl->work_id = g_idle_add ((GSourceFunc) process_work_queue, loop);
 
   return have_work;
 }
 
-GMainLoop *
-pinos_main_loop_get_impl (PinosMainLoop *loop)
+static void
+main_loop_quit (PinosMainLoop *loop)
 {
-  g_return_val_if_fail (PINOS_IS_MAIN_LOOP (loop), NULL);
+  PinosMainLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosMainLoopImpl, this);
+  g_main_loop_quit (impl->loop);
+}
 
-  return loop->priv->loop;
+static void
+main_loop_run (PinosMainLoop *loop)
+{
+  PinosMainLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosMainLoopImpl, this);
+  g_main_loop_run (impl->loop);
 }
 
 void
-pinos_main_loop_quit (PinosMainLoop *loop)
+pinos_main_loop_destroy (PinosMainLoop *loop)
 {
-  g_return_if_fail (PINOS_IS_MAIN_LOOP (loop));
+  PinosMainLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosMainLoopImpl, this);
 
-  g_main_loop_quit (loop->priv->loop);
+  pinos_log_debug ("main-loop %p: destroy", impl);
+
+  g_slice_free_chain (WorkItem, impl->free_list, list.next);
+  free (impl);
 }
 
-void
-pinos_main_loop_run (PinosMainLoop *loop)
+/**
+ * pinos_main_loop_new:
+ * @context: a #GMainContext or %NULL to use the default context
+ *
+ * Create a new #PinosMainLoop.
+ *
+ * Returns: a new #PinosMainLoop
+ */
+PinosMainLoop *
+pinos_main_loop_new (GMainContext *context)
 {
-  g_return_if_fail (PINOS_IS_MAIN_LOOP (loop));
+  PinosMainLoopImpl *impl;
+  PinosMainLoop *this;
 
-  g_main_loop_run (loop->priv->loop);
+  impl = calloc (1, sizeof (PinosMainLoopImpl));
+  pinos_log_debug ("main-loop %p: new", impl);
+
+  impl->context = context;
+  this = &impl->this;
+  this->run = main_loop_run;
+  this->quit = main_loop_quit;
+  this->defer = main_loop_defer;
+  this->defer_cancel = main_loop_defer_cancel;
+  this->defer_complete = main_loop_defer_complete;
+
+  impl->poll.size = sizeof (SpaPoll);
+  impl->poll.info = NULL;
+  impl->poll.add_item = do_add_item;
+  impl->poll.update_item = do_update_item;
+  impl->poll.remove_item = do_remove_item;
+  impl->poll.invoke = do_invoke;
+  this->poll = &impl->poll;
+
+  spa_list_init (&impl->work);
+  spa_ringbuffer_init (&impl->buffer, DATAS_SIZE);
+
+  impl->loop = g_main_loop_new (impl->context, FALSE);
+
+  impl->fds[0].fd = eventfd (0, 0);
+  impl->fds[0].events = POLLIN | POLLPRI | POLLERR;
+  impl->fds[0].revents = 0;
+
+  impl->wakeup.id = SPA_ID_INVALID;
+  impl->wakeup.enabled = false;
+  impl->wakeup.fds = impl->fds;
+  impl->wakeup.n_fds = 1;
+  impl->wakeup.idle_cb = NULL;
+  impl->wakeup.before_cb = NULL;
+  impl->wakeup.after_cb = main_loop_dispatch;
+  impl->wakeup.user_data = impl;
+  do_add_item (&impl->poll, &impl->wakeup);
+
+  return this;
 }

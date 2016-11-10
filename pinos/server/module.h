@@ -25,32 +25,16 @@
 
 G_BEGIN_DECLS
 
-#include <pinos/server/daemon.h>
+#include <pinos/server/core.h>
 
-#define PINOS_TYPE_MODULE                  (pinos_module_get_type ())
-#define PINOS_IS_MODULE(obj)               (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_MODULE))
-#define PINOS_IS_MODULE_CLASS(klass)       (G_TYPE_CHECK_CLASS_TYPE ((klass), PINOS_TYPE_MODULE))
-#define PINOS_MODULE_GET_CLASS(obj)        (G_TYPE_INSTANCE_GET_CLASS ((obj), PINOS_TYPE_MODULE, PinosModuleClass))
-#define PINOS_MODULE(obj)                  (G_TYPE_CHECK_INSTANCE_CAST ((obj), PINOS_TYPE_MODULE, PinosModule))
-#define PINOS_MODULE_CLASS(klass)          (G_TYPE_CHECK_CLASS_CAST ((klass), PINOS_TYPE_MODULE, PinosModuleClass))
-#define PINOS_MODULE_CAST(obj)             ((PinosModule*)(obj))
-#define PINOS_MODULE_CLASS_CAST(klass)     ((PinosModuleClass*)(klass))
+#define PINOS_MODULE_URI                            "http://pinos.org/ns/module"
+#define PINOS_MODULE_PREFIX                         PINOS_MODULE_URI "#"
 
 typedef struct _PinosModule PinosModule;
-typedef struct _PinosModuleClass PinosModuleClass;
-typedef struct _PinosModulePrivate PinosModulePrivate;
 
 struct _PinosModule {
-  GObject object;
-
   gchar *name;
-  PinosDaemon *daemon;
-
-  PinosModulePrivate *priv;
-};
-
-struct _PinosModuleClass {
-  GObjectClass parent_class;
+  PinosCore *core;
 };
 
 GQuark pinos_module_error_quark (void);
@@ -90,9 +74,7 @@ typedef enum
  */
 typedef gboolean (*PinosModuleInitFunc) (PinosModule *module, gchar *args);
 
-GType             pinos_module_get_type          (void);
-
-PinosModule *     pinos_module_load              (PinosDaemon *daemon,
+PinosObject *     pinos_module_load              (PinosCore   *core,
                                                   const gchar *name,
                                                   const gchar *args,
                                                   GError **err);

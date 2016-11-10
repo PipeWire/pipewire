@@ -39,11 +39,11 @@ pinos_command_error_quark (void)
 }
 
 typedef gboolean (*PinosCommandFunc)                    (PinosCommand  *command,
-                                                         PinosDaemon   *daemon,
+                                                         PinosCore     *core,
                                                          GError       **err);
 
 static gboolean  execute_command_module_load            (PinosCommand  *command,
-                                                         PinosDaemon   *daemon,
+                                                         PinosCore     *core,
                                                          GError       **err);
 
 typedef PinosCommand * (*PinosCommandParseFunc)         (const gchar   *line,
@@ -139,9 +139,9 @@ no_module:
 }
 
 static gboolean
-execute_command_module_load (PinosCommand  * command,
-                             PinosDaemon   * daemon,
-                             GError       ** err)
+execute_command_module_load (PinosCommand  *command,
+                             PinosCore     *core,
+                             GError       **err)
 {
   gchar *module;
   gchar *args;
@@ -149,7 +149,7 @@ execute_command_module_load (PinosCommand  * command,
   module = command->args[1];
   args = command->args[2];
 
-  return pinos_module_load (daemon, module, args, err) != NULL;
+  return pinos_module_load (core, module, args, err) != NULL;
 }
 
 /**
@@ -217,7 +217,7 @@ out:
 /**
  * pinos_command_run:
  * @command: A #PinosCommand
- * @daemon: A #PinosDaemon
+ * @core: A #PinosCore
  * @err: Return location for a #GError, or %NULL
  *
  * Run @command.
@@ -225,14 +225,14 @@ out:
  * Returns: %TRUE if @command was executed successfully, %FALSE otherwise.
  */
 gboolean
-pinos_command_run (PinosCommand  * command,
-                   PinosDaemon   * daemon,
-                   GError       ** err)
+pinos_command_run (PinosCommand  *command,
+                   PinosCore     *core,
+                   GError       **err)
 {
   g_return_val_if_fail (command != NULL, FALSE);
-  g_return_val_if_fail (PINOS_IS_DAEMON (daemon), FALSE);
+  g_return_val_if_fail (core, FALSE);
 
-  return command->func (command, daemon, err);
+  return command->func (command, core, err);
 }
 
 /**

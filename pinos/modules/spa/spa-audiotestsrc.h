@@ -27,32 +27,7 @@
 
 G_BEGIN_DECLS
 
-#define PINOS_TYPE_SPA_AUDIOTESTSRC                 (pinos_spa_audiotestsrc_get_type ())
-#define PINOS_IS_SPA_AUDIOTESTSRC(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_SPA_AUDIOTESTSRC))
-#define PINOS_IS_SPA_AUDIOTESTSRC_CLASS(klass)      (G_TYPE_CHECK_CLASS_TYPE ((klass), PINOS_TYPE_SPA_AUDIOTESTSRC))
-#define PINOS_SPA_AUDIOTESTSRC_GET_CLASS(obj)       (G_TYPE_INSTANCE_GET_CLASS ((obj), PINOS_TYPE_SPA_AUDIOTESTSRC, PinosSpaAudioTestSrcClass))
-#define PINOS_SPA_AUDIOTESTSRC(obj)                 (G_TYPE_CHECK_INSTANCE_CAST ((obj), PINOS_TYPE_SPA_AUDIOTESTSRC, PinosSpaAudioTestSrc))
-#define PINOS_SPA_AUDIOTESTSRC_CLASS(klass)         (G_TYPE_CHECK_CLASS_CAST ((klass), PINOS_TYPE_SPA_AUDIOTESTSRC, PinosSpaAudioTestSrcClass))
-#define PINOS_SPA_AUDIOTESTSRC_CAST(obj)            ((PinosSpaAudioTestSrc*)(obj))
-#define PINOS_SPA_AUDIOTESTSRC_CLASS_CAST(klass)    ((PinosSpaAudioTestSrcClass*)(klass))
-
-typedef struct _PinosSpaAudioTestSrc PinosSpaAudioTestSrc;
-typedef struct _PinosSpaAudioTestSrcClass PinosSpaAudioTestSrcClass;
-typedef struct _PinosSpaAudioTestSrcPrivate PinosSpaAudioTestSrcPrivate;
-
-struct _PinosSpaAudioTestSrc {
-  PinosNode object;
-
-  PinosSpaAudioTestSrcPrivate *priv;
-};
-
-struct _PinosSpaAudioTestSrcClass {
-  PinosNodeClass parent_class;
-};
-
-GType             pinos_spa_audiotestsrc_get_type (void);
-
-PinosNode *       pinos_spa_audiotestsrc_new      (PinosDaemon     *daemon,
+PinosNode *       pinos_spa_audiotestsrc_new      (PinosCore       *core,
                                                    const gchar     *name,
                                                    PinosProperties *properties);
 

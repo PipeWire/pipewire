@@ -35,6 +35,7 @@ extern "C" {
 typedef struct _PinosRegistry PinosRegistry;
 
 typedef struct {
+  uint32_t core;
   uint32_t daemon;
   uint32_t registry;
   uint32_t node;
@@ -42,6 +43,7 @@ typedef struct {
   uint32_t link;
   uint32_t node_factory;
   uint32_t client;
+  uint32_t monitor;
   uint32_t spa_node;
   uint32_t spa_clock;
   uint32_t spa_monitor;
@@ -70,16 +72,26 @@ pinos_registry_add_object (PinosRegistry *reg,
                            PinosObject   *object)
 {
   object->id = pinos_map_insert_new (&reg->objects, object);
-  pinos_signal_emit (&reg->object_added, object);
+  pinos_signal_emit (&reg->object_added, reg, object);
 }
 
 static inline void
 pinos_registry_remove_object (PinosRegistry *reg,
                               PinosObject   *object)
 {
-  pinos_signal_emit (&reg->object_removed, object);
+  pinos_signal_emit (&reg->object_removed, reg, object);
   pinos_map_remove (&reg->objects, object->id);
 }
+
+
+PinosObject *    pinos_registry_iterate_objects         (PinosRegistry *reg,
+                                                         uint32_t       type,
+                                                         void         **state);
+
+#define pinos_registry_iterate_nodes(reg,state)                                 \
+        pinos_registry_iterate_objects(reg, (reg)->uri.node,state)
+#define pinos_registry_iterate_node_factoriess(reg,state)                       \
+        pinos_registry_iterate_objects(reg, (reg)->uri.node_factory,state)
 
 #ifdef __cplusplus
 }

@@ -29,15 +29,17 @@
 gint
 main (gint argc, gchar *argv[])
 {
+  PinosCore *core;
   PinosDaemon *daemon;
-  GMainLoop *loop;
+  PinosMainLoop *loop;
   PinosDaemonConfig *config;
   PinosProperties *props;
   GError *err = NULL;
 
   pinos_init (&argc, &argv);
 
-  loop = g_main_loop_new (NULL, FALSE);
+  loop = pinos_main_loop_new (NULL);
+  core = pinos_core_new (loop);
 
   /* parse configuration */
   config = pinos_daemon_config_new ();
@@ -47,17 +49,18 @@ main (gint argc, gchar *argv[])
   }
 
   props = pinos_properties_new ("test", "test", NULL);
-  daemon = pinos_daemon_new (props);
+  daemon = pinos_daemon_new (core,
+                             props);
 
   pinos_daemon_config_run_commands (config, daemon);
 
   pinos_daemon_start (daemon);
 
-  g_main_loop_run (loop);
+  pinos_main_loop_run (loop);
 
   pinos_properties_free (props);
-  g_main_loop_unref (loop);
-  g_object_unref (daemon);
+  pinos_main_loop_destroy (loop);
+  pinos_daemon_destroy (daemon);
 
   return 0;
 }

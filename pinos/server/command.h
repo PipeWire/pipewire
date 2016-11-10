@@ -60,7 +60,7 @@ gboolean           pinos_command_parse                (PinosCommand **command,
                                                        gchar         *line,
                                                        GError       **err);
 gboolean           pinos_command_run                  (PinosCommand  *command,
-                                                       PinosDaemon   *daemon,
+                                                       PinosCore     *core,
                                                        GError       **err);
 const gchar *      pinos_command_get_name             (PinosCommand  *command);
 

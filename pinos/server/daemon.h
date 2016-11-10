@@ -27,27 +27,11 @@ G_BEGIN_DECLS
 #define PINOS_DAEMON_URI                            "http://pinos.org/ns/daemon"
 #define PINOS_DAEMON_PREFIX                         PINOS_DAEMON_URI "#"
 
-#define PINOS_TYPE_DAEMON                 (pinos_daemon_get_type ())
-#define PINOS_IS_DAEMON(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_DAEMON))
-#define PINOS_IS_DAEMON_CLASS(klass)      (G_TYPE_CHECK_CLASS_TYPE ((klass), PINOS_TYPE_DAEMON))
-#define PINOS_DAEMON_GET_CLASS(obj)       (G_TYPE_INSTANCE_GET_CLASS ((obj), PINOS_TYPE_DAEMON, PinosDaemonClass))
-#define PINOS_DAEMON(obj)                 (G_TYPE_CHECK_INSTANCE_CAST ((obj), PINOS_TYPE_DAEMON, PinosDaemon))
-#define PINOS_DAEMON_CLASS(klass)         (G_TYPE_CHECK_CLASS_CAST ((klass), PINOS_TYPE_DAEMON, PinosDaemonClass))
-#define PINOS_DAEMON_CAST(obj)            ((PinosDaemon*)(obj))
-#define PINOS_DAEMON_CLASS_CAST(klass)    ((PinosDaemonClass*)(klass))
-
 typedef struct _PinosDaemon PinosDaemon;
-typedef struct _PinosDaemonClass PinosDaemonClass;
-typedef struct _PinosDaemonPrivate PinosDaemonPrivate;
 
-#include <spa/include/spa/plugin.h>
-#include <spa/include/spa/log.h>
-#include <spa/include/spa/id-map.h>
-#include <pinos/server/node.h>
-#include <pinos/server/node-factory.h>
-#include <pinos/server/main-loop.h>
 #include <pinos/client/properties.h>
-#include <pinos/server/registry.h>
+#include <pinos/server/core.h>
+#include <pinos/server/node.h>
 
 /**
  * PinosDaemon:
@@ -55,46 +39,28 @@ typedef struct _PinosDaemonPrivate PinosDaemonPrivate;
  * Pinos daemon object class.
  */
 struct _PinosDaemon {
-  GObject obj;
+  PinosProperties *properties;
 
-  PinosObject object;
+  PinosCore *core;
 
-  SpaLog *log;
-
-  PinosMainLoop *main_loop;
-
-  SpaSupport *support;
-  unsigned int n_support;
-
-  PinosRegistry registry;
-
-  PinosDaemonPrivate *priv;
+  SpaResult  (*start)    (PinosDaemon *daemon);
+  SpaResult  (*stop)     (PinosDaemon *daemon);
 };
 
-/**
- * PinosDaemonClass:
- *
- * Pinos daemon object class.
- */
-struct _PinosDaemonClass {
-  GObjectClass parent_class;
-};
+PinosObject *     pinos_daemon_new               (PinosCore       *core,
+                                                  PinosProperties *properties);
 
-/* normal GObject stuff */
-GType             pinos_daemon_get_type          (void);
+const char *      pinos_daemon_get_object_path   (PinosDaemon *daemon);
 
-PinosDaemon *     pinos_daemon_new               (PinosProperties *properties);
-const gchar *     pinos_daemon_get_object_path   (PinosDaemon *daemon);
+#define pinos_daemon_start(d)   (d)->start(d)
+#define pinos_daemon_stop(d)    (d)->stop(d)
 
-void              pinos_daemon_start             (PinosDaemon *daemon);
-void              pinos_daemon_stop              (PinosDaemon *daemon);
-
-gchar *           pinos_daemon_export_uniquely   (PinosDaemon *daemon, GDBusObjectSkeleton *skel);
-void              pinos_daemon_unexport          (PinosDaemon *daemon, const gchar *name);
+char *            pinos_daemon_export_uniquely   (PinosDaemon *daemon, GDBusObjectSkeleton *skel);
+void              pinos_daemon_unexport          (PinosDaemon *daemon, const char *name);
 
 PinosPort *       pinos_daemon_find_port         (PinosDaemon     *daemon,
                                                   PinosPort       *other_port,
-                                                  const gchar     *name,
+                                                  const char      *name,
                                                   PinosProperties *props,
                                                   GPtrArray       *format_filter,
                                                   GError         **error);

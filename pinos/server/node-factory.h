@@ -28,59 +28,25 @@ G_BEGIN_DECLS
 #define PINOS_NODE_FACTORY_PREFIX                         PINOS_NODE_FACTORY_URI "#"
 
 typedef struct _PinosNodeFactory PinosNodeFactory;
-typedef struct _PinosNodeFactoryClass PinosNodeFactoryClass;
-typedef struct _PinosNodeFactoryPrivate PinosNodeFactoryPrivate;
 
-#include <pinos/server/daemon.h>
+#include <pinos/server/core.h>
 #include <pinos/server/client.h>
-
-#define PINOS_TYPE_NODE_FACTORY                 (pinos_node_factory_get_type ())
-#define PINOS_IS_NODE_FACTORY(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_NODE_FACTORY))
-#define PINOS_IS_NODE_FACTORY_CLASS(klass)      (G_TYPE_CHECK_CLASS_TYPE ((klass), PINOS_TYPE_NODE_FACTORY))
-#define PINOS_NODE_FACTORY_GET_CLASS(obj)       (G_TYPE_INSTANCE_GET_CLASS ((obj), PINOS_TYPE_NODE_FACTORY, PinosNodeFactoryClass))
-#define PINOS_NODE_FACTORY(obj)                 (G_TYPE_CHECK_INSTANCE_CAST ((obj), PINOS_TYPE_NODE_FACTORY, PinosNodeFactory))
-#define PINOS_NODE_FACTORY_CLASS(klass)         (G_TYPE_CHECK_CLASS_CAST ((klass), PINOS_TYPE_NODE_FACTORY, PinosNodeFactoryClass))
-#define PINOS_NODE_FACTORY_CAST(obj)            ((PinosNodeFactory*)(obj))
-#define PINOS_NODE_FACTORY_CLASS_CAST(klass)    ((PinosNodeFactoryClass*)(klass))
 
 /**
  * PinosNodeFactory:
  *
- * Pinos node factory class.
+ * Pinos node factory interface.
  */
 struct _PinosNodeFactory {
-  GObject obj;
-
-  PinosObject object;
-
-  PinosNodeFactoryPrivate *priv;
-};
-
-/**
- * PinosNodeFactoryClass:
- * @create_node: make a new node
- *
- * Pinos node factory class.
- */
-struct _PinosNodeFactoryClass {
-  GObjectClass parent_class;
+  const char *name;
 
   PinosNode *      (*create_node) (PinosNodeFactory *factory,
-                                   PinosDaemon *daemon,
                                    PinosClient *client,
                                    const gchar *name,
                                    PinosProperties *properties);
 };
 
-/* normal GObject stuff */
-GType               pinos_node_factory_get_type         (void);
-
-PinosNode *         pinos_node_factory_create_node      (PinosNodeFactory *factory,
-                                                         PinosClient *client,
-                                                         const gchar *name,
-                                                         PinosProperties *props);
-
-const gchar *       pinos_node_factory_get_name         (PinosNodeFactory *node_factory);
+#define pinos_node_factory_create_node(f,...)          (f)->create_node((f),__VA_ARGS__)
 
 G_END_DECLS
 

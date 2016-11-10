@@ -33,7 +33,7 @@ typedef struct _SpaALSAState SpaALSASink;
 
 static const char default_device[] = "default";
 static const uint32_t default_buffer_time = 4000;
-static const uint32_t default_period_time = 500;
+static const uint32_t default_period_time = 100;
 static const bool default_period_event = 0;
 
 static void

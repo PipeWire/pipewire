@@ -28,8 +28,6 @@ G_BEGIN_DECLS
 #define PINOS_LINK_PREFIX                         PINOS_LINK_URI "#"
 
 typedef struct _PinosLink PinosLink;
-typedef struct _PinosLinkClass PinosLinkClass;
-typedef struct _PinosLinkPrivate PinosLinkPrivate;
 
 #include <spa/include/spa/ringbuffer.h>
 
@@ -39,58 +37,41 @@ typedef struct _PinosLinkPrivate PinosLinkPrivate;
 #include <pinos/server/daemon.h>
 #include <pinos/server/main-loop.h>
 
-#define PINOS_TYPE_LINK             (pinos_link_get_type ())
-#define PINOS_IS_LINK(obj)          (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_LINK))
-#define PINOS_IS_LINK_CLASS(klass)  (G_TYPE_CHECK_CLASS_TYPE ((klass), PINOS_TYPE_LINK))
-#define PINOS_LINK_GET_CLASS(obj)   (G_TYPE_INSTANCE_GET_CLASS ((obj), PINOS_TYPE_LINK, PinosLinkClass))
-#define PINOS_LINK(obj)             (G_TYPE_CHECK_INSTANCE_CAST ((obj), PINOS_TYPE_LINK, PinosLink))
-#define PINOS_LINK_CLASS(klass)     (G_TYPE_CHECK_CLASS_CAST ((klass), PINOS_TYPE_LINK, PinosLinkClass))
-#define PINOS_LINK_CAST(obj)        ((PinosLink*)(obj))
-#define PINOS_LINK_CLASS_CAST(klass)((PinosLinkClass*)(klass))
-
 /**
  * PinosLink:
  *
- * Pinos link object class.
+ * Pinos link interface.
  */
 struct _PinosLink {
-  GObject obj;
+  PinosProperties *properties;
 
-  PinosObject object;
+  PinosLinkState state;
+  GError *error;
 
   PinosPort    *output;
   PinosPort    *input;
+
+  PinosSignal   port_unlinked;
+  PinosSignal   notify_state;
 
   uint32_t      queue[64];
   SpaRingbuffer ringbuffer;
   gint          in_ready;
 
-  PinosLinkPrivate *priv;
+  bool  (*activate)   (PinosLink *link);
+  bool  (*deactivate) (PinosLink *link);
 };
 
-/**
- * PinosLinkClass:
- *
- * Pinos link object class.
- */
-struct _PinosLinkClass {
-  GObjectClass parent_class;
-};
+PinosObject *       pinos_link_new                  (PinosCore       *core,
+                                                     PinosPort       *input,
+                                                     PinosPort       *output,
+                                                     GPtrArray       *format_filter,
+                                                     PinosProperties *properties);
 
-/* normal GObject stuff */
-GType               pinos_link_get_type             (void);
-
-void                pinos_link_remove               (PinosLink *link);
-
-PinosProperties *   pinos_link_get_properties       (PinosLink *link);
+#define pinos_link_activate(l)     (l)->activate(l)
+#define pinos_link_deactivate(l)   (l)->deactivate(l)
 
 const gchar *       pinos_link_get_object_path      (PinosLink *link);
-
-gboolean            pinos_link_activate             (PinosLink *link);
-gboolean            pinos_link_deactivate           (PinosLink *link);
-
-PinosLinkState      pinos_link_get_state            (PinosLink  *link,
-                                                     GError    **error);
 
 G_END_DECLS
 

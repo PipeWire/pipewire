@@ -26,39 +26,28 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
-#include <gio/gio.h>
-
 #include <spa/include/spa/node.h>
 #include <spa/include/spa/monitor.h>
-
 #include <pinos/client/log.h>
+#include <pinos/server/node.h>
 
 #include "spa-alsa-monitor.h"
 
-#define PINOS_SPA_ALSA_MONITOR_GET_PRIVATE(obj)  \
-     (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_SPA_ALSA_MONITOR, PinosSpaALSAMonitorPrivate))
-
-struct _PinosSpaALSAMonitorPrivate
+typedef struct
 {
-  PinosDaemon *daemon;
+  PinosSpaALSAMonitor this;
+
+  PinosObject object;
+
+  PinosCore *core;
 
   SpaHandle *handle;
-  SpaMonitor *monitor;
 
   GHashTable *nodes;
-};
-
-enum
-{
-  PROP_0,
-  PROP_DAEMON,
-  PROP_MONITOR,
-};
-
-G_DEFINE_TYPE (PinosSpaALSAMonitor, pinos_spa_alsa_monitor, G_TYPE_OBJECT);
+} PinosSpaALSAMonitorImpl;
 
 static SpaResult
-make_handle (PinosDaemon *daemon, SpaHandle **handle, const char *lib, const char *name, const SpaDict *info)
+make_handle (PinosCore *core, SpaHandle **handle, const char *lib, const char *name, const SpaDict *info)
 {
   SpaResult res;
   void *hnd, *state = NULL;
@@ -85,7 +74,7 @@ make_handle (PinosDaemon *daemon, SpaHandle **handle, const char *lib, const cha
       continue;
 
     *handle = g_malloc0 (factory->size);
-    if ((res = spa_handle_factory_init (factory, *handle, info, daemon->support, daemon->n_support)) < 0) {
+    if ((res = spa_handle_factory_init (factory, *handle, info, core->support, core->n_support)) < 0) {
       g_error ("can't make factory instance: %d", res);
       return res;
     }
@@ -97,7 +86,7 @@ make_handle (PinosDaemon *daemon, SpaHandle **handle, const char *lib, const cha
 static void
 add_item (PinosSpaALSAMonitor *this, SpaMonitorItem *item)
 {
-  PinosSpaALSAMonitorPrivate *priv = this->priv;
+  PinosSpaALSAMonitorImpl *impl = SPA_CONTAINER_OF (this, PinosSpaALSAMonitorImpl, this);
   SpaResult res;
   SpaHandle *handle;
   PinosNode *node;
@@ -110,16 +99,16 @@ add_item (PinosSpaALSAMonitor *this, SpaMonitorItem *item)
   if ((res = spa_handle_factory_init (item->factory,
                                       handle,
                                       item->info,
-                                      priv->daemon->support,
-                                      priv->daemon->n_support)) < 0) {
+                                      impl->core->support,
+                                      impl->core->n_support)) < 0) {
     g_error ("can't make factory instance: %d", res);
     return;
   }
-  if ((res = spa_handle_get_interface (handle, priv->daemon->registry.uri.spa_node, &node_iface)) < 0) {
+  if ((res = spa_handle_get_interface (handle, impl->core->registry.uri.spa_node, &node_iface)) < 0) {
     g_error ("can't get NODE interface: %d", res);
     return;
   }
-  if ((res = spa_handle_get_interface (handle, priv->daemon->registry.uri.spa_clock, &clock_iface)) < 0) {
+  if ((res = spa_handle_get_interface (handle, impl->core->registry.uri.spa_clock, &clock_iface)) < 0) {
     pinos_log_debug ("can't get CLOCK interface: %d", res);
     clock_iface = NULL;
   }
@@ -135,29 +124,27 @@ add_item (PinosSpaALSAMonitor *this, SpaMonitorItem *item)
                             item->info->items[i].value);
   }
 
-  node = g_object_new (PINOS_TYPE_NODE,
-                       "daemon", priv->daemon,
-                       "name", item->factory->name,
-                       "node", node_iface,
-                       "clock", clock_iface,
-                       "properties", props,
-                       NULL);
+  node = pinos_node_new (impl->core,
+                         item->factory->name,
+                         node_iface,
+                         clock_iface,
+                         props);
 
-  g_hash_table_insert (priv->nodes, g_strdup (item->id), node);
+  g_hash_table_insert (impl->nodes, strdup (item->id), node);
 }
 
 static void
 remove_item (PinosSpaALSAMonitor *this, SpaMonitorItem *item)
 {
-  PinosSpaALSAMonitorPrivate *priv = this->priv;
+  PinosSpaALSAMonitorImpl *impl = SPA_CONTAINER_OF (this, PinosSpaALSAMonitorImpl, this);
   PinosNode *node;
 
   pinos_log_debug ("alsa-monitor %p: remove: \"%s\" (%s)", this, item->name, item->id);
 
-  node = g_hash_table_lookup (priv->nodes, item->id);
+  node = g_hash_table_lookup (impl->nodes, item->id);
   if (node) {
-    pinos_node_remove (node);
-    g_hash_table_remove (priv->nodes, item->id);
+    pinos_node_destroy (node);
+    g_hash_table_remove (impl->nodes, item->id);
   }
 }
 
@@ -166,7 +153,8 @@ on_monitor_event  (SpaMonitor      *monitor,
                    SpaMonitorEvent *event,
                    void            *user_data)
 {
-  PinosSpaALSAMonitor *this = user_data;
+  PinosSpaALSAMonitorImpl *impl = SPA_CONTAINER_OF (monitor, PinosSpaALSAMonitorImpl, this);
+  PinosSpaALSAMonitor *this = &impl->this;
 
   switch (event->type) {
     case SPA_MONITOR_EVENT_TYPE_ADDED:
@@ -192,143 +180,31 @@ on_monitor_event  (SpaMonitor      *monitor,
 }
 
 static void
-monitor_constructed (GObject * object)
+monitor_destroy (PinosObject * object)
 {
-  PinosSpaALSAMonitor *this = PINOS_SPA_ALSA_MONITOR (object);
-  PinosSpaALSAMonitorPrivate *priv = this->priv;
-  SpaResult res;
-  void *state = NULL;
+  PinosSpaALSAMonitorImpl *impl = SPA_CONTAINER_OF (object, PinosSpaALSAMonitorImpl, object);
+  PinosSpaALSAMonitor *this = &impl->this;
 
-  pinos_log_debug ("spa-monitor %p: constructed", this);
+  pinos_log_debug ("spa-monitor %p: destroy", this);
 
-  G_OBJECT_CLASS (pinos_spa_alsa_monitor_parent_class)->constructed (object);
+  spa_handle_clear (impl->handle);
+  free (impl->handle);
 
-  while (TRUE) {
-    SpaMonitorItem *item;
-
-    if ((res = spa_monitor_enum_items (priv->monitor, &item, &state)) < 0) {
-      if (res != SPA_RESULT_ENUM_END)
-        pinos_log_debug ("spa_monitor_enum_items: got error %d\n", res);
-      break;
-    }
-    add_item (this, item);
-  }
-  spa_monitor_set_event_callback (priv->monitor, on_monitor_event, this);
+  g_hash_table_unref (impl->nodes);
+  free (impl);
 }
 
-static void
-monitor_get_property (GObject    *_object,
-                      guint       prop_id,
-                      GValue     *value,
-                      GParamSpec *pspec)
+PinosSpaALSAMonitor *
+pinos_spa_alsa_monitor_new (PinosCore *core)
 {
-  PinosSpaALSAMonitor *this = PINOS_SPA_ALSA_MONITOR (_object);
-  PinosSpaALSAMonitorPrivate *priv = this->priv;
-
-  switch (prop_id) {
-    case PROP_DAEMON:
-      g_value_set_object (value, priv->daemon);
-      break;
-
-    case PROP_MONITOR:
-      g_value_set_pointer (value, priv->monitor);
-      break;
-
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (this, prop_id, pspec);
-      break;
-  }
-}
-
-static void
-monitor_set_property (GObject      *_object,
-                      guint         prop_id,
-                      const GValue *value,
-                      GParamSpec   *pspec)
-{
-  PinosSpaALSAMonitor *this = PINOS_SPA_ALSA_MONITOR (_object);
-  PinosSpaALSAMonitorPrivate *priv = this->priv;
-
-  switch (prop_id) {
-    case PROP_DAEMON:
-      priv->daemon = g_value_dup_object (value);
-      break;
-
-    case PROP_MONITOR:
-      priv->monitor = g_value_get_pointer (value);
-      break;
-
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (this, prop_id, pspec);
-      break;
-  }
-}
-
-static void
-monitor_finalize (GObject * object)
-{
-  PinosSpaALSAMonitor *this = PINOS_SPA_ALSA_MONITOR (object);
-  PinosSpaALSAMonitorPrivate *priv = this->priv;
-
-  pinos_log_debug ("spa-monitor %p: dispose", this);
-  spa_handle_clear (priv->handle);
-  g_free (priv->handle);
-  g_hash_table_unref (priv->nodes);
-
-  G_OBJECT_CLASS (pinos_spa_alsa_monitor_parent_class)->finalize (object);
-}
-
-static void
-pinos_spa_alsa_monitor_class_init (PinosSpaALSAMonitorClass * klass)
-{
-  GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
-
-  g_type_class_add_private (klass, sizeof (PinosSpaALSAMonitorPrivate));
-
-  gobject_class->constructed = monitor_constructed;
-  gobject_class->finalize = monitor_finalize;
-  gobject_class->set_property = monitor_set_property;
-  gobject_class->get_property = monitor_get_property;
-
-  g_object_class_install_property (gobject_class,
-                                   PROP_DAEMON,
-                                   g_param_spec_object ("daemon",
-                                                        "Daemon",
-                                                        "The Daemon",
-                                                        PINOS_TYPE_DAEMON,
-                                                        G_PARAM_READWRITE |
-                                                        G_PARAM_CONSTRUCT_ONLY |
-                                                        G_PARAM_STATIC_STRINGS));
-  g_object_class_install_property (gobject_class,
-                                   PROP_MONITOR,
-                                   g_param_spec_pointer ("monitor",
-                                                         "Monitor",
-                                                         "The SPA monitor",
-                                                         G_PARAM_READWRITE |
-                                                         G_PARAM_CONSTRUCT_ONLY |
-                                                         G_PARAM_STATIC_STRINGS));
-}
-
-static void
-pinos_spa_alsa_monitor_init (PinosSpaALSAMonitor * this)
-{
-  PinosSpaALSAMonitorPrivate *priv = this->priv = PINOS_SPA_ALSA_MONITOR_GET_PRIVATE (this);
-
-  priv->nodes = g_hash_table_new_full (g_str_hash,
-                                       g_str_equal,
-                                       g_free,
-                                       g_object_unref);
-}
-
-GObject *
-pinos_spa_alsa_monitor_new (PinosDaemon *daemon)
-{
-  GObject *monitor;
+  PinosSpaALSAMonitorImpl *impl;
+  PinosSpaALSAMonitor *this;
   SpaHandle *handle;
   SpaResult res;
   void *iface;
+  void *state = NULL;
 
-  if ((res = make_handle (daemon, &handle,
+  if ((res = make_handle (core, &handle,
                           "build/spa/plugins/alsa/libspa-alsa.so",
                           "alsa-monitor",
                           NULL)) < 0) {
@@ -338,16 +214,38 @@ pinos_spa_alsa_monitor_new (PinosDaemon *daemon)
 
 
   if ((res = spa_handle_get_interface (handle,
-                                       daemon->registry.uri.spa_monitor,
+                                       core->registry.uri.spa_monitor,
                                        &iface)) < 0) {
-    g_free (handle);
-    g_error ("can't get MONITOR interface: %d", res);
+    free (handle);
+    pinos_log_error ("can't get MONITOR interface: %d", res);
     return NULL;
   }
+  impl = calloc (1, sizeof (PinosSpaALSAMonitorImpl));
+  impl->core = core;
+  this = &impl->this;
+  this->monitor = iface;
 
-  monitor = g_object_new (PINOS_TYPE_SPA_ALSA_MONITOR,
-                          "daemon", daemon,
-                          "monitor", iface,
-                          NULL);
-  return monitor;
+  pinos_object_init (&impl->object,
+                     impl->core->registry.uri.monitor,
+                     this,
+                     monitor_destroy);
+
+  impl->nodes = g_hash_table_new_full (g_str_hash,
+                                       g_str_equal,
+                                       free,
+                                       NULL);
+
+  while (true) {
+    SpaMonitorItem *item;
+
+    if ((res = spa_monitor_enum_items (this->monitor, &item, &state)) < 0) {
+      if (res != SPA_RESULT_ENUM_END)
+        pinos_log_debug ("spa_monitor_enum_items: got error %d\n", res);
+      break;
+    }
+    add_item (this, item);
+  }
+  spa_monitor_set_event_callback (this->monitor, on_monitor_event, impl);
+
+  return this;
 }

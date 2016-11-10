@@ -26,51 +26,32 @@
 
 G_BEGIN_DECLS
 
-#define PINOS_TYPE_CLIENT_NODE                 (pinos_client_node_get_type ())
-#define PINOS_IS_CLIENT_NODE(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_CLIENT_NODE))
-#define PINOS_IS_CLIENT_NODE_CLASS(klass)      (G_TYPE_CHECK_CLASS_TYPE ((klass), PINOS_TYPE_CLIENT_NODE))
-#define PINOS_CLIENT_NODE_GET_CLASS(obj)       (G_TYPE_INSTANCE_GET_CLASS ((obj), PINOS_TYPE_CLIENT_NODE, PinosClientNodeClass))
-#define PINOS_CLIENT_NODE(obj)                 (G_TYPE_CHECK_INSTANCE_CAST ((obj), PINOS_TYPE_CLIENT_NODE, PinosClientNode))
-#define PINOS_CLIENT_NODE_CLASS(klass)         (G_TYPE_CHECK_CLASS_CAST ((klass), PINOS_TYPE_CLIENT_NODE, PinosClientNodeClass))
-#define PINOS_CLIENT_NODE_CAST(obj)            ((PinosClientNode*)(obj))
-#define PINOS_CLIENT_NODE_CLASS_CAST(klass)    ((PinosClientNodeClass*)(klass))
+#define PINOS_CLIENT_NODE_URI                            "http://pinos.org/ns/client-node"
+#define PINOS_CLIENT_NODE_PREFIX                         PINOS_CLIENT_NODE_URI "#"
 
 typedef struct _PinosClientNode PinosClientNode;
-typedef struct _PinosClientNodeClass PinosClientNodeClass;
-typedef struct _PinosClientNodePrivate PinosClientNodePrivate;
 
 /**
  * PinosClientNode:
  *
- * Pinos client node object class.
+ * Pinos client node interface
  */
 struct _PinosClientNode {
-  PinosNode object;
+  PinosNode *node;
 
-  PinosClientNodePrivate *priv;
+  int  (*get_ctrl_socket)      (PinosClientNode  *node,
+                                GError          **error);
+  int  (*get_data_socket)      (PinosClientNode  *node,
+                                GError          **error);
 };
 
-/**
- * PinosClientNodeClass:
- *
- * Pinos client node object class.
- */
-struct _PinosClientNodeClass {
-  PinosNodeClass parent_class;
-};
-
-/* normal GObject stuff */
-GType              pinos_client_node_get_type             (void);
-
-PinosNode *        pinos_client_node_new                  (PinosDaemon     *daemon,
+PinosObject *      pinos_client_node_new                  (PinosCore       *core,
                                                            PinosClient     *client,
                                                            const gchar     *name,
                                                            PinosProperties *properties);
 
-GSocket *          pinos_client_node_get_socket_pair      (PinosClientNode  *node,
-                                                           GError          **error);
-GSocket *          pinos_client_node_get_rtsocket_pair    (PinosClientNode  *node,
-                                                           GError          **error);
+#define pinos_client_node_get_ctrl_socket(n)   (n)->get_ctrl_socket(n,__VA_ARGS__)
+#define pinos_client_node_get_data_socket(n)   (n)->get_data_socket(n,__VA_ARGS__)
 
 G_END_DECLS
 

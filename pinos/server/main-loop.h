@@ -28,67 +28,47 @@ G_BEGIN_DECLS
 #include <spa/include/spa/node-event.h>
 
 typedef struct _PinosMainLoop PinosMainLoop;
-typedef struct _PinosMainLoopClass PinosMainLoopClass;
-typedef struct _PinosMainLoopPrivate PinosMainLoopPrivate;
 
-#define PINOS_TYPE_MAIN_LOOP                 (pinos_main_loop_get_type ())
-#define PINOS_IS_MAIN_LOOP(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_MAIN_LOOP))
-#define PINOS_IS_MAIN_LOOP_CLASS(klass)      (G_TYPE_CHECK_CLASS_TYPE ((klass), PINOS_TYPE_MAIN_LOOP))
-#define PINOS_MAIN_LOOP_GET_CLASS(obj)       (G_TYPE_INSTANCE_GET_CLASS ((obj), PINOS_TYPE_MAIN_LOOP, PinosMainLoopClass))
-#define PINOS_MAIN_LOOP(obj)                 (G_TYPE_CHECK_INSTANCE_CAST ((obj), PINOS_TYPE_MAIN_LOOP, PinosMainLoop))
-#define PINOS_MAIN_LOOP_CLASS(klass)         (G_TYPE_CHECK_CLASS_CAST ((klass), PINOS_TYPE_MAIN_LOOP, PinosMainLoopClass))
-#define PINOS_MAIN_LOOP_CAST(obj)            ((PinosMainLoop*)(obj))
-#define PINOS_MAIN_LOOP_CLASS_CAST(klass)    ((PinosMainLoopClass*)(klass))
+typedef void (*PinosDeferFunc) (void       *obj,
+                                void       *data,
+                                SpaResult   res,
+                                gulong      id);
 
 /**
  * PinosMainLoop:
  *
- * Pinos rt-loop class.
+ * Pinos main-loop interface.
  */
 struct _PinosMainLoop {
-  GObject object;
+  SpaPoll *poll;
 
-  SpaPoll poll;
+  void         (*run)             (PinosMainLoop  *loop);
+  void         (*quit)            (PinosMainLoop  *loop);
 
-  PinosMainLoopPrivate *priv;
+  uint32_t     (*defer)           (PinosMainLoop  *loop,
+                                   void           *obj,
+                                   SpaResult       res,
+                                   PinosDeferFunc  func,
+                                   void           *data,
+                                   GDestroyNotify  notify);
+  void         (*defer_cancel)    (PinosMainLoop  *loop,
+                                   void           *obj,
+                                   uint32_t        id);
+  bool         (*defer_complete)  (PinosMainLoop  *loop,
+                                   void           *obj,
+                                   uint32_t        seq,
+                                   SpaResult       res);
 };
-
-/**
- * PinosMainLoopClass:
- *
- * Pinos rt-loop class.
- */
-struct _PinosMainLoopClass {
-  GObjectClass parent_class;
-};
-
-typedef void (*PinosDeferFunc) (gpointer       obj,
-                                gpointer       data,
-                                SpaResult      res,
-                                gulong         id);
-
-/* normal GObject stuff */
-GType               pinos_main_loop_get_type                (void);
 
 PinosMainLoop *     pinos_main_loop_new                     (GMainContext *context);
+void                pinos_main_loop_destroy                 (PinosMainLoop *loop);
 
-GMainLoop *         pinos_main_loop_get_impl                (PinosMainLoop  *loop);
-void                pinos_main_loop_run                     (PinosMainLoop  *loop);
-void                pinos_main_loop_quit                    (PinosMainLoop  *loop);
+#define pinos_main_loop_run(m)                 (m)->run(m)
+#define pinos_main_loop_quit(m)                (m)->quit(m)
 
-gulong              pinos_main_loop_defer                   (PinosMainLoop  *loop,
-                                                             gpointer        obj,
-                                                             SpaResult       res,
-                                                             PinosDeferFunc  func,
-                                                             gpointer        data,
-                                                             GDestroyNotify  notify);
-void                pinos_main_loop_defer_cancel            (PinosMainLoop  *loop,
-                                                             gpointer        obj,
-                                                             gulong          id);
-gboolean            pinos_main_loop_defer_complete          (PinosMainLoop  *loop,
-                                                             gpointer        obj,
-                                                             uint32_t        seq,
-                                                             SpaResult       res);
+#define pinos_main_loop_defer(m,...)           (m)->defer(m,__VA_ARGS__)
+#define pinos_main_loop_defer_cancel(m,...)    (m)->defer_cancel(m,__VA_ARGS__)
+#define pinos_main_loop_defer_complete(m,...)  (m)->defer_complete(m,__VA_ARGS__)
 
 G_END_DECLS
 

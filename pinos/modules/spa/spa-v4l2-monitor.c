@@ -29,44 +29,40 @@
 #include <spa/include/spa/node.h>
 #include <spa/include/spa/monitor.h>
 #include <pinos/client/log.h>
+#include <pinos/server/node.h>
 
 #include "spa-v4l2-monitor.h"
 
-#define PINOS_SPA_V4L2_MONITOR_GET_PRIVATE(obj)  \
-     (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_SPA_V4L2_MONITOR, PinosSpaV4l2MonitorPrivate))
-
-struct _PinosSpaV4l2MonitorPrivate
+typedef struct
 {
-  PinosDaemon *daemon;
+  PinosSpaV4l2Monitor this;
+
+  PinosObject object;
+
+  PinosCore *core;
 
   SpaHandle *handle;
-  SpaMonitor *monitor;
 
   GHashTable *nodes;
-};
-
-enum
-{
-  PROP_0,
-  PROP_DAEMON,
-  PROP_MONITOR,
-};
-
-G_DEFINE_TYPE (PinosSpaV4l2Monitor, pinos_spa_v4l2_monitor, G_TYPE_OBJECT);
+} PinosSpaV4l2MonitorImpl;
 
 static SpaResult
-make_handle (PinosDaemon *daemon, SpaHandle **handle, const char *lib, const char *name, const SpaDict *info)
+make_handle (PinosCore     *core,
+             SpaHandle    **handle,
+             const char    *lib,
+             const char    *name,
+             const SpaDict *info)
 {
   SpaResult res;
   void *hnd, *state = NULL;
   SpaEnumHandleFactoryFunc enum_func;
 
   if ((hnd = dlopen (lib, RTLD_NOW)) == NULL) {
-    g_error ("can't load %s: %s", lib, dlerror());
+    pinos_log_error ("can't load %s: %s", lib, dlerror());
     return SPA_RESULT_ERROR;
   }
   if ((enum_func = dlsym (hnd, "spa_enum_handle_factory")) == NULL) {
-    g_error ("can't find enum function");
+    pinos_log_error ("can't find enum function");
     return SPA_RESULT_ERROR;
   }
 
@@ -75,15 +71,19 @@ make_handle (PinosDaemon *daemon, SpaHandle **handle, const char *lib, const cha
 
     if ((res = enum_func (&factory, &state)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
-        g_error ("can't enumerate factories: %d", res);
+        pinos_log_error ("can't enumerate factories: %d", res);
       break;
     }
     if (strcmp (factory->name, name))
       continue;
 
-    *handle = g_malloc0 (factory->size);
-    if ((res = spa_handle_factory_init (factory, *handle, info, daemon->support, daemon->n_support)) < 0) {
-      g_error ("can't make factory instance: %d", res);
+    *handle = calloc (1, factory->size);
+    if ((res = spa_handle_factory_init (factory,
+                                        *handle,
+                                        info,
+                                        core->support,
+                                        core->n_support)) < 0) {
+      pinos_log_error ("can't make factory instance: %d", res);
       return res;
     }
     return SPA_RESULT_OK;
@@ -94,7 +94,7 @@ make_handle (PinosDaemon *daemon, SpaHandle **handle, const char *lib, const cha
 static void
 add_item (PinosSpaV4l2Monitor *this, SpaMonitorItem *item)
 {
-  PinosSpaV4l2MonitorPrivate *priv = this->priv;
+  PinosSpaV4l2MonitorImpl *impl = SPA_CONTAINER_OF (this, PinosSpaV4l2MonitorImpl, this);
   SpaResult res;
   SpaHandle *handle;
   PinosNode *node;
@@ -108,17 +108,17 @@ add_item (PinosSpaV4l2Monitor *this, SpaMonitorItem *item)
   if ((res = spa_handle_factory_init (item->factory,
                                       handle,
                                       item->info,
-                                      priv->daemon->support,
-                                      priv->daemon->n_support)) < 0) {
-    g_error ("can't make factory instance: %d", res);
+                                      impl->core->support,
+                                      impl->core->n_support)) < 0) {
+    pinos_log_error ("can't make factory instance: %d", res);
     return;
   }
-  if ((res = spa_handle_get_interface (handle, priv->daemon->registry.uri.spa_node, &node_iface)) < 0) {
-    g_error ("can't get NODE interface: %d", res);
+  if ((res = spa_handle_get_interface (handle, impl->core->registry.uri.spa_node, &node_iface)) < 0) {
+    pinos_log_error ("can't get NODE interface: %d", res);
     return;
   }
-  if ((res = spa_handle_get_interface (handle, priv->daemon->registry.uri.spa_clock, &clock_iface)) < 0) {
-    g_error ("can't get CLOCK interface: %d", res);
+  if ((res = spa_handle_get_interface (handle, impl->core->registry.uri.spa_clock, &clock_iface)) < 0) {
+    pinos_log_error ("can't get CLOCK interface: %d", res);
     return;
   }
 
@@ -133,29 +133,27 @@ add_item (PinosSpaV4l2Monitor *this, SpaMonitorItem *item)
                             item->info->items[i].value);
   }
 
-  node = g_object_new (PINOS_TYPE_NODE,
-                       "daemon", priv->daemon,
-                       "name", item->factory->name,
-                       "node", node_iface,
-                       "clock", clock_iface,
-                       "properties", props,
-                       NULL);
+  node = pinos_node_new (impl->core,
+                         item->factory->name,
+                         node_iface,
+                         clock_iface,
+                         props);
 
-  g_hash_table_insert (priv->nodes, g_strdup (item->id), node);
+  g_hash_table_insert (impl->nodes, strdup (item->id), node);
 }
 
 static void
 remove_item (PinosSpaV4l2Monitor *this, SpaMonitorItem *item)
 {
-  PinosSpaV4l2MonitorPrivate *priv = this->priv;
+  PinosSpaV4l2MonitorImpl *impl = SPA_CONTAINER_OF (this, PinosSpaV4l2MonitorImpl, this);
   PinosNode *node;
 
   pinos_log_debug ("v4l2-monitor %p: remove: \"%s\" (%s)", this, item->name, item->id);
 
-  node = g_hash_table_lookup (priv->nodes, item->id);
+  node = g_hash_table_lookup (impl->nodes, item->id);
   if (node) {
-    pinos_node_remove (node);
-    g_hash_table_remove (priv->nodes, item->id);
+    pinos_node_destroy (node);
+    g_hash_table_remove (impl->nodes, item->id);
   }
 }
 
@@ -190,162 +188,76 @@ on_monitor_event  (SpaMonitor      *monitor,
 }
 
 static void
-monitor_constructed (GObject * object)
+monitor_destroy (PinosObject * object)
 {
-  PinosSpaV4l2Monitor *this = PINOS_SPA_V4L2_MONITOR (object);
-  PinosSpaV4l2MonitorPrivate *priv = this->priv;
+  PinosSpaV4l2MonitorImpl *impl = SPA_CONTAINER_OF (object, PinosSpaV4l2MonitorImpl, object);
+  PinosSpaV4l2Monitor *this = &impl->this;
+
+  pinos_log_debug ("spa-monitor %p: dispose", this);
+  spa_handle_clear (impl->handle);
+  free (impl->handle);
+  g_hash_table_unref (impl->nodes);
+  free (impl);
+}
+
+
+PinosSpaV4l2Monitor *
+pinos_spa_v4l2_monitor_new (PinosCore *core)
+{
+  PinosSpaV4l2MonitorImpl *impl;
+  PinosSpaV4l2Monitor *this;
+  SpaHandle *handle;
   SpaResult res;
+  void *iface;
   void *state = NULL;
 
-  pinos_log_debug ("spa-monitor %p: constructed", this);
+  if ((res = make_handle (core,
+                          &handle,
+                          "build/spa/plugins/v4l2/libspa-v4l2.so",
+                          "v4l2-monitor",
+                          NULL)) < 0) {
+    pinos_log_error ("can't create v4l2-monitor: %d", res);
+    return NULL;
+  }
 
-  G_OBJECT_CLASS (pinos_spa_v4l2_monitor_parent_class)->constructed (object);
+  if ((res = spa_handle_get_interface (handle,
+                                       core->registry.uri.spa_monitor,
+                                       &iface)) < 0) {
+    free (handle);
+    pinos_log_error ("can't get MONITOR interface: %d", res);
+    return NULL;
+  }
+
+  impl = calloc (1, sizeof (PinosSpaV4l2MonitorImpl));
+  impl->core = core;
+
+  pinos_object_init (&impl->object,
+                     core->registry.uri.monitor,
+                     impl,
+                     monitor_destroy);
+
+  this = &impl->this;
+  this->monitor = iface;
+
+  impl->nodes = g_hash_table_new_full (g_str_hash,
+                                       g_str_equal,
+                                       g_free,
+                                       g_object_unref);
 
   while (TRUE) {
     SpaMonitorItem *item;
+    SpaResult res;
 
-    if ((res = spa_monitor_enum_items (priv->monitor, &item, &state)) < 0) {
+    if ((res = spa_monitor_enum_items (this->monitor, &item, &state)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
         pinos_log_debug ("spa_monitor_enum_items: got error %d\n", res);
       break;
     }
     add_item (this, item);
   }
-  spa_monitor_set_event_callback (priv->monitor, on_monitor_event, this);
-}
+  spa_monitor_set_event_callback (this->monitor, on_monitor_event, this);
 
-static void
-monitor_get_property (GObject    *_object,
-                      guint       prop_id,
-                      GValue     *value,
-                      GParamSpec *pspec)
-{
-  PinosSpaV4l2Monitor *this = PINOS_SPA_V4L2_MONITOR (_object);
-  PinosSpaV4l2MonitorPrivate *priv = this->priv;
+  pinos_registry_add_object (&core->registry, &impl->object);
 
-  switch (prop_id) {
-    case PROP_DAEMON:
-      g_value_set_object (value, priv->daemon);
-      break;
-
-    case PROP_MONITOR:
-      g_value_set_pointer (value, priv->monitor);
-      break;
-
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (this, prop_id, pspec);
-      break;
-  }
-}
-
-static void
-monitor_set_property (GObject      *_object,
-                      guint         prop_id,
-                      const GValue *value,
-                      GParamSpec   *pspec)
-{
-  PinosSpaV4l2Monitor *this = PINOS_SPA_V4L2_MONITOR (_object);
-  PinosSpaV4l2MonitorPrivate *priv = this->priv;
-
-  switch (prop_id) {
-    case PROP_DAEMON:
-      priv->daemon = g_value_dup_object (value);
-      break;
-
-    case PROP_MONITOR:
-      priv->monitor = g_value_get_pointer (value);
-      break;
-
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (this, prop_id, pspec);
-      break;
-  }
-}
-
-static void
-monitor_finalize (GObject * object)
-{
-  PinosSpaV4l2Monitor *this = PINOS_SPA_V4L2_MONITOR (object);
-  PinosSpaV4l2MonitorPrivate *priv = this->priv;
-
-  pinos_log_debug ("spa-monitor %p: dispose", this);
-  spa_handle_clear (priv->handle);
-  g_free (priv->handle);
-  g_hash_table_unref (priv->nodes);
-
-  G_OBJECT_CLASS (pinos_spa_v4l2_monitor_parent_class)->finalize (object);
-}
-
-static void
-pinos_spa_v4l2_monitor_class_init (PinosSpaV4l2MonitorClass * klass)
-{
-  GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
-
-  g_type_class_add_private (klass, sizeof (PinosSpaV4l2MonitorPrivate));
-
-  gobject_class->constructed = monitor_constructed;
-  gobject_class->finalize = monitor_finalize;
-  gobject_class->set_property = monitor_set_property;
-  gobject_class->get_property = monitor_get_property;
-
-  g_object_class_install_property (gobject_class,
-                                   PROP_DAEMON,
-                                   g_param_spec_object ("daemon",
-                                                        "Daemon",
-                                                        "The Daemon",
-                                                        PINOS_TYPE_DAEMON,
-                                                        G_PARAM_READWRITE |
-                                                        G_PARAM_CONSTRUCT_ONLY |
-                                                        G_PARAM_STATIC_STRINGS));
-  g_object_class_install_property (gobject_class,
-                                   PROP_MONITOR,
-                                   g_param_spec_pointer ("monitor",
-                                                         "Monitor",
-                                                         "The SPA monitor",
-                                                         G_PARAM_READWRITE |
-                                                         G_PARAM_CONSTRUCT_ONLY |
-                                                         G_PARAM_STATIC_STRINGS));
-}
-
-static void
-pinos_spa_v4l2_monitor_init (PinosSpaV4l2Monitor * this)
-{
-  PinosSpaV4l2MonitorPrivate *priv = this->priv = PINOS_SPA_V4L2_MONITOR_GET_PRIVATE (this);
-
-  priv->nodes = g_hash_table_new_full (g_str_hash,
-                                       g_str_equal,
-                                       g_free,
-                                       g_object_unref);
-}
-
-GObject *
-pinos_spa_v4l2_monitor_new (PinosDaemon *daemon)
-{
-  GObject *monitor;
-  SpaHandle *handle;
-  SpaResult res;
-  void *iface;
-
-  if ((res = make_handle (daemon,
-                          &handle,
-                          "build/spa/plugins/v4l2/libspa-v4l2.so",
-                          "v4l2-monitor",
-                          NULL)) < 0) {
-    g_error ("can't create v4l2-monitor: %d", res);
-    return NULL;
-  }
-
-  if ((res = spa_handle_get_interface (handle,
-                                       daemon->registry.uri.spa_monitor,
-                                       &iface)) < 0) {
-    g_free (handle);
-    g_error ("can't get MONITOR interface: %d", res);
-    return NULL;
-  }
-
-  monitor = g_object_new (PINOS_TYPE_SPA_V4L2_MONITOR,
-                          "daemon", daemon,
-                          "monitor", iface,
-                          NULL);
-  return monitor;
+  return this;
 }

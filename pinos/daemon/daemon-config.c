@@ -205,7 +205,7 @@ pinos_daemon_config_run_commands (PinosDaemonConfig  * config,
 
   for (walk = config->commands; walk != NULL; walk = walk->next) {
     PinosCommand *command = (PinosCommand *)walk->data;
-    if (!pinos_command_run (command, daemon, &err)) {
+    if (!pinos_command_run (command, daemon->core, &err)) {
       pinos_log_warn ("could not run command %s: %s",
           pinos_command_get_name (command), err->message);
       g_clear_error (&err);

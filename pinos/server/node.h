@@ -31,14 +31,7 @@ G_BEGIN_DECLS
 
 typedef struct _PinosPort PinosPort;
 typedef struct _PinosNode PinosNode;
-typedef struct _PinosNodeClass PinosNodeClass;
-typedef struct _PinosNodePrivate PinosNodePrivate;
-
-
-typedef enum {
-  PINOS_NODE_FLAG_NONE          = 0,
-  PINOS_NODE_FLAG_REMOVING      = (1 << 0),
-} PinosNodeFlags;
+typedef struct _PinosNodeListener PinosNodeListener;
 
 #include <spa/include/spa/node.h>
 
@@ -52,24 +45,28 @@ typedef enum {
 
 struct _PinosPort {
   PinosObject     object;
+
   PinosNode      *node;
   PinosDirection  direction;
   uint32_t        port;
+
   gboolean        allocated;
   PinosMemblock   buffer_mem;
   SpaBuffer     **buffers;
   guint           n_buffers;
+
   GPtrArray      *links;
 };
 
-#define PINOS_TYPE_NODE                 (pinos_node_get_type ())
-#define PINOS_IS_NODE(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_NODE))
-#define PINOS_IS_NODE_CLASS(klass)      (G_TYPE_CHECK_CLASS_TYPE ((klass), PINOS_TYPE_NODE))
-#define PINOS_NODE_GET_CLASS(obj)       (G_TYPE_INSTANCE_GET_CLASS ((obj), PINOS_TYPE_NODE, PinosNodeClass))
-#define PINOS_NODE(obj)                 (G_TYPE_CHECK_INSTANCE_CAST ((obj), PINOS_TYPE_NODE, PinosNode))
-#define PINOS_NODE_CLASS(klass)         (G_TYPE_CHECK_CLASS_CAST ((klass), PINOS_TYPE_NODE, PinosNodeClass))
-#define PINOS_NODE_CAST(obj)            ((PinosNode*)(obj))
-#define PINOS_NODE_CLASS_CAST(klass)    ((PinosNodeClass*)(klass))
+typedef struct {
+  uint32_t  seq;
+  SpaResult res;
+} PinosNodeAsyncCompleteData;
+
+typedef struct {
+  PinosNodeState old;
+  PinosNodeState state;
+} PinosNodeStateChangeData;
 
 /**
  * PinosNode:
@@ -77,11 +74,9 @@ struct _PinosPort {
  * Pinos node class.
  */
 struct _PinosNode {
-  GObject obj;
-
-  PinosObject object;
-
-  PinosNodeFlags flags;
+  char *name;
+  PinosProperties *properties;
+  PinosNodeState state;
 
   SpaNode *node;
 
@@ -92,27 +87,49 @@ struct _PinosNode {
   gboolean have_outputs;
 
   PinosTransport *transport;
+  PinosSignal transport_changed;
 
-  PinosNodePrivate *priv;
+  PinosSignal state_change;
+  PinosSignal port_added;
+  PinosSignal port_removed;
+  PinosSignal async_complete;
+
+  PinosPort * (*get_free_port)   (PinosNode        *node,
+                                  PinosDirection    direction);
+  PinosPort * (*enum_ports)      (PinosNode        *node,
+                                  PinosDirection    direction,
+                                  void            **state);
+  SpaResult   (*set_state)       (PinosNode        *node,
+                                  PinosNodeState    state);
 };
 
-/**
- * PinosNodeClass:
- * @set_state: called to change the current state of the node
- *
- * Pinos node class.
- */
-struct _PinosNodeClass {
-  GObjectClass parent_class;
+struct _PinosNodeListener {
+  void  (*async_complete)  (PinosNodeListener *listener,
+                            PinosNode         *node,
+                            uint32_t           seq,
+                            SpaResult          res);
+
+  void  (*state_change)    (PinosNodeListener *listener,
+                            PinosNode         *node,
+                            PinosNodeState     old,
+                            PinosNodeState     state);
+
+  void  (*port_added)      (PinosNodeListener *listener,
+                            PinosNode         *node,
+                            PinosPort         *port);
+
+  void  (*port_removed)    (PinosNodeListener *listener,
+                            PinosNode         *node,
+                            PinosPort         *port);
 };
 
-/* normal GObject stuff */
-GType               pinos_node_get_type                (void);
 
-void                pinos_node_remove                  (PinosNode *node);
 
-const gchar *       pinos_node_get_name                (PinosNode *node);
-PinosProperties *   pinos_node_get_properties          (PinosNode *node);
+PinosObject *       pinos_node_new                     (PinosCore       *core,
+                                                        const char      *name,
+                                                        SpaNode         *node,
+                                                        SpaClock        *clock,
+                                                        PinosProperties *properties);
 
 PinosDaemon *       pinos_node_get_daemon              (PinosNode        *node);
 PinosClient *       pinos_node_get_client              (PinosNode        *node);
@@ -124,7 +141,6 @@ PinosPort *         pinos_node_get_free_port           (PinosNode        *node,
 GList *             pinos_node_get_ports               (PinosNode        *node,
                                                         PinosDirection    direction);
 
-PinosNodeState      pinos_node_get_state               (PinosNode *node);
 gboolean            pinos_node_set_state               (PinosNode *node, PinosNodeState state);
 void                pinos_node_update_state            (PinosNode *node, PinosNodeState state);
 

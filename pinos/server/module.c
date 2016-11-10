@@ -30,115 +30,26 @@
 
 #define PINOS_SYMBOL_MODULE_INIT "pinos__module_init"
 
-#define PINOS_MODULE_GET_PRIVATE(module)   \
-  (G_TYPE_INSTANCE_GET_PRIVATE ((module), PINOS_TYPE_MODULE, PinosModulePrivate))
-
-struct _PinosModulePrivate
+typedef struct
 {
+  PinosModule this;
+
+  PinosObject object;
+  PinosInterface ifaces[1];
+
   GModule *module;
-};
+} PinosModuleImpl;
 
-G_DEFINE_TYPE (PinosModule, pinos_module, G_TYPE_OBJECT);
-
-enum
-{
-  PROP_0,
-  PROP_DAEMON,
-  PROP_NAME,
-};
 
 static void
-pinos_module_finalize (GObject * object)
+module_destroy (PinosObject * object)
 {
-  PinosModule *module = PINOS_MODULE (object);
-  PinosModulePrivate *priv = module->priv;
+  PinosModuleImpl *impl = SPA_CONTAINER_OF (object, PinosModuleImpl, object);
+  PinosModule *this = &impl->this;
 
-  g_clear_object (&module->daemon);
-  g_free (module->name);
-  g_module_close (priv->module);
-
-  G_OBJECT_CLASS (pinos_module_parent_class)->finalize (object);
-}
-
-static void
-pinos_module_set_property (GObject      *object,
-                           guint         prop_id,
-                           const GValue *value,
-                           GParamSpec   *pspec)
-{
-  PinosModule *module = PINOS_MODULE (object);
-
-  switch (prop_id) {
-    case PROP_DAEMON:
-      module->daemon = g_value_dup_object (value);
-      break;
-    case PROP_NAME:
-      module->name = g_value_dup_string (value);
-      break;
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
-      break;
-  }
-}
-
-static void
-pinos_module_get_property (GObject    *object,
-                           guint       prop_id,
-                           GValue     *value,
-                           GParamSpec *pspec)
-{
-  PinosModule *module = PINOS_MODULE (object);
-
-  switch (prop_id) {
-    case PROP_DAEMON:
-      g_value_set_object (value, module->daemon);
-      break;
-    case PROP_NAME:
-      g_value_set_string (value, module->name);
-      break;
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
-      break;
-  }
-}
-
-static void
-pinos_module_class_init (PinosModuleClass * klass)
-{
-  GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
-
-  g_type_class_add_private (klass, sizeof (PinosModulePrivate));
-
-  gobject_class->finalize = pinos_module_finalize;
-  gobject_class->set_property = pinos_module_set_property;
-  gobject_class->get_property = pinos_module_get_property;
-
-  g_object_class_install_property (gobject_class,
-                                   PROP_DAEMON,
-                                   g_param_spec_object ("daemon",
-                                                        "Daemon",
-                                                        "A Pinos Daemon",
-                                                        PINOS_TYPE_DAEMON,
-                                                        G_PARAM_READWRITE |
-                                                        G_PARAM_CONSTRUCT_ONLY |
-                                                        G_PARAM_STATIC_STRINGS));
-
-  g_object_class_install_property (gobject_class,
-                                   PROP_NAME,
-                                   g_param_spec_string ("name",
-                                                        "Name",
-                                                        "The name of the plugin",
-                                                        NULL,
-                                                        G_PARAM_READWRITE |
-                                                        G_PARAM_CONSTRUCT_ONLY |
-                                                        G_PARAM_STATIC_STRINGS));
-}
-
-static void
-pinos_module_init (PinosModule * module)
-{
-  PinosModulePrivate *priv = PINOS_MODULE_GET_PRIVATE (module);
-  module->priv = priv;
+  free (this->name);
+  g_module_close (impl->module);
+  free (impl);
 }
 
 GQuark
@@ -151,12 +62,6 @@ pinos_module_error_quark (void)
   }
 
   return quark;
-}
-
-static PinosModule *
-pinos_module_new (const gchar * name, PinosDaemon * daemon)
-{
-  return g_object_new (PINOS_TYPE_MODULE, "name", name, "daemon", daemon, NULL);
 }
 
 static gchar *
@@ -205,7 +110,7 @@ find_module (const gchar * path, const gchar *name)
 
 /**
  * pinos_module_load:
- * @daemon: a #PinosDaemon
+ * @core: a #PinosCore
  * @name: name of the module to load
  * @args: A string with arguments for the module
  * @err: Return location for a #GError, or %NULL
@@ -215,20 +120,20 @@ find_module (const gchar * path, const gchar *name)
  * Returns: A #PinosModule if the module could be loaded, or %NULL on failure.
  */
 PinosModule *
-pinos_module_load (PinosDaemon  * daemon,
-                   const gchar  * name,
-                   const gchar  * args,
-                   GError      ** err)
+pinos_module_load (PinosCore    *core,
+                   const gchar  *name,
+                   const gchar  *args,
+                   GError      **err)
 {
-  PinosModule *module;
-  PinosModulePrivate *priv;
+  PinosModule *this;
+  PinosModuleImpl *impl;
   GModule *gmodule;
   gchar *filename = NULL;
   const gchar *module_dir;
   PinosModuleInitFunc init_func;
 
   g_return_val_if_fail (name != NULL && name[0] != '\0', NULL);
-  g_return_val_if_fail (PINOS_IS_DAEMON (daemon), NULL);
+  g_return_val_if_fail (core, NULL);
 
   if (!g_module_supported ()) {
     g_set_error (err, PINOS_MODULE_ERROR, PINOS_MODULE_ERROR_LOADING,
@@ -281,21 +186,33 @@ pinos_module_load (PinosDaemon  * daemon,
     return NULL;
   }
 
-  module = pinos_module_new (name, daemon);
-  priv = module->priv;
-  priv->module = gmodule;
+  impl = calloc (1, sizeof (PinosModuleImpl));
+  impl->module = gmodule;
+
+  this = &impl->this;
+  this->name = strdup (name);
+  this->core = core;
+
+  impl->ifaces[0].type = impl->core->registry.uri.module;
+  impl->ifaces[0].iface = this;
+
+
+  pinos_object_init (&impl->object,
+                     module_destroy,
+                     1,
+                     impl->ifaces);
 
   /* don't unload this module again */
   g_module_make_resident (gmodule);
 
-  if (!init_func (module, (gchar *) args)) {
+  if (!init_func (this, (gchar *) args)) {
     g_set_error (err, PINOS_MODULE_ERROR, PINOS_MODULE_ERROR_INIT,
         "\"%s\" failed to initialize", name);
-    g_object_unref (module);
+    module_destroy (this);
     return NULL;
   }
 
-  pinos_log_debug ("loaded module: %s", module->name);
+  pinos_log_debug ("loaded module: %s", this->name);
 
-  return module;
+  return &this->object;
 }

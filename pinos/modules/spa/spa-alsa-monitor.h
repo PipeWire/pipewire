@@ -22,36 +22,20 @@
 
 #include <glib-object.h>
 
+
+#include <spa/include/spa/monitor.h>
 #include <pinos/server/daemon.h>
 
 G_BEGIN_DECLS
 
-#define PINOS_TYPE_SPA_ALSA_MONITOR                 (pinos_spa_alsa_monitor_get_type ())
-#define PINOS_IS_SPA_ALSA_MONITOR(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_SPA_ALSA_MONITOR))
-#define PINOS_IS_SPA_ALSA_MONITOR_CLASS(klass)      (G_TYPE_CHECK_CLASS_TYPE ((klass), PINOS_TYPE_SPA_ALSA_MONITOR))
-#define PINOS_SPA_ALSA_MONITOR_GET_CLASS(obj)       (G_TYPE_INSTANCE_GET_CLASS ((obj), PINOS_TYPE_SPA_ALSA_MONITOR, PinosSpaALSAMonitorClass))
-#define PINOS_SPA_ALSA_MONITOR(obj)                 (G_TYPE_CHECK_INSTANCE_CAST ((obj), PINOS_TYPE_SPA_ALSA_MONITOR, PinosSpaALSAMonitor))
-#define PINOS_SPA_ALSA_MONITOR_CLASS(klass)         (G_TYPE_CHECK_CLASS_CAST ((klass), PINOS_TYPE_SPA_ALSA_MONITOR, PinosSpaALSAMonitorClass))
-#define PINOS_SPA_ALSA_MONITOR_CAST(obj)            ((PinosSpaALSAMonitor*)(obj))
-#define PINOS_SPA_ALSA_MONITOR_CLASS_CAST(klass)    ((PinosSpaALSAMonitorClass*)(klass))
-
 typedef struct _PinosSpaALSAMonitor PinosSpaALSAMonitor;
-typedef struct _PinosSpaALSAMonitorClass PinosSpaALSAMonitorClass;
-typedef struct _PinosSpaALSAMonitorPrivate PinosSpaALSAMonitorPrivate;
 
 struct _PinosSpaALSAMonitor {
-  GObject object;
-
-  PinosSpaALSAMonitorPrivate *priv;
+  SpaMonitor *monitor;
 };
 
-struct _PinosSpaALSAMonitorClass {
-  GObjectClass parent_class;
-};
-
-GType             pinos_spa_alsa_monitor_get_type (void);
-
-GObject *         pinos_spa_alsa_monitor_new      (PinosDaemon *daemon);
+PinosSpaALSAMonitor *         pinos_spa_alsa_monitor_new      (PinosCore *core);
+void                          pinos_spa_alsa_monitor_destroy  (PinosSpaALSAMonitor *monitor);
 
 G_END_DECLS
 

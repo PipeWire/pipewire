@@ -29,6 +29,7 @@ extern "C" {
 #endif
 
 typedef struct _PinosObject PinosObject;
+typedef struct _PinosInterface PinosInterface;
 
 typedef enum {
   PINOS_OBJECT_FLAG_NONE          = 0,
@@ -37,28 +38,53 @@ typedef enum {
 
 typedef void (*PinosDestroyFunc)  (PinosObject *object);
 
+struct _PinosInterface {
+  uint32_t  type;
+  void     *iface;
+};
+
 struct _PinosObject {
-  uint32_t          type;
   uint32_t          id;
-  void             *implementation;
   PinosObjectFlags  flags;
   PinosDestroyFunc  destroy;
   PinosSignal       destroy_signal;
+  unsigned int      n_interfaces;
+  PinosInterface   *interfaces;
 };
 
 static inline void
 pinos_object_init (PinosObject      *object,
-                   uint32_t          type,
-                   void             *implementation,
-                   PinosDestroyFunc  destroy)
+                   PinosDestroyFunc  destroy,
+                   unsigned int      n_interfaces,
+                   PinosInterface   *interfaces)
 {
-  object->type = type;
   object->id = SPA_ID_INVALID;
-  object->implementation = implementation;
+  object->flags = 0;
   object->destroy = destroy;
   pinos_signal_init (&object->destroy_signal);
+  object->n_interfaces = n_interfaces;
+  object->interfaces = interfaces;
 }
 
+static inline void *
+pinos_object_get_interface (PinosObject *object,
+                            uint32_t     type)
+{
+  unsigned int i;
+  for (i = 0; i < object->n_interfaces; i++)
+    if (object->interfaces[i].type == type)
+      return object->interfaces[i].iface;
+  return NULL;
+}
+
+static inline void
+pinos_object_destroy (PinosObject *object)
+{
+  object->flags |= PINOS_OBJECT_FLAG_DESTROYING;
+  pinos_signal_emit (&object->destroy_signal, object, NULL);
+  if (object->destroy)
+    object->destroy (object);
+}
 
 #ifdef __cplusplus
 }

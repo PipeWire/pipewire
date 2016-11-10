@@ -25,36 +25,18 @@
 #include <client/pinos.h>
 #include <server/node.h>
 
+typedef struct _PinosSpaVideoTestSrc PinosSpaVideoTestSrc;
+
 G_BEGIN_DECLS
 
-#define PINOS_TYPE_SPA_VIDEOTESTSRC                 (pinos_spa_videotestsrc_get_type ())
-#define PINOS_IS_SPA_VIDEOTESTSRC(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_SPA_VIDEOTESTSRC))
-#define PINOS_IS_SPA_VIDEOTESTSRC_CLASS(klass)      (G_TYPE_CHECK_CLASS_TYPE ((klass), PINOS_TYPE_SPA_VIDEOTESTSRC))
-#define PINOS_SPA_VIDEOTESTSRC_GET_CLASS(obj)       (G_TYPE_INSTANCE_GET_CLASS ((obj), PINOS_TYPE_SPA_VIDEOTESTSRC, PinosSpaVideoTestSrcClass))
-#define PINOS_SPA_VIDEOTESTSRC(obj)                 (G_TYPE_CHECK_INSTANCE_CAST ((obj), PINOS_TYPE_SPA_VIDEOTESTSRC, PinosSpaVideoTestSrc))
-#define PINOS_SPA_VIDEOTESTSRC_CLASS(klass)         (G_TYPE_CHECK_CLASS_CAST ((klass), PINOS_TYPE_SPA_VIDEOTESTSRC, PinosSpaVideoTestSrcClass))
-#define PINOS_SPA_VIDEOTESTSRC_CAST(obj)            ((PinosSpaVideoTestSrc*)(obj))
-#define PINOS_SPA_VIDEOTESTSRC_CLASS_CAST(klass)    ((PinosSpaVideoTestSrcClass*)(klass))
-
-typedef struct _PinosSpaVideoTestSrc PinosSpaVideoTestSrc;
-typedef struct _PinosSpaVideoTestSrcClass PinosSpaVideoTestSrcClass;
-typedef struct _PinosSpaVideoTestSrcPrivate PinosSpaVideoTestSrcPrivate;
-
 struct _PinosSpaVideoTestSrc {
-  PinosNode object;
-
-  PinosSpaVideoTestSrcPrivate *priv;
+  PinosNode *node;
 };
 
-struct _PinosSpaVideoTestSrcClass {
-  PinosNodeClass parent_class;
-};
-
-GType             pinos_spa_videotestsrc_get_type (void);
-
-PinosNode *       pinos_spa_videotestsrc_new      (PinosDaemon     *daemon,
-                                                   const gchar     *name,
-                                                   PinosProperties *properties);
+PinosSpaVideoTestSrc * pinos_spa_videotestsrc_new      (PinosCore       *core,
+                                                        const gchar     *name,
+                                                        PinosProperties *properties);
+void                   pinos_spa_videotestsrc_destroy  (PinosSpaVideoTestSrc *src);
 
 G_END_DECLS
 

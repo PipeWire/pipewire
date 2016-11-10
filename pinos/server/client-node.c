@@ -119,31 +119,22 @@ struct _SpaProxy
   uint32_t seq;
 };
 
-struct _PinosClientNodePrivate
+typedef struct
 {
-  SpaProxy *proxy;
+  PinosClientNode this;
 
-  GSocket *sockets[2];
-  GSocket *rtsockets[2];
-};
+  PinosObject object;
+  PinosInterface ifaces[1];
 
-#define PINOS_CLIENT_NODE_GET_PRIVATE(obj)  \
-   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_CLIENT_NODE, PinosClientNodePrivate))
+  PinosCore *core;
 
-G_DEFINE_TYPE (PinosClientNode, pinos_client_node, PINOS_TYPE_NODE);
+  SpaProxy proxy;
 
-enum
-{
-  PROP_0,
-};
+  PinosListener transport_changed;
 
-enum
-{
-  SIGNAL_NONE,
-  LAST_SIGNAL
-};
-
-//static guint signals[LAST_SIGNAL] = { 0 };
+  int fd;
+  int rtfd;
+} PinosClientNodeImpl;
 
 static void
 send_async_complete (SpaProxy *this, uint32_t seq, SpaResult res)
@@ -1231,15 +1222,16 @@ proxy_init (SpaProxy         *this,
 }
 
 static void
-on_transport_changed (GObject         *obj,
-                      GParamSpec      *pspec,
-                      PinosClientNode *this)
+on_transport_changed (PinosListener   *listener,
+                      void            *object,
+                      void            *data)
 {
-  PinosNode *node = PINOS_NODE (obj);
-  PinosClientNodePrivate *priv = this->priv;
+  PinosClientNodeImpl *impl = SPA_CONTAINER_OF (listener, PinosClientNodeImpl, transport_changed);
+  PinosClientNode *this = &impl->this;
+  PinosNode *node = object;
   PinosTransportInfo info;
   PinosMessageTransportUpdate tu;
-  PinosConnection *conn = priv->proxy->conn;
+  PinosConnection *conn = impl->proxy.conn;
 
   pinos_transport_get_info (node->transport, &info);
 
@@ -1265,108 +1257,33 @@ proxy_clear (SpaProxy *this)
     if (this->out_ports[i].valid)
       clear_port (this, &this->out_ports[i], SPA_DIRECTION_OUTPUT, i);
   }
-  if (this->fds[0].fd != -1)
+  if (this->fds[0].fd != -1) {
     spa_poll_remove_item (this->main_loop, &this->poll);
-  if (this->rtfds[0].fd != -1)
+    close (this->fds[0].fd);
+  }
+  if (this->rtfds[0].fd != -1) {
     spa_poll_remove_item (this->data_loop, &this->rtpoll);
+    close (this->rtfds[0].fd);
+  }
 
   return SPA_RESULT_OK;
 }
 
 static void
-pinos_client_node_get_property (GObject    *_object,
-                                  guint       prop_id,
-                                  GValue     *value,
-                                  GParamSpec *pspec)
+client_node_destroy (PinosObject * object)
 {
-  PinosClientNode *node = PINOS_CLIENT_NODE (_object);
+  PinosClientNodeImpl *impl = (PinosClientNodeImpl *) object;
+  PinosClientNode *this = &impl->this;
 
-  switch (prop_id) {
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (node, prop_id, pspec);
-      break;
-  }
-}
+  pinos_log_debug ("client-node %p: destroy", this);
 
-static void
-pinos_client_node_set_property (GObject      *_object,
-                            guint         prop_id,
-                            const GValue *value,
-                            GParamSpec   *pspec)
-{
-  PinosClientNode *node = PINOS_CLIENT_NODE (_object);
+  proxy_clear (&impl->proxy);
 
-  switch (prop_id) {
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (node, prop_id, pspec);
-      break;
-  }
-}
-
-static void
-pinos_client_node_dispose (GObject * object)
-{
-  PinosClientNode *this = PINOS_CLIENT_NODE (object);
-  PinosClientNodePrivate *priv = this->priv;
-
-  pinos_log_debug ("client-node %p: dispose", this);
-
-  proxy_clear (priv->proxy);
-
-  G_OBJECT_CLASS (pinos_client_node_parent_class)->dispose (object);
-}
-
-static void
-pinos_client_node_finalize (GObject * object)
-{
-  PinosClientNode *this = PINOS_CLIENT_NODE (object);
-  PinosClientNodePrivate *priv = this->priv;
-
-  pinos_log_debug ("client-node %p: finalize", this);
-
-  g_clear_object (&priv->sockets[0]);
-  g_clear_object (&priv->sockets[1]);
-  g_clear_object (&priv->rtsockets[0]);
-  g_clear_object (&priv->rtsockets[1]);
-
-  G_OBJECT_CLASS (pinos_client_node_parent_class)->finalize (object);
-}
-
-static void
-pinos_client_node_constructed (GObject * object)
-{
-  PinosClientNode *this = PINOS_CLIENT_NODE (object);
-  PinosClientNodePrivate *priv = this->priv;
-
-  pinos_log_debug ("client-node %p: constructed", this);
-
-  G_OBJECT_CLASS (pinos_client_node_parent_class)->constructed (object);
-
-  g_signal_connect (object, "notify::transport", (GCallback) on_transport_changed, this);
-
-  priv->proxy = (SpaProxy *) PINOS_NODE (this)->node;
-}
-
-static void
-pinos_client_node_class_init (PinosClientNodeClass * klass)
-{
-  GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
-
-  g_type_class_add_private (klass, sizeof (PinosClientNodePrivate));
-
-  gobject_class->constructed = pinos_client_node_constructed;
-  gobject_class->dispose = pinos_client_node_dispose;
-  gobject_class->finalize = pinos_client_node_finalize;
-  gobject_class->set_property = pinos_client_node_set_property;
-  gobject_class->get_property = pinos_client_node_get_property;
-}
-
-static void
-pinos_client_node_init (PinosClientNode * node)
-{
-  node->priv = PINOS_CLIENT_NODE_GET_PRIVATE (node);
-
-  pinos_log_debug ("client-node %p: new", node);
+  if (impl->fd != -1)
+    close (impl->fd);
+  if (impl->rtfd != -1)
+    close (impl->rtfd);
+  free (impl);
 }
 
 /**
@@ -1380,30 +1297,44 @@ pinos_client_node_init (PinosClientNode * node)
  *
  * Returns: a new #PinosNode
  */
-PinosNode *
-pinos_client_node_new (PinosDaemon     *daemon,
+PinosClientNode *
+pinos_client_node_new (PinosCore       *core,
                        PinosClient     *client,
                        const gchar     *name,
                        PinosProperties *properties)
 {
-  PinosNode *node;
-  SpaProxy *p;
+  PinosClientNodeImpl *impl;
+  PinosClientNode *this;
 
-  g_return_val_if_fail (PINOS_IS_DAEMON (daemon), NULL);
+  g_return_val_if_fail (core, NULL);
 
-  p = g_malloc0 (sizeof (SpaProxy));
-  proxy_init (p, NULL, daemon->support, daemon->n_support);
-  node =  g_object_new (PINOS_TYPE_CLIENT_NODE,
-                       "daemon", daemon,
-                       "client", client,
-                       "name", name,
-                       "properties", properties,
-                       "node", p,
-                       NULL);
+  impl = calloc (1, sizeof (PinosClientNodeImpl));
+  impl->core = core;
+  this = &impl->this;
+  pinos_log_debug ("client-node %p: new", impl);
 
-  p->pnode = node;
+  impl->ifaces[0].type = impl->core->registry.uri.node;
+  impl->ifaces[0].iface = this;
 
-  return node;
+  pinos_object_init (&this->object,
+                     client_node_destroy,
+                     1,
+                     impl->ifaces);
+
+  proxy_init (&impl->proxy, NULL, core->support, core->n_support);
+
+  this->node = pinos_node_new (core,
+                               name,
+                               &impl->proxy.node,
+                               NULL,
+                               properties);
+
+  impl->proxy.pnode = this->node;
+
+  impl->transport_changed.notify = on_transport_changed;
+  pinos_signal_add (&this->node->transport_changed, &impl->transport_changed);
+
+  return this;
 }
 
 /**
@@ -1414,38 +1345,28 @@ pinos_client_node_new (PinosDaemon     *daemon,
  * Create or return a previously create socket pair for @node. The
  * Socket for the other end is returned.
  *
- * Returns: a #GSocket that can be used to send/receive buffers to node.
+ * Returns: a socket that can be used to send/receive buffers to node.
  */
-GSocket *
+int
 pinos_client_node_get_socket_pair (PinosClientNode  *this,
                                    GError          **error)
 {
-  PinosClientNodePrivate *priv;
+  PinosClientNodeImpl *impl = (PinosClientNodeImpl *) this;
 
-  g_return_val_if_fail (PINOS_IS_CLIENT_NODE (this), FALSE);
-  priv = this->priv;
+  g_return_val_if_fail (this, -1);
 
-  if (priv->sockets[1] == NULL) {
+  if (impl->fd == -1) {
     int fd[2];
 
     if (socketpair (AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, fd) != 0)
       goto no_sockets;
 
-    priv->sockets[0] = g_socket_new_from_fd (fd[0], error);
-    if (priv->sockets[0] == NULL)
-      goto create_failed;
-
-    priv->sockets[1] = g_socket_new_from_fd (fd[1], error);
-    if (priv->sockets[1] == NULL)
-      goto create_failed;
-
-    priv->proxy->fds[0].fd = g_socket_get_fd (priv->sockets[0]);
-    priv->proxy->conn = pinos_connection_new (priv->proxy->fds[0].fd);
-
-    spa_poll_add_item (priv->proxy->main_loop, &priv->proxy->poll);
-
+    impl->proxy.fds[0].fd = fd[0];
+    impl->proxy.conn = pinos_connection_new (impl->proxy.fds[0].fd);
+    spa_poll_add_item (impl->proxy.main_loop, &impl->proxy.poll);
+    impl->fd = fd[1];
   }
-  return g_object_ref (priv->sockets[1]);
+  return impl->fd;
 
   /* ERRORS */
 no_sockets:
@@ -1454,13 +1375,7 @@ no_sockets:
                  G_IO_ERROR,
                  g_io_error_from_errno (errno),
                  "could not create socketpair: %s", strerror (errno));
-    return NULL;
-  }
-create_failed:
-  {
-    g_clear_object (&priv->sockets[0]);
-    g_clear_object (&priv->sockets[1]);
-    return NULL;
+    return -1;
   }
 }
 
@@ -1474,34 +1389,25 @@ create_failed:
  *
  * Returns: a #GSocket that can be used to send/receive buffers to node.
  */
-GSocket *
+int
 pinos_client_node_get_rtsocket_pair (PinosClientNode  *this,
                                      GError          **error)
 {
-  PinosClientNodePrivate *priv;
+  PinosClientNodeImpl *impl = (PinosClientNodeImpl *) this;
 
-  g_return_val_if_fail (PINOS_IS_CLIENT_NODE (this), FALSE);
-  priv = this->priv;
+  g_return_val_if_fail (this, -1);
 
-  if (priv->rtsockets[1] == NULL) {
+  if (impl->fd == -1) {
     int fd[2];
 
     if (socketpair (AF_UNIX, SOCK_STREAM, 0, fd) != 0)
       goto no_sockets;
 
-    priv->rtsockets[0] = g_socket_new_from_fd (fd[0], error);
-    if (priv->rtsockets[0] == NULL)
-      goto create_failed;
-
-    priv->rtsockets[1] = g_socket_new_from_fd (fd[1], error);
-    if (priv->rtsockets[1] == NULL)
-      goto create_failed;
-
-    priv->proxy->rtfds[0].fd = g_socket_get_fd (priv->rtsockets[0]);
-
-    spa_poll_add_item (priv->proxy->data_loop, &priv->proxy->rtpoll);
+    impl->proxy.rtfds[0].fd = fd[0];
+    spa_poll_add_item (impl->proxy.data_loop, &impl->proxy.rtpoll);
+    impl->rtfd = fd[1];
   }
-  return g_object_ref (priv->rtsockets[1]);
+  return impl->rtfd;
 
   /* ERRORS */
 no_sockets:
@@ -1510,12 +1416,6 @@ no_sockets:
                  G_IO_ERROR,
                  g_io_error_from_errno (errno),
                  "could not create socketpair: %s", strerror (errno));
-    return NULL;
-  }
-create_failed:
-  {
-    g_clear_object (&priv->rtsockets[0]);
-    g_clear_object (&priv->rtsockets[1]);
-    return NULL;
+    return -1;
   }
 }

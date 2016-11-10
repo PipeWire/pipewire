@@ -31,10 +31,10 @@ gboolean pinos__module_init (PinosModule *module, const gchar * args);
 G_MODULE_EXPORT gboolean
 pinos__module_init (PinosModule * module, G_GNUC_UNUSED const gchar * args)
 {
-  pinos_spa_alsa_monitor_new (module->daemon);
-  pinos_spa_v4l2_monitor_new (module->daemon);
-  pinos_spa_audiotestsrc_new (module->daemon, "audiotestsrc", NULL);
-  pinos_spa_videotestsrc_new (module->daemon, "videotestsrc", NULL);
+  pinos_spa_alsa_monitor_new (module->core);
+  pinos_spa_v4l2_monitor_new (module->core);
+  pinos_spa_audiotestsrc_new (module->core, "audiotestsrc", NULL);
+  pinos_spa_videotestsrc_new (module->core, "videotestsrc", NULL);
 
   return TRUE;
 }

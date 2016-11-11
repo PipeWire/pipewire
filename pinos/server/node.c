@@ -602,7 +602,7 @@ PinosPort *
 pinos_node_get_free_port (PinosNode       *node,
                           PinosDirection   direction)
 {
-  unsigned int free_port, n_ports, max_ports;
+  unsigned int n_ports, max_ports;
   SpaList *ports;
   PinosPort *port = NULL, *p;
 
@@ -615,22 +615,22 @@ pinos_node_get_free_port (PinosNode       *node,
     n_ports = node->transport->area->n_outputs;
     ports = &node->output_ports;
   }
-  free_port = 0;
 
-  pinos_log_debug ("node %p: direction %d max %u, n %u, free_port %u", node, direction, max_ports, n_ports, free_port);
+  pinos_log_debug ("node %p: direction %d max %u, n %u", node, direction, max_ports, n_ports);
 
   spa_list_for_each (p, ports, link) {
-    if (free_port < p->port_id) {
+    if (spa_list_is_empty (&p->links)) {
       port = p;
       break;
     }
-    free_port = p->port_id + 1;
   }
 
-  if (free_port >= max_ports && !spa_list_is_empty (ports)) {
-    port = spa_list_first (ports, PinosPort, link);
-  } else
-    return NULL;
+  if (port == NULL) {
+    if (!spa_list_is_empty (ports))
+      port = spa_list_first (ports, PinosPort, link);
+    else
+      return NULL;
+  }
 
   return port;
 

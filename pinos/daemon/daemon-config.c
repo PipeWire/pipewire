@@ -22,7 +22,6 @@
 #include "config.h"
 #endif
 
-#include <glib.h>
 #include <string.h>
 
 #include <pinos/client/pinos.h>
@@ -32,29 +31,17 @@
 
 #define DEFAULT_CONFIG_FILE PINOS_CONFIG_DIR G_DIR_SEPARATOR_S "pinos.conf"
 
-GQuark
-pinos_daemon_config_error_quark (void)
-{
-  static GQuark quark = 0;
-
-  if (quark == 0) {
-    quark = g_quark_from_static_string ("pinos_daemon_config_error");
-  }
-
-  return quark;
-}
-
-static gboolean
-parse_line (PinosDaemonConfig  * config,
-            const gchar        * filename,
-            gchar              * line,
-            guint                lineno,
-            GError            ** err)
+static bool
+parse_line (PinosDaemonConfig  *config,
+            const char         *filename,
+            char               *line,
+            unsigned int        lineno,
+            char              **err)
 {
   PinosCommand *command = NULL;
-  gchar *p;
-  gboolean ret = TRUE;
-  GError *local_err = NULL;
+  char *p;
+  bool ret = true;
+  char *local_err = NULL;
 
   /* search for comments */
   if ((p = strchr (line, '#')))
@@ -64,16 +51,14 @@ parse_line (PinosDaemonConfig  * config,
   g_strstrip (line);
 
   if (*line == '\0') /* empty line */
-    return TRUE;
+    return true;
 
-  if (!pinos_command_parse (&command, line, &local_err)) {
-    g_set_error (err, PINOS_DAEMON_CONFIG_ERROR,
-        PINOS_DAEMON_CONFIG_ERROR_COMMAND, "%s:%u: %s", filename, lineno,
-        local_err->message);
-    g_error_free (local_err);
-    ret = FALSE;
+  if ((command = pinos_command_parse (line, &local_err)) == NULL) {
+    asprintf (err, "%s:%u: %s", filename, lineno, local_err);
+    free (local_err);
+    ret = false;
   } else {
-    config->commands = g_list_append (config->commands, command);
+    spa_list_insert (config->commands.prev, &command->link);
   }
 
   return ret;
@@ -89,9 +74,8 @@ pinos_daemon_config_new (void)
 {
   PinosDaemonConfig *config;
 
-  config = g_new (PinosDaemonConfig, 1);
-
-  config->commands = NULL;
+  config = calloc (1, sizeof (PinosDaemonConfig));
+  spa_list_init (&config->commands);
 
   return config;
 }
@@ -105,52 +89,50 @@ pinos_daemon_config_new (void)
 void
 pinos_daemon_config_free (PinosDaemonConfig * config)
 {
-  g_return_if_fail (config != NULL);
+  PinosCommand *cmd, *tmp;
 
-  g_list_free_full (config->commands, (GDestroyNotify) pinos_command_free);
+  spa_list_for_each_safe (cmd, tmp, &config->commands, link)
+    pinos_command_free (cmd);
 
-  g_free (config);
+  free (config);
 }
 
 /**
  * pinos_daemon_config_load_file:
  * @config: A #PinosDaemonConfig
  * @filename: A filename
- * @err: Return location for a #GError, or %NULL
+ * @err: Return location for an error string
  *
  * Loads pinos config from @filename.
  *
- * Returns: %TRUE on success, otherwise %FALSE and @err is set.
+ * Returns: %true on success, otherwise %false and @err is set.
  */
-gboolean
-pinos_daemon_config_load_file (PinosDaemonConfig  * config,
-                               const gchar        * filename,
-                               GError            ** err)
+bool
+pinos_daemon_config_load_file (PinosDaemonConfig *config,
+                               const char        *filename,
+                               char             **err)
 {
-  gchar *data;
-  gchar **lines;
-  gboolean ret = TRUE;
-  guint i;
-
-  g_return_val_if_fail (config != NULL, FALSE);
-  g_return_val_if_fail (filename != NULL && *filename != '\0', FALSE);
+  char *data;
+  char **lines;
+  bool ret = true;
+  unsigned int i;
+  int n_lines;
 
   pinos_log_debug ("deamon-config %p loading file %s", config, filename);
 
-  if (!g_file_get_contents (filename, &data, NULL, err)) {
-    return FALSE;
-  }
+  if (!g_file_get_contents (filename, &data, NULL, NULL))
+    return false;
 
-  lines = g_strsplit (data, "\n", 0);
+  lines = pinos_split_strv (data, "\n", 0, &n_lines);
   for (i = 0; lines[i] != NULL; i++) {
     if (!parse_line (config, filename, lines[i], i+1, err)) {
-      ret = FALSE;
+      ret = false;
       break;
     }
   }
 
-  g_strfreev (lines);
-  g_free (data);
+  pinos_free_strv (lines);
+  free (data);
 
   return ret;
 }
@@ -163,23 +145,20 @@ pinos_daemon_config_load_file (PinosDaemonConfig  * config,
  * Loads the default config file for pinos. The filename can be overridden with
  * an evironment variable PINOS_CONFIG_FILE.
  *
- * Return: %TRUE on success, otherwise %FALSE and @err is set.
+ * Return: %true on success, otherwise %false and @err is set.
  */
-gboolean
-pinos_daemon_config_load (PinosDaemonConfig  * config,
-                          GError            ** err)
+bool
+pinos_daemon_config_load (PinosDaemonConfig  *config,
+                          char              **err)
 {
   const gchar *filename;
 
-  g_return_val_if_fail (config != NULL, FALSE);
-
-  filename = g_getenv ("PINOS_CONFIG_FILE");
+  filename = getenv ("PINOS_CONFIG_FILE");
   if (filename != NULL && *filename != '\0') {
     pinos_log_debug ("PINOS_CONFIG_FILE set to: %s", filename);
   } else {
     filename = DEFAULT_CONFIG_FILE;
   }
-
   return pinos_daemon_config_load_file (config, filename, err);
 }
 
@@ -191,29 +170,27 @@ pinos_daemon_config_load (PinosDaemonConfig  * config,
  * Run all commands that have been parsed. The list of commands will be cleared
  * when this function has been called.
  *
- * Returns: %TRUE if all commands where executed with success, otherwise %FALSE.
+ * Returns: %true if all commands where executed with success, otherwise %false.
  */
-gboolean
-pinos_daemon_config_run_commands (PinosDaemonConfig  * config,
-                                  PinosDaemon        * daemon)
+bool
+pinos_daemon_config_run_commands (PinosDaemonConfig  *config,
+                                  PinosDaemon        *daemon)
 {
-  GList *walk;
-  GError *err = NULL;
-  gboolean ret = TRUE;
+  char *err = NULL;
+  bool ret = true;
+  PinosCommand *command, *tmp;
 
-  g_return_val_if_fail (config != NULL, FALSE);
-
-  for (walk = config->commands; walk != NULL; walk = walk->next) {
-    PinosCommand *command = (PinosCommand *)walk->data;
+  spa_list_for_each (command, &config->commands, link) {
     if (!pinos_command_run (command, daemon->core, &err)) {
-      pinos_log_warn ("could not run command %s: %s",
-          pinos_command_get_name (command), err->message);
-      g_clear_error (&err);
-      ret = FALSE;
+      pinos_log_warn ("could not run command %s: %s", command->name, err);
+      free (err);
+      ret = false;
     }
   }
 
-  g_list_free_full (config->commands, (GDestroyNotify) pinos_command_free);
+  spa_list_for_each_safe (command, tmp, &config->commands, link) {
+    pinos_command_free (command);
+  }
 
   return ret;
 }

@@ -46,8 +46,10 @@ typedef struct {
   void              *user_data;
 } InvokeItem;
 
-struct _PinosDataLoopPrivate
+typedef struct
 {
+  PinosDataLoop this;
+
   SpaRingbuffer buffer;
   uint8_t       buffer_data[DATAS_SIZE];
 
@@ -64,20 +66,7 @@ struct _PinosDataLoopPrivate
 
   bool running;
   pthread_t thread;
-
-};
-
-G_DEFINE_TYPE (PinosDataLoop, pinos_data_loop, G_TYPE_OBJECT);
-
-enum
-{
-  PROP_0,
-};
-
-enum
-{
-  LAST_SIGNAL
-};
+} PinosDataLoopImpl;
 
 static void
 make_realtime (PinosDataLoop *this)
@@ -126,23 +115,23 @@ make_realtime (PinosDataLoop *this)
 static void *
 loop (void *user_data)
 {
-  PinosDataLoop *this = user_data;
-  PinosDataLoopPrivate *priv = this->priv;
+  PinosDataLoopImpl *impl = user_data;
+  PinosDataLoop *this = &impl->this;
   SpaPoll *p = &this->poll;
   unsigned int i, j;
 
   make_realtime (this);
 
   pinos_log_debug ("data-loop %p: enter thread", this);
-  while (priv->running) {
+  while (impl->running) {
     SpaPollNotifyData ndata;
     unsigned int n_idle = 0;
     int r;
     struct timespec ts;
 
     /* prepare */
-    for (i = 0; i < priv->n_poll; i++) {
-      SpaPollItem *p = &priv->poll[i];
+    for (i = 0; i < impl->n_poll; i++) {
+      SpaPollItem *p = &impl->poll[i];
 
       if (p->enabled && p->idle_cb) {
         ndata.fds = NULL;
@@ -157,28 +146,28 @@ loop (void *user_data)
 //      continue;
 
     /* rebuild */
-    if (priv->rebuild_fds) {
-      priv->n_fds = 1;
-      for (i = 0; i < priv->n_poll; i++) {
-        SpaPollItem *p = &priv->poll[i];
+    if (impl->rebuild_fds) {
+      impl->n_fds = 1;
+      for (i = 0; i < impl->n_poll; i++) {
+        SpaPollItem *p = &impl->poll[i];
 
         if (!p->enabled)
           continue;
 
         for (j = 0; j < p->n_fds; j++)
-          priv->fds[priv->n_fds + j] = p->fds[j];
-        priv->idx[i] = priv->n_fds;
-        priv->n_fds += p->n_fds;
+          impl->fds[impl->n_fds + j] = p->fds[j];
+        impl->idx[i] = impl->n_fds;
+        impl->n_fds += p->n_fds;
       }
-      priv->rebuild_fds = false;
+      impl->rebuild_fds = false;
     }
 
     /* before */
-    for (i = 0; i < priv->n_poll; i++) {
-      SpaPollItem *p = &priv->poll[i];
+    for (i = 0; i < impl->n_poll; i++) {
+      SpaPollItem *p = &impl->poll[i];
 
       if (p->enabled && p->before_cb) {
-        ndata.fds = &priv->fds[priv->idx[i]];
+        ndata.fds = &impl->fds[impl->idx[i]];
         ndata.n_fds = p->n_fds;
         ndata.user_data = p->user_data;
         if (SPA_RESULT_IS_ERROR (p->before_cb (&ndata)))
@@ -186,7 +175,7 @@ loop (void *user_data)
       }
     }
 
-    r = poll ((struct pollfd *) priv->fds, priv->n_fds, -1);
+    r = poll ((struct pollfd *) impl->fds, impl->n_fds, -1);
     if (r < 0) {
       if (errno == EINTR)
         continue;
@@ -198,17 +187,17 @@ loop (void *user_data)
     }
 
     /* check wakeup */
-    if (priv->fds[0].revents & POLLIN) {
+    if (impl->fds[0].revents & POLLIN) {
       uint64_t u;
       size_t offset;
 
-      if (read (priv->fds[0].fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
+      if (read (impl->fds[0].fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
         pinos_log_warn ("data-loop %p: failed to read fd: %s", this, strerror (errno));
 
-      while (spa_ringbuffer_get_read_offset (&priv->buffer, &offset) > 0) {
-        InvokeItem *item = SPA_MEMBER (priv->buffer_data, offset, InvokeItem);
+      while (spa_ringbuffer_get_read_offset (&impl->buffer, &offset) > 0) {
+        InvokeItem *item = SPA_MEMBER (impl->buffer_data, offset, InvokeItem);
         item->func (p, true, item->seq, item->size, item->data, item->user_data);
-        spa_ringbuffer_read_advance (&priv->buffer, item->item_size);
+        spa_ringbuffer_read_advance (&impl->buffer, item->item_size);
       }
       continue;
     }
@@ -217,11 +206,11 @@ loop (void *user_data)
 //    fprintf (stderr, "%llu\n", SPA_TIMESPEC_TO_TIME (&ts));
 
     /* after */
-    for (i = 0; i < priv->n_poll; i++) {
-      SpaPollItem *p = &priv->poll[i];
+    for (i = 0; i < impl->n_poll; i++) {
+      SpaPollItem *p = &impl->poll[i];
 
-      if (p->enabled && p->after_cb && (p->n_fds == 0 || priv->fds[priv->idx[i]].revents != 0)) {
-        ndata.fds = &priv->fds[priv->idx[i]];
+      if (p->enabled && p->after_cb && (p->n_fds == 0 || impl->fds[impl->idx[i]].revents != 0)) {
+        ndata.fds = &impl->fds[impl->idx[i]];
         ndata.n_fds = p->n_fds;
         ndata.user_data = p->user_data;
         if (SPA_RESULT_IS_ERROR (p->after_cb (&ndata)))
@@ -235,40 +224,36 @@ loop (void *user_data)
 }
 
 static void
-wakeup_thread (PinosDataLoop *this)
+wakeup_thread (PinosDataLoopImpl *impl)
 {
-  PinosDataLoopPrivate *priv = this->priv;
   uint64_t u = 1;
 
-  if (write (priv->fds[0].fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
-    pinos_log_warn ("data-loop %p: failed to write fd: %s", this, strerror (errno));
+  if (write (impl->fds[0].fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
+    pinos_log_warn ("data-loop %p: failed to write fd: %s", impl, strerror (errno));
 }
 
 static void
-start_thread (PinosDataLoop *this)
+start_thread (PinosDataLoopImpl *impl)
 {
-  PinosDataLoopPrivate *priv = this->priv;
   int err;
 
-  if (!priv->running) {
-    priv->running = true;
-    if ((err = pthread_create (&priv->thread, NULL, loop, this)) != 0) {
-      pinos_log_warn ("data-loop %p: can't create thread: %s", this, strerror (err));
-      priv->running = false;
+  if (!impl->running) {
+    impl->running = true;
+    if ((err = pthread_create (&impl->thread, NULL, loop, impl)) != 0) {
+      pinos_log_warn ("data-loop %p: can't create thread: %s", impl, strerror (err));
+      impl->running = false;
     }
   }
 }
 
 static void
-stop_thread (PinosDataLoop *this, bool in_thread)
+stop_thread (PinosDataLoopImpl *impl, bool in_thread)
 {
-  PinosDataLoopPrivate *priv = this->priv;
-
-  if (priv->running) {
-    priv->running = false;
+  if (impl->running) {
+    impl->running = false;
     if (!in_thread) {
-      wakeup_thread (this);
-      pthread_join (priv->thread, NULL);
+      wakeup_thread (impl);
+      pthread_join (impl->thread, NULL);
     }
   }
 }
@@ -278,18 +263,18 @@ do_add_item (SpaPoll         *poll,
              SpaPollItem     *item)
 {
   PinosDataLoop *this = SPA_CONTAINER_OF (poll, PinosDataLoop, poll);
-  PinosDataLoopPrivate *priv = this->priv;
-  bool in_thread = pthread_equal (priv->thread, pthread_self());
+  PinosDataLoopImpl *impl = SPA_CONTAINER_OF (this, PinosDataLoopImpl, this);
+  bool in_thread = pthread_equal (impl->thread, pthread_self());
 
-  item->id = ++priv->counter;
-  priv->poll[priv->n_poll] = *item;
-  priv->n_poll++;
+  item->id = ++impl->counter;
+  impl->poll[impl->n_poll] = *item;
+  impl->n_poll++;
   if (item->n_fds)
-    priv->rebuild_fds = true;
+    impl->rebuild_fds = true;
 
   if (!in_thread) {
-    wakeup_thread (this);
-    start_thread (this);
+    wakeup_thread (impl);
+    start_thread (impl);
   }
   return SPA_RESULT_OK;
 }
@@ -300,19 +285,19 @@ do_update_item (SpaPoll         *poll,
                 SpaPollItem     *item)
 {
   PinosDataLoop *this = SPA_CONTAINER_OF (poll, PinosDataLoop, poll);
-  PinosDataLoopPrivate *priv = this->priv;
-  bool in_thread = pthread_equal (priv->thread, pthread_self());
+  PinosDataLoopImpl *impl = SPA_CONTAINER_OF (this, PinosDataLoopImpl, this);
+  bool in_thread = pthread_equal (impl->thread, pthread_self());
   unsigned int i;
 
-  for (i = 0; i < priv->n_poll; i++) {
-    if (priv->poll[i].id == item->id)
-      priv->poll[i] = *item;
+  for (i = 0; i < impl->n_poll; i++) {
+    if (impl->poll[i].id == item->id)
+      impl->poll[i] = *item;
   }
   if (item->n_fds)
-    priv->rebuild_fds = true;
+    impl->rebuild_fds = true;
 
   if (!in_thread)
-    wakeup_thread (this);
+    wakeup_thread (impl);
 
   return SPA_RESULT_OK;
 }
@@ -322,22 +307,22 @@ do_remove_item (SpaPoll         *poll,
                 SpaPollItem     *item)
 {
   PinosDataLoop *this = SPA_CONTAINER_OF (poll, PinosDataLoop, poll);
-  PinosDataLoopPrivate *priv = this->priv;
-  bool in_thread = pthread_equal (priv->thread, pthread_self());
+  PinosDataLoopImpl *impl = SPA_CONTAINER_OF (this, PinosDataLoopImpl, this);
+  bool in_thread = pthread_equal (impl->thread, pthread_self());
   unsigned int i;
 
-  for (i = 0; i < priv->n_poll; i++) {
-    if (priv->poll[i].id == item->id) {
-      priv->n_poll--;
-      for (; i < priv->n_poll; i++)
-        priv->poll[i] = priv->poll[i+1];
+  for (i = 0; i < impl->n_poll; i++) {
+    if (impl->poll[i].id == item->id) {
+      impl->n_poll--;
+      for (; i < impl->n_poll; i++)
+        impl->poll[i] = impl->poll[i+1];
       break;
     }
   }
   if (item->n_fds) {
-    priv->rebuild_fds = true;
+    impl->rebuild_fds = true;
     if (!in_thread)
-      wakeup_thread (this);
+      wakeup_thread (impl);
   }
   return SPA_RESULT_OK;
 }
@@ -351,8 +336,8 @@ do_invoke (SpaPoll           *poll,
            void              *user_data)
 {
   PinosDataLoop *this = SPA_CONTAINER_OF (poll, PinosDataLoop, poll);
-  PinosDataLoopPrivate *priv = this->priv;
-  bool in_thread = pthread_equal (priv->thread, pthread_self());
+  PinosDataLoopImpl *impl = SPA_CONTAINER_OF (this, PinosDataLoopImpl, this);
+  bool in_thread = pthread_equal (impl->thread, pthread_self());
   SpaRingbufferArea areas[2];
   InvokeItem *item;
   SpaResult res;
@@ -360,12 +345,12 @@ do_invoke (SpaPoll           *poll,
   if (in_thread) {
     res = func (poll, false, seq, size, data, user_data);
   } else {
-    spa_ringbuffer_get_write_areas (&priv->buffer, areas);
+    spa_ringbuffer_get_write_areas (&impl->buffer, areas);
     if (areas[0].len < sizeof (InvokeItem)) {
       pinos_log_warn ("queue full");
       return SPA_RESULT_ERROR;
     }
-    item = SPA_MEMBER (priv->buffer_data, areas[0].offset, InvokeItem);
+    item = SPA_MEMBER (impl->buffer_data, areas[0].offset, InvokeItem);
     item->seq = seq;
     item->func = func;
     item->user_data = user_data;
@@ -377,14 +362,14 @@ do_invoke (SpaPoll           *poll,
       if (areas[0].len < sizeof (InvokeItem) + item->item_size)
         item->item_size = areas[0].len;
     } else {
-      item->data = SPA_MEMBER (priv->buffer_data, areas[1].offset, void);
+      item->data = SPA_MEMBER (impl->buffer_data, areas[1].offset, void);
       item->item_size = areas[0].len + 1 + size;
     }
     memcpy (item->data, data, size);
 
-    spa_ringbuffer_write_advance (&priv->buffer, item->item_size);
+    spa_ringbuffer_write_advance (&impl->buffer, item->item_size);
 
-    wakeup_thread (this);
+    wakeup_thread (impl);
 
     if (seq != SPA_ID_INVALID)
       res = SPA_RESULT_RETURN_ASYNC (seq);
@@ -392,72 +377,6 @@ do_invoke (SpaPoll           *poll,
       res = SPA_RESULT_OK;
   }
   return res;
-}
-
-static void
-pinos_data_loop_constructed (GObject * obj)
-{
-  PinosDataLoop *this = PINOS_DATA_LOOP (obj);
-  PinosDataLoopPrivate *priv = this->priv;
-
-  pinos_log_debug ("data-loop %p: constructed", this);
-
-  G_OBJECT_CLASS (pinos_data_loop_parent_class)->constructed (obj);
-
-  priv->fds[0].fd = eventfd (0, 0);
-  priv->fds[0].events = POLLIN | POLLPRI | POLLERR;
-  priv->fds[0].revents = 0;
-  priv->n_fds = 1;
-}
-
-static void
-pinos_data_loop_dispose (GObject * obj)
-{
-  PinosDataLoop *this = PINOS_DATA_LOOP (obj);
-
-  pinos_log_debug ("data-loop %p: dispose", this);
-  stop_thread (this, FALSE);
-
-  G_OBJECT_CLASS (pinos_data_loop_parent_class)->dispose (obj);
-}
-
-static void
-pinos_data_loop_finalize (GObject * obj)
-{
-  PinosDataLoop *this = PINOS_DATA_LOOP (obj);
-
-  pinos_log_debug ("data-loop %p: finalize", this);
-
-  G_OBJECT_CLASS (pinos_data_loop_parent_class)->finalize (obj);
-}
-
-static void
-pinos_data_loop_class_init (PinosDataLoopClass * klass)
-{
-  GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
-
-  g_type_class_add_private (klass, sizeof (PinosDataLoopPrivate));
-
-  gobject_class->constructed = pinos_data_loop_constructed;
-  gobject_class->dispose = pinos_data_loop_dispose;
-  gobject_class->finalize = pinos_data_loop_finalize;
-}
-
-static void
-pinos_data_loop_init (PinosDataLoop * this)
-{
-  PinosDataLoopPrivate *priv = this->priv = PINOS_DATA_LOOP_GET_PRIVATE (this);
-
-  pinos_log_debug ("data-loop %p: new", this);
-
-  this->poll.size = sizeof (SpaPoll);
-  this->poll.info = NULL;
-  this->poll.add_item = do_add_item;
-  this->poll.update_item = do_update_item;
-  this->poll.remove_item = do_remove_item;
-  this->poll.invoke = do_invoke;
-
-  spa_ringbuffer_init (&priv->buffer, DATAS_SIZE);
 }
 
 /**
@@ -470,11 +389,45 @@ pinos_data_loop_init (PinosDataLoop * this)
 PinosDataLoop *
 pinos_data_loop_new (void)
 {
-  return g_object_new (PINOS_TYPE_DATA_LOOP, NULL);
+  PinosDataLoopImpl *impl;
+  PinosDataLoop *this;
+
+  impl = calloc (1, sizeof (PinosDataLoopImpl));
+  this = &impl->this;
+
+  pinos_log_debug ("data-loop %p: new", impl);
+
+  this->poll.size = sizeof (SpaPoll);
+  this->poll.info = NULL;
+  this->poll.add_item = do_add_item;
+  this->poll.update_item = do_update_item;
+  this->poll.remove_item = do_remove_item;
+  this->poll.invoke = do_invoke;
+
+  impl->fds[0].fd = eventfd (0, 0);
+  impl->fds[0].events = POLLIN | POLLPRI | POLLERR;
+  impl->fds[0].revents = 0;
+  impl->n_fds = 1;
+
+  spa_ringbuffer_init (&impl->buffer, DATAS_SIZE);
+
+  return this;
+}
+
+void
+pinos_data_loop_destroy (PinosDataLoop * loop)
+{
+  PinosDataLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosDataLoopImpl, this);
+
+  pinos_log_debug ("data-loop %p: destroy", impl);
+  stop_thread (impl, FALSE);
+  close (impl->fds[0].fd);
+  free (impl);
 }
 
 bool
 pinos_data_loop_in_thread (PinosDataLoop *loop)
 {
-  return pthread_equal (loop->priv->thread, pthread_self());
+  PinosDataLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosDataLoopImpl, this);
+  return pthread_equal (impl->thread, pthread_self());
 }

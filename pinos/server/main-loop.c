@@ -62,8 +62,6 @@ typedef struct
 {
   PinosMainLoop this;
 
-  PinosObject object;
-
   SpaPoll poll;
 
   GMainContext *context;
@@ -343,6 +341,7 @@ static void
 main_loop_quit (PinosMainLoop *loop)
 {
   PinosMainLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosMainLoopImpl, this);
+  pinos_log_debug ("main-loop %p: quit", impl);
   g_main_loop_quit (impl->loop);
 }
 
@@ -350,18 +349,8 @@ static void
 main_loop_run (PinosMainLoop *loop)
 {
   PinosMainLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosMainLoopImpl, this);
+  pinos_log_debug ("main-loop %p: run", impl);
   g_main_loop_run (impl->loop);
-}
-
-void
-pinos_main_loop_destroy (PinosMainLoop *loop)
-{
-  PinosMainLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosMainLoopImpl, this);
-
-  pinos_log_debug ("main-loop %p: destroy", impl);
-
-  g_slice_free_chain (WorkItem, impl->free_list, list.next);
-  free (impl);
 }
 
 /**
@@ -417,4 +406,19 @@ pinos_main_loop_new (GMainContext *context)
   do_add_item (&impl->poll, &impl->wakeup);
 
   return this;
+}
+
+void
+pinos_main_loop_destroy (PinosMainLoop *loop)
+{
+  PinosMainLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosMainLoopImpl, this);
+
+  pinos_log_debug ("main-loop %p: destroy", impl);
+
+  g_main_loop_unref (impl->loop);
+
+  close (impl->fds[0].fd);
+
+  g_slice_free_chain (WorkItem, impl->free_list, list.next);
+  free (impl);
 }

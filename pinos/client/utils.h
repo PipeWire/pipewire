@@ -1,5 +1,5 @@
-/* Pinos
- * Copyright (C) 2016 Axis Communications AB
+/* Simple Plugin API
+ * Copyright (C) 2016 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -17,27 +17,29 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __PINOS_SPA_VIDEOTESTSRC_H__
-#define __PINOS_SPA_VIDEOTESTSRC_H__
+#ifndef __PINOS_UTILS_H__
+#define __PINOS_UTILS_H__
 
-#include <glib-object.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-#include <client/pinos.h>
-#include <server/node.h>
+#include <spa/defs.h>
 
-typedef struct _PinosSpaVideoTestSrc PinosSpaVideoTestSrc;
+const char * pinos_split_walk   (const char  *str,
+                                 const char  *delimiter,
+                                 size_t      *len,
+                                 const char **state);
 
-G_BEGIN_DECLS
+char **      pinos_split_strv   (const char *str,
+                                 const char *delimiter,
+                                 int         max_tokens,
+                                 int        *n_tokens);
 
-struct _PinosSpaVideoTestSrc {
-  PinosNode *node;
-};
+void         pinos_free_strv    (char **str);
 
-PinosSpaVideoTestSrc * pinos_spa_videotestsrc_new      (PinosCore       *core,
-                                                        const gchar     *name,
-                                                        PinosProperties *properties);
-void                   pinos_spa_videotestsrc_destroy  (PinosSpaVideoTestSrc *src);
+#ifdef __cplusplus
+}  /* extern "C" */
+#endif
 
-G_END_DECLS
-
-#endif /* __PINOS_SPA_VIDEOTESTSRC_H__ */
+#endif /* __PINOS_UTILS_H__ */

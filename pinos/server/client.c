@@ -26,10 +26,7 @@
 
 typedef struct
 {
-  PinosClient client;
-  PinosObject object;
-  PinosInterface ifaces[1];
-  PinosDaemon *daemon;
+  PinosClient this;
 
   guint id;
   PinosClient1 *iface;
@@ -45,10 +42,18 @@ client_name_appeared_handler (GDBusConnection *connection,
                               gpointer         user_data)
 {
   PinosClientImpl *impl = user_data;
-  PinosClient *client = &impl->client;
+  PinosClient *this = &impl->this;
+  PinosObjectSkeleton *skel;
 
-  pinos_log_debug ("client %p: appeared %s %s", client, name, name_owner);
-  pinos_signal_emit (&client->appeared, client, NULL);
+  pinos_log_debug ("client %p: appeared %s %s", this, name, name_owner);
+
+  skel = pinos_object_skeleton_new (PINOS_DBUS_OBJECT_CLIENT);
+  pinos_object_skeleton_set_client1 (skel, impl->iface);
+
+  this->global = pinos_core_add_global (this->core,
+                                        this->core->registry.uri.client,
+                                        this,
+                                        skel);
 }
 
 static void
@@ -57,24 +62,24 @@ client_name_vanished_handler (GDBusConnection *connection,
                               gpointer         user_data)
 {
   PinosClientImpl *impl = user_data;
-  PinosClient *client = &impl->client;
+  PinosClient *this = &impl->this;
 
-  pinos_log_debug ("client %p: vanished %s", client, name);
+  pinos_log_debug ("client %p: vanished %s", this, name);
 
-  pinos_signal_emit (&client->vanished, client, NULL);
+  pinos_core_remove_global (this->core,
+                            this->global);
+  this->global = NULL;
+
   g_bus_unwatch_name (impl->id);
 }
 
 static void
-client_watch_name (PinosClient *client)
+client_watch_name (PinosClient *this)
 {
-  PinosClientImpl *impl = SPA_CONTAINER_OF (client, PinosClientImpl, client);
-  GDBusConnection *connection = NULL;
+  PinosClientImpl *impl = SPA_CONTAINER_OF (this, PinosClientImpl, this);
 
-//  g_object_get (impl->daemon, "connection", &connection, NULL);
-
-  impl->id = g_bus_watch_name_on_connection (connection,
-                                             client->sender,
+  impl->id = g_bus_watch_name_on_connection (this->core->connection,
+                                             this->sender,
                                              G_BUS_NAME_WATCHER_FLAGS_NONE,
                                              client_name_appeared_handler,
                                              client_name_vanished_handler,
@@ -82,65 +87,11 @@ client_watch_name (PinosClient *client)
                                              (GDestroyNotify) pinos_client_destroy);
 }
 
-static void
-client_register_object (PinosClient *client)
+void
+pinos_client_add_object (PinosClient *client,
+                         PinosObject *object)
 {
-  PinosClientImpl *impl = SPA_CONTAINER_OF (client, PinosClientImpl, client);
-  PinosDaemon *daemon = impl->daemon;
-  PinosObjectSkeleton *skel;
-
-  skel = pinos_object_skeleton_new (PINOS_DBUS_OBJECT_CLIENT);
-
-  pinos_object_skeleton_set_client1 (skel, impl->iface);
-
-  g_free (impl->object_path);
-  impl->object_path = pinos_daemon_export_uniquely (daemon, G_DBUS_OBJECT_SKELETON (skel));
-  g_object_unref (skel);
-
-  pinos_log_debug ("client %p: register %s", client, impl->object_path);
-}
-
-static void
-client_unregister_object (PinosClient *client)
-{
-  PinosClientImpl *impl = SPA_CONTAINER_OF (client, PinosClientImpl, client);
-  PinosDaemon *daemon = impl->daemon;
-
-  pinos_log_debug ("client %p: unregister", client);
-  pinos_daemon_unexport (daemon, impl->object_path);
-}
-
-static void
-client_destroy (PinosObject * object)
-{
-  PinosClientImpl *impl = SPA_CONTAINER_OF (object, PinosClientImpl, object);
-  PinosClient *client = &impl->client;
-  GList *copy;
-
-  pinos_log_debug ("client %p: destroy", client);
-  pinos_registry_remove_object (&client->core->registry, &impl->object);
-
-  copy = g_list_copy (impl->objects);
-  g_list_free_full (copy, NULL);
-  g_list_free (impl->objects);
-
-  client_unregister_object (client);
-
-  free (client->sender);
-  if (client->properties)
-    pinos_properties_free (client->properties);
-
-  g_clear_object (&impl->iface);
-  free (impl->object_path);
-  free (object);
-}
-
-
-static void
-client_add_object (PinosClient *client,
-                   PinosObject *object)
-{
-  PinosClientImpl *impl = SPA_CONTAINER_OF (client, PinosClientImpl, client);
+  PinosClientImpl *impl = SPA_CONTAINER_OF (client, PinosClientImpl, this);
 
   g_return_if_fail (client);
   g_return_if_fail (object);
@@ -148,11 +99,11 @@ client_add_object (PinosClient *client,
   impl->objects = g_list_prepend (impl->objects, object);
 }
 
-static void
-client_remove_object (PinosClient *client,
-                      PinosObject *object)
+void
+pinos_client_remove_object (PinosClient *client,
+                            PinosObject *object)
 {
-  PinosClientImpl *impl = SPA_CONTAINER_OF (client, PinosClientImpl, client);
+  PinosClientImpl *impl = SPA_CONTAINER_OF (client, PinosClientImpl, this);
 
   g_return_if_fail (client);
   g_return_if_fail (object);
@@ -161,11 +112,11 @@ client_remove_object (PinosClient *client,
   pinos_object_destroy (object);
 }
 
-static bool
-client_has_object (PinosClient *client,
-                   PinosObject *object)
+bool
+pinos_client_has_object (PinosClient *client,
+                         PinosObject *object)
 {
-  PinosClientImpl *impl = SPA_CONTAINER_OF (client, PinosClientImpl, client);
+  PinosClientImpl *impl = SPA_CONTAINER_OF (client, PinosClientImpl, this);
   GList *found;
 
   g_return_val_if_fail (client, false);
@@ -192,36 +143,26 @@ pinos_client_new (PinosCore       *core,
                   const gchar     *sender,
                   PinosProperties *properties)
 {
-  PinosClient *client;
+  PinosClient *this;
   PinosClientImpl *impl;
 
-  impl = calloc (1, sizeof (PinosClientImpl *));
-  client = &impl->client;
-  client->core = core;
-  client->sender = strdup (sender);
-  client->properties = properties;
-  client->add_object = client_add_object;
-  client->remove_object = client_remove_object;
-  client->has_object = client_has_object;
-
-  impl->ifaces[0].type = client->core->registry.uri.client;
-  impl->ifaces[0].iface = client;
-
-  pinos_object_init (&impl->object,
-                     client_destroy,
-                     1,
-                     impl->ifaces);
-
+  impl = calloc (1, sizeof (PinosClientImpl));
   pinos_log_debug ("client %p: new", impl);
+
+  this = &impl->this;
+  this->core = core;
+  this->sender = strdup (sender);
+  this->properties = properties;
+
+  pinos_signal_init (&this->destroy_signal);
 
   impl->iface = pinos_client1_skeleton_new ();
 
-  client_watch_name (client);
-  client_register_object (client);
+  client_watch_name (this);
 
-  pinos_registry_add_object (&client->core->registry, &impl->object);
+  spa_list_insert (core->client_list.prev, &this->list);
 
-  return client;
+  return this;
 }
 
 /**
@@ -231,14 +172,27 @@ pinos_client_new (PinosCore       *core,
  * Trigger removal of @client
  */
 void
-pinos_client_destroy (PinosClient *client)
+pinos_client_destroy (PinosClient * client)
 {
-  PinosClientImpl *impl = SPA_CONTAINER_OF (client, PinosClientImpl, client);
-
-  g_return_if_fail (client);
+  PinosClientImpl *impl = SPA_CONTAINER_OF (client, PinosClientImpl, this);
+  GList *copy;
 
   pinos_log_debug ("client %p: destroy", client);
-  pinos_object_destroy (&impl->object);
+  pinos_signal_emit (&client->destroy_signal, client);
+
+  spa_list_remove (&client->list);
+
+  copy = g_list_copy (impl->objects);
+  g_list_free_full (copy, NULL);
+  g_list_free (impl->objects);
+
+  free (client->sender);
+  if (client->properties)
+    pinos_properties_free (client->properties);
+
+  g_clear_object (&impl->iface);
+  free (impl->object_path);
+  free (impl);
 }
 
 /**
@@ -252,7 +206,7 @@ pinos_client_destroy (PinosClient *client)
 const gchar *
 pinos_client_get_object_path (PinosClient *client)
 {
-  PinosClientImpl *impl = SPA_CONTAINER_OF (client, PinosClientImpl, client);
+  PinosClientImpl *impl = SPA_CONTAINER_OF (client, PinosClientImpl, this);
 
   g_return_val_if_fail (client, NULL);
 

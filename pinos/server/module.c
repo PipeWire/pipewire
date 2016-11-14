@@ -22,10 +22,10 @@
 #include "config.h"
 #endif
 
-#include <glib.h>
-#include <gmodule.h>
+#include <dlfcn.h>
 
 #include "pinos/client/pinos.h"
+#include "pinos/client/utils.h"
 #include "pinos/server/module.h"
 
 #define PINOS_SYMBOL_MODULE_INIT "pinos__module_init"
@@ -34,38 +34,11 @@ typedef struct
 {
   PinosModule this;
 
-  PinosObject object;
-  PinosInterface ifaces[1];
-
-  GModule *module;
+  void *hnd;
 } PinosModuleImpl;
 
-
-static void
-module_destroy (PinosObject * object)
-{
-  PinosModuleImpl *impl = SPA_CONTAINER_OF (object, PinosModuleImpl, object);
-  PinosModule *this = &impl->this;
-
-  free (this->name);
-  g_module_close (impl->module);
-  free (impl);
-}
-
-GQuark
-pinos_module_error_quark (void)
-{
-  static GQuark quark = 0;
-
-  if (quark == 0) {
-    quark = g_quark_from_static_string ("pinos_module_error");
-  }
-
-  return quark;
-}
-
-static gchar *
-find_module (const gchar * path, const gchar *name)
+static char *
+find_module (const char * path, const char *name)
 {
   gchar *filename;
   GDir *dir;
@@ -113,7 +86,7 @@ find_module (const gchar * path, const gchar *name)
  * @core: a #PinosCore
  * @name: name of the module to load
  * @args: A string with arguments for the module
- * @err: Return location for a #GError, or %NULL
+ * @err: Return location for an error string, or %NULL
  *
  * Load module with @name.
  *
@@ -123,96 +96,95 @@ PinosModule *
 pinos_module_load (PinosCore    *core,
                    const gchar  *name,
                    const gchar  *args,
-                   GError      **err)
+                   char        **err)
 {
   PinosModule *this;
   PinosModuleImpl *impl;
-  GModule *gmodule;
-  gchar *filename = NULL;
-  const gchar *module_dir;
+  void *hnd;
+  char *filename = NULL;
+  const char *module_dir;
   PinosModuleInitFunc init_func;
 
-  g_return_val_if_fail (name != NULL && name[0] != '\0', NULL);
-  g_return_val_if_fail (core, NULL);
-
-  if (!g_module_supported ()) {
-    g_set_error (err, PINOS_MODULE_ERROR, PINOS_MODULE_ERROR_LOADING,
-        "Dynamic module loading not supported");
-    return NULL;
-  }
-
-  module_dir = g_getenv ("PINOS_MODULE_DIR");
+  module_dir = getenv ("PINOS_MODULE_DIR");
   if (module_dir != NULL) {
-    gchar **l;
-    gint i;
+    char **l;
+    int i, n_paths;
 
     pinos_log_debug ("PINOS_MODULE_DIR set to: %s", module_dir);
 
-    l = g_strsplit (module_dir, G_SEARCHPATH_SEPARATOR_S, 0);
+    l = pinos_split_strv (module_dir, G_SEARCHPATH_SEPARATOR_S, 0, &n_paths);
     for (i = 0; l[i] != NULL; i++) {
       filename = find_module (l[i], name);
       if (filename != NULL)
         break;
     }
-    g_strfreev (l);
+    pinos_free_strv (l);
   } else {
     pinos_log_debug ("moduledir set to: %s", MODULEDIR);
 
     filename = find_module (MODULEDIR, name);
   }
 
-  if (filename == NULL) {
-    g_set_error (err, PINOS_MODULE_ERROR, PINOS_MODULE_ERROR_NOT_FOUND,
-        "No module \"%s\" was found", name);
-    return NULL;
-  }
+  if (filename == NULL)
+    goto not_found;
 
   pinos_log_debug ("trying to load module: %s (%s)", name, filename);
 
-  gmodule = g_module_open (filename, G_MODULE_BIND_LOCAL);
-  g_free (filename);
+  hnd = dlopen (filename, RTLD_NOW | RTLD_LOCAL);
+  free (filename);
 
-  if (gmodule == NULL) {
-    g_set_error (err, PINOS_MODULE_ERROR, PINOS_MODULE_ERROR_LOADING,
-        "Failed to open module: %s", g_module_error ());
-    return NULL;
-  }
+  if (hnd == NULL)
+    goto open_failed;
 
-  if (!g_module_symbol (gmodule, PINOS_SYMBOL_MODULE_INIT,
-          (gpointer *) &init_func)) {
-    g_set_error (err, PINOS_MODULE_ERROR, PINOS_MODULE_ERROR_LOADING,
-        "\"%s\" is not a pinos module", name);
-    g_module_close (gmodule);
-    return NULL;
-  }
+  if ((init_func = dlsym (hnd, PINOS_SYMBOL_MODULE_INIT)) == NULL)
+    goto no_pinos_module;
 
   impl = calloc (1, sizeof (PinosModuleImpl));
-  impl->module = gmodule;
+  impl->hnd = hnd;
 
   this = &impl->this;
   this->name = strdup (name);
   this->core = core;
 
-  impl->ifaces[0].type = impl->core->registry.uri.module;
-  impl->ifaces[0].iface = this;
-
-
-  pinos_object_init (&impl->object,
-                     module_destroy,
-                     1,
-                     impl->ifaces);
-
-  /* don't unload this module again */
-  g_module_make_resident (gmodule);
-
-  if (!init_func (this, (gchar *) args)) {
-    g_set_error (err, PINOS_MODULE_ERROR, PINOS_MODULE_ERROR_INIT,
-        "\"%s\" failed to initialize", name);
-    module_destroy (this);
-    return NULL;
-  }
+  if (!init_func (this, (gchar *) args))
+    goto init_failed;
 
   pinos_log_debug ("loaded module: %s", this->name);
 
-  return &this->object;
+  return this;
+
+not_found:
+  {
+    asprintf (err, "No module \"%s\" was found", name);
+    return NULL;
+  }
+open_failed:
+  {
+    asprintf (err, "Failed to open module: %s", dlerror ());
+    return NULL;
+  }
+no_pinos_module:
+  {
+    asprintf (err, "\"%s\" is not a pinos module", name);
+    dlclose (hnd);
+    return NULL;
+  }
+init_failed:
+  {
+    asprintf (err, "\"%s\" failed to initialize", name);
+    pinos_module_destroy (this);
+    return NULL;
+  }
+}
+
+void
+pinos_module_destroy (PinosModule *this)
+{
+  PinosModuleImpl *impl = SPA_CONTAINER_OF (this, PinosModuleImpl, this);
+
+  pinos_signal_emit (&this->destroy_signal, this);
+
+  free (this->name);
+  dlclose (impl->hnd);
+  free (impl);
 }

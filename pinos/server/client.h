@@ -20,9 +20,9 @@
 #ifndef __PINOS_CLIENT_H__
 #define __PINOS_CLIENT_H__
 
-#include <glib-object.h>
-
-G_BEGIN_DECLS
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define PINOS_CLIENT_URI                            "http://pinos.org/ns/client"
 #define PINOS_CLIENT_PREFIX                         PINOS_CLIENT_URI "#"
@@ -38,33 +38,34 @@ typedef struct _PinosClient PinosClient;
  * Pinos client object class.
  */
 struct _PinosClient {
-  PinosCore *core;
+  PinosCore   *core;
+  SpaList      list;
+  PinosGlobal *global;
 
   char *sender;
-
   PinosProperties *properties;
 
-  PinosSignal appeared;
-  PinosSignal vanished;
-
-  void   (*add_object)          (PinosClient *client,
-                                 PinosObject *object);
-  void   (*remove_object)       (PinosClient *client,
-                                 PinosObject *object);
-  bool   (*has_object)          (PinosClient *client,
-                                 PinosObject *object);
+  PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
+                                 PinosClient *client));
 };
 
-PinosObject *   pinos_client_new                  (PinosCore       *core,
+PinosClient *   pinos_client_new                  (PinosCore       *core,
                                                    const gchar     *sender,
                                                    PinosProperties *properties);
+void            pinos_client_destroy              (PinosClient     *client);
 
 const gchar *   pinos_client_get_object_path      (PinosClient *client);
 
-#define pinos_client_add_object(c,...)      (c)->add_object ((c),__VA_ARGS__)
-#define pinos_client_remove_object(c,...)   (c)->remove_object ((c),__VA_ARGS__)
-#define pinos_client_has_object(c,...)      (c)->has_object ((c),__VA_ARGS__)
 
-G_END_DECLS
+void   pinos_client_add_object          (PinosClient *client,
+                                         PinosObject *object);
+void   pinos_client_remove_object       (PinosClient *client,
+                                         PinosObject *object);
+bool   pinos_client_has_object          (PinosClient *client,
+                                         PinosObject *object);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __PINOS_CLIENT_H__ */

@@ -112,6 +112,9 @@ pinos_array_add_fixed (PinosArray *arr,
   return p;
 }
 
+#define pinos_array_add_ptr(a,p)                                \
+  *((void**) pinos_array_add (a, sizeof (void*))) = (p)
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

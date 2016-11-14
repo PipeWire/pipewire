@@ -24,10 +24,10 @@
 
 G_BEGIN_DECLS
 
+typedef struct _PinosLink PinosLink;
+
 #define PINOS_LINK_URI                            "http://pinos.org/ns/link"
 #define PINOS_LINK_PREFIX                         PINOS_LINK_URI "#"
-
-typedef struct _PinosLink PinosLink;
 
 #include <spa/include/spa/ringbuffer.h>
 
@@ -43,33 +43,38 @@ typedef struct _PinosLink PinosLink;
  * Pinos link interface.
  */
 struct _PinosLink {
+  PinosCore   *core;
+  SpaList      list;
+  PinosGlobal *global;
+
   PinosProperties *properties;
 
   PinosLinkState state;
   GError *error;
 
+  PINOS_SIGNAL (destroy_signal, (PinosListener *,
+                                 PinosLink *));
+
   PinosPort    *output;
   PinosPort    *input;
-
-  PinosSignal   port_unlinked;
-  PinosSignal   notify_state;
 
   uint32_t      queue[64];
   SpaRingbuffer ringbuffer;
   gint          in_ready;
-
-  bool  (*activate)   (PinosLink *link);
-  bool  (*deactivate) (PinosLink *link);
 };
 
-PinosObject *       pinos_link_new                  (PinosCore       *core,
-                                                     PinosPort       *input,
-                                                     PinosPort       *output,
-                                                     GPtrArray       *format_filter,
-                                                     PinosProperties *properties);
 
-#define pinos_link_activate(l)     (l)->activate(l)
-#define pinos_link_deactivate(l)   (l)->deactivate(l)
+PinosLink *     pinos_link_new          (PinosCore       *core,
+                                         PinosPort       *output,
+                                         PinosPort       *input,
+                                         GPtrArray       *format_filter,
+                                         PinosProperties *properties);
+void            pinos_link_destroy      (PinosLink       *link);
+
+bool            pinos_link_activate     (PinosLink *link);
+bool            pinos_link_deactivate   (PinosLink *link);
+
+
 
 const gchar *       pinos_link_get_object_path      (PinosLink *link);
 

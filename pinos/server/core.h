@@ -24,14 +24,30 @@
 extern "C" {
 #endif
 
-#define PINOS_CORE_URI                            "http://pinos.org/ns/core"
-#define PINOS_CORE_PREFIX                         PINOS_CORE_URI "#"
-
 typedef struct _PinosCore PinosCore;
+typedef struct _PinosGlobal PinosGlobal;
+
+#include <gio/gio.h>
 
 #include <spa/include/spa/log.h>
 #include <pinos/server/main-loop.h>
+#include <pinos/server/data-loop.h>
 #include <pinos/server/registry.h>
+#include <pinos/server/node.h>
+#include <pinos/server/link.h>
+
+#include "pinos/dbus/org-pinos.h"
+
+struct _PinosGlobal {
+  PinosCore *core;
+  SpaList    list;
+  uint32_t   id;
+  uint32_t   type;
+  void      *object;
+
+  PinosObjectSkeleton *skel;
+  const char          *object_path;
+};
 
 /**
  * PinosCore:
@@ -39,17 +55,61 @@ typedef struct _PinosCore PinosCore;
  * Pinos core object class.
  */
 struct _PinosCore {
-  PinosObject object;
-
   PinosRegistry registry;
 
+  GDBusConnection *connection;
+
+  SpaList global_list;
+  SpaList client_list;
+  SpaList node_list;
+  SpaList link_list;
+
+
   PinosMainLoop *main_loop;
+  PinosDataLoop *data_loop;
 
   SpaSupport *support;
   unsigned int n_support;
+
+  PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
+                                 PinosCore     *core));
+
+
+  PINOS_SIGNAL (global_added,  (PinosListener *listener,
+                                PinosCore     *core,
+                                PinosGlobal   *global));
+  PINOS_SIGNAL (global_removed, (PinosListener *listener,
+                                 PinosCore     *core,
+                                 PinosGlobal   *global));
+
+  PINOS_SIGNAL (node_state_changed, (PinosListener  *listener,
+                                     PinosNode      *object,
+                                     PinosNodeState  old,
+                                     PinosNodeState  state));
+  PINOS_SIGNAL (port_added, (PinosListener *listener,
+                             PinosNode     *node,
+                             PinosPort     *port));
+  PINOS_SIGNAL (port_removed, (PinosListener *listener,
+                               PinosNode     *node,
+                               PinosPort     *port));
+
+  PINOS_SIGNAL (port_unlinked, (PinosListener *listener,
+                                PinosLink     *link,
+                                PinosPort     *port));
+  PINOS_SIGNAL (link_state_changed,  (PinosListener *listener,
+                                      PinosLink     *link));
+
 };
 
-PinosCore *     pinos_core_new        (PinosMainLoop *main_loop);
+PinosCore *     pinos_core_new           (PinosMainLoop *main_loop);
+void            pinos_core_destroy       (PinosCore     *core);
+
+PinosGlobal *   pinos_core_add_global    (PinosCore           *core,
+                                          uint32_t             type,
+                                          void                *object,
+                                          PinosObjectSkeleton *skel);
+void            pinos_core_remove_global (PinosCore           *core,
+                                          PinosGlobal         *global);
 
 #ifdef __cplusplus
 }

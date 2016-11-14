@@ -14,6 +14,7 @@ pinos_headers = [
   'subscribe.h',
   'thread-mainloop.h',
   'transport.h',
+  'utils.h',
 ]
 
 pinos_sources = [
@@ -33,6 +34,7 @@ pinos_sources = [
   'subscribe.c',
   'thread-mainloop.c',
   'transport.c',
+  'utils.c',
   gdbus_target,
 ]
 

@@ -39,24 +39,26 @@ typedef struct _PinosDaemon PinosDaemon;
  * Pinos daemon object class.
  */
 struct _PinosDaemon {
+  PinosCore *core;
+  SpaList list;
+  PinosGlobal *global;
+
   PinosProperties *properties;
 
-  PinosCore *core;
+  PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
+                                 PinosDaemon   *daemon));
 
   SpaResult  (*start)    (PinosDaemon *daemon);
   SpaResult  (*stop)     (PinosDaemon *daemon);
 };
 
-PinosObject *     pinos_daemon_new               (PinosCore       *core,
+PinosDaemon *     pinos_daemon_new               (PinosCore       *core,
                                                   PinosProperties *properties);
+void              pinos_daemon_destroy           (PinosDaemon     *daemon);
 
-const char *      pinos_daemon_get_object_path   (PinosDaemon *daemon);
 
 #define pinos_daemon_start(d)   (d)->start(d)
 #define pinos_daemon_stop(d)    (d)->stop(d)
-
-char *            pinos_daemon_export_uniquely   (PinosDaemon *daemon, GDBusObjectSkeleton *skel);
-void              pinos_daemon_unexport          (PinosDaemon *daemon, const char *name);
 
 PinosPort *       pinos_daemon_find_port         (PinosDaemon     *daemon,
                                                   PinosPort       *other_port,

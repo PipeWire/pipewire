@@ -20,14 +20,11 @@
 #ifndef __PINOS_CLIENT_NODE_H__
 #define __PINOS_CLIENT_NODE_H__
 
-#include <glib-object.h>
-
 #include <pinos/server/node.h>
 
-G_BEGIN_DECLS
-
-#define PINOS_CLIENT_NODE_URI                            "http://pinos.org/ns/client-node"
-#define PINOS_CLIENT_NODE_PREFIX                         PINOS_CLIENT_NODE_URI "#"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct _PinosClientNode PinosClientNode;
 
@@ -39,20 +36,21 @@ typedef struct _PinosClientNode PinosClientNode;
 struct _PinosClientNode {
   PinosNode *node;
 
-  int  (*get_ctrl_socket)      (PinosClientNode  *node,
-                                GError          **error);
-  int  (*get_data_socket)      (PinosClientNode  *node,
-                                GError          **error);
+  PINOS_SIGNAL (destroy_signal, (PinosListener   *listener,
+                                 PinosClientNode *node));
 };
 
-PinosObject *      pinos_client_node_new                  (PinosCore       *core,
-                                                           PinosClient     *client,
-                                                           const gchar     *name,
-                                                           PinosProperties *properties);
+PinosClientNode *  pinos_client_node_new              (PinosCore       *core,
+                                                       PinosClient     *client,
+                                                       const gchar     *name,
+                                                       PinosProperties *properties);
+void               pinos_client_node_destroy          (PinosClientNode *node);
 
-#define pinos_client_node_get_ctrl_socket(n)   (n)->get_ctrl_socket(n,__VA_ARGS__)
-#define pinos_client_node_get_data_socket(n)   (n)->get_data_socket(n,__VA_ARGS__)
+SpaResult          pinos_client_node_get_ctrl_socket  (PinosClientNode *node, int *fd);
+SpaResult          pinos_client_node_get_data_socket  (PinosClientNode *node, int *fd);
 
-G_END_DECLS
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __PINOS_CLIENT_NODE_H__ */

@@ -40,6 +40,7 @@ new_pinos_port (PinosNode *node, PinosDirection direction, uint32_t port)
   np->direction = direction;
   np->port = port;
   np->links = g_ptr_array_new ();
+  pinos_signal_init (&np->destroy_signal);
   return np;
 }
 
@@ -52,16 +53,10 @@ free_node_port (PinosPort *np)
 
 typedef struct
 {
-  PinosNode node;
-  PinosObject object;
-  PinosInterface ifaces[1];
-
-  PinosCore *core;
-  PinosDaemon *daemon;
-  PinosNode1 *iface;
+  PinosNode this;
 
   PinosClient *client;
-  gchar *object_path;
+  PinosNode1 *iface;
 
   uint32_t seq;
 
@@ -74,8 +69,6 @@ typedef struct
   GError *error;
   guint idle_timeout;
 
-  PinosDataLoop *data_loop;
-
   struct {
     GPtrArray *links;
   } rt;
@@ -87,7 +80,7 @@ static void init_complete (PinosNode *this);
 static void
 update_port_ids (PinosNode *node, gboolean create)
 {
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, node);
+  PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, this);
   uint32_t *input_port_ids, *output_port_ids;
   guint n_input_ports, n_output_ports, max_input_ports, max_output_ports;
   guint i;
@@ -130,7 +123,7 @@ update_port_ids (PinosNode *node, gboolean create)
       impl->input_ports = g_list_insert_before (impl->input_ports, ports, np);
 
       if (!impl->async_init)
-        pinos_signal_emit (&node->port_added, node, np);
+        pinos_signal_emit (&node->core->port_added, node, np);
       i++;
     } else if (p) {
       GList *next;
@@ -141,7 +134,7 @@ update_port_ids (PinosNode *node, gboolean create)
       ports = next;
 
       if (!impl->async_init)
-        pinos_signal_emit (&node->port_removed, node, p);
+        pinos_signal_emit (&node->core->port_removed, node, p);
 
       free_node_port (p);
     } else
@@ -164,7 +157,7 @@ update_port_ids (PinosNode *node, gboolean create)
       impl->output_ports = g_list_insert_before (impl->output_ports, ports, np);
 
       if (!impl->async_init)
-        pinos_signal_emit (&node->port_added, node, np);
+        pinos_signal_emit (&node->core->port_added, node, np);
       i++;
     } else if (p) {
       GList *next;
@@ -175,7 +168,7 @@ update_port_ids (PinosNode *node, gboolean create)
       ports = next;
 
       if (!impl->async_init)
-        pinos_signal_emit (&node->port_removed, node, p);
+        pinos_signal_emit (&node->core->port_removed, node, p);
 
       free_node_port (p);
     } else
@@ -196,7 +189,7 @@ update_port_ids (PinosNode *node, gboolean create)
   for (i = 0; i < max_output_ports; i++)
     spa_node_port_set_output (node->node, i, &node->transport->outputs[i]);
 
-  pinos_signal_emit (&node->transport_changed, node, node->transport);
+  pinos_signal_emit (&node->transport_changed, node);
 }
 
 static SpaResult
@@ -234,7 +227,7 @@ start_node (PinosNode *this)
 static SpaResult
 suspend_node (PinosNode *this)
 {
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, node);
+  PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, this);
   SpaResult res = SPA_RESULT_OK;
   GList *walk;
 
@@ -326,7 +319,7 @@ static void
 on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
 {
   PinosNode *this = user_data;
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, node);
+  PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, this);
 
   switch (event->type) {
     case SPA_NODE_EVENT_TYPE_INVALID:
@@ -340,9 +333,8 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
       SpaNodeEventAsyncComplete *ac = (SpaNodeEventAsyncComplete *) event;
 
       pinos_log_debug ("node %p: async complete event %d %d", this, ac->seq, ac->res);
-      if (!pinos_main_loop_defer_complete (impl->core->main_loop, this, ac->seq, ac->res)) {
-        PinosNodeAsyncCompleteData acd = { ac->seq, ac->res };
-        pinos_signal_emit (&this->async_complete, this, &acd);
+      if (!pinos_main_loop_defer_complete (this->core->main_loop, this, ac->seq, ac->res)) {
+        pinos_signal_emit (&this->async_complete, this, ac->seq, ac->res);
       }
       break;
     }
@@ -359,7 +351,7 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
           continue;
 
         link->in_ready++;
-        spa_poll_invoke (&((PinosNodeImpl*)link->input->node)->data_loop->poll,
+        spa_poll_invoke (&link->input->node->data_loop->poll,
                          do_read_link,
                          SPA_ID_INVALID,
                          sizeof (PinosLink *),
@@ -395,7 +387,7 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
           link->queue[offset] = po->buffer_id;
           spa_ringbuffer_write_advance (&link->ringbuffer, 1);
 
-          spa_poll_invoke (&((PinosNodeImpl*)link->input->node)->data_loop->poll,
+          spa_poll_invoke (&link->input->node->data_loop->poll,
                            do_read_link,
                            SPA_ID_INVALID,
                            sizeof (PinosLink *),
@@ -441,10 +433,9 @@ handle_remove (PinosNode1             *interface,
                gpointer                user_data)
 {
   PinosNode *this = user_data;
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, node);
 
   pinos_log_debug ("node %p: remove", this);
-  pinos_object_destroy (&this->object);
+  pinos_node_destroy (this);
 
   g_dbus_method_invocation_return_value (invocation,
                                          g_variant_new ("()"));
@@ -452,94 +443,31 @@ handle_remove (PinosNode1             *interface,
 }
 
 static void
-node_register_object (PinosNode *this)
-{
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, node);
-  PinosDaemon *daemon = impl->daemon;
-  PinosObjectSkeleton *skel;
-
-  skel = pinos_object_skeleton_new (PINOS_DBUS_OBJECT_NODE);
-
-  pinos_object_skeleton_set_node1 (skel, impl->iface);
-
-  g_free (impl->object_path);
-  impl->object_path = pinos_daemon_export_uniquely (daemon, G_DBUS_OBJECT_SKELETON (skel));
-  g_object_unref (skel);
-
-  pinos_log_debug ("node %p: register object %s, id %u", this, impl->object_path, impl->object.id);
-
-  return;
-}
-
-static void
-node_unregister_object (PinosNode *this)
-{
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, node);
-
-  pinos_log_debug ("node %p: unregister object %s", this, impl->object_path);
-  pinos_daemon_unexport (impl->daemon, impl->object_path);
-  g_clear_pointer (&impl->object_path, g_free);
-}
-
-static void
-on_property_notify (GObject    *obj,
-                    GParamSpec *pspec,
-                    gpointer    user_data)
-{
-  PinosNode *this = user_data;
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, node);
-
-  if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "client") == 0) {
-    if (impl->client)
-      pinos_node1_set_owner (impl->iface, pinos_client_get_object_path (impl->client));
-    else
-      pinos_node1_set_owner (impl->iface, pinos_daemon_get_object_path (impl->daemon));
-  }
-  if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "name") == 0) {
-    pinos_node1_set_name (impl->iface, this->name);
-  }
-  if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "properties") == 0) {
-    PinosProperties *props = this->properties;
-    pinos_node1_set_properties (impl->iface, props ? pinos_properties_to_variant (props) : NULL);
-  }
-}
-
-static void
 init_complete (PinosNode *this)
 {
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, node);
+  PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, this);
+  PinosProperties *props = this->properties;
 
-  update_port_ids (this, FALSE);
+  update_port_ids (this, false);
   pinos_log_debug ("node %p: init completed", this);
-  impl->async_init = FALSE;
-  on_property_notify (G_OBJECT (this), NULL, this);
+  impl->async_init = false;
+
+  if (impl->client)
+    pinos_node1_set_owner (impl->iface, this->global->object_path);
+  else
+    pinos_node1_set_owner (impl->iface, "/");
+  pinos_node1_set_name (impl->iface, this->name);
+  pinos_node1_set_properties (impl->iface, props ? pinos_properties_to_variant (props) : NULL);
+
   pinos_node_update_state (this, PINOS_NODE_STATE_SUSPENDED);
 }
 
-static void
-node_destroy (PinosObject * obj)
+void
+pinos_node_set_data_loop (PinosNode        *node,
+                          PinosDataLoop    *loop)
 {
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (obj, PinosNodeImpl, object);
-  PinosNode *this = &impl->node;
-
-  pinos_log_debug ("node %p: destroy", this);
-  pinos_node_set_state (this, PINOS_NODE_STATE_SUSPENDED);
-
-  node_unregister_object (this);
-
-  pinos_main_loop_defer_cancel (impl->core->main_loop, this, 0);
-
-  pinos_registry_remove_object (&impl->core->registry, &impl->object);
-
-  g_clear_object (&impl->daemon);
-  g_clear_object (&impl->iface);
-  g_clear_object (&impl->data_loop);
-  free (this->name);
-  g_clear_error (&impl->error);
-  if (this->properties)
-    pinos_properties_free (this->properties);
-
-  free (obj);
+  node->data_loop = loop;
+  pinos_signal_emit (&node->loop_changed, node);
 }
 
 PinosNode *
@@ -551,19 +479,12 @@ pinos_node_new (PinosCore       *core,
 {
   PinosNodeImpl *impl;
   PinosNode *this;
+  PinosObjectSkeleton *skel;
 
   impl = calloc (1, sizeof (PinosNodeImpl));
-  impl->core = core;
-  this = &impl->node;
+  this = &impl->this;
+  this->core = core;
   pinos_log_debug ("node %p: new", this);
-
-  impl->ifaces[0].type = impl->core->registry.uri.node;
-  impl->ifaces[0].iface = this;
-
-  pinos_object_init (&impl->object,
-                     node_destroy,
-                     1,
-                     impl->ifaces);
 
   this->name = strdup (name);
   this->properties = properties;
@@ -571,11 +492,13 @@ pinos_node_new (PinosCore       *core,
   this->node = node;
   this->clock = clock;
 
-  pinos_signal_init (&this->state_change);
-  pinos_signal_init (&this->port_added);
-  pinos_signal_init (&this->port_removed);
+  if (spa_node_set_event_callback (this->node, on_node_event, this) < 0)
+    pinos_log_warn ("node %p: error setting callback", this);
+
+  pinos_signal_init (&this->destroy_signal);
   pinos_signal_init (&this->async_complete);
   pinos_signal_init (&this->transport_changed);
+  pinos_signal_init (&this->loop_changed);
 
   impl->iface = pinos_node1_skeleton_new ();
   g_signal_connect (impl->iface, "handle-remove",
@@ -588,8 +511,6 @@ pinos_node_new (PinosCore       *core,
   impl->rt.links = g_ptr_array_new_full (256, NULL);
 
   //g_signal_connect (this, "notify", (GCallback) on_property_notify, this);
-
-  pinos_registry_add_object (&impl->core->registry, &impl->object);
 
   if (this->node->info) {
     unsigned int i;
@@ -607,34 +528,53 @@ pinos_node_new (PinosCore       *core,
     init_complete (this);
   } else {
     impl->async_init = TRUE;
-    pinos_main_loop_defer (impl->core->main_loop,
+    pinos_main_loop_defer (this->core->main_loop,
                            this,
                            SPA_RESULT_RETURN_ASYNC (0),
                            (PinosDeferFunc) init_complete,
                            NULL,
                            NULL);
   }
-  node_register_object (this);
+  spa_list_insert (core->node_list.prev, &this->list);
 
+  skel = pinos_object_skeleton_new (PINOS_DBUS_OBJECT_NODE);
+  pinos_object_skeleton_set_node1 (skel, impl->iface);
+
+  this->global = pinos_core_add_global (core,
+                                        core->registry.uri.node,
+                                        this,
+                                        skel);
   return this;
 }
 
 /**
- * pinos_node_get_daemon:
+ * pinos_node_destroy:
  * @node: a #PinosNode
  *
- * Get the daemon of @node.
- *
- * Returns: the daemon of @node.
+ * Remove @node. This will stop the transfer on the node and
+ * free the resources allocated by @node.
  */
-PinosDaemon *
-pinos_node_get_daemon (PinosNode *node)
+void
+pinos_node_destroy (PinosNode * this)
 {
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, node);
+  PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, this);
 
-  g_return_val_if_fail (node, NULL);
+  pinos_log_debug ("node %p: destroy", impl);
+  pinos_signal_emit (&this->destroy_signal, this);
 
- return impl->daemon;
+  pinos_node_set_state (this, PINOS_NODE_STATE_SUSPENDED);
+
+  spa_list_remove (&this->list);
+  pinos_core_remove_global (this->core, this->global);
+
+  pinos_main_loop_defer_cancel (this->core->main_loop, this, 0);
+
+  g_clear_object (&impl->iface);
+  free (this->name);
+  g_clear_error (&impl->error);
+  if (this->properties)
+    pinos_properties_free (this->properties);
+  free (impl);
 }
 
 /**
@@ -648,46 +588,8 @@ pinos_node_get_daemon (PinosNode *node)
 PinosClient *
 pinos_node_get_client (PinosNode *node)
 {
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, node);
-
-  g_return_val_if_fail (node, NULL);
-
+  PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, this);
   return impl->client;
-}
-/**
- * pinos_node_get_object_path:
- * @node: a #PinosNode
- *
- * Get the object path of @node.
- *
- * Returns: the object path of @node.
- */
-const gchar *
-pinos_node_get_object_path (PinosNode *node)
-{
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, node);
-
-  g_return_val_if_fail (node, NULL);
-
-  return impl->object_path;
-}
-
-/**
- * pinos_node_destroy:
- * @node: a #PinosNode
- *
- * Remove @node. This will stop the transfer on the node and
- * free the resources allocated by @node.
- */
-void
-pinos_node_destroy (PinosNode *node)
-{
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, node);
-
-  g_return_if_fail (impl);
-
-  pinos_log_debug ("node %p: destroy", impl);
-  pinos_object_destroy (&impl->object);
 }
 
 /**
@@ -703,7 +605,7 @@ PinosPort *
 pinos_node_get_free_port (PinosNode       *node,
                           PinosDirection   direction)
 {
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, node);
+  PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, this);
   guint free_port, n_ports, max_ports;
   GList *ports, *walk;
   PinosPort *port = NULL;
@@ -751,7 +653,7 @@ do_add_link (SpaPoll        *poll,
              void           *user_data)
 {
   PinosNode *this = user_data;
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, node);
+  PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, this);
   PinosLink *link = ((PinosLink**)data)[0];
 
   g_ptr_array_add (impl->rt.links, link);
@@ -812,9 +714,9 @@ pinos_port_link (PinosPort       *output_port,
   g_return_val_if_fail (input_port != NULL, NULL);
 
   output_node = output_port->node;
-  output_impl = SPA_CONTAINER_OF (output_node, PinosNodeImpl, node);
+  output_impl = SPA_CONTAINER_OF (output_node, PinosNodeImpl, this);
   input_node = input_port->node;
-  input_impl = SPA_CONTAINER_OF (input_node, PinosNodeImpl, node);
+  input_impl = SPA_CONTAINER_OF (input_node, PinosNodeImpl, this);
 
   pinos_log_debug ("port link %p:%u -> %p:%u", output_node, output_port->port, input_node, input_port->port);
 
@@ -826,15 +728,13 @@ pinos_port_link (PinosPort       *output_port,
 
   link = find_link (output_port, input_port);
 
-  if (link)  {
-    g_object_ref (link);
-  } else {
+  if (link == NULL)  {
     input_node->live = output_node->live;
     if (output_node->clock)
       input_node->clock = output_node->clock;
     pinos_log_debug ("node %p: clock %p, live %d", output_node, output_node->clock, output_node->live);
 
-    link = pinos_link_new (output_impl->core,
+    link = pinos_link_new (output_node->core,
                            output_port,
                            input_port,
                            format_filter,
@@ -846,13 +746,13 @@ pinos_port_link (PinosPort       *output_port,
     output_impl->n_used_output_links++;
     input_impl->n_used_input_links++;
 
-    spa_poll_invoke (&output_impl->data_loop->poll,
+    spa_poll_invoke (&output_node->data_loop->poll,
                      do_add_link,
                      SPA_ID_INVALID,
                      sizeof (PinosLink *),
                      &link,
                      output_node);
-    spa_poll_invoke (&input_impl->data_loop->poll,
+    spa_poll_invoke (&input_node->data_loop->poll,
                      do_add_link,
                      SPA_ID_INVALID,
                      sizeof (PinosLink *),
@@ -902,7 +802,7 @@ do_remove_link_done (SpaPoll        *poll,
 {
   PinosPort *port = user_data;
   PinosNode *this = port->node;
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, node);
+  PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, this);
   PinosLink *link = ((PinosLink**)data)[0];
 
   pinos_log_debug ("port %p: finish unlink", port);
@@ -931,7 +831,7 @@ do_remove_link_done (SpaPoll        *poll,
     port->n_buffers = 0;
   }
 
-  pinos_main_loop_defer_complete (impl->core->main_loop,
+  pinos_main_loop_defer_complete (this->core->main_loop,
                                   port,
                                   seq,
                                   SPA_RESULT_OK);
@@ -951,7 +851,7 @@ do_remove_link (SpaPoll        *poll,
 {
   PinosPort *port = user_data;
   PinosNode *this = port->node;
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, node);
+  PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, this);
   PinosLink *link = ((PinosLink**)data)[0];
   SpaResult res;
 
@@ -962,7 +862,7 @@ do_remove_link (SpaPoll        *poll,
 
   g_ptr_array_remove_fast (impl->rt.links, link);
 
-  res = spa_poll_invoke (impl->core->main_loop->poll,
+  res = spa_poll_invoke (this->core->main_loop->poll,
                          do_remove_link_done,
                          seq,
                          sizeof (PinosLink *),
@@ -975,13 +875,13 @@ SpaResult
 pinos_port_unlink (PinosPort *port, PinosLink *link)
 {
   SpaResult res;
-  PinosNodeImpl *impl = (PinosNodeImpl*)port->node;
+  PinosNodeImpl *impl = SPA_CONTAINER_OF (port->node, PinosNodeImpl, this);
 
   pinos_log_debug ("port %p: start unlink %p", port, link);
 
   g_object_ref (link);
   g_object_ref (port->node);
-  res = spa_poll_invoke (&impl->data_loop->poll,
+  res = spa_poll_invoke (&port->node->data_loop->poll,
                          do_remove_link,
                          impl->seq++,
                          sizeof (PinosLink *),
@@ -1000,7 +900,6 @@ do_clear_buffers_done (SpaPoll        *poll,
 {
   PinosPort *port = user_data;
   PinosNode *this = port->node;
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, node);
   SpaResult res;
 
   pinos_log_debug ("port %p: clear buffers finish", port);
@@ -1012,7 +911,7 @@ do_clear_buffers_done (SpaPoll        *poll,
   port->buffers = NULL;
   port->n_buffers = 0;
 
-  pinos_main_loop_defer_complete (impl->core->main_loop,
+  pinos_main_loop_defer_complete (this->core->main_loop,
                                   port,
                                   seq,
                                   res);
@@ -1029,12 +928,11 @@ do_clear_buffers (SpaPoll        *poll,
 {
   PinosPort *port = user_data;
   PinosNode *this = port->node;
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, node);
   SpaResult res;
 
   pinos_port_pause (port);
 
-  res = spa_poll_invoke (impl->core->main_loop->poll,
+  res = spa_poll_invoke (this->core->main_loop->poll,
                          do_clear_buffers_done,
                          seq,
                          0, NULL,
@@ -1046,10 +944,10 @@ SpaResult
 pinos_port_clear_buffers (PinosPort *port)
 {
   SpaResult res;
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (port->node, PinosNodeImpl, node);
+  PinosNodeImpl *impl = SPA_CONTAINER_OF (port->node, PinosNodeImpl, this);
 
   pinos_log_debug ("port %p: clear buffers", port);
-  res = spa_poll_invoke (&impl->data_loop->poll,
+  res = spa_poll_invoke (&port->node->data_loop->poll,
                          do_clear_buffers,
                          impl->seq++,
                          0, NULL,
@@ -1070,7 +968,7 @@ GList *
 pinos_node_get_ports (PinosNode *node, PinosDirection direction)
 {
   GList *ports;
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, node);
+  PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, this);
 
   g_return_val_if_fail (node, NULL);
 
@@ -1085,7 +983,7 @@ pinos_node_get_ports (PinosNode *node, PinosDirection direction)
 static void
 remove_idle_timeout (PinosNode *node)
 {
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, node);
+  PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, this);
 
   if (impl->idle_timeout) {
     g_source_remove (impl->idle_timeout);
@@ -1124,7 +1022,6 @@ SpaResult
 pinos_node_set_state (PinosNode      *node,
                       PinosNodeState  state)
 {
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, node);
   SpaResult res = SPA_RESULT_OK;
 
   g_return_val_if_fail (node, SPA_RESULT_INVALID_ARGUMENTS);
@@ -1159,7 +1056,7 @@ pinos_node_set_state (PinosNode      *node,
   if (SPA_RESULT_IS_ERROR (res))
     return res;
 
-  pinos_main_loop_defer (impl->core->main_loop,
+  pinos_main_loop_defer (node->core->main_loop,
                          node,
                          res,
                          (PinosDeferFunc) on_state_complete,
@@ -1181,22 +1078,20 @@ void
 pinos_node_update_state (PinosNode      *node,
                          PinosNodeState  state)
 {
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, node);
+  PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, this);
   PinosNodeState old;
 
   g_return_if_fail (node);
 
   old = node->state;
   if (old != state) {
-    PinosNodeStateChangeData sc = { old, state };
-
     pinos_log_debug ("node %p: update state from %s -> %s", node,
         pinos_node_state_as_string (old),
         pinos_node_state_as_string (state));
 
     node->state = state;
     pinos_node1_set_state (impl->iface, state);
-    pinos_signal_emit (&node->state_change, node, &sc);
+    pinos_signal_emit (&node->core->node_state_changed, node, old, state);
   }
 }
 
@@ -1211,25 +1106,25 @@ void
 pinos_node_report_error (PinosNode *node,
                          GError    *error)
 {
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, node);
-  PinosNodeStateChangeData sc;
+  PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, this);
+  PinosNodeState old;
 
   g_return_if_fail (node);
 
   g_clear_error (&impl->error);
   remove_idle_timeout (node);
   impl->error = error;
-  sc.old = node->state;
-  sc.state = node->state = PINOS_NODE_STATE_ERROR;
+  old = node->state;
+  node->state = PINOS_NODE_STATE_ERROR;
   pinos_log_debug ("node %p: got error state %s", node, error->message);
   pinos_node1_set_state (impl->iface, PINOS_NODE_STATE_ERROR);
-  pinos_signal_emit (&node->state_change, node, &sc);
+  pinos_signal_emit (&node->core->node_state_changed, node, old, node->state);
 }
 
 static gboolean
 idle_timeout (PinosNode *node)
 {
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, node);
+  PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, this);
 
   impl->idle_timeout = 0;
   pinos_log_debug ("node %p: idle timeout", node);
@@ -1248,7 +1143,7 @@ idle_timeout (PinosNode *node)
 void
 pinos_node_report_idle (PinosNode *node)
 {
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, node);
+  PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, this);
 
   g_return_if_fail (node);
 

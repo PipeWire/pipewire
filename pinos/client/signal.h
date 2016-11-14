@@ -31,25 +31,31 @@ typedef struct _PinosListener PinosListener;
 
 struct _PinosListener {
   SpaList         link;
-  void (*notify) (PinosListener *listener, void *object, void *data);
+  void (*notify) (void *);
 };
 
+#if 0
 struct _PinosSignal {
   SpaList listeners;
+  void (*notify) (PinosListener *listener, void *object, void *data);
 };
+#endif
 
-static inline void
-pinos_signal_init (PinosSignal *signal)
-{
-  spa_list_init (&signal->listeners);
-}
+#define PINOS_SIGNAL(name,func)                    \
+  union {                                               \
+    SpaList listeners;                                  \
+    void (*notify) func;                           \
+  } name;
 
-static inline void
-pinos_signal_add (PinosSignal   *signal,
-                  PinosListener *listener)
-{
-  spa_list_insert (signal->listeners.prev, &listener->link);
-}
+#define pinos_signal_init(signal)                       \
+  spa_list_init (&(signal)->listeners);
+
+#define pinos_signal_add(signal,listener,func)                          \
+  do {                                                                  \
+    __typeof__((signal)->notify) n = (func);                             \
+    (listener)->notify = (void (*) (void *)) n;                                             \
+    spa_list_insert ((signal)->listeners.prev, &(listener)->link);      \
+  } while (false);
 
 static inline void
 pinos_signal_remove (PinosListener *listener)
@@ -57,16 +63,12 @@ pinos_signal_remove (PinosListener *listener)
   spa_list_remove (&listener->link);
 }
 
-static inline void
-pinos_signal_emit (PinosSignal *signal,
-                   void        *object,
-                   void        *data)
-{
-  PinosListener *l, *next;
-
-  spa_list_for_each_safe (l, next, &signal->listeners, link)
-    l->notify (l, object, data);
-}
+#define pinos_signal_emit(signal,...)                                   \
+  do {                                                                  \
+    PinosListener *l, *next;                                            \
+    spa_list_for_each_safe (l, next, &(signal)->listeners, link)        \
+      ((__typeof__((signal)->notify))l->notify) (l,__VA_ARGS__);       \
+  } while (false);
 
 #ifdef __cplusplus
 }

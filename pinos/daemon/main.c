@@ -17,24 +17,21 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include <gio/gio.h>
-#include <glib.h>
-
 #include <pinos/client/pinos.h>
 #include <pinos/server/daemon.h>
 #include <pinos/server/module.h>
 
 #include "daemon-config.h"
 
-gint
-main (gint argc, gchar *argv[])
+int
+main (int argc, char *argv[])
 {
   PinosCore *core;
   PinosDaemon *daemon;
   PinosMainLoop *loop;
   PinosDaemonConfig *config;
   PinosProperties *props;
-  GError *err = NULL;
+  char *err = NULL;
 
   pinos_init (&argc, &argv);
 
@@ -44,8 +41,8 @@ main (gint argc, gchar *argv[])
   /* parse configuration */
   config = pinos_daemon_config_new ();
   if (!pinos_daemon_config_load (config, &err)) {
-    g_error ("failed to parse config: %s", err->message);
-    g_clear_error (&err);
+    g_error ("failed to parse config: %s", err);
+    free (err);
   }
 
   props = pinos_properties_new ("test", "test", NULL);

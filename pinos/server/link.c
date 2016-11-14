@@ -38,21 +38,12 @@
 
 typedef struct
 {
-  PinosLink link;
+  PinosLink this;
 
-  PinosObject object;
-  PinosInterface ifaces[1];
-
-  PinosCore *core;
-  PinosDaemon *daemon;
   PinosLink1 *iface;
 
-  gchar *object_path;
   GPtrArray *format_filter;
   PinosProperties *properties;
-
-  PinosLinkState state;
-  GError *error;
 
   PinosListener input_port_destroy;
   PinosListener input_async_complete;
@@ -66,59 +57,26 @@ typedef struct
 } PinosLinkImpl;
 
 static void
-link_register_object (PinosLink *this)
-{
-  PinosLinkImpl *impl = (PinosLinkImpl *) this;
-  PinosObjectSkeleton *skel;
-  gchar *name;
-
-  name = g_strdup_printf (PINOS_DBUS_OBJECT_LINK);
-  skel = pinos_object_skeleton_new (name);
-  g_free (name);
-
-  pinos_object_skeleton_set_link1 (skel, impl->iface);
-
-  g_free (impl->object_path);
-  impl->object_path = pinos_daemon_export_uniquely (impl->daemon, G_DBUS_OBJECT_SKELETON (skel));
-  g_object_unref (skel);
-
-  pinos_log_debug ("link %p: register object %s", this, impl->object_path);
-}
-
-static void
-link_unregister_object (PinosLink *this)
-{
-  PinosLinkImpl *impl = (PinosLinkImpl *) this;
-
-  pinos_log_debug ("link %p: unregister object", this);
-  pinos_daemon_unexport (impl->daemon, impl->object_path);
-}
-
-static void
 pinos_link_update_state (PinosLink *link, PinosLinkState state)
 {
-  PinosLinkImpl *impl = (PinosLinkImpl *) link;
-
-  if (state != impl->state) {
-    g_clear_error (&impl->error);
+  if (state != link->state) {
+    g_clear_error (&link->error);
     pinos_log_debug ("link %p: update state %s -> %s", link,
-        pinos_link_state_as_string (impl->state),
+        pinos_link_state_as_string (link->state),
         pinos_link_state_as_string (state));
-    impl->state = state;
-    pinos_signal_emit (&link->notify_state, link, NULL);
+    link->state = state;
+    pinos_signal_emit (&link->core->link_state_changed, link);
   }
 }
 
 static void
 pinos_link_report_error (PinosLink *link, GError *error)
 {
-  PinosLinkImpl *impl = (PinosLinkImpl *) link;
-
-  g_clear_error (&impl->error);
-  impl->error = error;
-  impl->state = PINOS_LINK_STATE_ERROR;
+  g_clear_error (&link->error);
+  link->error = error;
+  link->state = PINOS_LINK_STATE_ERROR;
   pinos_log_debug ("link %p: got error state %s", link, error->message);
-  pinos_signal_emit (&link->notify_state, link, NULL);
+  pinos_signal_emit (&link->core->link_state_changed, link);
 }
 
 static SpaResult
@@ -152,7 +110,7 @@ again:
         goto error;
       }
     }
-    pinos_log_debug ("Try filter:");
+    pinos_log_debug ("Try filter: %p", filter);
     spa_debug_format (filter);
 
     if ((res = spa_node_port_enum_formats (this->output->node->node,
@@ -269,7 +227,7 @@ find_meta_enable (const SpaPortInfo *info, SpaMetaType type)
 static SpaResult
 do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
 {
-  PinosLinkImpl *impl = (PinosLinkImpl *) this;
+  PinosLinkImpl *impl = SPA_CONTAINER_OF (this, PinosLinkImpl, this);
   SpaResult res;
   const SpaPortInfo *iinfo, *oinfo;
   SpaPortInfoFlags in_flags, out_flags;
@@ -608,7 +566,6 @@ check_states (PinosLink *this,
               SpaResult  res)
 {
   SpaNodeState in_state, out_state;
-  PinosLinkImpl *impl = (PinosLinkImpl *) this;
 
   if (res != SPA_RESULT_OK) {
     pinos_log_warn ("link %p: error: %d", this, res);
@@ -641,34 +598,34 @@ again:
   return SPA_RESULT_OK;
 
 exit:
-  pinos_main_loop_defer (impl->core->main_loop, this, res, (PinosDeferFunc) check_states, this, NULL);
+  pinos_main_loop_defer (this->core->main_loop, this, res, (PinosDeferFunc) check_states, this, NULL);
   return res;
 }
 
 static void
 on_input_async_complete_notify (PinosListener *listener,
-                                void          *object,
-                                void          *data)
+                                PinosNode     *node,
+                                uint32_t       seq,
+                                SpaResult      res)
 {
-  PinosNode *node = object;
-  PinosNodeAsyncCompleteData *d = data;
   PinosLinkImpl *impl = SPA_CONTAINER_OF (listener, PinosLinkImpl, input_async_complete);
+  PinosLink *this = &impl->this;
 
-  pinos_log_debug ("link %p: node %p async complete %d %d", impl, node, d->seq, d->res);
-  pinos_main_loop_defer_complete (impl->core->main_loop, impl, d->seq, d->res);
+  pinos_log_debug ("link %p: node %p async complete %d %d", impl, node, seq, res);
+  pinos_main_loop_defer_complete (this->core->main_loop, impl, seq, res);
 }
 
 static void
 on_output_async_complete_notify (PinosListener *listener,
-                                 void          *object,
-                                 void          *data)
+                                 PinosNode     *node,
+                                 uint32_t       seq,
+                                 SpaResult      res)
 {
-  PinosNode *node = object;
-  PinosNodeAsyncCompleteData *d = data;
   PinosLinkImpl *impl = SPA_CONTAINER_OF (listener, PinosLinkImpl, output_async_complete);
+  PinosLink *this = &impl->this;
 
-  pinos_log_debug ("link %p: node %p async complete %d %d", impl, node, d->seq, d->res);
-  pinos_main_loop_defer_complete (impl->core->main_loop, impl, d->seq, d->res);
+  pinos_log_debug ("link %p: node %p async complete %d %d", impl, node, seq, res);
+  pinos_main_loop_defer_complete (this->core->main_loop, impl, seq, res);
 }
 
 #if 0
@@ -704,7 +661,7 @@ on_property_notify (GObject    *obj,
 static void
 on_port_unlinked (PinosPort *port, PinosLink *this, SpaResult res, gulong id)
 {
-  pinos_signal_emit (&this->port_unlinked, this, port);
+  pinos_signal_emit (&this->core->port_unlinked, this, port);
 
   if (this->input == NULL || this->output == NULL)
     pinos_link_update_state (this, PINOS_LINK_STATE_UNLINKED);
@@ -734,7 +691,7 @@ on_port_destroy (PinosLink *this,
   }
 
   res = pinos_port_unlink (port, this);
-  pinos_main_loop_defer (impl->core->main_loop,
+  pinos_main_loop_defer (this->core->main_loop,
                          port,
                          res,
                          (PinosDeferFunc) on_port_unlinked,
@@ -744,73 +701,34 @@ on_port_destroy (PinosLink *this,
 
 static void
 on_input_port_destroy (PinosListener *listener,
-                       void          *object,
-                       void          *data)
+                       PinosPort     *port)
 {
   PinosLinkImpl *impl = SPA_CONTAINER_OF (listener, PinosLinkImpl, input_port_destroy);
-  PinosPort *port = object;
 
-  on_port_destroy (&impl->link, port);
+  on_port_destroy (&impl->this, port);
   pinos_signal_remove (listener);
 }
 
 static void
 on_output_port_destroy (PinosListener *listener,
-                        void          *object,
-                        void          *data)
+                        PinosPort     *port)
 {
   PinosLinkImpl *impl = SPA_CONTAINER_OF (listener, PinosLinkImpl, output_port_destroy);
-  PinosPort *port = object;
 
-  on_port_destroy (&impl->link, port);
+  on_port_destroy (&impl->this, port);
   pinos_signal_remove (listener);
 }
 
-static void
-link_destroy (PinosObject * object)
-{
-  PinosLinkImpl *impl = (PinosLinkImpl *) object;
-  PinosLink *this = &impl->link;
-
-  pinos_log_debug ("link %p: destroy", this);
-
-  if (this->input)
-    pinos_signal_remove (&impl->input_port_destroy);
-  if (this->output)
-    pinos_signal_remove (&impl->output_port_destroy);
-
-  if (this->input)
-    pinos_port_unlink (this->input, this);
-  if (this->output)
-    pinos_port_unlink (this->output, this);
-
-  link_unregister_object (this);
-
-  pinos_main_loop_defer_cancel (impl->core->main_loop, this, 0);
-
-  g_clear_object (&impl->daemon);
-  g_clear_object (&impl->iface);
-  g_free (impl->object_path);
-
-  if (impl->allocated)
-    pinos_memblock_free (&impl->buffer_mem);
-
-  pinos_registry_remove_object (&impl->core->registry, &this->object);
-
-  free (object);
-}
-
-
-static bool
-link_activate (PinosLink *this)
+bool
+pinos_link_activate (PinosLink *this)
 {
   spa_ringbuffer_init (&this->ringbuffer, SPA_N_ELEMENTS (this->queue));
   check_states (this, NULL, SPA_RESULT_OK);
   return true;
 }
 
-static bool
-pinos_link_deactivate (PinosLink *this)
+bool
+pinos_pinos_link_deactivate (PinosLink *this)
 {
   spa_ringbuffer_clear (&this->ringbuffer);
   return true;
@@ -818,60 +736,61 @@ pinos_link_deactivate (PinosLink *this)
 
 PinosLink *
 pinos_link_new (PinosCore       *core,
-                PinosPort       *input,
                 PinosPort       *output,
+                PinosPort       *input,
                 GPtrArray       *format_filter,
                 PinosProperties *properties)
 {
   PinosLinkImpl *impl;
   PinosLink *this;
+  PinosObjectSkeleton *skel;
 
   impl = calloc (1, sizeof (PinosLinkImpl));
-  this = &impl->link;
+  this = &impl->this;
   pinos_log_debug ("link %p: new", this);
 
+  this->core = core;
   this->properties = properties;
   this->state = PINOS_LINK_STATE_INIT;
 
   this->input = input;
   this->output = output;
 
-  pinos_signal_init (&this->notify_state);
-  pinos_signal_init (&this->port_unlinked);
-
-  this->activate = link_activate;
-  this->deactivate = link_deactivate;
+  pinos_signal_init (&this->destroy_signal);
 
   impl->format_filter = format_filter;
-  impl->iface = pinos_link1_skeleton_new ();
 
-  impl->input_port_destroy.notify = on_input_port_destroy;
-  pinos_signal_add (&this->input->object.destroy_signal, &impl->input_port_destroy);
+  pinos_signal_add (&this->input->destroy_signal,
+                    &impl->input_port_destroy,
+                    on_input_port_destroy);
 
-  impl->output_port_destroy.notify = on_output_port_destroy;
-  pinos_signal_add (&this->output->object.destroy_signal, &impl->output_port_destroy);
+  pinos_signal_add (&this->output->destroy_signal,
+                    &impl->output_port_destroy,
+                    on_output_port_destroy);
 
-  impl->input_async_complete.notify = on_input_async_complete_notify;
-  pinos_signal_add (&this->input->node->async_complete, &impl->input_async_complete);
+  pinos_signal_add (&this->input->node->async_complete,
+                    &impl->input_async_complete,
+                    on_input_async_complete_notify);
 
-  impl->output_async_complete.notify = on_output_async_complete_notify;
-  pinos_signal_add (&this->output->node->async_complete, &impl->output_async_complete);
-
-  impl->ifaces[0].type = core->registry.uri.link;
-  impl->ifaces[0].iface = this;
-
-  pinos_object_init (&this->object,
-                     link_destroy,
-                     1,
-                     impl->ifaces);
-  pinos_registry_add_object (&core->registry, &this->object);
+  pinos_signal_add (&this->output->node->async_complete,
+                    &impl->output_async_complete,
+                    on_output_async_complete_notify);
 
   pinos_log_debug ("link %p: constructed %p:%d -> %p:%d", impl,
                                                   this->output->node, this->output->port,
                                                   this->input->node, this->input->port);
-  link_register_object (this);
 
-  return &this->object;
+  spa_list_insert (core->link_list.prev, &this->list);
+
+  impl->iface = pinos_link1_skeleton_new ();
+  skel = pinos_object_skeleton_new (PINOS_DBUS_OBJECT_LINK);
+  pinos_object_skeleton_set_link1 (skel, impl->iface);
+
+  this->global = pinos_core_add_global (core,
+                                        core->registry.uri.link,
+                                        this,
+                                        skel);
+  return this;
 }
 
 /**
@@ -881,40 +800,34 @@ pinos_link_new (PinosCore       *core,
  * Trigger removal of @link
  */
 void
-pinos_link_destroy (PinosLink *this)
+pinos_link_destroy (PinosLink * this)
 {
-  pinos_log_debug ("link %p: destroy", this);
-  pinos_signal_emit (&this->object.destroy_signal, this, NULL);
-}
+  PinosLinkImpl *impl = SPA_CONTAINER_OF (this, PinosLinkImpl, this);
 
-/**
- * pinos_link_get_object_path:
- * @link: a #PinosLink
- *
- * Get the object patch of @link
- *
- * Returns: the object path of @source.
- */
-const gchar *
-pinos_link_get_object_path (PinosLink *this)
-{
-  PinosLinkImpl *impl = (PinosLinkImpl *) this;
+  pinos_log_debug ("link %p: destroy", impl);
+  pinos_signal_emit (&this->destroy_signal, this);
 
-  g_return_val_if_fail (impl, NULL);
+  if (this->input) {
+    pinos_signal_remove (&impl->input_port_destroy);
+    pinos_signal_remove (&impl->input_async_complete);
+    pinos_port_unlink (this->input, this);
+  }
+  if (this->output) {
+    pinos_signal_remove (&impl->output_port_destroy);
+    pinos_signal_remove (&impl->output_async_complete);
+    pinos_port_unlink (this->output, this);
+  }
 
-  return impl->object_path;
-}
+  pinos_main_loop_defer_cancel (this->core->main_loop, this, 0);
 
-PinosLinkState
-pinos_link_get_state (PinosLink  *this,
-                      GError    **error)
-{
-  PinosLinkImpl *impl = (PinosLinkImpl *) this;
+  pinos_core_remove_global (this->core, this->global);
 
-  g_return_val_if_fail (impl, PINOS_LINK_STATE_ERROR);
+  spa_list_remove (&this->list);
 
-  if (error)
-    *error = impl->error;
+  g_clear_object (&impl->iface);
 
-  return impl->state;
+  if (impl->allocated)
+    pinos_memblock_free (&impl->buffer_mem);
+
+  free (impl);
 }

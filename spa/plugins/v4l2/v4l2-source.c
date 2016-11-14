@@ -515,6 +515,7 @@ spa_v4l2_source_node_port_enum_formats (SpaNode         *node,
 
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
 
+  spa_log_debug (this->log, "%p %d %d", this, direction, port_id);
   if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
 

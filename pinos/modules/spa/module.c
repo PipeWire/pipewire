@@ -21,20 +21,26 @@
 #include <server/daemon.h>
 #include <server/module.h>
 
-#include "spa-alsa-monitor.h"
-#include "spa-v4l2-monitor.h"
-#include "spa-audiotestsrc.h"
-#include "spa-videotestsrc.h"
+#include "spa-monitor.h"
+#include "spa-node.h"
 
-gboolean pinos__module_init (PinosModule *module, const gchar * args);
+bool pinos__module_init (PinosModule *module, const char * args);
 
-G_MODULE_EXPORT gboolean
-pinos__module_init (PinosModule * module, G_GNUC_UNUSED const gchar * args)
+G_MODULE_EXPORT bool
+pinos__module_init (PinosModule * module, const char * args)
 {
-  pinos_spa_alsa_monitor_new (module->core);
-  pinos_spa_v4l2_monitor_new (module->core);
-  pinos_spa_audiotestsrc_new (module->core, "audiotestsrc", NULL);
-  pinos_spa_videotestsrc_new (module->core, "videotestsrc", NULL);
+  pinos_spa_monitor_load (module->core, "build/spa/plugins/alsa/libspa-alsa.so", "alsa-monitor", args);
+  pinos_spa_monitor_load (module->core, "build/spa/plugins/v4l2/libspa-v4l2.so", "v4l2-monitor", args);
+  pinos_spa_node_load (module->core,
+                       "build/spa/plugins/audiotestsrc/libspa-audiotestsrc.so",
+                       "audiotestsrc",
+                       "audiotestsrc",
+                       NULL, args);
+  pinos_spa_node_load (module->core,
+                       "build/spa/plugins/videotestsrc/libspa-videotestsrc.so",
+                       "videotestsrc",
+                       "videotestsrc",
+                       NULL, args);
 
   return TRUE;
 }

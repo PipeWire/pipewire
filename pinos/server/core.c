@@ -21,46 +21,93 @@
 #include <pinos/server/data-loop.h>
 
 typedef struct {
-  PinosCore object;
+  PinosCore  this;
 
-  PinosDataLoop *data_loop;
+  GDBusObjectManagerServer *server_manager;
 
   SpaSupport support[4];
 
 } PinosCoreImpl;
 
-static void
-core_destroy (PinosObject *object)
-{
-  free (object);
-}
-
 PinosCore *
 pinos_core_new (PinosMainLoop *main_loop)
 {
   PinosCoreImpl *impl;
+  PinosCore *this;
 
   impl = calloc (1, sizeof (PinosCoreImpl));
-  pinos_registry_init (&impl->object.registry);
+  this = &impl->this;
+  pinos_registry_init (&this->registry);
 
-  pinos_object_init (&impl->object.object,
-                     impl->object.registry.uri.core,
-                     impl,
-                     core_destroy);
-
-  impl->data_loop = pinos_data_loop_new ();
-  impl->object.main_loop = main_loop;
+  this->data_loop = pinos_data_loop_new ();
+  this->main_loop = main_loop;
 
   impl->support[0].uri = SPA_ID_MAP_URI;
-  impl->support[0].data = impl->object.registry.map;
+  impl->support[0].data = this->registry.map;
   impl->support[1].uri = SPA_LOG_URI;
   impl->support[1].data = pinos_log_get ();
   impl->support[2].uri = SPA_POLL__DataLoop;
-  impl->support[2].data = &impl->data_loop->poll;
+  impl->support[2].data = &this->data_loop->poll;
   impl->support[3].uri = SPA_POLL__MainLoop;
-  impl->support[3].data = &impl->object.main_loop->poll;
-  impl->object.support = impl->support;
-  impl->object.n_support = 4;
+  impl->support[3].data = this->main_loop->poll;
+  this->support = impl->support;
+  this->n_support = 4;
 
-  return &impl->object;
+  spa_list_init (&this->global_list);
+  spa_list_init (&this->client_list);
+  spa_list_init (&this->node_list);
+  spa_list_init (&this->link_list);
+  pinos_signal_init (&this->destroy_signal);
+  pinos_signal_init (&this->global_added);
+  pinos_signal_init (&this->global_removed);
+  pinos_signal_init (&this->node_state_changed);
+  pinos_signal_init (&this->port_added);
+  pinos_signal_init (&this->port_removed);
+  pinos_signal_init (&this->port_unlinked);
+  pinos_signal_init (&this->link_state_changed);
+
+  return this;
+}
+
+void
+pinos_core_destroy (PinosCore *core)
+{
+  PinosCoreImpl *impl = SPA_CONTAINER_OF (core, PinosCoreImpl, this);
+
+  pinos_signal_emit (&core->destroy_signal, core);
+
+  pinos_data_loop_destroy (core->data_loop);
+
+  free (impl);
+}
+
+PinosGlobal *
+pinos_core_add_global (PinosCore           *core,
+                       uint32_t             type,
+                       void                *object,
+                       PinosObjectSkeleton *skel)
+{
+  PinosGlobal *global;
+
+  global = calloc (1, sizeof (PinosGlobal));
+  global->core = core;
+  global->id = 0;
+  global->type = type;
+  global->object = object;
+  global->skel = skel;
+
+  spa_list_insert (core->global_list.prev, &global->list);
+  pinos_signal_emit (&core->global_added, core, global);
+
+  return global;
+}
+
+void
+pinos_core_remove_global (PinosCore      *core,
+                          PinosGlobal    *global)
+{
+  pinos_signal_emit (&core->global_removed, core, global);
+
+  spa_list_remove (&global->list);
+  free (global);
 }

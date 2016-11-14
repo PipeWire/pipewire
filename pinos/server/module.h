@@ -21,46 +21,19 @@
 #ifndef __PINOS_MODULE_H__
 #define __PINOS_MODULE_H__
 
-#include <glib-object.h>
-
-G_BEGIN_DECLS
 
 #include <pinos/server/core.h>
-
-#define PINOS_MODULE_URI                            "http://pinos.org/ns/module"
-#define PINOS_MODULE_PREFIX                         PINOS_MODULE_URI "#"
 
 typedef struct _PinosModule PinosModule;
 
 struct _PinosModule {
+  SpaList link;
   gchar *name;
   PinosCore *core;
+
+  PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
+                                 PinosModule   *module));
 };
-
-GQuark pinos_module_error_quark (void);
-/**
- * PINOS_MODULE_ERROR:
- *
- * Pinos module error.
- */
-#define PINOS_MODULE_ERROR pinos_module_error_quark ()
-
-/**
- * PinosModuleError:
- * @PINOS_MODULE_ERROR_GENERIC: Generic module error.
- * @PINOS_MODULE_ERROR_NOT_FOUND: Module could not be found.
- * @PINOS_MODULE_ERROR_LOADING: Module could not be loaded.
- * @PINOS_MODULE_ERROR_INIT: The module failed to initialize.
- *
- * Error codes for Pinos modules.
- */
-typedef enum
-{
-  PINOS_MODULE_ERROR_GENERIC,
-  PINOS_MODULE_ERROR_NOT_FOUND,
-  PINOS_MODULE_ERROR_LOADING,
-  PINOS_MODULE_ERROR_INIT,
-} PinosModuleError;
 
 /**
  * PinosModuleInitFunc:
@@ -70,14 +43,15 @@ typedef enum
  * A module should provide an init function with this signature. This function
  * will be called when a module is loaded.
  *
- * Returns: %TRUE on success, %FALSE otherwise
+ * Returns: %true on success, %false otherwise
  */
-typedef gboolean (*PinosModuleInitFunc) (PinosModule *module, gchar *args);
+typedef bool (*PinosModuleInitFunc) (PinosModule *module, char *args);
 
-PinosObject *     pinos_module_load              (PinosCore   *core,
+PinosModule *     pinos_module_load              (PinosCore   *core,
                                                   const gchar *name,
                                                   const gchar *args,
-                                                  GError **err);
+                                                  char       **err);
+void              pinos_module_destroy           (PinosModule *module);
 
 G_END_DECLS
 

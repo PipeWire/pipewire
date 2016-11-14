@@ -27,11 +27,8 @@ G_BEGIN_DECLS
 #define PINOS_NODE_URI                            "http://pinos.org/ns/node"
 #define PINOS_NODE_PREFIX                         PINOS_NODE_URI "#"
 
-#define PINOS_PORT_URI                            PINOS_NODE_PREFIX "Port"
-
 typedef struct _PinosPort PinosPort;
 typedef struct _PinosNode PinosNode;
-typedef struct _PinosNodeListener PinosNodeListener;
 
 #include <spa/include/spa/node.h>
 
@@ -42,9 +39,10 @@ typedef struct _PinosNodeListener PinosNodeListener;
 #include <pinos/server/daemon.h>
 #include <pinos/server/link.h>
 #include <pinos/server/client.h>
+#include <pinos/server/data-loop.h>
 
 struct _PinosPort {
-  PinosObject     object;
+  PINOS_SIGNAL   (destroy_signal, (PinosListener *listener, PinosPort *));
 
   PinosNode      *node;
   PinosDirection  direction;
@@ -74,12 +72,16 @@ typedef struct {
  * Pinos node class.
  */
 struct _PinosNode {
+  PinosCore *core;
+  SpaList    list;
+  PinosGlobal *global;
+
   char *name;
   PinosProperties *properties;
   PinosNodeState state;
 
+  SpaHandle *handle;
   SpaNode *node;
-
   bool live;
   SpaClock *clock;
 
@@ -87,12 +89,20 @@ struct _PinosNode {
   gboolean have_outputs;
 
   PinosTransport *transport;
-  PinosSignal transport_changed;
+  PINOS_SIGNAL (transport_changed, (PinosListener *listener,
+                                    PinosNode     *object));
 
-  PinosSignal state_change;
-  PinosSignal port_added;
-  PinosSignal port_removed;
-  PinosSignal async_complete;
+  PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
+                                 PinosNode     *object));
+
+  PINOS_SIGNAL (async_complete, (PinosListener *listener,
+                                 PinosNode     *node,
+                                 uint32_t       seq,
+                                 SpaResult      res));
+
+  PinosDataLoop *data_loop;
+  PINOS_SIGNAL (loop_changed, (PinosListener *listener,
+                               PinosNode     *object));
 
   PinosPort * (*get_free_port)   (PinosNode        *node,
                                   PinosDirection    direction);
@@ -103,37 +113,18 @@ struct _PinosNode {
                                   PinosNodeState    state);
 };
 
-struct _PinosNodeListener {
-  void  (*async_complete)  (PinosNodeListener *listener,
-                            PinosNode         *node,
-                            uint32_t           seq,
-                            SpaResult          res);
-
-  void  (*state_change)    (PinosNodeListener *listener,
-                            PinosNode         *node,
-                            PinosNodeState     old,
-                            PinosNodeState     state);
-
-  void  (*port_added)      (PinosNodeListener *listener,
-                            PinosNode         *node,
-                            PinosPort         *port);
-
-  void  (*port_removed)    (PinosNodeListener *listener,
-                            PinosNode         *node,
-                            PinosPort         *port);
-};
-
-
-
-PinosObject *       pinos_node_new                     (PinosCore       *core,
+PinosNode *         pinos_node_new                     (PinosCore       *core,
                                                         const char      *name,
                                                         SpaNode         *node,
                                                         SpaClock        *clock,
                                                         PinosProperties *properties);
+void                pinos_node_destroy                 (PinosNode       *node);
 
-PinosDaemon *       pinos_node_get_daemon              (PinosNode        *node);
+
+void                pinos_node_set_data_loop           (PinosNode        *node,
+                                                        PinosDataLoop    *loop);
+
 PinosClient *       pinos_node_get_client              (PinosNode        *node);
-const gchar *       pinos_node_get_object_path         (PinosNode        *node);
 
 PinosPort *         pinos_node_get_free_port           (PinosNode        *node,
                                                         PinosDirection    direction);

@@ -27,47 +27,20 @@ G_BEGIN_DECLS
 
 #include <pinos/server/daemon.h>
 
-#define PINOS_TYPE_DAEMON_CONFIG           (pinos_daemon_config_get_type ())
-
 typedef struct _PinosDaemonConfig PinosDaemonConfig;
 
 struct _PinosDaemonConfig {
-  GList *commands;
+  SpaList commands;
 };
-
-GQuark pinos_daemon_config_error_quark (void);
-/**
- * PINOS_DAEMON_CONFIG_ERROR:
- *
- * Pinos daemon config error.
- */
-#define PINOS_DAEMON_CONFIG_ERROR (pinos_daemon_config_error_quark ())
-
-/**
- * PinosDaemonConfigError:
- * @PINOS_DAEMON_CONFIG_ERROR_GENERIC: Generic daemon config error.
- * @PINOS_DAEMON_CONFIG_ERROR_ASSIGNMENT: Assignment error.
- * @PINOS_DAEMON_CONFIG_ERROR_COMMAND: Command error.
- *
- * Error codes for Pinos daemon config.
- */
-typedef enum
-{
-  PINOS_DAEMON_CONFIG_ERROR_GENERIC,
-  PINOS_DAEMON_CONFIG_ERROR_ASSIGNMENT,
-  PINOS_DAEMON_CONFIG_ERROR_COMMAND,
-} PinosDaemonConfigError;
-
-GType               pinos_daemon_config_get_type      (void);
 
 PinosDaemonConfig * pinos_daemon_config_new           (void);
 void                pinos_daemon_config_free          (PinosDaemonConfig  *config);
-gboolean            pinos_daemon_config_load_file     (PinosDaemonConfig  *config,
-                                                       const gchar        *filename,
-                                                       GError            **err);
-gboolean            pinos_daemon_config_load          (PinosDaemonConfig  *config,
-                                                       GError            **err);
-gboolean            pinos_daemon_config_run_commands  (PinosDaemonConfig  *config,
+bool                pinos_daemon_config_load_file     (PinosDaemonConfig  *config,
+                                                       const char         *filename,
+                                                       char              **err);
+bool                pinos_daemon_config_load          (PinosDaemonConfig  *config,
+                                                       char              **err);
+bool                pinos_daemon_config_run_commands  (PinosDaemonConfig  *config,
                                                        PinosDaemon        *daemon);
 
 G_END_DECLS

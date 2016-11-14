@@ -17,26 +17,36 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __PINOS_SPA_ALSA_MONITOR_H__
-#define __PINOS_SPA_ALSA_MONITOR_H__
+#ifndef __PINOS_SPA_MONITOR_H__
+#define __PINOS_SPA_MONITOR_H__
 
-#include <glib-object.h>
-
-
+#include <pinos/server/core.h>
 #include <spa/include/spa/monitor.h>
-#include <pinos/server/daemon.h>
 
-G_BEGIN_DECLS
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-typedef struct _PinosSpaALSAMonitor PinosSpaALSAMonitor;
+typedef struct _PinosSpaMonitor PinosSpaMonitor;
 
-struct _PinosSpaALSAMonitor {
+struct _PinosSpaMonitor {
   SpaMonitor *monitor;
+
+  char *lib;
+  char *factory_name;
+  SpaHandle *handle;
+
+  PINOS_SIGNAL (destroy_signal, (PinosListener *listener, PinosSpaMonitor *monitor));
 };
 
-PinosSpaALSAMonitor *         pinos_spa_alsa_monitor_new      (PinosCore *core);
-void                          pinos_spa_alsa_monitor_destroy  (PinosSpaALSAMonitor *monitor);
+PinosSpaMonitor *      pinos_spa_monitor_load     (PinosCore  *core,
+                                                   const char *lib,
+                                                   const char *factory_name,
+                                                   const char *args);
+void                   pinos_spa_monitor_destroy  (PinosSpaMonitor *monitor);
 
-G_END_DECLS
+#ifdef __cplusplus
+}
+#endif
 
-#endif /* __PINOS_SPA_ALSA_MONITOR_H__ */
+#endif /* __PINOS_SPA_MONITOR_H__ */

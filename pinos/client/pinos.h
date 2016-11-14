@@ -32,6 +32,7 @@ extern const char             g_log_domain_pinos[];
 #include <pinos/client/ringbuffer.h>
 #include <pinos/client/stream.h>
 #include <pinos/client/subscribe.h>
+#include <pinos/client/utils.h>
 
 #include <spa/include/spa/id-map.h>
 

@@ -17,26 +17,36 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __PINOS_SPA_V4L2_MONITOR_H__
-#define __PINOS_SPA_V4L2_MONITOR_H__
+#ifndef __PINOS_SPA_NODE_H__
+#define __PINOS_SPA_NODE_H__
 
-#include <pinos/server/core.h>
+#include <server/core.h>
+#include <server/node.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+typedef struct _PinosSpaNode PinosSpaNode;
 
-typedef struct _PinosSpaV4l2Monitor PinosSpaV4l2Monitor;
+struct _PinosSpaNode {
+  PinosNode *node;
 
-struct _PinosSpaV4l2Monitor {
-  SpaMonitor *monitor;
+  char *lib;
+  char *factory_name;
+  SpaHandle  *handle;
+  PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
+                                 PinosSpaNode  *node));
 };
 
-PinosSpaV4l2Monitor *      pinos_spa_v4l2_monitor_new      (PinosCore *core);
-void                       pinos_spa_v4l2_monitor_destroy  (PinosSpaV4l2Monitor *monitor);
+PinosSpaNode *    pinos_spa_node_load      (PinosCore       *core,
+                                            const char      *lib,
+                                            const char      *factory_name,
+                                            const char      *name,
+                                            PinosProperties *properties,
+                                            const char      *args);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __PINOS_SPA_V4L2_MONITOR_H__ */
+#endif /* __PINOS_SPA_NODE_H__ */

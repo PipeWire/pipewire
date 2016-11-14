@@ -25,47 +25,20 @@
 G_BEGIN_DECLS
 
 #include <spa/include/spa/poll.h>
-#include <spa/include/spa/node-command.h>
 
 typedef struct _PinosDataLoop PinosDataLoop;
-typedef struct _PinosDataLoopClass PinosDataLoopClass;
-typedef struct _PinosDataLoopPrivate PinosDataLoopPrivate;
-
-#define PINOS_TYPE_DATA_LOOP                 (pinos_data_loop_get_type ())
-#define PINOS_IS_DATA_LOOP(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_DATA_LOOP))
-#define PINOS_IS_DATA_LOOP_CLASS(klass)      (G_TYPE_CHECK_CLASS_TYPE ((klass), PINOS_TYPE_DATA_LOOP))
-#define PINOS_DATA_LOOP_GET_CLASS(obj)       (G_TYPE_INSTANCE_GET_CLASS ((obj), PINOS_TYPE_DATA_LOOP, PinosDataLoopClass))
-#define PINOS_DATA_LOOP(obj)                 (G_TYPE_CHECK_INSTANCE_CAST ((obj), PINOS_TYPE_DATA_LOOP, PinosDataLoop))
-#define PINOS_DATA_LOOP_CLASS(klass)         (G_TYPE_CHECK_CLASS_CAST ((klass), PINOS_TYPE_DATA_LOOP, PinosDataLoopClass))
-#define PINOS_DATA_LOOP_CAST(obj)            ((PinosDataLoop*)(obj))
-#define PINOS_DATA_LOOP_CLASS_CAST(klass)    ((PinosDataLoopClass*)(klass))
 
 /**
  * PinosDataLoop:
  *
- * Pinos rt-loop class.
+ * Pinos rt-loop object.
  */
 struct _PinosDataLoop {
-  GObject object;
-
   SpaPoll poll;
-
-  PinosDataLoopPrivate *priv;
 };
-
-/**
- * PinosDataLoopClass:
- *
- * Pinos rt-loop class.
- */
-struct _PinosDataLoopClass {
-  GObjectClass parent_class;
-};
-
-/* normal GObject stuff */
-GType               pinos_data_loop_get_type         (void);
 
 PinosDataLoop *     pinos_data_loop_new              (void);
+void                pinos_data_loop_destroy          (PinosDataLoop *loop);
 
 bool                pinos_data_loop_in_thread        (PinosDataLoop *loop);
 

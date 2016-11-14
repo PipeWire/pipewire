@@ -34,13 +34,11 @@ pinos_registry_init (PinosRegistry *reg)
 {
   reg->map = pinos_id_map_get_default();
 
-  reg->uri.core = spa_id_map_get_id (reg->map, PINOS_CORE_URI);
   reg->uri.daemon = spa_id_map_get_id (reg->map, PINOS_DAEMON_URI);
   reg->uri.registry = spa_id_map_get_id (reg->map, PINOS_REGISTRY_URI);
   reg->uri.node = spa_id_map_get_id (reg->map, PINOS_NODE_URI);
-  reg->uri.port = spa_id_map_get_id (reg->map, PINOS_PORT_URI);
-  reg->uri.link = spa_id_map_get_id (reg->map, PINOS_LINK_URI);
   reg->uri.node_factory = spa_id_map_get_id (reg->map, PINOS_NODE_FACTORY_URI);
+  reg->uri.link = spa_id_map_get_id (reg->map, PINOS_LINK_URI);
   reg->uri.client = spa_id_map_get_id (reg->map, PINOS_CLIENT_URI);
 
   reg->uri.spa_node = spa_id_map_get_id (reg->map, SPA_NODE_URI);
@@ -48,9 +46,6 @@ pinos_registry_init (PinosRegistry *reg)
   reg->uri.spa_monitor = spa_id_map_get_id (reg->map, SPA_MONITOR_URI);
 
   pinos_map_init (&reg->objects, 512);
-
-  pinos_signal_init (&reg->object_added);
-  pinos_signal_init (&reg->object_removed);
 }
 
 PinosObject *
@@ -65,7 +60,7 @@ pinos_registry_iterate_objects (PinosRegistry *reg,
     idx = SPA_PTR_TO_INT (*state);
     *state = SPA_INT_TO_PTR (idx+1);
     o = pinos_map_lookup (&reg->objects, idx);
-    if (o != NULL && (type == SPA_ID_INVALID || o->type == type))
+    if (o != NULL)
       break;
   }
   return o;

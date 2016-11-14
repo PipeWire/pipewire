@@ -18,46 +18,36 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include <glib.h>
 #include <string.h>
 
 #include <pinos/client/pinos.h>
+#include <pinos/client/utils.h>
 #include <pinos/server/module.h>
 
 #include "command.h"
 
-GQuark
-pinos_command_error_quark (void)
-{
-  static GQuark quark = 0;
-
-  if (quark == 0) {
-    quark = g_quark_from_static_string ("pinos_command_error");
-  }
-
-  return quark;
-}
-
-typedef gboolean (*PinosCommandFunc)                    (PinosCommand  *command,
+typedef bool (*PinosCommandFunc)                    (PinosCommand  *command,
                                                          PinosCore     *core,
-                                                         GError       **err);
+                                                         char         **err);
 
-static gboolean  execute_command_module_load            (PinosCommand  *command,
+static bool  execute_command_module_load            (PinosCommand  *command,
                                                          PinosCore     *core,
-                                                         GError       **err);
+                                                         char         **err);
 
 typedef PinosCommand * (*PinosCommandParseFunc)         (const gchar   *line,
-                                                         GError       **err);
+                                                         char         **err);
 
 static PinosCommand *  parse_command_module_load        (const gchar  *line,
-                                                         GError      **err);
+                                                         char         **err);
 
-struct _PinosCommand
+typedef struct
 {
+  PinosCommand this;
+
   PinosCommandFunc func;
-  gchar **args;
-  gint    n_args;
-};
+  char **args;
+  int    n_args;
+} PinosCommandImpl;
 
 typedef struct _CommandParse
 {
@@ -72,84 +62,40 @@ static const CommandParse parsers[] = {
 
 static const gchar whitespace[] = " \t";
 
-static gchar **
-tokenize (const gchar * line, gint max_tokens, gint * n_tokens)
-{
-  gchar **res;
-  GSList *tokens, *walk;
-  const gchar *s;
-  gint num;
-
-  s = line + strspn (line, whitespace);
-  num = 0;
-  tokens = NULL;
-
-  while (*s != '\0' && num + 1 < max_tokens) {
-    gsize len;
-    gchar *token;
-
-    len = strcspn (s, whitespace);
-    token = g_strndup (s, len);
-    tokens = g_slist_prepend (tokens, token);
-    num++;
-
-    s += len;
-    s += strspn (s, whitespace);
-  }
-
-  if (*s != '\0') {
-    tokens = g_slist_prepend (tokens, g_strdup (s));
-    num++;
-  }
-
-  res = g_new (gchar *, num + 1);
-  res[num] = NULL;
-  for (walk = tokens; walk != NULL; walk = walk->next) {
-    res[--num] = walk->data;
-  }
-  g_slist_free (tokens);
-
-  *n_tokens = num;
-
-  return res;
-}
-
 static PinosCommand *
-parse_command_module_load (const gchar * line, GError ** err)
+parse_command_module_load (const char * line, char ** err)
 {
-  PinosCommand *command;
+  PinosCommandImpl *impl;
 
-  command = g_new0 (PinosCommand, 1);
+  impl = calloc (1, sizeof (PinosCommandImpl));
 
-  command->func = execute_command_module_load;
-  command->args = tokenize (line, 3, &command->n_args);
+  impl->func = execute_command_module_load;
+  impl->args = pinos_split_strv (line, whitespace, 3, &impl->n_args);
 
-  if (command->args[1] == NULL)
+  if (impl->args[1] == NULL)
     goto no_module;
 
-  return command;
+  impl->this.name = impl->args[0];
+
+  return &impl->this;
 
 no_module:
-  g_set_error (err, PINOS_COMMAND_ERROR, PINOS_COMMAND_ERROR_PARSE,
-      "%s requires a module name", command->args[0]);
-
-  g_strfreev (command->args);
-
+  asprintf (err, "%s requires a module name", impl->args[0]);
+  pinos_free_strv (impl->args);
   return NULL;
 }
 
-static gboolean
+static bool
 execute_command_module_load (PinosCommand  *command,
                              PinosCore     *core,
-                             GError       **err)
+                             char         **err)
 {
-  gchar *module;
-  gchar *args;
+  PinosCommandImpl *impl = SPA_CONTAINER_OF (command, PinosCommandImpl, this);
 
-  module = command->args[1];
-  args = command->args[2];
-
-  return pinos_module_load (core, module, args, err) != NULL;
+  return pinos_module_load (core,
+                            impl->args[1],
+                            impl->args[2],
+                            err) != NULL;
 }
 
 /**
@@ -161,57 +107,47 @@ execute_command_module_load (PinosCommand  *command,
 void
 pinos_command_free (PinosCommand * command)
 {
-  g_return_if_fail (command != NULL);
+  PinosCommandImpl *impl = SPA_CONTAINER_OF (command, PinosCommandImpl, this);
 
-  g_strfreev (command->args);
-
-  g_free (command);
+  spa_list_remove (&command->link);
+  pinos_free_strv (impl->args);
+  free (impl);
 }
 
 /**
  * pinos_command_parse:
- * @command: (out): Return location for a #PinosCommand
  * @line: command line to parse
- * @err: Return location for a #GError, or %NULL
+ * @err: Return location for an error
  *
- * Parses a command line, @line, and store the parsed command in @command.
+ * Parses a command line, @line, and return the parsed command.
  * A command can later be executed with pinos_command_run().
  *
- * Returns: %TRUE on success, %FALSE otherwise.
+ * Returns: The command or %NULL when @err is set.
  */
-gboolean
-pinos_command_parse (PinosCommand ** command,
-                     gchar         * line,
-                     GError       ** err)
+PinosCommand *
+pinos_command_parse (const char     *line,
+                     char         **err)
 {
+  PinosCommand *command = NULL;
   const CommandParse *parse;
   gchar *name;
   gsize len;
-  gboolean ret = FALSE;
-
-  g_return_val_if_fail (command != NULL && *command == NULL, FALSE);
-  g_return_val_if_fail (line != NULL && *line != '\0', FALSE);
 
   len = strcspn (line, whitespace);
 
-  name = g_strndup (line, len);
+  name = strndup (line, len);
 
   for (parse = parsers; parse->name != NULL; parse++) {
-    if (g_strcmp0 (name, parse->name) == 0) {
-      *command = parse->func (line, err);
-      if (*command != NULL)
-        ret = TRUE;
+    if (strcmp (name, parse->name) == 0) {
+      command = parse->func (line, err);
       goto out;
     }
   }
 
-  g_set_error (err, PINOS_COMMAND_ERROR, PINOS_COMMAND_ERROR_NO_SUCH_COMMAND,
-      "Command \"%s\" does not exist", name);
-
+  asprintf (err, "Command \"%s\" does not exist", name);
 out:
-  g_free (name);
-
-  return ret;
+  free (name);
+  return command;
 }
 
 /**
@@ -222,17 +158,16 @@ out:
  *
  * Run @command.
  *
- * Returns: %TRUE if @command was executed successfully, %FALSE otherwise.
+ * Returns: %true if @command was executed successfully, %false otherwise.
  */
-gboolean
+bool
 pinos_command_run (PinosCommand  *command,
                    PinosCore     *core,
-                   GError       **err)
+                   char         **err)
 {
-  g_return_val_if_fail (command != NULL, FALSE);
-  g_return_val_if_fail (core, FALSE);
+  PinosCommandImpl *impl = SPA_CONTAINER_OF (command, PinosCommandImpl, this);
 
-  return command->func (command, core, err);
+  return impl->func (command, core, err);
 }
 
 /**
@@ -243,10 +178,10 @@ pinos_command_run (PinosCommand  *command,
  *
  * Returns: The name of @command.
  */
-const gchar *
+const char *
 pinos_command_get_name (PinosCommand * command)
 {
-  g_return_val_if_fail (command != NULL, NULL);
+  PinosCommandImpl *impl = SPA_CONTAINER_OF (command, PinosCommandImpl, this);
 
-  return command->args[0];
+  return impl->args[0];
 }

@@ -47,7 +47,8 @@ struct _PinosObject {
   uint32_t          id;
   PinosObjectFlags  flags;
   PinosDestroyFunc  destroy;
-  PinosSignal       destroy_signal;
+  PINOS_SIGNAL      (destroy_signal, (PinosListener *listener,
+                                      PinosObject   *object));
   unsigned int      n_interfaces;
   PinosInterface   *interfaces;
 };
@@ -81,7 +82,7 @@ static inline void
 pinos_object_destroy (PinosObject *object)
 {
   object->flags |= PINOS_OBJECT_FLAG_DESTROYING;
-  pinos_signal_emit (&object->destroy_signal, object, NULL);
+  pinos_signal_emit (&object->destroy_signal, object);
   if (object->destroy)
     object->destroy (object);
 }

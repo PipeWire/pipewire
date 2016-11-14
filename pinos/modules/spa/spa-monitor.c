@@ -31,70 +31,23 @@
 #include <pinos/client/log.h>
 #include <pinos/server/node.h>
 
-#include "spa-v4l2-monitor.h"
+#include "spa-monitor.h"
 
 typedef struct
 {
-  PinosSpaV4l2Monitor this;
-
-  PinosObject object;
+  PinosSpaMonitor this;
 
   PinosCore *core;
 
-  SpaHandle *handle;
+  void *hnd;
 
   GHashTable *nodes;
-} PinosSpaV4l2MonitorImpl;
-
-static SpaResult
-make_handle (PinosCore     *core,
-             SpaHandle    **handle,
-             const char    *lib,
-             const char    *name,
-             const SpaDict *info)
-{
-  SpaResult res;
-  void *hnd, *state = NULL;
-  SpaEnumHandleFactoryFunc enum_func;
-
-  if ((hnd = dlopen (lib, RTLD_NOW)) == NULL) {
-    pinos_log_error ("can't load %s: %s", lib, dlerror());
-    return SPA_RESULT_ERROR;
-  }
-  if ((enum_func = dlsym (hnd, "spa_enum_handle_factory")) == NULL) {
-    pinos_log_error ("can't find enum function");
-    return SPA_RESULT_ERROR;
-  }
-
-  while (true) {
-    const SpaHandleFactory *factory;
-
-    if ((res = enum_func (&factory, &state)) < 0) {
-      if (res != SPA_RESULT_ENUM_END)
-        pinos_log_error ("can't enumerate factories: %d", res);
-      break;
-    }
-    if (strcmp (factory->name, name))
-      continue;
-
-    *handle = calloc (1, factory->size);
-    if ((res = spa_handle_factory_init (factory,
-                                        *handle,
-                                        info,
-                                        core->support,
-                                        core->n_support)) < 0) {
-      pinos_log_error ("can't make factory instance: %d", res);
-      return res;
-    }
-    return SPA_RESULT_OK;
-  }
-  return SPA_RESULT_ERROR;
-}
+} PinosSpaMonitorImpl;
 
 static void
-add_item (PinosSpaV4l2Monitor *this, SpaMonitorItem *item)
+add_item (PinosSpaMonitor *this, SpaMonitorItem *item)
 {
-  PinosSpaV4l2MonitorImpl *impl = SPA_CONTAINER_OF (this, PinosSpaV4l2MonitorImpl, this);
+  PinosSpaMonitorImpl *impl = SPA_CONTAINER_OF (this, PinosSpaMonitorImpl, this);
   SpaResult res;
   SpaHandle *handle;
   PinosNode *node;
@@ -102,7 +55,7 @@ add_item (PinosSpaV4l2Monitor *this, SpaMonitorItem *item)
   void *clock_iface;
   PinosProperties *props = NULL;
 
-  pinos_log_debug ("v4l2-monitor %p: add: \"%s\" (%s)", this, item->name, item->id);
+  pinos_log_debug ("monitor %p: add: \"%s\" (%s)", this, item->name, item->id);
 
   handle = calloc (1, item->factory->size);
   if ((res = spa_handle_factory_init (item->factory,
@@ -143,12 +96,12 @@ add_item (PinosSpaV4l2Monitor *this, SpaMonitorItem *item)
 }
 
 static void
-remove_item (PinosSpaV4l2Monitor *this, SpaMonitorItem *item)
+remove_item (PinosSpaMonitor *this, SpaMonitorItem *item)
 {
-  PinosSpaV4l2MonitorImpl *impl = SPA_CONTAINER_OF (this, PinosSpaV4l2MonitorImpl, this);
+  PinosSpaMonitorImpl *impl = SPA_CONTAINER_OF (this, PinosSpaMonitorImpl, this);
   PinosNode *node;
 
-  pinos_log_debug ("v4l2-monitor %p: remove: \"%s\" (%s)", this, item->name, item->id);
+  pinos_log_debug ("monitor %p: remove: \"%s\" (%s)", this, item->name, item->id);
 
   node = g_hash_table_lookup (impl->nodes, item->id);
   if (node) {
@@ -162,7 +115,7 @@ on_monitor_event  (SpaMonitor      *monitor,
                    SpaMonitorEvent *event,
                    void            *user_data)
 {
-  PinosSpaV4l2Monitor *this = user_data;
+  PinosSpaMonitor *this = user_data;
 
   switch (event->type) {
     case SPA_MONITOR_EVENT_TYPE_ADDED:
@@ -179,7 +132,7 @@ on_monitor_event  (SpaMonitor      *monitor,
     case SPA_MONITOR_EVENT_TYPE_CHANGED:
     {
       SpaMonitorItem *item = (SpaMonitorItem *) event;
-      pinos_log_debug ("v4l2-monitor %p: changed: \"%s\"", this, item->name);
+      pinos_log_debug ("monitor %p: changed: \"%s\"", this, item->name);
       break;
     }
     default:
@@ -187,64 +140,74 @@ on_monitor_event  (SpaMonitor      *monitor,
   }
 }
 
-static void
-monitor_destroy (PinosObject * object)
+PinosSpaMonitor *
+pinos_spa_monitor_load (PinosCore  *core,
+                        const char *lib,
+                        const char *factory_name,
+                        const char *args)
 {
-  PinosSpaV4l2MonitorImpl *impl = SPA_CONTAINER_OF (object, PinosSpaV4l2MonitorImpl, object);
-  PinosSpaV4l2Monitor *this = &impl->this;
-
-  pinos_log_debug ("spa-monitor %p: dispose", this);
-  spa_handle_clear (impl->handle);
-  free (impl->handle);
-  g_hash_table_unref (impl->nodes);
-  free (impl);
-}
-
-
-PinosSpaV4l2Monitor *
-pinos_spa_v4l2_monitor_new (PinosCore *core)
-{
-  PinosSpaV4l2MonitorImpl *impl;
-  PinosSpaV4l2Monitor *this;
+  PinosSpaMonitorImpl *impl;
+  PinosSpaMonitor *this;
   SpaHandle *handle;
   SpaResult res;
   void *iface;
-  void *state = NULL;
+  void *hnd, *state = NULL;
+  SpaEnumHandleFactoryFunc enum_func;
+  const SpaHandleFactory *factory;
 
-  if ((res = make_handle (core,
-                          &handle,
-                          "build/spa/plugins/v4l2/libspa-v4l2.so",
-                          "v4l2-monitor",
-                          NULL)) < 0) {
-    pinos_log_error ("can't create v4l2-monitor: %d", res);
+  if ((hnd = dlopen (lib, RTLD_NOW)) == NULL) {
+    pinos_log_error ("can't load %s: %s", lib, dlerror());
     return NULL;
   }
+  if ((enum_func = dlsym (hnd, "spa_enum_handle_factory")) == NULL) {
+    pinos_log_error ("can't find enum function");
+    goto no_symbol;
+  }
 
+  while (true) {
+    if ((res = enum_func (&factory, &state)) < 0) {
+      if (res != SPA_RESULT_ENUM_END)
+        pinos_log_error ("can't enumerate factories: %d", res);
+      goto enum_failed;
+    }
+    if (strcmp (factory->name, factory_name) == 0)
+      break;
+  }
+  handle = calloc (1, factory->size);
+  if ((res = spa_handle_factory_init (factory,
+                                      handle,
+                                      NULL,
+                                      core->support,
+                                      core->n_support)) < 0) {
+    pinos_log_error ("can't make factory instance: %d", res);
+    goto init_failed;
+  }
   if ((res = spa_handle_get_interface (handle,
                                        core->registry.uri.spa_monitor,
                                        &iface)) < 0) {
     free (handle);
     pinos_log_error ("can't get MONITOR interface: %d", res);
-    return NULL;
+    goto interface_failed;
   }
 
-  impl = calloc (1, sizeof (PinosSpaV4l2MonitorImpl));
+  impl = calloc (1, sizeof (PinosSpaMonitorImpl));
   impl->core = core;
-
-  pinos_object_init (&impl->object,
-                     core->registry.uri.monitor,
-                     impl,
-                     monitor_destroy);
+  impl->hnd = hnd;
 
   this = &impl->this;
+  pinos_signal_init (&this->destroy_signal);
   this->monitor = iface;
+  this->lib = strdup (lib);
+  this->factory_name = strdup (factory_name);
+  this->handle = handle;
 
   impl->nodes = g_hash_table_new_full (g_str_hash,
                                        g_str_equal,
-                                       g_free,
-                                       g_object_unref);
+                                       free,
+                                       NULL);
 
-  while (TRUE) {
+  state = NULL;
+  while (true) {
     SpaMonitorItem *item;
     SpaResult res;
 
@@ -257,7 +220,32 @@ pinos_spa_v4l2_monitor_new (PinosCore *core)
   }
   spa_monitor_set_event_callback (this->monitor, on_monitor_event, this);
 
-  pinos_registry_add_object (&core->registry, &impl->object);
-
   return this;
+
+interface_failed:
+  spa_handle_clear (handle);
+init_failed:
+  free (handle);
+enum_failed:
+no_symbol:
+  dlclose (hnd);
+  return NULL;
+
+}
+
+void
+pinos_spa_monitor_destroy (PinosSpaMonitor * monitor)
+{
+  PinosSpaMonitorImpl *impl = SPA_CONTAINER_OF (monitor, PinosSpaMonitorImpl, this);
+
+  pinos_log_debug ("spa-monitor %p: dispose", impl);
+  pinos_signal_emit (&monitor->destroy_signal, monitor);
+
+  spa_handle_clear (monitor->handle);
+  free (monitor->handle);
+  free (monitor->lib);
+  free (monitor->factory_name);
+  g_hash_table_unref (impl->nodes);
+  dlclose (impl->hnd);
+  free (impl);
 }

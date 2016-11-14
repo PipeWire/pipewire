@@ -1,16 +1,12 @@
 pinos_module_spa_headers = [
-  'spa-alsa-monitor.h',
-  'spa-audiotestsrc.h',
-  'spa-v4l2-monitor.h',
-  'spa-videotestsrc.h',
+  'spa-node.h',
+  'spa-monitor.h',
 ]
 
 pinos_module_spa_sources = [
   'module.c',
-  'spa-alsa-monitor.c',
-  'spa-audiotestsrc.c',
-  'spa-v4l2-monitor.c',
-  'spa-videotestsrc.c',
+  'spa-node.c',
+  'spa-monitor.c',
 ]
 
 pinos_module_spa_c_args = [

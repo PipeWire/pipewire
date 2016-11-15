@@ -35,13 +35,20 @@
 
 typedef struct
 {
+  char      *id;
+  SpaList    link;
+  PinosNode *node;
+} PinosSpaMonitorItem;
+
+typedef struct
+{
   PinosSpaMonitor this;
 
   PinosCore *core;
 
   void *hnd;
 
-  GHashTable *nodes;
+  SpaList item_list;
 } PinosSpaMonitorImpl;
 
 static void
@@ -50,7 +57,7 @@ add_item (PinosSpaMonitor *this, SpaMonitorItem *item)
   PinosSpaMonitorImpl *impl = SPA_CONTAINER_OF (this, PinosSpaMonitorImpl, this);
   SpaResult res;
   SpaHandle *handle;
-  PinosNode *node;
+  PinosSpaMonitorItem *mitem;
   void *node_iface;
   void *clock_iface;
   PinosProperties *props = NULL;
@@ -85,28 +92,50 @@ add_item (PinosSpaMonitor *this, SpaMonitorItem *item)
                             item->info->items[i].value);
   }
 
-  node = pinos_node_new (impl->core,
-                         item->factory->name,
-                         node_iface,
-                         clock_iface,
-                         props);
+  mitem = calloc (1, sizeof (PinosSpaMonitorItem));
+  mitem->id = strdup (item->id);
+  mitem->node = pinos_node_new (impl->core,
+                                item->factory->name,
+                                node_iface,
+                                clock_iface,
+                                props);
 
-  g_hash_table_insert (impl->nodes, strdup (item->id), node);
+  spa_list_insert (impl->item_list.prev, &mitem->link);
+}
+
+static PinosSpaMonitorItem *
+find_item (PinosSpaMonitor *this,
+           const char      *id)
+{
+  PinosSpaMonitorImpl *impl = SPA_CONTAINER_OF (this, PinosSpaMonitorImpl, this);
+  PinosSpaMonitorItem *mitem;
+
+  spa_list_for_each (mitem, &impl->item_list, link) {
+    if (strcmp (mitem->id, id) == 0) {
+      return mitem;
+    }
+  }
+  return NULL;
+}
+
+void
+destroy_item (PinosSpaMonitorItem *mitem)
+{
+  pinos_node_destroy (mitem->node);
+  spa_list_remove (&mitem->link);
+  free (mitem->id);
+  free (mitem);
 }
 
 static void
 remove_item (PinosSpaMonitor *this, SpaMonitorItem *item)
 {
-  PinosSpaMonitorImpl *impl = SPA_CONTAINER_OF (this, PinosSpaMonitorImpl, this);
-  PinosNode *node;
+  PinosSpaMonitorItem *mitem;
 
   pinos_log_debug ("monitor %p: remove: \"%s\" (%s)", this, item->name, item->id);
-
-  node = g_hash_table_lookup (impl->nodes, item->id);
-  if (node) {
-    pinos_node_destroy (node);
-    g_hash_table_remove (impl->nodes, item->id);
-  }
+  mitem = find_item (this, item->id);
+  if (mitem)
+    destroy_item (mitem);
 }
 
 static void
@@ -200,10 +229,7 @@ pinos_spa_monitor_load (PinosCore  *core,
   this->factory_name = strdup (factory_name);
   this->handle = handle;
 
-  impl->nodes = g_hash_table_new_full (g_str_hash,
-                                       g_str_equal,
-                                       free,
-                                       NULL);
+  spa_list_init (&impl->item_list);
 
   state = NULL;
   while (true) {
@@ -236,15 +262,19 @@ void
 pinos_spa_monitor_destroy (PinosSpaMonitor * monitor)
 {
   PinosSpaMonitorImpl *impl = SPA_CONTAINER_OF (monitor, PinosSpaMonitorImpl, this);
+  PinosSpaMonitorItem *mitem, *tmp;
 
   pinos_log_debug ("spa-monitor %p: dispose", impl);
   pinos_signal_emit (&monitor->destroy_signal, monitor);
+
+  spa_list_for_each_safe (mitem, tmp, &impl->item_list, link)
+    destroy_item (mitem);
 
   spa_handle_clear (monitor->handle);
   free (monitor->handle);
   free (monitor->lib);
   free (monitor->factory_name);
-  g_hash_table_unref (impl->nodes);
+
   dlclose (impl->hnd);
   free (impl);
 }

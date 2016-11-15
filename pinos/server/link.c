@@ -749,7 +749,7 @@ pinos_link_new (PinosCore       *core,
                                                   this->output->node, this->output->port_id,
                                                   this->input->node, this->input->port_id);
 
-  spa_list_insert (core->link_list.prev, &this->list);
+  spa_list_insert (core->link_list.prev, &this->link);
 
   impl->iface = pinos_link1_skeleton_new ();
   skel = pinos_object_skeleton_new (PINOS_DBUS_OBJECT_LINK);
@@ -867,7 +867,7 @@ pinos_link_destroy (PinosLink * this)
   pinos_signal_emit (&this->destroy_signal, this);
 
   pinos_core_remove_global (this->core, this->global);
-  spa_list_remove (&this->list);
+  spa_list_remove (&this->link);
 
   if (this->input) {
     pinos_signal_remove (&impl->input_port_destroy);

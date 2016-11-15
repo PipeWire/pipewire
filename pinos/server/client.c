@@ -165,7 +165,7 @@ pinos_client_new (PinosCore       *core,
 
   client_watch_name (this);
 
-  spa_list_insert (core->client_list.prev, &this->list);
+  spa_list_insert (core->client_list.prev, &this->link);
 
   return this;
 }
@@ -188,7 +188,7 @@ pinos_client_destroy (PinosClient * client)
   spa_list_for_each_safe (resource, tmp, &client->resource_list, link)
     pinos_client_remove_resource (client, resource);
 
-  spa_list_remove (&client->list);
+  spa_list_remove (&client->link);
 
   free (client->sender);
   if (client->properties)

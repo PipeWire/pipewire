@@ -55,9 +55,6 @@ typedef struct {
   PinosListener port_unlinked;
   PinosListener node_state_changed;
   PinosListener link_state_changed;
-
-  GHashTable *clients;
-  GHashTable *node_factories;
 } PinosDaemonImpl;
 
 static void try_link_port (PinosNode *node, PinosPort *port, PinosDaemon *daemon);
@@ -67,14 +64,27 @@ sender_get_client (PinosDaemon *daemon,
                    const char  *sender,
                    bool create)
 {
-  PinosDaemonImpl *impl = SPA_CONTAINER_OF (daemon, PinosDaemonImpl, this);
   PinosClient *client;
 
-  client = g_hash_table_lookup (impl->clients, sender);
-  if (client == NULL && create) {
-    client = pinos_client_new (daemon->core, sender, NULL);
+  spa_list_for_each (client, &daemon->core->client_list, link) {
+    if (strcmp (client->sender, sender) == 0)
+      return client;
   }
+  client = pinos_client_new (daemon->core, sender, NULL);
   return client;
+}
+
+static PinosNodeFactory *
+find_factory_by_name (PinosDaemon *daemon,
+                      const char  *name)
+{
+  PinosNodeFactory *factory;
+
+  spa_list_for_each (factory, &daemon->core->node_factory_list, link) {
+    if (strcmp (factory->name, name) == 0)
+      return factory;
+  }
+  return NULL;
 }
 
 static bool
@@ -100,7 +110,7 @@ handle_create_node (PinosDaemon1           *interface,
 
   props = pinos_properties_from_variant (arg_properties);
 
-  factory = g_hash_table_lookup (impl->node_factories, arg_factory_name);
+  factory = find_factory_by_name (this, arg_factory_name);
   if (factory == NULL)
     goto no_factory;
 
@@ -490,14 +500,6 @@ on_global_added (PinosListener *listener,
     PinosNode *node = global->object;
 
     on_node_added (this, node);
-  } else if (global->type == this->core->registry.uri.node_factory) {
-    PinosNodeFactory *factory = global->object;
-
-    g_hash_table_insert (impl->node_factories, (void *)factory->name, factory);
-  } else if (global->type == this->core->registry.uri.client) {
-    PinosClient *client = global->object;
-
-    g_hash_table_insert (impl->clients, (gpointer) client->sender, client);
   }
 }
 
@@ -517,14 +519,6 @@ on_global_removed (PinosListener *listener,
     PinosNode *node = global->object;
 
     on_node_removed (this, node);
-  } else if (global->type == this->core->registry.uri.node_factory) {
-    PinosNodeFactory *factory = global->object;
-
-    g_hash_table_remove (impl->node_factories, factory->name);
-  } else if (global->type == this->core->registry.uri.client) {
-    PinosClient *client = global->object;
-
-    g_hash_table_remove (impl->clients, (gpointer) client->sender);
   }
 }
 
@@ -559,7 +553,7 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
 
   pinos_log_debug ("name \"%s\", %d", name, have_name);
 
-  spa_list_for_each (n, &daemon->core->node_list, list) {
+  spa_list_for_each (n, &daemon->core->node_list, link) {
     pinos_log_debug ("node path \"%s\"", n->global->object_path);
 
     if (have_name) {
@@ -617,11 +611,6 @@ pinos_daemon_new (PinosCore       *core,
   pinos_signal_add (&core->link_state_changed, &impl->link_state_changed, on_link_state_changed);
 
   impl->server_manager = g_dbus_object_manager_server_new (PINOS_DBUS_OBJECT_PREFIX);
-  impl->clients = g_hash_table_new (g_str_hash, g_str_equal);
-  impl->node_factories = g_hash_table_new_full (g_str_hash,
-                                                g_str_equal,
-                                                NULL,
-                                                NULL);
 
   impl->iface = pinos_daemon1_skeleton_new ();
   g_signal_connect (impl->iface, "handle-create-node", (GCallback) handle_create_node, impl);
@@ -658,11 +647,14 @@ pinos_daemon_destroy (PinosDaemon *daemon)
 
   pinos_signal_remove (&impl->global_added);
   pinos_signal_remove (&impl->global_removed);
+  pinos_signal_remove (&impl->node_state_changed);
+  pinos_signal_remove (&impl->port_added);
+  pinos_signal_remove (&impl->port_removed);
+  pinos_signal_remove (&impl->port_unlinked);
+  pinos_signal_remove (&impl->link_state_changed);
 
   g_clear_object (&impl->server_manager);
   g_clear_object (&impl->iface);
-  g_hash_table_unref (impl->clients);
-  g_hash_table_unref (impl->node_factories);
 
   free (impl);
 }

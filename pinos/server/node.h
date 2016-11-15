@@ -48,7 +48,7 @@ typedef struct _PinosNode PinosNode;
  */
 struct _PinosNode {
   PinosCore   *core;
-  SpaList      list;
+  SpaList      link;
   PinosGlobal *global;
 
   bool unlinking;

@@ -44,7 +44,7 @@ typedef struct _PinosLink PinosLink;
  */
 struct _PinosLink {
   PinosCore   *core;
-  SpaList      list;
+  SpaList      link;
   PinosGlobal *global;
 
   PinosProperties *properties;

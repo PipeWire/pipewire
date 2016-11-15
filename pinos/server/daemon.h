@@ -41,7 +41,7 @@ typedef struct _PinosDaemon PinosDaemon;
  */
 struct _PinosDaemon {
   PinosCore   *core;
-  SpaList      list;
+  SpaList      link;
   PinosGlobal *global;
 
   PinosProperties *properties;

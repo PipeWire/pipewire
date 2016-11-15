@@ -38,6 +38,10 @@ typedef struct _PinosNodeFactory PinosNodeFactory;
  * Pinos node factory interface.
  */
 struct _PinosNodeFactory {
+  PinosCore   *core;
+  SpaList      link;
+  PinosGlobal *global;
+
   const char *name;
 
   PinosNode *      (*create_node) (PinosNodeFactory *factory,

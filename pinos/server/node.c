@@ -496,7 +496,7 @@ pinos_node_new (PinosCore       *core,
                            (PinosDeferFunc) init_complete,
                            NULL);
   }
-  spa_list_insert (core->node_list.prev, &this->list);
+  spa_list_insert (core->node_list.prev, &this->link);
 
   skel = pinos_object_skeleton_new (PINOS_DBUS_OBJECT_NODE);
   pinos_object_skeleton_set_node1 (skel, impl->iface);
@@ -593,7 +593,7 @@ pinos_node_destroy (PinosNode * this)
   pinos_log_debug ("node %p: destroy", impl);
   pinos_signal_emit (&this->destroy_signal, this);
 
-  spa_list_remove (&this->list);
+  spa_list_remove (&this->link);
   pinos_core_remove_global (this->core, this->global);
 
   res = spa_poll_invoke (&this->data_loop->poll,

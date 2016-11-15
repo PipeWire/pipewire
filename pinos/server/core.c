@@ -56,6 +56,7 @@ pinos_core_new (PinosMainLoop *main_loop)
   spa_list_init (&this->global_list);
   spa_list_init (&this->client_list);
   spa_list_init (&this->node_list);
+  spa_list_init (&this->node_factory_list);
   spa_list_init (&this->link_list);
   pinos_signal_init (&this->destroy_signal);
   pinos_signal_init (&this->global_added);
@@ -114,6 +115,8 @@ pinos_core_remove_global (PinosCore      *core,
 
   spa_list_remove (&global->link);
   pinos_signal_emit (&core->global_removed, core, global);
+
+  g_clear_object (&global->skel);
 
   free (global);
 }

@@ -54,7 +54,7 @@ struct _PinosResource {
  */
 struct _PinosClient {
   PinosCore   *core;
-  SpaList      list;
+  SpaList      link;
   PinosGlobal *global;
 
   char *sender;

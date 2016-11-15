@@ -65,8 +65,8 @@ struct _PinosCore {
   SpaList global_list;
   SpaList client_list;
   SpaList node_list;
+  SpaList node_factory_list;
   SpaList link_list;
-
 
   PinosMainLoop *main_loop;
   PinosDataLoop *data_loop;

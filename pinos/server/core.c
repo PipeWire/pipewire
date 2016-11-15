@@ -98,7 +98,9 @@ pinos_core_add_global (PinosCore           *core,
   global->object = object;
   global->skel = skel;
 
-  spa_list_insert (core->global_list.prev, &global->list);
+  pinos_signal_init (&global->destroy_signal);
+
+  spa_list_insert (core->global_list.prev, &global->link);
   pinos_signal_emit (&core->global_added, core, global);
 
   return global;
@@ -108,8 +110,10 @@ void
 pinos_core_remove_global (PinosCore      *core,
                           PinosGlobal    *global)
 {
+  pinos_signal_emit (&global->destroy_signal, global);
+
+  spa_list_remove (&global->link);
   pinos_signal_emit (&core->global_removed, core, global);
 
-  spa_list_remove (&global->list);
   free (global);
 }

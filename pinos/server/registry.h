@@ -41,6 +41,7 @@ typedef struct {
   uint32_t node_factory;
   uint32_t link;
   uint32_t client;
+  uint32_t client_node;
 
   uint32_t spa_node;
   uint32_t spa_clock;

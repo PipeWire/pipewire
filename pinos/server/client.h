@@ -28,9 +28,24 @@ extern "C" {
 #define PINOS_CLIENT_PREFIX                         PINOS_CLIENT_URI "#"
 
 typedef struct _PinosClient PinosClient;
+typedef struct _PinosResource PinosResource;
+
+typedef void  (*PinosDestroy)  (void *object);
 
 #include <pinos/client/object.h>
 #include <pinos/server/daemon.h>
+
+struct _PinosResource {
+  PinosCore    *core;
+  SpaList       link;
+  uint32_t      id;
+  uint32_t      type;
+  void         *object;
+  PinosDestroy  destroy;
+
+  PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
+                                 PinosResource *resource));
+};
 
 /**
  * PinosClient:
@@ -45,6 +60,8 @@ struct _PinosClient {
   char *sender;
   PinosProperties *properties;
 
+  SpaList resource_list;
+
   PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
                                  PinosClient *client));
 };
@@ -52,15 +69,18 @@ struct _PinosClient {
 PinosClient *   pinos_client_new                  (PinosCore       *core,
                                                    const gchar     *sender,
                                                    PinosProperties *properties);
-void            pinos_client_destroy              (PinosClient     *client);
+SpaResult       pinos_client_destroy              (PinosClient     *client);
 
 
-void   pinos_client_add_object          (PinosClient *client,
-                                         PinosObject *object);
-void   pinos_client_remove_object       (PinosClient *client,
-                                         PinosObject *object);
-bool   pinos_client_has_object          (PinosClient *client,
-                                         PinosObject *object);
+PinosResource * pinos_client_add_resource         (PinosClient  *client,
+                                                   uint32_t      type,
+                                                   void         *object,
+                                                   PinosDestroy  destroy);
+
+void            pinos_client_remove_resource      (PinosClient   *client,
+                                                   PinosResource *resource);
+bool            pinos_client_has_resource         (PinosClient   *client,
+                                                   PinosResource *resource);
 
 #ifdef __cplusplus
 }

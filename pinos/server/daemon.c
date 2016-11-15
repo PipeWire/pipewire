@@ -343,7 +343,6 @@ handle_create_client_node (PinosDaemon1           *interface,
   props = pinos_properties_from_variant (arg_properties);
 
   node = pinos_client_node_new (this->core,
-                                client,
                                 arg_name,
                                 props);
 
@@ -353,7 +352,10 @@ handle_create_client_node (PinosDaemon1           *interface,
   if ((res = pinos_client_node_get_data_socket (node, &data_fd)) < 0)
     goto no_socket;
 
-  //pinos_client_add_object (client, &node->object);
+  pinos_client_add_resource (client,
+                             this->core->registry.uri.client_node,
+                             node,
+                             (PinosDestroy) pinos_client_node_destroy);
 
   object_path = node->node->global->object_path;
   pinos_log_debug ("daemon %p: add client-node %p, %s", impl, node, object_path);

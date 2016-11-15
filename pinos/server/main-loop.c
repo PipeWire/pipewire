@@ -225,9 +225,7 @@ process_work_queue (PinosMainLoop *this)
 
   impl->work_id = 0;
 
-  pinos_log_debug ("main-loop %p: %p %p", this, impl->work_list.next, &impl->work_list);
   spa_list_for_each_safe (item, tmp, &impl->work_list, link) {
-    pinos_log_debug ("main-loop %p: %p %p %d %p", this, &item->link, impl->work_list.next, item->sync, item->obj);
     if (item->sync) {
       if (&item->link == impl->work_list.next) {
         pinos_log_debug ("main-loop %p: found sync item %p", this, item->obj);

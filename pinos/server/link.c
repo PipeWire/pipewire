@@ -42,6 +42,8 @@ typedef struct
 
   PinosLink1 *iface;
 
+  uint32_t seq;
+
   SpaFormat **format_filter;
   PinosProperties *properties;
 
@@ -622,8 +624,11 @@ on_port_unlinked (PinosPort *port, PinosLink *this, SpaResult res, gulong id)
 {
   pinos_signal_emit (&this->core->port_unlinked, this, port);
 
-  if (this->input == NULL || this->output == NULL)
+  if (this->input == NULL || this->output == NULL) {
     pinos_link_update_state (this, PINOS_LINK_STATE_UNLINKED);
+    pinos_link_destroy (this);
+  }
+
 }
 
 static void
@@ -636,10 +641,14 @@ on_port_destroy (PinosLink *this,
 
   if (port == this->input) {
     pinos_log_debug ("link %p: input port destroyed %p", this, port);
+    pinos_signal_remove (&impl->input_port_destroy);
+    pinos_signal_remove (&impl->input_async_complete);
     this->input = NULL;
     other = this->output;
   } else if (port == this->output) {
     pinos_log_debug ("link %p: output port destroyed %p", this, port);
+    pinos_signal_remove (&impl->output_port_destroy);
+    pinos_signal_remove (&impl->output_async_complete);
     this->output = NULL;
     other = this->input;
   } else
@@ -667,7 +676,6 @@ on_input_port_destroy (PinosListener *listener,
   PinosLinkImpl *impl = SPA_CONTAINER_OF (listener, PinosLinkImpl, input_port_destroy);
 
   on_port_destroy (&impl->this, port);
-  pinos_signal_remove (listener);
 }
 
 static void
@@ -725,13 +733,13 @@ pinos_link_new (PinosCore       *core,
                     &impl->input_port_destroy,
                     on_input_port_destroy);
 
-  pinos_signal_add (&this->output->destroy_signal,
-                    &impl->output_port_destroy,
-                    on_output_port_destroy);
-
   pinos_signal_add (&this->input->node->async_complete,
                     &impl->input_async_complete,
                     on_input_async_complete_notify);
+
+  pinos_signal_add (&this->output->destroy_signal,
+                    &impl->output_port_destroy,
+                    on_output_port_destroy);
 
   pinos_signal_add (&this->output->node->async_complete,
                     &impl->output_async_complete,
@@ -754,33 +762,55 @@ pinos_link_new (PinosCore       *core,
   return this;
 }
 
-/**
- * pinos_link_destroy:
- * @link: a #PinosLink
- *
- * Trigger removal of @link
- */
-void
-pinos_link_destroy (PinosLink * this)
+static void
+clear_port_buffers (PinosLink *link, PinosPort *port)
 {
+  if (!port->allocated) {
+    pinos_log_debug ("link %p: clear buffers on port %p", link, port);
+    spa_node_port_use_buffers (port->node->node,
+                               port->direction,
+                               port->port_id,
+                               NULL, 0);
+    port->buffers = NULL;
+    port->n_buffers = 0;
+  }
+}
+
+static SpaResult
+do_link_remove_done (SpaPoll        *poll,
+                     bool            async,
+                     uint32_t        seq,
+                     size_t          size,
+                     void           *data,
+                     void           *user_data)
+{
+  PinosLink *this = user_data;
   PinosLinkImpl *impl = SPA_CONTAINER_OF (this, PinosLinkImpl, this);
 
-  pinos_log_debug ("link %p: destroy", impl);
-  pinos_signal_emit (&this->destroy_signal, this);
-
   if (this->input) {
-    pinos_signal_remove (&impl->input_port_destroy);
-    pinos_signal_remove (&impl->input_async_complete);
+    spa_list_remove (&this->input_link);
+    this->input->node->n_used_input_links--;
+
+    if (this->input->node->n_used_input_links == 0 &&
+        this->input->node->n_used_output_links == 0)
+      pinos_node_report_idle (this->input->node);
+
+    clear_port_buffers (this, this->input);
+    this->input = NULL;
   }
   if (this->output) {
-    pinos_signal_remove (&impl->output_port_destroy);
-    pinos_signal_remove (&impl->output_async_complete);
+    spa_list_remove (&this->output_link);
+    this->output->node->n_used_output_links--;
+
+    if (this->output->node->n_used_input_links == 0 &&
+        this->output->node->n_used_output_links == 0)
+      pinos_node_report_idle (this->output->node);
+
+    clear_port_buffers (this, this->output);
+    this->output = NULL;
   }
 
   pinos_main_loop_defer_cancel (this->core->main_loop, this, 0);
-
-  pinos_core_remove_global (this->core, this->global);
-  spa_list_remove (&this->list);
 
   g_clear_object (&impl->iface);
 
@@ -788,4 +818,78 @@ pinos_link_destroy (PinosLink * this)
     pinos_memblock_free (&impl->buffer_mem);
 
   free (impl);
+
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
+do_link_remove (SpaPoll        *poll,
+                bool            async,
+                uint32_t        seq,
+                size_t          size,
+                void           *data,
+                void           *user_data)
+{
+  SpaResult res;
+  PinosLink *this = user_data;
+
+  if (this->rt.input) {
+    spa_list_remove (&this->rt.input_link);
+    this->rt.input = NULL;
+  }
+  if (this->rt.output) {
+    spa_list_remove (&this->rt.output_link);
+    this->rt.output = NULL;
+  }
+
+  res = spa_poll_invoke (this->core->main_loop->poll,
+                         do_link_remove_done,
+                         seq,
+                         0,
+                         NULL,
+                         this);
+  return res;
+}
+
+/**
+ * pinos_link_destroy:
+ * @link: a #PinosLink
+ *
+ * Trigger removal of @link
+ */
+SpaResult
+pinos_link_destroy (PinosLink * this)
+{
+  SpaResult res = SPA_RESULT_OK;
+  PinosLinkImpl *impl = SPA_CONTAINER_OF (this, PinosLinkImpl, this);
+
+  pinos_log_debug ("link %p: destroy", impl);
+  pinos_signal_emit (&this->destroy_signal, this);
+
+  pinos_core_remove_global (this->core, this->global);
+  spa_list_remove (&this->list);
+
+  if (this->input) {
+    pinos_signal_remove (&impl->input_port_destroy);
+    pinos_signal_remove (&impl->input_async_complete);
+
+    res = spa_poll_invoke (&this->input->node->data_loop->poll,
+                           do_link_remove,
+                           impl->seq++,
+                           0,
+                           NULL,
+                           this);
+  }
+  if (this->output) {
+    pinos_signal_remove (&impl->output_port_destroy);
+    pinos_signal_remove (&impl->output_async_complete);
+
+    res = spa_poll_invoke (&this->output->node->data_loop->poll,
+                           do_link_remove,
+                           impl->seq++,
+                           0,
+                           NULL,
+                           this);
+  }
+  return res;
 }

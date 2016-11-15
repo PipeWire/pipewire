@@ -31,7 +31,6 @@ typedef struct
   guint id;
   PinosClient1 *iface;
 
-  GList *objects;
 } PinosClientImpl;
 
 static void
@@ -86,44 +85,50 @@ client_watch_name (PinosClient *this)
                                              (GDestroyNotify) pinos_client_destroy);
 }
 
-void
-pinos_client_add_object (PinosClient *client,
-                         PinosObject *object)
+PinosResource *
+pinos_client_add_resource (PinosClient *client,
+                           uint32_t     type,
+                           void        *object,
+                           PinosDestroy destroy)
 {
-  PinosClientImpl *impl = SPA_CONTAINER_OF (client, PinosClientImpl, this);
+  PinosResource *resource;
 
-  g_return_if_fail (client);
-  g_return_if_fail (object);
+  resource = calloc (1, sizeof (PinosResource));
+  resource->core = client->core;
+  resource->id = 0;
+  resource->type = type;
+  resource->object = object;
+  resource->destroy = destroy;
 
-  impl->objects = g_list_prepend (impl->objects, object);
+  pinos_signal_init (&resource->destroy_signal);
+
+  pinos_log_debug ("client %p: add resource %p", client, resource);
+
+  spa_list_insert (client->resource_list.prev, &resource->link);
+
+  return resource;
 }
 
 void
-pinos_client_remove_object (PinosClient *client,
-                            PinosObject *object)
+pinos_client_remove_resource (PinosClient   *client,
+                              PinosResource *resource)
 {
-  PinosClientImpl *impl = SPA_CONTAINER_OF (client, PinosClientImpl, this);
+  pinos_log_debug ("client %p: resource %p destroy", client, resource);
+  pinos_signal_emit (&resource->destroy_signal, resource);
 
-  g_return_if_fail (client);
-  g_return_if_fail (object);
+  spa_list_remove (&resource->link);
 
-  impl->objects = g_list_remove (impl->objects, object);
-  pinos_object_destroy (object);
+  if (resource->destroy)
+    resource->destroy (resource->object);
+
+  free (resource);
 }
 
 bool
-pinos_client_has_object (PinosClient *client,
-                         PinosObject *object)
+pinos_client_has_resource (PinosClient   *client,
+                           PinosResource *resource)
 {
-  PinosClientImpl *impl = SPA_CONTAINER_OF (client, PinosClientImpl, this);
-  GList *found;
-
-  g_return_val_if_fail (client, false);
-  g_return_val_if_fail (object, false);
-
-  found = g_list_find (impl->objects, object);
-
-  return found != NULL;
+  return false;
 }
 
 /**
@@ -153,6 +158,7 @@ pinos_client_new (PinosCore       *core,
   this->sender = strdup (sender);
   this->properties = properties;
 
+  spa_list_init (&this->resource_list);
   pinos_signal_init (&this->destroy_signal);
 
   impl->iface = pinos_client1_skeleton_new ();
@@ -170,20 +176,19 @@ pinos_client_new (PinosCore       *core,
  *
  * Trigger removal of @client
  */
-void
+SpaResult
 pinos_client_destroy (PinosClient * client)
 {
   PinosClientImpl *impl = SPA_CONTAINER_OF (client, PinosClientImpl, this);
-  GList *copy;
+  PinosResource *resource, *tmp;
 
   pinos_log_debug ("client %p: destroy", client);
   pinos_signal_emit (&client->destroy_signal, client);
 
-  spa_list_remove (&client->list);
+  spa_list_for_each_safe (resource, tmp, &client->resource_list, link)
+    pinos_client_remove_resource (client, resource);
 
-  copy = g_list_copy (impl->objects);
-  g_list_free_full (copy, NULL);
-  g_list_free (impl->objects);
+  spa_list_remove (&client->list);
 
   free (client->sender);
   if (client->properties)
@@ -191,4 +196,6 @@ pinos_client_destroy (PinosClient * client)
 
   g_clear_object (&impl->iface);
   free (impl);
+
+  return SPA_RESULT_OK;
 }

@@ -40,10 +40,13 @@ typedef struct _PinosGlobal PinosGlobal;
 
 struct _PinosGlobal {
   PinosCore *core;
-  SpaList    list;
+  SpaList    link;
   uint32_t   id;
   uint32_t   type;
   void      *object;
+
+  PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
+                                 PinosGlobal   *global));
 
   PinosObjectSkeleton *skel;
   const char          *object_path;
@@ -73,7 +76,6 @@ struct _PinosCore {
 
   PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
                                  PinosCore     *core));
-
 
   PINOS_SIGNAL (global_added,  (PinosListener *listener,
                                 PinosCore     *core,

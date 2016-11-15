@@ -1274,7 +1274,6 @@ proxy_clear (SpaProxy *this)
 /**
  * pinos_client_node_new:
  * @daemon: a #PinosDaemon
- * @client: the client owner
  * @name: a name
  * @properties: extra properties
  *
@@ -1284,7 +1283,6 @@ proxy_clear (SpaProxy *this)
  */
 PinosClientNode *
 pinos_client_node_new (PinosCore       *core,
-                       PinosClient     *client,
                        const gchar     *name,
                        PinosProperties *properties)
 {
@@ -1323,16 +1321,15 @@ pinos_client_node_new (PinosCore       *core,
   return this;
 }
 
-void
-pinos_client_node_destroy (PinosClientNode * this)
+static void
+on_node_remove (PinosNode *node,
+                gpointer   data,
+                SpaResult  res)
 {
+  PinosClientNode *this = data;
   PinosClientNodeImpl *impl = SPA_CONTAINER_OF (this, PinosClientNodeImpl, this);
 
-  pinos_log_debug ("client-node %p: destroy", impl);
-  pinos_signal_emit (&this->destroy_signal, this);
-
-  pinos_node_destroy (this->node);
-
+  pinos_log_debug ("client-node %p: finalize", node);
   proxy_clear (&impl->proxy);
 
   if (impl->ctrl_fd != -1)
@@ -1340,6 +1337,27 @@ pinos_client_node_destroy (PinosClientNode * this)
   if (impl->data_fd != -1)
     close (impl->data_fd);
   free (impl);
+}
+
+
+SpaResult
+pinos_client_node_destroy (PinosClientNode * this)
+{
+  PinosClientNodeImpl *impl = SPA_CONTAINER_OF (this, PinosClientNodeImpl, this);
+  SpaResult res;
+
+  pinos_log_debug ("client-node %p: destroy", impl);
+  pinos_signal_emit (&this->destroy_signal, this);
+
+  res = pinos_node_destroy (this->node);
+
+  pinos_main_loop_defer (this->node->core->main_loop,
+                         this->node,
+                         res,
+                         (PinosDeferFunc) on_node_remove,
+                         this);
+
+  return res;
 }
 
 /**

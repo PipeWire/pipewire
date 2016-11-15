@@ -26,6 +26,7 @@
 #include "pinos/server/node.h"
 #include "pinos/server/node-factory.h"
 #include "pinos/server/client.h"
+#include "pinos/server/client-node.h"
 
 #include "spa/include/spa/monitor.h"
 
@@ -40,6 +41,7 @@ pinos_registry_init (PinosRegistry *reg)
   reg->uri.node_factory = spa_id_map_get_id (reg->map, PINOS_NODE_FACTORY_URI);
   reg->uri.link = spa_id_map_get_id (reg->map, PINOS_LINK_URI);
   reg->uri.client = spa_id_map_get_id (reg->map, PINOS_CLIENT_URI);
+  reg->uri.client_node = spa_id_map_get_id (reg->map, PINOS_CLIENT_NODE_URI);
 
   reg->uri.spa_node = spa_id_map_get_id (reg->map, SPA_NODE_URI);
   reg->uri.spa_clock = spa_id_map_get_id (reg->map, SPA_CLOCK_URI);

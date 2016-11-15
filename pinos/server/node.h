@@ -95,7 +95,7 @@ PinosNode *         pinos_node_new                     (PinosCore       *core,
                                                         SpaNode         *node,
                                                         SpaClock        *clock,
                                                         PinosProperties *properties);
-void                pinos_node_destroy                 (PinosNode       *node);
+SpaResult           pinos_node_destroy                 (PinosNode       *node);
 
 
 void                pinos_node_set_data_loop           (PinosNode        *node,

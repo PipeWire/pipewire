@@ -26,6 +26,9 @@
 extern "C" {
 #endif
 
+#define PINOS_CLIENT_NODE_URI                            "http://pinos.org/ns/client-node"
+#define PINOS_CLIENT_NODE_PREFIX                         PINOS_CLIENT_NODE_URI "#"
+
 typedef struct _PinosClientNode PinosClientNode;
 
 /**
@@ -41,10 +44,9 @@ struct _PinosClientNode {
 };
 
 PinosClientNode *  pinos_client_node_new              (PinosCore       *core,
-                                                       PinosClient     *client,
                                                        const gchar     *name,
                                                        PinosProperties *properties);
-void               pinos_client_node_destroy          (PinosClientNode *node);
+SpaResult          pinos_client_node_destroy          (PinosClientNode *node);
 
 SpaResult          pinos_client_node_get_ctrl_socket  (PinosClientNode *node, int *fd);
 SpaResult          pinos_client_node_get_data_socket  (PinosClientNode *node, int *fd);

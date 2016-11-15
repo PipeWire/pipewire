@@ -79,7 +79,7 @@ PinosLink *     pinos_link_new          (PinosCore       *core,
                                          PinosPort       *input,
                                          SpaFormat      **format_filter,
                                          PinosProperties *properties);
-void            pinos_link_destroy      (PinosLink       *link);
+SpaResult       pinos_link_destroy      (PinosLink       *link);
 
 bool            pinos_link_activate     (PinosLink *link);
 bool            pinos_link_deactivate   (PinosLink *link);

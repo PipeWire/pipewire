@@ -399,7 +399,6 @@ handle_remove (PinosNode1             *interface,
   PinosNode *this = user_data;
 
   pinos_log_debug ("node %p: remove", this);
-  pinos_node_destroy (this);
 
   g_dbus_method_invocation_return_value (invocation,
                                          g_variant_new ("()"));
@@ -585,9 +584,10 @@ do_node_remove (SpaPoll        *poll,
  * Remove @node. This will stop the transfer on the node and
  * free the resources allocated by @node.
  */
-void
+SpaResult
 pinos_node_destroy (PinosNode * this)
 {
+  SpaResult res;
   PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, this);
 
   pinos_log_debug ("node %p: destroy", impl);
@@ -596,12 +596,13 @@ pinos_node_destroy (PinosNode * this)
   spa_list_remove (&this->list);
   pinos_core_remove_global (this->core, this->global);
 
-  spa_poll_invoke (&this->data_loop->poll,
-                   do_node_remove,
-                   impl->seq++,
-                   0,
-                   NULL,
-                   this);
+  res = spa_poll_invoke (&this->data_loop->poll,
+                         do_node_remove,
+                         impl->seq++,
+                         0,
+                         NULL,
+                         this);
+  return res;
 }
 
 /**

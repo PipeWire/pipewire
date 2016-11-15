@@ -10,6 +10,7 @@ pinoscore_headers = [
   'module.h',
   'node.h',
   'node-factory.h',
+  'port.h',
   'registry.h',
 ]
 
@@ -25,6 +26,7 @@ pinoscore_sources = [
   'module.c',
   'node.c',
   'node-factory.c',
+  'port.c',
   'registry.c',
 ]
 

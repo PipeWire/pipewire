@@ -20,9 +20,9 @@
 #ifndef __PINOS_DAEMON_H__
 #define __PINOS_DAEMON_H__
 
-#include <glib-object.h>
-
-G_BEGIN_DECLS
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define PINOS_DAEMON_URI                            "http://pinos.org/ns/daemon"
 #define PINOS_DAEMON_PREFIX                         PINOS_DAEMON_URI "#"
@@ -32,6 +32,7 @@ typedef struct _PinosDaemon PinosDaemon;
 #include <pinos/client/properties.h>
 #include <pinos/server/core.h>
 #include <pinos/server/node.h>
+#include <pinos/server/port.h>
 
 /**
  * PinosDaemon:
@@ -39,8 +40,8 @@ typedef struct _PinosDaemon PinosDaemon;
  * Pinos daemon object class.
  */
 struct _PinosDaemon {
-  PinosCore *core;
-  SpaList list;
+  PinosCore   *core;
+  SpaList      list;
   PinosGlobal *global;
 
   PinosProperties *properties;
@@ -60,13 +61,15 @@ void              pinos_daemon_destroy           (PinosDaemon     *daemon);
 #define pinos_daemon_start(d)   (d)->start(d)
 #define pinos_daemon_stop(d)    (d)->stop(d)
 
-PinosPort *       pinos_daemon_find_port         (PinosDaemon     *daemon,
-                                                  PinosPort       *other_port,
-                                                  const char      *name,
-                                                  PinosProperties *props,
-                                                  GPtrArray       *format_filter,
-                                                  GError         **error);
+PinosPort *       pinos_daemon_find_port         (PinosDaemon      *daemon,
+                                                  PinosPort        *other_port,
+                                                  const char       *name,
+                                                  PinosProperties  *props,
+                                                  SpaFormat       **format_filter,
+                                                  char            **error);
 
-G_END_DECLS
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __PINOS_DAEMON_H__ */

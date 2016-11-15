@@ -30,7 +30,6 @@ typedef struct
 
   guint id;
   PinosClient1 *iface;
-  gchar *object_path;
 
   GList *objects;
 } PinosClientImpl;
@@ -191,24 +190,5 @@ pinos_client_destroy (PinosClient * client)
     pinos_properties_free (client->properties);
 
   g_clear_object (&impl->iface);
-  free (impl->object_path);
   free (impl);
-}
-
-/**
- * pinos_client_get_object_path:
- * @client: a #PinosClient
- *
- * Get the object path of @client.
- *
- * Returns: the object path of @client
- */
-const gchar *
-pinos_client_get_object_path (PinosClient *client)
-{
-  PinosClientImpl *impl = SPA_CONTAINER_OF (client, PinosClientImpl, this);
-
-  g_return_val_if_fail (client, NULL);
-
-  return impl->object_path;
 }

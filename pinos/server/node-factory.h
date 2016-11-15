@@ -20,9 +20,9 @@
 #ifndef __PINOS_NODE_FACTORY_H__
 #define __PINOS_NODE_FACTORY_H__
 
-#include <glib-object.h>
-
-G_BEGIN_DECLS
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define PINOS_NODE_FACTORY_URI                            "http://pinos.org/ns/node-factory"
 #define PINOS_NODE_FACTORY_PREFIX                         PINOS_NODE_FACTORY_URI "#"
@@ -41,13 +41,15 @@ struct _PinosNodeFactory {
   const char *name;
 
   PinosNode *      (*create_node) (PinosNodeFactory *factory,
-                                   PinosClient *client,
-                                   const gchar *name,
-                                   PinosProperties *properties);
+                                   PinosClient      *client,
+                                   const char       *name,
+                                   PinosProperties  *properties);
 };
 
 #define pinos_node_factory_create_node(f,...)          (f)->create_node((f),__VA_ARGS__)
 
-G_END_DECLS
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __PINOS_NODE_FACTORY_H__ */

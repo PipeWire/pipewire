@@ -71,8 +71,7 @@ add_item (PinosSpaMonitor *this, SpaMonitorItem *item)
     return;
   }
   if ((res = spa_handle_get_interface (handle, impl->core->registry.uri.spa_clock, &clock_iface)) < 0) {
-    pinos_log_error ("can't get CLOCK interface: %d", res);
-    return;
+    pinos_log_info ("no CLOCK interface: %d", res);
   }
 
   if (item->info) {

@@ -26,14 +26,12 @@
 #include <limits.h>
 #include <sys/time.h>
 #include <sys/resource.h>
+#include <pthread.h>
 
 #include "spa/include/spa/ringbuffer.h"
 #include "pinos/client/log.h"
 #include "pinos/client/rtkit.h"
 #include "pinos/server/data-loop.h"
-
-#define PINOS_DATA_LOOP_GET_PRIVATE(loop)  \
-   (G_TYPE_INSTANCE_GET_PRIVATE ((loop), PINOS_TYPE_DATA_LOOP, PinosDataLoopPrivate))
 
 #define DATAS_SIZE (4096 * 8)
 
@@ -127,7 +125,6 @@ loop (void *user_data)
     SpaPollNotifyData ndata;
     unsigned int n_idle = 0;
     int r;
-    struct timespec ts;
 
     /* prepare */
     for (i = 0; i < impl->n_poll; i++) {
@@ -201,9 +198,6 @@ loop (void *user_data)
       }
       continue;
     }
-
-//    clock_gettime (CLOCK_MONOTONIC, &ts);
-//    fprintf (stderr, "%llu\n", SPA_TIMESPEC_TO_TIME (&ts));
 
     /* after */
     for (i = 0; i < impl->n_poll; i++) {
@@ -420,7 +414,7 @@ pinos_data_loop_destroy (PinosDataLoop * loop)
   PinosDataLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosDataLoopImpl, this);
 
   pinos_log_debug ("data-loop %p: destroy", impl);
-  stop_thread (impl, FALSE);
+  stop_thread (impl, false);
   close (impl->fds[0].fd);
   free (impl);
 }

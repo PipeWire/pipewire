@@ -20,7 +20,7 @@
 #ifndef __PINOS_PROPERTIES_H__
 #define __PINOS_PROPERTIES_H__
 
-#include <glib.h>
+#include <glib-object.h>
 
 G_BEGIN_DECLS
 

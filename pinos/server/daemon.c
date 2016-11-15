@@ -64,8 +64,8 @@ static void try_link_port (PinosNode *node, PinosPort *port, PinosDaemon *daemon
 
 static PinosClient *
 sender_get_client (PinosDaemon *daemon,
-                   const gchar *sender,
-                   gboolean create)
+                   const char  *sender,
+                   bool create)
 {
   PinosDaemonImpl *impl = SPA_CONTAINER_OF (daemon, PinosDaemonImpl, this);
   PinosClient *client;
@@ -77,11 +77,11 @@ sender_get_client (PinosDaemon *daemon,
   return client;
 }
 
-static gboolean
+static bool
 handle_create_node (PinosDaemon1           *interface,
                     GDBusMethodInvocation  *invocation,
-                    const gchar            *arg_factory_name,
-                    const gchar            *arg_name,
+                    const char             *arg_factory_name,
+                    const char             *arg_name,
                     GVariant               *arg_properties,
                     gpointer                user_data)
 {
@@ -90,7 +90,7 @@ handle_create_node (PinosDaemon1           *interface,
   PinosNodeFactory *factory;
   PinosNode *node;
   PinosClient *client;
-  const gchar *sender, *object_path;
+  const char  *sender, *object_path;
   PinosProperties *props;
 
   sender = g_dbus_method_invocation_get_sender (invocation);
@@ -163,12 +163,12 @@ on_link_state_changed (PinosListener *listener,
   switch (state) {
     case PINOS_LINK_STATE_ERROR:
     {
-      pinos_log_debug ("daemon %p: link %p: state error: %s", impl, link, link->error->message);
+      pinos_log_debug ("daemon %p: link %p: state error: %s", impl, link, link->error);
 
       if (link->input && link->input->node)
-        pinos_node_report_error (link->input->node, g_error_copy (link->error));
+        pinos_node_report_error (link->input->node, strdup (link->error));
       if (link->output && link->output->node)
-        pinos_node_report_error (link->output->node, g_error_copy (link->error));
+        pinos_node_report_error (link->output->node, strdup (link->error));
       break;
     }
 
@@ -204,7 +204,7 @@ try_link_port (PinosNode *node, PinosPort *port, PinosDaemon *this)
   //PinosClient *client;
   PinosProperties *props;
   const char *path;
-  GError *error = NULL;
+  char *error = NULL;
   PinosLink *link;
 
   props = node->properties;
@@ -272,15 +272,13 @@ static void
 on_node_created (PinosNode       *node,
                  PinosDaemonImpl *impl)
 {
-  GList *ports, *walk;
+  PinosPort *port;
 
-  ports = pinos_node_get_ports (node, PINOS_DIRECTION_INPUT);
-  for (walk = ports; walk; walk = g_list_next (walk))
-    on_port_added (&impl->port_added, node, walk->data);
+  spa_list_for_each (port, &node->input_ports, link)
+    on_port_added (&impl->port_added, node, port);
 
-  ports = pinos_node_get_ports (node, PINOS_DIRECTION_OUTPUT);
-  for (walk = ports; walk; walk = g_list_next (walk))
-    on_port_added (&impl->port_added, node, walk->data);
+  spa_list_for_each (port, &node->output_ports, link)
+    on_port_added (&impl->port_added, node, port);
 }
 
 static void
@@ -317,13 +315,12 @@ static void
 on_node_removed (PinosDaemon *daemon, PinosNode *node)
 {
   pinos_log_debug ("daemon %p: node %p removed", daemon, node);
-  g_signal_handlers_disconnect_by_data (node, daemon);
 }
 
-static gboolean
+static bool
 handle_create_client_node (PinosDaemon1           *interface,
                            GDBusMethodInvocation  *invocation,
-                           const gchar            *arg_name,
+                           const char             *arg_name,
                            GVariant               *arg_properties,
                            gpointer                user_data)
 {
@@ -404,7 +401,7 @@ export_server_object (PinosDaemon              *daemon,
 
 static void
 bus_acquired_handler (GDBusConnection *connection,
-                      const gchar     *name,
+                      const char      *name,
                       gpointer         user_data)
 {
   PinosDaemonImpl *impl = user_data;
@@ -417,14 +414,14 @@ bus_acquired_handler (GDBusConnection *connection,
 
 static void
 name_acquired_handler (GDBusConnection *connection,
-                       const gchar     *name,
+                       const char      *name,
                        gpointer         user_data)
 {
 }
 
 static void
 name_lost_handler (GDBusConnection *connection,
-                   const gchar     *name,
+                   const char      *name,
                    gpointer         user_data)
 {
   PinosDaemonImpl *impl = user_data;
@@ -547,11 +544,11 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
                         PinosPort       *other_port,
                         const char      *name,
                         PinosProperties *props,
-                        GPtrArray       *format_filters,
-                        GError         **error)
+                        SpaFormat      **format_filters,
+                        char           **error)
 {
   PinosPort *best = NULL;
-  gboolean have_name;
+  bool have_name;
   PinosNode *n;
 
   g_return_val_if_fail (daemon, NULL);
@@ -575,10 +572,7 @@ pinos_daemon_find_port (PinosDaemon     *daemon,
     }
   }
   if (best == NULL) {
-    g_set_error (error,
-                 G_IO_ERROR,
-                 G_IO_ERROR_NOT_FOUND,
-                 "No matching Node found");
+    asprintf (error, "No matching Node found");
   }
   return best;
 }

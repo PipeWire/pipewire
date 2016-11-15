@@ -65,6 +65,8 @@ pinos_core_new (PinosMainLoop *main_loop)
   pinos_signal_init (&this->port_removed);
   pinos_signal_init (&this->port_unlinked);
   pinos_signal_init (&this->link_state_changed);
+  pinos_signal_init (&this->node_unlink);
+  pinos_signal_init (&this->node_unlink_done);
 
   return this;
 }

@@ -54,8 +54,6 @@ PinosClient *   pinos_client_new                  (PinosCore       *core,
                                                    PinosProperties *properties);
 void            pinos_client_destroy              (PinosClient     *client);
 
-const gchar *   pinos_client_get_object_path      (PinosClient *client);
-
 
 void   pinos_client_add_object          (PinosClient *client,
                                          PinosObject *object);

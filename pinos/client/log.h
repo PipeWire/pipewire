@@ -46,7 +46,7 @@ void          pinos_log_logv   (SpaLogLevel  level,
 #if __STDC_VERSION__ >= 199901L
 
 #define pinos_log_logc(lev,...)                         \
-  if (SPA_UNLIKELY (lev >= pinos_log_level))            \
+  if (SPA_UNLIKELY (lev <= pinos_log_level))            \
     pinos_log_log(lev,__VA_ARGS__)
 
 #define pinos_log_error(...)           pinos_log_logc(SPA_LOG_LEVEL_ERROR,__FILE__,__LINE__,__func__,__VA_ARGS__)

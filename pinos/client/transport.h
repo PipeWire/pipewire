@@ -74,8 +74,8 @@ void             pinos_transport_free           (PinosTransport     *trans);
 SpaResult        pinos_transport_get_info       (PinosTransport     *trans,
                                                  PinosTransportInfo *info);
 
-SpaResult        pinos_transport_add_event      (PinosTransport   *trans,
-                                                 SpaNodeEvent     *event);
+SpaResult        pinos_transport_add_event      (PinosTransport *trans,
+                                                 SpaNodeEvent   *event);
 
 SpaResult        pinos_transport_next_event     (PinosTransport *trans,
                                                  SpaNodeEvent   *event);

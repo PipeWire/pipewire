@@ -30,12 +30,10 @@ const char * pinos_split_walk   (const char  *str,
                                  const char  *delimiter,
                                  size_t      *len,
                                  const char **state);
-
 char **      pinos_split_strv   (const char *str,
                                  const char *delimiter,
                                  int         max_tokens,
                                  int        *n_tokens);
-
 void         pinos_free_strv    (char **str);
 
 #ifdef __cplusplus

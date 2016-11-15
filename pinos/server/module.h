@@ -21,15 +21,19 @@
 #ifndef __PINOS_MODULE_H__
 #define __PINOS_MODULE_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <pinos/server/core.h>
 
 typedef struct _PinosModule PinosModule;
 
 struct _PinosModule {
-  SpaList link;
-  gchar *name;
   PinosCore *core;
+  SpaList    link;
+
+  char *name;
 
   PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
                                  PinosModule   *module));
@@ -53,6 +57,8 @@ PinosModule *     pinos_module_load              (PinosCore   *core,
                                                   char       **err);
 void              pinos_module_destroy           (PinosModule *module);
 
-G_END_DECLS
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __PINOS_MODULE_H__ */

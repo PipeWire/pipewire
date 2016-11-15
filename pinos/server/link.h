@@ -20,9 +20,9 @@
 #ifndef __PINOS_LINK_H__
 #define __PINOS_LINK_H__
 
-#include <glib-object.h>
-
-G_BEGIN_DECLS
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct _PinosLink PinosLink;
 
@@ -50,34 +50,43 @@ struct _PinosLink {
   PinosProperties *properties;
 
   PinosLinkState state;
-  GError *error;
+  char *error;
 
   PINOS_SIGNAL (destroy_signal, (PinosListener *,
                                  PinosLink *));
 
   PinosPort    *output;
+  SpaList       output_link;
+
   PinosPort    *input;
+  SpaList       input_link;
 
   uint32_t      queue[64];
   SpaRingbuffer ringbuffer;
-  gint          in_ready;
+
+  struct {
+    unsigned int   in_ready;
+    PinosPort     *input;
+    PinosPort     *output;
+    SpaList        input_link;
+    SpaList        output_link;
+  } rt;
 };
 
 
 PinosLink *     pinos_link_new          (PinosCore       *core,
                                          PinosPort       *output,
                                          PinosPort       *input,
-                                         GPtrArray       *format_filter,
+                                         SpaFormat      **format_filter,
                                          PinosProperties *properties);
 void            pinos_link_destroy      (PinosLink       *link);
 
 bool            pinos_link_activate     (PinosLink *link);
 bool            pinos_link_deactivate   (PinosLink *link);
 
+#ifdef __cplusplus
+}
+#endif
 
-
-const gchar *       pinos_link_get_object_path      (PinosLink *link);
-
-G_END_DECLS
 
 #endif /* __PINOS_LINK_H__ */

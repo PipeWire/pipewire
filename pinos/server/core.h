@@ -98,7 +98,10 @@ struct _PinosCore {
                                 PinosPort     *port));
   PINOS_SIGNAL (link_state_changed,  (PinosListener *listener,
                                       PinosLink     *link));
-
+  PINOS_SIGNAL (node_unlink,       (PinosListener *listener,
+                                    PinosNode     *node));
+  PINOS_SIGNAL (node_unlink_done,  (PinosListener *listener,
+                                    PinosNode     *node));
 };
 
 PinosCore *     pinos_core_new           (PinosMainLoop *main_loop);

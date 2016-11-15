@@ -20,19 +20,19 @@
 #ifndef __PINOS_MAIN_LOOP_H__
 #define __PINOS_MAIN_LOOP_H__
 
-#include <glib-object.h>
-
-G_BEGIN_DECLS
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <spa/include/spa/poll.h>
 #include <spa/include/spa/node-event.h>
 
 typedef struct _PinosMainLoop PinosMainLoop;
 
-typedef void (*PinosDeferFunc) (void       *obj,
-                                void       *data,
-                                SpaResult   res,
-                                gulong      id);
+typedef void (*PinosDeferFunc) (void      *obj,
+                                void      *data,
+                                SpaResult  res,
+                                uint32_t   id);
 
 /**
  * PinosMainLoop:
@@ -49,8 +49,7 @@ struct _PinosMainLoop {
                                    void           *obj,
                                    SpaResult       res,
                                    PinosDeferFunc  func,
-                                   void           *data,
-                                   GDestroyNotify  notify);
+                                   void           *data);
   void         (*defer_cancel)    (PinosMainLoop  *loop,
                                    void           *obj,
                                    uint32_t        id);
@@ -58,6 +57,10 @@ struct _PinosMainLoop {
                                    void           *obj,
                                    uint32_t        seq,
                                    SpaResult       res);
+  uint32_t     (*sync)            (PinosMainLoop  *loop,
+                                   void           *obj,
+                                   PinosDeferFunc  func,
+                                   void           *data);
 };
 
 PinosMainLoop *     pinos_main_loop_new                     (GMainContext *context);
@@ -69,7 +72,10 @@ void                pinos_main_loop_destroy                 (PinosMainLoop *loop
 #define pinos_main_loop_defer(m,...)           (m)->defer(m,__VA_ARGS__)
 #define pinos_main_loop_defer_cancel(m,...)    (m)->defer_cancel(m,__VA_ARGS__)
 #define pinos_main_loop_defer_complete(m,...)  (m)->defer_complete(m,__VA_ARGS__)
+#define pinos_main_loop_sync(m,...)            (m)->sync(m,__VA_ARGS__)
 
-G_END_DECLS
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __PINOS_MAIN_LOOP_H__ */

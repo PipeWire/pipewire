@@ -30,7 +30,6 @@
 #include <sys/eventfd.h>
 
 #include "pinos/client/pinos.h"
-#include "pinos/client/enumtypes.h"
 #include "pinos/client/private.h"
 #include "pinos/client/connection.h"
 #include "pinos/client/serialize.h"
@@ -40,7 +39,6 @@
 #include "pinos/server/client-node.h"
 
 #include "spa/include/spa/node.h"
-#include "spa/lib/memfd-wrappers.h"
 
 #define MAX_INPUTS       64
 #define MAX_OUTPUTS      64

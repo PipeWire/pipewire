@@ -20,9 +20,9 @@
 #ifndef __PINOS_DATA_LOOP_H__
 #define __PINOS_DATA_LOOP_H__
 
-#include <glib-object.h>
-
-G_BEGIN_DECLS
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <spa/include/spa/poll.h>
 
@@ -42,6 +42,8 @@ void                pinos_data_loop_destroy          (PinosDataLoop *loop);
 
 bool                pinos_data_loop_in_thread        (PinosDataLoop *loop);
 
-G_END_DECLS
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __PINOS_DATA_LOOP_H__ */

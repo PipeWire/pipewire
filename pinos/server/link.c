@@ -42,7 +42,7 @@ typedef struct
 
   PinosLink1 *iface;
 
-  GPtrArray *format_filter;
+  SpaFormat **format_filter;
   PinosProperties *properties;
 
   PinosListener input_port_destroy;
@@ -50,7 +50,7 @@ typedef struct
   PinosListener output_port_destroy;
   PinosListener output_async_complete;
 
-  gboolean allocated;
+  bool allocated;
   PinosMemblock buffer_mem;
   SpaBuffer **buffers;
   unsigned int n_buffers;
@@ -60,7 +60,8 @@ static void
 pinos_link_update_state (PinosLink *link, PinosLinkState state)
 {
   if (state != link->state) {
-    g_clear_error (&link->error);
+    free (link->error);
+    link->error = NULL;
     pinos_log_debug ("link %p: update state %s -> %s", link,
         pinos_link_state_as_string (link->state),
         pinos_link_state_as_string (state));
@@ -70,12 +71,12 @@ pinos_link_update_state (PinosLink *link, PinosLinkState state)
 }
 
 static void
-pinos_link_report_error (PinosLink *link, GError *error)
+pinos_link_report_error (PinosLink *link, char *error)
 {
-  g_clear_error (&link->error);
+  free (link->error);
   link->error = error;
   link->state = PINOS_LINK_STATE_ERROR;
-  pinos_log_debug ("link %p: got error state %s", link, error->message);
+  pinos_log_debug ("link %p: got error state %s", link, error);
   pinos_signal_emit (&link->core->link_state_changed, link);
 }
 
@@ -85,7 +86,7 @@ do_negotiate (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
   SpaResult res;
   SpaFormat *filter = NULL, *format;
   void *istate = NULL, *ostate = NULL;
-  GError *error = NULL;
+  char *error = NULL;
 
   if (in_state != SPA_NODE_STATE_CONFIGURE && out_state != SPA_NODE_STATE_CONFIGURE)
     return SPA_RESULT_OK;
@@ -98,15 +99,12 @@ do_negotiate (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
 again:
     if ((res = spa_node_port_enum_formats (this->input->node->node,
                                            SPA_DIRECTION_INPUT,
-                                           this->input->port,
+                                           this->input->port_id,
                                            &filter,
                                            NULL,
                                            &istate)) < 0) {
       if (res == SPA_RESULT_ENUM_END && istate != NULL) {
-        g_set_error (&error,
-                     PINOS_ERROR,
-                     PINOS_ERROR_FORMAT_NEGOTIATION,
-                     "error input enum formats: %d", res);
+        asprintf (&error, "error input enum formats: %d", res);
         goto error;
       }
     }
@@ -115,7 +113,7 @@ again:
 
     if ((res = spa_node_port_enum_formats (this->output->node->node,
                                            SPA_DIRECTION_OUTPUT,
-                                           this->output->port,
+                                           this->output->port_id,
                                            &format,
                                            filter,
                                            &ostate)) < 0) {
@@ -123,10 +121,7 @@ again:
         ostate = NULL;
         goto again;
       }
-      g_set_error (&error,
-                   PINOS_ERROR,
-                   PINOS_ERROR_FORMAT_NEGOTIATION,
-                   "error output enum formats: %d", res);
+      asprintf (&error, "error output enum formats: %d", res);
       goto error;
     }
     pinos_log_debug ("Got filtered:");
@@ -136,24 +131,18 @@ again:
     /* only input needs format */
     if ((res = spa_node_port_get_format (this->output->node->node,
                                          SPA_DIRECTION_OUTPUT,
-                                         this->output->port,
+                                         this->output->port_id,
                                          (const SpaFormat **)&format)) < 0) {
-      g_set_error (&error,
-                   PINOS_ERROR,
-                   PINOS_ERROR_FORMAT_NEGOTIATION,
-                   "error get output format: %d", res);
+      asprintf (&error, "error get output format: %d", res);
       goto error;
     }
   } else if (out_state == SPA_NODE_STATE_CONFIGURE && in_state > SPA_NODE_STATE_CONFIGURE) {
     /* only output needs format */
     if ((res = spa_node_port_get_format (this->input->node->node,
                                          SPA_DIRECTION_INPUT,
-                                         this->input->port,
+                                         this->input->port_id,
                                          (const SpaFormat **)&format)) < 0) {
-      g_set_error (&error,
-                   PINOS_ERROR,
-                   PINOS_ERROR_FORMAT_NEGOTIATION,
-                   "error get input format: %d", res);
+      asprintf (&error, "error get input format: %d", res);
       goto error;
     }
   } else
@@ -166,26 +155,20 @@ again:
     pinos_log_debug ("link %p: doing set format on output", this);
     if ((res = spa_node_port_set_format (this->output->node->node,
                                          SPA_DIRECTION_OUTPUT,
-                                         this->output->port,
+                                         this->output->port_id,
                                          SPA_PORT_FORMAT_FLAG_NEAREST,
                                          format)) < 0) {
-      g_set_error (&error,
-                   PINOS_ERROR,
-                   PINOS_ERROR_FORMAT_NEGOTIATION,
-                   "error set output format: %d", res);
+      asprintf (&error, "error set output format: %d", res);
       goto error;
     }
   } else if (in_state == SPA_NODE_STATE_CONFIGURE) {
     pinos_log_debug ("link %p: doing set format on input", this);
     if ((res = spa_node_port_set_format (this->input->node->node,
                                          SPA_DIRECTION_INPUT,
-                                         this->input->port,
+                                         this->input->port_id,
                                          SPA_PORT_FORMAT_FLAG_NEAREST,
                                          format)) < 0) {
-      g_set_error (&error,
-                   PINOS_ERROR,
-                   PINOS_ERROR_FORMAT_NEGOTIATION,
-                   "error set input format: %d", res);
+      asprintf (&error, "error set input format: %d", res);
       goto error;
     }
   }
@@ -231,7 +214,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
   SpaResult res;
   const SpaPortInfo *iinfo, *oinfo;
   SpaPortInfoFlags in_flags, out_flags;
-  GError *error = NULL;
+  char *error = NULL;
 
   if (in_state != SPA_NODE_STATE_READY && out_state != SPA_NODE_STATE_READY)
     return SPA_RESULT_OK;
@@ -242,22 +225,16 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
   /* find out what's possible */
   if ((res = spa_node_port_get_info (this->output->node->node,
                                      SPA_DIRECTION_OUTPUT,
-                                     this->output->port,
+                                     this->output->port_id,
                                      &oinfo)) < 0) {
-    g_set_error (&error,
-                 PINOS_ERROR,
-                 PINOS_ERROR_BUFFER_ALLOCATION,
-                 "error get output port info: %d", res);
+    asprintf (&error, "error get output port info: %d", res);
     goto error;
   }
   if ((res = spa_node_port_get_info (this->input->node->node,
                                      SPA_DIRECTION_INPUT,
-                                     this->input->port,
+                                     this->input->port_id,
                                      &iinfo)) < 0) {
-    g_set_error (&error,
-                 PINOS_ERROR,
-                 PINOS_ERROR_BUFFER_ALLOCATION,
-                 "error get input port info: %d", res);
+    asprintf (&error, "error get input port info: %d", res);
     goto error;
   }
   spa_debug_port_info (oinfo);
@@ -290,10 +267,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       out_flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
       in_flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
     } else {
-      g_set_error (&error,
-                   PINOS_ERROR,
-                   PINOS_ERROR_BUFFER_ALLOCATION,
-                   "no common buffer alloc found");
+      asprintf (&error, "no common buffer alloc found");
       res = SPA_RESULT_ERROR;
       goto error;
     }
@@ -309,7 +283,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
   if (impl->buffers == NULL) {
     SpaAllocParamBuffers *in_alloc, *out_alloc;
     SpaAllocParamMetaEnableRingbuffer *in_me, *out_me;
-    guint max_buffers;
+    unsigned int max_buffers;
     size_t minsize, stride, blocks;
 
     in_me = find_meta_enable (iinfo, SPA_META_TYPE_RINGBUFFER);
@@ -349,10 +323,10 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       impl->allocated = FALSE;
       pinos_log_debug ("reusing %d output buffers %p", impl->n_buffers, impl->buffers);
     } else {
-      guint i, j;
+      unsigned int i, j;
       size_t hdr_size, buf_size, arr_size;
       void *p;
-      guint n_metas, n_datas;
+      unsigned int n_metas, n_datas;
 
       n_metas = 0;
       n_datas = 1;
@@ -388,7 +362,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
         SpaBuffer *b;
         SpaData *d;
         void *pd;
-        guint mi;
+        unsigned int mi;
 
         b = impl->buffers[i] = SPA_MEMBER (p, buf_size * i, SpaBuffer);
 
@@ -446,13 +420,10 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
     if (out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
       if ((res = spa_node_port_alloc_buffers (this->output->node->node,
                                               SPA_DIRECTION_OUTPUT,
-                                              this->output->port,
+                                              this->output->port_id,
                                               iinfo->params, iinfo->n_params,
                                               impl->buffers, &impl->n_buffers)) < 0) {
-        g_set_error (&error,
-                     PINOS_ERROR,
-                     PINOS_ERROR_BUFFER_ALLOCATION,
-                     "error alloc output buffers: %d", res);
+        asprintf (&error, "error alloc output buffers: %d", res);
         goto error;
       }
       this->output->buffers = impl->buffers;
@@ -464,13 +435,10 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
     } else if (in_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
       if ((res = spa_node_port_alloc_buffers (this->input->node->node,
                                               SPA_DIRECTION_INPUT,
-                                              this->input->port,
+                                              this->input->port_id,
                                               oinfo->params, oinfo->n_params,
                                               impl->buffers, &impl->n_buffers)) < 0) {
-        g_set_error (&error,
-                     PINOS_ERROR,
-                     PINOS_ERROR_BUFFER_ALLOCATION,
-                     "error alloc input buffers: %d", res);
+        asprintf (&error, "error alloc input buffers: %d", res);
         goto error;
       }
       this->input->buffers = impl->buffers;
@@ -486,13 +454,10 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
     pinos_log_debug ("using %d buffers %p on input port", impl->n_buffers, impl->buffers);
     if ((res = spa_node_port_use_buffers (this->input->node->node,
                                           SPA_DIRECTION_INPUT,
-                                          this->input->port,
+                                          this->input->port_id,
                                           impl->buffers,
                                           impl->n_buffers)) < 0) {
-      g_set_error (&error,
-                   PINOS_ERROR,
-                   PINOS_ERROR_BUFFER_ALLOCATION,
-                   "error use input buffers: %d", res);
+      asprintf (&error, "error use input buffers: %d", res);
       goto error;
     }
     this->input->buffers = impl->buffers;
@@ -503,23 +468,17 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
     pinos_log_debug ("using %d buffers %p on output port", impl->n_buffers, impl->buffers);
     if ((res = spa_node_port_use_buffers (this->output->node->node,
                                           SPA_DIRECTION_OUTPUT,
-                                          this->output->port,
+                                          this->output->port_id,
                                           impl->buffers,
                                           impl->n_buffers)) < 0) {
-      g_set_error (&error,
-                   PINOS_ERROR,
-                   PINOS_ERROR_BUFFER_ALLOCATION,
-                   "error use output buffers: %d", res);
+      asprintf (&error, "error use output buffers: %d", res);
       goto error;
     }
     this->output->buffers = impl->buffers;
     this->output->n_buffers = impl->n_buffers;
     this->output->allocated = FALSE;
   } else {
-    g_set_error (&error,
-                 PINOS_ERROR,
-                 PINOS_ERROR_BUFFER_ALLOCATION,
-                 "no common buffer alloc found");
+    asprintf (&error, "no common buffer alloc found");
     goto error;
   }
 
@@ -598,7 +557,7 @@ again:
   return SPA_RESULT_OK;
 
 exit:
-  pinos_main_loop_defer (this->core->main_loop, this, res, (PinosDeferFunc) check_states, this, NULL);
+  pinos_main_loop_defer (this->core->main_loop, this, res, (PinosDeferFunc) check_states, this);
   return res;
 }
 
@@ -676,8 +635,12 @@ on_port_destroy (PinosLink *this,
   SpaResult res = SPA_RESULT_OK;
 
   if (port == this->input) {
+    pinos_log_debug ("link %p: input port destroyed %p", this, port);
+    this->input = NULL;
     other = this->output;
   } else if (port == this->output) {
+    pinos_log_debug ("link %p: output port destroyed %p", this, port);
+    this->output = NULL;
     other = this->input;
   } else
     return;
@@ -686,17 +649,15 @@ on_port_destroy (PinosLink *this,
     impl->buffers = NULL;
     impl->n_buffers = 0;
 
-    pinos_log_debug ("link %p: clear input allocated buffers on port %p", link, other);
+    pinos_log_debug ("link %p: clear input allocated buffers on port %p", this, other);
     pinos_port_clear_buffers (other);
   }
 
-  res = pinos_port_unlink (port, this);
   pinos_main_loop_defer (this->core->main_loop,
                          port,
                          res,
                          (PinosDeferFunc) on_port_unlinked,
-                         this,
-                         NULL);
+                         this);
 }
 
 static void
@@ -738,7 +699,7 @@ PinosLink *
 pinos_link_new (PinosCore       *core,
                 PinosPort       *output,
                 PinosPort       *input,
-                GPtrArray       *format_filter,
+                SpaFormat      **format_filter,
                 PinosProperties *properties)
 {
   PinosLinkImpl *impl;
@@ -777,8 +738,8 @@ pinos_link_new (PinosCore       *core,
                     on_output_async_complete_notify);
 
   pinos_log_debug ("link %p: constructed %p:%d -> %p:%d", impl,
-                                                  this->output->node, this->output->port,
-                                                  this->input->node, this->input->port);
+                                                  this->output->node, this->output->port_id,
+                                                  this->input->node, this->input->port_id);
 
   spa_list_insert (core->link_list.prev, &this->list);
 
@@ -810,18 +771,15 @@ pinos_link_destroy (PinosLink * this)
   if (this->input) {
     pinos_signal_remove (&impl->input_port_destroy);
     pinos_signal_remove (&impl->input_async_complete);
-    pinos_port_unlink (this->input, this);
   }
   if (this->output) {
     pinos_signal_remove (&impl->output_port_destroy);
     pinos_signal_remove (&impl->output_async_complete);
-    pinos_port_unlink (this->output, this);
   }
 
   pinos_main_loop_defer_cancel (this->core->main_loop, this, 0);
 
   pinos_core_remove_global (this->core, this->global);
-
   spa_list_remove (&this->list);
 
   g_clear_object (&impl->iface);

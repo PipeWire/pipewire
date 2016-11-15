@@ -270,17 +270,19 @@ do_pause (SpaPoll        *poll,
                                     0,
                                     cmd);
 
-  ac.event.type = SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE;
-  ac.event.size = sizeof (SpaNodeEventAsyncComplete);
-  ac.seq = seq;
-  ac.res = res;
-  spa_poll_invoke (this->state[0].main_loop,
-                   do_pause_done,
-                   seq,
-                   sizeof (ac),
-                   &ac,
-                   this);
-  return SPA_RESULT_OK;
+  if (async) {
+    ac.event.type = SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE;
+    ac.event.size = sizeof (SpaNodeEventAsyncComplete);
+    ac.seq = seq;
+    ac.res = res;
+    spa_poll_invoke (this->state[0].main_loop,
+                     do_pause_done,
+                     seq,
+                     sizeof (ac),
+                     &ac,
+                     this);
+  }
+  return res;
 }
 
 static SpaResult
@@ -322,16 +324,18 @@ do_start (SpaPoll        *poll,
                                     0,
                                     cmd);
 
-  ac.event.type = SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE;
-  ac.event.size = sizeof (SpaNodeEventAsyncComplete);
-  ac.seq = seq;
-  ac.res = res;
-  spa_poll_invoke (this->state[0].main_loop,
-                   do_start_done,
-                   seq,
-                   sizeof (ac),
-                   &ac,
-                   this);
+  if (async) {
+    ac.event.type = SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE;
+    ac.event.size = sizeof (SpaNodeEventAsyncComplete);
+    ac.seq = seq;
+    ac.res = res;
+    spa_poll_invoke (this->state[0].main_loop,
+                     do_start_done,
+                     seq,
+                     sizeof (ac),
+                     &ac,
+                     this);
+  }
 
   return SPA_RESULT_OK;
 }

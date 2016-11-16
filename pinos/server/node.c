@@ -61,8 +61,8 @@ update_port_ids (PinosNode *node, bool create)
                         &n_output_ports,
                         &max_output_ports);
 
-  input_port_ids = g_alloca (sizeof (uint32_t) * n_input_ports);
-  output_port_ids = g_alloca (sizeof (uint32_t) * n_output_ports);
+  input_port_ids = alloca (sizeof (uint32_t) * n_input_ports);
+  output_port_ids = alloca (sizeof (uint32_t) * n_output_ports);
 
   spa_node_get_port_ids (node->node,
                          max_input_ports,
@@ -600,8 +600,6 @@ pinos_node_get_free_port (PinosNode       *node,
   SpaList *ports;
   PinosPort *port = NULL, *p;
 
-  g_return_val_if_fail (node, NULL);
-
   if (direction == PINOS_DIRECTION_INPUT) {
     max_ports = node->transport->area->max_inputs;
     n_ports = node->transport->area->n_inputs;
@@ -673,8 +671,6 @@ pinos_node_set_state (PinosNode      *node,
                       PinosNodeState  state)
 {
   SpaResult res = SPA_RESULT_OK;
-
-  g_return_val_if_fail (node, SPA_RESULT_INVALID_ARGUMENTS);
 
   remove_idle_timeout (node);
 
@@ -786,8 +782,6 @@ pinos_node_report_idle (PinosNode *node)
 {
   PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, this);
 
-  g_return_if_fail (node);
-
   pinos_log_debug ("node %p: report idle", node);
   pinos_node_set_state (node, PINOS_NODE_STATE_IDLE);
 
@@ -806,8 +800,6 @@ pinos_node_report_idle (PinosNode *node)
 void
 pinos_node_report_busy (PinosNode *node)
 {
-  g_return_if_fail (node);
-
   pinos_log_debug ("node %p: report busy", node);
   pinos_node_set_state (node, PINOS_NODE_STATE_RUNNING);
 }

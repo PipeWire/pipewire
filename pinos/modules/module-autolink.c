@@ -47,7 +47,60 @@ typedef struct {
   PinosListener link_state_changed;
 } ModuleImpl;
 
-static void try_link_port (PinosNode *node, PinosPort *port, ModuleImpl *impl);
+static void
+try_link_port (PinosNode *node, PinosPort *port, ModuleImpl *impl)
+{
+  //PinosClient *client;
+  PinosProperties *props;
+  const char *path;
+  char *error = NULL;
+  PinosLink *link;
+
+  props = node->properties;
+  if (props == NULL)
+    return;
+
+  path = pinos_properties_get (props, "pinos.target.node");
+
+  pinos_log_debug ("module %p: try to find and link to node %s", impl, path);
+
+  if (path) {
+    PinosPort *target;
+
+    target = pinos_core_find_port (impl->core,
+                                   port,
+                                   atoi (path),
+                                   NULL,
+                                   NULL,
+                                   &error);
+    if (target == NULL)
+      goto error;
+
+    if (port->direction == PINOS_DIRECTION_OUTPUT)
+      link = pinos_port_link (port, target, NULL, NULL, &error);
+    else
+      link = pinos_port_link (target, port, NULL, NULL, &error);
+
+    if (link == NULL)
+      goto error;
+
+#if 0
+    client = pinos_node_get_client (node);
+    if (client)
+      pinos_client_add_object (client, &link->object);
+#endif
+
+    pinos_link_activate (link);
+  }
+  return;
+
+error:
+  {
+    pinos_node_report_error (node, error);
+    return;
+  }
+}
+
 
 static void
 on_link_port_unlinked (PinosListener *listener,
@@ -103,60 +156,6 @@ on_link_state_changed (PinosListener *listener,
     case PINOS_LINK_STATE_PAUSED:
     case PINOS_LINK_STATE_RUNNING:
       break;
-  }
-}
-
-static void
-try_link_port (PinosNode *node, PinosPort *port, ModuleImpl *impl)
-{
-  //PinosClient *client;
-  PinosProperties *props;
-  const char *path;
-  char *error = NULL;
-  PinosLink *link;
-
-  props = node->properties;
-  if (props == NULL)
-    return;
-
-  path = pinos_properties_get (props, "pinos.target.node");
-
-  pinos_log_debug ("module %p: try to find and link to node %s", impl, path);
-
-  if (path) {
-    PinosPort *target;
-
-    target = pinos_core_find_port (impl->core,
-                                   port,
-                                   atoi (path),
-                                   NULL,
-                                   NULL,
-                                   &error);
-    if (target == NULL)
-      goto error;
-
-    if (port->direction == PINOS_DIRECTION_OUTPUT)
-      link = pinos_port_link (port, target, NULL, NULL, &error);
-    else
-      link = pinos_port_link (target, port, NULL, NULL, &error);
-
-    if (link == NULL)
-      goto error;
-
-#if 0
-    client = pinos_node_get_client (node);
-    if (client)
-      pinos_client_add_object (client, &link->object);
-#endif
-
-    pinos_link_activate (link);
-  }
-  return;
-
-error:
-  {
-    pinos_node_report_error (node, error);
-    return;
   }
 }
 
@@ -256,7 +255,7 @@ on_global_removed (PinosListener *listener,
  *
  * Returns: a new #ModuleImpl
  */
-ModuleImpl *
+static ModuleImpl *
 module_new (PinosCore       *core,
             PinosProperties *properties)
 {
@@ -284,7 +283,8 @@ module_new (PinosCore       *core,
   return impl;
 }
 
-void
+#if 0
+static void
 module_destroy (ModuleImpl *impl)
 {
   pinos_log_debug ("module %p: destroy", impl);
@@ -300,10 +300,9 @@ module_destroy (ModuleImpl *impl)
   pinos_signal_remove (&impl->link_state_changed);
   free (impl);
 }
+#endif
 
-bool pinos__module_init (PinosModule *module, const char * args);
-
-G_MODULE_EXPORT bool
+bool
 pinos__module_init (PinosModule * module, const char * args)
 {
   module_new (module->core, NULL);

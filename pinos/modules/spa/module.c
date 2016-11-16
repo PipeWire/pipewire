@@ -24,9 +24,7 @@
 #include "spa-monitor.h"
 #include "spa-node.h"
 
-bool pinos__module_init (PinosModule *module, const char * args);
-
-G_MODULE_EXPORT bool
+bool
 pinos__module_init (PinosModule * module, const char * args)
 {
   pinos_spa_monitor_load (module->core, "build/spa/plugins/alsa/libspa-alsa.so", "alsa-monitor", args);

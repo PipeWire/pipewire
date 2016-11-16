@@ -34,17 +34,17 @@ libpinoscore_c_args = [
 ]
 
 
-libpinoscore = shared_library('pinoscore', pinoscore_sources, gdbus_target,
+libpinoscore = shared_library('pinoscore', pinoscore_sources,
   version : libversion,
   soversion : soversion,
   c_args : libpinoscore_c_args,
   include_directories : [configinc, spa_inc],
   link_with : spalib,
   install : true,
-  dependencies : [gobject_dep, gmodule_dep, glib_dep, gio_dep, mathlib, dl_lib, pinos_dep],
+  dependencies : [mathlib, dl_lib, pinos_dep],
 )
 
 pinoscore_dep = declare_dependency(link_with : libpinoscore,
   include_directories : [configinc, spa_inc],
-  dependencies : [glib_dep, gobject_dep, gmodule_dep, pinos_dep],
+  dependencies : [pinos_dep],
 )

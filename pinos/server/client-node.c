@@ -1289,8 +1289,6 @@ pinos_client_node_new (PinosCore       *core,
   PinosClientNodeImpl *impl;
   PinosClientNode *this;
 
-  g_return_val_if_fail (core, NULL);
-
   impl = calloc (1, sizeof (PinosClientNodeImpl));
   impl->core = core;
   impl->ctrl_fd = -1;

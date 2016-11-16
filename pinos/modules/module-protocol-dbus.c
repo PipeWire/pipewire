@@ -673,7 +673,7 @@ pinos_protocol_dbus_destroy (PinosProtocolDBus *proto)
 }
 #endif
 
-G_MODULE_EXPORT bool
+bool
 pinos__module_init (PinosModule * module, const char * args)
 {
   pinos_protocol_dbus_new (module->core, NULL);

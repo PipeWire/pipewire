@@ -217,22 +217,30 @@ draw_smpte_snow (DrawingData *dd)
   }
 
   for (i = y2; i < h; i++) {
+    int x = 0;
+
     /* negative I */
-    draw_pixels (dd, 0 * w / 6, NEG_I, w / 6);
+    draw_pixels (dd, x, NEG_I, w / 6);
+    x += w / 6;
 
     /* white */
-    draw_pixels (dd, 1 * w / 6, WHITE, w / 6);
+    draw_pixels (dd, x, WHITE, w / 6);
+    x += w / 6;
 
     /* positive Q */
-    draw_pixels (dd, 2 * w / 6, POS_Q, w / 6);
+    draw_pixels (dd, x, POS_Q, w / 6);
+    x += w / 6;
 
     /* pluge */
-    draw_pixels (dd, 6 * w / 12, DARK_BLACK, w / 12);
-    draw_pixels (dd, 7 * w / 12, BLACK, w / 12);
-    draw_pixels (dd, 8 * w / 12, LIGHT_BLACK, w / 12);
+    draw_pixels (dd, x, DARK_BLACK, w / 12);
+    x += w / 12;
+    draw_pixels (dd, x, BLACK, w / 12);
+    x += w / 12;
+    draw_pixels (dd, x, LIGHT_BLACK, w / 12);
+    x += w / 12;
 
     /* war of the ants (a.k.a. snow) */
-    for (j = 9 * w / 12; j < w; j++) {
+    for (j = x; j < w; j++) {
       Pixel p;
       unsigned char r = rand ();
 

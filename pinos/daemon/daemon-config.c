@@ -23,6 +23,7 @@
 #endif
 
 #include <string.h>
+#include <errno.h>
 
 #include <pinos/client/pinos.h>
 #include <pinos/server/command.h>
@@ -48,7 +49,7 @@ parse_line (PinosDaemonConfig  *config,
     *p = '\0';
 
   /* remove whitespaces */
-  g_strstrip (line);
+  pinos_strip (line, "\n\r \t");
 
   if (*line == '\0') /* empty line */
     return true;
@@ -112,29 +113,42 @@ pinos_daemon_config_load_file (PinosDaemonConfig *config,
                                const char        *filename,
                                char             **err)
 {
-  char *data;
-  char **lines;
-  bool ret = true;
-  unsigned int i;
-  int n_lines;
+  unsigned int line;
+  FILE *f;
+  char buf[4096];
 
-  pinos_log_debug ("deamon-config %p loading file %s", config, filename);
+  pinos_log_debug ("deamon-config %p: loading configuration file '%s'", config, filename);
 
-  if (!g_file_get_contents (filename, &data, NULL, NULL))
-    return false;
-
-  lines = pinos_split_strv (data, "\n", 0, &n_lines);
-  for (i = 0; lines[i] != NULL; i++) {
-    if (!parse_line (config, filename, lines[i], i+1, err)) {
-      ret = false;
-      break;
-    }
+  if ((f = fopen (filename, "r")) == NULL) {
+    asprintf (err, "failed to open configuration file '%s': %s", filename, strerror (errno));
+    goto open_error;
   }
 
-  pinos_free_strv (lines);
-  free (data);
+  line = 0;
 
-  return ret;
+  while (!feof(f)) {
+    if (!fgets(buf, sizeof (buf), f)) {
+      if (feof(f))
+        break;
+
+      asprintf (err, "failed to read configuration file '%s': %s", filename, strerror (errno));
+      goto read_error;
+    }
+
+    line++;
+
+    if (!parse_line (config, filename, buf, line, err))
+      goto parse_failed;
+  }
+  fclose (f);
+
+  return true;
+
+parse_failed:
+read_error:
+  fclose (f);
+open_error:
+  return false;
 }
 
 /**

@@ -48,6 +48,11 @@ typedef struct {
   size_t size;
 } PinosTransportInfo;
 
+/**
+ * PinosTransportArea:
+ *
+ * Shared structure between client and server
+ */
 struct _PinosTransportArea {
   unsigned int       max_inputs;
   unsigned int       n_inputs;

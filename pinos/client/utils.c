@@ -81,3 +81,23 @@ pinos_free_strv (char **str)
     free (str[i]);
   free (str);
 }
+
+char *
+pinos_strip (char       *str,
+             const char *whitespace)
+{
+  char *e, *l = NULL;
+
+  str += strspn (str, whitespace);
+
+  for (e = str; *e; e++)
+     if (!strchr (whitespace, *e))
+         l = e;
+
+  if (l)
+    *(l+1) = '\0';
+  else
+    *str = '\0';
+
+  return str;
+}

@@ -36,6 +36,9 @@ char **      pinos_split_strv   (const char *str,
                                  int        *n_tokens);
 void         pinos_free_strv    (char **str);
 
+char *       pinos_strip        (char       *str,
+                                 const char *whitespace);
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

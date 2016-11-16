@@ -21,9 +21,9 @@
 #ifndef __PINOS_DAEMON_CONFIG_H__
 #define __PINOS_DAEMON_CONFIG_H__
 
-#include <glib-object.h>
-
-G_BEGIN_DECLS
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <pinos/server/daemon.h>
 
@@ -42,7 +42,9 @@ bool                pinos_daemon_config_load          (PinosDaemonConfig  *confi
                                                        char              **err);
 bool                pinos_daemon_config_run_commands  (PinosDaemonConfig  *config,
                                                        PinosDaemon        *daemon);
+#ifdef __cplusplus
+}
+#endif
 
-G_END_DECLS
 
 #endif /* __PINOS_DAEMON_CONFIG_H__ */

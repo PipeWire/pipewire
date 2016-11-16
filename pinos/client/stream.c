@@ -29,8 +29,9 @@
 #include <gio/gunixfdmessage.h>
 
 #include "pinos/dbus/org-pinos.h"
-#include "pinos/server/daemon.h"
+
 #include "pinos/client/pinos.h"
+#include "pinos/client/array.h"
 #include "pinos/client/connection.h"
 #include "pinos/client/context.h"
 #include "pinos/client/stream.h"

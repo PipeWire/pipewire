@@ -907,6 +907,9 @@ alsa_source_init (const SpaHandleFactory  *factory,
   this->stream = SND_PCM_STREAM_CAPTURE;
   reset_alsa_props (&this->props[1]);
 
+  spa_list_init (&this->free);
+  spa_list_init (&this->ready);
+
   for (i = 0; info && i < info->n_items; i++) {
     if (!strcmp (info->items[i].key, "alsa.card")) {
       snprintf (this->props[1].device, 63, "hw:%s", info->items[i].value);

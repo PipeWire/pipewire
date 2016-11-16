@@ -35,7 +35,7 @@
 #include "pinos/client/serialize.h"
 #include "pinos/client/transport.h"
 
-#include "pinos/server/daemon.h"
+#include "pinos/server/core.h"
 #include "pinos/server/client-node.h"
 
 #include "spa/include/spa/node.h"

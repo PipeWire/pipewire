@@ -32,9 +32,9 @@ typedef struct _PinosLink PinosLink;
 #include <spa/include/spa/ringbuffer.h>
 
 #include <pinos/client/mem.h>
-#include <pinos/client/object.h>
 
-#include <pinos/server/daemon.h>
+#include <pinos/server/core.h>
+#include <pinos/server/port.h>
 #include <pinos/server/main-loop.h>
 
 /**

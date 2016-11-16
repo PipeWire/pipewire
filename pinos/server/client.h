@@ -32,12 +32,14 @@ typedef struct _PinosResource PinosResource;
 
 typedef void  (*PinosDestroy)  (void *object);
 
-#include <pinos/client/object.h>
-#include <pinos/server/daemon.h>
+#include <pinos/server/core.h>
 
 struct _PinosResource {
   PinosCore    *core;
   SpaList       link;
+
+  PinosClient  *client;
+
   uint32_t      id;
   uint32_t      type;
   void         *object;
@@ -57,7 +59,6 @@ struct _PinosClient {
   SpaList      link;
   PinosGlobal *global;
 
-  char *sender;
   PinosProperties *properties;
 
   SpaList resource_list;
@@ -67,7 +68,6 @@ struct _PinosClient {
 };
 
 PinosClient *   pinos_client_new                  (PinosCore       *core,
-                                                   const gchar     *sender,
                                                    PinosProperties *properties);
 SpaResult       pinos_client_destroy              (PinosClient     *client);
 
@@ -77,10 +77,7 @@ PinosResource * pinos_client_add_resource         (PinosClient  *client,
                                                    void         *object,
                                                    PinosDestroy  destroy);
 
-void            pinos_client_remove_resource      (PinosClient   *client,
-                                                   PinosResource *resource);
-bool            pinos_client_has_resource         (PinosClient   *client,
-                                                   PinosResource *resource);
+SpaResult       pinos_resource_destroy            (PinosResource *resource);
 
 #ifdef __cplusplus
 }

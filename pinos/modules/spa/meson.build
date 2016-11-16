@@ -14,7 +14,6 @@ pinos_module_spa_c_args = [
   '-D_GNU_SOURCE',
 ]
 
-
 pinos_module_spa = shared_library('pinos-module-spa', pinos_module_spa_sources,
   c_args : pinos_module_spa_c_args,
   include_directories : [configinc, pinosinc, spa_inc],

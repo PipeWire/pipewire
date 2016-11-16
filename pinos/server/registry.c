@@ -21,7 +21,6 @@
 
 #include "pinos/client/pinos.h"
 #include "pinos/server/core.h"
-#include "pinos/server/daemon.h"
 #include "pinos/server/registry.h"
 #include "pinos/server/node.h"
 #include "pinos/server/node-factory.h"
@@ -35,7 +34,6 @@ pinos_registry_init (PinosRegistry *reg)
 {
   reg->map = pinos_id_map_get_default();
 
-  reg->uri.daemon = spa_id_map_get_id (reg->map, PINOS_DAEMON_URI);
   reg->uri.registry = spa_id_map_get_id (reg->map, PINOS_REGISTRY_URI);
   reg->uri.node = spa_id_map_get_id (reg->map, PINOS_NODE_URI);
   reg->uri.node_factory = spa_id_map_get_id (reg->map, PINOS_NODE_FACTORY_URI);
@@ -48,22 +46,4 @@ pinos_registry_init (PinosRegistry *reg)
   reg->uri.spa_monitor = spa_id_map_get_id (reg->map, SPA_MONITOR_URI);
 
   pinos_map_init (&reg->objects, 512);
-}
-
-PinosObject *
-pinos_registry_iterate_objects (PinosRegistry *reg,
-                                uint32_t       type,
-                                void         **state)
-{
-  unsigned int idx;
-  PinosObject *o;
-
-  while (true) {
-    idx = SPA_PTR_TO_INT (*state);
-    *state = SPA_INT_TO_PTR (idx+1);
-    o = pinos_map_lookup (&reg->objects, idx);
-    if (o != NULL)
-      break;
-  }
-  return o;
 }

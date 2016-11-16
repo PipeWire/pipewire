@@ -27,16 +27,12 @@ extern "C" {
 typedef struct _PinosCore PinosCore;
 typedef struct _PinosGlobal PinosGlobal;
 
-#include <gio/gio.h>
-
 #include <spa/include/spa/log.h>
 #include <pinos/server/main-loop.h>
 #include <pinos/server/data-loop.h>
 #include <pinos/server/registry.h>
 #include <pinos/server/node.h>
 #include <pinos/server/link.h>
-
-#include "pinos/dbus/org-pinos.h"
 
 struct _PinosGlobal {
   PinosCore *core;
@@ -47,9 +43,6 @@ struct _PinosGlobal {
 
   PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
                                  PinosGlobal   *global));
-
-  PinosObjectSkeleton *skel;
-  const char          *object_path;
 };
 
 /**
@@ -59,8 +52,6 @@ struct _PinosGlobal {
  */
 struct _PinosCore {
   PinosRegistry registry;
-
-  GDBusConnection *connection;
 
   SpaList global_list;
   SpaList client_list;
@@ -111,10 +102,16 @@ void            pinos_core_destroy       (PinosCore     *core);
 
 PinosGlobal *   pinos_core_add_global    (PinosCore           *core,
                                           uint32_t             type,
-                                          void                *object,
-                                          PinosObjectSkeleton *skel);
-void            pinos_core_remove_global (PinosCore           *core,
-                                          PinosGlobal         *global);
+                                          void                *object);
+SpaResult       pinos_global_destroy     (PinosGlobal         *global);
+
+
+PinosPort *     pinos_core_find_port     (PinosCore        *core,
+                                          PinosPort        *other_port,
+                                          uint32_t          id,
+                                          PinosProperties  *props,
+                                          SpaFormat       **format_filter,
+                                          char            **error);
 
 #ifdef __cplusplus
 }

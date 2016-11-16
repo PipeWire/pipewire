@@ -25,7 +25,6 @@ extern "C" {
 #endif
 
 #include <spa/include/spa/poll.h>
-#include <spa/include/spa/node-event.h>
 
 typedef struct _PinosMainLoop PinosMainLoop;
 
@@ -63,7 +62,7 @@ struct _PinosMainLoop {
                                    void           *data);
 };
 
-PinosMainLoop *     pinos_main_loop_new                     (GMainContext *context);
+PinosMainLoop *     pinos_main_loop_new                     (void);
 void                pinos_main_loop_destroy                 (PinosMainLoop *loop);
 
 #define pinos_main_loop_run(m)                 (m)->run(m)

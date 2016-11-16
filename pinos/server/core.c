@@ -17,13 +17,14 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <pinos/client/pinos.h>
 #include <pinos/server/core.h>
 #include <pinos/server/data-loop.h>
 
 typedef struct {
   PinosCore  this;
 
-  GDBusObjectManagerServer *server_manager;
+  uint32_t counter;
 
   SpaSupport support[4];
 
@@ -87,17 +88,16 @@ pinos_core_destroy (PinosCore *core)
 PinosGlobal *
 pinos_core_add_global (PinosCore           *core,
                        uint32_t             type,
-                       void                *object,
-                       PinosObjectSkeleton *skel)
+                       void                *object)
 {
+  PinosCoreImpl *impl = SPA_CONTAINER_OF (core, PinosCoreImpl, this);
   PinosGlobal *global;
 
   global = calloc (1, sizeof (PinosGlobal));
   global->core = core;
-  global->id = 0;
+  global->id = ++impl->counter;
   global->type = type;
   global->object = object;
-  global->skel = skel;
 
   pinos_signal_init (&global->destroy_signal);
 
@@ -107,16 +107,53 @@ pinos_core_add_global (PinosCore           *core,
   return global;
 }
 
-void
-pinos_core_remove_global (PinosCore      *core,
-                          PinosGlobal    *global)
+SpaResult
+pinos_global_destroy (PinosGlobal *global)
 {
+  PinosCore *core = global->core;
+
   pinos_signal_emit (&global->destroy_signal, global);
 
   spa_list_remove (&global->link);
   pinos_signal_emit (&core->global_removed, core, global);
 
-  g_clear_object (&global->skel);
-
   free (global);
+
+  return SPA_RESULT_OK;
+}
+
+PinosPort *
+pinos_core_find_port (PinosCore       *core,
+                      PinosPort       *other_port,
+                      uint32_t         id,
+                      PinosProperties *props,
+                      SpaFormat      **format_filters,
+                      char           **error)
+{
+  PinosPort *best = NULL;
+  bool have_id;
+  PinosNode *n;
+
+  have_id = id != SPA_ID_INVALID;
+
+  pinos_log_debug ("id \"%u\", %d", id, have_id);
+
+  spa_list_for_each (n, &core->node_list, link) {
+    pinos_log_debug ("node id \"%d\"", n->global->id);
+
+    if (have_id) {
+      if (n->global->id == id) {
+        pinos_log_debug ("id \"%u\" matches node %p", id, n);
+
+        best = pinos_node_get_free_port (n, pinos_direction_reverse (other_port->direction));
+        if (best)
+          break;
+      }
+    } else {
+    }
+  }
+  if (best == NULL) {
+    asprintf (error, "No matching Node found");
+  }
+  return best;
 }

@@ -18,7 +18,7 @@
  */
 
 #include <pinos/client/pinos.h>
-#include <pinos/server/daemon.h>
+#include <pinos/server/core.h>
 #include <pinos/server/module.h>
 
 #include "daemon-config.h"
@@ -27,37 +27,30 @@ int
 main (int argc, char *argv[])
 {
   PinosCore *core;
-  PinosDaemon *daemon;
   PinosMainLoop *loop;
   PinosDaemonConfig *config;
-  PinosProperties *props;
   char *err = NULL;
 
   pinos_init (&argc, &argv);
-
-  loop = pinos_main_loop_new (NULL);
-  core = pinos_core_new (loop);
 
   /* parse configuration */
   config = pinos_daemon_config_new ();
   if (!pinos_daemon_config_load (config, &err)) {
     g_error ("failed to parse config: %s", err);
     free (err);
+    return -1;
   }
 
-  props = pinos_properties_new ("test", "test", NULL);
-  daemon = pinos_daemon_new (core,
-                             props);
+  loop = pinos_main_loop_new ();
+  core = pinos_core_new (loop);
 
-  pinos_daemon_config_run_commands (config, daemon);
-
-  pinos_daemon_start (daemon);
+  pinos_daemon_config_run_commands (config, core);
 
   pinos_main_loop_run (loop);
 
-  pinos_properties_free (props);
   pinos_main_loop_destroy (loop);
-  pinos_daemon_destroy (daemon);
+
+  pinos_core_destroy (core);
 
   return 0;
 }

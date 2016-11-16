@@ -29,13 +29,11 @@ extern "C" {
 
 #include <pinos/client/map.h>
 #include <pinos/client/signal.h>
-#include <pinos/client/object.h>
 #include <spa/include/spa/id-map.h>
 
 typedef struct _PinosRegistry PinosRegistry;
 
 typedef struct {
-  uint32_t daemon;
   uint32_t registry;
   uint32_t node;
   uint32_t node_factory;
@@ -60,15 +58,6 @@ struct _PinosRegistry {
 };
 
 void pinos_registry_init (PinosRegistry *reg);
-
-PinosObject *    pinos_registry_iterate_objects         (PinosRegistry *reg,
-                                                         uint32_t       type,
-                                                         void         **state);
-
-#define pinos_registry_iterate_nodes(reg,state)                                 \
-        pinos_registry_iterate_objects(reg, (reg)->uri.node,state)
-#define pinos_registry_iterate_node_factoriess(reg,state)                       \
-        pinos_registry_iterate_objects(reg, (reg)->uri.node_factory,state)
 
 #ifdef __cplusplus
 }

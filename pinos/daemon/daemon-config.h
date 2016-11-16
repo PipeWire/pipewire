@@ -25,7 +25,7 @@
 extern "C" {
 #endif
 
-#include <pinos/server/daemon.h>
+#include <pinos/server/core.h>
 
 typedef struct _PinosDaemonConfig PinosDaemonConfig;
 
@@ -41,7 +41,7 @@ bool                pinos_daemon_config_load_file     (PinosDaemonConfig  *confi
 bool                pinos_daemon_config_load          (PinosDaemonConfig  *config,
                                                        char              **err);
 bool                pinos_daemon_config_run_commands  (PinosDaemonConfig  *config,
-                                                       PinosDaemon        *daemon);
+                                                       PinosCore          *core);
 #ifdef __cplusplus
 }
 #endif

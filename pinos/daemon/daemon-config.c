@@ -179,7 +179,7 @@ pinos_daemon_config_load (PinosDaemonConfig  *config,
 /**
  * pinos_daemon_config_run_commands:
  * @config: A #PinosDaemonConfig
- * @daemon: A #PinosDaemon
+ * @core: A #PinosCore
  *
  * Run all commands that have been parsed. The list of commands will be cleared
  * when this function has been called.
@@ -188,14 +188,14 @@ pinos_daemon_config_load (PinosDaemonConfig  *config,
  */
 bool
 pinos_daemon_config_run_commands (PinosDaemonConfig  *config,
-                                  PinosDaemon        *daemon)
+                                  PinosCore          *core)
 {
   char *err = NULL;
   bool ret = true;
   PinosCommand *command, *tmp;
 
   spa_list_for_each (command, &config->commands, link) {
-    if (!pinos_command_run (command, daemon->core, &err)) {
+    if (!pinos_command_run (command, core, &err)) {
       pinos_log_warn ("could not run command %s: %s", command->name, err);
       free (err);
       ret = false;

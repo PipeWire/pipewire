@@ -101,8 +101,6 @@ SpaResult           pinos_node_destroy                 (PinosNode       *node);
 void                pinos_node_set_data_loop           (PinosNode        *node,
                                                         PinosDataLoop    *loop);
 
-PinosClient *       pinos_node_get_client              (PinosNode        *node);
-
 PinosPort *         pinos_node_get_free_port           (PinosNode        *node,
                                                         PinosDirection    direction);
 

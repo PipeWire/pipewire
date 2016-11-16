@@ -19,8 +19,6 @@
 
 #include <string.h>
 
-#include <gio/gio.h>
-
 #include <spa/include/spa/video/format.h>
 #include <spa/lib/debug.h>
 
@@ -29,18 +27,11 @@
 
 #include "pinos/server/link.h"
 
-#include "pinos/dbus/org-pinos.h"
-
-#define PINOS_LINK_GET_PRIVATE(obj)  \
-   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_LINK, PinosLinkPrivate))
-
 #define MAX_BUFFERS     16
 
 typedef struct
 {
   PinosLink this;
-
-  PinosLink1 *iface;
 
   uint32_t seq;
 
@@ -589,36 +580,6 @@ on_output_async_complete_notify (PinosListener *listener,
   pinos_main_loop_defer_complete (this->core->main_loop, impl, seq, res);
 }
 
-#if 0
-static void
-on_property_notify (GObject    *obj,
-                    GParamSpec *pspec,
-                    gpointer    user_data)
-{
-  PinosLink *this = user_data;
-  PinosLinkImpl *impl = (PinosLinkImpl *) this;
-
-  if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "output-port") == 0) {
-    if (this->output) {
-      pinos_link1_set_output_node (impl->iface, pinos_node_get_object_path (this->output->node));
-      pinos_link1_set_output_port (impl->iface, this->output->port);
-    } else {
-      pinos_link1_set_output_node (impl->iface, "/");
-      pinos_link1_set_output_port (impl->iface, -1);
-    }
-  }
-  if (pspec == NULL || strcmp (g_param_spec_get_name (pspec), "input-port") == 0) {
-    if (this->input) {
-      pinos_link1_set_input_node (impl->iface, pinos_node_get_object_path (this->input->node));
-      pinos_link1_set_input_port (impl->iface, this->input->port);
-    } else {
-      pinos_link1_set_input_node (impl->iface, "/");
-      pinos_link1_set_input_port (impl->iface, -1);
-    }
-  }
-}
-#endif
-
 static void
 on_port_unlinked (PinosPort *port, PinosLink *this, SpaResult res, gulong id)
 {
@@ -712,7 +673,6 @@ pinos_link_new (PinosCore       *core,
 {
   PinosLinkImpl *impl;
   PinosLink *this;
-  PinosObjectSkeleton *skel;
 
   impl = calloc (1, sizeof (PinosLinkImpl));
   this = &impl->this;
@@ -751,14 +711,9 @@ pinos_link_new (PinosCore       *core,
 
   spa_list_insert (core->link_list.prev, &this->link);
 
-  impl->iface = pinos_link1_skeleton_new ();
-  skel = pinos_object_skeleton_new (PINOS_DBUS_OBJECT_LINK);
-  pinos_object_skeleton_set_link1 (skel, impl->iface);
-
   this->global = pinos_core_add_global (core,
                                         core->registry.uri.link,
-                                        this,
-                                        skel);
+                                        this);
   return this;
 }
 
@@ -812,8 +767,6 @@ do_link_remove_done (SpaPoll        *poll,
 
   pinos_main_loop_defer_cancel (this->core->main_loop, this, 0);
 
-  g_clear_object (&impl->iface);
-
   if (impl->allocated)
     pinos_memblock_free (&impl->buffer_mem);
 
@@ -866,7 +819,7 @@ pinos_link_destroy (PinosLink * this)
   pinos_log_debug ("link %p: destroy", impl);
   pinos_signal_emit (&this->destroy_signal, this);
 
-  pinos_core_remove_global (this->core, this->global);
+  pinos_global_destroy (this->global);
   spa_list_remove (&this->link);
 
   if (this->input) {

@@ -18,7 +18,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include <server/daemon.h>
+#include <server/core.h>
 #include <server/module.h>
 
 #include "spa-monitor.h"

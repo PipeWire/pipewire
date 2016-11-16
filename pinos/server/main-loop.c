@@ -373,14 +373,13 @@ main_loop_run (PinosMainLoop *loop)
 
 /**
  * pinos_main_loop_new:
- * @context: a #GMainContext or %NULL to use the default context
  *
  * Create a new #PinosMainLoop.
  *
  * Returns: a new #PinosMainLoop
  */
 PinosMainLoop *
-pinos_main_loop_new (GMainContext *context)
+pinos_main_loop_new (void)
 {
   PinosMainLoopImpl *impl;
   PinosMainLoop *this;
@@ -388,7 +387,7 @@ pinos_main_loop_new (GMainContext *context)
   impl = calloc (1, sizeof (PinosMainLoopImpl));
   pinos_log_debug ("main-loop %p: new", impl);
 
-  impl->context = context;
+  impl->context = g_main_context_default ();
   this = &impl->this;
   this->run = main_loop_run;
   this->quit = main_loop_quit;

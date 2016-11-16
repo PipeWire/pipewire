@@ -25,7 +25,7 @@
 extern "C" {
 #endif
 
-#include <pinos/server/daemon.h>
+#include <pinos/server/core.h>
 
 typedef struct _PinosCommand PinosCommand;
 

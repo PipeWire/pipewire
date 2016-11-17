@@ -37,8 +37,7 @@ pinos_spa_node_load (PinosCore  *core,
                      const char *lib,
                      const char *factory_name,
                      const char *name,
-                     PinosProperties *properties,
-                     const char *args)
+                     PinosProperties *properties)
 {
   PinosSpaNode *this;
   PinosSpaNodeImpl *impl;

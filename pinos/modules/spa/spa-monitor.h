@@ -41,8 +41,7 @@ struct _PinosSpaMonitor {
 
 PinosSpaMonitor *      pinos_spa_monitor_load     (PinosCore  *core,
                                                    const char *lib,
-                                                   const char *factory_name,
-                                                   const char *args);
+                                                   const char *factory_name);
 void                   pinos_spa_monitor_destroy  (PinosSpaMonitor *monitor);
 
 #ifdef __cplusplus

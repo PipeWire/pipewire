@@ -31,6 +31,7 @@
 #include <spa/id-map.h>
 #include <spa/log.h>
 #include <spa/node.h>
+#include <spa/loop.h>
 #include <spa/video/format.h>
 #include <lib/debug.h>
 #include <lib/props.h>

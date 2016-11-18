@@ -152,7 +152,7 @@ spa_alsa_sink_node_set_props (SpaNode         *node,
 }
 
 static SpaResult
-do_send_event (SpaPoll        *poll,
+do_send_event (SpaLoop        *loop,
                bool            async,
                uint32_t        seq,
                size_t          size,
@@ -167,7 +167,7 @@ do_send_event (SpaPoll        *poll,
 }
 
 static SpaResult
-do_command (SpaPoll        *poll,
+do_command (SpaLoop        *loop,
             bool            async,
             uint32_t        seq,
             size_t          size,
@@ -197,7 +197,7 @@ do_command (SpaPoll        *poll,
     ac.event.size = sizeof (SpaNodeEventAsyncComplete);
     ac.seq = seq;
     ac.res = res;
-    spa_poll_invoke (this->main_loop,
+    spa_loop_invoke (this->main_loop,
                      do_send_event,
                      SPA_ID_INVALID,
                      sizeof (ac),
@@ -231,7 +231,7 @@ spa_alsa_sink_node_send_command (SpaNode        *node,
       if (this->n_buffers == 0)
         return SPA_RESULT_NO_BUFFERS;
 
-      return spa_poll_invoke (this->data_loop,
+      return spa_loop_invoke (this->data_loop,
                               do_command,
                               ++this->seq,
                               command->size,
@@ -790,9 +790,9 @@ alsa_sink_init (const SpaHandleFactory  *factory,
       this->map = support[i].data;
     else if (strcmp (support[i].uri, SPA_LOG_URI) == 0)
       this->log = support[i].data;
-    else if (strcmp (support[i].uri, SPA_POLL__DataLoop) == 0)
+    else if (strcmp (support[i].uri, SPA_LOOP__DataLoop) == 0)
       this->data_loop = support[i].data;
-    else if (strcmp (support[i].uri, SPA_POLL__MainLoop) == 0)
+    else if (strcmp (support[i].uri, SPA_LOOP__MainLoop) == 0)
       this->main_loop = support[i].data;
   }
   if (this->map == NULL) {

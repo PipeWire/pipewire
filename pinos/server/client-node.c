@@ -24,7 +24,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <dlfcn.h>
-#include <poll.h>
 #include <sys/socket.h>
 #include <sys/mman.h>
 #include <sys/eventfd.h>
@@ -94,18 +93,16 @@ struct _SpaProxy
 
   SpaIDMap *map;
   SpaLog *log;
-  SpaPoll *main_loop;
-  SpaPoll *data_loop;
+  SpaLoop *main_loop;
+  SpaLoop *data_loop;
 
   SpaNodeEventCallback event_cb;
   void *user_data;
 
-  SpaPollFd ctrl_fds[1];
-  SpaPollItem ctrl_poll;
+  SpaSource ctrl_source;
   PinosConnection *conn;
 
-  SpaPollFd data_fds[1];
-  SpaPollItem data_poll;
+  SpaSource data_source;
 
   unsigned int max_inputs;
   unsigned int n_inputs;
@@ -858,7 +855,7 @@ spa_proxy_node_port_reuse_buffer (SpaNode         *node,
   rb.buffer_id = buffer_id;
   pinos_transport_add_event (pnode->transport, &rb.event);
   cmd = PINOS_TRANSPORT_CMD_HAVE_EVENT;
-  write (this->data_fds[0].fd, &cmd, 1);
+  write (this->data_source.fd, &cmd, 1);
 
   return SPA_RESULT_OK;
 }
@@ -927,7 +924,7 @@ spa_proxy_node_process_input (SpaNode *node)
     return SPA_RESULT_ERROR;
 
   cmd = PINOS_TRANSPORT_CMD_HAVE_DATA;
-  write (this->data_fds[0].fd, &cmd, 1);
+  write (this->data_source.fd, &cmd, 1);
 
   return SPA_RESULT_OK;
 }
@@ -1089,27 +1086,25 @@ parse_connection (SpaProxy   *this)
   return SPA_RESULT_OK;
 }
 
-static int
-proxy_on_fd_events (SpaPollNotifyData *data)
+static void
+proxy_on_fd_events (SpaSource *source)
 {
-  SpaProxy *this = data->user_data;
+  SpaProxy *this = source->data;
 
-  if (data->fds[0].revents & POLLIN) {
+  if (source->rmask & SPA_IO_IN)
     parse_connection (this);
-  }
-  return 0;
 }
 
-static int
-proxy_on_data_fd_events (SpaPollNotifyData *data)
+static void
+proxy_on_data_fd_events (SpaSource *source)
 {
-  SpaProxy *this = data->user_data;
+  SpaProxy *this = source->data;
   PinosNode *pnode = this->pnode;
 
-  if (data->fds[0].revents & POLLIN) {
+  if (source->rmask & SPA_IO_IN) {
     uint8_t cmd;
 
-    read (this->data_fds[0].fd, &cmd, 1);
+    read (this->data_source.fd, &cmd, 1);
 
     if (cmd & PINOS_TRANSPORT_CMD_HAVE_EVENT) {
       SpaNodeEvent event;
@@ -1134,7 +1129,6 @@ proxy_on_data_fd_events (SpaPollNotifyData *data)
       this->event_cb (&this->node, &ni.event, this->user_data);
     }
   }
-  return 0;
 }
 
 static const SpaNode proxy_node = {
@@ -1176,9 +1170,9 @@ proxy_init (SpaProxy         *this,
   for (i = 0; i < n_support; i++) {
     if (strcmp (support[i].uri, SPA_LOG_URI) == 0)
       this->log = support[i].data;
-    else if (strcmp (support[i].uri, SPA_POLL__MainLoop) == 0)
+    else if (strcmp (support[i].uri, SPA_LOOP__MainLoop) == 0)
       this->main_loop = support[i].data;
-    else if (strcmp (support[i].uri, SPA_POLL__DataLoop) == 0)
+    else if (strcmp (support[i].uri, SPA_LOOP__DataLoop) == 0)
       this->data_loop = support[i].data;
   }
   if (this->data_loop == NULL) {
@@ -1190,29 +1184,17 @@ proxy_init (SpaProxy         *this,
 
   this->node = proxy_node;
 
-  this->ctrl_fds[0].fd = -1;
-  this->ctrl_fds[0].events = POLLIN | POLLPRI | POLLERR;
-  this->ctrl_fds[0].revents = 0;
-  this->ctrl_poll.id = 0;
-  this->ctrl_poll.enabled = true;
-  this->ctrl_poll.fds = this->ctrl_fds;
-  this->ctrl_poll.n_fds = 1;
-  this->ctrl_poll.idle_cb = NULL;
-  this->ctrl_poll.before_cb = NULL;
-  this->ctrl_poll.after_cb = proxy_on_fd_events;
-  this->ctrl_poll.user_data = this;
+  this->ctrl_source.func = proxy_on_fd_events;
+  this->ctrl_source.data = this;
+  this->ctrl_source.fd = -1;
+  this->ctrl_source.mask = SPA_IO_IN | SPA_IO_ERR;
+  this->ctrl_source.rmask = 0;
 
-  this->data_fds[0].fd = -1;
-  this->data_fds[0].events = POLLIN | POLLPRI | POLLERR;
-  this->data_fds[0].revents = 0;
-  this->data_poll.id = 0;
-  this->data_poll.enabled = true;
-  this->data_poll.fds = this->data_fds;
-  this->data_poll.n_fds = 1;
-  this->data_poll.idle_cb = NULL;
-  this->data_poll.before_cb = NULL;
-  this->data_poll.after_cb = proxy_on_data_fd_events;
-  this->data_poll.user_data = this;
+  this->data_source.func = proxy_on_data_fd_events;
+  this->data_source.data = this;
+  this->data_source.fd = -1;
+  this->data_source.mask = SPA_IO_IN | SPA_IO_ERR;
+  this->data_source.rmask = 0;
 
   return SPA_RESULT_RETURN_ASYNC (this->seq++);
 }
@@ -1243,7 +1225,7 @@ on_loop_changed (PinosListener   *listener,
                  PinosNode       *node)
 {
   PinosClientNodeImpl *impl = SPA_CONTAINER_OF (listener, PinosClientNodeImpl, loop_changed);
-  impl->proxy.data_loop = &node->data_loop->poll;
+  impl->proxy.data_loop = node->data_loop->loop->loop;
 }
 
 static SpaResult
@@ -1259,13 +1241,13 @@ proxy_clear (SpaProxy *this)
     if (this->out_ports[i].valid)
       clear_port (this, &this->out_ports[i], SPA_DIRECTION_OUTPUT, i);
   }
-  if (this->ctrl_fds[0].fd != -1) {
-    spa_poll_remove_item (this->main_loop, &this->ctrl_poll);
-    close (this->ctrl_fds[0].fd);
+  if (this->ctrl_source.fd != -1) {
+    spa_loop_remove_source (this->main_loop, &this->ctrl_source);
+    close (this->ctrl_source.fd);
   }
-  if (this->data_fds[0].fd != -1) {
-    spa_poll_remove_item (this->data_loop, &this->data_poll);
-    close (this->data_fds[0].fd);
+  if (this->data_source.fd != -1) {
+    spa_loop_remove_source (this->data_loop, &this->data_source);
+    close (this->data_source.fd);
   }
 
   return SPA_RESULT_OK;
@@ -1380,9 +1362,9 @@ pinos_client_node_get_ctrl_socket (PinosClientNode  *this,
     if (socketpair (AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, fd) != 0)
       return SPA_RESULT_ERRNO;
 
-    impl->proxy.ctrl_fds[0].fd = fd[0];
-    impl->proxy.conn = pinos_connection_new (impl->proxy.ctrl_fds[0].fd);
-    spa_poll_add_item (impl->proxy.main_loop, &impl->proxy.ctrl_poll);
+    impl->proxy.ctrl_source.fd = fd[0];
+    impl->proxy.conn = pinos_connection_new (impl->proxy.ctrl_source.fd);
+    spa_loop_add_source (impl->proxy.main_loop, &impl->proxy.ctrl_source);
     impl->ctrl_fd = fd[1];
   }
   *fd = impl->ctrl_fd;
@@ -1411,8 +1393,8 @@ pinos_client_node_get_data_socket (PinosClientNode  *this,
     if (socketpair (AF_UNIX, SOCK_STREAM, 0, fd) != 0)
       return SPA_RESULT_ERRNO;
 
-    impl->proxy.data_fds[0].fd = fd[0];
-    spa_poll_add_item (impl->proxy.data_loop, &impl->proxy.data_poll);
+    impl->proxy.data_source.fd = fd[0];
+    spa_loop_add_source (impl->proxy.data_loop, &impl->proxy.data_source);
     impl->data_fd = fd[1];
   }
   *fd = impl->data_fd;

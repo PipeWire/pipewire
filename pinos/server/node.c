@@ -251,7 +251,7 @@ send_clock_update (PinosNode *this)
 }
 
 static SpaResult
-do_read_link (SpaPoll        *poll,
+do_read_link (SpaLoop        *loop,
               bool            async,
               uint32_t        seq,
               size_t          size,
@@ -315,7 +315,7 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
           continue;
 
         link->rt.in_ready++;
-        spa_poll_invoke (&link->rt.input->node->data_loop->poll,
+        spa_loop_invoke (link->rt.input->node->data_loop->loop->loop,
                          do_read_link,
                          SPA_ID_INVALID,
                          sizeof (PinosLink *),
@@ -348,7 +348,7 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
           link->queue[offset] = po->buffer_id;
           spa_ringbuffer_write_advance (&link->ringbuffer, 1);
 
-          spa_poll_invoke (&link->rt.input->node->data_loop->poll,
+          spa_loop_invoke (link->rt.input->node->data_loop->loop->loop,
                            do_read_link,
                            SPA_ID_INVALID,
                            sizeof (PinosLink *),
@@ -473,7 +473,7 @@ pinos_node_new (PinosCore       *core,
 }
 
 static SpaResult
-do_node_remove_done (SpaPoll        *poll,
+do_node_remove_done (SpaLoop        *loop,
                      bool            async,
                      uint32_t        seq,
                      size_t          size,
@@ -502,7 +502,7 @@ do_node_remove_done (SpaPoll        *poll,
 }
 
 static SpaResult
-do_node_remove (SpaPoll        *poll,
+do_node_remove (SpaLoop        *loop,
                 bool            async,
                 uint32_t        seq,
                 size_t          size,
@@ -530,7 +530,7 @@ do_node_remove (SpaPoll        *poll,
     }
   }
 
-  res = spa_poll_invoke (this->core->main_loop->poll,
+  res = spa_loop_invoke (this->core->main_loop->loop,
                          do_node_remove_done,
                          seq,
                          0,
@@ -559,7 +559,7 @@ pinos_node_destroy (PinosNode * this)
   spa_list_remove (&this->link);
   pinos_global_destroy (this->global);
 
-  res = spa_poll_invoke (&this->data_loop->poll,
+  res = spa_loop_invoke (this->data_loop->loop->loop,
                          do_node_remove,
                          impl->seq++,
                          0,

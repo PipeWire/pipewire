@@ -732,7 +732,7 @@ clear_port_buffers (PinosLink *link, PinosPort *port)
 }
 
 static SpaResult
-do_link_remove_done (SpaPoll        *poll,
+do_link_remove_done (SpaLoop        *loop,
                      bool            async,
                      uint32_t        seq,
                      size_t          size,
@@ -776,7 +776,7 @@ do_link_remove_done (SpaPoll        *poll,
 }
 
 static SpaResult
-do_link_remove (SpaPoll        *poll,
+do_link_remove (SpaLoop        *loop,
                 bool            async,
                 uint32_t        seq,
                 size_t          size,
@@ -795,7 +795,7 @@ do_link_remove (SpaPoll        *poll,
     this->rt.output = NULL;
   }
 
-  res = spa_poll_invoke (this->core->main_loop->poll,
+  res = spa_loop_invoke (this->core->main_loop->loop,
                          do_link_remove_done,
                          seq,
                          0,
@@ -826,7 +826,7 @@ pinos_link_destroy (PinosLink * this)
     pinos_signal_remove (&impl->input_port_destroy);
     pinos_signal_remove (&impl->input_async_complete);
 
-    res = spa_poll_invoke (&this->input->node->data_loop->poll,
+    res = spa_loop_invoke (this->input->node->data_loop->loop->loop,
                            do_link_remove,
                            impl->seq++,
                            0,
@@ -837,7 +837,7 @@ pinos_link_destroy (PinosLink * this)
     pinos_signal_remove (&impl->output_port_destroy);
     pinos_signal_remove (&impl->output_async_complete);
 
-    res = spa_poll_invoke (&this->output->node->data_loop->poll,
+    res = spa_loop_invoke (this->output->node->data_loop->loop->loop,
                            do_link_remove,
                            impl->seq++,
                            0,

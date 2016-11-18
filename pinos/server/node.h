@@ -31,7 +31,6 @@ typedef struct _PinosNode PinosNode;
 
 #include <spa/include/spa/node.h>
 
-#include <pinos/client/introspect.h>
 #include <pinos/client/mem.h>
 #include <pinos/client/transport.h>
 

@@ -27,7 +27,6 @@ extern "C" {
 typedef struct _SpaNodeEvent SpaNodeEvent;
 
 #include <spa/defs.h>
-#include <spa/poll.h>
 #include <spa/node.h>
 
 #define SPA_NODE_EVENT_URI             "http://spaplug.in/ns/node-event"

@@ -12,7 +12,7 @@
 
 #define CHECK(s,msg) if ((err = (s)) < 0) { spa_log_error (state->log, msg ": %s", snd_strerror(err)); return err; }
 
-static int alsa_on_fd_events (SpaPollNotifyData *data);
+static void alsa_on_fd_events (SpaSource *source);
 
 static int
 spa_alsa_open (SpaALSAState *state)
@@ -35,16 +35,6 @@ spa_alsa_open (SpaALSAState *state)
                        SND_PCM_NO_AUTO_FORMAT), "open failed");
 
 
-  state->poll.id = 0;
-  state->poll.enabled = false;
-  state->poll.fds = state->fds;
-  state->poll.n_fds = 0;
-  state->poll.idle_cb = NULL;
-  state->poll.before_cb = NULL;
-  state->poll.after_cb = alsa_on_fd_events;
-  state->poll.user_data = state;
-  spa_poll_add_item (state->data_loop, &state->poll);
-
   state->opened = true;
 
   return 0;
@@ -57,8 +47,6 @@ spa_alsa_close (SpaALSAState *state)
 
   if (!state->opened)
     return 0;
-
-  spa_poll_remove_item (state->data_loop, &state->poll);
 
   spa_log_info (state->log, "Device closing");
   CHECK (snd_pcm_close (state->hndl), "close failed");
@@ -508,44 +496,48 @@ mmap_read (SpaALSAState *state)
   return 0;
 }
 
-static int
-alsa_on_fd_events (SpaPollNotifyData *data)
+static void
+alsa_on_fd_events (SpaSource *source)
 {
-  SpaALSAState *state = data->user_data;
+  SpaALSAState *state = source->data;
   snd_pcm_t *hndl = state->hndl;
   int err;
   unsigned short revents = 0;
 
+#if 0
   snd_pcm_poll_descriptors_revents (hndl,
-                                    (struct pollfd *)data->fds,
-                                    data->n_fds,
+                                    state->fds,
+                                    state->n_fds,
                                     &revents);
-  if (revents & POLLERR) {
+
+  spa_log_debug (state->log, "revents: %d %d", revents, state->n_fds);
+#endif
+  revents = source->rmask;
+
+  if (revents & SPA_IO_ERR) {
     if ((err = xrun_recovery (state, hndl, err)) < 0) {
       spa_log_error (state->log, "error: %s", snd_strerror (err));
-      return -1;
+      return;
     }
   }
 
   if (state->stream == SND_PCM_STREAM_CAPTURE) {
-    if (!(revents & POLLIN))
-      return 0;
+    if (!(revents & SPA_IO_IN))
+      return;
 
     mmap_read (state);
   } else {
-    if (!(revents & POLLOUT))
-      return 0;
+    if (!(revents & SPA_IO_OUT))
+      return;
 
     mmap_write (state);
   }
-
-  return 0;
 }
 
 SpaResult
 spa_alsa_start (SpaALSAState *state, bool xrun_recover)
 {
-  int err;
+  int err, i;
 
   if (state->started)
     return SPA_RESULT_OK;
@@ -559,19 +551,33 @@ spa_alsa_start (SpaALSAState *state, bool xrun_recover)
     return SPA_RESULT_ERROR;
   }
 
-  if ((state->poll.n_fds = snd_pcm_poll_descriptors_count (state->hndl)) <= 0) {
-    spa_log_error (state->log, "Invalid poll descriptors count %d", state->poll.n_fds);
+  for (i = 0; i < state->n_fds; i++)
+    spa_loop_remove_source (state->data_loop, &state->sources[i]);
+
+  if ((state->n_fds = snd_pcm_poll_descriptors_count (state->hndl)) <= 0) {
+    spa_log_error (state->log, "Invalid poll descriptors count %d", state->n_fds);
     return SPA_RESULT_ERROR;
   }
 
-  if ((err = snd_pcm_poll_descriptors (state->hndl, (struct pollfd *)state->fds, state->poll.n_fds)) < 0) {
+  if ((err = snd_pcm_poll_descriptors (state->hndl, state->fds, state->n_fds)) < 0) {
     spa_log_error (state->log, "snd_pcm_poll_descriptors: %s", snd_strerror(err));
     return SPA_RESULT_ERROR;
   }
 
-  if (!xrun_recover) {
-    state->poll.enabled = true;
-    spa_poll_update_item (state->data_loop, &state->poll);
+  for (i = 0; i < state->n_fds; i++) {
+    state->sources[i].func = alsa_on_fd_events;
+    state->sources[i].data = state;
+    state->sources[i].fd = state->fds[i].fd;
+    state->sources[i].mask = 0;
+    if (state->fds[i].events & POLLIN)
+      state->sources[i].mask |= SPA_IO_IN;
+    if (state->fds[i].events & POLLOUT)
+      state->sources[i].mask |= SPA_IO_OUT;
+    if (state->fds[i].events & POLLERR)
+      state->sources[i].mask |= SPA_IO_ERR;
+    if (state->fds[i].events & POLLHUP)
+      state->sources[i].mask |= SPA_IO_HUP;
+    spa_loop_add_source (state->data_loop, &state->sources[i]);
   }
 
   if (state->stream == SND_PCM_STREAM_PLAYBACK) {
@@ -591,15 +597,14 @@ spa_alsa_start (SpaALSAState *state, bool xrun_recover)
 SpaResult
 spa_alsa_pause (SpaALSAState *state, bool xrun_recover)
 {
-  int err;
+  int err, i;
 
   if (!state->started)
     return SPA_RESULT_OK;
 
-  if (!xrun_recover) {
-    state->poll.enabled = false;
-    spa_poll_update_item (state->data_loop, &state->poll);
-  }
+  for (i = 0; i < state->n_fds; i++)
+    spa_loop_remove_source (state->data_loop, &state->sources[i]);
+  state->n_fds = 0;
 
   if ((err = snd_pcm_drop (state->hndl)) < 0)
     spa_log_error (state->log, "snd_pcm_drop %s", snd_strerror (err));

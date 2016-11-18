@@ -32,6 +32,7 @@ extern "C" {
 #include <spa/log.h>
 #include <spa/list.h>
 #include <spa/node.h>
+#include <spa/loop.h>
 #include <spa/ringbuffer.h>
 #include <spa/audio/format.h>
 
@@ -73,8 +74,8 @@ struct _SpaALSAState {
   URI uri;
   SpaIDMap *map;
   SpaLog *log;
-  SpaPoll *main_loop;
-  SpaPoll *data_loop;
+  SpaLoop *main_loop;
+  SpaLoop *data_loop;
 
   snd_pcm_stream_t stream;
   snd_output_t *output;
@@ -114,8 +115,9 @@ struct _SpaALSAState {
   size_t ready_offset;
 
   bool started;
-  SpaPollFd fds[16];
-  SpaPollItem poll;
+  int n_fds;
+  struct pollfd fds[16];
+  SpaSource sources[16];
 
   int64_t sample_count;
   int64_t last_ticks;

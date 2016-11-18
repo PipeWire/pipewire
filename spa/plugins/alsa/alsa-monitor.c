@@ -29,7 +29,7 @@
 
 #include <spa/log.h>
 #include <spa/id-map.h>
-#include <spa/poll.h>
+#include <spa/loop.h>
 #include <spa/monitor.h>
 #include <lib/debug.h>
 
@@ -56,7 +56,7 @@ struct _SpaALSAMonitor {
   URI uri;
   SpaIDMap *map;
   SpaLog *log;
-  SpaPoll *main_loop;
+  SpaLoop *main_loop;
 
   SpaMonitorEventCallback event_cb;
   void *user_data;
@@ -68,8 +68,7 @@ struct _SpaALSAMonitor {
   ALSAItem uitem;
 
   int fd;
-  SpaPollFd fds[1];
-  SpaPollItem poll;
+  SpaSource source;
 };
 
 static SpaResult
@@ -244,17 +243,17 @@ fill_item (SpaALSAMonitor *this, ALSAItem *item, struct udev_device *udevice)
   return 0;
 }
 
-static int
-alsa_on_fd_events (SpaPollNotifyData *data)
+static void
+alsa_on_fd_events (SpaSource *source)
 {
-  SpaALSAMonitor *this = data->user_data;
+  SpaALSAMonitor *this = source->data;
   struct udev_device *dev;
   const char *str;
   SpaMonitorItem *item;
 
   dev = udev_monitor_receive_device (this->umonitor);
   if (fill_item (this, &this->uitem, dev) < 0)
-    return 0;
+    return;
 
   if ((str = udev_device_get_action (dev)) == NULL)
     str = "change";
@@ -270,8 +269,6 @@ alsa_on_fd_events (SpaPollNotifyData *data)
   }
   item->event.size = sizeof (this->uitem);
   this->event_cb (&this->monitor, &item->event, this->user_data);
-
-  return 0;
 }
 
 static SpaResult
@@ -303,22 +300,15 @@ spa_alsa_monitor_set_event_callback (SpaMonitor              *monitor,
                                                      NULL);
 
     udev_monitor_enable_receiving (this->umonitor);
-    this->fd = udev_monitor_get_fd (this->umonitor);;
-    this->fds[0].fd = this->fd;
-    this->fds[0].events = POLLIN | POLLPRI | POLLERR;
-    this->fds[0].revents = 0;
 
-    this->poll.id = 0;
-    this->poll.enabled = true;
-    this->poll.fds = this->fds;
-    this->poll.n_fds = 1;
-    this->poll.idle_cb = NULL;
-    this->poll.before_cb = NULL;
-    this->poll.after_cb = alsa_on_fd_events;
-    this->poll.user_data = this;
-    spa_poll_add_item (this->main_loop, &this->poll);
+    this->source.func = alsa_on_fd_events;
+    this->source.data = this;
+    this->source.fd = udev_monitor_get_fd (this->umonitor);;
+    this->source.mask = SPA_IO_IN | SPA_IO_ERR;
+
+    spa_loop_add_source (this->main_loop, &this->source);
   } else {
-    spa_poll_remove_item (this->main_loop, &this->poll);
+    spa_loop_remove_source (this->main_loop, &this->source);
   }
 
   return SPA_RESULT_OK;
@@ -433,7 +423,7 @@ alsa_monitor_init (const SpaHandleFactory  *factory,
       this->map = support[i].data;
     else if (strcmp (support[i].uri, SPA_LOG_URI) == 0)
       this->log = support[i].data;
-    else if (strcmp (support[i].uri, SPA_POLL__MainLoop) == 0)
+    else if (strcmp (support[i].uri, SPA_LOOP__MainLoop) == 0)
       this->main_loop = support[i].data;
   }
   if (this->map == NULL) {

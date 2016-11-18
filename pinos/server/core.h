@@ -28,6 +28,7 @@ typedef struct _PinosCore PinosCore;
 typedef struct _PinosGlobal PinosGlobal;
 
 #include <spa/include/spa/log.h>
+
 #include <pinos/server/main-loop.h>
 #include <pinos/server/data-loop.h>
 #include <pinos/server/registry.h>

@@ -22,11 +22,11 @@
 #include <string.h>
 #include <stdio.h>
 #include <sys/timerfd.h>
-#include <poll.h>
 
 #include <spa/id-map.h>
 #include <spa/log.h>
 #include <spa/node.h>
+#include <spa/loop.h>
 #include <spa/list.h>
 #include <spa/audio/format.h>
 #include <lib/props.h>
@@ -71,15 +71,15 @@ struct _SpaAudioTestSrc {
   URI uri;
   SpaIDMap *map;
   SpaLog *log;
-  SpaPoll *data_loop;
+  SpaLoop *data_loop;
 
   SpaAudioTestSrcProps props[2];
 
   SpaNodeEventCallback event_cb;
   void *user_data;
 
-  SpaPollItem timer;
-  SpaPollFd fds[1];
+  bool timer_enabled;
+  SpaSource timer_source;
   struct itimerspec timerspec;
 
   SpaPortInfo info;
@@ -256,20 +256,19 @@ fill_buffer (SpaAudioTestSrc *this, ATSBuffer *b)
   return SPA_RESULT_OK;
 }
 
-static int audiotestsrc_on_output (SpaPollNotifyData *data);
 
-static SpaResult update_poll_enabled (SpaAudioTestSrc *this, bool enabled);
+static SpaResult update_loop_enabled (SpaAudioTestSrc *this, bool enabled);
 
-static int
-audiotestsrc_on_output (SpaPollNotifyData *data)
+static void
+audiotestsrc_on_output (SpaSource *source)
 {
-  SpaAudioTestSrc *this = data->user_data;
+  SpaAudioTestSrc *this = source->data;
   ATSBuffer *b;
 
   if (spa_list_is_empty (&this->empty)) {
     if (!this->props[1].live)
-      update_poll_enabled (this, false);
-    return 0;
+      update_loop_enabled (this, false);
+    return;
   }
   b = spa_list_first (&this->empty, ATSBuffer, list);
   spa_list_remove (&b->list);
@@ -288,19 +287,17 @@ audiotestsrc_on_output (SpaPollNotifyData *data)
   if (this->props[1].live) {
     uint64_t expirations, next_time;
 
-    if (read (this->fds[0].fd, &expirations, sizeof (uint64_t)) < sizeof (uint64_t))
+    if (read (this->timer_source.fd, &expirations, sizeof (uint64_t)) < sizeof (uint64_t))
       perror ("read timerfd");
 
     next_time = this->start_time + this->elapsed_time;
     this->timerspec.it_value.tv_sec = next_time / SPA_NSEC_PER_SEC;
     this->timerspec.it_value.tv_nsec = next_time % SPA_NSEC_PER_SEC;
-    timerfd_settime (this->fds[0].fd, TFD_TIMER_ABSTIME, &this->timerspec, NULL);
+    timerfd_settime (this->timer_source.fd, TFD_TIMER_ABSTIME, &this->timerspec, NULL);
   }
 
   spa_list_insert (this->ready.prev, &b->list);
   send_have_output (this);
-
-  return 0;
 }
 
 static void
@@ -310,10 +307,15 @@ update_state (SpaAudioTestSrc *this, SpaNodeState state)
 }
 
 static SpaResult
-update_poll_enabled (SpaAudioTestSrc *this, bool enabled)
+update_loop_enabled (SpaAudioTestSrc *this, bool enabled)
 {
   if (this->event_cb) {
-    this->timer.enabled = enabled;
+    this->timer_enabled = enabled;
+    if (enabled)
+      this->timer_source.mask = SPA_IO_IN;
+    else
+      this->timer_source.mask = 0;
+
     if (this->props[1].live) {
       if (enabled) {
         uint64_t next_time = this->start_time + this->elapsed_time;
@@ -324,18 +326,11 @@ update_poll_enabled (SpaAudioTestSrc *this, bool enabled)
         this->timerspec.it_value.tv_sec = 0;
         this->timerspec.it_value.tv_nsec = 0;
       }
-      timerfd_settime (this->fds[0].fd, TFD_TIMER_ABSTIME, &this->timerspec, NULL);
-      this->timer.fds = this->fds;
-      this->timer.n_fds = 1;
-      this->timer.idle_cb = NULL;
-      this->timer.after_cb = audiotestsrc_on_output;
-    } else {
-      this->timer.fds = NULL;
-      this->timer.n_fds = 0;
-      this->timer.idle_cb = audiotestsrc_on_output;
-      this->timer.after_cb = NULL;
+      timerfd_settime (this->timer_source.fd, TFD_TIMER_ABSTIME, &this->timerspec, NULL);
+
+      this->timer_source.func = audiotestsrc_on_output;
     }
-    spa_poll_update_item (this->data_loop, &this->timer);
+    spa_loop_update_source (this->data_loop, &this->timer_source);
   }
   return SPA_RESULT_OK;
 }
@@ -377,7 +372,7 @@ spa_audiotestsrc_node_send_command (SpaNode        *node,
       this->elapsed_time = 0;
 
       this->started = true;
-      update_poll_enabled (this, true);
+      update_loop_enabled (this, true);
       update_state (this, SPA_NODE_STATE_STREAMING);
       break;
     }
@@ -393,7 +388,7 @@ spa_audiotestsrc_node_send_command (SpaNode        *node,
         return SPA_RESULT_OK;
 
       this->started = false;
-      update_poll_enabled (this, false);
+      update_loop_enabled (this, false);
       update_state (this, SPA_NODE_STATE_PAUSED);
       break;
     }
@@ -419,14 +414,14 @@ spa_audiotestsrc_node_set_event_callback (SpaNode              *node,
   this = SPA_CONTAINER_OF (node, SpaAudioTestSrc, node);
 
   if (event_cb == NULL && this->event_cb) {
-    spa_poll_remove_item (this->data_loop, &this->timer);
+    spa_loop_remove_source (this->data_loop, &this->timer_source);
   }
 
   this->event_cb = event_cb;
   this->user_data = user_data;
 
   if (this->event_cb) {
-    spa_poll_add_item (this->data_loop, &this->timer);
+    spa_loop_add_source (this->data_loop, &this->timer_source);
   }
   return SPA_RESULT_OK;
 }
@@ -801,7 +796,7 @@ spa_audiotestsrc_node_port_reuse_buffer (SpaNode         *node,
   spa_list_insert (this->empty.prev, &b->list);
 
   if (!this->props[1].live)
-    update_poll_enabled (this, true);
+    update_loop_enabled (this, true);
 
   return SPA_RESULT_OK;
 }
@@ -958,7 +953,7 @@ audiotestsrc_clear (SpaHandle *handle)
 
   this = (SpaAudioTestSrc *) handle;
 
-  close (this->fds[0].fd);
+  close (this->timer_source.fd);
 
   return SPA_RESULT_OK;
 }
@@ -986,7 +981,7 @@ audiotestsrc_init (const SpaHandleFactory  *factory,
       this->map = support[i].data;
     else if (strcmp (support[i].uri, SPA_LOG_URI) == 0)
       this->log = support[i].data;
-    else if (strcmp (support[i].uri, SPA_POLL__DataLoop) == 0)
+    else if (strcmp (support[i].uri, SPA_LOOP__DataLoop) == 0)
       this->data_loop = support[i].data;
   }
   if (this->map == NULL) {
@@ -1009,20 +1004,14 @@ audiotestsrc_init (const SpaHandleFactory  *factory,
   spa_list_init (&this->empty);
   spa_list_init (&this->ready);
 
-  this->fds[0].fd = timerfd_create (CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
-  this->fds[0].events = POLLIN | POLLPRI | POLLERR;
-  this->fds[0].revents = 0;
+  this->timer_source.func = audiotestsrc_on_output;
+  this->timer_source.data = this;
+  this->timer_source.fd = timerfd_create (CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
+  this->timer_source.mask = SPA_IO_IN | SPA_IO_ERR;
   this->timerspec.it_value.tv_sec = 0;
   this->timerspec.it_value.tv_nsec = 0;
   this->timerspec.it_interval.tv_sec = 0;
   this->timerspec.it_interval.tv_nsec = 0;
-
-  this->timer.id = 0;
-  this->timer.enabled = false;
-  this->timer.idle_cb = NULL;
-  this->timer.before_cb = NULL;
-  this->timer.after_cb = NULL;
-  this->timer.user_data = this;
 
   this->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
                      SPA_PORT_INFO_FLAG_NO_REF;

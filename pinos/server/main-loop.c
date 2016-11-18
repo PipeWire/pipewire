@@ -20,7 +20,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <poll.h>
 #include <sys/eventfd.h>
 
 #include <gio/gio.h>
@@ -34,12 +33,12 @@
 #define DATAS_SIZE (4096 * 8)
 
 typedef struct {
-  size_t             item_size;
-  SpaPollInvokeFunc  func;
-  uint32_t           seq;
-  size_t             size;
-  void              *data;
-  void              *user_data;
+  size_t         item_size;
+  SpaInvokeFunc  func;
+  uint32_t       seq;
+  size_t         size;
+  void          *data;
+  void          *user_data;
 } InvokeItem;
 
 typedef struct _WorkItem WorkItem;
@@ -59,18 +58,17 @@ typedef struct
 {
   PinosMainLoop this;
 
-  SpaPoll poll;
+  SpaLoop loop;
 
   GMainContext *context;
-  GMainLoop *loop;
+  GMainLoop *main_loop;
 
   uint32_t counter;
 
   SpaRingbuffer buffer;
   uint8_t       buffer_data[DATAS_SIZE];
 
-  SpaPollFd fds[1];
-  SpaPollItem wakeup;
+  SpaSource wakeup;
 
   SpaList  work_list;
   SpaList  free_list;
@@ -79,103 +77,109 @@ typedef struct
 } PinosMainLoopImpl;
 
 typedef struct {
-  PinosMainLoop *loop;
-  SpaPollItem item;
-} PollData;
+  PinosMainLoopImpl *impl;
+  SpaSource         *source;
+  guint              id;
+} LoopData;
 
 static bool
-poll_event (GIOChannel *source,
-            GIOCondition condition,
-            void * user_data)
+poll_event (GIOChannel   *source,
+            GIOCondition  condition,
+            void         *user_data)
 {
-  PollData *data = user_data;
-  SpaPollNotifyData d;
+  LoopData *data = user_data;
+  SpaSource *s = data->source;
 
-  d.user_data = data->item.user_data;
-  d.fds = data->item.fds;
-  d.fds[0].revents = condition;
-  d.n_fds = data->item.n_fds;
-  data->item.after_cb (&d);
+  s->rmask = 0;
+  if (condition & G_IO_IN)
+    s->rmask |= SPA_IO_IN;
+  if (condition & G_IO_OUT)
+    s->rmask |= SPA_IO_OUT;
+  if (condition & G_IO_ERR)
+    s->rmask |= SPA_IO_ERR;
+  if (condition & G_IO_HUP)
+    s->rmask |= SPA_IO_HUP;
+  s->func (s);
 
   return TRUE;
 }
 
 static SpaResult
-do_add_item (SpaPoll     *poll,
-             SpaPollItem *item)
+do_add_source (SpaLoop   *loop,
+               SpaSource *source)
 {
-  PinosMainLoop *this = SPA_CONTAINER_OF (poll, PinosMainLoop, poll);
+  PinosMainLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosMainLoopImpl, loop);
   GIOChannel *channel;
-  GSource *source;
-  PollData data;
+  GSource *s;
+  LoopData *data;
 
-  channel = g_io_channel_unix_new (item->fds[0].fd);
-  source = g_io_create_watch (channel, G_IO_IN);
+  channel = g_io_channel_unix_new (source->fd);
+  s = g_io_create_watch (channel, G_IO_IN);
   g_io_channel_unref (channel);
 
-  data.loop = this;
-  data.item = *item;
+  data = g_new0 (LoopData, 1);
+  data->impl = impl;
+  data->source = source;
 
-  g_source_set_callback (source, (GSourceFunc) poll_event, g_slice_dup (PollData, &data) , NULL);
-  item->id = g_source_attach (source, g_main_context_get_thread_default ());
-  g_source_unref (source);
+  g_source_set_callback (s, (GSourceFunc) poll_event, data, g_free);
+  data->id = g_source_attach (s, g_main_context_get_thread_default ());
+  g_source_unref (s);
 
-  pinos_log_debug ("added main poll %d", item->id);
+  source->loop_private = data;
+  source->loop = loop;
+
+  pinos_log_debug ("added main poll %d", data->id);
 
   return SPA_RESULT_OK;
 }
 
 static SpaResult
-do_update_item (SpaPoll     *poll,
-                SpaPollItem *item)
+do_update_source (SpaSource *source)
 {
-  pinos_log_debug ("update main poll %d", item->id);
+  LoopData *data = source->loop_private;
+  pinos_log_debug ("update main poll %d", data->id);
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-do_remove_item (SpaPoll     *poll,
-                SpaPollItem *item)
+static void
+do_remove_source (SpaSource *source)
 {
-  GSource *source;
+  GSource *gsource;
+  LoopData *data = source->loop_private;
 
-  pinos_log_debug ("remove main poll %d", item->id);
-  source = g_main_context_find_source_by_id (g_main_context_get_thread_default (), item->id);
-  g_source_destroy (source);
-
-  return SPA_RESULT_OK;
+  pinos_log_debug ("remove main poll %d", data->id);
+  gsource = g_main_context_find_source_by_id (g_main_context_get_thread_default (), data->id);
+  g_source_destroy (gsource);
 }
 
-static int
-main_loop_dispatch (SpaPollNotifyData *data)
+static void
+main_loop_dispatch (SpaSource *source)
 {
-  PinosMainLoopImpl *impl = data->user_data;
-  SpaPoll *p = &impl->poll;
+  LoopData *data = source->loop_private;
+  PinosMainLoopImpl *impl = data->impl;
   uint64_t u;
   size_t offset;
   InvokeItem *item;
 
-  if (read (impl->fds[0].fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
+  if (read (impl->wakeup.fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
     pinos_log_warn ("main-loop %p: failed to read fd", strerror (errno));
 
   while (spa_ringbuffer_get_read_offset (&impl->buffer, &offset) > 0) {
     item = SPA_MEMBER (impl->buffer_data, offset, InvokeItem);
-    item->func (p, true, item->seq, item->size, item->data, item->user_data);
+    item->func (&impl->loop, true, item->seq, item->size, item->data, item->user_data);
     spa_ringbuffer_read_advance (&impl->buffer, item->item_size);
   }
-
-  return 0;
 }
 
 static SpaResult
-do_invoke (SpaPoll           *poll,
-           SpaPollInvokeFunc  func,
-           uint32_t           seq,
-           size_t             size,
-           void              *data,
-           void              *user_data)
+do_invoke (SpaLoop       *loop,
+           SpaInvokeFunc  func,
+           uint32_t       seq,
+           size_t         size,
+           void          *data,
+           void          *user_data)
 {
-  PinosMainLoopImpl *impl = SPA_CONTAINER_OF (poll, PinosMainLoopImpl, poll);
+  PinosMainLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosMainLoopImpl, loop);
   bool in_thread = false;
   SpaRingbufferArea areas[2];
   InvokeItem *item;
@@ -183,7 +187,7 @@ do_invoke (SpaPoll           *poll,
   SpaResult res;
 
   if (in_thread) {
-    res = func (poll, false, seq, size, data, user_data);
+    res = func (loop, false, seq, size, data, user_data);
   } else {
     spa_ringbuffer_get_write_areas (&impl->buffer, areas);
     if (areas[0].len < sizeof (InvokeItem)) {
@@ -191,10 +195,10 @@ do_invoke (SpaPoll           *poll,
       return SPA_RESULT_ERROR;
     }
     item = SPA_MEMBER (impl->buffer_data, areas[0].offset, InvokeItem);
-    item->seq = seq;
     item->func = func;
-    item->user_data = user_data;
+    item->seq = seq;
     item->size = size;
+    item->user_data = user_data;
 
     if (areas[0].len > sizeof (InvokeItem) + size) {
       item->data = SPA_MEMBER (item, sizeof (InvokeItem), void);
@@ -209,10 +213,14 @@ do_invoke (SpaPoll           *poll,
 
     spa_ringbuffer_write_advance (&impl->buffer, item->item_size);
 
-    if (write (impl->fds[0].fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
+    if (write (impl->wakeup.fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
       pinos_log_warn ("data-loop %p: failed to write fd", strerror (errno));
 
-    res = SPA_RESULT_RETURN_ASYNC (seq);
+    if (seq != SPA_ID_INVALID)
+      res = SPA_RESULT_RETURN_ASYNC (seq);
+    else
+      res = SPA_RESULT_OK;
+
   }
   return res;
 }
@@ -360,7 +368,7 @@ main_loop_quit (PinosMainLoop *loop)
 {
   PinosMainLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosMainLoopImpl, this);
   pinos_log_debug ("main-loop %p: quit", impl);
-  g_main_loop_quit (impl->loop);
+  g_main_loop_quit (impl->main_loop);
 }
 
 static void
@@ -368,7 +376,7 @@ main_loop_run (PinosMainLoop *loop)
 {
   PinosMainLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosMainLoopImpl, this);
   pinos_log_debug ("main-loop %p: run", impl);
-  g_main_loop_run (impl->loop);
+  g_main_loop_run (impl->main_loop);
 }
 
 /**
@@ -396,33 +404,25 @@ pinos_main_loop_new (void)
   this->defer_complete = main_loop_defer_complete;
   this->sync = main_loop_sync;
 
-  impl->poll.size = sizeof (SpaPoll);
-  impl->poll.info = NULL;
-  impl->poll.add_item = do_add_item;
-  impl->poll.update_item = do_update_item;
-  impl->poll.remove_item = do_remove_item;
-  impl->poll.invoke = do_invoke;
-  this->poll = &impl->poll;
+  impl->loop.size = sizeof (SpaLoop);
+  impl->loop.add_source = do_add_source;
+  impl->loop.update_source = do_update_source;
+  impl->loop.remove_source = do_remove_source;
+  impl->loop.invoke = do_invoke;
+  this->loop = &impl->loop;
 
   spa_list_init (&impl->work_list);
   spa_list_init (&impl->free_list);
   spa_ringbuffer_init (&impl->buffer, DATAS_SIZE);
 
-  impl->loop = g_main_loop_new (impl->context, false);
+  impl->main_loop = g_main_loop_new (impl->context, false);
 
-  impl->fds[0].fd = eventfd (0, 0);
-  impl->fds[0].events = POLLIN | POLLPRI | POLLERR;
-  impl->fds[0].revents = 0;
-
-  impl->wakeup.id = SPA_ID_INVALID;
-  impl->wakeup.enabled = false;
-  impl->wakeup.fds = impl->fds;
-  impl->wakeup.n_fds = 1;
-  impl->wakeup.idle_cb = NULL;
-  impl->wakeup.before_cb = NULL;
-  impl->wakeup.after_cb = main_loop_dispatch;
-  impl->wakeup.user_data = impl;
-  do_add_item (&impl->poll, &impl->wakeup);
+  impl->wakeup.func = main_loop_dispatch;
+  impl->wakeup.data = impl;
+  impl->wakeup.fd = eventfd (0, 0);
+  impl->wakeup.mask = SPA_IO_IN | SPA_IO_ERR;
+  impl->wakeup.rmask = 0;
+  do_add_source (&impl->loop, &impl->wakeup);
 
   return this;
 }
@@ -435,9 +435,9 @@ pinos_main_loop_destroy (PinosMainLoop *loop)
 
   pinos_log_debug ("main-loop %p: destroy", impl);
 
-  g_main_loop_unref (impl->loop);
+  g_main_loop_unref (impl->main_loop);
 
-  close (impl->fds[0].fd);
+  close (impl->wakeup.fd);
 
   spa_list_for_each_safe (item, tmp, &impl->free_list, link)
     free (item);

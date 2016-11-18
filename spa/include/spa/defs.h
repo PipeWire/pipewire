@@ -27,6 +27,7 @@ extern "C" {
 #endif
 #include <inttypes.h>
 #include <stdlib.h>
+#include <string.h>
 #include <stddef.h>
 
 typedef enum {

@@ -22,13 +22,12 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <poll.h>
 
 #include <libudev.h>
 
 #include <spa/log.h>
 #include <spa/id-map.h>
-#include <spa/poll.h>
+#include <spa/loop.h>
 #include <spa/monitor.h>
 #include <lib/debug.h>
 
@@ -54,7 +53,7 @@ struct _SpaV4l2Monitor {
   URI uri;
   SpaIDMap *map;
   SpaLog *log;
-  SpaPoll *main_loop;
+  SpaLoop *main_loop;
 
   SpaMonitorEventCallback event_cb;
   void *user_data;
@@ -65,9 +64,7 @@ struct _SpaV4l2Monitor {
 
   V4l2Item uitem;
 
-  int fd;
-  SpaPollFd fds[1];
-  SpaPollItem poll;
+  SpaSource source;
 };
 
 static SpaResult
@@ -180,19 +177,18 @@ fill_item (V4l2Item *item, struct udev_device *udevice)
 }
 
 
-static int
-v4l2_on_fd_events (SpaPollNotifyData *data)
+static void
+v4l2_on_fd_events (SpaSource *source)
 {
-  SpaV4l2Monitor *this = data->user_data;
+  SpaV4l2Monitor *this = source->data;
   struct udev_device *dev;
   const char *action;
   SpaMonitorItem *item;
 
-
   dev = udev_monitor_receive_device (this->umonitor);
   fill_item (&this->uitem, dev);
   if (dev == NULL)
-    return 0;
+    return;
 
   if ((action = udev_device_get_action (dev)) == NULL)
     action = "change";
@@ -208,8 +204,6 @@ v4l2_on_fd_events (SpaPollNotifyData *data)
   }
   item->event.size = sizeof (this->uitem);
   this->event_cb (&this->monitor, &item->event, this->user_data);
-
-  return 0;
 }
 
 static SpaResult
@@ -241,23 +235,14 @@ spa_v4l2_monitor_set_event_callback (SpaMonitor              *monitor,
                                                      NULL);
 
     udev_monitor_enable_receiving (this->umonitor);
-    this->fd = udev_monitor_get_fd (this->umonitor);;
+    this->source.func = v4l2_on_fd_events;
+    this->source.data = this;
+    this->source.fd = udev_monitor_get_fd (this->umonitor);;
+    this->source.mask = SPA_IO_IN | SPA_IO_ERR;
 
-    this->fds[0].fd = this->fd;
-    this->fds[0].events = POLLIN | POLLPRI | POLLERR;
-    this->fds[0].revents = 0;
-
-    this->poll.id = 0;
-    this->poll.enabled = true;
-    this->poll.fds = this->fds;
-    this->poll.n_fds = 1;
-    this->poll.idle_cb = NULL;
-    this->poll.before_cb = NULL;
-    this->poll.after_cb = v4l2_on_fd_events;
-    this->poll.user_data = this;
-    spa_poll_add_item (this->main_loop, &this->poll);
+    spa_loop_add_source (this->main_loop, &this->source);
   } else {
-    spa_poll_remove_item (this->main_loop, &this->poll);
+    spa_loop_remove_source (this->main_loop, &this->source);
   }
 
   return SPA_RESULT_OK;
@@ -372,7 +357,7 @@ v4l2_monitor_init (const SpaHandleFactory  *factory,
       this->map = support[i].data;
     else if (strcmp (support[i].uri, SPA_LOG_URI) == 0)
       this->log = support[i].data;
-    else if (strcmp (support[i].uri, SPA_POLL__MainLoop) == 0)
+    else if (strcmp (support[i].uri, SPA_LOOP__MainLoop) == 0)
       this->main_loop = support[i].data;
   }
   if (this->map == NULL) {

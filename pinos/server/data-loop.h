@@ -24,7 +24,7 @@
 extern "C" {
 #endif
 
-#include <spa/include/spa/poll.h>
+#include <pinos/client/loop.h>
 
 typedef struct _PinosDataLoop PinosDataLoop;
 
@@ -34,11 +34,17 @@ typedef struct _PinosDataLoop PinosDataLoop;
  * Pinos rt-loop object.
  */
 struct _PinosDataLoop {
-  SpaPoll poll;
+  PinosLoop *loop;
+
+  PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
+                                 PinosDataLoop *loop));
 };
 
 PinosDataLoop *     pinos_data_loop_new              (void);
 void                pinos_data_loop_destroy          (PinosDataLoop *loop);
+
+SpaResult           pinos_data_loop_start            (PinosDataLoop *loop);
+SpaResult           pinos_data_loop_stop             (PinosDataLoop *loop);
 
 bool                pinos_data_loop_in_thread        (PinosDataLoop *loop);
 

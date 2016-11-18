@@ -24,7 +24,7 @@
 extern "C" {
 #endif
 
-#include <spa/include/spa/poll.h>
+#include <spa/include/spa/loop.h>
 
 typedef struct _PinosMainLoop PinosMainLoop;
 
@@ -39,7 +39,7 @@ typedef void (*PinosDeferFunc) (void      *obj,
  * Pinos main-loop interface.
  */
 struct _PinosMainLoop {
-  SpaPoll *poll;
+  SpaLoop *loop;
 
   void         (*run)             (PinosMainLoop  *loop);
   void         (*quit)            (PinosMainLoop  *loop);

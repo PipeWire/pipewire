@@ -73,7 +73,7 @@ pinos_port_destroy (PinosPort *port)
 }
 
 static SpaResult
-do_add_link (SpaPoll        *poll,
+do_add_link (SpaLoop        *loop,
              bool            async,
              uint32_t        seq,
              size_t          size,
@@ -169,13 +169,13 @@ pinos_port_link (PinosPort       *output_port,
     output_node->n_used_output_links++;
     input_node->n_used_input_links++;
 
-    spa_poll_invoke (&output_node->data_loop->poll,
+    spa_loop_invoke (output_node->data_loop->loop->loop,
                      do_add_link,
                      SPA_ID_INVALID,
                      sizeof (PinosLink *),
                      &link,
                      output_port);
-    spa_poll_invoke (&input_node->data_loop->poll,
+    spa_loop_invoke (input_node->data_loop->loop->loop,
                      do_add_link,
                      SPA_ID_INVALID,
                      sizeof (PinosLink *),
@@ -210,7 +210,7 @@ pinos_port_pause (PinosPort *port)
 }
 
 static SpaResult
-do_remove_link_done (SpaPoll        *poll,
+do_remove_link_done (SpaLoop        *loop,
                      bool            async,
                      uint32_t        seq,
                      size_t          size,
@@ -259,7 +259,7 @@ do_remove_link_done (SpaPoll        *poll,
 }
 
 static SpaResult
-do_remove_link (SpaPoll        *poll,
+do_remove_link (SpaLoop        *loop,
                 bool            async,
                 uint32_t        seq,
                 size_t          size,
@@ -284,7 +284,7 @@ do_remove_link (SpaPoll        *poll,
     pinos_port_pause (port);
 #endif
 
-  res = spa_poll_invoke (this->core->main_loop->poll,
+  res = spa_loop_invoke (this->core->main_loop->loop,
                          do_remove_link_done,
                          seq,
                          sizeof (PinosLink *),
@@ -301,7 +301,7 @@ pinos_port_unlink (PinosPort *port, PinosLink *link)
 
   pinos_log_debug ("port %p: start unlink %p", port, link);
 
-  res = spa_poll_invoke (&port->node->data_loop->poll,
+  res = spa_loop_invoke (port->node->data_loop->loop->loop,
                          do_remove_link,
                          impl->seq++,
                          sizeof (PinosLink *),
@@ -311,7 +311,7 @@ pinos_port_unlink (PinosPort *port, PinosLink *link)
 }
 
 static SpaResult
-do_clear_buffers_done (SpaPoll        *poll,
+do_clear_buffers_done (SpaLoop        *loop,
                        bool            async,
                        uint32_t        seq,
                        size_t          size,
@@ -339,7 +339,7 @@ do_clear_buffers_done (SpaPoll        *poll,
 }
 
 static SpaResult
-do_clear_buffers (SpaPoll        *poll,
+do_clear_buffers (SpaLoop        *loop,
                   bool            async,
                   uint32_t        seq,
                   size_t          size,
@@ -352,7 +352,7 @@ do_clear_buffers (SpaPoll        *poll,
 
   pinos_port_pause (port);
 
-  res = spa_poll_invoke (node->core->main_loop->poll,
+  res = spa_loop_invoke (node->core->main_loop->loop,
                          do_clear_buffers_done,
                          seq,
                          0, NULL,
@@ -367,7 +367,7 @@ pinos_port_clear_buffers (PinosPort *port)
   PinosPortImpl *impl = SPA_CONTAINER_OF (port, PinosPortImpl, this);
 
   pinos_log_debug ("port %p: clear buffers", port);
-  res = spa_poll_invoke (&port->node->data_loop->poll,
+  res = spa_loop_invoke (port->node->data_loop->loop->loop,
                          do_clear_buffers,
                          impl->seq++,
                          0, NULL,

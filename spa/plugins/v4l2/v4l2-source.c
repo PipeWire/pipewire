@@ -28,6 +28,7 @@
 #include <spa/video/format.h>
 #include <spa/list.h>
 #include <spa/log.h>
+#include <spa/loop.h>
 #include <spa/id-map.h>
 #include <lib/debug.h>
 #include <lib/props.h>
@@ -88,8 +89,8 @@ typedef struct {
 
 typedef struct {
   SpaLog *log;
-  SpaPoll *main_loop;
-  SpaPoll *data_loop;
+  SpaLoop *main_loop;
+  SpaLoop *data_loop;
 
   bool export_buf;
   bool started;
@@ -115,8 +116,8 @@ typedef struct {
   unsigned int n_buffers;
   SpaList     ready;
 
-  SpaPollFd fds[1];
-  SpaPollItem poll;
+  bool source_enabled;
+  SpaSource source;
 
   SpaPortInfo info;
   SpaAllocParam *params[2];
@@ -228,7 +229,7 @@ spa_v4l2_source_node_set_props (SpaNode         *node,
 }
 
 static SpaResult
-do_pause_done (SpaPoll        *poll,
+do_pause_done (SpaLoop        *loop,
                bool            async,
                uint32_t        seq,
                size_t          size,
@@ -253,7 +254,7 @@ do_pause_done (SpaPoll        *poll,
 }
 
 static SpaResult
-do_pause (SpaPoll        *poll,
+do_pause (SpaLoop        *loop,
           bool            async,
           uint32_t        seq,
           size_t          size,
@@ -275,7 +276,7 @@ do_pause (SpaPoll        *poll,
     ac.event.size = sizeof (SpaNodeEventAsyncComplete);
     ac.seq = seq;
     ac.res = res;
-    spa_poll_invoke (this->state[0].main_loop,
+    spa_loop_invoke (this->state[0].main_loop,
                      do_pause_done,
                      seq,
                      sizeof (ac),
@@ -286,7 +287,7 @@ do_pause (SpaPoll        *poll,
 }
 
 static SpaResult
-do_start_done (SpaPoll        *poll,
+do_start_done (SpaLoop        *loop,
                bool            async,
                uint32_t        seq,
                size_t          size,
@@ -307,7 +308,7 @@ do_start_done (SpaPoll        *poll,
 }
 
 static SpaResult
-do_start (SpaPoll        *poll,
+do_start (SpaLoop        *loop,
           bool            async,
           uint32_t        seq,
           size_t          size,
@@ -329,7 +330,7 @@ do_start (SpaPoll        *poll,
     ac.event.size = sizeof (SpaNodeEventAsyncComplete);
     ac.seq = seq;
     ac.res = res;
-    spa_poll_invoke (this->state[0].main_loop,
+    spa_loop_invoke (this->state[0].main_loop,
                      do_start_done,
                      seq,
                      sizeof (ac),
@@ -372,7 +373,7 @@ spa_v4l2_source_node_send_command (SpaNode        *node,
       if ((res = spa_v4l2_stream_on (this)) < 0)
         return res;
 
-      return spa_poll_invoke (this->state[0].data_loop,
+      return spa_loop_invoke (this->state[0].data_loop,
                               do_start,
                               ++this->seq,
                               command->size,
@@ -392,7 +393,7 @@ spa_v4l2_source_node_send_command (SpaNode        *node,
       if (!state->started)
         return SPA_RESULT_OK;
 
-      return spa_poll_invoke (this->state[0].data_loop,
+      return spa_loop_invoke (this->state[0].data_loop,
                               do_pause,
                               ++this->seq,
                               command->size,
@@ -1007,9 +1008,9 @@ v4l2_source_init (const SpaHandleFactory  *factory,
       this->map = support[i].data;
     else if (strcmp (support[i].uri, SPA_LOG_URI) == 0)
       this->log = support[i].data;
-    else if (strcmp (support[i].uri, SPA_POLL__MainLoop) == 0)
+    else if (strcmp (support[i].uri, SPA_LOOP__MainLoop) == 0)
       this->state[0].main_loop = support[i].data;
-    else if (strcmp (support[i].uri, SPA_POLL__DataLoop) == 0)
+    else if (strcmp (support[i].uri, SPA_LOOP__DataLoop) == 0)
       this->state[0].data_loop = support[i].data;
   }
   if (this->map == NULL) {

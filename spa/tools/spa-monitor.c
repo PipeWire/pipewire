@@ -28,7 +28,7 @@
 #include <spa/log.h>
 #include <spa/id-map.h>
 #include <spa/monitor.h>
-#include <spa/poll.h>
+#include <spa/loop.h>
 #include <lib/debug.h>
 #include <lib/mapper.h>
 
@@ -41,16 +41,16 @@ typedef struct {
 
   SpaIDMap *map;
   SpaLog *log;
-  SpaPoll main_loop;
+  SpaLoop main_loop;
 
   SpaSupport support[3];
   unsigned int n_support;
 
-  unsigned int n_poll;
-  SpaPollItem poll[16];
+  unsigned int n_sources;
+  SpaSource sources[16];
 
   bool rebuild_fds;
-  SpaPollFd fds[16];
+  struct pollfd fds[16];
   unsigned int n_fds;
 } AppData;
 
@@ -97,31 +97,28 @@ on_monitor_event  (SpaMonitor      *monitor,
 }
 
 static SpaResult
-do_add_item (SpaPoll     *poll,
-             SpaPollItem *item)
+do_add_source (SpaLoop   *loop,
+               SpaSource *source)
 {
-  AppData *data = SPA_CONTAINER_OF (poll, AppData, main_loop);
+  AppData *data = SPA_CONTAINER_OF (loop, AppData, main_loop);
 
-  data->poll[data->n_poll] = *item;
-  data->n_poll++;
-  if (item->n_fds)
-    data->rebuild_fds = true;
+  data->sources[data->n_sources] = *source;
+  data->n_sources++;
+  data->rebuild_fds = true;
 
   return SPA_RESULT_OK;
 }
 static SpaResult
-do_update_item (SpaPoll     *poll,
-                SpaPollItem *item)
+do_update_source (SpaSource  *source)
 {
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-do_remove_item (SpaPoll     *poll,
-                SpaPollItem *item)
+static void
+do_remove_source (SpaSource  *source)
 {
-  return SPA_RESULT_OK;
 }
+
 static void
 handle_monitor (AppData *data, SpaMonitor *monitor)
 {
@@ -145,23 +142,16 @@ handle_monitor (AppData *data, SpaMonitor *monitor)
   spa_monitor_set_event_callback (monitor, on_monitor_event, &data);
 
   while (true) {
-    SpaPollNotifyData ndata;
-    int i, j, r;
+    int i, r;
 
     /* rebuild */
     if (data->rebuild_fds) {
-      data->n_fds = 0;
-      for (i = 0; i < data->n_poll; i++) {
-        SpaPollItem *p = &data->poll[i];
-
-        if (!p->enabled)
-          continue;
-
-        for (j = 0; j < p->n_fds; j++)
-          data->fds[data->n_fds + j] = p->fds[j];
-        p->fds = &data->fds[data->n_fds];
-        data->n_fds += p->n_fds;
+      for (i = 0; i < data->n_sources; i++) {
+        SpaSource *p = &data->sources[i];
+        data->fds[i].fd = p->fd;
+        data->fds[i].events = p->mask;
       }
+      data->n_fds = data->n_sources;
       data->rebuild_fds = false;
     }
 
@@ -177,15 +167,9 @@ handle_monitor (AppData *data, SpaMonitor *monitor)
     }
 
     /* after */
-    for (i = 0; i < data->n_poll; i++) {
-      SpaPollItem *p = &data->poll[i];
-
-      if (p->enabled && p->after_cb) {
-        ndata.fds = p->fds;
-        ndata.n_fds = p->n_fds;
-        ndata.user_data = p->user_data;
-        p->after_cb (&ndata);
-      }
+    for (i = 0; i < data->n_sources; i++) {
+      SpaSource *p = &data->sources[i];
+      p->func (p);
     }
   }
 }
@@ -201,17 +185,16 @@ main (int argc, char *argv[])
 
   data.map = spa_id_map_get_default ();
   data.log = NULL;
-  data.main_loop.size = sizeof (SpaPoll);
-  data.main_loop.info = NULL;
-  data.main_loop.add_item = do_add_item;
-  data.main_loop.update_item = do_update_item;
-  data.main_loop.remove_item = do_remove_item;
+  data.main_loop.size = sizeof (SpaLoop);
+  data.main_loop.add_source = do_add_source;
+  data.main_loop.update_source = do_update_source;
+  data.main_loop.remove_source = do_remove_source;
 
   data.support[0].uri = SPA_ID_MAP_URI;
   data.support[0].data = data.map;
   data.support[1].uri = SPA_LOG_URI;
   data.support[1].data = data.log;
-  data.support[2].uri = SPA_POLL__MainLoop;
+  data.support[2].uri = SPA_LOOP__MainLoop;
   data.support[2].data = &data.main_loop;
   data.n_support = 3;
 

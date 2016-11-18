@@ -47,12 +47,14 @@ pinos_core_new (PinosMainLoop *main_loop)
   impl->support[0].data = this->registry.map;
   impl->support[1].uri = SPA_LOG_URI;
   impl->support[1].data = pinos_log_get ();
-  impl->support[2].uri = SPA_POLL__DataLoop;
-  impl->support[2].data = &this->data_loop->poll;
-  impl->support[3].uri = SPA_POLL__MainLoop;
-  impl->support[3].data = this->main_loop->poll;
+  impl->support[2].uri = SPA_LOOP__DataLoop;
+  impl->support[2].data = this->data_loop->loop->loop;
+  impl->support[3].uri = SPA_LOOP__MainLoop;
+  impl->support[3].data = this->main_loop->loop;
   this->support = impl->support;
   this->n_support = 4;
+
+  pinos_data_loop_start (this->data_loop);
 
   spa_list_init (&this->global_list);
   spa_list_init (&this->client_list);

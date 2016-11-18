@@ -4,6 +4,7 @@ pinos_headers = [
   'format.h',
   'introspect.h',
   'log.h',
+  'loop.h',
   'map.h',
   'mem.h',
   'pinos.h',
@@ -22,6 +23,7 @@ pinos_sources = [
   'format.c',
   'introspect.c',
   'log.c',
+  'loop.c',
   'mapper.c',
   'mem.c',
   'properties.c',
@@ -58,6 +60,7 @@ enumtypes_c = custom_target('enumtypes_c',
 libpinos_c_args = [
   '-DHAVE_CONFIG_H',
   '-D_GNU_SOURCE',
+  '-D_POSIX_C_SOURCE',
 ]
 
 

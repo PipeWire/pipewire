@@ -26,6 +26,7 @@ extern const char             g_log_domain_pinos[];
 #include <pinos/client/enumtypes.h>
 #include <pinos/client/introspect.h>
 #include <pinos/client/log.h>
+#include <pinos/client/loop.h>
 #include <pinos/client/mem.h>
 #include <pinos/client/thread-mainloop.h>
 #include <pinos/client/properties.h>

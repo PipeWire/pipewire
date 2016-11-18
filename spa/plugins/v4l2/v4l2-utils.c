@@ -9,7 +9,7 @@
 
 #define CLEAR(x) memset(&(x), 0, sizeof(x))
 
-static int v4l2_on_fd_events (SpaPollNotifyData *data);
+static void v4l2_on_fd_events (SpaSource *source);
 
 static int
 xioctl (int fd, int request, void *arg)
@@ -69,19 +69,11 @@ spa_v4l2_open (SpaV4l2Source *this)
     return -1;
   }
 
-  state->fds[0].fd = state->fd;
-  state->fds[0].events = POLLIN | POLLPRI | POLLERR;
-  state->fds[0].revents = 0;
-
-  state->poll.id = 0;
-  state->poll.enabled = false;
-  state->poll.fds = state->fds;
-  state->poll.n_fds = 1;
-  state->poll.idle_cb = NULL;
-  state->poll.before_cb = NULL;
-  state->poll.after_cb = v4l2_on_fd_events;
-  state->poll.user_data = this;
-  spa_poll_add_item (state->data_loop, &state->poll);
+  state->source.func = v4l2_on_fd_events;
+  state->source.data = this;
+  state->source.fd = state->fd;
+  state->source.mask = SPA_IO_IN | SPA_IO_ERR;
+  state->source.rmask = 0;
 
   state->opened = true;
 
@@ -158,7 +150,8 @@ spa_v4l2_close (SpaV4l2Source *this)
 
   spa_log_info (state->log, "v4l2: close");
 
-  spa_poll_remove_item (state->data_loop, &state->poll);
+  if (state->source_enabled)
+    spa_loop_remove_source (state->data_loop, &state->source);
 
   if (close(state->fd))
     perror ("close");
@@ -890,27 +883,25 @@ mmap_read (SpaV4l2Source *this)
   return SPA_RESULT_OK;
 }
 
-static int
-v4l2_on_fd_events (SpaPollNotifyData *data)
+static void
+v4l2_on_fd_events (SpaSource *source)
 {
-  SpaV4l2Source *this = data->user_data;
+  SpaV4l2Source *this = source->data;
   SpaNodeEventHaveOutput ho;
 
-  if (data->fds[0].revents & POLLERR)
-    return -1;
+  if (source->rmask & SPA_IO_ERR)
+    return;
 
-  if (!(data->fds[0].revents & POLLIN))
-    return 0;
+  if (!(source->rmask & SPA_IO_IN))
+    return;
 
   if (mmap_read (this) < 0)
-    return 0;
+    return;
 
   ho.event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
   ho.event.size = sizeof (ho);
   ho.port_id = 0;
   this->event_cb (&this->node, &ho.event, this->user_data);
-
-  return 0;
 }
 
 static SpaResult
@@ -1150,8 +1141,13 @@ static SpaResult
 spa_v4l2_port_set_enabled (SpaV4l2Source *this, bool enabled)
 {
   SpaV4l2State *state = &this->state[0];
-  state->poll.enabled = enabled;
-  spa_poll_update_item (state->data_loop, &state->poll);
+  if (state->source_enabled != enabled) {
+    state->source_enabled = enabled;
+    if (enabled)
+      spa_loop_add_source (state->data_loop, &state->source);
+    else
+      spa_loop_remove_source (state->data_loop, &state->source);
+  }
   return SPA_RESULT_OK;
 }
 

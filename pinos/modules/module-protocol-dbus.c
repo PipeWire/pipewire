@@ -302,7 +302,7 @@ handle_create_node (PinosDaemon1           *interface,
     goto object_failed;
 
   pinos_client_add_resource (client,
-                             this->core->registry.uri.node,
+                             this->core->uri.node,
                              node,
                              (PinosDestroy) pinos_node_destroy);
 
@@ -403,7 +403,7 @@ handle_create_client_node (PinosDaemon1           *interface,
     goto no_socket;
 
   pinos_client_add_resource (client,
-                             this->core->registry.uri.client_node,
+                             this->core->uri.client_node,
                              node,
                              (PinosDestroy) pinos_client_node_destroy);
 
@@ -493,7 +493,7 @@ on_global_added (PinosListener *listener,
   PinosProtocolDBus *this = &impl->this;
   PinosObjectSkeleton *skel;
 
-  if (global->type == this->core->registry.uri.client) {
+  if (global->type == this->core->uri.client) {
     PinosClient1 *iface;
     PinosClient *client = global->object;
     PinosProperties *props = client->properties;
@@ -515,7 +515,7 @@ on_global_added (PinosListener *listener,
                        false,
                        (PinosDestroy) client_destroy);
 
-  } else if (global->type == this->core->registry.uri.node) {
+  } else if (global->type == this->core->uri.node) {
     PinosNode1 *iface;
     PinosNode *node = global->object;
     PinosProperties *props = node->properties;
@@ -582,7 +582,7 @@ on_global_added (PinosListener *listener,
                                  name_lost_handler,
                                  proto,
                                  NULL);
-  } else if (global->type == this->core->registry.uri.link) {
+  } else if (global->type == this->core->uri.link) {
     PinosLink1 *iface;
     PinosLink *link = global->object;
     PinosProtocolDBusObject *obj;
@@ -657,7 +657,7 @@ pinos_protocol_dbus_new (PinosCore       *core,
 
   impl->server_manager = g_dbus_object_manager_server_new (PINOS_DBUS_OBJECT_PREFIX);
 
-  impl->uri.protocol_dbus = spa_id_map_get_id (core->registry.map, PINOS_PROTOCOL_DBUS_URI);
+  impl->uri.protocol_dbus = spa_id_map_get_id (core->uri.map, PINOS_PROTOCOL_DBUS_URI);
 
   this->global = pinos_core_add_global (core,
                                         impl->uri.protocol_dbus,

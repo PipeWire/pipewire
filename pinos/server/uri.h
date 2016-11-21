@@ -17,24 +17,29 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __PINOS_REGISTRY_H__
-#define __PINOS_REGISTRY_H__
+#ifndef __PINOS_URI_H__
+#define __PINOS_URI_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define PINOS_REGISTRY_URI                            "http://pinos.org/ns/registry"
-#define PINOS_REGISTRY_PREFIX                         PINOS_REGISTRY_URI "#"
+#define PINOS_URI_URI                            "http://pinos.org/ns/uri"
+#define PINOS_URI_PREFIX                         PINOS_URI_URI "#"
 
 #include <pinos/client/map.h>
-#include <pinos/client/signal.h>
 #include <spa/include/spa/id-map.h>
 
-typedef struct _PinosRegistry PinosRegistry;
+typedef struct _PinosURI PinosURI;
 
-typedef struct {
-  uint32_t registry;
+/**
+ * PinosURI:
+ *
+ * Pinos URI support struct.
+ */
+struct _PinosURI {
+  SpaIDMap *map;
+
   uint32_t node;
   uint32_t node_factory;
   uint32_t link;
@@ -44,23 +49,12 @@ typedef struct {
   uint32_t spa_node;
   uint32_t spa_clock;
   uint32_t spa_monitor;
-} PinosURI;
-
-/**
- * PinosRegistry:
- *
- * Pinos registry struct.
- */
-struct _PinosRegistry {
-  SpaIDMap *map;
-  PinosURI uri;
-  PinosMap objects;
 };
 
-void pinos_registry_init (PinosRegistry *reg);
+void pinos_uri_init (PinosURI *uri);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __PINOS_REGISTRY_H__ */
+#endif /* __PINOS_URI_H__ */

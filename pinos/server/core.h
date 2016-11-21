@@ -31,7 +31,7 @@ typedef struct _PinosGlobal PinosGlobal;
 
 #include <pinos/server/main-loop.h>
 #include <pinos/server/data-loop.h>
-#include <pinos/server/registry.h>
+#include <pinos/server/uri.h>
 #include <pinos/server/node.h>
 #include <pinos/server/link.h>
 
@@ -52,7 +52,9 @@ struct _PinosGlobal {
  * Pinos core object class.
  */
 struct _PinosCore {
-  PinosRegistry registry;
+  PinosURI uri;
+
+  PinosMap objects;
 
   SpaList global_list;
   SpaList client_list;

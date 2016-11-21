@@ -1,3 +1,4 @@
 load-module libpinos-module-protocol-dbus
+load-module libpinos-module-suspend-on-idle
 load-module libpinos-module-spa
 load-module libpinos-module-autolink

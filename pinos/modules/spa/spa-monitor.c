@@ -73,11 +73,11 @@ add_item (PinosSpaMonitor *this, SpaMonitorItem *item)
     pinos_log_error ("can't make factory instance: %d", res);
     return;
   }
-  if ((res = spa_handle_get_interface (handle, impl->core->registry.uri.spa_node, &node_iface)) < 0) {
+  if ((res = spa_handle_get_interface (handle, impl->core->uri.spa_node, &node_iface)) < 0) {
     pinos_log_error ("can't get NODE interface: %d", res);
     return;
   }
-  if ((res = spa_handle_get_interface (handle, impl->core->registry.uri.spa_clock, &clock_iface)) < 0) {
+  if ((res = spa_handle_get_interface (handle, impl->core->uri.spa_clock, &clock_iface)) < 0) {
     pinos_log_info ("no CLOCK interface: %d", res);
   }
 
@@ -210,7 +210,7 @@ pinos_spa_monitor_load (PinosCore  *core,
     goto init_failed;
   }
   if ((res = spa_handle_get_interface (handle,
-                                       core->registry.uri.spa_monitor,
+                                       core->uri.spa_monitor,
                                        &iface)) < 0) {
     free (handle);
     pinos_log_error ("can't get MONITOR interface: %d", res);

@@ -99,7 +99,7 @@ pinos_client_new (PinosCore       *core,
   spa_list_insert (core->client_list.prev, &this->link);
 
   this->global = pinos_core_add_global (core,
-                                        core->registry.uri.client,
+                                        core->uri.client,
                                         this);
 
   return this;

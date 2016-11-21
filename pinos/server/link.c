@@ -712,7 +712,7 @@ pinos_link_new (PinosCore       *core,
   spa_list_insert (core->link_list.prev, &this->link);
 
   this->global = pinos_core_add_global (core,
-                                        core->registry.uri.link,
+                                        core->uri.link,
                                         this);
   return this;
 }

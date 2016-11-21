@@ -463,7 +463,7 @@ pinos_node_new (PinosCore       *core,
   spa_list_insert (core->node_list.prev, &this->link);
 
   this->global = pinos_core_add_global (core,
-                                        core->registry.uri.node,
+                                        core->uri.node,
                                         this);
   return this;
 }

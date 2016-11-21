@@ -24,8 +24,6 @@
 typedef struct {
   PinosCore  this;
 
-  uint32_t counter;
-
   SpaSupport support[4];
 
 } PinosCoreImpl;
@@ -38,13 +36,15 @@ pinos_core_new (PinosMainLoop *main_loop)
 
   impl = calloc (1, sizeof (PinosCoreImpl));
   this = &impl->this;
-  pinos_registry_init (&this->registry);
+  pinos_uri_init (&this->uri);
+
+  pinos_map_init (&this->objects, 512);
 
   this->data_loop = pinos_data_loop_new ();
   this->main_loop = main_loop;
 
   impl->support[0].uri = SPA_ID_MAP_URI;
-  impl->support[0].data = this->registry.map;
+  impl->support[0].data = this->uri.map;
   impl->support[1].uri = SPA_LOG_URI;
   impl->support[1].data = pinos_log_get ();
   impl->support[2].uri = SPA_LOOP__DataLoop;
@@ -93,16 +93,16 @@ pinos_core_add_global (PinosCore           *core,
                        uint32_t             type,
                        void                *object)
 {
-  PinosCoreImpl *impl = SPA_CONTAINER_OF (core, PinosCoreImpl, this);
   PinosGlobal *global;
 
   global = calloc (1, sizeof (PinosGlobal));
   global->core = core;
-  global->id = ++impl->counter;
   global->type = type;
   global->object = object;
 
   pinos_signal_init (&global->destroy_signal);
+
+  global->id = pinos_map_insert_new (&core->objects, global);
 
   spa_list_insert (core->global_list.prev, &global->link);
   pinos_signal_emit (&core->global_added, core, global);
@@ -116,6 +116,8 @@ pinos_global_destroy (PinosGlobal *global)
   PinosCore *core = global->core;
 
   pinos_signal_emit (&global->destroy_signal, global);
+
+  pinos_map_remove (&core->objects, global->id);
 
   spa_list_remove (&global->link);
   pinos_signal_emit (&core->global_removed, core, global);

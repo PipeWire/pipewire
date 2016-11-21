@@ -50,7 +50,7 @@ typedef struct {
   ModuleImpl  *impl;
   PinosNode   *node;
   SpaList      link;
-  PinosSource *timeout;
+  SpaSource   *timeout;
   guint        idle_timeout;
 } NodeInfo;
 

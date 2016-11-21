@@ -52,9 +52,6 @@ struct _PinosProtocolDBus {
   PinosGlobal *global;
 
   PinosProperties *properties;
-
-  PINOS_SIGNAL (destroy_signal, (PinosListener      *listener,
-                                 PinosProtocolDBus  *proto));
 };
 
 typedef struct {
@@ -654,8 +651,6 @@ pinos_protocol_dbus_new (PinosCore       *core,
   spa_list_init (&impl->client_list);
   spa_list_init (&impl->object_list);
 
-  pinos_signal_init (&this->destroy_signal);
-
   pinos_signal_add (&core->global_added, &impl->global_added, on_global_added);
   pinos_signal_add (&core->global_removed, &impl->global_removed, on_global_removed);
   pinos_signal_add (&core->node_state_changed, &impl->node_state_changed, on_node_state_changed);
@@ -678,8 +673,6 @@ pinos_protocol_dbus_destroy (PinosProtocolDBus *proto)
   PinosProtocolDBusObject *object, *tmp;
 
   pinos_log_debug ("protocol-dbus %p: destroy", impl);
-
-  pinos_signal_emit (&proto->destroy_signal, proto);
 
   pinos_global_destroy (proto->global);
 

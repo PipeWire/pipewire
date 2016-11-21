@@ -36,7 +36,7 @@ typedef struct
 {
   PinosDataLoop this;
 
-  PinosSource *event;
+  SpaSource *event;
 
   bool running;
   pthread_t thread;
@@ -96,22 +96,22 @@ do_loop (void *user_data)
   make_realtime (this);
 
   pinos_log_debug ("data-loop %p: enter thread", this);
-  pinos_loop_enter_thread (impl->this.loop);
+  pinos_loop_enter (impl->this.loop);
 
   while (impl->running) {
     if ((res = pinos_loop_iterate (this->loop, -1)) < 0)
       pinos_log_warn ("data-loop %p: iterate error %d", this, res);
   }
   pinos_log_debug ("data-loop %p: leave thread", this);
-  pinos_loop_leave_thread (impl->this.loop);
+  pinos_loop_leave (impl->this.loop);
 
   return NULL;
 }
 
 
 static void
-do_stop (PinosSource *source,
-         void        *data)
+do_stop (SpaSource *source,
+         void      *data)
 {
   PinosDataLoopImpl *impl = data;
   impl->running = false;
@@ -153,7 +153,7 @@ pinos_data_loop_destroy (PinosDataLoop *loop)
 
   pinos_data_loop_stop (loop);
 
-  pinos_source_destroy (impl->event);
+  pinos_loop_destroy_source (loop->loop, impl->event);
   pinos_loop_destroy (loop->loop);
   free (impl);
 }
@@ -181,7 +181,7 @@ pinos_data_loop_stop (PinosDataLoop *loop)
 {
   PinosDataLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosDataLoopImpl, this);
 
-  pinos_source_event_signal (impl->event);
+  pinos_loop_signal_event (impl->this.loop, impl->event);
 
   pthread_join (impl->thread, NULL);
 

@@ -30,31 +30,15 @@ extern "C" {
 
 typedef struct _PinosLoop PinosLoop;
 
-typedef void (*PinosLoopHook)    (PinosLoop *loop,
-                                  void      *data);
-
-typedef struct _PinosSource PinosSource;
-
-typedef void (*PinosSourceIOFunc)     (PinosSource *source,
-                                       int          fd,
-                                       SpaIO        mask,
-                                       void        *data);
-typedef void (*PinosSourceIdleFunc)   (PinosSource *source,
-                                       void        *data);
-typedef void (*PinosSourceEventFunc)  (PinosSource *source,
-                                       void        *data);
-typedef void (*PinosSourceTimerFunc)  (PinosSource *source,
-                                       void        *data);
-typedef void (*PinosSourceSignalFunc) (PinosSource *source,
-                                       int          signal_number,
-                                       void        *data);
 /**
  * PinosLoop:
  *
  * Pinos loop interface.
  */
 struct _PinosLoop {
-  SpaLoop *loop;
+  SpaLoop        *loop;
+  SpaLoopControl *control;
+  SpaLoopUtils   *utils;
 
   PINOS_SIGNAL  (destroy_signal,   (PinosListener *listener,
                                     PinosLoop     *loop));
@@ -63,56 +47,27 @@ struct _PinosLoop {
 PinosLoop *    pinos_loop_new             (void);
 void           pinos_loop_destroy         (PinosLoop *loop);
 
-int            pinos_loop_get_fd          (PinosLoop *loop);
+#define pinos_loop_add_source(l,...)      spa_loop_add_source((l)->loop,__VA_ARGS__)
+#define pinos_loop_update_source(l,...)   spa_loop_update_source(__VA_ARGS__)
+#define pinos_loop_remove_source(l,...)   spa_loop_remove_source(__VA_ARGS__)
+#define pinos_loop_invoke(l,...)          spa_loop_invoke((l)->loop,__VA_ARGS__)
 
-void           pinos_loop_set_hooks       (PinosLoop     *loop,
-                                           PinosLoopHook  pre_func,
-                                           PinosLoopHook  post_func,
-                                           void          *data);
-void           pinos_loop_enter_thread    (PinosLoop     *loop);
-void           pinos_loop_leave_thread    (PinosLoop     *loop);
+#define pinos_loop_get_fd(l)              spa_loop_control_get_fd((l)->control)
+#define pinos_loop_set_hooks(l,...)       spa_loop_control_set_hooks((l)->control,__VA_ARGS__)
+#define pinos_loop_enter(l)               spa_loop_control_enter((l)->control)
+#define pinos_loop_iterate(l,...)         spa_loop_control_iterate((l)->control,__VA_ARGS__)
+#define pinos_loop_leave(l)               spa_loop_control_leave((l)->control)
 
-SpaResult      pinos_loop_iterate         (PinosLoop     *loop,
-                                           int            timeout);
-
-#define pinos_loop_add_source(l,s)        ((l)->loop->add_source((l)->loop,s);
-#define pinos_loop_update_source(l,s)     ((l)->loop->update_source(s);
-#define pinos_loop_remove_source(l,s)     ((l)->loop->remove_source(s);
-
-PinosSource *  pinos_loop_add_io          (PinosLoop            *loop,
-                                           int                   fd,
-                                           SpaIO                 mask,
-                                           bool                  close,
-                                           PinosSourceIOFunc     func,
-                                           void                 *data);
-SpaResult      pinos_source_io_update     (PinosSource          *source,
-                                           SpaIO                 mask);
-
-PinosSource *  pinos_loop_add_idle        (PinosLoop            *loop,
-                                           PinosSourceIdleFunc   func,
-                                           void                 *data);
-void           pinos_source_idle_enable   (PinosSource          *source,
-                                           bool                  enabled);
-
-PinosSource *  pinos_loop_add_event       (PinosLoop            *loop,
-                                           PinosSourceEventFunc  func,
-                                           void                 *data);
-void           pinos_source_event_signal  (PinosSource          *source);
-
-PinosSource *  pinos_loop_add_timer       (PinosLoop            *loop,
-                                           PinosSourceTimerFunc  func,
-                                           void                 *data);
-SpaResult      pinos_source_timer_update  (PinosSource          *source,
-                                           struct timespec      *value,
-                                           struct timespec      *interval,
-                                           bool                  absolute);
-
-PinosSource *  pinos_loop_add_signal      (PinosLoop            *loop,
-                                           int                   signal_number,
-                                           PinosSourceSignalFunc func,
-                                           void                 *data);
-
-void           pinos_source_destroy       (PinosSource          *source);
+#define pinos_loop_add_io(l,...)          spa_loop_utils_add_io((l)->utils,__VA_ARGS__)
+#define pinos_loop_update_io(l,...)       spa_loop_utils_update_io((l)->utils,__VA_ARGS__)
+#define pinos_loop_add_idle(l,...)        spa_loop_utils_add_idle((l)->utils,__VA_ARGS__)
+#define pinos_loop_enable_idle(l,...)     spa_loop_utils_enable_idle((l)->utils,__VA_ARGS__)
+#define pinos_loop_add_event(l,...)       spa_loop_utils_add_event((l)->utils,__VA_ARGS__)
+#define pinos_loop_signal_event(l,...)    spa_loop_utils_signal_event((l)->utils,__VA_ARGS__)
+#define pinos_loop_add_timer(l,...)       spa_loop_utils_add_timer((l)->utils,__VA_ARGS__)
+#define pinos_loop_update_timer(l,...)    spa_loop_utils_update_timer((l)->utils,__VA_ARGS__)
+#define pinos_loop_add_signal(l,...)      spa_loop_utils_add_signal((l)->utils,__VA_ARGS__)
+#define pinos_loop_destroy_source(l,...)  spa_loop_utils_destroy_source((l)->utils,__VA_ARGS__)
 
 #ifdef __cplusplus
 }

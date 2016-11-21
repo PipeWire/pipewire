@@ -106,13 +106,13 @@ struct _SpaLoopControl {
 
   int          (*get_fd)            (SpaLoopControl *ctrl);
 
-  SpaResult    (*set_hooks)         (SpaLoopControl *ctrl,
+  void         (*set_hooks)         (SpaLoopControl *ctrl,
                                      SpaLoopHook     pre_hook,
                                      SpaLoopHook     post_hook,
                                      void           *data);
 
-  SpaResult    (*enter)             (SpaLoopControl *ctrl);
-  SpaResult    (*leave)             (SpaLoopControl *ctrl);
+  void         (*enter)             (SpaLoopControl *ctrl);
+  void         (*leave)             (SpaLoopControl *ctrl);
 
   SpaResult    (*iterate)           (SpaLoopControl *ctrl,
                                      int             timeout);
@@ -121,8 +121,8 @@ struct _SpaLoopControl {
 #define spa_loop_control_get_fd(l)             (l)->get_fd(l)
 #define spa_loop_control_set_hooks(l,...)      (l)->set_hook((l),__VA_ARGS__)
 #define spa_loop_control_enter(l)              (l)->enter(l)
-#define spa_loop_control_leave(l)              (l)->leave(l)
 #define spa_loop_control_iterate(l,...)        (l)->iterate((l),__VA_ARGS__)
+#define spa_loop_control_leave(l)              (l)->leave(l)
 
 
 typedef void (*SpaSourceIOFunc)     (SpaSource *source,
@@ -152,6 +152,7 @@ struct _SpaLoopUtils {
   SpaSource *  (*add_io)            (SpaLoopUtils       *utils,
                                      int                 fd,
                                      SpaIO               mask,
+                                     bool                close,
                                      SpaSourceIOFunc     func,
                                      void               *data);
   SpaResult    (*update_io)         (SpaSource          *source,
@@ -160,13 +161,13 @@ struct _SpaLoopUtils {
   SpaSource *  (*add_idle)          (SpaLoopUtils       *utils,
                                      SpaSourceIdleFunc   func,
                                      void               *data);
-  SpaResult    (*enable_idle)       (SpaSource          *source,
+  void         (*enable_idle)       (SpaSource          *source,
                                      bool                enabled);
 
   SpaSource *  (*add_event)         (SpaLoopUtils       *utils,
                                      SpaSourceEventFunc  func,
                                      void               *data);
-  SpaResult    (*signal_event)      (SpaSource          *source);
+  void         (*signal_event)      (SpaSource          *source);
 
   SpaSource *  (*add_timer)         (SpaLoopUtils       *utils,
                                      SpaSourceTimerFunc  func,
@@ -180,9 +181,19 @@ struct _SpaLoopUtils {
                                      SpaSourceSignalFunc func,
                                      void               *data);
 
-  SpaSource *  (*destroy_source)    (SpaSource          *source);
+  void         (*destroy_source)    (SpaSource          *source);
 };
 
+#define spa_loop_utils_add_io(l,...)             (l)->add_io(l,__VA_ARGS__)
+#define spa_loop_utils_update_io(l,...)          (l)->update_io(__VA_ARGS__)
+#define spa_loop_utils_add_idle(l,...)           (l)->add_idle(l,__VA_ARGS__)
+#define spa_loop_utils_enable_idle(l,...)        (l)->enable_idle(__VA_ARGS__)
+#define spa_loop_utils_add_event(l,...)          (l)->add_event(l,__VA_ARGS__)
+#define spa_loop_utils_signal_event(l,...)       (l)->signal_event(__VA_ARGS__)
+#define spa_loop_utils_add_timer(l,...)          (l)->add_timer(l,__VA_ARGS__)
+#define spa_loop_utils_update_timer(l,...)       (l)->update_timer(__VA_ARGS__)
+#define spa_loop_utils_add_signal(l,...)         (l)->add_signal(l,__VA_ARGS__)
+#define spa_loop_utils_destroy_source(l,...)     (l)->destroy_source(__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

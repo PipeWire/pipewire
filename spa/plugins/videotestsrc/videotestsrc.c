@@ -35,12 +35,6 @@
 #define FRAMES_TO_TIME(this,f)    ((this->current_format.info.raw.framerate.denom * (f) * SPA_NSEC_PER_SEC) / \
                                    (this->current_format.info.raw.framerate.num))
 
-#define STATE_GET_IMAGE_WIDTH(this)   this->current_format.info.raw.size.width
-#define STATE_GET_IMAGE_HEIGHT(this)  this->current_format.info.raw.size.height
-
-#define STATE_GET_IMAGE_SIZE(this)  \
-    (this->bpp * STATE_GET_IMAGE_WIDTH(this) * STATE_GET_IMAGE_HEIGHT(this))
-
 typedef struct {
   uint32_t node;
   uint32_t clock;
@@ -200,9 +194,7 @@ send_have_output (SpaVideoTestSrc *this)
 static SpaResult
 fill_buffer (SpaVideoTestSrc *this, VTSBuffer *b)
 {
-  draw_smpte_snow (this, b->ptr);
-
-  return SPA_RESULT_OK;
+  return draw (this, b->ptr);
 }
 
 static SpaResult update_loop_enabled (SpaVideoTestSrc *this, bool enabled);
@@ -505,18 +497,29 @@ spa_videotestsrc_node_port_set_format (SpaNode            *node,
   }
 
   if (this->have_format) {
+    SpaVideoInfoRaw *raw_info = &this->current_format.info.raw;
+
+    switch (raw_info->format) {
+      case SPA_VIDEO_FORMAT_RGB:
+        this->bpp = 3;
+        break;
+      case SPA_VIDEO_FORMAT_UYVY:
+        this->bpp = 2;
+        break;
+      default:
+        return SPA_RESULT_NOT_IMPLEMENTED;
+    }
+
     this->info.maxbuffering = -1;
     this->info.latency = 0;
-
-    this->bpp = 3;
 
     this->info.n_params = 2;
     this->info.params = this->params;
     this->params[0] = &this->param_buffers.param;
     this->param_buffers.param.type = SPA_ALLOC_PARAM_TYPE_BUFFERS;
     this->param_buffers.param.size = sizeof (this->param_buffers);
-    this->param_buffers.minsize = STATE_GET_IMAGE_SIZE (this);
-    this->param_buffers.stride = this->bpp * STATE_GET_IMAGE_WIDTH (this);
+    this->param_buffers.stride = this->bpp * raw_info->size.width;
+    this->param_buffers.minsize = this->param_buffers.stride * raw_info->size.height;
     this->param_buffers.min_buffers = 2;
     this->param_buffers.max_buffers = 32;
     this->param_buffers.align = 16;

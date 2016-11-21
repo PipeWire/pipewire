@@ -32,8 +32,6 @@ typedef struct
 {
   PinosNode this;
 
-  PinosClient *client;
-
   uint32_t seq;
 
   bool async_init;
@@ -564,21 +562,6 @@ pinos_node_destroy (PinosNode * this)
                          NULL,
                          this);
   return res;
-}
-
-/**
- * pinos_node_get_client:
- * @node: a #PinosNode
- *
- * Get the owner client of @node.
- *
- * Returns: the owner client of @node.
- */
-PinosClient *
-pinos_node_get_client (PinosNode *node)
-{
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, this);
-  return impl->client;
 }
 
 /**

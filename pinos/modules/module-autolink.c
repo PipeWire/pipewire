@@ -62,7 +62,7 @@ try_link_port (PinosNode *node, PinosPort *port, ModuleImpl *impl)
 
   path = pinos_properties_get (props, "pinos.target.node");
 
-  pinos_log_debug ("module %p: try to find and link to node %s", impl, path);
+  pinos_log_debug ("module %p: try to find and link to node '%s'", impl, path);
 
   if (path) {
     PinosPort *target;

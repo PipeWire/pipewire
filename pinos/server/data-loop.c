@@ -96,11 +96,14 @@ do_loop (void *user_data)
   make_realtime (this);
 
   pinos_log_debug ("data-loop %p: enter thread", this);
+  pinos_loop_enter_thread (impl->this.loop);
+
   while (impl->running) {
     if ((res = pinos_loop_iterate (this->loop, -1)) < 0)
       pinos_log_warn ("data-loop %p: iterate error %d", this, res);
   }
   pinos_log_debug ("data-loop %p: leave thread", this);
+  pinos_loop_leave_thread (impl->this.loop);
 
   return NULL;
 }
@@ -169,7 +172,6 @@ pinos_data_loop_start (PinosDataLoop *loop)
       impl->running = false;
       return SPA_RESULT_ERROR;
     }
-    pinos_loop_set_thread (impl->this.loop, &impl->thread);
   }
   return SPA_RESULT_OK;
 }

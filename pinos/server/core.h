@@ -76,6 +76,9 @@ struct _PinosCore {
                                  PinosCore     *core,
                                  PinosGlobal   *global));
 
+  PINOS_SIGNAL (node_state_request, (PinosListener  *listener,
+                                     PinosNode      *object,
+                                     PinosNodeState  state));
   PINOS_SIGNAL (node_state_changed, (PinosListener  *listener,
                                      PinosNode      *object,
                                      PinosNodeState  old,

@@ -37,8 +37,6 @@ typedef struct
   uint32_t seq;
 
   bool async_init;
-
-  guint idle_timeout;
 } PinosNodeImpl;
 
 static void init_complete (PinosNode *this);
@@ -396,7 +394,7 @@ init_complete (PinosNode *this)
   pinos_log_debug ("node %p: init completed", this);
   impl->async_init = false;
 
-  pinos_node_update_state (this, PINOS_NODE_STATE_SUSPENDED);
+  pinos_node_update_state (this, PINOS_NODE_STATE_SUSPENDED, NULL);
 }
 
 void
@@ -631,30 +629,19 @@ pinos_node_get_free_port (PinosNode       *node,
 }
 
 static void
-remove_idle_timeout (PinosNode *node)
-{
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, this);
-
-  if (impl->idle_timeout) {
-    g_source_remove (impl->idle_timeout);
-    impl->idle_timeout = 0;
-  }
-}
-
-static void
 on_state_complete (PinosNode *node,
                    gpointer   data,
                    SpaResult  res)
 {
   PinosNodeState state = GPOINTER_TO_INT (data);
+  char *error = NULL;
 
   pinos_log_debug ("node %p: state complete %d", node, res);
   if (SPA_RESULT_IS_ERROR (res)) {
-    char *error;
     asprintf (&error, "error changing node state: %d", res);
-    pinos_node_report_error (node, error);
-  } else
-    pinos_node_update_state (node, state);
+    state = PINOS_NODE_STATE_ERROR;
+  }
+  pinos_node_update_state (node, state, error);
 }
 
 /**
@@ -672,7 +659,7 @@ pinos_node_set_state (PinosNode      *node,
 {
   SpaResult res = SPA_RESULT_OK;
 
-  remove_idle_timeout (node);
+  pinos_signal_emit (&node->core->node_state_request, node, state);
 
   pinos_log_debug ("node %p: set state %s", node, pinos_node_state_as_string (state));
 
@@ -715,13 +702,15 @@ pinos_node_set_state (PinosNode      *node,
  * pinos_node_update_state:
  * @node: a #PinosNode
  * @state: a #PinosNodeState
+ * @error: error when @state is #PINOS_NODE_STATE_ERROR
  *
  * Update the state of a node. This method is used from
  * inside @node itself.
  */
 void
 pinos_node_update_state (PinosNode      *node,
-                         PinosNodeState  state)
+                         PinosNodeState  state,
+                         char           *error)
 {
   PinosNodeState old;
 
@@ -731,75 +720,10 @@ pinos_node_update_state (PinosNode      *node,
         pinos_node_state_as_string (old),
         pinos_node_state_as_string (state));
 
+    if (node->error)
+      free (node->error);
+    node->error = error;
     node->state = state;
     pinos_signal_emit (&node->core->node_state_changed, node, old, state);
   }
-}
-
-/**
- * pinos_node_report_error:
- * @node: a #PinosNode
- * @error: an error message
- *
- * Report an error from within @node.
- */
-void
-pinos_node_report_error (PinosNode *node,
-                         char      *error)
-{
-  PinosNodeState old;
-
-  free (node->error);
-  remove_idle_timeout (node);
-  node->error = error;
-  old = node->state;
-  node->state = PINOS_NODE_STATE_ERROR;
-  pinos_log_debug ("node %p: got error state %s", node, error);
-  pinos_signal_emit (&node->core->node_state_changed, node, old, node->state);
-}
-
-static bool
-idle_timeout (PinosNode *node)
-{
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, this);
-
-  impl->idle_timeout = 0;
-  pinos_log_debug ("node %p: idle timeout", node);
-  pinos_node_set_state (node, PINOS_NODE_STATE_SUSPENDED);
-
-  return G_SOURCE_REMOVE;
-}
-
-/**
- * pinos_node_report_idle:
- * @node: a #PinosNode
- *
- * Mark @node as being idle. This will start a timeout that will
- * set the node to SUSPENDED.
- */
-void
-pinos_node_report_idle (PinosNode *node)
-{
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, this);
-
-  pinos_log_debug ("node %p: report idle", node);
-  pinos_node_set_state (node, PINOS_NODE_STATE_IDLE);
-
-  impl->idle_timeout = g_timeout_add_seconds (3,
-                                              (GSourceFunc) idle_timeout,
-                                              node);
-}
-
-/**
- * pinos_node_report_busy:
- * @node: a #PinosNode
- *
- * Mark @node as being busy. This will set the state of the node
- * to the RUNNING state.
- */
-void
-pinos_node_report_busy (PinosNode *node)
-{
-  pinos_log_debug ("node %p: report busy", node);
-  pinos_node_set_state (node, PINOS_NODE_STATE_RUNNING);
 }

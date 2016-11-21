@@ -238,7 +238,7 @@ do_remove_link_done (SpaLoop        *loop,
 
   if (node->n_used_output_links == 0 &&
       node->n_used_input_links == 0) {
-    pinos_node_report_idle (node);
+    pinos_node_update_state (node, PINOS_NODE_STATE_IDLE, NULL);
   }
 
   if (!port->allocated) {

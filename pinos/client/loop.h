@@ -30,9 +30,6 @@ extern "C" {
 
 typedef struct _PinosLoop PinosLoop;
 
-typedef bool (*PinosCheckfunc)   (PinosLoop *loop,
-                                  void      *data);
-
 typedef void (*PinosLoopHook)    (PinosLoop *loop,
                                   void      *data);
 
@@ -72,8 +69,8 @@ void           pinos_loop_set_hooks       (PinosLoop     *loop,
                                            PinosLoopHook  pre_func,
                                            PinosLoopHook  post_func,
                                            void          *data);
-void           pinos_loop_set_thread      (PinosLoop     *loop,
-                                           void          *thread);
+void           pinos_loop_enter_thread    (PinosLoop     *loop);
+void           pinos_loop_leave_thread    (PinosLoop     *loop);
 
 SpaResult      pinos_loop_iterate         (PinosLoop     *loop,
                                            int            timeout);

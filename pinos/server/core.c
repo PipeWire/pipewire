@@ -64,6 +64,7 @@ pinos_core_new (PinosMainLoop *main_loop)
   pinos_signal_init (&this->destroy_signal);
   pinos_signal_init (&this->global_added);
   pinos_signal_init (&this->global_removed);
+  pinos_signal_init (&this->node_state_request);
   pinos_signal_init (&this->node_state_changed);
   pinos_signal_init (&this->port_added);
   pinos_signal_init (&this->port_removed);

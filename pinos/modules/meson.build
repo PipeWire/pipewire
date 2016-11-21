@@ -23,3 +23,12 @@ pinos_module_protocol_dbus = shared_library('pinos-module-protocol-dbus', [ 'mod
   install_dir : '@0@/pinos-0.1'.format(get_option('libdir')),
   dependencies : [gobject_dep, gmodule_dep, glib_dep, gio_dep, mathlib, dl_lib, pinos_dep, pinoscore_dep],
 )
+
+pinos_module_suspend_on_idle = shared_library('pinos-module-suspend-on-idle', [ 'module-suspend-on-idle.c' ],
+  c_args : pinos_module_c_args,
+  include_directories : [configinc, pinosinc, spa_inc],
+  link_with : spalib,
+  install : true,
+  install_dir : '@0@/pinos-0.1'.format(get_option('libdir')),
+  dependencies : [mathlib, dl_lib, pinos_dep, pinoscore_dep],
+)

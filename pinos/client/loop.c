@@ -284,11 +284,17 @@ pinos_loop_set_hooks (PinosLoop     *loop,
 }
 
 void
-pinos_loop_set_thread (PinosLoop  *loop,
-                       void       *thread)
+pinos_loop_enter_thread (PinosLoop  *loop)
 {
   PinosLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosLoopImpl, this);
-  impl->thread = *((pthread_t*)thread);
+  impl->thread = pthread_self();
+}
+
+void
+pinos_loop_leave_thread (PinosLoop  *loop)
+{
+  PinosLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosLoopImpl, this);
+  impl->thread = 0;
 }
 
 SpaResult

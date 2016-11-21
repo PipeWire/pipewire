@@ -96,7 +96,7 @@ try_link_port (PinosNode *node, PinosPort *port, ModuleImpl *impl)
 
 error:
   {
-    pinos_node_report_error (node, error);
+    pinos_node_update_state (node, PINOS_NODE_STATE_ERROR, error);
     return;
   }
 }
@@ -128,9 +128,9 @@ on_link_state_changed (PinosListener *listener,
       pinos_log_debug ("module %p: link %p: state error: %s", impl, link, link->error);
 
       if (link->input && link->input->node)
-        pinos_node_report_error (link->input->node, strdup (link->error));
+        pinos_node_update_state (link->input->node, PINOS_NODE_STATE_ERROR, strdup (link->error));
       if (link->output && link->output->node)
-        pinos_node_report_error (link->output->node, strdup (link->error));
+        pinos_node_update_state (link->output->node, PINOS_NODE_STATE_ERROR, strdup (link->error));
       break;
     }
 

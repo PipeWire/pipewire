@@ -103,12 +103,11 @@ void                pinos_node_set_data_loop           (PinosNode        *node,
 PinosPort *         pinos_node_get_free_port           (PinosNode        *node,
                                                         PinosDirection    direction);
 
-SpaResult           pinos_node_set_state               (PinosNode *node, PinosNodeState state);
-void                pinos_node_update_state            (PinosNode *node, PinosNodeState state);
-
-void                pinos_node_report_error            (PinosNode *node, char *error);
-void                pinos_node_report_idle             (PinosNode *node);
-void                pinos_node_report_busy             (PinosNode *node);
+SpaResult           pinos_node_set_state               (PinosNode        *node,
+                                                        PinosNodeState    state);
+void                pinos_node_update_state            (PinosNode        *node,
+                                                        PinosNodeState    state,
+                                                        char             *error);
 
 #ifdef __cplusplus
 }

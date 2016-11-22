@@ -361,9 +361,6 @@
 #mesondefine PACKAGE_VERSION
 
 /* directory where plugins are located */
-#mesondefine PLUGINDIR
-
-/* directory where plugins are located */
 #mesondefine MODULEDIR
 
 /* directory where config files are located */

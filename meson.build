@@ -23,6 +23,8 @@ libversion = '@0@.@1@.0'.format(soversion, pinos_version_minor.to_int() * 100 + 
 
 prefix = get_option('prefix')
 
+modules_install_dir = '@0@/pinos-@1@'.format(get_option('libdir'), apiversion)
+
 gnome = import('gnome')
 
 cc = meson.get_compiler('c')

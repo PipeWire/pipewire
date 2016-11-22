@@ -11,7 +11,7 @@ pinos_module_flatpak = shared_library('pinos-module-flatpak', [ 'module-flatpak.
   include_directories : [configinc, spa_inc],
   link_with : spalib,
   install : true,
-  install_dir : '@0@/pinos-@1@'.format(get_option('libdir'), apiversion),
+  install_dir : modules_install_dir,
   dependencies : [dbus_dep, mathlib, dl_lib, pinos_dep, pinoscore_dep],
 )
 
@@ -20,7 +20,7 @@ pinos_module_autolink = shared_library('pinos-module-autolink', [ 'module-autoli
   include_directories : [configinc, spa_inc],
   link_with : spalib,
   install : true,
-  install_dir : '@0@/pinos-@1@'.format(get_option('libdir'), apiversion),
+  install_dir : modules_install_dir,
   dependencies : [mathlib, dl_lib, pinos_dep, pinoscore_dep],
 )
 
@@ -29,7 +29,7 @@ pinos_module_mixer = shared_library('pinos-module-mixer', [ 'module-mixer.c' ],
   include_directories : [configinc, spa_inc],
   link_with : spalib,
   install : true,
-  install_dir : '@0@/pinos-@1@'.format(get_option('libdir'), apiversion),
+  install_dir : modules_install_dir,
   dependencies : [mathlib, dl_lib, pinos_dep, pinoscore_dep],
 )
 
@@ -38,7 +38,7 @@ pinos_module_protocol_dbus = shared_library('pinos-module-protocol-dbus', [ 'mod
   include_directories : [configinc, spa_inc],
   link_with : spalib,
   install : true,
-  install_dir : '@0@/pinos-@1@'.format(get_option('libdir'), apiversion),
+  install_dir : modules_install_dir,
   dependencies : [glib_dep, gio_dep, mathlib, dl_lib, pinos_dep, pinoscore_dep],
 )
 
@@ -47,7 +47,7 @@ pinos_module_protocol_native = shared_library('pinos-module-protocol-native', [ 
   include_directories : [configinc, spa_inc],
   link_with : spalib,
   install : true,
-  install_dir : '@0@/pinos-@1@'.format(get_option('libdir'), apiversion),
+  install_dir : modules_install_dir,
   dependencies : [mathlib, dl_lib, pinos_dep, pinoscore_dep],
 )
 
@@ -56,6 +56,6 @@ pinos_module_suspend_on_idle = shared_library('pinos-module-suspend-on-idle', [ 
   include_directories : [configinc, spa_inc],
   link_with : spalib,
   install : true,
-  install_dir : '@0@/pinos-@1@'.format(get_option('libdir'), apiversion),
+  install_dir : modules_install_dir,
   dependencies : [mathlib, dl_lib, pinos_dep, pinoscore_dep],
 )

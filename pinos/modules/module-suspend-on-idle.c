@@ -50,8 +50,7 @@ typedef struct {
   ModuleImpl  *impl;
   PinosNode   *node;
   SpaList      link;
-  SpaSource   *timeout;
-  guint        idle_timeout;
+  SpaSource   *idle_timeout;
 } NodeInfo;
 
 static NodeInfo *
@@ -70,18 +69,20 @@ static void
 remove_idle_timeout (NodeInfo *info)
 {
   if (info->idle_timeout) {
-    g_source_remove (info->idle_timeout);
-    info->idle_timeout = 0;
+    pinos_loop_destroy_source (info->impl->core->main_loop->loop, info->idle_timeout);
+    info->idle_timeout = NULL;
   }
 }
 
-static bool
-idle_timeout (NodeInfo *info)
+static void
+idle_timeout (SpaSource *source,
+              void      *data)
 {
-  info->idle_timeout = 0;
+  NodeInfo *info = data;
+
   pinos_log_debug ("module %p: node %p idle timeout", info->impl, info->node);
+  remove_idle_timeout (info);
   pinos_node_set_state (info->node, PINOS_NODE_STATE_SUSPENDED);
-  return G_SOURCE_REMOVE;
 }
 
 static void
@@ -113,10 +114,19 @@ on_node_state_changed (PinosListener  *listener,
   if (state != PINOS_NODE_STATE_IDLE) {
     remove_idle_timeout (info);
   } else {
+    struct timespec value;
+
     pinos_log_debug ("module %p: node %p became idle", impl, node);
-    info->idle_timeout = g_timeout_add_seconds (3,
-                                                (GSourceFunc) idle_timeout,
-                                                info);
+    info->idle_timeout = pinos_loop_add_timer (impl->core->main_loop->loop,
+                                              idle_timeout,
+                                              info);
+    value.tv_sec = 3;
+    value.tv_nsec = 0;
+    pinos_loop_update_timer (impl->core->main_loop->loop,
+                             info->idle_timeout,
+                             &value,
+                             NULL,
+                             false);
   }
 }
 
@@ -134,7 +144,6 @@ on_global_added (PinosListener *listener,
     info = calloc (1, sizeof (NodeInfo));
     info->impl = impl;
     info->node = node;
-    info->timeout = NULL;
     spa_list_insert (impl->node_list.prev, &info->link);
   }
 }

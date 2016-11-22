@@ -34,6 +34,7 @@ typedef struct _PinosGlobal PinosGlobal;
 #include <pinos/server/uri.h>
 #include <pinos/server/node.h>
 #include <pinos/server/link.h>
+#include <pinos/server/node-factory.h>
 
 struct _PinosGlobal {
   PinosCore *core;
@@ -118,6 +119,9 @@ PinosPort *     pinos_core_find_port     (PinosCore        *core,
                                           PinosProperties  *props,
                                           SpaFormat       **format_filter,
                                           char            **error);
+
+PinosNodeFactory * pinos_core_find_node_factory (PinosCore  *core,
+                                                 const char *name);
 
 #ifdef __cplusplus
 }

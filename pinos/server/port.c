@@ -169,18 +169,18 @@ pinos_port_link (PinosPort       *output_port,
     output_node->n_used_output_links++;
     input_node->n_used_input_links++;
 
-    spa_loop_invoke (output_node->data_loop->loop->loop,
-                     do_add_link,
-                     SPA_ID_INVALID,
-                     sizeof (PinosLink *),
-                     &link,
-                     output_port);
-    spa_loop_invoke (input_node->data_loop->loop->loop,
-                     do_add_link,
-                     SPA_ID_INVALID,
-                     sizeof (PinosLink *),
-                     &link,
-                     input_port);
+    pinos_loop_invoke (output_node->data_loop->loop,
+                       do_add_link,
+                       SPA_ID_INVALID,
+                       sizeof (PinosLink *),
+                       &link,
+                       output_port);
+    pinos_loop_invoke (input_node->data_loop->loop,
+                       do_add_link,
+                       SPA_ID_INVALID,
+                       sizeof (PinosLink *),
+                       &link,
+                       input_port);
   }
   return link;
 
@@ -284,12 +284,12 @@ do_remove_link (SpaLoop        *loop,
     pinos_port_pause (port);
 #endif
 
-  res = spa_loop_invoke (this->core->main_loop->loop,
-                         do_remove_link_done,
-                         seq,
-                         sizeof (PinosLink *),
-                         &link,
-                         port);
+  res = pinos_loop_invoke (this->core->main_loop->loop,
+                           do_remove_link_done,
+                           seq,
+                           sizeof (PinosLink *),
+                           &link,
+                           port);
   return res;
 }
 
@@ -301,12 +301,12 @@ pinos_port_unlink (PinosPort *port, PinosLink *link)
 
   pinos_log_debug ("port %p: start unlink %p", port, link);
 
-  res = spa_loop_invoke (port->node->data_loop->loop->loop,
-                         do_remove_link,
-                         impl->seq++,
-                         sizeof (PinosLink *),
-                         &link,
-                         port);
+  res = pinos_loop_invoke (port->node->data_loop->loop,
+                           do_remove_link,
+                           impl->seq++,
+                           sizeof (PinosLink *),
+                           &link,
+                           port);
   return res;
 }
 
@@ -352,11 +352,11 @@ do_clear_buffers (SpaLoop        *loop,
 
   pinos_port_pause (port);
 
-  res = spa_loop_invoke (node->core->main_loop->loop,
-                         do_clear_buffers_done,
-                         seq,
-                         0, NULL,
-                         port);
+  res = pinos_loop_invoke (node->core->main_loop->loop,
+                           do_clear_buffers_done,
+                           seq,
+                           0, NULL,
+                           port);
   return res;
 }
 
@@ -367,10 +367,10 @@ pinos_port_clear_buffers (PinosPort *port)
   PinosPortImpl *impl = SPA_CONTAINER_OF (port, PinosPortImpl, this);
 
   pinos_log_debug ("port %p: clear buffers", port);
-  res = spa_loop_invoke (port->node->data_loop->loop->loop,
-                         do_clear_buffers,
-                         impl->seq++,
-                         0, NULL,
-                         port);
+  res = pinos_loop_invoke (port->node->data_loop->loop,
+                           do_clear_buffers,
+                           impl->seq++,
+                           0, NULL,
+                           port);
   return res;
 }

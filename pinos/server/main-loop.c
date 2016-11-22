@@ -30,17 +30,6 @@
 #include "pinos/client/object.h"
 #include "pinos/server/main-loop.h"
 
-#define DATAS_SIZE (4096 * 8)
-
-typedef struct {
-  size_t         item_size;
-  SpaInvokeFunc  func;
-  uint32_t       seq;
-  size_t         size;
-  void          *data;
-  void          *user_data;
-} InvokeItem;
-
 typedef struct _WorkItem WorkItem;
 
 struct _WorkItem {
@@ -50,7 +39,6 @@ struct _WorkItem {
   SpaResult       res;
   PinosDeferFunc  func;
   void           *data;
-  bool            sync;
   SpaList         link;
 };
 
@@ -58,17 +46,12 @@ typedef struct
 {
   PinosMainLoop this;
 
-  SpaLoop loop;
+  PinosLoop *loop;
 
   GMainContext *context;
   GMainLoop *main_loop;
 
   uint32_t counter;
-
-  SpaRingbuffer buffer;
-  uint8_t       buffer_data[DATAS_SIZE];
-
-  SpaSource wakeup;
 
   SpaList  work_list;
   SpaList  free_list;
@@ -152,79 +135,6 @@ do_remove_source (SpaSource *source)
   g_source_destroy (gsource);
 }
 
-static void
-main_loop_dispatch (SpaSource *source)
-{
-  LoopData *data = source->loop_private;
-  PinosMainLoopImpl *impl = data->impl;
-  uint64_t u;
-  size_t offset;
-  InvokeItem *item;
-
-  if (read (impl->wakeup.fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
-    pinos_log_warn ("main-loop %p: failed to read fd", strerror (errno));
-
-  while (spa_ringbuffer_get_read_offset (&impl->buffer, &offset) > 0) {
-    item = SPA_MEMBER (impl->buffer_data, offset, InvokeItem);
-    item->func (&impl->loop, true, item->seq, item->size, item->data, item->user_data);
-    spa_ringbuffer_read_advance (&impl->buffer, item->item_size);
-  }
-}
-
-static SpaResult
-do_invoke (SpaLoop       *loop,
-           SpaInvokeFunc  func,
-           uint32_t       seq,
-           size_t         size,
-           void          *data,
-           void          *user_data)
-{
-  PinosMainLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosMainLoopImpl, loop);
-  bool in_thread = false;
-  SpaRingbufferArea areas[2];
-  InvokeItem *item;
-  uint64_t u = 1;
-  SpaResult res;
-
-  if (in_thread) {
-    res = func (loop, false, seq, size, data, user_data);
-  } else {
-    spa_ringbuffer_get_write_areas (&impl->buffer, areas);
-    if (areas[0].len < sizeof (InvokeItem)) {
-      pinos_log_warn ("queue full");
-      return SPA_RESULT_ERROR;
-    }
-    item = SPA_MEMBER (impl->buffer_data, areas[0].offset, InvokeItem);
-    item->func = func;
-    item->seq = seq;
-    item->size = size;
-    item->user_data = user_data;
-
-    if (areas[0].len > sizeof (InvokeItem) + size) {
-      item->data = SPA_MEMBER (item, sizeof (InvokeItem), void);
-      item->item_size = sizeof (InvokeItem) + size;
-      if (areas[0].len < sizeof (InvokeItem) + item->item_size)
-        item->item_size = areas[0].len;
-    } else {
-      item->data = SPA_MEMBER (impl->buffer_data, areas[1].offset, void);
-      item->item_size = areas[0].len + 1 + size;
-    }
-    memcpy (item->data, data, size);
-
-    spa_ringbuffer_write_advance (&impl->buffer, item->item_size);
-
-    if (write (impl->wakeup.fd, &u, sizeof(uint64_t)) != sizeof(uint64_t))
-      pinos_log_warn ("data-loop %p: failed to write fd", strerror (errno));
-
-    if (seq != SPA_ID_INVALID)
-      res = SPA_RESULT_RETURN_ASYNC (seq);
-    else
-      res = SPA_RESULT_OK;
-
-  }
-  return res;
-}
-
 static bool
 process_work_queue (PinosMainLoop *this)
 {
@@ -234,19 +144,13 @@ process_work_queue (PinosMainLoop *this)
   impl->work_id = 0;
 
   spa_list_for_each_safe (item, tmp, &impl->work_list, link) {
-    if (item->sync) {
-      if (&item->link == impl->work_list.next) {
-        pinos_log_debug ("main-loop %p: found sync item %p", this, item->obj);
-      } else {
-        continue;
-      }
-    } else if (item->seq != SPA_ID_INVALID)
+    if (item->seq != SPA_ID_INVALID)
       continue;
 
     spa_list_remove (&item->link);
 
     if (item->func) {
-      pinos_log_debug ("main-loop %p: process work item %p %d %d", this, item->obj, item->sync, item->seq);
+      pinos_log_debug ("main-loop %p: process work item %p %d", this, item->obj, item->seq);
       item->func (item->obj, item->data, item->res, item->id);
     }
     spa_list_insert (impl->free_list.prev, &item->link);
@@ -259,8 +163,7 @@ do_add_work (PinosMainLoop  *loop,
              void           *obj,
              SpaResult       res,
              PinosDeferFunc  func,
-             void           *data,
-             bool            sync)
+             void           *data)
 {
   PinosMainLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosMainLoopImpl, this);
   WorkItem *item;
@@ -276,7 +179,6 @@ do_add_work (PinosMainLoop  *loop,
   item->obj = obj;
   item->func = func;
   item->data = data;
-  item->sync = sync;
 
   if (SPA_RESULT_IS_ASYNC (res)) {
     item->seq = SPA_RESULT_ASYNC_SEQ (res);
@@ -286,7 +188,7 @@ do_add_work (PinosMainLoop  *loop,
     item->seq = SPA_ID_INVALID;
     item->res = res;
     have_work = TRUE;
-    pinos_log_debug ("main-loop %p: defer object %p %d", loop, obj, sync);
+    pinos_log_debug ("main-loop %p: defer object %p", loop, obj);
   }
   spa_list_insert (impl->work_list.prev, &item->link);
 
@@ -303,7 +205,7 @@ main_loop_defer (PinosMainLoop  *loop,
                  PinosDeferFunc  func,
                  void           *data)
 {
-  return do_add_work (loop, obj, res, func, data, false);
+  return do_add_work (loop, obj, res, func, data);
 }
 
 static void
@@ -354,15 +256,6 @@ main_loop_defer_complete (PinosMainLoop  *loop,
   return have_work;
 }
 
-static uint32_t
-main_loop_sync (PinosMainLoop  *loop,
-                void           *obj,
-                PinosDeferFunc  func,
-                void           *data)
-{
-  return do_add_work (loop, obj, SPA_RESULT_OK, func, data, true);
-}
-
 static void
 main_loop_quit (PinosMainLoop *loop)
 {
@@ -376,7 +269,9 @@ main_loop_run (PinosMainLoop *loop)
 {
   PinosMainLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosMainLoopImpl, this);
   pinos_log_debug ("main-loop %p: run", impl);
+  pinos_loop_enter (loop->loop);
   g_main_loop_run (impl->main_loop);
+  pinos_loop_leave (loop->loop);
 }
 
 /**
@@ -394,35 +289,24 @@ pinos_main_loop_new (void)
 
   impl = calloc (1, sizeof (PinosMainLoopImpl));
   pinos_log_debug ("main-loop %p: new", impl);
+  this = &impl->this;
+
+  this->loop = pinos_loop_new ();
+  this->loop->loop->add_source = do_add_source;
+  this->loop->loop->update_source = do_update_source;
+  this->loop->loop->remove_source = do_remove_source;
 
   impl->context = g_main_context_default ();
-  this = &impl->this;
+  impl->main_loop = g_main_loop_new (impl->context, false);
+
   this->run = main_loop_run;
   this->quit = main_loop_quit;
   this->defer = main_loop_defer;
   this->defer_cancel = main_loop_defer_cancel;
   this->defer_complete = main_loop_defer_complete;
-  this->sync = main_loop_sync;
-
-  impl->loop.size = sizeof (SpaLoop);
-  impl->loop.add_source = do_add_source;
-  impl->loop.update_source = do_update_source;
-  impl->loop.remove_source = do_remove_source;
-  impl->loop.invoke = do_invoke;
-  this->loop = &impl->loop;
 
   spa_list_init (&impl->work_list);
   spa_list_init (&impl->free_list);
-  spa_ringbuffer_init (&impl->buffer, DATAS_SIZE);
-
-  impl->main_loop = g_main_loop_new (impl->context, false);
-
-  impl->wakeup.func = main_loop_dispatch;
-  impl->wakeup.data = impl;
-  impl->wakeup.fd = eventfd (0, 0);
-  impl->wakeup.mask = SPA_IO_IN | SPA_IO_ERR;
-  impl->wakeup.rmask = 0;
-  do_add_source (&impl->loop, &impl->wakeup);
 
   return this;
 }
@@ -437,7 +321,7 @@ pinos_main_loop_destroy (PinosMainLoop *loop)
 
   g_main_loop_unref (impl->main_loop);
 
-  close (impl->wakeup.fd);
+  pinos_loop_destroy (loop->loop);
 
   spa_list_for_each_safe (item, tmp, &impl->free_list, link)
     free (item);

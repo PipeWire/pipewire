@@ -25,6 +25,7 @@ extern "C" {
 #endif
 
 #include <spa/include/spa/loop.h>
+#include <pinos/client/loop.h>
 
 typedef struct _PinosMainLoop PinosMainLoop;
 
@@ -39,7 +40,7 @@ typedef void (*PinosDeferFunc) (void      *obj,
  * Pinos main-loop interface.
  */
 struct _PinosMainLoop {
-  SpaLoop *loop;
+  PinosLoop    *loop;
 
   void         (*run)             (PinosMainLoop  *loop);
   void         (*quit)            (PinosMainLoop  *loop);
@@ -56,10 +57,6 @@ struct _PinosMainLoop {
                                    void           *obj,
                                    uint32_t        seq,
                                    SpaResult       res);
-  uint32_t     (*sync)            (PinosMainLoop  *loop,
-                                   void           *obj,
-                                   PinosDeferFunc  func,
-                                   void           *data);
 };
 
 PinosMainLoop *     pinos_main_loop_new                     (void);

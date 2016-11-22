@@ -44,18 +44,12 @@
 #define PINOS_PROTOCOL_DBUS_URI                            "http://pinos.org/ns/protocol-dbus"
 #define PINOS_PROTOCOL_DBUS_PREFIX                         PINOS_PROTOCOL_DBUS_URI "#"
 
-typedef struct _PinosProtocolDBus PinosProtocolDBus;
-
-struct _PinosProtocolDBus {
+typedef struct {
   PinosCore   *core;
   SpaList      link;
   PinosGlobal *global;
 
   PinosProperties *properties;
-};
-
-typedef struct {
-  PinosProtocolDBus this;
 
   struct {
     uint32_t protocol_dbus;
@@ -70,16 +64,16 @@ typedef struct {
   PinosListener global_added;
   PinosListener global_removed;
   PinosListener node_state_changed;
-} PinosProtocolDBusImpl;
+} PinosProtocolDBus;
 
 typedef struct {
-  PinosProtocolDBusImpl *impl;
-  SpaList                link;
-  PinosGlobal           *global;
-  void                  *iface;
-  PinosObjectSkeleton   *skel;
-  const gchar           *object_path;
-  PinosDestroy           destroy;
+  PinosProtocolDBus   *impl;
+  SpaList              link;
+  PinosGlobal         *global;
+  void                *iface;
+  PinosObjectSkeleton *skel;
+  const gchar         *object_path;
+  PinosDestroy         destroy;
 } PinosProtocolDBusObject;
 
 typedef struct {
@@ -117,13 +111,13 @@ object_unexport (PinosProtocolDBusObject *this)
 }
 
 static void *
-object_new (size_t                 size,
-            PinosProtocolDBusImpl *impl,
-            PinosGlobal           *global,
-            void                  *iface,
-            PinosObjectSkeleton   *skel,
-            bool                   export,
-            PinosDestroy           destroy)
+object_new (size_t               size,
+            PinosProtocolDBus   *impl,
+            PinosGlobal         *global,
+            void                *iface,
+            PinosObjectSkeleton *skel,
+            bool                 export,
+            PinosDestroy         destroy)
 {
   PinosProtocolDBusObject *this;
 
@@ -157,8 +151,8 @@ object_destroy (PinosProtocolDBusObject *this)
 }
 
 static PinosProtocolDBusObject *
-find_object (PinosProtocolDBusImpl *impl,
-             void                  *object)
+find_object (PinosProtocolDBus *impl,
+             void              *object)
 {
   PinosProtocolDBusObject *obj;
   spa_list_for_each (obj, &impl->object_list, link) {
@@ -201,14 +195,13 @@ client_name_vanished_handler (GDBusConnection *connection,
 
 
 static PinosProtocolDBusClient *
-client_new (PinosProtocolDBusImpl *impl,
-            const char            *sender)
+client_new (PinosProtocolDBus *impl,
+            const char        *sender)
 {
-  PinosProtocolDBus *proto = &impl->this;
   PinosProtocolDBusClient *this;
   PinosClient *client;
 
-  client = pinos_client_new (proto->core, NULL);
+  client = pinos_client_new (impl->core, NULL);
 
   if ((this = (PinosProtocolDBusClient *) find_object (impl, client))) {
     pinos_client1_set_sender (this->parent.iface, sender);
@@ -228,11 +221,10 @@ client_new (PinosProtocolDBusImpl *impl,
 }
 
 static PinosClient *
-sender_get_client (PinosProtocolDBus *proto,
+sender_get_client (PinosProtocolDBus *impl,
                    const char        *sender,
                    bool               create)
 {
-  PinosProtocolDBusImpl *impl = SPA_CONTAINER_OF (proto, PinosProtocolDBusImpl, this);
   PinosProtocolDBusClient *client;
 
   spa_list_for_each (client, &impl->client_list, link) {
@@ -247,19 +239,6 @@ sender_get_client (PinosProtocolDBus *proto,
   return client->parent.global->object;
 }
 
-static PinosNodeFactory *
-find_factory_by_name (PinosProtocolDBus *proto,
-                      const char  *name)
-{
-  PinosNodeFactory *factory;
-
-  spa_list_for_each (factory, &proto->core->node_factory_list, link) {
-    if (strcmp (factory->name, name) == 0)
-      return factory;
-  }
-  return NULL;
-}
-
 static bool
 handle_create_node (PinosDaemon1           *interface,
                     GDBusMethodInvocation  *invocation,
@@ -268,8 +247,7 @@ handle_create_node (PinosDaemon1           *interface,
                     GVariant               *arg_properties,
                     gpointer                user_data)
 {
-  PinosProtocolDBusImpl *impl = user_data;
-  PinosProtocolDBus *this = &impl->this;
+  PinosProtocolDBus *impl = user_data;
   PinosNodeFactory *factory;
   PinosNode *node;
   PinosClient *client;
@@ -278,13 +256,13 @@ handle_create_node (PinosDaemon1           *interface,
   PinosProtocolDBusObject *object;
 
   sender = g_dbus_method_invocation_get_sender (invocation);
-  client = sender_get_client (this, sender, TRUE);
+  client = sender_get_client (impl, sender, TRUE);
 
   pinos_log_debug ("protocol-dbus %p: create node: %s", impl, sender);
 
   props = pinos_properties_from_variant (arg_properties);
 
-  factory = find_factory_by_name (this, arg_factory_name);
+  factory = pinos_core_find_node_factory (impl->core, arg_factory_name);
   if (factory == NULL)
     goto no_factory;
 
@@ -302,7 +280,7 @@ handle_create_node (PinosDaemon1           *interface,
     goto object_failed;
 
   pinos_client_add_resource (client,
-                             this->core->uri.node,
+                             impl->core->uri.node,
                              node,
                              (PinosDestroy) pinos_node_destroy);
 
@@ -342,7 +320,7 @@ on_node_state_changed (PinosListener  *listener,
                        PinosNodeState  old,
                        PinosNodeState  state)
 {
-  PinosProtocolDBusImpl *impl = SPA_CONTAINER_OF (listener, PinosProtocolDBusImpl, node_state_changed);
+  PinosProtocolDBus *impl = SPA_CONTAINER_OF (listener, PinosProtocolDBus, node_state_changed);
   PinosProtocolDBusObject *object;
 
   pinos_log_debug ("protocol-dbus %p: node %p state change %s -> %s", impl, node,
@@ -361,8 +339,7 @@ handle_create_client_node (PinosDaemon1           *interface,
                            GVariant               *arg_properties,
                            gpointer                user_data)
 {
-  PinosProtocolDBusImpl *impl = user_data;
-  PinosProtocolDBus *this = &impl->this;
+  PinosProtocolDBus *impl = user_data;
   PinosClientNode *node;
   PinosClient *client;
   SpaResult res;
@@ -375,7 +352,7 @@ handle_create_client_node (PinosDaemon1           *interface,
   PinosProtocolDBusObject *object;
 
   sender = g_dbus_method_invocation_get_sender (invocation);
-  client = sender_get_client (this, sender, TRUE);
+  client = sender_get_client (impl, sender, TRUE);
 
   pinos_log_debug ("protocol-dbus %p: create client-node: %s", impl, sender);
   props = pinos_properties_from_variant (arg_properties);
@@ -388,7 +365,7 @@ handle_create_client_node (PinosDaemon1           *interface,
   }
 
 
-  node = pinos_client_node_new (this->core,
+  node = pinos_client_node_new (impl->core,
                                 arg_name,
                                 props);
 
@@ -403,7 +380,7 @@ handle_create_client_node (PinosDaemon1           *interface,
     goto no_socket;
 
   pinos_client_add_resource (client,
-                             this->core->uri.client_node,
+                             impl->core->uri.client_node,
                              node,
                              (PinosDestroy) pinos_client_node_destroy);
 
@@ -444,7 +421,7 @@ bus_acquired_handler (GDBusConnection *connection,
                       const char      *name,
                       gpointer         user_data)
 {
-  PinosProtocolDBusImpl *impl = user_data;
+  PinosProtocolDBus *impl = user_data;
   GDBusObjectManagerServer *manager = impl->server_manager;
 
   impl->connection = connection;
@@ -463,7 +440,7 @@ name_lost_handler (GDBusConnection *connection,
                    const char      *name,
                    gpointer         user_data)
 {
-  PinosProtocolDBusImpl *impl = user_data;
+  PinosProtocolDBus *impl = user_data;
   GDBusObjectManagerServer *manager = impl->server_manager;
 
   g_dbus_object_manager_server_set_connection (manager, connection);
@@ -489,11 +466,10 @@ on_global_added (PinosListener *listener,
                  PinosCore     *core,
                  PinosGlobal   *global)
 {
-  PinosProtocolDBusImpl *impl = SPA_CONTAINER_OF (listener, PinosProtocolDBusImpl, global_added);
-  PinosProtocolDBus *this = &impl->this;
+  PinosProtocolDBus *impl = SPA_CONTAINER_OF (listener, PinosProtocolDBus, global_added);
   PinosObjectSkeleton *skel;
 
-  if (global->type == this->core->uri.client) {
+  if (global->type == impl->core->uri.client) {
     PinosClient1 *iface;
     PinosClient *client = global->object;
     PinosProperties *props = client->properties;
@@ -507,15 +483,15 @@ on_global_added (PinosListener *listener,
     pinos_client1_set_properties (iface, props ? pinos_properties_to_variant (props) : NULL);
     pinos_object_skeleton_set_client1 (skel, iface);
 
-    this = object_new (sizeof (PinosProtocolDBusClient),
-                       impl,
-                       global,
-                       iface,
-                       skel,
-                       false,
-                       (PinosDestroy) client_destroy);
+    object_new (sizeof (PinosProtocolDBusClient),
+                impl,
+                global,
+                iface,
+                skel,
+                false,
+                (PinosDestroy) client_destroy);
 
-  } else if (global->type == this->core->uri.node) {
+  } else if (global->type == impl->core->uri.node) {
     PinosNode1 *iface;
     PinosNode *node = global->object;
     PinosProperties *props = node->properties;
@@ -582,7 +558,7 @@ on_global_added (PinosListener *listener,
                                  name_lost_handler,
                                  proto,
                                  NULL);
-  } else if (global->type == this->core->uri.link) {
+  } else if (global->type == impl->core->uri.link) {
     PinosLink1 *iface;
     PinosLink *link = global->object;
     PinosProtocolDBusObject *obj;
@@ -627,7 +603,7 @@ on_global_removed (PinosListener *listener,
                    PinosCore     *core,
                    PinosGlobal   *global)
 {
-  PinosProtocolDBusImpl *impl = SPA_CONTAINER_OF (listener, PinosProtocolDBusImpl, global_removed);
+  PinosProtocolDBus *impl = SPA_CONTAINER_OF (listener, PinosProtocolDBus, global_removed);
   PinosProtocolDBusObject *object;
 
   if ((object = find_object (impl, global->object)))
@@ -638,15 +614,13 @@ static PinosProtocolDBus *
 pinos_protocol_dbus_new (PinosCore       *core,
                          PinosProperties *properties)
 {
-  PinosProtocolDBusImpl *impl;
-  PinosProtocolDBus *this;
+  PinosProtocolDBus *impl;
 
-  impl = calloc (1, sizeof (PinosProtocolDBusImpl));
-  this = &impl->this;
+  impl = calloc (1, sizeof (PinosProtocolDBus));
   pinos_log_debug ("protocol-dbus %p: new", impl);
 
-  this->core = core;
-  this->properties = properties;
+  impl->core = core;
+  impl->properties = properties;
 
   spa_list_init (&impl->client_list);
   spa_list_init (&impl->object_list);
@@ -659,22 +633,21 @@ pinos_protocol_dbus_new (PinosCore       *core,
 
   impl->uri.protocol_dbus = spa_id_map_get_id (core->uri.map, PINOS_PROTOCOL_DBUS_URI);
 
-  this->global = pinos_core_add_global (core,
+  impl->global = pinos_core_add_global (core,
                                         impl->uri.protocol_dbus,
-                                        this);
-  return this;
+                                        impl);
+  return impl;
 }
 
 #if 0
 static void
-pinos_protocol_dbus_destroy (PinosProtocolDBus *proto)
+pinos_protocol_dbus_destroy (PinosProtocolDBus *impl)
 {
-  PinosProtocolDBusImpl *impl = SPA_CONTAINER_OF (proto, PinosProtocolDBusImpl, this);
   PinosProtocolDBusObject *object, *tmp;
 
   pinos_log_debug ("protocol-dbus %p: destroy", impl);
 
-  pinos_global_destroy (proto->global);
+  pinos_global_destroy (impl->global);
 
   spa_list_for_each_safe (object, tmp, &impl->object_list, link)
     object_destroy (object);

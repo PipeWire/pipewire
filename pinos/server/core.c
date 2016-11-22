@@ -50,7 +50,7 @@ pinos_core_new (PinosMainLoop *main_loop)
   impl->support[2].uri = SPA_LOOP__DataLoop;
   impl->support[2].data = this->data_loop->loop->loop;
   impl->support[3].uri = SPA_LOOP__MainLoop;
-  impl->support[3].data = this->main_loop->loop;
+  impl->support[3].data = this->main_loop->loop->loop;
   this->support = impl->support;
   this->n_support = 4;
 
@@ -161,4 +161,17 @@ pinos_core_find_port (PinosCore       *core,
     asprintf (error, "No matching Node found");
   }
   return best;
+}
+
+PinosNodeFactory *
+pinos_core_find_node_factory (PinosCore  *core,
+                              const char *name)
+{
+  PinosNodeFactory *factory;
+
+  spa_list_for_each (factory, &core->node_factory_list, link) {
+    if (strcmp (factory->name, name) == 0)
+      return factory;
+  }
+  return NULL;
 }

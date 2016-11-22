@@ -311,12 +311,12 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
           continue;
 
         link->rt.in_ready++;
-        spa_loop_invoke (link->rt.input->node->data_loop->loop->loop,
-                         do_read_link,
-                         SPA_ID_INVALID,
-                         sizeof (PinosLink *),
-                         &link,
-                         link->rt.input->node);
+        pinos_loop_invoke (link->rt.input->node->data_loop->loop,
+                           do_read_link,
+                           SPA_ID_INVALID,
+                           sizeof (PinosLink *),
+                           &link,
+                           link->rt.input->node);
       }
       break;
     }
@@ -344,12 +344,12 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
           link->queue[offset] = po->buffer_id;
           spa_ringbuffer_write_advance (&link->ringbuffer, 1);
 
-          spa_loop_invoke (link->rt.input->node->data_loop->loop->loop,
-                           do_read_link,
-                           SPA_ID_INVALID,
-                           sizeof (PinosLink *),
-                           &link,
-                           link->rt.input->node);
+          pinos_loop_invoke (link->rt.input->node->data_loop->loop,
+                             do_read_link,
+                             SPA_ID_INVALID,
+                             sizeof (PinosLink *),
+                             &link,
+                             link->rt.input->node);
           pushed = true;
         }
       }
@@ -526,12 +526,12 @@ do_node_remove (SpaLoop        *loop,
     }
   }
 
-  res = spa_loop_invoke (this->core->main_loop->loop,
-                         do_node_remove_done,
-                         seq,
-                         0,
-                         NULL,
-                         this);
+  res = pinos_loop_invoke (this->core->main_loop->loop,
+                           do_node_remove_done,
+                           seq,
+                           0,
+                           NULL,
+                           this);
 
   return res;
 }
@@ -555,12 +555,12 @@ pinos_node_destroy (PinosNode * this)
   spa_list_remove (&this->link);
   pinos_global_destroy (this->global);
 
-  res = spa_loop_invoke (this->data_loop->loop->loop,
-                         do_node_remove,
-                         impl->seq++,
-                         0,
-                         NULL,
-                         this);
+  res = pinos_loop_invoke (this->data_loop->loop,
+                           do_node_remove,
+                           impl->seq++,
+                           0,
+                           NULL,
+                           this);
   return res;
 }
 

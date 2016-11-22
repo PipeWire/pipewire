@@ -795,12 +795,12 @@ do_link_remove (SpaLoop        *loop,
     this->rt.output = NULL;
   }
 
-  res = spa_loop_invoke (this->core->main_loop->loop,
-                         do_link_remove_done,
-                         seq,
-                         0,
-                         NULL,
-                         this);
+  res = pinos_loop_invoke (this->core->main_loop->loop,
+                           do_link_remove_done,
+                           seq,
+                           0,
+                           NULL,
+                           this);
   return res;
 }
 
@@ -826,23 +826,23 @@ pinos_link_destroy (PinosLink * this)
     pinos_signal_remove (&impl->input_port_destroy);
     pinos_signal_remove (&impl->input_async_complete);
 
-    res = spa_loop_invoke (this->input->node->data_loop->loop->loop,
-                           do_link_remove,
-                           impl->seq++,
-                           0,
-                           NULL,
-                           this);
+    res = pinos_loop_invoke (this->input->node->data_loop->loop,
+                             do_link_remove,
+                             impl->seq++,
+                             0,
+                             NULL,
+                             this);
   }
   if (this->output) {
     pinos_signal_remove (&impl->output_port_destroy);
     pinos_signal_remove (&impl->output_async_complete);
 
-    res = spa_loop_invoke (this->output->node->data_loop->loop->loop,
-                           do_link_remove,
-                           impl->seq++,
-                           0,
-                           NULL,
-                           this);
+    res = pinos_loop_invoke (this->output->node->data_loop->loop,
+                             do_link_remove,
+                             impl->seq++,
+                             0,
+                             NULL,
+                             this);
   }
   return res;
 }

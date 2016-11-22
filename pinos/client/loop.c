@@ -240,6 +240,10 @@ loop_enter (SpaLoopControl  *ctrl)
 {
   PinosLoopImpl *impl = SPA_CONTAINER_OF (ctrl, PinosLoopImpl, control);
   impl->thread = pthread_self();
+  if (impl->event == NULL)
+    impl->event = spa_loop_utils_add_event (&impl->utils,
+                                            event_func,
+                                            impl);
 }
 
 static void
@@ -599,9 +603,6 @@ pinos_loop_new (void)
 
   spa_ringbuffer_init (&impl->buffer, DATAS_SIZE);
 
-  impl->event = loop_add_event (&impl->utils,
-                                event_func,
-                                impl);
   return this;
 }
 

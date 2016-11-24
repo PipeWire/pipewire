@@ -127,6 +127,7 @@ mathlib = cc.find_library('m', required : false)
 rt_lib = cc.find_library('rt', required : false) # clock_gettime
 dl_lib = cc.find_library('dl', required : false)
 pthread_lib = cc.find_library('pthread', required : true)
+dbus_dep = dependency('dbus-1')
 gst_dep = [dependency('gstreamer-1.0'),
            dependency('gstreamer-plugins-base-1.0'),
            dependency('gstreamer-video-1.0'),

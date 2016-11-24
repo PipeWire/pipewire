@@ -26,5 +26,5 @@ executable('pinos',
   install: true,
   c_args : pinos_c_args,
   include_directories : [configinc, spa_inc],
-  dependencies : [glib_dep, gobject_dep, gmodule_dep, pinos_dep, pinoscore_dep],
+  dependencies : [pinos_dep, pinoscore_dep],
 )

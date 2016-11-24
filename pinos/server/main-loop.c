@@ -46,114 +46,22 @@ typedef struct
 {
   PinosMainLoop this;
 
-  PinosLoop *loop;
-
-  GMainContext *context;
-  GMainLoop *main_loop;
+  bool running;
+  SpaSource *wakeup;
 
   uint32_t counter;
 
   SpaList  work_list;
   SpaList  free_list;
-
-  gulong work_id;
 } PinosMainLoopImpl;
 
-typedef struct {
-  PinosMainLoopImpl *impl;
-  SpaSource         *source;
-  guint              id;
-} LoopData;
-
-static bool
-poll_event (GIOChannel   *source,
-            GIOCondition  condition,
-            void         *user_data)
-{
-  LoopData *data = user_data;
-  SpaSource *s = data->source;
-
-  s->rmask = 0;
-  if (condition & G_IO_IN)
-    s->rmask |= SPA_IO_IN;
-  if (condition & G_IO_OUT)
-    s->rmask |= SPA_IO_OUT;
-  if (condition & G_IO_ERR)
-    s->rmask |= SPA_IO_ERR;
-  if (condition & G_IO_HUP)
-    s->rmask |= SPA_IO_HUP;
-  s->func (s);
-
-  return TRUE;
-}
-
-static SpaResult
-do_add_source (SpaLoop   *loop,
-               SpaSource *source)
-{
-  PinosMainLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosMainLoopImpl, loop);
-  GIOChannel *channel;
-  GSource *s;
-  LoopData *data;
-  GIOCondition cond;
-
-  channel = g_io_channel_unix_new (source->fd);
-
-  cond = 0;
-  if (source->mask & SPA_IO_IN)
-    cond |= G_IO_IN;
-  if (source->mask & SPA_IO_OUT)
-    cond |= G_IO_OUT;
-  if (source->mask & SPA_IO_ERR)
-    cond |= G_IO_ERR;
-  if (source->mask & SPA_IO_HUP)
-    cond |= G_IO_HUP;
-
-  s = g_io_create_watch (channel, cond);
-  g_io_channel_unref (channel);
-
-  data = g_new0 (LoopData, 1);
-  data->impl = impl;
-  data->source = source;
-
-  g_source_set_callback (s, (GSourceFunc) poll_event, data, g_free);
-  data->id = g_source_attach (s, g_main_context_get_thread_default ());
-  g_source_unref (s);
-
-  source->loop_private = data;
-  source->loop = loop;
-
-  pinos_log_debug ("added main poll %d", data->id);
-
-  return SPA_RESULT_OK;
-}
-
-static SpaResult
-do_update_source (SpaSource *source)
-{
-  LoopData *data = source->loop_private;
-  pinos_log_debug ("update main poll %d", data->id);
-  return SPA_RESULT_OK;
-}
-
 static void
-do_remove_source (SpaSource *source)
+process_work_queue (SpaSource *source,
+                    void      *data)
 {
-  GSource *gsource;
-  LoopData *data = source->loop_private;
-
-  pinos_log_debug ("remove main poll %d", data->id);
-  gsource = g_main_context_find_source_by_id (g_main_context_get_thread_default (), data->id);
-  g_source_destroy (gsource);
-}
-
-static bool
-process_work_queue (PinosMainLoop *this)
-{
-  PinosMainLoopImpl *impl = SPA_CONTAINER_OF (this, PinosMainLoopImpl, this);
+  PinosMainLoopImpl *impl = data;
+  PinosMainLoop *this = &impl->this;
   WorkItem *item, *tmp;
-
-  impl->work_id = 0;
 
   spa_list_for_each_safe (item, tmp, &impl->work_list, link) {
     if (item->seq != SPA_ID_INVALID)
@@ -167,7 +75,6 @@ process_work_queue (PinosMainLoop *this)
     }
     spa_list_insert (impl->free_list.prev, &item->link);
   }
-  return false;
 }
 
 static uint32_t
@@ -204,8 +111,8 @@ do_add_work (PinosMainLoop  *loop,
   }
   spa_list_insert (impl->work_list.prev, &item->link);
 
-  if (impl->work_id == 0 && have_work)
-    impl->work_id = g_idle_add ((GSourceFunc) process_work_queue, loop);
+  if (have_work)
+    pinos_loop_signal_event (impl->this.loop, impl->wakeup);
 
   return item->id;
 }
@@ -237,8 +144,8 @@ main_loop_defer_cancel (PinosMainLoop  *loop,
       have_work = true;
     }
   }
-  if (impl->work_id == 0 && have_work)
-    impl->work_id = g_idle_add ((GSourceFunc) process_work_queue, loop);
+  if (have_work)
+    pinos_loop_signal_event (impl->this.loop, impl->wakeup);
 }
 
 static bool
@@ -259,11 +166,11 @@ main_loop_defer_complete (PinosMainLoop  *loop,
       have_work = TRUE;
     }
   }
-  if (!have_work)
+  if (!have_work) {
     pinos_log_debug ("main-loop %p: no defered %d found for object %p", loop, seq, obj);
-
-  if (impl->work_id == 0 && have_work)
-    impl->work_id = g_idle_add ((GSourceFunc) process_work_queue, loop);
+  } else {
+    pinos_loop_signal_event (impl->this.loop, impl->wakeup);
+  }
 
   return have_work;
 }
@@ -273,16 +180,21 @@ main_loop_quit (PinosMainLoop *loop)
 {
   PinosMainLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosMainLoopImpl, this);
   pinos_log_debug ("main-loop %p: quit", impl);
-  g_main_loop_quit (impl->main_loop);
+  impl->running = false;
 }
 
 static void
 main_loop_run (PinosMainLoop *loop)
 {
   PinosMainLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosMainLoopImpl, this);
+
   pinos_log_debug ("main-loop %p: run", impl);
+
+  impl->running = true;
   pinos_loop_enter (loop->loop);
-  g_main_loop_run (impl->main_loop);
+  while (impl->running) {
+    pinos_loop_iterate (loop->loop, -1);
+  }
   pinos_loop_leave (loop->loop);
 }
 
@@ -304,12 +216,12 @@ pinos_main_loop_new (void)
   this = &impl->this;
 
   this->loop = pinos_loop_new ();
-  this->loop->loop->add_source = do_add_source;
-  this->loop->loop->update_source = do_update_source;
-  this->loop->loop->remove_source = do_remove_source;
 
-  impl->context = g_main_context_default ();
-  impl->main_loop = g_main_loop_new (impl->context, false);
+  pinos_signal_init (&this->destroy_signal);
+
+  impl->wakeup = pinos_loop_add_event (this->loop,
+                                       process_work_queue,
+                                       impl);
 
   this->run = main_loop_run;
   this->quit = main_loop_quit;
@@ -330,9 +242,9 @@ pinos_main_loop_destroy (PinosMainLoop *loop)
   WorkItem *item, *tmp;
 
   pinos_log_debug ("main-loop %p: destroy", impl);
+  pinos_signal_emit (&loop->destroy_signal, loop);
 
-  g_main_loop_unref (impl->main_loop);
-
+  pinos_loop_destroy_source (loop->loop, impl->wakeup);
   pinos_loop_destroy (loop->loop);
 
   spa_list_for_each_safe (item, tmp, &impl->free_list, link)

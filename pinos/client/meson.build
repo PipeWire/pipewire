@@ -1,7 +1,6 @@
 pinos_headers = [
   'array.h',
   'context.h',
-  'format.h',
   'introspect.h',
   'log.h',
   'loop.h',
@@ -21,7 +20,6 @@ pinos_headers = [
 pinos_sources = [
   'connection.c',
   'context.c',
-  'format.c',
   'introspect.c',
   'log.c',
   'loop.c',
@@ -36,27 +34,9 @@ pinos_sources = [
   'thread-mainloop.c',
   'transport.c',
   'utils.c',
-  gdbus_target,
 ]
 
 install_headers(pinos_headers, subdir : 'pinos/client')
-
-mkenums = find_program('build_mkenum.py')
-glib_mkenums = find_program('glib-mkenums')
-
-enumtypes_h = custom_target('enumtypes_h',
-  output : 'enumtypes.h',
-  input : pinos_headers,
-  install : true,
-  install_dir : 'include/pinos/client',
-  command : [mkenums, glib_mkenums, '@OUTPUT@', '@INPUT@'])
-
-enumtypes_c = custom_target('enumtypes_c',
-  output : 'enumtypes.c',
-  input : pinos_headers,
-  depends : [enumtypes_h],
-  command : [mkenums, glib_mkenums, '@OUTPUT@', '@INPUT@'])
-
 
 libpinos_c_args = [
   '-DHAVE_CONFIG_H',
@@ -65,8 +45,6 @@ libpinos_c_args = [
 ]
 
 
-pinos_gen_sources = [enumtypes_h]
-
 libpinos = shared_library('pinos', pinos_sources,
   version : libversion,
   soversion : soversion,
@@ -74,12 +52,10 @@ libpinos = shared_library('pinos', pinos_sources,
   include_directories : [configinc, spa_inc],
   link_with : spalib,
   install : true,
-  dependencies : [gobject_dep, gmodule_dep, glib_dep, gio_dep, mathlib],
+  dependencies : [glib_dep, gio_dep, mathlib, pthread_lib],
 )
 
 pinos_dep = declare_dependency(link_with : libpinos,
   include_directories : [configinc, spa_inc],
-  dependencies : [glib_dep, gobject_dep, gmodule_dep],
-  # Everything that uses libpinos needs this built to compile
-  sources : pinos_gen_sources,
+  dependencies : [glib_dep, pthread_lib],
 )

@@ -17,7 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include <glib-object.h>
+#include <glib.h>
 
 #include "pinos/client/pinos.h"
 #include "pinos/client/properties.h"

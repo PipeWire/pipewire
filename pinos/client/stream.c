@@ -22,6 +22,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <errno.h>
+#include <time.h>
 
 #include "spa/lib/debug.h"
 
@@ -30,7 +31,6 @@
 #include "pinos/client/connection.h"
 #include "pinos/client/context.h"
 #include "pinos/client/stream.h"
-#include "pinos/client/format.h"
 #include "pinos/client/serialize.h"
 #include "pinos/client/transport.h"
 
@@ -431,7 +431,7 @@ handle_rtnode_event (PinosStream  *stream,
         break;
 
       if ((bid = find_buffer (stream, p->buffer_id))) {
-        bid->used = FALSE;
+        bid->used = false;
         pinos_signal_emit (&stream->new_buffer, stream, p->buffer_id);
       }
       break;
@@ -489,7 +489,7 @@ on_rtsocket_condition (SpaSource    *source,
 }
 
 static void
-handle_socket (PinosStream *stream, gint rtfd)
+handle_socket (PinosStream *stream, int rtfd)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
   struct timespec interval;
@@ -546,7 +546,7 @@ handle_node_event (PinosStream  *stream,
   }
 }
 
-static gboolean
+static bool
 handle_node_command (PinosStream    *stream,
                      uint32_t        seq,
                      SpaNodeCommand *command)
@@ -600,7 +600,7 @@ handle_node_command (PinosStream    *stream,
       break;
     }
   }
-  return TRUE;
+  return true;
 }
 
 static SpaResult
@@ -658,7 +658,7 @@ stream_dispatch_func (void             *object,
     case PINOS_MESSAGE_SET_FORMAT:
     {
       PinosMessageSetFormat *p = message;
-      gpointer mem;
+      void *mem;
 
       if (impl->format)
         free (impl->format);
@@ -736,7 +736,8 @@ stream_dispatch_func (void             *object,
           for (i = 0; i < b->n_datas; i++)
             size += sizeof (SpaData);
 
-          b = bid->buf = g_memdup (bid->buf_ptr, size);
+          b = bid->buf = malloc (size);
+          memcpy (b, bid->buf_ptr, size);
 
           if (b->metas)
             b->metas = SPA_MEMBER (b, SPA_PTR_TO_INT (b->metas), SpaMeta);
@@ -750,7 +751,7 @@ stream_dispatch_func (void             *object,
 
         if (bid->id != len) {
           pinos_log_warn ("unexpected id %u found, expected %u", bid->id, len);
-          impl->in_order = FALSE;
+          impl->in_order = false;
         }
         pinos_log_debug ("add buffer %d %d %zd", mid->id, bid->id, p->buffers[i].offset);
 
@@ -858,13 +859,13 @@ stream_dispatch_func (void             *object,
  * signal and use pinos_stream_capture_buffer() to get the latest metadata and
  * data.
  *
- * Returns: %TRUE on success.
+ * Returns: %true on success.
  */
 bool
 pinos_stream_connect (PinosStream      *stream,
                       PinosDirection    direction,
                       PinosStreamMode   mode,
-                      const gchar      *port_path,
+                      const char       *port_path,
                       PinosStreamFlags  flags,
                       unsigned int      n_possible_formats,
                       SpaFormat       **possible_formats)
@@ -928,7 +929,7 @@ pinos_stream_connect (PinosStream      *stream,
  * When @res indicates success, @params contain the parameters for the
  * allocation state.
  *
- * Returns: %TRUE on success
+ * Returns: %true on success
  */
 bool
 pinos_stream_finish_format (PinosStream     *stream,
@@ -969,7 +970,7 @@ pinos_stream_finish_format (PinosStream     *stream,
  * Start capturing from @stream.
  *
  *
- * Returns: %TRUE on success.
+ * Returns: %true on success.
  */
 bool
 pinos_stream_start (PinosStream     *stream)
@@ -983,7 +984,7 @@ pinos_stream_start (PinosStream     *stream)
  *
  * Stop capturing from @stream.
  *
- * Returns: %TRUE on success.
+ * Returns: %true on success.
  */
 bool
 pinos_stream_stop (PinosStream *stream)
@@ -997,7 +998,7 @@ pinos_stream_stop (PinosStream *stream)
  *
  * Disconnect @stream.
  *
- * Returns: %TRUE on success
+ * Returns: %true on success
  */
 bool
 pinos_stream_disconnect (PinosStream *stream)
@@ -1056,7 +1057,7 @@ pinos_stream_get_empty_buffer (PinosStream *stream)
  *
  * Recycle the buffer with @id.
  *
- * Returns: %TRUE on success.
+ * Returns: %true on success.
  */
 bool
 pinos_stream_recycle_buffer (PinosStream *stream,
@@ -1110,7 +1111,7 @@ pinos_stream_peek_buffer (PinosStream *stream,
  * For provider streams, this function should be called whenever there is a new frame
  * available.
  *
- * Returns: %TRUE when @id was handled
+ * Returns: %true when @id was handled
  */
 bool
 pinos_stream_send_buffer (PinosStream     *stream,
@@ -1118,12 +1119,12 @@ pinos_stream_send_buffer (PinosStream     *stream,
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
   BufferId *bid;
-  guint i;
+  unsigned int i;
 
   if ((bid = find_buffer (stream, id))) {
     uint8_t cmd = PINOS_TRANSPORT_CMD_HAVE_DATA;
 
-    bid->used = TRUE;
+    bid->used = true;
     for (i = 0; i < bid->buf->n_datas; i++) {
       bid->datas[i].size = bid->buf->datas[i].size;
     }

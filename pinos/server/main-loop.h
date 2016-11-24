@@ -42,6 +42,9 @@ typedef void (*PinosDeferFunc) (void      *obj,
 struct _PinosMainLoop {
   PinosLoop    *loop;
 
+  PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
+                                 PinosMainLoop *loop));
+
   void         (*run)             (PinosMainLoop  *loop);
   void         (*quit)            (PinosMainLoop  *loop);
 

@@ -36,7 +36,7 @@ main (int argc, char *argv[])
   /* parse configuration */
   config = pinos_daemon_config_new ();
   if (!pinos_daemon_config_load (config, &err)) {
-    g_error ("failed to parse config: %s", err);
+    pinos_log_error ("failed to parse config: %s", err);
     free (err);
     return -1;
   }

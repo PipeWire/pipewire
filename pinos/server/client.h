@@ -28,26 +28,9 @@ extern "C" {
 #define PINOS_CLIENT_PREFIX                         PINOS_CLIENT_URI "#"
 
 typedef struct _PinosClient PinosClient;
-typedef struct _PinosResource PinosResource;
-
-typedef void  (*PinosDestroy)  (void *object);
 
 #include <pinos/server/core.h>
-
-struct _PinosResource {
-  PinosCore    *core;
-  SpaList       link;
-
-  PinosClient  *client;
-
-  uint32_t      id;
-  uint32_t      type;
-  void         *object;
-  PinosDestroy  destroy;
-
-  PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
-                                 PinosResource *resource));
-};
+#include <pinos/server/resource.h>
 
 /**
  * PinosClient:
@@ -63,6 +46,9 @@ struct _PinosClient {
 
   SpaList resource_list;
 
+  PinosSendFunc   send_func;
+  void           *send_data;
+
   PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
                                  PinosClient *client));
 };
@@ -70,14 +56,6 @@ struct _PinosClient {
 PinosClient *   pinos_client_new                  (PinosCore       *core,
                                                    PinosProperties *properties);
 SpaResult       pinos_client_destroy              (PinosClient     *client);
-
-
-PinosResource * pinos_client_add_resource         (PinosClient  *client,
-                                                   uint32_t      type,
-                                                   void         *object,
-                                                   PinosDestroy  destroy);
-
-SpaResult       pinos_resource_destroy            (PinosResource *resource);
 
 #ifdef __cplusplus
 }

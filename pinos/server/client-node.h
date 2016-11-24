@@ -39,17 +39,24 @@ typedef struct _PinosClientNode PinosClientNode;
 struct _PinosClientNode {
   PinosNode *node;
 
+  PinosClient *client;
+  PinosResource *resource;
+
   PINOS_SIGNAL (destroy_signal, (PinosListener   *listener,
                                  PinosClientNode *node));
 };
 
-PinosClientNode *  pinos_client_node_new              (PinosCore       *core,
-                                                       const gchar     *name,
+PinosClientNode *  pinos_client_node_new              (PinosClient     *client,
+                                                       uint32_t         id,
+                                                       const char      *name,
                                                        PinosProperties *properties);
 SpaResult          pinos_client_node_destroy          (PinosClientNode *node);
 
-SpaResult          pinos_client_node_get_ctrl_socket  (PinosClientNode *node, int *fd);
 SpaResult          pinos_client_node_get_data_socket  (PinosClientNode *node, int *fd);
+
+SpaResult          pinos_client_node_dispatch_message (PinosClientNode  *node,
+                                                       PinosMessageType  type,
+                                                       void             *message);
 
 #ifdef __cplusplus
 }

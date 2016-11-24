@@ -10,6 +10,7 @@ pinoscore_headers = [
   'node.h',
   'node-factory.h',
   'port.h',
+  'resource.h',
   'uri.h',
 ]
 
@@ -25,6 +26,7 @@ pinoscore_sources = [
   'node.c',
   'node-factory.c',
   'port.c',
+  'resource.c',
   'uri.c',
 ]
 

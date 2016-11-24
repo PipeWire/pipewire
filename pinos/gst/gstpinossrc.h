@@ -63,10 +63,19 @@ struct _GstPinosSrc {
   GstClockTime min_latency;
   GstClockTime max_latency;
 
-  GMainContext *context;
-  PinosThreadMainLoop *loop;
+  PinosLoop *loop;
+  PinosThreadMainLoop *main_loop;
+
   PinosContext *ctx;
+  PinosListener ctx_state_changed;
+
   PinosStream *stream;
+  PinosListener stream_state_changed;
+  PinosListener stream_format_changed;
+  PinosListener stream_add_buffer;
+  PinosListener stream_remove_buffer;
+  PinosListener stream_new_buffer;
+
   GstAllocator *fd_allocator;
   GstStructure *properties;
 

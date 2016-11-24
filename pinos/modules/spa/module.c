@@ -89,5 +89,5 @@ pinos__module_init (PinosModule * module, const char * args)
                        "videotestsrc",
                        video_props);
 
-  return TRUE;
+  return true;
 }

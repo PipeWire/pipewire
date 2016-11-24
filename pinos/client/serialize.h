@@ -48,6 +48,11 @@ size_t          pinos_serialize_props_serialize       (void *dest, const SpaProp
 SpaProps *      pinos_serialize_props_deserialize     (void *src, off_t offset);
 SpaProps *      pinos_serialize_props_copy_into       (void *dest, const SpaProps *props);
 
+size_t          pinos_serialize_dict_get_size         (const SpaDict *dict);
+size_t          pinos_serialize_dict_serialize        (void *dest, const SpaDict *dict);
+SpaDict *       pinos_serialize_dict_deserialize      (void *src, off_t offset);
+SpaDict *       pinos_serialize_dict_copy_into        (void *dest, const SpaDict *dict);
+
 #ifdef __cplusplus
 }
 #endif

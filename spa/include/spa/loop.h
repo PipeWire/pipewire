@@ -119,7 +119,7 @@ struct _SpaLoopControl {
 };
 
 #define spa_loop_control_get_fd(l)             (l)->get_fd(l)
-#define spa_loop_control_set_hooks(l,...)      (l)->set_hook((l),__VA_ARGS__)
+#define spa_loop_control_set_hooks(l,...)      (l)->set_hooks((l),__VA_ARGS__)
 #define spa_loop_control_enter(l)              (l)->enter(l)
 #define spa_loop_control_iterate(l,...)        (l)->iterate((l),__VA_ARGS__)
 #define spa_loop_control_leave(l)              (l)->leave(l)

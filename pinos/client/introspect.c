@@ -22,269 +22,7 @@
 #include "pinos/client/pinos.h"
 
 #include "pinos/client/context.h"
-#include "pinos/client/enumtypes.h"
 #include "pinos/client/subscribe.h"
-
-#include "pinos/client/private.h"
-
-/**
- * pinos_context_info_finish:
- * @object: a #GObject
- * @res: a #GAsyncResult
- * @error: location to place an error
- *
- * Call this function in the introspection GAsyncReadyCallback function
- * to get the final result of the operation.
- *
- * Returns: %TRUE if the lookup was successful. If %FALSE is returned, @error
- * will contain more details.
- */
-gboolean
-pinos_context_info_finish (GObject      *object,
-                           GAsyncResult *res,
-                           GError      **error)
-{
-  g_return_val_if_fail (g_task_is_valid (res, object), FALSE);
-
-  return g_task_propagate_boolean (G_TASK (res), error);
-}
-
-#define SET_STRING(name, field, idx)                                                    \
-G_STMT_START {                                                                          \
-  GVariant *variant;                                                                    \
-  if (!changed || g_hash_table_contains (changed, name))                                \
-    info->change_mask |= 1 << idx;                                                      \
-  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), name))) {      \
-    info->field = g_variant_get_string (variant, NULL);                                 \
-    g_variant_unref (variant);                                                          \
-  } else {                                                                              \
-    info->field = "Unknown";                                                            \
-  }                                                                                     \
-} G_STMT_END
-
-#define SET_UINT32(name, field, idx, def)                                               \
-G_STMT_START {                                                                          \
-  GVariant *variant;                                                                    \
-  if (!changed || g_hash_table_contains (changed, name))                                \
-    info->change_mask |= 1 << idx;                                                      \
-  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), name))) {      \
-    info->field = g_variant_get_uint32 (variant);                                       \
-    g_variant_unref (variant);                                                          \
-  } else {                                                                              \
-    info->field = def;                                                                  \
-  }                                                                                     \
-} G_STMT_END
-
-#define SET_PROPERTIES(name, field, idx)                                                \
-G_STMT_START {                                                                          \
-  GVariant *variant;                                                                    \
-  if (!changed || g_hash_table_contains (changed, name))                                \
-    info->change_mask |= 1 << idx;                                                      \
-  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), name))) {      \
-    info->field = pinos_properties_from_variant (variant);                              \
-    g_variant_unref (variant);                                                          \
-  } else {                                                                              \
-    info->field = NULL;                                                                 \
-  }                                                                                     \
-} G_STMT_END
-
-#define SET_BYTES(name, field, idx)                                                     \
-G_STMT_START {                                                                          \
-  GVariant *variant;                                                                    \
-  if (!changed || g_hash_table_contains (changed, name))                                \
-    info->change_mask |= 1 << idx;                                                      \
-  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), name))) {      \
-    gsize len;                                                                          \
-    gchar *bytes = g_variant_dup_string (variant, &len);                                \
-    info->field = g_bytes_new_take (bytes, len +1);                                     \
-    g_variant_unref (variant);                                                          \
-  } else {                                                                              \
-    info->field = NULL;                                                                 \
-  }                                                                                     \
-} G_STMT_END
-
-#define SET_OBJV(name, field, idx)                                                      \
-G_STMT_START {                                                                          \
-  GVariant *variant;                                                                    \
-  if (!changed || g_hash_table_contains (changed, name))                                \
-    info->change_mask |= 1 << idx;                                                      \
-  if ((variant = g_dbus_proxy_get_cached_property (G_DBUS_PROXY (proxy), name))) {      \
-    info->field = g_variant_dup_objv (variant, NULL);                                   \
-    g_variant_unref (variant);                                                          \
-  } else {                                                                              \
-    info->field = NULL;                                                                 \
-  }                                                                                     \
-} G_STMT_END
-
-static void
-daemon_fill_info (PinosDaemonInfo *info, GDBusProxy *proxy)
-{
-  GHashTable *changed = g_object_get_data (G_OBJECT (proxy), "pinos-changed-properties");
-
-  info->id = proxy;
-  info->daemon_path = g_dbus_proxy_get_object_path (proxy);
-
-  info->change_mask = 0;
-  SET_STRING ("UserName", user_name, 0);
-  SET_STRING ("HostName", host_name, 1);
-  SET_STRING ("Version", version, 2);
-  SET_STRING ("Name", name, 3);
-  SET_UINT32 ("Cookie", cookie, 4, 0);
-  SET_PROPERTIES ("Properties", properties, 5);
-
-  if (changed)
-    g_hash_table_remove_all (changed);
-}
-
-static void
-daemon_clear_info (PinosDaemonInfo *info)
-{
-  if (info->properties)
-    pinos_properties_free (info->properties);
-}
-
-/**
- * pinos_context_get_daemon_info:
- * @context: a #PinosContext
- * @flags: extra flags
- * @cb: a callback
- * @cancelable: a #GCancellable
- * @callback: a #GAsyncReadyCallback to call when the operation is finished
- * @user_data: user data passed to @cb
- *
- * Get the information of the daemon @context is connected to.
- */
-void
-pinos_context_get_daemon_info (PinosContext *context,
-                               PinosDaemonInfoFlags flags,
-                               PinosDaemonInfoCallback cb,
-                               GCancellable *cancellable,
-                               GAsyncReadyCallback callback,
-                               gpointer user_data)
-{
-  PinosDaemonInfo info;
-  GTask *task;
-
-  g_return_if_fail (PINOS_IS_CONTEXT (context));
-  g_return_if_fail (cb != NULL);
-
-  task = g_task_new (context, cancellable, callback, user_data);
-
-  daemon_fill_info (&info, context->priv->daemon);
-  cb (context, &info, user_data);
-  daemon_clear_info (&info);
-
-  g_task_return_boolean (task, TRUE);
-  g_object_unref (task);
-}
-
-static void
-client_fill_info (PinosClientInfo *info, GDBusProxy *proxy)
-{
-  GHashTable *changed = g_object_get_data (G_OBJECT (proxy), "pinos-changed-properties");
-
-  info->id = proxy;
-  info->client_path = g_dbus_proxy_get_object_path (proxy);
-  SET_STRING ("Sender", sender, 0);
-
-  info->change_mask = 0;
-  SET_PROPERTIES ("Properties", properties, 0);
-
-  if (changed)
-    g_hash_table_remove_all (changed);
-}
-
-static void
-client_clear_info (PinosClientInfo *info)
-{
-  if (info->properties)
-    pinos_properties_free (info->properties);
-}
-
-
-/**
- * pinos_context_list_client_info:
- * @context: a connected #PinosContext
- * @flags: extra #PinosClientInfoFlags
- * @cb: a #PinosClientInfoCallback
- * @cancelable: a #GCancellable
- * @callback: a #GAsyncReadyCallback to call when the operation is finished
- * @user_data: user data passed to @cb
- *
- * Call @cb for each client.
- */
-void
-pinos_context_list_client_info (PinosContext *context,
-                                PinosClientInfoFlags flags,
-                                PinosClientInfoCallback cb,
-                                GCancellable *cancellable,
-                                GAsyncReadyCallback callback,
-                                gpointer user_data)
-{
-  PinosContextPrivate *priv;
-  GList *walk;
-  GTask *task;
-
-  g_return_if_fail (PINOS_IS_CONTEXT (context));
-  g_return_if_fail (cb != NULL);
-
-  task = g_task_new (context, cancellable, callback, user_data);
-
-  priv = context->priv;
-
-  for (walk = priv->clients; walk; walk = g_list_next (walk)) {
-    GDBusProxy *proxy = walk->data;
-    PinosClientInfo info;
-
-    client_fill_info (&info, proxy);
-    cb (context, &info, user_data);
-    client_clear_info (&info);
-  }
-
-  g_task_return_boolean (task, TRUE);
-  g_object_unref (task);
-}
-
-/**
- * pinos_context_get_client_info_by_id:
- * @context: a connected #PinosContext
- * @id: a client id
- * @flags: extra #PinosClientInfoFlags
- * @cb: a #PinosClientInfoCallback
- * @cancelable: a #GCancellable
- * @callback: a #GAsyncReadyCallback to call when the operation is finished
- * @user_data: user data passed to @cb
- *
- * Call @cb for the client with @id.
- */
-void
-pinos_context_get_client_info_by_id (PinosContext *context,
-                                     gpointer id,
-                                     PinosClientInfoFlags flags,
-                                     PinosClientInfoCallback cb,
-                                     GCancellable *cancellable,
-                                     GAsyncReadyCallback callback,
-                                     gpointer user_data)
-{
-  PinosClientInfo info;
-  GDBusProxy *proxy;
-  GTask *task;
-
-  g_return_if_fail (PINOS_IS_CONTEXT (context));
-  g_return_if_fail (id != NULL);
-  g_return_if_fail (cb != NULL);
-
-  task = g_task_new (context, cancellable, callback, user_data);
-
-  proxy = G_DBUS_PROXY (id);
-
-  client_fill_info (&info, proxy);
-  cb (context, &info, user_data);
-  client_clear_info (&info);
-
-  g_task_return_boolean (task, TRUE);
-  g_object_unref (task);
-}
 
 /**
  * pinos_node_state_as_string:
@@ -294,124 +32,24 @@ pinos_context_get_client_info_by_id (PinosContext *context,
  *
  * Returns: the string representation of @state.
  */
-const gchar *
+const char *
 pinos_node_state_as_string (PinosNodeState state)
 {
-  GEnumValue *val;
-
-  val = g_enum_get_value (G_ENUM_CLASS (g_type_class_ref (PINOS_TYPE_NODE_STATE)),
-                          state);
-
-  return val == NULL ? "invalid-state" : val->value_nick;
-}
-
-static void
-node_fill_info (PinosNodeInfo *info, GDBusProxy *proxy)
-{
-  GHashTable *changed = g_object_get_data (G_OBJECT (proxy), "pinos-changed-properties");
-
-  info->id = proxy;
-  info->node_path = g_dbus_proxy_get_object_path (proxy);
-  SET_STRING ("Owner", owner, 0);
-
-  info->change_mask = 0;
-  SET_STRING ("Name", name, 0);
-  SET_PROPERTIES ("Properties", properties, 1);
-  SET_UINT32 ("State", state, 2, PINOS_NODE_STATE_ERROR);
-
-  if (changed)
-    g_hash_table_remove_all (changed);
-}
-
-static void
-node_clear_info (PinosNodeInfo *info)
-{
-  if (info->properties)
-    pinos_properties_free (info->properties);
-}
-
-/**
- * pinos_context_list_node_info:
- * @context: a connected #PinosContext
- * @flags: extra #PinosNodeInfoFlags
- * @cb: a #PinosNodeInfoCallback
- * @cancelable: a #GCancellable
- * @callback: a #GAsyncReadyCallback to call when the operation is finished
- * @user_data: user data passed to @cb
- *
- * Call @cb for each node.
- */
-void
-pinos_context_list_node_info (PinosContext          *context,
-                              PinosNodeInfoFlags     flags,
-                              PinosNodeInfoCallback  cb,
-                              GCancellable          *cancellable,
-                              GAsyncReadyCallback    callback,
-                              gpointer               user_data)
-{
-  PinosContextPrivate *priv;
-  GList *walk;
-  GTask *task;
-
-  g_return_if_fail (PINOS_IS_CONTEXT (context));
-  g_return_if_fail (cb != NULL);
-
-  task = g_task_new (context, cancellable, callback, user_data);
-
-  priv = context->priv;
-
-  for (walk = priv->nodes; walk; walk = g_list_next (walk)) {
-    GDBusProxy *proxy = walk->data;
-    PinosNodeInfo info;
-
-    node_fill_info (&info, proxy);
-    cb (context, &info, user_data);
-    node_clear_info (&info);
+  switch (state) {
+    case PINOS_NODE_STATE_ERROR:
+      return "error";
+    case PINOS_NODE_STATE_CREATING:
+      return "creating";
+    case PINOS_NODE_STATE_SUSPENDED:
+      return "suspended";
+    case PINOS_NODE_STATE_INITIALIZING:
+      return "initializing";
+    case PINOS_NODE_STATE_IDLE:
+      return "idle";
+    case PINOS_NODE_STATE_RUNNING:
+      return "running";
   }
-
-  g_task_return_boolean (task, TRUE);
-  g_object_unref (task);
-}
-
-/**
- * pinos_context_get_node_info_by_id:
- * @context: a connected #PinosContext
- * @id: a node id
- * @flags: extra #PinosNodeInfoFlags
- * @cb: a #PinosNodeInfoCallback
- * @cancelable: a #GCancellable
- * @callback: a #GAsyncReadyCallback to call when the operation is finished
- * @user_data: user data passed to @cb
- *
- * Call @cb for the node with @id.
- */
-void
-pinos_context_get_node_info_by_id (PinosContext *context,
-                                   gpointer id,
-                                   PinosNodeInfoFlags flags,
-                                   PinosNodeInfoCallback cb,
-                                   GCancellable *cancellable,
-                                   GAsyncReadyCallback callback,
-                                   gpointer user_data)
-{
-  PinosNodeInfo info;
-  GDBusProxy *proxy;
-  GTask *task;
-
-  g_return_if_fail (PINOS_IS_CONTEXT (context));
-  g_return_if_fail (id != NULL);
-  g_return_if_fail (cb != NULL);
-
-  task = g_task_new (context, cancellable, callback, user_data);
-
-  proxy = G_DBUS_PROXY (id);
-
-  node_fill_info (&info, proxy);
-  cb (context, &info, user_data);
-  node_clear_info (&info);
-
-  g_task_return_boolean (task, TRUE);
-  g_object_unref (task);
+  return "invalid-state";
 }
 
 /**
@@ -422,15 +60,18 @@ pinos_context_get_node_info_by_id (PinosContext *context,
  *
  * Returns: the string representation of @direction.
  */
-const gchar *
+const char *
 pinos_direction_as_string (PinosDirection direction)
 {
-  GEnumValue *val;
-
-  val = g_enum_get_value (G_ENUM_CLASS (g_type_class_ref (PINOS_TYPE_DIRECTION)),
-                          direction);
-
-  return val == NULL ? "invalid-direction" : val->value_nick;
+  switch (direction) {
+    case PINOS_DIRECTION_INVALID:
+      return "invalid";
+    case PINOS_DIRECTION_INPUT:
+      return "input";
+    case PINOS_DIRECTION_OUTPUT:
+      return "output";
+  }
+  return "invalid-direction";
 }
 
 /**
@@ -441,121 +82,24 @@ pinos_direction_as_string (PinosDirection direction)
  *
  * Returns: the string representation of @state.
  */
-const gchar *
+const char *
 pinos_link_state_as_string (PinosLinkState state)
 {
-  GEnumValue *val;
-
-  val = g_enum_get_value (G_ENUM_CLASS (g_type_class_ref (PINOS_TYPE_LINK_STATE)),
-                          state);
-
-  return val == NULL ? "invalid-state" : val->value_nick;
-}
-
-
-static void
-link_fill_info (PinosLinkInfo *info, GDBusProxy *proxy)
-{
-  GHashTable *changed = g_object_get_data (G_OBJECT (proxy), "pinos-changed-properties");
-
-  info->id = proxy;
-  info->link_path = g_dbus_proxy_get_object_path (proxy);
-
-  info->change_mask = 0;
-  SET_STRING ("OutputNode", output_node_path, 0);
-  SET_UINT32 ("OutputPort", output_port, 1, -1);
-  SET_STRING ("InputNode", input_node_path, 2);
-  SET_UINT32 ("InputPort", input_port, 3, -1);
-
-  if (changed)
-    g_hash_table_remove_all (changed);
-}
-
-static void
-link_clear_info (PinosLinkInfo *info)
-{
-}
-
-/**
- * pinos_context_list_link_info:
- * @context: a connected #PinosContext
- * @flags: extra #PinosLinkInfoFlags
- * @cb: a #PinosLinkInfoCallback
- * @cancelable: a #GCancellable
- * @callback: a #GAsyncReadyCallback to call when the operation is finished
- * @user_data: user data passed to @cb
- *
- * Call @cb for each link.
- */
-void
-pinos_context_list_link_info (PinosContext *context,
-                              PinosLinkInfoFlags flags,
-                              PinosLinkInfoCallback cb,
-                              GCancellable *cancellable,
-                              GAsyncReadyCallback callback,
-                              gpointer user_data)
-{
-  PinosContextPrivate *priv;
-  GList *walk;
-  GTask *task;
-
-  g_return_if_fail (PINOS_IS_CONTEXT (context));
-  g_return_if_fail (cb != NULL);
-
-  task = g_task_new (context, cancellable, callback, user_data);
-
-  priv = context->priv;
-
-  for (walk = priv->links; walk; walk = g_list_next (walk)) {
-    GDBusProxy *proxy = walk->data;
-    PinosLinkInfo info;
-
-    link_fill_info (&info, proxy);
-    cb (context, &info, user_data);
-    link_clear_info (&info);
+  switch (state) {
+    case PINOS_LINK_STATE_ERROR:
+      return "error";
+    case PINOS_LINK_STATE_UNLINKED:
+      return "unlinked";
+    case PINOS_LINK_STATE_INIT:
+      return "init";
+    case PINOS_LINK_STATE_NEGOTIATING:
+      return "negotiating";
+    case PINOS_LINK_STATE_ALLOCATING:
+      return "allocating";
+    case PINOS_LINK_STATE_PAUSED:
+      return "paused";
+    case PINOS_LINK_STATE_RUNNING:
+      return "running";
   }
-
-  g_task_return_boolean (task, TRUE);
-  g_object_unref (task);
-}
-
-/**
- * pinos_context_get_link_info_by_id:
- * @context: a connected #PinosContext
- * @id: a link id
- * @flags: extra #PinosLinkInfoFlags
- * @cb: a #PinosLinkInfoCallback
- * @cancelable: a #GCancellable
- * @callback: a #GAsyncReadyCallback to call when the operation is finished
- * @user_data: user data passed to @cb
- *
- * Call @cb for the link with @id.
- */
-void
-pinos_context_get_link_info_by_id (PinosContext *context,
-                                   gpointer id,
-                                   PinosLinkInfoFlags flags,
-                                   PinosLinkInfoCallback cb,
-                                   GCancellable *cancellable,
-                                   GAsyncReadyCallback callback,
-                                   gpointer user_data)
-{
-  PinosLinkInfo info;
-  GDBusProxy *proxy;
-  GTask *task;
-
-  g_return_if_fail (PINOS_IS_CONTEXT (context));
-  g_return_if_fail (id != NULL);
-  g_return_if_fail (cb != NULL);
-
-  task = g_task_new (context, cancellable, callback, user_data);
-
-  proxy = G_DBUS_PROXY (id);
-
-  link_fill_info (&info, proxy);
-  cb (context, &info, user_data);
-  link_clear_info (&info);
-
-  g_task_return_boolean (task, TRUE);
-  g_object_unref (task);
+  return "invalid-state";
 }

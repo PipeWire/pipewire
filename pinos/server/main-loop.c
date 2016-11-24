@@ -95,9 +95,21 @@ do_add_source (SpaLoop   *loop,
   GIOChannel *channel;
   GSource *s;
   LoopData *data;
+  GIOCondition cond;
 
   channel = g_io_channel_unix_new (source->fd);
-  s = g_io_create_watch (channel, G_IO_IN);
+
+  cond = 0;
+  if (source->mask & SPA_IO_IN)
+    cond |= G_IO_IN;
+  if (source->mask & SPA_IO_OUT)
+    cond |= G_IO_OUT;
+  if (source->mask & SPA_IO_ERR)
+    cond |= G_IO_ERR;
+  if (source->mask & SPA_IO_HUP)
+    cond |= G_IO_HUP;
+
+  s = g_io_create_watch (channel, cond);
   g_io_channel_unref (channel);
 
   data = g_new0 (LoopData, 1);

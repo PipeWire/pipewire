@@ -20,28 +20,16 @@
 #ifndef __PINOS_STREAM_H__
 #define __PINOS_STREAM_H__
 
-#include <glib-object.h>
-
 #include <spa/include/spa/buffer.h>
 #include <spa/include/spa/format.h>
 
 #include <pinos/client/context.h>
 
-
-G_BEGIN_DECLS
-
-#define PINOS_TYPE_STREAM                 (pinos_stream_get_type ())
-#define PINOS_IS_STREAM(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_STREAM))
-#define PINOS_IS_STREAM_CLASS(klass)      (G_TYPE_CHECK_CLASS_TYPE ((klass), PINOS_TYPE_STREAM))
-#define PINOS_STREAM_GET_CLASS(obj)       (G_TYPE_INSTANCE_GET_CLASS ((obj), PINOS_TYPE_STREAM, PinosStreamClass))
-#define PINOS_STREAM(obj)                 (G_TYPE_CHECK_INSTANCE_CAST ((obj), PINOS_TYPE_STREAM, PinosStream))
-#define PINOS_STREAM_CLASS(klass)         (G_TYPE_CHECK_CLASS_CAST ((klass), PINOS_TYPE_STREAM, PinosStreamClass))
-#define PINOS_STREAM_CAST(obj)            ((PinosStream*)(obj))
-#define PINOS_STREAM_CLASS_CAST(klass)    ((PinosStreamClass*)(klass))
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct _PinosStream PinosStream;
-typedef struct _PinosStreamClass PinosStreamClass;
-typedef struct _PinosStreamPrivate PinosStreamPrivate;
 
 typedef enum {
   PINOS_STREAM_STATE_ERROR       = -1,
@@ -53,7 +41,7 @@ typedef enum {
   PINOS_STREAM_STATE_STREAMING   = 5
 } PinosStreamState;
 
-const gchar * pinos_stream_state_as_string (PinosStreamState state);
+const char * pinos_stream_state_as_string (PinosStreamState state);
 
 typedef enum {
   PINOS_STREAM_FLAG_NONE = 0,
@@ -66,8 +54,8 @@ typedef enum {
 } PinosStreamMode;
 
 typedef struct {
-  gint64 ticks;
-  gint32 rate;
+  int64_t ticks;
+  int32_t rate;
 } PinosTime;
 
 /**
@@ -76,57 +64,71 @@ typedef struct {
  * Pinos stream object class.
  */
 struct _PinosStream {
-  GObject object;
+  PinosContext    *context;
+  SpaList          link;
 
-  PinosStreamPrivate *priv;
+  char            *name;
+  PinosProperties *properties;
+
+  PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
+                                 PinosStream   *stream));
+
+  PinosStreamState state;
+  char            *error;
+  PINOS_SIGNAL (state_changed, (PinosListener *listener,
+                                PinosStream   *stream));
+
+  PINOS_SIGNAL (format_changed, (PinosListener *listener,
+                                 PinosStream   *stream,
+                                 SpaFormat     *format));
+
+  PINOS_SIGNAL (add_buffer,    (PinosListener *listener,
+                                PinosStream   *stream,
+                                uint32_t       id));
+  PINOS_SIGNAL (remove_buffer, (PinosListener *listener,
+                                PinosStream   *stream,
+                                uint32_t       id));
+  PINOS_SIGNAL (new_buffer,    (PinosListener *listener,
+                                PinosStream   *stream,
+                                uint32_t       id));
 };
-
-/**
- * PinosStreamClass:
- *
- * Pinos stream object class.
- */
-struct _PinosStreamClass {
-  GObjectClass parent_class;
-};
-
-/* normal GObject stuff */
-GType            pinos_stream_get_type          (void);
-
 
 PinosStream *    pinos_stream_new               (PinosContext    *context,
-                                                 const gchar     *name,
+                                                 const char      *name,
                                                  PinosProperties *props);
+void             pinos_stream_destroy           (PinosStream     *stream);
 
-PinosStreamState pinos_stream_get_state         (PinosStream *stream);
-const GError *   pinos_stream_get_error         (PinosStream *stream);
-
-gboolean         pinos_stream_connect           (PinosStream      *stream,
+bool             pinos_stream_connect           (PinosStream      *stream,
                                                  PinosDirection    direction,
                                                  PinosStreamMode   mode,
-                                                 const gchar      *port_path,
+                                                 const char       *port_path,
                                                  PinosStreamFlags  flags,
-                                                 GPtrArray        *possible_formats);
-gboolean         pinos_stream_disconnect        (PinosStream      *stream);
+                                                 unsigned int      n_possible_formats,
+                                                 SpaFormat       **possible_formats);
+bool             pinos_stream_disconnect        (PinosStream      *stream);
 
-gboolean         pinos_stream_finish_format     (PinosStream     *stream,
+bool             pinos_stream_finish_format     (PinosStream     *stream,
                                                  SpaResult        res,
                                                  SpaAllocParam  **params,
                                                  unsigned int     n_params);
 
-gboolean         pinos_stream_start             (PinosStream     *stream);
-gboolean         pinos_stream_stop              (PinosStream     *stream);
 
-gboolean         pinos_stream_get_time          (PinosStream     *stream,
+
+bool             pinos_stream_start             (PinosStream     *stream);
+bool             pinos_stream_stop              (PinosStream     *stream);
+
+bool             pinos_stream_get_time          (PinosStream     *stream,
                                                  PinosTime       *time);
 
-guint            pinos_stream_get_empty_buffer  (PinosStream     *stream);
-gboolean         pinos_stream_recycle_buffer    (PinosStream     *stream,
-                                                 guint            id);
+uint32_t         pinos_stream_get_empty_buffer  (PinosStream     *stream);
+bool             pinos_stream_recycle_buffer    (PinosStream     *stream,
+                                                 uint32_t         id);
 SpaBuffer *      pinos_stream_peek_buffer       (PinosStream     *stream,
-                                                 guint            id);
-gboolean         pinos_stream_send_buffer       (PinosStream     *stream,
-                                                 guint            id);
-G_END_DECLS
+                                                 uint32_t         id);
+bool             pinos_stream_send_buffer       (PinosStream     *stream,
+                                                 uint32_t         id);
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __PINOS_STREAM_H__ */

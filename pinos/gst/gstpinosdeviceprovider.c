@@ -39,19 +39,18 @@ G_DEFINE_TYPE (GstPinosDevice, gst_pinos_device, GST_TYPE_DEVICE);
 
 enum
 {
-  PROP_PATH = 1,
+  PROP_ID = 1,
 };
 
 static GstDevice *
-gst_pinos_device_new (gpointer id, const gchar * device_name,
-    GstCaps * caps, const gchar * path, const gchar *klass,
+gst_pinos_device_new (uint32_t id, const gchar * device_name,
+    GstCaps * caps, const gchar *klass,
     GstPinosDeviceType type, GstStructure *props)
 {
   GstPinosDevice *gstdev;
   const gchar *element = NULL;
 
   g_return_val_if_fail (device_name, NULL);
-  g_return_val_if_fail (path, NULL);
   g_return_val_if_fail (caps, NULL);
 
   switch (type) {
@@ -68,7 +67,7 @@ gst_pinos_device_new (gpointer id, const gchar * device_name,
 
   gstdev = g_object_new (GST_TYPE_PINOS_DEVICE,
       "display-name", device_name, "caps", caps, "device-class", klass,
-      "path", path, "properties", props, NULL);
+      "id", id, "properties", props, NULL);
 
   gstdev->id = id;
   gstdev->type = type;
@@ -84,7 +83,7 @@ gst_pinos_device_create_element (GstDevice * device, const gchar * name)
   GstElement *elem;
 
   elem = gst_element_factory_make (pinos_dev->element, name);
-  g_object_set (elem, "path", pinos_dev->path, NULL);
+  g_object_set (elem, "path", pinos_dev->id, NULL);
 
   return elem;
 }
@@ -104,7 +103,7 @@ gst_pinos_device_reconfigure_element (GstDevice * device, GstElement * element)
     g_assert_not_reached ();
   }
 
-  g_object_set (element, "path", pinos_dev->path, NULL);
+  g_object_set (element, "path", pinos_dev->id, NULL);
 
   return TRUE;
 }
@@ -119,8 +118,8 @@ gst_pinos_device_get_property (GObject * object, guint prop_id,
   device = GST_PINOS_DEVICE_CAST (object);
 
   switch (prop_id) {
-    case PROP_PATH:
-      g_value_set_string (value, device->path);
+    case PROP_ID:
+      g_value_set_uint (value, device->id);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -137,8 +136,8 @@ gst_pinos_device_set_property (GObject * object, guint prop_id,
   device = GST_PINOS_DEVICE_CAST (object);
 
   switch (prop_id) {
-    case PROP_PATH:
-      device->path = g_value_dup_string (value);
+    case PROP_ID:
+      device->id = g_value_get_uint (value);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -149,10 +148,6 @@ gst_pinos_device_set_property (GObject * object, guint prop_id,
 static void
 gst_pinos_device_finalize (GObject * object)
 {
-  GstPinosDevice *device = GST_PINOS_DEVICE (object);
-
-  g_free (device->path);
-
   G_OBJECT_CLASS (gst_pinos_device_parent_class)->finalize (object);
 }
 
@@ -169,9 +164,9 @@ gst_pinos_device_class_init (GstPinosDeviceClass * klass)
   object_class->set_property = gst_pinos_device_set_property;
   object_class->finalize = gst_pinos_device_finalize;
 
-  g_object_class_install_property (object_class, PROP_PATH,
-      g_param_spec_string ("path", "Path",
-          "The internal path of the Pinos device", "",
+  g_object_class_install_property (object_class, PROP_ID,
+      g_param_spec_uint ("id", "Id",
+          "The internal id of the Pinos device", 0, G_MAXUINT32, SPA_ID_INVALID,
           G_PARAM_STATIC_STRINGS | G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
 }
 
@@ -225,7 +220,6 @@ new_node (const PinosNodeInfo *info)
   return gst_pinos_device_new (info->id,
                                info->name,
                                caps,
-                               info->node_path,
                                klass,
                                GST_PINOS_DEVICE_TYPE_SOURCE,
                                props);
@@ -233,19 +227,22 @@ new_node (const PinosNodeInfo *info)
 
 static void
 get_node_info_cb (PinosContext        *context,
+                  SpaResult            res,
                   const PinosNodeInfo *info,
                   gpointer             user_data)
 {
   GstPinosDeviceProvider *self = user_data;
-  GstDevice *dev;
 
-  dev = new_node (info);
-  if (dev)
-    gst_device_provider_device_add (GST_DEVICE_PROVIDER (self), dev);
+  if (info) {
+    GstDevice *dev;
+    dev = new_node (info);
+    if (dev)
+      gst_device_provider_device_add (GST_DEVICE_PROVIDER (self), dev);
+  }
 }
 
 static GstPinosDevice *
-find_device (GstDeviceProvider *provider, gpointer id)
+find_device (GstDeviceProvider *provider, uint32_t id)
 {
   GList *item;
   GstPinosDevice *dev = NULL;
@@ -266,10 +263,10 @@ find_device (GstDeviceProvider *provider, gpointer id)
 
 static void
 context_subscribe_cb (PinosContext           *context,
-                      PinosSubscriptionEvent  type,
                       PinosSubscriptionFlags  flags,
-                      gpointer                id,
-                      gpointer                user_data)
+                      PinosSubscriptionEvent  type,
+                      uint32_t                id,
+                      void                   *user_data)
 {
   GstPinosDeviceProvider *self = user_data;
   GstDeviceProvider *provider = user_data;
@@ -284,10 +281,7 @@ context_subscribe_cb (PinosContext           *context,
     if (flags == PINOS_SUBSCRIPTION_FLAG_NODE && dev == NULL)
       pinos_context_get_node_info_by_id (context,
                                          id,
-                                         PINOS_NODE_INFO_FLAGS_NONE,
                                          get_node_info_cb,
-                                         NULL,
-                                         NULL,
                                          self);
   } else if (type == PINOS_SUBSCRIPTION_EVENT_REMOVE) {
     if (flags == PINOS_SUBSCRIPTION_FLAG_NODE && dev != NULL) {
@@ -306,31 +300,23 @@ typedef struct {
 
 static void
 list_node_info_cb (PinosContext        *c,
+                   SpaResult            res,
                    const PinosNodeInfo *info,
-                   gpointer             user_data)
+                   void                *user_data)
 {
   InfoData *data = user_data;
-
-  *data->devices = g_list_prepend (*data->devices, gst_object_ref_sink (new_node (info)));
-}
-
-static void
-list_node_info_end_cb (GObject *source_object,
-                       GAsyncResult *res,
-                       gpointer user_data)
-{
-  InfoData *data = user_data;
-  GError *error = NULL;
-
-  if (!pinos_context_info_finish (source_object, res, &error)) {
-    GST_WARNING_OBJECT (source_object, "failed to list nodes: %s", error->message);
-    g_clear_error (&error);
+  if (info) {
+    *data->devices = g_list_prepend (*data->devices, gst_object_ref_sink (new_node (info)));
+  } else {
+    data->end = TRUE;
   }
-  data->end = TRUE;
 }
 
 static void
-get_daemon_info_cb (PinosContext *c, const PinosDaemonInfo *info, gpointer user_data)
+get_daemon_info_cb (PinosContext          *c,
+                    SpaResult              res,
+                    const PinosDaemonInfo *info,
+                    void                  *user_data)
 {
   GstDeviceProvider *provider = user_data;
   const gchar *value;
@@ -353,30 +339,27 @@ static GList *
 gst_pinos_device_provider_probe (GstDeviceProvider * provider)
 {
   GstPinosDeviceProvider *self = GST_PINOS_DEVICE_PROVIDER (provider);
-  GMainContext *m = NULL;
+  PinosLoop *l = NULL;
   PinosContext *c = NULL;
   InfoData data;
 
   GST_DEBUG_OBJECT (self, "starting probe");
 
-  if (!(m = g_main_context_new ()))
+  if (!(l = pinos_loop_new ()))
     return NULL;
 
-  if (!(c = pinos_context_new (m, self->client_name, NULL)))
+  if (!(c = pinos_context_new (l, self->client_name, NULL)))
     goto failed;
 
-  g_main_context_push_thread_default (m);
-
-  pinos_context_connect (c, PINOS_CONTEXT_FLAGS_NONE);
+  pinos_context_connect (c);
 
   for (;;) {
     PinosContextState state;
 
-    state = pinos_context_get_state (c);
+    state = c->state;
 
     if (state <= 0) {
-      GST_ERROR_OBJECT (self, "Failed to connect: %s",
-          pinos_context_get_error (c)->message);
+      GST_ERROR_OBJECT (self, "Failed to connect: %s", c->error);
       goto failed;
     }
 
@@ -384,59 +367,47 @@ gst_pinos_device_provider_probe (GstDeviceProvider * provider)
       break;
 
     /* Wait until something happens */
-    g_main_context_iteration (m, TRUE);
+    pinos_loop_iterate (l, -1);
   }
   GST_DEBUG_OBJECT (self, "connected");
 
   pinos_context_get_daemon_info (c,
-                                 PINOS_DAEMON_INFO_FLAGS_NONE,
                                  get_daemon_info_cb,
-                                 NULL,
-                                 NULL,
                                  self);
 
 
   data.end = FALSE;
   data.devices = NULL;
   pinos_context_list_node_info (c,
-                                PINOS_NODE_INFO_FLAGS_NONE,
                                 list_node_info_cb,
-                                NULL,
-                                list_node_info_end_cb,
                                 &data);
   for (;;) {
-    if (pinos_context_get_state (c) <= 0)
+    if (c->state <= 0)
       break;
     if (data.end)
       break;
-    g_main_context_iteration (m, TRUE);
+    pinos_loop_iterate (l, -1);
   }
 
   pinos_context_disconnect (c);
-  g_clear_object (&c);
-
-  g_main_context_pop_thread_default (m);
-  g_main_context_unref (m);
+  pinos_context_destroy (c);
+  pinos_loop_destroy (l);
 
   return *data.devices;
 
 failed:
-  g_main_context_pop_thread_default (m);
-  g_main_context_unref (m);
-
+  pinos_loop_destroy (l);
   return NULL;
 }
 
 static void
-context_state_notify (GObject    *gobject,
-                      GParamSpec *pspec,
-                      gpointer    user_data)
+on_context_state_changed (PinosListener *listener,
+                          PinosContext  *context)
 {
-  GstPinosDeviceProvider *self = user_data;
-  PinosContext *context = PINOS_CONTEXT (gobject);
+  GstPinosDeviceProvider *self = SPA_CONTAINER_OF (listener, GstPinosDeviceProvider, ctx_state_changed);
   PinosContextState state;
 
-  state= pinos_context_get_state (context);
+  state= context->state;
 
   GST_DEBUG ("got context state %d", state);
 
@@ -447,67 +418,53 @@ context_state_notify (GObject    *gobject,
     case PINOS_CONTEXT_STATE_CONNECTED:
       break;
     case PINOS_CONTEXT_STATE_ERROR:
-      GST_ERROR_OBJECT (self, "context error: %s",
-            pinos_context_get_error (context)->message);
+      GST_ERROR_OBJECT (self, "context error: %s", context->error);
       break;
   }
-  pinos_thread_main_loop_signal (self->loop, FALSE);
+  pinos_thread_main_loop_signal (self->main_loop, FALSE);
 }
 
 static gboolean
 gst_pinos_device_provider_start (GstDeviceProvider * provider)
 {
   GstPinosDeviceProvider *self = GST_PINOS_DEVICE_PROVIDER (provider);
-  GError *error = NULL;
-  GMainContext *c;
 
   GST_DEBUG_OBJECT (self, "starting provider");
 
-  c = g_main_context_new ();
+  self->loop = pinos_loop_new ();
 
-  if (!(self->loop = pinos_thread_main_loop_new (c, "pinos-device-monitor"))) {
+  if (!(self->main_loop = pinos_thread_main_loop_new (self->loop, "pinos-device-monitor"))) {
     GST_ERROR_OBJECT (self, "Could not create pinos mainloop");
-    goto failed;
+    goto failed_main_loop;
   }
 
-  if (!pinos_thread_main_loop_start (self->loop, &error)) {
-    GST_ERROR_OBJECT (self, "Could not start pinos mainloop: %s", error->message);
-    g_clear_object (&self->loop);
-    goto failed;
+  if (pinos_thread_main_loop_start (self->main_loop) != SPA_RESULT_OK) {
+    GST_ERROR_OBJECT (self, "Could not start pinos mainloop");
+    goto failed_start;
   }
 
-  pinos_thread_main_loop_lock (self->loop);
+  pinos_thread_main_loop_lock (self->main_loop);
 
-  if (!(self->context = pinos_context_new (c, self->client_name, NULL))) {
+  if (!(self->context = pinos_context_new (self->loop, self->client_name, NULL))) {
     GST_ERROR_OBJECT (self, "Failed to create context");
-    pinos_thread_main_loop_unlock (self->loop);
-    pinos_thread_main_loop_stop (self->loop);
-    g_clear_object (&self->loop);
-    goto failed;
+    goto failed_context;
   }
 
-  g_signal_connect (self->context,
-                    "notify::state",
-                    (GCallback) context_state_notify,
-                    self);
+  pinos_signal_add (&self->context->state_changed, &self->ctx_state_changed, on_context_state_changed);
 
-  g_object_set (self->context,
-                "subscription-mask", PINOS_SUBSCRIPTION_FLAGS_ALL,
-                NULL);
-  g_signal_connect (self->context,
-                    "subscription-event",
-                    (GCallback) context_subscribe_cb,
-                    self);
+  pinos_context_subscribe (self->context,
+                           PINOS_SUBSCRIPTION_FLAGS_ALL,
+                           context_subscribe_cb,
+                           self);
 
-  pinos_context_connect (self->context, PINOS_CONTEXT_FLAGS_NONE);
+  pinos_context_connect (self->context);
   for (;;) {
     PinosContextState state;
 
-    state = pinos_context_get_state (self->context);
+    state = self->context->state;
 
     if (state <= 0) {
-      GST_WARNING_OBJECT (self, "Failed to connect: %s",
-          pinos_context_get_error (self->context)->message);
+      GST_WARNING_OBJECT (self, "Failed to connect: %s", self->context->error);
       goto not_running;
     }
 
@@ -515,34 +472,28 @@ gst_pinos_device_provider_start (GstDeviceProvider * provider)
       break;
 
     /* Wait until something happens */
-    pinos_thread_main_loop_wait (self->loop);
+    pinos_thread_main_loop_wait (self->main_loop);
   }
   GST_DEBUG_OBJECT (self, "connected");
   pinos_context_get_daemon_info (self->context,
-                                 PINOS_DAEMON_INFO_FLAGS_NONE,
                                  get_daemon_info_cb,
-                                 NULL,
-                                 NULL,
                                  self);
-  pinos_thread_main_loop_unlock (self->loop);
-
-  g_main_context_unref (c);
+  pinos_thread_main_loop_unlock (self->main_loop);
 
   return TRUE;
 
-failed:
-  {
-    g_main_context_unref (c);
-    return FALSE;
-  }
 not_running:
-  {
-    pinos_thread_main_loop_unlock (self->loop);
-    pinos_thread_main_loop_stop (self->loop);
-    g_clear_object (&self->context);
-    g_clear_object (&self->loop);
-    return TRUE;
-  }
+  pinos_context_destroy (self->context);
+  self->context = NULL;
+failed_context:
+  pinos_thread_main_loop_unlock (self->main_loop);
+failed_start:
+  pinos_thread_main_loop_destroy (self->main_loop);
+  self->main_loop = NULL;
+failed_main_loop:
+  pinos_loop_destroy (self->loop);
+  self->loop = NULL;
+  return FALSE;
 }
 
 static void
@@ -552,12 +503,17 @@ gst_pinos_device_provider_stop (GstDeviceProvider * provider)
 
   if (self->context) {
     pinos_context_disconnect (self->context);
+    pinos_context_destroy (self->context);
+    self->context = NULL;
+  }
+  if (self->main_loop) {
+    pinos_thread_main_loop_destroy (self->main_loop);
+    self->main_loop = NULL;
   }
   if (self->loop) {
-    pinos_thread_main_loop_stop (self->loop);
+    pinos_loop_destroy (self->loop);
+    self->loop = NULL;
   }
-  g_clear_object (&self->context);
-  g_clear_object (&self->loop);
 }
 
 static void

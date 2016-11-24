@@ -17,218 +17,192 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include <pinos/client/pinos.h>
+#include <stdio.h>
 
-static GMainLoop *loop;
+#include <pinos/client/pinos.h>
+#include <pinos/client/signal.h>
+
+typedef struct {
+  bool running;
+  PinosLoop *loop;
+  PinosContext *context;
+
+  PinosListener on_state_changed;
+} Data;
 
 static void
-print_properties (PinosProperties *props, gchar mark)
+print_properties (PinosProperties *props, char mark)
 {
-  gpointer state = NULL;
-  const gchar *key;
+  void *state = NULL;
+  const char *key;
 
   if (props == NULL)
     return;
 
-  g_print ("%c\tproperties:\n", mark);
+  printf ("%c\tproperties:\n", mark);
   while ((key = pinos_properties_iterate (props, &state))) {
-    g_print ("%c\t\t%s = \"%s\"\n", mark, key, pinos_properties_get (props, key));
-  }
-}
-
-static void
-info_ready (GObject *o, GAsyncResult *res, gpointer user_data)
-{
-  GError *error = NULL;
-
-  if (!pinos_context_info_finish (o, res, &error)) {
-    g_printerr ("introspection failure: %s\n", error->message);
-    g_clear_error (&error);
+    printf ("%c\t\t%s = \"%s\"\n", mark, key, pinos_properties_get (props, key));
   }
 }
 
 typedef struct {
-  gboolean print_mark;
-  gboolean print_all;
+  bool print_mark;
+  bool print_all;
 } DumpData;
 
 #define MARK_CHANGE(f) ((data->print_mark && ((info)->change_mask & (1 << (f)))) ? '*' : ' ')
 
 static void
-dump_daemon_info (PinosContext *c, const PinosDaemonInfo *info, gpointer user_data)
+dump_daemon_info (PinosContext *c, const PinosDaemonInfo *info, void * user_data)
 {
   DumpData *data = user_data;
 
-  g_print ("\tid: %p\n", info->id);
-  g_print ("\tdaemon-path: \"%s\"\n", info->daemon_path);
+  printf ("\tid: %u\n", info->id);
   if (data->print_all) {
-    g_print ("%c\tuser-name: \"%s\"\n", MARK_CHANGE (0), info->user_name);
-    g_print ("%c\thost-name: \"%s\"\n", MARK_CHANGE (1), info->host_name);
-    g_print ("%c\tversion: \"%s\"\n", MARK_CHANGE (2), info->version);
-    g_print ("%c\tname: \"%s\"\n", MARK_CHANGE (3), info->name);
-    g_print ("%c\tcookie: %u\n", MARK_CHANGE (4), info->cookie);
+    printf ("%c\tuser-name: \"%s\"\n", MARK_CHANGE (0), info->user_name);
+    printf ("%c\thost-name: \"%s\"\n", MARK_CHANGE (1), info->host_name);
+    printf ("%c\tversion: \"%s\"\n", MARK_CHANGE (2), info->version);
+    printf ("%c\tname: \"%s\"\n", MARK_CHANGE (3), info->name);
+    printf ("%c\tcookie: %u\n", MARK_CHANGE (4), info->cookie);
     print_properties (info->properties, MARK_CHANGE (5));
   }
 }
 
 static void
-dump_client_info (PinosContext *c, const PinosClientInfo *info, gpointer user_data)
+dump_client_info (PinosContext *c, const PinosClientInfo *info, void * user_data)
 {
   DumpData *data = user_data;
 
-  g_print ("\tid: %p\n", info->id);
-  g_print ("\tclient-path: \"%s\"\n", info->client_path);
+  printf ("\tid: %u\n", info->id);
   if (data->print_all) {
-    g_print ("\tsender: \"%s\"\n", info->sender);
     print_properties (info->properties, MARK_CHANGE (0));
   }
 }
 
 static void
-dump_node_info (PinosContext *c, const PinosNodeInfo *info, gpointer user_data)
+dump_node_info (PinosContext *c, const PinosNodeInfo *info, void * user_data)
 {
   DumpData *data = user_data;
 
-  g_print ("\tid: %p\n", info->id);
-  g_print ("\tnode-path: \"%s\"\n", info->node_path);
+  printf ("\tid: %u\n", info->id);
   if (data->print_all) {
-    g_print ("%c\towner: \"%s\"\n", MARK_CHANGE (0), info->owner);
-    g_print ("%c\tname: \"%s\"\n", MARK_CHANGE (0), info->name);
+    printf ("%c\tname: \"%s\"\n", MARK_CHANGE (0), info->name);
     print_properties (info->properties, MARK_CHANGE (1));
-    g_print ("%c\tstate: \"%s\"\n", MARK_CHANGE (2), pinos_node_state_as_string (info->state));
+    printf ("%c\tstate: \"%s\"\n", MARK_CHANGE (2), pinos_node_state_as_string (info->state));
   }
 }
 
 static void
-dump_link_info (PinosContext *c, const PinosLinkInfo *info, gpointer user_data)
+dump_link_info (PinosContext *c, const PinosLinkInfo *info, void * user_data)
 {
   DumpData *data = user_data;
 
-  g_print ("\tid: %p\n", info->id);
-  g_print ("\tlink-path: \"%s\"\n", info->link_path);
+  printf ("\tid: %u\n", info->id);
   if (data->print_all) {
-    g_print ("%c\toutput-node-path: \"%s\"\n", MARK_CHANGE (0), info->output_node_path);
-    g_print ("%c\toutput-port: %u\n", MARK_CHANGE (1), info->output_port);
-    g_print ("%c\tinput-node-path: \"%s\"\n", MARK_CHANGE (2), info->input_node_path);
-    g_print ("%c\tinput-port: %u\n", MARK_CHANGE (3), info->input_port);
+    printf ("%c\toutput-node-id: %u\n", MARK_CHANGE (0), info->output_node_id);
+    printf ("%c\toutput-port-id: %u\n", MARK_CHANGE (1), info->output_port_id);
+    printf ("%c\tinput-node-id: %u\n", MARK_CHANGE (2), info->input_node_id);
+    printf ("%c\tinput-port-id: %u\n", MARK_CHANGE (3), info->input_port_id);
   }
 }
 
 static void
-dump_object (PinosContext *context, gpointer id, PinosSubscriptionFlags flags,
-    DumpData *data)
+dump_object (PinosContext           *context,
+             uint32_t                id,
+             PinosSubscriptionFlags  flags,
+             DumpData               *data)
 {
   if (flags & PINOS_SUBSCRIPTION_FLAG_DAEMON) {
-    pinos_context_get_daemon_info (context,
-                                   PINOS_DAEMON_INFO_FLAGS_NONE,
-                                   dump_daemon_info,
-                                   NULL,
-                                   info_ready,
-                                   data);
   }
   else if (flags & PINOS_SUBSCRIPTION_FLAG_CLIENT) {
-    pinos_context_get_client_info_by_id (context,
-                                         id,
-                                         PINOS_CLIENT_INFO_FLAGS_NONE,
-                                         dump_client_info,
-                                         NULL,
-                                         info_ready,
-                                         data);
   }
   else if (flags & PINOS_SUBSCRIPTION_FLAG_NODE) {
-    pinos_context_get_node_info_by_id (context,
-                                       id,
-                                       PINOS_NODE_INFO_FLAGS_NONE,
-                                       dump_node_info,
-                                       NULL,
-                                       info_ready,
-                                       data);
   }
   else if (flags & PINOS_SUBSCRIPTION_FLAG_LINK) {
-    pinos_context_get_link_info_by_id (context,
-                                       id,
-                                       PINOS_LINK_INFO_FLAGS_NONE,
-                                       dump_link_info,
-                                       NULL,
-                                       info_ready,
-                                       data);
   }
 }
 
 static void
 subscription_cb (PinosContext           *context,
-                 PinosSubscriptionEvent  type,
                  PinosSubscriptionFlags  flags,
-                 gpointer                id,
-                 gpointer                user_data)
+                 PinosSubscriptionEvent  type,
+                 uint32_t                id,
+                 void                   *data)
 {
-  DumpData data;
+  DumpData dd;
 
   switch (type) {
     case PINOS_SUBSCRIPTION_EVENT_NEW:
-      g_print ("added:\n");
-      data.print_mark = FALSE;
-      data.print_all = TRUE;
-      dump_object (context, id, flags, &data);
+      printf ("added:\n");
+      dd.print_mark = false;
+      dd.print_all = true;
+      dump_object (context, id, flags, &dd);
       break;
 
     case PINOS_SUBSCRIPTION_EVENT_CHANGE:
-      g_print ("changed:\n");
-      data.print_mark = TRUE;
-      data.print_all = TRUE;
-      dump_object (context, id, flags, &data);
+      printf ("changed:\n");
+      dd.print_mark = true;
+      dd.print_all = true;
+      dump_object (context, id, flags, &dd);
       break;
 
     case PINOS_SUBSCRIPTION_EVENT_REMOVE:
-      g_print ("removed:\n");
-      data.print_mark = FALSE;
-      data.print_all = FALSE;
-      dump_object (context, id, flags, &data);
+      printf ("removed:\n");
+      dd.print_mark = false;
+      dd.print_all = false;
+      dump_object (context, id, flags, &dd);
       break;
   }
 }
 
 static void
-on_state_notify (GObject    *gobject,
-                 GParamSpec *pspec,
-                 gpointer    user_data)
+on_state_changed (PinosListener  *listener,
+                  PinosContext   *context)
 {
-  PinosContextState state;
-  PinosContext *c = PINOS_CONTEXT (gobject);
-  const GError *error;
+  Data *data = SPA_CONTAINER_OF (listener, Data, on_state_changed);
 
-  g_object_get (c, "state", &state, NULL);
-
-  switch (state) {
+  switch (context->state) {
     case PINOS_CONTEXT_STATE_ERROR:
-      error = pinos_context_get_error (c);
-      g_print ("context error: %s\n", error->message);
+      printf ("context error: %s\n", context->error);
+      data->running = false;
       break;
 
     default:
-      g_print ("context state: \"%s\"\n", pinos_context_state_as_string (state));
+      printf ("context state: \"%s\"\n", pinos_context_state_as_string (context->state));
       break;
   }
 }
 
-gint
-main (gint argc, gchar *argv[])
+int
+main (int argc, char *argv[])
 {
-  PinosContext *c;
+  Data data;
 
   pinos_init (&argc, &argv);
 
-  loop = g_main_loop_new (NULL, FALSE);
+  data.loop = pinos_loop_new ();
+  data.running = true;
+  data.context = pinos_context_new (data.loop, "pinos-monitor", NULL);
 
-  c = pinos_context_new (NULL, "pinos-monitor", NULL);
-  g_signal_connect (c, "notify::state", (GCallback) on_state_notify, c);
-  g_object_set (c, "subscription-mask", PINOS_SUBSCRIPTION_FLAGS_ALL, NULL);
-  g_signal_connect (c, "subscription-event", (GCallback) subscription_cb, NULL);
-  pinos_context_connect(c, PINOS_CONTEXT_FLAGS_NOFAIL);
+  pinos_signal_add (&data.context->state_changed,
+                    &data.on_state_changed,
+                    on_state_changed);
 
-  g_main_loop_run (loop);
+  pinos_context_subscribe (data.context,
+                           PINOS_SUBSCRIPTION_FLAGS_ALL,
+                           subscription_cb,
+                           &data);
 
-  g_object_unref (c);
+  pinos_context_connect (data.context);
+
+  pinos_loop_enter (data.loop);
+  while (data.running) {
+    pinos_loop_iterate (data.loop, -1);
+  }
+  pinos_loop_leave (data.loop);
+
+  pinos_context_destroy (data.context);
+  pinos_loop_destroy (data.loop);
 
   return 0;
 }

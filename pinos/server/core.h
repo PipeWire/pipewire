@@ -27,6 +27,9 @@ extern "C" {
 typedef struct _PinosCore PinosCore;
 typedef struct _PinosGlobal PinosGlobal;
 
+#define PINOS_CORE_URI                            "http://pinos.org/ns/core"
+#define PINOS_CORE_PREFIX                         PINOS_CORE_URI "#"
+
 #include <spa/include/spa/log.h>
 
 #include <pinos/server/main-loop.h>
@@ -53,6 +56,8 @@ struct _PinosGlobal {
  * Pinos core object class.
  */
 struct _PinosCore {
+  PinosGlobal *global;
+
   PinosURI uri;
 
   PinosMap objects;

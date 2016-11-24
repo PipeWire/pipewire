@@ -27,6 +27,9 @@ extern "C" {
 
 #include <pinos/server/core.h>
 
+#define PINOS_MODULE_URI                            "http://pinos.org/ns/module"
+#define PINOS_MODULE_PREFIX                         PINOS_MODULE_URI "#"
+
 typedef struct _PinosModule PinosModule;
 
 struct _PinosModule {
@@ -52,8 +55,8 @@ struct _PinosModule {
 typedef bool (*PinosModuleInitFunc) (PinosModule *module, char *args);
 
 PinosModule *     pinos_module_load              (PinosCore   *core,
-                                                  const gchar *name,
-                                                  const gchar *args,
+                                                  const char  *name,
+                                                  const char  *args,
                                                   char       **err);
 void              pinos_module_destroy           (PinosModule *module);
 

@@ -20,10 +20,11 @@
 #ifndef __PINOS_H__
 #define __PINOS_H__
 
-extern const char             g_log_domain_pinos[];
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <pinos/client/context.h>
-#include <pinos/client/enumtypes.h>
 #include <pinos/client/introspect.h>
 #include <pinos/client/log.h>
 #include <pinos/client/loop.h>
@@ -43,21 +44,9 @@ extern const char             g_log_domain_pinos[];
 #define PINOS_DBUS_OBJECT_NODE PINOS_DBUS_OBJECT_PREFIX "/node"
 #define PINOS_DBUS_OBJECT_LINK PINOS_DBUS_OBJECT_PREFIX "/link"
 
-typedef enum {
-  PINOS_ERROR_FAILED,
-  PINOS_ERROR_FORMAT_NEGOTIATION,
-  PINOS_ERROR_BUFFER_ALLOCATION,
-  PINOS_ERROR_NODE_STATE,
-  PINOS_ERROR_NODE_PORT,
-  PINOS_ERROR_NODE_LINK,
-} PinosErrorEnum;
-
-GQuark pinos_error_quark (void);
-#define PINOS_ERROR pinos_error_quark()
-
 void pinos_init (int *argc, char **argv[]);
 
-gchar *pinos_client_name (void);
+char * pinos_client_name (void);
 
 void   pinos_fill_context_properties (PinosProperties *properties);
 void   pinos_fill_stream_properties  (PinosProperties *properties);
@@ -65,5 +54,9 @@ void   pinos_fill_stream_properties  (PinosProperties *properties);
 PinosDirection pinos_direction_reverse (PinosDirection direction);
 
 SpaIDMap * pinos_id_map_get_default (void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __PINOS_H__ */

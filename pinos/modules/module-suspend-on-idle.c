@@ -26,17 +26,10 @@
 #include "pinos/server/core.h"
 #include "pinos/server/module.h"
 
-#define MODULE_URI                            "http://pinos.org/ns/module-suspend-on-idle"
-#define MODULE_PREFIX                         MODULE_URI "#"
-
 typedef struct {
   PinosCore       *core;
   PinosProperties *properties;
   PinosGlobal     *global;
-
-  struct {
-    uint32_t module;
-  } uri;
 
   PinosListener global_added;
   PinosListener global_removed;
@@ -196,10 +189,8 @@ module_new (PinosCore       *core,
   pinos_signal_add (&core->node_state_request, &impl->node_state_request, on_node_state_request);
   pinos_signal_add (&core->node_state_changed, &impl->node_state_changed, on_node_state_changed);
 
-  impl->uri.module = spa_id_map_get_id (core->uri.map, MODULE_URI);
-
   impl->global = pinos_core_add_global (core,
-                                        impl->uri.module,
+                                        core->uri.module,
                                         impl);
   return impl;
 }
@@ -221,5 +212,5 @@ bool
 pinos__module_init (PinosModule * module, const char * args)
 {
   module_new (module->core, NULL);
-  return TRUE;
+  return true;
 }

@@ -29,7 +29,6 @@
 #include <sys/eventfd.h>
 
 #include "pinos/client/pinos.h"
-#include "pinos/client/private.h"
 #include "pinos/client/connection.h"
 #include "pinos/client/serialize.h"
 #include "pinos/client/transport.h"
@@ -99,8 +98,7 @@ struct _SpaProxy
   SpaNodeEventCallback event_cb;
   void *user_data;
 
-  SpaSource ctrl_source;
-  PinosConnection *conn;
+  PinosResource *resource;
 
   SpaSource data_source;
 
@@ -125,7 +123,6 @@ typedef struct
   PinosListener transport_changed;
   PinosListener loop_changed;
 
-  int ctrl_fd;
   int data_fd;
 } PinosClientNodeImpl;
 
@@ -195,13 +192,11 @@ spa_proxy_node_send_command (SpaNode        *node,
       /* send start */
       cnc.seq = this->seq++;
       cnc.command = command;
-      pinos_connection_add_message (this->conn, PINOS_MESSAGE_NODE_COMMAND, &cnc);
-
-      if (!pinos_connection_flush (this->conn)) {
-        spa_log_error (this->log, "proxy %p: error writing connection", this);
-        res = SPA_RESULT_ERROR;
-      } else
-        res = SPA_RESULT_RETURN_ASYNC (cnc.seq);
+      pinos_resource_send_message (this->resource,
+                                   PINOS_MESSAGE_NODE_COMMAND,
+                                   &cnc,
+                                   true);
+      res = SPA_RESULT_RETURN_ASYNC (cnc.seq);
       break;
     }
 
@@ -211,12 +206,10 @@ spa_proxy_node_send_command (SpaNode        *node,
 
       /* send start */
       cnc.command = command;
-      pinos_connection_add_message (this->conn, PINOS_MESSAGE_NODE_COMMAND, &cnc);
-
-      if (!pinos_connection_flush (this->conn)) {
-        spa_log_error (this->log, "proxy %p: error writing connection", this);
-        res = SPA_RESULT_ERROR;
-      }
+      pinos_resource_send_message (this->resource,
+                                   PINOS_MESSAGE_NODE_COMMAND,
+                                   &cnc,
+                                   true);
       break;
     }
   }
@@ -489,11 +482,10 @@ spa_proxy_node_port_set_format (SpaNode            *node,
   sf.port_id = port_id;
   sf.flags = flags;
   sf.format = (SpaFormat *) format;
-  pinos_connection_add_message (this->conn, PINOS_MESSAGE_SET_FORMAT, &sf);
-
-  if (!pinos_connection_flush (this->conn))
-    spa_log_error (this->log, "proxy %p: error writing connection", this);
-
+  pinos_resource_send_message (this->resource,
+                               PINOS_MESSAGE_SET_FORMAT,
+                               &sf,
+                               true);
   return SPA_RESULT_RETURN_ASYNC (sf.seq);
 }
 
@@ -668,12 +660,14 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
           am.port_id = port_id;
           am.mem_id = n_mem;
           am.type = d->type;
-          am.fd_index = pinos_connection_add_fd (this->conn, d->fd, false);
+          am.memfd = d->fd;
           am.flags = d->flags;
           am.offset = d->offset;
           am.size = d->maxsize;
-          pinos_connection_add_message (this->conn, PINOS_MESSAGE_ADD_MEM, &am);
-
+          pinos_resource_send_message (this->resource,
+                                       PINOS_MESSAGE_ADD_MEM,
+                                       &am,
+                                       false);
           b->buffer.datas[j].type = SPA_DATA_TYPE_ID;
           b->buffer.datas[j].data = SPA_UINT32_TO_PTR (n_mem);
           n_mem++;
@@ -732,11 +726,14 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
     am.port_id = port_id;
     am.mem_id = port->buffer_mem_id;
     am.type = SPA_DATA_TYPE_MEMFD;
-    am.fd_index = pinos_connection_add_fd (this->conn, port->buffer_mem.fd, false);
+    am.memfd = port->buffer_mem.fd;
     am.flags = 0;
     am.offset = 0;
     am.size = size;
-    pinos_connection_add_message (this->conn, PINOS_MESSAGE_ADD_MEM, &am);
+    pinos_resource_send_message (this->resource,
+                                 PINOS_MESSAGE_ADD_MEM,
+                                 &am,
+                                 false);
 
     memref = alloca (n_buffers * sizeof (PinosMessageMemRef));
     for (i = 0; i < n_buffers; i++) {
@@ -754,11 +751,10 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
   ub.port_id = port_id;
   ub.n_buffers = n_buffers;
   ub.buffers = memref;
-  pinos_connection_add_message (this->conn, PINOS_MESSAGE_USE_BUFFERS, &ub);
-
-  if (!pinos_connection_flush (this->conn))
-    spa_log_error (this->log, "proxy %p: error writing connection", this);
-
+  pinos_resource_send_message (this->resource,
+                               PINOS_MESSAGE_USE_BUFFERS,
+                               &ub,
+                               true);
   return SPA_RESULT_RETURN_ASYNC (ub.seq);
 }
 
@@ -983,116 +979,93 @@ handle_node_event (SpaProxy     *this,
 }
 
 static SpaResult
-parse_connection (SpaProxy   *this)
+client_node_dispatch_func (void             *object,
+                           PinosMessageType  type,
+                           void             *message,
+                           void             *data)
 {
-  PinosConnection *conn = this->conn;
+  PinosClientNode *node = data;
+  PinosClientNodeImpl *impl = SPA_CONTAINER_OF (node, PinosClientNodeImpl, this);
+  SpaProxy *this = &impl->proxy;
 
-  while (pinos_connection_has_next (conn)) {
-    PinosMessageType type = pinos_connection_get_type (conn);
+  switch (type) {
+    case PINOS_MESSAGE_INVALID:
+    case PINOS_MESSAGE_ADD_PORT:
+    case PINOS_MESSAGE_REMOVE_PORT:
+    case PINOS_MESSAGE_SET_FORMAT:
+    case PINOS_MESSAGE_SET_PROPERTY:
+    case PINOS_MESSAGE_NODE_COMMAND:
+    case PINOS_MESSAGE_PORT_COMMAND:
+    case PINOS_MESSAGE_TRANSPORT_UPDATE:
+      spa_log_error (this->log, "proxy %p: got unexpected command %d", this, type);
+      break;
 
-    switch (type) {
-      case PINOS_MESSAGE_INVALID:
-      case PINOS_MESSAGE_ADD_PORT:
-      case PINOS_MESSAGE_REMOVE_PORT:
-      case PINOS_MESSAGE_SET_FORMAT:
-      case PINOS_MESSAGE_SET_PROPERTY:
-      case PINOS_MESSAGE_NODE_COMMAND:
-      case PINOS_MESSAGE_PORT_COMMAND:
-      case PINOS_MESSAGE_PROCESS_BUFFER:
-      case PINOS_MESSAGE_TRANSPORT_UPDATE:
-        spa_log_error (this->log, "proxy %p: got unexpected command %d", this, type);
+    case PINOS_MESSAGE_NODE_UPDATE:
+    {
+      PinosMessageNodeUpdate *nu = message;
+
+      if (nu->change_mask & PINOS_MESSAGE_NODE_UPDATE_MAX_INPUTS)
+        this->max_inputs = nu->max_input_ports;
+      if (nu->change_mask & PINOS_MESSAGE_NODE_UPDATE_MAX_OUTPUTS)
+        this->max_outputs = nu->max_output_ports;
+
+      spa_log_info (this->log, "proxy %p: got node update %d, max_in %u, max_out %u", this, type,
+          this->max_inputs, this->max_outputs);
+
+      break;
+    }
+
+    case PINOS_MESSAGE_PORT_UPDATE:
+    {
+      PinosMessagePortUpdate *pu = message;
+      bool remove;
+
+      spa_log_info (this->log, "proxy %p: got port update %d", this, type);
+      if (!CHECK_PORT_ID (this, pu->direction, pu->port_id))
         break;
 
-      case PINOS_MESSAGE_NODE_UPDATE:
-      {
-        PinosMessageNodeUpdate nu;
+      remove = (pu->change_mask == 0);
 
-        if (!pinos_connection_parse_message (conn, &nu))
-          break;
-
-        if (nu.change_mask & PINOS_MESSAGE_NODE_UPDATE_MAX_INPUTS)
-          this->max_inputs = nu.max_input_ports;
-        if (nu.change_mask & PINOS_MESSAGE_NODE_UPDATE_MAX_OUTPUTS)
-          this->max_outputs = nu.max_output_ports;
-
-        spa_log_info (this->log, "proxy %p: got node update %d, max_in %u, max_out %u", this, type,
-            this->max_inputs, this->max_outputs);
-
-        break;
+      if (remove) {
+        do_uninit_port (this, pu->direction, pu->port_id);
+      } else {
+        do_update_port (this, pu);
       }
+      break;
+    }
 
-      case PINOS_MESSAGE_PORT_UPDATE:
-      {
-        PinosMessagePortUpdate pu;
-        bool remove;
+    case PINOS_MESSAGE_PORT_STATUS_CHANGE:
+    {
+      spa_log_warn (this->log, "proxy %p: command not implemented %d", this, type);
+      break;
+    }
 
-        spa_log_info (this->log, "proxy %p: got port update %d", this, type);
-        if (!pinos_connection_parse_message (conn, &pu))
-          break;
+    case PINOS_MESSAGE_NODE_STATE_CHANGE:
+    {
+      PinosMessageNodeStateChange *sc = message;
+      SpaNodeState old = this->node.state;
 
-        if (!CHECK_PORT_ID (this, pu.direction, pu.port_id))
-          break;
+      spa_log_info (this->log, "proxy %p: got node state change %d -> %d", this, old, sc->state);
+      this->node.state = sc->state;
+      if (old == SPA_NODE_STATE_INIT)
+        send_async_complete (this, 0, SPA_RESULT_OK);
 
-        remove = (pu.change_mask == 0);
+      break;
+    }
 
-        if (remove) {
-          do_uninit_port (this, pu.direction, pu.port_id);
-        } else {
-          do_update_port (this, &pu);
-        }
-        break;
-      }
+    case PINOS_MESSAGE_ADD_MEM:
+      break;
+    case PINOS_MESSAGE_USE_BUFFERS:
+      break;
 
-      case PINOS_MESSAGE_PORT_STATUS_CHANGE:
-      {
-        spa_log_warn (this->log, "proxy %p: command not implemented %d", this, type);
-        break;
-      }
-
-      case PINOS_MESSAGE_NODE_STATE_CHANGE:
-      {
-        PinosMessageNodeStateChange sc;
-        SpaNodeState old = this->node.state;
-
-        if (!pinos_connection_parse_message (conn, &sc))
-          break;
-
-        spa_log_info (this->log, "proxy %p: got node state change %d -> %d", this, old, sc.state);
-        this->node.state = sc.state;
-        if (old == SPA_NODE_STATE_INIT)
-          send_async_complete (this, 0, SPA_RESULT_OK);
-
-        break;
-      }
-
-      case PINOS_MESSAGE_ADD_MEM:
-        break;
-      case PINOS_MESSAGE_USE_BUFFERS:
-        break;
-
-      case PINOS_MESSAGE_NODE_EVENT:
-      {
-        PinosMessageNodeEvent cne;
-
-        if (!pinos_connection_parse_message (conn, &cne))
-          break;
-
-        handle_node_event (this, cne.event);
-        break;
-      }
+    case PINOS_MESSAGE_NODE_EVENT:
+    {
+      PinosMessageNodeEvent *cne = message;
+      handle_node_event (this, cne->event);
+      break;
     }
   }
-
   return SPA_RESULT_OK;
-}
-
-static void
-proxy_on_fd_events (SpaSource *source)
-{
-  SpaProxy *this = source->data;
-
-  if (source->rmask & SPA_IO_IN)
-    parse_connection (this);
 }
 
 static void
@@ -1184,16 +1157,10 @@ proxy_init (SpaProxy         *this,
 
   this->node = proxy_node;
 
-  this->ctrl_source.func = proxy_on_fd_events;
-  this->ctrl_source.data = this;
-  this->ctrl_source.fd = -1;
-  this->ctrl_source.mask = SPA_IO_IN | SPA_IO_ERR;
-  this->ctrl_source.rmask = 0;
-
   this->data_source.func = proxy_on_data_fd_events;
   this->data_source.data = this;
   this->data_source.fd = -1;
-  this->data_source.mask = SPA_IO_IN | SPA_IO_ERR;
+  this->data_source.mask = SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP;
   this->data_source.rmask = 0;
 
   return SPA_RESULT_RETURN_ASYNC (this->seq++);
@@ -1207,17 +1174,16 @@ on_transport_changed (PinosListener   *listener,
   PinosClientNode *this = &impl->this;
   PinosTransportInfo info;
   PinosMessageTransportUpdate tu;
-  PinosConnection *conn = impl->proxy.conn;
 
   pinos_transport_get_info (node->transport, &info);
 
-  tu.memfd_index = pinos_connection_add_fd (conn, info.memfd, false);
+  tu.memfd = info.memfd;
   tu.offset = info.offset;
   tu.size = info.size;
-  pinos_connection_add_message (conn, PINOS_MESSAGE_TRANSPORT_UPDATE, &tu);
-
-  if (!pinos_connection_flush (conn))
-    pinos_log_error ("client-node %p: error writing connection", this);
+  pinos_resource_send_message (this->resource,
+                               PINOS_MESSAGE_TRANSPORT_UPDATE,
+                               &tu,
+                               true);
 }
 
 static void
@@ -1241,10 +1207,6 @@ proxy_clear (SpaProxy *this)
     if (this->out_ports[i].valid)
       clear_port (this, &this->out_ports[i], SPA_DIRECTION_OUTPUT, i);
   }
-  if (this->ctrl_source.fd != -1) {
-    spa_loop_remove_source (this->main_loop, &this->ctrl_source);
-    close (this->ctrl_source.fd);
-  }
   if (this->data_source.fd != -1) {
     spa_loop_remove_source (this->data_loop, &this->data_source);
     close (this->data_source.fd);
@@ -1264,25 +1226,25 @@ proxy_clear (SpaProxy *this)
  * Returns: a new #PinosNode
  */
 PinosClientNode *
-pinos_client_node_new (PinosCore       *core,
-                       const gchar     *name,
+pinos_client_node_new (PinosClient     *client,
+                       uint32_t         id,
+                       const char      *name,
                        PinosProperties *properties)
 {
   PinosClientNodeImpl *impl;
   PinosClientNode *this;
 
   impl = calloc (1, sizeof (PinosClientNodeImpl));
-  impl->core = core;
-  impl->ctrl_fd = -1;
-  impl->data_fd = -1;
   this = &impl->this;
+  impl->core = client->core;
+  impl->data_fd = -1;
   pinos_log_debug ("client-node %p: new", impl);
 
   pinos_signal_init (&this->destroy_signal);
 
-  proxy_init (&impl->proxy, NULL, core->support, core->n_support);
+  proxy_init (&impl->proxy, NULL, client->core->support, client->core->n_support);
 
-  this->node = pinos_node_new (core,
+  this->node = pinos_node_new (client->core,
                                name,
                                &impl->proxy.node,
                                NULL,
@@ -1298,12 +1260,22 @@ pinos_client_node_new (PinosCore       *core,
                     &impl->loop_changed,
                     on_loop_changed);
 
+  this->resource = pinos_resource_new (client,
+                                       id,
+                                       client->core->uri.client_node,
+                                       this,
+                                       (PinosDestroy) pinos_client_node_destroy);
+  impl->proxy.resource = this->resource;
+
+  this->resource->dispatch_func = client_node_dispatch_func;
+  this->resource->dispatch_data = this;
+
   return this;
 }
 
 static void
 on_node_remove (PinosNode *node,
-                gpointer   data,
+                void      *data,
                 SpaResult  res)
 {
   PinosClientNode *this = data;
@@ -1312,8 +1284,6 @@ on_node_remove (PinosNode *node,
   pinos_log_debug ("client-node %p: finalize", node);
   proxy_clear (&impl->proxy);
 
-  if (impl->ctrl_fd != -1)
-    close (impl->ctrl_fd);
   if (impl->data_fd != -1)
     close (impl->data_fd);
   free (impl);
@@ -1341,37 +1311,6 @@ pinos_client_node_destroy (PinosClientNode * this)
 }
 
 /**
- * pinos_client_node_get_ctrl_socket:
- * @node: a #PinosClientNode
- * @fd: a result socket
- *
- * Create or return a previously create socket pair for @node. The
- * socket for the other end is returned.
- *
- * Returns: %SPA_RESULT_OK on success
- */
-SpaResult
-pinos_client_node_get_ctrl_socket (PinosClientNode  *this,
-                                   int              *fd)
-{
-  PinosClientNodeImpl *impl = SPA_CONTAINER_OF (this, PinosClientNodeImpl, this);
-
-  if (impl->ctrl_fd == -1) {
-    int fd[2];
-
-    if (socketpair (AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, fd) != 0)
-      return SPA_RESULT_ERRNO;
-
-    impl->proxy.ctrl_source.fd = fd[0];
-    impl->proxy.conn = pinos_connection_new (impl->proxy.ctrl_source.fd);
-    spa_loop_add_source (impl->proxy.main_loop, &impl->proxy.ctrl_source);
-    impl->ctrl_fd = fd[1];
-  }
-  *fd = impl->ctrl_fd;
-  return SPA_RESULT_OK;
-}
-
-/**
  * pinos_client_node_get_data_socket:
  * @node: a #PinosClientNode
  * @error: a #GError
@@ -1390,11 +1329,12 @@ pinos_client_node_get_data_socket (PinosClientNode  *this,
   if (impl->data_fd == -1) {
     int fd[2];
 
-    if (socketpair (AF_UNIX, SOCK_STREAM, 0, fd) != 0)
+    if (socketpair (AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, fd) != 0)
       return SPA_RESULT_ERRNO;
 
     impl->proxy.data_source.fd = fd[0];
     spa_loop_add_source (impl->proxy.data_loop, &impl->proxy.data_source);
+    pinos_log_debug ("client-node %p: add data fd %d", this, fd[0]);
     impl->data_fd = fd[1];
   }
   *fd = impl->data_fd;

@@ -21,54 +21,12 @@
 #include "pinos/client/pinos.h"
 
 #include "pinos/server/client.h"
-
-#include "pinos/dbus/org-pinos.h"
+#include "pinos/server/resource.h"
 
 typedef struct
 {
   PinosClient this;
 } PinosClientImpl;
-
-PinosResource *
-pinos_client_add_resource (PinosClient *client,
-                           uint32_t     type,
-                           void        *object,
-                           PinosDestroy destroy)
-{
-  PinosResource *resource;
-
-  resource = calloc (1, sizeof (PinosResource));
-  resource->core = client->core;
-  resource->client = client;
-  resource->id = 0;
-  resource->type = type;
-  resource->object = object;
-  resource->destroy = destroy;
-
-  pinos_signal_init (&resource->destroy_signal);
-
-  pinos_log_debug ("client %p: add resource %p", client, resource);
-
-  spa_list_insert (client->resource_list.prev, &resource->link);
-
-  return resource;
-}
-
-SpaResult
-pinos_resource_destroy (PinosResource *resource)
-{
-  pinos_log_debug ("resource %p: destroy", resource);
-  pinos_signal_emit (&resource->destroy_signal, resource);
-
-  spa_list_remove (&resource->link);
-
-  if (resource->destroy)
-    resource->destroy (resource->object);
-
-  free (resource);
-
-  return SPA_RESULT_OK;
-}
 
 /**
  * pinos_client_new:

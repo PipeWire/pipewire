@@ -9,6 +9,7 @@ pinos_headers = [
   'mem.h',
   'pinos.h',
   'properties.h',
+  'proxy.h',
   'rtkit.h',
   'stream.h',
   'subscribe.h',
@@ -27,11 +28,11 @@ pinos_sources = [
   'mapper.c',
   'mem.c',
   'properties.c',
+  'proxy.c',
   'serialize.c',
   'stream.c',
   'pinos.c',
   'rtkit.c',
-  'subscribe.c',
   'thread-mainloop.c',
   'transport.c',
   'utils.c',
@@ -67,7 +68,6 @@ libpinos_c_args = [
 pinos_gen_sources = [enumtypes_h]
 
 libpinos = shared_library('pinos', pinos_sources,
-  enumtypes_h, enumtypes_c,
   version : libversion,
   soversion : soversion,
   c_args : libpinos_c_args,

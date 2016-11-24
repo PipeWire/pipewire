@@ -40,11 +40,13 @@ typedef struct _PinosURI PinosURI;
 struct _PinosURI {
   SpaIDMap *map;
 
+  uint32_t core;
   uint32_t node;
   uint32_t node_factory;
   uint32_t link;
   uint32_t client;
   uint32_t client_node;
+  uint32_t module;
 
   uint32_t spa_node;
   uint32_t spa_clock;

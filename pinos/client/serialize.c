@@ -352,3 +352,91 @@ pinos_serialize_props_copy_into (void *dest, const SpaProps *props)
   pinos_serialize_props_serialize (dest, props);
   return pinos_serialize_props_deserialize (dest, 0);
 }
+
+size_t
+pinos_serialize_dict_get_size (const SpaDict *dict)
+{
+  size_t len;
+  unsigned int i;
+
+  if (dict == NULL)
+    return 0;
+
+  len = sizeof (SpaDict);
+  len += dict->n_items * sizeof (SpaDictItem);
+  for (i = 0; i < dict->n_items; i++) {
+    SpaDictItem *di = &dict->items[i];
+    len += di->key ? strlen (di->key) + 1 : 0;
+    len += di->value ? strlen (di->value) + 1 : 0;
+  }
+  return len;
+}
+
+size_t
+pinos_serialize_dict_serialize (void *p, const SpaDict *dict)
+{
+  SpaDict *pi;
+  SpaDictItem *di;
+  int i;
+  size_t len;
+
+  if (dict == NULL)
+    return 0;
+
+  pi = p;
+  memcpy (pi, dict, sizeof (SpaDict));
+
+  di = SPA_MEMBER (pi, sizeof (SpaDict), SpaDictItem);
+  if (dict->n_items)
+    pi->items = SPA_INT_TO_PTR (SPA_PTRDIFF (di, pi));
+  else
+    pi->items = 0;
+
+  p = SPA_MEMBER (di, sizeof (SpaDictItem) * dict->n_items, void);
+
+  for (i = 0; i < dict->n_items; i++) {
+    if (dict->items[i].key) {
+      len = strlen (dict->items[i].key) + 1;
+      memcpy (p, dict->items[i].key, len);
+      di[i].key = SPA_INT_TO_PTR (SPA_PTRDIFF (p, pi));
+      p += len;
+    } else {
+      di[i].key = NULL;
+    }
+    if (dict->items[i].value) {
+      len = strlen (dict->items[i].value) + 1;
+      memcpy (p, dict->items[i].value, len);
+      di[i].value = SPA_INT_TO_PTR (SPA_PTRDIFF (p, pi));
+      p += len;
+    } else {
+      di[i].value = NULL;
+    }
+  }
+  return SPA_PTRDIFF (p, pi);
+}
+
+SpaDict *
+pinos_serialize_dict_deserialize (void *p, off_t offset)
+{
+  SpaDict *pi;
+  unsigned int i;
+
+  pi = SPA_MEMBER (p, offset, SpaDict);
+  if (pi->items)
+    pi->items = SPA_MEMBER (pi, SPA_PTR_TO_INT (pi->items), SpaDictItem);
+  for (i = 0; i < pi->n_items; i++) {
+    pi->items[i].key = SPA_MEMBER (pi, SPA_PTR_TO_INT (pi->items[i].key), char);
+    pi->items[i].value = SPA_MEMBER (pi, SPA_PTR_TO_INT (pi->items[i].value), char);
+  }
+  return pi;
+}
+
+SpaDict *
+pinos_serialize_dict_copy_into (void *dest, const SpaDict *dict)
+{
+  if (dict == NULL)
+    return NULL;
+
+  pinos_serialize_dict_serialize (dest, dict);
+  return pinos_serialize_dict_deserialize (dest, 0);
+}

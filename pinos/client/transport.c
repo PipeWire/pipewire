@@ -20,6 +20,7 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
+#include <pinos/client/log.h>
 #include <pinos/client/transport.h>
 
 #define INPUT_BUFFER_SIZE       (1<<12)
@@ -131,6 +132,11 @@ pinos_transport_new_from_info (PinosTransportInfo *info)
   impl->mem.fd = info->memfd;
   impl->mem.size = info->size;
   impl->mem.ptr = mmap (NULL, info->size, PROT_READ | PROT_WRITE, MAP_SHARED, info->memfd, info->offset);
+  if (impl->mem.ptr == MAP_FAILED) {
+    pinos_log_warn ("transport %p: failed to map fd %d", impl, info->memfd);
+    goto mmap_failed;
+  }
+
   impl->offset = info->offset;
 
   transport_setup_area (impl->mem.ptr, trans);
@@ -144,6 +150,10 @@ pinos_transport_new_from_info (PinosTransportInfo *info)
   trans->input_data = tmp;
 
   return trans;
+
+mmap_failed:
+  free (impl);
+  return NULL;
 }
 
 

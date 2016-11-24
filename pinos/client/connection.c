@@ -39,6 +39,7 @@ typedef struct {
   int              fds[MAX_FDS];
   unsigned int     n_fds;
 
+  uint32_t         dest_id;
   PinosMessageType type;
   off_t            offset;
   void            *data;
@@ -52,32 +53,77 @@ struct _PinosConnection {
   int fd;
 };
 
+static int
+connection_get_fd (PinosConnection *conn,
+                   int              index)
+{
+  if (index < 0 || index >= conn->in.n_fds)
+    return -1;
+
+  return conn->in.fds[index];
+}
+
+static int
+connection_add_fd (PinosConnection *conn,
+                   int              fd)
+{
+  int index, i;
+
+  for (i = 0; i < conn->out.n_fds; i++) {
+    if (conn->out.fds[i] == fd)
+      return i;
+  }
+
+  index = conn->out.n_fds;
+  conn->out.fds[index] = fd;
+  conn->out.n_fds++;
+
+  return index;
+}
+
 #if 0
 #define PINOS_DEBUG_MESSAGE(format,args...) pinos_log_debug(stderr, format,##args)
 #else
 #define PINOS_DEBUG_MESSAGE(format,args...)
 #endif
 
-static bool
-read_length (uint8_t * data, unsigned int size, size_t * length, size_t * skip)
+static void
+connection_parse_notify_global (PinosConnection *conn, PinosMessageNotifyGlobal *ng)
 {
-  uint8_t b;
+  void *p;
 
-  /* start reading the length, we need this to skip to the data later */
-  *length = *skip = 0;
-  do {
-    if (*skip >= size)
-      return false;
+  p = conn->in.data;
+  memcpy (ng, p, sizeof (PinosMessageNotifyGlobal));
+  if (ng->type)
+    ng->type = SPA_MEMBER (p, SPA_PTR_TO_INT (ng->type), const char);
+}
 
-    b = data[(*skip)++];
-    *length = (*length << 7) | (b & 0x7f);
-  } while (b & 0x80);
+static void
+connection_parse_create_node (PinosConnection *conn, PinosMessageCreateNode *m)
+{
+  void *p;
 
-  /* check remaining command size */
-  if (size - *skip < *length)
-    return false;
+  p = conn->in.data;
+  memcpy (m, p, sizeof (PinosMessageCreateNode));
+  if (m->factory_name)
+    m->factory_name = SPA_MEMBER (p, SPA_PTR_TO_INT (m->factory_name), const char);
+  if (m->name)
+    m->name = SPA_MEMBER (p, SPA_PTR_TO_INT (m->name), const char);
+  if (m->props)
+    m->props = pinos_serialize_dict_deserialize (p, SPA_PTR_TO_INT (m->props));
+}
 
-  return true;
+static void
+connection_parse_create_client_node (PinosConnection *conn, PinosMessageCreateClientNode *m)
+{
+  void *p;
+
+  p = conn->in.data;
+  memcpy (m, p, sizeof (PinosMessageCreateClientNode));
+  if (m->name)
+    m->name = SPA_MEMBER (p, SPA_PTR_TO_INT (m->name), const char);
+  if (m->props)
+    m->props = pinos_serialize_dict_deserialize (p, SPA_PTR_TO_INT (m->props));
 }
 
 static void
@@ -173,34 +219,122 @@ connection_ensure_size (PinosConnection *conn, ConnectionBuffer *buf, size_t siz
 }
 
 static void *
-connection_add_message (PinosConnection *conn, PinosMessageType type, size_t size)
+connection_add_message (PinosConnection *conn,
+                        uint32_t         dest_id,
+                        PinosMessageType type,
+                        size_t           size)
 {
-  uint8_t *p;
-  unsigned int plen;
+  uint32_t *p;
   ConnectionBuffer *buf = &conn->out;
 
-  plen = 1;
-  while (size >> (7 * plen))
-    plen++;
-
-  /* 1 for cmd, plen for size and size for payload */
-  p = connection_ensure_size (conn, buf, 1 + plen + size);
+  /* 4 for dest_id, 2 for cmd, 2 for size and size for payload */
+  p = connection_ensure_size (conn, buf, 8 + size);
 
   buf->type = type;
   buf->offset = buf->buffer_size;
-  buf->buffer_size += 1 + plen + size;
+  buf->buffer_size += 8 + size;
 
-  *p++ = type;
-  /* write length */
-  while (plen) {
-    plen--;
-    *p++ = ((plen > 0) ? 0x80 : 0) | ((size >> (7 * plen)) & 0x7f);
-  }
+  *p++ = dest_id;
+  *p++ = (type << 16) | (size & 0xffff);
+
   return p;
 }
 
 static void
-connection_add_node_update (PinosConnection *conn, PinosMessageNodeUpdate *nu)
+connection_add_notify_global (PinosConnection *conn,
+                              uint32_t         dest_id,
+                              PinosMessageNotifyGlobal *m)
+{
+  size_t len;
+  void *p;
+  PinosMessageNotifyGlobal *d;
+
+  /* calc len */
+  len = sizeof (PinosMessageNotifyGlobal);
+  len += m->type ? strlen (m->type) + 1 : 0;
+
+  p = connection_add_message (conn, dest_id, PINOS_MESSAGE_NOTIFY_GLOBAL, len);
+  memcpy (p, m, sizeof (PinosMessageNotifyGlobal));
+  d = p;
+
+  p = SPA_MEMBER (d, sizeof (PinosMessageNotifyGlobal), void);
+  if (m->type) {
+    strcpy (p, m->type);
+    d->type = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
+  }
+}
+
+static void
+connection_add_create_node (PinosConnection *conn, uint32_t dest_id, PinosMessageCreateNode *m)
+{
+  size_t len, slen;
+  void *p;
+  PinosMessageCreateNode *d;
+
+  /* calc len */
+  len = sizeof (PinosMessageCreateNode);
+  len += m->factory_name ? strlen (m->factory_name) + 1 : 0;
+  len += m->name ? strlen (m->name) + 1 : 0;
+  len += pinos_serialize_dict_get_size (m->props);
+
+  p = connection_add_message (conn, dest_id, PINOS_MESSAGE_CREATE_NODE, len);
+  memcpy (p, m, sizeof (PinosMessageCreateNode));
+  d = p;
+
+  p = SPA_MEMBER (d, sizeof (PinosMessageCreateNode), void);
+  if (m->factory_name) {
+    slen = strlen (m->factory_name) + 1;
+    memcpy (p, m->factory_name, slen);
+    d->factory_name = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
+    p += slen;
+  }
+  if (m->name) {
+    slen = strlen (m->name) + 1;
+    memcpy (p, m->name, slen);
+    d->name = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
+    p += slen;
+  }
+  if (m->props) {
+    len = pinos_serialize_dict_serialize (p, m->props);
+    d->props = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
+  } else {
+    d->props = 0;
+  }
+}
+
+static void
+connection_add_create_client_node (PinosConnection *conn, uint32_t dest_id, PinosMessageCreateClientNode *m)
+{
+  size_t len, slen;
+  void *p;
+  PinosMessageCreateClientNode *d;
+
+  /* calc len */
+  len = sizeof (PinosMessageCreateClientNode);
+  len += m->name ? strlen (m->name) + 1 : 0;
+  len += pinos_serialize_dict_get_size (m->props);
+
+  p = connection_add_message (conn, dest_id, PINOS_MESSAGE_CREATE_CLIENT_NODE, len);
+  memcpy (p, m, sizeof (PinosMessageCreateClientNode));
+  d = p;
+
+  p = SPA_MEMBER (d, sizeof (PinosMessageCreateClientNode), void);
+  if (m->name) {
+    slen = strlen (m->name) + 1;
+    memcpy (p, m->name, slen);
+    d->name = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
+    p += slen;
+  }
+  if (m->props) {
+    len = pinos_serialize_dict_serialize (p, m->props);
+    d->props = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
+  } else {
+    d->props = 0;
+  }
+}
+
+static void
+connection_add_node_update (PinosConnection *conn, uint32_t dest_id, PinosMessageNodeUpdate *nu)
 {
   size_t len;
   void *p;
@@ -210,7 +344,7 @@ connection_add_node_update (PinosConnection *conn, PinosMessageNodeUpdate *nu)
   len = sizeof (PinosMessageNodeUpdate);
   len += pinos_serialize_props_get_size (nu->props);
 
-  p = connection_add_message (conn, PINOS_MESSAGE_NODE_UPDATE, len);
+  p = connection_add_message (conn, dest_id, PINOS_MESSAGE_NODE_UPDATE, len);
   memcpy (p, nu, sizeof (PinosMessageNodeUpdate));
   d = p;
 
@@ -224,7 +358,7 @@ connection_add_node_update (PinosConnection *conn, PinosMessageNodeUpdate *nu)
 }
 
 static void
-connection_add_port_update (PinosConnection *conn, PinosMessagePortUpdate *pu)
+connection_add_port_update (PinosConnection *conn, uint32_t dest_id, PinosMessagePortUpdate *pu)
 {
   size_t len;
   void *p;
@@ -243,7 +377,7 @@ connection_add_port_update (PinosConnection *conn, PinosMessagePortUpdate *pu)
   if (pu->info)
     len += pinos_serialize_port_info_get_size (pu->info);
 
-  p = connection_add_message (conn, PINOS_MESSAGE_PORT_UPDATE, len);
+  p = connection_add_message (conn, dest_id, PINOS_MESSAGE_PORT_UPDATE, len);
   memcpy (p, pu, sizeof (PinosMessagePortUpdate));
   d = p;
 
@@ -285,7 +419,7 @@ connection_add_port_update (PinosConnection *conn, PinosMessagePortUpdate *pu)
 }
 
 static void
-connection_add_set_format (PinosConnection *conn, PinosMessageSetFormat *sf)
+connection_add_set_format (PinosConnection *conn, uint32_t dest_id, PinosMessageSetFormat *sf)
 {
   size_t len;
   void *p;
@@ -293,7 +427,7 @@ connection_add_set_format (PinosConnection *conn, PinosMessageSetFormat *sf)
   /* calculate length */
   /* port_id + format + mask  */
   len = sizeof (PinosMessageSetFormat) + pinos_serialize_format_get_size (sf->format);
-  p = connection_add_message (conn, PINOS_MESSAGE_SET_FORMAT, len);
+  p = connection_add_message (conn, dest_id, PINOS_MESSAGE_SET_FORMAT, len);
   memcpy (p, sf, sizeof (PinosMessageSetFormat));
   sf = p;
 
@@ -306,7 +440,7 @@ connection_add_set_format (PinosConnection *conn, PinosMessageSetFormat *sf)
 }
 
 static void
-connection_add_use_buffers (PinosConnection *conn, PinosMessageUseBuffers *ub)
+connection_add_use_buffers (PinosConnection *conn, uint32_t dest_id, PinosMessageUseBuffers *ub)
 {
   size_t len;
   int i;
@@ -317,7 +451,7 @@ connection_add_use_buffers (PinosConnection *conn, PinosMessageUseBuffers *ub)
   len = sizeof (PinosMessageUseBuffers);
   len += ub->n_buffers * sizeof (PinosMessageMemRef);
 
-  d = connection_add_message (conn, PINOS_MESSAGE_USE_BUFFERS, len);
+  d = connection_add_message (conn, dest_id, PINOS_MESSAGE_USE_BUFFERS, len);
   memcpy (d, ub, sizeof (PinosMessageUseBuffers));
 
   mr = SPA_MEMBER (d, sizeof (PinosMessageUseBuffers), void);
@@ -332,7 +466,7 @@ connection_add_use_buffers (PinosConnection *conn, PinosMessageUseBuffers *ub)
 }
 
 static void
-connection_add_node_event (PinosConnection *conn, PinosMessageNodeEvent *ev)
+connection_add_node_event (PinosConnection *conn, uint32_t dest_id, PinosMessageNodeEvent *ev)
 {
   size_t len;
   void *p;
@@ -342,7 +476,7 @@ connection_add_node_event (PinosConnection *conn, PinosMessageNodeEvent *ev)
   len = sizeof (PinosMessageNodeEvent);
   len += ev->event->size;
 
-  p = connection_add_message (conn, PINOS_MESSAGE_NODE_EVENT, len);
+  p = connection_add_message (conn, dest_id, PINOS_MESSAGE_NODE_EVENT, len);
   memcpy (p, ev, sizeof (PinosMessageNodeEvent));
   d = p;
 
@@ -353,7 +487,7 @@ connection_add_node_event (PinosConnection *conn, PinosMessageNodeEvent *ev)
 }
 
 static void
-connection_add_node_command (PinosConnection *conn, PinosMessageNodeCommand *cm)
+connection_add_node_command (PinosConnection *conn, uint32_t dest_id, PinosMessageNodeCommand *cm)
 {
   size_t len;
   void *p;
@@ -363,7 +497,7 @@ connection_add_node_command (PinosConnection *conn, PinosMessageNodeCommand *cm)
   len = sizeof (PinosMessageNodeCommand);
   len += cm->command->size;
 
-  p = connection_add_message (conn, PINOS_MESSAGE_NODE_COMMAND, len);
+  p = connection_add_message (conn, dest_id, PINOS_MESSAGE_NODE_COMMAND, len);
   memcpy (p, cm, sizeof (PinosMessageNodeCommand));
   d = p;
 
@@ -374,7 +508,7 @@ connection_add_node_command (PinosConnection *conn, PinosMessageNodeCommand *cm)
 }
 
 static void
-connection_add_port_command (PinosConnection *conn, PinosMessagePortCommand *cm)
+connection_add_port_command (PinosConnection *conn, uint32_t dest_id, PinosMessagePortCommand *cm)
 {
   size_t len;
   void *p;
@@ -384,7 +518,7 @@ connection_add_port_command (PinosConnection *conn, PinosMessagePortCommand *cm)
   len = sizeof (PinosMessagePortCommand);
   len += cm->command->size;
 
-  p = connection_add_message (conn, PINOS_MESSAGE_PORT_COMMAND, len);
+  p = connection_add_message (conn, dest_id, PINOS_MESSAGE_PORT_COMMAND, len);
   memcpy (p, cm, sizeof (PinosMessagePortCommand));
   d = p;
 
@@ -422,7 +556,7 @@ refill_buffer (PinosConnection *conn, ConnectionBuffer *buf)
     break;
   }
 
-  if (len < 4)
+  if (len < 8)
     return false;
 
   buf->buffer_size += len;
@@ -450,14 +584,6 @@ recv_error:
 static void
 clear_buffer (ConnectionBuffer *buf)
 {
-  unsigned int i;
-
-  for (i = 0; i < buf->n_fds; i++) {
-    if (buf->fds[i] > 0) {
-      if (close (buf->fds[i]) < 0)
-        perror ("close");
-    }
-  }
   buf->n_fds = 0;
   buf->type = PINOS_MESSAGE_INVALID;
   buf->offset = 0;
@@ -471,6 +597,7 @@ pinos_connection_new (int fd)
   PinosConnection *c;
 
   c = calloc (1, sizeof (PinosConnection));
+  pinos_log_debug ("connection %p: new", c);
   c->fd = fd;
   c->out.buffer_data = malloc (MAX_BUFFER_SIZE);
   c->out.buffer_maxsize = MAX_BUFFER_SIZE;
@@ -482,8 +609,9 @@ pinos_connection_new (int fd)
 }
 
 void
-pinos_connection_free (PinosConnection *conn)
+pinos_connection_destroy (PinosConnection *conn)
 {
+  pinos_log_debug ("connection %p: destroy", conn);
   free (conn->out.buffer_data);
   free (conn->in.buffer_data);
   free (conn);
@@ -498,11 +626,15 @@ pinos_connection_free (PinosConnection *conn)
  * Returns: %true if more packets are available.
  */
 bool
-pinos_connection_has_next (PinosConnection *conn)
+pinos_connection_get_next (PinosConnection  *conn,
+                           PinosMessageType *type,
+                           uint32_t         *dest_id,
+                           size_t           *sz)
 {
-  size_t len, size, skip;
+  size_t len, size;
   uint8_t *data;
   ConnectionBuffer *buf;
+  uint32_t *p;
 
   spa_return_val_if_fail (conn != NULL, false);
 
@@ -530,28 +662,33 @@ again:
   data += buf->offset;
   size -= buf->offset;
 
-  buf->type = *data;
-  data++;
-  size--;
+  if (size < 8) {
+    connection_ensure_size (conn, buf, 8);
+    buf->update = true;
+    goto again;
+  }
+  p = (uint32_t *) data;
+  data += 8;
+  size -= 8;
 
-  if (!read_length (data, size, &len, &skip)) {
-    connection_ensure_size (conn, buf, len + skip);
+  buf->dest_id = p[0];
+  buf->type = p[1] >> 16;
+  len = p[1] & 0xffff;
+
+  if (len > size) {
+    connection_ensure_size (conn, buf, len);
     buf->update = true;
     goto again;
   }
   buf->size = len;
-  buf->data = data + skip;
-  buf->offset += 1 + skip;
+  buf->data = data;
+  buf->offset += 8;
+
+  *type = buf->type;
+  *dest_id = buf->dest_id;
+  *sz = buf->size;
 
   return true;
-}
-
-PinosMessageType
-pinos_connection_get_type (PinosConnection *conn)
-{
-  spa_return_val_if_fail (conn != NULL, PINOS_MESSAGE_INVALID);
-
-  return conn->in.type;
 }
 
 bool
@@ -561,6 +698,58 @@ pinos_connection_parse_message (PinosConnection *conn,
   spa_return_val_if_fail (conn != NULL, false);
 
   switch (conn->in.type) {
+    case PINOS_MESSAGE_SYNC:
+      if (conn->in.size < sizeof (PinosMessageSync))
+        return false;
+      memcpy (message, conn->in.data, sizeof (PinosMessageSync));
+      break;
+
+    case PINOS_MESSAGE_NOTIFY_DONE:
+      if (conn->in.size < sizeof (PinosMessageNotifyDone))
+        return false;
+      memcpy (message, conn->in.data, sizeof (PinosMessageNotifyDone));
+      break;
+
+    case PINOS_MESSAGE_SUBSCRIBE:
+      if (conn->in.size < sizeof (PinosMessageSubscribe))
+        return false;
+      memcpy (message, conn->in.data, sizeof (PinosMessageSubscribe));
+      break;
+
+    case PINOS_MESSAGE_NOTIFY_GLOBAL:
+      connection_parse_notify_global (conn, message);
+      break;
+
+    case PINOS_MESSAGE_NOTIFY_GLOBAL_REMOVE:
+      if (conn->in.size < sizeof (PinosMessageNotifyGlobalRemove))
+        return false;
+      memcpy (message, conn->in.data, sizeof (PinosMessageNotifyGlobalRemove));
+      break;
+
+    case PINOS_MESSAGE_CREATE_NODE:
+      connection_parse_create_node (conn, message);
+      break;
+
+    case PINOS_MESSAGE_CREATE_NODE_DONE:
+      if (conn->in.size < sizeof (PinosMessageCreateNodeDone))
+        return false;
+      memcpy (message, conn->in.data, sizeof (PinosMessageCreateNodeDone));
+      break;
+
+    case PINOS_MESSAGE_CREATE_CLIENT_NODE:
+      connection_parse_create_client_node (conn, message);
+      break;
+
+    case PINOS_MESSAGE_CREATE_CLIENT_NODE_DONE:
+    {
+      PinosMessageCreateClientNodeDone *d = message;
+      if (conn->in.size < sizeof (PinosMessageCreateClientNodeDone))
+        return false;
+      memcpy (message, conn->in.data, sizeof (PinosMessageCreateClientNodeDone));
+      d->datafd = connection_get_fd (conn, d->datafd);
+      break;
+    }
+
     /* C -> S */
     case PINOS_MESSAGE_NODE_UPDATE:
       connection_parse_node_update (conn, message);
@@ -603,19 +792,17 @@ pinos_connection_parse_message (PinosConnection *conn,
 
     /* bidirectional */
     case PINOS_MESSAGE_ADD_MEM:
+    {
+      PinosMessageAddMem *d = message;
       if (conn->in.size < sizeof (PinosMessageAddMem))
         return false;
       memcpy (message, conn->in.data, sizeof (PinosMessageAddMem));
+      d->memfd = connection_get_fd (conn, d->memfd);
       break;
+    }
 
     case PINOS_MESSAGE_USE_BUFFERS:
       connection_parse_use_buffers (conn, message);
-      break;
-
-    case PINOS_MESSAGE_PROCESS_BUFFER:
-      if (conn->in.size < sizeof (PinosMessageProcessBuffer))
-        return false;
-      memcpy (message, conn->in.data, sizeof (PinosMessageProcessBuffer));
       break;
 
     case PINOS_MESSAGE_NODE_EVENT:
@@ -631,75 +818,19 @@ pinos_connection_parse_message (PinosConnection *conn,
       break;
 
     case PINOS_MESSAGE_TRANSPORT_UPDATE:
+    {
+      PinosMessageTransportUpdate *d = message;
       if (conn->in.size < sizeof (PinosMessageTransportUpdate))
         return false;
       memcpy (message, conn->in.data, sizeof (PinosMessageTransportUpdate));
+      d->memfd = connection_get_fd (conn, d->memfd);
       break;
+    }
 
     case PINOS_MESSAGE_INVALID:
       return false;
   }
   return true;
-}
-
-/**
- * pinos_connection_get_fd:
- * @conn: a #PinosConnection
- * @index: an index
- * @steal: steal the fd
- *
- * Get the file descriptor at @index in @conn.
- *
- * Returns: a file descriptor at @index in @conn. The file descriptor
- * is not duplicated in any way. -1 is returned on error.
- */
-int
-pinos_connection_get_fd (PinosConnection *conn,
-                         unsigned int     index,
-                         bool             close)
-{
-  int fd;
-
-  spa_return_val_if_fail (conn != NULL, -1);
-  spa_return_val_if_fail (index < conn->in.n_fds, -1);
-
-  fd = conn->in.fds[index];
-  if (fd < 0)
-    fd = -fd;
-  conn->in.fds[index] = close ? fd : -fd;
-
-  return fd;
-}
-
-/**
- * pinos_connection_add_fd:
- * @conn: a #PinosConnection
- * @fd: a valid fd
- * @close: if the descriptor should be closed when sent
- *
- * Add the file descriptor @fd to @builder.
- *
- * Returns: the index of the file descriptor in @builder.
- */
-int
-pinos_connection_add_fd (PinosConnection *conn,
-                         int              fd,
-                         bool             close)
-{
-  int index, i;
-
-  spa_return_val_if_fail (conn != NULL, -1);
-
-  for (i = 0; i < conn->out.n_fds; i++) {
-    if (conn->out.fds[i] == fd || conn->out.fds[i] == -fd)
-      return i;
-  }
-
-  index = conn->out.n_fds;
-  conn->out.fds[index] = close ? fd : -fd;
-  conn->out.n_fds++;
-
-  return index;
 }
 
 /**
@@ -714,6 +845,7 @@ pinos_connection_add_fd (PinosConnection *conn,
  */
 bool
 pinos_connection_add_message (PinosConnection  *conn,
+                              uint32_t          dest_id,
                               PinosMessageType  type,
                               void             *message)
 {
@@ -723,37 +855,83 @@ pinos_connection_add_message (PinosConnection  *conn,
   spa_return_val_if_fail (message != NULL, false);
 
   switch (type) {
+    case PINOS_MESSAGE_SYNC:
+      p = connection_add_message (conn, dest_id, type, sizeof (PinosMessageSync));
+      memcpy (p, message, sizeof (PinosMessageSync));
+      break;
+
+    case PINOS_MESSAGE_NOTIFY_DONE:
+      p = connection_add_message (conn, dest_id, type, sizeof (PinosMessageNotifyDone));
+      memcpy (p, message, sizeof (PinosMessageNotifyDone));
+      break;
+
+    case PINOS_MESSAGE_SUBSCRIBE:
+      p = connection_add_message (conn, dest_id, type, sizeof (PinosMessageSubscribe));
+      memcpy (p, message, sizeof (PinosMessageSubscribe));
+      break;
+
+    case PINOS_MESSAGE_NOTIFY_GLOBAL:
+      connection_add_notify_global (conn, dest_id, message);
+      break;
+
+    case PINOS_MESSAGE_NOTIFY_GLOBAL_REMOVE:
+      p = connection_add_message (conn, dest_id, type, sizeof (PinosMessageNotifyGlobalRemove));
+      memcpy (p, message, sizeof (PinosMessageNotifyGlobalRemove));
+      break;
+
+    case PINOS_MESSAGE_CREATE_NODE:
+      connection_add_create_node (conn, dest_id, message);
+      break;
+
+    case PINOS_MESSAGE_CREATE_NODE_DONE:
+      p = connection_add_message (conn, dest_id, type, sizeof (PinosMessageCreateNodeDone));
+      memcpy (p, message, sizeof (PinosMessageCreateNodeDone));
+      break;
+
+    case PINOS_MESSAGE_CREATE_CLIENT_NODE:
+      connection_add_create_client_node (conn, dest_id, message);
+      break;
+
+    case PINOS_MESSAGE_CREATE_CLIENT_NODE_DONE:
+    {
+      PinosMessageCreateClientNodeDone *d;
+      d = connection_add_message (conn, dest_id, type, sizeof (PinosMessageCreateClientNodeDone));
+      memcpy (d, message, sizeof (PinosMessageCreateClientNodeDone));
+      d->datafd = connection_add_fd (conn, d->datafd);
+      break;
+    }
+
     /* C -> S */
     case PINOS_MESSAGE_NODE_UPDATE:
-      connection_add_node_update (conn, message);
+      connection_add_node_update (conn, dest_id, message);
       break;
 
     case PINOS_MESSAGE_PORT_UPDATE:
-      connection_add_port_update (conn, message);
+      connection_add_port_update (conn, dest_id, message);
       break;
 
     case PINOS_MESSAGE_PORT_STATUS_CHANGE:
-      p = connection_add_message (conn, type, 0);
+      p = connection_add_message (conn, dest_id, type, 0);
       break;
 
     case PINOS_MESSAGE_NODE_STATE_CHANGE:
-      p = connection_add_message (conn, type, sizeof (PinosMessageNodeStateChange));
+      p = connection_add_message (conn, dest_id, type, sizeof (PinosMessageNodeStateChange));
       memcpy (p, message, sizeof (PinosMessageNodeStateChange));
       break;
 
     /* S -> C */
     case PINOS_MESSAGE_ADD_PORT:
-      p = connection_add_message (conn, type, sizeof (PinosMessageAddPort));
+      p = connection_add_message (conn, dest_id, type, sizeof (PinosMessageAddPort));
       memcpy (p, message, sizeof (PinosMessageAddPort));
       break;
 
     case PINOS_MESSAGE_REMOVE_PORT:
-      p = connection_add_message (conn, type, sizeof (PinosMessageRemovePort));
+      p = connection_add_message (conn, dest_id, type, sizeof (PinosMessageRemovePort));
       memcpy (p, message, sizeof (PinosMessageRemovePort));
       break;
 
     case PINOS_MESSAGE_SET_FORMAT:
-      connection_add_set_format (conn, message);
+      connection_add_set_format (conn, dest_id, message);
       break;
 
     case PINOS_MESSAGE_SET_PROPERTY:
@@ -762,35 +940,38 @@ pinos_connection_add_message (PinosConnection  *conn,
 
     /* bidirectional */
     case PINOS_MESSAGE_ADD_MEM:
-      p = connection_add_message (conn, type, sizeof (PinosMessageAddMem));
-      memcpy (p, message, sizeof (PinosMessageAddMem));
+    {
+      PinosMessageAddMem *d;
+      d = connection_add_message (conn, dest_id, type, sizeof (PinosMessageAddMem));
+      memcpy (d, message, sizeof (PinosMessageAddMem));
+      d->memfd = connection_add_fd (conn, d->memfd);
       break;
+    }
 
     case PINOS_MESSAGE_USE_BUFFERS:
-      connection_add_use_buffers (conn, message);
-      break;
-
-    case PINOS_MESSAGE_PROCESS_BUFFER:
-      p = connection_add_message (conn, type, sizeof (PinosMessageProcessBuffer));
-      memcpy (p, message, sizeof (PinosMessageProcessBuffer));
+      connection_add_use_buffers (conn, dest_id, message);
       break;
 
     case PINOS_MESSAGE_NODE_EVENT:
-      connection_add_node_event (conn, message);
+      connection_add_node_event (conn, dest_id, message);
       break;
 
     case PINOS_MESSAGE_NODE_COMMAND:
-      connection_add_node_command (conn, message);
+      connection_add_node_command (conn, dest_id, message);
       break;
 
     case PINOS_MESSAGE_PORT_COMMAND:
-      connection_add_port_command (conn, message);
+      connection_add_port_command (conn, dest_id, message);
       break;
 
     case PINOS_MESSAGE_TRANSPORT_UPDATE:
-      p = connection_add_message (conn, type, sizeof (PinosMessageTransportUpdate));
-      memcpy (p, message, sizeof (PinosMessageTransportUpdate));
+    {
+      PinosMessageTransportUpdate *d;
+      d = connection_add_message (conn, dest_id, type, sizeof (PinosMessageTransportUpdate));
+      memcpy (d, message, sizeof (PinosMessageTransportUpdate));
+      d->memfd = connection_add_fd (conn, d->memfd);
       break;
+    }
 
     case PINOS_MESSAGE_INVALID:
       return false;

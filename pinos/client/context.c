@@ -17,283 +17,31 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <errno.h>
+
 #include "pinos/client/pinos.h"
 
 #include "pinos/client/context.h"
-#include "pinos/client/enumtypes.h"
+#include "pinos/client/connection.h"
 #include "pinos/client/subscribe.h"
 
-#include "pinos/client/private.h"
+typedef struct {
+  PinosContext this;
 
-#define PINOS_CONTEXT_GET_PRIVATE(obj)  \
-   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), PINOS_TYPE_CONTEXT, PinosContextPrivate))
+  int fd;
+  PinosConnection *connection;
+  SpaSource source;
 
-G_DEFINE_TYPE (PinosContext, pinos_context, G_TYPE_OBJECT);
+  bool disconnecting;
 
-static void subscription_state (GObject *object, GParamSpec *pspec, gpointer user_data);
-static void subscription_cb (PinosSubscribe         *subscribe,
-                             PinosSubscriptionEvent  event,
-                             PinosSubscriptionFlags  flags,
-                             GDBusProxy             *object,
-                             gpointer                user_data);
-
-enum
-{
-  PROP_0,
-  PROP_MAIN_CONTEXT,
-  PROP_NAME,
-  PROP_PROPERTIES,
-  PROP_STATE,
-  PROP_CONNECTION,
-  PROP_SUBSCRIPTION_MASK,
-};
-
-enum
-{
-  SIGNAL_SUBSCRIPTION_EVENT,
-  LAST_SIGNAL
-};
-
-static guint signals[LAST_SIGNAL] = { 0 };
-
-static void
-pinos_context_get_property (GObject    *_object,
-                            guint       prop_id,
-                            GValue     *value,
-                            GParamSpec *pspec)
-{
-  PinosContext *context = PINOS_CONTEXT (_object);
-  PinosContextPrivate *priv = context->priv;
-
-  switch (prop_id) {
-    case PROP_MAIN_CONTEXT:
-      g_value_set_boxed (value, priv->context);
-      break;
-
-    case PROP_NAME:
-      g_value_set_string (value, priv->name);
-      break;
-
-    case PROP_PROPERTIES:
-      g_value_set_boxed (value, priv->properties);
-      break;
-
-    case PROP_STATE:
-      g_value_set_enum (value, priv->state);
-      break;
-
-    case PROP_CONNECTION:
-      g_value_set_object (value, priv->connection);
-      break;
-
-    case PROP_SUBSCRIPTION_MASK:
-      g_value_set_flags (value, priv->subscription_mask);
-      break;
-
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (context, prop_id, pspec);
-      break;
-  }
-}
-
-static void
-pinos_context_set_property (GObject      *_object,
-                            guint         prop_id,
-                            const GValue *value,
-                            GParamSpec   *pspec)
-{
-  PinosContext *context = PINOS_CONTEXT (_object);
-  PinosContextPrivate *priv = context->priv;
-
-  switch (prop_id) {
-    case PROP_MAIN_CONTEXT:
-      priv->context = g_value_dup_boxed (value);
-      break;
-
-    case PROP_NAME:
-      g_free (priv->name);
-      priv->name = g_value_dup_string (value);
-      break;
-
-    case PROP_PROPERTIES:
-      if (priv->properties)
-        pinos_properties_free (priv->properties);
-      priv->properties = g_value_dup_boxed (value);
-      break;
-
-    case PROP_SUBSCRIPTION_MASK:
-      priv->subscription_mask = g_value_get_flags (value);
-      break;
-
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (context, prop_id, pspec);
-      break;
-  }
-}
-
-static void
-pinos_context_finalize (GObject * object)
-{
-  PinosContext *context = PINOS_CONTEXT (object);
-  PinosContextPrivate *priv = context->priv;
-
-  pinos_log_debug ("free context %p", context);
-
-  if (priv->id)
-    g_bus_unwatch_name(priv->id);
-
-  g_clear_pointer (&priv->context, g_main_context_unref);
-  g_free (priv->name);
-  if (priv->properties)
-    pinos_properties_free (priv->properties);
-
-  g_list_free (priv->nodes);
-  g_list_free (priv->links);
-  g_list_free (priv->clients);
-  g_clear_object (&priv->subscribe);
-  g_clear_error (&priv->error);
-
-  G_OBJECT_CLASS (pinos_context_parent_class)->finalize (object);
-}
-
-static void
-pinos_context_class_init (PinosContextClass * klass)
-{
-  GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
-
-  g_type_class_add_private (klass, sizeof (PinosContextPrivate));
-
-  gobject_class->finalize = pinos_context_finalize;
-  gobject_class->set_property = pinos_context_set_property;
-  gobject_class->get_property = pinos_context_get_property;
-
-  /**
-   * PinosContext:main-context
-   *
-   * The main context to use
-   */
-  g_object_class_install_property (gobject_class,
-                                   PROP_MAIN_CONTEXT,
-                                   g_param_spec_boxed ("main-context",
-                                                       "Main Context",
-                                                       "The main context to use",
-                                                       G_TYPE_MAIN_CONTEXT,
-                                                       G_PARAM_READWRITE |
-                                                       G_PARAM_CONSTRUCT_ONLY |
-                                                       G_PARAM_STATIC_STRINGS));
-  /**
-   * PinosContext:name
-   *
-   * The application name of the context.
-   */
-  g_object_class_install_property (gobject_class,
-                                   PROP_NAME,
-                                   g_param_spec_string ("name",
-                                                        "Name",
-                                                        "The application name",
-                                                        NULL,
-                                                        G_PARAM_READWRITE |
-                                                        G_PARAM_STATIC_STRINGS));
-  /**
-   * PinosContext:properties
-   *
-   * Properties of the context.
-   */
-  g_object_class_install_property (gobject_class,
-                                   PROP_PROPERTIES,
-                                   g_param_spec_boxed ("properties",
-                                                       "Properties",
-                                                       "Extra properties",
-                                                        PINOS_TYPE_PROPERTIES,
-                                                        G_PARAM_READWRITE |
-                                                        G_PARAM_STATIC_STRINGS));
-  /**
-   * PinosContext:state
-   *
-   * The state of the context.
-   */
-  g_object_class_install_property (gobject_class,
-                                   PROP_STATE,
-                                   g_param_spec_enum ("state",
-                                                      "State",
-                                                      "The context state",
-                                                      PINOS_TYPE_CONTEXT_STATE,
-                                                      PINOS_CONTEXT_STATE_UNCONNECTED,
-                                                      G_PARAM_READABLE |
-                                                      G_PARAM_STATIC_STRINGS));
-  /**
-   * PinosContext:connection
-   *
-   * The connection of the context.
-   */
-  g_object_class_install_property (gobject_class,
-                                   PROP_CONNECTION,
-                                   g_param_spec_object ("connection",
-                                                        "Connection",
-                                                        "The DBus connection",
-                                                        G_TYPE_DBUS_CONNECTION,
-                                                        G_PARAM_READABLE |
-                                                        G_PARAM_STATIC_STRINGS));
-  /**
-   * PinosContext:subscription-mask
-   *
-   * The subscription mask
-   */
-  g_object_class_install_property (gobject_class,
-                                   PROP_SUBSCRIPTION_MASK,
-                                   g_param_spec_flags ("subscription-mask",
-                                                       "Subscription Mask",
-                                                       "The object to receive subscription events of",
-                                                       PINOS_TYPE_SUBSCRIPTION_FLAGS,
-                                                       0,
-                                                       G_PARAM_READWRITE |
-                                                       G_PARAM_STATIC_STRINGS));
-  /**
-   * PinosContext:subscription-event
-   * @subscribe: The #PinosContext emitting the signal.
-   * @event: A #PinosSubscriptionEvent
-   * @flags: #PinosSubscriptionFlags indicating the object
-   * @object: the GDBusProxy object
-   *
-   * Notify about a new object that was added/removed/modified.
-   */
-  signals[SIGNAL_SUBSCRIPTION_EVENT] = g_signal_new ("subscription-event",
-                                                     G_TYPE_FROM_CLASS (klass),
-                                                     G_SIGNAL_RUN_LAST,
-                                                     0,
-                                                     NULL,
-                                                     NULL,
-                                                     g_cclosure_marshal_generic,
-                                                     G_TYPE_NONE,
-                                                     3,
-                                                     PINOS_TYPE_SUBSCRIPTION_EVENT,
-                                                     PINOS_TYPE_SUBSCRIPTION_FLAGS,
-                                                     G_TYPE_DBUS_PROXY);
-
-}
-
-static void
-pinos_context_init (PinosContext * context)
-{
-  PinosContextPrivate *priv = context->priv = PINOS_CONTEXT_GET_PRIVATE (context);
-
-  pinos_log_debug ("new context %p", context);
-
-  priv->state = PINOS_CONTEXT_STATE_UNCONNECTED;
-
-  priv->subscribe = pinos_subscribe_new ();
-  g_object_set (priv->subscribe,
-                "subscription-mask", PINOS_SUBSCRIPTION_FLAGS_ALL,
-                NULL);
-  g_signal_connect (priv->subscribe,
-                    "subscription-event",
-                    (GCallback) subscription_cb,
-                    context);
-  g_signal_connect (priv->subscribe,
-                    "notify::state",
-                    (GCallback) subscription_state,
-                    context);
-}
+  PinosSubscriptionFlags subscribe_mask;
+  PinosSubscriptionFunc  subscribe_func;
+  void                  *subscribe_data;
+} PinosContextImpl;
 
 /**
  * pinos_context_state_as_string:
@@ -303,15 +51,157 @@ pinos_context_init (PinosContext * context)
  *
  * Returns: the string representation of @state.
  */
-const gchar *
+const char *
 pinos_context_state_as_string (PinosContextState state)
 {
-  GEnumValue *val;
+  switch (state) {
+    case PINOS_CONTEXT_STATE_ERROR:
+      return "error";
+    case PINOS_CONTEXT_STATE_UNCONNECTED:
+      return "unconnected";
+    case PINOS_CONTEXT_STATE_CONNECTING:
+      return "connecting";
+    case PINOS_CONTEXT_STATE_CONNECTED:
+      return "connected";
+  }
+  return "invalid-state";
+}
 
-  val = g_enum_get_value (G_ENUM_CLASS (g_type_class_ref (PINOS_TYPE_CONTEXT_STATE)),
-                          state);
+static void
+context_set_state (PinosContext      *context,
+                   PinosContextState  state,
+                   const char        *fmt,
+                   ...)
+{
+  if (context->state != state) {
+    pinos_log_debug ("context %p: update state from %s -> %s", context,
+                pinos_context_state_as_string (context->state),
+                pinos_context_state_as_string (state));
 
-  return val == NULL ? "invalid-state" : val->value_nick;
+    if (context->error)
+      free (context->error);
+
+    if (fmt) {
+      va_list varargs;
+
+      va_start (varargs, fmt);
+      vasprintf (&context->error, fmt, varargs);
+      va_end (varargs);
+    } else {
+      context->error = NULL;
+    }
+
+    context->state = state;
+    pinos_signal_emit (&context->state_changed, context);
+  }
+}
+
+static SpaResult
+core_dispatch_func (void             *object,
+                    PinosMessageType  type,
+                    void             *message,
+                    void             *data)
+{
+  PinosContext *context = data;
+
+  switch (type) {
+    case PINOS_MESSAGE_NOTIFY_DONE:
+    {
+      PinosMessageNotifyDone *nd = message;
+
+      if (nd->seq == 0)
+        context_set_state (context, PINOS_CONTEXT_STATE_CONNECTED, NULL);
+      break;
+    }
+    case PINOS_MESSAGE_NOTIFY_GLOBAL:
+    {
+      PinosMessageNotifyGlobal *ng = message;
+      pinos_log_warn ("global %u %s", ng->id, ng->type);
+      break;
+    }
+    default:
+      pinos_log_warn ("unhandled message %d", type);
+      break;
+  }
+  return SPA_RESULT_OK;
+}
+
+static PinosProxy *
+find_proxy (PinosContext *context,
+            uint32_t      id)
+{
+  PinosProxy *p;
+
+  spa_list_for_each (p, &context->proxy_list, link) {
+    if (p->id == id)
+      return p;
+  }
+  return NULL;
+}
+
+static void
+on_context_data (SpaSource *source,
+                 int        fd,
+                 SpaIO      mask,
+                 void      *data)
+{
+  PinosContextImpl *impl = data;
+  PinosContext *this = &impl->this;
+
+  if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
+    context_set_state (this,
+                       PINOS_CONTEXT_STATE_ERROR,
+                       "connection closed");
+    return;
+  }
+
+  if (mask & SPA_IO_IN) {
+    PinosConnection *conn = impl->connection;
+    PinosMessageType type;
+    uint32_t id;
+    size_t size;
+
+    while (pinos_connection_get_next (conn, &type, &id, &size)) {
+      void *p = alloca (size);
+      PinosProxy *proxy;
+
+      pinos_log_error ("context %p: got message %d from %u", this, type, id);
+
+      if (!pinos_connection_parse_message (conn, p)) {
+        pinos_log_error ("context %p: failed to parse message", this);
+        continue;
+      }
+
+      proxy = find_proxy (this, id);
+      if (proxy == NULL) {
+        pinos_log_error ("context %p: could not find proxy %u", this, id);
+        continue;
+      }
+
+      proxy->dispatch_func (proxy, type, p, proxy->dispatch_data);
+    }
+  }
+}
+
+static SpaResult
+context_send_func (void             *object,
+                   uint32_t          id,
+                   PinosMessageType  type,
+                   void             *message,
+                   bool              flush,
+                   void             *data)
+{
+  PinosContextImpl *impl = SPA_CONTAINER_OF (data, PinosContextImpl, this);
+
+  pinos_log_error ("context %p: send message %d to %u", &impl->this, type, id);
+  pinos_connection_add_message (impl->connection,
+                                id,
+                                type,
+                                message);
+  if (flush)
+    pinos_connection_flush (impl->connection);
+
+  return SPA_RESULT_OK;
 }
 
 /**
@@ -325,197 +215,67 @@ pinos_context_state_as_string (PinosContextState state)
  * Returns: a new unconnected #PinosContext
  */
 PinosContext *
-pinos_context_new (GMainContext    *context,
-                   const gchar     *name,
+pinos_context_new (PinosLoop       *loop,
+                   const char      *name,
                    PinosProperties *properties)
 {
-  PinosContext *ctx;
+  PinosContextImpl *impl;
+  PinosContext *this;
 
-  g_return_val_if_fail (name != NULL, NULL);
+  impl = calloc (1, sizeof (PinosContextImpl));
+  this = &impl->this;
+  pinos_log_debug ("context %p: new", impl);
+
+  this->name = strdup (name);
 
   if (properties == NULL)
     properties = pinos_properties_new ("application.name", name, NULL);
-
   pinos_fill_context_properties (properties);
+  this->properties = properties;
 
-  ctx = g_object_new (PINOS_TYPE_CONTEXT,
-                      "main-context", context,
-                      "name", name,
-                      "properties", properties,
-                      NULL);
+  this->loop = loop;
 
-  pinos_properties_free (properties);
+  this->state = PINOS_CONTEXT_STATE_UNCONNECTED;
 
-  return ctx;
+  this->send_func = context_send_func;
+  this->send_data = this;
+
+  pinos_map_init (&this->objects, 64);
+
+  spa_list_init (&this->stream_list);
+  spa_list_init (&this->global_list);
+  spa_list_init (&this->proxy_list);
+
+  pinos_signal_init (&this->state_changed);
+  pinos_signal_init (&this->destroy_signal);
+
+  return this;
 }
 
-static gboolean
-do_notify_state (PinosContext *context)
+void
+pinos_context_destroy (PinosContext *context)
 {
-  g_object_notify (G_OBJECT (context), "state");
-  g_object_unref (context);
-  return FALSE;
-}
+  PinosContextImpl *impl = SPA_CONTAINER_OF (context, PinosContextImpl, this);
+  PinosStream *stream, *t1;
+  PinosProxy *proxy, *t2;
 
-static void
-context_set_state (PinosContext      *context,
-                   PinosContextState  state,
-                   GError            *error)
-{
-  if (context->priv->state != state) {
-    if (error) {
-      g_clear_error (&context->priv->error);
-      context->priv->error = error;
-    }
-    context->priv->state = state;
-    g_main_context_invoke (context->priv->context,
-                           (GSourceFunc) do_notify_state,
-                           g_object_ref (context));
-  } else {
-    if (error)
-      g_error_free (error);
-  }
-}
+  pinos_log_debug ("context %p: destroy", context);
+  pinos_signal_emit (&context->destroy_signal, context);
 
-static void
-on_daemon_connected (GObject      *source_object,
-                     GAsyncResult *res,
-                     gpointer      user_data)
-{
-  PinosContext *context = user_data;
+  spa_list_for_each_safe (stream, t1, &context->stream_list, link)
+    pinos_stream_destroy (stream);
+  spa_list_for_each_safe (proxy, t2, &context->proxy_list, link)
+    pinos_proxy_destroy (proxy);
 
-  context_set_state (context, PINOS_CONTEXT_STATE_CONNECTED, NULL);
-}
+  if (context->name)
+    free (context->name);
+  if (context->properties)
+    pinos_properties_free (context->properties);
 
-static void
-subscription_cb (PinosSubscribe         *subscribe,
-                 PinosSubscriptionEvent  event,
-                 PinosSubscriptionFlags  flags,
-                 GDBusProxy             *object,
-                 gpointer                user_data)
-{
-  PinosContext *context = user_data;
-  PinosContextPrivate *priv = context->priv;
+  if (context->error)
+    free (context->error);
 
-  switch (flags) {
-    case PINOS_SUBSCRIPTION_FLAG_DAEMON:
-      priv->daemon = g_object_ref (object);
-      break;
-
-    case PINOS_SUBSCRIPTION_FLAG_CLIENT:
-      if (event == PINOS_SUBSCRIPTION_EVENT_NEW)
-        priv->clients = g_list_prepend (priv->clients, object);
-      else if (event == PINOS_SUBSCRIPTION_EVENT_REMOVE)
-        priv->clients = g_list_remove (priv->clients, object);
-      break;
-
-    case PINOS_SUBSCRIPTION_FLAG_NODE:
-      if (event == PINOS_SUBSCRIPTION_EVENT_NEW)
-        priv->nodes = g_list_prepend (priv->nodes, object);
-      else if (event == PINOS_SUBSCRIPTION_EVENT_REMOVE)
-        priv->nodes = g_list_remove (priv->nodes, object);
-      break;
-
-    case PINOS_SUBSCRIPTION_FLAG_LINK:
-      if (event == PINOS_SUBSCRIPTION_EVENT_NEW)
-        priv->links = g_list_prepend (priv->links, object);
-      else if (event == PINOS_SUBSCRIPTION_EVENT_REMOVE)
-        priv->links = g_list_remove (priv->links, object);
-      break;
-  }
-
-  if (flags & priv->subscription_mask)
-    g_signal_emit (context,
-                   signals[SIGNAL_SUBSCRIPTION_EVENT],
-                   0,
-                   event,
-                   flags,
-                   object);
-
-}
-
-static void
-subscription_state (GObject    *object,
-                    GParamSpec *pspec,
-                    gpointer    user_data)
-{
-  PinosContext *context = user_data;
-  PinosContextPrivate *priv = context->priv;
-  PinosSubscriptionState state;
-
-  g_assert (object == G_OBJECT (priv->subscribe));
-
-  state = pinos_subscribe_get_state (priv->subscribe);
-
-  switch (state) {
-    case PINOS_SUBSCRIPTION_STATE_READY:
-      on_daemon_connected (NULL, NULL, context);
-      break;
-
-    default:
-      break;
-  }
-
-}
-
-static void
-on_name_appeared (GDBusConnection *connection,
-                  const gchar     *name,
-                  const gchar     *name_owner,
-                  gpointer         user_data)
-{
-  PinosContext *context = user_data;
-  PinosContextPrivate *priv = context->priv;
-
-  priv->connection = connection;
-
-  g_object_set (priv->subscribe, "connection", priv->connection,
-                                 "service", name, NULL);
-}
-
-static void
-on_name_vanished (GDBusConnection *connection,
-                  const gchar     *name,
-                  gpointer         user_data)
-{
-  PinosContext *context = user_data;
-  PinosContextPrivate *priv = context->priv;
-
-  priv->connection = connection;
-
-  g_object_set (priv->subscribe, "connection", connection, NULL);
-
-  if (priv->flags & PINOS_CONTEXT_FLAGS_NOFAIL) {
-    context_set_state (context, PINOS_CONTEXT_STATE_CONNECTING, NULL);
-  } else {
-    context_set_state (context,
-                       PINOS_CONTEXT_STATE_ERROR,
-                       g_error_new_literal (G_IO_ERROR,
-                                            G_IO_ERROR_CLOSED,
-                                            "Connection closed"));
-  }
-}
-
-static gboolean
-do_connect (PinosContext *context)
-{
-  PinosContextPrivate *priv = context->priv;
-  GBusNameWatcherFlags nw_flags;
-
-  nw_flags = G_BUS_NAME_WATCHER_FLAGS_NONE;
-  if (!(priv->flags & PINOS_CONTEXT_FLAGS_NOAUTOSPAWN))
-    nw_flags = G_BUS_NAME_WATCHER_FLAGS_AUTO_START;
-
-  priv->id = g_bus_watch_name (G_BUS_TYPE_SESSION,
-                               PINOS_DBUS_SERVICE,
-                               nw_flags,
-                               on_name_appeared,
-                               on_name_vanished,
-                               context,
-                               NULL);
-  g_object_unref (context);
-
-  return FALSE;
+  free (impl);
 }
 
 /**
@@ -527,38 +287,77 @@ do_connect (PinosContext *context)
  *
  * Returns: %TRUE on success.
  */
-gboolean
-pinos_context_connect (PinosContext      *context,
-                       PinosContextFlags  flags)
+bool
+pinos_context_connect (PinosContext      *context)
 {
-  PinosContextPrivate *priv;
-
-  g_return_val_if_fail (PINOS_IS_CONTEXT (context), FALSE);
-
-  priv = context->priv;
-  g_return_val_if_fail (priv->connection == NULL, FALSE);
-
-  priv->flags = flags;
+  PinosContextImpl *impl = SPA_CONTAINER_OF (context, PinosContextImpl, this);
+  struct sockaddr_un addr;
+  socklen_t size;
+  const char *runtime_dir, *name = NULL;
+  int name_size, fd;
+  PinosMessageSubscribe sm;
 
   context_set_state (context, PINOS_CONTEXT_STATE_CONNECTING, NULL);
-  g_main_context_invoke (priv->context,
-                         (GSourceFunc) do_connect,
-                         g_object_ref (context));
 
-  return TRUE;
-}
-
-static void
-do_disconnect (PinosContext *context)
-{
-  PinosContextPrivate *priv = context->priv;
-
-  g_clear_object (&priv->daemon);
-  if (priv->id) {
-    g_bus_unwatch_name(priv->id);
-    priv->id = 0;
+  if ((runtime_dir = getenv ("XDG_RUNTIME_DIR")) == NULL) {
+    context_set_state (context,
+                       PINOS_CONTEXT_STATE_ERROR,
+                       "connect failed: XDG_RUNTIME_DIR not set in the environment");
+    return false;
   }
-  context_set_state (context, PINOS_CONTEXT_STATE_UNCONNECTED, NULL);
+
+  if (name == NULL)
+    name = getenv("PINOS_CORE");
+  if (name == NULL)
+    name = "pinos-0";
+
+  if ((fd = socket (PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC, 0)) < 0)
+    return false;
+
+  memset (&addr, 0, sizeof (addr));
+  addr.sun_family = AF_LOCAL;
+  name_size = snprintf (addr.sun_path, sizeof (addr.sun_path),
+                        "%s/%s", runtime_dir, name) + 1;
+
+  if (name_size > (int)sizeof addr.sun_path) {
+    pinos_log_error ("socket path \"%s/%s\" plus null terminator exceeds 108 bytes",
+                     runtime_dir, name);
+    close (fd);
+    return false;
+  };
+
+  size = offsetof (struct sockaddr_un, sun_path) + name_size;
+
+  if (connect (fd, (struct sockaddr *) &addr, size) < 0) {
+    context_set_state (context,
+                       PINOS_CONTEXT_STATE_ERROR,
+                       "connect failed: %s", strerror (errno));
+    close (fd);
+    return false;
+  }
+
+  impl->fd = fd;
+  impl->connection = pinos_connection_new (fd);
+
+  pinos_loop_add_io (context->loop,
+                     fd,
+                     SPA_IO_IN | SPA_IO_HUP | SPA_IO_ERR,
+                     false,
+                     on_context_data,
+                     impl);
+
+  context->core_proxy = pinos_proxy_new (context,
+                                         SPA_ID_INVALID,
+                                         0);
+  context->core_proxy->dispatch_func = core_dispatch_func;
+  context->core_proxy->dispatch_data = context;
+
+  sm.seq = 0;
+  pinos_proxy_send_message (context->core_proxy,
+                            PINOS_MESSAGE_SUBSCRIBE,
+                            &sm,
+                            true);
+  return true;
 }
 
 /**
@@ -569,60 +368,89 @@ do_disconnect (PinosContext *context)
  *
  * Returns: %TRUE on success.
  */
-gboolean
+bool
 pinos_context_disconnect (PinosContext *context)
 {
-  PinosContextPrivate *priv;
+  PinosContextImpl *impl = SPA_CONTAINER_OF (context, PinosContextImpl, this);
 
-  g_return_val_if_fail (PINOS_IS_CONTEXT (context), FALSE);
+  impl->disconnecting = true;
 
-  priv = context->priv;
-  g_return_val_if_fail (!priv->disconnecting, FALSE);
+  pinos_connection_destroy (impl->connection);
+  close (impl->fd);
 
-  priv->disconnecting = TRUE;
+  context_set_state (context, PINOS_CONTEXT_STATE_UNCONNECTED, NULL);
 
-  g_main_context_invoke (priv->context,
-                         (GSourceFunc) do_disconnect,
-                         g_object_ref (context));
-
-  return TRUE;
+  return true;
 }
 
-/**
- * pinos_context_get_state:
- * @context: a #PinosContext
- *
- * Get the state of @context.
- *
- * Returns: the state of @context
- */
-PinosContextState
-pinos_context_get_state (PinosContext *context)
+void
+pinos_context_subscribe (PinosContext           *context,
+                         PinosSubscriptionFlags  mask,
+                         PinosSubscriptionFunc   func,
+                         void                   *data)
 {
-  PinosContextPrivate *priv;
+  PinosContextImpl *impl = SPA_CONTAINER_OF (context, PinosContextImpl, this);
 
-  g_return_val_if_fail (PINOS_IS_CONTEXT (context), PINOS_CONTEXT_STATE_ERROR);
-  priv = context->priv;
-
-  return priv->state;
+  impl->subscribe_mask = mask;
+  impl->subscribe_func = func;
+  impl->subscribe_data = data;
 }
 
-/**
- * pinos_context_get_error:
- * @context: a #PinosContext
- *
- * Get the current error of @context or %NULL when the context state
- * is not #PINOS_CONTEXT_STATE_ERROR
- *
- * Returns: the last error or %NULL
- */
-const GError *
-pinos_context_get_error (PinosContext *context)
+void
+pinos_context_get_daemon_info (PinosContext            *context,
+                               PinosDaemonInfoCallback  cb,
+                               void                    *user_data)
 {
-  PinosContextPrivate *priv;
+  cb (context, SPA_RESULT_OK, NULL, user_data);
+}
 
-  g_return_val_if_fail (PINOS_IS_CONTEXT (context), NULL);
-  priv = context->priv;
+void
+pinos_context_list_client_info (PinosContext            *context,
+                                PinosClientInfoCallback  cb,
+                                void                    *user_data)
+{
+  cb (context, SPA_RESULT_OK, NULL, user_data);
+}
 
-  return priv->error;
+void
+pinos_context_get_client_info_by_id (PinosContext            *context,
+                                     uint32_t                 id,
+                                     PinosClientInfoCallback  cb,
+                                     void                    *user_data)
+{
+  cb (context, SPA_RESULT_OK, NULL, user_data);
+}
+
+void
+pinos_context_list_node_info (PinosContext          *context,
+                              PinosNodeInfoCallback  cb,
+                              void                  *user_data)
+{
+  cb (context, SPA_RESULT_OK, NULL, user_data);
+}
+
+void
+pinos_context_get_node_info_by_id (PinosContext          *context,
+                                   uint32_t               id,
+                                   PinosNodeInfoCallback  cb,
+                                   void                  *user_data)
+{
+  cb (context, SPA_RESULT_OK, NULL, user_data);
+}
+
+void
+pinos_context_list_link_info (PinosContext          *context,
+                              PinosLinkInfoCallback  cb,
+                              void                  *user_data)
+{
+  cb (context, SPA_RESULT_OK, NULL, user_data);
+}
+
+void
+pinos_context_get_link_info_by_id (PinosContext          *context,
+                                   uint32_t               id,
+                                   PinosLinkInfoCallback  cb,
+                                   void                  *user_data)
+{
+  cb (context, SPA_RESULT_OK, NULL, user_data);
 }

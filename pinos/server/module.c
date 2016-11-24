@@ -23,6 +23,7 @@
 #endif
 
 #include <dlfcn.h>
+#include <glib.h>
 
 #include "pinos/client/pinos.h"
 #include "pinos/client/utils.h"
@@ -40,7 +41,7 @@ typedef struct
 static char *
 find_module (const char * path, const char *name)
 {
-  gchar *filename;
+  char *filename;
   GDir *dir;
   const gchar *entry;
   GError *err = NULL;

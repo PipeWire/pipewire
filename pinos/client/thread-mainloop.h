@@ -20,23 +20,13 @@
 #ifndef __PINOS_THREAD_MAIN_LOOP_H__
 #define __PINOS_THREAD_MAIN_LOOP_H__
 
-#include <glib-object.h>
+#include <pinos/client/loop.h>
 
-G_BEGIN_DECLS
-
-#define PINOS_TYPE_THREAD_MAIN_LOOP                 (pinos_thread_main_loop_get_type ())
-#define PINOS_IS_THREAD_MAIN_LOOP(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_THREAD_MAIN_LOOP))
-#define PINOS_IS_THREAD_MAIN_LOOP_CLASS(klass)      (G_TYPE_CHECK_CLASS_TYPE ((klass), PINOS_TYPE_THREAD_MAIN_LOOP))
-#define PINOS_THREAD_MAIN_LOOP_GET_CLASS(obj)       (G_TYPE_INSTANCE_GET_CLASS ((obj), PINOS_TYPE_THREAD_MAIN_LOOP, PinosThreadMainLoopClass))
-#define PINOS_THREAD_MAIN_LOOP(obj)                 (G_TYPE_CHECK_INSTANCE_CAST ((obj), PINOS_TYPE_THREAD_MAIN_LOOP, PinosThreadMainLoop))
-#define PINOS_THREAD_MAIN_LOOP_CLASS(klass)         (G_TYPE_CHECK_CLASS_CAST ((klass), PINOS_TYPE_THREAD_MAIN_LOOP, PinosThreadMainLoopClass))
-#define PINOS_THREAD_MAIN_LOOP_CAST(obj)            ((PinosThreadMainLoop*)(obj))
-#define PINOS_THREAD_MAIN_LOOP_CLASS_CAST(klass)    ((PinosThreadMainLoopClass*)(klass))
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct _PinosThreadMainLoop PinosThreadMainLoop;
-typedef struct _PinosThreadMainLoopClass PinosThreadMainLoopClass;
-typedef struct _PinosThreadMainLoopPrivate PinosThreadMainLoopPrivate;
-
 
 /**
  * PinosThreadMainLoop:
@@ -44,41 +34,32 @@ typedef struct _PinosThreadMainLoopPrivate PinosThreadMainLoopPrivate;
  * Pinos main loop object class.
  */
 struct _PinosThreadMainLoop {
-  GObject object;
+  PinosLoop *loop;
+  char      *name;
 
-  PinosThreadMainLoopPrivate *priv;
+  PINOS_SIGNAL (destroy_signal, (PinosListener       *listener,
+                                 PinosThreadMainLoop *loop));
 };
 
-/**
- * PinosThreadMainLoopClass:
- *
- * Pinos main loop object class.
- */
-struct _PinosThreadMainLoopClass {
-  GObjectClass parent_class;
-};
+PinosThreadMainLoop *  pinos_thread_main_loop_new             (PinosLoop  *loop,
+                                                               const char *name);
+void                   pinos_thread_main_loop_destroy         (PinosThreadMainLoop *loop);
 
-/* normal GObject stuff */
-GType                  pinos_thread_main_loop_get_type        (void);
-
-PinosThreadMainLoop *  pinos_thread_main_loop_new             (GMainContext * context,
-                                                               const gchar   *name);
-
-GMainLoop *            pinos_thread_main_loop_get_impl        (PinosThreadMainLoop *loop);
-
-gboolean               pinos_thread_main_loop_start           (PinosThreadMainLoop *loop, GError **error);
+SpaResult              pinos_thread_main_loop_start           (PinosThreadMainLoop *loop);
 void                   pinos_thread_main_loop_stop            (PinosThreadMainLoop *loop);
 
 void                   pinos_thread_main_loop_lock            (PinosThreadMainLoop *loop);
 void                   pinos_thread_main_loop_unlock          (PinosThreadMainLoop *loop);
 
 void                   pinos_thread_main_loop_wait            (PinosThreadMainLoop *loop);
-void                   pinos_thread_main_loop_signal          (PinosThreadMainLoop *loop, gboolean wait_for_accept);
+void                   pinos_thread_main_loop_signal          (PinosThreadMainLoop *loop,
+                                                               bool                 wait_for_accept);
 void                   pinos_thread_main_loop_accept          (PinosThreadMainLoop *loop);
 
-gboolean               pinos_thread_main_loop_in_thread       (PinosThreadMainLoop *loop);
+bool                   pinos_thread_main_loop_in_thread       (PinosThreadMainLoop *loop);
 
-
-G_END_DECLS
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __PINOS_THREAD_MAIN_LOOP_H__ */

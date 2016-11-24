@@ -20,22 +20,11 @@
 #ifndef __PINOS_SUBSCRIBE_H__
 #define __PINOS_SUBSCRIBE_H__
 
-#include <glib-object.h>
+#include <stdint.h>
 
-G_BEGIN_DECLS
-
-#define PINOS_TYPE_SUBSCRIBE                 (pinos_subscribe_get_type ())
-#define PINOS_IS_SUBSCRIBE(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_SUBSCRIBE))
-#define PINOS_IS_SUBSCRIBE_CLASS(klass)      (G_TYPE_CHECK_CLASS_TYPE ((klass), PINOS_TYPE_SUBSCRIBE))
-#define PINOS_SUBSCRIBE_GET_CLASS(obj)       (G_TYPE_INSTANCE_GET_CLASS ((obj), PINOS_TYPE_SUBSCRIBE, PinosSubscribeClass))
-#define PINOS_SUBSCRIBE(obj)                 (G_TYPE_CHECK_INSTANCE_CAST ((obj), PINOS_TYPE_SUBSCRIBE, PinosSubscribe))
-#define PINOS_SUBSCRIBE_CLASS(klass)         (G_TYPE_CHECK_CLASS_CAST ((klass), PINOS_TYPE_SUBSCRIBE, PinosSubscribeClass))
-#define PINOS_SUBSCRIBE_CAST(obj)            ((PinosSubscribe*)(obj))
-#define PINOS_SUBSCRIBE_CLASS_CAST(klass)    ((PinosSubscribeClass*)(klass))
-
-typedef struct _PinosSubscribe PinosSubscribe;
-typedef struct _PinosSubscribeClass PinosSubscribeClass;
-typedef struct _PinosSubscribePrivate PinosSubscribePrivate;
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef enum {
     PINOS_SUBSCRIPTION_STATE_UNCONNECTED     = 0,
@@ -59,34 +48,19 @@ typedef enum {
     PINOS_SUBSCRIPTION_EVENT_REMOVE        = 2,
 } PinosSubscriptionEvent;
 
-/**
- * PinosSubscribe:
- *
- * Pinos subscribe object class.
- */
-struct _PinosSubscribe {
-  GObject object;
+typedef void (*PinosSubscriptionFunc)  (PinosContext           *context,
+                                        PinosSubscriptionFlags  flags,
+                                        PinosSubscriptionEvent  event,
+                                        uint32_t                id,
+                                        void                   *data);
 
-  PinosSubscribePrivate *priv;
-};
+void         pinos_context_subscribe  (PinosContext           *context,
+                                       PinosSubscriptionFlags  mask,
+                                       PinosSubscriptionFunc   func,
+                                       void                   *data);
 
-/**
- * PinosSubscribeClass:
- *
- * Pinos subscribe object class.
- */
-struct _PinosSubscribeClass {
-  GObjectClass parent_class;
-};
-
-/* normal GObject stuff */
-GType                  pinos_subscribe_get_type           (void);
-
-PinosSubscribe *       pinos_subscribe_new                (void);
-
-PinosSubscriptionState pinos_subscribe_get_state          (PinosSubscribe *subscribe);
-GError *               pinos_subscribe_get_error          (PinosSubscribe *subscribe);
-
-G_END_DECLS
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __PINOS_SUBSCRIBE_H__ */

@@ -17,21 +17,10 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include <glib.h>
+#include <unistd.h>
+#include <stdio.h>
 
 #include "pinos/client/pinos.h"
-
-const gchar g_log_domain_pinos[] = "Pinos";
-
-GQuark
-pinos_error_quark (void)
-{
-  static GQuark quark = 0;
-  if (!quark)
-    quark = g_quark_from_static_string ("pinos-error-quark");
-  return quark;
-}
-
 
 /**
  * pinos_init:
@@ -46,22 +35,48 @@ pinos_init (int *argc, char **argv[])
 {
 }
 
+static char *
+pinos_get_application_name (void)
+{
+  return NULL;
+}
+
+static char *
+pinos_get_prgname (void)
+{
+  return NULL;
+}
+
+static char *
+pinos_get_user_name (void)
+{
+  return NULL;
+}
+
+static char *
+pinos_get_host_name (void)
+{
+  return NULL;
+}
+
 /**
  * pinos_client_name:
  *
  * Make a new pinos client name that can be used to construct a context.
  */
-gchar *
+char *
 pinos_client_name (void)
 {
-  const char *c;
+  char *c;
 
-  if ((c = g_get_application_name ()))
-    return g_strdup (c);
-  else if ((c = g_get_prgname ()))
-    return g_strdup (c);
-  else
-    return g_strdup_printf ("pinos-pid-%lu", (gulong) getpid ());
+  if ((c = pinos_get_application_name ()))
+    return strdup (c);
+  else if ((c = pinos_get_prgname ()))
+    return strdup (c);
+  else {
+    asprintf (&c, "pinos-pid-%zd", (size_t) getpid ());
+    return c;
+  }
 }
 
 /**
@@ -73,34 +88,26 @@ pinos_client_name (void)
 void
 pinos_fill_context_properties (PinosProperties *properties)
 {
-  g_return_if_fail (properties != NULL);
-
   if (!pinos_properties_get (properties, "application.name"))
-    pinos_properties_set (properties, "application.name", g_get_application_name ());
+    pinos_properties_set (properties, "application.name", pinos_get_application_name ());
 
   if (!pinos_properties_get (properties, "application.prgname"))
-    pinos_properties_set (properties, "application.prgname", g_get_prgname ());
+    pinos_properties_set (properties, "application.prgname", pinos_get_prgname ());
 
   if (!pinos_properties_get (properties, "application.language")) {
-    const gchar *str = g_getenv ("LANG");
-    if (str)
-      pinos_properties_set (properties, "application.language", str);
+    pinos_properties_set (properties, "application.language", getenv ("LANG"));
   }
   if (!pinos_properties_get (properties, "application.process.id")) {
-    gchar *str = g_strdup_printf ("%lu", (gulong) getpid());
-    pinos_properties_set (properties, "application.process.id", str);
-    g_free (str);
+    pinos_properties_setf (properties, "application.process.id", "%zd", (size_t) getpid ());
   }
   if (!pinos_properties_get (properties, "application.process.user"))
-    pinos_properties_set (properties, "application.process.user", g_get_user_name ());
+    pinos_properties_set (properties, "application.process.user", pinos_get_user_name ());
 
   if (!pinos_properties_get (properties, "application.process.host"))
-    pinos_properties_set (properties, "application.process.host", g_get_host_name ());
+    pinos_properties_set (properties, "application.process.host", pinos_get_host_name ());
 
   if (!pinos_properties_get (properties, "application.process.session_id")) {
-    const gchar *str = g_getenv ("XDG_SESSION_ID");
-    if (str)
-      pinos_properties_set (properties, "application.process.session_id", str);
+    pinos_properties_set (properties, "application.process.session_id", getenv ("XDG_SESSION_ID"));
   }
 }
 
@@ -113,7 +120,6 @@ pinos_fill_context_properties (PinosProperties *properties)
 void
 pinos_fill_stream_properties (PinosProperties *properties)
 {
-  g_return_if_fail (properties != NULL);
 }
 
 PinosDirection

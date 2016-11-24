@@ -27,7 +27,7 @@ struct _PinosProperties {
 };
 
 static void
-copy_func (const gchar *key, const gchar *value, GHashTable *copy)
+copy_func (const char *key, const char *value, GHashTable *copy)
 {
   g_hash_table_insert (copy, g_strdup (key), g_strdup (value));
 }
@@ -42,20 +42,20 @@ copy_func (const gchar *key, const gchar *value, GHashTable *copy)
  * Returns: a new #PinosProperties
  */
 PinosProperties *
-pinos_properties_new (const gchar *key, ...)
+pinos_properties_new (const char *key, ...)
 {
   PinosProperties *props;
   va_list varargs;
-  const gchar *value;
+  const char *value;
 
   props = g_new (PinosProperties, 1);
   props->hashtable = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
 
   va_start (varargs, key);
   while (key != NULL) {
-    value = va_arg (varargs, gchar *);
+    value = va_arg (varargs, char *);
     copy_func (key, value, props->hashtable);
-    key = va_arg (varargs, gchar *);
+    key = va_arg (varargs, char *);
   }
   va_end (varargs);
 
@@ -97,8 +97,8 @@ pinos_properties_merge (PinosProperties *oldprops,
   } else if (newprops == NULL) {
     res = pinos_properties_copy (oldprops);
   } else {
-    const gchar *key;
-    gpointer state = NULL;
+    const char *key;
+    void * state = NULL;
 
     res = pinos_properties_copy (oldprops);
     while ((key = pinos_properties_iterate (newprops, &state))) {
@@ -137,8 +137,8 @@ pinos_properties_free (PinosProperties *properties)
  */
 void
 pinos_properties_set (PinosProperties *properties,
-                      const gchar     *key,
-                      const gchar     *value)
+                      const char      *key,
+                      const char      *value)
 {
   g_return_if_fail (properties != NULL);
   g_return_if_fail (key != NULL);
@@ -161,8 +161,8 @@ pinos_properties_set (PinosProperties *properties,
  */
 void
 pinos_properties_setf (PinosProperties *properties,
-                       const gchar     *key,
-                       const gchar     *format,
+                       const char      *key,
+                       const char      *format,
                        ...)
 {
   va_list varargs;
@@ -187,9 +187,9 @@ pinos_properties_setf (PinosProperties *properties,
  *
  * Returns: the property for @key or %NULL when the key was not found
  */
-const gchar *
+const char *
 pinos_properties_get (PinosProperties *properties,
-                      const gchar     *key)
+                      const char      *key)
 {
   g_return_val_if_fail (properties != NULL, NULL);
   g_return_val_if_fail (key != NULL, NULL);
@@ -211,12 +211,12 @@ pinos_properties_get (PinosProperties *properties,
  *
  * Returns: The next key or %NULL when there are no more keys to iterate.
  */
-const gchar *
+const char *
 pinos_properties_iterate (PinosProperties     *properties,
-                          gpointer            *state)
+                          void               **state)
 {
-  static gpointer dummy = GINT_TO_POINTER (1);
-  const gchar *res = NULL;
+  static void * dummy = GINT_TO_POINTER (1);
+  const char *res = NULL;
   GList *items;
 
   g_return_val_if_fail (properties != NULL, NULL);
@@ -241,84 +241,3 @@ pinos_properties_iterate (PinosProperties     *properties,
 
   return res;
 }
-
-static void
-add_to_variant (const gchar *key, const gchar *value, GVariantBuilder *b)
-{
-  g_variant_builder_add (b, "{sv}", key, g_variant_new_string (value));
-}
-
-/**
- * pinos_properties_init_builder:
- * @properties: a #PinosProperties
- * @builder: a #GVariantBuilder
- *
- * Initialize the @builder of type a{sv} and add @properties to it.
- *
- * Returns: %TRUE if @builder could be initialized.
- */
-gboolean
-pinos_properties_init_builder (PinosProperties *properties,
-                               GVariantBuilder *builder)
-{
-  g_return_val_if_fail (properties != NULL, FALSE);
-  g_return_val_if_fail (builder != NULL, FALSE);
-
-  g_variant_builder_init (builder, G_VARIANT_TYPE ("a{sv}"));
-  g_hash_table_foreach (properties->hashtable, (GHFunc) add_to_variant, builder);
-
-  return TRUE;
-}
-
-/**
- * pinos_properties_to_variant:
- * @properties: a #PinosProperties
- *
- * Convert @properties to a #GVariant of type a{sv}
- *
- * Returns: a new #GVariant of @properties. use g_variant_unref() after
- *          use.
- */
-GVariant *
-pinos_properties_to_variant (PinosProperties *properties)
-{
-  GVariantBuilder builder;
-
-  if (!pinos_properties_init_builder (properties, &builder))
-    return NULL;
-
-  return g_variant_builder_end (&builder);
-}
-
-/**
- * pinos_properties_from_variant:
- * @variant: a #GVariant
- *
- * Convert @variant to a #PinosProperties
- *
- * Returns: a new #PinosProperties of @variant. use pinos_properties_free()
- *          after use.
- */
-PinosProperties *
-pinos_properties_from_variant (GVariant *variant)
-{
-  PinosProperties *props;
-  GVariantIter iter;
-  GVariant *value;
-  gchar *key;
-
-  g_return_val_if_fail (variant != NULL, NULL);
-
-  props = pinos_properties_new (NULL, NULL);
-
-  g_variant_iter_init (&iter, variant);
-  while (g_variant_iter_loop (&iter, "{sv}", &key, &value))
-    g_hash_table_replace (props->hashtable,
-                          g_strdup (key),
-                          g_variant_dup_string (value, NULL));
-
-  return props;
-}
-
-G_DEFINE_BOXED_TYPE (PinosProperties, pinos_properties,
-        pinos_properties_copy, pinos_properties_free);

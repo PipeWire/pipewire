@@ -26,6 +26,7 @@
 #include "pinos/server/node-factory.h"
 #include "pinos/server/client.h"
 #include "pinos/server/client-node.h"
+#include "pinos/server/module.h"
 
 #include "spa/include/spa/monitor.h"
 
@@ -34,11 +35,13 @@ pinos_uri_init (PinosURI *uri)
 {
   uri->map = pinos_id_map_get_default();
 
+  uri->core = spa_id_map_get_id (uri->map, PINOS_CORE_URI);
   uri->node = spa_id_map_get_id (uri->map, PINOS_NODE_URI);
   uri->node_factory = spa_id_map_get_id (uri->map, PINOS_NODE_FACTORY_URI);
   uri->link = spa_id_map_get_id (uri->map, PINOS_LINK_URI);
   uri->client = spa_id_map_get_id (uri->map, PINOS_CLIENT_URI);
   uri->client_node = spa_id_map_get_id (uri->map, PINOS_CLIENT_NODE_URI);
+  uri->module = spa_id_map_get_id (uri->map, PINOS_MODULE_URI);
 
   uri->spa_node = spa_id_map_get_id (uri->map, SPA_NODE_URI);
   uri->spa_clock = spa_id_map_get_id (uri->map, SPA_CLOCK_URI);

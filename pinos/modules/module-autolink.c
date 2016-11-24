@@ -26,17 +26,10 @@
 #include "pinos/server/core.h"
 #include "pinos/server/module.h"
 
-#define MODULE_URI                            "http://pinos.org/ns/module-autolink"
-#define MODULE_PREFIX                         MODULE_URI "#"
-
 typedef struct {
   PinosCore       *core;
   PinosProperties *properties;
   PinosGlobal     *global;
-
-  struct {
-    uint32_t module;
-  } uri;
 
   PinosListener global_added;
   PinosListener global_removed;
@@ -57,8 +50,10 @@ try_link_port (PinosNode *node, PinosPort *port, ModuleImpl *impl)
   PinosLink *link;
 
   props = node->properties;
-  if (props == NULL)
+  if (props == NULL) {
+    pinos_log_debug ("module %p: node has no properties", impl);
     return;
+  }
 
   path = pinos_properties_get (props, "pinos.target.node");
 
@@ -275,10 +270,8 @@ module_new (PinosCore       *core,
   pinos_signal_add (&core->port_unlinked, &impl->port_unlinked, on_link_port_unlinked);
   pinos_signal_add (&core->link_state_changed, &impl->link_state_changed, on_link_state_changed);
 
-  impl->uri.module = spa_id_map_get_id (core->uri.map, MODULE_URI);
-
   impl->global = pinos_core_add_global (core,
-                                        impl->uri.module,
+                                        core->uri.module,
                                         impl);
   return impl;
 }
@@ -306,5 +299,5 @@ bool
 pinos__module_init (PinosModule * module, const char * args)
 {
   module_new (module->core, NULL);
-  return TRUE;
+  return true;
 }

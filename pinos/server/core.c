@@ -73,6 +73,10 @@ pinos_core_new (PinosMainLoop *main_loop)
   pinos_signal_init (&this->node_unlink);
   pinos_signal_init (&this->node_unlink_done);
 
+  this->global = pinos_core_add_global (this,
+                                        this->uri.core,
+                                        this);
+
   return this;
 }
 

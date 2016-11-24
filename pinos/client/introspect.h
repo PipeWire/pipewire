@@ -20,12 +20,11 @@
 #ifndef __PINOS_INTROSPECT_H__
 #define __PINOS_INTROSPECT_H__
 
-#include <gio/gio.h>
-#include <glib-object.h>
-
 #include <spa/include/spa/defs.h>
 
-G_BEGIN_DECLS
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * PinosNodeState:
@@ -50,7 +49,7 @@ typedef enum {
   PINOS_NODE_STATE_RUNNING = 4,
 } PinosNodeState;
 
-const gchar * pinos_node_state_as_string (PinosNodeState state);
+const char * pinos_node_state_as_string (PinosNodeState state);
 
 /**
  * PinosDirection:
@@ -66,7 +65,7 @@ typedef enum {
   PINOS_DIRECTION_OUTPUT = SPA_DIRECTION_OUTPUT
 } PinosDirection;
 
-const gchar * pinos_direction_as_string (PinosDirection direction);
+const char * pinos_direction_as_string (PinosDirection direction);
 
 /**
  * PinosLinkState:
@@ -90,19 +89,14 @@ typedef enum {
   PINOS_LINK_STATE_RUNNING = 4,
 } PinosLinkState;
 
-const gchar * pinos_link_state_as_string (PinosLinkState state);
+const char * pinos_link_state_as_string (PinosLinkState state);
 
 #include <pinos/client/context.h>
 #include <pinos/client/properties.h>
 
-gboolean         pinos_context_info_finish      (GObject      *object,
-                                                 GAsyncResult *res,
-                                                 GError      **error);
-
 /**
  * PinosDaemonInfo:
  * @id: generic id of the daemon
- * @daemon-path: unique path of the daemon
  * @change_mask: bitfield of changed fields since last call
  * @user_name: name of the user that started the daemon
  * @host_name: name of the machine the daemon is running on
@@ -115,25 +109,16 @@ gboolean         pinos_context_info_finish      (GObject      *object,
  * versions.
  */
 typedef struct {
-  gpointer id;
-  const char *daemon_path;
-  guint64 change_mask;
+  uint32_t id;
+  uint64_t change_mask;
   const char *user_name;
   const char *host_name;
   const char *version;
   const char *name;
-  guint32 cookie;
+  uint32_t cookie;
   PinosProperties *properties;
 } PinosDaemonInfo;
 
-/**PinosDaemonInfoFlags:
- * @PINOS_DAEMON_INFO_FLAGS_NONE: no flags
- *
- * Extra flags that can be passed to pinos_context_get_daemon_info()
- */
-typedef enum {
-  PINOS_DAEMON_INFO_FLAGS_NONE            = 0,
-} PinosDaemonInfoFlags;
 
 /**
  * PinosDaemonInfoCallback:
@@ -144,21 +129,17 @@ typedef enum {
  * Callback with information about the Pinos daemon in @info.
  */
 typedef void (*PinosDaemonInfoCallback)  (PinosContext          *c,
+					  SpaResult              res,
                                           const PinosDaemonInfo *info,
-                                          gpointer               user_data);
+                                          void                  *user_data);
 
-void            pinos_context_get_daemon_info (PinosContext *context,
-                                               PinosDaemonInfoFlags flags,
-                                               PinosDaemonInfoCallback cb,
-                                               GCancellable *cancellable,
-                                               GAsyncReadyCallback callback,
-                                               gpointer user_data);
+void            pinos_context_get_daemon_info (PinosContext            *context,
+                                               PinosDaemonInfoCallback  cb,
+                                               void                    *user_data);
 
 /**
  * PinosClientInfo:
  * @id: generic id of the client
- * @client_path: unique path of the client
- * @sender: sender of client
  * @change_mask: bitfield of changed fields since last call
  * @properties: extra properties
  *
@@ -166,23 +147,10 @@ void            pinos_context_get_daemon_info (PinosContext *context,
  * versions.
  */
 typedef struct {
-  gpointer id;
-  const char *client_path;
-  const char *sender;
-  guint64 change_mask;
+  uint32_t id;
+  uint64_t change_mask;
   PinosProperties *properties;
 } PinosClientInfo;
-
-/**
- * PinosClientInfoFlags:
- * @PINOS_CLIENT_INFO_FLAGS_NONE: no flags
- *
- * Extra flags for pinos_context_list_client_info() and
- * pinos_context_get_client_info_by_id().
- */
-typedef enum {
-  PINOS_CLIENT_INFO_FLAGS_NONE            = 0,
-} PinosClientInfoFlags;
 
 /**
  * PinosClientInfoCallback:
@@ -193,28 +161,21 @@ typedef enum {
  * Callback with information about the Pinos client in @info.
  */
 typedef void (*PinosClientInfoCallback)  (PinosContext          *c,
+					  SpaResult              res,
                                           const PinosClientInfo *info,
-                                          gpointer               user_data);
+                                          void                  *user_data);
 
-void            pinos_context_list_client_info      (PinosContext *context,
-                                                     PinosClientInfoFlags flags,
-                                                     PinosClientInfoCallback cb,
-                                                     GCancellable *cancellable,
-                                                     GAsyncReadyCallback callback,
-                                                     gpointer user_data);
-void            pinos_context_get_client_info_by_id (PinosContext *context,
-                                                     gpointer id,
-                                                     PinosClientInfoFlags flags,
-                                                     PinosClientInfoCallback cb,
-                                                     GCancellable *cancellable,
-                                                     GAsyncReadyCallback callback,
-                                                     gpointer user_data);
+void            pinos_context_list_client_info      (PinosContext            *context,
+                                                     PinosClientInfoCallback  cb,
+                                                     void                    *user_data);
+void            pinos_context_get_client_info_by_id (PinosContext            *context,
+                                                     uint32_t                 id,
+                                                     PinosClientInfoCallback  cb,
+                                                     void                    *user_data);
 
 /**
  * PinosNodeInfo:
  * @id: generic id of the node
- * @node_path: the unique path of the node
- * @owner: the unique name of the owner
  * @change_mask: bitfield of changed fields since last call
  * @name: name the node, suitable for display
  * @properties: the properties of the node
@@ -224,24 +185,12 @@ void            pinos_context_get_client_info_by_id (PinosContext *context,
  * versions.
  */
 typedef struct {
-  gpointer id;
-  const char *node_path;
-  const char *owner;
-  guint64 change_mask;
+  uint32_t id;
+  uint64_t change_mask;
   const char *name;
   PinosProperties *properties;
   PinosNodeState state;
 } PinosNodeInfo;
-
-/**
- * PinosNodeInfoFlags:
- * @PINOS_NODE_INFO_FLAGS_NONE: no flags
- *
- * Extra flags to pass to pinos_context_get_node_info_list.
- */
-typedef enum {
-  PINOS_NODE_INFO_FLAGS_NONE            = 0,
-} PinosNodeInfoFlags;
 
 /**
  * PinosNodeInfoCallback:
@@ -252,28 +201,22 @@ typedef enum {
  * Callback with information about the Pinos node in @info.
  */
 typedef void (*PinosNodeInfoCallback)  (PinosContext        *c,
+					SpaResult            res,
                                         const PinosNodeInfo *info,
-                                        gpointer             user_data);
+                                        void                *user_data);
 
-void            pinos_context_list_node_info        (PinosContext *context,
-                                                     PinosNodeInfoFlags flags,
-                                                     PinosNodeInfoCallback cb,
-                                                     GCancellable *cancellable,
-                                                     GAsyncReadyCallback callback,
-                                                     gpointer user_data);
-void            pinos_context_get_node_info_by_id   (PinosContext *context,
-                                                     gpointer id,
-                                                     PinosNodeInfoFlags flags,
-                                                     PinosNodeInfoCallback cb,
-                                                     GCancellable *cancellable,
-                                                     GAsyncReadyCallback callback,
-                                                     gpointer user_data);
+void            pinos_context_list_node_info        (PinosContext          *context,
+                                                     PinosNodeInfoCallback  cb,
+                                                     void                  *user_data);
+void            pinos_context_get_node_info_by_id   (PinosContext          *context,
+                                                     uint32_t               id,
+                                                     PinosNodeInfoCallback  cb,
+                                                     void                  *user_data);
 
 
 /**
  * PinosLinkInfo:
  * @id: generic id of the link
- * @link_path: the unique path of the link
  * @change_mask: bitfield of changed fields since last call
  * @output_node_path: the output node
  * @output_port: the output port
@@ -284,25 +227,14 @@ void            pinos_context_get_node_info_by_id   (PinosContext *context,
  * versions.
  */
 typedef struct {
-  gpointer id;
-  const char *link_path;
-  guint64 change_mask;
-  const char *output_node_path;
-  guint       output_port;
-  const char *input_node_path;
-  guint       input_port;
+  uint32_t id;
+  uint64_t change_mask;
+  uint32_t output_node_id;
+  uint32_t output_port_id;
+  uint32_t input_node_id;
+  uint32_t input_port_id;
 } PinosLinkInfo;
 
-/**
- * PinosLinkInfoFlags:
- * @PINOS_LINK_INFO_FLAGS_NONE: no flags
- *
- * Extra flags to pass to pinos_context_list_link_info() and
- * pinos_context_get_link_info_by_id().
- */
-typedef enum {
-  PINOS_LINK_INFO_FLAGS_NONE            = 0,
-} PinosLinkInfoFlags;
 
 /**
  * PinosLinkInfoCallback:
@@ -312,23 +244,21 @@ typedef enum {
  *
  * Callback with information about the Pinos link in @info.
  */
-typedef void (*PinosLinkInfoCallback)               (PinosContext              *c,
+typedef void (*PinosLinkInfoCallback)               (PinosContext        *c,
+                                                     SpaResult            res,
                                                      const PinosLinkInfo *info,
-                                                     gpointer                   user_data);
+                                                     void                *user_data);
 
-void            pinos_context_list_link_info        (PinosContext *context,
-                                                     PinosLinkInfoFlags flags,
-                                                     PinosLinkInfoCallback cb,
-                                                     GCancellable *cancellable,
-                                                     GAsyncReadyCallback callback,
-                                                     gpointer user_data);
-void            pinos_context_get_link_info_by_id   (PinosContext *context,
-                                                     gpointer id,
-                                                     PinosLinkInfoFlags flags,
-                                                     PinosLinkInfoCallback cb,
-                                                     GCancellable *cancellable,
-                                                     GAsyncReadyCallback callback,
-                                                     gpointer user_data);
-G_END_DECLS
+void            pinos_context_list_link_info        (PinosContext          *context,
+                                                     PinosLinkInfoCallback  cb,
+                                                     void                  *user_data);
+void            pinos_context_get_link_info_by_id   (PinosContext          *context,
+                                                     uint32_t               id,
+                                                     PinosLinkInfoCallback  cb,
+                                                     void                  *user_data);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __PINOS_INTROSPECT_H__ */

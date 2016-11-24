@@ -20,42 +20,18 @@
 #ifndef __PINOS_CONTEXT_H__
 #define __PINOS_CONTEXT_H__
 
-#include <glib-object.h>
-
-
-G_BEGIN_DECLS
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct _PinosContext PinosContext;
-typedef struct _PinosContextClass PinosContextClass;
-typedef struct _PinosContextPrivate PinosContextPrivate;
 
+#include <pinos/client/map.h>
+#include <pinos/client/loop.h>
 #include <pinos/client/subscribe.h>
 #include <pinos/client/properties.h>
-
-#define PINOS_TYPE_CONTEXT                 (pinos_context_get_type ())
-#define PINOS_IS_CONTEXT(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), PINOS_TYPE_CONTEXT))
-#define PINOS_IS_CONTEXT_CLASS(klass)      (G_TYPE_CHECK_CLASS_TYPE ((klass), PINOS_TYPE_CONTEXT))
-#define PINOS_CONTEXT_GET_CLASS(obj)       (G_TYPE_INSTANCE_GET_CLASS ((obj), PINOS_TYPE_CONTEXT, PinosContextClass))
-#define PINOS_CONTEXT(obj)                 (G_TYPE_CHECK_INSTANCE_CAST ((obj), PINOS_TYPE_CONTEXT, PinosContext))
-#define PINOS_CONTEXT_CLASS(klass)         (G_TYPE_CHECK_CLASS_CAST ((klass), PINOS_TYPE_CONTEXT, PinosContextClass))
-#define PINOS_CONTEXT_CAST(obj)            ((PinosContext*)(obj))
-#define PINOS_CONTEXT_CLASS_CAST(klass)    ((PinosContextClass*)(klass))
-
-/**
- * PinosContextFlags:
- * @PINOS_CONTEXT_FLAGS_NONE: no flags
- * @PINOS_CONTEXT_FLAGS_NOAUTOSPAWN: disable autostart of the daemon
- * @PINOS_CONTEXT_FLAGS_NOFAIL: Don't fail if the daemon is not available,
- *      instead enter PINOS_CONTEXT_CONNECTING state and wait for the daemon
- *      to appear.
- *
- * Context flags passed to pinos_context_connect()
- */
-typedef enum {
-  PINOS_CONTEXT_FLAGS_NONE         = 0,
-  PINOS_CONTEXT_FLAGS_NOAUTOSPAWN  = (1 << 0),
-  PINOS_CONTEXT_FLAGS_NOFAIL       = (1 << 1)
-} PinosContextFlags;
+#include <pinos/client/connection.h>
+#include <pinos/client/proxy.h>
 
 /**
  * PinosContextState:
@@ -73,7 +49,7 @@ typedef enum {
   PINOS_CONTEXT_STATE_CONNECTED    = 2,
 } PinosContextState;
 
-const gchar * pinos_context_state_as_string (PinosContextState state);
+const char * pinos_context_state_as_string (PinosContextState state);
 
 /**
  * PinosContext:
@@ -81,33 +57,42 @@ const gchar * pinos_context_state_as_string (PinosContextState state);
  * Pinos context object class.
  */
 struct _PinosContext {
-  GObject object;
+  char            *name;
+  PinosProperties *properties;
 
-  PinosContextPrivate *priv;
+  PinosLoop       *loop;
+
+  PinosProxy      *core_proxy;
+
+  PinosMap   objects;
+
+  SpaList  global_list;
+  SpaList  stream_list;
+  SpaList  proxy_list;
+
+  PinosSendFunc      send_func;
+  void              *send_data;
+
+  PinosContextState state;
+  char *error;
+  PINOS_SIGNAL (state_changed, (PinosListener *listener,
+                                PinosContext  *context));
+
+  PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
+                                 PinosContext  *context));
 };
 
-/**
- * PinosContextClass:
- *
- * Pinos context object class.
- */
-struct _PinosContextClass {
-  GObjectClass parent_class;
-};
+PinosContext *    pinos_context_new                   (PinosLoop         *loop,
+                                                       const char        *name,
+                                                       PinosProperties   *properties);
+void              pinos_context_destroy               (PinosContext      *context);
 
-/* normal GObject stuff */
-GType             pinos_context_get_type              (void);
+bool              pinos_context_connect               (PinosContext      *context);
+bool              pinos_context_disconnect            (PinosContext      *context);
 
-PinosContext *    pinos_context_new                   (GMainContext    *ctx,
-                                                       const gchar     *name,
-                                                       PinosProperties *properties);
+#ifdef __cplusplus
+}
+#endif
 
-gboolean          pinos_context_connect               (PinosContext *context, PinosContextFlags flags);
-gboolean          pinos_context_disconnect            (PinosContext *context);
-
-PinosContextState pinos_context_get_state             (PinosContext *context);
-const GError *    pinos_context_get_error             (PinosContext *context);
-
-G_END_DECLS
 
 #endif /* __PINOS_CONTEXT_H__ */

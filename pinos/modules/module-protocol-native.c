@@ -19,6 +19,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <errno.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -36,13 +37,11 @@
 #include "pinos/server/module.h"
 #include "pinos/server/client-node.h"
 #include "pinos/server/client.h"
+#include "pinos/server/resource.h"
 #include "pinos/server/link.h"
 #include "pinos/server/node-factory.h"
 #include "pinos/server/data-loop.h"
 #include "pinos/server/main-loop.h"
-
-#define PINOS_PROTOCOL_NATIVE_URI                            "http://pinos.org/ns/protocol-native"
-#define PINOS_PROTOCOL_NATIVE_PREFIX                         PINOS_PROTOCOL_NATIVE_URI "#"
 
 #ifndef UNIX_PATH_MAX
 #define UNIX_PATH_MAX   108
@@ -68,10 +67,6 @@ typedef struct {
   PinosGlobal *global;
 
   PinosProperties *properties;
-
-  struct {
-    uint32_t protocol_native;
-  } uri;
 
   SpaList socket_list;
 
@@ -102,6 +97,7 @@ typedef struct {
   struct ucred              ucred;
   SpaSource                *source;
   PinosConnection          *connection;
+  PinosResource            *core_resource;
 } PinosProtocolNativeClient;
 
 typedef struct {
@@ -153,7 +149,118 @@ static void
 client_destroy (PinosProtocolNativeClient *this)
 {
   spa_list_remove (&this->link);
+  pinos_loop_destroy_source (this->parent.impl->core->main_loop->loop,
+                             this->source);
+  pinos_connection_destroy (this->connection);
   close (this->fd);
+}
+
+static SpaResult
+core_dispatch_func (void             *object,
+                    PinosMessageType  type,
+                    void             *message,
+                    void             *data)
+{
+  PinosProtocolNativeClient *client = data;
+  PinosProtocolNative *impl = client->parent.impl;
+  PinosClient *c = client->parent.global->object;
+
+  switch (type) {
+    case PINOS_MESSAGE_SUBSCRIBE:
+    {
+      PinosMessageSubscribe *m = message;
+      PinosGlobal *global;
+      PinosMessageNotifyDone nd;
+
+      spa_list_for_each (global, &impl->core->global_list, link) {
+        PinosMessageNotifyGlobal ng;
+
+        ng.id = global->id;
+        ng.type = spa_id_map_get_uri (impl->core->uri.map, global->type);
+        pinos_resource_send_message (client->core_resource,
+                                     PINOS_MESSAGE_NOTIFY_GLOBAL,
+                                     &ng,
+                                     false);
+      }
+      nd.seq = m->seq;
+      pinos_resource_send_message (client->core_resource,
+                                   PINOS_MESSAGE_NOTIFY_DONE,
+                                   &nd,
+                                   true);
+      break;
+    }
+    case PINOS_MESSAGE_CREATE_CLIENT_NODE:
+    {
+      PinosMessageCreateClientNode *m = message;
+      PinosClientNode *node;
+      SpaResult res;
+      int data_fd, i;
+      PinosMessageCreateClientNodeDone r;
+      PinosProperties *props;
+
+      props = pinos_properties_new (NULL, NULL);
+      for (i = 0; i < m->props->n_items; i++) {
+        pinos_properties_set (props, m->props->items[i].key,
+                                     m->props->items[i].value);
+      }
+
+      node = pinos_client_node_new (c,
+                                    m->id,
+                                    m->name,
+                                    props);
+
+      if ((res = pinos_client_node_get_data_socket (node, &data_fd)) < 0) {
+        pinos_log_error ("can't get data fd");
+        break;
+      }
+
+      r.seq = m->seq;
+      r.datafd = data_fd;
+      pinos_resource_send_message (node->resource,
+                                   PINOS_MESSAGE_CREATE_CLIENT_NODE_DONE,
+                                   &r,
+                                   true);
+      break;
+    }
+    default:
+      pinos_log_error ("unhandled message %d", type);
+      break;
+  }
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
+client_send_func (void             *object,
+                  uint32_t          id,
+                  PinosMessageType  type,
+                  void             *message,
+                  bool              flush,
+                  void             *data)
+{
+  PinosProtocolNativeClient *client = data;
+
+  pinos_log_debug ("protocol-native %p: sending message %d to %u", client->parent.impl, type, id);
+
+  pinos_connection_add_message (client->connection,
+                                id,
+                                type,
+                                message);
+  if (flush)
+    pinos_connection_flush (client->connection);
+
+  return SPA_RESULT_OK;
+}
+
+static PinosResource *
+find_resource (PinosClient *client, uint32_t id)
+{
+  PinosResource *resource;
+
+  spa_list_for_each (resource, &client->resource_list, link) {
+    if (resource->id == id)
+      return resource;
+  }
+  return NULL;
 }
 
 static void
@@ -164,15 +271,36 @@ connection_data (SpaSource *source,
 {
   PinosProtocolNativeClient *client = data;
   PinosConnection *conn = client->connection;
+  PinosMessageType type;
+  uint32_t id;
+  size_t size;
 
-  while (pinos_connection_has_next (conn)) {
-    PinosMessageType type = pinos_connection_get_type (conn);
+  if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
+    pinos_client_destroy (client->parent.global->object);
+    return;
+  }
 
-    switch (type) {
-      default:
-        pinos_log_error ("unhandled message %d", type);
-        break;
+  while (pinos_connection_get_next (conn, &type, &id, &size)) {
+    PinosResource *resource;
+    void *message = alloca (size);
+
+    pinos_log_debug ("protocol-native %p: got message %d from %u", client->parent.impl, type, id);
+
+    if (!pinos_connection_parse_message (conn, message)) {
+      pinos_log_error ("protocol-native %p: failed to parse message", client->parent.impl);
+      continue;
     }
+
+    resource = find_resource (client->parent.global->object, id);
+    if (resource == NULL) {
+      pinos_log_error ("protocol-native %p: unknown resource %u", client->parent.impl, id);
+      continue;
+    }
+
+    resource->dispatch_func (resource,
+                             type,
+                             message,
+                             resource->dispatch_data);
   }
 }
 
@@ -190,11 +318,22 @@ client_new (PinosProtocolNative *impl,
     close (fd);
     return NULL;
   }
+  client->send_func = client_send_func;
+  client->send_data = this;
+
+  this->core_resource = pinos_resource_new (client,
+                                            0,
+                                            impl->core->uri.core,
+                                            impl->core,
+                                            NULL);
+
+  this->core_resource->dispatch_func = core_dispatch_func;
+  this->core_resource->dispatch_data = this;
 
   this->fd = fd;
   this->source = pinos_loop_add_io (impl->core->main_loop->loop,
                                     this->fd,
-                                    SPA_IO_IN,
+                                    SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP,
                                     false,
                                     connection_data,
                                     this);
@@ -224,7 +363,10 @@ on_global_added (PinosListener *listener,
                 global,
                 (PinosDestroy) client_destroy);
   } else if (global->type == impl->core->uri.node) {
-  } else if (global->type == impl->uri.protocol_native) {
+    object_new (sizeof (PinosProtocolNativeNode),
+                impl,
+                global,
+                NULL);
   } else if (global->type == impl->core->uri.link) {
   }
 }
@@ -234,7 +376,7 @@ on_global_removed (PinosListener *listener,
                    PinosCore     *core,
                    PinosGlobal   *global)
 {
-  PinosProtocolNative *impl = SPA_CONTAINER_OF (listener, PinosProtocolNative, global_added);
+  PinosProtocolNative *impl = SPA_CONTAINER_OF (listener, PinosProtocolNative, global_removed);
   PinosProtocolNativeObject *object;
 
   if ((object = find_object (impl, global->object))) {
@@ -284,7 +426,7 @@ init_socket_name (Socket *s, const char *name)
 
   s->addr.sun_family = AF_LOCAL;
   name_size = snprintf (s->addr.sun_path, sizeof (s->addr.sun_path),
-                             "%s/%s", runtime_dir, name) + 1;
+                        "%s/%s", runtime_dir, name) + 1;
 
   s->core_name = (s->addr.sun_path + name_size - 1) - strlen (name);
 
@@ -434,10 +576,8 @@ pinos_protocol_native_new (PinosCore       *core,
   pinos_signal_add (&core->global_added, &impl->global_added, on_global_added);
   pinos_signal_add (&core->global_removed, &impl->global_removed, on_global_removed);
 
-  impl->uri.protocol_native = spa_id_map_get_id (core->uri.map, PINOS_PROTOCOL_NATIVE_URI);
-
   impl->global = pinos_core_add_global (core,
-                                        impl->uri.protocol_native,
+                                        core->uri.module,
                                         impl);
   return impl;
 
@@ -472,5 +612,5 @@ bool
 pinos__module_init (PinosModule * module, const char * args)
 {
   pinos_protocol_native_new (module->core, NULL);
-  return TRUE;
+  return true;
 }

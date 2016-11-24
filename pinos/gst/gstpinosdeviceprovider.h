@@ -54,8 +54,7 @@ struct _GstPinosDevice {
   GstDevice           parent;
 
   GstPinosDeviceType  type;
-  gpointer            id;
-  gchar              *path;
+  uint32_t            id;
   const gchar        *element;
 };
 
@@ -81,10 +80,11 @@ struct _GstPinosDeviceProvider {
 
   gchar *client_name;
 
-  GMainContext *maincontext;
-  PinosThreadMainLoop *loop;
+  PinosLoop *loop;
+  PinosThreadMainLoop *main_loop;
 
   PinosContext *context;
+  PinosListener ctx_state_changed;
 };
 
 struct _GstPinosDeviceProviderClass {

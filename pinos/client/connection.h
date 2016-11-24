@@ -34,33 +34,99 @@ typedef struct _PinosConnection PinosConnection;
 
 typedef enum {
   PINOS_MESSAGE_INVALID                  = 0,
-  /* client to server */
-  PINOS_MESSAGE_NODE_UPDATE              = 1,
-  PINOS_MESSAGE_PORT_UPDATE              = 2,
-  PINOS_MESSAGE_NODE_STATE_CHANGE        = 3,
 
-  PINOS_MESSAGE_PORT_STATUS_CHANGE       = 4,
-  PINOS_MESSAGE_NODE_EVENT               = 5,
+  PINOS_MESSAGE_SYNC,
+  PINOS_MESSAGE_NOTIFY_DONE,
+
+  PINOS_MESSAGE_SUBSCRIBE,
+  PINOS_MESSAGE_NOTIFY_GLOBAL,
+  PINOS_MESSAGE_NOTIFY_GLOBAL_REMOVE,
+
+  PINOS_MESSAGE_CREATE_NODE,
+  PINOS_MESSAGE_CREATE_NODE_DONE,
+
+  PINOS_MESSAGE_CREATE_CLIENT_NODE,
+  PINOS_MESSAGE_CREATE_CLIENT_NODE_DONE,
+
+  /* client to server */
+  PINOS_MESSAGE_NODE_UPDATE,
+  PINOS_MESSAGE_PORT_UPDATE,
+  PINOS_MESSAGE_NODE_STATE_CHANGE,
+
+  PINOS_MESSAGE_PORT_STATUS_CHANGE,
+  PINOS_MESSAGE_NODE_EVENT,
 
   /* server to client */
-  PINOS_MESSAGE_TRANSPORT_UPDATE         = 32,
+  PINOS_MESSAGE_TRANSPORT_UPDATE,
 
-  PINOS_MESSAGE_ADD_PORT                 = 33,
-  PINOS_MESSAGE_REMOVE_PORT              = 34,
+  PINOS_MESSAGE_ADD_PORT,
+  PINOS_MESSAGE_REMOVE_PORT,
 
-  PINOS_MESSAGE_SET_FORMAT               = 35,
-  PINOS_MESSAGE_SET_PROPERTY             = 36,
+  PINOS_MESSAGE_SET_FORMAT,
+  PINOS_MESSAGE_SET_PROPERTY,
 
-  PINOS_MESSAGE_NODE_COMMAND             = 37,
-  PINOS_MESSAGE_PORT_COMMAND             = 38,
+  PINOS_MESSAGE_NODE_COMMAND,
+  PINOS_MESSAGE_PORT_COMMAND,
 
   /* both */
-  PINOS_MESSAGE_ADD_MEM                  = 64,
-  PINOS_MESSAGE_USE_BUFFERS              = 66,
-
-  PINOS_MESSAGE_PROCESS_BUFFER           = 67,
+  PINOS_MESSAGE_ADD_MEM,
+  PINOS_MESSAGE_USE_BUFFERS,
 
 } PinosMessageType;
+
+/* PINOS_MESSAGE_SYNC */
+typedef struct {
+  uint32_t     seq;
+} PinosMessageSync;
+
+/* PINOS_MESSAGE_NOTIFY_DONE */
+typedef struct {
+  uint32_t     seq;
+} PinosMessageNotifyDone;
+
+/* PINOS_MESSAGE_SUBSCRIBE */
+typedef struct {
+  uint32_t     seq;
+} PinosMessageSubscribe;
+
+/* PINOS_MESSAGE_NOTIFY_GLOBAL */
+typedef struct {
+  uint32_t     id;
+  const char * type;
+} PinosMessageNotifyGlobal;
+
+/* PINOS_MESSAGE_NOTIFY_GLOBAL_REMOVE */
+typedef struct {
+  uint32_t     id;
+} PinosMessageNotifyGlobalRemove;
+
+/* PINOS_MESSAGE_CREATE_NODE */
+typedef struct {
+  uint32_t     seq;
+  const char  *factory_name;
+  const char  *name;
+  SpaDict     *props;
+  uint32_t     id;
+} PinosMessageCreateNode;
+
+/* PINOS_MESSAGE_CREATE_NODE_DONE */
+typedef struct {
+  uint32_t     seq;
+} PinosMessageCreateNodeDone;
+
+/* PINOS_MESSAGE_CREATE_CLIENT_NODE */
+typedef struct {
+  uint32_t     seq;
+  const char  *name;
+  SpaDict     *props;
+  uint32_t     id;
+} PinosMessageCreateClientNode;
+
+/* PINOS_MESSAGE_CREATE_CLIENT_NODE_DONE */
+typedef struct {
+  uint32_t     seq;
+  int          datafd;
+} PinosMessageCreateClientNodeDone;
 
 /*  PINOS_MESSAGE_NODE_UPDATE */
 typedef struct {
@@ -147,7 +213,7 @@ typedef struct {
 
 /* PINOS_MESSAGE_TRANSPORT_UPDATE */
 typedef struct {
-  unsigned int memfd_index;
+  int          memfd;
   off_t        offset;
   size_t       size;
 } PinosMessageTransportUpdate;
@@ -158,7 +224,7 @@ typedef struct {
   uint32_t     port_id;
   uint32_t     mem_id;
   SpaDataType  type;
-  unsigned int fd_index;
+  int          memfd;
   uint32_t     flags;
   off_t        offset;
   size_t       size;
@@ -179,28 +245,17 @@ typedef struct {
   PinosMessageMemRef *buffers;
 } PinosMessageUseBuffers;
 
-/* PINOS_MESSAGE_PROCESS_BUFFER */
-typedef struct {
-  SpaDirection direction;
-  uint32_t     port_id;
-  uint32_t     buffer_id;
-} PinosMessageProcessBuffer;
-
 PinosConnection *  pinos_connection_new             (int              fd);
-void               pinos_connection_free            (PinosConnection *conn);
+void               pinos_connection_destroy         (PinosConnection *conn);
 
-bool               pinos_connection_has_next        (PinosConnection *conn);
-PinosMessageType   pinos_connection_get_type        (PinosConnection *conn);
+bool               pinos_connection_get_next        (PinosConnection  *conn,
+                                                     PinosMessageType *type,
+                                                     uint32_t         *dest_id,
+                                                     size_t           *size);
 bool               pinos_connection_parse_message   (PinosConnection *conn,
                                                      void            *msg);
-int                pinos_connection_get_fd          (PinosConnection *conn,
-                                                     unsigned int     index,
-                                                     bool             close);
-
-int                pinos_connection_add_fd          (PinosConnection *conn,
-                                                     int              fd,
-                                                     bool             close);
 bool               pinos_connection_add_message     (PinosConnection *conn,
+                                                     uint32_t         dest_id,
                                                      PinosMessageType type,
                                                      void            *msg);
 

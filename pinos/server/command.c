@@ -27,17 +27,17 @@
 #include "command.h"
 
 typedef bool (*PinosCommandFunc)                    (PinosCommand  *command,
-                                                         PinosCore     *core,
-                                                         char         **err);
+                                                     PinosCore     *core,
+                                                     char         **err);
 
 static bool  execute_command_module_load            (PinosCommand  *command,
-                                                         PinosCore     *core,
+                                                     PinosCore     *core,
+                                                     char         **err);
+
+typedef PinosCommand * (*PinosCommandParseFunc)         (const char    *line,
                                                          char         **err);
 
-typedef PinosCommand * (*PinosCommandParseFunc)         (const gchar   *line,
-                                                         char         **err);
-
-static PinosCommand *  parse_command_module_load        (const gchar  *line,
+static PinosCommand *  parse_command_module_load        (const char   *line,
                                                          char         **err);
 
 typedef struct
@@ -51,7 +51,7 @@ typedef struct
 
 typedef struct _CommandParse
 {
-  const gchar *name;
+  const char *name;
   PinosCommandParseFunc func;
 } CommandParse;
 
@@ -60,7 +60,7 @@ static const CommandParse parsers[] = {
   {NULL, NULL}
 };
 
-static const gchar whitespace[] = " \t";
+static const char whitespace[] = " \t";
 
 static PinosCommand *
 parse_command_module_load (const char * line, char ** err)
@@ -130,8 +130,8 @@ pinos_command_parse (const char     *line,
 {
   PinosCommand *command = NULL;
   const CommandParse *parse;
-  gchar *name;
-  gsize len;
+  char *name;
+  size_t len;
 
   len = strcspn (line, whitespace);
 

@@ -20,40 +20,33 @@
 #ifndef __PINOS_PROPERTIES_H__
 #define __PINOS_PROPERTIES_H__
 
-#include <glib-object.h>
-
-G_BEGIN_DECLS
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct _PinosProperties PinosProperties;
 
-#define PINOS_TYPE_PROPERTIES (pinos_properties_get_type())
-GType             pinos_properties_get_type (void);
-
-PinosProperties * pinos_properties_new      (const gchar *key, ...) G_GNUC_NULL_TERMINATED;
+PinosProperties * pinos_properties_new      (const char *key, ...);
 PinosProperties * pinos_properties_copy     (PinosProperties *properties);
 PinosProperties * pinos_properties_merge    (PinosProperties *oldprops,
                                              PinosProperties *newprops);
 void              pinos_properties_free     (PinosProperties *properties);
 
 void              pinos_properties_set      (PinosProperties *properties,
-                                             const gchar     *key,
-                                             const gchar     *value);
+                                             const char      *key,
+                                             const char      *value);
 void              pinos_properties_setf     (PinosProperties *properties,
-                                             const gchar     *key,
-                                             const gchar     *format,
-                                             ...) G_GNUC_PRINTF (3, 4);
-const gchar *     pinos_properties_get      (PinosProperties *properties,
-                                             const gchar     *key);
+                                             const char      *key,
+                                             const char      *format,
+                                             ...) SPA_PRINTF_FUNC (3, 4);
+const char *      pinos_properties_get      (PinosProperties *properties,
+                                             const char      *key);
 
-const gchar *     pinos_properties_iterate  (PinosProperties     *properties,
-                                             gpointer            *state);
+const char *      pinos_properties_iterate  (PinosProperties *properties,
+                                             void           **state);
 
-gboolean          pinos_properties_init_builder (PinosProperties *properties,
-                                                 GVariantBuilder *builder);
-GVariant *        pinos_properties_to_variant   (PinosProperties *properties);
-PinosProperties * pinos_properties_from_variant (GVariant *variant);
-
-
-G_END_DECLS
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __PINOS_PROPERTIES_H__ */

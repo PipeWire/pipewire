@@ -30,7 +30,7 @@
 
 #include "pinos/daemon/daemon-config.h"
 
-#define DEFAULT_CONFIG_FILE PINOS_CONFIG_DIR G_DIR_SEPARATOR_S "pinos.conf"
+#define DEFAULT_CONFIG_FILE PINOS_CONFIG_DIR "/pinos.conf"
 
 static bool
 parse_line (PinosDaemonConfig  *config,
@@ -165,7 +165,7 @@ bool
 pinos_daemon_config_load (PinosDaemonConfig  *config,
                           char              **err)
 {
-  const gchar *filename;
+  const char *filename;
 
   filename = getenv ("PINOS_CONFIG_FILE");
   if (filename != NULL && *filename != '\0') {

@@ -41,19 +41,19 @@ struct _PinosSignal {
 };
 #endif
 
-#define PINOS_SIGNAL(name,func)                    \
-  union {                                               \
-    SpaList listeners;                                  \
-    void (*notify) func;                           \
+#define PINOS_SIGNAL(name,func)                                         \
+  union {                                                               \
+    SpaList listeners;                                                  \
+    void (*notify) func;                                                \
   } name;
 
-#define pinos_signal_init(signal)                       \
+#define pinos_signal_init(signal)                                       \
   spa_list_init (&(signal)->listeners);
 
 #define pinos_signal_add(signal,listener,func)                          \
   do {                                                                  \
-    __typeof__((signal)->notify) n = (func);                             \
-    (listener)->notify = (void (*) (void *)) n;                                             \
+    __typeof__((signal)->notify) n = (func);                            \
+    (listener)->notify = (void (*) (void *)) n;                         \
     spa_list_insert ((signal)->listeners.prev, &(listener)->link);      \
   } while (false);
 
@@ -67,7 +67,7 @@ pinos_signal_remove (PinosListener *listener)
   do {                                                                  \
     PinosListener *l, *next;                                            \
     spa_list_for_each_safe (l, next, &(signal)->listeners, link)        \
-      ((__typeof__((signal)->notify))l->notify) (l,__VA_ARGS__);       \
+      ((__typeof__((signal)->notify))l->notify) (l,__VA_ARGS__);        \
   } while (false);
 
 #ifdef __cplusplus

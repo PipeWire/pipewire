@@ -20,6 +20,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
+#include <sys/socket.h>
 
 #include <gio/gio.h>
 #include <gio/gunixfdlist.h>
@@ -34,6 +35,7 @@
 #include "pinos/server/module.h"
 #include "pinos/server/client-node.h"
 #include "pinos/server/client.h"
+#include "pinos/server/resource.h"
 #include "pinos/server/link.h"
 #include "pinos/server/node-factory.h"
 #include "pinos/server/data-loop.h"
@@ -41,19 +43,12 @@
 
 #include "pinos/dbus/org-pinos.h"
 
-#define PINOS_PROTOCOL_DBUS_URI                            "http://pinos.org/ns/protocol-dbus"
-#define PINOS_PROTOCOL_DBUS_PREFIX                         PINOS_PROTOCOL_DBUS_URI "#"
-
 typedef struct {
   PinosCore   *core;
   SpaList      link;
   PinosGlobal *global;
 
   PinosProperties *properties;
-
-  struct {
-    uint32_t protocol_dbus;
-  } uri;
 
   GDBusConnection *connection;
   GDBusObjectManagerServer *server_manager;
@@ -162,6 +157,51 @@ find_object (PinosProtocolDBus *impl,
   return NULL;
 }
 
+struct _PinosProperties {
+  GHashTable *hashtable;
+};
+
+static void
+add_to_variant (const gchar *key, const gchar *value, GVariantBuilder *b)
+{
+  g_variant_builder_add (b, "{sv}", key, g_variant_new_string (value));
+}
+
+static void
+pinos_properties_init_builder (PinosProperties *properties,
+                               GVariantBuilder *builder)
+{
+  g_variant_builder_init (builder, G_VARIANT_TYPE ("a{sv}"));
+  g_hash_table_foreach (properties->hashtable, (GHFunc) add_to_variant, builder);
+}
+
+static GVariant *
+pinos_properties_to_variant (PinosProperties *properties)
+{
+  GVariantBuilder builder;
+  pinos_properties_init_builder (properties, &builder);
+  return g_variant_builder_end (&builder);
+}
+
+static PinosProperties *
+pinos_properties_from_variant (GVariant *variant)
+{
+  PinosProperties *props;
+  GVariantIter iter;
+  GVariant *value;
+  gchar *key;
+
+  props = pinos_properties_new (NULL, NULL);
+
+  g_variant_iter_init (&iter, variant);
+  while (g_variant_iter_loop (&iter, "{sv}", &key, &value))
+    g_hash_table_replace (props->hashtable,
+                          g_strdup (key),
+                          g_variant_dup_string (value, NULL));
+
+  return props;
+}
+
 static void
 client_name_appeared_handler (GDBusConnection *connection,
                               const gchar     *name,
@@ -176,8 +216,10 @@ client_name_appeared_handler (GDBusConnection *connection,
 static void
 client_destroy (PinosProtocolDBusClient *this)
 {
-  spa_list_remove (&this->link);
-  free (this->sender);
+  if (this->sender) {
+    spa_list_remove (&this->link);
+    free (this->sender);
+  }
 }
 
 static void
@@ -279,10 +321,11 @@ handle_create_node (PinosDaemon1           *interface,
   if (object == NULL)
     goto object_failed;
 
-  pinos_client_add_resource (client,
-                             impl->core->uri.node,
-                             node,
-                             (PinosDestroy) pinos_node_destroy);
+  pinos_resource_new (client,
+                      SPA_ID_INVALID,
+                      impl->core->uri.node,
+                      node,
+                      (PinosDestroy) pinos_node_destroy);
 
   object_path = object->object_path;
   pinos_log_debug ("protocol-dbus %p: added node %p with path %s", impl, node, object_path);
@@ -350,6 +393,7 @@ handle_create_client_node (PinosDaemon1           *interface,
   int ctrl_fd, data_fd;
   int ctrl_idx, data_idx;
   PinosProtocolDBusObject *object;
+  int fd[2];
 
   sender = g_dbus_method_invocation_get_sender (invocation);
   client = sender_get_client (impl, sender, TRUE);
@@ -364,8 +408,13 @@ handle_create_client_node (PinosDaemon1           *interface,
     }
   }
 
+  if (socketpair (AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, fd) != 0)
+    goto no_socket_pair;
 
-  node = pinos_client_node_new (impl->core,
+  ctrl_fd = fd[1];
+
+  node = pinos_client_node_new (client,
+                                SPA_ID_INVALID,
                                 arg_name,
                                 props);
 
@@ -373,16 +422,8 @@ handle_create_client_node (PinosDaemon1           *interface,
   if (object == NULL)
     goto object_failed;
 
-  if ((res = pinos_client_node_get_ctrl_socket (node, &ctrl_fd)) < 0)
-    goto no_socket;
-
   if ((res = pinos_client_node_get_data_socket (node, &data_fd)) < 0)
     goto no_socket;
-
-  pinos_client_add_resource (client,
-                             impl->core->uri.client_node,
-                             node,
-                             (PinosDestroy) pinos_client_node_destroy);
 
   object_path = object->object_path;
   pinos_log_debug ("protocol-dbus %p: add client-node %p, %s", impl, node, object_path);
@@ -400,6 +441,11 @@ handle_create_client_node (PinosDaemon1           *interface,
 object_failed:
   {
     pinos_log_debug ("protocol-dbus %p: could not create object", impl);
+    goto exit_error;
+  }
+no_socket_pair:
+  {
+    pinos_log_debug ("protocol-dbus %p: could not create socketpair: %s", impl, strerror (errno));
     goto exit_error;
   }
 no_socket:
@@ -519,7 +565,7 @@ on_global_added (PinosListener *listener,
                 true,
                 NULL);
   }
-  else if (global->type == impl->uri.protocol_dbus) {
+  else if (global->object == impl) {
     PinosProtocolDBus *proto = global->object;
     PinosProtocolDBusServer *server;
     PinosDaemon1 *iface;
@@ -631,10 +677,8 @@ pinos_protocol_dbus_new (PinosCore       *core,
 
   impl->server_manager = g_dbus_object_manager_server_new (PINOS_DBUS_OBJECT_PREFIX);
 
-  impl->uri.protocol_dbus = spa_id_map_get_id (core->uri.map, PINOS_PROTOCOL_DBUS_URI);
-
   impl->global = pinos_core_add_global (core,
-                                        impl->uri.protocol_dbus,
+                                        core->uri.module,
                                         impl);
   return impl;
 }

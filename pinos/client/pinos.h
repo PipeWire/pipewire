@@ -37,13 +37,6 @@ extern "C" {
 
 #include <spa/include/spa/id-map.h>
 
-#define PINOS_DBUS_SERVICE "org.pinos"
-#define PINOS_DBUS_OBJECT_PREFIX "/org/pinos"
-#define PINOS_DBUS_OBJECT_SERVER PINOS_DBUS_OBJECT_PREFIX "/server"
-#define PINOS_DBUS_OBJECT_CLIENT PINOS_DBUS_OBJECT_PREFIX "/client"
-#define PINOS_DBUS_OBJECT_NODE PINOS_DBUS_OBJECT_PREFIX "/node"
-#define PINOS_DBUS_OBJECT_LINK PINOS_DBUS_OBJECT_PREFIX "/link"
-
 void pinos_init (int *argc, char **argv[]);
 
 char * pinos_client_name (void);

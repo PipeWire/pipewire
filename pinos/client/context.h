@@ -94,5 +94,4 @@ bool              pinos_context_disconnect            (PinosContext      *contex
 }
 #endif
 
-
 #endif /* __PINOS_CONTEXT_H__ */

@@ -989,14 +989,7 @@ client_node_dispatch_func (void             *object,
   SpaProxy *this = &impl->proxy;
 
   switch (type) {
-    case PINOS_MESSAGE_INVALID:
-    case PINOS_MESSAGE_ADD_PORT:
-    case PINOS_MESSAGE_REMOVE_PORT:
-    case PINOS_MESSAGE_SET_FORMAT:
-    case PINOS_MESSAGE_SET_PROPERTY:
-    case PINOS_MESSAGE_NODE_COMMAND:
-    case PINOS_MESSAGE_PORT_COMMAND:
-    case PINOS_MESSAGE_TRANSPORT_UPDATE:
+    default:
       spa_log_error (this->log, "proxy %p: got unexpected command %d", this, type);
       break;
 

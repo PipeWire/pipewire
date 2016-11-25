@@ -116,7 +116,7 @@ core_dispatch_func (void             *object,
     case PINOS_MESSAGE_NOTIFY_GLOBAL:
     {
       PinosMessageNotifyGlobal *ng = message;
-      pinos_log_warn ("global %u %s", ng->id, ng->type);
+      pinos_log_debug ("got global %u %s", ng->id, ng->type);
       break;
     }
     default:
@@ -165,8 +165,6 @@ on_context_data (SpaSource *source,
       void *p = alloca (size);
       PinosProxy *proxy;
 
-      pinos_log_error ("context %p: got message %d from %u", this, type, id);
-
       if (!pinos_connection_parse_message (conn, p)) {
         pinos_log_error ("context %p: failed to parse message", this);
         continue;
@@ -193,7 +191,6 @@ context_send_func (void             *object,
 {
   PinosContextImpl *impl = SPA_CONTAINER_OF (data, PinosContextImpl, this);
 
-  pinos_log_error ("context %p: send message %d to %u", &impl->this, type, id);
   pinos_connection_add_message (impl->connection,
                                 id,
                                 type,

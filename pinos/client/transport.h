@@ -33,8 +33,8 @@ typedef struct _PinosTransportArea PinosTransportArea;
 #include <spa/port.h>
 #include <spa/node.h>
 
-#include <pinos/client/connection.h>
 #include <pinos/client/mem.h>
+#include <pinos/client/signal.h>
 
 #define PINOS_TRANSPORT_CMD_NONE         0
 #define PINOS_TRANSPORT_CMD_NEED_DATA    (1<<0)
@@ -61,6 +61,9 @@ struct _PinosTransportArea {
 };
 
 struct _PinosTransport {
+  PINOS_SIGNAL (destroy_signal, (PinosListener  *listener,
+                                 PinosTransport *trans));
+
   PinosTransportArea *area;
   SpaPortInput       *inputs;
   SpaPortOutput      *outputs;
@@ -74,7 +77,7 @@ PinosTransport * pinos_transport_new            (unsigned int max_inputs,
                                                  unsigned int max_outputs);
 PinosTransport * pinos_transport_new_from_info  (PinosTransportInfo *info);
 
-void             pinos_transport_free           (PinosTransport     *trans);
+void             pinos_transport_destroy        (PinosTransport     *trans);
 
 SpaResult        pinos_transport_get_info       (PinosTransport     *trans,
                                                  PinosTransportInfo *info);

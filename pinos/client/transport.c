@@ -18,6 +18,7 @@
  */
 
 #include <unistd.h>
+#include <errno.h>
 #include <sys/mman.h>
 
 #include <pinos/client/log.h>
@@ -101,6 +102,7 @@ pinos_transport_new (unsigned int max_inputs,
   impl->offset = 0;
 
   trans = &impl->trans;
+  pinos_signal_init (&trans->destroy_signal);
 
   pinos_memblock_alloc (PINOS_MEMBLOCK_FLAG_WITH_FD |
                         PINOS_MEMBLOCK_FLAG_MAP_READWRITE |
@@ -121,11 +123,9 @@ pinos_transport_new_from_info (PinosTransportInfo *info)
   PinosTransport *trans;
   void *tmp;
 
-  if (info == NULL)
-    return NULL;
-
   impl = calloc (1, sizeof (PinosTransportImpl));
   trans = &impl->trans;
+  pinos_signal_init (&trans->destroy_signal);
 
   impl->mem.flags = PINOS_MEMBLOCK_FLAG_MAP_READWRITE |
                     PINOS_MEMBLOCK_FLAG_WITH_FD;
@@ -133,7 +133,7 @@ pinos_transport_new_from_info (PinosTransportInfo *info)
   impl->mem.size = info->size;
   impl->mem.ptr = mmap (NULL, info->size, PROT_READ | PROT_WRITE, MAP_SHARED, info->memfd, info->offset);
   if (impl->mem.ptr == MAP_FAILED) {
-    pinos_log_warn ("transport %p: failed to map fd %d", impl, info->memfd);
+    pinos_log_warn ("transport %p: failed to map fd %d: %s", impl, info->memfd, strerror (errno));
     goto mmap_failed;
   }
 
@@ -158,12 +158,9 @@ mmap_failed:
 
 
 void
-pinos_transport_free (PinosTransport *trans)
+pinos_transport_destroy (PinosTransport *trans)
 {
   PinosTransportImpl *impl = (PinosTransportImpl *) trans;
-
-  if (impl == NULL)
-    return;
 
   pinos_memblock_free (&impl->mem);
   free (impl);
@@ -174,9 +171,6 @@ pinos_transport_get_info (PinosTransport     *trans,
                           PinosTransportInfo *info)
 {
   PinosTransportImpl *impl = (PinosTransportImpl *) trans;
-
-  if (impl == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
 
   info->memfd = impl->mem.fd;
   info->offset = impl->offset;

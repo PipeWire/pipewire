@@ -27,7 +27,6 @@
 #include "spa/include/spa/list.h"
 #include "spa/include/spa/ringbuffer.h"
 #include "pinos/client/log.h"
-#include "pinos/client/object.h"
 #include "pinos/server/main-loop.h"
 
 typedef struct _WorkItem WorkItem;

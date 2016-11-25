@@ -406,15 +406,6 @@ handle_rtnode_event (PinosStream  *stream,
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
 
   switch (event->type) {
-    case SPA_NODE_EVENT_TYPE_INVALID:
-    case SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE:
-    case SPA_NODE_EVENT_TYPE_ERROR:
-    case SPA_NODE_EVENT_TYPE_BUFFERING:
-    case SPA_NODE_EVENT_TYPE_REQUEST_REFRESH:
-    case SPA_NODE_EVENT_TYPE_REQUEST_CLOCK_UPDATE:
-      pinos_log_warn ("unexpected node event %d", event->type);
-      break;
-
     case SPA_NODE_EVENT_TYPE_HAVE_OUTPUT:
     case SPA_NODE_EVENT_TYPE_NEED_INPUT:
       pinos_log_warn ("unhandled node event %d", event->type);
@@ -436,6 +427,9 @@ handle_rtnode_event (PinosStream  *stream,
       }
       break;
     }
+    default:
+      pinos_log_warn ("unexpected node event %d", event->type);
+      break;
   }
 }
 
@@ -501,7 +495,6 @@ handle_socket (PinosStream *stream, int rtfd)
                                              false,
                                              on_rtsocket_condition,
                                              stream);
-  pinos_log_debug ("socket %d", impl->rtfd);
 
   impl->timeout_source = pinos_loop_add_timer (stream->context->loop,
                                                on_timeout,
@@ -831,7 +824,7 @@ stream_dispatch_func (void             *object,
       info.size = p->size;
 
       if (impl->trans)
-        pinos_transport_free (impl->trans);
+        pinos_transport_destroy (impl->trans);
       impl->trans = pinos_transport_new_from_info (&info);
 
       pinos_log_debug ("transport update %d %p", impl->rtfd, impl->trans);
@@ -907,6 +900,7 @@ pinos_stream_connect (PinosStream      *stream,
   items[0].value = port_path;
   ccn.props = &dict;
   ccn.id = impl->node_proxy->id;
+
   pinos_proxy_send_message (stream->context->core_proxy,
                             PINOS_MESSAGE_CREATE_CLIENT_NODE,
                             &ccn,
@@ -968,7 +962,6 @@ pinos_stream_finish_format (PinosStream     *stream,
  * @stream: a #PinosStream
  *
  * Start capturing from @stream.
- *
  *
  * Returns: %true on success.
  */

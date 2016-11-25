@@ -34,13 +34,6 @@ struct _PinosListener {
   void (*notify) (void *);
 };
 
-#if 0
-struct _PinosSignal {
-  SpaList listeners;
-  void (*notify) (PinosListener *listener, void *object, void *data);
-};
-#endif
-
 #define PINOS_SIGNAL(name,func)                                         \
   union {                                                               \
     SpaList listeners;                                                  \

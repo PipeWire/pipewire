@@ -124,13 +124,28 @@ object_new (size_t               size,
 }
 
 static void
-object_destroy (PinosProtocolNativeObject *this)
+sync_destroy (void      *object,
+              void      *data,
+              SpaResult  res,
+              uint32_t   id)
 {
-  spa_list_remove (&this->link);
+  PinosProtocolNativeObject *this = object;
 
   if (this->destroy)
     this->destroy (this);
   free (this);
+}
+
+static void
+object_destroy (PinosProtocolNativeObject *this)
+{
+  spa_list_remove (&this->link);
+
+  pinos_main_loop_defer (this->impl->core->main_loop,
+                         this,
+                         SPA_RESULT_WAIT_SYNC,
+                         sync_destroy,
+                         this);
 }
 
 static PinosProtocolNativeObject *
@@ -149,8 +164,9 @@ static void
 client_destroy (PinosProtocolNativeClient *this)
 {
   spa_list_remove (&this->link);
-  pinos_loop_destroy_source (this->parent.impl->core->main_loop->loop,
-                             this->source);
+  if (this->source)
+    pinos_loop_destroy_source (this->parent.impl->core->main_loop->loop,
+                               this->source);
   pinos_connection_destroy (this->connection);
   close (this->fd);
 }
@@ -276,6 +292,10 @@ connection_data (SpaSource *source,
   size_t size;
 
   if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
+    pinos_log_debug ("protocol-native %p: got connection error", client->parent.impl);
+    pinos_loop_destroy_source (client->parent.impl->core->main_loop->loop,
+                               client->source);
+    client->source = NULL;
     pinos_client_destroy (client->parent.global->object);
     return;
   }

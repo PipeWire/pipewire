@@ -1274,14 +1274,15 @@ pinos_client_node_new (PinosClient     *client,
 }
 
 static void
-on_node_remove (PinosNode *node,
+on_node_remove (void      *object,
                 void      *data,
-                SpaResult  res)
+                SpaResult  res,
+                uint32_t   id)
 {
-  PinosClientNode *this = data;
+  PinosClientNode *this = object;
   PinosClientNodeImpl *impl = SPA_CONTAINER_OF (this, PinosClientNodeImpl, this);
 
-  pinos_log_debug ("client-node %p: finalize", node);
+  pinos_log_debug ("client-node %p: finalize", this);
   proxy_clear (&impl->proxy);
 
   if (impl->data_fd != -1)
@@ -1290,24 +1291,21 @@ on_node_remove (PinosNode *node,
 }
 
 
-SpaResult
+void
 pinos_client_node_destroy (PinosClientNode * this)
 {
   PinosClientNodeImpl *impl = SPA_CONTAINER_OF (this, PinosClientNodeImpl, this);
-  SpaResult res;
 
   pinos_log_debug ("client-node %p: destroy", impl);
   pinos_signal_emit (&this->destroy_signal, this);
 
-  res = pinos_node_destroy (this->node);
+  pinos_node_destroy (this->node);
 
   pinos_main_loop_defer (this->node->core->main_loop,
-                         this->node,
-                         res,
+                         this,
+                         SPA_RESULT_WAIT_SYNC,
                          (PinosDeferFunc) on_node_remove,
                          this);
-
-  return res;
 }
 
 /**

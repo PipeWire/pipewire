@@ -115,7 +115,7 @@ void            pinos_core_destroy       (PinosCore     *core);
 PinosGlobal *   pinos_core_add_global    (PinosCore           *core,
                                           uint32_t             type,
                                           void                *object);
-SpaResult       pinos_global_destroy     (PinosGlobal         *global);
+void            pinos_global_destroy     (PinosGlobal         *global);
 
 
 PinosPort *     pinos_core_find_port     (PinosCore        *core,

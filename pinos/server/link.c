@@ -154,6 +154,7 @@ again:
       asprintf (&error, "error set output format: %d", res);
       goto error;
     }
+    pinos_main_loop_defer (this->core->main_loop, this->output->node, res, NULL, NULL);
   } else if (in_state == SPA_NODE_STATE_CONFIGURE) {
     pinos_log_debug ("link %p: doing set format on input", this);
     if ((res = spa_node_port_set_format (this->input->node->node,
@@ -164,6 +165,7 @@ again:
       asprintf (&error, "error set input format: %d", res);
       goto error;
     }
+    pinos_main_loop_defer (this->core->main_loop, this->input->node, res, NULL, NULL);
   }
   return res;
 
@@ -419,6 +421,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
         asprintf (&error, "error alloc output buffers: %d", res);
         goto error;
       }
+      pinos_main_loop_defer (this->core->main_loop, this->output->node, res, NULL, NULL);
       this->output->buffers = impl->buffers;
       this->output->n_buffers = impl->n_buffers;
       this->output->allocated = TRUE;
@@ -434,6 +437,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
         asprintf (&error, "error alloc input buffers: %d", res);
         goto error;
       }
+      pinos_main_loop_defer (this->core->main_loop, this->input->node, res, NULL, NULL);
       this->input->buffers = impl->buffers;
       this->input->n_buffers = impl->n_buffers;
       this->input->allocated = TRUE;
@@ -453,6 +457,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       asprintf (&error, "error use input buffers: %d", res);
       goto error;
     }
+    pinos_main_loop_defer (this->core->main_loop, this->input->node, res, NULL, NULL);
     this->input->buffers = impl->buffers;
     this->input->n_buffers = impl->n_buffers;
     this->input->allocated = FALSE;
@@ -467,6 +472,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       asprintf (&error, "error use output buffers: %d", res);
       goto error;
     }
+    pinos_main_loop_defer (this->core->main_loop, this->output->node, res, NULL, NULL);
     this->output->buffers = impl->buffers;
     this->output->n_buffers = impl->n_buffers;
     this->output->allocated = FALSE;
@@ -519,11 +525,6 @@ check_states (PinosLink *this,
 {
   SpaNodeState in_state, out_state;
 
-  if (res != SPA_RESULT_OK) {
-    pinos_log_warn ("link %p: error: %d", this, res);
-    return res;
-  }
-
 again:
   if (this->input == NULL || this->output == NULL)
     return SPA_RESULT_OK;
@@ -550,7 +551,11 @@ again:
   return SPA_RESULT_OK;
 
 exit:
-  pinos_main_loop_defer (this->core->main_loop, this, res, (PinosDeferFunc) check_states, this);
+  pinos_main_loop_defer (this->core->main_loop,
+                         this,
+                         SPA_RESULT_WAIT_SYNC,
+                         (PinosDeferFunc) check_states,
+                         this);
   return res;
 }
 
@@ -740,7 +745,6 @@ do_link_remove_done (SpaLoop        *loop,
                      void           *user_data)
 {
   PinosLink *this = user_data;
-  PinosLinkImpl *impl = SPA_CONTAINER_OF (this, PinosLinkImpl, this);
 
   if (this->input) {
     spa_list_remove (&this->input_link);
@@ -765,12 +769,10 @@ do_link_remove_done (SpaLoop        *loop,
     this->output = NULL;
   }
 
-  pinos_main_loop_defer_cancel (this->core->main_loop, this, 0);
-
-  if (impl->allocated)
-    pinos_memblock_free (&impl->buffer_mem);
-
-  free (impl);
+  pinos_main_loop_defer_complete (this->core->main_loop,
+                                  this,
+                                  seq,
+                                  SPA_RESULT_OK);
 
   return SPA_RESULT_OK;
 }
@@ -804,13 +806,29 @@ do_link_remove (SpaLoop        *loop,
   return res;
 }
 
+static void
+sync_destroy (void     *object,
+              void     *data,
+              SpaResult res,
+              uint32_t  id)
+{
+  PinosLinkImpl *impl = SPA_CONTAINER_OF (object, PinosLinkImpl, this);
+
+  pinos_log_debug ("link %p: sync destroy", impl);
+
+  if (impl->allocated)
+    pinos_memblock_free (&impl->buffer_mem);
+
+  free (impl);
+}
+
 /**
  * pinos_link_destroy:
  * @link: a #PinosLink
  *
  * Trigger removal of @link
  */
-SpaResult
+void
 pinos_link_destroy (PinosLink * this)
 {
   SpaResult res = SPA_RESULT_OK;
@@ -832,6 +850,8 @@ pinos_link_destroy (PinosLink * this)
                              0,
                              NULL,
                              this);
+
+    pinos_main_loop_defer (this->core->main_loop, this, res, NULL, NULL);
   }
   if (this->output) {
     pinos_signal_remove (&impl->output_port_destroy);
@@ -843,6 +863,12 @@ pinos_link_destroy (PinosLink * this)
                              0,
                              NULL,
                              this);
+    pinos_main_loop_defer (this->core->main_loop, this, res, NULL, NULL);
   }
-  return res;
+
+  pinos_main_loop_defer (this->core->main_loop,
+                         this,
+                         SPA_RESULT_WAIT_SYNC,
+                         sync_destroy,
+                         this);
 }

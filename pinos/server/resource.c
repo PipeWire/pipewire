@@ -50,6 +50,17 @@ pinos_resource_new (PinosClient *client,
   return resource;
 }
 
+static void
+sync_destroy (void       *object,
+              void       *data,
+              SpaResult   res,
+              uint32_t    id)
+{
+  PinosResource *resource = object;
+  pinos_log_debug ("resource %p: sync destroy", resource);
+  free (resource);
+}
+
 SpaResult
 pinos_resource_destroy (PinosResource *resource)
 {
@@ -61,7 +72,11 @@ pinos_resource_destroy (PinosResource *resource)
   if (resource->destroy)
     resource->destroy (resource->object);
 
-  free (resource);
+  pinos_main_loop_defer (resource->core->main_loop,
+                         resource,
+                         SPA_RESULT_WAIT_SYNC,
+                         sync_destroy,
+                         resource);
 
   return SPA_RESULT_OK;
 }

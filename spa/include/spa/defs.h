@@ -32,6 +32,7 @@ extern "C" {
 
 typedef enum {
   SPA_RESULT_ASYNC                     =  (1 << 30),
+  SPA_RESULT_WAIT_SYNC                 =  2,
   SPA_RESULT_MODIFIED                  =  1,
   SPA_RESULT_OK                        =  0,
   SPA_RESULT_ERROR                     = -1,

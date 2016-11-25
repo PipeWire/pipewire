@@ -114,11 +114,24 @@ pinos_core_add_global (PinosCore           *core,
   return global;
 }
 
-SpaResult
+static void
+sync_destroy (void      *object,
+              void      *data,
+              SpaResult  res,
+              uint32_t   id)
+{
+  PinosGlobal *global = object;
+
+  pinos_log_debug ("global %p: sync destroy", global);
+  free (global);
+}
+
+void
 pinos_global_destroy (PinosGlobal *global)
 {
   PinosCore *core = global->core;
 
+  pinos_log_debug ("global %p: destroy", global);
   pinos_signal_emit (&global->destroy_signal, global);
 
   pinos_map_remove (&core->objects, global->id);
@@ -126,9 +139,11 @@ pinos_global_destroy (PinosGlobal *global)
   spa_list_remove (&global->link);
   pinos_signal_emit (&core->global_removed, core, global);
 
-  free (global);
-
-  return SPA_RESULT_OK;
+  pinos_main_loop_defer (core->main_loop,
+                         global,
+                         SPA_RESULT_WAIT_SYNC,
+                         sync_destroy,
+                         global);
 }
 
 PinosPort *

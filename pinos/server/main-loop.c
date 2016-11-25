@@ -64,8 +64,15 @@ process_work_queue (SpaSource *source,
   WorkItem *item, *tmp;
 
   spa_list_for_each_safe (item, tmp, &impl->work_list, link) {
-    if (item->seq != SPA_ID_INVALID)
+    if (item->seq != SPA_ID_INVALID) {
+      pinos_log_debug ("main-loop %p: waiting for item %p %d", this, item->obj, item->seq);
       continue;
+    }
+
+    if (item->res == SPA_RESULT_WAIT_SYNC && item != spa_list_first (&impl->work_list, WorkItem, link)) {
+      pinos_log_debug ("main-loop %p: sync item %p not head", this, item->obj);
+      continue;
+    }
 
     spa_list_remove (&item->link);
 
@@ -78,11 +85,11 @@ process_work_queue (SpaSource *source,
 }
 
 static uint32_t
-do_add_work (PinosMainLoop  *loop,
-             void           *obj,
-             SpaResult       res,
-             PinosDeferFunc  func,
-             void           *data)
+main_loop_defer (PinosMainLoop  *loop,
+                 void           *obj,
+                 SpaResult       res,
+                 PinosDeferFunc  func,
+                 void           *data)
 {
   PinosMainLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosMainLoopImpl, this);
   WorkItem *item;
@@ -103,6 +110,11 @@ do_add_work (PinosMainLoop  *loop,
     item->seq = SPA_RESULT_ASYNC_SEQ (res);
     item->res = res;
     pinos_log_debug ("main-loop %p: defer async %d for object %p", loop, item->seq, obj);
+  } else if (res == SPA_RESULT_WAIT_SYNC) {
+    pinos_log_debug ("main-loop %p: wait sync object %p", loop, obj);
+    item->seq = SPA_ID_INVALID;
+    item->res = res;
+    have_work = TRUE;
   } else {
     item->seq = SPA_ID_INVALID;
     item->res = res;
@@ -115,16 +127,6 @@ do_add_work (PinosMainLoop  *loop,
     pinos_loop_signal_event (impl->this.loop, impl->wakeup);
 
   return item->id;
-}
-
-static uint32_t
-main_loop_defer (PinosMainLoop  *loop,
-                 void           *obj,
-                 SpaResult       res,
-                 PinosDeferFunc  func,
-                 void           *data)
-{
-  return do_add_work (loop, obj, res, func, data);
 }
 
 static void
@@ -175,28 +177,6 @@ main_loop_defer_complete (PinosMainLoop  *loop,
   return have_work;
 }
 
-static void
-main_loop_quit (PinosMainLoop *loop)
-{
-  PinosMainLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosMainLoopImpl, this);
-  pinos_log_debug ("main-loop %p: quit", impl);
-  impl->running = false;
-}
-
-static void
-main_loop_run (PinosMainLoop *loop)
-{
-  PinosMainLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosMainLoopImpl, this);
-
-  pinos_log_debug ("main-loop %p: run", impl);
-
-  impl->running = true;
-  pinos_loop_enter (loop->loop);
-  while (impl->running) {
-    pinos_loop_iterate (loop->loop, -1);
-  }
-  pinos_loop_leave (loop->loop);
-}
 
 /**
  * pinos_main_loop_new:
@@ -223,8 +203,6 @@ pinos_main_loop_new (void)
                                        process_work_queue,
                                        impl);
 
-  this->run = main_loop_run;
-  this->quit = main_loop_quit;
   this->defer = main_loop_defer;
   this->defer_cancel = main_loop_defer_cancel;
   this->defer_complete = main_loop_defer_complete;
@@ -250,4 +228,27 @@ pinos_main_loop_destroy (PinosMainLoop *loop)
   spa_list_for_each_safe (item, tmp, &impl->free_list, link)
     free (item);
   free (impl);
+}
+
+void
+pinos_main_loop_quit (PinosMainLoop *loop)
+{
+  PinosMainLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosMainLoopImpl, this);
+  pinos_log_debug ("main-loop %p: quit", impl);
+  impl->running = false;
+}
+
+void
+pinos_main_loop_run (PinosMainLoop *loop)
+{
+  PinosMainLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosMainLoopImpl, this);
+
+  pinos_log_debug ("main-loop %p: run", impl);
+
+  impl->running = true;
+  pinos_loop_enter (loop->loop);
+  while (impl->running) {
+    pinos_loop_iterate (loop->loop, -1);
+  }
+  pinos_loop_leave (loop->loop);
 }

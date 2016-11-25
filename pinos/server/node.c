@@ -477,22 +477,19 @@ do_node_remove_done (SpaLoop        *loop,
                      void           *user_data)
 {
   PinosNode *this = user_data;
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, this);
   PinosPort *port, *tmp;
 
-  pinos_main_loop_defer_cancel (this->core->main_loop, this, 0);
-
+  pinos_log_debug ("node %p: remove done, destroy ports", this);
   spa_list_for_each_safe (port, tmp, &this->input_ports, link)
     pinos_port_destroy (port);
 
   spa_list_for_each_safe (port, tmp, &this->output_ports, link)
     pinos_port_destroy (port);
 
-  free (this->name);
-  free (this->error);
-  if (this->properties)
-    pinos_properties_free (this->properties);
-  free (impl);
+  pinos_main_loop_defer_complete (this->core->main_loop,
+                                  this,
+                                  seq,
+                                  SPA_RESULT_OK);
 
   return SPA_RESULT_OK;
 }
@@ -536,6 +533,24 @@ do_node_remove (SpaLoop        *loop,
   return res;
 }
 
+static void
+sync_destroy (void     *object,
+              void     *data,
+              SpaResult res,
+              uint32_t  id)
+{
+  PinosNode *this = object;
+  PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, this);
+
+  pinos_log_debug ("node %p: sync destroy", this);
+
+  free (this->name);
+  free (this->error);
+  if (this->properties)
+    pinos_properties_free (this->properties);
+  free (impl);
+}
+
 /**
  * pinos_node_destroy:
  * @node: a #PinosNode
@@ -543,7 +558,7 @@ do_node_remove (SpaLoop        *loop,
  * Remove @node. This will stop the transfer on the node and
  * free the resources allocated by @node.
  */
-SpaResult
+void
 pinos_node_destroy (PinosNode * this)
 {
   SpaResult res;
@@ -561,7 +576,18 @@ pinos_node_destroy (PinosNode * this)
                            0,
                            NULL,
                            this);
-  return res;
+
+  pinos_main_loop_defer (this->core->main_loop,
+                         this,
+                         res,
+                         NULL,
+                         NULL);
+
+  pinos_main_loop_defer (this->core->main_loop,
+                         this,
+                         SPA_RESULT_WAIT_SYNC,
+                         sync_destroy,
+                         this);
 }
 
 /**

@@ -50,7 +50,7 @@ PinosClientNode *  pinos_client_node_new              (PinosClient     *client,
                                                        uint32_t         id,
                                                        const char      *name,
                                                        PinosProperties *properties);
-SpaResult          pinos_client_node_destroy          (PinosClientNode *node);
+void               pinos_client_node_destroy          (PinosClientNode *node);
 
 SpaResult          pinos_client_node_get_data_socket  (PinosClientNode *node, int *fd);
 

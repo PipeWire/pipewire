@@ -40,16 +40,27 @@ struct _SpaDict {
   SpaDictItem  *items;
 };
 
+#define spa_dict_for_each(item, dict)                \
+  for ((item) = (dict)->items;                       \
+       (item) < &(dict)->items[(dict)->n_items];     \
+       (item)++)
+
+static inline SpaDictItem *
+spa_dict_lookup_item (const SpaDict *dict, const char *key)
+{
+  SpaDictItem *item;
+  spa_dict_for_each (item, dict) {
+    if (!strcmp (item->key, key))
+      return item;
+  }
+  return NULL;
+}
+
 static inline const char *
 spa_dict_lookup (const SpaDict *dict, const char *key)
 {
-  unsigned int i;
-
-  for (i = 0; i < dict->n_items; i++) {
-    if (!strcmp (dict->items[i].key, key))
-      return dict->items[i].value;
-  }
-  return NULL;
+  SpaDictItem *item = spa_dict_lookup_item (dict, key);
+  return item ? item->value : NULL;
 }
 
 #ifdef __cplusplus

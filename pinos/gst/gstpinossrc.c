@@ -180,6 +180,12 @@ gst_pinos_src_finalize (GObject * object)
 
   g_queue_foreach (&pinossrc->queue, (GFunc) gst_mini_object_unref, NULL);
   g_queue_clear (&pinossrc->queue);
+
+  pinos_thread_main_loop_destroy (pinossrc->main_loop);
+  pinossrc->main_loop = NULL;
+  pinos_loop_destroy (pinossrc->loop);
+  pinossrc->loop = NULL;
+
   if (pinossrc->properties)
     gst_structure_free (pinossrc->properties);
   g_object_unref (pinossrc->fd_allocator);
@@ -275,6 +281,10 @@ gst_pinos_src_init (GstPinosSrc * src)
   src->fd_allocator = gst_fd_allocator_new ();
   src->client_name = pinos_client_name ();
   src->buf_ids = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL, (GDestroyNotify) gst_buffer_unref);
+
+  src->loop = pinos_loop_new ();
+  src->main_loop = pinos_thread_main_loop_new (src->loop, "pinos-main-loop");
+  GST_DEBUG ("loop %p, mainloop %p", src->loop, src->main_loop);
 }
 
 static GstCaps *
@@ -989,10 +999,6 @@ gst_pinos_src_open (GstPinosSrc * pinossrc)
 {
   PinosProperties *props;
 
-  pinossrc->loop = pinos_loop_new ();
-  GST_DEBUG ("loop %p", pinossrc->loop);
-
-  pinossrc->main_loop = pinos_thread_main_loop_new (pinossrc->loop, "pinos-main-loop");
   if (pinos_thread_main_loop_start (pinossrc->main_loop) != SPA_RESULT_OK)
     goto mainloop_failed;
 
@@ -1052,24 +1058,19 @@ connect_error:
 static void
 gst_pinos_src_close (GstPinosSrc * pinossrc)
 {
+  clear_queue (pinossrc);
+
   pinos_thread_main_loop_stop (pinossrc->main_loop);
-  pinos_thread_main_loop_destroy (pinossrc->main_loop);
-  pinossrc->main_loop = NULL;
+
+  pinos_stream_destroy (pinossrc->stream);
+  pinossrc->stream = NULL;
 
   pinos_context_destroy (pinossrc->ctx);
   pinossrc->ctx = NULL;
 
-  pinos_loop_destroy (pinossrc->loop);
-  pinossrc->loop = NULL;
-
   GST_OBJECT_LOCK (pinossrc);
   g_clear_object (&pinossrc->clock);
-  g_clear_object (&pinossrc->stream);
   GST_OBJECT_UNLOCK (pinossrc);
-  clear_queue (pinossrc);
-  if (pinossrc->clock)
-    gst_object_unref (pinossrc->clock);
-  pinossrc->clock = NULL;
 }
 
 static GstStateChangeReturn

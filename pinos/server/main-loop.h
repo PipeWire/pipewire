@@ -45,9 +45,6 @@ struct _PinosMainLoop {
   PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
                                  PinosMainLoop *loop));
 
-  void         (*run)             (PinosMainLoop  *loop);
-  void         (*quit)            (PinosMainLoop  *loop);
-
   uint32_t     (*defer)           (PinosMainLoop  *loop,
                                    void           *obj,
                                    SpaResult       res,
@@ -65,13 +62,12 @@ struct _PinosMainLoop {
 PinosMainLoop *     pinos_main_loop_new                     (void);
 void                pinos_main_loop_destroy                 (PinosMainLoop *loop);
 
-#define pinos_main_loop_run(m)                 (m)->run(m)
-#define pinos_main_loop_quit(m)                (m)->quit(m)
+void                pinos_main_loop_run                     (PinosMainLoop *loop);
+void                pinos_main_loop_quit                    (PinosMainLoop *loop);
 
 #define pinos_main_loop_defer(m,...)           (m)->defer(m,__VA_ARGS__)
 #define pinos_main_loop_defer_cancel(m,...)    (m)->defer_cancel(m,__VA_ARGS__)
 #define pinos_main_loop_defer_complete(m,...)  (m)->defer_complete(m,__VA_ARGS__)
-#define pinos_main_loop_sync(m,...)            (m)->sync(m,__VA_ARGS__)
 
 #ifdef __cplusplus
 }

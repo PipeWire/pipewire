@@ -63,32 +63,46 @@ pinos_client_new (PinosCore       *core,
   return this;
 }
 
+static void
+sync_destroy (void      *object,
+              void      *data,
+              SpaResult  res,
+              uint32_t   id)
+{
+  PinosClientImpl *impl = SPA_CONTAINER_OF (object, PinosClientImpl, this);
+  PinosClient *client = &impl->this;
+
+  pinos_log_debug ("client %p: sync destroy", impl);
+
+  if (client->properties)
+    pinos_properties_free (client->properties);
+
+  free (impl);
+}
+
 /**
  * pinos_client_destroy:
  * @client: a #PinosClient
  *
  * Trigger removal of @client
  */
-SpaResult
+void
 pinos_client_destroy (PinosClient * client)
 {
-  PinosClientImpl *impl = SPA_CONTAINER_OF (client, PinosClientImpl, this);
   PinosResource *resource, *tmp;
 
   pinos_log_debug ("client %p: destroy", client);
   pinos_signal_emit (&client->destroy_signal, client);
 
-  pinos_global_destroy (client->global);
-
   spa_list_for_each_safe (resource, tmp, &client->resource_list, link)
     pinos_resource_destroy (resource);
 
+  pinos_global_destroy (client->global);
   spa_list_remove (&client->link);
 
-  if (client->properties)
-    pinos_properties_free (client->properties);
-
-  free (impl);
-
-  return SPA_RESULT_OK;
+  pinos_main_loop_defer (client->core->main_loop,
+                         client,
+                         SPA_RESULT_WAIT_SYNC,
+                         sync_destroy,
+                         client);
 }

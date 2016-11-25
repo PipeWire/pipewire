@@ -1021,7 +1021,7 @@ pinos_connection_flush (PinosConnection *conn)
   }
 
   while (true) {
-    len = sendmsg (conn->fd, &msg, 0);
+    len = sendmsg (conn->fd, &msg, MSG_NOSIGNAL);
     if (len < 0) {
       if (errno == EINTR)
         continue;

@@ -55,7 +55,7 @@ struct _PinosClient {
 
 PinosClient *   pinos_client_new                  (PinosCore       *core,
                                                    PinosProperties *properties);
-SpaResult       pinos_client_destroy              (PinosClient     *client);
+void            pinos_client_destroy              (PinosClient     *client);
 
 #ifdef __cplusplus
 }

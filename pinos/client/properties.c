@@ -17,19 +17,45 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include <glib.h>
-
 #include "pinos/client/pinos.h"
 #include "pinos/client/properties.h"
 
+typedef struct {
+  char *key;
+  char *value;
+} PropItem;
+
 struct _PinosProperties {
-  GHashTable *hashtable;
+  PinosArray items;
 };
 
 static void
-copy_func (const char *key, const char *value, GHashTable *copy)
+add_func (PinosProperties *props, char *key, char *value)
 {
-  g_hash_table_insert (copy, g_strdup (key), g_strdup (value));
+  PropItem *item;
+  item = pinos_array_add (&props->items, sizeof (PropItem));
+  item->key = key;
+  item->value = value;
+}
+
+static void
+clear_item (PropItem *item)
+{
+  free (item->key);
+  free (item->value);
+}
+
+static int
+find_index (PinosProperties *props, const char *key)
+{
+  int i, len = pinos_array_get_len (&props->items, PropItem);
+
+  for (i = 0; i < len; i++) {
+    PropItem *item = pinos_array_get_unchecked (&props->items, i, PropItem);
+    if (strcmp (item->key, key) == 0)
+      return i;
+  }
+  return -1;
 }
 
 /**
@@ -48,13 +74,13 @@ pinos_properties_new (const char *key, ...)
   va_list varargs;
   const char *value;
 
-  props = g_new (PinosProperties, 1);
-  props->hashtable = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
+  props = calloc (1, sizeof (PinosProperties));
+  pinos_array_init (&props->items);
 
   va_start (varargs, key);
   while (key != NULL) {
     value = va_arg (varargs, char *);
-    copy_func (key, value, props->hashtable);
+    add_func (props, strdup (key), strdup (value));
     key = va_arg (varargs, char *);
   }
   va_end (varargs);
@@ -74,11 +100,11 @@ PinosProperties *
 pinos_properties_copy (PinosProperties *properties)
 {
   PinosProperties *copy;
-
-  g_return_val_if_fail (properties != NULL, NULL);
+  PropItem *item;
 
   copy = pinos_properties_new (NULL, NULL);
-  g_hash_table_foreach (properties->hashtable, (GHFunc) copy_func, copy->hashtable);
+  pinos_array_for_each (item, &properties->items)
+    add_func (copy, strdup (item->key), strdup (item->value));
 
   return copy;
 }
@@ -119,10 +145,40 @@ pinos_properties_merge (PinosProperties *oldprops,
 void
 pinos_properties_free (PinosProperties *properties)
 {
-  g_return_if_fail (properties != NULL);
+  PropItem *item;
 
-  g_hash_table_unref (properties->hashtable);
-  g_free (properties);
+  pinos_array_for_each (item, &properties->items)
+    clear_item (item);
+
+  pinos_array_clear (&properties->items);
+  free (properties);
+}
+
+static void
+do_replace (PinosProperties *properties,
+            char            *key,
+            char            *value)
+{
+  int index = find_index (properties, key);
+
+  if (index == -1) {
+    add_func (properties, key, value);
+  } else {
+    PropItem *item = pinos_array_get_unchecked (&properties->items, index, PropItem);
+
+    clear_item (item);
+    if (value == NULL) {
+      PropItem *other = pinos_array_get_unchecked (&properties->items,
+                                                   pinos_array_get_len (&properties->items, PropItem) - 1,
+                                                   PropItem);
+      item->key = other->key;
+      item->value = other->value;
+      properties->items.size -= sizeof (PropItem);
+    } else {
+      item->key = key;
+      item->value = value;
+    }
+  }
 }
 
 /**
@@ -140,13 +196,7 @@ pinos_properties_set (PinosProperties *properties,
                       const char      *key,
                       const char      *value)
 {
-  g_return_if_fail (properties != NULL);
-  g_return_if_fail (key != NULL);
-
-  if (value == NULL)
-    g_hash_table_remove (properties->hashtable, key);
-  else
-    g_hash_table_replace (properties->hashtable, g_strdup (key), g_strdup (value));
+  do_replace (properties, strdup (key), value ? strdup (value) : NULL);
 }
 
 /**
@@ -166,16 +216,13 @@ pinos_properties_setf (PinosProperties *properties,
                        ...)
 {
   va_list varargs;
-
-  g_return_if_fail (properties != NULL);
-  g_return_if_fail (key != NULL);
-  g_return_if_fail (format != NULL);
+  char *value;
 
   va_start (varargs, format);
-  g_hash_table_replace (properties->hashtable,
-                        g_strdup (key),
-                        g_strdup_vprintf (format, varargs));
+  vasprintf (&value, format, varargs);
   va_end (varargs);
+
+  do_replace (properties, strdup (key), value);
 }
 
 /**
@@ -191,10 +238,12 @@ const char *
 pinos_properties_get (PinosProperties *properties,
                       const char      *key)
 {
-  g_return_val_if_fail (properties != NULL, NULL);
-  g_return_val_if_fail (key != NULL, NULL);
+  int index = find_index (properties, key);
 
-  return g_hash_table_lookup (properties->hashtable, key);
+  if (index == -1)
+    return NULL;
+
+  return pinos_array_get_unchecked (&properties->items, index, PropItem)->value;
 }
 
 /**
@@ -215,29 +264,17 @@ const char *
 pinos_properties_iterate (PinosProperties     *properties,
                           void               **state)
 {
-  static void * dummy = GINT_TO_POINTER (1);
-  const char *res = NULL;
-  GList *items;
+  unsigned int index;
 
-  g_return_val_if_fail (properties != NULL, NULL);
-  g_return_val_if_fail (state != NULL, NULL);
+  if (*state == NULL)
+    index = 0;
+  else
+    index = SPA_PTR_TO_INT (*state);
 
-  if (*state == dummy)
+  if (!pinos_array_check_index (&properties->items, index, PropItem))
     return NULL;
 
-  if (*state == NULL) {
-    items = g_hash_table_get_keys (properties->hashtable);
-  } else {
-    items = *state;
-  }
+  *state = SPA_INT_TO_PTR (index + 1);
 
-  if (items) {
-    res = items->data;
-    items = g_list_delete_link (items, items);
-    if (items == NULL)
-      items = dummy;
-  }
-  *state = items;
-
-  return res;
+  return pinos_array_get_unchecked (&properties->items, index, PropItem)->key;
 }

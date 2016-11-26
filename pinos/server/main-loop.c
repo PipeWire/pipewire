@@ -22,8 +22,6 @@
 #include <errno.h>
 #include <sys/eventfd.h>
 
-#include <gio/gio.h>
-
 #include "spa/include/spa/list.h"
 #include "spa/include/spa/ringbuffer.h"
 #include "pinos/client/log.h"
@@ -113,11 +111,11 @@ main_loop_defer (PinosMainLoop  *loop,
     pinos_log_debug ("main-loop %p: wait sync object %p", loop, obj);
     item->seq = SPA_ID_INVALID;
     item->res = res;
-    have_work = TRUE;
+    have_work = true;
   } else {
     item->seq = SPA_ID_INVALID;
     item->res = res;
-    have_work = TRUE;
+    have_work = true;
     pinos_log_debug ("main-loop %p: defer object %p", loop, obj);
   }
   spa_list_insert (impl->work_list.prev, &item->link);
@@ -164,7 +162,7 @@ main_loop_defer_complete (PinosMainLoop  *loop,
       pinos_log_debug ("main-loop %p: found defered %d for object %p", loop, seq, obj);
       item->seq = SPA_ID_INVALID;
       item->res = res;
-      have_work = TRUE;
+      have_work = true;
     }
   }
   if (!have_work) {

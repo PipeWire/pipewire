@@ -23,7 +23,6 @@
 #include <spa/lib/debug.h>
 
 #include "pinos/client/pinos.h"
-#include "pinos/client/enumtypes.h"
 
 #include "pinos/server/link.h"
 
@@ -315,7 +314,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       in_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
       impl->n_buffers = this->output->n_buffers;
       impl->buffers = this->output->buffers;
-      impl->allocated = FALSE;
+      impl->allocated = false;
       pinos_log_debug ("reusing %d output buffers %p", impl->n_buffers, impl->buffers);
     } else {
       unsigned int i, j;
@@ -409,7 +408,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
         }
       }
       pinos_log_debug ("allocated %d buffers %p %zd", impl->n_buffers, impl->buffers, minsize);
-      impl->allocated = TRUE;
+      impl->allocated = true;
     }
 
     if (out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
@@ -424,9 +423,9 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       pinos_main_loop_defer (this->core->main_loop, this->output->node, res, NULL, NULL);
       this->output->buffers = impl->buffers;
       this->output->n_buffers = impl->n_buffers;
-      this->output->allocated = TRUE;
+      this->output->allocated = true;
       this->output->buffer_mem = impl->buffer_mem;
-      impl->allocated = FALSE;
+      impl->allocated = false;
       pinos_log_debug ("allocated %d buffers %p from output port", impl->n_buffers, impl->buffers);
     } else if (in_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
       if ((res = spa_node_port_alloc_buffers (this->input->node->node,
@@ -440,9 +439,9 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       pinos_main_loop_defer (this->core->main_loop, this->input->node, res, NULL, NULL);
       this->input->buffers = impl->buffers;
       this->input->n_buffers = impl->n_buffers;
-      this->input->allocated = TRUE;
+      this->input->allocated = true;
       this->input->buffer_mem = impl->buffer_mem;
-      impl->allocated = FALSE;
+      impl->allocated = false;
       pinos_log_debug ("allocated %d buffers %p from input port", impl->n_buffers, impl->buffers);
     }
   }
@@ -460,7 +459,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
     pinos_main_loop_defer (this->core->main_loop, this->input->node, res, NULL, NULL);
     this->input->buffers = impl->buffers;
     this->input->n_buffers = impl->n_buffers;
-    this->input->allocated = FALSE;
+    this->input->allocated = false;
   }
   else if (out_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS) {
     pinos_log_debug ("using %d buffers %p on output port", impl->n_buffers, impl->buffers);
@@ -475,7 +474,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
     pinos_main_loop_defer (this->core->main_loop, this->output->node, res, NULL, NULL);
     this->output->buffers = impl->buffers;
     this->output->n_buffers = impl->n_buffers;
-    this->output->allocated = FALSE;
+    this->output->allocated = false;
   } else {
     asprintf (&error, "no common buffer alloc found");
     goto error;
@@ -487,10 +486,10 @@ error:
   {
     this->output->buffers = NULL;
     this->output->n_buffers = 0;
-    this->output->allocated = FALSE;
+    this->output->allocated = false;
     this->input->buffers = NULL;
     this->input->n_buffers = 0;
-    this->input->allocated = FALSE;
+    this->input->allocated = false;
     pinos_link_report_error (this, error);
     return res;
   }
@@ -520,7 +519,7 @@ do_start (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
 
 static SpaResult
 check_states (PinosLink *this,
-              gpointer   user_data,
+              void      *user_data,
               SpaResult  res)
 {
   SpaNodeState in_state, out_state;
@@ -586,7 +585,7 @@ on_output_async_complete_notify (PinosListener *listener,
 }
 
 static void
-on_port_unlinked (PinosPort *port, PinosLink *this, SpaResult res, gulong id)
+on_port_unlinked (PinosPort *port, PinosLink *this, SpaResult res, uint32_t id)
 {
   pinos_signal_emit (&this->core->port_unlinked, this, port);
 

@@ -22,7 +22,6 @@
 #include <errno.h>
 
 #include "pinos/client/pinos.h"
-#include "pinos/client/enumtypes.h"
 
 #include "pinos/server/port.h"
 

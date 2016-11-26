@@ -22,7 +22,6 @@
 #include <errno.h>
 
 #include "pinos/client/pinos.h"
-#include "pinos/client/enumtypes.h"
 
 #include "pinos/server/node.h"
 #include "pinos/server/data-loop.h"
@@ -639,10 +638,10 @@ pinos_node_get_free_port (PinosNode       *node,
 
 static void
 on_state_complete (PinosNode *node,
-                   gpointer   data,
+                   void      *data,
                    SpaResult  res)
 {
-  PinosNodeState state = GPOINTER_TO_INT (data);
+  PinosNodeState state = SPA_PTR_TO_INT (data);
   char *error = NULL;
 
   pinos_log_debug ("node %p: state complete %d", node, res);
@@ -702,7 +701,7 @@ pinos_node_set_state (PinosNode      *node,
                          node,
                          res,
                          (PinosDeferFunc) on_state_complete,
-                         GINT_TO_POINTER (state));
+                         SPA_INT_TO_PTR (state));
 
   return res;
 }

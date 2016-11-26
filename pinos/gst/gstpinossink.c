@@ -118,13 +118,20 @@ gst_pinos_sink_finalize (GObject * object)
 {
   GstPinosSink *pinossink = GST_PINOS_SINK (object);
 
+  g_object_unref (pinossink->pool);
+
+  pinos_thread_main_loop_destroy (pinossink->main_loop);
+  pinossink->main_loop = NULL;
+
+  pinos_loop_destroy (pinossink->loop);
+  pinossink->loop = NULL;
+
   if (pinossink->properties)
     gst_structure_free (pinossink->properties);
   g_object_unref (pinossink->allocator);
-  g_object_unref (pinossink->pool);
-  g_hash_table_unref (pinossink->buf_ids);
   g_free (pinossink->path);
   g_free (pinossink->client_name);
+  g_hash_table_unref (pinossink->buf_ids);
 
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }
@@ -222,6 +229,10 @@ gst_pinos_sink_init (GstPinosSink * sink)
 
   sink->buf_ids = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL,
       (GDestroyNotify) gst_buffer_unref);
+
+  sink->loop = pinos_loop_new ();
+  sink->main_loop = pinos_thread_main_loop_new (sink->loop, "pinos-sink-loop");
+  GST_DEBUG ("loop %p %p", sink->loop, sink->main_loop);
 }
 
 static GstCaps *
@@ -710,7 +721,8 @@ gst_pinos_sink_stop (GstBaseSink * basesink)
   if (pinossink->stream) {
     pinos_stream_stop (pinossink->stream);
     pinos_stream_disconnect (pinossink->stream);
-    g_clear_object (&pinossink->stream);
+    pinos_stream_destroy (pinossink->stream);
+    pinossink->stream = NULL;
     pinossink->pool->stream = NULL;
   }
   pinos_thread_main_loop_unlock (pinossink->main_loop);
@@ -746,10 +758,6 @@ on_ctx_state_changed (PinosListener *listener,
 static gboolean
 gst_pinos_sink_open (GstPinosSink * pinossink)
 {
-  pinossink->loop = pinos_loop_new ();
-  GST_DEBUG ("loop %p", pinossink->loop);
-
-  pinossink->main_loop = pinos_thread_main_loop_new (pinossink->loop, "pinos-sink-loop");
   if (pinos_thread_main_loop_start (pinossink->main_loop) != SPA_RESULT_OK)
     goto mainloop_error;
 
@@ -758,7 +766,7 @@ gst_pinos_sink_open (GstPinosSink * pinossink)
 
   pinos_signal_add (&pinossink->ctx->state_changed, &pinossink->ctx_state_changed, on_ctx_state_changed);
 
-  pinos_context_connect(pinossink->ctx);
+  pinos_context_connect (pinossink->ctx);
 
   while (TRUE) {
     PinosContextState state = pinossink->ctx->state;
@@ -814,11 +822,16 @@ gst_pinos_sink_close (GstPinosSink * pinossink)
   pinos_thread_main_loop_unlock (pinossink->main_loop);
 
   pinos_thread_main_loop_stop (pinossink->main_loop);
-  pinos_thread_main_loop_destroy (pinossink->main_loop);
-  pinos_stream_destroy (pinossink->stream);
-  pinos_context_destroy (pinossink->ctx);
-  pinos_loop_destroy (pinossink->loop);
-  pinossink->loop = NULL;
+
+  if (pinossink->stream) {
+    pinos_stream_destroy (pinossink->stream);
+    pinossink->stream = NULL;
+  }
+
+  if (pinossink->ctx) {
+    pinos_context_destroy (pinossink->ctx);
+    pinossink->ctx = NULL;
+  }
 
   return TRUE;
 }

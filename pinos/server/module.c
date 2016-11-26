@@ -23,7 +23,10 @@
 #endif
 
 #include <dlfcn.h>
-#include <glib.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <errno.h>
+
 
 #include "pinos/client/pinos.h"
 #include "pinos/client/utils.h"
@@ -42,42 +45,47 @@ static char *
 find_module (const char * path, const char *name)
 {
   char *filename;
-  GDir *dir;
-  const gchar *entry;
-  GError *err = NULL;
+  struct dirent *entry;
+  struct stat s;
+  DIR *dir;
 
-  filename = g_strconcat (path, G_DIR_SEPARATOR_S, name, ".", G_MODULE_SUFFIX, NULL);
+  asprintf (&filename, "%s/%s.so", path, name);
 
-  if (g_file_test (filename, G_FILE_TEST_IS_REGULAR)) {
+  if (stat (filename, &s) == 0 && S_ISREG (s.st_mode)) {
     /* found a regular file with name */
     return filename;
   }
 
-  g_clear_pointer (&filename, g_free);
+  free (filename);
+  filename = NULL;
 
   /* now recurse down in subdirectories and look for it there */
 
-  dir = g_dir_open (path, 0, &err);
+  dir = opendir (path);
   if (dir == NULL) {
-    pinos_log_warn ("could not open %s: %s", path, err->message);
-    g_error_free (err);
+    pinos_log_warn ("could not open %s: %s", path, strerror (errno));
     return NULL;
   }
 
-  while ((entry = g_dir_read_name (dir))) {
-    gchar *newpath;
+  while ((entry = readdir (dir))) {
+    char *newpath;
 
-    newpath = g_build_filename (path, entry, NULL);
-    if (g_file_test (newpath, G_FILE_TEST_IS_DIR)) {
+    if (strcmp (entry->d_name, ".") == 0 ||
+        strcmp (entry->d_name, "..") == 0)
+      continue;
+
+    asprintf (&newpath, "%s/%s", path, entry->d_name);
+
+    if (stat (newpath, &s) == 0 && S_ISDIR (s.st_mode)) {
       filename = find_module (newpath, name);
     }
-    g_free (newpath);
+    free (newpath);
 
     if (filename != NULL)
       break;
   }
 
-  g_dir_close (dir);
+  closedir (dir);
 
   return filename;
 }
@@ -95,8 +103,8 @@ find_module (const char * path, const char *name)
  */
 PinosModule *
 pinos_module_load (PinosCore    *core,
-                   const gchar  *name,
-                   const gchar  *args,
+                   const char   *name,
+                   const char   *args,
                    char        **err)
 {
   PinosModule *this;
@@ -113,7 +121,7 @@ pinos_module_load (PinosCore    *core,
 
     pinos_log_debug ("PINOS_MODULE_DIR set to: %s", module_dir);
 
-    l = pinos_split_strv (module_dir, G_SEARCHPATH_SEPARATOR_S, 0, &n_paths);
+    l = pinos_split_strv (module_dir, "/", 0, &n_paths);
     for (i = 0; l[i] != NULL; i++) {
       filename = find_module (l[i], name);
       if (filename != NULL)
@@ -147,7 +155,7 @@ pinos_module_load (PinosCore    *core,
   this->name = strdup (name);
   this->core = core;
 
-  if (!init_func (this, (gchar *) args))
+  if (!init_func (this, (char *) args))
     goto init_failed;
 
   pinos_log_debug ("loaded module: %s", this->name);

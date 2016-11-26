@@ -52,10 +52,10 @@ libpinos = shared_library('pinos', pinos_sources,
   include_directories : [configinc, spa_inc],
   link_with : spalib,
   install : true,
-  dependencies : [glib_dep, dbus_dep, mathlib, pthread_lib],
+  dependencies : [dbus_dep, mathlib, pthread_lib],
 )
 
 pinos_dep = declare_dependency(link_with : libpinos,
   include_directories : [configinc, spa_inc],
-  dependencies : [glib_dep, pthread_lib],
+  dependencies : [pthread_lib],
 )

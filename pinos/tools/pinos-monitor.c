@@ -20,7 +20,7 @@
 #include <stdio.h>
 
 #include <pinos/client/pinos.h>
-#include <pinos/client/signal.h>
+#include <pinos/client/sig.h>
 
 typedef struct {
   bool running;

@@ -21,9 +21,9 @@
 #include <getopt.h>
 #include <limits.h>
 
-#include <client/utils.h>
-#include <server/core.h>
-#include <server/module.h>
+#include <pinos/client/utils.h>
+#include <pinos/server/core.h>
+#include <pinos/server/module.h>
 
 #include "spa-monitor.h"
 #include "spa-node.h"

@@ -16,7 +16,7 @@ pinos_module_spa_c_args = [
 
 pinos_module_spa = shared_library('pinos-module-spa', pinos_module_spa_sources,
   c_args : pinos_module_spa_c_args,
-  include_directories : [configinc, pinosinc, spa_inc],
+  include_directories : [configinc, spa_inc],
   link_with : spalib,
   install : true,
   install_dir : '@0@/pinos-0.1'.format(get_option('libdir')),

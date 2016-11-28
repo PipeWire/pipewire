@@ -116,7 +116,6 @@ configure_file(input : 'config.h.meson',
   configuration : cdata)
 
 configinc = include_directories('.')
-pinosinc = include_directories('pinos')
 
 # Find dependencies
 glib_dep = dependency('glib-2.0', version : '>=2.32.0')

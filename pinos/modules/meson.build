@@ -8,7 +8,7 @@ pinos_module_c_args = [
 
 pinos_module_autolink = shared_library('pinos-module-autolink', [ 'module-autolink.c' ],
   c_args : pinos_module_c_args,
-  include_directories : [configinc, pinosinc, spa_inc],
+  include_directories : [configinc, spa_inc],
   link_with : spalib,
   install : true,
   install_dir : '@0@/pinos-0.1'.format(get_option('libdir')),
@@ -17,7 +17,7 @@ pinos_module_autolink = shared_library('pinos-module-autolink', [ 'module-autoli
 
 pinos_module_protocol_dbus = shared_library('pinos-module-protocol-dbus', [ 'module-protocol-dbus.c', gdbus_target ],
   c_args : pinos_module_c_args,
-  include_directories : [configinc, pinosinc, spa_inc],
+  include_directories : [configinc, spa_inc],
   link_with : spalib,
   install : true,
   install_dir : '@0@/pinos-0.1'.format(get_option('libdir')),
@@ -26,7 +26,7 @@ pinos_module_protocol_dbus = shared_library('pinos-module-protocol-dbus', [ 'mod
 
 pinos_module_protocol_native = shared_library('pinos-module-protocol-native', [ 'module-protocol-native.c' ],
   c_args : pinos_module_c_args,
-  include_directories : [configinc, pinosinc, spa_inc],
+  include_directories : [configinc, spa_inc],
   link_with : spalib,
   install : true,
   install_dir : '@0@/pinos-0.1'.format(get_option('libdir')),
@@ -35,7 +35,7 @@ pinos_module_protocol_native = shared_library('pinos-module-protocol-native', [ 
 
 pinos_module_suspend_on_idle = shared_library('pinos-module-suspend-on-idle', [ 'module-suspend-on-idle.c' ],
   c_args : pinos_module_c_args,
-  include_directories : [configinc, pinosinc, spa_inc],
+  include_directories : [configinc, spa_inc],
   link_with : spalib,
   install : true,
   install_dir : '@0@/pinos-0.1'.format(get_option('libdir')),

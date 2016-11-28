@@ -20,8 +20,8 @@
 #ifndef __PINOS_SPA_NODE_H__
 #define __PINOS_SPA_NODE_H__
 
-#include <server/core.h>
-#include <server/node.h>
+#include <pinos/server/core.h>
+#include <pinos/server/node.h>
 
 #ifdef __cplusplus
 extern "C" {

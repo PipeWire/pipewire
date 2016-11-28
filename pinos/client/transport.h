@@ -34,7 +34,7 @@ typedef struct _PinosTransportArea PinosTransportArea;
 #include <spa/node.h>
 
 #include <pinos/client/mem.h>
-#include <pinos/client/signal.h>
+#include <pinos/client/sig.h>
 
 #define PINOS_TRANSPORT_CMD_NONE         0
 #define PINOS_TRANSPORT_CMD_NEED_DATA    (1<<0)

@@ -513,21 +513,17 @@ loop_add_signal (SpaLoopUtils        *utils,
 {
   PinosLoopImpl *impl = SPA_CONTAINER_OF (utils, PinosLoopImpl, utils);
   SpaSourceImpl *source;
-#if 0
   sigset_t mask;
-#endif
 
   source = calloc (1, sizeof (SpaSourceImpl));
 
   source->source.loop = &impl->loop;
   source->source.func = source_signal_func;
   source->source.data = data;
-#if 0
   sigemptyset (&mask);
   sigaddset (&mask, signal_number);
   source->source.fd = signalfd (-1, &mask, SFD_CLOEXEC | SFD_NONBLOCK);
   sigprocmask (SIG_BLOCK, &mask, NULL);
-#endif
   source->source.mask = SPA_IO_IN;
   source->close = true;
   source->func.signal = func;

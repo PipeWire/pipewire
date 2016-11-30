@@ -710,10 +710,16 @@ pinos_connection_parse_message (PinosConnection *conn,
       memcpy (message, conn->in.data, sizeof (PinosMessageNotifyDone));
       break;
 
-    case PINOS_MESSAGE_SUBSCRIBE:
-      if (conn->in.size < sizeof (PinosMessageSubscribe))
+    case PINOS_MESSAGE_GET_REGISTRY:
+      if (conn->in.size < sizeof (PinosMessageGetRegistry))
         return false;
-      memcpy (message, conn->in.data, sizeof (PinosMessageSubscribe));
+      memcpy (message, conn->in.data, sizeof (PinosMessageGetRegistry));
+      break;
+
+    case PINOS_MESSAGE_BIND:
+      if (conn->in.size < sizeof (PinosMessageBind))
+        return false;
+      memcpy (message, conn->in.data, sizeof (PinosMessageBind));
       break;
 
     case PINOS_MESSAGE_NOTIFY_GLOBAL:
@@ -749,6 +755,17 @@ pinos_connection_parse_message (PinosConnection *conn,
       d->datafd = connection_get_fd (conn, d->datafd);
       break;
     }
+    case PINOS_MESSAGE_DESTROY:
+      if (conn->in.size < sizeof (PinosMessageDestroy))
+        return false;
+      memcpy (message, conn->in.data, sizeof (PinosMessageDestroy));
+      break;
+
+    case PINOS_MESSAGE_DESTROY_DONE:
+      if (conn->in.size < sizeof (PinosMessageDestroyDone))
+        return false;
+      memcpy (message, conn->in.data, sizeof (PinosMessageDestroyDone));
+      break;
 
     /* C -> S */
     case PINOS_MESSAGE_NODE_UPDATE:
@@ -865,9 +882,14 @@ pinos_connection_add_message (PinosConnection  *conn,
       memcpy (p, message, sizeof (PinosMessageNotifyDone));
       break;
 
-    case PINOS_MESSAGE_SUBSCRIBE:
-      p = connection_add_message (conn, dest_id, type, sizeof (PinosMessageSubscribe));
-      memcpy (p, message, sizeof (PinosMessageSubscribe));
+    case PINOS_MESSAGE_GET_REGISTRY:
+      p = connection_add_message (conn, dest_id, type, sizeof (PinosMessageGetRegistry));
+      memcpy (p, message, sizeof (PinosMessageGetRegistry));
+      break;
+
+    case PINOS_MESSAGE_BIND:
+      p = connection_add_message (conn, dest_id, type, sizeof (PinosMessageBind));
+      memcpy (p, message, sizeof (PinosMessageBind));
       break;
 
     case PINOS_MESSAGE_NOTIFY_GLOBAL:
@@ -900,6 +922,16 @@ pinos_connection_add_message (PinosConnection  *conn,
       d->datafd = connection_add_fd (conn, d->datafd);
       break;
     }
+    case PINOS_MESSAGE_DESTROY:
+      p = connection_add_message (conn, dest_id, type, sizeof (PinosMessageDestroy));
+      memcpy (p, message, sizeof (PinosMessageDestroy));
+      break;
+
+    case PINOS_MESSAGE_DESTROY_DONE:
+      p = connection_add_message (conn, dest_id, type, sizeof (PinosMessageDestroyDone));
+      memcpy (p, message, sizeof (PinosMessageDestroyDone));
+      break;
+
 
     /* C -> S */
     case PINOS_MESSAGE_NODE_UPDATE:

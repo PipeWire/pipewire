@@ -171,6 +171,29 @@ client_destroy (PinosProtocolNativeClient *this)
   close (this->fd);
 }
 
+static void
+destroy_registry_resource (void *object)
+{
+  PinosResource *resource = object;
+  spa_list_remove (&resource->link);
+}
+
+static SpaResult
+registry_dispatch_func (void             *object,
+                        PinosMessageType  type,
+                        void             *message,
+                        void             *data)
+{
+  switch (type) {
+    case PINOS_MESSAGE_BIND:
+      break;
+    default:
+      pinos_log_error ("unhandled message %d", type);
+      break;
+  }
+  return SPA_RESULT_OK;
+}
+
 static SpaResult
 core_dispatch_func (void             *object,
                     PinosMessageType  type,
@@ -182,18 +205,30 @@ core_dispatch_func (void             *object,
   PinosClient *c = client->parent.global->object;
 
   switch (type) {
-    case PINOS_MESSAGE_SUBSCRIBE:
+    case PINOS_MESSAGE_GET_REGISTRY:
     {
-      PinosMessageSubscribe *m = message;
+      PinosMessageGetRegistry *m = message;
       PinosGlobal *global;
       PinosMessageNotifyDone nd;
+      PinosResource *registry_resource;
+
+      registry_resource = pinos_resource_new (c,
+                                              SPA_ID_INVALID,
+                                              impl->core->uri.registry,
+                                              impl->core,
+                                              destroy_registry_resource);
+
+      registry_resource->dispatch_func = registry_dispatch_func;
+      registry_resource->dispatch_data = client;
+
+      spa_list_insert (impl->core->registry_resource_list.prev, &registry_resource->link);
 
       spa_list_for_each (global, &impl->core->global_list, link) {
         PinosMessageNotifyGlobal ng;
 
         ng.id = global->id;
         ng.type = spa_id_map_get_uri (impl->core->uri.map, global->type);
-        pinos_resource_send_message (client->core_resource,
+        pinos_resource_send_message (registry_resource,
                                      PINOS_MESSAGE_NOTIFY_GLOBAL,
                                      &ng,
                                      false);
@@ -221,7 +256,7 @@ core_dispatch_func (void             *object,
       }
 
       node = pinos_client_node_new (c,
-                                    m->id,
+                                    m->new_id,
                                     m->name,
                                     props);
 
@@ -267,18 +302,6 @@ client_send_func (void             *object,
   return SPA_RESULT_OK;
 }
 
-static PinosResource *
-find_resource (PinosClient *client, uint32_t id)
-{
-  PinosResource *resource;
-
-  spa_list_for_each (resource, &client->resource_list, link) {
-    if (resource->id == id)
-      return resource;
-  }
-  return NULL;
-}
-
 static void
 connection_data (SpaSource *source,
                  int        fd,
@@ -290,6 +313,7 @@ connection_data (SpaSource *source,
   PinosMessageType type;
   uint32_t id;
   size_t size;
+  PinosClient *c = client->parent.global->object;
 
   if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
     pinos_log_debug ("protocol-native %p: got connection error", client->parent.impl);
@@ -311,7 +335,7 @@ connection_data (SpaSource *source,
       continue;
     }
 
-    resource = find_resource (client->parent.global->object, id);
+    resource = pinos_map_lookup (&c->objects, id);
     if (resource == NULL) {
       pinos_log_error ("protocol-native %p: unknown resource %u", client->parent.impl, id);
       continue;
@@ -376,6 +400,8 @@ on_global_added (PinosListener *listener,
                  PinosGlobal   *global)
 {
   PinosProtocolNative *impl = SPA_CONTAINER_OF (listener, PinosProtocolNative, global_added);
+  PinosMessageNotifyGlobal ng;
+  PinosResource *registry;
 
   if (global->type == impl->core->uri.client) {
     object_new (sizeof (PinosProtocolNativeClient),
@@ -389,6 +415,16 @@ on_global_added (PinosListener *listener,
                 NULL);
   } else if (global->type == impl->core->uri.link) {
   }
+
+  ng.id = global->id;
+  ng.type = spa_id_map_get_uri (impl->core->uri.map, global->type);
+
+  spa_list_for_each (registry, &core->registry_resource_list, link) {
+    pinos_resource_send_message (registry,
+                                 PINOS_MESSAGE_NOTIFY_GLOBAL,
+                                 &ng,
+                                 true);
+  }
 }
 
 static void
@@ -398,9 +434,19 @@ on_global_removed (PinosListener *listener,
 {
   PinosProtocolNative *impl = SPA_CONTAINER_OF (listener, PinosProtocolNative, global_removed);
   PinosProtocolNativeObject *object;
+  PinosMessageNotifyGlobalRemove ng;
+  PinosResource *registry;
 
   if ((object = find_object (impl, global->object))) {
     object_destroy (object);
+  }
+
+  ng.id = global->id;
+  spa_list_for_each (registry, &core->registry_resource_list, link) {
+    pinos_resource_send_message (registry,
+                                 PINOS_MESSAGE_NOTIFY_GLOBAL_REMOVE,
+                                 &ng,
+                                 true);
   }
 }
 

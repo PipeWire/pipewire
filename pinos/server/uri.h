@@ -41,6 +41,7 @@ struct _PinosURI {
   SpaIDMap *map;
 
   uint32_t core;
+  uint32_t registry;
   uint32_t node;
   uint32_t node_factory;
   uint32_t link;

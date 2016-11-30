@@ -36,6 +36,7 @@ pinos_uri_init (PinosURI *uri)
   uri->map = pinos_id_map_get_default();
 
   uri->core = spa_id_map_get_id (uri->map, PINOS_CORE_URI);
+  uri->registry = spa_id_map_get_id (uri->map, PINOS_CORE_REGISTRY);
   uri->node = spa_id_map_get_id (uri->map, PINOS_NODE_URI);
   uri->node_factory = spa_id_map_get_id (uri->map, PINOS_NODE_FACTORY_URI);
   uri->link = spa_id_map_get_id (uri->map, PINOS_LINK_URI);

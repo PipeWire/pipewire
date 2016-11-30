@@ -28,26 +28,25 @@ pinos_resource_new (PinosClient *client,
                     void        *object,
                     PinosDestroy destroy)
 {
-  PinosResource *resource;
+  PinosResource *this;
 
-  resource = calloc (1, sizeof (PinosResource));
-  pinos_log_debug ("resource %p: new for client %p", resource, client);
+  this = calloc (1, sizeof (PinosResource));
+  this->core = client->core;
+  this->client = client;
+  this->id = id;
+  this->type = type;
+  this->object = object;
+  this->destroy = destroy;
 
-  resource->core = client->core;
-  resource->client = client;
-  resource->id = id;
-  resource->type = type;
-  resource->object = object;
-  resource->destroy = destroy;
+  this->send_func = client->send_func;
+  this->send_data = client->send_data;
 
-  resource->send_func = client->send_func;
-  resource->send_data = client->send_data;
+  pinos_signal_init (&this->destroy_signal);
 
-  pinos_signal_init (&resource->destroy_signal);
+  this->id = pinos_map_insert_new (&client->objects, this);
+  pinos_log_debug ("resource %p: new for client %p id %u", this, client, this->id);
 
-  spa_list_insert (client->resource_list.prev, &resource->link);
-
-  return resource;
+  return this;
 }
 
 static void
@@ -67,10 +66,10 @@ pinos_resource_destroy (PinosResource *resource)
   pinos_log_debug ("resource %p: destroy", resource);
   pinos_signal_emit (&resource->destroy_signal, resource);
 
-  spa_list_remove (&resource->link);
+  pinos_map_remove (&resource->client->objects, resource->id);
 
   if (resource->destroy)
-    resource->destroy (resource->object);
+    resource->destroy (resource);
 
   pinos_main_loop_defer (resource->core->main_loop,
                          resource,

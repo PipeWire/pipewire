@@ -45,7 +45,8 @@ struct _PinosMap {
 
 #define pinos_map_get_size(m)            pinos_array_get_len (&(m)->items, PinosMapItem)
 #define pinos_map_get_item(m,id)         pinos_array_get_unchecked(&(m)->items,id,PinosMapItem)
-#define pinos_map_item_is_free(m,id)     (pinos_map_get_item(m,id)->next & 0x1)
+#define pinos_map_item_is_free(item)     ((item)->next & 0x1)
+#define pinos_map_id_is_free(m,id)       (pinos_map_item_is_free (pinos_map_get_item(m,id)))
 #define pinos_map_check_id(m,id)         ((id) < pinos_map_get_size (m))
 #define pinos_map_has_item(m,id)         (pinos_map_check_id(m,id) && !pinos_map_item_is_free(m, id))
 #define pinos_map_lookup_unchecked(m,id) pinos_map_get_item(m,id)->data
@@ -102,6 +103,19 @@ pinos_map_lookup (PinosMap *map,
   if (SPA_LIKELY (pinos_map_check_id (map, id)))
     return pinos_map_lookup_unchecked (map, id);
   return NULL;
+}
+
+static inline void
+pinos_map_for_each (PinosMap *map,
+                    void     (*func) (void *, void *),
+                    void     *data)
+{
+  PinosMapItem *item;
+
+  pinos_array_for_each (item, &map->items) {
+    if (!pinos_map_item_is_free (item))
+      func (item->data, data);
+  }
 }
 
 #ifdef __cplusplus

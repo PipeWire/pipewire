@@ -63,6 +63,7 @@ struct _PinosContext {
   PinosLoop       *loop;
 
   PinosProxy      *core_proxy;
+  PinosProxy      *registry_proxy;
 
   PinosMap   objects;
 

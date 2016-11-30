@@ -113,10 +113,30 @@ core_dispatch_func (void             *object,
         context_set_state (context, PINOS_CONTEXT_STATE_CONNECTED, NULL);
       break;
     }
+    default:
+      pinos_log_warn ("unhandled message %d", type);
+      break;
+  }
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
+registry_dispatch_func (void             *object,
+                        PinosMessageType  type,
+                        void             *message,
+                        void             *data)
+{
+  switch (type) {
     case PINOS_MESSAGE_NOTIFY_GLOBAL:
     {
       PinosMessageNotifyGlobal *ng = message;
       pinos_log_debug ("got global %u %s", ng->id, ng->type);
+      break;
+    }
+    case PINOS_MESSAGE_NOTIFY_GLOBAL_REMOVE:
+    {
+      PinosMessageNotifyGlobalRemove *ng = message;
+      pinos_log_debug ("got global remove %u", ng->id);
       break;
     }
     default:
@@ -292,7 +312,7 @@ pinos_context_connect (PinosContext      *context)
   socklen_t size;
   const char *runtime_dir, *name = NULL;
   int name_size, fd;
-  PinosMessageSubscribe sm;
+  PinosMessageGetRegistry grm;
 
   context_set_state (context, PINOS_CONTEXT_STATE_CONNECTING, NULL);
 
@@ -349,10 +369,17 @@ pinos_context_connect (PinosContext      *context)
   context->core_proxy->dispatch_func = core_dispatch_func;
   context->core_proxy->dispatch_data = context;
 
-  sm.seq = 0;
+  context->registry_proxy = pinos_proxy_new (context,
+                                             SPA_ID_INVALID,
+                                             0);
+  context->registry_proxy->dispatch_func = registry_dispatch_func;
+  context->registry_proxy->dispatch_data = context;
+
+  grm.seq = 0;
+  grm.new_id = context->registry_proxy->id;
   pinos_proxy_send_message (context->core_proxy,
-                            PINOS_MESSAGE_SUBSCRIBE,
-                            &sm,
+                            PINOS_MESSAGE_GET_REGISTRY,
+                            &grm,
                             true);
   return true;
 }

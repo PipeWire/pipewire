@@ -51,7 +51,7 @@ pinos_client_new (PinosCore       *core,
   this->core = core;
   this->properties = properties;
 
-  spa_list_init (&this->resource_list);
+  pinos_map_init (&this->objects, 64);
   pinos_signal_init (&this->destroy_signal);
 
   spa_list_insert (core->client_list.prev, &this->link);
@@ -80,6 +80,13 @@ sync_destroy (void      *object,
   free (impl);
 }
 
+static void
+destroy_resource (void *object,
+                  void *data)
+{
+  pinos_resource_destroy (object);
+}
+
 /**
  * pinos_client_destroy:
  * @client: a #PinosClient
@@ -89,13 +96,10 @@ sync_destroy (void      *object,
 void
 pinos_client_destroy (PinosClient * client)
 {
-  PinosResource *resource, *tmp;
-
   pinos_log_debug ("client %p: destroy", client);
   pinos_signal_emit (&client->destroy_signal, client);
 
-  spa_list_for_each_safe (resource, tmp, &client->resource_list, link)
-    pinos_resource_destroy (resource);
+  pinos_map_for_each (&client->objects, destroy_resource, client);
 
   pinos_global_destroy (client->global);
   spa_list_remove (&client->link);

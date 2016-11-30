@@ -607,7 +607,10 @@ stream_dispatch_func (void             *object,
 
   switch (type) {
     case PINOS_MESSAGE_SYNC:
-    case PINOS_MESSAGE_SUBSCRIBE:
+    case PINOS_MESSAGE_GET_REGISTRY:
+    case PINOS_MESSAGE_BIND:
+    case PINOS_MESSAGE_DESTROY:
+    case PINOS_MESSAGE_DESTROY_DONE:
     case PINOS_MESSAGE_CREATE_NODE:
     case PINOS_MESSAGE_CREATE_CLIENT_NODE:
     case PINOS_MESSAGE_NODE_UPDATE:
@@ -899,7 +902,7 @@ pinos_stream_connect (PinosStream      *stream,
   items[0].key = "pinos.target.node";
   items[0].value = port_path;
   ccn.props = &dict;
-  ccn.id = impl->node_proxy->id;
+  ccn.new_id = impl->node_proxy->id;
 
   pinos_proxy_send_message (stream->context->core_proxy,
                             PINOS_MESSAGE_CREATE_CLIENT_NODE,

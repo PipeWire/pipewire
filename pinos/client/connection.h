@@ -37,8 +37,9 @@ typedef enum {
 
   PINOS_MESSAGE_SYNC,
   PINOS_MESSAGE_NOTIFY_DONE,
+  PINOS_MESSAGE_GET_REGISTRY,
 
-  PINOS_MESSAGE_SUBSCRIBE,
+  PINOS_MESSAGE_BIND,
   PINOS_MESSAGE_NOTIFY_GLOBAL,
   PINOS_MESSAGE_NOTIFY_GLOBAL_REMOVE,
 
@@ -47,6 +48,9 @@ typedef enum {
 
   PINOS_MESSAGE_CREATE_CLIENT_NODE,
   PINOS_MESSAGE_CREATE_CLIENT_NODE_DONE,
+
+  PINOS_MESSAGE_DESTROY,
+  PINOS_MESSAGE_DESTROY_DONE,
 
   /* client to server */
   PINOS_MESSAGE_NODE_UPDATE,
@@ -84,10 +88,17 @@ typedef struct {
   uint32_t     seq;
 } PinosMessageNotifyDone;
 
-/* PINOS_MESSAGE_SUBSCRIBE */
+/* PINOS_MESSAGE_GET_REGISTRY */
 typedef struct {
   uint32_t     seq;
-} PinosMessageSubscribe;
+  uint32_t     new_id;
+} PinosMessageGetRegistry;
+
+/* PINOS_MESSAGE_BIND */
+typedef struct {
+  uint32_t     id;
+  uint32_t     new_id;
+} PinosMessageBind;
 
 /* PINOS_MESSAGE_NOTIFY_GLOBAL */
 typedef struct {
@@ -106,7 +117,7 @@ typedef struct {
   const char  *factory_name;
   const char  *name;
   SpaDict     *props;
-  uint32_t     id;
+  uint32_t     new_id;
 } PinosMessageCreateNode;
 
 /* PINOS_MESSAGE_CREATE_NODE_DONE */
@@ -119,7 +130,7 @@ typedef struct {
   uint32_t     seq;
   const char  *name;
   SpaDict     *props;
-  uint32_t     id;
+  uint32_t     new_id;
 } PinosMessageCreateClientNode;
 
 /* PINOS_MESSAGE_CREATE_CLIENT_NODE_DONE */
@@ -127,6 +138,18 @@ typedef struct {
   uint32_t     seq;
   int          datafd;
 } PinosMessageCreateClientNodeDone;
+
+/* PINOS_MESSAGE_DESTROY */
+typedef struct {
+  uint32_t     seq;
+  uint32_t     id;
+} PinosMessageDestroy;
+
+/* PINOS_MESSAGE_DESTROY_DONE */
+typedef struct {
+  uint32_t     seq;
+  uint32_t     id;
+} PinosMessageDestroyDone;
 
 /*  PINOS_MESSAGE_NODE_UPDATE */
 typedef struct {

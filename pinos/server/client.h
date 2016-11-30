@@ -44,7 +44,7 @@ struct _PinosClient {
 
   PinosProperties *properties;
 
-  SpaList resource_list;
+  PinosMap objects;
 
   PinosSendFunc   send_func;
   void           *send_data;

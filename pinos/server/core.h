@@ -29,6 +29,7 @@ typedef struct _PinosGlobal PinosGlobal;
 
 #define PINOS_CORE_URI                            "http://pinos.org/ns/core"
 #define PINOS_CORE_PREFIX                         PINOS_CORE_URI "#"
+#define PINOS_CORE_REGISTRY                       PINOS_CORE_PREFIX "Registry"
 
 #include <spa/include/spa/log.h>
 
@@ -62,6 +63,7 @@ struct _PinosCore {
 
   PinosMap objects;
 
+  SpaList registry_resource_list;
   SpaList global_list;
   SpaList client_list;
   SpaList node_list;

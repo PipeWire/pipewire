@@ -56,6 +56,7 @@ pinos_core_new (PinosMainLoop *main_loop)
 
   pinos_data_loop_start (this->data_loop);
 
+  spa_list_init (&this->registry_resource_list);
   spa_list_init (&this->global_list);
   spa_list_init (&this->client_list);
   spa_list_init (&this->node_list);
@@ -110,6 +111,8 @@ pinos_core_add_global (PinosCore           *core,
 
   spa_list_insert (core->global_list.prev, &global->link);
   pinos_signal_emit (&core->global_added, core, global);
+
+  pinos_log_debug ("global %p: new %u", global, global->id);
 
   return global;
 }

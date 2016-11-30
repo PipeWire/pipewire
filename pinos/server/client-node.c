@@ -1208,6 +1208,12 @@ proxy_clear (SpaProxy *this)
   return SPA_RESULT_OK;
 }
 
+static void
+client_node_resource_destroy (PinosResource *resource)
+{
+  pinos_client_node_destroy (resource->object);
+}
+
 /**
  * pinos_client_node_new:
  * @daemon: a #PinosDaemon
@@ -1257,7 +1263,7 @@ pinos_client_node_new (PinosClient     *client,
                                        id,
                                        client->core->uri.client_node,
                                        this,
-                                       (PinosDestroy) pinos_client_node_destroy);
+                                       (PinosDestroy) client_node_resource_destroy);
   impl->proxy.resource = this->resource;
 
   this->resource->dispatch_func = client_node_dispatch_func;

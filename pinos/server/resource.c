@@ -71,6 +71,15 @@ pinos_resource_destroy (PinosResource *resource)
   if (resource->destroy)
     resource->destroy (resource);
 
+  if (resource->client->core_resource) {
+    PinosMessageRemoveId m;
+    m.id = resource->id;
+    pinos_resource_send_message (resource->client->core_resource,
+                                 PINOS_MESSAGE_REMOVE_ID,
+                                 &m,
+                                 true);
+  }
+
   pinos_main_loop_defer (resource->core->main_loop,
                          resource,
                          SPA_RESULT_WAIT_SYNC,

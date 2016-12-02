@@ -326,7 +326,7 @@ pinos_global_destroy (PinosGlobal *global)
   PinosResource *registry;
   PinosMessageNotifyGlobalRemove ng;
 
-  pinos_log_debug ("global %p: destroy", global);
+  pinos_log_debug ("global %p: destroy %u", global, global->id);
   pinos_signal_emit (&global->destroy_signal, global);
 
   pinos_map_remove (&core->objects, global->id);

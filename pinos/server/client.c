@@ -47,6 +47,13 @@ client_dispatch_func (void             *object,
 }
 
 static void
+client_unbind_func (void *data)
+{
+  PinosResource *resource = data;
+  spa_list_remove (&resource->link);
+}
+
+static void
 client_bind_func (PinosGlobal *global,
                   PinosClient *client,
                   uint32_t     version,
@@ -61,12 +68,14 @@ client_bind_func (PinosGlobal *global,
                                  id,
                                  global->core->uri.client,
                                  global->object,
-                                 NULL);
+                                 client_unbind_func);
 
   resource->dispatch_func = client_dispatch_func;
   resource->dispatch_data = global;
 
   pinos_log_debug ("client %p: bound to %d", global->object, resource->id);
+
+  spa_list_insert (this->resource_list.prev, &resource->link);
 
   m.info = &info;
   info.id = resource->id;
@@ -101,6 +110,8 @@ pinos_client_new (PinosCore       *core,
   this = &impl->this;
   this->core = core;
   this->properties = properties;
+
+  spa_list_init (&this->resource_list);
 
   pinos_map_init (&this->objects, 64);
   pinos_signal_init (&this->destroy_signal);
@@ -149,6 +160,8 @@ destroy_resource (void *object,
 void
 pinos_client_destroy (PinosClient * client)
 {
+  PinosResource *resource, *tmp;
+
   pinos_log_debug ("client %p: destroy", client);
   pinos_signal_emit (&client->destroy_signal, client);
 
@@ -156,6 +169,9 @@ pinos_client_destroy (PinosClient * client)
 
   pinos_global_destroy (client->global);
   spa_list_remove (&client->link);
+
+  spa_list_for_each_safe (resource, tmp, &client->resource_list, link)
+    pinos_resource_destroy (resource);
 
   pinos_main_loop_defer (client->core->main_loop,
                          client,

@@ -113,7 +113,7 @@ pinos_map_for_each (PinosMap *map,
   PinosMapItem *item;
 
   pinos_array_for_each (item, &map->items) {
-    if (!pinos_map_item_is_free (item))
+    if (item->data && !pinos_map_item_is_free (item))
       func (item->data, data);
   }
 }

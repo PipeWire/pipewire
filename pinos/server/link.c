@@ -892,12 +892,16 @@ pinos_link_destroy (PinosLink * this)
 {
   SpaResult res = SPA_RESULT_OK;
   PinosLinkImpl *impl = SPA_CONTAINER_OF (this, PinosLinkImpl, this);
+  PinosResource *resource, *tmp;
 
   pinos_log_debug ("link %p: destroy", impl);
   pinos_signal_emit (&this->destroy_signal, this);
 
   pinos_global_destroy (this->global);
   spa_list_remove (&this->link);
+
+  spa_list_for_each_safe (resource, tmp, &this->resource_list, link)
+    pinos_resource_destroy (resource);
 
   if (this->input) {
     pinos_signal_remove (&impl->input_port_destroy);

@@ -121,7 +121,6 @@ core_dispatch_func (void             *object,
       proxy = pinos_map_lookup (&this->objects, m->id);
       if (proxy) {
         pinos_log_debug ("context %p: object remove %u", this, m->id);
-        pinos_map_remove (&this->objects, m->id);
         pinos_proxy_destroy (proxy);
       }
       break;

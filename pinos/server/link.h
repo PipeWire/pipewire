@@ -52,9 +52,10 @@ struct _PinosLink {
   PINOS_SIGNAL (destroy_signal, (PinosListener *,
                                  PinosLink *));
 
+  SpaList resource_list;
+
   PinosPort    *output;
   SpaList       output_link;
-
   PinosPort    *input;
   SpaList       input_link;
 

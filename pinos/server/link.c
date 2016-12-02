@@ -682,23 +682,47 @@ link_dispatch_func (void             *object,
 }
 
 static void
+link_unbind_func (void *data)
+{
+  PinosResource *resource = data;
+  spa_list_remove (&resource->link);
+}
+
+static void
 link_bind_func (PinosGlobal *global,
                 PinosClient *client,
                 uint32_t     version,
                 uint32_t     id)
 {
+  PinosLink *this = global->object;
   PinosResource *resource;
+  PinosMessageLinkInfo m;
+  PinosLinkInfo info;
 
   resource = pinos_resource_new (client,
                                  id,
                                  global->core->uri.link,
                                  global->object,
-                                 NULL);
+                                 link_unbind_func);
 
   resource->dispatch_func = link_dispatch_func;
-  resource->dispatch_data = client;
+  resource->dispatch_data = global;
 
   pinos_log_debug ("link %p: bound to %d", global->object, resource->id);
+
+  spa_list_insert (this->resource_list.prev, &resource->link);
+
+  m.info = &info;
+  info.id = resource->id;
+  info.change_mask = ~0;
+  info.output_node_id = this->output ? this->output->node->global->id : -1;
+  info.output_port_id = this->output ? this->output->port_id : -1;
+  info.input_node_id = this->input ? this->input->node->global->id : -1;
+  info.input_port_id = this->input ? this->input->port_id : -1;
+  pinos_resource_send_message (resource,
+                               PINOS_MESSAGE_LINK_INFO,
+                               &m,
+                               true);
 }
 
 PinosLink *
@@ -722,6 +746,7 @@ pinos_link_new (PinosCore       *core,
   this->input = input;
   this->output = output;
 
+  spa_list_init (&this->resource_list);
   pinos_signal_init (&this->destroy_signal);
 
   impl->format_filter = format_filter;

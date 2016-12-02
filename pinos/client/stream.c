@@ -606,37 +606,6 @@ stream_dispatch_func (void             *object,
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
 
   switch (type) {
-    case PINOS_MESSAGE_SYNC:
-    case PINOS_MESSAGE_GET_REGISTRY:
-    case PINOS_MESSAGE_BIND:
-    case PINOS_MESSAGE_DESTROY:
-    case PINOS_MESSAGE_REMOVE_ID:
-    case PINOS_MESSAGE_CREATE_NODE:
-    case PINOS_MESSAGE_CREATE_CLIENT_NODE:
-    case PINOS_MESSAGE_NODE_UPDATE:
-    case PINOS_MESSAGE_PORT_UPDATE:
-    case PINOS_MESSAGE_PORT_STATUS_CHANGE:
-    case PINOS_MESSAGE_NODE_STATE_CHANGE:
-    case PINOS_MESSAGE_CORE_INFO:
-    case PINOS_MESSAGE_MODULE_INFO:
-    case PINOS_MESSAGE_NODE_INFO:
-    case PINOS_MESSAGE_CLIENT_INFO:
-    case PINOS_MESSAGE_LINK_INFO:
-      pinos_log_warn ("got unexpected message %d", type);
-      break;
-
-    case PINOS_MESSAGE_NOTIFY_DONE:
-      pinos_log_warn ("notify done %d", type);
-      break;
-
-    case PINOS_MESSAGE_NOTIFY_GLOBAL:
-      pinos_log_warn ("notify global %d", type);
-      break;
-
-    case PINOS_MESSAGE_NOTIFY_GLOBAL_REMOVE:
-      pinos_log_warn ("notify global %d", type);
-      break;
-
     case PINOS_MESSAGE_CREATE_NODE_DONE:
       pinos_log_warn ("create node done %d", type);
       break;
@@ -838,6 +807,7 @@ stream_dispatch_func (void             *object,
       pinos_log_debug ("transport update %d %p", impl->rtfd, impl->trans);
       break;
     }
+    default:
     case PINOS_MESSAGE_INVALID:
       pinos_log_warn ("unhandled message %d", type);
       break;

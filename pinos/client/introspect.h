@@ -301,6 +301,10 @@ struct _PinosLinkInfo {
   uint32_t input_port_id;
 };
 
+PinosLinkInfo *    pinos_link_info_update (PinosLinkInfo       *info,
+                                           const PinosLinkInfo *update);
+void               pinos_link_info_free   (PinosLinkInfo       *info);
+
 
 /**
  * PinosLinkInfoCallback:

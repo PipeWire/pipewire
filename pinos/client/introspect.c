@@ -277,3 +277,39 @@ pinos_client_info_free   (PinosClientInfo       *info)
     pinos_spa_dict_destroy (info->props);
   free (info);
 }
+
+PinosLinkInfo *
+pinos_link_info_update (PinosLinkInfo       *info,
+                        const PinosLinkInfo *update)
+{
+  uint64_t change_mask;
+
+  if (update == NULL)
+    return info;
+
+  if (info == NULL) {
+    info = calloc (1, sizeof (PinosLinkInfo));
+    change_mask = ~0;
+  } else {
+    change_mask = info->change_mask | update->change_mask;
+  }
+  info->id = update->id;
+  info->change_mask = change_mask;
+
+  if (update->change_mask & (1 << 0))
+    info->output_node_id = update->output_node_id;
+  if (update->change_mask & (1 << 1))
+    info->output_port_id = update->output_port_id;
+  if (update->change_mask & (1 << 2))
+    info->input_node_id = update->input_node_id;
+  if (update->change_mask & (1 << 3))
+    info->input_port_id = update->input_port_id;
+
+  return info;
+}
+
+void
+pinos_link_info_free (PinosLinkInfo       *info)
+{
+  free (info);
+}

@@ -256,6 +256,46 @@ client_dispatch_func (void             *object,
 }
 
 static SpaResult
+link_dispatch_func (void             *object,
+                    PinosMessageType  type,
+                    void             *message,
+                    void             *data)
+{
+  PinosContextImpl *impl = data;
+  PinosContext *this = &impl->this;
+  PinosProxy *proxy = object;
+
+  switch (type) {
+    case PINOS_MESSAGE_LINK_INFO:
+    {
+      PinosMessageLinkInfo *m = message;
+      PinosSubscriptionEvent event;
+
+      pinos_log_debug ("got link info %d", type);
+      if (proxy->user_data == NULL)
+        event = PINOS_SUBSCRIPTION_EVENT_NEW;
+      else
+        event = PINOS_SUBSCRIPTION_EVENT_CHANGE;
+
+      proxy->user_data = pinos_link_info_update (proxy->user_data, m->info);
+
+      if (impl->subscribe_func) {
+        impl->subscribe_func (this,
+                              event,
+                              proxy->type,
+                              proxy->id,
+                              impl->subscribe_data);
+      }
+      break;
+    }
+    default:
+      pinos_log_warn ("unhandled message %d", type);
+      break;
+  }
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
 registry_dispatch_func (void             *object,
                         PinosMessageType  type,
                         void             *message,
@@ -291,6 +331,11 @@ registry_dispatch_func (void             *object,
         proxy->dispatch_func = client_dispatch_func;
         proxy->dispatch_data = impl;
       } else if (!strcmp (ng->type, PINOS_LINK_URI)) {
+        proxy = pinos_proxy_new (this,
+                                 SPA_ID_INVALID,
+                                 this->uri.link);
+        proxy->dispatch_func = link_dispatch_func;
+        proxy->dispatch_data = impl;
       }
       if (proxy) {
         PinosMessageBind m;

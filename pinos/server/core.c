@@ -277,6 +277,8 @@ pinos_core_add_global (PinosCore           *core,
                        PinosBindFunc        bind)
 {
   PinosGlobal *global;
+  PinosResource *registry;
+  PinosMessageNotifyGlobal ng;
 
   global = calloc (1, sizeof (PinosGlobal));
   global->core = core;
@@ -294,6 +296,14 @@ pinos_core_add_global (PinosCore           *core,
 
   pinos_log_debug ("global %p: new %u", global, global->id);
 
+  ng.id = global->id;
+  ng.type = spa_id_map_get_uri (core->uri.map, global->type);
+  spa_list_for_each (registry, &core->registry_resource_list, link) {
+    pinos_resource_send_message (registry,
+                                 PINOS_MESSAGE_NOTIFY_GLOBAL,
+                                 &ng,
+                                 true);
+  }
   return global;
 }
 
@@ -313,6 +323,8 @@ void
 pinos_global_destroy (PinosGlobal *global)
 {
   PinosCore *core = global->core;
+  PinosResource *registry;
+  PinosMessageNotifyGlobalRemove ng;
 
   pinos_log_debug ("global %p: destroy", global);
   pinos_signal_emit (&global->destroy_signal, global);
@@ -321,6 +333,14 @@ pinos_global_destroy (PinosGlobal *global)
 
   spa_list_remove (&global->link);
   pinos_signal_emit (&core->global_removed, core, global);
+
+  ng.id = global->id;
+  spa_list_for_each (registry, &core->registry_resource_list, link) {
+    pinos_resource_send_message (registry,
+                                 PINOS_MESSAGE_NOTIFY_GLOBAL_REMOVE,
+                                 &ng,
+                                 true);
+  }
 
   pinos_main_loop_defer (core->main_loop,
                          global,

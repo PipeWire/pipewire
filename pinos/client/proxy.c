@@ -63,12 +63,12 @@ pinos_proxy_destroy (PinosProxy *proxy)
 
 SpaResult
 pinos_proxy_send_message (PinosProxy        *proxy,
-                          PinosMessageType   type,
+                          uint32_t           opcode,
                           void              *message,
                           bool               flush)
 {
   if (proxy->send_func)
-    return proxy->send_func (proxy, proxy->id, type, message, flush, proxy->send_data);
+    return proxy->send_func (proxy, proxy->id, opcode, message, flush, proxy->send_data);
 
   pinos_log_error ("proxy %p: send func not implemented", proxy);
 

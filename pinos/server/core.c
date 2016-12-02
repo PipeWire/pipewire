@@ -20,6 +20,7 @@
 #include <pinos/client/pinos.h>
 #include <pinos/server/core.h>
 #include <pinos/server/data-loop.h>
+#include <pinos/server/client-node.h>
 
 typedef struct {
   PinosCore  this;
@@ -27,6 +28,179 @@ typedef struct {
   SpaSupport support[4];
 
 } PinosCoreImpl;
+
+static SpaResult
+registry_dispatch_func (void             *object,
+                        PinosMessageType  type,
+                        void             *message,
+                        void             *data)
+{
+  PinosResource *resource = object;
+  PinosClient *client = resource->client;
+  PinosCore *this = data;
+
+  switch (type) {
+    case PINOS_MESSAGE_BIND:
+    {
+      PinosMessageBind *m = message;
+      PinosGlobal *global;
+
+      spa_list_for_each (global, &this->global_list, link)
+        if (global->id == m->id)
+          break;
+
+      if (&global->link == &this->global_list) {
+        pinos_log_error ("unknown object id %d", m->id);
+        return SPA_RESULT_ERROR;
+      }
+      if (global->bind == NULL) {
+        pinos_log_error ("can't bind object id %d", m->id);
+        return SPA_RESULT_ERROR;
+      }
+
+      pinos_log_error ("global %p: bind object id %d", global, m->id);
+      global->bind (global, client, 0, m->id);
+      break;
+    }
+    default:
+      pinos_log_error ("unhandled message %d", type);
+      break;
+  }
+  return SPA_RESULT_OK;
+}
+
+static void
+destroy_registry_resource (void *object)
+{
+  PinosResource *resource = object;
+  spa_list_remove (&resource->link);
+}
+
+static SpaResult
+core_dispatch_func (void             *object,
+                    PinosMessageType  type,
+                    void             *message,
+                    void             *data)
+{
+  PinosResource *resource = object;
+  PinosClient *client = resource->client;
+  PinosCore *this = data;
+
+  switch (type) {
+    case PINOS_MESSAGE_GET_REGISTRY:
+    {
+      PinosMessageGetRegistry *m = message;
+      PinosGlobal *global;
+      PinosMessageNotifyDone nd;
+      PinosResource *registry_resource;
+
+      registry_resource = pinos_resource_new (resource->client,
+                                              SPA_ID_INVALID,
+                                              this->uri.registry,
+                                              this,
+                                              destroy_registry_resource);
+
+      registry_resource->dispatch_func = registry_dispatch_func;
+      registry_resource->dispatch_data = this;
+
+      spa_list_insert (this->registry_resource_list.prev, &registry_resource->link);
+
+      spa_list_for_each (global, &this->global_list, link) {
+        PinosMessageNotifyGlobal ng;
+
+        ng.id = global->id;
+        ng.type = spa_id_map_get_uri (this->uri.map, global->type);
+        pinos_resource_send_message (registry_resource,
+                                     PINOS_MESSAGE_NOTIFY_GLOBAL,
+                                     &ng,
+                                     false);
+      }
+      nd.seq = m->seq;
+      pinos_resource_send_message (client->core_resource,
+                                   PINOS_MESSAGE_NOTIFY_DONE,
+                                   &nd,
+                                   true);
+      break;
+    }
+    case PINOS_MESSAGE_CREATE_CLIENT_NODE:
+    {
+      PinosMessageCreateClientNode *m = message;
+      PinosClientNode *node;
+      SpaResult res;
+      int data_fd, i;
+      PinosMessageCreateClientNodeDone r;
+      PinosProperties *props;
+
+      props = pinos_properties_new (NULL, NULL);
+      for (i = 0; i < m->props->n_items; i++) {
+        pinos_properties_set (props, m->props->items[i].key,
+                                     m->props->items[i].value);
+      }
+
+      node = pinos_client_node_new (client,
+                                    m->new_id,
+                                    m->name,
+                                    props);
+
+      if ((res = pinos_client_node_get_data_socket (node, &data_fd)) < 0) {
+        pinos_log_error ("can't get data fd");
+        break;
+      }
+
+      r.seq = m->seq;
+      r.datafd = data_fd;
+      pinos_resource_send_message (node->resource,
+                                   PINOS_MESSAGE_CREATE_CLIENT_NODE_DONE,
+                                   &r,
+                                   true);
+      break;
+    }
+    default:
+      pinos_log_error ("unhandled message %d", type);
+      break;
+  }
+  return SPA_RESULT_OK;
+}
+
+static void
+core_bind_func (PinosGlobal *global,
+                PinosClient *client,
+                uint32_t     version,
+                uint32_t     id)
+{
+  PinosCore *this = global->object;
+  PinosResource *resource;
+  PinosMessageCoreInfo m;
+  PinosCoreInfo info;
+
+  resource = pinos_resource_new (client,
+                                 id,
+                                 global->core->uri.core,
+                                 global->object,
+                                 NULL);
+
+  resource->dispatch_func = core_dispatch_func;
+  resource->dispatch_data = this;
+
+  client->core_resource = resource;
+
+  pinos_log_debug ("core %p: bound to %d", global->object, resource->id);
+
+  m.info = &info;
+  info.id = resource->id;
+  info.change_mask = ~0;
+  info.user_name = "wim";
+  info.host_name = "wtay";
+  info.version = 0;
+  info.name = "pinos-0";
+  info.cookie = 0;
+  info.props = NULL;
+
+  pinos_resource_send_message (resource,
+                               PINOS_MESSAGE_CORE_INFO,
+                               &m,
+                               true);
+}
 
 PinosCore *
 pinos_core_new (PinosMainLoop *main_loop)
@@ -76,7 +250,9 @@ pinos_core_new (PinosMainLoop *main_loop)
 
   this->global = pinos_core_add_global (this,
                                         this->uri.core,
-                                        this);
+                                        0,
+                                        this,
+                                        core_bind_func);
 
   return this;
 }
@@ -96,14 +272,18 @@ pinos_core_destroy (PinosCore *core)
 PinosGlobal *
 pinos_core_add_global (PinosCore           *core,
                        uint32_t             type,
-                       void                *object)
+                       uint32_t             version,
+                       void                *object,
+                       PinosBindFunc        bind)
 {
   PinosGlobal *global;
 
   global = calloc (1, sizeof (PinosGlobal));
   global->core = core;
   global->type = type;
+  global->version = version;
   global->object = object;
+  global->bind = bind;
 
   pinos_signal_init (&global->destroy_signal);
 
@@ -166,6 +346,9 @@ pinos_core_find_port (PinosCore       *core,
   pinos_log_debug ("id \"%u\", %d", id, have_id);
 
   spa_list_for_each (n, &core->node_list, link) {
+    if (n->global == NULL)
+      continue;
+
     pinos_log_debug ("node id \"%d\"", n->global->id);
 
     if (have_id) {

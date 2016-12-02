@@ -27,25 +27,30 @@ extern "C" {
 typedef struct _PinosCore PinosCore;
 typedef struct _PinosGlobal PinosGlobal;
 
-#define PINOS_CORE_URI                            "http://pinos.org/ns/core"
-#define PINOS_CORE_PREFIX                         PINOS_CORE_URI "#"
-#define PINOS_CORE_REGISTRY                       PINOS_CORE_PREFIX "Registry"
-
 #include <spa/include/spa/log.h>
+
+#include <pinos/client/uri.h>
 
 #include <pinos/server/main-loop.h>
 #include <pinos/server/data-loop.h>
-#include <pinos/server/uri.h>
 #include <pinos/server/node.h>
 #include <pinos/server/link.h>
 #include <pinos/server/node-factory.h>
+
+typedef void (*PinosBindFunc)  (PinosGlobal   *global,
+                                PinosClient   *client,
+                                uint32_t       version,
+                                uint32_t       id);
 
 struct _PinosGlobal {
   PinosCore *core;
   SpaList    link;
   uint32_t   id;
   uint32_t   type;
+  uint32_t   version;
   void      *object;
+
+  PinosBindFunc bind;
 
   PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
                                  PinosGlobal   *global));
@@ -116,7 +121,9 @@ void            pinos_core_destroy       (PinosCore     *core);
 
 PinosGlobal *   pinos_core_add_global    (PinosCore           *core,
                                           uint32_t             type,
-                                          void                *object);
+                                          uint32_t             version,
+                                          void                *object,
+                                          PinosBindFunc        bind);
 void            pinos_global_destroy     (PinosGlobal         *global);
 
 

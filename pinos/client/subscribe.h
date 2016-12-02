@@ -26,21 +26,21 @@
 extern "C" {
 #endif
 
-typedef enum {
-    PINOS_SUBSCRIPTION_STATE_UNCONNECTED     = 0,
-    PINOS_SUBSCRIPTION_STATE_CONNECTING      = 1,
-    PINOS_SUBSCRIPTION_STATE_READY           = 2,
-    PINOS_SUBSCRIPTION_STATE_ERROR           = 3,
-} PinosSubscriptionState;
+#define PINOS_CORE_URI                            "http://pinos.org/ns/core"
+#define PINOS_CORE_PREFIX                         PINOS_CORE_URI "#"
+#define PINOS_CORE_REGISTRY                       PINOS_CORE_PREFIX "Registry"
 
-typedef enum {
-    PINOS_SUBSCRIPTION_FLAG_DAEMON          = (1 << 0),
-    PINOS_SUBSCRIPTION_FLAG_CLIENT          = (1 << 1),
-    PINOS_SUBSCRIPTION_FLAG_NODE            = (1 << 2),
-    PINOS_SUBSCRIPTION_FLAG_LINK            = (1 << 3)
-} PinosSubscriptionFlags;
+#define PINOS_NODE_URI                            "http://pinos.org/ns/node"
+#define PINOS_NODE_PREFIX                         PINOS_NODE_URI "#"
 
-#define PINOS_SUBSCRIPTION_FLAGS_ALL 0x0f
+#define PINOS_CLIENT_URI                          "http://pinos.org/ns/client"
+#define PINOS_CLIENT_PREFIX                       PINOS_CLIENT_URI "#"
+
+#define PINOS_LINK_URI                            "http://pinos.org/ns/link"
+#define PINOS_LINK_PREFIX                         PINOS_LINK_URI "#"
+
+#define PINOS_MODULE_URI                          "http://pinos.org/ns/module"
+#define PINOS_MODULE_PREFIX                       PINOS_MODULE_URI "#"
 
 typedef enum {
     PINOS_SUBSCRIPTION_EVENT_NEW           = 0,
@@ -49,13 +49,12 @@ typedef enum {
 } PinosSubscriptionEvent;
 
 typedef void (*PinosSubscriptionFunc)  (PinosContext           *context,
-                                        PinosSubscriptionFlags  flags,
                                         PinosSubscriptionEvent  event,
+                                        uint32_t                type,
                                         uint32_t                id,
                                         void                   *data);
 
 void         pinos_context_subscribe  (PinosContext           *context,
-                                       PinosSubscriptionFlags  mask,
                                        PinosSubscriptionFunc   func,
                                        void                   *data);
 

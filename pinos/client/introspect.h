@@ -26,6 +26,19 @@
 extern "C" {
 #endif
 
+typedef enum _PinosNodeState PinosNodeState;
+typedef enum _PinosDirection PinosDirection;
+typedef enum _PinosLinkState PinosLinkState;
+
+typedef struct _PinosCoreInfo PinosCoreInfo;
+typedef struct _PinosModuleInfo PinosModuleInfo;
+typedef struct _PinosClientInfo PinosClientInfo;
+typedef struct _PinosNodeInfo PinosNodeInfo;
+typedef struct _PinosLinkInfo PinosLinkInfo;
+
+#include <pinos/client/context.h>
+#include <pinos/client/properties.h>
+
 /**
  * PinosNodeState:
  * @PINOS_NODE_STATE_ERROR: the node is in error
@@ -40,14 +53,14 @@ extern "C" {
  *
  * The different node states
  */
-typedef enum {
+enum _PinosNodeState {
   PINOS_NODE_STATE_ERROR = -1,
   PINOS_NODE_STATE_CREATING = 0,
   PINOS_NODE_STATE_SUSPENDED = 1,
   PINOS_NODE_STATE_INITIALIZING = 2,
   PINOS_NODE_STATE_IDLE = 3,
   PINOS_NODE_STATE_RUNNING = 4,
-} PinosNodeState;
+};
 
 const char * pinos_node_state_as_string (PinosNodeState state);
 
@@ -59,11 +72,11 @@ const char * pinos_node_state_as_string (PinosNodeState state);
  *
  * The direction of a port
  */
-typedef enum {
+enum _PinosDirection {
   PINOS_DIRECTION_INVALID = SPA_DIRECTION_INVALID,
   PINOS_DIRECTION_INPUT = SPA_DIRECTION_INPUT,
   PINOS_DIRECTION_OUTPUT = SPA_DIRECTION_OUTPUT
-} PinosDirection;
+};
 
 const char * pinos_direction_as_string (PinosDirection direction);
 
@@ -79,7 +92,7 @@ const char * pinos_direction_as_string (PinosDirection direction);
  *
  * The different link states
  */
-typedef enum {
+enum _PinosLinkState {
   PINOS_LINK_STATE_ERROR = -2,
   PINOS_LINK_STATE_UNLINKED = -1,
   PINOS_LINK_STATE_INIT = 0,
@@ -87,28 +100,25 @@ typedef enum {
   PINOS_LINK_STATE_ALLOCATING = 2,
   PINOS_LINK_STATE_PAUSED = 3,
   PINOS_LINK_STATE_RUNNING = 4,
-} PinosLinkState;
+};
 
 const char * pinos_link_state_as_string (PinosLinkState state);
 
-#include <pinos/client/context.h>
-#include <pinos/client/properties.h>
-
 /**
- * PinosDaemonInfo:
- * @id: generic id of the daemon
+ * PinosCoreInfo:
+ * @id: generic id of the core
  * @change_mask: bitfield of changed fields since last call
- * @user_name: name of the user that started the daemon
- * @host_name: name of the machine the daemon is running on
- * @version: version of the daemon
- * @name: name of the daemon
+ * @user_name: name of the user that started the core
+ * @host_name: name of the machine the core is running on
+ * @version: version of the core
+ * @name: name of the core
  * @cookie: a random cookie for identifying this instance of Pinos
- * @properties: extra properties
+ * @props: extra properties
  *
- * The daemon information. Extra information can be added in later
+ * The core information. Extra information can be added in later
  * versions.
  */
-typedef struct {
+struct _PinosCoreInfo {
   uint32_t id;
   uint64_t change_mask;
   const char *user_name;
@@ -116,41 +126,93 @@ typedef struct {
   const char *version;
   const char *name;
   uint32_t cookie;
-  PinosProperties *properties;
-} PinosDaemonInfo;
+  SpaDict *props;
+};
+
+PinosCoreInfo *    pinos_core_info_update (PinosCoreInfo       *info,
+                                           const PinosCoreInfo *update);
+void               pinos_core_info_free   (PinosCoreInfo       *info);
+
+/**
+ * PinosCoreInfoCallback:
+ * @c: a #PinosContext
+ * @info: a #PinosCoreInfo
+ * @user_data: user data
+ *
+ * Callback with information about the Pinos core in @info.
+ */
+typedef void (*PinosCoreInfoCallback)  (PinosContext        *c,
+                                        SpaResult            res,
+                                        const PinosCoreInfo *info,
+                                        void                *user_data);
+
+void            pinos_context_get_core_info (PinosContext          *context,
+                                             PinosCoreInfoCallback  cb,
+                                             void                  *user_data);
+
+/**
+ * PinosModuleInfo:
+ * @id: generic id of the module
+ * @change_mask: bitfield of changed fields since last call
+ * @props: extra properties
+ *
+ * The module information. Extra information can be added in later
+ * versions.
+ */
+struct _PinosModuleInfo {
+  uint32_t id;
+  uint64_t change_mask;
+  const char *name;
+  const char *filename;
+  const char *args;
+  SpaDict *props;
+};
+
+PinosModuleInfo *  pinos_module_info_update (PinosModuleInfo       *info,
+                                             const PinosModuleInfo *update);
+void               pinos_module_info_free   (PinosModuleInfo       *info);
 
 
 /**
- * PinosDaemonInfoCallback:
+ * PinosModuleInfoCallback:
  * @c: a #PinosContext
- * @info: a #PinosDaemonInfo
+ * @info: a #PinosModuleInfo
  * @user_data: user data
  *
- * Callback with information about the Pinos daemon in @info.
+ * Callback with information about the Pinos module in @info.
  */
-typedef void (*PinosDaemonInfoCallback)  (PinosContext          *c,
-					  SpaResult              res,
-                                          const PinosDaemonInfo *info,
+typedef void (*PinosModuleInfoCallback)  (PinosContext          *c,
+                                          SpaResult              res,
+                                          const PinosModuleInfo *info,
                                           void                  *user_data);
 
-void            pinos_context_get_daemon_info (PinosContext            *context,
-                                               PinosDaemonInfoCallback  cb,
-                                               void                    *user_data);
+void            pinos_context_list_module_info      (PinosContext            *context,
+                                                     PinosModuleInfoCallback  cb,
+                                                     void                    *user_data);
+void            pinos_context_get_module_info_by_id (PinosContext            *context,
+                                                     uint32_t                 id,
+                                                     PinosModuleInfoCallback  cb,
+                                                     void                    *user_data);
 
 /**
  * PinosClientInfo:
  * @id: generic id of the client
  * @change_mask: bitfield of changed fields since last call
- * @properties: extra properties
+ * @props: extra properties
  *
  * The client information. Extra information can be added in later
  * versions.
  */
-typedef struct {
+struct _PinosClientInfo {
   uint32_t id;
   uint64_t change_mask;
-  PinosProperties *properties;
-} PinosClientInfo;
+  SpaDict *props;
+};
+
+PinosClientInfo *  pinos_client_info_update (PinosClientInfo       *info,
+                                             const PinosClientInfo *update);
+void               pinos_client_info_free   (PinosClientInfo       *info);
+
 
 /**
  * PinosClientInfoCallback:
@@ -178,19 +240,23 @@ void            pinos_context_get_client_info_by_id (PinosContext            *co
  * @id: generic id of the node
  * @change_mask: bitfield of changed fields since last call
  * @name: name the node, suitable for display
- * @properties: the properties of the node
+ * @props: the properties of the node
  * @state: the current state of the node
  *
  * The node information. Extra information can be added in later
  * versions.
  */
-typedef struct {
+struct _PinosNodeInfo {
   uint32_t id;
   uint64_t change_mask;
   const char *name;
-  PinosProperties *properties;
   PinosNodeState state;
-} PinosNodeInfo;
+  SpaDict *props;
+};
+
+PinosNodeInfo *    pinos_node_info_update (PinosNodeInfo       *info,
+                                           const PinosNodeInfo *update);
+void               pinos_node_info_free   (PinosNodeInfo       *info);
 
 /**
  * PinosNodeInfoCallback:
@@ -226,14 +292,14 @@ void            pinos_context_get_node_info_by_id   (PinosContext          *cont
  * The link information. Extra information can be added in later
  * versions.
  */
-typedef struct {
+struct _PinosLinkInfo {
   uint32_t id;
   uint64_t change_mask;
   uint32_t output_node_id;
   uint32_t output_port_id;
   uint32_t input_node_id;
   uint32_t input_port_id;
-} PinosLinkInfo;
+};
 
 
 /**

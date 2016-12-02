@@ -21,12 +21,51 @@
 #include <getopt.h>
 #include <limits.h>
 
+#include <spa/lib/props.h>
+
 #include <pinos/client/utils.h>
 #include <pinos/server/core.h>
 #include <pinos/server/module.h>
 
 #include "spa-monitor.h"
 #include "spa-node.h"
+
+static SpaResult
+setup_video_node (SpaNode *spa_node, PinosProperties *pinos_props) {
+  SpaResult res;
+  SpaProps *props;
+  SpaPropValue value;
+  const char *pattern;
+  uint32_t pattern_int;
+
+  /* Retrieve pattern property */
+  pattern = pinos_properties_get (pinos_props, "pattern");
+  if (strcmp (pattern, "smpte-snow") == 0) {
+    pattern_int = 0;
+  } else if (strcmp (pattern, "snow") == 0) {
+    pattern_int = 1;
+  } else {
+    pinos_log_debug ("Unrecognized pattern");
+    return SPA_RESULT_ERROR;
+  }
+
+  value.value = &pattern_int;
+  value.size = sizeof(uint32_t);
+
+  if ((res = spa_node_get_props (spa_node, &props)) != SPA_RESULT_OK) {
+    pinos_log_debug ("spa_node_get_props failed: %d", res);
+    return SPA_RESULT_ERROR;
+  }
+
+  spa_props_set_value (props, spa_props_index_for_name (props, "pattern"), &value);
+
+  if ((res = spa_node_set_props (spa_node, props)) != SPA_RESULT_OK) {
+    pinos_log_debug ("spa_node_set_props failed: %d", res);
+    return SPA_RESULT_ERROR;
+  }
+
+  return SPA_RESULT_OK;
+}
 
 bool
 pinos__module_init (PinosModule * module, const char * args)
@@ -82,12 +121,14 @@ pinos__module_init (PinosModule * module, const char * args)
                        "build/spa/plugins/audiotestsrc/libspa-audiotestsrc.so",
                        "audiotestsrc",
                        "audiotestsrc",
+                       NULL,
                        NULL);
   pinos_spa_node_load (module->core,
                        "build/spa/plugins/videotestsrc/libspa-videotestsrc.so",
                        "videotestsrc",
                        "videotestsrc",
-                       video_props);
+                       video_props,
+                       setup_video_node);
 
   return true;
 }

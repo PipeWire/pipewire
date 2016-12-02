@@ -82,14 +82,14 @@ pinos_resource_destroy (PinosResource *resource)
 
 SpaResult
 pinos_resource_send_message (PinosResource     *resource,
-                             PinosMessageType   type,
+                             uint32_t           opcode,
                              void              *message,
                              bool               flush)
 {
   if (resource->send_func)
     return resource->send_func (resource,
                                 resource->id,
-                                type,
+                                opcode,
                                 message,
                                 flush,
                                 resource->send_data);

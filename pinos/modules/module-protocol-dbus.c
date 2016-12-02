@@ -53,7 +53,6 @@
 typedef struct {
   PinosCore   *core;
   SpaList      link;
-  PinosGlobal *global;
 
   PinosProperties *properties;
 
@@ -164,6 +163,7 @@ find_object (PinosProtocolDBus *impl,
   return NULL;
 }
 
+#if 0
 struct _PinosProperties {
   GHashTable *hashtable;
 };
@@ -173,13 +173,14 @@ add_to_variant (const gchar *key, const gchar *value, GVariantBuilder *b)
 {
   g_variant_builder_add (b, "{sv}", key, g_variant_new_string (value));
 }
+#endif
 
 static void
 pinos_properties_init_builder (PinosProperties *properties,
                                GVariantBuilder *builder)
 {
   g_variant_builder_init (builder, G_VARIANT_TYPE ("a{sv}"));
-  g_hash_table_foreach (properties->hashtable, (GHFunc) add_to_variant, builder);
+//  g_hash_table_foreach (properties->hashtable, (GHFunc) add_to_variant, builder);
 }
 
 static GVariant *
@@ -201,10 +202,10 @@ pinos_properties_from_variant (GVariant *variant)
   props = pinos_properties_new (NULL, NULL);
 
   g_variant_iter_init (&iter, variant);
-  while (g_variant_iter_loop (&iter, "{sv}", &key, &value))
-    g_hash_table_replace (props->hashtable,
-                          g_strdup (key),
-                          g_variant_dup_string (value, NULL));
+//  while (g_variant_iter_loop (&iter, "{sv}", &key, &value))
+    //g_hash_table_replace (props->hashtable,
+    //                      g_strdup (key),
+    //                      g_variant_dup_string (value, NULL));
 
   return props;
 }
@@ -684,9 +685,6 @@ pinos_protocol_dbus_new (PinosCore       *core,
 
   impl->server_manager = g_dbus_object_manager_server_new (PINOS_DBUS_OBJECT_PREFIX);
 
-  impl->global = pinos_core_add_global (core,
-                                        core->uri.module,
-                                        impl);
   return impl;
 }
 

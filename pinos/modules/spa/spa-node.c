@@ -37,7 +37,8 @@ pinos_spa_node_load (PinosCore  *core,
                      const char *lib,
                      const char *factory_name,
                      const char *name,
-                     PinosProperties *properties)
+                     PinosProperties *properties,
+                     SetupNode setup_func)
 {
   PinosSpaNode *this;
   PinosSpaNodeImpl *impl;
@@ -97,6 +98,13 @@ pinos_spa_node_load (PinosCore  *core,
   impl->core = core;
   impl->hnd = hnd;
   this = &impl->this;
+
+  if (setup_func != NULL) {
+    if (setup_func (spa_node, properties) != SPA_RESULT_OK) {
+      pinos_log_debug ("Unrecognized properties");
+    }
+  }
+
   this->node = pinos_node_new (core,
                                name,
                                spa_node,

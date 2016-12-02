@@ -31,17 +31,16 @@ typedef struct {
 } Data;
 
 static void
-print_properties (PinosProperties *props, char mark)
+print_properties (SpaDict *props, char mark)
 {
-  void *state = NULL;
-  const char *key;
+  SpaDictItem *item;
 
   if (props == NULL)
     return;
 
   printf ("%c\tproperties:\n", mark);
-  while ((key = pinos_properties_iterate (props, &state))) {
-    printf ("%c\t\t%s = \"%s\"\n", mark, key, pinos_properties_get (props, key));
+  spa_dict_for_each (item, props) {
+    printf ("%c\t\t%s = \"%s\"\n", mark, item->key, item->value);
   }
 }
 
@@ -53,51 +52,109 @@ typedef struct {
 #define MARK_CHANGE(f) ((data->print_mark && ((info)->change_mask & (1 << (f)))) ? '*' : ' ')
 
 static void
-dump_daemon_info (PinosContext *c, const PinosDaemonInfo *info, void * user_data)
+dump_core_info (PinosContext        *c,
+                SpaResult            res,
+                const PinosCoreInfo *info,
+                void                *user_data)
 {
   DumpData *data = user_data;
 
+  if (info == NULL)
+    return;
+
   printf ("\tid: %u\n", info->id);
+  printf ("\ttype: %s\n", PINOS_CORE_URI);
   if (data->print_all) {
     printf ("%c\tuser-name: \"%s\"\n", MARK_CHANGE (0), info->user_name);
     printf ("%c\thost-name: \"%s\"\n", MARK_CHANGE (1), info->host_name);
     printf ("%c\tversion: \"%s\"\n", MARK_CHANGE (2), info->version);
     printf ("%c\tname: \"%s\"\n", MARK_CHANGE (3), info->name);
     printf ("%c\tcookie: %u\n", MARK_CHANGE (4), info->cookie);
-    print_properties (info->properties, MARK_CHANGE (5));
+    print_properties (info->props, MARK_CHANGE (5));
   }
 }
 
 static void
-dump_client_info (PinosContext *c, const PinosClientInfo *info, void * user_data)
+dump_client_info (PinosContext          *c,
+                  SpaResult              res,
+                  const PinosClientInfo *info,
+                  void                  *user_data)
 {
   DumpData *data = user_data;
 
+  if (info == NULL)
+    return;
+
   printf ("\tid: %u\n", info->id);
+  printf ("\ttype: %s\n", PINOS_CLIENT_URI);
   if (data->print_all) {
-    print_properties (info->properties, MARK_CHANGE (0));
+    print_properties (info->props, MARK_CHANGE (0));
   }
 }
 
 static void
-dump_node_info (PinosContext *c, const PinosNodeInfo *info, void * user_data)
+dump_node_info (PinosContext        *c,
+                SpaResult            res,
+                const PinosNodeInfo *info,
+                void                *user_data)
 {
   DumpData *data = user_data;
 
+  if (info == NULL) {
+    if (res != SPA_RESULT_ENUM_END)
+      printf ("\tError introspecting node: %d\n", res);
+    return;
+  }
+
   printf ("\tid: %u\n", info->id);
+  printf ("\ttype: %s\n", PINOS_NODE_URI);
   if (data->print_all) {
     printf ("%c\tname: \"%s\"\n", MARK_CHANGE (0), info->name);
-    print_properties (info->properties, MARK_CHANGE (1));
-    printf ("%c\tstate: \"%s\"\n", MARK_CHANGE (2), pinos_node_state_as_string (info->state));
+    printf ("%c\tstate: \"%s\"\n", MARK_CHANGE (1), pinos_node_state_as_string (info->state));
+    print_properties (info->props, MARK_CHANGE (2));
   }
 }
 
 static void
-dump_link_info (PinosContext *c, const PinosLinkInfo *info, void * user_data)
+dump_module_info (PinosContext          *c,
+                  SpaResult              res,
+                  const PinosModuleInfo *info,
+                  void                  *user_data)
 {
   DumpData *data = user_data;
 
+  if (info == NULL) {
+    if (res != SPA_RESULT_ENUM_END)
+      printf ("\tError introspecting module: %d\n", res);
+    return;
+  }
+
   printf ("\tid: %u\n", info->id);
+  printf ("\ttype: %s\n", PINOS_MODULE_URI);
+  if (data->print_all) {
+    printf ("%c\tname: \"%s\"\n", MARK_CHANGE (0), info->name);
+    printf ("%c\tfilename: \"%s\"\n", MARK_CHANGE (1), info->filename);
+    printf ("%c\targs: \"%s\"\n", MARK_CHANGE (2), info->args);
+    print_properties (info->props, MARK_CHANGE (3));
+  }
+}
+
+static void
+dump_link_info (PinosContext        *c,
+                SpaResult            res,
+                const PinosLinkInfo *info,
+                void                *user_data)
+{
+  DumpData *data = user_data;
+
+  if (info == NULL) {
+    if (res != SPA_RESULT_ENUM_END)
+      printf ("\tError introspecting link: %d\n", res);
+    return;
+  }
+
+  printf ("\tid: %u\n", info->id);
+  printf ("\ttype: %s\n", PINOS_LINK_URI);
   if (data->print_all) {
     printf ("%c\toutput-node-id: %u\n", MARK_CHANGE (0), info->output_node_id);
     printf ("%c\toutput-port-id: %u\n", MARK_CHANGE (1), info->output_port_id);
@@ -108,49 +165,66 @@ dump_link_info (PinosContext *c, const PinosLinkInfo *info, void * user_data)
 
 static void
 dump_object (PinosContext           *context,
+             uint32_t                type,
              uint32_t                id,
-             PinosSubscriptionFlags  flags,
              DumpData               *data)
 {
-  if (flags & PINOS_SUBSCRIPTION_FLAG_DAEMON) {
+  if (type == context->uri.node) {
+    pinos_context_get_node_info_by_id (context,
+                                       id,
+                                       dump_node_info,
+                                       data);
   }
-  else if (flags & PINOS_SUBSCRIPTION_FLAG_CLIENT) {
+  if (type == context->uri.module) {
+    pinos_context_get_module_info_by_id (context,
+                                         id,
+                                         dump_module_info,
+                                         data);
   }
-  else if (flags & PINOS_SUBSCRIPTION_FLAG_NODE) {
+  if (type == context->uri.client) {
+    pinos_context_get_client_info_by_id (context,
+                                         id,
+                                         dump_client_info,
+                                         data);
   }
-  else if (flags & PINOS_SUBSCRIPTION_FLAG_LINK) {
+  if (type == context->uri.link) {
+    pinos_context_get_link_info_by_id (context,
+                                       id,
+                                       dump_link_info,
+                                       data);
   }
+
 }
 
 static void
 subscription_cb (PinosContext           *context,
-                 PinosSubscriptionFlags  flags,
-                 PinosSubscriptionEvent  type,
+                 PinosSubscriptionEvent  event,
+                 uint32_t                type,
                  uint32_t                id,
                  void                   *data)
 {
   DumpData dd;
 
-  switch (type) {
+  switch (event) {
     case PINOS_SUBSCRIPTION_EVENT_NEW:
       printf ("added:\n");
       dd.print_mark = false;
       dd.print_all = true;
-      dump_object (context, id, flags, &dd);
+      dump_object (context, type, id, &dd);
       break;
 
     case PINOS_SUBSCRIPTION_EVENT_CHANGE:
       printf ("changed:\n");
       dd.print_mark = true;
       dd.print_all = true;
-      dump_object (context, id, flags, &dd);
+      dump_object (context, type, id, &dd);
       break;
 
     case PINOS_SUBSCRIPTION_EVENT_REMOVE:
       printf ("removed:\n");
       dd.print_mark = false;
       dd.print_all = false;
-      dump_object (context, id, flags, &dd);
+      dump_object (context, type, id, &dd);
       break;
   }
 }
@@ -189,7 +263,6 @@ main (int argc, char *argv[])
                     on_state_changed);
 
   pinos_context_subscribe (data.context,
-                           PINOS_SUBSCRIPTION_FLAGS_ALL,
                            subscription_cb,
                            &data);
 

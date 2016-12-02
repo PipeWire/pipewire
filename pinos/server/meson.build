@@ -11,7 +11,6 @@ pinoscore_headers = [
   'node-factory.h',
   'port.h',
   'resource.h',
-  'uri.h',
 ]
 
 pinoscore_sources = [
@@ -27,7 +26,6 @@ pinoscore_sources = [
   'node-factory.c',
   'port.c',
   'resource.c',
-  'uri.c',
 ]
 
 libpinoscore_c_args = [

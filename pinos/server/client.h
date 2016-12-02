@@ -24,9 +24,6 @@
 extern "C" {
 #endif
 
-#define PINOS_CLIENT_URI                            "http://pinos.org/ns/client"
-#define PINOS_CLIENT_PREFIX                         PINOS_CLIENT_URI "#"
-
 typedef struct _PinosClient PinosClient;
 
 #include <pinos/server/core.h>
@@ -43,6 +40,8 @@ struct _PinosClient {
   PinosGlobal *global;
 
   PinosProperties *properties;
+
+  PinosResource *core_resource;
 
   PinosMap objects;
 

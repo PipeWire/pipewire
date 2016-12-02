@@ -29,7 +29,6 @@
 typedef struct {
   PinosCore       *core;
   PinosProperties *properties;
-  PinosGlobal     *global;
 
   PinosListener global_added;
   PinosListener global_removed;
@@ -189,9 +188,6 @@ module_new (PinosCore       *core,
   pinos_signal_add (&core->node_state_request, &impl->node_state_request, on_node_state_request);
   pinos_signal_add (&core->node_state_changed, &impl->node_state_changed, on_node_state_changed);
 
-  impl->global = pinos_core_add_global (core,
-                                        core->uri.module,
-                                        impl);
   return impl;
 }
 

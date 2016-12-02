@@ -26,6 +26,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
 typedef struct _PinosSpaNode PinosSpaNode;
 
 struct _PinosSpaNode {
@@ -38,11 +39,15 @@ struct _PinosSpaNode {
                                  PinosSpaNode  *node));
 };
 
+typedef SpaResult (*SetupNode) (SpaNode         *spa_node,
+                                PinosProperties *pinos_props);
+
 PinosSpaNode *    pinos_spa_node_load      (PinosCore       *core,
                                             const char      *lib,
                                             const char      *factory_name,
                                             const char      *name,
-                                            PinosProperties *properties);
+                                            PinosProperties *properties,
+                                            SetupNode       setup_func);
 
 #ifdef __cplusplus
 }

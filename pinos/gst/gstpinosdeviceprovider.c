@@ -190,8 +190,8 @@ new_node (const PinosNodeInfo *info)
 {
   GstCaps *caps;
   GstStructure *props;
-  gpointer state = NULL;
   const gchar *klass;
+  SpaDictItem *item;
 
   /* FIXME, iterate ports */
 #if 0
@@ -202,18 +202,10 @@ new_node (const PinosNodeInfo *info)
     caps = gst_caps_new_any();
 
   props = gst_structure_new_empty ("pinos-proplist");
+  spa_dict_for_each (item, info->props)
+    gst_structure_set (props, item->key, G_TYPE_STRING, item->value, NULL);
 
-  while (TRUE) {
-    const char *key, *val;
-
-    if (!(key = pinos_properties_iterate (info->properties, &state)))
-      break;
-
-    val = pinos_properties_get (info->properties, key);
-    gst_structure_set (props, key, G_TYPE_STRING, val, NULL);
-  }
-
-  klass = pinos_properties_get (info->properties, "gstreamer.device.class");
+  klass = spa_dict_lookup (info->props, "gstreamer.device.class");
   if (klass == NULL)
     klass = "unknown/unknown";
 
@@ -263,8 +255,8 @@ find_device (GstDeviceProvider *provider, uint32_t id)
 
 static void
 context_subscribe_cb (PinosContext           *context,
-                      PinosSubscriptionFlags  flags,
-                      PinosSubscriptionEvent  type,
+                      PinosSubscriptionEvent  event,
+                      uint32_t                type,
                       uint32_t                id,
                       void                   *user_data)
 {
@@ -272,19 +264,19 @@ context_subscribe_cb (PinosContext           *context,
   GstDeviceProvider *provider = user_data;
   GstPinosDevice *dev;
 
-  if (flags != PINOS_SUBSCRIPTION_FLAG_NODE)
+  if (type != context->uri.node)
     return;
 
   dev = find_device (provider, id);
 
-  if (type == PINOS_SUBSCRIPTION_EVENT_NEW) {
-    if (flags == PINOS_SUBSCRIPTION_FLAG_NODE && dev == NULL)
+  if (event == PINOS_SUBSCRIPTION_EVENT_NEW) {
+    if (dev == NULL)
       pinos_context_get_node_info_by_id (context,
                                          id,
                                          get_node_info_cb,
                                          self);
-  } else if (type == PINOS_SUBSCRIPTION_EVENT_REMOVE) {
-    if (flags == PINOS_SUBSCRIPTION_FLAG_NODE && dev != NULL) {
+  } else if (event == PINOS_SUBSCRIPTION_EVENT_REMOVE) {
+    if (dev != NULL) {
       gst_device_provider_device_remove (GST_DEVICE_PROVIDER (self),
                                          GST_DEVICE (dev));
     }
@@ -313,15 +305,15 @@ list_node_info_cb (PinosContext        *c,
 }
 
 static void
-get_daemon_info_cb (PinosContext          *c,
-                    SpaResult              res,
-                    const PinosDaemonInfo *info,
-                    void                  *user_data)
+get_core_info_cb (PinosContext        *c,
+                  SpaResult            res,
+                  const PinosCoreInfo *info,
+                  void                *user_data)
 {
   GstDeviceProvider *provider = user_data;
   const gchar *value;
 
-  value = pinos_properties_get (info->properties, "gstreamer.deviceproviders");
+  value = spa_dict_lookup (info->props, "gstreamer.deviceproviders");
   if (value) {
     gchar **providers = g_strsplit (value, ",", -1);
     gint i;
@@ -371,9 +363,9 @@ gst_pinos_device_provider_probe (GstDeviceProvider * provider)
   }
   GST_DEBUG_OBJECT (self, "connected");
 
-  pinos_context_get_daemon_info (c,
-                                 get_daemon_info_cb,
-                                 self);
+  pinos_context_get_core_info (c,
+                               get_core_info_cb,
+                               self);
 
 
   data.end = FALSE;
@@ -453,7 +445,6 @@ gst_pinos_device_provider_start (GstDeviceProvider * provider)
   pinos_signal_add (&self->context->state_changed, &self->ctx_state_changed, on_context_state_changed);
 
   pinos_context_subscribe (self->context,
-                           PINOS_SUBSCRIPTION_FLAGS_ALL,
                            context_subscribe_cb,
                            self);
 
@@ -475,9 +466,9 @@ gst_pinos_device_provider_start (GstDeviceProvider * provider)
     pinos_thread_main_loop_wait (self->main_loop);
   }
   GST_DEBUG_OBJECT (self, "connected");
-  pinos_context_get_daemon_info (self->context,
-                                 get_daemon_info_cb,
-                                 self);
+  pinos_context_get_core_info (self->context,
+                               get_core_info_cb,
+                               self);
   pinos_thread_main_loop_unlock (self->main_loop);
 
   return TRUE;

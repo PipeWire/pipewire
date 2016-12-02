@@ -26,9 +26,6 @@ extern "C" {
 
 typedef struct _PinosLink PinosLink;
 
-#define PINOS_LINK_URI                            "http://pinos.org/ns/link"
-#define PINOS_LINK_PREFIX                         PINOS_LINK_URI "#"
-
 #include <spa/include/spa/ringbuffer.h>
 
 #include <pinos/client/mem.h>

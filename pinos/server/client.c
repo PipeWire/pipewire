@@ -28,6 +28,57 @@ typedef struct
   PinosClient this;
 } PinosClientImpl;
 
+
+static SpaResult
+client_dispatch_func (void             *object,
+                      PinosMessageType  type,
+                      void             *message,
+                      void             *data)
+{
+  PinosResource *resource = object;
+  PinosClient *client = resource->object;
+
+  switch (type) {
+    default:
+      pinos_log_warn ("client %p: unhandled message %d", client, type);
+      break;
+  }
+  return SPA_RESULT_OK;
+}
+
+static void
+client_bind_func (PinosGlobal *global,
+                  PinosClient *client,
+                  uint32_t     version,
+                  uint32_t     id)
+{
+  PinosClient *this = global->object;
+  PinosResource *resource;
+  PinosMessageClientInfo m;
+  PinosClientInfo info;
+
+  resource = pinos_resource_new (client,
+                                 id,
+                                 global->core->uri.client,
+                                 global->object,
+                                 NULL);
+
+  resource->dispatch_func = client_dispatch_func;
+  resource->dispatch_data = global;
+
+  pinos_log_debug ("client %p: bound to %d", global->object, resource->id);
+
+  m.info = &info;
+  info.id = resource->id;
+  info.change_mask = ~0;
+  info.props = this->properties ? &this->properties->dict : NULL;
+
+  pinos_resource_send_message (resource,
+                               PINOS_MESSAGE_CLIENT_INFO,
+                               &m,
+                               true);
+}
+
 /**
  * pinos_client_new:
  * @daemon: a #PinosDaemon
@@ -58,7 +109,9 @@ pinos_client_new (PinosCore       *core,
 
   this->global = pinos_core_add_global (core,
                                         core->uri.client,
-                                        this);
+                                        0,
+                                        this,
+                                        client_bind_func);
 
   return this;
 }

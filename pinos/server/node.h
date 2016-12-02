@@ -62,6 +62,8 @@ struct _PinosNode {
   bool live;
   SpaClock *clock;
 
+  SpaList resource_list;
+
   SpaList input_ports;
   SpaList output_ports;
 

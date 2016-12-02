@@ -103,3 +103,177 @@ pinos_link_state_as_string (PinosLinkState state)
   }
   return "invalid-state";
 }
+
+static void
+pinos_spa_dict_destroy (SpaDict *dict)
+{
+  SpaDictItem *item;
+
+  spa_dict_for_each (item, dict) {
+    free ((void *)item->key);
+    free ((void *)item->value);
+  }
+  free (dict->items);
+  free (dict);
+}
+
+static SpaDict *
+pinos_spa_dict_copy (SpaDict *dict)
+{
+  SpaDict *copy;
+  unsigned int i;
+
+  if (dict == NULL)
+    return NULL;
+
+  copy = calloc (1, sizeof (SpaDict));
+  copy->items = calloc (dict->n_items, sizeof (SpaDictItem));
+  copy->n_items = dict->n_items;
+
+  for (i = 0; i < dict->n_items; i++) {
+    copy->items[i].key = strdup (dict->items[i].key);
+    copy->items[i].value = strdup (dict->items[i].value);
+  }
+  return copy;
+}
+
+PinosNodeInfo *
+pinos_node_info_update (PinosNodeInfo       *info,
+                        const PinosNodeInfo *update)
+{
+  uint64_t change_mask;
+
+  if (update == NULL)
+    return info;
+
+  if (info == NULL) {
+    info = calloc (1, sizeof (PinosNodeInfo));
+    change_mask = ~0;
+  } else {
+    change_mask = info->change_mask | update->change_mask;
+  }
+  info->id = update->id;
+  info->change_mask = change_mask;
+
+  if (update->change_mask & (1 << 0)) {
+    if (info->name)
+      free ((void*)info->name);
+    info->name = update->name ? strdup (update->name) : NULL;
+  }
+  if (update->change_mask & (1 << 1)) {
+    info->state = update->state;
+  }
+  if (update->change_mask & (1 << 2)) {
+    if (info->props)
+      pinos_spa_dict_destroy (info->props);
+    info->props = pinos_spa_dict_copy (update->props);
+  }
+  return info;
+}
+
+void
+pinos_node_info_free (PinosNodeInfo *info)
+{
+  if (info == NULL)
+    return;
+  if (info->name)
+    free ((void*)info->name);
+  if (info->props)
+    pinos_spa_dict_destroy (info->props);
+  free (info);
+}
+
+PinosModuleInfo *
+pinos_module_info_update (PinosModuleInfo       *info,
+                          const PinosModuleInfo *update)
+{
+  uint64_t change_mask;
+
+  if (update == NULL)
+    return info;
+
+  if (info == NULL) {
+    info = calloc (1, sizeof (PinosModuleInfo));
+    change_mask = ~0;
+  } else {
+    change_mask = info->change_mask | update->change_mask;
+  }
+  info->id = update->id;
+  info->change_mask = change_mask;
+
+  if (update->change_mask & (1 << 0)) {
+    if (info->name)
+      free ((void*)info->name);
+    info->name = update->name ? strdup (update->name) : NULL;
+  }
+  if (update->change_mask & (1 << 1)) {
+    if (info->filename)
+      free ((void*)info->filename);
+    info->filename = update->filename ? strdup (update->filename) : NULL;
+  }
+  if (update->change_mask & (1 << 2)) {
+    if (info->args)
+      free ((void*)info->args);
+    info->args = update->args ? strdup (update->args) : NULL;
+  }
+  if (update->change_mask & (1 << 3)) {
+    if (info->props)
+      pinos_spa_dict_destroy (info->props);
+    info->props = pinos_spa_dict_copy (update->props);
+  }
+  return info;
+}
+
+void
+pinos_module_info_free (PinosModuleInfo       *info)
+{
+  if (info == NULL)
+    return;
+
+  if (info->name)
+    free ((void*)info->name);
+  if (info->filename)
+    free ((void*)info->filename);
+  if (info->args)
+    free ((void*)info->args);
+  if (info->props)
+    pinos_spa_dict_destroy (info->props);
+  free (info);
+}
+
+
+PinosClientInfo *
+pinos_client_info_update (PinosClientInfo       *info,
+                          const PinosClientInfo *update)
+{
+  uint64_t change_mask;
+
+  if (update == NULL)
+    return info;
+
+  if (info == NULL) {
+    info = calloc (1, sizeof (PinosClientInfo));
+    change_mask = ~0;
+  } else {
+    change_mask = info->change_mask | update->change_mask;
+  }
+  info->id = update->id;
+  info->change_mask = change_mask;
+
+  if (update->change_mask & (1 << 0)) {
+    if (info->props)
+      pinos_spa_dict_destroy (info->props);
+    info->props = pinos_spa_dict_copy (update->props);
+  }
+  return info;
+}
+
+void
+pinos_client_info_free   (PinosClientInfo       *info)
+{
+  if (info == NULL)
+    return;
+  if (info->props)
+    pinos_spa_dict_destroy (info->props);
+  free (info);
+}

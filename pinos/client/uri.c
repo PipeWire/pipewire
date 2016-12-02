@@ -20,8 +20,9 @@
 #include <string.h>
 
 #include "pinos/client/pinos.h"
+#include "pinos/client/uri.h"
+
 #include "pinos/server/core.h"
-#include "pinos/server/uri.h"
 #include "pinos/server/node.h"
 #include "pinos/server/node-factory.h"
 #include "pinos/server/client.h"
@@ -47,5 +48,4 @@ pinos_uri_init (PinosURI *uri)
   uri->spa_node = spa_id_map_get_id (uri->map, SPA_NODE_URI);
   uri->spa_clock = spa_id_map_get_id (uri->map, SPA_CLOCK_URI);
   uri->spa_monitor = spa_id_map_get_id (uri->map, SPA_MONITOR_URI);
-
 }

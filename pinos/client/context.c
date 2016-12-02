@@ -38,7 +38,6 @@ typedef struct {
 
   bool disconnecting;
 
-  PinosSubscriptionFlags subscribe_mask;
   PinosSubscriptionFunc  subscribe_func;
   void                  *subscribe_data;
 } PinosContextImpl;
@@ -102,7 +101,8 @@ core_dispatch_func (void             *object,
                     void             *message,
                     void             *data)
 {
-  PinosContext *context = data;
+  PinosContextImpl *impl = data;
+  PinosContext *this = &impl->this;
 
   switch (type) {
     case PINOS_MESSAGE_NOTIFY_DONE:
@@ -110,7 +110,142 @@ core_dispatch_func (void             *object,
       PinosMessageNotifyDone *nd = message;
 
       if (nd->seq == 0)
-        context_set_state (context, PINOS_CONTEXT_STATE_CONNECTED, NULL);
+        context_set_state (this, PINOS_CONTEXT_STATE_CONNECTED, NULL);
+      break;
+    }
+    case PINOS_MESSAGE_REMOVE_ID:
+    {
+      PinosMessageRemoveId *m = message;
+      PinosProxy *proxy;
+
+      proxy = pinos_map_lookup (&this->objects, m->id);
+      if (proxy) {
+        pinos_log_debug ("context %p: object remove %u", this, m->id);
+        pinos_map_remove (&this->objects, m->id);
+        pinos_proxy_destroy (proxy);
+      }
+      break;
+    }
+
+    default:
+      pinos_log_warn ("unhandled message %d", type);
+      break;
+  }
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
+module_dispatch_func (void             *object,
+                      PinosMessageType  type,
+                      void             *message,
+                      void             *data)
+{
+  PinosContextImpl *impl = data;
+  PinosContext *this = &impl->this;
+  PinosProxy *proxy = object;
+
+  switch (type) {
+    case PINOS_MESSAGE_MODULE_INFO:
+    {
+      PinosMessageModuleInfo *m = message;
+      PinosSubscriptionEvent event;
+
+      pinos_log_debug ("got module info %d", type);
+      if (proxy->user_data == NULL)
+        event = PINOS_SUBSCRIPTION_EVENT_NEW;
+      else
+        event = PINOS_SUBSCRIPTION_EVENT_CHANGE;
+
+      proxy->user_data = pinos_module_info_update (proxy->user_data, m->info);
+
+      if (impl->subscribe_func) {
+        impl->subscribe_func (this,
+                              event,
+                              proxy->type,
+                              proxy->id,
+                              impl->subscribe_data);
+      }
+      break;
+    }
+
+    default:
+      pinos_log_warn ("unhandled message %d", type);
+      break;
+  }
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
+node_dispatch_func (void             *object,
+                    PinosMessageType  type,
+                    void             *message,
+                    void             *data)
+{
+  PinosContextImpl *impl = data;
+  PinosContext *this = &impl->this;
+  PinosProxy *proxy = object;
+
+  switch (type) {
+    case PINOS_MESSAGE_NODE_INFO:
+    {
+      PinosMessageNodeInfo *m = message;
+      PinosSubscriptionEvent event;
+
+      pinos_log_debug ("got node info %d", type);
+      if (proxy->user_data == NULL)
+        event = PINOS_SUBSCRIPTION_EVENT_NEW;
+      else
+        event = PINOS_SUBSCRIPTION_EVENT_CHANGE;
+
+      proxy->user_data = pinos_node_info_update (proxy->user_data, m->info);
+
+      if (impl->subscribe_func) {
+        impl->subscribe_func (this,
+                              event,
+                              proxy->type,
+                              proxy->id,
+                              impl->subscribe_data);
+      }
+      break;
+    }
+    default:
+      pinos_log_warn ("unhandled message %d", type);
+      break;
+  }
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
+client_dispatch_func (void             *object,
+                      PinosMessageType  type,
+                      void             *message,
+                      void             *data)
+{
+  PinosContextImpl *impl = data;
+  PinosContext *this = &impl->this;
+  PinosProxy *proxy = object;
+
+  switch (type) {
+    case PINOS_MESSAGE_CLIENT_INFO:
+    {
+      PinosMessageClientInfo *m = message;
+      PinosSubscriptionEvent event;
+
+      pinos_log_debug ("got client info %d", type);
+      if (proxy->user_data == NULL)
+        event = PINOS_SUBSCRIPTION_EVENT_NEW;
+      else
+        event = PINOS_SUBSCRIPTION_EVENT_CHANGE;
+
+      proxy->user_data = pinos_client_info_update (proxy->user_data, m->info);
+
+      if (impl->subscribe_func) {
+        impl->subscribe_func (this,
+                              event,
+                              proxy->type,
+                              proxy->id,
+                              impl->subscribe_data);
+      }
       break;
     }
     default:
@@ -126,17 +261,61 @@ registry_dispatch_func (void             *object,
                         void             *message,
                         void             *data)
 {
+  PinosContextImpl *impl = data;
+  PinosContext *this = &impl->this;
+
   switch (type) {
     case PINOS_MESSAGE_NOTIFY_GLOBAL:
     {
       PinosMessageNotifyGlobal *ng = message;
+      PinosProxy *proxy = NULL;
+
       pinos_log_debug ("got global %u %s", ng->id, ng->type);
+
+      if (!strcmp (ng->type, PINOS_NODE_URI)) {
+        proxy = pinos_proxy_new (this,
+                                 SPA_ID_INVALID,
+                                 this->uri.node);
+        proxy->dispatch_func = node_dispatch_func;
+        proxy->dispatch_data = impl;
+      } else if (!strcmp (ng->type, PINOS_MODULE_URI)) {
+        proxy = pinos_proxy_new (this,
+                                 SPA_ID_INVALID,
+                                 this->uri.module);
+        proxy->dispatch_func = module_dispatch_func;
+        proxy->dispatch_data = impl;
+      } else if (!strcmp (ng->type, PINOS_CLIENT_URI)) {
+        proxy = pinos_proxy_new (this,
+                                 SPA_ID_INVALID,
+                                 this->uri.client);
+        proxy->dispatch_func = client_dispatch_func;
+        proxy->dispatch_data = impl;
+      } else if (!strcmp (ng->type, PINOS_LINK_URI)) {
+      }
+      if (proxy) {
+        PinosMessageBind m;
+
+        m.id = ng->id;
+        m.new_id = proxy->id;
+        pinos_proxy_send_message (this->registry_proxy,
+                                  PINOS_MESSAGE_BIND,
+                                  &m,
+                                  true);
+      }
       break;
     }
     case PINOS_MESSAGE_NOTIFY_GLOBAL_REMOVE:
     {
       PinosMessageNotifyGlobalRemove *ng = message;
       pinos_log_debug ("got global remove %u", ng->id);
+
+      if (impl->subscribe_func) {
+        impl->subscribe_func (this,
+                              PINOS_SUBSCRIPTION_EVENT_REMOVE,
+                              SPA_ID_INVALID,
+                              ng->id,
+                              impl->subscribe_data);
+      }
       break;
     }
     default:
@@ -144,19 +323,6 @@ registry_dispatch_func (void             *object,
       break;
   }
   return SPA_RESULT_OK;
-}
-
-static PinosProxy *
-find_proxy (PinosContext *context,
-            uint32_t      id)
-{
-  PinosProxy *p;
-
-  spa_list_for_each (p, &context->proxy_list, link) {
-    if (p->id == id)
-      return p;
-  }
-  return NULL;
 }
 
 static void
@@ -190,9 +356,13 @@ on_context_data (SpaSource *source,
         continue;
       }
 
-      proxy = find_proxy (this, id);
+      proxy = pinos_map_lookup (&this->objects, id);
       if (proxy == NULL) {
         pinos_log_error ("context %p: could not find proxy %u", this, id);
+        continue;
+      }
+      if (proxy->dispatch_func == NULL) {
+        pinos_log_error ("context %p: no dispatch function for proxy %u", this, id);
         continue;
       }
 
@@ -249,6 +419,8 @@ pinos_context_new (PinosLoop       *loop,
     properties = pinos_properties_new ("application.name", name, NULL);
   pinos_fill_context_properties (properties);
   this->properties = properties;
+
+  pinos_uri_init (&this->uri);
 
   this->loop = loop;
 
@@ -365,15 +537,15 @@ pinos_context_connect (PinosContext      *context)
 
   context->core_proxy = pinos_proxy_new (context,
                                          SPA_ID_INVALID,
-                                         0);
+                                         context->uri.core);
   context->core_proxy->dispatch_func = core_dispatch_func;
-  context->core_proxy->dispatch_data = context;
+  context->core_proxy->dispatch_data = impl;
 
   context->registry_proxy = pinos_proxy_new (context,
                                              SPA_ID_INVALID,
-                                             0);
+                                             context->uri.registry);
   context->registry_proxy->dispatch_func = registry_dispatch_func;
-  context->registry_proxy->dispatch_data = context;
+  context->registry_proxy->dispatch_data = impl;
 
   grm.seq = 0;
   grm.new_id = context->registry_proxy->id;
@@ -409,23 +581,84 @@ pinos_context_disconnect (PinosContext *context)
 
 void
 pinos_context_subscribe (PinosContext           *context,
-                         PinosSubscriptionFlags  mask,
                          PinosSubscriptionFunc   func,
                          void                   *data)
 {
   PinosContextImpl *impl = SPA_CONTAINER_OF (context, PinosContextImpl, this);
 
-  impl->subscribe_mask = mask;
   impl->subscribe_func = func;
   impl->subscribe_data = data;
 }
 
 void
-pinos_context_get_daemon_info (PinosContext            *context,
-                               PinosDaemonInfoCallback  cb,
-                               void                    *user_data)
+pinos_context_get_core_info (PinosContext            *context,
+                             PinosCoreInfoCallback    cb,
+                             void                    *user_data)
 {
-  cb (context, SPA_RESULT_OK, NULL, user_data);
+  PinosProxy *proxy;
+
+  proxy = pinos_map_lookup (&context->objects, 0);
+  if (proxy == NULL) {
+    cb (context, SPA_RESULT_INVALID_OBJECT_ID, NULL, user_data);
+  } else if (proxy->type == context->uri.core && proxy->user_data) {
+    PinosCoreInfo *info = proxy->user_data;
+    cb (context, SPA_RESULT_OK, info, user_data);
+    info->change_mask = 0;
+  }
+  cb (context, SPA_RESULT_ENUM_END, NULL, user_data);
+}
+
+typedef void (*ListFunc) (PinosContext *, SpaResult, void *, void *);
+
+static void
+do_list (PinosContext            *context,
+         uint32_t                 type,
+         ListFunc                 cb,
+         void                    *user_data)
+{
+  PinosMapItem *item;
+
+  pinos_array_for_each (item, &context->objects.items) {
+    PinosProxy *proxy;
+
+    if (pinos_map_item_is_free (item))
+      continue;
+
+    proxy = item->data;
+    if (proxy->type != type)
+      continue;
+
+    cb (context, SPA_RESULT_OK, proxy->user_data, user_data);
+  }
+  cb (context, SPA_RESULT_ENUM_END, NULL, user_data);
+}
+
+
+void
+pinos_context_list_module_info (PinosContext            *context,
+                                PinosModuleInfoCallback  cb,
+                                void                    *user_data)
+{
+  do_list (context, context->uri.module, (ListFunc) cb, user_data);
+}
+
+void
+pinos_context_get_module_info_by_id (PinosContext            *context,
+                                     uint32_t                 id,
+                                     PinosModuleInfoCallback  cb,
+                                     void                    *user_data)
+{
+  PinosProxy *proxy;
+
+  proxy = pinos_map_lookup (&context->objects, id);
+  if (proxy == NULL) {
+    cb (context, SPA_RESULT_INVALID_OBJECT_ID, NULL, user_data);
+  } else if (proxy->type == context->uri.module && proxy->user_data) {
+    PinosModuleInfo *info = proxy->user_data;
+    cb (context, SPA_RESULT_OK, info, user_data);
+    info->change_mask = 0;
+  }
+  cb (context, SPA_RESULT_ENUM_END, NULL, user_data);
 }
 
 void
@@ -433,7 +666,7 @@ pinos_context_list_client_info (PinosContext            *context,
                                 PinosClientInfoCallback  cb,
                                 void                    *user_data)
 {
-  cb (context, SPA_RESULT_OK, NULL, user_data);
+  do_list (context, context->uri.client, (ListFunc) cb, user_data);
 }
 
 void
@@ -442,7 +675,17 @@ pinos_context_get_client_info_by_id (PinosContext            *context,
                                      PinosClientInfoCallback  cb,
                                      void                    *user_data)
 {
-  cb (context, SPA_RESULT_OK, NULL, user_data);
+  PinosProxy *proxy;
+
+  proxy = pinos_map_lookup (&context->objects, id);
+  if (proxy == NULL) {
+    cb (context, SPA_RESULT_INVALID_OBJECT_ID, NULL, user_data);
+  } else if (proxy->type == context->uri.client && proxy->user_data) {
+    PinosClientInfo *info = proxy->user_data;
+    cb (context, SPA_RESULT_OK, info, user_data);
+    info->change_mask = 0;
+  }
+  cb (context, SPA_RESULT_ENUM_END, NULL, user_data);
 }
 
 void
@@ -450,7 +693,7 @@ pinos_context_list_node_info (PinosContext          *context,
                               PinosNodeInfoCallback  cb,
                               void                  *user_data)
 {
-  cb (context, SPA_RESULT_OK, NULL, user_data);
+  do_list (context, context->uri.node, (ListFunc) cb, user_data);
 }
 
 void
@@ -459,7 +702,17 @@ pinos_context_get_node_info_by_id (PinosContext          *context,
                                    PinosNodeInfoCallback  cb,
                                    void                  *user_data)
 {
-  cb (context, SPA_RESULT_OK, NULL, user_data);
+  PinosProxy *proxy;
+
+  proxy = pinos_map_lookup (&context->objects, id);
+  if (proxy == NULL) {
+    cb (context, SPA_RESULT_INVALID_OBJECT_ID, NULL, user_data);
+  } else if (proxy->type == context->uri.node && proxy->user_data) {
+    PinosNodeInfo *info = proxy->user_data;
+    cb (context, SPA_RESULT_OK, info, user_data);
+    info->change_mask = 0;
+  }
+  cb (context, SPA_RESULT_ENUM_END, NULL, user_data);
 }
 
 void
@@ -467,7 +720,7 @@ pinos_context_list_link_info (PinosContext          *context,
                               PinosLinkInfoCallback  cb,
                               void                  *user_data)
 {
-  cb (context, SPA_RESULT_OK, NULL, user_data);
+  do_list (context, context->uri.link, (ListFunc) cb, user_data);
 }
 
 void
@@ -476,5 +729,15 @@ pinos_context_get_link_info_by_id (PinosContext          *context,
                                    PinosLinkInfoCallback  cb,
                                    void                  *user_data)
 {
-  cb (context, SPA_RESULT_OK, NULL, user_data);
+  PinosProxy *proxy;
+
+  proxy = pinos_map_lookup (&context->objects, id);
+  if (proxy == NULL) {
+    cb (context, SPA_RESULT_INVALID_OBJECT_ID, NULL, user_data);
+  } else if (proxy->type == context->uri.link && proxy->user_data) {
+    PinosLinkInfo *info = proxy->user_data;
+    cb (context, SPA_RESULT_OK, info, user_data);
+    info->change_mask = 0;
+  }
+  cb (context, SPA_RESULT_ENUM_END, NULL, user_data);
 }

@@ -26,6 +26,10 @@ extern "C" {
 
 typedef struct _PinosProperties PinosProperties;
 
+struct _PinosProperties {
+  SpaDict dict;
+};
+
 PinosProperties * pinos_properties_new      (const char *key, ...);
 PinosProperties * pinos_properties_copy     (PinosProperties *properties);
 PinosProperties * pinos_properties_merge    (PinosProperties *oldprops,

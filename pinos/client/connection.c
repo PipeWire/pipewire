@@ -127,6 +127,99 @@ connection_parse_create_client_node (PinosConnection *conn, PinosMessageCreateCl
 }
 
 static void
+connection_parse_core_info (PinosConnection *conn, PinosMessageCoreInfo *m)
+{
+  void *p;
+  PinosCoreInfo *di;
+
+  p = conn->in.data;
+  memcpy (m, p, sizeof (PinosMessageCoreInfo));
+  if (m->info) {
+    m->info = SPA_MEMBER (p, SPA_PTR_TO_INT (m->info), PinosCoreInfo);
+    di = m->info;
+
+    if (m->info->user_name)
+      m->info->user_name = SPA_MEMBER (di, SPA_PTR_TO_INT (m->info->user_name), const char);
+    if (m->info->host_name)
+      m->info->host_name = SPA_MEMBER (di, SPA_PTR_TO_INT (m->info->host_name), const char);
+    if (m->info->version)
+      m->info->version = SPA_MEMBER (di, SPA_PTR_TO_INT (m->info->version), const char);
+    if (m->info->name)
+      m->info->name = SPA_MEMBER (di, SPA_PTR_TO_INT (m->info->name), const char);
+    if (m->info->props)
+      m->info->props = pinos_serialize_dict_deserialize (di, SPA_PTR_TO_INT (m->info->props));
+  }
+}
+
+static void
+connection_parse_module_info (PinosConnection *conn, PinosMessageModuleInfo *m)
+{
+  void *p;
+  PinosModuleInfo *di;
+
+  p = conn->in.data;
+  memcpy (m, p, sizeof (PinosMessageModuleInfo));
+  if (m->info) {
+    m->info = SPA_MEMBER (p, SPA_PTR_TO_INT (m->info), PinosModuleInfo);
+    di = m->info;
+    if (m->info->name)
+      m->info->name = SPA_MEMBER (di, SPA_PTR_TO_INT (m->info->name), const char);
+    if (m->info->filename)
+      m->info->filename = SPA_MEMBER (di, SPA_PTR_TO_INT (m->info->filename), const char);
+    if (m->info->args)
+      m->info->args = SPA_MEMBER (di, SPA_PTR_TO_INT (m->info->args), const char);
+    if (m->info->props)
+      m->info->props = pinos_serialize_dict_deserialize (di, SPA_PTR_TO_INT (m->info->props));
+  }
+}
+
+static void
+connection_parse_node_info (PinosConnection *conn, PinosMessageNodeInfo *m)
+{
+  void *p;
+  PinosNodeInfo *di;
+
+  p = conn->in.data;
+  memcpy (m, p, sizeof (PinosMessageNodeInfo));
+  if (m->info) {
+    m->info = SPA_MEMBER (p, SPA_PTR_TO_INT (m->info), PinosNodeInfo);
+    di = m->info;
+
+    if (m->info->name)
+      m->info->name = SPA_MEMBER (di, SPA_PTR_TO_INT (m->info->name), const char);
+    if (m->info->props)
+      m->info->props = pinos_serialize_dict_deserialize (di, SPA_PTR_TO_INT (m->info->props));
+  }
+}
+
+static void
+connection_parse_client_info (PinosConnection *conn, PinosMessageClientInfo *m)
+{
+  void *p;
+  PinosClientInfo *di;
+
+  p = conn->in.data;
+  memcpy (m, p, sizeof (PinosMessageClientInfo));
+  if (m->info) {
+    m->info = SPA_MEMBER (p, SPA_PTR_TO_INT (m->info), PinosClientInfo);
+    di = m->info;
+    if (m->info->props)
+      m->info->props = pinos_serialize_dict_deserialize (di, SPA_PTR_TO_INT (m->info->props));
+  }
+}
+
+static void
+connection_parse_link_info (PinosConnection *conn, PinosMessageLinkInfo *m)
+{
+  void *p;
+
+  p = conn->in.data;
+  memcpy (m, p, sizeof (PinosMessageLinkInfo));
+  if (m->info)
+    m->info = SPA_MEMBER (p, SPA_PTR_TO_INT (m->info), PinosLinkInfo);
+}
+
+static void
 connection_parse_node_update (PinosConnection *conn, PinosMessageNodeUpdate *nu)
 {
   memcpy (nu, conn->in.data, sizeof (PinosMessageNodeUpdate));
@@ -297,8 +390,6 @@ connection_add_create_node (PinosConnection *conn, uint32_t dest_id, PinosMessag
   if (m->props) {
     len = pinos_serialize_dict_serialize (p, m->props);
     d->props = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
-  } else {
-    d->props = 0;
   }
 }
 
@@ -328,8 +419,223 @@ connection_add_create_client_node (PinosConnection *conn, uint32_t dest_id, Pino
   if (m->props) {
     len = pinos_serialize_dict_serialize (p, m->props);
     d->props = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
-  } else {
-    d->props = 0;
+  }
+}
+
+static void
+connection_add_core_info (PinosConnection *conn, uint32_t dest_id, PinosMessageCoreInfo *m)
+{
+  size_t len, slen;
+  void *p;
+  PinosMessageCoreInfo *d;
+
+  /* calc len */
+  len = sizeof (PinosMessageCoreInfo);
+  if (m->info) {
+    len += sizeof (PinosCoreInfo);
+    len += m->info->user_name ? strlen (m->info->user_name) + 1 : 0;
+    len += m->info->host_name ? strlen (m->info->host_name) + 1 : 0;
+    len += m->info->version ? strlen (m->info->version) + 1 : 0;
+    len += m->info->name ? strlen (m->info->name) + 1 : 0;
+    len += pinos_serialize_dict_get_size (m->info->props);
+  }
+
+  p = connection_add_message (conn, dest_id, PINOS_MESSAGE_CORE_INFO, len);
+  memcpy (p, m, sizeof (PinosMessageCoreInfo));
+  d = p;
+
+  p = SPA_MEMBER (d, sizeof (PinosMessageCoreInfo), void);
+  if (m->info) {
+    PinosCoreInfo *di;
+
+    memcpy (p, m->info, sizeof (PinosCoreInfo));
+    di = p;
+
+    d->info = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
+
+    p = SPA_MEMBER (p, sizeof (PinosCoreInfo), void);
+    if (m->info->user_name) {
+      slen = strlen (m->info->user_name) + 1;
+      memcpy (p, m->info->user_name, slen);
+      di->user_name = SPA_INT_TO_PTR (SPA_PTRDIFF (p, di));
+      p += slen;
+    }
+    if (m->info->host_name) {
+      slen = strlen (m->info->host_name) + 1;
+      memcpy (p, m->info->host_name, slen);
+      di->host_name = SPA_INT_TO_PTR (SPA_PTRDIFF (p, di));
+      p += slen;
+    }
+    if (m->info->version) {
+      slen = strlen (m->info->version) + 1;
+      memcpy (p, m->info->version, slen);
+      di->version = SPA_INT_TO_PTR (SPA_PTRDIFF (p, di));
+      p += slen;
+    }
+    if (m->info->name) {
+      slen = strlen (m->info->name) + 1;
+      memcpy (p, m->info->name, slen);
+      di->name = SPA_INT_TO_PTR (SPA_PTRDIFF (p, di));
+      p += slen;
+    }
+    if (m->info->props) {
+      len = pinos_serialize_dict_serialize (p, m->info->props);
+      di->props = SPA_INT_TO_PTR (SPA_PTRDIFF (p, di));
+    }
+  }
+}
+
+static void
+connection_add_module_info (PinosConnection *conn, uint32_t dest_id, PinosMessageModuleInfo *m)
+{
+  size_t len, slen;
+  void *p;
+  PinosMessageModuleInfo *d;
+
+  /* calc len */
+  len = sizeof (PinosMessageModuleInfo);
+  if (m->info) {
+    len += sizeof (PinosModuleInfo);
+    len += m->info->name ? strlen (m->info->name) + 1 : 0;
+    len += m->info->filename ? strlen (m->info->filename) + 1 : 0;
+    len += m->info->args ? strlen (m->info->args) + 1 : 0;
+    len += pinos_serialize_dict_get_size (m->info->props);
+  }
+
+  p = connection_add_message (conn, dest_id, PINOS_MESSAGE_MODULE_INFO, len);
+  memcpy (p, m, sizeof (PinosMessageModuleInfo));
+  d = p;
+
+  p = SPA_MEMBER (d, sizeof (PinosMessageModuleInfo), void);
+  if (m->info) {
+    PinosModuleInfo *di;
+
+    memcpy (p, m->info, sizeof (PinosModuleInfo));
+    d->info = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
+    di = p;
+
+    p = SPA_MEMBER (p, sizeof (PinosModuleInfo), void);
+    if (m->info->name) {
+      slen = strlen (m->info->name) + 1;
+      memcpy (p, m->info->name, slen);
+      di->name = SPA_INT_TO_PTR (SPA_PTRDIFF (p, di));
+      p += slen;
+    }
+    if (m->info->filename) {
+      slen = strlen (m->info->filename) + 1;
+      memcpy (p, m->info->filename, slen);
+      di->filename = SPA_INT_TO_PTR (SPA_PTRDIFF (p, di));
+      p += slen;
+    }
+    if (m->info->args) {
+      slen = strlen (m->info->args) + 1;
+      memcpy (p, m->info->args, slen);
+      di->args = SPA_INT_TO_PTR (SPA_PTRDIFF (p, di));
+      p += slen;
+    }
+    if (m->info->props) {
+      len = pinos_serialize_dict_serialize (p, m->info->props);
+      di->props = SPA_INT_TO_PTR (SPA_PTRDIFF (p, di));
+    }
+  }
+}
+
+static void
+connection_add_node_info (PinosConnection *conn, uint32_t dest_id, PinosMessageNodeInfo *m)
+{
+  size_t len, slen;
+  void *p;
+  PinosMessageNodeInfo *d;
+
+  /* calc len */
+  len = sizeof (PinosMessageNodeInfo);
+  if (m->info) {
+    len += sizeof (PinosNodeInfo);
+    len += m->info->name ? strlen (m->info->name) + 1 : 0;
+    len += pinos_serialize_dict_get_size (m->info->props);
+  }
+
+  p = connection_add_message (conn, dest_id, PINOS_MESSAGE_NODE_INFO, len);
+  memcpy (p, m, sizeof (PinosMessageNodeInfo));
+  d = p;
+
+  p = SPA_MEMBER (d, sizeof (PinosMessageNodeInfo), void);
+  if (m->info) {
+    PinosNodeInfo *di;
+
+    memcpy (p, m->info, sizeof (PinosNodeInfo));
+    d->info = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
+    di = p;
+
+    p = SPA_MEMBER (p, sizeof (PinosNodeInfo), void);
+    if (m->info->name) {
+      slen = strlen (m->info->name) + 1;
+      memcpy (p, m->info->name, slen);
+      di->name = SPA_INT_TO_PTR (SPA_PTRDIFF (p, di));
+      p += slen;
+    }
+    if (m->info->props) {
+      len = pinos_serialize_dict_serialize (p, m->info->props);
+      di->props = SPA_INT_TO_PTR (SPA_PTRDIFF (p, di));
+    }
+  }
+}
+
+static void
+connection_add_client_info (PinosConnection *conn, uint32_t dest_id, PinosMessageClientInfo *m)
+{
+  size_t len;
+  void *p;
+  PinosMessageClientInfo *d;
+
+  /* calc len */
+  len = sizeof (PinosMessageClientInfo);
+  if (m->info) {
+    len += sizeof (PinosClientInfo);
+    len += pinos_serialize_dict_get_size (m->info->props);
+  }
+
+  p = connection_add_message (conn, dest_id, PINOS_MESSAGE_CLIENT_INFO, len);
+  memcpy (p, m, sizeof (PinosMessageClientInfo));
+  d = p;
+
+  p = SPA_MEMBER (d, sizeof (PinosMessageClientInfo), void);
+  if (m->info) {
+    PinosClientInfo *di;
+
+    memcpy (p, m->info, sizeof (PinosClientInfo));
+    d->info = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
+    di = p;
+
+    p = SPA_MEMBER (p, sizeof (PinosClientInfo), void);
+    if (m->info->props) {
+      len = pinos_serialize_dict_serialize (p, m->info->props);
+      di->props = SPA_INT_TO_PTR (SPA_PTRDIFF (p, di));
+    }
+  }
+}
+
+static void
+connection_add_link_info (PinosConnection *conn, uint32_t dest_id, PinosMessageLinkInfo *m)
+{
+  size_t len;
+  void *p;
+  PinosMessageLinkInfo *d;
+
+  /* calc len */
+  len = sizeof (PinosMessageLinkInfo);
+  if (m->info) {
+    len += sizeof (PinosLinkInfo);
+  }
+
+  p = connection_add_message (conn, dest_id, PINOS_MESSAGE_LINK_INFO, len);
+  memcpy (p, m, sizeof (PinosMessageLinkInfo));
+  d = p;
+
+  p = SPA_MEMBER (d, sizeof (PinosMessageLinkInfo), void);
+  if (m->info) {
+    memcpy (p, m->info, sizeof (PinosLinkInfo));
+    d->info = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
   }
 }
 
@@ -761,10 +1067,30 @@ pinos_connection_parse_message (PinosConnection *conn,
       memcpy (message, conn->in.data, sizeof (PinosMessageDestroy));
       break;
 
-    case PINOS_MESSAGE_DESTROY_DONE:
-      if (conn->in.size < sizeof (PinosMessageDestroyDone))
+    case PINOS_MESSAGE_REMOVE_ID:
+      if (conn->in.size < sizeof (PinosMessageRemoveId))
         return false;
-      memcpy (message, conn->in.data, sizeof (PinosMessageDestroyDone));
+      memcpy (message, conn->in.data, sizeof (PinosMessageRemoveId));
+      break;
+
+    case PINOS_MESSAGE_CORE_INFO:
+      connection_parse_core_info (conn, message);
+      break;
+
+    case PINOS_MESSAGE_MODULE_INFO:
+      connection_parse_module_info (conn, message);
+      break;
+
+    case PINOS_MESSAGE_NODE_INFO:
+      connection_parse_node_info (conn, message);
+      break;
+
+    case PINOS_MESSAGE_CLIENT_INFO:
+      connection_parse_client_info (conn, message);
+      break;
+
+    case PINOS_MESSAGE_LINK_INFO:
+      connection_parse_link_info (conn, message);
       break;
 
     /* C -> S */
@@ -927,11 +1253,30 @@ pinos_connection_add_message (PinosConnection  *conn,
       memcpy (p, message, sizeof (PinosMessageDestroy));
       break;
 
-    case PINOS_MESSAGE_DESTROY_DONE:
-      p = connection_add_message (conn, dest_id, type, sizeof (PinosMessageDestroyDone));
-      memcpy (p, message, sizeof (PinosMessageDestroyDone));
+    case PINOS_MESSAGE_REMOVE_ID:
+      p = connection_add_message (conn, dest_id, type, sizeof (PinosMessageRemoveId));
+      memcpy (p, message, sizeof (PinosMessageRemoveId));
       break;
 
+    case PINOS_MESSAGE_CORE_INFO:
+      connection_add_core_info (conn, dest_id, message);
+      break;
+
+    case PINOS_MESSAGE_MODULE_INFO:
+      connection_add_module_info (conn, dest_id, message);
+      break;
+
+    case PINOS_MESSAGE_NODE_INFO:
+      connection_add_node_info (conn, dest_id, message);
+      break;
+
+    case PINOS_MESSAGE_CLIENT_INFO:
+      connection_add_client_info (conn, dest_id, message);
+      break;
+
+    case PINOS_MESSAGE_LINK_INFO:
+      connection_add_link_info (conn, dest_id, message);
+      break;
 
     /* C -> S */
     case PINOS_MESSAGE_NODE_UPDATE:

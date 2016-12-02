@@ -27,16 +27,16 @@ extern "C" {
 
 #include <pinos/server/core.h>
 
-#define PINOS_MODULE_URI                            "http://pinos.org/ns/module"
-#define PINOS_MODULE_PREFIX                         PINOS_MODULE_URI "#"
-
 typedef struct _PinosModule PinosModule;
 
 struct _PinosModule {
   PinosCore *core;
   SpaList    link;
+  PinosGlobal *global;
 
   char *name;
+  char *filename;
+  char *args;
 
   PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
                                  PinosModule   *module));

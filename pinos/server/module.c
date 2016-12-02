@@ -90,6 +90,59 @@ find_module (const char * path, const char *name)
   return filename;
 }
 
+static SpaResult
+module_dispatch_func (void             *object,
+                      PinosMessageType  type,
+                      void             *message,
+                      void             *data)
+{
+  PinosResource *resource = object;
+  PinosModule *module = resource->object;
+
+  switch (type) {
+    default:
+      pinos_log_warn ("module %p: unhandled message %d", module, type);
+      break;
+  }
+  return SPA_RESULT_OK;
+}
+
+static void
+module_bind_func (PinosGlobal *global,
+                  PinosClient *client,
+                  uint32_t     version,
+                  uint32_t     id)
+{
+  PinosModule *this = global->object;
+  PinosResource *resource;
+  PinosMessageModuleInfo m;
+  PinosModuleInfo info;
+
+  resource = pinos_resource_new (client,
+                                 id,
+                                 global->core->uri.module,
+                                 global->object,
+                                 NULL);
+
+  resource->dispatch_func = module_dispatch_func;
+  resource->dispatch_data = global;
+
+  pinos_log_debug ("module %p: bound to %d", global->object, resource->id);
+
+  m.info = &info;
+  info.id = resource->id;
+  info.change_mask = ~0;
+  info.name = this->name;
+  info.filename = this->filename;
+  info.args = this->args;
+  info.props = NULL;
+
+  pinos_resource_send_message (resource,
+                               PINOS_MESSAGE_MODULE_INFO,
+                               &m,
+                               true);
+}
+
 /**
  * pinos_module_load:
  * @core: a #PinosCore
@@ -140,7 +193,6 @@ pinos_module_load (PinosCore    *core,
   pinos_log_debug ("trying to load module: %s (%s)", name, filename);
 
   hnd = dlopen (filename, RTLD_NOW | RTLD_LOCAL);
-  free (filename);
 
   if (hnd == NULL)
     goto open_failed;
@@ -152,13 +204,21 @@ pinos_module_load (PinosCore    *core,
   impl->hnd = hnd;
 
   this = &impl->this;
-  this->name = strdup (name);
+  this->name = name ? strdup (name) : NULL;
+  this->filename = filename;
+  this->args = args ? strdup (args) : NULL;
   this->core = core;
 
   if (!init_func (this, (char *) args))
     goto init_failed;
 
   pinos_log_debug ("loaded module: %s", this->name);
+
+  this->global = pinos_core_add_global (core,
+                                        core->uri.module,
+                                        0,
+                                        impl,
+                                        module_bind_func);
 
   return this;
 
@@ -170,12 +230,14 @@ not_found:
 open_failed:
   {
     asprintf (err, "Failed to open module: %s", dlerror ());
+    free (filename);
     return NULL;
   }
 no_pinos_module:
   {
     asprintf (err, "\"%s\" is not a pinos module", name);
     dlclose (hnd);
+    free (filename);
     return NULL;
   }
 init_failed:
@@ -193,7 +255,12 @@ pinos_module_destroy (PinosModule *this)
 
   pinos_signal_emit (&this->destroy_signal, this);
 
-  free (this->name);
+  if (this->name)
+    free (this->name);
+  if (this->filename)
+    free (this->filename);
+  if (this->args)
+    free (this->args);
   dlclose (impl->hnd);
   free (impl);
 }

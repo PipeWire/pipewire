@@ -38,6 +38,8 @@ typedef enum {
   PINOS_MESSAGE_SYNC,
   PINOS_MESSAGE_NOTIFY_DONE,
   PINOS_MESSAGE_GET_REGISTRY,
+  PINOS_MESSAGE_REMOVE_ID,
+  PINOS_MESSAGE_CORE_INFO,
 
   PINOS_MESSAGE_BIND,
   PINOS_MESSAGE_NOTIFY_GLOBAL,
@@ -50,7 +52,11 @@ typedef enum {
   PINOS_MESSAGE_CREATE_CLIENT_NODE_DONE,
 
   PINOS_MESSAGE_DESTROY,
-  PINOS_MESSAGE_DESTROY_DONE,
+
+  PINOS_MESSAGE_MODULE_INFO,
+  PINOS_MESSAGE_NODE_INFO,
+  PINOS_MESSAGE_CLIENT_INFO,
+  PINOS_MESSAGE_LINK_INFO,
 
   /* client to server */
   PINOS_MESSAGE_NODE_UPDATE,
@@ -78,6 +84,8 @@ typedef enum {
 
 } PinosMessageType;
 
+#include <pinos/client/introspect.h>
+
 /* PINOS_MESSAGE_SYNC */
 typedef struct {
   uint32_t     seq;
@@ -93,6 +101,36 @@ typedef struct {
   uint32_t     seq;
   uint32_t     new_id;
 } PinosMessageGetRegistry;
+
+/* PINOS_MESSAGE_REMOVE_ID */
+typedef struct {
+  uint32_t     id;
+} PinosMessageRemoveId;
+
+/* PINOS_MESSAGE_CORE_INFO */
+typedef struct {
+  PinosCoreInfo *info;
+} PinosMessageCoreInfo;
+
+/* PINOS_MESSAGE_MODULE_INFO */
+typedef struct {
+  PinosModuleInfo *info;
+} PinosMessageModuleInfo;
+
+/* PINOS_MESSAGE_NODE_INFO */
+typedef struct {
+  PinosNodeInfo *info;
+} PinosMessageNodeInfo;
+
+/* PINOS_MESSAGE_CLIENT_INFO */
+typedef struct {
+  PinosClientInfo *info;
+} PinosMessageClientInfo;
+
+/* PINOS_MESSAGE_LINK_INFO */
+typedef struct {
+  PinosLinkInfo *info;
+} PinosMessageLinkInfo;
 
 /* PINOS_MESSAGE_BIND */
 typedef struct {
@@ -144,12 +182,6 @@ typedef struct {
   uint32_t     seq;
   uint32_t     id;
 } PinosMessageDestroy;
-
-/* PINOS_MESSAGE_DESTROY_DONE */
-typedef struct {
-  uint32_t     seq;
-  uint32_t     id;
-} PinosMessageDestroyDone;
 
 /*  PINOS_MESSAGE_NODE_UPDATE */
 typedef struct {

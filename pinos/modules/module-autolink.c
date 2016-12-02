@@ -29,14 +29,12 @@
 typedef struct {
   PinosCore       *core;
   PinosProperties *properties;
-  PinosGlobal     *global;
 
   PinosListener global_added;
   PinosListener global_removed;
   PinosListener port_added;
   PinosListener port_removed;
   PinosListener port_unlinked;
-  PinosListener node_state_changed;
   PinosListener link_state_changed;
 } ModuleImpl;
 
@@ -185,22 +183,6 @@ on_node_created (PinosNode       *node,
 }
 
 static void
-on_node_state_changed (PinosListener  *listener,
-                       PinosNode      *node,
-                       PinosNodeState  old,
-                       PinosNodeState  state)
-{
-  ModuleImpl *impl = SPA_CONTAINER_OF (listener, ModuleImpl, node_state_changed);
-
-  pinos_log_debug ("module %p: node %p state change %s -> %s", impl, node,
-                        pinos_node_state_as_string (old),
-                        pinos_node_state_as_string (state));
-
-  if (old == PINOS_NODE_STATE_CREATING && state == PINOS_NODE_STATE_SUSPENDED)
-    on_node_created (node, impl);
-}
-
-static void
 on_node_added (ModuleImpl *impl, PinosNode *node)
 {
   pinos_log_debug ("module %p: node %p added", impl, node);
@@ -264,15 +246,11 @@ module_new (PinosCore       *core,
 
   pinos_signal_add (&core->global_added, &impl->global_added, on_global_added);
   pinos_signal_add (&core->global_removed, &impl->global_removed, on_global_removed);
-  pinos_signal_add (&core->node_state_changed, &impl->node_state_changed, on_node_state_changed);
   pinos_signal_add (&core->port_added, &impl->port_added, on_port_added);
   pinos_signal_add (&core->port_removed, &impl->port_removed, on_port_removed);
   pinos_signal_add (&core->port_unlinked, &impl->port_unlinked, on_link_port_unlinked);
   pinos_signal_add (&core->link_state_changed, &impl->link_state_changed, on_link_state_changed);
 
-  impl->global = pinos_core_add_global (core,
-                                        core->uri.module,
-                                        impl);
   return impl;
 }
 
@@ -286,7 +264,6 @@ module_destroy (ModuleImpl *impl)
 
   pinos_signal_remove (&impl->global_added);
   pinos_signal_remove (&impl->global_removed);
-  pinos_signal_remove (&impl->node_state_changed);
   pinos_signal_remove (&impl->port_added);
   pinos_signal_remove (&impl->port_removed);
   pinos_signal_remove (&impl->port_unlinked);

@@ -21,37 +21,40 @@
 #include "pinos/client/properties.h"
 
 typedef struct {
-  char *key;
-  char *value;
-} PropItem;
+  PinosProperties this;
 
-struct _PinosProperties {
   PinosArray items;
-};
+} PinosPropertiesImpl;
 
 static void
-add_func (PinosProperties *props, char *key, char *value)
+add_func (PinosProperties *this, char *key, char *value)
 {
-  PropItem *item;
-  item = pinos_array_add (&props->items, sizeof (PropItem));
+  SpaDictItem *item;
+  PinosPropertiesImpl *impl = SPA_CONTAINER_OF (this, PinosPropertiesImpl, this);
+
+  item = pinos_array_add (&impl->items, sizeof (SpaDictItem));
   item->key = key;
   item->value = value;
+
+  this->dict.items = impl->items.data;
+  this->dict.n_items = pinos_array_get_len (&impl->items, SpaDictItem);
 }
 
 static void
-clear_item (PropItem *item)
+clear_item (SpaDictItem *item)
 {
-  free (item->key);
-  free (item->value);
+  free ((char*)item->key);
+  free ((char*)item->value);
 }
 
 static int
-find_index (PinosProperties *props, const char *key)
+find_index (PinosProperties *this, const char *key)
 {
-  int i, len = pinos_array_get_len (&props->items, PropItem);
+  PinosPropertiesImpl *impl = SPA_CONTAINER_OF (this, PinosPropertiesImpl, this);
+  int i, len = pinos_array_get_len (&impl->items, SpaDictItem);
 
   for (i = 0; i < len; i++) {
-    PropItem *item = pinos_array_get_unchecked (&props->items, i, PropItem);
+    SpaDictItem *item = pinos_array_get_unchecked (&impl->items, i, SpaDictItem);
     if (strcmp (item->key, key) == 0)
       return i;
   }
@@ -70,22 +73,22 @@ find_index (PinosProperties *props, const char *key)
 PinosProperties *
 pinos_properties_new (const char *key, ...)
 {
-  PinosProperties *props;
+  PinosPropertiesImpl *impl;
   va_list varargs;
   const char *value;
 
-  props = calloc (1, sizeof (PinosProperties));
-  pinos_array_init (&props->items);
+  impl = calloc (1, sizeof (PinosPropertiesImpl));
+  pinos_array_init (&impl->items);
 
   va_start (varargs, key);
   while (key != NULL) {
     value = va_arg (varargs, char *);
-    add_func (props, strdup (key), strdup (value));
+    add_func (&impl->this, strdup (key), strdup (value));
     key = va_arg (varargs, char *);
   }
   va_end (varargs);
 
-  return props;
+  return &impl->this;
 }
 
 /**
@@ -99,11 +102,12 @@ pinos_properties_new (const char *key, ...)
 PinosProperties *
 pinos_properties_copy (PinosProperties *properties)
 {
+  PinosPropertiesImpl *impl = SPA_CONTAINER_OF (properties, PinosPropertiesImpl, this);
   PinosProperties *copy;
-  PropItem *item;
+  SpaDictItem *item;
 
   copy = pinos_properties_new (NULL, NULL);
-  pinos_array_for_each (item, &properties->items)
+  pinos_array_for_each (item, &impl->items)
     add_func (copy, strdup (item->key), strdup (item->value));
 
   return copy;
@@ -145,13 +149,14 @@ pinos_properties_merge (PinosProperties *oldprops,
 void
 pinos_properties_free (PinosProperties *properties)
 {
-  PropItem *item;
+  PinosPropertiesImpl *impl = SPA_CONTAINER_OF (properties, PinosPropertiesImpl, this);
+  SpaDictItem *item;
 
-  pinos_array_for_each (item, &properties->items)
+  pinos_array_for_each (item, &impl->items)
     clear_item (item);
 
-  pinos_array_clear (&properties->items);
-  free (properties);
+  pinos_array_clear (&impl->items);
+  free (impl);
 }
 
 static void
@@ -159,21 +164,22 @@ do_replace (PinosProperties *properties,
             char            *key,
             char            *value)
 {
+  PinosPropertiesImpl *impl = SPA_CONTAINER_OF (properties, PinosPropertiesImpl, this);
   int index = find_index (properties, key);
 
   if (index == -1) {
     add_func (properties, key, value);
   } else {
-    PropItem *item = pinos_array_get_unchecked (&properties->items, index, PropItem);
+    SpaDictItem *item = pinos_array_get_unchecked (&impl->items, index, SpaDictItem);
 
     clear_item (item);
     if (value == NULL) {
-      PropItem *other = pinos_array_get_unchecked (&properties->items,
-                                                   pinos_array_get_len (&properties->items, PropItem) - 1,
-                                                   PropItem);
+      SpaDictItem *other = pinos_array_get_unchecked (&impl->items,
+                                                   pinos_array_get_len (&impl->items, SpaDictItem) - 1,
+                                                   SpaDictItem);
       item->key = other->key;
       item->value = other->value;
-      properties->items.size -= sizeof (PropItem);
+      impl->items.size -= sizeof (SpaDictItem);
     } else {
       item->key = key;
       item->value = value;
@@ -238,12 +244,13 @@ const char *
 pinos_properties_get (PinosProperties *properties,
                       const char      *key)
 {
+  PinosPropertiesImpl *impl = SPA_CONTAINER_OF (properties, PinosPropertiesImpl, this);
   int index = find_index (properties, key);
 
   if (index == -1)
     return NULL;
 
-  return pinos_array_get_unchecked (&properties->items, index, PropItem)->value;
+  return pinos_array_get_unchecked (&impl->items, index, SpaDictItem)->value;
 }
 
 /**
@@ -264,6 +271,7 @@ const char *
 pinos_properties_iterate (PinosProperties     *properties,
                           void               **state)
 {
+  PinosPropertiesImpl *impl = SPA_CONTAINER_OF (properties, PinosPropertiesImpl, this);
   unsigned int index;
 
   if (*state == NULL)
@@ -271,10 +279,10 @@ pinos_properties_iterate (PinosProperties     *properties,
   else
     index = SPA_PTR_TO_INT (*state);
 
-  if (!pinos_array_check_index (&properties->items, index, PropItem))
+  if (!pinos_array_check_index (&impl->items, index, SpaDictItem))
     return NULL;
 
   *state = SPA_INT_TO_PTR (index + 1);
 
-  return pinos_array_get_unchecked (&properties->items, index, PropItem)->key;
+  return pinos_array_get_unchecked (&impl->items, index, SpaDictItem)->key;
 }

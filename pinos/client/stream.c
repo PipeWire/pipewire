@@ -610,13 +610,18 @@ stream_dispatch_func (void             *object,
     case PINOS_MESSAGE_GET_REGISTRY:
     case PINOS_MESSAGE_BIND:
     case PINOS_MESSAGE_DESTROY:
-    case PINOS_MESSAGE_DESTROY_DONE:
+    case PINOS_MESSAGE_REMOVE_ID:
     case PINOS_MESSAGE_CREATE_NODE:
     case PINOS_MESSAGE_CREATE_CLIENT_NODE:
     case PINOS_MESSAGE_NODE_UPDATE:
     case PINOS_MESSAGE_PORT_UPDATE:
     case PINOS_MESSAGE_PORT_STATUS_CHANGE:
     case PINOS_MESSAGE_NODE_STATE_CHANGE:
+    case PINOS_MESSAGE_CORE_INFO:
+    case PINOS_MESSAGE_MODULE_INFO:
+    case PINOS_MESSAGE_NODE_INFO:
+    case PINOS_MESSAGE_CLIENT_INFO:
+    case PINOS_MESSAGE_LINK_INFO:
       pinos_log_warn ("got unexpected message %d", type);
       break;
 

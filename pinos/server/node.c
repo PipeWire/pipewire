@@ -382,6 +382,68 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
   }
 }
 
+static SpaResult
+node_dispatch_func (void             *object,
+                    PinosMessageType  type,
+                    void             *message,
+                    void             *data)
+{
+  PinosResource *resource = object;
+  PinosNode *node = resource->object;
+
+  switch (type) {
+    default:
+      pinos_log_warn ("node %p: unhandled message %d", node, type);
+      break;
+  }
+  return SPA_RESULT_OK;
+}
+
+
+static void
+node_unbind_func (void *data)
+{
+  PinosResource *resource = data;
+  spa_list_remove (&resource->link);
+}
+
+static void
+node_bind_func (PinosGlobal *global,
+                PinosClient *client,
+                uint32_t     version,
+                uint32_t     id)
+{
+  PinosNode *this = global->object;
+  PinosResource *resource;
+  PinosMessageNodeInfo m;
+  PinosNodeInfo info;
+
+  resource = pinos_resource_new (client,
+                                 id,
+                                 global->core->uri.registry,
+                                 global->object,
+                                 node_unbind_func);
+
+  resource->dispatch_func = node_dispatch_func;
+  resource->dispatch_data = global;
+
+  pinos_log_debug ("node %p: bound to %d", this, resource->id);
+
+  spa_list_insert (this->resource_list.prev, &resource->link);
+
+  m.info = &info;
+  info.id = resource->id;
+  info.change_mask = ~0;
+  info.name = this->name;
+  info.state = this->state;
+  info.props = this->properties ? &this->properties->dict : NULL;
+
+  pinos_resource_send_message (resource,
+                               PINOS_MESSAGE_NODE_INFO,
+                               &m,
+                               true);
+}
+
 static void
 init_complete (PinosNode *this)
 {
@@ -391,7 +453,15 @@ init_complete (PinosNode *this)
   pinos_log_debug ("node %p: init completed", this);
   impl->async_init = false;
 
+  spa_list_insert (this->core->node_list.prev, &this->link);
+
   pinos_node_update_state (this, PINOS_NODE_STATE_SUSPENDED, NULL);
+
+  this->global = pinos_core_add_global (this->core,
+                                        this->core->uri.node,
+                                        0,
+                                        this,
+                                        node_bind_func);
 }
 
 void
@@ -423,6 +493,8 @@ pinos_node_new (PinosCore       *core,
   this->node = node;
   this->clock = clock;
   this->data_loop = core->data_loop;
+
+  spa_list_init (&this->resource_list);
 
   if (spa_node_set_event_callback (this->node, on_node_event, this) < 0)
     pinos_log_warn ("node %p: error setting callback", this);
@@ -459,11 +531,7 @@ pinos_node_new (PinosCore       *core,
                            (PinosDeferFunc) init_complete,
                            NULL);
   }
-  spa_list_insert (core->node_list.prev, &this->link);
 
-  this->global = pinos_core_add_global (core,
-                                        core->uri.node,
-                                        this);
   return this;
 }
 
@@ -724,6 +792,10 @@ pinos_node_update_state (PinosNode      *node,
 
   old = node->state;
   if (old != state) {
+    PinosMessageNodeInfo m;
+    PinosNodeInfo info;
+    PinosResource *resource;
+
     pinos_log_debug ("node %p: update state from %s -> %s", node,
         pinos_node_state_as_string (old),
         pinos_node_state_as_string (state));
@@ -732,6 +804,20 @@ pinos_node_update_state (PinosNode      *node,
       free (node->error);
     node->error = error;
     node->state = state;
+
     pinos_signal_emit (&node->core->node_state_changed, node, old, state);
+
+    spa_zero (info);
+    m.info = &info;
+    info.change_mask = 1 << 1;
+    info.state = node->state;
+
+    spa_list_for_each (resource, &node->resource_list, link) {
+      info.id = resource->id;
+      pinos_resource_send_message (resource,
+                                   PINOS_MESSAGE_NODE_INFO,
+                                   &m,
+                                   true);
+    }
   }
 }

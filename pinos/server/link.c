@@ -668,6 +668,39 @@ pinos_pinos_link_deactivate (PinosLink *this)
   return true;
 }
 
+static SpaResult
+link_dispatch_func (void             *object,
+                    PinosMessageType  type,
+                    void             *message,
+                    void             *data)
+{
+  switch (type) {
+    default:
+      break;
+  }
+  return SPA_RESULT_OK;
+}
+
+static void
+link_bind_func (PinosGlobal *global,
+                PinosClient *client,
+                uint32_t     version,
+                uint32_t     id)
+{
+  PinosResource *resource;
+
+  resource = pinos_resource_new (client,
+                                 id,
+                                 global->core->uri.link,
+                                 global->object,
+                                 NULL);
+
+  resource->dispatch_func = link_dispatch_func;
+  resource->dispatch_data = client;
+
+  pinos_log_debug ("link %p: bound to %d", global->object, resource->id);
+}
+
 PinosLink *
 pinos_link_new (PinosCore       *core,
                 PinosPort       *output,
@@ -717,7 +750,9 @@ pinos_link_new (PinosCore       *core,
 
   this->global = pinos_core_add_global (core,
                                         core->uri.link,
-                                        this);
+                                        0,
+                                        this,
+                                        link_bind_func);
   return this;
 }
 

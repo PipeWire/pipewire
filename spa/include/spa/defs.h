@@ -65,6 +65,7 @@ typedef enum {
   SPA_RESULT_INVALID_BUFFER_ID         = -28,
   SPA_RESULT_WRONG_STATE               = -29,
   SPA_RESULT_ASYNC_BUSY                = -30,
+  SPA_RESULT_INVALID_OBJECT_ID         = -31,
 } SpaResult;
 
 #define SPA_ASYNC_MASK                  (3 << 30)

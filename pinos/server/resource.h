@@ -35,13 +35,13 @@ typedef void  (*PinosDestroy)  (void *object);
 
 typedef SpaResult (*PinosSendFunc) (void             *object,
                                     uint32_t          id,
-                                    PinosMessageType  type,
+                                    uint32_t          opcode,
                                     void             *message,
                                     bool              flush,
                                     void             *data);
 
 typedef SpaResult (*PinosDispatchFunc) (void             *object,
-                                        PinosMessageType  type,
+                                        uint32_t          opcode,
                                         void             *message,
                                         void             *data);
 
@@ -73,7 +73,7 @@ PinosResource * pinos_resource_new                (PinosClient  *client,
 SpaResult       pinos_resource_destroy            (PinosResource *resource);
 
 SpaResult       pinos_resource_send_message       (PinosResource     *resource,
-                                                   PinosMessageType   type,
+                                                   uint32_t           opcode,
                                                    void              *message,
                                                    bool               flush);
 

@@ -28,10 +28,9 @@ typedef struct _PinosContext PinosContext;
 
 #include <pinos/client/map.h>
 #include <pinos/client/loop.h>
-#include <pinos/client/subscribe.h>
 #include <pinos/client/properties.h>
-#include <pinos/client/connection.h>
 #include <pinos/client/proxy.h>
+#include <pinos/client/uri.h>
 
 /**
  * PinosContextState:
@@ -59,6 +58,8 @@ const char * pinos_context_state_as_string (PinosContextState state);
 struct _PinosContext {
   char            *name;
   PinosProperties *properties;
+
+  PinosURI         uri;
 
   PinosLoop       *loop;
 

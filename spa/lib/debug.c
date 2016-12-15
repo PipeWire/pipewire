@@ -30,6 +30,7 @@ struct meta_type_name {
   { "SpaMetaPointer" },
   { "SpaMetaVideoCrop" },
   { "SpaMetaRingbuffer" },
+  { "SpaMetaShared" },
   { "invalid" },
 };
 #define META_TYPE_NAME(t)  meta_type_names[SPA_CLAMP(t,0,SPA_N_ELEMENTS(meta_type_names)-1)].name
@@ -172,6 +173,17 @@ spa_debug_buffer (const SpaBuffer *buffer)
         fprintf (stderr, "      mask2:       %zd\n", h->ringbuffer.mask2);
         break;
       }
+      case SPA_META_TYPE_SHARED:
+      {
+        SpaMetaShared *h = m->data;
+        fprintf (stderr, "    SpaMetaShared:\n");
+        fprintf (stderr, "      type:   %d\n", h->type);
+        fprintf (stderr, "      flags:  %d\n", h->flags);
+        fprintf (stderr, "      fd:     %d\n", h->fd);
+        fprintf (stderr, "      offset: %zd\n", h->offset);
+        fprintf (stderr, "      size:   %zd\n", h->size);
+        break;
+      }
       default:
         spa_debug_dump_mem (m->data, m->size);
         break;
@@ -184,10 +196,12 @@ spa_debug_buffer (const SpaBuffer *buffer)
     fprintf (stderr, "   flags:   %d\n", d->flags);
     fprintf (stderr, "   data:    %p\n", d->data);
     fprintf (stderr, "   fd:      %d\n", d->fd);
-    fprintf (stderr, "   maxsize: %zd\n", d->maxsize);
     fprintf (stderr, "   offset:  %zd\n", d->offset);
-    fprintf (stderr, "   size:    %zd\n", d->size);
-    fprintf (stderr, "   stride:  %zd\n", d->stride);
+    fprintf (stderr, "   maxsize: %zd\n", d->size);
+    fprintf (stderr, "   chunk:   %p\n", d->chunk);
+    fprintf (stderr, "    offset: %zd\n", d->chunk->offset);
+    fprintf (stderr, "    size:   %zd\n", d->chunk->size);
+    fprintf (stderr, "    stride: %zd\n", d->chunk->stride);
   }
   return SPA_RESULT_OK;
 }

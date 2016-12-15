@@ -201,6 +201,145 @@ find_meta_enable (const SpaPortInfo *info, SpaMetaType type)
   return NULL;
 }
 
+static SpaBuffer **
+alloc_buffers (PinosLink      *this,
+               unsigned int    n_buffers,
+               unsigned int    n_params,
+               SpaAllocParam **params,
+               unsigned int    n_datas,
+               size_t         *data_sizes,
+               ssize_t        *data_strides,
+               PinosMemblock  *mem)
+{
+  SpaBuffer **buffers, *bp;
+  unsigned int i;
+  size_t skel_size, data_size, meta_size;
+  SpaChunk *cdp;
+  void *ddp;
+  unsigned int n_metas;
+  SpaMeta *metas;
+
+  n_metas = data_size = meta_size = 0;
+
+  /* each buffer */
+  skel_size = sizeof (SpaBuffer);
+
+  metas = alloca (sizeof (SpaMeta) * n_params + 1);
+
+  /* add shared metadata */
+  metas[n_metas].type = SPA_META_TYPE_SHARED;
+  metas[n_metas].size = spa_meta_type_get_size (SPA_META_TYPE_SHARED);
+  meta_size += metas[n_metas].size;
+  n_metas++;
+  skel_size += sizeof (SpaMeta);
+
+  /* collect metadata */
+  for (i = 0; i < n_params; i++) {
+    SpaAllocParam *ap = params[i];
+
+    if (ap->type == SPA_ALLOC_PARAM_TYPE_META_ENABLE) {
+      SpaAllocParamMetaEnable *pme = (SpaAllocParamMetaEnable *) ap;
+
+      metas[n_metas].type = pme->type;
+      metas[n_metas].size = spa_meta_type_get_size (pme->type);
+      meta_size += metas[n_metas].size;
+      n_metas++;
+      skel_size += sizeof (SpaMeta);
+    }
+  }
+  data_size += meta_size;
+
+  /* data */
+  for (i = 0; i < n_datas; i++) {
+    data_size += sizeof (SpaChunk);
+    data_size += data_sizes[i];
+    skel_size += sizeof (SpaData);
+  }
+
+  buffers = calloc (n_buffers, skel_size + sizeof (SpaBuffer *));
+  /* pointer to buffer structures */
+  bp = SPA_MEMBER (buffers, n_buffers * sizeof (SpaBuffer *), SpaBuffer);
+
+  pinos_memblock_alloc (PINOS_MEMBLOCK_FLAG_WITH_FD |
+                        PINOS_MEMBLOCK_FLAG_MAP_READWRITE |
+                        PINOS_MEMBLOCK_FLAG_SEAL,
+                        n_buffers * data_size,
+                        mem);
+
+
+  for (i = 0; i < n_buffers; i++) {
+    int j;
+    SpaBuffer *b;
+    void *p;
+
+    buffers[i] = b = SPA_MEMBER (bp, skel_size * i, SpaBuffer);
+
+    p = SPA_MEMBER (mem->ptr, data_size * i, void);
+
+    b->id = i;
+    b->n_metas = n_metas;
+    b->metas = SPA_MEMBER (b, sizeof (SpaBuffer), SpaMeta);
+    for (j = 0; j < n_metas; j++) {
+      SpaMeta *m = &b->metas[j];
+
+      m->type = metas[j].type;
+      m->data = p;
+      m->size = metas[j].size;
+
+      switch (m->type) {
+        case SPA_META_TYPE_SHARED:
+        {
+          SpaMetaShared *msh = p;
+
+          msh->type = SPA_DATA_TYPE_MEMFD;
+          msh->flags = 0;
+          msh->fd = mem->fd;
+          msh->offset = data_size * i;
+          msh->size = data_size;
+          break;
+        }
+        case SPA_META_TYPE_RINGBUFFER:
+        {
+          SpaMetaRingbuffer *rb = p;
+          spa_ringbuffer_init (&rb->ringbuffer, data_sizes[0]);
+          break;
+        }
+        default:
+          break;
+      }
+      p += m->size;
+    }
+    /* pointer to data structure */
+    b->n_datas = n_datas;
+    b->datas = SPA_MEMBER (b->metas, n_metas * sizeof (SpaMeta), SpaData);
+
+    cdp = p;
+    ddp = SPA_MEMBER (cdp, sizeof (SpaChunk) * n_datas, void);
+
+    for (j = 0; j < n_datas; j++) {
+      SpaData *d = &b->datas[j];
+
+      d->chunk = &cdp[j];
+      if (data_sizes[j] > 0) {
+        d->type = SPA_DATA_TYPE_MEMFD;
+        d->flags = 0;
+        d->fd = mem->fd;
+        d->offset = 0;
+        d->size = mem->size;
+        d->data = mem->ptr;
+        d->chunk->offset = SPA_PTRDIFF (ddp, d->data);
+        d->chunk->size = data_sizes[j];
+        d->chunk->stride = data_strides[j];
+        ddp += data_sizes[j];
+      } else {
+        d->type = SPA_DATA_TYPE_INVALID;
+        d->data = NULL;
+      }
+    }
+  }
+  return buffers;
+}
+
 static SpaResult
 do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
 {
@@ -317,98 +456,21 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       impl->allocated = false;
       pinos_log_debug ("reusing %d output buffers %p", impl->n_buffers, impl->buffers);
     } else {
-      unsigned int i, j;
-      size_t hdr_size, buf_size, arr_size;
-      void *p;
-      unsigned int n_metas, n_datas;
+      size_t data_sizes[1];
+      ssize_t data_strides[1];
 
-      n_metas = 0;
-      n_datas = 1;
-
-      hdr_size = sizeof (SpaBuffer);
-      hdr_size += n_datas * sizeof (SpaData);
-      for (i = 0; i < oinfo->n_params; i++) {
-        SpaAllocParam *ap = oinfo->params[i];
-
-        if (ap->type == SPA_ALLOC_PARAM_TYPE_META_ENABLE) {
-          SpaAllocParamMetaEnable *pme = (SpaAllocParamMetaEnable *) ap;
-
-          hdr_size += spa_meta_type_get_size (pme->type);
-          n_metas++;
-        }
-      }
-      hdr_size += n_metas * sizeof (SpaMeta);
-
-      buf_size = SPA_ROUND_UP_N (hdr_size + (minsize * blocks), 64);
+      data_sizes[0] = minsize;
+      data_strides[0] = stride;
 
       impl->n_buffers = max_buffers;
-      pinos_memblock_alloc (PINOS_MEMBLOCK_FLAG_WITH_FD |
-                            PINOS_MEMBLOCK_FLAG_MAP_READWRITE |
-                            PINOS_MEMBLOCK_FLAG_SEAL,
-                            impl->n_buffers * (sizeof (SpaBuffer*) + buf_size),
-                            &impl->buffer_mem);
-
-      arr_size = impl->n_buffers * sizeof (SpaBuffer*);
-      impl->buffers = p = impl->buffer_mem.ptr;
-      p = SPA_MEMBER (p, arr_size, void);
-
-      for (i = 0; i < impl->n_buffers; i++) {
-        SpaBuffer *b;
-        SpaData *d;
-        void *pd;
-        unsigned int mi;
-
-        b = impl->buffers[i] = SPA_MEMBER (p, buf_size * i, SpaBuffer);
-
-        b->id = i;
-        b->n_metas = n_metas;
-        b->metas = SPA_MEMBER (b, sizeof (SpaBuffer), SpaMeta);
-        b->n_datas = n_datas;
-        b->datas = SPA_MEMBER (b->metas, sizeof (SpaMeta) * n_metas, SpaData);
-        pd = SPA_MEMBER (b->datas, sizeof (SpaData) * n_datas, void);
-
-        for (j = 0, mi = 0; j < oinfo->n_params; j++) {
-          SpaAllocParam *ap = oinfo->params[j];
-
-          if (ap->type == SPA_ALLOC_PARAM_TYPE_META_ENABLE) {
-            SpaAllocParamMetaEnable *pme = (SpaAllocParamMetaEnable *) ap;
-
-            b->metas[mi].type = pme->type;
-            b->metas[mi].data = pd;
-            b->metas[mi].size = spa_meta_type_get_size (pme->type);
-
-            switch (pme->type) {
-              case SPA_META_TYPE_RINGBUFFER:
-              {
-                SpaMetaRingbuffer *rb = pd;
-                spa_ringbuffer_init (&rb->ringbuffer, minsize);
-                break;
-              }
-              default:
-                break;
-            }
-            pd = SPA_MEMBER (pd, b->metas[mi].size, void);
-            mi++;
-          }
-        }
-
-        d = &b->datas[0];
-        if (minsize > 0) {
-          d->type = SPA_DATA_TYPE_MEMFD;
-          d->flags = 0;
-          d->data = impl->buffer_mem.ptr;
-          d->fd = impl->buffer_mem.fd;
-          d->maxsize = impl->buffer_mem.size;
-          d->offset = arr_size + hdr_size + (buf_size * i);
-          d->size = minsize;
-          d->stride = stride;
-        } else {
-          d->type = SPA_DATA_TYPE_INVALID;
-          d->data = NULL;
-        }
-      }
-      pinos_log_debug ("allocated %d buffers %p %zd", impl->n_buffers, impl->buffers, minsize);
-      impl->allocated = true;
+      impl->buffers = alloc_buffers (this,
+                                     impl->n_buffers,
+                                     oinfo->n_params,
+                                     oinfo->params,
+                                     1,
+                                     data_sizes,
+                                     data_strides,
+                                     &impl->buffer_mem);
     }
 
     if (out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {

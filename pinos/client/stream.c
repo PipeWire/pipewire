@@ -44,6 +44,7 @@ typedef struct {
   int fd;
   uint32_t flags;
   void *ptr;
+  off_t offset;
   size_t size;
 } MemId;
 
@@ -453,20 +454,13 @@ on_rtsocket_condition (SpaSource    *source,
     read (impl->rtfd, &cmd, 1);
 
     if (cmd & PINOS_TRANSPORT_CMD_HAVE_DATA) {
-      BufferId *bid;
-
       for (i = 0; i < impl->trans->area->n_inputs; i++) {
         SpaPortInput *input = &impl->trans->inputs[i];
 
         if (input->buffer_id == SPA_ID_INVALID)
           continue;
 
-        if ((bid = find_buffer (stream, input->buffer_id))) {
-          for (i = 0; i < bid->buf->n_datas; i++) {
-            bid->buf->datas[i].size = bid->datas[i].size;
-          }
-          pinos_signal_emit (&stream->new_buffer, stream, bid->id);
-        }
+        pinos_signal_emit (&stream->new_buffer, stream, input->buffer_id);
         input->buffer_id = SPA_ID_INVALID;
       }
       send_need_input (stream);
@@ -652,15 +646,18 @@ stream_dispatch_func (void             *object,
 
       m = find_mem (stream, p->mem_id);
       if (m) {
-        pinos_log_debug ("update mem %u, fd %d, flags %d, size %zd", p->mem_id, p->memfd, p->flags, p->size);
+        pinos_log_debug ("update mem %u, fd %d, flags %d, off %zd, size %zd",
+            p->mem_id, p->memfd, p->flags, p->offset, p->size);
       } else {
         m = pinos_array_add (&impl->mem_ids, sizeof (MemId));
-        pinos_log_debug ("add mem %u, fd %d, flags %d, size %zd", p->mem_id, p->memfd, p->flags, p->size);
+        pinos_log_debug ("add mem %u, fd %d, flags %d, off %zd, size %zd",
+            p->mem_id, p->memfd, p->flags, p->offset, p->size);
       }
       m->id = p->mem_id;
       m->fd = p->memfd;
       m->flags = p->flags;
       m->ptr = NULL;
+      m->offset = p->offset;
       m->size = p->size;
       break;
     }
@@ -675,6 +672,8 @@ stream_dispatch_func (void             *object,
       clear_buffers (stream);
 
       for (i = 0; i < p->n_buffers; i++) {
+        off_t offset = 0;
+
         MemId *mid = find_mem (stream, p->buffers[i].mem_id);
         if (mid == NULL) {
           pinos_log_warn ("unknown memory id %u", mid->id);
@@ -682,41 +681,28 @@ stream_dispatch_func (void             *object,
         }
 
         if (mid->ptr == NULL) {
-          mid->ptr = mmap (NULL, mid->size, PROT_READ | PROT_WRITE, MAP_SHARED, mid->fd, 0);
+          //mid->ptr = mmap (NULL, mid->size, PROT_READ | PROT_WRITE, MAP_SHARED, mid->fd, mid->offset);
+          mid->ptr = mmap (NULL, mid->size + mid->offset, PROT_READ | PROT_WRITE, MAP_SHARED, mid->fd, 0);
           if (mid->ptr == MAP_FAILED) {
             mid->ptr = NULL;
             pinos_log_warn ("Failed to mmap memory %zd %p: %s", mid->size, mid, strerror (errno));
             continue;
           }
+          mid->ptr = SPA_MEMBER (mid->ptr, mid->offset, void);
         }
         len = pinos_array_get_len (&impl->buffer_ids, BufferId);
         bid = pinos_array_add (&impl->buffer_ids, sizeof (BufferId));
 
+        b = p->buffers[i].buffer;
+
         bid->buf_ptr = SPA_MEMBER (mid->ptr, p->buffers[i].offset, void);
         {
           size_t size;
-          unsigned int i;
-          SpaMeta *m;
 
-          b = bid->buf_ptr;
-          size = sizeof (SpaBuffer);
-          m = SPA_MEMBER (b, SPA_PTR_TO_INT (b->metas), SpaMeta);
-          for (i = 0; i < b->n_metas; i++)
-            size += sizeof (SpaMeta) + m[i].size;
-          for (i = 0; i < b->n_datas; i++)
-            size += sizeof (SpaData);
-
+          size = pinos_serialize_buffer_get_size (p->buffers[i].buffer);
           b = bid->buf = malloc (size);
-          memcpy (b, bid->buf_ptr, size);
-
-          if (b->metas)
-            b->metas = SPA_MEMBER (b, SPA_PTR_TO_INT (b->metas), SpaMeta);
-          if (b->datas) {
-            bid->datas = SPA_MEMBER (bid->buf_ptr, SPA_PTR_TO_INT (b->datas), SpaData);
-            b->datas = SPA_MEMBER (b, SPA_PTR_TO_INT (b->datas), SpaData);
-          }
+          pinos_serialize_buffer_copy_into (b, p->buffers[i].buffer);
         }
-
         bid->id = b->id;
 
         if (bid->id != len) {
@@ -727,12 +713,14 @@ stream_dispatch_func (void             *object,
 
         for (j = 0; j < b->n_metas; j++) {
           SpaMeta *m = &b->metas[j];
-          if (m->data)
-            m->data = SPA_MEMBER (bid->buf_ptr, SPA_PTR_TO_INT (m->data), void);
+          m->data = SPA_MEMBER (bid->buf_ptr, offset, void);
+          offset += m->size;
         }
 
         for (j = 0; j < b->n_datas; j++) {
           SpaData *d = &b->datas[j];
+
+          d->chunk = SPA_MEMBER (bid->buf_ptr, offset + sizeof (SpaChunk) * j, SpaChunk);
 
           switch (d->type) {
             case SPA_DATA_TYPE_ID:
@@ -756,6 +744,8 @@ stream_dispatch_func (void             *object,
               break;
           }
         }
+
+        spa_debug_buffer (b);
 
         pinos_signal_emit (&stream->add_buffer, stream, bid->id);
       }
@@ -1096,9 +1086,6 @@ pinos_stream_send_buffer (PinosStream     *stream,
     uint8_t cmd = PINOS_TRANSPORT_CMD_HAVE_DATA;
 
     bid->used = true;
-    for (i = 0; i < bid->buf->n_datas; i++) {
-      bid->datas[i].size = bid->buf->datas[i].size;
-    }
     impl->trans->outputs[0].buffer_id = id;
     impl->trans->outputs[0].status = SPA_RESULT_OK;
     write (impl->rtfd, &cmd, 1);

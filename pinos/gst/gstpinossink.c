@@ -403,13 +403,13 @@ on_add_buffer (PinosListener *listener,
       case SPA_DATA_TYPE_DMABUF:
       {
         gmem = gst_fd_allocator_alloc (pinossink->allocator, dup (d->fd),
-                  d->maxsize, GST_FD_MEMORY_FLAG_NONE);
-        gst_memory_resize (gmem, d->offset, d->size);
+                  d->size, GST_FD_MEMORY_FLAG_NONE);
+        gst_memory_resize (gmem, d->chunk->offset, d->chunk->size);
         break;
       }
       case SPA_DATA_TYPE_MEMPTR:
-        gmem = gst_memory_new_wrapped (0, d->data, d->maxsize, d->offset,
-                                       d->size, NULL, NULL);
+        gmem = gst_memory_new_wrapped (0, d->data, d->size, d->chunk->offset,
+                                       d->chunk->size, NULL, NULL);
         break;
       default:
         break;
@@ -644,8 +644,8 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   for (i = 0; i < data->buf->n_datas; i++) {
     SpaData *d = &data->buf->datas[i];
     GstMemory *mem = gst_buffer_peek_memory (buffer, i);
-    d->offset = mem->offset;
-    d->size = mem->size;
+    d->chunk->offset = mem->offset;
+    d->chunk->size = mem->size;
   }
   gst_buffer_ref (buffer);
 

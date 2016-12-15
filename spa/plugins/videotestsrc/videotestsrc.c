@@ -658,7 +658,7 @@ spa_videotestsrc_node_port_use_buffers (SpaNode         *node,
           continue;
         }
         b->ptr = SPA_MEMBER (d[0].data, d[0].offset, void);
-        b->stride = d[0].stride;
+        b->stride = d[0].chunk->stride;
         break;
       default:
         break;

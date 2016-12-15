@@ -117,7 +117,7 @@ spa_v4l2_clear_buffers (SpaV4l2Source *this)
     }
     if (b->allocated) {
       if (b->outbuf->datas[0].data)
-        munmap (b->outbuf->datas[0].data, b->outbuf->datas[0].maxsize);
+        munmap (b->outbuf->datas[0].data, b->outbuf->datas[0].size);
       if (b->outbuf->datas[0].fd != -1)
         close (b->outbuf->datas[0].fd);
       b->outbuf->datas[0].type = SPA_DATA_TYPE_INVALID;
@@ -876,7 +876,9 @@ mmap_read (SpaV4l2Source *this)
   }
 
   d = b->outbuf->datas;
-  d[0].size = buf.bytesused;
+  d[0].chunk->offset = 0;
+  d[0].chunk->size = buf.bytesused;
+  d[0].chunk->stride = state->fmt.fmt.pix.bytesperline;
 
   spa_list_insert (state->ready.prev, &b->list);
 
@@ -970,7 +972,7 @@ spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffe
           spa_log_error (state->log, "v4l2: need mmaped memory");
           continue;
         }
-        b->v4l2_buffer.m.userptr = (unsigned long) SPA_MEMBER (d[0].data, d[0].offset, void *);
+        b->v4l2_buffer.m.userptr = (unsigned long) d[0].data;
         b->v4l2_buffer.length = d[0].size;
         break;
       case SPA_DATA_TYPE_DMABUF:
@@ -1047,8 +1049,9 @@ mmap_init (SpaV4l2Source   *this,
     d = buffers[i]->datas;
     d[0].offset = 0;
     d[0].size = b->v4l2_buffer.length;
-    d[0].maxsize = b->v4l2_buffer.length;
-    d[0].stride = state->fmt.fmt.pix.bytesperline;
+    d[0].chunk->offset = 0;
+    d[0].chunk->size = b->v4l2_buffer.length;
+    d[0].chunk->stride = state->fmt.fmt.pix.bytesperline;
 
     if (state->export_buf) {
       struct v4l2_exportbuffer expbuf;

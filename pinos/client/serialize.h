@@ -32,6 +32,7 @@ extern "C" {
 size_t          pinos_serialize_buffer_get_size       (const SpaBuffer *buffer);
 size_t          pinos_serialize_buffer_serialize      (void *dest, const SpaBuffer *buffer);
 SpaBuffer *     pinos_serialize_buffer_deserialize    (void *src, off_t offset);
+SpaBuffer *     pinos_serialize_buffer_copy_into      (void *dest, const SpaBuffer *buffer);
 
 size_t          pinos_serialize_format_get_size       (const SpaFormat *format);
 size_t          pinos_serialize_format_serialize      (void *dest, const SpaFormat *format);

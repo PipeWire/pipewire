@@ -36,6 +36,7 @@ typedef struct _SpaBuffer SpaBuffer;
  * @SPA_META_TYPE_POINTER: a generic pointer
  * @SPA_META_TYPE_VIDEO_CROP: video cropping region
  * @SPA_META_TYPE_RINGBUFFER: a ringbuffer
+ * @SPA_META_TYPE_SHARED: buffer data and metadata memory can be shared
  */
 typedef enum {
   SPA_META_TYPE_INVALID               = 0,
@@ -43,6 +44,7 @@ typedef enum {
   SPA_META_TYPE_POINTER,
   SPA_META_TYPE_VIDEO_CROP,
   SPA_META_TYPE_RINGBUFFER,
+  SPA_META_TYPE_SHARED,
 } SpaMetaType;
 
 /**
@@ -120,6 +122,21 @@ typedef struct {
 } SpaMetaRingbuffer;
 
 /**
+ * SpaMetaShared:
+ * @type:
+ * @flags:
+ * @fd:
+ * @size:
+ */
+typedef struct {
+  SpaDataType    type;
+  int            flags;
+  int            fd;
+  off_t          offset;
+  size_t         size;
+} SpaMetaShared;
+
+/**
  * SpaMeta:
  * @type: metadata type
  * @data: pointer to metadata
@@ -132,25 +149,35 @@ typedef struct {
 } SpaMeta;
 
 /**
+ * SpaChunk:
+ * @offset: offset of valid data
+ * @size: size of valid data
+ * @stride: stride of data if applicable
+ */
+typedef struct {
+  off_t          offset;
+  size_t         size;
+  ssize_t        stride;
+} SpaChunk;
+
+/**
  * SpaData:
  * @type: memory type
  * @flags: memory flags
- * @data: pointer to memory
  * @fd: file descriptor
+ * @offset: start offset when mapping @fd
  * @maxsize: maximum size of the memory
- * @offset: offset in @data
- * @size: valid size of @data
- * @stride: stride of data if applicable
+ * @data: pointer to memory
+ * @chunk: pointer to chunk with valid offset
  */
 typedef struct {
   SpaDataType    type;
   int            flags;
-  void          *data;
   int            fd;
-  size_t         maxsize;
   off_t          offset;
   size_t         size;
-  ssize_t        stride;
+  void          *data;
+  SpaChunk      *chunk;
 } SpaData;
 
 /**
@@ -168,6 +195,12 @@ struct _SpaBuffer {
   unsigned int   n_datas;
   SpaData       *datas;
 };
+
+
+typedef struct {
+  unsigned int   n_buffers;
+  SpaBuffer    **buffers;
+} SpaBufferArray;
 
 static inline void *
 spa_buffer_find_meta (SpaBuffer *b, SpaMetaType type)
@@ -189,6 +222,7 @@ spa_meta_type_get_size (SpaMetaType  type)
     sizeof (SpaMetaPointer),
     sizeof (SpaMetaVideoCrop),
     sizeof (SpaMetaRingbuffer),
+    sizeof (SpaMetaShared),
   };
   if (type <= 0 || type >= SPA_N_ELEMENTS (header_sizes))
     return 0;

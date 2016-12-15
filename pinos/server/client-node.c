@@ -66,7 +66,6 @@ struct _ProxyBuffer {
   off_t        offset;
   size_t       size;
   bool         outstanding;
-  ProxyBuffer *next;
 };
 
 typedef struct {
@@ -610,9 +609,9 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
   unsigned int i, j;
   PinosMessageAddMem am;
   PinosMessageUseBuffers ub;
-  size_t size, n_mem;
-  PinosMessageMemRef *memref;
-  void *p;
+  size_t n_mem;
+  PinosMessageBuffer *mb;
+  SpaMetaShared *msh;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -630,19 +629,44 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
 
   clear_buffers (this, port);
 
-  /* find size to store buffers */
-  size = 0;
+  if (n_buffers > 0) {
+    mb = alloca (n_buffers * sizeof (PinosMessageBuffer));
+  } else {
+    mb = NULL;
+  }
+
   n_mem = 0;
   for (i = 0; i < n_buffers; i++) {
     ProxyBuffer *b = &port->buffers[i];
+
+    msh = spa_buffer_find_meta (buffers[i], SPA_META_TYPE_SHARED);
+    if (msh == NULL) {
+      spa_log_error (this->log, "missing shared metadata on buffer %d", i);
+      return SPA_RESULT_ERROR;
+    }
 
     b->outbuf = buffers[i];
     memcpy (&b->buffer, buffers[i], sizeof (SpaBuffer));
     b->buffer.datas = b->datas;
     b->buffer.metas = b->metas;
 
-    b->size = SPA_ROUND_UP_N (pinos_serialize_buffer_get_size (buffers[i]), 64);
-    b->offset = size;
+    am.direction = direction;
+    am.port_id = port_id;
+    am.mem_id = n_mem++;
+    am.type = SPA_DATA_TYPE_MEMFD;
+    am.memfd = msh->fd;
+    am.flags = msh->flags;
+    am.offset = msh->offset;
+    am.size = msh->size;
+    pinos_resource_send_message (this->resource,
+                                 PINOS_MESSAGE_ADD_MEM,
+                                 &am,
+                                 false);
+
+    mb[i].buffer = &b->buffer;
+    mb[i].mem_id = am.mem_id;
+    mb[i].offset = 0;
+    mb[i].size = am.size;
 
     for (j = 0; j < buffers[i]->n_metas; j++) {
       memcpy (&b->buffer.metas[j], &buffers[i]->metas[j], sizeof (SpaMeta));
@@ -663,7 +687,7 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
           am.memfd = d->fd;
           am.flags = d->flags;
           am.offset = d->offset;
-          am.size = d->maxsize;
+          am.size = d->size;
           pinos_resource_send_message (this->resource,
                                        PINOS_MESSAGE_ADD_MEM,
                                        &am,
@@ -683,78 +707,20 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
           break;
       }
     }
-    size += b->size;
   }
 
-  if (n_buffers > 0) {
-    /* make mem for the buffers */
-    port->buffer_mem_id = n_mem++;
-    if (pinos_memblock_alloc (PINOS_MEMBLOCK_FLAG_WITH_FD |
-                              PINOS_MEMBLOCK_FLAG_MAP_READWRITE |
-                              PINOS_MEMBLOCK_FLAG_SEAL,
-                              size,
-                              &port->buffer_mem) < 0) {
-      spa_log_error (this->log, "Failed to allocate buffer memory");
-      return SPA_RESULT_ERROR;
-    }
-    p = port->buffer_mem.ptr;
-
-    for (i = 0; i < n_buffers; i++) {
-      ProxyBuffer *b = &port->buffers[i];
-      SpaBuffer *sb;
-      SpaMeta *sbm;
-      SpaData *sbd;
-
-      pinos_serialize_buffer_serialize (p, &b->buffer);
-
-      sb = p;
-      b->buffer.datas = SPA_MEMBER (sb, SPA_PTR_TO_INT (sb->datas), SpaData);
-      sbm = SPA_MEMBER (sb, SPA_PTR_TO_INT (sb->metas), SpaMeta);
-      sbd = SPA_MEMBER (sb, SPA_PTR_TO_INT (sb->datas), SpaData);
-
-      for (j = 0; j < b->buffer.n_metas; j++)
-        b->metas[j].data = SPA_MEMBER (sb, SPA_PTR_TO_INT (sbm[j].data), void);
-
-      for (j = 0; j < b->buffer.n_datas; j++) {
-        if (b->datas[j].type == SPA_DATA_TYPE_MEMPTR)
-          b->datas[j].data = SPA_MEMBER (sb, SPA_PTR_TO_INT (sbd[j].data), void);
-      }
-      p += b->size;
-    }
-
-    am.direction = direction;
-    am.port_id = port_id;
-    am.mem_id = port->buffer_mem_id;
-    am.type = SPA_DATA_TYPE_MEMFD;
-    am.memfd = port->buffer_mem.fd;
-    am.flags = 0;
-    am.offset = 0;
-    am.size = size;
-    pinos_resource_send_message (this->resource,
-                                 PINOS_MESSAGE_ADD_MEM,
-                                 &am,
-                                 false);
-
-    memref = alloca (n_buffers * sizeof (PinosMessageMemRef));
-    for (i = 0; i < n_buffers; i++) {
-      memref[i].mem_id = port->buffer_mem_id;
-      memref[i].offset = port->buffers[i].offset;
-      memref[i].size = port->buffers[i].size;
-    }
-  } else {
-    memref = NULL;
-  }
   port->n_buffers = n_buffers;
 
   ub.seq = this->seq++;
   ub.direction = direction;
   ub.port_id = port_id;
   ub.n_buffers = n_buffers;
-  ub.buffers = memref;
+  ub.buffers = mb;
   pinos_resource_send_message (this->resource,
                                PINOS_MESSAGE_USE_BUFFERS,
                                &ub,
                                true);
+
   return SPA_RESULT_RETURN_ASYNC (ub.seq);
 }
 
@@ -789,6 +755,7 @@ spa_proxy_node_port_alloc_buffers (SpaNode         *node,
 static void
 copy_meta_in (SpaProxy *this, SpaProxyPort *port, uint32_t buffer_id)
 {
+#if 0
   ProxyBuffer *b = &port->buffers[buffer_id];
   unsigned int i;
 
@@ -804,11 +771,13 @@ copy_meta_in (SpaProxy *this, SpaProxyPort *port, uint32_t buffer_id)
       memcpy (b->outbuf->datas[i].data, b->datas[i].data, b->buffer.datas[i].size);
     }
   }
+#endif
 }
 
 static void
 copy_meta_out (SpaProxy *this, SpaProxyPort *port, uint32_t buffer_id)
 {
+#if 0
   ProxyBuffer *b = &port->buffers[buffer_id];
   unsigned int i;
 
@@ -824,6 +793,7 @@ copy_meta_out (SpaProxy *this, SpaProxyPort *port, uint32_t buffer_id)
       memcpy (b->datas[i].data, b->outbuf->datas[i].data, b->outbuf->datas[i].size);
     }
   }
+#endif
 }
 
 static SpaResult

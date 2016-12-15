@@ -130,7 +130,7 @@ module_bind_func (PinosGlobal *global,
   pinos_log_debug ("module %p: bound to %d", global->object, resource->id);
 
   m.info = &info;
-  info.id = resource->id;
+  info.id = global->id;
   info.change_mask = ~0;
   info.name = this->name;
   info.filename = this->filename;

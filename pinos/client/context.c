@@ -103,8 +103,31 @@ core_dispatch_func (void             *object,
 {
   PinosContextImpl *impl = data;
   PinosContext *this = &impl->this;
+  PinosProxy *proxy = object;
 
   switch (type) {
+    case PINOS_MESSAGE_CORE_INFO:
+    {
+      PinosMessageCoreInfo *m = message;
+      PinosSubscriptionEvent event;
+
+      pinos_log_debug ("got core info %d", type);
+      if (proxy->user_data == NULL)
+        event = PINOS_SUBSCRIPTION_EVENT_NEW;
+      else
+        event = PINOS_SUBSCRIPTION_EVENT_CHANGE;
+
+      proxy->user_data = pinos_core_info_update (proxy->user_data, m->info);
+
+      if (impl->subscribe_func) {
+        impl->subscribe_func (this,
+                              event,
+                              proxy->type,
+                              proxy->id,
+                              impl->subscribe_data);
+      }
+      break;
+    }
     case PINOS_MESSAGE_NOTIFY_DONE:
     {
       PinosMessageNotifyDone *nd = message;

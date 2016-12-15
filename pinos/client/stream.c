@@ -1080,7 +1080,6 @@ pinos_stream_send_buffer (PinosStream     *stream,
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
   BufferId *bid;
-  unsigned int i;
 
   if ((bid = find_buffer (stream, id))) {
     uint8_t cmd = PINOS_TRANSPORT_CMD_HAVE_DATA;

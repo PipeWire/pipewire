@@ -432,7 +432,7 @@ node_bind_func (PinosGlobal *global,
   spa_list_insert (this->resource_list.prev, &resource->link);
 
   m.info = &info;
-  info.id = resource->id;
+  info.id = global->id;
   info.change_mask = ~0;
   info.name = this->name;
   info.state = this->state;
@@ -817,7 +817,7 @@ pinos_node_update_state (PinosNode      *node,
     info.state = node->state;
 
     spa_list_for_each (resource, &node->resource_list, link) {
-      info.id = resource->id;
+      info.id = node->global->id;
       pinos_resource_send_message (resource,
                                    PINOS_MESSAGE_NODE_INFO,
                                    &m,

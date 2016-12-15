@@ -137,6 +137,73 @@ pinos_spa_dict_copy (SpaDict *dict)
   return copy;
 }
 
+PinosCoreInfo *
+pinos_core_info_update (PinosCoreInfo       *info,
+                        const PinosCoreInfo *update)
+{
+  uint64_t change_mask;
+
+  if (update == NULL)
+    return info;
+
+  if (info == NULL) {
+    info = calloc (1, sizeof (PinosCoreInfo));
+    change_mask = ~0;
+  } else {
+    change_mask = info->change_mask | update->change_mask;
+  }
+  info->id = update->id;
+  info->change_mask = change_mask;
+
+  if (update->change_mask & (1 << 0)) {
+    if (info->user_name)
+      free ((void*)info->user_name);
+    info->user_name = update->user_name ? strdup (update->user_name) : NULL;
+  }
+  if (update->change_mask & (1 << 1)) {
+    if (info->host_name)
+      free ((void*)info->host_name);
+    info->host_name = update->host_name ? strdup (update->host_name) : NULL;
+  }
+  if (update->change_mask & (1 << 2)) {
+    if (info->version)
+      free ((void*)info->version);
+    info->version = update->version ? strdup (update->version) : NULL;
+  }
+  if (update->change_mask & (1 << 3)) {
+    if (info->name)
+      free ((void*)info->name);
+    info->name = update->name ? strdup (update->name) : NULL;
+  }
+  if (update->change_mask & (1 << 4))
+    info->cookie = update->cookie;
+  if (update->change_mask & (1 << 5)) {
+    if (info->props)
+      pinos_spa_dict_destroy (info->props);
+    info->props = pinos_spa_dict_copy (update->props);
+  }
+  return info;
+}
+
+void
+pinos_core_info_free (PinosCoreInfo *info)
+{
+  if (info == NULL)
+    return;
+
+  if (info->user_name)
+    free ((void*)info->user_name);
+  if (info->host_name)
+    free ((void*)info->host_name);
+  if (info->version)
+    free ((void*)info->version);
+  if (info->name)
+    free ((void*)info->name);
+  if (info->props)
+    pinos_spa_dict_destroy (info->props);
+  free (info);
+}
+
 PinosNodeInfo *
 pinos_node_info_update (PinosNodeInfo       *info,
                         const PinosNodeInfo *update)
@@ -225,7 +292,7 @@ pinos_module_info_update (PinosModuleInfo       *info,
 }
 
 void
-pinos_module_info_free (PinosModuleInfo       *info)
+pinos_module_info_free (PinosModuleInfo *info)
 {
   if (info == NULL)
     return;

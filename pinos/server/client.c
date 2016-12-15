@@ -78,7 +78,7 @@ client_bind_func (PinosGlobal *global,
   spa_list_insert (this->resource_list.prev, &resource->link);
 
   m.info = &info;
-  info.id = resource->id;
+  info.id = global->id;
   info.change_mask = ~0;
   info.props = this->properties ? &this->properties->dict : NULL;
 

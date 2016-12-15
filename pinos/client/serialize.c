@@ -69,7 +69,6 @@ SpaBuffer *
 pinos_serialize_buffer_deserialize (void *src, off_t offset)
 {
   SpaBuffer *b;
-  unsigned int i;
 
   b = SPA_MEMBER (src, offset, SpaBuffer);
   if (b->metas)

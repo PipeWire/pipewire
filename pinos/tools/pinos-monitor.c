@@ -169,6 +169,11 @@ dump_object (PinosContext           *context,
              uint32_t                id,
              DumpData               *data)
 {
+  if (type == context->uri.core) {
+    pinos_context_get_core_info (context,
+                                 dump_core_info,
+                                 data);
+  }
   if (type == context->uri.node) {
     pinos_context_get_node_info_by_id (context,
                                        id,

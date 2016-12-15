@@ -187,7 +187,7 @@ core_bind_func (PinosGlobal *global,
   pinos_log_debug ("core %p: bound to %d", global->object, resource->id);
 
   m.info = &info;
-  info.id = resource->id;
+  info.id = global->id;
   info.change_mask = ~0;
   info.user_name = "wim";
   info.host_name = "wtay";

@@ -775,7 +775,7 @@ link_bind_func (PinosGlobal *global,
   spa_list_insert (this->resource_list.prev, &resource->link);
 
   m.info = &info;
-  info.id = resource->id;
+  info.id = global->id;
   info.change_mask = ~0;
   info.output_node_id = this->output ? this->output->node->global->id : -1;
   info.output_port_id = this->output ? this->output->port_id : -1;

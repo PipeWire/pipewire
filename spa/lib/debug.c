@@ -196,11 +196,11 @@ spa_debug_buffer (const SpaBuffer *buffer)
     fprintf (stderr, "   flags:   %d\n", d->flags);
     fprintf (stderr, "   data:    %p\n", d->data);
     fprintf (stderr, "   fd:      %d\n", d->fd);
-    fprintf (stderr, "   offset:  %zd\n", d->offset);
-    fprintf (stderr, "   maxsize: %zd\n", d->size);
+    fprintf (stderr, "   offset:  %zd\n", d->mapoffset);
+    fprintf (stderr, "   maxsize: %zu\n", d->maxsize);
     fprintf (stderr, "   chunk:   %p\n", d->chunk);
     fprintf (stderr, "    offset: %zd\n", d->chunk->offset);
-    fprintf (stderr, "    size:   %zd\n", d->chunk->size);
+    fprintf (stderr, "    size:   %zu\n", d->chunk->size);
     fprintf (stderr, "    stride: %zd\n", d->chunk->stride);
   }
   return SPA_RESULT_OK;

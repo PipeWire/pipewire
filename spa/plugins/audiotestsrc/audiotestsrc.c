@@ -690,8 +690,8 @@ spa_audiotestsrc_node_port_use_buffers (SpaNode         *node,
           spa_log_error (this->log, "audiotestsrc %p: invalid memory on buffer %p", this, buffers[i]);
           continue;
         }
-        b->ptr = SPA_MEMBER (d[0].data, d[0].offset, void);
-        b->size = d[0].size;
+        b->ptr = d[0].data;
+        b->size = d[0].maxsize;
         break;
       default:
         break;

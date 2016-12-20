@@ -174,12 +174,18 @@ clock_disabled:
 }
 
 static void
+clear_queue (GstPinosSrc *pinossrc)
+{
+  g_queue_foreach (&pinossrc->queue, (GFunc) gst_mini_object_unref, NULL);
+  g_queue_clear (&pinossrc->queue);
+}
+
+static void
 gst_pinos_src_finalize (GObject * object)
 {
   GstPinosSrc *pinossrc = GST_PINOS_SRC (object);
 
-  g_queue_foreach (&pinossrc->queue, (GFunc) gst_mini_object_unref, NULL);
-  g_queue_clear (&pinossrc->queue);
+  clear_queue (pinossrc);
 
   pinos_thread_main_loop_destroy (pinossrc->main_loop);
   pinossrc->main_loop = NULL;
@@ -340,6 +346,7 @@ typedef struct {
   SpaBuffer *buf;
   SpaMetaHeader *header;
   guint flags;
+  goffset offset;
 } ProcessMemData;
 
 static void
@@ -417,13 +424,15 @@ on_add_buffer (PinosListener *listener,
       case SPA_DATA_TYPE_DMABUF:
       {
         gmem = gst_fd_allocator_alloc (pinossrc->fd_allocator, dup (d->fd),
-                  d->size, GST_FD_MEMORY_FLAG_NONE);
-        gst_memory_resize (gmem, d->chunk->offset, d->chunk->size);
+                  d->maxsize, GST_FD_MEMORY_FLAG_NONE);
+        gst_memory_resize (gmem, d->chunk->offset + d->mapoffset, d->chunk->size);
+        data.offset = d->mapoffset;
         break;
       }
       case SPA_DATA_TYPE_MEMPTR:
-        gmem = gst_memory_new_wrapped (0, d->data, d->size, d->chunk->offset,
+        gmem = gst_memory_new_wrapped (0, d->data, d->maxsize, d->chunk->offset + d->mapoffset,
                   d->chunk->size, NULL, NULL);
+        data.offset = 0;
       default:
         break;
     }
@@ -488,7 +497,7 @@ on_new_buffer (PinosListener *listener,
   for (i = 0; i < data->buf->n_datas; i++) {
     SpaData *d = &data->buf->datas[i];
     GstMemory *mem = gst_buffer_peek_memory (buf, i);
-    mem->offset = d->chunk->offset;
+    mem->offset = d->chunk->offset + data->offset;
     mem->size = d->chunk->size;
   }
   g_queue_push_tail (&pinossrc->queue, buf);
@@ -935,13 +944,6 @@ static gboolean
 gst_pinos_src_start (GstBaseSrc * basesrc)
 {
   return TRUE;
-}
-
-static void
-clear_queue (GstPinosSrc *pinossrc)
-{
-  g_queue_foreach (&pinossrc->queue, (GFunc) gst_mini_object_unref, NULL);
-  g_queue_clear (&pinossrc->queue);
 }
 
 static gboolean

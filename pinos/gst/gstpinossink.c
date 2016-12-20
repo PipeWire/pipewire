@@ -230,6 +230,8 @@ gst_pinos_sink_init (GstPinosSink * sink)
   sink->buf_ids = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL,
       (GDestroyNotify) gst_buffer_unref);
 
+  g_queue_init (&sink->queue);
+
   sink->loop = pinos_loop_new ();
   sink->main_loop = pinos_thread_main_loop_new (sink->loop, "pinos-sink-loop");
   GST_DEBUG ("loop %p %p", sink->loop, sink->main_loop);
@@ -347,6 +349,7 @@ typedef struct {
   SpaBuffer *buf;
   SpaMetaHeader *header;
   guint flags;
+  goffset offset;
 } ProcessMemData;
 
 static void
@@ -403,13 +406,15 @@ on_add_buffer (PinosListener *listener,
       case SPA_DATA_TYPE_DMABUF:
       {
         gmem = gst_fd_allocator_alloc (pinossink->allocator, dup (d->fd),
-                  d->size, GST_FD_MEMORY_FLAG_NONE);
-        gst_memory_resize (gmem, d->chunk->offset, d->chunk->size);
+                  d->mapoffset + d->maxsize, GST_FD_MEMORY_FLAG_NONE);
+        gst_memory_resize (gmem, d->chunk->offset + d->mapoffset, d->chunk->size);
+        data.offset = d->mapoffset;
         break;
       }
       case SPA_DATA_TYPE_MEMPTR:
-        gmem = gst_memory_new_wrapped (0, d->data, d->size, d->chunk->offset,
+        gmem = gst_memory_new_wrapped (0, d->data, d->maxsize, d->chunk->offset,
                                        d->chunk->size, NULL, NULL);
+        data.offset = 0;
         break;
       default:
         break;
@@ -464,6 +469,51 @@ on_new_buffer (PinosListener *listener,
     gst_buffer_unref (buf);
     pinos_thread_main_loop_signal (pinossink->main_loop, FALSE);
   }
+}
+
+static void
+do_send_buffer (GstPinosSink *pinossink)
+{
+  GstBuffer *buffer;
+  ProcessMemData *data;
+  gboolean res;
+  guint i;
+
+  buffer = g_queue_pop_head (&pinossink->queue);
+  if (buffer == NULL)
+    return;
+
+  data = gst_mini_object_get_qdata (GST_MINI_OBJECT_CAST (buffer),
+                                    process_mem_data_quark);
+
+  if (data->header) {
+    data->header->seq = GST_BUFFER_OFFSET (buffer);
+    data->header->pts = GST_BUFFER_PTS (buffer);
+    data->header->dts_offset = GST_BUFFER_DTS (buffer);
+  }
+  for (i = 0; i < data->buf->n_datas; i++) {
+    SpaData *d = &data->buf->datas[i];
+    GstMemory *mem = gst_buffer_peek_memory (buffer, i);
+    d->chunk->offset = mem->offset - data->offset;
+    d->chunk->size = mem->size;
+  }
+
+  if (!(res = pinos_stream_send_buffer (pinossink->stream, data->id)))
+    g_warning ("can't send buffer");
+
+  pinossink->need_ready--;
+}
+
+
+static void
+on_need_buffer (PinosListener *listener,
+                PinosStream   *stream)
+{
+  GstPinosSink *pinossink = SPA_CONTAINER_OF (listener, GstPinosSink, stream_need_buffer);
+
+  pinossink->need_ready++;
+  GST_DEBUG ("need buffer %u", pinossink->need_ready);
+  do_send_buffer (pinossink);
 }
 
 static void
@@ -610,9 +660,6 @@ static GstFlowReturn
 gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
 {
   GstPinosSink *pinossink;
-  gboolean res;
-  ProcessMemData *data;
-  guint i;
 
   pinossink = GST_PINOS_SINK (bsink);
 
@@ -633,25 +680,11 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
     buffer = b;
   }
 
-  data = gst_mini_object_get_qdata (GST_MINI_OBJECT_CAST (buffer),
-                                    process_mem_data_quark);
-
-  if (data->header) {
-    data->header->seq = GST_BUFFER_OFFSET (buffer);
-    data->header->pts = GST_BUFFER_PTS (buffer);
-    data->header->dts_offset = GST_BUFFER_DTS (buffer);
-  }
-  for (i = 0; i < data->buf->n_datas; i++) {
-    SpaData *d = &data->buf->datas[i];
-    GstMemory *mem = gst_buffer_peek_memory (buffer, i);
-    d->chunk->offset = mem->offset;
-    d->chunk->size = mem->size;
-  }
   gst_buffer_ref (buffer);
+  g_queue_push_tail (&pinossink->queue, buffer);
 
-  if (!(res = pinos_stream_send_buffer (pinossink->stream, data->id)))
-    g_warning ("can't send buffer");
-
+  if (pinossink->need_ready)
+    do_send_buffer (pinossink);
 
 done:
   pinos_thread_main_loop_unlock (pinossink->main_loop);
@@ -707,6 +740,7 @@ gst_pinos_sink_start (GstBaseSink * basesink)
   pinos_signal_add (&pinossink->stream->add_buffer, &pinossink->stream_add_buffer, on_add_buffer);
   pinos_signal_add (&pinossink->stream->remove_buffer, &pinossink->stream_remove_buffer, on_remove_buffer);
   pinos_signal_add (&pinossink->stream->new_buffer, &pinossink->stream_new_buffer, on_new_buffer);
+  pinos_signal_add (&pinossink->stream->need_buffer, &pinossink->stream_need_buffer, on_need_buffer);
   pinos_thread_main_loop_unlock (pinossink->main_loop);
 
   return TRUE;

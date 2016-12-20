@@ -195,6 +195,11 @@ spa_proxy_node_send_command (SpaNode        *node,
                                    PINOS_MESSAGE_NODE_COMMAND,
                                    &cnc,
                                    true);
+      if (command->type == SPA_NODE_COMMAND_START) {
+        uint8_t cmd = PINOS_TRANSPORT_CMD_NEED_DATA;
+        write (this->data_source.fd, &cmd, 1);
+      }
+
       res = SPA_RESULT_RETURN_ASYNC (cnc.seq);
       break;
     }
@@ -686,8 +691,8 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
           am.type = d->type;
           am.memfd = d->fd;
           am.flags = d->flags;
-          am.offset = d->offset;
-          am.size = d->size;
+          am.offset = d->mapoffset;
+          am.size = d->maxsize;
           pinos_resource_send_message (this->resource,
                                        PINOS_MESSAGE_ADD_MEM,
                                        &am,
@@ -698,7 +703,7 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
           break;
         case SPA_DATA_TYPE_MEMPTR:
           b->buffer.datas[j].data = SPA_INT_TO_PTR (b->size);
-          b->size += d->size;
+          b->size += d->maxsize;
           break;
         default:
           b->buffer.datas[j].type = SPA_DATA_TYPE_INVALID;
@@ -863,8 +868,6 @@ static SpaResult
 spa_proxy_node_process_input (SpaNode *node)
 {
   SpaProxy *this;
-  unsigned int i;
-  bool have_error = false;
   uint8_t cmd;
 
   if (node == NULL)
@@ -872,22 +875,29 @@ spa_proxy_node_process_input (SpaNode *node)
 
   this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
-  for (i = 0; i < this->n_inputs; i++) {
-    SpaProxyPort *port = &this->in_ports[i];
-    SpaPortInput *input;
+#if 0
+  {
+    unsigned int i;
+    bool have_error = false;
 
-    if ((input = port->io) == NULL)
-      continue;
+    for (i = 0; i < this->n_inputs; i++) {
+      SpaProxyPort *port = &this->in_ports[i];
+      SpaPortInput *input;
 
-    if (!CHECK_PORT_BUFFER (this, input->buffer_id, port)) {
-      input->status = SPA_RESULT_INVALID_BUFFER_ID;
-      have_error = true;
-      continue;
+      if ((input = port->io) == NULL)
+        continue;
+
+      if (!CHECK_PORT_BUFFER (this, input->buffer_id, port)) {
+        input->status = SPA_RESULT_INVALID_BUFFER_ID;
+        have_error = true;
+        continue;
+      }
+      copy_meta_out (this, port, input->buffer_id);
     }
-    copy_meta_out (this, port, input->buffer_id);
+    if (have_error)
+      return SPA_RESULT_ERROR;
   }
-  if (have_error)
-    return SPA_RESULT_ERROR;
+#endif
 
   cmd = PINOS_TRANSPORT_CMD_HAVE_DATA;
   write (this->data_source.fd, &cmd, 1);
@@ -899,28 +909,37 @@ static SpaResult
 spa_proxy_node_process_output (SpaNode *node)
 {
   SpaProxy *this;
-  unsigned int i;
-  bool have_error = false;
+  uint8_t cmd;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
-  for (i = 0; i < this->n_outputs; i++) {
-    SpaProxyPort *port = &this->out_ports[i];
-    SpaPortOutput *output;
+#if 0
+  {
+    unsigned int i;
+    bool have_error = false;
 
-    if ((output = port->io) == NULL)
-      continue;
+    for (i = 0; i < this->n_outputs; i++) {
+      SpaProxyPort *port = &this->out_ports[i];
+      SpaPortOutput *output;
 
-    copy_meta_in (this, port, output->buffer_id);
+      if ((output = port->io) == NULL)
+        continue;
 
-    if (output->status != SPA_RESULT_OK)
-      have_error = true;
+      copy_meta_in (this, port, output->buffer_id);
+
+      if (output->status != SPA_RESULT_OK)
+        have_error = true;
+    }
+    if (have_error)
+      return SPA_RESULT_ERROR;
   }
-  if (have_error)
-    return SPA_RESULT_ERROR;
+#endif
+
+  cmd = PINOS_TRANSPORT_CMD_NEED_DATA;
+  write (this->data_source.fd, &cmd, 1);
 
   return SPA_RESULT_OK;
 }
@@ -1052,6 +1071,17 @@ proxy_on_data_fd_events (SpaSource *source)
     }
     if (cmd & PINOS_TRANSPORT_CMD_HAVE_DATA) {
       SpaNodeEventHaveOutput ho;
+      unsigned int i;
+
+      for (i = 0; i < this->n_outputs; i++) {
+        SpaProxyPort *port = &this->out_ports[i];
+        SpaPortOutput *output;
+
+        if ((output = port->io) == NULL)
+          continue;
+
+        copy_meta_in (this, port, output->buffer_id);
+      }
       ho.event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
       ho.event.size = sizeof (ho);
       ho.port_id = 0;

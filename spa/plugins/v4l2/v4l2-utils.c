@@ -117,7 +117,7 @@ spa_v4l2_clear_buffers (SpaV4l2Source *this)
     }
     if (b->allocated) {
       if (b->outbuf->datas[0].data)
-        munmap (b->outbuf->datas[0].data, b->outbuf->datas[0].size);
+        munmap (b->outbuf->datas[0].data, b->outbuf->datas[0].maxsize);
       if (b->outbuf->datas[0].fd != -1)
         close (b->outbuf->datas[0].fd);
       b->outbuf->datas[0].type = SPA_DATA_TYPE_INVALID;
@@ -973,7 +973,7 @@ spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffe
           continue;
         }
         b->v4l2_buffer.m.userptr = (unsigned long) d[0].data;
-        b->v4l2_buffer.length = d[0].size;
+        b->v4l2_buffer.length = d[0].maxsize;
         break;
       case SPA_DATA_TYPE_DMABUF:
         b->v4l2_buffer.m.fd = d[0].fd;
@@ -1047,8 +1047,8 @@ mmap_init (SpaV4l2Source   *this,
     }
 
     d = buffers[i]->datas;
-    d[0].offset = 0;
-    d[0].size = b->v4l2_buffer.length;
+    d[0].mapoffset = 0;
+    d[0].maxsize = b->v4l2_buffer.length;
     d[0].chunk->offset = 0;
     d[0].chunk->size = b->v4l2_buffer.length;
     d[0].chunk->stride = state->fmt.fmt.pix.bytesperline;

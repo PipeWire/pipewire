@@ -174,8 +174,8 @@ typedef struct {
   SpaDataType    type;
   int            flags;
   int            fd;
-  off_t          offset;
-  size_t         size;
+  off_t          mapoffset;
+  size_t         maxsize;
   void          *data;
   SpaChunk      *chunk;
 } SpaData;

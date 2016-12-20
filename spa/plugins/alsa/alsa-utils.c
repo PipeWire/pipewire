@@ -268,22 +268,35 @@ pull_frames_queue (SpaALSAState *state,
                    snd_pcm_uframes_t offset,
                    snd_pcm_uframes_t frames)
 {
+  if (spa_list_is_empty (&state->ready)) {
+    SpaNodeEventNeedInput ni;
+
+    ni.event.type = SPA_NODE_EVENT_TYPE_NEED_INPUT;
+    ni.event.size = sizeof (ni);
+    ni.port_id = 0;
+    state->event_cb (&state->node, &ni.event, state->user_data);
+  }
   if (!spa_list_is_empty (&state->ready)) {
     uint8_t *src, *dst;
-    size_t n_bytes;
+    size_t n_bytes, size;
+    off_t offs;
     SpaALSABuffer *b;
 
     b = spa_list_first (&state->ready, SpaALSABuffer, list);
 
-    src = SPA_MEMBER (b->outbuf->datas[0].data, b->outbuf->datas[0].offset + state->ready_offset, uint8_t);
+    offs = SPA_MIN (b->outbuf->datas[0].chunk->offset, b->outbuf->datas[0].maxsize);
+    src = SPA_MEMBER (b->outbuf->datas[0].data, offs, uint8_t);
+    size = SPA_MIN (b->outbuf->datas[0].chunk->size, b->outbuf->datas[0].maxsize - offs);
+
+    src = SPA_MEMBER (src, state->ready_offset, uint8_t);
     dst = SPA_MEMBER (my_areas[0].addr, offset * state->frame_size, uint8_t);
-    n_bytes = SPA_MIN (b->outbuf->datas[0].size - state->ready_offset, frames * state->frame_size);
+    n_bytes = SPA_MIN (size - state->ready_offset, frames * state->frame_size);
     frames = SPA_MIN (frames, n_bytes / state->frame_size);
 
     memcpy (dst, src, n_bytes);
 
     state->ready_offset += n_bytes;
-    if (state->ready_offset >= b->outbuf->datas[0].size) {
+    if (state->ready_offset >= size) {
       SpaNodeEventReuseBuffer rb;
 
       spa_list_remove (&b->list);
@@ -298,7 +311,7 @@ pull_frames_queue (SpaALSAState *state,
       state->ready_offset = 0;
     }
   } else {
-    spa_log_warn (state->log, "underrun");
+    spa_log_warn (state->log, "underrun, want %zd frames", frames);
     snd_pcm_areas_silence (my_areas, offset, state->channels, frames, state->format);
   }
   return frames;
@@ -318,7 +331,7 @@ pull_frames_ringbuffer (SpaALSAState *state,
 
   b = state->ringbuffer;
 
-  src = SPA_MEMBER (b->outbuf->datas[0].data, b->outbuf->datas[0].offset, void);
+  src = b->outbuf->datas[0].data;
   dst = SPA_MEMBER (my_areas[0].addr, offset * state->frame_size, uint8_t);
 
   avail = spa_ringbuffer_get_read_areas (&b->rb->ringbuffer, areas);
@@ -442,8 +455,8 @@ mmap_read (SpaALSAState *state)
     b = spa_list_first (&state->free, SpaALSABuffer, list);
     spa_list_remove (&b->list);
 
-    dest = SPA_MEMBER (b->outbuf->datas[0].data, b->outbuf->datas[0].offset, void);
-    destsize = b->outbuf->datas[0].size;
+    dest = b->outbuf->datas[0].data;
+    destsize = b->outbuf->datas[0].maxsize;
 
     if (b->h) {
       b->h->seq = state->sample_count;
@@ -484,7 +497,9 @@ mmap_read (SpaALSAState *state)
     SpaData *d;
 
     d = b->outbuf->datas;
-    d[0].size = avail * state->frame_size;
+    d[0].chunk->offset = 0;
+    d[0].chunk->size = avail * state->frame_size;
+    d[0].chunk->stride = 0;
 
     spa_list_insert (state->ready.prev, &b->list);
 

@@ -89,6 +89,7 @@ struct _GstPinosSink {
   PinosListener stream_add_buffer;
   PinosListener stream_remove_buffer;
   PinosListener stream_new_buffer;
+  PinosListener stream_need_buffer;
 
   GstAllocator *allocator;
   GstStructure *properties;
@@ -96,6 +97,8 @@ struct _GstPinosSink {
 
   GstPinosPool *pool;
   GHashTable *buf_ids;
+  GQueue queue;
+  guint need_ready;
 };
 
 struct _GstPinosSinkClass {

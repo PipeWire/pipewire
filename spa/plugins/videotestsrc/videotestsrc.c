@@ -657,7 +657,7 @@ spa_videotestsrc_node_port_use_buffers (SpaNode         *node,
           spa_log_error (this->log, "videotestsrc %p: invalid memory on buffer %p", this, buffers[i]);
           continue;
         }
-        b->ptr = SPA_MEMBER (d[0].data, d[0].offset, void);
+        b->ptr = SPA_MEMBER (d[0].data, d[0].chunk->offset, void);
         b->stride = d[0].chunk->stride;
         break;
       default:

@@ -324,10 +324,10 @@ alloc_buffers (PinosLink      *this,
         d->type = SPA_DATA_TYPE_MEMFD;
         d->flags = 0;
         d->fd = mem->fd;
-        d->offset = 0;
-        d->size = mem->size;
-        d->data = mem->ptr;
-        d->chunk->offset = SPA_PTRDIFF (ddp, d->data);
+        d->mapoffset = SPA_PTRDIFF (ddp, mem->ptr);
+        d->maxsize = data_sizes[j];
+        d->data = SPA_MEMBER (mem->ptr, d->mapoffset, void);
+        d->chunk->offset = 0;
         d->chunk->size = data_sizes[j];
         d->chunk->stride = data_strides[j];
         ddp += data_sizes[j];

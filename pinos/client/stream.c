@@ -192,6 +192,7 @@ pinos_stream_new (PinosContext    *context,
   pinos_signal_init (&this->add_buffer);
   pinos_signal_init (&this->remove_buffer);
   pinos_signal_init (&this->new_buffer);
+  pinos_signal_init (&this->need_buffer);
 
   this->state = PINOS_STREAM_STATE_UNCONNECTED;
 
@@ -472,6 +473,9 @@ on_rtsocket_condition (SpaSource    *source,
         pinos_transport_parse_event (impl->trans, ev);
         handle_rtnode_event (stream, ev);
       }
+    }
+    if (cmd & PINOS_TRANSPORT_CMD_NEED_DATA) {
+      pinos_signal_emit (&stream->need_buffer, stream);
     }
   }
 }
@@ -1080,16 +1084,15 @@ pinos_stream_send_buffer (PinosStream     *stream,
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
   BufferId *bid;
+  uint8_t cmd = PINOS_TRANSPORT_CMD_HAVE_DATA;
 
   if ((bid = find_buffer (stream, id))) {
-    uint8_t cmd = PINOS_TRANSPORT_CMD_HAVE_DATA;
-
     bid->used = true;
     impl->trans->outputs[0].buffer_id = id;
     impl->trans->outputs[0].status = SPA_RESULT_OK;
-    write (impl->rtfd, &cmd, 1);
-    return true;
-  } else {
-    return true;
+    if (write (impl->rtfd, &cmd, 1) < 1)
+      perror ("write");
   }
+
+  return true;
 }

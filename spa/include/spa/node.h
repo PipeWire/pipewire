@@ -568,8 +568,8 @@ struct _SpaNode {
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_HAVE_ENOUGH_INPUT when output can be produced.
    */
-  SpaResult   (*process_input)           (SpaNode             *node);
-  SpaResult   (*process_output)          (SpaNode             *node);
+  SpaResult   (*process_input)           (SpaNode *node);
+  SpaResult   (*process_output)          (SpaNode *node);
 
 };
 

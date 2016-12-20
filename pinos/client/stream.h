@@ -91,6 +91,8 @@ struct _PinosStream {
   PINOS_SIGNAL (new_buffer,    (PinosListener *listener,
                                 PinosStream   *stream,
                                 uint32_t       id));
+  PINOS_SIGNAL (need_buffer,   (PinosListener *listener,
+                                PinosStream   *stream));
 };
 
 PinosStream *    pinos_stream_new               (PinosContext    *context,

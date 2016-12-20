@@ -75,6 +75,7 @@ acquire_buffer (GstBufferPool * pool, GstBuffer ** buffer,
 
   GST_OBJECT_LOCK (pool);
   while (p->available.length == 0) {
+    GST_WARNING ("queue empty");
     g_cond_wait (&p->cond, GST_OBJECT_GET_LOCK (pool));
   }
   *buffer = g_queue_pop_head (&p->available);

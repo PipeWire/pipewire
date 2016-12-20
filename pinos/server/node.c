@@ -328,11 +328,6 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
       PinosPort *port = this->output_port_map[ho->port_id];
       PinosLink *link;
 
-      if ((res = spa_node_process_output (node)) < 0) {
-        pinos_log_warn ("node %p: got pull error %d, %d", this, res, po->status);
-        break;
-      }
-
       spa_list_for_each (link, &port->rt.links, rt.output_link) {
         size_t offset;
 
@@ -355,6 +350,10 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
       if (!pushed) {
         if ((res = spa_node_port_reuse_buffer (node, ho->port_id, po->buffer_id)) < 0)
           pinos_log_warn ("node %p: error reuse buffer: %d", node, res);
+      }
+      if ((res = spa_node_process_output (node)) < 0) {
+        pinos_log_warn ("node %p: got pull error %d, %d", this, res, po->status);
+        break;
       }
       break;
     }

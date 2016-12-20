@@ -224,8 +224,7 @@ videotestsrc_on_output (SpaSource *source)
   SpaPortOutput *output;
 
   if (spa_list_is_empty (&this->empty)) {
-    if (!this->props[1].live)
-      update_loop_enabled (this, false);
+    update_loop_enabled (this, false);
     return;
   }
   b = spa_list_first (&this->empty, VTSBuffer, link);
@@ -644,7 +643,7 @@ spa_videotestsrc_node_port_use_buffers (SpaNode         *node,
   clear_buffers (this);
 
   for (i = 0; i < n_buffers; i++) {
-    VTSBuffer *b = &this->buffers[i];
+    VTSBuffer *b;
     SpaData *d = buffers[i]->datas;
 
     b = &this->buffers[i];
@@ -933,6 +932,10 @@ videotestsrc_init (const SpaHandleFactory  *factory,
   }
   if (this->map == NULL) {
     spa_log_error (this->log, "an id-map is needed");
+    return SPA_RESULT_ERROR;
+  }
+  if (this->data_loop == NULL) {
+    spa_log_error (this->log, "a data_loop is needed");
     return SPA_RESULT_ERROR;
   }
   this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);

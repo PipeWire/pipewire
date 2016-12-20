@@ -86,6 +86,7 @@ struct _SpaAudioTestSrc {
   SpaAllocParam *params[2];
   SpaAllocParamBuffers param_buffers;
   SpaAllocParamMetaEnable param_meta;
+  SpaPortOutput *output;
 
   bool have_format;
   SpaFormatAudio query_format;
@@ -94,8 +95,6 @@ struct _SpaAudioTestSrc {
 
   ATSBuffer buffers[MAX_BUFFERS];
   unsigned int n_buffers;
-
-  SpaPortOutput *output;
 
   bool started;
   uint64_t start_time;
@@ -266,8 +265,7 @@ audiotestsrc_on_output (SpaSource *source)
   SpaPortOutput *output;
 
   if (spa_list_is_empty (&this->empty)) {
-    if (!this->props[1].live)
-      update_loop_enabled (this, false);
+    update_loop_enabled (this, false);
     return;
   }
   b = spa_list_first (&this->empty, ATSBuffer, link);
@@ -313,7 +311,7 @@ update_state (SpaAudioTestSrc *this, SpaNodeState state)
 static SpaResult
 update_loop_enabled (SpaAudioTestSrc *this, bool enabled)
 {
-  if (this->event_cb) {
+  if (this->event_cb && this->timer_enabled != enabled) {
     this->timer_enabled = enabled;
     if (enabled)
       this->timer_source.mask = SPA_IO_IN;
@@ -331,8 +329,6 @@ update_loop_enabled (SpaAudioTestSrc *this, bool enabled)
         this->timerspec.it_value.tv_nsec = 0;
       }
       timerfd_settime (this->timer_source.fd, TFD_TIMER_ABSTIME, &this->timerspec, NULL);
-
-      this->timer_source.func = audiotestsrc_on_output;
     }
     spa_loop_update_source (this->data_loop, &this->timer_source);
   }
@@ -417,9 +413,8 @@ spa_audiotestsrc_node_set_event_callback (SpaNode              *node,
 
   this = SPA_CONTAINER_OF (node, SpaAudioTestSrc, node);
 
-  if (event_cb == NULL && this->event_cb) {
+  if (event_cb == NULL && this->event_cb)
     spa_loop_remove_source (this->data_loop, &this->timer_source);
-  }
 
   this->event_cb = event_cb;
   this->user_data = user_data;
@@ -760,14 +755,13 @@ spa_audiotestsrc_node_port_set_output (SpaNode       *node,
 
   this = SPA_CONTAINER_OF (node, SpaAudioTestSrc, node);
 
-  if (!CHECK_PORT (this, SPA_DIRECTION_INPUT, port_id))
+  if (!CHECK_PORT (this, SPA_DIRECTION_OUTPUT, port_id))
     return SPA_RESULT_INVALID_PORT;
 
   this->output = output;
 
   return SPA_RESULT_OK;
 }
-
 
 static SpaResult
 spa_audiotestsrc_node_port_reuse_buffer (SpaNode         *node,
@@ -987,7 +981,8 @@ audiotestsrc_init (const SpaHandleFactory  *factory,
   this->timer_source.func = audiotestsrc_on_output;
   this->timer_source.data = this;
   this->timer_source.fd = timerfd_create (CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
-  this->timer_source.mask = SPA_IO_IN | SPA_IO_ERR;
+  this->timer_source.mask = SPA_IO_IN;
+  this->timer_source.rmask = 0;
   this->timerspec.it_value.tv_sec = 0;
   this->timerspec.it_value.tv_nsec = 0;
   this->timerspec.it_interval.tv_sec = 0;

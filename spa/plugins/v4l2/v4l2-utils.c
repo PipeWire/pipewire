@@ -842,6 +842,7 @@ mmap_read (SpaV4l2Source *this)
   V4l2Buffer *b;
   SpaData *d;
   int64_t pts;
+  SpaPortOutput *output;
 
   CLEAR(buf);
   buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -880,8 +881,11 @@ mmap_read (SpaV4l2Source *this)
   d[0].chunk->size = buf.bytesused;
   d[0].chunk->stride = state->fmt.fmt.pix.bytesperline;
 
-  spa_list_insert (state->ready.prev, &b->list);
-
+  if ((output = state->io)) {
+    b->outstanding = true;
+    output->buffer_id = b->outbuf->id;
+    output->status = SPA_RESULT_OK;
+  }
   return SPA_RESULT_OK;
 }
 

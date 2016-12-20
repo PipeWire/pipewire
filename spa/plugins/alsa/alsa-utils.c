@@ -282,7 +282,7 @@ pull_frames_queue (SpaALSAState *state,
     off_t offs;
     SpaALSABuffer *b;
 
-    b = spa_list_first (&state->ready, SpaALSABuffer, list);
+    b = spa_list_first (&state->ready, SpaALSABuffer, link);
 
     offs = SPA_MIN (b->outbuf->datas[0].chunk->offset, b->outbuf->datas[0].maxsize);
     src = SPA_MEMBER (b->outbuf->datas[0].data, offs, uint8_t);
@@ -299,7 +299,7 @@ pull_frames_queue (SpaALSAState *state,
     if (state->ready_offset >= size) {
       SpaNodeEventReuseBuffer rb;
 
-      spa_list_remove (&b->list);
+      spa_list_remove (&b->link);
       b->outstanding = true;
 
       rb.event.type = SPA_NODE_EVENT_TYPE_REUSE_BUFFER;
@@ -452,8 +452,8 @@ mmap_read (SpaALSAState *state)
     b = NULL;
     spa_log_warn (state->log, "no more buffers");
   } else {
-    b = spa_list_first (&state->free, SpaALSABuffer, list);
-    spa_list_remove (&b->list);
+    b = spa_list_first (&state->free, SpaALSABuffer, link);
+    spa_list_remove (&b->link);
 
     dest = b->outbuf->datas[0].data;
     destsize = b->outbuf->datas[0].maxsize;
@@ -495,14 +495,18 @@ mmap_read (SpaALSAState *state)
   if (b) {
     SpaNodeEventHaveOutput ho;
     SpaData *d;
+    SpaPortOutput *output;
 
     d = b->outbuf->datas;
     d[0].chunk->offset = 0;
     d[0].chunk->size = avail * state->frame_size;
     d[0].chunk->stride = 0;
 
-    spa_list_insert (state->ready.prev, &b->list);
-
+    if ((output = state->io)) {
+      b->outstanding = true;
+      output->buffer_id = b->outbuf->id;
+      output->status = SPA_RESULT_OK;
+    }
     ho.event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
     ho.event.size = sizeof (ho);
     ho.port_id = 0;

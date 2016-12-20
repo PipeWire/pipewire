@@ -424,7 +424,7 @@ on_add_buffer (PinosListener *listener,
       case SPA_DATA_TYPE_DMABUF:
       {
         gmem = gst_fd_allocator_alloc (pinossrc->fd_allocator, dup (d->fd),
-                  d->maxsize, GST_FD_MEMORY_FLAG_NONE);
+                  d->mapoffset + d->maxsize, GST_FD_MEMORY_FLAG_NONE);
         gst_memory_resize (gmem, d->chunk->offset + d->mapoffset, d->chunk->size);
         data.offset = d->mapoffset;
         break;

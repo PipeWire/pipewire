@@ -748,9 +748,6 @@ stream_dispatch_func (void             *object,
               break;
           }
         }
-
-        spa_debug_buffer (b);
-
         pinos_signal_emit (&stream->add_buffer, stream, bid->id);
       }
 

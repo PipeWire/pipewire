@@ -55,7 +55,7 @@ struct _ATSBuffer {
   SpaMetaHeader *h;
   void *ptr;
   size_t size;
-  SpaList list;
+  SpaList link;
 };
 
 typedef struct {
@@ -103,7 +103,6 @@ struct _SpaAudioTestSrc {
 
   uint64_t sample_count;
   SpaList empty;
-  SpaList ready;
 };
 
 #define CHECK_PORT(this,d,p)  ((d) == SPA_DIRECTION_OUTPUT && (p) == 0)
@@ -264,14 +263,15 @@ audiotestsrc_on_output (SpaSource *source)
 {
   SpaAudioTestSrc *this = source->data;
   ATSBuffer *b;
+  SpaPortOutput *output;
 
   if (spa_list_is_empty (&this->empty)) {
     if (!this->props[1].live)
       update_loop_enabled (this, false);
     return;
   }
-  b = spa_list_first (&this->empty, ATSBuffer, list);
-  spa_list_remove (&b->list);
+  b = spa_list_first (&this->empty, ATSBuffer, link);
+  spa_list_remove (&b->link);
 
   fill_buffer (this, b);
 
@@ -296,8 +296,12 @@ audiotestsrc_on_output (SpaSource *source)
     timerfd_settime (this->timer_source.fd, TFD_TIMER_ABSTIME, &this->timerspec, NULL);
   }
 
-  spa_list_insert (this->ready.prev, &b->list);
-  send_have_output (this);
+  if ((output = this->output)) {
+    b->outstanding = true;
+    output->buffer_id = b->outbuf->id;
+    output->status = SPA_RESULT_OK;
+    send_have_output (this);
+  }
 }
 
 static void
@@ -526,7 +530,6 @@ clear_buffers (SpaAudioTestSrc *this)
     spa_log_info (this->log, "audiotestsrc %p: clear buffers", this);
     this->n_buffers = 0;
     spa_list_init (&this->empty);
-    spa_list_init (&this->ready);
   }
   return SPA_RESULT_OK;
 }
@@ -696,7 +699,7 @@ spa_audiotestsrc_node_port_use_buffers (SpaNode         *node,
       default:
         break;
     }
-    spa_list_insert (this->empty.prev, &b->list);
+    spa_list_insert (this->empty.prev, &b->link);
   }
   this->n_buffers = n_buffers;
 
@@ -793,7 +796,7 @@ spa_audiotestsrc_node_port_reuse_buffer (SpaNode         *node,
     return SPA_RESULT_OK;
 
   b->outstanding = false;
-  spa_list_insert (this->empty.prev, &b->list);
+  spa_list_insert (this->empty.prev, &b->link);
 
   if (!this->props[1].live)
     update_loop_enabled (this, true);
@@ -819,28 +822,6 @@ spa_audiotestsrc_node_process_input (SpaNode *node)
 static SpaResult
 spa_audiotestsrc_node_process_output (SpaNode *node)
 {
-  SpaAudioTestSrc *this;
-  SpaPortOutput *output;
-  ATSBuffer *b;
-
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
-  this = SPA_CONTAINER_OF (node, SpaAudioTestSrc, node);
-  if ((output = this->output) == NULL)
-    return SPA_RESULT_OK;
-
-  if (spa_list_is_empty (&this->ready)) {
-    output->status = SPA_RESULT_UNEXPECTED;
-    return SPA_RESULT_ERROR;
-  }
-  b = spa_list_first (&this->ready, ATSBuffer, list);
-  spa_list_remove (&b->list);
-  b->outstanding = true;
-
-  output->buffer_id = b->outbuf->id;
-  output->status = SPA_RESULT_OK;
-
   return SPA_RESULT_OK;
 }
 
@@ -1002,7 +983,6 @@ audiotestsrc_init (const SpaHandleFactory  *factory,
   reset_audiotestsrc_props (&this->props[1]);
 
   spa_list_init (&this->empty);
-  spa_list_init (&this->ready);
 
   this->timer_source.func = audiotestsrc_on_output;
   this->timer_source.data = this;

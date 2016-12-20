@@ -408,7 +408,7 @@ recycle_buffer (SpaALSASource *this, uint32_t buffer_id)
     return;
 
   b->outstanding = false;
-  spa_list_insert (this->free.prev, &b->list);
+  spa_list_insert (this->free.prev, &b->link);
 }
 
 static SpaResult
@@ -590,7 +590,7 @@ spa_alsa_source_node_port_use_buffers (SpaNode         *node,
       default:
         break;
     }
-    spa_list_insert (this->free.prev, &b->list);
+    spa_list_insert (this->free.prev, &b->link);
   }
   this->n_buffers = n_buffers;
 
@@ -731,35 +731,6 @@ spa_alsa_source_node_process_input (SpaNode *node)
 static SpaResult
 spa_alsa_source_node_process_output (SpaNode *node)
 {
-  SpaALSASource *this;
-  SpaPortOutput *output;
-  SpaALSABuffer *b;
-
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
-  this = SPA_CONTAINER_OF (node, SpaALSASource, node);
-
-  output = this->io;
-
-  if (!this->have_format) {
-    output->status = SPA_RESULT_NO_FORMAT;
-    return SPA_RESULT_ERROR;
-  }
-
-  if (spa_list_is_empty (&this->ready)) {
-    output->status = SPA_RESULT_UNEXPECTED;
-    return SPA_RESULT_ERROR;
-  }
-  b = spa_list_first (&this->ready, SpaALSABuffer, list);
-  spa_list_remove (&b->list);
-  b->outstanding = true;
-
-  output->buffer_id = b->outbuf->id;
-  output->status = SPA_RESULT_OK;
-
-  spa_log_trace (this->log, "pull buffer %u", b->outbuf->id);
-
   return SPA_RESULT_OK;
 }
 

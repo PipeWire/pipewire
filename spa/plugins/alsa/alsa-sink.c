@@ -698,7 +698,7 @@ spa_alsa_sink_node_process_input (SpaNode *node)
     this->ringbuffer->outstanding = true;
     this->ringbuffer = b;
   } else {
-    spa_list_insert (this->ready.prev, &b->list);
+    spa_list_insert (this->ready.prev, &b->link);
   }
   b->outstanding = false;
   input->status = SPA_RESULT_OK;

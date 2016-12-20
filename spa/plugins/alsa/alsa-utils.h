@@ -56,7 +56,7 @@ struct _SpaALSABuffer {
   SpaMetaHeader *h;
   SpaMetaRingbuffer *rb;
   bool outstanding;
-  SpaList list;
+  SpaList link;
 };
 
 typedef struct {

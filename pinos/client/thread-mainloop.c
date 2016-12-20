@@ -80,6 +80,7 @@ pinos_thread_main_loop_new (PinosLoop  *loop,
 {
   PinosThreadMainLoopImpl *impl;
   PinosThreadMainLoop *this;
+  pthread_mutexattr_t attr;
 
   impl = calloc (1, sizeof (PinosThreadMainLoopImpl));
   this = &impl->this;
@@ -96,7 +97,10 @@ pinos_thread_main_loop_new (PinosLoop  *loop,
 
   pinos_signal_init (&this->destroy_signal);
 
-  pthread_mutex_init (&impl->lock, NULL);
+
+  pthread_mutexattr_init (&attr);
+  pthread_mutexattr_settype (&attr, PTHREAD_MUTEX_RECURSIVE);
+  pthread_mutex_init (&impl->lock, &attr);
   pthread_cond_init (&impl->cond, NULL);
   pthread_cond_init (&impl->accept_cond, NULL);
 

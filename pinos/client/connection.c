@@ -88,6 +88,17 @@ connection_add_fd (PinosConnection *conn,
 #endif
 
 static void
+connection_parse_client_update (PinosConnection *conn, PinosMessageClientUpdate *m)
+{
+  void *p;
+
+  p = conn->in.data;
+  memcpy (m, p, sizeof (PinosMessageClientUpdate));
+  if (m->props)
+    m->props = pinos_serialize_dict_deserialize (p, SPA_PTR_TO_INT (m->props));
+}
+
+static void
 connection_parse_notify_global (PinosConnection *conn, PinosMessageNotifyGlobal *ng)
 {
   void *p;
@@ -338,6 +349,29 @@ connection_add_message (PinosConnection *conn,
   *p++ = (type << 16) | (size & 0xffff);
 
   return p;
+}
+
+static void
+connection_add_client_update (PinosConnection *conn,
+                              uint32_t         dest_id,
+                              PinosMessageClientUpdate *m)
+{
+  size_t len;
+  void *p;
+  PinosMessageClientUpdate *d;
+
+  len = sizeof (PinosMessageClientUpdate);
+  len += pinos_serialize_dict_get_size (m->props);
+
+  p = connection_add_message (conn, dest_id, PINOS_MESSAGE_CLIENT_UPDATE, len);
+  memcpy (p, m, sizeof (PinosMessageClientUpdate));
+  d = p;
+
+  p = SPA_MEMBER (d, sizeof (PinosMessageClientUpdate), void);
+  if (m->props) {
+    len = pinos_serialize_dict_serialize (p, m->props);
+    d->props = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
+  }
 }
 
 static void
@@ -1019,6 +1053,10 @@ pinos_connection_parse_message (PinosConnection *conn,
   spa_return_val_if_fail (conn != NULL, false);
 
   switch (conn->in.type) {
+    case PINOS_MESSAGE_CLIENT_UPDATE:
+      connection_parse_client_update (conn, message);
+      break;
+
     case PINOS_MESSAGE_SYNC:
       if (conn->in.size < sizeof (PinosMessageSync))
         return false;
@@ -1213,6 +1251,10 @@ pinos_connection_add_message (PinosConnection  *conn,
   spa_return_val_if_fail (message != NULL, false);
 
   switch (type) {
+    case PINOS_MESSAGE_CLIENT_UPDATE:
+      connection_add_client_update (conn, dest_id, message);
+      break;
+
     case PINOS_MESSAGE_SYNC:
       p = connection_add_message (conn, dest_id, type, sizeof (PinosMessageSync));
       memcpy (p, message, sizeof (PinosMessageSync));

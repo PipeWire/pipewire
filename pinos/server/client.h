@@ -57,6 +57,8 @@ struct _PinosClient {
 PinosClient *   pinos_client_new                  (PinosCore       *core,
                                                    PinosProperties *properties);
 void            pinos_client_destroy              (PinosClient     *client);
+void            pinos_client_update_properties    (PinosClient     *client,
+                                                   const SpaDict   *dict);
 
 #ifdef __cplusplus
 }

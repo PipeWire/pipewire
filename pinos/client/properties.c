@@ -92,6 +92,29 @@ pinos_properties_new (const char *key, ...)
 }
 
 /**
+ * pinos_properties_new_dict:
+ * @dict: a dict
+ *
+ * Make a new #PinosProperties with given @dict.
+ *
+ * Returns: a new #PinosProperties
+ */
+PinosProperties *
+pinos_properties_new_dict (const SpaDict *dict)
+{
+  unsigned int i;
+  PinosPropertiesImpl *impl;
+
+  impl = calloc (1, sizeof (PinosPropertiesImpl));
+  pinos_array_init (&impl->items);
+
+  for (i = 0; i < dict->n_items; i++)
+    add_func (&impl->this, strdup (dict->items[i].key), strdup (dict->items[i].value));
+
+  return &impl->this;
+}
+
+/**
  * pinos_properties_copy:
  * @properties: a #PinosProperties
  *

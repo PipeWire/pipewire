@@ -41,7 +41,6 @@ typedef struct {
 static void
 try_link_port (PinosNode *node, PinosPort *port, ModuleImpl *impl)
 {
-  //PinosClient *client;
   PinosProperties *props;
   const char *path;
   char *error = NULL;
@@ -76,12 +75,6 @@ try_link_port (PinosNode *node, PinosPort *port, ModuleImpl *impl)
 
     if (link == NULL)
       goto error;
-
-#if 0
-    client = pinos_node_get_client (node);
-    if (client)
-      pinos_client_add_object (client, &link->object);
-#endif
 
     pinos_link_activate (link);
   }
@@ -170,7 +163,7 @@ on_port_removed (PinosListener *listener,
 }
 
 static void
-on_node_created (PinosNode       *node,
+on_node_created (PinosNode  *node,
                  ModuleImpl *impl)
 {
   PinosPort *port;

@@ -551,6 +551,7 @@ pinos_context_connect (PinosContext      *context)
   socklen_t size;
   const char *runtime_dir, *name = NULL;
   int name_size, fd;
+  PinosMessageClientUpdate cu;
   PinosMessageGetRegistry grm;
 
   context_set_state (context, PINOS_CONTEXT_STATE_CONNECTING, NULL);
@@ -607,6 +608,12 @@ pinos_context_connect (PinosContext      *context)
                                          context->uri.core);
   context->core_proxy->dispatch_func = core_dispatch_func;
   context->core_proxy->dispatch_data = impl;
+
+  cu.props = &context->properties->dict;
+  pinos_proxy_send_message (context->core_proxy,
+                            PINOS_MESSAGE_CLIENT_UPDATE,
+                            &cu,
+                            true);
 
   context->registry_proxy = pinos_proxy_new (context,
                                              SPA_ID_INVALID,

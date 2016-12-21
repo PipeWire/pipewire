@@ -19,6 +19,8 @@
 
 #include <unistd.h>
 #include <stdio.h>
+#include <sys/prctl.h>
+#include <pwd.h>
 
 #include "pinos/client/pinos.h"
 
@@ -35,28 +37,45 @@ pinos_init (int *argc, char **argv[])
 {
 }
 
-static char *
+const char *
 pinos_get_application_name (void)
 {
   return NULL;
 }
 
-static char *
+const char *
 pinos_get_prgname (void)
 {
+  static char tcomm[16+1];
+  spa_zero(tcomm);
+
+  if (prctl (PR_GET_NAME, (unsigned long) tcomm, 0, 0, 0) == 0)
+    return tcomm;
+
   return NULL;
 }
 
-static char *
+const char *
 pinos_get_user_name (void)
 {
+  struct passwd *pw;
+
+  if ((pw = getpwuid (getuid ())))
+    return pw->pw_name;
+
   return NULL;
 }
 
-static char *
+const char *
 pinos_get_host_name (void)
 {
-  return NULL;
+  static char hname[256];
+
+  if (gethostname (hname, 256) < 0)
+    return NULL;
+
+  hname[255] = 0;
+  return hname;
 }
 
 /**
@@ -68,11 +87,12 @@ char *
 pinos_client_name (void)
 {
   char *c;
+  const char *cc;
 
-  if ((c = pinos_get_application_name ()))
-    return strdup (c);
-  else if ((c = pinos_get_prgname ()))
-    return strdup (c);
+  if ((cc = pinos_get_application_name ()))
+    return strdup (cc);
+  else if ((cc = pinos_get_prgname ()))
+    return strdup (cc);
   else {
     asprintf (&c, "pinos-pid-%zd", (size_t) getpid ());
     return c;

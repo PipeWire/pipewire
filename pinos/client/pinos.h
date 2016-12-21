@@ -39,6 +39,11 @@ extern "C" {
 
 void pinos_init (int *argc, char **argv[]);
 
+const char * pinos_get_application_name (void);
+const char * pinos_get_prgname (void);
+const char * pinos_get_user_name (void);
+const char * pinos_get_host_name (void);
+
 char * pinos_client_name (void);
 
 void   pinos_fill_context_properties (PinosProperties *properties);

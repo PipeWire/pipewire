@@ -179,3 +179,36 @@ pinos_client_destroy (PinosClient * client)
                          sync_destroy,
                          client);
 }
+
+void
+pinos_client_update_properties (PinosClient     *client,
+                                const SpaDict   *dict)
+{
+  PinosMessageClientInfo m;
+  PinosClientInfo info;
+  PinosResource *resource;
+
+  if (client->properties == NULL) {
+    if (dict)
+      client->properties = pinos_properties_new_dict (dict);
+  } else {
+    unsigned int i;
+
+    for (i = 0; i < dict->n_items; i++)
+      pinos_properties_set (client->properties,
+                            dict->items[i].key,
+                            dict->items[i].value);
+  }
+
+  m.info = &info;
+  info.id = client->global->id;
+  info.change_mask = 1 << 0;
+  info.props = client->properties ? &client->properties->dict : NULL;
+
+  spa_list_for_each (resource, &client->resource_list, link) {
+    pinos_resource_send_message (resource,
+                                 PINOS_MESSAGE_CLIENT_INFO,
+                                 &m,
+                                 true);
+  }
+}

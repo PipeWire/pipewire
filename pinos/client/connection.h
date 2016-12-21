@@ -35,6 +35,8 @@ typedef struct _PinosConnection PinosConnection;
 typedef enum {
   PINOS_MESSAGE_INVALID                  = 0,
 
+  PINOS_MESSAGE_CLIENT_UPDATE,
+
   PINOS_MESSAGE_SYNC,
   PINOS_MESSAGE_NOTIFY_DONE,
   PINOS_MESSAGE_GET_REGISTRY,
@@ -85,6 +87,11 @@ typedef enum {
 } PinosMessageType;
 
 #include <pinos/client/introspect.h>
+
+/* PINOS_MESSAGE_CLIENT_UPDATE */
+typedef struct {
+  SpaDict     *props;
+} PinosMessageClientUpdate;
 
 /* PINOS_MESSAGE_SYNC */
 typedef struct {

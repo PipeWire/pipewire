@@ -16,6 +16,7 @@
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
+#include <time.h>
 
 #include <pinos/client/pinos.h>
 #include <pinos/server/core.h>
@@ -87,6 +88,15 @@ core_dispatch_func (void             *object,
   PinosCore *this = data;
 
   switch (type) {
+    case PINOS_MESSAGE_CLIENT_UPDATE:
+    {
+      PinosMessageClientUpdate *m = message;
+
+      pinos_client_update_properties (client,
+                                      m->props);
+      break;
+    }
+
     case PINOS_MESSAGE_GET_REGISTRY:
     {
       PinosMessageGetRegistry *m = message;
@@ -189,11 +199,12 @@ core_bind_func (PinosGlobal *global,
   m.info = &info;
   info.id = global->id;
   info.change_mask = ~0;
-  info.user_name = "wim";
-  info.host_name = "wtay";
-  info.version = 0;
+  info.user_name = pinos_get_user_name ();
+  info.host_name = pinos_get_host_name ();
+  info.version = "0";
   info.name = "pinos-0";
-  info.cookie = 0;
+  srandom (time (NULL));
+  info.cookie = random ();
   info.props = NULL;
 
   pinos_resource_send_message (resource,

@@ -190,7 +190,7 @@ new_node (const PinosNodeInfo *info)
 {
   GstCaps *caps;
   GstStructure *props;
-  const gchar *klass;
+  const gchar *klass = NULL;
   SpaDictItem *item;
 
   /* FIXME, iterate ports */
@@ -202,10 +202,12 @@ new_node (const PinosNodeInfo *info)
     caps = gst_caps_new_any();
 
   props = gst_structure_new_empty ("pinos-proplist");
-  spa_dict_for_each (item, info->props)
-    gst_structure_set (props, item->key, G_TYPE_STRING, item->value, NULL);
+  if (info->props) {
+    spa_dict_for_each (item, info->props)
+      gst_structure_set (props, item->key, G_TYPE_STRING, item->value, NULL);
 
-  klass = spa_dict_lookup (info->props, "gstreamer.device.class");
+    klass = spa_dict_lookup (info->props, "gstreamer.device.class");
+  }
   if (klass == NULL)
     klass = "unknown/unknown";
 
@@ -312,6 +314,9 @@ get_core_info_cb (PinosContext        *c,
 {
   GstDeviceProvider *provider = user_data;
   const gchar *value;
+
+  if (info == NULL || info->props == NULL)
+    return;
 
   value = spa_dict_lookup (info->props, "gstreamer.deviceproviders");
   if (value) {

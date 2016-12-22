@@ -254,14 +254,14 @@ find_device (GstDeviceProvider *provider, uint32_t id)
 }
 
 static void
-context_subscribe_cb (PinosContext           *context,
-                      PinosSubscriptionEvent  event,
-                      uint32_t                type,
-                      uint32_t                id,
-                      void                   *user_data)
+on_context_subscription (PinosListener          *listener,
+                         PinosContext           *context,
+                         PinosSubscriptionEvent  event,
+                         uint32_t                type,
+                         uint32_t                id)
 {
-  GstPinosDeviceProvider *self = user_data;
-  GstDeviceProvider *provider = user_data;
+  GstPinosDeviceProvider *self = SPA_CONTAINER_OF (listener, GstPinosDeviceProvider, ctx_subscription);
+  GstDeviceProvider *provider = GST_DEVICE_PROVIDER (self);
   GstPinosDevice *dev;
 
   if (type != context->uri.node)
@@ -442,11 +442,12 @@ gst_pinos_device_provider_start (GstDeviceProvider * provider)
     goto failed_context;
   }
 
-  pinos_signal_add (&self->context->state_changed, &self->ctx_state_changed, on_context_state_changed);
-
-  pinos_context_subscribe (self->context,
-                           context_subscribe_cb,
-                           self);
+  pinos_signal_add (&self->context->state_changed,
+                    &self->ctx_state_changed,
+                    on_context_state_changed);
+  pinos_signal_add (&self->context->subscription,
+                    &self->ctx_subscription,
+                    on_context_subscription);
 
   pinos_context_connect (self->context);
   for (;;) {

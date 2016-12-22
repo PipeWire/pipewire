@@ -33,6 +33,9 @@ pinos_proxy_new (PinosContext *context,
   PinosProxy *this;
 
   impl = calloc (1, sizeof (PinosProxyImpl));
+  if (impl == NULL)
+    return NULL;
+
   this = &impl->this;
 
   this->context = context;

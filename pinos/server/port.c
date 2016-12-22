@@ -41,6 +41,9 @@ pinos_port_new (PinosNode      *node,
   PinosPort *this;
 
   impl = calloc (1, sizeof (PinosPortImpl));
+  if (impl == NULL)
+    return NULL;
+
   this = &impl->this;
   this->node = node;
   this->direction = direction;
@@ -177,6 +180,8 @@ pinos_port_link (PinosPort       *output_port,
                            input_port,
                            format_filter,
                            properties);
+    if (link == NULL)
+      goto no_mem;
 
     spa_list_insert (output_port->links.prev, &link->output_link);
     spa_list_insert (input_port->links.prev, &link->input_link);
@@ -209,6 +214,8 @@ was_linked:
     asprintf (error, "input port was already linked");
     return NULL;
   }
+no_mem:
+  return NULL;
 }
 
 static SpaResult

@@ -91,14 +91,14 @@ pinos_memblock_alloc (PinosMemblockFlags  flags,
     mem->fd = memfd_create ("pinos-memfd", MFD_CLOEXEC | MFD_ALLOW_SEALING);
     if (mem->fd == -1) {
       pinos_log_error ("Failed to create memfd: %s\n", strerror (errno));
-      return SPA_RESULT_ERROR;
+      return SPA_RESULT_ERRNO;
     }
 #else
     char filename[] = "/dev/shm/spa-tmpfile.XXXXXX";
     mem->fd = mkostemp (filename, O_CLOEXEC);
     if (mem->fd == -1) {
       pinos_log_error ("Failed to create temporary file: %s\n", strerror (errno));
-      return SPA_RESULT_ERROR;
+      return SPA_RESULT_ERRNO;
     }
     unlink (filename);
 #endif
@@ -106,7 +106,7 @@ pinos_memblock_alloc (PinosMemblockFlags  flags,
     if (ftruncate (mem->fd, size) < 0) {
       pinos_log_warn ("Failed to truncate temporary file: %s", strerror (errno));
       close (mem->fd);
-      return SPA_RESULT_ERROR;
+      return SPA_RESULT_ERRNO;
     }
 #ifdef USE_MEMFD
     if (flags & PINOS_MEMBLOCK_FLAG_SEAL) {
@@ -125,11 +125,15 @@ pinos_memblock_alloc (PinosMemblockFlags  flags,
         prot |= PROT_WRITE;
 
       mem->ptr = mmap (NULL, size, prot, MAP_SHARED, mem->fd, 0);
+      if (mem->ptr == MAP_FAILED)
+        return SPA_RESULT_NO_MEMORY;
     } else {
       mem->ptr = NULL;
     }
   } else {
     mem->ptr = malloc (size);
+    if (mem->ptr == NULL)
+      return SPA_RESULT_NO_MEMORY;
     mem->fd = -1;
   }
   return SPA_RESULT_OK;

@@ -28,6 +28,7 @@ typedef struct {
   PinosContext *context;
 
   PinosListener on_state_changed;
+  PinosListener on_subscription;
 } Data;
 
 static void
@@ -110,7 +111,11 @@ dump_node_info (PinosContext        *c,
   printf ("\ttype: %s\n", PINOS_NODE_URI);
   if (data->print_all) {
     printf ("%c\tname: \"%s\"\n", MARK_CHANGE (0), info->name);
-    printf ("%c\tstate: \"%s\"\n", MARK_CHANGE (1), pinos_node_state_as_string (info->state));
+    printf ("%c\tstate: \"%s\"", MARK_CHANGE (1), pinos_node_state_as_string (info->state));
+    if (info->state == PINOS_NODE_STATE_ERROR && info->error)
+      printf (" \"%s\"\n", info->error);
+    else
+      printf ("\n");
     print_properties (info->props, MARK_CHANGE (2));
   }
 }
@@ -202,11 +207,11 @@ dump_object (PinosContext           *context,
 }
 
 static void
-subscription_cb (PinosContext           *context,
+on_subscription (PinosListener          *listener,
+                 PinosContext           *context,
                  PinosSubscriptionEvent  event,
                  uint32_t                type,
-                 uint32_t                id,
-                 void                   *data)
+                 uint32_t                id)
 {
   DumpData dd;
 
@@ -267,9 +272,9 @@ main (int argc, char *argv[])
                     &data.on_state_changed,
                     on_state_changed);
 
-  pinos_context_subscribe (data.context,
-                           subscription_cb,
-                           &data);
+  pinos_signal_add (&data.context->subscription,
+                    &data.on_subscription,
+                    on_subscription);
 
   pinos_context_connect (data.context);
 

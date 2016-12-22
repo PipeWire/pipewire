@@ -123,6 +123,8 @@ module_bind_func (PinosGlobal *global,
                                  global->core->uri.module,
                                  global->object,
                                  NULL);
+  if (resource == NULL)
+    goto no_mem;
 
   resource->dispatch_func = module_dispatch_func;
   resource->dispatch_data = global;
@@ -141,6 +143,12 @@ module_bind_func (PinosGlobal *global,
                                PINOS_MESSAGE_MODULE_INFO,
                                &m,
                                true);
+  return;
+
+no_mem:
+  pinos_resource_send_error (resource,
+                             SPA_RESULT_NO_MEMORY,
+                             "no memory");
 }
 
 /**
@@ -201,6 +209,9 @@ pinos_module_load (PinosCore    *core,
     goto no_pinos_module;
 
   impl = calloc (1, sizeof (PinosModuleImpl));
+  if (impl == NULL)
+    goto no_mem;
+
   impl->hnd = hnd;
 
   this = &impl->this;
@@ -229,10 +240,11 @@ not_found:
   }
 open_failed:
   {
-    asprintf (err, "Failed to open module: %s", dlerror ());
+    asprintf (err, "Failed to open module: \"%s\" %s", filename, dlerror ());
     free (filename);
     return NULL;
   }
+no_mem:
 no_pinos_module:
   {
     asprintf (err, "\"%s\" is not a pinos module", name);

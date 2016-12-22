@@ -97,6 +97,8 @@ main_loop_defer (PinosMainLoop  *loop,
     spa_list_remove (&item->link);
   } else {
     item = malloc (sizeof (WorkItem));
+    if (item == NULL)
+      return SPA_ID_INVALID;
   }
   item->id = ++impl->counter;
   item->obj = obj;
@@ -189,10 +191,15 @@ pinos_main_loop_new (void)
   PinosMainLoop *this;
 
   impl = calloc (1, sizeof (PinosMainLoopImpl));
+  if (impl == NULL)
+    return NULL;
+
   pinos_log_debug ("main-loop %p: new", impl);
   this = &impl->this;
 
   this->loop = pinos_loop_new ();
+  if (this->loop == NULL)
+    goto no_loop;
 
   pinos_signal_init (&this->destroy_signal);
 
@@ -208,6 +215,10 @@ pinos_main_loop_new (void)
   spa_list_init (&impl->free_list);
 
   return this;
+
+no_loop:
+  free (impl);
+  return NULL;
 }
 
 void

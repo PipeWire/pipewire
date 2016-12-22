@@ -76,6 +76,9 @@ SpaResult       pinos_resource_send_message       (PinosResource     *resource,
                                                    uint32_t           opcode,
                                                    void              *message,
                                                    bool               flush);
+SpaResult       pinos_resource_send_error         (PinosResource     *resource,
+                                                   SpaResult          res,
+                                                   const char        *message, ...);
 
 #ifdef __cplusplus
 }

@@ -99,6 +99,17 @@ connection_parse_client_update (PinosConnection *conn, PinosMessageClientUpdate 
 }
 
 static void
+connection_parse_error (PinosConnection *conn, PinosMessageError *m)
+{
+  void *p;
+
+  p = conn->in.data;
+  memcpy (m, p, sizeof (PinosMessageError));
+  if (m->error)
+    m->error = SPA_MEMBER (p, SPA_PTR_TO_INT (m->error), const char);
+}
+
+static void
 connection_parse_notify_global (PinosConnection *conn, PinosMessageNotifyGlobal *ng)
 {
   void *p;
@@ -198,6 +209,8 @@ connection_parse_node_info (PinosConnection *conn, PinosMessageNodeInfo *m)
 
     if (m->info->name)
       m->info->name = SPA_MEMBER (di, SPA_PTR_TO_INT (m->info->name), const char);
+    if (m->info->error)
+      m->info->error = SPA_MEMBER (di, SPA_PTR_TO_INT (m->info->error), const char);
     if (m->info->props)
       m->info->props = pinos_serialize_dict_deserialize (di, SPA_PTR_TO_INT (m->info->props));
   }
@@ -371,6 +384,29 @@ connection_add_client_update (PinosConnection *conn,
   if (m->props) {
     len = pinos_serialize_dict_serialize (p, m->props);
     d->props = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
+  }
+}
+
+static void
+connection_add_error (PinosConnection *conn,
+                      uint32_t         dest_id,
+                      PinosMessageError *m)
+{
+  size_t len;
+  void *p;
+  PinosMessageError *d;
+
+  /* calc len */
+  len = sizeof (PinosMessageError);
+  len += m->error ? strlen (m->error) + 1 : 0;
+
+  p = connection_add_message (conn, dest_id, PINOS_MESSAGE_ERROR, len);
+  memcpy (p, m, sizeof (PinosMessageError));
+  d = p;
+
+  if (m->error) {
+    strcpy (p, m->error);
+    d->error = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
   }
 }
 
@@ -593,6 +629,7 @@ connection_add_node_info (PinosConnection *conn, uint32_t dest_id, PinosMessageN
   if (m->info) {
     len += sizeof (PinosNodeInfo);
     len += m->info->name ? strlen (m->info->name) + 1 : 0;
+    len += m->info->error ? strlen (m->info->error) + 1 : 0;
     len += pinos_serialize_dict_get_size (m->info->props);
   }
 
@@ -613,6 +650,12 @@ connection_add_node_info (PinosConnection *conn, uint32_t dest_id, PinosMessageN
       slen = strlen (m->info->name) + 1;
       memcpy (p, m->info->name, slen);
       di->name = SPA_INT_TO_PTR (SPA_PTRDIFF (p, di));
+      p += slen;
+    }
+    if (m->info->error) {
+      slen = strlen (m->info->error) + 1;
+      memcpy (p, m->info->error, slen);
+      di->error = SPA_INT_TO_PTR (SPA_PTRDIFF (p, di));
       p += slen;
     }
     if (m->info->props) {
@@ -952,7 +995,11 @@ pinos_connection_new (int fd)
   PinosConnection *c;
 
   c = calloc (1, sizeof (PinosConnection));
+  if (c == NULL)
+    return NULL;
+
   pinos_log_debug ("connection %p: new", c);
+
   c->fd = fd;
   c->out.buffer_data = malloc (MAX_BUFFER_SIZE);
   c->out.buffer_maxsize = MAX_BUFFER_SIZE;
@@ -960,7 +1007,16 @@ pinos_connection_new (int fd)
   c->in.buffer_maxsize = MAX_BUFFER_SIZE;
   c->in.update = true;
 
+  if (c->out.buffer_data == NULL || c->in.buffer_data == NULL)
+    goto no_mem;
+
   return c;
+
+no_mem:
+  free (c->out.buffer_data);
+  free (c->in.buffer_data);
+  free (c);
+  return NULL;
 }
 
 void
@@ -1067,6 +1123,10 @@ pinos_connection_parse_message (PinosConnection *conn,
       if (conn->in.size < sizeof (PinosMessageNotifyDone))
         return false;
       memcpy (message, conn->in.data, sizeof (PinosMessageNotifyDone));
+      break;
+
+    case PINOS_MESSAGE_ERROR:
+      connection_parse_error (conn, message);
       break;
 
     case PINOS_MESSAGE_GET_REGISTRY:
@@ -1263,6 +1323,10 @@ pinos_connection_add_message (PinosConnection  *conn,
     case PINOS_MESSAGE_NOTIFY_DONE:
       p = connection_add_message (conn, dest_id, type, sizeof (PinosMessageNotifyDone));
       memcpy (p, message, sizeof (PinosMessageNotifyDone));
+      break;
+
+    case PINOS_MESSAGE_ERROR:
+      connection_add_error (conn, dest_id, message);
       break;
 
     case PINOS_MESSAGE_GET_REGISTRY:

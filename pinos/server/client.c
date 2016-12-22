@@ -69,6 +69,8 @@ client_bind_func (PinosGlobal *global,
                                  global->core->uri.client,
                                  global->object,
                                  client_unbind_func);
+  if (resource == NULL)
+    goto no_mem;
 
   resource->dispatch_func = client_dispatch_func;
   resource->dispatch_data = global;
@@ -86,6 +88,12 @@ client_bind_func (PinosGlobal *global,
                                PINOS_MESSAGE_CLIENT_INFO,
                                &m,
                                true);
+  return;
+
+no_mem:
+  pinos_resource_send_error (client->core_resource,
+                             SPA_RESULT_NO_MEMORY,
+                             "no memory");
 }
 
 /**
@@ -105,6 +113,9 @@ pinos_client_new (PinosCore       *core,
   PinosClientImpl *impl;
 
   impl = calloc (1, sizeof (PinosClientImpl));
+  if (impl == NULL)
+    return NULL;
+
   pinos_log_debug ("client %p: new", impl);
 
   this = &impl->this;

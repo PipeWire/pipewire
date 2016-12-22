@@ -48,16 +48,6 @@ typedef enum {
     PINOS_SUBSCRIPTION_EVENT_REMOVE        = 2,
 } PinosSubscriptionEvent;
 
-typedef void (*PinosSubscriptionFunc)  (PinosContext           *context,
-                                        PinosSubscriptionEvent  event,
-                                        uint32_t                type,
-                                        uint32_t                id,
-                                        void                   *data);
-
-void         pinos_context_subscribe  (PinosContext           *context,
-                                       PinosSubscriptionFunc   func,
-                                       void                   *data);
-
 #ifdef __cplusplus
 }
 #endif

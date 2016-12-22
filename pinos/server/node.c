@@ -422,6 +422,8 @@ node_bind_func (PinosGlobal *global,
                                  global->core->uri.registry,
                                  global->object,
                                  node_unbind_func);
+  if (resource == NULL)
+    goto no_mem;
 
   resource->dispatch_func = node_dispatch_func;
   resource->dispatch_data = global;
@@ -435,12 +437,19 @@ node_bind_func (PinosGlobal *global,
   info.change_mask = ~0;
   info.name = this->name;
   info.state = this->state;
+  info.error = this->error;
   info.props = this->properties ? &this->properties->dict : NULL;
 
   pinos_resource_send_message (resource,
                                PINOS_MESSAGE_NODE_INFO,
                                &m,
                                true);
+  return;
+
+no_mem:
+  pinos_resource_send_error (resource,
+                             SPA_RESULT_NO_MEMORY,
+                             "no memory");
 }
 
 static void
@@ -482,6 +491,9 @@ pinos_node_new (PinosCore       *core,
   PinosNode *this;
 
   impl = calloc (1, sizeof (PinosNodeImpl));
+  if (impl == NULL)
+    return NULL;
+
   this = &impl->this;
   this->core = core;
   pinos_log_debug ("node %p: new", this);
@@ -514,6 +526,9 @@ pinos_node_new (PinosCore       *core,
     if (this->properties == NULL)
       this->properties = pinos_properties_new (NULL, NULL);
 
+    if (this->properties)
+      goto no_mem;
+
     for (i = 0; i < this->node->info->n_items; i++)
       pinos_properties_set (this->properties,
                             this->node->info->items[i].key,
@@ -532,6 +547,11 @@ pinos_node_new (PinosCore       *core,
   }
 
   return this;
+
+no_mem:
+  free (this->name);
+  free (impl);
+  return NULL;
 }
 
 static SpaResult
@@ -814,6 +834,7 @@ pinos_node_update_state (PinosNode      *node,
     m.info = &info;
     info.change_mask = 1 << 1;
     info.state = node->state;
+    info.error = node->error;
 
     spa_list_for_each (resource, &node->resource_list, link) {
       info.id = node->global->id;

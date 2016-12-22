@@ -240,18 +240,20 @@ void            pinos_context_get_client_info_by_id (PinosContext            *co
  * @id: generic id of the node
  * @change_mask: bitfield of changed fields since last call
  * @name: name the node, suitable for display
- * @props: the properties of the node
  * @state: the current state of the node
+ * @error: an error reason if @state is error
+ * @props: the properties of the node
  *
  * The node information. Extra information can be added in later
  * versions.
  */
 struct _PinosNodeInfo {
-  uint32_t id;
-  uint64_t change_mask;
-  const char *name;
-  PinosNodeState state;
-  SpaDict *props;
+  uint32_t        id;
+  uint64_t        change_mask;
+  const char     *name;
+  PinosNodeState  state;
+  const char     *error;
+  SpaDict        *props;
 };
 
 PinosNodeInfo *    pinos_node_info_update (PinosNodeInfo       *info,

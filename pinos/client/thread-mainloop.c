@@ -83,12 +83,14 @@ pinos_thread_main_loop_new (PinosLoop  *loop,
   pthread_mutexattr_t attr;
 
   impl = calloc (1, sizeof (PinosThreadMainLoopImpl));
+  if (impl == NULL)
+    return NULL;
+
   this = &impl->this;
   pinos_log_debug ("thread-mainloop %p: new", impl);
 
   this->loop = loop;
-  if (name)
-    this->name = strdup (name);
+  this->name = name ? strdup (name) : NULL;
 
   pinos_loop_set_hooks (loop,
                         pre_hook,
@@ -96,7 +98,6 @@ pinos_thread_main_loop_new (PinosLoop  *loop,
                         impl);
 
   pinos_signal_init (&this->destroy_signal);
-
 
   pthread_mutexattr_init (&attr);
   pthread_mutexattr_settype (&attr, PTHREAD_MUTEX_RECURSIVE);

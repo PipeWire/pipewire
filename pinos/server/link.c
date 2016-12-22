@@ -49,27 +49,22 @@ typedef struct
 } PinosLinkImpl;
 
 static void
-pinos_link_update_state (PinosLink *link, PinosLinkState state)
+pinos_link_update_state (PinosLink      *link,
+                         PinosLinkState  state,
+                         char           *error)
 {
   if (state != link->state) {
-    free (link->error);
-    link->error = NULL;
     pinos_log_debug ("link %p: update state %s -> %s", link,
         pinos_link_state_as_string (link->state),
         pinos_link_state_as_string (state));
+
     link->state = state;
+    if (link->error)
+      free (link->error);
+    link->error = error;
+
     pinos_signal_emit (&link->core->link_state_changed, link);
   }
-}
-
-static void
-pinos_link_report_error (PinosLink *link, char *error)
-{
-  free (link->error);
-  link->error = error;
-  link->state = PINOS_LINK_STATE_ERROR;
-  pinos_log_debug ("link %p: got error state %s", link, error);
-  pinos_signal_emit (&link->core->link_state_changed, link);
 }
 
 static SpaResult
@@ -83,7 +78,7 @@ do_negotiate (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
   if (in_state != SPA_NODE_STATE_CONFIGURE && out_state != SPA_NODE_STATE_CONFIGURE)
     return SPA_RESULT_OK;
 
-  pinos_link_update_state (this, PINOS_LINK_STATE_NEGOTIATING);
+  pinos_link_update_state (this, PINOS_LINK_STATE_NEGOTIATING, NULL);
 
   /* both ports need a format */
   if (in_state == SPA_NODE_STATE_CONFIGURE && out_state == SPA_NODE_STATE_CONFIGURE) {
@@ -170,7 +165,7 @@ again:
 
 error:
   {
-    pinos_link_report_error (this, error);
+    pinos_link_update_state (this, PINOS_LINK_STATE_ERROR, error);
     return res;
   }
 }
@@ -352,7 +347,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
   if (in_state != SPA_NODE_STATE_READY && out_state != SPA_NODE_STATE_READY)
     return SPA_RESULT_OK;
 
-  pinos_link_update_state (this, PINOS_LINK_STATE_ALLOCATING);
+  pinos_link_update_state (this, PINOS_LINK_STATE_ALLOCATING, NULL);
 
   pinos_log_debug ("link %p: doing alloc buffers %p %p", this, this->output->node, this->input->node);
   /* find out what's possible */
@@ -552,7 +547,7 @@ error:
     this->input->buffers = NULL;
     this->input->n_buffers = 0;
     this->input->allocated = false;
-    pinos_link_report_error (this, error);
+    pinos_link_update_state (this, PINOS_LINK_STATE_ERROR, error);
     return res;
   }
 }
@@ -565,9 +560,9 @@ do_start (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
   if (in_state < SPA_NODE_STATE_PAUSED || out_state < SPA_NODE_STATE_PAUSED)
     return SPA_RESULT_OK;
   else if (in_state == SPA_NODE_STATE_STREAMING && out_state == SPA_NODE_STATE_STREAMING) {
-    pinos_link_update_state (this, PINOS_LINK_STATE_RUNNING);
+    pinos_link_update_state (this, PINOS_LINK_STATE_RUNNING, NULL);
   } else {
-    pinos_link_update_state (this, PINOS_LINK_STATE_PAUSED);
+    pinos_link_update_state (this, PINOS_LINK_STATE_PAUSED, NULL);
 
     if (in_state == SPA_NODE_STATE_PAUSED) {
       res = pinos_node_set_state (this->input->node, PINOS_NODE_STATE_RUNNING);
@@ -587,8 +582,15 @@ check_states (PinosLink *this,
   SpaNodeState in_state, out_state;
 
 again:
+  if (this->state == PINOS_LINK_STATE_ERROR)
+    return SPA_RESULT_ERROR;
+
   if (this->input == NULL || this->output == NULL)
     return SPA_RESULT_OK;
+
+  if (this->input->node->state == PINOS_NODE_STATE_ERROR ||
+      this->output->node->state == PINOS_NODE_STATE_ERROR)
+    return SPA_RESULT_ERROR;
 
   in_state = this->input->node->node->state;
   out_state = this->output->node->node->state;
@@ -652,7 +654,7 @@ on_port_unlinked (PinosPort *port, PinosLink *this, SpaResult res, uint32_t id)
   pinos_signal_emit (&this->core->port_unlinked, this, port);
 
   if (this->input == NULL || this->output == NULL) {
-    pinos_link_update_state (this, PINOS_LINK_STATE_UNLINKED);
+    pinos_link_update_state (this, PINOS_LINK_STATE_UNLINKED, NULL);
     pinos_link_destroy (this);
   }
 
@@ -719,7 +721,11 @@ bool
 pinos_link_activate (PinosLink *this)
 {
   spa_ringbuffer_init (&this->ringbuffer, SPA_N_ELEMENTS (this->queue));
-  check_states (this, NULL, SPA_RESULT_OK);
+  pinos_main_loop_defer (this->core->main_loop,
+                         this,
+                         SPA_RESULT_WAIT_SYNC,
+                         (PinosDeferFunc) check_states,
+                         this);
   return true;
 }
 
@@ -766,6 +772,8 @@ link_bind_func (PinosGlobal *global,
                                  global->core->uri.link,
                                  global->object,
                                  link_unbind_func);
+  if (resource == NULL)
+    goto no_mem;
 
   resource->dispatch_func = link_dispatch_func;
   resource->dispatch_data = global;
@@ -785,6 +793,12 @@ link_bind_func (PinosGlobal *global,
                                PINOS_MESSAGE_LINK_INFO,
                                &m,
                                true);
+  return;
+
+no_mem:
+  pinos_resource_send_error (client->core_resource,
+                             SPA_RESULT_NO_MEMORY,
+                             "no memory");
 }
 
 PinosLink *
@@ -798,6 +812,9 @@ pinos_link_new (PinosCore       *core,
   PinosLink *this;
 
   impl = calloc (1, sizeof (PinosLinkImpl));
+  if (impl == NULL)
+    return NULL;
+
   this = &impl->this;
   pinos_log_debug ("link %p: new", this);
 

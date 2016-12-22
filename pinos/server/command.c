@@ -68,6 +68,8 @@ parse_command_module_load (const char * line, char ** err)
   PinosCommandImpl *impl;
 
   impl = calloc (1, sizeof (PinosCommandImpl));
+  if (impl == NULL)
+    goto no_mem;
 
   impl->func = execute_command_module_load;
   impl->args = pinos_split_strv (line, whitespace, 3, &impl->n_args);
@@ -82,6 +84,9 @@ parse_command_module_load (const char * line, char ** err)
 no_module:
   asprintf (err, "%s requires a module name", impl->args[0]);
   pinos_free_strv (impl->args);
+  return NULL;
+no_mem:
+  asprintf (err, "no memory");
   return NULL;
 }
 
@@ -125,7 +130,7 @@ pinos_command_free (PinosCommand * command)
  * Returns: The command or %NULL when @err is set.
  */
 PinosCommand *
-pinos_command_parse (const char     *line,
+pinos_command_parse (const char    *line,
                      char         **err)
 {
   PinosCommand *command = NULL;

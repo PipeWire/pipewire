@@ -312,6 +312,8 @@ loop_add_io (SpaLoopUtils    *utils,
   SpaSourceImpl *source;
 
   source = calloc (1, sizeof (SpaSourceImpl));
+  if (source == NULL)
+    return NULL;
 
   source->source.loop = &impl->loop;
   source->source.func = source_io_func;
@@ -353,6 +355,8 @@ loop_add_idle (SpaLoopUtils      *utils,
   SpaSourceImpl *source;
 
   source = calloc (1, sizeof (SpaSourceImpl));
+  if (source == NULL)
+    return NULL;
 
   source->source.loop = &impl->loop;
   source->source.func = source_idle_func;
@@ -408,6 +412,8 @@ loop_add_event (SpaLoopUtils       *utils,
   SpaSourceImpl *source;
 
   source = calloc (1, sizeof (SpaSourceImpl));
+  if (source == NULL)
+    return NULL;
 
   source->source.loop = &impl->loop;
   source->source.func = source_event_func;
@@ -454,6 +460,8 @@ loop_add_timer (SpaLoopUtils       *utils,
   SpaSourceImpl *source;
 
   source = calloc (1, sizeof (SpaSourceImpl));
+  if (source == NULL)
+    return NULL;
 
   source->source.loop = &impl->loop;
   source->source.func = source_timer_func;
@@ -516,6 +524,8 @@ loop_add_signal (SpaLoopUtils        *utils,
   sigset_t mask;
 
   source = calloc (1, sizeof (SpaSourceImpl));
+  if (source == NULL)
+    return NULL;
 
   source->source.loop = &impl->loop;
   source->source.func = source_signal_func;
@@ -557,13 +567,14 @@ pinos_loop_new (void)
   PinosLoop *this;
 
   impl = calloc (1, sizeof (PinosLoopImpl));
+  if (impl == NULL)
+    return NULL;
+
   this = &impl->this;
 
   impl->epoll_fd = epoll_create1 (EPOLL_CLOEXEC);
-  if (impl->epoll_fd == -1) {
-    free (impl);
-    return NULL;
-  }
+  if (impl->epoll_fd == -1)
+    goto no_epoll;
 
   spa_list_init (&impl->source_list);
 
@@ -600,6 +611,10 @@ pinos_loop_new (void)
   spa_ringbuffer_init (&impl->buffer, DATAS_SIZE);
 
   return this;
+
+no_epoll:
+  free (impl);
+  return NULL;
 }
 
 void

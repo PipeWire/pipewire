@@ -127,7 +127,11 @@ pinos_spa_dict_copy (SpaDict *dict)
     return NULL;
 
   copy = calloc (1, sizeof (SpaDict));
+  if (copy == NULL)
+    goto no_mem;
   copy->items = calloc (dict->n_items, sizeof (SpaDictItem));
+  if (copy->items == NULL)
+    goto no_items;
   copy->n_items = dict->n_items;
 
   for (i = 0; i < dict->n_items; i++) {
@@ -135,6 +139,11 @@ pinos_spa_dict_copy (SpaDict *dict)
     copy->items[i].value = strdup (dict->items[i].value);
   }
   return copy;
+
+no_items:
+  free (copy);
+no_mem:
+  return NULL;
 }
 
 PinosCoreInfo *
@@ -148,6 +157,8 @@ pinos_core_info_update (PinosCoreInfo       *info,
 
   if (info == NULL) {
     info = calloc (1, sizeof (PinosCoreInfo));
+    if (info == NULL)
+      return NULL;
     change_mask = ~0;
   } else {
     change_mask = info->change_mask | update->change_mask;
@@ -215,6 +226,8 @@ pinos_node_info_update (PinosNodeInfo       *info,
 
   if (info == NULL) {
     info = calloc (1, sizeof (PinosNodeInfo));
+    if (info == NULL)
+      return NULL;
     change_mask = ~0;
   } else {
     change_mask = info->change_mask | update->change_mask;
@@ -229,6 +242,9 @@ pinos_node_info_update (PinosNodeInfo       *info,
   }
   if (update->change_mask & (1 << 1)) {
     info->state = update->state;
+    if (info->error)
+      free ((void*)info->error);
+    info->error = update->error ? strdup (update->error) : NULL;
   }
   if (update->change_mask & (1 << 2)) {
     if (info->props)
@@ -245,6 +261,8 @@ pinos_node_info_free (PinosNodeInfo *info)
     return;
   if (info->name)
     free ((void*)info->name);
+  if (info->error)
+    free ((void*)info->error);
   if (info->props)
     pinos_spa_dict_destroy (info->props);
   free (info);
@@ -261,6 +279,8 @@ pinos_module_info_update (PinosModuleInfo       *info,
 
   if (info == NULL) {
     info = calloc (1, sizeof (PinosModuleInfo));
+    if (info == NULL)
+      return NULL;
     change_mask = ~0;
   } else {
     change_mask = info->change_mask | update->change_mask;
@@ -320,6 +340,8 @@ pinos_client_info_update (PinosClientInfo       *info,
 
   if (info == NULL) {
     info = calloc (1, sizeof (PinosClientInfo));
+    if (info == NULL)
+      return NULL;
     change_mask = ~0;
   } else {
     change_mask = info->change_mask | update->change_mask;
@@ -336,7 +358,7 @@ pinos_client_info_update (PinosClientInfo       *info,
 }
 
 void
-pinos_client_info_free   (PinosClientInfo       *info)
+pinos_client_info_free (PinosClientInfo *info)
 {
   if (info == NULL)
     return;
@@ -356,6 +378,8 @@ pinos_link_info_update (PinosLinkInfo       *info,
 
   if (info == NULL) {
     info = calloc (1, sizeof (PinosLinkInfo));
+    if (info == NULL)
+      return NULL;
     change_mask = ~0;
   } else {
     change_mask = info->change_mask | update->change_mask;
@@ -376,7 +400,7 @@ pinos_link_info_update (PinosLinkInfo       *info,
 }
 
 void
-pinos_link_info_free (PinosLinkInfo       *info)
+pinos_link_info_free (PinosLinkInfo *info)
 {
   free (info);
 }

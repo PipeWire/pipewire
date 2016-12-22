@@ -1234,6 +1234,9 @@ pinos_client_node_new (PinosClient     *client,
   PinosClientNode *this;
 
   impl = calloc (1, sizeof (PinosClientNodeImpl));
+  if (impl == NULL)
+    return NULL;
+
   this = &impl->this;
   impl->core = client->core;
   impl->data_fd = -1;
@@ -1248,6 +1251,8 @@ pinos_client_node_new (PinosClient     *client,
                                &impl->proxy.node,
                                NULL,
                                properties);
+  if (this->node == NULL)
+    goto error_no_node;
 
   impl->proxy.pnode = this->node;
 
@@ -1264,12 +1269,21 @@ pinos_client_node_new (PinosClient     *client,
                                        client->core->uri.client_node,
                                        this,
                                        (PinosDestroy) client_node_resource_destroy);
-  impl->proxy.resource = this->resource;
+  if (this->resource == NULL)
+    goto error_no_resource;
 
+  impl->proxy.resource = this->resource;
   this->resource->dispatch_func = client_node_dispatch_func;
   this->resource->dispatch_data = this;
 
   return this;
+
+error_no_resource:
+  pinos_node_destroy (this->node);
+error_no_node:
+  proxy_clear (&impl->proxy);
+  free (impl);
+  return NULL;
 }
 
 static void

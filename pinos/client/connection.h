@@ -39,6 +39,7 @@ typedef enum {
 
   PINOS_MESSAGE_SYNC,
   PINOS_MESSAGE_NOTIFY_DONE,
+  PINOS_MESSAGE_ERROR,
   PINOS_MESSAGE_GET_REGISTRY,
   PINOS_MESSAGE_REMOVE_ID,
   PINOS_MESSAGE_CORE_INFO,
@@ -103,6 +104,13 @@ typedef struct {
   uint32_t     seq;
 } PinosMessageNotifyDone;
 
+/* PINOS_MESSAGE_ERROR */
+typedef struct {
+  uint32_t     id;
+  SpaResult    res;
+  const char  *error;
+} PinosMessageError;
+
 /* PINOS_MESSAGE_GET_REGISTRY */
 typedef struct {
   uint32_t     seq;
@@ -148,7 +156,7 @@ typedef struct {
 /* PINOS_MESSAGE_NOTIFY_GLOBAL */
 typedef struct {
   uint32_t     id;
-  const char * type;
+  const char  *type;
 } PinosMessageNotifyGlobal;
 
 /* PINOS_MESSAGE_NOTIFY_GLOBAL_REMOVE */

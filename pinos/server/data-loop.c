@@ -131,16 +131,26 @@ pinos_data_loop_new (void)
   PinosDataLoop *this;
 
   impl = calloc (1, sizeof (PinosDataLoopImpl));
+  if (impl == NULL)
+    return NULL;
+
   pinos_log_debug ("data-loop %p: new", impl);
 
   this = &impl->this;
   this->loop = pinos_loop_new ();
+  if (this->loop == NULL)
+    goto no_loop;
+
   pinos_signal_init (&this->destroy_signal);
 
   impl->event = pinos_loop_add_event (this->loop,
                                       do_stop,
                                       impl);
   return this;
+
+no_loop:
+  free (impl);
+  return NULL;
 }
 
 void

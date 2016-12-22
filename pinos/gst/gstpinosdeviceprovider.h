@@ -85,6 +85,7 @@ struct _GstPinosDeviceProvider {
 
   PinosContext *context;
   PinosListener ctx_state_changed;
+  PinosListener ctx_subscription;
 };
 
 struct _GstPinosDeviceProviderClass {

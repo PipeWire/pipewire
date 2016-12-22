@@ -37,9 +37,6 @@ typedef struct {
   SpaSource source;
 
   bool disconnecting;
-
-  PinosSubscriptionFunc  subscribe_func;
-  void                  *subscribe_data;
 } PinosContextImpl;
 
 /**
@@ -112,6 +109,7 @@ core_dispatch_func (void             *object,
       PinosSubscriptionEvent event;
 
       pinos_log_debug ("got core info %d", type);
+
       if (proxy->user_data == NULL)
         event = PINOS_SUBSCRIPTION_EVENT_NEW;
       else
@@ -119,13 +117,11 @@ core_dispatch_func (void             *object,
 
       proxy->user_data = pinos_core_info_update (proxy->user_data, m->info);
 
-      if (impl->subscribe_func) {
-        impl->subscribe_func (this,
-                              event,
-                              proxy->type,
-                              proxy->id,
-                              impl->subscribe_data);
-      }
+      pinos_signal_emit (&this->subscription,
+                         this,
+                         event,
+                         proxy->type,
+                         proxy->id);
       break;
     }
     case PINOS_MESSAGE_NOTIFY_DONE:
@@ -134,6 +130,12 @@ core_dispatch_func (void             *object,
 
       if (nd->seq == 0)
         context_set_state (this, PINOS_CONTEXT_STATE_CONNECTED, NULL);
+      break;
+    }
+    case PINOS_MESSAGE_ERROR:
+    {
+      PinosMessageError *m = message;
+      context_set_state (this, PINOS_CONTEXT_STATE_ERROR, m->error);
       break;
     }
     case PINOS_MESSAGE_REMOVE_ID:
@@ -180,13 +182,11 @@ module_dispatch_func (void             *object,
 
       proxy->user_data = pinos_module_info_update (proxy->user_data, m->info);
 
-      if (impl->subscribe_func) {
-        impl->subscribe_func (this,
-                              event,
-                              proxy->type,
-                              proxy->id,
-                              impl->subscribe_data);
-      }
+      pinos_signal_emit (&this->subscription,
+                         this,
+                         event,
+                         proxy->type,
+                         proxy->id);
       break;
     }
 
@@ -221,13 +221,11 @@ node_dispatch_func (void             *object,
 
       proxy->user_data = pinos_node_info_update (proxy->user_data, m->info);
 
-      if (impl->subscribe_func) {
-        impl->subscribe_func (this,
-                              event,
-                              proxy->type,
-                              proxy->id,
-                              impl->subscribe_data);
-      }
+      pinos_signal_emit (&this->subscription,
+                         this,
+                         event,
+                         proxy->type,
+                         proxy->id);
       break;
     }
     default:
@@ -261,13 +259,11 @@ client_dispatch_func (void             *object,
 
       proxy->user_data = pinos_client_info_update (proxy->user_data, m->info);
 
-      if (impl->subscribe_func) {
-        impl->subscribe_func (this,
-                              event,
-                              proxy->type,
-                              proxy->id,
-                              impl->subscribe_data);
-      }
+      pinos_signal_emit (&this->subscription,
+                         this,
+                         event,
+                         proxy->type,
+                         proxy->id);
       break;
     }
     default:
@@ -301,13 +297,11 @@ link_dispatch_func (void             *object,
 
       proxy->user_data = pinos_link_info_update (proxy->user_data, m->info);
 
-      if (impl->subscribe_func) {
-        impl->subscribe_func (this,
-                              event,
-                              proxy->type,
-                              proxy->id,
-                              impl->subscribe_data);
-      }
+      pinos_signal_emit (&this->subscription,
+                         this,
+                         event,
+                         proxy->type,
+                         proxy->id);
       break;
     }
     default:
@@ -338,24 +332,32 @@ registry_dispatch_func (void             *object,
         proxy = pinos_proxy_new (this,
                                  SPA_ID_INVALID,
                                  this->uri.node);
+        if (proxy == NULL)
+          goto no_mem;
         proxy->dispatch_func = node_dispatch_func;
         proxy->dispatch_data = impl;
       } else if (!strcmp (ng->type, PINOS_MODULE_URI)) {
         proxy = pinos_proxy_new (this,
                                  SPA_ID_INVALID,
                                  this->uri.module);
+        if (proxy == NULL)
+          goto no_mem;
         proxy->dispatch_func = module_dispatch_func;
         proxy->dispatch_data = impl;
       } else if (!strcmp (ng->type, PINOS_CLIENT_URI)) {
         proxy = pinos_proxy_new (this,
                                  SPA_ID_INVALID,
                                  this->uri.client);
+        if (proxy == NULL)
+          goto no_mem;
         proxy->dispatch_func = client_dispatch_func;
         proxy->dispatch_data = impl;
       } else if (!strcmp (ng->type, PINOS_LINK_URI)) {
         proxy = pinos_proxy_new (this,
                                  SPA_ID_INVALID,
                                  this->uri.link);
+        if (proxy == NULL)
+          goto no_mem;
         proxy->dispatch_func = link_dispatch_func;
         proxy->dispatch_data = impl;
       }
@@ -376,13 +378,11 @@ registry_dispatch_func (void             *object,
       PinosMessageNotifyGlobalRemove *ng = message;
       pinos_log_debug ("got global remove %u", ng->id);
 
-      if (impl->subscribe_func) {
-        impl->subscribe_func (this,
-                              PINOS_SUBSCRIPTION_EVENT_REMOVE,
-                              SPA_ID_INVALID,
-                              ng->id,
-                              impl->subscribe_data);
-      }
+      pinos_signal_emit (&this->subscription,
+                         this,
+                         PINOS_SUBSCRIPTION_EVENT_REMOVE,
+                         SPA_ID_INVALID,
+                         ng->id);
       break;
     }
     default:
@@ -390,6 +390,9 @@ registry_dispatch_func (void             *object,
       break;
   }
   return SPA_RESULT_OK;
+
+no_mem:
+  return SPA_RESULT_NO_MEMORY;
 }
 
 static void
@@ -477,6 +480,9 @@ pinos_context_new (PinosLoop       *loop,
   PinosContext *this;
 
   impl = calloc (1, sizeof (PinosContextImpl));
+  if (impl == NULL)
+    return NULL;
+
   this = &impl->this;
   pinos_log_debug ("context %p: new", impl);
 
@@ -484,6 +490,9 @@ pinos_context_new (PinosLoop       *loop,
 
   if (properties == NULL)
     properties = pinos_properties_new ("application.name", name, NULL);
+  if (properties == NULL)
+    goto no_mem;
+
   pinos_fill_context_properties (properties);
   this->properties = properties;
 
@@ -503,9 +512,15 @@ pinos_context_new (PinosLoop       *loop,
   spa_list_init (&this->proxy_list);
 
   pinos_signal_init (&this->state_changed);
+  pinos_signal_init (&this->subscription);
   pinos_signal_init (&this->destroy_signal);
 
   return this;
+
+no_mem:
+  free (this->name);
+  free (impl);
+  return NULL;
 }
 
 void
@@ -523,14 +538,10 @@ pinos_context_destroy (PinosContext *context)
   spa_list_for_each_safe (proxy, t2, &context->proxy_list, link)
     pinos_proxy_destroy (proxy);
 
-  if (context->name)
-    free (context->name);
+  free (context->name);
   if (context->properties)
     pinos_properties_free (context->properties);
-
-  if (context->error)
-    free (context->error);
-
+  free (context->error);
   free (impl);
 }
 
@@ -579,8 +590,7 @@ pinos_context_connect (PinosContext      *context)
   if (name_size > (int)sizeof addr.sun_path) {
     pinos_log_error ("socket path \"%s/%s\" plus null terminator exceeds 108 bytes",
                      runtime_dir, name);
-    close (fd);
-    return false;
+    goto error_close;
   };
 
   size = offsetof (struct sockaddr_un, sun_path) + name_size;
@@ -589,12 +599,14 @@ pinos_context_connect (PinosContext      *context)
     context_set_state (context,
                        PINOS_CONTEXT_STATE_ERROR,
                        "connect failed: %s", strerror (errno));
-    close (fd);
-    return false;
+    goto error_close;
   }
 
-  impl->fd = fd;
   impl->connection = pinos_connection_new (fd);
+  if (impl->connection == NULL)
+    goto error_close;
+
+  impl->fd = fd;
 
   pinos_loop_add_io (context->loop,
                      fd,
@@ -606,6 +618,9 @@ pinos_context_connect (PinosContext      *context)
   context->core_proxy = pinos_proxy_new (context,
                                          SPA_ID_INVALID,
                                          context->uri.core);
+  if (context->core_proxy == NULL)
+    goto no_proxy;
+
   context->core_proxy->dispatch_func = core_dispatch_func;
   context->core_proxy->dispatch_data = impl;
 
@@ -618,6 +633,9 @@ pinos_context_connect (PinosContext      *context)
   context->registry_proxy = pinos_proxy_new (context,
                                              SPA_ID_INVALID,
                                              context->uri.registry);
+  if (context->registry_proxy == NULL)
+    goto no_registry;
+
   context->registry_proxy->dispatch_func = registry_dispatch_func;
   context->registry_proxy->dispatch_data = impl;
 
@@ -628,6 +646,14 @@ pinos_context_connect (PinosContext      *context)
                             &grm,
                             true);
   return true;
+
+no_registry:
+  pinos_proxy_destroy (context->core_proxy);
+no_proxy:
+  pinos_connection_destroy (impl->connection);
+error_close:
+  close (fd);
+  return false;
 }
 
 /**
@@ -645,23 +671,14 @@ pinos_context_disconnect (PinosContext *context)
 
   impl->disconnecting = true;
 
+  pinos_proxy_destroy (context->registry_proxy);
+  pinos_proxy_destroy (context->core_proxy);
   pinos_connection_destroy (impl->connection);
   close (impl->fd);
 
   context_set_state (context, PINOS_CONTEXT_STATE_UNCONNECTED, NULL);
 
   return true;
-}
-
-void
-pinos_context_subscribe (PinosContext           *context,
-                         PinosSubscriptionFunc   func,
-                         void                   *data)
-{
-  PinosContextImpl *impl = SPA_CONTAINER_OF (context, PinosContextImpl, this);
-
-  impl->subscribe_func = func;
-  impl->subscribe_data = data;
 }
 
 void

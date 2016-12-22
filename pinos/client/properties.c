@@ -78,6 +78,9 @@ pinos_properties_new (const char *key, ...)
   const char *value;
 
   impl = calloc (1, sizeof (PinosPropertiesImpl));
+  if (impl == NULL)
+    return NULL;
+
   pinos_array_init (&impl->items);
 
   va_start (varargs, key);
@@ -106,6 +109,9 @@ pinos_properties_new_dict (const SpaDict *dict)
   PinosPropertiesImpl *impl;
 
   impl = calloc (1, sizeof (PinosPropertiesImpl));
+  if (impl == NULL)
+    return NULL;
+
   pinos_array_init (&impl->items);
 
   for (i = 0; i < dict->n_items; i++)
@@ -130,6 +136,9 @@ pinos_properties_copy (PinosProperties *properties)
   SpaDictItem *item;
 
   copy = pinos_properties_new (NULL, NULL);
+  if (copy == NULL)
+    return NULL;
+
   pinos_array_for_each (item, &impl->items)
     add_func (copy, strdup (item->key), strdup (item->value));
 
@@ -154,6 +163,9 @@ pinos_properties_merge (PinosProperties *oldprops,
     void * state = NULL;
 
     res = pinos_properties_copy (oldprops);
+    if (res == NULL)
+      return NULL;
+
     while ((key = pinos_properties_iterate (newprops, &state))) {
        pinos_properties_set (res,
                              key,

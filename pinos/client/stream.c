@@ -173,18 +173,24 @@ pinos_stream_new (PinosContext    *context,
   PinosStream *this;
 
   impl = calloc (1, sizeof (PinosStreamImpl));
+  if (impl == NULL)
+    return NULL;
+
   this = &impl->this;
   pinos_log_debug ("stream %p: new", impl);
-
-  this->context = context;
-  this->name = strdup (name);
 
   if (props == NULL) {
     props = pinos_properties_new ("media.name", name, NULL);
   } else if (!pinos_properties_get (props, "media.name")) {
     pinos_properties_set (props, "media.name", name);
   }
+  if (props == NULL)
+    goto no_mem;
+
   this->properties = props;
+
+  this->context = context;
+  this->name = strdup (name);
 
   pinos_signal_init (&this->destroy_signal);
   pinos_signal_init (&this->state_changed);
@@ -206,6 +212,10 @@ pinos_stream_new (PinosContext    *context,
   spa_list_insert (&context->stream_list, &this->link);
 
   return this;
+
+no_mem:
+  free (impl);
+  return NULL;
 }
 
 void

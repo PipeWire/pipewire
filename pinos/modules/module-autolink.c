@@ -111,28 +111,31 @@ on_link_state_changed (PinosListener *listener,
   switch (state) {
     case PINOS_LINK_STATE_ERROR:
     {
+      PinosResource *resource;
+
       pinos_log_debug ("module %p: link %p: state error: %s", impl, link, link->error);
 
+      spa_list_for_each (resource, &link->resource_list, link) {
+        pinos_resource_send_error (resource,
+                                   SPA_RESULT_ERROR,
+                                   link->error);
+      }
+#if 0
       if (link->input && link->input->node)
         pinos_node_update_state (link->input->node, PINOS_NODE_STATE_ERROR, strdup (link->error));
       if (link->output && link->output->node)
         pinos_node_update_state (link->output->node, PINOS_NODE_STATE_ERROR, strdup (link->error));
+#endif
       break;
     }
 
     case PINOS_LINK_STATE_UNLINKED:
       pinos_log_debug ("module %p: link %p: unlinked", impl, link);
-
 #if 0
-      g_set_error (&error,
-                   PINOS_ERROR,
-                   PINOS_ERROR_NODE_LINK,
-                   "error node unlinked");
-
       if (link->input && link->input->node)
-        pinos_node_report_error (link->input->node, g_error_copy (error));
+        pinos_node_update_state (link->input->node, PINOS_NODE_STATE_ERROR, strdup ("node unlinked"));
       if (link->output && link->output->node)
-        pinos_node_report_error (link->output->node, g_error_copy (error));
+        pinos_node_update_state (link->output->node, PINOS_NODE_STATE_ERROR, strdup ("node unlinked"));
 #endif
       break;
 

@@ -64,6 +64,9 @@ pinos_rtkit_bus_get_system (void)
   dbus_error_init(&error);
 
   bus = calloc (1, sizeof (PinosRTKitBus));
+  if (bus == NULL)
+    return NULL;
+
   bus->bus = dbus_bus_get_private (DBUS_BUS_SYSTEM, &error);
   if (bus->bus == NULL)
     goto error;

@@ -51,15 +51,19 @@ registry_dispatch_func (void             *object,
           break;
 
       if (&global->link == &this->global_list) {
-        pinos_log_error ("unknown object id %d", m->id);
+        pinos_resource_send_error (resource,
+                                   SPA_RESULT_INVALID_OBJECT_ID,
+                                   "unknown object id %u", m->id);
         return SPA_RESULT_ERROR;
       }
       if (global->bind == NULL) {
-        pinos_log_error ("can't bind object id %d", m->id);
+        pinos_resource_send_error (resource,
+                                   SPA_RESULT_NOT_IMPLEMENTED,
+                                   "can't bind object id %d", m->id);
         return SPA_RESULT_ERROR;
       }
 
-      pinos_log_error ("global %p: bind object id %d", global, m->id);
+      pinos_log_debug ("global %p: bind object id %d", global, m->id);
       global->bind (global, client, 0, m->id);
       break;
     }
@@ -109,6 +113,8 @@ core_dispatch_func (void             *object,
                                               this->uri.registry,
                                               this,
                                               destroy_registry_resource);
+      if (registry_resource == NULL)
+        goto no_mem;
 
       registry_resource->dispatch_func = registry_dispatch_func;
       registry_resource->dispatch_data = this;
@@ -142,6 +148,9 @@ core_dispatch_func (void             *object,
       PinosProperties *props;
 
       props = pinos_properties_new (NULL, NULL);
+      if (props == NULL)
+        goto no_mem;
+
       for (i = 0; i < m->props->n_items; i++) {
         pinos_properties_set (props, m->props->items[i].key,
                                      m->props->items[i].value);
@@ -151,9 +160,13 @@ core_dispatch_func (void             *object,
                                     m->new_id,
                                     m->name,
                                     props);
+      if (node == NULL)
+        goto no_mem;
 
       if ((res = pinos_client_node_get_data_socket (node, &data_fd)) < 0) {
-        pinos_log_error ("can't get data fd");
+        pinos_resource_send_error (resource,
+                                   SPA_RESULT_ERROR,
+                                   "can't get data fd");
         break;
       }
 
@@ -170,6 +183,12 @@ core_dispatch_func (void             *object,
       break;
   }
   return SPA_RESULT_OK;
+
+no_mem:
+  pinos_resource_send_error (resource,
+                             SPA_RESULT_NO_MEMORY,
+                             "no memory");
+  return SPA_RESULT_NO_MEMORY;
 }
 
 static void
@@ -188,6 +207,8 @@ core_bind_func (PinosGlobal *global,
                                  global->core->uri.core,
                                  global->object,
                                  NULL);
+  if (resource == NULL)
+    goto no_mem;
 
   resource->dispatch_func = core_dispatch_func;
   resource->dispatch_data = this;
@@ -211,6 +232,10 @@ core_bind_func (PinosGlobal *global,
                                PINOS_MESSAGE_CORE_INFO,
                                &m,
                                true);
+  return;
+
+no_mem:
+  pinos_log_error ("can't create core resource");
 }
 
 PinosCore *
@@ -220,13 +245,18 @@ pinos_core_new (PinosMainLoop *main_loop)
   PinosCore *this;
 
   impl = calloc (1, sizeof (PinosCoreImpl));
+  if (impl == NULL)
+    return NULL;
+
   this = &impl->this;
-  pinos_uri_init (&this->uri);
-
-  pinos_map_init (&this->objects, 512);
-
   this->data_loop = pinos_data_loop_new ();
+  if (this->data_loop == NULL)
+    goto no_data_loop;
+
   this->main_loop = main_loop;
+
+  pinos_uri_init (&this->uri);
+  pinos_map_init (&this->objects, 512);
 
   impl->support[0].uri = SPA_ID_MAP_URI;
   impl->support[0].data = this->uri.map;
@@ -266,6 +296,10 @@ pinos_core_new (PinosMainLoop *main_loop)
                                         core_bind_func);
 
   return this;
+
+no_data_loop:
+  free (impl);
+  return NULL;
 }
 
 void
@@ -292,6 +326,9 @@ pinos_core_add_global (PinosCore           *core,
   PinosMessageNotifyGlobal ng;
 
   global = calloc (1, sizeof (PinosGlobal));
+  if (global == NULL)
+    return NULL;
+
   global->core = core;
   global->type = type;
   global->version = version;

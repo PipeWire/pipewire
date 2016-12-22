@@ -31,6 +31,9 @@ pinos_resource_new (PinosClient *client,
   PinosResource *this;
 
   this = calloc (1, sizeof (PinosResource));
+  if (this == NULL)
+    return NULL;
+
   this->core = client->core;
   this->client = client;
   this->id = id;
@@ -95,15 +98,42 @@ pinos_resource_send_message (PinosResource     *resource,
                              void              *message,
                              bool               flush)
 {
-  if (resource->send_func)
-    return resource->send_func (resource,
-                                resource->id,
-                                opcode,
-                                message,
-                                flush,
-                                resource->send_data);
+  if (!resource->send_func) {
+    pinos_log_error ("resource %p: send func not implemented", resource);
+    return SPA_RESULT_NOT_IMPLEMENTED;
+  }
 
-  pinos_log_error ("resource %p: send func not implemented", resource);
+  return resource->send_func (resource,
+                              resource->id,
+                              opcode,
+                              message,
+                              flush,
+                              resource->send_data);
+}
 
-  return SPA_RESULT_NOT_IMPLEMENTED;
+SpaResult
+pinos_resource_send_error (PinosResource     *resource,
+                           SpaResult          res,
+                           const char        *message,
+                           ...)
+{
+  PinosClient *client = resource->client;
+  PinosMessageError m;
+  char buffer[128];
+  va_list ap;
+
+  va_start (ap, message);
+  vsnprintf (buffer, sizeof (buffer), message, ap);
+  va_end (ap);
+
+  m.id = resource->id;
+  m.res = res;
+  m.error = buffer;
+
+  pinos_log_error ("resource %p: %u send error %d %s", resource, resource->id, res, buffer);
+
+  return pinos_resource_send_message (client->core_resource,
+                                      PINOS_MESSAGE_ERROR,
+                                      &m,
+                                      true);
 }

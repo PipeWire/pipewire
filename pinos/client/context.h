@@ -29,6 +29,7 @@ typedef struct _PinosContext PinosContext;
 #include <pinos/client/map.h>
 #include <pinos/client/loop.h>
 #include <pinos/client/properties.h>
+#include <pinos/client/subscribe.h>
 #include <pinos/client/proxy.h>
 #include <pinos/client/uri.h>
 
@@ -66,19 +67,25 @@ struct _PinosContext {
   PinosProxy      *core_proxy;
   PinosProxy      *registry_proxy;
 
-  PinosMap   objects;
+  PinosMap         objects;
 
-  SpaList  global_list;
-  SpaList  stream_list;
-  SpaList  proxy_list;
+  SpaList          global_list;
+  SpaList          stream_list;
+  SpaList          proxy_list;
 
-  PinosSendFunc      send_func;
-  void              *send_data;
+  PinosSendFunc    send_func;
+  void            *send_data;
 
   PinosContextState state;
   char *error;
-  PINOS_SIGNAL (state_changed, (PinosListener *listener,
-                                PinosContext  *context));
+  PINOS_SIGNAL (state_changed,  (PinosListener *listener,
+                                 PinosContext  *context));
+
+  PINOS_SIGNAL (subscription,   (PinosListener          *listener,
+                                 PinosContext           *context,
+                                 PinosSubscriptionEvent  event,
+                                 uint32_t                type,
+                                 uint32_t                id));
 
   PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
                                  PinosContext  *context));

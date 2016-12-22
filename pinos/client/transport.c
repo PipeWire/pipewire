@@ -99,6 +99,9 @@ pinos_transport_new (unsigned int max_inputs,
   area.n_outputs = 0;
 
   impl = calloc (1, sizeof (PinosTransportImpl));
+  if (impl == NULL)
+    return NULL;
+
   impl->offset = 0;
 
   trans = &impl->trans;
@@ -124,6 +127,9 @@ pinos_transport_new_from_info (PinosTransportInfo *info)
   void *tmp;
 
   impl = calloc (1, sizeof (PinosTransportImpl));
+  if (impl == NULL)
+    return NULL;
+
   trans = &impl->trans;
   pinos_signal_init (&trans->destroy_signal);
 

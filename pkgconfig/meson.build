@@ -9,7 +9,9 @@ pkgconf.set('VERSION', pinos_version)
 
 pkg_install_dir = '@0@/pkgconfig'.format(get_option('libdir'))
 
-pkg_files = ['libpinos',
+pkg_files = [
+  'libpinos',
+  'libspa',
 ]
 
 foreach p : pkg_files

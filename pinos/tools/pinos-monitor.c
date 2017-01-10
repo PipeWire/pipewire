@@ -178,31 +178,30 @@ dump_object (PinosContext           *context,
     pinos_context_get_core_info (context,
                                  dump_core_info,
                                  data);
-  }
-  if (type == context->uri.node) {
+  } else if (type == context->uri.node) {
     pinos_context_get_node_info_by_id (context,
                                        id,
                                        dump_node_info,
                                        data);
-  }
-  if (type == context->uri.module) {
+  } else if (type == context->uri.module) {
     pinos_context_get_module_info_by_id (context,
                                          id,
                                          dump_module_info,
                                          data);
-  }
-  if (type == context->uri.client) {
+  } else if (type == context->uri.client) {
     pinos_context_get_client_info_by_id (context,
                                          id,
                                          dump_client_info,
                                          data);
-  }
-  if (type == context->uri.link) {
+  } else if (type == context->uri.link) {
     pinos_context_get_link_info_by_id (context,
                                        id,
                                        dump_link_info,
                                        data);
+  } else {
+    printf ("\tid: %u\n", id);
   }
+
 
 }
 

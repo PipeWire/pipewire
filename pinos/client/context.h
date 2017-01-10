@@ -33,6 +33,12 @@ typedef struct _PinosContext PinosContext;
 #include <pinos/client/proxy.h>
 #include <pinos/client/uri.h>
 
+typedef SpaResult (*PinosSendFunc)     (void             *object,
+                                        uint32_t          id,
+                                        uint32_t          opcode,
+                                        void             *message,
+                                        bool              flush,
+                                        void             *data);
 /**
  * PinosContextState:
  * @PINOS_CONTEXT_STATE_ERROR: context is in error
@@ -73,9 +79,6 @@ struct _PinosContext {
   SpaList          stream_list;
   SpaList          proxy_list;
 
-  PinosSendFunc    send_func;
-  void            *send_data;
-
   PinosContextState state;
   char *error;
   PINOS_SIGNAL (state_changed,  (PinosListener *listener,
@@ -95,6 +98,16 @@ PinosContext *    pinos_context_new                   (PinosLoop         *loop,
                                                        const char        *name,
                                                        PinosProperties   *properties);
 void              pinos_context_destroy               (PinosContext      *context);
+
+void              pinos_context_set_send              (PinosContext      *context,
+                                                       PinosSendFunc      func,
+                                                       void              *data);
+
+SpaResult         pinos_context_send_message          (PinosContext      *context,
+                                                       PinosProxy        *proxy,
+                                                       uint32_t           opcode,
+                                                       void              *message,
+                                                       bool               flush);
 
 bool              pinos_context_connect               (PinosContext      *context);
 bool              pinos_context_disconnect            (PinosContext      *context);

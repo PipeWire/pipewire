@@ -21,6 +21,13 @@
 
 #include "pinos/server/resource.h"
 
+typedef struct {
+  PinosResource this;
+
+  PinosDispatchFunc  dispatch_func;
+  void              *dispatch_data;
+} PinosResourceImpl;
+
 PinosResource *
 pinos_resource_new (PinosClient *client,
                     uint32_t     id,
@@ -28,11 +35,14 @@ pinos_resource_new (PinosClient *client,
                     void        *object,
                     PinosDestroy destroy)
 {
+  PinosResourceImpl *impl;
   PinosResource *this;
 
-  this = calloc (1, sizeof (PinosResource));
-  if (this == NULL)
+  impl = calloc (1, sizeof (PinosResourceImpl));
+  if (impl == NULL)
     return NULL;
+
+  this = &impl->this;
 
   this->core = client->core;
   this->client = client;
@@ -40,9 +50,6 @@ pinos_resource_new (PinosClient *client,
   this->type = type;
   this->object = object;
   this->destroy = destroy;
-
-  this->send_func = client->send_func;
-  this->send_data = client->send_data;
 
   pinos_signal_init (&this->destroy_signal);
 
@@ -92,23 +99,82 @@ pinos_resource_destroy (PinosResource *resource)
   return SPA_RESULT_OK;
 }
 
+void
+pinos_resource_set_dispatch (PinosResource     *resource,
+                             PinosDispatchFunc  func,
+                             void              *data)
+{
+  PinosResourceImpl *impl = SPA_CONTAINER_OF (resource, PinosResourceImpl, this);
+
+  impl->dispatch_func = func;
+  impl->dispatch_data = data;
+}
+
+static SpaResult
+do_dispatch_message (PinosAccessData *data)
+{
+  PinosResourceImpl *impl = SPA_CONTAINER_OF (data->resource, PinosResourceImpl, this);
+
+  if (data->res == SPA_RESULT_NO_PERMISSION) {
+    pinos_resource_send_error (data->resource,
+                               data->res,
+                               "no permission");
+  } else if (SPA_RESULT_IS_ERROR (data->res)) {
+    pinos_resource_send_error (data->resource,
+                               data->res,
+                               "error %d", data->res);
+  } else {
+    data->res = impl->dispatch_func (data->resource,
+                                     data->opcode,
+                                     data->message,
+                                     impl->dispatch_data);
+  }
+  return data->res;
+}
+
+SpaResult
+pinos_resource_dispatch (PinosResource *resource,
+                         uint32_t       opcode,
+                         void          *message)
+{
+  PinosResourceImpl *impl = SPA_CONTAINER_OF (resource, PinosResourceImpl, this);
+
+  if (impl->dispatch_func) {
+    PinosAccessData data;
+
+    data.client = resource->client;
+    data.resource = resource;
+    data.opcode = opcode;
+    data.message = message;
+    data.flush = false;
+
+    data.res = SPA_RESULT_OK;
+    pinos_signal_emit (&resource->core->access.check_dispatch,
+                       do_dispatch_message,
+                       &data);
+
+    if (SPA_RESULT_IS_ASYNC (data.res))
+      return data.res;
+
+    return do_dispatch_message (&data);
+  }
+
+  pinos_log_error ("resource %p: dispatch func not implemented", resource);
+
+  return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
 SpaResult
 pinos_resource_send_message (PinosResource     *resource,
                              uint32_t           opcode,
                              void              *message,
                              bool               flush)
 {
-  if (!resource->send_func) {
-    pinos_log_error ("resource %p: send func not implemented", resource);
-    return SPA_RESULT_NOT_IMPLEMENTED;
-  }
-
-  return resource->send_func (resource,
-                              resource->id,
-                              opcode,
-                              message,
-                              flush,
-                              resource->send_data);
+  return pinos_client_send_message (resource->client,
+                                    resource,
+                                    opcode,
+                                    message,
+                                    flush);
 }
 
 SpaResult

@@ -868,8 +868,9 @@ pinos_stream_connect (PinosStream      *stream,
                                       SPA_ID_INVALID,
                                       0);
 
-  impl->node_proxy->dispatch_func = stream_dispatch_func;
-  impl->node_proxy->dispatch_data = impl;
+  pinos_proxy_set_dispatch (impl->node_proxy,
+                            stream_dispatch_func,
+                            impl);
 
   ccn.seq = ++impl->seq;
   ccn.name = "client-node";

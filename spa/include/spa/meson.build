@@ -1,21 +1,21 @@
 spa_headers = [
+  'barrier.h',
   'buffer.h',
   'clock.h',
-  'control.h',
-  'debug.h',
   'defs.h',
   'dict.h',
   'format.h',
+  'id-map.h',
+  'list.h',
   'log.h',
+  'loop.h',
   'monitor.h',
   'node-command.h',
   'node-event.h',
   'node.h',
   'plugin.h',
-  'poll.h',
   'port.h',
   'props.h',
-  'queue.h',
   'ringbuffer.h'
 ]
 

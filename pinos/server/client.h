@@ -26,8 +26,20 @@ extern "C" {
 
 typedef struct _PinosClient PinosClient;
 
+#include <sys/socket.h>
+
+#include <pinos/client/properties.h>
+#include <pinos/client/sig.h>
+
 #include <pinos/server/core.h>
 #include <pinos/server/resource.h>
+
+typedef SpaResult (*PinosSendFunc) (void             *object,
+                                    uint32_t          id,
+                                    uint32_t          opcode,
+                                    void             *message,
+                                    bool              flush,
+                                    void             *data);
 
 /**
  * PinosClient:
@@ -40,15 +52,14 @@ struct _PinosClient {
   PinosGlobal *global;
 
   PinosProperties *properties;
+  bool             ucred_valid;
+  struct ucred     ucred;
 
   PinosResource *core_resource;
 
   PinosMap objects;
 
   SpaList resource_list;
-
-  PinosSendFunc   send_func;
-  void           *send_data;
 
   PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
                                  PinosClient *client));
@@ -57,6 +68,17 @@ struct _PinosClient {
 PinosClient *   pinos_client_new                  (PinosCore       *core,
                                                    PinosProperties *properties);
 void            pinos_client_destroy              (PinosClient     *client);
+
+void            pinos_client_set_send             (PinosClient     *client,
+                                                   PinosSendFunc    func,
+                                                   void            *data);
+
+SpaResult       pinos_client_send_message         (PinosClient     *client,
+                                                   PinosResource   *resource,
+                                                   uint32_t         opcode,
+                                                   void            *message,
+                                                   bool             flush);
+
 void            pinos_client_update_properties    (PinosClient     *client,
                                                    const SpaDict   *dict);
 

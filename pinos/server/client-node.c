@@ -121,6 +121,7 @@ typedef struct
 
   PinosListener transport_changed;
   PinosListener loop_changed;
+  PinosListener global_added;
 
   int data_fd;
 } PinosClientNodeImpl;
@@ -1187,6 +1188,16 @@ on_loop_changed (PinosListener   *listener,
   impl->proxy.data_loop = node->data_loop->loop->loop;
 }
 
+static void
+on_global_added (PinosListener   *listener,
+                 PinosCore       *core,
+                 PinosGlobal     *global)
+{
+  PinosClientNodeImpl *impl = SPA_CONTAINER_OF (listener, PinosClientNodeImpl, global_added);
+  if (global->object == impl->this.node)
+    global->owner = impl->this.client;
+}
+
 static SpaResult
 proxy_clear (SpaProxy *this)
 {
@@ -1256,14 +1267,6 @@ pinos_client_node_new (PinosClient     *client,
 
   impl->proxy.pnode = this->node;
 
-  pinos_signal_add (&this->node->transport_changed,
-                    &impl->transport_changed,
-                    on_transport_changed);
-
-  pinos_signal_add (&this->node->loop_changed,
-                    &impl->loop_changed,
-                    on_loop_changed);
-
   this->resource = pinos_resource_new (client,
                                        id,
                                        client->core->uri.client_node,
@@ -1273,8 +1276,22 @@ pinos_client_node_new (PinosClient     *client,
     goto error_no_resource;
 
   impl->proxy.resource = this->resource;
-  this->resource->dispatch_func = client_node_dispatch_func;
-  this->resource->dispatch_data = this;
+
+  pinos_signal_add (&this->node->transport_changed,
+                    &impl->transport_changed,
+                    on_transport_changed);
+
+  pinos_signal_add (&this->node->loop_changed,
+                    &impl->loop_changed,
+                    on_loop_changed);
+
+  pinos_signal_add (&impl->core->global_added,
+                    &impl->global_added,
+                    on_global_added);
+
+  pinos_resource_set_dispatch (this->resource,
+                               client_node_dispatch_func,
+                               this);
 
   return this;
 
@@ -1311,6 +1328,8 @@ pinos_client_node_destroy (PinosClientNode * this)
 
   pinos_log_debug ("client-node %p: destroy", impl);
   pinos_signal_emit (&this->destroy_signal, this);
+
+  pinos_signal_remove (&impl->global_added);
 
   pinos_node_destroy (this->node);
 

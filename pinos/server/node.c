@@ -406,7 +406,7 @@ node_unbind_func (void *data)
   spa_list_remove (&resource->link);
 }
 
-static void
+static SpaResult
 node_bind_func (PinosGlobal *global,
                 PinosClient *client,
                 uint32_t     version,
@@ -419,14 +419,15 @@ node_bind_func (PinosGlobal *global,
 
   resource = pinos_resource_new (client,
                                  id,
-                                 global->core->uri.registry,
+                                 global->type,
                                  global->object,
                                  node_unbind_func);
   if (resource == NULL)
     goto no_mem;
 
-  resource->dispatch_func = node_dispatch_func;
-  resource->dispatch_data = global;
+  pinos_resource_set_dispatch (resource,
+                               node_dispatch_func,
+                               global);
 
   pinos_log_debug ("node %p: bound to %d", this, resource->id);
 
@@ -440,16 +441,15 @@ node_bind_func (PinosGlobal *global,
   info.error = this->error;
   info.props = this->properties ? &this->properties->dict : NULL;
 
-  pinos_resource_send_message (resource,
-                               PINOS_MESSAGE_NODE_INFO,
-                               &m,
-                               true);
-  return;
-
+  return pinos_resource_send_message (resource,
+                                      PINOS_MESSAGE_NODE_INFO,
+                                      &m,
+                                      true);
 no_mem:
   pinos_resource_send_error (resource,
                              SPA_RESULT_NO_MEMORY,
                              "no memory");
+  return SPA_RESULT_NO_MEMORY;
 }
 
 static void
@@ -466,6 +466,7 @@ init_complete (PinosNode *this)
   pinos_node_update_state (this, PINOS_NODE_STATE_SUSPENDED, NULL);
 
   this->global = pinos_core_add_global (this->core,
+                                        NULL,
                                         this->core->uri.node,
                                         0,
                                         this,

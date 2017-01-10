@@ -1,4 +1,5 @@
 pinoscore_headers = [
+  'access.h',
   'client.h',
   'client-node.h',
   'command.h',
@@ -14,6 +15,7 @@ pinoscore_headers = [
 ]
 
 pinoscore_sources = [
+  'access.c',
   'client.c',
   'client-node.c',
   'command.c',

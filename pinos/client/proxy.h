@@ -26,12 +26,6 @@ extern "C" {
 
 typedef struct _PinosProxy PinosProxy;
 
-typedef SpaResult (*PinosSendFunc)     (void             *object,
-                                        uint32_t          id,
-                                        uint32_t          opcode,
-                                        void             *message,
-                                        bool              flush,
-                                        void             *data);
 
 typedef SpaResult (*PinosDispatchFunc) (void             *object,
                                         uint32_t          opcode,
@@ -47,12 +41,7 @@ struct _PinosProxy {
   uint32_t      id;
   uint32_t      type;
 
-  PinosSendFunc      send_func;
-  void              *send_data;
-  PinosDispatchFunc  dispatch_func;
-  void              *dispatch_data;
-
-  void              *user_data;
+  void         *user_data;
 
   PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
                                  PinosProxy    *proxy));
@@ -63,11 +52,18 @@ PinosProxy *      pinos_proxy_new                     (PinosContext      *contex
                                                        uint32_t           type);
 void              pinos_proxy_destroy                 (PinosProxy        *proxy);
 
+void              pinos_proxy_set_dispatch            (PinosProxy        *proxy,
+                                                       PinosDispatchFunc  func,
+                                                       void              *data);
+
 SpaResult         pinos_proxy_send_message            (PinosProxy        *proxy,
                                                        uint32_t           opcode,
                                                        void              *message,
                                                        bool               flush);
 
+SpaResult         pinos_proxy_dispatch                (PinosProxy        *proxy,
+                                                       uint32_t           opcode,
+                                                       void              *message);
 #ifdef __cplusplus
 }
 #endif

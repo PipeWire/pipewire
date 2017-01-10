@@ -37,6 +37,9 @@ typedef struct {
   SpaSource source;
 
   bool disconnecting;
+
+  PinosSendFunc  send_func;
+  void          *send_data;
 } PinosContextImpl;
 
 /**
@@ -334,32 +337,40 @@ registry_dispatch_func (void             *object,
                                  this->uri.node);
         if (proxy == NULL)
           goto no_mem;
-        proxy->dispatch_func = node_dispatch_func;
-        proxy->dispatch_data = impl;
+
+        pinos_proxy_set_dispatch (proxy,
+                                  node_dispatch_func,
+                                  impl);
       } else if (!strcmp (ng->type, PINOS_MODULE_URI)) {
         proxy = pinos_proxy_new (this,
                                  SPA_ID_INVALID,
                                  this->uri.module);
         if (proxy == NULL)
           goto no_mem;
-        proxy->dispatch_func = module_dispatch_func;
-        proxy->dispatch_data = impl;
+
+        pinos_proxy_set_dispatch (proxy,
+                                  module_dispatch_func,
+                                  impl);
       } else if (!strcmp (ng->type, PINOS_CLIENT_URI)) {
         proxy = pinos_proxy_new (this,
                                  SPA_ID_INVALID,
                                  this->uri.client);
         if (proxy == NULL)
           goto no_mem;
-        proxy->dispatch_func = client_dispatch_func;
-        proxy->dispatch_data = impl;
+
+        pinos_proxy_set_dispatch (proxy,
+                                  client_dispatch_func,
+                                  impl);
       } else if (!strcmp (ng->type, PINOS_LINK_URI)) {
         proxy = pinos_proxy_new (this,
                                  SPA_ID_INVALID,
                                  this->uri.link);
         if (proxy == NULL)
           goto no_mem;
-        proxy->dispatch_func = link_dispatch_func;
-        proxy->dispatch_data = impl;
+
+        pinos_proxy_set_dispatch (proxy,
+                                  link_dispatch_func,
+                                  impl);
       }
       if (proxy) {
         PinosMessageBind m;
@@ -431,12 +442,8 @@ on_context_data (SpaSource *source,
         pinos_log_error ("context %p: could not find proxy %u", this, id);
         continue;
       }
-      if (proxy->dispatch_func == NULL) {
-        pinos_log_error ("context %p: no dispatch function for proxy %u", this, id);
-        continue;
-      }
 
-      proxy->dispatch_func (proxy, type, p, proxy->dispatch_data);
+      pinos_proxy_dispatch (proxy, type, p);
     }
   }
 }
@@ -502,8 +509,9 @@ pinos_context_new (PinosLoop       *loop,
 
   this->state = PINOS_CONTEXT_STATE_UNCONNECTED;
 
-  this->send_func = context_send_func;
-  this->send_data = this;
+  pinos_context_set_send (this,
+                          context_send_func,
+                          this);
 
   pinos_map_init (&this->objects, 64);
 
@@ -621,8 +629,9 @@ pinos_context_connect (PinosContext      *context)
   if (context->core_proxy == NULL)
     goto no_proxy;
 
-  context->core_proxy->dispatch_func = core_dispatch_func;
-  context->core_proxy->dispatch_data = impl;
+  pinos_proxy_set_dispatch (context->core_proxy,
+                            core_dispatch_func,
+                            impl);
 
   cu.props = &context->properties->dict;
   pinos_proxy_send_message (context->core_proxy,
@@ -636,8 +645,9 @@ pinos_context_connect (PinosContext      *context)
   if (context->registry_proxy == NULL)
     goto no_registry;
 
-  context->registry_proxy->dispatch_func = registry_dispatch_func;
-  context->registry_proxy->dispatch_data = impl;
+  pinos_proxy_set_dispatch (context->registry_proxy,
+                            registry_dispatch_func,
+                            impl);
 
   grm.seq = 0;
   grm.new_id = context->registry_proxy->id;
@@ -679,6 +689,35 @@ pinos_context_disconnect (PinosContext *context)
   context_set_state (context, PINOS_CONTEXT_STATE_UNCONNECTED, NULL);
 
   return true;
+}
+
+void
+pinos_context_set_send (PinosContext  *context,
+                        PinosSendFunc  func,
+                        void          *data)
+{
+  PinosContextImpl *impl = SPA_CONTAINER_OF (context, PinosContextImpl, this);
+
+  impl->send_func = func;
+  impl->send_data = data;
+}
+
+
+SpaResult
+pinos_context_send_message (PinosContext      *context,
+                            PinosProxy        *proxy,
+                            uint32_t           opcode,
+                            void              *message,
+                            bool               flush)
+{
+  PinosContextImpl *impl = SPA_CONTAINER_OF (context, PinosContextImpl, this);
+
+  if (impl->send_func)
+    return impl->send_func (proxy, proxy->id, opcode, message, flush, impl->send_data);
+
+  pinos_log_error ("context %p: send func not implemented", context);
+
+  return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 void

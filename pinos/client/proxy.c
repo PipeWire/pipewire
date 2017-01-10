@@ -22,6 +22,9 @@
 
 typedef struct {
   PinosProxy this;
+
+  PinosDispatchFunc  dispatch_func;
+  void              *dispatch_data;
 } PinosProxyImpl;
 
 PinosProxy *
@@ -40,8 +43,6 @@ pinos_proxy_new (PinosContext *context,
 
   this->context = context;
   this->type = type;
-  this->send_func = context->send_func;
-  this->send_data = context->send_data;
 
   pinos_signal_init (&this->destroy_signal);
 
@@ -64,16 +65,41 @@ pinos_proxy_destroy (PinosProxy *proxy)
   free (impl);
 }
 
+void
+pinos_proxy_set_dispatch (PinosProxy        *proxy,
+                          PinosDispatchFunc  func,
+                          void              *data)
+{
+  PinosProxyImpl *impl = SPA_CONTAINER_OF (proxy, PinosProxyImpl, this);
+
+  impl->dispatch_func = func;
+  impl->dispatch_data = data;
+}
+
 SpaResult
 pinos_proxy_send_message (PinosProxy        *proxy,
                           uint32_t           opcode,
                           void              *message,
                           bool               flush)
 {
-  if (proxy->send_func)
-    return proxy->send_func (proxy, proxy->id, opcode, message, flush, proxy->send_data);
+  return pinos_context_send_message (proxy->context,
+                                     proxy,
+                                     opcode,
+                                     message,
+                                     flush);
+}
 
-  pinos_log_error ("proxy %p: send func not implemented", proxy);
+SpaResult
+pinos_proxy_dispatch (PinosProxy        *proxy,
+                      uint32_t           opcode,
+                      void              *message)
+{
+  PinosProxyImpl *impl = SPA_CONTAINER_OF (proxy, PinosProxyImpl, this);
+
+  if (impl->dispatch_func)
+    return impl->dispatch_func (proxy, opcode, message, impl->dispatch_data);
+
+  pinos_log_error ("proxy %p: dispatch func not implemented", proxy);
 
   return SPA_RESULT_NOT_IMPLEMENTED;
 }

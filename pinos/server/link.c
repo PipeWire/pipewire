@@ -756,7 +756,7 @@ link_unbind_func (void *data)
   spa_list_remove (&resource->link);
 }
 
-static void
+static SpaResult
 link_bind_func (PinosGlobal *global,
                 PinosClient *client,
                 uint32_t     version,
@@ -769,14 +769,15 @@ link_bind_func (PinosGlobal *global,
 
   resource = pinos_resource_new (client,
                                  id,
-                                 global->core->uri.link,
+                                 global->type,
                                  global->object,
                                  link_unbind_func);
   if (resource == NULL)
     goto no_mem;
 
-  resource->dispatch_func = link_dispatch_func;
-  resource->dispatch_data = global;
+  pinos_resource_set_dispatch (resource,
+                               link_dispatch_func,
+                               global);
 
   pinos_log_debug ("link %p: bound to %d", global->object, resource->id);
 
@@ -789,16 +790,15 @@ link_bind_func (PinosGlobal *global,
   info.output_port_id = this->output ? this->output->port_id : -1;
   info.input_node_id = this->input ? this->input->node->global->id : -1;
   info.input_port_id = this->input ? this->input->port_id : -1;
-  pinos_resource_send_message (resource,
-                               PINOS_MESSAGE_LINK_INFO,
-                               &m,
-                               true);
-  return;
-
+  return pinos_resource_send_message (resource,
+                                      PINOS_MESSAGE_LINK_INFO,
+                                      &m,
+                                      true);
 no_mem:
   pinos_resource_send_error (client->core_resource,
                              SPA_RESULT_NO_MEMORY,
                              "no memory");
+  return SPA_RESULT_NO_MEMORY;
 }
 
 PinosLink *
@@ -853,6 +853,7 @@ pinos_link_new (PinosCore       *core,
   spa_list_insert (core->link_list.prev, &this->link);
 
   this->global = pinos_core_add_global (core,
+                                        NULL,
                                         core->uri.link,
                                         0,
                                         this,

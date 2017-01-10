@@ -6,6 +6,15 @@ pinos_module_c_args = [
   '-D_GNU_SOURCE',
 ]
 
+pinos_module_access = shared_library('pinos-module-access', [ 'module-access.c' ],
+  c_args : pinos_module_c_args,
+  include_directories : [configinc, spa_inc],
+  link_with : spalib,
+  install : true,
+  install_dir : '@0@/pinos-0.1'.format(get_option('libdir')),
+  dependencies : [mathlib, dl_lib, pinos_dep, pinoscore_dep],
+)
+
 pinos_module_autolink = shared_library('pinos-module-autolink', [ 'module-autolink.c' ],
   c_args : pinos_module_c_args,
   include_directories : [configinc, spa_inc],

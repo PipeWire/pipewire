@@ -26,6 +26,9 @@
 typedef struct
 {
   PinosClient this;
+
+  PinosSendFunc   send_func;
+  void           *send_data;
 } PinosClientImpl;
 
 
@@ -53,7 +56,7 @@ client_unbind_func (void *data)
   spa_list_remove (&resource->link);
 }
 
-static void
+static SpaResult
 client_bind_func (PinosGlobal *global,
                   PinosClient *client,
                   uint32_t     version,
@@ -66,14 +69,15 @@ client_bind_func (PinosGlobal *global,
 
   resource = pinos_resource_new (client,
                                  id,
-                                 global->core->uri.client,
+                                 global->type,
                                  global->object,
                                  client_unbind_func);
   if (resource == NULL)
     goto no_mem;
 
-  resource->dispatch_func = client_dispatch_func;
-  resource->dispatch_data = global;
+  pinos_resource_set_dispatch (resource,
+                               client_dispatch_func,
+                               global);
 
   pinos_log_debug ("client %p: bound to %d", global->object, resource->id);
 
@@ -84,16 +88,15 @@ client_bind_func (PinosGlobal *global,
   info.change_mask = ~0;
   info.props = this->properties ? &this->properties->dict : NULL;
 
-  pinos_resource_send_message (resource,
-                               PINOS_MESSAGE_CLIENT_INFO,
-                               &m,
-                               true);
-  return;
-
+  return pinos_resource_send_message (resource,
+                                      PINOS_MESSAGE_CLIENT_INFO,
+                                      &m,
+                                      true);
 no_mem:
   pinos_resource_send_error (client->core_resource,
                              SPA_RESULT_NO_MEMORY,
                              "no memory");
+  return SPA_RESULT_NO_MEMORY;
 }
 
 /**
@@ -130,6 +133,7 @@ pinos_client_new (PinosCore       *core,
   spa_list_insert (core->client_list.prev, &this->link);
 
   this->global = pinos_core_add_global (core,
+                                        this,
                                         core->uri.client,
                                         0,
                                         this,
@@ -190,6 +194,78 @@ pinos_client_destroy (PinosClient * client)
                          sync_destroy,
                          client);
 }
+
+void
+pinos_client_set_send (PinosClient     *client,
+                       PinosSendFunc    func,
+                       void            *data)
+{
+  PinosClientImpl *impl = SPA_CONTAINER_OF (client, PinosClientImpl, this);
+
+  impl->send_func = func;
+  impl->send_data = data;
+}
+
+static SpaResult
+do_send_message (PinosAccessData *data)
+{
+  PinosClientImpl *impl = SPA_CONTAINER_OF (data->client, PinosClientImpl, this);
+
+  if (data->res == SPA_RESULT_SKIPPED) {
+    data->res = SPA_RESULT_OK;
+  } else if (data->res == SPA_RESULT_NO_PERMISSION) {
+    pinos_resource_send_error (data->resource,
+                               data->res,
+                               "no permission");
+  } else if (SPA_RESULT_IS_ERROR (data->res)) {
+    pinos_resource_send_error (data->resource,
+                               data->res,
+                               "error %d", data->res);
+  } else {
+    data->res = impl->send_func (data->resource,
+                                 data->resource->id,
+                                 data->opcode,
+                                 data->message,
+                                 data->flush,
+                                 impl->send_data);
+  }
+  return data->res;
+}
+
+SpaResult
+pinos_client_send_message (PinosClient   *client,
+                           PinosResource *resource,
+                           uint32_t       opcode,
+                           void          *message,
+                           bool           flush)
+{
+  PinosClientImpl *impl = SPA_CONTAINER_OF (client, PinosClientImpl, this);
+
+  if (impl->send_func) {
+    PinosAccessData data;
+
+    data.client = client;
+    data.resource = resource;
+    data.opcode = opcode;
+    data.message = message;
+    data.flush = flush;
+
+    data.res = SPA_RESULT_OK;
+    pinos_signal_emit (&client->core->access.check_send,
+                       do_send_message,
+                       &data);
+
+    if (SPA_RESULT_IS_ASYNC (data.res))
+      return data.res;
+
+    return do_send_message (&data);
+  }
+
+  pinos_log_error ("client %p: send func not implemented", client);
+
+  return SPA_RESULT_NOT_IMPLEMENTED;
+}
+
 
 void
 pinos_client_update_properties (PinosClient     *client,

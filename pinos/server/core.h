@@ -31,26 +31,26 @@ typedef struct _PinosGlobal PinosGlobal;
 
 #include <pinos/client/uri.h>
 
+#include <pinos/server/access.h>
 #include <pinos/server/main-loop.h>
 #include <pinos/server/data-loop.h>
 #include <pinos/server/node.h>
 #include <pinos/server/link.h>
 #include <pinos/server/node-factory.h>
 
-typedef void (*PinosBindFunc)  (PinosGlobal   *global,
-                                PinosClient   *client,
-                                uint32_t       version,
-                                uint32_t       id);
+typedef SpaResult (*PinosBindFunc)  (PinosGlobal   *global,
+                                     PinosClient   *client,
+                                     uint32_t       version,
+                                     uint32_t       id);
 
 struct _PinosGlobal {
-  PinosCore *core;
-  SpaList    link;
-  uint32_t   id;
-  uint32_t   type;
-  uint32_t   version;
-  void      *object;
-
-  PinosBindFunc bind;
+  PinosCore   *core;
+  PinosClient *owner;
+  SpaList      link;
+  uint32_t     id;
+  uint32_t     type;
+  uint32_t     version;
+  void        *object;
 
   PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
                                  PinosGlobal   *global));
@@ -65,6 +65,7 @@ struct _PinosCore {
   PinosGlobal *global;
 
   PinosURI uri;
+  PinosAccess access;
 
   PinosMap objects;
 
@@ -119,12 +120,18 @@ struct _PinosCore {
 PinosCore *     pinos_core_new           (PinosMainLoop *main_loop);
 void            pinos_core_destroy       (PinosCore     *core);
 
-PinosGlobal *   pinos_core_add_global    (PinosCore           *core,
-                                          uint32_t             type,
-                                          uint32_t             version,
-                                          void                *object,
-                                          PinosBindFunc        bind);
-void            pinos_global_destroy     (PinosGlobal         *global);
+PinosGlobal *   pinos_core_add_global    (PinosCore     *core,
+                                          PinosClient   *owner,
+                                          uint32_t       type,
+                                          uint32_t       version,
+                                          void          *object,
+                                          PinosBindFunc  bind);
+
+SpaResult       pinos_global_bind        (PinosGlobal   *global,
+                                          PinosClient   *client,
+                                          uint32_t       version,
+                                          uint32_t       id);
+void            pinos_global_destroy     (PinosGlobal   *global);
 
 
 PinosPort *     pinos_core_find_port     (PinosCore        *core,

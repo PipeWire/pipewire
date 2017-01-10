@@ -29,16 +29,13 @@ extern "C" {
 
 typedef struct _PinosResource PinosResource;
 
+#include <spa/include/spa/list.h>
+
+#include <pinos/client/sig.h>
+
 #include <pinos/server/core.h>
 
 typedef void  (*PinosDestroy)  (void *object);
-
-typedef SpaResult (*PinosSendFunc) (void             *object,
-                                    uint32_t          id,
-                                    uint32_t          opcode,
-                                    void             *message,
-                                    bool              flush,
-                                    void             *data);
 
 typedef SpaResult (*PinosDispatchFunc) (void             *object,
                                         uint32_t          opcode,
@@ -56,21 +53,24 @@ struct _PinosResource {
   void         *object;
   PinosDestroy  destroy;
 
-  PinosSendFunc      send_func;
-  void              *send_data;
-  PinosDispatchFunc  dispatch_func;
-  void              *dispatch_data;
-
   PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
                                  PinosResource *resource));
 };
 
-PinosResource * pinos_resource_new                (PinosClient  *client,
-                                                   uint32_t      id,
-                                                   uint32_t      type,
-                                                   void         *object,
-                                                   PinosDestroy  destroy);
+PinosResource * pinos_resource_new                (PinosClient   *client,
+                                                   uint32_t       id,
+                                                   uint32_t       type,
+                                                   void          *object,
+                                                   PinosDestroy   destroy);
 SpaResult       pinos_resource_destroy            (PinosResource *resource);
+
+void            pinos_resource_set_dispatch       (PinosResource     *resource,
+                                                   PinosDispatchFunc  func,
+                                                   void              *data);
+
+SpaResult       pinos_resource_dispatch           (PinosResource     *resource,
+                                                   uint32_t           opcode,
+                                                   void              *message);
 
 SpaResult       pinos_resource_send_message       (PinosResource     *resource,
                                                    uint32_t           opcode,

@@ -76,7 +76,6 @@ typedef struct {
   SpaList              link;
   PinosClient         *client;
   int                  fd;
-  struct ucred         ucred;
   SpaSource           *source;
   PinosConnection     *connection;
 } PinosProtocolNativeClient;
@@ -168,10 +167,9 @@ connection_data (SpaSource *source,
       continue;
     }
 
-    resource->dispatch_func (resource,
+    pinos_resource_dispatch (resource,
                              type,
-                             message,
-                             resource->dispatch_data);
+                             message);
   }
 }
 
@@ -180,14 +178,14 @@ client_new (PinosProtocolNative *impl,
             int                  fd)
 {
   PinosProtocolNativeClient *this;
+  PinosClient *client;
   socklen_t len;
 
   this = calloc (1, sizeof (PinosProtocolNativeClient));
+  if (this == NULL)
+    goto no_native_client;
+
   this->impl = impl;
-  len = sizeof (this->ucred);
-  if (getsockopt (fd, SOL_SOCKET, SO_PEERCRED, &this->ucred, &len) < 0) {
-    pinos_log_error ("no peercred: %m");
-  }
   this->fd = fd;
   this->source = pinos_loop_add_io (impl->core->main_loop->loop,
                                     this->fd,
@@ -195,21 +193,48 @@ client_new (PinosProtocolNative *impl,
                                     false,
                                     connection_data,
                                     this);
+  if (this->source == NULL)
+    goto no_source;
+
   this->connection = pinos_connection_new (fd);
+  if (this->connection == NULL)
+    goto no_connection;
+
+  client = pinos_client_new (impl->core, NULL);
+  if (client == NULL)
+    goto no_client;
+
+  this->client = client;
+
+  pinos_client_set_send (client,
+                         client_send_func,
+                         this);
+
+  len = sizeof (client->ucred);
+  if (getsockopt (fd, SOL_SOCKET, SO_PEERCRED, &client->ucred, &len) < 0) {
+    client->ucred_valid = false;
+    pinos_log_error ("no peercred: %m");
+  } else {
+    client->ucred_valid = true;
+  }
 
   spa_list_insert (impl->client_list.prev, &this->link);
 
-  this->client = pinos_client_new (impl->core, NULL);
-  this->client->send_func = client_send_func;
-  this->client->send_data = this;
-
-  impl->core->global->bind (impl->core->global,
-                            this->client,
-                            0,
-                            0);
-
+  pinos_global_bind (impl->core->global,
+                     client,
+                     0,
+                     0);
   return this;
 
+no_client:
+  pinos_connection_destroy (this->connection);
+no_connection:
+  pinos_loop_destroy_source (impl->core->main_loop->loop,
+                             this->source);
+no_source:
+  free (this);
+no_native_client:
+  return NULL;
 }
 
 static Socket *
@@ -326,7 +351,11 @@ socket_data (SpaSource *source,
     return;
   }
 
-  client_new (impl, client_fd);
+  if (client_new (impl, client_fd) == NULL) {
+    pinos_log_error ("failed to create client");
+    close (client_fd);
+    return;
+  }
 }
 
 static bool

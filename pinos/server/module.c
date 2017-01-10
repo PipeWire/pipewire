@@ -107,7 +107,7 @@ module_dispatch_func (void             *object,
   return SPA_RESULT_OK;
 }
 
-static void
+static SpaResult
 module_bind_func (PinosGlobal *global,
                   PinosClient *client,
                   uint32_t     version,
@@ -120,14 +120,15 @@ module_bind_func (PinosGlobal *global,
 
   resource = pinos_resource_new (client,
                                  id,
-                                 global->core->uri.module,
+                                 global->type,
                                  global->object,
                                  NULL);
   if (resource == NULL)
     goto no_mem;
 
-  resource->dispatch_func = module_dispatch_func;
-  resource->dispatch_data = global;
+  pinos_resource_set_dispatch (resource,
+                               module_dispatch_func,
+                               global);
 
   pinos_log_debug ("module %p: bound to %d", global->object, resource->id);
 
@@ -139,16 +140,15 @@ module_bind_func (PinosGlobal *global,
   info.args = this->args;
   info.props = NULL;
 
-  pinos_resource_send_message (resource,
-                               PINOS_MESSAGE_MODULE_INFO,
-                               &m,
-                               true);
-  return;
-
+  return pinos_resource_send_message (resource,
+                                      PINOS_MESSAGE_MODULE_INFO,
+                                      &m,
+                                      true);
 no_mem:
   pinos_resource_send_error (resource,
                              SPA_RESULT_NO_MEMORY,
                              "no memory");
+  return SPA_RESULT_NO_MEMORY;
 }
 
 /**
@@ -226,6 +226,7 @@ pinos_module_load (PinosCore    *core,
   pinos_log_debug ("loaded module: %s", this->name);
 
   this->global = pinos_core_add_global (core,
+                                        NULL,
                                         core->uri.module,
                                         0,
                                         impl,

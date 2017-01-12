@@ -34,8 +34,6 @@ typedef struct
 
   PinosWorkQueue *work;
 
-  uint32_t seq;
-
   bool async_init;
 } PinosNodeImpl;
 
@@ -583,6 +581,8 @@ do_node_remove_done (SpaLoop        *loop,
   pinos_log_debug ("node %p: free", this);
   pinos_signal_emit (&this->free_signal, this);
 
+  pinos_work_queue_destroy (impl->work);
+
   if (this->transport)
     pinos_transport_destroy (this->transport);
   if (this->input_port_map)
@@ -657,16 +657,12 @@ pinos_node_destroy (PinosNode * this)
   spa_list_remove (&this->link);
   pinos_global_destroy (this->global);
 
-  pinos_work_queue_cancel (impl->work,
-                           this,
-                           SPA_ID_INVALID);
-
   spa_list_for_each_safe (resource, tmp, &this->resource_list, link)
     pinos_resource_destroy (resource);
 
   pinos_loop_invoke (this->data_loop->loop,
                      do_node_remove,
-                     impl->seq++,
+                     1,
                      0,
                      NULL,
                      this);

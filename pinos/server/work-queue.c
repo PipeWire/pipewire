@@ -119,6 +119,8 @@ pinos_work_queue_destroy (PinosWorkQueue * queue)
 
   spa_list_for_each_safe (item, tmp, &impl->free_list, link)
     free (item);
+  spa_list_for_each_safe (item, tmp, &impl->work_list, link)
+    free (item);
 
   free (impl);
 }

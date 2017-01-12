@@ -36,7 +36,6 @@ typedef struct
   int refcount;
 
   PinosWorkQueue *work;
-  uint32_t seq;
 
   SpaFormat **format_filter;
   PinosProperties *properties;
@@ -561,6 +560,7 @@ static SpaResult
 do_start (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
 {
   SpaResult res = SPA_RESULT_OK;
+  PinosLinkImpl *impl = SPA_CONTAINER_OF (this, PinosLinkImpl, this);
 
   if (in_state < SPA_NODE_STATE_PAUSED || out_state < SPA_NODE_STATE_PAUSED)
     return SPA_RESULT_OK;
@@ -571,9 +571,11 @@ do_start (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
 
     if (in_state == SPA_NODE_STATE_PAUSED) {
       res = pinos_node_set_state (this->input->node, PINOS_NODE_STATE_RUNNING);
+      pinos_work_queue_add (impl->work, this->input->node, res, NULL, NULL);
     }
     if (out_state == SPA_NODE_STATE_PAUSED) {
       res = pinos_node_set_state (this->output->node, PINOS_NODE_STATE_RUNNING);
+      pinos_work_queue_add (impl->work, this->input->node, res, NULL, NULL);
     }
   }
   return res;
@@ -749,6 +751,8 @@ pinos_link_free (PinosLink *link)
 
   pinos_log_debug ("link %p: free", link);
   pinos_signal_emit (&link->free_signal, link);
+
+  pinos_work_queue_destroy (impl->work);
 
   if (impl->allocated)
     pinos_memblock_free (&impl->buffer_mem);
@@ -982,10 +986,6 @@ pinos_link_destroy (PinosLink * this)
   pinos_global_destroy (this->global);
   spa_list_remove (&this->link);
 
-  pinos_work_queue_cancel (impl->work,
-                           this,
-                           SPA_ID_INVALID);
-
   spa_list_for_each_safe (resource, tmp, &this->resource_list, link)
     pinos_resource_destroy (resource);
 
@@ -996,7 +996,7 @@ pinos_link_destroy (PinosLink * this)
     impl->refcount++;
     pinos_loop_invoke (this->input->node->data_loop->loop,
                        do_link_remove,
-                       impl->seq++,
+                       1,
                        0,
                        NULL,
                        this);
@@ -1008,7 +1008,7 @@ pinos_link_destroy (PinosLink * this)
     impl->refcount++;
     pinos_loop_invoke (this->output->node->data_loop->loop,
                        do_link_remove,
-                       impl->seq++,
+                       2,
                        0,
                        NULL,
                        this);

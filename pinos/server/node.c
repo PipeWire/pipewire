@@ -26,10 +26,13 @@
 #include "pinos/server/node.h"
 #include "pinos/server/data-loop.h"
 #include "pinos/server/main-loop.h"
+#include "pinos/server/work-queue.h"
 
 typedef struct
 {
   PinosNode this;
+
+  PinosWorkQueue *work;
 
   uint32_t seq;
 
@@ -280,6 +283,7 @@ static void
 on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
 {
   PinosNode *this = user_data;
+  PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, this);
 
   switch (event->type) {
     case SPA_NODE_EVENT_TYPE_INVALID:
@@ -293,7 +297,7 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
       SpaNodeEventAsyncComplete *ac = (SpaNodeEventAsyncComplete *) event;
 
       pinos_log_debug ("node %p: async complete event %d %d", this, ac->seq, ac->res);
-      if (!pinos_main_loop_defer_complete (this->core->main_loop, this, ac->seq, ac->res)) {
+      if (!pinos_work_queue_complete (impl->work, this, ac->seq, ac->res)) {
         pinos_signal_emit (&this->async_complete, this, ac->seq, ac->res);
       }
       break;
@@ -498,6 +502,8 @@ pinos_node_new (PinosCore       *core,
   this->core = core;
   pinos_log_debug ("node %p: new", this);
 
+  impl->work = pinos_work_queue_new (this->core->main_loop->loop);
+
   this->name = strdup (name);
   this->properties = properties;
 
@@ -540,11 +546,11 @@ pinos_node_new (PinosCore       *core,
     init_complete (this);
   } else {
     impl->async_init = true;
-    pinos_main_loop_defer (this->core->main_loop,
-                           this,
-                           SPA_RESULT_RETURN_ASYNC (0),
-                           (PinosDeferFunc) init_complete,
-                           NULL);
+    pinos_work_queue_add (impl->work,
+                          this,
+                          SPA_RESULT_RETURN_ASYNC (0),
+                          (PinosWorkFunc) init_complete,
+                          NULL);
   }
 
   return this;
@@ -651,6 +657,10 @@ pinos_node_destroy (PinosNode * this)
   spa_list_remove (&this->link);
   pinos_global_destroy (this->global);
 
+  pinos_work_queue_cancel (impl->work,
+                           this,
+                           SPA_ID_INVALID);
+
   spa_list_for_each_safe (resource, tmp, &this->resource_list, link)
     pinos_resource_destroy (resource);
 
@@ -739,6 +749,7 @@ pinos_node_set_state (PinosNode      *node,
                       PinosNodeState  state)
 {
   SpaResult res = SPA_RESULT_OK;
+  PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, this);
 
   pinos_signal_emit (&node->core->node_state_request, node, state);
 
@@ -767,11 +778,11 @@ pinos_node_set_state (PinosNode      *node,
   if (SPA_RESULT_IS_ERROR (res))
     return res;
 
-  pinos_main_loop_defer (node->core->main_loop,
-                         node,
-                         res,
-                         (PinosDeferFunc) on_state_complete,
-                         SPA_INT_TO_PTR (state));
+  pinos_work_queue_add (impl->work,
+                        node,
+                        res,
+                        (PinosWorkFunc) on_state_complete,
+                        SPA_INT_TO_PTR (state));
 
   return res;
 }

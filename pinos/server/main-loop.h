@@ -29,11 +29,6 @@ extern "C" {
 
 typedef struct _PinosMainLoop PinosMainLoop;
 
-typedef void (*PinosDeferFunc) (void      *obj,
-                                void      *data,
-                                SpaResult  res,
-                                uint32_t   id);
-
 /**
  * PinosMainLoop:
  *
@@ -44,19 +39,6 @@ struct _PinosMainLoop {
 
   PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
                                  PinosMainLoop *loop));
-
-  uint32_t     (*defer)           (PinosMainLoop  *loop,
-                                   void           *obj,
-                                   SpaResult       res,
-                                   PinosDeferFunc  func,
-                                   void           *data);
-  void         (*defer_cancel)    (PinosMainLoop  *loop,
-                                   void           *obj,
-                                   uint32_t        id);
-  bool         (*defer_complete)  (PinosMainLoop  *loop,
-                                   void           *obj,
-                                   uint32_t        seq,
-                                   SpaResult       res);
 };
 
 PinosMainLoop *     pinos_main_loop_new                     (void);
@@ -64,10 +46,6 @@ void                pinos_main_loop_destroy                 (PinosMainLoop *loop
 
 void                pinos_main_loop_run                     (PinosMainLoop *loop);
 void                pinos_main_loop_quit                    (PinosMainLoop *loop);
-
-#define pinos_main_loop_defer(m,...)           (m)->defer(m,__VA_ARGS__)
-#define pinos_main_loop_defer_cancel(m,...)    (m)->defer_cancel(m,__VA_ARGS__)
-#define pinos_main_loop_defer_complete(m,...)  (m)->defer_complete(m,__VA_ARGS__)
 
 #ifdef __cplusplus
 }

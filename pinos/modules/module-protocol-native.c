@@ -81,19 +81,6 @@ typedef struct {
 } PinosProtocolNativeClient;
 
 static void
-sync_destroy (void      *object,
-              void      *data,
-              SpaResult  res,
-              uint32_t   id)
-{
-  PinosProtocolNativeClient *this = object;
-
-  pinos_connection_destroy (this->connection);
-  close (this->fd);
-  free (this);
-}
-
-static void
 client_destroy (PinosProtocolNativeClient *this)
 {
   pinos_loop_destroy_source (this->impl->core->main_loop->loop,
@@ -101,11 +88,9 @@ client_destroy (PinosProtocolNativeClient *this)
   pinos_client_destroy (this->client);
   spa_list_remove (&this->link);
 
-  pinos_main_loop_defer (this->impl->core->main_loop,
-                         this,
-                         SPA_RESULT_WAIT_SYNC,
-                         sync_destroy,
-                         this);
+  pinos_connection_destroy (this->connection);
+  close (this->fd);
+  free (this);
 }
 
 static SpaResult

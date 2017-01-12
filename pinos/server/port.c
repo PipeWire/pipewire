@@ -258,10 +258,6 @@ do_remove_link_done (SpaLoop        *loop,
     port->n_buffers = 0;
   }
 
-  pinos_main_loop_defer_complete (node->core->main_loop,
-                                  port,
-                                  seq,
-                                  SPA_RESULT_OK);
   return SPA_RESULT_OK;
 }
 
@@ -326,7 +322,6 @@ do_clear_buffers_done (SpaLoop        *loop,
                        void           *user_data)
 {
   PinosPort *port = user_data;
-  PinosNode *node = port->node;
   SpaResult res;
 
   pinos_log_debug ("port %p: clear buffers finish", port);
@@ -338,10 +333,6 @@ do_clear_buffers_done (SpaLoop        *loop,
   port->buffers = NULL;
   port->n_buffers = 0;
 
-  pinos_main_loop_defer_complete (node->core->main_loop,
-                                  port,
-                                  seq,
-                                  res);
   return res;
 }
 

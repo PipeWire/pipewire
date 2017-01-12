@@ -574,24 +574,18 @@ pinos_context_destroy (PinosContext *context)
 /**
  * pinos_context_connect:
  * @context: a #PinosContext
- * @flags: #PinosContextFlags
  *
- * Connect to the daemon with @flags
+ * Connect to the daemon
  *
  * Returns: %TRUE on success.
  */
 bool
 pinos_context_connect (PinosContext *context)
 {
-  PinosContextImpl *impl = SPA_CONTAINER_OF (context, PinosContextImpl, this);
   struct sockaddr_un addr;
   socklen_t size;
   const char *runtime_dir, *name = NULL;
   int name_size, fd;
-  PinosMessageClientUpdate cu;
-  PinosMessageGetRegistry grm;
-
-  context_set_state (context, PINOS_CONTEXT_STATE_CONNECTING, NULL);
 
   if ((runtime_dir = getenv ("XDG_RUNTIME_DIR")) == NULL) {
     context_set_state (context,
@@ -627,6 +621,32 @@ pinos_context_connect (PinosContext *context)
                        "connect failed: %s", strerror (errno));
     goto error_close;
   }
+
+  return pinos_context_connect_fd (context, fd);
+
+error_close:
+  close (fd);
+  return false;
+}
+
+/**
+ * pinos_context_connect_fd:
+ * @context: a #PinosContext
+ * @fd: FD of a connected Pinos socket
+ *
+ * Connect to a daemon. @fd should already be connected to a Pinos socket.
+ *
+ * Returns: %TRUE on success.
+ */
+bool
+pinos_context_connect_fd (PinosContext  *context,
+                          int            fd)
+{
+  PinosContextImpl *impl = SPA_CONTAINER_OF (context, PinosContextImpl, this);
+  PinosMessageClientUpdate cu;
+  PinosMessageGetRegistry grm;
+
+  context_set_state (context, PINOS_CONTEXT_STATE_CONNECTING, NULL);
 
   impl->connection = pinos_connection_new (fd);
   if (impl->connection == NULL)

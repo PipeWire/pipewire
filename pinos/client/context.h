@@ -110,6 +110,8 @@ SpaResult         pinos_context_send_message          (PinosContext      *contex
                                                        bool               flush);
 
 bool              pinos_context_connect               (PinosContext      *context);
+bool              pinos_context_connect_fd            (PinosContext      *context,
+                                                       int                fd);
 bool              pinos_context_disconnect            (PinosContext      *context);
 
 #ifdef __cplusplus

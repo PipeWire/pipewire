@@ -82,7 +82,8 @@ try_link_port (PinosNode *node, PinosPort *port, ModuleImpl *impl)
 
 error:
   {
-    pinos_node_update_state (node, PINOS_NODE_STATE_ERROR, error);
+    pinos_log_error ("module %p: can't link node '%s'", impl, error);
+    free (error);
     return;
   }
 }
@@ -271,6 +272,6 @@ module_destroy (ModuleImpl *impl)
 bool
 pinos__module_init (PinosModule * module, const char * args)
 {
-  module_new (module->core, NULL);
+  module->user_data = module_new (module->core, NULL);
   return true;
 }

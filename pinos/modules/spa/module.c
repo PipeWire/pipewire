@@ -113,6 +113,7 @@ pinos__module_init (PinosModule * module, const char * args)
       }
     }
     free (argv);
+    pinos_free_strv (tmp_argv);
   }
 
   pinos_spa_monitor_load (module->core, "build/spa/plugins/alsa/libspa-alsa.so", "alsa-monitor");

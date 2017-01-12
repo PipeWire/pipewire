@@ -251,7 +251,7 @@ client_new (PinosProtocolDBus *impl,
   PinosProtocolDBusClient *this;
   PinosClient *client;
 
-  client = pinos_client_new (impl->core, NULL);
+  client = pinos_client_new (impl->core, NULL, NULL);
 
   if ((this = (PinosProtocolDBusClient *) find_object (impl, client))) {
     pinos_client1_set_sender (this->parent.iface, sender);

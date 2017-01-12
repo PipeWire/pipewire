@@ -844,8 +844,6 @@ pinos_stream_connect (PinosStream      *stream,
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
   PinosMessageCreateClientNode ccn;
-  SpaDict dict;
-  SpaDictItem items[1];
 
   impl->direction = direction == PINOS_DIRECTION_INPUT ? SPA_DIRECTION_INPUT : SPA_DIRECTION_OUTPUT;
   impl->port_id = 0;
@@ -866,7 +864,7 @@ pinos_stream_connect (PinosStream      *stream,
 
   impl->node_proxy = pinos_proxy_new (stream->context,
                                       SPA_ID_INVALID,
-                                      0);
+                                      stream->context->uri.client_node);
 
   pinos_proxy_set_dispatch (impl->node_proxy,
                             stream_dispatch_func,
@@ -874,11 +872,7 @@ pinos_stream_connect (PinosStream      *stream,
 
   ccn.seq = ++impl->seq;
   ccn.name = "client-node";
-  dict.n_items = 1;
-  dict.items = items;
-  items[0].key = "pinos.target.node";
-  items[0].value = port_path;
-  ccn.props = &dict;
+  ccn.props = &stream->properties->dict;
   ccn.new_id = impl->node_proxy->id;
 
   pinos_proxy_send_message (stream->context->core_proxy,

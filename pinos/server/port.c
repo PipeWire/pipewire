@@ -56,17 +56,6 @@ pinos_port_new (PinosNode      *node,
   return this;
 }
 
-static void
-sync_destroy (void      *object,
-              void      *data,
-              SpaResult  res,
-              uint32_t   id)
-{
-  PinosPort *port = object;
-
-  free (port);
-}
-
 void
 pinos_port_destroy (PinosPort *port)
 {
@@ -83,11 +72,7 @@ pinos_port_destroy (PinosPort *port)
   port->buffers = NULL;
   port->n_buffers = 0;
 
-  pinos_main_loop_defer (port->node->core->main_loop,
-                         port,
-                         SPA_RESULT_WAIT_SYNC,
-                         sync_destroy,
-                         port);
+  free (port);
 }
 
 static SpaResult

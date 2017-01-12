@@ -55,7 +55,11 @@ id_map_get_uri (SpaIDMap *map, uint32_t id)
   IDMap *this = SPA_CONTAINER_OF (map, IDMap, map);
   if (id == SPA_ID_INVALID)
     return NULL;
-  return pinos_map_lookup (&this->uris, id);
+
+  if (SPA_LIKELY (pinos_map_check_id (&this->uris, id)))
+    return pinos_map_lookup_unchecked (&this->uris, id);
+
+  return NULL;
 }
 
 static IDMap default_id_map = {

@@ -119,6 +119,7 @@ typedef struct
 
   SpaProxy proxy;
 
+  PinosListener node_free;
   PinosListener transport_changed;
   PinosListener loop_changed;
   PinosListener global_added;
@@ -177,6 +178,9 @@ spa_proxy_node_send_command (SpaNode        *node,
 
   this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
+  if (this->resource == NULL)
+    return SPA_RESULT_OK;
+
   switch (command->type) {
     case SPA_NODE_COMMAND_INVALID:
       return SPA_RESULT_INVALID_COMMAND;
@@ -200,7 +204,6 @@ spa_proxy_node_send_command (SpaNode        *node,
         uint8_t cmd = PINOS_TRANSPORT_CMD_NEED_DATA;
         write (this->data_source.fd, &cmd, 1);
       }
-
       res = SPA_RESULT_RETURN_ASYNC (cnc.seq);
       break;
     }
@@ -295,7 +298,7 @@ spa_proxy_node_get_port_ids (SpaNode       *node,
 }
 
 static void
-do_update_port (SpaProxy                *this,
+do_update_port (SpaProxy               *this,
                 PinosMessagePortUpdate *pu)
 {
   SpaProxyPort *port;
@@ -312,17 +315,22 @@ do_update_port (SpaProxy                *this,
     for (i = 0; i < port->n_formats; i++)
       free (port->formats[i]);
     port->n_formats = pu->n_possible_formats;
-    port->formats = realloc (port->formats, port->n_formats * sizeof (SpaFormat *));
+    if (port->n_formats)
+      port->formats = realloc (port->formats, port->n_formats * sizeof (SpaFormat *));
+    else {
+      free (port->formats);
+      port->formats = NULL;
+    }
     for (i = 0; i < port->n_formats; i++) {
       size = pinos_serialize_format_get_size (pu->possible_formats[i]);
-      port->formats[i] = pinos_serialize_format_copy_into (malloc (size), pu->possible_formats[i]);
+      port->formats[i] = size ? pinos_serialize_format_copy_into (malloc (size), pu->possible_formats[i]) : NULL;
     }
   }
   if (pu->change_mask & PINOS_MESSAGE_PORT_UPDATE_FORMAT) {
     if (port->format)
       free (port->format);
     size = pinos_serialize_format_get_size (pu->format);
-    port->format = pinos_serialize_format_copy_into (malloc (size), pu->format);
+    port->format = size ? pinos_serialize_format_copy_into (malloc (size), pu->format) : NULL;
   }
 
   if (pu->change_mask & PINOS_MESSAGE_PORT_UPDATE_PROPS) {
@@ -332,7 +340,7 @@ do_update_port (SpaProxy                *this,
     if (port->info)
       free (port->info);
     size = pinos_serialize_port_info_get_size (pu->info);
-    port->info = pinos_serialize_port_info_copy_into (malloc (size), pu->info);
+    port->info = size ? pinos_serialize_port_info_copy_into (malloc (size), pu->info) : NULL;
   }
 
   if (!port->valid) {
@@ -481,6 +489,9 @@ spa_proxy_node_port_set_format (SpaNode            *node,
 
   if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
+
+  if (this->resource == NULL)
+    return SPA_RESULT_OK;
 
   sf.seq = this->seq++;
   sf.direction = direction;
@@ -641,6 +652,11 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
     mb = NULL;
   }
 
+  port->n_buffers = n_buffers;
+
+  if (this->resource == NULL)
+    return SPA_RESULT_OK;
+
   n_mem = 0;
   for (i = 0; i < n_buffers; i++) {
     ProxyBuffer *b = &port->buffers[i];
@@ -714,8 +730,6 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
       }
     }
   }
-
-  port->n_buffers = n_buffers;
 
   ub.seq = this->seq++;
   ub.direction = direction;
@@ -1169,6 +1183,9 @@ on_transport_changed (PinosListener   *listener,
   PinosTransportInfo info;
   PinosMessageTransportUpdate tu;
 
+  if (this->resource == NULL)
+    return;
+
   pinos_transport_get_info (node->transport, &info);
 
   tu.memfd = info.memfd;
@@ -1194,6 +1211,7 @@ on_global_added (PinosListener   *listener,
                  PinosGlobal     *global)
 {
   PinosClientNodeImpl *impl = SPA_CONTAINER_OF (listener, PinosClientNodeImpl, global_added);
+
   if (global->object == impl->this.node)
     global->owner = impl->this.client;
 }
@@ -1222,7 +1240,25 @@ proxy_clear (SpaProxy *this)
 static void
 client_node_resource_destroy (PinosResource *resource)
 {
-  pinos_client_node_destroy (resource->object);
+  PinosClientNode *this = resource->object;
+  PinosClientNodeImpl *impl = SPA_CONTAINER_OF (this, PinosClientNodeImpl, this);
+
+  impl->proxy.resource = this->resource = NULL;
+  pinos_client_node_destroy (this);
+}
+
+static void
+on_node_free (PinosListener *listener,
+              PinosNode     *node)
+{
+  PinosClientNodeImpl *impl = SPA_CONTAINER_OF (listener, PinosClientNodeImpl, node_free);
+
+  pinos_log_debug ("client-node %p: free", &impl->this);
+  proxy_clear (&impl->proxy);
+
+  if (impl->data_fd != -1)
+    close (impl->data_fd);
+  free (impl);
 }
 
 /**
@@ -1249,6 +1285,8 @@ pinos_client_node_new (PinosClient     *client,
     return NULL;
 
   this = &impl->this;
+  this->client = client;
+
   impl->core = client->core;
   impl->data_fd = -1;
   pinos_log_debug ("client-node %p: new", impl);
@@ -1277,6 +1315,10 @@ pinos_client_node_new (PinosClient     *client,
 
   impl->proxy.resource = this->resource;
 
+  pinos_signal_add (&this->node->free_signal,
+                    &impl->node_free,
+                    on_node_free);
+
   pinos_signal_add (&this->node->transport_changed,
                     &impl->transport_changed,
                     on_transport_changed);
@@ -1303,24 +1345,6 @@ error_no_node:
   return NULL;
 }
 
-static void
-on_node_remove (void      *object,
-                void      *data,
-                SpaResult  res,
-                uint32_t   id)
-{
-  PinosClientNode *this = object;
-  PinosClientNodeImpl *impl = SPA_CONTAINER_OF (this, PinosClientNodeImpl, this);
-
-  pinos_log_debug ("client-node %p: finalize", this);
-  proxy_clear (&impl->proxy);
-
-  if (impl->data_fd != -1)
-    close (impl->data_fd);
-  free (impl);
-}
-
-
 void
 pinos_client_node_destroy (PinosClientNode * this)
 {
@@ -1330,14 +1354,10 @@ pinos_client_node_destroy (PinosClientNode * this)
   pinos_signal_emit (&this->destroy_signal, this);
 
   pinos_signal_remove (&impl->global_added);
+  pinos_signal_remove (&impl->loop_changed);
+  pinos_signal_remove (&impl->transport_changed);
 
   pinos_node_destroy (this->node);
-
-  pinos_main_loop_defer (this->node->core->main_loop,
-                         this,
-                         SPA_RESULT_WAIT_SYNC,
-                         (PinosDeferFunc) on_node_remove,
-                         this);
 }
 
 /**

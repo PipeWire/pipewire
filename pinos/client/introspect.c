@@ -42,8 +42,6 @@ pinos_node_state_as_string (PinosNodeState state)
       return "creating";
     case PINOS_NODE_STATE_SUSPENDED:
       return "suspended";
-    case PINOS_NODE_STATE_INITIALIZING:
-      return "initializing";
     case PINOS_NODE_STATE_IDLE:
       return "idle";
     case PINOS_NODE_STATE_RUNNING:

@@ -42,8 +42,16 @@ check_global_owner (PinosCore   *core,
   PinosGlobal *global;
 
   global = pinos_map_lookup (&core->objects, id);
+  if (global == NULL)
+    return false;
 
-  return (global && global->owner == client);
+  if (global->owner == NULL)
+    return true;
+
+  if (global->owner->ucred.uid == client->ucred.uid)
+    return true;
+
+  return false;
 }
 
 static void

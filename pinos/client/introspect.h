@@ -57,9 +57,8 @@ enum _PinosNodeState {
   PINOS_NODE_STATE_ERROR = -1,
   PINOS_NODE_STATE_CREATING = 0,
   PINOS_NODE_STATE_SUSPENDED = 1,
-  PINOS_NODE_STATE_INITIALIZING = 2,
-  PINOS_NODE_STATE_IDLE = 3,
-  PINOS_NODE_STATE_RUNNING = 4,
+  PINOS_NODE_STATE_IDLE = 2,
+  PINOS_NODE_STATE_RUNNING = 3,
 };
 
 const char * pinos_node_state_as_string (PinosNodeState state);

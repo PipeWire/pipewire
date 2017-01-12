@@ -79,6 +79,8 @@ struct _PinosNode {
 
   PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
                                  PinosNode     *object));
+  PINOS_SIGNAL (free_signal,    (PinosListener *listener,
+                                 PinosNode     *object));
 
   PINOS_SIGNAL (async_complete, (PinosListener *listener,
                                  PinosNode     *node,

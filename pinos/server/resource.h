@@ -62,7 +62,7 @@ PinosResource * pinos_resource_new                (PinosClient   *client,
                                                    uint32_t       type,
                                                    void          *object,
                                                    PinosDestroy   destroy);
-SpaResult       pinos_resource_destroy            (PinosResource *resource);
+void            pinos_resource_destroy            (PinosResource *resource);
 
 void            pinos_resource_set_dispatch       (PinosResource     *resource,
                                                    PinosDispatchFunc  func,

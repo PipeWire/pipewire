@@ -32,6 +32,8 @@ typedef struct
 {
   PinosLink this;
 
+  int refcount;
+
   uint32_t seq;
 
   SpaFormat **format_filter;
@@ -649,24 +651,11 @@ on_output_async_complete_notify (PinosListener *listener,
 }
 
 static void
-on_port_unlinked (PinosPort *port, PinosLink *this, SpaResult res, uint32_t id)
-{
-  pinos_signal_emit (&this->core->port_unlinked, this, port);
-
-  if (this->input == NULL || this->output == NULL) {
-    pinos_link_update_state (this, PINOS_LINK_STATE_UNLINKED, NULL);
-    pinos_link_destroy (this);
-  }
-
-}
-
-static void
 on_port_destroy (PinosLink *this,
                  PinosPort *port)
 {
   PinosLinkImpl *impl = (PinosLinkImpl *) this;
   PinosPort *other;
-  SpaResult res = SPA_RESULT_OK;
 
   if (port == this->input) {
     pinos_log_debug ("link %p: input port destroyed %p", this, port);
@@ -691,11 +680,10 @@ on_port_destroy (PinosLink *this,
     pinos_port_clear_buffers (other);
   }
 
-  pinos_main_loop_defer (this->core->main_loop,
-                         port,
-                         res,
-                         (PinosDeferFunc) on_port_unlinked,
-                         this);
+  pinos_signal_emit (&this->core->port_unlinked, this, port);
+
+  pinos_link_update_state (this, PINOS_LINK_STATE_UNLINKED, NULL);
+  pinos_link_destroy (this);
 }
 
 static void
@@ -750,10 +738,30 @@ link_dispatch_func (void             *object,
 }
 
 static void
+pinos_link_free (PinosLink *link)
+{
+  PinosLinkImpl *impl = SPA_CONTAINER_OF (link, PinosLinkImpl, this);
+
+  pinos_log_debug ("link %p: free", link);
+  pinos_signal_emit (&link->free_signal, link);
+
+  if (impl->allocated)
+    pinos_memblock_free (&impl->buffer_mem);
+
+  free (impl);
+}
+
+static void
 link_unbind_func (void *data)
 {
   PinosResource *resource = data;
+  PinosLink *this = resource->object;
+  PinosLinkImpl *impl = SPA_CONTAINER_OF (this, PinosLinkImpl, this);
+
   spa_list_remove (&resource->link);
+
+  if (--impl->refcount == 0)
+    pinos_link_free (this);
 }
 
 static SpaResult
@@ -763,6 +771,7 @@ link_bind_func (PinosGlobal *global,
                 uint32_t     id)
 {
   PinosLink *this = global->object;
+  PinosLinkImpl *impl = SPA_CONTAINER_OF (this, PinosLinkImpl, this);
   PinosResource *resource;
   PinosMessageLinkInfo m;
   PinosLinkInfo info;
@@ -774,6 +783,8 @@ link_bind_func (PinosGlobal *global,
                                  link_unbind_func);
   if (resource == NULL)
     goto no_mem;
+
+  impl->refcount++;
 
   pinos_resource_set_dispatch (resource,
                                link_dispatch_func,
@@ -790,6 +801,7 @@ link_bind_func (PinosGlobal *global,
   info.output_port_id = this->output ? this->output->port_id : -1;
   info.input_node_id = this->input ? this->input->node->global->id : -1;
   info.input_port_id = this->input ? this->input->port_id : -1;
+
   return pinos_resource_send_message (resource,
                                       PINOS_MESSAGE_LINK_INFO,
                                       &m,
@@ -821,12 +833,14 @@ pinos_link_new (PinosCore       *core,
   this->core = core;
   this->properties = properties;
   this->state = PINOS_LINK_STATE_INIT;
+  impl->refcount = 1;
 
   this->input = input;
   this->output = output;
 
   spa_list_init (&this->resource_list);
   pinos_signal_init (&this->destroy_signal);
+  pinos_signal_init (&this->free_signal);
 
   impl->format_filter = format_filter;
 
@@ -884,6 +898,7 @@ do_link_remove_done (SpaLoop        *loop,
                      void           *user_data)
 {
   PinosLink *this = user_data;
+  PinosLinkImpl *impl = SPA_CONTAINER_OF (this, PinosLinkImpl, this);
 
   if (this->input) {
     spa_list_remove (&this->input_link);
@@ -907,11 +922,8 @@ do_link_remove_done (SpaLoop        *loop,
     clear_port_buffers (this, this->output);
     this->output = NULL;
   }
-
-  pinos_main_loop_defer_complete (this->core->main_loop,
-                                  this,
-                                  seq,
-                                  SPA_RESULT_OK);
+  if (--impl->refcount == 0)
+    pinos_link_free (this);
 
   return SPA_RESULT_OK;
 }
@@ -945,22 +957,6 @@ do_link_remove (SpaLoop        *loop,
   return res;
 }
 
-static void
-sync_destroy (void     *object,
-              void     *data,
-              SpaResult res,
-              uint32_t  id)
-{
-  PinosLinkImpl *impl = SPA_CONTAINER_OF (object, PinosLinkImpl, this);
-
-  pinos_log_debug ("link %p: sync destroy", impl);
-
-  if (impl->allocated)
-    pinos_memblock_free (&impl->buffer_mem);
-
-  free (impl);
-}
-
 /**
  * pinos_link_destroy:
  * @link: a #PinosLink
@@ -970,7 +966,6 @@ sync_destroy (void     *object,
 void
 pinos_link_destroy (PinosLink * this)
 {
-  SpaResult res = SPA_RESULT_OK;
   PinosLinkImpl *impl = SPA_CONTAINER_OF (this, PinosLinkImpl, this);
   PinosResource *resource, *tmp;
 
@@ -987,31 +982,26 @@ pinos_link_destroy (PinosLink * this)
     pinos_signal_remove (&impl->input_port_destroy);
     pinos_signal_remove (&impl->input_async_complete);
 
-    res = pinos_loop_invoke (this->input->node->data_loop->loop,
-                             do_link_remove,
-                             impl->seq++,
-                             0,
-                             NULL,
-                             this);
-
-    pinos_main_loop_defer (this->core->main_loop, this, res, NULL, NULL);
+    impl->refcount++;
+    pinos_loop_invoke (this->input->node->data_loop->loop,
+                       do_link_remove,
+                       impl->seq++,
+                       0,
+                       NULL,
+                       this);
   }
   if (this->output) {
     pinos_signal_remove (&impl->output_port_destroy);
     pinos_signal_remove (&impl->output_async_complete);
 
-    res = pinos_loop_invoke (this->output->node->data_loop->loop,
-                             do_link_remove,
-                             impl->seq++,
-                             0,
-                             NULL,
-                             this);
-    pinos_main_loop_defer (this->core->main_loop, this, res, NULL, NULL);
+    impl->refcount++;
+    pinos_loop_invoke (this->output->node->data_loop->loop,
+                       do_link_remove,
+                       impl->seq++,
+                       0,
+                       NULL,
+                       this);
   }
-
-  pinos_main_loop_defer (this->core->main_loop,
-                         this,
-                         SPA_RESULT_WAIT_SYNC,
-                         sync_destroy,
-                         this);
+  if (--impl->refcount == 0)
+    pinos_link_free (this);
 }

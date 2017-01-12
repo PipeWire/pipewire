@@ -62,10 +62,11 @@ struct _PinosClient {
   SpaList resource_list;
 
   PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
-                                 PinosClient *client));
+                                 PinosClient   *client));
 };
 
 PinosClient *   pinos_client_new                  (PinosCore       *core,
+                                                   struct ucred    *ucred,
                                                    PinosProperties *properties);
 void            pinos_client_destroy              (PinosClient     *client);
 

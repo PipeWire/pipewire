@@ -461,10 +461,9 @@ init_complete (PinosNode *this)
   pinos_log_debug ("node %p: init completed", this);
   impl->async_init = false;
 
-  spa_list_insert (this->core->node_list.prev, &this->link);
-
   pinos_node_update_state (this, PINOS_NODE_STATE_SUSPENDED, NULL);
 
+  spa_list_insert (this->core->node_list.prev, &this->link);
   this->global = pinos_core_add_global (this->core,
                                         NULL,
                                         this->core->uri.node,
@@ -512,6 +511,7 @@ pinos_node_new (PinosCore       *core,
     pinos_log_warn ("node %p: error setting callback", this);
 
   pinos_signal_init (&this->destroy_signal);
+  pinos_signal_init (&this->free_signal);
   pinos_signal_init (&this->async_complete);
   pinos_signal_init (&this->transport_changed);
   pinos_signal_init (&this->loop_changed);
@@ -564,6 +564,7 @@ do_node_remove_done (SpaLoop        *loop,
                      void           *user_data)
 {
   PinosNode *this = user_data;
+  PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, this);
   PinosPort *port, *tmp;
 
   pinos_log_debug ("node %p: remove done, destroy ports", this);
@@ -573,10 +574,21 @@ do_node_remove_done (SpaLoop        *loop,
   spa_list_for_each_safe (port, tmp, &this->output_ports, link)
     pinos_port_destroy (port);
 
-  pinos_main_loop_defer_complete (this->core->main_loop,
-                                  this,
-                                  seq,
-                                  SPA_RESULT_OK);
+  pinos_log_debug ("node %p: free", this);
+  pinos_signal_emit (&this->free_signal, this);
+
+  if (this->transport)
+    pinos_transport_destroy (this->transport);
+  if (this->input_port_map)
+    free (this->input_port_map);
+  if (this->output_port_map)
+    free (this->output_port_map);
+
+  free (this->name);
+  free (this->error);
+  if (this->properties)
+    pinos_properties_free (this->properties);
+  free (impl);
 
   return SPA_RESULT_OK;
 }
@@ -620,24 +632,6 @@ do_node_remove (SpaLoop        *loop,
   return res;
 }
 
-static void
-sync_destroy (void     *object,
-              void     *data,
-              SpaResult res,
-              uint32_t  id)
-{
-  PinosNode *this = object;
-  PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, this);
-
-  pinos_log_debug ("node %p: sync destroy", this);
-
-  free (this->name);
-  free (this->error);
-  if (this->properties)
-    pinos_properties_free (this->properties);
-  free (impl);
-}
-
 /**
  * pinos_node_destroy:
  * @node: a #PinosNode
@@ -648,7 +642,6 @@ sync_destroy (void     *object,
 void
 pinos_node_destroy (PinosNode * this)
 {
-  SpaResult res;
   PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, this);
   PinosResource *resource, *tmp;
 
@@ -661,24 +654,12 @@ pinos_node_destroy (PinosNode * this)
   spa_list_for_each_safe (resource, tmp, &this->resource_list, link)
     pinos_resource_destroy (resource);
 
-  res = pinos_loop_invoke (this->data_loop->loop,
-                           do_node_remove,
-                           impl->seq++,
-                           0,
-                           NULL,
-                           this);
-
-  pinos_main_loop_defer (this->core->main_loop,
-                         this,
-                         res,
-                         NULL,
-                         NULL);
-
-  pinos_main_loop_defer (this->core->main_loop,
-                         this,
-                         SPA_RESULT_WAIT_SYNC,
-                         sync_destroy,
-                         this);
+  pinos_loop_invoke (this->data_loop->loop,
+                     do_node_remove,
+                     impl->seq++,
+                     0,
+                     NULL,
+                     this);
 }
 
 /**
@@ -769,9 +750,6 @@ pinos_node_set_state (PinosNode      *node,
 
     case PINOS_NODE_STATE_SUSPENDED:
       res = suspend_node (node);
-      break;
-
-    case PINOS_NODE_STATE_INITIALIZING:
       break;
 
     case PINOS_NODE_STATE_IDLE:

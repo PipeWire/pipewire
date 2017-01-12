@@ -30,13 +30,15 @@ extern "C" {
 typedef struct _PinosModule PinosModule;
 
 struct _PinosModule {
-  PinosCore *core;
-  SpaList    link;
+  PinosCore   *core;
+  SpaList      link;
   PinosGlobal *global;
 
   char *name;
   char *filename;
   char *args;
+
+  void *user_data;
 
   PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
                                  PinosModule   *module));

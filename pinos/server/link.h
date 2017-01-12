@@ -51,6 +51,8 @@ struct _PinosLink {
 
   PINOS_SIGNAL (destroy_signal, (PinosListener *,
                                  PinosLink *));
+  PINOS_SIGNAL (free_signal,    (PinosListener *,
+                                 PinosLink *));
 
   SpaList resource_list;
 

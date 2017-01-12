@@ -180,6 +180,7 @@ client_new (PinosProtocolNative *impl,
   PinosProtocolNativeClient *this;
   PinosClient *client;
   socklen_t len;
+  struct ucred ucred, *ucredp;
 
   this = calloc (1, sizeof (PinosProtocolNativeClient));
   if (this == NULL)
@@ -200,7 +201,15 @@ client_new (PinosProtocolNative *impl,
   if (this->connection == NULL)
     goto no_connection;
 
-  client = pinos_client_new (impl->core, NULL);
+  len = sizeof (ucred);
+  if (getsockopt (fd, SOL_SOCKET, SO_PEERCRED, &ucred, &len) < 0) {
+    pinos_log_error ("no peercred: %m");
+    ucredp = NULL;
+  } else {
+    ucredp = &ucred;
+  }
+
+  client = pinos_client_new (impl->core, ucredp, NULL);
   if (client == NULL)
     goto no_client;
 
@@ -209,14 +218,6 @@ client_new (PinosProtocolNative *impl,
   pinos_client_set_send (client,
                          client_send_func,
                          this);
-
-  len = sizeof (client->ucred);
-  if (getsockopt (fd, SOL_SOCKET, SO_PEERCRED, &client->ucred, &len) < 0) {
-    client->ucred_valid = false;
-    pinos_log_error ("no peercred: %m");
-  } else {
-    client->ucred_valid = true;
-  }
 
   spa_list_insert (impl->client_list.prev, &this->link);
 

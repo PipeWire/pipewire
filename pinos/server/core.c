@@ -192,6 +192,13 @@ no_mem:
   return SPA_RESULT_NO_MEMORY;
 }
 
+static void
+core_unbind_func (void *data)
+{
+  PinosResource *resource = data;
+  resource->client->core_resource = NULL;
+}
+
 static SpaResult
 core_bind_func (PinosGlobal *global,
                 PinosClient *client,
@@ -207,7 +214,7 @@ core_bind_func (PinosGlobal *global,
                                  id,
                                  global->type,
                                  global->object,
-                                 NULL);
+                                 core_unbind_func);
   if (resource == NULL)
     goto no_mem;
 
@@ -310,10 +317,14 @@ pinos_core_destroy (PinosCore *core)
 {
   PinosCoreImpl *impl = SPA_CONTAINER_OF (core, PinosCoreImpl, this);
 
+  pinos_log_debug ("core %p: destroy", core);
   pinos_signal_emit (&core->destroy_signal, core);
 
   pinos_data_loop_destroy (core->data_loop);
 
+  pinos_map_clear (&core->objects);
+
+  pinos_log_debug ("core %p: free", core);
   free (impl);
 }
 
@@ -350,10 +361,11 @@ pinos_core_add_global (PinosCore     *core,
   spa_list_insert (core->global_list.prev, &this->link);
   pinos_signal_emit (&core->global_added, core, this);
 
-  pinos_log_debug ("global %p: new %u", this, this->id);
-
   ng.id = this->id;
   ng.type = spa_id_map_get_uri (core->uri.map, this->type);
+
+  pinos_log_debug ("global %p: new %u %s", this, ng.id, ng.type);
+
   spa_list_for_each (registry, &core->registry_resource_list, link) {
     pinos_resource_send_message (registry,
                                  PINOS_MESSAGE_NOTIFY_GLOBAL,
@@ -384,18 +396,6 @@ pinos_global_bind (PinosGlobal   *global,
   return res;
 }
 
-static void
-sync_destroy (void      *object,
-              void      *data,
-              SpaResult  res,
-              uint32_t   id)
-{
-  PinosGlobal *global = object;
-
-  pinos_log_debug ("global %p: sync destroy", global);
-  free (global);
-}
-
 void
 pinos_global_destroy (PinosGlobal *global)
 {
@@ -406,11 +406,6 @@ pinos_global_destroy (PinosGlobal *global)
   pinos_log_debug ("global %p: destroy %u", global, global->id);
   pinos_signal_emit (&global->destroy_signal, global);
 
-  pinos_map_remove (&core->objects, global->id);
-
-  spa_list_remove (&global->link);
-  pinos_signal_emit (&core->global_removed, core, global);
-
   ng.id = global->id;
   spa_list_for_each (registry, &core->registry_resource_list, link) {
     pinos_resource_send_message (registry,
@@ -419,11 +414,13 @@ pinos_global_destroy (PinosGlobal *global)
                                  true);
   }
 
-  pinos_main_loop_defer (core->main_loop,
-                         global,
-                         SPA_RESULT_WAIT_SYNC,
-                         sync_destroy,
-                         global);
+  pinos_map_remove (&core->objects, global->id);
+
+  spa_list_remove (&global->link);
+  pinos_signal_emit (&core->global_removed, core, global);
+
+  pinos_log_debug ("global %p: free", global);
+  free (global);
 }
 
 PinosPort *

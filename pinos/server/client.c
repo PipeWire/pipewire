@@ -110,6 +110,7 @@ no_mem:
  */
 PinosClient *
 pinos_client_new (PinosCore       *core,
+                  struct ucred    *ucred,
                   PinosProperties *properties)
 {
   PinosClient *this;
@@ -123,6 +124,8 @@ pinos_client_new (PinosCore       *core,
 
   this = &impl->this;
   this->core = core;
+  if ((this->ucred_valid = (ucred != NULL)))
+    this->ucred = *ucred;
   this->properties = properties;
 
   spa_list_init (&this->resource_list);
@@ -143,23 +146,6 @@ pinos_client_new (PinosCore       *core,
 }
 
 static void
-sync_destroy (void      *object,
-              void      *data,
-              SpaResult  res,
-              uint32_t   id)
-{
-  PinosClientImpl *impl = SPA_CONTAINER_OF (object, PinosClientImpl, this);
-  PinosClient *client = &impl->this;
-
-  pinos_log_debug ("client %p: sync destroy", impl);
-
-  if (client->properties)
-    pinos_properties_free (client->properties);
-
-  free (impl);
-}
-
-static void
 destroy_resource (void *object,
                   void *data)
 {
@@ -176,23 +162,26 @@ void
 pinos_client_destroy (PinosClient * client)
 {
   PinosResource *resource, *tmp;
+  PinosClientImpl *impl = SPA_CONTAINER_OF (client, PinosClientImpl, this);
 
   pinos_log_debug ("client %p: destroy", client);
   pinos_signal_emit (&client->destroy_signal, client);
 
-  pinos_map_for_each (&client->objects, destroy_resource, client);
-
-  pinos_global_destroy (client->global);
   spa_list_remove (&client->link);
+  pinos_global_destroy (client->global);
 
   spa_list_for_each_safe (resource, tmp, &client->resource_list, link)
     pinos_resource_destroy (resource);
 
-  pinos_main_loop_defer (client->core->main_loop,
-                         client,
-                         SPA_RESULT_WAIT_SYNC,
-                         sync_destroy,
-                         client);
+  pinos_map_for_each (&client->objects, destroy_resource, client);
+
+  pinos_log_debug ("client %p: free", impl);
+  pinos_map_clear (&client->objects);
+
+  if (client->properties)
+    pinos_properties_free (client->properties);
+
+  free (impl);
 }
 
 void

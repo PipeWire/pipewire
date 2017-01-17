@@ -60,6 +60,12 @@ struct _PinosClient {
   PinosMap objects;
 
   SpaList resource_list;
+  PINOS_SIGNAL (resource_added,   (PinosListener *listener,
+                                   PinosClient   *client,
+                                   PinosResource *resource));
+  PINOS_SIGNAL (resource_removed, (PinosListener *listener,
+                                   PinosClient   *client,
+                                   PinosResource *resource));
 
   PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
                                  PinosClient   *client));
@@ -79,6 +85,11 @@ SpaResult       pinos_client_send_message         (PinosClient     *client,
                                                    uint32_t         opcode,
                                                    void            *message,
                                                    bool             flush);
+
+SpaResult       pinos_client_send_error           (PinosClient     *client,
+                                                   PinosResource   *resource,
+                                                   SpaResult        res,
+                                                   const char      *message, ...);
 
 void            pinos_client_update_properties    (PinosClient     *client,
                                                    const SpaDict   *dict);

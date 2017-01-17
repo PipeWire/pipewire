@@ -140,14 +140,16 @@ module_bind_func (PinosGlobal *global,
   info.args = this->args;
   info.props = NULL;
 
-  return pinos_resource_send_message (resource,
-                                      PINOS_MESSAGE_MODULE_INFO,
-                                      &m,
-                                      true);
+  return pinos_client_send_message (client,
+                                    resource,
+                                    PINOS_MESSAGE_MODULE_INFO,
+                                    &m,
+                                    true);
 no_mem:
-  pinos_resource_send_error (resource,
-                             SPA_RESULT_NO_MEMORY,
-                             "no memory");
+  pinos_client_send_error (client,
+                           client->core_resource,
+                           SPA_RESULT_NO_MEMORY,
+                           "no memory");
   return SPA_RESULT_NO_MEMORY;
 }
 

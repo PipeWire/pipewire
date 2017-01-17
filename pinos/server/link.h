@@ -48,6 +48,10 @@ struct _PinosLink {
 
   PinosLinkState state;
   char *error;
+  PINOS_SIGNAL (state_changed,  (PinosListener  *listener,
+                                 PinosLink      *link,
+                                 PinosLinkState  old,
+                                 PinosLinkState  state));
 
   PINOS_SIGNAL (destroy_signal, (PinosListener *,
                                  PinosLink *));
@@ -60,6 +64,9 @@ struct _PinosLink {
   SpaList       output_link;
   PinosPort    *input;
   SpaList       input_link;
+  PINOS_SIGNAL (port_unlinked, (PinosListener *listener,
+                                PinosLink     *link,
+                                PinosPort     *port));
 
   uint32_t      queue[64];
   SpaRingbuffer ringbuffer;

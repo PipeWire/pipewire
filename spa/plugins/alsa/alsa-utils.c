@@ -111,14 +111,13 @@ int
 spa_alsa_set_format (SpaALSAState *state, SpaFormatAudio *fmt, SpaPortFormatFlags flags)
 {
   unsigned int rrate, rchannels;
-  snd_pcm_uframes_t size;
+  snd_pcm_uframes_t period_size;
   int err, dir;
   snd_pcm_hw_params_t *params;
   snd_pcm_format_t format;
   SpaAudioInfoRaw *info = &fmt->info.raw;
   snd_pcm_t *hndl;
-  unsigned int buffer_time;
-  unsigned int period_time;
+  unsigned int periods;
   SpaALSAProps *props = &state->props[1];
 
   if ((err = spa_alsa_open (state)) < 0)
@@ -166,17 +165,31 @@ spa_alsa_set_format (SpaALSAState *state, SpaFormatAudio *fmt, SpaPortFormatFlag
   state->rate = info->rate;
   state->frame_size = info->channels * 2;
 
+  period_size = props->period_size;
+  CHECK (snd_pcm_hw_params_set_period_size_near (hndl, params, &period_size, &dir), "set_period_size");
+  state->period_frames = period_size;
+
+  periods = props->periods;
+  CHECK (snd_pcm_hw_params_set_periods_near (hndl, params, &periods, &dir), "set_periods_near");
+  state->buffer_frames = periods * state->period_frames;
+
+  CHECK (snd_pcm_hw_params_set_buffer_size (hndl, params, state->buffer_frames), "set_buffer_size");
+
+#if 0
   /* set the buffer time */
   buffer_time = props->buffer_time;
   CHECK (snd_pcm_hw_params_set_buffer_time_near (hndl, params, &buffer_time, &dir), "set_buffer_time_near");
+
   CHECK (snd_pcm_hw_params_get_buffer_size (params, &size), "get_buffer_size");
   state->buffer_frames = size;
 
   /* set the period time */
   period_time = props->period_time;
   CHECK (snd_pcm_hw_params_set_period_time_near (hndl, params, &period_time, &dir), "set_period_time_near");
+
   CHECK (snd_pcm_hw_params_get_period_size (params, &size, &dir), "get_period_size");
   state->period_frames = size;
+#endif
 
   spa_log_info (state->log, "buffer frames %zd, period frames %zd", state->buffer_frames, state->period_frames);
 
@@ -391,10 +404,12 @@ mmap_write (SpaALSAState *state)
   }
 #endif
 
+#if 0
   ni.event.type = SPA_NODE_EVENT_TYPE_NEED_INPUT;
   ni.event.size = sizeof (ni);
   ni.port_id = 0;
   state->event_cb (&state->node, &ni.event, state->user_data);
+#endif
 
   size = avail;
   while (size > 0) {
@@ -536,7 +551,6 @@ alsa_on_fd_events (SpaSource *source)
   if (revents & SPA_IO_ERR) {
     if ((err = xrun_recovery (state, hndl, err)) < 0) {
       spa_log_error (state->log, "error: %s", snd_strerror (err));
-      return;
     }
   }
 

@@ -92,13 +92,13 @@ update_port_ids (PinosNode *node, bool create)
       node->input_port_map[np->port_id] = np;
 
       if (!impl->async_init)
-        pinos_signal_emit (&node->core->port_added, node, np);
+        pinos_signal_emit (&node->port_added, node, np);
       i++;
     } else if (p) {
       node->input_port_map[p->port_id] = NULL;
       ports = ports->next;
       if (!impl->async_init)
-        pinos_signal_emit (&node->core->port_removed, node, p);
+        pinos_signal_emit (&node->port_removed, node, p);
       pinos_log_debug ("node %p: input port removed %d", node, p->port_id);
       pinos_port_destroy (p);
     } else {
@@ -127,13 +127,13 @@ update_port_ids (PinosNode *node, bool create)
       node->output_port_map[np->port_id] = np;
 
       if (!impl->async_init)
-        pinos_signal_emit (&node->core->port_added, node, np);
+        pinos_signal_emit (&node->port_added, node, np);
       i++;
     } else if (p) {
       node->output_port_map[p->port_id] = NULL;
       ports = ports->next;
       if (!impl->async_init)
-        pinos_signal_emit (&node->core->port_removed, node, p);
+        pinos_signal_emit (&node->port_removed, node, p);
       pinos_log_debug ("node %p: output port removed %d", node, p->port_id);
       pinos_port_destroy (p);
     } else {
@@ -443,14 +443,16 @@ node_bind_func (PinosGlobal *global,
   info.error = this->error;
   info.props = this->properties ? &this->properties->dict : NULL;
 
-  return pinos_resource_send_message (resource,
-                                      PINOS_MESSAGE_NODE_INFO,
-                                      &m,
-                                      true);
+  return pinos_client_send_message (client,
+                                    resource,
+                                    PINOS_MESSAGE_NODE_INFO,
+                                    &m,
+                                    true);
 no_mem:
-  pinos_resource_send_error (resource,
-                             SPA_RESULT_NO_MEMORY,
-                             "no memory");
+  pinos_client_send_error (client,
+                           client->core_resource,
+                           SPA_RESULT_NO_MEMORY,
+                           "no memory");
   return SPA_RESULT_NO_MEMORY;
 }
 
@@ -515,6 +517,10 @@ pinos_node_new (PinosCore       *core,
     pinos_log_warn ("node %p: error setting callback", this);
 
   pinos_signal_init (&this->destroy_signal);
+  pinos_signal_init (&this->port_added);
+  pinos_signal_init (&this->port_removed);
+  pinos_signal_init (&this->state_request);
+  pinos_signal_init (&this->state_changed);
   pinos_signal_init (&this->free_signal);
   pinos_signal_init (&this->async_complete);
   pinos_signal_init (&this->transport_changed);
@@ -747,7 +753,7 @@ pinos_node_set_state (PinosNode      *node,
   SpaResult res = SPA_RESULT_OK;
   PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, this);
 
-  pinos_signal_emit (&node->core->node_state_request, node, state);
+  pinos_signal_emit (&node->state_request, node, state);
 
   pinos_log_debug ("node %p: set state %s", node, pinos_node_state_as_string (state));
 
@@ -814,7 +820,7 @@ pinos_node_update_state (PinosNode      *node,
     node->error = error;
     node->state = state;
 
-    pinos_signal_emit (&node->core->node_state_changed, node, old, state);
+    pinos_signal_emit (&node->state_changed, node, old, state);
 
     spa_zero (info);
     m.info = &info;
@@ -824,10 +830,11 @@ pinos_node_update_state (PinosNode      *node,
 
     spa_list_for_each (resource, &node->resource_list, link) {
       info.id = node->global->id;
-      pinos_resource_send_message (resource,
-                                   PINOS_MESSAGE_NODE_INFO,
-                                   &m,
-                                   true);
+      pinos_client_send_message (resource->client,
+                                 resource,
+                                 PINOS_MESSAGE_NODE_INFO,
+                                 &m,
+                                 true);
     }
   }
 }

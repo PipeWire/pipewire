@@ -57,9 +57,10 @@ registry_dispatch_func (void             *object,
           break;
 
       if (&global->link == &this->global_list) {
-        pinos_resource_send_error (resource,
-                                   SPA_RESULT_INVALID_OBJECT_ID,
-                                   "unknown object id %u", m->id);
+        pinos_client_send_error (client,
+                                 resource,
+                                 SPA_RESULT_INVALID_OBJECT_ID,
+                                 "unknown object id %u", m->id);
         return SPA_RESULT_ERROR;
       }
       pinos_log_debug ("global %p: bind object id %d", global, m->id);
@@ -127,16 +128,18 @@ core_dispatch_func (void             *object,
 
         ng.id = global->id;
         ng.type = spa_id_map_get_uri (this->uri.map, global->type);
-        pinos_resource_send_message (registry_resource,
-                                     PINOS_MESSAGE_NOTIFY_GLOBAL,
-                                     &ng,
-                                     false);
+        pinos_client_send_message (client,
+                                   registry_resource,
+                                   PINOS_MESSAGE_NOTIFY_GLOBAL,
+                                   &ng,
+                                   false);
       }
       nd.seq = m->seq;
-      pinos_resource_send_message (client->core_resource,
-                                   PINOS_MESSAGE_NOTIFY_DONE,
-                                   &nd,
-                                   true);
+      pinos_client_send_message (client,
+                                 client->core_resource,
+                                 PINOS_MESSAGE_NOTIFY_DONE,
+                                 &nd,
+                                 true);
       break;
     }
     case PINOS_MESSAGE_CREATE_CLIENT_NODE:
@@ -165,18 +168,20 @@ core_dispatch_func (void             *object,
         goto no_mem;
 
       if ((res = pinos_client_node_get_data_socket (node, &data_fd)) < 0) {
-        pinos_resource_send_error (resource,
-                                   SPA_RESULT_ERROR,
-                                   "can't get data fd");
+        pinos_client_send_error (client,
+                                 resource,
+                                 SPA_RESULT_ERROR,
+                                 "can't get data fd");
         break;
       }
 
       r.seq = m->seq;
       r.datafd = data_fd;
-      pinos_resource_send_message (node->resource,
-                                   PINOS_MESSAGE_CREATE_CLIENT_NODE_DONE,
-                                   &r,
-                                   true);
+      pinos_client_send_message (client,
+                                 node->resource,
+                                 PINOS_MESSAGE_CREATE_CLIENT_NODE_DONE,
+                                 &r,
+                                 true);
       break;
     }
     default:
@@ -186,9 +191,10 @@ core_dispatch_func (void             *object,
   return SPA_RESULT_OK;
 
 no_mem:
-  pinos_resource_send_error (resource,
-                             SPA_RESULT_NO_MEMORY,
-                             "no memory");
+  pinos_client_send_error (client,
+                           resource,
+                           SPA_RESULT_NO_MEMORY,
+                           "no memory");
   return SPA_RESULT_NO_MEMORY;
 }
 
@@ -237,10 +243,11 @@ core_bind_func (PinosGlobal *global,
   info.cookie = random ();
   info.props = NULL;
 
-  return pinos_resource_send_message (resource,
-                                      PINOS_MESSAGE_CORE_INFO,
-                                      &m,
-                                      true);
+  return pinos_client_send_message (resource->client,
+                                    resource,
+                                    PINOS_MESSAGE_CORE_INFO,
+                                    &m,
+                                    true);
 no_mem:
   pinos_log_error ("can't create core resource");
   return SPA_RESULT_NO_MEMORY;
@@ -289,14 +296,6 @@ pinos_core_new (PinosMainLoop *main_loop)
   pinos_signal_init (&this->destroy_signal);
   pinos_signal_init (&this->global_added);
   pinos_signal_init (&this->global_removed);
-  pinos_signal_init (&this->node_state_request);
-  pinos_signal_init (&this->node_state_changed);
-  pinos_signal_init (&this->port_added);
-  pinos_signal_init (&this->port_removed);
-  pinos_signal_init (&this->port_unlinked);
-  pinos_signal_init (&this->link_state_changed);
-  pinos_signal_init (&this->node_unlink);
-  pinos_signal_init (&this->node_unlink_done);
 
   this->global = pinos_core_add_global (this,
                                         NULL,
@@ -367,10 +366,11 @@ pinos_core_add_global (PinosCore     *core,
   pinos_log_debug ("global %p: new %u %s", this, ng.id, ng.type);
 
   spa_list_for_each (registry, &core->registry_resource_list, link) {
-    pinos_resource_send_message (registry,
-                                 PINOS_MESSAGE_NOTIFY_GLOBAL,
-                                 &ng,
-                                 true);
+    pinos_client_send_message (registry->client,
+                               registry,
+                               PINOS_MESSAGE_NOTIFY_GLOBAL,
+                               &ng,
+                               true);
   }
   return this;
 }
@@ -389,9 +389,10 @@ pinos_global_bind (PinosGlobal   *global,
     res = impl->bind (global, client, version, id);
   } else {
     res = SPA_RESULT_NOT_IMPLEMENTED;
-    pinos_resource_send_error (client->core_resource,
-                               res,
-                               "can't bind object id %d", id);
+    pinos_client_send_error (client,
+                             client->core_resource,
+                             res,
+                             "can't bind object id %d", id);
   }
   return res;
 }
@@ -408,10 +409,11 @@ pinos_global_destroy (PinosGlobal *global)
 
   ng.id = global->id;
   spa_list_for_each (registry, &core->registry_resource_list, link) {
-    pinos_resource_send_message (registry,
-                                 PINOS_MESSAGE_NOTIFY_GLOBAL_REMOVE,
-                                 &ng,
-                                 true);
+    pinos_client_send_message (registry->client,
+                               registry,
+                               PINOS_MESSAGE_NOTIFY_GLOBAL_REMOVE,
+                               &ng,
+                               true);
   }
 
   pinos_map_remove (&core->objects, global->id);

@@ -571,6 +571,9 @@ gst_pinos_src_stream_start (GstPinosSrc *pinossrc)
     if (state == PINOS_STREAM_STATE_ERROR)
       goto start_error;
 
+    if (pinossrc->ctx->state == PINOS_CONTEXT_STATE_ERROR)
+      goto start_error;
+
     pinos_thread_main_loop_wait (pinossrc->main_loop);
   }
 
@@ -604,7 +607,11 @@ wait_negotiated (GstPinosSrc *this)
 
     GST_DEBUG_OBJECT (this, "waiting for started signal, state now %s",
         pinos_stream_state_as_string (state));
+
     if (state == PINOS_STREAM_STATE_ERROR)
+      break;
+
+    if (this->ctx->state == PINOS_CONTEXT_STATE_ERROR)
       break;
 
     if (this->started)
@@ -696,6 +703,9 @@ gst_pinos_src_negotiate (GstBaseSrc * basesrc)
       break;
 
     if (state == PINOS_STREAM_STATE_ERROR)
+      goto connect_error;
+
+    if (pinossrc->ctx->state == PINOS_CONTEXT_STATE_ERROR)
       goto connect_error;
 
     pinos_thread_main_loop_wait (pinossrc->main_loop);

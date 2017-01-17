@@ -56,6 +56,13 @@ struct _PinosNode {
   PinosProperties *properties;
   PinosNodeState state;
   char *error;
+  PINOS_SIGNAL (state_request, (PinosListener  *listener,
+                                PinosNode      *object,
+                                PinosNodeState  state));
+  PINOS_SIGNAL (state_changed, (PinosListener  *listener,
+                                PinosNode      *object,
+                                PinosNodeState  old,
+                                PinosNodeState  state));
 
   SpaHandle *handle;
   SpaNode *node;
@@ -66,6 +73,12 @@ struct _PinosNode {
 
   SpaList input_ports;
   SpaList output_ports;
+  PINOS_SIGNAL (port_added, (PinosListener *listener,
+                             PinosNode     *node,
+                             PinosPort     *port));
+  PINOS_SIGNAL (port_removed, (PinosListener *listener,
+                               PinosNode     *node,
+                               PinosPort     *port));
 
   PinosPort **input_port_map;
   PinosPort **output_port_map;

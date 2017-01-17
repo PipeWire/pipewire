@@ -39,16 +39,16 @@ update_state (SpaALSASource *this, SpaNodeState state)
 }
 
 static const char default_device[] = "hw:0";
-static const uint32_t default_buffer_time = 10000;
-static const uint32_t default_period_time = 1000;
+static const uint32_t default_period_size = 128;
+static const uint32_t default_periods = 2;
 static const bool default_period_event = 0;
 
 static void
 reset_alsa_props (SpaALSAProps *props)
 {
   strncpy (props->device, default_device, 64);
-  props->buffer_time = default_buffer_time;
-  props->period_time = default_period_time;
+  props->period_size = default_period_size;
+  props->periods = default_periods;
   props->period_event = default_period_event;
   props->props.unset_mask = 0xf;
 }
@@ -65,8 +65,8 @@ enum {
   PROP_ID_DEVICE,
   PROP_ID_DEVICE_NAME,
   PROP_ID_CARD_NAME,
-  PROP_ID_BUFFER_TIME,
-  PROP_ID_PERIOD_TIME,
+  PROP_ID_PERIOD_SIZE,
+  PROP_ID_PERIODS,
   PROP_ID_PERIOD_EVENT,
   PROP_ID_LAST,
 };
@@ -91,14 +91,14 @@ static const SpaPropInfo prop_info[] =
                                 SPA_PROP_TYPE_STRING, 127,
                                 SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                 NULL },
-  { PROP_ID_BUFFER_TIME,        offsetof (SpaALSAProps, buffer_time),
-                                "buffer-time",
+  { PROP_ID_PERIOD_SIZE,        offsetof (SpaALSAProps, period_size),
+                                "period-size",
                                 SPA_PROP_FLAG_READWRITE,
                                 SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                 SPA_PROP_RANGE_TYPE_MIN_MAX, 2, uint32_range,
                                 NULL },
-  { PROP_ID_PERIOD_TIME,        offsetof (SpaALSAProps, period_time),
-                                "period-time",
+  { PROP_ID_PERIODS,            offsetof (SpaALSAProps, periods),
+                                "periods",
                                 SPA_PROP_FLAG_READWRITE,
                                 SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
                                 SPA_PROP_RANGE_TYPE_MIN_MAX, 2, uint32_range,

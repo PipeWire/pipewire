@@ -88,14 +88,16 @@ client_bind_func (PinosGlobal *global,
   info.change_mask = ~0;
   info.props = this->properties ? &this->properties->dict : NULL;
 
-  return pinos_resource_send_message (resource,
-                                      PINOS_MESSAGE_CLIENT_INFO,
-                                      &m,
-                                      true);
+  return pinos_client_send_message (client,
+                                    resource,
+                                    PINOS_MESSAGE_CLIENT_INFO,
+                                    &m,
+                                    true);
 no_mem:
-  pinos_resource_send_error (client->core_resource,
-                             SPA_RESULT_NO_MEMORY,
-                             "no memory");
+  pinos_client_send_error (client,
+                           client->core_resource,
+                           SPA_RESULT_NO_MEMORY,
+                           "no memory");
   return SPA_RESULT_NO_MEMORY;
 }
 
@@ -129,6 +131,8 @@ pinos_client_new (PinosCore       *core,
   this->properties = properties;
 
   spa_list_init (&this->resource_list);
+  pinos_signal_init (&this->resource_added);
+  pinos_signal_init (&this->resource_removed);
 
   pinos_map_init (&this->objects, 64);
   pinos_signal_init (&this->destroy_signal);
@@ -203,13 +207,15 @@ do_send_message (PinosAccessData *data)
   if (data->res == SPA_RESULT_SKIPPED) {
     data->res = SPA_RESULT_OK;
   } else if (data->res == SPA_RESULT_NO_PERMISSION) {
-    pinos_resource_send_error (data->resource,
-                               data->res,
-                               "no permission");
+    pinos_client_send_error (data->client,
+                             data->resource,
+                             data->res,
+                             "no permission");
   } else if (SPA_RESULT_IS_ERROR (data->res)) {
-    pinos_resource_send_error (data->resource,
-                               data->res,
-                               "error %d", data->res);
+    pinos_client_send_error (data->client,
+                             data->resource,
+                             data->res,
+                             "error %d", data->res);
   } else {
     data->res = impl->send_func (data->resource,
                                  data->resource->id,
@@ -255,6 +261,33 @@ pinos_client_send_message (PinosClient   *client,
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
+SpaResult
+pinos_client_send_error (PinosClient   *client,
+                         PinosResource *resource,
+                         SpaResult      res,
+                         const char    *message,
+                         ...)
+{
+  PinosMessageError m;
+  char buffer[128];
+  va_list ap;
+
+  va_start (ap, message);
+  vsnprintf (buffer, sizeof (buffer), message, ap);
+  va_end (ap);
+
+  m.id = resource->id;
+  m.res = res;
+  m.error = buffer;
+
+  pinos_log_error ("client %p: %u send error %d (%s)", client, resource->id, res, buffer);
+
+  return pinos_client_send_message (client,
+				    client->core_resource,
+                                    PINOS_MESSAGE_ERROR,
+                                    &m,
+                                    true);
+}
 
 void
 pinos_client_update_properties (PinosClient     *client,
@@ -282,9 +315,10 @@ pinos_client_update_properties (PinosClient     *client,
   info.props = client->properties ? &client->properties->dict : NULL;
 
   spa_list_for_each (resource, &client->resource_list, link) {
-    pinos_resource_send_message (resource,
-                                 PINOS_MESSAGE_CLIENT_INFO,
-                                 &m,
-                                 true);
+    pinos_client_send_message (client,
+                               resource,
+                               PINOS_MESSAGE_CLIENT_INFO,
+                               &m,
+                               true);
   }
 }

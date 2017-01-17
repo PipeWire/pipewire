@@ -335,8 +335,8 @@ static void *
 connection_ensure_size (PinosConnection *conn, ConnectionBuffer *buf, size_t size)
 {
   if (buf->buffer_size + size > buf->buffer_maxsize) {
-    buf->buffer_maxsize = buf->buffer_size + MAX_BUFFER_SIZE * ((size + MAX_BUFFER_SIZE-1) / MAX_BUFFER_SIZE);
-    pinos_log_warn ("connection %p: resize buffer to %zd", conn, buf->buffer_maxsize);
+    buf->buffer_maxsize = SPA_ROUND_UP_N (buf->buffer_size + size, MAX_BUFFER_SIZE);
+    pinos_log_warn ("connection %p: resize buffer to %zd %zd %zd", conn, buf->buffer_size, size, buf->buffer_maxsize);
     buf->buffer_data = realloc (buf->buffer_data, buf->buffer_maxsize);
   }
   return (uint8_t *) buf->buffer_data + buf->buffer_size;
@@ -404,6 +404,7 @@ connection_add_error (PinosConnection *conn,
   memcpy (p, m, sizeof (PinosMessageError));
   d = p;
 
+  p = SPA_MEMBER (d, sizeof (PinosMessageError), void);
   if (m->error) {
     strcpy (p, m->error);
     d->error = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
@@ -1284,6 +1285,7 @@ pinos_connection_parse_message (PinosConnection *conn,
     }
 
     case PINOS_MESSAGE_INVALID:
+      pinos_log_error ("invalid message %d received", conn->in.type);
       return false;
   }
   return true;

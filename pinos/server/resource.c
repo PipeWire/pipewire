@@ -46,7 +46,6 @@ pinos_resource_new (PinosClient *client,
 
   this->core = client->core;
   this->client = client;
-  this->id = id;
   this->type = type;
   this->object = object;
   this->destroy = destroy;
@@ -55,6 +54,7 @@ pinos_resource_new (PinosClient *client,
 
   this->id = pinos_map_insert_new (&client->objects, this);
   pinos_log_debug ("resource %p: new for client %p id %u", this, client, this->id);
+  pinos_signal_emit (&client->resource_added, client, this);
 
   return this;
 }
@@ -62,19 +62,23 @@ pinos_resource_new (PinosClient *client,
 void
 pinos_resource_destroy (PinosResource *resource)
 {
+  PinosClient *client = resource->client;
+
   pinos_log_debug ("resource %p: destroy", resource);
   pinos_signal_emit (&resource->destroy_signal, resource);
 
-  if (resource->client->core_resource) {
+  if (client->core_resource) {
     PinosMessageRemoveId m;
     m.id = resource->id;
-    pinos_resource_send_message (resource->client->core_resource,
-                                 PINOS_MESSAGE_REMOVE_ID,
-                                 &m,
-                                 true);
+    pinos_client_send_message (client,
+                               client->core_resource,
+                               PINOS_MESSAGE_REMOVE_ID,
+                               &m,
+                               true);
   }
 
-  pinos_map_remove (&resource->client->objects, resource->id);
+  pinos_map_remove (&client->objects, resource->id);
+  pinos_signal_emit (&client->resource_removed, client, resource);
 
   if (resource->destroy)
     resource->destroy (resource);
@@ -100,13 +104,15 @@ do_dispatch_message (PinosAccessData *data)
   PinosResourceImpl *impl = SPA_CONTAINER_OF (data->resource, PinosResourceImpl, this);
 
   if (data->res == SPA_RESULT_NO_PERMISSION) {
-    pinos_resource_send_error (data->resource,
-                               data->res,
-                               "no permission");
+    pinos_client_send_error (data->client,
+                             data->resource,
+                             data->res,
+                             "no permission");
   } else if (SPA_RESULT_IS_ERROR (data->res)) {
-    pinos_resource_send_error (data->resource,
-                               data->res,
-                               "error %d", data->res);
+    pinos_client_send_error (data->client,
+                             data->resource,
+                             data->res,
+                             "error %d", data->res);
   } else {
     data->res = impl->dispatch_func (data->resource,
                                      data->opcode,
@@ -146,44 +152,4 @@ pinos_resource_dispatch (PinosResource *resource,
   pinos_log_error ("resource %p: dispatch func not implemented", resource);
 
   return SPA_RESULT_NOT_IMPLEMENTED;
-}
-
-SpaResult
-pinos_resource_send_message (PinosResource     *resource,
-                             uint32_t           opcode,
-                             void              *message,
-                             bool               flush)
-{
-  return pinos_client_send_message (resource->client,
-                                    resource,
-                                    opcode,
-                                    message,
-                                    flush);
-}
-
-SpaResult
-pinos_resource_send_error (PinosResource     *resource,
-                           SpaResult          res,
-                           const char        *message,
-                           ...)
-{
-  PinosClient *client = resource->client;
-  PinosMessageError m;
-  char buffer[128];
-  va_list ap;
-
-  va_start (ap, message);
-  vsnprintf (buffer, sizeof (buffer), message, ap);
-  va_end (ap);
-
-  m.id = resource->id;
-  m.res = res;
-  m.error = buffer;
-
-  pinos_log_error ("resource %p: %u send error %d %s", resource, resource->id, res, buffer);
-
-  return pinos_resource_send_message (client->core_resource,
-                                      PINOS_MESSAGE_ERROR,
-                                      &m,
-                                      true);
 }

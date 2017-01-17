@@ -91,30 +91,6 @@ struct _PinosCore {
   PINOS_SIGNAL (global_removed, (PinosListener *listener,
                                  PinosCore     *core,
                                  PinosGlobal   *global));
-
-  PINOS_SIGNAL (node_state_request, (PinosListener  *listener,
-                                     PinosNode      *object,
-                                     PinosNodeState  state));
-  PINOS_SIGNAL (node_state_changed, (PinosListener  *listener,
-                                     PinosNode      *object,
-                                     PinosNodeState  old,
-                                     PinosNodeState  state));
-  PINOS_SIGNAL (port_added, (PinosListener *listener,
-                             PinosNode     *node,
-                             PinosPort     *port));
-  PINOS_SIGNAL (port_removed, (PinosListener *listener,
-                               PinosNode     *node,
-                               PinosPort     *port));
-
-  PINOS_SIGNAL (port_unlinked, (PinosListener *listener,
-                                PinosLink     *link,
-                                PinosPort     *port));
-  PINOS_SIGNAL (link_state_changed,  (PinosListener *listener,
-                                      PinosLink     *link));
-  PINOS_SIGNAL (node_unlink,       (PinosListener *listener,
-                                    PinosNode     *node));
-  PINOS_SIGNAL (node_unlink_done,  (PinosListener *listener,
-                                    PinosNode     *node));
 };
 
 PinosCore *     pinos_core_new           (PinosMainLoop *main_loop);

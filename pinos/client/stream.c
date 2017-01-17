@@ -865,6 +865,8 @@ pinos_stream_connect (PinosStream      *stream,
   impl->node_proxy = pinos_proxy_new (stream->context,
                                       SPA_ID_INVALID,
                                       stream->context->uri.client_node);
+  if (impl->node_proxy == NULL)
+    return false;
 
   pinos_proxy_set_dispatch (impl->node_proxy,
                             stream_dispatch_func,

@@ -196,10 +196,11 @@ spa_proxy_node_send_command (SpaNode        *node,
       /* send start */
       cnc.seq = this->seq++;
       cnc.command = command;
-      pinos_resource_send_message (this->resource,
-                                   PINOS_MESSAGE_NODE_COMMAND,
-                                   &cnc,
-                                   true);
+      pinos_client_send_message (this->resource->client,
+                                 this->resource,
+                                 PINOS_MESSAGE_NODE_COMMAND,
+                                 &cnc,
+                                 true);
       if (command->type == SPA_NODE_COMMAND_START) {
         uint8_t cmd = PINOS_TRANSPORT_CMD_NEED_DATA;
         write (this->data_source.fd, &cmd, 1);
@@ -214,10 +215,11 @@ spa_proxy_node_send_command (SpaNode        *node,
 
       /* send start */
       cnc.command = command;
-      pinos_resource_send_message (this->resource,
-                                   PINOS_MESSAGE_NODE_COMMAND,
-                                   &cnc,
-                                   true);
+      pinos_client_send_message (this->resource->client,
+                                 this->resource,
+                                 PINOS_MESSAGE_NODE_COMMAND,
+                                 &cnc,
+                                 true);
       break;
     }
   }
@@ -498,10 +500,11 @@ spa_proxy_node_port_set_format (SpaNode            *node,
   sf.port_id = port_id;
   sf.flags = flags;
   sf.format = (SpaFormat *) format;
-  pinos_resource_send_message (this->resource,
-                               PINOS_MESSAGE_SET_FORMAT,
-                               &sf,
-                               true);
+  pinos_client_send_message (this->resource->client,
+                             this->resource,
+                             PINOS_MESSAGE_SET_FORMAT,
+                             &sf,
+                             true);
   return SPA_RESULT_RETURN_ASYNC (sf.seq);
 }
 
@@ -680,10 +683,11 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
     am.flags = msh->flags;
     am.offset = msh->offset;
     am.size = msh->size;
-    pinos_resource_send_message (this->resource,
-                                 PINOS_MESSAGE_ADD_MEM,
-                                 &am,
-                                 false);
+    pinos_client_send_message (this->resource->client,
+                               this->resource,
+                               PINOS_MESSAGE_ADD_MEM,
+                               &am,
+                               false);
 
     mb[i].buffer = &b->buffer;
     mb[i].mem_id = am.mem_id;
@@ -710,10 +714,11 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
           am.flags = d->flags;
           am.offset = d->mapoffset;
           am.size = d->maxsize;
-          pinos_resource_send_message (this->resource,
-                                       PINOS_MESSAGE_ADD_MEM,
-                                       &am,
-                                       false);
+          pinos_client_send_message (this->resource->client,
+                                     this->resource,
+                                     PINOS_MESSAGE_ADD_MEM,
+                                     &am,
+                                     false);
           b->buffer.datas[j].type = SPA_DATA_TYPE_ID;
           b->buffer.datas[j].data = SPA_UINT32_TO_PTR (n_mem);
           n_mem++;
@@ -736,10 +741,11 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
   ub.port_id = port_id;
   ub.n_buffers = n_buffers;
   ub.buffers = mb;
-  pinos_resource_send_message (this->resource,
-                               PINOS_MESSAGE_USE_BUFFERS,
-                               &ub,
-                               true);
+  pinos_client_send_message (this->resource->client,
+                             this->resource,
+                             PINOS_MESSAGE_USE_BUFFERS,
+                             &ub,
+                             true);
 
   return SPA_RESULT_RETURN_ASYNC (ub.seq);
 }
@@ -772,10 +778,10 @@ spa_proxy_node_port_alloc_buffers (SpaNode         *node,
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
+#if 0
 static void
 copy_meta_in (SpaProxy *this, SpaProxyPort *port, uint32_t buffer_id)
 {
-#if 0
   ProxyBuffer *b = &port->buffers[buffer_id];
   unsigned int i;
 
@@ -791,13 +797,13 @@ copy_meta_in (SpaProxy *this, SpaProxyPort *port, uint32_t buffer_id)
       memcpy (b->outbuf->datas[i].data, b->datas[i].data, b->buffer.datas[i].size);
     }
   }
-#endif
 }
+#endif
 
+#if 0
 static void
 copy_meta_out (SpaProxy *this, SpaProxyPort *port, uint32_t buffer_id)
 {
-#if 0
   ProxyBuffer *b = &port->buffers[buffer_id];
   unsigned int i;
 
@@ -813,8 +819,8 @@ copy_meta_out (SpaProxy *this, SpaProxyPort *port, uint32_t buffer_id)
       memcpy (b->datas[i].data, b->outbuf->datas[i].data, b->outbuf->datas[i].size);
     }
   }
-#endif
 }
+#endif
 
 static SpaResult
 spa_proxy_node_port_reuse_buffer (SpaNode         *node,
@@ -840,6 +846,7 @@ spa_proxy_node_port_reuse_buffer (SpaNode         *node,
   rb.port_id = port_id;
   rb.buffer_id = buffer_id;
   pinos_transport_add_event (pnode->transport, &rb.event);
+
   cmd = PINOS_TRANSPORT_CMD_HAVE_EVENT;
   write (this->data_source.fd, &cmd, 1);
 
@@ -1074,7 +1081,8 @@ proxy_on_data_fd_events (SpaSource *source)
   if (source->rmask & SPA_IO_IN) {
     uint8_t cmd;
 
-    read (this->data_source.fd, &cmd, 1);
+    if (read (this->data_source.fd, &cmd, 1) < 1)
+      return;
 
     if (cmd & PINOS_TRANSPORT_CMD_HAVE_EVENT) {
       SpaNodeEvent event;
@@ -1086,17 +1094,6 @@ proxy_on_data_fd_events (SpaSource *source)
     }
     if (cmd & PINOS_TRANSPORT_CMD_HAVE_DATA) {
       SpaNodeEventHaveOutput ho;
-      unsigned int i;
-
-      for (i = 0; i < this->n_outputs; i++) {
-        SpaProxyPort *port = &this->out_ports[i];
-        SpaPortOutput *output;
-
-        if ((output = port->io) == NULL)
-          continue;
-
-        copy_meta_in (this, port, output->buffer_id);
-      }
       ho.event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
       ho.event.size = sizeof (ho);
       ho.port_id = 0;
@@ -1191,10 +1188,11 @@ on_transport_changed (PinosListener   *listener,
   tu.memfd = info.memfd;
   tu.offset = info.offset;
   tu.size = info.size;
-  pinos_resource_send_message (this->resource,
-                               PINOS_MESSAGE_TRANSPORT_UPDATE,
-                               &tu,
-                               true);
+  pinos_client_send_message (this->resource->client,
+                             this->resource,
+                             PINOS_MESSAGE_TRANSPORT_UPDATE,
+                             &tu,
+                             true);
 }
 
 static void
@@ -1379,7 +1377,7 @@ pinos_client_node_get_data_socket (PinosClientNode  *this,
   if (impl->data_fd == -1) {
     int fd[2];
 
-    if (socketpair (AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, fd) != 0)
+    if (socketpair (AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, fd) != 0)
       return SPA_RESULT_ERRNO;
 
     impl->proxy.data_source.fd = fd[0];

@@ -32,17 +32,17 @@ typedef struct {
 
   PinosListener global_added;
   PinosListener global_removed;
-  PinosListener node_state_request;
-  PinosListener node_state_changed;
 
   SpaList node_list;
 } ModuleImpl;
 
 typedef struct {
-  ModuleImpl  *impl;
-  PinosNode   *node;
-  SpaList      link;
-  SpaSource   *idle_timeout;
+  ModuleImpl    *impl;
+  PinosNode     *node;
+  SpaList        link;
+  PinosListener  node_state_request;
+  PinosListener  node_state_changed;
+  SpaSource     *idle_timeout;
 } NodeInfo;
 
 static NodeInfo *
@@ -67,6 +67,16 @@ remove_idle_timeout (NodeInfo *info)
 }
 
 static void
+node_info_free (NodeInfo *info)
+{
+  spa_list_remove (&info->link);
+  remove_idle_timeout (info);
+  pinos_signal_remove (&info->node_state_request);
+  pinos_signal_remove (&info->node_state_changed);
+  free (info);
+}
+
+static void
 idle_timeout (SpaSource *source,
               void      *data)
 {
@@ -82,12 +92,7 @@ on_node_state_request (PinosListener  *listener,
                        PinosNode      *node,
                        PinosNodeState  state)
 {
-  ModuleImpl *impl = SPA_CONTAINER_OF (listener, ModuleImpl, node_state_changed);
-  NodeInfo *info;
-
-  if ((info = find_node_info (impl, node)) == NULL)
-    return;
-
+  NodeInfo *info = SPA_CONTAINER_OF (listener, NodeInfo, node_state_request);
   remove_idle_timeout (info);
 }
 
@@ -97,11 +102,8 @@ on_node_state_changed (PinosListener  *listener,
                        PinosNodeState  old,
                        PinosNodeState  state)
 {
-  ModuleImpl *impl = SPA_CONTAINER_OF (listener, ModuleImpl, node_state_changed);
-  NodeInfo *info;
-
-  if ((info = find_node_info (impl, node)) == NULL)
-    return;
+  NodeInfo *info = SPA_CONTAINER_OF (listener, NodeInfo, node_state_changed);
+  ModuleImpl *impl = info->impl;
 
   if (state != PINOS_NODE_STATE_IDLE) {
     remove_idle_timeout (info);
@@ -137,6 +139,10 @@ on_global_added (PinosListener *listener,
     info->impl = impl;
     info->node = node;
     spa_list_insert (impl->node_list.prev, &info->link);
+    pinos_signal_add (&node->state_request, &info->node_state_request, on_node_state_request);
+    pinos_signal_add (&node->state_changed, &info->node_state_changed, on_node_state_changed);
+
+    pinos_log_debug ("module %p: node %p added", impl, node);
   }
 }
 
@@ -151,11 +157,10 @@ on_global_removed (PinosListener *listener,
     PinosNode *node = global->object;
     NodeInfo *info;
 
-    if ((info = find_node_info (impl, node))) {
-      remove_idle_timeout (info);
-      spa_list_remove (&info->link);
-      free (info);
-    }
+    if ((info = find_node_info (impl, node)))
+      node_info_free (info);
+
+    pinos_log_debug ("module %p: node %p removed", impl, node);
   }
 }
 
@@ -185,8 +190,6 @@ module_new (PinosCore       *core,
 
   pinos_signal_add (&core->global_added, &impl->global_added, on_global_added);
   pinos_signal_add (&core->global_removed, &impl->global_removed, on_global_removed);
-  pinos_signal_add (&core->node_state_request, &impl->node_state_request, on_node_state_request);
-  pinos_signal_add (&core->node_state_changed, &impl->node_state_changed, on_node_state_changed);
 
   return impl;
 }
@@ -199,7 +202,6 @@ module_destroy (ModuleImpl *impl)
 
   pinos_global_destroy (impl->global);
 
-  pinos_signal_remove (&impl->node_state_changed);
   free (impl);
 }
 #endif

@@ -56,9 +56,11 @@ pinos_link_update_state (PinosLink      *link,
                          PinosLinkState  state,
                          char           *error)
 {
-  if (state != link->state) {
+  PinosLinkState old = link->state;
+
+  if (state != old) {
     pinos_log_debug ("link %p: update state %s -> %s", link,
-        pinos_link_state_as_string (link->state),
+        pinos_link_state_as_string (old),
         pinos_link_state_as_string (state));
 
     link->state = state;
@@ -66,7 +68,7 @@ pinos_link_update_state (PinosLink      *link,
       free (link->error);
     link->error = error;
 
-    pinos_signal_emit (&link->core->link_state_changed, link);
+    pinos_signal_emit (&link->state_changed, link, old, state);
   }
 }
 
@@ -684,7 +686,7 @@ on_port_destroy (PinosLink *this,
     pinos_port_clear_buffers (other);
   }
 
-  pinos_signal_emit (&this->core->port_unlinked, this, port);
+  pinos_signal_emit (&this->port_unlinked, this, port);
 
   pinos_link_update_state (this, PINOS_LINK_STATE_UNLINKED, NULL);
   pinos_link_destroy (this);
@@ -811,14 +813,16 @@ link_bind_func (PinosGlobal *global,
   info.input_node_id = this->input ? this->input->node->global->id : -1;
   info.input_port_id = this->input ? this->input->port_id : -1;
 
-  return pinos_resource_send_message (resource,
-                                      PINOS_MESSAGE_LINK_INFO,
-                                      &m,
-                                      true);
+  return pinos_client_send_message (resource->client,
+                                    resource,
+                                    PINOS_MESSAGE_LINK_INFO,
+                                    &m,
+                                    true);
 no_mem:
-  pinos_resource_send_error (client->core_resource,
-                             SPA_RESULT_NO_MEMORY,
-                             "no memory");
+  pinos_client_send_error (client,
+                           client->core_resource,
+                           SPA_RESULT_NO_MEMORY,
+                           "no memory");
   return SPA_RESULT_NO_MEMORY;
 }
 
@@ -850,6 +854,8 @@ pinos_link_new (PinosCore       *core,
   this->output = output;
 
   spa_list_init (&this->resource_list);
+  pinos_signal_init (&this->port_unlinked);
+  pinos_signal_init (&this->state_changed);
   pinos_signal_init (&this->destroy_signal);
   pinos_signal_init (&this->free_signal);
 

@@ -64,7 +64,6 @@ typedef struct {
 
   PinosListener global_added;
   PinosListener global_removed;
-  PinosListener node_state_changed;
 } PinosProtocolDBus;
 
 typedef struct {
@@ -371,16 +370,13 @@ on_node_state_changed (PinosListener  *listener,
                        PinosNodeState  old,
                        PinosNodeState  state)
 {
-  PinosProtocolDBus *impl = SPA_CONTAINER_OF (listener, PinosProtocolDBus, node_state_changed);
-  PinosProtocolDBusObject *object;
+  PinosProtocolDBusNode *object = SPA_CONTAINER_OF (listener, PinosProtocolDBusNode, state_changed);
 
-  pinos_log_debug ("protocol-dbus %p: node %p state change %s -> %s", impl, node,
+  pinos_log_debug ("protocol-dbus %p: node %p state change %s -> %s", object->parent.impl, node,
                         pinos_node_state_as_string (old),
                         pinos_node_state_as_string (state));
 
-  if ((object = find_object (impl, node))) {
-    pinos_node1_set_state (object->iface, node->state);
-  }
+  pinos_node1_set_state (object->parent.iface, node->state);
 }
 
 static bool
@@ -550,6 +546,7 @@ on_global_added (PinosListener *listener,
     PinosNode *node = global->object;
     PinosProperties *props = node->properties;
     char *path;
+    PinosProtocolDBusNode *obj;
 
     asprintf (&path, "%s_%u", PINOS_DBUS_OBJECT_NODE, global->id);
     skel = pinos_object_skeleton_new (path);
@@ -565,13 +562,14 @@ on_global_added (PinosListener *listener,
     pinos_node1_set_properties (iface, props ? pinos_properties_to_variant (props) : NULL);
     pinos_object_skeleton_set_node1 (skel, iface);
 
-    object_new (sizeof (PinosProtocolDBusNode),
-                impl,
-                global,
-                iface,
-                skel,
-                true,
-                NULL);
+    obj = object_new (sizeof (PinosProtocolDBusNode),
+                       impl,
+                       global,
+                       iface,
+                       skel,
+                       true,
+                       NULL);
+    pinos_signal_add (&node->state_changed, &obj->state_changed, on_node_state_changed);
   }
   else if (global->object == impl) {
     PinosProtocolDBus *proto = global->object;
@@ -681,7 +679,6 @@ pinos_protocol_dbus_new (PinosCore       *core,
 
   pinos_signal_add (&core->global_added, &impl->global_added, on_global_added);
   pinos_signal_add (&core->global_removed, &impl->global_removed, on_global_removed);
-  pinos_signal_add (&core->node_state_changed, &impl->node_state_changed, on_node_state_changed);
 
   impl->server_manager = g_dbus_object_manager_server_new (PINOS_DBUS_OBJECT_PREFIX);
 

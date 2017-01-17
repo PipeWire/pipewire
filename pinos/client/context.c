@@ -73,9 +73,6 @@ context_set_state (PinosContext      *context,
                    ...)
 {
   if (context->state != state) {
-    pinos_log_debug ("context %p: update state from %s -> %s", context,
-                pinos_context_state_as_string (context->state),
-                pinos_context_state_as_string (state));
 
     if (context->error)
       free (context->error);
@@ -89,6 +86,10 @@ context_set_state (PinosContext      *context,
     } else {
       context->error = NULL;
     }
+    pinos_log_debug ("context %p: update state from %s -> %s (%s)", context,
+                pinos_context_state_as_string (context->state),
+                pinos_context_state_as_string (state),
+                context->error);
 
     context->state = state;
     pinos_signal_emit (&context->state_changed, context);
@@ -563,7 +564,7 @@ pinos_context_destroy (PinosContext *context)
  * Returns: %TRUE on success.
  */
 bool
-pinos_context_connect (PinosContext      *context)
+pinos_context_connect (PinosContext *context)
 {
   PinosContextImpl *impl = SPA_CONTAINER_OF (context, PinosContextImpl, this);
   struct sockaddr_un addr;

@@ -44,8 +44,8 @@ typedef struct {
   char device[64];
   char device_name[128];
   char card_name[128];
-  uint32_t buffer_time;
-  uint32_t period_time;
+  uint32_t period_size;
+  uint32_t periods;
   bool period_event;
 } SpaALSAProps;
 

@@ -36,12 +36,6 @@ typedef struct _PinosTransportArea PinosTransportArea;
 #include <pinos/client/mem.h>
 #include <pinos/client/sig.h>
 
-#define PINOS_TRANSPORT_CMD_NONE         0
-#define PINOS_TRANSPORT_CMD_NEED_DATA    (1<<0)
-#define PINOS_TRANSPORT_CMD_HAVE_DATA    (1<<1)
-#define PINOS_TRANSPORT_CMD_HAVE_EVENT   (1<<2)
-#define PINOS_TRANSPORT_CMD_SYNC         (1<<3)
-
 typedef struct {
   int    memfd;
   off_t  offset;

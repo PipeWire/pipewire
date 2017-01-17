@@ -166,6 +166,34 @@ spa_proxy_node_set_props (SpaNode         *node,
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
+static void
+send_need_input (SpaProxy *this)
+{
+  PinosNode *pnode = this->pnode;
+  SpaNodeEventNeedInput ni;
+  uint8_t cmd = 0;
+
+  ni.event.type = SPA_NODE_EVENT_TYPE_NEED_INPUT;
+  ni.event.size = sizeof (ni);
+  ni.port_id = 0;
+  pinos_transport_add_event (pnode->transport, &ni.event);
+  write (this->data_source.fd, &cmd, 1);
+}
+
+static void
+send_have_output (SpaProxy *this)
+{
+  PinosNode *pnode = this->pnode;
+  SpaNodeEventHaveOutput ho;
+  uint8_t cmd = 0;
+
+  ho.event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
+  ho.event.size = sizeof (ho);
+  ho.port_id = 0;
+  pinos_transport_add_event (pnode->transport, &ho.event);
+  write (this->data_source.fd, &cmd, 1);
+}
+
 static SpaResult
 spa_proxy_node_send_command (SpaNode        *node,
                              SpaNodeCommand *command)
@@ -201,10 +229,9 @@ spa_proxy_node_send_command (SpaNode        *node,
                                  PINOS_MESSAGE_NODE_COMMAND,
                                  &cnc,
                                  true);
-      if (command->type == SPA_NODE_COMMAND_START) {
-        uint8_t cmd = PINOS_TRANSPORT_CMD_NEED_DATA;
-        write (this->data_source.fd, &cmd, 1);
-      }
+      if (command->type == SPA_NODE_COMMAND_START)
+        send_need_input (this);
+
       res = SPA_RESULT_RETURN_ASYNC (cnc.seq);
       break;
     }
@@ -830,7 +857,7 @@ spa_proxy_node_port_reuse_buffer (SpaNode         *node,
   SpaProxy *this;
   SpaNodeEventReuseBuffer rb;
   PinosNode *pnode;
-  uint8_t cmd;
+  uint8_t cmd = 0;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -846,8 +873,6 @@ spa_proxy_node_port_reuse_buffer (SpaNode         *node,
   rb.port_id = port_id;
   rb.buffer_id = buffer_id;
   pinos_transport_add_event (pnode->transport, &rb.event);
-
-  cmd = PINOS_TRANSPORT_CMD_HAVE_EVENT;
   write (this->data_source.fd, &cmd, 1);
 
   return SPA_RESULT_OK;
@@ -890,39 +915,13 @@ static SpaResult
 spa_proxy_node_process_input (SpaNode *node)
 {
   SpaProxy *this;
-  uint8_t cmd;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
-#if 0
-  {
-    unsigned int i;
-    bool have_error = false;
-
-    for (i = 0; i < this->n_inputs; i++) {
-      SpaProxyPort *port = &this->in_ports[i];
-      SpaPortInput *input;
-
-      if ((input = port->io) == NULL)
-        continue;
-
-      if (!CHECK_PORT_BUFFER (this, input->buffer_id, port)) {
-        input->status = SPA_RESULT_INVALID_BUFFER_ID;
-        have_error = true;
-        continue;
-      }
-      copy_meta_out (this, port, input->buffer_id);
-    }
-    if (have_error)
-      return SPA_RESULT_ERROR;
-  }
-#endif
-
-  cmd = PINOS_TRANSPORT_CMD_HAVE_DATA;
-  write (this->data_source.fd, &cmd, 1);
+  send_have_output (this);
 
   return SPA_RESULT_OK;
 }
@@ -931,37 +930,13 @@ static SpaResult
 spa_proxy_node_process_output (SpaNode *node)
 {
   SpaProxy *this;
-  uint8_t cmd;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
-#if 0
-  {
-    unsigned int i;
-    bool have_error = false;
-
-    for (i = 0; i < this->n_outputs; i++) {
-      SpaProxyPort *port = &this->out_ports[i];
-      SpaPortOutput *output;
-
-      if ((output = port->io) == NULL)
-        continue;
-
-      copy_meta_in (this, port, output->buffer_id);
-
-      if (output->status != SPA_RESULT_OK)
-        have_error = true;
-    }
-    if (have_error)
-      return SPA_RESULT_ERROR;
-  }
-#endif
-
-  cmd = PINOS_TRANSPORT_CMD_NEED_DATA;
-  write (this->data_source.fd, &cmd, 1);
+  send_need_input (this);
 
   return SPA_RESULT_OK;
 }
@@ -1078,33 +1053,21 @@ proxy_on_data_fd_events (SpaSource *source)
   SpaProxy *this = source->data;
   PinosNode *pnode = this->pnode;
 
+  if (source->rmask & (SPA_IO_ERR | SPA_IO_HUP)) {
+    spa_log_warn (this->log, "proxy %p: got error", this);
+    return;
+  }
+
   if (source->rmask & SPA_IO_IN) {
+    SpaNodeEvent event;
     uint8_t cmd;
 
-    if (read (this->data_source.fd, &cmd, 1) < 1)
-      return;
+    read (this->data_source.fd, &cmd, 1);
 
-    if (cmd & PINOS_TRANSPORT_CMD_HAVE_EVENT) {
-      SpaNodeEvent event;
-      while (pinos_transport_next_event (pnode->transport, &event) == SPA_RESULT_OK) {
-        SpaNodeEvent *ev = alloca (event.size);
-        pinos_transport_parse_event (pnode->transport, ev);
-        this->event_cb (&this->node, ev, this->user_data);
-      }
-    }
-    if (cmd & PINOS_TRANSPORT_CMD_HAVE_DATA) {
-      SpaNodeEventHaveOutput ho;
-      ho.event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
-      ho.event.size = sizeof (ho);
-      ho.port_id = 0;
-      this->event_cb (&this->node, &ho.event, this->user_data);
-    }
-    if (cmd & PINOS_TRANSPORT_CMD_NEED_DATA) {
-      SpaNodeEventNeedInput ni;
-      ni.event.type = SPA_NODE_EVENT_TYPE_NEED_INPUT;
-      ni.event.size = sizeof (ni);
-      ni.port_id = 0;
-      this->event_cb (&this->node, &ni.event, this->user_data);
+    while (pinos_transport_next_event (pnode->transport, &event) == SPA_RESULT_OK) {
+      SpaNodeEvent *ev = alloca (event.size);
+      pinos_transport_parse_event (pnode->transport, ev);
+      this->event_cb (&this->node, ev, this->user_data);
     }
   }
 }

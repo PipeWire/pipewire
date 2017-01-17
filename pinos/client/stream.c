@@ -311,7 +311,27 @@ static inline void
 send_need_input (PinosStream *stream)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
-  uint8_t cmd = PINOS_TRANSPORT_CMD_NEED_DATA;
+  SpaNodeEventNeedInput ni;
+  uint8_t cmd = 0;
+
+  ni.event.type = SPA_NODE_EVENT_TYPE_NEED_INPUT;
+  ni.event.size = sizeof (ni);
+  ni.port_id = 0;
+  pinos_transport_add_event (impl->trans, &ni.event);
+  write (impl->rtfd, &cmd, 1);
+}
+
+static inline void
+send_have_output (PinosStream *stream)
+{
+  PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
+  SpaNodeEventHaveOutput ho;
+  uint8_t cmd = 0;
+
+  ho.event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
+  ho.event.size = sizeof (ho);
+  ho.port_id = 0;
+  pinos_transport_add_event (impl->trans, &ho.event);
   write (impl->rtfd, &cmd, 1);
 }
 
@@ -419,8 +439,24 @@ handle_rtnode_event (PinosStream  *stream,
 
   switch (event->type) {
     case SPA_NODE_EVENT_TYPE_HAVE_OUTPUT:
+    {
+      int i;
+
+      for (i = 0; i < impl->trans->area->n_inputs; i++) {
+        SpaPortInput *input = &impl->trans->inputs[i];
+
+        if (input->buffer_id == SPA_ID_INVALID)
+          continue;
+
+        pinos_signal_emit (&stream->new_buffer, stream, input->buffer_id);
+        input->buffer_id = SPA_ID_INVALID;
+      }
+      send_need_input (stream);
+      break;
+    }
+
     case SPA_NODE_EVENT_TYPE_NEED_INPUT:
-      pinos_log_warn ("unhandled node event %d", event->type);
+      pinos_signal_emit (&stream->need_buffer, stream);
       break;
 
     case SPA_NODE_EVENT_TYPE_REUSE_BUFFER:
@@ -459,33 +495,15 @@ on_rtsocket_condition (SpaSource    *source,
   }
 
   if (mask & SPA_IO_IN) {
+    SpaNodeEvent event;
     uint8_t cmd;
-    int i;
 
     read (impl->rtfd, &cmd, 1);
 
-    if (cmd & PINOS_TRANSPORT_CMD_HAVE_DATA) {
-      for (i = 0; i < impl->trans->area->n_inputs; i++) {
-        SpaPortInput *input = &impl->trans->inputs[i];
-
-        if (input->buffer_id == SPA_ID_INVALID)
-          continue;
-
-        pinos_signal_emit (&stream->new_buffer, stream, input->buffer_id);
-        input->buffer_id = SPA_ID_INVALID;
-      }
-      send_need_input (stream);
-    }
-    if (cmd & PINOS_TRANSPORT_CMD_HAVE_EVENT) {
-      SpaNodeEvent event;
-      while (pinos_transport_next_event (impl->trans, &event) == SPA_RESULT_OK) {
-        SpaNodeEvent *ev = alloca (event.size);
-        pinos_transport_parse_event (impl->trans, ev);
-        handle_rtnode_event (stream, ev);
-      }
-    }
-    if (cmd & PINOS_TRANSPORT_CMD_NEED_DATA) {
-      pinos_signal_emit (&stream->need_buffer, stream);
+    while (pinos_transport_next_event (impl->trans, &event) == SPA_RESULT_OK) {
+      SpaNodeEvent *ev = alloca (event.size);
+      pinos_transport_parse_event (impl->trans, ev);
+      handle_rtnode_event (stream, ev);
     }
   }
 }
@@ -1034,7 +1052,7 @@ pinos_stream_recycle_buffer (PinosStream *stream,
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
   SpaNodeEventReuseBuffer rb;
-  uint8_t cmd = PINOS_TRANSPORT_CMD_HAVE_EVENT;
+  uint8_t cmd = 0;
 
   rb.event.type = SPA_NODE_EVENT_TYPE_REUSE_BUFFER;
   rb.event.size = sizeof (rb);
@@ -1088,14 +1106,12 @@ pinos_stream_send_buffer (PinosStream     *stream,
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
   BufferId *bid;
-  uint8_t cmd = PINOS_TRANSPORT_CMD_HAVE_DATA;
 
   if ((bid = find_buffer (stream, id))) {
     bid->used = true;
     impl->trans->outputs[0].buffer_id = id;
     impl->trans->outputs[0].status = SPA_RESULT_OK;
-    if (write (impl->rtfd, &cmd, 1) < 1)
-      perror ("write");
+    send_have_output (stream);
   }
 
   return true;

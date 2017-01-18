@@ -716,8 +716,6 @@ pinos_link_activate (PinosLink *this)
 {
   PinosLinkImpl *impl = SPA_CONTAINER_OF (this, PinosLinkImpl, this);
 
-  spa_ringbuffer_init (&this->ringbuffer, SPA_N_ELEMENTS (this->queue));
-
   pinos_work_queue_add (impl->work,
                         this,
                         SPA_RESULT_WAIT_SYNC,
@@ -729,7 +727,6 @@ pinos_link_activate (PinosLink *this)
 bool
 pinos_pinos_link_deactivate (PinosLink *this)
 {
-  spa_ringbuffer_clear (&this->ringbuffer);
   return true;
 }
 

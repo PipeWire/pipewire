@@ -39,7 +39,7 @@ update_state (SpaALSASource *this, SpaNodeState state)
 }
 
 static const char default_device[] = "hw:0";
-static const uint32_t default_period_size = 128;
+static const uint32_t default_period_size = 32;
 static const uint32_t default_periods = 2;
 static const bool default_period_event = 0;
 

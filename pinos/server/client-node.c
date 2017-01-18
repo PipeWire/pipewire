@@ -171,13 +171,12 @@ send_need_input (SpaProxy *this)
 {
   PinosNode *pnode = this->pnode;
   SpaNodeEventNeedInput ni;
-  uint8_t cmd = 0;
+  uint64_t cmd = 1;
 
   ni.event.type = SPA_NODE_EVENT_TYPE_NEED_INPUT;
   ni.event.size = sizeof (ni);
-  ni.port_id = 0;
   pinos_transport_add_event (pnode->transport, &ni.event);
-  write (this->data_source.fd, &cmd, 1);
+  write (this->data_source.fd, &cmd, 8);
 }
 
 static void
@@ -185,13 +184,12 @@ send_have_output (SpaProxy *this)
 {
   PinosNode *pnode = this->pnode;
   SpaNodeEventHaveOutput ho;
-  uint8_t cmd = 0;
+  uint64_t cmd = 1;
 
   ho.event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
   ho.event.size = sizeof (ho);
-  ho.port_id = 0;
   pinos_transport_add_event (pnode->transport, &ho.event);
-  write (this->data_source.fd, &cmd, 1);
+  write (this->data_source.fd, &cmd, 8);
 }
 
 static SpaResult
@@ -857,7 +855,7 @@ spa_proxy_node_port_reuse_buffer (SpaNode         *node,
   SpaProxy *this;
   SpaNodeEventReuseBuffer rb;
   PinosNode *pnode;
-  uint8_t cmd = 0;
+  //uint64_t cmd = 1;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -873,7 +871,7 @@ spa_proxy_node_port_reuse_buffer (SpaNode         *node,
   rb.port_id = port_id;
   rb.buffer_id = buffer_id;
   pinos_transport_add_event (pnode->transport, &rb.event);
-  write (this->data_source.fd, &cmd, 1);
+  //write (this->data_source.fd, &cmd, 8);
 
   return SPA_RESULT_OK;
 }
@@ -1060,9 +1058,9 @@ proxy_on_data_fd_events (SpaSource *source)
 
   if (source->rmask & SPA_IO_IN) {
     SpaNodeEvent event;
-    uint8_t cmd;
+    uint64_t cmd;
 
-    read (this->data_source.fd, &cmd, 1);
+    read (this->data_source.fd, &cmd, 8);
 
     while (pinos_transport_next_event (pnode->transport, &event) == SPA_RESULT_OK) {
       SpaNodeEvent *ev = alloca (event.size);
@@ -1338,15 +1336,22 @@ pinos_client_node_get_data_socket (PinosClientNode  *this,
   PinosClientNodeImpl *impl = SPA_CONTAINER_OF (this, PinosClientNodeImpl, this);
 
   if (impl->data_fd == -1) {
+#if 1
     int fd[2];
 
-    if (socketpair (AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, fd) != 0)
+    if (socketpair (AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, fd) != 0)
       return SPA_RESULT_ERRNO;
 
     impl->proxy.data_source.fd = fd[0];
-    spa_loop_add_source (impl->proxy.data_loop, &impl->proxy.data_source);
-    pinos_log_debug ("client-node %p: add data fd %d", this, fd[0]);
     impl->data_fd = fd[1];
+#else
+
+    impl->proxy.data_source.fd = eventfd (0, EFD_CLOEXEC | EFD_NONBLOCK);
+    impl->data_fd = eventfd (0, EFD_CLOEXEC | EFD_NONBLOCK);
+#endif
+
+    spa_loop_add_source (impl->proxy.data_loop, &impl->proxy.data_source);
+    pinos_log_debug ("client-node %p: add data fd %d", this, impl->proxy.data_source.fd);
   }
   *fd = impl->data_fd;
   return SPA_RESULT_OK;

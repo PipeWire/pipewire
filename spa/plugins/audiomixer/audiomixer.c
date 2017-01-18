@@ -581,7 +581,6 @@ pull_port (SpaAudioMixer *this, uint32_t port_id, SpaPortOutput *output, size_t 
 
   ni.event.type = SPA_NODE_EVENT_TYPE_NEED_INPUT;
   ni.event.size = sizeof (ni);
-  ni.port_id = port_id;
   this->event_cb (&this->node, &ni.event, this->user_data);
 }
 

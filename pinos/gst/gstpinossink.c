@@ -458,7 +458,7 @@ on_new_buffer (PinosListener *listener,
   GstPinosSink *pinossink = SPA_CONTAINER_OF (listener, GstPinosSink, stream_new_buffer);
   GstBuffer *buf;
 
-  GST_LOG_OBJECT (pinossink, "got new buffer");
+  GST_LOG_OBJECT (pinossink, "got new buffer %u", id);
   if (pinossink->stream == NULL) {
     GST_LOG_OBJECT (pinossink, "no stream");
     return;
@@ -498,10 +498,12 @@ do_send_buffer (GstPinosSink *pinossink)
     d->chunk->size = mem->size;
   }
 
-  if (!(res = pinos_stream_send_buffer (pinossink->stream, data->id)))
+  if (!(res = pinos_stream_send_buffer (pinossink->stream, data->id))) {
     g_warning ("can't send buffer");
-
-  pinossink->need_ready--;
+    gst_buffer_unref (buffer);
+    pinos_thread_main_loop_signal (pinossink->main_loop, FALSE);
+  } else
+    pinossink->need_ready--;
 }
 
 
@@ -683,8 +685,8 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   gst_buffer_ref (buffer);
   g_queue_push_tail (&pinossink->queue, buffer);
 
-  if (pinossink->need_ready)
-    do_send_buffer (pinossink);
+//  if (pinossink->need_ready)
+//    do_send_buffer (pinossink);
 
 done:
   pinos_thread_main_loop_unlock (pinossink->main_loop);

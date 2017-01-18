@@ -32,7 +32,7 @@
 typedef struct _SpaALSAState SpaALSASink;
 
 static const char default_device[] = "default";
-static const uint32_t default_period_size = 128;
+static const uint32_t default_period_size = 32;
 static const uint32_t default_periods = 2;
 static const bool default_period_event = 0;
 
@@ -691,6 +691,7 @@ spa_alsa_sink_node_process_input (SpaNode *node)
 
   b = &this->buffers[input->buffer_id];
   if (!b->outstanding) {
+    input->buffer_id = SPA_ID_INVALID;
     input->status = SPA_RESULT_INVALID_BUFFER_ID;
     return SPA_RESULT_ERROR;
   }
@@ -700,7 +701,9 @@ spa_alsa_sink_node_process_input (SpaNode *node)
   } else {
     spa_list_insert (this->ready.prev, &b->link);
   }
+  //spa_log_debug (this->log, "alsa-source: got buffer %u", input->buffer_id);
   b->outstanding = false;
+  input->buffer_id = SPA_ID_INVALID;
   input->status = SPA_RESULT_OK;
 
   return SPA_RESULT_OK;

@@ -246,37 +246,6 @@ send_clock_update (PinosNode *this)
     pinos_log_debug ("got error %d", res);
 }
 
-static SpaResult
-do_read_link (SpaLoop        *loop,
-              bool            async,
-              uint32_t        seq,
-              size_t          size,
-              void           *data,
-              void           *user_data)
-{
-  PinosNode *this = user_data;
-  PinosLink *link = ((PinosLink**)data)[0];
-  size_t offset;
-  SpaResult res;
-
-  if (link->rt.input == NULL)
-    return SPA_RESULT_OK;
-
-  while (link->rt.in_ready > 0 && spa_ringbuffer_get_read_offset (&link->ringbuffer, &offset) > 0) {
-    SpaPortInput *input = &this->transport->inputs[link->rt.input->port_id];
-
-    input->buffer_id = link->queue[offset];
-
-    if ((res = spa_node_process_input (link->rt.input->node->node)) < 0)
-      pinos_log_warn ("node %p: error pushing buffer: %d, %d", this, res, input->status);
-
-    spa_ringbuffer_read_advance (&link->ringbuffer, 1);
-    link->rt.in_ready--;
-  }
-  return SPA_RESULT_OK;
-}
-
-
 static void
 on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
 {
@@ -303,59 +272,84 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
 
     case SPA_NODE_EVENT_TYPE_NEED_INPUT:
     {
-      SpaNodeEventNeedInput *ni = (SpaNodeEventNeedInput *) event;
-      PinosPort *port = this->input_port_map[ni->port_id];
-      PinosLink *link;
+      SpaResult res;
+      int i;
+      bool processed = false;
 
-      spa_list_for_each (link, &port->rt.links, rt.input_link) {
-        if (link->rt.input == NULL || link->rt.output == NULL)
+//      pinos_log_debug ("node %p: need input", this);
+
+      for (i = 0; i < this->transport->area->n_inputs; i++) {
+        PinosLink *link;
+        PinosPort *inport, *outport;
+        SpaPortInput *pi;
+        SpaPortOutput *po;
+
+        pi = &this->transport->inputs[i];
+        if (pi->buffer_id != SPA_ID_INVALID)
           continue;
 
-        link->rt.in_ready++;
-        pinos_loop_invoke (link->rt.input->node->data_loop->loop,
-                           do_read_link,
-                           SPA_ID_INVALID,
-                           sizeof (PinosLink *),
-                           &link,
-                           link->rt.input->node);
+        inport = this->input_port_map[i];
+        spa_list_for_each (link, &inport->rt.links, rt.input_link) {
+          if (link->rt.input == NULL || link->rt.output == NULL)
+            continue;
+
+          outport = link->rt.output;
+          po = &outport->node->transport->outputs[outport->port_id];
+
+          if (po->buffer_id != SPA_ID_INVALID) {
+            processed = true;
+
+            pi->buffer_id = po->buffer_id;
+            po->buffer_id = SPA_ID_INVALID;
+          }
+          if ((res = spa_node_process_output (outport->node->node)) < 0)
+            pinos_log_warn ("node %p: got process output %d", outport->node, res);
+        }
+      }
+      if (processed) {
+        if ((res = spa_node_process_input (this->node)) < 0)
+          pinos_log_warn ("node %p: got process input %d", this, res);
       }
       break;
     }
     case SPA_NODE_EVENT_TYPE_HAVE_OUTPUT:
     {
-      SpaNodeEventHaveOutput *ho = (SpaNodeEventHaveOutput *) event;
       SpaResult res;
-      bool pushed = false;
-      SpaPortOutput *po = &this->transport->outputs[ho->port_id];
-      PinosPort *port = this->output_port_map[ho->port_id];
-      PinosLink *link;
+      int i;
+      bool processed = false;
 
-      spa_list_for_each (link, &port->rt.links, rt.output_link) {
-        size_t offset;
+//      pinos_log_debug ("node %p: have output", this);
 
-        if (link->rt.input == NULL || link->rt.output == NULL)
+      for (i = 0; i < this->transport->area->n_outputs; i++) {
+        PinosLink *link;
+        PinosPort *inport, *outport;
+        SpaPortInput *pi;
+        SpaPortOutput *po;
+
+        po = &this->transport->outputs[i];
+        if (po->buffer_id == SPA_ID_INVALID)
           continue;
 
-        if (spa_ringbuffer_get_write_offset (&link->ringbuffer, &offset) > 0) {
-          link->queue[offset] = po->buffer_id;
-          spa_ringbuffer_write_advance (&link->ringbuffer, 1);
+        outport = this->output_port_map[i];
+        spa_list_for_each (link, &outport->rt.links, rt.output_link) {
+          if (link->rt.input == NULL || link->rt.output == NULL)
+            continue;
 
-          pinos_loop_invoke (link->rt.input->node->data_loop->loop,
-                             do_read_link,
-                             SPA_ID_INVALID,
-                             sizeof (PinosLink *),
-                             &link,
-                             link->rt.input->node);
-          pushed = true;
+          inport = link->rt.input;
+          pi = &inport->node->transport->inputs[inport->port_id];
+
+          processed = true;
+
+          pi->buffer_id = po->buffer_id;
+
+          if ((res = spa_node_process_input (inport->node->node)) < 0)
+            pinos_log_warn ("node %p: got process input %d", inport->node, res);
         }
+        po->buffer_id = SPA_ID_INVALID;
       }
-      if (!pushed) {
-        if ((res = spa_node_port_reuse_buffer (node, ho->port_id, po->buffer_id)) < 0)
-          pinos_log_warn ("node %p: error reuse buffer: %d", node, res);
-      }
-      if ((res = spa_node_process_output (node)) < 0) {
-        pinos_log_warn ("node %p: got pull error %d, %d", this, res, po->status);
-        break;
+      if (processed) {
+        if ((res = spa_node_process_output (this->node)) < 0)
+          pinos_log_warn ("node %p: got process output %d", this, res);
       }
       break;
     }
@@ -365,6 +359,8 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
       SpaNodeEventReuseBuffer *rb = (SpaNodeEventReuseBuffer *) event;
       PinosPort *port = this->input_port_map[rb->port_id];
       PinosLink *link;
+
+//      pinos_log_debug ("node %p: reuse buffer %u", this, rb->buffer_id);
 
       spa_list_for_each (link, &port->rt.links, rt.input_link) {
         if (link->rt.input == NULL || link->rt.output == NULL)

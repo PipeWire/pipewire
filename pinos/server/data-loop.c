@@ -42,6 +42,7 @@ typedef struct
   pthread_t thread;
 } PinosDataLoopImpl;
 
+
 static void
 make_realtime (PinosDataLoop *this)
 {
@@ -57,7 +58,7 @@ make_realtime (PinosDataLoop *this)
   spa_zero (sp);
   sp.sched_priority = rtprio;
 
-  if (pthread_setschedparam (pthread_self(), SCHED_RR|SCHED_RESET_ON_FORK, &sp) == 0) {
+  if (pthread_setschedparam (pthread_self(), SCHED_OTHER|SCHED_RESET_ON_FORK, &sp) == 0) {
     pinos_log_debug ("SCHED_OTHER|SCHED_RESET_ON_FORK worked.");
     return;
   }

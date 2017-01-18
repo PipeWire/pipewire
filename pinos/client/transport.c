@@ -60,14 +60,27 @@ static void
 transport_setup_area (void *p, PinosTransport *trans)
 {
   PinosTransportArea *a;
+  int i;
 
   trans->area = a = p;
   p = SPA_MEMBER (p, sizeof (PinosTransportArea), SpaPortInput);
 
   trans->inputs = p;
+  for (i = 0; i < a->max_inputs; i++) {
+    trans->inputs[i].state = SPA_PORT_STATE_FLAG_NONE;
+    trans->inputs[i].flags = SPA_PORT_INPUT_FLAG_NONE;
+    trans->inputs[i].buffer_id = SPA_ID_INVALID;
+    trans->inputs[i].status = SPA_RESULT_OK;
+  }
   p = SPA_MEMBER (p, a->max_inputs * sizeof (SpaPortInput), void);
 
   trans->outputs = p;
+  for (i = 0; i < a->max_outputs; i++) {
+    trans->outputs[i].state = SPA_PORT_STATE_FLAG_NONE;
+    trans->outputs[i].flags = SPA_PORT_OUTPUT_FLAG_NONE;
+    trans->outputs[i].buffer_id = SPA_ID_INVALID;
+    trans->outputs[i].status = SPA_RESULT_OK;
+  }
   p = SPA_MEMBER (p, a->max_outputs * sizeof (SpaPortOutput), void);
 
   trans->input_buffer = p;

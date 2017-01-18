@@ -78,12 +78,10 @@ typedef struct {
 
 typedef struct {
   SpaNodeEvent event;
-  uint32_t     port_id;
 } SpaNodeEventHaveOutput;
 
 typedef struct {
   SpaNodeEvent event;
-  uint32_t     port_id;
 } SpaNodeEventNeedInput;
 
 typedef struct {

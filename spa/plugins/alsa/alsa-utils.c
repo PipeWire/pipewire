@@ -175,22 +175,6 @@ spa_alsa_set_format (SpaALSAState *state, SpaFormatAudio *fmt, SpaPortFormatFlag
 
   CHECK (snd_pcm_hw_params_set_buffer_size (hndl, params, state->buffer_frames), "set_buffer_size");
 
-#if 0
-  /* set the buffer time */
-  buffer_time = props->buffer_time;
-  CHECK (snd_pcm_hw_params_set_buffer_time_near (hndl, params, &buffer_time, &dir), "set_buffer_time_near");
-
-  CHECK (snd_pcm_hw_params_get_buffer_size (params, &size), "get_buffer_size");
-  state->buffer_frames = size;
-
-  /* set the period time */
-  period_time = props->period_time;
-  CHECK (snd_pcm_hw_params_set_period_time_near (hndl, params, &period_time, &dir), "set_period_time_near");
-
-  CHECK (snd_pcm_hw_params_get_period_size (params, &size, &dir), "get_period_size");
-  state->period_frames = size;
-#endif
-
   spa_log_info (state->log, "buffer frames %zd, period frames %zd", state->buffer_frames, state->period_frames);
 
   /* write the parameters to device */
@@ -216,22 +200,22 @@ set_swparams (SpaALSAState *state)
 
   /* start the transfer */
   CHECK (snd_pcm_sw_params_set_start_threshold (hndl, params, 0U), "set_start_threshold");
+#if 1
   CHECK (snd_pcm_sw_params_set_stop_threshold (hndl, params,
          (state->buffer_frames / state->period_frames) * state->period_frames), "set_stop_threshold");
-//  CHECK (snd_pcm_sw_params_set_stop_threshold (hndl, params, -1), "set_stop_threshold");
+#else
+  CHECK (snd_pcm_sw_params_set_stop_threshold (hndl, params, -1), "set_stop_threshold");
+#endif
 
   CHECK (snd_pcm_sw_params_set_silence_threshold (hndl, params, 0U), "set_silence_threshold");
+
+  /* enable period events when requested */
+  CHECK (snd_pcm_sw_params_set_period_event (hndl, params, props->period_event ? 1 : 0), "set_period_event");
 
 #if 1
   /* allow the transfer when at least period_size samples can be processed */
   /* or disable this mechanism when period event is enabled (aka interrupt like style processing) */
-  CHECK (snd_pcm_sw_params_set_avail_min (hndl, params,
-        props->period_event ? state->buffer_frames : state->period_frames), "set_avail_min");
-
-  /* enable period events when requested */
-  if (props->period_event) {
-    CHECK (snd_pcm_sw_params_set_period_event (hndl, params, 1), "set_period_event");
-  }
+  CHECK (snd_pcm_sw_params_set_avail_min (hndl, params, state->period_frames), "set_avail_min");
 #else
   CHECK (snd_pcm_sw_params_set_avail_min (hndl, params, 0), "set_avail_min");
 #endif
@@ -286,7 +270,6 @@ pull_frames_queue (SpaALSAState *state,
 
     ni.event.type = SPA_NODE_EVENT_TYPE_NEED_INPUT;
     ni.event.size = sizeof (ni);
-    ni.port_id = 0;
     state->event_cb (&state->node, &ni.event, state->user_data);
   }
   if (!spa_list_is_empty (&state->ready)) {
@@ -384,7 +367,6 @@ mmap_write (SpaALSAState *state)
   snd_pcm_sframes_t avail;
   snd_pcm_uframes_t offset, frames, size;
   const snd_pcm_channel_area_t *my_areas;
-  SpaNodeEventNeedInput ni;
 
 #if 0
   snd_pcm_status_t *status;
@@ -404,13 +386,6 @@ mmap_write (SpaALSAState *state)
   }
 #endif
 
-#if 0
-  ni.event.type = SPA_NODE_EVENT_TYPE_NEED_INPUT;
-  ni.event.size = sizeof (ni);
-  ni.port_id = 0;
-  state->event_cb (&state->node, &ni.event, state->user_data);
-#endif
-
   size = avail;
   while (size > 0) {
     frames = size;
@@ -418,6 +393,10 @@ mmap_write (SpaALSAState *state)
       spa_log_error (state->log, "snd_pcm_mmap_begin error: %s", snd_strerror(err));
       return -1;
     }
+    if (frames < state->period_frames)
+      break;
+    else
+      frames = state->period_frames;
 
     if (state->ringbuffer)
       frames = pull_frames_ringbuffer (state, my_areas, offset, frames);
@@ -524,10 +503,43 @@ mmap_read (SpaALSAState *state)
     }
     ho.event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
     ho.event.size = sizeof (ho);
-    ho.port_id = 0;
     state->event_cb (&state->node, &ho.event, state->user_data);
   }
   return 0;
+}
+
+static inline short
+spa_io_to_poll (SpaIO mask)
+{
+  short events = 0;
+
+  if (mask & SPA_IO_IN)
+    events |= POLLIN;
+  if (mask & SPA_IO_OUT)
+    events |= POLLOUT;
+  if (mask & SPA_IO_ERR)
+    events |= POLLERR;
+  if (mask & SPA_IO_HUP)
+    events |= POLLHUP;
+
+  return events;
+}
+
+static inline SpaIO
+spa_poll_to_io (short events)
+{
+  SpaIO mask = 0;
+
+  if (events & POLLIN)
+    mask |= SPA_IO_IN;
+  if (events & POLLOUT)
+    mask |= SPA_IO_OUT;
+  if (events & POLLERR)
+    mask |= SPA_IO_ERR;
+  if (events & POLLHUP)
+    mask |= SPA_IO_HUP;
+
+  return mask;
 }
 
 static void
@@ -535,32 +547,31 @@ alsa_on_fd_events (SpaSource *source)
 {
   SpaALSAState *state = source->data;
   snd_pcm_t *hndl = state->hndl;
-  int err;
+  int err, i;
   unsigned short revents = 0;
 
-#if 0
+  for (i = 0; i < state->n_fds; i++) {
+    state->fds[i].revents = spa_io_to_poll (state->sources[i].rmask);
+    state->sources[i].rmask = 0;
+  }
+
   snd_pcm_poll_descriptors_revents (hndl,
                                     state->fds,
                                     state->n_fds,
                                     &revents);
-
-  spa_log_debug (state->log, "revents: %d %d", revents, state->n_fds);
-#endif
-  revents = source->rmask;
-
-  if (revents & SPA_IO_ERR) {
+  if (revents & POLLERR) {
     if ((err = xrun_recovery (state, hndl, err)) < 0) {
       spa_log_error (state->log, "error: %s", snd_strerror (err));
     }
   }
 
   if (state->stream == SND_PCM_STREAM_CAPTURE) {
-    if (!(revents & SPA_IO_IN))
+    if (!(revents & POLLIN))
       return;
 
     mmap_read (state);
   } else {
-    if (!(revents & SPA_IO_OUT))
+    if (!(revents & POLLOUT))
       return;
 
     mmap_write (state);
@@ -601,15 +612,9 @@ spa_alsa_start (SpaALSAState *state, bool xrun_recover)
     state->sources[i].func = alsa_on_fd_events;
     state->sources[i].data = state;
     state->sources[i].fd = state->fds[i].fd;
-    state->sources[i].mask = 0;
-    if (state->fds[i].events & POLLIN)
-      state->sources[i].mask |= SPA_IO_IN;
-    if (state->fds[i].events & POLLOUT)
-      state->sources[i].mask |= SPA_IO_OUT;
-    if (state->fds[i].events & POLLERR)
-      state->sources[i].mask |= SPA_IO_ERR;
-    if (state->fds[i].events & POLLHUP)
-      state->sources[i].mask |= SPA_IO_HUP;
+    state->sources[i].mask = spa_poll_to_io (state->fds[i].events);
+    state->sources[i].rmask = 0;
+    state->fds[i].revents  = 0;
     spa_loop_add_source (state->data_loop, &state->sources[i]);
   }
 

@@ -54,7 +54,6 @@ struct _SpaSource {
   int            fd;
   SpaIO          mask;
   SpaIO          rmask;
-  void          *loop_private;
 };
 
 typedef SpaResult (*SpaInvokeFunc) (SpaLoop *loop,

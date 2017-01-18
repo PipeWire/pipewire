@@ -83,31 +83,58 @@ typedef struct {
   uint8_t        buffer_data[DATAS_SIZE];
 } PinosLoopImpl;
 
+static inline uint32_t
+spa_io_to_epoll (SpaIO mask)
+{
+  uint32_t events = 0;
+
+  if (mask & SPA_IO_IN)
+    events |= EPOLLIN;
+  if (mask & SPA_IO_OUT)
+    events |= EPOLLOUT;
+  if (mask & SPA_IO_ERR)
+    events |= EPOLLERR;
+  if (mask & SPA_IO_HUP)
+    events |= EPOLLHUP;
+
+  return events;
+}
+
+static inline SpaIO
+spa_epoll_to_io (uint32_t events)
+{
+  SpaIO mask = 0;
+
+  if (events & EPOLLIN)
+    mask |= SPA_IO_IN;
+  if (events & EPOLLOUT)
+    mask |= SPA_IO_OUT;
+  if (events & EPOLLHUP)
+    mask |= SPA_IO_HUP;
+  if (events & EPOLLERR)
+    mask |= SPA_IO_ERR;
+
+  return mask;
+}
+
 static SpaResult
 loop_add_source (SpaLoop    *loop,
                  SpaSource  *source)
 {
   PinosLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosLoopImpl, loop);
-  struct epoll_event ep;
 
   source->loop = loop;
 
   if (source->fd != -1) {
+    struct epoll_event ep;
+
     spa_zero (ep);
-    if (source->mask & SPA_IO_IN)
-      ep.events |= EPOLLIN;
-    if (source->mask & SPA_IO_OUT)
-      ep.events |= EPOLLOUT;
-    if (source->mask & SPA_IO_ERR)
-      ep.events |= EPOLLERR;
-    if (source->mask & SPA_IO_HUP)
-      ep.events |= EPOLLHUP;
+    ep.events = spa_io_to_epoll (source->mask);
     ep.data.ptr = source;
 
     if (epoll_ctl (impl->epoll_fd, EPOLL_CTL_ADD, source->fd, &ep) < 0)
       return SPA_RESULT_ERRNO;
   }
-
   return SPA_RESULT_OK;
 }
 
@@ -121,14 +148,7 @@ loop_update_source (SpaSource *source)
     struct epoll_event ep;
 
     spa_zero (ep);
-    if (source->mask & SPA_IO_IN)
-      ep.events |= EPOLLIN;
-    if (source->mask & SPA_IO_OUT)
-      ep.events |= EPOLLOUT;
-    if (source->mask & SPA_IO_ERR)
-      ep.events |= EPOLLERR;
-    if (source->mask & SPA_IO_HUP)
-      ep.events |= EPOLLHUP;
+    ep.events = spa_io_to_epoll (source->mask);
     ep.data.ptr = source;
 
     if (epoll_ctl (impl->epoll_fd, EPOLL_CTL_MOD, source->fd, &ep) < 0)
@@ -240,10 +260,6 @@ loop_enter (SpaLoopControl  *ctrl)
 {
   PinosLoopImpl *impl = SPA_CONTAINER_OF (ctrl, PinosLoopImpl, control);
   impl->thread = pthread_self();
-  if (impl->event == NULL)
-    impl->event = spa_loop_utils_add_event (&impl->utils,
-                                            event_func,
-                                            impl);
 }
 
 static void
@@ -275,20 +291,19 @@ loop_iterate (SpaLoopControl *ctrl,
     return SPA_RESULT_ERRNO;
   }
 
+  /* first we set all the rmasks, then call the callbacks. The reason is that
+   * some callback might also want to look at other sources it manages and
+   * can then reset the rmask to suppress the callback */
   for (i = 0; i < nfds; i++) {
     SpaSource *source = ep[i].data.ptr;
-
-    source->rmask = 0;
-    if (ep[i].events & EPOLLIN)
-      source->rmask |= SPA_IO_IN;
-    if (ep[i].events & EPOLLOUT)
-      source->rmask |= SPA_IO_OUT;
-    if (ep[i].events & EPOLLHUP)
-      source->rmask |= SPA_IO_HUP;
-    if (ep[i].events & EPOLLERR)
-      source->rmask |= SPA_IO_ERR;
-
-    source->func (source);
+    source->rmask = spa_epoll_to_io (ep[i].events);
+  }
+  for (i = 0; i < nfds; i++) {
+    SpaSource *source = ep[i].data.ptr;
+    if (source->rmask) {
+      source->func (source);
+      source->rmask = 0;
+    }
   }
   return SPA_RESULT_OK;
 }
@@ -610,6 +625,10 @@ pinos_loop_new (void)
 
   spa_ringbuffer_init (&impl->buffer, DATAS_SIZE);
 
+  impl->event = spa_loop_utils_add_event (&impl->utils,
+                                          event_func,
+                                          impl);
+
   return this;
 
 no_epoll:
@@ -627,6 +646,8 @@ pinos_loop_destroy (PinosLoop *loop)
 
   spa_list_for_each_safe (source, tmp, &impl->source_list, link)
     loop_destroy_source (&source->source);
+
+  pinos_loop_destroy_source (loop, impl->event);
 
   close (impl->epoll_fd);
   free (impl);

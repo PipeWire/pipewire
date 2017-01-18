@@ -234,7 +234,6 @@ send_have_output (SpaAudioTestSrc *this)
   if (this->event_cb) {
     ho.event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
     ho.event.size = sizeof (ho);
-    ho.port_id = 0;
     this->event_cb (&this->node, &ho.event, this->user_data);
   }
 

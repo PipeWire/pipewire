@@ -924,22 +924,24 @@ do_link_remove_done (SpaLoop        *loop,
     spa_list_remove (&this->input_link);
     this->input->node->n_used_input_links--;
 
+    clear_port_buffers (this, this->input);
+
     if (this->input->node->n_used_input_links == 0 &&
         this->input->node->n_used_output_links == 0)
       pinos_node_set_state (this->input->node, PINOS_NODE_STATE_IDLE);
 
-    clear_port_buffers (this, this->input);
     this->input = NULL;
   }
   if (this->output) {
     spa_list_remove (&this->output_link);
     this->output->node->n_used_output_links--;
 
+    clear_port_buffers (this, this->output);
+
     if (this->output->node->n_used_input_links == 0 &&
         this->output->node->n_used_output_links == 0)
       pinos_node_set_state (this->output->node, PINOS_NODE_STATE_IDLE);
 
-    clear_port_buffers (this, this->output);
     this->output = NULL;
   }
   if (--impl->refcount == 0)

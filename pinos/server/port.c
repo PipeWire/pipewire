@@ -243,11 +243,6 @@ do_remove_link_done (SpaLoop        *loop,
     }
   }
 
-  if (node->n_used_output_links == 0 &&
-      node->n_used_input_links == 0) {
-    pinos_node_update_state (node, PINOS_NODE_STATE_IDLE, NULL);
-  }
-
   if (!port->allocated) {
     pinos_log_debug ("port %p: clear buffers on port", port);
     spa_node_port_use_buffers (port->node->node,
@@ -256,6 +251,11 @@ do_remove_link_done (SpaLoop        *loop,
                                NULL, 0);
     port->buffers = NULL;
     port->n_buffers = 0;
+  }
+
+  if (node->n_used_output_links == 0 &&
+      node->n_used_input_links == 0) {
+    pinos_node_update_state (node, PINOS_NODE_STATE_IDLE, NULL);
   }
 
   return SPA_RESULT_OK;

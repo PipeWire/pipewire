@@ -166,16 +166,22 @@ spa_alsa_set_format (SpaALSAState *state, SpaFormatAudio *fmt, SpaPortFormatFlag
   state->frame_size = info->channels * 2;
 
   period_size = props->period_size;
-  CHECK (snd_pcm_hw_params_set_period_size_near (hndl, params, &period_size, &dir), "set_period_size");
+  periods = props->periods;
+
+  spa_log_info (state->log, "trying period frames %zd and periods %u", period_size, periods);
+
+  dir = 0;
+  CHECK (snd_pcm_hw_params_set_period_size_near (hndl, params, &period_size, &dir), "set_period_size_near");
   state->period_frames = period_size;
 
-  periods = props->periods;
+  dir = 0;
   CHECK (snd_pcm_hw_params_set_periods_near (hndl, params, &periods, &dir), "set_periods_near");
   state->buffer_frames = periods * state->period_frames;
 
   CHECK (snd_pcm_hw_params_set_buffer_size (hndl, params, state->buffer_frames), "set_buffer_size");
 
-  spa_log_info (state->log, "buffer frames %zd, period frames %zd", state->buffer_frames, state->period_frames);
+  spa_log_info (state->log, "buffer frames %zd, period frames %zd, periods %u",
+      state->buffer_frames, state->period_frames, periods);
 
   /* write the parameters to device */
   CHECK (snd_pcm_hw_params (hndl, params), "set_hw_params");

@@ -45,8 +45,6 @@ typedef struct _PinosLinkInfo PinosLinkInfo;
  * @PINOS_NODE_STATE_CREATING: the node is being created
  * @PINOS_NODE_STATE_SUSPENDED: the node is suspended, the device might
  *                             be closed
- * @PINOS_NODE_STATE_INITIALIZING: the node is initializing, the device is
- *                        being opened and the capabilities are queried
  * @PINOS_NODE_STATE_IDLE: the node is running but there is no active
  *                         port
  * @PINOS_NODE_STATE_RUNNING: the node is running

@@ -162,8 +162,10 @@ pause_node (PinosNode *this)
   SpaResult res;
   SpaNodeCommand cmd;
 
-  pinos_log_debug ("node %p: pause node", this);
+  if (this->node->state <= SPA_NODE_STATE_PAUSED)
+    return SPA_RESULT_OK;
 
+  pinos_log_debug ("node %p: pause node", this);
   cmd.type = SPA_NODE_COMMAND_PAUSE;
   cmd.size = sizeof (cmd);
   if ((res = spa_node_send_command (this->node, &cmd)) < 0)
@@ -179,7 +181,6 @@ start_node (PinosNode *this)
   SpaNodeCommand cmd;
 
   pinos_log_debug ("node %p: start node", this);
-
   cmd.type = SPA_NODE_COMMAND_START;
   cmd.size = sizeof (cmd);
   if ((res = spa_node_send_command (this->node, &cmd)) < 0)

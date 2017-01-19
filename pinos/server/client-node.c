@@ -170,12 +170,12 @@ static void
 send_need_input (SpaProxy *this)
 {
   PinosNode *pnode = this->pnode;
-  SpaNodeEventNeedInput ni;
+  SpaNodeEvent event;
   uint64_t cmd = 1;
 
-  ni.event.type = SPA_NODE_EVENT_TYPE_NEED_INPUT;
-  ni.event.size = sizeof (ni);
-  pinos_transport_add_event (pnode->transport, &ni.event);
+  event.type = SPA_NODE_EVENT_TYPE_NEED_INPUT;
+  event.size = sizeof (event);
+  pinos_transport_add_event (pnode->transport, &event);
   write (this->data_source.fd, &cmd, 8);
 }
 
@@ -183,12 +183,12 @@ static void
 send_have_output (SpaProxy *this)
 {
   PinosNode *pnode = this->pnode;
-  SpaNodeEventHaveOutput ho;
+  SpaNodeEvent event;
   uint64_t cmd = 1;
 
-  ho.event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
-  ho.event.size = sizeof (ho);
-  pinos_transport_add_event (pnode->transport, &ho.event);
+  event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
+  event.size = sizeof (event);
+  pinos_transport_add_event (pnode->transport, &event);
   write (this->data_source.fd, &cmd, 8);
 }
 

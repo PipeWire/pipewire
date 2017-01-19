@@ -84,7 +84,6 @@ typedef enum {
  */
 typedef enum {
   SPA_PORT_INPUT_FLAG_NONE                  = 0,
-  SPA_PORT_INPUT_FLAG_NEED_INPUT            = 1 << 0,
 } SpaPortInputFlags;
 
 /**
@@ -106,13 +105,9 @@ typedef struct {
 /**
  * SpaPortOutputFlags:
  * @SPA_PORT_OUTPUT_FLAG_NONE: no flag
- * @SPA_PORT_OUTPUT_FLAG_PULL: force a #SPA_NODE_EVENT_NEED_INPUT event on the
- *                        peer input ports when no data is available.
  */
 typedef enum {
   SPA_PORT_OUTPUT_FLAG_NONE                  =  0,
-  SPA_PORT_OUTPUT_FLAG_HAVE_OUTPUT           = (1 << 0),
-  SPA_PORT_OUTPUT_FLAG_PULL                  = (1 << 1),
 } SpaPortOutputFlags;
 
 /**
@@ -152,7 +147,10 @@ typedef void   (*SpaNodeEventCallback)   (SpaNode      *node,
 /**
  * SpaNode:
  *
- * The main processing nodes.
+ * A SpaNode is a component that can comsume and produce buffers.
+ *
+ *
+ *
  */
 struct _SpaNode {
   /* the total size of this node. This can be used to expand this
@@ -559,18 +557,65 @@ struct _SpaNode {
                                        uint32_t          port_id,
                                        SpaNodeCommand   *command);
   /**
-   * SpaNode::process:
+   * SpaNode::process_input:
    * @node: a #SpaNode
-   * @flags: process flags
    *
-   * Process the node.
+   * Process the input area of the node.
    *
-   * Returns: #SPA_RESULT_OK on success
-   *          #SPA_RESULT_HAVE_ENOUGH_INPUT when output can be produced.
+   * For synchronous nodes, this function is called to start processing data
+   * or when process_output returned SPA_RESULT_NEED_MORE_INPUT
+   *
+   * For Asynchronous node, this function is called when a NEED_INPUT event
+   * is received from the node.
+   *
+   * Before calling this function, you must configure SpaPortInput structures
+   * configured on the input ports.
+   *
+   * The node will loop through all SpaPortInput structures and will
+   * process the buffers. For each port, the port info will be updated as:
+   *
+   *  - The buffer_id is set to SPA_ID_INVALID and the status is set to
+   *    SPA_RESULT_OK when the buffer was successfully consumed
+   *
+   *  - The buffer_id is untouched and the status is set to an error when
+   *    the buffer was invalid.
+   *
+   *  - The buffer_id is untouched and the status is set to SPA_RESULT_OK
+   *    when no input was consumed. This can happen when the node does not
+   *    need input on this port.
+   *
+   * Returns: #SPA_RESULT_OK on success or when the node is asynchronous
+   *          #SPA_RESULT_HAVE_OUTPUT for synchronous nodes when output
+   *                                  can be consumed.
+   *          #SPA_RESULT_OUT_OF_BUFFERS for synchronous nodes when buffers
+   *                                     should be released with port_reuse_buffer
+   *          #SPA_RESULT_ERROR when one of the inputs is in error
    */
   SpaResult   (*process_input)           (SpaNode *node);
-  SpaResult   (*process_output)          (SpaNode *node);
 
+  /**
+   * SpaNode::process_output:
+   * @node: a #SpaNode
+   *
+   * Tell the node to produce more output.
+   *
+   * Before calling this function you must process the buffers and events
+   * in the SpaPortOutput structure and set the buffer_id to SPA_ID_INVALID
+   * for all consumed buffers. Buffers that you do not want to consume should
+   * be returned to the node with port_reuse_buffer.
+   *
+   * For synchronous nodes, this function can be called when process_input
+   * returned #SPA_RESULT_HAVE_ENOUGH_INPUT.
+   *
+   * For Asynchronous node, this function is called when a HAVE_OUTPUT event
+   * is received from the node.
+   *
+   * Returns: #SPA_RESULT_OK on success or when the node is asynchronous
+   *          #SPA_RESULT_NEED_INPUT for synchronous nodes when input
+   *                                 is needed.
+   *          #SPA_RESULT_ERROR when one of the outputs is in error
+   */
+  SpaResult   (*process_output)          (SpaNode *node);
 };
 
 #define spa_node_get_props(n,...)          (n)->get_props((n),__VA_ARGS__)

@@ -41,8 +41,8 @@ typedef enum {
   SPA_RESULT_NO_FORMAT                 = -4,
   SPA_RESULT_INVALID_COMMAND           = -5,
   SPA_RESULT_INVALID_PORT              = -6,
-  SPA_RESULT_HAVE_ENOUGH_INPUT         = -7,
-  SPA_RESULT_NEED_MORE_INPUT           = -8,
+  SPA_RESULT_HAVE_OUTPUT               = -7,
+  SPA_RESULT_NEED_INPUT                = -8,
   SPA_RESULT_PORTS_CHANGED             = -9,
   SPA_RESULT_FORMAT_CHANGED            = -10,
   SPA_RESULT_PROPERTIES_CHANGED        = -11,
@@ -69,6 +69,7 @@ typedef enum {
   SPA_RESULT_NO_MEMORY                 = -32,
   SPA_RESULT_NO_PERMISSION             = -33,
   SPA_RESULT_SKIPPED                   = -34,
+  SPA_RESULT_OUT_OF_BUFFERS            = -35,
 } SpaResult;
 
 #define SPA_ASYNC_MASK                  (3 << 30)

@@ -25,8 +25,8 @@
 
 #include <spa/id-map.h>
 #include <spa/log.h>
-#include <spa/node.h>
 #include <spa/loop.h>
+#include <spa/node.h>
 #include <spa/list.h>
 #include <spa/audio/format.h>
 #include <lib/props.h>
@@ -34,6 +34,11 @@
 #define SAMPLES_TO_TIME(this,s)   ((s) * SPA_NSEC_PER_SEC / (this)->current_format.info.raw.rate)
 #define BYTES_TO_SAMPLES(this,b)  ((b)/(this)->bpf)
 #define BYTES_TO_TIME(this,b)     SAMPLES_TO_TIME(this, BYTES_TO_SAMPLES (this, b))
+
+typedef struct {
+  uint32_t node;
+  uint32_t clock;
+} URI;
 
 typedef struct _SpaAudioTestSrc SpaAudioTestSrc;
 
@@ -58,11 +63,6 @@ struct _ATSBuffer {
   SpaList link;
 };
 
-typedef struct {
-  uint32_t node;
-  uint32_t clock;
-} URI;
-
 struct _SpaAudioTestSrc {
   SpaHandle handle;
   SpaNode node;
@@ -78,7 +78,6 @@ struct _SpaAudioTestSrc {
   SpaNodeEventCallback event_cb;
   void *user_data;
 
-  bool timer_enabled;
   SpaSource timer_source;
   struct itimerspec timerspec;
 
@@ -135,15 +134,21 @@ static const SpaPropRangeInfo freq_range[] = {
 };
 
 enum {
+  PROP_ID_LIVE,
   PROP_ID_WAVE,
   PROP_ID_FREQ,
   PROP_ID_VOLUME,
-  PROP_ID_LIVE,
   PROP_ID_LAST,
 };
 
 static const SpaPropInfo prop_info[] =
 {
+  { PROP_ID_LIVE,              offsetof (SpaAudioTestSrcProps, live),
+                               "live",
+                               SPA_PROP_FLAG_READWRITE,
+                               SPA_PROP_TYPE_BOOL, sizeof (bool),
+                               SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
+                               NULL },
   { PROP_ID_WAVE,              offsetof (SpaAudioTestSrcProps, wave),
                                "wave",
                                SPA_PROP_FLAG_READWRITE,
@@ -161,12 +166,6 @@ static const SpaPropInfo prop_info[] =
                                SPA_PROP_FLAG_READWRITE,
                                SPA_PROP_TYPE_DOUBLE, sizeof (double),
                                SPA_PROP_RANGE_TYPE_MIN_MAX, 2, volume_range,
-                               NULL },
-  { PROP_ID_LIVE,              offsetof (SpaAudioTestSrcProps, live),
-                               "live",
-                               SPA_PROP_FLAG_READWRITE,
-                               SPA_PROP_TYPE_BOOL, sizeof (bool),
-                               SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                NULL },
 };
 
@@ -229,12 +228,12 @@ spa_audiotestsrc_node_set_props (SpaNode         *node,
 static SpaResult
 send_have_output (SpaAudioTestSrc *this)
 {
-  SpaNodeEventHaveOutput ho;
+  SpaNodeEvent event;
 
   if (this->event_cb) {
-    ho.event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
-    ho.event.size = sizeof (ho);
-    this->event_cb (&this->node, &ho.event, this->user_data);
+    event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
+    event.size = sizeof (event);
+    this->event_cb (&this->node, &event, this->user_data);
   }
 
   return SPA_RESULT_OK;
@@ -253,8 +252,24 @@ fill_buffer (SpaAudioTestSrc *this, ATSBuffer *b)
   return SPA_RESULT_OK;
 }
 
-
-static SpaResult update_loop_enabled (SpaAudioTestSrc *this, bool enabled);
+static void
+set_timer (SpaAudioTestSrc *this, bool enabled)
+{
+  if (enabled) {
+    if (this->props[1].live) {
+      uint64_t next_time = this->start_time + this->elapsed_time;
+      this->timerspec.it_value.tv_sec = next_time / SPA_NSEC_PER_SEC;
+      this->timerspec.it_value.tv_nsec = next_time % SPA_NSEC_PER_SEC;
+    } else {
+      this->timerspec.it_value.tv_sec = 0;
+      this->timerspec.it_value.tv_nsec = 1;
+    }
+  } else {
+    this->timerspec.it_value.tv_sec = 0;
+    this->timerspec.it_value.tv_nsec = 0;
+  }
+  timerfd_settime (this->timer_source.fd, TFD_TIMER_ABSTIME, &this->timerspec, NULL);
+}
 
 static void
 audiotestsrc_on_output (SpaSource *source)
@@ -262,9 +277,13 @@ audiotestsrc_on_output (SpaSource *source)
   SpaAudioTestSrc *this = source->data;
   ATSBuffer *b;
   SpaPortOutput *output;
+  uint64_t expirations;
+
+  if (read (this->timer_source.fd, &expirations, sizeof (uint64_t)) < sizeof (uint64_t))
+    perror ("read timerfd");
 
   if (spa_list_is_empty (&this->empty)) {
-    update_loop_enabled (this, false);
+    set_timer (this, false);
     return;
   }
   b = spa_list_first (&this->empty, ATSBuffer, link);
@@ -280,18 +299,7 @@ audiotestsrc_on_output (SpaSource *source)
 
   this->sample_count += b->size / this->bpf;
   this->elapsed_time = SAMPLES_TO_TIME (this, this->sample_count);
-
-  if (this->props[1].live) {
-    uint64_t expirations, next_time;
-
-    if (read (this->timer_source.fd, &expirations, sizeof (uint64_t)) < sizeof (uint64_t))
-      perror ("read timerfd");
-
-    next_time = this->start_time + this->elapsed_time;
-    this->timerspec.it_value.tv_sec = next_time / SPA_NSEC_PER_SEC;
-    this->timerspec.it_value.tv_nsec = next_time % SPA_NSEC_PER_SEC;
-    timerfd_settime (this->timer_source.fd, TFD_TIMER_ABSTIME, &this->timerspec, NULL);
-  }
+  set_timer (this, true);
 
   if ((output = this->output)) {
     b->outstanding = true;
@@ -305,33 +313,6 @@ static void
 update_state (SpaAudioTestSrc *this, SpaNodeState state)
 {
   this->node.state = state;
-}
-
-static SpaResult
-update_loop_enabled (SpaAudioTestSrc *this, bool enabled)
-{
-  if (this->event_cb && this->timer_enabled != enabled) {
-    this->timer_enabled = enabled;
-    if (enabled)
-      this->timer_source.mask = SPA_IO_IN;
-    else
-      this->timer_source.mask = 0;
-
-    if (this->props[1].live) {
-      if (enabled) {
-        uint64_t next_time = this->start_time + this->elapsed_time;
-        this->timerspec.it_value.tv_sec = next_time / SPA_NSEC_PER_SEC;
-        this->timerspec.it_value.tv_nsec = next_time % SPA_NSEC_PER_SEC;
-      }
-      else {
-        this->timerspec.it_value.tv_sec = 0;
-        this->timerspec.it_value.tv_nsec = 0;
-      }
-      timerfd_settime (this->timer_source.fd, TFD_TIMER_ABSTIME, &this->timerspec, NULL);
-    }
-    spa_loop_update_source (this->data_loop, &this->timer_source);
-  }
-  return SPA_RESULT_OK;
 }
 
 static SpaResult
@@ -371,7 +352,7 @@ spa_audiotestsrc_node_send_command (SpaNode        *node,
       this->elapsed_time = 0;
 
       this->started = true;
-      update_loop_enabled (this, true);
+      set_timer (this, true);
       update_state (this, SPA_NODE_STATE_STREAMING);
       break;
     }
@@ -387,7 +368,7 @@ spa_audiotestsrc_node_send_command (SpaNode        *node,
         return SPA_RESULT_OK;
 
       this->started = false;
-      update_loop_enabled (this, false);
+      set_timer (this, false);
       update_state (this, SPA_NODE_STATE_PAUSED);
       break;
     }
@@ -728,9 +709,6 @@ spa_audiotestsrc_node_port_alloc_buffers (SpaNode         *node,
   if (!this->have_format)
     return SPA_RESULT_NO_FORMAT;
 
-  if (this->n_buffers == 0)
-    return SPA_RESULT_NO_BUFFERS;
-
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
@@ -792,7 +770,7 @@ spa_audiotestsrc_node_port_reuse_buffer (SpaNode         *node,
   spa_list_insert (this->empty.prev, &b->link);
 
   if (!this->props[1].live)
-    update_loop_enabled (this, true);
+    set_timer (this, true);
 
   return SPA_RESULT_OK;
 }

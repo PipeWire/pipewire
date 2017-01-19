@@ -266,11 +266,11 @@ pull_frames_queue (SpaALSAState *state,
                    snd_pcm_uframes_t frames)
 {
   if (spa_list_is_empty (&state->ready)) {
-    SpaNodeEventNeedInput ni;
+    SpaNodeEvent event;
 
-    ni.event.type = SPA_NODE_EVENT_TYPE_NEED_INPUT;
-    ni.event.size = sizeof (ni);
-    state->event_cb (&state->node, &ni.event, state->user_data);
+    event.type = SPA_NODE_EVENT_TYPE_NEED_INPUT;
+    event.size = sizeof (event);
+    state->event_cb (&state->node, &event, state->user_data);
   }
   if (!spa_list_is_empty (&state->ready)) {
     uint8_t *src, *dst;
@@ -487,7 +487,7 @@ mmap_read (SpaALSAState *state)
   }
 
   if (b) {
-    SpaNodeEventHaveOutput ho;
+    SpaNodeEvent event;
     SpaData *d;
     SpaPortOutput *output;
 
@@ -501,9 +501,9 @@ mmap_read (SpaALSAState *state)
       output->buffer_id = b->outbuf->id;
       output->status = SPA_RESULT_OK;
     }
-    ho.event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
-    ho.event.size = sizeof (ho);
-    state->event_cb (&state->node, &ho.event, state->user_data);
+    event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
+    event.size = sizeof (event);
+    state->event_cb (&state->node, &event, state->user_data);
   }
   return 0;
 }

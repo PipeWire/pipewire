@@ -1,7 +1,7 @@
 Pinos
 -----
 
-The idea is to make a DBus service where you can provide
+The idea is to make a server where you can provide
 and consume media to/from.
 
 Some of the requirements are:
@@ -16,39 +16,16 @@ only and should be able to handle compressed video and other
 streamable media as well.
 
 The design is in some part inspired by pulseaudio, hence its original
-name. Increasinly we also seem to add functionality of jack.
+name. Increasinly we also seem to add functionality of jack and
+GStreamer.
 
 
-Objects
--------
+Protocol
+--------
 
-Daemon1:   the main pinos daemon
-           /org/pinos/server
-Client1:   a connected client, the result object from call
-           Daemon1.ConnectClient
-           /org/pinos/client*
-Node1:     a processing node, this can be a source, sink or transform
-           element. Nodes have ports
-           /org/pinos/node*
-Link1:     a link between 2 ports
-           /org/pinos/link*
-
-
-DBus protocol
--------------
-
-The main daemon is registered on the session bus with name: org.pinos
-
-Various Node1 objects are registered in the server based on the available
-sources or sinks of content. Node1 has properties and its ports have format
-descriptions of what it can provide or consume.
-
-First a client needs to register a Node1 with pinos by calling
-org.pinos.Daemon1.CreateClientNode(). This creates a new Client1 object and
-a Node 1 object that the client must use for further communication.
-
-A client then needs to use the pinos protocol to control the Node1. It will
-also receive commands and notifications from pinos.
+The protocol is similar to wayland but with custom
+serialization/deserialization of messages. This is because the datastructures
+in the messages are more complicated.
 
 
 fd management
@@ -57,13 +34,6 @@ fd management
 Clients receive fds with buffers and memory after a format was negotiated.
 Updates to these buffers are notified by a message containing the id of the
 buffer.
-
-* client remove
-
-When a client disconnects from pinos, it must have released all fd-indexes
-that it received. Pinos will force a release and will reuse the fd-indexes
-when the client disconnects.
-
 
 Wire
 ----

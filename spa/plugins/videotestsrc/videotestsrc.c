@@ -77,7 +77,6 @@ struct _SpaVideoTestSrc {
   void *user_data;
 
   SpaSource timer_source;
-  bool timer_enabled;
   struct itimerspec timerspec;
 
   SpaPortInfo info;
@@ -194,12 +193,12 @@ spa_videotestsrc_node_set_props (SpaNode         *node,
 static SpaResult
 send_have_output (SpaVideoTestSrc *this)
 {
-  SpaNodeEventHaveOutput ho;
+  SpaNodeEvent event;
 
   if (this->event_cb) {
-    ho.event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
-    ho.event.size = sizeof (ho);
-    this->event_cb (&this->node, &ho.event, this->user_data);
+    event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
+    event.size = sizeof (event);
+    this->event_cb (&this->node, &event, this->user_data);
   }
 
   return SPA_RESULT_OK;
@@ -213,7 +212,24 @@ fill_buffer (SpaVideoTestSrc *this, VTSBuffer *b)
   return draw (this, b->ptr);
 }
 
-static SpaResult update_loop_enabled (SpaVideoTestSrc *this, bool enabled);
+static void
+set_timer (SpaVideoTestSrc *this, bool enabled)
+{
+  if (enabled) {
+    if (this->props[1].live) {
+      uint64_t next_time = this->start_time + this->elapsed_time;
+      this->timerspec.it_value.tv_sec = next_time / SPA_NSEC_PER_SEC;
+      this->timerspec.it_value.tv_nsec = next_time % SPA_NSEC_PER_SEC;
+    } else {
+      this->timerspec.it_value.tv_sec = 0;
+      this->timerspec.it_value.tv_nsec = 1;
+    }
+  } else {
+    this->timerspec.it_value.tv_sec = 0;
+    this->timerspec.it_value.tv_nsec = 0;
+  }
+  timerfd_settime (this->timer_source.fd, TFD_TIMER_ABSTIME, &this->timerspec, NULL);
+}
 
 static void
 videotestsrc_on_output (SpaSource *source)
@@ -221,9 +237,13 @@ videotestsrc_on_output (SpaSource *source)
   SpaVideoTestSrc *this = source->data;
   VTSBuffer *b;
   SpaPortOutput *output;
+  uint64_t expirations;
+
+  if (read (this->timer_source.fd, &expirations, sizeof (uint64_t)) < sizeof (uint64_t))
+    perror ("read timerfd");
 
   if (spa_list_is_empty (&this->empty)) {
-    update_loop_enabled (this, false);
+    set_timer (this, false);
     return;
   }
   b = spa_list_first (&this->empty, VTSBuffer, link);
@@ -239,18 +259,7 @@ videotestsrc_on_output (SpaSource *source)
 
   this->frame_count++;
   this->elapsed_time = FRAMES_TO_TIME (this, this->frame_count);
-
-  if (this->props[1].live) {
-    uint64_t expirations, next_time;
-
-    if (read (this->timer_source.fd, &expirations, sizeof (uint64_t)) < sizeof (uint64_t))
-      perror ("read timerfd");
-
-    next_time = this->start_time + this->elapsed_time;
-    this->timerspec.it_value.tv_sec = next_time / SPA_NSEC_PER_SEC;
-    this->timerspec.it_value.tv_nsec = next_time % SPA_NSEC_PER_SEC;
-    timerfd_settime (this->timer_source.fd, TFD_TIMER_ABSTIME, &this->timerspec, NULL);
-  }
+  set_timer (this, true);
 
   if ((output = this->output)) {
     b->outstanding = true;
@@ -264,33 +273,6 @@ static void
 update_state (SpaVideoTestSrc *this, SpaNodeState state)
 {
   this->node.state = state;
-}
-
-static SpaResult
-update_loop_enabled (SpaVideoTestSrc *this, bool enabled)
-{
-  if (this->event_cb && this->timer_enabled != enabled) {
-    this->timer_enabled = enabled;
-    if (enabled)
-      this->timer_source.mask = SPA_IO_IN;
-    else
-      this->timer_source.mask = 0;
-
-    if (this->props[1].live) {
-      if (enabled) {
-        uint64_t next_time = this->start_time + this->elapsed_time;
-        this->timerspec.it_value.tv_sec = next_time / SPA_NSEC_PER_SEC;
-        this->timerspec.it_value.tv_nsec = next_time % SPA_NSEC_PER_SEC;
-      }
-      else {
-        this->timerspec.it_value.tv_sec = 0;
-        this->timerspec.it_value.tv_nsec = 0;
-      }
-      timerfd_settime (this->timer_source.fd, TFD_TIMER_ABSTIME, &this->timerspec, NULL);
-    }
-    spa_loop_update_source (this->data_loop, &this->timer_source);
-  }
-  return SPA_RESULT_OK;
 }
 
 static SpaResult
@@ -330,7 +312,7 @@ spa_videotestsrc_node_send_command (SpaNode        *node,
       this->elapsed_time = 0;
 
       this->started = true;
-      update_loop_enabled (this, true);
+      set_timer (this, true);
       update_state (this, SPA_NODE_STATE_STREAMING);
       break;
     }
@@ -346,7 +328,7 @@ spa_videotestsrc_node_send_command (SpaNode        *node,
         return SPA_RESULT_OK;
 
       this->started = false;
-      update_loop_enabled (this, false);
+      set_timer (this, false);
       update_state (this, SPA_NODE_STATE_PAUSED);
       break;
     }
@@ -699,9 +681,6 @@ spa_videotestsrc_node_port_alloc_buffers (SpaNode         *node,
   if (!this->have_format)
     return SPA_RESULT_NO_FORMAT;
 
-  if (this->n_buffers == 0)
-    return SPA_RESULT_NO_BUFFERS;
-
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
@@ -763,7 +742,7 @@ spa_videotestsrc_node_port_reuse_buffer (SpaNode         *node,
   spa_list_insert (this->empty.prev, &b->link);
 
   if (!this->props[1].live)
-    update_loop_enabled (this, true);
+    set_timer (this, true);
 
   return SPA_RESULT_OK;
 }

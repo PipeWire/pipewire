@@ -893,7 +893,7 @@ static void
 v4l2_on_fd_events (SpaSource *source)
 {
   SpaV4l2Source *this = source->data;
-  SpaNodeEventHaveOutput ho;
+  SpaNodeEvent event;
 
   if (source->rmask & SPA_IO_ERR)
     return;
@@ -904,9 +904,9 @@ v4l2_on_fd_events (SpaSource *source)
   if (mmap_read (this) < 0)
     return;
 
-  ho.event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
-  ho.event.size = sizeof (ho);
-  this->event_cb (&this->node, &ho.event, this->user_data);
+  event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
+  event.size = sizeof (event);
+  this->event_cb (&this->node, &event, this->user_data);
 }
 
 static SpaResult

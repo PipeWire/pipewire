@@ -23,8 +23,11 @@
 #include <spa/log.h>
 #include <spa/id-map.h>
 #include <spa/node.h>
+#include <spa/list.h>
 #include <spa/audio/format.h>
 #include <lib/props.h>
+
+#define MAX_BUFFERS     16
 
 typedef struct _SpaVolume SpaVolume;
 
@@ -35,12 +38,28 @@ typedef struct {
 } SpaVolumeProps;
 
 typedef struct {
-  bool have_format;
-  SpaPortInfo info;
-  SpaBuffer **buffers;
-  unsigned int n_buffers;
-  SpaBuffer *buffer;
-  void      *io;
+  SpaBuffer     *outbuf;
+  bool           outstanding;
+  SpaMetaHeader *h;
+  void          *ptr;
+  size_t         size;
+  SpaList        link;
+} SpaVolumeBuffer;
+
+typedef struct {
+  bool            have_format;
+
+  SpaPortInfo     info;
+  SpaAllocParam  *params[2];
+  SpaAllocParamBuffers    param_buffers;
+  SpaAllocParamMetaEnable param_meta;
+
+  SpaVolumeBuffer buffers[MAX_BUFFERS];
+  unsigned int    n_buffers;
+
+  void           *io;
+
+  SpaList         empty;
 } SpaVolumePort;
 
 typedef struct {
@@ -60,7 +79,6 @@ struct _SpaVolume {
   SpaNodeEventCallback event_cb;
   void *user_data;
 
-  bool have_format;
   SpaFormatAudio query_format;
   SpaFormatAudio current_format;
 
@@ -114,7 +132,7 @@ reset_volume_props (SpaVolumeProps *props)
 static void
 update_state (SpaVolume *this, SpaNodeState state)
 {
-    this->node.state = state;
+  this->node.state = state;
 }
 
 static SpaResult
@@ -301,6 +319,17 @@ spa_volume_node_port_enum_formats (SpaNode          *node,
 }
 
 static SpaResult
+clear_buffers (SpaVolume *this, SpaVolumePort *port)
+{
+  if (port->n_buffers > 0) {
+    spa_log_info (this->log, "volume %p: clear buffers", this);
+    port->n_buffers = 0;
+    spa_list_init (&port->empty);
+  }
+  return SPA_RESULT_OK;
+}
+
+static SpaResult
 spa_volume_node_port_set_format (SpaNode            *node,
                                  SpaDirection        direction,
                                  uint32_t            port_id,
@@ -311,7 +340,7 @@ spa_volume_node_port_set_format (SpaNode            *node,
   SpaVolumePort *port;
   SpaResult res;
 
-  if (node == NULL || format == NULL)
+  if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaVolume, node);
@@ -323,13 +352,37 @@ spa_volume_node_port_set_format (SpaNode            *node,
 
   if (format == NULL) {
     port->have_format = false;
-    return SPA_RESULT_OK;
+    clear_buffers (this, port);
+  } else {
+    if ((res = spa_format_audio_parse (format, &this->current_format)) < 0)
+      return res;
+
+    port->have_format = true;
   }
 
-  if ((res = spa_format_audio_parse (format, &this->current_format)) < 0)
-    return res;
+  if (port->have_format) {
+    port->info.maxbuffering = -1;
+    port->info.latency = 0;
 
-  port->have_format = true;
+    port->info.n_params = 2;
+    port->info.params = port->params;
+    port->params[0] = &port->param_buffers.param;
+    port->param_buffers.param.type = SPA_ALLOC_PARAM_TYPE_BUFFERS;
+    port->param_buffers.param.size = sizeof (port->param_buffers);
+    port->param_buffers.minsize = 16;
+    port->param_buffers.stride = 16;
+    port->param_buffers.min_buffers = 2;
+    port->param_buffers.max_buffers = MAX_BUFFERS;
+    port->param_buffers.align = 16;
+    port->params[1] = &port->param_meta.param;
+    port->param_meta.param.type = SPA_ALLOC_PARAM_TYPE_META_ENABLE;
+    port->param_meta.param.size = sizeof (port->param_meta);
+    port->param_meta.type = SPA_META_TYPE_HEADER;
+    port->info.extra = NULL;
+    update_state (this, SPA_NODE_STATE_READY);
+  }
+  else
+    update_state (this, SPA_NODE_STATE_CONFIGURE);
 
   return SPA_RESULT_OK;
 }
@@ -409,7 +462,58 @@ spa_volume_node_port_use_buffers (SpaNode         *node,
                                   SpaBuffer      **buffers,
                                   uint32_t         n_buffers)
 {
-  return SPA_RESULT_NOT_IMPLEMENTED;
+  SpaVolume *this;
+  SpaVolumePort *port;
+  unsigned int i;
+
+  if (node == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = SPA_CONTAINER_OF (node, SpaVolume, node);
+
+  if (!CHECK_PORT (this, direction, port_id))
+    return SPA_RESULT_INVALID_PORT;
+
+  port = direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
+
+  if (!port->have_format)
+    return SPA_RESULT_NO_FORMAT;
+
+  clear_buffers (this, port);
+
+  for (i = 0; i < n_buffers; i++) {
+    SpaVolumeBuffer *b;
+    SpaData *d = buffers[i]->datas;
+
+    b = &port->buffers[i];
+    b->outbuf = buffers[i];
+    b->outstanding = true;
+    b->h = spa_buffer_find_meta (buffers[i], SPA_META_TYPE_HEADER);
+
+    switch (d[0].type) {
+      case SPA_DATA_TYPE_MEMPTR:
+      case SPA_DATA_TYPE_MEMFD:
+      case SPA_DATA_TYPE_DMABUF:
+        if (d[0].data == NULL) {
+          spa_log_error (this->log, "volume %p: invalid memory on buffer %p", this, buffers[i]);
+          continue;
+        }
+        b->ptr = d[0].data;
+        b->size = d[0].maxsize;
+        break;
+      default:
+        break;
+    }
+    spa_list_insert (port->empty.prev, &b->link);
+  }
+  port->n_buffers = n_buffers;
+
+  if (port->n_buffers > 0) {
+    update_state (this, SPA_NODE_STATE_PAUSED);
+  } else {
+    update_state (this, SPA_NODE_STATE_READY);
+  }
+  return SPA_RESULT_OK;
 }
 
 static SpaResult
@@ -469,7 +573,34 @@ spa_volume_node_port_reuse_buffer (SpaNode         *node,
                                    uint32_t         port_id,
                                    uint32_t         buffer_id)
 {
-  return SPA_RESULT_NOT_IMPLEMENTED;
+  SpaVolume *this;
+  SpaVolumeBuffer *b;
+  SpaVolumePort *port;
+
+  if (node == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = SPA_CONTAINER_OF (node, SpaVolume, node);
+
+  if (!CHECK_PORT (this, SPA_DIRECTION_OUTPUT, port_id))
+    return SPA_RESULT_INVALID_PORT;
+
+  port = &this->out_ports[port_id];
+
+  if (port->n_buffers == 0)
+    return SPA_RESULT_NO_BUFFERS;
+
+  if (buffer_id >= port->n_buffers)
+    return SPA_RESULT_INVALID_BUFFER_ID;
+
+  b = &port->buffers[buffer_id];
+  if (!b->outstanding)
+    return SPA_RESULT_OK;
+
+  b->outstanding = false;
+  spa_list_insert (port->empty.prev, &b->link);
+
+  return SPA_RESULT_OK;
 }
 
 static SpaResult
@@ -481,47 +612,19 @@ spa_volume_node_port_send_command (SpaNode        *node,
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_volume_node_process_input (SpaNode *node)
-{
-  SpaVolume *this;
-  SpaPortInput *input;
-  SpaPortOutput *output;
-  SpaVolumePort *port;
-
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
-  this = SPA_CONTAINER_OF (node, SpaVolume, node);
-
-  port = &this->in_ports[0];
-
-  if ((input = port->io) == NULL)
-    return SPA_RESULT_ERROR;
-  if ((output = this->out_ports[0].io) == NULL)
-    return SPA_RESULT_ERROR;
-
-  if (input->buffer_id >= port->n_buffers) {
-    input->status = SPA_RESULT_INVALID_BUFFER_ID;
-    return SPA_RESULT_ERROR;
-  }
-  if (!port->have_format) {
-    input->status = SPA_RESULT_NO_FORMAT;
-    return SPA_RESULT_ERROR;
-  }
-  port->buffer = port->buffers[input->buffer_id];
-
-  input->status = SPA_RESULT_HAVE_ENOUGH_INPUT;
-  input->flags &= ~SPA_PORT_STATUS_FLAG_NEED_INPUT;
-  output->flags |= SPA_PORT_STATUS_FLAG_HAVE_OUTPUT;
-
-  return SPA_RESULT_HAVE_ENOUGH_INPUT;
-}
-
 static SpaBuffer *
 find_free_buffer (SpaVolume *this, SpaVolumePort *port)
 {
-  return NULL;
+  SpaVolumeBuffer *b;
+
+  if (spa_list_is_empty (&port->empty))
+    return NULL;
+
+  b = spa_list_first (&port->empty, SpaVolumeBuffer, link);
+  spa_list_remove (&b->link);
+  b->outstanding = true;
+
+  return b->outbuf;
 }
 
 static void
@@ -536,41 +639,15 @@ release_buffer (SpaVolume *this, SpaBuffer *buffer)
   this->event_cb (&this->node, &rb.event, this->user_data);
 }
 
-static SpaResult
-spa_volume_node_process_output (SpaNode *node)
+static void
+do_volume (SpaVolume *this, SpaBuffer *dbuf, SpaBuffer *sbuf)
 {
-  SpaVolume *this;
-  SpaVolumePort *port;
   unsigned int si, di, i, n_samples, n_bytes, soff, doff ;
-  SpaBuffer *sbuf, *dbuf;
   SpaData *sd, *dd;
   uint16_t *src, *dst;
   double volume;
-  SpaPortInput *input;
-  SpaPortInput *output;
-
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
-  this = SPA_CONTAINER_OF (node, SpaVolume, node);
-
-  port = &this->out_ports[0];
-
-  if ((output = port->io) == NULL)
-    return SPA_RESULT_ERROR;
-  if ((input = this->in_ports[0].io) == NULL)
-    return SPA_RESULT_ERROR;
-
-  if (!port->have_format)
-    return SPA_RESULT_NO_FORMAT;
-
-  if (this->in_ports[0].buffer == NULL)
-    return SPA_RESULT_NEED_MORE_INPUT;
 
   volume = this->props[1].volume;
-
-  sbuf = this->in_ports[0].buffer;
-  dbuf = find_free_buffer (this, port);
 
   si = di = 0;
   soff = doff = 0;
@@ -603,17 +680,67 @@ spa_volume_node_process_output (SpaNode *node)
       doff = 0;
     }
   }
-  if (sbuf != dbuf)
-    release_buffer (this, sbuf);
+}
 
-  this->in_ports[0].buffer = NULL;
+static SpaResult
+spa_volume_node_process_input (SpaNode *node)
+{
+  SpaVolume *this;
+  SpaPortInput *input;
+  SpaPortOutput *output;
+  SpaVolumePort *in_port, *out_port;
+  SpaBuffer *dbuf, *sbuf;
+
+  if (node == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = SPA_CONTAINER_OF (node, SpaVolume, node);
+
+  in_port = &this->in_ports[0];
+  out_port = &this->out_ports[0];
+
+  if ((input = in_port->io) == NULL)
+    return SPA_RESULT_ERROR;
+  if ((output = out_port->io) == NULL)
+    return SPA_RESULT_ERROR;
+
+  if (!in_port->have_format) {
+    input->status = SPA_RESULT_NO_FORMAT;
+    return SPA_RESULT_ERROR;
+  }
+  if (input->buffer_id >= in_port->n_buffers) {
+    input->status = SPA_RESULT_INVALID_BUFFER_ID;
+    return SPA_RESULT_ERROR;
+  }
+
+  if (output->buffer_id >= out_port->n_buffers) {
+    dbuf = find_free_buffer (this, out_port);
+  } else {
+    dbuf = out_port->buffers[output->buffer_id].outbuf;
+  }
+  if (dbuf == NULL)
+    return SPA_RESULT_OUT_OF_BUFFERS;
+
+  sbuf = in_port->buffers[input->buffer_id].outbuf;
+
+  input->buffer_id = SPA_ID_INVALID;
+  input->status = SPA_RESULT_OK;
+
+  do_volume (this, sbuf, dbuf);
+
   output->buffer_id = dbuf->id;
   output->status = SPA_RESULT_OK;
 
-  input->flags |= SPA_PORT_STATUS_FLAG_NEED_INPUT;
-  output->flags &= ~SPA_PORT_STATUS_FLAG_HAVE_OUTPUT;
+  if (sbuf != dbuf)
+    release_buffer (this, sbuf);
 
-  return SPA_RESULT_OK;
+  return SPA_RESULT_HAVE_OUTPUT;
+}
+
+static SpaResult
+spa_volume_node_process_output (SpaNode *node)
+{
+  return SPA_RESULT_NEED_INPUT;
 }
 
 static const SpaNode volume_node = {
@@ -707,9 +834,11 @@ volume_init (const SpaHandleFactory  *factory,
 
   this->in_ports[0].info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
                                  SPA_PORT_INFO_FLAG_IN_PLACE;
-  this->out_ports[0].info.flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS |
-                                  SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
+  spa_list_init (&this->in_ports[0].empty);
+
+  this->out_ports[0].info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
                                   SPA_PORT_INFO_FLAG_NO_REF;
+  spa_list_init (&this->out_ports[0].empty);
 
   return SPA_RESULT_OK;
 }

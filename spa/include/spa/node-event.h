@@ -78,14 +78,6 @@ typedef struct {
 
 typedef struct {
   SpaNodeEvent event;
-} SpaNodeEventHaveOutput;
-
-typedef struct {
-  SpaNodeEvent event;
-} SpaNodeEventNeedInput;
-
-typedef struct {
-  SpaNodeEvent event;
   uint32_t port_id;
   uint32_t buffer_id;
 } SpaNodeEventReuseBuffer;

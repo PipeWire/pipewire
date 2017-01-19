@@ -102,7 +102,8 @@ again:
       }
     }
     pinos_log_debug ("Try filter: %p", filter);
-    spa_debug_format (filter);
+    if (pinos_log_level_enabled (SPA_LOG_LEVEL_DEBUG))
+      spa_debug_format (filter);
 
     if ((res = spa_node_port_enum_formats (this->output->node->node,
                                            SPA_DIRECTION_OUTPUT,
@@ -118,7 +119,9 @@ again:
       goto error;
     }
     pinos_log_debug ("Got filtered:");
-    spa_debug_format (format);
+    if (pinos_log_level_enabled (SPA_LOG_LEVEL_DEBUG))
+      spa_debug_format (format);
+
     spa_format_fixate (format);
   } else if (in_state == SPA_NODE_STATE_CONFIGURE && out_state > SPA_NODE_STATE_CONFIGURE) {
     /* only input needs format */
@@ -142,7 +145,8 @@ again:
     return SPA_RESULT_OK;
 
   pinos_log_debug ("link %p: doing set format", this);
-  spa_debug_format (format);
+  if (pinos_log_level_enabled (SPA_LOG_LEVEL_DEBUG))
+    spa_debug_format (format);
 
   if (out_state == SPA_NODE_STATE_CONFIGURE) {
     pinos_log_debug ("link %p: doing set format on output", this);
@@ -371,8 +375,10 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
     asprintf (&error, "error get input port info: %d", res);
     goto error;
   }
-  spa_debug_port_info (oinfo);
-  spa_debug_port_info (iinfo);
+  if (pinos_log_level_enabled (SPA_LOG_LEVEL_DEBUG)) {
+    spa_debug_port_info (oinfo);
+    spa_debug_port_info (iinfo);
+  }
 
   in_flags = iinfo->flags;
   out_flags = oinfo->flags;

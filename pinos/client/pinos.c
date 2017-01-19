@@ -35,6 +35,10 @@
 void
 pinos_init (int *argc, char **argv[])
 {
+  const char *str;
+
+  if ((str = getenv ("PINOS_DEBUG")))
+    pinos_log_set_level (atoi (str));
 }
 
 const char *

@@ -28,25 +28,28 @@ extern "C" {
 
 extern SpaLogLevel pinos_log_level;
 
-SpaLog *      pinos_log_get    (void);
+SpaLog *      pinos_log_get       (void);
 
+void          pinos_log_set_level (SpaLogLevel level);
 
-void          pinos_log_log    (SpaLogLevel  level,
-                                const char  *file,
-                                int          line,
-                                const char  *func,
-                                const char  *fmt, ...) SPA_PRINTF_FUNC(5, 6);
-void          pinos_log_logv   (SpaLogLevel  level,
-                                const char  *file,
-                                int          line,
-                                const char  *func,
-                                const char  *fmt,
-                                va_list      args) SPA_PRINTF_FUNC(5, 0);
+void          pinos_log_log       (SpaLogLevel  level,
+                                   const char  *file,
+                                   int          line,
+                                   const char  *func,
+                                   const char  *fmt, ...) SPA_PRINTF_FUNC(5, 6);
+void          pinos_log_logv      (SpaLogLevel  level,
+                                   const char  *file,
+                                   int          line,
+                                   const char  *func,
+                                   const char  *fmt,
+                                   va_list      args) SPA_PRINTF_FUNC(5, 0);
+
+#define pinos_log_level_enabled(lev) (pinos_log_level >= (lev))
 
 #if __STDC_VERSION__ >= 199901L
 
 #define pinos_log_logc(lev,...)                         \
-  if (SPA_UNLIKELY (lev <= pinos_log_level))            \
+  if (SPA_UNLIKELY (pinos_log_level_enabled (lev)))     \
     pinos_log_log(lev,__VA_ARGS__)
 
 #define pinos_log_error(...)           pinos_log_logc(SPA_LOG_LEVEL_ERROR,__FILE__,__LINE__,__func__,__VA_ARGS__)
@@ -60,7 +63,7 @@ void          pinos_log_logv   (SpaLogLevel  level,
 #define PINOS_LOG_FUNC(name,lev)                                                \
 static inline void pinos_log_##name (const char *format, ...)                   \
 {                                                                               \
-  if (lev >= pinos_log_level) {                                                 \
+  if (SPA_UNLIKELY (pinos_log_level_enabled (lev)))                             \
     va_list varargs;                                                            \
     va_start (varargs, format);                                                 \
     pinos_log_logv (lev,__FILE__,__LINE__,__func__,format,varargs);             \

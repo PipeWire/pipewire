@@ -21,7 +21,9 @@
 
 #include <pinos/client/log.h>
 
-SpaLogLevel pinos_log_level = SPA_LOG_LEVEL_DEBUG;
+#define DEFAULT_LOG_LEVEL SPA_LOG_LEVEL_ERROR
+
+SpaLogLevel pinos_log_level = DEFAULT_LOG_LEVEL;
 
 static void
 do_logv (SpaLog        *log,
@@ -67,7 +69,7 @@ do_log (SpaLog        *log,
 static SpaLog log = {
   sizeof (SpaLog),
   NULL,
-  SPA_LOG_LEVEL_DEBUG,
+  DEFAULT_LOG_LEVEL,
   do_log,
   do_logv,
 };
@@ -78,6 +80,12 @@ pinos_log_get (void)
   return &log;
 }
 
+void
+pinos_log_set_level (SpaLogLevel level)
+{
+  pinos_log_level = level;
+  log.level = level;
+}
 
 void
 pinos_log_log (SpaLogLevel  level,
@@ -86,7 +94,7 @@ pinos_log_log (SpaLogLevel  level,
                const char  *func,
                const char  *fmt, ...)
 {
-  if (log.level >= level) {
+  if (SPA_UNLIKELY (pinos_log_level_enabled (level))) {
     va_list args;
     va_start (args, fmt);
     do_logv (&log, level, file, line, func, fmt, args);
@@ -102,7 +110,7 @@ pinos_log_logv (SpaLogLevel  level,
                 const char  *fmt,
                 va_list      args)
 {
-  if (log.level >= level) {
+  if (SPA_UNLIKELY (pinos_log_level_enabled (level))) {
     do_logv (&log, level, file, line, func, fmt, args);
   }
 }

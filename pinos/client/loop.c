@@ -647,8 +647,6 @@ pinos_loop_destroy (PinosLoop *loop)
   spa_list_for_each_safe (source, tmp, &impl->source_list, link)
     loop_destroy_source (&source->source);
 
-  pinos_loop_destroy_source (loop, impl->event);
-
   close (impl->epoll_fd);
   free (impl);
 }

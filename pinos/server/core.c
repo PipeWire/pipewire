@@ -63,8 +63,8 @@ registry_dispatch_func (void             *object,
                                  "unknown object id %u", m->id);
         return SPA_RESULT_ERROR;
       }
-      pinos_log_debug ("global %p: bind object id %d", global, m->id);
-      res = pinos_global_bind (global, client, 0, m->id);
+      pinos_log_debug ("global %p: bind object id %d to %d", global, m->id, m->new_id);
+      res = pinos_global_bind (global, client, 0, m->new_id);
       break;
     }
     default:
@@ -110,7 +110,7 @@ core_dispatch_func (void             *object,
       PinosResource *registry_resource;
 
       registry_resource = pinos_resource_new (resource->client,
-                                              SPA_ID_INVALID,
+                                              m->new_id,
                                               this->uri.registry,
                                               this,
                                               destroy_registry_resource);
@@ -203,6 +203,7 @@ core_unbind_func (void *data)
 {
   PinosResource *resource = data;
   resource->client->core_resource = NULL;
+  spa_list_remove (&resource->link);
 }
 
 static SpaResult
@@ -228,20 +229,21 @@ core_bind_func (PinosGlobal *global,
                                core_dispatch_func,
                                this);
 
+  spa_list_insert (this->resource_list.prev, &resource->link);
   client->core_resource = resource;
 
   pinos_log_debug ("core %p: bound to %d", global->object, resource->id);
 
   m.info = &info;
   info.id = global->id;
-  info.change_mask = ~0;
+  info.change_mask = PINOS_CORE_CHANGE_MASK_ALL;
   info.user_name = pinos_get_user_name ();
   info.host_name = pinos_get_host_name ();
   info.version = "0";
   info.name = "pinos-0";
   srandom (time (NULL));
   info.cookie = random ();
-  info.props = NULL;
+  info.props = this->properties ? &this->properties->dict : NULL;
 
   return pinos_client_send_message (resource->client,
                                     resource,
@@ -254,7 +256,8 @@ no_mem:
 }
 
 PinosCore *
-pinos_core_new (PinosMainLoop *main_loop)
+pinos_core_new (PinosMainLoop   *main_loop,
+                PinosProperties *properties)
 {
   PinosCoreImpl *impl;
   PinosCore *this;
@@ -269,6 +272,7 @@ pinos_core_new (PinosMainLoop *main_loop)
     goto no_data_loop;
 
   this->main_loop = main_loop;
+  this->properties = properties;
 
   pinos_uri_init (&this->uri);
   pinos_access_init (&this->access);
@@ -287,6 +291,7 @@ pinos_core_new (PinosMainLoop *main_loop)
 
   pinos_data_loop_start (this->data_loop);
 
+  spa_list_init (&this->resource_list);
   spa_list_init (&this->registry_resource_list);
   spa_list_init (&this->global_list);
   spa_list_init (&this->client_list);
@@ -423,6 +428,40 @@ pinos_global_destroy (PinosGlobal *global)
 
   pinos_log_debug ("global %p: free", global);
   free (global);
+}
+
+void
+pinos_core_update_properties (PinosCore     *core,
+                              const SpaDict *dict)
+{
+  PinosMessageCoreInfo m;
+  PinosCoreInfo info;
+  PinosResource *resource;
+
+  if (core->properties == NULL) {
+    if (dict)
+      core->properties = pinos_properties_new_dict (dict);
+  } else if (dict != &core->properties->dict) {
+    unsigned int i;
+
+    for (i = 0; i < dict->n_items; i++)
+      pinos_properties_set (core->properties,
+                            dict->items[i].key,
+                            dict->items[i].value);
+  }
+
+  m.info = &info;
+  info.id = core->global->id;
+  info.change_mask = PINOS_CORE_CHANGE_MASK_PROPS;
+  info.props = core->properties ? &core->properties->dict : NULL;
+
+  spa_list_for_each (resource, &core->resource_list, link) {
+    pinos_client_send_message (resource->client,
+                               resource,
+                               PINOS_MESSAGE_CORE_INFO,
+                               &m,
+                               true);
+  }
 }
 
 PinosPort *

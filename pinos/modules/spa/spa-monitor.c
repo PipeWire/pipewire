@@ -81,16 +81,18 @@ add_item (PinosSpaMonitor *this, SpaMonitorItem *item)
     pinos_log_info ("no CLOCK interface: %d", res);
   }
 
+  props = pinos_properties_new (NULL, NULL);
+
   if (item->info) {
     unsigned int i;
-
-    props = pinos_properties_new (NULL, NULL);
 
     for (i = 0; i < item->info->n_items; i++)
       pinos_properties_set (props,
                             item->info->items[i].key,
                             item->info->items[i].value);
   }
+
+  pinos_properties_set (props, "media.class", item->klass);
 
   mitem = calloc (1, sizeof (PinosSpaMonitorItem));
   mitem->id = strdup (item->id);
@@ -168,10 +170,31 @@ on_monitor_event  (SpaMonitor      *monitor,
   }
 }
 
+static void
+update_monitor (PinosCore  *core,
+                const char *name)
+{
+  PinosProperties *props;
+  const char *monitors;
+
+  if (!(props = core->properties))
+    props = pinos_properties_new (NULL, NULL);
+
+  monitors = pinos_properties_get (props, "monitors");
+
+  if (monitors == NULL)
+    pinos_properties_setf (props, "monitors", "%s", name);
+  else
+    pinos_properties_setf (props, "monitors", "%s,%s", monitors, name);
+
+  pinos_core_update_properties (core, &props->dict);
+}
+
 PinosSpaMonitor *
 pinos_spa_monitor_load (PinosCore  *core,
                         const char *lib,
-                        const char *factory_name)
+                        const char *factory_name,
+                        const char *system_name)
 {
   PinosSpaMonitorImpl *impl;
   PinosSpaMonitor *this;
@@ -226,7 +249,10 @@ pinos_spa_monitor_load (PinosCore  *core,
   this->monitor = iface;
   this->lib = strdup (lib);
   this->factory_name = strdup (factory_name);
+  this->system_name = strdup (system_name);
   this->handle = handle;
+
+  update_monitor (core, this->system_name);
 
   spa_list_init (&impl->item_list);
 
@@ -273,6 +299,7 @@ pinos_spa_monitor_destroy (PinosSpaMonitor * monitor)
   free (monitor->handle);
   free (monitor->lib);
   free (monitor->factory_name);
+  free (monitor->system_name);
 
   dlclose (impl->hnd);
   free (impl);

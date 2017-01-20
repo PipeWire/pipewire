@@ -40,15 +40,15 @@ pinos_proxy_new (PinosContext *context,
     return NULL;
 
   this = &impl->this;
-
   this->context = context;
   this->type = type;
 
   pinos_signal_init (&this->destroy_signal);
 
   this->id = pinos_map_insert_new (&context->objects, this);
-
   spa_list_insert (&this->context->proxy_list, &this->link);
+
+  pinos_log_debug ("proxy %p: new %u", this, this->id);
 
   return this;
 }
@@ -58,10 +58,13 @@ pinos_proxy_destroy (PinosProxy *proxy)
 {
   PinosProxyImpl *impl = SPA_CONTAINER_OF (proxy, PinosProxyImpl, this);
 
+  pinos_log_debug ("proxy %p: destroy %u", proxy, proxy->id);
   pinos_signal_emit (&proxy->destroy_signal, proxy);
 
   pinos_map_remove (&proxy->context->objects, proxy->id);
   spa_list_remove (&proxy->link);
+
+  pinos_log_debug ("proxy %p: free", proxy);
   free (impl);
 }
 

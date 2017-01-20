@@ -195,7 +195,6 @@ typedef struct {
 /* PINOS_MESSAGE_DESTROY */
 typedef struct {
   uint32_t     seq;
-  uint32_t     id;
 } PinosMessageDestroy;
 
 /*  PINOS_MESSAGE_NODE_UPDATE */

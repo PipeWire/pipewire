@@ -43,16 +43,20 @@ pinos_resource_new (PinosClient *client,
     return NULL;
 
   this = &impl->this;
-
   this->core = client->core;
   this->client = client;
   this->type = type;
   this->object = object;
   this->destroy = destroy;
+  this->id = id;
 
   pinos_signal_init (&this->destroy_signal);
 
-  this->id = pinos_map_insert_new (&client->objects, this);
+  if (!pinos_map_insert_at (&client->objects, this->id, this)) {
+    free (impl);
+    return NULL;
+  }
+
   pinos_log_debug ("resource %p: new for client %p id %u", this, client, this->id);
   pinos_signal_emit (&client->resource_added, client, this);
 
@@ -64,8 +68,14 @@ pinos_resource_destroy (PinosResource *resource)
 {
   PinosClient *client = resource->client;
 
-  pinos_log_debug ("resource %p: destroy", resource);
+  pinos_log_debug ("resource %p: destroy %u", resource, resource->id);
   pinos_signal_emit (&resource->destroy_signal, resource);
+
+  pinos_map_remove (&client->objects, resource->id);
+  pinos_signal_emit (&client->resource_removed, client, resource);
+
+  if (resource->destroy)
+    resource->destroy (resource);
 
   if (client->core_resource) {
     PinosMessageRemoveId m;
@@ -76,12 +86,6 @@ pinos_resource_destroy (PinosResource *resource)
                                &m,
                                true);
   }
-
-  pinos_map_remove (&client->objects, resource->id);
-  pinos_signal_emit (&client->resource_removed, client, resource);
-
-  if (resource->destroy)
-    resource->destroy (resource);
 
   pinos_log_debug ("resource %p: free", resource);
   free (resource);

@@ -42,7 +42,7 @@ main (int argc, char *argv[])
   }
 
   loop = pinos_main_loop_new ();
-  core = pinos_core_new (loop);
+  core = pinos_core_new (loop, NULL);
 
   pinos_daemon_config_run_commands (config, core);
 

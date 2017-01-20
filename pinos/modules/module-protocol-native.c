@@ -349,7 +349,7 @@ add_socket (PinosProtocolNative *impl, Socket *s)
 {
   socklen_t size;
 
-  if ((s->fd = socket (PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC, 0)) < 0)
+  if ((s->fd = socket (PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0)
     return false;
 
   size = offsetof (struct sockaddr_un, sun_path) + strlen (s->addr.sun_path);

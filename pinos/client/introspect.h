@@ -118,6 +118,13 @@ const char * pinos_link_state_as_string (PinosLinkState state);
 struct _PinosCoreInfo {
   uint32_t id;
   uint64_t change_mask;
+#define PINOS_CORE_CHANGE_MASK_USER_NAME  (1 << 0)
+#define PINOS_CORE_CHANGE_MASK_HOST_NAME  (1 << 1)
+#define PINOS_CORE_CHANGE_MASK_VERSION    (1 << 2)
+#define PINOS_CORE_CHANGE_MASK_NAME       (1 << 3)
+#define PINOS_CORE_CHANGE_MASK_COOKIE     (1 << 4)
+#define PINOS_CORE_CHANGE_MASK_PROPS      (1 << 5)
+#define PINOS_CORE_CHANGE_MASK_ALL        (~0)
   const char *user_name;
   const char *host_name;
   const char *version;

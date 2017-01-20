@@ -116,8 +116,14 @@ pinos__module_init (PinosModule * module, const char * args)
     pinos_free_strv (tmp_argv);
   }
 
-  pinos_spa_monitor_load (module->core, "build/spa/plugins/alsa/libspa-alsa.so", "alsa-monitor");
-  pinos_spa_monitor_load (module->core, "build/spa/plugins/v4l2/libspa-v4l2.so", "v4l2-monitor");
+  pinos_spa_monitor_load (module->core,
+                          "build/spa/plugins/alsa/libspa-alsa.so",
+                          "alsa-monitor",
+                          "alsa");
+  pinos_spa_monitor_load (module->core,
+                          "build/spa/plugins/v4l2/libspa-v4l2.so",
+                          "v4l2-monitor",
+                          "v4l2");
   pinos_spa_node_load (module->core,
                        "build/spa/plugins/audiotestsrc/libspa-audiotestsrc.so",
                        "audiotestsrc",

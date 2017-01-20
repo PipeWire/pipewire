@@ -88,6 +88,25 @@ pinos_map_insert_new (PinosMap *map,
   return id;
 }
 
+static inline bool
+pinos_map_insert_at (PinosMap *map,
+                     uint32_t  id,
+                     void     *data)
+{
+  size_t size = pinos_map_get_size (map);
+  PinosMapItem *item;
+
+  if (id > size)
+    return false;
+  else if (id == size)
+    item = pinos_array_add (&map->items, sizeof (PinosMapItem));
+  else
+    item = pinos_map_get_item (map, id);
+
+  item->data = data;
+  return true;
+}
+
 static inline void
 pinos_map_remove (PinosMap *map,
                   uint32_t  id)

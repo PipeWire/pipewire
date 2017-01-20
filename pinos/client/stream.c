@@ -74,14 +74,15 @@ typedef struct
 
   PinosStreamFlags flags;
 
-  bool disconnecting;
-
   PinosStreamMode mode;
 
   int rtfd;
   SpaSource *rtsocket_source;
 
   PinosProxy *node_proxy;
+  bool disconnecting;
+  PinosListener node_proxy_destroy;
+
   PinosTransport *trans;
 
   SpaSource *timeout_source;
@@ -845,6 +846,18 @@ stream_dispatch_func (void             *object,
   return SPA_RESULT_OK;
 }
 
+static void
+on_node_proxy_destroy (PinosListener *listener,
+                       PinosProxy    *proxy)
+{
+  PinosStreamImpl *impl = SPA_CONTAINER_OF (listener, PinosStreamImpl, node_proxy_destroy);
+  PinosStream *this = &impl->this;
+
+  impl->disconnecting = false;
+  impl->node_proxy = NULL;
+  stream_set_state (this, PINOS_STREAM_STATE_UNCONNECTED, NULL);
+}
+
 /**
  * pinos_stream_connect:
  * @stream: a #PinosStream
@@ -896,6 +909,10 @@ pinos_stream_connect (PinosStream      *stream,
                                       stream->context->uri.client_node);
   if (impl->node_proxy == NULL)
     return false;
+
+  pinos_signal_add (&impl->node_proxy->destroy_signal,
+                    &impl->node_proxy_destroy,
+                    on_node_proxy_destroy);
 
   pinos_proxy_set_dispatch (impl->node_proxy,
                             stream_dispatch_func,
@@ -1002,8 +1019,17 @@ bool
 pinos_stream_disconnect (PinosStream *stream)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
+  PinosMessageDestroy msg;
 
   impl->disconnecting = true;
+
+  unhandle_socket (stream);
+
+  msg.seq = ++impl->seq;
+  pinos_proxy_send_message (impl->node_proxy,
+                            PINOS_MESSAGE_DESTROY,
+                            &msg,
+                            true);
 
   return true;
 }

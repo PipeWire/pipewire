@@ -302,7 +302,6 @@ loop_iterate (SpaLoopControl *ctrl,
     SpaSource *source = ep[i].data.ptr;
     if (source->rmask) {
       source->func (source);
-      source->rmask = 0;
     }
   }
   return SPA_RESULT_OK;
@@ -311,8 +310,8 @@ loop_iterate (SpaLoopControl *ctrl,
 static void
 source_io_func (SpaSource *source)
 {
-  SpaSourceImpl *s = SPA_CONTAINER_OF (source, SpaSourceImpl, source);
-  s->func.io (source, source->fd, source->rmask, source->data);
+  SpaSourceImpl *impl = SPA_CONTAINER_OF (source, SpaSourceImpl, source);
+  impl->func.io (source, source->fd, source->rmask, source->data);
 }
 
 static SpaSource *
@@ -357,8 +356,8 @@ loop_update_io (SpaSource *source,
 static void
 source_idle_func (SpaSource *source)
 {
-  SpaSourceImpl *s = SPA_CONTAINER_OF (source, SpaSourceImpl, source);
-  s->func.idle (source, source->data);
+  SpaSourceImpl *impl = SPA_CONTAINER_OF (source, SpaSourceImpl, source);
+  impl->func.idle (source, source->data);
 }
 
 static SpaSource *
@@ -409,13 +408,13 @@ loop_enable_idle (SpaSource *source,
 static void
 source_event_func (SpaSource *source)
 {
-  SpaSourceImpl *s = SPA_CONTAINER_OF (source, SpaSourceImpl, source);
+  SpaSourceImpl *impl = SPA_CONTAINER_OF (source, SpaSourceImpl, source);
   uint64_t count;
 
   if (read (source->fd, &count, sizeof (uint64_t)) != sizeof (uint64_t))
     pinos_log_warn ("loop %p: failed to read event fd: %s", source, strerror (errno));
 
-  s->func.event (source, source->data);
+  impl->func.event (source, source->data);
 }
 
 static SpaSource *
@@ -457,13 +456,13 @@ loop_signal_event (SpaSource *source)
 static void
 source_timer_func (SpaSource *source)
 {
-  SpaSourceImpl *s = SPA_CONTAINER_OF (source, SpaSourceImpl, source);
+  SpaSourceImpl *impl = SPA_CONTAINER_OF (source, SpaSourceImpl, source);
   uint64_t expires;
 
   if (read (source->fd, &expires, sizeof (uint64_t)) != sizeof (uint64_t))
     pinos_log_warn ("loop %p: failed to read timer fd: %s", source, strerror (errno));
 
-  s->func.timer (source, source->data);
+  impl->func.timer (source, source->data);
 }
 
 static SpaSource *
@@ -519,13 +518,13 @@ loop_update_timer (SpaSource       *source,
 static void
 source_signal_func (SpaSource *source)
 {
-  SpaSourceImpl *s = SPA_CONTAINER_OF (source, SpaSourceImpl, source);
+  SpaSourceImpl *impl = SPA_CONTAINER_OF (source, SpaSourceImpl, source);
   struct signalfd_siginfo signal_info;
 
   if (read (source->fd, &signal_info, sizeof (signal_info)) != sizeof (signal_info))
     pinos_log_warn ("loop %p: failed to read signal fd: %s", source, strerror (errno));
 
-  s->func.signal (source, s->signal_number, source->data);
+  impl->func.signal (source, impl->signal_number, source->data);
 }
 
 static SpaSource *
@@ -564,15 +563,15 @@ loop_add_signal (SpaLoopUtils        *utils,
 static void
 loop_destroy_source (SpaSource *source)
 {
-  SpaSourceImpl *s = SPA_CONTAINER_OF (source, SpaSourceImpl, source);
+  SpaSourceImpl *impl = SPA_CONTAINER_OF (source, SpaSourceImpl, source);
 
-  spa_list_remove (&s->link);
+  spa_list_remove (&impl->link);
 
   spa_loop_remove_source (source->loop, source);
 
-  if (source->fd != -1 && s->close)
+  if (source->fd != -1 && impl->close)
     close (source->fd);
-  free (s);
+  free (impl);
 }
 
 PinosLoop *

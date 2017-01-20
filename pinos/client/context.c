@@ -443,6 +443,7 @@ on_context_data (SpaSource *source,
         pinos_log_error ("context %p: could not find proxy %u", this, id);
         continue;
       }
+      pinos_log_debug ("context %p: object dispatch %u", this, id);
 
       pinos_proxy_dispatch (proxy, type, p);
     }
@@ -588,7 +589,7 @@ pinos_context_connect (PinosContext *context)
   if (name == NULL)
     name = "pinos-0";
 
-  if ((fd = socket (PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC, 0)) < 0)
+  if ((fd = socket (PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0)
     return false;
 
   memset (&addr, 0, sizeof (addr));

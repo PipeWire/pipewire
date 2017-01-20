@@ -81,9 +81,12 @@ gst_pinos_device_create_element (GstDevice * device, const gchar * name)
 {
   GstPinosDevice *pinos_dev = GST_PINOS_DEVICE (device);
   GstElement *elem;
+  gchar *str;
 
   elem = gst_element_factory_make (pinos_dev->element, name);
-  g_object_set (elem, "path", pinos_dev->id, NULL);
+  str = g_strdup_printf ("%u", pinos_dev->id);
+  g_object_set (elem, "path", str, NULL);
+  g_free (str);
 
   return elem;
 }
@@ -92,6 +95,7 @@ static gboolean
 gst_pinos_device_reconfigure_element (GstDevice * device, GstElement * element)
 {
   GstPinosDevice *pinos_dev = GST_PINOS_DEVICE (device);
+  gchar *str;
 
   if (!strcmp (pinos_dev->element, "pinossrc")) {
     if (!GST_IS_PINOS_SRC (element))
@@ -103,7 +107,9 @@ gst_pinos_device_reconfigure_element (GstDevice * device, GstElement * element)
     g_assert_not_reached ();
   }
 
-  g_object_set (element, "path", pinos_dev->id, NULL);
+  str = g_strdup_printf ("%u", pinos_dev->id);
+  g_object_set (element, "path", str, NULL);
+  g_free (str);
 
   return TRUE;
 }
@@ -198,15 +204,16 @@ new_node (const PinosNodeInfo *info)
   if (info->possible_formats)
     caps = gst_caps_from_string (g_bytes_get_data (info->possible_formats, NULL));
   else
-#endif
     caps = gst_caps_new_any();
+#endif
+    caps = gst_caps_from_string ("video/x-raw,width=320,height=240,framerate=15/1");
 
   props = gst_structure_new_empty ("pinos-proplist");
   if (info->props) {
     spa_dict_for_each (item, info->props)
       gst_structure_set (props, item->key, G_TYPE_STRING, item->value, NULL);
 
-    klass = spa_dict_lookup (info->props, "gstreamer.device.class");
+    klass = spa_dict_lookup (info->props, "media.class");
   }
   if (klass == NULL)
     klass = "unknown/unknown";
@@ -318,17 +325,20 @@ get_core_info_cb (PinosContext        *c,
   if (info == NULL || info->props == NULL)
     return;
 
-  value = spa_dict_lookup (info->props, "gstreamer.deviceproviders");
+  value = spa_dict_lookup (info->props, "monitors");
   if (value) {
-    gchar **providers = g_strsplit (value, ",", -1);
+    gchar **monitors = g_strsplit (value, ",", -1);
     gint i;
 
     GST_DEBUG_OBJECT (provider, "have hidden providers: %s", value);
 
-    for (i = 0; providers[i]; i++) {
-      gst_device_provider_hide_provider (provider, providers[i]);
+    for (i = 0; monitors[i]; i++) {
+      if (strcmp (monitors[i], "v4l2") == 0)
+        gst_device_provider_hide_provider (provider, "v4l2deviceprovider");
+      else if (strcmp (monitors[i], "alsa") == 0)
+        gst_device_provider_hide_provider (provider, "pulsedeviceprovider");
     }
-    g_strfreev (providers);
+    g_strfreev (monitors);
   }
 }
 

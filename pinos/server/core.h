@@ -64,11 +64,14 @@ struct _PinosGlobal {
 struct _PinosCore {
   PinosGlobal *global;
 
+  PinosProperties *properties;
+
   PinosURI uri;
   PinosAccess access;
 
   PinosMap objects;
 
+  SpaList resource_list;
   SpaList registry_resource_list;
   SpaList global_list;
   SpaList client_list;
@@ -93,8 +96,12 @@ struct _PinosCore {
                                  PinosGlobal   *global));
 };
 
-PinosCore *     pinos_core_new           (PinosMainLoop *main_loop);
-void            pinos_core_destroy       (PinosCore     *core);
+PinosCore *     pinos_core_new           (PinosMainLoop   *main_loop,
+                                          PinosProperties *props);
+void            pinos_core_destroy       (PinosCore       *core);
+
+void            pinos_core_update_properties (PinosCore     *core,
+                                              const SpaDict *dict);
 
 PinosGlobal *   pinos_core_add_global    (PinosCore     *core,
                                           PinosClient   *owner,

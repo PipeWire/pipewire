@@ -1041,6 +1041,9 @@ client_node_dispatch_func (void             *object,
       handle_node_event (this, cne->event);
       break;
     }
+    case PINOS_MESSAGE_DESTROY:
+      pinos_client_node_destroy (node);
+      break;
   }
   return SPA_RESULT_OK;
 }
@@ -1202,8 +1205,16 @@ client_node_resource_destroy (PinosResource *resource)
   PinosClientNode *this = resource->object;
   PinosClientNodeImpl *impl = SPA_CONTAINER_OF (this, PinosClientNodeImpl, this);
 
+  pinos_log_debug ("client-node %p: destroy", impl);
+  pinos_signal_emit (&this->destroy_signal, this);
+
   impl->proxy.resource = this->resource = NULL;
-  pinos_client_node_destroy (this);
+
+  pinos_signal_remove (&impl->global_added);
+  pinos_signal_remove (&impl->loop_changed);
+  pinos_signal_remove (&impl->transport_changed);
+
+  pinos_node_destroy (this->node);
 }
 
 static void
@@ -1307,16 +1318,7 @@ error_no_node:
 void
 pinos_client_node_destroy (PinosClientNode * this)
 {
-  PinosClientNodeImpl *impl = SPA_CONTAINER_OF (this, PinosClientNodeImpl, this);
-
-  pinos_log_debug ("client-node %p: destroy", impl);
-  pinos_signal_emit (&this->destroy_signal, this);
-
-  pinos_signal_remove (&impl->global_added);
-  pinos_signal_remove (&impl->loop_changed);
-  pinos_signal_remove (&impl->transport_changed);
-
-  pinos_node_destroy (this->node);
+  pinos_resource_destroy (this->resource);
 }
 
 /**
@@ -1339,7 +1341,7 @@ pinos_client_node_get_data_socket (PinosClientNode  *this,
 #if 1
     int fd[2];
 
-    if (socketpair (AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, fd) != 0)
+    if (socketpair (AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, fd) != 0)
       return SPA_RESULT_ERRNO;
 
     impl->proxy.data_source.fd = fd[0];

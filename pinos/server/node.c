@@ -657,8 +657,10 @@ pinos_node_destroy (PinosNode * this)
   pinos_log_debug ("node %p: destroy", impl);
   pinos_signal_emit (&this->destroy_signal, this);
 
-  spa_list_remove (&this->link);
-  pinos_global_destroy (this->global);
+  if (!impl->async_init) {
+    spa_list_remove (&this->link);
+    pinos_global_destroy (this->global);
+  }
 
   spa_list_for_each_safe (resource, tmp, &this->resource_list, link)
     pinos_resource_destroy (resource);

@@ -34,6 +34,7 @@ struct _PinosSpaMonitor {
 
   char *lib;
   char *factory_name;
+  char *system_name;
   SpaHandle *handle;
 
   PINOS_SIGNAL (destroy_signal, (PinosListener *listener, PinosSpaMonitor *monitor));
@@ -41,7 +42,8 @@ struct _PinosSpaMonitor {
 
 PinosSpaMonitor *      pinos_spa_monitor_load     (PinosCore  *core,
                                                    const char *lib,
-                                                   const char *factory_name);
+                                                   const char *factory_name,
+                                                   const char *system_name);
 void                   pinos_spa_monitor_destroy  (PinosSpaMonitor *monitor);
 
 #ifdef __cplusplus

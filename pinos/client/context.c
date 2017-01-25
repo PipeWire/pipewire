@@ -562,6 +562,8 @@ pinos_context_destroy (PinosContext *context)
   spa_list_for_each_safe (proxy, t2, &context->proxy_list, link)
     pinos_proxy_destroy (proxy);
 
+  pinos_map_clear (&context->objects);
+
   free (context->name);
   if (context->properties)
     pinos_properties_free (context->properties);

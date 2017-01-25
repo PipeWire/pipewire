@@ -259,6 +259,7 @@ void
 pinos_stream_destroy (PinosStream *stream)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
+  int i;
 
   pinos_log_debug ("stream %p: destroy", stream);
 
@@ -270,6 +271,13 @@ pinos_stream_destroy (PinosStream *stream)
 
   if (impl->node_proxy)
     pinos_signal_remove (&impl->node_proxy_destroy);
+
+  if (impl->possible_formats) {
+    for (i = 0; i < impl->n_possible_formats; i++) {
+      free (impl->possible_formats[i]);
+    }
+    free (impl->possible_formats);
+  }
 
   if (impl->format)
     free (impl->format);
@@ -285,6 +293,9 @@ pinos_stream_destroy (PinosStream *stream)
 
   if (stream->properties)
     pinos_properties_free (stream->properties);
+
+  if (impl->trans)
+    pinos_transport_destroy (impl->trans);
 
   if (stream->name)
     free (stream->name);

@@ -543,6 +543,9 @@ pinos_context_destroy (PinosContext *context)
   pinos_log_debug ("context %p: destroy", context);
   pinos_signal_emit (&context->destroy_signal, context);
 
+  if (context->state != PINOS_CONTEXT_STATE_UNCONNECTED)
+    pinos_context_disconnect (context);
+
   spa_list_for_each_safe (stream, t1, &context->stream_list, link)
     pinos_stream_destroy (stream);
   spa_list_for_each_safe (proxy, t2, &context->proxy_list, link)

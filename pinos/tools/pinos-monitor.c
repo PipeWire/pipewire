@@ -111,12 +111,14 @@ dump_node_info (PinosContext        *c,
   printf ("\ttype: %s\n", PINOS_NODE_URI);
   if (data->print_all) {
     printf ("%c\tname: \"%s\"\n", MARK_CHANGE (0), info->name);
-    printf ("%c\tstate: \"%s\"", MARK_CHANGE (1), pinos_node_state_as_string (info->state));
+    printf ("%c\tinputs: %u/%u\n", MARK_CHANGE (1), info->n_inputs, info->max_inputs);
+    printf ("%c\toutputs: %u/%u\n", MARK_CHANGE (2), info->n_outputs, info->max_outputs);
+    printf ("%c\tstate: \"%s\"", MARK_CHANGE (3), pinos_node_state_as_string (info->state));
     if (info->state == PINOS_NODE_STATE_ERROR && info->error)
       printf (" \"%s\"\n", info->error);
     else
       printf ("\n");
-    print_properties (info->props, MARK_CHANGE (2));
+    print_properties (info->props, MARK_CHANGE (4));
   }
 }
 

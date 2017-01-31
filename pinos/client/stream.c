@@ -97,6 +97,26 @@ typedef struct
 } PinosStreamImpl;
 
 static void
+clear_memid (MemId *mid)
+{
+  if (mid->ptr != NULL)
+    munmap (mid->ptr, mid->size + mid->offset);
+  mid->ptr = NULL;
+  close (mid->fd);
+}
+
+static void
+clear_mems (PinosStream *stream)
+{
+  PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
+  MemId *mid;
+
+  pinos_array_for_each (mid, &impl->mem_ids)
+    clear_memid (mid);
+  impl->mem_ids.size = 0;
+}
+
+static void
 clear_buffers (PinosStream *stream)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
@@ -104,7 +124,9 @@ clear_buffers (PinosStream *stream)
 
   pinos_array_for_each (bid, &impl->buffer_ids) {
     pinos_signal_emit (&stream->remove_buffer, stream, bid->id);
+    free (bid->buf);
     bid->buf = NULL;
+    bid->used = false;
   }
   impl->buffer_ids.size = 0;
   impl->in_order = true;
@@ -229,13 +251,19 @@ pinos_stream_destroy (PinosStream *stream)
 
   spa_list_remove (&stream->link);
 
+  if (impl->node_proxy)
+    pinos_signal_remove (&impl->node_proxy_destroy);
+
   if (impl->format)
     free (impl->format);
 
   if (stream->error)
     free (stream->error);
 
+  clear_buffers (stream);
   pinos_array_clear (&impl->buffer_ids);
+
+  clear_mems (stream);
   pinos_array_clear (&impl->mem_ids);
 
   if (stream->properties)
@@ -499,6 +527,10 @@ unhandle_socket (PinosStream *stream)
     pinos_loop_destroy_source (stream->context->loop, impl->rtsocket_source);
     impl->rtsocket_source = NULL;
   }
+  if (impl->timeout_source) {
+    pinos_loop_destroy_source (stream->context->loop, impl->timeout_source);
+    impl->timeout_source = NULL;
+  }
 }
 
 static void
@@ -540,7 +572,7 @@ handle_socket (PinosStream *stream, int rtfd)
   impl->rtsocket_source = pinos_loop_add_io (stream->context->loop,
                                              impl->rtfd,
                                              SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP,
-                                             false,
+                                             true,
                                              on_rtsocket_condition,
                                              stream);
 
@@ -691,6 +723,7 @@ stream_dispatch_func (void             *object,
       if (m) {
         pinos_log_debug ("update mem %u, fd %d, flags %d, off %zd, size %zd",
             p->mem_id, p->memfd, p->flags, p->offset, p->size);
+        clear_memid (m);
       } else {
         m = pinos_array_add (&impl->mem_ids, sizeof (MemId));
         pinos_log_debug ("add mem %u, fd %d, flags %d, off %zd, size %zd",
@@ -719,12 +752,11 @@ stream_dispatch_func (void             *object,
 
         MemId *mid = find_mem (stream, p->buffers[i].mem_id);
         if (mid == NULL) {
-          pinos_log_warn ("unknown memory id %u", mid->id);
+          pinos_log_warn ("unknown memory id %u", p->buffers[i].mem_id);
           continue;
         }
 
         if (mid->ptr == NULL) {
-          //mid->ptr = mmap (NULL, mid->size, PROT_READ | PROT_WRITE, MAP_SHARED, mid->fd, mid->offset);
           mid->ptr = mmap (NULL, mid->size + mid->offset, PROT_READ | PROT_WRITE, MAP_SHARED, mid->fd, 0);
           if (mid->ptr == MAP_FAILED) {
             mid->ptr = NULL;
@@ -794,6 +826,7 @@ stream_dispatch_func (void             *object,
       if (p->n_buffers) {
         add_state_change (stream, SPA_NODE_STATE_PAUSED, false);
       } else {
+        clear_mems (stream);
         add_state_change (stream, SPA_NODE_STATE_READY, false);
       }
       add_async_complete (stream, p->seq, SPA_RESULT_OK, true);
@@ -855,6 +888,7 @@ on_node_proxy_destroy (PinosListener *listener,
 
   impl->disconnecting = false;
   impl->node_proxy = NULL;
+  pinos_signal_remove (&impl->node_proxy_destroy);
   stream_set_state (this, PINOS_STREAM_STATE_UNCONNECTED, NULL);
 }
 

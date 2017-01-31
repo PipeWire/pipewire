@@ -458,9 +458,23 @@ on_remove_buffer (PinosListener *listener,
 
   GST_LOG_OBJECT (pinossrc, "remove buffer");
   buf = g_hash_table_lookup (pinossrc->buf_ids, GINT_TO_POINTER (id));
-  GST_MINI_OBJECT_CAST (buf)->dispose = NULL;
+  if (buf) {
+    GList *walk;
 
-  g_hash_table_remove (pinossrc->buf_ids, GINT_TO_POINTER (id));
+    GST_MINI_OBJECT_CAST (buf)->dispose = NULL;
+
+    walk = pinossrc->queue.head;
+    while (walk) {
+      GList *next = walk->next;
+
+      if (walk->data == buf) {
+        gst_buffer_unref (buf);
+        g_queue_delete_link (&pinossrc->queue, walk);
+      }
+      walk = next;
+    }
+    g_hash_table_remove (pinossrc->buf_ids, GINT_TO_POINTER (id));
+  }
 }
 
 static void
@@ -474,12 +488,12 @@ on_new_buffer (PinosListener *listener,
   SpaMetaHeader *h;
   guint i;
 
-  GST_LOG_OBJECT (pinossrc, "got new buffer");
   buf = g_hash_table_lookup (pinossrc->buf_ids, GINT_TO_POINTER (id));
   if (buf == NULL) {
     g_warning ("unknown buffer %d", id);
     return;
   }
+  GST_LOG_OBJECT (pinossrc, "got new buffer %p", buf);
 
   data = gst_mini_object_get_qdata (GST_MINI_OBJECT_CAST (buf),
                                   process_mem_data_quark);
@@ -500,6 +514,7 @@ on_new_buffer (PinosListener *listener,
     mem->offset = d->chunk->offset + data->offset;
     mem->size = d->chunk->size;
   }
+  gst_buffer_ref (buf);
   g_queue_push_tail (&pinossrc->queue, buf);
 
   pinos_thread_main_loop_signal (pinossrc->main_loop, FALSE);
@@ -904,6 +919,7 @@ gst_pinos_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
       goto streaming_stopped;
 
     *buffer = g_queue_pop_head (&pinossrc->queue);
+    GST_DEBUG ("popped buffer %p", *buffer);
     if (*buffer != NULL)
       break;
 
@@ -1073,6 +1089,8 @@ gst_pinos_src_close (GstPinosSrc * pinossrc)
   clear_queue (pinossrc);
 
   pinos_thread_main_loop_stop (pinossrc->main_loop);
+
+  g_hash_table_remove_all (pinossrc->buf_ids);
 
   pinos_stream_destroy (pinossrc->stream);
   pinossrc->stream = NULL;

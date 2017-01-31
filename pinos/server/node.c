@@ -277,8 +277,6 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
       int i;
       bool processed = false;
 
-//      pinos_log_debug ("node %p: need input", this);
-
       for (i = 0; i < this->transport->area->n_inputs; i++) {
         PinosLink *link;
         PinosPort *inport, *outport;
@@ -319,8 +317,6 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
       int i;
       bool processed = false;
 
-//      pinos_log_debug ("node %p: have output", this);
-
       for (i = 0; i < this->transport->area->n_outputs; i++) {
         PinosLink *link;
         PinosPort *inport, *outport;
@@ -346,6 +342,12 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
           if ((res = spa_node_process_input (inport->node->node)) < 0)
             pinos_log_warn ("node %p: got process input %d", inport->node, res);
         }
+
+        if ((res = spa_node_port_reuse_buffer (this->node,
+                                               outport->port_id,
+                                               po->buffer_id)) < 0)
+          pinos_log_warn ("node %p: error reuse buffer: %d", this, res);
+
         po->buffer_id = SPA_ID_INVALID;
       }
       if (processed) {
@@ -355,25 +357,8 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
       break;
     }
     case SPA_NODE_EVENT_TYPE_REUSE_BUFFER:
-    {
-      SpaResult res;
-      SpaNodeEventReuseBuffer *rb = (SpaNodeEventReuseBuffer *) event;
-      PinosPort *port = this->input_port_map[rb->port_id];
-      PinosLink *link;
-
-//      pinos_log_debug ("node %p: reuse buffer %u", this, rb->buffer_id);
-
-      spa_list_for_each (link, &port->rt.links, rt.input_link) {
-        if (link->rt.input == NULL || link->rt.output == NULL)
-          continue;
-
-        if ((res = spa_node_port_reuse_buffer (link->rt.output->node->node,
-                                               link->rt.output->port_id,
-                                               rb->buffer_id)) < 0)
-          pinos_log_warn ("node %p: error reuse buffer: %d", node, res);
-      }
       break;
-    }
+
     case SPA_NODE_EVENT_TYPE_REQUEST_CLOCK_UPDATE:
       send_clock_update (this);
       break;
@@ -436,6 +421,10 @@ node_bind_func (PinosGlobal *global,
   info.id = global->id;
   info.change_mask = ~0;
   info.name = this->name;
+  info.max_inputs = this->transport->area->max_inputs;
+  info.n_inputs = this->transport->area->n_inputs;
+  info.max_outputs = this->transport->area->max_outputs;
+  info.n_outputs = this->transport->area->n_outputs;
   info.state = this->state;
   info.error = this->error;
   info.props = this->properties ? &this->properties->dict : NULL;

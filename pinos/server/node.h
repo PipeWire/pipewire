@@ -50,8 +50,6 @@ struct _PinosNode {
   SpaList      link;
   PinosGlobal *global;
 
-  bool unlinking;
-
   char *name;
   PinosProperties *properties;
   PinosNodeState state;

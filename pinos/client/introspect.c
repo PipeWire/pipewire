@@ -238,13 +238,23 @@ pinos_node_info_update (PinosNodeInfo       *info,
       free ((void*)info->name);
     info->name = update->name ? strdup (update->name) : NULL;
   }
-  if (update->change_mask & (1 << 1)) {
+  if (update->change_mask & (1 << 1))
+    info->max_inputs = update->max_inputs;
+  if (update->change_mask & (1 << 2))
+    info->n_input_formats = update->n_input_formats;
+
+  if (update->change_mask & (1 << 3))
+    info->max_outputs = update->max_outputs;
+  if (update->change_mask & (1 << 4))
+    info->n_output_formats = update->n_output_formats;
+
+  if (update->change_mask & (1 << 5)) {
     info->state = update->state;
     if (info->error)
       free ((void*)info->error);
     info->error = update->error ? strdup (update->error) : NULL;
   }
-  if (update->change_mask & (1 << 2)) {
+  if (update->change_mask & (1 << 6)) {
     if (info->props)
       pinos_spa_dict_destroy (info->props);
     info->props = pinos_spa_dict_copy (update->props);

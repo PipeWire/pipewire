@@ -1216,10 +1216,6 @@ pinos_connection_parse_message (PinosConnection *conn,
       connection_parse_port_update (conn, message);
       break;
 
-    case PINOS_MESSAGE_PORT_STATUS_CHANGE:
-      pinos_log_warn ("implement iter of %d", conn->in.type);
-      break;
-
     case PINOS_MESSAGE_NODE_STATE_CHANGE:
       if (conn->in.size < sizeof (PinosMessageNodeStateChange))
         return false;
@@ -1408,10 +1404,6 @@ pinos_connection_add_message (PinosConnection  *conn,
 
     case PINOS_MESSAGE_PORT_UPDATE:
       connection_add_port_update (conn, dest_id, message);
-      break;
-
-    case PINOS_MESSAGE_PORT_STATUS_CHANGE:
-      p = connection_add_message (conn, dest_id, type, 0);
       break;
 
     case PINOS_MESSAGE_NODE_STATE_CHANGE:

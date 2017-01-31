@@ -803,50 +803,6 @@ spa_proxy_node_port_alloc_buffers (SpaNode         *node,
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-#if 0
-static void
-copy_meta_in (SpaProxy *this, SpaProxyPort *port, uint32_t buffer_id)
-{
-  ProxyBuffer *b = &port->buffers[buffer_id];
-  unsigned int i;
-
-  for (i = 0; i < b->outbuf->n_metas; i++) {
-    SpaMeta *sm = &b->buffer.metas[i];
-    SpaMeta *dm = &b->outbuf->metas[i];
-    memcpy (dm->data, sm->data, dm->size);
-  }
-  for (i = 0; i < b->outbuf->n_datas; i++) {
-    b->outbuf->datas[i].size = b->buffer.datas[i].size;
-    if (b->outbuf->datas[i].type == SPA_DATA_TYPE_MEMPTR) {
-      spa_log_info (this->log, "memcpy in %zd", b->buffer.datas[i].size);
-      memcpy (b->outbuf->datas[i].data, b->datas[i].data, b->buffer.datas[i].size);
-    }
-  }
-}
-#endif
-
-#if 0
-static void
-copy_meta_out (SpaProxy *this, SpaProxyPort *port, uint32_t buffer_id)
-{
-  ProxyBuffer *b = &port->buffers[buffer_id];
-  unsigned int i;
-
-  for (i = 0; i < b->outbuf->n_metas; i++) {
-    SpaMeta *sm = &b->outbuf->metas[i];
-    SpaMeta *dm = &b->buffer.metas[i];
-    memcpy (dm->data, sm->data, dm->size);
-  }
-  for (i = 0; i < b->outbuf->n_datas; i++) {
-    b->buffer.datas[i].size = b->outbuf->datas[i].size;
-    if (b->datas[i].type == SPA_DATA_TYPE_MEMPTR) {
-      spa_log_info (this->log, "memcpy out %zd", b->outbuf->datas[i].size);
-      memcpy (b->datas[i].data, b->outbuf->datas[i].data, b->outbuf->datas[i].size);
-    }
-  }
-}
-#endif
-
 static SpaResult
 spa_proxy_node_port_reuse_buffer (SpaNode         *node,
                                   uint32_t         port_id,
@@ -1008,12 +964,6 @@ client_node_dispatch_func (void             *object,
       } else {
         do_update_port (this, pu);
       }
-      break;
-    }
-
-    case PINOS_MESSAGE_PORT_STATUS_CHANGE:
-    {
-      spa_log_warn (this->log, "proxy %p: command not implemented %d", this, type);
       break;
     }
 

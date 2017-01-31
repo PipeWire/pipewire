@@ -65,8 +65,6 @@ typedef enum {
   PINOS_MESSAGE_NODE_UPDATE,
   PINOS_MESSAGE_PORT_UPDATE,
   PINOS_MESSAGE_NODE_STATE_CHANGE,
-
-  PINOS_MESSAGE_PORT_STATUS_CHANGE,
   PINOS_MESSAGE_NODE_EVENT,
 
   /* server to client */
@@ -228,8 +226,6 @@ typedef struct {
 typedef struct {
   SpaNodeState    state;
 } PinosMessageNodeStateChange;
-
-/* PINOS_MESSAGE_PORT_STATUS_CHANGE */
 
 /* PINOS_MESSAGE_NODE_EVENT */
 typedef struct {

@@ -26,6 +26,7 @@
 #include <spa/id-map.h>
 #include <spa/log.h>
 #include <spa/node.h>
+#include <spa/loop.h>
 #include <lib/debug.h>
 #include <lib/mapper.h>
 
@@ -37,10 +38,11 @@ typedef struct {
 typedef struct {
   URI uri;
 
-  SpaSupport support[2];
+  SpaSupport support[4];
   unsigned int n_support;
   SpaIDMap *map;
   SpaLog *log;
+  SpaLoop loop;
 } AppData;
 
 static void
@@ -154,6 +156,22 @@ inspect_factory (AppData *data, const SpaHandleFactory *factory)
   }
 }
 
+static SpaResult
+do_add_source (SpaLoop   *loop,
+               SpaSource *source)
+{
+  return SPA_RESULT_OK;
+}
+static SpaResult
+do_update_source (SpaSource  *source)
+{
+  return SPA_RESULT_OK;
+}
+static void
+do_remove_source (SpaSource  *source)
+{
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -170,12 +188,20 @@ main (int argc, char *argv[])
 
   data.map = spa_id_map_get_default();
   data.log = NULL;
+  data.loop.size = sizeof (SpaLoop);
+  data.loop.add_source = do_add_source;
+  data.loop.update_source = do_update_source;
+  data.loop.remove_source = do_remove_source;
 
   data.support[0].uri = SPA_ID_MAP_URI;
   data.support[0].data = data.map;
   data.support[1].uri = SPA_LOG_URI;
   data.support[1].data = data.log;
-  data.n_support = 2;
+  data.support[2].uri = SPA_LOOP__MainLoop;
+  data.support[2].data = &data.loop;
+  data.support[3].uri = SPA_LOOP__DataLoop;
+  data.support[3].data = &data.loop;
+  data.n_support = 4;
 
   data.uri.node = spa_id_map_get_id (data.map, SPA_NODE_URI);
   data.uri.clock = spa_id_map_get_id (data.map, SPA_CLOCK_URI);

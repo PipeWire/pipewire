@@ -282,11 +282,6 @@ do_remove_link (SpaLoop        *loop,
     link->rt.output = NULL;
   }
 
-#if 0
-  if (spa_list_is_empty (&port->rt.links))
-    pinos_port_pause (port);
-#endif
-
   res = pinos_loop_invoke (this->core->main_loop->loop,
                            do_remove_link_done,
                            seq,

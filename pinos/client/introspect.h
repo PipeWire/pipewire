@@ -255,6 +255,14 @@ struct _PinosNodeInfo {
   uint32_t        id;
   uint64_t        change_mask;
   const char     *name;
+  unsigned int    max_inputs;
+  unsigned int    n_inputs;
+  unsigned int    n_input_formats;
+  SpaFormat     **input_formats;
+  unsigned int    max_outputs;
+  unsigned int    n_outputs;
+  unsigned int    n_output_formats;
+  SpaFormat     **output_formats;
   PinosNodeState  state;
   const char     *error;
   SpaDict        *props;

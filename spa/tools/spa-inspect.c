@@ -50,17 +50,18 @@ inspect_port (SpaNode *node, SpaDirection direction, uint32_t port_id)
 {
   SpaResult res;
   SpaFormat *format;
-  void *state = NULL;
+  unsigned int index = 0;
   SpaProps *props;
 
   while (true) {
-    if ((res = spa_node_port_enum_formats (node, direction, port_id, &format, NULL, &state)) < 0) {
+    if ((res = spa_node_port_enum_formats (node, direction, port_id, &format, NULL, index)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
         printf ("got error %d\n", res);
       break;
     }
     if (format)
       spa_debug_format (format);
+    index++;
   }
   if ((res = spa_node_port_get_props (node, direction, port_id, &props)) < 0)
     printf ("port_get_props error: %d\n", res);
@@ -113,7 +114,7 @@ inspect_factory (AppData *data, const SpaHandleFactory *factory)
   SpaResult res;
   SpaHandle *handle;
   void *interface;
-  void *state = NULL;
+  unsigned int index = 0;
 
   printf ("factory name:\t\t'%s'\n", factory->name);
   printf ("factory info:\n");
@@ -134,12 +135,13 @@ inspect_factory (AppData *data, const SpaHandleFactory *factory)
     const SpaInterfaceInfo *info;
     uint32_t interface_id;
 
-    if ((res = spa_handle_factory_enum_interface_info (factory, &info, &state)) < 0) {
+    if ((res = spa_handle_factory_enum_interface_info (factory, &info, index)) < 0) {
       if (res == SPA_RESULT_ENUM_END)
         break;
       else
         printf ("can't enumerate interfaces: %d\n", res);
     }
+    index++;
     printf (" interface: '%s'\n", info->uri);
 
     interface_id = spa_id_map_get_id (data->map, info->uri);
@@ -179,7 +181,7 @@ main (int argc, char *argv[])
   SpaResult res;
   void *handle;
   SpaEnumHandleFactoryFunc enum_func;
-  void *state = NULL;
+  unsigned int index = 0;
 
   if (argc < 2) {
     printf ("usage: %s <plugin.so>\n", argv[0]);
@@ -218,12 +220,13 @@ main (int argc, char *argv[])
   while (true) {
     const SpaHandleFactory *factory;
 
-    if ((res = enum_func (&factory, &state)) < 0) {
+    if ((res = enum_func (&factory, index)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
         printf ("can't enumerate factories: %d\n", res);
       break;
     }
     inspect_factory (&data, factory);
+    index++;
   }
 
   return 0;

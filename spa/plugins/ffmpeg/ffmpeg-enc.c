@@ -256,11 +256,10 @@ spa_ffmpeg_enc_node_port_enum_formats (SpaNode         *node,
                                        uint32_t         port_id,
                                        SpaFormat      **format,
                                        const SpaFormat *filter,
-                                       void           **state)
+                                       unsigned int     index)
 {
   SpaFFMpegEnc *this;
   SpaFFMpegPort *port;
-  int index;
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -272,8 +271,6 @@ spa_ffmpeg_enc_node_port_enum_formats (SpaNode         *node,
 
   port = direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
 
-  index = (*state == NULL ? 0 : *(int*)state);
-
   switch (index) {
     case 0:
       spa_format_video_init (SPA_MEDIA_TYPE_VIDEO,
@@ -284,7 +281,6 @@ spa_ffmpeg_enc_node_port_enum_formats (SpaNode         *node,
       return SPA_RESULT_ENUM_END;
   }
   *format = &port->format[0].format;
-  *(int*)state = ++index;
 
   return SPA_RESULT_OK;
 }

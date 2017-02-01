@@ -81,8 +81,8 @@ connection_add_fd (PinosConnection *conn,
   return index;
 }
 
-#if 0
-#define PINOS_DEBUG_MESSAGE(format,args...) pinos_log_debug(stderr, format,##args)
+#if 1
+#define PINOS_DEBUG_MESSAGE(format,args...) pinos_log_debug(format,##args)
 #else
 #define PINOS_DEBUG_MESSAGE(format,args...)
 #endif
@@ -200,6 +200,7 @@ connection_parse_node_info (PinosConnection *conn, PinosMessageNodeInfo *m)
 {
   void *p;
   PinosNodeInfo *di;
+  int i;
 
   p = conn->in.data;
   memcpy (m, p, sizeof (PinosMessageNodeInfo));
@@ -207,12 +208,32 @@ connection_parse_node_info (PinosConnection *conn, PinosMessageNodeInfo *m)
     m->info = SPA_MEMBER (p, SPA_PTR_TO_INT (m->info), PinosNodeInfo);
     di = m->info;
 
-    if (m->info->name)
-      m->info->name = SPA_MEMBER (di, SPA_PTR_TO_INT (m->info->name), const char);
-    if (m->info->error)
-      m->info->error = SPA_MEMBER (di, SPA_PTR_TO_INT (m->info->error), const char);
-    if (m->info->props)
-      m->info->props = pinos_serialize_dict_deserialize (di, SPA_PTR_TO_INT (m->info->props));
+    if (di->name)
+      di->name = SPA_MEMBER (di, SPA_PTR_TO_INT (di->name), const char);
+
+    if (di->input_formats)
+      di->input_formats = SPA_MEMBER (di,
+                          SPA_PTR_TO_INT (di->input_formats), SpaFormat *);
+    for (i = 0; i < di->n_input_formats; i++) {
+      if (di->input_formats[i]) {
+        di->input_formats[i] = pinos_serialize_format_deserialize (di,
+                            SPA_PTR_TO_INT (di->input_formats[i]));
+      }
+    }
+
+    if (di->output_formats)
+      di->output_formats = SPA_MEMBER (di,
+                          SPA_PTR_TO_INT (di->output_formats), SpaFormat *);
+    for (i = 0; i < di->n_output_formats; i++) {
+      if (di->output_formats[i]) {
+        di->output_formats[i] = pinos_serialize_format_deserialize (di,
+                            SPA_PTR_TO_INT (di->output_formats[i]));
+      }
+    }
+    if (di->error)
+      di->error = SPA_MEMBER (di, SPA_PTR_TO_INT (di->error), const char);
+    if (di->props)
+      di->props = pinos_serialize_dict_deserialize (di, SPA_PTR_TO_INT (di->props));
   }
 }
 
@@ -359,7 +380,7 @@ connection_add_message (PinosConnection *conn,
   buf->buffer_size += 8 + size;
 
   *p++ = dest_id;
-  *p++ = (type << 16) | (size & 0xffff);
+  *p++ = (type << 24) | (size & 0xffffff);
 
   return p;
 }
@@ -624,12 +645,19 @@ connection_add_node_info (PinosConnection *conn, uint32_t dest_id, PinosMessageN
   size_t len, slen;
   void *p;
   PinosMessageNodeInfo *d;
+  int i;
 
   /* calc len */
   len = sizeof (PinosMessageNodeInfo);
   if (m->info) {
     len += sizeof (PinosNodeInfo);
     len += m->info->name ? strlen (m->info->name) + 1 : 0;
+    len += m->info->n_input_formats * sizeof (SpaFormat *);
+    for (i = 0; i < m->info->n_input_formats; i++)
+      len += pinos_serialize_format_get_size (m->info->input_formats[i]);
+    len += m->info->n_output_formats * sizeof (SpaFormat *);
+    for (i = 0; i < m->info->n_output_formats; i++)
+      len += pinos_serialize_format_get_size (m->info->output_formats[i]);
     len += m->info->error ? strlen (m->info->error) + 1 : 0;
     len += pinos_serialize_dict_get_size (m->info->props);
   }
@@ -641,17 +669,42 @@ connection_add_node_info (PinosConnection *conn, uint32_t dest_id, PinosMessageN
   p = SPA_MEMBER (d, sizeof (PinosMessageNodeInfo), void);
   if (m->info) {
     PinosNodeInfo *di;
+    SpaFormat **ifa, **ofa;
 
     memcpy (p, m->info, sizeof (PinosNodeInfo));
     d->info = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
     di = p;
 
     p = SPA_MEMBER (p, sizeof (PinosNodeInfo), void);
+    ifa = p;
+    if (m->info->n_input_formats)
+      di->input_formats = SPA_INT_TO_PTR (SPA_PTRDIFF (p, di));
+    else
+      di->input_formats = 0;
+    p = SPA_MEMBER (p, sizeof (SpaFormat*) * m->info->n_input_formats, void);
+
+    ofa = p;
+    if (m->info->n_output_formats)
+      di->output_formats = SPA_INT_TO_PTR (SPA_PTRDIFF (p, di));
+    else
+      di->output_formats = 0;
+    p = SPA_MEMBER (p, sizeof (SpaFormat*) * m->info->n_output_formats, void);
+
     if (m->info->name) {
       slen = strlen (m->info->name) + 1;
       memcpy (p, m->info->name, slen);
       di->name = SPA_INT_TO_PTR (SPA_PTRDIFF (p, di));
       p += slen;
+    }
+    for (i = 0; i < m->info->n_input_formats; i++) {
+      len = pinos_serialize_format_serialize (p, m->info->input_formats[i]);
+      ifa[i] = SPA_INT_TO_PTR (SPA_PTRDIFF (p, di));
+      p = SPA_MEMBER (p, len, void);
+    }
+    for (i = 0; i < m->info->n_output_formats; i++) {
+      len = pinos_serialize_format_serialize (p, m->info->output_formats[i]);
+      ofa[i] = SPA_INT_TO_PTR (SPA_PTRDIFF (p, di));
+      p = SPA_MEMBER (p, len, void);
     }
     if (m->info->error) {
       slen = strlen (m->info->error) + 1;
@@ -662,6 +715,7 @@ connection_add_node_info (PinosConnection *conn, uint32_t dest_id, PinosMessageN
     if (m->info->props) {
       len = pinos_serialize_dict_serialize (p, m->info->props);
       di->props = SPA_INT_TO_PTR (SPA_PTRDIFF (p, di));
+      p += len;
     }
   }
 }
@@ -1084,8 +1138,8 @@ again:
   size -= 8;
 
   buf->dest_id = p[0];
-  buf->type = p[1] >> 16;
-  len = p[1] & 0xffff;
+  buf->type = p[1] >> 24;
+  len = p[1] & 0xffffff;
 
   if (len > size) {
     connection_ensure_size (conn, buf, len);
@@ -1522,10 +1576,10 @@ pinos_connection_flush (PinosConnection *conn)
     }
     break;
   }
+  PINOS_DEBUG_MESSAGE ("connection %p: %d written %zd bytes and %u fds", conn, conn->fd, len, buf->n_fds);
+
   buf->buffer_size -= len;
   buf->n_fds = 0;
-
-  PINOS_DEBUG_MESSAGE ("connection %p: %d written %zd bytes and %u fds", conn, conn->fd, len, buf->n_fds);
 
   return true;
 

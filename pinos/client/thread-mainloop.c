@@ -119,6 +119,8 @@ pinos_thread_main_loop_destroy (PinosThreadMainLoop *loop)
 
   pinos_signal_emit (&loop->destroy_signal, loop);
 
+  pinos_thread_main_loop_stop (loop);
+
   if (loop->name)
     free (loop->name);
   pthread_mutex_destroy (&impl->lock);
@@ -187,9 +189,11 @@ pinos_thread_main_loop_stop (PinosThreadMainLoop *loop)
 {
   PinosThreadMainLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosThreadMainLoopImpl, this);
 
-  pinos_loop_signal_event (loop->loop, impl->event);
-
-  pthread_join (impl->thread, NULL);
+  if (impl->running) {
+    pinos_loop_signal_event (loop->loop, impl->event);
+    pthread_join (impl->thread, NULL);
+    impl->running = false;
+  }
 }
 
 /**

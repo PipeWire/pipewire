@@ -492,6 +492,8 @@ pinos_context_new (PinosLoop       *loop,
   if (impl == NULL)
     return NULL;
 
+  impl->fd = -1;
+
   this = &impl->this;
   pinos_log_debug ("context %p: new", impl);
 
@@ -686,10 +688,21 @@ pinos_context_disconnect (PinosContext *context)
 
   impl->disconnecting = true;
 
-  pinos_proxy_destroy (context->registry_proxy);
-  pinos_proxy_destroy (context->core_proxy);
-  pinos_connection_destroy (impl->connection);
-  close (impl->fd);
+  if (context->registry_proxy)
+    pinos_proxy_destroy (context->registry_proxy);
+  context->registry_proxy = NULL;
+
+  if (context->core_proxy)
+    pinos_proxy_destroy (context->core_proxy);
+  context->core_proxy = NULL;
+
+  if (impl->connection)
+    pinos_connection_destroy (impl->connection);
+  impl->connection = NULL;
+
+  if (impl->fd != -1)
+    close (impl->fd);
+  impl->fd = -1;
 
   context_set_state (context, PINOS_CONTEXT_STATE_UNCONNECTED, NULL);
 

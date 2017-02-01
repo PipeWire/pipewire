@@ -98,7 +98,6 @@ typedef struct {
   bool next_frmsize;
   struct v4l2_frmsizeenum frmsize;
   struct v4l2_frmivalenum frmival;
-  void *cookie;
 
   V4l2Format format[2];
   V4l2Format *current_format;
@@ -484,8 +483,8 @@ spa_v4l2_source_node_remove_port (SpaNode        *node,
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static void
-spa_v4l2_format_init (V4l2Format *f)
+static SpaResult
+spa_v4l2_format_init (V4l2Format *f, const SpaFormat *sf)
 {
   f->fmt.props.n_prop_info = 3;
   f->fmt.props.prop_info = f->infos;
@@ -499,6 +498,11 @@ spa_v4l2_format_init (V4l2Format *f)
   spa_prop_info_fill_video (&f->infos[2],
                             SPA_PROP_ID_VIDEO_FRAMERATE,
                             offsetof (V4l2Format, framerate));
+
+  f->fmt.media_type = sf->media_type;
+  f->fmt.media_subtype = sf->media_subtype;
+
+  return spa_props_copy_values (&sf->props, &f->fmt.props);
 }
 
 static SpaResult
@@ -507,21 +511,20 @@ spa_v4l2_source_node_port_enum_formats (SpaNode         *node,
                                         uint32_t         port_id,
                                         SpaFormat      **format,
                                         const SpaFormat *filter,
-                                        void           **state)
+                                        unsigned int     index)
 {
   SpaV4l2Source *this;
   SpaResult res;
 
-  if (node == NULL || format == NULL || state == NULL)
+  if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
 
-  spa_log_debug (this->log, "%p %d %d", this, direction, port_id);
   if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
 
-  res = spa_v4l2_enum_format (this, format, filter, state);
+  res = spa_v4l2_enum_format (this, format, filter, index);
 
   return res;
 }
@@ -537,7 +540,6 @@ spa_v4l2_source_node_port_set_format (SpaNode            *node,
   SpaV4l2State *state;
   SpaResult res;
   V4l2Format *f, *tf;
-  size_t fs;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -560,13 +562,9 @@ spa_v4l2_source_node_port_set_format (SpaNode            *node,
 
   f = &state->format[0];
   tf = &state->format[1];
-  fs = sizeof (V4l2Format);
 
   if ((SpaFormat*)f != format) {
-    spa_v4l2_format_init (f);
-    f->fmt.media_type = format->media_type;
-    f->fmt.media_subtype = format->media_subtype;
-    if ((res = spa_props_copy_values (&format->props, &f->fmt.props) < 0))
+    if ((res = spa_v4l2_format_init (f, format)) < 0)
       return res;
   } else {
     f = (V4l2Format*)format;
@@ -590,7 +588,8 @@ spa_v4l2_source_node_port_set_format (SpaNode            *node,
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
   if (!(flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY)) {
-    memcpy (tf, f, fs);
+    if ((res = spa_v4l2_format_init (tf, &f->fmt)) < 0)
+      return res;
     state->current_format = tf;
 
     update_state (this, SPA_NODE_STATE_READY);
@@ -1019,20 +1018,15 @@ static const SpaInterfaceInfo v4l2_source_interfaces[] =
 static SpaResult
 v4l2_source_enum_interface_info (const SpaHandleFactory  *factory,
                                  const SpaInterfaceInfo **info,
-                                 void                   **state)
+                                 unsigned int             index)
 {
-  int index;
-
-  if (factory == NULL || info == NULL || state == NULL)
+  if (factory == NULL || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
-
-  index = (*state == NULL ? 0 : *(int*)state);
 
   if (index < 0 || index >= SPA_N_ELEMENTS (v4l2_source_interfaces))
     return SPA_RESULT_ENUM_END;
 
   *info = &v4l2_source_interfaces[index];
-  *(int*)state = ++index;
   return SPA_RESULT_OK;
 }
 

@@ -325,12 +325,12 @@ struct _SpaNode {
    * @port_id: the port to query
    * @format: pointer to a format
    * @filter: a format filter
-   * @state: a state variable, %NULL to get the first item
+   * @index: an index variable, 0 to get the first item
    *
    * Enumerate all possible formats on @port_id of @node that are compatible
    * with @filter..
    *
-   * Use @state to retrieve the formats one by one until the function
+   * Use @index to retrieve the formats one by one until the function
    * returns #SPA_RESULT_ENUM_END.
    *
    * The result format can be queried and modified and ultimately be used
@@ -348,7 +348,7 @@ struct _SpaNode {
                                        uint32_t          port_id,
                                        SpaFormat       **format,
                                        const SpaFormat  *filter,
-                                       void            **state);
+                                       unsigned int      index);
   /**
    * SpaNode::port_set_format:
    * @node: a #SpaNode

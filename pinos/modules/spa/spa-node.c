@@ -46,7 +46,8 @@ pinos_spa_node_load (PinosCore  *core,
   SpaClock *spa_clock;
   SpaResult res;
   SpaHandle *handle;
-  void *hnd, *state = NULL;
+  void *hnd;
+  unsigned int index;
   SpaEnumHandleFactoryFunc enum_func;
   const SpaHandleFactory *factory;
   void *iface;
@@ -60,8 +61,8 @@ pinos_spa_node_load (PinosCore  *core,
     goto no_symbol;
   }
 
-  while (true) {
-    if ((res = enum_func (&factory, &state)) < 0) {
+  for (index = 0; ; index++) {
+    if ((res = enum_func (&factory, index)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
         pinos_log_error ("can't enumerate factories: %d", res);
       goto enum_failed;

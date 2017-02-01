@@ -123,15 +123,15 @@ static void
 handle_monitor (AppData *data, SpaMonitor *monitor)
 {
   SpaResult res;
-  void *state = NULL;
+  unsigned int index;
 
   if (monitor->info)
     spa_debug_dict (monitor->info);
 
-  while (true) {
+  for (index = 0; ; index++) {
     SpaMonitorItem *item;
 
-    if ((res = spa_monitor_enum_items (monitor, &item, &state)) < 0) {
+    if ((res = spa_monitor_enum_items (monitor, &item, index)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
         printf ("spa_monitor_enum_items: got error %d\n", res);
       break;
@@ -181,7 +181,7 @@ main (int argc, char *argv[])
   SpaResult res;
   void *handle;
   SpaEnumHandleFactoryFunc enum_func;
-  void *fstate = NULL;
+  unsigned int fidx;
 
   data.map = spa_id_map_get_default ();
   data.log = NULL;
@@ -214,20 +214,20 @@ main (int argc, char *argv[])
     return -1;
   }
 
-  while (true) {
+  for (fidx = 0;; fidx++) {
     const SpaHandleFactory *factory;
-    void *istate = NULL;
+    unsigned int iidx;
 
-    if ((res = enum_func (&factory, &fstate)) < 0) {
+    if ((res = enum_func (&factory, fidx)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
         printf ("can't enumerate factories: %d\n", res);
       break;
     }
 
-    while (true) {
+    for (iidx = 0;; iidx++) {
       const SpaInterfaceInfo *info;
 
-      if ((res = spa_handle_factory_enum_interface_info (factory, &info, &istate)) < 0) {
+      if ((res = spa_handle_factory_enum_interface_info (factory, &info, iidx)) < 0) {
         if (res != SPA_RESULT_ENUM_END)
           printf ("can't enumerate interfaces: %d\n", res);
         break;

@@ -290,20 +290,17 @@ spa_xv_sink_node_port_enum_formats (SpaNode         *node,
                                     uint32_t         port_id,
                                     SpaFormat      **format,
                                     const SpaFormat *filter,
-                                    void           **state)
+                                    unsigned int     index)
 {
   SpaXvSink *this;
-  int index;
 
-  if (node == NULL || format == NULL || state == NULL)
+  if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaXvSink, node);
 
   if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
-
-  index = (*state == NULL ? 0 : *(int*)state);
 
   switch (index) {
     case 0:
@@ -315,7 +312,6 @@ spa_xv_sink_node_port_enum_formats (SpaNode         *node,
       return SPA_RESULT_ENUM_END;
   }
   *format = &this->format[0].format;
-  *(int*)state = ++index;
 
   return SPA_RESULT_OK;
 }
@@ -613,14 +609,10 @@ static const SpaInterfaceInfo xv_sink_interfaces[] =
 static SpaResult
 xv_sink_enum_interface_info (const SpaHandleFactory  *factory,
                              const SpaInterfaceInfo **info,
-                             void                   **state)
+                             unsigned int             index)
 {
-  int index;
-
-  if (factory == NULL || info == NULL || state == NULL)
+  if (factory == NULL || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
-
-  index = (*state == NULL ? 0 : *(int*)state);
 
   switch (index) {
     case 0:
@@ -629,7 +621,6 @@ xv_sink_enum_interface_info (const SpaHandleFactory  *factory,
     default:
       return SPA_RESULT_ENUM_END;
   }
-  *(int*)state = ++index;
   return SPA_RESULT_OK;
 }
 

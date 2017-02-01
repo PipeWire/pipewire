@@ -28,6 +28,7 @@
 
 #include <gst/gst.h>
 
+#include "gstpinosformat.h"
 #include "gstpinosdeviceprovider.h"
 #include "gstpinossrc.h"
 #include "gstpinossink.h"
@@ -194,19 +195,29 @@ enum
 static GstDevice *
 new_node (const PinosNodeInfo *info)
 {
-  GstCaps *caps;
+  GstCaps *caps = NULL;
   GstStructure *props;
   const gchar *klass = NULL;
   SpaDictItem *item;
+  GstPinosDeviceType type;
+  int i;
 
-  /* FIXME, iterate ports */
-#if 0
-  if (info->possible_formats)
-    caps = gst_caps_from_string (g_bytes_get_data (info->possible_formats, NULL));
-  else
-    caps = gst_caps_new_any();
-#endif
-    caps = gst_caps_from_string ("video/x-raw,width=320,height=240,framerate=15/1");
+  caps = gst_caps_new_empty();
+  if (info->max_inputs > 0 && info->max_outputs == 0) {
+    type = GST_PINOS_DEVICE_TYPE_SINK;
+
+    for (i = 0; i < info->n_input_formats; i++) {
+      gst_caps_append (caps, gst_caps_from_format (info->input_formats[i]));
+    }
+  }
+  else if (info->max_outputs > 0 && info->max_inputs == 0) {
+    type = GST_PINOS_DEVICE_TYPE_SOURCE;
+    for (i = 0; i < info->n_output_formats; i++) {
+      gst_caps_append (caps, gst_caps_from_format (info->output_formats[i]));
+    }
+  } else {
+    type = GST_PINOS_DEVICE_TYPE_UNKNOWN;
+  }
 
   props = gst_structure_new_empty ("pinos-proplist");
   if (info->props) {
@@ -222,7 +233,7 @@ new_node (const PinosNodeInfo *info)
                                info->name,
                                caps,
                                klass,
-                               GST_PINOS_DEVICE_TYPE_SOURCE,
+                               type,
                                props);
 }
 
@@ -500,7 +511,7 @@ failed_start:
 failed_main_loop:
   pinos_loop_destroy (self->loop);
   self->loop = NULL;
-  return FALSE;
+  return TRUE;
 }
 
 static void

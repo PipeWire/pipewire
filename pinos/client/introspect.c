@@ -20,6 +20,7 @@
 #include <string.h>
 
 #include "pinos/client/pinos.h"
+#include "pinos/client/serialize.h"
 
 #include "pinos/client/context.h"
 #include "pinos/client/subscribe.h"
@@ -218,6 +219,8 @@ pinos_node_info_update (PinosNodeInfo       *info,
                         const PinosNodeInfo *update)
 {
   uint64_t change_mask;
+  int i;
+  size_t size;
 
   if (update == NULL)
     return info;
@@ -240,13 +243,38 @@ pinos_node_info_update (PinosNodeInfo       *info,
   }
   if (update->change_mask & (1 << 1))
     info->max_inputs = update->max_inputs;
-  if (update->change_mask & (1 << 2))
+  if (update->change_mask & (1 << 2)) {
+    for (i = 0; i < info->n_input_formats; i++)
+      free (info->input_formats[i]);
     info->n_input_formats = update->n_input_formats;
-
+    if (info->n_input_formats)
+      info->input_formats = realloc (info->input_formats, info->n_input_formats * sizeof (SpaFormat *));
+    else {
+      free (info->input_formats);
+      info->input_formats = NULL;
+    }
+    for (i = 0; i < info->n_input_formats; i++) {
+      size = pinos_serialize_format_get_size (update->input_formats[i]);
+      info->input_formats[i] = size ? pinos_serialize_format_copy_into (malloc (size), update->input_formats[i]) : NULL;
+    }
+  }
   if (update->change_mask & (1 << 3))
     info->max_outputs = update->max_outputs;
-  if (update->change_mask & (1 << 4))
+  if (update->change_mask & (1 << 4)) {
+    for (i = 0; i < info->n_output_formats; i++)
+      free (info->output_formats[i]);
     info->n_output_formats = update->n_output_formats;
+    if (info->n_output_formats)
+      info->output_formats = realloc (info->output_formats, info->n_output_formats * sizeof (SpaFormat *));
+    else {
+      free (info->output_formats);
+      info->output_formats = NULL;
+    }
+    for (i = 0; i < info->n_output_formats; i++) {
+      size = pinos_serialize_format_get_size (update->output_formats[i]);
+      info->output_formats[i] = size ? pinos_serialize_format_copy_into (malloc (size), update->output_formats[i]) : NULL;
+    }
+  }
 
   if (update->change_mask & (1 << 5)) {
     info->state = update->state;
@@ -265,10 +293,22 @@ pinos_node_info_update (PinosNodeInfo       *info,
 void
 pinos_node_info_free (PinosNodeInfo *info)
 {
+  int i;
+
   if (info == NULL)
     return;
   if (info->name)
     free ((void*)info->name);
+  if (info->input_formats) {
+    for (i = 0; i < info->n_input_formats; i++)
+      free (info->input_formats[i]);
+    free (info->input_formats);
+  }
+  if (info->output_formats) {
+    for (i = 0; i < info->n_output_formats; i++)
+      free (info->output_formats[i]);
+    free (info->output_formats);
+  }
   if (info->error)
     free ((void*)info->error);
   if (info->props)

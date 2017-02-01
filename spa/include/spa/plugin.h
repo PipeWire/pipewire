@@ -136,7 +136,7 @@ struct _SpaHandleFactory {
    * SpaHandle::enum_interface_info:
    * @factory: a #SpaHandleFactory
    * @info: result to hold SpaInterfaceInfo.
-   * @state: state to keep track of the enumeration, %NULL for first item
+   * @index: index to keep track of the enumeration, 0 for first item
    *
    * Enumerate the interface information for @factory.
    *
@@ -147,7 +147,7 @@ struct _SpaHandleFactory {
    */
   SpaResult   (*enum_interface_info)  (const SpaHandleFactory  *factory,
                                        const SpaInterfaceInfo **info,
-                                       void                   **state);
+                                       unsigned int             index);
 };
 
 #define spa_handle_factory_init(h,...)                (h)->init((h),__VA_ARGS__)
@@ -156,7 +156,7 @@ struct _SpaHandleFactory {
 /**
  * SpaEnumHandleFactoryFunc:
  * @factory: a location to hold the factory result
- * @state: state to keep track of the enumeration
+ * @index: index to keep track of the enumeration
  *
  * The function signature of the entry point in a plugin.
  *
@@ -165,12 +165,12 @@ struct _SpaHandleFactory {
  *          #SPA_RESULT_ENUM_END when there are no more factories
  */
 typedef SpaResult (*SpaEnumHandleFactoryFunc) (const SpaHandleFactory **factory,
-                                               void                   **state);
+                                               unsigned int             index);
 
 /**
  * spa_enum_handle_factory:
  * @factory: a location to hold the factory result
- * @state: state to keep track of the enumeration
+ * @index: index to keep track of the enumeration
  *
  * The entry point in a plugin.
  *
@@ -179,7 +179,7 @@ typedef SpaResult (*SpaEnumHandleFactoryFunc) (const SpaHandleFactory **factory,
  *          #SPA_RESULT_ENUM_END when there are no more factories
  */
 SpaResult spa_enum_handle_factory       (const SpaHandleFactory **factory,
-                                         void                   **state);
+                                         unsigned int             index);
 
 #ifdef __cplusplus
 }  /* extern "C" */

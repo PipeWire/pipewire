@@ -22,6 +22,7 @@
 #include <errno.h>
 
 #include "pinos/client/pinos.h"
+#include "pinos/client/serialize.h"
 
 #include "pinos/server/node.h"
 #include "pinos/server/data-loop.h"
@@ -423,8 +424,44 @@ node_bind_func (PinosGlobal *global,
   info.name = this->name;
   info.max_inputs = this->transport->area->max_inputs;
   info.n_inputs = this->transport->area->n_inputs;
+  info.input_formats = NULL;
+  for (info.n_input_formats = 0; ; info.n_input_formats++) {
+    SpaFormat *fmt;
+    void *p;
+
+    if (spa_node_port_enum_formats (this->node,
+                                    SPA_DIRECTION_INPUT,
+                                    0,
+                                    &fmt,
+                                    NULL,
+                                    info.n_input_formats) < 0)
+      break;
+
+    info.input_formats = realloc (info.input_formats, sizeof (SpaFormat*) * (info.n_input_formats + 1));
+
+    p = malloc (pinos_serialize_format_get_size (fmt));
+    info.input_formats[info.n_input_formats] = pinos_serialize_format_copy_into (p, fmt);
+  }
   info.max_outputs = this->transport->area->max_outputs;
   info.n_outputs = this->transport->area->n_outputs;
+  info.output_formats = NULL;
+  for (info.n_output_formats = 0; ; info.n_output_formats++) {
+    SpaFormat *fmt;
+    void *p;
+
+    if (spa_node_port_enum_formats (this->node,
+                                    SPA_DIRECTION_OUTPUT,
+                                    0,
+                                    &fmt,
+                                    NULL,
+                                    info.n_output_formats) < 0)
+      break;
+
+    info.output_formats = realloc (info.output_formats, sizeof (SpaFormat*) * (info.n_output_formats + 1));
+
+    p = malloc (pinos_serialize_format_get_size (fmt));
+    info.output_formats[info.n_output_formats] = pinos_serialize_format_copy_into (p, fmt);
+  }
   info.state = this->state;
   info.error = this->error;
   info.props = this->properties ? &this->properties->dict : NULL;
@@ -667,9 +704,9 @@ pinos_node_destroy (PinosNode * this)
  * @node: a #PinosNode
  * @direction: a #PinosDirection
  *
- * Find a new unused port id in @node with @direction
+ * Find a new unused port in @node with @direction
  *
- * Returns: the new port id or %SPA_ID_INVALID on error
+ * Returns: the new port or %NULL on error
  */
 PinosPort *
 pinos_node_get_free_port (PinosNode       *node,
@@ -698,12 +735,8 @@ pinos_node_get_free_port (PinosNode       *node,
     }
   }
 
-  if (port == NULL) {
-    if (!spa_list_is_empty (ports))
-      port = spa_list_first (ports, PinosPort, link);
-    else
-      return NULL;
-  }
+  if (port == NULL && !spa_list_is_empty (ports))
+    port = spa_list_first (ports, PinosPort, link);
 
   return port;
 
@@ -812,7 +845,7 @@ pinos_node_update_state (PinosNode      *node,
 
     spa_zero (info);
     m.info = &info;
-    info.change_mask = 1 << 1;
+    info.change_mask = 1 << 5;
     info.state = node->state;
     info.error = node->error;
 

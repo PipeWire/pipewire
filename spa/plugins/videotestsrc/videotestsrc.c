@@ -425,20 +425,17 @@ spa_videotestsrc_node_port_enum_formats (SpaNode          *node,
                                          uint32_t          port_id,
                                          SpaFormat       **format,
                                          const SpaFormat  *filter,
-                                         void            **state)
+                                         unsigned int      index)
 {
   SpaVideoTestSrc *this;
-  int index;
 
-  if (node == NULL || format == NULL || state == NULL)
+  if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaVideoTestSrc, node);
 
   if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
-
-  index = (*state == NULL ? 0 : *(int*)state);
 
   switch (index) {
     case 0:
@@ -453,7 +450,6 @@ spa_videotestsrc_node_port_enum_formats (SpaNode          *node,
       return SPA_RESULT_ENUM_END;
   }
   *format = &this->query_format.format;
-  *(int*)state = ++index;
 
   return SPA_RESULT_OK;
 }
@@ -956,14 +952,10 @@ static const SpaInterfaceInfo videotestsrc_interfaces[] =
 static SpaResult
 videotestsrc_enum_interface_info (const SpaHandleFactory  *factory,
                                   const SpaInterfaceInfo **info,
-                                  void			 **state)
+                                  unsigned int             index)
 {
-  int index;
-
-  if (factory == NULL || info == NULL || state == NULL)
+  if (factory == NULL || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
-
-  index = (*state == NULL ? 0 : *(int*)state);
 
   switch (index) {
     case 0:
@@ -972,7 +964,6 @@ videotestsrc_enum_interface_info (const SpaHandleFactory  *factory,
     default:
       return SPA_RESULT_ENUM_END;
   }
-  *(int*)state = ++index;
   return SPA_RESULT_OK;
 }
 

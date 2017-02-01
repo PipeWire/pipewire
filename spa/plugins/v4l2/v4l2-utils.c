@@ -447,7 +447,10 @@ filter_framerate (struct v4l2_frmivalenum *frmival,
 #define FOURCC_ARGS(f) (f)&0x7f,((f)>>8)&0x7f,((f)>>16)&0x7f,((f)>>24)&0x7f
 
 static SpaResult
-spa_v4l2_enum_format (SpaV4l2Source *this, SpaFormat **format, const SpaFormat *filter, void **cookie)
+spa_v4l2_enum_format (SpaV4l2Source   *this,
+                      SpaFormat      **format,
+                      const SpaFormat *filter,
+                      unsigned int     index)
 {
   SpaV4l2State *state = &this->state[0];
   int res, i, pi;
@@ -459,7 +462,7 @@ spa_v4l2_enum_format (SpaV4l2Source *this, SpaFormat **format, const SpaFormat *
 
   *format = NULL;
 
-  if (*cookie == NULL) {
+  if (index == 0) {
     CLEAR (state->fmtdesc);
     state->fmtdesc.index = 0;
     state->fmtdesc.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -467,7 +470,6 @@ spa_v4l2_enum_format (SpaV4l2Source *this, SpaFormat **format, const SpaFormat *
     CLEAR (state->frmsize);
     state->next_frmsize = true;
     CLEAR (state->frmival);
-    *cookie = state;
   }
 
   if (false) {

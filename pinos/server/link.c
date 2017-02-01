@@ -78,7 +78,7 @@ do_negotiate (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
   PinosLinkImpl *impl = SPA_CONTAINER_OF (this, PinosLinkImpl, this);
   SpaResult res;
   SpaFormat *filter = NULL, *format;
-  void *istate = NULL, *ostate = NULL;
+  unsigned int iidx = 0, oidx = 0;
   char *error = NULL;
 
   if (in_state != SPA_NODE_STATE_CONFIGURE && out_state != SPA_NODE_STATE_CONFIGURE)
@@ -95,8 +95,8 @@ again:
                                            this->input->port_id,
                                            &filter,
                                            NULL,
-                                           &istate)) < 0) {
-      if (res == SPA_RESULT_ENUM_END && istate != NULL) {
+                                           iidx)) < 0) {
+      if (res == SPA_RESULT_ENUM_END && iidx != 0) {
         asprintf (&error, "error input enum formats: %d", res);
         goto error;
       }
@@ -110,9 +110,10 @@ again:
                                            this->output->port_id,
                                            &format,
                                            filter,
-                                           &ostate)) < 0) {
+                                           oidx)) < 0) {
       if (res == SPA_RESULT_ENUM_END) {
-        ostate = NULL;
+        oidx = 0;
+        iidx++;
         goto again;
       }
       asprintf (&error, "error output enum formats: %d", res);

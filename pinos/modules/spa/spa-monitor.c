@@ -201,7 +201,8 @@ pinos_spa_monitor_load (PinosCore  *core,
   SpaHandle *handle;
   SpaResult res;
   void *iface;
-  void *hnd, *state = NULL;
+  void *hnd;
+  unsigned int index;
   SpaEnumHandleFactoryFunc enum_func;
   const SpaHandleFactory *factory;
 
@@ -214,8 +215,8 @@ pinos_spa_monitor_load (PinosCore  *core,
     goto no_symbol;
   }
 
-  while (true) {
-    if ((res = enum_func (&factory, &state)) < 0) {
+  for (index = 0;; index++) {
+    if ((res = enum_func (&factory, index)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
         pinos_log_error ("can't enumerate factories: %d", res);
       goto enum_failed;
@@ -256,12 +257,11 @@ pinos_spa_monitor_load (PinosCore  *core,
 
   spa_list_init (&impl->item_list);
 
-  state = NULL;
-  while (true) {
+  for (index = 0;; index++) {
     SpaMonitorItem *item;
     SpaResult res;
 
-    if ((res = spa_monitor_enum_items (this->monitor, &item, &state)) < 0) {
+    if ((res = spa_monitor_enum_items (this->monitor, &item, index)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
         pinos_log_debug ("spa_monitor_enum_items: got error %d\n", res);
       break;

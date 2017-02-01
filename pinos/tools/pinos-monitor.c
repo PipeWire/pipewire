@@ -110,15 +110,25 @@ dump_node_info (PinosContext        *c,
   printf ("\tid: %u\n", info->id);
   printf ("\ttype: %s\n", PINOS_NODE_URI);
   if (data->print_all) {
+    int i;
+
     printf ("%c\tname: \"%s\"\n", MARK_CHANGE (0), info->name);
     printf ("%c\tinputs: %u/%u\n", MARK_CHANGE (1), info->n_inputs, info->max_inputs);
-    printf ("%c\toutputs: %u/%u\n", MARK_CHANGE (2), info->n_outputs, info->max_outputs);
-    printf ("%c\tstate: \"%s\"", MARK_CHANGE (3), pinos_node_state_as_string (info->state));
+    printf ("%c\tinput formats:\n", MARK_CHANGE (2));
+    for (i = 0; i < info->n_input_formats; i++)
+      spa_debug_format (info->input_formats[i]);
+
+    printf ("%c\toutputs: %u/%u\n", MARK_CHANGE (3), info->n_outputs, info->max_outputs);
+    printf ("%c\toutput formats:\n", MARK_CHANGE (4));
+    for (i = 0; i < info->n_output_formats; i++)
+      spa_debug_format (info->output_formats[i]);
+
+    printf ("%c\tstate: \"%s\"", MARK_CHANGE (5), pinos_node_state_as_string (info->state));
     if (info->state == PINOS_NODE_STATE_ERROR && info->error)
       printf (" \"%s\"\n", info->error);
     else
       printf ("\n");
-    print_properties (info->props, MARK_CHANGE (4));
+    print_properties (info->props, MARK_CHANGE (6));
   }
 }
 

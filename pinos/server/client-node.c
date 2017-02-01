@@ -472,13 +472,12 @@ spa_proxy_node_port_enum_formats (SpaNode          *node,
                                   uint32_t          port_id,
                                   SpaFormat       **format,
                                   const SpaFormat  *filter,
-                                  void            **state)
+                                  unsigned int      index)
 {
   SpaProxy *this;
   SpaProxyPort *port;
-  int index;
 
-  if (node == NULL || format == NULL || state == NULL)
+  if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaProxy, node);
@@ -488,13 +487,10 @@ spa_proxy_node_port_enum_formats (SpaNode          *node,
 
   port = direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
 
-  index = (*state == NULL ? 0 : *(int*)state);
-
   if (index >= port->n_formats)
     return SPA_RESULT_ENUM_END;
 
   *format = port->formats[index];
-  *(int*)state = ++index;
 
   return SPA_RESULT_OK;
 }

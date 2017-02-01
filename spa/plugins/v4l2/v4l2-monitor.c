@@ -61,6 +61,8 @@ struct _SpaV4l2Monitor {
   struct udev* udev;
   struct udev_monitor *umonitor;
   struct udev_enumerate *enumerate;
+  unsigned int index;
+  struct udev_list_entry *devices;
 
   V4l2Item uitem;
 
@@ -251,14 +253,13 @@ spa_v4l2_monitor_set_event_callback (SpaMonitor              *monitor,
 static SpaResult
 spa_v4l2_monitor_enum_items (SpaMonitor       *monitor,
                              SpaMonitorItem  **item,
-                             void            **state)
+                             unsigned int      index)
 {
   SpaResult res;
   SpaV4l2Monitor *this;
-  struct udev_list_entry *devices;
   struct udev_device *dev;
 
-  if (monitor == NULL || item == NULL || state == NULL)
+  if (monitor == NULL || item == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (monitor, SpaV4l2Monitor, monitor);
@@ -266,7 +267,7 @@ spa_v4l2_monitor_enum_items (SpaMonitor       *monitor,
   if ((res = v4l2_udev_open (this)) < 0)
     return res;
 
-  if (*state == NULL) {
+  if (index == 0) {
     if (this->enumerate)
       udev_enumerate_unref (this->enumerate);
     this->enumerate = udev_enumerate_new (this->udev);
@@ -274,20 +275,20 @@ spa_v4l2_monitor_enum_items (SpaMonitor       *monitor,
     udev_enumerate_add_match_subsystem (this->enumerate, "video4linux");
     udev_enumerate_scan_devices (this->enumerate);
 
-    devices = udev_enumerate_get_list_entry (this->enumerate);
-    if (devices == NULL)
-      return SPA_RESULT_ENUM_END;
-  } else {
-    devices = *state;
+    this->devices = udev_enumerate_get_list_entry (this->enumerate);
+    this->index = 0;
   }
-
-  if (*state == (void*)1) {
+  while (index > this->index && this->devices) {
+    this->devices = udev_list_entry_get_next (this->devices);
+    this->index++;
+  }
+  if (this->devices == NULL) {
     fill_item (&this->uitem, NULL);
     return SPA_RESULT_ENUM_END;
   }
 
   dev = udev_device_new_from_syspath (this->udev,
-                                      udev_list_entry_get_name (devices));
+                                      udev_list_entry_get_name (this->devices));
 
   fill_item (&this->uitem, dev);
   if (dev == NULL)
@@ -295,8 +296,8 @@ spa_v4l2_monitor_enum_items (SpaMonitor       *monitor,
 
   *item = &this->uitem.item;
 
-  if ((*state = udev_list_entry_get_next (devices)) == NULL)
-    *state = (void*)1;
+  this->devices = udev_list_entry_get_next (this->devices);
+  this->index++;
 
   return SPA_RESULT_OK;
 }
@@ -383,20 +384,15 @@ static const SpaInterfaceInfo v4l2_monitor_interfaces[] =
 static SpaResult
 v4l2_monitor_enum_interface_info (const SpaHandleFactory  *factory,
                                   const SpaInterfaceInfo **info,
-                                  void                   **state)
+                                  unsigned int             index)
 {
-  int index;
-
-  if (factory == NULL || info == NULL || state == NULL)
+  if (factory == NULL || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
-
-  index = (*state == NULL ? 0 : *(int*)state);
 
   if (index < 0 || index >= SPA_N_ELEMENTS (v4l2_monitor_interfaces))
     return SPA_RESULT_ENUM_END;
 
   *info = &v4l2_monitor_interfaces[index];
-  *(int*)state = ++index;
   return SPA_RESULT_OK;
 }
 

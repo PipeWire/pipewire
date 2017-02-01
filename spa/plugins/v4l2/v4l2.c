@@ -25,14 +25,10 @@ extern const SpaHandleFactory spa_v4l2_monitor_factory;
 
 SpaResult
 spa_enum_handle_factory (const SpaHandleFactory **factory,
-                         void                   **state)
+                         unsigned int             index)
 {
-  int index;
-
-  if (factory == NULL || state == NULL)
+  if (factory == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
-
-  index = (*state == NULL ? 0 : *(int*)state);
 
   switch (index) {
     case 0:
@@ -44,7 +40,5 @@ spa_enum_handle_factory (const SpaHandleFactory **factory,
     default:
       return SPA_RESULT_ENUM_END;
   }
-  *(int*)state = ++index;
-
   return SPA_RESULT_OK;
 }

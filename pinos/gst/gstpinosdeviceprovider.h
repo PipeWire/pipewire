@@ -46,6 +46,7 @@ typedef struct _GstPinosDeviceClass GstPinosDeviceClass;
 #define GST_PINOS_DEVICE_CAST(obj)            ((GstPinosDevice *)(obj))
 
 typedef enum {
+  GST_PINOS_DEVICE_TYPE_UNKNOWN,
   GST_PINOS_DEVICE_TYPE_SOURCE,
   GST_PINOS_DEVICE_TYPE_SINK,
 } GstPinosDeviceType;

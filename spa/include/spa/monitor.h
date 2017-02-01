@@ -126,7 +126,7 @@ struct _SpaMonitor {
 
   SpaResult  (*enum_items)           (SpaMonitor              *monitor,
                                       SpaMonitorItem         **item,
-                                      void                   **state);
+                                      unsigned int             index);
 
 };
 

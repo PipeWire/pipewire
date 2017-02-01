@@ -80,25 +80,27 @@ spa_props_copy_values (const SpaProps *src,
                        SpaProps       *dest)
 {
   int i;
-  SpaResult res;
 
   if (src == dest)
     return SPA_RESULT_OK;
 
   for (i = 0; i < dest->n_prop_info; i++) {
-    const SpaPropInfo *info = &dest->prop_info[i];
-    SpaPropValue value;
+    const SpaPropInfo *dinfo = &dest->prop_info[i];
+    const SpaPropInfo *sinfo;
+    unsigned int idx;
 
-    if (!(info->flags & SPA_PROP_FLAG_WRITABLE))
+    if (!(dinfo->flags & SPA_PROP_FLAG_WRITABLE))
       continue;
-    if ((res = spa_props_get_value (src, spa_props_index_for_id (src, info->id), &value)) < 0)
+    if ((idx = spa_props_index_for_id (src, dinfo->id)) == SPA_IDX_INVALID)
       continue;
-    if (value.size > info->maxsize)
+    sinfo = &src->prop_info[idx];
+    if (sinfo->maxsize > dinfo->maxsize)
       return SPA_RESULT_WRONG_PROPERTY_SIZE;
 
-    memcpy (SPA_MEMBER (dest, info->offset, void), value.value, value.size);
+    memcpy (SPA_MEMBER (dest, dinfo->offset, void), SPA_MEMBER (src, sinfo->offset, void), sinfo->maxsize);
 
-    SPA_PROPS_INDEX_SET (dest, i);
+    if (!SPA_PROPS_INDEX_IS_UNSET (src, idx))
+      SPA_PROPS_INDEX_SET (dest, i);
   }
   return SPA_RESULT_OK;
 }

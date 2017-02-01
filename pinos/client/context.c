@@ -132,8 +132,17 @@ core_dispatch_func (void             *object,
     {
       PinosMessageNotifyDone *nd = message;
 
-      if (nd->seq == 0)
+      if (nd->seq == 0) {
+        PinosMessageSync sync;
+
+        sync.seq = 1;
+        pinos_proxy_send_message (this->core_proxy,
+                                  PINOS_MESSAGE_SYNC,
+                                  &sync,
+                                  true);
+      } else if (nd->seq == 1) {
         context_set_state (this, PINOS_CONTEXT_STATE_CONNECTED, NULL);
+      }
       break;
     }
     case PINOS_MESSAGE_ERROR:
@@ -776,7 +785,8 @@ do_list (PinosContext            *context,
     if (proxy->type != type)
       continue;
 
-    cb (context, SPA_RESULT_OK, proxy->user_data, user_data);
+    if (proxy->user_data)
+      cb (context, SPA_RESULT_OK, proxy->user_data, user_data);
   }
   cb (context, SPA_RESULT_ENUM_END, NULL, user_data);
 }

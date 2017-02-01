@@ -202,7 +202,7 @@ new_node (const PinosNodeInfo *info)
   GstPinosDeviceType type;
   int i;
 
-  caps = gst_caps_new_empty();
+  caps = gst_caps_new_empty ();
   if (info->max_inputs > 0 && info->max_outputs == 0) {
     type = GST_PINOS_DEVICE_TYPE_SINK;
 

@@ -101,6 +101,19 @@ core_dispatch_func (void             *object,
                                       m->props);
       break;
     }
+    case PINOS_MESSAGE_SYNC:
+    {
+      PinosMessageSync *m = message;
+      PinosMessageNotifyDone r;
+
+      r.seq = m->seq;
+      pinos_client_send_message (client,
+                                 resource,
+                                 PINOS_MESSAGE_NOTIFY_DONE,
+                                 &r,
+                                 true);
+      break;
+    }
 
     case PINOS_MESSAGE_GET_REGISTRY:
     {

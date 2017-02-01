@@ -81,11 +81,7 @@ connection_add_fd (PinosConnection *conn,
   return index;
 }
 
-#if 1
-#define PINOS_DEBUG_MESSAGE(format,args...) pinos_log_debug(format,##args)
-#else
-#define PINOS_DEBUG_MESSAGE(format,args...)
-#endif
+#define PINOS_DEBUG_MESSAGE(format,args...) pinos_log_trace(format,##args)
 
 static void
 connection_parse_client_update (PinosConnection *conn, PinosMessageClientUpdate *m)

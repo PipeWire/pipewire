@@ -333,7 +333,6 @@ spa_alsa_monitor_enum_items (SpaMonitor       *monitor,
   if ((res = alsa_udev_open (this)) < 0)
     return res;
 
-again:
   if (index == 0 || this->index > index) {
     if (this->enumerate)
       udev_enumerate_unref (this->enumerate);
@@ -349,6 +348,7 @@ again:
     this->devices = udev_list_entry_get_next (this->devices);
     this->index++;
   }
+again:
   if (this->devices == NULL) {
     fill_item (this, &this->uitem, NULL);
     return SPA_RESULT_ENUM_END;

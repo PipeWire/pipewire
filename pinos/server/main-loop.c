@@ -80,6 +80,12 @@ pinos_main_loop_destroy (PinosMainLoop *loop)
   free (impl);
 }
 
+/**
+ * pinos_main_loop_quit:
+ * @loop: a #PinosMainLoop
+ *
+ * Stop the running @loop.
+ */
 void
 pinos_main_loop_quit (PinosMainLoop *loop)
 {
@@ -88,6 +94,13 @@ pinos_main_loop_quit (PinosMainLoop *loop)
   impl->running = false;
 }
 
+/**
+ * pinos_main_loop_run:
+ * @loop: a #PinosMainLoop
+ *
+ * Start running @loop. This function blocks until pinos_main_loop_quit()
+ * has been called.
+ */
 void
 pinos_main_loop_run (PinosMainLoop *loop)
 {

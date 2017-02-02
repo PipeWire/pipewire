@@ -71,7 +71,7 @@ pinos_resource_destroy (PinosResource *resource)
   pinos_log_debug ("resource %p: destroy %u", resource, resource->id);
   pinos_signal_emit (&resource->destroy_signal, resource);
 
-  pinos_map_remove (&client->objects, resource->id);
+  pinos_map_insert_at (&client->objects, resource->id, NULL);
   pinos_signal_emit (&client->resource_removed, client, resource);
 
   if (resource->destroy)

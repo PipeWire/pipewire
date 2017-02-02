@@ -189,11 +189,16 @@ pinos_thread_main_loop_stop (PinosThreadMainLoop *loop)
 {
   PinosThreadMainLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosThreadMainLoopImpl, this);
 
+  pinos_log_debug ("thread-mainloop: %p stopping", impl);
   if (impl->running) {
+    pinos_log_debug ("thread-mainloop: %p signal", impl);
     pinos_loop_signal_event (loop->loop, impl->event);
+    pinos_log_debug ("thread-mainloop: %p join", impl);
     pthread_join (impl->thread, NULL);
+    pinos_log_debug ("thread-mainloop: %p joined", impl);
     impl->running = false;
   }
+  pinos_log_debug ("thread-mainloop: %p stopped", impl);
 }
 
 /**

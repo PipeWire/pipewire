@@ -240,6 +240,21 @@ no_mem:
   return NULL;
 }
 
+static void
+unhandle_socket (PinosStream *stream)
+{
+  PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
+
+  if (impl->rtsocket_source) {
+    pinos_loop_destroy_source (stream->context->loop, impl->rtsocket_source);
+    impl->rtsocket_source = NULL;
+  }
+  if (impl->timeout_source) {
+    pinos_loop_destroy_source (stream->context->loop, impl->timeout_source);
+    impl->timeout_source = NULL;
+  }
+}
+
 void
 pinos_stream_destroy (PinosStream *stream)
 {
@@ -248,6 +263,8 @@ pinos_stream_destroy (PinosStream *stream)
   pinos_log_debug ("stream %p: destroy", stream);
 
   pinos_signal_emit (&stream->destroy_signal, stream);
+
+  unhandle_socket (stream);
 
   spa_list_remove (&stream->link);
 
@@ -515,21 +532,6 @@ handle_rtnode_event (PinosStream  *stream,
     default:
       pinos_log_warn ("unexpected node event %d", event->type);
       break;
-  }
-}
-
-static void
-unhandle_socket (PinosStream *stream)
-{
-  PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
-
-  if (impl->rtsocket_source) {
-    pinos_loop_destroy_source (stream->context->loop, impl->rtsocket_source);
-    impl->rtsocket_source = NULL;
-  }
-  if (impl->timeout_source) {
-    pinos_loop_destroy_source (stream->context->loop, impl->timeout_source);
-    impl->timeout_source = NULL;
   }
 }
 

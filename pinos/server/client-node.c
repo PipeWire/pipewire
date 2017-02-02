@@ -1172,6 +1172,8 @@ on_node_free (PinosListener *listener,
   pinos_log_debug ("client-node %p: free", &impl->this);
   proxy_clear (&impl->proxy);
 
+  pinos_signal_remove (&impl->node_free);
+
   if (impl->data_fd != -1)
     close (impl->data_fd);
   free (impl);

@@ -86,6 +86,11 @@ do_negotiate (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
 
   pinos_link_update_state (this, PINOS_LINK_STATE_NEGOTIATING, NULL);
 
+  if (out_state > SPA_NODE_STATE_READY && this->output->node->state == PINOS_NODE_STATE_IDLE) {
+    pinos_node_set_state (this->output->node, PINOS_NODE_STATE_SUSPENDED);
+    out_state = SPA_NODE_STATE_CONFIGURE;
+  }
+
   /* both ports need a format */
   if (in_state == SPA_NODE_STATE_CONFIGURE && out_state == SPA_NODE_STATE_CONFIGURE) {
     pinos_log_debug ("link %p: doing negotiate format", this);
@@ -715,7 +720,6 @@ on_output_port_destroy (PinosListener *listener,
   PinosLinkImpl *impl = SPA_CONTAINER_OF (listener, PinosLinkImpl, output_port_destroy);
 
   on_port_destroy (&impl->this, port);
-  pinos_signal_remove (listener);
 }
 
 bool

@@ -86,10 +86,11 @@ add_item (PinosSpaMonitor *this, SpaMonitorItem *item)
   if (item->info) {
     unsigned int i;
 
-    for (i = 0; i < item->info->n_items; i++)
+    for (i = 0; i < item->info->n_items; i++) {
       pinos_properties_set (props,
                             item->info->items[i].key,
                             item->info->items[i].value);
+    }
   }
 
   pinos_properties_set (props, "media.class", item->klass);
@@ -97,7 +98,7 @@ add_item (PinosSpaMonitor *this, SpaMonitorItem *item)
   mitem = calloc (1, sizeof (PinosSpaMonitorItem));
   mitem->id = strdup (item->id);
   mitem->node = pinos_node_new (impl->core,
-                                item->factory->name,
+                                item->name,
                                 node_iface,
                                 clock_iface,
                                 props);

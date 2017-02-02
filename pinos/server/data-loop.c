@@ -192,10 +192,11 @@ pinos_data_loop_stop (PinosDataLoop *loop)
 {
   PinosDataLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosDataLoopImpl, this);
 
-  pinos_loop_signal_event (impl->this.loop, impl->event);
+  if (impl->running) {
+    pinos_loop_signal_event (impl->this.loop, impl->event);
 
-  pthread_join (impl->thread, NULL);
-
+    pthread_join (impl->thread, NULL);
+  }
   return SPA_RESULT_OK;
 }
 

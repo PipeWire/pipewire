@@ -637,3 +637,19 @@ fallback:
 
   return res;
 }
+
+SpaResult
+spa_format_video_filter (SpaFormatVideo   *format,
+                         const SpaFormat  *filter)
+{
+  SpaFormatVideo vf;
+  SpaResult res;
+
+  if (filter == NULL)
+    return SPA_RESULT_OK;
+
+  if ((res = spa_format_video_parse (filter, &vf)) != SPA_RESULT_OK)
+    return res;
+
+  return SPA_RESULT_NOT_IMPLEMENTED;
+}

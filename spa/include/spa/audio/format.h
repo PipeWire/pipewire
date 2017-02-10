@@ -55,6 +55,8 @@ SpaResult   spa_format_audio_init        (SpaMediaType     type,
                                           SpaFormatAudio  *format);
 SpaResult   spa_format_audio_parse       (const SpaFormat *format,
                                           SpaFormatAudio  *aformat);
+SpaResult   spa_format_audio_filter      (SpaFormatAudio  *format,
+                                          const SpaFormat *filter);
 
 #ifdef __cplusplus
 }  /* extern "C" */

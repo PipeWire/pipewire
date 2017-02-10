@@ -428,6 +428,7 @@ spa_videotestsrc_node_port_enum_formats (SpaNode          *node,
                                          unsigned int      index)
 {
   SpaVideoTestSrc *this;
+  SpaResult res;
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -439,16 +440,34 @@ spa_videotestsrc_node_port_enum_formats (SpaNode          *node,
 
   switch (index) {
     case 0:
-      if (filter)
-        spa_format_video_parse (filter, &this->query_format);
-      else
-        spa_format_video_init (SPA_MEDIA_TYPE_VIDEO,
-                               SPA_MEDIA_SUBTYPE_RAW,
-                               &this->query_format);
+    {
+      int idx;
+      static const uint32_t format_values[] = {
+        SPA_VIDEO_FORMAT_RGB,
+        SPA_VIDEO_FORMAT_UYVY,
+      };
+      static const SpaPropRangeInfo format_range[] = {
+          { "RGB", { sizeof (uint32_t), &format_values[0] } },
+          { "UYVY", { sizeof (uint32_t), &format_values[1] } },
+      };
+      SpaPropInfo *info;
+      spa_format_video_init (SPA_MEDIA_TYPE_VIDEO,
+                             SPA_MEDIA_SUBTYPE_RAW,
+                             &this->query_format);
+
+      idx = spa_props_index_for_id (&this->query_format.format.props, SPA_PROP_ID_VIDEO_FORMAT);
+      info = (SpaPropInfo *) &this->query_format.format.props.prop_info[idx];
+
+      info->n_range_values = SPA_N_ELEMENTS (format_range);
+      info->range_values = format_range;
       break;
+    }
     default:
       return SPA_RESULT_ENUM_END;
   }
+  if ((res = spa_format_video_filter (&this->query_format, filter)) != SPA_RESULT_OK)
+    return res;
+
   *format = &this->query_format.format;
 
   return SPA_RESULT_OK;

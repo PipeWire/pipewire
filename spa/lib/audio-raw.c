@@ -305,3 +305,19 @@ fallback:
 
   return res;
 }
+
+SpaResult
+spa_format_audio_filter (SpaFormatAudio  *format,
+                         const SpaFormat *filter)
+{
+  SpaFormatAudio af;
+  SpaResult res;
+
+  if (filter == NULL)
+    return SPA_RESULT_OK;
+
+  if ((res = spa_format_audio_parse (filter, &af)) != SPA_RESULT_OK)
+    return res;
+
+  return SPA_RESULT_NOT_IMPLEMENTED;
+}

@@ -62,6 +62,9 @@ SpaResult   spa_format_video_init       (SpaMediaType     type,
 SpaResult   spa_format_video_parse      (const SpaFormat  *format,
                                          SpaFormatVideo   *dest);
 
+SpaResult   spa_format_video_filter      (SpaFormatVideo  *format,
+                                          const SpaFormat *filter);
+
 struct _SpaFormatVideo {
   SpaFormat format;
   union {

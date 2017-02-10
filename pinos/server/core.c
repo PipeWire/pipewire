@@ -482,6 +482,7 @@ pinos_core_find_port (PinosCore       *core,
                       PinosPort       *other_port,
                       uint32_t         id,
                       PinosProperties *props,
+                      unsigned int     n_format_filters,
                       SpaFormat      **format_filters,
                       char           **error)
 {
@@ -508,12 +509,119 @@ pinos_core_find_port (PinosCore       *core,
           break;
       }
     } else {
+      PinosPort *p, *pin, *pout;
+
+      p = pinos_node_get_free_port (n, pinos_direction_reverse (other_port->direction));
+      if (p == NULL)
+        continue;
+
+      if (p->direction == PINOS_DIRECTION_OUTPUT) {
+        pin = other_port;
+        pout = p;
+      } else {
+        pin = p;
+        pout = other_port;
+      }
+
+      if (pinos_core_find_format (core,
+                                  pout,
+                                  pin,
+                                  props,
+                                  n_format_filters,
+                                  format_filters,
+                                  error) == NULL)
+        continue;
+
+      best = p;
     }
   }
   if (best == NULL) {
     asprintf (error, "No matching Node found");
   }
   return best;
+}
+
+SpaFormat *
+pinos_core_find_format (PinosCore       *core,
+                        PinosPort       *output,
+                        PinosPort       *input,
+                        PinosProperties *props,
+                        unsigned int     n_format_filters,
+                        SpaFormat      **format_filterss,
+                        char           **error)
+{
+  SpaNodeState out_state, in_state;
+  SpaResult res;
+  SpaFormat *filter = NULL, *format;
+  unsigned int iidx = 0, oidx = 0;
+
+  out_state = output->node->node->state;
+  in_state = input->node->node->state;
+
+  if (in_state == SPA_NODE_STATE_CONFIGURE && out_state > SPA_NODE_STATE_CONFIGURE) {
+    /* only input needs format */
+    if ((res = spa_node_port_get_format (output->node->node,
+                                         SPA_DIRECTION_OUTPUT,
+                                         output->port_id,
+                                         (const SpaFormat **)&format)) < 0) {
+      asprintf (error, "error get output format: %d", res);
+      goto error;
+    }
+  } else if (out_state == SPA_NODE_STATE_CONFIGURE && in_state > SPA_NODE_STATE_CONFIGURE) {
+    /* only output needs format */
+    if ((res = spa_node_port_get_format (input->node->node,
+                                         SPA_DIRECTION_INPUT,
+                                         input->port_id,
+                                         (const SpaFormat **)&format)) < 0) {
+      asprintf (error, "error get input format: %d", res);
+      goto error;
+    }
+  } else if (in_state == SPA_NODE_STATE_CONFIGURE && out_state == SPA_NODE_STATE_CONFIGURE) {
+again:
+    /* both ports need a format */
+    pinos_log_debug ("core %p: finding best format", core);
+    if ((res = spa_node_port_enum_formats (input->node->node,
+                                           SPA_DIRECTION_INPUT,
+                                           input->port_id,
+                                           &filter,
+                                           NULL,
+                                           iidx)) < 0) {
+      if (res == SPA_RESULT_ENUM_END && iidx != 0) {
+        asprintf (error, "error input enum formats: %d", res);
+        goto error;
+      }
+    }
+    pinos_log_debug ("Try filter: %p", filter);
+    if (pinos_log_level_enabled (SPA_LOG_LEVEL_DEBUG))
+      spa_debug_format (filter);
+
+    if ((res = spa_node_port_enum_formats (output->node->node,
+                                           SPA_DIRECTION_OUTPUT,
+                                           output->port_id,
+                                           &format,
+                                           filter,
+                                           oidx)) < 0) {
+      if (res == SPA_RESULT_ENUM_END) {
+        oidx = 0;
+        iidx++;
+        goto again;
+      }
+      asprintf (error, "error output enum formats: %d", res);
+      goto error;
+    }
+    pinos_log_debug ("Got filtered:");
+    if (pinos_log_level_enabled (SPA_LOG_LEVEL_DEBUG))
+      spa_debug_format (format);
+
+    spa_format_fixate (format);
+  } else {
+    asprintf (error, "error node state");
+    goto error;
+  }
+  return format;
+
+error:
+  return NULL;
 }
 
 PinosNodeFactory *

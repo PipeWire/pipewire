@@ -116,12 +116,20 @@ SpaResult       pinos_global_bind        (PinosGlobal   *global,
                                           uint32_t       id);
 void            pinos_global_destroy     (PinosGlobal   *global);
 
+SpaFormat *     pinos_core_find_format   (PinosCore        *core,
+                                          PinosPort        *output,
+                                          PinosPort        *input,
+                                          PinosProperties  *props,
+                                          unsigned int      n_format_filters,
+                                          SpaFormat       **format_filters,
+                                          char            **error);
 
 PinosPort *     pinos_core_find_port     (PinosCore        *core,
                                           PinosPort        *other_port,
                                           uint32_t          id,
                                           PinosProperties  *props,
-                                          SpaFormat       **format_filter,
+                                          unsigned int      n_format_filters,
+                                          SpaFormat       **format_filters,
                                           char            **error);
 
 PinosNodeFactory * pinos_core_find_node_factory (PinosCore  *core,

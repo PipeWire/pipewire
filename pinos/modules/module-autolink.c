@@ -171,8 +171,10 @@ try_link_port (PinosNode *node,
   ModuleImpl *impl = info->impl;
   PinosProperties *props;
   const char *path;
+  uint32_t path_id;
   char *error = NULL;
   PinosLink *link;
+  PinosPort *target;
 
   props = node->properties;
   if (props == NULL) {
@@ -181,34 +183,36 @@ try_link_port (PinosNode *node,
   }
 
   path = pinos_properties_get (props, "pinos.target.node");
+  if (path == NULL)
+    path_id = SPA_ID_INVALID;
+  else
+    path_id = atoi (path);
 
   pinos_log_debug ("module %p: try to find and link to node '%s'", impl, path);
 
-  if (path) {
-    PinosPort *target;
+  target = pinos_core_find_port (impl->core,
+                                 port,
+                                 path_id,
+                                 NULL,
+                                 0,
+                                 NULL,
+                                 &error);
+  if (target == NULL)
+    goto error;
 
-    target = pinos_core_find_port (impl->core,
-                                   port,
-                                   atoi (path),
-                                   NULL,
-                                   NULL,
-                                   &error);
-    if (target == NULL)
-      goto error;
+  if (port->direction == PINOS_DIRECTION_OUTPUT)
+    link = pinos_port_link (port, target, NULL, NULL, &error);
+  else
+    link = pinos_port_link (target, port, NULL, NULL, &error);
 
-    if (port->direction == PINOS_DIRECTION_OUTPUT)
-      link = pinos_port_link (port, target, NULL, NULL, &error);
-    else
-      link = pinos_port_link (target, port, NULL, NULL, &error);
+  if (link == NULL)
+    goto error;
 
-    if (link == NULL)
-      goto error;
+  pinos_signal_add (&link->port_unlinked, &info->port_unlinked, on_link_port_unlinked);
+  pinos_signal_add (&link->state_changed, &info->link_state_changed, on_link_state_changed);
 
-    pinos_signal_add (&link->port_unlinked, &info->port_unlinked, on_link_port_unlinked);
-    pinos_signal_add (&link->state_changed, &info->link_state_changed, on_link_state_changed);
+  pinos_link_activate (link);
 
-    pinos_link_activate (link);
-  }
   return;
 
 error:

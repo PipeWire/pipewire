@@ -328,7 +328,9 @@ struct _SpaNode {
    * @index: an index variable, 0 to get the first item
    *
    * Enumerate all possible formats on @port_id of @node that are compatible
-   * with @filter..
+   * with @filter. When @port_id is #SPA_ID_INVALID, the enumeration will
+   * list all the formats possible on a port that would be added with
+   * add_port().
    *
    * Use @index to retrieve the formats one by one until the function
    * returns #SPA_RESULT_ENUM_END.

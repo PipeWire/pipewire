@@ -366,6 +366,7 @@ spa_alsa_source_node_port_enum_formats (SpaNode         *node,
                                         unsigned int     index)
 {
   SpaALSASource *this;
+  SpaResult res;
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -389,6 +390,10 @@ spa_alsa_source_node_port_enum_formats (SpaNode         *node,
     default:
       return SPA_RESULT_ENUM_END;
   }
+
+  if ((res = spa_format_audio_filter (&this->query_format, filter)) != SPA_RESULT_OK)
+    return res;
+
   *format = &this->query_format.format;
 
   return SPA_RESULT_OK;

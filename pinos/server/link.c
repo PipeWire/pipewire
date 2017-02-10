@@ -76,9 +76,8 @@ static SpaResult
 do_negotiate (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
 {
   PinosLinkImpl *impl = SPA_CONTAINER_OF (this, PinosLinkImpl, this);
-  SpaResult res;
-  SpaFormat *filter = NULL, *format;
-  unsigned int iidx = 0, oidx = 0;
+  SpaResult res = SPA_RESULT_ERROR;
+  SpaFormat *format;
   char *error = NULL;
 
   if (in_state != SPA_NODE_STATE_CONFIGURE && out_state != SPA_NODE_STATE_CONFIGURE)
@@ -91,64 +90,15 @@ do_negotiate (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
     out_state = SPA_NODE_STATE_CONFIGURE;
   }
 
-  /* both ports need a format */
-  if (in_state == SPA_NODE_STATE_CONFIGURE && out_state == SPA_NODE_STATE_CONFIGURE) {
-    pinos_log_debug ("link %p: doing negotiate format", this);
-again:
-    if ((res = spa_node_port_enum_formats (this->input->node->node,
-                                           SPA_DIRECTION_INPUT,
-                                           this->input->port_id,
-                                           &filter,
-                                           NULL,
-                                           iidx)) < 0) {
-      if (res == SPA_RESULT_ENUM_END && iidx != 0) {
-        asprintf (&error, "error input enum formats: %d", res);
-        goto error;
-      }
-    }
-    pinos_log_debug ("Try filter: %p", filter);
-    if (pinos_log_level_enabled (SPA_LOG_LEVEL_DEBUG))
-      spa_debug_format (filter);
-
-    if ((res = spa_node_port_enum_formats (this->output->node->node,
-                                           SPA_DIRECTION_OUTPUT,
-                                           this->output->port_id,
-                                           &format,
-                                           filter,
-                                           oidx)) < 0) {
-      if (res == SPA_RESULT_ENUM_END) {
-        oidx = 0;
-        iidx++;
-        goto again;
-      }
-      asprintf (&error, "error output enum formats: %d", res);
-      goto error;
-    }
-    pinos_log_debug ("Got filtered:");
-    if (pinos_log_level_enabled (SPA_LOG_LEVEL_DEBUG))
-      spa_debug_format (format);
-
-    spa_format_fixate (format);
-  } else if (in_state == SPA_NODE_STATE_CONFIGURE && out_state > SPA_NODE_STATE_CONFIGURE) {
-    /* only input needs format */
-    if ((res = spa_node_port_get_format (this->output->node->node,
-                                         SPA_DIRECTION_OUTPUT,
-                                         this->output->port_id,
-                                         (const SpaFormat **)&format)) < 0) {
-      asprintf (&error, "error get output format: %d", res);
-      goto error;
-    }
-  } else if (out_state == SPA_NODE_STATE_CONFIGURE && in_state > SPA_NODE_STATE_CONFIGURE) {
-    /* only output needs format */
-    if ((res = spa_node_port_get_format (this->input->node->node,
-                                         SPA_DIRECTION_INPUT,
-                                         this->input->port_id,
-                                         (const SpaFormat **)&format)) < 0) {
-      asprintf (&error, "error get input format: %d", res);
-      goto error;
-    }
-  } else
-    return SPA_RESULT_OK;
+  format = pinos_core_find_format (this->core,
+                                   this->output,
+                                   this->input,
+                                   NULL,
+                                   0,
+                                   NULL,
+                                   &error);
+  if (format == NULL)
+    goto error;
 
   pinos_log_debug ("link %p: doing set format", this);
   if (pinos_log_level_enabled (SPA_LOG_LEVEL_DEBUG))

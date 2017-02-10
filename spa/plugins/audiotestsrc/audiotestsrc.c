@@ -468,6 +468,7 @@ spa_audiotestsrc_node_port_enum_formats (SpaNode          *node,
                                          unsigned int      index)
 {
   SpaAudioTestSrc *this;
+  SpaResult res;
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -479,16 +480,16 @@ spa_audiotestsrc_node_port_enum_formats (SpaNode          *node,
 
   switch (index) {
     case 0:
-      if (filter)
-        spa_format_audio_parse (filter, &this->query_format);
-      else
-        spa_format_audio_init (SPA_MEDIA_TYPE_AUDIO,
-                               SPA_MEDIA_SUBTYPE_RAW,
-                               &this->query_format);
+      spa_format_audio_init (SPA_MEDIA_TYPE_AUDIO,
+                             SPA_MEDIA_SUBTYPE_RAW,
+                             &this->query_format);
       break;
     default:
       return SPA_RESULT_ENUM_END;
   }
+  if ((res = spa_format_audio_filter (&this->query_format, filter)) != SPA_RESULT_OK)
+    return res;
+
   *format = &this->query_format.format;
 
   return SPA_RESULT_OK;

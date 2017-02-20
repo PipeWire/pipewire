@@ -25,6 +25,7 @@
 #include <spa/video/raw.h>
 #include <spa/video/format.h>
 
+#include "video-raw.h"
 #include "props.h"
 
 static const uint32_t format_values[] = {
@@ -95,6 +96,7 @@ static const uint32_t format_values[] = {
 };
 
 static const SpaPropRangeInfo format_range[] = {
+  { "UNKNOWN", { sizeof (uint32_t), &format_values[0] } },
   { "ENCODED", { sizeof (uint32_t), &format_values[1] } },
   { "I420", { sizeof (uint32_t), &format_values[2] } },
   { "YV12", { sizeof (uint32_t), &format_values[3] } },
@@ -200,6 +202,7 @@ static const uint32_t multiview_modes[] = {
 };
 
 static const SpaPropRangeInfo multiview_mode_range[] = {
+  { "unknown", { sizeof (uint32_t), &multiview_modes[0] } },
   { "mono", { sizeof (uint32_t), &multiview_modes[1] } },
   { "left", { sizeof (uint32_t), &multiview_modes[2] } },
   { "right", { sizeof (uint32_t), &multiview_modes[3] } },
@@ -638,18 +641,59 @@ fallback:
   return res;
 }
 
-SpaResult
-spa_format_video_filter (SpaFormatVideo   *format,
-                         const SpaFormat  *filter)
+static void
+prop_finish (SpaPropBuilder *b)
 {
-  SpaFormatVideo vf;
+  b->dest = malloc (b->size);
+}
+
+SpaResult
+spa_format_filter (const SpaFormat  *format,
+                   const SpaFormat  *filter,
+                   SpaFormat       **result)
+{
+  SpaPropBuilder b;
   SpaResult res;
 
-  if (filter == NULL)
+  if (filter == NULL) {
+    *result = (SpaFormat *) format;
     return SPA_RESULT_OK;
+  }
 
-  if ((res = spa_format_video_parse (filter, &vf)) != SPA_RESULT_OK)
+  if (filter->media_type != format->media_type ||
+      filter->media_subtype != format->media_subtype)
+    return SPA_RESULT_INVALID_MEDIA_TYPE;
+
+  spa_prop_builder_init (&b, sizeof (SpaFormatVideo), offsetof(SpaFormatVideo, format.props));
+  b.finish = prop_finish;
+  if ((res = spa_props_filter (&b, &format->props, &filter->props)) != SPA_RESULT_OK)
     return res;
 
-  return SPA_RESULT_NOT_IMPLEMENTED;
+  *result = b.dest;
+  (*result)->media_type = format->media_type;
+  (*result)->media_subtype = format->media_subtype;
+
+  return res;
+}
+
+
+SpaResult
+spa_format_video_builder_add (SpaPropBuilder     *b,
+                              SpaPropBuilderInfo *info,
+                              SpaPropIdVideo      id,
+                              size_t              offset)
+{
+  spa_prop_info_fill_video (&info->info, id, offset);
+  spa_prop_builder_add_info (b, info);
+  return SPA_RESULT_OK;
+}
+
+SpaResult
+spa_format_video_builder_add_range (SpaPropBuilder      *b,
+                                    SpaPropBuilderRange *range,
+                                    int                  index)
+{
+  range->info = b->info->info.range_values[index];
+  spa_prop_builder_add_range (b, range);
+  return SPA_RESULT_OK;
 }

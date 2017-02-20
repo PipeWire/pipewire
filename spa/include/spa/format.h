@@ -108,6 +108,11 @@ spa_format_fixate (SpaFormat *format)
   return SPA_RESULT_OK;
 }
 
+SpaResult
+spa_format_filter (const SpaFormat  *format,
+                   const SpaFormat  *filter,
+                   SpaFormat       **result);
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

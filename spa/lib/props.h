@@ -62,7 +62,6 @@ SpaResult       spa_props_get_value   (const SpaProps     *props,
 SpaResult       spa_props_copy_values (const SpaProps *src,
                                        SpaProps       *dest);
 
-
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

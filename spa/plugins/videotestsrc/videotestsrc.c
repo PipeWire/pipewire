@@ -429,6 +429,7 @@ spa_videotestsrc_node_port_enum_formats (SpaNode          *node,
 {
   SpaVideoTestSrc *this;
   SpaResult res;
+  SpaFormat *fmt;
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -465,10 +466,11 @@ spa_videotestsrc_node_port_enum_formats (SpaNode          *node,
     default:
       return SPA_RESULT_ENUM_END;
   }
-  if ((res = spa_format_video_filter (&this->query_format, filter)) != SPA_RESULT_OK)
+
+  if ((res = spa_format_filter (&this->query_format.format, filter, &fmt)) != SPA_RESULT_OK)
     return res;
 
-  *format = &this->query_format.format;
+  *format = fmt;
 
   return SPA_RESULT_OK;
 }

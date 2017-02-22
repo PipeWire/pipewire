@@ -88,6 +88,16 @@ typedef enum {
   SPA_DIRECTION_OUTPUT,
 } SpaDirection;
 
+typedef struct {
+  uint32_t width;
+  uint32_t height;
+} SpaRectangle;
+
+typedef struct {
+  uint32_t num;
+  uint32_t denom;
+} SpaFraction;
+
 typedef void (*SpaNotify) (void *data);
 
 #define SPA_N_ELEMENTS(arr)  (sizeof (arr) / sizeof ((arr)[0]))

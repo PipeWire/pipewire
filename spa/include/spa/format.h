@@ -98,6 +98,8 @@ typedef enum {
 } SpaFormatProps;
 
 
+
+
 static inline SpaResult
 spa_format_fixate (SpaFormat *format)
 {

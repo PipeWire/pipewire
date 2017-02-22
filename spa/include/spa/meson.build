@@ -14,6 +14,8 @@ spa_headers = [
   'node-event.h',
   'node.h',
   'plugin.h',
+  'pod.h',
+  'pod-builder.h',
   'port.h',
   'props.h',
   'ringbuffer.h'

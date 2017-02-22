@@ -1,0 +1,194 @@
+/* Simple Plugin API
+ * Copyright (C) 2017 Wim Taymans <wim.taymans@gmail.com>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
+
+#ifndef __SPA_POD_H__
+#define __SPA_POD_H__
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define SPA_POD_URI             "http://spaplug.in/ns/pod"
+#define SPA_POD_PREFIX          SPA_POD_URI "#"
+
+#include <spa/defs.h>
+
+/**
+ * SpaPODType:
+ */
+typedef enum {
+  SPA_POD_TYPE_INVALID         = 0,
+  SPA_POD_TYPE_BOOL,
+  SPA_POD_TYPE_INT,
+  SPA_POD_TYPE_LONG,
+  SPA_POD_TYPE_FLOAT,
+  SPA_POD_TYPE_DOUBLE,
+  SPA_POD_TYPE_STRING,
+  SPA_POD_TYPE_RECTANGLE,
+  SPA_POD_TYPE_FRACTION,
+  SPA_POD_TYPE_BITMASK,
+  SPA_POD_TYPE_ARRAY,
+  SPA_POD_TYPE_STRUCT,
+  SPA_POD_TYPE_OBJECT,
+  SPA_POD_TYPE_PROP
+} SpaPODType;
+
+typedef struct {
+  uint32_t     size;
+  uint32_t     type;
+} SpaPOD;
+
+#define SPA_POD_BODY_SIZE(pod)           ((pod)->size)
+#define SPA_POD_SIZE(pod)                (sizeof(SpaPOD) + SPA_POD_BODY_SIZE(pod))
+
+#define SPA_POD_CONTENTS(type,pod)       SPA_MEMBER((pod),sizeof(type),void)
+#define SPA_POD_CONTENTS_CONST(type,pod) SPA_MEMBER((pod),sizeof(type),const void)
+#define SPA_POD_BODY(pod)                SPA_MEMBER((pod),sizeof(SpaPOD),void)
+#define SPA_POD_BODY_CONST(pod)          SPA_MEMBER((pod),sizeof(SpaPOD),const void)
+
+
+typedef struct {
+  SpaPOD       pod;
+  int32_t      value;
+} SpaPODInt;
+
+typedef SpaPODInt SpaPODBool;
+
+typedef struct {
+  SpaPOD       pod;
+  int64_t      value;
+} SpaPODLong;
+
+typedef struct {
+  SpaPOD       pod;
+  float        value;
+} SpaPODFloat;
+
+typedef struct {
+  SpaPOD       pod;
+  double       value;
+} SpaPODDouble;
+
+typedef struct {
+  SpaPOD       pod;
+  /* value here */
+} SpaPODString;
+
+typedef struct {
+  SpaPOD       pod;
+  SpaRectangle value;
+} SpaPODRectangle;
+
+typedef struct {
+  SpaPOD       pod;
+  SpaFraction  value;
+} SpaPODFraction;
+
+typedef struct {
+  SpaPOD       pod;
+  /* array of uint32_t follows with the bitmap */
+} SpaPODBitmap;
+
+typedef struct {
+  SpaPOD    child;
+  /* array with elements of child.size follows */
+} SpaPODArrayBody;
+
+typedef struct {
+  SpaPOD           pod;
+  SpaPODArrayBody  body;
+} SpaPODArray;
+
+typedef struct {
+  SpaPOD           pod;
+  /* one or more SpaPOD follow */
+} SpaPODStruct;
+
+typedef struct {
+  uint32_t         key;
+#define SPA_POD_PROP_FLAG_UNSET         (1 << 4)
+#define SPA_POD_PROP_FLAG_OPTIONAL      (1 << 5)
+#define SPA_POD_PROP_FLAG_READABLE      (1 << 6)
+#define SPA_POD_PROP_FLAG_WRITABLE      (1 << 7)
+#define SPA_POD_PROP_FLAG_READWRITE     (SPA_POD_PROP_FLAG_READABLE | SPA_POD_PROP_FLAG_WRITABLE)
+#define SPA_POD_PROP_FLAG_DEPRECATED    (1 << 8)
+#define SPA_POD_PROP_RANGE_NONE         0
+#define SPA_POD_PROP_RANGE_MIN_MAX      1
+#define SPA_POD_PROP_RANGE_STEP         2
+#define SPA_POD_PROP_RANGE_ENUM         3
+#define SPA_POD_PROP_RANGE_FLAGS        4
+  uint32_t         flags;
+  SpaPOD           value;
+  /* array with elements of value.size follows,
+   * first element is value/default, rest are alternatives */
+} SpaPODPropBody;
+
+typedef struct {
+  SpaPOD         pod;
+  SpaPODPropBody body;
+} SpaPODProp;
+
+typedef struct {
+  uint32_t         id;
+  uint32_t         type;
+  /* contents follow, series of SpaPODProp */
+} SpaPODObjectBody;
+
+typedef struct {
+  SpaPOD           pod;
+  SpaPODObjectBody body;
+} SpaPODObject;
+
+#define SPA_POD_ARRAY_BODY_FOREACH(body, size, iter) \
+  for ((iter) = SPA_MEMBER (body, sizeof(SpaPODArrayBody), __typeof__(*iter)); \
+       (iter) < SPA_MEMBER (body, (size), __typeof__(*iter)); \
+       (iter) = SPA_MEMBER ((iter), (body)->child.size, __typeof__(*iter)))
+
+#define SPA_POD_STRUCT_BODY_FOREACH(body, size, iter) \
+  for ((iter) = SPA_MEMBER ((body), 0, SpaPOD); \
+       (iter) < SPA_MEMBER ((body), (size), SpaPOD); \
+       (iter) = SPA_MEMBER ((iter), SPA_ROUND_UP_N (SPA_POD_SIZE (iter), 8), SpaPOD))
+
+#define SPA_POD_OBJECT_BODY_FOREACH(body, size, iter) \
+  for ((iter) = SPA_MEMBER ((body), sizeof (SpaPODObjectBody), SpaPODProp); \
+       (iter) < SPA_MEMBER ((body), (size), SpaPODProp); \
+       (iter) = SPA_MEMBER ((iter), SPA_ROUND_UP_N (SPA_POD_SIZE (&(iter)->pod), 8), SpaPODProp))
+
+#define SPA_POD_PROP_ALTERNATIVE_FOREACH(body, _size, iter) \
+  for ((iter) = SPA_MEMBER ((body), (body)->value.size + sizeof (SpaPODPropBody), __typeof__(*iter)); \
+       (iter) < SPA_MEMBER ((body), (_size), __typeof__(*iter)); \
+       (iter) = SPA_MEMBER ((iter), (body)->value.size, __typeof__(*iter)))
+
+static inline SpaPODProp *
+spa_pod_object_body_find_prop (SpaPODObjectBody *body, uint32_t size, uint32_t key)
+{
+  SpaPODProp *res;
+  SPA_POD_OBJECT_BODY_FOREACH (body, size, res) {
+    if (res->body.key == key)
+      return res;
+  }
+  return NULL;
+}
+
+
+#ifdef __cplusplus
+}  /* extern "C" */
+#endif
+
+#endif /* __SPA_POD_H__ */

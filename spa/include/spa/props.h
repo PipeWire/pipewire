@@ -58,16 +58,6 @@ typedef enum {
   SPA_PROP_TYPE_POINTER
 } SpaPropType;
 
-typedef struct {
-  uint32_t width;
-  uint32_t height;
-} SpaRectangle;
-
-typedef struct {
-  uint32_t num;
-  uint32_t denom;
-} SpaFraction;
-
 /**
  * SpaPropFlags:
  * @SPA_PROP_FLAG_NONE: no flags

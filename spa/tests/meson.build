@@ -11,6 +11,11 @@
 #           install : false)
 executable('test-props', 'test-props.c',
            include_directories : [spa_inc, spa_libinc ],
-           dependencies : [dl_lib, sdl_dep, pthread_lib],
+           dependencies : [],
+           link_with : spalib,
+           install : false)
+executable('test-props2', 'test-props2.c',
+           include_directories : [spa_inc, spa_libinc ],
+           dependencies : [],
            link_with : spalib,
            install : false)

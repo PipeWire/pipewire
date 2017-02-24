@@ -335,7 +335,7 @@ enum_filter_format (const SpaFormat *filter, unsigned int index)
       if (!(p = spa_pod_object_body_find_prop (&filter->obj.body, filter->obj.pod.size, SPA_PROP_ID_VIDEO_FORMAT)))
         return SPA_VIDEO_FORMAT_UNKNOWN;
 
-      if (p->body.value.type != SPA_PROP_TYPE_INT)
+      if (p->body.value.type != SPA_POD_TYPE_INT)
         return SPA_VIDEO_FORMAT_UNKNOWN;
 
       values = SPA_POD_BODY_CONST (&p->body.value);
@@ -519,7 +519,7 @@ next_frmsize:
       if (!(p = spa_pod_object_body_find_prop (&filter->obj.body, filter->obj.pod.size, SPA_PROP_ID_VIDEO_SIZE)))
         goto do_frmsize;
 
-      if (p->body.value.type != SPA_PROP_TYPE_RECTANGLE)
+      if (p->body.value.type != SPA_POD_TYPE_RECTANGLE)
         return SPA_RESULT_ENUM_END;
 
       if (!(p->body.flags & SPA_POD_PROP_FLAG_UNSET)) {
@@ -655,7 +655,7 @@ have_size:
       if (!(p = spa_pod_object_body_find_prop (&filter->obj.body, filter->obj.pod.size, SPA_PROP_ID_VIDEO_FRAMERATE)))
         goto have_framerate;
 
-      if (p->body.value.type != SPA_PROP_TYPE_FRACTION)
+      if (p->body.value.type != SPA_POD_TYPE_FRACTION)
         return SPA_RESULT_ENUM_END;
 
       range = p->body.flags & SPA_POD_PROP_RANGE_MASK;

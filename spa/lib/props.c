@@ -23,7 +23,6 @@
 #include <string.h>
 
 #include <spa/props.h>
-#include <lib/prop-builder.h>
 
 SpaResult
 spa_props_set_value (SpaProps           *props,
@@ -106,6 +105,8 @@ spa_props_copy_values (const SpaProps *src,
   return SPA_RESULT_OK;
 }
 
+#if 0
+
 static int
 compare_value (SpaPropType type, const SpaPropRangeInfo *r1, const SpaPropRangeInfo *r2)
 {
@@ -158,7 +159,6 @@ compare_value (SpaPropType type, const SpaPropRangeInfo *r1, const SpaPropRangeI
   }
   return 0;
 }
-
 
 SpaResult
 spa_props_filter (SpaPropBuilder *b,
@@ -347,3 +347,4 @@ spa_props_filter (SpaPropBuilder *b,
 
   return SPA_RESULT_OK;
 }
+#endif

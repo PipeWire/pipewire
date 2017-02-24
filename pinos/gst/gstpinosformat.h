@@ -29,7 +29,7 @@ G_BEGIN_DECLS
 SpaFormat *   gst_caps_to_format      (GstCaps *caps, guint index);
 GPtrArray *   gst_caps_to_format_all  (GstCaps *caps);
 
-GstCaps *     gst_caps_from_format    (SpaFormat *format);
+GstCaps *     gst_caps_from_format    (const SpaFormat *format);
 
 G_END_DECLS
 

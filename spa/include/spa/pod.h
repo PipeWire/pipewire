@@ -46,7 +46,8 @@ typedef enum {
   SPA_POD_TYPE_ARRAY,
   SPA_POD_TYPE_STRUCT,
   SPA_POD_TYPE_OBJECT,
-  SPA_POD_TYPE_PROP
+  SPA_POD_TYPE_PROP,
+  SPA_POD_TYPE_BYTES
 } SpaPODType;
 
 typedef struct {
@@ -122,17 +123,18 @@ typedef struct {
 
 typedef struct {
   uint32_t         key;
+#define SPA_POD_PROP_RANGE_NONE         0
+#define SPA_POD_PROP_RANGE_MIN_MAX      1
+#define SPA_POD_PROP_RANGE_STEP         2
+#define SPA_POD_PROP_RANGE_ENUM         3
+#define SPA_POD_PROP_RANGE_FLAGS        4
+#define SPA_POD_PROP_RANGE_MASK         0xf
 #define SPA_POD_PROP_FLAG_UNSET         (1 << 4)
 #define SPA_POD_PROP_FLAG_OPTIONAL      (1 << 5)
 #define SPA_POD_PROP_FLAG_READABLE      (1 << 6)
 #define SPA_POD_PROP_FLAG_WRITABLE      (1 << 7)
 #define SPA_POD_PROP_FLAG_READWRITE     (SPA_POD_PROP_FLAG_READABLE | SPA_POD_PROP_FLAG_WRITABLE)
 #define SPA_POD_PROP_FLAG_DEPRECATED    (1 << 8)
-#define SPA_POD_PROP_RANGE_NONE         0
-#define SPA_POD_PROP_RANGE_MIN_MAX      1
-#define SPA_POD_PROP_RANGE_STEP         2
-#define SPA_POD_PROP_RANGE_ENUM         3
-#define SPA_POD_PROP_RANGE_FLAGS        4
   uint32_t         flags;
   SpaPOD           value;
   /* array with elements of value.size follows,
@@ -143,6 +145,8 @@ typedef struct {
   SpaPOD         pod;
   SpaPODPropBody body;
 } SpaPODProp;
+
+#define SPA_POD_PROP_N_VALUES(prop) (((prop)->pod.size - sizeof (SpaPODPropBody)) / (prop)->body.value.size)
 
 typedef struct {
   uint32_t         id;
@@ -176,7 +180,7 @@ typedef struct {
        (iter) = SPA_MEMBER ((iter), (body)->value.size, __typeof__(*iter)))
 
 static inline SpaPODProp *
-spa_pod_object_body_find_prop (SpaPODObjectBody *body, uint32_t size, uint32_t key)
+spa_pod_object_body_find_prop (const SpaPODObjectBody *body, uint32_t size, uint32_t key)
 {
   SpaPODProp *res;
   SPA_POD_OBJECT_BODY_FOREACH (body, size, res) {

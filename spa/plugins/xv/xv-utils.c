@@ -23,7 +23,7 @@ spa_xv_open (SpaXvSink *this)
 }
 
 static int
-spa_xv_set_format (SpaXvSink *this, SpaFormat *format, bool try_only)
+spa_xv_set_format (SpaXvSink *this, SpaVideoInfo *info, bool try_only)
 {
   if (spa_xv_open (this) < 0)
     return -1;

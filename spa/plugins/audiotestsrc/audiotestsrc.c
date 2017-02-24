@@ -29,6 +29,7 @@
 #include <spa/node.h>
 #include <spa/list.h>
 #include <spa/audio/format.h>
+#include <spa/format-builder.h>
 #include <lib/props.h>
 
 #define SAMPLES_TO_TIME(this,s)   ((s) * SPA_NSEC_PER_SEC / (this)->current_format.info.raw.rate)
@@ -88,8 +89,8 @@ struct _SpaAudioTestSrc {
   SpaPortOutput *output;
 
   bool have_format;
-  SpaFormatAudio query_format;
-  SpaFormatAudio current_format;
+  SpaAudioInfo current_format;
+  uint8_t format_buffer[1024];
   size_t bpf;
 
   ATSBuffer buffers[MAX_BUFFERS];
@@ -469,6 +470,9 @@ spa_audiotestsrc_node_port_enum_formats (SpaNode          *node,
 {
   SpaAudioTestSrc *this;
   SpaResult res;
+  SpaFormat *fmt;
+  uint8_t buffer[256];
+  SpaPODBuilder b = { buffer, sizeof (buffer), };
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -480,17 +484,40 @@ spa_audiotestsrc_node_port_enum_formats (SpaNode          *node,
 
   switch (index) {
     case 0:
-      spa_format_audio_init (SPA_MEDIA_TYPE_AUDIO,
-                             SPA_MEDIA_SUBTYPE_RAW,
-                             &this->query_format);
+    {
+      fmt = SPA_MEMBER (buffer, spa_pod_builder_format (&b,
+         SPA_MEDIA_TYPE_AUDIO, SPA_MEDIA_SUBTYPE_RAW,
+           SPA_PROP_ID_AUDIO_FORMAT,    SPA_POD_TYPE_INT,
+                                                SPA_AUDIO_FORMAT_S16,
+                                        SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
+                                        SPA_POD_PROP_RANGE_ENUM, 2,
+                                                SPA_AUDIO_FORMAT_S16,
+                                                SPA_AUDIO_FORMAT_S32,
+           SPA_PROP_ID_AUDIO_RATE,      SPA_POD_TYPE_INT,
+                                                44100,
+                                        SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
+                                        SPA_POD_PROP_RANGE_MIN_MAX,
+                                                1, INT32_MAX,
+           SPA_PROP_ID_AUDIO_CHANNELS,  SPA_POD_TYPE_INT,
+                                                2,
+                                        SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
+                                        SPA_POD_PROP_RANGE_MIN_MAX,
+                                                1, INT32_MAX,
+           0), SpaFormat);
       break;
+    }
     default:
       return SPA_RESULT_ENUM_END;
   }
-  if ((res = spa_format_audio_filter (&this->query_format, filter)) != SPA_RESULT_OK)
+
+  b.data = this->format_buffer;
+  b.size = sizeof (this->format_buffer);
+  b.offset = 0;
+
+  if ((res = spa_format_filter (fmt, filter, &b)) != SPA_RESULT_OK)
     return res;
 
-  *format = &this->query_format.format;
+  *format = SPA_MEMBER (this->format_buffer, 0, SpaFormat);
 
   return SPA_RESULT_OK;
 }
@@ -569,6 +596,7 @@ spa_audiotestsrc_node_port_get_format (SpaNode          *node,
                                        const SpaFormat **format)
 {
   SpaAudioTestSrc *this;
+  SpaPODBuilder b = { NULL, };
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -581,7 +609,21 @@ spa_audiotestsrc_node_port_get_format (SpaNode          *node,
   if (!this->have_format)
     return SPA_RESULT_NO_FORMAT;
 
-  *format = &this->current_format.format;
+  b.data = this->format_buffer;
+  b.size = sizeof (this->format_buffer);
+
+  *format = SPA_MEMBER (b.data, spa_pod_builder_format (&b,
+         SPA_MEDIA_TYPE_AUDIO, SPA_MEDIA_SUBTYPE_RAW,
+           SPA_PROP_ID_AUDIO_FORMAT,    SPA_POD_TYPE_INT,
+                                                this->current_format.info.raw.format,
+                                        SPA_POD_PROP_FLAG_READWRITE,
+           SPA_PROP_ID_AUDIO_RATE,      SPA_POD_TYPE_INT,
+                                                this->current_format.info.raw.rate,
+                                        SPA_POD_PROP_FLAG_READWRITE,
+           SPA_PROP_ID_AUDIO_CHANNELS,  SPA_POD_TYPE_INT,
+                                                this->current_format.info.raw.channels,
+                                        SPA_POD_PROP_FLAG_READWRITE,
+           0), SpaFormat);
 
   return SPA_RESULT_OK;
 }

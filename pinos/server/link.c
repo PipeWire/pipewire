@@ -59,9 +59,10 @@ pinos_link_update_state (PinosLink      *link,
   PinosLinkState old = link->state;
 
   if (state != old) {
-    pinos_log_debug ("link %p: update state %s -> %s", link,
+    pinos_log_debug ("link %p: update state %s -> %s (%s)", link,
         pinos_link_state_as_string (old),
-        pinos_link_state_as_string (state));
+        pinos_link_state_as_string (state),
+        error);
 
     link->state = state;
     if (link->error)
@@ -97,8 +98,10 @@ do_negotiate (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
                                    0,
                                    NULL,
                                    &error);
-  if (format == NULL)
+  if (format == NULL) {
+    asprintf (&error, "no common format found");
     goto error;
+  }
 
   pinos_log_debug ("link %p: doing set format", this);
   if (pinos_log_level_enabled (SPA_LOG_LEVEL_DEBUG))

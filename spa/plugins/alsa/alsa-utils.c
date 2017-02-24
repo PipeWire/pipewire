@@ -108,7 +108,7 @@ spa_alsa_format_to_alsa (SpaAudioFormat format)
 }
 
 int
-spa_alsa_set_format (SpaALSAState *state, SpaFormatAudio *fmt, SpaPortFormatFlags flags)
+spa_alsa_set_format (SpaALSAState *state, SpaAudioInfo *fmt, SpaPortFormatFlags flags)
 {
   unsigned int rrate, rchannels;
   snd_pcm_uframes_t period_size;

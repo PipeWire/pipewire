@@ -25,6 +25,7 @@
 #include <spa/node.h>
 #include <spa/list.h>
 #include <spa/audio/format.h>
+#include <spa/format-builder.h>
 #include <lib/props.h>
 
 #define MAX_BUFFERS     16
@@ -79,8 +80,7 @@ struct _SpaVolume {
   SpaNodeEventCallback event_cb;
   void *user_data;
 
-  SpaFormatAudio query_format;
-  SpaFormatAudio current_format;
+  SpaAudioInfo current_format;
 
   SpaVolumePort in_ports[1];
   SpaVolumePort out_ports[1];
@@ -291,6 +291,10 @@ spa_volume_node_port_enum_formats (SpaNode          *node,
                                    unsigned int      index)
 {
   SpaVolume *this;
+  SpaResult res;
+  SpaFormat *fmt;
+  uint8_t buffer[1024];
+  SpaPODBuilder b = { buffer, sizeof (buffer), };
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -302,14 +306,34 @@ spa_volume_node_port_enum_formats (SpaNode          *node,
 
   switch (index) {
     case 0:
-      spa_format_audio_init (SPA_MEDIA_TYPE_AUDIO,
-                             SPA_MEDIA_SUBTYPE_RAW,
-                             &this->query_format);
+      fmt = SPA_MEMBER (buffer, spa_pod_builder_format (&b,
+         SPA_MEDIA_TYPE_AUDIO, SPA_MEDIA_SUBTYPE_RAW,
+           SPA_PROP_ID_AUDIO_FORMAT,    SPA_POD_TYPE_INT,
+                                                SPA_AUDIO_FORMAT_S16,
+                                        SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
+                                        SPA_POD_PROP_RANGE_ENUM, 2,
+                                                SPA_AUDIO_FORMAT_S16,
+                                                SPA_AUDIO_FORMAT_S32,
+           SPA_PROP_ID_AUDIO_RATE,      SPA_POD_TYPE_INT,
+                                                44100,
+                                        SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
+                                        SPA_POD_PROP_RANGE_MIN_MAX,
+                                                1, INT32_MAX,
+           SPA_PROP_ID_AUDIO_CHANNELS,  SPA_POD_TYPE_INT,
+                                                2,
+                                        SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
+                                        SPA_POD_PROP_RANGE_MIN_MAX,
+                                                1, INT32_MAX,
+           0), SpaFormat);
       break;
     default:
       return SPA_RESULT_ENUM_END;
   }
-  *format = &this->query_format.format;
+
+  if ((res = spa_format_filter (fmt, filter, NULL)) != SPA_RESULT_OK)
+    return res;
+
+  *format = NULL;
 
   return SPA_RESULT_OK;
 }
@@ -405,7 +429,7 @@ spa_volume_node_port_get_format (SpaNode          *node,
   if (!port->have_format)
     return SPA_RESULT_NO_FORMAT;
 
-  *format = &this->current_format.format;
+  *format = NULL;
 
   return SPA_RESULT_OK;
 }

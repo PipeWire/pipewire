@@ -330,6 +330,10 @@ spa_alsa_sink_node_port_enum_formats (SpaNode         *node,
                                       unsigned int     index)
 {
   SpaALSASink *this;
+  SpaResult res;
+  SpaFormat *fmt;
+  uint8_t buffer[1024];
+  SpaPODBuilder b = { buffer, sizeof (buffer), };
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -341,19 +345,43 @@ spa_alsa_sink_node_port_enum_formats (SpaNode         *node,
 
   switch (index) {
     case 0:
-      spa_format_audio_init (SPA_MEDIA_TYPE_AUDIO,
-                             SPA_MEDIA_SUBTYPE_RAW,
-                             &this->query_format);
+      fmt = SPA_MEMBER (buffer, spa_pod_builder_format (&b,
+         SPA_MEDIA_TYPE_AUDIO, SPA_MEDIA_SUBTYPE_RAW,
+           SPA_PROP_ID_AUDIO_FORMAT,    SPA_POD_TYPE_INT,
+                                                SPA_AUDIO_FORMAT_S16,
+                                        SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
+                                        SPA_POD_PROP_RANGE_ENUM, 2,
+                                                SPA_AUDIO_FORMAT_S16,
+                                                SPA_AUDIO_FORMAT_S32,
+           SPA_PROP_ID_AUDIO_RATE,      SPA_POD_TYPE_INT,
+                                                44100,
+                                        SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
+                                        SPA_POD_PROP_RANGE_MIN_MAX,
+                                                1, INT32_MAX,
+           SPA_PROP_ID_AUDIO_CHANNELS,  SPA_POD_TYPE_INT,
+                                                2,
+                                        SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
+                                        SPA_POD_PROP_RANGE_MIN_MAX,
+                                                1, INT32_MAX,
+           0), SpaFormat);
       break;
     case 1:
-      spa_format_audio_init (SPA_MEDIA_TYPE_AUDIO,
-                             SPA_MEDIA_SUBTYPE_AAC,
-                             &this->query_format);
+      fmt = SPA_MEMBER (buffer, spa_pod_builder_format (&b,
+         SPA_MEDIA_TYPE_AUDIO, SPA_MEDIA_SUBTYPE_AAC,
+           0), SpaFormat);
       break;
     default:
       return SPA_RESULT_ENUM_END;
   }
-  *format = &this->query_format.format;
+
+  b.data = this->format_buffer;
+  b.size = sizeof (this->format_buffer);
+  b.offset = 0;
+
+  if ((res = spa_format_filter (fmt, filter, &b)) != SPA_RESULT_OK)
+    return res;
+
+  *format = SPA_MEMBER (b.data, 0, SpaFormat);
 
   return SPA_RESULT_OK;
 }
@@ -456,7 +484,7 @@ spa_alsa_sink_node_port_get_format (SpaNode          *node,
   if (!this->have_format)
     return SPA_RESULT_NO_FORMAT;
 
-  *format = &this->current_format.format;
+  *format = NULL;
 
   return SPA_RESULT_OK;
 }

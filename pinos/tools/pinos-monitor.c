@@ -21,6 +21,7 @@
 
 #include <pinos/client/pinos.h>
 #include <pinos/client/sig.h>
+#include <spa/lib/debug.h>
 
 typedef struct {
   bool running;

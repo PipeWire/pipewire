@@ -143,10 +143,10 @@ main (int argc, char *argv[])
   spa_pod_builder_int (&b, 42);
   spa_pod_builder_pop (&b, &frame[1]);
 
-  SpaRectangle def = { 320, 240 }, sizes[] = { { 0, 0 }, { 1024, 1024} };
+  SpaRectangle sizes[] = { { 0, 0 }, { 1024, 1024} };
   spa_pod_builder_push_prop (&b, &frame[1],
                              3, SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE);
-  spa_pod_builder_rectangle (&b, &def);
+  spa_pod_builder_rectangle (&b, 320, 240);
   spa_pod_builder_raw (&b, sizes, sizeof (sizes), false);
   spa_pod_builder_pop (&b, &frame[1]);
 
@@ -157,9 +157,8 @@ main (int argc, char *argv[])
   spa_pod_builder_float (&b, 4.0);
   spa_pod_builder_double (&b, 3.14);
   spa_pod_builder_string (&b, "test123", strlen ("test123"));
-  spa_pod_builder_rectangle (&b, &def);
-  SpaFraction f = { 25, 1 };
-  spa_pod_builder_fraction (&b, &f);
+  spa_pod_builder_rectangle (&b, 320, 240);
+  spa_pod_builder_fraction (&b, 25, 1);
   spa_pod_builder_push_array (&b, &frame[3]);
   spa_pod_builder_int (&b, 4);
   spa_pod_builder_int (&b, 5);
@@ -169,7 +168,7 @@ main (int argc, char *argv[])
   spa_pod_builder_pop (&b, &frame[1]);
   spa_pod_builder_pop (&b, &frame[0]);
 
-  print_value (obj->size, obj->type, SPA_POD_BODY (obj), 0, 0);
+  spa_debug_pod (obj);
 
   SpaPODProp *p = spa_pod_object_body_find_prop (SPA_POD_BODY (obj), obj->size, 4);
   printf ("%d %d\n", p->body.key, p->body.flags);

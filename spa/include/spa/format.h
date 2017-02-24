@@ -26,8 +26,10 @@ extern "C" {
 
 typedef struct _SpaFormat SpaFormat;
 
+#include <stdarg.h>
+
 #include <spa/defs.h>
-#include <spa/props.h>
+#include <spa/pod.h>
 
 typedef enum {
   SPA_MEDIA_TYPE_INVALID         = 0,
@@ -35,7 +37,6 @@ typedef enum {
   SPA_MEDIA_TYPE_VIDEO           = 2,
   SPA_MEDIA_TYPE_IMAGE           = 3,
 } SpaMediaType;
-
 
 typedef enum {
   SPA_MEDIA_SUBTYPE_INVALID         = 0,
@@ -80,40 +81,32 @@ typedef enum {
 
 } SpaMediaSubType;
 
-/**
- * SpaFormat:
- * @media_type: media type
- * @media_subtype: subtype
- * @props: properties
- */
-struct _SpaFormat {
-  SpaMediaType     media_type;
-  SpaMediaSubType  media_subtype;
-  SpaProps         props;
-};
-
 typedef enum {
   SPA_PROP_ID_INVALID            = 0,
   SPA_PROP_ID_MEDIA_CUSTOM_START = 200,
 } SpaFormatProps;
 
+/**
+ * SpaFormat:
+ * @media_type: media type
+ * @media_subtype: subtype
+ * @pod: POD object with properties
+ */
+struct _SpaFormat {
+  uint32_t      media_type;
+  uint32_t      media_subtype;
+  SpaPODObject  obj;
+};
 
-
+#define SPA_FORMAT_SIZE(f)      (sizeof(SpaFormat) + (f)->obj.pod.size)
 
 static inline SpaResult
 spa_format_fixate (SpaFormat *format)
 {
   if (format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
-
-  format->props.unset_mask = 0;
   return SPA_RESULT_OK;
 }
-
-SpaResult
-spa_format_filter (const SpaFormat  *format,
-                   const SpaFormat  *filter,
-                   SpaFormat       **result);
 
 #ifdef __cplusplus
 }  /* extern "C" */

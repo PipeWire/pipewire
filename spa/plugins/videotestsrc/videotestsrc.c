@@ -30,6 +30,7 @@
 #include <spa/node.h>
 #include <spa/list.h>
 #include <spa/video/format.h>
+#include <spa/format-builder.h>
 #include <lib/props.h>
 
 #define FRAMES_TO_TIME(this,f)    ((this->current_format.info.raw.framerate.denom * (f) * SPA_NSEC_PER_SEC) / \
@@ -86,8 +87,8 @@ struct _SpaVideoTestSrc {
   SpaPortOutput *output;
 
   bool have_format;
-  SpaFormatVideo query_format;
-  SpaFormatVideo current_format;
+  SpaVideoInfo current_format;
+  uint8_t format_buffer[1024];
   size_t bpp;
 
   VTSBuffer buffers[MAX_BUFFERS];
@@ -430,6 +431,8 @@ spa_videotestsrc_node_port_enum_formats (SpaNode          *node,
   SpaVideoTestSrc *this;
   SpaResult res;
   SpaFormat *fmt;
+  uint8_t buffer[1024];
+  SpaPODBuilder b = { buffer, sizeof (buffer), };
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -441,36 +444,39 @@ spa_videotestsrc_node_port_enum_formats (SpaNode          *node,
 
   switch (index) {
     case 0:
-    {
-      int idx;
-      static const uint32_t format_values[] = {
-        SPA_VIDEO_FORMAT_RGB,
-        SPA_VIDEO_FORMAT_UYVY,
-      };
-      static const SpaPropRangeInfo format_range[] = {
-          { "RGB", { sizeof (uint32_t), &format_values[0] } },
-          { "UYVY", { sizeof (uint32_t), &format_values[1] } },
-      };
-      SpaPropInfo *info;
-      spa_format_video_init (SPA_MEDIA_TYPE_VIDEO,
-                             SPA_MEDIA_SUBTYPE_RAW,
-                             &this->query_format);
-
-      idx = spa_props_index_for_id (&this->query_format.format.props, SPA_PROP_ID_VIDEO_FORMAT);
-      info = (SpaPropInfo *) &this->query_format.format.props.prop_info[idx];
-
-      info->n_range_values = SPA_N_ELEMENTS (format_range);
-      info->range_values = format_range;
+      fmt = SPA_MEMBER (buffer, spa_pod_builder_format (&b,
+         SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW,
+           SPA_PROP_ID_VIDEO_FORMAT,    SPA_POD_TYPE_INT,
+                                                SPA_VIDEO_FORMAT_RGB,
+                                        SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
+                                        SPA_POD_PROP_RANGE_ENUM, 2,
+                                                SPA_VIDEO_FORMAT_RGB,
+                                                SPA_VIDEO_FORMAT_UYVY,
+           SPA_PROP_ID_VIDEO_SIZE,      SPA_POD_TYPE_RECTANGLE,
+                                                320, 240,
+                                        SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
+                                        SPA_POD_PROP_RANGE_MIN_MAX,
+                                                1, 1,
+                                                INT32_MAX, INT32_MAX,
+           SPA_PROP_ID_VIDEO_FRAMERATE, SPA_POD_TYPE_FRACTION, 25, 1,
+                                        SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
+                                        SPA_POD_PROP_RANGE_MIN_MAX,
+                                                0, 1,
+                                                INT32_MAX, 1,
+           0), SpaFormat);
       break;
-    }
     default:
       return SPA_RESULT_ENUM_END;
   }
 
-  if ((res = spa_format_filter (&this->query_format.format, filter, &fmt)) != SPA_RESULT_OK)
+  b.data = this->format_buffer;
+  b.size = sizeof (this->format_buffer);
+  b.offset = 0;
+
+  if ((res = spa_format_filter (fmt, filter, &b)) != SPA_RESULT_OK)
     return res;
 
-  *format = fmt;
+  *format = SPA_MEMBER (this->format_buffer, 0, SpaFormat);
 
   return SPA_RESULT_OK;
 }
@@ -561,6 +567,7 @@ spa_videotestsrc_node_port_get_format (SpaNode          *node,
                                        const SpaFormat **format)
 {
   SpaVideoTestSrc *this;
+  SpaPODBuilder b = { NULL, };
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -573,7 +580,24 @@ spa_videotestsrc_node_port_get_format (SpaNode          *node,
   if (!this->have_format)
     return SPA_RESULT_NO_FORMAT;
 
-  *format = &this->current_format.format;
+  b.data = this->format_buffer;
+  b.size = sizeof (this->format_buffer);
+
+  *format = SPA_MEMBER (b.data, spa_pod_builder_format (&b,
+         SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW,
+           SPA_PROP_ID_VIDEO_FORMAT,    SPA_POD_TYPE_INT,
+                                                this->current_format.info.raw.format,
+                                        SPA_POD_PROP_FLAG_READWRITE,
+           SPA_PROP_ID_VIDEO_SIZE,      SPA_POD_TYPE_RECTANGLE,
+                                                this->current_format.info.raw.size.width,
+                                                this->current_format.info.raw.size.height,
+                                        SPA_POD_PROP_FLAG_READWRITE,
+           SPA_PROP_ID_VIDEO_FRAMERATE, SPA_POD_TYPE_FRACTION,
+                                                this->current_format.info.raw.framerate.num,
+                                                this->current_format.info.raw.framerate.denom,
+                                        SPA_POD_PROP_FLAG_READWRITE,
+           0), SpaFormat);
+
 
   return SPA_RESULT_OK;
 }

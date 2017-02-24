@@ -29,6 +29,7 @@
 
 #include "gstpinosformat.h"
 
+#if 0
 static guint
 calc_range_size (const GValue *val)
 {
@@ -278,10 +279,12 @@ handle_video_framerate (ConvertData *d)
     d->pi++;
   }
 }
+#endif
 
 static SpaFormat *
 convert_1 (GstCapsFeatures *cf, GstStructure *cs)
 {
+#if 0
   const GValue *val;
   guint size, n_infos = 0, n_ranges = 0, n_datas = 0;
   ConvertData d;
@@ -425,6 +428,8 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
     handle_video_framerate (&d);
   }
   return d.f;
+#endif
+  return NULL;
 }
 
 SpaFormat *
@@ -471,12 +476,12 @@ gst_caps_to_format_all (GstCaps *caps)
 }
 
 GstCaps *
-gst_caps_from_format (SpaFormat *format)
+gst_caps_from_format (const SpaFormat *format)
 {
   GstCaps *res = NULL;
 
   if (format->media_type == SPA_MEDIA_TYPE_VIDEO) {
-    SpaFormatVideo f;
+    SpaVideoInfo f;
 
     if (spa_format_video_parse (format, &f) < 0)
       return NULL;
@@ -506,7 +511,7 @@ gst_caps_from_format (SpaFormat *format)
           NULL);
     }
   } else if (format->media_type == SPA_MEDIA_TYPE_AUDIO) {
-    SpaFormatAudio f;
+    SpaAudioInfo f;
 
     if (spa_format_audio_parse (format, &f) < 0)
       return NULL;

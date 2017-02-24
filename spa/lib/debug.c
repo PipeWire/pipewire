@@ -20,9 +20,8 @@
 #include <stdio.h>
 
 #include "debug.h"
-#include "props.h"
 
-struct meta_type_name {
+static const struct meta_type_name {
   const char *name;
 } meta_type_names[] = {
   { "invalid" },
@@ -35,7 +34,7 @@ struct meta_type_name {
 };
 #define META_TYPE_NAME(t)  meta_type_names[SPA_CLAMP(t,0,SPA_N_ELEMENTS(meta_type_names)-1)].name
 
-struct data_type_name {
+static const struct data_type_name {
   const char *name;
 } data_type_names[] = {
   { "invalid" },
@@ -225,19 +224,58 @@ spa_debug_dump_mem (const void *mem, size_t size)
   return SPA_RESULT_OK;
 }
 
-struct media_type_name {
+SpaResult
+spa_debug_props (const SpaProps *props, bool print_ranges)
+{
+  return SPA_RESULT_OK;
+}
+
+static const char* media_audio_prop_names[] = {
+  "info",
+  "format",
+  "flags",
+  "layout",
+  "rate",
+  "channels",
+  "channel-mask",
+};
+
+static const char* media_video_prop_names[] = {
+  "info",
+  "format",
+  "size",
+  "framerate",
+  "max-framerate",
+  "views",
+  "interlace-mode",
+  "pixel-aspect-ratio",
+  "multiview-mode",
+  "multiview-flags",
+  "chroma-site",
+  "color-range",
+  "color-matrix",
+  "transfer-function",
+  "color-primaries",
+  "profile",
+  "stream-format",
+  "alignment",
+};
+
+static const struct media_type_name {
   const char *name;
   unsigned int first;
   unsigned int last;
   unsigned int idx;
+  const char **prop_names;
 } media_type_names[] = {
   { "invalid", 0, 0, 0 },
-  { "audio", SPA_MEDIA_SUBTYPE_AUDIO_FIRST, SPA_MEDIA_SUBTYPE_AUDIO_LAST, 16 },
-  { "video", SPA_MEDIA_SUBTYPE_VIDEO_FIRST, SPA_MEDIA_SUBTYPE_VIDEO_LAST, 2 },
+  { "audio", SPA_MEDIA_SUBTYPE_AUDIO_FIRST, SPA_MEDIA_SUBTYPE_AUDIO_LAST, 16, media_audio_prop_names },
+  { "video", SPA_MEDIA_SUBTYPE_VIDEO_FIRST, SPA_MEDIA_SUBTYPE_VIDEO_LAST, 2, media_video_prop_names },
   { "image", 0, 0 },
 };
 
-struct media_subtype_name {
+
+static const struct media_subtype_name {
   const char *name;
 } media_subtype_names[] = {
   { "invalid" },
@@ -273,222 +311,184 @@ struct media_subtype_name {
   { "gsm" },
 };
 
-struct prop_type_name {
+struct pod_type_name {
   const char *name;
   const char *CCName;
-} prop_type_names[] = {
+} pod_type_names[] = {
   { "invalid", "*Invalid*" },
-  { "bool", "Boolean" },
-  { "int8", "Int8" },
-  { "uint8", "UInt8" },
-  { "int16", "Int16" },
-  { "uint16", "UInt16" },
-  { "int32", "Int32" },
-  { "uint32", "UInt32" },
-  { "int64", "Int64" },
-  { "uint64", "UInt64" },
+  { "bool", "Bool" },
   { "int", "Int" },
-  { "uint", "UInt" },
+  { "long", "Long" },
   { "float", "Float" },
   { "double", "Double" },
   { "string", "String" },
   { "rectangle", "Rectangle" },
   { "fraction", "Fraction" },
   { "bitmask", "Bitmask" },
-  { "pointer", "Pointer" },
+  { "array", "Array" },
+  { "struct", "Struct" },
+  { "object", "Object" },
+  { "prop", "Prop" },
+  { "bytes", "Bytes" },
 };
 
 static void
-print_value (const SpaPropInfo *info, const SpaPropValue *val)
+print_pod_value (uint32_t size, uint32_t type, void *body, int prefix)
 {
-  SpaPropType type = info->type;
-  bool enum_string = false;
-  const void *enum_value;
+  switch (type) {
+    case SPA_POD_TYPE_BOOL:
+      printf ("%-*sBool %d\n", prefix, "", *(int32_t *) body);
+      break;
+    case SPA_POD_TYPE_INT:
+      printf ("%-*sInt %d\n", prefix, "", *(int32_t *) body);
+      break;
+    case SPA_POD_TYPE_LONG:
+      printf ("%-*sLong %"PRIi64"\n", prefix, "", *(int64_t *) body);
+      break;
+    case SPA_POD_TYPE_FLOAT:
+      printf ("%-*sFloat %f\n", prefix, "", *(float *) body);
+      break;
+    case SPA_POD_TYPE_DOUBLE:
+      printf ("%-*sDouble %g\n", prefix, "", *(double *) body);
+      break;
+    case SPA_POD_TYPE_STRING:
+      printf ("%-*sString %s\n", prefix, "", (char *) body);
+      break;
+    case SPA_POD_TYPE_RECTANGLE:
+    {
+      SpaRectangle *r = body;
+      printf ("%-*sRectangle %dx%d\n", prefix, "", r->width, r->height);
+      break;
+    }
+    case SPA_POD_TYPE_FRACTION:
+    {
+      SpaFraction *f = body;
+      printf ("%-*sFraction %d/%d\n", prefix, "", f->num, f->denom);
+      break;
+    }
+    case SPA_POD_TYPE_BITMASK:
+      printf ("%-*sBitmask\n", prefix, "");
+      break;
+    case SPA_POD_TYPE_ARRAY:
+    {
+      SpaPODArrayBody *b = body;
+      void *p;
+      printf ("%-*sArray: child.size %d, child.type %d\n", prefix, "", b->child.size, b->child.type);
 
-  if (info->range_type == SPA_PROP_RANGE_TYPE_ENUM) {
-    int i;
+      SPA_POD_ARRAY_BODY_FOREACH (b, size, p)
+        print_pod_value (b->child.size, b->child.type, p, prefix + 2);
+      break;
+    }
+    case SPA_POD_TYPE_STRUCT:
+    {
+      SpaPOD *b = body, *p;
+      printf ("%-*sStruct: size %d\n", prefix, "", size);
+      SPA_POD_STRUCT_BODY_FOREACH (b, size, p)
+        print_pod_value (p->size, p->type, SPA_POD_BODY (p), prefix + 2);
+      break;
+    }
+    case SPA_POD_TYPE_OBJECT:
+    {
+      SpaPODObjectBody *b = body;
+      SpaPODProp *p;
+      void *alt;
+      int i;
 
-    for (i = 0; i < info->n_range_values; i++) {
-      if (memcmp (info->range_values[i].val.value, val->value, val->size) == 0) {
-        if (info->range_values[i].name) {
-          enum_value = info->range_values[i].name;
-          enum_string = true;
+      printf ("%-*sObject: size %d\n", prefix, "", size);
+      SPA_POD_OBJECT_BODY_FOREACH (b, size, p) {
+        printf ("%-*sProp: key %d, flags %d\n", prefix + 2, "", p->body.key, p->body.flags);
+        if (p->body.flags & SPA_POD_PROP_FLAG_UNSET)
+          printf ("%-*sUnset (Default):\n", prefix + 4, "");
+        else
+          printf ("%-*sValue:\n", prefix + 4, "");
+        print_pod_value (p->body.value.size, p->body.value.type, SPA_POD_BODY (&p->body.value), prefix + 6);
+
+        i = 0;
+        SPA_POD_PROP_ALTERNATIVE_FOREACH (&p->body, p->pod.size, alt) {
+          if (i == 0)
+            printf ("%-*sAlternatives:\n", prefix + 4, "");
+          print_pod_value (p->body.value.size, p->body.value.type, alt, prefix + 6);
+          i++;
         }
       }
+      break;
     }
   }
+}
 
+
+SpaResult
+spa_debug_pod (const SpaPOD *pod)
+{
+  print_pod_value (pod->size, pod->type, SPA_POD_BODY (pod), 0);
+  return SPA_RESULT_OK;
+}
+
+static void
+print_format_value (uint32_t size, uint32_t type, void *body)
+{
   switch (type) {
-    case SPA_PROP_TYPE_INVALID:
-      fprintf (stderr, "invalid");
+    case SPA_POD_TYPE_BOOL:
+      fprintf (stderr, "%s", *(int32_t *) body ? "true" : "false");
       break;
-    case SPA_PROP_TYPE_BOOL:
-      fprintf (stderr, "%s", *(bool *)val->value ? "true" : "false");
+    case SPA_POD_TYPE_INT:
+      fprintf (stderr, "%"PRIi32, *(int32_t *) body);
       break;
-    case SPA_PROP_TYPE_INT8:
-      fprintf (stderr, "%" PRIi8, *(int8_t *)val->value);
+    case SPA_POD_TYPE_LONG:
+      fprintf (stderr, "%"PRIi64, *(int64_t *) body);
       break;
-    case SPA_PROP_TYPE_UINT8:
-      fprintf (stderr, "%" PRIu8, *(uint8_t *)val->value);
+    case SPA_POD_TYPE_FLOAT:
+      fprintf (stderr, "%f", *(float *) body);
       break;
-    case SPA_PROP_TYPE_INT16:
-      fprintf (stderr, "%" PRIi16, *(int16_t *)val->value);
+    case SPA_POD_TYPE_DOUBLE:
+      fprintf (stderr, "%g", *(double *) body);
       break;
-    case SPA_PROP_TYPE_UINT16:
-      fprintf (stderr, "%" PRIu16, *(uint16_t *)val->value);
+    case SPA_POD_TYPE_STRING:
+      fprintf (stderr, "%s", (char *) body);
       break;
-    case SPA_PROP_TYPE_INT32:
-      fprintf (stderr, "%" PRIi32, *(int32_t *)val->value);
-      break;
-    case SPA_PROP_TYPE_UINT32:
-      fprintf (stderr, "%" PRIu32, *(uint32_t *)val->value);
-      break;
-    case SPA_PROP_TYPE_INT64:
-      fprintf (stderr, "%" PRIi64 "\n", *(int64_t *)val->value);
-      break;
-    case SPA_PROP_TYPE_UINT64:
-      fprintf (stderr, "%" PRIu64 "\n", *(uint64_t *)val->value);
-      break;
-    case SPA_PROP_TYPE_INT:
-      fprintf (stderr, "%d", *(int *)val->value);
-      break;
-    case SPA_PROP_TYPE_UINT:
-      fprintf (stderr, "%u", *(unsigned int *)val->value);
-      break;
-    case SPA_PROP_TYPE_FLOAT:
-      fprintf (stderr, "%f", *(float *)val->value);
-      break;
-    case SPA_PROP_TYPE_DOUBLE:
-      fprintf (stderr, "%g", *(double *)val->value);
-      break;
-    case SPA_PROP_TYPE_STRING:
-      fprintf (stderr, "\"%s\"", (char *)val->value);
-      break;
-    case SPA_PROP_TYPE_RECTANGLE:
+    case SPA_POD_TYPE_RECTANGLE:
     {
-      const SpaRectangle *r = val->value;
+      SpaRectangle *r = body;
       fprintf (stderr, "%"PRIu32"x%"PRIu32, r->width, r->height);
       break;
     }
-    case SPA_PROP_TYPE_FRACTION:
+    case SPA_POD_TYPE_FRACTION:
     {
-      const SpaFraction *f = val->value;
+      SpaFraction *f = body;
       fprintf (stderr, "%"PRIu32"/%"PRIu32, f->num, f->denom);
       break;
     }
-    case SPA_PROP_TYPE_BITMASK:
-      break;
-    case SPA_PROP_TYPE_POINTER:
-      fprintf (stderr, "%p", val->value);
+    case SPA_POD_TYPE_BITMASK:
+      fprintf (stderr, "Bitmask");
       break;
     default:
       break;
   }
-  if (enum_string)
-    fprintf (stderr, " (%s)", (char *)enum_value);
-}
-
-SpaResult
-spa_debug_props (const SpaProps *props, bool print_ranges)
-{
-  SpaResult res;
-  const SpaPropInfo *info;
-  int i, j;
-
-  if (props == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
-  fprintf (stderr, "Properties (%d items):\n", props->n_prop_info);
-  for (i = 0; i < props->n_prop_info; i++) {
-    SpaPropValue value;
-
-    info = &props->prop_info[i];
-
-    fprintf (stderr, " %-20s   flags: ", info->name);
-    if (info->flags & SPA_PROP_FLAG_READABLE)
-      fprintf (stderr, "readable ");
-    if (info->flags & SPA_PROP_FLAG_WRITABLE)
-      fprintf (stderr, "writable ");
-    if (info->flags & SPA_PROP_FLAG_OPTIONAL)
-      fprintf (stderr, "optional ");
-    if (info->flags & SPA_PROP_FLAG_DEPRECATED)
-      fprintf (stderr, "deprecated ");
-    fprintf (stderr, "\n");
-
-    fprintf (stderr, "%-23.23s %s. ", "", prop_type_names[info->type].CCName);
-
-    res = spa_props_get_value (props, i, &value);
-
-    fprintf (stderr, "Current: ");
-    if (res == SPA_RESULT_OK)
-      print_value (info, &value);
-    else if (res == SPA_RESULT_PROPERTY_UNSET)
-      fprintf (stderr, "Unset");
-    else
-      fprintf (stderr, "Error %d", res);
-    fprintf (stderr, ".\n");
-
-    if (!print_ranges)
-      continue;
-
-    if (info->range_type != SPA_PROP_RANGE_TYPE_NONE) {
-      fprintf (stderr, "%-23.23s ", "");
-      switch (info->range_type) {
-        case SPA_PROP_RANGE_TYPE_MIN_MAX:
-          fprintf (stderr, "Range");
-          break;
-        case SPA_PROP_RANGE_TYPE_STEP:
-          fprintf (stderr, "Step");
-          break;
-        case SPA_PROP_RANGE_TYPE_ENUM:
-          fprintf (stderr, "Enum");
-          break;
-        case SPA_PROP_RANGE_TYPE_FLAGS:
-          fprintf (stderr, "Flags");
-          break;
-        default:
-          fprintf (stderr, "Unknown");
-          break;
-      }
-      fprintf (stderr, ".\n");
-
-      for (j = 0; j < info->n_range_values; j++) {
-        const SpaPropRangeInfo *rinfo = &info->range_values[j];
-        fprintf (stderr, "%-23.23s   ", "");
-        print_value (info, &rinfo->val);
-        fprintf (stderr, "\t: %-12s\n", rinfo->name);
-      }
-    }
-    if (info->extra) {
-      fprintf (stderr, "Extra info:  \n");
-      spa_debug_dict (info->extra);
-    }
-  }
-  return SPA_RESULT_OK;
 }
 
 SpaResult
 spa_debug_format (const SpaFormat *format)
 {
-  const SpaProps *props;
   int i, first, last, idx;
   const char *media_type;
   const char *media_subtype;
+  const char **prop_names;
+  SpaPODProp *prop;
 
   if (format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
-
-  props = &format->props;
 
   if (format->media_type > 0 && format->media_type < SPA_N_ELEMENTS (media_type_names)) {
     media_type = media_type_names[format->media_type].name;
     first = media_type_names[format->media_type].first;
     last = media_type_names[format->media_type].last;
     idx = media_type_names[format->media_type].idx;
+    prop_names = media_type_names[format->media_type].prop_names;
   }
   else {
     media_type = "unknown";
     idx = first = last = -1;
+    prop_names = NULL;
   }
 
   if (format->media_subtype >= SPA_MEDIA_SUBTYPE_ANY_FIRST &&
@@ -501,35 +501,28 @@ spa_debug_format (const SpaFormat *format)
 
   fprintf (stderr, "%-6s %s/%s\n", "", media_type, media_subtype);
 
-  for (i = 0; i < props->n_prop_info; i++) {
-    const SpaPropInfo *info = &props->prop_info[i];
-    SpaPropValue value;
-    SpaResult res;
-
-    res = spa_props_get_value (props, i, &value);
-
-    if (info->flags & SPA_PROP_FLAG_INFO)
-      continue;
-    if (res == SPA_RESULT_PROPERTY_UNSET && info->flags & SPA_PROP_FLAG_OPTIONAL)
+  SPA_POD_OBJECT_BODY_FOREACH (&format->obj.body, format->obj.pod.size, prop) {
+    if ((prop->body.flags & SPA_POD_PROP_FLAG_UNSET) &&
+        (prop->body.flags & SPA_POD_PROP_FLAG_OPTIONAL))
       continue;
 
-    fprintf (stderr, "  %20s : (%s) ", info->name, prop_type_names[info->type].name);
-    if (res == SPA_RESULT_OK) {
-      print_value (info, &value);
-    } else if (res == SPA_RESULT_PROPERTY_UNSET) {
-      int j;
+    fprintf (stderr, "  %20s : (%s) ", prop_names[prop->body.key - SPA_PROP_ID_MEDIA_CUSTOM_START], pod_type_names[prop->body.value.type].name);
+    if (!(prop->body.flags & SPA_POD_PROP_FLAG_UNSET)) {
+      print_format_value (prop->body.value.size, prop->body.value.type, SPA_POD_BODY (&prop->body.value));
+    } else {
       const char *ssep, *esep, *sep;
+      void *alt;
 
-      switch (info->range_type) {
-        case SPA_PROP_RANGE_TYPE_MIN_MAX:
-        case SPA_PROP_RANGE_TYPE_STEP:
+      switch (prop->body.flags & SPA_POD_PROP_RANGE_MASK) {
+        case SPA_POD_PROP_RANGE_MIN_MAX:
+        case SPA_POD_PROP_RANGE_STEP:
           ssep = "[ ";
           sep = ", ";
           esep = " ]";
           break;
         default:
-        case SPA_PROP_RANGE_TYPE_ENUM:
-        case SPA_PROP_RANGE_TYPE_FLAGS:
+        case SPA_POD_PROP_RANGE_ENUM:
+        case SPA_POD_PROP_RANGE_FLAGS:
           ssep = "{ ";
           sep = ", ";
           esep = " }";
@@ -537,14 +530,15 @@ spa_debug_format (const SpaFormat *format)
       }
 
       fprintf (stderr, ssep);
-      for (j = 0; j < info->n_range_values; j++) {
-        const SpaPropRangeInfo *rinfo = &info->range_values[j];
-        print_value (info, &rinfo->val);
-        fprintf (stderr, "%s", j + 1 < info->n_range_values ? sep : "");
+
+      i = 0;
+      SPA_POD_PROP_ALTERNATIVE_FOREACH (&prop->body, prop->pod.size, alt) {
+        if (i > 0)
+          fprintf (stderr, "%s", sep);
+        print_format_value (prop->body.value.size, prop->body.value.type, alt);
+        i++;
       }
       fprintf (stderr, esep);
-    } else {
-      fprintf (stderr, "*Error*");
     }
     fprintf (stderr, "\n");
   }

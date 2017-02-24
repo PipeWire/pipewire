@@ -28,7 +28,7 @@ extern "C" {
 #include <spa/video/raw.h>
 #include <spa/video/encoded.h>
 
-typedef struct _SpaFormatVideo SpaFormatVideo;
+typedef struct _SpaVideoInfo SpaVideoInfo;
 
 typedef enum {
   SPA_PROP_ID_VIDEO_INFO = SPA_PROP_ID_MEDIA_CUSTOM_START,
@@ -52,18 +52,12 @@ typedef enum {
   SPA_PROP_ID_VIDEO_ALIGNMENT,
 } SpaPropIdVideo;
 
-SpaResult   spa_prop_info_fill_video    (SpaPropInfo     *info,
-                                         SpaPropIdVideo   id,
-                                         size_t           offset);
-
-SpaResult   spa_format_video_init       (SpaMediaType     type,
-                                         SpaMediaSubType  subtype,
-                                         SpaFormatVideo  *format);
 SpaResult   spa_format_video_parse      (const SpaFormat  *format,
-                                         SpaFormatVideo   *dest);
+                                         SpaVideoInfo     *info);
 
-struct _SpaFormatVideo {
-  SpaFormat format;
+struct _SpaVideoInfo {
+  SpaMediaType    media_type;
+  SpaMediaSubType media_subtype;
   union {
     SpaVideoInfoRaw raw;
     SpaVideoInfoH264 h264;

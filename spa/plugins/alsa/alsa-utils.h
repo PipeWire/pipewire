@@ -35,6 +35,7 @@ extern "C" {
 #include <spa/loop.h>
 #include <spa/ringbuffer.h>
 #include <spa/audio/format.h>
+#include <spa/format-builder.h>
 
 typedef struct _SpaALSAState SpaALSAState;
 typedef struct _SpaALSABuffer SpaALSABuffer;
@@ -89,8 +90,9 @@ struct _SpaALSAState {
   snd_pcm_t *hndl;
 
   bool have_format;
-  SpaFormatAudio query_format;
-  SpaFormatAudio current_format;
+  SpaAudioInfo current_format;
+  uint8_t format_buffer[1024];
+
   snd_pcm_sframes_t buffer_frames;
   snd_pcm_sframes_t period_frames;
   snd_pcm_format_t format;
@@ -125,7 +127,7 @@ struct _SpaALSAState {
 };
 
 int spa_alsa_set_format (SpaALSAState *state,
-                         SpaFormatAudio *fmt,
+                         SpaAudioInfo *info,
                          SpaPortFormatFlags flags);
 
 SpaResult spa_alsa_start (SpaALSAState *state, bool xrun_recover);

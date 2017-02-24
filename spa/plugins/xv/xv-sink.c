@@ -87,8 +87,8 @@ struct _SpaXvSink {
   SpaNodeEventCallback event_cb;
   void *user_data;
 
-  SpaFormatVideo format[2];
-  SpaFormat *current_format;
+  bool have_format;
+  SpaVideoInfo current_format;
 
   SpaPortInfo info;
   SpaXvState state;
@@ -304,14 +304,11 @@ spa_xv_sink_node_port_enum_formats (SpaNode         *node,
 
   switch (index) {
     case 0:
-      spa_format_video_init (SPA_MEDIA_TYPE_VIDEO,
-                             SPA_MEDIA_SUBTYPE_RAW,
-                             &this->format[0]);
       break;
     default:
       return SPA_RESULT_ENUM_END;
   }
-  *format = &this->format[0].format;
+  *format = NULL;
 
   return SPA_RESULT_OK;
 }
@@ -325,8 +322,7 @@ spa_xv_sink_node_port_set_format (SpaNode            *node,
 {
   SpaXvSink *this;
   SpaResult res;
-  SpaFormat *f, *tf;
-  size_t fs;
+  SpaVideoInfo info;
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -337,29 +333,25 @@ spa_xv_sink_node_port_set_format (SpaNode            *node,
     return SPA_RESULT_INVALID_PORT;
 
   if (format == NULL) {
-    this->current_format = NULL;
+    this->have_format = false;
     return SPA_RESULT_OK;
   }
 
   if (format->media_type == SPA_MEDIA_TYPE_VIDEO) {
     if (format->media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
-      if ((res = spa_format_video_parse (format, &this->format[0]) < 0))
+      if ((res = spa_format_video_parse (format, &info) < 0))
         return res;
-
-      f = &this->format[0].format;
-      tf = &this->format[1].format;
-      fs = sizeof (SpaVideoFormat);
     } else
       return SPA_RESULT_INVALID_MEDIA_TYPE;
   } else
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
-  if (spa_xv_set_format (this, f, flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY) < 0)
+  if (spa_xv_set_format (this, &info, flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY) < 0)
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
   if (!(flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY)) {
-    memcpy (tf, f, fs);
-    this->current_format = tf;
+    this->current_format = info;
+    this->have_format = true;
   }
 
   return SPA_RESULT_OK;
@@ -381,10 +373,10 @@ spa_xv_sink_node_port_get_format (SpaNode          *node,
   if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
 
-  if (this->current_format == NULL)
+  if (!this->have_format)
     return SPA_RESULT_NO_FORMAT;
 
-  *format = this->current_format;
+  *format = NULL;
 
   return SPA_RESULT_OK;
 }

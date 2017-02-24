@@ -95,24 +95,19 @@ pinos_serialize_format_get_size (const SpaFormat *format)
   if (format == NULL)
     return 0;
 
-  return pinos_serialize_props_get_size (&format->props) - sizeof (SpaProps) + sizeof (SpaFormat);
+  return SPA_FORMAT_SIZE (format);
 }
 
 size_t
 pinos_serialize_format_serialize (void *dest, const SpaFormat *format)
 {
-  SpaFormat *tf;
   size_t size;
 
   if (format == NULL)
     return 0;
 
-  tf = dest;
-  tf->media_type = format->media_type;
-  tf->media_subtype = format->media_subtype;
-
-  dest = SPA_MEMBER (tf, offsetof (SpaFormat, props), void);
-  size = pinos_serialize_props_serialize (dest, &format->props) - sizeof (SpaProps) + sizeof (SpaFormat);
+  size = SPA_FORMAT_SIZE (format);
+  memcpy (dest, format, size);
 
   return size;
 }
@@ -120,12 +115,7 @@ pinos_serialize_format_serialize (void *dest, const SpaFormat *format)
 SpaFormat *
 pinos_serialize_format_deserialize (void *src, off_t offset)
 {
-  SpaFormat *f;
-
-  f = SPA_MEMBER (src, offset, SpaFormat);
-  pinos_serialize_props_deserialize (f, offsetof (SpaFormat, props));
-
-  return f;
+  return SPA_MEMBER (src, offset, SpaFormat);
 }
 
 SpaFormat *

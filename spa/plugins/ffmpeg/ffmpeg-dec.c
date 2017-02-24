@@ -51,8 +51,9 @@ struct _FFMpegBuffer {
 };
 
 typedef struct {
-  SpaFormatVideo format[2];
-  SpaFormat *current_format;
+  bool have_format;
+  SpaVideoInfo query_format;
+  SpaVideoInfo current_format;
   bool have_buffers;
   FFMpegBuffer buffers[MAX_BUFFERS];
   SpaPortInfo info;
@@ -268,14 +269,11 @@ spa_ffmpeg_dec_node_port_enum_formats (SpaNode         *node,
 
   switch (index) {
     case 0:
-      spa_format_video_init (SPA_MEDIA_TYPE_VIDEO,
-                             SPA_MEDIA_SUBTYPE_RAW,
-                             &port->format[0]);
       break;
     default:
       return SPA_RESULT_ENUM_END;
   }
-  *format = &port->format[0].format;
+  *format = NULL;
 
   return SPA_RESULT_OK;
 }
@@ -302,16 +300,16 @@ spa_ffmpeg_dec_node_port_set_format (SpaNode            *node,
   port = direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
 
   if (format == NULL) {
-    port->current_format = NULL;
+    port->have_format = false;
     return SPA_RESULT_OK;
   }
 
-  if ((res = spa_format_video_parse (format, &port->format[0]) < 0))
+  if ((res = spa_format_video_parse (format, &port->query_format) < 0))
     return res;
 
   if (!(flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY)) {
-    memcpy (&port->format[1], &port->format[0], sizeof (SpaFormatVideo));
-    port->current_format = &port->format[1].format;
+    memcpy (&port->current_format, &port->query_format, sizeof (SpaVideoInfo));
+    port->have_format = true;
   }
 
   return SPA_RESULT_OK;
@@ -336,10 +334,10 @@ spa_ffmpeg_dec_node_port_get_format (SpaNode          *node,
 
   port = direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
 
-  if (port->current_format == NULL)
+  if (!port->have_format)
     return SPA_RESULT_NO_FORMAT;
 
-  *format = port->current_format;
+  *format = NULL;
 
   return SPA_RESULT_OK;
 }
@@ -476,7 +474,7 @@ spa_ffmpeg_dec_node_process_output (SpaNode *node)
   if ((output = port->io) == NULL)
     return SPA_RESULT_ERROR;
 
-  if (port->current_format == NULL) {
+  if (!port->have_format) {
     output->status = SPA_RESULT_NO_FORMAT;
     return SPA_RESULT_ERROR;
   }

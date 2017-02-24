@@ -51,7 +51,7 @@ struct _MixerBuffer {
 typedef struct {
   bool valid;
   bool have_format;
-  SpaFormatAudio format[2];
+  SpaAudioInfo format;
   SpaAudioMixerPortProps props[2];
   SpaPortInfo info;
   size_t buffer_index;
@@ -328,14 +328,11 @@ spa_audiomixer_node_port_enum_formats (SpaNode         *node,
 
   switch (index) {
     case 0:
-      spa_format_audio_init (SPA_MEDIA_TYPE_AUDIO,
-                             SPA_MEDIA_SUBTYPE_RAW,
-                             &port->format[0]);
       break;
     default:
       return SPA_RESULT_ENUM_END;
   }
-  *format = &port->format[0].format;
+  *format = NULL;
 
   return SPA_RESULT_OK;
 }
@@ -366,7 +363,7 @@ spa_audiomixer_node_port_set_format (SpaNode            *node,
     return SPA_RESULT_OK;
   }
 
-  if ((res = spa_format_audio_parse (format, &port->format[1])) < 0)
+  if ((res = spa_format_audio_parse (format, &port->format)) < 0)
     return res;
 
   port->have_format = true;
@@ -396,7 +393,7 @@ spa_audiomixer_node_port_get_format (SpaNode          *node,
   if (!port->have_format)
     return SPA_RESULT_NO_FORMAT;
 
-  *format = &port->format[1].format;
+  *format = NULL;
 
   return SPA_RESULT_OK;
 }

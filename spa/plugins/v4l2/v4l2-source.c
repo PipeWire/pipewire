@@ -30,6 +30,7 @@
 #include <spa/log.h>
 #include <spa/loop.h>
 #include <spa/id-map.h>
+#include <spa/format-builder.h>
 #include <lib/debug.h>
 #include <lib/props.h>
 
@@ -63,23 +64,6 @@ struct _V4l2Buffer {
   struct v4l2_buffer v4l2_buffer;
 };
 
-typedef struct _V4l2Format V4l2Format;
-
-struct _V4l2Format {
-  SpaFormat fmt;
-  SpaVideoFormat            format;
-  SpaRectangle              size;
-  SpaFraction               framerate;
-  SpaVideoInterlaceMode     interlace_mode;
-  SpaVideoColorRange        color_range;
-  SpaVideoColorMatrix       color_matrix;
-  SpaVideoTransferFunction  transfer_function;
-  SpaVideoColorPrimaries    color_primaries;
-  SpaPropInfo infos[16];
-  SpaPropRangeInfo ranges[16];
-  SpaFraction framerates[16];
-};
-
 typedef struct {
   uint32_t node;
   uint32_t clock;
@@ -99,8 +83,9 @@ typedef struct {
   struct v4l2_frmsizeenum frmsize;
   struct v4l2_frmivalenum frmival;
 
-  V4l2Format format[2];
-  V4l2Format *current_format;
+  bool have_format;
+  SpaVideoInfo current_format;
+  uint8_t format_buffer[1024];
 
   int fd;
   bool opened;
@@ -357,7 +342,7 @@ spa_v4l2_source_node_send_command (SpaNode        *node,
       SpaV4l2State *state = &this->state[0];
       SpaResult res;
 
-      if (state->current_format == NULL)
+      if (!state->have_format)
         return SPA_RESULT_NO_FORMAT;
 
       if (state->n_buffers == 0)
@@ -380,7 +365,7 @@ spa_v4l2_source_node_send_command (SpaNode        *node,
     {
       SpaV4l2State *state = &this->state[0];
 
-      if (state->current_format == NULL)
+      if (!state->have_format)
         return SPA_RESULT_NO_FORMAT;
 
       if (state->n_buffers == 0)
@@ -484,28 +469,6 @@ spa_v4l2_source_node_remove_port (SpaNode        *node,
 }
 
 static SpaResult
-spa_v4l2_format_init (V4l2Format *f, const SpaFormat *sf)
-{
-  f->fmt.props.n_prop_info = 3;
-  f->fmt.props.prop_info = f->infos;
-
-  spa_prop_info_fill_video (&f->infos[0],
-                            SPA_PROP_ID_VIDEO_FORMAT,
-                            offsetof (V4l2Format, format));
-  spa_prop_info_fill_video (&f->infos[1],
-                            SPA_PROP_ID_VIDEO_SIZE,
-                            offsetof (V4l2Format, size));
-  spa_prop_info_fill_video (&f->infos[2],
-                            SPA_PROP_ID_VIDEO_FRAMERATE,
-                            offsetof (V4l2Format, framerate));
-
-  f->fmt.media_type = sf->media_type;
-  f->fmt.media_subtype = sf->media_subtype;
-
-  return spa_props_copy_values (&sf->props, &f->fmt.props);
-}
-
-static SpaResult
 spa_v4l2_source_node_port_enum_formats (SpaNode         *node,
                                         SpaDirection     direction,
                                         uint32_t         port_id,
@@ -539,7 +502,7 @@ spa_v4l2_source_node_port_set_format (SpaNode            *node,
   SpaV4l2Source *this;
   SpaV4l2State *state;
   SpaResult res;
-  V4l2Format *f, *tf;
+  SpaVideoInfo info;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -555,43 +518,34 @@ spa_v4l2_source_node_port_set_format (SpaNode            *node,
     spa_v4l2_stream_off (this);
     spa_v4l2_clear_buffers (this);
     spa_v4l2_close (this);
-    state->current_format = NULL;
+    state->have_format = false;
     update_state (this, SPA_NODE_STATE_CONFIGURE);
     return SPA_RESULT_OK;
   }
 
-  f = &state->format[0];
-  tf = &state->format[1];
-
-  if ((SpaFormat*)f != format) {
-    if ((res = spa_v4l2_format_init (f, format)) < 0)
+  if ((res = spa_format_video_parse (format, &info)) < 0)
       return res;
-  } else {
-    f = (V4l2Format*)format;
-  }
 
-  if (state->current_format) {
-    if (f->fmt.media_type == state->current_format->fmt.media_type &&
-       f->fmt.media_subtype == state->current_format->fmt.media_subtype &&
-       f->format == state->current_format->format &&
-       f->size.width == state->current_format->size.width &&
-       f->size.height == state->current_format->size.height)
+  if (state->have_format) {
+    if (info.media_type == state->current_format.media_type &&
+        info.media_subtype == state->current_format.media_subtype &&
+        info.info.raw.format == state->current_format.info.raw.format &&
+        info.info.raw.size.width == state->current_format.info.raw.size.width &&
+        info.info.raw.size.height == state->current_format.info.raw.size.height)
       return SPA_RESULT_OK;
 
     if (!(flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY)) {
       spa_v4l2_use_buffers (this, NULL, 0);
-      state->current_format = NULL;
+      state->have_format = false;
     }
   }
 
-  if (spa_v4l2_set_format (this, f, flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY) < 0)
+  if (spa_v4l2_set_format (this, &info, flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY) < 0)
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
   if (!(flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY)) {
-    if ((res = spa_v4l2_format_init (tf, &f->fmt)) < 0)
-      return res;
-    state->current_format = tf;
-
+    state->current_format = info;
+    state->have_format = true;
     update_state (this, SPA_NODE_STATE_READY);
   }
 
@@ -606,6 +560,7 @@ spa_v4l2_source_node_port_get_format (SpaNode          *node,
 {
   SpaV4l2Source *this;
   SpaV4l2State *state;
+  SpaPODBuilder b = { NULL, };
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -617,10 +572,26 @@ spa_v4l2_source_node_port_get_format (SpaNode          *node,
 
   state = &this->state[port_id];
 
-  if (state->current_format == NULL)
+  if (!state->have_format)
     return SPA_RESULT_NO_FORMAT;
 
-  *format = &state->current_format->fmt;
+  b.data = state->format_buffer;
+  b.size = sizeof (state->format_buffer);
+
+  *format = SPA_MEMBER (b.data, spa_pod_builder_format (&b,
+         SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW,
+           SPA_PROP_ID_VIDEO_FORMAT,    SPA_POD_TYPE_INT,
+                                                state->current_format.info.raw.format,
+                                        SPA_POD_PROP_FLAG_READWRITE,
+           SPA_PROP_ID_VIDEO_SIZE,      SPA_POD_TYPE_RECTANGLE,
+                                                state->current_format.info.raw.size.width,
+                                                state->current_format.info.raw.size.height,
+                                        SPA_POD_PROP_FLAG_READWRITE,
+           SPA_PROP_ID_VIDEO_FRAMERATE, SPA_POD_TYPE_FRACTION,
+                                                state->current_format.info.raw.framerate.num,
+                                                state->current_format.info.raw.framerate.denom,
+                                        SPA_POD_PROP_FLAG_READWRITE,
+           0), SpaFormat);
 
   return SPA_RESULT_OK;
 }
@@ -685,7 +656,7 @@ spa_v4l2_source_node_port_use_buffers (SpaNode         *node,
 
   state = &this->state[port_id];
 
-  if (state->current_format == NULL)
+  if (!state->have_format)
     return SPA_RESULT_NO_FORMAT;
 
   if (state->n_buffers) {
@@ -728,7 +699,7 @@ spa_v4l2_source_node_port_alloc_buffers (SpaNode         *node,
 
   state = &this->state[port_id];
 
-  if (state->current_format == NULL)
+  if (!state->have_format)
     return SPA_RESULT_NO_FORMAT;
 
   res = spa_v4l2_alloc_buffers (this, params, n_params, buffers, n_buffers);
@@ -1003,6 +974,7 @@ v4l2_source_init (const SpaHandleFactory  *factory,
     strncpy (this->props[1].device, str, 63);
     this->props[1].props.unset_mask &= ~1;
   }
+  this->props[1].props.unset_mask &= ~1;
 
   update_state (this, SPA_NODE_STATE_CONFIGURE);
 

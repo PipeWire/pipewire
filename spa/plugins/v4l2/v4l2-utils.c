@@ -328,27 +328,25 @@ enum_filter_format (const SpaFormat *filter, unsigned int index)
 
   if ((filter->media_type == SPA_MEDIA_TYPE_VIDEO || filter->media_type == SPA_MEDIA_TYPE_IMAGE)) {
     if (filter->media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
-      SpaPropValue val;
-      SpaResult res;
-      unsigned int idx;
-      const SpaPropInfo *pi;
+      SpaPODProp *p;
+      unsigned int n_values;
+      const uint32_t *values;
 
-      idx = spa_props_index_for_id (&filter->props, SPA_PROP_ID_VIDEO_FORMAT);
-      if (idx == SPA_IDX_INVALID)
+      if (!(p = spa_pod_object_body_find_prop (&filter->obj.body, filter->obj.pod.size, SPA_PROP_ID_VIDEO_FORMAT)))
         return SPA_VIDEO_FORMAT_UNKNOWN;
 
-      pi = &filter->props.prop_info[idx];
-      if (pi->type != SPA_PROP_TYPE_UINT32)
+      if (p->body.value.type != SPA_PROP_TYPE_INT)
         return SPA_VIDEO_FORMAT_UNKNOWN;
 
-      res = spa_props_get_value (&filter->props, idx, &val);
-      if (res >= 0) {
+      values = SPA_POD_BODY_CONST (&p->body.value);
+      n_values = SPA_POD_PROP_N_VALUES (p);
+
+      if (p->body.flags & SPA_POD_PROP_FLAG_UNSET) {
+        if (index + 1 < n_values)
+          video_format = values[index + 1];
+      } else {
         if (index == 0)
-          video_format = *((SpaVideoFormat *)val.value);
-      } else if (res == SPA_RESULT_PROPERTY_UNSET) {
-
-        if (index < pi->n_range_values)
-          video_format = *((SpaVideoFormat *)pi->range_values[index].val.value);
+          video_format = values[0];
       }
     } else {
       if (index == 0)
@@ -453,9 +451,12 @@ spa_v4l2_enum_format (SpaV4l2Source   *this,
                       unsigned int     index)
 {
   SpaV4l2State *state = &this->state[0];
-  int res, i, pi;
-  V4l2Format *fmt;
+  int res;
   const FormatInfo *info;
+  SpaPODFrame f[2];
+  SpaPODProp *prop;
+  SpaFormat *fmt;
+  SpaPODBuilder b = { state->format_buffer, sizeof (state->format_buffer), };
 
   if (spa_v4l2_open (this) < 0)
     return SPA_RESULT_ERROR;
@@ -506,37 +507,30 @@ next_fmtdesc:
     state->frmsize.pixel_format = state->fmtdesc.pixelformat;
     state->next_frmsize = true;
   }
-
   if (!(info = fourcc_to_format_info (state->fmtdesc.pixelformat)))
     goto next_fmtdesc;
 
 next_frmsize:
   while (state->next_frmsize) {
     if (filter) {
-      const SpaPropInfo *pi;
-      unsigned int idx;
-      SpaPropValue val;
-      SpaResult res;
+      SpaPODProp *p;
 
       /* check if we have a fixed frame size */
-      idx = spa_props_index_for_id (&filter->props, SPA_PROP_ID_VIDEO_SIZE);
-      if (idx == SPA_IDX_INVALID)
+      if (!(p = spa_pod_object_body_find_prop (&filter->obj.body, filter->obj.pod.size, SPA_PROP_ID_VIDEO_SIZE)))
         goto do_frmsize;
 
-      pi = &filter->props.prop_info[idx];
-      if (pi->type != SPA_PROP_TYPE_RECTANGLE)
+      if (p->body.value.type != SPA_PROP_TYPE_RECTANGLE)
         return SPA_RESULT_ENUM_END;
 
-      res = spa_props_get_value (&filter->props, idx, &val);
-      if (res >= 0) {
-        const SpaRectangle *size = val.value;
+      if (!(p->body.flags & SPA_POD_PROP_FLAG_UNSET)) {
+        const SpaRectangle *values = SPA_POD_BODY_CONST (&p->body.value);
 
         if (state->frmsize.index > 0)
           goto next_fmtdesc;
 
         state->frmsize.type = V4L2_FRMSIZE_TYPE_DISCRETE;
-        state->frmsize.discrete.width = size->width;
-        state->frmsize.discrete.height = size->height;
+        state->frmsize.discrete.width = values[0].width;
+        state->frmsize.discrete.height = values[0].height;
         goto have_size;
       }
     }
@@ -549,33 +543,33 @@ do_frmsize:
       return SPA_RESULT_ENUM_END;
     }
     if (filter) {
-      const SpaPropInfo *pi;
-      unsigned int idx;
-      const SpaRectangle step = { 1, 1 };
+      SpaPODProp *p;
+      const SpaRectangle step = { 1, 1 }, *values;
+      uint32_t range;
+      unsigned int i, n_values;
 
       /* check if we have a fixed frame size */
-      idx = spa_props_index_for_id (&filter->props, SPA_PROP_ID_VIDEO_SIZE);
-      if (idx == SPA_IDX_INVALID)
+      if (!(p = spa_pod_object_body_find_prop (&filter->obj.body, filter->obj.pod.size, SPA_PROP_ID_VIDEO_SIZE)))
         goto have_size;
 
-      /* checked above */
-      pi = &filter->props.prop_info[idx];
+      range = p->body.flags & SPA_POD_PROP_RANGE_MASK;
+      values = SPA_POD_BODY_CONST (&p->body.value);
+      n_values = SPA_POD_PROP_N_VALUES (p);
 
-      if (pi->range_type == SPA_PROP_RANGE_TYPE_MIN_MAX) {
-        if (filter_framesize (&state->frmsize, pi->range_values[0].val.value,
-                                               pi->range_values[1].val.value,
+      if (range == SPA_POD_PROP_RANGE_MIN_MAX && n_values > 2) {
+        if (filter_framesize (&state->frmsize, &values[1],
+                                               &values[2],
                                                &step))
           goto have_size;
-      } else if (pi->range_type == SPA_PROP_RANGE_TYPE_STEP) {
-        if (filter_framesize (&state->frmsize, pi->range_values[0].val.value,
-                                               pi->range_values[1].val.value,
-                                               pi->range_values[2].val.value))
+      } else if (range == SPA_PROP_RANGE_TYPE_STEP && n_values > 3) {
+        if (filter_framesize (&state->frmsize, &values[1],
+                                               &values[2],
+                                               &values[3]))
           goto have_size;
-      } else if (pi->range_type == SPA_PROP_RANGE_TYPE_ENUM) {
-        unsigned int i;
-        for (i = 0; i < pi->n_range_values; i++) {
-          if (filter_framesize (&state->frmsize, pi->range_values[i].val.value,
-                                                 pi->range_values[i].val.value,
+      } else if (range == SPA_PROP_RANGE_TYPE_ENUM) {
+        for (i = 1; i < n_values; i++) {
+          if (filter_framesize (&state->frmsize, &values[i],
+                                                 &values[i],
                                                  &step))
             goto have_size;
         }
@@ -608,43 +602,44 @@ have_size:
     }
   }
 
-  fmt = &state->format[0];
-  fmt->fmt.media_type = info->media_type;
-  fmt->fmt.media_subtype = info->media_subtype;
-  fmt->fmt.props.prop_info = fmt->infos;
-  fmt->fmt.props.n_prop_info = pi = 0;
-  fmt->fmt.props.unset_mask = 0;
+  fmt = SPA_MEMBER (b.data,
+                    spa_pod_builder_push_format (&b, &f[0],
+                                                 info->media_type,
+                                                 info->media_subtype),
+                    SpaFormat);
 
   if (info->media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
-    spa_prop_info_fill_video (&fmt->infos[pi],
-                              SPA_PROP_ID_VIDEO_FORMAT,
-                              offsetof (V4l2Format, format));
-    fmt->format = info->format;
-    pi = ++fmt->fmt.props.n_prop_info;
-  } else {
-    fmt->format = info->format;
+    spa_pod_builder_format_prop (&b,
+        SPA_PROP_ID_VIDEO_FORMAT,  SPA_POD_TYPE_INT,
+                                        info->format,
+                                   SPA_POD_PROP_RANGE_NONE | SPA_POD_PROP_FLAG_READWRITE,
+        0);
   }
 
-  spa_prop_info_fill_video (&fmt->infos[pi],
-                            SPA_PROP_ID_VIDEO_SIZE,
-                            offsetof (V4l2Format, size));
-  fmt->size.width = state->frmsize.discrete.width;
-  fmt->size.height = state->frmsize.discrete.height;
-  pi = ++fmt->fmt.props.n_prop_info;
+  spa_pod_builder_format_prop (&b,
+      SPA_PROP_ID_VIDEO_SIZE,  SPA_POD_TYPE_RECTANGLE,
+                                      state->frmsize.discrete.width,
+                                      state->frmsize.discrete.height,
+                               SPA_POD_PROP_RANGE_NONE | SPA_POD_PROP_FLAG_READWRITE,
+      0);
 
-  spa_prop_info_fill_video (&fmt->infos[pi],
-                            SPA_PROP_ID_VIDEO_FRAMERATE,
-                            offsetof (V4l2Format, framerate));
-  fmt->infos[pi].range_values = fmt->ranges;
-  fmt->infos[pi].n_range_values = 0;
-  i = state->frmival.index = 0;
+  prop = SPA_MEMBER (b.data,
+                     spa_pod_builder_push_prop (&b, &f[1],
+                                                SPA_PROP_ID_VIDEO_FRAMERATE,
+                                                SPA_POD_PROP_RANGE_NONE |
+                                                SPA_POD_PROP_FLAG_UNSET |
+                                                SPA_POD_PROP_FLAG_READWRITE),
+                     SpaPODProp);
+  spa_pod_builder_fraction (&b, 25, 1);
+
+  state->frmival.index = 0;
 
   while (true) {
     if ((res = xioctl (state->fd, VIDIOC_ENUM_FRAMEINTERVALS, &state->frmival)) < 0) {
       if (errno == EINVAL) {
         state->frmsize.index++;
         state->next_frmsize = true;
-        if (i == 0)
+        if (state->frmival.index == 0)
           goto next_frmsize;
         break;
       }
@@ -652,42 +647,40 @@ have_size:
       return SPA_RESULT_ENUM_END;
     }
     if (filter) {
-      SpaPropValue val;
-      const SpaPropInfo *pi;
-      unsigned int idx;
-      SpaResult res;
-      const SpaFraction step = { 1, 1 };
+      SpaPODProp *p;
+      uint32_t range;
+      unsigned int i, n_values;
+      const SpaFraction step = { 1, 1 }, *values;
 
-      /* check against filter */
-      idx = spa_props_index_for_id (&filter->props, SPA_PROP_ID_VIDEO_FRAMERATE);
-      if (idx == SPA_IDX_INVALID)
+      if (!(p = spa_pod_object_body_find_prop (&filter->obj.body, filter->obj.pod.size, SPA_PROP_ID_VIDEO_FRAMERATE)))
         goto have_framerate;
 
-      pi = &filter->props.prop_info[idx];
-      if (pi->type != SPA_PROP_TYPE_FRACTION)
+      if (p->body.value.type != SPA_PROP_TYPE_FRACTION)
         return SPA_RESULT_ENUM_END;
 
-      res = spa_props_get_value (&filter->props, idx, &val);
-      if (res == 0) {
-        if (filter_framerate (&state->frmival, val.value,
-                                               val.value,
+      range = p->body.flags & SPA_POD_PROP_RANGE_MASK;
+      values = SPA_POD_BODY_CONST (&p->body.value);
+      n_values = SPA_POD_PROP_N_VALUES (p);
+
+      if (!(p->body.flags & SPA_POD_PROP_FLAG_UNSET)) {
+        if (filter_framerate (&state->frmival, &values[0],
+                                               &values[0],
                                                &step))
           goto have_framerate;
-      } else if (pi->range_type == SPA_PROP_RANGE_TYPE_MIN_MAX) {
-        if (filter_framerate (&state->frmival, pi->range_values[0].val.value,
-                                               pi->range_values[1].val.value,
+      } else if (range == SPA_PROP_RANGE_TYPE_MIN_MAX && n_values > 2) {
+        if (filter_framerate (&state->frmival, &values[1],
+                                               &values[2],
                                                &step))
           goto have_framerate;
-      } else if (pi->range_type == SPA_PROP_RANGE_TYPE_STEP) {
-        if (filter_framerate (&state->frmival, pi->range_values[0].val.value,
-                                               pi->range_values[1].val.value,
-                                               pi->range_values[2].val.value))
+      } else if (range == SPA_PROP_RANGE_TYPE_STEP && n_values > 3) {
+        if (filter_framerate (&state->frmival, &values[1],
+                                               &values[2],
+                                               &values[3]))
           goto have_framerate;
-      } else if (pi->range_type == SPA_PROP_RANGE_TYPE_ENUM) {
-        unsigned int i;
-        for (i = 0; i < pi->n_range_values; i++) {
-          if (filter_framerate (&state->frmival, pi->range_values[i].val.value,
-                                                 pi->range_values[i].val.value,
+      } else if (range == SPA_PROP_RANGE_TYPE_ENUM) {
+        for (i = 1; i < n_values; i++) {
+          if (filter_framerate (&state->frmival, &values[i],
+                                                 &values[i],
                                                  &step))
             goto have_framerate;
         }
@@ -697,55 +690,43 @@ have_size:
     }
 
 have_framerate:
-    fmt->ranges[i].name = NULL;
+
     if (state->frmival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
-      fmt->infos[pi].range_type = SPA_PROP_RANGE_TYPE_ENUM;
-      fmt->framerates[i].num = state->frmival.discrete.denominator;
-      fmt->framerates[i].denom = state->frmival.discrete.numerator;
-      fmt->ranges[i].val.size = sizeof (SpaFraction);
-      fmt->ranges[i].val.value = &fmt->framerates[i];
-      i++;
+      prop->body.flags |= SPA_PROP_RANGE_TYPE_ENUM;
+      spa_pod_builder_fraction (&b,
+                                state->frmival.discrete.denominator,
+                                state->frmival.discrete.numerator);
       state->frmival.index++;
-      if (i == 16)
-        break;
     } else if (state->frmival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS ||
                state->frmival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
-      fmt->framerates[0].num = state->frmival.stepwise.min.denominator;
-      fmt->framerates[0].denom = state->frmival.stepwise.min.numerator;
-      fmt->ranges[0].val.size = sizeof (SpaFraction);
-      fmt->ranges[0].val.value = &fmt->framerates[0];
-      fmt->framerates[1].num = state->frmival.stepwise.max.denominator;
-      fmt->framerates[1].denom = state->frmival.stepwise.max.numerator;
-      fmt->ranges[1].val.size = sizeof (SpaFraction);
-      fmt->ranges[1].val.value = &fmt->framerates[1];
+      spa_pod_builder_fraction (&b,
+                                state->frmival.stepwise.min.denominator,
+                                state->frmival.stepwise.min.numerator);
+      spa_pod_builder_fraction (&b,
+                                state->frmival.stepwise.max.denominator,
+                                state->frmival.stepwise.max.numerator);
+
       if (state->frmival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS) {
-        fmt->infos[pi].range_type = SPA_PROP_RANGE_TYPE_MIN_MAX;
-        i = 2;
+        prop->body.flags |= SPA_PROP_RANGE_TYPE_MIN_MAX;
       } else {
-        fmt->infos[pi].range_type = SPA_PROP_RANGE_TYPE_STEP;
-        fmt->framerates[2].num = state->frmival.stepwise.step.denominator;
-        fmt->framerates[2].denom = state->frmival.stepwise.step.numerator;
-        fmt->ranges[2].val.size = sizeof (SpaFraction);
-        fmt->ranges[2].val.value = &fmt->framerates[2];
-        i = 3;
+        prop->body.flags |= SPA_PROP_RANGE_TYPE_STEP;
+        spa_pod_builder_fraction (&b,
+                                  state->frmival.stepwise.step.denominator,
+                                  state->frmival.stepwise.step.numerator);
       }
       break;
     }
   }
-  fmt->infos[pi].n_range_values = i;
-  fmt->framerate = fmt->framerates[0];
-  if (i > 1) {
-    SPA_PROPS_INDEX_UNSET (&fmt->fmt.props, pi);
-  }
-  pi = ++fmt->fmt.props.n_prop_info;
+  spa_pod_builder_pop (&b, &f[1]);
+  spa_pod_builder_pop (&b, &f[0]);
 
-  *format = &state->format[0].fmt;
+  *format = fmt;
 
   return SPA_RESULT_OK;
 }
 
 static int
-spa_v4l2_set_format (SpaV4l2Source *this, V4l2Format *f, bool try_only)
+spa_v4l2_set_format (SpaV4l2Source *this, SpaVideoInfo *f, bool try_only)
 {
   SpaV4l2State *state = &this->state[0];
   int cmd;
@@ -758,27 +739,27 @@ spa_v4l2_set_format (SpaV4l2Source *this, V4l2Format *f, bool try_only)
   fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   streamparm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
-  info = find_format_info_by_media_type (f->fmt.media_type,
-                                         f->fmt.media_subtype,
-                                         f->format,
+  info = find_format_info_by_media_type (f->media_type,
+                                         f->media_subtype,
+                                         f->info.raw.format,
                                          0);
   if (info == NULL) {
-    spa_log_error (state->log, "v4l2: unknown media type %d %d %d", f->fmt.media_type,
-        f->fmt.media_subtype, f->format);
+    spa_log_error (state->log, "v4l2: unknown media type %d %d %d", f->media_type,
+        f->media_subtype, f->info.raw.format);
     return -1;
   }
 
   fmt.fmt.pix.pixelformat = info->fourcc;
   fmt.fmt.pix.field = V4L2_FIELD_ANY;
-  fmt.fmt.pix.width = f->size.width;
-  fmt.fmt.pix.height = f->size.height;
-  streamparm.parm.capture.timeperframe.numerator = f->framerate.denom;
-  streamparm.parm.capture.timeperframe.denominator = f->framerate.num;
+  fmt.fmt.pix.width = f->info.raw.size.width;
+  fmt.fmt.pix.height = f->info.raw.size.height;
+  streamparm.parm.capture.timeperframe.numerator = f->info.raw.framerate.denom;
+  streamparm.parm.capture.timeperframe.denominator = f->info.raw.framerate.num;
 
   spa_log_info (state->log, "v4l2: set %08x %dx%d %d/%d", fmt.fmt.pix.pixelformat,
       fmt.fmt.pix.width, fmt.fmt.pix.height,
-      streamparm.parm.capture.timeperframe.numerator,
-      streamparm.parm.capture.timeperframe.denominator);
+      streamparm.parm.capture.timeperframe.denominator,
+      streamparm.parm.capture.timeperframe.numerator);
 
   reqfmt = fmt;
 
@@ -797,8 +778,8 @@ spa_v4l2_set_format (SpaV4l2Source *this, V4l2Format *f, bool try_only)
 
   spa_log_info (state->log, "v4l2: got %08x %dx%d %d/%d", fmt.fmt.pix.pixelformat,
       fmt.fmt.pix.width, fmt.fmt.pix.height,
-      streamparm.parm.capture.timeperframe.numerator,
-      streamparm.parm.capture.timeperframe.denominator);
+      streamparm.parm.capture.timeperframe.denominator,
+      streamparm.parm.capture.timeperframe.numerator);
 
   if (reqfmt.fmt.pix.pixelformat != fmt.fmt.pix.pixelformat ||
       reqfmt.fmt.pix.width != fmt.fmt.pix.width ||
@@ -807,6 +788,11 @@ spa_v4l2_set_format (SpaV4l2Source *this, V4l2Format *f, bool try_only)
 
   if (try_only)
     return 0;
+
+  f->info.raw.size.width = fmt.fmt.pix.width;
+  f->info.raw.size.height = fmt.fmt.pix.height;
+  f->info.raw.framerate.num = streamparm.parm.capture.timeperframe.denominator;
+  f->info.raw.framerate.denom = streamparm.parm.capture.timeperframe.numerator;
 
   state->fmt = fmt;
   state->info.flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS |

@@ -33,90 +33,6 @@
 #include <lib/debug.h>
 #include <lib/mapper.h>
 
-static void
-print_value (uint32_t size, uint32_t type, void *body, int prefix, uint32_t flags)
-{
-  switch (type) {
-    case SPA_POD_TYPE_BOOL:
-      printf ("%-*sBool %d\n", prefix, "", *(int32_t *) body);
-      break;
-    case SPA_POD_TYPE_INT:
-      printf ("%-*sInt %d\n", prefix, "", *(int32_t *) body);
-      break;
-    case SPA_POD_TYPE_LONG:
-      printf ("%-*sLong %"PRIi64"\n", prefix, "", *(int64_t *) body);
-      break;
-    case SPA_POD_TYPE_FLOAT:
-      printf ("%-*sFloat %f\n", prefix, "", *(float *) body);
-      break;
-    case SPA_POD_TYPE_DOUBLE:
-      printf ("%-*sDouble %g\n", prefix, "", *(double *) body);
-      break;
-    case SPA_POD_TYPE_STRING:
-      printf ("%-*sString %s\n", prefix, "", (char *) body);
-      break;
-    case SPA_POD_TYPE_RECTANGLE:
-    {
-      SpaRectangle *r = body;
-      printf ("%-*sRectangle %dx%d\n", prefix, "", r->width, r->height);
-      break;
-    }
-    case SPA_POD_TYPE_FRACTION:
-    {
-      SpaFraction *f = body;
-      printf ("%-*sFraction %d/%d\n", prefix, "", f->num, f->denom);
-      break;
-    }
-    case SPA_POD_TYPE_BITMASK:
-      printf ("%-*sBitmask\n", prefix, "");
-      break;
-    case SPA_POD_TYPE_ARRAY:
-    {
-      SpaPODArrayBody *b = body;
-      void *p;
-      printf ("%-*sArray: child.size %d, child.type %d\n", prefix, "", b->child.size, b->child.type);
-
-      SPA_POD_ARRAY_BODY_FOREACH (b, size, p)
-        print_value (b->child.size, b->child.type, p, prefix + 2, flags);
-      break;
-    }
-    case SPA_POD_TYPE_STRUCT:
-    {
-      SpaPOD *b = body, *p;
-      printf ("%-*sStruct: size %d\n", prefix, "", size);
-      SPA_POD_STRUCT_BODY_FOREACH (b, size, p)
-        print_value (p->size, p->type, SPA_POD_BODY (p), prefix + 2, flags);
-      break;
-    }
-    case SPA_POD_TYPE_OBJECT:
-    {
-      SpaPODObjectBody *b = body;
-      SpaPODProp *p;
-      void *alt;
-      int i;
-
-      printf ("%-*sObject: size %d\n", prefix, "", size);
-      SPA_POD_OBJECT_BODY_FOREACH (b, size, p) {
-        printf ("%-*sProp: key %d, flags %d\n", prefix + 2, "", p->body.key, p->body.flags);
-        if (p->body.flags & SPA_POD_PROP_FLAG_UNSET)
-          printf ("%-*sUnset (Default):\n", prefix + 4, "");
-        else
-          printf ("%-*sValue:\n", prefix + 4, "");
-        print_value (p->body.value.size, p->body.value.type, SPA_POD_BODY (&p->body.value), prefix + 6, p->body.flags);
-
-        i = 0;
-        SPA_POD_PROP_ALTERNATIVE_FOREACH (&p->body, p->pod.size, alt) {
-          if (i == 0)
-            printf ("%-*sAlternatives:\n", prefix + 4, "");
-          print_value (p->body.value.size, p->body.value.type, alt, prefix + 6, p->body.flags);
-          i++;
-        }
-      }
-      break;
-    }
-  }
-}
-
 int
 main (int argc, char *argv[])
 {
@@ -172,7 +88,7 @@ main (int argc, char *argv[])
 
   SpaPODProp *p = spa_pod_object_body_find_prop (SPA_POD_BODY (obj), obj->size, 4);
   printf ("%d %d\n", p->body.key, p->body.flags);
-  print_value (p->body.value.size, p->body.value.type, SPA_POD_BODY (&p->body.value), 0, 0);
+  spa_debug_pod (&p->body.value);
 
   return 0;
 }

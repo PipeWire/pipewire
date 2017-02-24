@@ -60,6 +60,61 @@ spa_build (SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW,
            0);
 #endif
 
+static const struct _test_format {
+  SpaFormat fmt;
+
+  struct {
+    SpaPODProp prop_format;
+    struct {
+      uint32_t def_format;
+      uint32_t enum_format[2];
+    } format_vals;
+    uint32_t pad;
+
+    SpaPODProp prop_size;
+    struct {
+      SpaRectangle def_size;
+      SpaRectangle min_size;
+      SpaRectangle max_size;
+    } size_vals;
+
+    SpaPODProp prop_framerate;
+    struct {
+      SpaFraction def_framerate;
+      SpaFraction min_framerate;
+      SpaFraction max_framerate;
+    } framerate_vals;
+  } props;
+} test_format = {
+  { SPA_MEDIA_TYPE_VIDEO,
+    SPA_MEDIA_SUBTYPE_RAW,
+    { { sizeof (test_format.props) + sizeof (SpaPODObjectBody), SPA_POD_TYPE_OBJECT },
+      { 0, 0 } },
+  }, {
+  { { sizeof (test_format.props.format_vals) + sizeof (SpaPODPropBody),
+      SPA_POD_TYPE_PROP } ,
+    { SPA_PROP_ID_VIDEO_FORMAT, SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET,
+      { sizeof (uint32_t), SPA_POD_TYPE_INT } }, },
+        { SPA_VIDEO_FORMAT_I420,
+         { SPA_VIDEO_FORMAT_I420, SPA_VIDEO_FORMAT_YUY2 } }, 0,
+
+  { { sizeof (test_format.props.size_vals) + sizeof (SpaPODPropBody),
+      SPA_POD_TYPE_PROP } ,
+    { SPA_PROP_ID_VIDEO_SIZE, SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET,
+      { sizeof (SpaRectangle), SPA_POD_TYPE_RECTANGLE } }, },
+        { { 320, 240 },
+          { 1, 1 },
+          { INT32_MAX, INT32_MAX } },
+
+  { { sizeof (test_format.props.framerate_vals) + sizeof (SpaPODPropBody),
+      SPA_POD_TYPE_PROP } ,
+    { SPA_PROP_ID_VIDEO_FRAMERATE, SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET,
+      { sizeof (SpaFraction), SPA_POD_TYPE_FRACTION } }, },
+        { { 25, 1 },
+          { 0, 1 },
+          { INT32_MAX, 1 } },
+  }
+};
 
 int
 main (int argc, char *argv[])
@@ -128,10 +183,12 @@ main (int argc, char *argv[])
                                                 INT32_MAX, 1,
            0);
 
-  printf ("%zd\n", o);
   fmt = SPA_MEMBER (buffer, o, SpaFormat);
-  printf ("%d %d\n", fmt->media_type, fmt->media_subtype);
   spa_debug_pod (&fmt->obj.pod);
+  spa_debug_format (fmt);
+
+  spa_debug_pod (&test_format.fmt.obj.pod);
+  spa_debug_format (&test_format.fmt);
 
   return 0;
 }

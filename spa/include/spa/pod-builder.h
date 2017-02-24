@@ -40,6 +40,8 @@ typedef struct _SpaPODBuilder {
   off_t       (*write) (struct _SpaPODBuilder *builder, off_t ref, const void *data, size_t size);
 } SpaPODBuilder;
 
+#define SPA_POD_BUILDER_DEREF(b,ref,type)    SPA_MEMBER ((b)->data, (ref), type)
+
 static inline bool
 spa_pod_builder_in_array (SpaPODBuilder *builder)
 {

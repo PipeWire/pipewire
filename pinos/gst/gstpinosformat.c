@@ -277,7 +277,7 @@ static gboolean
 handle_audio_fields (ConvertData *d)
 {
   SpaPODFrame f;
-  const GValue *value, value2;
+  const GValue *value;
   int i = 0;
 
   value = gst_structure_get_value (d->cs, "format");

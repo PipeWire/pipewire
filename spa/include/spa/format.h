@@ -24,6 +24,9 @@
 extern "C" {
 #endif
 
+#define SPA_FORMAT_URI             "http://spaplug.in/ns/format"
+#define SPA_FORMAT_PREFIX          SPA_FORMAT_URI "#"
+
 typedef struct _SpaFormat SpaFormat;
 
 #include <stdarg.h>

@@ -609,14 +609,14 @@ have_size:
                     SpaFormat);
 
   if (info->media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
-    spa_pod_builder_format_prop (&b,
+    spa_pod_builder_prop (&b,
         SPA_PROP_ID_VIDEO_FORMAT,  SPA_POD_TYPE_INT,
                                         info->format,
                                    SPA_POD_PROP_RANGE_NONE | SPA_POD_PROP_FLAG_READWRITE,
         0);
   }
 
-  spa_pod_builder_format_prop (&b,
+  spa_pod_builder_prop (&b,
       SPA_PROP_ID_VIDEO_SIZE,  SPA_POD_TYPE_RECTANGLE,
                                       state->frmsize.discrete.width,
                                       state->frmsize.discrete.height,

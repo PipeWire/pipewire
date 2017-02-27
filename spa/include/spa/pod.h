@@ -47,8 +47,7 @@ typedef enum {
   SPA_POD_TYPE_STRUCT,
   SPA_POD_TYPE_OBJECT,
   SPA_POD_TYPE_PROP,
-  SPA_POD_TYPE_BYTES,
-  SPA_POD_TYPE_FORMAT
+  SPA_POD_TYPE_BYTES
 } SpaPODType;
 
 typedef struct {

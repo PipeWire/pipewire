@@ -85,10 +85,13 @@ spa_format_video_parse (const SpaFormat *format,
   SpaPODProp *prop;
   const ParseInfo *pinfo, *find;
 
-  if (format->body.media_type != SPA_MEDIA_TYPE_VIDEO)
+  if (format->body.media_type.value != SPA_MEDIA_TYPE_VIDEO)
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
-  switch (format->body.media_subtype) {
+  info->media_type = format->body.media_type.value;
+  info->media_subtype = format->body.media_subtype.value;
+
+  switch (info->media_subtype) {
     case SPA_MEDIA_SUBTYPE_RAW:
       pinfo = raw_parse_info;
       break;
@@ -116,9 +119,6 @@ spa_format_video_parse (const SpaFormat *format,
       return SPA_RESULT_INVALID_ARGUMENTS;
   }
 
-  info->media_type = format->body.media_type;
-  info->media_subtype = format->body.media_subtype;
-
   SPA_POD_FOREACH (format, prop) {
     if ((find = parse_info_find (pinfo, prop->body.key, prop->body.value.type))) {
       memcpy (SPA_MEMBER (info, find->offset, void),
@@ -142,8 +142,8 @@ spa_format_filter (const SpaFormat  *format,
     return SPA_RESULT_OK;
   }
 
-  if (filter->body.media_type != format->body.media_type ||
-      filter->body.media_subtype != format->body.media_subtype)
+  if (filter->body.media_type.value != format->body.media_type.value ||
+      filter->body.media_subtype.value != format->body.media_subtype.value)
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
   spa_pod_builder_raw (result, format, SPA_POD_SIZE (format), true);

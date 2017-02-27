@@ -97,11 +97,6 @@ enum {
   PROP_ID_LAST,
 };
 
-static const SpaPropInfo prop_info[] =
-{
-  { PROP_ID_LAST, },
-};
-
 static void
 reset_audiomixer_props (SpaAudioMixerProps *props)
 {
@@ -119,7 +114,6 @@ spa_audiomixer_node_get_props (SpaNode       *node,
   this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
 
   memcpy (&this->props[0], &this->props[1], sizeof (this->props[1]));
-  *props = &this->props[0].props;
 
   return SPA_RESULT_OK;
 }
@@ -142,7 +136,6 @@ spa_audiomixer_node_set_props (SpaNode         *node,
     reset_audiomixer_props (p);
     return SPA_RESULT_OK;
   }
-  res = spa_props_copy_values (props, &p->props);
 
   return res;
 }
@@ -755,8 +748,10 @@ spa_audiomixer_init (const SpaHandleFactory *factory,
   this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
 
   this->node = audiomixer_node;
+#if 0
   this->props[1].props.n_prop_info = PROP_ID_LAST;
   this->props[1].props.prop_info = prop_info;
+#endif
   reset_audiomixer_props (&this->props[1]);
 
   this->out_ports[0].valid = true;

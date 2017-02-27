@@ -39,7 +39,6 @@ typedef struct _SpaV4l2Source SpaV4l2Source;
 static const char default_device[] = "/dev/video0";
 
 typedef struct {
-  SpaProps props;
   char device[64];
   char device_name[128];
   int  device_fd;
@@ -49,7 +48,6 @@ static void
 reset_v4l2_source_props (SpaV4l2SourceProps *props)
 {
   strncpy (props->device, default_device, 64);
-  props->props.unset_mask = 7;
 }
 
 #define MAX_BUFFERS     64
@@ -121,7 +119,8 @@ struct _SpaV4l2Source {
 
   uint32_t seq;
 
-  SpaV4l2SourceProps props[2];
+  uint8_t props_buffer[512];
+  SpaV4l2SourceProps props;
 
   SpaNodeEventCallback event_cb;
   void *user_data;
@@ -140,32 +139,10 @@ update_state (SpaV4l2Source *this, SpaNodeState state)
 #include "v4l2-utils.c"
 
 enum {
+  PROP_ID_NONE,
   PROP_ID_DEVICE,
   PROP_ID_DEVICE_NAME,
   PROP_ID_DEVICE_FD,
-  PROP_ID_LAST,
-};
-
-static const SpaPropInfo prop_info[] =
-{
-  { PROP_ID_DEVICE,             offsetof (SpaV4l2SourceProps, device),
-                                "device",
-                                SPA_PROP_FLAG_READWRITE,
-                                SPA_PROP_TYPE_STRING, 63,
-                                SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
-                                NULL },
-  { PROP_ID_DEVICE_NAME,        offsetof (SpaV4l2SourceProps, device_name),
-                                "device-name",
-                                SPA_PROP_FLAG_READABLE,
-                                SPA_PROP_TYPE_STRING, 127,
-                                SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
-                                NULL },
-  { PROP_ID_DEVICE_FD,          offsetof (SpaV4l2SourceProps, device_fd),
-                                "device-fd",
-                                SPA_PROP_FLAG_READABLE,
-                                SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
-                                SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
-                                NULL },
 };
 
 static SpaResult
@@ -173,14 +150,33 @@ spa_v4l2_source_node_get_props (SpaNode       *node,
                                 SpaProps     **props)
 {
   SpaV4l2Source *this;
+  SpaPODBuilder b = { NULL,  };
 
   if (node == NULL || props == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
 
-  memcpy (&this->props[0], &this->props[1], sizeof (this->props[1]));
-  *props = &this->props[0].props;
+  b.data = this->props_buffer;
+  b.size = sizeof (this->props_buffer);
+
+  *props = SPA_MEMBER (b.data, spa_pod_builder_props (&b,
+
+           PROP_ID_DEVICE,      SPA_POD_TYPE_STRING,
+                                    this->props.device, sizeof (this->props.device),
+                                SPA_POD_PROP_FLAG_READWRITE |
+                                SPA_POD_PROP_RANGE_NONE,
+
+           PROP_ID_DEVICE_NAME, SPA_POD_TYPE_STRING,
+                                    this->props.device_name, sizeof (this->props.device_name),
+                                SPA_POD_PROP_FLAG_READABLE |
+                                SPA_POD_PROP_RANGE_NONE,
+
+           PROP_ID_DEVICE_FD,   SPA_POD_TYPE_INT,
+                                    this->props.device_fd,
+                                SPA_POD_PROP_FLAG_READABLE |
+                                SPA_POD_PROP_RANGE_NONE,
+           0), SpaProps);
 
   return SPA_RESULT_OK;
 }
@@ -190,23 +186,27 @@ spa_v4l2_source_node_set_props (SpaNode         *node,
                                 const SpaProps  *props)
 {
   SpaV4l2Source *this;
-  SpaV4l2SourceProps *p;
-  SpaResult res;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
-  p = &this->props[1];
 
   if (props == NULL) {
-    reset_v4l2_source_props (p);
+    reset_v4l2_source_props (&this->props);
     return SPA_RESULT_OK;
+  } else {
+    SpaPODProp *pr;
+
+    SPA_POD_OBJECT_BODY_FOREACH (&props->body, props->pod.size, pr) {
+      switch (pr->body.key) {
+        case PROP_ID_DEVICE:
+          strncpy (this->props.device, SPA_POD_CONTENTS (SpaPODProp, pr), 63);
+          break;
+      }
+    }
   }
-
-  res = spa_props_copy_values (props, &p->props);
-
-  return res;
+  return SPA_RESULT_OK;
 }
 
 static SpaResult
@@ -961,9 +961,8 @@ v4l2_source_init (const SpaHandleFactory  *factory,
 
   this->node = v4l2source_node;
   this->clock = v4l2source_clock;
-  this->props[1].props.n_prop_info = PROP_ID_LAST;
-  this->props[1].props.prop_info = prop_info;
-  reset_v4l2_source_props (&this->props[1]);
+
+  reset_v4l2_source_props (&this->props);
 
   this->state[0].log = this->log;
   this->state[0].info.flags = SPA_PORT_INFO_FLAG_LIVE;
@@ -971,10 +970,8 @@ v4l2_source_init (const SpaHandleFactory  *factory,
   this->state[0].export_buf = true;
 
   if (info && (str = spa_dict_lookup (info, "device.path"))) {
-    strncpy (this->props[1].device, str, 63);
-    this->props[1].props.unset_mask &= ~1;
+    strncpy (this->props.device, str, 63);
   }
-  this->props[1].props.unset_mask &= ~1;
 
   update_state (this, SPA_NODE_STATE_CONFIGURE);
 

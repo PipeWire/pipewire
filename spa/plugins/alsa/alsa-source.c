@@ -50,9 +50,9 @@ reset_alsa_props (SpaALSAProps *props)
   props->period_size = default_period_size;
   props->periods = default_periods;
   props->period_event = default_period_event;
-  props->props.unset_mask = 0xf;
 }
 
+#if 0
 static const uint32_t min_uint32 = 1;
 static const uint32_t max_uint32 = UINT32_MAX;
 
@@ -110,6 +110,7 @@ static const SpaPropInfo prop_info[] =
                                 SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                 NULL },
 };
+#endif
 
 static SpaResult
 spa_alsa_source_node_get_props (SpaNode       *node,
@@ -147,7 +148,7 @@ spa_alsa_source_node_set_props (SpaNode         *node,
     return SPA_RESULT_OK;
   }
 
-  res = spa_props_copy_values (props, &p->props);
+  //res = spa_props_copy_values (props, &p->props);
 
   return res;
 }
@@ -896,8 +897,10 @@ alsa_source_init (const SpaHandleFactory  *factory,
 
   this->node = alsasource_node;
   this->clock = alsasource_clock;
+#if 0
   this->props[1].props.n_prop_info = PROP_ID_LAST;
   this->props[1].props.prop_info = prop_info;
+#endif
   this->stream = SND_PCM_STREAM_CAPTURE;
   reset_alsa_props (&this->props[1]);
 
@@ -907,7 +910,7 @@ alsa_source_init (const SpaHandleFactory  *factory,
   for (i = 0; info && i < info->n_items; i++) {
     if (!strcmp (info->items[i].key, "alsa.card")) {
       snprintf (this->props[1].device, 63, "hw:%s", info->items[i].value);
-      this->props[1].props.unset_mask &= ~1;
+//      this->props[1].props.unset_mask &= ~1;
     }
   }
 

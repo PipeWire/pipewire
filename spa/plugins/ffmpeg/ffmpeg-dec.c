@@ -87,11 +87,6 @@ enum {
   PROP_ID_LAST,
 };
 
-static const SpaPropInfo prop_info[] =
-{
-  { 0, },
-};
-
 static SpaResult
 spa_ffmpeg_dec_node_get_props (SpaNode       *node,
                                SpaProps     **props)
@@ -128,7 +123,7 @@ spa_ffmpeg_dec_node_set_props (SpaNode         *node,
     return SPA_RESULT_OK;
   }
 
-  res = spa_props_copy_values (props, &p->props);
+  //res = spa_props_copy_values (props, &p->props);
 
   return res;
 }
@@ -581,8 +576,10 @@ spa_ffmpeg_dec_init (SpaHandle         *handle,
   this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
 
   this->node = ffmpeg_dec_node;
+#if 0
   this->props[1].props.n_prop_info = PROP_ID_LAST;
   this->props[1].props.prop_info = prop_info;
+#endif
   reset_ffmpeg_dec_props (&this->props[1]);
 
   this->in_ports[0].info.flags = SPA_PORT_INFO_FLAG_NONE;

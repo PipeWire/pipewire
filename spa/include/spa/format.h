@@ -90,8 +90,8 @@ typedef enum {
 } SpaFormatProps;
 
 typedef struct {
-  uint32_t      media_type;
-  uint32_t      media_subtype;
+  SpaPODInt     media_type;
+  SpaPODInt     media_subtype;
   /* contents follow, series of SpaPODProp */
 } SpaFormatBody;
 
@@ -102,7 +102,7 @@ typedef struct {
  * @pod: POD object with properties
  */
 struct _SpaFormat {
-  SpaPOD        pod;
+  SpaPODObject  obj;
   SpaFormatBody body;
 };
 
@@ -115,7 +115,7 @@ static inline SpaPODProp *
 spa_format_find_prop (const SpaFormat *format, uint32_t key)
 {
   SpaPODProp *res;
-  SPA_POD_FOREACH (format, res) {
+  SPA_FORMAT_BODY_FOREACH (&format->body, SPA_POD_BODY_SIZE (format), res) {
     if (res->pod.type == SPA_POD_TYPE_PROP && res->body.key == key)
       return res;
   }

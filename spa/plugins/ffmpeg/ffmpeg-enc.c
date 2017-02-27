@@ -91,11 +91,6 @@ enum {
   PROP_ID_LAST,
 };
 
-static const SpaPropInfo prop_info[] =
-{
-  { 0, },
-};
-
 static void
 update_state (SpaFFMpegEnc *this, SpaNodeState state)
 {
@@ -138,7 +133,7 @@ spa_ffmpeg_enc_node_set_props (SpaNode         *node,
     return SPA_RESULT_OK;
   }
 
-  res = spa_props_copy_values (props, &p->props);
+  //res = spa_props_copy_values (props, &p->props);
 
   return res;
 }
@@ -308,8 +303,8 @@ spa_ffmpeg_enc_node_port_set_format (SpaNode            *node,
     return SPA_RESULT_OK;
   }
 
-  if (format->body.media_type != SPA_MEDIA_TYPE_VIDEO ||
-      format->body.media_subtype != SPA_MEDIA_SUBTYPE_RAW)
+  if (format->body.media_type.value != SPA_MEDIA_TYPE_VIDEO ||
+      format->body.media_subtype.value != SPA_MEDIA_SUBTYPE_RAW)
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
   if ((res = spa_format_video_parse (format, &port->format[0]) < 0))
@@ -588,8 +583,6 @@ spa_ffmpeg_enc_init (SpaHandle         *handle,
   this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
 
   this->node = ffmpeg_enc_node;
-  this->props[1].props.n_prop_info = PROP_ID_LAST;
-  this->props[1].props.prop_info = prop_info;
   reset_ffmpeg_enc_props (&this->props[1]);
 
   this->in_ports[0].info.flags = SPA_PORT_INFO_FLAG_NONE;

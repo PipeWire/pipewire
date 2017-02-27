@@ -205,131 +205,30 @@ pinos_serialize_port_info_copy_into (void *dest, const SpaPortInfo *info)
 size_t
 pinos_serialize_props_get_size (const SpaProps *props)
 {
-  size_t len;
-  unsigned int i, j;
-  SpaPropInfo *pi;
-  SpaPropRangeInfo *ri;
-
   if (props == NULL)
     return 0;
 
-  len = sizeof (SpaProps);
-  for (i = 0; i < props->n_prop_info; i++) {
-    pi = (SpaPropInfo *) &props->prop_info[i];
-    len += sizeof (SpaPropInfo);
-    len += pi->name ? strlen (pi->name) + 1 : 0;
-    /* for the value */
-    len += pi->maxsize;
-    for (j = 0; j < pi->n_range_values; j++) {
-      ri = (SpaPropRangeInfo *)&pi->range_values[j];
-      len += sizeof (SpaPropRangeInfo);
-      len += ri->name ? strlen (ri->name) + 1 : 0;
-      /* the size of the range value */
-      len += ri->val.size;
-    }
-  }
-  return len;
+  return SPA_POD_SIZE (props);
 }
 
 size_t
 pinos_serialize_props_serialize (void *p, const SpaProps *props)
 {
-  size_t len, slen;
-  unsigned int i, j, c;
-  SpaProps *tp;
-  SpaPropInfo *pi;
-  SpaPropRangeInfo *ri;
+  size_t size;
 
   if (props == NULL)
     return 0;
 
-  tp = p;
-  memcpy (tp, props, sizeof (SpaProps));
-  pi = SPA_MEMBER (tp, sizeof(SpaProps), SpaPropInfo);
-  ri = SPA_MEMBER (pi, sizeof(SpaPropInfo) * tp->n_prop_info, SpaPropRangeInfo);
+  size = SPA_POD_SIZE (props);
+  memcpy (p, props, size);
 
-  tp->prop_info = SPA_INT_TO_PTR (SPA_PTRDIFF (pi, tp));
-
-  /* write propinfo array */
-  for (i = 0, c = 0; i < tp->n_prop_info; i++) {
-    memcpy (&pi[i], &props->prop_info[i], sizeof (SpaPropInfo));
-    pi[i].range_values = SPA_INT_TO_PTR (SPA_PTRDIFF (&ri[c], tp));
-    for (j = 0; j < pi[i].n_range_values; j++, c++) {
-      memcpy (&ri[c], &props->prop_info[i].range_values[j], sizeof (SpaPropRangeInfo));
-    }
-  }
-  p = &ri[c];
-  /* strings and default values from props and ranges */
-  for (i = 0, c = 0; i < tp->n_prop_info; i++) {
-    if (pi[i].name) {
-      slen = strlen (pi[i].name) + 1;
-      memcpy (p, pi[i].name, slen);
-      pi[i].name = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tp));
-      p += slen;
-    } else {
-      pi[i].name = 0;
-    }
-    for (j = 0; j < pi[i].n_range_values; j++, c++) {
-      if (ri[c].name) {
-        slen = strlen (ri[c].name) + 1;
-        memcpy (p, ri[c].name, slen);
-        ri[c].name = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tp));
-        p += slen;
-      } else {
-        ri[c].name = 0;
-      }
-      if (ri[c].val.size) {
-        memcpy (p, ri[c].val.value, ri[c].val.size);
-        ri[c].val.value = SPA_INT_TO_PTR (SPA_PTRDIFF (p, tp));
-        p += ri[c].val.size;
-      } else {
-        ri[c].val.value = 0;
-      }
-    }
-  }
-  /* and the actual values */
-  for (i = 0; i < tp->n_prop_info; i++) {
-    if (pi[i].offset) {
-      memcpy (p, SPA_MEMBER (props, pi[i].offset, void), pi[i].maxsize);
-      pi[i].offset = SPA_PTRDIFF (p, tp);
-      p += pi[i].maxsize;
-    } else {
-      pi[i].offset = 0;
-    }
-  }
-  len = SPA_PTRDIFF (p, tp);
-
-  return len;
+  return size;
 }
 
 SpaProps *
 pinos_serialize_props_deserialize (void *p, off_t offset)
 {
-  SpaProps *tp;
-  unsigned int i, j;
-  SpaPropInfo *pi;
-  SpaPropRangeInfo *ri;
-
-  tp = SPA_MEMBER (p, offset, SpaProps);
-  if (tp->prop_info)
-    tp->prop_info = SPA_MEMBER (tp, SPA_PTR_TO_INT (tp->prop_info), SpaPropInfo);
-  /* now fix all the pointers */
-  for (i = 0; i < tp->n_prop_info; i++) {
-    pi = (SpaPropInfo *) &tp->prop_info[i];
-    if (pi->name)
-      pi->name = SPA_MEMBER (tp, SPA_PTR_TO_INT (pi->name), char);
-    if (pi->range_values)
-      pi->range_values = SPA_MEMBER (tp, SPA_PTR_TO_INT (pi->range_values), SpaPropRangeInfo);
-
-    for (j = 0; j < pi->n_range_values; j++) {
-      ri = (SpaPropRangeInfo *) &pi->range_values[j];
-      if (ri->name)
-        ri->name = SPA_MEMBER (tp, SPA_PTR_TO_INT (ri->name), char);
-      if (ri->val.value)
-        ri->val.value = SPA_MEMBER (tp, SPA_PTR_TO_INT (ri->val.value), void);
-    }
-  }
-  return tp;
+  return SPA_MEMBER (p, offset, SpaProps);
 }
 
 SpaProps *

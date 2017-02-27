@@ -28,12 +28,12 @@ spa_v4l2_open (SpaV4l2Source *this)
 {
   SpaV4l2State *state = &this->state[0];
   struct stat st;
-  SpaV4l2SourceProps *props = &this->props[1];
+  SpaV4l2SourceProps *props = &this->props;
 
   if (state->opened)
     return 0;
 
-  if (props->props.unset_mask & 1) {
+  if (props->device[0] == '\0') {
     spa_log_error (state->log, "v4l2: Device property not set");
     return -1;
   }
@@ -326,9 +326,9 @@ enum_filter_format (const SpaFormat *filter, unsigned int index)
 {
   SpaVideoFormat video_format = SPA_VIDEO_FORMAT_UNKNOWN;
 
-  if ((filter->body.media_type == SPA_MEDIA_TYPE_VIDEO ||
-       filter->body.media_type == SPA_MEDIA_TYPE_IMAGE)) {
-    if (filter->body.media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
+  if ((filter->body.media_type.value == SPA_MEDIA_TYPE_VIDEO ||
+       filter->body.media_type.value == SPA_MEDIA_TYPE_IMAGE)) {
+    if (filter->body.media_subtype.value == SPA_MEDIA_SUBTYPE_RAW) {
       SpaPODProp *p;
       unsigned int n_values;
       const uint32_t *values;
@@ -488,8 +488,8 @@ next_fmtdesc:
       if (video_format == SPA_VIDEO_FORMAT_UNKNOWN)
         return SPA_RESULT_ENUM_END;
 
-      info = find_format_info_by_media_type (filter->body.media_type,
-                                             filter->body.media_subtype,
+      info = find_format_info_by_media_type (filter->body.media_type.value,
+                                             filter->body.media_subtype.value,
                                              video_format,
                                              0);
       if (info == NULL)
@@ -562,12 +562,12 @@ do_frmsize:
                                                &values[2],
                                                &step))
           goto have_size;
-      } else if (range == SPA_PROP_RANGE_TYPE_STEP && n_values > 3) {
+      } else if (range == SPA_POD_PROP_RANGE_STEP && n_values > 3) {
         if (filter_framesize (&state->frmsize, &values[1],
                                                &values[2],
                                                &values[3]))
           goto have_size;
-      } else if (range == SPA_PROP_RANGE_TYPE_ENUM) {
+      } else if (range == SPA_POD_PROP_RANGE_ENUM) {
         for (i = 1; i < n_values; i++) {
           if (filter_framesize (&state->frmsize, &values[i],
                                                  &values[i],
@@ -668,17 +668,17 @@ have_size:
                                                &values[0],
                                                &step))
           goto have_framerate;
-      } else if (range == SPA_PROP_RANGE_TYPE_MIN_MAX && n_values > 2) {
+      } else if (range == SPA_POD_PROP_RANGE_MIN_MAX && n_values > 2) {
         if (filter_framerate (&state->frmival, &values[1],
                                                &values[2],
                                                &step))
           goto have_framerate;
-      } else if (range == SPA_PROP_RANGE_TYPE_STEP && n_values > 3) {
+      } else if (range == SPA_POD_PROP_RANGE_STEP && n_values > 3) {
         if (filter_framerate (&state->frmival, &values[1],
                                                &values[2],
                                                &values[3]))
           goto have_framerate;
-      } else if (range == SPA_PROP_RANGE_TYPE_ENUM) {
+      } else if (range == SPA_POD_PROP_RANGE_ENUM) {
         for (i = 1; i < n_values; i++) {
           if (filter_framerate (&state->frmival, &values[i],
                                                  &values[i],
@@ -693,7 +693,7 @@ have_size:
 have_framerate:
 
     if (state->frmival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
-      prop->body.flags |= SPA_PROP_RANGE_TYPE_ENUM;
+      prop->body.flags |= SPA_POD_PROP_RANGE_ENUM;
       spa_pod_builder_fraction (&b,
                                 state->frmival.discrete.denominator,
                                 state->frmival.discrete.numerator);
@@ -708,9 +708,9 @@ have_framerate:
                                 state->frmival.stepwise.max.numerator);
 
       if (state->frmival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS) {
-        prop->body.flags |= SPA_PROP_RANGE_TYPE_MIN_MAX;
+        prop->body.flags |= SPA_POD_PROP_RANGE_MIN_MAX;
       } else {
-        prop->body.flags |= SPA_PROP_RANGE_TYPE_STEP;
+        prop->body.flags |= SPA_POD_PROP_RANGE_STEP;
         spa_pod_builder_fraction (&b,
                                   state->frmival.stepwise.step.denominator,
                                   state->frmival.stepwise.step.numerator);

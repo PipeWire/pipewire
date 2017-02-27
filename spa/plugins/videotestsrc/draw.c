@@ -283,7 +283,7 @@ draw (SpaVideoTestSrc *this, char *data)
   if (res != SPA_RESULT_OK)
     return res;
 
-  pattern = this->props[1].pattern;
+  pattern = this->props.pattern;
   if (pattern == pattern_val_smpte_snow)
     draw_smpte_snow (&dd);
   else if (pattern == pattern_val_snow)

@@ -35,9 +35,10 @@ spa_pod_builder_push_format (SpaPODBuilder *builder,
                              uint32_t       media_type,
                              uint32_t       media_subtype)
 {
-  const SpaFormat p = { { sizeof (SpaFormatBody), SPA_POD_TYPE_FORMAT },
-                        { media_type, media_subtype } };
-  return spa_pod_builder_push (builder, frame, &p.pod,
+  const SpaFormat p = { { { sizeof (SpaPODObjectBody) + sizeof (SpaFormatBody), SPA_POD_TYPE_OBJECT }, { 0, 0 } },
+                      { { { sizeof (uint32_t), SPA_POD_TYPE_INT }, media_type },
+                        { { sizeof (uint32_t), SPA_POD_TYPE_INT }, media_subtype } } };
+  return spa_pod_builder_push (builder, frame, &p.obj.pod,
                                spa_pod_builder_raw (builder, &p, sizeof(p), false));
 }
 

@@ -60,10 +60,13 @@ spa_format_audio_parse (const SpaFormat *format,
   SpaPODProp *prop;
   const ParseInfo *pinfo, *find;
 
-  if (format->body.media_type != SPA_MEDIA_TYPE_AUDIO)
+  if (format->body.media_type.value != SPA_MEDIA_TYPE_AUDIO)
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
-  switch (format->body.media_subtype) {
+  info->media_type = format->body.media_type.value;
+  info->media_subtype = format->body.media_subtype.value;
+
+  switch (info->media_subtype) {
     case SPA_MEDIA_SUBTYPE_RAW:
       pinfo = raw_parse_info;
       break;
@@ -84,9 +87,6 @@ spa_format_audio_parse (const SpaFormat *format,
     default:
       return SPA_RESULT_INVALID_ARGUMENTS;
   }
-
-  info->media_type = format->body.media_type;
-  info->media_subtype = format->body.media_subtype;
 
   SPA_POD_FOREACH (format, prop) {
     if ((find = parse_info_find (pinfo, prop->body.key, prop->body.value.type))) {

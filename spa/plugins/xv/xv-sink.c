@@ -107,6 +107,7 @@ enum {
   PROP_ID_LAST,
 };
 
+#if 0
 static const SpaPropInfo prop_info[] =
 {
   { PROP_ID_DEVICE,             offsetof (SpaXvSinkProps, device),
@@ -128,6 +129,7 @@ static const SpaPropInfo prop_info[] =
                                 SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                 NULL },
 };
+#endif
 
 static void
 update_state (SpaXvSink *this, SpaNodeState state)
@@ -147,7 +149,6 @@ spa_xv_sink_node_get_props (SpaNode       *node,
   this = SPA_CONTAINER_OF (node, SpaXvSink, node);
 
   memcpy (&this->props[0], &this->props[1], sizeof (this->props[1]));
-  *props = &this->props[0].props;
 
   return SPA_RESULT_OK;
 }
@@ -170,9 +171,6 @@ spa_xv_sink_node_set_props (SpaNode         *node,
     reset_xv_sink_props (p);
     return SPA_RESULT_OK;
   }
-
-  res = spa_props_copy_values (props, &p->props);
-
   return res;
 }
 
@@ -337,8 +335,8 @@ spa_xv_sink_node_port_set_format (SpaNode            *node,
     return SPA_RESULT_OK;
   }
 
-  if (format->body.media_type == SPA_MEDIA_TYPE_VIDEO) {
-    if (format->body.media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
+  if (format->body.media_type.value == SPA_MEDIA_TYPE_VIDEO) {
+    if (format->body.media_subtype.value == SPA_MEDIA_SUBTYPE_RAW) {
       if ((res = spa_format_video_parse (format, &info) < 0))
         return res;
     } else
@@ -584,8 +582,10 @@ xv_sink_init (const SpaHandleFactory  *factory,
   this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
 
   this->node = xvsink_node;
+#if 0
   this->props[1].props.n_prop_info = PROP_ID_LAST;
   this->props[1].props.prop_info = prop_info;
+#endif
   reset_xv_sink_props (&this->props[1]);
 
   this->info.flags = SPA_PORT_INFO_FLAG_NONE;

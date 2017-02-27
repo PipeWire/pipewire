@@ -111,18 +111,19 @@ struct _SpaAudioTestSrc {
 #define DEFAULT_FREQ 440.0
 #define DEFAULT_LIVE true
 
+#if 0
 static const double min_volume = 0.0;
 static const double max_volume = 10.0;
 static const double min_freq = 0.0;
 static const double max_freq = 50000000.0;
 
+static const uint32_t wave_val_sine = 0;
+static const uint32_t wave_val_square = 1;
+
 static const SpaPropRangeInfo volume_range[] = {
   { "min", { sizeof (double), &min_volume } },
   { "max", { sizeof (double), &max_volume } },
 };
-
-static const uint32_t wave_val_sine = 0;
-static const uint32_t wave_val_square = 1;
 
 static const SpaPropRangeInfo wave_range[] = {
   { "sine", { sizeof (uint32_t), &wave_val_sine } },
@@ -169,6 +170,7 @@ static const SpaPropInfo prop_info[] =
                                SPA_PROP_RANGE_TYPE_MIN_MAX, 2, volume_range,
                                NULL },
 };
+#endif
 
 static SpaResult
 reset_audiotestsrc_props (SpaAudioTestSrcProps *props)
@@ -193,7 +195,6 @@ spa_audiotestsrc_node_get_props (SpaNode       *node,
   this = SPA_CONTAINER_OF (node, SpaAudioTestSrc, node);
 
   memcpy (&this->props[0], &this->props[1], sizeof (this->props[1]));
-  *props = &this->props[0].props;
 
   return SPA_RESULT_OK;
 }
@@ -215,7 +216,7 @@ spa_audiotestsrc_node_set_props (SpaNode         *node,
   if (props == NULL) {
     res = reset_audiotestsrc_props (p);
   } else {
-    res = spa_props_copy_values (props, &p->props);
+//    res = spa_props_copy_values (props, &p->props);
   }
 
   if (this->props[1].live)
@@ -988,8 +989,10 @@ audiotestsrc_init (const SpaHandleFactory  *factory,
 
   this->node = audiotestsrc_node;
   this->clock = audiotestsrc_clock;
+#if 0
   this->props[1].props.n_prop_info = PROP_ID_LAST;
   this->props[1].props.prop_info = prop_info;
+#endif
   reset_audiotestsrc_props (&this->props[1]);
 
   spa_list_init (&this->empty);

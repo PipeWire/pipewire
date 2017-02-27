@@ -1,7 +1,6 @@
 spalib_sources = ['audio-raw.c',
                   'debug.c',
                   'mapper.c',
-                  'props.c',
                   'video-raw.c']
 
 spalib = shared_library('spa-lib',

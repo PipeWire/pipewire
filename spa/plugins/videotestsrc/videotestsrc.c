@@ -44,7 +44,6 @@ typedef struct {
 typedef struct _SpaVideoTestSrc SpaVideoTestSrc;
 
 typedef struct {
-  SpaProps props;
   bool live;
   uint32_t pattern;
 } SpaVideoTestSrcProps;
@@ -72,7 +71,8 @@ struct _SpaVideoTestSrc {
   SpaLog *log;
   SpaLoop *data_loop;
 
-  SpaVideoTestSrcProps props[2];
+  SpaVideoTestSrcProps props;
+  uint8_t props_buffer[256];
 
   SpaNodeEventCallback event_cb;
   void *user_data;
@@ -110,15 +110,16 @@ struct _SpaVideoTestSrc {
 static const uint32_t pattern_val_smpte_snow = 0;
 static const uint32_t pattern_val_snow = 1;
 
+enum {
+  PROP_ID_NONE = 0,
+  PROP_ID_LIVE,
+  PROP_ID_PATTERN,
+};
+
+#if 0
 static const SpaPropRangeInfo pattern_range[] = {
   { "smpte-snow", { sizeof (uint32_t), &pattern_val_smpte_snow } },
   { "snow", { sizeof (uint32_t), &pattern_val_snow } },
-};
-
-enum {
-  PROP_ID_LIVE,
-  PROP_ID_PATTERN,
-  PROP_ID_LAST,
 };
 
 static const SpaPropInfo prop_info[] =
@@ -136,6 +137,7 @@ static const SpaPropInfo prop_info[] =
                                SPA_PROP_RANGE_TYPE_ENUM, SPA_N_ELEMENTS (pattern_range), pattern_range,
                                NULL },
 };
+#endif
 
 static SpaResult
 reset_videotestsrc_props (SpaVideoTestSrcProps *props)
@@ -151,14 +153,28 @@ spa_videotestsrc_node_get_props (SpaNode       *node,
                                  SpaProps     **props)
 {
   SpaVideoTestSrc *this;
+  SpaPODBuilder b = { NULL,  };
 
   if (node == NULL || props == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaVideoTestSrc, node);
 
-  memcpy (&this->props[0], &this->props[1], sizeof (this->props[1]));
-  *props = &this->props[0].props;
+  b.data = this->props_buffer;
+  b.size = sizeof (this->props_buffer);
+
+  *props = SPA_MEMBER (b.data, spa_pod_builder_props (&b,
+           PROP_ID_LIVE,      SPA_POD_TYPE_BOOL,
+                                  this->props.live,
+                              SPA_POD_PROP_FLAG_READWRITE |
+                              SPA_POD_PROP_RANGE_NONE,
+           PROP_ID_PATTERN,   SPA_POD_TYPE_INT,
+                                  this->props.pattern,
+                              SPA_POD_PROP_FLAG_READWRITE |
+                              SPA_POD_PROP_RANGE_ENUM, 2,
+                                  pattern_val_smpte_snow,
+                                  pattern_val_snow,
+           0), SpaProps);
 
   return SPA_RESULT_OK;
 }
@@ -175,15 +191,26 @@ spa_videotestsrc_node_set_props (SpaNode         *node,
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaVideoTestSrc, node);
-  p = &this->props[1];
+  p = &this->props;
 
   if (props == NULL) {
     res = reset_videotestsrc_props (p);
   } else {
-    res = spa_props_copy_values (props, &p->props);
+    SpaPODProp *pr;
+
+    SPA_POD_OBJECT_BODY_FOREACH(&props->body, props->pod.size, pr) {
+      switch (pr->body.key) {
+        case PROP_ID_LIVE:
+          this->props.live = ((SpaPODBool*)&pr->body.value)->value;
+          break;
+        case PROP_ID_PATTERN:
+          this->props.pattern = ((SpaPODInt*)&pr->body.value)->value;
+          break;
+      }
+    }
   }
 
-  if (this->props[1].live)
+  if (this->props.live)
     this->info.flags |= SPA_PORT_INFO_FLAG_LIVE;
   else
     this->info.flags &= ~SPA_PORT_INFO_FLAG_LIVE;
@@ -217,7 +244,7 @@ static void
 set_timer (SpaVideoTestSrc *this, bool enabled)
 {
   if (enabled) {
-    if (this->props[1].live) {
+    if (this->props.live) {
       uint64_t next_time = this->start_time + this->elapsed_time;
       this->timerspec.it_value.tv_sec = next_time / SPA_NSEC_PER_SEC;
       this->timerspec.it_value.tv_nsec = next_time % SPA_NSEC_PER_SEC;
@@ -305,7 +332,7 @@ spa_videotestsrc_node_send_command (SpaNode        *node,
         return SPA_RESULT_OK;
 
       clock_gettime (CLOCK_MONOTONIC, &now);
-      if (this->props[1].live)
+      if (this->props.live)
         this->start_time = SPA_TIMESPEC_TO_TIME (&now);
       else
         this->start_time = 0;
@@ -782,7 +809,7 @@ spa_videotestsrc_node_port_reuse_buffer (SpaNode         *node,
   b->outstanding = false;
   spa_list_insert (this->empty.prev, &b->link);
 
-  if (!this->props[1].live)
+  if (!this->props.live)
     set_timer (this, true);
 
   return SPA_RESULT_OK;
@@ -962,9 +989,11 @@ videotestsrc_init (const SpaHandleFactory  *factory,
 
   this->node = videotestsrc_node;
   this->clock = videotestsrc_clock;
+#if 0
   this->props[1].props.n_prop_info = PROP_ID_LAST;
   this->props[1].props.prop_info = prop_info;
-  reset_videotestsrc_props (&this->props[1]);
+#endif
+  reset_videotestsrc_props (&this->props);
 
   spa_list_init (&this->empty);
 
@@ -980,7 +1009,7 @@ videotestsrc_init (const SpaHandleFactory  *factory,
 
   this->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
                      SPA_PORT_INFO_FLAG_NO_REF;
-  if (this->props[1].live)
+  if (this->props.live)
     this->info.flags |= SPA_PORT_INFO_FLAG_LIVE;
 
   this->node.state = SPA_NODE_STATE_CONFIGURE;

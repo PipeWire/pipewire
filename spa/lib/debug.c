@@ -227,6 +227,7 @@ spa_debug_dump_mem (const void *mem, size_t size)
 SpaResult
 spa_debug_props (const SpaProps *props, bool print_ranges)
 {
+  spa_debug_pod (&props->pod);
   return SPA_RESULT_OK;
 }
 
@@ -352,7 +353,7 @@ print_pod_value (uint32_t size, uint32_t type, void *body, int prefix)
       printf ("%-*sDouble %g\n", prefix, "", *(double *) body);
       break;
     case SPA_POD_TYPE_STRING:
-      printf ("%-*sString %s\n", prefix, "", (char *) body);
+      printf ("%-*sString \"%s\"\n", prefix, "", (char *) body);
       break;
     case SPA_POD_TYPE_RECTANGLE:
     {
@@ -419,17 +420,6 @@ print_pod_value (uint32_t size, uint32_t type, void *body, int prefix)
       }
       break;
     }
-    case SPA_POD_TYPE_FORMAT:
-    {
-      SpaFormatBody *b = body;
-      SpaPODProp *p;
-
-      printf ("%-*sFormat: size %d\n", prefix, "", size);
-      printf ("%-*s  Media Type: %d / %d\n", prefix, "", b->media_type, b->media_subtype);
-      SPA_FORMAT_BODY_FOREACH (b, size, p)
-        print_pod_value (p->pod.size, p->pod.type, SPA_POD_BODY (p), prefix + 6);
-      break;
-    }
   }
 }
 
@@ -491,16 +481,20 @@ spa_debug_format (const SpaFormat *format)
   const char *media_subtype;
   const char **prop_names;
   SpaPODProp *prop;
+  uint32_t mtype, mstype;
 
   if (format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  if (format->body.media_type > 0 && format->body.media_type < SPA_N_ELEMENTS (media_type_names)) {
-    media_type = media_type_names[format->body.media_type].name;
-    first = media_type_names[format->body.media_type].first;
-    last = media_type_names[format->body.media_type].last;
-    idx = media_type_names[format->body.media_type].idx;
-    prop_names = media_type_names[format->body.media_type].prop_names;
+  mtype = format->body.media_type.value;
+  mstype = format->body.media_subtype.value;
+
+  if (mtype > 0 && mtype < SPA_N_ELEMENTS (media_type_names)) {
+    media_type = media_type_names[mtype].name;
+    first = media_type_names[mtype].first;
+    last = media_type_names[mtype].last;
+    idx = media_type_names[mtype].idx;
+    prop_names = media_type_names[mtype].prop_names;
   }
   else {
     media_type = "unknown";
@@ -508,11 +502,11 @@ spa_debug_format (const SpaFormat *format)
     prop_names = NULL;
   }
 
-  if (format->body.media_subtype >= SPA_MEDIA_SUBTYPE_ANY_FIRST &&
-      format->body.media_subtype <= SPA_MEDIA_SUBTYPE_ANY_LAST) {
-    media_subtype = media_subtype_names[format->body.media_subtype].name;
-  } else if (format->body.media_subtype >= first && format->body.media_subtype <= last)
-    media_subtype = media_subtype_names[format->body.media_subtype - first + idx].name;
+  if (mstype >= SPA_MEDIA_SUBTYPE_ANY_FIRST &&
+      mstype <= SPA_MEDIA_SUBTYPE_ANY_LAST) {
+    media_subtype = media_subtype_names[mstype].name;
+  } else if (mstype >= first && mstype <= last)
+    media_subtype = media_subtype_names[mstype - first + idx].name;
   else
     media_subtype = "unknown";
 

@@ -91,9 +91,11 @@ struct _SpaVolume {
 #define CHECK_PORT(this,d,p)     ((p) == 0)
 
 static const double default_volume = 1.0;
+static const bool default_mute = false;
+
+#if 0
 static const double min_volume = 0.0;
 static const double max_volume = 10.0;
-static const bool default_mute = false;
 
 static const SpaPropRangeInfo volume_range[] = {
   { "min", { sizeof (double), &min_volume } },
@@ -121,6 +123,8 @@ static const SpaPropInfo prop_info[] =
                                SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
                                NULL },
 };
+
+#endif
 
 static void
 reset_volume_props (SpaVolumeProps *props)
@@ -170,7 +174,7 @@ spa_volume_node_set_props (SpaNode          *node,
     reset_volume_props (p);
     return SPA_RESULT_OK;
   }
-  res = spa_props_copy_values (props, &p->props);
+  //res = spa_props_copy_values (props, &p->props);
 
   return res;
 }
@@ -848,8 +852,10 @@ volume_init (const SpaHandleFactory  *factory,
   this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
 
   this->node = volume_node;
+#if 0
   this->props[1].props.n_prop_info = PROP_ID_LAST;
   this->props[1].props.prop_info = prop_info;
+#endif
   reset_volume_props (&this->props[1]);
 
   this->in_ports[0].info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |

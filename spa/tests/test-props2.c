@@ -86,7 +86,7 @@ main (int argc, char *argv[])
 
   spa_debug_pod (obj);
 
-  SpaPODProp *p = spa_pod_object_body_find_prop (SPA_POD_BODY (obj), obj->size, 4);
+  SpaPODProp *p = spa_pod_object_find_prop ((SpaPODObject *)obj, 4);
   printf ("%d %d\n", p->body.key, p->body.flags);
   spa_debug_pod (&p->body.value);
 

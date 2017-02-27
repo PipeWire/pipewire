@@ -337,8 +337,8 @@ spa_xv_sink_node_port_set_format (SpaNode            *node,
     return SPA_RESULT_OK;
   }
 
-  if (format->media_type == SPA_MEDIA_TYPE_VIDEO) {
-    if (format->media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
+  if (format->body.media_type == SPA_MEDIA_TYPE_VIDEO) {
+    if (format->body.media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
       if ((res = spa_format_video_parse (format, &info) < 0))
         return res;
     } else

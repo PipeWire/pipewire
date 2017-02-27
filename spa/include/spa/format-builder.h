@@ -35,13 +35,10 @@ spa_pod_builder_push_format (SpaPODBuilder *builder,
                              uint32_t       media_type,
                              uint32_t       media_subtype)
 {
-  SpaFormat f = { media_type, media_subtype, { { 0, 0 }, { 0, 0 } } };
-  off_t offset;
-
-  offset = spa_pod_builder_raw (builder, &f, sizeof(f) - sizeof(SpaPODObject), false);
-  if (spa_pod_builder_push_object (builder, frame, 0, 0) == -1)
-    offset = -1;
-  return offset;
+  const SpaFormat p = { { sizeof (SpaFormatBody), SPA_POD_TYPE_FORMAT },
+                        { media_type, media_subtype } };
+  return spa_pod_builder_push (builder, frame, &p.pod,
+                               spa_pod_builder_raw (builder, &p, sizeof(p), false));
 }
 
 static inline off_t

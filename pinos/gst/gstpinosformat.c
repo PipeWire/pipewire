@@ -444,13 +444,13 @@ gst_caps_from_format (const SpaFormat *format)
 {
   GstCaps *res = NULL;
 
-  if (format->media_type == SPA_MEDIA_TYPE_VIDEO) {
+  if (format->body.media_type == SPA_MEDIA_TYPE_VIDEO) {
     SpaVideoInfo f;
 
     if (spa_format_video_parse (format, &f) < 0)
       return NULL;
 
-    if (format->media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
+    if (format->body.media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
       res = gst_caps_new_simple ("video/x-raw",
           "format", G_TYPE_STRING, gst_video_format_to_string (f.info.raw.format),
           "width", G_TYPE_INT, f.info.raw.size.width,
@@ -458,14 +458,14 @@ gst_caps_from_format (const SpaFormat *format)
           "framerate", GST_TYPE_FRACTION, f.info.raw.framerate.num, f.info.raw.framerate.denom,
           NULL);
     }
-    else if (format->media_subtype == SPA_MEDIA_SUBTYPE_MJPG) {
+    else if (format->body.media_subtype == SPA_MEDIA_SUBTYPE_MJPG) {
       res = gst_caps_new_simple ("image/jpeg",
           "width", G_TYPE_INT, f.info.mjpg.size.width,
           "height", G_TYPE_INT, f.info.mjpg.size.height,
           "framerate", GST_TYPE_FRACTION, f.info.mjpg.framerate.num, f.info.mjpg.framerate.denom,
           NULL);
     }
-    else if (format->media_subtype == SPA_MEDIA_SUBTYPE_H264) {
+    else if (format->body.media_subtype == SPA_MEDIA_SUBTYPE_H264) {
       res = gst_caps_new_simple ("video/x-h264",
           "width", G_TYPE_INT, f.info.h264.size.width,
           "height", G_TYPE_INT, f.info.h264.size.height,
@@ -474,13 +474,13 @@ gst_caps_from_format (const SpaFormat *format)
           "alignment", G_TYPE_STRING, "au",
           NULL);
     }
-  } else if (format->media_type == SPA_MEDIA_TYPE_AUDIO) {
+  } else if (format->body.media_type == SPA_MEDIA_TYPE_AUDIO) {
     SpaAudioInfo f;
 
     if (spa_format_audio_parse (format, &f) < 0)
       return NULL;
 
-    if (format->media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
+    if (format->body.media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
       res = gst_caps_new_simple ("audio/x-raw",
           "format", G_TYPE_STRING, gst_audio_format_to_string (f.info.raw.format),
           "layout", G_TYPE_STRING, "interleaved",

@@ -86,10 +86,9 @@ static const struct _test_format {
     } framerate_vals;
   } props;
 } test_format = {
-  { SPA_MEDIA_TYPE_VIDEO,
-    SPA_MEDIA_SUBTYPE_RAW,
-    { { sizeof (test_format.props) + sizeof (SpaPODObjectBody), SPA_POD_TYPE_OBJECT },
-      { 0, 0 } },
+  { { sizeof (test_format.props) + sizeof (SpaFormatBody), SPA_POD_TYPE_FORMAT },
+    { SPA_MEDIA_TYPE_VIDEO,
+      SPA_MEDIA_SUBTYPE_RAW },
   }, {
   { { sizeof (test_format.props.format_vals) + sizeof (SpaPODPropBody),
       SPA_POD_TYPE_PROP } ,
@@ -157,7 +156,7 @@ main (int argc, char *argv[])
 
   spa_pod_builder_pop (&b, &frame[0]);
 
-  spa_debug_pod (&fmt->obj.pod);
+  spa_debug_pod (&fmt->pod);
 
   memset (&b, 0, sizeof(b));
   b.data = buffer;
@@ -184,10 +183,10 @@ main (int argc, char *argv[])
            0);
 
   fmt = SPA_MEMBER (buffer, o, SpaFormat);
-  spa_debug_pod (&fmt->obj.pod);
+  spa_debug_pod (&fmt->pod);
   spa_debug_format (fmt);
 
-  spa_debug_pod (&test_format.fmt.obj.pod);
+  spa_debug_pod (&test_format.fmt.pod);
   spa_debug_format (&test_format.fmt);
 
   return 0;

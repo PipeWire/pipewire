@@ -326,13 +326,14 @@ enum_filter_format (const SpaFormat *filter, unsigned int index)
 {
   SpaVideoFormat video_format = SPA_VIDEO_FORMAT_UNKNOWN;
 
-  if ((filter->media_type == SPA_MEDIA_TYPE_VIDEO || filter->media_type == SPA_MEDIA_TYPE_IMAGE)) {
-    if (filter->media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
+  if ((filter->body.media_type == SPA_MEDIA_TYPE_VIDEO ||
+       filter->body.media_type == SPA_MEDIA_TYPE_IMAGE)) {
+    if (filter->body.media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
       SpaPODProp *p;
       unsigned int n_values;
       const uint32_t *values;
 
-      if (!(p = spa_pod_object_body_find_prop (&filter->obj.body, filter->obj.pod.size, SPA_PROP_ID_VIDEO_FORMAT)))
+      if (!(p = spa_format_find_prop (filter, SPA_PROP_ID_VIDEO_FORMAT)))
         return SPA_VIDEO_FORMAT_UNKNOWN;
 
       if (p->body.value.type != SPA_POD_TYPE_INT)
@@ -487,8 +488,8 @@ next_fmtdesc:
       if (video_format == SPA_VIDEO_FORMAT_UNKNOWN)
         return SPA_RESULT_ENUM_END;
 
-      info = find_format_info_by_media_type (filter->media_type,
-                                             filter->media_subtype,
+      info = find_format_info_by_media_type (filter->body.media_type,
+                                             filter->body.media_subtype,
                                              video_format,
                                              0);
       if (info == NULL)
@@ -516,7 +517,7 @@ next_frmsize:
       SpaPODProp *p;
 
       /* check if we have a fixed frame size */
-      if (!(p = spa_pod_object_body_find_prop (&filter->obj.body, filter->obj.pod.size, SPA_PROP_ID_VIDEO_SIZE)))
+      if (!(p = spa_format_find_prop (filter, SPA_PROP_ID_VIDEO_SIZE)))
         goto do_frmsize;
 
       if (p->body.value.type != SPA_POD_TYPE_RECTANGLE)
@@ -549,7 +550,7 @@ do_frmsize:
       unsigned int i, n_values;
 
       /* check if we have a fixed frame size */
-      if (!(p = spa_pod_object_body_find_prop (&filter->obj.body, filter->obj.pod.size, SPA_PROP_ID_VIDEO_SIZE)))
+      if (!(p = spa_format_find_prop (filter, SPA_PROP_ID_VIDEO_SIZE)))
         goto have_size;
 
       range = p->body.flags & SPA_POD_PROP_RANGE_MASK;
@@ -652,7 +653,7 @@ have_size:
       unsigned int i, n_values;
       const SpaFraction step = { 1, 1 }, *values;
 
-      if (!(p = spa_pod_object_body_find_prop (&filter->obj.body, filter->obj.pod.size, SPA_PROP_ID_VIDEO_FRAMERATE)))
+      if (!(p = spa_format_find_prop (filter, SPA_PROP_ID_VIDEO_FRAMERATE)))
         goto have_framerate;
 
       if (p->body.value.type != SPA_POD_TYPE_FRACTION)

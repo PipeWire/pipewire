@@ -47,7 +47,8 @@ typedef enum {
   SPA_POD_TYPE_STRUCT,
   SPA_POD_TYPE_OBJECT,
   SPA_POD_TYPE_PROP,
-  SPA_POD_TYPE_BYTES
+  SPA_POD_TYPE_BYTES,
+  SPA_POD_TYPE_FORMAT
 } SpaPODType;
 
 typedef struct {
@@ -55,7 +56,7 @@ typedef struct {
   uint32_t     type;
 } SpaPOD;
 
-#define SPA_POD_BODY_SIZE(pod)           ((pod)->size)
+#define SPA_POD_BODY_SIZE(pod)           (((SpaPOD*)(pod))->size)
 #define SPA_POD_SIZE(pod)                (sizeof(SpaPOD) + SPA_POD_BODY_SIZE(pod))
 
 #define SPA_POD_CONTENTS(type,pod)       SPA_MEMBER((pod),sizeof(type),void)
@@ -169,10 +170,15 @@ typedef struct {
        (iter) < SPA_MEMBER ((body), (size), SpaPOD); \
        (iter) = SPA_MEMBER ((iter), SPA_ROUND_UP_N (SPA_POD_SIZE (iter), 8), SpaPOD))
 
+#define SPA_POD_FOREACH(pod, iter) \
+  for ((iter) = SPA_POD_CONTENTS(__typeof__(*pod), pod); \
+       (iter) < SPA_MEMBER ((pod), SPA_POD_SIZE (pod), __typeof__(*iter)); \
+       (iter) = SPA_MEMBER ((iter), SPA_ROUND_UP_N (SPA_POD_SIZE (iter), 8), __typeof__(*iter)))
+
 #define SPA_POD_OBJECT_BODY_FOREACH(body, size, iter) \
   for ((iter) = SPA_MEMBER ((body), sizeof (SpaPODObjectBody), SpaPODProp); \
        (iter) < SPA_MEMBER ((body), (size), SpaPODProp); \
-       (iter) = SPA_MEMBER ((iter), SPA_ROUND_UP_N (SPA_POD_SIZE (&(iter)->pod), 8), SpaPODProp))
+       (iter) = SPA_MEMBER ((iter), SPA_ROUND_UP_N (SPA_POD_SIZE (iter), 8), SpaPODProp))
 
 #define SPA_POD_PROP_ALTERNATIVE_FOREACH(body, _size, iter) \
   for ((iter) = SPA_MEMBER ((body), (body)->value.size + sizeof (SpaPODPropBody), __typeof__(*iter)); \
@@ -180,16 +186,15 @@ typedef struct {
        (iter) = SPA_MEMBER ((iter), (body)->value.size, __typeof__(*iter)))
 
 static inline SpaPODProp *
-spa_pod_object_body_find_prop (const SpaPODObjectBody *body, uint32_t size, uint32_t key)
+spa_pod_object_find_prop (const SpaPODObject *obj, uint32_t key)
 {
   SpaPODProp *res;
-  SPA_POD_OBJECT_BODY_FOREACH (body, size, res) {
-    if (res->body.key == key)
+  SPA_POD_FOREACH (obj, res) {
+    if (res->pod.type == SPA_POD_TYPE_PROP && res->body.key == key)
       return res;
   }
   return NULL;
 }
-
 
 #ifdef __cplusplus
 }  /* extern "C" */

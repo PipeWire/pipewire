@@ -391,26 +391,43 @@ print_pod_value (uint32_t size, uint32_t type, void *body, int prefix)
     {
       SpaPODObjectBody *b = body;
       SpaPODProp *p;
+
+      printf ("%-*sObject: size %d\n", prefix, "", size);
+      SPA_POD_OBJECT_BODY_FOREACH (b, size, p)
+        print_pod_value (p->pod.size, p->pod.type, SPA_POD_BODY (p), prefix + 6);
+      break;
+    }
+    case SPA_POD_TYPE_PROP:
+    {
+      SpaPODPropBody *b = body;
       void *alt;
       int i;
 
-      printf ("%-*sObject: size %d\n", prefix, "", size);
-      SPA_POD_OBJECT_BODY_FOREACH (b, size, p) {
-        printf ("%-*sProp: key %d, flags %d\n", prefix + 2, "", p->body.key, p->body.flags);
-        if (p->body.flags & SPA_POD_PROP_FLAG_UNSET)
-          printf ("%-*sUnset (Default):\n", prefix + 4, "");
-        else
-          printf ("%-*sValue:\n", prefix + 4, "");
-        print_pod_value (p->body.value.size, p->body.value.type, SPA_POD_BODY (&p->body.value), prefix + 6);
+      printf ("%-*sProp: key %d, flags %d\n", prefix + 2, "", b->key, b->flags);
+      if (b->flags & SPA_POD_PROP_FLAG_UNSET)
+        printf ("%-*sUnset (Default):\n", prefix + 4, "");
+      else
+        printf ("%-*sValue:\n", prefix + 4, "");
+      print_pod_value (b->value.size, b->value.type, SPA_POD_BODY (&b->value), prefix + 6);
 
-        i = 0;
-        SPA_POD_PROP_ALTERNATIVE_FOREACH (&p->body, p->pod.size, alt) {
-          if (i == 0)
-            printf ("%-*sAlternatives:\n", prefix + 4, "");
-          print_pod_value (p->body.value.size, p->body.value.type, alt, prefix + 6);
-          i++;
-        }
+      i = 0;
+      SPA_POD_PROP_ALTERNATIVE_FOREACH (b, size, alt) {
+        if (i == 0)
+          printf ("%-*sAlternatives:\n", prefix + 4, "");
+        print_pod_value (b->value.size, b->value.type, alt, prefix + 6);
+        i++;
       }
+      break;
+    }
+    case SPA_POD_TYPE_FORMAT:
+    {
+      SpaFormatBody *b = body;
+      SpaPODProp *p;
+
+      printf ("%-*sFormat: size %d\n", prefix, "", size);
+      printf ("%-*s  Media Type: %d / %d\n", prefix, "", b->media_type, b->media_subtype);
+      SPA_FORMAT_BODY_FOREACH (b, size, p)
+        print_pod_value (p->pod.size, p->pod.type, SPA_POD_BODY (p), prefix + 6);
       break;
     }
   }
@@ -478,12 +495,12 @@ spa_debug_format (const SpaFormat *format)
   if (format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  if (format->media_type > 0 && format->media_type < SPA_N_ELEMENTS (media_type_names)) {
-    media_type = media_type_names[format->media_type].name;
-    first = media_type_names[format->media_type].first;
-    last = media_type_names[format->media_type].last;
-    idx = media_type_names[format->media_type].idx;
-    prop_names = media_type_names[format->media_type].prop_names;
+  if (format->body.media_type > 0 && format->body.media_type < SPA_N_ELEMENTS (media_type_names)) {
+    media_type = media_type_names[format->body.media_type].name;
+    first = media_type_names[format->body.media_type].first;
+    last = media_type_names[format->body.media_type].last;
+    idx = media_type_names[format->body.media_type].idx;
+    prop_names = media_type_names[format->body.media_type].prop_names;
   }
   else {
     media_type = "unknown";
@@ -491,17 +508,17 @@ spa_debug_format (const SpaFormat *format)
     prop_names = NULL;
   }
 
-  if (format->media_subtype >= SPA_MEDIA_SUBTYPE_ANY_FIRST &&
-      format->media_subtype <= SPA_MEDIA_SUBTYPE_ANY_LAST) {
-    media_subtype = media_subtype_names[format->media_subtype].name;
-  } else if (format->media_subtype >= first && format->media_subtype <= last)
-    media_subtype = media_subtype_names[format->media_subtype - first + idx].name;
+  if (format->body.media_subtype >= SPA_MEDIA_SUBTYPE_ANY_FIRST &&
+      format->body.media_subtype <= SPA_MEDIA_SUBTYPE_ANY_LAST) {
+    media_subtype = media_subtype_names[format->body.media_subtype].name;
+  } else if (format->body.media_subtype >= first && format->body.media_subtype <= last)
+    media_subtype = media_subtype_names[format->body.media_subtype - first + idx].name;
   else
     media_subtype = "unknown";
 
   fprintf (stderr, "%-6s %s/%s\n", "", media_type, media_subtype);
 
-  SPA_POD_OBJECT_BODY_FOREACH (&format->obj.body, format->obj.pod.size, prop) {
+  SPA_POD_FOREACH (format, prop) {
     if ((prop->body.flags & SPA_POD_PROP_FLAG_UNSET) &&
         (prop->body.flags & SPA_POD_PROP_FLAG_OPTIONAL))
       continue;

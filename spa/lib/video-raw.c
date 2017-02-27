@@ -85,10 +85,10 @@ spa_format_video_parse (const SpaFormat *format,
   SpaPODProp *prop;
   const ParseInfo *pinfo, *find;
 
-  if (format->media_type != SPA_MEDIA_TYPE_VIDEO)
+  if (format->body.media_type != SPA_MEDIA_TYPE_VIDEO)
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
-  switch (format->media_subtype) {
+  switch (format->body.media_subtype) {
     case SPA_MEDIA_SUBTYPE_RAW:
       pinfo = raw_parse_info;
       break;
@@ -116,10 +116,10 @@ spa_format_video_parse (const SpaFormat *format,
       return SPA_RESULT_INVALID_ARGUMENTS;
   }
 
-  info->media_type = format->media_type;
-  info->media_subtype = format->media_subtype;
+  info->media_type = format->body.media_type;
+  info->media_subtype = format->body.media_subtype;
 
-  SPA_POD_OBJECT_BODY_FOREACH (&format->obj.body, format->obj.pod.size, prop) {
+  SPA_POD_FOREACH (format, prop) {
     if ((find = parse_info_find (pinfo, prop->body.key, prop->body.value.type))) {
       memcpy (SPA_MEMBER (info, find->offset, void),
               SPA_POD_BODY (&prop->body.value),
@@ -138,15 +138,15 @@ spa_format_filter (const SpaFormat  *format,
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   if (filter == NULL) {
-    spa_pod_builder_raw (result, format, SPA_FORMAT_SIZE (format), true);
+    spa_pod_builder_raw (result, format, SPA_POD_SIZE (format), true);
     return SPA_RESULT_OK;
   }
 
-  if (filter->media_type != format->media_type ||
-      filter->media_subtype != format->media_subtype)
+  if (filter->body.media_type != format->body.media_type ||
+      filter->body.media_subtype != format->body.media_subtype)
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
-  spa_pod_builder_raw (result, format, SPA_FORMAT_SIZE (format), true);
+  spa_pod_builder_raw (result, format, SPA_POD_SIZE (format), true);
 
   return SPA_RESULT_OK;
 }

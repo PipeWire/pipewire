@@ -89,6 +89,12 @@ typedef enum {
   SPA_PROP_ID_MEDIA_CUSTOM_START = 200,
 } SpaFormatProps;
 
+typedef struct {
+  uint32_t      media_type;
+  uint32_t      media_subtype;
+  /* contents follow, series of SpaPODProp */
+} SpaFormatBody;
+
 /**
  * SpaFormat:
  * @media_type: media type
@@ -96,12 +102,25 @@ typedef enum {
  * @pod: POD object with properties
  */
 struct _SpaFormat {
-  uint32_t      media_type;
-  uint32_t      media_subtype;
-  SpaPODObject  obj;
+  SpaPOD        pod;
+  SpaFormatBody body;
 };
 
-#define SPA_FORMAT_SIZE(f)      (sizeof(SpaFormat) + (f)->obj.pod.size)
+#define SPA_FORMAT_BODY_FOREACH(body, size, iter) \
+  for ((iter) = SPA_MEMBER ((body), sizeof (SpaFormatBody), SpaPODProp); \
+       (iter) < SPA_MEMBER ((body), (size), SpaPODProp); \
+       (iter) = SPA_MEMBER ((iter), SPA_ROUND_UP_N (SPA_POD_SIZE (iter), 8), SpaPODProp))
+
+static inline SpaPODProp *
+spa_format_find_prop (const SpaFormat *format, uint32_t key)
+{
+  SpaPODProp *res;
+  SPA_POD_FOREACH (format, res) {
+    if (res->pod.type == SPA_POD_TYPE_PROP && res->body.key == key)
+      return res;
+  }
+  return NULL;
+}
 
 static inline SpaResult
 spa_format_fixate (SpaFormat *format)

@@ -95,7 +95,7 @@ pinos_serialize_format_get_size (const SpaFormat *format)
   if (format == NULL)
     return 0;
 
-  return SPA_FORMAT_SIZE (format);
+  return SPA_POD_SIZE (format);
 }
 
 size_t
@@ -106,7 +106,7 @@ pinos_serialize_format_serialize (void *dest, const SpaFormat *format)
   if (format == NULL)
     return 0;
 
-  size = SPA_FORMAT_SIZE (format);
+  size = SPA_POD_SIZE (format);
   memcpy (dest, format, size);
 
   return size;

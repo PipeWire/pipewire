@@ -24,6 +24,7 @@
 
 #include <spa/props.h>
 
+#if 0
 SpaResult
 spa_props_set_value (SpaProps           *props,
                      unsigned int        index,
@@ -104,46 +105,31 @@ spa_props_copy_values (const SpaProps *src,
   }
   return SPA_RESULT_OK;
 }
-
-#if 0
+#endif
 
 static int
-compare_value (SpaPropType type, const SpaPropRangeInfo *r1, const SpaPropRangeInfo *r2)
+compare_value (SpaPODType type, const void *r1, const void *r2)
 {
   switch (type) {
-    case SPA_PROP_TYPE_INVALID:
+    case SPA_POD_TYPE_INVALID:
       return 0;
-    case SPA_PROP_TYPE_BOOL:
-      return *(bool*)r1->val.value == *(bool*)r2->val.value;
-    case SPA_PROP_TYPE_INT8:
-      return *(int8_t*)r1->val.value - *(int8_t*)r2->val.value;
-    case SPA_PROP_TYPE_UINT8:
-      return *(uint8_t*)r1->val.value - *(uint8_t*)r2->val.value;
-    case SPA_PROP_TYPE_INT16:
-      return *(int16_t*)r1->val.value - *(int16_t*)r2->val.value;
-    case SPA_PROP_TYPE_UINT16:
-      return *(uint16_t*)r1->val.value - *(uint16_t*)r2->val.value;
-    case SPA_PROP_TYPE_INT32:
-      return *(int32_t*)r1->val.value - *(int32_t*)r2->val.value;
-    case SPA_PROP_TYPE_UINT32:
-      return *(uint32_t*)r1->val.value - *(uint32_t*)r2->val.value;
-    case SPA_PROP_TYPE_INT64:
-      return *(int64_t*)r1->val.value - *(int64_t*)r2->val.value;
-    case SPA_PROP_TYPE_UINT64:
-      return *(uint64_t*)r1->val.value - *(uint64_t*)r2->val.value;
-    case SPA_PROP_TYPE_INT:
-      return *(int*)r1->val.value - *(int*)r2->val.value;
-    case SPA_PROP_TYPE_UINT:
-      return *(unsigned int*)r1->val.value - *(unsigned int*)r2->val.value;
-    case SPA_PROP_TYPE_FLOAT:
-      return *(float*)r1->val.value - *(float*)r2->val.value;
-    case SPA_PROP_TYPE_DOUBLE:
-      return *(double*)r1->val.value - *(double*)r2->val.value;
-    case SPA_PROP_TYPE_STRING:
-      return strcmp (r1->val.value, r2->val.value);
-    case SPA_PROP_TYPE_RECTANGLE:
+    case SPA_POD_TYPE_BOOL:
+      return *(int32_t*)r1 == *(uint32_t*)r2;
+    case SPA_POD_TYPE_INT:
+      printf ("%d <> %d\n", *(int32_t*)r1, *(int32_t*)r2);
+      return *(int32_t*)r1 - *(int32_t*)r2;
+    case SPA_POD_TYPE_LONG:
+      return *(int64_t*)r1 - *(int64_t*)r2;
+    case SPA_POD_TYPE_FLOAT:
+      return *(float*)r1 - *(float*)r2;
+    case SPA_POD_TYPE_DOUBLE:
+      return *(double*)r1 - *(double*)r2;
+    case SPA_POD_TYPE_STRING:
+      return strcmp (r1, r2);
+    case SPA_POD_TYPE_RECTANGLE:
     {
-      const SpaRectangle *rec1 = r1->val.value, *rec2 = r2->val.value;
+      const SpaRectangle *rec1 = (SpaRectangle*)r1,
+                         *rec2 = (SpaRectangle*)r2;
       if (rec1->width == rec2->width && rec1->height == rec2->height)
         return 0;
       else if (rec1->width < rec2->width || rec1->height < rec2->height)
@@ -151,200 +137,192 @@ compare_value (SpaPropType type, const SpaPropRangeInfo *r1, const SpaPropRangeI
       else
         return 1;
     }
-    case SPA_PROP_TYPE_FRACTION:
+    case SPA_POD_TYPE_FRACTION:
       break;
-    case SPA_PROP_TYPE_BITMASK:
-    case SPA_PROP_TYPE_POINTER:
+    default:
       break;
   }
   return 0;
 }
 
 SpaResult
-spa_props_filter (SpaPropBuilder *b,
-                  const SpaProps *props,
-                  const SpaProps *filter)
+spa_props_filter (SpaPODBuilder  *b,
+                  const SpaPOD   *props,
+                  uint32_t        props_size,
+                  const SpaPOD   *filter,
+                  uint32_t        filter_size)
 {
-  int i, j, k;
+  int j, k;
+  const SpaPOD *pr;
 
-  if (filter == NULL)
-    return SPA_RESULT_OK;
+  SPA_POD_FOREACH (props, props_size, pr) {
+    SpaPODFrame f;
+    SpaPODProp *p1, *p2, *np;
+    int nalt1, nalt2;
+    void *alt1, *alt2, *a1, *a2;
+    uint32_t rt1, rt2;
 
-  for (i = 0; i < props->n_prop_info; i++) {
-    unsigned int idx;
-    const SpaPropInfo *i1, *i2;
-    SpaPropBuilderInfo *bi;
-    const SpaPropRangeInfo *ri1, *ri2;
-    SpaPropRangeInfo sri1, sri2;
-    unsigned int nri1, nri2;
-    SpaPropRangeType rt1, rt2;
-    SpaPropBuilderRange *br;
-
-    i1 = &props->prop_info[i];
-
-    idx = spa_props_index_for_id (filter, i1->id);
-
-    /* always copy the property if it turns out incomplatible with the
-     * filter later, we abort and return SPA_RESULT_NO_FORMAT */
-    bi = alloca (sizeof (SpaPropBuilderInfo));
-    memcpy (&bi->info, i1, sizeof (SpaPropInfo));
-    spa_prop_builder_add_info (b, bi);
-    bi->value = SPA_MEMBER (props, i1->offset, void);
-
-    if (idx == SPA_IDX_INVALID)
+    if (pr->type != SPA_POD_TYPE_PROP)
       continue;
 
-    i2 = &filter->prop_info[idx];
+    p1 = (SpaPODProp *) pr;
 
-    if (i1->type != i2->type)
+    if (filter == NULL || (p2 = spa_pod_contents_find_prop (filter, 0, p1->body.key)) == NULL) {
+      /* no filter, copy the complete property */
+      spa_pod_builder_raw (b, p1, SPA_POD_SIZE (p1), true);
+      continue;
+    }
+
+    /* incompatible formats */
+    if (p1->body.value.type != p2->body.value.type)
       return SPA_RESULT_NO_FORMAT;
 
-    if (SPA_PROPS_INDEX_IS_UNSET (props, i)) {
-      ri1 = i1->range_values;
-      nri1 = i1->n_range_values;
-      rt1 = i1->range_type;
+    rt1 = p1->body.flags & SPA_POD_PROP_RANGE_MASK;
+    rt2 = p2->body.flags & SPA_POD_PROP_RANGE_MASK;
+
+    /* else we filter. start with copying the property */
+    np = SPA_POD_BUILDER_DEREF (b,
+                                spa_pod_builder_push_prop (b, &f, p1->body.key, SPA_POD_PROP_FLAG_READWRITE),
+                                SpaPODProp);
+    /* size and type */
+    spa_pod_builder_raw (b, &p1->body.value, sizeof (p1->body.value), false);
+
+    alt1 = SPA_MEMBER (p1, sizeof (SpaPODProp), void);
+    nalt1 = SPA_POD_PROP_N_VALUES (p1);
+    alt2 = SPA_MEMBER (p2, sizeof (SpaPODProp), void);
+    nalt2 = SPA_POD_PROP_N_VALUES (p2);
+
+    if (p1->body.flags & SPA_POD_PROP_FLAG_UNSET) {
+      alt1 = SPA_MEMBER (alt1, p1->body.value.size, void);
+      nalt1--;
     } else {
-      sri1.name = "";
-      sri1.val.size = i1->maxsize;
-      sri1.val.value = SPA_MEMBER (props, i1->offset, void);
-      ri1 = &sri1;
-      nri1 = 1;
-      rt1 = SPA_PROP_RANGE_TYPE_NONE;
-    }
-    if (SPA_PROPS_INDEX_IS_UNSET (filter, idx)) {
-      ri2 = i2->range_values;
-      nri2 = i2->n_range_values;
-      rt2 = i2->range_type;
-    } else {
-      sri2.name = "";
-      sri2.val.size = i2->maxsize;
-      sri2.val.value = SPA_MEMBER (filter, i2->offset, void);
-      ri2 = &sri2;
-      nri2 = 1;
-      rt2 = SPA_PROP_RANGE_TYPE_NONE;
+      nalt1 = 1;
     }
 
-    if ((rt1 == SPA_PROP_RANGE_TYPE_NONE && rt2 == SPA_PROP_RANGE_TYPE_NONE) ||
-        (rt1 == SPA_PROP_RANGE_TYPE_NONE && rt2 == SPA_PROP_RANGE_TYPE_ENUM) ||
-        (rt1 == SPA_PROP_RANGE_TYPE_ENUM && rt2 == SPA_PROP_RANGE_TYPE_NONE) ||
-        (rt1 == SPA_PROP_RANGE_TYPE_ENUM && rt2 == SPA_PROP_RANGE_TYPE_ENUM)) {
+    if (p2->body.flags & SPA_POD_PROP_FLAG_UNSET) {
+      alt2 = SPA_MEMBER (alt2, p2->body.value.size, void);
+      nalt2--;
+    } else {
+      nalt2 = 1;
+    }
+
+    if ((rt1 == SPA_POD_PROP_RANGE_NONE && rt2 == SPA_POD_PROP_RANGE_NONE) ||
+        (rt1 == SPA_POD_PROP_RANGE_NONE && rt2 == SPA_POD_PROP_RANGE_ENUM) ||
+        (rt1 == SPA_POD_PROP_RANGE_ENUM && rt2 == SPA_POD_PROP_RANGE_NONE) ||
+        (rt1 == SPA_POD_PROP_RANGE_ENUM && rt2 == SPA_POD_PROP_RANGE_ENUM)) {
       int n_copied = 0;
       /* copy all equal values */
-      for (j = 0; j < nri1; j++) {
-        for (k = 0; k < nri2; k++) {
-          if (compare_value (i1->type, &ri1[j], &ri2[k]) == 0) {
-            br = alloca (sizeof (SpaPropBuilderRange));
-            memcpy (&br->info, &ri1[j], sizeof (SpaPropRangeInfo));
-            spa_prop_builder_add_range (b, br);
+      for (j = 0, a1 = alt1; j < nalt1; j++, a1 += p1->body.value.size) {
+        for (k = 0, a2 = alt2; k < nalt2; k++, a2 += p2->body.value.size) {
+          if (compare_value (p1->body.value.type, a1, a2) == 0) {
+            spa_pod_builder_raw (b, a1, p1->body.value.size, false);
             n_copied++;
           }
         }
       }
       if (n_copied == 0)
         return SPA_RESULT_NO_FORMAT;
-      b->info->info.n_range_values = n_copied;
-      b->info->info.range_type = SPA_PROP_RANGE_TYPE_ENUM;
-      continue;
+      if (n_copied == 1)
+        np->body.flags |= SPA_POD_PROP_RANGE_NONE;
+      else
+        np->body.flags |= SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET;
     }
 
-    if ((rt1 == SPA_PROP_RANGE_TYPE_NONE && rt2 == SPA_PROP_RANGE_TYPE_MIN_MAX) ||
-        (rt1 == SPA_PROP_RANGE_TYPE_ENUM && rt2 == SPA_PROP_RANGE_TYPE_MIN_MAX)) {
+    if ((rt1 == SPA_POD_PROP_RANGE_NONE && rt2 == SPA_POD_PROP_RANGE_MIN_MAX) ||
+        (rt1 == SPA_POD_PROP_RANGE_ENUM && rt2 == SPA_POD_PROP_RANGE_MIN_MAX)) {
       int n_copied = 0;
       /* copy all values inside the range */
-      for (j = 0; j < nri1; j++) {
-        if (compare_value (i1->type, &ri1[j], &ri2[0]) < 0)
+      for (j = 0, a1 = alt1, a2 = alt2; j < nalt1; j++, a1 += p1->body.value.size) {
+        if (compare_value (p1->body.value.type, a1, a2) < 0)
           continue;
-        if (compare_value (i1->type, &ri1[j], &ri2[1]) > 0)
+        if (compare_value (p1->body.value.type, a1, a2 + p2->body.value.size) > 0)
           continue;
-        br = alloca (sizeof (SpaPropBuilderRange));
-        memcpy (&br->info, &ri1[j], sizeof (SpaPropRangeInfo));
-        spa_prop_builder_add_range (b, br);
+        spa_pod_builder_raw (b, a1, p1->body.value.size, false);
         n_copied++;
       }
       if (n_copied == 0)
         return SPA_RESULT_NO_FORMAT;
-      b->info->info.n_range_values = n_copied;
-      b->info->info.range_type = SPA_PROP_RANGE_TYPE_ENUM;
+      if (n_copied == 1)
+        np->body.flags |= SPA_POD_PROP_RANGE_NONE;
+      else
+        np->body.flags |= SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET;
     }
 
-    if (rt1 == SPA_PROP_RANGE_TYPE_NONE && rt2 == SPA_PROP_RANGE_TYPE_STEP)
+    if (rt1 == SPA_POD_PROP_RANGE_NONE && rt2 == SPA_POD_PROP_RANGE_STEP)
       return SPA_RESULT_NOT_IMPLEMENTED;
 
-    if (rt1 == SPA_PROP_RANGE_TYPE_NONE && rt2 == SPA_PROP_RANGE_TYPE_FLAGS)
+    if (rt1 == SPA_POD_PROP_RANGE_NONE && rt2 == SPA_POD_PROP_RANGE_FLAGS)
       return SPA_RESULT_NOT_IMPLEMENTED;
 
-    if ((rt1 == SPA_PROP_RANGE_TYPE_MIN_MAX && rt2 == SPA_PROP_RANGE_TYPE_NONE) ||
-        (rt1 == SPA_PROP_RANGE_TYPE_MIN_MAX && rt2 == SPA_PROP_RANGE_TYPE_ENUM)) {
+    if ((rt1 == SPA_POD_PROP_RANGE_MIN_MAX && rt2 == SPA_POD_PROP_RANGE_NONE) ||
+        (rt1 == SPA_POD_PROP_RANGE_MIN_MAX && rt2 == SPA_POD_PROP_RANGE_ENUM)) {
       int n_copied = 0;
       /* copy all values inside the range */
-      for (k = 0; k < nri2; k++) {
-        if (compare_value (i1->type, &ri2[k], &ri1[0]) < 0)
+      for (k = 0, a1 = alt2, a2 = alt2; k < nalt2; k++, a2 += p2->body.value.size) {
+        if (compare_value (p1->body.value.type, a2, a1) < 0)
           continue;
-        if (compare_value (i1->type, &ri2[k], &ri1[1]) > 0)
+        if (compare_value (p1->body.value.type, a2, a1 + p1->body.value.size) > 0)
           continue;
-        br = alloca (sizeof (SpaPropBuilderRange));
-        memcpy (&br->info, &ri2[k], sizeof (SpaPropRangeInfo));
-        spa_prop_builder_add_range (b, br);
+        spa_pod_builder_raw (b, a2, p2->body.value.size, false);
         n_copied++;
       }
       if (n_copied == 0)
         return SPA_RESULT_NO_FORMAT;
-      b->info->info.n_range_values = n_copied;
-      b->info->info.range_type = SPA_PROP_RANGE_TYPE_ENUM;
+      if (n_copied == 1)
+        np->body.flags |= SPA_POD_PROP_RANGE_NONE;
+      else
+        np->body.flags |= SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET;
     }
 
-    if (rt1 == SPA_PROP_RANGE_TYPE_MIN_MAX && rt2 == SPA_PROP_RANGE_TYPE_MIN_MAX) {
-      br = alloca (sizeof (SpaPropBuilderRange));
-      if (compare_value (i1->type, &ri1[0], &ri2[0]) < 0)
-        memcpy (&br->info, &ri2[0], sizeof (SpaPropRangeInfo));
+    if (rt1 == SPA_POD_PROP_RANGE_MIN_MAX && rt2 == SPA_POD_PROP_RANGE_MIN_MAX) {
+      if (compare_value (p1->body.value.type, alt1, alt2) < 0)
+        spa_pod_builder_raw (b, alt2, p2->body.value.size, false);
       else
-        memcpy (&br->info, &ri1[0], sizeof (SpaPropRangeInfo));
-      spa_prop_builder_add_range (b, br);
+        spa_pod_builder_raw (b, alt1, p1->body.value.size, false);
 
-      br = alloca (sizeof (SpaPropBuilderRange));
-      if (compare_value (i1->type, &ri1[1], &ri2[1]) < 0)
-        memcpy (&br->info, &ri1[1], sizeof (SpaPropRangeInfo));
+      alt1 += p1->body.value.size;
+      alt2 += p2->body.value.size;
+
+      if (compare_value (p1->body.value.type, alt1, alt2) < 0)
+        spa_pod_builder_raw (b, alt1, p1->body.value.size, false);
       else
-        memcpy (&br->info, &ri2[1], sizeof (SpaPropRangeInfo));
-      spa_prop_builder_add_range (b, br);
+        spa_pod_builder_raw (b, alt2, p2->body.value.size, false);
     }
-    if (rt1 == SPA_PROP_RANGE_TYPE_MIN_MAX && rt2 == SPA_PROP_RANGE_TYPE_STEP)
+    if (rt1 == SPA_POD_PROP_RANGE_MIN_MAX && rt2 == SPA_POD_PROP_RANGE_STEP)
       return SPA_RESULT_NOT_IMPLEMENTED;
 
-    if (rt1 == SPA_PROP_RANGE_TYPE_MIN_MAX && rt2 == SPA_PROP_RANGE_TYPE_FLAGS)
+    if (rt1 == SPA_POD_PROP_RANGE_MIN_MAX && rt2 == SPA_POD_PROP_RANGE_FLAGS)
       return SPA_RESULT_NOT_IMPLEMENTED;
 
-    if (rt1 == SPA_PROP_RANGE_TYPE_ENUM && rt2 == SPA_PROP_RANGE_TYPE_STEP)
+    if (rt1 == SPA_POD_PROP_RANGE_ENUM && rt2 == SPA_POD_PROP_RANGE_STEP)
       return SPA_RESULT_NOT_IMPLEMENTED;
-    if (rt1 == SPA_PROP_RANGE_TYPE_ENUM && rt2 == SPA_PROP_RANGE_TYPE_FLAGS)
-      return SPA_RESULT_NOT_IMPLEMENTED;
-
-    if (rt1 == SPA_PROP_RANGE_TYPE_STEP && rt2 == SPA_PROP_RANGE_TYPE_NONE)
-      return SPA_RESULT_NOT_IMPLEMENTED;
-    if (rt1 == SPA_PROP_RANGE_TYPE_STEP && rt2 == SPA_PROP_RANGE_TYPE_MIN_MAX)
+    if (rt1 == SPA_POD_PROP_RANGE_ENUM && rt2 == SPA_POD_PROP_RANGE_FLAGS)
       return SPA_RESULT_NOT_IMPLEMENTED;
 
-    if (rt1 == SPA_PROP_RANGE_TYPE_STEP && rt2 == SPA_PROP_RANGE_TYPE_STEP)
+    if (rt1 == SPA_POD_PROP_RANGE_STEP && rt2 == SPA_POD_PROP_RANGE_NONE)
       return SPA_RESULT_NOT_IMPLEMENTED;
-    if (rt1 == SPA_PROP_RANGE_TYPE_STEP && rt2 == SPA_PROP_RANGE_TYPE_ENUM)
-      return SPA_RESULT_NOT_IMPLEMENTED;
-    if (rt1 == SPA_PROP_RANGE_TYPE_STEP && rt2 == SPA_PROP_RANGE_TYPE_FLAGS)
+    if (rt1 == SPA_POD_PROP_RANGE_STEP && rt2 == SPA_POD_PROP_RANGE_MIN_MAX)
       return SPA_RESULT_NOT_IMPLEMENTED;
 
-    if (rt1 == SPA_PROP_RANGE_TYPE_FLAGS && rt2 == SPA_PROP_RANGE_TYPE_NONE)
+    if (rt1 == SPA_POD_PROP_RANGE_STEP && rt2 == SPA_POD_PROP_RANGE_STEP)
       return SPA_RESULT_NOT_IMPLEMENTED;
-    if (rt1 == SPA_PROP_RANGE_TYPE_FLAGS && rt2 == SPA_PROP_RANGE_TYPE_MIN_MAX)
+    if (rt1 == SPA_POD_PROP_RANGE_STEP && rt2 == SPA_POD_PROP_RANGE_ENUM)
       return SPA_RESULT_NOT_IMPLEMENTED;
-    if (rt1 == SPA_PROP_RANGE_TYPE_FLAGS && rt2 == SPA_PROP_RANGE_TYPE_STEP)
+    if (rt1 == SPA_POD_PROP_RANGE_STEP && rt2 == SPA_POD_PROP_RANGE_FLAGS)
       return SPA_RESULT_NOT_IMPLEMENTED;
-    if (rt1 == SPA_PROP_RANGE_TYPE_FLAGS && rt2 == SPA_PROP_RANGE_TYPE_ENUM)
+
+    if (rt1 == SPA_POD_PROP_RANGE_FLAGS && rt2 == SPA_POD_PROP_RANGE_NONE)
       return SPA_RESULT_NOT_IMPLEMENTED;
-    if (rt1 == SPA_PROP_RANGE_TYPE_FLAGS && rt2 == SPA_PROP_RANGE_TYPE_FLAGS)
+    if (rt1 == SPA_POD_PROP_RANGE_FLAGS && rt2 == SPA_POD_PROP_RANGE_MIN_MAX)
       return SPA_RESULT_NOT_IMPLEMENTED;
+    if (rt1 == SPA_POD_PROP_RANGE_FLAGS && rt2 == SPA_POD_PROP_RANGE_STEP)
+      return SPA_RESULT_NOT_IMPLEMENTED;
+    if (rt1 == SPA_POD_PROP_RANGE_FLAGS && rt2 == SPA_POD_PROP_RANGE_ENUM)
+      return SPA_RESULT_NOT_IMPLEMENTED;
+    if (rt1 == SPA_POD_PROP_RANGE_FLAGS && rt2 == SPA_POD_PROP_RANGE_FLAGS)
+      return SPA_RESULT_NOT_IMPLEMENTED;
+
+    spa_pod_builder_pop (b, &f);
   }
-
-  spa_prop_builder_finish (b);
-
   return SPA_RESULT_OK;
 }
-#endif

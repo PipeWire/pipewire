@@ -384,7 +384,7 @@ print_pod_value (uint32_t size, uint32_t type, void *body, int prefix)
     {
       SpaPOD *b = body, *p;
       printf ("%-*sStruct: size %d\n", prefix, "", size);
-      SPA_POD_STRUCT_BODY_FOREACH (b, size, p)
+      SPA_POD_FOREACH (b, size, p)
         print_pod_value (p->size, p->type, SPA_POD_BODY (p), prefix + 2);
       break;
     }
@@ -422,7 +422,6 @@ print_pod_value (uint32_t size, uint32_t type, void *body, int prefix)
     }
   }
 }
-
 
 SpaResult
 spa_debug_pod (const SpaPOD *pod)
@@ -512,7 +511,7 @@ spa_debug_format (const SpaFormat *format)
 
   fprintf (stderr, "%-6s %s/%s\n", "", media_type, media_subtype);
 
-  SPA_POD_FOREACH (format, prop) {
+  SPA_FORMAT_FOREACH (format, prop) {
     if ((prop->body.flags & SPA_POD_PROP_FLAG_UNSET) &&
         (prop->body.flags & SPA_POD_PROP_FLAG_OPTIONAL))
       continue;

@@ -25,6 +25,7 @@
 #include <spa/video/raw.h>
 #include <spa/video/format.h>
 #include <spa/format-builder.h>
+#include <lib/props.h>
 
 typedef struct {
   uint32_t  key;
@@ -119,7 +120,7 @@ spa_format_video_parse (const SpaFormat *format,
       return SPA_RESULT_INVALID_ARGUMENTS;
   }
 
-  SPA_POD_FOREACH (format, prop) {
+  SPA_FORMAT_FOREACH (format, prop) {
     if ((find = parse_info_find (pinfo, prop->body.key, prop->body.value.type))) {
       memcpy (SPA_MEMBER (info, find->offset, void),
               SPA_POD_BODY (&prop->body.value),
@@ -134,6 +135,9 @@ spa_format_filter (const SpaFormat  *format,
                    const SpaFormat  *filter,
                    SpaPODBuilder    *result)
 {
+  SpaPODFrame f;
+  SpaResult res;
+
   if (format == NULL || result == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
@@ -146,7 +150,15 @@ spa_format_filter (const SpaFormat  *format,
       filter->body.media_subtype.value != format->body.media_subtype.value)
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
-  spa_pod_builder_raw (result, format, SPA_POD_SIZE (format), true);
+  spa_pod_builder_push_format (result, &f,
+                               filter->body.media_type.value,
+                               filter->body.media_subtype.value);
+  res = spa_props_filter (result,
+                          SPA_POD_CONTENTS (SpaFormat, format),
+                          SPA_POD_CONTENTS_SIZE (SpaFormat, format),
+                          SPA_POD_CONTENTS (SpaFormat, filter),
+                          SPA_POD_CONTENTS_SIZE (SpaFormat, filter));
+  spa_pod_builder_pop (result, &f);
 
-  return SPA_RESULT_OK;
+  return res;
 }

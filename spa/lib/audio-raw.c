@@ -88,7 +88,7 @@ spa_format_audio_parse (const SpaFormat *format,
       return SPA_RESULT_INVALID_ARGUMENTS;
   }
 
-  SPA_POD_FOREACH (format, prop) {
+  SPA_FORMAT_FOREACH (format, prop) {
     if ((find = parse_info_find (pinfo, prop->body.key, prop->body.value.type))) {
       memcpy (SPA_MEMBER (info, find->offset, void),
               SPA_POD_BODY (&prop->body.value),

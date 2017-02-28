@@ -26,6 +26,13 @@ extern "C" {
 
 #include <spa/props.h>
 
+SpaResult
+spa_props_filter (SpaPODBuilder  *b,
+                  const SpaPOD   *props,
+                  uint32_t        props_size,
+                  const SpaPOD   *filter,
+                  uint32_t        filter_size);
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

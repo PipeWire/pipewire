@@ -90,8 +90,11 @@ typedef enum {
 } SpaFormatProps;
 
 typedef struct {
-  SpaPODInt     media_type;
-  SpaPODInt     media_subtype;
+  SpaPODObjectBody obj_body;
+  SpaPODInt        media_type;
+  uint32_t         pad1;
+  SpaPODInt        media_subtype;
+  uint32_t         pad2;
   /* contents follow, series of SpaPODProp */
 } SpaFormatBody;
 
@@ -102,7 +105,7 @@ typedef struct {
  * @pod: POD object with properties
  */
 struct _SpaFormat {
-  SpaPODObject  obj;
+  SpaPOD        pod;
   SpaFormatBody body;
 };
 
@@ -111,22 +114,23 @@ struct _SpaFormat {
        (iter) < SPA_MEMBER ((body), (size), SpaPODProp); \
        (iter) = SPA_MEMBER ((iter), SPA_ROUND_UP_N (SPA_POD_SIZE (iter), 8), SpaPODProp))
 
+#define SPA_FORMAT_FOREACH(format, iter) \
+  SPA_FORMAT_BODY_FOREACH(&format->body, SPA_POD_BODY_SIZE(format), iter)
+
 static inline SpaPODProp *
 spa_format_find_prop (const SpaFormat *format, uint32_t key)
 {
-  SpaPODProp *res;
-  SPA_FORMAT_BODY_FOREACH (&format->body, SPA_POD_BODY_SIZE (format), res) {
-    if (res->pod.type == SPA_POD_TYPE_PROP && res->body.key == key)
-      return res;
-  }
-  return NULL;
+  return spa_pod_contents_find_prop (&format->pod, sizeof (SpaFormat), key);
 }
 
 static inline SpaResult
 spa_format_fixate (SpaFormat *format)
 {
-  if (format == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  SpaPODProp *prop;
+
+  SPA_FORMAT_FOREACH (format, prop)
+    prop->body.flags &= ~SPA_POD_PROP_FLAG_UNSET;
+
   return SPA_RESULT_OK;
 }
 

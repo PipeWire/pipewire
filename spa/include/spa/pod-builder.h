@@ -162,6 +162,13 @@ spa_pod_builder_bool (SpaPODBuilder *builder, bool val)
 }
 
 static inline off_t
+spa_pod_builder_uri (SpaPODBuilder *builder, uint32_t val)
+{
+  const SpaPODURI p = { { sizeof (uint32_t), SPA_POD_TYPE_URI }, val };
+  return spa_pod_builder_primitive (builder, &p.pod);
+}
+
+static inline off_t
 spa_pod_builder_int (SpaPODBuilder *builder, int32_t val)
 {
   const SpaPODInt p = { { sizeof (val), SPA_POD_TYPE_INT }, val };
@@ -293,6 +300,9 @@ spa_pod_builder_propv (SpaPODBuilder *builder,
           break;
         case SPA_POD_TYPE_BOOL:
           spa_pod_builder_bool (builder, va_arg (args, int));
+          break;
+        case SPA_POD_TYPE_URI:
+          spa_pod_builder_uri (builder, va_arg (args, int32_t));
           break;
         case SPA_POD_TYPE_INT:
           spa_pod_builder_int (builder, va_arg (args, int32_t));

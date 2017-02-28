@@ -35,6 +35,7 @@ extern "C" {
 typedef enum {
   SPA_POD_TYPE_INVALID         = 0,
   SPA_POD_TYPE_BOOL,
+  SPA_POD_TYPE_URI,
   SPA_POD_TYPE_INT,
   SPA_POD_TYPE_LONG,
   SPA_POD_TYPE_FLOAT,
@@ -64,13 +65,13 @@ typedef struct {
 #define SPA_POD_BODY(pod)                SPA_MEMBER((pod),sizeof(SpaPOD),void)
 #define SPA_POD_BODY_CONST(pod)          SPA_MEMBER((pod),sizeof(SpaPOD),const void)
 
-
 typedef struct {
   SpaPOD       pod;
   int32_t      value;
 } SpaPODInt;
 
 typedef SpaPODInt SpaPODBool;
+typedef SpaPODInt SpaPODURI;
 
 typedef struct {
   SpaPOD       pod;

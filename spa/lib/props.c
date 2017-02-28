@@ -116,7 +116,6 @@ compare_value (SpaPODType type, const void *r1, const void *r2)
     case SPA_POD_TYPE_BOOL:
       return *(int32_t*)r1 == *(uint32_t*)r2;
     case SPA_POD_TYPE_INT:
-      printf ("%d <> %d\n", *(int32_t*)r1, *(int32_t*)r2);
       return *(int32_t*)r1 - *(int32_t*)r2;
     case SPA_POD_TYPE_LONG:
       return *(int64_t*)r1 - *(int64_t*)r2;
@@ -138,11 +137,34 @@ compare_value (SpaPODType type, const void *r1, const void *r2)
         return 1;
     }
     case SPA_POD_TYPE_FRACTION:
-      break;
+    {
+      const SpaFraction *f1 = (SpaFraction*)r1,
+                        *f2 = (SpaFraction*)r2;
+      uint64_t n1, n2;
+      n1 = ((int64_t) f1->num) * f2->denom;
+      n2 = ((int64_t) f2->num) * f1->denom;
+      if (n1 < n2)
+        return -1;
+      else if (n1 > n2)
+        return 1;
+      else
+        return 0;
+    }
     default:
       break;
   }
   return 0;
+}
+
+static inline SpaPODProp *
+find_prop (const SpaPOD *pod, uint32_t size, uint32_t key)
+{
+  const SpaPOD *res;
+  SPA_POD_FOREACH (pod, size, res) {
+    if (res->type == SPA_POD_TYPE_PROP && ((SpaPODProp*)res)->body.key == key)
+      return (SpaPODProp *)res;
+  }
+  return NULL;
 }
 
 SpaResult
@@ -167,7 +189,7 @@ spa_props_filter (SpaPODBuilder  *b,
 
     p1 = (SpaPODProp *) pr;
 
-    if (filter == NULL || (p2 = spa_pod_contents_find_prop (filter, 0, p1->body.key)) == NULL) {
+    if (filter == NULL || (p2 = find_prop (filter, filter_size, p1->body.key)) == NULL) {
       /* no filter, copy the complete property */
       spa_pod_builder_raw (b, p1, SPA_POD_SIZE (p1), true);
       continue;
@@ -184,8 +206,8 @@ spa_props_filter (SpaPODBuilder  *b,
     np = SPA_POD_BUILDER_DEREF (b,
                                 spa_pod_builder_push_prop (b, &f, p1->body.key, SPA_POD_PROP_FLAG_READWRITE),
                                 SpaPODProp);
-    /* size and type */
-    spa_pod_builder_raw (b, &p1->body.value, sizeof (p1->body.value), false);
+    /* default value */
+    spa_pod_builder_raw (b, &p1->body.value, sizeof (p1->body.value) + p1->body.value.size, false);
 
     alt1 = SPA_MEMBER (p1, sizeof (SpaPODProp), void);
     nalt1 = SPA_POD_PROP_N_VALUES (p1);
@@ -248,11 +270,10 @@ spa_props_filter (SpaPODBuilder  *b,
         np->body.flags |= SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET;
     }
 
-    if (rt1 == SPA_POD_PROP_RANGE_NONE && rt2 == SPA_POD_PROP_RANGE_STEP)
+    if ((rt1 == SPA_POD_PROP_RANGE_NONE && rt2 == SPA_POD_PROP_RANGE_STEP) ||
+        (rt1 == SPA_POD_PROP_RANGE_ENUM && rt2 == SPA_POD_PROP_RANGE_STEP)) {
       return SPA_RESULT_NOT_IMPLEMENTED;
-
-    if (rt1 == SPA_POD_PROP_RANGE_NONE && rt2 == SPA_POD_PROP_RANGE_FLAGS)
-      return SPA_RESULT_NOT_IMPLEMENTED;
+    }
 
     if ((rt1 == SPA_POD_PROP_RANGE_MIN_MAX && rt2 == SPA_POD_PROP_RANGE_NONE) ||
         (rt1 == SPA_POD_PROP_RANGE_MIN_MAX && rt2 == SPA_POD_PROP_RANGE_ENUM)) {
@@ -287,15 +308,19 @@ spa_props_filter (SpaPODBuilder  *b,
         spa_pod_builder_raw (b, alt1, p1->body.value.size, false);
       else
         spa_pod_builder_raw (b, alt2, p2->body.value.size, false);
+
+      np->body.flags |= SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET;
     }
+
+    if (rt1 == SPA_POD_PROP_RANGE_NONE && rt2 == SPA_POD_PROP_RANGE_FLAGS)
+      return SPA_RESULT_NOT_IMPLEMENTED;
+
     if (rt1 == SPA_POD_PROP_RANGE_MIN_MAX && rt2 == SPA_POD_PROP_RANGE_STEP)
       return SPA_RESULT_NOT_IMPLEMENTED;
 
     if (rt1 == SPA_POD_PROP_RANGE_MIN_MAX && rt2 == SPA_POD_PROP_RANGE_FLAGS)
       return SPA_RESULT_NOT_IMPLEMENTED;
 
-    if (rt1 == SPA_POD_PROP_RANGE_ENUM && rt2 == SPA_POD_PROP_RANGE_STEP)
-      return SPA_RESULT_NOT_IMPLEMENTED;
     if (rt1 == SPA_POD_PROP_RANGE_ENUM && rt2 == SPA_POD_PROP_RANGE_FLAGS)
       return SPA_RESULT_NOT_IMPLEMENTED;
 

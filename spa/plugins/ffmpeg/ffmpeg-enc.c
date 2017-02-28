@@ -30,15 +30,6 @@
 
 typedef struct _SpaFFMpegEnc SpaFFMpegEnc;
 
-typedef struct {
-  SpaProps props;
-} SpaFFMpegEncProps;
-
-static void
-reset_ffmpeg_enc_props (SpaFFMpegEncProps *props)
-{
-}
-
 #define IS_VALID_PORT(this,d,id) ((id) == 0)
 #define MAX_BUFFERS    32
 
@@ -56,8 +47,8 @@ struct _FFMpegBuffer {
 };
 
 typedef struct {
-  SpaVideoInfo format[2];
-  SpaFormat *current_format;
+  bool have_format;
+  SpaVideoInfo current_format;
   bool have_buffers;
   FFMpegBuffer buffers[MAX_BUFFERS];
   SpaPortInfo info;
@@ -77,8 +68,6 @@ struct _SpaFFMpegEnc {
   URI uri;
   SpaIDMap *map;
   SpaLog *log;
-
-  SpaFFMpegEncProps props[2];
 
   SpaNodeEventCallback event_cb;
   void *user_data;
@@ -101,41 +90,14 @@ static SpaResult
 spa_ffmpeg_enc_node_get_props (SpaNode       *node,
                                SpaProps     **props)
 {
-  SpaFFMpegEnc *this;
-
-  if (node == NULL || props == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
-  this = SPA_CONTAINER_OF (node, SpaFFMpegEnc, node);
-
-  memcpy (&this->props[0], &this->props[1], sizeof (this->props[1]));
-  *props = &this->props[0].props;
-
-  return SPA_RESULT_OK;
+  return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult
 spa_ffmpeg_enc_node_set_props (SpaNode         *node,
                                const SpaProps  *props)
 {
-  SpaFFMpegEnc *this;
-  SpaFFMpegEncProps *p;
-  SpaResult res;
-
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
-  this = SPA_CONTAINER_OF (node, SpaFFMpegEnc, node);
-  p = &this->props[1];
-
-  if (props == NULL) {
-    reset_ffmpeg_enc_props (p);
-    return SPA_RESULT_OK;
-  }
-
-  //res = spa_props_copy_values (props, &p->props);
-
-  return res;
+  return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult
@@ -287,6 +249,7 @@ spa_ffmpeg_enc_node_port_set_format (SpaNode            *node,
   SpaFFMpegEnc *this;
   SpaFFMpegPort *port;
   SpaResult res;
+  SpaVideoInfo query_format;
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -299,7 +262,7 @@ spa_ffmpeg_enc_node_port_set_format (SpaNode            *node,
   port = direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
 
   if (format == NULL) {
-    port->current_format = NULL;
+    port->have_format = false;
     return SPA_RESULT_OK;
   }
 
@@ -307,12 +270,12 @@ spa_ffmpeg_enc_node_port_set_format (SpaNode            *node,
       format->body.media_subtype.value != SPA_MEDIA_SUBTYPE_RAW)
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
-  if ((res = spa_format_video_parse (format, &port->format[0]) < 0))
+  if ((res = spa_format_video_parse (format, &query_format) < 0))
     return res;
 
   if (!(flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY)) {
-    memcpy (&port->format[1], &port->format[0], sizeof (SpaVideoInfo));
-    port->current_format = NULL;
+    memcpy (&port->current_format, &query_format, sizeof (SpaVideoInfo));
+    port->have_format = true;
   }
 
   return SPA_RESULT_OK;
@@ -337,10 +300,10 @@ spa_ffmpeg_enc_node_port_get_format (SpaNode          *node,
 
   port = direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
 
-  if (port->current_format == NULL)
+  if (!port->have_format)
     return SPA_RESULT_NO_FORMAT;
 
-  *format = port->current_format;
+  *format = NULL;
 
   return SPA_RESULT_OK;
 }
@@ -500,7 +463,7 @@ spa_ffmpeg_enc_node_process_output (SpaNode *node)
 
   port = &this->out_ports[0];
 
-  if (port->current_format == NULL) {
+  if (!port->have_format) {
     output->status = SPA_RESULT_NO_FORMAT;
     return SPA_RESULT_ERROR;
   }
@@ -583,7 +546,6 @@ spa_ffmpeg_enc_init (SpaHandle         *handle,
   this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
 
   this->node = ffmpeg_enc_node;
-  reset_ffmpeg_enc_props (&this->props[1]);
 
   this->in_ports[0].info.flags = SPA_PORT_INFO_FLAG_NONE;
   this->out_ports[0].info.flags = SPA_PORT_INFO_FLAG_NONE;

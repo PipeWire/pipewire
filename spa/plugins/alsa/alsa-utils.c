@@ -18,7 +18,7 @@ static int
 spa_alsa_open (SpaALSAState *state)
 {
   int err;
-  SpaALSAProps *props = &state->props[1];
+  SpaALSAProps *props = &state->props;
 
   if (state->opened)
     return 0;
@@ -118,7 +118,7 @@ spa_alsa_set_format (SpaALSAState *state, SpaAudioInfo *fmt, SpaPortFormatFlags 
   SpaAudioInfoRaw *info = &fmt->info.raw;
   snd_pcm_t *hndl;
   unsigned int periods;
-  SpaALSAProps *props = &state->props[1];
+  SpaALSAProps *props = &state->props;
 
   if ((err = spa_alsa_open (state)) < 0)
     return err;
@@ -195,7 +195,7 @@ set_swparams (SpaALSAState *state)
   snd_pcm_t *hndl = state->hndl;
   int err = 0;
   snd_pcm_sw_params_t *params;
-  SpaALSAProps *props = &state->props[1];
+  SpaALSAProps *props = &state->props;
 
   snd_pcm_sw_params_alloca (&params);
 

@@ -41,7 +41,6 @@ typedef struct _SpaALSAState SpaALSAState;
 typedef struct _SpaALSABuffer SpaALSABuffer;
 
 typedef struct {
-  SpaProps props;
   char device[64];
   char device_name[128];
   char card_name[128];
@@ -84,7 +83,8 @@ struct _SpaALSAState {
   SpaNodeEventCallback event_cb;
   void *user_data;
 
-  SpaALSAProps props[2];
+  uint8_t props_buffer[1024];
+  SpaALSAProps props;
 
   bool opened;
   snd_pcm_t *hndl;

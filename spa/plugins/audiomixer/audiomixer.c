@@ -30,14 +30,6 @@
 
 typedef struct _SpaAudioMixer SpaAudioMixer;
 
-typedef struct {
-  SpaProps props;
-} SpaAudioMixerProps;
-
-typedef struct {
-  SpaProps prop;
-} SpaAudioMixerPortProps;
-
 typedef struct _MixerBuffer MixerBuffer;
 
 struct _MixerBuffer {
@@ -52,7 +44,6 @@ typedef struct {
   bool valid;
   bool have_format;
   SpaAudioInfo format;
-  SpaAudioMixerPortProps props[2];
   SpaPortInfo info;
   size_t buffer_index;
   size_t buffer_offset;
@@ -77,8 +68,6 @@ struct _SpaAudioMixer {
   SpaIDMap *map;
   SpaLog *log;
 
-  SpaAudioMixerProps props[2];
-
   SpaNodeEventCallback event_cb;
   void *user_data;
 
@@ -97,47 +86,18 @@ enum {
   PROP_ID_LAST,
 };
 
-static void
-reset_audiomixer_props (SpaAudioMixerProps *props)
-{
-}
-
 static SpaResult
 spa_audiomixer_node_get_props (SpaNode       *node,
                                SpaProps     **props)
 {
-  SpaAudioMixer *this;
-
-  if (node == NULL || props == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
-  this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
-
-  memcpy (&this->props[0], &this->props[1], sizeof (this->props[1]));
-
-  return SPA_RESULT_OK;
+  return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult
 spa_audiomixer_node_set_props (SpaNode         *node,
                                const SpaProps  *props)
 {
-  SpaAudioMixer *this;
-  SpaAudioMixerProps *p;
-  SpaResult res;
-
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
-  this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
-  p = &this->props[1];
-
-  if (props == NULL) {
-    reset_audiomixer_props (p);
-    return SPA_RESULT_OK;
-  }
-
-  return res;
+  return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static void
@@ -307,7 +267,6 @@ spa_audiomixer_node_port_enum_formats (SpaNode         *node,
                                        unsigned int     index)
 {
   SpaAudioMixer *this;
-  SpaAudioMixerPort *port;
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -316,8 +275,6 @@ spa_audiomixer_node_port_enum_formats (SpaNode         *node,
 
   if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
-
-  port = direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[0];
 
   switch (index) {
     case 0:
@@ -748,11 +705,6 @@ spa_audiomixer_init (const SpaHandleFactory *factory,
   this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
 
   this->node = audiomixer_node;
-#if 0
-  this->props[1].props.n_prop_info = PROP_ID_LAST;
-  this->props[1].props.prop_info = prop_info;
-#endif
-  reset_audiomixer_props (&this->props[1]);
 
   this->out_ports[0].valid = true;
   this->out_ports[0].info.flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS |

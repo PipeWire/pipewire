@@ -116,36 +116,11 @@ enum {
   PROP_ID_PATTERN,
 };
 
-#if 0
-static const SpaPropRangeInfo pattern_range[] = {
-  { "smpte-snow", { sizeof (uint32_t), &pattern_val_smpte_snow } },
-  { "snow", { sizeof (uint32_t), &pattern_val_snow } },
-};
-
-static const SpaPropInfo prop_info[] =
-{
-  { PROP_ID_LIVE,              offsetof (SpaVideoTestSrcProps, live),
-                               "live",
-                               SPA_PROP_FLAG_READWRITE,
-                               SPA_PROP_TYPE_BOOL, sizeof (bool),
-                               SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
-                               NULL },
-  { PROP_ID_PATTERN,           offsetof (SpaVideoTestSrcProps, pattern),
-                               "pattern",
-                               SPA_PROP_FLAG_READWRITE,
-                               SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
-                               SPA_PROP_RANGE_TYPE_ENUM, SPA_N_ELEMENTS (pattern_range), pattern_range,
-                               NULL },
-};
-#endif
-
-static SpaResult
+static void
 reset_videotestsrc_props (SpaVideoTestSrcProps *props)
 {
   props->live = DEFAULT_LIVE;
   props->pattern = DEFAULT_PATTERN;
-
-  return SPA_RESULT_OK;
 }
 
 static SpaResult
@@ -184,21 +159,18 @@ spa_videotestsrc_node_set_props (SpaNode         *node,
                                  const SpaProps  *props)
 {
   SpaVideoTestSrc *this;
-  SpaVideoTestSrcProps *p;
-  SpaResult res;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaVideoTestSrc, node);
-  p = &this->props;
 
   if (props == NULL) {
-    res = reset_videotestsrc_props (p);
+    reset_videotestsrc_props (&this->props);
   } else {
     SpaPODProp *pr;
 
-    SPA_POD_OBJECT_BODY_FOREACH(&props->body, props->pod.size, pr) {
+    SPA_POD_OBJECT_BODY_FOREACH (&props->body, props->pod.size, pr) {
       switch (pr->body.key) {
         case PROP_ID_LIVE:
           this->props.live = ((SpaPODBool*)&pr->body.value)->value;
@@ -215,7 +187,7 @@ spa_videotestsrc_node_set_props (SpaNode         *node,
   else
     this->info.flags &= ~SPA_PORT_INFO_FLAG_LIVE;
 
-  return res;
+  return SPA_RESULT_OK;
 }
 
 static SpaResult
@@ -503,7 +475,7 @@ spa_videotestsrc_node_port_enum_formats (SpaNode          *node,
   if ((res = spa_format_filter (fmt, filter, &b)) != SPA_RESULT_OK)
     return res;
 
-  *format = SPA_MEMBER (this->format_buffer, 0, SpaFormat);
+  *format = SPA_POD_BUILDER_DEREF (&b, 0, SpaFormat);
 
   return SPA_RESULT_OK;
 }
@@ -989,10 +961,6 @@ videotestsrc_init (const SpaHandleFactory  *factory,
 
   this->node = videotestsrc_node;
   this->clock = videotestsrc_clock;
-#if 0
-  this->props[1].props.n_prop_info = PROP_ID_LAST;
-  this->props[1].props.prop_info = prop_info;
-#endif
   reset_videotestsrc_props (&this->props);
 
   spa_list_init (&this->empty);

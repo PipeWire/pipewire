@@ -52,79 +52,59 @@ reset_alsa_props (SpaALSAProps *props)
   props->period_event = default_period_event;
 }
 
-#if 0
-static const uint32_t min_uint32 = 1;
-static const uint32_t max_uint32 = UINT32_MAX;
-
-static const SpaPropRangeInfo uint32_range[] = {
-  { "min", { 4, &min_uint32 } },
-  { "max", { 4, &max_uint32 } },
-};
-
 enum {
+  PROP_ID_NONE,
   PROP_ID_DEVICE,
   PROP_ID_DEVICE_NAME,
   PROP_ID_CARD_NAME,
   PROP_ID_PERIOD_SIZE,
   PROP_ID_PERIODS,
   PROP_ID_PERIOD_EVENT,
-  PROP_ID_LAST,
 };
-
-static const SpaPropInfo prop_info[] =
-{
-  { PROP_ID_DEVICE,             offsetof (SpaALSAProps, device),
-                                "device",
-                                SPA_PROP_FLAG_READWRITE,
-                                SPA_PROP_TYPE_STRING, 63,
-                                SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
-                                NULL },
-  { PROP_ID_DEVICE_NAME,        offsetof (SpaALSAProps, device_name),
-                                "device-name",
-                                SPA_PROP_FLAG_READABLE,
-                                SPA_PROP_TYPE_STRING, 127,
-                                SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
-                                NULL },
-  { PROP_ID_CARD_NAME,          offsetof (SpaALSAProps, card_name),
-                                "card-name",
-                                SPA_PROP_FLAG_READABLE,
-                                SPA_PROP_TYPE_STRING, 127,
-                                SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
-                                NULL },
-  { PROP_ID_PERIOD_SIZE,        offsetof (SpaALSAProps, period_size),
-                                "period-size",
-                                SPA_PROP_FLAG_READWRITE,
-                                SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
-                                SPA_PROP_RANGE_TYPE_MIN_MAX, 2, uint32_range,
-                                NULL },
-  { PROP_ID_PERIODS,            offsetof (SpaALSAProps, periods),
-                                "periods",
-                                SPA_PROP_FLAG_READWRITE,
-                                SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
-                                SPA_PROP_RANGE_TYPE_MIN_MAX, 2, uint32_range,
-                                NULL },
-  { PROP_ID_PERIOD_EVENT,       offsetof (SpaALSAProps, period_event),
-                                "period-event",
-                                SPA_PROP_FLAG_READWRITE,
-                                SPA_PROP_TYPE_BOOL, sizeof (bool),
-                                SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
-                                NULL },
-};
-#endif
 
 static SpaResult
 spa_alsa_source_node_get_props (SpaNode       *node,
                                 SpaProps     **props)
 {
   SpaALSASource *this;
+  SpaPODBuilder b = { NULL,  };
 
   if (node == NULL || props == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaALSASource, node);
 
-  memcpy (&this->props[0], &this->props[1], sizeof (this->props[1]));
-  *props = &this->props[0].props;
+  b.data = this->props_buffer;
+  b.size = sizeof (this->props_buffer);
+
+  *props = SPA_MEMBER (b.data, spa_pod_builder_props (&b,
+           PROP_ID_DEVICE,       SPA_POD_TYPE_STRING,
+                                     this->props.device, sizeof (this->props.device),
+                                 SPA_POD_PROP_FLAG_READWRITE |
+                                 SPA_POD_PROP_RANGE_NONE,
+           PROP_ID_DEVICE_NAME,  SPA_POD_TYPE_STRING,
+                                     this->props.device_name, sizeof (this->props.device_name),
+                                 SPA_POD_PROP_FLAG_READABLE |
+                                 SPA_POD_PROP_RANGE_NONE,
+           PROP_ID_CARD_NAME,    SPA_POD_TYPE_STRING,
+                                     this->props.card_name, sizeof (this->props.card_name),
+                                 SPA_POD_PROP_FLAG_READABLE |
+                                 SPA_POD_PROP_RANGE_NONE,
+           PROP_ID_PERIOD_SIZE,  SPA_POD_TYPE_INT,
+                                     this->props.period_size,
+                                 SPA_POD_PROP_FLAG_READWRITE |
+                                 SPA_POD_PROP_RANGE_MIN_MAX,
+                                     1, INT32_MAX,
+           PROP_ID_PERIODS,      SPA_POD_TYPE_INT,
+                                     this->props.periods,
+                                 SPA_POD_PROP_FLAG_READWRITE |
+                                 SPA_POD_PROP_RANGE_MIN_MAX,
+                                     1, INT32_MAX,
+           PROP_ID_PERIOD_EVENT, SPA_POD_TYPE_BOOL,
+                                    this->props.period_event,
+                                 SPA_POD_PROP_FLAG_READWRITE |
+                                 SPA_POD_PROP_RANGE_NONE,
+           0), SpaProps);
 
   return SPA_RESULT_OK;
 }
@@ -134,23 +114,37 @@ spa_alsa_source_node_set_props (SpaNode         *node,
                               const SpaProps  *props)
 {
   SpaALSASource *this;
-  SpaALSAProps *p;
-  SpaResult res;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaALSASource, node);
-  p = &this->props[1];
 
   if (props == NULL) {
-    reset_alsa_props (p);
+    reset_alsa_props (&this->props);
     return SPA_RESULT_OK;
+  } else {
+    SpaPODProp *pr;
+
+    SPA_POD_OBJECT_BODY_FOREACH (&props->body, props->pod.size, pr) {
+      switch (pr->body.key) {
+        case PROP_ID_DEVICE:
+          strncpy (this->props.device, SPA_POD_CONTENTS (SpaPODProp, pr), 63);
+          break;
+        case PROP_ID_PERIOD_SIZE:
+          this->props.period_size = ((SpaPODInt*)&pr->body.value)->value;
+          break;
+        case PROP_ID_PERIODS:
+          this->props.periods = ((SpaPODInt*)&pr->body.value)->value;
+          break;
+        case PROP_ID_PERIOD_EVENT:
+          this->props.period_event = ((SpaPODBool*)&pr->body.value)->value;
+          break;
+      }
+    }
   }
 
-  //res = spa_props_copy_values (props, &p->props);
-
-  return res;
+  return SPA_RESULT_OK;
 }
 
 static SpaResult
@@ -897,20 +891,15 @@ alsa_source_init (const SpaHandleFactory  *factory,
 
   this->node = alsasource_node;
   this->clock = alsasource_clock;
-#if 0
-  this->props[1].props.n_prop_info = PROP_ID_LAST;
-  this->props[1].props.prop_info = prop_info;
-#endif
   this->stream = SND_PCM_STREAM_CAPTURE;
-  reset_alsa_props (&this->props[1]);
+  reset_alsa_props (&this->props);
 
   spa_list_init (&this->free);
   spa_list_init (&this->ready);
 
   for (i = 0; info && i < info->n_items; i++) {
     if (!strcmp (info->items[i].key, "alsa.card")) {
-      snprintf (this->props[1].device, 63, "hw:%s", info->items[i].value);
-//      this->props[1].props.unset_mask &= ~1;
+      snprintf (this->props.device, 63, "hw:%s", info->items[i].value);
     }
   }
 

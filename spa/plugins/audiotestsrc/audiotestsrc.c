@@ -44,11 +44,10 @@ typedef struct {
 typedef struct _SpaAudioTestSrc SpaAudioTestSrc;
 
 typedef struct {
-  SpaProps props;
+  bool live;
   uint32_t wave;
   double freq;
   double volume;
-  bool live;
 } SpaAudioTestSrcProps;
 
 #define MAX_BUFFERS 16
@@ -74,7 +73,8 @@ struct _SpaAudioTestSrc {
   SpaLog *log;
   SpaLoop *data_loop;
 
-  SpaAudioTestSrcProps props[2];
+  uint8_t props_buffer[512];
+  SpaAudioTestSrcProps props;
 
   SpaNodeEventCallback event_cb;
   void *user_data;
@@ -106,81 +106,29 @@ struct _SpaAudioTestSrc {
 
 #define CHECK_PORT(this,d,p)  ((d) == SPA_DIRECTION_OUTPUT && (p) == 0)
 
-#define DEFAULT_WAVE 0
-#define DEFAULT_VOLUME 1.0
-#define DEFAULT_FREQ 440.0
 #define DEFAULT_LIVE true
-
-#if 0
-static const double min_volume = 0.0;
-static const double max_volume = 10.0;
-static const double min_freq = 0.0;
-static const double max_freq = 50000000.0;
+#define DEFAULT_WAVE 0
+#define DEFAULT_FREQ 440.0
+#define DEFAULT_VOLUME 1.0
 
 static const uint32_t wave_val_sine = 0;
 static const uint32_t wave_val_square = 1;
 
-static const SpaPropRangeInfo volume_range[] = {
-  { "min", { sizeof (double), &min_volume } },
-  { "max", { sizeof (double), &max_volume } },
-};
-
-static const SpaPropRangeInfo wave_range[] = {
-  { "sine", { sizeof (uint32_t), &wave_val_sine } },
-  { "square", { sizeof (uint32_t), &wave_val_square } },
-};
-
-static const SpaPropRangeInfo freq_range[] = {
-  { "min", { sizeof (double), &min_freq } },
-  { "max", { sizeof (double), &max_freq } },
-};
-
 enum {
+  PROP_ID_NONE,
   PROP_ID_LIVE,
   PROP_ID_WAVE,
   PROP_ID_FREQ,
   PROP_ID_VOLUME,
-  PROP_ID_LAST,
 };
 
-static const SpaPropInfo prop_info[] =
-{
-  { PROP_ID_LIVE,              offsetof (SpaAudioTestSrcProps, live),
-                               "live",
-                               SPA_PROP_FLAG_READWRITE,
-                               SPA_PROP_TYPE_BOOL, sizeof (bool),
-                               SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
-                               NULL },
-  { PROP_ID_WAVE,              offsetof (SpaAudioTestSrcProps, wave),
-                               "wave",
-                               SPA_PROP_FLAG_READWRITE,
-                               SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
-                               SPA_PROP_RANGE_TYPE_ENUM, SPA_N_ELEMENTS (wave_range), wave_range,
-                               NULL },
-  { PROP_ID_FREQ,              offsetof (SpaAudioTestSrcProps, freq),
-                               "freq",
-                               SPA_PROP_FLAG_READWRITE,
-                               SPA_PROP_TYPE_DOUBLE, sizeof (double),
-                               SPA_PROP_RANGE_TYPE_MIN_MAX, 2, freq_range,
-                               NULL },
-  { PROP_ID_VOLUME,            offsetof (SpaAudioTestSrcProps, volume),
-                               "volume",
-                               SPA_PROP_FLAG_READWRITE,
-                               SPA_PROP_TYPE_DOUBLE, sizeof (double),
-                               SPA_PROP_RANGE_TYPE_MIN_MAX, 2, volume_range,
-                               NULL },
-};
-#endif
-
-static SpaResult
+static void
 reset_audiotestsrc_props (SpaAudioTestSrcProps *props)
 {
+  props->live = DEFAULT_LIVE;
   props->wave = DEFAULT_WAVE;
   props->freq = DEFAULT_FREQ;
   props->volume = DEFAULT_VOLUME;
-  props->live = DEFAULT_LIVE;
-
-  return SPA_RESULT_OK;
 }
 
 static SpaResult
@@ -188,13 +136,40 @@ spa_audiotestsrc_node_get_props (SpaNode       *node,
                                  SpaProps     **props)
 {
   SpaAudioTestSrc *this;
+  SpaPODBuilder b = { NULL,  };
 
   if (node == NULL || props == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaAudioTestSrc, node);
 
-  memcpy (&this->props[0], &this->props[1], sizeof (this->props[1]));
+  b.data = this->props_buffer;
+  b.size = sizeof (this->props_buffer);
+
+  *props = SPA_MEMBER (b.data, spa_pod_builder_props (&b,
+           PROP_ID_LIVE,      SPA_POD_TYPE_BOOL,
+                                  this->props.live,
+                              SPA_POD_PROP_FLAG_READWRITE |
+                              SPA_POD_PROP_RANGE_NONE,
+           PROP_ID_WAVE,      SPA_POD_TYPE_INT,
+                                  this->props.wave,
+                              SPA_POD_PROP_FLAG_READWRITE |
+                              SPA_POD_PROP_RANGE_ENUM, 2,
+                                  wave_val_sine,
+                                  wave_val_square,
+           PROP_ID_FREQ,      SPA_POD_TYPE_DOUBLE,
+                                  this->props.freq,
+                              SPA_POD_PROP_FLAG_READWRITE |
+                              SPA_POD_PROP_RANGE_MIN_MAX,
+                                  0.0,
+                                  50000000.0,
+           PROP_ID_VOLUME,    SPA_POD_TYPE_DOUBLE,
+                                  this->props.volume,
+                              SPA_POD_PROP_FLAG_READWRITE |
+                              SPA_POD_PROP_RANGE_MIN_MAX,
+                                  0.0,
+                                  10.0,
+           0), SpaProps);
 
   return SPA_RESULT_OK;
 }
@@ -204,27 +179,41 @@ spa_audiotestsrc_node_set_props (SpaNode         *node,
                                  const SpaProps  *props)
 {
   SpaAudioTestSrc *this;
-  SpaAudioTestSrcProps *p;
-  SpaResult res;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaAudioTestSrc, node);
-  p = &this->props[1];
 
   if (props == NULL) {
-    res = reset_audiotestsrc_props (p);
+    reset_audiotestsrc_props (&this->props);
   } else {
-//    res = spa_props_copy_values (props, &p->props);
+    SpaPODProp *pr;
+
+    SPA_POD_OBJECT_BODY_FOREACH (&props->body, props->pod.size, pr) {
+      switch (pr->body.key) {
+        case PROP_ID_LIVE:
+          this->props.live = ((SpaPODBool*)&pr->body.value)->value;
+          break;
+        case PROP_ID_WAVE:
+          this->props.wave = ((SpaPODInt*)&pr->body.value)->value;
+          break;
+        case PROP_ID_FREQ:
+          this->props.freq = ((SpaPODDouble*)&pr->body.value)->value;
+          break;
+        case PROP_ID_VOLUME:
+          this->props.volume = ((SpaPODDouble*)&pr->body.value)->value;
+          break;
+      }
+    }
   }
 
-  if (this->props[1].live)
+  if (this->props.live)
     this->info.flags |= SPA_PORT_INFO_FLAG_LIVE;
   else
     this->info.flags &= ~SPA_PORT_INFO_FLAG_LIVE;
 
-  return res;
+  return SPA_RESULT_OK;
 }
 
 static SpaResult
@@ -258,7 +247,7 @@ static void
 set_timer (SpaAudioTestSrc *this, bool enabled)
 {
   if (enabled) {
-    if (this->props[1].live) {
+    if (this->props.live) {
       uint64_t next_time = this->start_time + this->elapsed_time;
       this->timerspec.it_value.tv_sec = next_time / SPA_NSEC_PER_SEC;
       this->timerspec.it_value.tv_nsec = next_time % SPA_NSEC_PER_SEC;
@@ -346,7 +335,7 @@ spa_audiotestsrc_node_send_command (SpaNode        *node,
         return SPA_RESULT_OK;
 
       clock_gettime (CLOCK_MONOTONIC, &now);
-      if (this->props[1].live)
+      if (this->props.live)
         this->start_time = SPA_TIMESPEC_TO_TIME (&now);
       else
         this->start_time = 0;
@@ -518,7 +507,7 @@ spa_audiotestsrc_node_port_enum_formats (SpaNode          *node,
   if ((res = spa_format_filter (fmt, filter, &b)) != SPA_RESULT_OK)
     return res;
 
-  *format = SPA_MEMBER (this->format_buffer, 0, SpaFormat);
+  *format = SPA_POD_BUILDER_DEREF (&b, 0, SpaFormat);
 
   return SPA_RESULT_OK;
 }
@@ -809,7 +798,7 @@ spa_audiotestsrc_node_port_reuse_buffer (SpaNode         *node,
   b->outstanding = false;
   spa_list_insert (this->empty.prev, &b->link);
 
-  if (!this->props[1].live)
+  if (!this->props.live)
     set_timer (this, true);
 
   return SPA_RESULT_OK;
@@ -989,11 +978,7 @@ audiotestsrc_init (const SpaHandleFactory  *factory,
 
   this->node = audiotestsrc_node;
   this->clock = audiotestsrc_clock;
-#if 0
-  this->props[1].props.n_prop_info = PROP_ID_LAST;
-  this->props[1].props.prop_info = prop_info;
-#endif
-  reset_audiotestsrc_props (&this->props[1]);
+  reset_audiotestsrc_props (&this->props);
 
   spa_list_init (&this->empty);
 
@@ -1009,7 +994,7 @@ audiotestsrc_init (const SpaHandleFactory  *factory,
 
   this->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
                      SPA_PORT_INFO_FLAG_NO_REF;
-  if (this->props[1].live)
+  if (this->props.live)
     this->info.flags |= SPA_PORT_INFO_FLAG_LIVE;
 
   this->node.state = SPA_NODE_STATE_CONFIGURE;

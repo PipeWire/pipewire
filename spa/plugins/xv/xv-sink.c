@@ -35,7 +35,6 @@ typedef struct _SpaXvSink SpaXvSink;
 static const char default_device[] = "/dev/video0";
 
 typedef struct {
-  SpaProps props;
   char device[64];
   char device_name[128];
   int  device_fd;
@@ -82,12 +81,14 @@ struct _SpaXvSink {
   SpaIDMap *map;
   SpaLog *log;
 
-  SpaXvSinkProps props[2];
+  uint8_t props_buffer[512];
+  SpaXvSinkProps props;
 
   SpaNodeEventCallback event_cb;
   void *user_data;
 
   bool have_format;
+  uint8_t format_buffer[1024];
   SpaVideoInfo current_format;
 
   SpaPortInfo info;
@@ -101,35 +102,11 @@ struct _SpaXvSink {
 #include "xv-utils.c"
 
 enum {
+  PROP_ID_NONE,
   PROP_ID_DEVICE,
   PROP_ID_DEVICE_NAME,
   PROP_ID_DEVICE_FD,
-  PROP_ID_LAST,
 };
-
-#if 0
-static const SpaPropInfo prop_info[] =
-{
-  { PROP_ID_DEVICE,             offsetof (SpaXvSinkProps, device),
-                                "device",
-                                SPA_PROP_FLAG_READWRITE,
-                                SPA_PROP_TYPE_STRING, 63,
-                                SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
-                                NULL },
-  { PROP_ID_DEVICE_NAME,        offsetof (SpaXvSinkProps, device_name),
-                                "device-name",
-                                SPA_PROP_FLAG_READABLE,
-                                SPA_PROP_TYPE_STRING, 127,
-                                SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
-                                NULL },
-  { PROP_ID_DEVICE_FD,          offsetof (SpaXvSinkProps, device_fd),
-                                "device-fd",
-                                SPA_PROP_FLAG_READABLE,
-                                SPA_PROP_TYPE_UINT32, sizeof (uint32_t),
-                                SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
-                                NULL },
-};
-#endif
 
 static void
 update_state (SpaXvSink *this, SpaNodeState state)
@@ -142,13 +119,33 @@ spa_xv_sink_node_get_props (SpaNode       *node,
                             SpaProps     **props)
 {
   SpaXvSink *this;
+  SpaPODBuilder b = { NULL,  };
 
   if (node == NULL || props == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaXvSink, node);
 
-  memcpy (&this->props[0], &this->props[1], sizeof (this->props[1]));
+  b.data = this->props_buffer;
+  b.size = sizeof (this->props_buffer);
+
+  *props = SPA_MEMBER (b.data, spa_pod_builder_props (&b,
+
+           PROP_ID_DEVICE,      SPA_POD_TYPE_STRING,
+                                    this->props.device, sizeof (this->props.device),
+                                SPA_POD_PROP_FLAG_READWRITE |
+                                SPA_POD_PROP_RANGE_NONE,
+
+           PROP_ID_DEVICE_NAME, SPA_POD_TYPE_STRING,
+                                    this->props.device_name, sizeof (this->props.device_name),
+                                SPA_POD_PROP_FLAG_READABLE |
+                                SPA_POD_PROP_RANGE_NONE,
+
+           PROP_ID_DEVICE_FD,   SPA_POD_TYPE_INT,
+                                    this->props.device_fd,
+                                SPA_POD_PROP_FLAG_READABLE |
+                                SPA_POD_PROP_RANGE_NONE,
+           0), SpaProps);
 
   return SPA_RESULT_OK;
 }
@@ -158,20 +155,26 @@ spa_xv_sink_node_set_props (SpaNode         *node,
                             const SpaProps  *props)
 {
   SpaXvSink *this;
-  SpaXvSinkProps *p;
-  SpaResult res;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaXvSink, node);
-  p = &this->props[1];
 
   if (props == NULL) {
-    reset_xv_sink_props (p);
-    return SPA_RESULT_OK;
+    reset_xv_sink_props (&this->props);
+  } else {
+    SpaPODProp *pr;
+
+    SPA_POD_OBJECT_BODY_FOREACH (&props->body, props->pod.size, pr) {
+      switch (pr->body.key) {
+        case PROP_ID_DEVICE:
+          strncpy (this->props.device, SPA_POD_CONTENTS (SpaPODProp, pr), 63);
+          break;
+      }
+    }
   }
-  return res;
+  return SPA_RESULT_OK;
 }
 
 static SpaResult
@@ -582,11 +585,7 @@ xv_sink_init (const SpaHandleFactory  *factory,
   this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
 
   this->node = xvsink_node;
-#if 0
-  this->props[1].props.n_prop_info = PROP_ID_LAST;
-  this->props[1].props.prop_info = prop_info;
-#endif
-  reset_xv_sink_props (&this->props[1]);
+  reset_xv_sink_props (&this->props);
 
   this->info.flags = SPA_PORT_INFO_FLAG_NONE;
 

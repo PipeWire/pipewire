@@ -33,7 +33,6 @@
 typedef struct _SpaVolume SpaVolume;
 
 typedef struct {
-  SpaProps props;
   double volume;
   bool mute;
 } SpaVolumeProps;
@@ -75,11 +74,13 @@ struct _SpaVolume {
   SpaIDMap *map;
   SpaLog *log;
 
-  SpaVolumeProps props[2];
+  uint8_t props_buffer[512];
+  SpaVolumeProps props;
 
   SpaNodeEventCallback event_cb;
   void *user_data;
 
+  uint8_t format_buffer[1024];
   SpaAudioInfo current_format;
 
   SpaVolumePort in_ports[1];
@@ -93,38 +94,11 @@ struct _SpaVolume {
 static const double default_volume = 1.0;
 static const bool default_mute = false;
 
-#if 0
-static const double min_volume = 0.0;
-static const double max_volume = 10.0;
-
-static const SpaPropRangeInfo volume_range[] = {
-  { "min", { sizeof (double), &min_volume } },
-  { "max", { sizeof (double), &max_volume } },
-};
-
 enum {
+  PROP_ID_NONE,
   PROP_ID_VOLUME,
   PROP_ID_MUTE,
-  PROP_ID_LAST,
 };
-
-static const SpaPropInfo prop_info[] =
-{
-  { PROP_ID_VOLUME,            offsetof (SpaVolumeProps, volume),
-                               "volume",
-                               SPA_PROP_FLAG_READWRITE,
-                               SPA_PROP_TYPE_DOUBLE, sizeof (double),
-                               SPA_PROP_RANGE_TYPE_MIN_MAX, 2, volume_range,
-                               NULL },
-  { PROP_ID_MUTE,              offsetof (SpaVolumeProps, mute),
-                               "mute",
-                               SPA_PROP_FLAG_READWRITE,
-                               SPA_PROP_TYPE_BOOL, sizeof (bool),
-                               SPA_PROP_RANGE_TYPE_NONE, 0, NULL,
-                               NULL },
-};
-
-#endif
 
 static void
 reset_volume_props (SpaVolumeProps *props)
@@ -144,14 +118,28 @@ spa_volume_node_get_props (SpaNode        *node,
                            SpaProps     **props)
 {
   SpaVolume *this;
+  SpaPODBuilder b = { NULL,  };
 
   if (node == NULL || props == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaVolume, node);
 
-  memcpy (&this->props[0], &this->props[1], sizeof (this->props[1]));
-  *props = &this->props[0].props;
+  b.data = this->props_buffer;
+  b.size = sizeof (this->props_buffer);
+
+  *props = SPA_MEMBER (b.data, spa_pod_builder_props (&b,
+           PROP_ID_VOLUME,    SPA_POD_TYPE_DOUBLE,
+                                  this->props.volume,
+                              SPA_POD_PROP_FLAG_READWRITE |
+                              SPA_POD_PROP_RANGE_MIN_MAX,
+                                  0.0,
+                                  10.0,
+           PROP_ID_MUTE,      SPA_POD_TYPE_BOOL,
+                                  this->props.mute,
+                              SPA_POD_PROP_FLAG_READWRITE |
+                              SPA_POD_PROP_RANGE_NONE,
+           0), SpaProps);
 
   return SPA_RESULT_OK;
 }
@@ -161,22 +149,29 @@ spa_volume_node_set_props (SpaNode          *node,
                            const SpaProps  *props)
 {
   SpaVolume *this;
-  SpaVolumeProps *p;
-  SpaResult res;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaVolume, node);
-  p = &this->props[1];
 
   if (props == NULL) {
-    reset_volume_props (p);
-    return SPA_RESULT_OK;
-  }
-  //res = spa_props_copy_values (props, &p->props);
+    reset_volume_props (&this->props);
+  } else {
+    SpaPODProp *pr;
 
-  return res;
+    SPA_POD_OBJECT_BODY_FOREACH (&props->body, props->pod.size, pr) {
+      switch (pr->body.key) {
+        case PROP_ID_VOLUME:
+          this->props.volume = ((SpaPODDouble*)&pr->body.value)->value;
+          break;
+        case PROP_ID_MUTE:
+          this->props.mute = ((SpaPODBool*)&pr->body.value)->value;
+          break;
+      }
+    }
+  }
+  return SPA_RESULT_OK;
 }
 
 static SpaResult
@@ -334,10 +329,14 @@ spa_volume_node_port_enum_formats (SpaNode          *node,
       return SPA_RESULT_ENUM_END;
   }
 
-  if ((res = spa_format_filter (fmt, filter, NULL)) != SPA_RESULT_OK)
+  b.data = this->format_buffer;
+  b.size = sizeof (this->format_buffer);
+  b.offset = 0;
+
+  if ((res = spa_format_filter (fmt, filter, &b)) != SPA_RESULT_OK)
     return res;
 
-  *format = NULL;
+  *format = SPA_POD_BUILDER_DEREF (&b, 0, SpaFormat);
 
   return SPA_RESULT_OK;
 }
@@ -671,7 +670,7 @@ do_volume (SpaVolume *this, SpaBuffer *dbuf, SpaBuffer *sbuf)
   uint16_t *src, *dst;
   double volume;
 
-  volume = this->props[1].volume;
+  volume = this->props.volume;
 
   si = di = 0;
   soff = doff = 0;
@@ -852,11 +851,7 @@ volume_init (const SpaHandleFactory  *factory,
   this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
 
   this->node = volume_node;
-#if 0
-  this->props[1].props.n_prop_info = PROP_ID_LAST;
-  this->props[1].props.prop_info = prop_info;
-#endif
-  reset_volume_props (&this->props[1]);
+  reset_volume_props (&this->props);
 
   this->in_ports[0].info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
                                  SPA_PORT_INFO_FLAG_IN_PLACE;

@@ -63,10 +63,12 @@ void          pinos_log_logv      (SpaLogLevel  level,
 
 #else
 
+#include <stdarg.h>
+
 #define PINOS_LOG_FUNC(name,lev)                                                \
 static inline void pinos_log_##name (const char *format, ...)                   \
 {                                                                               \
-  if (SPA_UNLIKELY (pinos_log_level_enabled (lev)))                             \
+  if (SPA_UNLIKELY (pinos_log_level_enabled (lev))) {                           \
     va_list varargs;                                                            \
     va_start (varargs, format);                                                 \
     pinos_log_logv (lev,__FILE__,__LINE__,__func__,format,varargs);             \

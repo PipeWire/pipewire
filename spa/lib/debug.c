@@ -424,6 +424,9 @@ print_pod_value (uint32_t size, uint32_t type, void *body, int prefix)
       }
       break;
     }
+    default:
+      printf ("unhandled prop type %d\n", type);
+      break;
   }
 }
 

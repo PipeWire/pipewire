@@ -55,14 +55,18 @@ spa_pod_builder_init (SpaPODBuilder *builder,
 }
 
 static inline bool
-spa_pod_builder_in_array (SpaPODBuilder *builder)
+spa_pod_builder_in_array (SpaPODBuilder *builder, bool *first)
 {
   SpaPODFrame *f;
   if ((f = builder->stack)) {
-    if (f->pod.type == SPA_POD_TYPE_ARRAY && f->pod.size > 0)
+    if (f->pod.type == SPA_POD_TYPE_ARRAY) {
+      *first = f->pod.size == 0;
       return true;
-    if (f->pod.type == SPA_POD_TYPE_PROP && f->pod.size > (sizeof (SpaPODPropBody) - sizeof(SpaPOD)))
+    }
+    if (f->pod.type == SPA_POD_TYPE_PROP) {
+      *first = f->pod.size == (sizeof (SpaPODPropBody) - sizeof(SpaPOD));
       return true;
+    }
   }
   return false;
 }
@@ -83,12 +87,12 @@ spa_pod_builder_push (SpaPODBuilder *builder,
 static inline void
 spa_pod_builder_advance (SpaPODBuilder *builder, uint32_t size, bool pad)
 {
-  SpaPODFrame *f;
-
   if (pad)
-    size += SPA_ROUND_UP_N (builder->offset, 8) - builder->offset;
+    size = SPA_ROUND_UP_N (size, 8);
 
   if (size > 0) {
+    SpaPODFrame *f;
+
     builder->offset += size;
     for (f = builder->stack; f; f = f->parent)
       f->pod.size += size;
@@ -106,7 +110,7 @@ spa_pod_builder_pop (SpaPODBuilder *builder,
       memcpy (builder->data + frame->ref, &frame->pod, sizeof(SpaPOD));
   }
   builder->stack = frame->parent;
-  spa_pod_builder_advance (builder, 0, true);
+  spa_pod_builder_advance (builder, SPA_ROUND_UP_N(builder->offset, 8) - builder->offset, false);
 }
 
 static inline off_t
@@ -151,18 +155,17 @@ spa_pod_builder_primitive (SpaPODBuilder *builder, const SpaPOD *p)
 {
   const void *data;
   size_t size;
-  bool pad;
+  bool in_array, first = false;
 
-  if (spa_pod_builder_in_array (builder)) {
+  in_array = spa_pod_builder_in_array (builder, &first);
+  if (in_array && !first) {
     data = SPA_POD_BODY_CONST (p);
     size = SPA_POD_BODY_SIZE (p);
-    pad = false;
   } else {
     data = p;
     size = SPA_POD_SIZE (p);
-    pad = true;
   }
-  return spa_pod_builder_raw (builder, data, size, pad);
+  return spa_pod_builder_raw (builder, data, size, !in_array);
 }
 
 static inline off_t
@@ -182,7 +185,7 @@ spa_pod_builder_uri (SpaPODBuilder *builder, uint32_t val)
 static inline off_t
 spa_pod_builder_int (SpaPODBuilder *builder, int32_t val)
 {
-  const SpaPODInt p = { { sizeof (val), SPA_POD_TYPE_INT }, val };
+  const SpaPODInt p = { { sizeof (uint32_t), SPA_POD_TYPE_INT }, val };
   return spa_pod_builder_primitive (builder, &p.pod);
 }
 

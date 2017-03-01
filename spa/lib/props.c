@@ -156,6 +156,52 @@ compare_value (SpaPODType type, const void *r1, const void *r2)
   return 0;
 }
 
+static void
+fix_default (SpaPODProp *prop)
+{
+  void *val = SPA_MEMBER (prop, sizeof (SpaPODProp), void),
+       *alt = SPA_MEMBER (val, prop->body.value.size, void);
+  int i, nalt = SPA_POD_PROP_N_VALUES (prop) - 1;
+
+  switch (prop->body.flags & SPA_POD_PROP_RANGE_MASK) {
+    case SPA_POD_PROP_RANGE_NONE:
+      break;
+    case SPA_POD_PROP_RANGE_MIN_MAX:
+    case SPA_POD_PROP_RANGE_STEP:
+      if (compare_value (prop->body.value.type, val, alt) < 0)
+        memcpy (val, alt, prop->body.value.size);
+      alt = SPA_MEMBER (alt, prop->body.value.size, void);
+      if (compare_value (prop->body.value.type, val, alt) > 0)
+        memcpy (val, alt, prop->body.value.size);
+      break;
+    case SPA_POD_PROP_RANGE_ENUM:
+    {
+      void *best = NULL;
+
+      for (i = 0; i < nalt; i++) {
+        if (compare_value (prop->body.value.type, val, alt) == 0) {
+          best = alt;
+          break;
+        }
+        if (best == NULL)
+          best = alt;
+        alt = SPA_MEMBER (alt, prop->body.value.size, void);
+      }
+      if (best)
+        memcpy (val, best, prop->body.value.size);
+
+      if (nalt == 1) {
+        prop->body.flags &= ~SPA_POD_PROP_FLAG_UNSET;
+        prop->body.flags &= ~SPA_POD_PROP_RANGE_MASK;
+        prop->body.flags |= SPA_POD_PROP_RANGE_NONE;
+      }
+      break;
+    }
+    case SPA_POD_PROP_RANGE_FLAGS:
+      break;
+  }
+}
+
 static inline SpaPODProp *
 find_prop (const SpaPOD *pod, uint32_t size, uint32_t key)
 {
@@ -244,10 +290,7 @@ spa_props_filter (SpaPODBuilder  *b,
       }
       if (n_copied == 0)
         return SPA_RESULT_NO_FORMAT;
-      if (n_copied == 1)
-        np->body.flags |= SPA_POD_PROP_RANGE_NONE;
-      else
-        np->body.flags |= SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET;
+      np->body.flags |= SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET;
     }
 
     if ((rt1 == SPA_POD_PROP_RANGE_NONE && rt2 == SPA_POD_PROP_RANGE_MIN_MAX) ||
@@ -264,10 +307,7 @@ spa_props_filter (SpaPODBuilder  *b,
       }
       if (n_copied == 0)
         return SPA_RESULT_NO_FORMAT;
-      if (n_copied == 1)
-        np->body.flags |= SPA_POD_PROP_RANGE_NONE;
-      else
-        np->body.flags |= SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET;
+      np->body.flags |= SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET;
     }
 
     if ((rt1 == SPA_POD_PROP_RANGE_NONE && rt2 == SPA_POD_PROP_RANGE_STEP) ||
@@ -289,10 +329,7 @@ spa_props_filter (SpaPODBuilder  *b,
       }
       if (n_copied == 0)
         return SPA_RESULT_NO_FORMAT;
-      if (n_copied == 1)
-        np->body.flags |= SPA_POD_PROP_RANGE_NONE;
-      else
-        np->body.flags |= SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET;
+      np->body.flags |= SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET;
     }
 
     if (rt1 == SPA_POD_PROP_RANGE_MIN_MAX && rt2 == SPA_POD_PROP_RANGE_MIN_MAX) {
@@ -348,6 +385,7 @@ spa_props_filter (SpaPODBuilder  *b,
       return SPA_RESULT_NOT_IMPLEMENTED;
 
     spa_pod_builder_pop (b, &f);
+    fix_default (np);
   }
   return SPA_RESULT_OK;
 }

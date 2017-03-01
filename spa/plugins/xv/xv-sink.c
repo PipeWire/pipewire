@@ -126,8 +126,7 @@ spa_xv_sink_node_get_props (SpaNode       *node,
 
   this = SPA_CONTAINER_OF (node, SpaXvSink, node);
 
-  b.data = this->props_buffer;
-  b.size = sizeof (this->props_buffer);
+  spa_pod_builder_init (&b, this->props_buffer, sizeof (this->props_buffer));
 
   *props = SPA_MEMBER (b.data, spa_pod_builder_props (&b,
 

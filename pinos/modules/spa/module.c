@@ -34,7 +34,7 @@ static SpaResult
 setup_video_node (SpaNode *spa_node, PinosProperties *pinos_props) {
   SpaResult res;
   SpaProps *props;
-//  SpaPropValue value;
+  SpaPODProp *prop;
   const char *pattern;
   uint32_t pattern_int;
 
@@ -49,15 +49,15 @@ setup_video_node (SpaNode *spa_node, PinosProperties *pinos_props) {
     return SPA_RESULT_ERROR;
   }
 
-////  value.value = &pattern_int;
-//  value.size = sizeof(uint32_t);
-
   if ((res = spa_node_get_props (spa_node, &props)) != SPA_RESULT_OK) {
     pinos_log_debug ("spa_node_get_props failed: %d", res);
     return SPA_RESULT_ERROR;
   }
 
-//  spa_props_set_value (props, spa_props_index_for_name (props, "pattern"), &value);
+  if ((prop = spa_pod_object_find_prop (props, 2))) {
+   if (prop->body.value.type == SPA_POD_TYPE_INT)
+     ((SpaPODInt*)&prop->body.value)->value = pattern_int;
+  }
 
   if ((res = spa_node_set_props (spa_node, props)) != SPA_RESULT_OK) {
     pinos_log_debug ("spa_node_set_props failed: %d", res);

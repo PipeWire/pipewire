@@ -99,7 +99,6 @@ do_negotiate (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
                                    NULL,
                                    &error);
   if (format == NULL) {
-    asprintf (&error, "no common format found");
     goto error;
   }
 

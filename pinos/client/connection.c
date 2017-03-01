@@ -29,7 +29,7 @@
 #include "serialize.h"
 #include "log.h"
 
-#define MAX_BUFFER_SIZE 4096
+#define MAX_BUFFER_SIZE 1024
 #define MAX_FDS 28
 
 typedef struct {
@@ -1004,9 +1004,6 @@ refill_buffer (PinosConnection *conn, ConnectionBuffer *buf)
     }
     break;
   }
-
-  if (len < 8)
-    return false;
 
   buf->buffer_size += len;
 

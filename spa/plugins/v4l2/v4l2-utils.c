@@ -452,7 +452,7 @@ spa_v4l2_enum_format (SpaV4l2Source   *this,
                       unsigned int     index)
 {
   SpaV4l2State *state = &this->state[0];
-  int res;
+  int res, n_fractions;
   const FormatInfo *info;
   SpaPODFrame f[2];
   SpaPODProp *prop;
@@ -631,7 +631,7 @@ have_size:
                                                 SPA_POD_PROP_FLAG_UNSET |
                                                 SPA_POD_PROP_FLAG_READWRITE),
                      SpaPODProp);
-  spa_pod_builder_fraction (&b, 25, 1);
+  n_fractions = 0;
 
   state->frmival.index = 0;
 
@@ -694,12 +694,18 @@ have_framerate:
 
     if (state->frmival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
       prop->body.flags |= SPA_POD_PROP_RANGE_ENUM;
+      if (n_fractions == 0)
+        spa_pod_builder_fraction (&b,
+                                  state->frmival.discrete.denominator,
+                                  state->frmival.discrete.numerator);
       spa_pod_builder_fraction (&b,
                                 state->frmival.discrete.denominator,
                                 state->frmival.discrete.numerator);
       state->frmival.index++;
     } else if (state->frmival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS ||
                state->frmival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
+      if (n_fractions == 0)
+        spa_pod_builder_fraction (&b, 25, 1);
       spa_pod_builder_fraction (&b,
                                 state->frmival.stepwise.min.denominator,
                                 state->frmival.stepwise.min.numerator);
@@ -717,6 +723,7 @@ have_framerate:
       }
       break;
     }
+    n_fractions++;
   }
   spa_pod_builder_pop (&b, &f[1]);
   spa_pod_builder_pop (&b, &f[0]);

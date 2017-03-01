@@ -74,8 +74,7 @@ spa_alsa_sink_node_get_props (SpaNode       *node,
 
   this = SPA_CONTAINER_OF (node, SpaALSASink, node);
 
-  b.data = this->props_buffer;
-  b.size = sizeof (this->props_buffer);
+  spa_pod_builder_init (&b, this->props_buffer, sizeof (this->props_buffer));
 
   *props = SPA_MEMBER (b.data, spa_pod_builder_props (&b,
            PROP_ID_DEVICE,       SPA_POD_TYPE_STRING,
@@ -329,7 +328,7 @@ spa_alsa_sink_node_port_enum_formats (SpaNode         *node,
   SpaResult res;
   SpaFormat *fmt;
   uint8_t buffer[1024];
-  SpaPODBuilder b = { buffer, sizeof (buffer), };
+  SpaPODBuilder b = { NULL, };
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -339,7 +338,10 @@ spa_alsa_sink_node_port_enum_formats (SpaNode         *node,
   if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
 
-  switch (index) {
+next:
+  spa_pod_builder_init (&b, buffer, sizeof (buffer));
+
+  switch (index++) {
     case 0:
       fmt = SPA_MEMBER (buffer, spa_pod_builder_format (&b,
          SPA_MEDIA_TYPE_AUDIO, SPA_MEDIA_SUBTYPE_RAW,
@@ -370,12 +372,10 @@ spa_alsa_sink_node_port_enum_formats (SpaNode         *node,
       return SPA_RESULT_ENUM_END;
   }
 
-  b.data = this->format_buffer;
-  b.size = sizeof (this->format_buffer);
-  b.offset = 0;
+  spa_pod_builder_init (&b, this->format_buffer, sizeof (this->format_buffer));
 
   if ((res = spa_format_filter (fmt, filter, &b)) != SPA_RESULT_OK)
-    return res;
+    goto next;
 
   *format = SPA_MEMBER (b.data, 0, SpaFormat);
 

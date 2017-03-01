@@ -43,6 +43,17 @@ typedef struct _SpaPODBuilder {
 
 #define SPA_POD_BUILDER_DEREF(b,ref,type)    SPA_MEMBER ((b)->data, (ref), type)
 
+static inline void
+spa_pod_builder_init (SpaPODBuilder *builder,
+                      void          *data,
+                      size_t         size)
+{
+  builder->data = data;
+  builder->size = size;
+  builder->offset = 0;
+  builder->stack = NULL;
+}
+
 static inline bool
 spa_pod_builder_in_array (SpaPODBuilder *builder)
 {

@@ -318,8 +318,8 @@ struct pod_type_name {
 } pod_type_names[] = {
   { "invalid", "*Invalid*" },
   { "bool", "Bool" },
-  { "int", "Int" },
   { "uri", "URI" },
+  { "int", "Int" },
   { "long", "Long" },
   { "float", "Float" },
   { "double", "Double" },
@@ -341,11 +341,11 @@ print_pod_value (uint32_t size, uint32_t type, void *body, int prefix)
     case SPA_POD_TYPE_BOOL:
       printf ("%-*sBool %d\n", prefix, "", *(int32_t *) body);
       break;
-    case SPA_POD_TYPE_INT:
-      printf ("%-*sInt %d\n", prefix, "", *(int32_t *) body);
-      break;
     case SPA_POD_TYPE_URI:
       printf ("%-*sURI %d\n", prefix, "", *(int32_t *) body);
+      break;
+    case SPA_POD_TYPE_INT:
+      printf ("%-*sInt %d\n", prefix, "", *(int32_t *) body);
       break;
     case SPA_POD_TYPE_LONG:
       printf ("%-*sLong %"PRIi64"\n", prefix, "", *(int64_t *) body);
@@ -441,10 +441,10 @@ print_format_value (uint32_t size, uint32_t type, void *body)
     case SPA_POD_TYPE_BOOL:
       fprintf (stderr, "%s", *(int32_t *) body ? "true" : "false");
       break;
-    case SPA_POD_TYPE_INT:
+    case SPA_POD_TYPE_URI:
       fprintf (stderr, "%"PRIi32, *(int32_t *) body);
       break;
-    case SPA_POD_TYPE_URI:
+    case SPA_POD_TYPE_INT:
       fprintf (stderr, "%"PRIi32, *(int32_t *) body);
       break;
     case SPA_POD_TYPE_LONG:

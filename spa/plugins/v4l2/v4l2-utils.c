@@ -741,28 +741,62 @@ spa_v4l2_set_format (SpaV4l2Source *this, SpaVideoInfo *f, bool try_only)
   struct v4l2_format reqfmt, fmt;
   struct v4l2_streamparm streamparm;
   const FormatInfo *info = NULL;
+  SpaVideoFormat video_format;
+  SpaRectangle *size = NULL;
+  SpaFraction *framerate = NULL;
 
   CLEAR (fmt);
   CLEAR (streamparm);
   fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   streamparm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
+  switch (f->media_subtype) {
+    case SPA_MEDIA_SUBTYPE_RAW:
+      video_format = f->info.raw.format;
+      size = &f->info.raw.size;
+      framerate = &f->info.raw.framerate;
+      break;
+    case SPA_MEDIA_SUBTYPE_MJPG:
+    case SPA_MEDIA_SUBTYPE_JPEG:
+      video_format = SPA_VIDEO_FORMAT_ENCODED;
+      size = &f->info.mjpg.size;
+      framerate = &f->info.mjpg.framerate;
+      break;
+    case SPA_MEDIA_SUBTYPE_H264:
+      video_format = SPA_VIDEO_FORMAT_ENCODED;
+      size = &f->info.h264.size;
+      framerate = &f->info.h264.framerate;
+      break;
+    case SPA_MEDIA_SUBTYPE_DV:
+    case SPA_MEDIA_SUBTYPE_MPEGTS:
+    case SPA_MEDIA_SUBTYPE_MPEG1:
+    case SPA_MEDIA_SUBTYPE_MPEG2:
+    case SPA_MEDIA_SUBTYPE_MPEG4:
+    case SPA_MEDIA_SUBTYPE_XVID:
+    case SPA_MEDIA_SUBTYPE_VC1:
+    case SPA_MEDIA_SUBTYPE_VP8:
+    default:
+      video_format = SPA_VIDEO_FORMAT_ENCODED;
+      break;
+  }
+
   info = find_format_info_by_media_type (f->media_type,
                                          f->media_subtype,
-                                         f->info.raw.format,
+                                         video_format,
                                          0);
-  if (info == NULL) {
+  if (info == NULL || size == NULL || framerate == NULL) {
     spa_log_error (state->log, "v4l2: unknown media type %d %d %d", f->media_type,
-        f->media_subtype, f->info.raw.format);
+        f->media_subtype, video_format);
     return -1;
   }
 
+
   fmt.fmt.pix.pixelformat = info->fourcc;
   fmt.fmt.pix.field = V4L2_FIELD_ANY;
-  fmt.fmt.pix.width = f->info.raw.size.width;
-  fmt.fmt.pix.height = f->info.raw.size.height;
-  streamparm.parm.capture.timeperframe.numerator = f->info.raw.framerate.denom;
-  streamparm.parm.capture.timeperframe.denominator = f->info.raw.framerate.num;
+  fmt.fmt.pix.width = size->width;
+  fmt.fmt.pix.height = size->height;
+  streamparm.parm.capture.timeperframe.numerator = framerate->denom;
+  streamparm.parm.capture.timeperframe.denominator = framerate->num;
 
   spa_log_info (state->log, "v4l2: set %08x %dx%d %d/%d", fmt.fmt.pix.pixelformat,
       fmt.fmt.pix.width, fmt.fmt.pix.height,
@@ -797,10 +831,10 @@ spa_v4l2_set_format (SpaV4l2Source *this, SpaVideoInfo *f, bool try_only)
   if (try_only)
     return 0;
 
-  f->info.raw.size.width = fmt.fmt.pix.width;
-  f->info.raw.size.height = fmt.fmt.pix.height;
-  f->info.raw.framerate.num = streamparm.parm.capture.timeperframe.denominator;
-  f->info.raw.framerate.denom = streamparm.parm.capture.timeperframe.numerator;
+  size->width = fmt.fmt.pix.width;
+  size->height = fmt.fmt.pix.height;
+  framerate->num = streamparm.parm.capture.timeperframe.denominator;
+  framerate->denom = streamparm.parm.capture.timeperframe.numerator;
 
   state->fmt = fmt;
   state->info.flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS |

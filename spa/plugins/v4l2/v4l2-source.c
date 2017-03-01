@@ -561,6 +561,7 @@ spa_v4l2_source_node_port_get_format (SpaNode          *node,
   SpaV4l2Source *this;
   SpaV4l2State *state;
   SpaPODBuilder b = { NULL, };
+  SpaPODFrame f;
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -578,8 +579,14 @@ spa_v4l2_source_node_port_get_format (SpaNode          *node,
   b.data = state->format_buffer;
   b.size = sizeof (state->format_buffer);
 
-  *format = SPA_MEMBER (b.data, spa_pod_builder_format (&b,
-         SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW,
+  *format = SPA_POD_BUILDER_DEREF (&b, spa_pod_builder_push_format (&b, &f,
+                                           state->current_format.media_type,
+                                           state->current_format.media_subtype),
+                                   SpaFormat);
+
+  switch (state->current_format.media_subtype) {
+    case SPA_MEDIA_SUBTYPE_RAW:
+      spa_pod_builder_prop (&b,
            SPA_PROP_ID_VIDEO_FORMAT,    SPA_POD_TYPE_INT,
                                                 state->current_format.info.raw.format,
                                         SPA_POD_PROP_FLAG_READWRITE,
@@ -591,7 +598,45 @@ spa_v4l2_source_node_port_get_format (SpaNode          *node,
                                                 state->current_format.info.raw.framerate.num,
                                                 state->current_format.info.raw.framerate.denom,
                                         SPA_POD_PROP_FLAG_READWRITE,
-           0), SpaFormat);
+           0);
+      break;
+    case SPA_MEDIA_SUBTYPE_MJPG:
+    case SPA_MEDIA_SUBTYPE_JPEG:
+      spa_pod_builder_prop (&b,
+           SPA_PROP_ID_VIDEO_SIZE,      SPA_POD_TYPE_RECTANGLE,
+                                                state->current_format.info.mjpg.size.width,
+                                                state->current_format.info.mjpg.size.height,
+                                        SPA_POD_PROP_FLAG_READWRITE,
+           SPA_PROP_ID_VIDEO_FRAMERATE, SPA_POD_TYPE_FRACTION,
+                                                state->current_format.info.mjpg.framerate.num,
+                                                state->current_format.info.mjpg.framerate.denom,
+                                        SPA_POD_PROP_FLAG_READWRITE,
+           0);
+      break;
+    case SPA_MEDIA_SUBTYPE_H264:
+      spa_pod_builder_prop (&b,
+           SPA_PROP_ID_VIDEO_SIZE,      SPA_POD_TYPE_RECTANGLE,
+                                                state->current_format.info.h264.size.width,
+                                                state->current_format.info.h264.size.height,
+                                        SPA_POD_PROP_FLAG_READWRITE,
+           SPA_PROP_ID_VIDEO_FRAMERATE, SPA_POD_TYPE_FRACTION,
+                                                state->current_format.info.h264.framerate.num,
+                                                state->current_format.info.h264.framerate.denom,
+                                        SPA_POD_PROP_FLAG_READWRITE,
+           0);
+      break;
+    case SPA_MEDIA_SUBTYPE_DV:
+    case SPA_MEDIA_SUBTYPE_MPEGTS:
+    case SPA_MEDIA_SUBTYPE_MPEG1:
+    case SPA_MEDIA_SUBTYPE_MPEG2:
+    case SPA_MEDIA_SUBTYPE_MPEG4:
+    case SPA_MEDIA_SUBTYPE_XVID:
+    case SPA_MEDIA_SUBTYPE_VC1:
+    case SPA_MEDIA_SUBTYPE_VP8:
+    default:
+      return SPA_RESULT_NO_FORMAT;
+  }
+  spa_pod_builder_pop (&b, &f);
 
   return SPA_RESULT_OK;
 }

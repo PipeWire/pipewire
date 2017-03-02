@@ -236,7 +236,7 @@ spa_props_filter (SpaPODBuilder  *b,
         (rt1 == SPA_POD_PROP_RANGE_MIN_MAX && rt2 == SPA_POD_PROP_RANGE_ENUM)) {
       int n_copied = 0;
       /* copy all values inside the range */
-      for (k = 0, a1 = alt2, a2 = alt2; k < nalt2; k++, a2 += p2->body.value.size) {
+      for (k = 0, a1 = alt1, a2 = alt2; k < nalt2; k++, a2 += p2->body.value.size) {
         if (compare_value (p1->body.value.type, a2, a1) < 0)
           continue;
         if (compare_value (p1->body.value.type, a2, a1 + p1->body.value.size) > 0)

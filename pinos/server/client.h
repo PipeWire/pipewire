@@ -28,6 +28,7 @@ typedef struct _PinosClient PinosClient;
 
 #include <sys/socket.h>
 
+#include <pinos/client/introspect.h>
 #include <pinos/client/properties.h>
 #include <pinos/client/sig.h>
 
@@ -52,8 +53,11 @@ struct _PinosClient {
   PinosGlobal *global;
 
   PinosProperties *properties;
+  PinosClientInfo  info;
   bool             ucred_valid;
   struct ucred     ucred;
+
+  void *protocol_private;
 
   PinosResource *core_resource;
 
@@ -75,21 +79,6 @@ PinosClient *   pinos_client_new                  (PinosCore       *core,
                                                    struct ucred    *ucred,
                                                    PinosProperties *properties);
 void            pinos_client_destroy              (PinosClient     *client);
-
-void            pinos_client_set_send             (PinosClient     *client,
-                                                   PinosSendFunc    func,
-                                                   void            *data);
-
-SpaResult       pinos_client_send_message         (PinosClient     *client,
-                                                   PinosResource   *resource,
-                                                   uint32_t         opcode,
-                                                   void            *message,
-                                                   bool             flush);
-
-SpaResult       pinos_client_send_error           (PinosClient     *client,
-                                                   PinosResource   *resource,
-                                                   SpaResult        res,
-                                                   const char      *message, ...);
 
 void            pinos_client_update_properties    (PinosClient     *client,
                                                    const SpaDict   *dict);

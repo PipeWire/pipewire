@@ -29,6 +29,7 @@
 
 
 #include "pinos/client/pinos.h"
+#include "pinos/client/interfaces.h"
 #include "pinos/client/utils.h"
 #include "pinos/server/module.h"
 
@@ -37,7 +38,6 @@
 typedef struct
 {
   PinosModule this;
-
   void *hnd;
 } PinosModuleImpl;
 
@@ -91,23 +91,6 @@ find_module (const char * path, const char *name)
 }
 
 static SpaResult
-module_dispatch_func (void             *object,
-                      PinosMessageType  type,
-                      void             *message,
-                      void             *data)
-{
-  PinosResource *resource = object;
-  PinosModule *module = resource->object;
-
-  switch (type) {
-    default:
-      pinos_log_warn ("module %p: unhandled message %d", module, type);
-      break;
-  }
-  return SPA_RESULT_OK;
-}
-
-static SpaResult
 module_bind_func (PinosGlobal *global,
                   PinosClient *client,
                   uint32_t     version,
@@ -115,8 +98,6 @@ module_bind_func (PinosGlobal *global,
 {
   PinosModule *this = global->object;
   PinosResource *resource;
-  PinosMessageModuleInfo m;
-  PinosModuleInfo info;
 
   resource = pinos_resource_new (client,
                                  id,
@@ -126,28 +107,16 @@ module_bind_func (PinosGlobal *global,
   if (resource == NULL)
     goto no_mem;
 
-  pinos_resource_set_dispatch (resource,
-                               module_dispatch_func,
-                               global);
-
   pinos_log_debug ("module %p: bound to %d", global->object, resource->id);
 
-  m.info = &info;
-  info.id = global->id;
-  info.change_mask = ~0;
-  info.name = this->name;
-  info.filename = this->filename;
-  info.args = this->args;
-  info.props = NULL;
+  this->info.change_mask = ~0;
+  pinos_module_notify_info (resource, &this->info);
 
-  return pinos_client_send_message (client,
-                                    resource,
-                                    PINOS_MESSAGE_MODULE_INFO,
-                                    &m,
-                                    true);
+  return SPA_RESULT_OK;
+
 no_mem:
-  pinos_client_send_error (client,
-                           client->core_resource,
+  pinos_core_notify_error (client->core_resource,
+                           client->core_resource->id,
                            SPA_RESULT_NO_MEMORY,
                            "no memory");
   return SPA_RESULT_NO_MEMORY;
@@ -217,15 +186,10 @@ pinos_module_load (PinosCore    *core,
   impl->hnd = hnd;
 
   this = &impl->this;
-  this->name = name ? strdup (name) : NULL;
-  this->filename = filename;
-  this->args = args ? strdup (args) : NULL;
   this->core = core;
 
   if (!init_func (this, (char *) args))
     goto init_failed;
-
-  pinos_log_debug ("loaded module: %s", this->name);
 
   this->global = pinos_core_add_global (core,
                                         NULL,
@@ -233,6 +197,14 @@ pinos_module_load (PinosCore    *core,
                                         0,
                                         impl,
                                         module_bind_func);
+
+  this->info.id = this->global->id;
+  this->info.name = name ? strdup (name) : NULL;
+  this->info.filename = filename;
+  this->info.args = args ? strdup (args) : NULL;
+  this->info.props = NULL;
+
+  pinos_log_debug ("loaded module: %s", this->info.name);
 
   return this;
 
@@ -270,12 +242,12 @@ pinos_module_destroy (PinosModule *this)
 
   pinos_signal_emit (&this->destroy_signal, this);
 
-  if (this->name)
-    free (this->name);
-  if (this->filename)
-    free (this->filename);
-  if (this->args)
-    free (this->args);
+  if (this->info.name)
+    free ((char*)this->info.name);
+  if (this->info.filename)
+    free ((char*)this->info.filename);
+  if (this->info.args)
+    free ((char*)this->info.args);
   dlclose (impl->hnd);
   free (impl);
 }

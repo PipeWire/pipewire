@@ -30,6 +30,8 @@ extern "C" {
 #include <spa/port.h>
 #include <spa/node.h>
 
+#include <pinos/client/interfaces.h>
+
 typedef struct _PinosConnection PinosConnection;
 
 typedef enum {
@@ -253,7 +255,7 @@ typedef struct {
   SpaDirection        direction;
   uint32_t            port_id;
   SpaPortFormatFlags  flags;
-  SpaFormat          *format;
+  const SpaFormat    *format;
 } PinosMessageSetFormat;
 
 /* PINOS_MESSAGE_SET_PROPERTY */
@@ -295,20 +297,13 @@ typedef struct {
   size_t       size;
 } PinosMessageAddMem;
 
-typedef struct {
-  SpaBuffer  *buffer;
-  uint32_t    mem_id;
-  off_t       offset;
-  size_t      size;
-} PinosMessageBuffer;
-
 /* PINOS_MESSAGE_USE_BUFFERS */
 typedef struct {
   uint32_t            seq;
   SpaDirection        direction;
   uint32_t            port_id;
   unsigned int        n_buffers;
-  PinosMessageBuffer *buffers;
+  PinosClientNodeBuffer *buffers;
 } PinosMessageUseBuffers;
 
 PinosConnection *  pinos_connection_new             (int              fd);
@@ -318,15 +313,15 @@ bool               pinos_connection_get_next        (PinosConnection  *conn,
                                                      PinosMessageType *type,
                                                      uint32_t         *dest_id,
                                                      size_t           *size);
-bool               pinos_connection_parse_message   (PinosConnection *conn,
-                                                     void            *msg);
-bool               pinos_connection_add_message     (PinosConnection *conn,
-                                                     uint32_t         dest_id,
-                                                     PinosMessageType type,
-                                                     void            *msg);
+bool               pinos_connection_parse_message   (PinosConnection  *conn,
+                                                     void             *msg);
+bool               pinos_connection_add_message     (PinosConnection  *conn,
+                                                     uint32_t          dest_id,
+                                                     PinosMessageType  type,
+                                                     void             *msg);
 
-bool               pinos_connection_flush           (PinosConnection *conn);
-bool               pinos_connection_clear           (PinosConnection *conn);
+bool               pinos_connection_flush           (PinosConnection  *conn);
+bool               pinos_connection_clear           (PinosConnection  *conn);
 
 #ifdef __cplusplus
 }  /* extern "C" */

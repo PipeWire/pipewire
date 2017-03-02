@@ -312,7 +312,7 @@ connection_parse_use_buffers (PinosConnection *conn, PinosMessageUseBuffers *cmd
   p = conn->in.data;
   memcpy (cmd, p, sizeof (PinosMessageUseBuffers));
   if (cmd->buffers)
-    cmd->buffers = SPA_MEMBER (p, SPA_PTR_TO_INT (cmd->buffers), PinosMessageBuffer);
+    cmd->buffers = SPA_MEMBER (p, SPA_PTR_TO_INT (cmd->buffers), PinosClientNodeBuffer);
 
   for (i = 0; i < cmd->n_buffers; i++) {
     if (cmd->buffers[i].buffer)
@@ -886,12 +886,12 @@ connection_add_use_buffers (PinosConnection *conn, uint32_t dest_id, PinosMessag
   size_t len;
   int i;
   PinosMessageUseBuffers *d;
-  PinosMessageBuffer *b;
+  PinosClientNodeBuffer *b;
   void *p;
 
   /* calculate length */
   len = sizeof (PinosMessageUseBuffers);
-  len += ub->n_buffers * sizeof (PinosMessageBuffer);
+  len += ub->n_buffers * sizeof (PinosClientNodeBuffer);
   for (i = 0; i < ub->n_buffers; i++)
     len += pinos_serialize_buffer_get_size (ub->buffers[i].buffer);
 
@@ -899,7 +899,7 @@ connection_add_use_buffers (PinosConnection *conn, uint32_t dest_id, PinosMessag
   memcpy (d, ub, sizeof (PinosMessageUseBuffers));
 
   b = SPA_MEMBER (d, sizeof (PinosMessageUseBuffers), void);
-  p = SPA_MEMBER (b, ub->n_buffers * sizeof (PinosMessageBuffer), void);
+  p = SPA_MEMBER (b, ub->n_buffers * sizeof (PinosClientNodeBuffer), void);
 
   if (d->n_buffers)
     d->buffers = SPA_INT_TO_PTR (SPA_PTRDIFF (b, d));
@@ -907,7 +907,7 @@ connection_add_use_buffers (PinosConnection *conn, uint32_t dest_id, PinosMessag
     d->buffers = 0;
 
   for (i = 0; i < ub->n_buffers; i++) {
-    memcpy (&b[i], &ub->buffers[i], sizeof (PinosMessageBuffer));
+    memcpy (&b[i], &ub->buffers[i], sizeof (PinosClientNodeBuffer));
     len = pinos_serialize_buffer_serialize (p, b[i].buffer);
     b[i].buffer = SPA_INT_TO_PTR (SPA_PTRDIFF (p, d));
     p += len;

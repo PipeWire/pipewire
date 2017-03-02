@@ -34,9 +34,7 @@ struct _PinosModule {
   SpaList      link;
   PinosGlobal *global;
 
-  char *name;
-  char *filename;
-  char *args;
+  PinosModuleInfo info;
 
   void *user_data;
 

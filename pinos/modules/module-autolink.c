@@ -23,6 +23,7 @@
 
 #include "config.h"
 
+#include "pinos/client/interfaces.h"
 #include "pinos/server/core.h"
 #include "pinos/server/module.h"
 #include "pinos/server/client-node.h"
@@ -136,14 +137,14 @@ on_link_state_changed (PinosListener  *listener,
       pinos_log_debug ("module %p: link %p: state error: %s", impl, link, link->error);
 
       spa_list_for_each (resource, &link->resource_list, link) {
-        pinos_client_send_error (resource->client,
-                                 resource,
+        pinos_core_notify_error (resource->client->core_resource,
+                                 resource->id,
                                  SPA_RESULT_ERROR,
                                  link->error);
       }
       if (info->info->client) {
-        pinos_client_send_error (info->info->client,
-                                 info->resource,
+        pinos_core_notify_error (info->info->client->core_resource,
+                                 info->resource->id,
                                  SPA_RESULT_ERROR,
                                  link->error);
       }
@@ -219,8 +220,8 @@ error:
   {
     pinos_log_error ("module %p: can't link node '%s'", impl, error);
     if (info->info->client) {
-      pinos_client_send_error (info->info->client,
-                               info->resource,
+      pinos_core_notify_error (info->info->client->core_resource,
+                               info->resource->id,
                                SPA_RESULT_ERROR,
                                error);
     }

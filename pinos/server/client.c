@@ -18,7 +18,9 @@
  */
 
 #include <string.h>
+
 #include "pinos/client/pinos.h"
+#include "pinos/client/interfaces.h"
 
 #include "pinos/server/client.h"
 #include "pinos/server/resource.h"
@@ -26,28 +28,7 @@
 typedef struct
 {
   PinosClient this;
-
-  PinosSendFunc   send_func;
-  void           *send_data;
 } PinosClientImpl;
-
-
-static SpaResult
-client_dispatch_func (void             *object,
-                      PinosMessageType  type,
-                      void             *message,
-                      void             *data)
-{
-  PinosResource *resource = object;
-  PinosClient *client = resource->object;
-
-  switch (type) {
-    default:
-      pinos_log_warn ("client %p: unhandled message %d", client, type);
-      break;
-  }
-  return SPA_RESULT_OK;
-}
 
 static void
 client_unbind_func (void *data)
@@ -64,8 +45,6 @@ client_bind_func (PinosGlobal *global,
 {
   PinosClient *this = global->object;
   PinosResource *resource;
-  PinosMessageClientInfo m;
-  PinosClientInfo info;
 
   resource = pinos_resource_new (client,
                                  id,
@@ -75,27 +54,18 @@ client_bind_func (PinosGlobal *global,
   if (resource == NULL)
     goto no_mem;
 
-  pinos_resource_set_dispatch (resource,
-                               client_dispatch_func,
-                               global);
-
   pinos_log_debug ("client %p: bound to %d", global->object, resource->id);
 
   spa_list_insert (this->resource_list.prev, &resource->link);
 
-  m.info = &info;
-  info.id = global->id;
-  info.change_mask = ~0;
-  info.props = this->properties ? &this->properties->dict : NULL;
+  this->info.change_mask = ~0;
+  pinos_client_notify_info (resource, &this->info);
 
-  return pinos_client_send_message (client,
-                                    resource,
-                                    PINOS_MESSAGE_CLIENT_INFO,
-                                    &m,
-                                    true);
+  return SPA_RESULT_OK;
+
 no_mem:
-  pinos_client_send_error (client,
-                           client->core_resource,
+  pinos_core_notify_error (client->core_resource,
+                           client->core_resource->id,
                            SPA_RESULT_NO_MEMORY,
                            "no memory");
   return SPA_RESULT_NO_MEMORY;
@@ -146,6 +116,9 @@ pinos_client_new (PinosCore       *core,
                                         this,
                                         client_bind_func);
 
+  this->info.id = this->global->id;
+  this->info.props = this->properties ? &this->properties->dict : NULL;
+
   return this;
 }
 
@@ -189,112 +162,9 @@ pinos_client_destroy (PinosClient * client)
 }
 
 void
-pinos_client_set_send (PinosClient     *client,
-                       PinosSendFunc    func,
-                       void            *data)
-{
-  PinosClientImpl *impl = SPA_CONTAINER_OF (client, PinosClientImpl, this);
-
-  impl->send_func = func;
-  impl->send_data = data;
-}
-
-static SpaResult
-do_send_message (PinosAccessData *data)
-{
-  PinosClientImpl *impl = SPA_CONTAINER_OF (data->client, PinosClientImpl, this);
-
-  if (data->res == SPA_RESULT_SKIPPED) {
-    data->res = SPA_RESULT_OK;
-  } else if (data->res == SPA_RESULT_NO_PERMISSION) {
-    pinos_client_send_error (data->client,
-                             data->resource,
-                             data->res,
-                             "no permission");
-  } else if (SPA_RESULT_IS_ERROR (data->res)) {
-    pinos_client_send_error (data->client,
-                             data->resource,
-                             data->res,
-                             "error %d", data->res);
-  } else {
-    data->res = impl->send_func (data->resource,
-                                 data->resource->id,
-                                 data->opcode,
-                                 data->message,
-                                 data->flush,
-                                 impl->send_data);
-  }
-  return data->res;
-}
-
-SpaResult
-pinos_client_send_message (PinosClient   *client,
-                           PinosResource *resource,
-                           uint32_t       opcode,
-                           void          *message,
-                           bool           flush)
-{
-  PinosClientImpl *impl = SPA_CONTAINER_OF (client, PinosClientImpl, this);
-
-  if (impl->send_func) {
-    PinosAccessData data;
-
-    data.client = client;
-    data.resource = resource;
-    data.opcode = opcode;
-    data.message = message;
-    data.flush = flush;
-
-    data.res = SPA_RESULT_OK;
-    pinos_signal_emit (&client->core->access.check_send,
-                       do_send_message,
-                       &data);
-
-    if (SPA_RESULT_IS_ASYNC (data.res))
-      return data.res;
-
-    return do_send_message (&data);
-  }
-
-  pinos_log_error ("client %p: send func not implemented", client);
-
-  return SPA_RESULT_NOT_IMPLEMENTED;
-}
-
-SpaResult
-pinos_client_send_error (PinosClient   *client,
-                         PinosResource *resource,
-                         SpaResult      res,
-                         const char    *message,
-                         ...)
-{
-  PinosMessageError m;
-  char buffer[128];
-  va_list ap;
-
-  va_start (ap, message);
-  vsnprintf (buffer, sizeof (buffer), message, ap);
-  va_end (ap);
-
-  m.id = resource->id;
-  m.res = res;
-  m.error = buffer;
-
-  pinos_log_error ("client %p: %u send error %d (%s)", client, resource->id, res, buffer);
-
-  return pinos_client_send_message (client,
-				    client->core_resource,
-                                    PINOS_MESSAGE_ERROR,
-                                    &m,
-                                    true);
-}
-
-void
 pinos_client_update_properties (PinosClient     *client,
                                 const SpaDict   *dict)
 {
-  PinosMessageClientInfo m;
-  PinosClientInfo info;
   PinosResource *resource;
 
   if (client->properties == NULL) {
@@ -309,16 +179,10 @@ pinos_client_update_properties (PinosClient     *client,
                             dict->items[i].value);
   }
 
-  m.info = &info;
-  info.id = client->global->id;
-  info.change_mask = 1 << 0;
-  info.props = client->properties ? &client->properties->dict : NULL;
+  client->info.change_mask = 1 << 0;
+  client->info.props = client->properties ? &client->properties->dict : NULL;
 
   spa_list_for_each (resource, &client->resource_list, link) {
-    pinos_client_send_message (client,
-                               resource,
-                               PINOS_MESSAGE_CLIENT_INFO,
-                               &m,
-                               true);
+    pinos_client_notify_info (resource, &client->info);
   }
 }

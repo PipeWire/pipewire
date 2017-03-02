@@ -19,6 +19,7 @@
 #include <time.h>
 
 #include <pinos/client/pinos.h>
+#include <pinos/client/interfaces.h>
 #include <pinos/server/core.h>
 #include <pinos/server/data-loop.h>
 #include <pinos/server/client-node.h>
@@ -36,45 +37,38 @@ typedef struct {
 
 } PinosCoreImpl;
 
-static SpaResult
-registry_dispatch_func (void             *object,
-                        PinosMessageType  type,
-                        void             *message,
-                        void             *data)
+static void
+registry_bind (void     *object,
+               uint32_t  id,
+               uint32_t  new_id)
 {
-  SpaResult res;
   PinosResource *resource = object;
   PinosClient *client = resource->client;
-  PinosCore *this = data;
+  PinosCore *core = resource->core;
+  PinosGlobal *global;
 
-  switch (type) {
-    case PINOS_MESSAGE_BIND:
-    {
-      PinosMessageBind *m = message;
-      PinosGlobal *global;
-
-      spa_list_for_each (global, &this->global_list, link)
-        if (global->id == m->id)
-          break;
-
-      if (&global->link == &this->global_list) {
-        pinos_client_send_error (client,
-                                 resource,
-                                 SPA_RESULT_INVALID_OBJECT_ID,
-                                 "unknown object id %u", m->id);
-        return SPA_RESULT_ERROR;
-      }
-      pinos_log_debug ("global %p: bind object id %d to %d", global, m->id, m->new_id);
-      res = pinos_global_bind (global, client, 0, m->new_id);
+  spa_list_for_each (global, &core->global_list, link)
+    if (global->id == id)
       break;
-    }
-    default:
-      pinos_log_error ("unhandled message %d", type);
-      res = SPA_RESULT_NOT_IMPLEMENTED;
-      break;
-  }
-  return res;
+
+  if (&global->link == &core->global_list)
+    goto no_id;
+
+  pinos_log_debug ("global %p: bind object id %d to %d", global, id, new_id);
+  pinos_global_bind (global, client, 0, new_id);
+
+  return;
+
+no_id:
+  pinos_core_notify_error (client->core_resource,
+                           resource->id,
+                           SPA_RESULT_INVALID_OBJECT_ID,
+                           "unknown object id %u", id);
 }
+
+static PinosRegistryInterface registry_interface = {
+  &registry_bind
+};
 
 static void
 destroy_registry_resource (void *object)
@@ -83,134 +77,138 @@ destroy_registry_resource (void *object)
   spa_list_remove (&resource->link);
 }
 
-static SpaResult
-core_dispatch_func (void             *object,
-                    PinosMessageType  type,
-                    void             *message,
-                    void             *data)
+static void
+core_client_update (void          *object,
+                    const SpaDict *props)
+{
+  PinosResource *resource = object;
+
+  pinos_client_update_properties (resource->client, props);
+}
+
+static void
+core_sync (void    *object,
+           uint32_t seq)
+{
+  PinosResource *resource = object;
+
+  pinos_core_notify_done (resource, seq);
+}
+
+static void
+core_get_registry (void     *object,
+                   uint32_t  seq,
+                   uint32_t  new_id)
 {
   PinosResource *resource = object;
   PinosClient *client = resource->client;
-  PinosCore *this = data;
+  PinosCore *this = resource->core;
+  PinosGlobal *global;
+  PinosResource *registry_resource;
 
-  switch (type) {
-    case PINOS_MESSAGE_CLIENT_UPDATE:
-    {
-      PinosMessageClientUpdate *m = message;
+  registry_resource = pinos_resource_new (client,
+                                          new_id,
+                                          this->uri.registry,
+                                          this,
+                                          destroy_registry_resource);
+  if (registry_resource == NULL)
+    goto no_mem;
 
-      pinos_client_update_properties (client,
-                                      m->props);
-      break;
-    }
-    case PINOS_MESSAGE_SYNC:
-    {
-      PinosMessageSync *m = message;
-      PinosMessageNotifyDone r;
+  registry_resource->interface = &registry_interface;
 
-      r.seq = m->seq;
-      pinos_client_send_message (client,
-                                 resource,
-                                 PINOS_MESSAGE_NOTIFY_DONE,
-                                 &r,
-                                 true);
-      break;
-    }
+  spa_list_insert (this->registry_resource_list.prev, &registry_resource->link);
 
-    case PINOS_MESSAGE_GET_REGISTRY:
-    {
-      PinosMessageGetRegistry *m = message;
-      PinosGlobal *global;
-      PinosMessageNotifyDone nd;
-      PinosResource *registry_resource;
+  spa_list_for_each (global, &this->global_list, link)
+    pinos_registry_notify_global (registry_resource,
+                                  global->id,
+                                  spa_id_map_get_uri (this->uri.map, global->type));
 
-      registry_resource = pinos_resource_new (resource->client,
-                                              m->new_id,
-                                              this->uri.registry,
-                                              this,
-                                              destroy_registry_resource);
-      if (registry_resource == NULL)
-        goto no_mem;
+  pinos_core_notify_done (client->core_resource, seq);
 
-      pinos_resource_set_dispatch (registry_resource,
-                                   registry_dispatch_func,
-                                   this);
-
-      spa_list_insert (this->registry_resource_list.prev, &registry_resource->link);
-
-      spa_list_for_each (global, &this->global_list, link) {
-        PinosMessageNotifyGlobal ng;
-
-        ng.id = global->id;
-        ng.type = spa_id_map_get_uri (this->uri.map, global->type);
-        pinos_client_send_message (client,
-                                   registry_resource,
-                                   PINOS_MESSAGE_NOTIFY_GLOBAL,
-                                   &ng,
-                                   false);
-      }
-      nd.seq = m->seq;
-      pinos_client_send_message (client,
-                                 client->core_resource,
-                                 PINOS_MESSAGE_NOTIFY_DONE,
-                                 &nd,
-                                 true);
-      break;
-    }
-    case PINOS_MESSAGE_CREATE_CLIENT_NODE:
-    {
-      PinosMessageCreateClientNode *m = message;
-      PinosClientNode *node;
-      SpaResult res;
-      int data_fd, i;
-      PinosMessageCreateClientNodeDone r;
-      PinosProperties *props;
-
-      props = pinos_properties_new (NULL, NULL);
-      if (props == NULL)
-        goto no_mem;
-
-      for (i = 0; i < m->props->n_items; i++) {
-        pinos_properties_set (props, m->props->items[i].key,
-                                     m->props->items[i].value);
-      }
-
-      node = pinos_client_node_new (client,
-                                    m->new_id,
-                                    m->name,
-                                    props);
-      if (node == NULL)
-        goto no_mem;
-
-      if ((res = pinos_client_node_get_data_socket (node, &data_fd)) < 0) {
-        pinos_client_send_error (client,
-                                 resource,
-                                 SPA_RESULT_ERROR,
-                                 "can't get data fd");
-        break;
-      }
-
-      r.seq = m->seq;
-      r.datafd = data_fd;
-      pinos_client_send_message (client,
-                                 node->resource,
-                                 PINOS_MESSAGE_CREATE_CLIENT_NODE_DONE,
-                                 &r,
-                                 true);
-      break;
-    }
-    default:
-      pinos_log_error ("unhandled message %d", type);
-      break;
-  }
-  return SPA_RESULT_OK;
+  return;
 
 no_mem:
-  pinos_client_send_error (client,
-                           resource,
+  pinos_core_notify_error (client->core_resource,
+                           resource->id,
                            SPA_RESULT_NO_MEMORY,
                            "no memory");
-  return SPA_RESULT_NO_MEMORY;
 }
+
+static void
+core_create_node (void          *object,
+                  uint32_t       seq,
+                  const char    *factory_name,
+                  const char    *name,
+                  const SpaDict *props,
+                  uint32_t       new_id)
+{
+  PinosResource *resource = object;
+  PinosClient *client = resource->client;
+
+  pinos_core_notify_error (client->core_resource,
+                           resource->id,
+                           SPA_RESULT_NOT_IMPLEMENTED,
+                           "not implemented");
+}
+
+static void
+core_create_client_node (void          *object,
+                         uint32_t       seq,
+                         const char    *name,
+                         const SpaDict *props,
+                         uint32_t       new_id)
+{
+  PinosResource *resource = object;
+  PinosClient *client = resource->client;
+  PinosClientNode *node;
+  SpaResult res;
+  int data_fd, i;
+  PinosProperties *properties;
+
+  properties = pinos_properties_new (NULL, NULL);
+  if (properties == NULL)
+    goto no_mem;
+
+  for (i = 0; i < props->n_items; i++) {
+    pinos_properties_set (properties, props->items[i].key,
+                                      props->items[i].value);
+  }
+
+  node = pinos_client_node_new (client,
+                                new_id,
+                                name,
+                                properties);
+  if (node == NULL)
+    goto no_mem;
+
+  if ((res = pinos_client_node_get_data_socket (node, &data_fd)) < 0) {
+    pinos_core_notify_error (client->core_resource,
+                             resource->id,
+                             SPA_RESULT_ERROR,
+                             "can't get data fd");
+    return;
+  }
+
+  pinos_client_node_notify_done (node->resource,
+                                 seq,
+                                 data_fd);
+  return;
+
+no_mem:
+  pinos_core_notify_error (client->core_resource,
+                           resource->id,
+                           SPA_RESULT_NO_MEMORY,
+                           "no memory");
+  return;
+}
+
+static PinosCoreInterface core_interface = {
+  &core_client_update,
+  &core_sync,
+  &core_get_registry,
+  &core_create_node,
+  &core_create_client_node
+};
 
 static void
 core_unbind_func (void *data)
@@ -228,8 +226,6 @@ core_bind_func (PinosGlobal *global,
 {
   PinosCore *this = global->object;
   PinosResource *resource;
-  PinosMessageCoreInfo m;
-  PinosCoreInfo info;
 
   resource = pinos_resource_new (client,
                                  id,
@@ -239,31 +235,18 @@ core_bind_func (PinosGlobal *global,
   if (resource == NULL)
     goto no_mem;
 
-  pinos_resource_set_dispatch (resource,
-                               core_dispatch_func,
-                               this);
+  resource->interface = &core_interface;
 
   spa_list_insert (this->resource_list.prev, &resource->link);
   client->core_resource = resource;
 
   pinos_log_debug ("core %p: bound to %d", global->object, resource->id);
 
-  m.info = &info;
-  info.id = global->id;
-  info.change_mask = PINOS_CORE_CHANGE_MASK_ALL;
-  info.user_name = pinos_get_user_name ();
-  info.host_name = pinos_get_host_name ();
-  info.version = "0";
-  info.name = "pinos-0";
-  srandom (time (NULL));
-  info.cookie = random ();
-  info.props = this->properties ? &this->properties->dict : NULL;
+  this->info.change_mask = PINOS_CORE_CHANGE_MASK_ALL;
+  pinos_core_notify_info (resource, &this->info);
 
-  return pinos_client_send_message (resource->client,
-                                    resource,
-                                    PINOS_MESSAGE_CORE_INFO,
-                                    &m,
-                                    true);
+  return SPA_RESULT_OK;
+
 no_mem:
   pinos_log_error ("can't create core resource");
   return SPA_RESULT_NO_MEMORY;
@@ -323,6 +306,16 @@ pinos_core_new (PinosMainLoop   *main_loop,
                                         this,
                                         core_bind_func);
 
+  this->info.id = this->global->id;
+  this->info.change_mask = 0;
+  this->info.user_name = pinos_get_user_name ();
+  this->info.host_name = pinos_get_host_name ();
+  this->info.version = "0";
+  this->info.name = "pinos-0";
+  srandom (time (NULL));
+  this->info.cookie = random ();
+  this->info.props = this->properties ? &this->properties->dict : NULL;
+
   return this;
 
 no_data_loop:
@@ -357,7 +350,7 @@ pinos_core_add_global (PinosCore     *core,
   PinosGlobalImpl *impl;
   PinosGlobal *this;
   PinosResource *registry;
-  PinosMessageNotifyGlobal ng;
+  const char *type_uri;
 
   impl = calloc (1, sizeof (PinosGlobalImpl));
   if (impl == NULL)
@@ -379,18 +372,14 @@ pinos_core_add_global (PinosCore     *core,
   spa_list_insert (core->global_list.prev, &this->link);
   pinos_signal_emit (&core->global_added, core, this);
 
-  ng.id = this->id;
-  ng.type = spa_id_map_get_uri (core->uri.map, this->type);
+  type_uri = spa_id_map_get_uri (core->uri.map, this->type);
+  pinos_log_debug ("global %p: new %u %s", this, this->id, type_uri);
 
-  pinos_log_debug ("global %p: new %u %s", this, ng.id, ng.type);
+  spa_list_for_each (registry, &core->registry_resource_list, link)
+    pinos_registry_notify_global (registry,
+                                  this->id,
+                                  type_uri);
 
-  spa_list_for_each (registry, &core->registry_resource_list, link) {
-    pinos_client_send_message (registry->client,
-                               registry,
-                               PINOS_MESSAGE_NOTIFY_GLOBAL,
-                               &ng,
-                               true);
-  }
   return this;
 }
 
@@ -404,12 +393,11 @@ pinos_global_bind (PinosGlobal   *global,
   PinosGlobalImpl *impl = SPA_CONTAINER_OF (global, PinosGlobalImpl, this);
 
   if (impl->bind) {
-
     res = impl->bind (global, client, version, id);
   } else {
     res = SPA_RESULT_NOT_IMPLEMENTED;
-    pinos_client_send_error (client,
-                             client->core_resource,
+    pinos_core_notify_error (client->core_resource,
+                             client->core_resource->id,
                              res,
                              "can't bind object id %d", id);
   }
@@ -421,19 +409,12 @@ pinos_global_destroy (PinosGlobal *global)
 {
   PinosCore *core = global->core;
   PinosResource *registry;
-  PinosMessageNotifyGlobalRemove ng;
 
   pinos_log_debug ("global %p: destroy %u", global, global->id);
   pinos_signal_emit (&global->destroy_signal, global);
 
-  ng.id = global->id;
-  spa_list_for_each (registry, &core->registry_resource_list, link) {
-    pinos_client_send_message (registry->client,
-                               registry,
-                               PINOS_MESSAGE_NOTIFY_GLOBAL_REMOVE,
-                               &ng,
-                               true);
-  }
+  spa_list_for_each (registry, &core->registry_resource_list, link)
+    pinos_registry_notify_global_remove (registry, global->id);
 
   pinos_map_remove (&core->objects, global->id);
 
@@ -448,8 +429,6 @@ void
 pinos_core_update_properties (PinosCore     *core,
                               const SpaDict *dict)
 {
-  PinosMessageCoreInfo m;
-  PinosCoreInfo info;
   PinosResource *resource;
 
   if (core->properties == NULL) {
@@ -464,17 +443,11 @@ pinos_core_update_properties (PinosCore     *core,
                             dict->items[i].value);
   }
 
-  m.info = &info;
-  info.id = core->global->id;
-  info.change_mask = PINOS_CORE_CHANGE_MASK_PROPS;
-  info.props = core->properties ? &core->properties->dict : NULL;
+  core->info.change_mask = PINOS_CORE_CHANGE_MASK_PROPS;
+  core->info.props = core->properties ? &core->properties->dict : NULL;
 
   spa_list_for_each (resource, &core->resource_list, link) {
-    pinos_client_send_message (resource->client,
-                               resource,
-                               PINOS_MESSAGE_CORE_INFO,
-                               &m,
-                               true);
+    pinos_core_notify_info (resource, &core->info);
   }
 }
 

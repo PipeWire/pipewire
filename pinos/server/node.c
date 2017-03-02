@@ -22,6 +22,7 @@
 #include <errno.h>
 
 #include "pinos/client/pinos.h"
+#include "pinos/client/interfaces.h"
 #include "pinos/client/serialize.h"
 
 #include "pinos/server/node.h"
@@ -366,24 +367,6 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
   }
 }
 
-static SpaResult
-node_dispatch_func (void             *object,
-                    PinosMessageType  type,
-                    void             *message,
-                    void             *data)
-{
-  PinosResource *resource = object;
-  PinosNode *node = resource->object;
-
-  switch (type) {
-    default:
-      pinos_log_warn ("node %p: unhandled message %d", node, type);
-      break;
-  }
-  return SPA_RESULT_OK;
-}
-
-
 static void
 node_unbind_func (void *data)
 {
@@ -399,7 +382,6 @@ node_bind_func (PinosGlobal *global,
 {
   PinosNode *this = global->object;
   PinosResource *resource;
-  PinosMessageNodeInfo m;
   PinosNodeInfo info;
 
   resource = pinos_resource_new (client,
@@ -410,15 +392,10 @@ node_bind_func (PinosGlobal *global,
   if (resource == NULL)
     goto no_mem;
 
-  pinos_resource_set_dispatch (resource,
-                               node_dispatch_func,
-                               global);
-
   pinos_log_debug ("node %p: bound to %d", this, resource->id);
 
   spa_list_insert (this->resource_list.prev, &resource->link);
 
-  m.info = &info;
   info.id = global->id;
   info.change_mask = ~0;
   info.name = this->name;
@@ -466,14 +443,13 @@ node_bind_func (PinosGlobal *global,
   info.error = this->error;
   info.props = this->properties ? &this->properties->dict : NULL;
 
-  return pinos_client_send_message (client,
-                                    resource,
-                                    PINOS_MESSAGE_NODE_INFO,
-                                    &m,
-                                    true);
+  pinos_node_notify_info (resource, &info);
+
+  return SPA_RESULT_OK;
+
 no_mem:
-  pinos_client_send_error (client,
-                           client->core_resource,
+  pinos_core_notify_error (client->core_resource,
+                           client->core_resource->id,
                            SPA_RESULT_NO_MEMORY,
                            "no memory");
   return SPA_RESULT_NO_MEMORY;
@@ -828,7 +804,6 @@ pinos_node_update_state (PinosNode      *node,
 
   old = node->state;
   if (old != state) {
-    PinosMessageNodeInfo m;
     PinosNodeInfo info;
     PinosResource *resource;
 
@@ -844,18 +819,14 @@ pinos_node_update_state (PinosNode      *node,
     pinos_signal_emit (&node->state_changed, node, old, state);
 
     spa_zero (info);
-    m.info = &info;
     info.change_mask = 1 << 5;
     info.state = node->state;
     info.error = node->error;
 
     spa_list_for_each (resource, &node->resource_list, link) {
+      /* global is only set when there are resources */
       info.id = node->global->id;
-      pinos_client_send_message (resource->client,
-                                 resource,
-                                 PINOS_MESSAGE_NODE_INFO,
-                                 &m,
-                                 true);
+      pinos_node_notify_info (resource, &info);
     }
   }
 }

@@ -64,6 +64,8 @@ struct _PinosGlobal {
 struct _PinosCore {
   PinosGlobal *global;
 
+  PinosCoreInfo info;
+
   PinosProperties *properties;
 
   PinosURI uri;

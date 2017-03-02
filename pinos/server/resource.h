@@ -37,11 +37,6 @@ typedef struct _PinosResource PinosResource;
 
 typedef void  (*PinosDestroy)  (void *object);
 
-typedef SpaResult (*PinosDispatchFunc) (void             *object,
-                                        uint32_t          opcode,
-                                        void             *message,
-                                        void             *data);
-
 struct _PinosResource {
   PinosCore    *core;
   SpaList       link;
@@ -53,6 +48,10 @@ struct _PinosResource {
   void         *object;
   PinosDestroy  destroy;
 
+  const void *interface;
+  const void *event;
+  const void *marshall;
+
   PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
                                  PinosResource *resource));
 };
@@ -63,14 +62,6 @@ PinosResource * pinos_resource_new                (PinosClient   *client,
                                                    void          *object,
                                                    PinosDestroy   destroy);
 void            pinos_resource_destroy            (PinosResource *resource);
-
-void            pinos_resource_set_dispatch       (PinosResource     *resource,
-                                                   PinosDispatchFunc  func,
-                                                   void              *data);
-
-SpaResult       pinos_resource_dispatch           (PinosResource     *resource,
-                                                   uint32_t           opcode,
-                                                   void              *message);
 
 #ifdef __cplusplus
 }

@@ -23,6 +23,7 @@
 #include <spa/lib/debug.h>
 
 #include "pinos/client/pinos.h"
+#include "pinos/client/interfaces.h"
 
 #include "pinos/server/link.h"
 #include "pinos/server/work-queue.h"
@@ -693,19 +694,6 @@ pinos_pinos_link_deactivate (PinosLink *this)
   return true;
 }
 
-static SpaResult
-link_dispatch_func (void             *object,
-                    PinosMessageType  type,
-                    void             *message,
-                    void             *data)
-{
-  switch (type) {
-    default:
-      break;
-  }
-  return SPA_RESULT_OK;
-}
-
 static void
 pinos_link_free (PinosLink *link)
 {
@@ -744,7 +732,6 @@ link_bind_func (PinosGlobal *global,
   PinosLink *this = global->object;
   PinosLinkImpl *impl = SPA_CONTAINER_OF (this, PinosLinkImpl, this);
   PinosResource *resource;
-  PinosMessageLinkInfo m;
   PinosLinkInfo info;
 
   resource = pinos_resource_new (client,
@@ -757,15 +744,10 @@ link_bind_func (PinosGlobal *global,
 
   impl->refcount++;
 
-  pinos_resource_set_dispatch (resource,
-                               link_dispatch_func,
-                               global);
-
   pinos_log_debug ("link %p: bound to %d", global->object, resource->id);
 
   spa_list_insert (this->resource_list.prev, &resource->link);
 
-  m.info = &info;
   info.id = global->id;
   info.change_mask = ~0;
   info.output_node_id = this->output ? this->output->node->global->id : -1;
@@ -773,14 +755,13 @@ link_bind_func (PinosGlobal *global,
   info.input_node_id = this->input ? this->input->node->global->id : -1;
   info.input_port_id = this->input ? this->input->port_id : -1;
 
-  return pinos_client_send_message (resource->client,
-                                    resource,
-                                    PINOS_MESSAGE_LINK_INFO,
-                                    &m,
-                                    true);
+  pinos_link_notify_info (resource, &info);
+
+  return SPA_RESULT_OK;
+
 no_mem:
-  pinos_client_send_error (client,
-                           client->core_resource,
+  pinos_core_notify_error (client->core_resource,
+                           client->core_resource->id,
                            SPA_RESULT_NO_MEMORY,
                            "no memory");
   return SPA_RESULT_NO_MEMORY;

@@ -37,9 +37,6 @@ typedef struct {
   SpaSource source;
 
   bool disconnecting;
-
-  PinosSendFunc  send_func;
-  void          *send_data;
 } PinosContextImpl;
 
 /**
@@ -96,325 +93,762 @@ context_set_state (PinosContext      *context,
   }
 }
 
-static SpaResult
-core_dispatch_func (void             *object,
-                    PinosMessageType  type,
-                    void             *message,
-                    void             *data)
+typedef void (*MarshallFunc) (void *object, void *data, size_t size);
+
+static void
+core_interface_client_update (void          *object,
+                              const SpaDict *props)
 {
-  PinosContextImpl *impl = data;
-  PinosContext *this = &impl->this;
   PinosProxy *proxy = object;
+  PinosContextImpl *impl = SPA_CONTAINER_OF (proxy->context, PinosContextImpl, this);
+  PinosMessageClientUpdate m = { props };
 
-  switch (type) {
-    case PINOS_MESSAGE_CORE_INFO:
-    {
-      PinosMessageCoreInfo *m = message;
-      PinosSubscriptionEvent event;
-
-      pinos_log_debug ("got core info %d", type);
-
-      if (proxy->user_data == NULL)
-        event = PINOS_SUBSCRIPTION_EVENT_NEW;
-      else
-        event = PINOS_SUBSCRIPTION_EVENT_CHANGE;
-
-      proxy->user_data = pinos_core_info_update (proxy->user_data, m->info);
-
-      pinos_signal_emit (&this->subscription,
-                         this,
-                         event,
-                         proxy->type,
-                         proxy->id);
-      break;
-    }
-    case PINOS_MESSAGE_NOTIFY_DONE:
-    {
-      PinosMessageNotifyDone *nd = message;
-
-      if (nd->seq == 0) {
-        PinosMessageSync sync;
-
-        sync.seq = 1;
-        pinos_proxy_send_message (this->core_proxy,
-                                  PINOS_MESSAGE_SYNC,
-                                  &sync,
-                                  true);
-      } else if (nd->seq == 1) {
-        context_set_state (this, PINOS_CONTEXT_STATE_CONNECTED, NULL);
-      }
-      break;
-    }
-    case PINOS_MESSAGE_ERROR:
-    {
-      PinosMessageError *m = message;
-      context_set_state (this, PINOS_CONTEXT_STATE_ERROR, m->error);
-      break;
-    }
-    case PINOS_MESSAGE_REMOVE_ID:
-    {
-      PinosMessageRemoveId *m = message;
-      PinosProxy *proxy;
-
-      proxy = pinos_map_lookup (&this->objects, m->id);
-      if (proxy) {
-        pinos_log_debug ("context %p: object remove %u", this, m->id);
-        pinos_proxy_destroy (proxy);
-      }
-      break;
-    }
-
-    default:
-      pinos_log_warn ("unhandled message %d", type);
-      break;
-  }
-  return SPA_RESULT_OK;
+  pinos_connection_add_message (impl->connection,
+                                proxy->id,
+                                PINOS_MESSAGE_CLIENT_UPDATE,
+                                &m);
+  pinos_connection_flush (impl->connection);
 }
 
-static SpaResult
-module_dispatch_func (void             *object,
-                      PinosMessageType  type,
-                      void             *message,
-                      void             *data)
+static void
+core_interface_sync (void     *object,
+                     uint32_t  seq)
 {
-  PinosContextImpl *impl = data;
-  PinosContext *this = &impl->this;
   PinosProxy *proxy = object;
+  PinosContextImpl *impl = SPA_CONTAINER_OF (proxy->context, PinosContextImpl, this);
+  PinosMessageSync m = { seq };
 
-  switch (type) {
-    case PINOS_MESSAGE_MODULE_INFO:
-    {
-      PinosMessageModuleInfo *m = message;
-      PinosSubscriptionEvent event;
-
-      pinos_log_debug ("got module info %d", type);
-      if (proxy->user_data == NULL)
-        event = PINOS_SUBSCRIPTION_EVENT_NEW;
-      else
-        event = PINOS_SUBSCRIPTION_EVENT_CHANGE;
-
-      proxy->user_data = pinos_module_info_update (proxy->user_data, m->info);
-
-      pinos_signal_emit (&this->subscription,
-                         this,
-                         event,
-                         proxy->type,
-                         proxy->id);
-      break;
-    }
-
-    default:
-      pinos_log_warn ("unhandled message %d", type);
-      break;
-  }
-  return SPA_RESULT_OK;
+  pinos_connection_add_message (impl->connection,
+                                proxy->id,
+                                PINOS_MESSAGE_SYNC,
+                                &m);
+  pinos_connection_flush (impl->connection);
 }
 
-static SpaResult
-node_dispatch_func (void             *object,
-                    PinosMessageType  type,
-                    void             *message,
-                    void             *data)
+static void
+core_interface_get_registry (void     *object,
+                             uint32_t  seq,
+                             uint32_t  new_id)
 {
-  PinosContextImpl *impl = data;
-  PinosContext *this = &impl->this;
   PinosProxy *proxy = object;
+  PinosContextImpl *impl = SPA_CONTAINER_OF (proxy->context, PinosContextImpl, this);
+  PinosMessageGetRegistry m = { seq, new_id };
 
-  switch (type) {
-    case PINOS_MESSAGE_NODE_INFO:
-    {
-      PinosMessageNodeInfo *m = message;
-      PinosSubscriptionEvent event;
-
-      pinos_log_debug ("got node info %d", type);
-      if (proxy->user_data == NULL)
-        event = PINOS_SUBSCRIPTION_EVENT_NEW;
-      else
-        event = PINOS_SUBSCRIPTION_EVENT_CHANGE;
-
-      proxy->user_data = pinos_node_info_update (proxy->user_data, m->info);
-
-      pinos_signal_emit (&this->subscription,
-                         this,
-                         event,
-                         proxy->type,
-                         proxy->id);
-      break;
-    }
-    default:
-      pinos_log_warn ("unhandled message %d", type);
-      break;
-  }
-  return SPA_RESULT_OK;
+  pinos_connection_add_message (impl->connection,
+                                proxy->id,
+                                PINOS_MESSAGE_GET_REGISTRY,
+                                &m);
+  pinos_connection_flush (impl->connection);
 }
 
-static SpaResult
-client_dispatch_func (void             *object,
-                      PinosMessageType  type,
-                      void             *message,
-                      void             *data)
+static void
+core_interface_create_node (void          *object,
+                            uint32_t       seq,
+                            const char    *factory_name,
+                            const char    *name,
+                            const SpaDict *props,
+                            uint32_t       new_id)
 {
-  PinosContextImpl *impl = data;
-  PinosContext *this = &impl->this;
   PinosProxy *proxy = object;
+  PinosContextImpl *impl = SPA_CONTAINER_OF (proxy->context, PinosContextImpl, this);
+  PinosMessageCreateNode m = { seq, factory_name, name, props, new_id };
 
-  switch (type) {
-    case PINOS_MESSAGE_CLIENT_INFO:
-    {
-      PinosMessageClientInfo *m = message;
-      PinosSubscriptionEvent event;
-
-      pinos_log_debug ("got client info %d", type);
-      if (proxy->user_data == NULL)
-        event = PINOS_SUBSCRIPTION_EVENT_NEW;
-      else
-        event = PINOS_SUBSCRIPTION_EVENT_CHANGE;
-
-      proxy->user_data = pinos_client_info_update (proxy->user_data, m->info);
-
-      pinos_signal_emit (&this->subscription,
-                         this,
-                         event,
-                         proxy->type,
-                         proxy->id);
-      break;
-    }
-    default:
-      pinos_log_warn ("unhandled message %d", type);
-      break;
-  }
-  return SPA_RESULT_OK;
+  pinos_connection_add_message (impl->connection,
+                                proxy->id,
+                                PINOS_MESSAGE_CREATE_NODE,
+                                &m);
+  pinos_connection_flush (impl->connection);
 }
 
-static SpaResult
-link_dispatch_func (void             *object,
-                    PinosMessageType  type,
-                    void             *message,
-                    void             *data)
+static void
+core_interface_create_client_node (void          *object,
+                                   uint32_t       seq,
+                                   const char    *name,
+                                   const SpaDict *props,
+                                   uint32_t       new_id)
 {
-  PinosContextImpl *impl = data;
-  PinosContext *this = &impl->this;
   PinosProxy *proxy = object;
+  PinosContextImpl *impl = SPA_CONTAINER_OF (proxy->context, PinosContextImpl, this);
+  PinosMessageCreateClientNode m = { seq, name, props, new_id };
 
-  switch (type) {
-    case PINOS_MESSAGE_LINK_INFO:
-    {
-      PinosMessageLinkInfo *m = message;
-      PinosSubscriptionEvent event;
-
-      pinos_log_debug ("got link info %d", type);
-      if (proxy->user_data == NULL)
-        event = PINOS_SUBSCRIPTION_EVENT_NEW;
-      else
-        event = PINOS_SUBSCRIPTION_EVENT_CHANGE;
-
-      proxy->user_data = pinos_link_info_update (proxy->user_data, m->info);
-
-      pinos_signal_emit (&this->subscription,
-                         this,
-                         event,
-                         proxy->type,
-                         proxy->id);
-      break;
-    }
-    default:
-      pinos_log_warn ("unhandled message %d", type);
-      break;
-  }
-  return SPA_RESULT_OK;
+  pinos_connection_add_message (impl->connection,
+                                proxy->id,
+                                PINOS_MESSAGE_CREATE_CLIENT_NODE,
+                                &m);
+  pinos_connection_flush (impl->connection);
 }
 
-static SpaResult
-registry_dispatch_func (void             *object,
-                        PinosMessageType  type,
-                        void             *message,
-                        void             *data)
+static const PinosCoreInterface core_interface = {
+  &core_interface_client_update,
+  &core_interface_sync,
+  &core_interface_get_registry,
+  &core_interface_create_node,
+  &core_interface_create_client_node
+};
+
+static void
+core_marshall_info (void   *object,
+                    void   *data,
+                    size_t  size)
 {
-  PinosContextImpl *impl = data;
-  PinosContext *this = &impl->this;
+  PinosProxy *proxy = object;
+  PinosMessageCoreInfo *m = data;
+  pinos_core_notify_info (proxy, m->info);
+}
 
-  switch (type) {
-    case PINOS_MESSAGE_NOTIFY_GLOBAL:
-    {
-      PinosMessageNotifyGlobal *ng = message;
-      PinosProxy *proxy = NULL;
+static void
+core_marshall_done (void   *object,
+                    void   *data,
+                    size_t  size)
+{
+  PinosProxy *proxy = object;
+  PinosMessageNotifyDone *m = data;
+  pinos_core_notify_done (proxy, m->seq);
+}
 
-      pinos_log_debug ("got global %u %s", ng->id, ng->type);
+static void
+core_marshall_error (void   *object,
+                     void   *data,
+                     size_t  size)
+{
+  PinosProxy *proxy = object;
+  PinosMessageError *m = data;
+  pinos_core_notify_error (proxy, m->id, m->res, m->error);
+}
 
-      if (!strcmp (ng->type, PINOS_NODE_URI)) {
-        proxy = pinos_proxy_new (this,
-                                 SPA_ID_INVALID,
-                                 this->uri.node);
-        if (proxy == NULL)
-          goto no_mem;
+static void
+core_marshall_remove_id (void   *object,
+                         void   *data,
+                         size_t  size)
+{
+  PinosProxy *proxy = object;
+  PinosMessageRemoveId *m = data;
+  pinos_core_notify_remove_id (proxy, m->id);
+}
 
-        pinos_proxy_set_dispatch (proxy,
-                                  node_dispatch_func,
-                                  impl);
-      } else if (!strcmp (ng->type, PINOS_MODULE_URI)) {
-        proxy = pinos_proxy_new (this,
-                                 SPA_ID_INVALID,
-                                 this->uri.module);
-        if (proxy == NULL)
-          goto no_mem;
+static const MarshallFunc core_marshall[] = {
+  [PINOS_MESSAGE_CORE_INFO] = &core_marshall_info,
+  [PINOS_MESSAGE_NOTIFY_DONE] = &core_marshall_done,
+  [PINOS_MESSAGE_ERROR] = &core_marshall_error,
+  [PINOS_MESSAGE_REMOVE_ID] = &core_marshall_remove_id,
+};
 
-        pinos_proxy_set_dispatch (proxy,
-                                  module_dispatch_func,
-                                  impl);
-      } else if (!strcmp (ng->type, PINOS_CLIENT_URI)) {
-        proxy = pinos_proxy_new (this,
-                                 SPA_ID_INVALID,
-                                 this->uri.client);
-        if (proxy == NULL)
-          goto no_mem;
+static void
+core_event_info (void          *object,
+                 PinosCoreInfo *info)
+{
+  PinosProxy *proxy = object;
+  PinosContext *this = proxy->context;
+  PinosSubscriptionEvent event;
 
-        pinos_proxy_set_dispatch (proxy,
-                                  client_dispatch_func,
-                                  impl);
-      } else if (!strcmp (ng->type, PINOS_LINK_URI)) {
-        proxy = pinos_proxy_new (this,
-                                 SPA_ID_INVALID,
-                                 this->uri.link);
-        if (proxy == NULL)
-          goto no_mem;
+  pinos_log_debug ("got core info");
 
-        pinos_proxy_set_dispatch (proxy,
-                                  link_dispatch_func,
-                                  impl);
-      }
-      if (proxy) {
-        PinosMessageBind m;
+  if (proxy->user_data == NULL)
+    event = PINOS_SUBSCRIPTION_EVENT_NEW;
+  else
+    event = PINOS_SUBSCRIPTION_EVENT_CHANGE;
 
-        m.id = ng->id;
-        m.new_id = proxy->id;
-        pinos_proxy_send_message (this->registry_proxy,
-                                  PINOS_MESSAGE_BIND,
-                                  &m,
-                                  true);
-      }
-      break;
-    }
-    case PINOS_MESSAGE_NOTIFY_GLOBAL_REMOVE:
-    {
-      PinosMessageNotifyGlobalRemove *ng = message;
-      pinos_log_debug ("got global remove %u", ng->id);
+  proxy->user_data = pinos_core_info_update (proxy->user_data, info);
 
-      pinos_signal_emit (&this->subscription,
-                         this,
-                         PINOS_SUBSCRIPTION_EVENT_REMOVE,
-                         SPA_ID_INVALID,
-                         ng->id);
-      break;
-    }
-    default:
-      pinos_log_warn ("unhandled message %d", type);
-      break;
+  pinos_signal_emit (&this->subscription,
+                     this,
+                     event,
+                     proxy->type,
+                     proxy->id);
+}
+
+static void
+core_event_done (void     *object,
+                 uint32_t  seq)
+{
+  PinosProxy *proxy = object;
+  PinosContext *this = proxy->context;
+
+  if (seq == 0) {
+    pinos_core_do_sync (this->core_proxy, 1);
+  } else if (seq == 1) {
+    context_set_state (this, PINOS_CONTEXT_STATE_CONNECTED, NULL);
   }
-  return SPA_RESULT_OK;
+}
+
+static void
+core_event_error (void       *object,
+                  uint32_t    id,
+                  SpaResult   res,
+                  const char *error, ...)
+{
+  PinosProxy *proxy = object;
+  PinosContext *this = proxy->context;
+  context_set_state (this, PINOS_CONTEXT_STATE_ERROR, error);
+}
+
+static void
+core_event_remove_id (void     *object,
+                      uint32_t  id)
+{
+  PinosProxy *core_proxy = object;
+  PinosContext *this = core_proxy->context;
+  PinosProxy *proxy;
+
+  proxy = pinos_map_lookup (&this->objects, id);
+  if (proxy) {
+    pinos_log_debug ("context %p: object remove %u", this, id);
+    pinos_proxy_destroy (proxy);
+  }
+}
+
+static const PinosCoreEvent core_events = {
+  &core_event_info,
+  &core_event_done,
+  &core_event_error,
+  &core_event_remove_id
+};
+
+static void
+module_marshall_info (void   *object,
+                      void   *data,
+                      size_t  size)
+{
+  PinosProxy *proxy = object;
+  PinosMessageModuleInfo *m = data;
+  pinos_module_notify_info (proxy, m->info);
+}
+
+static const MarshallFunc module_marshall[] = {
+  [PINOS_MESSAGE_MODULE_INFO] = &module_marshall_info,
+};
+
+static void
+module_event_info (void            *object,
+                   PinosModuleInfo *info)
+{
+  PinosProxy *proxy = object;
+  PinosContext *this = proxy->context;
+  PinosSubscriptionEvent event;
+
+  pinos_log_debug ("got module info");
+
+  if (proxy->user_data == NULL)
+    event = PINOS_SUBSCRIPTION_EVENT_NEW;
+  else
+    event = PINOS_SUBSCRIPTION_EVENT_CHANGE;
+
+  proxy->user_data = pinos_module_info_update (proxy->user_data, info);
+
+  pinos_signal_emit (&this->subscription,
+                     this,
+                     event,
+                     proxy->type,
+                     proxy->id);
+}
+
+static const PinosModuleEvent module_events = {
+  &module_event_info,
+};
+
+static void
+node_marshall_done (void   *object,
+                    void   *data,
+                    size_t  size)
+{
+  PinosProxy *proxy = object;
+  PinosMessageCreateNodeDone *m = data;
+  pinos_node_notify_done (proxy, m->seq);
+}
+
+static void
+node_marshall_info (void   *object,
+                    void   *data,
+                    size_t  size)
+{
+  PinosProxy *proxy = object;
+  PinosMessageNodeInfo *m = data;
+  pinos_node_notify_info (proxy, m->info);
+}
+
+static const MarshallFunc node_marshall[] = {
+  [PINOS_MESSAGE_CREATE_NODE_DONE] = &node_marshall_done,
+  [PINOS_MESSAGE_NODE_INFO] = &node_marshall_info,
+};
+
+static void
+node_event_done (void          *object,
+                 uint32_t       seq)
+{
+}
+
+static void
+node_event_info (void          *object,
+                 PinosNodeInfo *info)
+{
+  PinosProxy *proxy = object;
+  PinosContext *this = proxy->context;
+  PinosSubscriptionEvent event;
+
+  pinos_log_debug ("got node info");
+
+  if (proxy->user_data == NULL)
+    event = PINOS_SUBSCRIPTION_EVENT_NEW;
+  else
+    event = PINOS_SUBSCRIPTION_EVENT_CHANGE;
+
+  proxy->user_data = pinos_node_info_update (proxy->user_data, info);
+
+  pinos_signal_emit (&this->subscription,
+                     this,
+                     event,
+                     proxy->type,
+                     proxy->id);
+}
+
+static const PinosNodeEvent node_events = {
+  &node_event_done,
+  &node_event_info
+};
+
+static void
+client_node_interface_update (void           *object,
+                              uint32_t        change_mask,
+                              unsigned int    max_input_ports,
+                              unsigned int    max_output_ports,
+                              const SpaProps *props)
+{
+  PinosProxy *proxy = object;
+  PinosContextImpl *impl = SPA_CONTAINER_OF (proxy->context, PinosContextImpl, this);
+  PinosMessageNodeUpdate m = { change_mask, max_input_ports, max_output_ports, props };
+
+  pinos_connection_add_message (impl->connection,
+                                proxy->id,
+                                PINOS_MESSAGE_NODE_UPDATE,
+                                &m);
+  pinos_connection_flush (impl->connection);
+}
+
+static void
+client_node_interface_port_update (void              *object,
+                                   SpaDirection       direction,
+                                   uint32_t           port_id,
+                                   uint32_t           change_mask,
+                                   unsigned int       n_possible_formats,
+                                   SpaFormat        **possible_formats,
+                                   SpaFormat         *format,
+                                   const SpaProps    *props,
+                                   const SpaPortInfo *info)
+{
+  PinosProxy *proxy = object;
+  PinosContextImpl *impl = SPA_CONTAINER_OF (proxy->context, PinosContextImpl, this);
+  PinosMessagePortUpdate m = { direction, port_id, change_mask, n_possible_formats,
+                               possible_formats, format, props, info };
+
+  pinos_connection_add_message (impl->connection,
+                                proxy->id,
+                                PINOS_MESSAGE_PORT_UPDATE,
+                                &m);
+  pinos_connection_flush (impl->connection);
+}
+
+static void
+client_node_interface_state_change (void         *object,
+                                    SpaNodeState  state)
+{
+  PinosProxy *proxy = object;
+  PinosContextImpl *impl = SPA_CONTAINER_OF (proxy->context, PinosContextImpl, this);
+  PinosMessageNodeStateChange m = { state };
+
+  pinos_connection_add_message (impl->connection,
+                                proxy->id,
+                                PINOS_MESSAGE_NODE_STATE_CHANGE,
+                                &m);
+  pinos_connection_flush (impl->connection);
+}
+
+static void
+client_node_interface_event (void         *object,
+                             SpaNodeEvent *event)
+{
+  PinosProxy *proxy = object;
+  PinosContextImpl *impl = SPA_CONTAINER_OF (proxy->context, PinosContextImpl, this);
+  PinosMessageNodeEvent m = { event };
+
+  pinos_connection_add_message (impl->connection,
+                                proxy->id,
+                                PINOS_MESSAGE_NODE_EVENT,
+                                &m);
+  pinos_connection_flush (impl->connection);
+}
+
+static void
+client_node_interface_destroy (void    *object,
+                               uint32_t seq)
+{
+  PinosProxy *proxy = object;
+  PinosContextImpl *impl = SPA_CONTAINER_OF (proxy->context, PinosContextImpl, this);
+  PinosMessageDestroy m = { seq };
+
+  pinos_connection_add_message (impl->connection,
+                                proxy->id,
+                                PINOS_MESSAGE_DESTROY,
+                                &m);
+  pinos_connection_flush (impl->connection);
+}
+
+const PinosClientNodeInterface client_node_interface = {
+  &client_node_interface_update,
+  &client_node_interface_port_update,
+  &client_node_interface_state_change,
+  &client_node_interface_event,
+  &client_node_interface_destroy
+};
+
+static void
+client_node_mashall_done (void   *object,
+                          void   *data,
+                          size_t  size)
+{
+  PinosProxy *proxy = object;
+  PinosMessageCreateClientNodeDone *m = data;
+  pinos_client_node_notify_done (proxy, m->seq, m->datafd);
+}
+
+static void
+client_node_mashall_event (void   *object,
+                           void   *data,
+                           size_t  size)
+{
+  PinosProxy *proxy = object;
+  PinosMessageNodeEvent *m = data;
+  pinos_client_node_notify_event (proxy, m->event);
+}
+
+static void
+client_node_mashall_add_port (void   *object,
+                              void   *data,
+                              size_t  size)
+{
+  PinosProxy *proxy = object;
+  PinosMessageAddPort *m = data;
+  pinos_client_node_notify_add_port (proxy, m->seq, m->direction, m->port_id);
+}
+
+static void
+client_node_mashall_remove_port (void   *object,
+                                 void   *data,
+                                 size_t  size)
+{
+  PinosProxy *proxy = object;
+  PinosMessageRemovePort *m = data;
+  pinos_client_node_notify_remove_port (proxy, m->seq, m->direction, m->port_id);
+}
+
+static void
+client_node_mashall_set_format (void   *object,
+                                void   *data,
+                                size_t  size)
+{
+  PinosProxy *proxy = object;
+  PinosMessageSetFormat *m = data;
+  pinos_client_node_notify_set_format (proxy, m->seq, m->direction, m->port_id,
+                                       m->flags, m->format);
+}
+
+static void
+client_node_mashall_set_property (void   *object,
+                                  void   *data,
+                                  size_t  size)
+{
+  PinosProxy *proxy = object;
+  PinosMessageSetProperty *m = data;
+  pinos_client_node_notify_set_property (proxy, m->seq, m->id, m->size, m->value);
+}
+
+static void
+client_node_mashall_add_mem (void   *object,
+                             void   *data,
+                             size_t  size)
+{
+  PinosProxy *proxy = object;
+  PinosMessageAddMem *m = data;
+  pinos_client_node_notify_add_mem (proxy,
+                                    m->direction,
+                                    m->port_id,
+                                    m->mem_id,
+                                    m->type,
+                                    m->memfd,
+                                    m->flags,
+                                    m->offset,
+                                    m->size);
+}
+
+static void
+client_node_mashall_use_buffers (void   *object,
+                                 void   *data,
+                                 size_t  size)
+{
+  PinosProxy *proxy = object;
+  PinosMessageUseBuffers *m = data;
+  pinos_client_node_notify_use_buffers (proxy,
+                                        m->seq,
+                                        m->direction,
+                                        m->port_id,
+                                        m->n_buffers,
+                                        m->buffers);
+}
+
+static void
+client_node_mashall_node_command (void   *object,
+                                  void   *data,
+                                  size_t  size)
+{
+  PinosProxy *proxy = object;
+  PinosMessageNodeCommand *m = data;
+  pinos_client_node_notify_node_command (proxy, m->seq, m->command);
+}
+
+static void
+client_node_mashall_port_command (void   *object,
+                                  void   *data,
+                                  size_t  size)
+{
+  PinosProxy *proxy = object;
+  PinosMessagePortCommand *m = data;
+  pinos_client_node_notify_port_command (proxy, m->port_id, m->command);
+}
+
+static void
+client_node_mashall_transport (void   *object,
+                               void   *data,
+                               size_t  size)
+{
+  PinosProxy *proxy = object;
+  PinosMessageTransportUpdate *m = data;
+  pinos_client_node_notify_transport (proxy, m->memfd, m->offset, m->size);
+}
+
+const MarshallFunc client_node_marshall[] = {
+  [PINOS_MESSAGE_CREATE_CLIENT_NODE_DONE] = &client_node_mashall_done,
+  [PINOS_MESSAGE_NODE_EVENT] = &client_node_mashall_event,
+  [PINOS_MESSAGE_ADD_PORT] = &client_node_mashall_add_port,
+  [PINOS_MESSAGE_REMOVE_PORT] = &client_node_mashall_remove_port,
+  [PINOS_MESSAGE_SET_FORMAT] = &client_node_mashall_set_format,
+  [PINOS_MESSAGE_SET_PROPERTY] = &client_node_mashall_set_property,
+  [PINOS_MESSAGE_ADD_MEM] = &client_node_mashall_add_mem,
+  [PINOS_MESSAGE_USE_BUFFERS] = &client_node_mashall_use_buffers,
+  [PINOS_MESSAGE_NODE_COMMAND] = &client_node_mashall_node_command,
+  [PINOS_MESSAGE_PORT_COMMAND] = &client_node_mashall_port_command,
+  [PINOS_MESSAGE_TRANSPORT_UPDATE] = &client_node_mashall_transport
+};
+
+static void
+client_marshall_info (void   *object,
+                      void   *data,
+                      size_t  size)
+{
+  PinosProxy *proxy = object;
+  PinosMessageClientInfo *m = data;
+  pinos_client_notify_info (proxy, m->info);
+}
+
+static const MarshallFunc client_marshall[] = {
+  [PINOS_MESSAGE_CLIENT_INFO] = &client_marshall_info,
+};
+
+static void
+client_event_info (void            *object,
+                   PinosClientInfo *info)
+{
+  PinosProxy *proxy = object;
+  PinosContext *this = proxy->context;
+  PinosSubscriptionEvent event;
+
+  pinos_log_debug ("got client info");
+
+  if (proxy->user_data == NULL)
+    event = PINOS_SUBSCRIPTION_EVENT_NEW;
+  else
+    event = PINOS_SUBSCRIPTION_EVENT_CHANGE;
+
+  proxy->user_data = pinos_client_info_update (proxy->user_data, info);
+
+  pinos_signal_emit (&this->subscription,
+                     this,
+                     event,
+                     proxy->type,
+                     proxy->id);
+}
+
+static const PinosClientEvent client_events = {
+  &client_event_info
+};
+
+static void
+link_marshall_info (void   *object,
+                    void   *data,
+                    size_t  size)
+{
+  PinosProxy *proxy = object;
+  PinosMessageLinkInfo *m = data;
+  pinos_link_notify_info (proxy, m->info);
+}
+
+static const MarshallFunc link_marshall[] = {
+  [PINOS_MESSAGE_LINK_INFO] = &link_marshall_info,
+};
+
+static void
+link_event_info (void          *object,
+                 PinosLinkInfo *info)
+{
+  PinosProxy *proxy = object;
+  PinosContext *this = proxy->context;
+  PinosSubscriptionEvent event;
+
+  pinos_log_debug ("got link info");
+
+  if (proxy->user_data == NULL)
+    event = PINOS_SUBSCRIPTION_EVENT_NEW;
+  else
+    event = PINOS_SUBSCRIPTION_EVENT_CHANGE;
+
+  proxy->user_data = pinos_link_info_update (proxy->user_data, info);
+
+  pinos_signal_emit (&this->subscription,
+                     this,
+                     event,
+                     proxy->type,
+                     proxy->id);
+}
+
+static const PinosLinkEvent link_events = {
+  &link_event_info
+};
+
+static void
+registry_marshall_global (void   *object,
+                          void   *data,
+                          size_t  size)
+{
+  PinosProxy *proxy = object;
+  PinosMessageNotifyGlobal *m = data;
+  pinos_registry_notify_global (proxy, m->id, m->type);
+}
+
+static void
+registry_marshall_global_remove (void   *object,
+                                 void   *data,
+                                 size_t  size)
+{
+  PinosProxy *proxy = object;
+  PinosMessageNotifyGlobalRemove *m = data;
+  pinos_registry_notify_global_remove (proxy, m->id);
+}
+
+static const MarshallFunc registry_marshall[] = {
+  [PINOS_MESSAGE_NOTIFY_GLOBAL] = &registry_marshall_global,
+  [PINOS_MESSAGE_NOTIFY_GLOBAL_REMOVE] = &registry_marshall_global_remove,
+};
+
+static void
+registry_event_global (void          *object,
+                       uint32_t       id,
+                       const char    *type)
+{
+  PinosProxy *registry_proxy = object;
+  PinosContext *this = registry_proxy->context;
+  PinosProxy *proxy = NULL;
+
+  pinos_log_debug ("got global %u %s", id, type);
+
+  if (!strcmp (type, PINOS_NODE_URI)) {
+    proxy = pinos_proxy_new (this,
+                             SPA_ID_INVALID,
+                             this->uri.node);
+    if (proxy == NULL)
+      goto no_mem;
+
+    proxy->event = &node_events;
+    proxy->marshall = &node_marshall;
+    proxy->interface = NULL;
+  } else if (!strcmp (type, PINOS_MODULE_URI)) {
+    proxy = pinos_proxy_new (this,
+                             SPA_ID_INVALID,
+                             this->uri.module);
+    if (proxy == NULL)
+      goto no_mem;
+
+    proxy->event = &module_events;
+    proxy->marshall = &module_marshall;
+    proxy->interface = NULL;
+  } else if (!strcmp (type, PINOS_CLIENT_URI)) {
+    proxy = pinos_proxy_new (this,
+                             SPA_ID_INVALID,
+                             this->uri.client);
+    if (proxy == NULL)
+      goto no_mem;
+
+    proxy->event = &client_events;
+    proxy->marshall = &client_marshall;
+    proxy->interface = NULL;
+  } else if (!strcmp (type, PINOS_LINK_URI)) {
+    proxy = pinos_proxy_new (this,
+                             SPA_ID_INVALID,
+                             this->uri.link);
+    if (proxy == NULL)
+      goto no_mem;
+
+    proxy->event = &link_events;
+    proxy->marshall = &link_marshall;
+    proxy->interface = NULL;
+  }
+  if (proxy)
+    pinos_registry_do_bind (this->registry_proxy, id, proxy->id);
+
+  return;
 
 no_mem:
-  return SPA_RESULT_NO_MEMORY;
+  pinos_log_error ("context %p: failed to create proxy", this);
+  return;
 }
+
+static void
+registry_event_global_remove (void     *object,
+                              uint32_t  id)
+{
+  PinosProxy *proxy = object;
+  PinosContext *this = proxy->context;
+
+  pinos_log_debug ("got global remove %u", id);
+
+  pinos_signal_emit (&this->subscription,
+                     this,
+                     PINOS_SUBSCRIPTION_EVENT_REMOVE,
+                     SPA_ID_INVALID,
+                     id);
+}
+
+static const PinosRegistryEvent registry_events = {
+  &registry_event_global,
+  &registry_event_global_remove
+};
+
+static void
+registry_bind (void          *object,
+               uint32_t       id,
+               uint32_t       new_id)
+{
+  PinosProxy *proxy = object;
+  PinosContextImpl *impl = SPA_CONTAINER_OF (proxy->context, PinosContextImpl, this);
+  PinosMessageBind m = { id, new_id };
+
+  pinos_connection_add_message (impl->connection,
+                                proxy->id,
+                                PINOS_MESSAGE_BIND,
+                                &m);
+  pinos_connection_flush (impl->connection);
+}
+
+static const PinosRegistryInterface registry_interface = {
+  &registry_bind
+};
 
 static void
 on_context_data (SpaSource *source,
@@ -441,6 +875,7 @@ on_context_data (SpaSource *source,
     while (pinos_connection_get_next (conn, &type, &id, &size)) {
       void *p = alloca (size);
       PinosProxy *proxy;
+      const MarshallFunc *marshall;
 
       if (!pinos_connection_parse_message (conn, p)) {
         pinos_log_error ("context %p: failed to parse message", this);
@@ -452,31 +887,16 @@ on_context_data (SpaSource *source,
         pinos_log_error ("context %p: could not find proxy %u", this, id);
         continue;
       }
-      pinos_log_debug ("context %p: object dispatch %u", this, id);
+      pinos_log_debug ("context %p: object marshall %u, %u", this, id, type);
 
-      pinos_proxy_dispatch (proxy, type, p);
+      marshall = proxy->marshall;
+      if (marshall[type])
+        marshall[type] (proxy, p, size);
+      else
+        pinos_log_error ("context %p: function %d not implemented", this, type);
+
     }
   }
-}
-
-static SpaResult
-context_send_func (void             *object,
-                   uint32_t          id,
-                   PinosMessageType  type,
-                   void             *message,
-                   bool              flush,
-                   void             *data)
-{
-  PinosContextImpl *impl = SPA_CONTAINER_OF (data, PinosContextImpl, this);
-
-  pinos_connection_add_message (impl->connection,
-                                id,
-                                type,
-                                message);
-  if (flush)
-    pinos_connection_flush (impl->connection);
-
-  return SPA_RESULT_OK;
 }
 
 /**
@@ -521,10 +941,6 @@ pinos_context_new (PinosLoop       *loop,
   this->loop = loop;
 
   this->state = PINOS_CONTEXT_STATE_UNCONNECTED;
-
-  pinos_context_set_send (this,
-                          context_send_func,
-                          this);
 
   pinos_map_init (&this->objects, 64);
 
@@ -643,8 +1059,6 @@ pinos_context_connect_fd (PinosContext  *context,
                           int            fd)
 {
   PinosContextImpl *impl = SPA_CONTAINER_OF (context, PinosContextImpl, this);
-  PinosMessageClientUpdate cu;
-  PinosMessageGetRegistry grm;
 
   context_set_state (context, PINOS_CONTEXT_STATE_CONNECTING, NULL);
 
@@ -667,15 +1081,12 @@ pinos_context_connect_fd (PinosContext  *context,
   if (context->core_proxy == NULL)
     goto no_proxy;
 
-  pinos_proxy_set_dispatch (context->core_proxy,
-                            core_dispatch_func,
-                            impl);
+  context->core_proxy->event = &core_events;
+  context->core_proxy->interface = &core_interface;
+  context->core_proxy->marshall = &core_marshall;
 
-  cu.props = &context->properties->dict;
-  pinos_proxy_send_message (context->core_proxy,
-                            PINOS_MESSAGE_CLIENT_UPDATE,
-                            &cu,
-                            true);
+  pinos_core_do_client_update (context->core_proxy,
+                               &context->properties->dict);
 
   context->registry_proxy = pinos_proxy_new (context,
                                              SPA_ID_INVALID,
@@ -683,16 +1094,13 @@ pinos_context_connect_fd (PinosContext  *context,
   if (context->registry_proxy == NULL)
     goto no_registry;
 
-  pinos_proxy_set_dispatch (context->registry_proxy,
-                            registry_dispatch_func,
-                            impl);
+  context->registry_proxy->event = &registry_events;
+  context->registry_proxy->interface = &registry_interface;
+  context->registry_proxy->marshall = &registry_marshall;
 
-  grm.seq = 0;
-  grm.new_id = context->registry_proxy->id;
-  pinos_proxy_send_message (context->core_proxy,
-                            PINOS_MESSAGE_GET_REGISTRY,
-                            &grm,
-                            true);
+  pinos_core_do_get_registry (context->core_proxy,
+                              0,
+                              context->registry_proxy->id);
   return true;
 
 no_registry:
@@ -738,35 +1146,6 @@ pinos_context_disconnect (PinosContext *context)
   context_set_state (context, PINOS_CONTEXT_STATE_UNCONNECTED, NULL);
 
   return true;
-}
-
-void
-pinos_context_set_send (PinosContext  *context,
-                        PinosSendFunc  func,
-                        void          *data)
-{
-  PinosContextImpl *impl = SPA_CONTAINER_OF (context, PinosContextImpl, this);
-
-  impl->send_func = func;
-  impl->send_data = data;
-}
-
-
-SpaResult
-pinos_context_send_message (PinosContext      *context,
-                            PinosProxy        *proxy,
-                            uint32_t           opcode,
-                            void              *message,
-                            bool               flush)
-{
-  PinosContextImpl *impl = SPA_CONTAINER_OF (context, PinosContextImpl, this);
-
-  if (impl->send_func)
-    return impl->send_func (proxy, proxy->id, opcode, message, flush, impl->send_data);
-
-  pinos_log_error ("context %p: send func not implemented", context);
-
-  return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 void

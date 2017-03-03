@@ -91,7 +91,7 @@ typedef enum {
 
 /* PINOS_MESSAGE_CLIENT_UPDATE */
 typedef struct {
-  SpaDict     *props;
+  const SpaDict *props;
 } PinosMessageClientUpdate;
 
 /* PINOS_MESSAGE_SYNC */
@@ -166,11 +166,11 @@ typedef struct {
 
 /* PINOS_MESSAGE_CREATE_NODE */
 typedef struct {
-  uint32_t     seq;
-  const char  *factory_name;
-  const char  *name;
-  SpaDict     *props;
-  uint32_t     new_id;
+  uint32_t       seq;
+  const char    *factory_name;
+  const char    *name;
+  const SpaDict *props;
+  uint32_t       new_id;
 } PinosMessageCreateNode;
 
 /* PINOS_MESSAGE_CREATE_NODE_DONE */
@@ -180,10 +180,10 @@ typedef struct {
 
 /* PINOS_MESSAGE_CREATE_CLIENT_NODE */
 typedef struct {
-  uint32_t     seq;
-  const char  *name;
-  SpaDict     *props;
-  uint32_t     new_id;
+  uint32_t       seq;
+  const char    *name;
+  const SpaDict *props;
+  uint32_t       new_id;
 } PinosMessageCreateClientNode;
 
 /* PINOS_MESSAGE_CREATE_CLIENT_NODE_DONE */

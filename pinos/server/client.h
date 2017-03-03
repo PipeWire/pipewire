@@ -35,13 +35,6 @@ typedef struct _PinosClient PinosClient;
 #include <pinos/server/core.h>
 #include <pinos/server/resource.h>
 
-typedef SpaResult (*PinosSendFunc) (void             *object,
-                                    uint32_t          id,
-                                    uint32_t          opcode,
-                                    void             *message,
-                                    bool              flush,
-                                    void             *data);
-
 /**
  * PinosClient:
  *

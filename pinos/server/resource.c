@@ -24,9 +24,6 @@
 
 typedef struct {
   PinosResource this;
-
-  PinosDispatchFunc  dispatch_func;
-  void              *dispatch_data;
 } PinosResourceImpl;
 
 PinosResource *

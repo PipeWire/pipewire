@@ -26,11 +26,6 @@ extern "C" {
 
 typedef struct _PinosProxy PinosProxy;
 
-
-typedef SpaResult (*PinosDispatchFunc) (void             *object,
-                                        uint32_t          opcode,
-                                        void             *message,
-                                        void             *data);
 #include <pinos/client/connection.h>
 #include <pinos/client/context.h>
 
@@ -43,6 +38,10 @@ struct _PinosProxy {
 
   void         *user_data;
 
+  const void   *interface;
+  const void   *event;
+  const void   *marshall;
+
   PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
                                  PinosProxy    *proxy));
 };
@@ -52,21 +51,8 @@ PinosProxy *      pinos_proxy_new                     (PinosContext      *contex
                                                        uint32_t           type);
 void              pinos_proxy_destroy                 (PinosProxy        *proxy);
 
-void              pinos_proxy_set_dispatch            (PinosProxy        *proxy,
-                                                       PinosDispatchFunc  func,
-                                                       void              *data);
-
-SpaResult         pinos_proxy_send_message            (PinosProxy        *proxy,
-                                                       uint32_t           opcode,
-                                                       void              *message,
-                                                       bool               flush);
-
-SpaResult         pinos_proxy_dispatch                (PinosProxy        *proxy,
-                                                       uint32_t           opcode,
-                                                       void              *message);
 #ifdef __cplusplus
 }
 #endif
-
 
 #endif /* __PINOS_PROXY_H__ */

@@ -61,6 +61,12 @@ typedef struct {
                                uint32_t       new_id);
 } PinosCoreInterface;
 
+#define pinos_core_do_client_update(r,...)      ((PinosCoreInterface*)r->interface)->client_update(r,__VA_ARGS__)
+#define pinos_core_do_sync(r,...)               ((PinosCoreInterface*)r->interface)->sync(r,__VA_ARGS__)
+#define pinos_core_do_get_registry(r,...)       ((PinosCoreInterface*)r->interface)->get_registry(r,__VA_ARGS__)
+#define pinos_core_do_create_node(r,...)        ((PinosCoreInterface*)r->interface)->create_node(r,__VA_ARGS__)
+#define pinos_core_do_create_client_node(r,...) ((PinosCoreInterface*)r->interface)->create_client_node(r,__VA_ARGS__)
+
 typedef struct {
   void (*info)                (void          *object,
                                PinosCoreInfo *info);
@@ -86,6 +92,8 @@ typedef struct {
                                uint32_t       id,
                                uint32_t       new_id);
 } PinosRegistryInterface;
+
+#define pinos_registry_do_bind(r,...)        ((PinosRegistryInterface*)r->interface)->bind(r,__VA_ARGS__)
 
 typedef struct {
   void (*global)              (void          *object,
@@ -159,6 +167,11 @@ typedef struct {
                                 uint32_t           seq);
 } PinosClientNodeInterface;
 
+#define pinos_client_node_do_update(r,...)       ((PinosClientNodeInterface*)r->interface)->update(r,__VA_ARGS__)
+#define pinos_client_node_do_port_update(r,...)  ((PinosClientNodeInterface*)r->interface)->port_update(r,__VA_ARGS__)
+#define pinos_client_node_do_state_change(r,...) ((PinosClientNodeInterface*)r->interface)->state_change(r,__VA_ARGS__)
+#define pinos_client_node_do_event(r,...)        ((PinosClientNodeInterface*)r->interface)->event(r,__VA_ARGS__)
+#define pinos_client_node_do_destroy(r,...)      ((PinosClientNodeInterface*)r->interface)->destroy(r,__VA_ARGS__)
 
 typedef struct {
   void (*done)                 (void              *object,

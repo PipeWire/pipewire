@@ -103,9 +103,8 @@ core_event_info (void          *object,
 {
   PinosResource *resource = object;
   PinosProtocolNativeClient *client = resource->client->protocol_private;
-  PinosMessageCoreInfo m;
+  PinosMessageCoreInfo m = { info };
 
-  m.info = info;
   pinos_connection_add_message (client->connection,
                                 resource->id,
                                 PINOS_MESSAGE_CORE_INFO,
@@ -119,9 +118,8 @@ core_event_done (void          *object,
 {
   PinosResource *resource = object;
   PinosProtocolNativeClient *client = resource->client->protocol_private;
-  PinosMessageNotifyDone m;
+  PinosMessageNotifyDone m = { seq };
 
-  m.seq = seq;
   pinos_connection_add_message (client->connection,
                                 resource->id,
                                 PINOS_MESSAGE_NOTIFY_DONE,
@@ -137,17 +135,14 @@ core_event_error (void          *object,
 {
   PinosResource *resource = object;
   PinosProtocolNativeClient *client = resource->client->protocol_private;
-  PinosMessageError m;
   char buffer[128];
+  PinosMessageError m = { id, res, buffer };
   va_list ap;
 
   va_start (ap, error);
   vsnprintf (buffer, sizeof (buffer), error, ap);
   va_end (ap);
 
-  m.id = id;
-  m.res = res;
-  m.error = buffer;
   pinos_connection_add_message (client->connection,
                                 resource->id,
                                 PINOS_MESSAGE_ERROR,
@@ -161,9 +156,8 @@ core_event_remove_id (void          *object,
 {
   PinosResource *resource = object;
   PinosProtocolNativeClient *client = resource->client->protocol_private;
-  PinosMessageRemoveId m;
+  PinosMessageRemoveId m = { id };
 
-  m.id = id;
   pinos_connection_add_message (client->connection,
                                 resource->id,
                                 PINOS_MESSAGE_REMOVE_ID,
@@ -172,67 +166,62 @@ core_event_remove_id (void          *object,
 }
 
 static void
-core_client_update (void  *object,
+core_marshall_client_update (void  *object,
+                             void  *data,
+                             size_t size)
+{
+  PinosResource *resource = object;
+  PinosMessageClientUpdate *m = data;
+  pinos_core_do_client_update (resource, m->props);
+}
+
+static void
+core_marshall_sync (void  *object,
                     void  *data,
                     size_t size)
 {
   PinosResource *resource = object;
-  PinosMessageClientUpdate *m = data;
-
-  ((PinosCoreInterface*)resource->interface)->client_update (resource, m->props);
-}
-
-static void
-core_sync (void  *object,
-           void  *data,
-           size_t size)
-{
-  PinosResource *resource = object;
   PinosMessageSync *m = data;
-
-  ((PinosCoreInterface*)resource->interface)->sync (resource, m->seq);
+  pinos_core_do_sync (resource, m->seq);
 }
 
 static void
-core_get_registry (void  *object,
-                   void  *data,
-                   size_t size)
+core_marshall_get_registry (void  *object,
+                            void  *data,
+                            size_t size)
 {
   PinosResource *resource = object;
   PinosMessageGetRegistry *m = data;
-
-  ((PinosCoreInterface*)resource->interface)->get_registry (resource, m->seq, m->new_id);
+  pinos_core_do_get_registry (resource, m->seq, m->new_id);
 }
 
 static void
-core_create_node (void  *object,
-                  void  *data,
-                  size_t size)
+core_marshall_create_node (void  *object,
+                           void  *data,
+                           size_t size)
 {
   PinosResource *resource = object;
   PinosMessageCreateNode *m = data;
-
-  ((PinosCoreInterface*)resource->interface)->create_node (resource,
-                                                           m->seq,
-                                                           m->factory_name,
-                                                           m->name,
-                                                           m->props,
-                                                           m->new_id);
+  pinos_core_do_create_node (resource,
+                             m->seq,
+                             m->factory_name,
+                             m->name,
+                             m->props,
+                             m->new_id);
 }
 
 static void
-core_create_client_node (void  *object,
-                         void  *data,
-                         size_t size)
+core_marshall_create_client_node (void  *object,
+                                  void  *data,
+                                  size_t size)
 {
   PinosResource *resource = object;
   PinosMessageCreateClientNode *m = data;
-
-  ((PinosCoreInterface*)resource->interface)->create_client_node (resource,
-                                                                  m->seq,
-                                                                  m->name,
-                                                                  m->props,
-                                                                  m->new_id);
+  pinos_core_do_create_client_node (resource,
+                                    m->seq,
+                                    m->name,
+                                    m->props,
+                                    m->new_id);
 }
 
 static void
@@ -242,10 +231,8 @@ registry_event_global (void          *object,
 {
   PinosResource *resource = object;
   PinosProtocolNativeClient *client = resource->client->protocol_private;
-  PinosMessageNotifyGlobal m;
+  PinosMessageNotifyGlobal m = { id, type };
 
-  m.id = id;
-  m.type = type;
   pinos_connection_add_message (client->connection,
                                 resource->id,
                                 PINOS_MESSAGE_NOTIFY_GLOBAL,
@@ -259,9 +246,8 @@ registry_event_global_remove (void          *object,
 {
   PinosResource *resource = object;
   PinosProtocolNativeClient *client = resource->client->protocol_private;
-  PinosMessageNotifyGlobalRemove m;
+  PinosMessageNotifyGlobalRemove m = { id };
 
-  m.id = id;
   pinos_connection_add_message (client->connection,
                                 resource->id,
                                 PINOS_MESSAGE_NOTIFY_GLOBAL_REMOVE,
@@ -270,16 +256,15 @@ registry_event_global_remove (void          *object,
 }
 
 static void
-registry_bind (void  *object,
-               void  *data,
-               size_t size)
+registry_marshall_bind (void  *object,
+                        void  *data,
+                        size_t size)
 {
   PinosResource *resource = object;
   PinosMessageBind *m = data;
-
-  ((PinosRegistryInterface*)resource->interface)->bind (resource,
-                                                        m->id,
-                                                        m->new_id);
+  pinos_registry_do_bind (resource,
+                          m->id,
+                          m->new_id);
 }
 
 static void
@@ -288,9 +273,8 @@ module_event_info (void            *object,
 {
   PinosResource *resource = object;
   PinosProtocolNativeClient *client = resource->client->protocol_private;
-  PinosMessageModuleInfo m;
+  PinosMessageModuleInfo m = { info };
 
-  m.info = info;
   pinos_connection_add_message (client->connection,
                                 resource->id,
                                 PINOS_MESSAGE_MODULE_INFO,
@@ -304,9 +288,8 @@ node_event_done (void          *object,
 {
   PinosResource *resource = object;
   PinosProtocolNativeClient *client = resource->client->protocol_private;
-  PinosMessageCreateNodeDone m;
+  PinosMessageCreateNodeDone m = { seq };
 
-  m.seq = seq;
   pinos_connection_add_message (client->connection,
                                 resource->id,
                                 PINOS_MESSAGE_CREATE_NODE_DONE,
@@ -320,9 +303,8 @@ node_event_info (void          *object,
 {
   PinosResource *resource = object;
   PinosProtocolNativeClient *client = resource->client->protocol_private;
-  PinosMessageNodeInfo m;
+  PinosMessageNodeInfo m = { info };
 
-  m.info = info;
   pinos_connection_add_message (client->connection,
                                 resource->id,
                                 PINOS_MESSAGE_NODE_INFO,
@@ -336,9 +318,8 @@ client_event_info (void          *object,
 {
   PinosResource *resource = object;
   PinosProtocolNativeClient *client = resource->client->protocol_private;
-  PinosMessageClientInfo m;
+  PinosMessageClientInfo m = { info };
 
-  m.info = info;
   pinos_connection_add_message (client->connection,
                                 resource->id,
                                 PINOS_MESSAGE_CLIENT_INFO,
@@ -533,68 +514,65 @@ client_node_event_transport (void              *object,
 }
 
 static void
-client_node_update (void  *object,
-                    void  *data,
-                    size_t size)
+client_node_marshall_update (void  *object,
+                             void  *data,
+                             size_t size)
 {
   PinosResource *resource = object;
   PinosMessageNodeUpdate *m = data;
-  ((PinosClientNodeInterface*)resource->interface)->update (object,
-                                                            m->change_mask,
-                                                            m->max_input_ports,
-                                                            m->max_output_ports,
-                                                            m->props);
+  pinos_client_node_do_update (resource,
+                               m->change_mask,
+                               m->max_input_ports,
+                               m->max_output_ports,
+                               m->props);
 }
 
 static void
-client_node_port_update (void  *object,
-                         void  *data,
-                         size_t size)
+client_node_marshall_port_update (void  *object,
+                                  void  *data,
+                                  size_t size)
 {
   PinosResource *resource = object;
   PinosMessagePortUpdate *m = data;
-  ((PinosClientNodeInterface*)resource->interface)->port_update (object,
-                                                                 m->direction,
-                                                                 m->port_id,
-                                                                 m->change_mask,
-                                                                 m->n_possible_formats,
-                                                                 m->possible_formats,
-                                                                 m->format,
-                                                                 m->props,
-                                                                 m->info);
+  pinos_client_node_do_port_update (resource,
+                                    m->direction,
+                                    m->port_id,
+                                    m->change_mask,
+                                    m->n_possible_formats,
+                                    m->possible_formats,
+                                    m->format,
+                                    m->props,
+                                    m->info);
 }
 
 static void
-client_node_state_change (void  *object,
-                          void  *data,
-                          size_t size)
+client_node_marshall_state_change (void  *object,
+                                   void  *data,
+                                   size_t size)
 {
   PinosResource *resource = object;
   PinosMessageNodeStateChange *m = data;
-  ((PinosClientNodeInterface*)resource->interface)->state_change (object,
-                                                                  m->state);
+  pinos_client_node_do_state_change (resource, m->state);
 }
 
 static void
-client_node_event (void   *object,
-                   void   *data,
-                   size_t  size)
+client_node_marshall_event (void   *object,
+                            void   *data,
+                            size_t  size)
 {
   PinosResource *resource = object;
   PinosMessageNodeEvent *m = data;
-  ((PinosClientNodeInterface*)resource->interface)->event (object,
-                                                           m->event);
+  pinos_client_node_do_event (resource, m->event);
 }
 
 static void
-client_node_destroy (void   *object,
-                     void   *data,
-                     size_t  size)
+client_node_marshall_destroy (void   *object,
+                              void   *data,
+                              size_t  size)
 {
   PinosResource *resource = object;
   PinosMessageDestroy *m = data;
-  ((PinosClientNodeInterface*)resource->interface)->destroy (object,
-                                                             m->seq);
+  pinos_client_node_do_destroy (resource, m->seq);
 }
 
 static void
@@ -626,11 +604,11 @@ on_resource_added (PinosListener *listener,
       &core_event_remove_id
     };
     static const MarshallFunc core_marshall[] = {
-      [PINOS_MESSAGE_CLIENT_UPDATE] = &core_client_update,
-      [PINOS_MESSAGE_SYNC] = &core_sync,
-      [PINOS_MESSAGE_GET_REGISTRY] = &core_get_registry,
-      [PINOS_MESSAGE_CREATE_NODE] = &core_create_node,
-      [PINOS_MESSAGE_CREATE_CLIENT_NODE] = &core_create_client_node
+      [PINOS_MESSAGE_CLIENT_UPDATE] = &core_marshall_client_update,
+      [PINOS_MESSAGE_SYNC] = &core_marshall_sync,
+      [PINOS_MESSAGE_GET_REGISTRY] = &core_marshall_get_registry,
+      [PINOS_MESSAGE_CREATE_NODE] = &core_marshall_create_node,
+      [PINOS_MESSAGE_CREATE_CLIENT_NODE] = &core_marshall_create_client_node
     };
     resource->event = &core_event;
     resource->marshall = &core_marshall;
@@ -641,7 +619,7 @@ on_resource_added (PinosListener *listener,
       &registry_event_global_remove,
     };
     static const MarshallFunc registry_marshall[] = {
-      [PINOS_MESSAGE_BIND] = &registry_bind,
+      [PINOS_MESSAGE_BIND] = &registry_marshall_bind,
     };
     resource->event = &registry_event;
     resource->marshall = &registry_marshall;
@@ -683,11 +661,11 @@ on_resource_added (PinosListener *listener,
       &client_node_event_transport,
     };
     static const MarshallFunc client_node_marshall[] = {
-      [PINOS_MESSAGE_NODE_UPDATE] = &client_node_update,
-      [PINOS_MESSAGE_PORT_UPDATE] = &client_node_port_update,
-      [PINOS_MESSAGE_NODE_STATE_CHANGE] = &client_node_state_change,
-      [PINOS_MESSAGE_NODE_EVENT] = &client_node_event,
-      [PINOS_MESSAGE_DESTROY] = &client_node_destroy,
+      [PINOS_MESSAGE_NODE_UPDATE] = &client_node_marshall_update,
+      [PINOS_MESSAGE_PORT_UPDATE] = &client_node_marshall_port_update,
+      [PINOS_MESSAGE_NODE_STATE_CHANGE] = &client_node_marshall_state_change,
+      [PINOS_MESSAGE_NODE_EVENT] = &client_node_marshall_event,
+      [PINOS_MESSAGE_DESTROY] = &client_node_marshall_destroy,
     };
     resource->event = &client_node_events;
     resource->marshall = &client_node_marshall;

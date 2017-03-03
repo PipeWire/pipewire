@@ -73,6 +73,8 @@ struct _PinosContext {
   SpaList          stream_list;
   SpaList          proxy_list;
 
+  void            *protocol_private;
+
   PinosContextState state;
   char *error;
   PINOS_SIGNAL (state_changed,  (PinosListener *listener,

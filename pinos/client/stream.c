@@ -27,6 +27,7 @@
 #include "spa/lib/debug.h"
 
 #include "pinos/client/pinos.h"
+#include "pinos/client/protocol-native.h"
 #include "pinos/client/array.h"
 #include "pinos/client/connection.h"
 #include "pinos/client/context.h"
@@ -928,11 +929,6 @@ static const PinosClientNodeEvent client_node_events = {
   &client_node_transport
 };
 
-typedef void (*MarshallFunc) (void *object, void *data, size_t size);
-
-extern const PinosClientNodeInterface client_node_interface;
-extern const MarshallFunc client_node_marshall[];
-
 static void
 on_node_proxy_destroy (PinosListener *listener,
                        PinosProxy    *proxy)
@@ -1002,9 +998,9 @@ pinos_stream_connect (PinosStream      *stream,
                     on_node_proxy_destroy);
 
   impl->node_proxy->user_data = stream;
-  impl->node_proxy->interface = &client_node_interface;
   impl->node_proxy->event = &client_node_events;
-  impl->node_proxy->marshall = &client_node_marshall;
+  impl->node_proxy->interface = &pinos_protocol_native_client_client_node_interface;
+  impl->node_proxy->marshall = &pinos_protocol_native_client_client_node_marshall;
 
   pinos_core_do_create_client_node (stream->context->core_proxy,
                                     ++impl->seq,

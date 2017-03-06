@@ -219,7 +219,6 @@ pinos_node_info_update (PinosNodeInfo       *info,
 {
   uint64_t change_mask;
   int i;
-  size_t size;
 
   if (update == NULL)
     return info;
@@ -253,8 +252,7 @@ pinos_node_info_update (PinosNodeInfo       *info,
       info->input_formats = NULL;
     }
     for (i = 0; i < info->n_input_formats; i++) {
-      size = SPA_POD_SIZE (update->input_formats[i]);
-      info->input_formats[i] = memcpy (malloc (size), update->input_formats[i], size);
+      info->input_formats[i] = spa_format_copy (update->input_formats[i]);
     }
   }
   if (update->change_mask & (1 << 3))
@@ -270,8 +268,7 @@ pinos_node_info_update (PinosNodeInfo       *info,
       info->output_formats = NULL;
     }
     for (i = 0; i < info->n_output_formats; i++) {
-      size = SPA_POD_SIZE (update->output_formats[i]);
-      info->output_formats[i] = memcpy (malloc (size), update->output_formats[i], size);
+      info->output_formats[i] = spa_format_copy (update->output_formats[i]);
     }
   }
 

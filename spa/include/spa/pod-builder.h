@@ -211,11 +211,28 @@ spa_pod_builder_double (SpaPODBuilder *builder, double val)
 }
 
 static inline off_t
-spa_pod_builder_string (SpaPODBuilder *builder, const char *str, uint32_t len)
+spa_pod_builder_string_len (SpaPODBuilder *builder, const char *str, uint32_t len)
 {
   const SpaPODString p = { { len + 1, SPA_POD_TYPE_STRING } };
   off_t out = spa_pod_builder_raw (builder, &p, sizeof (p) , false);
   if (spa_pod_builder_string_body (builder, str, len) == -1)
+    out = -1;
+  return out;
+}
+
+static inline off_t
+spa_pod_builder_string (SpaPODBuilder *builder, const char *str)
+{
+  uint32_t len = str ? strlen (str) : 0;
+  return spa_pod_builder_string_len (builder, str ? str : "", len);
+}
+
+static inline off_t
+spa_pod_builder_bytes (SpaPODBuilder *builder, const void *bytes, uint32_t len)
+{
+  const SpaPODBytes p = { { len, SPA_POD_TYPE_BYTES } };
+  off_t out = spa_pod_builder_raw (builder, &p, sizeof (p) , false);
+  if (spa_pod_builder_raw (builder, bytes, len, true) == -1)
     out = -1;
   return out;
 }
@@ -334,7 +351,7 @@ spa_pod_builder_propv (SpaPODBuilder *builder,
         {
           const char *str = va_arg (args, char *);
           uint32_t len = va_arg (args, uint32_t);
-          spa_pod_builder_string (builder, str, len);
+          spa_pod_builder_string_len (builder, str, len);
           break;
         }
         case SPA_POD_TYPE_RECTANGLE:

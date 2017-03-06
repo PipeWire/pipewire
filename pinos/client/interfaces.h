@@ -34,12 +34,6 @@ typedef struct _PinosClientNodeBuffer PinosClientNodeBuffer;
 
 #include <pinos/client/introspect.h>
 
-#define PINOS_CORE_CLIENT_UPDATE 0
-#define PINOS_CORE_SYNC 1
-#define PINOS_CORE_GET_REGISTRY 2
-#define PINOS_CORE_CREATE_NODE 3
-#define PINOS_CORE_CREATE_CLIENT_NODE 4
-
 typedef struct {
   void (*client_update)       (void          *object,
                                const SpaDict *props);
@@ -85,8 +79,6 @@ typedef struct {
 #define pinos_core_notify_error(r,...)     ((PinosCoreEvent*)r->event)->error(r,__VA_ARGS__)
 #define pinos_core_notify_remove_id(r,...) ((PinosCoreEvent*)r->event)->remove_id(r,__VA_ARGS__)
 
-#define PINOS_REGISTRY_BIND 0
-
 typedef struct {
   void (*bind)                (void          *object,
                                uint32_t       id,
@@ -123,17 +115,11 @@ typedef struct {
 #define pinos_node_notify_done(r,...)      ((PinosNodeEvent*)r->event)->done(r,__VA_ARGS__)
 #define pinos_node_notify_info(r,...)      ((PinosNodeEvent*)r->event)->info(r,__VA_ARGS__)
 
-#define PINOS_CLIENT_NODE_UPDATE        0
-#define PINOS_CLIENT_NODE_PORT_UPDATE   1
-#define PINOS_CLIENT_NODE_STATE_CHANGE  2
-#define PINOS_CLIENT_NODE_EVENT         3
-#define PINOS_CLIENT_NODE_DESTROY       4
-
 struct _PinosClientNodeBuffer {
-  SpaBuffer  *buffer;
   uint32_t    mem_id;
   off_t       offset;
   size_t      size;
+  SpaBuffer  *buffer;
 };
 
 typedef struct {
@@ -155,8 +141,8 @@ typedef struct {
 #define PINOS_MESSAGE_PORT_UPDATE_INFO              (1 << 3)
                                 uint32_t           change_mask,
                                 unsigned int       n_possible_formats,
-                                SpaFormat        **possible_formats,
-                                SpaFormat         *format,
+                                const SpaFormat  **possible_formats,
+                                const SpaFormat   *format,
                                 const SpaProps    *props,
                                 const SpaPortInfo *info);
   void (*state_change)         (void              *object,
@@ -177,8 +163,8 @@ typedef struct {
   void (*done)                 (void              *object,
                                 uint32_t           seq,
                                 int                datafd);
-  void (*event)                (void              *object,
-                                SpaNodeEvent      *event);
+  void (*event)                (void               *object,
+                                const SpaNodeEvent *event);
   void (*add_port)             (void              *object,
                                 uint32_t           seq,
                                 SpaDirection       direction,
@@ -197,7 +183,7 @@ typedef struct {
                                 uint32_t           seq,
                                 uint32_t           id,
                                 size_t             size,
-                                void              *value);
+                                const void        *value);
   void (*add_mem)              (void              *object,
                                 SpaDirection       direction,
                                 uint32_t           port_id,
@@ -215,10 +201,10 @@ typedef struct {
                                 PinosClientNodeBuffer *buffers);
   void (*node_command)         (void              *object,
                                 uint32_t           seq,
-                                SpaNodeCommand    *command);
+                                const SpaNodeCommand *command);
   void (*port_command)         (void              *object,
                                 uint32_t           port_id,
-                                SpaNodeCommand    *command);
+                                const SpaNodeCommand *command);
   void (*transport)            (void              *object,
                                 int                memfd,
                                 off_t              offset,

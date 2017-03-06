@@ -18,17 +18,18 @@
  */
 
 #include "pinos/client/pinos.h"
+#include "pinos/client/interfaces.h"
 
-typedef void (*PinosMarshallFunc) (void *object, void *data, size_t size);
+typedef void (*PinosDemarshalFunc) (void *object, void *data, size_t size);
 
 extern const PinosCoreInterface       pinos_protocol_native_client_core_interface;
 extern const PinosRegistryInterface   pinos_protocol_native_client_registry_interface;
 extern const PinosClientNodeInterface pinos_protocol_native_client_client_node_interface;
 
-extern const PinosMarshallFunc pinos_protocol_native_client_core_marshall[];
-extern const PinosMarshallFunc pinos_protocol_native_client_module_marshall[];
-extern const PinosMarshallFunc pinos_protocol_native_client_node_marshall[];
-extern const PinosMarshallFunc pinos_protocol_native_client_client_node_marshall[];
-extern const PinosMarshallFunc pinos_protocol_native_client_client_marshall[];
-extern const PinosMarshallFunc pinos_protocol_native_client_link_marshall[];
-extern const PinosMarshallFunc pinos_protocol_native_client_registry_marshall[];
+extern const PinosDemarshalFunc pinos_protocol_native_client_core_demarshal[];
+extern const PinosDemarshalFunc pinos_protocol_native_client_module_demarshal[];
+extern const PinosDemarshalFunc pinos_protocol_native_client_node_demarshal[];
+extern const PinosDemarshalFunc pinos_protocol_native_client_client_node_demarshal[];
+extern const PinosDemarshalFunc pinos_protocol_native_client_client_demarshal[];
+extern const PinosDemarshalFunc pinos_protocol_native_client_link_demarshal[];
+extern const PinosDemarshalFunc pinos_protocol_native_client_registry_demarshal[];

@@ -424,6 +424,10 @@ print_pod_value (uint32_t size, uint32_t type, void *body, int prefix)
       }
       break;
     }
+    case SPA_POD_TYPE_BYTES:
+      printf ("%-*sBytes\n", prefix, "");
+      spa_debug_dump_mem (body, size);
+      break;
     default:
       printf ("unhandled prop type %d\n", type);
       break;
@@ -476,6 +480,9 @@ print_format_value (uint32_t size, uint32_t type, void *body)
     }
     case SPA_POD_TYPE_BITMASK:
       fprintf (stderr, "Bitmask");
+      break;
+    case SPA_POD_TYPE_BYTES:
+      fprintf (stderr, "Bytes");
       break;
     default:
       break;

@@ -19,7 +19,7 @@
 
 #include "pinos/client/pinos.h"
 
-typedef void (*PinosMarshallFunc) (void *object, void *data, size_t size);
+typedef void (*PinosDemarshalFunc) (void *object, void *data, size_t size);
 
 extern const PinosCoreEvent pinos_protocol_native_server_core_event;
 extern const PinosRegistryEvent pinos_protocol_native_server_registry_event;
@@ -29,6 +29,6 @@ extern const PinosClientEvent pinos_protocol_native_server_client_event;
 extern const PinosClientNodeEvent pinos_protocol_native_server_client_node_events;
 extern const PinosLinkEvent pinos_protocol_native_server_link_event;
 
-extern const PinosMarshallFunc pinos_protocol_native_server_core_marshall[];
-extern const PinosMarshallFunc pinos_protocol_native_server_registry_marshall[];
-extern const PinosMarshallFunc pinos_protocol_native_server_client_node_marshall[];
+extern const PinosDemarshalFunc pinos_protocol_native_server_core_demarshal[];
+extern const PinosDemarshalFunc pinos_protocol_native_server_registry_demarshal[];
+extern const PinosDemarshalFunc pinos_protocol_native_server_client_node_demarshal[];

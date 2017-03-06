@@ -25,6 +25,7 @@ extern "C" {
 #endif
 
 #include <spa/defs.h>
+#include <spa/pod.h>
 
 const char * pinos_split_walk   (const char  *str,
                                  const char  *delimiter,
@@ -38,6 +39,15 @@ void         pinos_free_strv    (char **str);
 
 char *       pinos_strip        (char       *str,
                                  const char *whitespace);
+
+static inline SpaPOD *
+pinos_spa_pod_copy (const SpaPOD *pod)
+{
+  return pod ? memcpy (malloc (SPA_POD_SIZE (pod)), pod, SPA_POD_SIZE (pod)) : NULL;
+}
+
+#define spa_format_copy(f) ((SpaFormat*)pinos_spa_pod_copy(&(f)->pod))
+#define spa_props_copy(p) ((SpaProps*)pinos_spa_pod_copy(&(p)->pod))
 
 #ifdef __cplusplus
 }  /* extern "C" */

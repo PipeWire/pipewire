@@ -21,38 +21,73 @@
 #include "pinos/server/resource.h"
 #include "pinos/server/protocol-native.h"
 
+
+typedef struct {
+  SpaPODBuilder b;
+  PinosConnection *connection;
+} Builder;
+
+static off_t
+write_pod (SpaPODBuilder *b, off_t ref, const void *data, size_t size)
+{
+  if (ref == -1)
+    ref = b->offset;
+
+  if (b->size <= b->offset) {
+    b->size = SPA_ROUND_UP_N (b->offset + size, 512);
+    b->data = pinos_connection_begin_write (((Builder*)b)->connection, b->size);
+  }
+  memcpy (b->data + ref, data, size);
+  return ref;
+}
+
 static void
-core_event_info (void          *object,
+core_marshal_info (void          *object,
                  PinosCoreInfo *info)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;
-  PinosMessageCoreInfo m = { info };
+  Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
+  SpaPODFrame f;
+  int i, n_items;
 
-  pinos_connection_add_message (connection,
-                                resource->id,
-                                PINOS_MESSAGE_CORE_INFO,
-                                &m);
-  pinos_connection_flush (connection);
+  spa_pod_builder_push_struct (&b.b, &f);
+  spa_pod_builder_int (&b.b, info->id);
+  spa_pod_builder_long (&b.b, info->change_mask);
+  spa_pod_builder_string (&b.b, info->user_name);
+  spa_pod_builder_string (&b.b, info->host_name);
+  spa_pod_builder_string (&b.b, info->version);
+  spa_pod_builder_string (&b.b, info->name);
+  spa_pod_builder_int (&b.b, info->cookie);
+  n_items = info->props ? info->props->n_items : 0;
+  spa_pod_builder_int (&b.b, n_items);
+  for (i = 0; i < n_items; i++) {
+    spa_pod_builder_string (&b.b, info->props->items[i].key);
+    spa_pod_builder_string (&b.b, info->props->items[i].value);
+  }
+  spa_pod_builder_pop (&b.b, &f);
+
+  pinos_connection_end_write (connection, resource->id, 0, b.b.offset);
 }
 
 static void
-core_event_done (void          *object,
+core_marshal_done (void          *object,
                  uint32_t       seq)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;
-  PinosMessageNotifyDone m = { seq };
+  Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
+  SpaPODFrame f;
 
-  pinos_connection_add_message (connection,
-                                resource->id,
-                                PINOS_MESSAGE_NOTIFY_DONE,
-                                &m);
-  pinos_connection_flush (connection);
+  spa_pod_builder_push_struct (&b.b, &f);
+  spa_pod_builder_int (&b.b, seq);
+  spa_pod_builder_pop (&b.b, &f);
+
+  pinos_connection_end_write (connection, resource->id, 1, b.b.offset);
 }
 
 static void
-core_event_error (void          *object,
+core_marshal_error (void          *object,
                   uint32_t       id,
                   SpaResult      res,
                   const char     *error, ...)
@@ -60,526 +95,800 @@ core_event_error (void          *object,
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;
   char buffer[128];
-  PinosMessageError m = { id, res, buffer };
+  Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
+  SpaPODFrame f;
+
   va_list ap;
 
   va_start (ap, error);
   vsnprintf (buffer, sizeof (buffer), error, ap);
   va_end (ap);
 
-  pinos_connection_add_message (connection,
-                                resource->id,
-                                PINOS_MESSAGE_ERROR,
-                                &m);
-  pinos_connection_flush (connection);
+  spa_pod_builder_push_struct (&b.b, &f);
+  spa_pod_builder_int (&b.b, id);
+  spa_pod_builder_int (&b.b, res);
+  spa_pod_builder_string (&b.b, buffer);
+  spa_pod_builder_pop (&b.b, &f);
+
+  pinos_connection_end_write (connection, resource->id, 2, b.b.offset);
 }
 
 static void
-core_event_remove_id (void          *object,
+core_marshal_remove_id (void          *object,
                       uint32_t       id)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;
-  PinosMessageRemoveId m = { id };
+  Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
+  SpaPODFrame f;
 
-  pinos_connection_add_message (connection,
-                                resource->id,
-                                PINOS_MESSAGE_REMOVE_ID,
-                                &m);
-  pinos_connection_flush (connection);
+  spa_pod_builder_push_struct (&b.b, &f);
+  spa_pod_builder_int (&b.b, id);
+  spa_pod_builder_pop (&b.b, &f);
+
+  pinos_connection_end_write (connection, resource->id, 3, b.b.offset);
 }
 
 static void
-core_marshall_client_update (void  *object,
+core_demarshal_client_update (void  *object,
                              void  *data,
                              size_t size)
 {
   PinosResource *resource = object;
-  PinosMessageClientUpdate *m = data;
-  pinos_core_do_client_update (resource, m->props);
+  SpaDict props;
+  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
+  int32_t i32;
+  int i;
+
+  if (!spa_pod_get_int (&p, &i32))
+    return;
+  props.n_items = i32;
+  props.items = alloca (props.n_items * sizeof (SpaDictItem));
+  for (i = 0; i < props.n_items; i++) {
+    if (!spa_pod_get_string (&p, &props.items[i].key) ||
+        !spa_pod_get_string (&p, &props.items[i].value))
+      return;
+  }
+
+  pinos_core_do_client_update (resource, &props);
 }
 
 static void
-core_marshall_sync (void  *object,
+core_demarshal_sync (void  *object,
                     void  *data,
                     size_t size)
 {
   PinosResource *resource = object;
-  PinosMessageSync *m = data;
-  pinos_core_do_sync (resource, m->seq);
+  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
+  int32_t seq;
+
+  if (!spa_pod_get_int (&p, &seq))
+    return;
+
+  pinos_core_do_sync (resource, seq);
 }
 
 static void
-core_marshall_get_registry (void  *object,
+core_demarshal_get_registry (void  *object,
                             void  *data,
                             size_t size)
 {
   PinosResource *resource = object;
-  PinosMessageGetRegistry *m = data;
-  pinos_core_do_get_registry (resource, m->seq, m->new_id);
+  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
+  int32_t seq, new_id;
+
+  if (!spa_pod_get_int (&p, &seq) ||
+      !spa_pod_get_int (&p, &new_id))
+    return;
+
+  pinos_core_do_get_registry (resource, seq, new_id);
 }
 
 static void
-core_marshall_create_node (void  *object,
+core_demarshal_create_node (void  *object,
                            void  *data,
                            size_t size)
 {
   PinosResource *resource = object;
-  PinosMessageCreateNode *m = data;
+  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
+  int32_t seq, new_id, i32;
+  const char *factory_name, *name;
+  int i;
+  SpaDict props;
+
+  if (!spa_pod_get_int (&p, &seq) ||
+      !spa_pod_get_string (&p, &factory_name) ||
+      !spa_pod_get_string (&p, &name) ||
+      !spa_pod_get_int (&p, &i32))
+    return;
+
+  props.n_items = i32;
+  props.items = alloca (props.n_items * sizeof (SpaDictItem));
+  for (i = 0; i < props.n_items; i++) {
+    if (!spa_pod_get_string (&p, &props.items[i].key) ||
+        !spa_pod_get_string (&p, &props.items[i].value))
+      return;
+  }
+  if (!spa_pod_get_int (&p, &new_id))
+    return;
+
   pinos_core_do_create_node (resource,
-                             m->seq,
-                             m->factory_name,
-                             m->name,
-                             m->props,
-                             m->new_id);
+                             seq,
+                             factory_name,
+                             name,
+                             &props,
+                             new_id);
 }
 
 static void
-core_marshall_create_client_node (void  *object,
+core_demarshal_create_client_node (void  *object,
                                   void  *data,
                                   size_t size)
 {
   PinosResource *resource = object;
-  PinosMessageCreateClientNode *m = data;
+  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
+  int32_t seq, new_id, i32;
+  const char *name;
+  int i;
+  SpaDict props;
+
+  if (!spa_pod_get_int (&p, &seq) ||
+      !spa_pod_get_string (&p, &name) ||
+      !spa_pod_get_int (&p, &i32))
+    return;
+
+  props.n_items = i32;
+  props.items = alloca (props.n_items * sizeof (SpaDictItem));
+  for (i = 0; i < props.n_items; i++) {
+    if (!spa_pod_get_string (&p, &props.items[i].key) ||
+        !spa_pod_get_string (&p, &props.items[i].value))
+      return;
+  }
+  if (!spa_pod_get_int (&p, &new_id))
+    return;
+
   pinos_core_do_create_client_node (resource,
-                                    m->seq,
-                                    m->name,
-                                    m->props,
-                                    m->new_id);
+                                    seq,
+                                    name,
+                                    &props,
+                                    new_id);
 }
 
 static void
-registry_event_global (void          *object,
+registry_marshal_global (void          *object,
                        uint32_t       id,
                        const char    *type)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;
-  PinosMessageNotifyGlobal m = { id, type };
+  Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
+  SpaPODFrame f;
 
-  pinos_connection_add_message (connection,
-                                resource->id,
-                                PINOS_MESSAGE_NOTIFY_GLOBAL,
-                                &m);
-  pinos_connection_flush (connection);
+  spa_pod_builder_push_struct (&b.b, &f);
+  spa_pod_builder_int (&b.b, id);
+  spa_pod_builder_string (&b.b, type);
+  spa_pod_builder_pop (&b.b, &f);
+
+  pinos_connection_end_write (connection, resource->id, 0, b.b.offset);
 }
 
 static void
-registry_event_global_remove (void          *object,
+registry_marshal_global_remove (void          *object,
                               uint32_t       id)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;
-  PinosMessageNotifyGlobalRemove m = { id };
+  Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
+  SpaPODFrame f;
 
-  pinos_connection_add_message (connection,
-                                resource->id,
-                                PINOS_MESSAGE_NOTIFY_GLOBAL_REMOVE,
-                                &m);
-  pinos_connection_flush (connection);
+  spa_pod_builder_push_struct (&b.b, &f);
+  spa_pod_builder_int (&b.b, id);
+  spa_pod_builder_pop (&b.b, &f);
+
+  pinos_connection_end_write (connection, resource->id, 1, b.b.offset);
 }
 
 static void
-registry_marshall_bind (void  *object,
+registry_demarshal_bind (void  *object,
                         void  *data,
                         size_t size)
 {
   PinosResource *resource = object;
-  PinosMessageBind *m = data;
-  pinos_registry_do_bind (resource,
-                          m->id,
-                          m->new_id);
+  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
+  int32_t i1, i2;
+
+  if (!spa_pod_get_int (&p, &i1) ||
+      !spa_pod_get_int (&p, &i2))
+    return;
+
+  pinos_registry_do_bind (resource, i1, i2);
 }
 
 static void
-module_event_info (void            *object,
-                   PinosModuleInfo *info)
+module_marshal_info (void            *object,
+                     PinosModuleInfo *info)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;
-  PinosMessageModuleInfo m = { info };
+  Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
+  SpaPODFrame f;
+  int i, n_items;
 
-  pinos_connection_add_message (connection,
-                                resource->id,
-                                PINOS_MESSAGE_MODULE_INFO,
-                                &m);
-  pinos_connection_flush (connection);
+  spa_pod_builder_push_struct (&b.b, &f);
+  spa_pod_builder_int (&b.b, info->id);
+  spa_pod_builder_long (&b.b, info->change_mask);
+  spa_pod_builder_string (&b.b, info->name);
+  spa_pod_builder_string (&b.b, info->filename);
+  spa_pod_builder_string (&b.b, info->args);
+  n_items = info->props ? info->props->n_items : 0;
+  spa_pod_builder_int (&b.b, n_items);
+  for (i = 0; i < n_items; i++) {
+    spa_pod_builder_string (&b.b, info->props->items[i].key);
+    spa_pod_builder_string (&b.b, info->props->items[i].value);
+  }
+  spa_pod_builder_pop (&b.b, &f);
+
+  pinos_connection_end_write (connection, resource->id, 0, b.b.offset);
 }
 
 static void
-node_event_done (void          *object,
-                 uint32_t       seq)
+node_marshal_done (void     *object,
+                   uint32_t  seq)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;
-  PinosMessageCreateNodeDone m = { seq };
+  Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
+  SpaPODFrame f;
 
-  pinos_connection_add_message (connection,
-                                resource->id,
-                                PINOS_MESSAGE_CREATE_NODE_DONE,
-                                &m);
-  pinos_connection_flush (connection);
+  spa_pod_builder_push_struct (&b.b, &f);
+  spa_pod_builder_int (&b.b, seq);
+  spa_pod_builder_pop (&b.b, &f);
+
+  pinos_connection_end_write (connection, resource->id, 0, b.b.offset);
 }
 
 static void
-node_event_info (void          *object,
-                 PinosNodeInfo *info)
+node_marshal_info (void          *object,
+                   PinosNodeInfo *info)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;
-  PinosMessageNodeInfo m = { info };
+  Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
+  SpaPODFrame f;
+  int i, n_items;
 
-  pinos_connection_add_message (connection,
-                                resource->id,
-                                PINOS_MESSAGE_NODE_INFO,
-                                &m);
-  pinos_connection_flush (connection);
+  spa_pod_builder_push_struct (&b.b, &f);
+  spa_pod_builder_int (&b.b, info->id);
+  spa_pod_builder_long (&b.b, info->change_mask);
+  spa_pod_builder_string (&b.b, info->name);
+  spa_pod_builder_int (&b.b, info->max_inputs);
+  spa_pod_builder_int (&b.b, info->n_inputs);
+  spa_pod_builder_int (&b.b, info->n_input_formats);
+  for (i = 0; i < info->n_input_formats; i++)
+    spa_pod_builder_raw (&b.b, info->input_formats[i], SPA_POD_SIZE (info->input_formats[i]), true);
+  spa_pod_builder_int (&b.b, info->max_outputs);
+  spa_pod_builder_int (&b.b, info->n_outputs);
+  spa_pod_builder_int (&b.b, info->n_output_formats);
+  for (i = 0; i < info->n_output_formats; i++)
+    spa_pod_builder_raw (&b.b, info->output_formats[i], SPA_POD_SIZE (info->output_formats[i]), true);
+  spa_pod_builder_int (&b.b, info->state);
+  spa_pod_builder_string (&b.b, info->error);
+  n_items = info->props ? info->props->n_items : 0;
+  spa_pod_builder_int (&b.b, n_items);
+  for (i = 0; i < n_items; i++) {
+    spa_pod_builder_string (&b.b, info->props->items[i].key);
+    spa_pod_builder_string (&b.b, info->props->items[i].value);
+  }
+  spa_pod_builder_pop (&b.b, &f);
+
+  pinos_connection_end_write (connection, resource->id, 1, b.b.offset);
 }
 
 static void
-client_event_info (void          *object,
-                   PinosClientInfo *info)
+client_marshal_info (void          *object,
+                     PinosClientInfo *info)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;
-  PinosMessageClientInfo m = { info };
+  Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
+  SpaPODFrame f;
+  int i, n_items;
 
-  pinos_connection_add_message (connection,
-                                resource->id,
-                                PINOS_MESSAGE_CLIENT_INFO,
-                                &m);
-  pinos_connection_flush (connection);
+  spa_pod_builder_push_struct (&b.b, &f);
+  spa_pod_builder_int (&b.b, info->id);
+  spa_pod_builder_long (&b.b, info->change_mask);
+  n_items = info->props ? info->props->n_items : 0;
+  spa_pod_builder_int (&b.b, n_items);
+  for (i = 0; i < n_items; i++) {
+    spa_pod_builder_string (&b.b, info->props->items[i].key);
+    spa_pod_builder_string (&b.b, info->props->items[i].value);
+  }
+  spa_pod_builder_pop (&b.b, &f);
+
+  pinos_connection_end_write (connection, resource->id, 0, b.b.offset);
 }
 
 static void
-client_node_event_done (void          *object,
-                        uint32_t       seq,
-                        int            datafd)
+client_node_marshal_done (void     *object,
+                          uint32_t  seq,
+                          int       datafd)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;
-  PinosMessageCreateClientNodeDone m = { seq, datafd };
+  Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
+  SpaPODFrame f;
 
-  pinos_connection_add_message (connection,
-                                resource->id,
-                                PINOS_MESSAGE_CREATE_CLIENT_NODE_DONE,
-                                &m);
-  pinos_connection_flush (connection);
+  spa_pod_builder_push_struct (&b.b, &f);
+  spa_pod_builder_int (&b.b, seq);
+  spa_pod_builder_int (&b.b, pinos_connection_add_fd (connection, datafd));
+  spa_pod_builder_pop (&b.b, &f);
+
+  pinos_connection_end_write (connection, resource->id, 0, b.b.offset);
 }
 
 static void
-client_node_event_event (void              *object,
-                         SpaNodeEvent      *event)
+client_node_marshal_event (void               *object,
+                           const SpaNodeEvent *event)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;
-  PinosMessageNodeEvent m = { event };
+  Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
+  SpaPODFrame f;
 
-  pinos_connection_add_message (connection,
-                                resource->id,
-                                PINOS_MESSAGE_NODE_EVENT,
-                                &m);
-  pinos_connection_flush (connection);
+  spa_pod_builder_push_struct (&b.b, &f);
+  spa_pod_builder_bytes (&b.b, event, event->size);
+  spa_pod_builder_pop (&b.b, &f);
+
+  pinos_connection_end_write (connection, resource->id, 1, b.b.offset);
 }
 
 static void
-client_node_event_add_port (void              *object,
-                            uint32_t           seq,
-                            SpaDirection       direction,
-                            uint32_t           port_id)
+client_node_marshal_add_port (void         *object,
+                              uint32_t      seq,
+                              SpaDirection  direction,
+                              uint32_t      port_id)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;
-  PinosMessageAddPort m = { seq, direction, port_id };
+  Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
+  SpaPODFrame f;
 
-  pinos_connection_add_message (connection,
-                                resource->id,
-                                PINOS_MESSAGE_ADD_PORT,
-                                &m);
-  pinos_connection_flush (connection);
+  spa_pod_builder_push_struct (&b.b, &f);
+  spa_pod_builder_int (&b.b, seq);
+  spa_pod_builder_int (&b.b, direction);
+  spa_pod_builder_int (&b.b, port_id);
+  spa_pod_builder_pop (&b.b, &f);
+
+  pinos_connection_end_write (connection, resource->id, 2, b.b.offset);
 }
 
 static void
-client_node_event_remove_port (void              *object,
-                               uint32_t           seq,
-                               SpaDirection       direction,
-                               uint32_t           port_id)
+client_node_marshal_remove_port (void         *object,
+                                 uint32_t      seq,
+                                 SpaDirection  direction,
+                                 uint32_t      port_id)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;
-  PinosMessageRemovePort m = { seq, direction, port_id };
+  Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
+  SpaPODFrame f;
 
-  pinos_connection_add_message (connection,
-                                resource->id,
-                                PINOS_MESSAGE_REMOVE_PORT,
-                                &m);
-  pinos_connection_flush (connection);
+  spa_pod_builder_push_struct (&b.b, &f);
+  spa_pod_builder_int (&b.b, seq);
+  spa_pod_builder_int (&b.b, direction);
+  spa_pod_builder_int (&b.b, port_id);
+  spa_pod_builder_pop (&b.b, &f);
+
+  pinos_connection_end_write (connection, resource->id, 3, b.b.offset);
 }
 
 static void
-client_node_event_set_format (void              *object,
-                              uint32_t           seq,
-                              SpaDirection       direction,
-                              uint32_t           port_id,
-                              SpaPortFormatFlags flags,
-                              const SpaFormat   *format)
-{
-  PinosResource *resource = object;
-  PinosConnection *connection = resource->client->protocol_private;
-  PinosMessageSetFormat m = { seq, direction, port_id, flags, format };
-
-  pinos_connection_add_message (connection,
-                                resource->id,
-                                PINOS_MESSAGE_SET_FORMAT,
-                                &m);
-  pinos_connection_flush (connection);
-}
-
-static void
-client_node_event_set_property (void              *object,
+client_node_marshal_set_format (void              *object,
                                 uint32_t           seq,
-                                uint32_t           id,
-                                size_t             size,
-                                void              *value)
-{
-  PinosResource *resource = object;
-  PinosConnection *connection = resource->client->protocol_private;
-  PinosMessageSetProperty m = { seq, id, size, value };
-
-  pinos_connection_add_message (connection,
-                                resource->id,
-                                PINOS_MESSAGE_SET_PROPERTY,
-                                &m);
-  pinos_connection_flush (connection);
-}
-
-static void
-client_node_event_add_mem (void              *object,
-                           SpaDirection       direction,
-                           uint32_t           port_id,
-                           uint32_t           mem_id,
-                           SpaDataType        type,
-                           int                memfd,
-                           uint32_t           flags,
-                           off_t              offset,
-                           size_t             size)
-{
-  PinosResource *resource = object;
-  PinosConnection *connection = resource->client->protocol_private;
-  PinosMessageAddMem m = { direction, port_id, mem_id, type, memfd, flags, offset, size };
-
-  pinos_connection_add_message (connection,
-                                resource->id,
-                                PINOS_MESSAGE_ADD_MEM,
-                                &m);
-  pinos_connection_flush (connection);
-}
-
-static void
-client_node_event_use_buffers (void                  *object,
-                               uint32_t               seq,
-                               SpaDirection           direction,
-                               uint32_t               port_id,
-                               unsigned int           n_buffers,
-                               PinosClientNodeBuffer *buffers)
-{
-  PinosResource *resource = object;
-  PinosConnection *connection = resource->client->protocol_private;
-  PinosMessageUseBuffers m = { seq, direction, port_id, n_buffers, buffers };
-
-  pinos_connection_add_message (connection,
-                                resource->id,
-                                PINOS_MESSAGE_USE_BUFFERS,
-                                &m);
-  pinos_connection_flush (connection);
-}
-
-static void
-client_node_event_node_command (void              *object,
-                                uint32_t           seq,
-                                SpaNodeCommand    *command)
-{
-  PinosResource *resource = object;
-  PinosConnection *connection = resource->client->protocol_private;
-  PinosMessageNodeCommand m = { seq, command };
-
-  pinos_connection_add_message (connection,
-                                resource->id,
-                                PINOS_MESSAGE_NODE_COMMAND,
-                                &m);
-  pinos_connection_flush (connection);
-}
-
-static void
-client_node_event_port_command (void              *object,
+                                SpaDirection       direction,
                                 uint32_t           port_id,
-                                SpaNodeCommand    *command)
+                                SpaPortFormatFlags flags,
+                                const SpaFormat   *format)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;
-  PinosMessagePortCommand m = { port_id, command };
+  Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
+  SpaPODFrame f;
 
-  pinos_connection_add_message (connection,
-                                resource->id,
-                                PINOS_MESSAGE_PORT_COMMAND,
-                                &m);
-  pinos_connection_flush (connection);
+  spa_pod_builder_push_struct (&b.b, &f);
+  spa_pod_builder_int (&b.b, seq);
+  spa_pod_builder_int (&b.b, direction);
+  spa_pod_builder_int (&b.b, port_id);
+  spa_pod_builder_int (&b.b, flags);
+  spa_pod_builder_int (&b.b, format ? 1 : 0);
+  if (format)
+    spa_pod_builder_raw (&b.b, format, SPA_POD_SIZE (format), true);
+  spa_pod_builder_pop (&b.b, &f);
+
+  pinos_connection_end_write (connection, resource->id, 4, b.b.offset);
 }
 
 static void
-client_node_event_transport (void              *object,
+client_node_marshal_set_property (void              *object,
+                                  uint32_t           seq,
+                                  uint32_t           id,
+                                  size_t             size,
+                                  const void        *value)
+{
+  PinosResource *resource = object;
+  PinosConnection *connection = resource->client->protocol_private;
+  Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
+  SpaPODFrame f;
+
+  spa_pod_builder_push_struct (&b.b, &f);
+  spa_pod_builder_int (&b.b, seq);
+  spa_pod_builder_int (&b.b, id);
+  spa_pod_builder_bytes (&b.b, value, size);
+  spa_pod_builder_pop (&b.b, &f);
+
+  pinos_connection_end_write (connection, resource->id, 5, b.b.offset);
+}
+
+static void
+client_node_marshal_add_mem (void              *object,
+                             SpaDirection       direction,
+                             uint32_t           port_id,
+                             uint32_t           mem_id,
+                             SpaDataType        type,
                              int                memfd,
+                             uint32_t           flags,
                              off_t              offset,
                              size_t             size)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;
-  PinosMessageTransportUpdate m = { memfd, offset, size };
+  Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
+  SpaPODFrame f;
 
-  pinos_connection_add_message (connection,
-                                resource->id,
-                                PINOS_MESSAGE_TRANSPORT_UPDATE,
-                                &m);
-  pinos_connection_flush (connection);
+  spa_pod_builder_push_struct (&b.b, &f);
+  spa_pod_builder_int (&b.b, direction);
+  spa_pod_builder_int (&b.b, port_id);
+  spa_pod_builder_int (&b.b, mem_id);
+  spa_pod_builder_int (&b.b, type);
+  spa_pod_builder_int (&b.b, pinos_connection_add_fd (connection, memfd));
+  spa_pod_builder_int (&b.b, flags);
+  spa_pod_builder_int (&b.b, offset);
+  spa_pod_builder_int (&b.b, size);
+  spa_pod_builder_pop (&b.b, &f);
+
+  pinos_connection_end_write (connection, resource->id, 6, b.b.offset);
 }
 
 static void
-client_node_marshall_update (void  *object,
-                             void  *data,
-                             size_t size)
+client_node_marshal_use_buffers (void                  *object,
+                                 uint32_t               seq,
+                                 SpaDirection           direction,
+                                 uint32_t               port_id,
+                                 unsigned int           n_buffers,
+                                 PinosClientNodeBuffer *buffers)
 {
   PinosResource *resource = object;
-  PinosMessageNodeUpdate *m = data;
-  pinos_client_node_do_update (resource,
-                               m->change_mask,
-                               m->max_input_ports,
-                               m->max_output_ports,
-                               m->props);
+  PinosConnection *connection = resource->client->protocol_private;
+  Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
+  SpaPODFrame f;
+  int i, j;
+
+  spa_pod_builder_push_struct (&b.b, &f);
+  spa_pod_builder_int (&b.b, seq);
+  spa_pod_builder_int (&b.b, direction);
+  spa_pod_builder_int (&b.b, port_id);
+  spa_pod_builder_int (&b.b, n_buffers);
+  for (i = 0; i < n_buffers; i++) {
+    SpaBuffer *buf = buffers[i].buffer;
+
+    spa_pod_builder_int (&b.b, buffers[i].mem_id);
+    spa_pod_builder_int (&b.b, buffers[i].offset);
+    spa_pod_builder_int (&b.b, buffers[i].size);
+    spa_pod_builder_int (&b.b, buf->id);
+    spa_pod_builder_int (&b.b, buf->n_metas);
+    for (j = 0; j < buf->n_metas; j++) {
+      SpaMeta *m = &buf->metas[j];
+      spa_pod_builder_int (&b.b, m->type);
+      spa_pod_builder_int (&b.b, m->size);
+    }
+    spa_pod_builder_int (&b.b, buf->n_datas);
+    for (j = 0; j < buf->n_datas; j++) {
+      SpaData *d = &buf->datas[j];
+      spa_pod_builder_int (&b.b, d->type);
+      spa_pod_builder_int (&b.b, SPA_PTR_TO_UINT32 (d->data));
+      spa_pod_builder_int (&b.b, d->flags);
+      spa_pod_builder_int (&b.b, d->mapoffset);
+      spa_pod_builder_int (&b.b, d->maxsize);
+    }
+  }
+  spa_pod_builder_pop (&b.b, &f);
+
+  pinos_connection_end_write (connection, resource->id, 7, b.b.offset);
 }
 
 static void
-client_node_marshall_port_update (void  *object,
-                                  void  *data,
-                                  size_t size)
+client_node_marshal_node_command (void                 *object,
+                                  uint32_t              seq,
+                                  const SpaNodeCommand *command)
 {
   PinosResource *resource = object;
-  PinosMessagePortUpdate *m = data;
-  pinos_client_node_do_port_update (resource,
-                                    m->direction,
-                                    m->port_id,
-                                    m->change_mask,
-                                    m->n_possible_formats,
-                                    m->possible_formats,
-                                    m->format,
-                                    m->props,
-                                    m->info);
+  PinosConnection *connection = resource->client->protocol_private;
+  Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
+  SpaPODFrame f;
+
+  spa_pod_builder_push_struct (&b.b, &f);
+  spa_pod_builder_int (&b.b, seq);
+  spa_pod_builder_bytes (&b.b, command, command->size);
+  spa_pod_builder_pop (&b.b, &f);
+
+  pinos_connection_end_write (connection, resource->id, 8, b.b.offset);
 }
 
 static void
-client_node_marshall_state_change (void  *object,
+client_node_marshal_port_command (void                 *object,
+                                  uint32_t              port_id,
+                                  const SpaNodeCommand *command)
+{
+  PinosResource *resource = object;
+  PinosConnection *connection = resource->client->protocol_private;
+  Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
+  SpaPODFrame f;
+
+  spa_pod_builder_push_struct (&b.b, &f);
+  spa_pod_builder_int (&b.b, port_id);
+  spa_pod_builder_bytes (&b.b, command, command->size);
+  spa_pod_builder_pop (&b.b, &f);
+
+  pinos_connection_end_write (connection, resource->id, 9, b.b.offset);
+}
+
+static void
+client_node_marshal_transport (void              *object,
+                               int                memfd,
+                               off_t              offset,
+                               size_t             size)
+{
+  PinosResource *resource = object;
+  PinosConnection *connection = resource->client->protocol_private;
+  Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
+  SpaPODFrame f;
+
+  spa_pod_builder_push_struct (&b.b, &f);
+  spa_pod_builder_int (&b.b, pinos_connection_add_fd (connection, memfd));
+  spa_pod_builder_int (&b.b, offset);
+  spa_pod_builder_int (&b.b, size);
+  spa_pod_builder_pop (&b.b, &f);
+
+  pinos_connection_end_write (connection, resource->id, 10, b.b.offset);
+}
+
+static void
+client_node_demarshal_update (void  *object,
+                              void  *data,
+                              size_t size)
+{
+  PinosResource *resource = object;
+  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
+  int32_t i1, i2, i3, i4;
+  const SpaPOD *props = NULL;
+
+  if (!spa_pod_get_int (&p, &i1) ||
+      !spa_pod_get_int (&p, &i2) ||
+      !spa_pod_get_int (&p, &i3) ||
+      !spa_pod_get_int (&p, &i4))
+    return;
+
+  if (i4 && !spa_pod_get_object (&p, &props))
+    return;
+
+  pinos_client_node_do_update (resource, i1, i2, i3, (SpaProps *)props);
+}
+
+static void
+client_node_demarshal_port_update (void  *object,
                                    void  *data,
                                    size_t size)
 {
   PinosResource *resource = object;
-  PinosMessageNodeStateChange *m = data;
-  pinos_client_node_do_state_change (resource, m->state);
+  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
+  int32_t i1, i2, direction, port_id, change_mask, n_possible_formats;
+  int64_t l1, l2;
+  const SpaProps *props = NULL;
+  const SpaFormat **possible_formats = NULL, *format = NULL;
+  SpaPortInfo info, *infop = NULL;
+  int i;
+  uint32_t sz;
+
+  if (!spa_pod_get_int (&p, &direction) ||
+      !spa_pod_get_int (&p, &port_id) ||
+      !spa_pod_get_int (&p, &change_mask) ||
+      !spa_pod_get_int (&p, &n_possible_formats))
+    return;
+
+  possible_formats = alloca (n_possible_formats * sizeof (SpaFormat*));
+  for (i = 0; i < n_possible_formats; i++)
+    spa_pod_get_object (&p, (const SpaPOD**)&possible_formats[i]);
+
+  if (!spa_pod_get_int (&p, &i1) ||
+      (i1 && !spa_pod_get_object (&p, (const SpaPOD**)&format)))
+    return;
+
+  if (!spa_pod_get_int (&p, &i1) ||
+      (i1 && !spa_pod_get_object (&p, (const SpaPOD**)&props)))
+    return;
+
+  if (!spa_pod_get_int (&p, &i1))
+    return;
+
+  if (i1) {
+    SpaDict dict;
+    infop = &info;
+
+    if (!spa_pod_get_int (&p, &i1) ||
+        !spa_pod_get_long (&p, &l1) ||
+        !spa_pod_get_long (&p, &l2) ||
+        !spa_pod_get_int (&p, &i2))
+      return;
+
+    info.flags = i1;
+    info.maxbuffering = l1;
+    info.latency = l2;
+    info.n_params = i2;
+    info.params = alloca (info.n_params * sizeof (SpaAllocParam *));
+
+    for (i = 0; i < info.n_params; i++)
+      spa_pod_get_bytes (&p, (const void **)&info.params[i], &sz);
+
+    if (!spa_pod_get_int (&p, &i1))
+      return;
+
+    info.extra = &dict;
+    dict.n_items = i1;
+    dict.items = alloca (dict.n_items * sizeof (SpaDictItem));
+    for (i = 0; i < dict.n_items; i++) {
+      if (!spa_pod_get_string (&p, &dict.items[i].key) ||
+          !spa_pod_get_string (&p, &dict.items[i].value))
+        return;
+    }
+  }
+
+  pinos_client_node_do_port_update (resource,
+                                    direction,
+                                    port_id,
+                                    change_mask,
+                                    n_possible_formats,
+                                    possible_formats,
+                                    format,
+                                    props,
+                                    infop);
 }
 
 static void
-client_node_marshall_event (void   *object,
+client_node_demarshal_state_change (void  *object,
+                                    void  *data,
+                                    size_t size)
+{
+  PinosResource *resource = object;
+  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
+  int32_t state;
+
+  if (!spa_pod_get_int (&p, &state))
+    return;
+
+  pinos_client_node_do_state_change (resource, state);
+}
+
+static void
+client_node_demarshal_event (void   *object,
                             void   *data,
                             size_t  size)
 {
   PinosResource *resource = object;
-  PinosMessageNodeEvent *m = data;
-  pinos_client_node_do_event (resource, m->event);
+  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
+  SpaNodeEvent *event;
+  uint32_t sz;
+
+  if (!spa_pod_get_bytes (&p, (const void **)&event, &sz))
+    return;
+
+  pinos_client_node_do_event (resource, event);
 }
 
 static void
-client_node_marshall_destroy (void   *object,
+client_node_demarshal_destroy (void   *object,
                               void   *data,
                               size_t  size)
 {
   PinosResource *resource = object;
-  PinosMessageDestroy *m = data;
-  pinos_client_node_do_destroy (resource, m->seq);
+  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
+  int32_t seq;
+
+  if (!spa_pod_get_int (&p, &seq))
+    return;
+
+  pinos_client_node_do_destroy (resource, seq);
 }
 
 static void
-link_event_info (void          *object,
+link_marshal_info (void          *object,
                  PinosLinkInfo *info)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;
-  PinosMessageLinkInfo m;
+  Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
+  SpaPODFrame f;
 
-  m.info = info;
-  pinos_connection_add_message (connection,
-                                resource->id,
-                                PINOS_MESSAGE_LINK_INFO,
-                                &m);
-  pinos_connection_flush (connection);
+  spa_pod_builder_push_struct (&b.b, &f);
+  spa_pod_builder_int (&b.b, info->id);
+  spa_pod_builder_long (&b.b, info->change_mask);
+  spa_pod_builder_int (&b.b, info->output_node_id);
+  spa_pod_builder_int (&b.b, info->output_port_id);
+  spa_pod_builder_int (&b.b, info->input_node_id);
+  spa_pod_builder_int (&b.b, info->input_port_id);
+  spa_pod_builder_pop (&b.b, &f);
+
+  pinos_connection_end_write (connection, resource->id, 0, b.b.offset);
 }
 
 const PinosCoreEvent pinos_protocol_native_server_core_event = {
-  &core_event_info,
-  &core_event_done,
-  &core_event_error,
-  &core_event_remove_id
+  &core_marshal_info,
+  &core_marshal_done,
+  &core_marshal_error,
+  &core_marshal_remove_id
 };
 
-const PinosMarshallFunc pinos_protocol_native_server_core_marshall[] = {
-  [PINOS_MESSAGE_CLIENT_UPDATE] = &core_marshall_client_update,
-  [PINOS_MESSAGE_SYNC] = &core_marshall_sync,
-  [PINOS_MESSAGE_GET_REGISTRY] = &core_marshall_get_registry,
-  [PINOS_MESSAGE_CREATE_NODE] = &core_marshall_create_node,
-  [PINOS_MESSAGE_CREATE_CLIENT_NODE] = &core_marshall_create_client_node
+const PinosDemarshalFunc pinos_protocol_native_server_core_demarshal[] = {
+  &core_demarshal_client_update,
+  &core_demarshal_sync,
+  &core_demarshal_get_registry,
+  &core_demarshal_create_node,
+  &core_demarshal_create_client_node
 };
 
 const PinosRegistryEvent pinos_protocol_native_server_registry_event = {
-  &registry_event_global,
-  &registry_event_global_remove,
+  &registry_marshal_global,
+  &registry_marshal_global_remove,
 };
 
-const PinosMarshallFunc pinos_protocol_native_server_registry_marshall[] = {
-  [PINOS_MESSAGE_BIND] = &registry_marshall_bind,
+const PinosDemarshalFunc pinos_protocol_native_server_registry_demarshal[] = {
+  &registry_demarshal_bind,
 };
 
 const PinosModuleEvent pinos_protocol_native_server_module_event = {
-  &module_event_info,
+  &module_marshal_info,
 };
 
 const PinosNodeEvent pinos_protocol_native_server_node_event = {
-  &node_event_done,
-  &node_event_info,
+  &node_marshal_done,
+  &node_marshal_info,
 };
 
 const PinosClientEvent pinos_protocol_native_server_client_event = {
-  &client_event_info,
+  &client_marshal_info,
 };
 
 const PinosClientNodeEvent pinos_protocol_native_server_client_node_events = {
-  &client_node_event_done,
-  &client_node_event_event,
-  &client_node_event_add_port,
-  &client_node_event_remove_port,
-  &client_node_event_set_format,
-  &client_node_event_set_property,
-  &client_node_event_add_mem,
-  &client_node_event_use_buffers,
-  &client_node_event_node_command,
-  &client_node_event_port_command,
-  &client_node_event_transport,
+  &client_node_marshal_done,
+  &client_node_marshal_event,
+  &client_node_marshal_add_port,
+  &client_node_marshal_remove_port,
+  &client_node_marshal_set_format,
+  &client_node_marshal_set_property,
+  &client_node_marshal_add_mem,
+  &client_node_marshal_use_buffers,
+  &client_node_marshal_node_command,
+  &client_node_marshal_port_command,
+  &client_node_marshal_transport,
 };
 
-const PinosMarshallFunc pinos_protocol_native_server_client_node_marshall[] = {
-  [PINOS_MESSAGE_NODE_UPDATE] = &client_node_marshall_update,
-  [PINOS_MESSAGE_PORT_UPDATE] = &client_node_marshall_port_update,
-  [PINOS_MESSAGE_NODE_STATE_CHANGE] = &client_node_marshall_state_change,
-  [PINOS_MESSAGE_NODE_EVENT] = &client_node_marshall_event,
-  [PINOS_MESSAGE_DESTROY] = &client_node_marshall_destroy,
+const PinosDemarshalFunc pinos_protocol_native_server_client_node_demarshal[] = {
+  &client_node_demarshal_update,
+  &client_node_demarshal_port_update,
+  &client_node_demarshal_state_change,
+  &client_node_demarshal_event,
+  &client_node_demarshal_destroy,
 };
 
 const PinosLinkEvent pinos_protocol_native_server_link_event = {
-  &link_event_info,
+  &link_marshal_info,
 };

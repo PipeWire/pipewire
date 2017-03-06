@@ -27,6 +27,7 @@
 #include "spa/lib/debug.h"
 
 #include "pinos/client/pinos.h"
+#include "pinos/client/interfaces.h"
 #include "pinos/client/protocol-native.h"
 #include "pinos/client/array.h"
 #include "pinos/client/connection.h"
@@ -34,6 +35,7 @@
 #include "pinos/client/stream.h"
 #include "pinos/client/serialize.h"
 #include "pinos/client/transport.h"
+#include "pinos/client/utils.h"
 
 #define MAX_BUFFER_SIZE 4096
 #define MAX_FDS         32
@@ -344,8 +346,8 @@ add_port_update (PinosStream *stream, uint32_t change_mask, bool flush)
                                     impl->port_id,
                                     change_mask,
                                     impl->n_possible_formats,
-                                    impl->possible_formats,
-                                    impl->format,
+                                    (const SpaFormat **) impl->possible_formats,
+                                    (const SpaFormat *) impl->format,
                                     NULL,
                                     &impl->port_info);
 }
@@ -582,8 +584,8 @@ handle_socket (PinosStream *stream, int rtfd)
 }
 
 static void
-handle_node_event (PinosStream  *stream,
-                   SpaNodeEvent *event)
+handle_node_event (PinosStream        *stream,
+                   const SpaNodeEvent *event)
 {
   switch (event->type) {
     case SPA_NODE_EVENT_TYPE_INVALID:
@@ -601,9 +603,9 @@ handle_node_event (PinosStream  *stream,
 }
 
 static bool
-handle_node_command (PinosStream    *stream,
-                     uint32_t        seq,
-                     SpaNodeCommand *command)
+handle_node_command (PinosStream          *stream,
+                     uint32_t              seq,
+                     const SpaNodeCommand *command)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
 
@@ -671,8 +673,8 @@ client_node_done (void              *object,
 }
 
 static void
-client_node_event (void              *object,
-                   SpaNodeEvent      *event)
+client_node_event (void               *object,
+                   const SpaNodeEvent *event)
 {
   PinosProxy *proxy = object;
   PinosStream *stream = proxy->user_data;
@@ -708,13 +710,10 @@ client_node_set_format (void              *object,
   PinosProxy *proxy = object;
   PinosStream *stream = proxy->user_data;
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
-  void *mem;
 
   if (impl->format)
     free (impl->format);
-  mem = malloc (pinos_serialize_format_get_size (format));
-  impl->format = pinos_serialize_format_copy_into (mem, format);
-
+  impl->format = spa_format_copy (format);
   impl->pending_seq = seq;
 
   pinos_signal_emit (&stream->format_changed, stream, impl->format);
@@ -722,11 +721,11 @@ client_node_set_format (void              *object,
 }
 
 static void
-client_node_set_property (void              *object,
-                          uint32_t           seq,
-                          uint32_t           id,
-                          size_t             size,
-                          void              *value)
+client_node_set_property (void       *object,
+                          uint32_t    seq,
+                          uint32_t    id,
+                          size_t      size,
+                          const void *value)
 {
   pinos_log_warn ("set property not implemented");
 }
@@ -874,9 +873,9 @@ client_node_use_buffers (void                  *object,
 }
 
 static void
-client_node_node_command (void              *object,
-                          uint32_t           seq,
-                          SpaNodeCommand    *command)
+client_node_node_command (void                 *object,
+                          uint32_t              seq,
+                          const SpaNodeCommand *command)
 {
   PinosProxy *proxy = object;
   PinosStream *stream = proxy->user_data;
@@ -884,9 +883,9 @@ client_node_node_command (void              *object,
 }
 
 static void
-client_node_port_command (void              *object,
-                          uint32_t           port_id,
-                          SpaNodeCommand    *command)
+client_node_port_command (void                 *object,
+                          uint32_t              port_id,
+                          const SpaNodeCommand *command)
 {
   pinos_log_warn ("port command not supported");
 }
@@ -1000,7 +999,7 @@ pinos_stream_connect (PinosStream      *stream,
   impl->node_proxy->user_data = stream;
   impl->node_proxy->event = &client_node_events;
   impl->node_proxy->interface = &pinos_protocol_native_client_client_node_interface;
-  impl->node_proxy->marshall = &pinos_protocol_native_client_client_node_marshall;
+  impl->node_proxy->demarshal = &pinos_protocol_native_client_client_node_demarshal;
 
   pinos_core_do_create_client_node (stream->context->core_proxy,
                                     ++impl->seq,

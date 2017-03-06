@@ -40,7 +40,7 @@ struct _PinosProxy {
 
   const void   *interface;
   const void   *event;
-  const void   *marshall;
+  const void   *demarshal;
 
   PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
                                  PinosProxy    *proxy));

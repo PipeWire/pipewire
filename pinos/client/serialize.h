@@ -34,25 +34,10 @@ size_t          pinos_serialize_buffer_serialize      (void *dest, const SpaBuff
 SpaBuffer *     pinos_serialize_buffer_deserialize    (void *src, off_t offset);
 SpaBuffer *     pinos_serialize_buffer_copy_into      (void *dest, const SpaBuffer *buffer);
 
-size_t          pinos_serialize_format_get_size       (const SpaFormat *format);
-size_t          pinos_serialize_format_serialize      (void *dest, const SpaFormat *format);
-SpaFormat *     pinos_serialize_format_deserialize    (void *src, off_t offset);
-SpaFormat *     pinos_serialize_format_copy_into      (void *dest, const SpaFormat *format);
-
 size_t          pinos_serialize_port_info_get_size    (const SpaPortInfo *info);
 size_t          pinos_serialize_port_info_serialize   (void *dest, const SpaPortInfo *info);
 SpaPortInfo *   pinos_serialize_port_info_deserialize (void *src, off_t offset);
 SpaPortInfo *   pinos_serialize_port_info_copy_into   (void *dest, const SpaPortInfo *info);
-
-size_t          pinos_serialize_props_get_size        (const SpaProps *props);
-size_t          pinos_serialize_props_serialize       (void *dest, const SpaProps *props);
-SpaProps *      pinos_serialize_props_deserialize     (void *src, off_t offset);
-SpaProps *      pinos_serialize_props_copy_into       (void *dest, const SpaProps *props);
-
-size_t          pinos_serialize_dict_get_size         (const SpaDict *dict);
-size_t          pinos_serialize_dict_serialize        (void *dest, const SpaDict *dict);
-SpaDict *       pinos_serialize_dict_deserialize      (void *src, off_t offset);
-SpaDict *       pinos_serialize_dict_copy_into        (void *dest, const SpaDict *dict);
 
 #ifdef __cplusplus
 }

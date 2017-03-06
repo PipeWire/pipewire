@@ -314,8 +314,8 @@ do_update_port (SpaProxy          *this,
                 uint32_t           port_id,
                 uint32_t           change_mask,
                 unsigned int       n_possible_formats,
-                SpaFormat        **possible_formats,
-                SpaFormat         *format,
+                const SpaFormat  **possible_formats,
+                const SpaFormat   *format,
                 const SpaProps    *props,
                 const SpaPortInfo *info)
 {
@@ -340,15 +340,13 @@ do_update_port (SpaProxy          *this,
       port->formats = NULL;
     }
     for (i = 0; i < port->n_formats; i++) {
-      size = pinos_serialize_format_get_size (possible_formats[i]);
-      port->formats[i] = size ? pinos_serialize_format_copy_into (malloc (size), possible_formats[i]) : NULL;
+      port->formats[i] = spa_format_copy (possible_formats[i]);
     }
   }
   if (change_mask & PINOS_MESSAGE_PORT_UPDATE_FORMAT) {
     if (port->format)
       free (port->format);
-    size = pinos_serialize_format_get_size (format);
-    port->format = size ? pinos_serialize_format_copy_into (malloc (size), format) : NULL;
+    port->format = spa_format_copy (format);
   }
 
   if (change_mask & PINOS_MESSAGE_PORT_UPDATE_PROPS) {
@@ -912,8 +910,8 @@ client_node_port_update (void              *object,
                          uint32_t           port_id,
                          uint32_t           change_mask,
                          unsigned int       n_possible_formats,
-                         SpaFormat        **possible_formats,
-                         SpaFormat         *format,
+                         const SpaFormat  **possible_formats,
+                         const SpaFormat   *format,
                          const SpaProps    *props,
                          const SpaPortInfo *info)
 {
@@ -961,8 +959,8 @@ client_node_state_change (void              *object,
 }
 
 static void
-client_node_event (void              *object,
-                   SpaNodeEvent      *event)
+client_node_event (void         *object,
+                   SpaNodeEvent *event)
 {
   PinosResource *resource = object;
   PinosClientNode *node = resource->object;

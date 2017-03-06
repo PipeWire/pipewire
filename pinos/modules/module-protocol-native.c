@@ -103,31 +103,31 @@ on_resource_added (PinosListener *listener,
 {
   if (resource->type == resource->core->uri.core) {
     resource->event = &pinos_protocol_native_server_core_event;
-    resource->marshall = &pinos_protocol_native_server_core_marshall;
+    resource->demarshal = &pinos_protocol_native_server_core_demarshal;
   }
   else if (resource->type == resource->core->uri.registry) {
     resource->event = &pinos_protocol_native_server_registry_event;
-    resource->marshall = &pinos_protocol_native_server_registry_marshall;
+    resource->demarshal = &pinos_protocol_native_server_registry_demarshal;
   }
   else if (resource->type == resource->core->uri.module) {
     resource->event = &pinos_protocol_native_server_module_event;
-    resource->marshall = NULL;
+    resource->demarshal = NULL;
   }
   else if (resource->type == resource->core->uri.node) {
     resource->event = &pinos_protocol_native_server_node_event;
-    resource->marshall = NULL;
+    resource->demarshal = NULL;
   }
   else if (resource->type == resource->core->uri.client) {
     resource->event = &pinos_protocol_native_server_client_event;
-    resource->marshall = NULL;
+    resource->demarshal = NULL;
   }
   else if (resource->type == resource->core->uri.client_node) {
     resource->event = &pinos_protocol_native_server_client_node_events;
-    resource->marshall = &pinos_protocol_native_server_client_node_marshall;
+    resource->demarshal = &pinos_protocol_native_server_client_node_demarshal;
   }
   else if (resource->type == resource->core->uri.link) {
     resource->event = &pinos_protocol_native_server_link_event;
-    resource->marshall = NULL;
+    resource->demarshal = NULL;
   }
 }
 
@@ -139,10 +139,11 @@ connection_data (SpaSource *source,
 {
   PinosProtocolNativeClient *client = data;
   PinosConnection *conn = client->connection;
-  PinosMessageType type;
+  uint8_t opcode;
   uint32_t id;
   size_t size;
   PinosClient *c = client->client;
+  void *message;
 
   if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
     pinos_log_debug ("protocol-native %p: got connection error", client->impl);
@@ -150,28 +151,22 @@ connection_data (SpaSource *source,
     return;
   }
 
-  while (pinos_connection_get_next (conn, &type, &id, &size)) {
+  while (pinos_connection_get_next (conn, &opcode, &id, &message, &size)) {
     PinosResource *resource;
-    void *message = alloca (size);
-    const PinosMarshallFunc *marshall;
+    const PinosDemarshalFunc *demarshal;
 
-    pinos_log_debug ("protocol-native %p: got message %d from %u", client->impl, type, id);
-
-    if (!pinos_connection_parse_message (conn, message)) {
-      pinos_log_error ("protocol-native %p: failed to parse message", client->impl);
-      continue;
-    }
+    pinos_log_debug ("protocol-native %p: got message %d from %u", client->impl, opcode, id);
 
     resource = pinos_map_lookup (&c->objects, id);
     if (resource == NULL) {
       pinos_log_error ("protocol-native %p: unknown resource %u", client->impl, id);
       continue;
     }
-    marshall = resource->marshall;
-    if (marshall[type])
-      marshall[type] (resource, message, size);
+    demarshal = resource->demarshal;
+    if (demarshal[opcode])
+      demarshal[opcode] (resource, message, size);
     else
-      pinos_log_error ("protocol-native %p: function %d not implemented", client->impl, type);
+      pinos_log_error ("protocol-native %p: function %d not implemented", client->impl, opcode);
   }
 }
 

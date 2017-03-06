@@ -63,8 +63,9 @@ do_check_send (PinosListener    *listener,
   PinosCore *core = client->core;
 
   if (data->resource->type == core->uri.registry) {
+#if 0
     switch (data->opcode) {
-      case PINOS_MESSAGE_NOTIFY_GLOBAL:
+      case 0:
       {
         PinosMessageNotifyGlobal *m = data->message;
 
@@ -74,7 +75,7 @@ do_check_send (PinosListener    *listener,
           data->res = SPA_RESULT_SKIPPED;
         break;
       }
-      case PINOS_MESSAGE_NOTIFY_GLOBAL_REMOVE:
+      case 1:
       {
         PinosMessageNotifyGlobalRemove *m = data->message;
 
@@ -89,6 +90,7 @@ do_check_send (PinosListener    *listener,
         data->res = SPA_RESULT_NO_PERMISSION;
         break;
     }
+#endif
   }
   else {
     data->res = SPA_RESULT_OK;
@@ -104,7 +106,8 @@ do_check_dispatch (PinosListener    *listener,
   PinosCore *core = client->core;
 
   if (data->resource->type == core->uri.registry) {
-    if (data->opcode == PINOS_MESSAGE_BIND) {
+#if 0
+    if (data->opcode == 0) {
       PinosMessageBind *m = data->message;
 
       if (check_global_owner (core, client, m->id))
@@ -114,6 +117,7 @@ do_check_dispatch (PinosListener    *listener,
     } else {
       data->res = SPA_RESULT_NO_PERMISSION;
     }
+#endif
   }
   else {
     data->res = SPA_RESULT_OK;

@@ -72,7 +72,7 @@ main (int argc, char *argv[])
   spa_pod_builder_long (&b, 6000);
   spa_pod_builder_float (&b, 4.0);
   spa_pod_builder_double (&b, 3.14);
-  spa_pod_builder_string (&b, "test123", strlen ("test123"));
+  spa_pod_builder_string (&b, "test123");
   spa_pod_builder_rectangle (&b, 320, 240);
   spa_pod_builder_fraction (&b, 25, 1);
   spa_pod_builder_push_array (&b, &frame[3]);

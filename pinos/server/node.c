@@ -23,7 +23,6 @@
 
 #include "pinos/client/pinos.h"
 #include "pinos/client/interfaces.h"
-#include "pinos/client/serialize.h"
 
 #include "pinos/server/node.h"
 #include "pinos/server/data-loop.h"
@@ -404,7 +403,6 @@ node_bind_func (PinosGlobal *global,
   info.input_formats = NULL;
   for (info.n_input_formats = 0; ; info.n_input_formats++) {
     SpaFormat *fmt;
-    void *p;
 
     if (spa_node_port_enum_formats (this->node,
                                     SPA_DIRECTION_INPUT,
@@ -415,16 +413,13 @@ node_bind_func (PinosGlobal *global,
       break;
 
     info.input_formats = realloc (info.input_formats, sizeof (SpaFormat*) * (info.n_input_formats + 1));
-
-    p = malloc (pinos_serialize_format_get_size (fmt));
-    info.input_formats[info.n_input_formats] = pinos_serialize_format_copy_into (p, fmt);
+    info.input_formats[info.n_input_formats] = spa_format_copy (fmt);
   }
   info.max_outputs = this->transport->area->max_outputs;
   info.n_outputs = this->transport->area->n_outputs;
   info.output_formats = NULL;
   for (info.n_output_formats = 0; ; info.n_output_formats++) {
     SpaFormat *fmt;
-    void *p;
 
     if (spa_node_port_enum_formats (this->node,
                                     SPA_DIRECTION_OUTPUT,
@@ -435,9 +430,7 @@ node_bind_func (PinosGlobal *global,
       break;
 
     info.output_formats = realloc (info.output_formats, sizeof (SpaFormat*) * (info.n_output_formats + 1));
-
-    p = malloc (pinos_serialize_format_get_size (fmt));
-    info.output_formats[info.n_output_formats] = pinos_serialize_format_copy_into (p, fmt);
+    info.output_formats[info.n_output_formats] = spa_format_copy (fmt);
   }
   info.state = this->state;
   info.error = this->error;

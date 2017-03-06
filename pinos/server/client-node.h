@@ -54,10 +54,6 @@ void               pinos_client_node_destroy          (PinosClientNode *node);
 
 SpaResult          pinos_client_node_get_data_socket  (PinosClientNode *node, int *fd);
 
-SpaResult          pinos_client_node_dispatch_message (PinosClientNode  *node,
-                                                       PinosMessageType  type,
-                                                       void             *message);
-
 #ifdef __cplusplus
 }
 #endif

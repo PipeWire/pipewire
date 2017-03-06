@@ -21,6 +21,7 @@
 #define __PINOS_INTROSPECT_H__
 
 #include <spa/include/spa/defs.h>
+#include <spa/include/spa/format.h>
 
 #ifdef __cplusplus
 extern "C" {

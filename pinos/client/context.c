@@ -303,7 +303,7 @@ registry_event_global (void          *object,
       goto no_mem;
 
     proxy->event = &node_events;
-    proxy->marshall = &pinos_protocol_native_client_node_marshall;
+    proxy->demarshal = &pinos_protocol_native_client_node_demarshal;
     proxy->interface = NULL;
   } else if (!strcmp (type, PINOS_MODULE_URI)) {
     proxy = pinos_proxy_new (this,
@@ -313,7 +313,7 @@ registry_event_global (void          *object,
       goto no_mem;
 
     proxy->event = &module_events;
-    proxy->marshall = &pinos_protocol_native_client_module_marshall;
+    proxy->demarshal = &pinos_protocol_native_client_module_demarshal;
     proxy->interface = NULL;
   } else if (!strcmp (type, PINOS_CLIENT_URI)) {
     proxy = pinos_proxy_new (this,
@@ -323,7 +323,7 @@ registry_event_global (void          *object,
       goto no_mem;
 
     proxy->event = &client_events;
-    proxy->marshall = &pinos_protocol_native_client_client_marshall;
+    proxy->demarshal = &pinos_protocol_native_client_client_demarshal;
     proxy->interface = NULL;
   } else if (!strcmp (type, PINOS_LINK_URI)) {
     proxy = pinos_proxy_new (this,
@@ -333,7 +333,7 @@ registry_event_global (void          *object,
       goto no_mem;
 
     proxy->event = &link_events;
-    proxy->marshall = &pinos_protocol_native_client_link_marshall;
+    proxy->demarshal = &pinos_protocol_native_client_link_demarshal;
     proxy->interface = NULL;
   }
   if (proxy)
@@ -385,32 +385,27 @@ on_context_data (SpaSource *source,
 
   if (mask & SPA_IO_IN) {
     PinosConnection *conn = impl->connection;
-    PinosMessageType type;
+    uint8_t opcode;
     uint32_t id;
     size_t size;
+    void *message;
 
-    while (pinos_connection_get_next (conn, &type, &id, &size)) {
-      void *p = alloca (size);
+    while (pinos_connection_get_next (conn, &opcode, &id, &message, &size)) {
       PinosProxy *proxy;
-      const PinosMarshallFunc *marshall;
-
-      if (!pinos_connection_parse_message (conn, p)) {
-        pinos_log_error ("context %p: failed to parse message", this);
-        continue;
-      }
+      const PinosDemarshalFunc *demarshal;
 
       proxy = pinos_map_lookup (&this->objects, id);
       if (proxy == NULL) {
         pinos_log_error ("context %p: could not find proxy %u", this, id);
         continue;
       }
-      pinos_log_debug ("context %p: object marshall %u, %u", this, id, type);
+      pinos_log_debug ("context %p: object demarshal %u, %u", this, id, opcode);
 
-      marshall = proxy->marshall;
-      if (marshall[type])
-        marshall[type] (proxy, p, size);
+      demarshal = proxy->demarshal;
+      if (demarshal[opcode])
+        demarshal[opcode] (proxy, message, size);
       else
-        pinos_log_error ("context %p: function %d not implemented", this, type);
+        pinos_log_error ("context %p: function %d not implemented", this, opcode);
 
     }
   }
@@ -602,7 +597,7 @@ pinos_context_connect_fd (PinosContext  *context,
 
   context->core_proxy->event = &core_events;
   context->core_proxy->interface = &pinos_protocol_native_client_core_interface;
-  context->core_proxy->marshall = &pinos_protocol_native_client_core_marshall;
+  context->core_proxy->demarshal = &pinos_protocol_native_client_core_demarshal;
 
   pinos_core_do_client_update (context->core_proxy,
                                &context->properties->dict);
@@ -615,7 +610,7 @@ pinos_context_connect_fd (PinosContext  *context,
 
   context->registry_proxy->event = &registry_events;
   context->registry_proxy->interface = &pinos_protocol_native_client_registry_interface;
-  context->registry_proxy->marshall = &pinos_protocol_native_client_registry_marshall;
+  context->registry_proxy->demarshal = &pinos_protocol_native_client_registry_demarshal;
 
   pinos_core_do_get_registry (context->core_proxy,
                               0,

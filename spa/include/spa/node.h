@@ -231,8 +231,8 @@ struct _SpaNode {
    *          #SPA_RESULT_INVALID_COMMAND @command is an invalid command
    *          #SPA_RESULT_ASYNC @command is executed asynchronously
    */
-  SpaResult   (*send_command)         (SpaNode          *node,
-                                       SpaNodeCommand   *command);
+  SpaResult   (*send_command)         (SpaNode        *node,
+                                       SpaNodeCommand *command);
   /**
    * SpaNode::set_event_callback:
    * @node: a #SpaNode

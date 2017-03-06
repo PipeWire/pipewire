@@ -20,7 +20,6 @@
 #include <string.h>
 
 #include "pinos/client/pinos.h"
-#include "pinos/client/serialize.h"
 
 #include "pinos/client/context.h"
 #include "pinos/client/subscribe.h"
@@ -254,8 +253,8 @@ pinos_node_info_update (PinosNodeInfo       *info,
       info->input_formats = NULL;
     }
     for (i = 0; i < info->n_input_formats; i++) {
-      size = pinos_serialize_format_get_size (update->input_formats[i]);
-      info->input_formats[i] = size ? pinos_serialize_format_copy_into (malloc (size), update->input_formats[i]) : NULL;
+      size = SPA_POD_SIZE (update->input_formats[i]);
+      info->input_formats[i] = memcpy (malloc (size), update->input_formats[i], size);
     }
   }
   if (update->change_mask & (1 << 3))
@@ -271,8 +270,8 @@ pinos_node_info_update (PinosNodeInfo       *info,
       info->output_formats = NULL;
     }
     for (i = 0; i < info->n_output_formats; i++) {
-      size = pinos_serialize_format_get_size (update->output_formats[i]);
-      info->output_formats[i] = size ? pinos_serialize_format_copy_into (malloc (size), update->output_formats[i]) : NULL;
+      size = SPA_POD_SIZE (update->output_formats[i]);
+      info->output_formats[i] = memcpy (malloc (size), update->output_formats[i], size);
     }
   }
 

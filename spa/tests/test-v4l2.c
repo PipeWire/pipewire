@@ -71,7 +71,7 @@ typedef struct {
   unsigned int n_buffers;
 
   SpaSupport support[2];
-  unsigned int n_support;
+  uint32_t   n_support;
   SpaIDMap *map;
   SpaLog *log;
   SpaPoll data_loop;

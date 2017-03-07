@@ -93,7 +93,7 @@ typedef struct {
   enum v4l2_memory memtype;
 
   V4l2Buffer   buffers[MAX_BUFFERS];
-  unsigned int n_buffers;
+  uint32_t     n_buffers;
 
   bool source_enabled;
   SpaSource source;
@@ -415,10 +415,10 @@ spa_v4l2_source_node_set_event_callback (SpaNode              *node,
 
 static SpaResult
 spa_v4l2_source_node_get_n_ports (SpaNode       *node,
-                                  unsigned int  *n_input_ports,
-                                  unsigned int  *max_input_ports,
-                                  unsigned int  *n_output_ports,
-                                  unsigned int  *max_output_ports)
+                                  uint32_t      *n_input_ports,
+                                  uint32_t      *max_input_ports,
+                                  uint32_t      *n_output_ports,
+                                  uint32_t      *max_output_ports)
 {
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -437,9 +437,9 @@ spa_v4l2_source_node_get_n_ports (SpaNode       *node,
 
 static SpaResult
 spa_v4l2_source_node_get_port_ids (SpaNode       *node,
-                                   unsigned int   n_input_ports,
+                                   uint32_t       n_input_ports,
                                    uint32_t      *input_ids,
-                                   unsigned int   n_output_ports,
+                                   uint32_t       n_output_ports,
                                    uint32_t      *output_ids)
 {
   if (node == NULL)
@@ -474,7 +474,7 @@ spa_v4l2_source_node_port_enum_formats (SpaNode         *node,
                                         uint32_t         port_id,
                                         SpaFormat      **format,
                                         const SpaFormat *filter,
-                                        unsigned int     index)
+                                        uint32_t         index)
 {
   SpaV4l2Source *this;
   SpaResult res;
@@ -726,9 +726,9 @@ spa_v4l2_source_node_port_alloc_buffers (SpaNode         *node,
                                          SpaDirection     direction,
                                          uint32_t         port_id,
                                          SpaAllocParam  **params,
-                                         unsigned int     n_params,
+                                         uint32_t         n_params,
                                          SpaBuffer      **buffers,
-                                         unsigned int    *n_buffers)
+                                         uint32_t        *n_buffers)
 {
   SpaV4l2Source *this;
   SpaV4l2State *state;
@@ -965,10 +965,10 @@ v4l2_source_init (const SpaHandleFactory  *factory,
                   SpaHandle               *handle,
                   const SpaDict           *info,
                   const SpaSupport        *support,
-                  unsigned int             n_support)
+                  uint32_t                 n_support)
 {
   SpaV4l2Source *this;
-  unsigned int i;
+  uint32_t i;
   const char *str;
 
   if (factory == NULL || handle == NULL)
@@ -1032,7 +1032,7 @@ static const SpaInterfaceInfo v4l2_source_interfaces[] =
 static SpaResult
 v4l2_source_enum_interface_info (const SpaHandleFactory  *factory,
                                  const SpaInterfaceInfo **info,
-                                 unsigned int             index)
+                                 uint32_t                 index)
 {
   if (factory == NULL || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;

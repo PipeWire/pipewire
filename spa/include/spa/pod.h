@@ -57,6 +57,7 @@ typedef struct {
 } SpaPOD;
 
 #define SPA_POD_BODY_SIZE(pod)           (((SpaPOD*)(pod))->size)
+#define SPA_POD_TYPE(pod)                (((SpaPOD*)(pod))->type)
 #define SPA_POD_SIZE(pod)                (sizeof(SpaPOD) + SPA_POD_BODY_SIZE(pod))
 #define SPA_POD_CONTENTS_SIZE(type,pod)  (SPA_POD_SIZE(pod)-sizeof(type))
 
@@ -228,10 +229,10 @@ spa_pod_get_bytes (SpaPOD **pod, const void **val, uint32_t *size)
 }
 
 
-#define SPA_POD_ARRAY_BODY_FOREACH(body, size, iter) \
-  for ((iter) = SPA_MEMBER (body, sizeof(SpaPODArrayBody), __typeof__(*iter)); \
-       (iter) < SPA_MEMBER (body, (size), __typeof__(*iter)); \
-       (iter) = SPA_MEMBER ((iter), (body)->child.size, __typeof__(*iter)))
+#define SPA_POD_ARRAY_BODY_FOREACH(body, _size, iter) \
+  for ((iter) = SPA_MEMBER ((body), sizeof(SpaPODArrayBody), __typeof__(*(iter))); \
+       (iter) < SPA_MEMBER ((body), (_size), __typeof__(*(iter))); \
+       (iter) = SPA_MEMBER ((iter), (body)->child.size, __typeof__(*(iter))))
 
 #define SPA_POD_FOREACH(pod, size, iter) \
   for ((iter) = (pod); \
@@ -255,7 +256,7 @@ spa_pod_get_bytes (SpaPOD **pod, const void **val, uint32_t *size)
        (iter) = SPA_MEMBER ((iter), (body)->value.size, __typeof__(*iter)))
 
 static inline SpaPODProp *
-spa_pod_contents_find_prop (const SpaPOD *pod, off_t offset, uint32_t key)
+spa_pod_contents_find_prop (const SpaPOD *pod, uint32_t offset, uint32_t key)
 {
   SpaPOD *res;
   SPA_POD_CONTENTS_FOREACH (pod, offset, res) {

@@ -39,7 +39,7 @@ typedef struct {
   URI uri;
 
   SpaSupport support[4];
-  unsigned int n_support;
+  uint32_t   n_support;
   SpaIDMap *map;
   SpaLog *log;
   SpaLoop loop;
@@ -50,7 +50,7 @@ inspect_port (SpaNode *node, SpaDirection direction, uint32_t port_id)
 {
   SpaResult res;
   SpaFormat *format;
-  unsigned int index = 0;
+  uint32_t index = 0;
   SpaProps *props;
 
   while (true) {
@@ -73,7 +73,7 @@ static void
 inspect_node (SpaNode *node)
 {
   SpaResult res;
-  unsigned int i, n_input, max_input, n_output, max_output;
+  uint32_t i, n_input, max_input, n_output, max_output;
   uint32_t *in_ports, *out_ports;
   SpaProps *props;
 
@@ -114,7 +114,7 @@ inspect_factory (AppData *data, const SpaHandleFactory *factory)
   SpaResult res;
   SpaHandle *handle;
   void *interface;
-  unsigned int index = 0;
+  uint32_t index = 0;
 
   printf ("factory name:\t\t'%s'\n", factory->name);
   printf ("factory info:\n");
@@ -181,7 +181,7 @@ main (int argc, char *argv[])
   SpaResult res;
   void *handle;
   SpaEnumHandleFactoryFunc enum_func;
-  unsigned int index = 0;
+  uint32_t index = 0;
 
   if (argc < 2) {
     printf ("usage: %s <plugin.so>\n", argv[0]);

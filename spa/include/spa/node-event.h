@@ -67,7 +67,7 @@ typedef enum {
 
 struct _SpaNodeEvent {
   SpaNodeEventType  type;
-  size_t            size;
+  uint32_t          size;
 };
 
 typedef struct {

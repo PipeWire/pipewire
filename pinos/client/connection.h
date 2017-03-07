@@ -31,23 +31,23 @@ typedef struct _PinosConnection PinosConnection;
 PinosConnection *  pinos_connection_new             (int              fd);
 void               pinos_connection_destroy         (PinosConnection *conn);
 
-int                pinos_connection_add_fd          (PinosConnection *conn,
+uint32_t           pinos_connection_add_fd          (PinosConnection *conn,
                                                      int              fd);
 int                pinos_connection_get_fd          (PinosConnection *conn,
-                                                     int              index);
+                                                     uint32_t         index);
 
 bool               pinos_connection_get_next        (PinosConnection  *conn,
                                                      uint8_t          *opcode,
                                                      uint32_t         *dest_id,
                                                      void            **data,
-                                                     size_t           *size);
+                                                     uint32_t         *size);
 
 void *             pinos_connection_begin_write     (PinosConnection  *conn,
-                                                     size_t            size);
+                                                     uint32_t          size);
 void               pinos_connection_end_write       (PinosConnection  *conn,
                                                      uint32_t          dest_id,
                                                      uint8_t           opcode,
-                                                     size_t            size);
+                                                     uint32_t          size);
 
 bool               pinos_connection_flush           (PinosConnection  *conn);
 bool               pinos_connection_clear           (PinosConnection  *conn);

@@ -51,7 +51,7 @@ typedef enum {
 
 struct _SpaNodeCommand {
   SpaNodeCommandType  type;
-  size_t              size;
+  uint32_t            size;
 };
 
 /**

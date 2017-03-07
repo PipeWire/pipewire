@@ -47,7 +47,7 @@ pinos_spa_node_load (PinosCore  *core,
   SpaResult res;
   SpaHandle *handle;
   void *hnd;
-  unsigned int index;
+  uint32_t index;
   SpaEnumHandleFactoryFunc enum_func;
   const SpaHandleFactory *factory;
   void *iface;

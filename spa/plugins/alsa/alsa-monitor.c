@@ -64,7 +64,7 @@ struct _SpaALSAMonitor {
   struct udev* udev;
   struct udev_monitor *umonitor;
   struct udev_enumerate *enumerate;
-  unsigned int index;
+  uint32_t index;
   struct udev_list_entry *devices;
 
   ALSAItem uitem;
@@ -107,7 +107,7 @@ static int
 fill_item (SpaALSAMonitor *this, ALSAItem *item, struct udev_device *udevice)
 {
   int err;
-  unsigned int i;
+  uint32_t i;
   const char *str;
   snd_pcm_t *hndl;
   char device[64];
@@ -319,7 +319,7 @@ spa_alsa_monitor_set_event_callback (SpaMonitor              *monitor,
 static SpaResult
 spa_alsa_monitor_enum_items (SpaMonitor       *monitor,
                              SpaMonitorItem  **item,
-                             unsigned int      index)
+                             uint32_t          index)
 {
   SpaResult res;
   SpaALSAMonitor *this;
@@ -407,10 +407,10 @@ alsa_monitor_init (const SpaHandleFactory  *factory,
                    SpaHandle               *handle,
                    const SpaDict           *info,
                    const SpaSupport        *support,
-                   unsigned int             n_support)
+                   uint32_t                 n_support)
 {
   SpaALSAMonitor *this;
-  unsigned int i;
+  uint32_t i;
 
   if (factory == NULL || handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -451,7 +451,7 @@ static const SpaInterfaceInfo alsa_monitor_interfaces[] =
 static SpaResult
 alsa_monitor_enum_interface_info (const SpaHandleFactory  *factory,
                                   const SpaInterfaceInfo **info,
-                                  unsigned int             index)
+                                  uint32_t                 index)
 {
   if (factory == NULL || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;

@@ -27,8 +27,8 @@ typedef struct {
   PinosConnection *connection;
 } Builder;
 
-static off_t
-write_pod (SpaPODBuilder *b, off_t ref, const void *data, size_t size)
+static uint32_t
+write_pod (SpaPODBuilder *b, uint32_t ref, const void *data, uint32_t size)
 {
   if (ref == -1)
     ref = b->offset;
@@ -512,7 +512,7 @@ static void
 client_node_marshal_set_property (void              *object,
                                   uint32_t           seq,
                                   uint32_t           id,
-                                  size_t             size,
+                                  uint32_t           size,
                                   const void        *value)
 {
   PinosResource *resource = object;
@@ -537,8 +537,8 @@ client_node_marshal_add_mem (void              *object,
                              SpaDataType        type,
                              int                memfd,
                              uint32_t           flags,
-                             off_t              offset,
-                             size_t             size)
+                             uint32_t           offset,
+                             uint32_t           size)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;
@@ -564,7 +564,7 @@ client_node_marshal_use_buffers (void                  *object,
                                  uint32_t               seq,
                                  SpaDirection           direction,
                                  uint32_t               port_id,
-                                 unsigned int           n_buffers,
+                                 uint32_t               n_buffers,
                                  PinosClientNodeBuffer *buffers)
 {
   PinosResource *resource = object;
@@ -645,8 +645,8 @@ client_node_marshal_port_command (void                 *object,
 static void
 client_node_marshal_transport (void              *object,
                                int                memfd,
-                               off_t              offset,
-                               size_t             size)
+                               uint32_t           offset,
+                               uint32_t           size)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;

@@ -435,7 +435,7 @@ pinos_core_update_properties (PinosCore     *core,
     if (dict)
       core->properties = pinos_properties_new_dict (dict);
   } else if (dict != &core->properties->dict) {
-    unsigned int i;
+    uint32_t i;
 
     for (i = 0; i < dict->n_items; i++)
       pinos_properties_set (core->properties,
@@ -456,7 +456,7 @@ pinos_core_find_port (PinosCore       *core,
                       PinosPort       *other_port,
                       uint32_t         id,
                       PinosProperties *props,
-                      unsigned int     n_format_filters,
+                      uint32_t         n_format_filters,
                       SpaFormat      **format_filters,
                       char           **error)
 {
@@ -520,14 +520,14 @@ pinos_core_find_format (PinosCore       *core,
                         PinosPort       *output,
                         PinosPort       *input,
                         PinosProperties *props,
-                        unsigned int     n_format_filters,
+                        uint32_t         n_format_filters,
                         SpaFormat      **format_filterss,
                         char           **error)
 {
   SpaNodeState out_state, in_state;
   SpaResult res;
   SpaFormat *filter = NULL, *format;
-  unsigned int iidx = 0, oidx = 0;
+  uint32_t iidx = 0, oidx = 0;
 
   out_state = output->node->node->state;
   in_state = input->node->node->state;

@@ -37,9 +37,9 @@ typedef struct _PinosTransportArea PinosTransportArea;
 #include <pinos/client/sig.h>
 
 typedef struct {
-  int    memfd;
-  off_t  offset;
-  size_t size;
+  int      memfd;
+  uint32_t offset;
+  uint32_t size;
 } PinosTransportInfo;
 
 /**
@@ -48,10 +48,10 @@ typedef struct {
  * Shared structure between client and server
  */
 struct _PinosTransportArea {
-  unsigned int       max_inputs;
-  unsigned int       n_inputs;
-  unsigned int       max_outputs;
-  unsigned int       n_outputs;
+  uint32_t   max_inputs;
+  uint32_t   n_inputs;
+  uint32_t   max_outputs;
+  uint32_t   n_outputs;
 };
 
 struct _PinosTransport {
@@ -67,8 +67,8 @@ struct _PinosTransport {
   SpaRingbuffer      *output_buffer;
 };
 
-PinosTransport * pinos_transport_new            (unsigned int max_inputs,
-                                                 unsigned int max_outputs);
+PinosTransport * pinos_transport_new            (uint32_t max_inputs,
+                                                 uint32_t max_outputs);
 PinosTransport * pinos_transport_new_from_info  (PinosTransportInfo *info);
 
 void             pinos_transport_destroy        (PinosTransport     *trans);

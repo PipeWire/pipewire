@@ -51,7 +51,7 @@ typedef struct {
   MixerBuffer mix;
 
   SpaBuffer **buffers;
-  unsigned int n_buffers;
+  uint32_t    n_buffers;
   SpaBuffer *buffer;
   void *io;
 } SpaAudioMixerPort;
@@ -158,10 +158,10 @@ spa_audiomixer_node_set_event_callback (SpaNode              *node,
 
 static SpaResult
 spa_audiomixer_node_get_n_ports (SpaNode       *node,
-                                 unsigned int  *n_input_ports,
-                                 unsigned int  *max_input_ports,
-                                 unsigned int  *n_output_ports,
-                                 unsigned int  *max_output_ports)
+                                 uint32_t      *n_input_ports,
+                                 uint32_t      *max_input_ports,
+                                 uint32_t      *n_output_ports,
+                                 uint32_t      *max_output_ports)
 {
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -180,9 +180,9 @@ spa_audiomixer_node_get_n_ports (SpaNode       *node,
 
 static SpaResult
 spa_audiomixer_node_get_port_ids (SpaNode       *node,
-                                  unsigned int   n_input_ports,
+                                  uint32_t       n_input_ports,
                                   uint32_t      *input_ids,
-                                  unsigned int   n_output_ports,
+                                  uint32_t       n_output_ports,
                                   uint32_t      *output_ids)
 {
   SpaAudioMixer *this;
@@ -264,7 +264,7 @@ spa_audiomixer_node_port_enum_formats (SpaNode         *node,
                                        uint32_t         port_id,
                                        SpaFormat      **format,
                                        const SpaFormat *filter,
-                                       unsigned int     index)
+                                       uint32_t         index)
 {
   SpaAudioMixer *this;
 
@@ -472,7 +472,7 @@ static SpaResult
 spa_audiomixer_node_process_input (SpaNode *node)
 {
   SpaAudioMixer *this;
-  unsigned int i;
+  uint32_t i;
   bool have_error = false;
   SpaPortOutput *output;
 
@@ -679,10 +679,10 @@ spa_audiomixer_init (const SpaHandleFactory *factory,
                      SpaHandle              *handle,
                      const SpaDict          *info,
                      const SpaSupport       *support,
-                     unsigned int            n_support)
+                     uint32_t                n_support)
 {
   SpaAudioMixer *this;
-  unsigned int i;
+  uint32_t i;
 
   if (factory == NULL || handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -721,7 +721,7 @@ static const SpaInterfaceInfo audiomixer_interfaces[] =
 static SpaResult
 audiomixer_enum_interface_info (const SpaHandleFactory  *factory,
                                 const SpaInterfaceInfo **info,
-                                unsigned int             index)
+                                uint32_t                 index)
 {
   if (factory == NULL || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;

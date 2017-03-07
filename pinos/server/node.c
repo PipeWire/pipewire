@@ -45,8 +45,8 @@ update_port_ids (PinosNode *node, bool create)
 {
   PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, this);
   uint32_t *input_port_ids, *output_port_ids;
-  unsigned int n_input_ports, n_output_ports, max_input_ports, max_output_ports;
-  unsigned int i;
+  uint32_t n_input_ports, n_output_ports, max_input_ports, max_output_ports;
+  uint32_t i;
   SpaList *ports;
 
   if (node->node == NULL)
@@ -524,7 +524,7 @@ pinos_node_new (PinosCore       *core,
   spa_list_init (&this->output_ports);
 
   if (this->node->info) {
-    unsigned int i;
+    uint32_t i;
 
     if (this->properties == NULL)
       this->properties = pinos_properties_new (NULL, NULL);
@@ -681,7 +681,7 @@ PinosPort *
 pinos_node_get_free_port (PinosNode       *node,
                           PinosDirection   direction)
 {
-  unsigned int n_ports, max_ports;
+  uint32_t n_ports, max_ports;
   SpaList *ports;
   PinosPort *port = NULL, *p;
 

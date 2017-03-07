@@ -36,7 +36,7 @@ typedef struct {
   size_t           buffer_size;
   size_t           buffer_maxsize;
   int              fds[MAX_FDS];
-  unsigned int     n_fds;
+  uint32_t         n_fds;
 
   off_t            offset;
   void            *data;
@@ -52,7 +52,7 @@ struct _PinosConnection {
 
 int
 pinos_connection_get_fd (PinosConnection *conn,
-                         int              index)
+                         uint32_t         index)
 {
   if (index < 0 || index >= conn->in.n_fds)
     return -1;
@@ -60,11 +60,11 @@ pinos_connection_get_fd (PinosConnection *conn,
   return conn->in.fds[index];
 }
 
-int
+uint32_t
 pinos_connection_add_fd (PinosConnection *conn,
                          int              fd)
 {
-  int index, i;
+  uint32_t index, i;
 
   for (i = 0; i < conn->out.n_fds; i++) {
     if (conn->out.fds[i] == fd)
@@ -202,7 +202,7 @@ pinos_connection_get_next (PinosConnection  *conn,
                            uint8_t          *opcode,
                            uint32_t         *dest_id,
                            void            **dt,
-                           size_t           *sz)
+                           uint32_t         *sz)
 {
   size_t len, size;
   uint8_t *data;
@@ -265,7 +265,7 @@ again:
 
 void *
 pinos_connection_begin_write (PinosConnection  *conn,
-                              size_t            size)
+                              uint32_t          size)
 {
   uint32_t *p;
   ConnectionBuffer *buf = &conn->out;
@@ -278,7 +278,7 @@ void
 pinos_connection_end_write (PinosConnection  *conn,
                             uint32_t          dest_id,
                             uint8_t           opcode,
-                            size_t            size)
+                            uint32_t          size)
 {
   uint32_t *p;
   ConnectionBuffer *buf = &conn->out;

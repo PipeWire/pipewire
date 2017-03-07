@@ -99,8 +99,8 @@ transport_setup_area (void *p, PinosTransport *trans)
 }
 
 PinosTransport *
-pinos_transport_new (unsigned int max_inputs,
-                     unsigned int max_outputs)
+pinos_transport_new (uint32_t max_inputs,
+                     uint32_t max_outputs)
 {
   PinosTransportImpl *impl;
   PinosTransport *trans;

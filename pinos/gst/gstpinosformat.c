@@ -353,8 +353,8 @@ handle_audio_fields (ConvertData *d)
   return TRUE;
 }
 
-static off_t
-write_pod (SpaPODBuilder *b, off_t ref, const void *data, size_t size)
+static uint32_t
+write_pod (SpaPODBuilder *b, uint32_t ref, const void *data, uint32_t size)
 {
   if (ref == -1)
     ref = b->offset;

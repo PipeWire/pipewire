@@ -55,7 +55,7 @@ typedef struct {
   SpaAllocParamMetaEnable param_meta;
 
   SpaVolumeBuffer buffers[MAX_BUFFERS];
-  unsigned int    n_buffers;
+  uint32_t        n_buffers;
 
   void           *io;
 
@@ -225,10 +225,10 @@ spa_volume_node_set_event_callback (SpaNode              *node,
 
 static SpaResult
 spa_volume_node_get_n_ports (SpaNode       *node,
-                             unsigned int  *n_input_ports,
-                             unsigned int  *max_input_ports,
-                             unsigned int  *n_output_ports,
-                             unsigned int  *max_output_ports)
+                             uint32_t      *n_input_ports,
+                             uint32_t      *max_input_ports,
+                             uint32_t      *n_output_ports,
+                             uint32_t      *max_output_ports)
 {
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -247,9 +247,9 @@ spa_volume_node_get_n_ports (SpaNode       *node,
 
 static SpaResult
 spa_volume_node_get_port_ids (SpaNode       *node,
-                              unsigned int   n_input_ports,
+                              uint32_t       n_input_ports,
                               uint32_t      *input_ids,
-                              unsigned int   n_output_ports,
+                              uint32_t       n_output_ports,
                               uint32_t      *output_ids)
 {
   if (node == NULL)
@@ -286,7 +286,7 @@ spa_volume_node_port_enum_formats (SpaNode          *node,
                                    uint32_t          port_id,
                                    SpaFormat       **format,
                                    const SpaFormat  *filter,
-                                   unsigned int      index)
+                                   uint32_t          index)
 {
   SpaVolume *this;
   SpaResult res;
@@ -487,7 +487,7 @@ spa_volume_node_port_use_buffers (SpaNode         *node,
 {
   SpaVolume *this;
   SpaVolumePort *port;
-  unsigned int i;
+  uint32_t i;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -665,7 +665,7 @@ release_buffer (SpaVolume *this, SpaBuffer *buffer)
 static void
 do_volume (SpaVolume *this, SpaBuffer *dbuf, SpaBuffer *sbuf)
 {
-  unsigned int si, di, i, n_samples, n_bytes, soff, doff ;
+  uint32_t si, di, i, n_samples, n_bytes, soff, doff ;
   SpaData *sd, *dd;
   uint16_t *src, *dst;
   double volume;
@@ -825,10 +825,10 @@ volume_init (const SpaHandleFactory  *factory,
              SpaHandle               *handle,
              const SpaDict           *info,
              const SpaSupport        *support,
-             unsigned int             n_support)
+             uint32_t                 n_support)
 {
   SpaVolume *this;
-  unsigned int i;
+  uint32_t i;
 
   if (factory == NULL || handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -872,7 +872,7 @@ static const SpaInterfaceInfo volume_interfaces[] =
 static SpaResult
 volume_enum_interface_info (const SpaHandleFactory  *factory,
                             const SpaInterfaceInfo **info,
-                            unsigned int             index)
+                            uint32_t                 index)
 {
   if (factory == NULL || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;

@@ -53,13 +53,13 @@ typedef enum {
 
 struct _SpaAllocParam {
   uint32_t  type;
-  size_t    size;
+  uint32_t  size;
 };
 
 typedef struct {
   SpaAllocParam  param;
-  size_t         minsize;
-  size_t         stride;
+  uint32_t       minsize;
+  int32_t        stride;
   uint32_t       min_buffers;
   uint32_t       max_buffers;
   uint32_t       align;
@@ -73,19 +73,19 @@ typedef struct {
 typedef struct {
   SpaAllocParam  param;
   SpaMetaType    type;
-  size_t         minsize;
-  size_t         stride;
-  size_t         blocks;
+  uint32_t       minsize;
+  int32_t        stride;
+  uint32_t       blocks;
   uint32_t       align;
 } SpaAllocParamMetaEnableRingbuffer;
 
 typedef struct {
   SpaAllocParam param;
-  unsigned int  padding_top;
-  unsigned int  padding_bottom;
-  unsigned int  padding_left;
-  unsigned int  padding_right;
-  unsigned int  stride_align[4];
+  uint32_t      padding_top;
+  uint32_t      padding_bottom;
+  uint32_t      padding_left;
+  uint32_t      padding_right;
+  uint32_t      stride_align[4];
 } SpaAllocParamVideoPadding;
 
 /**
@@ -128,7 +128,7 @@ typedef struct {
   uint64_t            maxbuffering;
   uint64_t            latency;
   SpaAllocParam     **params;
-  unsigned int        n_params;
+  uint32_t            n_params;
   SpaDict            *extra;
 } SpaPortInfo;
 

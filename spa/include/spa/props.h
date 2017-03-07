@@ -33,20 +33,20 @@ typedef SpaPODObject SpaProps;
 #define SPA_PROPS_PREFIX          SPA_PROPS_URI "#"
 
 
-static inline off_t
+static inline uint32_t
 spa_pod_builder_push_props (SpaPODBuilder *builder,
                             SpaPODFrame   *frame)
 {
   return spa_pod_builder_push_object (builder, frame, 0, 0);
 }
 
-static inline off_t
+static inline uint32_t
 spa_pod_builder_props (SpaPODBuilder *builder,
                        uint32_t       propid, ...)
 {
   SpaPODFrame f;
   va_list args;
-  off_t off;
+  uint32_t off;
 
   off = spa_pod_builder_push_props (builder, &f);
 

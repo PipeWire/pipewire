@@ -387,7 +387,7 @@ on_context_data (SpaSource *source,
     PinosConnection *conn = impl->connection;
     uint8_t opcode;
     uint32_t id;
-    size_t size;
+    uint32_t size;
     void *message;
 
     while (pinos_connection_get_next (conn, &opcode, &id, &message, &size)) {

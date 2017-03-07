@@ -39,7 +39,7 @@ typedef struct _SpaIDMap SpaIDMap;
 struct _SpaIDMap {
   /* the total size of this structure. This can be used to expand this
    * structure in the future */
-  size_t size;
+  const size_t size;
   /**
    * SpaIDMap::info
    *

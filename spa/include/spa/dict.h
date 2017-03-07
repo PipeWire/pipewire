@@ -36,7 +36,7 @@ typedef struct {
 } SpaDictItem;
 
 struct _SpaDict {
-  unsigned int  n_items;
+  uint32_t      n_items;
   SpaDictItem  *items;
 };
 

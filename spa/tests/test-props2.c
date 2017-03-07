@@ -26,6 +26,7 @@
 
 #include <spa/pod.h>
 #include <spa/pod-builder.h>
+#include <spa/pod-iter.h>
 
 #include <spa/id-map.h>
 #include <spa/log.h>
@@ -40,11 +41,12 @@ main (int argc, char *argv[])
   SpaPODFrame frame[4];
   uint8_t buffer[1024];
   SpaPOD *obj;
+  SpaPODIter i;
 
   b.data = buffer;
   b.size = 1024;
 
-  obj = SPA_MEMBER (buffer, spa_pod_builder_push_object (&b, &frame[0], 0, 0), SpaPOD);
+  spa_pod_builder_push_object (&b, &frame[0], 0, 0);
 
   uint32_t formats[] = { 1, 2 };
   spa_pod_builder_push_prop (&b, &frame[1],
@@ -84,11 +86,40 @@ main (int argc, char *argv[])
   spa_pod_builder_pop (&b, &frame[1]);
   spa_pod_builder_pop (&b, &frame[0]);
 
+  obj = SPA_POD_BUILDER_DEREF (&b, frame[0].ref, SpaPOD);
   spa_debug_pod (obj);
 
   SpaPODProp *p = spa_pod_object_find_prop ((SpaPODObject *)obj, 4);
   printf ("%d %d\n", p->body.key, p->body.flags);
   spa_debug_pod (&p->body.value);
+
+  obj = SPA_POD_BUILDER_DEREF (&b, frame[2].ref, SpaPOD);
+
+  int32_t vi, *pi;
+  int64_t vl;
+  float vf;
+  double vd;
+  char *vs;
+  SpaRectangle vr;
+  SpaFraction vfr;
+  SpaPODArray *va;
+  spa_pod_iter_pod (&i, obj);
+  spa_pod_iter_get (&i, SPA_POD_TYPE_INT, &vi,
+                        SPA_POD_TYPE_LONG, &vl,
+                        SPA_POD_TYPE_FLOAT, &vf,
+                        SPA_POD_TYPE_DOUBLE, &vd,
+                        SPA_POD_TYPE_STRING, &vs,
+                        SPA_POD_TYPE_RECTANGLE, &vr,
+                        SPA_POD_TYPE_FRACTION, &vfr,
+                        SPA_POD_TYPE_ARRAY, &va,
+                        0);
+
+  printf ("%u %lu %f %g %s %ux%u %u/%u\n", vi, vl, vf, vd, vs, vr.width, vr.height, vfr.num, vfr.denom);
+  SPA_POD_ARRAY_BODY_FOREACH (&va->body, SPA_POD_BODY_SIZE (va), pi) {
+    printf ("%d\n", *pi);
+  }
+
+
 
   return 0;
 }

@@ -171,7 +171,7 @@ struct _SpaVideoInfoRaw {
   SpaRectangle              size;
   SpaFraction               framerate;
   SpaFraction               max_framerate;
-  unsigned int              views;
+  uint32_t                  views;
   SpaVideoInterlaceMode     interlace_mode;
   SpaFraction               pixel_aspect_ratio;
   SpaVideoMultiviewMode     multiview_mode;

@@ -35,8 +35,8 @@ typedef struct _SpaRingbuffer SpaRingbuffer;
 #include <spa/barrier.h>
 
 typedef struct {
-  off_t   offset;
-  size_t  len;
+  uint32_t  offset;
+  uint32_t  len;
 } SpaRingbufferArea;
 
 /**
@@ -47,11 +47,11 @@ typedef struct {
  * @size_mask: mask if @size is power of 2
  */
 struct _SpaRingbuffer {
-  volatile size_t     readindex;
-  volatile size_t     writeindex;
-  size_t              size;
-  size_t              mask;
-  size_t              mask2;
+  volatile uint32_t     readindex;
+  volatile uint32_t     writeindex;
+  uint32_t              size;
+  uint32_t              mask;
+  uint32_t              mask2;
 };
 
 /**
@@ -67,7 +67,7 @@ struct _SpaRingbuffer {
  */
 static inline SpaResult
 spa_ringbuffer_init (SpaRingbuffer *rbuf,
-                     size_t size)
+                     uint32_t size)
 {
   if (SPA_UNLIKELY ((size & (size - 1)) != 0))
     return SPA_RESULT_ERROR;
@@ -94,11 +94,11 @@ spa_ringbuffer_clear (SpaRingbuffer *rbuf)
   rbuf->writeindex = 0;
 }
 
-static inline size_t
+static inline uint32_t
 spa_ringbuffer_get_read_offset (SpaRingbuffer *rbuf,
-                                size_t        *offset)
+                                uint32_t      *offset)
 {
-  size_t avail, r;
+  uint32_t avail, r;
 
   r = rbuf->readindex;
   *offset = r & rbuf->mask;
@@ -117,11 +117,11 @@ spa_ringbuffer_get_read_offset (SpaRingbuffer *rbuf,
  * Fill @areas with pointers to read from. The total amount of
  * bytes that can be read can be obtained by summing the areas len fields.
  */
-static inline size_t
+static inline uint32_t
 spa_ringbuffer_get_read_areas (SpaRingbuffer      *rbuf,
                                SpaRingbufferArea   areas[2])
 {
-  size_t avail, end, r;
+  uint32_t avail, end, r;
 
   avail = spa_ringbuffer_get_read_offset (rbuf, &r);
   end = r + avail;
@@ -144,7 +144,7 @@ spa_ringbuffer_read_data (SpaRingbuffer      *rbuf,
                           void               *buffer,
                           SpaRingbufferArea   areas[2],
                           void               *data,
-                          size_t              size)
+                          uint32_t            size)
 {
   if (SPA_LIKELY (size < areas[0].len))
     memcpy (data, buffer + areas[0].offset, size);
@@ -163,17 +163,17 @@ spa_ringbuffer_read_data (SpaRingbuffer      *rbuf,
  */
 static inline void
 spa_ringbuffer_read_advance (SpaRingbuffer      *rbuf,
-                             ssize_t             len)
+                             int32_t             len)
 {
   spa_barrier_full();
   rbuf->readindex = (rbuf->readindex + len) & rbuf->mask2;
 }
 
-static inline size_t
+static inline uint32_t
 spa_ringbuffer_get_write_offset (SpaRingbuffer *rbuf,
-                                 size_t        *offset)
+                                 uint32_t      *offset)
 {
-  size_t avail, w;
+  uint32_t avail, w;
 
   w = rbuf->writeindex;
   *offset = w & rbuf->mask;
@@ -191,11 +191,11 @@ spa_ringbuffer_get_write_offset (SpaRingbuffer *rbuf,
  * Fill @areas with pointers to write to. The total amount of
  * bytes that can be written can be obtained by summing the areas len fields.
  */
-static inline size_t
+static inline uint32_t
 spa_ringbuffer_get_write_areas (SpaRingbuffer      *rbuf,
                                 SpaRingbufferArea   areas[2])
 {
-  size_t avail, end, w;
+  uint32_t avail, end, w;
 
   avail = spa_ringbuffer_get_write_offset (rbuf, &w);
   end = w + avail;
@@ -218,7 +218,7 @@ spa_ringbuffer_write_data (SpaRingbuffer      *rbuf,
                            void               *buffer,
                            SpaRingbufferArea   areas[2],
                            void               *data,
-                           size_t              size)
+                           uint32_t            size)
 {
   if (SPA_LIKELY (size < areas[0].len))
     memcpy (buffer + areas[0].offset, data, size);
@@ -238,7 +238,7 @@ spa_ringbuffer_write_data (SpaRingbuffer      *rbuf,
  */
 static inline void
 spa_ringbuffer_write_advance (SpaRingbuffer      *rbuf,
-                              ssize_t             len)
+                              int32_t             len)
 {
   spa_barrier_write();
   rbuf->writeindex = (rbuf->writeindex + len) & rbuf->mask2;

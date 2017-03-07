@@ -119,7 +119,7 @@ static SpaDict *
 pinos_spa_dict_copy (SpaDict *dict)
 {
   SpaDict *copy;
-  unsigned int i;
+  uint32_t i;
 
   if (dict == NULL)
     return NULL;

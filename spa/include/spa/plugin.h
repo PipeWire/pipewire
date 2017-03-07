@@ -130,7 +130,7 @@ struct _SpaHandleFactory {
                                        SpaHandle               *handle,
                                        const SpaDict           *info,
                                        const SpaSupport        *support,
-                                       unsigned int             n_support);
+                                       uint32_t                 n_support);
 
   /**
    * SpaHandle::enum_interface_info:
@@ -147,7 +147,7 @@ struct _SpaHandleFactory {
    */
   SpaResult   (*enum_interface_info)  (const SpaHandleFactory  *factory,
                                        const SpaInterfaceInfo **info,
-                                       unsigned int             index);
+                                       uint32_t                 index);
 };
 
 #define spa_handle_factory_init(h,...)                (h)->init((h),__VA_ARGS__)
@@ -165,7 +165,7 @@ struct _SpaHandleFactory {
  *          #SPA_RESULT_ENUM_END when there are no more factories
  */
 typedef SpaResult (*SpaEnumHandleFactoryFunc) (const SpaHandleFactory **factory,
-                                               unsigned int             index);
+                                               uint32_t                 index);
 
 /**
  * spa_enum_handle_factory:
@@ -179,7 +179,7 @@ typedef SpaResult (*SpaEnumHandleFactoryFunc) (const SpaHandleFactory **factory,
  *          #SPA_RESULT_ENUM_END when there are no more factories
  */
 SpaResult spa_enum_handle_factory       (const SpaHandleFactory **factory,
-                                         unsigned int             index);
+                                         uint32_t                 index);
 
 #ifdef __cplusplus
 }  /* extern "C" */

@@ -72,11 +72,11 @@ typedef struct {
   bool           valid;
   SpaPortInfo   *info;
   SpaFormat     *format;
-  unsigned int   n_formats;
+  uint32_t       n_formats;
   SpaFormat    **formats;
   void          *io;
 
-  unsigned int   n_buffers;
+  uint32_t       n_buffers;
   ProxyBuffer    buffers[MAX_BUFFERS];
 
   uint32_t       buffer_mem_id;
@@ -101,10 +101,10 @@ struct _SpaProxy
 
   SpaSource data_source;
 
-  unsigned int max_inputs;
-  unsigned int n_inputs;
-  unsigned int max_outputs;
-  unsigned int n_outputs;
+  uint32_t     max_inputs;
+  uint32_t     n_inputs;
+  uint32_t     max_outputs;
+  uint32_t     n_outputs;
   SpaProxyPort in_ports[MAX_INPUTS];
   SpaProxyPort out_ports[MAX_OUTPUTS];
 
@@ -254,10 +254,10 @@ spa_proxy_node_set_event_callback (SpaNode              *node,
 
 static SpaResult
 spa_proxy_node_get_n_ports (SpaNode       *node,
-                            unsigned int  *n_input_ports,
-                            unsigned int  *max_input_ports,
-                            unsigned int  *n_output_ports,
-                            unsigned int  *max_output_ports)
+                            uint32_t      *n_input_ports,
+                            uint32_t      *max_input_ports,
+                            uint32_t      *n_output_ports,
+                            uint32_t      *max_output_ports)
 {
   SpaProxy *this;
 
@@ -280,9 +280,9 @@ spa_proxy_node_get_n_ports (SpaNode       *node,
 
 static SpaResult
 spa_proxy_node_get_port_ids (SpaNode       *node,
-                             unsigned int   n_input_ports,
+                             uint32_t       n_input_ports,
                              uint32_t      *input_ids,
-                             unsigned int   n_output_ports,
+                             uint32_t       n_output_ports,
                              uint32_t      *output_ids)
 {
   SpaProxy *this;
@@ -313,14 +313,14 @@ do_update_port (SpaProxy          *this,
                 SpaDirection       direction,
                 uint32_t           port_id,
                 uint32_t           change_mask,
-                unsigned int       n_possible_formats,
+                uint32_t           n_possible_formats,
                 const SpaFormat  **possible_formats,
                 const SpaFormat   *format,
                 const SpaProps    *props,
                 const SpaPortInfo *info)
 {
   SpaProxyPort *port;
-  unsigned int i;
+  uint32_t i;
   size_t size;
 
   if (direction == SPA_DIRECTION_INPUT) {
@@ -459,7 +459,7 @@ spa_proxy_node_port_enum_formats (SpaNode          *node,
                                   uint32_t          port_id,
                                   SpaFormat       **format,
                                   const SpaFormat  *filter,
-                                  unsigned int      index)
+                                  uint32_t          index)
 {
   SpaProxy *this;
   SpaProxyPort *port;
@@ -630,7 +630,7 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
 {
   SpaProxy *this;
   SpaProxyPort *port;
-  unsigned int i, j;
+  uint32_t i, j;
   size_t n_mem;
   PinosClientNodeBuffer *mb;
   SpaMetaShared *msh;
@@ -886,8 +886,8 @@ handle_node_event (SpaProxy     *this,
 static void
 client_node_update (void           *object,
                     uint32_t        change_mask,
-                    unsigned int    max_input_ports,
-                    unsigned int    max_output_ports,
+                    uint32_t        max_input_ports,
+                    uint32_t        max_output_ports,
                     const SpaProps *props)
 {
   PinosResource *resource = object;
@@ -909,7 +909,7 @@ client_node_port_update (void              *object,
                          SpaDirection       direction,
                          uint32_t           port_id,
                          uint32_t           change_mask,
-                         unsigned int       n_possible_formats,
+                         uint32_t           n_possible_formats,
                          const SpaFormat  **possible_formats,
                          const SpaFormat   *format,
                          const SpaProps    *props,
@@ -1044,9 +1044,9 @@ static SpaResult
 proxy_init (SpaProxy         *this,
             SpaDict          *info,
             const SpaSupport *support,
-            unsigned int      n_support)
+            uint32_t          n_support)
 {
-  unsigned int i;
+  uint32_t i;
 
   for (i = 0; i < n_support; i++) {
     if (strcmp (support[i].uri, SPA_LOG_URI) == 0)
@@ -1114,7 +1114,7 @@ on_global_added (PinosListener   *listener,
 static SpaResult
 proxy_clear (SpaProxy *this)
 {
-  unsigned int i;
+  uint32_t i;
 
   for (i = 0; i < MAX_INPUTS; i++) {
     if (this->in_ports[i].valid)

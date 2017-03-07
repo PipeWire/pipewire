@@ -105,7 +105,7 @@ pinos_properties_new (const char *key, ...)
 PinosProperties *
 pinos_properties_new_dict (const SpaDict *dict)
 {
-  unsigned int i;
+  uint32_t i;
   PinosPropertiesImpl *impl;
 
   impl = calloc (1, sizeof (PinosPropertiesImpl));
@@ -307,7 +307,7 @@ pinos_properties_iterate (PinosProperties     *properties,
                           void               **state)
 {
   PinosPropertiesImpl *impl = SPA_CONTAINER_OF (properties, PinosPropertiesImpl, this);
-  unsigned int index;
+  uint32_t index;
 
   if (*state == NULL)
     index = 0;

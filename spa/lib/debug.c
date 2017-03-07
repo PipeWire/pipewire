@@ -61,7 +61,7 @@ spa_debug_port_info (const SpaPortInfo *info)
   fprintf (stderr, " n_params: \t%d\n", info->n_params);
   for (i = 0; i < info->n_params; i++) {
     SpaAllocParam *param = info->params[i];
-    fprintf (stderr, " param %d, type %d, size %zd:\n", i, param->type, param->size);
+    fprintf (stderr, " param %d, type %d, size %u:\n", i, param->type, param->size);
     switch (param->type) {
       case SPA_ALLOC_PARAM_TYPE_INVALID:
         fprintf (stderr, "   INVALID\n");
@@ -70,8 +70,8 @@ spa_debug_port_info (const SpaPortInfo *info)
       {
         SpaAllocParamBuffers *p = (SpaAllocParamBuffers *)param;
         fprintf (stderr, "   SpaAllocParamBuffers:\n");
-        fprintf (stderr, "    minsize: \t\t%zd\n", p->minsize);
-        fprintf (stderr, "    stride: \t\t%zd\n", p->stride);
+        fprintf (stderr, "    minsize: \t\t%d\n", p->minsize);
+        fprintf (stderr, "    stride: \t\t%d\n", p->stride);
         fprintf (stderr, "    min_buffers: \t%d\n", p->min_buffers);
         fprintf (stderr, "    max_buffers: \t%d\n", p->max_buffers);
         fprintf (stderr, "    align: \t\t%d\n", p->align);
@@ -86,9 +86,9 @@ spa_debug_port_info (const SpaPortInfo *info)
           case SPA_META_TYPE_RINGBUFFER:
           {
             SpaAllocParamMetaEnableRingbuffer *rb = (SpaAllocParamMetaEnableRingbuffer *)p;
-            fprintf (stderr, "    minsize: \t\t%zd\n", rb->minsize);
-            fprintf (stderr, "    stride: \t\t%zd\n", rb->stride);
-            fprintf (stderr, "    blocks: \t\t%zd\n", rb->blocks);
+            fprintf (stderr, "    minsize: \t\t%d\n", rb->minsize);
+            fprintf (stderr, "    stride: \t\t%d\n", rb->stride);
+            fprintf (stderr, "    blocks: \t\t%d\n", rb->blocks);
             fprintf (stderr, "    align: \t\t%d\n", rb->align);
             break;
           }
@@ -130,7 +130,7 @@ spa_debug_buffer (const SpaBuffer *buffer)
   fprintf (stderr, " n_metas: %u (at %p)\n", buffer->n_metas, buffer->metas);
   for (i = 0; i < buffer->n_metas; i++) {
     SpaMeta *m = &buffer->metas[i];
-    fprintf (stderr, "  meta %d: type %d (%s), data %p, size %zd:\n", i, m->type, META_TYPE_NAME (m->type), m->data, m->size);
+    fprintf (stderr, "  meta %d: type %d (%s), data %p, size %d:\n", i, m->type, META_TYPE_NAME (m->type), m->data, m->size);
     switch (m->type) {
       case SPA_META_TYPE_HEADER:
       {
@@ -165,11 +165,11 @@ spa_debug_buffer (const SpaBuffer *buffer)
       {
         SpaMetaRingbuffer *h = m->data;
         fprintf (stderr, "    SpaMetaRingbuffer:\n");
-        fprintf (stderr, "      readindex:   %zd\n", h->ringbuffer.readindex);
-        fprintf (stderr, "      writeindex:  %zd\n", h->ringbuffer.writeindex);
-        fprintf (stderr, "      size:        %zd\n", h->ringbuffer.size);
-        fprintf (stderr, "      mask:        %zd\n", h->ringbuffer.mask);
-        fprintf (stderr, "      mask2:       %zd\n", h->ringbuffer.mask2);
+        fprintf (stderr, "      readindex:   %d\n", h->ringbuffer.readindex);
+        fprintf (stderr, "      writeindex:  %d\n", h->ringbuffer.writeindex);
+        fprintf (stderr, "      size:        %d\n", h->ringbuffer.size);
+        fprintf (stderr, "      mask:        %d\n", h->ringbuffer.mask);
+        fprintf (stderr, "      mask2:       %d\n", h->ringbuffer.mask2);
         break;
       }
       case SPA_META_TYPE_SHARED:
@@ -179,8 +179,8 @@ spa_debug_buffer (const SpaBuffer *buffer)
         fprintf (stderr, "      type:   %d\n", h->type);
         fprintf (stderr, "      flags:  %d\n", h->flags);
         fprintf (stderr, "      fd:     %d\n", h->fd);
-        fprintf (stderr, "      offset: %zd\n", h->offset);
-        fprintf (stderr, "      size:   %zd\n", h->size);
+        fprintf (stderr, "      offset: %d\n", h->offset);
+        fprintf (stderr, "      size:   %d\n", h->size);
         break;
       }
       default:
@@ -195,12 +195,12 @@ spa_debug_buffer (const SpaBuffer *buffer)
     fprintf (stderr, "   flags:   %d\n", d->flags);
     fprintf (stderr, "   data:    %p\n", d->data);
     fprintf (stderr, "   fd:      %d\n", d->fd);
-    fprintf (stderr, "   offset:  %zd\n", d->mapoffset);
-    fprintf (stderr, "   maxsize: %zu\n", d->maxsize);
+    fprintf (stderr, "   offset:  %d\n", d->mapoffset);
+    fprintf (stderr, "   maxsize: %u\n", d->maxsize);
     fprintf (stderr, "   chunk:   %p\n", d->chunk);
-    fprintf (stderr, "    offset: %zd\n", d->chunk->offset);
-    fprintf (stderr, "    size:   %zu\n", d->chunk->size);
-    fprintf (stderr, "    stride: %zd\n", d->chunk->stride);
+    fprintf (stderr, "    offset: %d\n", d->chunk->offset);
+    fprintf (stderr, "    size:   %u\n", d->chunk->size);
+    fprintf (stderr, "    stride: %d\n", d->chunk->stride);
   }
   return SPA_RESULT_OK;
 }

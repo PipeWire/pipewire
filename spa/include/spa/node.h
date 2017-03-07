@@ -270,10 +270,10 @@ struct _SpaNode {
    *          #SPA_RESULT_INVALID_ARGUMENTS when node is %NULL
    */
   SpaResult   (*get_n_ports)          (SpaNode          *node,
-                                       unsigned int     *n_input_ports,
-                                       unsigned int     *max_input_ports,
-                                       unsigned int     *n_output_ports,
-                                       unsigned int     *max_output_ports);
+                                       uint32_t         *n_input_ports,
+                                       uint32_t         *max_input_ports,
+                                       uint32_t         *n_output_ports,
+                                       uint32_t         *max_output_ports);
   /**
    * SpaNode::get_port_ids:
    * @node: a #SpaNode
@@ -290,9 +290,9 @@ struct _SpaNode {
    *          #SPA_RESULT_INVALID_ARGUMENTS when node is %NULL
    */
   SpaResult   (*get_port_ids)         (SpaNode          *node,
-                                       unsigned int      n_input_ports,
+                                       uint32_t          n_input_ports,
                                        uint32_t         *input_ids,
-                                       unsigned int      n_output_ports,
+                                       uint32_t          n_output_ports,
                                        uint32_t         *output_ids);
 
   /**
@@ -350,7 +350,7 @@ struct _SpaNode {
                                        uint32_t          port_id,
                                        SpaFormat       **format,
                                        const SpaFormat  *filter,
-                                       unsigned int      index);
+                                       uint32_t          index);
   /**
    * SpaNode::port_set_format:
    * @node: a #SpaNode
@@ -459,7 +459,7 @@ struct _SpaNode {
                                        SpaDirection          direction,
                                        uint32_t              port_id,
                                        SpaBuffer           **buffers,
-                                       unsigned int          n_buffers);
+                                       uint32_t              n_buffers);
   /**
    * SpaNode::port_alloc_buffers:
    * @node: a #SpaNode
@@ -499,9 +499,9 @@ struct _SpaNode {
                                        SpaDirection          direction,
                                        uint32_t              port_id,
                                        SpaAllocParam       **params,
-                                       unsigned int          n_params,
+                                       uint32_t              n_params,
                                        SpaBuffer           **buffers,
-                                       unsigned int         *n_buffers);
+                                       uint32_t             *n_buffers);
 
   /**
    * SpaNode::port_set_input:

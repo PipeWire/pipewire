@@ -189,10 +189,10 @@ spa_libva_enc_node_set_event_callback (SpaHandle     *handle,
 
 static SpaResult
 spa_libva_enc_node_get_n_ports (SpaHandle     *handle,
-                                unsigned int  *n_input_ports,
-                                unsigned int  *max_input_ports,
-                                unsigned int  *n_output_ports,
-                                unsigned int  *max_output_ports)
+                                uint32_t      *n_input_ports,
+                                uint32_t      *max_input_ports,
+                                uint32_t      *n_output_ports,
+                                uint32_t      *max_output_ports)
 {
   if (handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -211,9 +211,9 @@ spa_libva_enc_node_get_n_ports (SpaHandle     *handle,
 
 static SpaResult
 spa_libva_enc_node_get_port_ids (SpaHandle     *handle,
-                                 unsigned int   n_input_ports,
+                                 uint32_t       n_input_ports,
                                  uint32_t      *input_ids,
-                                 unsigned int   n_output_ports,
+                                 uint32_t       n_output_ports,
                                  uint32_t      *output_ids)
 {
   if (handle == NULL)
@@ -246,7 +246,7 @@ spa_libva_enc_node_remove_port (SpaHandle      *handle,
 static SpaResult
 spa_libva_enc_node_port_enum_formats (SpaHandle       *handle,
                                       uint32_t         port_id,
-                                      unsigned int     index,
+                                      uint32_t         index,
                                       SpaFormat      **format)
 {
   SpaLibvaEnc *this = (SpaLibvaEnc *) handle;
@@ -423,7 +423,7 @@ spa_libva_enc_node_port_alloc_buffers (SpaHandle       *handle,
 
 static SpaResult
 spa_libva_enc_node_port_push_input (SpaHandle      *handle,
-                                    unsigned int    n_info,
+                                    uint32_t        n_info,
                                     SpaInputInfo   *info)
 {
   return SPA_RESULT_INVALID_PORT;
@@ -431,12 +431,12 @@ spa_libva_enc_node_port_push_input (SpaHandle      *handle,
 
 static SpaResult
 spa_libva_enc_node_port_pull_output (SpaHandle      *handle,
-                                     unsigned int    n_info,
+                                     uint32_t        n_info,
                                      SpaOutputInfo  *info)
 {
   SpaLibvaEnc *this = (SpaLibvaEnc *) handle;
   SpaLibvaState *state;
-  unsigned int i;
+  uint32_t i;
   bool have_error = false;
 
   if (handle == NULL || n_info == 0 || info == NULL)

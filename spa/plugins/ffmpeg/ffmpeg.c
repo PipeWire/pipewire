@@ -25,15 +25,15 @@
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 
-SpaResult spa_ffmpeg_dec_init (SpaHandle *handle, const SpaDict *info, const SpaSupport *support, unsigned int n_support);
-SpaResult spa_ffmpeg_enc_init (SpaHandle *handle, const SpaDict *info, const SpaSupport *support, unsigned int n_support);
+SpaResult spa_ffmpeg_dec_init (SpaHandle *handle, const SpaDict *info, const SpaSupport *support, uint32_t n_support);
+SpaResult spa_ffmpeg_enc_init (SpaHandle *handle, const SpaDict *info, const SpaSupport *support, uint32_t n_support);
 
 static SpaResult
 ffmpeg_dec_init (const SpaHandleFactory  *factory,
                  SpaHandle               *handle,
                  const SpaDict           *info,
                  const SpaSupport        *support,
-                 unsigned int             n_support)
+                 uint32_t                 n_support)
 {
   if (factory == NULL || handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -46,7 +46,7 @@ ffmpeg_enc_init (const SpaHandleFactory  *factory,
                  SpaHandle               *handle,
                  const SpaDict           *info,
                  const SpaSupport        *support,
-                 unsigned int             n_support)
+                 uint32_t                 n_support)
 {
   if (factory == NULL || handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -63,7 +63,7 @@ static const SpaInterfaceInfo ffmpeg_interfaces[] =
 static SpaResult
 ffmpeg_enum_interface_info (const SpaHandleFactory  *factory,
                             const SpaInterfaceInfo **info,
-                            unsigned int             index)
+                            uint32_t                 index)
 {
   if (factory == NULL || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -78,7 +78,7 @@ ffmpeg_enum_interface_info (const SpaHandleFactory  *factory,
 
 SpaResult
 spa_enum_handle_factory (const SpaHandleFactory **factory,
-                         unsigned int             index)
+                         uint32_t                 index)
 {
   static const AVCodec *c = NULL;
   static int ci = 0;

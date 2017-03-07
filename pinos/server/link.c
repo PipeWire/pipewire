@@ -49,7 +49,7 @@ typedef struct
   bool allocated;
   PinosMemblock buffer_mem;
   SpaBuffer **buffers;
-  unsigned int n_buffers;
+  uint32_t n_buffers;
 } PinosLinkImpl;
 
 static void
@@ -142,7 +142,7 @@ error:
 static void *
 find_param (const SpaPortInfo *info, SpaAllocParamType type)
 {
-  unsigned int i;
+  uint32_t i;
 
   for (i = 0; i < info->n_params; i++) {
     if (info->params[i]->type == type)
@@ -154,7 +154,7 @@ find_param (const SpaPortInfo *info, SpaAllocParamType type)
 static void *
 find_meta_enable (const SpaPortInfo *info, SpaMetaType type)
 {
-  unsigned int i;
+  uint32_t i;
 
   for (i = 0; i < info->n_params; i++) {
     if (info->params[i]->type == SPA_ALLOC_PARAM_TYPE_META_ENABLE &&
@@ -167,20 +167,20 @@ find_meta_enable (const SpaPortInfo *info, SpaMetaType type)
 
 static SpaBuffer **
 alloc_buffers (PinosLink      *this,
-               unsigned int    n_buffers,
-               unsigned int    n_params,
+               uint32_t        n_buffers,
+               uint32_t        n_params,
                SpaAllocParam **params,
-               unsigned int    n_datas,
+               uint32_t        n_datas,
                size_t         *data_sizes,
                ssize_t        *data_strides,
                PinosMemblock  *mem)
 {
   SpaBuffer **buffers, *bp;
-  unsigned int i;
+  uint32_t i;
   size_t skel_size, data_size, meta_size;
   SpaChunk *cdp;
   void *ddp;
-  unsigned int n_metas;
+  uint32_t n_metas;
   SpaMeta *metas;
 
   n_metas = data_size = meta_size = 0;
@@ -382,7 +382,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
   if (impl->buffers == NULL) {
     SpaAllocParamBuffers *in_alloc, *out_alloc;
     SpaAllocParamMetaEnableRingbuffer *in_me, *out_me;
-    unsigned int max_buffers;
+    uint32_t max_buffers;
     size_t minsize, stride, blocks;
 
     in_me = find_meta_enable (iinfo, SPA_META_TYPE_RINGBUFFER);

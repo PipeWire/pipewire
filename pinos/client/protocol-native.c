@@ -19,6 +19,7 @@
 
 #include <errno.h>
 
+#include "spa/pod-iter.h"
 #include "pinos/client/pinos.h"
 
 #include "pinos/client/protocol-native.h"
@@ -30,8 +31,8 @@ typedef struct {
   PinosConnection *connection;
 } Builder;
 
-static off_t
-write_pod (SpaPODBuilder *b, off_t ref, const void *data, size_t size)
+static uint32_t
+write_pod (SpaPODBuilder *b, uint32_t ref, const void *data, uint32_t size)
 {
   if (ref == -1)
     ref = b->offset;
@@ -165,31 +166,30 @@ core_demarshal_info (void   *object,
 {
   PinosProxy *proxy = object;
   SpaDict props;
-  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
   PinosCoreInfo info;
-  int32_t i1, i2, i3;
-  int64_t l1;
+  SpaPODIter it;
   int i;
 
-  if (!spa_pod_get_int (&p, &i1) ||
-      !spa_pod_get_long (&p, &l1) ||
-      !spa_pod_get_string (&p, &info.user_name) ||
-      !spa_pod_get_string (&p, &info.host_name) ||
-      !spa_pod_get_string (&p, &info.version) ||
-      !spa_pod_get_string (&p, &info.name) ||
-      !spa_pod_get_int (&p, &i3) ||
-      !spa_pod_get_int (&p, &i2))
+  if (!spa_pod_iter_struct (&it, data, size) ||
+      !spa_pod_iter_get (&it,
+        SPA_POD_TYPE_INT, &info.id,
+        SPA_POD_TYPE_LONG, &info.change_mask,
+        SPA_POD_TYPE_STRING, &info.user_name,
+        SPA_POD_TYPE_STRING, &info.host_name,
+        SPA_POD_TYPE_STRING, &info.version,
+        SPA_POD_TYPE_STRING, &info.name,
+        SPA_POD_TYPE_INT, &info.cookie,
+        SPA_POD_TYPE_INT, &props.n_items,
+        0))
     return;
 
-  info.id = i1;
-  info.change_mask = l1;
-  info.cookie = i3;
   info.props = &props;
-  props.n_items = i2;
   props.items = alloca (props.n_items * sizeof (SpaDictItem));
   for (i = 0; i < props.n_items; i++) {
-    if (!spa_pod_get_string (&p, &props.items[i].key) ||
-        !spa_pod_get_string (&p, &props.items[i].value))
+    if (!spa_pod_iter_get (&it,
+          SPA_POD_TYPE_STRING, &props.items[i].key,
+          SPA_POD_TYPE_STRING, &props.items[i].value,
+          0))
       return;
   }
   pinos_core_notify_info (proxy, &info);
@@ -201,13 +201,16 @@ core_demarshal_done (void   *object,
                      size_t  size)
 {
   PinosProxy *proxy = object;
-  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
-  int32_t i32;
+  SpaPODIter it;
+  uint32_t seq;
 
-  if (!spa_pod_get_int (&p, &i32))
+  if (!spa_pod_iter_struct (&it, data, size) ||
+      !spa_pod_iter_get (&it,
+        SPA_POD_TYPE_INT, &seq,
+        0))
     return;
 
-  pinos_core_notify_done (proxy, i32);
+  pinos_core_notify_done (proxy, seq);
 }
 
 static void
@@ -216,16 +219,19 @@ core_demarshal_error (void   *object,
                       size_t  size)
 {
   PinosProxy *proxy = object;
-  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
-  int32_t i1, i2;
+  SpaPODIter it;
+  uint32_t id, res;
   const char *error;
 
-  if (!spa_pod_get_int (&p, &i1) ||
-      !spa_pod_get_int (&p, &i2) ||
-      !spa_pod_get_string (&p, &error))
+  if (!spa_pod_iter_struct (&it, data, size) ||
+      !spa_pod_iter_get (&it,
+        SPA_POD_TYPE_INT, &id,
+        SPA_POD_TYPE_INT, &res,
+        SPA_POD_TYPE_STRING, &error,
+        0))
     return;
 
-  pinos_core_notify_error (proxy, i1, i2, error);
+  pinos_core_notify_error (proxy, id, res, error);
 }
 
 static void
@@ -234,13 +240,16 @@ core_demarshal_remove_id (void   *object,
                           size_t  size)
 {
   PinosProxy *proxy = object;
-  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
-  int32_t i1;
+  SpaPODIter it;
+  uint32_t id;
 
-  if (!spa_pod_get_int (&p, &i1))
+  if (!spa_pod_iter_struct (&it, data, size) ||
+      !spa_pod_iter_get (&it,
+        SPA_POD_TYPE_INT, &id,
+        0))
     return;
 
-  pinos_core_notify_remove_id (proxy, i1);
+  pinos_core_notify_remove_id (proxy, id);
 }
 
 static void
@@ -249,29 +258,29 @@ module_demarshal_info (void   *object,
                        size_t  size)
 {
   PinosProxy *proxy = object;
+  SpaPODIter it;
   SpaDict props;
-  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
   PinosModuleInfo info;
-  int32_t i1, i2;
-  int64_t l1;
   int i;
 
-  if (!spa_pod_get_int (&p, &i1) ||
-      !spa_pod_get_long (&p, &l1) ||
-      !spa_pod_get_string (&p, &info.name) ||
-      !spa_pod_get_string (&p, &info.filename) ||
-      !spa_pod_get_string (&p, &info.args) ||
-      !spa_pod_get_int (&p, &i2))
+  if (!spa_pod_iter_struct (&it, data, size) ||
+      !spa_pod_iter_get (&it,
+        SPA_POD_TYPE_INT, &info.id,
+        SPA_POD_TYPE_LONG, &info.change_mask,
+        SPA_POD_TYPE_STRING, &info.name,
+        SPA_POD_TYPE_STRING, &info.filename,
+        SPA_POD_TYPE_STRING, &info.args,
+        SPA_POD_TYPE_INT, &props.n_items,
+        0))
     return;
 
-  info.id = i1;
-  info.change_mask = l1;
   info.props = &props;
-  props.n_items = i2;
   props.items = alloca (props.n_items * sizeof (SpaDictItem));
   for (i = 0; i < props.n_items; i++) {
-    if (!spa_pod_get_string (&p, &props.items[i].key) ||
-        !spa_pod_get_string (&p, &props.items[i].value))
+    if (!spa_pod_iter_get (&it,
+          SPA_POD_TYPE_STRING, &props.items[i].key,
+          SPA_POD_TYPE_STRING, &props.items[i].value,
+          0))
       return;
   }
   pinos_module_notify_info (proxy, &info);
@@ -283,13 +292,16 @@ node_demarshal_done (void   *object,
                      size_t  size)
 {
   PinosProxy *proxy = object;
-  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
-  int32_t i1;
+  SpaPODIter it;
+  uint32_t seq;
 
-  if (!spa_pod_get_int (&p, &i1))
+  if (!spa_pod_iter_struct (&it, data, size) ||
+      !spa_pod_iter_get (&it,
+        SPA_POD_TYPE_INT, &seq,
+        0))
     return;
 
-  pinos_node_notify_done (proxy, i1);
+  pinos_node_notify_done (proxy, seq);
 }
 
 static void
@@ -298,54 +310,52 @@ node_demarshal_info (void   *object,
                      size_t  size)
 {
   PinosProxy *proxy = object;
+  SpaPODIter it;
   SpaDict props;
-  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
   PinosNodeInfo info;
-  int32_t i1, i2, i3, i4;
-  int64_t l1;
   int i;
 
-  if (!spa_pod_get_int (&p, &i1) ||
-      !spa_pod_get_long (&p, &l1) ||
-      !spa_pod_get_string (&p, &info.name) ||
-      !spa_pod_get_int (&p, &i2) ||
-      !spa_pod_get_int (&p, &i3) ||
-      !spa_pod_get_int (&p, &i4))
+  if (!spa_pod_iter_struct (&it, data, size) ||
+      !spa_pod_iter_get (&it,
+        SPA_POD_TYPE_INT, &info.id,
+        SPA_POD_TYPE_LONG, &info.change_mask,
+        SPA_POD_TYPE_STRING, &info.name,
+        SPA_POD_TYPE_INT, &info.max_inputs,
+        SPA_POD_TYPE_INT, &info.n_inputs,
+        SPA_POD_TYPE_INT, &info.n_input_formats,
+        0))
     return;
 
-  info.id = i1;
-  info.change_mask = l1;
-  info.max_inputs = i2;
-  info.n_inputs = i3;
-  info.n_input_formats = i4;
   info.input_formats = alloca (info.n_input_formats * sizeof (SpaFormat*));
   for (i = 0; i < info.n_input_formats; i++)
-    spa_pod_get_object (&p, (const SpaPOD**)&info.input_formats[i]);
+    spa_pod_iter_get (&it,
+        SPA_POD_TYPE_OBJECT, &info.input_formats[i], 0);
 
-  if (!spa_pod_get_int (&p, &i2) ||
-      !spa_pod_get_int (&p, &i3) ||
-      !spa_pod_get_int (&p, &i4))
+  if (!spa_pod_iter_get (&it,
+        SPA_POD_TYPE_INT, &info.max_outputs,
+        SPA_POD_TYPE_INT, &info.n_outputs,
+        SPA_POD_TYPE_INT, &info.n_output_formats,
+        0))
     return;
 
-  info.max_outputs = i2;
-  info.n_outputs = i3;
-  info.n_output_formats = i4;
   info.output_formats = alloca (info.n_output_formats * sizeof (SpaFormat*));
   for (i = 0; i < info.n_output_formats; i++)
-    spa_pod_get_object (&p, (const SpaPOD**)&info.output_formats[i]);
+    spa_pod_iter_get (&it, SPA_POD_TYPE_OBJECT, &info.output_formats[i], 0);
 
-  if (!spa_pod_get_int (&p, &i1) ||
-      !spa_pod_get_string (&p, &info.error) ||
-      !spa_pod_get_int (&p, &i2))
+  if (!spa_pod_iter_get (&it,
+        SPA_POD_TYPE_INT, &info.state,
+        SPA_POD_TYPE_STRING, &info.error,
+        SPA_POD_TYPE_INT, &props.n_items,
+        0))
     return;
 
-  info.state = i1;
   info.props = &props;
-  props.n_items = i2;
   props.items = alloca (props.n_items * sizeof (SpaDictItem));
   for (i = 0; i < props.n_items; i++) {
-    if (!spa_pod_get_string (&p, &props.items[i].key) ||
-        !spa_pod_get_string (&p, &props.items[i].value))
+    if (!spa_pod_iter_get (&it,
+          SPA_POD_TYPE_STRING, &props.items[i].key,
+          SPA_POD_TYPE_STRING, &props.items[i].value,
+          0))
       return;
   }
   pinos_node_notify_info (proxy, &info);
@@ -354,8 +364,8 @@ node_demarshal_info (void   *object,
 static void
 client_node_marshal_update (void           *object,
                             uint32_t        change_mask,
-                            unsigned int    max_input_ports,
-                            unsigned int    max_output_ports,
+                            uint32_t        max_input_ports,
+                            uint32_t        max_output_ports,
                             const SpaProps *props)
 {
   PinosProxy *proxy = object;
@@ -380,7 +390,7 @@ client_node_marshal_port_update (void              *object,
                                  SpaDirection       direction,
                                  uint32_t           port_id,
                                  uint32_t           change_mask,
-                                 unsigned int       n_possible_formats,
+                                 uint32_t           n_possible_formats,
                                  const SpaFormat  **possible_formats,
                                  const SpaFormat   *format,
                                  const SpaProps    *props,
@@ -481,17 +491,20 @@ client_node_demarshal_done (void   *object,
                             size_t  size)
 {
   PinosProxy *proxy = object;
-  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
+  SpaPODIter it;
   PinosConnection *connection = proxy->context->protocol_private;
-  int32_t i1, i2;
+  int32_t seq, idx;
   int fd;
 
-  if (!spa_pod_get_int (&p, &i1) ||
-      !spa_pod_get_int (&p, &i2))
+  if (!spa_pod_iter_struct (&it, data, size) ||
+      !spa_pod_iter_get (&it,
+        SPA_POD_TYPE_INT, &seq,
+        SPA_POD_TYPE_INT, &idx,
+        0))
     return;
 
-  fd = pinos_connection_get_fd (connection, i2);
-  pinos_client_node_notify_done (proxy, i1, fd);
+  fd = pinos_connection_get_fd (connection, idx);
+  pinos_client_node_notify_done (proxy, seq, fd);
 }
 
 static void
@@ -500,11 +513,14 @@ client_node_demarshal_event (void   *object,
                              size_t  size)
 {
   PinosProxy *proxy = object;
-  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
+  SpaPODIter it;
   const SpaNodeEvent *event;
   uint32_t s;
 
-  if (!spa_pod_get_bytes (&p, (const void**)&event, &s))
+  if (!spa_pod_iter_struct (&it, data, size) ||
+      !spa_pod_iter_get (&it,
+        SPA_POD_TYPE_BYTES, &event, &s,
+        0))
     return;
 
   pinos_client_node_notify_event (proxy, event);
@@ -516,15 +532,18 @@ client_node_demarshal_add_port (void   *object,
                                 size_t  size)
 {
   PinosProxy *proxy = object;
-  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
-  int32_t i1, i2, i3;
+  SpaPODIter it;
+  int32_t seq, direction, port_id;
 
-  if (!spa_pod_get_int (&p, &i1) ||
-      !spa_pod_get_int (&p, &i2) ||
-      !spa_pod_get_int (&p, &i3))
+  if (!spa_pod_iter_struct (&it, data, size) ||
+      !spa_pod_iter_get (&it,
+        SPA_POD_TYPE_INT, &seq,
+        SPA_POD_TYPE_INT, &direction,
+        SPA_POD_TYPE_INT, &port_id,
+        0))
     return;
 
-  pinos_client_node_notify_add_port (proxy, i1, i2, i3);
+  pinos_client_node_notify_add_port (proxy, seq, direction, port_id);
 }
 
 static void
@@ -533,15 +552,18 @@ client_node_demarshal_remove_port (void   *object,
                                  size_t  size)
 {
   PinosProxy *proxy = object;
-  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
-  int32_t i1, i2, i3;
+  SpaPODIter it;
+  int32_t seq, direction, port_id;
 
-  if (!spa_pod_get_int (&p, &i1) ||
-      !spa_pod_get_int (&p, &i2) ||
-      !spa_pod_get_int (&p, &i3))
+  if (!spa_pod_iter_struct (&it, data, size) ||
+      !spa_pod_iter_get (&it,
+        SPA_POD_TYPE_INT, &seq,
+        SPA_POD_TYPE_INT, &direction,
+        SPA_POD_TYPE_INT, &port_id,
+        0))
     return;
 
-  pinos_client_node_notify_remove_port (proxy, i1, i2, i3);
+  pinos_client_node_notify_remove_port (proxy, seq, direction, port_id);
 }
 
 static void
@@ -550,18 +572,21 @@ client_node_demarshal_set_format (void   *object,
                                 size_t  size)
 {
   PinosProxy *proxy = object;
-  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
-  int32_t seq, direction, port_id, flags, have_format;
+  SpaPODIter it;
+  uint32_t seq, direction, port_id, flags, have_format;
   const SpaFormat *format = NULL;
 
-  if (!spa_pod_get_int (&p, &seq) ||
-      !spa_pod_get_int (&p, &direction) ||
-      !spa_pod_get_int (&p, &port_id) ||
-      !spa_pod_get_int (&p, &flags) ||
-      !spa_pod_get_int (&p, &have_format))
+  if (!spa_pod_iter_struct (&it, data, size) ||
+      !spa_pod_iter_get (&it,
+        SPA_POD_TYPE_INT, &seq,
+        SPA_POD_TYPE_INT, &direction,
+        SPA_POD_TYPE_INT, &port_id,
+        SPA_POD_TYPE_INT, &flags,
+        SPA_POD_TYPE_INT, &have_format,
+        0))
     return;
 
-  if (have_format && !spa_pod_get_object (&p, (const SpaPOD**)&format))
+  if (have_format && !spa_pod_iter_get (&it, SPA_POD_TYPE_OBJECT, &format, 0))
     return;
 
   pinos_client_node_notify_set_format (proxy, seq, direction, port_id,
@@ -574,14 +599,17 @@ client_node_demarshal_set_property (void   *object,
                                     size_t  size)
 {
   PinosProxy *proxy = object;
-  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
-  int32_t seq, id;
+  SpaPODIter it;
+  uint32_t seq, id;
   const void *value;
   uint32_t s;
 
-  if (!spa_pod_get_int (&p, &seq) ||
-      !spa_pod_get_int (&p, &id) ||
-      !spa_pod_get_bytes (&p, &value, &s))
+  if (!spa_pod_iter_struct (&it, data, size) ||
+      !spa_pod_iter_get (&it,
+        SPA_POD_TYPE_INT, &seq,
+        SPA_POD_TYPE_INT, &id,
+        SPA_POD_TYPE_BYTES, &value, &s,
+        0))
     return;
 
   pinos_client_node_notify_set_property (proxy, seq, id, s, value);
@@ -593,21 +621,25 @@ client_node_demarshal_add_mem (void   *object,
                                size_t  size)
 {
   PinosProxy *proxy = object;
-  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
+  SpaPODIter it;
   PinosConnection *connection = proxy->context->protocol_private;
-  int32_t direction, port_id, mem_id, type, memfd, flags, offset, sz;
+  uint32_t direction, port_id, mem_id, type, memfd_idx, flags, offset, sz;
+  int memfd;
 
-  if (!spa_pod_get_int (&p, &direction) ||
-      !spa_pod_get_int (&p, &port_id) ||
-      !spa_pod_get_int (&p, &mem_id) ||
-      !spa_pod_get_int (&p, &type) ||
-      !spa_pod_get_int (&p, &memfd) ||
-      !spa_pod_get_int (&p, &flags) ||
-      !spa_pod_get_int (&p, &offset) ||
-      !spa_pod_get_int (&p, &sz))
+  if (!spa_pod_iter_struct (&it, data, size) ||
+      !spa_pod_iter_get (&it,
+        SPA_POD_TYPE_INT, &direction,
+        SPA_POD_TYPE_INT, &port_id,
+        SPA_POD_TYPE_INT, &mem_id,
+        SPA_POD_TYPE_INT, &type,
+        SPA_POD_TYPE_INT, &memfd_idx,
+        SPA_POD_TYPE_INT, &flags,
+        SPA_POD_TYPE_INT, &offset,
+        SPA_POD_TYPE_INT, &sz,
+        0))
     return;
 
-  memfd = pinos_connection_get_fd (connection, memfd);
+  memfd = pinos_connection_get_fd (connection, memfd_idx);
 
   pinos_client_node_notify_add_mem (proxy,
                                     direction,
@@ -626,66 +658,60 @@ client_node_demarshal_use_buffers (void   *object,
                                  size_t  size)
 {
   PinosProxy *proxy = object;
-  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
-  int32_t seq, direction, port_id, n_buffers;
+  SpaPODIter it;
+  uint32_t seq, direction, port_id, n_buffers, data_id;
   PinosClientNodeBuffer *buffers;
   int i, j;
 
-  if (!spa_pod_get_int (&p, &seq) ||
-      !spa_pod_get_int (&p, &direction) ||
-      !spa_pod_get_int (&p, &port_id) ||
-      !spa_pod_get_int (&p, &n_buffers))
+  if (!spa_pod_iter_struct (&it, data, size) ||
+      !spa_pod_iter_get (&it,
+        SPA_POD_TYPE_INT, &seq,
+        SPA_POD_TYPE_INT, &direction,
+        SPA_POD_TYPE_INT, &port_id,
+        SPA_POD_TYPE_INT, &n_buffers,
+        0))
     return;
 
   buffers = alloca (sizeof (PinosClientNodeBuffer) * n_buffers);
   for (i = 0; i < n_buffers; i++) {
     SpaBuffer *buf = buffers[i].buffer = alloca (sizeof (SpaBuffer));
-    int32_t i1, i2, i3, i4, i5;
 
-    if (!spa_pod_get_int (&p, &i1) ||
-        !spa_pod_get_int (&p, &i2) ||
-        !spa_pod_get_int (&p, &i3) ||
-        !spa_pod_get_int (&p, &i4) ||
-        !spa_pod_get_int (&p, &i5))
+    if (!spa_pod_iter_get (&it,
+          SPA_POD_TYPE_INT, &buffers[i].mem_id,
+          SPA_POD_TYPE_INT, &buffers[i].offset,
+          SPA_POD_TYPE_INT, &buffers[i].size,
+          SPA_POD_TYPE_INT, &buf->id,
+          SPA_POD_TYPE_INT, &buf->n_metas, 0))
       return;
-
-    buffers[i].mem_id = i1;
-    buffers[i].offset = i2;
-    buffers[i].size = i3;
-    buf->id = i4;
-    buf->n_metas = i5;
 
     buf->metas = alloca (sizeof (SpaMeta) * buf->n_metas);
     for (j = 0; j < buf->n_metas; j++) {
       SpaMeta *m = &buf->metas[j];
 
-      if (!spa_pod_get_int (&p, &i1) ||
-          !spa_pod_get_int (&p, &i2))
+      if (!spa_pod_iter_get (&it,
+            SPA_POD_TYPE_INT, &m->type,
+            SPA_POD_TYPE_INT, &size, 0))
         return;
 
-      m->type = i1;
-      m->size = i2;
+      m->size = size;
     }
-    if (!spa_pod_get_int (&p, &i1))
+    if (!spa_pod_iter_get (&it, SPA_POD_TYPE_INT, &buf->n_datas, 0))
       return;
 
-    buf->n_datas = i1;
     buf->datas = alloca (sizeof (SpaData) * buf->n_datas);
     for (j = 0; j < buf->n_datas; j++) {
       SpaData *d = &buf->datas[j];
 
-      if (!spa_pod_get_int (&p, &i1) ||
-          !spa_pod_get_int (&p, &i2) ||
-          !spa_pod_get_int (&p, &i3) ||
-          !spa_pod_get_int (&p, &i4) ||
-          !spa_pod_get_int (&p, &i5))
+      if (!spa_pod_iter_get (&it,
+            SPA_POD_TYPE_INT, &d->type,
+            SPA_POD_TYPE_INT, &data_id,
+            SPA_POD_TYPE_INT, &d->flags,
+            SPA_POD_TYPE_INT, &d->mapoffset,
+            SPA_POD_TYPE_INT, &d->maxsize,
+            0))
         return;
 
-      d->type = i1;
-      d->data = SPA_UINT32_TO_PTR (i2);
-      d->flags = i3;
-      d->mapoffset = i4;
-      d->maxsize = i5;
+      d->data = SPA_UINT32_TO_PTR (data_id);
     }
   }
   pinos_client_node_notify_use_buffers (proxy,

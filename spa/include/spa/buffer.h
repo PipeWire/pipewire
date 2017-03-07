@@ -109,8 +109,8 @@ typedef struct {
  * @height
  */
 typedef struct {
-  int   x, y;
-  int   width, height;
+  int32_t   x, y;
+  int32_t   width, height;
 } SpaMetaVideoCrop;
 
 /**
@@ -130,10 +130,10 @@ typedef struct {
  */
 typedef struct {
   SpaDataType    type;
-  int            flags;
+  int32_t        flags;
   int            fd;
-  off_t          offset;
-  size_t         size;
+  int32_t        offset;
+  uint32_t       size;
 } SpaMetaShared;
 
 /**
@@ -145,7 +145,7 @@ typedef struct {
 typedef struct {
   SpaMetaType  type;
   void        *data;
-  size_t       size;
+  uint32_t     size;
 } SpaMeta;
 
 /**
@@ -155,9 +155,9 @@ typedef struct {
  * @stride: stride of data if applicable
  */
 typedef struct {
-  off_t          offset;
-  size_t         size;
-  ssize_t        stride;
+  uint32_t       offset;
+  uint32_t       size;
+  int32_t        stride;
 } SpaChunk;
 
 /**
@@ -172,10 +172,10 @@ typedef struct {
  */
 typedef struct {
   SpaDataType    type;
-  int            flags;
+  uint32_t       flags;
   int            fd;
-  off_t          mapoffset;
-  size_t         maxsize;
+  uint32_t       mapoffset;
+  uint32_t       maxsize;
   void          *data;
   SpaChunk      *chunk;
 } SpaData;
@@ -190,22 +190,17 @@ typedef struct {
  */
 struct _SpaBuffer {
   uint32_t       id;
-  unsigned int   n_metas;
+  uint32_t       n_metas;
   SpaMeta       *metas;
-  unsigned int   n_datas;
+  uint32_t       n_datas;
   SpaData       *datas;
 };
 
 
-typedef struct {
-  unsigned int   n_buffers;
-  SpaBuffer    **buffers;
-} SpaBufferArray;
-
 static inline void *
 spa_buffer_find_meta (SpaBuffer *b, SpaMetaType type)
 {
-  unsigned int i;
+  uint32_t i;
 
   for (i = 0; i < b->n_metas; i++)
     if (b->metas[i].type == type)
@@ -213,10 +208,10 @@ spa_buffer_find_meta (SpaBuffer *b, SpaMetaType type)
   return NULL;
 }
 
-static inline size_t
+static inline uint32_t
 spa_meta_type_get_size (SpaMetaType  type)
 {
-  static const size_t header_sizes[] = {
+  static const uint32_t header_sizes[] = {
     0,
     sizeof (SpaMetaHeader),
     sizeof (SpaMetaPointer),

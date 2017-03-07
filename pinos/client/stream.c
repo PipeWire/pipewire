@@ -47,8 +47,8 @@ typedef struct {
   int fd;
   uint32_t flags;
   void *ptr;
-  off_t offset;
-  size_t size;
+  uint32_t offset;
+  uint32_t size;
 } MemId;
 
 typedef struct {
@@ -66,7 +66,7 @@ typedef struct
 
   uint32_t seq;
 
-  unsigned int n_possible_formats;
+  uint32_t n_possible_formats;
   SpaFormat **possible_formats;
 
   SpaFormat *format;
@@ -310,7 +310,7 @@ static void
 add_node_update (PinosStream *stream, uint32_t change_mask, bool flush)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
-  unsigned int max_input_ports = 0, max_output_ports = 0;
+  uint32_t max_input_ports = 0, max_output_ports = 0;
 
   if (change_mask & PINOS_MESSAGE_NODE_UPDATE_MAX_INPUTS)
     max_input_ports = impl->direction == SPA_DIRECTION_INPUT ? 1 : 0;
@@ -724,7 +724,7 @@ static void
 client_node_set_property (void       *object,
                           uint32_t    seq,
                           uint32_t    id,
-                          size_t      size,
+                          uint32_t    size,
                           const void *value)
 {
   pinos_log_warn ("set property not implemented");
@@ -738,8 +738,8 @@ client_node_add_mem (void              *object,
                      SpaDataType        type,
                      int                memfd,
                      uint32_t           flags,
-                     off_t              offset,
-                     size_t             size)
+                     uint32_t           offset,
+                     uint32_t           size)
 {
   PinosProxy *proxy = object;
   PinosStream *stream = proxy->user_data;
@@ -748,12 +748,12 @@ client_node_add_mem (void              *object,
 
   m = find_mem (stream, mem_id);
   if (m) {
-    pinos_log_debug ("update mem %u, fd %d, flags %d, off %zd, size %zd",
+    pinos_log_debug ("update mem %u, fd %d, flags %d, off %d, size %d",
         mem_id, memfd, flags, offset, size);
     clear_memid (m);
   } else {
     m = pinos_array_add (&impl->mem_ids, sizeof (MemId));
-    pinos_log_debug ("add mem %u, fd %d, flags %d, off %zd, size %zd",
+    pinos_log_debug ("add mem %u, fd %d, flags %d, off %d, size %d",
         mem_id, memfd, flags, offset, size);
   }
   m->id = mem_id;
@@ -769,14 +769,14 @@ client_node_use_buffers (void                  *object,
                          uint32_t               seq,
                          SpaDirection           direction,
                          uint32_t               port_id,
-                         unsigned int           n_buffers,
+                         uint32_t               n_buffers,
                          PinosClientNodeBuffer *buffers)
 {
   PinosProxy *proxy = object;
   PinosStream *stream = proxy->user_data;
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
   BufferId *bid;
-  unsigned int i, j, len;
+  uint32_t i, j, len;
   SpaBuffer *b;
 
   /* clear previous buffers */
@@ -795,7 +795,7 @@ client_node_use_buffers (void                  *object,
       mid->ptr = mmap (NULL, mid->size + mid->offset, PROT_READ | PROT_WRITE, MAP_SHARED, mid->fd, 0);
       if (mid->ptr == MAP_FAILED) {
         mid->ptr = NULL;
-        pinos_log_warn ("Failed to mmap memory %zd %p: %s", mid->size, mid, strerror (errno));
+        pinos_log_warn ("Failed to mmap memory %d %p: %s", mid->size, mid, strerror (errno));
         continue;
       }
       mid->ptr = SPA_MEMBER (mid->ptr, mid->offset, void);
@@ -820,7 +820,7 @@ client_node_use_buffers (void                  *object,
       pinos_log_warn ("unexpected id %u found, expected %u", bid->id, len);
       impl->in_order = false;
     }
-    pinos_log_debug ("add buffer %d %d %zd", mid->id, bid->id, buffers[i].offset);
+    pinos_log_debug ("add buffer %d %d %u", mid->id, bid->id, buffers[i].offset);
 
     for (j = 0; j < b->n_metas; j++) {
       SpaMeta *m = &b->metas[j];
@@ -893,8 +893,8 @@ client_node_port_command (void                 *object,
 static void
 client_node_transport (void              *object,
                        int                memfd,
-                       off_t              offset,
-                       size_t             size)
+                       uint32_t           offset,
+                       uint32_t           size)
 {
   PinosProxy *proxy = object;
   PinosStream *stream = proxy->user_data;
@@ -964,7 +964,7 @@ pinos_stream_connect (PinosStream      *stream,
                       PinosStreamMode   mode,
                       const char       *port_path,
                       PinosStreamFlags  flags,
-                      unsigned int      n_possible_formats,
+                      uint32_t          n_possible_formats,
                       SpaFormat       **possible_formats)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
@@ -1030,7 +1030,7 @@ bool
 pinos_stream_finish_format (PinosStream     *stream,
                             SpaResult        res,
                             SpaAllocParam  **params,
-                            unsigned int     n_params)
+                            uint32_t         n_params)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
 

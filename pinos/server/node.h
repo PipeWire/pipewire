@@ -81,8 +81,8 @@ struct _PinosNode {
   PinosPort **input_port_map;
   PinosPort **output_port_map;
 
-  unsigned int n_used_output_links;
-  unsigned int n_used_input_links;
+  uint32_t n_used_output_links;
+  uint32_t n_used_input_links;
 
   PinosTransport *transport;
   PINOS_SIGNAL (transport_changed, (PinosListener *listener,

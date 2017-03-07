@@ -44,7 +44,7 @@ typedef struct {
   SpaLoop main_loop;
 
   SpaSupport support[3];
-  unsigned int n_support;
+  uint32_t   n_support;
 
   unsigned int n_sources;
   SpaSource sources[16];
@@ -123,7 +123,7 @@ static void
 handle_monitor (AppData *data, SpaMonitor *monitor)
 {
   SpaResult res;
-  unsigned int index;
+  uint32_t index;
 
   if (monitor->info)
     spa_debug_dict (monitor->info);
@@ -181,7 +181,7 @@ main (int argc, char *argv[])
   SpaResult res;
   void *handle;
   SpaEnumHandleFactoryFunc enum_func;
-  unsigned int fidx;
+  uint32_t fidx;
 
   data.map = spa_id_map_get_default ();
   data.log = NULL;
@@ -216,7 +216,7 @@ main (int argc, char *argv[])
 
   for (fidx = 0;; fidx++) {
     const SpaHandleFactory *factory;
-    unsigned int iidx;
+    uint32_t iidx;
 
     if ((res = enum_func (&factory, fidx)) < 0) {
       if (res != SPA_RESULT_ENUM_END)

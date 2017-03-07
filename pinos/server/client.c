@@ -171,7 +171,7 @@ pinos_client_update_properties (PinosClient     *client,
     if (dict)
       client->properties = pinos_properties_new_dict (dict);
   } else {
-    unsigned int i;
+    uint32_t i;
 
     for (i = 0; i < dict->n_items; i++)
       pinos_properties_set (client->properties,

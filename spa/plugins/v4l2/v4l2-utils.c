@@ -322,7 +322,7 @@ find_format_info_by_media_type (SpaMediaType    type,
 }
 
 static SpaVideoFormat
-enum_filter_format (const SpaFormat *filter, unsigned int index)
+enum_filter_format (const SpaFormat *filter, uint32_t index)
 {
   SpaVideoFormat video_format = SPA_VIDEO_FORMAT_UNKNOWN;
 
@@ -330,7 +330,7 @@ enum_filter_format (const SpaFormat *filter, unsigned int index)
        filter->body.media_type.value == SPA_MEDIA_TYPE_IMAGE)) {
     if (filter->body.media_subtype.value == SPA_MEDIA_SUBTYPE_RAW) {
       SpaPODProp *p;
-      unsigned int n_values;
+      uint32_t n_values;
       const uint32_t *values;
 
       if (!(p = spa_format_find_prop (filter, SPA_PROP_ID_VIDEO_FORMAT)))
@@ -449,7 +449,7 @@ static SpaResult
 spa_v4l2_enum_format (SpaV4l2Source   *this,
                       SpaFormat      **format,
                       const SpaFormat *filter,
-                      unsigned int     index)
+                      uint32_t         index)
 {
   SpaV4l2State *state = &this->state[0];
   int res, n_fractions;
@@ -547,7 +547,7 @@ do_frmsize:
       SpaPODProp *p;
       const SpaRectangle step = { 1, 1 }, *values;
       uint32_t range;
-      unsigned int i, n_values;
+      uint32_t i, n_values;
 
       /* check if we have a fixed frame size */
       if (!(p = spa_format_find_prop (filter, SPA_PROP_ID_VIDEO_SIZE)))
@@ -650,7 +650,7 @@ have_size:
     if (filter) {
       SpaPODProp *p;
       uint32_t range;
-      unsigned int i, n_values;
+      uint32_t i, n_values;
       const SpaFraction step = { 1, 1 }, *values;
 
       if (!(p = spa_format_find_prop (filter, SPA_PROP_ID_VIDEO_FRAMERATE)))
@@ -1024,9 +1024,9 @@ spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffe
 static SpaResult
 mmap_init (SpaV4l2Source   *this,
            SpaAllocParam  **params,
-           unsigned int     n_params,
+           uint32_t         n_params,
            SpaBuffer      **buffers,
-           unsigned int    *n_buffers)
+           uint32_t        *n_buffers)
 {
   SpaV4l2State *state = &this->state[0];
   struct v4l2_requestbuffers reqbuf;
@@ -1136,9 +1136,9 @@ read_init (SpaV4l2Source *this)
 static SpaResult
 spa_v4l2_alloc_buffers (SpaV4l2Source   *this,
                         SpaAllocParam  **params,
-                        unsigned int     n_params,
+                        uint32_t         n_params,
                         SpaBuffer      **buffers,
-                        unsigned int    *n_buffers)
+                        uint32_t        *n_buffers)
 {
   SpaResult res;
   SpaV4l2State *state = &this->state[0];

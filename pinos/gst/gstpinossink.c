@@ -369,7 +369,7 @@ on_add_buffer (PinosListener *listener,
   GstPinosSink *pinossink = SPA_CONTAINER_OF (listener, GstPinosSink, stream_add_buffer);
   SpaBuffer *b;
   GstBuffer *buf;
-  unsigned int i;
+  uint32_t i;
   ProcessMemData data;
 
   GST_LOG_OBJECT (pinossink, "add buffer");

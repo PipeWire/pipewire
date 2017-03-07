@@ -147,10 +147,10 @@ spa_ffmpeg_dec_node_set_event_callback (SpaNode              *node,
 
 static SpaResult
 spa_ffmpeg_dec_node_get_n_ports (SpaNode       *node,
-                                 unsigned int  *n_input_ports,
-                                 unsigned int  *max_input_ports,
-                                 unsigned int  *n_output_ports,
-                                 unsigned int  *max_output_ports)
+                                 uint32_t      *n_input_ports,
+                                 uint32_t      *max_input_ports,
+                                 uint32_t      *n_output_ports,
+                                 uint32_t      *max_output_ports)
 {
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -169,9 +169,9 @@ spa_ffmpeg_dec_node_get_n_ports (SpaNode       *node,
 
 static SpaResult
 spa_ffmpeg_dec_node_get_port_ids (SpaNode       *node,
-                                  unsigned int   n_input_ports,
+                                  uint32_t       n_input_ports,
                                   uint32_t      *input_ids,
-                                  unsigned int   n_output_ports,
+                                  uint32_t       n_output_ports,
                                   uint32_t      *output_ids)
 {
   if (node == NULL)
@@ -208,10 +208,9 @@ spa_ffmpeg_dec_node_port_enum_formats (SpaNode         *node,
                                        uint32_t         port_id,
                                        SpaFormat      **format,
                                        const SpaFormat *filter,
-                                       unsigned int     index)
+                                       uint32_t         index)
 {
   SpaFFMpegDec *this;
-  SpaFFMpegPort *port;
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -220,8 +219,6 @@ spa_ffmpeg_dec_node_port_enum_formats (SpaNode         *node,
 
   if (!IS_VALID_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
-
-  port = direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
 
   switch (index) {
     case 0:
@@ -516,10 +513,10 @@ SpaResult
 spa_ffmpeg_dec_init (SpaHandle         *handle,
                      const SpaDict     *info,
                      const SpaSupport  *support,
-                     unsigned int       n_support)
+                     uint32_t           n_support)
 {
   SpaFFMpegDec *this;
-  unsigned int i;
+  uint32_t i;
 
   handle->get_interface = spa_ffmpeg_dec_get_interface;
 

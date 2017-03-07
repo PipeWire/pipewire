@@ -29,7 +29,7 @@ extern "C" {
 #include <spa/format.h>
 #include <spa/pod-builder.h>
 
-static inline off_t
+static inline uint32_t
 spa_pod_builder_push_format (SpaPODBuilder *builder,
                              SpaPODFrame   *frame,
                              uint32_t       media_type,
@@ -43,7 +43,7 @@ spa_pod_builder_push_format (SpaPODBuilder *builder,
                                spa_pod_builder_raw (builder, &p, sizeof(p), false));
 }
 
-static inline off_t
+static inline uint32_t
 spa_pod_builder_format (SpaPODBuilder *builder,
                         uint32_t       media_type,
                         uint32_t       media_subtype,
@@ -51,7 +51,7 @@ spa_pod_builder_format (SpaPODBuilder *builder,
 {
   SpaPODFrame f;
   va_list args;
-  off_t off;
+  uint32_t off;
 
   off = spa_pod_builder_push_format (builder, &f, media_type, media_subtype);
 

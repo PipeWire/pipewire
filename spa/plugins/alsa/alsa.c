@@ -26,7 +26,7 @@ extern const SpaHandleFactory spa_alsa_monitor_factory;
 
 SpaResult
 spa_enum_handle_factory (const SpaHandleFactory **factory,
-                         unsigned int             index)
+                         uint32_t                 index)
 {
   if (factory == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;

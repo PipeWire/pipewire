@@ -49,7 +49,7 @@ struct _PinosPort {
   bool            allocated;
   PinosMemblock   buffer_mem;
   SpaBuffer     **buffers;
-  unsigned int    n_buffers;
+  uint32_t        n_buffers;
 
   SpaList         links;
 

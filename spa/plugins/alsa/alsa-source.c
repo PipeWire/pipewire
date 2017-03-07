@@ -298,10 +298,10 @@ spa_alsa_source_node_set_event_callback (SpaNode              *node,
 
 static SpaResult
 spa_alsa_source_node_get_n_ports (SpaNode       *node,
-                                unsigned int  *n_input_ports,
-                                unsigned int  *max_input_ports,
-                                unsigned int  *n_output_ports,
-                                unsigned int  *max_output_ports)
+                                  uint32_t      *n_input_ports,
+                                  uint32_t      *max_input_ports,
+                                  uint32_t      *n_output_ports,
+                                  uint32_t      *max_output_ports)
 {
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -320,9 +320,9 @@ spa_alsa_source_node_get_n_ports (SpaNode       *node,
 
 static SpaResult
 spa_alsa_source_node_get_port_ids (SpaNode       *node,
-                                   unsigned int   n_input_ports,
+                                   uint32_t       n_input_ports,
                                    uint32_t      *input_ids,
-                                   unsigned int   n_output_ports,
+                                   uint32_t       n_output_ports,
                                    uint32_t      *output_ids)
 {
   if (node == NULL)
@@ -357,7 +357,7 @@ spa_alsa_source_node_port_enum_formats (SpaNode         *node,
                                         uint32_t         port_id,
                                         SpaFormat      **format,
                                         const SpaFormat *filter,
-                                        unsigned int     index)
+                                        uint32_t         index)
 {
   SpaALSASource *this;
   SpaResult res;
@@ -859,10 +859,10 @@ alsa_source_init (const SpaHandleFactory  *factory,
                   SpaHandle               *handle,
                   const SpaDict           *info,
                   const SpaSupport        *support,
-                  unsigned int             n_support)
+                  uint32_t                 n_support)
 {
   SpaALSASource *this;
-  unsigned int i;
+  uint32_t i;
 
   if (factory == NULL || handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -917,7 +917,7 @@ static const SpaInterfaceInfo alsa_source_interfaces[] =
 static SpaResult
 alsa_source_enum_interface_info (const SpaHandleFactory  *factory,
                                  const SpaInterfaceInfo **info,
-                                 unsigned int             index)
+                                 uint32_t                 index)
 {
   if (factory == NULL || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;

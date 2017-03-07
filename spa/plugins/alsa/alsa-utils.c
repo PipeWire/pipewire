@@ -339,7 +339,7 @@ pull_frames_ringbuffer (SpaALSAState *state,
   avail = spa_ringbuffer_get_read_areas (&b->rb->ringbuffer, areas);
   size = SPA_MIN (avail, frames * state->frame_size);
 
-  spa_log_debug (state->log, "%zd %zd %zd %zd %zd %zd",
+  spa_log_debug (state->log, "%u %u %u %u %zd %zd",
       areas[0].offset, areas[0].len,
       areas[1].offset, areas[1].len, offset, size);
 

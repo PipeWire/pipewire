@@ -85,7 +85,7 @@ struct _PinosCore {
   PinosDataLoop *data_loop;
 
   SpaSupport *support;
-  unsigned int n_support;
+  uint32_t    n_support;
 
   PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
                                  PinosCore     *core));
@@ -122,7 +122,7 @@ SpaFormat *     pinos_core_find_format   (PinosCore        *core,
                                           PinosPort        *output,
                                           PinosPort        *input,
                                           PinosProperties  *props,
-                                          unsigned int      n_format_filters,
+                                          uint32_t          n_format_filters,
                                           SpaFormat       **format_filters,
                                           char            **error);
 
@@ -130,7 +130,7 @@ PinosPort *     pinos_core_find_port     (PinosCore        *core,
                                           PinosPort        *other_port,
                                           uint32_t          id,
                                           PinosProperties  *props,
-                                          unsigned int      n_format_filters,
+                                          uint32_t          n_format_filters,
                                           SpaFormat       **format_filters,
                                           char            **error);
 

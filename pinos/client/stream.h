@@ -105,14 +105,14 @@ bool             pinos_stream_connect           (PinosStream      *stream,
                                                  PinosStreamMode   mode,
                                                  const char       *port_path,
                                                  PinosStreamFlags  flags,
-                                                 unsigned int      n_possible_formats,
+                                                 uint32_t          n_possible_formats,
                                                  SpaFormat       **possible_formats);
 bool             pinos_stream_disconnect        (PinosStream      *stream);
 
 bool             pinos_stream_finish_format     (PinosStream     *stream,
                                                  SpaResult        res,
                                                  SpaAllocParam  **params,
-                                                 unsigned int     n_params);
+                                                 uint32_t         n_params);
 
 
 

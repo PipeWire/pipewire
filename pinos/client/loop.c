@@ -225,7 +225,7 @@ event_func (SpaSource *source,
             void      *data)
 {
   PinosLoopImpl *impl = data;
-  size_t offset;
+  uint32_t offset;
 
   while (spa_ringbuffer_get_read_offset (&impl->buffer, &offset) > 0) {
     InvokeItem *item = SPA_MEMBER (impl->buffer_data, offset, InvokeItem);

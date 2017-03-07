@@ -58,7 +58,7 @@ static const SpaInterfaceInfo libva_interfaces[] =
 
 static SpaResult
 libva_enum_interface_info (const SpaHandleFactory  *factory,
-                           unsigned int             index,
+                           uint32_t                 index,
                            const SpaInterfaceInfo **info)
 {
   if (index >= 1)
@@ -84,7 +84,7 @@ static const SpaHandleFactory factories[] =
 };
 
 SpaResult
-spa_enum_handle_factory (unsigned int             index,
+spa_enum_handle_factory (uint32_t                 index,
                          const SpaHandleFactory **factory)
 {
   if (index >= 2)

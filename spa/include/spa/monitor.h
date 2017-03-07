@@ -49,7 +49,7 @@ typedef enum {
 
 typedef struct {
   SpaMonitorEventType  type;
-  size_t               size;
+  uint32_t             size;
 } SpaMonitorEvent;
 
 typedef enum {
@@ -126,7 +126,7 @@ struct _SpaMonitor {
 
   SpaResult  (*enum_items)           (SpaMonitor              *monitor,
                                       SpaMonitorItem         **item,
-                                      unsigned int             index);
+                                      uint32_t                 index);
 
 };
 

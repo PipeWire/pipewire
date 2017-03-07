@@ -84,7 +84,7 @@ add_item (PinosSpaMonitor *this, SpaMonitorItem *item)
   props = pinos_properties_new (NULL, NULL);
 
   if (item->info) {
-    unsigned int i;
+    uint32_t i;
 
     for (i = 0; i < item->info->n_items; i++) {
       pinos_properties_set (props,
@@ -203,7 +203,7 @@ pinos_spa_monitor_load (PinosCore  *core,
   SpaResult res;
   void *iface;
   void *hnd;
-  unsigned int index;
+  uint32_t index;
   SpaEnumHandleFactoryFunc enum_func;
   const SpaHandleFactory *factory;
 

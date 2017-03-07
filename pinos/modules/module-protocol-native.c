@@ -141,7 +141,7 @@ connection_data (SpaSource *source,
   PinosConnection *conn = client->connection;
   uint8_t opcode;
   uint32_t id;
-  size_t size;
+  uint32_t size;
   PinosClient *c = client->client;
   void *message;
 

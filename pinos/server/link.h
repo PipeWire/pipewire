@@ -69,7 +69,7 @@ struct _PinosLink {
                                 PinosPort     *port));
 
   struct {
-    unsigned int   in_ready;
+    uint32_t       in_ready;
     PinosPort     *input;
     PinosPort     *output;
     SpaList        input_link;

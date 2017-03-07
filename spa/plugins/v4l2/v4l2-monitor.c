@@ -61,7 +61,7 @@ struct _SpaV4l2Monitor {
   struct udev* udev;
   struct udev_monitor *umonitor;
   struct udev_enumerate *enumerate;
-  unsigned int index;
+  uint32_t index;
   struct udev_list_entry *devices;
 
   V4l2Item uitem;
@@ -83,7 +83,7 @@ v4l2_udev_open (SpaV4l2Monitor *this)
 static void
 fill_item (V4l2Item *item, struct udev_device *udevice)
 {
-  unsigned int i;
+  uint32_t i;
   const char *str;
 
   if (item->udevice)
@@ -253,7 +253,7 @@ spa_v4l2_monitor_set_event_callback (SpaMonitor              *monitor,
 static SpaResult
 spa_v4l2_monitor_enum_items (SpaMonitor       *monitor,
                              SpaMonitorItem  **item,
-                             unsigned int      index)
+                             uint32_t          index)
 {
   SpaResult res;
   SpaV4l2Monitor *this;
@@ -340,10 +340,10 @@ v4l2_monitor_init (const SpaHandleFactory  *factory,
                    SpaHandle               *handle,
                    const SpaDict           *info,
                    const SpaSupport        *support,
-                   unsigned int             n_support)
+                   uint32_t                 n_support)
 {
   SpaV4l2Monitor *this;
-  unsigned int i;
+  uint32_t i;
 
   if (factory == NULL || handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -384,7 +384,7 @@ static const SpaInterfaceInfo v4l2_monitor_interfaces[] =
 static SpaResult
 v4l2_monitor_enum_interface_info (const SpaHandleFactory  *factory,
                                   const SpaInterfaceInfo **info,
-                                  unsigned int             index)
+                                  uint32_t                 index)
 {
   if (factory == NULL || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;

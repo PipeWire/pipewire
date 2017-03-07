@@ -235,7 +235,8 @@ pinos_connection_get_next (PinosConnection  *conn,
 
 again:
   if (buf->update) {
-    refill_buffer (conn, buf);
+    if (!refill_buffer (conn, buf))
+      return false;
     buf->update = false;
   }
 

@@ -129,6 +129,7 @@ spa_videotestsrc_node_get_props (SpaNode       *node,
 {
   SpaVideoTestSrc *this;
   SpaPODBuilder b = { NULL,  };
+  SpaPODFrame f;
 
   if (node == NULL || props == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -138,17 +139,20 @@ spa_videotestsrc_node_get_props (SpaNode       *node,
   spa_pod_builder_init (&b, this->props_buffer, sizeof (this->props_buffer));
 
   *props = SPA_MEMBER (b.data, spa_pod_builder_props (&b,
-           PROP_ID_LIVE,      SPA_POD_TYPE_BOOL,
-                                  this->props.live,
-                              SPA_POD_PROP_FLAG_READWRITE |
+        SPA_POD_TYPE_PROP, &f,
+           PROP_ID_LIVE,      SPA_POD_PROP_FLAG_READWRITE |
                               SPA_POD_PROP_RANGE_NONE,
-           PROP_ID_PATTERN,   SPA_POD_TYPE_INT,
+                              SPA_POD_TYPE_BOOL, 1,
+                                  this->props.live,
+       -SPA_POD_TYPE_PROP, &f,
+        SPA_POD_TYPE_PROP, &f,
+           PROP_ID_PATTERN,   SPA_POD_PROP_FLAG_READWRITE |
+                              SPA_POD_PROP_RANGE_ENUM,
+                              SPA_POD_TYPE_INT, 3,
                                   this->props.pattern,
-                              SPA_POD_PROP_FLAG_READWRITE |
-                              SPA_POD_PROP_RANGE_ENUM, 2,
                                   pattern_val_smpte_snow,
                                   pattern_val_snow,
-           0), SpaProps);
+       -SPA_POD_TYPE_PROP, &f, 0), SpaProps);
 
   return SPA_RESULT_OK;
 }
@@ -431,6 +435,7 @@ spa_videotestsrc_node_port_enum_formats (SpaNode          *node,
   SpaFormat *fmt;
   uint8_t buffer[1024];
   SpaPODBuilder b = { NULL, };
+  SpaPODFrame f[2];
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -447,24 +452,30 @@ next:
     case 0:
       fmt = SPA_MEMBER (buffer, spa_pod_builder_format (&b,
          SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW,
-           SPA_PROP_ID_VIDEO_FORMAT,    SPA_POD_TYPE_INT,
+         SPA_POD_TYPE_PROP, &f[0],
+           SPA_PROP_ID_VIDEO_FORMAT,    SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
+                                        SPA_POD_PROP_RANGE_ENUM,
+                                        SPA_POD_TYPE_INT, 3,
                                                 SPA_VIDEO_FORMAT_RGB,
-                                        SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
-                                        SPA_POD_PROP_RANGE_ENUM, 2,
                                                 SPA_VIDEO_FORMAT_RGB,
                                                 SPA_VIDEO_FORMAT_UYVY,
-           SPA_PROP_ID_VIDEO_SIZE,      SPA_POD_TYPE_RECTANGLE,
-                                                320, 240,
-                                        SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
+        -SPA_POD_TYPE_PROP, &f[0],
+         SPA_POD_TYPE_PROP, &f[0],
+           SPA_PROP_ID_VIDEO_SIZE,      SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
                                         SPA_POD_PROP_RANGE_MIN_MAX,
+                                        SPA_POD_TYPE_RECTANGLE, 3,
+                                                320, 240,
                                                 1, 1,
                                                 INT32_MAX, INT32_MAX,
-           SPA_PROP_ID_VIDEO_FRAMERATE, SPA_POD_TYPE_FRACTION, 25, 1,
-                                        SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
+        -SPA_POD_TYPE_PROP, &f[0],
+         SPA_POD_TYPE_PROP, &f[0],
+           SPA_PROP_ID_VIDEO_FRAMERATE, SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
                                         SPA_POD_PROP_RANGE_MIN_MAX,
+                                        SPA_POD_TYPE_FRACTION, 3,
+                                                25, 1,
                                                 0, 1,
                                                 INT32_MAX, 1,
-           0), SpaFormat);
+        -SPA_POD_TYPE_PROP, &f[0], 0), SpaFormat);
       break;
     default:
       return SPA_RESULT_ENUM_END;
@@ -569,6 +580,7 @@ spa_videotestsrc_node_port_get_format (SpaNode          *node,
 {
   SpaVideoTestSrc *this;
   SpaPODBuilder b = { NULL, };
+  SpaPODFrame f;
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -585,18 +597,23 @@ spa_videotestsrc_node_port_get_format (SpaNode          *node,
 
   *format = SPA_MEMBER (b.data, spa_pod_builder_format (&b,
          SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW,
-           SPA_PROP_ID_VIDEO_FORMAT,    SPA_POD_TYPE_INT,
+         SPA_POD_TYPE_PROP, &f,
+           SPA_PROP_ID_VIDEO_FORMAT,    SPA_POD_PROP_FLAG_READWRITE,
+                                        SPA_POD_TYPE_INT, 1,
                                                 this->current_format.info.raw.format,
-                                        SPA_POD_PROP_FLAG_READWRITE,
-           SPA_PROP_ID_VIDEO_SIZE,      SPA_POD_TYPE_RECTANGLE,
+        -SPA_POD_TYPE_PROP, &f,
+         SPA_POD_TYPE_PROP, &f,
+           SPA_PROP_ID_VIDEO_SIZE,      SPA_POD_PROP_FLAG_READWRITE,
+                                        SPA_POD_TYPE_RECTANGLE, 1,
                                                 this->current_format.info.raw.size.width,
                                                 this->current_format.info.raw.size.height,
-                                        SPA_POD_PROP_FLAG_READWRITE,
-           SPA_PROP_ID_VIDEO_FRAMERATE, SPA_POD_TYPE_FRACTION,
+        -SPA_POD_TYPE_PROP, &f,
+         SPA_POD_TYPE_PROP, &f,
+           SPA_PROP_ID_VIDEO_FRAMERATE, SPA_POD_PROP_FLAG_READWRITE,
+                                        SPA_POD_TYPE_FRACTION, 1,
                                                 this->current_format.info.raw.framerate.num,
                                                 this->current_format.info.raw.framerate.denom,
-                                        SPA_POD_PROP_FLAG_READWRITE,
-           0), SpaFormat);
+        -SPA_POD_TYPE_PROP, &f, 0), SpaFormat);
 
   return SPA_RESULT_OK;
 }

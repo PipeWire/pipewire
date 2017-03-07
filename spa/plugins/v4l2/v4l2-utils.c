@@ -603,34 +603,35 @@ have_size:
     }
   }
 
-  fmt = SPA_MEMBER (b.data,
-                    spa_pod_builder_push_format (&b, &f[0],
-                                                 info->media_type,
-                                                 info->media_subtype),
-                    SpaFormat);
+  spa_pod_builder_push_format (&b, &f[0],
+                               info->media_type,
+                               info->media_subtype),
+
+  fmt = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
 
   if (info->media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
-    spa_pod_builder_prop (&b,
-        SPA_PROP_ID_VIDEO_FORMAT,  SPA_POD_TYPE_INT,
+    spa_pod_builder_add (&b,
+        SPA_POD_TYPE_PROP, &f[1],
+          SPA_PROP_ID_VIDEO_FORMAT,  SPA_POD_PROP_RANGE_NONE | SPA_POD_PROP_FLAG_READWRITE,
+                                     SPA_POD_TYPE_INT, 1,
                                         info->format,
-                                   SPA_POD_PROP_RANGE_NONE | SPA_POD_PROP_FLAG_READWRITE,
-        0);
+       -SPA_POD_TYPE_PROP, &f[1], 0);
   }
+  spa_pod_builder_add (&b,
+      SPA_POD_TYPE_PROP, &f[1],
+        SPA_PROP_ID_VIDEO_SIZE,    SPA_POD_PROP_RANGE_NONE | SPA_POD_PROP_FLAG_READWRITE,
+                                   SPA_POD_TYPE_RECTANGLE, 1,
+                                    state->frmsize.discrete.width,
+                                    state->frmsize.discrete.height,
+     -SPA_POD_TYPE_PROP, &f[1], 0);
 
-  spa_pod_builder_prop (&b,
-      SPA_PROP_ID_VIDEO_SIZE,  SPA_POD_TYPE_RECTANGLE,
-                                      state->frmsize.discrete.width,
-                                      state->frmsize.discrete.height,
-                               SPA_POD_PROP_RANGE_NONE | SPA_POD_PROP_FLAG_READWRITE,
-      0);
+  spa_pod_builder_push_prop (&b, &f[1],
+                             SPA_PROP_ID_VIDEO_FRAMERATE,
+                             SPA_POD_PROP_RANGE_NONE |
+                             SPA_POD_PROP_FLAG_UNSET |
+                             SPA_POD_PROP_FLAG_READWRITE);
 
-  prop = SPA_MEMBER (b.data,
-                     spa_pod_builder_push_prop (&b, &f[1],
-                                                SPA_PROP_ID_VIDEO_FRAMERATE,
-                                                SPA_POD_PROP_RANGE_NONE |
-                                                SPA_POD_PROP_FLAG_UNSET |
-                                                SPA_POD_PROP_FLAG_READWRITE),
-                     SpaPODProp);
+  prop = SPA_POD_BUILDER_DEREF (&b, f[1].ref, SpaPODProp);
   n_fractions = 0;
 
   state->frmival.index = 0;

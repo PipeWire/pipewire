@@ -191,7 +191,7 @@ typedef struct {
 
 #define SPA_POD_PROP_ALTERNATIVE_FOREACH(body, _size, iter) \
   for ((iter) = SPA_MEMBER ((body), (body)->value.size + sizeof (SpaPODPropBody), __typeof__(*iter)); \
-       (iter) < SPA_MEMBER ((body), (_size), __typeof__(*iter)); \
+       (iter) <= SPA_MEMBER ((body), (_size)-(body)->value.size, __typeof__(*iter)); \
        (iter) = SPA_MEMBER ((iter), (body)->value.size, __typeof__(*iter)))
 
 static inline SpaPODProp *

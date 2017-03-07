@@ -160,25 +160,32 @@ main (int argc, char *argv[])
 
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
 
-  o = spa_pod_builder_format (&b, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW,
-           SPA_PROP_ID_VIDEO_FORMAT,    SPA_POD_TYPE_INT,
+  o = spa_pod_builder_format (&b,
+       SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW,
+       SPA_POD_TYPE_PROP, &frame[0],
+           SPA_PROP_ID_VIDEO_FORMAT,    SPA_POD_PROP_FLAG_UNSET |
+                                        SPA_POD_PROP_RANGE_ENUM,
+                                        SPA_POD_TYPE_INT, 3,
                                                 SPA_VIDEO_FORMAT_I420,
-                                        SPA_POD_PROP_FLAG_UNSET |
-                                        SPA_POD_PROP_RANGE_ENUM, 2,
                                                 SPA_VIDEO_FORMAT_I420,
                                                 SPA_VIDEO_FORMAT_YUY2,
-           SPA_PROP_ID_VIDEO_SIZE  ,    SPA_POD_TYPE_RECTANGLE,
-                                                320, 241,
-                                        SPA_POD_PROP_FLAG_UNSET |
+      -SPA_POD_TYPE_PROP, &frame[0],
+       SPA_POD_TYPE_PROP, &frame[0],
+           SPA_PROP_ID_VIDEO_SIZE,      SPA_POD_PROP_FLAG_UNSET |
                                         SPA_POD_PROP_RANGE_MIN_MAX,
+                                        SPA_POD_TYPE_RECTANGLE, 3,
+                                                320, 241,
                                                 1, 1,
                                                 INT32_MAX, INT32_MAX,
-           SPA_PROP_ID_VIDEO_FRAMERATE, SPA_POD_TYPE_FRACTION, 25, 1,
-                                        SPA_POD_PROP_FLAG_UNSET |
+      -SPA_POD_TYPE_PROP, &frame[0],
+       SPA_POD_TYPE_PROP, &frame[0],
+           SPA_PROP_ID_VIDEO_FRAMERATE, SPA_POD_PROP_FLAG_UNSET |
                                         SPA_POD_PROP_RANGE_MIN_MAX,
+                                        SPA_POD_TYPE_FRACTION, 3,
+                                                25, 1,
                                                 0, 1,
                                                 INT32_MAX, 1,
-           0);
+      -SPA_POD_TYPE_PROP, &frame[0], 0);
 
   fmt = SPA_MEMBER (buffer, o, SpaFormat);
   spa_debug_pod (&fmt->pod);

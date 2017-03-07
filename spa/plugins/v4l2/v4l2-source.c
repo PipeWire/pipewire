@@ -151,32 +151,36 @@ spa_v4l2_source_node_get_props (SpaNode       *node,
 {
   SpaV4l2Source *this;
   SpaPODBuilder b = { NULL,  };
+  SpaPODFrame f;
 
   if (node == NULL || props == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
 
-  b.data = this->props_buffer;
-  b.size = sizeof (this->props_buffer);
+  spa_pod_builder_init (&b, this->props_buffer, sizeof (this->props_buffer));
 
   *props = SPA_MEMBER (b.data, spa_pod_builder_props (&b,
-
-           PROP_ID_DEVICE,      SPA_POD_TYPE_STRING,
+        SPA_POD_TYPE_PROP, &f,
+           PROP_ID_DEVICE,      SPA_POD_PROP_FLAG_READWRITE |
+                                SPA_POD_PROP_RANGE_NONE,
+                                -SPA_POD_TYPE_STRING, 1,
                                     this->props.device, sizeof (this->props.device),
-                                SPA_POD_PROP_FLAG_READWRITE |
-                                SPA_POD_PROP_RANGE_NONE,
 
-           PROP_ID_DEVICE_NAME, SPA_POD_TYPE_STRING,
+       -SPA_POD_TYPE_PROP, &f,
+        SPA_POD_TYPE_PROP, &f,
+           PROP_ID_DEVICE_NAME, SPA_POD_PROP_FLAG_READABLE |
+                                SPA_POD_PROP_RANGE_NONE,
+                                -SPA_POD_TYPE_STRING, 1,
                                     this->props.device_name, sizeof (this->props.device_name),
-                                SPA_POD_PROP_FLAG_READABLE |
-                                SPA_POD_PROP_RANGE_NONE,
 
-           PROP_ID_DEVICE_FD,   SPA_POD_TYPE_INT,
-                                    this->props.device_fd,
-                                SPA_POD_PROP_FLAG_READABLE |
+       -SPA_POD_TYPE_PROP, &f,
+        SPA_POD_TYPE_PROP, &f,
+           PROP_ID_DEVICE_FD,   SPA_POD_PROP_FLAG_READABLE |
                                 SPA_POD_PROP_RANGE_NONE,
-           0), SpaProps);
+                                SPA_POD_TYPE_INT, 1,
+                                    this->props.device_fd,
+       -SPA_POD_TYPE_PROP, &f, 0), SpaProps);
 
   return SPA_RESULT_OK;
 }
@@ -561,7 +565,7 @@ spa_v4l2_source_node_port_get_format (SpaNode          *node,
   SpaV4l2Source *this;
   SpaV4l2State *state;
   SpaPODBuilder b = { NULL, };
-  SpaPODFrame f;
+  SpaPODFrame f[2];
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -579,51 +583,61 @@ spa_v4l2_source_node_port_get_format (SpaNode          *node,
   b.data = state->format_buffer;
   b.size = sizeof (state->format_buffer);
 
-  *format = SPA_POD_BUILDER_DEREF (&b, spa_pod_builder_push_format (&b, &f,
-                                           state->current_format.media_type,
-                                           state->current_format.media_subtype),
-                                   SpaFormat);
+  spa_pod_builder_push_format (&b, &f[0],
+                               state->current_format.media_type,
+                               state->current_format.media_subtype);
 
   switch (state->current_format.media_subtype) {
     case SPA_MEDIA_SUBTYPE_RAW:
-      spa_pod_builder_prop (&b,
-           SPA_PROP_ID_VIDEO_FORMAT,    SPA_POD_TYPE_INT,
+      spa_pod_builder_add (&b,
+          SPA_POD_TYPE_PROP, &f[1],
+           SPA_PROP_ID_VIDEO_FORMAT,    SPA_POD_PROP_FLAG_READWRITE,
+                                        SPA_POD_TYPE_INT, 1,
                                                 state->current_format.info.raw.format,
-                                        SPA_POD_PROP_FLAG_READWRITE,
-           SPA_PROP_ID_VIDEO_SIZE,      SPA_POD_TYPE_RECTANGLE,
+         -SPA_POD_TYPE_PROP, &f[1],
+          SPA_POD_TYPE_PROP, &f[1],
+           SPA_PROP_ID_VIDEO_SIZE,      SPA_POD_PROP_FLAG_READWRITE,
+                                        SPA_POD_TYPE_RECTANGLE, 1,
                                                 state->current_format.info.raw.size.width,
                                                 state->current_format.info.raw.size.height,
-                                        SPA_POD_PROP_FLAG_READWRITE,
-           SPA_PROP_ID_VIDEO_FRAMERATE, SPA_POD_TYPE_FRACTION,
+         -SPA_POD_TYPE_PROP, &f[1],
+          SPA_POD_TYPE_PROP, &f[1],
+           SPA_PROP_ID_VIDEO_FRAMERATE, SPA_POD_PROP_FLAG_READWRITE,
+                                        SPA_POD_TYPE_FRACTION, 1,
                                                 state->current_format.info.raw.framerate.num,
                                                 state->current_format.info.raw.framerate.denom,
-                                        SPA_POD_PROP_FLAG_READWRITE,
-           0);
+         -SPA_POD_TYPE_PROP, &f[1], 0);
       break;
     case SPA_MEDIA_SUBTYPE_MJPG:
     case SPA_MEDIA_SUBTYPE_JPEG:
-      spa_pod_builder_prop (&b,
-           SPA_PROP_ID_VIDEO_SIZE,      SPA_POD_TYPE_RECTANGLE,
+      spa_pod_builder_add (&b,
+          SPA_POD_TYPE_PROP, &f[1],
+           SPA_PROP_ID_VIDEO_SIZE,      SPA_POD_PROP_FLAG_READWRITE,
+                                        SPA_POD_TYPE_RECTANGLE, 1,
                                                 state->current_format.info.mjpg.size.width,
                                                 state->current_format.info.mjpg.size.height,
-                                        SPA_POD_PROP_FLAG_READWRITE,
-           SPA_PROP_ID_VIDEO_FRAMERATE, SPA_POD_TYPE_FRACTION,
+         -SPA_POD_TYPE_PROP, &f[1],
+          SPA_POD_TYPE_PROP, &f[1],
+           SPA_PROP_ID_VIDEO_FRAMERATE, SPA_POD_PROP_FLAG_READWRITE,
+                                        SPA_POD_TYPE_FRACTION, 1,
                                                 state->current_format.info.mjpg.framerate.num,
                                                 state->current_format.info.mjpg.framerate.denom,
-                                        SPA_POD_PROP_FLAG_READWRITE,
-           0);
+         -SPA_POD_TYPE_PROP, &f[1], 0);
       break;
     case SPA_MEDIA_SUBTYPE_H264:
-      spa_pod_builder_prop (&b,
-           SPA_PROP_ID_VIDEO_SIZE,      SPA_POD_TYPE_RECTANGLE,
+      spa_pod_builder_add (&b,
+          SPA_POD_TYPE_PROP, &f[1],
+           SPA_PROP_ID_VIDEO_SIZE,      SPA_POD_PROP_FLAG_READWRITE,
+                                        SPA_POD_TYPE_RECTANGLE, 1,
                                                 state->current_format.info.h264.size.width,
                                                 state->current_format.info.h264.size.height,
-                                        SPA_POD_PROP_FLAG_READWRITE,
-           SPA_PROP_ID_VIDEO_FRAMERATE, SPA_POD_TYPE_FRACTION,
+         -SPA_POD_TYPE_PROP, &f[1],
+          SPA_POD_TYPE_PROP, &f[1],
+           SPA_PROP_ID_VIDEO_FRAMERATE, SPA_POD_PROP_FLAG_READWRITE,
+                                        SPA_POD_TYPE_FRACTION, 1,
                                                 state->current_format.info.h264.framerate.num,
                                                 state->current_format.info.h264.framerate.denom,
-                                        SPA_POD_PROP_FLAG_READWRITE,
-           0);
+         -SPA_POD_TYPE_PROP, &f[1], 0);
       break;
     case SPA_MEDIA_SUBTYPE_DV:
     case SPA_MEDIA_SUBTYPE_MPEGTS:
@@ -636,7 +650,9 @@ spa_v4l2_source_node_port_get_format (SpaNode          *node,
     default:
       return SPA_RESULT_NO_FORMAT;
   }
-  spa_pod_builder_pop (&b, &f);
+  spa_pod_builder_pop (&b, &f[0]);
+
+  *format = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
 
   return SPA_RESULT_OK;
 }

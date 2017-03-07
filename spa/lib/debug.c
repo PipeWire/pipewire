@@ -412,7 +412,7 @@ print_pod_value (uint32_t size, uint32_t type, void *body, int prefix)
       if (b->flags & SPA_POD_PROP_FLAG_UNSET)
         printf ("%-*sUnset (Default):\n", prefix + 4, "");
       else
-        printf ("%-*sValue:\n", prefix + 4, "");
+        printf ("%-*sValue: size %u\n", prefix + 4, "", b->value.size);
       print_pod_value (b->value.size, b->value.type, SPA_POD_BODY (&b->value), prefix + 6);
 
       i = 0;

@@ -47,7 +47,7 @@ static inline uint32_t
 spa_pod_builder_format (SpaPODBuilder *builder,
                         uint32_t       media_type,
                         uint32_t       media_subtype,
-                        uint32_t       propid, ...)
+                        uint32_t       type, ...)
 {
   SpaPODFrame f;
   va_list args;
@@ -55,8 +55,8 @@ spa_pod_builder_format (SpaPODBuilder *builder,
 
   off = spa_pod_builder_push_format (builder, &f, media_type, media_subtype);
 
-  va_start (args, propid);
-  spa_pod_builder_propv (builder, propid, args);
+  va_start (args, type);
+  spa_pod_builder_addv (builder, type, args);
   va_end (args);
 
   spa_pod_builder_pop (builder, &f);

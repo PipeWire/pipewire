@@ -68,6 +68,7 @@ spa_alsa_sink_node_get_props (SpaNode       *node,
 {
   SpaALSASink *this;
   SpaPODBuilder b = { NULL,  };
+  SpaPODFrame f;
 
   if (node == NULL || props == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -77,33 +78,44 @@ spa_alsa_sink_node_get_props (SpaNode       *node,
   spa_pod_builder_init (&b, this->props_buffer, sizeof (this->props_buffer));
 
   *props = SPA_MEMBER (b.data, spa_pod_builder_props (&b,
-           PROP_ID_DEVICE,       SPA_POD_TYPE_STRING,
+        SPA_POD_TYPE_PROP, &f,
+           PROP_ID_DEVICE,       SPA_POD_PROP_FLAG_READWRITE |
+                                 SPA_POD_PROP_RANGE_NONE,
+                                 -SPA_POD_TYPE_STRING, 1,
                                      this->props.device, sizeof (this->props.device),
-                                 SPA_POD_PROP_FLAG_READWRITE |
+       -SPA_POD_TYPE_PROP, &f,
+        SPA_POD_TYPE_PROP, &f,
+           PROP_ID_DEVICE_NAME,  SPA_POD_PROP_FLAG_READABLE |
                                  SPA_POD_PROP_RANGE_NONE,
-           PROP_ID_DEVICE_NAME,  SPA_POD_TYPE_STRING,
+                                 -SPA_POD_TYPE_STRING, 1,
                                      this->props.device_name, sizeof (this->props.device_name),
-                                 SPA_POD_PROP_FLAG_READABLE |
+       -SPA_POD_TYPE_PROP, &f,
+        SPA_POD_TYPE_PROP, &f,
+           PROP_ID_CARD_NAME,    SPA_POD_PROP_FLAG_READABLE |
                                  SPA_POD_PROP_RANGE_NONE,
-           PROP_ID_CARD_NAME,    SPA_POD_TYPE_STRING,
+                                 -SPA_POD_TYPE_STRING, 1,
                                      this->props.card_name, sizeof (this->props.card_name),
-                                 SPA_POD_PROP_FLAG_READABLE |
-                                 SPA_POD_PROP_RANGE_NONE,
-           PROP_ID_PERIOD_SIZE,  SPA_POD_TYPE_INT,
+       -SPA_POD_TYPE_PROP, &f,
+        SPA_POD_TYPE_PROP, &f,
+           PROP_ID_PERIOD_SIZE,  SPA_POD_PROP_FLAG_READWRITE |
+                                 SPA_POD_PROP_RANGE_MIN_MAX,
+                                 SPA_POD_TYPE_INT, 3,
                                      this->props.period_size,
-                                 SPA_POD_PROP_FLAG_READWRITE |
-                                 SPA_POD_PROP_RANGE_MIN_MAX,
                                      1, INT32_MAX,
-           PROP_ID_PERIODS,      SPA_POD_TYPE_INT,
+       -SPA_POD_TYPE_PROP, &f,
+        SPA_POD_TYPE_PROP, &f,
+           PROP_ID_PERIODS,      SPA_POD_PROP_FLAG_READWRITE |
+                                 SPA_POD_PROP_RANGE_MIN_MAX,
+                                 SPA_POD_TYPE_INT, 3,
                                      this->props.periods,
-                                 SPA_POD_PROP_FLAG_READWRITE |
-                                 SPA_POD_PROP_RANGE_MIN_MAX,
                                      1, INT32_MAX,
-           PROP_ID_PERIOD_EVENT, SPA_POD_TYPE_BOOL,
-                                    this->props.period_event,
-                                 SPA_POD_PROP_FLAG_READWRITE |
+       -SPA_POD_TYPE_PROP, &f,
+        SPA_POD_TYPE_PROP, &f,
+           PROP_ID_PERIOD_EVENT, SPA_POD_PROP_FLAG_READWRITE |
                                  SPA_POD_PROP_RANGE_NONE,
-           0), SpaProps);
+                                 SPA_POD_TYPE_BOOL, 1,
+                                    this->props.period_event,
+       -SPA_POD_TYPE_PROP, &f, 0), SpaProps);
 
 
   return SPA_RESULT_OK;
@@ -329,6 +341,7 @@ spa_alsa_sink_node_port_enum_formats (SpaNode         *node,
   SpaFormat *fmt;
   uint8_t buffer[1024];
   SpaPODBuilder b = { NULL, };
+  SpaPODFrame f[2];
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -344,24 +357,29 @@ next:
   switch (index++) {
     case 0:
       fmt = SPA_MEMBER (buffer, spa_pod_builder_format (&b,
-         SPA_MEDIA_TYPE_AUDIO, SPA_MEDIA_SUBTYPE_RAW,
-           SPA_PROP_ID_AUDIO_FORMAT,    SPA_POD_TYPE_INT,
+        SPA_MEDIA_TYPE_AUDIO, SPA_MEDIA_SUBTYPE_RAW,
+        SPA_POD_TYPE_PROP, &f[0],
+           SPA_PROP_ID_AUDIO_FORMAT,    SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
+                                        SPA_POD_PROP_RANGE_ENUM,
+                                        SPA_POD_TYPE_INT, 3,
                                                 SPA_AUDIO_FORMAT_S16,
-                                        SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
-                                        SPA_POD_PROP_RANGE_ENUM, 2,
                                                 SPA_AUDIO_FORMAT_S16,
                                                 SPA_AUDIO_FORMAT_S32,
-           SPA_PROP_ID_AUDIO_RATE,      SPA_POD_TYPE_INT,
+       -SPA_POD_TYPE_PROP, &f[0],
+        SPA_POD_TYPE_PROP, &f[0],
+           SPA_PROP_ID_AUDIO_RATE,      SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
+                                        SPA_POD_PROP_RANGE_MIN_MAX,
+                                        SPA_POD_TYPE_INT, 3,
                                                 44100,
-                                        SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
-                                        SPA_POD_PROP_RANGE_MIN_MAX,
                                                 1, INT32_MAX,
-           SPA_PROP_ID_AUDIO_CHANNELS,  SPA_POD_TYPE_INT,
+       -SPA_POD_TYPE_PROP, &f[0],
+        SPA_POD_TYPE_PROP, &f[0],
+           SPA_PROP_ID_AUDIO_CHANNELS,  SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
+                                        SPA_POD_PROP_RANGE_MIN_MAX,
+                                        SPA_POD_TYPE_INT, 3,
                                                 2,
-                                        SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
-                                        SPA_POD_PROP_RANGE_MIN_MAX,
                                                 1, INT32_MAX,
-           0), SpaFormat);
+       -SPA_POD_TYPE_PROP, &f[0], 0), SpaFormat);
       break;
     case 1:
       fmt = SPA_MEMBER (buffer, spa_pod_builder_format (&b,

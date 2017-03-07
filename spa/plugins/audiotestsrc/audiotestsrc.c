@@ -137,6 +137,7 @@ spa_audiotestsrc_node_get_props (SpaNode       *node,
 {
   SpaAudioTestSrc *this;
   SpaPODBuilder b = { NULL,  };
+  SpaPODFrame f;
 
   if (node == NULL || props == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -146,29 +147,36 @@ spa_audiotestsrc_node_get_props (SpaNode       *node,
   spa_pod_builder_init (&b, this->props_buffer, sizeof (this->props_buffer));
 
   *props = SPA_MEMBER (b.data, spa_pod_builder_props (&b,
-           PROP_ID_LIVE,      SPA_POD_TYPE_BOOL,
-                                  this->props.live,
-                              SPA_POD_PROP_FLAG_READWRITE |
+        SPA_POD_TYPE_PROP, &f,
+           PROP_ID_LIVE,      SPA_POD_PROP_FLAG_READWRITE |
                               SPA_POD_PROP_RANGE_NONE,
-           PROP_ID_WAVE,      SPA_POD_TYPE_INT,
+                              SPA_POD_TYPE_BOOL, 1,
+                                  this->props.live,
+       -SPA_POD_TYPE_PROP, &f,
+        SPA_POD_TYPE_PROP, &f,
+           PROP_ID_WAVE,      SPA_POD_PROP_FLAG_READWRITE |
+                              SPA_POD_PROP_RANGE_ENUM,
+                              SPA_POD_TYPE_INT, 3,
                                   this->props.wave,
-                              SPA_POD_PROP_FLAG_READWRITE |
-                              SPA_POD_PROP_RANGE_ENUM, 2,
                                   wave_val_sine,
                                   wave_val_square,
-           PROP_ID_FREQ,      SPA_POD_TYPE_DOUBLE,
-                                  this->props.freq,
-                              SPA_POD_PROP_FLAG_READWRITE |
+       -SPA_POD_TYPE_PROP, &f,
+        SPA_POD_TYPE_PROP, &f,
+           PROP_ID_FREQ,      SPA_POD_PROP_FLAG_READWRITE |
                               SPA_POD_PROP_RANGE_MIN_MAX,
+                              SPA_POD_TYPE_DOUBLE, 3,
+                                  this->props.freq,
                                   0.0,
                                   50000000.0,
-           PROP_ID_VOLUME,    SPA_POD_TYPE_DOUBLE,
-                                  this->props.volume,
-                              SPA_POD_PROP_FLAG_READWRITE |
+       -SPA_POD_TYPE_PROP, &f,
+        SPA_POD_TYPE_PROP, &f,
+           PROP_ID_VOLUME,    SPA_POD_PROP_FLAG_READWRITE |
                               SPA_POD_PROP_RANGE_MIN_MAX,
+                              SPA_POD_TYPE_DOUBLE, 3,
+                                  this->props.volume,
                                   0.0,
                                   10.0,
-           0), SpaProps);
+       -SPA_POD_TYPE_PROP, &f, 0), SpaProps);
 
   return SPA_RESULT_OK;
 }
@@ -462,6 +470,7 @@ spa_audiotestsrc_node_port_enum_formats (SpaNode          *node,
   SpaFormat *fmt;
   uint8_t buffer[256];
   SpaPODBuilder b = { NULL, };
+  SpaPODFrame f[2];
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -478,23 +487,28 @@ next:
     case 0:
       fmt = SPA_MEMBER (buffer, spa_pod_builder_format (&b,
          SPA_MEDIA_TYPE_AUDIO, SPA_MEDIA_SUBTYPE_RAW,
-           SPA_PROP_ID_AUDIO_FORMAT,    SPA_POD_TYPE_INT,
+         SPA_POD_TYPE_PROP, &f[0],
+           SPA_PROP_ID_AUDIO_FORMAT,    SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
+                                        SPA_POD_PROP_RANGE_ENUM,
+                                        SPA_POD_TYPE_INT, 3,
                                                 SPA_AUDIO_FORMAT_S16,
-                                        SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
-                                        SPA_POD_PROP_RANGE_ENUM, 2,
                                                 SPA_AUDIO_FORMAT_S16,
                                                 SPA_AUDIO_FORMAT_S32,
-           SPA_PROP_ID_AUDIO_RATE,      SPA_POD_TYPE_INT,
+        -SPA_POD_TYPE_PROP, &f[0],
+         SPA_POD_TYPE_PROP, &f[0],
+           SPA_PROP_ID_AUDIO_RATE,      SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
+                                        SPA_POD_PROP_RANGE_MIN_MAX,
+                                        SPA_POD_TYPE_INT, 3,
                                                 44100,
-                                        SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
-                                        SPA_POD_PROP_RANGE_MIN_MAX,
                                                 1, INT32_MAX,
-           SPA_PROP_ID_AUDIO_CHANNELS,  SPA_POD_TYPE_INT,
+        -SPA_POD_TYPE_PROP, &f[0],
+         SPA_POD_TYPE_PROP, &f[0],
+           SPA_PROP_ID_AUDIO_CHANNELS,  SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
+                                        SPA_POD_PROP_RANGE_MIN_MAX,
+                                        SPA_POD_TYPE_INT, 3,
                                                 2,
-                                        SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
-                                        SPA_POD_PROP_RANGE_MIN_MAX,
                                                 1, INT32_MAX,
-           0), SpaFormat);
+        -SPA_POD_TYPE_PROP, &f[0], 0), SpaFormat);
       break;
     default:
       return SPA_RESULT_ENUM_END;
@@ -587,6 +601,7 @@ spa_audiotestsrc_node_port_get_format (SpaNode          *node,
 {
   SpaAudioTestSrc *this;
   SpaPODBuilder b = { NULL, };
+  SpaPODFrame f;
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -603,16 +618,21 @@ spa_audiotestsrc_node_port_get_format (SpaNode          *node,
 
   *format = SPA_MEMBER (b.data, spa_pod_builder_format (&b,
          SPA_MEDIA_TYPE_AUDIO, SPA_MEDIA_SUBTYPE_RAW,
-           SPA_PROP_ID_AUDIO_FORMAT,    SPA_POD_TYPE_INT,
+         SPA_POD_TYPE_PROP, &f,
+           SPA_PROP_ID_AUDIO_FORMAT,    SPA_POD_PROP_FLAG_READWRITE,
+                                        SPA_POD_TYPE_INT, 1,
                                                 this->current_format.info.raw.format,
-                                        SPA_POD_PROP_FLAG_READWRITE,
-           SPA_PROP_ID_AUDIO_RATE,      SPA_POD_TYPE_INT,
+        -SPA_POD_TYPE_PROP, &f,
+         SPA_POD_TYPE_PROP, &f,
+           SPA_PROP_ID_AUDIO_RATE,      SPA_POD_PROP_FLAG_READWRITE,
+                                        SPA_POD_TYPE_INT, 1,
                                                 this->current_format.info.raw.rate,
-                                        SPA_POD_PROP_FLAG_READWRITE,
-           SPA_PROP_ID_AUDIO_CHANNELS,  SPA_POD_TYPE_INT,
+        -SPA_POD_TYPE_PROP, &f,
+         SPA_POD_TYPE_PROP, &f,
+           SPA_PROP_ID_AUDIO_CHANNELS,  SPA_POD_PROP_FLAG_READWRITE,
+                                        SPA_POD_TYPE_INT, 1,
                                                 this->current_format.info.raw.channels,
-                                        SPA_POD_PROP_FLAG_READWRITE,
-           0), SpaFormat);
+        -SPA_POD_TYPE_PROP, &f, 0), SpaFormat);
 
   return SPA_RESULT_OK;
 }

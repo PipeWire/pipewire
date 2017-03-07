@@ -120,6 +120,7 @@ spa_xv_sink_node_get_props (SpaNode       *node,
 {
   SpaXvSink *this;
   SpaPODBuilder b = { NULL,  };
+  SpaPODFrame f;
 
   if (node == NULL || props == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -129,22 +130,24 @@ spa_xv_sink_node_get_props (SpaNode       *node,
   spa_pod_builder_init (&b, this->props_buffer, sizeof (this->props_buffer));
 
   *props = SPA_MEMBER (b.data, spa_pod_builder_props (&b,
-
-           PROP_ID_DEVICE,      SPA_POD_TYPE_STRING,
+        SPA_POD_TYPE_PROP, &f,
+           PROP_ID_DEVICE,      SPA_POD_PROP_FLAG_READWRITE |
+                                SPA_POD_PROP_RANGE_NONE,
+                               -SPA_POD_TYPE_STRING, 1,
                                     this->props.device, sizeof (this->props.device),
-                                SPA_POD_PROP_FLAG_READWRITE |
+       -SPA_POD_TYPE_PROP, &f,
+        SPA_POD_TYPE_PROP, &f,
+           PROP_ID_DEVICE_NAME, SPA_POD_PROP_FLAG_READABLE |
                                 SPA_POD_PROP_RANGE_NONE,
-
-           PROP_ID_DEVICE_NAME, SPA_POD_TYPE_STRING,
+                                -SPA_POD_TYPE_STRING, 1,
                                     this->props.device_name, sizeof (this->props.device_name),
-                                SPA_POD_PROP_FLAG_READABLE |
+       -SPA_POD_TYPE_PROP, &f,
+        SPA_POD_TYPE_PROP, &f,
+           PROP_ID_DEVICE_FD,   SPA_POD_PROP_FLAG_READABLE |
                                 SPA_POD_PROP_RANGE_NONE,
-
-           PROP_ID_DEVICE_FD,   SPA_POD_TYPE_INT,
+                                SPA_POD_TYPE_INT, 1,
                                     this->props.device_fd,
-                                SPA_POD_PROP_FLAG_READABLE |
-                                SPA_POD_PROP_RANGE_NONE,
-           0), SpaProps);
+       -SPA_POD_TYPE_PROP, &f, 0), SpaProps);
 
   return SPA_RESULT_OK;
 }

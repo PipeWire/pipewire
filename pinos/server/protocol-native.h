@@ -19,7 +19,7 @@
 
 #include "pinos/client/pinos.h"
 
-typedef void (*PinosDemarshalFunc) (void *object, void *data, size_t size);
+typedef bool (*PinosDemarshalFunc) (void *object, void *data, size_t size);
 
 extern const PinosCoreEvent pinos_protocol_native_server_core_event;
 extern const PinosRegistryEvent pinos_protocol_native_server_registry_event;

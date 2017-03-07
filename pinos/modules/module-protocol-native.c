@@ -163,9 +163,10 @@ connection_data (SpaSource *source,
       continue;
     }
     demarshal = resource->demarshal;
-    if (demarshal[opcode])
-      demarshal[opcode] (resource, message, size);
-    else
+    if (demarshal[opcode]) {
+      if (!demarshal[opcode] (resource, message, size))
+        pinos_log_error ("protocol-native %p: invalid message received", client->impl);
+    } else
       pinos_log_error ("protocol-native %p: function %d not implemented", client->impl, opcode);
   }
 }

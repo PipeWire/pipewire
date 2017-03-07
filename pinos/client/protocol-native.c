@@ -47,7 +47,7 @@ write_pod (SpaPODBuilder *b, uint32_t ref, const void *data, uint32_t size)
 
 static void
 core_marshal_client_update (void          *object,
-                              const SpaDict *props)
+                            const SpaDict *props)
 {
   PinosProxy *proxy = object;
   PinosConnection *connection = proxy->context->protocol_private;
@@ -55,78 +55,93 @@ core_marshal_client_update (void          *object,
   SpaPODFrame f;
   int i, n_items;
 
-  spa_pod_builder_push_struct (&b.b, &f);
   n_items = props ? props->n_items : 0;
-  spa_pod_builder_int (&b.b, n_items);
+
+  spa_pod_builder_add (&b.b,
+      SPA_POD_TYPE_STRUCT, &f,
+        SPA_POD_TYPE_INT, n_items, 0);
+
   for (i = 0; i < n_items; i++) {
-    spa_pod_builder_string (&b.b, props->items[i].key);
-    spa_pod_builder_string (&b.b, props->items[i].value);
+    spa_pod_builder_add (&b.b,
+        SPA_POD_TYPE_STRING, props->items[i].key,
+        SPA_POD_TYPE_STRING, props->items[i].value,
+        0);
   }
-  spa_pod_builder_pop (&b.b, &f);
+  spa_pod_builder_add (&b.b, -SPA_POD_TYPE_STRUCT, &f, 0);
 
   pinos_connection_end_write (connection, proxy->id, 0, b.b.offset);
 }
 
 static void
 core_marshal_sync (void     *object,
-                     uint32_t  seq)
+                   uint32_t  seq)
 {
   PinosProxy *proxy = object;
   PinosConnection *connection = proxy->context->protocol_private;
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
 
-  spa_pod_builder_push_struct (&b.b, &f);
-  spa_pod_builder_int (&b.b, seq);
-  spa_pod_builder_pop (&b.b, &f);
+  spa_pod_builder_add (&b.b,
+      SPA_POD_TYPE_STRUCT, &f,
+        SPA_POD_TYPE_INT, seq,
+     -SPA_POD_TYPE_STRUCT, &f,
+     0);
 
   pinos_connection_end_write (connection, proxy->id, 1, b.b.offset);
 }
 
 static void
 core_marshal_get_registry (void     *object,
-                             uint32_t  seq,
-                             uint32_t  new_id)
+                           uint32_t  seq,
+                           uint32_t  new_id)
 {
   PinosProxy *proxy = object;
   PinosConnection *connection = proxy->context->protocol_private;
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
 
-  spa_pod_builder_push_struct (&b.b, &f);
-  spa_pod_builder_int (&b.b, seq);
-  spa_pod_builder_int (&b.b, new_id);
-  spa_pod_builder_pop (&b.b, &f);
+  spa_pod_builder_add (&b.b,
+      SPA_POD_TYPE_STRUCT, &f,
+        SPA_POD_TYPE_INT, seq,
+        SPA_POD_TYPE_INT, new_id,
+     -SPA_POD_TYPE_STRUCT, &f,
+     0);
 
   pinos_connection_end_write (connection, proxy->id, 2, b.b.offset);
 }
 
 static void
 core_marshal_create_node (void          *object,
-                            uint32_t       seq,
-                            const char    *factory_name,
-                            const char    *name,
-                            const SpaDict *props,
-                            uint32_t       new_id)
+                          uint32_t       seq,
+                          const char    *factory_name,
+                          const char    *name,
+                          const SpaDict *props,
+                          uint32_t       new_id)
 {
   PinosProxy *proxy = object;
   PinosConnection *connection = proxy->context->protocol_private;
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
-  int i, n_items;
+  uint32_t i, n_items;
 
-  spa_pod_builder_push_struct (&b.b, &f);
-  spa_pod_builder_int (&b.b, seq);
-  spa_pod_builder_string (&b.b, factory_name);
-  spa_pod_builder_string (&b.b, name);
   n_items = props ? props->n_items : 0;
-  spa_pod_builder_int (&b.b, n_items);
+
+  spa_pod_builder_add (&b.b,
+      SPA_POD_TYPE_STRUCT, &f,
+        SPA_POD_TYPE_INT, seq,
+        SPA_POD_TYPE_STRING, factory_name,
+        SPA_POD_TYPE_STRING, name,
+        SPA_POD_TYPE_INT, n_items, 0);
+
   for (i = 0; i < n_items; i++) {
-    spa_pod_builder_string (&b.b, props->items[i].key);
-    spa_pod_builder_string (&b.b, props->items[i].value);
+    spa_pod_builder_add (&b.b,
+        SPA_POD_TYPE_STRING, props->items[i].key,
+        SPA_POD_TYPE_STRING, props->items[i].value,
+        0);
   }
-  spa_pod_builder_int (&b.b, new_id);
-  spa_pod_builder_pop (&b.b, &f);
+  spa_pod_builder_add (&b.b,
+      SPA_POD_TYPE_INT, new_id,
+    -SPA_POD_TYPE_STRUCT, &f, 0);
 
   pinos_connection_end_write (connection, proxy->id, 3, b.b.offset);
 }
@@ -142,24 +157,30 @@ core_marshal_create_client_node (void          *object,
   PinosConnection *connection = proxy->context->protocol_private;
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
-  int i, n_items;
+  uint32_t i, n_items;
 
-  spa_pod_builder_push_struct (&b.b, &f);
-  spa_pod_builder_int (&b.b, seq);
-  spa_pod_builder_string (&b.b, name);
   n_items = props ? props->n_items : 0;
-  spa_pod_builder_int (&b.b, n_items);
+
+  spa_pod_builder_add (&b.b,
+      SPA_POD_TYPE_STRUCT, &f,
+        SPA_POD_TYPE_INT, seq,
+        SPA_POD_TYPE_STRING, name,
+        SPA_POD_TYPE_INT, n_items, 0);
+
   for (i = 0; i < n_items; i++) {
-    spa_pod_builder_string (&b.b, props->items[i].key);
-    spa_pod_builder_string (&b.b, props->items[i].value);
+    spa_pod_builder_add (&b.b,
+        SPA_POD_TYPE_STRING, props->items[i].key,
+        SPA_POD_TYPE_STRING, props->items[i].value,
+        0);
   }
-  spa_pod_builder_int (&b.b, new_id);
-  spa_pod_builder_pop (&b.b, &f);
+  spa_pod_builder_add (&b.b,
+      SPA_POD_TYPE_INT, new_id,
+    -SPA_POD_TYPE_STRUCT, &f, 0);
 
   pinos_connection_end_write (connection, proxy->id, 4, b.b.offset);
 }
 
-static void
+static bool
 core_demarshal_info (void   *object,
                      void   *data,
                      size_t  size)
@@ -181,7 +202,7 @@ core_demarshal_info (void   *object,
         SPA_POD_TYPE_INT, &info.cookie,
         SPA_POD_TYPE_INT, &props.n_items,
         0))
-    return;
+    return false;
 
   info.props = &props;
   props.items = alloca (props.n_items * sizeof (SpaDictItem));
@@ -190,12 +211,13 @@ core_demarshal_info (void   *object,
           SPA_POD_TYPE_STRING, &props.items[i].key,
           SPA_POD_TYPE_STRING, &props.items[i].value,
           0))
-      return;
+      return false;
   }
   pinos_core_notify_info (proxy, &info);
+  return true;
 }
 
-static void
+static bool
 core_demarshal_done (void   *object,
                      void   *data,
                      size_t  size)
@@ -208,12 +230,13 @@ core_demarshal_done (void   *object,
       !spa_pod_iter_get (&it,
         SPA_POD_TYPE_INT, &seq,
         0))
-    return;
+    return false;
 
   pinos_core_notify_done (proxy, seq);
+  return true;
 }
 
-static void
+static bool
 core_demarshal_error (void   *object,
                       void   *data,
                       size_t  size)
@@ -229,12 +252,13 @@ core_demarshal_error (void   *object,
         SPA_POD_TYPE_INT, &res,
         SPA_POD_TYPE_STRING, &error,
         0))
-    return;
+    return false;
 
   pinos_core_notify_error (proxy, id, res, error);
+  return true;
 }
 
-static void
+static bool
 core_demarshal_remove_id (void   *object,
                           void   *data,
                           size_t  size)
@@ -247,12 +271,13 @@ core_demarshal_remove_id (void   *object,
       !spa_pod_iter_get (&it,
         SPA_POD_TYPE_INT, &id,
         0))
-    return;
+    return false;
 
   pinos_core_notify_remove_id (proxy, id);
+  return true;
 }
 
-static void
+static bool
 module_demarshal_info (void   *object,
                        void   *data,
                        size_t  size)
@@ -272,7 +297,7 @@ module_demarshal_info (void   *object,
         SPA_POD_TYPE_STRING, &info.args,
         SPA_POD_TYPE_INT, &props.n_items,
         0))
-    return;
+    return false;
 
   info.props = &props;
   props.items = alloca (props.n_items * sizeof (SpaDictItem));
@@ -281,12 +306,13 @@ module_demarshal_info (void   *object,
           SPA_POD_TYPE_STRING, &props.items[i].key,
           SPA_POD_TYPE_STRING, &props.items[i].value,
           0))
-      return;
+      return false;
   }
   pinos_module_notify_info (proxy, &info);
+  return true;
 }
 
-static void
+static bool
 node_demarshal_done (void   *object,
                      void   *data,
                      size_t  size)
@@ -299,12 +325,13 @@ node_demarshal_done (void   *object,
       !spa_pod_iter_get (&it,
         SPA_POD_TYPE_INT, &seq,
         0))
-    return;
+    return false;
 
   pinos_node_notify_done (proxy, seq);
+  return true;
 }
 
-static void
+static bool
 node_demarshal_info (void   *object,
                      void   *data,
                      size_t  size)
@@ -324,30 +351,31 @@ node_demarshal_info (void   *object,
         SPA_POD_TYPE_INT, &info.n_inputs,
         SPA_POD_TYPE_INT, &info.n_input_formats,
         0))
-    return;
+    return false;
 
   info.input_formats = alloca (info.n_input_formats * sizeof (SpaFormat*));
   for (i = 0; i < info.n_input_formats; i++)
-    spa_pod_iter_get (&it,
-        SPA_POD_TYPE_OBJECT, &info.input_formats[i], 0);
+    if (!spa_pod_iter_get (&it, SPA_POD_TYPE_OBJECT, &info.input_formats[i], 0))
+      return false;
 
   if (!spa_pod_iter_get (&it,
         SPA_POD_TYPE_INT, &info.max_outputs,
         SPA_POD_TYPE_INT, &info.n_outputs,
         SPA_POD_TYPE_INT, &info.n_output_formats,
         0))
-    return;
+    return false;
 
   info.output_formats = alloca (info.n_output_formats * sizeof (SpaFormat*));
   for (i = 0; i < info.n_output_formats; i++)
-    spa_pod_iter_get (&it, SPA_POD_TYPE_OBJECT, &info.output_formats[i], 0);
+    if (!spa_pod_iter_get (&it, SPA_POD_TYPE_OBJECT, &info.output_formats[i], 0))
+      return false;
 
   if (!spa_pod_iter_get (&it,
         SPA_POD_TYPE_INT, &info.state,
         SPA_POD_TYPE_STRING, &info.error,
         SPA_POD_TYPE_INT, &props.n_items,
         0))
-    return;
+    return false;
 
   info.props = &props;
   props.items = alloca (props.n_items * sizeof (SpaDictItem));
@@ -356,9 +384,10 @@ node_demarshal_info (void   *object,
           SPA_POD_TYPE_STRING, &props.items[i].key,
           SPA_POD_TYPE_STRING, &props.items[i].value,
           0))
-      return;
+      return false;
   }
   pinos_node_notify_info (proxy, &info);
+  return true;
 }
 
 static void
@@ -373,14 +402,17 @@ client_node_marshal_update (void           *object,
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
 
-  spa_pod_builder_push_struct (&b.b, &f);
-  spa_pod_builder_int (&b.b, change_mask);
-  spa_pod_builder_int (&b.b, max_input_ports);
-  spa_pod_builder_int (&b.b, max_output_ports);
-  spa_pod_builder_int (&b.b, props ? 1 : 0);
+  spa_pod_builder_add (&b.b,
+      SPA_POD_TYPE_STRUCT, &f,
+        SPA_POD_TYPE_INT, change_mask,
+        SPA_POD_TYPE_INT, max_input_ports,
+        SPA_POD_TYPE_INT, max_output_ports,
+        SPA_POD_TYPE_INT, props ? 1 : 0,
+      0);
+
   if (props)
-    spa_pod_builder_raw (&b.b, props, SPA_POD_SIZE (props), true);
-  spa_pod_builder_pop (&b.b, &f);
+    spa_pod_builder_add (&b.b, SPA_POD_TYPE_POD, props, 0);
+  spa_pod_builder_add (&b.b, -SPA_POD_TYPE_STRUCT, &f, 0);
 
   pinos_connection_end_write (connection, proxy->id, 0, b.b.offset);
 }
@@ -402,37 +434,46 @@ client_node_marshal_port_update (void              *object,
   SpaPODFrame f;
   int i, n_items;
 
-  spa_pod_builder_push_struct (&b.b, &f);
-  spa_pod_builder_int (&b.b, direction);
-  spa_pod_builder_int (&b.b, port_id);
-  spa_pod_builder_int (&b.b, change_mask);
-  spa_pod_builder_int (&b.b, n_possible_formats);
+  spa_pod_builder_add (&b.b,
+      SPA_POD_TYPE_STRUCT, &f,
+        SPA_POD_TYPE_INT, direction,
+        SPA_POD_TYPE_INT, port_id,
+        SPA_POD_TYPE_INT, change_mask,
+        SPA_POD_TYPE_INT, n_possible_formats,
+        0);
+
   for (i = 0; i < n_possible_formats; i++)
-    spa_pod_builder_raw (&b.b, possible_formats[i], SPA_POD_SIZE (possible_formats[i]), true);
-  spa_pod_builder_int (&b.b, format ? 1 : 0);
+    spa_pod_builder_add (&b.b, SPA_POD_TYPE_POD, possible_formats[i], 0);
+
+  spa_pod_builder_add (&b.b, SPA_POD_TYPE_INT, format ? 1 : 0, 0);
   if (format)
-    spa_pod_builder_raw (&b.b, format, SPA_POD_SIZE (format), true);
-  spa_pod_builder_int (&b.b, props ? 1 : 0);
+    spa_pod_builder_add (&b.b, SPA_POD_TYPE_POD, format, 0);
+  spa_pod_builder_add (&b.b, SPA_POD_TYPE_INT, props ? 1 : 0, 0);
   if (props)
-    spa_pod_builder_raw (&b.b, props, SPA_POD_SIZE (props), true);
-  spa_pod_builder_int (&b.b, info ? 1 : 0);
+    spa_pod_builder_add (&b.b, SPA_POD_TYPE_POD, props, 0);
+  spa_pod_builder_add (&b.b, SPA_POD_TYPE_INT, info ? 1 : 0, 0);
   if (info) {
-    spa_pod_builder_int (&b.b, info->flags);
-    spa_pod_builder_long (&b.b, info->maxbuffering);
-    spa_pod_builder_long (&b.b, info->latency);
-    spa_pod_builder_int (&b.b, info->n_params);
+    spa_pod_builder_add (&b.b,
+        SPA_POD_TYPE_INT, info->flags,
+        SPA_POD_TYPE_LONG, info->maxbuffering,
+        SPA_POD_TYPE_LONG, info->latency,
+        SPA_POD_TYPE_INT, info->n_params,
+        0);
+
     for (i = 0; i < info->n_params; i++) {
       SpaAllocParam *p = info->params[i];
-      spa_pod_builder_bytes (&b.b, p, p->size);
+      spa_pod_builder_add (&b.b, SPA_POD_TYPE_BYTES, p, p->size, 0);
     }
     n_items = info->extra ? info->extra->n_items : 0;
-    spa_pod_builder_int (&b.b, n_items);
+    spa_pod_builder_add (&b.b, SPA_POD_TYPE_INT, n_items, 0);
     for (i = 0; i < n_items; i++) {
-      spa_pod_builder_string (&b.b, info->extra->items[i].key);
-      spa_pod_builder_string (&b.b, info->extra->items[i].value);
+      spa_pod_builder_add (&b.b,
+          SPA_POD_TYPE_STRING, info->extra->items[i].key,
+          SPA_POD_TYPE_STRING, info->extra->items[i].value,
+          0);
     }
   }
-  spa_pod_builder_pop (&b.b, &f);
+  spa_pod_builder_add (&b.b, -SPA_POD_TYPE_STRUCT, &f, 0);
 
   pinos_connection_end_write (connection, proxy->id, 1, b.b.offset);
 }
@@ -446,9 +487,11 @@ client_node_marshal_state_change (void         *object,
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
 
-  spa_pod_builder_push_struct (&b.b, &f);
-  spa_pod_builder_int (&b.b, state);
-  spa_pod_builder_pop (&b.b, &f);
+  spa_pod_builder_add (&b.b,
+      SPA_POD_TYPE_STRUCT, &f,
+        SPA_POD_TYPE_INT, state,
+     -SPA_POD_TYPE_STRUCT, &f,
+      0);
 
   pinos_connection_end_write (connection, proxy->id, 2, b.b.offset);
 }
@@ -462,9 +505,11 @@ client_node_marshal_event (void         *object,
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
 
-  spa_pod_builder_push_struct (&b.b, &f);
-  spa_pod_builder_bytes (&b.b, event, event->size);
-  spa_pod_builder_pop (&b.b, &f);
+  spa_pod_builder_add (&b.b,
+      SPA_POD_TYPE_STRUCT, &f,
+        SPA_POD_TYPE_BYTES, event, event->size,
+     -SPA_POD_TYPE_STRUCT, &f,
+      0);
 
   pinos_connection_end_write (connection, proxy->id, 3, b.b.offset);
 }
@@ -478,14 +523,16 @@ client_node_marshal_destroy (void    *object,
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
 
-  spa_pod_builder_push_struct (&b.b, &f);
-  spa_pod_builder_int (&b.b, seq);
-  spa_pod_builder_pop (&b.b, &f);
+  spa_pod_builder_add (&b.b,
+      SPA_POD_TYPE_STRUCT, &f,
+        SPA_POD_TYPE_INT, seq,
+     -SPA_POD_TYPE_STRUCT, &f,
+      0);
 
   pinos_connection_end_write (connection, proxy->id, 4, b.b.offset);
 }
 
-static void
+static bool
 client_node_demarshal_done (void   *object,
                             void   *data,
                             size_t  size)
@@ -501,13 +548,14 @@ client_node_demarshal_done (void   *object,
         SPA_POD_TYPE_INT, &seq,
         SPA_POD_TYPE_INT, &idx,
         0))
-    return;
+    return false;
 
   fd = pinos_connection_get_fd (connection, idx);
   pinos_client_node_notify_done (proxy, seq, fd);
+  return true;
 }
 
-static void
+static bool
 client_node_demarshal_event (void   *object,
                              void   *data,
                              size_t  size)
@@ -521,12 +569,13 @@ client_node_demarshal_event (void   *object,
       !spa_pod_iter_get (&it,
         SPA_POD_TYPE_BYTES, &event, &s,
         0))
-    return;
+    return false;
 
   pinos_client_node_notify_event (proxy, event);
+  return true;
 }
 
-static void
+static bool
 client_node_demarshal_add_port (void   *object,
                                 void   *data,
                                 size_t  size)
@@ -541,15 +590,16 @@ client_node_demarshal_add_port (void   *object,
         SPA_POD_TYPE_INT, &direction,
         SPA_POD_TYPE_INT, &port_id,
         0))
-    return;
+    return false;
 
   pinos_client_node_notify_add_port (proxy, seq, direction, port_id);
+  return true;
 }
 
-static void
+static bool
 client_node_demarshal_remove_port (void   *object,
-                                 void   *data,
-                                 size_t  size)
+                                   void   *data,
+                                   size_t  size)
 {
   PinosProxy *proxy = object;
   SpaPODIter it;
@@ -561,15 +611,16 @@ client_node_demarshal_remove_port (void   *object,
         SPA_POD_TYPE_INT, &direction,
         SPA_POD_TYPE_INT, &port_id,
         0))
-    return;
+    return false;
 
   pinos_client_node_notify_remove_port (proxy, seq, direction, port_id);
+  return true;
 }
 
-static void
+static bool
 client_node_demarshal_set_format (void   *object,
-                                void   *data,
-                                size_t  size)
+                                  void   *data,
+                                  size_t  size)
 {
   PinosProxy *proxy = object;
   SpaPODIter it;
@@ -584,16 +635,17 @@ client_node_demarshal_set_format (void   *object,
         SPA_POD_TYPE_INT, &flags,
         SPA_POD_TYPE_INT, &have_format,
         0))
-    return;
+    return false;
 
   if (have_format && !spa_pod_iter_get (&it, SPA_POD_TYPE_OBJECT, &format, 0))
-    return;
+    return false;
 
   pinos_client_node_notify_set_format (proxy, seq, direction, port_id,
                                        flags, format);
+  return true;
 }
 
-static void
+static bool
 client_node_demarshal_set_property (void   *object,
                                     void   *data,
                                     size_t  size)
@@ -610,12 +662,13 @@ client_node_demarshal_set_property (void   *object,
         SPA_POD_TYPE_INT, &id,
         SPA_POD_TYPE_BYTES, &value, &s,
         0))
-    return;
+    return false;
 
   pinos_client_node_notify_set_property (proxy, seq, id, s, value);
+  return true;
 }
 
-static void
+static bool
 client_node_demarshal_add_mem (void   *object,
                                void   *data,
                                size_t  size)
@@ -637,7 +690,7 @@ client_node_demarshal_add_mem (void   *object,
         SPA_POD_TYPE_INT, &offset,
         SPA_POD_TYPE_INT, &sz,
         0))
-    return;
+    return false;
 
   memfd = pinos_connection_get_fd (connection, memfd_idx);
 
@@ -650,12 +703,13 @@ client_node_demarshal_add_mem (void   *object,
                                     flags,
                                     offset,
                                     sz);
+  return true;
 }
 
-static void
+static bool
 client_node_demarshal_use_buffers (void   *object,
-                                 void   *data,
-                                 size_t  size)
+                                   void   *data,
+                                   size_t  size)
 {
   PinosProxy *proxy = object;
   SpaPODIter it;
@@ -670,7 +724,7 @@ client_node_demarshal_use_buffers (void   *object,
         SPA_POD_TYPE_INT, &port_id,
         SPA_POD_TYPE_INT, &n_buffers,
         0))
-    return;
+    return false;
 
   buffers = alloca (sizeof (PinosClientNodeBuffer) * n_buffers);
   for (i = 0; i < n_buffers; i++) {
@@ -682,7 +736,7 @@ client_node_demarshal_use_buffers (void   *object,
           SPA_POD_TYPE_INT, &buffers[i].size,
           SPA_POD_TYPE_INT, &buf->id,
           SPA_POD_TYPE_INT, &buf->n_metas, 0))
-      return;
+      return false;
 
     buf->metas = alloca (sizeof (SpaMeta) * buf->n_metas);
     for (j = 0; j < buf->n_metas; j++) {
@@ -691,12 +745,12 @@ client_node_demarshal_use_buffers (void   *object,
       if (!spa_pod_iter_get (&it,
             SPA_POD_TYPE_INT, &m->type,
             SPA_POD_TYPE_INT, &size, 0))
-        return;
+        return false;
 
       m->size = size;
     }
     if (!spa_pod_iter_get (&it, SPA_POD_TYPE_INT, &buf->n_datas, 0))
-      return;
+      return false;
 
     buf->datas = alloca (sizeof (SpaData) * buf->n_datas);
     for (j = 0; j < buf->n_datas; j++) {
@@ -709,7 +763,7 @@ client_node_demarshal_use_buffers (void   *object,
             SPA_POD_TYPE_INT, &d->mapoffset,
             SPA_POD_TYPE_INT, &d->maxsize,
             0))
-        return;
+        return false;
 
       d->data = SPA_UINT32_TO_PTR (data_id);
     }
@@ -720,153 +774,169 @@ client_node_demarshal_use_buffers (void   *object,
                                         port_id,
                                         n_buffers,
                                         buffers);
+  return true;
 }
 
-static void
+static bool
 client_node_demarshal_node_command (void   *object,
-                                  void   *data,
-                                  size_t  size)
+                                    void   *data,
+                                    size_t  size)
 {
   PinosProxy *proxy = object;
-  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
+  SpaPODIter it;
   const SpaNodeCommand *command;
-  int32_t i1;
-  uint32_t s;
+  uint32_t seq, s;
 
-  if (!spa_pod_get_int (&p, &i1) ||
-      !spa_pod_get_bytes (&p, (const void**)&command, &s))
-    return;
+  if (!spa_pod_iter_struct (&it, data, size) ||
+      !spa_pod_iter_get (&it,
+        SPA_POD_TYPE_INT, &seq,
+        SPA_POD_TYPE_BYTES, &command, &s,
+        0))
+    return false;
 
-  pinos_client_node_notify_node_command (proxy, i1, command);
+  pinos_client_node_notify_node_command (proxy, seq, command);
+  return true;
 }
 
-static void
+static bool
 client_node_demarshal_port_command (void   *object,
                                     void   *data,
                                     size_t  size)
 {
   PinosProxy *proxy = object;
-  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
+  SpaPODIter it;
   const SpaNodeCommand *command;
-  int32_t i1;
-  uint32_t s;
+  uint32_t port_id, s;
 
-  if (!spa_pod_get_int (&p, &i1) ||
-      !spa_pod_get_bytes (&p, (const void**)&command, &s))
-    return;
+  if (!spa_pod_iter_struct (&it, data, size) ||
+      !spa_pod_iter_get (&it,
+        SPA_POD_TYPE_INT, &port_id,
+        SPA_POD_TYPE_BYTES, &command, &s,
+        0))
+    return false;
 
-  pinos_client_node_notify_port_command (proxy, i1, command);
+  pinos_client_node_notify_port_command (proxy, port_id, command);
+  return true;
 }
 
-static void
+static bool
 client_node_demarshal_transport (void   *object,
-                               void   *data,
-                               size_t  size)
-{
-  PinosProxy *proxy = object;
-  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
-  PinosConnection *connection = proxy->context->protocol_private;
-  int32_t memfd, offset, sz;
-
-  if (!spa_pod_get_int (&p, &memfd) ||
-      !spa_pod_get_int (&p, &offset) ||
-      !spa_pod_get_int (&p, &sz))
-    return;
-
-  memfd = pinos_connection_get_fd (connection, memfd);
-  pinos_client_node_notify_transport (proxy, memfd, offset, sz);
-}
-
-static void
-client_demarshal_info (void   *object,
-                      void   *data,
-                      size_t  size)
-{
-  PinosProxy *proxy = object;
-  SpaDict props;
-  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
-  PinosClientInfo info;
-  int32_t i1, i2;
-  int64_t l1;
-  int i;
-
-  if (!spa_pod_get_int (&p, &i1) ||
-      !spa_pod_get_long (&p, &l1) ||
-      !spa_pod_get_int (&p, &i2))
-    return;
-
-  info.id = i1;
-  info.change_mask = l1;
-  info.props = &props;
-  props.n_items = i2;
-  props.items = alloca (props.n_items * sizeof (SpaDictItem));
-  for (i = 0; i < props.n_items; i++) {
-    if (!spa_pod_get_string (&p, &props.items[i].key) ||
-        !spa_pod_get_string (&p, &props.items[i].value))
-      return;
-  }
-  pinos_client_notify_info (proxy, &info);
-}
-
-static void
-link_demarshal_info (void   *object,
-                    void   *data,
-                    size_t  size)
-{
-  PinosProxy *proxy = object;
-  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
-  PinosLinkInfo info;
-  int32_t i1, i2, i3, i4, i5;
-  int64_t l1;
-
-  if (!spa_pod_get_int (&p, &i1) ||
-      !spa_pod_get_long (&p, &l1) ||
-      !spa_pod_get_int (&p, &i2) ||
-      !spa_pod_get_int (&p, &i3) ||
-      !spa_pod_get_int (&p, &i4) ||
-      !spa_pod_get_int (&p, &i5))
-    return;
-
-  info.id = i1;
-  info.change_mask = l1;
-  info.output_node_id = i2;
-  info.output_port_id = i3;
-  info.input_node_id = i4;
-  info.input_port_id = i5;
-
-  pinos_link_notify_info (proxy, &info);
-}
-
-static void
-registry_demarshal_global (void   *object,
-                          void   *data,
-                          size_t  size)
-{
-  PinosProxy *proxy = object;
-  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
-  int32_t i1;
-  const char *type;
-
-  if (!spa_pod_get_int (&p, &i1) ||
-      !spa_pod_get_string (&p, &type))
-    return;
-
-  pinos_registry_notify_global (proxy, i1, type);
-}
-
-static void
-registry_demarshal_global_remove (void   *object,
                                  void   *data,
                                  size_t  size)
 {
   PinosProxy *proxy = object;
-  SpaPOD *p = SPA_POD_CONTENTS (SpaPODStruct, data);
-  int32_t i1;
+  SpaPODIter it;
+  PinosConnection *connection = proxy->context->protocol_private;
+  uint32_t memfd_idx, offset, sz;
+  int memfd;
 
-  if (!spa_pod_get_int (&p, &i1))
-    return;
+  if (!spa_pod_iter_struct (&it, data, size) ||
+      !spa_pod_iter_get (&it,
+        SPA_POD_TYPE_INT, &memfd_idx,
+        SPA_POD_TYPE_INT, &offset,
+        SPA_POD_TYPE_INT, &sz,
+        0))
+    return false;
 
-  pinos_registry_notify_global_remove (proxy, i1);
+  memfd = pinos_connection_get_fd (connection, memfd_idx);
+  pinos_client_node_notify_transport (proxy, memfd, offset, sz);
+  return true;
+}
+
+static bool
+client_demarshal_info (void   *object,
+                       void   *data,
+                       size_t  size)
+{
+  PinosProxy *proxy = object;
+  SpaPODIter it;
+  SpaDict props;
+  PinosClientInfo info;
+  uint32_t i;
+
+  if (!spa_pod_iter_struct (&it, data, size) ||
+      !spa_pod_iter_get (&it,
+        SPA_POD_TYPE_INT, &info.id,
+        SPA_POD_TYPE_LONG, &info.change_mask,
+        SPA_POD_TYPE_INT, &props.n_items,
+        0))
+    return false;
+
+  info.props = &props;
+  props.items = alloca (props.n_items * sizeof (SpaDictItem));
+  for (i = 0; i < props.n_items; i++) {
+    if (!spa_pod_iter_get (&it,
+          SPA_POD_TYPE_STRING, &props.items[i].key,
+          SPA_POD_TYPE_STRING, &props.items[i].value,
+          0))
+      return false;
+  }
+  pinos_client_notify_info (proxy, &info);
+  return true;
+}
+
+static bool
+link_demarshal_info (void   *object,
+                     void   *data,
+                     size_t  size)
+{
+  PinosProxy *proxy = object;
+  SpaPODIter it;
+  PinosLinkInfo info;
+
+  if (!spa_pod_iter_struct (&it, data, size) ||
+      !spa_pod_iter_get (&it,
+        SPA_POD_TYPE_INT, &info.id,
+        SPA_POD_TYPE_LONG, &info.change_mask,
+        SPA_POD_TYPE_INT, &info.output_node_id,
+        SPA_POD_TYPE_INT, &info.output_port_id,
+        SPA_POD_TYPE_INT, &info.input_node_id,
+        SPA_POD_TYPE_INT, &info.input_port_id,
+        0))
+    return false;
+
+  pinos_link_notify_info (proxy, &info);
+  return true;
+}
+
+static bool
+registry_demarshal_global (void   *object,
+                           void   *data,
+                           size_t  size)
+{
+  PinosProxy *proxy = object;
+  SpaPODIter it;
+  uint32_t id;
+  const char *type;
+
+  if (!spa_pod_iter_struct (&it, data, size) ||
+      !spa_pod_iter_get (&it,
+        SPA_POD_TYPE_INT, &id,
+        SPA_POD_TYPE_STRING, &type,
+        0))
+    return false;
+
+  pinos_registry_notify_global (proxy, id, type);
+  return true;
+}
+
+static bool
+registry_demarshal_global_remove (void   *object,
+                                  void   *data,
+                                  size_t  size)
+{
+  PinosProxy *proxy = object;
+  SpaPODIter it;
+  uint32_t id;
+
+  if (!spa_pod_iter_struct (&it, data, size) ||
+      !spa_pod_iter_get (&it,
+        SPA_POD_TYPE_INT, &id,
+        0))
+    return false;
+
+  pinos_registry_notify_global_remove (proxy, id);
+  return true;
 }
 
 static void
@@ -879,10 +949,11 @@ registry_marshal_bind (void          *object,
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
 
-  spa_pod_builder_push_struct (&b.b, &f);
-  spa_pod_builder_int (&b.b, id);
-  spa_pod_builder_int (&b.b, new_id);
-  spa_pod_builder_pop (&b.b, &f);
+  spa_pod_builder_add (&b.b,
+      SPA_POD_TYPE_STRUCT, &f,
+        SPA_POD_TYPE_INT, id,
+        SPA_POD_TYPE_INT, new_id,
+     -SPA_POD_TYPE_STRUCT, &f, 0);
 
   pinos_connection_end_write (connection, proxy->id, 0, b.b.offset);
 }

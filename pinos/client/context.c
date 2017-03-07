@@ -402,9 +402,10 @@ on_context_data (SpaSource *source,
       pinos_log_debug ("context %p: object demarshal %u, %u", this, id, opcode);
 
       demarshal = proxy->demarshal;
-      if (demarshal[opcode])
-        demarshal[opcode] (proxy, message, size);
-      else
+      if (demarshal[opcode]) {
+        if (!demarshal[opcode] (proxy, message, size))
+          pinos_log_error ("context %p: invalid message received", this);
+      } else
         pinos_log_error ("context %p: function %d not implemented", this, opcode);
 
     }

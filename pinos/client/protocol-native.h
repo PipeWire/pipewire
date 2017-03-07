@@ -20,7 +20,7 @@
 #include "pinos/client/pinos.h"
 #include "pinos/client/interfaces.h"
 
-typedef void (*PinosDemarshalFunc) (void *object, void *data, size_t size);
+typedef bool (*PinosDemarshalFunc) (void *object, void *data, size_t size);
 
 extern const PinosCoreInterface       pinos_protocol_native_client_core_interface;
 extern const PinosRegistryInterface   pinos_protocol_native_client_registry_interface;

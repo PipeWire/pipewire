@@ -48,7 +48,8 @@ typedef enum {
   SPA_POD_TYPE_STRUCT,
   SPA_POD_TYPE_OBJECT,
   SPA_POD_TYPE_PROP,
-  SPA_POD_TYPE_BYTES
+  SPA_POD_TYPE_BYTES,
+  SPA_POD_TYPE_POD
 } SpaPODType;
 
 typedef struct {
@@ -71,16 +72,6 @@ typedef struct {
   int32_t      value;
 } SpaPODInt;
 
-static inline bool
-spa_pod_get_int (SpaPOD **pod, int32_t *val)
-{
-  if (*pod == NULL || (*pod)->type != SPA_POD_TYPE_INT)
-    return false;
-  *val = ((SpaPODInt *)(*pod))->value;
-  *pod = SPA_MEMBER (*pod, SPA_ROUND_UP_N (SPA_POD_SIZE (*pod), 8), SpaPOD);
-  return true;
-}
-
 typedef SpaPODInt SpaPODBool;
 typedef SpaPODInt SpaPODURI;
 
@@ -88,16 +79,6 @@ typedef struct {
   SpaPOD       pod;
   int64_t      value;
 } SpaPODLong;
-
-static inline bool
-spa_pod_get_long (SpaPOD **pod, int64_t *val)
-{
-  if (*pod == NULL || (*pod)->type != SPA_POD_TYPE_LONG)
-    return false;
-  *val = ((SpaPODLong *)*pod)->value;
-  *pod = SPA_MEMBER (*pod, SPA_ROUND_UP_N (SPA_POD_SIZE (*pod), 8), SpaPOD);
-  return true;
-}
 
 typedef struct {
   SpaPOD       pod;
@@ -113,16 +94,6 @@ typedef struct {
   SpaPOD       pod;
   /* value here */
 } SpaPODString;
-
-static inline bool
-spa_pod_get_string (SpaPOD **pod, const char **val)
-{
-  if (*pod == NULL || (*pod)->type != SPA_POD_TYPE_STRING)
-    return false;
-  *val = SPA_POD_CONTENTS (SpaPODString, *pod);
-  *pod = SPA_MEMBER (*pod, SPA_ROUND_UP_N (SPA_POD_SIZE (*pod), 8), SpaPOD);
-  return true;
-}
 
 typedef struct {
   SpaPOD       pod;
@@ -158,16 +129,6 @@ typedef struct {
   SpaPOD           pod;
   /* one or more SpaPOD follow */
 } SpaPODStruct;
-
-static inline bool
-spa_pod_get_struct (SpaPOD **pod, SpaPOD **val)
-{
-  if (*pod == NULL || (*pod)->type != SPA_POD_TYPE_STRUCT)
-    return false;
-  *val = *pod;
-  *pod = SPA_MEMBER (*pod, SPA_ROUND_UP_N (SPA_POD_SIZE (*pod), 8), SpaPOD);
-  return true;
-}
 
 typedef struct {
   uint32_t         key;
@@ -206,28 +167,6 @@ typedef struct {
   SpaPOD           pod;
   SpaPODObjectBody body;
 } SpaPODObject;
-
-static inline bool
-spa_pod_get_object (SpaPOD **pod, const SpaPOD **val)
-{
-  if (*pod == NULL || (*pod)->type != SPA_POD_TYPE_OBJECT)
-    return false;
-  *val = *pod;
-  *pod = SPA_MEMBER (*pod, SPA_ROUND_UP_N (SPA_POD_SIZE (*pod), 8), SpaPOD);
-  return true;
-}
-
-static inline bool
-spa_pod_get_bytes (SpaPOD **pod, const void **val, uint32_t *size)
-{
-  if (*pod == NULL || (*pod)->type != SPA_POD_TYPE_BYTES)
-    return false;
-  *val = SPA_POD_CONTENTS (SpaPODBytes, *pod);
-  *size = SPA_POD_SIZE (*pod);
-  *pod = SPA_MEMBER (*pod, SPA_ROUND_UP_N (SPA_POD_SIZE (*pod), 8), SpaPOD);
-  return true;
-}
-
 
 #define SPA_POD_ARRAY_BODY_FOREACH(body, _size, iter) \
   for ((iter) = SPA_MEMBER ((body), sizeof(SpaPODArrayBody), __typeof__(*(iter))); \

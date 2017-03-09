@@ -94,7 +94,6 @@ core_marshal_sync (void     *object,
 
 static void
 core_marshal_get_registry (void     *object,
-                           uint32_t  seq,
                            uint32_t  new_id)
 {
   PinosProxy *proxy = object;
@@ -104,7 +103,6 @@ core_marshal_get_registry (void     *object,
 
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
-        SPA_POD_TYPE_INT, seq,
         SPA_POD_TYPE_INT, new_id,
      -SPA_POD_TYPE_STRUCT, &f,
      0);
@@ -114,7 +112,6 @@ core_marshal_get_registry (void     *object,
 
 static void
 core_marshal_create_node (void          *object,
-                          uint32_t       seq,
                           const char    *factory_name,
                           const char    *name,
                           const SpaDict *props,
@@ -130,7 +127,6 @@ core_marshal_create_node (void          *object,
 
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
-        SPA_POD_TYPE_INT, seq,
         SPA_POD_TYPE_STRING, factory_name,
         SPA_POD_TYPE_STRING, name,
         SPA_POD_TYPE_INT, n_items, 0);
@@ -150,7 +146,6 @@ core_marshal_create_node (void          *object,
 
 static void
 core_marshal_create_client_node (void          *object,
-                                 uint32_t       seq,
                                  const char    *name,
                                  const SpaDict *props,
                                  uint32_t       new_id)
@@ -165,7 +160,6 @@ core_marshal_create_client_node (void          *object,
 
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
-        SPA_POD_TYPE_INT, seq,
         SPA_POD_TYPE_STRING, name,
         SPA_POD_TYPE_INT, n_items, 0);
 
@@ -311,25 +305,6 @@ module_demarshal_info (void   *object,
       return false;
   }
   ((PinosModuleEvents*)proxy->implementation)->info (proxy, &info);
-  return true;
-}
-
-static bool
-node_demarshal_done (void   *object,
-                     void   *data,
-                     size_t  size)
-{
-  PinosProxy *proxy = object;
-  SpaPODIter it;
-  uint32_t seq;
-
-  if (!spa_pod_iter_struct (&it, data, size) ||
-      !spa_pod_iter_get (&it,
-        SPA_POD_TYPE_INT, &seq,
-        0))
-    return false;
-
-  ((PinosNodeEvents*)proxy->implementation)->done (proxy, seq);
   return true;
 }
 
@@ -517,8 +492,7 @@ client_node_marshal_event (void         *object,
 }
 
 static void
-client_node_marshal_destroy (void    *object,
-                             uint32_t seq)
+client_node_marshal_destroy (void    *object)
 {
   PinosProxy *proxy = object;
   PinosConnection *connection = proxy->context->protocol_private;
@@ -527,7 +501,6 @@ client_node_marshal_destroy (void    *object,
 
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
-        SPA_POD_TYPE_INT, seq,
      -SPA_POD_TYPE_STRUCT, &f,
       0);
 
@@ -542,18 +515,17 @@ client_node_demarshal_done (void   *object,
   PinosProxy *proxy = object;
   SpaPODIter it;
   PinosConnection *connection = proxy->context->protocol_private;
-  int32_t seq, idx;
+  int32_t idx;
   int fd;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
       !spa_pod_iter_get (&it,
-        SPA_POD_TYPE_INT, &seq,
         SPA_POD_TYPE_INT, &idx,
         0))
     return false;
 
   fd = pinos_connection_get_fd (connection, idx);
-  ((PinosClientNodeEvents*)proxy->implementation)->done (proxy, seq, fd);
+  ((PinosClientNodeEvents*)proxy->implementation)->done (proxy, fd);
   return true;
 }
 
@@ -1031,13 +1003,12 @@ static const PinosInterface pinos_protocol_native_client_module_interface = {
 };
 
 static const PinosDemarshalFunc pinos_protocol_native_client_node_demarshal[] = {
-  &node_demarshal_done,
   &node_demarshal_info,
 };
 
 static const PinosInterface pinos_protocol_native_client_node_interface = {
   0, NULL,
-  2, pinos_protocol_native_client_node_demarshal,
+  1, pinos_protocol_native_client_node_demarshal,
 };
 
 static const PinosDemarshalFunc pinos_protocol_native_client_client_demarshal[] = {

@@ -64,8 +64,6 @@ typedef struct
 
   SpaNodeState node_state;
 
-  uint32_t seq;
-
   uint32_t n_possible_formats;
   SpaFormat **possible_formats;
 
@@ -661,7 +659,6 @@ handle_node_command (PinosStream          *stream,
 
 static void
 client_node_done (void              *object,
-                  uint32_t           seq,
                   int                datafd)
 {
   PinosProxy *proxy = object;
@@ -1000,7 +997,6 @@ pinos_stream_connect (PinosStream      *stream,
   impl->node_proxy->implementation = &client_node_events;
 
   pinos_core_do_create_client_node (stream->context->core_proxy,
-                                    ++impl->seq,
                                     "client-node",
                                     &stream->properties->dict,
                                     impl->node_proxy->id);
@@ -1101,7 +1097,7 @@ pinos_stream_disconnect (PinosStream *stream)
 
   unhandle_socket (stream);
 
-  pinos_client_node_do_destroy (impl->node_proxy, ++impl->seq);
+  pinos_client_node_do_destroy (impl->node_proxy);
 
   return true;
 }

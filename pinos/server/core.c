@@ -100,7 +100,6 @@ core_sync (void    *object,
 
 static void
 core_get_registry (void     *object,
-                   uint32_t  seq,
                    uint32_t  new_id)
 {
   PinosResource *resource = object;
@@ -126,8 +125,6 @@ core_get_registry (void     *object,
                                   global->id,
                                   spa_id_map_get_uri (this->uri.map, global->type));
 
-  pinos_core_notify_done (client->core_resource, seq);
-
   return;
 
 no_mem:
@@ -140,7 +137,6 @@ no_mem:
 
 static void
 core_create_node (void          *object,
-                  uint32_t       seq,
                   const char    *factory_name,
                   const char    *name,
                   const SpaDict *props,
@@ -157,7 +153,6 @@ core_create_node (void          *object,
 
 static void
 core_create_client_node (void          *object,
-                         uint32_t       seq,
                          const char    *name,
                          const SpaDict *props,
                          uint32_t       new_id)
@@ -194,7 +189,6 @@ core_create_client_node (void          *object,
   }
 
   pinos_client_node_notify_done (node->resource,
-                                 seq,
                                  data_fd);
   return;
 

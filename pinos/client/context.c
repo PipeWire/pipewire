@@ -126,8 +126,6 @@ core_event_done (void     *object,
   PinosContext *this = proxy->context;
 
   if (seq == 0) {
-    pinos_core_do_sync (this->core_proxy, 1);
-  } else if (seq == 1) {
     context_set_state (this, PINOS_CONTEXT_STATE_CONNECTED, NULL);
   }
 }
@@ -194,12 +192,6 @@ static const PinosModuleEvents module_events = {
 };
 
 static void
-node_event_done (void          *object,
-                 uint32_t       seq)
-{
-}
-
-static void
 node_event_info (void          *object,
                  PinosNodeInfo *info)
 {
@@ -224,7 +216,6 @@ node_event_info (void          *object,
 }
 
 static const PinosNodeEvents node_events = {
-  &node_event_done,
   &node_event_info
 };
 
@@ -403,10 +394,8 @@ on_context_data (SpaSource *source,
 
       demarshal = proxy->iface->events;
       if (demarshal[opcode]) {
-        if (!demarshal[opcode] (proxy, message, size)) {
+        if (!demarshal[opcode] (proxy, message, size))
           pinos_log_error ("context %p: invalid message received %u", this, opcode);
-          spa_debug_pod (message);
-        }
       } else
         pinos_log_error ("context %p: function %d not implemented", this, opcode);
 
@@ -612,8 +601,10 @@ pinos_context_connect_fd (PinosContext  *context,
   context->registry_proxy->implementation = &registry_events;
 
   pinos_core_do_get_registry (context->core_proxy,
-                              0,
                               context->registry_proxy->id);
+
+  pinos_core_do_sync (context->core_proxy, 0);
+
   return true;
 
 no_registry:

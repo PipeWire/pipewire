@@ -78,8 +78,6 @@ pinos_connection_add_fd (PinosConnection *conn,
   return index;
 }
 
-#define PINOS_DEBUG_MESSAGE(format,args...) pinos_log_trace(format,##args)
-
 static void *
 connection_ensure_size (PinosConnection *conn, ConnectionBuffer *buf, size_t size)
 {
@@ -129,7 +127,7 @@ refill_buffer (PinosConnection *conn, ConnectionBuffer *buf)
     buf->n_fds = (cmsg->cmsg_len - ((char *)CMSG_DATA (cmsg) - (char *)cmsg)) / sizeof (int);
     memcpy (buf->fds, CMSG_DATA (cmsg), buf->n_fds * sizeof (int));
   }
-  PINOS_DEBUG_MESSAGE ("connection %p: %d read %zd bytes and %d fds", conn, conn->fd, len, buf->n_fds);
+  pinos_log_trace ("connection %p: %d read %zd bytes and %d fds", conn, conn->fd, len, buf->n_fds);
 
   return true;
 
@@ -342,7 +340,7 @@ pinos_connection_flush (PinosConnection *conn)
     }
     break;
   }
-  PINOS_DEBUG_MESSAGE ("connection %p: %d written %zd bytes and %u fds", conn, conn->fd, len, buf->n_fds);
+  pinos_log_trace ("connection %p: %d written %zd bytes and %u fds", conn, conn->fd, len, buf->n_fds);
 
   buf->buffer_size -= len;
   buf->n_fds = 0;

@@ -47,7 +47,7 @@ write_pod (SpaPODBuilder *b, uint32_t ref, const void *data, uint32_t size)
 
 static void
 core_marshal_info (void          *object,
-                 PinosCoreInfo *info)
+                   PinosCoreInfo *info)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;
@@ -81,7 +81,7 @@ core_marshal_info (void          *object,
 
 static void
 core_marshal_done (void          *object,
-                 uint32_t       seq)
+                   uint32_t       seq)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;
@@ -98,9 +98,9 @@ core_marshal_done (void          *object,
 
 static void
 core_marshal_error (void          *object,
-                  uint32_t       id,
-                  SpaResult      res,
-                  const char     *error, ...)
+                    uint32_t       id,
+                    SpaResult      res,
+                    const char     *error, ...)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;
@@ -126,7 +126,7 @@ core_marshal_error (void          *object,
 
 static void
 core_marshal_remove_id (void          *object,
-                      uint32_t       id)
+                        uint32_t       id)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;
@@ -171,8 +171,8 @@ core_demarshal_client_update (void  *object,
 
 static bool
 core_demarshal_sync (void  *object,
-                    void  *data,
-                    size_t size)
+                     void  *data,
+                     size_t size)
 {
   PinosResource *resource = object;
   SpaPODIter it;
@@ -190,38 +190,36 @@ core_demarshal_sync (void  *object,
 
 static bool
 core_demarshal_get_registry (void  *object,
-                            void  *data,
-                            size_t size)
+                             void  *data,
+                             size_t size)
 {
   PinosResource *resource = object;
   SpaPODIter it;
-  int32_t seq, new_id;
+  int32_t new_id;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
       !spa_pod_iter_get (&it,
-        SPA_POD_TYPE_INT, &seq,
         SPA_POD_TYPE_INT, &new_id,
         0))
     return false;
 
-  ((PinosCoreMethods*)resource->implementation)->get_registry (resource, seq, new_id);
+  ((PinosCoreMethods*)resource->implementation)->get_registry (resource, new_id);
   return true;
 }
 
 static bool
 core_demarshal_create_node (void  *object,
-                           void  *data,
-                           size_t size)
+                            void  *data,
+                            size_t size)
 {
   PinosResource *resource = object;
   SpaPODIter it;
-  uint32_t seq, new_id, i;
+  uint32_t new_id, i;
   const char *factory_name, *name;
   SpaDict props;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
       !spa_pod_iter_get (&it,
-        SPA_POD_TYPE_INT, &seq,
         SPA_POD_TYPE_STRING, &factory_name,
         SPA_POD_TYPE_STRING, &name,
         SPA_POD_TYPE_INT, &props.n_items,
@@ -240,7 +238,6 @@ core_demarshal_create_node (void  *object,
     return false;
 
   ((PinosCoreMethods*)resource->implementation)->create_node (resource,
-                                                              seq,
                                                               factory_name,
                                                               name,
                                                               &props,
@@ -250,18 +247,17 @@ core_demarshal_create_node (void  *object,
 
 static bool
 core_demarshal_create_client_node (void  *object,
-                                  void  *data,
-                                  size_t size)
+                                   void  *data,
+                                   size_t size)
 {
   PinosResource *resource = object;
   SpaPODIter it;
-  uint32_t seq, new_id, i;
+  uint32_t new_id, i;
   const char *name;
   SpaDict props;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
       !spa_pod_iter_get (&it,
-        SPA_POD_TYPE_INT, &seq,
         SPA_POD_TYPE_STRING, &name,
         SPA_POD_TYPE_INT, &props.n_items,
         0))
@@ -279,7 +275,6 @@ core_demarshal_create_client_node (void  *object,
     return false;
 
   ((PinosCoreMethods*)resource->implementation)->create_client_node (resource,
-                                                                     seq,
                                                                      name,
                                                                      &props,
                                                                      new_id);
@@ -288,8 +283,8 @@ core_demarshal_create_client_node (void  *object,
 
 static void
 registry_marshal_global (void          *object,
-                       uint32_t       id,
-                       const char    *type)
+                         uint32_t       id,
+                         const char    *type)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;
@@ -307,7 +302,7 @@ registry_marshal_global (void          *object,
 
 static void
 registry_marshal_global_remove (void          *object,
-                              uint32_t       id)
+                                uint32_t       id)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;
@@ -324,8 +319,8 @@ registry_marshal_global_remove (void          *object,
 
 static bool
 registry_demarshal_bind (void  *object,
-                        void  *data,
-                        size_t size)
+                         void  *data,
+                         size_t size)
 {
   PinosResource *resource = object;
   SpaPODIter it;
@@ -375,23 +370,6 @@ module_marshal_info (void            *object,
 }
 
 static void
-node_marshal_done (void     *object,
-                   uint32_t  seq)
-{
-  PinosResource *resource = object;
-  PinosConnection *connection = resource->client->protocol_private;
-  Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
-  SpaPODFrame f;
-
-  spa_pod_builder_add (&b.b,
-      SPA_POD_TYPE_STRUCT, &f,
-        SPA_POD_TYPE_INT, seq,
-     -SPA_POD_TYPE_STRUCT, &f, 0);
-
-  pinos_connection_end_write (connection, resource->id, 0, b.b.offset);
-}
-
-static void
 node_marshal_info (void          *object,
                    PinosNodeInfo *info)
 {
@@ -435,7 +413,7 @@ node_marshal_info (void          *object,
   }
   spa_pod_builder_add (&b.b, -SPA_POD_TYPE_STRUCT, &f, 0);
 
-  pinos_connection_end_write (connection, resource->id, 1, b.b.offset);
+  pinos_connection_end_write (connection, resource->id, 0, b.b.offset);
 }
 
 static void
@@ -468,7 +446,6 @@ client_marshal_info (void          *object,
 
 static void
 client_node_marshal_done (void     *object,
-                          uint32_t  seq,
                           int       datafd)
 {
   PinosResource *resource = object;
@@ -478,7 +455,6 @@ client_node_marshal_done (void     *object,
 
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
-        SPA_POD_TYPE_INT, seq,
         SPA_POD_TYPE_INT, pinos_connection_add_fd (connection, datafd),
      -SPA_POD_TYPE_STRUCT, &f, 0);
 
@@ -884,13 +860,11 @@ client_node_demarshal_destroy (void   *object,
 {
   PinosResource *resource = object;
   SpaPODIter it;
-  uint32_t seq;
 
-  if (!spa_pod_iter_struct (&it, data, size) ||
-      !spa_pod_iter_get (&it, SPA_POD_TYPE_INT, &seq, 0))
+  if (!spa_pod_iter_struct (&it, data, size))
     return false;
 
-  ((PinosClientNodeMethods*)resource->implementation)->destroy (resource, seq);
+  ((PinosClientNodeMethods*)resource->implementation)->destroy (resource);
   return true;
 }
 
@@ -960,13 +934,12 @@ const PinosInterface pinos_protocol_native_server_module_interface = {
 };
 
 static const PinosNodeEvents pinos_protocol_native_server_node_events = {
-  &node_marshal_done,
   &node_marshal_info,
 };
 
 const PinosInterface pinos_protocol_native_server_node_interface = {
   0, NULL,
-  2, &pinos_protocol_native_server_node_events,
+  1, &pinos_protocol_native_server_node_events,
 };
 
 static const PinosClientEvents pinos_protocol_native_server_client_events = {

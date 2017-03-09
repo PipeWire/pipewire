@@ -19,6 +19,7 @@
 
 #include <pinos/client/log.h>
 #include <pinos/client/proxy.h>
+#include <pinos/client/protocol-native.h>
 
 typedef struct {
   PinosProxy this;

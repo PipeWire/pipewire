@@ -48,16 +48,13 @@ typedef struct {
   void (*sync)                (void          *object,
                                uint32_t       seq);
   void (*get_registry)        (void          *object,
-                               uint32_t       seq,
                                uint32_t       new_id);
   void (*create_node)         (void          *object,
-                               uint32_t       seq,
                                const char    *factory_name,
                                const char    *name,
                                const SpaDict *props,
                                uint32_t       new_id);
   void (*create_client_node)  (void          *object,
-                               uint32_t       seq,
                                const char    *name,
                                const SpaDict *props,
                                uint32_t       new_id);
@@ -114,13 +111,10 @@ typedef struct {
 #define pinos_module_notify_info(r,...)      ((PinosModuleEvents*)r->iface->events)->info(r,__VA_ARGS__)
 
 typedef struct {
-  void (*done)                (void          *object,
-                               uint32_t       seq);
   void (*info)                (void          *object,
                                PinosNodeInfo *info);
 } PinosNodeEvents;
 
-#define pinos_node_notify_done(r,...)      ((PinosNodeEvents*)r->iface->events)->done(r,__VA_ARGS__)
 #define pinos_node_notify_info(r,...)      ((PinosNodeEvents*)r->iface->events)->info(r,__VA_ARGS__)
 
 struct _PinosClientNodeBuffer {
@@ -157,19 +151,17 @@ typedef struct {
                                 SpaNodeState       state);
   void (*event)                (void              *object,
                                 SpaNodeEvent      *event);
-  void (*destroy)              (void              *object,
-                                uint32_t           seq);
+  void (*destroy)              (void              *object);
 } PinosClientNodeMethods;
 
 #define pinos_client_node_do_update(r,...)       ((PinosClientNodeMethods*)r->iface->methods)->update(r,__VA_ARGS__)
 #define pinos_client_node_do_port_update(r,...)  ((PinosClientNodeMethods*)r->iface->methods)->port_update(r,__VA_ARGS__)
 #define pinos_client_node_do_state_change(r,...) ((PinosClientNodeMethods*)r->iface->methods)->state_change(r,__VA_ARGS__)
 #define pinos_client_node_do_event(r,...)        ((PinosClientNodeMethods*)r->iface->methods)->event(r,__VA_ARGS__)
-#define pinos_client_node_do_destroy(r,...)      ((PinosClientNodeMethods*)r->iface->methods)->destroy(r,__VA_ARGS__)
+#define pinos_client_node_do_destroy(r)          ((PinosClientNodeMethods*)r->iface->methods)->destroy(r)
 
 typedef struct {
   void (*done)                 (void              *object,
-                                uint32_t           seq,
                                 int                datafd);
   void (*event)                (void               *object,
                                 const SpaNodeEvent *event);

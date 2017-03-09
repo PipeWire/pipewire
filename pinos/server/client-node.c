@@ -971,8 +971,7 @@ client_node_event (void         *object,
 }
 
 static void
-client_node_destroy (void              *object,
-                     uint32_t           seq)
+client_node_destroy (void              *object)
 {
   PinosResource *resource = object;
   PinosClientNode *node = resource->object;

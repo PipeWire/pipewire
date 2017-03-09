@@ -64,6 +64,7 @@ client_bind_func (PinosGlobal *global,
   return SPA_RESULT_OK;
 
 no_mem:
+  pinos_log_error ("can't create client resource");
   pinos_core_notify_error (client->core_resource,
                            client->core_resource->id,
                            SPA_RESULT_NO_MEMORY,

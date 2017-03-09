@@ -60,10 +60,13 @@ registry_bind (void     *object,
   return;
 
 no_id:
-  pinos_core_notify_error (client->core_resource,
-                           resource->id,
-                           SPA_RESULT_INVALID_OBJECT_ID,
-                           "unknown object id %u", id);
+  pinos_log_debug ("registry %p: no global with id %u to bind to %u", resource, id, new_id);
+  /* unmark the new_id the map, the client does not yet know about the failed
+   * bind and will choose the next id, which we would refuse when we don't mark
+   * new_id as 'used and freed' */
+  pinos_map_insert_at (&client->objects, new_id, NULL);
+  pinos_core_notify_remove_id (client->core_resource, new_id);
+  return;
 }
 
 static PinosRegistryMethods registry_methods = {
@@ -128,6 +131,7 @@ core_get_registry (void     *object,
   return;
 
 no_mem:
+  pinos_log_error ("can't create registry resource");
   pinos_core_notify_error (client->core_resource,
                            resource->id,
                            SPA_RESULT_NO_MEMORY,
@@ -195,6 +199,7 @@ core_create_client_node (void          *object,
   return;
 
 no_mem:
+  pinos_log_error ("can't create client node");
   pinos_core_notify_error (client->core_resource,
                            resource->id,
                            SPA_RESULT_NO_MEMORY,

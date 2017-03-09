@@ -51,6 +51,7 @@ pinos_resource_new (PinosClient *client,
   pinos_signal_init (&this->destroy_signal);
 
   if (!pinos_map_insert_at (&client->objects, this->id, this)) {
+    pinos_log_debug ("resource %p: id %u in use for client %p", this, id, client);
     free (impl);
     return NULL;
   }

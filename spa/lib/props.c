@@ -154,7 +154,7 @@ spa_props_filter (SpaPODBuilder  *b,
 
     if (filter == NULL || (p2 = find_prop (filter, filter_size, p1->body.key)) == NULL) {
       /* no filter, copy the complete property */
-      spa_pod_builder_raw (b, p1, SPA_POD_SIZE (p1), true);
+      spa_pod_builder_raw_padded (b, p1, SPA_POD_SIZE (p1));
       continue;
     }
 
@@ -170,7 +170,7 @@ spa_props_filter (SpaPODBuilder  *b,
                                 spa_pod_builder_push_prop (b, &f, p1->body.key, SPA_POD_PROP_FLAG_READWRITE),
                                 SpaPODProp);
     /* default value */
-    spa_pod_builder_raw (b, &p1->body.value, sizeof (p1->body.value) + p1->body.value.size, false);
+    spa_pod_builder_raw (b, &p1->body.value, sizeof (p1->body.value) + p1->body.value.size);
 
     alt1 = SPA_MEMBER (p1, sizeof (SpaPODProp), void);
     nalt1 = SPA_POD_PROP_N_VALUES (p1);
@@ -200,7 +200,7 @@ spa_props_filter (SpaPODBuilder  *b,
       for (j = 0, a1 = alt1; j < nalt1; j++, a1 += p1->body.value.size) {
         for (k = 0, a2 = alt2; k < nalt2; k++, a2 += p2->body.value.size) {
           if (compare_value (p1->body.value.type, a1, a2) == 0) {
-            spa_pod_builder_raw (b, a1, p1->body.value.size, false);
+            spa_pod_builder_raw (b, a1, p1->body.value.size);
             n_copied++;
           }
         }
@@ -219,7 +219,7 @@ spa_props_filter (SpaPODBuilder  *b,
           continue;
         if (compare_value (p1->body.value.type, a1, a2 + p2->body.value.size) > 0)
           continue;
-        spa_pod_builder_raw (b, a1, p1->body.value.size, false);
+        spa_pod_builder_raw (b, a1, p1->body.value.size);
         n_copied++;
       }
       if (n_copied == 0)
@@ -241,7 +241,7 @@ spa_props_filter (SpaPODBuilder  *b,
           continue;
         if (compare_value (p1->body.value.type, a2, a1 + p1->body.value.size) > 0)
           continue;
-        spa_pod_builder_raw (b, a2, p2->body.value.size, false);
+        spa_pod_builder_raw (b, a2, p2->body.value.size);
         n_copied++;
       }
       if (n_copied == 0)
@@ -251,17 +251,17 @@ spa_props_filter (SpaPODBuilder  *b,
 
     if (rt1 == SPA_POD_PROP_RANGE_MIN_MAX && rt2 == SPA_POD_PROP_RANGE_MIN_MAX) {
       if (compare_value (p1->body.value.type, alt1, alt2) < 0)
-        spa_pod_builder_raw (b, alt2, p2->body.value.size, false);
+        spa_pod_builder_raw (b, alt2, p2->body.value.size);
       else
-        spa_pod_builder_raw (b, alt1, p1->body.value.size, false);
+        spa_pod_builder_raw (b, alt1, p1->body.value.size);
 
       alt1 += p1->body.value.size;
       alt2 += p2->body.value.size;
 
       if (compare_value (p1->body.value.type, alt1, alt2) < 0)
-        spa_pod_builder_raw (b, alt1, p1->body.value.size, false);
+        spa_pod_builder_raw (b, alt1, p1->body.value.size);
       else
-        spa_pod_builder_raw (b, alt2, p2->body.value.size, false);
+        spa_pod_builder_raw (b, alt2, p2->body.value.size);
 
       np->body.flags |= SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET;
     }

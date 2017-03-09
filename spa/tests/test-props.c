@@ -143,7 +143,7 @@ main (int argc, char *argv[])
                              SPA_PROP_ID_VIDEO_SIZE,
                              SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE);
   spa_pod_builder_rectangle (&b, 320, 240);
-  spa_pod_builder_raw (&b, size_min_max, sizeof(size_min_max), false);
+  spa_pod_builder_raw (&b, size_min_max, sizeof(size_min_max));
   spa_pod_builder_pop (&b, &frame[1]);
 
   SpaFraction rate_min_max[] = { { 0, 1 }, { INT32_MAX, 1 } };
@@ -151,7 +151,7 @@ main (int argc, char *argv[])
                              SPA_PROP_ID_VIDEO_FRAMERATE,
                              SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE);
   spa_pod_builder_fraction (&b, 25, 1);
-  spa_pod_builder_raw (&b, rate_min_max, sizeof(rate_min_max), false);
+  spa_pod_builder_raw (&b, rate_min_max, sizeof(rate_min_max));
   spa_pod_builder_pop (&b, &frame[1]);
 
   spa_pod_builder_pop (&b, &frame[0]);

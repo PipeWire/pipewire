@@ -1124,10 +1124,6 @@ proxy_clear (SpaProxy *this)
     if (this->out_ports[i].valid)
       clear_port (this, &this->out_ports[i], SPA_DIRECTION_OUTPUT, i);
   }
-  if (this->data_source.fd != -1) {
-    spa_loop_remove_source (this->data_loop, &this->data_source);
-    close (this->data_source.fd);
-  }
 
   return SPA_RESULT_OK;
 }
@@ -1137,6 +1133,7 @@ client_node_resource_destroy (PinosResource *resource)
 {
   PinosClientNode *this = resource->object;
   PinosClientNodeImpl *impl = SPA_CONTAINER_OF (this, PinosClientNodeImpl, this);
+  SpaProxy *proxy = &impl->proxy;
 
   pinos_log_debug ("client-node %p: destroy", impl);
   pinos_signal_emit (&this->destroy_signal, this);
@@ -1146,6 +1143,12 @@ client_node_resource_destroy (PinosResource *resource)
   pinos_signal_remove (&impl->global_added);
   pinos_signal_remove (&impl->loop_changed);
   pinos_signal_remove (&impl->transport_changed);
+
+  if (proxy->data_source.fd != -1) {
+    spa_loop_remove_source (proxy->data_loop, &proxy->data_source);
+    close (proxy->data_source.fd);
+    proxy->data_source.fd = -1;
+  }
 
   pinos_node_destroy (this->node);
 }

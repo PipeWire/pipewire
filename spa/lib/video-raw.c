@@ -142,7 +142,7 @@ spa_format_filter (const SpaFormat  *format,
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   if (filter == NULL) {
-    spa_pod_builder_raw (result, format, SPA_POD_SIZE (format), true);
+    spa_pod_builder_raw_padded (result, format, SPA_POD_SIZE (format));
     return SPA_RESULT_OK;
   }
 

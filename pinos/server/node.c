@@ -241,8 +241,10 @@ send_clock_update (PinosNode *this)
     cu.ticks = 0;
     cu.monotonic_time = 0;
   }
+  cu.offset = 0;
   cu.scale = (1 << 16) | 1;
   cu.state = SPA_CLOCK_STATE_RUNNING;
+  cu.latency = 0;
 
   if ((res = spa_node_send_command (this->node, &cu.command)) < 0)
     pinos_log_debug ("got error %d", res);

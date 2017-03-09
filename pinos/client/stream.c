@@ -664,7 +664,7 @@ client_node_done (void              *object,
   PinosProxy *proxy = object;
   PinosStream *stream = proxy->user_data;
 
-  pinos_log_warn ("create client node done");
+  pinos_log_info ("strean %p: create client node done with fd %d", stream, datafd);
   handle_socket (stream, datafd);
   do_node_init (stream);
 }

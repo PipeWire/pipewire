@@ -28,7 +28,7 @@
 #include "connection.h"
 #include "log.h"
 
-#define MAX_BUFFER_SIZE 1024
+#define MAX_BUFFER_SIZE 4096
 #define MAX_FDS 28
 
 typedef struct {
@@ -72,6 +72,11 @@ pinos_connection_add_fd (PinosConnection *conn,
   }
 
   index = conn->out.n_fds;
+  if (index >= MAX_FDS) {
+    pinos_log_error ("connection %p: too many fds", conn);
+    return -1;
+  }
+
   conn->out.fds[index] = fd;
   conn->out.n_fds++;
 

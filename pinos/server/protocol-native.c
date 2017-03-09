@@ -38,7 +38,7 @@ write_pod (SpaPODBuilder *b, uint32_t ref, const void *data, uint32_t size)
     ref = b->offset;
 
   if (b->size <= b->offset) {
-    b->size = SPA_ROUND_UP_N (b->offset + size, 512);
+    b->size = SPA_ROUND_UP_N (b->offset + size, 4096);
     b->data = pinos_connection_begin_write (((Builder*)b)->connection, b->size);
   }
   memcpy (b->data + ref, data, size);

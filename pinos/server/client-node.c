@@ -979,7 +979,7 @@ client_node_destroy (void              *object,
   pinos_client_node_destroy (node);
 }
 
-static PinosClientNodeInterface client_node_interface = {
+static PinosClientNodeMethods client_node_methods = {
   &client_node_update,
   &client_node_port_update,
   &client_node_state_change,
@@ -1147,7 +1147,6 @@ client_node_resource_destroy (PinosResource *resource)
   if (proxy->data_source.fd != -1) {
     spa_loop_remove_source (proxy->data_loop, &proxy->data_source);
     close (proxy->data_source.fd);
-    proxy->data_source.fd = -1;
   }
 
   pinos_node_destroy (this->node);
@@ -1239,7 +1238,7 @@ pinos_client_node_new (PinosClient     *client,
                     &impl->global_added,
                     on_global_added);
 
-  this->resource->interface = &client_node_interface;
+  this->resource->implementation = &client_node_methods;
 
   return this;
 

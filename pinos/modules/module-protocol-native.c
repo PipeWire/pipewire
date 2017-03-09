@@ -52,6 +52,8 @@
 #define LOCK_SUFFIX     ".lock"
 #define LOCK_SUFFIXLEN  5
 
+typedef bool (*PinosDemarshalFunc) (void *object, void *data, size_t size);
+
 typedef struct {
   int        fd;
   int        fd_lock;
@@ -101,34 +103,7 @@ on_resource_added (PinosListener *listener,
                    PinosClient   *client,
                    PinosResource *resource)
 {
-  if (resource->type == resource->core->uri.core) {
-    resource->event = &pinos_protocol_native_server_core_event;
-    resource->demarshal = &pinos_protocol_native_server_core_demarshal;
-  }
-  else if (resource->type == resource->core->uri.registry) {
-    resource->event = &pinos_protocol_native_server_registry_event;
-    resource->demarshal = &pinos_protocol_native_server_registry_demarshal;
-  }
-  else if (resource->type == resource->core->uri.module) {
-    resource->event = &pinos_protocol_native_server_module_event;
-    resource->demarshal = NULL;
-  }
-  else if (resource->type == resource->core->uri.node) {
-    resource->event = &pinos_protocol_native_server_node_event;
-    resource->demarshal = NULL;
-  }
-  else if (resource->type == resource->core->uri.client) {
-    resource->event = &pinos_protocol_native_server_client_event;
-    resource->demarshal = NULL;
-  }
-  else if (resource->type == resource->core->uri.client_node) {
-    resource->event = &pinos_protocol_native_server_client_node_events;
-    resource->demarshal = &pinos_protocol_native_server_client_node_demarshal;
-  }
-  else if (resource->type == resource->core->uri.link) {
-    resource->event = &pinos_protocol_native_server_link_event;
-    resource->demarshal = NULL;
-  }
+  pinos_protocol_native_server_setup (resource);
 }
 
 static void
@@ -162,7 +137,11 @@ connection_data (SpaSource *source,
       pinos_log_error ("protocol-native %p: unknown resource %u", client->impl, id);
       continue;
     }
-    demarshal = resource->demarshal;
+    if (opcode >= resource->iface->n_methods) {
+      pinos_log_error ("protocol-native %p: invalid method %u", client->impl, opcode);
+      continue;
+    }
+    demarshal = resource->iface->methods;
     if (demarshal[opcode]) {
       if (!demarshal[opcode] (resource, message, size))
         pinos_log_error ("protocol-native %p: invalid message received", client->impl);

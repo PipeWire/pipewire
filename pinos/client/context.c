@@ -158,7 +158,7 @@ core_event_remove_id (void     *object,
   }
 }
 
-static const PinosCoreEvent core_events = {
+static const PinosCoreEvents core_events = {
   &core_event_info,
   &core_event_done,
   &core_event_error,
@@ -189,7 +189,7 @@ module_event_info (void            *object,
                      proxy->id);
 }
 
-static const PinosModuleEvent module_events = {
+static const PinosModuleEvents module_events = {
   &module_event_info,
 };
 
@@ -223,7 +223,7 @@ node_event_info (void          *object,
                      proxy->id);
 }
 
-static const PinosNodeEvent node_events = {
+static const PinosNodeEvents node_events = {
   &node_event_done,
   &node_event_info
 };
@@ -252,7 +252,7 @@ client_event_info (void            *object,
                      proxy->id);
 }
 
-static const PinosClientEvent client_events = {
+static const PinosClientEvents client_events = {
   &client_event_info
 };
 
@@ -280,7 +280,7 @@ link_event_info (void          *object,
                      proxy->id);
 }
 
-static const PinosLinkEvent link_events = {
+static const PinosLinkEvents link_events = {
   &link_event_info
 };
 
@@ -302,9 +302,7 @@ registry_event_global (void          *object,
     if (proxy == NULL)
       goto no_mem;
 
-    proxy->event = &node_events;
-    proxy->demarshal = &pinos_protocol_native_client_node_demarshal;
-    proxy->interface = NULL;
+    proxy->implementation = &node_events;
   } else if (!strcmp (type, PINOS_MODULE_URI)) {
     proxy = pinos_proxy_new (this,
                              SPA_ID_INVALID,
@@ -312,9 +310,7 @@ registry_event_global (void          *object,
     if (proxy == NULL)
       goto no_mem;
 
-    proxy->event = &module_events;
-    proxy->demarshal = &pinos_protocol_native_client_module_demarshal;
-    proxy->interface = NULL;
+    proxy->implementation = &module_events;
   } else if (!strcmp (type, PINOS_CLIENT_URI)) {
     proxy = pinos_proxy_new (this,
                              SPA_ID_INVALID,
@@ -322,9 +318,7 @@ registry_event_global (void          *object,
     if (proxy == NULL)
       goto no_mem;
 
-    proxy->event = &client_events;
-    proxy->demarshal = &pinos_protocol_native_client_client_demarshal;
-    proxy->interface = NULL;
+    proxy->implementation = &client_events;
   } else if (!strcmp (type, PINOS_LINK_URI)) {
     proxy = pinos_proxy_new (this,
                              SPA_ID_INVALID,
@@ -332,12 +326,11 @@ registry_event_global (void          *object,
     if (proxy == NULL)
       goto no_mem;
 
-    proxy->event = &link_events;
-    proxy->demarshal = &pinos_protocol_native_client_link_demarshal;
-    proxy->interface = NULL;
+    proxy->implementation = &link_events;
   }
-  if (proxy)
+  if (proxy) {
     pinos_registry_do_bind (this->registry_proxy, id, proxy->id);
+  }
 
   return;
 
@@ -362,10 +355,12 @@ registry_event_global_remove (void     *object,
                      id);
 }
 
-static const PinosRegistryEvent registry_events = {
+static const PinosRegistryEvents registry_events = {
   &registry_event_global,
   &registry_event_global_remove
 };
+
+typedef bool (*PinosDemarshalFunc) (void *object, void *data, size_t size);
 
 static void
 on_context_data (SpaSource *source,
@@ -375,6 +370,7 @@ on_context_data (SpaSource *source,
 {
   PinosContextImpl *impl = data;
   PinosContext *this = &impl->this;
+  PinosConnection *conn = impl->connection;
 
   if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
     context_set_state (this,
@@ -384,7 +380,6 @@ on_context_data (SpaSource *source,
   }
 
   if (mask & SPA_IO_IN) {
-    PinosConnection *conn = impl->connection;
     uint8_t opcode;
     uint32_t id;
     uint32_t size;
@@ -399,12 +394,19 @@ on_context_data (SpaSource *source,
         pinos_log_error ("context %p: could not find proxy %u", this, id);
         continue;
       }
+      if (opcode >= proxy->iface->n_events) {
+        pinos_log_error ("context %p: invalid method %u", this, opcode);
+        continue;
+      }
+
       pinos_log_debug ("context %p: object demarshal %u, %u", this, id, opcode);
 
-      demarshal = proxy->demarshal;
+      demarshal = proxy->iface->events;
       if (demarshal[opcode]) {
-        if (!demarshal[opcode] (proxy, message, size))
-          pinos_log_error ("context %p: invalid message received", this);
+        if (!demarshal[opcode] (proxy, message, size)) {
+          pinos_log_error ("context %p: invalid message received %u", this, opcode);
+          spa_debug_pod (message);
+        }
       } else
         pinos_log_error ("context %p: function %d not implemented", this, opcode);
 
@@ -596,9 +598,7 @@ pinos_context_connect_fd (PinosContext  *context,
   if (context->core_proxy == NULL)
     goto no_proxy;
 
-  context->core_proxy->event = &core_events;
-  context->core_proxy->interface = &pinos_protocol_native_client_core_interface;
-  context->core_proxy->demarshal = &pinos_protocol_native_client_core_demarshal;
+  context->core_proxy->implementation = &core_events;
 
   pinos_core_do_client_update (context->core_proxy,
                                &context->properties->dict);
@@ -609,9 +609,7 @@ pinos_context_connect_fd (PinosContext  *context,
   if (context->registry_proxy == NULL)
     goto no_registry;
 
-  context->registry_proxy->event = &registry_events;
-  context->registry_proxy->interface = &pinos_protocol_native_client_registry_interface;
-  context->registry_proxy->demarshal = &pinos_protocol_native_client_registry_demarshal;
+  context->registry_proxy->implementation = &registry_events;
 
   pinos_core_do_get_registry (context->core_proxy,
                               0,

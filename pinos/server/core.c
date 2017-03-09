@@ -66,7 +66,7 @@ no_id:
                            "unknown object id %u", id);
 }
 
-static PinosRegistryInterface registry_interface = {
+static PinosRegistryMethods registry_methods = {
   &registry_bind
 };
 
@@ -114,7 +114,7 @@ core_get_registry (void     *object,
   if (registry_resource == NULL)
     goto no_mem;
 
-  registry_resource->interface = &registry_interface;
+  registry_resource->implementation = &registry_methods;
 
   spa_list_insert (this->registry_resource_list.prev, &registry_resource->link);
 
@@ -202,7 +202,7 @@ no_mem:
   return;
 }
 
-static PinosCoreInterface core_interface = {
+static PinosCoreMethods core_methods = {
   &core_client_update,
   &core_sync,
   &core_get_registry,
@@ -235,7 +235,7 @@ core_bind_func (PinosGlobal *global,
   if (resource == NULL)
     goto no_mem;
 
-  resource->interface = &core_interface;
+  resource->implementation = &core_methods;
 
   spa_list_insert (this->resource_list.prev, &resource->link);
   client->core_resource = resource;

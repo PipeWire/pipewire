@@ -48,9 +48,8 @@ struct _PinosResource {
   void         *object;
   PinosDestroy  destroy;
 
-  const void *interface;
-  const void *event;
-  const void *demarshal;
+  const PinosInterface *iface;
+  const void           *implementation;
 
   PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
                                  PinosResource *resource));

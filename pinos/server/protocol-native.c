@@ -24,6 +24,7 @@
 #include "pinos/server/resource.h"
 #include "pinos/server/protocol-native.h"
 
+typedef bool (*PinosDemarshalFunc) (void *object, void *data, size_t size);
 
 typedef struct {
   SpaPODBuilder b;
@@ -164,7 +165,7 @@ core_demarshal_client_update (void  *object,
           0))
       return false;
   }
-  pinos_core_do_client_update (resource, &props);
+  ((PinosCoreMethods*)resource->implementation)->client_update (resource, &props);
   return true;
 }
 
@@ -183,7 +184,7 @@ core_demarshal_sync (void  *object,
         0))
     return false;
 
-  pinos_core_do_sync (resource, seq);
+  ((PinosCoreMethods*)resource->implementation)->sync (resource, seq);
   return true;
 }
 
@@ -203,7 +204,7 @@ core_demarshal_get_registry (void  *object,
         0))
     return false;
 
-  pinos_core_do_get_registry (resource, seq, new_id);
+  ((PinosCoreMethods*)resource->implementation)->get_registry (resource, seq, new_id);
   return true;
 }
 
@@ -238,12 +239,12 @@ core_demarshal_create_node (void  *object,
   if (!spa_pod_iter_get (&it, SPA_POD_TYPE_INT, &new_id, 0))
     return false;
 
-  pinos_core_do_create_node (resource,
-                             seq,
-                             factory_name,
-                             name,
-                             &props,
-                             new_id);
+  ((PinosCoreMethods*)resource->implementation)->create_node (resource,
+                                                              seq,
+                                                              factory_name,
+                                                              name,
+                                                              &props,
+                                                              new_id);
   return true;
 }
 
@@ -277,11 +278,11 @@ core_demarshal_create_client_node (void  *object,
   if (!spa_pod_iter_get (&it, SPA_POD_TYPE_INT, &new_id, 0))
     return false;
 
-  pinos_core_do_create_client_node (resource,
-                                    seq,
-                                    name,
-                                    &props,
-                                    new_id);
+  ((PinosCoreMethods*)resource->implementation)->create_client_node (resource,
+                                                                     seq,
+                                                                     name,
+                                                                     &props,
+                                                                     new_id);
   return true;
 }
 
@@ -337,7 +338,7 @@ registry_demarshal_bind (void  *object,
         0))
     return false;
 
-  pinos_registry_do_bind (resource, id, new_id);
+  ((PinosRegistryMethods*)resource->implementation)->bind (resource, id, new_id);
   return true;
 }
 
@@ -757,7 +758,7 @@ client_node_demarshal_update (void  *object,
   if (have_props && !spa_pod_iter_get (&it, SPA_POD_TYPE_OBJECT, &props, 0))
     return false;
 
-  pinos_client_node_do_update (resource, change_mask, max_input_ports, max_output_ports, props);
+  ((PinosClientNodeMethods*)resource->implementation)->update (resource, change_mask, max_input_ports, max_output_ports, props);
   return true;
 }
 
@@ -829,7 +830,7 @@ client_node_demarshal_port_update (void  *object,
     }
   }
 
-  pinos_client_node_do_port_update (resource,
+  ((PinosClientNodeMethods*)resource->implementation)->port_update (resource,
                                     direction,
                                     port_id,
                                     change_mask,
@@ -854,7 +855,7 @@ client_node_demarshal_state_change (void  *object,
       !spa_pod_iter_get (&it, SPA_POD_TYPE_INT, &state, 0))
     return false;
 
-  pinos_client_node_do_state_change (resource, state);
+  ((PinosClientNodeMethods*)resource->implementation)->state_change (resource, state);
   return true;
 }
 
@@ -872,7 +873,7 @@ client_node_demarshal_event (void   *object,
       !spa_pod_iter_get (&it, SPA_POD_TYPE_BYTES, &event, &sz, 0))
     return false;
 
-  pinos_client_node_do_event (resource, event);
+  ((PinosClientNodeMethods*)resource->implementation)->event (resource, event);
   return true;
 }
 
@@ -889,7 +890,7 @@ client_node_demarshal_destroy (void   *object,
       !spa_pod_iter_get (&it, SPA_POD_TYPE_INT, &seq, 0))
     return false;
 
-  pinos_client_node_do_destroy (resource, seq);
+  ((PinosClientNodeMethods*)resource->implementation)->destroy (resource, seq);
   return true;
 }
 
@@ -906,23 +907,16 @@ link_marshal_info (void          *object,
       SPA_POD_TYPE_STRUCT, &f,
         SPA_POD_TYPE_INT, info->id,
         SPA_POD_TYPE_LONG, info->change_mask,
-        SPA_POD_TYPE_LONG, info->output_node_id,
-        SPA_POD_TYPE_LONG, info->output_port_id,
-        SPA_POD_TYPE_LONG, info->input_node_id,
-        SPA_POD_TYPE_LONG, info->input_port_id,
+        SPA_POD_TYPE_INT, info->output_node_id,
+        SPA_POD_TYPE_INT, info->output_port_id,
+        SPA_POD_TYPE_INT, info->input_node_id,
+        SPA_POD_TYPE_INT, info->input_port_id,
      -SPA_POD_TYPE_STRUCT, &f, 0);
 
   pinos_connection_end_write (connection, resource->id, 0, b.b.offset);
 }
 
-const PinosCoreEvent pinos_protocol_native_server_core_event = {
-  &core_marshal_info,
-  &core_marshal_done,
-  &core_marshal_error,
-  &core_marshal_remove_id
-};
-
-const PinosDemarshalFunc pinos_protocol_native_server_core_demarshal[] = {
+static const PinosDemarshalFunc pinos_protocol_native_server_core_demarshal[] = {
   &core_demarshal_client_update,
   &core_demarshal_sync,
   &core_demarshal_get_registry,
@@ -930,29 +924,69 @@ const PinosDemarshalFunc pinos_protocol_native_server_core_demarshal[] = {
   &core_demarshal_create_client_node
 };
 
-const PinosRegistryEvent pinos_protocol_native_server_registry_event = {
+static const PinosCoreEvents pinos_protocol_native_server_core_events = {
+  &core_marshal_info,
+  &core_marshal_done,
+  &core_marshal_error,
+  &core_marshal_remove_id
+};
+
+const PinosInterface pinos_protocol_native_server_core_interface = {
+  5, pinos_protocol_native_server_core_demarshal,
+  4, &pinos_protocol_native_server_core_events,
+};
+
+static const PinosDemarshalFunc pinos_protocol_native_server_registry_demarshal[] = {
+  &registry_demarshal_bind,
+};
+
+static const PinosRegistryEvents pinos_protocol_native_server_registry_events = {
   &registry_marshal_global,
   &registry_marshal_global_remove,
 };
 
-const PinosDemarshalFunc pinos_protocol_native_server_registry_demarshal[] = {
-  &registry_demarshal_bind,
+const PinosInterface pinos_protocol_native_server_registry_interface = {
+  1, pinos_protocol_native_server_registry_demarshal,
+  2, &pinos_protocol_native_server_registry_events,
 };
 
-const PinosModuleEvent pinos_protocol_native_server_module_event = {
+static const PinosModuleEvents pinos_protocol_native_server_module_events = {
   &module_marshal_info,
 };
 
-const PinosNodeEvent pinos_protocol_native_server_node_event = {
+const PinosInterface pinos_protocol_native_server_module_interface = {
+  0, NULL,
+  1, &pinos_protocol_native_server_module_events,
+};
+
+static const PinosNodeEvents pinos_protocol_native_server_node_events = {
   &node_marshal_done,
   &node_marshal_info,
 };
 
-const PinosClientEvent pinos_protocol_native_server_client_event = {
+const PinosInterface pinos_protocol_native_server_node_interface = {
+  0, NULL,
+  2, &pinos_protocol_native_server_node_events,
+};
+
+static const PinosClientEvents pinos_protocol_native_server_client_events = {
   &client_marshal_info,
 };
 
-const PinosClientNodeEvent pinos_protocol_native_server_client_node_events = {
+const PinosInterface pinos_protocol_native_server_client_interface = {
+  0, NULL,
+  2, &pinos_protocol_native_server_client_events,
+};
+
+static const PinosDemarshalFunc pinos_protocol_native_server_client_node_demarshal[] = {
+  &client_node_demarshal_update,
+  &client_node_demarshal_port_update,
+  &client_node_demarshal_state_change,
+  &client_node_demarshal_event,
+  &client_node_demarshal_destroy,
+};
+
+static const PinosClientNodeEvents pinos_protocol_native_server_client_node_events = {
   &client_node_marshal_done,
   &client_node_marshal_event,
   &client_node_marshal_add_port,
@@ -966,14 +1000,46 @@ const PinosClientNodeEvent pinos_protocol_native_server_client_node_events = {
   &client_node_marshal_transport,
 };
 
-const PinosDemarshalFunc pinos_protocol_native_server_client_node_demarshal[] = {
-  &client_node_demarshal_update,
-  &client_node_demarshal_port_update,
-  &client_node_demarshal_state_change,
-  &client_node_demarshal_event,
-  &client_node_demarshal_destroy,
+const PinosInterface pinos_protocol_native_server_client_node_interface = {
+  5, &pinos_protocol_native_server_client_node_demarshal,
+  11, &pinos_protocol_native_server_client_node_events,
 };
 
-const PinosLinkEvent pinos_protocol_native_server_link_event = {
+static const PinosLinkEvents pinos_protocol_native_server_link_events = {
   &link_marshal_info,
 };
+
+const PinosInterface pinos_protocol_native_server_link_interface = {
+  0, NULL,
+  1, &pinos_protocol_native_server_link_events,
+};
+
+bool
+pinos_protocol_native_server_setup (PinosResource *resource)
+{
+  const PinosInterface *iface;
+  if (resource->type == resource->core->uri.core) {
+    iface = &pinos_protocol_native_server_core_interface;
+  }
+  else if (resource->type == resource->core->uri.registry) {
+    iface = &pinos_protocol_native_server_registry_interface;
+  }
+  else if (resource->type == resource->core->uri.module) {
+    iface = &pinos_protocol_native_server_module_interface;
+  }
+  else if (resource->type == resource->core->uri.node) {
+    iface = &pinos_protocol_native_server_node_interface;
+  }
+  else if (resource->type == resource->core->uri.client) {
+    iface = &pinos_protocol_native_server_client_interface;
+  }
+  else if (resource->type == resource->core->uri.client_node) {
+    iface = &pinos_protocol_native_server_client_node_interface;
+  }
+  else if (resource->type == resource->core->uri.link) {
+    iface = &pinos_protocol_native_server_link_interface;
+  } else
+    return false;
+  resource->iface = iface;
+  return true;
+}

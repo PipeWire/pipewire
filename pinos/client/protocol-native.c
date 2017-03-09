@@ -31,6 +31,8 @@ typedef struct {
   PinosConnection *connection;
 } Builder;
 
+typedef bool (*PinosDemarshalFunc) (void *object, void *data, size_t size);
+
 static uint32_t
 write_pod (SpaPODBuilder *b, uint32_t ref, const void *data, uint32_t size)
 {
@@ -213,7 +215,7 @@ core_demarshal_info (void   *object,
           0))
       return false;
   }
-  pinos_core_notify_info (proxy, &info);
+  ((PinosCoreEvents*)proxy->implementation)->info (proxy, &info);
   return true;
 }
 
@@ -232,7 +234,7 @@ core_demarshal_done (void   *object,
         0))
     return false;
 
-  pinos_core_notify_done (proxy, seq);
+  ((PinosCoreEvents*)proxy->implementation)->done (proxy, seq);
   return true;
 }
 
@@ -254,7 +256,7 @@ core_demarshal_error (void   *object,
         0))
     return false;
 
-  pinos_core_notify_error (proxy, id, res, error);
+  ((PinosCoreEvents*)proxy->implementation)->error (proxy, id, res, error);
   return true;
 }
 
@@ -273,7 +275,7 @@ core_demarshal_remove_id (void   *object,
         0))
     return false;
 
-  pinos_core_notify_remove_id (proxy, id);
+  ((PinosCoreEvents*)proxy->implementation)->remove_id (proxy, id);
   return true;
 }
 
@@ -308,7 +310,7 @@ module_demarshal_info (void   *object,
           0))
       return false;
   }
-  pinos_module_notify_info (proxy, &info);
+  ((PinosModuleEvents*)proxy->implementation)->info (proxy, &info);
   return true;
 }
 
@@ -327,7 +329,7 @@ node_demarshal_done (void   *object,
         0))
     return false;
 
-  pinos_node_notify_done (proxy, seq);
+  ((PinosNodeEvents*)proxy->implementation)->done (proxy, seq);
   return true;
 }
 
@@ -386,7 +388,7 @@ node_demarshal_info (void   *object,
           0))
       return false;
   }
-  pinos_node_notify_info (proxy, &info);
+  ((PinosNodeEvents*)proxy->implementation)->info (proxy, &info);
   return true;
 }
 
@@ -551,7 +553,7 @@ client_node_demarshal_done (void   *object,
     return false;
 
   fd = pinos_connection_get_fd (connection, idx);
-  pinos_client_node_notify_done (proxy, seq, fd);
+  ((PinosClientNodeEvents*)proxy->implementation)->done (proxy, seq, fd);
   return true;
 }
 
@@ -571,7 +573,7 @@ client_node_demarshal_event (void   *object,
         0))
     return false;
 
-  pinos_client_node_notify_event (proxy, event);
+  ((PinosClientNodeEvents*)proxy->implementation)->event (proxy, event);
   return true;
 }
 
@@ -592,7 +594,7 @@ client_node_demarshal_add_port (void   *object,
         0))
     return false;
 
-  pinos_client_node_notify_add_port (proxy, seq, direction, port_id);
+  ((PinosClientNodeEvents*)proxy->implementation)->add_port (proxy, seq, direction, port_id);
   return true;
 }
 
@@ -613,7 +615,7 @@ client_node_demarshal_remove_port (void   *object,
         0))
     return false;
 
-  pinos_client_node_notify_remove_port (proxy, seq, direction, port_id);
+  ((PinosClientNodeEvents*)proxy->implementation)->remove_port (proxy, seq, direction, port_id);
   return true;
 }
 
@@ -640,7 +642,7 @@ client_node_demarshal_set_format (void   *object,
   if (have_format && !spa_pod_iter_get (&it, SPA_POD_TYPE_OBJECT, &format, 0))
     return false;
 
-  pinos_client_node_notify_set_format (proxy, seq, direction, port_id,
+  ((PinosClientNodeEvents*)proxy->implementation)->set_format (proxy, seq, direction, port_id,
                                        flags, format);
   return true;
 }
@@ -664,7 +666,7 @@ client_node_demarshal_set_property (void   *object,
         0))
     return false;
 
-  pinos_client_node_notify_set_property (proxy, seq, id, s, value);
+  ((PinosClientNodeEvents*)proxy->implementation)->set_property (proxy, seq, id, s, value);
   return true;
 }
 
@@ -694,15 +696,15 @@ client_node_demarshal_add_mem (void   *object,
 
   memfd = pinos_connection_get_fd (connection, memfd_idx);
 
-  pinos_client_node_notify_add_mem (proxy,
-                                    direction,
-                                    port_id,
-                                    mem_id,
-                                    type,
-                                    memfd,
-                                    flags,
-                                    offset,
-                                    sz);
+  ((PinosClientNodeEvents*)proxy->implementation)->add_mem (proxy,
+                                                            direction,
+                                                            port_id,
+                                                            mem_id,
+                                                            type,
+                                                            memfd,
+                                                            flags,
+                                                            offset,
+                                                            sz);
   return true;
 }
 
@@ -768,12 +770,12 @@ client_node_demarshal_use_buffers (void   *object,
       d->data = SPA_UINT32_TO_PTR (data_id);
     }
   }
-  pinos_client_node_notify_use_buffers (proxy,
-                                        seq,
-                                        direction,
-                                        port_id,
-                                        n_buffers,
-                                        buffers);
+  ((PinosClientNodeEvents*)proxy->implementation)->use_buffers (proxy,
+                                                                seq,
+                                                                direction,
+                                                                port_id,
+                                                                n_buffers,
+                                                                buffers);
   return true;
 }
 
@@ -794,7 +796,7 @@ client_node_demarshal_node_command (void   *object,
         0))
     return false;
 
-  pinos_client_node_notify_node_command (proxy, seq, command);
+  ((PinosClientNodeEvents*)proxy->implementation)->node_command (proxy, seq, command);
   return true;
 }
 
@@ -815,7 +817,7 @@ client_node_demarshal_port_command (void   *object,
         0))
     return false;
 
-  pinos_client_node_notify_port_command (proxy, port_id, command);
+  ((PinosClientNodeEvents*)proxy->implementation)->port_command (proxy, port_id, command);
   return true;
 }
 
@@ -839,7 +841,7 @@ client_node_demarshal_transport (void   *object,
     return false;
 
   memfd = pinos_connection_get_fd (connection, memfd_idx);
-  pinos_client_node_notify_transport (proxy, memfd, offset, sz);
+  ((PinosClientNodeEvents*)proxy->implementation)->transport (proxy, memfd, offset, sz);
   return true;
 }
 
@@ -871,7 +873,7 @@ client_demarshal_info (void   *object,
           0))
       return false;
   }
-  pinos_client_notify_info (proxy, &info);
+  ((PinosClientEvents*)proxy->implementation)->info (proxy, &info);
   return true;
 }
 
@@ -895,7 +897,7 @@ link_demarshal_info (void   *object,
         0))
     return false;
 
-  pinos_link_notify_info (proxy, &info);
+  ((PinosLinkEvents*)proxy->implementation)->info (proxy, &info);
   return true;
 }
 
@@ -916,7 +918,7 @@ registry_demarshal_global (void   *object,
         0))
     return false;
 
-  pinos_registry_notify_global (proxy, id, type);
+  ((PinosRegistryEvents*)proxy->implementation)->global (proxy, id, type);
   return true;
 }
 
@@ -935,7 +937,7 @@ registry_demarshal_global_remove (void   *object,
         0))
     return false;
 
-  pinos_registry_notify_global_remove (proxy, id);
+  ((PinosRegistryEvents*)proxy->implementation)->global_remove (proxy, id);
   return true;
 }
 
@@ -958,7 +960,7 @@ registry_marshal_bind (void          *object,
   pinos_connection_end_write (connection, proxy->id, 0, b.b.offset);
 }
 
-const PinosCoreInterface pinos_protocol_native_client_core_interface = {
+static const PinosCoreMethods pinos_protocol_native_client_core_methods = {
   &core_marshal_client_update,
   &core_marshal_sync,
   &core_marshal_get_registry,
@@ -966,11 +968,33 @@ const PinosCoreInterface pinos_protocol_native_client_core_interface = {
   &core_marshal_create_client_node
 };
 
-const PinosRegistryInterface pinos_protocol_native_client_registry_interface = {
+static const PinosDemarshalFunc pinos_protocol_native_client_core_demarshal[] = {
+  &core_demarshal_info,
+  &core_demarshal_done,
+  &core_demarshal_error,
+  &core_demarshal_remove_id,
+};
+
+static const PinosInterface pinos_protocol_native_client_core_interface = {
+  5, &pinos_protocol_native_client_core_methods,
+  4, pinos_protocol_native_client_core_demarshal
+};
+
+static const PinosRegistryMethods pinos_protocol_native_client_registry_methods = {
   &registry_marshal_bind
 };
 
-const PinosClientNodeInterface pinos_protocol_native_client_client_node_interface = {
+static const PinosDemarshalFunc pinos_protocol_native_client_registry_demarshal[] = {
+  &registry_demarshal_global,
+  &registry_demarshal_global_remove,
+};
+
+static const PinosInterface pinos_protocol_native_client_registry_interface = {
+  1, &pinos_protocol_native_client_registry_methods,
+  2, pinos_protocol_native_client_registry_demarshal,
+};
+
+static const PinosClientNodeMethods pinos_protocol_native_client_client_node_methods = {
   &client_node_marshal_update,
   &client_node_marshal_port_update,
   &client_node_marshal_state_change,
@@ -978,23 +1002,7 @@ const PinosClientNodeInterface pinos_protocol_native_client_client_node_interfac
   &client_node_marshal_destroy
 };
 
-const PinosDemarshalFunc pinos_protocol_native_client_core_demarshal[] = {
-  &core_demarshal_info,
-  &core_demarshal_done,
-  &core_demarshal_error,
-  &core_demarshal_remove_id,
-};
-
-const PinosDemarshalFunc pinos_protocol_native_client_module_demarshal[] = {
-  &module_demarshal_info,
-};
-
-const PinosDemarshalFunc pinos_protocol_native_client_node_demarshal[] = {
-  &node_demarshal_done,
-  &node_demarshal_info,
-};
-
-const PinosDemarshalFunc pinos_protocol_native_client_client_node_demarshal[] = {
+static const PinosDemarshalFunc pinos_protocol_native_client_client_node_demarshal[] = {
   &client_node_demarshal_done,
   &client_node_demarshal_event,
   &client_node_demarshal_add_port,
@@ -1008,15 +1016,69 @@ const PinosDemarshalFunc pinos_protocol_native_client_client_node_demarshal[] = 
   &client_node_demarshal_transport
 };
 
-const PinosDemarshalFunc pinos_protocol_native_client_client_demarshal[] = {
+static const PinosInterface pinos_protocol_native_client_client_node_interface = {
+  5, &pinos_protocol_native_client_client_node_methods,
+  11, pinos_protocol_native_client_client_node_demarshal,
+};
+
+static const PinosDemarshalFunc pinos_protocol_native_client_module_demarshal[] = {
+  &module_demarshal_info,
+};
+
+static const PinosInterface pinos_protocol_native_client_module_interface = {
+  0, NULL,
+  1, pinos_protocol_native_client_module_demarshal,
+};
+
+static const PinosDemarshalFunc pinos_protocol_native_client_node_demarshal[] = {
+  &node_demarshal_done,
+  &node_demarshal_info,
+};
+
+static const PinosInterface pinos_protocol_native_client_node_interface = {
+  0, NULL,
+  2, pinos_protocol_native_client_node_demarshal,
+};
+
+static const PinosDemarshalFunc pinos_protocol_native_client_client_demarshal[] = {
   &client_demarshal_info,
 };
 
-const PinosDemarshalFunc pinos_protocol_native_client_link_demarshal[] = {
+static const PinosInterface pinos_protocol_native_client_client_interface = {
+  0, NULL,
+  1, pinos_protocol_native_client_client_demarshal,
+};
+
+static const PinosDemarshalFunc pinos_protocol_native_client_link_demarshal[] = {
   &link_demarshal_info,
 };
 
-const PinosDemarshalFunc pinos_protocol_native_client_registry_demarshal[] = {
-  &registry_demarshal_global,
-  &registry_demarshal_global_remove,
+static const PinosInterface pinos_protocol_native_client_link_interface = {
+  0, NULL,
+  1, pinos_protocol_native_client_link_demarshal,
 };
+
+bool
+pinos_protocol_native_client_setup (PinosProxy *proxy)
+{
+  const PinosInterface *iface;
+
+  if (proxy->type == proxy->context->uri.core) {
+    iface = &pinos_protocol_native_client_core_interface;
+  } else if (proxy->type == proxy->context->uri.registry) {
+    iface = &pinos_protocol_native_client_registry_interface;
+  } else if (proxy->type == proxy->context->uri.module) {
+    iface = &pinos_protocol_native_client_module_interface;
+  } else if (proxy->type == proxy->context->uri.node) {
+    iface = &pinos_protocol_native_client_node_interface;
+  } else if (proxy->type == proxy->context->uri.client_node) {
+    iface = &pinos_protocol_native_client_client_node_interface;
+  } else if (proxy->type == proxy->context->uri.client) {
+    iface = &pinos_protocol_native_client_client_interface;
+  } else if (proxy->type == proxy->context->uri.link) {
+    iface = &pinos_protocol_native_client_link_interface;
+  } else
+    return false;
+  proxy->iface = iface;
+  return true;
+}

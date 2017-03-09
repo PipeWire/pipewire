@@ -42,6 +42,8 @@ pinos_proxy_new (PinosContext *context,
 
   pinos_signal_init (&this->destroy_signal);
 
+  pinos_protocol_native_client_setup (this);
+
   this->id = pinos_map_insert_new (&context->objects, this);
   spa_list_insert (&this->context->proxy_list, &this->link);
 

@@ -31,8 +31,16 @@ extern "C" {
 #include <spa/node.h>
 
 typedef struct _PinosClientNodeBuffer PinosClientNodeBuffer;
+typedef struct _PinosInterface PinosInterface;
 
 #include <pinos/client/introspect.h>
+
+struct _PinosInterface {
+  uint32_t n_methods;
+  const void *methods;
+  uint32_t n_events;
+  const void *events;
+};
 
 typedef struct {
   void (*client_update)       (void          *object,
@@ -53,13 +61,13 @@ typedef struct {
                                const char    *name,
                                const SpaDict *props,
                                uint32_t       new_id);
-} PinosCoreInterface;
+} PinosCoreMethods;
 
-#define pinos_core_do_client_update(r,...)      ((PinosCoreInterface*)r->interface)->client_update(r,__VA_ARGS__)
-#define pinos_core_do_sync(r,...)               ((PinosCoreInterface*)r->interface)->sync(r,__VA_ARGS__)
-#define pinos_core_do_get_registry(r,...)       ((PinosCoreInterface*)r->interface)->get_registry(r,__VA_ARGS__)
-#define pinos_core_do_create_node(r,...)        ((PinosCoreInterface*)r->interface)->create_node(r,__VA_ARGS__)
-#define pinos_core_do_create_client_node(r,...) ((PinosCoreInterface*)r->interface)->create_client_node(r,__VA_ARGS__)
+#define pinos_core_do_client_update(r,...)      ((PinosCoreMethods*)r->iface->methods)->client_update(r,__VA_ARGS__)
+#define pinos_core_do_sync(r,...)               ((PinosCoreMethods*)r->iface->methods)->sync(r,__VA_ARGS__)
+#define pinos_core_do_get_registry(r,...)       ((PinosCoreMethods*)r->iface->methods)->get_registry(r,__VA_ARGS__)
+#define pinos_core_do_create_node(r,...)        ((PinosCoreMethods*)r->iface->methods)->create_node(r,__VA_ARGS__)
+#define pinos_core_do_create_client_node(r,...) ((PinosCoreMethods*)r->iface->methods)->create_client_node(r,__VA_ARGS__)
 
 typedef struct {
   void (*info)                (void          *object,
@@ -72,20 +80,20 @@ typedef struct {
                                const char     *error, ...);
   void (*remove_id)           (void          *object,
                                uint32_t       id);
-} PinosCoreEvent;
+} PinosCoreEvents;
 
-#define pinos_core_notify_info(r,...)      ((PinosCoreEvent*)r->event)->info(r,__VA_ARGS__)
-#define pinos_core_notify_done(r,...)      ((PinosCoreEvent*)r->event)->done(r,__VA_ARGS__)
-#define pinos_core_notify_error(r,...)     ((PinosCoreEvent*)r->event)->error(r,__VA_ARGS__)
-#define pinos_core_notify_remove_id(r,...) ((PinosCoreEvent*)r->event)->remove_id(r,__VA_ARGS__)
+#define pinos_core_notify_info(r,...)      ((PinosCoreEvents*)r->iface->events)->info(r,__VA_ARGS__)
+#define pinos_core_notify_done(r,...)      ((PinosCoreEvents*)r->iface->events)->done(r,__VA_ARGS__)
+#define pinos_core_notify_error(r,...)     ((PinosCoreEvents*)r->iface->events)->error(r,__VA_ARGS__)
+#define pinos_core_notify_remove_id(r,...) ((PinosCoreEvents*)r->iface->events)->remove_id(r,__VA_ARGS__)
 
 typedef struct {
   void (*bind)                (void          *object,
                                uint32_t       id,
                                uint32_t       new_id);
-} PinosRegistryInterface;
+} PinosRegistryMethods;
 
-#define pinos_registry_do_bind(r,...)        ((PinosRegistryInterface*)r->interface)->bind(r,__VA_ARGS__)
+#define pinos_registry_do_bind(r,...)        ((PinosRegistryMethods*)r->iface->methods)->bind(r,__VA_ARGS__)
 
 typedef struct {
   void (*global)              (void          *object,
@@ -93,27 +101,27 @@ typedef struct {
                                const char    *type);
   void (*global_remove)       (void          *object,
                                uint32_t       id);
-} PinosRegistryEvent;
+} PinosRegistryEvents;
 
-#define pinos_registry_notify_global(r,...)        ((PinosRegistryEvent*)r->event)->global(r,__VA_ARGS__)
-#define pinos_registry_notify_global_remove(r,...) ((PinosRegistryEvent*)r->event)->global_remove(r,__VA_ARGS__)
+#define pinos_registry_notify_global(r,...)        ((PinosRegistryEvents*)r->iface->events)->global(r,__VA_ARGS__)
+#define pinos_registry_notify_global_remove(r,...) ((PinosRegistryEvents*)r->iface->events)->global_remove(r,__VA_ARGS__)
 
 typedef struct {
   void (*info)                (void            *object,
                                PinosModuleInfo *info);
-} PinosModuleEvent;
+} PinosModuleEvents;
 
-#define pinos_module_notify_info(r,...)      ((PinosModuleEvent*)r->event)->info(r,__VA_ARGS__)
+#define pinos_module_notify_info(r,...)      ((PinosModuleEvents*)r->iface->events)->info(r,__VA_ARGS__)
 
 typedef struct {
   void (*done)                (void          *object,
                                uint32_t       seq);
   void (*info)                (void          *object,
                                PinosNodeInfo *info);
-} PinosNodeEvent;
+} PinosNodeEvents;
 
-#define pinos_node_notify_done(r,...)      ((PinosNodeEvent*)r->event)->done(r,__VA_ARGS__)
-#define pinos_node_notify_info(r,...)      ((PinosNodeEvent*)r->event)->info(r,__VA_ARGS__)
+#define pinos_node_notify_done(r,...)      ((PinosNodeEvents*)r->iface->events)->done(r,__VA_ARGS__)
+#define pinos_node_notify_info(r,...)      ((PinosNodeEvents*)r->iface->events)->info(r,__VA_ARGS__)
 
 struct _PinosClientNodeBuffer {
   uint32_t    mem_id;
@@ -151,13 +159,13 @@ typedef struct {
                                 SpaNodeEvent      *event);
   void (*destroy)              (void              *object,
                                 uint32_t           seq);
-} PinosClientNodeInterface;
+} PinosClientNodeMethods;
 
-#define pinos_client_node_do_update(r,...)       ((PinosClientNodeInterface*)r->interface)->update(r,__VA_ARGS__)
-#define pinos_client_node_do_port_update(r,...)  ((PinosClientNodeInterface*)r->interface)->port_update(r,__VA_ARGS__)
-#define pinos_client_node_do_state_change(r,...) ((PinosClientNodeInterface*)r->interface)->state_change(r,__VA_ARGS__)
-#define pinos_client_node_do_event(r,...)        ((PinosClientNodeInterface*)r->interface)->event(r,__VA_ARGS__)
-#define pinos_client_node_do_destroy(r,...)      ((PinosClientNodeInterface*)r->interface)->destroy(r,__VA_ARGS__)
+#define pinos_client_node_do_update(r,...)       ((PinosClientNodeMethods*)r->iface->methods)->update(r,__VA_ARGS__)
+#define pinos_client_node_do_port_update(r,...)  ((PinosClientNodeMethods*)r->iface->methods)->port_update(r,__VA_ARGS__)
+#define pinos_client_node_do_state_change(r,...) ((PinosClientNodeMethods*)r->iface->methods)->state_change(r,__VA_ARGS__)
+#define pinos_client_node_do_event(r,...)        ((PinosClientNodeMethods*)r->iface->methods)->event(r,__VA_ARGS__)
+#define pinos_client_node_do_destroy(r,...)      ((PinosClientNodeMethods*)r->iface->methods)->destroy(r,__VA_ARGS__)
 
 typedef struct {
   void (*done)                 (void              *object,
@@ -209,33 +217,33 @@ typedef struct {
                                 int                memfd,
                                 uint32_t           offset,
                                 uint32_t           size);
-} PinosClientNodeEvent;
+} PinosClientNodeEvents;
 
-#define pinos_client_node_notify_done(r,...)         ((PinosClientNodeEvent*)r->event)->done(r,__VA_ARGS__)
-#define pinos_client_node_notify_event(r,...)        ((PinosClientNodeEvent*)r->event)->event(r,__VA_ARGS__)
-#define pinos_client_node_notify_add_port(r,...)     ((PinosClientNodeEvent*)r->event)->add_port(r,__VA_ARGS__)
-#define pinos_client_node_notify_remove_port(r,...)  ((PinosClientNodeEvent*)r->event)->remove_port(r,__VA_ARGS__)
-#define pinos_client_node_notify_set_format(r,...)   ((PinosClientNodeEvent*)r->event)->set_format(r,__VA_ARGS__)
-#define pinos_client_node_notify_set_property(r,...) ((PinosClientNodeEvent*)r->event)->set_property(r,__VA_ARGS__)
-#define pinos_client_node_notify_add_mem(r,...)      ((PinosClientNodeEvent*)r->event)->add_mem(r,__VA_ARGS__)
-#define pinos_client_node_notify_use_buffers(r,...)  ((PinosClientNodeEvent*)r->event)->use_buffers(r,__VA_ARGS__)
-#define pinos_client_node_notify_node_command(r,...) ((PinosClientNodeEvent*)r->event)->node_command(r,__VA_ARGS__)
-#define pinos_client_node_notify_port_command(r,...) ((PinosClientNodeEvent*)r->event)->port_command(r,__VA_ARGS__)
-#define pinos_client_node_notify_transport(r,...)    ((PinosClientNodeEvent*)r->event)->transport(r,__VA_ARGS__)
+#define pinos_client_node_notify_done(r,...)         ((PinosClientNodeEvents*)r->iface->events)->done(r,__VA_ARGS__)
+#define pinos_client_node_notify_event(r,...)        ((PinosClientNodeEvents*)r->iface->events)->event(r,__VA_ARGS__)
+#define pinos_client_node_notify_add_port(r,...)     ((PinosClientNodeEvents*)r->iface->events)->add_port(r,__VA_ARGS__)
+#define pinos_client_node_notify_remove_port(r,...)  ((PinosClientNodeEvents*)r->iface->events)->remove_port(r,__VA_ARGS__)
+#define pinos_client_node_notify_set_format(r,...)   ((PinosClientNodeEvents*)r->iface->events)->set_format(r,__VA_ARGS__)
+#define pinos_client_node_notify_set_property(r,...) ((PinosClientNodeEvents*)r->iface->events)->set_property(r,__VA_ARGS__)
+#define pinos_client_node_notify_add_mem(r,...)      ((PinosClientNodeEvents*)r->iface->events)->add_mem(r,__VA_ARGS__)
+#define pinos_client_node_notify_use_buffers(r,...)  ((PinosClientNodeEvents*)r->iface->events)->use_buffers(r,__VA_ARGS__)
+#define pinos_client_node_notify_node_command(r,...) ((PinosClientNodeEvents*)r->iface->events)->node_command(r,__VA_ARGS__)
+#define pinos_client_node_notify_port_command(r,...) ((PinosClientNodeEvents*)r->iface->events)->port_command(r,__VA_ARGS__)
+#define pinos_client_node_notify_transport(r,...)    ((PinosClientNodeEvents*)r->iface->events)->transport(r,__VA_ARGS__)
 
 typedef struct {
   void (*info)                (void            *object,
                                PinosClientInfo *info);
-} PinosClientEvent;
+} PinosClientEvents;
 
-#define pinos_client_notify_info(r,...)      ((PinosClientEvent*)r->event)->info(r,__VA_ARGS__)
+#define pinos_client_notify_info(r,...)      ((PinosClientEvents*)r->iface->events)->info(r,__VA_ARGS__)
 
 typedef struct {
   void (*info)                (void          *object,
                                PinosLinkInfo *info);
-} PinosLinkEvent;
+} PinosLinkEvents;
 
-#define pinos_link_notify_info(r,...)      ((PinosLinkEvent*)r->event)->info(r,__VA_ARGS__)
+#define pinos_link_notify_info(r,...)      ((PinosLinkEvents*)r->iface->events)->info(r,__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

@@ -914,7 +914,7 @@ client_node_transport (void              *object,
   pinos_log_debug ("transport update %d %p", impl->rtfd, impl->trans);
 }
 
-static const PinosClientNodeEvent client_node_events = {
+static const PinosClientNodeEvents client_node_events = {
   &client_node_done,
   &client_node_event,
   &client_node_add_port,
@@ -997,9 +997,7 @@ pinos_stream_connect (PinosStream      *stream,
                     on_node_proxy_destroy);
 
   impl->node_proxy->user_data = stream;
-  impl->node_proxy->event = &client_node_events;
-  impl->node_proxy->interface = &pinos_protocol_native_client_client_node_interface;
-  impl->node_proxy->demarshal = &pinos_protocol_native_client_client_node_demarshal;
+  impl->node_proxy->implementation = &client_node_events;
 
   pinos_core_do_create_client_node (stream->context->core_proxy,
                                     ++impl->seq,
@@ -1103,8 +1101,7 @@ pinos_stream_disconnect (PinosStream *stream)
 
   unhandle_socket (stream);
 
-  pinos_client_node_do_destroy (impl->node_proxy,
-                                ++impl->seq);
+  pinos_client_node_do_destroy (impl->node_proxy, ++impl->seq);
 
   return true;
 }

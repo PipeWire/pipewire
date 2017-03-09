@@ -28,19 +28,19 @@ typedef struct _PinosProxy PinosProxy;
 
 #include <pinos/client/connection.h>
 #include <pinos/client/context.h>
+#include <pinos/client/interfaces.h>
 
 struct _PinosProxy {
   PinosContext *context;
   SpaList       link;
 
-  uint32_t      id;
-  uint32_t      type;
+  uint32_t        id;
+  uint32_t        type;
 
-  void         *user_data;
+  const PinosInterface *iface;
+  const void           *implementation;
 
-  const void   *interface;
-  const void   *event;
-  const void   *demarshal;
+  void           *user_data;
 
   PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
                                  PinosProxy    *proxy));

@@ -901,10 +901,8 @@ gst_pinos_sink_change_state (GstElement * element, GstStateChange transition)
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
       break;
     case GST_STATE_CHANGE_PAUSED_TO_READY:
-      g_hash_table_remove_all (this->buf_ids);
       break;
     case GST_STATE_CHANGE_READY_TO_NULL:
-      g_hash_table_remove_all (this->buf_ids);
       gst_pinos_sink_close (this);
       break;
     default:

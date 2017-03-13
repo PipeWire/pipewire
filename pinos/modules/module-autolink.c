@@ -219,7 +219,7 @@ try_link_port (PinosNode *node,
 error:
   {
     pinos_log_error ("module %p: can't link node '%s'", impl, error);
-    if (info->info->client) {
+    if (info->info->client && info->info->client->core_resource) {
       pinos_core_notify_error (info->info->client->core_resource,
                                info->resource->id,
                                SPA_RESULT_ERROR,

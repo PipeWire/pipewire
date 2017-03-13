@@ -302,8 +302,14 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
             processed = true;
 
             pi->buffer_id = po->buffer_id;
+            if ((res = spa_node_port_reuse_buffer (outport->node->node,
+                                                   outport->port_id,
+                                                   po->buffer_id)) < 0)
+              pinos_log_warn ("node %p: error reuse buffer: %d", outport->node, res);
+
             po->buffer_id = SPA_ID_INVALID;
           }
+
           if ((res = spa_node_process_output (outport->node->node)) < 0)
             pinos_log_warn ("node %p: got process output %d", outport->node, res);
         }

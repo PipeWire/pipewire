@@ -68,6 +68,8 @@ struct _PinosContext {
   PinosProxy      *registry_proxy;
 
   PinosMap         objects;
+  uint32_t         n_uris;
+  PinosMap         uris;
 
   SpaList          global_list;
   SpaList          stream_list;

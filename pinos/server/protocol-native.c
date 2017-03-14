@@ -46,6 +46,29 @@ write_pod (SpaPODBuilder *b, uint32_t ref, const void *data, uint32_t size)
 }
 
 static void
+core_update_map (PinosClient *client)
+{
+  uint32_t diff, base, i;
+  PinosCore *core = client->core;
+  const char **uris;
+
+  base = client->n_uris;
+  diff = spa_id_map_get_size (core->uri.map) - base;
+  if (diff == 0)
+    return;
+
+  uris = alloca (diff * sizeof (char *));
+  for (i = 0; i < diff; i++, base++)
+    uris[i] = spa_id_map_get_uri (core->uri.map, base);
+
+  pinos_core_notify_update_uris (client->core_resource,
+                                 client->n_uris,
+                                 diff,
+                                 uris);
+  client->n_uris += diff;
+}
+
+static void
 core_marshal_info (void          *object,
                    PinosCoreInfo *info)
 {
@@ -54,6 +77,8 @@ core_marshal_info (void          *object,
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
   uint32_t i, n_items;
+
+  core_update_map (resource->client);
 
   n_items = info->props ? info->props->n_items : 0;
 
@@ -88,6 +113,8 @@ core_marshal_done (void          *object,
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
 
+  core_update_map (resource->client);
+
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
         SPA_POD_TYPE_INT, seq,
@@ -107,8 +134,9 @@ core_marshal_error (void          *object,
   char buffer[128];
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
-
   va_list ap;
+
+  core_update_map (resource->client);
 
   va_start (ap, error);
   vsnprintf (buffer, sizeof (buffer), error, ap);
@@ -133,12 +161,41 @@ core_marshal_remove_id (void          *object,
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
 
+  core_update_map (resource->client);
+
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
         SPA_POD_TYPE_INT, id,
      -SPA_POD_TYPE_STRUCT, &f, 0);
 
   pinos_connection_end_write (connection, resource->id, 3, b.b.offset);
+}
+
+static void
+core_marshal_update_uris (void          *object,
+                          uint32_t       first_id,
+                          uint32_t       n_uris,
+                          const char   **uris)
+{
+  PinosResource *resource = object;
+  PinosConnection *connection = resource->client->protocol_private;
+  Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
+  SpaPODFrame f;
+  uint32_t i;
+
+  spa_pod_builder_add (&b.b,
+      SPA_POD_TYPE_STRUCT, &f,
+        SPA_POD_TYPE_INT, first_id,
+        SPA_POD_TYPE_INT, n_uris, 0);
+
+  for (i = 0; i < n_uris; i++) {
+    spa_pod_builder_add (&b.b,
+        SPA_POD_TYPE_STRING, uris[i], 0);
+  }
+  spa_pod_builder_add (&b.b,
+    -SPA_POD_TYPE_STRUCT, &f, 0);
+
+  pinos_connection_end_write (connection, resource->id, 4, b.b.offset);
 }
 
 static bool
@@ -281,6 +338,33 @@ core_demarshal_create_client_node (void  *object,
   return true;
 }
 
+static bool
+core_demarshal_update_uris (void   *object,
+                            void   *data,
+                            size_t  size)
+{
+  PinosResource *resource = object;
+  SpaPODIter it;
+  uint32_t first_id, n_uris;
+  const char **uris;
+  int i;
+
+  if (!spa_pod_iter_struct (&it, data, size) ||
+      !spa_pod_iter_get (&it,
+        SPA_POD_TYPE_INT, &first_id,
+        SPA_POD_TYPE_INT, &n_uris,
+        0))
+    return false;
+
+  uris = alloca (n_uris * sizeof (char *));
+  for (i = 0; i < n_uris; i++) {
+    if (!spa_pod_iter_get (&it, SPA_POD_TYPE_STRING, &uris[i], 0))
+      return false;
+  }
+  ((PinosCoreMethods*)resource->implementation)->update_uris (resource, first_id, n_uris, uris);
+  return true;
+}
+
 static void
 registry_marshal_global (void          *object,
                          uint32_t       id,
@@ -290,6 +374,8 @@ registry_marshal_global (void          *object,
   PinosConnection *connection = resource->client->protocol_private;
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
+
+  core_update_map (resource->client);
 
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
@@ -308,6 +394,8 @@ registry_marshal_global_remove (void          *object,
   PinosConnection *connection = resource->client->protocol_private;
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
+
+  core_update_map (resource->client);
 
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
@@ -347,6 +435,8 @@ module_marshal_info (void            *object,
   SpaPODFrame f;
   uint32_t i, n_items;
 
+  core_update_map (resource->client);
+
   n_items = info->props ? info->props->n_items : 0;
 
   spa_pod_builder_add (&b.b,
@@ -378,6 +468,8 @@ node_marshal_info (void          *object,
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
   uint32_t i, n_items;
+
+  core_update_map (resource->client);
 
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
@@ -426,6 +518,8 @@ client_marshal_info (void          *object,
   SpaPODFrame f;
   uint32_t i, n_items;
 
+  core_update_map (resource->client);
+
   n_items = info->props ? info->props->n_items : 0;
 
   spa_pod_builder_add (&b.b,
@@ -453,6 +547,8 @@ client_node_marshal_done (void     *object,
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
 
+  core_update_map (resource->client);
+
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
         SPA_POD_TYPE_INT, pinos_connection_add_fd (connection, datafd),
@@ -469,6 +565,8 @@ client_node_marshal_event (void               *object,
   PinosConnection *connection = resource->client->protocol_private;
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
+
+  core_update_map (resource->client);
 
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
@@ -488,6 +586,8 @@ client_node_marshal_add_port (void         *object,
   PinosConnection *connection = resource->client->protocol_private;
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
+
+  core_update_map (resource->client);
 
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
@@ -509,6 +609,8 @@ client_node_marshal_remove_port (void         *object,
   PinosConnection *connection = resource->client->protocol_private;
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
+
+  core_update_map (resource->client);
 
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
@@ -532,6 +634,8 @@ client_node_marshal_set_format (void              *object,
   PinosConnection *connection = resource->client->protocol_private;
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
+
+  core_update_map (resource->client);
 
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
@@ -559,6 +663,8 @@ client_node_marshal_set_property (void              *object,
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
 
+  core_update_map (resource->client);
+
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
         SPA_POD_TYPE_INT, seq,
@@ -584,6 +690,8 @@ client_node_marshal_add_mem (void              *object,
   PinosConnection *connection = resource->client->protocol_private;
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
+
+  core_update_map (resource->client);
 
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
@@ -613,6 +721,8 @@ client_node_marshal_use_buffers (void                  *object,
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
   uint32_t i, j;
+
+  core_update_map (resource->client);
 
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
@@ -663,6 +773,8 @@ client_node_marshal_node_command (void                 *object,
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
 
+  core_update_map (resource->client);
+
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
         SPA_POD_TYPE_INT, seq,
@@ -681,6 +793,8 @@ client_node_marshal_port_command (void                 *object,
   PinosConnection *connection = resource->client->protocol_private;
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
+
+  core_update_map (resource->client);
 
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
@@ -701,6 +815,8 @@ client_node_marshal_transport (void              *object,
   PinosConnection *connection = resource->client->protocol_private;
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
+
+  core_update_map (resource->client);
 
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
@@ -877,6 +993,8 @@ link_marshal_info (void          *object,
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
 
+  core_update_map (resource->client);
+
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
         SPA_POD_TYPE_INT, info->id,
@@ -895,19 +1013,21 @@ static const PinosDemarshalFunc pinos_protocol_native_server_core_demarshal[] = 
   &core_demarshal_sync,
   &core_demarshal_get_registry,
   &core_demarshal_create_node,
-  &core_demarshal_create_client_node
+  &core_demarshal_create_client_node,
+  &core_demarshal_update_uris
 };
 
 static const PinosCoreEvents pinos_protocol_native_server_core_events = {
   &core_marshal_info,
   &core_marshal_done,
   &core_marshal_error,
-  &core_marshal_remove_id
+  &core_marshal_remove_id,
+  &core_marshal_update_uris
 };
 
 const PinosInterface pinos_protocol_native_server_core_interface = {
-  5, pinos_protocol_native_server_core_demarshal,
-  4, &pinos_protocol_native_server_core_events,
+  6, pinos_protocol_native_server_core_demarshal,
+  5, &pinos_protocol_native_server_core_events,
 };
 
 static const PinosDemarshalFunc pinos_protocol_native_server_registry_demarshal[] = {

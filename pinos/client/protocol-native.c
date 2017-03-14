@@ -48,6 +48,28 @@ write_pod (SpaPODBuilder *b, uint32_t ref, const void *data, uint32_t size)
 }
 
 static void
+core_update_map (PinosContext *context)
+{
+  uint32_t diff, base, i;
+  const char **uris;
+
+  base = context->n_uris;
+  diff = spa_id_map_get_size (context->uri.map) - base;
+  if (diff == 0)
+    return;
+
+  uris = alloca (diff * sizeof (char *));
+  for (i = 0; i < diff; i++, base++)
+    uris[i] = spa_id_map_get_uri (context->uri.map, base);
+
+  pinos_core_do_update_uris (context->core_proxy,
+                             context->n_uris,
+                             diff,
+                             uris);
+  context->n_uris += diff;
+}
+
+static void
 core_marshal_client_update (void          *object,
                             const SpaDict *props)
 {
@@ -56,6 +78,8 @@ core_marshal_client_update (void          *object,
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
   int i, n_items;
+
+  core_update_map (proxy->context);
 
   n_items = props ? props->n_items : 0;
 
@@ -83,6 +107,8 @@ core_marshal_sync (void     *object,
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
 
+  core_update_map (proxy->context);
+
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
         SPA_POD_TYPE_INT, seq,
@@ -100,6 +126,8 @@ core_marshal_get_registry (void     *object,
   PinosConnection *connection = proxy->context->protocol_private;
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
+
+  core_update_map (proxy->context);
 
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
@@ -122,6 +150,8 @@ core_marshal_create_node (void          *object,
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
   uint32_t i, n_items;
+
+  core_update_map (proxy->context);
 
   n_items = props ? props->n_items : 0;
 
@@ -156,6 +186,8 @@ core_marshal_create_client_node (void          *object,
   SpaPODFrame f;
   uint32_t i, n_items;
 
+  core_update_map (proxy->context);
+
   n_items = props ? props->n_items : 0;
 
   spa_pod_builder_add (&b.b,
@@ -174,6 +206,33 @@ core_marshal_create_client_node (void          *object,
     -SPA_POD_TYPE_STRUCT, &f, 0);
 
   pinos_connection_end_write (connection, proxy->id, 4, b.b.offset);
+}
+
+static void
+core_marshal_update_uris (void          *object,
+                          uint32_t       first_id,
+                          uint32_t       n_uris,
+                          const char   **uris)
+{
+  PinosProxy *proxy = object;
+  PinosConnection *connection = proxy->context->protocol_private;
+  Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
+  SpaPODFrame f;
+  uint32_t i;
+
+  spa_pod_builder_add (&b.b,
+      SPA_POD_TYPE_STRUCT, &f,
+        SPA_POD_TYPE_INT, first_id,
+        SPA_POD_TYPE_INT, n_uris, 0);
+
+  for (i = 0; i < n_uris; i++) {
+    spa_pod_builder_add (&b.b,
+        SPA_POD_TYPE_STRING, uris[i], 0);
+  }
+  spa_pod_builder_add (&b.b,
+    -SPA_POD_TYPE_STRUCT, &f, 0);
+
+  pinos_connection_end_write (connection, proxy->id, 5, b.b.offset);
 }
 
 static bool
@@ -270,6 +329,33 @@ core_demarshal_remove_id (void   *object,
     return false;
 
   ((PinosCoreEvents*)proxy->implementation)->remove_id (proxy, id);
+  return true;
+}
+
+static bool
+core_demarshal_update_uris (void   *object,
+                            void   *data,
+                            size_t  size)
+{
+  PinosProxy *proxy = object;
+  SpaPODIter it;
+  uint32_t first_id, n_uris;
+  const char **uris;
+  int i;
+
+  if (!spa_pod_iter_struct (&it, data, size) ||
+      !spa_pod_iter_get (&it,
+        SPA_POD_TYPE_INT, &first_id,
+        SPA_POD_TYPE_INT, &n_uris,
+        0))
+    return false;
+
+  uris = alloca (n_uris * sizeof (char *));
+  for (i = 0; i < n_uris; i++) {
+    if (!spa_pod_iter_get (&it, SPA_POD_TYPE_STRING, &uris[i], 0))
+      return false;
+  }
+  ((PinosCoreEvents*)proxy->implementation)->update_uris (proxy, first_id, n_uris, uris);
   return true;
 }
 
@@ -379,6 +465,8 @@ client_node_marshal_update (void           *object,
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
 
+  core_update_map (proxy->context);
+
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
         SPA_POD_TYPE_INT, change_mask,
@@ -410,6 +498,8 @@ client_node_marshal_port_update (void              *object,
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
   int i, n_items;
+
+  core_update_map (proxy->context);
 
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
@@ -464,6 +554,8 @@ client_node_marshal_state_change (void         *object,
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
 
+  core_update_map (proxy->context);
+
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
         SPA_POD_TYPE_INT, state,
@@ -482,6 +574,8 @@ client_node_marshal_event (void         *object,
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
 
+  core_update_map (proxy->context);
+
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
         SPA_POD_TYPE_BYTES, event, event->size,
@@ -498,6 +592,8 @@ client_node_marshal_destroy (void    *object)
   PinosConnection *connection = proxy->context->protocol_private;
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
+
+  core_update_map (proxy->context);
 
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
@@ -923,6 +1019,8 @@ registry_marshal_bind (void          *object,
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
 
+  core_update_map (proxy->context);
+
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
         SPA_POD_TYPE_INT, id,
@@ -937,7 +1035,8 @@ static const PinosCoreMethods pinos_protocol_native_client_core_methods = {
   &core_marshal_sync,
   &core_marshal_get_registry,
   &core_marshal_create_node,
-  &core_marshal_create_client_node
+  &core_marshal_create_client_node,
+  &core_marshal_update_uris,
 };
 
 static const PinosDemarshalFunc pinos_protocol_native_client_core_demarshal[] = {
@@ -945,11 +1044,12 @@ static const PinosDemarshalFunc pinos_protocol_native_client_core_demarshal[] = 
   &core_demarshal_done,
   &core_demarshal_error,
   &core_demarshal_remove_id,
+  &core_demarshal_update_uris,
 };
 
 static const PinosInterface pinos_protocol_native_client_core_interface = {
-  5, &pinos_protocol_native_client_core_methods,
-  4, pinos_protocol_native_client_core_demarshal
+  6, &pinos_protocol_native_client_core_methods,
+  5, pinos_protocol_native_client_core_demarshal
 };
 
 static const PinosRegistryMethods pinos_protocol_native_client_registry_methods = {
@@ -1036,17 +1136,23 @@ pinos_protocol_native_client_setup (PinosProxy *proxy)
 
   if (proxy->type == proxy->context->uri.core) {
     iface = &pinos_protocol_native_client_core_interface;
-  } else if (proxy->type == proxy->context->uri.registry) {
+  }
+  else if (proxy->type == proxy->context->uri.registry) {
     iface = &pinos_protocol_native_client_registry_interface;
-  } else if (proxy->type == proxy->context->uri.module) {
+  }
+  else if (proxy->type == proxy->context->uri.module) {
     iface = &pinos_protocol_native_client_module_interface;
-  } else if (proxy->type == proxy->context->uri.node) {
+  }
+  else if (proxy->type == proxy->context->uri.node) {
     iface = &pinos_protocol_native_client_node_interface;
-  } else if (proxy->type == proxy->context->uri.client_node) {
+  }
+  else if (proxy->type == proxy->context->uri.client_node) {
     iface = &pinos_protocol_native_client_client_node_interface;
-  } else if (proxy->type == proxy->context->uri.client) {
+  }
+  else if (proxy->type == proxy->context->uri.client) {
     iface = &pinos_protocol_native_client_client_interface;
-  } else if (proxy->type == proxy->context->uri.link) {
+  }
+  else if (proxy->type == proxy->context->uri.link) {
     iface = &pinos_protocol_native_client_link_interface;
   } else
     return false;

@@ -201,12 +201,32 @@ no_mem:
   return;
 }
 
+static void
+core_update_uris (void          *object,
+                  uint32_t       first_id,
+                  uint32_t       n_uris,
+                  const char   **uris)
+{
+  PinosResource *resource = object;
+  PinosCore *this = resource->core;
+  PinosClient *client = resource->client;
+  int i;
+
+  for (i = 0; i < n_uris; i++, first_id++) {
+    uint32_t this_id = spa_id_map_get_id (this->uri.map, uris[i]);
+    printf ("update %d %s -> %d\n", first_id, uris[i], this_id);
+    if (!pinos_map_insert_at (&client->uris, first_id, SPA_UINT32_TO_PTR (this_id)))
+      pinos_log_error ("can't add uri for client");
+  }
+}
+
 static PinosCoreMethods core_methods = {
   &core_client_update,
   &core_sync,
   &core_get_registry,
   &core_create_node,
-  &core_create_client_node
+  &core_create_client_node,
+  &core_update_uris
 };
 
 static void

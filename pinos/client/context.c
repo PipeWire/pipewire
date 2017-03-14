@@ -157,11 +157,30 @@ core_event_remove_id (void     *object,
   }
 }
 
+static void
+core_event_update_uris (void          *object,
+                        uint32_t       first_id,
+                        uint32_t       n_uris,
+                        const char   **uris)
+{
+  PinosProxy *proxy = object;
+  PinosContext *this = proxy->context;
+  int i;
+
+  for (i = 0; i < n_uris; i++, first_id++) {
+    uint32_t this_id = spa_id_map_get_id (this->uri.map, uris[i]);
+    printf ("update %d %s -> %d\n", first_id, uris[i], this_id);
+    if (!pinos_map_insert_at (&this->uris, first_id, SPA_UINT32_TO_PTR (this_id)))
+      pinos_log_error ("can't add uri for client");
+  }
+}
+
 static const PinosCoreEvents core_events = {
   &core_event_info,
   &core_event_done,
   &core_event_error,
-  &core_event_remove_id
+  &core_event_remove_id,
+  &core_event_update_uris
 };
 
 static void
@@ -460,6 +479,7 @@ pinos_context_new (PinosLoop       *loop,
                     on_before_iterate);
 
   pinos_map_init (&this->objects, 64);
+  pinos_map_init (&this->uris, 64);
 
   spa_list_init (&this->stream_list);
   spa_list_init (&this->global_list);

@@ -43,14 +43,25 @@ pinos_proxy_new (PinosContext *context,
 
   pinos_signal_init (&this->destroy_signal);
 
+  if (id == SPA_ID_INVALID) {
+    id = pinos_map_insert_new (&context->objects, this);
+  } else if (!pinos_map_insert_at (&context->objects, id, this))
+    goto in_use;
+
+  this->id = id;
+
   pinos_protocol_native_client_setup (this);
 
-  this->id = pinos_map_insert_new (&context->objects, this);
   spa_list_insert (&this->context->proxy_list, &this->link);
 
   pinos_log_debug ("proxy %p: new %u", this, this->id);
 
   return this;
+
+in_use:
+  pinos_log_debug ("proxy %p: id %u in use for context %p", this, id, context);
+  free (impl);
+  return NULL;
 }
 
 void

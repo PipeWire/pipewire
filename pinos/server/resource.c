@@ -46,20 +46,25 @@ pinos_resource_new (PinosClient *client,
   this->type = type;
   this->object = object;
   this->destroy = destroy;
-  this->id = id;
 
   pinos_signal_init (&this->destroy_signal);
 
-  if (!pinos_map_insert_at (&client->objects, this->id, this)) {
-    pinos_log_debug ("resource %p: id %u in use for client %p", this, id, client);
-    free (impl);
-    return NULL;
-  }
+  if (id == SPA_ID_INVALID) {
+    this->id = pinos_map_insert_new (&client->objects, this);
+  } else if (!pinos_map_insert_at (&client->objects, id, this))
+    goto in_use;
+
+  this->id = id;
 
   pinos_log_debug ("resource %p: new for client %p id %u", this, client, this->id);
   pinos_signal_emit (&client->resource_added, client, this);
 
   return this;
+
+in_use:
+  pinos_log_debug ("resource %p: id %u in use for client %p", this, id, client);
+  free (impl);
+  return NULL;
 }
 
 void

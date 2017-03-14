@@ -597,7 +597,7 @@ pinos_context_connect_fd (PinosContext  *context,
                      impl);
 
   context->core_proxy = pinos_proxy_new (context,
-                                         SPA_ID_INVALID,
+                                         0,
                                          context->uri.core);
   if (context->core_proxy == NULL)
     goto no_proxy;

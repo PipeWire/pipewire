@@ -40,6 +40,8 @@ struct _PinosLoop {
   SpaLoopControl *control;
   SpaLoopUtils   *utils;
 
+  PINOS_SIGNAL  (before_iterate,   (PinosListener *listener,
+                                    PinosLoop     *loop));
   PINOS_SIGNAL  (destroy_signal,   (PinosListener *listener,
                                     PinosLoop     *loop));
 };

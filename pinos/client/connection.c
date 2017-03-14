@@ -291,7 +291,6 @@ pinos_connection_end_write (PinosConnection  *conn,
   *p++ = (opcode << 24) | (size & 0xffffff);
 
   buf->buffer_size += 8 + size;
-  pinos_connection_flush (conn);
 }
 
 bool

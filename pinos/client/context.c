@@ -38,6 +38,7 @@ typedef struct {
   SpaSource source;
 
   bool disconnecting;
+  PinosListener before_iterate;
 } PinosContextImpl;
 
 /**
@@ -354,6 +355,14 @@ static const PinosRegistryEvents registry_events = {
 typedef bool (*PinosDemarshalFunc) (void *object, void *data, size_t size);
 
 static void
+on_before_iterate (PinosListener *listener,
+                   PinosLoop     *loop)
+{
+  PinosContextImpl *impl = SPA_CONTAINER_OF (listener, PinosContextImpl, before_iterate);
+  pinos_connection_flush (impl->connection);
+}
+
+static void
 on_context_data (SpaSource *source,
                  int        fd,
                  SpaIO      mask,
@@ -446,6 +455,10 @@ pinos_context_new (PinosLoop       *loop,
 
   this->state = PINOS_CONTEXT_STATE_UNCONNECTED;
 
+  pinos_signal_add (&loop->before_iterate,
+                    &impl->before_iterate,
+                    on_before_iterate);
+
   pinos_map_init (&this->objects, 64);
 
   spa_list_init (&this->stream_list);
@@ -481,6 +494,8 @@ pinos_context_destroy (PinosContext *context)
     pinos_stream_destroy (stream);
   spa_list_for_each_safe (proxy, t2, &context->proxy_list, link)
     pinos_proxy_destroy (proxy);
+
+  pinos_signal_remove (&impl->before_iterate);
 
   pinos_map_clear (&context->objects);
 

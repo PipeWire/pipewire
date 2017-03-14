@@ -274,8 +274,11 @@ loop_iterate (SpaLoopControl *ctrl,
               int             timeout)
 {
   PinosLoopImpl *impl = SPA_CONTAINER_OF (ctrl, PinosLoopImpl, control);
+  PinosLoop *loop = &impl->this;
   struct epoll_event ep[32];
   int i, nfds, save_errno;
+
+  pinos_signal_emit (&loop->before_iterate, loop);
 
   if (SPA_UNLIKELY (impl->pre_func))
     impl->pre_func (ctrl, impl->hook_data);
@@ -592,6 +595,7 @@ pinos_loop_new (void)
 
   spa_list_init (&impl->source_list);
 
+  pinos_signal_init (&this->before_iterate);
   pinos_signal_init (&this->destroy_signal);
 
   impl->loop.size = sizeof (SpaLoop);

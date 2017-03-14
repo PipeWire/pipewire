@@ -73,6 +73,8 @@ typedef struct {
 
   SpaList socket_list;
   SpaList client_list;
+
+  PinosListener before_iterate;
 } PinosProtocolNative;
 
 typedef struct {
@@ -107,6 +109,17 @@ on_resource_added (PinosListener *listener,
 }
 
 static void
+on_before_iterate (PinosListener *listener,
+                   PinosLoop     *loop)
+{
+  PinosProtocolNative *this = SPA_CONTAINER_OF (listener, PinosProtocolNative, before_iterate);
+  PinosProtocolNativeClient *client, *tmp;
+
+  spa_list_for_each_safe (client, tmp, &this->client_list, link)
+    pinos_connection_flush (client->connection);
+}
+
+static void
 connection_data (SpaSource *source,
                  int        fd,
                  SpaIO      mask,
@@ -126,27 +139,29 @@ connection_data (SpaSource *source,
     return;
   }
 
-  while (pinos_connection_get_next (conn, &opcode, &id, &message, &size)) {
-    PinosResource *resource;
-    const PinosDemarshalFunc *demarshal;
+  if (mask & SPA_IO_IN) {
+    while (pinos_connection_get_next (conn, &opcode, &id, &message, &size)) {
+      PinosResource *resource;
+      const PinosDemarshalFunc *demarshal;
 
-    pinos_log_debug ("protocol-native %p: got message %d from %u", client->impl, opcode, id);
+      pinos_log_debug ("protocol-native %p: got message %d from %u", client->impl, opcode, id);
 
-    resource = pinos_map_lookup (&c->objects, id);
-    if (resource == NULL) {
-      pinos_log_error ("protocol-native %p: unknown resource %u", client->impl, id);
-      continue;
+      resource = pinos_map_lookup (&c->objects, id);
+      if (resource == NULL) {
+        pinos_log_error ("protocol-native %p: unknown resource %u", client->impl, id);
+        continue;
+      }
+      if (opcode >= resource->iface->n_methods) {
+        pinos_log_error ("protocol-native %p: invalid method %u", client->impl, opcode);
+        continue;
+      }
+      demarshal = resource->iface->methods;
+      if (demarshal[opcode]) {
+        if (!demarshal[opcode] (resource, message, size))
+          pinos_log_error ("protocol-native %p: invalid message received", client->impl);
+      } else
+        pinos_log_error ("protocol-native %p: function %d not implemented", client->impl, opcode);
     }
-    if (opcode >= resource->iface->n_methods) {
-      pinos_log_error ("protocol-native %p: invalid method %u", client->impl, opcode);
-      continue;
-    }
-    demarshal = resource->iface->methods;
-    if (demarshal[opcode]) {
-      if (!demarshal[opcode] (resource, message, size))
-        pinos_log_error ("protocol-native %p: invalid message received", client->impl);
-    } else
-      pinos_log_error ("protocol-native %p: function %d not implemented", client->impl, opcode);
   }
 }
 
@@ -409,6 +424,10 @@ pinos_protocol_native_new (PinosCore       *core,
   if (!add_socket (impl, s))
     goto error;
 
+  pinos_signal_add (&impl->core->main_loop->loop->before_iterate,
+                    &impl->before_iterate,
+                    on_before_iterate);
+
   return impl;
 
 error:
@@ -424,6 +443,8 @@ pinos_protocol_native_destroy (PinosProtocolNative *impl)
   PinosProtocolNativeObject *object, *tmp;
 
   pinos_log_debug ("protocol-native %p: destroy", impl);
+
+  pinos_signal_remove (&impl->before_iterate);
 
   pinos_global_destroy (impl->global);
 

@@ -52,10 +52,13 @@ struct _SpaIDMap {
 
   const char *  (*get_uri)   (SpaIDMap   *map,
                               uint32_t    id);
+
+  uint32_t      (*get_size)  (SpaIDMap   *map);
 };
 
 #define spa_id_map_get_id(n,...)            (n)->get_id((n),__VA_ARGS__)
 #define spa_id_map_get_uri(n,...)           (n)->get_uri((n),__VA_ARGS__)
+#define spa_id_map_get_size(n)              (n)->get_size(n)
 
 #ifdef __cplusplus
 }  /* extern "C" */

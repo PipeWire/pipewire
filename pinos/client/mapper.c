@@ -62,11 +62,19 @@ id_map_get_uri (SpaIDMap *map, uint32_t id)
   return NULL;
 }
 
+static uint32_t
+id_map_get_size (SpaIDMap *map)
+{
+  IDMap *this = SPA_CONTAINER_OF (map, IDMap, map);
+  return pinos_map_get_size (&this->uris);
+}
+
 static IDMap default_id_map = {
   { sizeof (SpaIDMap),
     NULL,
     id_map_get_id,
     id_map_get_uri,
+    id_map_get_size,
   },
   { { NULL, } },
 };

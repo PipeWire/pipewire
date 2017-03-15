@@ -88,8 +88,8 @@ static const struct _test_format {
 } test_format = {
   { { sizeof (test_format.props) + sizeof (SpaFormatBody), SPA_POD_TYPE_OBJECT },
     { { 0, 0 },
-    { { sizeof (uint32_t), SPA_POD_TYPE_INT }, SPA_MEDIA_TYPE_VIDEO }, 0,
-    { { sizeof (uint32_t), SPA_POD_TYPE_INT }, SPA_MEDIA_SUBTYPE_RAW }, 0 },
+    { { sizeof (uint32_t), SPA_POD_TYPE_INT }, SPA_MEDIA_TYPE_VIDEO },
+    { { sizeof (uint32_t), SPA_POD_TYPE_INT }, SPA_MEDIA_SUBTYPE_RAW } },
   }, {
   { { sizeof (test_format.props.format_vals) + sizeof (SpaPODPropBody),
       SPA_POD_TYPE_PROP } ,

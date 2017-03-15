@@ -91,10 +91,8 @@ typedef enum {
 
 typedef struct {
   SpaPODObjectBody obj_body;
-  SpaPODInt        media_type;
-  uint32_t         pad1;
-  SpaPODInt        media_subtype;
-  uint32_t         pad2;
+  SpaPODInt        media_type           SPA_ALIGNED (8);
+  SpaPODInt        media_subtype        SPA_ALIGNED (8);
   /* contents follow, series of SpaPODProp */
 } SpaFormatBody;
 
@@ -120,7 +118,7 @@ struct _SpaFormat {
 static inline SpaPODProp *
 spa_format_find_prop (const SpaFormat *format, uint32_t key)
 {
-  return spa_pod_contents_find_prop (&format->pod, sizeof (SpaFormat), key);
+  return spa_pod_contents_find_prop (&format->pod, SPA_ROUND_UP_N (sizeof (SpaFormat), 8), key);
 }
 
 static inline SpaResult

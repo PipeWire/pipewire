@@ -38,7 +38,8 @@ typedef struct {
   SpaSource source;
 
   bool disconnecting;
-  PinosListener before_iterate;
+  PinosListener  need_flush;
+  SpaSource     *flush_event;
 } PinosContextImpl;
 
 /**
@@ -374,11 +375,20 @@ static const PinosRegistryEvents registry_events = {
 typedef bool (*PinosDemarshalFunc) (void *object, void *data, size_t size);
 
 static void
-on_before_iterate (PinosListener *listener,
-                   PinosLoop     *loop)
+do_flush_event (SpaSource *source,
+                void      *data)
 {
-  PinosContextImpl *impl = SPA_CONTAINER_OF (listener, PinosContextImpl, before_iterate);
+  PinosContextImpl *impl = data;
   pinos_connection_flush (impl->connection);
+}
+
+static void
+on_need_flush (PinosListener   *listener,
+               PinosConnection *connection)
+{
+  PinosContextImpl *impl = SPA_CONTAINER_OF (listener, PinosContextImpl, need_flush);
+  PinosContext *this = &impl->this;
+  pinos_loop_signal_event (this->loop, impl->flush_event);
 }
 
 static void
@@ -472,11 +482,9 @@ pinos_context_new (PinosLoop       *loop,
 
   this->loop = loop;
 
-  this->state = PINOS_CONTEXT_STATE_UNCONNECTED;
+  impl->flush_event = pinos_loop_add_event (loop, do_flush_event, impl);
 
-  pinos_signal_add (&loop->before_iterate,
-                    &impl->before_iterate,
-                    on_before_iterate);
+  this->state = PINOS_CONTEXT_STATE_UNCONNECTED;
 
   pinos_map_init (&this->objects, 64);
   pinos_map_init (&this->uris, 64);
@@ -515,9 +523,9 @@ pinos_context_destroy (PinosContext *context)
   spa_list_for_each_safe (proxy, t2, &context->proxy_list, link)
     pinos_proxy_destroy (proxy);
 
-  pinos_signal_remove (&impl->before_iterate);
-
   pinos_map_clear (&context->objects);
+
+  pinos_loop_destroy_source (impl->this.loop, impl->flush_event);
 
   free (context->name);
   if (context->properties)
@@ -606,6 +614,10 @@ pinos_context_connect_fd (PinosContext  *context,
     goto error_close;
 
   context->protocol_private = impl->connection;
+
+  pinos_signal_add (&impl->connection->need_flush,
+                    &impl->need_flush,
+                    on_need_flush);
 
   impl->fd = fd;
 

@@ -25,8 +25,18 @@ extern "C" {
 #endif
 
 #include <spa/defs.h>
+#include <pinos/client/sig.h>
 
 typedef struct _PinosConnection PinosConnection;
+
+struct _PinosConnection {
+  int fd;
+
+  PINOS_SIGNAL (need_flush,     (PinosListener   *listener,
+                                 PinosConnection *conn));
+  PINOS_SIGNAL (destroy_signal, (PinosListener   *listener,
+                                 PinosConnection *conn));
+};
 
 PinosConnection *  pinos_connection_new             (int              fd);
 void               pinos_connection_destroy         (PinosConnection *conn);

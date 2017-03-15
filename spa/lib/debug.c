@@ -395,11 +395,11 @@ print_pod_value (uint32_t size, uint32_t type, void *body, int prefix)
     case SPA_POD_TYPE_OBJECT:
     {
       SpaPODObjectBody *b = body;
-      SpaPODProp *p;
+      SpaPOD *p;
 
-      printf ("%-*sObject: size %d\n", prefix, "", size);
+      printf ("%-*sObject: size %d, id %d, type %d\n", prefix, "", size, b->id, b->type);
       SPA_POD_OBJECT_BODY_FOREACH (b, size, p)
-        print_pod_value (p->pod.size, p->pod.type, SPA_POD_BODY (p), prefix + 6);
+        print_pod_value (p->size, p->type, SPA_POD_BODY (p), prefix + 2);
       break;
     }
     case SPA_POD_TYPE_PROP:
@@ -408,18 +408,18 @@ print_pod_value (uint32_t size, uint32_t type, void *body, int prefix)
       void *alt;
       int i;
 
-      printf ("%-*sProp: key %d, flags %d\n", prefix + 2, "", b->key, b->flags);
+      printf ("%-*sProp: key %d, flags %d\n", prefix, "", b->key, b->flags);
       if (b->flags & SPA_POD_PROP_FLAG_UNSET)
-        printf ("%-*sUnset (Default):\n", prefix + 4, "");
+        printf ("%-*sUnset (Default):\n", prefix + 2, "");
       else
-        printf ("%-*sValue: size %u\n", prefix + 4, "", b->value.size);
-      print_pod_value (b->value.size, b->value.type, SPA_POD_BODY (&b->value), prefix + 6);
+        printf ("%-*sValue: size %u\n", prefix + 2, "", b->value.size);
+      print_pod_value (b->value.size, b->value.type, SPA_POD_BODY (&b->value), prefix + 4);
 
       i = 0;
       SPA_POD_PROP_ALTERNATIVE_FOREACH (b, size, alt) {
         if (i == 0)
-          printf ("%-*sAlternatives:\n", prefix + 4, "");
-        print_pod_value (b->value.size, b->value.type, alt, prefix + 6);
+          printf ("%-*sAlternatives:\n", prefix + 2, "");
+        print_pod_value (b->value.size, b->value.type, alt, prefix + 4);
         i++;
       }
       break;
@@ -429,7 +429,7 @@ print_pod_value (uint32_t size, uint32_t type, void *body, int prefix)
       spa_debug_dump_mem (body, size);
       break;
     default:
-      printf ("unhandled prop type %d\n", type);
+      printf ("unhandled POD type %d\n", type);
       break;
   }
 }

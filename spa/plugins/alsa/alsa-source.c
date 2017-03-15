@@ -135,9 +135,16 @@ spa_alsa_source_node_set_props (SpaNode         *node,
     reset_alsa_props (&this->props);
     return SPA_RESULT_OK;
   } else {
-    SpaPODProp *pr;
+    SpaPOD *p;
 
-    SPA_POD_OBJECT_BODY_FOREACH (&props->body, props->pod.size, pr) {
+    SPA_POD_OBJECT_BODY_FOREACH (&props->body, props->pod.size, p) {
+      SpaPODProp *pr;
+
+      if (p->type != SPA_POD_TYPE_PROP)
+        continue;
+
+      pr = (SpaPODProp *) p;
+
       switch (pr->body.key) {
         case PROP_ID_DEVICE:
           strncpy (this->props.device, SPA_POD_CONTENTS (SpaPODProp, pr), 63);
@@ -183,17 +190,13 @@ do_start (SpaLoop        *loop,
 {
   SpaALSASource *this = user_data;
   SpaResult res;
-  SpaNodeEventAsyncComplete ac;
 
   if (SPA_RESULT_IS_OK (res = spa_alsa_start (this, false))) {
     update_state (this, SPA_NODE_STATE_STREAMING);
   }
 
   if (async) {
-    ac.event.type = SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE;
-    ac.event.size = sizeof (SpaNodeEventAsyncComplete);
-    ac.seq = seq;
-    ac.res = res;
+    SpaNodeEventAsyncComplete ac = SPA_NODE_EVENT_ASYNC_COMPLETE_INIT (seq, res);
     spa_loop_invoke (this->main_loop,
                      do_send_event,
                      SPA_ID_INVALID,
@@ -214,17 +217,13 @@ do_pause (SpaLoop        *loop,
 {
   SpaALSASource *this = user_data;
   SpaResult res;
-  SpaNodeEventAsyncComplete ac;
 
   if (SPA_RESULT_IS_OK (res = spa_alsa_pause (this, false))) {
     update_state (this, SPA_NODE_STATE_PAUSED);
   }
 
   if (async) {
-    ac.event.type = SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE;
-    ac.event.size = sizeof (SpaNodeEventAsyncComplete);
-    ac.seq = seq;
-    ac.res = res;
+    SpaNodeEventAsyncComplete ac = SPA_NODE_EVENT_ASYNC_COMPLETE_INIT (seq, res);
     spa_loop_invoke (this->main_loop,
                      do_send_event,
                      SPA_ID_INVALID,
@@ -246,7 +245,7 @@ spa_alsa_source_node_send_command (SpaNode        *node,
 
   this = SPA_CONTAINER_OF (node, SpaALSASource, node);
 
-  switch (command->type) {
+  switch (SPA_NODE_COMMAND_TYPE (command)) {
     case SPA_NODE_COMMAND_INVALID:
       return SPA_RESULT_INVALID_COMMAND;
 
@@ -736,7 +735,7 @@ spa_alsa_source_node_port_send_command (SpaNode          *node,
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
 
-  switch (command->type) {
+  switch (SPA_NODE_COMMAND_TYPE (command)) {
     case SPA_NODE_COMMAND_PAUSE:
     {
       if (SPA_RESULT_IS_OK (res = spa_alsa_pause (this, false))) {

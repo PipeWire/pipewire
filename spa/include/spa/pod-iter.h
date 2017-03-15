@@ -80,6 +80,7 @@ spa_pod_iter_pod (SpaPODIter *iter, SpaPOD *pod)
       size = SPA_POD_CONTENTS_SIZE (SpaPODObject, pod);
       break;
     default:
+      spa_pod_iter_contents (iter, NULL, 0);
       return false;
   }
   spa_pod_iter_contents (iter, data, size);
@@ -99,6 +100,15 @@ spa_pod_iter_next (SpaPODIter *iter)
   SpaPOD *res = SPA_MEMBER (iter->data, iter->offset, SpaPOD);
   iter->offset += SPA_ROUND_UP_N (SPA_POD_SIZE (res), 8);
   return res;
+}
+
+static inline SpaPOD *
+spa_pod_iter_first (SpaPODIter *iter, SpaPOD *pod)
+{
+  if (!spa_pod_iter_pod (iter, pod) ||
+      !spa_pod_iter_has_next (iter))
+    return false;
+  return spa_pod_iter_next (iter);
 }
 
 static inline bool

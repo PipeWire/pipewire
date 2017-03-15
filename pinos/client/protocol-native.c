@@ -578,7 +578,7 @@ client_node_marshal_event (void         *object,
 
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
-        SPA_POD_TYPE_BYTES, event, event->size,
+        SPA_POD_TYPE_POD, event,
      -SPA_POD_TYPE_STRUCT, &f,
       0);
 
@@ -633,11 +633,10 @@ client_node_demarshal_event (void   *object,
   PinosProxy *proxy = object;
   SpaPODIter it;
   const SpaNodeEvent *event;
-  uint32_t s;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
       !spa_pod_iter_get (&it,
-        SPA_POD_TYPE_BYTES, &event, &s,
+        SPA_POD_TYPE_OBJECT, &event,
         0))
     return false;
 
@@ -855,12 +854,12 @@ client_node_demarshal_node_command (void   *object,
   PinosProxy *proxy = object;
   SpaPODIter it;
   const SpaNodeCommand *command;
-  uint32_t seq, s;
+  uint32_t seq;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
       !spa_pod_iter_get (&it,
         SPA_POD_TYPE_INT, &seq,
-        SPA_POD_TYPE_BYTES, &command, &s,
+        SPA_POD_TYPE_OBJECT, &command,
         0))
     return false;
 
@@ -876,12 +875,12 @@ client_node_demarshal_port_command (void   *object,
   PinosProxy *proxy = object;
   SpaPODIter it;
   const SpaNodeCommand *command;
-  uint32_t port_id, s;
+  uint32_t port_id;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
       !spa_pod_iter_get (&it,
         SPA_POD_TYPE_INT, &port_id,
-        SPA_POD_TYPE_BYTES, &command, &s,
+        SPA_POD_TYPE_OBJECT, &command,
         0))
     return false;
 

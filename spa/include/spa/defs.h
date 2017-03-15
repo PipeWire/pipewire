@@ -130,8 +130,10 @@ typedef void (*SpaNotify) (void *data);
 
 #ifdef __GNUC__
 # define SPA_PRINTF_FUNC(fmt, arg1) __attribute__((format(printf, fmt, arg1)))
+# define SPA_ALIGNED(align) __attribute__ ((aligned (align)))
 #else
 # define SPA_PRINTF_FUNC(fmt, arg1)
+# define SPA_ALIGNED(align)
 #endif
 
 #define SPA_ROUND_UP_N(num,align) ((((num) + ((align) - 1)) & ~((align) - 1)))

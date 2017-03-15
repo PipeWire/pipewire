@@ -130,13 +130,8 @@ typedef struct
 static void
 send_async_complete (SpaProxy *this, uint32_t seq, SpaResult res)
 {
-  SpaNodeEventAsyncComplete ac;
-
-  ac.event.type = SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE;
-  ac.event.size = sizeof (ac);
-  ac.seq = seq;
-  ac.res = res;
-  this->event_cb (&this->node, &ac.event, this->user_data);
+  SpaNodeEventAsyncComplete ac = SPA_NODE_EVENT_ASYNC_COMPLETE_INIT (seq, res);
+  this->event_cb (&this->node, (SpaNodeEvent *)&ac, this->user_data);
 }
 
 static SpaResult
@@ -170,11 +165,9 @@ static void
 send_need_input (SpaProxy *this)
 {
   PinosNode *pnode = this->pnode;
-  SpaNodeEvent event;
+  SpaNodeEvent event = SPA_NODE_EVENT_INIT (SPA_NODE_EVENT_NEED_INPUT);
   uint64_t cmd = 1;
 
-  event.type = SPA_NODE_EVENT_TYPE_NEED_INPUT;
-  event.size = sizeof (event);
   pinos_transport_add_event (pnode->transport, &event);
   write (this->data_source.fd, &cmd, 8);
 }
@@ -183,11 +176,9 @@ static void
 send_have_output (SpaProxy *this)
 {
   PinosNode *pnode = this->pnode;
-  SpaNodeEvent event;
+  SpaNodeEvent event = SPA_NODE_EVENT_INIT (SPA_NODE_EVENT_HAVE_OUTPUT);
   uint64_t cmd = 1;
 
-  event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
-  event.size = sizeof (event);
   pinos_transport_add_event (pnode->transport, &event);
   write (this->data_source.fd, &cmd, 8);
 }
@@ -207,7 +198,7 @@ spa_proxy_node_send_command (SpaNode        *node,
   if (this->resource == NULL)
     return SPA_RESULT_OK;
 
-  switch (command->type) {
+  switch (SPA_NODE_COMMAND_TYPE (command)) {
     case SPA_NODE_COMMAND_INVALID:
       return SPA_RESULT_INVALID_COMMAND;
 
@@ -220,7 +211,7 @@ spa_proxy_node_send_command (SpaNode        *node,
       pinos_client_node_notify_node_command (this->resource,
                                              this->seq,
                                              command);
-      if (command->type == SPA_NODE_COMMAND_START)
+      if (SPA_NODE_COMMAND_TYPE (command) == SPA_NODE_COMMAND_START)
         send_need_input (this);
 
       res = SPA_RESULT_RETURN_ASYNC (this->seq++);
@@ -774,7 +765,6 @@ spa_proxy_node_port_reuse_buffer (SpaNode         *node,
                                   uint32_t         buffer_id)
 {
   SpaProxy *this;
-  SpaNodeEventReuseBuffer rb;
   PinosNode *pnode;
   //uint64_t cmd = 1;
 
@@ -787,12 +777,11 @@ spa_proxy_node_port_reuse_buffer (SpaNode         *node,
   if (!CHECK_OUT_PORT (this, SPA_DIRECTION_OUTPUT, port_id))
     return SPA_RESULT_INVALID_PORT;
 
-  rb.event.type = SPA_NODE_EVENT_TYPE_REUSE_BUFFER;
-  rb.event.size = sizeof (rb);
-  rb.port_id = port_id;
-  rb.buffer_id = buffer_id;
-  pinos_transport_add_event (pnode->transport, &rb.event);
-  //write (this->data_source.fd, &cmd, 8);
+  {
+    SpaNodeEventReuseBuffer rb = SPA_NODE_EVENT_REUSE_BUFFER_INIT (port_id, buffer_id);
+    pinos_transport_add_event (pnode->transport, (SpaNodeEvent *)&rb);
+    //write (this->data_source.fd, &cmd, 8);
+  }
 
   return SPA_RESULT_OK;
 }
@@ -811,7 +800,7 @@ spa_proxy_node_port_send_command (SpaNode        *node,
 
   this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
-  switch (command->type) {
+  switch (SPA_NODE_COMMAND_TYPE (command)) {
     case SPA_NODE_COMMAND_INVALID:
       return SPA_RESULT_INVALID_COMMAND;
 
@@ -823,7 +812,7 @@ spa_proxy_node_port_send_command (SpaNode        *node,
       break;
 
     default:
-      spa_log_warn (this->log, "unhandled command %d", command->type);
+      spa_log_warn (this->log, "unhandled command %d", SPA_NODE_COMMAND_TYPE (command));
       res = SPA_RESULT_NOT_IMPLEMENTED;
       break;
   }
@@ -864,18 +853,18 @@ static SpaResult
 handle_node_event (SpaProxy     *this,
                    SpaNodeEvent *event)
 {
-  switch (event->type) {
-    case SPA_NODE_EVENT_TYPE_INVALID:
+  switch (SPA_NODE_EVENT_TYPE (event)) {
+    case SPA_NODE_EVENT_INVALID:
       break;
 
-    case SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE:
-    case SPA_NODE_EVENT_TYPE_HAVE_OUTPUT:
-    case SPA_NODE_EVENT_TYPE_NEED_INPUT:
-    case SPA_NODE_EVENT_TYPE_REUSE_BUFFER:
-    case SPA_NODE_EVENT_TYPE_ERROR:
-    case SPA_NODE_EVENT_TYPE_BUFFERING:
-    case SPA_NODE_EVENT_TYPE_REQUEST_REFRESH:
-    case SPA_NODE_EVENT_TYPE_REQUEST_CLOCK_UPDATE:
+    case SPA_NODE_EVENT_ASYNC_COMPLETE:
+    case SPA_NODE_EVENT_HAVE_OUTPUT:
+    case SPA_NODE_EVENT_NEED_INPUT:
+    case SPA_NODE_EVENT_REUSE_BUFFER:
+    case SPA_NODE_EVENT_ERROR:
+    case SPA_NODE_EVENT_BUFFERING:
+    case SPA_NODE_EVENT_REQUEST_REFRESH:
+    case SPA_NODE_EVENT_REQUEST_CLOCK_UPDATE:
       this->event_cb (&this->node, event, this->user_data);
       break;
   }
@@ -1004,7 +993,7 @@ proxy_on_data_fd_events (SpaSource *source)
     read (this->data_source.fd, &cmd, 8);
 
     while (pinos_transport_next_event (pnode->transport, &event) == SPA_RESULT_OK) {
-      SpaNodeEvent *ev = alloca (event.size);
+      SpaNodeEvent *ev = alloca (SPA_POD_SIZE (&event));
       pinos_transport_parse_event (pnode->transport, ev);
       this->event_cb (&this->node, ev, this->user_data);
     }

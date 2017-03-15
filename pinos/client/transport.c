@@ -181,6 +181,10 @@ pinos_transport_destroy (PinosTransport *trans)
 {
   PinosTransportImpl *impl = (PinosTransportImpl *) trans;
 
+  pinos_log_debug ("transport %p: destroy", trans);
+
+  pinos_signal_emit (&trans->destroy_signal, trans);
+
   pinos_memblock_free (&impl->mem);
   free (impl);
 }
@@ -204,21 +208,22 @@ pinos_transport_add_event (PinosTransport   *trans,
 {
   PinosTransportImpl *impl = (PinosTransportImpl *) trans;
   SpaRingbufferArea areas[2];
-  size_t avail;
+  size_t avail, size;
 
   if (impl == NULL || event == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
+  size = SPA_POD_SIZE (event);
   avail = spa_ringbuffer_get_write_areas (trans->output_buffer, areas);
-  if (avail < event->size)
+  if (avail < size)
     return SPA_RESULT_ERROR;
 
   spa_ringbuffer_write_data (trans->output_buffer,
                              trans->output_data,
                              areas,
                              event,
-                             event->size);
-  spa_ringbuffer_write_advance (trans->output_buffer, event->size);
+                             size);
+  spa_ringbuffer_write_advance (trans->output_buffer, size);
 
   return SPA_RESULT_OK;
 }
@@ -253,16 +258,19 @@ pinos_transport_parse_event (PinosTransport *trans,
                              void           *event)
 {
   PinosTransportImpl *impl = (PinosTransportImpl *) trans;
+  uint32_t size;
 
   if (impl == NULL || event == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
+
+  size = SPA_POD_SIZE (&impl->current);
 
   spa_ringbuffer_read_data (trans->input_buffer,
                             trans->input_data,
                             impl->areas,
                             event,
-                            impl->current.size);
-  spa_ringbuffer_read_advance (trans->input_buffer, impl->current.size);
+                            size);
+  spa_ringbuffer_read_advance (trans->input_buffer, size);
 
   return SPA_RESULT_OK;
 }

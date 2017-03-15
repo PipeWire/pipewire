@@ -161,9 +161,15 @@ spa_volume_node_set_props (SpaNode          *node,
   if (props == NULL) {
     reset_volume_props (&this->props);
   } else {
-    SpaPODProp *pr;
+    SpaPOD *p;
 
-    SPA_POD_OBJECT_BODY_FOREACH (&props->body, props->pod.size, pr) {
+    SPA_POD_OBJECT_BODY_FOREACH (&props->body, props->pod.size, p) {
+      SpaPODProp *pr;
+
+      if (p->type != SPA_POD_TYPE_PROP)
+        continue;
+
+      pr = (SpaPODProp *) p;
       switch (pr->body.key) {
         case PROP_ID_VOLUME:
           this->props.volume = ((SpaPODDouble*)&pr->body.value)->value;
@@ -188,7 +194,7 @@ spa_volume_node_send_command (SpaNode        *node,
 
   this = SPA_CONTAINER_OF (node, SpaVolume, node);
 
-  switch (command->type) {
+  switch (SPA_NODE_COMMAND_TYPE (command)) {
     case SPA_NODE_COMMAND_INVALID:
       return SPA_RESULT_INVALID_COMMAND;
 
@@ -663,13 +669,8 @@ find_free_buffer (SpaVolume *this, SpaVolumePort *port)
 static void
 release_buffer (SpaVolume *this, SpaBuffer *buffer)
 {
-  SpaNodeEventReuseBuffer rb;
-
-  rb.event.type = SPA_NODE_EVENT_TYPE_REUSE_BUFFER;
-  rb.event.size = sizeof (rb);
-  rb.port_id = 0;
-  rb.buffer_id = buffer->id;
-  this->event_cb (&this->node, &rb.event, this->user_data);
+  SpaNodeEventReuseBuffer rb = SPA_NODE_EVENT_REUSE_BUFFER_INIT (0, buffer->id);
+  this->event_cb (&this->node, (SpaNodeEvent *)&rb, this->user_data);
 }
 
 static void

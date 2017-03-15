@@ -272,10 +272,7 @@ pull_frames_queue (SpaALSAState *state,
                    snd_pcm_uframes_t frames)
 {
   if (spa_list_is_empty (&state->ready)) {
-    SpaNodeEvent event;
-
-    event.type = SPA_NODE_EVENT_TYPE_NEED_INPUT;
-    event.size = sizeof (event);
+    SpaNodeEvent event = SPA_NODE_EVENT_INIT (SPA_NODE_EVENT_NEED_INPUT);
     state->event_cb (&state->node, &event, state->user_data);
   }
   if (!spa_list_is_empty (&state->ready)) {
@@ -299,16 +296,12 @@ pull_frames_queue (SpaALSAState *state,
 
     state->ready_offset += n_bytes;
     if (state->ready_offset >= size) {
-      SpaNodeEventReuseBuffer rb;
+      SpaNodeEventReuseBuffer rb = SPA_NODE_EVENT_REUSE_BUFFER_INIT (0, b->outbuf->id);
 
       spa_list_remove (&b->link);
       b->outstanding = true;
 
-      rb.event.type = SPA_NODE_EVENT_TYPE_REUSE_BUFFER;
-      rb.event.size = sizeof (rb);
-      rb.port_id = 0;
-      rb.buffer_id = b->outbuf->id;
-      state->event_cb (&state->node, &rb.event, state->user_data);
+      state->event_cb (&state->node, (SpaNodeEvent *)&rb, state->user_data);
 
       state->ready_offset = 0;
     }
@@ -329,7 +322,6 @@ pull_frames_ringbuffer (SpaALSAState *state,
   size_t size, avail;
   SpaALSABuffer *b;
   uint8_t *src, *dst;
-  SpaNodeEventReuseBuffer rb;
 
   b = state->ringbuffer;
 
@@ -357,11 +349,10 @@ pull_frames_ringbuffer (SpaALSAState *state,
   }
 
   b->outstanding = true;
-  rb.event.type = SPA_NODE_EVENT_TYPE_REUSE_BUFFER;
-  rb.event.size = sizeof (rb);
-  rb.port_id = 0;
-  rb.buffer_id = b->outbuf->id;
-  state->event_cb (&state->node, &rb.event, state->user_data);
+  {
+    SpaNodeEventReuseBuffer rb = SPA_NODE_EVENT_REUSE_BUFFER_INIT (0, b->outbuf->id);
+    state->event_cb (&state->node, (SpaNodeEvent*)&rb, state->user_data);
+  }
 
   return frames;
 }
@@ -493,7 +484,6 @@ mmap_read (SpaALSAState *state)
   }
 
   if (b) {
-    SpaNodeEvent event;
     SpaData *d;
     SpaPortOutput *output;
 
@@ -507,9 +497,10 @@ mmap_read (SpaALSAState *state)
       output->buffer_id = b->outbuf->id;
       output->status = SPA_RESULT_OK;
     }
-    event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
-    event.size = sizeof (event);
-    state->event_cb (&state->node, &event, state->user_data);
+    {
+      SpaNodeEvent event = SPA_NODE_EVENT_INIT (SPA_NODE_EVENT_HAVE_OUTPUT);
+      state->event_cb (&state->node, &event, state->user_data);
+    }
   }
   return 0;
 }

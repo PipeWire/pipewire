@@ -111,7 +111,7 @@ spa_ffmpeg_enc_node_send_command (SpaNode        *node,
 
   this = SPA_CONTAINER_OF (node, SpaFFMpegEnc, node);
 
-  switch (command->type) {
+  switch (SPA_NODE_COMMAND_TYPE (command)) {
     case SPA_NODE_COMMAND_INVALID:
       return SPA_RESULT_INVALID_COMMAND;
 

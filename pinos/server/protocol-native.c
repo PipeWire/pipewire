@@ -570,7 +570,7 @@ client_node_marshal_event (void               *object,
 
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
-        SPA_POD_TYPE_BYTES, event, event->size,
+        SPA_POD_TYPE_POD, event,
      -SPA_POD_TYPE_STRUCT, &f, 0);
 
   pinos_connection_end_write (connection, resource->id, 1, b.b.offset);
@@ -778,7 +778,7 @@ client_node_marshal_node_command (void                 *object,
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
         SPA_POD_TYPE_INT, seq,
-        SPA_POD_TYPE_BYTES, command, command->size,
+        SPA_POD_TYPE_POD, command,
      -SPA_POD_TYPE_STRUCT, &f, 0);
 
   pinos_connection_end_write (connection, resource->id, 8, b.b.offset);
@@ -799,7 +799,7 @@ client_node_marshal_port_command (void                 *object,
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
         SPA_POD_TYPE_INT, port_id,
-        SPA_POD_TYPE_BYTES, command, command->size,
+        SPA_POD_TYPE_POD, command,
      -SPA_POD_TYPE_STRUCT, &f, 0);
 
   pinos_connection_end_write (connection, resource->id, 9, b.b.offset);
@@ -959,10 +959,9 @@ client_node_demarshal_event (void   *object,
   PinosResource *resource = object;
   SpaPODIter it;
   SpaNodeEvent *event;
-  uint32_t sz;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
-      !spa_pod_iter_get (&it, SPA_POD_TYPE_BYTES, &event, &sz, 0))
+      !spa_pod_iter_get (&it, SPA_POD_TYPE_OBJECT, &event, 0))
     return false;
 
   ((PinosClientNodeMethods*)resource->implementation)->event (resource, event);

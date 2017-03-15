@@ -195,9 +195,16 @@ spa_audiotestsrc_node_set_props (SpaNode         *node,
   if (props == NULL) {
     reset_audiotestsrc_props (&this->props);
   } else {
-    SpaPODProp *pr;
+    SpaPOD *p;
 
-    SPA_POD_OBJECT_BODY_FOREACH (&props->body, props->pod.size, pr) {
+    SPA_POD_OBJECT_BODY_FOREACH (&props->body, props->pod.size, p) {
+      SpaPODProp *pr;
+
+      if (p->type != SPA_POD_TYPE_PROP)
+        continue;
+
+      pr = (SpaPODProp *) p;
+
       switch (pr->body.key) {
         case PROP_ID_LIVE:
           this->props.live = ((SpaPODBool*)&pr->body.value)->value;
@@ -226,11 +233,9 @@ spa_audiotestsrc_node_set_props (SpaNode         *node,
 static SpaResult
 send_have_output (SpaAudioTestSrc *this)
 {
-  SpaNodeEvent event;
 
   if (this->event_cb) {
-    event.type = SPA_NODE_EVENT_TYPE_HAVE_OUTPUT;
-    event.size = sizeof (event);
+    SpaNodeEvent event = SPA_NODE_EVENT_INIT (SPA_NODE_EVENT_HAVE_OUTPUT);
     this->event_cb (&this->node, &event, this->user_data);
   }
 
@@ -324,7 +329,7 @@ spa_audiotestsrc_node_send_command (SpaNode        *node,
 
   this = SPA_CONTAINER_OF (node, SpaAudioTestSrc, node);
 
-  switch (command->type) {
+  switch (SPA_NODE_COMMAND_TYPE (command)) {
     case SPA_NODE_COMMAND_INVALID:
       return SPA_RESULT_INVALID_COMMAND;
 

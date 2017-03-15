@@ -112,7 +112,7 @@ typedef struct {
 
 typedef struct {
   SpaPOD       pod;
-  /* array of uint32_t follows with the bitmap */
+  /* array of uint8_t follows with the bitmap */
 } SpaPODBitmap;
 
 typedef struct {
@@ -182,9 +182,9 @@ typedef struct {
   SPA_POD_FOREACH(SPA_MEMBER ((pod), (offset), SpaPOD),SPA_POD_SIZE (pod),iter)
 
 #define SPA_POD_OBJECT_BODY_FOREACH(body, size, iter) \
-  for ((iter) = SPA_MEMBER ((body), sizeof (SpaPODObjectBody), SpaPODProp); \
-       (iter) < SPA_MEMBER ((body), (size), SpaPODProp); \
-       (iter) = SPA_MEMBER ((iter), SPA_ROUND_UP_N (SPA_POD_SIZE (iter), 8), SpaPODProp))
+  for ((iter) = SPA_MEMBER ((body), sizeof (SpaPODObjectBody), SpaPOD); \
+       (iter) < SPA_MEMBER ((body), (size), SpaPOD); \
+       (iter) = SPA_MEMBER ((iter), SPA_ROUND_UP_N (SPA_POD_SIZE (iter), 8), SpaPOD))
 
 #define SPA_POD_OBJECT_FOREACH(obj, iter) \
   SPA_POD_OBJECT_BODY_FOREACH(&obj->body, SPA_POD_BODY_SIZE(obj), iter)

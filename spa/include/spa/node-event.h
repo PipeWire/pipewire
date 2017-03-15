@@ -43,54 +43,102 @@ typedef struct _SpaNodeEvent SpaNodeEvent;
 
 /**
  * SpaEventType:
- * @SPA_NODE_EVENT_TYPE_INVALID: invalid event, should be ignored
- * @SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE: an async operation completed
- * @SPA_NODE_EVENT_TYPE_HAVE_OUTPUT: emited when an async node has output that can be pulled
- * @SPA_NODE_EVENT_TYPE_NEED_INPUT: emited when more data can be pushed to an async node
- * @SPA_NODE_EVENT_TYPE_REUSE_BUFFER: emited when a buffer can be reused
- * @SPA_NODE_EVENT_TYPE_ERROR: emited when error occured
- * @SPA_NODE_EVENT_TYPE_BUFFERING: emited when buffering is in progress
- * @SPA_NODE_EVENT_TYPE_REQUEST_REFRESH: emited when a keyframe refresh is needed
- * @SPA_NODE_EVENT_TYPE_REQUEST_CLOCK_UPDATE: the element asks for a clock update
+ * @SPA_NODE_EVENT_INVALID: invalid event, should be ignored
+ * @SPA_NODE_EVENT_ASYNC_COMPLETE: an async operation completed
+ * @SPA_NODE_EVENT_HAVE_OUTPUT: emited when an async node has output that can be pulled
+ * @SPA_NODE_EVENT_NEED_INPUT: emited when more data can be pushed to an async node
+ * @SPA_NODE_EVENT_REUSE_BUFFER: emited when a buffer can be reused
+ * @SPA_NODE_EVENT_ERROR: emited when error occured
+ * @SPA_NODE_EVENT_BUFFERING: emited when buffering is in progress
+ * @SPA_NODE_EVENT_REQUEST_REFRESH: emited when a keyframe refresh is needed
+ * @SPA_NODE_EVENT_REQUEST_CLOCK_UPDATE: the element asks for a clock update
  */
 typedef enum {
-  SPA_NODE_EVENT_TYPE_INVALID                  = 0,
-  SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE,
-  SPA_NODE_EVENT_TYPE_HAVE_OUTPUT,
-  SPA_NODE_EVENT_TYPE_NEED_INPUT,
-  SPA_NODE_EVENT_TYPE_REUSE_BUFFER,
-  SPA_NODE_EVENT_TYPE_ERROR,
-  SPA_NODE_EVENT_TYPE_BUFFERING,
-  SPA_NODE_EVENT_TYPE_REQUEST_REFRESH,
-  SPA_NODE_EVENT_TYPE_REQUEST_CLOCK_UPDATE,
+  SPA_NODE_EVENT_INVALID                  = 0,
+  SPA_NODE_EVENT_ASYNC_COMPLETE,
+  SPA_NODE_EVENT_HAVE_OUTPUT,
+  SPA_NODE_EVENT_NEED_INPUT,
+  SPA_NODE_EVENT_REUSE_BUFFER,
+  SPA_NODE_EVENT_ERROR,
+  SPA_NODE_EVENT_BUFFERING,
+  SPA_NODE_EVENT_REQUEST_REFRESH,
+  SPA_NODE_EVENT_REQUEST_CLOCK_UPDATE,
 } SpaNodeEventType;
 
+#define SPA_NODE_EVENT_TYPE(ev)   ((ev)->body.body.type)
+
+typedef struct {
+  SpaPODObjectBody body;
+} SpaNodeEventBody;
+
 struct _SpaNodeEvent {
-  SpaNodeEventType  type;
-  uint32_t          size;
+  SpaPOD           pod;
+  SpaNodeEventBody body;
 };
 
+#define SPA_NODE_EVENT_INIT(type)                       \
+  { { sizeof (SpaNodeEventBody), SPA_POD_TYPE_OBJECT }, \
+    { { 0, type } } }                                   \
+
+#define SPA_NODE_EVENT_INIT_COMPLEX(size,type,...)      \
+  { { size, SPA_POD_TYPE_OBJECT },                      \
+    { { 0, type }, __VA_ARGS__ } }                      \
+
 typedef struct {
-  SpaNodeEvent event;
-  uint32_t     seq;
-  SpaResult    res;
+  SpaPODObjectBody body;
+  SpaPODInt        seq         SPA_ALIGNED (8);
+  SpaPODInt        res         SPA_ALIGNED (8);
+} SpaNodeEventAsyncCompleteBody;
+
+typedef struct {
+  SpaPOD                        pod;
+  SpaNodeEventAsyncCompleteBody body;
 } SpaNodeEventAsyncComplete;
 
-typedef struct {
-  SpaNodeEvent event;
-  uint32_t port_id;
-  uint32_t buffer_id;
-} SpaNodeEventReuseBuffer;
+#define SPA_NODE_EVENT_ASYNC_COMPLETE_INIT(seq,res)                     \
+  SPA_NODE_EVENT_INIT_COMPLEX (sizeof (SpaNodeEventAsyncCompleteBody),  \
+                               SPA_NODE_EVENT_ASYNC_COMPLETE,           \
+      SPA_POD_INT_INIT (seq),                                           \
+      SPA_POD_INT_INIT (res))
 
 typedef struct {
-  SpaNodeEvent event;
+  SpaPODObjectBody body;
+  SpaPODInt        port_id;
+  SpaPODInt        buffer_id;
+} SpaNodeEventReuseBufferBody;
+
+typedef struct {
+  SpaPOD                      pod;
+  SpaNodeEventReuseBufferBody body;
+} SpaNodeEventReuseBuffer;
+
+#define SPA_NODE_EVENT_REUSE_BUFFER_INIT(port_id,buffer_id)             \
+  SPA_NODE_EVENT_INIT_COMPLEX (sizeof (SpaNodeEventReuseBufferBody),    \
+                               SPA_NODE_EVENT_REUSE_BUFFER,             \
+      SPA_POD_INT_INIT (port_id),                                       \
+      SPA_POD_INT_INIT (buffer_id))
+
+typedef struct {
+  SpaPODObjectBody body;
 #define SPA_NODE_EVENT_REQUEST_CLOCK_UPDATE_TIME        (1 << 0)
 #define SPA_NODE_EVENT_REQUEST_CLOCK_UPDATE_SCALE       (1 << 1)
 #define SPA_NODE_EVENT_REQUEST_CLOCK_UPDATE_STATE       (1 << 2)
-  uint32_t      update_mask;
-  int64_t       timestamp;
-  int64_t       offset;
+  SpaPODInt        update_mask  SPA_ALIGNED (8);
+  SpaPODLong       timestamp    SPA_ALIGNED (8);
+  SpaPODLong       offset       SPA_ALIGNED (8);
+} SpaNodeEventRequestClockUpdateBody;
+
+typedef struct {
+  SpaPOD                             pod;
+  SpaNodeEventRequestClockUpdateBody body;
 } SpaNodeEventRequestClockUpdate;
+
+#define SPA_NODE_EVENT_REQUEST_CLOCK_UPDATE_INIT(update_mask,timestamp,offset)  \
+  SPA_NODE_EVENT_INIT_COMPLEX (sizeof (SpaNodeEventRequestClockUpdateBody),     \
+                               SPA_NODE_EVENT_REQUEST_CLOCK_UPDATE,             \
+      SPA_POD_INT_INIT (update_mask),                                           \
+      SPA_POD_LONG_INIT (timestamp),                                            \
+      SPA_POD_LONG_INIT (offset))
 
 #ifdef __cplusplus
 }  /* extern "C" */

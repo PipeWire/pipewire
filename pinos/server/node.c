@@ -161,17 +161,16 @@ static SpaResult
 pause_node (PinosNode *this)
 {
   SpaResult res;
-  SpaNodeCommand cmd;
 
   if (this->node->state <= SPA_NODE_STATE_PAUSED)
     return SPA_RESULT_OK;
 
   pinos_log_debug ("node %p: pause node", this);
-  cmd.type = SPA_NODE_COMMAND_PAUSE;
-  cmd.size = sizeof (cmd);
-  if ((res = spa_node_send_command (this->node, &cmd)) < 0)
-    pinos_log_debug ("got error %d", res);
-
+  {
+    SpaNodeCommand cmd = SPA_NODE_COMMAND_INIT (SPA_NODE_COMMAND_PAUSE);
+    if ((res = spa_node_send_command (this->node, &cmd)) < 0)
+      pinos_log_debug ("got error %d", res);
+  }
   return res;
 }
 
@@ -179,14 +178,13 @@ static SpaResult
 start_node (PinosNode *this)
 {
   SpaResult res;
-  SpaNodeCommand cmd;
 
   pinos_log_debug ("node %p: start node", this);
-  cmd.type = SPA_NODE_COMMAND_START;
-  cmd.size = sizeof (cmd);
-  if ((res = spa_node_send_command (this->node, &cmd)) < 0)
-    pinos_log_debug ("got error %d", res);
-
+  {
+    SpaNodeCommand cmd = SPA_NODE_COMMAND_INIT (SPA_NODE_COMMAND_START);
+    if ((res = spa_node_send_command (this->node, &cmd)) < 0)
+      pinos_log_debug ("got error %d", res);
+  }
   return res;
 }
 
@@ -223,30 +221,31 @@ suspend_node (PinosNode *this)
 static void
 send_clock_update (PinosNode *this)
 {
-  SpaNodeCommandClockUpdate cu;
   SpaResult res;
+  SpaNodeCommandClockUpdate cu =
+    SPA_NODE_COMMAND_CLOCK_UPDATE_INIT(
+        SPA_NODE_COMMAND_CLOCK_UPDATE_TIME |
+            SPA_NODE_COMMAND_CLOCK_UPDATE_SCALE |
+            SPA_NODE_COMMAND_CLOCK_UPDATE_STATE |
+            SPA_NODE_COMMAND_CLOCK_UPDATE_LATENCY, /* change_mask */
+        1,                                         /* rate */
+        0,                                         /* ticks */
+        0,                                         /* monotonic_time */
+        0,                                         /* offset */
+        (1 << 16) | 1,                             /* scale */
+        SPA_CLOCK_STATE_RUNNING,                   /* state */
+        0,                                         /* flags */
+        0);                                        /* latency */
 
-  cu.command.type = SPA_NODE_COMMAND_CLOCK_UPDATE;
-  cu.command.size = sizeof (cu);
-  cu.flags = 0;
-  cu.change_mask = SPA_NODE_COMMAND_CLOCK_UPDATE_TIME |
-                   SPA_NODE_COMMAND_CLOCK_UPDATE_SCALE |
-                   SPA_NODE_COMMAND_CLOCK_UPDATE_STATE |
-                   SPA_NODE_COMMAND_CLOCK_UPDATE_LATENCY;
   if (this->clock && this->live) {
-    cu.flags = SPA_NODE_COMMAND_CLOCK_UPDATE_FLAG_LIVE;
-    res = spa_clock_get_time (this->clock, &cu.rate, &cu.ticks, &cu.monotonic_time);
-  } else {
-    cu.rate = 1;
-    cu.ticks = 0;
-    cu.monotonic_time = 0;
+    cu.body.flags.value = SPA_NODE_COMMAND_CLOCK_UPDATE_FLAG_LIVE;
+    res = spa_clock_get_time (this->clock,
+                              &cu.body.rate.value,
+                              &cu.body.ticks.value,
+                              &cu.body.monotonic_time.value);
   }
-  cu.offset = 0;
-  cu.scale = (1 << 16) | 1;
-  cu.state = SPA_CLOCK_STATE_RUNNING;
-  cu.latency = 0;
 
-  if ((res = spa_node_send_command (this->node, &cu.command)) < 0)
+  if ((res = spa_node_send_command (this->node, (SpaNodeCommand *)&cu)) < 0)
     pinos_log_debug ("got error %d", res);
 }
 
@@ -256,25 +255,25 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
   PinosNode *this = user_data;
   PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, this);
 
-  switch (event->type) {
-    case SPA_NODE_EVENT_TYPE_INVALID:
-    case SPA_NODE_EVENT_TYPE_ERROR:
-    case SPA_NODE_EVENT_TYPE_BUFFERING:
-    case SPA_NODE_EVENT_TYPE_REQUEST_REFRESH:
+  switch (SPA_NODE_EVENT_TYPE (event)) {
+    case SPA_NODE_EVENT_INVALID:
+    case SPA_NODE_EVENT_ERROR:
+    case SPA_NODE_EVENT_BUFFERING:
+    case SPA_NODE_EVENT_REQUEST_REFRESH:
       break;
 
-    case SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE:
+    case SPA_NODE_EVENT_ASYNC_COMPLETE:
     {
       SpaNodeEventAsyncComplete *ac = (SpaNodeEventAsyncComplete *) event;
 
-      pinos_log_debug ("node %p: async complete event %d %d", this, ac->seq, ac->res);
-      if (!pinos_work_queue_complete (impl->work, this, ac->seq, ac->res)) {
-        pinos_signal_emit (&this->async_complete, this, ac->seq, ac->res);
+      pinos_log_debug ("node %p: async complete event %d %d", this, ac->body.seq.value, ac->body.res.value);
+      if (!pinos_work_queue_complete (impl->work, this, ac->body.seq.value, ac->body.res.value)) {
+        pinos_signal_emit (&this->async_complete, this, ac->body.seq.value, ac->body.res.value);
       }
       break;
     }
 
-    case SPA_NODE_EVENT_TYPE_NEED_INPUT:
+    case SPA_NODE_EVENT_NEED_INPUT:
     {
       SpaResult res;
       int i;
@@ -320,7 +319,7 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
       }
       break;
     }
-    case SPA_NODE_EVENT_TYPE_HAVE_OUTPUT:
+    case SPA_NODE_EVENT_HAVE_OUTPUT:
     {
       SpaResult res;
       int i;
@@ -365,10 +364,10 @@ on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
       }
       break;
     }
-    case SPA_NODE_EVENT_TYPE_REUSE_BUFFER:
+    case SPA_NODE_EVENT_REUSE_BUFFER:
       break;
 
-    case SPA_NODE_EVENT_TYPE_REQUEST_CLOCK_UPDATE:
+    case SPA_NODE_EVENT_REQUEST_CLOCK_UPDATE:
       send_clock_update (this);
       break;
   }

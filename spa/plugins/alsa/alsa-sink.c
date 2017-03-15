@@ -32,7 +32,7 @@
 typedef struct _SpaALSAState SpaALSASink;
 
 static const char default_device[] = "default";
-static const uint32_t default_period_size = 32;
+static const uint32_t default_period_size = 128;
 static const uint32_t default_periods = 2;
 static const bool default_period_event = 0;
 
@@ -136,9 +136,15 @@ spa_alsa_sink_node_set_props (SpaNode         *node,
     reset_alsa_sink_props (&this->props);
     return SPA_RESULT_OK;
   } else {
-    SpaPODProp *pr;
+    SpaPOD *p;
 
-    SPA_POD_OBJECT_BODY_FOREACH (&props->body, props->pod.size, pr) {
+    SPA_POD_OBJECT_BODY_FOREACH (&props->body, props->pod.size, p) {
+      SpaPODProp *pr;
+
+      if (p->type != SPA_POD_TYPE_PROP)
+        continue;
+
+      pr = (SpaPODProp *) p;
       switch (pr->body.key) {
         case PROP_ID_DEVICE:
           strncpy (this->props.device, SPA_POD_CONTENTS (SpaPODProp, pr), 63);
@@ -184,9 +190,8 @@ do_command (SpaLoop        *loop,
   SpaALSASink *this = user_data;
   SpaResult res;
   SpaNodeCommand *cmd = data;
-  SpaNodeEventAsyncComplete ac;
 
-  switch (cmd->type) {
+  switch (SPA_NODE_COMMAND_TYPE (cmd)) {
     case SPA_NODE_COMMAND_START:
     case SPA_NODE_COMMAND_PAUSE:
       res = spa_node_port_send_command (&this->node,
@@ -200,10 +205,7 @@ do_command (SpaLoop        *loop,
   }
 
   if (async) {
-    ac.event.type = SPA_NODE_EVENT_TYPE_ASYNC_COMPLETE;
-    ac.event.size = sizeof (SpaNodeEventAsyncComplete);
-    ac.seq = seq;
-    ac.res = res;
+    SpaNodeEventAsyncComplete ac = SPA_NODE_EVENT_ASYNC_COMPLETE_INIT (seq, res);
     spa_loop_invoke (this->main_loop,
                      do_send_event,
                      SPA_ID_INVALID,
@@ -225,7 +227,7 @@ spa_alsa_sink_node_send_command (SpaNode        *node,
 
   this = SPA_CONTAINER_OF (node, SpaALSASink, node);
 
-  switch (command->type) {
+  switch (SPA_NODE_COMMAND_TYPE (command)) {
     case SPA_NODE_COMMAND_INVALID:
       return SPA_RESULT_INVALID_COMMAND;
 
@@ -241,7 +243,7 @@ spa_alsa_sink_node_send_command (SpaNode        *node,
       return spa_loop_invoke (this->data_loop,
                               do_command,
                               ++this->seq,
-                              command->size,
+                              SPA_POD_SIZE (command),
                               command,
                               this);
 
@@ -680,7 +682,7 @@ spa_alsa_sink_node_port_send_command (SpaNode          *node,
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
 
-  switch (command->type) {
+  switch (SPA_NODE_COMMAND_TYPE (command)) {
     case SPA_NODE_COMMAND_PAUSE:
     {
       if (SPA_RESULT_IS_OK (res = spa_alsa_pause (this, false))) {

@@ -425,7 +425,8 @@ on_context_data (SpaLoopUtils *utils,
     uint32_t size;
     void *message;
 
-    while (pinos_connection_get_next (conn, &opcode, &id, &message, &size)) {
+    while (!impl->disconnecting
+           && pinos_connection_get_next (conn, &opcode, &id, &message, &size)) {
       PinosProxy *proxy;
       const PinosDemarshalFunc *demarshal;
 

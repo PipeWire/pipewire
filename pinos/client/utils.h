@@ -46,8 +46,9 @@ pinos_spa_pod_copy (const SpaPOD *pod)
   return pod ? memcpy (malloc (SPA_POD_SIZE (pod)), pod, SPA_POD_SIZE (pod)) : NULL;
 }
 
-#define spa_format_copy(f) ((SpaFormat*)pinos_spa_pod_copy(&(f)->pod))
-#define spa_props_copy(p) ((SpaProps*)pinos_spa_pod_copy(&(p)->pod))
+#define spa_format_copy(f)      ((SpaFormat*)pinos_spa_pod_copy(&(f)->pod))
+#define spa_props_copy(p)       ((SpaProps*)pinos_spa_pod_copy(&(p)->pod))
+#define spa_alloc_param_copy(p) ((SpaAllocParam*)pinos_spa_pod_copy(&(p)->pod))
 
 #ifdef __cplusplus
 }  /* extern "C" */

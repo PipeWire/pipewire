@@ -107,6 +107,12 @@ struct _SpaFormat {
   SpaFormatBody body;
 };
 
+#define SPA_FORMAT_INIT(size,type,media_type,media_subtype,...)         \
+  { { size, SPA_POD_TYPE_OBJECT },                                      \
+    { { 0, type },                                                      \
+        SPA_POD_INT_INIT (media_type),                                  \
+        SPA_POD_INT_INIT (media_subtype) } }
+
 #define SPA_FORMAT_BODY_FOREACH(body, size, iter) \
   for ((iter) = SPA_MEMBER ((body), sizeof (SpaFormatBody), SpaPODProp); \
        (iter) < SPA_MEMBER ((body), (size), SpaPODProp); \

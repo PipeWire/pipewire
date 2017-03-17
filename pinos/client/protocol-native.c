@@ -798,10 +798,8 @@ client_node_demarshal_use_buffers (void   *object,
 
       if (!spa_pod_iter_get (&it,
             SPA_POD_TYPE_INT, &m->type,
-            SPA_POD_TYPE_INT, &size, 0))
+            SPA_POD_TYPE_INT, &m->size, 0))
         return false;
-
-      m->size = size;
     }
     if (!spa_pod_iter_get (&it, SPA_POD_TYPE_INT, &buf->n_datas, 0))
       return false;

@@ -33,7 +33,6 @@
 #include "pinos/client/connection.h"
 #include "pinos/client/context.h"
 #include "pinos/client/stream.h"
-#include "pinos/client/serialize.h"
 #include "pinos/client/transport.h"
 #include "pinos/client/utils.h"
 
@@ -769,7 +768,7 @@ client_node_use_buffers (void                  *object,
   clear_buffers (stream);
 
   for (i = 0; i < n_buffers; i++) {
-    off_t offset = 0;
+    off_t offset;
 
     MemId *mid = find_mem (stream, buffers[i].mem_id);
     if (mid == NULL) {
@@ -796,9 +795,17 @@ client_node_use_buffers (void                  *object,
     {
       size_t size;
 
-      size = pinos_serialize_buffer_get_size (buffers[i].buffer);
+      size = sizeof (SpaBuffer);
+      for (j = 0; j < buffers[i].buffer->n_metas; j++)
+        size += sizeof (SpaMeta);
+      for (j = 0; j < buffers[i].buffer->n_datas; j++)
+        size += sizeof (SpaData);
+
       b = bid->buf = malloc (size);
-      pinos_serialize_buffer_copy_into (b, buffers[i].buffer);
+      memcpy (b, buffers[i].buffer, sizeof (SpaBuffer));
+
+      b->metas = SPA_MEMBER (b, sizeof (SpaBuffer), SpaMeta);
+      b->datas = SPA_MEMBER (b->metas, sizeof(SpaMeta) * b->n_metas, SpaData);
     }
     bid->id = b->id;
 
@@ -808,8 +815,10 @@ client_node_use_buffers (void                  *object,
     }
     pinos_log_debug ("add buffer %d %d %u", mid->id, bid->id, buffers[i].offset);
 
+    offset = 0;
     for (j = 0; j < b->n_metas; j++) {
       SpaMeta *m = &b->metas[j];
+      memcpy (m, &buffers[i].buffer->metas[j], sizeof (SpaMeta));
       m->data = SPA_MEMBER (bid->buf_ptr, offset, void);
       offset += m->size;
     }
@@ -817,6 +826,7 @@ client_node_use_buffers (void                  *object,
     for (j = 0; j < b->n_datas; j++) {
       SpaData *d = &b->datas[j];
 
+      memcpy (d, &buffers[i].buffer->datas[j], sizeof (SpaData));
       d->chunk = SPA_MEMBER (bid->buf_ptr, offset + sizeof (SpaChunk) * j, SpaChunk);
 
       switch (d->type) {

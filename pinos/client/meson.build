@@ -30,7 +30,6 @@ pinos_sources = [
   'properties.c',
   'protocol-native.c',
   'proxy.c',
-  'serialize.c',
   'stream.c',
   'pinos.c',
   'rtkit.c',

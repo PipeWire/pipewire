@@ -30,7 +30,6 @@
 
 #include "pinos/client/pinos.h"
 #include "pinos/client/interfaces.h"
-#include "pinos/client/serialize.h"
 #include "pinos/client/transport.h"
 
 #include "pinos/server/core.h"
@@ -70,7 +69,7 @@ struct _ProxyBuffer {
 
 typedef struct {
   bool           valid;
-  SpaPortInfo   *info;
+  SpaPortInfo    info;
   SpaFormat     *format;
   uint32_t       n_formats;
   SpaFormat    **formats;
@@ -312,7 +311,6 @@ do_update_port (SpaProxy          *this,
 {
   SpaProxyPort *port;
   uint32_t i;
-  size_t size;
 
   if (direction == SPA_DIRECTION_INPUT) {
     port = &this->in_ports[port_id];
@@ -324,15 +322,9 @@ do_update_port (SpaProxy          *this,
     for (i = 0; i < port->n_formats; i++)
       free (port->formats[i]);
     port->n_formats = n_possible_formats;
-    if (port->n_formats)
-      port->formats = realloc (port->formats, port->n_formats * sizeof (SpaFormat *));
-    else {
-      free (port->formats);
-      port->formats = NULL;
-    }
-    for (i = 0; i < port->n_formats; i++) {
+    port->formats = realloc (port->formats, port->n_formats * sizeof (SpaFormat *));
+    for (i = 0; i < port->n_formats; i++)
       port->formats[i] = spa_format_copy (possible_formats[i]);
-    }
   }
   if (change_mask & PINOS_MESSAGE_PORT_UPDATE_FORMAT) {
     if (port->format)
@@ -344,10 +336,15 @@ do_update_port (SpaProxy          *this,
   }
 
   if (change_mask & PINOS_MESSAGE_PORT_UPDATE_INFO && info) {
-    if (port->info)
-      free (port->info);
-    size = pinos_serialize_port_info_get_size (info);
-    port->info = size ? pinos_serialize_port_info_copy_into (malloc (size), info) : NULL;
+    void *old;
+    for (i = 0; i < port->info.n_params; i++)
+      free (port->info.params[i]);
+    old = port->info.params;
+    port->info = *info;
+    port->info.params = realloc (old, port->info.n_params * sizeof (SpaAllocParam *));
+    for (i = 0; i < port->info.n_params; i++)
+      port->info.params[i] = spa_alloc_param_copy (info->params[i]);
+    port->info.extra = NULL;
   }
 
   if (!port->valid) {
@@ -549,7 +546,7 @@ spa_proxy_node_port_get_info (SpaNode            *node,
 
   port = direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
 
-  *info = port->info;
+  *info = &port->info;
 
   return SPA_RESULT_OK;
 }

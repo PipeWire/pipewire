@@ -351,6 +351,13 @@ spa_pod_builder_addv (SpaPODBuilder *builder,
         spa_pod_builder_string_len (builder, str, len);
         break;
       }
+      case SPA_POD_TYPE_BYTES:
+      {
+        void *value = va_arg (args, void *);
+        uint32_t size = va_arg (args, uint32_t);
+        spa_pod_builder_bytes (builder, value, size);
+        break;
+      }
       case SPA_POD_TYPE_RECTANGLE:
       {
         uint32_t width = va_arg (args, uint32_t), height = va_arg (args, uint32_t);
@@ -416,13 +423,6 @@ spa_pod_builder_addv (SpaPODBuilder *builder,
       {
         SpaPODFrame *f = va_arg (args, SpaPODFrame *);
         spa_pod_builder_pop (builder, f);
-        break;
-      }
-      case SPA_POD_TYPE_BYTES:
-      {
-        void *value = va_arg (args, void *);
-        uint32_t size = va_arg (args, uint32_t);
-        spa_pod_builder_bytes (builder, value, size);
         break;
       }
       case SPA_POD_TYPE_POD:

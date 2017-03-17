@@ -72,19 +72,9 @@ typedef enum {
   SPA_PORT_FORMAT_FLAG_NEAREST          = (1 << 2),
 } SpaPortFormatFlags;
 
-typedef enum {
-  SPA_PORT_STATE_FLAG_NONE                  = 0,
-  SPA_PORT_STATE_FLAG_HAVE_FORMAT           = 1 << 0,
-  SPA_PORT_STATE_FLAG_HAVE_BUFFERS          = 1 << 1,
-} SpaPortStateFlags;
-
-/**
- * SpaPortInputFlags:
- * @SPA_INPUT_FLAG_NONE: no flag
- */
-typedef enum {
-  SPA_PORT_INPUT_FLAG_NONE                  = 0,
-} SpaPortInputFlags;
+#define SPA_PORT_STATE_FLAG_NONE                  0
+#define SPA_PORT_STATE_FLAG_HAVE_FORMAT           (1 << 0)
+#define SPA_PORT_STATE_FLAG_HAVE_BUFFERS          (1 << 1)
 
 /**
  * SpaPortInput:
@@ -96,39 +86,34 @@ typedef enum {
  * Input information for a node.
  */
 typedef struct {
-  SpaPortStateFlags state;
-  SpaPortInputFlags flags;
+  uint32_t          state;
+#define SPA_PORT_INPUT_FLAG_NONE        0
+  uint32_t          flags;
   uint32_t          buffer_id;
-  SpaResult         status;
+  uint32_t          status;
 } SpaPortInput;
-
-/**
- * SpaPortOutputFlags:
- * @SPA_PORT_OUTPUT_FLAG_NONE: no flag
- */
-typedef enum {
-  SPA_PORT_OUTPUT_FLAG_NONE                  =  0,
-} SpaPortOutputFlags;
 
 /**
  * SpaPortOutput:
  * @state: the port state
  * @flags: extra flags
  * @buffer_id: a buffer id will be set
- * @event: output event
  * @status: the status
+ * @latency: current port latency
+ * @event: output event
  *
  * Output information for a port on a node. This is allocated
  * by the host and configured on all output ports for which output is
  * requested.
  */
 typedef struct {
-  SpaPortStateFlags  state;
-  uint64_t           latency;
-  SpaPortOutputFlags flags;
+  uint32_t           state;
+#define SPA_PORT_OUTPUT_FLAG_NONE        0
+  uint32_t           flags;
   uint32_t           buffer_id;
+  uint32_t           status;
+  uint64_t           latency;
   SpaNodeEvent      *event;
-  SpaResult          status;
 } SpaPortOutput;
 
 /**
@@ -472,7 +457,7 @@ struct _SpaNode {
    *
    * Tell the port to allocate memory for @buffers.
    *
-   * @params should contain an array of pointers to buffers. The data
+   * @buffers should contain an array of pointers to buffers. The data
    * in the buffers should point to an array of at least 1 SPA_DATA_TYPE_INVALID
    * data pointers that will be filled by this function.
    *

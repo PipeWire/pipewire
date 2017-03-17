@@ -116,6 +116,10 @@ spa_pod_object_find_prop (const SpaPODObject *obj, uint32_t key)
         strncpy (dest, SPA_POD_CONTENTS (SpaPODString, pod), maxlen-1);                 \
         break;                                                                          \
       }                                                                                 \
+      case SPA_POD_TYPE_BYTES:                                                          \
+        *(va_arg (args, void **)) = SPA_POD_CONTENTS (SpaPODBytes, pod);                \
+        *(va_arg (args, uint32_t *)) = SPA_POD_BODY_SIZE (pod);                         \
+        break;                                                                          \
       case SPA_POD_TYPE_RECTANGLE:                                                      \
         *(va_arg (args, SpaRectangle *)) = SPA_POD_VALUE (SpaPODRectangle, pod);        \
         break;                                                                          \
@@ -132,10 +136,6 @@ spa_pod_object_find_prop (const SpaPODObject *obj, uint32_t key)
       case SPA_POD_TYPE_POD:                                                            \
         *(va_arg (args, SpaPOD **)) = pod;                                              \
         break;                                                                          \
-      case SPA_POD_TYPE_BYTES:                                                          \
-        *(va_arg (args, void **)) = SPA_POD_CONTENTS (SpaPODBytes, pod);                \
-        *(va_arg (args, uint32_t *)) = SPA_POD_BODY_SIZE (pod);                         \
-        break;                                                                          \
       default:                                                                          \
         break;                                                                          \
     }                                                                                   \
@@ -144,6 +144,7 @@ spa_pod_object_find_prop (const SpaPODObject *obj, uint32_t key)
     switch (type) {                                                                     \
       case SPA_POD_TYPE_BYTES:                                                          \
         va_arg (args, void*);                                                           \
+        /* fallthrough */                                                               \
       case SPA_POD_TYPE_BOOL:                                                           \
       case SPA_POD_TYPE_URI:                                                            \
       case SPA_POD_TYPE_INT:                                                            \

@@ -25,7 +25,8 @@ extern "C" {
 #endif
 
 #include <stdarg.h>
-#include <spa/pod.h>
+#include <stdio.h>
+#include <spa/pod-utils.h>
 
 typedef struct _SpaPODFrame {
   struct _SpaPODFrame *parent;
@@ -345,7 +346,7 @@ spa_pod_builder_addv (SpaPODBuilder *builder,
         break;
       case -SPA_POD_TYPE_STRING:
       {
-        char *str = va_arg (args, char *);
+        const char *str = va_arg (args, const char *);
         uint32_t len = va_arg (args, uint32_t);
         spa_pod_builder_string_len (builder, str, len);
         break;
@@ -356,10 +357,22 @@ spa_pod_builder_addv (SpaPODBuilder *builder,
         spa_pod_builder_rectangle (builder, width, height);
         break;
       }
+      case -SPA_POD_TYPE_RECTANGLE:
+      {
+        const SpaRectangle *val = va_arg (args, SpaRectangle *);
+        spa_pod_builder_rectangle (builder, val->width, val->height);
+        break;
+      }
       case SPA_POD_TYPE_FRACTION:
       {
         uint32_t num = va_arg (args, uint32_t), denom = va_arg (args, uint32_t);
         spa_pod_builder_fraction (builder, num, denom);
+        break;
+      }
+      case -SPA_POD_TYPE_FRACTION:
+      {
+        const SpaFraction *val = va_arg (args, SpaFraction *);
+        spa_pod_builder_fraction (builder, val->num, val->denom);
         break;
       }
       case SPA_POD_TYPE_BITMASK:
@@ -414,7 +427,7 @@ spa_pod_builder_addv (SpaPODBuilder *builder,
       }
       case SPA_POD_TYPE_POD:
       {
-        SpaPOD *value = va_arg (args, SpaPOD *);
+        const SpaPOD *value = va_arg (args, SpaPOD *);
         spa_pod_builder_raw_padded (builder, value, SPA_POD_SIZE (value));
         break;
       }
@@ -436,6 +449,22 @@ spa_pod_builder_add (SpaPODBuilder *builder,
   spa_pod_builder_addv (builder, type, args);
   va_end (args);
 }
+
+#define SPA_POD_OBJECT(f,id,type,...)                                   \
+    SPA_POD_TYPE_OBJECT, f, id, type, __VA_ARGS__, -SPA_POD_TYPE_OBJECT, f
+
+#define SPA_POD_STRUCT(f,...)                                           \
+    SPA_POD_TYPE_STRUCT, f, __VA_ARGS__, -SPA_POD_TYPE_STRUCT, f
+
+#define SPA_POD_PROP(f,key,flags,type,...)                          \
+    SPA_POD_TYPE_PROP, f, key, flags, type, __VA_ARGS__, -SPA_POD_TYPE_PROP, f
+
+
+#define spa_pod_builder_object(b,f,id,type,...)                         \
+  spa_pod_builder_add(b, SPA_POD_OBJECT (f,id,type,__VA_ARGS__), 0)
+
+#define spa_pod_builder_struct(b,f,...)                                 \
+  spa_pod_builder_add(b, SPA_POD_STRUCT (f,__VA_ARGS__), 0)
 
 #ifdef __cplusplus
 }  /* extern "C" */

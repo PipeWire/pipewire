@@ -34,6 +34,7 @@ typedef struct {
   PinosListener  check_dispatch;
 } ModuleImpl;
 
+#if 0
 static bool
 check_global_owner (PinosCore   *core,
                     PinosClient *client,
@@ -53,6 +54,7 @@ check_global_owner (PinosCore   *core,
 
   return false;
 }
+#endif
 
 static void
 do_check_send (PinosListener    *listener,

@@ -115,10 +115,8 @@ core_marshal_done (void          *object,
 
   core_update_map (resource->client);
 
-  spa_pod_builder_add (&b.b,
-      SPA_POD_TYPE_STRUCT, &f,
-        SPA_POD_TYPE_INT, seq,
-     -SPA_POD_TYPE_STRUCT, &f, 0);
+  spa_pod_builder_struct (&b.b, &f,
+        SPA_POD_TYPE_INT, seq);
 
   pinos_connection_end_write (connection, resource->id, 1, b.b.offset);
 }
@@ -142,12 +140,10 @@ core_marshal_error (void          *object,
   vsnprintf (buffer, sizeof (buffer), error, ap);
   va_end (ap);
 
-  spa_pod_builder_add (&b.b,
-      SPA_POD_TYPE_STRUCT, &f,
+  spa_pod_builder_struct (&b.b, &f,
         SPA_POD_TYPE_INT, id,
         SPA_POD_TYPE_INT, res,
-        SPA_POD_TYPE_STRING, buffer,
-     -SPA_POD_TYPE_STRUCT, &f, 0);
+        SPA_POD_TYPE_STRING, buffer);
 
   pinos_connection_end_write (connection, resource->id, 2, b.b.offset);
 }
@@ -163,10 +159,8 @@ core_marshal_remove_id (void          *object,
 
   core_update_map (resource->client);
 
-  spa_pod_builder_add (&b.b,
-      SPA_POD_TYPE_STRUCT, &f,
-        SPA_POD_TYPE_INT, id,
-     -SPA_POD_TYPE_STRUCT, &f, 0);
+  spa_pod_builder_struct (&b.b, &f,
+        SPA_POD_TYPE_INT, id);
 
   pinos_connection_end_write (connection, resource->id, 3, b.b.offset);
 }
@@ -377,11 +371,9 @@ registry_marshal_global (void          *object,
 
   core_update_map (resource->client);
 
-  spa_pod_builder_add (&b.b,
-      SPA_POD_TYPE_STRUCT, &f,
+  spa_pod_builder_struct (&b.b, &f,
         SPA_POD_TYPE_INT, id,
-        SPA_POD_TYPE_STRING, type,
-     -SPA_POD_TYPE_STRUCT, &f, 0);
+        SPA_POD_TYPE_STRING, type);
 
   pinos_connection_end_write (connection, resource->id, 0, b.b.offset);
 }
@@ -397,10 +389,8 @@ registry_marshal_global_remove (void          *object,
 
   core_update_map (resource->client);
 
-  spa_pod_builder_add (&b.b,
-      SPA_POD_TYPE_STRUCT, &f,
-        SPA_POD_TYPE_INT, id,
-     -SPA_POD_TYPE_STRUCT, &f, 0);
+  spa_pod_builder_struct (&b.b, &f,
+        SPA_POD_TYPE_INT, id);
 
   pinos_connection_end_write (connection, resource->id, 1, b.b.offset);
 }
@@ -549,10 +539,8 @@ client_node_marshal_done (void     *object,
 
   core_update_map (resource->client);
 
-  spa_pod_builder_add (&b.b,
-      SPA_POD_TYPE_STRUCT, &f,
-        SPA_POD_TYPE_INT, pinos_connection_add_fd (connection, datafd),
-     -SPA_POD_TYPE_STRUCT, &f, 0);
+  spa_pod_builder_struct (&b.b, &f,
+        SPA_POD_TYPE_INT, pinos_connection_add_fd (connection, datafd));
 
   pinos_connection_end_write (connection, resource->id, 0, b.b.offset);
 }
@@ -568,10 +556,8 @@ client_node_marshal_event (void               *object,
 
   core_update_map (resource->client);
 
-  spa_pod_builder_add (&b.b,
-      SPA_POD_TYPE_STRUCT, &f,
-        SPA_POD_TYPE_POD, event,
-     -SPA_POD_TYPE_STRUCT, &f, 0);
+  spa_pod_builder_struct (&b.b, &f,
+        SPA_POD_TYPE_POD, event);
 
   pinos_connection_end_write (connection, resource->id, 1, b.b.offset);
 }
@@ -589,12 +575,10 @@ client_node_marshal_add_port (void         *object,
 
   core_update_map (resource->client);
 
-  spa_pod_builder_add (&b.b,
-      SPA_POD_TYPE_STRUCT, &f,
+  spa_pod_builder_struct (&b.b, &f,
         SPA_POD_TYPE_INT, seq,
         SPA_POD_TYPE_INT, direction,
-        SPA_POD_TYPE_INT, port_id,
-     -SPA_POD_TYPE_STRUCT, &f, 0);
+        SPA_POD_TYPE_INT, port_id);
 
   pinos_connection_end_write (connection, resource->id, 2, b.b.offset);
 }
@@ -612,12 +596,10 @@ client_node_marshal_remove_port (void         *object,
 
   core_update_map (resource->client);
 
-  spa_pod_builder_add (&b.b,
-      SPA_POD_TYPE_STRUCT, &f,
+  spa_pod_builder_struct (&b.b, &f,
         SPA_POD_TYPE_INT, seq,
         SPA_POD_TYPE_INT, direction,
-        SPA_POD_TYPE_INT, port_id,
-     -SPA_POD_TYPE_STRUCT, &f, 0);
+        SPA_POD_TYPE_INT, port_id);
 
   pinos_connection_end_write (connection, resource->id, 3, b.b.offset);
 }
@@ -665,12 +647,10 @@ client_node_marshal_set_property (void              *object,
 
   core_update_map (resource->client);
 
-  spa_pod_builder_add (&b.b,
-      SPA_POD_TYPE_STRUCT, &f,
+  spa_pod_builder_struct (&b.b, &f,
         SPA_POD_TYPE_INT, seq,
         SPA_POD_TYPE_INT, id,
-        SPA_POD_TYPE_BYTES, value, size,
-     -SPA_POD_TYPE_STRUCT, &f, 0);
+        SPA_POD_TYPE_BYTES, value, size);
 
   pinos_connection_end_write (connection, resource->id, 5, b.b.offset);
 }
@@ -693,8 +673,7 @@ client_node_marshal_add_mem (void              *object,
 
   core_update_map (resource->client);
 
-  spa_pod_builder_add (&b.b,
-      SPA_POD_TYPE_STRUCT, &f,
+  spa_pod_builder_struct (&b.b, &f,
         SPA_POD_TYPE_INT, direction,
         SPA_POD_TYPE_INT, port_id,
         SPA_POD_TYPE_INT, mem_id,
@@ -702,8 +681,7 @@ client_node_marshal_add_mem (void              *object,
         SPA_POD_TYPE_INT, pinos_connection_add_fd (connection, memfd),
         SPA_POD_TYPE_INT, flags,
         SPA_POD_TYPE_INT, offset,
-        SPA_POD_TYPE_INT, size,
-     -SPA_POD_TYPE_STRUCT, &f, 0);
+        SPA_POD_TYPE_INT, size);
 
   pinos_connection_end_write (connection, resource->id, 6, b.b.offset);
 }
@@ -775,11 +753,9 @@ client_node_marshal_node_command (void                 *object,
 
   core_update_map (resource->client);
 
-  spa_pod_builder_add (&b.b,
-      SPA_POD_TYPE_STRUCT, &f,
+  spa_pod_builder_struct (&b.b, &f,
         SPA_POD_TYPE_INT, seq,
-        SPA_POD_TYPE_POD, command,
-     -SPA_POD_TYPE_STRUCT, &f, 0);
+        SPA_POD_TYPE_POD, command);
 
   pinos_connection_end_write (connection, resource->id, 8, b.b.offset);
 }
@@ -796,11 +772,9 @@ client_node_marshal_port_command (void                 *object,
 
   core_update_map (resource->client);
 
-  spa_pod_builder_add (&b.b,
-      SPA_POD_TYPE_STRUCT, &f,
+  spa_pod_builder_struct (&b.b, &f,
         SPA_POD_TYPE_INT, port_id,
-        SPA_POD_TYPE_POD, command,
-     -SPA_POD_TYPE_STRUCT, &f, 0);
+        SPA_POD_TYPE_POD, command);
 
   pinos_connection_end_write (connection, resource->id, 9, b.b.offset);
 }
@@ -818,12 +792,10 @@ client_node_marshal_transport (void              *object,
 
   core_update_map (resource->client);
 
-  spa_pod_builder_add (&b.b,
-      SPA_POD_TYPE_STRUCT, &f,
+  spa_pod_builder_struct (&b.b, &f,
         SPA_POD_TYPE_INT, pinos_connection_add_fd (connection, memfd),
         SPA_POD_TYPE_INT, offset,
-        SPA_POD_TYPE_INT, size,
-     -SPA_POD_TYPE_STRUCT, &f, 0);
+        SPA_POD_TYPE_INT, size);
 
   pinos_connection_end_write (connection, resource->id, 10, b.b.offset);
 }
@@ -861,7 +833,7 @@ client_node_demarshal_port_update (void  *object,
 {
   PinosResource *resource = object;
   SpaPODIter it;
-  uint32_t i, t, direction, port_id, change_mask, n_possible_formats, sz;
+  uint32_t i, t, direction, port_id, change_mask, n_possible_formats;
   const SpaProps *props = NULL;
   const SpaFormat **possible_formats = NULL, *format = NULL;
   SpaPortInfo info, *infop = NULL;
@@ -905,7 +877,7 @@ client_node_demarshal_port_update (void  *object,
 
     info.params = alloca (info.n_params * sizeof (SpaAllocParam *));
     for (i = 0; i < info.n_params; i++)
-      if (!spa_pod_iter_get (&it, SPA_POD_TYPE_BYTES, &info.params[i], &sz, 0))
+      if (!spa_pod_iter_get (&it, SPA_POD_TYPE_OBJECT, &info.params[i], 0))
         return false;
 
     if (!spa_pod_iter_get (&it, SPA_POD_TYPE_INT, &dict.n_items, 0))
@@ -994,15 +966,13 @@ link_marshal_info (void          *object,
 
   core_update_map (resource->client);
 
-  spa_pod_builder_add (&b.b,
-      SPA_POD_TYPE_STRUCT, &f,
+  spa_pod_builder_struct (&b.b, &f,
         SPA_POD_TYPE_INT, info->id,
         SPA_POD_TYPE_LONG, info->change_mask,
         SPA_POD_TYPE_INT, info->output_node_id,
         SPA_POD_TYPE_INT, info->output_port_id,
         SPA_POD_TYPE_INT, info->input_node_id,
-        SPA_POD_TYPE_INT, info->input_port_id,
-     -SPA_POD_TYPE_STRUCT, &f, 0);
+        SPA_POD_TYPE_INT, info->input_port_id);
 
   pinos_connection_end_write (connection, resource->id, 0, b.b.offset);
 }

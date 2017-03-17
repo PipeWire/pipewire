@@ -70,6 +70,7 @@ typedef enum {
   SPA_RESULT_NO_PERMISSION             = -33,
   SPA_RESULT_SKIPPED                   = -34,
   SPA_RESULT_OUT_OF_BUFFERS            = -35,
+  SPA_RESULT_INCOMPATIBLE_PROPS        = -36,
 } SpaResult;
 
 #define SPA_ASYNC_MASK                  (3 << 30)

@@ -100,8 +100,7 @@ typedef struct {
 
   SpaPortInfo info;
   SpaAllocParam *params[2];
-  SpaAllocParamBuffers param_buffers;
-  SpaAllocParamMetaEnable param_meta;
+  uint8_t params_buffer[1024];
   void *io;
 
   int64_t last_ticks;
@@ -136,6 +135,25 @@ update_state (SpaV4l2Source *this, SpaNodeState state)
   spa_log_info (this->log, "state: %d", state);
   this->node.state = state;
 }
+
+#define PROP(f,key,type,...)                                                    \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READWRITE,type,1,__VA_ARGS__)
+#define PROP_R(f,key,type,...)                                                  \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READABLE,type,1,__VA_ARGS__)
+#define PROP_MM(f,key,type,...)                                                 \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READWRITE |                     \
+                              SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
+#define PROP_U_MM(f,key,type,...)                                               \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READWRITE |                     \
+                              SPA_POD_PROP_FLAG_UNSET |                         \
+                              SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
+#define PROP_EN(f,key,type,n,...)                                               \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READWRITE |                     \
+                              SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
+#define PROP_U_EN(f,key,type,n,...)                                             \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READWRITE |                     \
+                              SPA_POD_PROP_FLAG_UNSET |                         \
+                              SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
 #include "v4l2-utils.c"
 
 enum {
@@ -151,7 +169,7 @@ spa_v4l2_source_node_get_props (SpaNode       *node,
 {
   SpaV4l2Source *this;
   SpaPODBuilder b = { NULL,  };
-  SpaPODFrame f;
+  SpaPODFrame f[2];
 
   if (node == NULL || props == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -159,28 +177,11 @@ spa_v4l2_source_node_get_props (SpaNode       *node,
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
 
   spa_pod_builder_init (&b, this->props_buffer, sizeof (this->props_buffer));
-
-  *props = SPA_MEMBER (b.data, spa_pod_builder_props (&b,
-        SPA_POD_TYPE_PROP, &f,
-           PROP_ID_DEVICE,      SPA_POD_PROP_FLAG_READWRITE |
-                                SPA_POD_PROP_RANGE_NONE,
-                                -SPA_POD_TYPE_STRING, 1,
-                                    this->props.device, sizeof (this->props.device),
-
-       -SPA_POD_TYPE_PROP, &f,
-        SPA_POD_TYPE_PROP, &f,
-           PROP_ID_DEVICE_NAME, SPA_POD_PROP_FLAG_READABLE |
-                                SPA_POD_PROP_RANGE_NONE,
-                                -SPA_POD_TYPE_STRING, 1,
-                                    this->props.device_name, sizeof (this->props.device_name),
-
-       -SPA_POD_TYPE_PROP, &f,
-        SPA_POD_TYPE_PROP, &f,
-           PROP_ID_DEVICE_FD,   SPA_POD_PROP_FLAG_READABLE |
-                                SPA_POD_PROP_RANGE_NONE,
-                                SPA_POD_TYPE_INT, 1,
-                                    this->props.device_fd,
-       -SPA_POD_TYPE_PROP, &f, 0), SpaProps);
+  spa_pod_builder_props (&b, &f[0],
+      PROP   (&f[1], PROP_ID_DEVICE,      -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device)),
+      PROP_R (&f[1], PROP_ID_DEVICE_NAME, -SPA_POD_TYPE_STRING, this->props.device_name, sizeof (this->props.device_name)),
+      PROP_R (&f[1], PROP_ID_DEVICE_FD,    SPA_POD_TYPE_INT,    this->props.device_fd));
+  *props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
 
   return SPA_RESULT_OK;
 }
@@ -200,22 +201,9 @@ spa_v4l2_source_node_set_props (SpaNode         *node,
     reset_v4l2_source_props (&this->props);
     return SPA_RESULT_OK;
   } else {
-    SpaPOD *p;
-
-    SPA_POD_OBJECT_BODY_FOREACH (&props->body, props->pod.size, p) {
-      SpaPODProp *pr;
-
-      if (p->type != SPA_POD_TYPE_PROP)
-        continue;
-
-      pr = (SpaPODProp *)p;
-
-      switch (pr->body.key) {
-        case PROP_ID_DEVICE:
-          strncpy (this->props.device, SPA_POD_CONTENTS (SpaPODProp, pr), 63);
-          break;
-      }
-    }
+    spa_props_query (props,
+        PROP_ID_DEVICE, -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device),
+        0);
   }
   return SPA_RESULT_OK;
 }
@@ -588,54 +576,23 @@ spa_v4l2_source_node_port_get_format (SpaNode          *node,
   switch (state->current_format.media_subtype) {
     case SPA_MEDIA_SUBTYPE_RAW:
       spa_pod_builder_add (&b,
-          SPA_POD_TYPE_PROP, &f[1],
-           SPA_PROP_ID_VIDEO_FORMAT,    SPA_POD_PROP_FLAG_READWRITE,
-                                        SPA_POD_TYPE_INT, 1,
-                                                state->current_format.info.raw.format,
-         -SPA_POD_TYPE_PROP, &f[1],
-          SPA_POD_TYPE_PROP, &f[1],
-           SPA_PROP_ID_VIDEO_SIZE,      SPA_POD_PROP_FLAG_READWRITE,
-                                        SPA_POD_TYPE_RECTANGLE, 1,
-                                                state->current_format.info.raw.size.width,
-                                                state->current_format.info.raw.size.height,
-         -SPA_POD_TYPE_PROP, &f[1],
-          SPA_POD_TYPE_PROP, &f[1],
-           SPA_PROP_ID_VIDEO_FRAMERATE, SPA_POD_PROP_FLAG_READWRITE,
-                                        SPA_POD_TYPE_FRACTION, 1,
-                                                state->current_format.info.raw.framerate.num,
-                                                state->current_format.info.raw.framerate.denom,
-         -SPA_POD_TYPE_PROP, &f[1], 0);
+          PROP (&f[1], SPA_PROP_ID_VIDEO_FORMAT,     SPA_POD_TYPE_INT,       state->current_format.info.raw.format),
+          PROP (&f[1], SPA_PROP_ID_VIDEO_SIZE,      -SPA_POD_TYPE_RECTANGLE, &state->current_format.info.raw.size),
+          PROP (&f[1], SPA_PROP_ID_VIDEO_FRAMERATE, -SPA_POD_TYPE_FRACTION,  &state->current_format.info.raw.framerate),
+          0);
       break;
     case SPA_MEDIA_SUBTYPE_MJPG:
     case SPA_MEDIA_SUBTYPE_JPEG:
       spa_pod_builder_add (&b,
-          SPA_POD_TYPE_PROP, &f[1],
-           SPA_PROP_ID_VIDEO_SIZE,      SPA_POD_PROP_FLAG_READWRITE,
-                                        SPA_POD_TYPE_RECTANGLE, 1,
-                                                state->current_format.info.mjpg.size.width,
-                                                state->current_format.info.mjpg.size.height,
-         -SPA_POD_TYPE_PROP, &f[1],
-          SPA_POD_TYPE_PROP, &f[1],
-           SPA_PROP_ID_VIDEO_FRAMERATE, SPA_POD_PROP_FLAG_READWRITE,
-                                        SPA_POD_TYPE_FRACTION, 1,
-                                                state->current_format.info.mjpg.framerate.num,
-                                                state->current_format.info.mjpg.framerate.denom,
-         -SPA_POD_TYPE_PROP, &f[1], 0);
+          PROP (&f[1], SPA_PROP_ID_VIDEO_SIZE,      -SPA_POD_TYPE_RECTANGLE, &state->current_format.info.mjpg.size),
+          PROP (&f[1], SPA_PROP_ID_VIDEO_FRAMERATE, -SPA_POD_TYPE_FRACTION,  &state->current_format.info.mjpg.framerate),
+          0);
       break;
     case SPA_MEDIA_SUBTYPE_H264:
       spa_pod_builder_add (&b,
-          SPA_POD_TYPE_PROP, &f[1],
-           SPA_PROP_ID_VIDEO_SIZE,      SPA_POD_PROP_FLAG_READWRITE,
-                                        SPA_POD_TYPE_RECTANGLE, 1,
-                                                state->current_format.info.h264.size.width,
-                                                state->current_format.info.h264.size.height,
-         -SPA_POD_TYPE_PROP, &f[1],
-          SPA_POD_TYPE_PROP, &f[1],
-           SPA_PROP_ID_VIDEO_FRAMERATE, SPA_POD_PROP_FLAG_READWRITE,
-                                        SPA_POD_TYPE_FRACTION, 1,
-                                                state->current_format.info.h264.framerate.num,
-                                                state->current_format.info.h264.framerate.denom,
-         -SPA_POD_TYPE_PROP, &f[1], 0);
+          PROP (&f[1], SPA_PROP_ID_VIDEO_SIZE,      -SPA_POD_TYPE_RECTANGLE, &state->current_format.info.h264.size),
+          PROP (&f[1], SPA_PROP_ID_VIDEO_FRAMERATE, -SPA_POD_TYPE_FRACTION,  &state->current_format.info.h264.framerate),
+          0);
       break;
     case SPA_MEDIA_SUBTYPE_DV:
     case SPA_MEDIA_SUBTYPE_MPEGTS:

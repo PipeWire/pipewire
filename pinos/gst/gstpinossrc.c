@@ -765,6 +765,8 @@ connect_error:
   }
 }
 
+#define PROP(f,key,type,...)                                                    \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READWRITE,type,1,__VA_ARGS__)
 static void
 on_format_changed (PinosListener *listener,
                    PinosStream   *stream,
@@ -781,12 +783,14 @@ on_format_changed (PinosListener *listener,
 
   if (res) {
     SpaAllocParam *params[1];
-    SpaAllocParamMetaEnable param_meta;
+    SpaPODBuilder b = { NULL };
+    uint8_t buffer[128];
+    SpaPODFrame f[2];
 
-    params[0] = &param_meta.param;
-    param_meta.param.type = SPA_ALLOC_PARAM_TYPE_META_ENABLE;
-    param_meta.param.size = sizeof (param_meta);
-    param_meta.type = SPA_META_TYPE_HEADER;
+    spa_pod_builder_init (&b, buffer, sizeof (buffer));
+    spa_pod_builder_object (&b, &f[0], 0, SPA_ALLOC_PARAM_TYPE_META_ENABLE,
+        PROP    (&f[1], SPA_ALLOC_PARAM_META_ENABLE_TYPE, SPA_POD_TYPE_INT, SPA_META_TYPE_HEADER));
+    params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
     GST_DEBUG_OBJECT (pinossrc, "doing finish format");
     pinos_stream_finish_format (pinossrc->stream, SPA_RESULT_OK, params, 1);

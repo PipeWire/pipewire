@@ -27,7 +27,7 @@ extern "C" {
 #include <stdarg.h>
 
 #include <spa/defs.h>
-#include <spa/pod.h>
+#include <spa/pod-utils.h>
 
 typedef struct {
   const void *data;
@@ -118,50 +118,12 @@ spa_pod_iter_getv (SpaPODIter *iter,
 {
   while (type && spa_pod_iter_has_next (iter)) {
     SpaPOD *pod = spa_pod_iter_next (iter);
-    if (pod->type != type)
+
+    if (type != SPA_POD_TYPE_POD && pod->type != type)
       return false;
 
-    switch (type) {
-      case SPA_POD_TYPE_BOOL:
-      case SPA_POD_TYPE_URI:
-      case SPA_POD_TYPE_INT:
-        *(va_arg (args, int32_t*)) = ((SpaPODInt *)(pod))->value;
-        break;
-      case SPA_POD_TYPE_LONG:
-        *(va_arg (args, int64_t*)) = ((SpaPODLong *)(pod))->value;
-        break;
-      case SPA_POD_TYPE_FLOAT:
-        *(va_arg (args, float*)) = ((SpaPODFloat *)(pod))->value;
-        break;
-      case SPA_POD_TYPE_DOUBLE:
-        *(va_arg (args, double*)) = ((SpaPODDouble *)(pod))->value;
-        break;
-      case SPA_POD_TYPE_STRING:
-        *(va_arg (args, char **)) = SPA_POD_CONTENTS (SpaPODString, pod);
-        break;
-      case SPA_POD_TYPE_RECTANGLE:
-        *(va_arg (args, SpaRectangle *)) = ((SpaPODRectangle *)(pod))->value;
-        break;
-      case SPA_POD_TYPE_FRACTION:
-        *(va_arg (args, SpaFraction *)) = ((SpaPODFraction *)(pod))->value;
-        break;
-      case SPA_POD_TYPE_BITMASK:
-        *(va_arg (args, uint32_t **)) = SPA_POD_CONTENTS (SpaPOD, pod);
-        break;
-      case SPA_POD_TYPE_ARRAY:
-      case SPA_POD_TYPE_STRUCT:
-      case SPA_POD_TYPE_OBJECT:
-      case SPA_POD_TYPE_PROP:
-        *(va_arg (args, SpaPOD **)) = pod;
-        break;
-      case SPA_POD_TYPE_BYTES:
-        *(va_arg (args, void **)) = SPA_POD_CONTENTS (SpaPODBytes, pod);
-        *(va_arg (args, uint32_t *)) = SPA_POD_BODY_SIZE (pod);
-        break;
-      default:
-      case SPA_POD_TYPE_INVALID:
-        return false;
-    }
+    SPA_POD_COLLECT (pod, type, args);
+
     type = va_arg (args, uint32_t);
   }
   return true;

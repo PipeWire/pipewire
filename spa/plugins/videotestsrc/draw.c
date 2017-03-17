@@ -162,7 +162,7 @@ drawing_data_init (DrawingData *dd,
   dd->line = data;
   dd->width = size->width;
   dd->height = size->height;
-  dd->stride = this->param_buffers.stride;
+  dd->stride = this->stride;
 
   return SPA_RESULT_OK;
 }

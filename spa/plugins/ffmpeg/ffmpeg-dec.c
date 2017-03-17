@@ -47,8 +47,6 @@ typedef struct {
   bool have_buffers;
   FFMpegBuffer buffers[MAX_BUFFERS];
   SpaPortInfo info;
-  SpaAllocParam *params[1];
-  SpaAllocParamBuffers param_buffers;
   void *io;
 } SpaFFMpegPort;
 
@@ -210,12 +208,12 @@ spa_ffmpeg_dec_node_port_enum_formats (SpaNode         *node,
                                        const SpaFormat *filter,
                                        uint32_t         index)
 {
-  SpaFFMpegDec *this;
+  //SpaFFMpegDec *this;
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = SPA_CONTAINER_OF (node, SpaFFMpegDec, node);
+  //this = SPA_CONTAINER_OF (node, SpaFFMpegDec, node);
 
   if (!IS_VALID_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;

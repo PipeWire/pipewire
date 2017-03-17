@@ -195,8 +195,8 @@ pinos_properties_from_variant (GVariant *variant)
 {
   PinosProperties *props;
   GVariantIter iter;
-  GVariant *value;
-  gchar *key;
+  //GVariant *value;
+  //gchar *key;
 
   props = pinos_properties_new (NULL, NULL);
 

@@ -114,13 +114,18 @@ update_state (SpaXvSink *this, SpaNodeState state)
   this->node.state = state;
 }
 
+#define PROP(f,key,type,...)                                                    \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READWRITE,type,1,__VA_ARGS__)
+#define PROP_R(f,key,type,...)                                                  \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READABLE,type,1,__VA_ARGS__)
+
 static SpaResult
 spa_xv_sink_node_get_props (SpaNode       *node,
                             SpaProps     **props)
 {
   SpaXvSink *this;
   SpaPODBuilder b = { NULL,  };
-  SpaPODFrame f;
+  SpaPODFrame f[2];
 
   if (node == NULL || props == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -128,26 +133,11 @@ spa_xv_sink_node_get_props (SpaNode       *node,
   this = SPA_CONTAINER_OF (node, SpaXvSink, node);
 
   spa_pod_builder_init (&b, this->props_buffer, sizeof (this->props_buffer));
-
-  *props = SPA_MEMBER (b.data, spa_pod_builder_props (&b,
-        SPA_POD_TYPE_PROP, &f,
-           PROP_ID_DEVICE,      SPA_POD_PROP_FLAG_READWRITE |
-                                SPA_POD_PROP_RANGE_NONE,
-                               -SPA_POD_TYPE_STRING, 1,
-                                    this->props.device, sizeof (this->props.device),
-       -SPA_POD_TYPE_PROP, &f,
-        SPA_POD_TYPE_PROP, &f,
-           PROP_ID_DEVICE_NAME, SPA_POD_PROP_FLAG_READABLE |
-                                SPA_POD_PROP_RANGE_NONE,
-                                -SPA_POD_TYPE_STRING, 1,
-                                    this->props.device_name, sizeof (this->props.device_name),
-       -SPA_POD_TYPE_PROP, &f,
-        SPA_POD_TYPE_PROP, &f,
-           PROP_ID_DEVICE_FD,   SPA_POD_PROP_FLAG_READABLE |
-                                SPA_POD_PROP_RANGE_NONE,
-                                SPA_POD_TYPE_INT, 1,
-                                    this->props.device_fd,
-       -SPA_POD_TYPE_PROP, &f, 0), SpaProps);
+  spa_pod_builder_props (&b, &f[0],
+      PROP   (&f[1], PROP_ID_DEVICE,      -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device)),
+      PROP_R (&f[1], PROP_ID_DEVICE_NAME, -SPA_POD_TYPE_STRING, this->props.device_name, sizeof (this->props.device_name)),
+      PROP_R (&f[1], PROP_ID_DEVICE_FD,    SPA_POD_TYPE_INT,    this->props.device_fd));
+  *props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
 
   return SPA_RESULT_OK;
 }
@@ -166,21 +156,9 @@ spa_xv_sink_node_set_props (SpaNode         *node,
   if (props == NULL) {
     reset_xv_sink_props (&this->props);
   } else {
-    SpaPOD *p;
-
-    SPA_POD_OBJECT_BODY_FOREACH (&props->body, props->pod.size, p) {
-      SpaPODProp *pr;
-
-      if (p->type != SPA_POD_TYPE_PROP)
-        continue;
-
-      pr = (SpaPODProp *) p;
-      switch (pr->body.key) {
-        case PROP_ID_DEVICE:
-          strncpy (this->props.device, SPA_POD_CONTENTS (SpaPODProp, pr), 63);
-          break;
-      }
-    }
+    spa_props_query (props,
+        PROP_ID_DEVICE, -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device),
+        0);
   }
   return SPA_RESULT_OK;
 }
@@ -301,12 +279,12 @@ spa_xv_sink_node_port_enum_formats (SpaNode         *node,
                                     const SpaFormat *filter,
                                     uint32_t         index)
 {
-  SpaXvSink *this;
+  //SpaXvSink *this;
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = SPA_CONTAINER_OF (node, SpaXvSink, node);
+  //this = SPA_CONTAINER_OF (node, SpaXvSink, node);
 
   if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;

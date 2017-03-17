@@ -40,23 +40,20 @@ spa_pod_builder_push_props (SpaPODBuilder *builder,
   return spa_pod_builder_push_object (builder, frame, 0, 0);
 }
 
+#define spa_pod_builder_props(b,f,...)                                 \
+  spa_pod_builder_object(b, f, 0, 0,__VA_ARGS__)
+
 static inline uint32_t
-spa_pod_builder_props (SpaPODBuilder *builder,
-                       uint32_t       type, ...)
+spa_props_query (const SpaProps *props, uint32_t key, ...)
 {
-  SpaPODFrame f;
+  uint32_t count;
   va_list args;
-  uint32_t off;
 
-  off = spa_pod_builder_push_props (builder, &f);
-
-  va_start (args, type);
-  spa_pod_builder_addv (builder, type, args);
+  va_start (args, key);
+  count = spa_pod_contents_queryv (&props->pod, sizeof (SpaProps), key, args);
   va_end (args);
 
-  spa_pod_builder_pop (builder, &f);
-
-  return off;
+  return count;
 }
 
 #ifdef __cplusplus

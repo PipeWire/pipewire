@@ -29,13 +29,10 @@ typedef struct _SpaAllocParam SpaAllocParam;
 #include <spa/defs.h>
 #include <spa/buffer.h>
 #include <spa/dict.h>
+#include <spa/pod-utils.h>
 
 #define SPA_ALLOC_PARAM_URI             "http://spaplug.in/ns/alloc-param"
-#define SPA_ALLOC_PARAM_PREFIX          SPA_ALLOC_PARAM_URI "#"
-
-#define SPA_ALLOC_PARAM__Buffers        SPA_ALLOC_PARAM_PREFIX "Buffers"
-#define SPA_ALLOC_PARAM__MetaEnable     SPA_ALLOC_PARAM_PREFIX "MetaEnable"
-#define SPA_ALLOC_PARAM__VideoPadding   SPA_ALLOC_PARAM_PREFIX "VideoPadding"
+#define SPA_ALLOC_PARAM_URI_PREFIX      SPA_ALLOC_PARAM_URI "-"
 
 /**
  * SpaAllocParamType:
@@ -51,42 +48,83 @@ typedef enum {
   SPA_ALLOC_PARAM_TYPE_VIDEO_PADDING,
 } SpaAllocParamType;
 
+typedef struct {
+  SpaPODObjectBody body;
+  /* SpaPODProp follow */
+} SpaAllocParamBody;
+
 struct _SpaAllocParam {
-  uint32_t  type;
-  uint32_t  size;
+  SpaPOD            pod;
+  SpaAllocParamBody body;
 };
 
-typedef struct {
-  SpaAllocParam  param;
-  uint32_t       minsize;
-  int32_t        stride;
-  uint32_t       min_buffers;
-  uint32_t       max_buffers;
-  uint32_t       align;
-} SpaAllocParamBuffers;
+static inline uint32_t
+spa_alloc_param_query (const SpaAllocParam *param, uint32_t key, ...)
+{
+  uint32_t count;
+  va_list args;
 
-typedef struct {
-  SpaAllocParam  param;
-  SpaMetaType    type;
-} SpaAllocParamMetaEnable;
+  va_start (args, key);
+  count = spa_pod_contents_queryv (&param->pod, sizeof (SpaAllocParam), key, args);
+  va_end (args);
 
-typedef struct {
-  SpaAllocParam  param;
-  SpaMetaType    type;
-  uint32_t       minsize;
-  int32_t        stride;
-  uint32_t       blocks;
-  uint32_t       align;
-} SpaAllocParamMetaEnableRingbuffer;
+  return count;
+}
 
-typedef struct {
-  SpaAllocParam param;
-  uint32_t      padding_top;
-  uint32_t      padding_bottom;
-  uint32_t      padding_left;
-  uint32_t      padding_right;
-  uint32_t      stride_align[4];
-} SpaAllocParamVideoPadding;
+#define SPA_ALLOC_PARAM_BUFFERS          SPA_ALLOC_PARAM_URI_PREFIX "buffers"
+#define SPA_ALLOC_PARAM_BUFFERS_PREFIX   SPA_ALLOC_PARAM_BUFFERS "#"
+
+#define SPA_ALLOC_PARAM_BUFFERS__size      SPA_ALLOC_PARAM_BUFFERS_PREFIX "size"
+#define SPA_ALLOC_PARAM_BUFFERS__stride    SPA_ALLOC_PARAM_BUFFERS_PREFIX "stride"
+#define SPA_ALLOC_PARAM_BUFFERS__buffers   SPA_ALLOC_PARAM_BUFFERS_PREFIX "buffers"
+#define SPA_ALLOC_PARAM_BUFFERS__align     SPA_ALLOC_PARAM_BUFFERS_PREFIX "align"
+
+typedef enum {
+  SPA_ALLOC_PARAM_BUFFERS_SIZE = 1,
+  SPA_ALLOC_PARAM_BUFFERS_STRIDE,
+  SPA_ALLOC_PARAM_BUFFERS_BUFFERS,
+  SPA_ALLOC_PARAM_BUFFERS_ALIGN,
+} SpaAllocParamBuffersKey;
+
+#define SPA_ALLOC_PARAM_META_ENABLE         SPA_ALLOC_PARAM_URI_PREFIX "meta-enable"
+#define SPA_ALLOC_PARAM_META_ENABLE_PREFIX  SPA_ALLOC_PARAM_META_ENABLE "#"
+#define SPA_ALLOC_PARAM_META_ENABLE__type   SPA_ALLOC_PARAM_META_ENABLE_PREFIX "type"
+
+#define SPA_ALLOC_PARAM_META_ENABLE__ringbufferSize   SPA_ALLOC_PARAM_META_ENABLE_PREFIX "ringbufferSize"
+#define SPA_ALLOC_PARAM_META_ENABLE__ringbufferStride SPA_ALLOC_PARAM_META_ENABLE_PREFIX "ringbufferStride"
+#define SPA_ALLOC_PARAM_META_ENABLE__ringbufferBlocks SPA_ALLOC_PARAM_META_ENABLE_PREFIX "ringbufferBlocks"
+#define SPA_ALLOC_PARAM_META_ENABLE__ringbufferAlign  SPA_ALLOC_PARAM_META_ENABLE_PREFIX "ringbufferAlign"
+
+typedef enum {
+  SPA_ALLOC_PARAM_META_ENABLE_TYPE = 1,
+  SPA_ALLOC_PARAM_META_ENABLE_RB_SIZE,
+  SPA_ALLOC_PARAM_META_ENABLE_RB_STRIDE,
+  SPA_ALLOC_PARAM_META_ENABLE_RB_BLOCKS,
+  SPA_ALLOC_PARAM_META_ENABLE_RB_ALIGN,
+} SpaAllocParamMetaEnableKey;
+
+#define SPA_ALLOC_PARAM_VIDEO_PADDING         SPA_ALLOC_PARAM_URI_PREFIX "video-padding"
+#define SPA_ALLOC_PARAM_VIDEO_PADDING_PREFIX  SPA_ALLOC_PARAM_VIDEO_PADDING "#"
+
+#define SPA_ALLOC_PARAM_VIDEO_PADDING__top            SPA_ALLOC_PARAM_VIDEO_PADDING_PREFIX "top"
+#define SPA_ALLOC_PARAM_VIDEO_PADDING__bottom         SPA_ALLOC_PARAM_VIDEO_PADDING_PREFIX "bottom"
+#define SPA_ALLOC_PARAM_VIDEO_PADDING__left           SPA_ALLOC_PARAM_VIDEO_PADDING_PREFIX "left"
+#define SPA_ALLOC_PARAM_VIDEO_PADDING__right          SPA_ALLOC_PARAM_VIDEO_PADDING_PREFIX "right"
+#define SPA_ALLOC_PARAM_VIDEO_PADDING__strideAlign0   SPA_ALLOC_PARAM_VIDEO_PADDING_PREFIX "strideAlign0"
+#define SPA_ALLOC_PARAM_VIDEO_PADDING__strideAlign1   SPA_ALLOC_PARAM_VIDEO_PADDING_PREFIX "strideAlign1"
+#define SPA_ALLOC_PARAM_VIDEO_PADDING__strideAlign2   SPA_ALLOC_PARAM_VIDEO_PADDING_PREFIX "strideAlign2"
+#define SPA_ALLOC_PARAM_VIDEO_PADDING__strideAlign3   SPA_ALLOC_PARAM_VIDEO_PADDING_PREFIX "strideAlign3"
+
+typedef enum {
+  SPA_ALLOC_PARAM_VIDEO_PADDING_TOP = 1,
+  SPA_ALLOC_PARAM_VIDEO_PADDING_BOTTOM,
+  SPA_ALLOC_PARAM_VIDEO_PADDING_LEFT,
+  SPA_ALLOC_PARAM_VIDEO_PADDING_RIGHT,
+  SPA_ALLOC_PARAM_VIDEO_PADDING_STRIDE_ALIGN0,
+  SPA_ALLOC_PARAM_VIDEO_PADDING_STRIDE_ALIGN1,
+  SPA_ALLOC_PARAM_VIDEO_PADDING_STRIDE_ALIGN2,
+  SPA_ALLOC_PARAM_VIDEO_PADDING_STRIDE_ALIGN3,
+} SpaAllocParamVideoPaddingKey;
 
 /**
  * SpaPortInfoFlags:

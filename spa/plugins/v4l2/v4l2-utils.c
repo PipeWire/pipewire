@@ -456,7 +456,6 @@ spa_v4l2_enum_format (SpaV4l2Source   *this,
   const FormatInfo *info;
   SpaPODFrame f[2];
   SpaPODProp *prop;
-  SpaFormat *fmt;
   SpaPODBuilder b = { state->format_buffer, sizeof (state->format_buffer), };
 
   if (spa_v4l2_open (this) < 0)
@@ -605,25 +604,17 @@ have_size:
 
   spa_pod_builder_push_format (&b, &f[0],
                                info->media_type,
-                               info->media_subtype),
-
-  fmt = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
+                               info->media_subtype);
 
   if (info->media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
     spa_pod_builder_add (&b,
-        SPA_POD_TYPE_PROP, &f[1],
-          SPA_PROP_ID_VIDEO_FORMAT,  SPA_POD_PROP_RANGE_NONE | SPA_POD_PROP_FLAG_READWRITE,
-                                     SPA_POD_TYPE_INT, 1,
-                                        info->format,
-       -SPA_POD_TYPE_PROP, &f[1], 0);
+        PROP (&f[1], SPA_PROP_ID_VIDEO_FORMAT, SPA_POD_TYPE_INT, info->format),
+        0);
   }
   spa_pod_builder_add (&b,
-      SPA_POD_TYPE_PROP, &f[1],
-        SPA_PROP_ID_VIDEO_SIZE,    SPA_POD_PROP_RANGE_NONE | SPA_POD_PROP_FLAG_READWRITE,
-                                   SPA_POD_TYPE_RECTANGLE, 1,
-                                    state->frmsize.discrete.width,
-                                    state->frmsize.discrete.height,
-     -SPA_POD_TYPE_PROP, &f[1], 0);
+      PROP (&f[1], SPA_PROP_ID_VIDEO_SIZE, SPA_POD_TYPE_RECTANGLE, state->frmsize.discrete.width,
+                                                                   state->frmsize.discrete.height),
+      0);
 
   spa_pod_builder_push_prop (&b, &f[1],
                              SPA_PROP_ID_VIDEO_FRAMERATE,
@@ -729,13 +720,13 @@ have_framerate:
   spa_pod_builder_pop (&b, &f[1]);
   spa_pod_builder_pop (&b, &f[0]);
 
-  *format = fmt;
+  *format = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
 
   return SPA_RESULT_OK;
 }
 
 static int
-spa_v4l2_set_format (SpaV4l2Source *this, SpaVideoInfo *f, bool try_only)
+spa_v4l2_set_format (SpaV4l2Source *this, SpaVideoInfo *format, bool try_only)
 {
   SpaV4l2State *state = &this->state[0];
   int cmd;
@@ -745,28 +736,30 @@ spa_v4l2_set_format (SpaV4l2Source *this, SpaVideoInfo *f, bool try_only)
   SpaVideoFormat video_format;
   SpaRectangle *size = NULL;
   SpaFraction *framerate = NULL;
+  SpaPODBuilder b = { NULL };
+  SpaPODFrame f[2];
 
   CLEAR (fmt);
   CLEAR (streamparm);
   fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   streamparm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
-  switch (f->media_subtype) {
+  switch (format->media_subtype) {
     case SPA_MEDIA_SUBTYPE_RAW:
-      video_format = f->info.raw.format;
-      size = &f->info.raw.size;
-      framerate = &f->info.raw.framerate;
+      video_format = format->info.raw.format;
+      size = &format->info.raw.size;
+      framerate = &format->info.raw.framerate;
       break;
     case SPA_MEDIA_SUBTYPE_MJPG:
     case SPA_MEDIA_SUBTYPE_JPEG:
       video_format = SPA_VIDEO_FORMAT_ENCODED;
-      size = &f->info.mjpg.size;
-      framerate = &f->info.mjpg.framerate;
+      size = &format->info.mjpg.size;
+      framerate = &format->info.mjpg.framerate;
       break;
     case SPA_MEDIA_SUBTYPE_H264:
       video_format = SPA_VIDEO_FORMAT_ENCODED;
-      size = &f->info.h264.size;
-      framerate = &f->info.h264.framerate;
+      size = &format->info.h264.size;
+      framerate = &format->info.h264.framerate;
       break;
     case SPA_MEDIA_SUBTYPE_DV:
     case SPA_MEDIA_SUBTYPE_MPEGTS:
@@ -781,13 +774,13 @@ spa_v4l2_set_format (SpaV4l2Source *this, SpaVideoInfo *f, bool try_only)
       break;
   }
 
-  info = find_format_info_by_media_type (f->media_type,
-                                         f->media_subtype,
+  info = find_format_info_by_media_type (format->media_type,
+                                         format->media_subtype,
                                          video_format,
                                          0);
   if (info == NULL || size == NULL || framerate == NULL) {
-    spa_log_error (state->log, "v4l2: unknown media type %d %d %d", f->media_type,
-        f->media_subtype, video_format);
+    spa_log_error (state->log, "v4l2: unknown media type %d %d %d", format->media_type,
+        format->media_subtype, video_format);
     return -1;
   }
 
@@ -847,18 +840,18 @@ spa_v4l2_set_format (SpaV4l2Source *this, SpaVideoInfo *f, bool try_only)
 
   state->info.n_params = 2;
   state->info.params = state->params;
-  state->params[0] = &state->param_buffers.param;
-  state->param_buffers.param.type = SPA_ALLOC_PARAM_TYPE_BUFFERS;
-  state->param_buffers.param.size = sizeof (state->param_buffers);
-  state->param_buffers.minsize = fmt.fmt.pix.sizeimage;
-  state->param_buffers.stride = fmt.fmt.pix.bytesperline;
-  state->param_buffers.min_buffers = 2;
-  state->param_buffers.max_buffers = MAX_BUFFERS;
-  state->param_buffers.align = 16;
-  state->params[1] = &state->param_meta.param;
-  state->param_meta.param.type = SPA_ALLOC_PARAM_TYPE_META_ENABLE;
-  state->param_meta.param.size = sizeof (state->param_meta);
-  state->param_meta.type = SPA_META_TYPE_HEADER;
+
+  spa_pod_builder_init (&b, state->params_buffer, sizeof (state->params_buffer));
+  spa_pod_builder_object (&b, &f[0], 0, SPA_ALLOC_PARAM_TYPE_BUFFERS,
+        PROP      (&f[1], SPA_ALLOC_PARAM_BUFFERS_SIZE,    SPA_POD_TYPE_INT, fmt.fmt.pix.sizeimage),
+        PROP      (&f[1], SPA_ALLOC_PARAM_BUFFERS_STRIDE,  SPA_POD_TYPE_INT, fmt.fmt.pix.bytesperline),
+        PROP_U_MM (&f[1], SPA_ALLOC_PARAM_BUFFERS_BUFFERS, SPA_POD_TYPE_INT, MAX_BUFFERS, 2, MAX_BUFFERS),
+        PROP      (&f[1], SPA_ALLOC_PARAM_BUFFERS_ALIGN,   SPA_POD_TYPE_INT, 16));
+  state->params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
+
+  spa_pod_builder_object (&b, &f[0], 0, SPA_ALLOC_PARAM_TYPE_META_ENABLE,
+        PROP      (&f[1], SPA_ALLOC_PARAM_META_ENABLE_TYPE, SPA_POD_TYPE_INT, SPA_META_TYPE_HEADER));
+  state->params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
   state->info.extra = NULL;
 

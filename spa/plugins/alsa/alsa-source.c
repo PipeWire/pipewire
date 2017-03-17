@@ -62,13 +62,30 @@ enum {
   PROP_ID_PERIOD_EVENT,
 };
 
+#define PROP(f,key,type,...)                                                    \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READWRITE,type,1,__VA_ARGS__)
+#define PROP_MM(f,key,type,...)                                                 \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READWRITE |                     \
+                              SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
+#define PROP_U_MM(f,key,type,...)                                               \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READWRITE |                     \
+                              SPA_POD_PROP_FLAG_UNSET |                         \
+                              SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
+#define PROP_EN(f,key,type,n,...)                                               \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READWRITE |                     \
+                              SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
+#define PROP_U_EN(f,key,type,n,...)                                             \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READWRITE |                     \
+                              SPA_POD_PROP_FLAG_UNSET |                         \
+                              SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
+
 static SpaResult
 spa_alsa_source_node_get_props (SpaNode       *node,
                                 SpaProps     **props)
 {
   SpaALSASource *this;
   SpaPODBuilder b = { NULL,  };
-  SpaPODFrame f;
+  SpaPODFrame f[2];
 
   if (node == NULL || props == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -77,45 +94,15 @@ spa_alsa_source_node_get_props (SpaNode       *node,
 
   spa_pod_builder_init (&b, this->props_buffer, sizeof (this->props_buffer));
 
-  *props = SPA_MEMBER (b.data, spa_pod_builder_props (&b,
-        SPA_POD_TYPE_PROP, &f,
-           PROP_ID_DEVICE,       SPA_POD_PROP_FLAG_READWRITE |
-                                 SPA_POD_PROP_RANGE_NONE,
-                                 -SPA_POD_TYPE_STRING, 1,
-                                     this->props.device, sizeof (this->props.device),
-       -SPA_POD_TYPE_PROP, &f,
-        SPA_POD_TYPE_PROP, &f,
-           PROP_ID_DEVICE_NAME,  SPA_POD_PROP_FLAG_READABLE |
-                                 SPA_POD_PROP_RANGE_NONE,
-                                 -SPA_POD_TYPE_STRING, 1,
-                                     this->props.device_name, sizeof (this->props.device_name),
-       -SPA_POD_TYPE_PROP, &f,
-        SPA_POD_TYPE_PROP, &f,
-           PROP_ID_CARD_NAME,    SPA_POD_PROP_FLAG_READABLE |
-                                 SPA_POD_PROP_RANGE_NONE,
-                                 -SPA_POD_TYPE_STRING, 1,
-                                     this->props.card_name, sizeof (this->props.card_name),
-       -SPA_POD_TYPE_PROP, &f,
-        SPA_POD_TYPE_PROP, &f,
-           PROP_ID_PERIOD_SIZE,  SPA_POD_PROP_FLAG_READWRITE |
-                                 SPA_POD_PROP_RANGE_MIN_MAX,
-                                 SPA_POD_TYPE_INT, 3,
-                                     this->props.period_size,
-                                     1, INT32_MAX,
-       -SPA_POD_TYPE_PROP, &f,
-        SPA_POD_TYPE_PROP, &f,
-           PROP_ID_PERIODS,      SPA_POD_PROP_FLAG_READWRITE |
-                                 SPA_POD_PROP_RANGE_MIN_MAX,
-                                 SPA_POD_TYPE_INT, 3,
-                                     this->props.periods,
-                                     1, INT32_MAX,
-       -SPA_POD_TYPE_PROP, &f,
-        SPA_POD_TYPE_PROP, &f,
-           PROP_ID_PERIOD_EVENT, SPA_POD_PROP_FLAG_READWRITE |
-                                 SPA_POD_PROP_RANGE_NONE,
-                                 SPA_POD_TYPE_BOOL, 1,
-                                    this->props.period_event,
-       -SPA_POD_TYPE_PROP, &f, 0), SpaProps);
+  spa_pod_builder_props (&b, &f[0],
+        PROP    (&f[1], PROP_ID_DEVICE,      -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device)),
+        PROP    (&f[1], PROP_ID_DEVICE_NAME, -SPA_POD_TYPE_STRING, this->props.device_name, sizeof (this->props.device_name)),
+        PROP    (&f[1], PROP_ID_CARD_NAME,   -SPA_POD_TYPE_STRING, this->props.card_name, sizeof (this->props.card_name)),
+        PROP_MM (&f[1], PROP_ID_PERIOD_SIZE,  SPA_POD_TYPE_INT,    this->props.period_size, 1, INT32_MAX),
+        PROP_MM (&f[1], PROP_ID_PERIODS,      SPA_POD_TYPE_INT,    this->props.periods, 1, INT32_MAX),
+        PROP    (&f[1], PROP_ID_PERIOD_EVENT, SPA_POD_TYPE_BOOL,   this->props.period_event));
+
+  *props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
 
   return SPA_RESULT_OK;
 }
@@ -135,31 +122,12 @@ spa_alsa_source_node_set_props (SpaNode         *node,
     reset_alsa_props (&this->props);
     return SPA_RESULT_OK;
   } else {
-    SpaPOD *p;
-
-    SPA_POD_OBJECT_BODY_FOREACH (&props->body, props->pod.size, p) {
-      SpaPODProp *pr;
-
-      if (p->type != SPA_POD_TYPE_PROP)
-        continue;
-
-      pr = (SpaPODProp *) p;
-
-      switch (pr->body.key) {
-        case PROP_ID_DEVICE:
-          strncpy (this->props.device, SPA_POD_CONTENTS (SpaPODProp, pr), 63);
-          break;
-        case PROP_ID_PERIOD_SIZE:
-          this->props.period_size = ((SpaPODInt*)&pr->body.value)->value;
-          break;
-        case PROP_ID_PERIODS:
-          this->props.periods = ((SpaPODInt*)&pr->body.value)->value;
-          break;
-        case PROP_ID_PERIOD_EVENT:
-          this->props.period_event = ((SpaPODBool*)&pr->body.value)->value;
-          break;
-      }
-    }
+    spa_props_query (props,
+        PROP_ID_DEVICE,      -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device),
+        PROP_ID_PERIOD_SIZE,  SPA_POD_TYPE_INT,    &this->props.period_size,
+        PROP_ID_PERIODS,      SPA_POD_TYPE_INT,    &this->props.periods,
+        PROP_ID_PERIOD_EVENT, SPA_POD_TYPE_BOOL,   &this->props.period_event,
+        0);
   }
 
   return SPA_RESULT_OK;
@@ -390,38 +358,22 @@ next:
 
   switch (index++) {
     case 0:
-      fmt = SPA_MEMBER (buffer, spa_pod_builder_format (&b,
+      spa_pod_builder_format (&b, &f[0],
          SPA_MEDIA_TYPE_AUDIO, SPA_MEDIA_SUBTYPE_RAW,
-         SPA_POD_TYPE_PROP, &f[0],
-           SPA_PROP_ID_AUDIO_FORMAT,    SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
-                                        SPA_POD_PROP_RANGE_ENUM,
-                                        SPA_POD_TYPE_INT, 3,
-                                                SPA_AUDIO_FORMAT_S16,
-                                                SPA_AUDIO_FORMAT_S16,
-                                                SPA_AUDIO_FORMAT_S32,
-        -SPA_POD_TYPE_PROP, &f[0],
-         SPA_POD_TYPE_PROP, &f[0],
-           SPA_PROP_ID_AUDIO_RATE,      SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
-                                        SPA_POD_PROP_RANGE_MIN_MAX,
-                                        SPA_POD_TYPE_INT, 3,
-                                                44100,
-                                                1, INT32_MAX,
-        -SPA_POD_TYPE_PROP, &f[0],
-         SPA_POD_TYPE_PROP, &f[0],
-           SPA_PROP_ID_AUDIO_CHANNELS,  SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
-                                        SPA_POD_PROP_RANGE_MIN_MAX,
-                                        SPA_POD_TYPE_INT, 3,
-                                                2,
-                                                1, INT32_MAX,
-        -SPA_POD_TYPE_PROP, &f[0], 0), SpaFormat);
+         PROP_U_EN (&f[1], SPA_PROP_ID_AUDIO_FORMAT,   SPA_POD_TYPE_INT, 3, SPA_AUDIO_FORMAT_S16,
+                                                                            SPA_AUDIO_FORMAT_S16,
+                                                                            SPA_AUDIO_FORMAT_S32),
+         PROP_U_MM (&f[1], SPA_PROP_ID_AUDIO_RATE,     SPA_POD_TYPE_INT, 44100, 1, INT32_MAX),
+         PROP_U_MM (&f[1], SPA_PROP_ID_AUDIO_CHANNELS, SPA_POD_TYPE_INT, 2,     1, INT32_MAX));
       break;
     case 1:
-      fmt = SPA_MEMBER (buffer, spa_pod_builder_format (&b,
+      spa_pod_builder_format (&b, &f[0],
          SPA_MEDIA_TYPE_AUDIO, SPA_MEDIA_SUBTYPE_AAC,
-           0), SpaFormat);
+           0);
     default:
       return SPA_RESULT_ENUM_END;
   }
+  fmt = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
 
   spa_pod_builder_init (&b, this->format_buffer, sizeof (this->format_buffer));
 
@@ -466,6 +418,8 @@ spa_alsa_source_node_port_set_format (SpaNode            *node,
 {
   SpaALSASource *this;
   SpaResult res;
+  SpaPODBuilder b = { NULL };
+  SpaPODFrame f[2];
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -496,18 +450,19 @@ spa_alsa_source_node_port_set_format (SpaNode            *node,
   this->info.latency = (this->period_frames * SPA_NSEC_PER_SEC) / this->rate;
   this->info.n_params = 2;
   this->info.params = this->params;
-  this->params[0] = &this->param_buffers.param;
-  this->param_buffers.param.type = SPA_ALLOC_PARAM_TYPE_BUFFERS;
-  this->param_buffers.param.size = sizeof (this->param_buffers);
-  this->param_buffers.minsize = this->period_frames * this->frame_size;
-  this->param_buffers.stride = 0;
-  this->param_buffers.min_buffers = 1;
-  this->param_buffers.max_buffers = 32;
-  this->param_buffers.align = 16;
-  this->params[1] = &this->param_meta.param;
-  this->param_meta.param.type = SPA_ALLOC_PARAM_TYPE_META_ENABLE;
-  this->param_meta.param.size = sizeof (this->param_meta);
-  this->param_meta.type = SPA_META_TYPE_HEADER;
+
+  spa_pod_builder_init (&b, this->params_buffer, sizeof (this->params_buffer));
+  spa_pod_builder_object (&b, &f[0], 0, SPA_ALLOC_PARAM_TYPE_BUFFERS,
+      PROP    (&f[1], SPA_ALLOC_PARAM_BUFFERS_SIZE,    SPA_POD_TYPE_INT, this->period_frames * this->frame_size),
+      PROP    (&f[1], SPA_ALLOC_PARAM_BUFFERS_STRIDE,  SPA_POD_TYPE_INT, 0),
+      PROP_MM (&f[1], SPA_ALLOC_PARAM_BUFFERS_BUFFERS, SPA_POD_TYPE_INT, 32, 1, 32),
+      PROP    (&f[1], SPA_ALLOC_PARAM_BUFFERS_ALIGN,   SPA_POD_TYPE_INT, 16));
+  this->params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
+
+  spa_pod_builder_object (&b, &f[0], 0, SPA_ALLOC_PARAM_TYPE_META_ENABLE,
+      PROP    (&f[1], SPA_ALLOC_PARAM_META_ENABLE_TYPE, SPA_POD_TYPE_INT, SPA_META_TYPE_HEADER));
+  this->params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
+
   this->info.extra = NULL;
 
   this->have_format = true;

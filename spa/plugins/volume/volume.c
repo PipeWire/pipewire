@@ -51,8 +51,7 @@ typedef struct {
 
   SpaPortInfo     info;
   SpaAllocParam  *params[2];
-  SpaAllocParamBuffers    param_buffers;
-  SpaAllocParamMetaEnable param_meta;
+  uint8_t         params_buffer[1024];
 
   SpaVolumeBuffer buffers[MAX_BUFFERS];
   uint32_t        n_buffers;
@@ -113,13 +112,28 @@ update_state (SpaVolume *this, SpaNodeState state)
   this->node.state = state;
 }
 
+#define PROP(f,key,type,...)                                                    \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READWRITE,type,1,__VA_ARGS__)
+#define PROP_MM(f,key,type,...)                                                 \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READWRITE |                     \
+                              SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
+#define PROP_U_MM(f,key,type,...)                                               \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READWRITE |                     \
+                              SPA_POD_PROP_FLAG_UNSET |                         \
+                              SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
+#define PROP_U_EN(f,key,type,n,...)                                             \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READWRITE |                     \
+                              SPA_POD_PROP_FLAG_UNSET |                         \
+                              SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
+
+
 static SpaResult
 spa_volume_node_get_props (SpaNode        *node,
                            SpaProps     **props)
 {
   SpaVolume *this;
   SpaPODBuilder b = { NULL,  };
-  SpaPODFrame f;
+  SpaPODFrame f[2];
 
   if (node == NULL || props == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -127,29 +141,18 @@ spa_volume_node_get_props (SpaNode        *node,
   this = SPA_CONTAINER_OF (node, SpaVolume, node);
 
   spa_pod_builder_init (&b, this->props_buffer, sizeof (this->props_buffer));
+  spa_pod_builder_props (&b, &f[0],
+      PROP_MM (&f[1], PROP_ID_VOLUME, SPA_POD_TYPE_DOUBLE, this->props.volume, 0.0, 10.0),
+      PROP    (&f[1], PROP_ID_MUTE,   SPA_POD_TYPE_BOOL,   this->props.mute));
 
-  *props = SPA_MEMBER (b.data, spa_pod_builder_props (&b,
-        SPA_POD_TYPE_PROP, &f,
-           PROP_ID_VOLUME,    SPA_POD_PROP_FLAG_READWRITE |
-                              SPA_POD_PROP_RANGE_MIN_MAX,
-                              SPA_POD_TYPE_DOUBLE, 3,
-                                  this->props.volume,
-                                  0.0,
-                                  10.0,
-       -SPA_POD_TYPE_PROP, &f,
-        SPA_POD_TYPE_PROP, &f,
-           PROP_ID_MUTE,      SPA_POD_PROP_FLAG_READWRITE |
-                              SPA_POD_PROP_RANGE_NONE,
-                              SPA_POD_TYPE_BOOL, 1,
-                                  this->props.mute,
-       -SPA_POD_TYPE_PROP, &f, 0), SpaProps);
+  *props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
 
   return SPA_RESULT_OK;
 }
 
 static SpaResult
-spa_volume_node_set_props (SpaNode          *node,
-                           const SpaProps  *props)
+spa_volume_node_set_props (SpaNode        *node,
+                           const SpaProps *props)
 {
   SpaVolume *this;
 
@@ -161,24 +164,10 @@ spa_volume_node_set_props (SpaNode          *node,
   if (props == NULL) {
     reset_volume_props (&this->props);
   } else {
-    SpaPOD *p;
-
-    SPA_POD_OBJECT_BODY_FOREACH (&props->body, props->pod.size, p) {
-      SpaPODProp *pr;
-
-      if (p->type != SPA_POD_TYPE_PROP)
-        continue;
-
-      pr = (SpaPODProp *) p;
-      switch (pr->body.key) {
-        case PROP_ID_VOLUME:
-          this->props.volume = ((SpaPODDouble*)&pr->body.value)->value;
-          break;
-        case PROP_ID_MUTE:
-          this->props.mute = ((SpaPODBool*)&pr->body.value)->value;
-          break;
-      }
-    }
+    spa_props_query (props,
+        PROP_ID_VOLUME, SPA_POD_TYPE_DOUBLE, &this->props.volume,
+        PROP_ID_MUTE,   SPA_POD_TYPE_BOOL,   &this->props.mute,
+        0);
   }
   return SPA_RESULT_OK;
 }
@@ -303,7 +292,7 @@ spa_volume_node_port_enum_formats (SpaNode          *node,
   SpaFormat *fmt;
   uint8_t buffer[1024];
   SpaPODBuilder b = { NULL, };
-  SpaPODFrame f;
+  SpaPODFrame f[2];
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -318,35 +307,19 @@ next:
 
   switch (index++) {
     case 0:
-      fmt = SPA_MEMBER (buffer, spa_pod_builder_format (&b,
-         SPA_MEDIA_TYPE_AUDIO, SPA_MEDIA_SUBTYPE_RAW,
-         SPA_POD_TYPE_PROP, &f,
-           SPA_PROP_ID_AUDIO_FORMAT,    SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
-                                        SPA_POD_PROP_RANGE_ENUM,
-                                        SPA_POD_TYPE_INT, 3,
-                                                SPA_AUDIO_FORMAT_S16,
-                                                SPA_AUDIO_FORMAT_S16,
-                                                SPA_AUDIO_FORMAT_S32,
-        -SPA_POD_TYPE_PROP, &f,
-         SPA_POD_TYPE_PROP, &f,
-           SPA_PROP_ID_AUDIO_RATE,      SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
-                                        SPA_POD_PROP_RANGE_MIN_MAX,
-                                        SPA_POD_TYPE_INT, 3,
-                                                44100,
-                                                1, INT32_MAX,
-        -SPA_POD_TYPE_PROP, &f,
-         SPA_POD_TYPE_PROP, &f,
-           SPA_PROP_ID_AUDIO_CHANNELS,  SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE |
-                                        SPA_POD_PROP_RANGE_MIN_MAX,
-                                        SPA_POD_TYPE_INT, 3,
-                                                2,
-                                                1, INT32_MAX,
-        -SPA_POD_TYPE_PROP, &f, 0), SpaFormat);
+      spa_pod_builder_format (&b, &f[0], SPA_MEDIA_TYPE_AUDIO, SPA_MEDIA_SUBTYPE_RAW,
+         PROP_U_EN    (&f[1], SPA_PROP_ID_AUDIO_FORMAT,   SPA_POD_TYPE_INT, 3,
+                                                               SPA_AUDIO_FORMAT_S16,
+                                                               SPA_AUDIO_FORMAT_S16,
+                                                               SPA_AUDIO_FORMAT_S32),
+         PROP_U_MM    (&f[1], SPA_PROP_ID_AUDIO_RATE,     SPA_POD_TYPE_INT, 44100, 1, INT32_MAX),
+         PROP_U_MM    (&f[1], SPA_PROP_ID_AUDIO_CHANNELS, SPA_POD_TYPE_INT, 2, 1, INT32_MAX));
+
       break;
     default:
       return SPA_RESULT_ENUM_END;
   }
-
+  fmt = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
   spa_pod_builder_init (&b, this->format_buffer, sizeof (this->format_buffer));
 
   if ((res = spa_format_filter (fmt, filter, &b)) != SPA_RESULT_OK)
@@ -400,23 +373,27 @@ spa_volume_node_port_set_format (SpaNode            *node,
   }
 
   if (port->have_format) {
+    SpaPODBuilder b = { NULL };
+    SpaPODFrame f[2];
+
     port->info.maxbuffering = -1;
     port->info.latency = 0;
 
     port->info.n_params = 2;
     port->info.params = port->params;
-    port->params[0] = &port->param_buffers.param;
-    port->param_buffers.param.type = SPA_ALLOC_PARAM_TYPE_BUFFERS;
-    port->param_buffers.param.size = sizeof (port->param_buffers);
-    port->param_buffers.minsize = 16;
-    port->param_buffers.stride = 16;
-    port->param_buffers.min_buffers = 2;
-    port->param_buffers.max_buffers = MAX_BUFFERS;
-    port->param_buffers.align = 16;
-    port->params[1] = &port->param_meta.param;
-    port->param_meta.param.type = SPA_ALLOC_PARAM_TYPE_META_ENABLE;
-    port->param_meta.param.size = sizeof (port->param_meta);
-    port->param_meta.type = SPA_META_TYPE_HEADER;
+
+    spa_pod_builder_init (&b, port->params_buffer, sizeof (port->params_buffer));
+    spa_pod_builder_object (&b, &f[0], 0, SPA_ALLOC_PARAM_TYPE_BUFFERS,
+          PROP      (&f[1], SPA_ALLOC_PARAM_BUFFERS_SIZE,    SPA_POD_TYPE_INT, 16),
+          PROP      (&f[1], SPA_ALLOC_PARAM_BUFFERS_STRIDE,  SPA_POD_TYPE_INT, 16),
+          PROP_U_MM (&f[1], SPA_ALLOC_PARAM_BUFFERS_BUFFERS, SPA_POD_TYPE_INT, MAX_BUFFERS, 2, MAX_BUFFERS),
+          PROP      (&f[1], SPA_ALLOC_PARAM_BUFFERS_ALIGN,   SPA_POD_TYPE_INT, 16));
+    port->params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
+
+    spa_pod_builder_object (&b, &f[0], 0, SPA_ALLOC_PARAM_TYPE_META_ENABLE,
+          PROP      (&f[1], SPA_ALLOC_PARAM_META_ENABLE_TYPE, SPA_POD_TYPE_INT, SPA_META_TYPE_HEADER));
+    port->params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
+
     port->info.extra = NULL;
     update_state (this, SPA_NODE_STATE_READY);
   }

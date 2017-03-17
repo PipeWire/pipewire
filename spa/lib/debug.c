@@ -61,58 +61,7 @@ spa_debug_port_info (const SpaPortInfo *info)
   fprintf (stderr, " n_params: \t%d\n", info->n_params);
   for (i = 0; i < info->n_params; i++) {
     SpaAllocParam *param = info->params[i];
-    fprintf (stderr, " param %d, type %d, size %u:\n", i, param->type, param->size);
-    switch (param->type) {
-      case SPA_ALLOC_PARAM_TYPE_INVALID:
-        fprintf (stderr, "   INVALID\n");
-        break;
-      case SPA_ALLOC_PARAM_TYPE_BUFFERS:
-      {
-        SpaAllocParamBuffers *p = (SpaAllocParamBuffers *)param;
-        fprintf (stderr, "   SpaAllocParamBuffers:\n");
-        fprintf (stderr, "    minsize: \t\t%d\n", p->minsize);
-        fprintf (stderr, "    stride: \t\t%d\n", p->stride);
-        fprintf (stderr, "    min_buffers: \t%d\n", p->min_buffers);
-        fprintf (stderr, "    max_buffers: \t%d\n", p->max_buffers);
-        fprintf (stderr, "    align: \t\t%d\n", p->align);
-        break;
-      }
-      case SPA_ALLOC_PARAM_TYPE_META_ENABLE:
-      {
-        SpaAllocParamMetaEnable *p = (SpaAllocParamMetaEnable *)param;
-        fprintf (stderr, "   SpaAllocParamMetaEnable:\n");
-        fprintf (stderr, "    type: \t%d (%s)\n", p->type, META_TYPE_NAME(p->type));
-        switch (p->type) {
-          case SPA_META_TYPE_RINGBUFFER:
-          {
-            SpaAllocParamMetaEnableRingbuffer *rb = (SpaAllocParamMetaEnableRingbuffer *)p;
-            fprintf (stderr, "    minsize: \t\t%d\n", rb->minsize);
-            fprintf (stderr, "    stride: \t\t%d\n", rb->stride);
-            fprintf (stderr, "    blocks: \t\t%d\n", rb->blocks);
-            fprintf (stderr, "    align: \t\t%d\n", rb->align);
-            break;
-          }
-          default:
-            break;
-        }
-        break;
-      }
-      case SPA_ALLOC_PARAM_TYPE_VIDEO_PADDING:
-      {
-        SpaAllocParamVideoPadding *p = (SpaAllocParamVideoPadding *)param;
-        fprintf (stderr, "   SpaAllocParamVideoPadding:\n");
-        fprintf (stderr, "    padding_top: \t%d\n", p->padding_top);
-        fprintf (stderr, "    padding_bottom: \t%d\n", p->padding_bottom);
-        fprintf (stderr, "    padding_left: \t%d\n", p->padding_left);
-        fprintf (stderr, "    padding_right: \t%d\n", p->padding_right);
-        fprintf (stderr, "    stide_align: \t[%d, %d, %d, %d]\n",
-            p->stride_align[0], p->stride_align[1], p->stride_align[2], p->stride_align[3]);
-        break;
-      }
-      default:
-        fprintf (stderr, "   UNKNOWN\n");
-        break;
-    }
+    spa_debug_pod (&param->pod);
   }
   return SPA_RESULT_OK;
 }
@@ -354,7 +303,7 @@ print_pod_value (uint32_t size, uint32_t type, void *body, int prefix)
       printf ("%-*sFloat %f\n", prefix, "", *(float *) body);
       break;
     case SPA_POD_TYPE_DOUBLE:
-      printf ("%-*sDouble %g\n", prefix, "", *(double *) body);
+      printf ("%-*sDouble %f\n", prefix, "", *(double *) body);
       break;
     case SPA_POD_TYPE_STRING:
       printf ("%-*sString \"%s\"\n", prefix, "", (char *) body);

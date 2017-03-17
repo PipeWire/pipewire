@@ -109,11 +109,8 @@ core_marshal_sync (void     *object,
 
   core_update_map (proxy->context);
 
-  spa_pod_builder_add (&b.b,
-      SPA_POD_TYPE_STRUCT, &f,
-        SPA_POD_TYPE_INT, seq,
-     -SPA_POD_TYPE_STRUCT, &f,
-     0);
+  spa_pod_builder_struct (&b.b, &f,
+      SPA_POD_TYPE_INT, seq);
 
   pinos_connection_end_write (connection, proxy->id, 1, b.b.offset);
 }
@@ -129,11 +126,8 @@ core_marshal_get_registry (void     *object,
 
   core_update_map (proxy->context);
 
-  spa_pod_builder_add (&b.b,
-      SPA_POD_TYPE_STRUCT, &f,
-        SPA_POD_TYPE_INT, new_id,
-     -SPA_POD_TYPE_STRUCT, &f,
-     0);
+  spa_pod_builder_struct (&b.b, &f,
+        SPA_POD_TYPE_INT, new_id);
 
   pinos_connection_end_write (connection, proxy->id, 2, b.b.offset);
 }
@@ -529,7 +523,7 @@ client_node_marshal_port_update (void              *object,
 
     for (i = 0; i < info->n_params; i++) {
       SpaAllocParam *p = info->params[i];
-      spa_pod_builder_add (&b.b, SPA_POD_TYPE_BYTES, p, p->size, 0);
+      spa_pod_builder_add (&b.b, SPA_POD_TYPE_POD, p, 0);
     }
     n_items = info->extra ? info->extra->n_items : 0;
     spa_pod_builder_add (&b.b, SPA_POD_TYPE_INT, n_items, 0);
@@ -556,11 +550,8 @@ client_node_marshal_state_change (void         *object,
 
   core_update_map (proxy->context);
 
-  spa_pod_builder_add (&b.b,
-      SPA_POD_TYPE_STRUCT, &f,
-        SPA_POD_TYPE_INT, state,
-     -SPA_POD_TYPE_STRUCT, &f,
-      0);
+  spa_pod_builder_struct (&b.b, &f,
+        SPA_POD_TYPE_INT, state);
 
   pinos_connection_end_write (connection, proxy->id, 2, b.b.offset);
 }
@@ -576,11 +567,8 @@ client_node_marshal_event (void         *object,
 
   core_update_map (proxy->context);
 
-  spa_pod_builder_add (&b.b,
-      SPA_POD_TYPE_STRUCT, &f,
-        SPA_POD_TYPE_POD, event,
-     -SPA_POD_TYPE_STRUCT, &f,
-      0);
+  spa_pod_builder_struct (&b.b, &f,
+        SPA_POD_TYPE_POD, event);
 
   pinos_connection_end_write (connection, proxy->id, 3, b.b.offset);
 }
@@ -595,10 +583,7 @@ client_node_marshal_destroy (void    *object)
 
   core_update_map (proxy->context);
 
-  spa_pod_builder_add (&b.b,
-      SPA_POD_TYPE_STRUCT, &f,
-     -SPA_POD_TYPE_STRUCT, &f,
-      0);
+  spa_pod_builder_struct (&b.b, &f, 0);
 
   pinos_connection_end_write (connection, proxy->id, 4, b.b.offset);
 }
@@ -1020,11 +1005,9 @@ registry_marshal_bind (void          *object,
 
   core_update_map (proxy->context);
 
-  spa_pod_builder_add (&b.b,
-      SPA_POD_TYPE_STRUCT, &f,
+  spa_pod_builder_struct (&b.b, &f,
         SPA_POD_TYPE_INT, id,
-        SPA_POD_TYPE_INT, new_id,
-     -SPA_POD_TYPE_STRUCT, &f, 0);
+        SPA_POD_TYPE_INT, new_id);
 
   pinos_connection_end_write (connection, proxy->id, 0, b.b.offset);
 }

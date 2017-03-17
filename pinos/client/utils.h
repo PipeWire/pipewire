@@ -25,7 +25,7 @@ extern "C" {
 #endif
 
 #include <spa/defs.h>
-#include <spa/pod.h>
+#include <spa/pod-utils.h>
 
 const char * pinos_split_walk   (const char  *str,
                                  const char  *delimiter,

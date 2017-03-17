@@ -102,9 +102,7 @@ struct _SpaALSAState {
 
   SpaPortInfo info;
   SpaAllocParam *params[3];
-  SpaAllocParamBuffers param_buffers;
-  SpaAllocParamMetaEnable param_meta;
-  SpaAllocParamMetaEnableRingbuffer param_meta_rb;
+  uint8_t params_buffer[1024];
   void *io;
 
   SpaALSABuffer buffers[MAX_BUFFERS];

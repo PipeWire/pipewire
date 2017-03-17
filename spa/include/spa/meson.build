@@ -16,6 +16,8 @@ spa_headers = [
   'plugin.h',
   'pod.h',
   'pod-builder.h',
+  'pod-iter.h',
+  'pod-utils.h',
   'port.h',
   'props.h',
   'ringbuffer.h'

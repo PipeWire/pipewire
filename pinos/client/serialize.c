@@ -101,7 +101,7 @@ pinos_serialize_port_info_get_size (const SpaPortInfo *info)
   len = sizeof (SpaPortInfo);
   len += info->n_params * sizeof (SpaAllocParam *);
   for (i = 0; i < info->n_params; i++)
-    len += info->params[i]->size;
+    len += SPA_POD_SIZE (info->params[i]);
 
   return len;
 }
@@ -130,7 +130,7 @@ pinos_serialize_port_info_serialize (void *p, const SpaPortInfo *info)
   p = SPA_MEMBER (ap, sizeof (SpaAllocParam*) * info->n_params, void);
 
   for (i = 0; i < info->n_params; i++) {
-    len = info->params[i]->size;
+    len = SPA_POD_SIZE (info->params[i]);
     memcpy (p, info->params[i], len);
     ap[i] = SPA_INT_TO_PTR (SPA_PTRDIFF (p, pi));
     p = SPA_MEMBER (p, len, void);

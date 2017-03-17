@@ -158,9 +158,9 @@ spa_props_filter (SpaPODBuilder  *b,
       continue;
     }
 
-    /* incompatible formats */
+    /* incompatible property types */
     if (p1->body.value.type != p2->body.value.type)
-      return SPA_RESULT_NO_FORMAT;
+      return SPA_RESULT_INCOMPATIBLE_PROPS;
 
     rt1 = p1->body.flags & SPA_POD_PROP_RANGE_MASK;
     rt2 = p2->body.flags & SPA_POD_PROP_RANGE_MASK;
@@ -206,7 +206,7 @@ spa_props_filter (SpaPODBuilder  *b,
         }
       }
       if (n_copied == 0)
-        return SPA_RESULT_NO_FORMAT;
+        return SPA_RESULT_INCOMPATIBLE_PROPS;
       np->body.flags |= SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET;
     }
 
@@ -223,7 +223,7 @@ spa_props_filter (SpaPODBuilder  *b,
         n_copied++;
       }
       if (n_copied == 0)
-        return SPA_RESULT_NO_FORMAT;
+        return SPA_RESULT_INCOMPATIBLE_PROPS;
       np->body.flags |= SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET;
     }
 
@@ -245,7 +245,7 @@ spa_props_filter (SpaPODBuilder  *b,
         n_copied++;
       }
       if (n_copied == 0)
-        return SPA_RESULT_NO_FORMAT;
+        return SPA_RESULT_INCOMPATIBLE_PROPS;
       np->body.flags |= SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET;
     }
 

@@ -32,7 +32,7 @@ typedef struct _SpaFormat SpaFormat;
 #include <stdarg.h>
 
 #include <spa/defs.h>
-#include <spa/pod.h>
+#include <spa/pod-utils.h>
 
 typedef enum {
   SPA_MEDIA_TYPE_INVALID         = 0,
@@ -118,7 +118,20 @@ struct _SpaFormat {
 static inline SpaPODProp *
 spa_format_find_prop (const SpaFormat *format, uint32_t key)
 {
-  return spa_pod_contents_find_prop (&format->pod, SPA_ROUND_UP_N (sizeof (SpaFormat), 8), key);
+  return spa_pod_contents_find_prop (&format->pod, sizeof (SpaFormat), key);
+}
+
+static inline uint32_t
+spa_format_query (const SpaFormat *format, uint32_t key, ...)
+{
+  uint32_t count;
+  va_list args;
+
+  va_start (args, key);
+  count = spa_pod_contents_queryv (&format->pod, sizeof (SpaFormat), key, args);
+  va_end (args);
+
+  return count;
 }
 
 static inline SpaResult

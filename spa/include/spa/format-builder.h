@@ -43,26 +43,11 @@ spa_pod_builder_push_format (SpaPODBuilder *builder,
                                spa_pod_builder_raw (builder, &p, sizeof(p)));
 }
 
-static inline uint32_t
-spa_pod_builder_format (SpaPODBuilder *builder,
-                        uint32_t       media_type,
-                        uint32_t       media_subtype,
-                        uint32_t       type, ...)
-{
-  SpaPODFrame f;
-  va_list args;
-  uint32_t off;
-
-  off = spa_pod_builder_push_format (builder, &f, media_type, media_subtype);
-
-  va_start (args, type);
-  spa_pod_builder_addv (builder, type, args);
-  va_end (args);
-
-  spa_pod_builder_pop (builder, &f);
-
-  return off;
-}
+#define spa_pod_builder_format(b,f,media_type,media_subtype,...)        \
+  spa_pod_builder_object(b, f, 0, 0,                                    \
+                         SPA_POD_TYPE_INT,media_type,                   \
+                         SPA_POD_TYPE_INT,media_subtype,                \
+                         __VA_ARGS__)
 
 SpaResult
 spa_format_filter (const SpaFormat  *format,

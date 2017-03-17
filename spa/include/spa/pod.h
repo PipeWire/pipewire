@@ -27,6 +27,8 @@ extern "C" {
 #define SPA_POD_URI             "http://spaplug.in/ns/pod"
 #define SPA_POD_PREFIX          SPA_POD_URI "#"
 
+#include <stdarg.h>
+
 #include <spa/defs.h>
 
 /**
@@ -57,19 +59,10 @@ typedef struct {
   uint32_t     type;
 } SpaPOD;
 
-#define SPA_POD_BODY_SIZE(pod)           (((SpaPOD*)(pod))->size)
-#define SPA_POD_TYPE(pod)                (((SpaPOD*)(pod))->type)
-#define SPA_POD_SIZE(pod)                (sizeof(SpaPOD) + SPA_POD_BODY_SIZE(pod))
-#define SPA_POD_CONTENTS_SIZE(type,pod)  (SPA_POD_SIZE(pod)-sizeof(type))
-
-#define SPA_POD_CONTENTS(type,pod)       SPA_MEMBER((pod),sizeof(type),void)
-#define SPA_POD_CONTENTS_CONST(type,pod) SPA_MEMBER((pod),sizeof(type),const void)
-#define SPA_POD_BODY(pod)                SPA_MEMBER((pod),sizeof(SpaPOD),void)
-#define SPA_POD_BODY_CONST(pod)          SPA_MEMBER((pod),sizeof(SpaPOD),const void)
-
 typedef struct {
   SpaPOD       pod;
   int32_t      value;
+  int32_t      __padding;
 } SpaPODInt;
 
 typedef SpaPODInt SpaPODBool;
@@ -155,8 +148,6 @@ typedef struct {
   SpaPODPropBody body;
 } SpaPODProp;
 
-#define SPA_POD_PROP_N_VALUES(prop) (((prop)->pod.size - sizeof (SpaPODPropBody)) / (prop)->body.value.size)
-
 typedef struct {
   uint32_t         id;
   uint32_t         type;
@@ -167,50 +158,6 @@ typedef struct {
   SpaPOD           pod;
   SpaPODObjectBody body;
 } SpaPODObject;
-
-#define SPA_POD_ARRAY_BODY_FOREACH(body, _size, iter) \
-  for ((iter) = SPA_MEMBER ((body), sizeof(SpaPODArrayBody), __typeof__(*(iter))); \
-       (iter) < SPA_MEMBER ((body), (_size), __typeof__(*(iter))); \
-       (iter) = SPA_MEMBER ((iter), (body)->child.size, __typeof__(*(iter))))
-
-#define SPA_POD_FOREACH(pod, size, iter) \
-  for ((iter) = (pod); \
-       (iter) < SPA_MEMBER ((pod), (size), SpaPOD); \
-       (iter) = SPA_MEMBER ((iter), SPA_ROUND_UP_N (SPA_POD_SIZE (iter), 8), SpaPOD))
-
-#define SPA_POD_CONTENTS_FOREACH(pod, offset, iter) \
-  SPA_POD_FOREACH(SPA_MEMBER ((pod), (offset), SpaPOD),SPA_POD_SIZE (pod),iter)
-
-#define SPA_POD_OBJECT_BODY_FOREACH(body, size, iter) \
-  for ((iter) = SPA_MEMBER ((body), sizeof (SpaPODObjectBody), SpaPOD); \
-       (iter) < SPA_MEMBER ((body), (size), SpaPOD); \
-       (iter) = SPA_MEMBER ((iter), SPA_ROUND_UP_N (SPA_POD_SIZE (iter), 8), SpaPOD))
-
-#define SPA_POD_OBJECT_FOREACH(obj, iter) \
-  SPA_POD_OBJECT_BODY_FOREACH(&obj->body, SPA_POD_BODY_SIZE(obj), iter)
-
-#define SPA_POD_PROP_ALTERNATIVE_FOREACH(body, _size, iter) \
-  for ((iter) = SPA_MEMBER ((body), (body)->value.size + sizeof (SpaPODPropBody), __typeof__(*iter)); \
-       (iter) <= SPA_MEMBER ((body), (_size)-(body)->value.size, __typeof__(*iter)); \
-       (iter) = SPA_MEMBER ((iter), (body)->value.size, __typeof__(*iter)))
-
-static inline SpaPODProp *
-spa_pod_contents_find_prop (const SpaPOD *pod, uint32_t offset, uint32_t key)
-{
-  SpaPOD *res;
-  SPA_POD_CONTENTS_FOREACH (pod, offset, res) {
-    if (res->type == SPA_POD_TYPE_PROP && ((SpaPODProp*)res)->body.key == key)
-      return (SpaPODProp *)res;
-  }
-  return NULL;
-}
-
-static inline SpaPODProp *
-spa_pod_object_find_prop (const SpaPODObject *obj, uint32_t key)
-{
-  return spa_pod_contents_find_prop (&obj->pod, sizeof (SpaPODObject), key);
-}
-
 
 #ifdef __cplusplus
 }  /* extern "C" */

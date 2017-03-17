@@ -19,8 +19,9 @@
 
 #include <string.h>
 
-#include <spa/include/spa/video/format.h>
 #include <spa/lib/debug.h>
+#include <spa/include/spa/video/format.h>
+#include <spa/include/spa/pod-utils.h>
 
 #include "pinos/client/pinos.h"
 #include "pinos/client/interfaces.h"
@@ -145,7 +146,7 @@ find_param (const SpaPortInfo *info, SpaAllocParamType type)
   uint32_t i;
 
   for (i = 0; i < info->n_params; i++) {
-    if (info->params[i]->type == type)
+    if (spa_pod_is_object_type (&info->params[i]->pod, type))
       return info->params[i];
   }
   return NULL;
@@ -157,9 +158,15 @@ find_meta_enable (const SpaPortInfo *info, SpaMetaType type)
   uint32_t i;
 
   for (i = 0; i < info->n_params; i++) {
-    if (info->params[i]->type == SPA_ALLOC_PARAM_TYPE_META_ENABLE &&
-        ((SpaAllocParamMetaEnable*)info->params[i])->type == type) {
-      return info->params[i];
+    if (spa_pod_is_object_type (&info->params[i]->pod, SPA_ALLOC_PARAM_TYPE_META_ENABLE)) {
+      uint32_t qtype;
+
+      if (spa_alloc_param_query (info->params[i],
+            SPA_ALLOC_PARAM_META_ENABLE_TYPE, SPA_POD_TYPE_INT, &qtype, 0) != 1)
+        continue;
+
+      if (qtype == type)
+        return info->params[i];
     }
   }
   return NULL;
@@ -201,11 +208,16 @@ alloc_buffers (PinosLink      *this,
   for (i = 0; i < n_params; i++) {
     SpaAllocParam *ap = params[i];
 
-    if (ap->type == SPA_ALLOC_PARAM_TYPE_META_ENABLE) {
-      SpaAllocParamMetaEnable *pme = (SpaAllocParamMetaEnable *) ap;
+    if (ap->pod.type == SPA_ALLOC_PARAM_TYPE_META_ENABLE) {
+      uint32_t type;
 
-      metas[n_metas].type = pme->type;
-      metas[n_metas].size = spa_meta_type_get_size (pme->type);
+      if (spa_alloc_param_query (ap,
+            SPA_ALLOC_PARAM_META_ENABLE_TYPE, SPA_POD_TYPE_INT, &type,
+            0) != 1)
+        continue;
+
+      metas[n_metas].type = type;
+      metas[n_metas].size = spa_meta_type_get_size (type);
       meta_size += metas[n_metas].size;
       n_metas++;
       skel_size += sizeof (SpaMeta);
@@ -380,33 +392,60 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
     return SPA_RESULT_OK;
 
   if (impl->buffers == NULL) {
-    SpaAllocParamBuffers *in_alloc, *out_alloc;
-    SpaAllocParamMetaEnableRingbuffer *in_me, *out_me;
+    SpaAllocParam *in_alloc, *out_alloc;
+    SpaAllocParam *in_me, *out_me;
     uint32_t max_buffers;
-    size_t minsize, stride, blocks;
+    size_t minsize = 1024, stride = 0;
 
     in_me = find_meta_enable (iinfo, SPA_META_TYPE_RINGBUFFER);
     out_me = find_meta_enable (oinfo, SPA_META_TYPE_RINGBUFFER);
     if (in_me && out_me) {
+      uint32_t ms1, ms2, s1, s2;
       max_buffers = 1;
-      minsize = SPA_MAX (out_me->minsize, in_me->minsize);
-      stride = SPA_MAX (out_me->stride, in_me->stride);
-      blocks = SPA_MAX (1, SPA_MAX (out_me->blocks, in_me->blocks));
+
+      if (spa_alloc_param_query (in_me,
+            SPA_ALLOC_PARAM_META_ENABLE_RB_SIZE,   SPA_POD_TYPE_INT, &ms1,
+            SPA_ALLOC_PARAM_META_ENABLE_RB_STRIDE, SPA_POD_TYPE_INT, &s1, 0) == 2 &&
+          spa_alloc_param_query (in_me,
+            SPA_ALLOC_PARAM_META_ENABLE_RB_SIZE,   SPA_POD_TYPE_INT, &ms2,
+            SPA_ALLOC_PARAM_META_ENABLE_RB_STRIDE, SPA_POD_TYPE_INT, &s2, 0) == 2) {
+        minsize = SPA_MAX (ms1, ms2);
+        stride = SPA_MAX (s1, s2);
+      }
     } else {
       max_buffers = MAX_BUFFERS;
       minsize = stride = 0;
-      blocks = 1;
       in_alloc = find_param (iinfo, SPA_ALLOC_PARAM_TYPE_BUFFERS);
       if (in_alloc) {
-        max_buffers = in_alloc->max_buffers == 0 ? max_buffers : SPA_MIN (in_alloc->max_buffers, max_buffers);
-        minsize = SPA_MAX (minsize, in_alloc->minsize);
-        stride = SPA_MAX (stride, in_alloc->stride);
+        uint32_t qmax_buffers = max_buffers,
+                 qminsize = minsize,
+                 qstride = stride;
+
+        spa_alloc_param_query (in_alloc,
+            SPA_ALLOC_PARAM_BUFFERS_SIZE,    SPA_POD_TYPE_INT, &qminsize,
+            SPA_ALLOC_PARAM_BUFFERS_STRIDE,  SPA_POD_TYPE_INT, &qstride,
+            SPA_ALLOC_PARAM_BUFFERS_BUFFERS, SPA_POD_TYPE_INT, &qmax_buffers,
+            0);
+
+        max_buffers = qmax_buffers == 0 ? max_buffers : SPA_MIN (qmax_buffers, max_buffers);
+        minsize = SPA_MAX (minsize, qminsize);
+        stride = SPA_MAX (stride, qstride);
       }
       out_alloc = find_param (oinfo, SPA_ALLOC_PARAM_TYPE_BUFFERS);
       if (out_alloc) {
-        max_buffers = out_alloc->max_buffers == 0 ? max_buffers : SPA_MIN (out_alloc->max_buffers, max_buffers);
-        minsize = SPA_MAX (minsize, out_alloc->minsize);
-        stride = SPA_MAX (stride, out_alloc->stride);
+        uint32_t qmax_buffers = max_buffers,
+                 qminsize = minsize,
+                 qstride = stride;
+
+        spa_alloc_param_query (out_alloc,
+            SPA_ALLOC_PARAM_BUFFERS_SIZE,    SPA_POD_TYPE_INT, &qminsize,
+            SPA_ALLOC_PARAM_BUFFERS_STRIDE,  SPA_POD_TYPE_INT, &qstride,
+            SPA_ALLOC_PARAM_BUFFERS_BUFFERS, SPA_POD_TYPE_INT, &qmax_buffers,
+            0);
+
+        max_buffers = qmax_buffers == 0 ? max_buffers : SPA_MIN (qmax_buffers, max_buffers);
+        minsize = SPA_MAX (minsize, qminsize);
+        stride = SPA_MAX (stride, qstride);
       }
     }
 

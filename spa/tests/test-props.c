@@ -123,7 +123,6 @@ main (int argc, char *argv[])
   SpaPODFrame frame[4];
   uint8_t buffer[1024];
   SpaFormat *fmt;
-  off_t o;
 
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
 
@@ -160,34 +159,34 @@ main (int argc, char *argv[])
 
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
 
-  o = spa_pod_builder_format (&b,
+  spa_pod_builder_format (&b, &frame[0],
        SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW,
-       SPA_POD_TYPE_PROP, &frame[0],
+       SPA_POD_TYPE_PROP, &frame[1],
            SPA_PROP_ID_VIDEO_FORMAT,    SPA_POD_PROP_FLAG_UNSET |
                                         SPA_POD_PROP_RANGE_ENUM,
                                         SPA_POD_TYPE_INT, 3,
                                                 SPA_VIDEO_FORMAT_I420,
                                                 SPA_VIDEO_FORMAT_I420,
                                                 SPA_VIDEO_FORMAT_YUY2,
-      -SPA_POD_TYPE_PROP, &frame[0],
-       SPA_POD_TYPE_PROP, &frame[0],
+      -SPA_POD_TYPE_PROP, &frame[1],
+       SPA_POD_TYPE_PROP, &frame[1],
            SPA_PROP_ID_VIDEO_SIZE,      SPA_POD_PROP_FLAG_UNSET |
                                         SPA_POD_PROP_RANGE_MIN_MAX,
                                         SPA_POD_TYPE_RECTANGLE, 3,
                                                 320, 241,
                                                 1, 1,
                                                 INT32_MAX, INT32_MAX,
-      -SPA_POD_TYPE_PROP, &frame[0],
-       SPA_POD_TYPE_PROP, &frame[0],
+      -SPA_POD_TYPE_PROP, &frame[1],
+       SPA_POD_TYPE_PROP, &frame[1],
            SPA_PROP_ID_VIDEO_FRAMERATE, SPA_POD_PROP_FLAG_UNSET |
                                         SPA_POD_PROP_RANGE_MIN_MAX,
                                         SPA_POD_TYPE_FRACTION, 3,
                                                 25, 1,
                                                 0, 1,
                                                 INT32_MAX, 1,
-      -SPA_POD_TYPE_PROP, &frame[0], 0);
+      -SPA_POD_TYPE_PROP, &frame[1], 0);
 
-  fmt = SPA_MEMBER (buffer, o, SpaFormat);
+  fmt = SPA_MEMBER (buffer, frame[0].ref, SpaFormat);
   spa_debug_pod (&fmt->pod);
   spa_debug_format (fmt);
 
@@ -223,14 +222,25 @@ main (int argc, char *argv[])
     -SPA_POD_TYPE_PROP, &frame[1],
     -SPA_POD_TYPE_OBJECT, &frame[0],
     0);
-  spa_pod_builder_pop (&b, &frame[0]);
 
-  fmt = SPA_MEMBER (buffer, o, SpaFormat);
+  fmt = SPA_MEMBER (buffer, frame[0].ref, SpaFormat);
   spa_debug_pod (&fmt->pod);
   spa_debug_format (fmt);
 
   spa_debug_pod (&test_format.fmt.pod);
   spa_debug_format (&test_format.fmt);
+
+  {
+    uint32_t format = 0, match;
+    SpaFraction frac = { 0, 0 };
+
+    match = spa_pod_contents_query (&test_format.fmt.pod, sizeof (SpaFormat),
+        SPA_PROP_ID_VIDEO_FORMAT,    SPA_POD_TYPE_INT, &format,
+        SPA_PROP_ID_VIDEO_FRAMERATE, SPA_POD_TYPE_FRACTION, &frac,
+        0);
+
+    printf ("%d %d %d %d\n", match, format, frac.num, frac.denom);
+  }
 
   return 0;
 }

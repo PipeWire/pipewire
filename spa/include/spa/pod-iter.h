@@ -107,7 +107,7 @@ spa_pod_iter_first (SpaPODIter *iter, SpaPOD *pod)
 {
   if (!spa_pod_iter_pod (iter, pod) ||
       !spa_pod_iter_has_next (iter))
-    return false;
+    return NULL;
   return spa_pod_iter_next (iter);
 }
 

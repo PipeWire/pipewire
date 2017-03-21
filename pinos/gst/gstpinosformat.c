@@ -17,6 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#define _GNU_SOURCE
 #include <stdio.h>
 
 #include <gst/gst.h>
@@ -43,6 +44,7 @@ static SpaMediaSubtypesVideo media_subtypes_video = { 0, };
 static SpaMediaSubtypesAudio media_subtypes_audio = { 0, };
 static SpaPropVideo prop_video = { 0, };
 static SpaPropAudio prop_audio = { 0, };
+static SpaVideoFormats video_formats = { 0, };
 
 static void
 ensure_types (void)
@@ -53,6 +55,7 @@ ensure_types (void)
   spa_media_subtypes_audio_map (spa_id_map_get_default (), &media_subtypes_audio);
   spa_prop_video_map (spa_id_map_get_default (), &prop_video);
   spa_prop_audio_map (spa_id_map_get_default (), &prop_audio);
+  spa_video_formats_map (spa_id_map_get_default (), &video_formats);
 }
 
 static const MediaType media_type_map[] = {
@@ -61,6 +64,74 @@ static const MediaType media_type_map[] = {
   { "image/jpeg", &media_types.video, &media_subtypes_video.mjpg },
   { "video/x-h264", &media_types.video, &media_subtypes_video.h264 },
   { NULL, }
+};
+
+static const uint32_t *video_format_map[] = {
+  &video_formats.UNKNOWN,
+  &video_formats.ENCODED,
+  &video_formats.I420,
+  &video_formats.YV12,
+  &video_formats.YUY2,
+  &video_formats.UYVY,
+  &video_formats.AYUV,
+  &video_formats.RGBx,
+  &video_formats.BGRx,
+  &video_formats.xRGB,
+  &video_formats.xBGR,
+  &video_formats.RGBA,
+  &video_formats.BGRA,
+  &video_formats.ARGB,
+  &video_formats.ABGR,
+  &video_formats.RGB,
+  &video_formats.BGR,
+  &video_formats.Y41B,
+  &video_formats.Y42B,
+  &video_formats.YVYU,
+  &video_formats.Y444,
+  &video_formats.v210,
+  &video_formats.v216,
+  &video_formats.NV12,
+  &video_formats.NV21,
+  &video_formats.GRAY8,
+  &video_formats.GRAY16_BE,
+  &video_formats.GRAY16_LE,
+  &video_formats.v308,
+  &video_formats.RGB16,
+  &video_formats.BGR16,
+  &video_formats.RGB15,
+  &video_formats.BGR15,
+  &video_formats.UYVP,
+  &video_formats.A420,
+  &video_formats.RGB8P,
+  &video_formats.YUV9,
+  &video_formats.YVU9,
+  &video_formats.IYU1,
+  &video_formats.ARGB64,
+  &video_formats.AYUV64,
+  &video_formats.r210,
+  &video_formats.I420_10BE,
+  &video_formats.I420_10LE,
+  &video_formats.I422_10BE,
+  &video_formats.I422_10LE,
+  &video_formats.Y444_10BE,
+  &video_formats.Y444_10LE,
+  &video_formats.GBR,
+  &video_formats.GBR_10BE,
+  &video_formats.GBR_10LE,
+  &video_formats.NV16,
+  &video_formats.NV24,
+  &video_formats.NV12_64Z32,
+  &video_formats.A420_10BE,
+  &video_formats.A420_10LE,
+  &video_formats.A422_10BE,
+  &video_formats.A422_10LE,
+  &video_formats.A444_10BE,
+  &video_formats.A444_10LE,
+  &video_formats.NV61,
+  &video_formats.P010_10BE,
+  &video_formats.P010_10LE,
+  &video_formats.IYU2,
+  &video_formats.VYUY,
 };
 
 typedef struct {
@@ -251,7 +322,7 @@ handle_video_fields (ConvertData *d)
                                    prop_video.format,
                                    get_range_type (value) | SPA_POD_PROP_FLAG_READWRITE);
 
-      spa_pod_builder_int (&d->b, gst_video_format_from_string (v));
+      spa_pod_builder_uri (&d->b, *video_format_map[gst_video_format_from_string (v)]);
     }
     if (i > 1)
       SPA_POD_BUILDER_DEREF (&d->b, f.ref, SpaPODProp)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
@@ -480,8 +551,10 @@ gst_caps_from_format (const SpaFormat *format)
       return NULL;
 
     if (media_subtype == media_subtypes.raw) {
+      const char * str = spa_id_map_get_uri (spa_id_map_get_default (), f.info.raw.format);
+
       res = gst_caps_new_simple ("video/x-raw",
-          "format", G_TYPE_STRING, gst_video_format_to_string (f.info.raw.format),
+          "format", G_TYPE_STRING, strstr (str, "#") + 1,
           "width", G_TYPE_INT, f.info.raw.size.width,
           "height", G_TYPE_INT, f.info.raw.size.height,
           "framerate", GST_TYPE_FRACTION, f.info.raw.framerate.num, f.info.raw.framerate.denom,

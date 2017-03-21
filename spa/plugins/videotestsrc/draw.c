@@ -148,16 +148,14 @@ drawing_data_init (DrawingData *dd,
       (format->media_subtype != this->uri.media_subtypes.raw))
     return SPA_RESULT_NOT_IMPLEMENTED;
 
-  switch (format->info.raw.format) {
-    case SPA_VIDEO_FORMAT_RGB:
-      dd->draw_pixel = draw_pixel_rgb;
-      break;
-    case SPA_VIDEO_FORMAT_UYVY:
-      dd->draw_pixel = draw_pixel_uyvy;
-      break;
-    default:
-      return SPA_RESULT_NOT_IMPLEMENTED;
+  if (format->info.raw.format == this->uri.video_formats.RGB) {
+    dd->draw_pixel = draw_pixel_rgb;
   }
+  else if (format->info.raw.format == this->uri.video_formats.UYVY) {
+    dd->draw_pixel = draw_pixel_uyvy;
+  }
+  else
+    return SPA_RESULT_NOT_IMPLEMENTED;
 
   dd->line = data;
   dd->width = size->width;

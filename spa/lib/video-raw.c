@@ -50,7 +50,7 @@ spa_format_video_parse (const SpaFormat       *format,
 
   if (info->media_subtype == media_subtypes.raw)
     spa_format_query (format,
-        prop_video.format,             SPA_POD_TYPE_INT,       &info->info.raw.format,
+        prop_video.format,             SPA_POD_TYPE_URI,       &info->info.raw.format,
         prop_video.size,               SPA_POD_TYPE_RECTANGLE, &info->info.raw.size,
         prop_video.framerate,          SPA_POD_TYPE_FRACTION,  &info->info.raw.framerate,
         prop_video.max_framerate,      SPA_POD_TYPE_FRACTION,  &info->info.raw.max_framerate,

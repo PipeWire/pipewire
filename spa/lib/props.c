@@ -31,6 +31,7 @@ compare_value (SpaPODType type, const void *r1, const void *r2)
     case SPA_POD_TYPE_INVALID:
       return 0;
     case SPA_POD_TYPE_BOOL:
+    case SPA_POD_TYPE_URI:
       return *(int32_t*)r1 == *(uint32_t*)r2;
     case SPA_POD_TYPE_INT:
       return *(int32_t*)r1 - *(int32_t*)r2;

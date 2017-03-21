@@ -40,12 +40,12 @@
  */
 
 spa_build (SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW,
-           prop_video.format,    SPA_PROP_TYPE_INT,
-                                                SPA_VIDEO_FORMAT_I420
+           prop_video.format,    SPA_PROP_TYPE_URI,
+                                                video_formats.I420
                                         SPA_POD_PROP_FLAG_UNSET |
                                         SPA_PROP_RANGE_ENUM, 2,
-                                                SPA_VIDEO_FORMAT_I420,
-                                                SPA_VIDEO_FORMAT_YUY2,
+                                                video_formats.I420,
+                                                video_formats.YUY2,
            prop_video.size  ,    SPA_PROP_TYPE_RECTANGLE,
                                                 320, 240,
                                         SPA_POD_PROP_FLAG_UNSET |
@@ -63,6 +63,7 @@ spa_build (SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW,
 static SpaMediaTypes media_types;
 static SpaMediaSubtypes media_subtypes;
 static SpaPropVideo prop_video;
+static SpaVideoFormats video_formats;
 
 static void
 do_static_struct (void)
@@ -101,9 +102,9 @@ do_static_struct (void)
     { { sizeof (test_format.props.format_vals) + sizeof (SpaPODPropBody),
         SPA_POD_TYPE_PROP } ,
       { prop_video.format, SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET,
-        { sizeof (uint32_t), SPA_POD_TYPE_INT } }, },
-          { SPA_VIDEO_FORMAT_I420,
-           { SPA_VIDEO_FORMAT_I420, SPA_VIDEO_FORMAT_YUY2 } }, 0,
+        { sizeof (uint32_t), SPA_POD_TYPE_URI } }, },
+          { video_formats.I420,
+           { video_formats.I420, video_formats.YUY2 } }, 0,
 
     { { sizeof (test_format.props.size_vals) + sizeof (SpaPODPropBody),
         SPA_POD_TYPE_PROP } ,
@@ -151,6 +152,7 @@ main (int argc, char *argv[])
   spa_media_types_fill (&media_types, spa_id_map_get_default());
   spa_media_subtypes_map (spa_id_map_get_default(), &media_subtypes);
   spa_prop_video_map (spa_id_map_get_default(), &prop_video);
+  spa_video_formats_map (spa_id_map_get_default(), &video_formats);
 
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
 
@@ -160,9 +162,9 @@ main (int argc, char *argv[])
   spa_pod_builder_push_prop (&b, &frame[1],
                              prop_video.format,
                              SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE);
-  spa_pod_builder_int (&b, SPA_VIDEO_FORMAT_I420);
-  spa_pod_builder_int (&b, SPA_VIDEO_FORMAT_I420);
-  spa_pod_builder_int (&b, SPA_VIDEO_FORMAT_YUY2);
+  spa_pod_builder_uri (&b, video_formats.I420);
+  spa_pod_builder_uri (&b, video_formats.I420);
+  spa_pod_builder_uri (&b, video_formats.YUY2);
   spa_pod_builder_pop (&b, &frame[1]);
 
   SpaRectangle size_min_max[] = { { 1, 1 }, { INT32_MAX, INT32_MAX } };
@@ -192,10 +194,10 @@ main (int argc, char *argv[])
        SPA_POD_TYPE_PROP, &frame[1],
            prop_video.format,    SPA_POD_PROP_FLAG_UNSET |
                                         SPA_POD_PROP_RANGE_ENUM,
-                                        SPA_POD_TYPE_INT, 3,
-                                                SPA_VIDEO_FORMAT_I420,
-                                                SPA_VIDEO_FORMAT_I420,
-                                                SPA_VIDEO_FORMAT_YUY2,
+                                        SPA_POD_TYPE_URI, 3,
+                                                video_formats.I420,
+                                                video_formats.I420,
+                                                video_formats.YUY2,
       -SPA_POD_TYPE_PROP, &frame[1],
        SPA_POD_TYPE_PROP, &frame[1],
            prop_video.size,      SPA_POD_PROP_FLAG_UNSET |
@@ -227,10 +229,10 @@ main (int argc, char *argv[])
       SPA_POD_TYPE_PROP, &frame[1],
             prop_video.format, SPA_POD_PROP_FLAG_UNSET |
                                       SPA_POD_PROP_RANGE_ENUM,
-                                      SPA_POD_TYPE_INT, 3,
-                                            SPA_VIDEO_FORMAT_I420,
-                                            SPA_VIDEO_FORMAT_I420,
-                                            SPA_VIDEO_FORMAT_YUY2,
+                                      SPA_POD_TYPE_URI, 3,
+                                            video_formats.I420,
+                                            video_formats.I420,
+                                            video_formats.YUY2,
     -SPA_POD_TYPE_PROP, &frame[1],
      SPA_POD_TYPE_PROP, &frame[1],
            prop_video.size,    SPA_POD_PROP_FLAG_UNSET |

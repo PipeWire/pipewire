@@ -69,6 +69,7 @@ typedef struct {
   SpaMediaSubtypes media_subtypes;
   SpaMediaSubtypesVideo media_subtypes_video;
   SpaPropVideo prop_video;
+  SpaVideoFormats video_formats;
 } URI;
 
 typedef struct {
@@ -579,7 +580,7 @@ spa_v4l2_source_node_port_get_format (SpaNode          *node,
 
   if (state->current_format.media_subtype == this->uri.media_subtypes.raw) {
     spa_pod_builder_add (&b,
-        PROP (&f[1], this->uri.prop_video.format,     SPA_POD_TYPE_INT,       state->current_format.info.raw.format),
+        PROP (&f[1], this->uri.prop_video.format,     SPA_POD_TYPE_URI,       state->current_format.info.raw.format),
         PROP (&f[1], this->uri.prop_video.size,      -SPA_POD_TYPE_RECTANGLE, &state->current_format.info.raw.size),
         PROP (&f[1], this->uri.prop_video.framerate, -SPA_POD_TYPE_FRACTION,  &state->current_format.info.raw.framerate),
         0);
@@ -972,6 +973,7 @@ v4l2_source_init (const SpaHandleFactory  *factory,
   spa_media_subtypes_map (this->map, &this->uri.media_subtypes);
   spa_media_subtypes_video_map (this->map, &this->uri.media_subtypes_video);
   spa_prop_video_map (this->map, &this->uri.prop_video);
+  spa_video_formats_map (this->map, &this->uri.video_formats);
 
   this->node = v4l2source_node;
   this->clock = v4l2source_clock;

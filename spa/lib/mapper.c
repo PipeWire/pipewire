@@ -61,7 +61,8 @@ id_map_get_uri (SpaIDMap *map, uint32_t id)
 
   if (id < this->n_uris)
     return this->uris[id];
-  return 0;
+
+  return NULL;
 }
 
 static IDMap default_id_map = {

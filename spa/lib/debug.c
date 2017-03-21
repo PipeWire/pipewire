@@ -322,8 +322,18 @@ print_format_value (uint32_t size, uint32_t type, void *body)
       fprintf (stderr, "%s", *(int32_t *) body ? "true" : "false");
       break;
     case SPA_POD_TYPE_URI:
-      fprintf (stderr, "%"PRIi32, *(int32_t *) body);
+    {
+      const char *str = spa_id_map_get_uri (spa_id_map_get_default(), *(int32_t*)body);
+      if (str) {
+        const char *h = strstr (str, "#");
+        if (h)
+          str = h + 1;
+      } else {
+        str = "unknown";
+      }
+      fprintf (stderr, "%s", str);
       break;
+    }
     case SPA_POD_TYPE_INT:
       fprintf (stderr, "%"PRIi32, *(int32_t *) body);
       break;

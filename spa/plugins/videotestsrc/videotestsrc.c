@@ -42,6 +42,7 @@ typedef struct {
   SpaMediaTypes media_types;
   SpaMediaSubtypes media_subtypes;
   SpaPropVideo prop_video;
+  SpaVideoFormats video_formats;
 } URI;
 
 typedef struct _SpaVideoTestSrc SpaVideoTestSrc;
@@ -454,10 +455,10 @@ next:
     case 0:
       spa_pod_builder_format (&b, &f[0],
          this->uri.media_types.video, this->uri.media_subtypes.raw,
-         PROP_U_EN (&f[1], this->uri.prop_video.format,    SPA_POD_TYPE_INT, 3,
-                                                             SPA_VIDEO_FORMAT_RGB,
-                                                             SPA_VIDEO_FORMAT_RGB,
-                                                             SPA_VIDEO_FORMAT_UYVY),
+         PROP_U_EN (&f[1], this->uri.prop_video.format,    SPA_POD_TYPE_URI, 3,
+                                                             this->uri.video_formats.RGB,
+                                                             this->uri.video_formats.RGB,
+                                                             this->uri.video_formats.UYVY),
          PROP_U_MM (&f[1], this->uri.prop_video.size,      SPA_POD_TYPE_RECTANGLE,
                                                              320, 240,
                                                              1, 1,
@@ -529,16 +530,14 @@ spa_videotestsrc_node_port_set_format (SpaNode            *node,
     SpaPODBuilder b = { NULL };
     SpaPODFrame f[2];
 
-    switch (raw_info->format) {
-      case SPA_VIDEO_FORMAT_RGB:
-        this->bpp = 3;
-        break;
-      case SPA_VIDEO_FORMAT_UYVY:
-        this->bpp = 2;
-        break;
-      default:
-        return SPA_RESULT_NOT_IMPLEMENTED;
+    if (raw_info->format == this->uri.video_formats.RGB) {
+      this->bpp = 3;
     }
+    else if (raw_info->format == this->uri.video_formats.UYVY) {
+      this->bpp = 2;
+    }
+    else
+      return SPA_RESULT_NOT_IMPLEMENTED;
 
     this->info.maxbuffering = -1;
     this->info.latency = 0;
@@ -594,7 +593,7 @@ spa_videotestsrc_node_port_get_format (SpaNode          *node,
 
   spa_pod_builder_format (&b, &f[0],
      this->uri.media_types.video, this->uri.media_subtypes.raw,
-     PROP (&f[1], this->uri.prop_video.format,     SPA_POD_TYPE_INT,       this->current_format.info.raw.format),
+     PROP (&f[1], this->uri.prop_video.format,     SPA_POD_TYPE_URI,       this->current_format.info.raw.format),
      PROP (&f[1], this->uri.prop_video.size,      -SPA_POD_TYPE_RECTANGLE, &this->current_format.info.raw.size),
      PROP (&f[1], this->uri.prop_video.framerate, -SPA_POD_TYPE_FRACTION,  &this->current_format.info.raw.framerate));
   *format = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
@@ -962,6 +961,7 @@ videotestsrc_init (const SpaHandleFactory  *factory,
   spa_media_types_fill (&this->uri.media_types, this->map);
   spa_media_subtypes_map (this->map, &this->uri.media_subtypes);
   spa_prop_video_map (this->map, &this->uri.prop_video);
+  spa_video_formats_map (this->map, &this->uri.video_formats);
 
   this->node = videotestsrc_node;
   this->clock = videotestsrc_clock;

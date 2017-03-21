@@ -423,7 +423,7 @@ handle_audio_fields (ConvertData *d)
                                    prop_audio.format,
                                    get_range_type (value) | SPA_POD_PROP_FLAG_READWRITE);
 
-      spa_pod_builder_uri (&d->b, *audio_format_map[gst_video_format_from_string (v)]);
+      spa_pod_builder_uri (&d->b, *audio_format_map[gst_audio_format_from_string (v)]);
     }
     if (i > 1)
       SPA_POD_BUILDER_DEREF (&d->b, f.ref, SpaPODProp)->body.flags |= SPA_POD_PROP_FLAG_UNSET;

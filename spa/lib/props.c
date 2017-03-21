@@ -32,7 +32,7 @@ compare_value (SpaPODType type, const void *r1, const void *r2)
       return 0;
     case SPA_POD_TYPE_BOOL:
     case SPA_POD_TYPE_URI:
-      return *(int32_t*)r1 == *(uint32_t*)r2;
+      return *(int32_t*)r1 == *(uint32_t*)r2 ? 0 : 1;
     case SPA_POD_TYPE_INT:
       return *(int32_t*)r1 - *(int32_t*)r2;
     case SPA_POD_TYPE_LONG:
@@ -167,9 +167,9 @@ spa_props_filter (SpaPODBuilder  *b,
     rt2 = p2->body.flags & SPA_POD_PROP_RANGE_MASK;
 
     /* else we filter. start with copying the property */
-    np = SPA_POD_BUILDER_DEREF (b,
-                                spa_pod_builder_push_prop (b, &f, p1->body.key, SPA_POD_PROP_FLAG_READWRITE),
-                                SpaPODProp);
+    spa_pod_builder_push_prop (b, &f, p1->body.key, SPA_POD_PROP_FLAG_READWRITE),
+    np = SPA_POD_BUILDER_DEREF (b, f.ref, SpaPODProp);
+
     /* default value */
     spa_pod_builder_raw (b, &p1->body.value, sizeof (p1->body.value) + p1->body.value.size);
 

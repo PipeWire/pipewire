@@ -24,7 +24,7 @@
 extern "C" {
 #endif
 
-#include <spa/format-utils.h>
+#include <spa/format.h>
 #include <spa/audio/raw.h>
 
 typedef struct _SpaAudioInfo SpaAudioInfo;
@@ -39,28 +39,6 @@ typedef struct _SpaAudioInfo SpaAudioInfo;
 #define SPA_PROP_AUDIO__channels        SPA_PROP_AUDIO_PREFIX "channels"
 #define SPA_PROP_AUDIO__channelMask     SPA_PROP_AUDIO_PREFIX "channel-mask"
 
-typedef struct {
-  uint32_t format;
-  uint32_t flags;
-  uint32_t layout;
-  uint32_t rate;
-  uint32_t channels;
-  uint32_t channel_mask;
-} SpaPropAudio;
-
-static inline void
-spa_prop_audio_map (SpaIDMap *map, SpaPropAudio *types)
-{
-  if (types->format == 0) {
-    types->format = spa_id_map_get_id (map, SPA_PROP_AUDIO__format);
-    types->flags = spa_id_map_get_id (map, SPA_PROP_AUDIO__flags);
-    types->layout = spa_id_map_get_id (map, SPA_PROP_AUDIO__layout);
-    types->rate = spa_id_map_get_id (map, SPA_PROP_AUDIO__rate);
-    types->channels = spa_id_map_get_id (map, SPA_PROP_AUDIO__channels);
-    types->channel_mask = spa_id_map_get_id (map, SPA_PROP_AUDIO__channelMask);
-  }
-}
-
 struct _SpaAudioInfo {
   uint32_t media_type;
   uint32_t media_subtype;
@@ -68,9 +46,6 @@ struct _SpaAudioInfo {
     SpaAudioInfoRaw raw;
   } info;
 };
-
-SpaResult   spa_format_audio_parse       (const SpaFormat *format,
-                                          SpaAudioInfo    *info);
 
 #ifdef __cplusplus
 }  /* extern "C" */

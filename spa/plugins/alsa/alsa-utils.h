@@ -34,7 +34,7 @@ extern "C" {
 #include <spa/node.h>
 #include <spa/loop.h>
 #include <spa/ringbuffer.h>
-#include <spa/audio/format.h>
+#include <spa/audio/format-utils.h>
 #include <spa/format-builder.h>
 
 typedef struct _SpaALSAState SpaALSAState;
@@ -66,6 +66,7 @@ typedef struct {
   SpaMediaSubtypes media_subtypes;
   SpaMediaSubtypesAudio media_subtypes_audio;
   SpaPropAudio prop_audio;
+  SpaAudioFormats audio_formats;
 } URI;
 
 struct _SpaALSAState {

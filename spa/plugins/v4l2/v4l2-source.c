@@ -25,7 +25,7 @@
 #include <linux/videodev2.h>
 
 #include <spa/node.h>
-#include <spa/video/format.h>
+#include <spa/video/format-utils.h>
 #include <spa/list.h>
 #include <spa/log.h>
 #include <spa/loop.h>

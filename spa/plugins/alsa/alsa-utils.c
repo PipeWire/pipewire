@@ -56,54 +56,52 @@ spa_alsa_close (SpaALSAState *state)
   return err;
 }
 
-static snd_pcm_format_t
-spa_alsa_format_to_alsa (SpaAudioFormat format)
-{
-  switch (format) {
-    case SPA_AUDIO_FORMAT_S8:
-      return SND_PCM_FORMAT_S8;
-    case SPA_AUDIO_FORMAT_U8:
-      return SND_PCM_FORMAT_U8;
-    /* 16 bit */
-    case SPA_AUDIO_FORMAT_S16LE:
-      return SND_PCM_FORMAT_S16_LE;
-    case SPA_AUDIO_FORMAT_S16BE:
-      return SND_PCM_FORMAT_S16_BE;
-    case SPA_AUDIO_FORMAT_U16LE:
-      return SND_PCM_FORMAT_U16_LE;
-    case SPA_AUDIO_FORMAT_U16BE:
-      return SND_PCM_FORMAT_U16_BE;
-    /* 24 bit in low 3 bytes of 32 bits */
-    case SPA_AUDIO_FORMAT_S24_32LE:
-      return SND_PCM_FORMAT_S24_LE;
-    case SPA_AUDIO_FORMAT_S24_32BE:
-      return SND_PCM_FORMAT_S24_BE;
-    case SPA_AUDIO_FORMAT_U24_32LE:
-      return SND_PCM_FORMAT_U24_LE;
-    case SPA_AUDIO_FORMAT_U24_32BE:
-      return SND_PCM_FORMAT_U24_BE;
-    /* 24 bit in 3 bytes */
-    case SPA_AUDIO_FORMAT_S24LE:
-      return SND_PCM_FORMAT_S24_3LE;
-    case SPA_AUDIO_FORMAT_S24BE:
-      return SND_PCM_FORMAT_S24_3BE;
-    case SPA_AUDIO_FORMAT_U24LE:
-      return SND_PCM_FORMAT_U24_3LE;
-    case SPA_AUDIO_FORMAT_U24BE:
-      return SND_PCM_FORMAT_U24_3BE;
-    /* 32 bit */
-    case SPA_AUDIO_FORMAT_S32LE:
-      return SND_PCM_FORMAT_S32_LE;
-    case SPA_AUDIO_FORMAT_S32BE:
-      return SND_PCM_FORMAT_S32_BE;
-    case SPA_AUDIO_FORMAT_U32LE:
-      return SND_PCM_FORMAT_U32_LE;
-    case SPA_AUDIO_FORMAT_U32BE:
-      return SND_PCM_FORMAT_U32_BE;
-    default:
-      break;
-  }
+typedef struct {
+  off_t format_offset;
+  snd_pcm_format_t format;
+} FormatInfo;
 
+#if __BYTE_ORDER == __BIG_ENDIAN
+#define _FORMAT_LE(fmt)  offsetof(URI, audio_formats. fmt ## _OE)
+#define _FORMAT_BE(fmt)  offsetof(URI, audio_formats. fmt)
+#elif __BYTE_ORDER == __LITTLE_ENDIAN
+#define _FORMAT_LE(fmt)  offsetof(URI, audio_formats. fmt)
+#define _FORMAT_BE(fmt)  offsetof(URI, audio_formats. fmt ## _OE)
+#endif
+
+static const FormatInfo format_info[] =
+{
+  { offsetof(URI, audio_formats.UNKNOWN),       SND_PCM_FORMAT_UNKNOWN },
+  { offsetof(URI, audio_formats.S8),            SND_PCM_FORMAT_S8 },
+  { offsetof(URI, audio_formats.U8),            SND_PCM_FORMAT_U8 },
+  { _FORMAT_LE (S16),                           SND_PCM_FORMAT_S16_LE },
+  { _FORMAT_BE (S16),                           SND_PCM_FORMAT_S16_BE },
+  { _FORMAT_LE (U16),                           SND_PCM_FORMAT_U16_LE },
+  { _FORMAT_BE (U16),                           SND_PCM_FORMAT_U16_BE },
+  { _FORMAT_LE (S24_32),                        SND_PCM_FORMAT_S24_LE },
+  { _FORMAT_BE (S24_32),                        SND_PCM_FORMAT_S24_BE },
+  { _FORMAT_LE (U24_32),                        SND_PCM_FORMAT_U24_LE },
+  { _FORMAT_BE (U24_32),                        SND_PCM_FORMAT_U24_BE },
+  { _FORMAT_LE (S24),                           SND_PCM_FORMAT_S24_3LE },
+  { _FORMAT_BE (S24),                           SND_PCM_FORMAT_S24_3BE },
+  { _FORMAT_LE (U24),                           SND_PCM_FORMAT_U24_3LE },
+  { _FORMAT_BE (U24),                           SND_PCM_FORMAT_U24_3BE },
+  { _FORMAT_LE (S32),                           SND_PCM_FORMAT_S32_LE },
+  { _FORMAT_BE (S32),                           SND_PCM_FORMAT_S32_BE },
+  { _FORMAT_LE (U32),                           SND_PCM_FORMAT_U32_LE },
+  { _FORMAT_BE (U32),                           SND_PCM_FORMAT_U32_BE },
+};
+
+static snd_pcm_format_t
+spa_alsa_format_to_alsa (URI *uri, uint32_t format)
+{
+  int i;
+
+  for (i = 0; i < SPA_N_ELEMENTS (format_info); i++) {
+    uint32_t f = *SPA_MEMBER (uri, format_info[i].format_offset, uint32_t);
+    if (f == format)
+      return format_info[i].format;
+  }
   return SND_PCM_FORMAT_UNKNOWN;
 }
 
@@ -134,7 +132,7 @@ spa_alsa_set_format (SpaALSAState *state, SpaAudioInfo *fmt, SpaPortFormatFlags 
   CHECK (snd_pcm_hw_params_set_access(hndl, params, SND_PCM_ACCESS_MMAP_INTERLEAVED), "set_access");
 
   /* set the sample format */
-  format = spa_alsa_format_to_alsa (info->format);
+  format = spa_alsa_format_to_alsa (&state->uri, info->format);
   spa_log_info (state->log, "Stream parameters are %iHz, %s, %i channels", info->rate, snd_pcm_format_name(format), info->channels);
   CHECK (snd_pcm_hw_params_set_format (hndl, params, format), "set_format");
 

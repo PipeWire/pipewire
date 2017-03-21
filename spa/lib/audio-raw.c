@@ -23,8 +23,8 @@
 #include <string.h>
 
 #include <lib/mapper.h>
-#include <spa/audio/raw.h>
-#include <spa/audio/format.h>
+#include <spa/audio/raw-utils.h>
+#include <spa/audio/format-utils.h>
 
 SpaResult
 spa_format_audio_parse (const SpaFormat *format,
@@ -48,7 +48,7 @@ spa_format_audio_parse (const SpaFormat *format,
 
   if (info->media_subtype == media_subtypes.raw) {
     spa_format_query (format,
-        prop_audio.format,       SPA_POD_TYPE_INT, &info->info.raw.format,
+        prop_audio.format,       SPA_POD_TYPE_URI, &info->info.raw.format,
         prop_audio.flags,        SPA_POD_TYPE_INT, &info->info.raw.flags,
         prop_audio.layout,       SPA_POD_TYPE_INT, &info->info.raw.layout,
         prop_audio.rate,         SPA_POD_TYPE_INT, &info->info.raw.rate,

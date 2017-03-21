@@ -27,7 +27,7 @@
 #include <spa/log.h>
 #include <spa/node.h>
 #include <spa/loop.h>
-#include <spa/video/format.h>
+#include <spa/video/format-utils.h>
 #include <spa/format-builder.h>
 #include <lib/debug.h>
 #include <lib/mapper.h>

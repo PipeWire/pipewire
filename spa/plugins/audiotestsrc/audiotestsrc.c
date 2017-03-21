@@ -28,7 +28,7 @@
 #include <spa/loop.h>
 #include <spa/node.h>
 #include <spa/list.h>
-#include <spa/audio/format.h>
+#include <spa/audio/format-utils.h>
 #include <spa/format-builder.h>
 #include <lib/props.h>
 
@@ -42,6 +42,7 @@ typedef struct {
   SpaMediaTypes media_types;
   SpaMediaSubtypes media_subtypes;
   SpaPropAudio prop_audio;
+  SpaAudioFormats audio_formats;
 } URI;
 
 typedef struct _SpaAudioTestSrc SpaAudioTestSrc;
@@ -471,9 +472,9 @@ next:
     case 0:
       spa_pod_builder_format (&b, &f[0],
          this->uri.media_types.audio, this->uri.media_subtypes.raw,
-         PROP_U_EN (&f[1], this->uri.prop_audio.format,   SPA_POD_TYPE_INT, 3, SPA_AUDIO_FORMAT_S16,
-                                                                            SPA_AUDIO_FORMAT_S16,
-                                                                            SPA_AUDIO_FORMAT_S32),
+         PROP_U_EN (&f[1], this->uri.prop_audio.format,   SPA_POD_TYPE_URI, 3, this->uri.audio_formats.S16,
+                                                                               this->uri.audio_formats.S16,
+                                                                               this->uri.audio_formats.S32),
          PROP_U_MM (&f[1], this->uri.prop_audio.rate,     SPA_POD_TYPE_INT, 44100, 1, INT32_MAX),
          PROP_U_MM (&f[1], this->uri.prop_audio.channels, SPA_POD_TYPE_INT, 2,     1, INT32_MAX));
       break;
@@ -589,7 +590,7 @@ spa_audiotestsrc_node_port_get_format (SpaNode          *node,
   spa_pod_builder_init (&b, this->format_buffer, sizeof (this->format_buffer));
   spa_pod_builder_format (&b, &f[0],
          this->uri.media_types.audio, this->uri.media_subtypes.raw,
-         PROP (&f[1], this->uri.prop_audio.format,   SPA_POD_TYPE_INT, this->current_format.info.raw.format),
+         PROP (&f[1], this->uri.prop_audio.format,   SPA_POD_TYPE_URI, this->current_format.info.raw.format),
          PROP (&f[1], this->uri.prop_audio.rate,     SPA_POD_TYPE_INT, this->current_format.info.raw.rate),
          PROP (&f[1], this->uri.prop_audio.channels, SPA_POD_TYPE_INT, this->current_format.info.raw.channels));
 
@@ -958,6 +959,7 @@ audiotestsrc_init (const SpaHandleFactory  *factory,
   spa_media_types_fill (&this->uri.media_types, this->map);
   spa_media_subtypes_map (this->map, &this->uri.media_subtypes);
   spa_prop_audio_map (this->map, &this->uri.prop_audio);
+  spa_audio_formats_map (this->map, &this->uri.audio_formats);
 
   this->node = audiotestsrc_node;
   this->clock = audiotestsrc_clock;

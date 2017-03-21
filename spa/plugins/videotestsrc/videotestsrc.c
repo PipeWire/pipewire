@@ -29,7 +29,7 @@
 #include <spa/loop.h>
 #include <spa/node.h>
 #include <spa/list.h>
-#include <spa/video/format.h>
+#include <spa/video/format-utils.h>
 #include <spa/format-builder.h>
 #include <lib/props.h>
 

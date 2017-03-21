@@ -27,7 +27,7 @@
 #include <spa/id-map.h>
 #include <spa/log.h>
 #include <spa/node.h>
-#include <spa/video/format.h>
+#include <spa/video/format-utils.h>
 #include <lib/props.h>
 
 typedef struct _SpaXvSink SpaXvSink;

@@ -25,10 +25,9 @@
 #include <gst/audio/audio.h>
 
 #include <spa/lib/mapper.h>
-#include <spa/include/spa/video/format.h>
-#include <spa/include/spa/audio/format.h>
-#include <spa/include/spa/format.h>
 #include <spa/include/spa/format-builder.h>
+#include <spa/include/spa/video/format-utils.h>
+#include <spa/include/spa/audio/format-utils.h>
 
 #include "gstpinosformat.h"
 
@@ -45,6 +44,7 @@ static SpaMediaSubtypesAudio media_subtypes_audio = { 0, };
 static SpaPropVideo prop_video = { 0, };
 static SpaPropAudio prop_audio = { 0, };
 static SpaVideoFormats video_formats = { 0, };
+static SpaAudioFormats audio_formats = { 0, };
 
 static void
 ensure_types (void)
@@ -56,6 +56,7 @@ ensure_types (void)
   spa_prop_video_map (spa_id_map_get_default (), &prop_video);
   spa_prop_audio_map (spa_id_map_get_default (), &prop_audio);
   spa_video_formats_map (spa_id_map_get_default (), &video_formats);
+  spa_audio_formats_map (spa_id_map_get_default (), &audio_formats);
 }
 
 static const MediaType media_type_map[] = {
@@ -132,6 +133,49 @@ static const uint32_t *video_format_map[] = {
   &video_formats.P010_10LE,
   &video_formats.IYU2,
   &video_formats.VYUY,
+};
+
+#if __BYTE_ORDER == __BIG_ENDIAN
+#define _FORMAT_LE(fmt)  &audio_formats. fmt ## _OE
+#define _FORMAT_BE(fmt)  &audio_formats. fmt
+#elif __BYTE_ORDER == __LITTLE_ENDIAN
+#define _FORMAT_LE(fmt)  &audio_formats. fmt
+#define _FORMAT_BE(fmt)  &audio_formats. fmt ## _OE
+#endif
+
+static const uint32_t *audio_format_map[] = {
+  &audio_formats.UNKNOWN,
+  &audio_formats.ENCODED,
+  &audio_formats.S8,
+  &audio_formats.U8,
+  _FORMAT_LE (S16),
+  _FORMAT_BE (S16),
+  _FORMAT_LE (U16),
+  _FORMAT_BE (U16),
+  _FORMAT_LE (S24_32),
+  _FORMAT_BE (S24_32),
+  _FORMAT_LE (U24_32),
+  _FORMAT_BE (U24_32),
+  _FORMAT_LE (S32),
+  _FORMAT_BE (S32),
+  _FORMAT_LE (U32),
+  _FORMAT_BE (U32),
+  _FORMAT_LE (S24),
+  _FORMAT_BE (S24),
+  _FORMAT_LE (U24),
+  _FORMAT_BE (U24),
+  _FORMAT_LE (S20),
+  _FORMAT_BE (S20),
+  _FORMAT_LE (U20),
+  _FORMAT_BE (U20),
+  _FORMAT_LE (S18),
+  _FORMAT_BE (S18),
+  _FORMAT_LE (U18),
+  _FORMAT_BE (U18),
+  _FORMAT_LE (F32),
+  _FORMAT_BE (F32),
+  _FORMAT_LE (F64),
+  _FORMAT_BE (F64),
 };
 
 typedef struct {
@@ -379,7 +423,7 @@ handle_audio_fields (ConvertData *d)
                                    prop_audio.format,
                                    get_range_type (value) | SPA_POD_PROP_FLAG_READWRITE);
 
-      spa_pod_builder_int (&d->b, gst_audio_format_from_string (v));
+      spa_pod_builder_uri (&d->b, *audio_format_map[gst_video_format_from_string (v)]);
     }
     if (i > 1)
       SPA_POD_BUILDER_DEREF (&d->b, f.ref, SpaPODProp)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
@@ -583,8 +627,10 @@ gst_caps_from_format (const SpaFormat *format)
       return NULL;
 
     if (media_subtype == media_subtypes.raw) {
+      const char * str = spa_id_map_get_uri (spa_id_map_get_default (), f.info.raw.format);
+
       res = gst_caps_new_simple ("audio/x-raw",
-          "format", G_TYPE_STRING, gst_audio_format_to_string (f.info.raw.format),
+          "format", G_TYPE_STRING, strstr (str, "#") + 1,
           "layout", G_TYPE_STRING, "interleaved",
           "rate", G_TYPE_INT, f.info.raw.rate,
           "channels", G_TYPE_INT, f.info.raw.channels,

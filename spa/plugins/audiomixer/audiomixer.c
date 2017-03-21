@@ -23,7 +23,7 @@
 #include <spa/log.h>
 #include <spa/id-map.h>
 #include <spa/node.h>
-#include <spa/audio/format.h>
+#include <spa/audio/format-utils.h>
 #include <lib/props.h>
 
 #define MAX_PORTS       128

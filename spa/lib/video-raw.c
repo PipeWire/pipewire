@@ -22,9 +22,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <spa/video/raw.h>
-#include <spa/video/format.h>
 #include <spa/format-builder.h>
+#include <spa/video/format-utils.h>
 #include <lib/props.h>
 #include <lib/mapper.h>
 

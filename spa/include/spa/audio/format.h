@@ -24,7 +24,7 @@
 extern "C" {
 #endif
 
-#include <spa/format.h>
+#include <spa/format-utils.h>
 #include <spa/audio/raw.h>
 
 typedef struct _SpaAudioInfo SpaAudioInfo;

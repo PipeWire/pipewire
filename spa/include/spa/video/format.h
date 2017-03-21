@@ -24,7 +24,7 @@
 extern "C" {
 #endif
 
-#include <spa/format.h>
+#include <spa/format-utils.h>
 #include <spa/video/raw.h>
 #include <spa/video/encoded.h>
 

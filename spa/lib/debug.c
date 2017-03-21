@@ -20,6 +20,7 @@
 #include <stdio.h>
 
 #include <lib/mapper.h>
+#include <spa/format-utils.h>
 #include "debug.h"
 
 static const struct meta_type_name {

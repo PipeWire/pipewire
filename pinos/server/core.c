@@ -24,6 +24,7 @@
 #include <pinos/server/data-loop.h>
 #include <pinos/server/client-node.h>
 #include <spa/lib/debug.h>
+#include <spa/format-utils.h>
 
 typedef struct {
   PinosGlobal   this;

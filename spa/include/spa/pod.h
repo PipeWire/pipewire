@@ -36,6 +36,7 @@ extern "C" {
  */
 typedef enum {
   SPA_POD_TYPE_INVALID         = 0,
+  SPA_POD_TYPE_NONE            = 1,
   SPA_POD_TYPE_BOOL,
   SPA_POD_TYPE_URI,
   SPA_POD_TYPE_INT,

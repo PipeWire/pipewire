@@ -71,6 +71,8 @@ typedef struct {
 
 typedef struct {
   uint32_t node;
+  SpaMediaTypes media_types;
+  SpaMediaSubtypes media_subtypes;
 } URI;
 
 struct _SpaXvSink {
@@ -324,8 +326,8 @@ spa_xv_sink_node_port_set_format (SpaNode            *node,
     return SPA_RESULT_OK;
   }
 
-  if (format->body.media_type.value == SPA_MEDIA_TYPE_VIDEO) {
-    if (format->body.media_subtype.value == SPA_MEDIA_SUBTYPE_RAW) {
+  if (format->body.media_type.value == this->uri.media_types.video) {
+    if (format->body.media_subtype.value == this->uri.media_subtypes.raw) {
       if ((res = spa_format_video_parse (format, &info) < 0))
         return res;
     } else
@@ -569,6 +571,8 @@ xv_sink_init (const SpaHandleFactory  *factory,
     return SPA_RESULT_ERROR;
   }
   this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
+  spa_media_types_fill (&this->uri.media_types, this->map);
+  spa_media_subtypes_map (this->map, &this->uri.media_subtypes);
 
   this->node = xvsink_node;
   reset_xv_sink_props (&this->props);

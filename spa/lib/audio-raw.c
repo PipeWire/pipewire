@@ -22,78 +22,42 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <lib/mapper.h>
 #include <spa/audio/raw.h>
 #include <spa/audio/format.h>
-
-typedef struct {
-  uint32_t  key;
-  uint32_t  type;
-  off_t     offset;
-} ParseInfo;
-
-static const ParseInfo raw_parse_info[] = {
-  { SPA_PROP_ID_AUDIO_INFO,               SPA_POD_TYPE_BYTES,     offsetof (SpaAudioInfo, info.raw) },
-  { SPA_PROP_ID_AUDIO_FORMAT,             SPA_POD_TYPE_INT,       offsetof (SpaAudioInfo, info.raw.format) },
-  { SPA_PROP_ID_AUDIO_FLAGS,              SPA_POD_TYPE_INT,       offsetof (SpaAudioInfo, info.raw.flags) },
-  { SPA_PROP_ID_AUDIO_LAYOUT,             SPA_POD_TYPE_INT,       offsetof (SpaAudioInfo, info.raw.layout) },
-  { SPA_PROP_ID_AUDIO_RATE,               SPA_POD_TYPE_INT,       offsetof (SpaAudioInfo, info.raw.rate) },
-  { SPA_PROP_ID_AUDIO_CHANNELS,           SPA_POD_TYPE_INT,       offsetof (SpaAudioInfo, info.raw.channels) },
-  { SPA_PROP_ID_AUDIO_CHANNEL_MASK,       SPA_POD_TYPE_INT,       offsetof (SpaAudioInfo, info.raw.channel_mask) },
-  { 0, }
-};
-
-static const ParseInfo *
-parse_info_find (const ParseInfo *info, uint32_t key, uint32_t type)
-{
-  while (info->key) {
-    if (info->key == key && info->type == type)
-      return info;
-    info++;
-  }
-  return NULL;
-}
 
 SpaResult
 spa_format_audio_parse (const SpaFormat *format,
                         SpaAudioInfo    *info)
 {
-  SpaPODProp *prop;
-  const ParseInfo *pinfo, *find;
+  static SpaMediaTypes media_types = { 0, };
+  static SpaMediaSubtypes media_subtypes = { 0, };
+  static SpaMediaSubtypesAudio media_subtypes_audio = { 0, };
+  static SpaPropAudio prop_audio = { 0, };
 
-  if (format->body.media_type.value != SPA_MEDIA_TYPE_AUDIO)
+  spa_media_types_fill (&media_types, spa_id_map_get_default());
+  spa_media_subtypes_map (spa_id_map_get_default(), &media_subtypes);
+  spa_media_subtypes_audio_map (spa_id_map_get_default (), &media_subtypes_audio);
+  spa_prop_audio_map (spa_id_map_get_default (), &prop_audio);
+
+  if (format->body.media_type.value != media_types.audio)
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
   info->media_type = format->body.media_type.value;
   info->media_subtype = format->body.media_subtype.value;
 
-  switch (info->media_subtype) {
-    case SPA_MEDIA_SUBTYPE_RAW:
-      pinfo = raw_parse_info;
-      break;
-    case SPA_MEDIA_SUBTYPE_MP3:
-    case SPA_MEDIA_SUBTYPE_AAC:
-    case SPA_MEDIA_SUBTYPE_VORBIS:
-    case SPA_MEDIA_SUBTYPE_WMA:
-    case SPA_MEDIA_SUBTYPE_RA:
-    case SPA_MEDIA_SUBTYPE_SBC:
-    case SPA_MEDIA_SUBTYPE_ADPCM:
-    case SPA_MEDIA_SUBTYPE_G723:
-    case SPA_MEDIA_SUBTYPE_G726:
-    case SPA_MEDIA_SUBTYPE_G729:
-    case SPA_MEDIA_SUBTYPE_AMR:
-    case SPA_MEDIA_SUBTYPE_GSM:
-      return SPA_RESULT_NOT_IMPLEMENTED;
-
-    default:
-      return SPA_RESULT_INVALID_ARGUMENTS;
+  if (info->media_subtype == media_subtypes.raw) {
+    spa_format_query (format,
+        prop_audio.format,       SPA_POD_TYPE_INT, &info->info.raw.format,
+        prop_audio.flags,        SPA_POD_TYPE_INT, &info->info.raw.flags,
+        prop_audio.layout,       SPA_POD_TYPE_INT, &info->info.raw.layout,
+        prop_audio.rate,         SPA_POD_TYPE_INT, &info->info.raw.rate,
+        prop_audio.channels,     SPA_POD_TYPE_INT, &info->info.raw.channels,
+        prop_audio.channel_mask, SPA_POD_TYPE_INT, &info->info.raw.channel_mask,
+        0);
   }
+  else
+    return SPA_RESULT_NOT_IMPLEMENTED;
 
-  SPA_FORMAT_FOREACH (format, prop) {
-    if ((find = parse_info_find (pinfo, prop->body.key, prop->body.value.type))) {
-      memcpy (SPA_MEMBER (info, find->offset, void),
-              SPA_POD_BODY (&prop->body.value),
-              SPA_POD_BODY_SIZE (&prop->body.value));
-    }
-  }
   return SPA_RESULT_OK;
 }

@@ -45,6 +45,7 @@ id_map_get_id (SpaIDMap *map, const char *uri)
       if (strcmp (this->uris[i], uri) == 0)
         return i;
     }
+    printf ("spa adding %d %s\n", i, uri);
     this->uris[i] = (char *)uri;
     this->n_uris++;
   }
@@ -55,6 +56,8 @@ static const char *
 id_map_get_uri (SpaIDMap *map, uint32_t id)
 {
   IDMap *this = SPA_CONTAINER_OF (map, IDMap, map);
+
+  printf ("spa get %d\n", id);
 
   if (id < this->n_uris)
     return this->uris[id];
@@ -71,8 +74,16 @@ static IDMap default_id_map = {
   0
 };
 
+static SpaIDMap *default_map = &default_id_map.map;
+
 SpaIDMap *
 spa_id_map_get_default (void)
 {
-  return &default_id_map.map;
+  return default_map;
+}
+
+void
+spa_id_map_set_default (SpaIDMap *map)
+{
+  default_map = map;
 }

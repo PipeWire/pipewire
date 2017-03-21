@@ -165,117 +165,137 @@ spa_v4l2_close (SpaV4l2Source *this)
 typedef struct {
   uint32_t fourcc;
   SpaVideoFormat format;
-  SpaMediaType media_type;
-  SpaMediaSubType media_subtype;
+  off_t media_type_offset;
+  off_t media_subtype_offset;
 } FormatInfo;
+
+#define VIDEO   offsetof(URI, media_types.video)
+#define IMAGE   offsetof(URI, media_types.image)
+
+#define RAW     offsetof(URI, media_subtypes.raw)
+
+#define BAYER   offsetof(URI, media_subtypes_video.bayer)
+#define MJPG    offsetof(URI, media_subtypes_video.mjpg)
+#define JPEG    offsetof(URI, media_subtypes_video.jpeg)
+#define DV      offsetof(URI, media_subtypes_video.dv)
+#define MPEGTS  offsetof(URI, media_subtypes_video.mpegts)
+#define H264    offsetof(URI, media_subtypes_video.h264)
+#define H263    offsetof(URI, media_subtypes_video.h263)
+#define MPEG1   offsetof(URI, media_subtypes_video.mpeg1)
+#define MPEG2   offsetof(URI, media_subtypes_video.mpeg2)
+#define MPEG4   offsetof(URI, media_subtypes_video.mpeg4)
+#define XVID    offsetof(URI, media_subtypes_video.xvid)
+#define VC1     offsetof(URI, media_subtypes_video.vc1)
+#define VP8     offsetof(URI, media_subtypes_video.vp8)
+
 
 static const FormatInfo format_info[] =
 {
   /* RGB formats */
-  { V4L2_PIX_FMT_RGB332,       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_ARGB555,      SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_XRGB555,      SPA_VIDEO_FORMAT_RGB15, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_ARGB555X,     SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_XRGB555X,     SPA_VIDEO_FORMAT_BGR15, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_RGB565,       SPA_VIDEO_FORMAT_RGB16, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_RGB565X,      SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_BGR666,       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_BGR24,        SPA_VIDEO_FORMAT_BGR, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_RGB24,        SPA_VIDEO_FORMAT_RGB, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_ABGR32,       SPA_VIDEO_FORMAT_BGRA, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_XBGR32,       SPA_VIDEO_FORMAT_BGRx, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_ARGB32,       SPA_VIDEO_FORMAT_ARGB, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_XRGB32,       SPA_VIDEO_FORMAT_xRGB, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_RGB332,       SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
+  { V4L2_PIX_FMT_ARGB555,      SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
+  { V4L2_PIX_FMT_XRGB555,      SPA_VIDEO_FORMAT_RGB15,      VIDEO, RAW },
+  { V4L2_PIX_FMT_ARGB555X,     SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
+  { V4L2_PIX_FMT_XRGB555X,     SPA_VIDEO_FORMAT_BGR15,      VIDEO, RAW },
+  { V4L2_PIX_FMT_RGB565,       SPA_VIDEO_FORMAT_RGB16,      VIDEO, RAW },
+  { V4L2_PIX_FMT_RGB565X,      SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
+  { V4L2_PIX_FMT_BGR666,       SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
+  { V4L2_PIX_FMT_BGR24,        SPA_VIDEO_FORMAT_BGR,        VIDEO, RAW },
+  { V4L2_PIX_FMT_RGB24,        SPA_VIDEO_FORMAT_RGB,        VIDEO, RAW },
+  { V4L2_PIX_FMT_ABGR32,       SPA_VIDEO_FORMAT_BGRA,       VIDEO, RAW },
+  { V4L2_PIX_FMT_XBGR32,       SPA_VIDEO_FORMAT_BGRx,       VIDEO, RAW },
+  { V4L2_PIX_FMT_ARGB32,       SPA_VIDEO_FORMAT_ARGB,       VIDEO, RAW },
+  { V4L2_PIX_FMT_XRGB32,       SPA_VIDEO_FORMAT_xRGB,       VIDEO, RAW },
 
   /* Deprecated Packed RGB Image Formats (alpha ambiguity) */
-  { V4L2_PIX_FMT_RGB444,       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_RGB555,       SPA_VIDEO_FORMAT_RGB15, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_RGB555X,      SPA_VIDEO_FORMAT_BGR15, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_BGR32,        SPA_VIDEO_FORMAT_BGRx, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_RGB32,        SPA_VIDEO_FORMAT_xRGB, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_RGB444,       SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
+  { V4L2_PIX_FMT_RGB555,       SPA_VIDEO_FORMAT_RGB15,      VIDEO, RAW },
+  { V4L2_PIX_FMT_RGB555X,      SPA_VIDEO_FORMAT_BGR15,      VIDEO, RAW },
+  { V4L2_PIX_FMT_BGR32,        SPA_VIDEO_FORMAT_BGRx,       VIDEO, RAW },
+  { V4L2_PIX_FMT_RGB32,        SPA_VIDEO_FORMAT_xRGB,       VIDEO, RAW },
 
   /* Grey formats */
-  { V4L2_PIX_FMT_GREY,         SPA_VIDEO_FORMAT_GRAY8, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_Y4,           SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_Y6,           SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_Y10,          SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_Y12,          SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_Y16,          SPA_VIDEO_FORMAT_GRAY16_LE, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_Y16_BE,       SPA_VIDEO_FORMAT_GRAY16_BE, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_Y10BPACK,     SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_GREY,         SPA_VIDEO_FORMAT_GRAY8,      VIDEO, RAW },
+  { V4L2_PIX_FMT_Y4,           SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
+  { V4L2_PIX_FMT_Y6,           SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
+  { V4L2_PIX_FMT_Y10,          SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
+  { V4L2_PIX_FMT_Y12,          SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
+  { V4L2_PIX_FMT_Y16,          SPA_VIDEO_FORMAT_GRAY16_LE,  VIDEO, RAW },
+  { V4L2_PIX_FMT_Y16_BE,       SPA_VIDEO_FORMAT_GRAY16_BE,  VIDEO, RAW },
+  { V4L2_PIX_FMT_Y10BPACK,     SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
 
   /* Palette formats */
-  { V4L2_PIX_FMT_PAL8,	       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_PAL8,	       SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
 
   /* Chrominance formats */
-  { V4L2_PIX_FMT_UV8,	       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_UV8,	       SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
 
   /* Luminance+Chrominance formats */
-  { V4L2_PIX_FMT_YVU410,       SPA_VIDEO_FORMAT_YVU9, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_YVU420,       SPA_VIDEO_FORMAT_YV12, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_YVU420M,      SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_YUYV,	       SPA_VIDEO_FORMAT_YUY2, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_YYUV,	       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_YVYU,	       SPA_VIDEO_FORMAT_YVYU, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_UYVY,	       SPA_VIDEO_FORMAT_UYVY, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_VYUY,	       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_YUV422P,      SPA_VIDEO_FORMAT_Y42B, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_YUV411P,      SPA_VIDEO_FORMAT_Y41B, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_Y41P,	       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_YUV444,       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_YUV555,       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_YUV565,       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_YUV32,	       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_YUV410,       SPA_VIDEO_FORMAT_YUV9, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_YUV420,       SPA_VIDEO_FORMAT_I420, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_YUV420M,      SPA_VIDEO_FORMAT_I420, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_HI240,	       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_HM12,	       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_M420,	       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_YVU410,       SPA_VIDEO_FORMAT_YVU9,       VIDEO, RAW },
+  { V4L2_PIX_FMT_YVU420,       SPA_VIDEO_FORMAT_YV12,       VIDEO, RAW },
+  { V4L2_PIX_FMT_YVU420M,      SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
+  { V4L2_PIX_FMT_YUYV,	       SPA_VIDEO_FORMAT_YUY2,       VIDEO, RAW },
+  { V4L2_PIX_FMT_YYUV,	       SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
+  { V4L2_PIX_FMT_YVYU,	       SPA_VIDEO_FORMAT_YVYU,       VIDEO, RAW },
+  { V4L2_PIX_FMT_UYVY,	       SPA_VIDEO_FORMAT_UYVY,       VIDEO, RAW },
+  { V4L2_PIX_FMT_VYUY,	       SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
+  { V4L2_PIX_FMT_YUV422P,      SPA_VIDEO_FORMAT_Y42B,       VIDEO, RAW },
+  { V4L2_PIX_FMT_YUV411P,      SPA_VIDEO_FORMAT_Y41B,       VIDEO, RAW },
+  { V4L2_PIX_FMT_Y41P,	       SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
+  { V4L2_PIX_FMT_YUV444,       SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
+  { V4L2_PIX_FMT_YUV555,       SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
+  { V4L2_PIX_FMT_YUV565,       SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
+  { V4L2_PIX_FMT_YUV32,	       SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
+  { V4L2_PIX_FMT_YUV410,       SPA_VIDEO_FORMAT_YUV9,       VIDEO, RAW },
+  { V4L2_PIX_FMT_YUV420,       SPA_VIDEO_FORMAT_I420,       VIDEO, RAW },
+  { V4L2_PIX_FMT_YUV420M,      SPA_VIDEO_FORMAT_I420,       VIDEO, RAW },
+  { V4L2_PIX_FMT_HI240,	       SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
+  { V4L2_PIX_FMT_HM12,	       SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
+  { V4L2_PIX_FMT_M420,	       SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
 
   /* two planes -- one Y, one Cr + Cb interleaved  */
-  { V4L2_PIX_FMT_NV12,         SPA_VIDEO_FORMAT_NV12, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_NV12M,        SPA_VIDEO_FORMAT_NV12, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_NV12MT,       SPA_VIDEO_FORMAT_NV12_64Z32, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_NV12MT_16X16, SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_NV21,         SPA_VIDEO_FORMAT_NV21, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_NV21M,        SPA_VIDEO_FORMAT_NV21, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_NV16,         SPA_VIDEO_FORMAT_NV16, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_NV16M,        SPA_VIDEO_FORMAT_NV16, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_NV61,         SPA_VIDEO_FORMAT_NV61, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_NV61M,        SPA_VIDEO_FORMAT_NV61, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_NV24,         SPA_VIDEO_FORMAT_NV24, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_NV42,         SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_NV12,         SPA_VIDEO_FORMAT_NV12,       VIDEO, RAW },
+  { V4L2_PIX_FMT_NV12M,        SPA_VIDEO_FORMAT_NV12,       VIDEO, RAW },
+  { V4L2_PIX_FMT_NV12MT,       SPA_VIDEO_FORMAT_NV12_64Z32, VIDEO, RAW },
+  { V4L2_PIX_FMT_NV12MT_16X16, SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
+  { V4L2_PIX_FMT_NV21,         SPA_VIDEO_FORMAT_NV21,       VIDEO, RAW },
+  { V4L2_PIX_FMT_NV21M,        SPA_VIDEO_FORMAT_NV21,       VIDEO, RAW },
+  { V4L2_PIX_FMT_NV16,         SPA_VIDEO_FORMAT_NV16,       VIDEO, RAW },
+  { V4L2_PIX_FMT_NV16M,        SPA_VIDEO_FORMAT_NV16,       VIDEO, RAW },
+  { V4L2_PIX_FMT_NV61,         SPA_VIDEO_FORMAT_NV61,       VIDEO, RAW },
+  { V4L2_PIX_FMT_NV61M,        SPA_VIDEO_FORMAT_NV61,       VIDEO, RAW },
+  { V4L2_PIX_FMT_NV24,         SPA_VIDEO_FORMAT_NV24,       VIDEO, RAW },
+  { V4L2_PIX_FMT_NV42,         SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
 
   /* Bayer formats - see http://www.siliconimaging.com/RGB%20Bayer.htm */
-  { V4L2_PIX_FMT_SBGGR8,       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_BAYER },
-  { V4L2_PIX_FMT_SGBRG8,       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_BAYER },
-  { V4L2_PIX_FMT_SGRBG8,       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_BAYER },
-  { V4L2_PIX_FMT_SRGGB8,       SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_BAYER },
+  { V4L2_PIX_FMT_SBGGR8,       SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, BAYER },
+  { V4L2_PIX_FMT_SGBRG8,       SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, BAYER },
+  { V4L2_PIX_FMT_SGRBG8,       SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, BAYER },
+  { V4L2_PIX_FMT_SRGGB8,       SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, BAYER },
 
   /* compressed formats */
-  { V4L2_PIX_FMT_MJPEG,        SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_MJPG },
-  { V4L2_PIX_FMT_JPEG,         SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_IMAGE, SPA_MEDIA_SUBTYPE_JPEG },
-  { V4L2_PIX_FMT_PJPG,         SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_DV,           SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_DV },
-  { V4L2_PIX_FMT_MPEG,         SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_MPEGTS },
-  { V4L2_PIX_FMT_H264,         SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_H264 },
-  { V4L2_PIX_FMT_H264_NO_SC,   SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_H264 },
-  { V4L2_PIX_FMT_H264_MVC,     SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_H264 },
-  { V4L2_PIX_FMT_H263,         SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_H263 },
-  { V4L2_PIX_FMT_MPEG1,        SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_MPEG1 },
-  { V4L2_PIX_FMT_MPEG2,        SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_MPEG2 },
-  { V4L2_PIX_FMT_MPEG4,        SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_MPEG4 },
-  { V4L2_PIX_FMT_XVID,         SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_XVID },
-  { V4L2_PIX_FMT_VC1_ANNEX_G,  SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_VC1 },
-  { V4L2_PIX_FMT_VC1_ANNEX_L,  SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_VC1 },
-  { V4L2_PIX_FMT_VP8,          SPA_VIDEO_FORMAT_ENCODED, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_VP8 },
+  { V4L2_PIX_FMT_MJPEG,        SPA_VIDEO_FORMAT_ENCODED,    VIDEO, MJPG },
+  { V4L2_PIX_FMT_JPEG,         SPA_VIDEO_FORMAT_ENCODED,    IMAGE, JPEG },
+  { V4L2_PIX_FMT_PJPG,         SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
+  { V4L2_PIX_FMT_DV,           SPA_VIDEO_FORMAT_ENCODED,    VIDEO, DV },
+  { V4L2_PIX_FMT_MPEG,         SPA_VIDEO_FORMAT_ENCODED,    VIDEO, MPEGTS },
+  { V4L2_PIX_FMT_H264,         SPA_VIDEO_FORMAT_ENCODED,    VIDEO, H264 },
+  { V4L2_PIX_FMT_H264_NO_SC,   SPA_VIDEO_FORMAT_ENCODED,    VIDEO, H264 },
+  { V4L2_PIX_FMT_H264_MVC,     SPA_VIDEO_FORMAT_ENCODED,    VIDEO, H264 },
+  { V4L2_PIX_FMT_H263,         SPA_VIDEO_FORMAT_ENCODED,    VIDEO, H263 },
+  { V4L2_PIX_FMT_MPEG1,        SPA_VIDEO_FORMAT_ENCODED,    VIDEO, MPEG1 },
+  { V4L2_PIX_FMT_MPEG2,        SPA_VIDEO_FORMAT_ENCODED,    VIDEO, MPEG2 },
+  { V4L2_PIX_FMT_MPEG4,        SPA_VIDEO_FORMAT_ENCODED,    VIDEO, MPEG4 },
+  { V4L2_PIX_FMT_XVID,         SPA_VIDEO_FORMAT_ENCODED,    VIDEO, XVID },
+  { V4L2_PIX_FMT_VC1_ANNEX_G,  SPA_VIDEO_FORMAT_ENCODED,    VIDEO, VC1 },
+  { V4L2_PIX_FMT_VC1_ANNEX_L,  SPA_VIDEO_FORMAT_ENCODED,    VIDEO, VC1 },
+  { V4L2_PIX_FMT_VP8,          SPA_VIDEO_FORMAT_ENCODED,    VIDEO, VP8 },
 
   /*  Vendor-specific formats   */
-  { V4L2_PIX_FMT_WNVA,         SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_SN9C10X,      SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_PWC1,         SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { V4L2_PIX_FMT_PWC2,         SPA_VIDEO_FORMAT_UNKNOWN, SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
+  { V4L2_PIX_FMT_WNVA,         SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
+  { V4L2_PIX_FMT_SN9C10X,      SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
+  { V4L2_PIX_FMT_PWC1,         SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
+  { V4L2_PIX_FMT_PWC2,         SPA_VIDEO_FORMAT_UNKNOWN,    VIDEO, RAW },
 };
 
 static const FormatInfo *
@@ -305,35 +325,42 @@ video_format_to_format_info (SpaVideoFormat format)
 #endif
 
 static const FormatInfo *
-find_format_info_by_media_type (SpaMediaType    type,
-                                SpaMediaSubType subtype,
+find_format_info_by_media_type (URI            *uri,
+                                uint32_t        type,
+                                uint32_t        subtype,
                                 SpaVideoFormat  format,
                                 int             startidx)
 {
   int i;
 
   for (i = startidx; i < SPA_N_ELEMENTS (format_info); i++) {
-    if ((format_info[i].media_type == type) &&
-        (format_info[i].media_subtype == subtype) &&
-        (format == SPA_VIDEO_FORMAT_UNKNOWN || format_info[i].format == format))
+    uint32_t media_type, media_subtype, media_format;
+
+    media_type = *SPA_MEMBER (uri, format_info[i].media_type_offset, uint32_t);
+    media_subtype = *SPA_MEMBER (uri, format_info[i].media_subtype_offset, uint32_t);
+    media_format = format_info[i].format;
+
+    if ((media_type == type) &&
+        (media_subtype == subtype) &&
+        (format == SPA_VIDEO_FORMAT_UNKNOWN || media_format == format))
       return &format_info[i];
   }
   return NULL;
 }
 
 static SpaVideoFormat
-enum_filter_format (const SpaFormat *filter, uint32_t index)
+enum_filter_format (URI *uri, const SpaFormat *filter, uint32_t index)
 {
   SpaVideoFormat video_format = SPA_VIDEO_FORMAT_UNKNOWN;
 
-  if ((filter->body.media_type.value == SPA_MEDIA_TYPE_VIDEO ||
-       filter->body.media_type.value == SPA_MEDIA_TYPE_IMAGE)) {
-    if (filter->body.media_subtype.value == SPA_MEDIA_SUBTYPE_RAW) {
+  if ((filter->body.media_type.value == uri->media_types.video ||
+       filter->body.media_type.value == uri->media_types.image)) {
+    if (filter->body.media_subtype.value == uri->media_subtypes.raw) {
       SpaPODProp *p;
       uint32_t n_values;
       const uint32_t *values;
 
-      if (!(p = spa_format_find_prop (filter, SPA_PROP_ID_VIDEO_FORMAT)))
+      if (!(p = spa_format_find_prop (filter, uri->prop_video.format)))
         return SPA_VIDEO_FORMAT_UNKNOWN;
 
       if (p->body.value.type != SPA_POD_TYPE_INT)
@@ -457,6 +484,7 @@ spa_v4l2_enum_format (SpaV4l2Source   *this,
   SpaPODFrame f[2];
   SpaPODProp *prop;
   SpaPODBuilder b = { state->format_buffer, sizeof (state->format_buffer), };
+  uint32_t media_type, media_subtype;
 
   if (spa_v4l2_open (this) < 0)
     return SPA_RESULT_ERROR;
@@ -483,11 +511,12 @@ next_fmtdesc:
     if (filter) {
       SpaVideoFormat video_format;
 
-      video_format = enum_filter_format (filter, state->fmtdesc.index);
+      video_format = enum_filter_format (&this->uri, filter, state->fmtdesc.index);
       if (video_format == SPA_VIDEO_FORMAT_UNKNOWN)
         return SPA_RESULT_ENUM_END;
 
-      info = find_format_info_by_media_type (filter->body.media_type.value,
+      info = find_format_info_by_media_type (&this->uri,
+                                             filter->body.media_type.value,
                                              filter->body.media_subtype.value,
                                              video_format,
                                              0);
@@ -516,7 +545,7 @@ next_frmsize:
       SpaPODProp *p;
 
       /* check if we have a fixed frame size */
-      if (!(p = spa_format_find_prop (filter, SPA_PROP_ID_VIDEO_SIZE)))
+      if (!(p = spa_format_find_prop (filter, this->uri.prop_video.size)))
         goto do_frmsize;
 
       if (p->body.value.type != SPA_POD_TYPE_RECTANGLE)
@@ -549,7 +578,7 @@ do_frmsize:
       uint32_t i, n_values;
 
       /* check if we have a fixed frame size */
-      if (!(p = spa_format_find_prop (filter, SPA_PROP_ID_VIDEO_SIZE)))
+      if (!(p = spa_format_find_prop (filter, this->uri.prop_video.size)))
         goto have_size;
 
       range = p->body.flags & SPA_POD_PROP_RANGE_MASK;
@@ -602,22 +631,25 @@ have_size:
     }
   }
 
-  spa_pod_builder_push_format (&b, &f[0],
-                               info->media_type,
-                               info->media_subtype);
+  media_type = *SPA_MEMBER (&this->uri, info->media_type_offset, uint32_t);
+  media_subtype = *SPA_MEMBER (&this->uri, info->media_subtype_offset, uint32_t);
 
-  if (info->media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
+  spa_pod_builder_push_format (&b, &f[0],
+                               media_type,
+                               media_subtype);
+
+  if (media_subtype == this->uri.media_subtypes.raw) {
     spa_pod_builder_add (&b,
-        PROP (&f[1], SPA_PROP_ID_VIDEO_FORMAT, SPA_POD_TYPE_INT, info->format),
+        PROP (&f[1], this->uri.prop_video.format, SPA_POD_TYPE_INT, info->format),
         0);
   }
   spa_pod_builder_add (&b,
-      PROP (&f[1], SPA_PROP_ID_VIDEO_SIZE, SPA_POD_TYPE_RECTANGLE, state->frmsize.discrete.width,
-                                                                   state->frmsize.discrete.height),
+      PROP (&f[1], this->uri.prop_video.size, SPA_POD_TYPE_RECTANGLE, state->frmsize.discrete.width,
+                                                                      state->frmsize.discrete.height),
       0);
 
   spa_pod_builder_push_prop (&b, &f[1],
-                             SPA_PROP_ID_VIDEO_FRAMERATE,
+                             this->uri.prop_video.framerate,
                              SPA_POD_PROP_RANGE_NONE |
                              SPA_POD_PROP_FLAG_UNSET |
                              SPA_POD_PROP_FLAG_READWRITE);
@@ -645,7 +677,7 @@ have_size:
       uint32_t i, n_values;
       const SpaFraction step = { 1, 1 }, *values;
 
-      if (!(p = spa_format_find_prop (filter, SPA_PROP_ID_VIDEO_FRAMERATE)))
+      if (!(p = spa_format_find_prop (filter, this->uri.prop_video.framerate)))
         goto have_framerate;
 
       if (p->body.value.type != SPA_POD_TYPE_FRACTION)
@@ -744,37 +776,28 @@ spa_v4l2_set_format (SpaV4l2Source *this, SpaVideoInfo *format, bool try_only)
   fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   streamparm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
-  switch (format->media_subtype) {
-    case SPA_MEDIA_SUBTYPE_RAW:
-      video_format = format->info.raw.format;
-      size = &format->info.raw.size;
-      framerate = &format->info.raw.framerate;
-      break;
-    case SPA_MEDIA_SUBTYPE_MJPG:
-    case SPA_MEDIA_SUBTYPE_JPEG:
-      video_format = SPA_VIDEO_FORMAT_ENCODED;
-      size = &format->info.mjpg.size;
-      framerate = &format->info.mjpg.framerate;
-      break;
-    case SPA_MEDIA_SUBTYPE_H264:
-      video_format = SPA_VIDEO_FORMAT_ENCODED;
-      size = &format->info.h264.size;
-      framerate = &format->info.h264.framerate;
-      break;
-    case SPA_MEDIA_SUBTYPE_DV:
-    case SPA_MEDIA_SUBTYPE_MPEGTS:
-    case SPA_MEDIA_SUBTYPE_MPEG1:
-    case SPA_MEDIA_SUBTYPE_MPEG2:
-    case SPA_MEDIA_SUBTYPE_MPEG4:
-    case SPA_MEDIA_SUBTYPE_XVID:
-    case SPA_MEDIA_SUBTYPE_VC1:
-    case SPA_MEDIA_SUBTYPE_VP8:
-    default:
-      video_format = SPA_VIDEO_FORMAT_ENCODED;
-      break;
+  if (format->media_subtype == this->uri.media_subtypes.raw) {
+    video_format = format->info.raw.format;
+    size = &format->info.raw.size;
+    framerate = &format->info.raw.framerate;
+  }
+  else if (format->media_subtype == this->uri.media_subtypes_video.mjpg ||
+           format->media_subtype == this->uri.media_subtypes_video.jpeg) {
+    video_format = SPA_VIDEO_FORMAT_ENCODED;
+    size = &format->info.mjpg.size;
+    framerate = &format->info.mjpg.framerate;
+  }
+  else if (format->media_subtype == this->uri.media_subtypes_video.h264) {
+    video_format = SPA_VIDEO_FORMAT_ENCODED;
+    size = &format->info.h264.size;
+    framerate = &format->info.h264.framerate;
+  }
+  else {
+    video_format = SPA_VIDEO_FORMAT_ENCODED;
   }
 
-  info = find_format_info_by_media_type (format->media_type,
+  info = find_format_info_by_media_type (&this->uri,
+                                         format->media_type,
                                          format->media_subtype,
                                          video_format,
                                          0);

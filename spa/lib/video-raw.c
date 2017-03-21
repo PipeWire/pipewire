@@ -26,107 +26,60 @@
 #include <spa/video/format.h>
 #include <spa/format-builder.h>
 #include <lib/props.h>
-
-typedef struct {
-  uint32_t  key;
-  uint32_t  type;
-  off_t     offset;
-} ParseInfo;
-
-static const ParseInfo raw_parse_info[] = {
-  { SPA_PROP_ID_VIDEO_INFO,               SPA_POD_TYPE_BYTES,     offsetof (SpaVideoInfo, info.raw) },
-  { SPA_PROP_ID_VIDEO_FORMAT,             SPA_POD_TYPE_INT,       offsetof (SpaVideoInfo, info.raw.format) },
-  { SPA_PROP_ID_VIDEO_SIZE,               SPA_POD_TYPE_RECTANGLE, offsetof (SpaVideoInfo, info.raw.size) },
-  { SPA_PROP_ID_VIDEO_FRAMERATE,          SPA_POD_TYPE_FRACTION,  offsetof (SpaVideoInfo, info.raw.framerate) },
-  { SPA_PROP_ID_VIDEO_MAX_FRAMERATE,      SPA_POD_TYPE_FRACTION,  offsetof (SpaVideoInfo, info.raw.max_framerate) },
-  { SPA_PROP_ID_VIDEO_VIEWS,              SPA_POD_TYPE_INT,       offsetof (SpaVideoInfo, info.raw.views) },
-  { SPA_PROP_ID_VIDEO_INTERLACE_MODE,     SPA_POD_TYPE_INT,       offsetof (SpaVideoInfo, info.raw.interlace_mode) },
-  { SPA_PROP_ID_VIDEO_PIXEL_ASPECT_RATIO, SPA_POD_TYPE_FRACTION,  offsetof (SpaVideoInfo, info.raw.pixel_aspect_ratio) },
-  { SPA_PROP_ID_VIDEO_MULTIVIEW_MODE,     SPA_POD_TYPE_INT,       offsetof (SpaVideoInfo, info.raw.multiview_mode) },
-  { SPA_PROP_ID_VIDEO_MULTIVIEW_FLAGS,    SPA_POD_TYPE_INT,       offsetof (SpaVideoInfo, info.raw.multiview_flags) },
-  { SPA_PROP_ID_VIDEO_CHROMA_SITE,        SPA_POD_TYPE_INT,       offsetof (SpaVideoInfo, info.raw.chroma_site) },
-  { SPA_PROP_ID_VIDEO_COLOR_RANGE,        SPA_POD_TYPE_INT,       offsetof (SpaVideoInfo, info.raw.color_range) },
-  { SPA_PROP_ID_VIDEO_COLOR_MATRIX,       SPA_POD_TYPE_INT,       offsetof (SpaVideoInfo, info.raw.color_matrix) },
-  { SPA_PROP_ID_VIDEO_TRANSFER_FUNCTION,  SPA_POD_TYPE_INT,       offsetof (SpaVideoInfo, info.raw.transfer_function) },
-  { SPA_PROP_ID_VIDEO_COLOR_PRIMARIES,    SPA_POD_TYPE_INT,       offsetof (SpaVideoInfo, info.raw.color_primaries) },
-  { 0, }
-};
-
-static const ParseInfo h264_parse_info[] = {
-  { SPA_PROP_ID_VIDEO_INFO,               SPA_POD_TYPE_BYTES,     offsetof (SpaVideoInfo, info.h264) },
-  { SPA_PROP_ID_VIDEO_SIZE,               SPA_POD_TYPE_RECTANGLE, offsetof (SpaVideoInfo, info.h264.size) },
-  { SPA_PROP_ID_VIDEO_FRAMERATE,          SPA_POD_TYPE_FRACTION,  offsetof (SpaVideoInfo, info.h264.framerate) },
-  { SPA_PROP_ID_VIDEO_MAX_FRAMERATE,      SPA_POD_TYPE_FRACTION,  offsetof (SpaVideoInfo, info.h264.max_framerate) },
-  { 0, }
-};
-
-static const ParseInfo mjpg_parse_info[] = {
-  { SPA_PROP_ID_VIDEO_INFO,               SPA_POD_TYPE_BYTES,     offsetof (SpaVideoInfo, info.h264) },
-  { SPA_PROP_ID_VIDEO_SIZE,               SPA_POD_TYPE_RECTANGLE, offsetof (SpaVideoInfo, info.h264.size) },
-  { SPA_PROP_ID_VIDEO_FRAMERATE,          SPA_POD_TYPE_FRACTION,  offsetof (SpaVideoInfo, info.h264.framerate) },
-  { SPA_PROP_ID_VIDEO_MAX_FRAMERATE,      SPA_POD_TYPE_FRACTION,  offsetof (SpaVideoInfo, info.h264.max_framerate) },
-  { 0, }
-};
-
-static const ParseInfo *
-parse_info_find (const ParseInfo *info, uint32_t key, uint32_t type)
-{
-  while (info->key) {
-    if (info->key == key && info->type == type)
-      return info;
-    info++;
-  }
-  return NULL;
-}
+#include <lib/mapper.h>
 
 SpaResult
-spa_format_video_parse (const SpaFormat *format,
-                        SpaVideoInfo    *info)
+spa_format_video_parse (const SpaFormat       *format,
+                        SpaVideoInfo          *info)
 {
-  SpaPODProp *prop;
-  const ParseInfo *pinfo, *find;
+  static SpaMediaTypes media_types = { 0, };
+  static SpaMediaSubtypes media_subtypes = { 0, };
+  static SpaMediaSubtypesVideo media_subtypes_video = { 0, };
+  static SpaPropVideo prop_video = { 0, };
 
-  if (format->body.media_type.value != SPA_MEDIA_TYPE_VIDEO)
+  spa_media_types_fill (&media_types, spa_id_map_get_default ());
+  spa_media_subtypes_map (spa_id_map_get_default (), &media_subtypes);
+  spa_media_subtypes_video_map (spa_id_map_get_default (), &media_subtypes_video);
+  spa_prop_video_map (spa_id_map_get_default (), &prop_video);
+
+  if (format->body.media_type.value != media_types.video)
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
   info->media_type = format->body.media_type.value;
   info->media_subtype = format->body.media_subtype.value;
 
-  switch (info->media_subtype) {
-    case SPA_MEDIA_SUBTYPE_RAW:
-      pinfo = raw_parse_info;
-      break;
-    case SPA_MEDIA_SUBTYPE_H264:
-      pinfo = h264_parse_info;
-      break;
-    case SPA_MEDIA_SUBTYPE_MJPG:
-      pinfo = mjpg_parse_info;
-      break;
-    case SPA_MEDIA_SUBTYPE_DV:
-    case SPA_MEDIA_SUBTYPE_MPEGTS:
-    case SPA_MEDIA_SUBTYPE_H263:
-    case SPA_MEDIA_SUBTYPE_MPEG1:
-    case SPA_MEDIA_SUBTYPE_MPEG2:
-    case SPA_MEDIA_SUBTYPE_MPEG4:
-    case SPA_MEDIA_SUBTYPE_XVID:
-    case SPA_MEDIA_SUBTYPE_VC1:
-    case SPA_MEDIA_SUBTYPE_VP8:
-    case SPA_MEDIA_SUBTYPE_VP9:
-    case SPA_MEDIA_SUBTYPE_JPEG:
-    case SPA_MEDIA_SUBTYPE_BAYER:
-      return SPA_RESULT_NOT_IMPLEMENTED;
+  if (info->media_subtype == media_subtypes.raw)
+    spa_format_query (format,
+        prop_video.format,             SPA_POD_TYPE_INT,       &info->info.raw.format,
+        prop_video.size,               SPA_POD_TYPE_RECTANGLE, &info->info.raw.size,
+        prop_video.framerate,          SPA_POD_TYPE_FRACTION,  &info->info.raw.framerate,
+        prop_video.max_framerate,      SPA_POD_TYPE_FRACTION,  &info->info.raw.max_framerate,
+        prop_video.views,              SPA_POD_TYPE_INT,       &info->info.raw.views,
+        prop_video.interlace_mode,     SPA_POD_TYPE_INT,       &info->info.raw.interlace_mode,
+        prop_video.pixel_aspect_ratio, SPA_POD_TYPE_FRACTION,  &info->info.raw.pixel_aspect_ratio,
+        prop_video.multiview_mode,     SPA_POD_TYPE_INT,       &info->info.raw.multiview_mode,
+        prop_video.multiview_flags,    SPA_POD_TYPE_INT,       &info->info.raw.multiview_flags,
+        prop_video.chroma_site,        SPA_POD_TYPE_INT,       &info->info.raw.chroma_site,
+        prop_video.color_range,        SPA_POD_TYPE_INT,       &info->info.raw.color_range,
+        prop_video.color_matrix,       SPA_POD_TYPE_INT,       &info->info.raw.color_matrix,
+        prop_video.transfer_function,  SPA_POD_TYPE_INT,       &info->info.raw.transfer_function,
+        prop_video.color_primaries,    SPA_POD_TYPE_INT,       &info->info.raw.color_primaries,
+        0);
+  else if (info->media_subtype == media_subtypes_video.h264)
+    spa_format_query (format,
+        prop_video.size,               SPA_POD_TYPE_RECTANGLE, &info->info.h264.size,
+        prop_video.framerate,          SPA_POD_TYPE_FRACTION,  &info->info.h264.framerate,
+        prop_video.max_framerate,      SPA_POD_TYPE_FRACTION,  &info->info.h264.max_framerate,
+        0);
+  else if (info->media_subtype == media_subtypes_video.mjpg)
+    spa_format_query (format,
+        prop_video.size,               SPA_POD_TYPE_RECTANGLE, &info->info.mjpg.size,
+        prop_video.framerate,          SPA_POD_TYPE_FRACTION,  &info->info.mjpg.framerate,
+        prop_video.max_framerate,      SPA_POD_TYPE_FRACTION,  &info->info.mjpg.max_framerate,
+        0);
+  else
+    return SPA_RESULT_NOT_IMPLEMENTED;
 
-    default:
-      return SPA_RESULT_INVALID_ARGUMENTS;
-  }
-
-  SPA_FORMAT_FOREACH (format, prop) {
-    if ((find = parse_info_find (pinfo, prop->body.key, prop->body.value.type))) {
-      memcpy (SPA_MEMBER (info, find->offset, void),
-              SPA_POD_BODY (&prop->body.value),
-              SPA_POD_BODY_SIZE (&prop->body.value));
-    }
-  }
   return SPA_RESULT_OK;
 }
 

@@ -144,8 +144,8 @@ drawing_data_init (DrawingData *dd,
   SpaVideoInfo *format = &this->current_format;
   SpaRectangle *size = &format->info.raw.size;
 
-  if ((format->media_type != SPA_MEDIA_TYPE_VIDEO) ||
-      (format->media_subtype != SPA_MEDIA_SUBTYPE_RAW))
+  if ((format->media_type != this->uri.media_types.video) ||
+      (format->media_subtype != this->uri.media_subtypes.raw))
     return SPA_RESULT_NOT_IMPLEMENTED;
 
   switch (format->info.raw.format) {

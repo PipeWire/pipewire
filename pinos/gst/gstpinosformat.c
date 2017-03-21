@@ -23,6 +23,7 @@
 #include <gst/video/video.h>
 #include <gst/audio/audio.h>
 
+#include <spa/lib/mapper.h>
 #include <spa/include/spa/video/format.h>
 #include <spa/include/spa/audio/format.h>
 #include <spa/include/spa/format.h>
@@ -32,15 +33,33 @@
 
 typedef struct {
   const char *name;
-  uint32_t media_type;
-  uint32_t media_subtype;
+  uint32_t *media_type;
+  uint32_t *media_subtype;
 } MediaType;
 
-static const MediaType media_types[] = {
-  { "video/x-raw", SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW },
-  { "audio/x-raw", SPA_MEDIA_TYPE_AUDIO, SPA_MEDIA_SUBTYPE_RAW },
-  { "image/jpeg", SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_MJPG },
-  { "video/x-h264", SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_H264 },
+static SpaMediaTypes media_types = { 0, };
+static SpaMediaSubtypes media_subtypes = { 0, };
+static SpaMediaSubtypesVideo media_subtypes_video = { 0, };
+static SpaMediaSubtypesAudio media_subtypes_audio = { 0, };
+static SpaPropVideo prop_video = { 0, };
+static SpaPropAudio prop_audio = { 0, };
+
+static void
+ensure_types (void)
+{
+  spa_media_types_fill (&media_types, spa_id_map_get_default ());
+  spa_media_subtypes_map (spa_id_map_get_default (), &media_subtypes);
+  spa_media_subtypes_video_map (spa_id_map_get_default (), &media_subtypes_video);
+  spa_media_subtypes_audio_map (spa_id_map_get_default (), &media_subtypes_audio);
+  spa_prop_video_map (spa_id_map_get_default (), &prop_video);
+  spa_prop_audio_map (spa_id_map_get_default (), &prop_audio);
+}
+
+static const MediaType media_type_map[] = {
+  { "video/x-raw", &media_types.video, &media_subtypes.raw },
+  { "audio/x-raw", &media_types.audio, &media_subtypes.raw },
+  { "image/jpeg", &media_types.video, &media_subtypes_video.mjpg },
+  { "video/x-h264", &media_types.video, &media_subtypes_video.h264 },
   { NULL, }
 };
 
@@ -55,9 +74,9 @@ static const MediaType *
 find_media_types (const char *name)
 {
   int i;
-  for (i = 0; media_types[i].name; i++) {
-    if (!strcmp (media_types[i].name, name))
-      return &media_types[i];
+  for (i = 0; media_type_map[i].name; i++) {
+    if (!strcmp (media_type_map[i].name, name))
+      return &media_type_map[i];
   }
   return NULL;
 }
@@ -229,7 +248,7 @@ handle_video_fields (ConvertData *d)
     for (i = 0; (v = get_nth_string (value, i)); i++) {
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
-                                   SPA_PROP_ID_VIDEO_FORMAT,
+                                   prop_video.format,
                                    get_range_type (value) | SPA_POD_PROP_FLAG_READWRITE);
 
       spa_pod_builder_int (&d->b, gst_video_format_from_string (v));
@@ -245,7 +264,7 @@ handle_video_fields (ConvertData *d)
     for (i = 0; get_nth_rectangle (value, value2, i, &v); i++) {
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
-                                   SPA_PROP_ID_VIDEO_SIZE,
+                                   prop_video.size,
                                    get_range_type2 (value, value2) | SPA_POD_PROP_FLAG_READWRITE);
 
       spa_pod_builder_rectangle (&d->b, v.width, v.height);
@@ -261,7 +280,7 @@ handle_video_fields (ConvertData *d)
     for (i = 0; get_nth_fraction (value, i, &v); i++) {
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
-                                   SPA_PROP_ID_VIDEO_FRAMERATE,
+                                   prop_video.framerate,
                                    get_range_type (value) | SPA_POD_PROP_FLAG_READWRITE);
 
       spa_pod_builder_fraction (&d->b, v.num, v.denom);
@@ -286,7 +305,7 @@ handle_audio_fields (ConvertData *d)
     for (i = 0; (v = get_nth_string (value, i)); i++) {
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
-                                   SPA_PROP_ID_AUDIO_FORMAT,
+                                   prop_audio.format,
                                    get_range_type (value) | SPA_POD_PROP_FLAG_READWRITE);
 
       spa_pod_builder_int (&d->b, gst_audio_format_from_string (v));
@@ -311,7 +330,7 @@ handle_audio_fields (ConvertData *d)
 
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
-                                   SPA_PROP_ID_AUDIO_LAYOUT,
+                                   prop_audio.layout,
                                    get_range_type (value) | SPA_POD_PROP_FLAG_READWRITE);
 
       spa_pod_builder_int (&d->b, layout);
@@ -326,7 +345,7 @@ handle_audio_fields (ConvertData *d)
     for (i = 0; get_nth_int (value, i, &v); i++) {
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
-                                   SPA_PROP_ID_AUDIO_RATE,
+                                   prop_audio.rate,
                                    get_range_type (value) | SPA_POD_PROP_FLAG_READWRITE);
 
       spa_pod_builder_int (&d->b, v);
@@ -341,7 +360,7 @@ handle_audio_fields (ConvertData *d)
     for (i = 0; get_nth_int (value, i, &v); i++) {
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
-                                   SPA_PROP_ID_AUDIO_CHANNELS,
+                                   prop_audio.channels,
                                    get_range_type (value) | SPA_POD_PROP_FLAG_READWRITE);
 
       spa_pod_builder_int (&d->b, v);
@@ -383,12 +402,12 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
   d.b.write = write_pod;
 
   spa_pod_builder_push_format (&d.b, &f,
-                               d.type->media_type,
-                               d.type->media_subtype);
+                               *d.type->media_type,
+                               *d.type->media_subtype);
 
-  if (d.type->media_type == SPA_MEDIA_TYPE_VIDEO)
+  if (*d.type->media_type == media_types.video)
     handle_video_fields (&d);
-  else if (d.type->media_type == SPA_MEDIA_TYPE_AUDIO)
+  else if (*d.type->media_type == media_types.audio)
     handle_audio_fields (&d);
 
   spa_pod_builder_pop (&d.b, &f);
@@ -405,6 +424,8 @@ gst_caps_to_format (GstCaps *caps, guint index)
 
   g_return_val_if_fail (GST_IS_CAPS (caps), NULL);
   g_return_val_if_fail (gst_caps_is_fixed (caps), NULL);
+
+  ensure_types();
 
   f = gst_caps_get_features (caps, index);
   s = gst_caps_get_structure (caps, index);
@@ -433,6 +454,8 @@ gst_caps_to_format_all (GstCaps *caps)
 {
   GPtrArray *res;
 
+  ensure_types();
+
   res = g_ptr_array_new_full (gst_caps_get_size (caps), (GDestroyNotify)g_free);
   gst_caps_foreach (caps, (GstCapsForeachFunc) foreach_func, res);
 
@@ -445,16 +468,18 @@ gst_caps_from_format (const SpaFormat *format)
   GstCaps *res = NULL;
   uint32_t media_type, media_subtype;
 
+  ensure_types();
+
   media_type = format->body.media_type.value;
   media_subtype = format->body.media_subtype.value;
 
-  if (media_type == SPA_MEDIA_TYPE_VIDEO) {
+  if (media_type == media_types.video) {
     SpaVideoInfo f;
 
     if (spa_format_video_parse (format, &f) < 0)
       return NULL;
 
-    if (media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
+    if (media_subtype == media_subtypes.raw) {
       res = gst_caps_new_simple ("video/x-raw",
           "format", G_TYPE_STRING, gst_video_format_to_string (f.info.raw.format),
           "width", G_TYPE_INT, f.info.raw.size.width,
@@ -462,14 +487,14 @@ gst_caps_from_format (const SpaFormat *format)
           "framerate", GST_TYPE_FRACTION, f.info.raw.framerate.num, f.info.raw.framerate.denom,
           NULL);
     }
-    else if (media_subtype == SPA_MEDIA_SUBTYPE_MJPG) {
+    else if (media_subtype == media_subtypes_video.mjpg) {
       res = gst_caps_new_simple ("image/jpeg",
           "width", G_TYPE_INT, f.info.mjpg.size.width,
           "height", G_TYPE_INT, f.info.mjpg.size.height,
           "framerate", GST_TYPE_FRACTION, f.info.mjpg.framerate.num, f.info.mjpg.framerate.denom,
           NULL);
     }
-    else if (media_subtype == SPA_MEDIA_SUBTYPE_H264) {
+    else if (media_subtype == media_subtypes_video.h264) {
       res = gst_caps_new_simple ("video/x-h264",
           "width", G_TYPE_INT, f.info.h264.size.width,
           "height", G_TYPE_INT, f.info.h264.size.height,
@@ -478,13 +503,13 @@ gst_caps_from_format (const SpaFormat *format)
           "alignment", G_TYPE_STRING, "au",
           NULL);
     }
-  } else if (media_type == SPA_MEDIA_TYPE_AUDIO) {
+  } else if (media_type == media_types.audio) {
     SpaAudioInfo f;
 
     if (spa_format_audio_parse (format, &f) < 0)
       return NULL;
 
-    if (media_subtype == SPA_MEDIA_SUBTYPE_RAW) {
+    if (media_subtype == media_subtypes.raw) {
       res = gst_caps_new_simple ("audio/x-raw",
           "format", G_TYPE_STRING, gst_audio_format_to_string (f.info.raw.format),
           "layout", G_TYPE_STRING, "interleaved",

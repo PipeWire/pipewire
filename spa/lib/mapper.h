@@ -26,6 +26,7 @@ extern "C" {
 
 #include <spa/id-map.h>
 
+void       spa_id_map_set_default (SpaIDMap *map);
 SpaIDMap * spa_id_map_get_default (void);
 
 #ifdef __cplusplus

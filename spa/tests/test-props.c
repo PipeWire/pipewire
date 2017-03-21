@@ -40,19 +40,19 @@
  */
 
 spa_build (SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW,
-           SPA_PROP_ID_VIDEO_FORMAT,    SPA_PROP_TYPE_INT,
+           prop_video.format,    SPA_PROP_TYPE_INT,
                                                 SPA_VIDEO_FORMAT_I420
                                         SPA_POD_PROP_FLAG_UNSET |
                                         SPA_PROP_RANGE_ENUM, 2,
                                                 SPA_VIDEO_FORMAT_I420,
                                                 SPA_VIDEO_FORMAT_YUY2,
-           SPA_PROP_ID_VIDEO_SIZE  ,    SPA_PROP_TYPE_RECTANGLE,
+           prop_video.size  ,    SPA_PROP_TYPE_RECTANGLE,
                                                 320, 240,
                                         SPA_POD_PROP_FLAG_UNSET |
                                         SPA_PROP_RANGE_MIN_MAX,
                                                 1, 1,
                                                 INT32_MAX, INT32_MAX,
-           SPA_PROP_ID_VIDEO_FRAMERATE, SPA_PROP_TYPE_FRACTION, 25, 1,
+           prop_video.framerate, SPA_PROP_TYPE_FRACTION, 25, 1,
                                         SPA_POD_PROP_FLAG_UNSET |
                                         SPA_PROP_RANGE_MIN_MAX,
                                                 0, 1,
@@ -60,61 +60,85 @@ spa_build (SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW,
            0);
 #endif
 
-static const struct _test_format {
-  SpaFormat fmt;
+static SpaMediaTypes media_types;
+static SpaMediaSubtypes media_subtypes;
+static SpaPropVideo prop_video;
 
-  struct {
-    SpaPODProp prop_format;
+static void
+do_static_struct (void)
+{
+  struct _test_format {
+    SpaFormat fmt;
+
     struct {
-      uint32_t def_format;
-      uint32_t enum_format[2];
-    } format_vals;
-    uint32_t pad;
+      SpaPODProp prop_format;
+      struct {
+        uint32_t def_format;
+        uint32_t enum_format[2];
+      } format_vals;
+      uint32_t pad;
 
-    SpaPODProp prop_size;
-    struct {
-      SpaRectangle def_size;
-      SpaRectangle min_size;
-      SpaRectangle max_size;
-    } size_vals;
+      SpaPODProp prop_size;
+      struct {
+        SpaRectangle def_size;
+        SpaRectangle min_size;
+        SpaRectangle max_size;
+      } size_vals;
 
-    SpaPODProp prop_framerate;
-    struct {
-      SpaFraction def_framerate;
-      SpaFraction min_framerate;
-      SpaFraction max_framerate;
-    } framerate_vals;
-  } props;
-} test_format = {
-  { { sizeof (test_format.props) + sizeof (SpaFormatBody), SPA_POD_TYPE_OBJECT },
-    { { 0, 0 },
-    { { sizeof (uint32_t), SPA_POD_TYPE_INT }, SPA_MEDIA_TYPE_VIDEO },
-    { { sizeof (uint32_t), SPA_POD_TYPE_INT }, SPA_MEDIA_SUBTYPE_RAW } },
-  }, {
-  { { sizeof (test_format.props.format_vals) + sizeof (SpaPODPropBody),
-      SPA_POD_TYPE_PROP } ,
-    { SPA_PROP_ID_VIDEO_FORMAT, SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET,
-      { sizeof (uint32_t), SPA_POD_TYPE_INT } }, },
-        { SPA_VIDEO_FORMAT_I420,
-         { SPA_VIDEO_FORMAT_I420, SPA_VIDEO_FORMAT_YUY2 } }, 0,
+      SpaPODProp prop_framerate;
+      struct {
+        SpaFraction def_framerate;
+        SpaFraction min_framerate;
+        SpaFraction max_framerate;
+      } framerate_vals;
+    } props;
+  } test_format = {
+    { { sizeof (test_format.props) + sizeof (SpaFormatBody), SPA_POD_TYPE_OBJECT },
+      { { 0, 0 },
+      { { sizeof (uint32_t), SPA_POD_TYPE_URI }, media_types.video },
+      { { sizeof (uint32_t), SPA_POD_TYPE_URI }, media_subtypes.raw } },
+    }, {
+    { { sizeof (test_format.props.format_vals) + sizeof (SpaPODPropBody),
+        SPA_POD_TYPE_PROP } ,
+      { prop_video.format, SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET,
+        { sizeof (uint32_t), SPA_POD_TYPE_INT } }, },
+          { SPA_VIDEO_FORMAT_I420,
+           { SPA_VIDEO_FORMAT_I420, SPA_VIDEO_FORMAT_YUY2 } }, 0,
 
-  { { sizeof (test_format.props.size_vals) + sizeof (SpaPODPropBody),
-      SPA_POD_TYPE_PROP } ,
-    { SPA_PROP_ID_VIDEO_SIZE, SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET,
-      { sizeof (SpaRectangle), SPA_POD_TYPE_RECTANGLE } }, },
-        { { 320, 243 },
-          { 1, 1 },
-          { INT32_MAX, INT32_MAX } },
+    { { sizeof (test_format.props.size_vals) + sizeof (SpaPODPropBody),
+        SPA_POD_TYPE_PROP } ,
+      { prop_video.size, SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET,
+        { sizeof (SpaRectangle), SPA_POD_TYPE_RECTANGLE } }, },
+          { { 320, 243 },
+            { 1, 1 },
+            { INT32_MAX, INT32_MAX } },
 
-  { { sizeof (test_format.props.framerate_vals) + sizeof (SpaPODPropBody),
-      SPA_POD_TYPE_PROP } ,
-    { SPA_PROP_ID_VIDEO_FRAMERATE, SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET,
-      { sizeof (SpaFraction), SPA_POD_TYPE_FRACTION } }, },
-        { { 25, 1 },
-          { 0, 1 },
-          { INT32_MAX, 1 } },
+    { { sizeof (test_format.props.framerate_vals) + sizeof (SpaPODPropBody),
+        SPA_POD_TYPE_PROP } ,
+      { prop_video.framerate, SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET,
+        { sizeof (SpaFraction), SPA_POD_TYPE_FRACTION } }, },
+          { { 25, 1 },
+            { 0, 1 },
+            { INT32_MAX, 1 } },
+    }
+  };
+
+  spa_debug_pod (&test_format.fmt.pod);
+  spa_debug_format (&test_format.fmt);
+
+  {
+    uint32_t format = 0, match;
+    SpaFraction frac = { 0, 0 };
+
+    match = spa_pod_contents_query (&test_format.fmt.pod, sizeof (SpaFormat),
+        prop_video.format,    SPA_POD_TYPE_INT, &format,
+        prop_video.framerate, SPA_POD_TYPE_FRACTION, &frac,
+        0);
+
+    printf ("%d %d %d %d\n", match, format, frac.num, frac.denom);
   }
-};
+
+}
 
 int
 main (int argc, char *argv[])
@@ -124,13 +148,17 @@ main (int argc, char *argv[])
   uint8_t buffer[1024];
   SpaFormat *fmt;
 
+  spa_media_types_fill (&media_types, spa_id_map_get_default());
+  spa_media_subtypes_map (spa_id_map_get_default(), &media_subtypes);
+  spa_prop_video_map (spa_id_map_get_default(), &prop_video);
+
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
 
   fmt = SPA_MEMBER (buffer, spa_pod_builder_push_format (&b, &frame[0],
-                                                         SPA_MEDIA_TYPE_VIDEO,
-                                                         SPA_MEDIA_SUBTYPE_RAW), SpaFormat);
+                                                         media_types.video,
+                                                         media_subtypes.raw), SpaFormat);
   spa_pod_builder_push_prop (&b, &frame[1],
-                             SPA_PROP_ID_VIDEO_FORMAT,
+                             prop_video.format,
                              SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE);
   spa_pod_builder_int (&b, SPA_VIDEO_FORMAT_I420);
   spa_pod_builder_int (&b, SPA_VIDEO_FORMAT_I420);
@@ -139,7 +167,7 @@ main (int argc, char *argv[])
 
   SpaRectangle size_min_max[] = { { 1, 1 }, { INT32_MAX, INT32_MAX } };
   spa_pod_builder_push_prop (&b, &frame[1],
-                             SPA_PROP_ID_VIDEO_SIZE,
+                             prop_video.size,
                              SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE);
   spa_pod_builder_rectangle (&b, 320, 240);
   spa_pod_builder_raw (&b, size_min_max, sizeof(size_min_max));
@@ -147,7 +175,7 @@ main (int argc, char *argv[])
 
   SpaFraction rate_min_max[] = { { 0, 1 }, { INT32_MAX, 1 } };
   spa_pod_builder_push_prop (&b, &frame[1],
-                             SPA_PROP_ID_VIDEO_FRAMERATE,
+                             prop_video.framerate,
                              SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE);
   spa_pod_builder_fraction (&b, 25, 1);
   spa_pod_builder_raw (&b, rate_min_max, sizeof(rate_min_max));
@@ -160,9 +188,9 @@ main (int argc, char *argv[])
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
 
   spa_pod_builder_format (&b, &frame[0],
-       SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW,
+       media_types.video, media_subtypes.raw,
        SPA_POD_TYPE_PROP, &frame[1],
-           SPA_PROP_ID_VIDEO_FORMAT,    SPA_POD_PROP_FLAG_UNSET |
+           prop_video.format,    SPA_POD_PROP_FLAG_UNSET |
                                         SPA_POD_PROP_RANGE_ENUM,
                                         SPA_POD_TYPE_INT, 3,
                                                 SPA_VIDEO_FORMAT_I420,
@@ -170,7 +198,7 @@ main (int argc, char *argv[])
                                                 SPA_VIDEO_FORMAT_YUY2,
       -SPA_POD_TYPE_PROP, &frame[1],
        SPA_POD_TYPE_PROP, &frame[1],
-           SPA_PROP_ID_VIDEO_SIZE,      SPA_POD_PROP_FLAG_UNSET |
+           prop_video.size,      SPA_POD_PROP_FLAG_UNSET |
                                         SPA_POD_PROP_RANGE_MIN_MAX,
                                         SPA_POD_TYPE_RECTANGLE, 3,
                                                 320, 241,
@@ -178,7 +206,7 @@ main (int argc, char *argv[])
                                                 INT32_MAX, INT32_MAX,
       -SPA_POD_TYPE_PROP, &frame[1],
        SPA_POD_TYPE_PROP, &frame[1],
-           SPA_PROP_ID_VIDEO_FRAMERATE, SPA_POD_PROP_FLAG_UNSET |
+           prop_video.framerate, SPA_POD_PROP_FLAG_UNSET |
                                         SPA_POD_PROP_RANGE_MIN_MAX,
                                         SPA_POD_TYPE_FRACTION, 3,
                                                 25, 1,
@@ -194,10 +222,10 @@ main (int argc, char *argv[])
 
   spa_pod_builder_add (&b,
       SPA_POD_TYPE_OBJECT, &frame[0], 0, 0,
-      SPA_POD_TYPE_INT, SPA_MEDIA_TYPE_VIDEO,
-      SPA_POD_TYPE_INT, SPA_MEDIA_SUBTYPE_RAW,
+      SPA_POD_TYPE_URI, media_types.video,
+      SPA_POD_TYPE_URI, media_subtypes.raw,
       SPA_POD_TYPE_PROP, &frame[1],
-            SPA_PROP_ID_VIDEO_FORMAT, SPA_POD_PROP_FLAG_UNSET |
+            prop_video.format, SPA_POD_PROP_FLAG_UNSET |
                                       SPA_POD_PROP_RANGE_ENUM,
                                       SPA_POD_TYPE_INT, 3,
                                             SPA_VIDEO_FORMAT_I420,
@@ -205,7 +233,7 @@ main (int argc, char *argv[])
                                             SPA_VIDEO_FORMAT_YUY2,
     -SPA_POD_TYPE_PROP, &frame[1],
      SPA_POD_TYPE_PROP, &frame[1],
-           SPA_PROP_ID_VIDEO_SIZE,    SPA_POD_PROP_FLAG_UNSET |
+           prop_video.size,    SPA_POD_PROP_FLAG_UNSET |
                                       SPA_POD_PROP_RANGE_MIN_MAX,
                                       SPA_POD_TYPE_RECTANGLE, 3,
                                                 320, 242,
@@ -213,7 +241,7 @@ main (int argc, char *argv[])
                                                 INT32_MAX, INT32_MAX,
     -SPA_POD_TYPE_PROP, &frame[1],
      SPA_POD_TYPE_PROP, &frame[1],
-           SPA_PROP_ID_VIDEO_FRAMERATE, SPA_POD_PROP_FLAG_UNSET |
+           prop_video.framerate, SPA_POD_PROP_FLAG_UNSET |
                                         SPA_POD_PROP_RANGE_MIN_MAX,
                                         SPA_POD_TYPE_FRACTION, 3,
                                                 25, 1,
@@ -227,20 +255,7 @@ main (int argc, char *argv[])
   spa_debug_pod (&fmt->pod);
   spa_debug_format (fmt);
 
-  spa_debug_pod (&test_format.fmt.pod);
-  spa_debug_format (&test_format.fmt);
-
-  {
-    uint32_t format = 0, match;
-    SpaFraction frac = { 0, 0 };
-
-    match = spa_pod_contents_query (&test_format.fmt.pod, sizeof (SpaFormat),
-        SPA_PROP_ID_VIDEO_FORMAT,    SPA_POD_TYPE_INT, &format,
-        SPA_PROP_ID_VIDEO_FRAMERATE, SPA_POD_TYPE_FRACTION, &frac,
-        0);
-
-    printf ("%d %d %d %d\n", match, format, frac.num, frac.denom);
-  }
+  do_static_struct ();
 
   return 0;
 }

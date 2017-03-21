@@ -109,7 +109,7 @@ spa_alsa_source_node_get_props (SpaNode       *node,
 
 static SpaResult
 spa_alsa_source_node_set_props (SpaNode         *node,
-                              const SpaProps  *props)
+                                const SpaProps  *props)
 {
   SpaALSASource *this;
 
@@ -359,17 +359,17 @@ next:
   switch (index++) {
     case 0:
       spa_pod_builder_format (&b, &f[0],
-         SPA_MEDIA_TYPE_AUDIO, SPA_MEDIA_SUBTYPE_RAW,
-         PROP_U_EN (&f[1], SPA_PROP_ID_AUDIO_FORMAT,   SPA_POD_TYPE_INT, 3, SPA_AUDIO_FORMAT_S16,
-                                                                            SPA_AUDIO_FORMAT_S16,
-                                                                            SPA_AUDIO_FORMAT_S32),
-         PROP_U_MM (&f[1], SPA_PROP_ID_AUDIO_RATE,     SPA_POD_TYPE_INT, 44100, 1, INT32_MAX),
-         PROP_U_MM (&f[1], SPA_PROP_ID_AUDIO_CHANNELS, SPA_POD_TYPE_INT, 2,     1, INT32_MAX));
+          this->uri.media_types.audio, this->uri.media_subtypes.raw,
+          PROP_U_EN (&f[1], this->uri.prop_audio.format,   SPA_POD_TYPE_INT, 3, SPA_AUDIO_FORMAT_S16,
+                                                                                  SPA_AUDIO_FORMAT_S16,
+                                                                                  SPA_AUDIO_FORMAT_S32),
+          PROP_U_MM (&f[1], this->uri.prop_audio.rate,     SPA_POD_TYPE_INT, 44100, 1, INT32_MAX),
+          PROP_U_MM (&f[1], this->uri.prop_audio.channels, SPA_POD_TYPE_INT, 2,     1, INT32_MAX));
       break;
     case 1:
       spa_pod_builder_format (&b, &f[0],
-         SPA_MEDIA_TYPE_AUDIO, SPA_MEDIA_SUBTYPE_AAC,
-           0);
+         this->uri.media_types.audio, this->uri.media_subtypes_audio.aac,
+           SPA_POD_TYPE_NONE);
     default:
       return SPA_RESULT_ENUM_END;
   }
@@ -860,6 +860,11 @@ alsa_source_init (const SpaHandleFactory  *factory,
   }
   this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
   this->uri.clock = spa_id_map_get_id (this->map, SPA_CLOCK_URI);
+
+  spa_media_types_fill (&this->uri.media_types, this->map);
+  spa_media_subtypes_map (this->map, &this->uri.media_subtypes);
+  spa_media_subtypes_audio_map (this->map, &this->uri.media_subtypes_audio);
+  spa_prop_audio_map (this->map, &this->uri.prop_audio);
 
   this->node = alsasource_node;
   this->clock = alsasource_clock;

@@ -341,30 +341,18 @@ spa_pod_builder_addv (SpaPODBuilder *builder,
   uint32_t body_size;
   static const uint64_t zeroes = 0;
 
-  while (type != 0) {
+  while (type != SPA_POD_TYPE_INVALID) {
     SpaPODFrame *f = NULL;
     const void *data[3];
     uint32_t size[3], ref, i, n_sizes = 0;
 
     switch (type) {
-      case SPA_POD_TYPE_INVALID:
+      case SPA_POD_TYPE_NONE:
         break;
       case SPA_POD_TYPE_BOOL:
-        head.bool_pod.pod.type = SPA_POD_TYPE_BOOL;
-        head.bool_pod.pod.size = body_size = sizeof (uint32_t);
-        head.bool_pod.value = va_arg (args, int);
-        head_size = sizeof (SpaPOD);
-        body = &head.bool_pod.value;
-        goto primitive;
       case SPA_POD_TYPE_URI:
-        head.uri_pod.pod.type = SPA_POD_TYPE_URI;
-        head.uri_pod.pod.size = body_size = sizeof (uint32_t);
-        head.uri_pod.value = va_arg (args, int);
-        head_size = sizeof (SpaPOD);
-        body = &head.uri_pod.value;
-        goto primitive;
       case SPA_POD_TYPE_INT:
-        head.int_pod.pod.type = SPA_POD_TYPE_INT;
+        head.int_pod.pod.type = type;
         head.int_pod.pod.size = body_size = sizeof (uint32_t);
         head.int_pod.value = va_arg (args, int);
         head_size = sizeof (SpaPOD);

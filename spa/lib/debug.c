@@ -19,6 +19,7 @@
 
 #include <stdio.h>
 
+#include <lib/mapper.h>
 #include "debug.h"
 
 static const struct meta_type_name {
@@ -180,92 +181,12 @@ spa_debug_props (const SpaProps *props, bool print_ranges)
   return SPA_RESULT_OK;
 }
 
-static const char* media_audio_prop_names[] = {
-  "info",
-  "format",
-  "flags",
-  "layout",
-  "rate",
-  "channels",
-  "channel-mask",
-};
-
-static const char* media_video_prop_names[] = {
-  "info",
-  "format",
-  "size",
-  "framerate",
-  "max-framerate",
-  "views",
-  "interlace-mode",
-  "pixel-aspect-ratio",
-  "multiview-mode",
-  "multiview-flags",
-  "chroma-site",
-  "color-range",
-  "color-matrix",
-  "transfer-function",
-  "color-primaries",
-  "profile",
-  "stream-format",
-  "alignment",
-};
-
-static const struct media_type_name {
-  const char *name;
-  unsigned int first;
-  unsigned int last;
-  unsigned int idx;
-  const char **prop_names;
-} media_type_names[] = {
-  { "invalid", 0, 0, 0 },
-  { "audio", SPA_MEDIA_SUBTYPE_AUDIO_FIRST, SPA_MEDIA_SUBTYPE_AUDIO_LAST, 16, media_audio_prop_names },
-  { "video", SPA_MEDIA_SUBTYPE_VIDEO_FIRST, SPA_MEDIA_SUBTYPE_VIDEO_LAST, 2, media_video_prop_names },
-  { "image", 0, 0 },
-};
-
-
-static const struct media_subtype_name {
-  const char *name;
-} media_subtype_names[] = {
-  { "invalid" },
-
-  { "raw" },
-
-  { "h264" },
-  { "mjpg" },
-  { "dv" },
-  { "mpegts" },
-  { "h263" },
-  { "mpeg1" },
-  { "mpeg2" },
-  { "mpeg4" },
-  { "xvid" },
-  { "vc1" },
-  { "vp8" },
-  { "vp9" },
-  { "jpeg" },
-  { "bayer" },
-
-  { "mp3" },
-  { "aac" },
-  { "vorbis" },
-  { "wma" },
-  { "ra" },
-  { "sbc" },
-  { "adpcm" },
-  { "g723" },
-  { "g726" },
-  { "g729" },
-  { "amr" },
-  { "gsm" },
-};
-
 struct pod_type_name {
   const char *name;
   const char *CCName;
 } pod_type_names[] = {
   { "invalid", "*Invalid*" },
+  { "ignored", "ignored" },
   { "bool", "Bool" },
   { "uri", "URI" },
   { "int", "Int" },
@@ -291,7 +212,8 @@ print_pod_value (uint32_t size, uint32_t type, void *body, int prefix)
       printf ("%-*sBool %d\n", prefix, "", *(int32_t *) body);
       break;
     case SPA_POD_TYPE_URI:
-      printf ("%-*sURI %d\n", prefix, "", *(int32_t *) body);
+      printf ("%-*sURI %d %s\n", prefix, "", *(int32_t *) body,
+          spa_id_map_get_uri (spa_id_map_get_default(), *(int32_t*)body));
       break;
     case SPA_POD_TYPE_INT:
       printf ("%-*sInt %d\n", prefix, "", *(int32_t *) body);
@@ -357,7 +279,8 @@ print_pod_value (uint32_t size, uint32_t type, void *body, int prefix)
       void *alt;
       int i;
 
-      printf ("%-*sProp: key %d, flags %d\n", prefix, "", b->key, b->flags);
+      printf ("%-*sProp: key %s, flags %d\n", prefix, "",
+          spa_id_map_get_uri (spa_id_map_get_default(), b->key), b->flags);
       if (b->flags & SPA_POD_PROP_FLAG_UNSET)
         printf ("%-*sUnset (Default):\n", prefix + 2, "");
       else
@@ -441,10 +364,9 @@ print_format_value (uint32_t size, uint32_t type, void *body)
 SpaResult
 spa_debug_format (const SpaFormat *format)
 {
-  int i, first, last, idx;
+  int i;
   const char *media_type;
   const char *media_subtype;
-  const char **prop_names;
   SpaPODProp *prop;
   uint32_t mtype, mstype;
 
@@ -454,35 +376,22 @@ spa_debug_format (const SpaFormat *format)
   mtype = format->body.media_type.value;
   mstype = format->body.media_subtype.value;
 
-  if (mtype > 0 && mtype < SPA_N_ELEMENTS (media_type_names)) {
-    media_type = media_type_names[mtype].name;
-    first = media_type_names[mtype].first;
-    last = media_type_names[mtype].last;
-    idx = media_type_names[mtype].idx;
-    prop_names = media_type_names[mtype].prop_names;
-  }
-  else {
-    media_type = "unknown";
-    idx = first = last = -1;
-    prop_names = NULL;
-  }
+  media_type = spa_id_map_get_uri (spa_id_map_get_default (), mtype);
+  media_subtype = spa_id_map_get_uri (spa_id_map_get_default (), mstype);
 
-  if (mstype >= SPA_MEDIA_SUBTYPE_ANY_FIRST &&
-      mstype <= SPA_MEDIA_SUBTYPE_ANY_LAST) {
-    media_subtype = media_subtype_names[mstype].name;
-  } else if (mstype >= first && mstype <= last)
-    media_subtype = media_subtype_names[mstype - first + idx].name;
-  else
-    media_subtype = "unknown";
-
-  fprintf (stderr, "%-6s %s/%s\n", "", media_type, media_subtype);
+  fprintf (stderr, "%-6s %s/%s\n", "", strstr (media_type, "#")+1, strstr (media_subtype, "#")+1);
 
   SPA_FORMAT_FOREACH (format, prop) {
+    const char *key;
+
     if ((prop->body.flags & SPA_POD_PROP_FLAG_UNSET) &&
         (prop->body.flags & SPA_POD_PROP_FLAG_OPTIONAL))
       continue;
 
-    fprintf (stderr, "  %20s : (%s) ", prop_names[prop->body.key - SPA_PROP_ID_MEDIA_CUSTOM_START], pod_type_names[prop->body.value.type].name);
+    key = spa_id_map_get_uri (spa_id_map_get_default (), prop->body.key);
+
+    fprintf (stderr, "  %20s : (%s) ", strstr (key, "#")+1, pod_type_names[prop->body.value.type].name);
+
     if (!(prop->body.flags & SPA_POD_PROP_FLAG_UNSET)) {
       print_format_value (prop->body.value.size, prop->body.value.type, SPA_POD_BODY (&prop->body.value));
     } else {

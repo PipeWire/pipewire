@@ -65,6 +65,10 @@ struct _V4l2Buffer {
 typedef struct {
   uint32_t node;
   uint32_t clock;
+  SpaMediaTypes media_types;
+  SpaMediaSubtypes media_subtypes;
+  SpaMediaSubtypesVideo media_subtypes_video;
+  SpaPropVideo prop_video;
 } URI;
 
 typedef struct {
@@ -112,9 +116,9 @@ struct _SpaV4l2Source {
   SpaNode node;
   SpaClock clock;
 
-  URI uri;
   SpaIDMap *map;
   SpaLog *log;
+  URI uri;
 
   uint32_t seq;
 
@@ -573,38 +577,28 @@ spa_v4l2_source_node_port_get_format (SpaNode          *node,
                                state->current_format.media_type,
                                state->current_format.media_subtype);
 
-  switch (state->current_format.media_subtype) {
-    case SPA_MEDIA_SUBTYPE_RAW:
-      spa_pod_builder_add (&b,
-          PROP (&f[1], SPA_PROP_ID_VIDEO_FORMAT,     SPA_POD_TYPE_INT,       state->current_format.info.raw.format),
-          PROP (&f[1], SPA_PROP_ID_VIDEO_SIZE,      -SPA_POD_TYPE_RECTANGLE, &state->current_format.info.raw.size),
-          PROP (&f[1], SPA_PROP_ID_VIDEO_FRAMERATE, -SPA_POD_TYPE_FRACTION,  &state->current_format.info.raw.framerate),
-          0);
-      break;
-    case SPA_MEDIA_SUBTYPE_MJPG:
-    case SPA_MEDIA_SUBTYPE_JPEG:
-      spa_pod_builder_add (&b,
-          PROP (&f[1], SPA_PROP_ID_VIDEO_SIZE,      -SPA_POD_TYPE_RECTANGLE, &state->current_format.info.mjpg.size),
-          PROP (&f[1], SPA_PROP_ID_VIDEO_FRAMERATE, -SPA_POD_TYPE_FRACTION,  &state->current_format.info.mjpg.framerate),
-          0);
-      break;
-    case SPA_MEDIA_SUBTYPE_H264:
-      spa_pod_builder_add (&b,
-          PROP (&f[1], SPA_PROP_ID_VIDEO_SIZE,      -SPA_POD_TYPE_RECTANGLE, &state->current_format.info.h264.size),
-          PROP (&f[1], SPA_PROP_ID_VIDEO_FRAMERATE, -SPA_POD_TYPE_FRACTION,  &state->current_format.info.h264.framerate),
-          0);
-      break;
-    case SPA_MEDIA_SUBTYPE_DV:
-    case SPA_MEDIA_SUBTYPE_MPEGTS:
-    case SPA_MEDIA_SUBTYPE_MPEG1:
-    case SPA_MEDIA_SUBTYPE_MPEG2:
-    case SPA_MEDIA_SUBTYPE_MPEG4:
-    case SPA_MEDIA_SUBTYPE_XVID:
-    case SPA_MEDIA_SUBTYPE_VC1:
-    case SPA_MEDIA_SUBTYPE_VP8:
-    default:
-      return SPA_RESULT_NO_FORMAT;
+  if (state->current_format.media_subtype == this->uri.media_subtypes.raw) {
+    spa_pod_builder_add (&b,
+        PROP (&f[1], this->uri.prop_video.format,     SPA_POD_TYPE_INT,       state->current_format.info.raw.format),
+        PROP (&f[1], this->uri.prop_video.size,      -SPA_POD_TYPE_RECTANGLE, &state->current_format.info.raw.size),
+        PROP (&f[1], this->uri.prop_video.framerate, -SPA_POD_TYPE_FRACTION,  &state->current_format.info.raw.framerate),
+        0);
   }
+  else if (state->current_format.media_subtype == this->uri.media_subtypes_video.mjpg ||
+           state->current_format.media_subtype == this->uri.media_subtypes_video.jpeg) {
+    spa_pod_builder_add (&b,
+        PROP (&f[1], this->uri.prop_video.size,      -SPA_POD_TYPE_RECTANGLE, &state->current_format.info.mjpg.size),
+        PROP (&f[1], this->uri.prop_video.framerate, -SPA_POD_TYPE_FRACTION,  &state->current_format.info.mjpg.framerate),
+        0);
+  }
+  else if (state->current_format.media_subtype == this->uri.media_subtypes_video.h264) {
+    spa_pod_builder_add (&b,
+        PROP (&f[1], this->uri.prop_video.size,      -SPA_POD_TYPE_RECTANGLE, &state->current_format.info.h264.size),
+        PROP (&f[1], this->uri.prop_video.framerate, -SPA_POD_TYPE_FRACTION,  &state->current_format.info.h264.framerate),
+        0);
+  } else
+    return SPA_RESULT_NO_FORMAT;
+
   spa_pod_builder_pop (&b, &f[0]);
 
   *format = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
@@ -974,6 +968,10 @@ v4l2_source_init (const SpaHandleFactory  *factory,
   }
   this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
   this->uri.clock = spa_id_map_get_id (this->map, SPA_CLOCK_URI);
+  spa_media_types_fill (&this->uri.media_types, this->map);
+  spa_media_subtypes_map (this->map, &this->uri.media_subtypes);
+  spa_media_subtypes_video_map (this->map, &this->uri.media_subtypes_video);
+  spa_prop_video_map (this->map, &this->uri.prop_video);
 
   this->node = v4l2source_node;
   this->clock = v4l2source_clock;

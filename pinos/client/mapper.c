@@ -23,6 +23,7 @@
 #include <string.h>
 
 #include <spa/id-map.h>
+#include <spa/lib/mapper.h>
 
 #include <pinos/client/map.h>
 
@@ -44,7 +45,7 @@ id_map_get_id (SpaIDMap *map, const char *uri)
       if (strcmp (pinos_map_lookup_unchecked (&this->uris, i), uri) == 0)
         return i;
     }
-    i = pinos_map_insert_new (&this->uris, (char *)uri);
+    i = pinos_map_insert_new (&this->uris, strdup (uri));
   }
   return i;
 }
@@ -82,5 +83,6 @@ static IDMap default_id_map = {
 SpaIDMap *
 pinos_id_map_get_default (void)
 {
+  spa_id_map_set_default (&default_id_map.map);
   return &default_id_map.map;
 }

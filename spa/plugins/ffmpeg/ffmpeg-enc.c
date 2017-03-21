@@ -57,6 +57,8 @@ typedef struct {
 
 typedef struct {
   uint32_t node;
+  SpaMediaTypes media_types;
+  SpaMediaSubtypes media_subtypes;
 } URI;
 
 struct _SpaFFMpegEnc {
@@ -264,8 +266,8 @@ spa_ffmpeg_enc_node_port_set_format (SpaNode            *node,
     return SPA_RESULT_OK;
   }
 
-  if (format->body.media_type.value != SPA_MEDIA_TYPE_VIDEO ||
-      format->body.media_subtype.value != SPA_MEDIA_SUBTYPE_RAW)
+  if (format->body.media_type.value != this->uri.media_types.video ||
+      format->body.media_subtype.value != this->uri.media_subtypes.raw)
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
   if ((res = spa_format_video_parse (format, &query_format) < 0))
@@ -542,6 +544,8 @@ spa_ffmpeg_enc_init (SpaHandle         *handle,
     return SPA_RESULT_ERROR;
   }
   this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
+  spa_media_types_fill (&this->uri.media_types, this->map);
+  spa_media_subtypes_map (this->map, &this->uri.media_subtypes);
 
   this->node = ffmpeg_enc_node;
 

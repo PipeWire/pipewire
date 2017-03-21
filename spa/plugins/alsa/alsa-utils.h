@@ -62,6 +62,10 @@ struct _SpaALSABuffer {
 typedef struct {
   uint32_t node;
   uint32_t clock;
+  SpaMediaTypes media_types;
+  SpaMediaSubtypes media_subtypes;
+  SpaMediaSubtypesAudio media_subtypes_audio;
+  SpaPropAudio prop_audio;
 } URI;
 
 struct _SpaALSAState {

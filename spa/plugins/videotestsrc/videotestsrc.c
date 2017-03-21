@@ -43,6 +43,7 @@ typedef struct {
   SpaMediaSubtypes media_subtypes;
   SpaPropVideo prop_video;
   SpaVideoFormats video_formats;
+  SpaNodeEvents node_events;
 } URI;
 
 typedef struct _SpaVideoTestSrc SpaVideoTestSrc;
@@ -204,7 +205,7 @@ send_have_output (SpaVideoTestSrc *this)
 {
 
   if (this->event_cb) {
-    SpaNodeEvent event = SPA_NODE_EVENT_INIT (SPA_NODE_EVENT_HAVE_OUTPUT);
+    SpaEvent event = SPA_EVENT_INIT (this->uri.node_events.HaveOutput);
     this->event_cb (&this->node, &event, this->user_data);
   }
   return SPA_RESULT_OK;
@@ -962,6 +963,7 @@ videotestsrc_init (const SpaHandleFactory  *factory,
   spa_media_subtypes_map (this->map, &this->uri.media_subtypes);
   spa_prop_video_map (this->map, &this->uri.prop_video);
   spa_video_formats_map (this->map, &this->uri.video_formats);
+  spa_node_events_map (this->map, &this->uri.node_events);
 
   this->node = videotestsrc_node;
   this->clock = videotestsrc_clock;

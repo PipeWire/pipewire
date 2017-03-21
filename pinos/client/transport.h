@@ -77,10 +77,10 @@ SpaResult        pinos_transport_get_info       (PinosTransport     *trans,
                                                  PinosTransportInfo *info);
 
 SpaResult        pinos_transport_add_event      (PinosTransport *trans,
-                                                 SpaNodeEvent   *event);
+                                                 SpaEvent       *event);
 
 SpaResult        pinos_transport_next_event     (PinosTransport *trans,
-                                                 SpaNodeEvent   *event);
+                                                 SpaEvent       *event);
 SpaResult        pinos_transport_parse_event    (PinosTransport *trans,
                                                  void           *event);
 

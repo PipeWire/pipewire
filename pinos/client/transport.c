@@ -39,7 +39,7 @@ typedef struct {
   size_t         offset;
 
   SpaRingbufferArea areas[2];
-  SpaNodeEvent      current;
+  SpaEvent          current;
 } PinosTransportImpl;
 
 static size_t
@@ -204,7 +204,7 @@ pinos_transport_get_info (PinosTransport     *trans,
 
 SpaResult
 pinos_transport_add_event (PinosTransport   *trans,
-                           SpaNodeEvent     *event)
+                           SpaEvent         *event)
 {
   PinosTransportImpl *impl = (PinosTransportImpl *) trans;
   SpaRingbufferArea areas[2];
@@ -230,7 +230,7 @@ pinos_transport_add_event (PinosTransport   *trans,
 
 SpaResult
 pinos_transport_next_event (PinosTransport *trans,
-                            SpaNodeEvent   *event)
+                            SpaEvent       *event)
 {
   PinosTransportImpl *impl = (PinosTransportImpl *) trans;
   size_t avail;
@@ -239,14 +239,14 @@ pinos_transport_next_event (PinosTransport *trans,
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   avail = spa_ringbuffer_get_read_areas (trans->input_buffer, impl->areas);
-  if (avail < sizeof (SpaNodeEvent))
+  if (avail < sizeof (SpaEvent))
     return SPA_RESULT_ENUM_END;
 
   spa_ringbuffer_read_data (trans->input_buffer,
                             trans->input_data,
                             impl->areas,
                             &impl->current,
-                            sizeof (SpaNodeEvent));
+                            sizeof (SpaEvent));
 
   *event = impl->current;
 

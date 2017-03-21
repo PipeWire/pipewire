@@ -250,126 +250,108 @@ send_clock_update (PinosNode *this)
 }
 
 static void
-on_node_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
+on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
 {
   PinosNode *this = user_data;
   PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, this);
 
-  switch (SPA_NODE_EVENT_TYPE (event)) {
-    case SPA_NODE_EVENT_INVALID:
-    case SPA_NODE_EVENT_ERROR:
-    case SPA_NODE_EVENT_BUFFERING:
-    case SPA_NODE_EVENT_REQUEST_REFRESH:
-      break;
+  if (SPA_EVENT_TYPE (event) == this->core->uri.node_events.AsyncComplete) {
+    SpaNodeEventAsyncComplete *ac = (SpaNodeEventAsyncComplete *) event;
 
-    case SPA_NODE_EVENT_ASYNC_COMPLETE:
-    {
-      SpaNodeEventAsyncComplete *ac = (SpaNodeEventAsyncComplete *) event;
-
-      pinos_log_debug ("node %p: async complete event %d %d", this, ac->body.seq.value, ac->body.res.value);
-      if (!pinos_work_queue_complete (impl->work, this, ac->body.seq.value, ac->body.res.value)) {
-        pinos_signal_emit (&this->async_complete, this, ac->body.seq.value, ac->body.res.value);
-      }
-      break;
+    pinos_log_debug ("node %p: async complete event %d %d", this, ac->body.seq.value, ac->body.res.value);
+    if (!pinos_work_queue_complete (impl->work, this, ac->body.seq.value, ac->body.res.value)) {
+      pinos_signal_emit (&this->async_complete, this, ac->body.seq.value, ac->body.res.value);
     }
+  }
+  else if (SPA_EVENT_TYPE (event) == this->core->uri.node_events.NeedInput) {
+    SpaResult res;
+    int i;
+    bool processed = false;
 
-    case SPA_NODE_EVENT_NEED_INPUT:
-    {
-      SpaResult res;
-      int i;
-      bool processed = false;
+    for (i = 0; i < this->transport->area->n_inputs; i++) {
+      PinosLink *link;
+      PinosPort *inport, *outport;
+      SpaPortInput *pi;
+      SpaPortOutput *po;
 
-      for (i = 0; i < this->transport->area->n_inputs; i++) {
-        PinosLink *link;
-        PinosPort *inport, *outport;
-        SpaPortInput *pi;
-        SpaPortOutput *po;
+      pi = &this->transport->inputs[i];
+      if (pi->buffer_id != SPA_ID_INVALID)
+        continue;
 
-        pi = &this->transport->inputs[i];
-        if (pi->buffer_id != SPA_ID_INVALID)
+      inport = this->input_port_map[i];
+      spa_list_for_each (link, &inport->rt.links, rt.input_link) {
+        if (link->rt.input == NULL || link->rt.output == NULL)
           continue;
 
-        inport = this->input_port_map[i];
-        spa_list_for_each (link, &inport->rt.links, rt.input_link) {
-          if (link->rt.input == NULL || link->rt.output == NULL)
-            continue;
+        outport = link->rt.output;
+        po = &outport->node->transport->outputs[outport->port_id];
 
-          outport = link->rt.output;
-          po = &outport->node->transport->outputs[outport->port_id];
-
-          if (po->buffer_id != SPA_ID_INVALID) {
-            processed = true;
-
-            pi->buffer_id = po->buffer_id;
-            if ((res = spa_node_port_reuse_buffer (outport->node->node,
-                                                   outport->port_id,
-                                                   po->buffer_id)) < 0)
-              pinos_log_warn ("node %p: error reuse buffer: %d", outport->node, res);
-
-            po->buffer_id = SPA_ID_INVALID;
-          }
-
-          if ((res = spa_node_process_output (outport->node->node)) < 0)
-            pinos_log_warn ("node %p: got process output %d", outport->node, res);
-        }
-      }
-      if (processed) {
-        if ((res = spa_node_process_input (this->node)) < 0)
-          pinos_log_warn ("node %p: got process input %d", this, res);
-      }
-      break;
-    }
-    case SPA_NODE_EVENT_HAVE_OUTPUT:
-    {
-      SpaResult res;
-      int i;
-      bool processed = false;
-
-      for (i = 0; i < this->transport->area->n_outputs; i++) {
-        PinosLink *link;
-        PinosPort *inport, *outport;
-        SpaPortInput *pi;
-        SpaPortOutput *po;
-
-        po = &this->transport->outputs[i];
-        if (po->buffer_id == SPA_ID_INVALID)
-          continue;
-
-        outport = this->output_port_map[i];
-        spa_list_for_each (link, &outport->rt.links, rt.output_link) {
-          if (link->rt.input == NULL || link->rt.output == NULL)
-            continue;
-
-          inport = link->rt.input;
-          pi = &inport->node->transport->inputs[inport->port_id];
-
+        if (po->buffer_id != SPA_ID_INVALID) {
           processed = true;
 
           pi->buffer_id = po->buffer_id;
+          if ((res = spa_node_port_reuse_buffer (outport->node->node,
+                                                 outport->port_id,
+                                                 po->buffer_id)) < 0)
+            pinos_log_warn ("node %p: error reuse buffer: %d", outport->node, res);
 
-          if ((res = spa_node_process_input (inport->node->node)) < 0)
-            pinos_log_warn ("node %p: got process input %d", inport->node, res);
+          po->buffer_id = SPA_ID_INVALID;
         }
 
-        if ((res = spa_node_port_reuse_buffer (this->node,
-                                               outport->port_id,
-                                               po->buffer_id)) < 0)
-          pinos_log_warn ("node %p: error reuse buffer: %d", this, res);
-
-        po->buffer_id = SPA_ID_INVALID;
+        if ((res = spa_node_process_output (outport->node->node)) < 0)
+          pinos_log_warn ("node %p: got process output %d", outport->node, res);
       }
-      if (processed) {
-        if ((res = spa_node_process_output (this->node)) < 0)
-          pinos_log_warn ("node %p: got process output %d", this, res);
-      }
-      break;
     }
-    case SPA_NODE_EVENT_REUSE_BUFFER:
-      break;
+    if (processed) {
+      if ((res = spa_node_process_input (this->node)) < 0)
+        pinos_log_warn ("node %p: got process input %d", this, res);
+    }
+  }
+  else if (SPA_EVENT_TYPE (event) == this->core->uri.node_events.HaveOutput) {
+    SpaResult res;
+    int i;
+    bool processed = false;
 
-    case SPA_NODE_EVENT_REQUEST_CLOCK_UPDATE:
-      send_clock_update (this);
-      break;
+    for (i = 0; i < this->transport->area->n_outputs; i++) {
+      PinosLink *link;
+      PinosPort *inport, *outport;
+      SpaPortInput *pi;
+      SpaPortOutput *po;
+
+      po = &this->transport->outputs[i];
+      if (po->buffer_id == SPA_ID_INVALID)
+        continue;
+
+      outport = this->output_port_map[i];
+      spa_list_for_each (link, &outport->rt.links, rt.output_link) {
+        if (link->rt.input == NULL || link->rt.output == NULL)
+          continue;
+
+        inport = link->rt.input;
+        pi = &inport->node->transport->inputs[inport->port_id];
+
+        processed = true;
+
+        pi->buffer_id = po->buffer_id;
+
+        if ((res = spa_node_process_input (inport->node->node)) < 0)
+          pinos_log_warn ("node %p: got process input %d", inport->node, res);
+      }
+
+      if ((res = spa_node_port_reuse_buffer (this->node,
+                                             outport->port_id,
+                                             po->buffer_id)) < 0)
+        pinos_log_warn ("node %p: error reuse buffer: %d", this, res);
+
+      po->buffer_id = SPA_ID_INVALID;
+    }
+    if (processed) {
+      if ((res = spa_node_process_output (this->node)) < 0)
+        pinos_log_warn ("node %p: got process output %d", this, res);
+    }
+  }
+  else if (SPA_EVENT_TYPE (event) == this->core->uri.node_events.RequestClockUpdate) {
+    send_clock_update (this);
   }
 }
 

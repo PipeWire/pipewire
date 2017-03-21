@@ -67,6 +67,7 @@ typedef struct {
   SpaMediaSubtypes media_subtypes;
   SpaPropAudio prop_audio;
   SpaAudioFormats audio_formats;
+  SpaNodeEvents node_events;
 } URI;
 
 struct _SpaVolume {
@@ -651,8 +652,9 @@ find_free_buffer (SpaVolume *this, SpaVolumePort *port)
 static void
 release_buffer (SpaVolume *this, SpaBuffer *buffer)
 {
-  SpaNodeEventReuseBuffer rb = SPA_NODE_EVENT_REUSE_BUFFER_INIT (0, buffer->id);
-  this->event_cb (&this->node, (SpaNodeEvent *)&rb, this->user_data);
+  SpaNodeEventReuseBuffer rb = SPA_NODE_EVENT_REUSE_BUFFER_INIT (this->uri.node_events.ReuseBuffer,
+                                                                 0, buffer->id);
+  this->event_cb (&this->node, (SpaEvent *)&rb, this->user_data);
 }
 
 static void

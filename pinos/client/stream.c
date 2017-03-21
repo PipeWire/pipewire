@@ -388,9 +388,10 @@ add_request_clock_update (PinosStream *stream, bool flush)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
   SpaNodeEventRequestClockUpdate rcu =
-    SPA_NODE_EVENT_REQUEST_CLOCK_UPDATE_INIT (SPA_NODE_EVENT_REQUEST_CLOCK_UPDATE_TIME, 0, 0);
+    SPA_NODE_EVENT_REQUEST_CLOCK_UPDATE_INIT (stream->context->uri.node_events.RequestClockUpdate,
+                                              SPA_NODE_EVENT_REQUEST_CLOCK_UPDATE_TIME, 0, 0);
 
-  pinos_client_node_do_event (impl->node_proxy, (SpaNodeEvent*)&rcu);
+  pinos_client_node_do_event (impl->node_proxy, (SpaEvent*)&rcu);
 }
 
 static void
@@ -400,8 +401,10 @@ add_async_complete (PinosStream  *stream,
                     bool          flush)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
-  SpaNodeEventAsyncComplete ac = SPA_NODE_EVENT_ASYNC_COMPLETE_INIT(seq, res);
-  pinos_client_node_do_event (impl->node_proxy, (SpaNodeEvent*)&ac);
+  SpaNodeEventAsyncComplete ac =
+    SPA_NODE_EVENT_ASYNC_COMPLETE_INIT (stream->context->uri.node_events.AsyncComplete,
+                                        seq, res);
+  pinos_client_node_do_event (impl->node_proxy, (SpaEvent*)&ac);
 }
 
 static void
@@ -462,54 +465,47 @@ find_buffer (PinosStream *stream, uint32_t id)
 
 static void
 handle_rtnode_event (PinosStream  *stream,
-                     SpaNodeEvent *event)
+                     SpaEvent     *event)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
+  PinosContext *context = impl->this.context;
 
-  switch (SPA_NODE_EVENT_TYPE (event)) {
-    case SPA_NODE_EVENT_HAVE_OUTPUT:
-    {
-      int i;
+  if (SPA_EVENT_TYPE (event) == context->uri.node_events.HaveOutput) {
+    int i;
 
-      //pinos_log_debug ("stream %p: have output", stream);
+    //pinos_log_debug ("stream %p: have output", stream);
 
-      for (i = 0; i < impl->trans->area->n_inputs; i++) {
-        SpaPortInput *input = &impl->trans->inputs[i];
+    for (i = 0; i < impl->trans->area->n_inputs; i++) {
+      SpaPortInput *input = &impl->trans->inputs[i];
 
-        if (input->buffer_id == SPA_ID_INVALID)
-          continue;
+      if (input->buffer_id == SPA_ID_INVALID)
+        continue;
 
-        pinos_signal_emit (&stream->new_buffer, stream, input->buffer_id);
-        input->buffer_id = SPA_ID_INVALID;
-      }
-      send_need_input (stream);
-      break;
+      pinos_signal_emit (&stream->new_buffer, stream, input->buffer_id);
+      input->buffer_id = SPA_ID_INVALID;
     }
+    send_need_input (stream);
+  }
+  else if (SPA_EVENT_TYPE (event) == context->uri.node_events.NeedInput) {
+    //pinos_log_debug ("stream %p: need input", stream);
+    pinos_signal_emit (&stream->need_buffer, stream);
+  }
+  else if (SPA_EVENT_TYPE (event) == context->uri.node_events.ReuseBuffer) {
+    SpaNodeEventReuseBuffer *p = (SpaNodeEventReuseBuffer *) event;
+    BufferId *bid;
 
-    case SPA_NODE_EVENT_NEED_INPUT:
-      //pinos_log_debug ("stream %p: need input", stream);
-      pinos_signal_emit (&stream->need_buffer, stream);
-      break;
+    if (p->body.port_id.value != impl->port_id)
+      return;
+    if (impl->direction != SPA_DIRECTION_OUTPUT)
+      return;
 
-    case SPA_NODE_EVENT_REUSE_BUFFER:
-    {
-      SpaNodeEventReuseBuffer *p = (SpaNodeEventReuseBuffer *) event;
-      BufferId *bid;
-
-      if (p->body.port_id.value != impl->port_id)
-        break;
-      if (impl->direction != SPA_DIRECTION_OUTPUT)
-        break;
-
-      if ((bid = find_buffer (stream, p->body.buffer_id.value)) && bid->used) {
-        bid->used = false;
-        pinos_signal_emit (&stream->new_buffer, stream, p->body.buffer_id.value);
-      }
-      break;
+    if ((bid = find_buffer (stream, p->body.buffer_id.value)) && bid->used) {
+      bid->used = false;
+      pinos_signal_emit (&stream->new_buffer, stream, p->body.buffer_id.value);
     }
-    default:
-      pinos_log_warn ("unexpected node event %d", SPA_NODE_EVENT_TYPE (event));
-      break;
+  }
+  else {
+    pinos_log_warn ("unexpected node event %d", SPA_EVENT_TYPE (event));
   }
 }
 
@@ -529,13 +525,13 @@ on_rtsocket_condition (SpaSource    *source,
   }
 
   if (mask & SPA_IO_IN) {
-    SpaNodeEvent event;
+    SpaEvent event;
     uint64_t cmd;
 
     read (impl->rtfd, &cmd, 8);
 
     while (pinos_transport_next_event (impl->trans, &event) == SPA_RESULT_OK) {
-      SpaNodeEvent *ev = alloca (SPA_POD_SIZE (&event));
+      SpaEvent *ev = alloca (SPA_POD_SIZE (&event));
       pinos_transport_parse_event (impl->trans, ev);
       handle_rtnode_event (stream, ev);
     }
@@ -570,22 +566,10 @@ handle_socket (PinosStream *stream, int rtfd)
 }
 
 static void
-handle_node_event (PinosStream        *stream,
-                   const SpaNodeEvent *event)
+handle_node_event (PinosStream    *stream,
+                   const SpaEvent *event)
 {
-  switch (SPA_NODE_EVENT_TYPE (event)) {
-    case SPA_NODE_EVENT_INVALID:
-    case SPA_NODE_EVENT_HAVE_OUTPUT:
-    case SPA_NODE_EVENT_NEED_INPUT:
-    case SPA_NODE_EVENT_ASYNC_COMPLETE:
-    case SPA_NODE_EVENT_REUSE_BUFFER:
-    case SPA_NODE_EVENT_ERROR:
-    case SPA_NODE_EVENT_BUFFERING:
-    case SPA_NODE_EVENT_REQUEST_REFRESH:
-    case SPA_NODE_EVENT_REQUEST_CLOCK_UPDATE:
-      pinos_log_warn ("unhandled node event %d", SPA_NODE_EVENT_TYPE (event));
-      break;
-  }
+  pinos_log_warn ("unhandled node event %d", SPA_EVENT_TYPE (event));
 }
 
 static bool
@@ -658,8 +642,8 @@ client_node_done (void              *object,
 }
 
 static void
-client_node_event (void               *object,
-                   const SpaNodeEvent *event)
+client_node_event (void           *object,
+                   const SpaEvent *event)
 {
   PinosProxy *proxy = object;
   PinosStream *stream = proxy->user_data;
@@ -1154,10 +1138,11 @@ pinos_stream_recycle_buffer (PinosStream *stream,
                              uint32_t     id)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
-  SpaNodeEventReuseBuffer rb = SPA_NODE_EVENT_REUSE_BUFFER_INIT (impl->port_id, id);
+  SpaNodeEventReuseBuffer rb = SPA_NODE_EVENT_REUSE_BUFFER_INIT (stream->context->uri.node_events.ReuseBuffer,
+                                                                 impl->port_id, id);
   uint64_t cmd = 1;
 
-  pinos_transport_add_event (impl->trans, (SpaNodeEvent *)&rb);
+  pinos_transport_add_event (impl->trans, (SpaEvent *)&rb);
   write (impl->rtfd, &cmd, 8);
 
   return true;

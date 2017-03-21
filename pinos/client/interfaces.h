@@ -160,7 +160,7 @@ typedef struct {
   void (*state_change)         (void              *object,
                                 SpaNodeState       state);
   void (*event)                (void              *object,
-                                SpaNodeEvent      *event);
+                                SpaEvent          *event);
   void (*destroy)              (void              *object);
 } PinosClientNodeMethods;
 
@@ -173,8 +173,8 @@ typedef struct {
 typedef struct {
   void (*done)                 (void              *object,
                                 int                datafd);
-  void (*event)                (void               *object,
-                                const SpaNodeEvent *event);
+  void (*event)                (void              *object,
+                                const SpaEvent    *event);
   void (*add_port)             (void              *object,
                                 uint32_t           seq,
                                 SpaDirection       direction,

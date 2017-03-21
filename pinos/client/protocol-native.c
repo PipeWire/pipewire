@@ -557,8 +557,8 @@ client_node_marshal_state_change (void         *object,
 }
 
 static void
-client_node_marshal_event (void         *object,
-                           SpaNodeEvent *event)
+client_node_marshal_event (void     *object,
+                           SpaEvent *event)
 {
   PinosProxy *proxy = object;
   PinosConnection *connection = proxy->context->protocol_private;
@@ -617,7 +617,7 @@ client_node_demarshal_event (void   *object,
 {
   PinosProxy *proxy = object;
   SpaPODIter it;
-  const SpaNodeEvent *event;
+  const SpaEvent *event;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
       !spa_pod_iter_get (&it,

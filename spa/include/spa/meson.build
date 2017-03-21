@@ -4,6 +4,7 @@ spa_headers = [
   'clock.h',
   'defs.h',
   'dict.h',
+  'event.h',
   'format.h',
   'id-map.h',
   'list.h',

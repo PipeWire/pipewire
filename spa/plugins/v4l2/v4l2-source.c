@@ -70,6 +70,7 @@ typedef struct {
   SpaMediaSubtypesVideo media_subtypes_video;
   SpaPropVideo prop_video;
   SpaVideoFormats video_formats;
+  SpaNodeEvents node_events;
 } URI;
 
 typedef struct {
@@ -232,7 +233,7 @@ do_pause_done (SpaLoop        *loop,
     state->started = false;
     update_state (this, SPA_NODE_STATE_PAUSED);
   }
-  this->event_cb (&this->node, (SpaNodeEvent *)ac, this->user_data);
+  this->event_cb (&this->node, (SpaEvent *)ac, this->user_data);
 
   return SPA_RESULT_OK;
 }
@@ -255,7 +256,8 @@ do_pause (SpaLoop        *loop,
                                     cmd);
 
   if (async) {
-    SpaNodeEventAsyncComplete ac = SPA_NODE_EVENT_ASYNC_COMPLETE_INIT (seq, res);
+    SpaNodeEventAsyncComplete ac = SPA_NODE_EVENT_ASYNC_COMPLETE_INIT (this->uri.node_events.AsyncComplete,
+                                                                       seq, res);
     spa_loop_invoke (this->state[0].main_loop,
                      do_pause_done,
                      seq,
@@ -282,7 +284,7 @@ do_start_done (SpaLoop        *loop,
     state->started = true;
     update_state (this, SPA_NODE_STATE_STREAMING);
   }
-  this->event_cb (&this->node, (SpaNodeEvent *)ac, this->user_data);
+  this->event_cb (&this->node, (SpaEvent *)ac, this->user_data);
 
   return SPA_RESULT_OK;
 }
@@ -305,7 +307,8 @@ do_start (SpaLoop        *loop,
                                     cmd);
 
   if (async) {
-    SpaNodeEventAsyncComplete ac = SPA_NODE_EVENT_ASYNC_COMPLETE_INIT (seq, res);
+    SpaNodeEventAsyncComplete ac = SPA_NODE_EVENT_ASYNC_COMPLETE_INIT (this->uri.node_events.AsyncComplete,
+                                                                       seq, res);
     spa_loop_invoke (this->state[0].main_loop,
                      do_start_done,
                      seq,
@@ -974,6 +977,7 @@ v4l2_source_init (const SpaHandleFactory  *factory,
   spa_media_subtypes_video_map (this->map, &this->uri.media_subtypes_video);
   spa_prop_video_map (this->map, &this->uri.prop_video);
   spa_video_formats_map (this->map, &this->uri.video_formats);
+  spa_node_events_map (this->map, &this->uri.node_events);
 
   this->node = v4l2source_node;
   this->clock = v4l2source_clock;

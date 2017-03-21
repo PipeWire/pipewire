@@ -107,13 +107,13 @@ typedef struct {
  * requested.
  */
 typedef struct {
-  uint32_t           state;
+  uint32_t       state;
 #define SPA_PORT_OUTPUT_FLAG_NONE        0
-  uint32_t           flags;
-  uint32_t           buffer_id;
-  uint32_t           status;
-  uint64_t           latency;
-  SpaNodeEvent      *event;
+  uint32_t       flags;
+  uint32_t       buffer_id;
+  uint32_t       status;
+  uint64_t       latency;
+  SpaEvent      *event;
 } SpaPortOutput;
 
 /**
@@ -125,9 +125,9 @@ typedef struct {
  * This will be called when an out-of-bound event is notified
  * on @node.
  */
-typedef void   (*SpaNodeEventCallback)   (SpaNode      *node,
-                                          SpaNodeEvent *event,
-                                          void         *user_data);
+typedef void   (*SpaNodeEventCallback)   (SpaNode  *node,
+                                          SpaEvent *event,
+                                          void     *user_data);
 
 /**
  * SpaNode:

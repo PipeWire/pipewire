@@ -270,7 +270,7 @@ pull_frames_queue (SpaALSAState *state,
                    snd_pcm_uframes_t frames)
 {
   if (spa_list_is_empty (&state->ready)) {
-    SpaNodeEvent event = SPA_NODE_EVENT_INIT (SPA_NODE_EVENT_NEED_INPUT);
+    SpaEvent event = SPA_EVENT_INIT (state->uri.node_events.NeedInput);
     state->event_cb (&state->node, &event, state->user_data);
   }
   if (!spa_list_is_empty (&state->ready)) {
@@ -294,12 +294,13 @@ pull_frames_queue (SpaALSAState *state,
 
     state->ready_offset += n_bytes;
     if (state->ready_offset >= size) {
-      SpaNodeEventReuseBuffer rb = SPA_NODE_EVENT_REUSE_BUFFER_INIT (0, b->outbuf->id);
+      SpaNodeEventReuseBuffer rb = SPA_NODE_EVENT_REUSE_BUFFER_INIT (state->uri.node_events.ReuseBuffer,
+                                                                     0, b->outbuf->id);
 
       spa_list_remove (&b->link);
       b->outstanding = true;
 
-      state->event_cb (&state->node, (SpaNodeEvent *)&rb, state->user_data);
+      state->event_cb (&state->node, (SpaEvent *)&rb, state->user_data);
 
       state->ready_offset = 0;
     }
@@ -348,8 +349,9 @@ pull_frames_ringbuffer (SpaALSAState *state,
 
   b->outstanding = true;
   {
-    SpaNodeEventReuseBuffer rb = SPA_NODE_EVENT_REUSE_BUFFER_INIT (0, b->outbuf->id);
-    state->event_cb (&state->node, (SpaNodeEvent*)&rb, state->user_data);
+    SpaNodeEventReuseBuffer rb = SPA_NODE_EVENT_REUSE_BUFFER_INIT (state->uri.node_events.ReuseBuffer,
+                                                                   0, b->outbuf->id);
+    state->event_cb (&state->node, (SpaEvent*)&rb, state->user_data);
   }
 
   return frames;
@@ -496,7 +498,7 @@ mmap_read (SpaALSAState *state)
       output->status = SPA_RESULT_OK;
     }
     {
-      SpaNodeEvent event = SPA_NODE_EVENT_INIT (SPA_NODE_EVENT_HAVE_OUTPUT);
+      SpaEvent event = SPA_EVENT_INIT (state->uri.node_events.HaveOutput);
       state->event_cb (&state->node, &event, state->user_data);
     }
   }

@@ -1,5 +1,5 @@
-/* Pinos
- * Copyright (C) 2015 Wim Taymans <wim.taymans@gmail.com>
+/* Simple Plugin API
+ * Copyright (C) 2016 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -17,50 +17,39 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __PINOS_URI_H__
-#define __PINOS_URI_H__
+#ifndef __SPA_EVENT_H__
+#define __SPA_EVENT_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define PINOS_URI_URI                            "http://pinos.org/ns/uri"
-#define PINOS_URI_PREFIX                         PINOS_URI_URI "#"
+typedef struct _SpaEvent SpaEvent;
 
-#include <pinos/client/map.h>
-#include <spa/include/spa/id-map.h>
-#include <spa/include/spa/node-event.h>
+#include <spa/defs.h>
+#include <spa/pod-utils.h>
 
-typedef struct _PinosURI PinosURI;
+#define SPA_EVENT_TYPE(ev)   ((ev)->body.body.type)
 
-/**
- * PinosURI:
- *
- * Pinos URI support struct.
- */
-struct _PinosURI {
-  SpaIDMap *map;
+typedef struct {
+  SpaPODObjectBody body;
+} SpaEventBody;
 
-  uint32_t core;
-  uint32_t registry;
-  uint32_t node;
-  uint32_t node_factory;
-  uint32_t link;
-  uint32_t client;
-  uint32_t client_node;
-  uint32_t module;
-
-  uint32_t spa_node;
-  uint32_t spa_clock;
-  uint32_t spa_monitor;
-
-  SpaNodeEvents node_events;
+struct _SpaEvent {
+  SpaPOD           pod;
+  SpaEventBody body;
 };
 
-void pinos_uri_init (PinosURI *uri);
+#define SPA_EVENT_INIT(type)                            \
+  { { sizeof (SpaEventBody), SPA_POD_TYPE_OBJECT },     \
+    { { 0, type } } }                                   \
+
+#define SPA_EVENT_INIT_COMPLEX(size,type,...)           \
+  { { size, SPA_POD_TYPE_OBJECT },                      \
+    { { 0, type }, __VA_ARGS__ } }                      \
 
 #ifdef __cplusplus
-}
+}  /* extern "C" */
 #endif
 
-#endif /* __PINOS_URI_H__ */
+#endif /* __SPA_EVENT_H__ */

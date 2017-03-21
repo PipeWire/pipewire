@@ -67,6 +67,7 @@ typedef struct {
   SpaMediaSubtypesAudio media_subtypes_audio;
   SpaPropAudio prop_audio;
   SpaAudioFormats audio_formats;
+  SpaNodeEvents node_events;
 } URI;
 
 struct _SpaALSAState {

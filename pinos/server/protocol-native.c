@@ -546,8 +546,8 @@ client_node_marshal_done (void     *object,
 }
 
 static void
-client_node_marshal_event (void               *object,
-                           const SpaNodeEvent *event)
+client_node_marshal_event (void           *object,
+                           const SpaEvent *event)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;
@@ -930,7 +930,7 @@ client_node_demarshal_event (void   *object,
 {
   PinosResource *resource = object;
   SpaPODIter it;
-  SpaNodeEvent *event;
+  SpaEvent *event;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
       !spa_pod_iter_get (&it, SPA_POD_TYPE_OBJECT, &event, 0))

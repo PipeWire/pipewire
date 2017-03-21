@@ -164,7 +164,8 @@ do_start (SpaLoop        *loop,
   }
 
   if (async) {
-    SpaNodeEventAsyncComplete ac = SPA_NODE_EVENT_ASYNC_COMPLETE_INIT (seq, res);
+    SpaNodeEventAsyncComplete ac = SPA_NODE_EVENT_ASYNC_COMPLETE_INIT (this->uri.node_events.AsyncComplete,
+                                                                       seq, res);
     spa_loop_invoke (this->main_loop,
                      do_send_event,
                      SPA_ID_INVALID,
@@ -191,7 +192,8 @@ do_pause (SpaLoop        *loop,
   }
 
   if (async) {
-    SpaNodeEventAsyncComplete ac = SPA_NODE_EVENT_ASYNC_COMPLETE_INIT (seq, res);
+    SpaNodeEventAsyncComplete ac = SPA_NODE_EVENT_ASYNC_COMPLETE_INIT (this->uri.node_events.AsyncComplete,
+                                                                       seq, res);
     spa_loop_invoke (this->main_loop,
                      do_send_event,
                      SPA_ID_INVALID,
@@ -866,6 +868,7 @@ alsa_source_init (const SpaHandleFactory  *factory,
   spa_media_subtypes_audio_map (this->map, &this->uri.media_subtypes_audio);
   spa_prop_audio_map (this->map, &this->uri.prop_audio);
   spa_audio_formats_map (this->map, &this->uri.audio_formats);
+  spa_node_events_map (this->map, &this->uri.node_events);
 
   this->node = alsasource_node;
   this->clock = alsasource_clock;

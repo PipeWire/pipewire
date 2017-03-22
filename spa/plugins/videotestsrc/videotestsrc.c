@@ -25,6 +25,7 @@
 #include <sys/timerfd.h>
 
 #include <spa/id-map.h>
+#include <spa/clock.h>
 #include <spa/log.h>
 #include <spa/loop.h>
 #include <spa/node.h>
@@ -39,11 +40,13 @@
 typedef struct {
   uint32_t node;
   uint32_t clock;
+  uint32_t format;
   SpaMediaTypes media_types;
   SpaMediaSubtypes media_subtypes;
   SpaPropVideo prop_video;
   SpaVideoFormats video_formats;
   SpaNodeEvents node_events;
+  SpaNodeCommands node_commands;
 } URI;
 
 typedef struct _SpaVideoTestSrc SpaVideoTestSrc;
@@ -283,8 +286,8 @@ update_state (SpaVideoTestSrc *this, SpaNodeState state)
 }
 
 static SpaResult
-spa_videotestsrc_node_send_command (SpaNode        *node,
-                                    SpaNodeCommand *command)
+spa_videotestsrc_node_send_command (SpaNode    *node,
+                                    SpaCommand *command)
 {
   SpaVideoTestSrc *this;
 
@@ -293,58 +296,47 @@ spa_videotestsrc_node_send_command (SpaNode        *node,
 
   this = SPA_CONTAINER_OF (node, SpaVideoTestSrc, node);
 
-  switch (SPA_NODE_COMMAND_TYPE (command)) {
-    case SPA_NODE_COMMAND_INVALID:
-      return SPA_RESULT_INVALID_COMMAND;
+  if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Start) {
+    struct timespec now;
 
-    case SPA_NODE_COMMAND_START:
-    {
-      struct timespec now;
+    if (!this->have_format)
+      return SPA_RESULT_NO_FORMAT;
 
-      if (!this->have_format)
-        return SPA_RESULT_NO_FORMAT;
+    if (this->n_buffers == 0)
+      return SPA_RESULT_NO_BUFFERS;
 
-      if (this->n_buffers == 0)
-        return SPA_RESULT_NO_BUFFERS;
+    if (this->started)
+      return SPA_RESULT_OK;
 
-      if (this->started)
-        return SPA_RESULT_OK;
+    clock_gettime (CLOCK_MONOTONIC, &now);
+    if (this->props.live)
+      this->start_time = SPA_TIMESPEC_TO_TIME (&now);
+    else
+      this->start_time = 0;
+    this->frame_count = 0;
+    this->elapsed_time = 0;
 
-      clock_gettime (CLOCK_MONOTONIC, &now);
-      if (this->props.live)
-        this->start_time = SPA_TIMESPEC_TO_TIME (&now);
-      else
-        this->start_time = 0;
-      this->frame_count = 0;
-      this->elapsed_time = 0;
-
-      this->started = true;
-      set_timer (this, true);
-      update_state (this, SPA_NODE_STATE_STREAMING);
-      break;
-    }
-    case SPA_NODE_COMMAND_PAUSE:
-    {
-      if (!this->have_format)
-        return SPA_RESULT_NO_FORMAT;
-
-      if (this->n_buffers == 0)
-        return SPA_RESULT_NO_BUFFERS;
-
-      if (!this->started)
-        return SPA_RESULT_OK;
-
-      this->started = false;
-      set_timer (this, false);
-      update_state (this, SPA_NODE_STATE_PAUSED);
-      break;
-    }
-    case SPA_NODE_COMMAND_FLUSH:
-    case SPA_NODE_COMMAND_DRAIN:
-    case SPA_NODE_COMMAND_MARKER:
-    case SPA_NODE_COMMAND_CLOCK_UPDATE:
-      return SPA_RESULT_NOT_IMPLEMENTED;
+    this->started = true;
+    set_timer (this, true);
+    update_state (this, SPA_NODE_STATE_STREAMING);
   }
+  else if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Pause) {
+    if (!this->have_format)
+      return SPA_RESULT_NO_FORMAT;
+
+    if (this->n_buffers == 0)
+      return SPA_RESULT_NO_BUFFERS;
+
+    if (!this->started)
+      return SPA_RESULT_OK;
+
+    this->started = false;
+    set_timer (this, false);
+    update_state (this, SPA_NODE_STATE_PAUSED);
+  }
+  else
+    return SPA_RESULT_NOT_IMPLEMENTED;
+
   return SPA_RESULT_OK;
 }
 
@@ -454,7 +446,7 @@ next:
 
   switch (index++) {
     case 0:
-      spa_pod_builder_format (&b, &f[0],
+      spa_pod_builder_format (&b, &f[0], this->uri.format,
          this->uri.media_types.video, this->uri.media_subtypes.raw,
          PROP_U_EN (&f[1], this->uri.prop_video.format,    SPA_POD_TYPE_URI, 3,
                                                              this->uri.video_formats.RGB,
@@ -592,7 +584,7 @@ spa_videotestsrc_node_port_get_format (SpaNode          *node,
 
   spa_pod_builder_init (&b, this->format_buffer, sizeof (this->format_buffer));
 
-  spa_pod_builder_format (&b, &f[0],
+  spa_pod_builder_format (&b, &f[0], this->uri.format,
      this->uri.media_types.video, this->uri.media_subtypes.raw,
      PROP (&f[1], this->uri.prop_video.format,     SPA_POD_TYPE_URI,       this->current_format.info.raw.format),
      PROP (&f[1], this->uri.prop_video.size,      -SPA_POD_TYPE_RECTANGLE, &this->current_format.info.raw.size),
@@ -792,7 +784,7 @@ static SpaResult
 spa_videotestsrc_node_port_send_command (SpaNode        *node,
                                          SpaDirection    direction,
                                          uint32_t        port_id,
-                                         SpaNodeCommand *command)
+                                         SpaCommand     *command)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
@@ -959,11 +951,13 @@ videotestsrc_init (const SpaHandleFactory  *factory,
   }
   this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
   this->uri.clock = spa_id_map_get_id (this->map, SPA_CLOCK_URI);
+  this->uri.format = spa_id_map_get_id (this->map, SPA_FORMAT_URI);
   spa_media_types_fill (&this->uri.media_types, this->map);
   spa_media_subtypes_map (this->map, &this->uri.media_subtypes);
   spa_prop_video_map (this->map, &this->uri.prop_video);
   spa_video_formats_map (this->map, &this->uri.video_formats);
   spa_node_events_map (this->map, &this->uri.node_events);
+  spa_node_commands_map (this->map, &this->uri.node_commands);
 
   this->node = videotestsrc_node;
   this->clock = videotestsrc_clock;

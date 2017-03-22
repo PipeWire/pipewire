@@ -24,10 +24,8 @@
 extern "C" {
 #endif
 
-typedef struct _SpaNodeCommand SpaNodeCommand;
-
-#include <spa/defs.h>
-#include <spa/clock.h>
+#include <spa/id-map.h>
+#include <spa/command.h>
 
 #define SPA_NODE_COMMAND_URI             "http://spaplug.in/ns/node-command"
 #define SPA_NODE_COMMAND_PREFIX          SPA_NODE_COMMAND_URI "#"
@@ -39,34 +37,27 @@ typedef struct _SpaNodeCommand SpaNodeCommand;
 #define SPA_NODE_COMMAND__Marker         SPA_NODE_COMMAND_PREFIX "Marker"
 #define SPA_NODE_COMMAND__ClockUpdate    SPA_NODE_COMMAND_PREFIX "ClockUpdate"
 
-typedef enum {
-  SPA_NODE_COMMAND_INVALID                 =  0,
-  SPA_NODE_COMMAND_PAUSE,
-  SPA_NODE_COMMAND_START,
-  SPA_NODE_COMMAND_FLUSH,
-  SPA_NODE_COMMAND_DRAIN,
-  SPA_NODE_COMMAND_MARKER,
-  SPA_NODE_COMMAND_CLOCK_UPDATE
-} SpaNodeCommandType;
-
-#define SPA_NODE_COMMAND_TYPE(cmd)   ((cmd)->body.body.type)
-
 typedef struct {
-  SpaPODObjectBody body;
-} SpaNodeCommandBody;
+  uint32_t Pause;
+  uint32_t Start;
+  uint32_t Flush;
+  uint32_t Drain;
+  uint32_t Marker;
+  uint32_t ClockUpdate;
+} SpaNodeCommands;
 
-struct _SpaNodeCommand {
-  SpaPOD             pod;
-  SpaNodeCommandBody body;
-};
-
-#define SPA_NODE_COMMAND_INIT(type)                             \
-  { { sizeof (SpaNodeCommandBody), SPA_POD_TYPE_OBJECT },       \
-    { { 0, type } } }                                           \
-
-#define SPA_NODE_COMMAND_INIT_COMPLEX(size,type,...)            \
-  { { size, SPA_POD_TYPE_OBJECT },                              \
-    { { 0, type }, __VA_ARGS__ } }                              \
+static inline void
+spa_node_commands_map (SpaIDMap *map, SpaNodeCommands *types)
+{
+  if (types->Pause == 0) {
+    types->Pause          = spa_id_map_get_id (map, SPA_NODE_COMMAND__Pause);
+    types->Start          = spa_id_map_get_id (map, SPA_NODE_COMMAND__Start);
+    types->Flush          = spa_id_map_get_id (map, SPA_NODE_COMMAND__Flush);
+    types->Drain          = spa_id_map_get_id (map, SPA_NODE_COMMAND__Drain);
+    types->Marker         = spa_id_map_get_id (map, SPA_NODE_COMMAND__Marker);
+    types->ClockUpdate    = spa_id_map_get_id (map, SPA_NODE_COMMAND__ClockUpdate);
+  }
+}
 
 /**
  * SpaNodeCommandClockUpdate:
@@ -103,18 +94,17 @@ typedef struct {
   SpaNodeCommandClockUpdateBody body;
 } SpaNodeCommandClockUpdate;
 
-#define SPA_NODE_COMMAND_CLOCK_UPDATE_INIT(change_mask,rate,ticks,monotonic_time,offset,scale,state,flags,latency)  \
-  SPA_NODE_COMMAND_INIT_COMPLEX (sizeof (SpaNodeCommandClockUpdateBody),        \
-                                 SPA_NODE_COMMAND_CLOCK_UPDATE,                 \
-                                      SPA_POD_INT_INIT (change_mask),           \
-                                      SPA_POD_INT_INIT (rate),                  \
-                                      SPA_POD_LONG_INIT (ticks),                \
-                                      SPA_POD_LONG_INIT (monotonic_time),       \
-                                      SPA_POD_LONG_INIT (offset),               \
-                                      SPA_POD_INT_INIT (scale),                 \
-                                      SPA_POD_INT_INIT (state),                 \
-                                      SPA_POD_INT_INIT (flags),                 \
-                                      SPA_POD_LONG_INIT (latency))
+#define SPA_NODE_COMMAND_CLOCK_UPDATE_INIT(type,change_mask,rate,ticks,monotonic_time,offset,scale,state,flags,latency)  \
+  SPA_COMMAND_INIT_COMPLEX (sizeof (SpaNodeCommandClockUpdateBody), type,  \
+                                 SPA_POD_INT_INIT (change_mask),           \
+                                 SPA_POD_INT_INIT (rate),                  \
+                                 SPA_POD_LONG_INIT (ticks),                \
+                                 SPA_POD_LONG_INIT (monotonic_time),       \
+                                 SPA_POD_LONG_INIT (offset),               \
+                                 SPA_POD_INT_INIT (scale),                 \
+                                 SPA_POD_INT_INIT (state),                 \
+                                 SPA_POD_INT_INIT (flags),                 \
+                                 SPA_POD_LONG_INIT (latency))
 
 #ifdef __cplusplus
 }  /* extern "C" */

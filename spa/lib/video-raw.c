@@ -102,7 +102,7 @@ spa_format_filter (const SpaFormat  *format,
       filter->body.media_subtype.value != format->body.media_subtype.value)
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
-  spa_pod_builder_push_format (result, &f,
+  spa_pod_builder_push_format (result, &f, filter->body.obj_body.type,
                                filter->body.media_type.value,
                                filter->body.media_subtype.value);
   res = spa_props_filter (result,

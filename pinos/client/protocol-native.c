@@ -836,7 +836,7 @@ client_node_demarshal_node_command (void   *object,
 {
   PinosProxy *proxy = object;
   SpaPODIter it;
-  const SpaNodeCommand *command;
+  const SpaCommand *command;
   uint32_t seq;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
@@ -857,7 +857,7 @@ client_node_demarshal_port_command (void   *object,
 {
   PinosProxy *proxy = object;
   SpaPODIter it;
-  const SpaNodeCommand *command;
+  const SpaCommand *command;
   uint32_t port_id;
 
   if (!spa_pod_iter_struct (&it, data, size) ||

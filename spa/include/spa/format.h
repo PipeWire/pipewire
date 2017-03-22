@@ -30,7 +30,7 @@ extern "C" {
 typedef struct _SpaFormat SpaFormat;
 
 #include <spa/defs.h>
-#include <spa/pod-utils.h>
+#include <spa/pod.h>
 
 #define SPA_MEDIA_TYPE_URI           "http://spaplug.in/ns/media-type"
 #define SPA_MEDIA_TYPE_PREFIX        SPA_MEDIA_TYPE_URI "#"

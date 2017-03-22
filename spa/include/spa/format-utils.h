@@ -27,6 +27,7 @@ extern "C" {
 #include <stdarg.h>
 
 #include <spa/format.h>
+#include <spa/pod-utils.h>
 #include <spa/id-map.h>
 
 typedef struct {

@@ -2,6 +2,7 @@ spa_headers = [
   'barrier.h',
   'buffer.h',
   'clock.h',
+  'command.h',
   'defs.h',
   'dict.h',
   'event.h',

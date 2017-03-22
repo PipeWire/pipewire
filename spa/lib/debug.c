@@ -269,7 +269,8 @@ print_pod_value (uint32_t size, uint32_t type, void *body, int prefix)
       SpaPODObjectBody *b = body;
       SpaPOD *p;
 
-      printf ("%-*sObject: size %d, id %d, type %d\n", prefix, "", size, b->id, b->type);
+      printf ("%-*sObject: size %d, id %d, type %s\n", prefix, "", size, b->id,
+          spa_id_map_get_uri (spa_id_map_get_default(), b->type));
       SPA_POD_OBJECT_BODY_FOREACH (b, size, p)
         print_pod_value (p->size, p->type, SPA_POD_BODY (p), prefix + 2);
       break;

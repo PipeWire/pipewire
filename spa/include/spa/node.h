@@ -202,7 +202,7 @@ struct _SpaNode {
   /**
    * SpaNode::send_command:
    * @node: a #SpaNode
-   * @command: a #SpaNodeCommand
+   * @command: a #SpaCommand
    *
    * Send a command to @node.
    *
@@ -216,8 +216,8 @@ struct _SpaNode {
    *          #SPA_RESULT_INVALID_COMMAND @command is an invalid command
    *          #SPA_RESULT_ASYNC @command is executed asynchronously
    */
-  SpaResult   (*send_command)         (SpaNode        *node,
-                                       SpaNodeCommand *command);
+  SpaResult   (*send_command)         (SpaNode    *node,
+                                       SpaCommand *command);
   /**
    * SpaNode::set_event_callback:
    * @node: a #SpaNode
@@ -542,7 +542,7 @@ struct _SpaNode {
   SpaResult   (*port_send_command)    (SpaNode          *node,
                                        SpaDirection      direction,
                                        uint32_t          port_id,
-                                       SpaNodeCommand   *command);
+                                       SpaCommand       *command);
   /**
    * SpaNode::process_input:
    * @node: a #SpaNode

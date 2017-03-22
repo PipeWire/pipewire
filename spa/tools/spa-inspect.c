@@ -24,6 +24,7 @@
 #include <dlfcn.h>
 
 #include <spa/id-map.h>
+#include <spa/clock.h>
 #include <spa/log.h>
 #include <spa/node.h>
 #include <spa/loop.h>

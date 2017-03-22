@@ -73,6 +73,7 @@ typedef struct {
   uint32_t node;
   SpaMediaTypes media_types;
   SpaMediaSubtypes media_subtypes;
+  SpaNodeCommands node_commands;
 } URI;
 
 struct _SpaXvSink {
@@ -166,8 +167,8 @@ spa_xv_sink_node_set_props (SpaNode         *node,
 }
 
 static SpaResult
-spa_xv_sink_node_send_command (SpaNode        *node,
-                               SpaNodeCommand *command)
+spa_xv_sink_node_send_command (SpaNode    *node,
+                               SpaCommand *command)
 {
   SpaXvSink *this;
 
@@ -176,27 +177,19 @@ spa_xv_sink_node_send_command (SpaNode        *node,
 
   this = SPA_CONTAINER_OF (node, SpaXvSink, node);
 
-  switch (SPA_NODE_COMMAND_TYPE (command)) {
-    case SPA_NODE_COMMAND_INVALID:
-      return SPA_RESULT_INVALID_COMMAND;
+  if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Start) {
+    spa_xv_start (this);
 
-    case SPA_NODE_COMMAND_START:
-      spa_xv_start (this);
-
-      update_state (this, SPA_NODE_STATE_STREAMING);
-      break;
-    case SPA_NODE_COMMAND_PAUSE:
-      spa_xv_stop (this);
-
-      update_state (this, SPA_NODE_STATE_PAUSED);
-      break;
-
-    case SPA_NODE_COMMAND_FLUSH:
-    case SPA_NODE_COMMAND_DRAIN:
-    case SPA_NODE_COMMAND_MARKER:
-    case SPA_NODE_COMMAND_CLOCK_UPDATE:
-      return SPA_RESULT_NOT_IMPLEMENTED;
+    update_state (this, SPA_NODE_STATE_STREAMING);
   }
+  else if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Pause) {
+    spa_xv_stop (this);
+
+    update_state (this, SPA_NODE_STATE_PAUSED);
+  }
+  else
+    return SPA_RESULT_NOT_IMPLEMENTED;
+
   return SPA_RESULT_OK;
 }
 
@@ -471,7 +464,7 @@ static SpaResult
 spa_xv_sink_node_port_send_command (SpaNode        *node,
                                     SpaDirection    direction,
                                     uint32_t        port_id,
-                                    SpaNodeCommand *command)
+                                    SpaCommand     *command)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
@@ -573,6 +566,7 @@ xv_sink_init (const SpaHandleFactory  *factory,
   this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
   spa_media_types_fill (&this->uri.media_types, this->map);
   spa_media_subtypes_map (this->map, &this->uri.media_subtypes);
+  spa_node_commands_map (this->map, &this->uri.node_commands);
 
   this->node = xvsink_node;
   reset_xv_sink_props (&this->props);

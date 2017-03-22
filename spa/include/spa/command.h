@@ -17,42 +17,42 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __SPA_EVENT_H__
-#define __SPA_EVENT_H__
+#ifndef __SPA_COMMAND_H__
+#define __SPA_COMMAND_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct _SpaEvent SpaEvent;
+typedef struct _SpaCommand SpaCommand;
 
 #include <spa/defs.h>
 #include <spa/pod.h>
 
-#define SPA_EVENT_URI             "http://spaplug.in/ns/event"
-#define SPA_EVENT_PREFIX          SPA_EVENT_URI "#"
+#define SPA_COMMAND_URI             "http://spaplug.in/ns/command"
+#define SPA_COMMAND_PREFIX          SPA_COMMAND_URI "#"
 
 typedef struct {
   SpaPODObjectBody body;
-} SpaEventBody;
+} SpaCommandBody;
 
-struct _SpaEvent {
-  SpaPOD           pod;
-  SpaEventBody body;
+struct _SpaCommand {
+  SpaPOD         pod;
+  SpaCommandBody body;
 };
 
-#define SPA_EVENT_TYPE(ev)   ((ev)->body.body.type)
+#define SPA_COMMAND_TYPE(cmd)   ((cmd)->body.body.type)
 
-#define SPA_EVENT_INIT(type)                            \
-  { { sizeof (SpaEventBody), SPA_POD_TYPE_OBJECT },     \
-    { { 0, type } } }                                   \
+#define SPA_COMMAND_INIT(type)                                  \
+  { { sizeof (SpaCommandBody), SPA_POD_TYPE_OBJECT },           \
+    { { 0, type } } }                                           \
 
-#define SPA_EVENT_INIT_COMPLEX(size,type,...)           \
-  { { size, SPA_POD_TYPE_OBJECT },                      \
-    { { 0, type }, __VA_ARGS__ } }                      \
+#define SPA_COMMAND_INIT_COMPLEX(size,type,...)                 \
+  { { size, SPA_POD_TYPE_OBJECT },                              \
+    { { 0, type }, __VA_ARGS__ } }                              \
 
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_EVENT_H__ */
+#endif /* __SPA_COMMAND_H__ */

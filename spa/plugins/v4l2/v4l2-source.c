@@ -26,6 +26,7 @@
 
 #include <spa/node.h>
 #include <spa/video/format-utils.h>
+#include <spa/clock.h>
 #include <spa/list.h>
 #include <spa/log.h>
 #include <spa/loop.h>
@@ -65,12 +66,14 @@ struct _V4l2Buffer {
 typedef struct {
   uint32_t node;
   uint32_t clock;
+  uint32_t format;
   SpaMediaTypes media_types;
   SpaMediaSubtypes media_subtypes;
   SpaMediaSubtypesVideo media_subtypes_video;
   SpaPropVideo prop_video;
   SpaVideoFormats video_formats;
   SpaNodeEvents node_events;
+  SpaNodeCommands node_commands;
 } URI;
 
 typedef struct {
@@ -248,7 +251,7 @@ do_pause (SpaLoop        *loop,
 {
   SpaV4l2Source *this = user_data;
   SpaResult res;
-  SpaNodeCommand *cmd = data;
+  SpaCommand *cmd = data;
 
   res = spa_node_port_send_command (&this->node,
                                     SPA_DIRECTION_OUTPUT,
@@ -299,7 +302,7 @@ do_start (SpaLoop        *loop,
 {
   SpaV4l2Source *this = user_data;
   SpaResult res;
-  SpaNodeCommand *cmd = data;
+  SpaCommand *cmd = data;
 
   res = spa_node_port_send_command (&this->node,
                                     SPA_DIRECTION_OUTPUT,
@@ -321,8 +324,8 @@ do_start (SpaLoop        *loop,
 }
 
 static SpaResult
-spa_v4l2_source_node_send_command (SpaNode        *node,
-                                   SpaNodeCommand *command)
+spa_v4l2_source_node_send_command (SpaNode    *node,
+                                   SpaCommand *command)
 {
   SpaV4l2Source *this;
 
@@ -331,66 +334,53 @@ spa_v4l2_source_node_send_command (SpaNode        *node,
 
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
 
-  switch (SPA_NODE_COMMAND_TYPE (command)) {
-    case SPA_NODE_COMMAND_INVALID:
-      return SPA_RESULT_INVALID_COMMAND;
+  if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Start) {
+    SpaV4l2State *state = &this->state[0];
+    SpaResult res;
 
-    case SPA_NODE_COMMAND_START:
-    {
-      SpaV4l2State *state = &this->state[0];
-      SpaResult res;
+    if (!state->have_format)
+      return SPA_RESULT_NO_FORMAT;
 
-      if (!state->have_format)
-        return SPA_RESULT_NO_FORMAT;
+    if (state->n_buffers == 0)
+      return SPA_RESULT_NO_BUFFERS;
 
-      if (state->n_buffers == 0)
-        return SPA_RESULT_NO_BUFFERS;
-
-      if (state->started)
-        return SPA_RESULT_OK;
-
-      if ((res = spa_v4l2_stream_on (this)) < 0)
-        return res;
-
-      return spa_loop_invoke (this->state[0].data_loop,
-                              do_start,
-                              ++this->seq,
-                              SPA_POD_SIZE (command),
-                              command,
-                              this);
-    }
-    case SPA_NODE_COMMAND_PAUSE:
-    {
-      SpaV4l2State *state = &this->state[0];
-
-      if (!state->have_format)
-        return SPA_RESULT_NO_FORMAT;
-
-      if (state->n_buffers == 0)
-        return SPA_RESULT_NO_BUFFERS;
-
-      if (!state->started)
-        return SPA_RESULT_OK;
-
-      return spa_loop_invoke (this->state[0].data_loop,
-                              do_pause,
-                              ++this->seq,
-                              SPA_POD_SIZE (command),
-                              command,
-                              this);
-    }
-
-    case SPA_NODE_COMMAND_FLUSH:
-    case SPA_NODE_COMMAND_DRAIN:
-    case SPA_NODE_COMMAND_MARKER:
-      return SPA_RESULT_NOT_IMPLEMENTED;
-
-    case SPA_NODE_COMMAND_CLOCK_UPDATE:
-    {
+    if (state->started)
       return SPA_RESULT_OK;
-    }
+
+    if ((res = spa_v4l2_stream_on (this)) < 0)
+      return res;
+
+    return spa_loop_invoke (this->state[0].data_loop,
+                            do_start,
+                            ++this->seq,
+                            SPA_POD_SIZE (command),
+                            command,
+                            this);
   }
-  return SPA_RESULT_OK;
+  else if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Pause) {
+    SpaV4l2State *state = &this->state[0];
+
+    if (!state->have_format)
+      return SPA_RESULT_NO_FORMAT;
+
+    if (state->n_buffers == 0)
+      return SPA_RESULT_NO_BUFFERS;
+
+    if (!state->started)
+      return SPA_RESULT_OK;
+
+    return spa_loop_invoke (this->state[0].data_loop,
+                            do_pause,
+                            ++this->seq,
+                            SPA_POD_SIZE (command),
+                            command,
+                            this);
+  }
+  else if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.ClockUpdate) {
+    return SPA_RESULT_OK;
+  }
+  else
+    return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult
@@ -577,7 +567,7 @@ spa_v4l2_source_node_port_get_format (SpaNode          *node,
   b.data = state->format_buffer;
   b.size = sizeof (state->format_buffer);
 
-  spa_pod_builder_push_format (&b, &f[0],
+  spa_pod_builder_push_format (&b, &f[0], this->uri.format,
                                state->current_format.media_type,
                                state->current_format.media_subtype);
 
@@ -784,7 +774,7 @@ static SpaResult
 spa_v4l2_source_node_port_send_command (SpaNode        *node,
                                         SpaDirection    direction,
                                         uint32_t        port_id,
-                                        SpaNodeCommand *command)
+                                        SpaCommand     *command)
 {
   SpaV4l2Source *this;
   SpaResult res;
@@ -797,19 +787,14 @@ spa_v4l2_source_node_port_send_command (SpaNode        *node,
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
 
-  switch (SPA_NODE_COMMAND_TYPE (command)) {
-    case SPA_NODE_COMMAND_PAUSE:
-      res = spa_v4l2_port_set_enabled (this, false);
-      break;
-
-    case SPA_NODE_COMMAND_START:
-      res = spa_v4l2_port_set_enabled (this, true);
-      break;
-
-    default:
-      res = SPA_RESULT_NOT_IMPLEMENTED;
-      break;
+  if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Pause) {
+    res = spa_v4l2_port_set_enabled (this, false);
   }
+  else if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Start) {
+    res = spa_v4l2_port_set_enabled (this, true);
+  } else
+    res = SPA_RESULT_NOT_IMPLEMENTED;
+
   return res;
 }
 
@@ -972,12 +957,14 @@ v4l2_source_init (const SpaHandleFactory  *factory,
   }
   this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
   this->uri.clock = spa_id_map_get_id (this->map, SPA_CLOCK_URI);
+  this->uri.format = spa_id_map_get_id (this->map, SPA_FORMAT_URI);
   spa_media_types_fill (&this->uri.media_types, this->map);
   spa_media_subtypes_map (this->map, &this->uri.media_subtypes);
   spa_media_subtypes_video_map (this->map, &this->uri.media_subtypes_video);
   spa_prop_video_map (this->map, &this->uri.prop_video);
   spa_video_formats_map (this->map, &this->uri.video_formats);
   spa_node_events_map (this->map, &this->uri.node_events);
+  spa_node_commands_map (this->map, &this->uri.node_commands);
 
   this->node = v4l2source_node;
   this->clock = v4l2source_clock;

@@ -29,6 +29,7 @@ extern "C" {
 #include <asoundlib.h>
 
 #include <spa/id-map.h>
+#include <spa/clock.h>
 #include <spa/log.h>
 #include <spa/list.h>
 #include <spa/node.h>
@@ -62,12 +63,14 @@ struct _SpaALSABuffer {
 typedef struct {
   uint32_t node;
   uint32_t clock;
+  uint32_t format;
   SpaMediaTypes media_types;
   SpaMediaSubtypes media_subtypes;
   SpaMediaSubtypesAudio media_subtypes_audio;
   SpaPropAudio prop_audio;
   SpaAudioFormats audio_formats;
   SpaNodeEvents node_events;
+  SpaNodeCommands node_commands;
 } URI;
 
 struct _SpaALSAState {

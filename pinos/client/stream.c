@@ -573,58 +573,45 @@ handle_node_event (PinosStream    *stream,
 }
 
 static bool
-handle_node_command (PinosStream          *stream,
-                     uint32_t              seq,
-                     const SpaNodeCommand *command)
+handle_node_command (PinosStream      *stream,
+                     uint32_t          seq,
+                     const SpaCommand *command)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
+  PinosContext *context = stream->context;
 
-  switch (SPA_NODE_COMMAND_TYPE (command)) {
-    case SPA_NODE_COMMAND_INVALID:
-      break;
-    case SPA_NODE_COMMAND_PAUSE:
-    {
-      pinos_log_debug ("stream %p: pause %d", stream, seq);
+  if (SPA_COMMAND_TYPE (command) == context->uri.node_commands.Pause) {
+    pinos_log_debug ("stream %p: pause %d", stream, seq);
 
-      add_state_change (stream, SPA_NODE_STATE_PAUSED, false);
-      add_async_complete (stream, seq, SPA_RESULT_OK, true);
-      stream_set_state (stream, PINOS_STREAM_STATE_PAUSED, NULL);
-      break;
-    }
-    case SPA_NODE_COMMAND_START:
-    {
-      pinos_log_debug ("stream %p: start %d", stream, seq);
-      add_state_change (stream, SPA_NODE_STATE_STREAMING, false);
-      add_async_complete (stream, seq, SPA_RESULT_OK, true);
+    add_state_change (stream, SPA_NODE_STATE_PAUSED, false);
+    add_async_complete (stream, seq, SPA_RESULT_OK, true);
+    stream_set_state (stream, PINOS_STREAM_STATE_PAUSED, NULL);
+  }
+  else if (SPA_COMMAND_TYPE (command) == context->uri.node_commands.Start) {
+    pinos_log_debug ("stream %p: start %d", stream, seq);
+    add_state_change (stream, SPA_NODE_STATE_STREAMING, false);
+    add_async_complete (stream, seq, SPA_RESULT_OK, true);
 
-      if (impl->direction == SPA_DIRECTION_INPUT)
-        send_need_input (stream);
+    if (impl->direction == SPA_DIRECTION_INPUT)
+      send_need_input (stream);
 
-      stream_set_state (stream, PINOS_STREAM_STATE_STREAMING, NULL);
-      break;
+    stream_set_state (stream, PINOS_STREAM_STATE_STREAMING, NULL);
+  }
+  else if (SPA_COMMAND_TYPE (command) == context->uri.node_commands.ClockUpdate) {
+    SpaNodeCommandClockUpdate *cu = (SpaNodeCommandClockUpdate *) command;
+    if (cu->body.flags.value & SPA_NODE_COMMAND_CLOCK_UPDATE_FLAG_LIVE) {
+      pinos_properties_set (stream->properties,
+                        "pinos.latency.is-live", "1");
+      pinos_properties_setf (stream->properties,
+                        "pinos.latency.min", "%"PRId64, cu->body.latency.value);
     }
-    case SPA_NODE_COMMAND_FLUSH:
-    case SPA_NODE_COMMAND_DRAIN:
-    case SPA_NODE_COMMAND_MARKER:
-    {
-      pinos_log_warn ("unhandled node command %d", SPA_NODE_COMMAND_TYPE (command));
-      add_async_complete (stream, seq, SPA_RESULT_NOT_IMPLEMENTED, true);
-      break;
-    }
-    case SPA_NODE_COMMAND_CLOCK_UPDATE:
-    {
-      SpaNodeCommandClockUpdate *cu = (SpaNodeCommandClockUpdate *) command;
-      if (cu->body.flags.value & SPA_NODE_COMMAND_CLOCK_UPDATE_FLAG_LIVE) {
-        pinos_properties_set (stream->properties,
-                          "pinos.latency.is-live", "1");
-        pinos_properties_setf (stream->properties,
-                          "pinos.latency.min", "%"PRId64, cu->body.latency.value);
-      }
-      impl->last_ticks = cu->body.ticks.value;
-      impl->last_rate = cu->body.rate.value;
-      impl->last_monotonic = cu->body.monotonic_time.value;
-      break;
-    }
+    impl->last_ticks = cu->body.ticks.value;
+    impl->last_rate = cu->body.rate.value;
+    impl->last_monotonic = cu->body.monotonic_time.value;
+  }
+  else {
+    pinos_log_warn ("unhandled node command %d", SPA_COMMAND_TYPE (command));
+    add_async_complete (stream, seq, SPA_RESULT_NOT_IMPLEMENTED, true);
   }
   return true;
 }
@@ -853,9 +840,9 @@ client_node_use_buffers (void                  *object,
 }
 
 static void
-client_node_node_command (void                 *object,
-                          uint32_t              seq,
-                          const SpaNodeCommand *command)
+client_node_node_command (void             *object,
+                          uint32_t          seq,
+                          const SpaCommand *command)
 {
   PinosProxy *proxy = object;
   PinosStream *stream = proxy->user_data;
@@ -863,9 +850,9 @@ client_node_node_command (void                 *object,
 }
 
 static void
-client_node_port_command (void                 *object,
-                          uint32_t              port_id,
-                          const SpaNodeCommand *command)
+client_node_port_command (void             *object,
+                          uint32_t          port_id,
+                          const SpaCommand *command)
 {
   pinos_log_warn ("port command not supported");
 }

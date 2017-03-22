@@ -742,9 +742,9 @@ client_node_marshal_use_buffers (void                  *object,
 }
 
 static void
-client_node_marshal_node_command (void                 *object,
-                                  uint32_t              seq,
-                                  const SpaNodeCommand *command)
+client_node_marshal_node_command (void             *object,
+                                  uint32_t          seq,
+                                  const SpaCommand *command)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;
@@ -761,9 +761,9 @@ client_node_marshal_node_command (void                 *object,
 }
 
 static void
-client_node_marshal_port_command (void                 *object,
-                                  uint32_t              port_id,
-                                  const SpaNodeCommand *command)
+client_node_marshal_port_command (void             *object,
+                                  uint32_t          port_id,
+                                  const SpaCommand *command)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;

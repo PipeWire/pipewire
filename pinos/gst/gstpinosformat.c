@@ -37,6 +37,7 @@ typedef struct {
   uint32_t *media_subtype;
 } MediaType;
 
+static uint32_t format_type;
 static SpaMediaTypes media_types = { 0, };
 static SpaMediaSubtypes media_subtypes = { 0, };
 static SpaMediaSubtypesVideo media_subtypes_video = { 0, };
@@ -49,14 +50,17 @@ static SpaAudioFormats audio_formats = { 0, };
 static void
 ensure_types (void)
 {
-  spa_media_types_fill (&media_types, spa_id_map_get_default ());
-  spa_media_subtypes_map (spa_id_map_get_default (), &media_subtypes);
-  spa_media_subtypes_video_map (spa_id_map_get_default (), &media_subtypes_video);
-  spa_media_subtypes_audio_map (spa_id_map_get_default (), &media_subtypes_audio);
-  spa_prop_video_map (spa_id_map_get_default (), &prop_video);
-  spa_prop_audio_map (spa_id_map_get_default (), &prop_audio);
-  spa_video_formats_map (spa_id_map_get_default (), &video_formats);
-  spa_audio_formats_map (spa_id_map_get_default (), &audio_formats);
+  SpaIDMap *map = spa_id_map_get_default ();
+
+  format_type = spa_id_map_get_id (map, SPA_FORMAT_URI);
+  spa_media_types_fill (&media_types, map);
+  spa_media_subtypes_map (map, &media_subtypes);
+  spa_media_subtypes_video_map (map, &media_subtypes_video);
+  spa_media_subtypes_audio_map (map, &media_subtypes_audio);
+  spa_prop_video_map (map, &prop_video);
+  spa_prop_audio_map (map, &prop_audio);
+  spa_video_formats_map (map, &video_formats);
+  spa_audio_formats_map (map, &audio_formats);
 }
 
 static const MediaType media_type_map[] = {
@@ -516,7 +520,7 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
 
   d.b.write = write_pod;
 
-  spa_pod_builder_push_format (&d.b, &f,
+  spa_pod_builder_push_format (&d.b, &f, format_type,
                                *d.type->media_type,
                                *d.type->media_subtype);
 

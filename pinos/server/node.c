@@ -21,6 +21,8 @@
 #include <stdlib.h>
 #include <errno.h>
 
+#include "spa/include/spa/node-command.h"
+
 #include "pinos/client/pinos.h"
 #include "pinos/client/interfaces.h"
 
@@ -167,7 +169,7 @@ pause_node (PinosNode *this)
 
   pinos_log_debug ("node %p: pause node", this);
   {
-    SpaNodeCommand cmd = SPA_NODE_COMMAND_INIT (SPA_NODE_COMMAND_PAUSE);
+    SpaCommand cmd = SPA_COMMAND_INIT (this->core->uri.node_commands.Pause);
     if ((res = spa_node_send_command (this->node, &cmd)) < 0)
       pinos_log_debug ("got error %d", res);
   }
@@ -181,7 +183,7 @@ start_node (PinosNode *this)
 
   pinos_log_debug ("node %p: start node", this);
   {
-    SpaNodeCommand cmd = SPA_NODE_COMMAND_INIT (SPA_NODE_COMMAND_START);
+    SpaCommand cmd = SPA_COMMAND_INIT (this->core->uri.node_commands.Start);
     if ((res = spa_node_send_command (this->node, &cmd)) < 0)
       pinos_log_debug ("got error %d", res);
   }
@@ -224,6 +226,7 @@ send_clock_update (PinosNode *this)
   SpaResult res;
   SpaNodeCommandClockUpdate cu =
     SPA_NODE_COMMAND_CLOCK_UPDATE_INIT(
+        this->core->uri.node_commands.ClockUpdate,
         SPA_NODE_COMMAND_CLOCK_UPDATE_TIME |
             SPA_NODE_COMMAND_CLOCK_UPDATE_SCALE |
             SPA_NODE_COMMAND_CLOCK_UPDATE_STATE |
@@ -245,7 +248,7 @@ send_clock_update (PinosNode *this)
                               &cu.body.monotonic_time.value);
   }
 
-  if ((res = spa_node_send_command (this->node, (SpaNodeCommand *)&cu)) < 0)
+  if ((res = spa_node_send_command (this->node, (SpaCommand *)&cu)) < 0)
     pinos_log_debug ("got error %d", res);
 }
 

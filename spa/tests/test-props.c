@@ -60,6 +60,7 @@ spa_build (SPA_MEDIA_TYPE_VIDEO, SPA_MEDIA_SUBTYPE_RAW,
            0);
 #endif
 
+static uint32_t format_type;
 static SpaMediaTypes media_types;
 static SpaMediaSubtypes media_subtypes;
 static SpaPropVideo prop_video;
@@ -95,7 +96,7 @@ do_static_struct (void)
     } props;
   } test_format = {
     { { sizeof (test_format.props) + sizeof (SpaFormatBody), SPA_POD_TYPE_OBJECT },
-      { { 0, 0 },
+      { { 0, format_type },
       { { sizeof (uint32_t), SPA_POD_TYPE_URI }, media_types.video },
       { { sizeof (uint32_t), SPA_POD_TYPE_URI }, media_subtypes.raw } },
     }, {
@@ -148,15 +149,17 @@ main (int argc, char *argv[])
   SpaPODFrame frame[4];
   uint8_t buffer[1024];
   SpaFormat *fmt;
+  SpaIDMap *map = spa_id_map_get_default();
 
-  spa_media_types_fill (&media_types, spa_id_map_get_default());
-  spa_media_subtypes_map (spa_id_map_get_default(), &media_subtypes);
-  spa_prop_video_map (spa_id_map_get_default(), &prop_video);
-  spa_video_formats_map (spa_id_map_get_default(), &video_formats);
+  format_type = spa_id_map_get_id (map, SPA_FORMAT_URI);
+  spa_media_types_fill (&media_types, map);
+  spa_media_subtypes_map (map, &media_subtypes);
+  spa_prop_video_map (map, &prop_video);
+  spa_video_formats_map (map, &video_formats);
 
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
 
-  fmt = SPA_MEMBER (buffer, spa_pod_builder_push_format (&b, &frame[0],
+  fmt = SPA_MEMBER (buffer, spa_pod_builder_push_format (&b, &frame[0], format_type,
                                                          media_types.video,
                                                          media_subtypes.raw), SpaFormat);
   spa_pod_builder_push_prop (&b, &frame[1],
@@ -189,7 +192,7 @@ main (int argc, char *argv[])
 
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
 
-  spa_pod_builder_format (&b, &frame[0],
+  spa_pod_builder_format (&b, &frame[0], format_type,
        media_types.video, media_subtypes.raw,
        SPA_POD_TYPE_PROP, &frame[1],
            prop_video.format,    SPA_POD_PROP_FLAG_UNSET |
@@ -214,7 +217,7 @@ main (int argc, char *argv[])
                                                 25, 1,
                                                 0, 1,
                                                 INT32_MAX, 1,
-      -SPA_POD_TYPE_PROP, &frame[1], 0);
+      -SPA_POD_TYPE_PROP, &frame[1]);
 
   fmt = SPA_MEMBER (buffer, frame[0].ref, SpaFormat);
   spa_debug_pod (&fmt->pod);
@@ -223,7 +226,7 @@ main (int argc, char *argv[])
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
 
   spa_pod_builder_add (&b,
-      SPA_POD_TYPE_OBJECT, &frame[0], 0, 0,
+      SPA_POD_TYPE_OBJECT, &frame[0], 0, format_type,
       SPA_POD_TYPE_URI, media_types.video,
       SPA_POD_TYPE_URI, media_subtypes.raw,
       SPA_POD_TYPE_PROP, &frame[1],

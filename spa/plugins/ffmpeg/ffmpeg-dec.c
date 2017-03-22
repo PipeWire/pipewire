@@ -52,6 +52,7 @@ typedef struct {
 
 typedef struct {
   uint32_t node;
+  SpaNodeCommands node_commands;
 } URI;
 
 struct _SpaFFMpegDec {
@@ -94,8 +95,8 @@ update_state (SpaFFMpegDec *this, SpaNodeState state)
 }
 
 static SpaResult
-spa_ffmpeg_dec_node_send_command (SpaNode        *node,
-                                  SpaNodeCommand *command)
+spa_ffmpeg_dec_node_send_command (SpaNode    *node,
+                                  SpaCommand *command)
 {
   SpaFFMpegDec *this;
 
@@ -104,24 +105,15 @@ spa_ffmpeg_dec_node_send_command (SpaNode        *node,
 
   this = SPA_CONTAINER_OF (node, SpaFFMpegDec, node);
 
-  switch (SPA_NODE_COMMAND_TYPE (command)) {
-    case SPA_NODE_COMMAND_INVALID:
-      return SPA_RESULT_INVALID_COMMAND;
-
-    case SPA_NODE_COMMAND_START:
-      update_state (this, SPA_NODE_STATE_STREAMING);
-      break;
-
-    case SPA_NODE_COMMAND_PAUSE:
-      update_state (this, SPA_NODE_STATE_PAUSED);
-      break;
-
-    case SPA_NODE_COMMAND_FLUSH:
-    case SPA_NODE_COMMAND_DRAIN:
-    case SPA_NODE_COMMAND_MARKER:
-    case SPA_NODE_COMMAND_CLOCK_UPDATE:
-      return SPA_RESULT_NOT_IMPLEMENTED;
+  if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Start) {
+    update_state (this, SPA_NODE_STATE_STREAMING);
   }
+  else if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Pause) {
+    update_state (this, SPA_NODE_STATE_PAUSED);
+  }
+  else
+    return SPA_RESULT_NOT_IMPLEMENTED;
+
   return SPA_RESULT_OK;
 }
 
@@ -453,7 +445,7 @@ static SpaResult
 spa_ffmpeg_dec_node_port_send_command (SpaNode        *node,
                                        SpaDirection    direction,
                                        uint32_t        port_id,
-                                       SpaNodeCommand *command)
+                                       SpaCommand     *command)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
@@ -533,6 +525,7 @@ spa_ffmpeg_dec_init (SpaHandle         *handle,
   this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
 
   this->node = ffmpeg_dec_node;
+  spa_node_commands_map (this->map, &this->uri.node_commands);
 
   this->in_ports[0].info.flags = SPA_PORT_INFO_FLAG_NONE;
   this->out_ports[0].info.flags = SPA_PORT_INFO_FLAG_NONE;

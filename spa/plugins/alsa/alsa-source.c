@@ -205,8 +205,8 @@ do_pause (SpaLoop        *loop,
 }
 
 static SpaResult
-spa_alsa_source_node_send_command (SpaNode        *node,
-                                   SpaNodeCommand *command)
+spa_alsa_source_node_send_command (SpaNode    *node,
+                                   SpaCommand *command)
 {
   SpaALSASource *this;
 
@@ -215,47 +215,37 @@ spa_alsa_source_node_send_command (SpaNode        *node,
 
   this = SPA_CONTAINER_OF (node, SpaALSASource, node);
 
-  switch (SPA_NODE_COMMAND_TYPE (command)) {
-    case SPA_NODE_COMMAND_INVALID:
-      return SPA_RESULT_INVALID_COMMAND;
+  if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Start) {
+    if (!this->have_format)
+      return SPA_RESULT_NO_FORMAT;
 
-    case SPA_NODE_COMMAND_START:
-    {
-      if (!this->have_format)
-        return SPA_RESULT_NO_FORMAT;
+    if (this->n_buffers == 0)
+      return SPA_RESULT_NO_BUFFERS;
 
-      if (this->n_buffers == 0)
-        return SPA_RESULT_NO_BUFFERS;
-
-      return spa_loop_invoke (this->data_loop,
-                              do_start,
-                              ++this->seq,
-                              0,
-                              NULL,
-                              this);
-
-    }
-    case SPA_NODE_COMMAND_PAUSE:
-    {
-      if (!this->have_format)
-        return SPA_RESULT_NO_FORMAT;
-
-      if (this->n_buffers == 0)
-        return SPA_RESULT_NO_BUFFERS;
-
-      return spa_loop_invoke (this->data_loop,
-                              do_pause,
-                              ++this->seq,
-                              0,
-                              NULL,
-                              this);
-    }
-    case SPA_NODE_COMMAND_FLUSH:
-    case SPA_NODE_COMMAND_DRAIN:
-    case SPA_NODE_COMMAND_MARKER:
-    case SPA_NODE_COMMAND_CLOCK_UPDATE:
-      return SPA_RESULT_NOT_IMPLEMENTED;
+    return spa_loop_invoke (this->data_loop,
+                            do_start,
+                            ++this->seq,
+                            0,
+                            NULL,
+                            this);
   }
+  else if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Pause) {
+    if (!this->have_format)
+      return SPA_RESULT_NO_FORMAT;
+
+    if (this->n_buffers == 0)
+      return SPA_RESULT_NO_BUFFERS;
+
+    return spa_loop_invoke (this->data_loop,
+                            do_pause,
+                            ++this->seq,
+                            0,
+                            NULL,
+                            this);
+  }
+  else
+    return SPA_RESULT_NOT_IMPLEMENTED;
+
   return SPA_RESULT_OK;
 }
 
@@ -360,18 +350,18 @@ next:
 
   switch (index++) {
     case 0:
-      spa_pod_builder_format (&b, &f[0],
-          this->uri.media_types.audio, this->uri.media_subtypes.raw,
-          PROP_U_EN (&f[1], this->uri.prop_audio.format,   SPA_POD_TYPE_URI, 3, this->uri.audio_formats.S16,
-                                                                                  this->uri.audio_formats.S16,
-                                                                                  this->uri.audio_formats.S32),
-          PROP_U_MM (&f[1], this->uri.prop_audio.rate,     SPA_POD_TYPE_INT, 44100, 1, INT32_MAX),
-          PROP_U_MM (&f[1], this->uri.prop_audio.channels, SPA_POD_TYPE_INT, 2,     1, INT32_MAX));
+      spa_pod_builder_format (&b, &f[0], this->uri.format,
+        this->uri.media_types.audio, this->uri.media_subtypes.raw,
+        PROP_U_EN (&f[1], this->uri.prop_audio.format,   SPA_POD_TYPE_URI, 3, this->uri.audio_formats.S16,
+                                                                              this->uri.audio_formats.S16,
+                                                                              this->uri.audio_formats.S32),
+        PROP_U_MM (&f[1], this->uri.prop_audio.rate,     SPA_POD_TYPE_INT, 44100, 1, INT32_MAX),
+        PROP_U_MM (&f[1], this->uri.prop_audio.channels, SPA_POD_TYPE_INT, 2,     1, INT32_MAX));
       break;
     case 1:
-      spa_pod_builder_format (&b, &f[0],
-         this->uri.media_types.audio, this->uri.media_subtypes_audio.aac,
-           SPA_POD_TYPE_NONE);
+      spa_pod_builder_format (&b, &f[0], this->uri.format,
+        this->uri.media_types.audio, this->uri.media_subtypes_audio.aac,
+        SPA_POD_TYPE_NONE);
     default:
       return SPA_RESULT_ENUM_END;
   }
@@ -679,7 +669,7 @@ static SpaResult
 spa_alsa_source_node_port_send_command (SpaNode          *node,
                                         SpaDirection      direction,
                                         uint32_t          port_id,
-                                        SpaNodeCommand   *command)
+                                        SpaCommand       *command)
 {
   SpaALSASource *this;
   SpaResult res;
@@ -692,25 +682,17 @@ spa_alsa_source_node_port_send_command (SpaNode          *node,
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
 
-  switch (SPA_NODE_COMMAND_TYPE (command)) {
-    case SPA_NODE_COMMAND_PAUSE:
-    {
-      if (SPA_RESULT_IS_OK (res = spa_alsa_pause (this, false))) {
-        update_state (this, SPA_NODE_STATE_PAUSED);
-      }
-      break;
+  if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Pause) {
+    if (SPA_RESULT_IS_OK (res = spa_alsa_pause (this, false))) {
+      update_state (this, SPA_NODE_STATE_PAUSED);
     }
-    case SPA_NODE_COMMAND_START:
-    {
-      if (SPA_RESULT_IS_OK (res = spa_alsa_start (this, false))) {
-        update_state (this, SPA_NODE_STATE_STREAMING);
-      }
-      break;
+  } else if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Start) {
+    if (SPA_RESULT_IS_OK (res = spa_alsa_start (this, false))) {
+      update_state (this, SPA_NODE_STATE_STREAMING);
     }
-    default:
-      res = SPA_RESULT_NOT_IMPLEMENTED;
-      break;
-  }
+  } else
+    res = SPA_RESULT_NOT_IMPLEMENTED;
+
   return res;
 }
 
@@ -862,6 +844,7 @@ alsa_source_init (const SpaHandleFactory  *factory,
   }
   this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
   this->uri.clock = spa_id_map_get_id (this->map, SPA_CLOCK_URI);
+  this->uri.format = spa_id_map_get_id (this->map, SPA_FORMAT_URI);
 
   spa_media_types_fill (&this->uri.media_types, this->map);
   spa_media_subtypes_map (this->map, &this->uri.media_subtypes);
@@ -869,6 +852,7 @@ alsa_source_init (const SpaHandleFactory  *factory,
   spa_prop_audio_map (this->map, &this->uri.prop_audio);
   spa_audio_formats_map (this->map, &this->uri.audio_formats);
   spa_node_events_map (this->map, &this->uri.node_events);
+  spa_node_commands_map (this->map, &this->uri.node_commands);
 
   this->node = alsasource_node;
   this->clock = alsasource_clock;

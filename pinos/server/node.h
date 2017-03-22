@@ -29,6 +29,7 @@ extern "C" {
 
 typedef struct _PinosNode PinosNode;
 
+#include <spa/include/spa/clock.h>
 #include <spa/include/spa/node.h>
 
 #include <pinos/client/mem.h>

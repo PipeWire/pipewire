@@ -45,7 +45,6 @@ id_map_get_id (SpaIDMap *map, const char *uri)
       if (strcmp (this->uris[i], uri) == 0)
         return i;
     }
-    printf ("spa adding %d %s\n", i, uri);
     this->uris[i] = (char *)uri;
     this->n_uris++;
   }
@@ -56,8 +55,6 @@ static const char *
 id_map_get_uri (SpaIDMap *map, uint32_t id)
 {
   IDMap *this = SPA_CONTAINER_OF (map, IDMap, map);
-
-  printf ("spa get %d\n", id);
 
   if (id < this->n_uris)
     return this->uris[id];

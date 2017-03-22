@@ -211,10 +211,10 @@ typedef struct {
                                 PinosClientNodeBuffer *buffers);
   void (*node_command)         (void              *object,
                                 uint32_t           seq,
-                                const SpaNodeCommand *command);
+                                const SpaCommand  *command);
   void (*port_command)         (void              *object,
                                 uint32_t           port_id,
-                                const SpaNodeCommand *command);
+                                const SpaCommand  *command);
   void (*transport)            (void              *object,
                                 int                memfd,
                                 uint32_t           offset,

@@ -185,11 +185,12 @@ send_have_output (SpaProxy *this)
 }
 
 static SpaResult
-spa_proxy_node_send_command (SpaNode        *node,
-                             SpaNodeCommand *command)
+spa_proxy_node_send_command (SpaNode    *node,
+                             SpaCommand *command)
 {
   SpaProxy *this;
   SpaResult res = SPA_RESULT_OK;
+  PinosCore *core;
 
   if (node == NULL || command == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -199,30 +200,22 @@ spa_proxy_node_send_command (SpaNode        *node,
   if (this->resource == NULL)
     return SPA_RESULT_OK;
 
-  switch (SPA_NODE_COMMAND_TYPE (command)) {
-    case SPA_NODE_COMMAND_INVALID:
-      return SPA_RESULT_INVALID_COMMAND;
+  core = this->pnode->core;
 
-    case SPA_NODE_COMMAND_START:
-    case SPA_NODE_COMMAND_PAUSE:
-    case SPA_NODE_COMMAND_FLUSH:
-    case SPA_NODE_COMMAND_DRAIN:
-    case SPA_NODE_COMMAND_MARKER:
-      /* send start */
-      pinos_client_node_notify_node_command (this->resource,
-                                             this->seq,
-                                             command);
-      if (SPA_NODE_COMMAND_TYPE (command) == SPA_NODE_COMMAND_START)
-        send_need_input (this);
+  if (SPA_COMMAND_TYPE (command) == core->uri.node_commands.ClockUpdate) {
+    pinos_client_node_notify_node_command (this->resource,
+                                           this->seq++,
+                                           command);
+  }
+  else {
+    /* send start */
+    pinos_client_node_notify_node_command (this->resource,
+                                           this->seq,
+                                           command);
+    if (SPA_COMMAND_TYPE (command) == core->uri.node_commands.Start)
+      send_need_input (this);
 
-      res = SPA_RESULT_RETURN_ASYNC (this->seq++);
-      break;
-
-    case SPA_NODE_COMMAND_CLOCK_UPDATE:
-      pinos_client_node_notify_node_command (this->resource,
-                                             this->seq++,
-                                             command);
-      break;
+    res = SPA_RESULT_RETURN_ASYNC (this->seq++);
   }
   return res;
 }
@@ -790,33 +783,17 @@ static SpaResult
 spa_proxy_node_port_send_command (SpaNode        *node,
                                   SpaDirection    direction,
                                   uint32_t        port_id,
-                                  SpaNodeCommand *command)
+                                  SpaCommand     *command)
 {
   SpaProxy *this;
-  SpaResult res = SPA_RESULT_OK;
 
   if (node == NULL || command == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
-  switch (SPA_NODE_COMMAND_TYPE (command)) {
-    case SPA_NODE_COMMAND_INVALID:
-      return SPA_RESULT_INVALID_COMMAND;
-
-    case SPA_NODE_COMMAND_START:
-    case SPA_NODE_COMMAND_PAUSE:
-    case SPA_NODE_COMMAND_FLUSH:
-    case SPA_NODE_COMMAND_DRAIN:
-    case SPA_NODE_COMMAND_MARKER:
-      break;
-
-    default:
-      spa_log_warn (this->log, "unhandled command %d", SPA_NODE_COMMAND_TYPE (command));
-      res = SPA_RESULT_NOT_IMPLEMENTED;
-      break;
-  }
-  return res;
+  spa_log_warn (this->log, "unhandled command %d", SPA_COMMAND_TYPE (command));
+  return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult

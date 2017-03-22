@@ -662,7 +662,7 @@ have_size:
   media_subtype = *SPA_MEMBER (&this->uri, info->media_subtype_offset, uint32_t);
   video_format = *SPA_MEMBER (&this->uri, info->format_offset, uint32_t);
 
-  spa_pod_builder_push_format (&b, &f[0],
+  spa_pod_builder_push_format (&b, &f[0], this->uri.format,
                                media_type,
                                media_subtype);
 

@@ -50,4 +50,5 @@ pinos_uri_init (PinosURI *uri)
   uri->spa_monitor = spa_id_map_get_id (uri->map, SPA_MONITOR_URI);
 
   spa_node_events_map (uri->map, &uri->node_events);
+  spa_node_commands_map (uri->map, &uri->node_commands);
 }

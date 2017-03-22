@@ -55,6 +55,7 @@ struct _PinosURI {
   uint32_t spa_monitor;
 
   SpaNodeEvents node_events;
+  SpaNodeCommands node_commands;
 };
 
 void pinos_uri_init (PinosURI *uri);

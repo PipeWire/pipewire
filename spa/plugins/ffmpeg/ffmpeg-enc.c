@@ -59,6 +59,7 @@ typedef struct {
   uint32_t node;
   SpaMediaTypes media_types;
   SpaMediaSubtypes media_subtypes;
+  SpaNodeCommands node_commands;
 } URI;
 
 struct _SpaFFMpegEnc {
@@ -101,8 +102,8 @@ spa_ffmpeg_enc_node_set_props (SpaNode         *node,
 }
 
 static SpaResult
-spa_ffmpeg_enc_node_send_command (SpaNode        *node,
-                                  SpaNodeCommand *command)
+spa_ffmpeg_enc_node_send_command (SpaNode    *node,
+                                  SpaCommand *command)
 {
   SpaFFMpegEnc *this;
 
@@ -111,24 +112,15 @@ spa_ffmpeg_enc_node_send_command (SpaNode        *node,
 
   this = SPA_CONTAINER_OF (node, SpaFFMpegEnc, node);
 
-  switch (SPA_NODE_COMMAND_TYPE (command)) {
-    case SPA_NODE_COMMAND_INVALID:
-      return SPA_RESULT_INVALID_COMMAND;
-
-    case SPA_NODE_COMMAND_START:
-      update_state (this, SPA_NODE_STATE_STREAMING);
-      break;
-
-    case SPA_NODE_COMMAND_PAUSE:
-      update_state (this, SPA_NODE_STATE_PAUSED);
-      break;
-
-    case SPA_NODE_COMMAND_FLUSH:
-    case SPA_NODE_COMMAND_DRAIN:
-    case SPA_NODE_COMMAND_MARKER:
-    case SPA_NODE_COMMAND_CLOCK_UPDATE:
-      return SPA_RESULT_NOT_IMPLEMENTED;
+  if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Start) {
+    update_state (this, SPA_NODE_STATE_STREAMING);
   }
+  else if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Pause) {
+    update_state (this, SPA_NODE_STATE_PAUSED);
+  }
+  else
+    return SPA_RESULT_NOT_IMPLEMENTED;
+
   return SPA_RESULT_OK;
 }
 
@@ -435,7 +427,7 @@ static SpaResult
 spa_ffmpeg_enc_node_port_send_command (SpaNode        *node,
                                        SpaDirection    direction,
                                        uint32_t        port_id,
-                                       SpaNodeCommand *command)
+                                       SpaCommand     *command)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
@@ -546,6 +538,7 @@ spa_ffmpeg_enc_init (SpaHandle         *handle,
   this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
   spa_media_types_fill (&this->uri.media_types, this->map);
   spa_media_subtypes_map (this->map, &this->uri.media_subtypes);
+  spa_node_commands_map (this->map, &this->uri.node_commands);
 
   this->node = ffmpeg_enc_node;
 

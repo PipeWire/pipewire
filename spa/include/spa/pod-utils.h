@@ -97,16 +97,16 @@ spa_pod_object_find_prop (const SpaPODObject *obj, uint32_t key)
       *(va_arg (args, SpaPOD **)) = pod;                                                \
     } else if ((pod)->type == SPA_POD_TYPE_NONE) {                                      \
       switch (type) {                                                                   \
-        case SPA_POD_TYPE_ARRAY:                                                        \
-        case SPA_POD_TYPE_STRUCT:                                                       \
-        case SPA_POD_TYPE_OBJECT:                                                       \
-        case SPA_POD_TYPE_PROP:                                                         \
+        case -SPA_POD_TYPE_ARRAY:                                                       \
+        case -SPA_POD_TYPE_STRUCT:                                                      \
+        case -SPA_POD_TYPE_OBJECT:                                                      \
+        case -SPA_POD_TYPE_PROP:                                                        \
           *(va_arg (args, SpaPOD **)) = NULL;                                           \
           break;                                                                        \
         default:                                                                        \
           goto error;                                                                   \
       }                                                                                 \
-    } else if ((pod)->type == type) {                                                   \
+    } else if ((pod)->type == type || (pod)->type == -type) {                           \
       switch (type) {                                                                   \
         case SPA_POD_TYPE_BOOL:                                                         \
         case SPA_POD_TYPE_URI:                                                          \
@@ -155,6 +155,10 @@ spa_pod_object_find_prop (const SpaPODObject *obj, uint32_t key)
         case SPA_POD_TYPE_STRUCT:                                                       \
         case SPA_POD_TYPE_OBJECT:                                                       \
         case SPA_POD_TYPE_PROP:                                                         \
+        case -SPA_POD_TYPE_ARRAY:                                                       \
+        case -SPA_POD_TYPE_STRUCT:                                                      \
+        case -SPA_POD_TYPE_OBJECT:                                                      \
+        case -SPA_POD_TYPE_PROP:                                                        \
           *(va_arg (args, SpaPOD **)) = pod;                                            \
           break;                                                                        \
         default:                                                                        \
@@ -177,6 +181,7 @@ spa_pod_object_find_prop (const SpaPODObject *obj, uint32_t key)
       case SPA_POD_TYPE_FLOAT:                                                          \
       case SPA_POD_TYPE_DOUBLE:                                                         \
       case SPA_POD_TYPE_STRING:                                                         \
+      case -SPA_POD_TYPE_STRING:                                                        \
       case SPA_POD_TYPE_RECTANGLE:                                                      \
       case SPA_POD_TYPE_FRACTION:                                                       \
       case SPA_POD_TYPE_BITMASK:                                                        \
@@ -185,6 +190,10 @@ spa_pod_object_find_prop (const SpaPODObject *obj, uint32_t key)
       case SPA_POD_TYPE_OBJECT:                                                         \
       case SPA_POD_TYPE_PROP:                                                           \
       case SPA_POD_TYPE_POD:                                                            \
+      case -SPA_POD_TYPE_ARRAY:                                                         \
+      case -SPA_POD_TYPE_STRUCT:                                                        \
+      case -SPA_POD_TYPE_OBJECT:                                                        \
+      case -SPA_POD_TYPE_PROP:                                                          \
         va_arg (args, void*);                                                           \
       default:                                                                          \
         break;                                                                          \

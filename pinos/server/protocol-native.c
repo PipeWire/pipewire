@@ -811,7 +811,7 @@ client_node_demarshal_update (void  *object,
         SPA_POD_TYPE_INT, &change_mask,
         SPA_POD_TYPE_INT, &max_input_ports,
         SPA_POD_TYPE_INT, &max_output_ports,
-        SPA_POD_TYPE_OBJECT, &props,
+        -SPA_POD_TYPE_OBJECT, &props,
         0))
     return false;
 
@@ -826,10 +826,11 @@ client_node_demarshal_port_update (void  *object,
 {
   PinosResource *resource = object;
   SpaPODIter it;
-  uint32_t i, t, direction, port_id, change_mask, n_possible_formats;
+  uint32_t i, direction, port_id, change_mask, n_possible_formats;
   const SpaProps *props = NULL;
   const SpaFormat **possible_formats = NULL, *format = NULL;
   SpaPortInfo info, *infop = NULL;
+  SpaPOD *ipod;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
       !spa_pod_iter_get (&it,
@@ -842,23 +843,23 @@ client_node_demarshal_port_update (void  *object,
 
   possible_formats = alloca (n_possible_formats * sizeof (SpaFormat*));
   for (i = 0; i < n_possible_formats; i++)
-    if (!spa_pod_iter_get (&it,SPA_POD_TYPE_OBJECT, &possible_formats[i], 0))
+    if (!spa_pod_iter_get (&it, SPA_POD_TYPE_OBJECT, &possible_formats[i], 0))
       return false;
 
   if (!spa_pod_iter_get (&it,
-        SPA_POD_TYPE_OBJECT, &format,
-        SPA_POD_TYPE_OBJECT, &props,
+        -SPA_POD_TYPE_OBJECT, &format,
+        -SPA_POD_TYPE_OBJECT, &props,
+        -SPA_POD_TYPE_STRUCT, &ipod,
         0))
     return false;
 
-  if (!spa_pod_iter_get (&it, SPA_POD_TYPE_INT, &t, 0))
-    return false;
-
-  if (t) {
+  if (ipod) {
     SpaDict dict;
+    SpaPODIter it2;
     infop = &info;
 
-    if (!spa_pod_iter_get (&it,
+    if (!spa_pod_iter_pod (&it2, ipod) ||
+        !spa_pod_iter_get (&it2,
           SPA_POD_TYPE_INT, &info.flags,
           SPA_POD_TYPE_LONG, &info.maxbuffering,
           SPA_POD_TYPE_LONG, &info.latency,
@@ -868,16 +869,16 @@ client_node_demarshal_port_update (void  *object,
 
     info.params = alloca (info.n_params * sizeof (SpaAllocParam *));
     for (i = 0; i < info.n_params; i++)
-      if (!spa_pod_iter_get (&it, SPA_POD_TYPE_OBJECT, &info.params[i], 0))
+      if (!spa_pod_iter_get (&it2, SPA_POD_TYPE_OBJECT, &info.params[i], 0))
         return false;
 
-    if (!spa_pod_iter_get (&it, SPA_POD_TYPE_INT, &dict.n_items, 0))
+    if (!spa_pod_iter_get (&it2, SPA_POD_TYPE_INT, &dict.n_items, 0))
       return false;
 
     info.extra = &dict;
     dict.items = alloca (dict.n_items * sizeof (SpaDictItem));
     for (i = 0; i < dict.n_items; i++) {
-      if (!spa_pod_iter_get (&it,
+      if (!spa_pod_iter_get (&it2,
             SPA_POD_TYPE_STRING, &dict.items[i].key,
             SPA_POD_TYPE_STRING, &dict.items[i].value,
             0))

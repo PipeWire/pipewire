@@ -484,13 +484,13 @@ client_node_marshal_port_update (void              *object,
   PinosProxy *proxy = object;
   PinosConnection *connection = proxy->context->protocol_private;
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
-  SpaPODFrame f;
+  SpaPODFrame f[2];
   int i, n_items;
 
   core_update_map (proxy->context);
 
   spa_pod_builder_add (&b.b,
-      SPA_POD_TYPE_STRUCT, &f,
+      SPA_POD_TYPE_STRUCT, &f[0],
         SPA_POD_TYPE_INT, direction,
         SPA_POD_TYPE_INT, port_id,
         SPA_POD_TYPE_INT, change_mask,
@@ -505,9 +505,9 @@ client_node_marshal_port_update (void              *object,
       SPA_POD_TYPE_POD, props,
       0);
 
-  spa_pod_builder_add (&b.b, SPA_POD_TYPE_INT, info ? 1 : 0, 0);
   if (info) {
     spa_pod_builder_add (&b.b,
+      SPA_POD_TYPE_STRUCT, &f[1],
         SPA_POD_TYPE_INT, info->flags,
         SPA_POD_TYPE_LONG, info->maxbuffering,
         SPA_POD_TYPE_LONG, info->latency,
@@ -526,8 +526,11 @@ client_node_marshal_port_update (void              *object,
           SPA_POD_TYPE_STRING, info->extra->items[i].value,
           0);
     }
+    spa_pod_builder_add (&b.b, -SPA_POD_TYPE_STRUCT, &f[1], 0);
+  } else {
+    spa_pod_builder_add (&b.b, SPA_POD_TYPE_POD, NULL, 0);
   }
-  spa_pod_builder_add (&b.b, -SPA_POD_TYPE_STRUCT, &f, 0);
+  spa_pod_builder_add (&b.b, -SPA_POD_TYPE_STRUCT, &f[0], 0);
 
   pinos_connection_end_write (connection, proxy->id, 1, b.b.offset);
 }
@@ -680,7 +683,7 @@ client_node_demarshal_set_format (void   *object,
         SPA_POD_TYPE_INT, &direction,
         SPA_POD_TYPE_INT, &port_id,
         SPA_POD_TYPE_INT, &flags,
-        SPA_POD_TYPE_OBJECT, &format,
+        -SPA_POD_TYPE_OBJECT, &format,
         0))
     return false;
 

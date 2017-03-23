@@ -71,10 +71,27 @@ typedef struct {
 
 typedef struct {
   uint32_t node;
+  uint32_t props;
+  uint32_t prop_device;
+  uint32_t prop_device_name;
+  uint32_t prop_device_fd;
   SpaMediaTypes media_types;
   SpaMediaSubtypes media_subtypes;
   SpaNodeCommands node_commands;
 } URI;
+
+static inline void
+init_uri (URI *uri, SpaIDMap *map)
+{
+  uri->node = spa_id_map_get_id (map, SPA_NODE_URI);
+  uri->props = spa_id_map_get_id (map, SPA_PROPS_URI);
+  uri->prop_device = spa_id_map_get_id (map, SPA_PROPS__device);
+  uri->prop_device_name = spa_id_map_get_id (map, SPA_PROPS__deviceName);
+  uri->prop_device_fd = spa_id_map_get_id (map, SPA_PROPS__deviceFd);
+  spa_media_types_fill (&uri->media_types, map);
+  spa_media_subtypes_map (map, &uri->media_subtypes);
+  spa_node_commands_map (map, &uri->node_commands);
+}
 
 struct _SpaXvSink {
   SpaHandle handle;
@@ -104,13 +121,6 @@ struct _SpaXvSink {
 
 #include "xv-utils.c"
 
-enum {
-  PROP_ID_NONE,
-  PROP_ID_DEVICE,
-  PROP_ID_DEVICE_NAME,
-  PROP_ID_DEVICE_FD,
-};
-
 static void
 update_state (SpaXvSink *this, SpaNodeState state)
 {
@@ -136,10 +146,10 @@ spa_xv_sink_node_get_props (SpaNode       *node,
   this = SPA_CONTAINER_OF (node, SpaXvSink, node);
 
   spa_pod_builder_init (&b, this->props_buffer, sizeof (this->props_buffer));
-  spa_pod_builder_props (&b, &f[0],
-      PROP   (&f[1], PROP_ID_DEVICE,      -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device)),
-      PROP_R (&f[1], PROP_ID_DEVICE_NAME, -SPA_POD_TYPE_STRING, this->props.device_name, sizeof (this->props.device_name)),
-      PROP_R (&f[1], PROP_ID_DEVICE_FD,    SPA_POD_TYPE_INT,    this->props.device_fd));
+  spa_pod_builder_props (&b, &f[0], this->uri.props,
+      PROP   (&f[1], this->uri.prop_device,      -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device)),
+      PROP_R (&f[1], this->uri.prop_device_name, -SPA_POD_TYPE_STRING, this->props.device_name, sizeof (this->props.device_name)),
+      PROP_R (&f[1], this->uri.prop_device_fd,    SPA_POD_TYPE_INT,    this->props.device_fd));
   *props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
 
   return SPA_RESULT_OK;
@@ -160,7 +170,7 @@ spa_xv_sink_node_set_props (SpaNode         *node,
     reset_xv_sink_props (&this->props);
   } else {
     spa_props_query (props,
-        PROP_ID_DEVICE, -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device),
+        this->uri.prop_device, -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device),
         0);
   }
   return SPA_RESULT_OK;
@@ -563,10 +573,7 @@ xv_sink_init (const SpaHandleFactory  *factory,
     spa_log_error (this->log, "an id-map is needed");
     return SPA_RESULT_ERROR;
   }
-  this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
-  spa_media_types_fill (&this->uri.media_types, this->map);
-  spa_media_subtypes_map (this->map, &this->uri.media_subtypes);
-  spa_node_commands_map (this->map, &this->uri.node_commands);
+  init_uri (&this->uri, this->map);
 
   this->node = xvsink_node;
   reset_xv_sink_props (&this->props);

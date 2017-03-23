@@ -52,16 +52,6 @@ update_state (SpaALSASink *this, SpaNodeState state)
   this->node.state = state;
 }
 
-enum {
-  PROP_ID_NONE,
-  PROP_ID_DEVICE,
-  PROP_ID_DEVICE_NAME,
-  PROP_ID_CARD_NAME,
-  PROP_ID_PERIOD_SIZE,
-  PROP_ID_PERIODS,
-  PROP_ID_PERIOD_EVENT,
-};
-
 #define PROP(f,key,type,...)                                                    \
           SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READWRITE,type,1,__VA_ARGS__)
 #define PROP_MM(f,key,type,...)                                                 \
@@ -92,13 +82,13 @@ spa_alsa_sink_node_get_props (SpaNode       *node,
 
   spa_pod_builder_init (&b, this->props_buffer, sizeof (this->props_buffer));
 
-  spa_pod_builder_props (&b, &f[0],
-        PROP    (&f[1], PROP_ID_DEVICE,      -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device)),
-        PROP    (&f[1], PROP_ID_DEVICE_NAME, -SPA_POD_TYPE_STRING, this->props.device_name, sizeof (this->props.device_name)),
-        PROP    (&f[1], PROP_ID_CARD_NAME,   -SPA_POD_TYPE_STRING, this->props.card_name, sizeof (this->props.card_name)),
-        PROP_MM (&f[1], PROP_ID_PERIOD_SIZE,  SPA_POD_TYPE_INT,    this->props.period_size, 1, INT32_MAX),
-        PROP_MM (&f[1], PROP_ID_PERIODS,      SPA_POD_TYPE_INT,    this->props.periods, 1, INT32_MAX),
-        PROP    (&f[1], PROP_ID_PERIOD_EVENT, SPA_POD_TYPE_BOOL,   this->props.period_event));
+  spa_pod_builder_props (&b, &f[0], this->uri.props,
+        PROP    (&f[1], this->uri.prop_device,      -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device)),
+        PROP    (&f[1], this->uri.prop_device_name, -SPA_POD_TYPE_STRING, this->props.device_name, sizeof (this->props.device_name)),
+        PROP    (&f[1], this->uri.prop_card_name,   -SPA_POD_TYPE_STRING, this->props.card_name, sizeof (this->props.card_name)),
+        PROP_MM (&f[1], this->uri.prop_period_size,  SPA_POD_TYPE_INT,    this->props.period_size, 1, INT32_MAX),
+        PROP_MM (&f[1], this->uri.prop_periods,      SPA_POD_TYPE_INT,    this->props.periods, 1, INT32_MAX),
+        PROP    (&f[1], this->uri.prop_period_event, SPA_POD_TYPE_BOOL,   this->props.period_event));
 
   *props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
 
@@ -121,10 +111,10 @@ spa_alsa_sink_node_set_props (SpaNode         *node,
     return SPA_RESULT_OK;
   } else {
     spa_props_query (props,
-        PROP_ID_DEVICE,      -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device),
-        PROP_ID_PERIOD_SIZE,  SPA_POD_TYPE_INT,    &this->props.period_size,
-        PROP_ID_PERIODS,      SPA_POD_TYPE_INT,    &this->props.periods,
-        PROP_ID_PERIOD_EVENT, SPA_POD_TYPE_BOOL,   &this->props.period_event,
+        this->uri.prop_device,      -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device),
+        this->uri.prop_period_size,  SPA_POD_TYPE_INT,    &this->props.period_size,
+        this->uri.prop_periods,      SPA_POD_TYPE_INT,    &this->props.periods,
+        this->uri.prop_period_event, SPA_POD_TYPE_BOOL,   &this->props.period_event,
         0);
   }
   return SPA_RESULT_OK;
@@ -776,18 +766,7 @@ alsa_sink_init (const SpaHandleFactory  *factory,
     spa_log_error (this->log, "an id-map is needed");
     return SPA_RESULT_ERROR;
   }
-  this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
-  this->uri.clock = spa_id_map_get_id (this->map, SPA_CLOCK_URI);
-  this->uri.format = spa_id_map_get_id (this->map, SPA_FORMAT_URI);
-  spa_media_types_fill (&this->uri.media_types, this->map);
-  spa_media_subtypes_map (this->map, &this->uri.media_subtypes);
-  spa_media_subtypes_audio_map (this->map, &this->uri.media_subtypes_audio);
-  spa_prop_audio_map (this->map, &this->uri.prop_audio);
-  spa_audio_formats_map (this->map, &this->uri.audio_formats);
-  spa_node_events_map (this->map, &this->uri.node_events);
-  spa_node_commands_map (this->map, &this->uri.node_commands);
-  spa_alloc_param_buffers_map (this->map, &this->uri.alloc_param_buffers);
-  spa_alloc_param_meta_enable_map (this->map, &this->uri.alloc_param_meta_enable);
+  init_uri (&this->uri, this->map);
 
   this->node = alsasink_node;
   this->stream = SND_PCM_STREAM_PLAYBACK;

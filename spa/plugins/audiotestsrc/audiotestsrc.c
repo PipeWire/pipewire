@@ -41,6 +41,13 @@ typedef struct {
   uint32_t node;
   uint32_t clock;
   uint32_t format;
+  uint32_t props;
+  uint32_t prop_live;
+  uint32_t prop_wave;
+  uint32_t prop_freq;
+  uint32_t prop_volume;
+  uint32_t wave_sine;
+  uint32_t wave_square;
   SpaMediaTypes media_types;
   SpaMediaSubtypes media_subtypes;
   SpaPropAudio prop_audio;
@@ -50,6 +57,29 @@ typedef struct {
   SpaAllocParamBuffers alloc_param_buffers;
   SpaAllocParamMetaEnable alloc_param_meta_enable;
 } URI;
+
+static inline void
+init_uri (URI *uri, SpaIDMap *map)
+{
+  uri->node = spa_id_map_get_id (map, SPA_NODE_URI);
+  uri->clock = spa_id_map_get_id (map, SPA_CLOCK_URI);
+  uri->format = spa_id_map_get_id (map, SPA_FORMAT_URI);
+  uri->props = spa_id_map_get_id (map, SPA_PROPS_URI);
+  uri->prop_live = spa_id_map_get_id (map, SPA_PROPS__live);
+  uri->prop_wave = spa_id_map_get_id (map, SPA_PROPS__waveType);
+  uri->prop_freq = spa_id_map_get_id (map, SPA_PROPS__frequency);
+  uri->prop_volume = spa_id_map_get_id (map, SPA_PROPS__volume);
+  uri->wave_sine = spa_id_map_get_id (map, SPA_PROPS__waveType ":Sine");
+  uri->wave_square = spa_id_map_get_id (map, SPA_PROPS__waveType ":Square");
+  spa_media_types_fill (&uri->media_types, map);
+  spa_media_subtypes_map (map, &uri->media_subtypes);
+  spa_prop_audio_map (map, &uri->prop_audio);
+  spa_audio_formats_map (map, &uri->audio_formats);
+  spa_node_events_map (map, &uri->node_events);
+  spa_node_commands_map (map, &uri->node_commands);
+  spa_alloc_param_buffers_map (map, &uri->alloc_param_buffers);
+  spa_alloc_param_meta_enable_map (map, &uri->alloc_param_meta_enable);
+}
 
 typedef struct _SpaAudioTestSrc SpaAudioTestSrc;
 
@@ -116,26 +146,15 @@ struct _SpaAudioTestSrc {
 #define CHECK_PORT(this,d,p)  ((d) == SPA_DIRECTION_OUTPUT && (p) == 0)
 
 #define DEFAULT_LIVE true
-#define DEFAULT_WAVE 0
+#define DEFAULT_WAVE wave_sine
 #define DEFAULT_FREQ 440.0
 #define DEFAULT_VOLUME 1.0
 
-static const uint32_t wave_val_sine = 0;
-static const uint32_t wave_val_square = 1;
-
-enum {
-  PROP_ID_NONE,
-  PROP_ID_LIVE,
-  PROP_ID_WAVE,
-  PROP_ID_FREQ,
-  PROP_ID_VOLUME,
-};
-
 static void
-reset_audiotestsrc_props (SpaAudioTestSrcProps *props)
+reset_audiotestsrc_props (SpaAudioTestSrc *this, SpaAudioTestSrcProps *props)
 {
   props->live = DEFAULT_LIVE;
-  props->wave = DEFAULT_WAVE;
+  props->wave = this->uri. DEFAULT_WAVE;
   props->freq = DEFAULT_FREQ;
   props->volume = DEFAULT_VOLUME;
 }
@@ -171,15 +190,15 @@ spa_audiotestsrc_node_get_props (SpaNode       *node,
   this = SPA_CONTAINER_OF (node, SpaAudioTestSrc, node);
 
   spa_pod_builder_init (&b, this->props_buffer, sizeof (this->props_buffer));
-  spa_pod_builder_props (&b, &f[0],
-        PROP    (&f[1], PROP_ID_LIVE,   SPA_POD_TYPE_BOOL,   this->props.live),
-        PROP_EN (&f[1], PROP_ID_WAVE,   SPA_POD_TYPE_INT, 3, this->props.wave,
-                                                               wave_val_sine,
-                                                               wave_val_square),
-        PROP_MM (&f[1], PROP_ID_FREQ,   SPA_POD_TYPE_DOUBLE, this->props.freq,
-                                                                0.0, 50000000.0),
-        PROP_MM (&f[1], PROP_ID_VOLUME, SPA_POD_TYPE_DOUBLE, this->props.volume,
-                                                                0.0, 10.0));
+  spa_pod_builder_props (&b, &f[0], this->uri.props,
+    PROP    (&f[1], this->uri.prop_live,   SPA_POD_TYPE_BOOL,   this->props.live),
+    PROP_EN (&f[1], this->uri.prop_wave,   SPA_POD_TYPE_URI, 3, this->props.wave,
+                                                                this->uri.wave_sine,
+                                                                this->uri.wave_square),
+    PROP_MM (&f[1], this->uri.prop_freq,   SPA_POD_TYPE_DOUBLE, this->props.freq,
+                                                            0.0, 50000000.0),
+    PROP_MM (&f[1], this->uri.prop_volume, SPA_POD_TYPE_DOUBLE, this->props.volume,
+                                                            0.0, 10.0));
 
   *props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
 
@@ -198,13 +217,13 @@ spa_audiotestsrc_node_set_props (SpaNode         *node,
   this = SPA_CONTAINER_OF (node, SpaAudioTestSrc, node);
 
   if (props == NULL) {
-    reset_audiotestsrc_props (&this->props);
+    reset_audiotestsrc_props (this, &this->props);
   } else {
     spa_props_query (props,
-        PROP_ID_LIVE,   SPA_POD_TYPE_BOOL,   &this->props.live,
-        PROP_ID_WAVE,   SPA_POD_TYPE_INT,    &this->props.wave,
-        PROP_ID_FREQ,   SPA_POD_TYPE_DOUBLE, &this->props.freq,
-        PROP_ID_VOLUME, SPA_POD_TYPE_DOUBLE, &this->props.volume,
+        this->uri.prop_live,   SPA_POD_TYPE_BOOL,   &this->props.live,
+        this->uri.prop_wave,   SPA_POD_TYPE_URI,    &this->props.wave,
+        this->uri.prop_freq,   SPA_POD_TYPE_DOUBLE, &this->props.freq,
+        this->uri.prop_volume, SPA_POD_TYPE_DOUBLE, &this->props.volume,
         0);
   }
 
@@ -949,21 +968,11 @@ audiotestsrc_init (const SpaHandleFactory  *factory,
     spa_log_error (this->log, "a data_loop is needed");
     return SPA_RESULT_ERROR;
   }
-  this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
-  this->uri.clock = spa_id_map_get_id (this->map, SPA_CLOCK_URI);
-  this->uri.format = spa_id_map_get_id (this->map, SPA_FORMAT_URI);
-  spa_media_types_fill (&this->uri.media_types, this->map);
-  spa_media_subtypes_map (this->map, &this->uri.media_subtypes);
-  spa_prop_audio_map (this->map, &this->uri.prop_audio);
-  spa_audio_formats_map (this->map, &this->uri.audio_formats);
-  spa_node_events_map (this->map, &this->uri.node_events);
-  spa_node_commands_map (this->map, &this->uri.node_commands);
-  spa_alloc_param_buffers_map (this->map, &this->uri.alloc_param_buffers);
-  spa_alloc_param_meta_enable_map (this->map, &this->uri.alloc_param_meta_enable);
+  init_uri (&this->uri, this->map);
 
   this->node = audiotestsrc_node;
   this->clock = audiotestsrc_clock;
-  reset_audiotestsrc_props (&this->props);
+  reset_audiotestsrc_props (this, &this->props);
 
   spa_list_init (&this->empty);
 

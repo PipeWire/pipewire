@@ -67,6 +67,10 @@ typedef struct {
   uint32_t node;
   uint32_t clock;
   uint32_t format;
+  uint32_t props;
+  uint32_t prop_device;
+  uint32_t prop_device_name;
+  uint32_t prop_device_fd;
   SpaMediaTypes media_types;
   SpaMediaSubtypes media_subtypes;
   SpaMediaSubtypesVideo media_subtypes_video;
@@ -77,6 +81,27 @@ typedef struct {
   SpaAllocParamBuffers alloc_param_buffers;
   SpaAllocParamMetaEnable alloc_param_meta_enable;
 } URI;
+
+static inline void
+init_uri (URI *uri, SpaIDMap *map)
+{
+  uri->node = spa_id_map_get_id (map, SPA_NODE_URI);
+  uri->clock = spa_id_map_get_id (map, SPA_CLOCK_URI);
+  uri->format = spa_id_map_get_id (map, SPA_FORMAT_URI);
+  uri->props = spa_id_map_get_id (map, SPA_PROPS_URI);
+  uri->prop_device = spa_id_map_get_id (map, SPA_PROPS__device);
+  uri->prop_device_name = spa_id_map_get_id (map, SPA_PROPS__deviceName);
+  uri->prop_device_fd = spa_id_map_get_id (map, SPA_PROPS__deviceFd);
+  spa_media_types_fill (&uri->media_types, map);
+  spa_media_subtypes_map (map, &uri->media_subtypes);
+  spa_media_subtypes_video_map (map, &uri->media_subtypes_video);
+  spa_prop_video_map (map, &uri->prop_video);
+  spa_video_formats_map (map, &uri->video_formats);
+  spa_node_events_map (map, &uri->node_events);
+  spa_node_commands_map (map, &uri->node_commands);
+  spa_alloc_param_buffers_map (map, &uri->alloc_param_buffers);
+  spa_alloc_param_meta_enable_map (map, &uri->alloc_param_meta_enable);
+}
 
 typedef struct {
   SpaLog *log;
@@ -167,13 +192,6 @@ update_state (SpaV4l2Source *this, SpaNodeState state)
                               SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
 #include "v4l2-utils.c"
 
-enum {
-  PROP_ID_NONE,
-  PROP_ID_DEVICE,
-  PROP_ID_DEVICE_NAME,
-  PROP_ID_DEVICE_FD,
-};
-
 static SpaResult
 spa_v4l2_source_node_get_props (SpaNode       *node,
                                 SpaProps     **props)
@@ -188,10 +206,10 @@ spa_v4l2_source_node_get_props (SpaNode       *node,
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
 
   spa_pod_builder_init (&b, this->props_buffer, sizeof (this->props_buffer));
-  spa_pod_builder_props (&b, &f[0],
-      PROP   (&f[1], PROP_ID_DEVICE,      -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device)),
-      PROP_R (&f[1], PROP_ID_DEVICE_NAME, -SPA_POD_TYPE_STRING, this->props.device_name, sizeof (this->props.device_name)),
-      PROP_R (&f[1], PROP_ID_DEVICE_FD,    SPA_POD_TYPE_INT,    this->props.device_fd));
+  spa_pod_builder_props (&b, &f[0], this->uri.props,
+      PROP   (&f[1], this->uri.prop_device,      -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device)),
+      PROP_R (&f[1], this->uri.prop_device_name, -SPA_POD_TYPE_STRING, this->props.device_name, sizeof (this->props.device_name)),
+      PROP_R (&f[1], this->uri.prop_device_fd,    SPA_POD_TYPE_INT,    this->props.device_fd));
   *props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
 
   return SPA_RESULT_OK;
@@ -213,7 +231,7 @@ spa_v4l2_source_node_set_props (SpaNode         *node,
     return SPA_RESULT_OK;
   } else {
     spa_props_query (props,
-        PROP_ID_DEVICE, -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device),
+        this->uri.prop_device, -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device),
         0);
   }
   return SPA_RESULT_OK;
@@ -957,18 +975,7 @@ v4l2_source_init (const SpaHandleFactory  *factory,
     spa_log_error (this->log, "a data_loop is needed");
     return SPA_RESULT_ERROR;
   }
-  this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
-  this->uri.clock = spa_id_map_get_id (this->map, SPA_CLOCK_URI);
-  this->uri.format = spa_id_map_get_id (this->map, SPA_FORMAT_URI);
-  spa_media_types_fill (&this->uri.media_types, this->map);
-  spa_media_subtypes_map (this->map, &this->uri.media_subtypes);
-  spa_media_subtypes_video_map (this->map, &this->uri.media_subtypes_video);
-  spa_prop_video_map (this->map, &this->uri.prop_video);
-  spa_video_formats_map (this->map, &this->uri.video_formats);
-  spa_node_events_map (this->map, &this->uri.node_events);
-  spa_node_commands_map (this->map, &this->uri.node_commands);
-  spa_alloc_param_buffers_map (this->map, &this->uri.alloc_param_buffers);
-  spa_alloc_param_meta_enable_map (this->map, &this->uri.alloc_param_meta_enable);
+  init_uri (&this->uri, this->map);
 
   this->node = v4l2source_node;
   this->clock = v4l2source_clock;

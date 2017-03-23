@@ -39,7 +39,8 @@ struct _PinosSpaNode {
                                  PinosSpaNode  *node));
 };
 
-typedef SpaResult (*SetupNode) (SpaNode         *spa_node,
+typedef SpaResult (*SetupNode) (PinosCore       *core,
+                                SpaNode         *spa_node,
                                 PinosProperties *pinos_props);
 
 PinosSpaNode *    pinos_spa_node_load      (PinosCore       *core,
@@ -47,7 +48,7 @@ PinosSpaNode *    pinos_spa_node_load      (PinosCore       *core,
                                             const char      *factory_name,
                                             const char      *name,
                                             PinosProperties *properties,
-                                            SetupNode       setup_func);
+                                            SetupNode        setup_func);
 
 #ifdef __cplusplus
 }

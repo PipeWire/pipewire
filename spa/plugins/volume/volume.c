@@ -64,6 +64,9 @@ typedef struct {
 typedef struct {
   uint32_t node;
   uint32_t format;
+  uint32_t props;
+  uint32_t prop_volume;
+  uint32_t prop_mute;
   SpaMediaTypes media_types;
   SpaMediaSubtypes media_subtypes;
   SpaPropAudio prop_audio;
@@ -73,6 +76,24 @@ typedef struct {
   SpaAllocParamBuffers alloc_param_buffers;
   SpaAllocParamMetaEnable alloc_param_meta_enable;
 } URI;
+
+static inline void
+init_uri (URI *uri, SpaIDMap *map)
+{
+  uri->node = spa_id_map_get_id (map, SPA_NODE_URI);
+  uri->format = spa_id_map_get_id (map, SPA_FORMAT_URI);
+  uri->props = spa_id_map_get_id (map, SPA_PROPS_URI);
+  uri->prop_volume = spa_id_map_get_id (map, SPA_PROPS__volume);
+  uri->prop_mute = spa_id_map_get_id (map, SPA_PROPS__mute);
+  spa_media_types_fill (&uri->media_types, map);
+  spa_media_subtypes_map (map, &uri->media_subtypes);
+  spa_prop_audio_map (map, &uri->prop_audio);
+  spa_audio_formats_map (map, &uri->audio_formats);
+  spa_node_events_map (map, &uri->node_events);
+  spa_node_commands_map (map, &uri->node_commands);
+  spa_alloc_param_buffers_map (map, &uri->alloc_param_buffers);
+  spa_alloc_param_meta_enable_map (map, &uri->alloc_param_meta_enable);
+}
 
 struct _SpaVolume {
   SpaHandle  handle;
@@ -99,20 +120,14 @@ struct _SpaVolume {
 #define CHECK_OUT_PORT(this,d,p) ((d) == SPA_DIRECTION_OUTPUT && (p) == 0)
 #define CHECK_PORT(this,d,p)     ((p) == 0)
 
-static const double default_volume = 1.0;
-static const bool default_mute = false;
-
-enum {
-  PROP_ID_NONE,
-  PROP_ID_VOLUME,
-  PROP_ID_MUTE,
-};
+#define DEFAULT_VOLUME 1.0
+#define DEFAULT_MUTE false
 
 static void
 reset_volume_props (SpaVolumeProps *props)
 {
-  props->volume = default_volume;
-  props->mute = default_mute;
+  props->volume = DEFAULT_VOLUME;
+  props->mute = DEFAULT_MUTE;
 }
 
 static void
@@ -150,9 +165,9 @@ spa_volume_node_get_props (SpaNode        *node,
   this = SPA_CONTAINER_OF (node, SpaVolume, node);
 
   spa_pod_builder_init (&b, this->props_buffer, sizeof (this->props_buffer));
-  spa_pod_builder_props (&b, &f[0],
-      PROP_MM (&f[1], PROP_ID_VOLUME, SPA_POD_TYPE_DOUBLE, this->props.volume, 0.0, 10.0),
-      PROP    (&f[1], PROP_ID_MUTE,   SPA_POD_TYPE_BOOL,   this->props.mute));
+  spa_pod_builder_props (&b, &f[0], this->uri.props,
+      PROP_MM (&f[1], this->uri.prop_volume, SPA_POD_TYPE_DOUBLE, this->props.volume, 0.0, 10.0),
+      PROP    (&f[1], this->uri.prop_mute,   SPA_POD_TYPE_BOOL,   this->props.mute));
 
   *props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
 
@@ -174,8 +189,8 @@ spa_volume_node_set_props (SpaNode        *node,
     reset_volume_props (&this->props);
   } else {
     spa_props_query (props,
-        PROP_ID_VOLUME, SPA_POD_TYPE_DOUBLE, &this->props.volume,
-        PROP_ID_MUTE,   SPA_POD_TYPE_BOOL,   &this->props.mute,
+        this->uri.prop_volume, SPA_POD_TYPE_DOUBLE, &this->props.volume,
+        this->uri.prop_mute,   SPA_POD_TYPE_BOOL,   &this->props.mute,
         0);
   }
   return SPA_RESULT_OK;
@@ -838,16 +853,7 @@ volume_init (const SpaHandleFactory  *factory,
     spa_log_error (this->log, "an id-map is needed");
     return SPA_RESULT_ERROR;
   }
-  this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
-  this->uri.format = spa_id_map_get_id (this->map, SPA_FORMAT_URI);
-  spa_media_types_fill (&this->uri.media_types, this->map);
-  spa_media_subtypes_map (this->map, &this->uri.media_subtypes);
-  spa_prop_audio_map (this->map, &this->uri.prop_audio);
-  spa_audio_formats_map (this->map, &this->uri.audio_formats);
-  spa_node_events_map (this->map, &this->uri.node_events);
-  spa_node_commands_map (this->map, &this->uri.node_commands);
-  spa_alloc_param_buffers_map (this->map, &this->uri.alloc_param_buffers);
-  spa_alloc_param_meta_enable_map (this->map, &this->uri.alloc_param_meta_enable);
+  init_uri (&this->uri, this->map);
 
   this->node = volume_node;
   reset_volume_props (&this->props);

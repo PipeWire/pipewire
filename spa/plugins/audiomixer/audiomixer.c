@@ -61,6 +61,13 @@ typedef struct {
   SpaNodeCommands node_commands;
 } URI;
 
+static inline void
+init_uri (URI *uri, SpaIDMap *map)
+{
+  uri->node = spa_id_map_get_id (map, SPA_NODE_URI);
+  spa_node_commands_map (map, &uri->node_commands);
+}
+
 struct _SpaAudioMixer {
   SpaHandle  handle;
   SpaNode  node;
@@ -694,8 +701,7 @@ spa_audiomixer_init (const SpaHandleFactory *factory,
     spa_log_error (this->log, "an id-map is needed");
     return SPA_RESULT_ERROR;
   }
-  this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
-  spa_node_commands_map (this->map, &this->uri.node_commands);
+  init_uri (&this->uri, this->map);
 
   this->node = audiomixer_node;
 

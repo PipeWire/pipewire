@@ -64,6 +64,13 @@ typedef struct {
   uint32_t node;
   uint32_t clock;
   uint32_t format;
+  uint32_t props;
+  uint32_t prop_device;
+  uint32_t prop_device_name;
+  uint32_t prop_card_name;
+  uint32_t prop_period_size;
+  uint32_t prop_periods;
+  uint32_t prop_period_event;
   SpaMediaTypes media_types;
   SpaMediaSubtypes media_subtypes;
   SpaMediaSubtypesAudio media_subtypes_audio;
@@ -74,6 +81,31 @@ typedef struct {
   SpaAllocParamBuffers alloc_param_buffers;
   SpaAllocParamMetaEnable alloc_param_meta_enable;
 } URI;
+
+static inline void
+init_uri (URI *uri, SpaIDMap *map)
+{
+  uri->node = spa_id_map_get_id (map, SPA_NODE_URI);
+  uri->clock = spa_id_map_get_id (map, SPA_CLOCK_URI);
+  uri->format = spa_id_map_get_id (map, SPA_FORMAT_URI);
+  uri->props = spa_id_map_get_id (map, SPA_PROPS_URI);
+  uri->prop_device = spa_id_map_get_id (map, SPA_PROPS__device);
+  uri->prop_device_name = spa_id_map_get_id (map, SPA_PROPS__deviceName);
+  uri->prop_card_name = spa_id_map_get_id (map, SPA_PROPS__cardName);
+  uri->prop_period_size = spa_id_map_get_id (map, SPA_PROPS__periodSize);
+  uri->prop_periods = spa_id_map_get_id (map, SPA_PROPS__periods);
+  uri->prop_period_event = spa_id_map_get_id (map, SPA_PROPS__periodEvent);
+
+  spa_media_types_fill (&uri->media_types, map);
+  spa_media_subtypes_map (map, &uri->media_subtypes);
+  spa_media_subtypes_audio_map (map, &uri->media_subtypes_audio);
+  spa_prop_audio_map (map, &uri->prop_audio);
+  spa_audio_formats_map (map, &uri->audio_formats);
+  spa_node_events_map (map, &uri->node_events);
+  spa_node_commands_map (map, &uri->node_commands);
+  spa_alloc_param_buffers_map (map, &uri->alloc_param_buffers);
+  spa_alloc_param_meta_enable_map (map, &uri->alloc_param_meta_enable);
+}
 
 struct _SpaALSAState {
   SpaHandle handle;

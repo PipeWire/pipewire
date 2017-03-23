@@ -31,19 +31,18 @@
 #include "spa-node.h"
 
 static SpaResult
-setup_video_node (SpaNode *spa_node, PinosProperties *pinos_props) {
+setup_video_node (PinosCore *core, SpaNode *spa_node, PinosProperties *pinos_props) {
   SpaResult res;
   SpaProps *props;
   SpaPODProp *prop;
-  const char *pattern;
-  uint32_t pattern_int;
+  const char *pattern, *pattern_uri;
 
   /* Retrieve pattern property */
   pattern = pinos_properties_get (pinos_props, "pattern");
   if (strcmp (pattern, "smpte-snow") == 0) {
-    pattern_int = 0;
+    pattern_uri = SPA_PROPS__patternType ":smpte-snow";
   } else if (strcmp (pattern, "snow") == 0) {
-    pattern_int = 1;
+    pattern_uri = SPA_PROPS__patternType ":snow";
   } else {
     pinos_log_debug ("Unrecognized pattern");
     return SPA_RESULT_ERROR;
@@ -54,9 +53,9 @@ setup_video_node (SpaNode *spa_node, PinosProperties *pinos_props) {
     return SPA_RESULT_ERROR;
   }
 
-  if ((prop = spa_pod_object_find_prop (props, 2))) {
-   if (prop->body.value.type == SPA_POD_TYPE_INT)
-     ((SpaPODInt*)&prop->body.value)->value = pattern_int;
+  if ((prop = spa_pod_object_find_prop (props, spa_id_map_get_id (core->uri.map, SPA_PROPS__patternType)))) {
+   if (prop->body.value.type == SPA_POD_TYPE_URI)
+     SPA_POD_VALUE (SpaPODURI, &prop->body.value) = spa_id_map_get_id (core->uri.map, pattern_uri);
   }
 
   if ((res = spa_node_set_props (spa_node, props)) != SPA_RESULT_OK) {

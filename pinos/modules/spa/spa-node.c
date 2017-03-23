@@ -101,7 +101,7 @@ pinos_spa_node_load (PinosCore  *core,
   this = &impl->this;
 
   if (setup_func != NULL) {
-    if (setup_func (spa_node, properties) != SPA_RESULT_OK) {
+    if (setup_func (core, spa_node, properties) != SPA_RESULT_OK) {
       pinos_log_debug ("Unrecognized properties");
     }
   }

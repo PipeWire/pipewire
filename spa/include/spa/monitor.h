@@ -31,26 +31,62 @@ typedef struct _SpaMonitor SpaMonitor;
 
 #include <spa/defs.h>
 #include <spa/dict.h>
-#include <spa/plugin.h>
+#include <spa/event.h>
 
-/**
- * SpaMonitorEventType:
- * @SPA_MONITOR_EVENT_TYPE_INVALID: invalid event
- * @SPA_MONITOR_EVENT_TYPE_ADDED: an item was added, data points to #SpaMonitorItem
- * @SPA_MONITOR_EVENT_TYPE_REMOVED: an item was removed, data points to #SpaMonitorItem
- * @SPA_MONITOR_EVENT_TYPE_CHANGED: an item was changed, data points to #SpaMonitorItem
- */
-typedef enum {
-  SPA_MONITOR_EVENT_TYPE_INVALID = 0,
-  SPA_MONITOR_EVENT_TYPE_ADDED,
-  SPA_MONITOR_EVENT_TYPE_REMOVED,
-  SPA_MONITOR_EVENT_TYPE_CHANGED,
-} SpaMonitorEventType;
+typedef SpaEvent     SpaMonitorEvent;
+#define SPA_MONITOR_EVENT_URI             "http://spaplug.in/ns/monitor-event"
+#define SPA_MONITOR_EVENT_PREFIX          SPA_MONITOR_EVENT_URI "#"
+
+#define SPA_MONITOR_EVENT__Added          SPA_MONITOR_EVENT_PREFIX "Added"
+#define SPA_MONITOR_EVENT__Removed        SPA_MONITOR_EVENT_PREFIX "Removed"
+#define SPA_MONITOR_EVENT__Changed        SPA_MONITOR_EVENT_PREFIX "Changed"
+
+typedef SpaPODObject SpaMonitorItem;
+#define SPA_MONITOR_ITEM_URI              "http://spaplug.in/ns/monitor-item"
+#define SPA_MONITOR_ITEM_PREFIX           SPA_MONITOR_ITEM_URI "#"
+#define SPA_MONITOR_ITEM__id              SPA_MONITOR_ITEM_PREFIX "id"
+#define SPA_MONITOR_ITEM__flags           SPA_MONITOR_ITEM_PREFIX "flags"
+#define SPA_MONITOR_ITEM__state           SPA_MONITOR_ITEM_PREFIX "state"
+#define SPA_MONITOR_ITEM__name            SPA_MONITOR_ITEM_PREFIX "name"
+#define SPA_MONITOR_ITEM__class           SPA_MONITOR_ITEM_PREFIX "class"
+#define SPA_MONITOR_ITEM__info            SPA_MONITOR_ITEM_PREFIX "info"
+#define SPA_MONITOR_ITEM__factory         SPA_MONITOR_ITEM_PREFIX "factory"
 
 typedef struct {
-  SpaMonitorEventType  type;
-  uint32_t             size;
-} SpaMonitorEvent;
+  uint32_t Monitor;
+
+  uint32_t Added;
+  uint32_t Removed;
+  uint32_t Changed;
+
+  uint32_t MonitorItem;
+  uint32_t id;
+  uint32_t flags;
+  uint32_t state;
+  uint32_t name;
+  uint32_t klass;
+  uint32_t info;
+  uint32_t factory;
+} SpaMonitorTypes;
+
+static inline void
+spa_monitor_types_map (SpaIDMap *map, SpaMonitorTypes *types)
+{
+  if (types->Added == 0) {
+    types->Monitor      = spa_id_map_get_id (map, SPA_MONITOR_URI);
+    types->Added        = spa_id_map_get_id (map, SPA_MONITOR_EVENT__Added);
+    types->Removed      = spa_id_map_get_id (map, SPA_MONITOR_EVENT__Removed);
+    types->Changed      = spa_id_map_get_id (map, SPA_MONITOR_EVENT__Changed);
+    types->MonitorItem  = spa_id_map_get_id (map, SPA_MONITOR_ITEM_URI);
+    types->id           = spa_id_map_get_id (map, SPA_MONITOR_ITEM__id);
+    types->flags        = spa_id_map_get_id (map, SPA_MONITOR_ITEM__flags);
+    types->state        = spa_id_map_get_id (map, SPA_MONITOR_ITEM__state);
+    types->name         = spa_id_map_get_id (map, SPA_MONITOR_ITEM__name);
+    types->klass        = spa_id_map_get_id (map, SPA_MONITOR_ITEM__class);
+    types->info         = spa_id_map_get_id (map, SPA_MONITOR_ITEM__info);
+    types->factory      = spa_id_map_get_id (map, SPA_MONITOR_ITEM__factory);
+  }
+}
 
 typedef enum {
   SPA_MONITOR_ITEM_FLAG_NONE    = 0,
@@ -68,17 +104,6 @@ typedef enum {
   SPA_MONITOR_ITEM_STATE_UNAVAILABLE,
 } SpaMonitorItemState;
 
-typedef struct {
-  SpaMonitorEvent          event;
-  const char              *id;
-  SpaMonitorItemFlags      flags;
-  SpaMonitorItemState      state;
-  const char              *name;
-  const char              *klass;
-  const SpaDict           *info;
-  const SpaHandleFactory  *factory;
-} SpaMonitorItem;
-
 /**
  * SpaMonitorCallback:
  * @node: a #SpaMonitor emiting the event
@@ -88,9 +113,9 @@ typedef struct {
  * This will be called when a monitor event is notified
  * on @monitor.
  */
-typedef void   (*SpaMonitorEventCallback)  (SpaMonitor      *monitor,
-                                            SpaMonitorEvent *event,
-                                            void            *user_data);
+typedef void   (*SpaMonitorEventCallback)  (SpaMonitor       *monitor,
+                                            SpaMonitorEvent  *event,
+                                            void             *user_data);
 
 /**
  * SpaMonitor:

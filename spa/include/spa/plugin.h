@@ -27,6 +27,9 @@ extern "C" {
 #include <spa/defs.h>
 #include <spa/dict.h>
 
+#define SPA_HANDLE_URI             "http://spaplug.in/ns/handle"
+#define SPA_HANDLE_FACTORY_URI     "http://spaplug.in/ns/handle-factory"
+
 typedef struct _SpaHandle SpaHandle;
 typedef struct _SpaHandleFactory SpaHandleFactory;
 

@@ -45,6 +45,7 @@ typedef enum {
   SPA_POD_TYPE_DOUBLE,
   SPA_POD_TYPE_STRING,
   SPA_POD_TYPE_BYTES,
+  SPA_POD_TYPE_POINTER,
   SPA_POD_TYPE_RECTANGLE,
   SPA_POD_TYPE_FRACTION,
   SPA_POD_TYPE_BITMASK,
@@ -93,6 +94,16 @@ typedef struct {
   SpaPOD       pod;
   /* value here */
 } SpaPODBytes;
+
+typedef struct {
+  uint32_t     type;
+  void        *value;
+} SpaPODPointerBody;
+
+typedef struct {
+  SpaPOD            pod;
+  SpaPODPointerBody body;
+} SpaPODPointer;
 
 typedef struct {
   SpaPOD       pod;

@@ -30,6 +30,7 @@ extern "C" {
 #include <pinos/client/map.h>
 #include <spa/include/spa/id-map.h>
 #include <spa/include/spa/node-event.h>
+#include <spa/include/spa/monitor.h>
 
 typedef struct _PinosURI PinosURI;
 
@@ -56,6 +57,7 @@ struct _PinosURI {
 
   SpaNodeEvents node_events;
   SpaNodeCommands node_commands;
+  SpaMonitorTypes monitor_types;
 };
 
 void pinos_uri_init (PinosURI *uri);

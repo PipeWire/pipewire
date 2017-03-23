@@ -51,4 +51,5 @@ pinos_uri_init (PinosURI *uri)
 
   spa_node_events_map (uri->map, &uri->node_events);
   spa_node_commands_map (uri->map, &uri->node_commands);
+  spa_monitor_types_map (uri->map, &uri->monitor_types);
 }

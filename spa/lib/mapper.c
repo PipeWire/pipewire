@@ -56,7 +56,7 @@ id_map_get_uri (SpaIDMap *map, uint32_t id)
 {
   IDMap *this = SPA_CONTAINER_OF (map, IDMap, map);
 
-  if (id < this->n_uris)
+  if (id <= this->n_uris)
     return this->uris[id];
 
   return NULL;

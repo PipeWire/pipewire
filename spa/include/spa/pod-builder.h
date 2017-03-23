@@ -233,6 +233,15 @@ spa_pod_builder_bytes (SpaPODBuilder *builder, const void *bytes, uint32_t len)
   return ref;
 }
 
+#define SPA_POD_POINTER_INIT(type,value) { { sizeof (SpaPODPointerBody), SPA_POD_TYPE_POINTER }, { type, value } }
+
+static inline uint32_t
+spa_pod_builder_pointer (SpaPODBuilder *builder, uint32_t type, void *val)
+{
+  const SpaPODPointer p = SPA_POD_POINTER_INIT (type, val);
+  return spa_pod_builder_primitive (builder, &p.pod);
+}
+
 #define SPA_POD_RECTANGLE_INIT(width,height) { { sizeof (SpaRectangle), SPA_POD_TYPE_RECTANGLE }, { width, height } }
 
 static inline uint32_t
@@ -329,6 +338,7 @@ spa_pod_builder_addv (SpaPODBuilder *builder,
     SpaPODDouble    double_pod;
     SpaPODString    string_pod;
     SpaPODBytes     bytes_pod;
+    SpaPODPointer   pointer_pod;
     SpaPODRectangle rectangle_pod;
     SpaPODFraction  fraction_pod;
     SpaPODArray     array_pod;
@@ -399,6 +409,14 @@ spa_pod_builder_addv (SpaPODBuilder *builder,
         head.bytes_pod.pod.type = SPA_POD_TYPE_BYTES;
         head.bytes_pod.pod.size = body_size;
         head_size = sizeof (SpaPOD);
+        goto primitive;
+      case SPA_POD_TYPE_POINTER:
+        head.pointer_pod.pod.type = SPA_POD_TYPE_POINTER;
+        head.pointer_pod.pod.size = body_size = sizeof (SpaPODPointerBody);
+        head.pointer_pod.body.type = va_arg (args, uint32_t);
+        head.pointer_pod.body.value = va_arg (args, void *);
+        head_size = sizeof (SpaPOD);
+        body = &head.pointer_pod.body;
         goto primitive;
       case SPA_POD_TYPE_RECTANGLE:
         head.rectangle_pod.pod.type = SPA_POD_TYPE_RECTANGLE;

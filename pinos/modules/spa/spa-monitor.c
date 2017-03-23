@@ -28,6 +28,7 @@
 
 #include <spa/include/spa/node.h>
 #include <spa/include/spa/monitor.h>
+#include <spa/include/spa/pod-iter.h>
 #include <pinos/client/log.h>
 #include <pinos/server/node.h>
 
@@ -61,13 +62,24 @@ add_item (PinosSpaMonitor *this, SpaMonitorItem *item)
   void *node_iface;
   void *clock_iface;
   PinosProperties *props = NULL;
+  const char *name, *id, *klass;
+  SpaHandleFactory *factory;
+  SpaPOD *info = NULL;
 
-  pinos_log_debug ("monitor %p: add: \"%s\" (%s)", this, item->name, item->id);
+  spa_pod_object_query (item,
+      impl->core->uri.monitor_types.name,    SPA_POD_TYPE_STRING,  &name,
+      impl->core->uri.monitor_types.id,      SPA_POD_TYPE_STRING,  &id,
+      impl->core->uri.monitor_types.klass,   SPA_POD_TYPE_STRING,  &klass,
+      impl->core->uri.monitor_types.factory, SPA_POD_TYPE_POINTER, &factory,
+      impl->core->uri.monitor_types.info,    SPA_POD_TYPE_STRUCT,  &info,
+      0);
 
-  handle = calloc (1, item->factory->size);
-  if ((res = spa_handle_factory_init (item->factory,
+  pinos_log_debug ("monitor %p: add: \"%s\" (%s)", this, name, id);
+
+  handle = calloc (1, factory->size);
+  if ((res = spa_handle_factory_init (factory,
                                       handle,
-                                      item->info,
+                                      NULL, //item->info,
                                       impl->core->support,
                                       impl->core->n_support)) < 0) {
     pinos_log_error ("can't make factory instance: %d", res);
@@ -83,22 +95,23 @@ add_item (PinosSpaMonitor *this, SpaMonitorItem *item)
 
   props = pinos_properties_new (NULL, NULL);
 
-  if (item->info) {
-    uint32_t i;
+  if (info) {
+    SpaPODIter it;
 
-    for (i = 0; i < item->info->n_items; i++) {
-      pinos_properties_set (props,
-                            item->info->items[i].key,
-                            item->info->items[i].value);
+    spa_pod_iter_pod (&it, info);
+    while (true) {
+      const char *key, *val;
+      if (!spa_pod_iter_get (&it, SPA_POD_TYPE_STRING, &key, SPA_POD_TYPE_STRING, &val, 0))
+        break;
+      pinos_properties_set (props, key, val);
     }
   }
-
-  pinos_properties_set (props, "media.class", item->klass);
+  pinos_properties_set (props, "media.class", klass);
 
   mitem = calloc (1, sizeof (PinosSpaMonitorItem));
-  mitem->id = strdup (item->id);
+  mitem->id = strdup (id);
   mitem->node = pinos_node_new (impl->core,
-                                item->name,
+                                name,
                                 node_iface,
                                 clock_iface,
                                 props);
@@ -133,10 +146,17 @@ destroy_item (PinosSpaMonitorItem *mitem)
 static void
 remove_item (PinosSpaMonitor *this, SpaMonitorItem *item)
 {
+  PinosSpaMonitorImpl *impl = SPA_CONTAINER_OF (this, PinosSpaMonitorImpl, this);
   PinosSpaMonitorItem *mitem;
+  const char *name, *id;
 
-  pinos_log_debug ("monitor %p: remove: \"%s\" (%s)", this, item->name, item->id);
-  mitem = find_item (this, item->id);
+  spa_pod_object_query (item,
+      impl->core->uri.monitor_types.name,    SPA_POD_TYPE_STRING,  &name,
+      impl->core->uri.monitor_types.id,      SPA_POD_TYPE_STRING,  &id,
+      0);
+
+  pinos_log_debug ("monitor %p: remove: \"%s\" (%s)", this, name, id);
+  mitem = find_item (this, id);
   if (mitem)
     destroy_item (mitem);
 }
@@ -147,27 +167,25 @@ on_monitor_event  (SpaMonitor      *monitor,
                    void            *user_data)
 {
   PinosSpaMonitor *this = user_data;
+  PinosSpaMonitorImpl *impl = SPA_CONTAINER_OF (this, PinosSpaMonitorImpl, this);
 
-  switch (event->type) {
-    case SPA_MONITOR_EVENT_TYPE_ADDED:
-    {
-      SpaMonitorItem *item = (SpaMonitorItem *) event;
-      add_item (this, item);
-      break;
-    }
-    case SPA_MONITOR_EVENT_TYPE_REMOVED:
-    {
-      SpaMonitorItem *item = (SpaMonitorItem *) event;
-      remove_item (this, item);
-    }
-    case SPA_MONITOR_EVENT_TYPE_CHANGED:
-    {
-      SpaMonitorItem *item = (SpaMonitorItem *) event;
-      pinos_log_debug ("monitor %p: changed: \"%s\"", this, item->name);
-      break;
-    }
-    default:
-      break;
+  if (SPA_EVENT_TYPE (event) == impl->core->uri.monitor_types.Added) {
+    SpaMonitorItem *item = SPA_POD_CONTENTS (SpaEvent, event);
+    add_item (this, item);
+  }
+  else if (SPA_EVENT_TYPE (event) == impl->core->uri.monitor_types.Removed) {
+    SpaMonitorItem *item = SPA_POD_CONTENTS (SpaEvent, event);
+    remove_item (this, item);
+  }
+  else if (SPA_EVENT_TYPE (event) == impl->core->uri.monitor_types.Changed) {
+    SpaMonitorItem *item = SPA_POD_CONTENTS (SpaEvent, event);
+    const char *name;
+
+    spa_pod_object_query (item,
+        impl->core->uri.monitor_types.name,    SPA_POD_TYPE_STRING,  &name,
+        0);
+
+    pinos_log_debug ("monitor %p: changed: \"%s\"", this, name);
   }
 }
 

@@ -33,7 +33,7 @@
 #include <lib/mapper.h>
 
 typedef struct {
-  uint32_t monitor;
+  SpaMonitorTypes monitor_types;
 } URI;
 
 typedef struct {
@@ -58,41 +58,27 @@ typedef struct {
 static void
 inspect_item (SpaMonitorItem *item)
 {
-  fprintf (stderr, "  name:  %s\n", item->name);
-  fprintf (stderr, "  class: %s\n", item->klass);
-  if (item->info)
-    spa_debug_dict (item->info);
+  spa_debug_pod (&item->pod);
 }
 
 static void
 on_monitor_event  (SpaMonitor      *monitor,
-                   SpaMonitorEvent *event,
+                   SpaEvent        *event,
                    void            *user_data)
 {
-  switch (event->type) {
-    case SPA_MONITOR_EVENT_TYPE_ADDED:
-    {
-      SpaMonitorItem *item = (SpaMonitorItem *) event;
-      fprintf (stderr, "added:\n");
-      inspect_item (item);
-      break;
-    }
-    case SPA_MONITOR_EVENT_TYPE_REMOVED:
-    {
-      SpaMonitorItem *item = (SpaMonitorItem *) event;
-      fprintf (stderr, "removed:\n");
-      inspect_item (item);
-      break;
-    }
-    case SPA_MONITOR_EVENT_TYPE_CHANGED:
-    {
-      SpaMonitorItem *item = (SpaMonitorItem *) event;
-      fprintf (stderr, "changed:\n");
-      inspect_item (item);
-      break;
-    }
-    default:
-      break;
+  AppData *data = user_data;
+
+  if (SPA_EVENT_TYPE (event) == data->uri.monitor_types.Added) {
+    fprintf (stderr, "added:\n");
+    inspect_item ((SpaMonitorItem*)event);
+  }
+  else if (SPA_EVENT_TYPE (event) == data->uri.monitor_types.Removed) {
+    fprintf (stderr, "removed:\n");
+    inspect_item ((SpaMonitorItem*)event);
+  }
+  else if (SPA_EVENT_TYPE (event) == data->uri.monitor_types.Changed) {
+    fprintf (stderr, "changed:\n");
+    inspect_item ((SpaMonitorItem*)event);
   }
 }
 
@@ -198,7 +184,7 @@ main (int argc, char *argv[])
   data.support[2].data = &data.main_loop;
   data.n_support = 3;
 
-  data.uri.monitor = spa_id_map_get_id (data.map, SPA_MONITOR_URI);
+  spa_monitor_types_map (data.map, &data.uri.monitor_types);
 
   if (argc < 2) {
     printf ("usage: %s <plugin.so>\n", argv[0]);
@@ -243,7 +229,7 @@ main (int argc, char *argv[])
           continue;
         }
 
-        if ((res = spa_handle_get_interface (handle, data.uri.monitor, &interface)) < 0) {
+        if ((res = spa_handle_get_interface (handle, data.uri.monitor_types.Monitor, &interface)) < 0) {
           printf ("can't get interface: %d\n", res);
           continue;
         }

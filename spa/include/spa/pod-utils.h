@@ -120,6 +120,12 @@ spa_pod_object_find_prop (const SpaPODObject *obj, uint32_t key)
         *(va_arg (args, void **)) = SPA_POD_CONTENTS (SpaPODBytes, pod);                \
         *(va_arg (args, uint32_t *)) = SPA_POD_BODY_SIZE (pod);                         \
         break;                                                                          \
+      case SPA_POD_TYPE_POINTER:                                                        \
+      {                                                                                 \
+        SpaPODPointerBody *b = SPA_POD_BODY (pod);                                      \
+        *(va_arg (args, void **)) = b->value;                                           \
+        break;                                                                          \
+      }                                                                                 \
       case SPA_POD_TYPE_RECTANGLE:                                                      \
         *(va_arg (args, SpaRectangle *)) = SPA_POD_VALUE (SpaPODRectangle, pod);        \
         break;                                                                          \
@@ -143,6 +149,7 @@ spa_pod_object_find_prop (const SpaPODObject *obj, uint32_t key)
 #define SPA_POD_COLLECT_SKIP(type,args)                                                 \
     switch (type) {                                                                     \
       case SPA_POD_TYPE_BYTES:                                                          \
+      case SPA_POD_TYPE_POINTER:                                                        \
         va_arg (args, void*);                                                           \
         /* fallthrough */                                                               \
       case SPA_POD_TYPE_BOOL:                                                           \
@@ -177,7 +184,7 @@ spa_pod_contents_queryv (const SpaPOD *pod, uint32_t offset, uint32_t key, va_li
     type = va_arg (args, uint32_t);
 
     if (prop && prop->body.key == key &&
-        prop->body.value.type == type &&
+        (type == SPA_POD_TYPE_POD || prop->body.value.type == type) &&
         !(prop->body.flags & SPA_POD_PROP_FLAG_UNSET)) {
       SPA_POD_COLLECT (&prop->body.value, type, args);
       count++;
@@ -201,6 +208,9 @@ spa_pod_contents_query (const SpaPOD *pod, uint32_t offset, uint32_t key, ...)
 
   return count;
 }
+
+#define spa_pod_object_query(object,key, ...) \
+   spa_pod_contents_query (&object->pod, sizeof (SpaPODObject), key, __VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

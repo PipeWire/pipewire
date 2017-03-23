@@ -195,6 +195,7 @@ struct pod_type_name {
   { "float", "Float" },
   { "double", "Double" },
   { "string", "String" },
+  { "pointer", "Pointer" },
   { "rectangle", "Rectangle" },
   { "fraction", "Fraction" },
   { "bitmask", "Bitmask" },
@@ -231,6 +232,13 @@ print_pod_value (uint32_t size, uint32_t type, void *body, int prefix)
     case SPA_POD_TYPE_STRING:
       printf ("%-*sString \"%s\"\n", prefix, "", (char *) body);
       break;
+    case SPA_POD_TYPE_POINTER:
+    {
+      SpaPODPointerBody *b = body;
+      printf ("%-*sPointer %s %p\n", prefix, "",
+          spa_id_map_get_uri (spa_id_map_get_default(), b->type), b->value);
+      break;
+    }
     case SPA_POD_TYPE_RECTANGLE:
     {
       SpaRectangle *r = body;

@@ -27,25 +27,31 @@
 
 #include <pinos/client/map.h>
 
-#define MAX_URIS 4096
-
 typedef struct {
   SpaIDMap map;
   PinosMap uris;
+  PinosArray strings;
 } IDMap;
 
 static uint32_t
 id_map_get_id (SpaIDMap *map, const char *uri)
 {
   IDMap *this = SPA_CONTAINER_OF (map, IDMap, map);
-  uint32_t i = 0;
+  uint32_t i = 0, len;
+  void *p;
+  off_t o;
 
   if (uri != NULL) {
     for (i = 0; i < pinos_map_get_size (&this->uris); i++) {
-      if (strcmp (pinos_map_lookup_unchecked (&this->uris, i), uri) == 0)
+      o = (off_t) pinos_map_lookup_unchecked (&this->uris, i);
+      if (strcmp (SPA_MEMBER (this->strings.data, o, char), uri) == 0)
         return i;
     }
-    i = pinos_map_insert_new (&this->uris, strdup (uri));
+    len = strlen (uri);
+    p = pinos_array_add (&this->strings, SPA_ROUND_UP_N (len+1, 2));
+    memcpy (p, uri, len+1);
+    o = (p - this->strings.data);
+    i = pinos_map_insert_new (&this->uris, (void *)o);
   }
   return i;
 }
@@ -54,12 +60,14 @@ static const char *
 id_map_get_uri (SpaIDMap *map, uint32_t id)
 {
   IDMap *this = SPA_CONTAINER_OF (map, IDMap, map);
+
   if (id == SPA_ID_INVALID)
     return NULL;
 
-  if (SPA_LIKELY (pinos_map_check_id (&this->uris, id)))
-    return pinos_map_lookup_unchecked (&this->uris, id);
-
+  if (SPA_LIKELY (pinos_map_check_id (&this->uris, id))) {
+    off_t o = (off_t) pinos_map_lookup_unchecked (&this->uris, id);
+    return SPA_MEMBER (this->strings.data, o, char);
+  }
   return NULL;
 }
 
@@ -77,7 +85,8 @@ static IDMap default_id_map = {
     id_map_get_uri,
     id_map_get_size,
   },
-  { { NULL, } },
+  PINOS_MAP_INIT(128),
+  PINOS_ARRAY_INIT (4096)
 };
 
 SpaIDMap *

@@ -32,7 +32,10 @@ struct _PinosArray {
   void    *data;
   size_t   size;
   size_t   alloc;
+  size_t   extend;
 };
+
+#define PINOS_ARRAY_INIT(extend) { NULL, 0, 0, extend }
 
 #define pinos_array_get_len_s(a,s)              ((a)->size / (s))
 #define pinos_array_get_unchecked_s(a,idx,s,t)  SPA_MEMBER ((a)->data,(idx)*(s),t)
@@ -48,10 +51,11 @@ struct _PinosArray {
          (pos)++)
 
 static inline void
-pinos_array_init (PinosArray *arr)
+pinos_array_init (PinosArray *arr, size_t extend)
 {
   arr->data = NULL;
   arr->size = arr->alloc = 0;
+  arr->extend = extend;
 }
 
 static inline void
@@ -71,7 +75,7 @@ pinos_array_ensure_size (PinosArray *arr,
 
   if (SPA_UNLIKELY (alloc < need)) {
     void *data;
-    alloc = SPA_MAX (alloc, 16);
+    alloc = SPA_MAX (alloc, arr->extend);
     while (alloc < need)
       alloc *= 2;
     if (SPA_UNLIKELY ((data = realloc (arr->data, alloc)) == NULL))

@@ -293,7 +293,7 @@ pinos_core_new (PinosMainLoop   *main_loop,
 
   pinos_uri_init (&this->uri);
   pinos_access_init (&this->access);
-  pinos_map_init (&this->objects, 512);
+  pinos_map_init (&this->objects, 128, 32);
 
   impl->support[0].uri = SPA_ID_MAP_URI;
   impl->support[0].data = this->uri.map;

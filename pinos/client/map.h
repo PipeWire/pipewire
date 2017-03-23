@@ -43,6 +43,8 @@ struct _PinosMap {
   uint32_t   free_list;
 };
 
+#define PINOS_MAP_INIT(extend) { PINOS_ARRAY_INIT(extend), 0 }
+
 #define pinos_map_get_size(m)            pinos_array_get_len (&(m)->items, PinosMapItem)
 #define pinos_map_get_item(m,id)         pinos_array_get_unchecked(&(m)->items,id,PinosMapItem)
 #define pinos_map_item_is_free(item)     ((item)->next & 0x1)
@@ -53,9 +55,10 @@ struct _PinosMap {
 
 static inline void
 pinos_map_init (PinosMap *map,
-                size_t    size)
+                size_t    size,
+                size_t    extend)
 {
-  pinos_array_init (&map->items);
+  pinos_array_init (&map->items, extend);
   pinos_array_ensure_size (&map->items, size * sizeof (PinosMapItem));
   map->free_list = 0;
 }

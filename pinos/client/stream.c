@@ -225,9 +225,9 @@ pinos_stream_new (PinosContext    *context,
   this->state = PINOS_STREAM_STATE_UNCONNECTED;
 
   impl->node_state = SPA_NODE_STATE_INIT;
-  pinos_array_init (&impl->mem_ids);
+  pinos_array_init (&impl->mem_ids, 64);
   pinos_array_ensure_size (&impl->mem_ids, sizeof (MemId) * 64);
-  pinos_array_init (&impl->buffer_ids);
+  pinos_array_init (&impl->buffer_ids, 32);
   pinos_array_ensure_size (&impl->buffer_ids, sizeof (BufferId) * 64);
   impl->pending_seq = SPA_ID_INVALID;
 

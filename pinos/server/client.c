@@ -105,8 +105,8 @@ pinos_client_new (PinosCore       *core,
   pinos_signal_init (&this->resource_added);
   pinos_signal_init (&this->resource_removed);
 
-  pinos_map_init (&this->objects, 0);
-  pinos_map_init (&this->uris, 0);
+  pinos_map_init (&this->objects, 0, 32);
+  pinos_map_init (&this->uris, 0, 32);
   pinos_signal_init (&this->destroy_signal);
 
   spa_list_insert (core->client_list.prev, &this->link);

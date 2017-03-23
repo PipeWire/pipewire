@@ -486,8 +486,8 @@ pinos_context_new (PinosLoop       *loop,
 
   this->state = PINOS_CONTEXT_STATE_UNCONNECTED;
 
-  pinos_map_init (&this->objects, 64);
-  pinos_map_init (&this->uris, 64);
+  pinos_map_init (&this->objects, 64, 32);
+  pinos_map_init (&this->uris, 64, 32);
 
   spa_list_init (&this->stream_list);
   spa_list_init (&this->global_list);

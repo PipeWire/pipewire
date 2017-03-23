@@ -53,7 +53,7 @@ pinos_split_strv (const char *str,
   size_t len;
   int n = 0;
 
-  pinos_array_init (&arr);
+  pinos_array_init (&arr, 16);
 
   s = pinos_split_walk (str, delimiter, &len, &state);
   while (s && n + 1 < max_tokens) {

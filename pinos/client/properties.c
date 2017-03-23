@@ -81,7 +81,7 @@ pinos_properties_new (const char *key, ...)
   if (impl == NULL)
     return NULL;
 
-  pinos_array_init (&impl->items);
+  pinos_array_init (&impl->items, 16);
 
   va_start (varargs, key);
   while (key != NULL) {
@@ -112,7 +112,7 @@ pinos_properties_new_dict (const SpaDict *dict)
   if (impl == NULL)
     return NULL;
 
-  pinos_array_init (&impl->items);
+  pinos_array_init (&impl->items, 16);
 
   for (i = 0; i < dict->n_items; i++)
     add_func (&impl->this, strdup (dict->items[i].key), strdup (dict->items[i].value));

@@ -444,19 +444,18 @@ spa_alsa_source_node_port_set_format (SpaNode            *node,
   this->info.params = this->params;
 
   spa_pod_builder_init (&b, this->params_buffer, sizeof (this->params_buffer));
-  spa_pod_builder_object (&b, &f[0], 0, SPA_ALLOC_PARAM_TYPE_BUFFERS,
-      PROP    (&f[1], SPA_ALLOC_PARAM_BUFFERS_SIZE,    SPA_POD_TYPE_INT, this->period_frames * this->frame_size),
-      PROP    (&f[1], SPA_ALLOC_PARAM_BUFFERS_STRIDE,  SPA_POD_TYPE_INT, 0),
-      PROP_MM (&f[1], SPA_ALLOC_PARAM_BUFFERS_BUFFERS, SPA_POD_TYPE_INT, 32, 1, 32),
-      PROP    (&f[1], SPA_ALLOC_PARAM_BUFFERS_ALIGN,   SPA_POD_TYPE_INT, 16));
+  spa_pod_builder_object (&b, &f[0], 0, this->uri.alloc_param_buffers.Buffers,
+      PROP    (&f[1], this->uri.alloc_param_buffers.size,    SPA_POD_TYPE_INT, this->period_frames * this->frame_size),
+      PROP    (&f[1], this->uri.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, 0),
+      PROP_MM (&f[1], this->uri.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, 32, 1, 32),
+      PROP    (&f[1], this->uri.alloc_param_buffers.align,   SPA_POD_TYPE_INT, 16));
   this->params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
-  spa_pod_builder_object (&b, &f[0], 0, SPA_ALLOC_PARAM_TYPE_META_ENABLE,
-      PROP    (&f[1], SPA_ALLOC_PARAM_META_ENABLE_TYPE, SPA_POD_TYPE_INT, SPA_META_TYPE_HEADER));
+  spa_pod_builder_object (&b, &f[0], 0, this->uri.alloc_param_meta_enable.MetaEnable,
+      PROP    (&f[1], this->uri.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, SPA_META_TYPE_HEADER));
   this->params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
   this->info.extra = NULL;
-
   this->have_format = true;
 
   update_state (this, SPA_NODE_STATE_READY);
@@ -853,6 +852,8 @@ alsa_source_init (const SpaHandleFactory  *factory,
   spa_audio_formats_map (this->map, &this->uri.audio_formats);
   spa_node_events_map (this->map, &this->uri.node_events);
   spa_node_commands_map (this->map, &this->uri.node_commands);
+  spa_alloc_param_buffers_map (this->map, &this->uri.alloc_param_buffers);
+  spa_alloc_param_meta_enable_map (this->map, &this->uri.alloc_param_meta_enable);
 
   this->node = alsasource_node;
   this->clock = alsasource_clock;

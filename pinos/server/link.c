@@ -141,7 +141,7 @@ error:
 }
 
 static void *
-find_param (const SpaPortInfo *info, SpaAllocParamType type)
+find_param (const SpaPortInfo *info, uint32_t type)
 {
   uint32_t i;
 
@@ -153,16 +153,16 @@ find_param (const SpaPortInfo *info, SpaAllocParamType type)
 }
 
 static void *
-find_meta_enable (const SpaPortInfo *info, SpaMetaType type)
+find_meta_enable (PinosCore *core, const SpaPortInfo *info, SpaMetaType type)
 {
   uint32_t i;
 
   for (i = 0; i < info->n_params; i++) {
-    if (spa_pod_is_object_type (&info->params[i]->pod, SPA_ALLOC_PARAM_TYPE_META_ENABLE)) {
+    if (spa_pod_is_object_type (&info->params[i]->pod, core->uri.alloc_param_meta_enable.MetaEnable)) {
       uint32_t qtype;
 
       if (spa_alloc_param_query (info->params[i],
-            SPA_ALLOC_PARAM_META_ENABLE_TYPE, SPA_POD_TYPE_INT, &qtype, 0) != 1)
+            core->uri.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, &qtype, 0) != 1)
         continue;
 
       if (qtype == type)
@@ -208,11 +208,11 @@ alloc_buffers (PinosLink      *this,
   for (i = 0; i < n_params; i++) {
     SpaAllocParam *ap = params[i];
 
-    if (ap->pod.type == SPA_ALLOC_PARAM_TYPE_META_ENABLE) {
+    if (ap->pod.type == this->core->uri.alloc_param_meta_enable.MetaEnable) {
       uint32_t type;
 
       if (spa_alloc_param_query (ap,
-            SPA_ALLOC_PARAM_META_ENABLE_TYPE, SPA_POD_TYPE_INT, &type,
+            this->core->uri.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, &type,
             0) != 1)
         continue;
 
@@ -397,50 +397,50 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
     uint32_t max_buffers;
     size_t minsize = 1024, stride = 0;
 
-    in_me = find_meta_enable (iinfo, SPA_META_TYPE_RINGBUFFER);
-    out_me = find_meta_enable (oinfo, SPA_META_TYPE_RINGBUFFER);
+    in_me = find_meta_enable (this->core, iinfo, SPA_META_TYPE_RINGBUFFER);
+    out_me = find_meta_enable (this->core, oinfo, SPA_META_TYPE_RINGBUFFER);
     if (in_me && out_me) {
       uint32_t ms1, ms2, s1, s2;
       max_buffers = 1;
 
       if (spa_alloc_param_query (in_me,
-            SPA_ALLOC_PARAM_META_ENABLE_RB_SIZE,   SPA_POD_TYPE_INT, &ms1,
-            SPA_ALLOC_PARAM_META_ENABLE_RB_STRIDE, SPA_POD_TYPE_INT, &s1, 0) == 2 &&
+            this->core->uri.alloc_param_meta_enable.ringbufferSize,   SPA_POD_TYPE_INT, &ms1,
+            this->core->uri.alloc_param_meta_enable.ringbufferStride, SPA_POD_TYPE_INT, &s1, 0) == 2 &&
           spa_alloc_param_query (in_me,
-            SPA_ALLOC_PARAM_META_ENABLE_RB_SIZE,   SPA_POD_TYPE_INT, &ms2,
-            SPA_ALLOC_PARAM_META_ENABLE_RB_STRIDE, SPA_POD_TYPE_INT, &s2, 0) == 2) {
+            this->core->uri.alloc_param_meta_enable.ringbufferSize,   SPA_POD_TYPE_INT, &ms2,
+            this->core->uri.alloc_param_meta_enable.ringbufferStride, SPA_POD_TYPE_INT, &s2, 0) == 2) {
         minsize = SPA_MAX (ms1, ms2);
         stride = SPA_MAX (s1, s2);
       }
     } else {
       max_buffers = MAX_BUFFERS;
       minsize = stride = 0;
-      in_alloc = find_param (iinfo, SPA_ALLOC_PARAM_TYPE_BUFFERS);
+      in_alloc = find_param (iinfo, this->core->uri.alloc_param_buffers.Buffers);
       if (in_alloc) {
         uint32_t qmax_buffers = max_buffers,
                  qminsize = minsize,
                  qstride = stride;
 
         spa_alloc_param_query (in_alloc,
-            SPA_ALLOC_PARAM_BUFFERS_SIZE,    SPA_POD_TYPE_INT, &qminsize,
-            SPA_ALLOC_PARAM_BUFFERS_STRIDE,  SPA_POD_TYPE_INT, &qstride,
-            SPA_ALLOC_PARAM_BUFFERS_BUFFERS, SPA_POD_TYPE_INT, &qmax_buffers,
+            this->core->uri.alloc_param_buffers.size,    SPA_POD_TYPE_INT, &qminsize,
+            this->core->uri.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, &qstride,
+            this->core->uri.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, &qmax_buffers,
             0);
 
         max_buffers = qmax_buffers == 0 ? max_buffers : SPA_MIN (qmax_buffers, max_buffers);
         minsize = SPA_MAX (minsize, qminsize);
         stride = SPA_MAX (stride, qstride);
       }
-      out_alloc = find_param (oinfo, SPA_ALLOC_PARAM_TYPE_BUFFERS);
+      out_alloc = find_param (oinfo, this->core->uri.alloc_param_buffers.Buffers);
       if (out_alloc) {
         uint32_t qmax_buffers = max_buffers,
                  qminsize = minsize,
                  qstride = stride;
 
         spa_alloc_param_query (out_alloc,
-            SPA_ALLOC_PARAM_BUFFERS_SIZE,    SPA_POD_TYPE_INT, &qminsize,
-            SPA_ALLOC_PARAM_BUFFERS_STRIDE,  SPA_POD_TYPE_INT, &qstride,
-            SPA_ALLOC_PARAM_BUFFERS_BUFFERS, SPA_POD_TYPE_INT, &qmax_buffers,
+            this->core->uri.alloc_param_buffers.size,    SPA_POD_TYPE_INT, &qminsize,
+            this->core->uri.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, &qstride,
+            this->core->uri.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, &qmax_buffers,
             0);
 
         max_buffers = qmax_buffers == 0 ? max_buffers : SPA_MIN (qmax_buffers, max_buffers);

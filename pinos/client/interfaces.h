@@ -27,7 +27,7 @@ extern "C" {
 #include <spa/defs.h>
 #include <spa/props.h>
 #include <spa/format.h>
-#include <spa/port.h>
+#include <spa/alloc-param.h>
 #include <spa/node.h>
 
 typedef struct _PinosClientNodeBuffer PinosClientNodeBuffer;

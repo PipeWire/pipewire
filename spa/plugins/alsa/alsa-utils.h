@@ -71,6 +71,8 @@ typedef struct {
   SpaAudioFormats audio_formats;
   SpaNodeEvents node_events;
   SpaNodeCommands node_commands;
+  SpaAllocParamBuffers alloc_param_buffers;
+  SpaAllocParamMetaEnable alloc_param_meta_enable;
 } URI;
 
 struct _SpaALSAState {

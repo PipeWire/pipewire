@@ -52,4 +52,7 @@ pinos_uri_init (PinosURI *uri)
   spa_node_events_map (uri->map, &uri->node_events);
   spa_node_commands_map (uri->map, &uri->node_commands);
   spa_monitor_types_map (uri->map, &uri->monitor_types);
+  spa_alloc_param_buffers_map (uri->map, &uri->alloc_param_buffers);
+  spa_alloc_param_meta_enable_map (uri->map, &uri->alloc_param_meta_enable);
+  spa_alloc_param_video_padding_map (uri->map, &uri->alloc_param_video_padding);
 }

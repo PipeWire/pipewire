@@ -297,7 +297,8 @@ spa_pod_builder_push_struct (SpaPODBuilder  *builder,
                                spa_pod_builder_raw (builder, &p, sizeof(p)));
 }
 
-#define SPA_POD_OBJECT_INIT(size,id,type) { { size, SPA_POD_TYPE_OBJECT }, { id, type } }
+#define SPA_POD_OBJECT_INIT(size,id,type)             { { size, SPA_POD_TYPE_OBJECT }, { id, type } }
+#define SPA_POD_OBJECT_INIT_COMPLEX(size,id,type,...) { { size, SPA_POD_TYPE_OBJECT }, { id, type }, __VA_ARGS__ }
 
 static inline uint32_t
 spa_pod_builder_push_object (SpaPODBuilder  *builder,

@@ -30,7 +30,6 @@ typedef struct _PinosTransportArea PinosTransportArea;
 #include <string.h>
 
 #include <spa/defs.h>
-#include <spa/port.h>
 #include <spa/node.h>
 
 #include <pinos/client/mem.h>

@@ -887,21 +887,21 @@ spa_v4l2_set_format (SpaV4l2Source *this, SpaVideoInfo *format, bool try_only)
                       SPA_PORT_INFO_FLAG_LIVE;
   state->info.maxbuffering = -1;
   state->info.latency = (streamparm.parm.capture.timeperframe.numerator * SPA_NSEC_PER_SEC) /
-                        streamparm.parm.capture.timeperframe.denominator;
+                         streamparm.parm.capture.timeperframe.denominator;
 
   state->info.n_params = 2;
   state->info.params = state->params;
 
   spa_pod_builder_init (&b, state->params_buffer, sizeof (state->params_buffer));
-  spa_pod_builder_object (&b, &f[0], 0, SPA_ALLOC_PARAM_TYPE_BUFFERS,
-        PROP      (&f[1], SPA_ALLOC_PARAM_BUFFERS_SIZE,    SPA_POD_TYPE_INT, fmt.fmt.pix.sizeimage),
-        PROP      (&f[1], SPA_ALLOC_PARAM_BUFFERS_STRIDE,  SPA_POD_TYPE_INT, fmt.fmt.pix.bytesperline),
-        PROP_U_MM (&f[1], SPA_ALLOC_PARAM_BUFFERS_BUFFERS, SPA_POD_TYPE_INT, MAX_BUFFERS, 2, MAX_BUFFERS),
-        PROP      (&f[1], SPA_ALLOC_PARAM_BUFFERS_ALIGN,   SPA_POD_TYPE_INT, 16));
+  spa_pod_builder_object (&b, &f[0], 0, this->uri.alloc_param_buffers.Buffers,
+        PROP      (&f[1], this->uri.alloc_param_buffers.size,    SPA_POD_TYPE_INT, fmt.fmt.pix.sizeimage),
+        PROP      (&f[1], this->uri.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, fmt.fmt.pix.bytesperline),
+        PROP_U_MM (&f[1], this->uri.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, MAX_BUFFERS, 2, MAX_BUFFERS),
+        PROP      (&f[1], this->uri.alloc_param_buffers.align,   SPA_POD_TYPE_INT, 16));
   state->params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
-  spa_pod_builder_object (&b, &f[0], 0, SPA_ALLOC_PARAM_TYPE_META_ENABLE,
-        PROP      (&f[1], SPA_ALLOC_PARAM_META_ENABLE_TYPE, SPA_POD_TYPE_INT, SPA_META_TYPE_HEADER));
+  spa_pod_builder_object (&b, &f[0], 0, this->uri.alloc_param_meta_enable.MetaEnable,
+        PROP      (&f[1], this->uri.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, SPA_META_TYPE_HEADER));
   state->params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
   state->info.extra = NULL;

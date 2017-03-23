@@ -1,4 +1,5 @@
 spa_headers = [
+  'alloc-param.h',
   'barrier.h',
   'buffer.h',
   'clock.h',
@@ -20,7 +21,6 @@ spa_headers = [
   'pod-builder.h',
   'pod-iter.h',
   'pod-utils.h',
-  'port.h',
   'props.h',
   'ringbuffer.h'
 ]

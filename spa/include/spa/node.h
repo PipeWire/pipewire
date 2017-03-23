@@ -51,7 +51,7 @@ typedef enum {
 #include <spa/defs.h>
 #include <spa/plugin.h>
 #include <spa/props.h>
-#include <spa/port.h>
+#include <spa/alloc-param.h>
 #include <spa/node-event.h>
 #include <spa/node-command.h>
 #include <spa/buffer.h>
@@ -115,6 +115,50 @@ typedef struct {
   uint64_t       latency;
   SpaEvent      *event;
 } SpaPortOutput;
+
+/**
+ * SpaPortInfoFlags:
+ * @SPA_PORT_INFO_FLAG_NONE: no flags
+ * @SPA_PORT_INFO_FLAG_REMOVABLE: port can be removed
+ * @SPA_PORT_INFO_FLAG_OPTIONAL: processing on port is optional
+ * @SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS: the port can give a buffer
+ * @SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS: the port can use a provided buffer
+ * @SPA_PORT_INFO_FLAG_IN_PLACE: the port can process data in-place and will need
+ *    a writable input buffer
+ * @SPA_PORT_INFO_FLAG_NO_REF: the port does not keep a ref on the buffer
+ * @SPA_PORT_INFO_FLAG_LIVE: output buffers from this port are timestamped against
+ *                           a live clock.
+ */
+typedef enum {
+  SPA_PORT_INFO_FLAG_NONE                  = 0,
+  SPA_PORT_INFO_FLAG_REMOVABLE             = 1 << 0,
+  SPA_PORT_INFO_FLAG_OPTIONAL              = 1 << 1,
+  SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS     = 1 << 2,
+  SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS       = 1 << 3,
+  SPA_PORT_INFO_FLAG_IN_PLACE              = 1 << 4,
+  SPA_PORT_INFO_FLAG_NO_REF                = 1 << 5,
+  SPA_PORT_INFO_FLAG_LIVE                  = 1 << 6,
+} SpaPortInfoFlags;
+
+/**
+ * SpaPortInfo
+ * @flags: extra port flags
+ * @n_params: number of elements in @params;
+ * @params: extra allocation parameters
+ * @maxbuffering: the maximum amount of bytes that the element will keep
+ *                around internally
+ * @latency: latency on this port in nanoseconds
+ * @extra: a dictionary of extra port info
+ *
+ */
+typedef struct {
+  SpaPortInfoFlags    flags;
+  uint32_t            n_params;
+  SpaAllocParam     **params;
+  uint64_t            maxbuffering;
+  uint64_t            latency;
+  SpaDict            *extra;
+} SpaPortInfo;
 
 /**
  * SpaNodeEventCallback:

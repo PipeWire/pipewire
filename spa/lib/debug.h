@@ -25,7 +25,7 @@ extern "C" {
 #endif
 
 #include <spa/defs.h>
-#include <spa/port.h>
+#include <spa/node.h>
 #include <spa/buffer.h>
 #include <spa/pod.h>
 #include <spa/props.h>

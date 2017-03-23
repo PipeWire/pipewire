@@ -74,6 +74,8 @@ typedef struct {
   SpaVideoFormats video_formats;
   SpaNodeEvents node_events;
   SpaNodeCommands node_commands;
+  SpaAllocParamBuffers alloc_param_buffers;
+  SpaAllocParamMetaEnable alloc_param_meta_enable;
 } URI;
 
 typedef struct {
@@ -965,6 +967,8 @@ v4l2_source_init (const SpaHandleFactory  *factory,
   spa_video_formats_map (this->map, &this->uri.video_formats);
   spa_node_events_map (this->map, &this->uri.node_events);
   spa_node_commands_map (this->map, &this->uri.node_commands);
+  spa_alloc_param_buffers_map (this->map, &this->uri.alloc_param_buffers);
+  spa_alloc_param_meta_enable_map (this->map, &this->uri.alloc_param_meta_enable);
 
   this->node = v4l2source_node;
   this->clock = v4l2source_clock;

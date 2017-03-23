@@ -775,6 +775,7 @@ on_format_changed (PinosListener *listener,
   GstPinosSrc *pinossrc = SPA_CONTAINER_OF (listener, GstPinosSrc, stream_format_changed);
   GstCaps *caps;
   gboolean res;
+  PinosContext *ctx = stream->context;
 
   caps = gst_caps_from_format (format);
   GST_DEBUG_OBJECT (pinossrc, "we got format %" GST_PTR_FORMAT, caps);
@@ -788,8 +789,8 @@ on_format_changed (PinosListener *listener,
     SpaPODFrame f[2];
 
     spa_pod_builder_init (&b, buffer, sizeof (buffer));
-    spa_pod_builder_object (&b, &f[0], 0, SPA_ALLOC_PARAM_TYPE_META_ENABLE,
-        PROP    (&f[1], SPA_ALLOC_PARAM_META_ENABLE_TYPE, SPA_POD_TYPE_INT, SPA_META_TYPE_HEADER));
+    spa_pod_builder_object (&b, &f[0], 0, ctx->uri.alloc_param_meta_enable.MetaEnable,
+        PROP    (&f[1], ctx->uri.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, SPA_META_TYPE_HEADER));
     params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
     GST_DEBUG_OBJECT (pinossrc, "doing finish format");

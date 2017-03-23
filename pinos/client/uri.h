@@ -58,6 +58,9 @@ struct _PinosURI {
   SpaNodeEvents node_events;
   SpaNodeCommands node_commands;
   SpaMonitorTypes monitor_types;
+  SpaAllocParamBuffers alloc_param_buffers;
+  SpaAllocParamMetaEnable alloc_param_meta_enable;
+  SpaAllocParamVideoPadding alloc_param_video_padding;
 };
 
 void pinos_uri_init (PinosURI *uri);

@@ -65,7 +65,6 @@ typedef enum {
 } SpaDataType;
 
 #include <spa/defs.h>
-#include <spa/port.h>
 #include <spa/ringbuffer.h>
 
 /**

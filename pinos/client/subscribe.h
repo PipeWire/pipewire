@@ -26,21 +26,23 @@
 extern "C" {
 #endif
 
-#define PINOS_CORE_URI                            "http://pinos.org/ns/core"
-#define PINOS_CORE_PREFIX                         PINOS_CORE_URI "#"
-#define PINOS_CORE_REGISTRY                       PINOS_CORE_PREFIX "Registry"
+#define PINOS_TYPE__Core                          "Pinos:Object:Core"
+#define PINOS_TYPE_CORE_BASE                      PINOS_TYPE__Core ":"
 
-#define PINOS_NODE_URI                            "http://pinos.org/ns/node"
-#define PINOS_NODE_PREFIX                         PINOS_NODE_URI "#"
+#define PINOS_TYPE__Registry                      "Pinos:Object:Registry"
+#define PINOS_TYPE_REGISYRY_BASE                  PINOS_TYPE__Registry ":"
 
-#define PINOS_CLIENT_URI                          "http://pinos.org/ns/client"
-#define PINOS_CLIENT_PREFIX                       PINOS_CLIENT_URI "#"
+#define PINOS_TYPE__Node                          "Pinos:Object:Node"
+#define PINOS_TYPE_NODE_BASE                      PINOS_TYPE__Node ":"
 
-#define PINOS_LINK_URI                            "http://pinos.org/ns/link"
-#define PINOS_LINK_PREFIX                         PINOS_LINK_URI "#"
+#define PINOS_TYPE__Client                        "Pinos:Object:Client"
+#define PINOS_TYPE_CLIENT_BASE                    PINOS_TYPE__Client ":"
 
-#define PINOS_MODULE_URI                          "http://pinos.org/ns/module"
-#define PINOS_MODULE_PREFIX                       PINOS_MODULE_URI "#"
+#define PINOS_TYPE__Link                          "Pinos:Object:Link"
+#define PINOS_TYPE_LINK_BASE                      PINOS_TYPE__Link ":"
+
+#define PINOS_TYPE__Module                        "Pinos:Object:Module"
+#define PINOS_TYPE_MODULE_BASE                    PINOS_TYPE__Module ":"
 
 typedef enum {
     PINOS_SUBSCRIPTION_EVENT_NEW           = 0,

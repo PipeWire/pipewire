@@ -26,8 +26,8 @@ extern "C" {
 
 typedef struct _SpaBuffer SpaBuffer;
 
-#define SPA_BUFFER_URI             "http://spaplug.in/ns/buffer"
-#define SPA_BUFFER_PREFIX          SPA_BUFFER_URI "#"
+#define SPA_TYPE__Buffer            "Spa:Pointer:Buffer"
+#define SPA_TYPE_BUFFER_BASE        SPA_TYPE__Buffer ":"
 
 /**
  * SpaMetaType:

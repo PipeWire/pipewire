@@ -154,7 +154,7 @@ do_start (SpaLoop        *loop,
   }
 
   if (async) {
-    SpaNodeEventAsyncComplete ac = SPA_NODE_EVENT_ASYNC_COMPLETE_INIT (this->uri.node_events.AsyncComplete,
+    SpaEventNodeAsyncComplete ac = SPA_EVENT_NODE_ASYNC_COMPLETE_INIT (this->uri.event_node.AsyncComplete,
                                                                        seq, res);
     spa_loop_invoke (this->main_loop,
                      do_send_event,
@@ -182,7 +182,7 @@ do_pause (SpaLoop        *loop,
   }
 
   if (async) {
-    SpaNodeEventAsyncComplete ac = SPA_NODE_EVENT_ASYNC_COMPLETE_INIT (this->uri.node_events.AsyncComplete,
+    SpaEventNodeAsyncComplete ac = SPA_EVENT_NODE_ASYNC_COMPLETE_INIT (this->uri.event_node.AsyncComplete,
                                                                        seq, res);
     spa_loop_invoke (this->main_loop,
                      do_send_event,
@@ -205,7 +205,7 @@ spa_alsa_source_node_send_command (SpaNode    *node,
 
   this = SPA_CONTAINER_OF (node, SpaALSASource, node);
 
-  if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Start) {
+  if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Start) {
     if (!this->have_format)
       return SPA_RESULT_NO_FORMAT;
 
@@ -219,7 +219,7 @@ spa_alsa_source_node_send_command (SpaNode    *node,
                             NULL,
                             this);
   }
-  else if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Pause) {
+  else if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Pause) {
     if (!this->have_format)
       return SPA_RESULT_NO_FORMAT;
 
@@ -241,7 +241,7 @@ spa_alsa_source_node_send_command (SpaNode    *node,
 
 static SpaResult
 spa_alsa_source_node_set_event_callback (SpaNode              *node,
-                                       SpaNodeEventCallback  event,
+                                       SpaEventNodeCallback  event,
                                        void                 *user_data)
 {
   SpaALSASource *this;
@@ -671,11 +671,11 @@ spa_alsa_source_node_port_send_command (SpaNode          *node,
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
 
-  if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Pause) {
+  if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Pause) {
     if (SPA_RESULT_IS_OK (res = spa_alsa_pause (this, false))) {
       update_state (this, SPA_NODE_STATE_PAUSED);
     }
-  } else if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Start) {
+  } else if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Start) {
     if (SPA_RESULT_IS_OK (res = spa_alsa_start (this, false))) {
       update_state (this, SPA_NODE_STATE_STREAMING);
     }
@@ -818,13 +818,13 @@ alsa_source_init (const SpaHandleFactory  *factory,
   this = (SpaALSASource *) handle;
 
   for (i = 0; i < n_support; i++) {
-    if (strcmp (support[i].uri, SPA_ID_MAP_URI) == 0)
+    if (strcmp (support[i].uri, SPA_TYPE__IDMap) == 0)
       this->map = support[i].data;
-    else if (strcmp (support[i].uri, SPA_LOG_URI) == 0)
+    else if (strcmp (support[i].uri, SPA_TYPE__Log) == 0)
       this->log = support[i].data;
-    else if (strcmp (support[i].uri, SPA_LOOP__DataLoop) == 0)
+    else if (strcmp (support[i].uri, SPA_TYPE_LOOP__DataLoop) == 0)
       this->data_loop = support[i].data;
-    else if (strcmp (support[i].uri, SPA_LOOP__MainLoop) == 0)
+    else if (strcmp (support[i].uri, SPA_TYPE_LOOP__MainLoop) == 0)
       this->main_loop = support[i].data;
   }
   if (this->map == NULL) {
@@ -854,8 +854,8 @@ alsa_source_init (const SpaHandleFactory  *factory,
 
 static const SpaInterfaceInfo alsa_source_interfaces[] =
 {
-  { SPA_NODE_URI, },
-  { SPA_CLOCK_URI, },
+  { SPA_TYPE__Node, },
+  { SPA_TYPE__Clock, },
 };
 
 static SpaResult

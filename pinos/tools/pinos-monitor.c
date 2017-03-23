@@ -65,7 +65,7 @@ dump_core_info (PinosContext        *c,
     return;
 
   printf ("\tid: %u\n", info->id);
-  printf ("\ttype: %s\n", PINOS_CORE_URI);
+  printf ("\ttype: %s\n", PINOS_TYPE__Core);
   if (data->print_all) {
     printf ("%c\tuser-name: \"%s\"\n", MARK_CHANGE (0), info->user_name);
     printf ("%c\thost-name: \"%s\"\n", MARK_CHANGE (1), info->host_name);
@@ -88,7 +88,7 @@ dump_client_info (PinosContext          *c,
     return;
 
   printf ("\tid: %u\n", info->id);
-  printf ("\ttype: %s\n", PINOS_CLIENT_URI);
+  printf ("\ttype: %s\n", PINOS_TYPE__Client);
   if (data->print_all) {
     print_properties (info->props, MARK_CHANGE (0));
   }
@@ -109,7 +109,7 @@ dump_node_info (PinosContext        *c,
   }
 
   printf ("\tid: %u\n", info->id);
-  printf ("\ttype: %s\n", PINOS_NODE_URI);
+  printf ("\ttype: %s\n", PINOS_TYPE__Node);
   if (data->print_all) {
     int i;
 
@@ -148,7 +148,7 @@ dump_module_info (PinosContext          *c,
   }
 
   printf ("\tid: %u\n", info->id);
-  printf ("\ttype: %s\n", PINOS_MODULE_URI);
+  printf ("\ttype: %s\n", PINOS_TYPE__Module);
   if (data->print_all) {
     printf ("%c\tname: \"%s\"\n", MARK_CHANGE (0), info->name);
     printf ("%c\tfilename: \"%s\"\n", MARK_CHANGE (1), info->filename);
@@ -172,7 +172,7 @@ dump_link_info (PinosContext        *c,
   }
 
   printf ("\tid: %u\n", info->id);
-  printf ("\ttype: %s\n", PINOS_LINK_URI);
+  printf ("\ttype: %s\n", PINOS_TYPE__Link);
   if (data->print_all) {
     printf ("%c\toutput-node-id: %u\n", MARK_CHANGE (0), info->output_node_id);
     printf ("%c\toutput-port-id: %u\n", MARK_CHANGE (1), info->output_port_id);

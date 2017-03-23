@@ -28,11 +28,11 @@ extern "C" {
 #include <spa/audio/raw.h>
 
 #if __BYTE_ORDER == __BIG_ENDIAN
-#define _SPA_AUDIO_FORMAT_NE(fmt) SPA_AUDIO_FORMAT_PREFIX fmt "BE"
-#define _SPA_AUDIO_FORMAT_OE(fmt) SPA_AUDIO_FORMAT_PREFIX fmt "LE"
+#define _SPA_AUDIO_FORMAT_NE(fmt) SPA_TYPE_AUDIO_FORMAT_BASE fmt "BE"
+#define _SPA_AUDIO_FORMAT_OE(fmt) SPA_TYPE_AUDIO_FORMAT_BASE fmt "LE"
 #elif __BYTE_ORDER == __LITTLE_ENDIAN
-#define _SPA_AUDIO_FORMAT_NE(fmt) SPA_AUDIO_FORMAT_PREFIX fmt "LE"
-#define _SPA_AUDIO_FORMAT_OE(fmt) SPA_AUDIO_FORMAT_PREFIX fmt "BE"
+#define _SPA_AUDIO_FORMAT_NE(fmt) SPA_TYPE_AUDIO_FORMAT_BASE fmt "LE"
+#define _SPA_AUDIO_FORMAT_OE(fmt) SPA_TYPE_AUDIO_FORMAT_BASE fmt "BE"
 #endif
 
 typedef struct {
@@ -75,10 +75,10 @@ spa_audio_formats_map (SpaIDMap *map, SpaAudioFormats *types)
 {
   if (types->ENCODED == 0) {
     types->UNKNOWN      = 0;
-    types->ENCODED      = spa_id_map_get_id (map, SPA_AUDIO_FORMAT__ENCODED);
+    types->ENCODED      = spa_id_map_get_id (map, SPA_TYPE_AUDIO_FORMAT__ENCODED);
 
-    types->S8           = spa_id_map_get_id (map, SPA_AUDIO_FORMAT__S8);
-    types->U8           = spa_id_map_get_id (map, SPA_AUDIO_FORMAT__U8);
+    types->S8           = spa_id_map_get_id (map, SPA_TYPE_AUDIO_FORMAT__S8);
+    types->U8           = spa_id_map_get_id (map, SPA_TYPE_AUDIO_FORMAT__U8);
 
     types->S16          = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_NE ("S16"));
     types->U16          = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_NE ("U16"));

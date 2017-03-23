@@ -41,12 +41,12 @@ static inline void
 spa_prop_audio_map (SpaIDMap *map, SpaPropAudio *types)
 {
   if (types->format == 0) {
-    types->format = spa_id_map_get_id (map, SPA_PROP_AUDIO__format);
-    types->flags = spa_id_map_get_id (map, SPA_PROP_AUDIO__flags);
-    types->layout = spa_id_map_get_id (map, SPA_PROP_AUDIO__layout);
-    types->rate = spa_id_map_get_id (map, SPA_PROP_AUDIO__rate);
-    types->channels = spa_id_map_get_id (map, SPA_PROP_AUDIO__channels);
-    types->channel_mask = spa_id_map_get_id (map, SPA_PROP_AUDIO__channelMask);
+    types->format = spa_id_map_get_id (map, SPA_TYPE_PROP_AUDIO__format);
+    types->flags = spa_id_map_get_id (map, SPA_TYPE_PROP_AUDIO__flags);
+    types->layout = spa_id_map_get_id (map, SPA_TYPE_PROP_AUDIO__layout);
+    types->rate = spa_id_map_get_id (map, SPA_TYPE_PROP_AUDIO__rate);
+    types->channels = spa_id_map_get_id (map, SPA_TYPE_PROP_AUDIO__channels);
+    types->channel_mask = spa_id_map_get_id (map, SPA_TYPE_PROP_AUDIO__channelMask);
   }
 }
 

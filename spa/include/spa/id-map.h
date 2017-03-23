@@ -29,7 +29,8 @@ typedef struct _SpaIDMap SpaIDMap;
 #include <spa/defs.h>
 #include <spa/plugin.h>
 
-#define SPA_ID_MAP_URI                            "http://spaplug.in/ns/id-map"
+#define SPA_TYPE__IDMap                         "Spa:Interface:IDMap"
+#define SPA_TYPE_ID_MAP_BASE                    SPA_TYPE__IDMap ":"
 
 /**
  * SpaIDMap:

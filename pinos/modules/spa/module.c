@@ -40,9 +40,9 @@ setup_video_node (PinosCore *core, SpaNode *spa_node, PinosProperties *pinos_pro
   /* Retrieve pattern property */
   pattern = pinos_properties_get (pinos_props, "pattern");
   if (strcmp (pattern, "smpte-snow") == 0) {
-    pattern_uri = SPA_PROPS__patternType ":smpte-snow";
+    pattern_uri = SPA_TYPE_PROPS__patternType ":smpte-snow";
   } else if (strcmp (pattern, "snow") == 0) {
-    pattern_uri = SPA_PROPS__patternType ":snow";
+    pattern_uri = SPA_TYPE_PROPS__patternType ":snow";
   } else {
     pinos_log_debug ("Unrecognized pattern");
     return SPA_RESULT_ERROR;
@@ -53,7 +53,7 @@ setup_video_node (PinosCore *core, SpaNode *spa_node, PinosProperties *pinos_pro
     return SPA_RESULT_ERROR;
   }
 
-  if ((prop = spa_pod_object_find_prop (props, spa_id_map_get_id (core->uri.map, SPA_PROPS__patternType)))) {
+  if ((prop = spa_pod_object_find_prop (props, spa_id_map_get_id (core->uri.map, SPA_TYPE_PROPS__patternType)))) {
    if (prop->body.value.type == SPA_POD_TYPE_URI)
      SPA_POD_VALUE (SpaPODURI, &prop->body.value) = spa_id_map_get_id (core->uri.map, pattern_uri);
   }

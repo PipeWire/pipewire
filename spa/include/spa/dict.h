@@ -26,6 +26,9 @@ extern "C" {
 
 typedef struct _SpaDict SpaDict;
 
+#define SPA_TYPE__Dict            "Spa:Pointer:Dict"
+#define SPA_TYPE_DICT_BASE        SPA_TYPE__Dict ":"
+
 #include <string.h>
 
 #include <spa/defs.h>

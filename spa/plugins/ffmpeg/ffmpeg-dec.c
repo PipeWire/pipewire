@@ -52,7 +52,7 @@ typedef struct {
 
 typedef struct {
   uint32_t node;
-  SpaNodeCommands node_commands;
+  SpaCommandNode command_node;
 } URI;
 
 struct _SpaFFMpegDec {
@@ -63,7 +63,7 @@ struct _SpaFFMpegDec {
   SpaIDMap *map;
   SpaLog *log;
 
-  SpaNodeEventCallback event_cb;
+  SpaEventNodeCallback event_cb;
   void *user_data;
 
   SpaFFMpegPort in_ports[1];
@@ -105,10 +105,10 @@ spa_ffmpeg_dec_node_send_command (SpaNode    *node,
 
   this = SPA_CONTAINER_OF (node, SpaFFMpegDec, node);
 
-  if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Start) {
+  if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Start) {
     update_state (this, SPA_NODE_STATE_STREAMING);
   }
-  else if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Pause) {
+  else if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Pause) {
     update_state (this, SPA_NODE_STATE_PAUSED);
   }
   else
@@ -119,7 +119,7 @@ spa_ffmpeg_dec_node_send_command (SpaNode    *node,
 
 static SpaResult
 spa_ffmpeg_dec_node_set_event_callback (SpaNode              *node,
-                                        SpaNodeEventCallback  event,
+                                        SpaEventNodeCallback  event,
                                         void                 *user_data)
 {
   SpaFFMpegDec *this;
@@ -513,19 +513,19 @@ spa_ffmpeg_dec_init (SpaHandle         *handle,
   this = (SpaFFMpegDec *) handle;
 
   for (i = 0; i < n_support; i++) {
-    if (strcmp (support[i].uri, SPA_ID_MAP_URI) == 0)
+    if (strcmp (support[i].uri, SPA_TYPE__IDMap) == 0)
       this->map = support[i].data;
-    else if (strcmp (support[i].uri, SPA_LOG_URI) == 0)
+    else if (strcmp (support[i].uri, SPA_TYPE__Log) == 0)
       this->log = support[i].data;
   }
   if (this->map == NULL) {
     spa_log_error (this->log, "an id-map is needed");
     return SPA_RESULT_ERROR;
   }
-  this->uri.node = spa_id_map_get_id (this->map, SPA_NODE_URI);
+  this->uri.node = spa_id_map_get_id (this->map, SPA_TYPE__Node);
 
   this->node = ffmpeg_dec_node;
-  spa_node_commands_map (this->map, &this->uri.node_commands);
+  spa_command_node_map (this->map, &this->uri.command_node);
 
   this->in_ports[0].info.flags = SPA_PORT_INFO_FLAG_NONE;
   this->out_ports[0].info.flags = SPA_PORT_INFO_FLAG_NONE;

@@ -24,8 +24,8 @@
 extern "C" {
 #endif
 
-#define PINOS_PORT_URI                            "http://pinos.org/ns/port"
-#define PINOS_PORT_PREFIX                         PINOS_PORT_URI "#"
+#define PINOS_TYPE__Port                          "Pinos:Object:Port"
+#define PINOS_TYPE_PORT_BASE                      PINOS_TYPE__Port ":"
 
 typedef struct _PinosPort PinosPort;
 

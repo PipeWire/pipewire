@@ -29,15 +29,15 @@ extern "C" {
 
 typedef struct _SpaAudioInfo SpaAudioInfo;
 
-#define SPA_PROP_AUDIO_URI           "http://spaplug.in/ns/prop-audio"
-#define SPA_PROP_AUDIO_PREFIX        SPA_PROP_AUDIO_URI "#"
+#define SPA_TYPE_PROP__Audio           "Spa:Prop:Audio"
+#define SPA_TYPE_PROP_AUDIO_BASE        SPA_TYPE_PROP__Audio ":"
 
-#define SPA_PROP_AUDIO__format          SPA_PROP_AUDIO_PREFIX "format"
-#define SPA_PROP_AUDIO__flags           SPA_PROP_AUDIO_PREFIX "flags"
-#define SPA_PROP_AUDIO__layout          SPA_PROP_AUDIO_PREFIX "layout"
-#define SPA_PROP_AUDIO__rate            SPA_PROP_AUDIO_PREFIX "rate"
-#define SPA_PROP_AUDIO__channels        SPA_PROP_AUDIO_PREFIX "channels"
-#define SPA_PROP_AUDIO__channelMask     SPA_PROP_AUDIO_PREFIX "channel-mask"
+#define SPA_TYPE_PROP_AUDIO__format          SPA_TYPE_PROP_AUDIO_BASE "format"
+#define SPA_TYPE_PROP_AUDIO__flags           SPA_TYPE_PROP_AUDIO_BASE "flags"
+#define SPA_TYPE_PROP_AUDIO__layout          SPA_TYPE_PROP_AUDIO_BASE "layout"
+#define SPA_TYPE_PROP_AUDIO__rate            SPA_TYPE_PROP_AUDIO_BASE "rate"
+#define SPA_TYPE_PROP_AUDIO__channels        SPA_TYPE_PROP_AUDIO_BASE "channels"
+#define SPA_TYPE_PROP_AUDIO__channelMask     SPA_TYPE_PROP_AUDIO_BASE "channel-mask"
 
 struct _SpaAudioInfo {
   uint32_t media_type;

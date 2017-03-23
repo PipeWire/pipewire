@@ -29,8 +29,8 @@ typedef struct _SpaEvent SpaEvent;
 #include <spa/defs.h>
 #include <spa/pod.h>
 
-#define SPA_EVENT_URI             "http://spaplug.in/ns/event"
-#define SPA_EVENT_PREFIX          SPA_EVENT_URI "#"
+#define SPA_TYPE__Event            "Spa:Object:Event"
+#define SPA_TYPE_EVENT_BASE        SPA_TYPE__Event ":"
 
 typedef struct {
   SpaPODObjectBody body;

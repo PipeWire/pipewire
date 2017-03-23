@@ -354,12 +354,12 @@ send_need_input (PinosStream *stream)
 {
 #if 0
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
-  SpaNodeEventNeedInput ni;
+  SpaEventNodeNeedInput ni;
   uint64_t cmd = 1;
 
   pinos_log_debug ("stream %p: need input", stream);
 
-  ni.event.type = SPA_NODE_EVENT_NEED_INPUT;
+  ni.event.type = SPA_EVENT_NODE_NEED_INPUT;
   ni.event.size = sizeof (ni);
   pinos_transport_add_event (impl->trans, &ni.event);
   write (impl->rtfd, &cmd, 8);
@@ -371,12 +371,12 @@ send_have_output (PinosStream *stream)
 {
 #if 0
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
-  SpaNodeEventHaveOutput ho;
+  SpaEventNodeHaveOutput ho;
   uint64_t cmd = 1;
 
   pinos_log_debug ("stream %p: have output", stream);
 
-  ho.event.type = SPA_NODE_EVENT_HAVE_OUTPUT;
+  ho.event.type = SPA_EVENT_NODE_HAVE_OUTPUT;
   ho.event.size = sizeof (ho);
   pinos_transport_add_event (impl->trans, &ho.event);
   write (impl->rtfd, &cmd, 8);
@@ -387,9 +387,9 @@ static void
 add_request_clock_update (PinosStream *stream, bool flush)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
-  SpaNodeEventRequestClockUpdate rcu =
-    SPA_NODE_EVENT_REQUEST_CLOCK_UPDATE_INIT (stream->context->uri.node_events.RequestClockUpdate,
-                                              SPA_NODE_EVENT_REQUEST_CLOCK_UPDATE_TIME, 0, 0);
+  SpaEventNodeRequestClockUpdate rcu =
+    SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_INIT (stream->context->uri.event_node.RequestClockUpdate,
+                                              SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_TIME, 0, 0);
 
   pinos_client_node_do_event (impl->node_proxy, (SpaEvent*)&rcu);
 }
@@ -401,8 +401,8 @@ add_async_complete (PinosStream  *stream,
                     bool          flush)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
-  SpaNodeEventAsyncComplete ac =
-    SPA_NODE_EVENT_ASYNC_COMPLETE_INIT (stream->context->uri.node_events.AsyncComplete,
+  SpaEventNodeAsyncComplete ac =
+    SPA_EVENT_NODE_ASYNC_COMPLETE_INIT (stream->context->uri.event_node.AsyncComplete,
                                         seq, res);
   pinos_client_node_do_event (impl->node_proxy, (SpaEvent*)&ac);
 }
@@ -470,7 +470,7 @@ handle_rtnode_event (PinosStream  *stream,
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
   PinosContext *context = impl->this.context;
 
-  if (SPA_EVENT_TYPE (event) == context->uri.node_events.HaveOutput) {
+  if (SPA_EVENT_TYPE (event) == context->uri.event_node.HaveOutput) {
     int i;
 
     //pinos_log_debug ("stream %p: have output", stream);
@@ -486,12 +486,12 @@ handle_rtnode_event (PinosStream  *stream,
     }
     send_need_input (stream);
   }
-  else if (SPA_EVENT_TYPE (event) == context->uri.node_events.NeedInput) {
+  else if (SPA_EVENT_TYPE (event) == context->uri.event_node.NeedInput) {
     //pinos_log_debug ("stream %p: need input", stream);
     pinos_signal_emit (&stream->need_buffer, stream);
   }
-  else if (SPA_EVENT_TYPE (event) == context->uri.node_events.ReuseBuffer) {
-    SpaNodeEventReuseBuffer *p = (SpaNodeEventReuseBuffer *) event;
+  else if (SPA_EVENT_TYPE (event) == context->uri.event_node.ReuseBuffer) {
+    SpaEventNodeReuseBuffer *p = (SpaEventNodeReuseBuffer *) event;
     BufferId *bid;
 
     if (p->body.port_id.value != impl->port_id)
@@ -580,14 +580,14 @@ handle_node_command (PinosStream      *stream,
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
   PinosContext *context = stream->context;
 
-  if (SPA_COMMAND_TYPE (command) == context->uri.node_commands.Pause) {
+  if (SPA_COMMAND_TYPE (command) == context->uri.command_node.Pause) {
     pinos_log_debug ("stream %p: pause %d", stream, seq);
 
     add_state_change (stream, SPA_NODE_STATE_PAUSED, false);
     add_async_complete (stream, seq, SPA_RESULT_OK, true);
     stream_set_state (stream, PINOS_STREAM_STATE_PAUSED, NULL);
   }
-  else if (SPA_COMMAND_TYPE (command) == context->uri.node_commands.Start) {
+  else if (SPA_COMMAND_TYPE (command) == context->uri.command_node.Start) {
     pinos_log_debug ("stream %p: start %d", stream, seq);
     add_state_change (stream, SPA_NODE_STATE_STREAMING, false);
     add_async_complete (stream, seq, SPA_RESULT_OK, true);
@@ -597,9 +597,9 @@ handle_node_command (PinosStream      *stream,
 
     stream_set_state (stream, PINOS_STREAM_STATE_STREAMING, NULL);
   }
-  else if (SPA_COMMAND_TYPE (command) == context->uri.node_commands.ClockUpdate) {
-    SpaNodeCommandClockUpdate *cu = (SpaNodeCommandClockUpdate *) command;
-    if (cu->body.flags.value & SPA_NODE_COMMAND_CLOCK_UPDATE_FLAG_LIVE) {
+  else if (SPA_COMMAND_TYPE (command) == context->uri.command_node.ClockUpdate) {
+    SpaCommandNodeClockUpdate *cu = (SpaCommandNodeClockUpdate *) command;
+    if (cu->body.flags.value & SPA_COMMAND_NODE_CLOCK_UPDATE_FLAG_LIVE) {
       pinos_properties_set (stream->properties,
                         "pinos.latency.is-live", "1");
       pinos_properties_setf (stream->properties,
@@ -1125,7 +1125,7 @@ pinos_stream_recycle_buffer (PinosStream *stream,
                              uint32_t     id)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
-  SpaNodeEventReuseBuffer rb = SPA_NODE_EVENT_REUSE_BUFFER_INIT (stream->context->uri.node_events.ReuseBuffer,
+  SpaEventNodeReuseBuffer rb = SPA_EVENT_NODE_REUSE_BUFFER_INIT (stream->context->uri.event_node.ReuseBuffer,
                                                                  impl->port_id, id);
   uint64_t cmd = 1;
 

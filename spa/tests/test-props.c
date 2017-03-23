@@ -151,7 +151,7 @@ main (int argc, char *argv[])
   SpaFormat *fmt;
   SpaIDMap *map = spa_id_map_get_default();
 
-  format_type = spa_id_map_get_id (map, SPA_FORMAT_URI);
+  format_type = spa_id_map_get_id (map, SPA_TYPE__Format);
   spa_media_types_fill (&media_types, map);
   spa_media_subtypes_map (map, &media_subtypes);
   spa_prop_video_map (map, &prop_video);

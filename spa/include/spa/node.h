@@ -26,8 +26,8 @@ extern "C" {
 
 typedef struct _SpaNode SpaNode;
 
-#define SPA_NODE_URI                            "http://spaplug.in/ns/node"
-#define SPA_NODE_PREFIX                         SPA_NODE_URI "#"
+#define SPA_TYPE__Node                        "Spa:Interface:Node"
+#define SPA_TYPE_NODE_BASE                    SPA_TYPE__Node ":"
 
 /**
  * SpaNodeState:
@@ -161,7 +161,7 @@ typedef struct {
 } SpaPortInfo;
 
 /**
- * SpaNodeEventCallback:
+ * SpaEventNodeCallback:
  * @node: a #SpaNode emiting the event
  * @event: the event that was emited
  * @user_data: user data provided when registering the callback
@@ -169,7 +169,7 @@ typedef struct {
  * This will be called when an out-of-bound event is notified
  * on @node.
  */
-typedef void   (*SpaNodeEventCallback)   (SpaNode  *node,
+typedef void   (*SpaEventNodeCallback)   (SpaNode  *node,
                                           SpaEvent *event,
                                           void     *user_data);
 
@@ -280,7 +280,7 @@ struct _SpaNode {
    *          #SPA_RESULT_INVALID_ARGUMENTS when node is %NULL
    */
   SpaResult   (*set_event_callback)   (SpaNode              *node,
-                                       SpaNodeEventCallback  callback,
+                                       SpaEventNodeCallback  callback,
                                        void                 *user_data);
   /**
    * SpaNode::get_n_ports:

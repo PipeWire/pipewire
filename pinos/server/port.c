@@ -206,7 +206,7 @@ no_mem:
 static SpaResult
 pinos_port_pause (PinosPort *port)
 {
-  SpaCommand cmd = SPA_COMMAND_INIT (port->node->core->uri.node_commands.Pause);
+  SpaCommand cmd = SPA_COMMAND_INIT (port->node->core->uri.command_node.Pause);
   return spa_node_port_send_command (port->node->node,
                                     port->direction,
                                     port->port_id,

@@ -77,20 +77,20 @@ typedef struct {
   uint32_t prop_device_fd;
   SpaMediaTypes media_types;
   SpaMediaSubtypes media_subtypes;
-  SpaNodeCommands node_commands;
+  SpaCommandNode command_node;
 } URI;
 
 static inline void
 init_uri (URI *uri, SpaIDMap *map)
 {
-  uri->node = spa_id_map_get_id (map, SPA_NODE_URI);
-  uri->props = spa_id_map_get_id (map, SPA_PROPS_URI);
-  uri->prop_device = spa_id_map_get_id (map, SPA_PROPS__device);
-  uri->prop_device_name = spa_id_map_get_id (map, SPA_PROPS__deviceName);
-  uri->prop_device_fd = spa_id_map_get_id (map, SPA_PROPS__deviceFd);
+  uri->node = spa_id_map_get_id (map, SPA_TYPE__Node);
+  uri->props = spa_id_map_get_id (map, SPA_TYPE__Props);
+  uri->prop_device = spa_id_map_get_id (map, SPA_TYPE_PROPS__device);
+  uri->prop_device_name = spa_id_map_get_id (map, SPA_TYPE_PROPS__deviceName);
+  uri->prop_device_fd = spa_id_map_get_id (map, SPA_TYPE_PROPS__deviceFd);
   spa_media_types_fill (&uri->media_types, map);
   spa_media_subtypes_map (map, &uri->media_subtypes);
-  spa_node_commands_map (map, &uri->node_commands);
+  spa_command_node_map (map, &uri->command_node);
 }
 
 struct _SpaXvSink {
@@ -104,7 +104,7 @@ struct _SpaXvSink {
   uint8_t props_buffer[512];
   SpaXvSinkProps props;
 
-  SpaNodeEventCallback event_cb;
+  SpaEventNodeCallback event_cb;
   void *user_data;
 
   bool have_format;
@@ -187,12 +187,12 @@ spa_xv_sink_node_send_command (SpaNode    *node,
 
   this = SPA_CONTAINER_OF (node, SpaXvSink, node);
 
-  if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Start) {
+  if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Start) {
     spa_xv_start (this);
 
     update_state (this, SPA_NODE_STATE_STREAMING);
   }
-  else if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Pause) {
+  else if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Pause) {
     spa_xv_stop (this);
 
     update_state (this, SPA_NODE_STATE_PAUSED);
@@ -205,7 +205,7 @@ spa_xv_sink_node_send_command (SpaNode    *node,
 
 static SpaResult
 spa_xv_sink_node_set_event_callback (SpaNode              *node,
-                                     SpaNodeEventCallback  event,
+                                     SpaEventNodeCallback  event,
                                      void                 *user_data)
 {
   SpaXvSink *this;
@@ -564,9 +564,9 @@ xv_sink_init (const SpaHandleFactory  *factory,
   this = (SpaXvSink *) handle;
 
   for (i = 0; i < n_support; i++) {
-    if (strcmp (support[i].uri, SPA_ID_MAP_URI) == 0)
+    if (strcmp (support[i].uri, SPA_TYPE__IDMap) == 0)
       this->map = support[i].data;
-    else if (strcmp (support[i].uri, SPA_LOG_URI) == 0)
+    else if (strcmp (support[i].uri, SPA_TYPE__Log) == 0)
       this->log = support[i].data;
   }
   if (this->map == NULL) {
@@ -585,7 +585,7 @@ xv_sink_init (const SpaHandleFactory  *factory,
 
 static const SpaInterfaceInfo xv_sink_interfaces[] =
 {
-  { SPA_NODE_URI, },
+  { SPA_TYPE__Node, },
 };
 
 static SpaResult

@@ -71,8 +71,8 @@ typedef struct {
   SpaMediaSubtypes media_subtypes;
   SpaPropAudio prop_audio;
   SpaAudioFormats audio_formats;
-  SpaNodeEvents node_events;
-  SpaNodeCommands node_commands;
+  SpaEventNode event_node;
+  SpaCommandNode command_node;
   SpaAllocParamBuffers alloc_param_buffers;
   SpaAllocParamMetaEnable alloc_param_meta_enable;
 } URI;
@@ -80,17 +80,17 @@ typedef struct {
 static inline void
 init_uri (URI *uri, SpaIDMap *map)
 {
-  uri->node = spa_id_map_get_id (map, SPA_NODE_URI);
-  uri->format = spa_id_map_get_id (map, SPA_FORMAT_URI);
-  uri->props = spa_id_map_get_id (map, SPA_PROPS_URI);
-  uri->prop_volume = spa_id_map_get_id (map, SPA_PROPS__volume);
-  uri->prop_mute = spa_id_map_get_id (map, SPA_PROPS__mute);
+  uri->node = spa_id_map_get_id (map, SPA_TYPE__Node);
+  uri->format = spa_id_map_get_id (map, SPA_TYPE__Format);
+  uri->props = spa_id_map_get_id (map, SPA_TYPE__Props);
+  uri->prop_volume = spa_id_map_get_id (map, SPA_TYPE_PROPS__volume);
+  uri->prop_mute = spa_id_map_get_id (map, SPA_TYPE_PROPS__mute);
   spa_media_types_fill (&uri->media_types, map);
   spa_media_subtypes_map (map, &uri->media_subtypes);
   spa_prop_audio_map (map, &uri->prop_audio);
   spa_audio_formats_map (map, &uri->audio_formats);
-  spa_node_events_map (map, &uri->node_events);
-  spa_node_commands_map (map, &uri->node_commands);
+  spa_event_node_map (map, &uri->event_node);
+  spa_command_node_map (map, &uri->command_node);
   spa_alloc_param_buffers_map (map, &uri->alloc_param_buffers);
   spa_alloc_param_meta_enable_map (map, &uri->alloc_param_meta_enable);
 }
@@ -106,7 +106,7 @@ struct _SpaVolume {
   uint8_t props_buffer[512];
   SpaVolumeProps props;
 
-  SpaNodeEventCallback event_cb;
+  SpaEventNodeCallback event_cb;
   void *user_data;
 
   uint8_t format_buffer[1024];
@@ -207,10 +207,10 @@ spa_volume_node_send_command (SpaNode    *node,
 
   this = SPA_CONTAINER_OF (node, SpaVolume, node);
 
-  if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Start) {
+  if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Start) {
     update_state (this, SPA_NODE_STATE_STREAMING);
   }
-  else if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Pause) {
+  else if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Pause) {
     update_state (this, SPA_NODE_STATE_PAUSED);
   }
   else
@@ -221,7 +221,7 @@ spa_volume_node_send_command (SpaNode    *node,
 
 static SpaResult
 spa_volume_node_set_event_callback (SpaNode              *node,
-                                    SpaNodeEventCallback  event,
+                                    SpaEventNodeCallback  event,
                                     void                 *user_data)
 {
   SpaVolume *this;
@@ -662,7 +662,7 @@ find_free_buffer (SpaVolume *this, SpaVolumePort *port)
 static void
 release_buffer (SpaVolume *this, SpaBuffer *buffer)
 {
-  SpaNodeEventReuseBuffer rb = SPA_NODE_EVENT_REUSE_BUFFER_INIT (this->uri.node_events.ReuseBuffer,
+  SpaEventNodeReuseBuffer rb = SPA_EVENT_NODE_REUSE_BUFFER_INIT (this->uri.event_node.ReuseBuffer,
                                                                  0, buffer->id);
   this->event_cb (&this->node, (SpaEvent *)&rb, this->user_data);
 }
@@ -844,9 +844,9 @@ volume_init (const SpaHandleFactory  *factory,
   this = (SpaVolume *) handle;
 
   for (i = 0; i < n_support; i++) {
-    if (strcmp (support[i].uri, SPA_ID_MAP_URI) == 0)
+    if (strcmp (support[i].uri, SPA_TYPE__IDMap) == 0)
       this->map = support[i].data;
-    else if (strcmp (support[i].uri, SPA_LOG_URI) == 0)
+    else if (strcmp (support[i].uri, SPA_TYPE__Log) == 0)
       this->log = support[i].data;
   }
   if (this->map == NULL) {
@@ -871,7 +871,7 @@ volume_init (const SpaHandleFactory  *factory,
 
 static const SpaInterfaceInfo volume_interfaces[] =
 {
-  { SPA_NODE_URI, },
+  { SPA_TYPE__Node, },
 };
 
 static SpaResult

@@ -76,8 +76,8 @@ typedef struct {
   SpaMediaSubtypesAudio media_subtypes_audio;
   SpaPropAudio prop_audio;
   SpaAudioFormats audio_formats;
-  SpaNodeEvents node_events;
-  SpaNodeCommands node_commands;
+  SpaEventNode event_node;
+  SpaCommandNode command_node;
   SpaAllocParamBuffers alloc_param_buffers;
   SpaAllocParamMetaEnable alloc_param_meta_enable;
 } URI;
@@ -85,24 +85,24 @@ typedef struct {
 static inline void
 init_uri (URI *uri, SpaIDMap *map)
 {
-  uri->node = spa_id_map_get_id (map, SPA_NODE_URI);
-  uri->clock = spa_id_map_get_id (map, SPA_CLOCK_URI);
-  uri->format = spa_id_map_get_id (map, SPA_FORMAT_URI);
-  uri->props = spa_id_map_get_id (map, SPA_PROPS_URI);
-  uri->prop_device = spa_id_map_get_id (map, SPA_PROPS__device);
-  uri->prop_device_name = spa_id_map_get_id (map, SPA_PROPS__deviceName);
-  uri->prop_card_name = spa_id_map_get_id (map, SPA_PROPS__cardName);
-  uri->prop_period_size = spa_id_map_get_id (map, SPA_PROPS__periodSize);
-  uri->prop_periods = spa_id_map_get_id (map, SPA_PROPS__periods);
-  uri->prop_period_event = spa_id_map_get_id (map, SPA_PROPS__periodEvent);
+  uri->node = spa_id_map_get_id (map, SPA_TYPE__Node);
+  uri->clock = spa_id_map_get_id (map, SPA_TYPE__Clock);
+  uri->format = spa_id_map_get_id (map, SPA_TYPE__Format);
+  uri->props = spa_id_map_get_id (map, SPA_TYPE__Props);
+  uri->prop_device = spa_id_map_get_id (map, SPA_TYPE_PROPS__device);
+  uri->prop_device_name = spa_id_map_get_id (map, SPA_TYPE_PROPS__deviceName);
+  uri->prop_card_name = spa_id_map_get_id (map, SPA_TYPE_PROPS__cardName);
+  uri->prop_period_size = spa_id_map_get_id (map, SPA_TYPE_PROPS__periodSize);
+  uri->prop_periods = spa_id_map_get_id (map, SPA_TYPE_PROPS__periods);
+  uri->prop_period_event = spa_id_map_get_id (map, SPA_TYPE_PROPS__periodEvent);
 
   spa_media_types_fill (&uri->media_types, map);
   spa_media_subtypes_map (map, &uri->media_subtypes);
   spa_media_subtypes_audio_map (map, &uri->media_subtypes_audio);
   spa_prop_audio_map (map, &uri->prop_audio);
   spa_audio_formats_map (map, &uri->audio_formats);
-  spa_node_events_map (map, &uri->node_events);
-  spa_node_commands_map (map, &uri->node_commands);
+  spa_event_node_map (map, &uri->event_node);
+  spa_command_node_map (map, &uri->command_node);
   spa_alloc_param_buffers_map (map, &uri->alloc_param_buffers);
   spa_alloc_param_meta_enable_map (map, &uri->alloc_param_meta_enable);
 }
@@ -123,7 +123,7 @@ struct _SpaALSAState {
   snd_pcm_stream_t stream;
   snd_output_t *output;
 
-  SpaNodeEventCallback event_cb;
+  SpaEventNodeCallback event_cb;
   void *user_data;
 
   uint8_t props_buffer[1024];

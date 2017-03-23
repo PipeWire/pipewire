@@ -26,8 +26,8 @@
 extern "C" {
 #endif
 
-#define PINOS_CLIENT_NODE_URI                            "http://pinos.org/ns/client-node"
-#define PINOS_CLIENT_NODE_PREFIX                         PINOS_CLIENT_NODE_URI "#"
+#define PINOS_TYPE__ClientNode                            "Pinos:Object:ClientNode"
+#define PINOS_TYPE_CLIENT_NODE_BASE                       PINOS_TYPE__ClientNode ":"
 
 typedef struct _PinosClientNode PinosClientNode;
 

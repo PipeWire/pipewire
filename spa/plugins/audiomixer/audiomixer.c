@@ -58,14 +58,14 @@ typedef struct {
 
 typedef struct {
   uint32_t node;
-  SpaNodeCommands node_commands;
+  SpaCommandNode command_node;
 } URI;
 
 static inline void
 init_uri (URI *uri, SpaIDMap *map)
 {
-  uri->node = spa_id_map_get_id (map, SPA_NODE_URI);
-  spa_node_commands_map (map, &uri->node_commands);
+  uri->node = spa_id_map_get_id (map, SPA_TYPE__Node);
+  spa_command_node_map (map, &uri->command_node);
 }
 
 struct _SpaAudioMixer {
@@ -76,7 +76,7 @@ struct _SpaAudioMixer {
   SpaIDMap *map;
   SpaLog *log;
 
-  SpaNodeEventCallback event_cb;
+  SpaEventNodeCallback event_cb;
   void *user_data;
 
   int port_count;
@@ -125,10 +125,10 @@ spa_audiomixer_node_send_command (SpaNode    *node,
 
   this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
 
-  if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Start) {
+  if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Start) {
     update_state (this, SPA_NODE_STATE_STREAMING);
   }
-  else if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Pause) {
+  else if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Pause) {
     update_state (this, SPA_NODE_STATE_PAUSED);
   }
   else
@@ -139,7 +139,7 @@ spa_audiomixer_node_send_command (SpaNode    *node,
 
 static SpaResult
 spa_audiomixer_node_set_event_callback (SpaNode              *node,
-                                        SpaNodeEventCallback  event,
+                                        SpaEventNodeCallback  event,
                                         void                 *user_data)
 {
   SpaAudioMixer *this;
@@ -692,9 +692,9 @@ spa_audiomixer_init (const SpaHandleFactory *factory,
   this = (SpaAudioMixer *) handle;
 
   for (i = 0; i < n_support; i++) {
-    if (strcmp (support[i].uri, SPA_ID_MAP_URI) == 0)
+    if (strcmp (support[i].uri, SPA_TYPE__IDMap) == 0)
       this->map = support[i].data;
-    else if (strcmp (support[i].uri, SPA_LOG_URI) == 0)
+    else if (strcmp (support[i].uri, SPA_TYPE__Log) == 0)
       this->log = support[i].data;
   }
   if (this->map == NULL) {
@@ -714,7 +714,7 @@ spa_audiomixer_init (const SpaHandleFactory *factory,
 
 static const SpaInterfaceInfo audiomixer_interfaces[] =
 {
-  { SPA_NODE_URI, },
+  { SPA_TYPE__Node, },
 };
 
 static SpaResult

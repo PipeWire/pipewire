@@ -24,8 +24,8 @@
 extern "C" {
 #endif
 
-#define PINOS_NODE_FACTORY_URI                            "http://pinos.org/ns/node-factory"
-#define PINOS_NODE_FACTORY_PREFIX                         PINOS_NODE_FACTORY_URI "#"
+#define PINOS_TYPE__NodeFactory                            "Pinos:Object:NodeFactory"
+#define PINOS_TYPE_NODE_FACTORY_BASE                       PINOS_TYPE__NodeFactory ":"
 
 typedef struct _PinosNodeFactory PinosNodeFactory;
 

@@ -76,8 +76,8 @@ typedef struct {
   SpaMediaSubtypesVideo media_subtypes_video;
   SpaPropVideo prop_video;
   SpaVideoFormats video_formats;
-  SpaNodeEvents node_events;
-  SpaNodeCommands node_commands;
+  SpaEventNode event_node;
+  SpaCommandNode command_node;
   SpaAllocParamBuffers alloc_param_buffers;
   SpaAllocParamMetaEnable alloc_param_meta_enable;
 } URI;
@@ -85,20 +85,20 @@ typedef struct {
 static inline void
 init_uri (URI *uri, SpaIDMap *map)
 {
-  uri->node = spa_id_map_get_id (map, SPA_NODE_URI);
-  uri->clock = spa_id_map_get_id (map, SPA_CLOCK_URI);
-  uri->format = spa_id_map_get_id (map, SPA_FORMAT_URI);
-  uri->props = spa_id_map_get_id (map, SPA_PROPS_URI);
-  uri->prop_device = spa_id_map_get_id (map, SPA_PROPS__device);
-  uri->prop_device_name = spa_id_map_get_id (map, SPA_PROPS__deviceName);
-  uri->prop_device_fd = spa_id_map_get_id (map, SPA_PROPS__deviceFd);
+  uri->node = spa_id_map_get_id (map, SPA_TYPE__Node);
+  uri->clock = spa_id_map_get_id (map, SPA_TYPE__Clock);
+  uri->format = spa_id_map_get_id (map, SPA_TYPE__Format);
+  uri->props = spa_id_map_get_id (map, SPA_TYPE__Props);
+  uri->prop_device = spa_id_map_get_id (map, SPA_TYPE_PROPS__device);
+  uri->prop_device_name = spa_id_map_get_id (map, SPA_TYPE_PROPS__deviceName);
+  uri->prop_device_fd = spa_id_map_get_id (map, SPA_TYPE_PROPS__deviceFd);
   spa_media_types_fill (&uri->media_types, map);
   spa_media_subtypes_map (map, &uri->media_subtypes);
   spa_media_subtypes_video_map (map, &uri->media_subtypes_video);
   spa_prop_video_map (map, &uri->prop_video);
   spa_video_formats_map (map, &uri->video_formats);
-  spa_node_events_map (map, &uri->node_events);
-  spa_node_commands_map (map, &uri->node_commands);
+  spa_event_node_map (map, &uri->event_node);
+  spa_command_node_map (map, &uri->command_node);
   spa_alloc_param_buffers_map (map, &uri->alloc_param_buffers);
   spa_alloc_param_meta_enable_map (map, &uri->alloc_param_meta_enable);
 }
@@ -157,7 +157,7 @@ struct _SpaV4l2Source {
   uint8_t props_buffer[512];
   SpaV4l2SourceProps props;
 
-  SpaNodeEventCallback event_cb;
+  SpaEventNodeCallback event_cb;
   void *user_data;
 
   SpaV4l2State state[1];
@@ -247,7 +247,7 @@ do_pause_done (SpaLoop        *loop,
 {
   SpaV4l2Source *this = user_data;
   SpaV4l2State *state = &this->state[0];
-  SpaNodeEventAsyncComplete *ac = data;
+  SpaEventNodeAsyncComplete *ac = data;
 
   if (SPA_RESULT_IS_OK (ac->body.res.value))
     ac->body.res.value = spa_v4l2_stream_off (this);
@@ -279,7 +279,7 @@ do_pause (SpaLoop        *loop,
                                     cmd);
 
   if (async) {
-    SpaNodeEventAsyncComplete ac = SPA_NODE_EVENT_ASYNC_COMPLETE_INIT (this->uri.node_events.AsyncComplete,
+    SpaEventNodeAsyncComplete ac = SPA_EVENT_NODE_ASYNC_COMPLETE_INIT (this->uri.event_node.AsyncComplete,
                                                                        seq, res);
     spa_loop_invoke (this->state[0].main_loop,
                      do_pause_done,
@@ -301,7 +301,7 @@ do_start_done (SpaLoop        *loop,
 {
   SpaV4l2Source *this = user_data;
   SpaV4l2State *state = &this->state[0];
-  SpaNodeEventAsyncComplete *ac = data;
+  SpaEventNodeAsyncComplete *ac = data;
 
   if (SPA_RESULT_IS_OK (ac->body.res.value)) {
     state->started = true;
@@ -330,7 +330,7 @@ do_start (SpaLoop        *loop,
                                     cmd);
 
   if (async) {
-    SpaNodeEventAsyncComplete ac = SPA_NODE_EVENT_ASYNC_COMPLETE_INIT (this->uri.node_events.AsyncComplete,
+    SpaEventNodeAsyncComplete ac = SPA_EVENT_NODE_ASYNC_COMPLETE_INIT (this->uri.event_node.AsyncComplete,
                                                                        seq, res);
     spa_loop_invoke (this->state[0].main_loop,
                      do_start_done,
@@ -354,7 +354,7 @@ spa_v4l2_source_node_send_command (SpaNode    *node,
 
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
 
-  if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Start) {
+  if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Start) {
     SpaV4l2State *state = &this->state[0];
     SpaResult res;
 
@@ -377,7 +377,7 @@ spa_v4l2_source_node_send_command (SpaNode    *node,
                             command,
                             this);
   }
-  else if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Pause) {
+  else if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Pause) {
     SpaV4l2State *state = &this->state[0];
 
     if (!state->have_format)
@@ -396,7 +396,7 @@ spa_v4l2_source_node_send_command (SpaNode    *node,
                             command,
                             this);
   }
-  else if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.ClockUpdate) {
+  else if (SPA_COMMAND_TYPE (command) == this->uri.command_node.ClockUpdate) {
     return SPA_RESULT_OK;
   }
   else
@@ -405,7 +405,7 @@ spa_v4l2_source_node_send_command (SpaNode    *node,
 
 static SpaResult
 spa_v4l2_source_node_set_event_callback (SpaNode              *node,
-                                         SpaNodeEventCallback  event,
+                                         SpaEventNodeCallback  event,
                                          void                 *user_data)
 {
   SpaV4l2Source *this;
@@ -807,10 +807,10 @@ spa_v4l2_source_node_port_send_command (SpaNode        *node,
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
 
-  if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Pause) {
+  if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Pause) {
     res = spa_v4l2_port_set_enabled (this, false);
   }
-  else if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Start) {
+  else if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Start) {
     res = spa_v4l2_port_set_enabled (this, true);
   } else
     res = SPA_RESULT_NOT_IMPLEMENTED;
@@ -954,13 +954,13 @@ v4l2_source_init (const SpaHandleFactory  *factory,
   this = (SpaV4l2Source *) handle;
 
   for (i = 0; i < n_support; i++) {
-    if (strcmp (support[i].uri, SPA_ID_MAP_URI) == 0)
+    if (strcmp (support[i].uri, SPA_TYPE__IDMap) == 0)
       this->map = support[i].data;
-    else if (strcmp (support[i].uri, SPA_LOG_URI) == 0)
+    else if (strcmp (support[i].uri, SPA_TYPE__Log) == 0)
       this->log = support[i].data;
-    else if (strcmp (support[i].uri, SPA_LOOP__MainLoop) == 0)
+    else if (strcmp (support[i].uri, SPA_TYPE_LOOP__MainLoop) == 0)
       this->state[0].main_loop = support[i].data;
-    else if (strcmp (support[i].uri, SPA_LOOP__DataLoop) == 0)
+    else if (strcmp (support[i].uri, SPA_TYPE_LOOP__DataLoop) == 0)
       this->state[0].data_loop = support[i].data;
   }
   if (this->map == NULL) {
@@ -998,8 +998,8 @@ v4l2_source_init (const SpaHandleFactory  *factory,
 
 static const SpaInterfaceInfo v4l2_source_interfaces[] =
 {
-  { SPA_NODE_URI, },
-  { SPA_CLOCK_URI, },
+  { SPA_TYPE__Node, },
+  { SPA_TYPE__Clock, },
 };
 
 static SpaResult

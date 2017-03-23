@@ -29,8 +29,8 @@ typedef struct _SpaCommand SpaCommand;
 #include <spa/defs.h>
 #include <spa/pod.h>
 
-#define SPA_COMMAND_URI             "http://spaplug.in/ns/command"
-#define SPA_COMMAND_PREFIX          SPA_COMMAND_URI "#"
+#define SPA_TYPE__Command            "Spa:Object:Command"
+#define SPA_TYPE_COMMAND_BASE        SPA_TYPE__Command ":"
 
 typedef struct {
   SpaPODObjectBody body;

@@ -338,7 +338,7 @@ print_format_value (uint32_t size, uint32_t type, void *body)
     {
       const char *str = spa_id_map_get_uri (spa_id_map_get_default(), *(int32_t*)body);
       if (str) {
-        const char *h = strstr (str, "#");
+        const char *h = rindex (str, ':');
         if (h)
           str = h + 1;
       } else {
@@ -403,7 +403,7 @@ spa_debug_format (const SpaFormat *format)
   media_type = spa_id_map_get_uri (spa_id_map_get_default (), mtype);
   media_subtype = spa_id_map_get_uri (spa_id_map_get_default (), mstype);
 
-  fprintf (stderr, "%-6s %s/%s\n", "", strstr (media_type, "#")+1, strstr (media_subtype, "#")+1);
+  fprintf (stderr, "%-6s %s/%s\n", "", rindex (media_type, ':')+1, rindex (media_subtype, ':')+1);
 
   SPA_FORMAT_FOREACH (format, prop) {
     const char *key;
@@ -414,7 +414,7 @@ spa_debug_format (const SpaFormat *format)
 
     key = spa_id_map_get_uri (spa_id_map_get_default (), prop->body.key);
 
-    fprintf (stderr, "  %20s : (%s) ", strstr (key, "#")+1, pod_type_names[prop->body.value.type].name);
+    fprintf (stderr, "  %20s : (%s) ", rindex (key, ':')+1, pod_type_names[prop->body.value.type].name);
 
     if (!(prop->body.flags & SPA_POD_PROP_FLAG_UNSET)) {
       print_format_value (prop->body.value.size, prop->body.value.type, SPA_POD_BODY (&prop->body.value));

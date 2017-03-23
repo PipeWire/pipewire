@@ -54,7 +54,7 @@ struct _SpaV4l2Monitor {
   SpaLog *log;
   SpaLoop *main_loop;
 
-  SpaMonitorEventCallback event_cb;
+  SpaEventMonitorCallback event_cb;
   void *user_data;
 
   struct udev* udev;
@@ -216,13 +216,13 @@ v4l2_on_fd_events (SpaSource *source)
   spa_pod_builder_object (&b, &f[0], 0, type,
       SPA_POD_TYPE_POD, this->uitem.item);
 
-  event = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaMonitorEvent);
+  event = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaEventMonitor);
   this->event_cb (&this->monitor, event, this->user_data);
 }
 
 static SpaResult
 spa_v4l2_monitor_set_event_callback (SpaMonitor              *monitor,
-                                     SpaMonitorEventCallback  callback,
+                                     SpaEventMonitorCallback  callback,
                                      void                    *user_data)
 {
   SpaResult res;
@@ -366,11 +366,11 @@ v4l2_monitor_init (const SpaHandleFactory  *factory,
   this = (SpaV4l2Monitor *) handle;
 
   for (i = 0; i < n_support; i++) {
-    if (strcmp (support[i].uri, SPA_ID_MAP_URI) == 0)
+    if (strcmp (support[i].uri, SPA_TYPE__IDMap) == 0)
       this->map = support[i].data;
-    else if (strcmp (support[i].uri, SPA_LOG_URI) == 0)
+    else if (strcmp (support[i].uri, SPA_TYPE__Log) == 0)
       this->log = support[i].data;
-    else if (strcmp (support[i].uri, SPA_LOOP__MainLoop) == 0)
+    else if (strcmp (support[i].uri, SPA_TYPE_LOOP__MainLoop) == 0)
       this->main_loop = support[i].data;
   }
   if (this->map == NULL) {
@@ -381,7 +381,7 @@ v4l2_monitor_init (const SpaHandleFactory  *factory,
     spa_log_error (this->log, "a main-loop is needed");
     return SPA_RESULT_ERROR;
   }
-  this->uri.handle_factory = spa_id_map_get_id (this->map, SPA_HANDLE_FACTORY_URI);
+  this->uri.handle_factory = spa_id_map_get_id (this->map, SPA_TYPE__HandleFactory);
   spa_monitor_types_map (this->map, &this->uri.monitor_types);
 
   this->monitor = v4l2monitor;
@@ -391,7 +391,7 @@ v4l2_monitor_init (const SpaHandleFactory  *factory,
 
 static const SpaInterfaceInfo v4l2_monitor_interfaces[] =
 {
-  { SPA_MONITOR_URI, },
+  { SPA_TYPE__Monitor, },
 };
 
 static SpaResult

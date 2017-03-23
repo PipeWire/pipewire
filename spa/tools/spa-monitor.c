@@ -176,11 +176,11 @@ main (int argc, char *argv[])
   data.main_loop.update_source = do_update_source;
   data.main_loop.remove_source = do_remove_source;
 
-  data.support[0].uri = SPA_ID_MAP_URI;
+  data.support[0].uri = SPA_TYPE__IDMap;
   data.support[0].data = data.map;
-  data.support[1].uri = SPA_LOG_URI;
+  data.support[1].uri = SPA_TYPE__Log;
   data.support[1].data = data.log;
-  data.support[2].uri = SPA_LOOP__MainLoop;
+  data.support[2].uri = SPA_TYPE_LOOP__MainLoop;
   data.support[2].data = &data.main_loop;
   data.n_support = 3;
 
@@ -219,7 +219,7 @@ main (int argc, char *argv[])
         break;
       }
 
-      if (!strcmp (info->uri, SPA_MONITOR_URI)) {
+      if (!strcmp (info->uri, SPA_TYPE__Monitor)) {
         SpaHandle *handle;
         void *interface;
 

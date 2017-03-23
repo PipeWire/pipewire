@@ -50,8 +50,8 @@ typedef struct {
   SpaMediaSubtypes media_subtypes;
   SpaPropVideo prop_video;
   SpaVideoFormats video_formats;
-  SpaNodeEvents node_events;
-  SpaNodeCommands node_commands;
+  SpaEventNode event_node;
+  SpaCommandNode command_node;
   SpaAllocParamBuffers alloc_param_buffers;
   SpaAllocParamMetaEnable alloc_param_meta_enable;
 } URI;
@@ -59,20 +59,20 @@ typedef struct {
 static inline void
 init_uri (URI *uri, SpaIDMap *map)
 {
-  uri->node = spa_id_map_get_id (map, SPA_NODE_URI);
-  uri->clock = spa_id_map_get_id (map, SPA_CLOCK_URI);
-  uri->format = spa_id_map_get_id (map, SPA_FORMAT_URI);
-  uri->props = spa_id_map_get_id (map, SPA_PROPS_URI);
-  uri->prop_live = spa_id_map_get_id (map, SPA_PROPS__live);
-  uri->prop_pattern = spa_id_map_get_id (map, SPA_PROPS__patternType);
-  uri->pattern_smpte_snow = spa_id_map_get_id (map, SPA_PROPS__patternType ":smpte-snow");
-  uri->pattern_snow = spa_id_map_get_id (map, SPA_PROPS__patternType ":snow");
+  uri->node = spa_id_map_get_id (map, SPA_TYPE__Node);
+  uri->clock = spa_id_map_get_id (map, SPA_TYPE__Clock);
+  uri->format = spa_id_map_get_id (map, SPA_TYPE__Format);
+  uri->props = spa_id_map_get_id (map, SPA_TYPE__Props);
+  uri->prop_live = spa_id_map_get_id (map, SPA_TYPE_PROPS__live);
+  uri->prop_pattern = spa_id_map_get_id (map, SPA_TYPE_PROPS__patternType);
+  uri->pattern_smpte_snow = spa_id_map_get_id (map, SPA_TYPE_PROPS__patternType ":smpte-snow");
+  uri->pattern_snow = spa_id_map_get_id (map, SPA_TYPE_PROPS__patternType ":snow");
   spa_media_types_fill (&uri->media_types, map);
   spa_media_subtypes_map (map, &uri->media_subtypes);
   spa_prop_video_map (map, &uri->prop_video);
   spa_video_formats_map (map, &uri->video_formats);
-  spa_node_events_map (map, &uri->node_events);
-  spa_node_commands_map (map, &uri->node_commands);
+  spa_event_node_map (map, &uri->event_node);
+  spa_command_node_map (map, &uri->command_node);
   spa_alloc_param_buffers_map (map, &uri->alloc_param_buffers);
   spa_alloc_param_meta_enable_map (map, &uri->alloc_param_meta_enable);
 }
@@ -110,7 +110,7 @@ struct _SpaVideoTestSrc {
   uint8_t props_buffer[512];
   SpaVideoTestSrcProps props;
 
-  SpaNodeEventCallback event_cb;
+  SpaEventNodeCallback event_cb;
   void *user_data;
 
   SpaSource timer_source;
@@ -227,7 +227,7 @@ send_have_output (SpaVideoTestSrc *this)
 {
 
   if (this->event_cb) {
-    SpaEvent event = SPA_EVENT_INIT (this->uri.node_events.HaveOutput);
+    SpaEvent event = SPA_EVENT_INIT (this->uri.event_node.HaveOutput);
     this->event_cb (&this->node, &event, this->user_data);
   }
   return SPA_RESULT_OK;
@@ -315,7 +315,7 @@ spa_videotestsrc_node_send_command (SpaNode    *node,
 
   this = SPA_CONTAINER_OF (node, SpaVideoTestSrc, node);
 
-  if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Start) {
+  if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Start) {
     struct timespec now;
 
     if (!this->have_format)
@@ -339,7 +339,7 @@ spa_videotestsrc_node_send_command (SpaNode    *node,
     set_timer (this, true);
     update_state (this, SPA_NODE_STATE_STREAMING);
   }
-  else if (SPA_COMMAND_TYPE (command) == this->uri.node_commands.Pause) {
+  else if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Pause) {
     if (!this->have_format)
       return SPA_RESULT_NO_FORMAT;
 
@@ -361,7 +361,7 @@ spa_videotestsrc_node_send_command (SpaNode    *node,
 
 static SpaResult
 spa_videotestsrc_node_set_event_callback (SpaNode              *node,
-                                          SpaNodeEventCallback  event_cb,
+                                          SpaEventNodeCallback  event_cb,
                                           void                 *user_data)
 {
   SpaVideoTestSrc *this;
@@ -953,11 +953,11 @@ videotestsrc_init (const SpaHandleFactory  *factory,
   this = (SpaVideoTestSrc *) handle;
 
   for (i = 0; i < n_support; i++) {
-    if (strcmp (support[i].uri, SPA_ID_MAP_URI) == 0)
+    if (strcmp (support[i].uri, SPA_TYPE__IDMap) == 0)
       this->map = support[i].data;
-    else if (strcmp (support[i].uri, SPA_LOG_URI) == 0)
+    else if (strcmp (support[i].uri, SPA_TYPE__Log) == 0)
       this->log = support[i].data;
-    else if (strcmp (support[i].uri, SPA_LOOP__DataLoop) == 0)
+    else if (strcmp (support[i].uri, SPA_TYPE_LOOP__DataLoop) == 0)
       this->data_loop = support[i].data;
   }
   if (this->map == NULL) {
@@ -998,8 +998,8 @@ videotestsrc_init (const SpaHandleFactory  *factory,
 
 static const SpaInterfaceInfo videotestsrc_interfaces[] =
 {
-  { SPA_NODE_URI, },
-  { SPA_CLOCK_URI, },
+  { SPA_TYPE__Node, },
+  { SPA_TYPE__Clock, },
 };
 
 static SpaResult

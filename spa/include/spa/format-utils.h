@@ -40,9 +40,9 @@ static inline void
 spa_media_types_fill (SpaMediaTypes *types, SpaIDMap *map)
 {
   if (types->audio == 0) {
-    types->audio = spa_id_map_get_id (map, SPA_MEDIA_TYPE__audio);
-    types->video = spa_id_map_get_id (map, SPA_MEDIA_TYPE__video);
-    types->image = spa_id_map_get_id (map, SPA_MEDIA_TYPE__image);
+    types->audio = spa_id_map_get_id (map, SPA_TYPE_MEDIA_TYPE__audio);
+    types->video = spa_id_map_get_id (map, SPA_TYPE_MEDIA_TYPE__video);
+    types->image = spa_id_map_get_id (map, SPA_TYPE_MEDIA_TYPE__image);
   }
 }
 
@@ -54,7 +54,7 @@ static inline void
 spa_media_subtypes_map (SpaIDMap *map, SpaMediaSubtypes *types)
 {
   if (types->raw == 0) {
-    types->raw = spa_id_map_get_id (map, SPA_MEDIA_SUBTYPE__raw);
+    types->raw = spa_id_map_get_id (map, SPA_TYPE_MEDIA_SUBTYPE__raw);
   }
 }
 
@@ -79,20 +79,20 @@ static inline void
 spa_media_subtypes_video_map (SpaIDMap *map, SpaMediaSubtypesVideo *types)
 {
   if (types->h264 == 0) {
-    types->h264 = spa_id_map_get_id (map, SPA_MEDIA_SUBTYPE__h264);
-    types->mjpg = spa_id_map_get_id (map, SPA_MEDIA_SUBTYPE__mjpg);
-    types->dv = spa_id_map_get_id (map, SPA_MEDIA_SUBTYPE__dv);
-    types->mpegts = spa_id_map_get_id (map, SPA_MEDIA_SUBTYPE__mpegts);
-    types->h263 = spa_id_map_get_id (map, SPA_MEDIA_SUBTYPE__h263);
-    types->mpeg1 = spa_id_map_get_id (map, SPA_MEDIA_SUBTYPE__mpeg1);
-    types->mpeg2 = spa_id_map_get_id (map, SPA_MEDIA_SUBTYPE__mpeg2);
-    types->mpeg4 = spa_id_map_get_id (map, SPA_MEDIA_SUBTYPE__mpeg4);
-    types->xvid = spa_id_map_get_id (map, SPA_MEDIA_SUBTYPE__xvid);
-    types->vc1 = spa_id_map_get_id (map, SPA_MEDIA_SUBTYPE__vc1);
-    types->vp8 = spa_id_map_get_id (map, SPA_MEDIA_SUBTYPE__vp8);
-    types->vp9 = spa_id_map_get_id (map, SPA_MEDIA_SUBTYPE__vp9);
-    types->jpeg = spa_id_map_get_id (map, SPA_MEDIA_SUBTYPE__jpeg);
-    types->bayer = spa_id_map_get_id (map, SPA_MEDIA_SUBTYPE__bayer);
+    types->h264 = spa_id_map_get_id (map, SPA_TYPE_MEDIA_SUBTYPE__h264);
+    types->mjpg = spa_id_map_get_id (map, SPA_TYPE_MEDIA_SUBTYPE__mjpg);
+    types->dv = spa_id_map_get_id (map, SPA_TYPE_MEDIA_SUBTYPE__dv);
+    types->mpegts = spa_id_map_get_id (map, SPA_TYPE_MEDIA_SUBTYPE__mpegts);
+    types->h263 = spa_id_map_get_id (map, SPA_TYPE_MEDIA_SUBTYPE__h263);
+    types->mpeg1 = spa_id_map_get_id (map, SPA_TYPE_MEDIA_SUBTYPE__mpeg1);
+    types->mpeg2 = spa_id_map_get_id (map, SPA_TYPE_MEDIA_SUBTYPE__mpeg2);
+    types->mpeg4 = spa_id_map_get_id (map, SPA_TYPE_MEDIA_SUBTYPE__mpeg4);
+    types->xvid = spa_id_map_get_id (map, SPA_TYPE_MEDIA_SUBTYPE__xvid);
+    types->vc1 = spa_id_map_get_id (map, SPA_TYPE_MEDIA_SUBTYPE__vc1);
+    types->vp8 = spa_id_map_get_id (map, SPA_TYPE_MEDIA_SUBTYPE__vp8);
+    types->vp9 = spa_id_map_get_id (map, SPA_TYPE_MEDIA_SUBTYPE__vp9);
+    types->jpeg = spa_id_map_get_id (map, SPA_TYPE_MEDIA_SUBTYPE__jpeg);
+    types->bayer = spa_id_map_get_id (map, SPA_TYPE_MEDIA_SUBTYPE__bayer);
   }
 }
 
@@ -115,18 +115,18 @@ static inline void
 spa_media_subtypes_audio_map (SpaIDMap *map, SpaMediaSubtypesAudio *types)
 {
   if (types->mp3 == 0) {
-    types->mp3 = spa_id_map_get_id (map, SPA_MEDIA_SUBTYPE__mp3);
-    types->aac = spa_id_map_get_id (map, SPA_MEDIA_SUBTYPE__aac);
-    types->vorbis = spa_id_map_get_id (map, SPA_MEDIA_SUBTYPE__vorbis);
-    types->wma = spa_id_map_get_id (map, SPA_MEDIA_SUBTYPE__wma);
-    types->ra = spa_id_map_get_id (map, SPA_MEDIA_SUBTYPE__ra);
-    types->sbc = spa_id_map_get_id (map, SPA_MEDIA_SUBTYPE__sbc);
-    types->adpcm = spa_id_map_get_id (map, SPA_MEDIA_SUBTYPE__adpcm);
-    types->g723 = spa_id_map_get_id (map, SPA_MEDIA_SUBTYPE__g723);
-    types->g726 = spa_id_map_get_id (map, SPA_MEDIA_SUBTYPE__g726);
-    types->g729 = spa_id_map_get_id (map, SPA_MEDIA_SUBTYPE__g729);
-    types->amr = spa_id_map_get_id (map, SPA_MEDIA_SUBTYPE__amr);
-    types->gsm = spa_id_map_get_id (map, SPA_MEDIA_SUBTYPE__gsm);
+    types->mp3 = spa_id_map_get_id (map, SPA_TYPE_MEDIA_SUBTYPE__mp3);
+    types->aac = spa_id_map_get_id (map, SPA_TYPE_MEDIA_SUBTYPE__aac);
+    types->vorbis = spa_id_map_get_id (map, SPA_TYPE_MEDIA_SUBTYPE__vorbis);
+    types->wma = spa_id_map_get_id (map, SPA_TYPE_MEDIA_SUBTYPE__wma);
+    types->ra = spa_id_map_get_id (map, SPA_TYPE_MEDIA_SUBTYPE__ra);
+    types->sbc = spa_id_map_get_id (map, SPA_TYPE_MEDIA_SUBTYPE__sbc);
+    types->adpcm = spa_id_map_get_id (map, SPA_TYPE_MEDIA_SUBTYPE__adpcm);
+    types->g723 = spa_id_map_get_id (map, SPA_TYPE_MEDIA_SUBTYPE__g723);
+    types->g726 = spa_id_map_get_id (map, SPA_TYPE_MEDIA_SUBTYPE__g726);
+    types->g729 = spa_id_map_get_id (map, SPA_TYPE_MEDIA_SUBTYPE__g729);
+    types->amr = spa_id_map_get_id (map, SPA_TYPE_MEDIA_SUBTYPE__amr);
+    types->gsm = spa_id_map_get_id (map, SPA_TYPE_MEDIA_SUBTYPE__gsm);
   }
 }
 

@@ -52,7 +52,7 @@ ensure_types (void)
 {
   SpaIDMap *map = spa_id_map_get_default ();
 
-  format_type = spa_id_map_get_id (map, SPA_FORMAT_URI);
+  format_type = spa_id_map_get_id (map, SPA_TYPE__Format);
   spa_media_types_fill (&media_types, map);
   spa_media_subtypes_map (map, &media_subtypes);
   spa_media_subtypes_video_map (map, &media_subtypes_video);
@@ -602,7 +602,7 @@ gst_caps_from_format (const SpaFormat *format)
       const char * str = spa_id_map_get_uri (spa_id_map_get_default (), f.info.raw.format);
 
       res = gst_caps_new_simple ("video/x-raw",
-          "format", G_TYPE_STRING, strstr (str, "#") + 1,
+          "format", G_TYPE_STRING, rindex (str, ':') + 1,
           "width", G_TYPE_INT, f.info.raw.size.width,
           "height", G_TYPE_INT, f.info.raw.size.height,
           "framerate", GST_TYPE_FRACTION, f.info.raw.framerate.num, f.info.raw.framerate.denom,
@@ -634,7 +634,7 @@ gst_caps_from_format (const SpaFormat *format)
       const char * str = spa_id_map_get_uri (spa_id_map_get_default (), f.info.raw.format);
 
       res = gst_caps_new_simple ("audio/x-raw",
-          "format", G_TYPE_STRING, strstr (str, "#") + 1,
+          "format", G_TYPE_STRING, rindex (str, ':') + 1,
           "layout", G_TYPE_STRING, "interleaved",
           "rate", G_TYPE_INT, f.info.raw.rate,
           "channels", G_TYPE_INT, f.info.raw.channels,

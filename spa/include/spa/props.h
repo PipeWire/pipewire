@@ -29,23 +29,23 @@ extern "C" {
 
 typedef SpaPODObject SpaProps;
 
-#define SPA_PROPS_URI             "http://spaplug.in/ns/props"
-#define SPA_PROPS_PREFIX          SPA_PROPS_URI "#"
+#define SPA_TYPE__Props           "Spa:Object:Props"
+#define SPA_TYPE_PROPS_BASE       SPA_TYPE__Props ":"
 
-#define SPA_PROPS__device               SPA_PROPS_PREFIX "device"
-#define SPA_PROPS__deviceName           SPA_PROPS_PREFIX "deviceName"
-#define SPA_PROPS__deviceFd             SPA_PROPS_PREFIX "deviceFd"
-#define SPA_PROPS__card                 SPA_PROPS_PREFIX "card"
-#define SPA_PROPS__cardName             SPA_PROPS_PREFIX "cardName"
-#define SPA_PROPS__periods              SPA_PROPS_PREFIX "periods"
-#define SPA_PROPS__periodSize           SPA_PROPS_PREFIX "periodSize"
-#define SPA_PROPS__periodEvent          SPA_PROPS_PREFIX "periodEvent"
-#define SPA_PROPS__live                 SPA_PROPS_PREFIX "live"
-#define SPA_PROPS__waveType             SPA_PROPS_PREFIX "waveType"
-#define SPA_PROPS__frequency            SPA_PROPS_PREFIX "frequency"
-#define SPA_PROPS__volume               SPA_PROPS_PREFIX "volume"
-#define SPA_PROPS__mute                 SPA_PROPS_PREFIX "mute"
-#define SPA_PROPS__patternType          SPA_PROPS_PREFIX "patternType"
+#define SPA_TYPE_PROPS__device               SPA_TYPE_PROPS_BASE "device"
+#define SPA_TYPE_PROPS__deviceName           SPA_TYPE_PROPS_BASE "deviceName"
+#define SPA_TYPE_PROPS__deviceFd             SPA_TYPE_PROPS_BASE "deviceFd"
+#define SPA_TYPE_PROPS__card                 SPA_TYPE_PROPS_BASE "card"
+#define SPA_TYPE_PROPS__cardName             SPA_TYPE_PROPS_BASE "cardName"
+#define SPA_TYPE_PROPS__periods              SPA_TYPE_PROPS_BASE "periods"
+#define SPA_TYPE_PROPS__periodSize           SPA_TYPE_PROPS_BASE "periodSize"
+#define SPA_TYPE_PROPS__periodEvent          SPA_TYPE_PROPS_BASE "periodEvent"
+#define SPA_TYPE_PROPS__live                 SPA_TYPE_PROPS_BASE "live"
+#define SPA_TYPE_PROPS__waveType             SPA_TYPE_PROPS_BASE "waveType"
+#define SPA_TYPE_PROPS__frequency            SPA_TYPE_PROPS_BASE "frequency"
+#define SPA_TYPE_PROPS__volume               SPA_TYPE_PROPS_BASE "volume"
+#define SPA_TYPE_PROPS__mute                 SPA_TYPE_PROPS_BASE "mute"
+#define SPA_TYPE_PROPS__patternType          SPA_TYPE_PROPS_BASE "patternType"
 
 static inline uint32_t
 spa_pod_builder_push_props (SpaPODBuilder *builder,

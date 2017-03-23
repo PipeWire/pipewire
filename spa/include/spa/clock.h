@@ -26,8 +26,8 @@ extern "C" {
 
 typedef struct _SpaClock SpaClock;
 
-#define SPA_CLOCK_URI             "http://spaplug.in/ns/clock"
-#define SPA_CLOCK_PREFIX          SPA_CLOCK_URI "#"
+#define SPA_TYPE__Clock            "Spa:Interface:Clock"
+#define SPA_TYPE_CLOCK_BASE        SPA_TYPE__Clock ":"
 
 /**
  * SpaClockState:

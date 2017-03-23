@@ -163,7 +163,7 @@ remove_item (PinosSpaMonitor *this, SpaMonitorItem *item)
 
 static void
 on_monitor_event  (SpaMonitor      *monitor,
-                   SpaMonitorEvent *event,
+                   SpaEventMonitor *event,
                    void            *user_data)
 {
   PinosSpaMonitor *this = user_data;

@@ -26,31 +26,31 @@ extern "C" {
 
 typedef struct _SpaMonitor SpaMonitor;
 
-#define SPA_MONITOR_URI             "http://spaplug.in/ns/monitor"
-#define SPA_MONITOR_PREFIX          SPA_MONITOR_URI "#"
+#define SPA_TYPE__Monitor            "Spa:Interface:Monitor"
+#define SPA_TYPE_MONITOR_BASE        SPA_TYPE__Monitor ":"
 
 #include <spa/defs.h>
 #include <spa/dict.h>
 #include <spa/event.h>
 
-typedef SpaEvent     SpaMonitorEvent;
-#define SPA_MONITOR_EVENT_URI             "http://spaplug.in/ns/monitor-event"
-#define SPA_MONITOR_EVENT_PREFIX          SPA_MONITOR_EVENT_URI "#"
+typedef SpaEvent     SpaEventMonitor;
+#define SPA_TYPE_EVENT__Monitor           SPA_TYPE_EVENT_BASE "Monitor"
+#define SPA_TYPE_EVENT_MONITOR_BASE       SPA_TYPE_EVENT__Monitor ":"
 
-#define SPA_MONITOR_EVENT__Added          SPA_MONITOR_EVENT_PREFIX "Added"
-#define SPA_MONITOR_EVENT__Removed        SPA_MONITOR_EVENT_PREFIX "Removed"
-#define SPA_MONITOR_EVENT__Changed        SPA_MONITOR_EVENT_PREFIX "Changed"
+#define SPA_TYPE_EVENT_MONITOR__Added          SPA_TYPE_EVENT_MONITOR_BASE "Added"
+#define SPA_TYPE_EVENT_MONITOR__Removed        SPA_TYPE_EVENT_MONITOR_BASE "Removed"
+#define SPA_TYPE_EVENT_MONITOR__Changed        SPA_TYPE_EVENT_MONITOR_BASE "Changed"
 
 typedef SpaPODObject SpaMonitorItem;
-#define SPA_MONITOR_ITEM_URI              "http://spaplug.in/ns/monitor-item"
-#define SPA_MONITOR_ITEM_PREFIX           SPA_MONITOR_ITEM_URI "#"
-#define SPA_MONITOR_ITEM__id              SPA_MONITOR_ITEM_PREFIX "id"
-#define SPA_MONITOR_ITEM__flags           SPA_MONITOR_ITEM_PREFIX "flags"
-#define SPA_MONITOR_ITEM__state           SPA_MONITOR_ITEM_PREFIX "state"
-#define SPA_MONITOR_ITEM__name            SPA_MONITOR_ITEM_PREFIX "name"
-#define SPA_MONITOR_ITEM__class           SPA_MONITOR_ITEM_PREFIX "class"
-#define SPA_MONITOR_ITEM__info            SPA_MONITOR_ITEM_PREFIX "info"
-#define SPA_MONITOR_ITEM__factory         SPA_MONITOR_ITEM_PREFIX "factory"
+#define SPA_TYPE__MonitorItem                  "Spa:Object:MonitorItem"
+#define SPA_TYPE_MONITOR_ITEM_BASE             SPA_TYPE__MonitorItem ":"
+#define SPA_TYPE_MONITOR_ITEM__id              SPA_TYPE_MONITOR_ITEM_BASE "id"
+#define SPA_TYPE_MONITOR_ITEM__flags           SPA_TYPE_MONITOR_ITEM_BASE "flags"
+#define SPA_TYPE_MONITOR_ITEM__state           SPA_TYPE_MONITOR_ITEM_BASE "state"
+#define SPA_TYPE_MONITOR_ITEM__name            SPA_TYPE_MONITOR_ITEM_BASE "name"
+#define SPA_TYPE_MONITOR_ITEM__class           SPA_TYPE_MONITOR_ITEM_BASE "class"
+#define SPA_TYPE_MONITOR_ITEM__info            SPA_TYPE_MONITOR_ITEM_BASE "info"
+#define SPA_TYPE_MONITOR_ITEM__factory         SPA_TYPE_MONITOR_ITEM_BASE "factory"
 
 typedef struct {
   uint32_t Monitor;
@@ -73,18 +73,18 @@ static inline void
 spa_monitor_types_map (SpaIDMap *map, SpaMonitorTypes *types)
 {
   if (types->Added == 0) {
-    types->Monitor      = spa_id_map_get_id (map, SPA_MONITOR_URI);
-    types->Added        = spa_id_map_get_id (map, SPA_MONITOR_EVENT__Added);
-    types->Removed      = spa_id_map_get_id (map, SPA_MONITOR_EVENT__Removed);
-    types->Changed      = spa_id_map_get_id (map, SPA_MONITOR_EVENT__Changed);
-    types->MonitorItem  = spa_id_map_get_id (map, SPA_MONITOR_ITEM_URI);
-    types->id           = spa_id_map_get_id (map, SPA_MONITOR_ITEM__id);
-    types->flags        = spa_id_map_get_id (map, SPA_MONITOR_ITEM__flags);
-    types->state        = spa_id_map_get_id (map, SPA_MONITOR_ITEM__state);
-    types->name         = spa_id_map_get_id (map, SPA_MONITOR_ITEM__name);
-    types->klass        = spa_id_map_get_id (map, SPA_MONITOR_ITEM__class);
-    types->info         = spa_id_map_get_id (map, SPA_MONITOR_ITEM__info);
-    types->factory      = spa_id_map_get_id (map, SPA_MONITOR_ITEM__factory);
+    types->Monitor      = spa_id_map_get_id (map, SPA_TYPE__Monitor);
+    types->Added        = spa_id_map_get_id (map, SPA_TYPE_EVENT_MONITOR__Added);
+    types->Removed      = spa_id_map_get_id (map, SPA_TYPE_EVENT_MONITOR__Removed);
+    types->Changed      = spa_id_map_get_id (map, SPA_TYPE_EVENT_MONITOR__Changed);
+    types->MonitorItem  = spa_id_map_get_id (map, SPA_TYPE__MonitorItem);
+    types->id           = spa_id_map_get_id (map, SPA_TYPE_MONITOR_ITEM__id);
+    types->flags        = spa_id_map_get_id (map, SPA_TYPE_MONITOR_ITEM__flags);
+    types->state        = spa_id_map_get_id (map, SPA_TYPE_MONITOR_ITEM__state);
+    types->name         = spa_id_map_get_id (map, SPA_TYPE_MONITOR_ITEM__name);
+    types->klass        = spa_id_map_get_id (map, SPA_TYPE_MONITOR_ITEM__class);
+    types->info         = spa_id_map_get_id (map, SPA_TYPE_MONITOR_ITEM__info);
+    types->factory      = spa_id_map_get_id (map, SPA_TYPE_MONITOR_ITEM__factory);
   }
 }
 
@@ -113,8 +113,8 @@ typedef enum {
  * This will be called when a monitor event is notified
  * on @monitor.
  */
-typedef void   (*SpaMonitorEventCallback)  (SpaMonitor       *monitor,
-                                            SpaMonitorEvent  *event,
+typedef void   (*SpaEventMonitorCallback)  (SpaMonitor       *monitor,
+                                            SpaEventMonitor  *event,
                                             void             *user_data);
 
 /**
@@ -137,7 +137,7 @@ struct _SpaMonitor {
   /**
    * SpaMonitor::set_event_callback:
    * @monitor: a #SpaMonitor
-   * @callback: a #SpaMonitorEventCallback
+   * @callback: a #SpaEventMonitorCallback
    * @user_data: extra user data
    *
    * Set an event callback to receive asynchronous notifications from
@@ -146,7 +146,7 @@ struct _SpaMonitor {
    * Returns: #SPA_RESULT_OK on success
    */
   SpaResult  (*set_event_callback)   (SpaMonitor              *monitor,
-                                      SpaMonitorEventCallback  callback,
+                                      SpaEventMonitorCallback  callback,
                                       void                    *user_data);
 
   SpaResult  (*enum_items)           (SpaMonitor              *monitor,

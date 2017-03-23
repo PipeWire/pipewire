@@ -36,21 +36,21 @@ pinos_uri_init (PinosURI *uri)
 {
   uri->map = pinos_id_map_get_default();
 
-  uri->core = spa_id_map_get_id (uri->map, PINOS_CORE_URI);
-  uri->registry = spa_id_map_get_id (uri->map, PINOS_CORE_REGISTRY);
-  uri->node = spa_id_map_get_id (uri->map, PINOS_NODE_URI);
-  uri->node_factory = spa_id_map_get_id (uri->map, PINOS_NODE_FACTORY_URI);
-  uri->link = spa_id_map_get_id (uri->map, PINOS_LINK_URI);
-  uri->client = spa_id_map_get_id (uri->map, PINOS_CLIENT_URI);
-  uri->client_node = spa_id_map_get_id (uri->map, PINOS_CLIENT_NODE_URI);
-  uri->module = spa_id_map_get_id (uri->map, PINOS_MODULE_URI);
+  uri->core = spa_id_map_get_id (uri->map, PINOS_TYPE__Core);
+  uri->registry = spa_id_map_get_id (uri->map, PINOS_TYPE__Registry);
+  uri->node = spa_id_map_get_id (uri->map, PINOS_TYPE__Node);
+  uri->node_factory = spa_id_map_get_id (uri->map, PINOS_TYPE__NodeFactory);
+  uri->link = spa_id_map_get_id (uri->map, PINOS_TYPE__Link);
+  uri->client = spa_id_map_get_id (uri->map, PINOS_TYPE__Client);
+  uri->client_node = spa_id_map_get_id (uri->map, PINOS_TYPE__ClientNode);
+  uri->module = spa_id_map_get_id (uri->map, PINOS_TYPE__Module);
 
-  uri->spa_node = spa_id_map_get_id (uri->map, SPA_NODE_URI);
-  uri->spa_clock = spa_id_map_get_id (uri->map, SPA_CLOCK_URI);
-  uri->spa_monitor = spa_id_map_get_id (uri->map, SPA_MONITOR_URI);
+  uri->spa_node = spa_id_map_get_id (uri->map, SPA_TYPE__Node);
+  uri->spa_clock = spa_id_map_get_id (uri->map, SPA_TYPE__Clock);
+  uri->spa_monitor = spa_id_map_get_id (uri->map, SPA_TYPE__Monitor);
 
-  spa_node_events_map (uri->map, &uri->node_events);
-  spa_node_commands_map (uri->map, &uri->node_commands);
+  spa_event_node_map (uri->map, &uri->event_node);
+  spa_command_node_map (uri->map, &uri->command_node);
   spa_monitor_types_map (uri->map, &uri->monitor_types);
   spa_alloc_param_buffers_map (uri->map, &uri->alloc_param_buffers);
   spa_alloc_param_meta_enable_map (uri->map, &uri->alloc_param_meta_enable);

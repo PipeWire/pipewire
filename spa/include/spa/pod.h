@@ -24,9 +24,6 @@
 extern "C" {
 #endif
 
-#define SPA_POD_URI             "http://spaplug.in/ns/pod"
-#define SPA_POD_PREFIX          SPA_POD_URI "#"
-
 #include <stdarg.h>
 
 #include <spa/defs.h>

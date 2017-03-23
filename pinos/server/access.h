@@ -24,8 +24,8 @@
 extern "C" {
 #endif
 
-#define PINOS_ACCESS_URI                            "http://pinos.org/ns/access"
-#define PINOS_ACCESS_PREFIX                         PINOS_ACCESS_URI "#"
+#define PINOS_TYPE__Access                         "Pinos:Object:Access"
+#define PINOS_TYPE_ACCESS_BASE                      PINOS_TYPE__Access ":"
 
 #include <pinos/client/sig.h>
 

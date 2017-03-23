@@ -196,18 +196,18 @@ main (int argc, char *argv[])
   data.loop.update_source = do_update_source;
   data.loop.remove_source = do_remove_source;
 
-  data.support[0].uri = SPA_ID_MAP_URI;
+  data.support[0].uri = SPA_TYPE__IDMap;
   data.support[0].data = data.map;
-  data.support[1].uri = SPA_LOG_URI;
+  data.support[1].uri = SPA_TYPE__Log;
   data.support[1].data = data.log;
-  data.support[2].uri = SPA_LOOP__MainLoop;
+  data.support[2].uri = SPA_TYPE_LOOP__MainLoop;
   data.support[2].data = &data.loop;
-  data.support[3].uri = SPA_LOOP__DataLoop;
+  data.support[3].uri = SPA_TYPE_LOOP__DataLoop;
   data.support[3].data = &data.loop;
   data.n_support = 4;
 
-  data.uri.node = spa_id_map_get_id (data.map, SPA_NODE_URI);
-  data.uri.clock = spa_id_map_get_id (data.map, SPA_CLOCK_URI);
+  data.uri.node = spa_id_map_get_id (data.map, SPA_TYPE__Node);
+  data.uri.clock = spa_id_map_get_id (data.map, SPA_TYPE__Clock);
 
   if ((handle = dlopen (argv[1], RTLD_NOW)) == NULL) {
     printf ("can't load %s\n", argv[1]);

@@ -979,7 +979,7 @@ v4l2_on_fd_events (SpaSource *source)
     return;
 
   {
-    SpaEvent event = SPA_EVENT_INIT (this->uri.node_events.HaveOutput);
+    SpaEvent event = SPA_EVENT_INIT (this->uri.event_node.HaveOutput);
     this->event_cb (&this->node, &event, this->user_data);
   }
 }

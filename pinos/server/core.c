@@ -295,13 +295,13 @@ pinos_core_new (PinosMainLoop   *main_loop,
   pinos_access_init (&this->access);
   pinos_map_init (&this->objects, 128, 32);
 
-  impl->support[0].uri = SPA_ID_MAP_URI;
+  impl->support[0].uri = SPA_TYPE__IDMap;
   impl->support[0].data = this->uri.map;
-  impl->support[1].uri = SPA_LOG_URI;
+  impl->support[1].uri = SPA_TYPE__Log;
   impl->support[1].data = pinos_log_get ();
-  impl->support[2].uri = SPA_LOOP__DataLoop;
+  impl->support[2].uri = SPA_TYPE_LOOP__DataLoop;
   impl->support[2].data = this->data_loop->loop->loop;
-  impl->support[3].uri = SPA_LOOP__MainLoop;
+  impl->support[3].uri = SPA_TYPE_LOOP__MainLoop;
   impl->support[3].data = this->main_loop->loop->loop;
   this->support = impl->support;
   this->n_support = 4;

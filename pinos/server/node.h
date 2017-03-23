@@ -24,8 +24,8 @@
 extern "C" {
 #endif
 
-#define PINOS_NODE_URI                            "http://pinos.org/ns/node"
-#define PINOS_NODE_PREFIX                         PINOS_NODE_URI "#"
+#define PINOS_TYPE__Node                          "Pinos:Object:Node"
+#define PINOS_TYPE_NODE_BASE                      PINOS_TYPE__Node ":"
 
 typedef struct _PinosNode PinosNode;
 

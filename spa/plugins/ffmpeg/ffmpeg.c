@@ -56,7 +56,7 @@ ffmpeg_enc_init (const SpaHandleFactory  *factory,
 
 static const SpaInterfaceInfo ffmpeg_interfaces[] =
 {
-  { SPA_NODE_URI,
+  { SPA_TYPE__Node,
   },
 };
 

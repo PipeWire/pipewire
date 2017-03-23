@@ -24,56 +24,56 @@
 extern "C" {
 #endif
 
-#define SPA_FORMAT_URI             "http://spaplug.in/ns/format"
-#define SPA_FORMAT_PREFIX          SPA_FORMAT_URI "#"
+#define SPA_TYPE__Format           "Spa:Object:Format"
+#define SPA_TYPE_FORMAT_BASE       SPA_TYPE__Format ":"
 
 typedef struct _SpaFormat SpaFormat;
 
 #include <spa/defs.h>
 #include <spa/pod.h>
 
-#define SPA_MEDIA_TYPE_URI           "http://spaplug.in/ns/media-type"
-#define SPA_MEDIA_TYPE_PREFIX        SPA_MEDIA_TYPE_URI "#"
+#define SPA_TYPE__MediaType             "Spa:Enum:MediaType"
+#define SPA_TYPE_MEDIA_TYPE_BASE        SPA_TYPE__MediaType ":"
 
-#define SPA_MEDIA_TYPE__audio        SPA_MEDIA_TYPE_PREFIX "audio"
-#define SPA_MEDIA_TYPE__video        SPA_MEDIA_TYPE_PREFIX "video"
-#define SPA_MEDIA_TYPE__image        SPA_MEDIA_TYPE_PREFIX "image"
+#define SPA_TYPE_MEDIA_TYPE__audio      SPA_TYPE_MEDIA_TYPE_BASE "audio"
+#define SPA_TYPE_MEDIA_TYPE__video      SPA_TYPE_MEDIA_TYPE_BASE "video"
+#define SPA_TYPE_MEDIA_TYPE__image      SPA_TYPE_MEDIA_TYPE_BASE "image"
 
-#define SPA_MEDIA_SUBTYPE_URI           "http://spaplug.in/ns/media-subtype"
-#define SPA_MEDIA_SUBTYPE_PREFIX        SPA_MEDIA_TYPE_URI "#"
+#define SPA_TYPE__MediaSubtype          "Spa:Enum:MediaSubtype"
+#define SPA_TYPE_MEDIA_SUBTYPE_BASE     SPA_TYPE__MediaSubtype ":"
 
 /* generic subtypes */
-#define SPA_MEDIA_SUBTYPE__raw          SPA_MEDIA_TYPE_PREFIX "raw"
+#define SPA_TYPE_MEDIA_SUBTYPE__raw          SPA_TYPE_MEDIA_SUBTYPE_BASE "raw"
 
 /* video subtypes */
-#define SPA_MEDIA_SUBTYPE__h264         SPA_MEDIA_SUBTYPE_PREFIX "h264"
-#define SPA_MEDIA_SUBTYPE__mjpg         SPA_MEDIA_SUBTYPE_PREFIX "mjpg"
-#define SPA_MEDIA_SUBTYPE__dv           SPA_MEDIA_SUBTYPE_PREFIX "dv"
-#define SPA_MEDIA_SUBTYPE__mpegts       SPA_MEDIA_SUBTYPE_PREFIX "mpegts"
-#define SPA_MEDIA_SUBTYPE__h263         SPA_MEDIA_SUBTYPE_PREFIX "h263"
-#define SPA_MEDIA_SUBTYPE__mpeg1        SPA_MEDIA_SUBTYPE_PREFIX "mpeg1"
-#define SPA_MEDIA_SUBTYPE__mpeg2        SPA_MEDIA_SUBTYPE_PREFIX "mpeg2"
-#define SPA_MEDIA_SUBTYPE__mpeg4        SPA_MEDIA_SUBTYPE_PREFIX "mpeg4"
-#define SPA_MEDIA_SUBTYPE__xvid         SPA_MEDIA_SUBTYPE_PREFIX "xvid"
-#define SPA_MEDIA_SUBTYPE__vc1          SPA_MEDIA_SUBTYPE_PREFIX "vc1"
-#define SPA_MEDIA_SUBTYPE__vp8          SPA_MEDIA_SUBTYPE_PREFIX "vp8"
-#define SPA_MEDIA_SUBTYPE__vp9          SPA_MEDIA_SUBTYPE_PREFIX "vp9"
-#define SPA_MEDIA_SUBTYPE__jpeg         SPA_MEDIA_SUBTYPE_PREFIX "jpeg"
-#define SPA_MEDIA_SUBTYPE__bayer        SPA_MEDIA_SUBTYPE_PREFIX "bayer"
+#define SPA_TYPE_MEDIA_SUBTYPE__h264         SPA_TYPE_MEDIA_SUBTYPE_BASE "h264"
+#define SPA_TYPE_MEDIA_SUBTYPE__mjpg         SPA_TYPE_MEDIA_SUBTYPE_BASE "mjpg"
+#define SPA_TYPE_MEDIA_SUBTYPE__dv           SPA_TYPE_MEDIA_SUBTYPE_BASE "dv"
+#define SPA_TYPE_MEDIA_SUBTYPE__mpegts       SPA_TYPE_MEDIA_SUBTYPE_BASE "mpegts"
+#define SPA_TYPE_MEDIA_SUBTYPE__h263         SPA_TYPE_MEDIA_SUBTYPE_BASE "h263"
+#define SPA_TYPE_MEDIA_SUBTYPE__mpeg1        SPA_TYPE_MEDIA_SUBTYPE_BASE "mpeg1"
+#define SPA_TYPE_MEDIA_SUBTYPE__mpeg2        SPA_TYPE_MEDIA_SUBTYPE_BASE "mpeg2"
+#define SPA_TYPE_MEDIA_SUBTYPE__mpeg4        SPA_TYPE_MEDIA_SUBTYPE_BASE "mpeg4"
+#define SPA_TYPE_MEDIA_SUBTYPE__xvid         SPA_TYPE_MEDIA_SUBTYPE_BASE "xvid"
+#define SPA_TYPE_MEDIA_SUBTYPE__vc1          SPA_TYPE_MEDIA_SUBTYPE_BASE "vc1"
+#define SPA_TYPE_MEDIA_SUBTYPE__vp8          SPA_TYPE_MEDIA_SUBTYPE_BASE "vp8"
+#define SPA_TYPE_MEDIA_SUBTYPE__vp9          SPA_TYPE_MEDIA_SUBTYPE_BASE "vp9"
+#define SPA_TYPE_MEDIA_SUBTYPE__jpeg         SPA_TYPE_MEDIA_SUBTYPE_BASE "jpeg"
+#define SPA_TYPE_MEDIA_SUBTYPE__bayer        SPA_TYPE_MEDIA_SUBTYPE_BASE "bayer"
 
 /* audio subtypes */
-#define SPA_MEDIA_SUBTYPE__mp3          SPA_MEDIA_SUBTYPE_PREFIX "mp3"
-#define SPA_MEDIA_SUBTYPE__aac          SPA_MEDIA_SUBTYPE_PREFIX "aac"
-#define SPA_MEDIA_SUBTYPE__vorbis       SPA_MEDIA_SUBTYPE_PREFIX "vorbis"
-#define SPA_MEDIA_SUBTYPE__wma          SPA_MEDIA_SUBTYPE_PREFIX "wma"
-#define SPA_MEDIA_SUBTYPE__ra           SPA_MEDIA_SUBTYPE_PREFIX "ra"
-#define SPA_MEDIA_SUBTYPE__sbc          SPA_MEDIA_SUBTYPE_PREFIX "sbc"
-#define SPA_MEDIA_SUBTYPE__adpcm        SPA_MEDIA_SUBTYPE_PREFIX "adpcm"
-#define SPA_MEDIA_SUBTYPE__g723         SPA_MEDIA_SUBTYPE_PREFIX "g723"
-#define SPA_MEDIA_SUBTYPE__g726         SPA_MEDIA_SUBTYPE_PREFIX "g726"
-#define SPA_MEDIA_SUBTYPE__g729         SPA_MEDIA_SUBTYPE_PREFIX "g729"
-#define SPA_MEDIA_SUBTYPE__amr          SPA_MEDIA_SUBTYPE_PREFIX "amr"
-#define SPA_MEDIA_SUBTYPE__gsm          SPA_MEDIA_SUBTYPE_PREFIX "gsm"
+#define SPA_TYPE_MEDIA_SUBTYPE__mp3          SPA_TYPE_MEDIA_SUBTYPE_BASE "mp3"
+#define SPA_TYPE_MEDIA_SUBTYPE__aac          SPA_TYPE_MEDIA_SUBTYPE_BASE "aac"
+#define SPA_TYPE_MEDIA_SUBTYPE__vorbis       SPA_TYPE_MEDIA_SUBTYPE_BASE "vorbis"
+#define SPA_TYPE_MEDIA_SUBTYPE__wma          SPA_TYPE_MEDIA_SUBTYPE_BASE "wma"
+#define SPA_TYPE_MEDIA_SUBTYPE__ra           SPA_TYPE_MEDIA_SUBTYPE_BASE "ra"
+#define SPA_TYPE_MEDIA_SUBTYPE__sbc          SPA_TYPE_MEDIA_SUBTYPE_BASE "sbc"
+#define SPA_TYPE_MEDIA_SUBTYPE__adpcm        SPA_TYPE_MEDIA_SUBTYPE_BASE "adpcm"
+#define SPA_TYPE_MEDIA_SUBTYPE__g723         SPA_TYPE_MEDIA_SUBTYPE_BASE "g723"
+#define SPA_TYPE_MEDIA_SUBTYPE__g726         SPA_TYPE_MEDIA_SUBTYPE_BASE "g726"
+#define SPA_TYPE_MEDIA_SUBTYPE__g729         SPA_TYPE_MEDIA_SUBTYPE_BASE "g729"
+#define SPA_TYPE_MEDIA_SUBTYPE__amr          SPA_TYPE_MEDIA_SUBTYPE_BASE "amr"
+#define SPA_TYPE_MEDIA_SUBTYPE__gsm          SPA_TYPE_MEDIA_SUBTYPE_BASE "gsm"
 
 typedef struct {
   SpaPODObjectBody obj_body;

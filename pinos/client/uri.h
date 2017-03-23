@@ -24,8 +24,8 @@
 extern "C" {
 #endif
 
-#define PINOS_URI_URI                            "http://pinos.org/ns/uri"
-#define PINOS_URI_PREFIX                         PINOS_URI_URI "#"
+#define PINOS_TYPE__Uri                            "Pinos:Object:Uri"
+#define PINOS_TYPE_URI_BASE                        PINOS_TYPE__Uri ":"
 
 #include <pinos/client/map.h>
 #include <spa/include/spa/id-map.h>
@@ -55,8 +55,8 @@ struct _PinosURI {
   uint32_t spa_clock;
   uint32_t spa_monitor;
 
-  SpaNodeEvents node_events;
-  SpaNodeCommands node_commands;
+  SpaEventNode event_node;
+  SpaCommandNode command_node;
   SpaMonitorTypes monitor_types;
   SpaAllocParamBuffers alloc_param_buffers;
   SpaAllocParamMetaEnable alloc_param_meta_enable;

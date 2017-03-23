@@ -307,7 +307,7 @@ registry_event_global (void          *object,
 
   pinos_log_debug ("got global %u %s", id, type);
 
-  if (!strcmp (type, PINOS_NODE_URI)) {
+  if (!strcmp (type, PINOS_TYPE__Node)) {
     proxy = pinos_proxy_new (this,
                              SPA_ID_INVALID,
                              this->uri.node);
@@ -315,7 +315,7 @@ registry_event_global (void          *object,
       goto no_mem;
 
     proxy->implementation = &node_events;
-  } else if (!strcmp (type, PINOS_MODULE_URI)) {
+  } else if (!strcmp (type, PINOS_TYPE__Module)) {
     proxy = pinos_proxy_new (this,
                              SPA_ID_INVALID,
                              this->uri.module);
@@ -323,7 +323,7 @@ registry_event_global (void          *object,
       goto no_mem;
 
     proxy->implementation = &module_events;
-  } else if (!strcmp (type, PINOS_CLIENT_URI)) {
+  } else if (!strcmp (type, PINOS_TYPE__Client)) {
     proxy = pinos_proxy_new (this,
                              SPA_ID_INVALID,
                              this->uri.client);
@@ -331,7 +331,7 @@ registry_event_global (void          *object,
       goto no_mem;
 
     proxy->implementation = &client_events;
-  } else if (!strcmp (type, PINOS_LINK_URI)) {
+  } else if (!strcmp (type, PINOS_TYPE__Link)) {
     proxy = pinos_proxy_new (this,
                              SPA_ID_INVALID,
                              this->uri.link);

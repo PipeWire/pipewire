@@ -53,24 +53,24 @@ static inline void
 spa_prop_video_map (SpaIDMap *map, SpaPropVideo *types)
 {
   if (types->format == 0) {
-    types->format = spa_id_map_get_id (map, SPA_PROP_VIDEO__format);
-    types->size = spa_id_map_get_id (map, SPA_PROP_VIDEO__size);
-    types->framerate = spa_id_map_get_id (map, SPA_PROP_VIDEO__framerate);
-    types->max_framerate = spa_id_map_get_id (map, SPA_PROP_VIDEO__maxFramerate);
-    types->views = spa_id_map_get_id (map, SPA_PROP_VIDEO__views);
-    types->interlace_mode = spa_id_map_get_id (map, SPA_PROP_VIDEO__interlaceMode);
-    types->pixel_aspect_ratio = spa_id_map_get_id (map, SPA_PROP_VIDEO__pixelAspectRatio);
-    types->multiview_mode = spa_id_map_get_id (map, SPA_PROP_VIDEO__multiviewMode);
-    types->multiview_flags = spa_id_map_get_id (map, SPA_PROP_VIDEO__multiviewFlags);
-    types->chroma_site = spa_id_map_get_id (map, SPA_PROP_VIDEO__chromaSite);
-    types->color_range = spa_id_map_get_id (map, SPA_PROP_VIDEO__colorRange);
-    types->color_matrix = spa_id_map_get_id (map, SPA_PROP_VIDEO__colorMatrix);
-    types->transfer_function = spa_id_map_get_id (map, SPA_PROP_VIDEO__transferFunction);
-    types->color_primaries = spa_id_map_get_id (map, SPA_PROP_VIDEO__colorPrimaries);
-    types->profile = spa_id_map_get_id (map, SPA_PROP_VIDEO__profile);
-    types->level = spa_id_map_get_id (map, SPA_PROP_VIDEO__level);
-    types->stream_format = spa_id_map_get_id (map, SPA_PROP_VIDEO__streamFormat);
-    types->alignment = spa_id_map_get_id (map, SPA_PROP_VIDEO__alignment);
+    types->format = spa_id_map_get_id (map, SPA_TYPE_PROP_VIDEO__format);
+    types->size = spa_id_map_get_id (map, SPA_TYPE_PROP_VIDEO__size);
+    types->framerate = spa_id_map_get_id (map, SPA_TYPE_PROP_VIDEO__framerate);
+    types->max_framerate = spa_id_map_get_id (map, SPA_TYPE_PROP_VIDEO__maxFramerate);
+    types->views = spa_id_map_get_id (map, SPA_TYPE_PROP_VIDEO__views);
+    types->interlace_mode = spa_id_map_get_id (map, SPA_TYPE_PROP_VIDEO__interlaceMode);
+    types->pixel_aspect_ratio = spa_id_map_get_id (map, SPA_TYPE_PROP_VIDEO__pixelAspectRatio);
+    types->multiview_mode = spa_id_map_get_id (map, SPA_TYPE_PROP_VIDEO__multiviewMode);
+    types->multiview_flags = spa_id_map_get_id (map, SPA_TYPE_PROP_VIDEO__multiviewFlags);
+    types->chroma_site = spa_id_map_get_id (map, SPA_TYPE_PROP_VIDEO__chromaSite);
+    types->color_range = spa_id_map_get_id (map, SPA_TYPE_PROP_VIDEO__colorRange);
+    types->color_matrix = spa_id_map_get_id (map, SPA_TYPE_PROP_VIDEO__colorMatrix);
+    types->transfer_function = spa_id_map_get_id (map, SPA_TYPE_PROP_VIDEO__transferFunction);
+    types->color_primaries = spa_id_map_get_id (map, SPA_TYPE_PROP_VIDEO__colorPrimaries);
+    types->profile = spa_id_map_get_id (map, SPA_TYPE_PROP_VIDEO__profile);
+    types->level = spa_id_map_get_id (map, SPA_TYPE_PROP_VIDEO__level);
+    types->stream_format = spa_id_map_get_id (map, SPA_TYPE_PROP_VIDEO__streamFormat);
+    types->alignment = spa_id_map_get_id (map, SPA_TYPE_PROP_VIDEO__alignment);
   }
 }
 

@@ -17,8 +17,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __SPA_NODE_COMMAND_H__
-#define __SPA_NODE_COMMAND_H__
+#ifndef __SPA_COMMAND_NODE_H__
+#define __SPA_COMMAND_NODE_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,15 +27,15 @@ extern "C" {
 #include <spa/id-map.h>
 #include <spa/command.h>
 
-#define SPA_NODE_COMMAND_URI             "http://spaplug.in/ns/node-command"
-#define SPA_NODE_COMMAND_PREFIX          SPA_NODE_COMMAND_URI "#"
+#define SPA_TYPE_COMMAND__Node            SPA_TYPE_COMMAND_BASE "Node"
+#define SPA_TYPE_COMMAND_NODE_BASE        SPA_TYPE_COMMAND__Node ":"
 
-#define SPA_NODE_COMMAND__Pause          SPA_NODE_COMMAND_PREFIX "Pause"
-#define SPA_NODE_COMMAND__Start          SPA_NODE_COMMAND_PREFIX "Start"
-#define SPA_NODE_COMMAND__Flush          SPA_NODE_COMMAND_PREFIX "Flush"
-#define SPA_NODE_COMMAND__Drain          SPA_NODE_COMMAND_PREFIX "Drain"
-#define SPA_NODE_COMMAND__Marker         SPA_NODE_COMMAND_PREFIX "Marker"
-#define SPA_NODE_COMMAND__ClockUpdate    SPA_NODE_COMMAND_PREFIX "ClockUpdate"
+#define SPA_TYPE_COMMAND_NODE__Pause          SPA_TYPE_COMMAND_NODE_BASE "Pause"
+#define SPA_TYPE_COMMAND_NODE__Start          SPA_TYPE_COMMAND_NODE_BASE "Start"
+#define SPA_TYPE_COMMAND_NODE__Flush          SPA_TYPE_COMMAND_NODE_BASE "Flush"
+#define SPA_TYPE_COMMAND_NODE__Drain          SPA_TYPE_COMMAND_NODE_BASE "Drain"
+#define SPA_TYPE_COMMAND_NODE__Marker         SPA_TYPE_COMMAND_NODE_BASE "Marker"
+#define SPA_TYPE_COMMAND_NODE__ClockUpdate    SPA_TYPE_COMMAND_NODE_BASE "ClockUpdate"
 
 typedef struct {
   uint32_t Pause;
@@ -44,23 +44,23 @@ typedef struct {
   uint32_t Drain;
   uint32_t Marker;
   uint32_t ClockUpdate;
-} SpaNodeCommands;
+} SpaCommandNode;
 
 static inline void
-spa_node_commands_map (SpaIDMap *map, SpaNodeCommands *types)
+spa_command_node_map (SpaIDMap *map, SpaCommandNode *types)
 {
   if (types->Pause == 0) {
-    types->Pause          = spa_id_map_get_id (map, SPA_NODE_COMMAND__Pause);
-    types->Start          = spa_id_map_get_id (map, SPA_NODE_COMMAND__Start);
-    types->Flush          = spa_id_map_get_id (map, SPA_NODE_COMMAND__Flush);
-    types->Drain          = spa_id_map_get_id (map, SPA_NODE_COMMAND__Drain);
-    types->Marker         = spa_id_map_get_id (map, SPA_NODE_COMMAND__Marker);
-    types->ClockUpdate    = spa_id_map_get_id (map, SPA_NODE_COMMAND__ClockUpdate);
+    types->Pause          = spa_id_map_get_id (map, SPA_TYPE_COMMAND_NODE__Pause);
+    types->Start          = spa_id_map_get_id (map, SPA_TYPE_COMMAND_NODE__Start);
+    types->Flush          = spa_id_map_get_id (map, SPA_TYPE_COMMAND_NODE__Flush);
+    types->Drain          = spa_id_map_get_id (map, SPA_TYPE_COMMAND_NODE__Drain);
+    types->Marker         = spa_id_map_get_id (map, SPA_TYPE_COMMAND_NODE__Marker);
+    types->ClockUpdate    = spa_id_map_get_id (map, SPA_TYPE_COMMAND_NODE__ClockUpdate);
   }
 }
 
 /**
- * SpaNodeCommandClockUpdate:
+ * SpaCommandNodeClockUpdate:
  * @change_mask: marks which fields are updated
  * @rate: the number of  @ticks per second
  * @ticks: the new ticks, when @change_mask = 1<<0
@@ -73,10 +73,10 @@ spa_node_commands_map (SpaIDMap *map, SpaNodeCommands *types)
  */
 typedef struct {
   SpaPODObjectBody body;
-#define SPA_NODE_COMMAND_CLOCK_UPDATE_TIME        (1 << 0)
-#define SPA_NODE_COMMAND_CLOCK_UPDATE_SCALE       (1 << 1)
-#define SPA_NODE_COMMAND_CLOCK_UPDATE_STATE       (1 << 2)
-#define SPA_NODE_COMMAND_CLOCK_UPDATE_LATENCY     (1 << 3)
+#define SPA_COMMAND_NODE_CLOCK_UPDATE_TIME        (1 << 0)
+#define SPA_COMMAND_NODE_CLOCK_UPDATE_SCALE       (1 << 1)
+#define SPA_COMMAND_NODE_CLOCK_UPDATE_STATE       (1 << 2)
+#define SPA_COMMAND_NODE_CLOCK_UPDATE_LATENCY     (1 << 3)
   SpaPODInt       change_mask           SPA_ALIGNED (8);
   SpaPODInt       rate                  SPA_ALIGNED (8);
   SpaPODLong      ticks                 SPA_ALIGNED (8);
@@ -84,18 +84,18 @@ typedef struct {
   SpaPODLong      offset                SPA_ALIGNED (8);
   SpaPODInt       scale                 SPA_ALIGNED (8);
   SpaPODInt       state                 SPA_ALIGNED (8);
-#define SPA_NODE_COMMAND_CLOCK_UPDATE_FLAG_LIVE   (1 << 0)
+#define SPA_COMMAND_NODE_CLOCK_UPDATE_FLAG_LIVE   (1 << 0)
   SpaPODInt       flags                 SPA_ALIGNED (8);
   SpaPODLong      latency               SPA_ALIGNED (8);
-} SpaNodeCommandClockUpdateBody;
+} SpaCommandNodeClockUpdateBody;
 
 typedef struct {
   SpaPOD                        pod;
-  SpaNodeCommandClockUpdateBody body;
-} SpaNodeCommandClockUpdate;
+  SpaCommandNodeClockUpdateBody body;
+} SpaCommandNodeClockUpdate;
 
-#define SPA_NODE_COMMAND_CLOCK_UPDATE_INIT(type,change_mask,rate,ticks,monotonic_time,offset,scale,state,flags,latency)  \
-  SPA_COMMAND_INIT_COMPLEX (sizeof (SpaNodeCommandClockUpdateBody), type,  \
+#define SPA_COMMAND_NODE_CLOCK_UPDATE_INIT(type,change_mask,rate,ticks,monotonic_time,offset,scale,state,flags,latency)  \
+  SPA_COMMAND_INIT_COMPLEX (sizeof (SpaCommandNodeClockUpdateBody), type,  \
                                  SPA_POD_INT_INIT (change_mask),           \
                                  SPA_POD_INT_INIT (rate),                  \
                                  SPA_POD_LONG_INIT (ticks),                \
@@ -110,4 +110,4 @@ typedef struct {
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_NODE_COMMAND_H__ */
+#endif /* __SPA_COMMAND_NODE_H__ */

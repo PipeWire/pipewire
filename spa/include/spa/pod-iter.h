@@ -121,14 +121,13 @@ spa_pod_iter_getv (SpaPODIter *iter,
   while (type && (res = spa_pod_iter_has_next (iter))) {
     SpaPOD *pod = spa_pod_iter_next (iter);
 
-    if (type != SPA_POD_TYPE_POD && pod->type != type)
-      return false;
-
-    SPA_POD_COLLECT (pod, type, args);
+    SPA_POD_COLLECT (pod, type, args, error);
 
     type = va_arg (args, uint32_t);
   }
   return res;
+error:
+  return false;
 }
 
 static inline bool

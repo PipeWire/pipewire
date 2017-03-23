@@ -495,7 +495,11 @@ spa_pod_builder_addv (SpaPODBuilder *builder,
         spa_pod_builder_pop (builder, f);
         break;
       case SPA_POD_TYPE_POD:
-        body = va_arg (args, void *);
+        if ((body = va_arg (args, void *)) == NULL) {
+          head.pod.type = SPA_POD_TYPE_NONE;
+          head.pod.size = 0;
+          body = &head;
+        }
         body_size = SPA_POD_SIZE (body);
         goto extra;
     }

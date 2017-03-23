@@ -24,6 +24,7 @@
 extern "C" {
 #endif
 
+#include <stdio.h>
 #include <stdarg.h>
 #include <spa/pod.h>
 
@@ -90,61 +91,78 @@ spa_pod_object_find_prop (const SpaPODObject *obj, uint32_t key)
   return spa_pod_contents_find_prop (&obj->pod, sizeof (SpaPODObject), key);
 }
 
-#define SPA_POD_COLLECT(pod,type,args)                                                  \
-    switch (type) {                                                                     \
-      case SPA_POD_TYPE_BOOL:                                                           \
-      case SPA_POD_TYPE_URI:                                                            \
-      case SPA_POD_TYPE_INT:                                                            \
-        *(va_arg (args, int32_t*)) = SPA_POD_VALUE(SpaPODInt, pod);                     \
-        break;                                                                          \
-      case SPA_POD_TYPE_LONG:                                                           \
-        *(va_arg (args, int64_t*)) = SPA_POD_VALUE (SpaPODLong, pod);                   \
-        break;                                                                          \
-      case SPA_POD_TYPE_FLOAT:                                                          \
-        *(va_arg (args, float*)) = SPA_POD_VALUE (SpaPODFloat, pod);                    \
-        break;                                                                          \
-      case SPA_POD_TYPE_DOUBLE:                                                         \
-        *(va_arg (args, double*)) = SPA_POD_VALUE (SpaPODDouble, pod);                  \
-        break;                                                                          \
-      case SPA_POD_TYPE_STRING:                                                         \
-        *(va_arg (args, char **)) = SPA_POD_CONTENTS (SpaPODString, pod);               \
-        break;                                                                          \
-      case -SPA_POD_TYPE_STRING:                                                        \
-      {                                                                                 \
-        char *dest = va_arg (args, char *);                                             \
-        uint32_t maxlen = va_arg (args, uint32_t);                                      \
-        strncpy (dest, SPA_POD_CONTENTS (SpaPODString, pod), maxlen-1);                 \
-        break;                                                                          \
+#define SPA_POD_COLLECT(pod,type,args,error)                                            \
+  do {                                                                                  \
+    if (type == SPA_POD_TYPE_POD) {                                                     \
+      *(va_arg (args, SpaPOD **)) = pod;                                                \
+    } else if ((pod)->type == SPA_POD_TYPE_NONE) {                                      \
+      switch (type) {                                                                   \
+        case SPA_POD_TYPE_ARRAY:                                                        \
+        case SPA_POD_TYPE_STRUCT:                                                       \
+        case SPA_POD_TYPE_OBJECT:                                                       \
+        case SPA_POD_TYPE_PROP:                                                         \
+          *(va_arg (args, SpaPOD **)) = NULL;                                           \
+          break;                                                                        \
+        default:                                                                        \
+          goto error;                                                                   \
       }                                                                                 \
-      case SPA_POD_TYPE_BYTES:                                                          \
-        *(va_arg (args, void **)) = SPA_POD_CONTENTS (SpaPODBytes, pod);                \
-        *(va_arg (args, uint32_t *)) = SPA_POD_BODY_SIZE (pod);                         \
-        break;                                                                          \
-      case SPA_POD_TYPE_POINTER:                                                        \
-      {                                                                                 \
-        SpaPODPointerBody *b = SPA_POD_BODY (pod);                                      \
-        *(va_arg (args, void **)) = b->value;                                           \
-        break;                                                                          \
+    } else if ((pod)->type == type) {                                                   \
+      switch (type) {                                                                   \
+        case SPA_POD_TYPE_BOOL:                                                         \
+        case SPA_POD_TYPE_URI:                                                          \
+        case SPA_POD_TYPE_INT:                                                          \
+          *(va_arg (args, int32_t*)) = SPA_POD_VALUE(SpaPODInt, pod);                   \
+          break;                                                                        \
+        case SPA_POD_TYPE_LONG:                                                         \
+          *(va_arg (args, int64_t*)) = SPA_POD_VALUE (SpaPODLong, pod);                 \
+          break;                                                                        \
+        case SPA_POD_TYPE_FLOAT:                                                        \
+          *(va_arg (args, float*)) = SPA_POD_VALUE (SpaPODFloat, pod);                  \
+          break;                                                                        \
+        case SPA_POD_TYPE_DOUBLE:                                                       \
+          *(va_arg (args, double*)) = SPA_POD_VALUE (SpaPODDouble, pod);                \
+          break;                                                                        \
+        case SPA_POD_TYPE_STRING:                                                       \
+          *(va_arg (args, char **)) = SPA_POD_CONTENTS (SpaPODString, pod);             \
+          break;                                                                        \
+        case -SPA_POD_TYPE_STRING:                                                      \
+        {                                                                               \
+          char *dest = va_arg (args, char *);                                           \
+          uint32_t maxlen = va_arg (args, uint32_t);                                    \
+          strncpy (dest, SPA_POD_CONTENTS (SpaPODString, pod), maxlen-1);               \
+          break;                                                                        \
+        }                                                                               \
+        case SPA_POD_TYPE_BYTES:                                                        \
+          *(va_arg (args, void **)) = SPA_POD_CONTENTS (SpaPODBytes, pod);              \
+          *(va_arg (args, uint32_t *)) = SPA_POD_BODY_SIZE (pod);                       \
+          break;                                                                        \
+        case SPA_POD_TYPE_POINTER:                                                      \
+        {                                                                               \
+          SpaPODPointerBody *b = SPA_POD_BODY (pod);                                    \
+          *(va_arg (args, void **)) = b->value;                                         \
+          break;                                                                        \
+        }                                                                               \
+        case SPA_POD_TYPE_RECTANGLE:                                                    \
+          *(va_arg (args, SpaRectangle *)) = SPA_POD_VALUE (SpaPODRectangle, pod);      \
+          break;                                                                        \
+        case SPA_POD_TYPE_FRACTION:                                                     \
+          *(va_arg (args, SpaFraction *)) = SPA_POD_VALUE (SpaPODFraction, pod);        \
+          break;                                                                        \
+        case SPA_POD_TYPE_BITMASK:                                                      \
+          *(va_arg (args, uint32_t **)) = SPA_POD_CONTENTS (SpaPOD, pod);               \
+          break;                                                                        \
+        case SPA_POD_TYPE_ARRAY:                                                        \
+        case SPA_POD_TYPE_STRUCT:                                                       \
+        case SPA_POD_TYPE_OBJECT:                                                       \
+        case SPA_POD_TYPE_PROP:                                                         \
+          *(va_arg (args, SpaPOD **)) = pod;                                            \
+          break;                                                                        \
+        default:                                                                        \
+          goto error;                                                                   \
       }                                                                                 \
-      case SPA_POD_TYPE_RECTANGLE:                                                      \
-        *(va_arg (args, SpaRectangle *)) = SPA_POD_VALUE (SpaPODRectangle, pod);        \
-        break;                                                                          \
-      case SPA_POD_TYPE_FRACTION:                                                       \
-        *(va_arg (args, SpaFraction *)) = SPA_POD_VALUE (SpaPODFraction, pod);          \
-        break;                                                                          \
-      case SPA_POD_TYPE_BITMASK:                                                        \
-        *(va_arg (args, uint32_t **)) = SPA_POD_CONTENTS (SpaPOD, pod);                 \
-        break;                                                                          \
-      case SPA_POD_TYPE_ARRAY:                                                          \
-      case SPA_POD_TYPE_STRUCT:                                                         \
-      case SPA_POD_TYPE_OBJECT:                                                         \
-      case SPA_POD_TYPE_PROP:                                                           \
-      case SPA_POD_TYPE_POD:                                                            \
-        *(va_arg (args, SpaPOD **)) = pod;                                              \
-        break;                                                                          \
-      default:                                                                          \
-        break;                                                                          \
-    }                                                                                   \
+    } else                                                                              \
+       goto error;                                                                      \
+  } while (false);                                                                      \
 
 #define SPA_POD_COLLECT_SKIP(type,args)                                                 \
     switch (type) {                                                                     \
@@ -184,13 +202,13 @@ spa_pod_contents_queryv (const SpaPOD *pod, uint32_t offset, uint32_t key, va_li
     type = va_arg (args, uint32_t);
 
     if (prop && prop->body.key == key &&
-        (type == SPA_POD_TYPE_POD || prop->body.value.type == type) &&
         !(prop->body.flags & SPA_POD_PROP_FLAG_UNSET)) {
-      SPA_POD_COLLECT (&prop->body.value, type, args);
+      SPA_POD_COLLECT (&prop->body.value, type, args, next);
       count++;
     } else {
       SPA_POD_COLLECT_SKIP (type, args);
     }
+next:
     key = va_arg (args, uint32_t);
   }
   return count;

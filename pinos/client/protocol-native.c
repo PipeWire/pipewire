@@ -461,17 +461,11 @@ client_node_marshal_update (void           *object,
 
   core_update_map (proxy->context);
 
-  spa_pod_builder_add (&b.b,
-      SPA_POD_TYPE_STRUCT, &f,
+  spa_pod_builder_struct (&b.b, &f,
         SPA_POD_TYPE_INT, change_mask,
         SPA_POD_TYPE_INT, max_input_ports,
         SPA_POD_TYPE_INT, max_output_ports,
-        SPA_POD_TYPE_INT, props ? 1 : 0,
-      0);
-
-  if (props)
-    spa_pod_builder_add (&b.b, SPA_POD_TYPE_POD, props, 0);
-  spa_pod_builder_add (&b.b, -SPA_POD_TYPE_STRUCT, &f, 0);
+        SPA_POD_TYPE_POD, props);
 
   pinos_connection_end_write (connection, proxy->id, 0, b.b.offset);
 }
@@ -506,12 +500,11 @@ client_node_marshal_port_update (void              *object,
   for (i = 0; i < n_possible_formats; i++)
     spa_pod_builder_add (&b.b, SPA_POD_TYPE_POD, possible_formats[i], 0);
 
-  spa_pod_builder_add (&b.b, SPA_POD_TYPE_INT, format ? 1 : 0, 0);
-  if (format)
-    spa_pod_builder_add (&b.b, SPA_POD_TYPE_POD, format, 0);
-  spa_pod_builder_add (&b.b, SPA_POD_TYPE_INT, props ? 1 : 0, 0);
-  if (props)
-    spa_pod_builder_add (&b.b, SPA_POD_TYPE_POD, props, 0);
+  spa_pod_builder_add (&b.b,
+      SPA_POD_TYPE_POD, format,
+      SPA_POD_TYPE_POD, props,
+      0);
+
   spa_pod_builder_add (&b.b, SPA_POD_TYPE_INT, info ? 1 : 0, 0);
   if (info) {
     spa_pod_builder_add (&b.b,
@@ -678,7 +671,7 @@ client_node_demarshal_set_format (void   *object,
 {
   PinosProxy *proxy = object;
   SpaPODIter it;
-  uint32_t seq, direction, port_id, flags, have_format;
+  uint32_t seq, direction, port_id, flags;
   const SpaFormat *format = NULL;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
@@ -687,11 +680,8 @@ client_node_demarshal_set_format (void   *object,
         SPA_POD_TYPE_INT, &direction,
         SPA_POD_TYPE_INT, &port_id,
         SPA_POD_TYPE_INT, &flags,
-        SPA_POD_TYPE_INT, &have_format,
+        SPA_POD_TYPE_OBJECT, &format,
         0))
-    return false;
-
-  if (have_format && !spa_pod_iter_get (&it, SPA_POD_TYPE_OBJECT, &format, 0))
     return false;
 
   ((PinosClientNodeEvents*)proxy->implementation)->set_format (proxy, seq, direction, port_id,

@@ -187,7 +187,7 @@ struct pod_type_name {
   const char *CCName;
 } pod_type_names[] = {
   { "invalid", "*Invalid*" },
-  { "ignored", "ignored" },
+  { "none", "None" },
   { "bool", "Bool" },
   { "uri", "URI" },
   { "int", "Int" },
@@ -308,6 +308,10 @@ print_pod_value (uint32_t size, uint32_t type, void *body, int prefix)
     }
     case SPA_POD_TYPE_BYTES:
       printf ("%-*sBytes\n", prefix, "");
+      spa_debug_dump_mem (body, size);
+      break;
+    case SPA_POD_TYPE_NONE:
+      printf ("%-*sNone\n", prefix, "");
       spa_debug_dump_mem (body, size);
       break;
     default:

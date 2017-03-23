@@ -69,8 +69,8 @@ init_uri (URI *uri, SpaIDMap *map)
   uri->prop_wave = spa_id_map_get_id (map, SPA_PROPS__waveType);
   uri->prop_freq = spa_id_map_get_id (map, SPA_PROPS__frequency);
   uri->prop_volume = spa_id_map_get_id (map, SPA_PROPS__volume);
-  uri->wave_sine = spa_id_map_get_id (map, SPA_PROPS__waveType ":Sine");
-  uri->wave_square = spa_id_map_get_id (map, SPA_PROPS__waveType ":Square");
+  uri->wave_sine = spa_id_map_get_id (map, SPA_PROPS__waveType ":sine");
+  uri->wave_square = spa_id_map_get_id (map, SPA_PROPS__waveType ":square");
   spa_media_types_fill (&uri->media_types, map);
   spa_media_subtypes_map (map, &uri->media_subtypes);
   spa_prop_audio_map (map, &uri->prop_audio);

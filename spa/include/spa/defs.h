@@ -104,6 +104,7 @@ typedef void (*SpaNotify) (void *data);
 #define SPA_N_ELEMENTS(arr)  (sizeof (arr) / sizeof ((arr)[0]))
 #define SPA_MIN(a,b)  ((a)<(b) ? (a) : (b))
 #define SPA_MAX(a,b)  ((a)>(b) ? (a) : (b))
+#define SPA_ABS(a)    ((a)>0 ? (a) : -(a))
 #define SPA_CLAMP(v,a,b)  ((v)>(b) ? (b) : ((v) < (a) ? (a) : (v)))
 
 #define SPA_MEMBER(b,o,t) ((t*)((uint8_t*)(b) + (o)))

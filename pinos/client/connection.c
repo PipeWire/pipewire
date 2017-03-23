@@ -277,6 +277,8 @@ again:
   *dt = buf->data;
   *sz = buf->size;
 
+  spa_debug_pod (data);
+
   return true;
 }
 
@@ -308,7 +310,7 @@ pinos_connection_end_write (PinosConnection  *conn,
 
   buf->buffer_size += 8 + size;
 
-//  spa_debug_pod (p);
+  spa_debug_pod (p);
 
   pinos_signal_emit (&conn->need_flush, conn);
 }

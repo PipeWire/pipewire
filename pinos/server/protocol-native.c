@@ -619,16 +619,12 @@ client_node_marshal_set_format (void              *object,
 
   core_update_map (resource->client);
 
-  spa_pod_builder_add (&b.b,
-      SPA_POD_TYPE_STRUCT, &f,
-        SPA_POD_TYPE_INT, seq,
-        SPA_POD_TYPE_INT, direction,
-        SPA_POD_TYPE_INT, port_id,
-        SPA_POD_TYPE_INT, flags,
-        SPA_POD_TYPE_INT, format ? 1 : 0, 0);
-  if (format)
-    spa_pod_builder_add (&b.b, SPA_POD_TYPE_POD, format, 0);
-  spa_pod_builder_add (&b.b, -SPA_POD_TYPE_STRUCT, &f, 0);
+  spa_pod_builder_struct (&b.b, &f,
+      SPA_POD_TYPE_INT, seq,
+      SPA_POD_TYPE_INT, direction,
+      SPA_POD_TYPE_INT, port_id,
+      SPA_POD_TYPE_INT, flags,
+      SPA_POD_TYPE_POD, format);
 
   pinos_connection_end_write (connection, resource->id, 4, b.b.offset);
 }
@@ -807,19 +803,16 @@ client_node_demarshal_update (void  *object,
 {
   PinosResource *resource = object;
   SpaPODIter it;
-  uint32_t change_mask, max_input_ports, max_output_ports, have_props;
-  const SpaProps *props = NULL;
+  uint32_t change_mask, max_input_ports, max_output_ports;
+  const SpaProps *props;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
       !spa_pod_iter_get (&it,
         SPA_POD_TYPE_INT, &change_mask,
         SPA_POD_TYPE_INT, &max_input_ports,
         SPA_POD_TYPE_INT, &max_output_ports,
-        SPA_POD_TYPE_INT, &have_props,
+        SPA_POD_TYPE_OBJECT, &props,
         0))
-    return false;
-
-  if (have_props && !spa_pod_iter_get (&it, SPA_POD_TYPE_OBJECT, &props, 0))
     return false;
 
   ((PinosClientNodeMethods*)resource->implementation)->update (resource, change_mask, max_input_ports, max_output_ports, props);
@@ -852,12 +845,10 @@ client_node_demarshal_port_update (void  *object,
     if (!spa_pod_iter_get (&it,SPA_POD_TYPE_OBJECT, &possible_formats[i], 0))
       return false;
 
-  if (!spa_pod_iter_get (&it, SPA_POD_TYPE_INT, &t, 0) ||
-      (t && !spa_pod_iter_get (&it, SPA_POD_TYPE_OBJECT, &format, 0)))
-    return false;
-
-  if (!spa_pod_iter_get (&it, SPA_POD_TYPE_INT, &t, 0) ||
-      (t && !spa_pod_iter_get (&it, SPA_POD_TYPE_OBJECT, &props, 0)))
+  if (!spa_pod_iter_get (&it,
+        SPA_POD_TYPE_OBJECT, &format,
+        SPA_POD_TYPE_OBJECT, &props,
+        0))
     return false;
 
   if (!spa_pod_iter_get (&it, SPA_POD_TYPE_INT, &t, 0))

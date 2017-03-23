@@ -153,14 +153,15 @@ connection_data (SpaSource *source,
       }
       if (opcode >= resource->iface->n_methods) {
         pinos_log_error ("protocol-native %p: invalid method %u", client->impl, opcode);
-        continue;
+        client_destroy (client);
+        break;
       }
       demarshal = resource->iface->methods;
-      if (demarshal[opcode]) {
-        if (!demarshal[opcode] (resource, message, size))
-          pinos_log_error ("protocol-native %p: invalid message received", client->impl);
-      } else
-        pinos_log_error ("protocol-native %p: function %d not implemented", client->impl, opcode);
+      if (!demarshal[opcode] || !demarshal[opcode] (resource, message, size)) {
+        pinos_log_error ("protocol-native %p: invalid message received", client->impl);
+        client_destroy (client);
+        break;
+      }
     }
   }
 }

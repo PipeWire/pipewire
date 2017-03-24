@@ -28,6 +28,15 @@ extern "C" {
 
 #include <spa/defs.h>
 
+#define SPA_TYPE__POD                          SPA_TYPE_BASE "POD"
+#define SPA_TYPE_POD_BASE                      SPA_TYPE__POD ":"
+
+#define SPA_TYPE_POD__Object                   SPA_TYPE_POD_BASE "Object"
+#define SPA_TYPE_POD_OBJECT_BASE               SPA_TYPE_POD__Object ":"
+
+#define SPA_TYPE_POD__Struct                   SPA_TYPE_POD_BASE "Struct"
+#define SPA_TYPE_POD_STRUCT_BASE               SPA_TYPE_POD__Struct ":"
+
 /**
  * SpaPODType:
  */
@@ -35,7 +44,7 @@ typedef enum {
   SPA_POD_TYPE_INVALID         = 0,
   SPA_POD_TYPE_NONE            = 1,
   SPA_POD_TYPE_BOOL,
-  SPA_POD_TYPE_URI,
+  SPA_POD_TYPE_ID,
   SPA_POD_TYPE_INT,
   SPA_POD_TYPE_LONG,
   SPA_POD_TYPE_FLOAT,
@@ -55,7 +64,7 @@ typedef enum {
 
 typedef struct {
   uint32_t     size;
-  uint32_t     type;
+  uint32_t     type;    /* one of SpaPODType */
 } SpaPOD;
 
 typedef struct {
@@ -65,7 +74,7 @@ typedef struct {
 } SpaPODInt;
 
 typedef SpaPODInt SpaPODBool;
-typedef SpaPODInt SpaPODURI;
+typedef SpaPODInt SpaPODId;
 
 typedef struct {
   SpaPOD       pod;

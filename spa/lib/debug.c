@@ -189,7 +189,7 @@ struct pod_type_name {
   { "invalid", "*Invalid*" },
   { "none", "None" },
   { "bool", "Bool" },
-  { "uri", "URI" },
+  { "id", "Id" },
   { "int", "Int" },
   { "long", "Long" },
   { "float", "Float" },
@@ -213,8 +213,8 @@ print_pod_value (uint32_t size, uint32_t type, void *body, int prefix)
     case SPA_POD_TYPE_BOOL:
       printf ("%-*sBool %d\n", prefix, "", *(int32_t *) body);
       break;
-    case SPA_POD_TYPE_URI:
-      printf ("%-*sURI %d %s\n", prefix, "", *(int32_t *) body,
+    case SPA_POD_TYPE_ID:
+      printf ("%-*sId %d %s\n", prefix, "", *(int32_t *) body,
           spa_type_map_get_type (spa_type_map_get_default(), *(int32_t*)body));
       break;
     case SPA_POD_TYPE_INT:
@@ -334,7 +334,7 @@ print_format_value (uint32_t size, uint32_t type, void *body)
     case SPA_POD_TYPE_BOOL:
       fprintf (stderr, "%s", *(int32_t *) body ? "true" : "false");
       break;
-    case SPA_POD_TYPE_URI:
+    case SPA_POD_TYPE_ID:
     {
       const char *str = spa_type_map_get_type (spa_type_map_get_default(), *(int32_t*)body);
       if (str) {

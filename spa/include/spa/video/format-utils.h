@@ -47,30 +47,30 @@ typedef struct {
   uint32_t level;
   uint32_t stream_format;
   uint32_t alignment;
-} SpaTypePropVideo;
+} SpaTypeFormatVideo;
 
 static inline void
-spa_type_prop_video_map (SpaTypeMap *map, SpaTypePropVideo *type)
+spa_type_format_video_map (SpaTypeMap *map, SpaTypeFormatVideo *type)
 {
   if (type->format == 0) {
-    type->format               = spa_type_map_get_id (map, SPA_TYPE_PROP_VIDEO__format);
-    type->size                 = spa_type_map_get_id (map, SPA_TYPE_PROP_VIDEO__size);
-    type->framerate            = spa_type_map_get_id (map, SPA_TYPE_PROP_VIDEO__framerate);
-    type->max_framerate        = spa_type_map_get_id (map, SPA_TYPE_PROP_VIDEO__maxFramerate);
-    type->views                = spa_type_map_get_id (map, SPA_TYPE_PROP_VIDEO__views);
-    type->interlace_mode       = spa_type_map_get_id (map, SPA_TYPE_PROP_VIDEO__interlaceMode);
-    type->pixel_aspect_ratio   = spa_type_map_get_id (map, SPA_TYPE_PROP_VIDEO__pixelAspectRatio);
-    type->multiview_mode       = spa_type_map_get_id (map, SPA_TYPE_PROP_VIDEO__multiviewMode);
-    type->multiview_flags      = spa_type_map_get_id (map, SPA_TYPE_PROP_VIDEO__multiviewFlags);
-    type->chroma_site          = spa_type_map_get_id (map, SPA_TYPE_PROP_VIDEO__chromaSite);
-    type->color_range          = spa_type_map_get_id (map, SPA_TYPE_PROP_VIDEO__colorRange);
-    type->color_matrix         = spa_type_map_get_id (map, SPA_TYPE_PROP_VIDEO__colorMatrix);
-    type->transfer_function    = spa_type_map_get_id (map, SPA_TYPE_PROP_VIDEO__transferFunction);
-    type->color_primaries      = spa_type_map_get_id (map, SPA_TYPE_PROP_VIDEO__colorPrimaries);
-    type->profile              = spa_type_map_get_id (map, SPA_TYPE_PROP_VIDEO__profile);
-    type->level                = spa_type_map_get_id (map, SPA_TYPE_PROP_VIDEO__level);
-    type->stream_format        = spa_type_map_get_id (map, SPA_TYPE_PROP_VIDEO__streamFormat);
-    type->alignment            = spa_type_map_get_id (map, SPA_TYPE_PROP_VIDEO__alignment);
+    type->format               = spa_type_map_get_id (map, SPA_TYPE_FORMAT_VIDEO__format);
+    type->size                 = spa_type_map_get_id (map, SPA_TYPE_FORMAT_VIDEO__size);
+    type->framerate            = spa_type_map_get_id (map, SPA_TYPE_FORMAT_VIDEO__framerate);
+    type->max_framerate        = spa_type_map_get_id (map, SPA_TYPE_FORMAT_VIDEO__maxFramerate);
+    type->views                = spa_type_map_get_id (map, SPA_TYPE_FORMAT_VIDEO__views);
+    type->interlace_mode       = spa_type_map_get_id (map, SPA_TYPE_FORMAT_VIDEO__interlaceMode);
+    type->pixel_aspect_ratio   = spa_type_map_get_id (map, SPA_TYPE_FORMAT_VIDEO__pixelAspectRatio);
+    type->multiview_mode       = spa_type_map_get_id (map, SPA_TYPE_FORMAT_VIDEO__multiviewMode);
+    type->multiview_flags      = spa_type_map_get_id (map, SPA_TYPE_FORMAT_VIDEO__multiviewFlags);
+    type->chroma_site          = spa_type_map_get_id (map, SPA_TYPE_FORMAT_VIDEO__chromaSite);
+    type->color_range          = spa_type_map_get_id (map, SPA_TYPE_FORMAT_VIDEO__colorRange);
+    type->color_matrix         = spa_type_map_get_id (map, SPA_TYPE_FORMAT_VIDEO__colorMatrix);
+    type->transfer_function    = spa_type_map_get_id (map, SPA_TYPE_FORMAT_VIDEO__transferFunction);
+    type->color_primaries      = spa_type_map_get_id (map, SPA_TYPE_FORMAT_VIDEO__colorPrimaries);
+    type->profile              = spa_type_map_get_id (map, SPA_TYPE_FORMAT_VIDEO__profile);
+    type->level                = spa_type_map_get_id (map, SPA_TYPE_FORMAT_VIDEO__level);
+    type->stream_format        = spa_type_map_get_id (map, SPA_TYPE_FORMAT_VIDEO__streamFormat);
+    type->alignment            = spa_type_map_get_id (map, SPA_TYPE_FORMAT_VIDEO__alignment);
   }
 }
 

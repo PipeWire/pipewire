@@ -26,7 +26,7 @@ extern "C" {
 
 typedef struct _SpaNode SpaNode;
 
-#define SPA_TYPE__Node                        "Spa:Interface:Node"
+#define SPA_TYPE__Node                        SPA_TYPE_INTERFACE_BASE "Node"
 #define SPA_TYPE_NODE_BASE                    SPA_TYPE__Node ":"
 
 /**

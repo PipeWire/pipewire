@@ -304,11 +304,11 @@ next:
     case 0:
       spa_pod_builder_format (&b, &f[0], this->type.format,
         this->type.media_type.audio, this->type.media_subtype.raw,
-        PROP_U_EN (&f[1], this->type.prop_audio.format,   SPA_POD_TYPE_URI, 3, this->type.audio_format.S16,
+        PROP_U_EN (&f[1], this->type.format_audio.format,   SPA_POD_TYPE_ID,  3, this->type.audio_format.S16,
                                                                               this->type.audio_format.S16,
                                                                               this->type.audio_format.S32),
-        PROP_U_MM (&f[1], this->type.prop_audio.rate,     SPA_POD_TYPE_INT, 44100, 1, INT32_MAX),
-        PROP_U_MM (&f[1], this->type.prop_audio.channels, SPA_POD_TYPE_INT, 2,     1, INT32_MAX));
+        PROP_U_MM (&f[1], this->type.format_audio.rate,     SPA_POD_TYPE_INT, 44100, 1, INT32_MAX),
+        PROP_U_MM (&f[1], this->type.format_audio.channels, SPA_POD_TYPE_INT, 2,     1, INT32_MAX));
       break;
     case 1:
       spa_pod_builder_format (&b, &f[0], this->type.format,

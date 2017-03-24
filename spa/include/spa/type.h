@@ -28,6 +28,16 @@ extern "C" {
 
 typedef uint32_t SpaType;
 
+#define SPA_TYPE_BASE                          "Spa:"
+
+#define SPA_TYPE__Enum                         SPA_TYPE_BASE "Enum"
+#define SPA_TYPE_ENUM_BASE                     SPA_TYPE__Enum ":"
+
+#define SPA_TYPE__Interface                    SPA_TYPE_BASE "Interface"
+#define SPA_TYPE_INTERFACE_BASE                SPA_TYPE__Interface ":"
+
+#define SPA_TYPE__Object                       SPA_TYPE_BASE "Object"
+#define SPA_TYPE_OBJECT_BASE                   SPA_TYPE__Object ":"
 
 #ifdef __cplusplus
 }  /* extern "C" */

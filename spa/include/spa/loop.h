@@ -29,11 +29,12 @@ typedef struct _SpaSource SpaSource;
 typedef struct _SpaLoopControl SpaLoopControl;
 typedef struct _SpaLoopUtils SpaLoopUtils;
 
-#define SPA_TYPE__Loop           "Spa:Interface:Loop"
-#define SPA_TYPE__LoopControl    "Spa:Interface:LoopControl"
-#define SPA_TYPE__LoopUtils      "Spa:Interface:LoopUtils"
+#define SPA_TYPE__Loop           SPA_TYPE_INTERFACE_BASE "Loop"
+#define SPA_TYPE_LOOP_BASE       SPA_TYPE__Loop ":"
 
-#define SPA_TYPE_LOOP_BASE          SPA_TYPE__Loop ":"
+#define SPA_TYPE__LoopControl    SPA_TYPE_INTERFACE_BASE "LoopControl"
+#define SPA_TYPE__LoopUtils      SPA_TYPE_INTERFACE_BASE "LoopUtils"
+
 #define SPA_TYPE_LOOP__MainLoop     SPA_TYPE_LOOP_BASE "MainLoop"
 #define SPA_TYPE_LOOP__DataLoop     SPA_TYPE_LOOP_BASE "DataLoop"
 

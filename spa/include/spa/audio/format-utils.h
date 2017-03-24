@@ -35,18 +35,18 @@ typedef struct {
   uint32_t rate;
   uint32_t channels;
   uint32_t channel_mask;
-} SpaTypePropAudio;
+} SpaTypeFormatAudio;
 
 static inline void
-spa_type_prop_audio_map (SpaTypeMap *map, SpaTypePropAudio *type)
+spa_type_format_audio_map (SpaTypeMap *map, SpaTypeFormatAudio *type)
 {
   if (type->format == 0) {
-    type->format = spa_type_map_get_id (map, SPA_TYPE_PROP_AUDIO__format);
-    type->flags = spa_type_map_get_id (map, SPA_TYPE_PROP_AUDIO__flags);
-    type->layout = spa_type_map_get_id (map, SPA_TYPE_PROP_AUDIO__layout);
-    type->rate = spa_type_map_get_id (map, SPA_TYPE_PROP_AUDIO__rate);
-    type->channels = spa_type_map_get_id (map, SPA_TYPE_PROP_AUDIO__channels);
-    type->channel_mask = spa_type_map_get_id (map, SPA_TYPE_PROP_AUDIO__channelMask);
+    type->format = spa_type_map_get_id (map, SPA_TYPE_FORMAT_AUDIO__format);
+    type->flags = spa_type_map_get_id (map, SPA_TYPE_FORMAT_AUDIO__flags);
+    type->layout = spa_type_map_get_id (map, SPA_TYPE_FORMAT_AUDIO__layout);
+    type->rate = spa_type_map_get_id (map, SPA_TYPE_FORMAT_AUDIO__rate);
+    type->channels = spa_type_map_get_id (map, SPA_TYPE_FORMAT_AUDIO__channels);
+    type->channel_mask = spa_type_map_get_id (map, SPA_TYPE_FORMAT_AUDIO__channelMask);
   }
 }
 

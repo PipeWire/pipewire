@@ -74,7 +74,7 @@ typedef struct {
   SpaTypeMediaType media_type;
   SpaTypeMediaSubtype media_subtype;
   SpaTypeMediaSubtypeVideo media_subtype_video;
-  SpaTypePropVideo prop_video;
+  SpaTypeFormatVideo format_video;
   SpaTypeVideoFormat video_format;
   SpaTypeEventNode event_node;
   SpaTypeCommandNode command_node;
@@ -95,7 +95,7 @@ init_type (Type *type, SpaTypeMap *map)
   spa_type_media_type_map (map, &type->media_type);
   spa_type_media_subtype_map (map, &type->media_subtype);
   spa_type_media_subtype_video_map (map, &type->media_subtype_video);
-  spa_type_prop_video_map (map, &type->prop_video);
+  spa_type_format_video_map (map, &type->format_video);
   spa_type_video_format_map (map, &type->video_format);
   spa_type_event_node_map (map, &type->event_node);
   spa_type_command_node_map (map, &type->command_node);
@@ -593,22 +593,22 @@ spa_v4l2_source_node_port_get_format (SpaNode          *node,
 
   if (state->current_format.media_subtype == this->type.media_subtype.raw) {
     spa_pod_builder_add (&b,
-        PROP (&f[1], this->type.prop_video.format,     SPA_POD_TYPE_URI,       state->current_format.info.raw.format),
-        PROP (&f[1], this->type.prop_video.size,      -SPA_POD_TYPE_RECTANGLE, &state->current_format.info.raw.size),
-        PROP (&f[1], this->type.prop_video.framerate, -SPA_POD_TYPE_FRACTION,  &state->current_format.info.raw.framerate),
+        PROP (&f[1], this->type.format_video.format,     SPA_POD_TYPE_ID,        state->current_format.info.raw.format),
+        PROP (&f[1], this->type.format_video.size,      -SPA_POD_TYPE_RECTANGLE, &state->current_format.info.raw.size),
+        PROP (&f[1], this->type.format_video.framerate, -SPA_POD_TYPE_FRACTION,  &state->current_format.info.raw.framerate),
         0);
   }
   else if (state->current_format.media_subtype == this->type.media_subtype_video.mjpg ||
            state->current_format.media_subtype == this->type.media_subtype_video.jpeg) {
     spa_pod_builder_add (&b,
-        PROP (&f[1], this->type.prop_video.size,      -SPA_POD_TYPE_RECTANGLE, &state->current_format.info.mjpg.size),
-        PROP (&f[1], this->type.prop_video.framerate, -SPA_POD_TYPE_FRACTION,  &state->current_format.info.mjpg.framerate),
+        PROP (&f[1], this->type.format_video.size,      -SPA_POD_TYPE_RECTANGLE, &state->current_format.info.mjpg.size),
+        PROP (&f[1], this->type.format_video.framerate, -SPA_POD_TYPE_FRACTION,  &state->current_format.info.mjpg.framerate),
         0);
   }
   else if (state->current_format.media_subtype == this->type.media_subtype_video.h264) {
     spa_pod_builder_add (&b,
-        PROP (&f[1], this->type.prop_video.size,      -SPA_POD_TYPE_RECTANGLE, &state->current_format.info.h264.size),
-        PROP (&f[1], this->type.prop_video.framerate, -SPA_POD_TYPE_FRACTION,  &state->current_format.info.h264.framerate),
+        PROP (&f[1], this->type.format_video.size,      -SPA_POD_TYPE_RECTANGLE, &state->current_format.info.h264.size),
+        PROP (&f[1], this->type.format_video.framerate, -SPA_POD_TYPE_FRACTION,  &state->current_format.info.h264.framerate),
         0);
   } else
     return SPA_RESULT_NO_FORMAT;

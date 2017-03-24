@@ -28,8 +28,8 @@ typedef struct _SpaAudioInfoRaw SpaAudioInfoRaw;
 
 #include <endian.h>
 
-#define SPA_TYPE_AudioFormat           "Spa:Enum:AudioFormat"
-#define SPA_TYPE_AUDIO_FORMAT_BASE     SPA_TYPE_AudioFormat ":"
+#define SPA_TYPE__AudioFormat                SPA_TYPE_ENUM_BASE "AudioFormat"
+#define SPA_TYPE_AUDIO_FORMAT_BASE           SPA_TYPE__AudioFormat ":"
 
 #define SPA_TYPE_AUDIO_FORMAT__UNKNOWN       SPA_TYPE_AUDIO_FORMAT_BASE "UNKNOWN"
 #define SPA_TYPE_AUDIO_FORMAT__ENCODED       SPA_TYPE_AUDIO_FORMAT_BASE "ENCODED"

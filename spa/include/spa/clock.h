@@ -26,7 +26,7 @@ extern "C" {
 
 typedef struct _SpaClock SpaClock;
 
-#define SPA_TYPE__Clock            "Spa:Interface:Clock"
+#define SPA_TYPE__Clock            SPA_TYPE_INTERFACE_BASE "Clock"
 #define SPA_TYPE_CLOCK_BASE        SPA_TYPE__Clock ":"
 
 /**

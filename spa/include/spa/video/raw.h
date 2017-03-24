@@ -34,7 +34,7 @@ typedef struct _SpaVideoInfoRaw SpaVideoInfoRaw;
 #define SPA_VIDEO_MAX_PLANES 4
 #define SPA_VIDEO_MAX_COMPONENTS 4
 
-#define SPA_TYPE__VideoFormat            "Spa:Enum:VideoFormat"
+#define SPA_TYPE__VideoFormat            SPA_TYPE_ENUM_BASE "VideoFormat"
 #define SPA_TYPE_VIDEO_FORMAT_BASE       SPA_TYPE__VideoFormat ":"
 
 #define SPA_TYPE_VIDEO_FORMAT__ENCODED        SPA_TYPE_VIDEO_FORMAT_BASE "encoded"

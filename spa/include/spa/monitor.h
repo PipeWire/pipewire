@@ -26,7 +26,7 @@ extern "C" {
 
 typedef struct _SpaMonitor SpaMonitor;
 
-#define SPA_TYPE__Monitor            "Spa:Interface:Monitor"
+#define SPA_TYPE__Monitor            SPA_TYPE_INTERFACE_BASE "Monitor"
 #define SPA_TYPE_MONITOR_BASE        SPA_TYPE__Monitor ":"
 
 #include <spa/defs.h>
@@ -42,8 +42,9 @@ typedef SpaEvent     SpaEventMonitor;
 #define SPA_TYPE_EVENT_MONITOR__Changed        SPA_TYPE_EVENT_MONITOR_BASE "Changed"
 
 typedef SpaPODObject SpaMonitorItem;
-#define SPA_TYPE__MonitorItem                  "Spa:Object:MonitorItem"
+#define SPA_TYPE__MonitorItem                  SPA_TYPE_POD_OBJECT_BASE "MonitorItem"
 #define SPA_TYPE_MONITOR_ITEM_BASE             SPA_TYPE__MonitorItem ":"
+
 #define SPA_TYPE_MONITOR_ITEM__id              SPA_TYPE_MONITOR_ITEM_BASE "id"
 #define SPA_TYPE_MONITOR_ITEM__flags           SPA_TYPE_MONITOR_ITEM_BASE "flags"
 #define SPA_TYPE_MONITOR_ITEM__state           SPA_TYPE_MONITOR_ITEM_BASE "state"

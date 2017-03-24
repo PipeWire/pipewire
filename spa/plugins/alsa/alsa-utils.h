@@ -74,7 +74,7 @@ typedef struct {
   SpaTypeMediaType media_type;
   SpaTypeMediaSubtype media_subtype;
   SpaTypeMediaSubtypeAudio media_subtype_audio;
-  SpaTypePropAudio prop_audio;
+  SpaTypeFormatAudio format_audio;
   SpaTypeAudioFormat audio_format;
   SpaTypeEventNode event_node;
   SpaTypeCommandNode command_node;
@@ -99,7 +99,7 @@ init_type (Type *type, SpaTypeMap *map)
   spa_type_media_type_map (map, &type->media_type);
   spa_type_media_subtype_map (map, &type->media_subtype);
   spa_type_media_subtype_audio_map (map, &type->media_subtype_audio);
-  spa_type_prop_audio_map (map, &type->prop_audio);
+  spa_type_format_audio_map (map, &type->format_audio);
   spa_type_audio_format_map (map, &type->audio_format);
   spa_type_event_node_map (map, &type->event_node);
   spa_type_command_node_map (map, &type->command_node);

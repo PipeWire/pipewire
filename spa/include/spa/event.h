@@ -29,7 +29,7 @@ typedef struct _SpaEvent SpaEvent;
 #include <spa/defs.h>
 #include <spa/pod.h>
 
-#define SPA_TYPE__Event            "Spa:Object:Event"
+#define SPA_TYPE__Event            SPA_TYPE_POD_OBJECT_BASE "Event"
 #define SPA_TYPE_EVENT_BASE        SPA_TYPE__Event ":"
 
 typedef struct {

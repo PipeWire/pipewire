@@ -24,7 +24,7 @@
 extern "C" {
 #endif
 
-#define SPA_TYPE__Format           "Spa:Object:Format"
+#define SPA_TYPE__Format           SPA_TYPE_POD_OBJECT_BASE "Format"
 #define SPA_TYPE_FORMAT_BASE       SPA_TYPE__Format ":"
 
 typedef struct _SpaFormat SpaFormat;
@@ -32,14 +32,14 @@ typedef struct _SpaFormat SpaFormat;
 #include <spa/defs.h>
 #include <spa/pod.h>
 
-#define SPA_TYPE__MediaType             "Spa:Enum:MediaType"
+#define SPA_TYPE__MediaType             SPA_TYPE_ENUM_BASE "MediaType"
 #define SPA_TYPE_MEDIA_TYPE_BASE        SPA_TYPE__MediaType ":"
 
 #define SPA_TYPE_MEDIA_TYPE__audio      SPA_TYPE_MEDIA_TYPE_BASE "audio"
 #define SPA_TYPE_MEDIA_TYPE__video      SPA_TYPE_MEDIA_TYPE_BASE "video"
 #define SPA_TYPE_MEDIA_TYPE__image      SPA_TYPE_MEDIA_TYPE_BASE "image"
 
-#define SPA_TYPE__MediaSubtype          "Spa:Enum:MediaSubtype"
+#define SPA_TYPE__MediaSubtype          SPA_TYPE_ENUM_BASE "MediaSubtype"
 #define SPA_TYPE_MEDIA_SUBTYPE_BASE     SPA_TYPE__MediaSubtype ":"
 
 /* generic subtypes */
@@ -77,8 +77,8 @@ typedef struct _SpaFormat SpaFormat;
 
 typedef struct {
   SpaPODObjectBody obj_body;
-  SpaPODURI        media_type           SPA_ALIGNED (8);
-  SpaPODURI        media_subtype        SPA_ALIGNED (8);
+  SpaPODId         media_type           SPA_ALIGNED (8);
+  SpaPODId         media_subtype        SPA_ALIGNED (8);
   /* contents follow, series of SpaPODProp */
 } SpaFormatBody;
 

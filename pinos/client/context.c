@@ -159,20 +159,20 @@ core_event_remove_id (void     *object,
 }
 
 static void
-core_event_update_uris (void          *object,
-                        uint32_t       first_id,
-                        uint32_t       n_uris,
-                        const char   **uris)
+core_event_update_types (void          *object,
+                         uint32_t       first_id,
+                         uint32_t       n_types,
+                         const char   **types)
 {
   PinosProxy *proxy = object;
   PinosContext *this = proxy->context;
   int i;
 
-  for (i = 0; i < n_uris; i++, first_id++) {
-    SpaType this_id = spa_type_map_get_id (this->type.map, uris[i]);
-    printf ("update %d %s -> %d\n", first_id, uris[i], this_id);
+  for (i = 0; i < n_types; i++, first_id++) {
+    SpaType this_id = spa_type_map_get_id (this->type.map, types[i]);
+    printf ("update %d %s -> %d\n", first_id, types[i], this_id);
     if (!pinos_map_insert_at (&this->types, first_id, SPA_UINT32_TO_PTR (this_id)))
-      pinos_log_error ("can't add uri for client");
+      pinos_log_error ("can't add type for client");
   }
 }
 
@@ -181,7 +181,7 @@ static const PinosCoreEvents core_events = {
   &core_event_done,
   &core_event_error,
   &core_event_remove_id,
-  &core_event_update_uris
+  &core_event_update_types
 };
 
 static void

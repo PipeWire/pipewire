@@ -49,7 +49,7 @@ typedef struct {
 
 typedef struct {
   uint32_t node;
-} URI;
+} Type;
 
 typedef struct {
   SpaNode *source;
@@ -72,10 +72,10 @@ typedef struct {
 
   SpaSupport support[2];
   uint32_t   n_support;
-  SpaIDMap *map;
+  SpaTypeMap *map;
   SpaLog *log;
   SpaPoll data_loop;
-  URI uri;
+  Type type;
 } AppData;
 
 static SpaResult
@@ -114,7 +114,7 @@ make_node (AppData *data, SpaNode **node, const char *lib, const char *name)
       printf ("can't make factory instance: %d\n", res);
       return res;
     }
-    if ((res = spa_handle_get_interface (handle, data->uri.node, &iface)) < 0) {
+    if ((res = spa_handle_get_interface (handle, data->type.node, &iface)) < 0) {
       printf ("can't get interface %d\n", res);
       return res;
     }
@@ -457,7 +457,7 @@ main (int argc, char *argv[])
 
   data.use_buffer = true;
 
-  data.map = spa_id_map_get_default ();
+  data.map = spa_type_map_get_default ();
 
   data.data_loop.size = sizeof (SpaPoll);
   data.data_loop.info = NULL;
@@ -465,13 +465,13 @@ main (int argc, char *argv[])
   data.data_loop.update_item = do_update_item;
   data.data_loop.remove_item = do_remove_item;
 
-  data.support[0].uri = SPA_TYPE__IDMap;
+  data.support[0].type = SPA_TYPE__TypeMap;
   data.support[0].data = data.map;
-  data.support[1].uri = SPA_TYPE_LOOP__DataLoop;
+  data.support[1].type = SPA_TYPE_LOOP__DataLoop;
   data.support[1].data = &data.data_loop;
   data.n_support = 2;
 
-  data.uri.node = spa_id_map_get_id (data.map, SPA_TYPE__Node);
+  data.type.node = spa_type_map_get_id (data.map, SPA_TYPE__Node);
 
   if (SDL_Init (SDL_INIT_VIDEO) < 0) {
     printf ("can't initialize SDL: %s\n", SDL_GetError ());

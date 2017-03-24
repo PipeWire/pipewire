@@ -30,8 +30,7 @@ typedef struct _SpaTypeMap SpaTypeMap;
 #include <spa/plugin.h>
 #include <spa/type.h>
 
-#define SPA_TYPE__TypeMap                      "Spa:Interface:TypeMap"
-#define SPA_TYPE_TYPE_MAP_BASE                 SPA_TYPE__TypeMap ":"
+#define SPA_TYPE__TypeMap                      SPA_TYPE_INTERFACE_BASE "TypeMap"
 
 /**
  * SpaTypeMap:

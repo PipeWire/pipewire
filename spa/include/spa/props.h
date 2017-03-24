@@ -29,7 +29,7 @@ extern "C" {
 
 typedef SpaPODObject SpaProps;
 
-#define SPA_TYPE__Props           "Spa:Object:Props"
+#define SPA_TYPE__Props           SPA_TYPE_POD_OBJECT_BASE "Props"
 #define SPA_TYPE_PROPS_BASE       SPA_TYPE__Props ":"
 
 #define SPA_TYPE_PROPS__device               SPA_TYPE_PROPS_BASE "device"

@@ -43,8 +43,8 @@ static struct {
   SpaTypeMediaSubtype media_subtype;
   SpaTypeMediaSubtypeVideo media_subtype_video;
   SpaTypeMediaSubtypeAudio media_subtype_audio;
-  SpaTypePropVideo prop_video;
-  SpaTypePropAudio prop_audio;
+  SpaTypeFormatVideo format_video;
+  SpaTypeFormatAudio format_audio;
   SpaTypeVideoFormat video_format;
   SpaTypeAudioFormat audio_format;
 } type = { 0, };
@@ -59,8 +59,8 @@ ensure_types (void)
   spa_type_media_subtype_map (map, &type.media_subtype);
   spa_type_media_subtype_video_map (map, &type.media_subtype_video);
   spa_type_media_subtype_audio_map (map, &type.media_subtype_audio);
-  spa_type_prop_video_map (map, &type.prop_video);
-  spa_type_prop_audio_map (map, &type.prop_audio);
+  spa_type_format_video_map (map, &type.format_video);
+  spa_type_format_audio_map (map, &type.format_audio);
   spa_type_video_format_map (map, &type.video_format);
   spa_type_audio_format_map (map, &type.audio_format);
 }
@@ -369,10 +369,10 @@ handle_video_fields (ConvertData *d)
     for (i = 0; (v = get_nth_string (value, i)); i++) {
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
-                                   type.prop_video.format,
+                                   type.format_video.format,
                                    get_range_type (value) | SPA_POD_PROP_FLAG_READWRITE);
 
-      spa_pod_builder_uri (&d->b, *video_format_map[gst_video_format_from_string (v)]);
+      spa_pod_builder_id (&d->b, *video_format_map[gst_video_format_from_string (v)]);
     }
     if (i > 1)
       SPA_POD_BUILDER_DEREF (&d->b, f.ref, SpaPODProp)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
@@ -385,7 +385,7 @@ handle_video_fields (ConvertData *d)
     for (i = 0; get_nth_rectangle (value, value2, i, &v); i++) {
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
-                                   type.prop_video.size,
+                                   type.format_video.size,
                                    get_range_type2 (value, value2) | SPA_POD_PROP_FLAG_READWRITE);
 
       spa_pod_builder_rectangle (&d->b, v.width, v.height);
@@ -401,7 +401,7 @@ handle_video_fields (ConvertData *d)
     for (i = 0; get_nth_fraction (value, i, &v); i++) {
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
-                                   type.prop_video.framerate,
+                                   type.format_video.framerate,
                                    get_range_type (value) | SPA_POD_PROP_FLAG_READWRITE);
 
       spa_pod_builder_fraction (&d->b, v.num, v.denom);
@@ -426,10 +426,10 @@ handle_audio_fields (ConvertData *d)
     for (i = 0; (v = get_nth_string (value, i)); i++) {
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
-                                   type.prop_audio.format,
+                                   type.format_audio.format,
                                    get_range_type (value) | SPA_POD_PROP_FLAG_READWRITE);
 
-      spa_pod_builder_uri (&d->b, *audio_format_map[gst_audio_format_from_string (v)]);
+      spa_pod_builder_id (&d->b, *audio_format_map[gst_audio_format_from_string (v)]);
     }
     if (i > 1)
       SPA_POD_BUILDER_DEREF (&d->b, f.ref, SpaPODProp)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
@@ -451,7 +451,7 @@ handle_audio_fields (ConvertData *d)
 
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
-                                   type.prop_audio.layout,
+                                   type.format_audio.layout,
                                    get_range_type (value) | SPA_POD_PROP_FLAG_READWRITE);
 
       spa_pod_builder_int (&d->b, layout);
@@ -466,7 +466,7 @@ handle_audio_fields (ConvertData *d)
     for (i = 0; get_nth_int (value, i, &v); i++) {
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
-                                   type.prop_audio.rate,
+                                   type.format_audio.rate,
                                    get_range_type (value) | SPA_POD_PROP_FLAG_READWRITE);
 
       spa_pod_builder_int (&d->b, v);
@@ -481,7 +481,7 @@ handle_audio_fields (ConvertData *d)
     for (i = 0; get_nth_int (value, i, &v); i++) {
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
-                                   type.prop_audio.channels,
+                                   type.format_audio.channels,
                                    get_range_type (value) | SPA_POD_PROP_FLAG_READWRITE);
 
       spa_pod_builder_int (&d->b, v);

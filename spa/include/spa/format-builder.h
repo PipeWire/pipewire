@@ -38,16 +38,16 @@ spa_pod_builder_push_format (SpaPODBuilder *builder,
 {
   const SpaFormat p = { { sizeof (SpaFormatBody), SPA_POD_TYPE_OBJECT },
                         { { 0, format_type },
-                        { { sizeof (uint32_t), SPA_POD_TYPE_URI }, media_type },
-                        { { sizeof (uint32_t), SPA_POD_TYPE_URI }, media_subtype } } };
+                        { { sizeof (uint32_t), SPA_POD_TYPE_ID }, media_type },
+                        { { sizeof (uint32_t), SPA_POD_TYPE_ID }, media_subtype } } };
   return spa_pod_builder_push (builder, frame, &p.pod,
                                spa_pod_builder_raw (builder, &p, sizeof(p)));
 }
 
 #define spa_pod_builder_format(b,f,format_type,media_type,media_subtype,...)    \
   spa_pod_builder_object(b, f, 0, format_type,                                  \
-                         SPA_POD_TYPE_URI,media_type,                           \
-                         SPA_POD_TYPE_URI,media_subtype,                        \
+                         SPA_POD_TYPE_ID,media_type,                           \
+                         SPA_POD_TYPE_ID,media_subtype,                        \
                          __VA_ARGS__)
 
 SpaResult

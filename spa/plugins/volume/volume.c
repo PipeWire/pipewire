@@ -69,7 +69,7 @@ typedef struct {
   uint32_t prop_mute;
   SpaTypeMediaType media_type;
   SpaTypeMediaSubtype media_subtype;
-  SpaTypePropAudio prop_audio;
+  SpaTypeFormatAudio format_audio;
   SpaTypeAudioFormat audio_format;
   SpaTypeEventNode event_node;
   SpaTypeCommandNode command_node;
@@ -87,7 +87,7 @@ init_type (Type *type, SpaTypeMap *map)
   type->prop_mute = spa_type_map_get_id (map, SPA_TYPE_PROPS__mute);
   spa_type_media_type_map (map, &type->media_type);
   spa_type_media_subtype_map (map, &type->media_subtype);
-  spa_type_prop_audio_map (map, &type->prop_audio);
+  spa_type_format_audio_map (map, &type->format_audio);
   spa_type_audio_format_map (map, &type->audio_format);
   spa_type_event_node_map (map, &type->event_node);
   spa_type_command_node_map (map, &type->command_node);
@@ -324,12 +324,12 @@ next:
     case 0:
       spa_pod_builder_format (&b, &f[0], this->type.format,
           this->type.media_type.audio, this->type.media_subtype.raw,
-          PROP_U_EN    (&f[1], this->type.prop_audio.format,   SPA_POD_TYPE_URI, 3,
+          PROP_U_EN    (&f[1], this->type.format_audio.format,   SPA_POD_TYPE_ID, 3,
                                                                 this->type.audio_format.S16,
                                                                 this->type.audio_format.S16,
                                                                 this->type.audio_format.S32),
-          PROP_U_MM    (&f[1], this->type.prop_audio.rate,     SPA_POD_TYPE_INT, 44100, 1, INT32_MAX),
-          PROP_U_MM    (&f[1], this->type.prop_audio.channels, SPA_POD_TYPE_INT, 2, 1, INT32_MAX));
+          PROP_U_MM    (&f[1], this->type.format_audio.rate,     SPA_POD_TYPE_INT, 44100, 1, INT32_MAX),
+          PROP_U_MM    (&f[1], this->type.format_audio.channels, SPA_POD_TYPE_INT, 2, 1, INT32_MAX));
 
       break;
     default:

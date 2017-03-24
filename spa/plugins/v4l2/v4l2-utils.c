@@ -389,10 +389,10 @@ enum_filter_format (Type *type, const SpaFormat *filter, uint32_t index)
       uint32_t n_values;
       const uint32_t *values;
 
-      if (!(p = spa_format_find_prop (filter, type->prop_video.format)))
+      if (!(p = spa_format_find_prop (filter, type->format_video.format)))
         return type->video_format.UNKNOWN;
 
-      if (p->body.value.type != SPA_POD_TYPE_URI)
+      if (p->body.value.type != SPA_POD_TYPE_ID)
         return type->video_format.UNKNOWN;
 
       values = SPA_POD_BODY_CONST (&p->body.value);
@@ -572,7 +572,7 @@ next_frmsize:
       SpaPODProp *p;
 
       /* check if we have a fixed frame size */
-      if (!(p = spa_format_find_prop (filter, this->type.prop_video.size)))
+      if (!(p = spa_format_find_prop (filter, this->type.format_video.size)))
         goto do_frmsize;
 
       if (p->body.value.type != SPA_POD_TYPE_RECTANGLE)
@@ -605,7 +605,7 @@ do_frmsize:
       uint32_t i, n_values;
 
       /* check if we have a fixed frame size */
-      if (!(p = spa_format_find_prop (filter, this->type.prop_video.size)))
+      if (!(p = spa_format_find_prop (filter, this->type.format_video.size)))
         goto have_size;
 
       range = p->body.flags & SPA_POD_PROP_RANGE_MASK;
@@ -668,16 +668,16 @@ have_size:
 
   if (media_subtype == this->type.media_subtype.raw) {
     spa_pod_builder_add (&b,
-        PROP (&f[1], this->type.prop_video.format, SPA_POD_TYPE_URI, video_format),
+        PROP (&f[1], this->type.format_video.format, SPA_POD_TYPE_ID, video_format),
         0);
   }
   spa_pod_builder_add (&b,
-      PROP (&f[1], this->type.prop_video.size, SPA_POD_TYPE_RECTANGLE, state->frmsize.discrete.width,
+      PROP (&f[1], this->type.format_video.size, SPA_POD_TYPE_RECTANGLE, state->frmsize.discrete.width,
                                                                       state->frmsize.discrete.height),
       0);
 
   spa_pod_builder_push_prop (&b, &f[1],
-                             this->type.prop_video.framerate,
+                             this->type.format_video.framerate,
                              SPA_POD_PROP_RANGE_NONE |
                              SPA_POD_PROP_FLAG_UNSET |
                              SPA_POD_PROP_FLAG_READWRITE);
@@ -705,7 +705,7 @@ have_size:
       uint32_t i, n_values;
       const SpaFraction step = { 1, 1 }, *values;
 
-      if (!(p = spa_format_find_prop (filter, this->type.prop_video.framerate)))
+      if (!(p = spa_format_find_prop (filter, this->type.format_video.framerate)))
         goto have_framerate;
 
       if (p->body.value.type != SPA_POD_TYPE_FRACTION)

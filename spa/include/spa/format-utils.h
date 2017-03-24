@@ -133,8 +133,8 @@ spa_type_media_subtype_audio_map (SpaTypeMap *map, SpaTypeMediaSubtypeAudio *typ
 #define SPA_FORMAT_INIT(size,type,media_type,media_subtype,...)         \
   { { size, SPA_POD_TYPE_OBJECT },                                      \
     { { 0, type },                                                      \
-        SPA_POD_URI_INIT (media_type),                                  \
-        SPA_POD_URI_INIT (media_subtype) } }
+        SPA_POD_ID_INIT (media_type),                                   \
+        SPA_POD_ID_INIT (media_subtype) } }
 
 #define SPA_FORMAT_BODY_FOREACH(body, size, iter) \
   for ((iter) = SPA_MEMBER ((body), sizeof (SpaFormatBody), SpaPODProp); \

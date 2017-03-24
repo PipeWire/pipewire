@@ -27,8 +27,8 @@ extern "C" {
 #include <spa/defs.h>
 #include <spa/dict.h>
 
-#define SPA_TYPE__Handle            "Spa:Interface:Handle"
-#define SPA_TYPE__HandleFactory     "Spa:Interface:HandleFactory"
+#define SPA_TYPE__Handle            SPA_TYPE_INTERFACE_BASE "Handle"
+#define SPA_TYPE__HandleFactory     SPA_TYPE_INTERFACE_BASE "HandleFactory"
 
 typedef struct _SpaHandle SpaHandle;
 typedef struct _SpaHandleFactory SpaHandleFactory;

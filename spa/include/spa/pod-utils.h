@@ -109,7 +109,7 @@ spa_pod_object_find_prop (const SpaPODObject *obj, uint32_t key)
     } else if ((pod)->type == type || (pod)->type == -type) {                           \
       switch (type) {                                                                   \
         case SPA_POD_TYPE_BOOL:                                                         \
-        case SPA_POD_TYPE_URI:                                                          \
+        case SPA_POD_TYPE_ID:                                                           \
         case SPA_POD_TYPE_INT:                                                          \
           *(va_arg (args, int32_t*)) = SPA_POD_VALUE(SpaPODInt, pod);                   \
           break;                                                                        \
@@ -175,7 +175,7 @@ spa_pod_object_find_prop (const SpaPODObject *obj, uint32_t key)
         va_arg (args, void*);                                                           \
         /* fallthrough */                                                               \
       case SPA_POD_TYPE_BOOL:                                                           \
-      case SPA_POD_TYPE_URI:                                                            \
+      case SPA_POD_TYPE_ID:                                                             \
       case SPA_POD_TYPE_INT:                                                            \
       case SPA_POD_TYPE_LONG:                                                           \
       case SPA_POD_TYPE_FLOAT:                                                          \

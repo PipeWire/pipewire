@@ -157,12 +157,12 @@ spa_pod_builder_bool (SpaPODBuilder *builder, bool val)
   return spa_pod_builder_primitive (builder, &p.pod);
 }
 
-#define SPA_POD_URI_INIT(val) { { sizeof (uint32_t), SPA_POD_TYPE_URI }, val }
+#define SPA_POD_ID_INIT(val) { { sizeof (uint32_t), SPA_POD_TYPE_ID }, val }
 
 static inline uint32_t
-spa_pod_builder_uri (SpaPODBuilder *builder, uint32_t val)
+spa_pod_builder_id (SpaPODBuilder *builder, uint32_t val)
 {
-  const SpaPODURI p = SPA_POD_URI_INIT (val);
+  const SpaPODId p = SPA_POD_ID_INIT (val);
   return spa_pod_builder_primitive (builder, &p.pod);
 }
 
@@ -332,7 +332,7 @@ spa_pod_builder_addv (SpaPODBuilder *builder,
   union {
     SpaPOD          pod;
     SpaPODBool      bool_pod;
-    SpaPODURI       uri_pod;
+    SpaPODId        id_pod;
     SpaPODInt       int_pod;
     SpaPODLong      long_pod;
     SpaPODFloat     float_pod;
@@ -361,7 +361,7 @@ spa_pod_builder_addv (SpaPODBuilder *builder,
       case SPA_POD_TYPE_NONE:
         break;
       case SPA_POD_TYPE_BOOL:
-      case SPA_POD_TYPE_URI:
+      case SPA_POD_TYPE_ID:
       case SPA_POD_TYPE_INT:
         head.int_pod.pod.type = type;
         head.int_pod.pod.size = body_size = sizeof (uint32_t);

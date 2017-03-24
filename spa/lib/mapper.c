@@ -26,11 +26,11 @@
 
 #include <lib/debug.h>
 
-#define MAX_URIS 4096
+#define MAX_TYPES 4096
 
 typedef struct {
   SpaTypeMap map;
-  char *types[MAX_URIS];
+  char *types[MAX_TYPES];
   unsigned int n_types;
 } TypeMap;
 

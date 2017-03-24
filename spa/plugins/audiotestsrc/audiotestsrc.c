@@ -50,7 +50,7 @@ typedef struct {
   uint32_t wave_square;
   SpaTypeMediaType media_type;
   SpaTypeMediaSubtype media_subtype;
-  SpaTypePropAudio prop_audio;
+  SpaTypeFormatAudio format_audio;
   SpaTypeAudioFormat audio_format;
   SpaTypeEventNode event_node;
   SpaTypeCommandNode command_node;
@@ -73,7 +73,7 @@ init_type (Type *type, SpaTypeMap *map)
   type->wave_square = spa_type_map_get_id (map, SPA_TYPE_PROPS__waveType ":square");
   spa_type_media_type_map (map, &type->media_type);
   spa_type_media_subtype_map (map, &type->media_subtype);
-  spa_type_prop_audio_map (map, &type->prop_audio);
+  spa_type_format_audio_map (map, &type->format_audio);
   spa_type_audio_format_map (map, &type->audio_format);
   spa_type_event_node_map (map, &type->event_node);
   spa_type_command_node_map (map, &type->command_node);
@@ -192,7 +192,7 @@ spa_audiotestsrc_node_get_props (SpaNode       *node,
   spa_pod_builder_init (&b, this->props_buffer, sizeof (this->props_buffer));
   spa_pod_builder_props (&b, &f[0], this->type.props,
     PROP    (&f[1], this->type.prop_live,   SPA_POD_TYPE_BOOL,   this->props.live),
-    PROP_EN (&f[1], this->type.prop_wave,   SPA_POD_TYPE_URI, 3, this->props.wave,
+    PROP_EN (&f[1], this->type.prop_wave,   SPA_POD_TYPE_ID,  3, this->props.wave,
                                                                 this->type.wave_sine,
                                                                 this->type.wave_square),
     PROP_MM (&f[1], this->type.prop_freq,   SPA_POD_TYPE_DOUBLE, this->props.freq,
@@ -221,7 +221,7 @@ spa_audiotestsrc_node_set_props (SpaNode         *node,
   } else {
     spa_props_query (props,
         this->type.prop_live,   SPA_POD_TYPE_BOOL,   &this->props.live,
-        this->type.prop_wave,   SPA_POD_TYPE_URI,    &this->props.wave,
+        this->type.prop_wave,   SPA_POD_TYPE_ID,     &this->props.wave,
         this->type.prop_freq,   SPA_POD_TYPE_DOUBLE, &this->props.freq,
         this->type.prop_volume, SPA_POD_TYPE_DOUBLE, &this->props.volume,
         0);
@@ -486,11 +486,11 @@ next:
     case 0:
       spa_pod_builder_format (&b, &f[0], this->type.format,
           this->type.media_type.audio, this->type.media_subtype.raw,
-          PROP_U_EN (&f[1], this->type.prop_audio.format,   SPA_POD_TYPE_URI, 3, this->type.audio_format.S16,
+          PROP_U_EN (&f[1], this->type.format_audio.format,   SPA_POD_TYPE_ID,  3, this->type.audio_format.S16,
                                                                                 this->type.audio_format.S16,
                                                                                 this->type.audio_format.S32),
-          PROP_U_MM (&f[1], this->type.prop_audio.rate,     SPA_POD_TYPE_INT, 44100, 1, INT32_MAX),
-          PROP_U_MM (&f[1], this->type.prop_audio.channels, SPA_POD_TYPE_INT, 2,     1, INT32_MAX));
+          PROP_U_MM (&f[1], this->type.format_audio.rate,     SPA_POD_TYPE_INT, 44100, 1, INT32_MAX),
+          PROP_U_MM (&f[1], this->type.format_audio.channels, SPA_POD_TYPE_INT, 2,     1, INT32_MAX));
       break;
     default:
       return SPA_RESULT_ENUM_END;
@@ -604,9 +604,9 @@ spa_audiotestsrc_node_port_get_format (SpaNode          *node,
   spa_pod_builder_init (&b, this->format_buffer, sizeof (this->format_buffer));
   spa_pod_builder_format (&b, &f[0], this->type.format,
          this->type.media_type.audio, this->type.media_subtype.raw,
-         PROP (&f[1], this->type.prop_audio.format,   SPA_POD_TYPE_URI, this->current_format.info.raw.format),
-         PROP (&f[1], this->type.prop_audio.rate,     SPA_POD_TYPE_INT, this->current_format.info.raw.rate),
-         PROP (&f[1], this->type.prop_audio.channels, SPA_POD_TYPE_INT, this->current_format.info.raw.channels));
+         PROP (&f[1], this->type.format_audio.format,   SPA_POD_TYPE_ID,  this->current_format.info.raw.format),
+         PROP (&f[1], this->type.format_audio.rate,     SPA_POD_TYPE_INT, this->current_format.info.raw.rate),
+         PROP (&f[1], this->type.format_audio.channels, SPA_POD_TYPE_INT, this->current_format.info.raw.channels));
 
   *format = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
 

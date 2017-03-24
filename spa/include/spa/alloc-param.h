@@ -30,7 +30,7 @@ typedef struct _SpaAllocParam SpaAllocParam;
 #include <spa/type-map.h>
 #include <spa/pod-utils.h>
 
-#define SPA_TYPE__AllocParam           "Spa:Object:AllocParam"
+#define SPA_TYPE__AllocParam            SPA_TYPE_POD_OBJECT_BASE "AllocParam"
 #define SPA_TYPE_ALLOC_PARAM_BASE       SPA_TYPE__AllocParam ":"
 
 typedef struct {

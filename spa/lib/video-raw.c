@@ -34,13 +34,13 @@ spa_format_video_parse (const SpaFormat       *format,
   static SpaTypeMediaType media_type = { 0, };
   static SpaTypeMediaSubtype media_subtype = { 0, };
   static SpaTypeMediaSubtypeVideo media_subtype_video = { 0, };
-  static SpaTypePropVideo prop_video = { 0, };
+  static SpaTypeFormatVideo format_video = { 0, };
   SpaTypeMap *map = spa_type_map_get_default ();
 
   spa_type_media_type_map (map, &media_type);
   spa_type_media_subtype_map (map, &media_subtype);
   spa_type_media_subtype_video_map (map, &media_subtype_video);
-  spa_type_prop_video_map (map, &prop_video);
+  spa_type_format_video_map (map, &format_video);
 
   if (format->body.media_type.value != media_type.video)
     return SPA_RESULT_INVALID_MEDIA_TYPE;
@@ -50,32 +50,32 @@ spa_format_video_parse (const SpaFormat       *format,
 
   if (info->media_subtype == media_subtype.raw)
     spa_format_query (format,
-        prop_video.format,             SPA_POD_TYPE_URI,       &info->info.raw.format,
-        prop_video.size,               SPA_POD_TYPE_RECTANGLE, &info->info.raw.size,
-        prop_video.framerate,          SPA_POD_TYPE_FRACTION,  &info->info.raw.framerate,
-        prop_video.max_framerate,      SPA_POD_TYPE_FRACTION,  &info->info.raw.max_framerate,
-        prop_video.views,              SPA_POD_TYPE_INT,       &info->info.raw.views,
-        prop_video.interlace_mode,     SPA_POD_TYPE_INT,       &info->info.raw.interlace_mode,
-        prop_video.pixel_aspect_ratio, SPA_POD_TYPE_FRACTION,  &info->info.raw.pixel_aspect_ratio,
-        prop_video.multiview_mode,     SPA_POD_TYPE_INT,       &info->info.raw.multiview_mode,
-        prop_video.multiview_flags,    SPA_POD_TYPE_INT,       &info->info.raw.multiview_flags,
-        prop_video.chroma_site,        SPA_POD_TYPE_INT,       &info->info.raw.chroma_site,
-        prop_video.color_range,        SPA_POD_TYPE_INT,       &info->info.raw.color_range,
-        prop_video.color_matrix,       SPA_POD_TYPE_INT,       &info->info.raw.color_matrix,
-        prop_video.transfer_function,  SPA_POD_TYPE_INT,       &info->info.raw.transfer_function,
-        prop_video.color_primaries,    SPA_POD_TYPE_INT,       &info->info.raw.color_primaries,
+        format_video.format,             SPA_POD_TYPE_ID,        &info->info.raw.format,
+        format_video.size,               SPA_POD_TYPE_RECTANGLE, &info->info.raw.size,
+        format_video.framerate,          SPA_POD_TYPE_FRACTION,  &info->info.raw.framerate,
+        format_video.max_framerate,      SPA_POD_TYPE_FRACTION,  &info->info.raw.max_framerate,
+        format_video.views,              SPA_POD_TYPE_INT,       &info->info.raw.views,
+        format_video.interlace_mode,     SPA_POD_TYPE_INT,       &info->info.raw.interlace_mode,
+        format_video.pixel_aspect_ratio, SPA_POD_TYPE_FRACTION,  &info->info.raw.pixel_aspect_ratio,
+        format_video.multiview_mode,     SPA_POD_TYPE_INT,       &info->info.raw.multiview_mode,
+        format_video.multiview_flags,    SPA_POD_TYPE_INT,       &info->info.raw.multiview_flags,
+        format_video.chroma_site,        SPA_POD_TYPE_INT,       &info->info.raw.chroma_site,
+        format_video.color_range,        SPA_POD_TYPE_INT,       &info->info.raw.color_range,
+        format_video.color_matrix,       SPA_POD_TYPE_INT,       &info->info.raw.color_matrix,
+        format_video.transfer_function,  SPA_POD_TYPE_INT,       &info->info.raw.transfer_function,
+        format_video.color_primaries,    SPA_POD_TYPE_INT,       &info->info.raw.color_primaries,
         0);
   else if (info->media_subtype == media_subtype_video.h264)
     spa_format_query (format,
-        prop_video.size,               SPA_POD_TYPE_RECTANGLE, &info->info.h264.size,
-        prop_video.framerate,          SPA_POD_TYPE_FRACTION,  &info->info.h264.framerate,
-        prop_video.max_framerate,      SPA_POD_TYPE_FRACTION,  &info->info.h264.max_framerate,
+        format_video.size,               SPA_POD_TYPE_RECTANGLE, &info->info.h264.size,
+        format_video.framerate,          SPA_POD_TYPE_FRACTION,  &info->info.h264.framerate,
+        format_video.max_framerate,      SPA_POD_TYPE_FRACTION,  &info->info.h264.max_framerate,
         0);
   else if (info->media_subtype == media_subtype_video.mjpg)
     spa_format_query (format,
-        prop_video.size,               SPA_POD_TYPE_RECTANGLE, &info->info.mjpg.size,
-        prop_video.framerate,          SPA_POD_TYPE_FRACTION,  &info->info.mjpg.framerate,
-        prop_video.max_framerate,      SPA_POD_TYPE_FRACTION,  &info->info.mjpg.max_framerate,
+        format_video.size,               SPA_POD_TYPE_RECTANGLE, &info->info.mjpg.size,
+        format_video.framerate,          SPA_POD_TYPE_FRACTION,  &info->info.mjpg.framerate,
+        format_video.max_framerate,      SPA_POD_TYPE_FRACTION,  &info->info.mjpg.max_framerate,
         0);
   else
     return SPA_RESULT_NOT_IMPLEMENTED;

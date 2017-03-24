@@ -48,7 +48,7 @@ typedef struct {
   uint32_t pattern_snow;
   SpaTypeMediaType media_type;
   SpaTypeMediaSubtype media_subtype;
-  SpaTypePropVideo prop_video;
+  SpaTypeFormatVideo format_video;
   SpaTypeVideoFormat video_format;
   SpaTypeEventNode event_node;
   SpaTypeCommandNode command_node;
@@ -69,7 +69,7 @@ init_type (Type *type, SpaTypeMap *map)
   type->pattern_snow = spa_type_map_get_id (map, SPA_TYPE_PROPS__patternType ":snow");
   spa_type_media_type_map (map, &type->media_type);
   spa_type_media_subtype_map (map, &type->media_subtype);
-  spa_type_prop_video_map (map, &type->prop_video);
+  spa_type_format_video_map (map, &type->format_video);
   spa_type_video_format_map (map, &type->video_format);
   spa_type_event_node_map (map, &type->event_node);
   spa_type_command_node_map (map, &type->command_node);
@@ -184,7 +184,7 @@ spa_videotestsrc_node_get_props (SpaNode       *node,
 
   spa_pod_builder_props (&b, &f[0], this->type.props,
     PROP    (&f[1], this->type.prop_live,      SPA_POD_TYPE_BOOL, this->props.live),
-    PROP_EN (&f[1], this->type.prop_pattern,   SPA_POD_TYPE_URI, 3,
+    PROP_EN (&f[1], this->type.prop_pattern,   SPA_POD_TYPE_ID,  3,
                                                         this->props.pattern,
                                                         this->type.pattern_smpte_snow,
                                                         this->type.pattern_snow));
@@ -210,7 +210,7 @@ spa_videotestsrc_node_set_props (SpaNode         *node,
   } else {
     spa_props_query (props,
         this->type.prop_live,     SPA_POD_TYPE_BOOL,   &this->props.live,
-        this->type.prop_pattern,  SPA_POD_TYPE_URI,    &this->props.pattern,
+        this->type.prop_pattern,  SPA_POD_TYPE_ID,     &this->props.pattern,
         0);
   }
 
@@ -467,15 +467,15 @@ next:
     case 0:
       spa_pod_builder_format (&b, &f[0], this->type.format,
          this->type.media_type.video, this->type.media_subtype.raw,
-         PROP_U_EN (&f[1], this->type.prop_video.format,    SPA_POD_TYPE_URI, 3,
+         PROP_U_EN (&f[1], this->type.format_video.format,    SPA_POD_TYPE_ID,  3,
                                                              this->type.video_format.RGB,
                                                              this->type.video_format.RGB,
                                                              this->type.video_format.UYVY),
-         PROP_U_MM (&f[1], this->type.prop_video.size,      SPA_POD_TYPE_RECTANGLE,
+         PROP_U_MM (&f[1], this->type.format_video.size,      SPA_POD_TYPE_RECTANGLE,
                                                              320, 240,
                                                              1, 1,
                                                              INT32_MAX, INT32_MAX),
-         PROP_U_MM (&f[1], this->type.prop_video.framerate, SPA_POD_TYPE_FRACTION,
+         PROP_U_MM (&f[1], this->type.format_video.framerate, SPA_POD_TYPE_FRACTION,
                                                              25, 1,
                                                              0, 1,
                                                              INT32_MAX, 1));
@@ -605,9 +605,9 @@ spa_videotestsrc_node_port_get_format (SpaNode          *node,
 
   spa_pod_builder_format (&b, &f[0], this->type.format,
      this->type.media_type.video, this->type.media_subtype.raw,
-     PROP (&f[1], this->type.prop_video.format,     SPA_POD_TYPE_URI,       this->current_format.info.raw.format),
-     PROP (&f[1], this->type.prop_video.size,      -SPA_POD_TYPE_RECTANGLE, &this->current_format.info.raw.size),
-     PROP (&f[1], this->type.prop_video.framerate, -SPA_POD_TYPE_FRACTION,  &this->current_format.info.raw.framerate));
+     PROP (&f[1], this->type.format_video.format,     SPA_POD_TYPE_ID,        this->current_format.info.raw.format),
+     PROP (&f[1], this->type.format_video.size,      -SPA_POD_TYPE_RECTANGLE, &this->current_format.info.raw.size),
+     PROP (&f[1], this->type.format_video.framerate, -SPA_POD_TYPE_FRACTION,  &this->current_format.info.raw.framerate));
   *format = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
 
   return SPA_RESULT_OK;

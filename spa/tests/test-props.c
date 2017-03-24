@@ -269,5 +269,11 @@ main (int argc, char *argv[])
 
   do_static_struct ();
 
+  printf ("%d\n", spa_type_is_a (SPA_TYPE__MediaType, SPA_TYPE_ENUM_BASE));
+  printf ("%d\n", spa_type_is_a (SPA_TYPE__MediaSubtype, SPA_TYPE_ENUM_BASE));
+  printf ("%d\n", spa_type_is_a (SPA_TYPE__Format, SPA_TYPE_ENUM_BASE));
+  printf ("%d\n", spa_type_is_a (SPA_TYPE__Format, SPA_TYPE_POD_BASE));
+  printf ("%d\n", spa_type_is_a (SPA_TYPE__Format, SPA_TYPE_POD_OBJECT_BASE));
+
   return 0;
 }

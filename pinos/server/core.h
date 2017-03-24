@@ -29,7 +29,7 @@ typedef struct _PinosGlobal PinosGlobal;
 
 #include <spa/include/spa/log.h>
 
-#include <pinos/client/uri.h>
+#include <pinos/client/type.h>
 
 #include <pinos/server/access.h>
 #include <pinos/server/main-loop.h>
@@ -68,7 +68,7 @@ struct _PinosCore {
 
   PinosProperties *properties;
 
-  PinosURI uri;
+  PinosType type;
   PinosAccess access;
 
   PinosMap objects;

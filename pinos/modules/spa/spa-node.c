@@ -81,7 +81,7 @@ pinos_spa_node_load (PinosCore  *core,
     goto init_failed;
   }
   if ((res = spa_handle_get_interface (handle,
-                                       core->uri.spa_node,
+                                       core->type.spa_node,
                                        &iface)) < 0) {
     pinos_log_error ("can't get interface %d", res);
     goto interface_failed;
@@ -89,7 +89,7 @@ pinos_spa_node_load (PinosCore  *core,
   spa_node = iface;
 
   if ((res = spa_handle_get_interface (handle,
-                                       core->uri.spa_clock,
+                                       core->type.spa_clock,
                                        &iface)) < 0) {
     iface = NULL;
   }

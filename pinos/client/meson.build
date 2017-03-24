@@ -15,7 +15,7 @@ pinos_headers = [
   'subscribe.h',
   'thread-mainloop.h',
   'transport.h',
-  'uri.h',
+  'type.h',
   'utils.h',
 ]
 
@@ -35,7 +35,7 @@ pinos_sources = [
   'rtkit.c',
   'thread-mainloop.c',
   'transport.c',
-  'uri.c',
+  'type.c',
   'utils.c',
 ]
 

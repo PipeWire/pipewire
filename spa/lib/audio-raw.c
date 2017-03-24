@@ -30,23 +30,24 @@ SpaResult
 spa_format_audio_parse (const SpaFormat *format,
                         SpaAudioInfo    *info)
 {
-  static SpaMediaTypes media_types = { 0, };
-  static SpaMediaSubtypes media_subtypes = { 0, };
-  static SpaMediaSubtypesAudio media_subtypes_audio = { 0, };
-  static SpaPropAudio prop_audio = { 0, };
+  static SpaTypeMediaType media_type = { 0, };
+  static SpaTypeMediaSubtype media_subtype = { 0, };
+  static SpaTypeMediaSubtypeAudio media_subtype_audio = { 0, };
+  static SpaTypePropAudio prop_audio = { 0, };
+  SpaTypeMap *map = spa_type_map_get_default();
 
-  spa_media_types_fill (&media_types, spa_id_map_get_default());
-  spa_media_subtypes_map (spa_id_map_get_default(), &media_subtypes);
-  spa_media_subtypes_audio_map (spa_id_map_get_default (), &media_subtypes_audio);
-  spa_prop_audio_map (spa_id_map_get_default (), &prop_audio);
+  spa_type_media_type_map (map, &media_type);
+  spa_type_media_subtype_map (map, &media_subtype);
+  spa_type_media_subtype_audio_map (map, &media_subtype_audio);
+  spa_type_prop_audio_map (map, &prop_audio);
 
-  if (format->body.media_type.value != media_types.audio)
+  if (format->body.media_type.value != media_type.audio)
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
   info->media_type = format->body.media_type.value;
   info->media_subtype = format->body.media_subtype.value;
 
-  if (info->media_subtype == media_subtypes.raw) {
+  if (info->media_subtype == media_subtype.raw) {
     spa_format_query (format,
         prop_audio.format,       SPA_POD_TYPE_URI, &info->info.raw.format,
         prop_audio.flags,        SPA_POD_TYPE_INT, &info->info.raw.flags,

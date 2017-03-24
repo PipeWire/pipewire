@@ -82,13 +82,13 @@ spa_alsa_sink_node_get_props (SpaNode       *node,
 
   spa_pod_builder_init (&b, this->props_buffer, sizeof (this->props_buffer));
 
-  spa_pod_builder_props (&b, &f[0], this->uri.props,
-        PROP    (&f[1], this->uri.prop_device,      -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device)),
-        PROP    (&f[1], this->uri.prop_device_name, -SPA_POD_TYPE_STRING, this->props.device_name, sizeof (this->props.device_name)),
-        PROP    (&f[1], this->uri.prop_card_name,   -SPA_POD_TYPE_STRING, this->props.card_name, sizeof (this->props.card_name)),
-        PROP_MM (&f[1], this->uri.prop_period_size,  SPA_POD_TYPE_INT,    this->props.period_size, 1, INT32_MAX),
-        PROP_MM (&f[1], this->uri.prop_periods,      SPA_POD_TYPE_INT,    this->props.periods, 1, INT32_MAX),
-        PROP    (&f[1], this->uri.prop_period_event, SPA_POD_TYPE_BOOL,   this->props.period_event));
+  spa_pod_builder_props (&b, &f[0], this->type.props,
+        PROP    (&f[1], this->type.prop_device,      -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device)),
+        PROP    (&f[1], this->type.prop_device_name, -SPA_POD_TYPE_STRING, this->props.device_name, sizeof (this->props.device_name)),
+        PROP    (&f[1], this->type.prop_card_name,   -SPA_POD_TYPE_STRING, this->props.card_name, sizeof (this->props.card_name)),
+        PROP_MM (&f[1], this->type.prop_period_size,  SPA_POD_TYPE_INT,    this->props.period_size, 1, INT32_MAX),
+        PROP_MM (&f[1], this->type.prop_periods,      SPA_POD_TYPE_INT,    this->props.periods, 1, INT32_MAX),
+        PROP    (&f[1], this->type.prop_period_event, SPA_POD_TYPE_BOOL,   this->props.period_event));
 
   *props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
 
@@ -111,10 +111,10 @@ spa_alsa_sink_node_set_props (SpaNode         *node,
     return SPA_RESULT_OK;
   } else {
     spa_props_query (props,
-        this->uri.prop_device,      -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device),
-        this->uri.prop_period_size,  SPA_POD_TYPE_INT,    &this->props.period_size,
-        this->uri.prop_periods,      SPA_POD_TYPE_INT,    &this->props.periods,
-        this->uri.prop_period_event, SPA_POD_TYPE_BOOL,   &this->props.period_event,
+        this->type.prop_device,      -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device),
+        this->type.prop_period_size,  SPA_POD_TYPE_INT,    &this->props.period_size,
+        this->type.prop_periods,      SPA_POD_TYPE_INT,    &this->props.periods,
+        this->type.prop_period_event, SPA_POD_TYPE_BOOL,   &this->props.period_event,
         0);
   }
   return SPA_RESULT_OK;
@@ -147,8 +147,8 @@ do_command (SpaLoop        *loop,
   SpaResult res;
   SpaCommand *cmd = data;
 
-  if (SPA_COMMAND_TYPE (cmd) == this->uri.command_node.Start ||
-      SPA_COMMAND_TYPE (cmd) == this->uri.command_node.Pause) {
+  if (SPA_COMMAND_TYPE (cmd) == this->type.command_node.Start ||
+      SPA_COMMAND_TYPE (cmd) == this->type.command_node.Pause) {
     res = spa_node_port_send_command (&this->node,
                                       SPA_DIRECTION_INPUT,
                                       0,
@@ -158,7 +158,7 @@ do_command (SpaLoop        *loop,
     res = SPA_RESULT_NOT_IMPLEMENTED;
 
   if (async) {
-    SpaEventNodeAsyncComplete ac = SPA_EVENT_NODE_ASYNC_COMPLETE_INIT (this->uri.event_node.AsyncComplete,
+    SpaEventNodeAsyncComplete ac = SPA_EVENT_NODE_ASYNC_COMPLETE_INIT (this->type.event_node.AsyncComplete,
                                                                        seq, res);
     spa_loop_invoke (this->main_loop,
                      do_send_event,
@@ -181,8 +181,8 @@ spa_alsa_sink_node_send_command (SpaNode    *node,
 
   this = SPA_CONTAINER_OF (node, SpaALSASink, node);
 
-  if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Start ||
-      SPA_COMMAND_TYPE (command) == this->uri.command_node.Pause) {
+  if (SPA_COMMAND_TYPE (command) == this->type.command_node.Start ||
+      SPA_COMMAND_TYPE (command) == this->type.command_node.Pause) {
     if (!this->have_format)
       return SPA_RESULT_NO_FORMAT;
 
@@ -302,17 +302,17 @@ next:
 
   switch (index++) {
     case 0:
-      spa_pod_builder_format (&b, &f[0], this->uri.format,
-        this->uri.media_types.audio, this->uri.media_subtypes.raw,
-        PROP_U_EN (&f[1], this->uri.prop_audio.format,   SPA_POD_TYPE_URI, 3, this->uri.audio_formats.S16,
-                                                                              this->uri.audio_formats.S16,
-                                                                              this->uri.audio_formats.S32),
-        PROP_U_MM (&f[1], this->uri.prop_audio.rate,     SPA_POD_TYPE_INT, 44100, 1, INT32_MAX),
-        PROP_U_MM (&f[1], this->uri.prop_audio.channels, SPA_POD_TYPE_INT, 2,     1, INT32_MAX));
+      spa_pod_builder_format (&b, &f[0], this->type.format,
+        this->type.media_type.audio, this->type.media_subtype.raw,
+        PROP_U_EN (&f[1], this->type.prop_audio.format,   SPA_POD_TYPE_URI, 3, this->type.audio_format.S16,
+                                                                              this->type.audio_format.S16,
+                                                                              this->type.audio_format.S32),
+        PROP_U_MM (&f[1], this->type.prop_audio.rate,     SPA_POD_TYPE_INT, 44100, 1, INT32_MAX),
+        PROP_U_MM (&f[1], this->type.prop_audio.channels, SPA_POD_TYPE_INT, 2,     1, INT32_MAX));
       break;
     case 1:
-      spa_pod_builder_format (&b, &f[0], this->uri.format,
-        this->uri.media_types.audio, this->uri.media_subtypes_audio.aac,
+      spa_pod_builder_format (&b, &f[0], this->type.format,
+        this->type.media_type.audio, this->type.media_subtype_audio.aac,
         SPA_POD_TYPE_NONE);
       break;
     default:
@@ -385,23 +385,23 @@ spa_alsa_sink_node_port_set_format (SpaNode            *node,
   this->info.params = this->params;
 
   spa_pod_builder_init (&b, this->params_buffer, sizeof (this->params_buffer));
-  spa_pod_builder_object (&b, &f[0], 0, this->uri.alloc_param_buffers.Buffers,
-      PROP    (&f[1], this->uri.alloc_param_buffers.size,    SPA_POD_TYPE_INT, this->period_frames * this->frame_size),
-      PROP    (&f[1], this->uri.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, 0),
-      PROP_MM (&f[1], this->uri.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, 32, 1, 32),
-      PROP    (&f[1], this->uri.alloc_param_buffers.align,   SPA_POD_TYPE_INT, 16));
+  spa_pod_builder_object (&b, &f[0], 0, this->type.alloc_param_buffers.Buffers,
+      PROP    (&f[1], this->type.alloc_param_buffers.size,    SPA_POD_TYPE_INT, this->period_frames * this->frame_size),
+      PROP    (&f[1], this->type.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, 0),
+      PROP_MM (&f[1], this->type.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, 32, 1, 32),
+      PROP    (&f[1], this->type.alloc_param_buffers.align,   SPA_POD_TYPE_INT, 16));
   this->params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
-  spa_pod_builder_object (&b, &f[0], 0, this->uri.alloc_param_meta_enable.MetaEnable,
-      PROP    (&f[1], this->uri.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, SPA_META_TYPE_HEADER));
+  spa_pod_builder_object (&b, &f[0], 0, this->type.alloc_param_meta_enable.MetaEnable,
+      PROP    (&f[1], this->type.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, SPA_META_TYPE_HEADER));
   this->params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
-  spa_pod_builder_object (&b, &f[0], 0, this->uri.alloc_param_meta_enable.MetaEnable,
-      PROP    (&f[1], this->uri.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, SPA_META_TYPE_RINGBUFFER),
-      PROP    (&f[1], this->uri.alloc_param_meta_enable.ringbufferSize,   SPA_POD_TYPE_INT, this->period_frames * this->frame_size * 32),
-      PROP    (&f[1], this->uri.alloc_param_meta_enable.ringbufferStride, SPA_POD_TYPE_INT, 0),
-      PROP    (&f[1], this->uri.alloc_param_meta_enable.ringbufferBlocks, SPA_POD_TYPE_INT, 1),
-      PROP    (&f[1], this->uri.alloc_param_meta_enable.ringbufferAlign,  SPA_POD_TYPE_INT, 16));
+  spa_pod_builder_object (&b, &f[0], 0, this->type.alloc_param_meta_enable.MetaEnable,
+      PROP    (&f[1], this->type.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, SPA_META_TYPE_RINGBUFFER),
+      PROP    (&f[1], this->type.alloc_param_meta_enable.ringbufferSize,   SPA_POD_TYPE_INT, this->period_frames * this->frame_size * 32),
+      PROP    (&f[1], this->type.alloc_param_meta_enable.ringbufferStride, SPA_POD_TYPE_INT, 0),
+      PROP    (&f[1], this->type.alloc_param_meta_enable.ringbufferBlocks, SPA_POD_TYPE_INT, 1),
+      PROP    (&f[1], this->type.alloc_param_meta_enable.ringbufferAlign,  SPA_POD_TYPE_INT, 16));
   this->params[2] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
   this->info.extra = NULL;
 
@@ -612,12 +612,12 @@ spa_alsa_sink_node_port_send_command (SpaNode          *node,
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
 
-  if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Pause) {
+  if (SPA_COMMAND_TYPE (command) == this->type.command_node.Pause) {
     if (SPA_RESULT_IS_OK (res = spa_alsa_pause (this, false))) {
       update_state (this, SPA_NODE_STATE_PAUSED);
     }
   }
-  else if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Start) {
+  else if (SPA_COMMAND_TYPE (command) == this->type.command_node.Start) {
     if (SPA_RESULT_IS_OK (res = spa_alsa_start (this, false))) {
       update_state (this, SPA_NODE_STATE_STREAMING);
     }
@@ -720,7 +720,7 @@ spa_alsa_sink_get_interface (SpaHandle               *handle,
 
   this = (SpaALSASink *) handle;
 
-  if (interface_id == this->uri.node)
+  if (interface_id == this->type.node)
     *interface = &this->node;
   else
     return SPA_RESULT_UNKNOWN_INTERFACE;
@@ -753,20 +753,20 @@ alsa_sink_init (const SpaHandleFactory  *factory,
   this = (SpaALSASink *) handle;
 
   for (i = 0; i < n_support; i++) {
-    if (strcmp (support[i].uri, SPA_TYPE__IDMap) == 0)
+    if (strcmp (support[i].type, SPA_TYPE__TypeMap) == 0)
       this->map = support[i].data;
-    else if (strcmp (support[i].uri, SPA_TYPE__Log) == 0)
+    else if (strcmp (support[i].type, SPA_TYPE__Log) == 0)
       this->log = support[i].data;
-    else if (strcmp (support[i].uri, SPA_TYPE_LOOP__DataLoop) == 0)
+    else if (strcmp (support[i].type, SPA_TYPE_LOOP__DataLoop) == 0)
       this->data_loop = support[i].data;
-    else if (strcmp (support[i].uri, SPA_TYPE_LOOP__MainLoop) == 0)
+    else if (strcmp (support[i].type, SPA_TYPE_LOOP__MainLoop) == 0)
       this->main_loop = support[i].data;
   }
   if (this->map == NULL) {
     spa_log_error (this->log, "an id-map is needed");
     return SPA_RESULT_ERROR;
   }
-  init_uri (&this->uri, this->map);
+  init_type (&this->type, this->map);
 
   this->node = alsasink_node;
   this->stream = SND_PCM_STREAM_PLAYBACK;

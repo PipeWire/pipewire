@@ -111,7 +111,7 @@ core_get_registry (void     *object,
 
   registry_resource = pinos_resource_new (client,
                                           new_id,
-                                          this->uri.registry,
+                                          this->type.registry,
                                           this,
                                           destroy_registry_resource);
   if (registry_resource == NULL)
@@ -124,7 +124,7 @@ core_get_registry (void     *object,
   spa_list_for_each (global, &this->global_list, link)
     pinos_registry_notify_global (registry_resource,
                                   global->id,
-                                  spa_id_map_get_uri (this->uri.map, global->type));
+                                  spa_type_map_get_type (this->type.map, global->type));
 
   return;
 
@@ -203,21 +203,21 @@ no_mem:
 }
 
 static void
-core_update_uris (void          *object,
-                  uint32_t       first_id,
-                  uint32_t       n_uris,
-                  const char   **uris)
+core_update_types (void          *object,
+                   uint32_t       first_id,
+                   uint32_t       n_types,
+                   const char   **types)
 {
   PinosResource *resource = object;
   PinosCore *this = resource->core;
   PinosClient *client = resource->client;
   int i;
 
-  for (i = 0; i < n_uris; i++, first_id++) {
-    uint32_t this_id = spa_id_map_get_id (this->uri.map, uris[i]);
-    printf ("update %d %s -> %d\n", first_id, uris[i], this_id);
-    if (!pinos_map_insert_at (&client->uris, first_id, SPA_UINT32_TO_PTR (this_id)))
-      pinos_log_error ("can't add uri for client");
+  for (i = 0; i < n_types; i++, first_id++) {
+    uint32_t this_id = spa_type_map_get_id (this->type.map, types[i]);
+    printf ("update %d %s -> %d\n", first_id, types[i], this_id);
+    if (!pinos_map_insert_at (&client->types, first_id, SPA_UINT32_TO_PTR (this_id)))
+      pinos_log_error ("can't add type for client");
   }
 }
 
@@ -227,7 +227,7 @@ static PinosCoreMethods core_methods = {
   &core_get_registry,
   &core_create_node,
   &core_create_client_node,
-  &core_update_uris
+  &core_update_types
 };
 
 static void
@@ -291,17 +291,17 @@ pinos_core_new (PinosMainLoop   *main_loop,
   this->main_loop = main_loop;
   this->properties = properties;
 
-  pinos_uri_init (&this->uri);
+  pinos_type_init (&this->type);
   pinos_access_init (&this->access);
   pinos_map_init (&this->objects, 128, 32);
 
-  impl->support[0].uri = SPA_TYPE__IDMap;
-  impl->support[0].data = this->uri.map;
-  impl->support[1].uri = SPA_TYPE__Log;
+  impl->support[0].type = SPA_TYPE__TypeMap;
+  impl->support[0].data = this->type.map;
+  impl->support[1].type = SPA_TYPE__Log;
   impl->support[1].data = pinos_log_get ();
-  impl->support[2].uri = SPA_TYPE_LOOP__DataLoop;
+  impl->support[2].type = SPA_TYPE_LOOP__DataLoop;
   impl->support[2].data = this->data_loop->loop->loop;
-  impl->support[3].uri = SPA_TYPE_LOOP__MainLoop;
+  impl->support[3].type = SPA_TYPE_LOOP__MainLoop;
   impl->support[3].data = this->main_loop->loop->loop;
   this->support = impl->support;
   this->n_support = 4;
@@ -321,7 +321,7 @@ pinos_core_new (PinosMainLoop   *main_loop,
 
   this->global = pinos_core_add_global (this,
                                         NULL,
-                                        this->uri.core,
+                                        this->type.core,
                                         0,
                                         this,
                                         core_bind_func);
@@ -370,7 +370,7 @@ pinos_core_add_global (PinosCore     *core,
   PinosGlobalImpl *impl;
   PinosGlobal *this;
   PinosResource *registry;
-  const char *type_uri;
+  const char *type_name;
 
   impl = calloc (1, sizeof (PinosGlobalImpl));
   if (impl == NULL)
@@ -392,13 +392,13 @@ pinos_core_add_global (PinosCore     *core,
   spa_list_insert (core->global_list.prev, &this->link);
   pinos_signal_emit (&core->global_added, core, this);
 
-  type_uri = spa_id_map_get_uri (core->uri.map, this->type);
-  pinos_log_debug ("global %p: new %u %s", this, this->id, type_uri);
+  type_name = spa_type_map_get_type (core->type.map, this->type);
+  pinos_log_debug ("global %p: new %u %s", this, this->id, type_name);
 
   spa_list_for_each (registry, &core->registry_resource_list, link)
     pinos_registry_notify_global (registry,
                                   this->id,
-                                  type_uri);
+                                  type_name);
 
   return this;
 }

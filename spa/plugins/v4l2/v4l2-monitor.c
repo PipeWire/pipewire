@@ -26,7 +26,7 @@
 #include <libudev.h>
 
 #include <spa/log.h>
-#include <spa/id-map.h>
+#include <spa/type-map.h>
 #include <spa/loop.h>
 #include <spa/monitor.h>
 #include <lib/debug.h>
@@ -42,15 +42,22 @@ typedef struct {
 
 typedef struct {
   uint32_t handle_factory;
-  SpaMonitorTypes monitor_types;
-} URI;
+  SpaTypeMonitor monitor;
+} Type;
+
+static inline void
+init_type (Type *type, SpaTypeMap *map)
+{
+  type->handle_factory = spa_type_map_get_id (map, SPA_TYPE__HandleFactory);
+  spa_type_monitor_map (map, &type->monitor);
+}
 
 struct _SpaV4l2Monitor {
   SpaHandle handle;
   SpaMonitor monitor;
 
-  URI uri;
-  SpaIDMap *map;
+  Type type;
+  SpaTypeMap *map;
   SpaLog *log;
   SpaLoop *main_loop;
 
@@ -108,20 +115,20 @@ fill_item (SpaV4l2Monitor *this, V4l2Item *item, struct udev_device *udevice)
 
   spa_pod_builder_init (&b, this->item_buffer, sizeof (this->item_buffer));
 
-  spa_pod_builder_push_object (&b, &f[0], 0, this->uri.monitor_types.MonitorItem);
+  spa_pod_builder_push_object (&b, &f[0], 0, this->type.monitor.MonitorItem);
 
   spa_pod_builder_add (&b,
-      SPA_POD_PROP (&f[1], this->uri.monitor_types.id,      0, SPA_POD_TYPE_STRING,  1, udev_device_get_syspath (item->udevice)),
-      SPA_POD_PROP (&f[1], this->uri.monitor_types.flags,   0, SPA_POD_TYPE_INT,     1, 0),
-      SPA_POD_PROP (&f[1], this->uri.monitor_types.state,   0, SPA_POD_TYPE_INT,     1, SPA_MONITOR_ITEM_STATE_AVAILABLE),
-      SPA_POD_PROP (&f[1], this->uri.monitor_types.name,    0, SPA_POD_TYPE_STRING,  1, name),
-      SPA_POD_PROP (&f[1], this->uri.monitor_types.klass,   0, SPA_POD_TYPE_STRING,  1, "Video/Source"),
-      SPA_POD_PROP (&f[1], this->uri.monitor_types.factory, 0, SPA_POD_TYPE_POINTER, 1, this->uri.handle_factory,
+      SPA_POD_PROP (&f[1], this->type.monitor.id,      0, SPA_POD_TYPE_STRING,  1, udev_device_get_syspath (item->udevice)),
+      SPA_POD_PROP (&f[1], this->type.monitor.flags,   0, SPA_POD_TYPE_INT,     1, 0),
+      SPA_POD_PROP (&f[1], this->type.monitor.state,   0, SPA_POD_TYPE_INT,     1, SPA_MONITOR_ITEM_STATE_AVAILABLE),
+      SPA_POD_PROP (&f[1], this->type.monitor.name,    0, SPA_POD_TYPE_STRING,  1, name),
+      SPA_POD_PROP (&f[1], this->type.monitor.klass,   0, SPA_POD_TYPE_STRING,  1, "Video/Source"),
+      SPA_POD_PROP (&f[1], this->type.monitor.factory, 0, SPA_POD_TYPE_POINTER, 1, this->type.handle_factory,
                                                                                         &spa_v4l2_source_factory),
       0);
 
   spa_pod_builder_add (&b,
-    SPA_POD_TYPE_PROP, &f[1], this->uri.monitor_types.info, 0,
+    SPA_POD_TYPE_PROP, &f[1], this->type.monitor.info, 0,
       SPA_POD_TYPE_STRUCT, 1, &f[2], 0);
 
 
@@ -204,11 +211,11 @@ v4l2_on_fd_events (SpaSource *source)
     action = "change";
 
   if (strcmp (action, "add") == 0) {
-    type = this->uri.monitor_types.Added;
+    type = this->type.monitor.Added;
   } else if (strcmp (action, "change") == 0) {
-    type = this->uri.monitor_types.Changed;
+    type = this->type.monitor.Changed;
   } else if (strcmp (action, "remove") == 0) {
-    type = this->uri.monitor_types.Removed;
+    type = this->type.monitor.Removed;
   } else
     return;
 
@@ -333,7 +340,7 @@ spa_v4l2_monitor_get_interface (SpaHandle               *handle,
 
   this = (SpaV4l2Monitor *) handle;
 
-  if (interface_id == this->uri.monitor_types.Monitor)
+  if (interface_id == this->type.monitor.Monitor)
     *interface = &this->monitor;
   else
     return SPA_RESULT_UNKNOWN_INTERFACE;
@@ -366,23 +373,22 @@ v4l2_monitor_init (const SpaHandleFactory  *factory,
   this = (SpaV4l2Monitor *) handle;
 
   for (i = 0; i < n_support; i++) {
-    if (strcmp (support[i].uri, SPA_TYPE__IDMap) == 0)
+    if (strcmp (support[i].type, SPA_TYPE__TypeMap) == 0)
       this->map = support[i].data;
-    else if (strcmp (support[i].uri, SPA_TYPE__Log) == 0)
+    else if (strcmp (support[i].type, SPA_TYPE__Log) == 0)
       this->log = support[i].data;
-    else if (strcmp (support[i].uri, SPA_TYPE_LOOP__MainLoop) == 0)
+    else if (strcmp (support[i].type, SPA_TYPE_LOOP__MainLoop) == 0)
       this->main_loop = support[i].data;
   }
   if (this->map == NULL) {
-    spa_log_error (this->log, "an id-map is needed");
+    spa_log_error (this->log, "a type-map is needed");
     return SPA_RESULT_ERROR;
   }
   if (this->main_loop == NULL) {
     spa_log_error (this->log, "a main-loop is needed");
     return SPA_RESULT_ERROR;
   }
-  this->uri.handle_factory = spa_id_map_get_id (this->map, SPA_TYPE__HandleFactory);
-  spa_monitor_types_map (this->map, &this->uri.monitor_types);
+  init_type (&this->type, this->map);
 
   this->monitor = v4l2monitor;
 

@@ -37,121 +37,123 @@ typedef struct {
   uint32_t *media_subtype;
 } MediaType;
 
-static uint32_t format_type;
-static SpaMediaTypes media_types = { 0, };
-static SpaMediaSubtypes media_subtypes = { 0, };
-static SpaMediaSubtypesVideo media_subtypes_video = { 0, };
-static SpaMediaSubtypesAudio media_subtypes_audio = { 0, };
-static SpaPropVideo prop_video = { 0, };
-static SpaPropAudio prop_audio = { 0, };
-static SpaVideoFormats video_formats = { 0, };
-static SpaAudioFormats audio_formats = { 0, };
+static struct {
+  uint32_t format;
+  SpaTypeMediaType media_type;
+  SpaTypeMediaSubtype media_subtype;
+  SpaTypeMediaSubtypeVideo media_subtype_video;
+  SpaTypeMediaSubtypeAudio media_subtype_audio;
+  SpaTypePropVideo prop_video;
+  SpaTypePropAudio prop_audio;
+  SpaTypeVideoFormat video_format;
+  SpaTypeAudioFormat audio_format;
+} type = { 0, };
 
 static void
 ensure_types (void)
 {
-  SpaIDMap *map = spa_id_map_get_default ();
+  SpaTypeMap *map = spa_type_map_get_default ();
 
-  format_type = spa_id_map_get_id (map, SPA_TYPE__Format);
-  spa_media_types_fill (&media_types, map);
-  spa_media_subtypes_map (map, &media_subtypes);
-  spa_media_subtypes_video_map (map, &media_subtypes_video);
-  spa_media_subtypes_audio_map (map, &media_subtypes_audio);
-  spa_prop_video_map (map, &prop_video);
-  spa_prop_audio_map (map, &prop_audio);
-  spa_video_formats_map (map, &video_formats);
-  spa_audio_formats_map (map, &audio_formats);
+  type.format = spa_type_map_get_id (map, SPA_TYPE__Format);
+  spa_type_media_type_map (map, &type.media_type);
+  spa_type_media_subtype_map (map, &type.media_subtype);
+  spa_type_media_subtype_video_map (map, &type.media_subtype_video);
+  spa_type_media_subtype_audio_map (map, &type.media_subtype_audio);
+  spa_type_prop_video_map (map, &type.prop_video);
+  spa_type_prop_audio_map (map, &type.prop_audio);
+  spa_type_video_format_map (map, &type.video_format);
+  spa_type_audio_format_map (map, &type.audio_format);
 }
 
 static const MediaType media_type_map[] = {
-  { "video/x-raw", &media_types.video, &media_subtypes.raw },
-  { "audio/x-raw", &media_types.audio, &media_subtypes.raw },
-  { "image/jpeg", &media_types.video, &media_subtypes_video.mjpg },
-  { "video/x-h264", &media_types.video, &media_subtypes_video.h264 },
+  { "video/x-raw", &type.media_type.video, &type.media_subtype.raw },
+  { "audio/x-raw", &type.media_type.audio, &type.media_subtype.raw },
+  { "image/jpeg", &type.media_type.video, &type.media_subtype_video.mjpg },
+  { "video/x-h264", &type.media_type.video, &type.media_subtype_video.h264 },
   { NULL, }
 };
 
 static const uint32_t *video_format_map[] = {
-  &video_formats.UNKNOWN,
-  &video_formats.ENCODED,
-  &video_formats.I420,
-  &video_formats.YV12,
-  &video_formats.YUY2,
-  &video_formats.UYVY,
-  &video_formats.AYUV,
-  &video_formats.RGBx,
-  &video_formats.BGRx,
-  &video_formats.xRGB,
-  &video_formats.xBGR,
-  &video_formats.RGBA,
-  &video_formats.BGRA,
-  &video_formats.ARGB,
-  &video_formats.ABGR,
-  &video_formats.RGB,
-  &video_formats.BGR,
-  &video_formats.Y41B,
-  &video_formats.Y42B,
-  &video_formats.YVYU,
-  &video_formats.Y444,
-  &video_formats.v210,
-  &video_formats.v216,
-  &video_formats.NV12,
-  &video_formats.NV21,
-  &video_formats.GRAY8,
-  &video_formats.GRAY16_BE,
-  &video_formats.GRAY16_LE,
-  &video_formats.v308,
-  &video_formats.RGB16,
-  &video_formats.BGR16,
-  &video_formats.RGB15,
-  &video_formats.BGR15,
-  &video_formats.UYVP,
-  &video_formats.A420,
-  &video_formats.RGB8P,
-  &video_formats.YUV9,
-  &video_formats.YVU9,
-  &video_formats.IYU1,
-  &video_formats.ARGB64,
-  &video_formats.AYUV64,
-  &video_formats.r210,
-  &video_formats.I420_10BE,
-  &video_formats.I420_10LE,
-  &video_formats.I422_10BE,
-  &video_formats.I422_10LE,
-  &video_formats.Y444_10BE,
-  &video_formats.Y444_10LE,
-  &video_formats.GBR,
-  &video_formats.GBR_10BE,
-  &video_formats.GBR_10LE,
-  &video_formats.NV16,
-  &video_formats.NV24,
-  &video_formats.NV12_64Z32,
-  &video_formats.A420_10BE,
-  &video_formats.A420_10LE,
-  &video_formats.A422_10BE,
-  &video_formats.A422_10LE,
-  &video_formats.A444_10BE,
-  &video_formats.A444_10LE,
-  &video_formats.NV61,
-  &video_formats.P010_10BE,
-  &video_formats.P010_10LE,
-  &video_formats.IYU2,
-  &video_formats.VYUY,
+  &type.video_format.UNKNOWN,
+  &type.video_format.ENCODED,
+  &type.video_format.I420,
+  &type.video_format.YV12,
+  &type.video_format.YUY2,
+  &type.video_format.UYVY,
+  &type.video_format.AYUV,
+  &type.video_format.RGBx,
+  &type.video_format.BGRx,
+  &type.video_format.xRGB,
+  &type.video_format.xBGR,
+  &type.video_format.RGBA,
+  &type.video_format.BGRA,
+  &type.video_format.ARGB,
+  &type.video_format.ABGR,
+  &type.video_format.RGB,
+  &type.video_format.BGR,
+  &type.video_format.Y41B,
+  &type.video_format.Y42B,
+  &type.video_format.YVYU,
+  &type.video_format.Y444,
+  &type.video_format.v210,
+  &type.video_format.v216,
+  &type.video_format.NV12,
+  &type.video_format.NV21,
+  &type.video_format.GRAY8,
+  &type.video_format.GRAY16_BE,
+  &type.video_format.GRAY16_LE,
+  &type.video_format.v308,
+  &type.video_format.RGB16,
+  &type.video_format.BGR16,
+  &type.video_format.RGB15,
+  &type.video_format.BGR15,
+  &type.video_format.UYVP,
+  &type.video_format.A420,
+  &type.video_format.RGB8P,
+  &type.video_format.YUV9,
+  &type.video_format.YVU9,
+  &type.video_format.IYU1,
+  &type.video_format.ARGB64,
+  &type.video_format.AYUV64,
+  &type.video_format.r210,
+  &type.video_format.I420_10BE,
+  &type.video_format.I420_10LE,
+  &type.video_format.I422_10BE,
+  &type.video_format.I422_10LE,
+  &type.video_format.Y444_10BE,
+  &type.video_format.Y444_10LE,
+  &type.video_format.GBR,
+  &type.video_format.GBR_10BE,
+  &type.video_format.GBR_10LE,
+  &type.video_format.NV16,
+  &type.video_format.NV24,
+  &type.video_format.NV12_64Z32,
+  &type.video_format.A420_10BE,
+  &type.video_format.A420_10LE,
+  &type.video_format.A422_10BE,
+  &type.video_format.A422_10LE,
+  &type.video_format.A444_10BE,
+  &type.video_format.A444_10LE,
+  &type.video_format.NV61,
+  &type.video_format.P010_10BE,
+  &type.video_format.P010_10LE,
+  &type.video_format.IYU2,
+  &type.video_format.VYUY,
 };
 
 #if __BYTE_ORDER == __BIG_ENDIAN
-#define _FORMAT_LE(fmt)  &audio_formats. fmt ## _OE
-#define _FORMAT_BE(fmt)  &audio_formats. fmt
+#define _FORMAT_LE(fmt)  &type.audio_format. fmt ## _OE
+#define _FORMAT_BE(fmt)  &type.audio_format. fmt
 #elif __BYTE_ORDER == __LITTLE_ENDIAN
-#define _FORMAT_LE(fmt)  &audio_formats. fmt
-#define _FORMAT_BE(fmt)  &audio_formats. fmt ## _OE
+#define _FORMAT_LE(fmt)  &type.audio_format. fmt
+#define _FORMAT_BE(fmt)  &type.audio_format. fmt ## _OE
 #endif
 
 static const uint32_t *audio_format_map[] = {
-  &audio_formats.UNKNOWN,
-  &audio_formats.ENCODED,
-  &audio_formats.S8,
-  &audio_formats.U8,
+  &type.audio_format.UNKNOWN,
+  &type.audio_format.ENCODED,
+  &type.audio_format.S8,
+  &type.audio_format.U8,
   _FORMAT_LE (S16),
   _FORMAT_BE (S16),
   _FORMAT_LE (U16),
@@ -367,7 +369,7 @@ handle_video_fields (ConvertData *d)
     for (i = 0; (v = get_nth_string (value, i)); i++) {
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
-                                   prop_video.format,
+                                   type.prop_video.format,
                                    get_range_type (value) | SPA_POD_PROP_FLAG_READWRITE);
 
       spa_pod_builder_uri (&d->b, *video_format_map[gst_video_format_from_string (v)]);
@@ -383,7 +385,7 @@ handle_video_fields (ConvertData *d)
     for (i = 0; get_nth_rectangle (value, value2, i, &v); i++) {
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
-                                   prop_video.size,
+                                   type.prop_video.size,
                                    get_range_type2 (value, value2) | SPA_POD_PROP_FLAG_READWRITE);
 
       spa_pod_builder_rectangle (&d->b, v.width, v.height);
@@ -399,7 +401,7 @@ handle_video_fields (ConvertData *d)
     for (i = 0; get_nth_fraction (value, i, &v); i++) {
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
-                                   prop_video.framerate,
+                                   type.prop_video.framerate,
                                    get_range_type (value) | SPA_POD_PROP_FLAG_READWRITE);
 
       spa_pod_builder_fraction (&d->b, v.num, v.denom);
@@ -424,7 +426,7 @@ handle_audio_fields (ConvertData *d)
     for (i = 0; (v = get_nth_string (value, i)); i++) {
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
-                                   prop_audio.format,
+                                   type.prop_audio.format,
                                    get_range_type (value) | SPA_POD_PROP_FLAG_READWRITE);
 
       spa_pod_builder_uri (&d->b, *audio_format_map[gst_audio_format_from_string (v)]);
@@ -449,7 +451,7 @@ handle_audio_fields (ConvertData *d)
 
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
-                                   prop_audio.layout,
+                                   type.prop_audio.layout,
                                    get_range_type (value) | SPA_POD_PROP_FLAG_READWRITE);
 
       spa_pod_builder_int (&d->b, layout);
@@ -464,7 +466,7 @@ handle_audio_fields (ConvertData *d)
     for (i = 0; get_nth_int (value, i, &v); i++) {
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
-                                   prop_audio.rate,
+                                   type.prop_audio.rate,
                                    get_range_type (value) | SPA_POD_PROP_FLAG_READWRITE);
 
       spa_pod_builder_int (&d->b, v);
@@ -479,7 +481,7 @@ handle_audio_fields (ConvertData *d)
     for (i = 0; get_nth_int (value, i, &v); i++) {
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
-                                   prop_audio.channels,
+                                   type.prop_audio.channels,
                                    get_range_type (value) | SPA_POD_PROP_FLAG_READWRITE);
 
       spa_pod_builder_int (&d->b, v);
@@ -520,13 +522,13 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
 
   d.b.write = write_pod;
 
-  spa_pod_builder_push_format (&d.b, &f, format_type,
+  spa_pod_builder_push_format (&d.b, &f, type.format,
                                *d.type->media_type,
                                *d.type->media_subtype);
 
-  if (*d.type->media_type == media_types.video)
+  if (*d.type->media_type == type.media_type.video)
     handle_video_fields (&d);
-  else if (*d.type->media_type == media_types.audio)
+  else if (*d.type->media_type == type.media_type.audio)
     handle_audio_fields (&d);
 
   spa_pod_builder_pop (&d.b, &f);
@@ -592,14 +594,14 @@ gst_caps_from_format (const SpaFormat *format)
   media_type = format->body.media_type.value;
   media_subtype = format->body.media_subtype.value;
 
-  if (media_type == media_types.video) {
+  if (media_type == type.media_type.video) {
     SpaVideoInfo f;
 
     if (spa_format_video_parse (format, &f) < 0)
       return NULL;
 
-    if (media_subtype == media_subtypes.raw) {
-      const char * str = spa_id_map_get_uri (spa_id_map_get_default (), f.info.raw.format);
+    if (media_subtype == type.media_subtype.raw) {
+      const char * str = spa_type_map_get_type (spa_type_map_get_default (), f.info.raw.format);
 
       res = gst_caps_new_simple ("video/x-raw",
           "format", G_TYPE_STRING, rindex (str, ':') + 1,
@@ -608,14 +610,14 @@ gst_caps_from_format (const SpaFormat *format)
           "framerate", GST_TYPE_FRACTION, f.info.raw.framerate.num, f.info.raw.framerate.denom,
           NULL);
     }
-    else if (media_subtype == media_subtypes_video.mjpg) {
+    else if (media_subtype == type.media_subtype_video.mjpg) {
       res = gst_caps_new_simple ("image/jpeg",
           "width", G_TYPE_INT, f.info.mjpg.size.width,
           "height", G_TYPE_INT, f.info.mjpg.size.height,
           "framerate", GST_TYPE_FRACTION, f.info.mjpg.framerate.num, f.info.mjpg.framerate.denom,
           NULL);
     }
-    else if (media_subtype == media_subtypes_video.h264) {
+    else if (media_subtype == type.media_subtype_video.h264) {
       res = gst_caps_new_simple ("video/x-h264",
           "width", G_TYPE_INT, f.info.h264.size.width,
           "height", G_TYPE_INT, f.info.h264.size.height,
@@ -624,14 +626,14 @@ gst_caps_from_format (const SpaFormat *format)
           "alignment", G_TYPE_STRING, "au",
           NULL);
     }
-  } else if (media_type == media_types.audio) {
+  } else if (media_type == type.media_type.audio) {
     SpaAudioInfo f;
 
     if (spa_format_audio_parse (format, &f) < 0)
       return NULL;
 
-    if (media_subtype == media_subtypes.raw) {
-      const char * str = spa_id_map_get_uri (spa_id_map_get_default (), f.info.raw.format);
+    if (media_subtype == type.media_subtype.raw) {
+      const char * str = spa_type_map_get_type (spa_type_map_get_default (), f.info.raw.format);
 
       res = gst_caps_new_simple ("audio/x-raw",
           "format", G_TYPE_STRING, rindex (str, ':') + 1,

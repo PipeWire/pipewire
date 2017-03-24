@@ -22,76 +22,76 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <spa/id-map.h>
+#include <spa/type-map.h>
 #include <spa/lib/mapper.h>
 
 #include <pinos/client/map.h>
 
 typedef struct {
-  SpaIDMap map;
-  PinosMap uris;
+  SpaTypeMap map;
+  PinosMap types;
   PinosArray strings;
-} IDMap;
+} TypeMap;
 
 static uint32_t
-id_map_get_id (SpaIDMap *map, const char *uri)
+type_map_get_id (SpaTypeMap *map, const char *type)
 {
-  IDMap *this = SPA_CONTAINER_OF (map, IDMap, map);
+  TypeMap *this = SPA_CONTAINER_OF (map, TypeMap, map);
   uint32_t i = 0, len;
   void *p;
   off_t o;
 
-  if (uri != NULL) {
-    for (i = 0; i < pinos_map_get_size (&this->uris); i++) {
-      o = (off_t) pinos_map_lookup_unchecked (&this->uris, i);
-      if (strcmp (SPA_MEMBER (this->strings.data, o, char), uri) == 0)
+  if (type != NULL) {
+    for (i = 0; i < pinos_map_get_size (&this->types); i++) {
+      o = (off_t) pinos_map_lookup_unchecked (&this->types, i);
+      if (strcmp (SPA_MEMBER (this->strings.data, o, char), type) == 0)
         return i;
     }
-    len = strlen (uri);
+    len = strlen (type);
     p = pinos_array_add (&this->strings, SPA_ROUND_UP_N (len+1, 2));
-    memcpy (p, uri, len+1);
+    memcpy (p, type, len+1);
     o = (p - this->strings.data);
-    i = pinos_map_insert_new (&this->uris, (void *)o);
+    i = pinos_map_insert_new (&this->types, (void *)o);
   }
   return i;
 }
 
 static const char *
-id_map_get_uri (SpaIDMap *map, uint32_t id)
+type_map_get_type (SpaTypeMap *map, uint32_t id)
 {
-  IDMap *this = SPA_CONTAINER_OF (map, IDMap, map);
+  TypeMap *this = SPA_CONTAINER_OF (map, TypeMap, map);
 
   if (id == SPA_ID_INVALID)
     return NULL;
 
-  if (SPA_LIKELY (pinos_map_check_id (&this->uris, id))) {
-    off_t o = (off_t) pinos_map_lookup_unchecked (&this->uris, id);
+  if (SPA_LIKELY (pinos_map_check_id (&this->types, id))) {
+    off_t o = (off_t) pinos_map_lookup_unchecked (&this->types, id);
     return SPA_MEMBER (this->strings.data, o, char);
   }
   return NULL;
 }
 
-static uint32_t
-id_map_get_size (SpaIDMap *map)
+static size_t
+type_map_get_size (SpaTypeMap *map)
 {
-  IDMap *this = SPA_CONTAINER_OF (map, IDMap, map);
-  return pinos_map_get_size (&this->uris);
+  TypeMap *this = SPA_CONTAINER_OF (map, TypeMap, map);
+  return pinos_map_get_size (&this->types);
 }
 
-static IDMap default_id_map = {
-  { sizeof (SpaIDMap),
+static TypeMap default_type_map = {
+  { sizeof (SpaTypeMap),
     NULL,
-    id_map_get_id,
-    id_map_get_uri,
-    id_map_get_size,
+    type_map_get_id,
+    type_map_get_type,
+    type_map_get_size,
   },
   PINOS_MAP_INIT(128),
   PINOS_ARRAY_INIT (4096)
 };
 
-SpaIDMap *
-pinos_id_map_get_default (void)
+SpaTypeMap *
+pinos_type_map_get_default (void)
 {
-  spa_id_map_set_default (&default_id_map.map);
-  return &default_id_map.map;
+  spa_type_map_set_default (&default_type_map.map);
+  return &default_type_map.map;
 }

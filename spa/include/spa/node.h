@@ -52,8 +52,8 @@ typedef enum {
 #include <spa/plugin.h>
 #include <spa/props.h>
 #include <spa/alloc-param.h>
-#include <spa/node-event.h>
-#include <spa/node-command.h>
+#include <spa/event-node.h>
+#include <spa/command-node.h>
 #include <spa/buffer.h>
 #include <spa/format.h>
 

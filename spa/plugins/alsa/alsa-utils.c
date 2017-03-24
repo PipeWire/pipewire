@@ -62,18 +62,18 @@ typedef struct {
 } FormatInfo;
 
 #if __BYTE_ORDER == __BIG_ENDIAN
-#define _FORMAT_LE(fmt)  offsetof(URI, audio_formats. fmt ## _OE)
-#define _FORMAT_BE(fmt)  offsetof(URI, audio_formats. fmt)
+#define _FORMAT_LE(fmt)  offsetof(Type, audio_format. fmt ## _OE)
+#define _FORMAT_BE(fmt)  offsetof(Type, audio_format. fmt)
 #elif __BYTE_ORDER == __LITTLE_ENDIAN
-#define _FORMAT_LE(fmt)  offsetof(URI, audio_formats. fmt)
-#define _FORMAT_BE(fmt)  offsetof(URI, audio_formats. fmt ## _OE)
+#define _FORMAT_LE(fmt)  offsetof(Type, audio_format. fmt)
+#define _FORMAT_BE(fmt)  offsetof(Type, audio_format. fmt ## _OE)
 #endif
 
 static const FormatInfo format_info[] =
 {
-  { offsetof(URI, audio_formats.UNKNOWN),       SND_PCM_FORMAT_UNKNOWN },
-  { offsetof(URI, audio_formats.S8),            SND_PCM_FORMAT_S8 },
-  { offsetof(URI, audio_formats.U8),            SND_PCM_FORMAT_U8 },
+  { offsetof(Type, audio_format.UNKNOWN),       SND_PCM_FORMAT_UNKNOWN },
+  { offsetof(Type, audio_format.S8),            SND_PCM_FORMAT_S8 },
+  { offsetof(Type, audio_format.U8),            SND_PCM_FORMAT_U8 },
   { _FORMAT_LE (S16),                           SND_PCM_FORMAT_S16_LE },
   { _FORMAT_BE (S16),                           SND_PCM_FORMAT_S16_BE },
   { _FORMAT_LE (U16),                           SND_PCM_FORMAT_U16_LE },
@@ -93,12 +93,12 @@ static const FormatInfo format_info[] =
 };
 
 static snd_pcm_format_t
-spa_alsa_format_to_alsa (URI *uri, uint32_t format)
+spa_alsa_format_to_alsa (Type *map, uint32_t format)
 {
   int i;
 
   for (i = 0; i < SPA_N_ELEMENTS (format_info); i++) {
-    uint32_t f = *SPA_MEMBER (uri, format_info[i].format_offset, uint32_t);
+    uint32_t f = *SPA_MEMBER (map, format_info[i].format_offset, uint32_t);
     if (f == format)
       return format_info[i].format;
   }
@@ -132,7 +132,7 @@ spa_alsa_set_format (SpaALSAState *state, SpaAudioInfo *fmt, SpaPortFormatFlags 
   CHECK (snd_pcm_hw_params_set_access(hndl, params, SND_PCM_ACCESS_MMAP_INTERLEAVED), "set_access");
 
   /* set the sample format */
-  format = spa_alsa_format_to_alsa (&state->uri, info->format);
+  format = spa_alsa_format_to_alsa (&state->type, info->format);
   spa_log_info (state->log, "Stream parameters are %iHz, %s, %i channels", info->rate, snd_pcm_format_name(format), info->channels);
   CHECK (snd_pcm_hw_params_set_format (hndl, params, format), "set_format");
 
@@ -270,7 +270,7 @@ pull_frames_queue (SpaALSAState *state,
                    snd_pcm_uframes_t frames)
 {
   if (spa_list_is_empty (&state->ready)) {
-    SpaEvent event = SPA_EVENT_INIT (state->uri.event_node.NeedInput);
+    SpaEvent event = SPA_EVENT_INIT (state->type.event_node.NeedInput);
     state->event_cb (&state->node, &event, state->user_data);
   }
   if (!spa_list_is_empty (&state->ready)) {
@@ -294,7 +294,7 @@ pull_frames_queue (SpaALSAState *state,
 
     state->ready_offset += n_bytes;
     if (state->ready_offset >= size) {
-      SpaEventNodeReuseBuffer rb = SPA_EVENT_NODE_REUSE_BUFFER_INIT (state->uri.event_node.ReuseBuffer,
+      SpaEventNodeReuseBuffer rb = SPA_EVENT_NODE_REUSE_BUFFER_INIT (state->type.event_node.ReuseBuffer,
                                                                      0, b->outbuf->id);
 
       spa_list_remove (&b->link);
@@ -349,7 +349,7 @@ pull_frames_ringbuffer (SpaALSAState *state,
 
   b->outstanding = true;
   {
-    SpaEventNodeReuseBuffer rb = SPA_EVENT_NODE_REUSE_BUFFER_INIT (state->uri.event_node.ReuseBuffer,
+    SpaEventNodeReuseBuffer rb = SPA_EVENT_NODE_REUSE_BUFFER_INIT (state->type.event_node.ReuseBuffer,
                                                                    0, b->outbuf->id);
     state->event_cb (&state->node, (SpaEvent*)&rb, state->user_data);
   }
@@ -498,7 +498,7 @@ mmap_read (SpaALSAState *state)
       output->status = SPA_RESULT_OK;
     }
     {
-      SpaEvent event = SPA_EVENT_INIT (state->uri.event_node.HaveOutput);
+      SpaEvent event = SPA_EVENT_INIT (state->type.event_node.HaveOutput);
       state->event_cb (&state->node, &event, state->user_data);
     }
   }

@@ -194,7 +194,7 @@ pinos_module_load (PinosCore    *core,
 
   this->global = pinos_core_add_global (core,
                                         NULL,
-                                        core->uri.module,
+                                        core->type.module,
                                         0,
                                         impl,
                                         module_bind_func);

@@ -31,23 +31,24 @@ SpaResult
 spa_format_video_parse (const SpaFormat       *format,
                         SpaVideoInfo          *info)
 {
-  static SpaMediaTypes media_types = { 0, };
-  static SpaMediaSubtypes media_subtypes = { 0, };
-  static SpaMediaSubtypesVideo media_subtypes_video = { 0, };
-  static SpaPropVideo prop_video = { 0, };
+  static SpaTypeMediaType media_type = { 0, };
+  static SpaTypeMediaSubtype media_subtype = { 0, };
+  static SpaTypeMediaSubtypeVideo media_subtype_video = { 0, };
+  static SpaTypePropVideo prop_video = { 0, };
+  SpaTypeMap *map = spa_type_map_get_default ();
 
-  spa_media_types_fill (&media_types, spa_id_map_get_default ());
-  spa_media_subtypes_map (spa_id_map_get_default (), &media_subtypes);
-  spa_media_subtypes_video_map (spa_id_map_get_default (), &media_subtypes_video);
-  spa_prop_video_map (spa_id_map_get_default (), &prop_video);
+  spa_type_media_type_map (map, &media_type);
+  spa_type_media_subtype_map (map, &media_subtype);
+  spa_type_media_subtype_video_map (map, &media_subtype_video);
+  spa_type_prop_video_map (map, &prop_video);
 
-  if (format->body.media_type.value != media_types.video)
+  if (format->body.media_type.value != media_type.video)
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
   info->media_type = format->body.media_type.value;
   info->media_subtype = format->body.media_subtype.value;
 
-  if (info->media_subtype == media_subtypes.raw)
+  if (info->media_subtype == media_subtype.raw)
     spa_format_query (format,
         prop_video.format,             SPA_POD_TYPE_URI,       &info->info.raw.format,
         prop_video.size,               SPA_POD_TYPE_RECTANGLE, &info->info.raw.size,
@@ -64,13 +65,13 @@ spa_format_video_parse (const SpaFormat       *format,
         prop_video.transfer_function,  SPA_POD_TYPE_INT,       &info->info.raw.transfer_function,
         prop_video.color_primaries,    SPA_POD_TYPE_INT,       &info->info.raw.color_primaries,
         0);
-  else if (info->media_subtype == media_subtypes_video.h264)
+  else if (info->media_subtype == media_subtype_video.h264)
     spa_format_query (format,
         prop_video.size,               SPA_POD_TYPE_RECTANGLE, &info->info.h264.size,
         prop_video.framerate,          SPA_POD_TYPE_FRACTION,  &info->info.h264.framerate,
         prop_video.max_framerate,      SPA_POD_TYPE_FRACTION,  &info->info.h264.max_framerate,
         0);
-  else if (info->media_subtype == media_subtypes_video.mjpg)
+  else if (info->media_subtype == media_subtype_video.mjpg)
     spa_format_query (format,
         prop_video.size,               SPA_POD_TYPE_RECTANGLE, &info->info.mjpg.size,
         prop_video.framerate,          SPA_POD_TYPE_FRACTION,  &info->info.mjpg.framerate,

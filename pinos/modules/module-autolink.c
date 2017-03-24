@@ -307,7 +307,7 @@ on_resource_added (PinosListener *listener,
   ClientInfo *cinfo = SPA_CONTAINER_OF (listener, ClientInfo, resource_added);
   ModuleImpl *impl = cinfo->impl;
 
-  if (resource->type == impl->core->uri.client_node) {
+  if (resource->type == impl->core->type.client_node) {
     PinosClientNode *cnode = resource->object;
     on_node_added (impl, cnode->node, resource, cinfo);
   }
@@ -321,7 +321,7 @@ on_resource_removed (PinosListener *listener,
   ClientInfo *cinfo = SPA_CONTAINER_OF (listener, ClientInfo, resource_removed);
   ModuleImpl *impl = cinfo->impl;
 
-  if (resource->type == impl->core->uri.client_node) {
+  if (resource->type == impl->core->type.client_node) {
     PinosClientNode *cnode = resource->object;
     NodeInfo *ninfo;
 
@@ -339,7 +339,7 @@ on_global_added (PinosListener *listener,
 {
   ModuleImpl *impl = SPA_CONTAINER_OF (listener, ModuleImpl, global_added);
 
-  if (global->type == impl->core->uri.client) {
+  if (global->type == impl->core->type.client) {
     PinosClient *client = global->object;
     ClientInfo *cinfo;
 
@@ -362,7 +362,7 @@ on_global_removed (PinosListener *listener,
 {
   ModuleImpl *impl = SPA_CONTAINER_OF (listener, ModuleImpl, global_removed);
 
-  if (global->type == impl->core->uri.client) {
+  if (global->type == impl->core->type.client) {
     PinosClient *client = global->object;
     ClientInfo *cinfo;
 

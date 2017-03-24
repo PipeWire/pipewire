@@ -30,7 +30,7 @@
 #include <spa/list.h>
 #include <spa/log.h>
 #include <spa/loop.h>
-#include <spa/id-map.h>
+#include <spa/type-map.h>
 #include <spa/format-builder.h>
 #include <lib/debug.h>
 #include <lib/props.h>
@@ -71,36 +71,36 @@ typedef struct {
   uint32_t prop_device;
   uint32_t prop_device_name;
   uint32_t prop_device_fd;
-  SpaMediaTypes media_types;
-  SpaMediaSubtypes media_subtypes;
-  SpaMediaSubtypesVideo media_subtypes_video;
-  SpaPropVideo prop_video;
-  SpaVideoFormats video_formats;
-  SpaEventNode event_node;
-  SpaCommandNode command_node;
-  SpaAllocParamBuffers alloc_param_buffers;
-  SpaAllocParamMetaEnable alloc_param_meta_enable;
-} URI;
+  SpaTypeMediaType media_type;
+  SpaTypeMediaSubtype media_subtype;
+  SpaTypeMediaSubtypeVideo media_subtype_video;
+  SpaTypePropVideo prop_video;
+  SpaTypeVideoFormat video_format;
+  SpaTypeEventNode event_node;
+  SpaTypeCommandNode command_node;
+  SpaTypeAllocParamBuffers alloc_param_buffers;
+  SpaTypeAllocParamMetaEnable alloc_param_meta_enable;
+} Type;
 
 static inline void
-init_uri (URI *uri, SpaIDMap *map)
+init_type (Type *type, SpaTypeMap *map)
 {
-  uri->node = spa_id_map_get_id (map, SPA_TYPE__Node);
-  uri->clock = spa_id_map_get_id (map, SPA_TYPE__Clock);
-  uri->format = spa_id_map_get_id (map, SPA_TYPE__Format);
-  uri->props = spa_id_map_get_id (map, SPA_TYPE__Props);
-  uri->prop_device = spa_id_map_get_id (map, SPA_TYPE_PROPS__device);
-  uri->prop_device_name = spa_id_map_get_id (map, SPA_TYPE_PROPS__deviceName);
-  uri->prop_device_fd = spa_id_map_get_id (map, SPA_TYPE_PROPS__deviceFd);
-  spa_media_types_fill (&uri->media_types, map);
-  spa_media_subtypes_map (map, &uri->media_subtypes);
-  spa_media_subtypes_video_map (map, &uri->media_subtypes_video);
-  spa_prop_video_map (map, &uri->prop_video);
-  spa_video_formats_map (map, &uri->video_formats);
-  spa_event_node_map (map, &uri->event_node);
-  spa_command_node_map (map, &uri->command_node);
-  spa_alloc_param_buffers_map (map, &uri->alloc_param_buffers);
-  spa_alloc_param_meta_enable_map (map, &uri->alloc_param_meta_enable);
+  type->node = spa_type_map_get_id (map, SPA_TYPE__Node);
+  type->clock = spa_type_map_get_id (map, SPA_TYPE__Clock);
+  type->format = spa_type_map_get_id (map, SPA_TYPE__Format);
+  type->props = spa_type_map_get_id (map, SPA_TYPE__Props);
+  type->prop_device = spa_type_map_get_id (map, SPA_TYPE_PROPS__device);
+  type->prop_device_name = spa_type_map_get_id (map, SPA_TYPE_PROPS__deviceName);
+  type->prop_device_fd = spa_type_map_get_id (map, SPA_TYPE_PROPS__deviceFd);
+  spa_type_media_type_map (map, &type->media_type);
+  spa_type_media_subtype_map (map, &type->media_subtype);
+  spa_type_media_subtype_video_map (map, &type->media_subtype_video);
+  spa_type_prop_video_map (map, &type->prop_video);
+  spa_type_video_format_map (map, &type->video_format);
+  spa_type_event_node_map (map, &type->event_node);
+  spa_type_command_node_map (map, &type->command_node);
+  spa_type_alloc_param_buffers_map (map, &type->alloc_param_buffers);
+  spa_type_alloc_param_meta_enable_map (map, &type->alloc_param_meta_enable);
 }
 
 typedef struct {
@@ -148,9 +148,9 @@ struct _SpaV4l2Source {
   SpaNode node;
   SpaClock clock;
 
-  SpaIDMap *map;
+  SpaTypeMap *map;
   SpaLog *log;
-  URI uri;
+  Type type;
 
   uint32_t seq;
 
@@ -206,10 +206,10 @@ spa_v4l2_source_node_get_props (SpaNode       *node,
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
 
   spa_pod_builder_init (&b, this->props_buffer, sizeof (this->props_buffer));
-  spa_pod_builder_props (&b, &f[0], this->uri.props,
-      PROP   (&f[1], this->uri.prop_device,      -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device)),
-      PROP_R (&f[1], this->uri.prop_device_name, -SPA_POD_TYPE_STRING, this->props.device_name, sizeof (this->props.device_name)),
-      PROP_R (&f[1], this->uri.prop_device_fd,    SPA_POD_TYPE_INT,    this->props.device_fd));
+  spa_pod_builder_props (&b, &f[0], this->type.props,
+      PROP   (&f[1], this->type.prop_device,      -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device)),
+      PROP_R (&f[1], this->type.prop_device_name, -SPA_POD_TYPE_STRING, this->props.device_name, sizeof (this->props.device_name)),
+      PROP_R (&f[1], this->type.prop_device_fd,    SPA_POD_TYPE_INT,    this->props.device_fd));
   *props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
 
   return SPA_RESULT_OK;
@@ -231,7 +231,7 @@ spa_v4l2_source_node_set_props (SpaNode         *node,
     return SPA_RESULT_OK;
   } else {
     spa_props_query (props,
-        this->uri.prop_device, -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device),
+        this->type.prop_device, -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device),
         0);
   }
   return SPA_RESULT_OK;
@@ -279,7 +279,7 @@ do_pause (SpaLoop        *loop,
                                     cmd);
 
   if (async) {
-    SpaEventNodeAsyncComplete ac = SPA_EVENT_NODE_ASYNC_COMPLETE_INIT (this->uri.event_node.AsyncComplete,
+    SpaEventNodeAsyncComplete ac = SPA_EVENT_NODE_ASYNC_COMPLETE_INIT (this->type.event_node.AsyncComplete,
                                                                        seq, res);
     spa_loop_invoke (this->state[0].main_loop,
                      do_pause_done,
@@ -330,7 +330,7 @@ do_start (SpaLoop        *loop,
                                     cmd);
 
   if (async) {
-    SpaEventNodeAsyncComplete ac = SPA_EVENT_NODE_ASYNC_COMPLETE_INIT (this->uri.event_node.AsyncComplete,
+    SpaEventNodeAsyncComplete ac = SPA_EVENT_NODE_ASYNC_COMPLETE_INIT (this->type.event_node.AsyncComplete,
                                                                        seq, res);
     spa_loop_invoke (this->state[0].main_loop,
                      do_start_done,
@@ -354,7 +354,7 @@ spa_v4l2_source_node_send_command (SpaNode    *node,
 
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
 
-  if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Start) {
+  if (SPA_COMMAND_TYPE (command) == this->type.command_node.Start) {
     SpaV4l2State *state = &this->state[0];
     SpaResult res;
 
@@ -377,7 +377,7 @@ spa_v4l2_source_node_send_command (SpaNode    *node,
                             command,
                             this);
   }
-  else if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Pause) {
+  else if (SPA_COMMAND_TYPE (command) == this->type.command_node.Pause) {
     SpaV4l2State *state = &this->state[0];
 
     if (!state->have_format)
@@ -396,7 +396,7 @@ spa_v4l2_source_node_send_command (SpaNode    *node,
                             command,
                             this);
   }
-  else if (SPA_COMMAND_TYPE (command) == this->uri.command_node.ClockUpdate) {
+  else if (SPA_COMMAND_TYPE (command) == this->type.command_node.ClockUpdate) {
     return SPA_RESULT_OK;
   }
   else
@@ -587,28 +587,28 @@ spa_v4l2_source_node_port_get_format (SpaNode          *node,
   b.data = state->format_buffer;
   b.size = sizeof (state->format_buffer);
 
-  spa_pod_builder_push_format (&b, &f[0], this->uri.format,
+  spa_pod_builder_push_format (&b, &f[0], this->type.format,
                                state->current_format.media_type,
                                state->current_format.media_subtype);
 
-  if (state->current_format.media_subtype == this->uri.media_subtypes.raw) {
+  if (state->current_format.media_subtype == this->type.media_subtype.raw) {
     spa_pod_builder_add (&b,
-        PROP (&f[1], this->uri.prop_video.format,     SPA_POD_TYPE_URI,       state->current_format.info.raw.format),
-        PROP (&f[1], this->uri.prop_video.size,      -SPA_POD_TYPE_RECTANGLE, &state->current_format.info.raw.size),
-        PROP (&f[1], this->uri.prop_video.framerate, -SPA_POD_TYPE_FRACTION,  &state->current_format.info.raw.framerate),
+        PROP (&f[1], this->type.prop_video.format,     SPA_POD_TYPE_URI,       state->current_format.info.raw.format),
+        PROP (&f[1], this->type.prop_video.size,      -SPA_POD_TYPE_RECTANGLE, &state->current_format.info.raw.size),
+        PROP (&f[1], this->type.prop_video.framerate, -SPA_POD_TYPE_FRACTION,  &state->current_format.info.raw.framerate),
         0);
   }
-  else if (state->current_format.media_subtype == this->uri.media_subtypes_video.mjpg ||
-           state->current_format.media_subtype == this->uri.media_subtypes_video.jpeg) {
+  else if (state->current_format.media_subtype == this->type.media_subtype_video.mjpg ||
+           state->current_format.media_subtype == this->type.media_subtype_video.jpeg) {
     spa_pod_builder_add (&b,
-        PROP (&f[1], this->uri.prop_video.size,      -SPA_POD_TYPE_RECTANGLE, &state->current_format.info.mjpg.size),
-        PROP (&f[1], this->uri.prop_video.framerate, -SPA_POD_TYPE_FRACTION,  &state->current_format.info.mjpg.framerate),
+        PROP (&f[1], this->type.prop_video.size,      -SPA_POD_TYPE_RECTANGLE, &state->current_format.info.mjpg.size),
+        PROP (&f[1], this->type.prop_video.framerate, -SPA_POD_TYPE_FRACTION,  &state->current_format.info.mjpg.framerate),
         0);
   }
-  else if (state->current_format.media_subtype == this->uri.media_subtypes_video.h264) {
+  else if (state->current_format.media_subtype == this->type.media_subtype_video.h264) {
     spa_pod_builder_add (&b,
-        PROP (&f[1], this->uri.prop_video.size,      -SPA_POD_TYPE_RECTANGLE, &state->current_format.info.h264.size),
-        PROP (&f[1], this->uri.prop_video.framerate, -SPA_POD_TYPE_FRACTION,  &state->current_format.info.h264.framerate),
+        PROP (&f[1], this->type.prop_video.size,      -SPA_POD_TYPE_RECTANGLE, &state->current_format.info.h264.size),
+        PROP (&f[1], this->type.prop_video.framerate, -SPA_POD_TYPE_FRACTION,  &state->current_format.info.h264.framerate),
         0);
   } else
     return SPA_RESULT_NO_FORMAT;
@@ -807,10 +807,10 @@ spa_v4l2_source_node_port_send_command (SpaNode        *node,
   if (port_id != 0)
     return SPA_RESULT_INVALID_PORT;
 
-  if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Pause) {
+  if (SPA_COMMAND_TYPE (command) == this->type.command_node.Pause) {
     res = spa_v4l2_port_set_enabled (this, false);
   }
-  else if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Start) {
+  else if (SPA_COMMAND_TYPE (command) == this->type.command_node.Start) {
     res = spa_v4l2_port_set_enabled (this, true);
   } else
     res = SPA_RESULT_NOT_IMPLEMENTED;
@@ -918,9 +918,9 @@ spa_v4l2_source_get_interface (SpaHandle               *handle,
 
   this = (SpaV4l2Source *) handle;
 
-  if (interface_id == this->uri.node)
+  if (interface_id == this->type.node)
     *interface = &this->node;
-  else if (interface_id == this->uri.clock)
+  else if (interface_id == this->type.clock)
     *interface = &this->clock;
   else
     return SPA_RESULT_UNKNOWN_INTERFACE;
@@ -954,17 +954,17 @@ v4l2_source_init (const SpaHandleFactory  *factory,
   this = (SpaV4l2Source *) handle;
 
   for (i = 0; i < n_support; i++) {
-    if (strcmp (support[i].uri, SPA_TYPE__IDMap) == 0)
+    if (strcmp (support[i].type, SPA_TYPE__TypeMap) == 0)
       this->map = support[i].data;
-    else if (strcmp (support[i].uri, SPA_TYPE__Log) == 0)
+    else if (strcmp (support[i].type, SPA_TYPE__Log) == 0)
       this->log = support[i].data;
-    else if (strcmp (support[i].uri, SPA_TYPE_LOOP__MainLoop) == 0)
+    else if (strcmp (support[i].type, SPA_TYPE_LOOP__MainLoop) == 0)
       this->state[0].main_loop = support[i].data;
-    else if (strcmp (support[i].uri, SPA_TYPE_LOOP__DataLoop) == 0)
+    else if (strcmp (support[i].type, SPA_TYPE_LOOP__DataLoop) == 0)
       this->state[0].data_loop = support[i].data;
   }
   if (this->map == NULL) {
-    spa_log_error (this->log, "an id-map is needed");
+    spa_log_error (this->log, "a type-map is needed");
     return SPA_RESULT_ERROR;
   }
   if (this->state[0].main_loop == NULL) {
@@ -975,7 +975,7 @@ v4l2_source_init (const SpaHandleFactory  *factory,
     spa_log_error (this->log, "a data_loop is needed");
     return SPA_RESULT_ERROR;
   }
-  init_uri (&this->uri, this->map);
+  init_type (&this->type, this->map);
 
   this->node = v4l2source_node;
   this->clock = v4l2source_clock;

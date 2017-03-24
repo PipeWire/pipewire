@@ -28,7 +28,7 @@ extern "C" {
 
 #include <asoundlib.h>
 
-#include <spa/id-map.h>
+#include <spa/type-map.h>
 #include <spa/clock.h>
 #include <spa/log.h>
 #include <spa/list.h>
@@ -71,40 +71,40 @@ typedef struct {
   uint32_t prop_period_size;
   uint32_t prop_periods;
   uint32_t prop_period_event;
-  SpaMediaTypes media_types;
-  SpaMediaSubtypes media_subtypes;
-  SpaMediaSubtypesAudio media_subtypes_audio;
-  SpaPropAudio prop_audio;
-  SpaAudioFormats audio_formats;
-  SpaEventNode event_node;
-  SpaCommandNode command_node;
-  SpaAllocParamBuffers alloc_param_buffers;
-  SpaAllocParamMetaEnable alloc_param_meta_enable;
-} URI;
+  SpaTypeMediaType media_type;
+  SpaTypeMediaSubtype media_subtype;
+  SpaTypeMediaSubtypeAudio media_subtype_audio;
+  SpaTypePropAudio prop_audio;
+  SpaTypeAudioFormat audio_format;
+  SpaTypeEventNode event_node;
+  SpaTypeCommandNode command_node;
+  SpaTypeAllocParamBuffers alloc_param_buffers;
+  SpaTypeAllocParamMetaEnable alloc_param_meta_enable;
+} Type;
 
 static inline void
-init_uri (URI *uri, SpaIDMap *map)
+init_type (Type *type, SpaTypeMap *map)
 {
-  uri->node = spa_id_map_get_id (map, SPA_TYPE__Node);
-  uri->clock = spa_id_map_get_id (map, SPA_TYPE__Clock);
-  uri->format = spa_id_map_get_id (map, SPA_TYPE__Format);
-  uri->props = spa_id_map_get_id (map, SPA_TYPE__Props);
-  uri->prop_device = spa_id_map_get_id (map, SPA_TYPE_PROPS__device);
-  uri->prop_device_name = spa_id_map_get_id (map, SPA_TYPE_PROPS__deviceName);
-  uri->prop_card_name = spa_id_map_get_id (map, SPA_TYPE_PROPS__cardName);
-  uri->prop_period_size = spa_id_map_get_id (map, SPA_TYPE_PROPS__periodSize);
-  uri->prop_periods = spa_id_map_get_id (map, SPA_TYPE_PROPS__periods);
-  uri->prop_period_event = spa_id_map_get_id (map, SPA_TYPE_PROPS__periodEvent);
+  type->node = spa_type_map_get_id (map, SPA_TYPE__Node);
+  type->clock = spa_type_map_get_id (map, SPA_TYPE__Clock);
+  type->format = spa_type_map_get_id (map, SPA_TYPE__Format);
+  type->props = spa_type_map_get_id (map, SPA_TYPE__Props);
+  type->prop_device = spa_type_map_get_id (map, SPA_TYPE_PROPS__device);
+  type->prop_device_name = spa_type_map_get_id (map, SPA_TYPE_PROPS__deviceName);
+  type->prop_card_name = spa_type_map_get_id (map, SPA_TYPE_PROPS__cardName);
+  type->prop_period_size = spa_type_map_get_id (map, SPA_TYPE_PROPS__periodSize);
+  type->prop_periods = spa_type_map_get_id (map, SPA_TYPE_PROPS__periods);
+  type->prop_period_event = spa_type_map_get_id (map, SPA_TYPE_PROPS__periodEvent);
 
-  spa_media_types_fill (&uri->media_types, map);
-  spa_media_subtypes_map (map, &uri->media_subtypes);
-  spa_media_subtypes_audio_map (map, &uri->media_subtypes_audio);
-  spa_prop_audio_map (map, &uri->prop_audio);
-  spa_audio_formats_map (map, &uri->audio_formats);
-  spa_event_node_map (map, &uri->event_node);
-  spa_command_node_map (map, &uri->command_node);
-  spa_alloc_param_buffers_map (map, &uri->alloc_param_buffers);
-  spa_alloc_param_meta_enable_map (map, &uri->alloc_param_meta_enable);
+  spa_type_media_type_map (map, &type->media_type);
+  spa_type_media_subtype_map (map, &type->media_subtype);
+  spa_type_media_subtype_audio_map (map, &type->media_subtype_audio);
+  spa_type_prop_audio_map (map, &type->prop_audio);
+  spa_type_audio_format_map (map, &type->audio_format);
+  spa_type_event_node_map (map, &type->event_node);
+  spa_type_command_node_map (map, &type->command_node);
+  spa_type_alloc_param_buffers_map (map, &type->alloc_param_buffers);
+  spa_type_alloc_param_meta_enable_map (map, &type->alloc_param_meta_enable);
 }
 
 struct _SpaALSAState {
@@ -114,8 +114,8 @@ struct _SpaALSAState {
 
   uint32_t seq;
 
-  URI uri;
-  SpaIDMap *map;
+  Type type;
+  SpaTypeMap *map;
   SpaLog *log;
   SpaLoop *main_loop;
   SpaLoop *data_loop;

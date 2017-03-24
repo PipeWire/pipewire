@@ -55,8 +55,8 @@ struct _PinosClient {
   PinosResource *core_resource;
 
   PinosMap objects;
-  uint32_t n_uris;
-  PinosMap uris;
+  uint32_t n_types;
+  PinosMap types;
 
   SpaList resource_list;
   PINOS_SIGNAL (resource_added,   (PinosListener *listener,

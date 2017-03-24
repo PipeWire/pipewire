@@ -50,22 +50,22 @@ core_update_map (PinosClient *client)
 {
   uint32_t diff, base, i;
   PinosCore *core = client->core;
-  const char **uris;
+  const char **types;
 
-  base = client->n_uris;
-  diff = spa_id_map_get_size (core->uri.map) - base;
+  base = client->n_types;
+  diff = spa_type_map_get_size (core->type.map) - base;
   if (diff == 0)
     return;
 
-  uris = alloca (diff * sizeof (char *));
+  types = alloca (diff * sizeof (char *));
   for (i = 0; i < diff; i++, base++)
-    uris[i] = spa_id_map_get_uri (core->uri.map, base);
+    types[i] = spa_type_map_get_type (core->type.map, base);
 
-  pinos_core_notify_update_uris (client->core_resource,
-                                 client->n_uris,
+  pinos_core_notify_update_types (client->core_resource,
+                                 client->n_types,
                                  diff,
-                                 uris);
-  client->n_uris += diff;
+                                 types);
+  client->n_types += diff;
 }
 
 static void
@@ -166,10 +166,10 @@ core_marshal_remove_id (void          *object,
 }
 
 static void
-core_marshal_update_uris (void          *object,
-                          uint32_t       first_id,
-                          uint32_t       n_uris,
-                          const char   **uris)
+core_marshal_update_types (void          *object,
+                           uint32_t       first_id,
+                           uint32_t       n_types,
+                           const char   **types)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;
@@ -180,11 +180,11 @@ core_marshal_update_uris (void          *object,
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
         SPA_POD_TYPE_INT, first_id,
-        SPA_POD_TYPE_INT, n_uris, 0);
+        SPA_POD_TYPE_INT, n_types, 0);
 
-  for (i = 0; i < n_uris; i++) {
+  for (i = 0; i < n_types; i++) {
     spa_pod_builder_add (&b.b,
-        SPA_POD_TYPE_STRING, uris[i], 0);
+        SPA_POD_TYPE_STRING, types[i], 0);
   }
   spa_pod_builder_add (&b.b,
     -SPA_POD_TYPE_STRUCT, &f, 0);
@@ -333,29 +333,29 @@ core_demarshal_create_client_node (void  *object,
 }
 
 static bool
-core_demarshal_update_uris (void   *object,
-                            void   *data,
-                            size_t  size)
+core_demarshal_update_types (void   *object,
+                             void   *data,
+                             size_t  size)
 {
   PinosResource *resource = object;
   SpaPODIter it;
-  uint32_t first_id, n_uris;
-  const char **uris;
+  uint32_t first_id, n_types;
+  const char **types;
   int i;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
       !spa_pod_iter_get (&it,
         SPA_POD_TYPE_INT, &first_id,
-        SPA_POD_TYPE_INT, &n_uris,
+        SPA_POD_TYPE_INT, &n_types,
         0))
     return false;
 
-  uris = alloca (n_uris * sizeof (char *));
-  for (i = 0; i < n_uris; i++) {
-    if (!spa_pod_iter_get (&it, SPA_POD_TYPE_STRING, &uris[i], 0))
+  types = alloca (n_types * sizeof (char *));
+  for (i = 0; i < n_types; i++) {
+    if (!spa_pod_iter_get (&it, SPA_POD_TYPE_STRING, &types[i], 0))
       return false;
   }
-  ((PinosCoreMethods*)resource->implementation)->update_uris (resource, first_id, n_uris, uris);
+  ((PinosCoreMethods*)resource->implementation)->update_types (resource, first_id, n_types, types);
   return true;
 }
 
@@ -975,7 +975,7 @@ static const PinosDemarshalFunc pinos_protocol_native_server_core_demarshal[] = 
   &core_demarshal_get_registry,
   &core_demarshal_create_node,
   &core_demarshal_create_client_node,
-  &core_demarshal_update_uris
+  &core_demarshal_update_types
 };
 
 static const PinosCoreEvents pinos_protocol_native_server_core_events = {
@@ -983,7 +983,7 @@ static const PinosCoreEvents pinos_protocol_native_server_core_events = {
   &core_marshal_done,
   &core_marshal_error,
   &core_marshal_remove_id,
-  &core_marshal_update_uris
+  &core_marshal_update_types
 };
 
 const PinosInterface pinos_protocol_native_server_core_interface = {
@@ -1072,25 +1072,25 @@ bool
 pinos_protocol_native_server_setup (PinosResource *resource)
 {
   const PinosInterface *iface;
-  if (resource->type == resource->core->uri.core) {
+  if (resource->type == resource->core->type.core) {
     iface = &pinos_protocol_native_server_core_interface;
   }
-  else if (resource->type == resource->core->uri.registry) {
+  else if (resource->type == resource->core->type.registry) {
     iface = &pinos_protocol_native_server_registry_interface;
   }
-  else if (resource->type == resource->core->uri.module) {
+  else if (resource->type == resource->core->type.module) {
     iface = &pinos_protocol_native_server_module_interface;
   }
-  else if (resource->type == resource->core->uri.node) {
+  else if (resource->type == resource->core->type.node) {
     iface = &pinos_protocol_native_server_node_interface;
   }
-  else if (resource->type == resource->core->uri.client) {
+  else if (resource->type == resource->core->type.client) {
     iface = &pinos_protocol_native_server_client_interface;
   }
-  else if (resource->type == resource->core->uri.client_node) {
+  else if (resource->type == resource->core->type.client_node) {
     iface = &pinos_protocol_native_server_client_node_interface;
   }
-  else if (resource->type == resource->core->uri.link) {
+  else if (resource->type == resource->core->type.link) {
     iface = &pinos_protocol_native_server_link_interface;
   } else
     return false;

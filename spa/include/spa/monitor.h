@@ -67,24 +67,24 @@ typedef struct {
   uint32_t klass;
   uint32_t info;
   uint32_t factory;
-} SpaMonitorTypes;
+} SpaTypeMonitor;
 
 static inline void
-spa_monitor_types_map (SpaIDMap *map, SpaMonitorTypes *types)
+spa_type_monitor_map (SpaTypeMap *map, SpaTypeMonitor *type)
 {
-  if (types->Added == 0) {
-    types->Monitor      = spa_id_map_get_id (map, SPA_TYPE__Monitor);
-    types->Added        = spa_id_map_get_id (map, SPA_TYPE_EVENT_MONITOR__Added);
-    types->Removed      = spa_id_map_get_id (map, SPA_TYPE_EVENT_MONITOR__Removed);
-    types->Changed      = spa_id_map_get_id (map, SPA_TYPE_EVENT_MONITOR__Changed);
-    types->MonitorItem  = spa_id_map_get_id (map, SPA_TYPE__MonitorItem);
-    types->id           = spa_id_map_get_id (map, SPA_TYPE_MONITOR_ITEM__id);
-    types->flags        = spa_id_map_get_id (map, SPA_TYPE_MONITOR_ITEM__flags);
-    types->state        = spa_id_map_get_id (map, SPA_TYPE_MONITOR_ITEM__state);
-    types->name         = spa_id_map_get_id (map, SPA_TYPE_MONITOR_ITEM__name);
-    types->klass        = spa_id_map_get_id (map, SPA_TYPE_MONITOR_ITEM__class);
-    types->info         = spa_id_map_get_id (map, SPA_TYPE_MONITOR_ITEM__info);
-    types->factory      = spa_id_map_get_id (map, SPA_TYPE_MONITOR_ITEM__factory);
+  if (type->Added == 0) {
+    type->Monitor      = spa_type_map_get_id (map, SPA_TYPE__Monitor);
+    type->Added        = spa_type_map_get_id (map, SPA_TYPE_EVENT_MONITOR__Added);
+    type->Removed      = spa_type_map_get_id (map, SPA_TYPE_EVENT_MONITOR__Removed);
+    type->Changed      = spa_type_map_get_id (map, SPA_TYPE_EVENT_MONITOR__Changed);
+    type->MonitorItem  = spa_type_map_get_id (map, SPA_TYPE__MonitorItem);
+    type->id           = spa_type_map_get_id (map, SPA_TYPE_MONITOR_ITEM__id);
+    type->flags        = spa_type_map_get_id (map, SPA_TYPE_MONITOR_ITEM__flags);
+    type->state        = spa_type_map_get_id (map, SPA_TYPE_MONITOR_ITEM__state);
+    type->name         = spa_type_map_get_id (map, SPA_TYPE_MONITOR_ITEM__name);
+    type->klass        = spa_type_map_get_id (map, SPA_TYPE_MONITOR_ITEM__class);
+    type->info         = spa_type_map_get_id (map, SPA_TYPE_MONITOR_ITEM__info);
+    type->factory      = spa_type_map_get_id (map, SPA_TYPE_MONITOR_ITEM__factory);
   }
 }
 

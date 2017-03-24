@@ -465,13 +465,13 @@ main (int argc, char *argv[])
   data.data_loop.update_item = do_update_item;
   data.data_loop.remove_item = do_remove_item;
 
-  data.support[0].uri = SPA_ID_MAP_URI;
+  data.support[0].uri = SPA_TYPE__IDMap;
   data.support[0].data = data.map;
-  data.support[1].uri = SPA_POLL__DataLoop;
+  data.support[1].uri = SPA_TYPE_LOOP__DataLoop;
   data.support[1].data = &data.data_loop;
   data.n_support = 2;
 
-  data.uri.node = spa_id_map_get_id (data.map, SPA_NODE_URI);
+  data.uri.node = spa_id_map_get_id (data.map, SPA_TYPE__Node);
 
   if (SDL_Init (SDL_INIT_VIDEO) < 0) {
     printf ("can't initialize SDL: %s\n", SDL_GetError ());

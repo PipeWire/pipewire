@@ -330,7 +330,7 @@ handle_create_node (PinosDaemon1           *interface,
 
   pinos_resource_new (client,
                       SPA_ID_INVALID,
-                      impl->core->uri.node,
+                      impl->core->type.node,
                       node,
                       (PinosDestroy) pinos_node_destroy);
 
@@ -519,7 +519,7 @@ on_global_added (PinosListener *listener,
   PinosProtocolDBus *impl = SPA_CONTAINER_OF (listener, PinosProtocolDBus, global_added);
   PinosObjectSkeleton *skel;
 
-  if (global->type == impl->core->uri.client) {
+  if (global->type == impl->core->type.client) {
     PinosClient1 *iface;
     PinosClient *client = global->object;
     PinosProperties *props = client->properties;
@@ -541,7 +541,7 @@ on_global_added (PinosListener *listener,
                 false,
                 (PinosDestroy) client_destroy);
 
-  } else if (global->type == impl->core->uri.node) {
+  } else if (global->type == impl->core->type.node) {
     PinosNode1 *iface;
     PinosNode *node = global->object;
     PinosProperties *props = node->properties;
@@ -610,7 +610,7 @@ on_global_added (PinosListener *listener,
                                  name_lost_handler,
                                  proto,
                                  NULL);
-  } else if (global->type == impl->core->uri.link) {
+  } else if (global->type == impl->core->type.link) {
     PinosLink1 *iface;
     PinosLink *link = global->object;
     PinosProtocolDBusObject *obj;

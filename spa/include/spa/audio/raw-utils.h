@@ -24,15 +24,15 @@
 extern "C" {
 #endif
 
-#include <spa/id-map.h>
+#include <spa/type-map.h>
 #include <spa/audio/raw.h>
 
 #if __BYTE_ORDER == __BIG_ENDIAN
-#define _SPA_AUDIO_FORMAT_NE(fmt) SPA_TYPE_AUDIO_FORMAT_BASE fmt "BE"
-#define _SPA_AUDIO_FORMAT_OE(fmt) SPA_TYPE_AUDIO_FORMAT_BASE fmt "LE"
+#define _SPA_TYPE_AUDIO_FORMAT_NE(fmt) SPA_TYPE_AUDIO_FORMAT_BASE fmt "BE"
+#define _SPA_TYPE_AUDIO_FORMAT_OE(fmt) SPA_TYPE_AUDIO_FORMAT_BASE fmt "LE"
 #elif __BYTE_ORDER == __LITTLE_ENDIAN
-#define _SPA_AUDIO_FORMAT_NE(fmt) SPA_TYPE_AUDIO_FORMAT_BASE fmt "LE"
-#define _SPA_AUDIO_FORMAT_OE(fmt) SPA_TYPE_AUDIO_FORMAT_BASE fmt "BE"
+#define _SPA_TYPE_AUDIO_FORMAT_NE(fmt) SPA_TYPE_AUDIO_FORMAT_BASE fmt "LE"
+#define _SPA_TYPE_AUDIO_FORMAT_OE(fmt) SPA_TYPE_AUDIO_FORMAT_BASE fmt "BE"
 #endif
 
 typedef struct {
@@ -68,47 +68,47 @@ typedef struct {
   uint32_t U18_OE;
   uint32_t F32_OE;
   uint32_t F64_OE;
-} SpaAudioFormats;
+} SpaTypeAudioFormat;
 
 static inline void
-spa_audio_formats_map (SpaIDMap *map, SpaAudioFormats *types)
+spa_type_audio_format_map (SpaTypeMap *map, SpaTypeAudioFormat *type)
 {
-  if (types->ENCODED == 0) {
-    types->UNKNOWN      = 0;
-    types->ENCODED      = spa_id_map_get_id (map, SPA_TYPE_AUDIO_FORMAT__ENCODED);
+  if (type->ENCODED == 0) {
+    type->UNKNOWN      = 0;
+    type->ENCODED      = spa_type_map_get_id (map, SPA_TYPE_AUDIO_FORMAT__ENCODED);
 
-    types->S8           = spa_id_map_get_id (map, SPA_TYPE_AUDIO_FORMAT__S8);
-    types->U8           = spa_id_map_get_id (map, SPA_TYPE_AUDIO_FORMAT__U8);
+    type->S8           = spa_type_map_get_id (map, SPA_TYPE_AUDIO_FORMAT__S8);
+    type->U8           = spa_type_map_get_id (map, SPA_TYPE_AUDIO_FORMAT__U8);
 
-    types->S16          = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_NE ("S16"));
-    types->U16          = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_NE ("U16"));
-    types->S24_32       = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_NE ("S24_32"));
-    types->U24_32       = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_NE ("U24_32"));
-    types->S32          = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_NE ("S32"));
-    types->U32          = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_NE ("U32"));
-    types->S24          = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_NE ("S24"));
-    types->U24          = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_NE ("U24"));
-    types->S20          = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_NE ("S20"));
-    types->U20          = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_NE ("U20"));
-    types->S18          = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_NE ("S18"));
-    types->U18          = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_NE ("U18"));
-    types->F32          = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_NE ("F32"));
-    types->F64          = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_NE ("F64"));
+    type->S16          = spa_type_map_get_id (map, _SPA_TYPE_AUDIO_FORMAT_NE ("S16"));
+    type->U16          = spa_type_map_get_id (map, _SPA_TYPE_AUDIO_FORMAT_NE ("U16"));
+    type->S24_32       = spa_type_map_get_id (map, _SPA_TYPE_AUDIO_FORMAT_NE ("S24_32"));
+    type->U24_32       = spa_type_map_get_id (map, _SPA_TYPE_AUDIO_FORMAT_NE ("U24_32"));
+    type->S32          = spa_type_map_get_id (map, _SPA_TYPE_AUDIO_FORMAT_NE ("S32"));
+    type->U32          = spa_type_map_get_id (map, _SPA_TYPE_AUDIO_FORMAT_NE ("U32"));
+    type->S24          = spa_type_map_get_id (map, _SPA_TYPE_AUDIO_FORMAT_NE ("S24"));
+    type->U24          = spa_type_map_get_id (map, _SPA_TYPE_AUDIO_FORMAT_NE ("U24"));
+    type->S20          = spa_type_map_get_id (map, _SPA_TYPE_AUDIO_FORMAT_NE ("S20"));
+    type->U20          = spa_type_map_get_id (map, _SPA_TYPE_AUDIO_FORMAT_NE ("U20"));
+    type->S18          = spa_type_map_get_id (map, _SPA_TYPE_AUDIO_FORMAT_NE ("S18"));
+    type->U18          = spa_type_map_get_id (map, _SPA_TYPE_AUDIO_FORMAT_NE ("U18"));
+    type->F32          = spa_type_map_get_id (map, _SPA_TYPE_AUDIO_FORMAT_NE ("F32"));
+    type->F64          = spa_type_map_get_id (map, _SPA_TYPE_AUDIO_FORMAT_NE ("F64"));
 
-    types->S16_OE       = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_OE ("S16"));
-    types->U16_OE       = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_OE ("U16"));
-    types->S24_32_OE    = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_OE ("S24_32"));
-    types->U24_32_OE    = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_OE ("U24_32"));
-    types->S32_OE       = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_OE ("S32"));
-    types->U32_OE       = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_OE ("U32"));
-    types->S24_OE       = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_OE ("S24"));
-    types->U24_OE       = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_OE ("U24"));
-    types->S20_OE       = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_OE ("S20"));
-    types->U20_OE       = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_OE ("U20"));
-    types->S18_OE       = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_OE ("S18"));
-    types->U18_OE       = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_OE ("U18"));
-    types->F32_OE       = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_OE ("F32"));
-    types->F64_OE       = spa_id_map_get_id (map, _SPA_AUDIO_FORMAT_OE ("F64"));
+    type->S16_OE       = spa_type_map_get_id (map, _SPA_TYPE_AUDIO_FORMAT_OE ("S16"));
+    type->U16_OE       = spa_type_map_get_id (map, _SPA_TYPE_AUDIO_FORMAT_OE ("U16"));
+    type->S24_32_OE    = spa_type_map_get_id (map, _SPA_TYPE_AUDIO_FORMAT_OE ("S24_32"));
+    type->U24_32_OE    = spa_type_map_get_id (map, _SPA_TYPE_AUDIO_FORMAT_OE ("U24_32"));
+    type->S32_OE       = spa_type_map_get_id (map, _SPA_TYPE_AUDIO_FORMAT_OE ("S32"));
+    type->U32_OE       = spa_type_map_get_id (map, _SPA_TYPE_AUDIO_FORMAT_OE ("U32"));
+    type->S24_OE       = spa_type_map_get_id (map, _SPA_TYPE_AUDIO_FORMAT_OE ("S24"));
+    type->U24_OE       = spa_type_map_get_id (map, _SPA_TYPE_AUDIO_FORMAT_OE ("U24"));
+    type->S20_OE       = spa_type_map_get_id (map, _SPA_TYPE_AUDIO_FORMAT_OE ("S20"));
+    type->U20_OE       = spa_type_map_get_id (map, _SPA_TYPE_AUDIO_FORMAT_OE ("U20"));
+    type->S18_OE       = spa_type_map_get_id (map, _SPA_TYPE_AUDIO_FORMAT_OE ("S18"));
+    type->U18_OE       = spa_type_map_get_id (map, _SPA_TYPE_AUDIO_FORMAT_OE ("U18"));
+    type->F32_OE       = spa_type_map_get_id (map, _SPA_TYPE_AUDIO_FORMAT_OE ("F32"));
+    type->F64_OE       = spa_type_map_get_id (map, _SPA_TYPE_AUDIO_FORMAT_OE ("F64"));
   }
 }
 

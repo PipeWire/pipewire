@@ -58,10 +58,10 @@ typedef struct {
                                const char    *name,
                                const SpaDict *props,
                                uint32_t       new_id);
-  void (*update_uris)         (void          *object,
+  void (*update_types)        (void          *object,
                                uint32_t       first_id,
-                               uint32_t       n_uris,
-                               const char   **uris);
+                               uint32_t       n_types,
+                               const char   **types);
 } PinosCoreMethods;
 
 #define pinos_core_do_client_update(r,...)      ((PinosCoreMethods*)r->iface->methods)->client_update(r,__VA_ARGS__)
@@ -69,7 +69,7 @@ typedef struct {
 #define pinos_core_do_get_registry(r,...)       ((PinosCoreMethods*)r->iface->methods)->get_registry(r,__VA_ARGS__)
 #define pinos_core_do_create_node(r,...)        ((PinosCoreMethods*)r->iface->methods)->create_node(r,__VA_ARGS__)
 #define pinos_core_do_create_client_node(r,...) ((PinosCoreMethods*)r->iface->methods)->create_client_node(r,__VA_ARGS__)
-#define pinos_core_do_update_uris(r,...)        ((PinosCoreMethods*)r->iface->methods)->update_uris(r,__VA_ARGS__)
+#define pinos_core_do_update_types(r,...)       ((PinosCoreMethods*)r->iface->methods)->update_types(r,__VA_ARGS__)
 
 typedef struct {
   void (*info)                (void          *object,
@@ -82,17 +82,17 @@ typedef struct {
                                const char    *error, ...);
   void (*remove_id)           (void          *object,
                                uint32_t       id);
-  void (*update_uris)         (void          *object,
+  void (*update_types)        (void          *object,
                                uint32_t       first_id,
-                               uint32_t       n_uris,
-                               const char   **uris);
+                               uint32_t       n_types,
+                               const char   **types);
 } PinosCoreEvents;
 
-#define pinos_core_notify_info(r,...)        ((PinosCoreEvents*)r->iface->events)->info(r,__VA_ARGS__)
-#define pinos_core_notify_done(r,...)        ((PinosCoreEvents*)r->iface->events)->done(r,__VA_ARGS__)
-#define pinos_core_notify_error(r,...)       ((PinosCoreEvents*)r->iface->events)->error(r,__VA_ARGS__)
-#define pinos_core_notify_remove_id(r,...)   ((PinosCoreEvents*)r->iface->events)->remove_id(r,__VA_ARGS__)
-#define pinos_core_notify_update_uris(r,...) ((PinosCoreEvents*)r->iface->events)->update_uris(r,__VA_ARGS__)
+#define pinos_core_notify_info(r,...)         ((PinosCoreEvents*)r->iface->events)->info(r,__VA_ARGS__)
+#define pinos_core_notify_done(r,...)         ((PinosCoreEvents*)r->iface->events)->done(r,__VA_ARGS__)
+#define pinos_core_notify_error(r,...)        ((PinosCoreEvents*)r->iface->events)->error(r,__VA_ARGS__)
+#define pinos_core_notify_remove_id(r,...)    ((PinosCoreEvents*)r->iface->events)->remove_id(r,__VA_ARGS__)
+#define pinos_core_notify_update_types(r,...) ((PinosCoreEvents*)r->iface->events)->update_types(r,__VA_ARGS__)
 
 typedef struct {
   void (*bind)                (void          *object,

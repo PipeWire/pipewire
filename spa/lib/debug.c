@@ -215,7 +215,7 @@ print_pod_value (uint32_t size, uint32_t type, void *body, int prefix)
       break;
     case SPA_POD_TYPE_URI:
       printf ("%-*sURI %d %s\n", prefix, "", *(int32_t *) body,
-          spa_id_map_get_uri (spa_id_map_get_default(), *(int32_t*)body));
+          spa_type_map_get_type (spa_type_map_get_default(), *(int32_t*)body));
       break;
     case SPA_POD_TYPE_INT:
       printf ("%-*sInt %d\n", prefix, "", *(int32_t *) body);
@@ -236,7 +236,7 @@ print_pod_value (uint32_t size, uint32_t type, void *body, int prefix)
     {
       SpaPODPointerBody *b = body;
       printf ("%-*sPointer %s %p\n", prefix, "",
-          spa_id_map_get_uri (spa_id_map_get_default(), b->type), b->value);
+          spa_type_map_get_type (spa_type_map_get_default(), b->type), b->value);
       break;
     }
     case SPA_POD_TYPE_RECTANGLE:
@@ -278,7 +278,7 @@ print_pod_value (uint32_t size, uint32_t type, void *body, int prefix)
       SpaPOD *p;
 
       printf ("%-*sObject: size %d, id %d, type %s\n", prefix, "", size, b->id,
-          spa_id_map_get_uri (spa_id_map_get_default(), b->type));
+          spa_type_map_get_type (spa_type_map_get_default(), b->type));
       SPA_POD_OBJECT_BODY_FOREACH (b, size, p)
         print_pod_value (p->size, p->type, SPA_POD_BODY (p), prefix + 2);
       break;
@@ -290,7 +290,7 @@ print_pod_value (uint32_t size, uint32_t type, void *body, int prefix)
       int i;
 
       printf ("%-*sProp: key %s, flags %d\n", prefix, "",
-          spa_id_map_get_uri (spa_id_map_get_default(), b->key), b->flags);
+          spa_type_map_get_type (spa_type_map_get_default(), b->key), b->flags);
       if (b->flags & SPA_POD_PROP_FLAG_UNSET)
         printf ("%-*sUnset (Default):\n", prefix + 2, "");
       else
@@ -336,7 +336,7 @@ print_format_value (uint32_t size, uint32_t type, void *body)
       break;
     case SPA_POD_TYPE_URI:
     {
-      const char *str = spa_id_map_get_uri (spa_id_map_get_default(), *(int32_t*)body);
+      const char *str = spa_type_map_get_type (spa_type_map_get_default(), *(int32_t*)body);
       if (str) {
         const char *h = rindex (str, ':');
         if (h)
@@ -400,8 +400,8 @@ spa_debug_format (const SpaFormat *format)
   mtype = format->body.media_type.value;
   mstype = format->body.media_subtype.value;
 
-  media_type = spa_id_map_get_uri (spa_id_map_get_default (), mtype);
-  media_subtype = spa_id_map_get_uri (spa_id_map_get_default (), mstype);
+  media_type = spa_type_map_get_type (spa_type_map_get_default (), mtype);
+  media_subtype = spa_type_map_get_type (spa_type_map_get_default (), mstype);
 
   fprintf (stderr, "%-6s %s/%s\n", "", rindex (media_type, ':')+1, rindex (media_subtype, ':')+1);
 
@@ -412,7 +412,7 @@ spa_debug_format (const SpaFormat *format)
         (prop->body.flags & SPA_POD_PROP_FLAG_OPTIONAL))
       continue;
 
-    key = spa_id_map_get_uri (spa_id_map_get_default (), prop->body.key);
+    key = spa_type_map_get_type (spa_type_map_get_default (), prop->body.key);
 
     fprintf (stderr, "  %20s : (%s) ", rindex (key, ':')+1, pod_type_names[prop->body.value.type].name);
 

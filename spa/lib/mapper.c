@@ -22,66 +22,74 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <spa/id-map.h>
+#include <spa/type-map.h>
 
 #include <lib/debug.h>
 
 #define MAX_URIS 4096
 
 typedef struct {
-  SpaIDMap map;
-  char *uris[MAX_URIS];
-  unsigned int n_uris;
-} IDMap;
+  SpaTypeMap map;
+  char *types[MAX_URIS];
+  unsigned int n_types;
+} TypeMap;
 
 static uint32_t
-id_map_get_id (SpaIDMap *map, const char *uri)
+type_map_get_id (SpaTypeMap *map, const char *type)
 {
-  IDMap *this = SPA_CONTAINER_OF (map, IDMap, map);
+  TypeMap *this = SPA_CONTAINER_OF (map, TypeMap, map);
   unsigned int i = 0;
 
-  if (uri != NULL) {
-    for (i = 1; i <= this->n_uris; i++) {
-      if (strcmp (this->uris[i], uri) == 0)
+  if (type != NULL) {
+    for (i = 1; i <= this->n_types; i++) {
+      if (strcmp (this->types[i], type) == 0)
         return i;
     }
-    this->uris[i] = (char *)uri;
-    this->n_uris++;
+    this->types[i] = (char *)type;
+    this->n_types++;
   }
   return i;
 }
 
 static const char *
-id_map_get_uri (SpaIDMap *map, uint32_t id)
+type_map_get_type (SpaTypeMap *map, uint32_t id)
 {
-  IDMap *this = SPA_CONTAINER_OF (map, IDMap, map);
+  TypeMap *this = SPA_CONTAINER_OF (map, TypeMap, map);
 
-  if (id <= this->n_uris)
-    return this->uris[id];
+  if (id <= this->n_types)
+    return this->types[id];
 
   return NULL;
 }
 
-static IDMap default_id_map = {
-  { sizeof (SpaIDMap),
+static size_t
+type_map_get_size (SpaTypeMap *map)
+{
+  TypeMap *this = SPA_CONTAINER_OF (map, TypeMap, map);
+  return this->n_types;
+}
+
+static TypeMap default_type_map = {
+  { sizeof (SpaTypeMap),
     NULL,
-    id_map_get_id,
-    id_map_get_uri,
+    type_map_get_id,
+    type_map_get_type,
+    type_map_get_size,
   },
   { NULL, },
   0
 };
 
-static SpaIDMap *default_map = &default_id_map.map;
+static SpaTypeMap *default_map = &default_type_map.map;
 
-SpaIDMap *
-spa_id_map_get_default (void)
+SpaTypeMap *
+spa_type_map_get_default (void)
 {
   return default_map;
 }
 
 void
-spa_id_map_set_default (SpaIDMap *map)
+spa_type_map_set_default (SpaTypeMap *map)
 {
   default_map = map;
 }

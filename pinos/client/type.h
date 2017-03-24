@@ -17,56 +17,55 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __PINOS_URI_H__
-#define __PINOS_URI_H__
+#ifndef __PINOS_TYPE_H__
+#define __PINOS_TYPE_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define PINOS_TYPE__Uri                            "Pinos:Object:Uri"
-#define PINOS_TYPE_URI_BASE                        PINOS_TYPE__Uri ":"
-
 #include <pinos/client/map.h>
-#include <spa/include/spa/id-map.h>
-#include <spa/include/spa/node-event.h>
+#include <spa/include/spa/type-map.h>
+#include <spa/include/spa/event-node.h>
+#include <spa/include/spa/command-node.h>
 #include <spa/include/spa/monitor.h>
+#include <spa/include/spa/alloc-param.h>
 
-typedef struct _PinosURI PinosURI;
+typedef struct _PinosType PinosType;
 
 /**
- * PinosURI:
+ * PinosType:
  *
- * Pinos URI support struct.
+ * Pinos Type support struct.
  */
-struct _PinosURI {
-  SpaIDMap *map;
+struct _PinosType {
+  SpaTypeMap *map;
 
-  uint32_t core;
-  uint32_t registry;
-  uint32_t node;
-  uint32_t node_factory;
-  uint32_t link;
-  uint32_t client;
-  uint32_t client_node;
-  uint32_t module;
+  SpaType core;
+  SpaType registry;
+  SpaType node;
+  SpaType node_factory;
+  SpaType link;
+  SpaType client;
+  SpaType client_node;
+  SpaType module;
 
-  uint32_t spa_node;
-  uint32_t spa_clock;
-  uint32_t spa_monitor;
+  SpaType spa_node;
+  SpaType spa_clock;
+  SpaType spa_monitor;
 
-  SpaEventNode event_node;
-  SpaCommandNode command_node;
-  SpaMonitorTypes monitor_types;
-  SpaAllocParamBuffers alloc_param_buffers;
-  SpaAllocParamMetaEnable alloc_param_meta_enable;
-  SpaAllocParamVideoPadding alloc_param_video_padding;
+  SpaTypeEventNode event_node;
+  SpaTypeCommandNode command_node;
+  SpaTypeMonitor monitor;
+  SpaTypeAllocParamBuffers alloc_param_buffers;
+  SpaTypeAllocParamMetaEnable alloc_param_meta_enable;
+  SpaTypeAllocParamVideoPadding alloc_param_video_padding;
 };
 
-void pinos_uri_init (PinosURI *uri);
+void pinos_type_init (PinosType *type);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __PINOS_URI_H__ */
+#endif /* __PINOS_TYPE_H__ */

@@ -35,7 +35,7 @@ extern "C" {
 #include <pinos/client/subscribe.h>
 #include <pinos/client/utils.h>
 
-#include <spa/include/spa/id-map.h>
+#include <spa/include/spa/type-map.h>
 
 void pinos_init (int *argc, char **argv[]);
 
@@ -51,7 +51,7 @@ void   pinos_fill_stream_properties  (PinosProperties *properties);
 
 PinosDirection pinos_direction_reverse (PinosDirection direction);
 
-SpaIDMap * pinos_id_map_get_default (void);
+SpaTypeMap * pinos_type_map_get_default (void);
 
 #ifdef __cplusplus
 }

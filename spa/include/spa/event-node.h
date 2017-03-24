@@ -26,7 +26,7 @@ extern "C" {
 
 #include <spa/defs.h>
 #include <spa/event.h>
-#include <spa/id-map.h>
+#include <spa/type-map.h>
 #include <spa/node.h>
 
 #define SPA_TYPE_EVENT__Node             SPA_TYPE_EVENT_BASE "Node"
@@ -50,20 +50,20 @@ typedef struct {
   uint32_t Buffering;
   uint32_t RequestRefresh;
   uint32_t RequestClockUpdate;
-} SpaEventNode;
+} SpaTypeEventNode;
 
 static inline void
-spa_event_node_map (SpaIDMap *map, SpaEventNode *types)
+spa_type_event_node_map (SpaTypeMap *map, SpaTypeEventNode *type)
 {
-  if (types->AsyncComplete == 0) {
-    types->AsyncComplete        = spa_id_map_get_id (map, SPA_TYPE_EVENT_NODE__AsyncComplete);
-    types->HaveOutput           = spa_id_map_get_id (map, SPA_TYPE_EVENT_NODE__HaveOutput);
-    types->NeedInput            = spa_id_map_get_id (map, SPA_TYPE_EVENT_NODE__NeedInput);
-    types->ReuseBuffer          = spa_id_map_get_id (map, SPA_TYPE_EVENT_NODE__ReuseBuffer);
-    types->Error                = spa_id_map_get_id (map, SPA_TYPE_EVENT_NODE__Error);
-    types->Buffering            = spa_id_map_get_id (map, SPA_TYPE_EVENT_NODE__Buffering);
-    types->RequestRefresh       = spa_id_map_get_id (map, SPA_TYPE_EVENT_NODE__RequestRefresh);
-    types->RequestClockUpdate   = spa_id_map_get_id (map, SPA_TYPE_EVENT_NODE__RequestClockUpdate);
+  if (type->AsyncComplete == 0) {
+    type->AsyncComplete        = spa_type_map_get_id (map, SPA_TYPE_EVENT_NODE__AsyncComplete);
+    type->HaveOutput           = spa_type_map_get_id (map, SPA_TYPE_EVENT_NODE__HaveOutput);
+    type->NeedInput            = spa_type_map_get_id (map, SPA_TYPE_EVENT_NODE__NeedInput);
+    type->ReuseBuffer          = spa_type_map_get_id (map, SPA_TYPE_EVENT_NODE__ReuseBuffer);
+    type->Error                = spa_type_map_get_id (map, SPA_TYPE_EVENT_NODE__Error);
+    type->Buffering            = spa_type_map_get_id (map, SPA_TYPE_EVENT_NODE__Buffering);
+    type->RequestRefresh       = spa_type_map_get_id (map, SPA_TYPE_EVENT_NODE__RequestRefresh);
+    type->RequestClockUpdate   = spa_type_map_get_id (map, SPA_TYPE_EVENT_NODE__RequestClockUpdate);
   }
 }
 

@@ -31,7 +31,7 @@ typedef struct _PinosContext PinosContext;
 #include <pinos/client/properties.h>
 #include <pinos/client/subscribe.h>
 #include <pinos/client/proxy.h>
-#include <pinos/client/uri.h>
+#include <pinos/client/type.h>
 
 /**
  * PinosContextState:
@@ -60,7 +60,7 @@ struct _PinosContext {
   char            *name;
   PinosProperties *properties;
 
-  PinosURI         uri;
+  PinosType        type;
 
   PinosLoop       *loop;
 
@@ -68,8 +68,8 @@ struct _PinosContext {
   PinosProxy      *registry_proxy;
 
   PinosMap         objects;
-  uint32_t         n_uris;
-  PinosMap         uris;
+  uint32_t         n_types;
+  PinosMap         types;
 
   SpaList          global_list;
   SpaList          stream_list;

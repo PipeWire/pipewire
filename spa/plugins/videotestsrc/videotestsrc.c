@@ -24,7 +24,7 @@
 #include <stdio.h>
 #include <sys/timerfd.h>
 
-#include <spa/id-map.h>
+#include <spa/type-map.h>
 #include <spa/clock.h>
 #include <spa/log.h>
 #include <spa/loop.h>
@@ -46,35 +46,35 @@ typedef struct {
   uint32_t prop_pattern;
   uint32_t pattern_smpte_snow;
   uint32_t pattern_snow;
-  SpaMediaTypes media_types;
-  SpaMediaSubtypes media_subtypes;
-  SpaPropVideo prop_video;
-  SpaVideoFormats video_formats;
-  SpaEventNode event_node;
-  SpaCommandNode command_node;
-  SpaAllocParamBuffers alloc_param_buffers;
-  SpaAllocParamMetaEnable alloc_param_meta_enable;
-} URI;
+  SpaTypeMediaType media_type;
+  SpaTypeMediaSubtype media_subtype;
+  SpaTypePropVideo prop_video;
+  SpaTypeVideoFormat video_format;
+  SpaTypeEventNode event_node;
+  SpaTypeCommandNode command_node;
+  SpaTypeAllocParamBuffers alloc_param_buffers;
+  SpaTypeAllocParamMetaEnable alloc_param_meta_enable;
+} Type;
 
 static inline void
-init_uri (URI *uri, SpaIDMap *map)
+init_type (Type *type, SpaTypeMap *map)
 {
-  uri->node = spa_id_map_get_id (map, SPA_TYPE__Node);
-  uri->clock = spa_id_map_get_id (map, SPA_TYPE__Clock);
-  uri->format = spa_id_map_get_id (map, SPA_TYPE__Format);
-  uri->props = spa_id_map_get_id (map, SPA_TYPE__Props);
-  uri->prop_live = spa_id_map_get_id (map, SPA_TYPE_PROPS__live);
-  uri->prop_pattern = spa_id_map_get_id (map, SPA_TYPE_PROPS__patternType);
-  uri->pattern_smpte_snow = spa_id_map_get_id (map, SPA_TYPE_PROPS__patternType ":smpte-snow");
-  uri->pattern_snow = spa_id_map_get_id (map, SPA_TYPE_PROPS__patternType ":snow");
-  spa_media_types_fill (&uri->media_types, map);
-  spa_media_subtypes_map (map, &uri->media_subtypes);
-  spa_prop_video_map (map, &uri->prop_video);
-  spa_video_formats_map (map, &uri->video_formats);
-  spa_event_node_map (map, &uri->event_node);
-  spa_command_node_map (map, &uri->command_node);
-  spa_alloc_param_buffers_map (map, &uri->alloc_param_buffers);
-  spa_alloc_param_meta_enable_map (map, &uri->alloc_param_meta_enable);
+  type->node = spa_type_map_get_id (map, SPA_TYPE__Node);
+  type->clock = spa_type_map_get_id (map, SPA_TYPE__Clock);
+  type->format = spa_type_map_get_id (map, SPA_TYPE__Format);
+  type->props = spa_type_map_get_id (map, SPA_TYPE__Props);
+  type->prop_live = spa_type_map_get_id (map, SPA_TYPE_PROPS__live);
+  type->prop_pattern = spa_type_map_get_id (map, SPA_TYPE_PROPS__patternType);
+  type->pattern_smpte_snow = spa_type_map_get_id (map, SPA_TYPE_PROPS__patternType ":smpte-snow");
+  type->pattern_snow = spa_type_map_get_id (map, SPA_TYPE_PROPS__patternType ":snow");
+  spa_type_media_type_map (map, &type->media_type);
+  spa_type_media_subtype_map (map, &type->media_subtype);
+  spa_type_prop_video_map (map, &type->prop_video);
+  spa_type_video_format_map (map, &type->video_format);
+  spa_type_event_node_map (map, &type->event_node);
+  spa_type_command_node_map (map, &type->command_node);
+  spa_type_alloc_param_buffers_map (map, &type->alloc_param_buffers);
+  spa_type_alloc_param_meta_enable_map (map, &type->alloc_param_meta_enable);
 }
 
 typedef struct _SpaVideoTestSrc SpaVideoTestSrc;
@@ -102,8 +102,8 @@ struct _SpaVideoTestSrc {
   SpaNode node;
   SpaClock clock;
 
-  URI uri;
-  SpaIDMap *map;
+  Type type;
+  SpaTypeMap *map;
   SpaLog *log;
   SpaLoop *data_loop;
 
@@ -147,7 +147,7 @@ static void
 reset_videotestsrc_props (SpaVideoTestSrc *this, SpaVideoTestSrcProps *props)
 {
   props->live = DEFAULT_LIVE;
-  props->pattern = this->uri. DEFAULT_PATTERN;
+  props->pattern = this->type. DEFAULT_PATTERN;
 }
 
 #define PROP(f,key,type,...)                                         \
@@ -182,12 +182,12 @@ spa_videotestsrc_node_get_props (SpaNode       *node,
 
   spa_pod_builder_init (&b, this->props_buffer, sizeof (this->props_buffer));
 
-  spa_pod_builder_props (&b, &f[0], this->uri.props,
-    PROP    (&f[1], this->uri.prop_live,      SPA_POD_TYPE_BOOL, this->props.live),
-    PROP_EN (&f[1], this->uri.prop_pattern,   SPA_POD_TYPE_URI, 3,
+  spa_pod_builder_props (&b, &f[0], this->type.props,
+    PROP    (&f[1], this->type.prop_live,      SPA_POD_TYPE_BOOL, this->props.live),
+    PROP_EN (&f[1], this->type.prop_pattern,   SPA_POD_TYPE_URI, 3,
                                                         this->props.pattern,
-                                                        this->uri.pattern_smpte_snow,
-                                                        this->uri.pattern_snow));
+                                                        this->type.pattern_smpte_snow,
+                                                        this->type.pattern_snow));
 
   *props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
 
@@ -209,8 +209,8 @@ spa_videotestsrc_node_set_props (SpaNode         *node,
     reset_videotestsrc_props (this, &this->props);
   } else {
     spa_props_query (props,
-        this->uri.prop_live,     SPA_POD_TYPE_BOOL,   &this->props.live,
-        this->uri.prop_pattern,  SPA_POD_TYPE_URI,    &this->props.pattern,
+        this->type.prop_live,     SPA_POD_TYPE_BOOL,   &this->props.live,
+        this->type.prop_pattern,  SPA_POD_TYPE_URI,    &this->props.pattern,
         0);
   }
 
@@ -227,7 +227,7 @@ send_have_output (SpaVideoTestSrc *this)
 {
 
   if (this->event_cb) {
-    SpaEvent event = SPA_EVENT_INIT (this->uri.event_node.HaveOutput);
+    SpaEvent event = SPA_EVENT_INIT (this->type.event_node.HaveOutput);
     this->event_cb (&this->node, &event, this->user_data);
   }
   return SPA_RESULT_OK;
@@ -315,7 +315,7 @@ spa_videotestsrc_node_send_command (SpaNode    *node,
 
   this = SPA_CONTAINER_OF (node, SpaVideoTestSrc, node);
 
-  if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Start) {
+  if (SPA_COMMAND_TYPE (command) == this->type.command_node.Start) {
     struct timespec now;
 
     if (!this->have_format)
@@ -339,7 +339,7 @@ spa_videotestsrc_node_send_command (SpaNode    *node,
     set_timer (this, true);
     update_state (this, SPA_NODE_STATE_STREAMING);
   }
-  else if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Pause) {
+  else if (SPA_COMMAND_TYPE (command) == this->type.command_node.Pause) {
     if (!this->have_format)
       return SPA_RESULT_NO_FORMAT;
 
@@ -465,17 +465,17 @@ next:
 
   switch (index++) {
     case 0:
-      spa_pod_builder_format (&b, &f[0], this->uri.format,
-         this->uri.media_types.video, this->uri.media_subtypes.raw,
-         PROP_U_EN (&f[1], this->uri.prop_video.format,    SPA_POD_TYPE_URI, 3,
-                                                             this->uri.video_formats.RGB,
-                                                             this->uri.video_formats.RGB,
-                                                             this->uri.video_formats.UYVY),
-         PROP_U_MM (&f[1], this->uri.prop_video.size,      SPA_POD_TYPE_RECTANGLE,
+      spa_pod_builder_format (&b, &f[0], this->type.format,
+         this->type.media_type.video, this->type.media_subtype.raw,
+         PROP_U_EN (&f[1], this->type.prop_video.format,    SPA_POD_TYPE_URI, 3,
+                                                             this->type.video_format.RGB,
+                                                             this->type.video_format.RGB,
+                                                             this->type.video_format.UYVY),
+         PROP_U_MM (&f[1], this->type.prop_video.size,      SPA_POD_TYPE_RECTANGLE,
                                                              320, 240,
                                                              1, 1,
                                                              INT32_MAX, INT32_MAX),
-         PROP_U_MM (&f[1], this->uri.prop_video.framerate, SPA_POD_TYPE_FRACTION,
+         PROP_U_MM (&f[1], this->type.prop_video.framerate, SPA_POD_TYPE_FRACTION,
                                                              25, 1,
                                                              0, 1,
                                                              INT32_MAX, 1));
@@ -542,10 +542,10 @@ spa_videotestsrc_node_port_set_format (SpaNode            *node,
     SpaPODBuilder b = { NULL };
     SpaPODFrame f[2];
 
-    if (raw_info->format == this->uri.video_formats.RGB) {
+    if (raw_info->format == this->type.video_format.RGB) {
       this->bpp = 3;
     }
-    else if (raw_info->format == this->uri.video_formats.UYVY) {
+    else if (raw_info->format == this->type.video_format.UYVY) {
       this->bpp = 2;
     }
     else
@@ -560,15 +560,15 @@ spa_videotestsrc_node_port_set_format (SpaNode            *node,
     this->stride = SPA_ROUND_UP_N (this->bpp * raw_info->size.width, 4);
 
     spa_pod_builder_init (&b, this->params_buffer, sizeof (this->params_buffer));
-    spa_pod_builder_object (&b, &f[0], 0, this->uri.alloc_param_buffers.Buffers,
-      PROP      (&f[1], this->uri.alloc_param_buffers.size,    SPA_POD_TYPE_INT, this->stride * raw_info->size.height),
-      PROP      (&f[1], this->uri.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, this->stride),
-      PROP_U_MM (&f[1], this->uri.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, 32, 2, 32),
-      PROP      (&f[1], this->uri.alloc_param_buffers.align,   SPA_POD_TYPE_INT, 16));
+    spa_pod_builder_object (&b, &f[0], 0, this->type.alloc_param_buffers.Buffers,
+      PROP      (&f[1], this->type.alloc_param_buffers.size,    SPA_POD_TYPE_INT, this->stride * raw_info->size.height),
+      PROP      (&f[1], this->type.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, this->stride),
+      PROP_U_MM (&f[1], this->type.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, 32, 2, 32),
+      PROP      (&f[1], this->type.alloc_param_buffers.align,   SPA_POD_TYPE_INT, 16));
     this->params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
-    spa_pod_builder_object (&b, &f[0], 0, this->uri.alloc_param_meta_enable.MetaEnable,
-      PROP      (&f[1], this->uri.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, SPA_META_TYPE_HEADER));
+    spa_pod_builder_object (&b, &f[0], 0, this->type.alloc_param_meta_enable.MetaEnable,
+      PROP      (&f[1], this->type.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, SPA_META_TYPE_HEADER));
     this->params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
     this->info.extra = NULL;
@@ -603,11 +603,11 @@ spa_videotestsrc_node_port_get_format (SpaNode          *node,
 
   spa_pod_builder_init (&b, this->format_buffer, sizeof (this->format_buffer));
 
-  spa_pod_builder_format (&b, &f[0], this->uri.format,
-     this->uri.media_types.video, this->uri.media_subtypes.raw,
-     PROP (&f[1], this->uri.prop_video.format,     SPA_POD_TYPE_URI,       this->current_format.info.raw.format),
-     PROP (&f[1], this->uri.prop_video.size,      -SPA_POD_TYPE_RECTANGLE, &this->current_format.info.raw.size),
-     PROP (&f[1], this->uri.prop_video.framerate, -SPA_POD_TYPE_FRACTION,  &this->current_format.info.raw.framerate));
+  spa_pod_builder_format (&b, &f[0], this->type.format,
+     this->type.media_type.video, this->type.media_subtype.raw,
+     PROP (&f[1], this->type.prop_video.format,     SPA_POD_TYPE_URI,       this->current_format.info.raw.format),
+     PROP (&f[1], this->type.prop_video.size,      -SPA_POD_TYPE_RECTANGLE, &this->current_format.info.raw.size),
+     PROP (&f[1], this->type.prop_video.framerate, -SPA_POD_TYPE_FRACTION,  &this->current_format.info.raw.framerate));
   *format = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
 
   return SPA_RESULT_OK;
@@ -909,9 +909,9 @@ spa_videotestsrc_get_interface (SpaHandle         *handle,
 
   this = (SpaVideoTestSrc *) handle;
 
-  if (interface_id == this->uri.node)
+  if (interface_id == this->type.node)
     *interface = &this->node;
-  else if (interface_id == this->uri.clock)
+  else if (interface_id == this->type.clock)
     *interface = &this->clock;
   else
     return SPA_RESULT_UNKNOWN_INTERFACE;
@@ -953,11 +953,11 @@ videotestsrc_init (const SpaHandleFactory  *factory,
   this = (SpaVideoTestSrc *) handle;
 
   for (i = 0; i < n_support; i++) {
-    if (strcmp (support[i].uri, SPA_TYPE__IDMap) == 0)
+    if (strcmp (support[i].type, SPA_TYPE__TypeMap) == 0)
       this->map = support[i].data;
-    else if (strcmp (support[i].uri, SPA_TYPE__Log) == 0)
+    else if (strcmp (support[i].type, SPA_TYPE__Log) == 0)
       this->log = support[i].data;
-    else if (strcmp (support[i].uri, SPA_TYPE_LOOP__DataLoop) == 0)
+    else if (strcmp (support[i].type, SPA_TYPE_LOOP__DataLoop) == 0)
       this->data_loop = support[i].data;
   }
   if (this->map == NULL) {
@@ -968,7 +968,7 @@ videotestsrc_init (const SpaHandleFactory  *factory,
     spa_log_error (this->log, "a data_loop is needed");
     return SPA_RESULT_ERROR;
   }
-  init_uri (&this->uri, this->map);
+  init_type (&this->type, this->map);
 
   this->node = videotestsrc_node;
   this->clock = videotestsrc_clock;

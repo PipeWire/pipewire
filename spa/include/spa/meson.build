@@ -4,17 +4,16 @@ spa_headers = [
   'buffer.h',
   'clock.h',
   'command.h',
+  'command-node.h',
   'defs.h',
   'dict.h',
   'event.h',
+  'event-node.h',
   'format.h',
-  'id-map.h',
   'list.h',
   'log.h',
   'loop.h',
   'monitor.h',
-  'node-command.h',
-  'node-event.h',
   'node.h',
   'plugin.h',
   'pod.h',
@@ -22,7 +21,8 @@ spa_headers = [
   'pod-iter.h',
   'pod-utils.h',
   'props.h',
-  'ringbuffer.h'
+  'ringbuffer.h',
+  'type-map.h',
 ]
 
 install_headers(spa_headers, subdir : 'spa')

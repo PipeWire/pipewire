@@ -24,7 +24,7 @@
 
 #include <linux/videodev2.h>
 
-#include <spa/id-map.h>
+#include <spa/type-map.h>
 #include <spa/log.h>
 #include <spa/node.h>
 #include <spa/video/format-utils.h>
@@ -75,30 +75,30 @@ typedef struct {
   uint32_t prop_device;
   uint32_t prop_device_name;
   uint32_t prop_device_fd;
-  SpaMediaTypes media_types;
-  SpaMediaSubtypes media_subtypes;
-  SpaCommandNode command_node;
-} URI;
+  SpaTypeMediaType media_type;
+  SpaTypeMediaSubtype media_subtype;
+  SpaTypeCommandNode command_node;
+} Type;
 
 static inline void
-init_uri (URI *uri, SpaIDMap *map)
+init_type (Type *type, SpaTypeMap *map)
 {
-  uri->node = spa_id_map_get_id (map, SPA_TYPE__Node);
-  uri->props = spa_id_map_get_id (map, SPA_TYPE__Props);
-  uri->prop_device = spa_id_map_get_id (map, SPA_TYPE_PROPS__device);
-  uri->prop_device_name = spa_id_map_get_id (map, SPA_TYPE_PROPS__deviceName);
-  uri->prop_device_fd = spa_id_map_get_id (map, SPA_TYPE_PROPS__deviceFd);
-  spa_media_types_fill (&uri->media_types, map);
-  spa_media_subtypes_map (map, &uri->media_subtypes);
-  spa_command_node_map (map, &uri->command_node);
+  type->node = spa_type_map_get_id (map, SPA_TYPE__Node);
+  type->props = spa_type_map_get_id (map, SPA_TYPE__Props);
+  type->prop_device = spa_type_map_get_id (map, SPA_TYPE_PROPS__device);
+  type->prop_device_name = spa_type_map_get_id (map, SPA_TYPE_PROPS__deviceName);
+  type->prop_device_fd = spa_type_map_get_id (map, SPA_TYPE_PROPS__deviceFd);
+  spa_type_media_type_map (map, &type->media_type);
+  spa_type_media_subtype_map (map, &type->media_subtype);
+  spa_type_command_node_map (map, &type->command_node);
 }
 
 struct _SpaXvSink {
   SpaHandle handle;
   SpaNode   node;
 
-  URI uri;
-  SpaIDMap *map;
+  Type type;
+  SpaTypeMap *map;
   SpaLog *log;
 
   uint8_t props_buffer[512];
@@ -146,10 +146,10 @@ spa_xv_sink_node_get_props (SpaNode       *node,
   this = SPA_CONTAINER_OF (node, SpaXvSink, node);
 
   spa_pod_builder_init (&b, this->props_buffer, sizeof (this->props_buffer));
-  spa_pod_builder_props (&b, &f[0], this->uri.props,
-      PROP   (&f[1], this->uri.prop_device,      -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device)),
-      PROP_R (&f[1], this->uri.prop_device_name, -SPA_POD_TYPE_STRING, this->props.device_name, sizeof (this->props.device_name)),
-      PROP_R (&f[1], this->uri.prop_device_fd,    SPA_POD_TYPE_INT,    this->props.device_fd));
+  spa_pod_builder_props (&b, &f[0], this->type.props,
+      PROP   (&f[1], this->type.prop_device,      -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device)),
+      PROP_R (&f[1], this->type.prop_device_name, -SPA_POD_TYPE_STRING, this->props.device_name, sizeof (this->props.device_name)),
+      PROP_R (&f[1], this->type.prop_device_fd,    SPA_POD_TYPE_INT,    this->props.device_fd));
   *props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
 
   return SPA_RESULT_OK;
@@ -170,7 +170,7 @@ spa_xv_sink_node_set_props (SpaNode         *node,
     reset_xv_sink_props (&this->props);
   } else {
     spa_props_query (props,
-        this->uri.prop_device, -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device),
+        this->type.prop_device, -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device),
         0);
   }
   return SPA_RESULT_OK;
@@ -187,12 +187,12 @@ spa_xv_sink_node_send_command (SpaNode    *node,
 
   this = SPA_CONTAINER_OF (node, SpaXvSink, node);
 
-  if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Start) {
+  if (SPA_COMMAND_TYPE (command) == this->type.command_node.Start) {
     spa_xv_start (this);
 
     update_state (this, SPA_NODE_STATE_STREAMING);
   }
-  else if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Pause) {
+  else if (SPA_COMMAND_TYPE (command) == this->type.command_node.Pause) {
     spa_xv_stop (this);
 
     update_state (this, SPA_NODE_STATE_PAUSED);
@@ -329,8 +329,8 @@ spa_xv_sink_node_port_set_format (SpaNode            *node,
     return SPA_RESULT_OK;
   }
 
-  if (format->body.media_type.value == this->uri.media_types.video) {
-    if (format->body.media_subtype.value == this->uri.media_subtypes.raw) {
+  if (format->body.media_type.value == this->type.media_type.video) {
+    if (format->body.media_subtype.value == this->type.media_subtype.raw) {
       if ((res = spa_format_video_parse (format, &info) < 0))
         return res;
     } else
@@ -531,7 +531,7 @@ spa_xv_sink_get_interface (SpaHandle               *handle,
 
   this = (SpaXvSink *) handle;
 
-  if (interface_id == this->uri.node)
+  if (interface_id == this->type.node)
     *interface = &this->node;
   else
     return SPA_RESULT_UNKNOWN_INTERFACE;
@@ -564,16 +564,16 @@ xv_sink_init (const SpaHandleFactory  *factory,
   this = (SpaXvSink *) handle;
 
   for (i = 0; i < n_support; i++) {
-    if (strcmp (support[i].uri, SPA_TYPE__IDMap) == 0)
+    if (strcmp (support[i].type, SPA_TYPE__TypeMap) == 0)
       this->map = support[i].data;
-    else if (strcmp (support[i].uri, SPA_TYPE__Log) == 0)
+    else if (strcmp (support[i].type, SPA_TYPE__Log) == 0)
       this->log = support[i].data;
   }
   if (this->map == NULL) {
-    spa_log_error (this->log, "an id-map is needed");
+    spa_log_error (this->log, "a type-map is needed");
     return SPA_RESULT_ERROR;
   }
-  init_uri (&this->uri, this->map);
+  init_type (&this->type, this->map);
 
   this->node = xvsink_node;
   reset_xv_sink_props (&this->props);

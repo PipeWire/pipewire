@@ -17,52 +17,53 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __SPA_ID_MAP_H__
-#define __SPA_ID_MAP_H__
+#ifndef __SPA_TYPE_MAP_H__
+#define __SPA_TYPE_MAP_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct _SpaIDMap SpaIDMap;
+typedef struct _SpaTypeMap SpaTypeMap;
 
 #include <spa/defs.h>
 #include <spa/plugin.h>
+#include <spa/type.h>
 
-#define SPA_TYPE__IDMap                         "Spa:Interface:IDMap"
-#define SPA_TYPE_ID_MAP_BASE                    SPA_TYPE__IDMap ":"
+#define SPA_TYPE__TypeMap                      "Spa:Interface:TypeMap"
+#define SPA_TYPE_TYPE_MAP_BASE                 SPA_TYPE__TypeMap ":"
 
 /**
- * SpaIDMap:
+ * SpaTypeMap:
  *
- * Maps between uri and its id
+ * Maps between string types and their type id
  */
-struct _SpaIDMap {
+struct _SpaTypeMap {
   /* the total size of this structure. This can be used to expand this
    * structure in the future */
   const size_t size;
   /**
-   * SpaIDMap::info
+   * SpaTypeMap::info
    *
-   * Extra information about the map
+   * Extra information about the type map
    */
   const SpaDict *info;
 
-  uint32_t      (*get_id)    (SpaIDMap   *map,
-                              const char *uri);
+  SpaType       (*get_id)    (SpaTypeMap *map,
+                              const char *type);
 
-  const char *  (*get_uri)   (SpaIDMap   *map,
-                              uint32_t    id);
+  const char *  (*get_type)  (SpaTypeMap *map,
+                              SpaType     id);
 
-  uint32_t      (*get_size)  (SpaIDMap   *map);
+  size_t        (*get_size)  (SpaTypeMap *map);
 };
 
-#define spa_id_map_get_id(n,...)            (n)->get_id((n),__VA_ARGS__)
-#define spa_id_map_get_uri(n,...)           (n)->get_uri((n),__VA_ARGS__)
-#define spa_id_map_get_size(n)              (n)->get_size(n)
+#define spa_type_map_get_id(n,...)            (n)->get_id((n),__VA_ARGS__)
+#define spa_type_map_get_type(n,...)          (n)->get_type((n),__VA_ARGS__)
+#define spa_type_map_get_size(n)              (n)->get_size(n)
 
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_ID_MAP_H__ */
+#endif /* __SPA_TYPE_MAP_H__ */

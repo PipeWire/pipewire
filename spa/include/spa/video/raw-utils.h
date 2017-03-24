@@ -26,7 +26,7 @@ extern "C" {
 
 typedef struct _SpaVideoInfoRaw SpaVideoInfoRaw;
 
-#include <spa/id-map.h>
+#include <spa/type-map.h>
 #include <spa/video/raw.h>
 
 typedef struct
@@ -96,77 +96,77 @@ typedef struct
   uint32_t P010_10LE;
   uint32_t IYU2;
   uint32_t VYUY;
-} SpaVideoFormats;
+} SpaTypeVideoFormat;
 
 static inline void
-spa_video_formats_map (SpaIDMap *map, SpaVideoFormats *types)
+spa_type_video_format_map (SpaTypeMap *map, SpaTypeVideoFormat *type)
 {
-  if (types->ENCODED == 0) {
-    types->UNKNOWN      = 0;
-    types->ENCODED      = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__ENCODED);
-    types->I420         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__I420);
-    types->YV12         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__YV12);
-    types->YUY2         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__YUY2);
-    types->UYVY         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__UYVY);
-    types->AYUV         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__AYUV);
-    types->RGBx         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__RGBx);
-    types->BGRx         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__BGRx);
-    types->xRGB         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__xRGB);
-    types->xBGR         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__xBGR);
-    types->RGBA         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__RGBA);
-    types->BGRA         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__BGRA);
-    types->ARGB         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__ARGB);
-    types->ABGR         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__ABGR);
-    types->RGB          = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__RGB);
-    types->BGR          = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__BGR);
-    types->Y41B         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__Y41B);
-    types->Y42B         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__Y42B);
-    types->YVYU         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__YVYU);
-    types->Y444         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__Y444);
-    types->v210         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__v210);
-    types->v216         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__v216);
-    types->NV12         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__NV12);
-    types->NV21         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__NV21);
-    types->GRAY8        = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__GRAY8);
-    types->GRAY16_BE    = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__GRAY16_BE);
-    types->GRAY16_LE    = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__GRAY16_LE);
-    types->v308         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__v308);
-    types->RGB16        = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__RGB16);
-    types->BGR16        = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__BGR16);
-    types->RGB15        = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__RGB15);
-    types->BGR15        = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__BGR15);
-    types->UYVP         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__UYVP);
-    types->A420         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__A420);
-    types->RGB8P        = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__RGB8P);
-    types->YUV9         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__YUV9);
-    types->YVU9         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__YVU9);
-    types->IYU1         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__IYU1);
-    types->ARGB64       = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__ARGB64);
-    types->AYUV64       = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__AYUV64);
-    types->r210         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__r210);
-    types->I420_10BE    = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__I420_10BE);
-    types->I420_10LE    = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__I420_10LE);
-    types->I422_10BE    = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__I422_10BE);
-    types->I422_10LE    = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__I422_10LE);
-    types->Y444_10BE    = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__Y444_10BE);
-    types->Y444_10LE    = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__Y444_10LE);
-    types->GBR          = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__GBR);
-    types->GBR_10BE     = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__GBR_10BE);
-    types->GBR_10LE     = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__GBR_10LE);
-    types->NV16         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__NV16);
-    types->NV24         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__NV24);
-    types->NV12_64Z32   = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__NV12_64Z32);
-    types->A420_10BE    = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__A420_10BE);
-    types->A420_10LE    = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__A420_10LE);
-    types->A422_10BE    = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__A422_10BE);
-    types->A422_10LE    = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__A422_10LE);
-    types->A444_10BE    = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__A444_10BE);
-    types->A444_10LE    = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__A444_10LE);
-    types->NV61         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__NV61);
-    types->P010_10BE    = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__P010_10BE);
-    types->P010_10LE    = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__P010_10LE);
-    types->IYU2         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__IYU2);
-    types->VYUY         = spa_id_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__VYUY);
+  if (type->ENCODED == 0) {
+    type->UNKNOWN      = 0;
+    type->ENCODED      = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__ENCODED);
+    type->I420         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__I420);
+    type->YV12         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__YV12);
+    type->YUY2         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__YUY2);
+    type->UYVY         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__UYVY);
+    type->AYUV         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__AYUV);
+    type->RGBx         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__RGBx);
+    type->BGRx         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__BGRx);
+    type->xRGB         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__xRGB);
+    type->xBGR         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__xBGR);
+    type->RGBA         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__RGBA);
+    type->BGRA         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__BGRA);
+    type->ARGB         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__ARGB);
+    type->ABGR         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__ABGR);
+    type->RGB          = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__RGB);
+    type->BGR          = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__BGR);
+    type->Y41B         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__Y41B);
+    type->Y42B         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__Y42B);
+    type->YVYU         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__YVYU);
+    type->Y444         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__Y444);
+    type->v210         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__v210);
+    type->v216         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__v216);
+    type->NV12         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__NV12);
+    type->NV21         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__NV21);
+    type->GRAY8        = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__GRAY8);
+    type->GRAY16_BE    = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__GRAY16_BE);
+    type->GRAY16_LE    = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__GRAY16_LE);
+    type->v308         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__v308);
+    type->RGB16        = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__RGB16);
+    type->BGR16        = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__BGR16);
+    type->RGB15        = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__RGB15);
+    type->BGR15        = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__BGR15);
+    type->UYVP         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__UYVP);
+    type->A420         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__A420);
+    type->RGB8P        = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__RGB8P);
+    type->YUV9         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__YUV9);
+    type->YVU9         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__YVU9);
+    type->IYU1         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__IYU1);
+    type->ARGB64       = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__ARGB64);
+    type->AYUV64       = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__AYUV64);
+    type->r210         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__r210);
+    type->I420_10BE    = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__I420_10BE);
+    type->I420_10LE    = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__I420_10LE);
+    type->I422_10BE    = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__I422_10BE);
+    type->I422_10LE    = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__I422_10LE);
+    type->Y444_10BE    = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__Y444_10BE);
+    type->Y444_10LE    = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__Y444_10LE);
+    type->GBR          = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__GBR);
+    type->GBR_10BE     = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__GBR_10BE);
+    type->GBR_10LE     = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__GBR_10LE);
+    type->NV16         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__NV16);
+    type->NV24         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__NV24);
+    type->NV12_64Z32   = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__NV12_64Z32);
+    type->A420_10BE    = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__A420_10BE);
+    type->A420_10LE    = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__A420_10LE);
+    type->A422_10BE    = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__A422_10BE);
+    type->A422_10LE    = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__A422_10LE);
+    type->A444_10BE    = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__A444_10BE);
+    type->A444_10LE    = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__A444_10LE);
+    type->NV61         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__NV61);
+    type->P010_10BE    = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__P010_10BE);
+    type->P010_10LE    = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__P010_10LE);
+    type->IYU2         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__IYU2);
+    type->VYUY         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__VYUY);
   }
 }
 

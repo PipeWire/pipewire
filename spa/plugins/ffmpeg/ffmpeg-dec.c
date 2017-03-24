@@ -22,7 +22,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#include <spa/id-map.h>
+#include <spa/type-map.h>
 #include <spa/log.h>
 #include <spa/node.h>
 #include <spa/video/format-utils.h>
@@ -52,15 +52,22 @@ typedef struct {
 
 typedef struct {
   uint32_t node;
-  SpaCommandNode command_node;
-} URI;
+  SpaTypeCommandNode command_node;
+} Type;
+
+static inline void
+init_type (Type *type, SpaTypeMap *map)
+{
+  type->node = spa_type_map_get_id (map, SPA_TYPE__Node);
+  spa_type_command_node_map (map, &type->command_node);
+}
 
 struct _SpaFFMpegDec {
   SpaHandle handle;
   SpaNode   node;
 
-  URI uri;
-  SpaIDMap *map;
+  Type type;
+  SpaTypeMap *map;
   SpaLog *log;
 
   SpaEventNodeCallback event_cb;
@@ -105,10 +112,10 @@ spa_ffmpeg_dec_node_send_command (SpaNode    *node,
 
   this = SPA_CONTAINER_OF (node, SpaFFMpegDec, node);
 
-  if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Start) {
+  if (SPA_COMMAND_TYPE (command) == this->type.command_node.Start) {
     update_state (this, SPA_NODE_STATE_STREAMING);
   }
-  else if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Pause) {
+  else if (SPA_COMMAND_TYPE (command) == this->type.command_node.Pause) {
     update_state (this, SPA_NODE_STATE_PAUSED);
   }
   else
@@ -491,7 +498,7 @@ spa_ffmpeg_dec_get_interface (SpaHandle         *handle,
 
   this = (SpaFFMpegDec *) handle;
 
-  if (interface_id == this->uri.node)
+  if (interface_id == this->type.node)
     *interface = &this->node;
   else
     return SPA_RESULT_UNKNOWN_INTERFACE;
@@ -513,19 +520,18 @@ spa_ffmpeg_dec_init (SpaHandle         *handle,
   this = (SpaFFMpegDec *) handle;
 
   for (i = 0; i < n_support; i++) {
-    if (strcmp (support[i].uri, SPA_TYPE__IDMap) == 0)
+    if (strcmp (support[i].type, SPA_TYPE__TypeMap) == 0)
       this->map = support[i].data;
-    else if (strcmp (support[i].uri, SPA_TYPE__Log) == 0)
+    else if (strcmp (support[i].type, SPA_TYPE__Log) == 0)
       this->log = support[i].data;
   }
   if (this->map == NULL) {
-    spa_log_error (this->log, "an id-map is needed");
+    spa_log_error (this->log, "a type-map is needed");
     return SPA_RESULT_ERROR;
   }
-  this->uri.node = spa_id_map_get_id (this->map, SPA_TYPE__Node);
+  init_type (&this->type, this->map);
 
   this->node = ffmpeg_dec_node;
-  spa_command_node_map (this->map, &this->uri.command_node);
 
   this->in_ports[0].info.flags = SPA_PORT_INFO_FLAG_NONE;
   this->out_ports[0].info.flags = SPA_PORT_INFO_FLAG_NONE;

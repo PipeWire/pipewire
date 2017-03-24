@@ -131,7 +131,7 @@ on_global_added (PinosListener *listener,
 {
   ModuleImpl *impl = SPA_CONTAINER_OF (listener, ModuleImpl, global_added);
 
-  if (global->type == impl->core->uri.node) {
+  if (global->type == impl->core->type.node) {
     PinosNode *node = global->object;
     NodeInfo *info;
 
@@ -153,7 +153,7 @@ on_global_removed (PinosListener *listener,
 {
   ModuleImpl *impl = SPA_CONTAINER_OF (listener, ModuleImpl, global_removed);
 
-  if (global->type == impl->core->uri.node) {
+  if (global->type == impl->core->type.node) {
     PinosNode *node = global->object;
     NodeInfo *info;
 

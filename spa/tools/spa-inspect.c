@@ -23,7 +23,7 @@
 #include <unistd.h>
 #include <dlfcn.h>
 
-#include <spa/id-map.h>
+#include <spa/type-map.h>
 #include <spa/clock.h>
 #include <spa/log.h>
 #include <spa/node.h>
@@ -34,14 +34,14 @@
 typedef struct {
   uint32_t node;
   uint32_t clock;
-} URI;
+} Type;
 
 typedef struct {
-  URI uri;
+  Type type;
 
   SpaSupport support[4];
   uint32_t   n_support;
-  SpaIDMap *map;
+  SpaTypeMap *map;
   SpaLog *log;
   SpaLoop loop;
 } AppData;
@@ -143,16 +143,16 @@ inspect_factory (AppData *data, const SpaHandleFactory *factory)
         printf ("can't enumerate interfaces: %d\n", res);
     }
     index++;
-    printf (" interface: '%s'\n", info->uri);
+    printf (" interface: '%s'\n", info->type);
 
-    interface_id = spa_id_map_get_id (data->map, info->uri);
+    interface_id = spa_type_map_get_id (data->map, info->type);
 
     if ((res = spa_handle_get_interface (handle, interface_id, &interface)) < 0) {
       printf ("can't get interface: %d\n", res);
       continue;
     }
 
-    if (interface_id == data->uri.node)
+    if (interface_id == data->type.node)
       inspect_node (interface);
     else
       printf ("skipping unknown interface\n");
@@ -189,25 +189,25 @@ main (int argc, char *argv[])
     return -1;
   }
 
-  data.map = spa_id_map_get_default();
+  data.map = spa_type_map_get_default();
   data.log = NULL;
   data.loop.size = sizeof (SpaLoop);
   data.loop.add_source = do_add_source;
   data.loop.update_source = do_update_source;
   data.loop.remove_source = do_remove_source;
 
-  data.support[0].uri = SPA_TYPE__IDMap;
+  data.support[0].type = SPA_TYPE__TypeMap;
   data.support[0].data = data.map;
-  data.support[1].uri = SPA_TYPE__Log;
+  data.support[1].type = SPA_TYPE__Log;
   data.support[1].data = data.log;
-  data.support[2].uri = SPA_TYPE_LOOP__MainLoop;
+  data.support[2].type = SPA_TYPE_LOOP__MainLoop;
   data.support[2].data = &data.loop;
-  data.support[3].uri = SPA_TYPE_LOOP__DataLoop;
+  data.support[3].type = SPA_TYPE_LOOP__DataLoop;
   data.support[3].data = &data.loop;
   data.n_support = 4;
 
-  data.uri.node = spa_id_map_get_id (data.map, SPA_TYPE__Node);
-  data.uri.clock = spa_id_map_get_id (data.map, SPA_TYPE__Clock);
+  data.type.node = spa_type_map_get_id (data.map, SPA_TYPE__Node);
+  data.type.clock = spa_type_map_get_id (data.map, SPA_TYPE__Clock);
 
   if ((handle = dlopen (argv[1], RTLD_NOW)) == NULL) {
     printf ("can't load %s\n", argv[1]);

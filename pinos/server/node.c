@@ -21,8 +21,6 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#include "spa/include/spa/node-command.h"
-
 #include "pinos/client/pinos.h"
 #include "pinos/client/interfaces.h"
 
@@ -169,7 +167,7 @@ pause_node (PinosNode *this)
 
   pinos_log_debug ("node %p: pause node", this);
   {
-    SpaCommand cmd = SPA_COMMAND_INIT (this->core->uri.command_node.Pause);
+    SpaCommand cmd = SPA_COMMAND_INIT (this->core->type.command_node.Pause);
     if ((res = spa_node_send_command (this->node, &cmd)) < 0)
       pinos_log_debug ("got error %d", res);
   }
@@ -183,7 +181,7 @@ start_node (PinosNode *this)
 
   pinos_log_debug ("node %p: start node", this);
   {
-    SpaCommand cmd = SPA_COMMAND_INIT (this->core->uri.command_node.Start);
+    SpaCommand cmd = SPA_COMMAND_INIT (this->core->type.command_node.Start);
     if ((res = spa_node_send_command (this->node, &cmd)) < 0)
       pinos_log_debug ("got error %d", res);
   }
@@ -226,7 +224,7 @@ send_clock_update (PinosNode *this)
   SpaResult res;
   SpaCommandNodeClockUpdate cu =
     SPA_COMMAND_NODE_CLOCK_UPDATE_INIT(
-        this->core->uri.command_node.ClockUpdate,
+        this->core->type.command_node.ClockUpdate,
         SPA_COMMAND_NODE_CLOCK_UPDATE_TIME |
             SPA_COMMAND_NODE_CLOCK_UPDATE_SCALE |
             SPA_COMMAND_NODE_CLOCK_UPDATE_STATE |
@@ -258,7 +256,7 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
   PinosNode *this = user_data;
   PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, this);
 
-  if (SPA_EVENT_TYPE (event) == this->core->uri.event_node.AsyncComplete) {
+  if (SPA_EVENT_TYPE (event) == this->core->type.event_node.AsyncComplete) {
     SpaEventNodeAsyncComplete *ac = (SpaEventNodeAsyncComplete *) event;
 
     pinos_log_debug ("node %p: async complete event %d %d", this, ac->body.seq.value, ac->body.res.value);
@@ -266,7 +264,7 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
       pinos_signal_emit (&this->async_complete, this, ac->body.seq.value, ac->body.res.value);
     }
   }
-  else if (SPA_EVENT_TYPE (event) == this->core->uri.event_node.NeedInput) {
+  else if (SPA_EVENT_TYPE (event) == this->core->type.event_node.NeedInput) {
     SpaResult res;
     int i;
     bool processed = false;
@@ -310,7 +308,7 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
         pinos_log_warn ("node %p: got process input %d", this, res);
     }
   }
-  else if (SPA_EVENT_TYPE (event) == this->core->uri.event_node.HaveOutput) {
+  else if (SPA_EVENT_TYPE (event) == this->core->type.event_node.HaveOutput) {
     SpaResult res;
     int i;
     bool processed = false;
@@ -353,7 +351,7 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
         pinos_log_warn ("node %p: got process output %d", this, res);
     }
   }
-  else if (SPA_EVENT_TYPE (event) == this->core->uri.event_node.RequestClockUpdate) {
+  else if (SPA_EVENT_TYPE (event) == this->core->type.event_node.RequestClockUpdate) {
     send_clock_update (this);
   }
 }
@@ -455,7 +453,7 @@ init_complete (PinosNode *this)
   spa_list_insert (this->core->node_list.prev, &this->link);
   this->global = pinos_core_add_global (this->core,
                                         NULL,
-                                        this->core->uri.node,
+                                        this->core->type.node,
                                         0,
                                         this,
                                         node_bind_func);

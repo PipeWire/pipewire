@@ -158,11 +158,11 @@ find_meta_enable (PinosCore *core, const SpaPortInfo *info, SpaMetaType type)
   uint32_t i;
 
   for (i = 0; i < info->n_params; i++) {
-    if (spa_pod_is_object_type (&info->params[i]->pod, core->uri.alloc_param_meta_enable.MetaEnable)) {
+    if (spa_pod_is_object_type (&info->params[i]->pod, core->type.alloc_param_meta_enable.MetaEnable)) {
       uint32_t qtype;
 
       if (spa_alloc_param_query (info->params[i],
-            core->uri.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, &qtype, 0) != 1)
+            core->type.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, &qtype, 0) != 1)
         continue;
 
       if (qtype == type)
@@ -208,11 +208,11 @@ alloc_buffers (PinosLink      *this,
   for (i = 0; i < n_params; i++) {
     SpaAllocParam *ap = params[i];
 
-    if (ap->pod.type == this->core->uri.alloc_param_meta_enable.MetaEnable) {
+    if (ap->pod.type == this->core->type.alloc_param_meta_enable.MetaEnable) {
       uint32_t type;
 
       if (spa_alloc_param_query (ap,
-            this->core->uri.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, &type,
+            this->core->type.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, &type,
             0) != 1)
         continue;
 
@@ -404,43 +404,43 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       max_buffers = 1;
 
       if (spa_alloc_param_query (in_me,
-            this->core->uri.alloc_param_meta_enable.ringbufferSize,   SPA_POD_TYPE_INT, &ms1,
-            this->core->uri.alloc_param_meta_enable.ringbufferStride, SPA_POD_TYPE_INT, &s1, 0) == 2 &&
+            this->core->type.alloc_param_meta_enable.ringbufferSize,   SPA_POD_TYPE_INT, &ms1,
+            this->core->type.alloc_param_meta_enable.ringbufferStride, SPA_POD_TYPE_INT, &s1, 0) == 2 &&
           spa_alloc_param_query (in_me,
-            this->core->uri.alloc_param_meta_enable.ringbufferSize,   SPA_POD_TYPE_INT, &ms2,
-            this->core->uri.alloc_param_meta_enable.ringbufferStride, SPA_POD_TYPE_INT, &s2, 0) == 2) {
+            this->core->type.alloc_param_meta_enable.ringbufferSize,   SPA_POD_TYPE_INT, &ms2,
+            this->core->type.alloc_param_meta_enable.ringbufferStride, SPA_POD_TYPE_INT, &s2, 0) == 2) {
         minsize = SPA_MAX (ms1, ms2);
         stride = SPA_MAX (s1, s2);
       }
     } else {
       max_buffers = MAX_BUFFERS;
       minsize = stride = 0;
-      in_alloc = find_param (iinfo, this->core->uri.alloc_param_buffers.Buffers);
+      in_alloc = find_param (iinfo, this->core->type.alloc_param_buffers.Buffers);
       if (in_alloc) {
         uint32_t qmax_buffers = max_buffers,
                  qminsize = minsize,
                  qstride = stride;
 
         spa_alloc_param_query (in_alloc,
-            this->core->uri.alloc_param_buffers.size,    SPA_POD_TYPE_INT, &qminsize,
-            this->core->uri.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, &qstride,
-            this->core->uri.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, &qmax_buffers,
+            this->core->type.alloc_param_buffers.size,    SPA_POD_TYPE_INT, &qminsize,
+            this->core->type.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, &qstride,
+            this->core->type.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, &qmax_buffers,
             0);
 
         max_buffers = qmax_buffers == 0 ? max_buffers : SPA_MIN (qmax_buffers, max_buffers);
         minsize = SPA_MAX (minsize, qminsize);
         stride = SPA_MAX (stride, qstride);
       }
-      out_alloc = find_param (oinfo, this->core->uri.alloc_param_buffers.Buffers);
+      out_alloc = find_param (oinfo, this->core->type.alloc_param_buffers.Buffers);
       if (out_alloc) {
         uint32_t qmax_buffers = max_buffers,
                  qminsize = minsize,
                  qstride = stride;
 
         spa_alloc_param_query (out_alloc,
-            this->core->uri.alloc_param_buffers.size,    SPA_POD_TYPE_INT, &qminsize,
-            this->core->uri.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, &qstride,
-            this->core->uri.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, &qmax_buffers,
+            this->core->type.alloc_param_buffers.size,    SPA_POD_TYPE_INT, &qminsize,
+            this->core->type.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, &qstride,
+            this->core->type.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, &qmax_buffers,
             0);
 
         max_buffers = qmax_buffers == 0 ? max_buffers : SPA_MIN (qmax_buffers, max_buffers);
@@ -866,7 +866,7 @@ pinos_link_new (PinosCore       *core,
 
   this->global = pinos_core_add_global (core,
                                         NULL,
-                                        core->uri.link,
+                                        core->type.link,
                                         0,
                                         this,
                                         link_bind_func);

@@ -24,7 +24,7 @@
 extern "C" {
 #endif
 
-#include <spa/id-map.h>
+#include <spa/type-map.h>
 #include <spa/command.h>
 
 #define SPA_TYPE_COMMAND__Node            SPA_TYPE_COMMAND_BASE "Node"
@@ -44,18 +44,18 @@ typedef struct {
   uint32_t Drain;
   uint32_t Marker;
   uint32_t ClockUpdate;
-} SpaCommandNode;
+} SpaTypeCommandNode;
 
 static inline void
-spa_command_node_map (SpaIDMap *map, SpaCommandNode *types)
+spa_type_command_node_map (SpaTypeMap *map, SpaTypeCommandNode *type)
 {
-  if (types->Pause == 0) {
-    types->Pause          = spa_id_map_get_id (map, SPA_TYPE_COMMAND_NODE__Pause);
-    types->Start          = spa_id_map_get_id (map, SPA_TYPE_COMMAND_NODE__Start);
-    types->Flush          = spa_id_map_get_id (map, SPA_TYPE_COMMAND_NODE__Flush);
-    types->Drain          = spa_id_map_get_id (map, SPA_TYPE_COMMAND_NODE__Drain);
-    types->Marker         = spa_id_map_get_id (map, SPA_TYPE_COMMAND_NODE__Marker);
-    types->ClockUpdate    = spa_id_map_get_id (map, SPA_TYPE_COMMAND_NODE__ClockUpdate);
+  if (type->Pause == 0) {
+    type->Pause          = spa_type_map_get_id (map, SPA_TYPE_COMMAND_NODE__Pause);
+    type->Start          = spa_type_map_get_id (map, SPA_TYPE_COMMAND_NODE__Start);
+    type->Flush          = spa_type_map_get_id (map, SPA_TYPE_COMMAND_NODE__Flush);
+    type->Drain          = spa_type_map_get_id (map, SPA_TYPE_COMMAND_NODE__Drain);
+    type->Marker         = spa_type_map_get_id (map, SPA_TYPE_COMMAND_NODE__Marker);
+    type->ClockUpdate    = spa_type_map_get_id (map, SPA_TYPE_COMMAND_NODE__ClockUpdate);
   }
 }
 

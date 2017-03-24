@@ -64,7 +64,7 @@ do_check_send (PinosListener    *listener,
   PinosClient *client = data->client;
   PinosCore *core = client->core;
 
-  if (data->resource->type == core->uri.registry) {
+  if (data->resource->type == core->type.registry) {
 #if 0
     switch (data->opcode) {
       case 0:
@@ -107,7 +107,7 @@ do_check_dispatch (PinosListener    *listener,
   PinosClient *client = data->client;
   PinosCore *core = client->core;
 
-  if (data->resource->type == core->uri.registry) {
+  if (data->resource->type == core->type.registry) {
 #if 0
     if (data->opcode == 0) {
       PinosMessageBind *m = data->message;

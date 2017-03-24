@@ -27,7 +27,6 @@ extern "C" {
 typedef struct _SpaVideoInfoRaw SpaVideoInfoRaw;
 
 #include <spa/props.h>
-#include <spa/id-map.h>
 #include <spa/video/chroma.h>
 #include <spa/video/color.h>
 #include <spa/video/multiview.h>

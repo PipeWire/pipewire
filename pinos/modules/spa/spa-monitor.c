@@ -67,11 +67,11 @@ add_item (PinosSpaMonitor *this, SpaMonitorItem *item)
   SpaPOD *info = NULL;
 
   spa_pod_object_query (item,
-      impl->core->uri.monitor_types.name,    SPA_POD_TYPE_STRING,  &name,
-      impl->core->uri.monitor_types.id,      SPA_POD_TYPE_STRING,  &id,
-      impl->core->uri.monitor_types.klass,   SPA_POD_TYPE_STRING,  &klass,
-      impl->core->uri.monitor_types.factory, SPA_POD_TYPE_POINTER, &factory,
-      impl->core->uri.monitor_types.info,    SPA_POD_TYPE_STRUCT,  &info,
+      impl->core->type.monitor.name,    SPA_POD_TYPE_STRING,  &name,
+      impl->core->type.monitor.id,      SPA_POD_TYPE_STRING,  &id,
+      impl->core->type.monitor.klass,   SPA_POD_TYPE_STRING,  &klass,
+      impl->core->type.monitor.factory, SPA_POD_TYPE_POINTER, &factory,
+      impl->core->type.monitor.info,    SPA_POD_TYPE_STRUCT,  &info,
       0);
 
   pinos_log_debug ("monitor %p: add: \"%s\" (%s)", this, name, id);
@@ -85,11 +85,11 @@ add_item (PinosSpaMonitor *this, SpaMonitorItem *item)
     pinos_log_error ("can't make factory instance: %d", res);
     return;
   }
-  if ((res = spa_handle_get_interface (handle, impl->core->uri.spa_node, &node_iface)) < 0) {
+  if ((res = spa_handle_get_interface (handle, impl->core->type.spa_node, &node_iface)) < 0) {
     pinos_log_error ("can't get NODE interface: %d", res);
     return;
   }
-  if ((res = spa_handle_get_interface (handle, impl->core->uri.spa_clock, &clock_iface)) < 0) {
+  if ((res = spa_handle_get_interface (handle, impl->core->type.spa_clock, &clock_iface)) < 0) {
     pinos_log_info ("no CLOCK interface: %d", res);
   }
 
@@ -151,8 +151,8 @@ remove_item (PinosSpaMonitor *this, SpaMonitorItem *item)
   const char *name, *id;
 
   spa_pod_object_query (item,
-      impl->core->uri.monitor_types.name,    SPA_POD_TYPE_STRING,  &name,
-      impl->core->uri.monitor_types.id,      SPA_POD_TYPE_STRING,  &id,
+      impl->core->type.monitor.name,    SPA_POD_TYPE_STRING,  &name,
+      impl->core->type.monitor.id,      SPA_POD_TYPE_STRING,  &id,
       0);
 
   pinos_log_debug ("monitor %p: remove: \"%s\" (%s)", this, name, id);
@@ -169,20 +169,20 @@ on_monitor_event  (SpaMonitor      *monitor,
   PinosSpaMonitor *this = user_data;
   PinosSpaMonitorImpl *impl = SPA_CONTAINER_OF (this, PinosSpaMonitorImpl, this);
 
-  if (SPA_EVENT_TYPE (event) == impl->core->uri.monitor_types.Added) {
+  if (SPA_EVENT_TYPE (event) == impl->core->type.monitor.Added) {
     SpaMonitorItem *item = SPA_POD_CONTENTS (SpaEvent, event);
     add_item (this, item);
   }
-  else if (SPA_EVENT_TYPE (event) == impl->core->uri.monitor_types.Removed) {
+  else if (SPA_EVENT_TYPE (event) == impl->core->type.monitor.Removed) {
     SpaMonitorItem *item = SPA_POD_CONTENTS (SpaEvent, event);
     remove_item (this, item);
   }
-  else if (SPA_EVENT_TYPE (event) == impl->core->uri.monitor_types.Changed) {
+  else if (SPA_EVENT_TYPE (event) == impl->core->type.monitor.Changed) {
     SpaMonitorItem *item = SPA_POD_CONTENTS (SpaEvent, event);
     const char *name;
 
     spa_pod_object_query (item,
-        impl->core->uri.monitor_types.name,    SPA_POD_TYPE_STRING,  &name,
+        impl->core->type.monitor.name,    SPA_POD_TYPE_STRING,  &name,
         0);
 
     pinos_log_debug ("monitor %p: changed: \"%s\"", this, name);
@@ -253,7 +253,7 @@ pinos_spa_monitor_load (PinosCore  *core,
     goto init_failed;
   }
   if ((res = spa_handle_get_interface (handle,
-                                       core->uri.spa_monitor,
+                                       core->type.spa_monitor,
                                        &iface)) < 0) {
     free (handle);
     pinos_log_error ("can't get MONITOR interface: %d", res);

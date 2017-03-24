@@ -26,8 +26,8 @@ extern "C" {
 
 typedef struct _SpaRingbuffer SpaRingbuffer;
 
-#define SPA_RINGBUFFER_URI             "http://spaplug.in/ns/ringbuffer"
-#define SPA_RINGBUFFER_PREFIX          SPA_RINGBUFFER_URI "#"
+#define SPA_TYPE__RingBuffer           "Spa:Object:RingBuffer"
+#define SPA_TYPE_RINGBUFFER_BASE       SPA_TYPE__RingBuffer ":"
 
 #include <string.h>
 

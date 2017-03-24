@@ -68,25 +68,25 @@ struct _SpaHandle {
 
 /**
  * SpaInterfaceInfo:
- * @uri: the uri of the interface, can be used to get the interface
+ * @type: the type of the interface, can be used to get the interface
  *
  * This structure lists the information about available interfaces on
  * handles.
  */
 typedef struct {
-  const char *uri;
+  const char *type;
 } SpaInterfaceInfo;
 
 /**
  * SpaSupport:
- * @uri: the uri of the support item
+ * @type: the type of the support item
  * @data: specific data for the item
  *
  * Extra supporting infrastructure passed to the init() function of
  * a factory. It can be extra information or interfaces such as logging.
  */
 typedef struct {
-  const char  *uri;
+  const char  *type;
   void        *data;
 } SpaSupport;
 

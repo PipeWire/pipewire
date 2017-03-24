@@ -26,20 +26,20 @@
 #include <poll.h>
 
 #include <spa/log.h>
-#include <spa/id-map.h>
+#include <spa/type-map.h>
 #include <spa/monitor.h>
 #include <spa/loop.h>
 #include <lib/debug.h>
 #include <lib/mapper.h>
 
 typedef struct {
-  SpaMonitorTypes monitor_types;
-} URI;
+  SpaTypeMonitor monitor;
+} Type;
 
 typedef struct {
-  URI uri;
+  Type type;
 
-  SpaIDMap *map;
+  SpaTypeMap *map;
   SpaLog *log;
   SpaLoop main_loop;
 
@@ -68,15 +68,15 @@ on_monitor_event  (SpaMonitor      *monitor,
 {
   AppData *data = user_data;
 
-  if (SPA_EVENT_TYPE (event) == data->uri.monitor_types.Added) {
+  if (SPA_EVENT_TYPE (event) == data->type.monitor.Added) {
     fprintf (stderr, "added:\n");
     inspect_item ((SpaMonitorItem*)event);
   }
-  else if (SPA_EVENT_TYPE (event) == data->uri.monitor_types.Removed) {
+  else if (SPA_EVENT_TYPE (event) == data->type.monitor.Removed) {
     fprintf (stderr, "removed:\n");
     inspect_item ((SpaMonitorItem*)event);
   }
-  else if (SPA_EVENT_TYPE (event) == data->uri.monitor_types.Changed) {
+  else if (SPA_EVENT_TYPE (event) == data->type.monitor.Changed) {
     fprintf (stderr, "changed:\n");
     inspect_item ((SpaMonitorItem*)event);
   }
@@ -169,22 +169,22 @@ main (int argc, char *argv[])
   SpaEnumHandleFactoryFunc enum_func;
   uint32_t fidx;
 
-  data.map = spa_id_map_get_default ();
+  data.map = spa_type_map_get_default ();
   data.log = NULL;
   data.main_loop.size = sizeof (SpaLoop);
   data.main_loop.add_source = do_add_source;
   data.main_loop.update_source = do_update_source;
   data.main_loop.remove_source = do_remove_source;
 
-  data.support[0].uri = SPA_TYPE__IDMap;
+  data.support[0].type = SPA_TYPE__TypeMap;
   data.support[0].data = data.map;
-  data.support[1].uri = SPA_TYPE__Log;
+  data.support[1].type = SPA_TYPE__Log;
   data.support[1].data = data.log;
-  data.support[2].uri = SPA_TYPE_LOOP__MainLoop;
+  data.support[2].type = SPA_TYPE_LOOP__MainLoop;
   data.support[2].data = &data.main_loop;
   data.n_support = 3;
 
-  spa_monitor_types_map (data.map, &data.uri.monitor_types);
+  spa_type_monitor_map (data.map, &data.type.monitor);
 
   if (argc < 2) {
     printf ("usage: %s <plugin.so>\n", argv[0]);
@@ -219,7 +219,7 @@ main (int argc, char *argv[])
         break;
       }
 
-      if (!strcmp (info->uri, SPA_TYPE__Monitor)) {
+      if (!strcmp (info->type, SPA_TYPE__Monitor)) {
         SpaHandle *handle;
         void *interface;
 
@@ -229,7 +229,7 @@ main (int argc, char *argv[])
           continue;
         }
 
-        if ((res = spa_handle_get_interface (handle, data.uri.monitor_types.Monitor, &interface)) < 0) {
+        if ((res = spa_handle_get_interface (handle, data.type.monitor.Monitor, &interface)) < 0) {
           printf ("can't get interface: %d\n", res);
           continue;
         }

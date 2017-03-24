@@ -144,14 +144,14 @@ drawing_data_init (DrawingData *dd,
   SpaVideoInfo *format = &this->current_format;
   SpaRectangle *size = &format->info.raw.size;
 
-  if ((format->media_type != this->uri.media_types.video) ||
-      (format->media_subtype != this->uri.media_subtypes.raw))
+  if ((format->media_type != this->type.media_type.video) ||
+      (format->media_subtype != this->type.media_subtype.raw))
     return SPA_RESULT_NOT_IMPLEMENTED;
 
-  if (format->info.raw.format == this->uri.video_formats.RGB) {
+  if (format->info.raw.format == this->type.video_format.RGB) {
     dd->draw_pixel = draw_pixel_rgb;
   }
-  else if (format->info.raw.format == this->uri.video_formats.UYVY) {
+  else if (format->info.raw.format == this->type.video_format.UYVY) {
     dd->draw_pixel = draw_pixel_uyvy;
   }
   else
@@ -282,9 +282,9 @@ draw (SpaVideoTestSrc *this, char *data)
     return res;
 
   pattern = this->props.pattern;
-  if (pattern == this->uri.pattern_smpte_snow)
+  if (pattern == this->type.pattern_smpte_snow)
     draw_smpte_snow (&dd);
-  else if (pattern == this->uri.pattern_snow)
+  else if (pattern == this->type.pattern_snow)
     draw_snow (&dd);
   else
     return SPA_RESULT_NOT_IMPLEMENTED;

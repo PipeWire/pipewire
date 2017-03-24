@@ -284,7 +284,7 @@ on_context_subscription (PinosListener          *listener,
   GstDeviceProvider *provider = GST_DEVICE_PROVIDER (self);
   GstPinosDevice *dev;
 
-  if (type != context->uri.node)
+  if (type != context->type.node)
     return;
 
   dev = find_device (provider, id);

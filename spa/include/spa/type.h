@@ -17,20 +17,20 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __SPA_LIBMAPPER_H__
-#define __SPA_LIBMAPPER_H__
+#ifndef __SPA_TYPE_H__
+#define __SPA_TYPE_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <spa/type-map.h>
+#include <spa/defs.h>
 
-void         spa_type_map_set_default (SpaTypeMap *map);
-SpaTypeMap * spa_type_map_get_default (void);
+typedef uint32_t SpaType;
+
 
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_LIBMAPPER_H__ */
+#endif /* __SPA_TYPE_H__ */

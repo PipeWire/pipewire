@@ -365,13 +365,13 @@ main (int argc, char *argv[])
   data.data_loop.update_item = NULL;
   data.data_loop.remove_item = NULL;
 
-  data.support[0].uri = SPA_ID_MAP_URI;
+  data.support[0].uri = SPA_TYPE__IDMap;
   data.support[0].data = data.map;
-  data.support[1].uri = SPA_POLL__DataLoop;
+  data.support[1].uri = SPA_TYPE_LOOP__DataLoop;
   data.support[1].data = &data.data_loop;
   data.n_support = 2;
 
-  data.uri.node = spa_id_map_get_id (data.map, SPA_NODE_URI);
+  data.uri.node = spa_id_map_get_id (data.map, SPA_TYPE__Node);
 
   if ((res = make_nodes (&data)) < 0) {
     printf ("can't make nodes: %d\n", res);

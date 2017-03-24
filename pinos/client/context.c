@@ -169,9 +169,9 @@ core_event_update_uris (void          *object,
   int i;
 
   for (i = 0; i < n_uris; i++, first_id++) {
-    uint32_t this_id = spa_id_map_get_id (this->uri.map, uris[i]);
+    SpaType this_id = spa_type_map_get_id (this->type.map, uris[i]);
     printf ("update %d %s -> %d\n", first_id, uris[i], this_id);
-    if (!pinos_map_insert_at (&this->uris, first_id, SPA_UINT32_TO_PTR (this_id)))
+    if (!pinos_map_insert_at (&this->types, first_id, SPA_UINT32_TO_PTR (this_id)))
       pinos_log_error ("can't add uri for client");
   }
 }
@@ -310,7 +310,7 @@ registry_event_global (void          *object,
   if (!strcmp (type, PINOS_TYPE__Node)) {
     proxy = pinos_proxy_new (this,
                              SPA_ID_INVALID,
-                             this->uri.node);
+                             this->type.node);
     if (proxy == NULL)
       goto no_mem;
 
@@ -318,7 +318,7 @@ registry_event_global (void          *object,
   } else if (!strcmp (type, PINOS_TYPE__Module)) {
     proxy = pinos_proxy_new (this,
                              SPA_ID_INVALID,
-                             this->uri.module);
+                             this->type.module);
     if (proxy == NULL)
       goto no_mem;
 
@@ -326,7 +326,7 @@ registry_event_global (void          *object,
   } else if (!strcmp (type, PINOS_TYPE__Client)) {
     proxy = pinos_proxy_new (this,
                              SPA_ID_INVALID,
-                             this->uri.client);
+                             this->type.client);
     if (proxy == NULL)
       goto no_mem;
 
@@ -334,7 +334,7 @@ registry_event_global (void          *object,
   } else if (!strcmp (type, PINOS_TYPE__Link)) {
     proxy = pinos_proxy_new (this,
                              SPA_ID_INVALID,
-                             this->uri.link);
+                             this->type.link);
     if (proxy == NULL)
       goto no_mem;
 
@@ -478,7 +478,7 @@ pinos_context_new (PinosLoop       *loop,
   pinos_fill_context_properties (properties);
   this->properties = properties;
 
-  pinos_uri_init (&this->uri);
+  pinos_type_init (&this->type);
 
   this->loop = loop;
 
@@ -487,7 +487,7 @@ pinos_context_new (PinosLoop       *loop,
   this->state = PINOS_CONTEXT_STATE_UNCONNECTED;
 
   pinos_map_init (&this->objects, 64, 32);
-  pinos_map_init (&this->uris, 64, 32);
+  pinos_map_init (&this->types, 64, 32);
 
   spa_list_init (&this->stream_list);
   spa_list_init (&this->global_list);
@@ -630,7 +630,7 @@ pinos_context_connect_fd (PinosContext  *context,
 
   context->core_proxy = pinos_proxy_new (context,
                                          0,
-                                         context->uri.core);
+                                         context->type.core);
   if (context->core_proxy == NULL)
     goto no_proxy;
 
@@ -641,7 +641,7 @@ pinos_context_connect_fd (PinosContext  *context,
 
   context->registry_proxy = pinos_proxy_new (context,
                                              SPA_ID_INVALID,
-                                             context->uri.registry);
+                                             context->type.registry);
   if (context->registry_proxy == NULL)
     goto no_registry;
 
@@ -710,7 +710,7 @@ pinos_context_get_core_info (PinosContext            *context,
   proxy = pinos_map_lookup (&context->objects, 0);
   if (proxy == NULL) {
     cb (context, SPA_RESULT_INVALID_OBJECT_ID, NULL, user_data);
-  } else if (proxy->type == context->uri.core && proxy->user_data) {
+  } else if (proxy->type == context->type.core && proxy->user_data) {
     PinosCoreInfo *info = proxy->user_data;
     cb (context, SPA_RESULT_OK, info, user_data);
     info->change_mask = 0;
@@ -750,7 +750,7 @@ pinos_context_list_module_info (PinosContext            *context,
                                 PinosModuleInfoCallback  cb,
                                 void                    *user_data)
 {
-  do_list (context, context->uri.module, (ListFunc) cb, user_data);
+  do_list (context, context->type.module, (ListFunc) cb, user_data);
 }
 
 void
@@ -764,7 +764,7 @@ pinos_context_get_module_info_by_id (PinosContext            *context,
   proxy = pinos_map_lookup (&context->objects, id);
   if (proxy == NULL) {
     cb (context, SPA_RESULT_INVALID_OBJECT_ID, NULL, user_data);
-  } else if (proxy->type == context->uri.module && proxy->user_data) {
+  } else if (proxy->type == context->type.module && proxy->user_data) {
     PinosModuleInfo *info = proxy->user_data;
     cb (context, SPA_RESULT_OK, info, user_data);
     info->change_mask = 0;
@@ -777,7 +777,7 @@ pinos_context_list_client_info (PinosContext            *context,
                                 PinosClientInfoCallback  cb,
                                 void                    *user_data)
 {
-  do_list (context, context->uri.client, (ListFunc) cb, user_data);
+  do_list (context, context->type.client, (ListFunc) cb, user_data);
 }
 
 void
@@ -791,7 +791,7 @@ pinos_context_get_client_info_by_id (PinosContext            *context,
   proxy = pinos_map_lookup (&context->objects, id);
   if (proxy == NULL) {
     cb (context, SPA_RESULT_INVALID_OBJECT_ID, NULL, user_data);
-  } else if (proxy->type == context->uri.client && proxy->user_data) {
+  } else if (proxy->type == context->type.client && proxy->user_data) {
     PinosClientInfo *info = proxy->user_data;
     cb (context, SPA_RESULT_OK, info, user_data);
     info->change_mask = 0;
@@ -804,7 +804,7 @@ pinos_context_list_node_info (PinosContext          *context,
                               PinosNodeInfoCallback  cb,
                               void                  *user_data)
 {
-  do_list (context, context->uri.node, (ListFunc) cb, user_data);
+  do_list (context, context->type.node, (ListFunc) cb, user_data);
 }
 
 void
@@ -818,7 +818,7 @@ pinos_context_get_node_info_by_id (PinosContext          *context,
   proxy = pinos_map_lookup (&context->objects, id);
   if (proxy == NULL) {
     cb (context, SPA_RESULT_INVALID_OBJECT_ID, NULL, user_data);
-  } else if (proxy->type == context->uri.node && proxy->user_data) {
+  } else if (proxy->type == context->type.node && proxy->user_data) {
     PinosNodeInfo *info = proxy->user_data;
     cb (context, SPA_RESULT_OK, info, user_data);
     info->change_mask = 0;
@@ -831,7 +831,7 @@ pinos_context_list_link_info (PinosContext          *context,
                               PinosLinkInfoCallback  cb,
                               void                  *user_data)
 {
-  do_list (context, context->uri.link, (ListFunc) cb, user_data);
+  do_list (context, context->type.link, (ListFunc) cb, user_data);
 }
 
 void
@@ -845,7 +845,7 @@ pinos_context_get_link_info_by_id (PinosContext          *context,
   proxy = pinos_map_lookup (&context->objects, id);
   if (proxy == NULL) {
     cb (context, SPA_RESULT_INVALID_OBJECT_ID, NULL, user_data);
-  } else if (proxy->type == context->uri.link && proxy->user_data) {
+  } else if (proxy->type == context->type.link && proxy->user_data) {
     PinosLinkInfo *info = proxy->user_data;
     cb (context, SPA_RESULT_OK, info, user_data);
     info->change_mask = 0;

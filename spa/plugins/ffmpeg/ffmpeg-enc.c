@@ -23,7 +23,7 @@
 #include <fcntl.h>
 
 #include <spa/log.h>
-#include <spa/id-map.h>
+#include <spa/type-map.h>
 #include <spa/node.h>
 #include <spa/video/format-utils.h>
 #include <lib/props.h>
@@ -57,17 +57,26 @@ typedef struct {
 
 typedef struct {
   uint32_t node;
-  SpaMediaTypes media_types;
-  SpaMediaSubtypes media_subtypes;
-  SpaCommandNode command_node;
-} URI;
+  SpaTypeMediaType media_type;
+  SpaTypeMediaSubtype media_subtype;
+  SpaTypeCommandNode command_node;
+} Type;
+
+static inline void
+init_type (Type *type, SpaTypeMap *map)
+{
+  type->node = spa_type_map_get_id (map, SPA_TYPE__Node);
+  spa_type_media_type_map (map, &type->media_type);
+  spa_type_media_subtype_map (map, &type->media_subtype);
+  spa_type_command_node_map (map, &type->command_node);
+}
 
 struct _SpaFFMpegEnc {
   SpaHandle handle;
   SpaNode node;
 
-  URI uri;
-  SpaIDMap *map;
+  Type type;
+  SpaTypeMap *map;
   SpaLog *log;
 
   SpaEventNodeCallback event_cb;
@@ -112,10 +121,10 @@ spa_ffmpeg_enc_node_send_command (SpaNode    *node,
 
   this = SPA_CONTAINER_OF (node, SpaFFMpegEnc, node);
 
-  if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Start) {
+  if (SPA_COMMAND_TYPE (command) == this->type.command_node.Start) {
     update_state (this, SPA_NODE_STATE_STREAMING);
   }
-  else if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Pause) {
+  else if (SPA_COMMAND_TYPE (command) == this->type.command_node.Pause) {
     update_state (this, SPA_NODE_STATE_PAUSED);
   }
   else
@@ -258,8 +267,8 @@ spa_ffmpeg_enc_node_port_set_format (SpaNode            *node,
     return SPA_RESULT_OK;
   }
 
-  if (format->body.media_type.value != this->uri.media_types.video ||
-      format->body.media_subtype.value != this->uri.media_subtypes.raw)
+  if (format->body.media_type.value != this->type.media_type.video ||
+      format->body.media_subtype.value != this->type.media_subtype.raw)
     return SPA_RESULT_INVALID_MEDIA_TYPE;
 
   if ((res = spa_format_video_parse (format, &query_format) < 0))
@@ -504,7 +513,7 @@ spa_ffmpeg_enc_get_interface (SpaHandle         *handle,
 
   this = (SpaFFMpegEnc *) handle;
 
-  if (interface_id == this->uri.node)
+  if (interface_id == this->type.node)
     *interface = &this->node;
   else
     return SPA_RESULT_UNKNOWN_INTERFACE;
@@ -526,19 +535,15 @@ spa_ffmpeg_enc_init (SpaHandle         *handle,
   this = (SpaFFMpegEnc *) handle;
 
   for (i = 0; i < n_support; i++) {
-    if (strcmp (support[i].uri, SPA_TYPE__IDMap) == 0)
+    if (strcmp (support[i].type, SPA_TYPE__TypeMap) == 0)
       this->map = support[i].data;
-    else if (strcmp (support[i].uri, SPA_TYPE__Log) == 0)
+    else if (strcmp (support[i].type, SPA_TYPE__Log) == 0)
       this->log = support[i].data;
   }
   if (this->map == NULL) {
-    spa_log_error (this->log, "an id-map is needed");
+    spa_log_error (this->log, "a type-map is needed");
     return SPA_RESULT_ERROR;
   }
-  this->uri.node = spa_id_map_get_id (this->map, SPA_TYPE__Node);
-  spa_media_types_fill (&this->uri.media_types, this->map);
-  spa_media_subtypes_map (this->map, &this->uri.media_subtypes);
-  spa_command_node_map (this->map, &this->uri.command_node);
 
   this->node = ffmpeg_enc_node;
 

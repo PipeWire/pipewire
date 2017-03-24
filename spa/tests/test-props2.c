@@ -28,7 +28,7 @@
 #include <spa/pod-builder.h>
 #include <spa/pod-iter.h>
 
-#include <spa/id-map.h>
+#include <spa/type-map.h>
 #include <spa/log.h>
 #include <spa/video/format.h>
 #include <lib/debug.h>

@@ -88,7 +88,7 @@ struct _SpaProxy
 
   PinosNode *pnode;
 
-  SpaIDMap *map;
+  SpaTypeMap *map;
   SpaLog *log;
   SpaLoop *main_loop;
   SpaLoop *data_loop;
@@ -130,7 +130,7 @@ static void
 send_async_complete (SpaProxy *this, uint32_t seq, SpaResult res)
 {
   PinosCore *core = this->pnode->core;
-  SpaEventNodeAsyncComplete ac = SPA_EVENT_NODE_ASYNC_COMPLETE_INIT (core->uri.event_node.AsyncComplete,
+  SpaEventNodeAsyncComplete ac = SPA_EVENT_NODE_ASYNC_COMPLETE_INIT (core->type.event_node.AsyncComplete,
                                                                      seq, res);
   this->event_cb (&this->node, (SpaEvent *)&ac, this->user_data);
 }
@@ -166,7 +166,7 @@ static void
 send_need_input (SpaProxy *this)
 {
   PinosNode *pnode = this->pnode;
-  SpaEvent event = SPA_EVENT_INIT (pnode->core->uri.event_node.NeedInput);
+  SpaEvent event = SPA_EVENT_INIT (pnode->core->type.event_node.NeedInput);
   uint64_t cmd = 1;
 
   pinos_transport_add_event (pnode->transport, &event);
@@ -177,7 +177,7 @@ static void
 send_have_output (SpaProxy *this)
 {
   PinosNode *pnode = this->pnode;
-  SpaEvent event = SPA_EVENT_INIT (pnode->core->uri.event_node.HaveOutput);
+  SpaEvent event = SPA_EVENT_INIT (pnode->core->type.event_node.HaveOutput);
   uint64_t cmd = 1;
 
   pinos_transport_add_event (pnode->transport, &event);
@@ -202,7 +202,7 @@ spa_proxy_node_send_command (SpaNode    *node,
 
   core = this->pnode->core;
 
-  if (SPA_COMMAND_TYPE (command) == core->uri.command_node.ClockUpdate) {
+  if (SPA_COMMAND_TYPE (command) == core->type.command_node.ClockUpdate) {
     pinos_client_node_notify_node_command (this->resource,
                                            this->seq++,
                                            command);
@@ -212,7 +212,7 @@ spa_proxy_node_send_command (SpaNode    *node,
     pinos_client_node_notify_node_command (this->resource,
                                            this->seq,
                                            command);
-    if (SPA_COMMAND_TYPE (command) == core->uri.command_node.Start)
+    if (SPA_COMMAND_TYPE (command) == core->type.command_node.Start)
       send_need_input (this);
 
     res = SPA_RESULT_RETURN_ASYNC (this->seq++);
@@ -770,7 +770,7 @@ spa_proxy_node_port_reuse_buffer (SpaNode         *node,
     return SPA_RESULT_INVALID_PORT;
 
   {
-    SpaEventNodeReuseBuffer rb = SPA_EVENT_NODE_REUSE_BUFFER_INIT (pnode->core->uri.event_node.ReuseBuffer,
+    SpaEventNodeReuseBuffer rb = SPA_EVENT_NODE_REUSE_BUFFER_INIT (pnode->core->type.event_node.ReuseBuffer,
                                                                    port_id, buffer_id);
     pinos_transport_add_event (pnode->transport, (SpaEvent *)&rb);
     //write (this->data_source.fd, &cmd, 8);
@@ -999,11 +999,11 @@ proxy_init (SpaProxy         *this,
   uint32_t i;
 
   for (i = 0; i < n_support; i++) {
-    if (strcmp (support[i].uri, SPA_TYPE__Log) == 0)
+    if (strcmp (support[i].type, SPA_TYPE__Log) == 0)
       this->log = support[i].data;
-    else if (strcmp (support[i].uri, SPA_TYPE_LOOP__MainLoop) == 0)
+    else if (strcmp (support[i].type, SPA_TYPE_LOOP__MainLoop) == 0)
       this->main_loop = support[i].data;
-    else if (strcmp (support[i].uri, SPA_TYPE_LOOP__DataLoop) == 0)
+    else if (strcmp (support[i].type, SPA_TYPE_LOOP__DataLoop) == 0)
       this->data_loop = support[i].data;
   }
   if (this->data_loop == NULL) {
@@ -1164,7 +1164,7 @@ pinos_client_node_new (PinosClient     *client,
 
   this->resource = pinos_resource_new (client,
                                        id,
-                                       client->core->uri.client_node,
+                                       client->core->type.client_node,
                                        this,
                                        (PinosDestroy) client_node_resource_destroy);
   if (this->resource == NULL)

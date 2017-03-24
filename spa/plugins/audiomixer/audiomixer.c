@@ -21,7 +21,7 @@
 #include <stdio.h>
 
 #include <spa/log.h>
-#include <spa/id-map.h>
+#include <spa/type-map.h>
 #include <spa/node.h>
 #include <spa/audio/format-utils.h>
 #include <lib/props.h>
@@ -58,22 +58,22 @@ typedef struct {
 
 typedef struct {
   uint32_t node;
-  SpaCommandNode command_node;
-} URI;
+  SpaTypeCommandNode command_node;
+} Type;
 
 static inline void
-init_uri (URI *uri, SpaIDMap *map)
+init_type (Type *type, SpaTypeMap *map)
 {
-  uri->node = spa_id_map_get_id (map, SPA_TYPE__Node);
-  spa_command_node_map (map, &uri->command_node);
+  type->node = spa_type_map_get_id (map, SPA_TYPE__Node);
+  spa_type_command_node_map (map, &type->command_node);
 }
 
 struct _SpaAudioMixer {
   SpaHandle  handle;
   SpaNode  node;
 
-  URI uri;
-  SpaIDMap *map;
+  Type type;
+  SpaTypeMap *map;
   SpaLog *log;
 
   SpaEventNodeCallback event_cb;
@@ -125,10 +125,10 @@ spa_audiomixer_node_send_command (SpaNode    *node,
 
   this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
 
-  if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Start) {
+  if (SPA_COMMAND_TYPE (command) == this->type.command_node.Start) {
     update_state (this, SPA_NODE_STATE_STREAMING);
   }
-  else if (SPA_COMMAND_TYPE (command) == this->uri.command_node.Pause) {
+  else if (SPA_COMMAND_TYPE (command) == this->type.command_node.Pause) {
     update_state (this, SPA_NODE_STATE_PAUSED);
   }
   else
@@ -659,7 +659,7 @@ spa_audiomixer_get_interface (SpaHandle   *handle,
 
   this = (SpaAudioMixer *) handle;
 
-  if (interface_id == this->uri.node)
+  if (interface_id == this->type.node)
     *interface = &this->node;
   else
     return SPA_RESULT_UNKNOWN_INTERFACE;
@@ -692,16 +692,16 @@ spa_audiomixer_init (const SpaHandleFactory *factory,
   this = (SpaAudioMixer *) handle;
 
   for (i = 0; i < n_support; i++) {
-    if (strcmp (support[i].uri, SPA_TYPE__IDMap) == 0)
+    if (strcmp (support[i].type, SPA_TYPE__TypeMap) == 0)
       this->map = support[i].data;
-    else if (strcmp (support[i].uri, SPA_TYPE__Log) == 0)
+    else if (strcmp (support[i].type, SPA_TYPE__Log) == 0)
       this->log = support[i].data;
   }
   if (this->map == NULL) {
     spa_log_error (this->log, "an id-map is needed");
     return SPA_RESULT_ERROR;
   }
-  init_uri (&this->uri, this->map);
+  init_type (&this->type, this->map);
 
   this->node = audiomixer_node;
 

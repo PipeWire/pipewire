@@ -193,20 +193,25 @@ static void
 update_monitor (PinosCore  *core,
                 const char *name)
 {
-  PinosProperties *props;
   const char *monitors;
+  SpaDictItem item;
+  SpaDict dict = SPA_DICT_INIT(1, &item);
 
-  if (!(props = core->properties))
-    props = pinos_properties_new (NULL, NULL);
-
-  monitors = pinos_properties_get (props, "monitors");
-
-  if (monitors == NULL)
-    pinos_properties_setf (props, "monitors", "%s", name);
+  if (core->properties)
+    monitors = pinos_properties_get (core->properties, "monitors");
   else
-    pinos_properties_setf (props, "monitors", "%s,%s", monitors, name);
+    monitors = NULL;
 
-  pinos_core_update_properties (core, &props->dict);
+  item.key = "monitors";
+  if (monitors == NULL)
+    item.value = name;
+  else
+    asprintf ((char**)&item.value, "%s,%s", monitors, name);
+
+  pinos_core_update_properties (core, &dict);
+
+  if (monitors != NULL)
+    free ((void*)item.value);
 }
 
 PinosSpaMonitor *

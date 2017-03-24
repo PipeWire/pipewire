@@ -43,6 +43,8 @@ struct _SpaDict {
   SpaDictItem  *items;
 };
 
+#define SPA_DICT_INIT(n_items,items) { n_items, items }
+
 #define spa_dict_for_each(item, dict)                \
   for ((item) = (dict)->items;                       \
        (item) < &(dict)->items[(dict)->n_items];     \

@@ -372,6 +372,7 @@ node_bind_func (PinosGlobal *global,
   PinosNode *this = global->object;
   PinosResource *resource;
   PinosNodeInfo info;
+  int i;
 
   resource = pinos_resource_new (client,
                                  id,
@@ -427,6 +428,18 @@ node_bind_func (PinosGlobal *global,
   info.props = this->properties ? &this->properties->dict : NULL;
 
   pinos_node_notify_info (resource, &info);
+
+  if (info.input_formats) {
+    for (i = 0; i < info.n_input_formats; i++)
+      free (info.input_formats[i]);
+    free (info.input_formats);
+  }
+
+  if (info.output_formats) {
+    for (i = 0; i < info.n_output_formats; i++)
+      free (info.output_formats[i]);
+    free (info.output_formats);
+  }
 
   return SPA_RESULT_OK;
 

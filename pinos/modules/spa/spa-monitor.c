@@ -76,23 +76,6 @@ add_item (PinosSpaMonitor *this, SpaMonitorItem *item)
 
   pinos_log_debug ("monitor %p: add: \"%s\" (%s)", this, name, id);
 
-  handle = calloc (1, factory->size);
-  if ((res = spa_handle_factory_init (factory,
-                                      handle,
-                                      NULL, //item->info,
-                                      impl->core->support,
-                                      impl->core->n_support)) < 0) {
-    pinos_log_error ("can't make factory instance: %d", res);
-    return;
-  }
-  if ((res = spa_handle_get_interface (handle, impl->core->type.spa_node, &node_iface)) < 0) {
-    pinos_log_error ("can't get NODE interface: %d", res);
-    return;
-  }
-  if ((res = spa_handle_get_interface (handle, impl->core->type.spa_clock, &clock_iface)) < 0) {
-    pinos_log_info ("no CLOCK interface: %d", res);
-  }
-
   props = pinos_properties_new (NULL, NULL);
 
   if (info) {
@@ -107,6 +90,24 @@ add_item (PinosSpaMonitor *this, SpaMonitorItem *item)
     }
   }
   pinos_properties_set (props, "media.class", klass);
+
+  handle = calloc (1, factory->size);
+  if ((res = spa_handle_factory_init (factory,
+                                      handle,
+                                      &props->dict,
+                                      impl->core->support,
+                                      impl->core->n_support)) < 0) {
+    pinos_log_error ("can't make factory instance: %d", res);
+    return;
+  }
+  if ((res = spa_handle_get_interface (handle, impl->core->type.spa_node, &node_iface)) < 0) {
+    pinos_log_error ("can't get NODE interface: %d", res);
+    return;
+  }
+  if ((res = spa_handle_get_interface (handle, impl->core->type.spa_clock, &clock_iface)) < 0) {
+    pinos_log_info ("no CLOCK interface: %d", res);
+  }
+
 
   mitem = calloc (1, sizeof (PinosSpaMonitorItem));
   mitem->id = strdup (id);

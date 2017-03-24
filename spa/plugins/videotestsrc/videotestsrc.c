@@ -517,7 +517,6 @@ spa_videotestsrc_node_port_set_format (SpaNode            *node,
                                        const SpaFormat    *format)
 {
   SpaVideoTestSrc *this;
-  SpaResult res;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -531,9 +530,17 @@ spa_videotestsrc_node_port_set_format (SpaNode            *node,
     this->have_format = false;
     clear_buffers (this);
   } else {
-    if ((res = spa_format_video_parse (format, &this->current_format)) < 0)
-      return res;
+    SpaVideoInfo info = { SPA_FORMAT_MEDIA_TYPE (format),
+                          SPA_FORMAT_MEDIA_SUBTYPE (format), };
 
+    if (info.media_type != this->type.media_type.video &&
+        info.media_subtype != this->type.media_subtype.raw)
+      return SPA_RESULT_INVALID_MEDIA_TYPE;
+
+    if (!spa_format_video_raw_parse (format, &info.info.raw, &this->type.format_video))
+      return SPA_RESULT_INVALID_MEDIA_TYPE;
+
+    this->current_format = info;
     this->have_format = true;
   }
 

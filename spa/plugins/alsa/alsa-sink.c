@@ -349,7 +349,6 @@ spa_alsa_sink_node_port_set_format (SpaNode            *node,
                                     const SpaFormat    *format)
 {
   SpaALSASink *this;
-  SpaResult res;
   SpaPODBuilder b = { NULL };
   SpaPODFrame f[2];
 
@@ -367,46 +366,57 @@ spa_alsa_sink_node_port_set_format (SpaNode            *node,
     spa_alsa_clear_buffers (this);
     spa_alsa_close (this);
     this->have_format = false;
-    update_state (this, SPA_NODE_STATE_CONFIGURE);
-    return SPA_RESULT_OK;
+  } else {
+    SpaAudioInfo info = { SPA_FORMAT_MEDIA_TYPE (format),
+                          SPA_FORMAT_MEDIA_SUBTYPE (format), };
+
+    if (info.media_type != this->type.media_type.audio ||
+        info.media_subtype != this->type.media_subtype.raw)
+      return SPA_RESULT_INVALID_MEDIA_TYPE;
+
+    if (!spa_format_audio_raw_parse (format, &info.info.raw, &this->type.format_audio))
+      return SPA_RESULT_INVALID_MEDIA_TYPE;
+
+    if (spa_alsa_set_format (this, &info, flags) < 0)
+      return SPA_RESULT_ERROR;
+
+    this->current_format = info;
+    this->have_format = true;
   }
 
-  if ((res = spa_format_audio_parse (format, &this->current_format)) < 0)
-    return res;
+  if (this->have_format) {
+    this->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
+                       SPA_PORT_INFO_FLAG_LIVE;
+    this->info.maxbuffering = this->buffer_frames * this->frame_size;
+    this->info.latency = (this->period_frames * SPA_NSEC_PER_SEC) / this->rate;
+    this->info.n_params = 3;
+    this->info.params = this->params;
 
-  if (spa_alsa_set_format (this, &this->current_format, flags) < 0)
-    return SPA_RESULT_ERROR;
+    spa_pod_builder_init (&b, this->params_buffer, sizeof (this->params_buffer));
+    spa_pod_builder_object (&b, &f[0], 0, this->type.alloc_param_buffers.Buffers,
+        PROP    (&f[1], this->type.alloc_param_buffers.size,    SPA_POD_TYPE_INT, this->period_frames * this->frame_size),
+        PROP    (&f[1], this->type.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, 0),
+        PROP_MM (&f[1], this->type.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, 32, 1, 32),
+        PROP    (&f[1], this->type.alloc_param_buffers.align,   SPA_POD_TYPE_INT, 16));
+    this->params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
-  this->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
-                     SPA_PORT_INFO_FLAG_LIVE;
-  this->info.maxbuffering = this->buffer_frames * this->frame_size;
-  this->info.latency = (this->period_frames * SPA_NSEC_PER_SEC) / this->rate;
-  this->info.n_params = 3;
-  this->info.params = this->params;
+    spa_pod_builder_object (&b, &f[0], 0, this->type.alloc_param_meta_enable.MetaEnable,
+        PROP    (&f[1], this->type.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, SPA_META_TYPE_HEADER));
+    this->params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
-  spa_pod_builder_init (&b, this->params_buffer, sizeof (this->params_buffer));
-  spa_pod_builder_object (&b, &f[0], 0, this->type.alloc_param_buffers.Buffers,
-      PROP    (&f[1], this->type.alloc_param_buffers.size,    SPA_POD_TYPE_INT, this->period_frames * this->frame_size),
-      PROP    (&f[1], this->type.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, 0),
-      PROP_MM (&f[1], this->type.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, 32, 1, 32),
-      PROP    (&f[1], this->type.alloc_param_buffers.align,   SPA_POD_TYPE_INT, 16));
-  this->params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
+    spa_pod_builder_object (&b, &f[0], 0, this->type.alloc_param_meta_enable.MetaEnable,
+        PROP    (&f[1], this->type.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, SPA_META_TYPE_RINGBUFFER),
+        PROP    (&f[1], this->type.alloc_param_meta_enable.ringbufferSize,   SPA_POD_TYPE_INT, this->period_frames * this->frame_size * 32),
+        PROP    (&f[1], this->type.alloc_param_meta_enable.ringbufferStride, SPA_POD_TYPE_INT, 0),
+        PROP    (&f[1], this->type.alloc_param_meta_enable.ringbufferBlocks, SPA_POD_TYPE_INT, 1),
+        PROP    (&f[1], this->type.alloc_param_meta_enable.ringbufferAlign,  SPA_POD_TYPE_INT, 16));
+    this->params[2] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
+    this->info.extra = NULL;
 
-  spa_pod_builder_object (&b, &f[0], 0, this->type.alloc_param_meta_enable.MetaEnable,
-      PROP    (&f[1], this->type.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, SPA_META_TYPE_HEADER));
-  this->params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
-
-  spa_pod_builder_object (&b, &f[0], 0, this->type.alloc_param_meta_enable.MetaEnable,
-      PROP    (&f[1], this->type.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, SPA_META_TYPE_RINGBUFFER),
-      PROP    (&f[1], this->type.alloc_param_meta_enable.ringbufferSize,   SPA_POD_TYPE_INT, this->period_frames * this->frame_size * 32),
-      PROP    (&f[1], this->type.alloc_param_meta_enable.ringbufferStride, SPA_POD_TYPE_INT, 0),
-      PROP    (&f[1], this->type.alloc_param_meta_enable.ringbufferBlocks, SPA_POD_TYPE_INT, 1),
-      PROP    (&f[1], this->type.alloc_param_meta_enable.ringbufferAlign,  SPA_POD_TYPE_INT, 16));
-  this->params[2] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
-  this->info.extra = NULL;
-
-  this->have_format = true;
-  update_state (this, SPA_NODE_STATE_READY);
+    update_state (this, SPA_NODE_STATE_READY);
+  }
+  else
+    update_state (this, SPA_NODE_STATE_CONFIGURE);
 
   return SPA_RESULT_OK;
 }

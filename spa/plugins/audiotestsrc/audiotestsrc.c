@@ -528,7 +528,6 @@ spa_audiotestsrc_node_port_set_format (SpaNode            *node,
                                        const SpaFormat    *format)
 {
   SpaAudioTestSrc *this;
-  SpaResult res;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -542,9 +541,17 @@ spa_audiotestsrc_node_port_set_format (SpaNode            *node,
     this->have_format = false;
     clear_buffers (this);
   } else {
-    if ((res = spa_format_audio_parse (format, &this->current_format)) < 0)
-      return res;
+    SpaAudioInfo info = { SPA_FORMAT_MEDIA_TYPE (format),
+                          SPA_FORMAT_MEDIA_SUBTYPE (format), };
 
+    if (info.media_type != this->type.media_type.audio ||
+        info.media_subtype != this->type.media_subtype.raw)
+      return SPA_RESULT_INVALID_MEDIA_TYPE;
+
+    if (!spa_format_audio_raw_parse (format, &info.info.raw, &this->type.format_audio))
+      return SPA_RESULT_INVALID_MEDIA_TYPE;
+
+    this->current_format = info;
     this->bpf = (2 * this->current_format.info.raw.channels);
     this->have_format = true;
   }

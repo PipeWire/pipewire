@@ -56,9 +56,9 @@ typedef struct {
 
 
 static void
-inspect_item (SpaMonitorItem *item)
+inspect_item (AppData *data, SpaMonitorItem *item)
 {
-  spa_debug_pod (&item->pod);
+  spa_debug_pod (&item->pod, data->map);
 }
 
 static void
@@ -70,15 +70,15 @@ on_monitor_event  (SpaMonitor      *monitor,
 
   if (SPA_EVENT_TYPE (event) == data->type.monitor.Added) {
     fprintf (stderr, "added:\n");
-    inspect_item ((SpaMonitorItem*)event);
+    inspect_item (data, (SpaMonitorItem*)event);
   }
   else if (SPA_EVENT_TYPE (event) == data->type.monitor.Removed) {
     fprintf (stderr, "removed:\n");
-    inspect_item ((SpaMonitorItem*)event);
+    inspect_item (data, (SpaMonitorItem*)event);
   }
   else if (SPA_EVENT_TYPE (event) == data->type.monitor.Changed) {
     fprintf (stderr, "changed:\n");
-    inspect_item ((SpaMonitorItem*)event);
+    inspect_item (data, (SpaMonitorItem*)event);
   }
 }
 
@@ -122,7 +122,7 @@ handle_monitor (AppData *data, SpaMonitor *monitor)
         printf ("spa_monitor_enum_items: got error %d\n", res);
       break;
     }
-    inspect_item (item);
+    inspect_item (data, item);
   }
 
   spa_monitor_set_event_callback (monitor, on_monitor_event, &data);

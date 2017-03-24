@@ -117,12 +117,12 @@ dump_node_info (PinosContext        *c,
     printf ("%c\tinputs: %u/%u\n", MARK_CHANGE (1), info->n_inputs, info->max_inputs);
     printf ("%c\tinput formats:\n", MARK_CHANGE (2));
     for (i = 0; i < info->n_input_formats; i++)
-      spa_debug_format (info->input_formats[i]);
+      spa_debug_format (info->input_formats[i], c->type.map);
 
     printf ("%c\toutputs: %u/%u\n", MARK_CHANGE (3), info->n_outputs, info->max_outputs);
     printf ("%c\toutput formats:\n", MARK_CHANGE (4));
     for (i = 0; i < info->n_output_formats; i++)
-      spa_debug_format (info->output_formats[i]);
+      spa_debug_format (info->output_formats[i], c->type.map);
 
     printf ("%c\tstate: \"%s\"", MARK_CHANGE (5), pinos_node_state_as_string (info->state));
     if (info->state == PINOS_NODE_STATE_ERROR && info->error)

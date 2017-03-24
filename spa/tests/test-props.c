@@ -79,7 +79,7 @@ type_init (SpaTypeMap *map)
 }
 
 static void
-do_static_struct (void)
+do_static_struct (SpaTypeMap *map)
 {
   struct _test_format {
     SpaFormat fmt;
@@ -137,8 +137,8 @@ do_static_struct (void)
     }
   };
 
-  spa_debug_pod (&test_format.fmt.pod);
-  spa_debug_format (&test_format.fmt);
+  spa_debug_pod (&test_format.fmt.pod, map);
+  spa_debug_format (&test_format.fmt, map);
 
   {
     uint32_t format = 0, match;
@@ -161,8 +161,9 @@ main (int argc, char *argv[])
   SpaPODFrame frame[4];
   uint8_t buffer[1024];
   SpaFormat *fmt;
+  SpaTypeMap *map = spa_type_map_get_default();
 
-  type_init (spa_type_map_get_default());
+  type_init (map);
 
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
 
@@ -195,7 +196,7 @@ main (int argc, char *argv[])
 
   spa_pod_builder_pop (&b, &frame[0]);
 
-  spa_debug_pod (&fmt->pod);
+  spa_debug_pod (&fmt->pod, map);
 
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
 
@@ -227,8 +228,8 @@ main (int argc, char *argv[])
       -SPA_POD_TYPE_PROP, &frame[1]);
 
   fmt = SPA_MEMBER (buffer, frame[0].ref, SpaFormat);
-  spa_debug_pod (&fmt->pod);
-  spa_debug_format (fmt);
+  spa_debug_pod (&fmt->pod, map);
+  spa_debug_format (fmt, map);
 
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
 
@@ -264,10 +265,10 @@ main (int argc, char *argv[])
     0);
 
   fmt = SPA_MEMBER (buffer, frame[0].ref, SpaFormat);
-  spa_debug_pod (&fmt->pod);
-  spa_debug_format (fmt);
+  spa_debug_pod (&fmt->pod, map);
+  spa_debug_format (fmt, map);
 
-  do_static_struct ();
+  do_static_struct (map);
 
   printf ("%d\n", spa_type_is_a (SPA_TYPE__MediaType, SPA_TYPE_ENUM_BASE));
   printf ("%d\n", spa_type_is_a (SPA_TYPE__MediaSubtype, SPA_TYPE_ENUM_BASE));

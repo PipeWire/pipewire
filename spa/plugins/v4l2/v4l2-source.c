@@ -509,7 +509,6 @@ spa_v4l2_source_node_port_set_format (SpaNode            *node,
 {
   SpaV4l2Source *this;
   SpaV4l2State *state;
-  SpaResult res;
   SpaVideoInfo info;
 
   if (node == NULL)
@@ -529,23 +528,49 @@ spa_v4l2_source_node_port_set_format (SpaNode            *node,
     state->have_format = false;
     update_state (this, SPA_NODE_STATE_CONFIGURE);
     return SPA_RESULT_OK;
+  } else {
+    info.media_type = SPA_FORMAT_MEDIA_TYPE (format);
+    info.media_subtype = SPA_FORMAT_MEDIA_SUBTYPE (format);
+
+    if (info.media_type != this->type.media_type.video)
+      return SPA_RESULT_INVALID_MEDIA_TYPE;
+
+    if (info.media_subtype == this->type.media_subtype.raw) {
+      if (!spa_format_video_raw_parse (format, &info.info.raw, &this->type.format_video))
+        return SPA_RESULT_INVALID_MEDIA_TYPE;
+
+      if (state->have_format && info.media_type == state->current_format.media_type &&
+          info.media_subtype == state->current_format.media_subtype &&
+          info.info.raw.format == state->current_format.info.raw.format &&
+          info.info.raw.size.width == state->current_format.info.raw.size.width &&
+          info.info.raw.size.height == state->current_format.info.raw.size.height)
+        return SPA_RESULT_OK;
+    }
+    else if (info.media_subtype == this->type.media_subtype_video.mjpg) {
+      if (!spa_format_video_mjpg_parse (format, &info.info.mjpg, &this->type.format_video))
+        return SPA_RESULT_INVALID_MEDIA_TYPE;
+
+      if (state->have_format && info.media_type == state->current_format.media_type &&
+          info.media_subtype == state->current_format.media_subtype &&
+          info.info.mjpg.size.width == state->current_format.info.mjpg.size.width &&
+          info.info.mjpg.size.height == state->current_format.info.mjpg.size.height)
+        return SPA_RESULT_OK;
+    }
+    else if (info.media_subtype == this->type.media_subtype_video.h264) {
+      if (!spa_format_video_h264_parse (format, &info.info.h264, &this->type.format_video))
+        return SPA_RESULT_INVALID_MEDIA_TYPE;
+
+      if (state->have_format && info.media_type == state->current_format.media_type &&
+          info.media_subtype == state->current_format.media_subtype &&
+          info.info.h264.size.width == state->current_format.info.h264.size.width &&
+          info.info.h264.size.height == state->current_format.info.h264.size.height)
+        return SPA_RESULT_OK;
+    }
   }
 
-  if ((res = spa_format_video_parse (format, &info)) < 0)
-      return res;
-
-  if (state->have_format) {
-    if (info.media_type == state->current_format.media_type &&
-        info.media_subtype == state->current_format.media_subtype &&
-        info.info.raw.format == state->current_format.info.raw.format &&
-        info.info.raw.size.width == state->current_format.info.raw.size.width &&
-        info.info.raw.size.height == state->current_format.info.raw.size.height)
-      return SPA_RESULT_OK;
-
-    if (!(flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY)) {
-      spa_v4l2_use_buffers (this, NULL, 0);
-      state->have_format = false;
-    }
+  if (state->have_format && !(flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY)) {
+    spa_v4l2_use_buffers (this, NULL, 0);
+    state->have_format = false;
   }
 
   if (spa_v4l2_set_format (this, &info, flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY) < 0)

@@ -77,6 +77,7 @@ typedef struct {
   uint32_t prop_device_fd;
   SpaTypeMediaType media_type;
   SpaTypeMediaSubtype media_subtype;
+  SpaTypeFormatVideo format_video;
   SpaTypeCommandNode command_node;
 } Type;
 
@@ -90,6 +91,7 @@ init_type (Type *type, SpaTypeMap *map)
   type->prop_device_fd = spa_type_map_get_id (map, SPA_TYPE_PROPS__deviceFd);
   spa_type_media_type_map (map, &type->media_type);
   spa_type_media_subtype_map (map, &type->media_subtype);
+  spa_type_format_video_map (map, &type->format_video);
   spa_type_command_node_map (map, &type->command_node);
 }
 
@@ -313,8 +315,6 @@ spa_xv_sink_node_port_set_format (SpaNode            *node,
                                   const SpaFormat    *format)
 {
   SpaXvSink *this;
-  SpaResult res;
-  SpaVideoInfo info;
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -327,23 +327,25 @@ spa_xv_sink_node_port_set_format (SpaNode            *node,
   if (format == NULL) {
     this->have_format = false;
     return SPA_RESULT_OK;
-  }
+  } else {
+    SpaVideoInfo info = { SPA_FORMAT_MEDIA_TYPE (format),
+                          SPA_FORMAT_MEDIA_SUBTYPE (format), };
 
-  if (format->body.media_type.value == this->type.media_type.video) {
-    if (format->body.media_subtype.value == this->type.media_subtype.raw) {
-      if ((res = spa_format_video_parse (format, &info) < 0))
-        return res;
-    } else
+
+    if (info.media_type != this->type.media_type.video &&
+        info.media_subtype != this->type.media_subtype.raw)
       return SPA_RESULT_INVALID_MEDIA_TYPE;
-  } else
-    return SPA_RESULT_INVALID_MEDIA_TYPE;
 
-  if (spa_xv_set_format (this, &info, flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY) < 0)
-    return SPA_RESULT_INVALID_MEDIA_TYPE;
+    if (!spa_format_video_raw_parse (format, &info.info.raw, &this->type.format_video))
+      return SPA_RESULT_INVALID_MEDIA_TYPE;
 
-  if (!(flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY)) {
-    this->current_format = info;
-    this->have_format = true;
+    if (spa_xv_set_format (this, &info, flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY) < 0)
+      return SPA_RESULT_INVALID_MEDIA_TYPE;
+
+    if (!(flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY)) {
+      this->current_format = info;
+      this->have_format = true;
+    }
   }
 
   return SPA_RESULT_OK;

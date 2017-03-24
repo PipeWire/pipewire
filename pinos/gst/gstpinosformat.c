@@ -38,6 +38,7 @@ typedef struct {
 } MediaType;
 
 static struct {
+  SpaTypeMap *map;
   uint32_t format;
   SpaTypeMediaType media_type;
   SpaTypeMediaSubtype media_subtype;
@@ -47,12 +48,12 @@ static struct {
   SpaTypeFormatAudio format_audio;
   SpaTypeVideoFormat video_format;
   SpaTypeAudioFormat audio_format;
-} type = { 0, };
+} type = { NULL, };
 
 static void
 ensure_types (void)
 {
-  SpaTypeMap *map = spa_type_map_get_default ();
+  SpaTypeMap *map = type.map = spa_type_map_get_default ();
 
   type.format = spa_type_map_get_id (map, SPA_TYPE__Format);
   spa_type_media_type_map (map, &type.media_type);
@@ -591,17 +592,19 @@ gst_caps_from_format (const SpaFormat *format)
 
   ensure_types();
 
-  media_type = format->body.media_type.value;
-  media_subtype = format->body.media_subtype.value;
+  media_type = SPA_FORMAT_MEDIA_TYPE (format);
+  media_subtype = SPA_FORMAT_MEDIA_SUBTYPE (format);
 
   if (media_type == type.media_type.video) {
-    SpaVideoInfo f;
-
-    if (spa_format_video_parse (format, &f) < 0)
-      return NULL;
+    SpaVideoInfo f = { media_type, media_subtype, };
 
     if (media_subtype == type.media_subtype.raw) {
-      const char * str = spa_type_map_get_type (spa_type_map_get_default (), f.info.raw.format);
+      const char * str;
+
+      if (!spa_format_video_raw_parse (format, &f.info.raw, &type.format_video))
+        return NULL;
+
+      str = spa_type_map_get_type (type.map, f.info.raw.format);
 
       res = gst_caps_new_simple ("video/x-raw",
           "format", G_TYPE_STRING, rindex (str, ':') + 1,
@@ -611,6 +614,9 @@ gst_caps_from_format (const SpaFormat *format)
           NULL);
     }
     else if (media_subtype == type.media_subtype_video.mjpg) {
+      if (!spa_format_video_mjpg_parse (format, &f.info.mjpg, &type.format_video))
+        return NULL;
+
       res = gst_caps_new_simple ("image/jpeg",
           "width", G_TYPE_INT, f.info.mjpg.size.width,
           "height", G_TYPE_INT, f.info.mjpg.size.height,
@@ -618,6 +624,9 @@ gst_caps_from_format (const SpaFormat *format)
           NULL);
     }
     else if (media_subtype == type.media_subtype_video.h264) {
+      if (!spa_format_video_h264_parse (format, &f.info.h264, &type.format_video))
+        return NULL;
+
       res = gst_caps_new_simple ("video/x-h264",
           "width", G_TYPE_INT, f.info.h264.size.width,
           "height", G_TYPE_INT, f.info.h264.size.height,
@@ -627,13 +636,15 @@ gst_caps_from_format (const SpaFormat *format)
           NULL);
     }
   } else if (media_type == type.media_type.audio) {
-    SpaAudioInfo f;
-
-    if (spa_format_audio_parse (format, &f) < 0)
-      return NULL;
+    SpaAudioInfo f = { media_type, media_subtype, };
 
     if (media_subtype == type.media_subtype.raw) {
-      const char * str = spa_type_map_get_type (spa_type_map_get_default (), f.info.raw.format);
+      const char * str;
+
+      if (!spa_format_audio_raw_parse (format, &f.info.raw, &type.format_audio))
+        return NULL;
+
+      str = spa_type_map_get_type (type.map, f.info.raw.format);
 
       res = gst_caps_new_simple ("audio/x-raw",
           "format", G_TYPE_STRING, rindex (str, ':') + 1,

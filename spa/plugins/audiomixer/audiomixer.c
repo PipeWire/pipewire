@@ -58,6 +58,9 @@ typedef struct {
 
 typedef struct {
   uint32_t node;
+  SpaTypeMediaType media_type;
+  SpaTypeMediaSubtype media_subtype;
+  SpaTypeFormatAudio format_audio;
   SpaTypeCommandNode command_node;
 } Type;
 
@@ -65,6 +68,9 @@ static inline void
 init_type (Type *type, SpaTypeMap *map)
 {
   type->node = spa_type_map_get_id (map, SPA_TYPE__Node);
+  spa_type_media_type_map (map, &type->media_type);
+  spa_type_media_subtype_map (map, &type->media_subtype);
+  spa_type_format_audio_map (map, &type->format_audio);
   spa_type_command_node_map (map, &type->command_node);
 }
 
@@ -295,7 +301,6 @@ spa_audiomixer_node_port_set_format (SpaNode            *node,
 {
   SpaAudioMixer *this;
   SpaAudioMixerPort *port;
-  SpaResult res;
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -309,14 +314,20 @@ spa_audiomixer_node_port_set_format (SpaNode            *node,
 
   if (format == NULL) {
     port->have_format = false;
-    return SPA_RESULT_OK;
+  } else {
+    SpaAudioInfo info = { SPA_FORMAT_MEDIA_TYPE (format),
+                          SPA_FORMAT_MEDIA_SUBTYPE (format), };
+
+    if (info.media_type != this->type.media_type.audio ||
+        info.media_subtype != this->type.media_subtype.raw)
+      return SPA_RESULT_INVALID_MEDIA_TYPE;
+
+    if (!spa_format_audio_raw_parse (format, &info.info.raw, &this->type.format_audio))
+      return SPA_RESULT_INVALID_MEDIA_TYPE;
+
+    port->format = info;
+    port->have_format = true;
   }
-
-  if ((res = spa_format_audio_parse (format, &port->format)) < 0)
-    return res;
-
-  port->have_format = true;
-
   return SPA_RESULT_OK;
 }
 

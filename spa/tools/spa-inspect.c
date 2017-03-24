@@ -47,7 +47,7 @@ typedef struct {
 } AppData;
 
 static void
-inspect_port (SpaNode *node, SpaDirection direction, uint32_t port_id)
+inspect_port (AppData *data, SpaNode *node, SpaDirection direction, uint32_t port_id)
 {
   SpaResult res;
   SpaFormat *format;
@@ -61,17 +61,17 @@ inspect_port (SpaNode *node, SpaDirection direction, uint32_t port_id)
       break;
     }
     if (format)
-      spa_debug_format (format);
+      spa_debug_format (format, data->map);
     index++;
   }
   if ((res = spa_node_port_get_props (node, direction, port_id, &props)) < 0)
     printf ("port_get_props error: %d\n", res);
   else
-    spa_debug_props (props, true);
+    spa_debug_props (props, data->map);
 }
 
 static void
-inspect_node (SpaNode *node)
+inspect_node (AppData *data, SpaNode *node)
 {
   SpaResult res;
   uint32_t i, n_input, max_input, n_output, max_output;
@@ -81,7 +81,7 @@ inspect_node (SpaNode *node)
   if ((res = spa_node_get_props (node, &props)) < 0)
     printf ("can't get properties: %d\n", res);
   else
-    spa_debug_props (props, true);
+    spa_debug_props (props, data->map);
 
   if ((res = spa_node_get_n_ports (node, &n_input, &max_input, &n_output, &max_output)) < 0) {
     printf ("can't get n_ports: %d\n", res);
@@ -99,12 +99,12 @@ inspect_node (SpaNode *node)
 
   for (i = 0; i < n_input; i++) {
     printf (" input port: %08x\n", in_ports[i]);
-    inspect_port (node, SPA_DIRECTION_INPUT, in_ports[i]);
+    inspect_port (data, node, SPA_DIRECTION_INPUT, in_ports[i]);
   }
 
   for (i = 0; i < n_output; i++) {
     printf (" output port: %08x\n", out_ports[i]);
-    inspect_port (node, SPA_DIRECTION_OUTPUT, out_ports[i]);
+    inspect_port (data, node, SPA_DIRECTION_OUTPUT, out_ports[i]);
   }
 
 }
@@ -153,7 +153,7 @@ inspect_factory (AppData *data, const SpaHandleFactory *factory)
     }
 
     if (interface_id == data->type.node)
-      inspect_node (interface);
+      inspect_node (data, interface);
     else
       printf ("skipping unknown interface\n");
   }

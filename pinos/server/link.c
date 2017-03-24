@@ -106,7 +106,7 @@ do_negotiate (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
 
   pinos_log_debug ("link %p: doing set format", this);
   if (pinos_log_level_enabled (SPA_LOG_LEVEL_DEBUG))
-    spa_debug_format (format);
+    spa_debug_format (format, this->core->type.map);
 
   if (out_state == SPA_NODE_STATE_CONFIGURE) {
     pinos_log_debug ("link %p: doing set format on output", this);
@@ -347,8 +347,8 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
     goto error;
   }
   if (pinos_log_level_enabled (SPA_LOG_LEVEL_DEBUG)) {
-    spa_debug_port_info (oinfo);
-    spa_debug_port_info (iinfo);
+    spa_debug_port_info (oinfo, this->core->type.map);
+    spa_debug_port_info (iinfo, this->core->type.map);
   }
 
   in_flags = iinfo->flags;

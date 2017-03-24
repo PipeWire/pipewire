@@ -51,10 +51,10 @@ struct _SpaTypeMap {
   SpaType       (*get_id)    (SpaTypeMap *map,
                               const char *type);
 
-  const char *  (*get_type)  (SpaTypeMap *map,
+  const char *  (*get_type)  (const SpaTypeMap *map,
                               SpaType     id);
 
-  size_t        (*get_size)  (SpaTypeMap *map);
+  size_t        (*get_size)  (const SpaTypeMap *map);
 };
 
 #define spa_type_map_get_id(n,...)            (n)->get_id((n),__VA_ARGS__)

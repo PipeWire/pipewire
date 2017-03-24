@@ -587,7 +587,7 @@ again:
     }
     pinos_log_debug ("Try filter: %p", filter);
     if (pinos_log_level_enabled (SPA_LOG_LEVEL_DEBUG))
-      spa_debug_format (filter);
+      spa_debug_format (filter, core->type.map);
 
     if ((res = spa_node_port_enum_formats (output->node->node,
                                            SPA_DIRECTION_OUTPUT,
@@ -605,7 +605,7 @@ again:
     }
     pinos_log_debug ("Got filtered:");
     if (pinos_log_level_enabled (SPA_LOG_LEVEL_DEBUG))
-      spa_debug_format (format);
+      spa_debug_format (format, core->type.map);
 
     spa_format_fixate (format);
   } else {

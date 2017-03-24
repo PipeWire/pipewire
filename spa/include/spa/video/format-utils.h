@@ -74,8 +74,57 @@ spa_type_format_video_map (SpaTypeMap *map, SpaTypeFormatVideo *type)
   }
 }
 
-SpaResult   spa_format_video_parse      (const SpaFormat  *format,
-                                         SpaVideoInfo     *info);
+static inline bool
+spa_format_video_raw_parse (const SpaFormat    *format,
+                            SpaVideoInfoRaw    *info,
+                            SpaTypeFormatVideo *type)
+{
+  spa_format_query (format,
+      type->format,             SPA_POD_TYPE_ID,        &info->format,
+      type->size,               SPA_POD_TYPE_RECTANGLE, &info->size,
+      type->framerate,          SPA_POD_TYPE_FRACTION,  &info->framerate,
+      type->max_framerate,      SPA_POD_TYPE_FRACTION,  &info->max_framerate,
+      type->views,              SPA_POD_TYPE_INT,       &info->views,
+      type->interlace_mode,     SPA_POD_TYPE_INT,       &info->interlace_mode,
+      type->pixel_aspect_ratio, SPA_POD_TYPE_FRACTION,  &info->pixel_aspect_ratio,
+      type->multiview_mode,     SPA_POD_TYPE_INT,       &info->multiview_mode,
+      type->multiview_flags,    SPA_POD_TYPE_INT,       &info->multiview_flags,
+      type->chroma_site,        SPA_POD_TYPE_INT,       &info->chroma_site,
+      type->color_range,        SPA_POD_TYPE_INT,       &info->color_range,
+      type->color_matrix,       SPA_POD_TYPE_INT,       &info->color_matrix,
+      type->transfer_function,  SPA_POD_TYPE_INT,       &info->transfer_function,
+      type->color_primaries,    SPA_POD_TYPE_INT,       &info->color_primaries,
+      0);
+  return true;
+}
+
+static inline bool
+spa_format_video_h264_parse (const SpaFormat    *format,
+                             SpaVideoInfoH264   *info,
+                             SpaTypeFormatVideo *type)
+{
+  spa_format_query (format,
+      type->size,               SPA_POD_TYPE_RECTANGLE, &info->size,
+      type->framerate,          SPA_POD_TYPE_FRACTION,  &info->framerate,
+      type->max_framerate,      SPA_POD_TYPE_FRACTION,  &info->max_framerate,
+      type->stream_format,      SPA_POD_TYPE_INT     ,  &info->stream_format,
+      type->alignment    ,      SPA_POD_TYPE_INT     ,  &info->alignment,
+      0);
+  return true;
+}
+
+static inline bool
+spa_format_video_mjpg_parse (const SpaFormat    *format,
+                             SpaVideoInfoMJPG   *info,
+                             SpaTypeFormatVideo *type)
+{
+  spa_format_query (format,
+      type->size,               SPA_POD_TYPE_RECTANGLE, &info->size,
+      type->framerate,          SPA_POD_TYPE_FRACTION,  &info->framerate,
+      type->max_framerate,      SPA_POD_TYPE_FRACTION,  &info->max_framerate,
+      0);
+  return true;
+}
 
 #ifdef __cplusplus
 }  /* extern "C" */

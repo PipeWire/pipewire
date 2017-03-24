@@ -144,6 +144,9 @@ spa_type_media_subtype_audio_map (SpaTypeMap *map, SpaTypeMediaSubtypeAudio *typ
 #define SPA_FORMAT_FOREACH(format, iter) \
   SPA_FORMAT_BODY_FOREACH(&format->body, SPA_POD_BODY_SIZE(format), iter)
 
+#define SPA_FORMAT_MEDIA_TYPE(f)        SPA_POD_VALUE (SpaPODId, &f->body.media_type)
+#define SPA_FORMAT_MEDIA_SUBTYPE(f)     SPA_POD_VALUE (SpaPODId, &f->body.media_subtype)
+
 static inline SpaPODProp *
 spa_format_find_prop (const SpaFormat *format, uint32_t key)
 {

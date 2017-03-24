@@ -50,8 +50,21 @@ spa_type_format_audio_map (SpaTypeMap *map, SpaTypeFormatAudio *type)
   }
 }
 
-SpaResult   spa_format_audio_parse       (const SpaFormat *format,
-                                          SpaAudioInfo    *info);
+static inline bool
+spa_format_audio_raw_parse (const SpaFormat    *format,
+                            SpaAudioInfoRaw    *info,
+                            SpaTypeFormatAudio *type)
+{
+  spa_format_query (format,
+      type->format,       SPA_POD_TYPE_ID,  &info->format,
+      type->flags,        SPA_POD_TYPE_INT, &info->flags,
+      type->layout,       SPA_POD_TYPE_INT, &info->layout,
+      type->rate,         SPA_POD_TYPE_INT, &info->rate,
+      type->channels,     SPA_POD_TYPE_INT, &info->channels,
+      type->channel_mask, SPA_POD_TYPE_INT, &info->channel_mask,
+      0);
+  return true;
+}
 
 #ifdef __cplusplus
 }  /* extern "C" */

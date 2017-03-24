@@ -59,6 +59,7 @@ typedef struct {
   uint32_t node;
   SpaTypeMediaType media_type;
   SpaTypeMediaSubtype media_subtype;
+  SpaTypeFormatVideo format_video;
   SpaTypeCommandNode command_node;
 } Type;
 
@@ -68,6 +69,7 @@ init_type (Type *type, SpaTypeMap *map)
   type->node = spa_type_map_get_id (map, SPA_TYPE__Node);
   spa_type_media_type_map (map, &type->media_type);
   spa_type_media_subtype_map (map, &type->media_subtype);
+  spa_type_format_video_map (map, &type->format_video);
   spa_type_command_node_map (map, &type->command_node);
 }
 
@@ -249,8 +251,6 @@ spa_ffmpeg_enc_node_port_set_format (SpaNode            *node,
 {
   SpaFFMpegEnc *this;
   SpaFFMpegPort *port;
-  SpaResult res;
-  SpaVideoInfo query_format;
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -265,20 +265,22 @@ spa_ffmpeg_enc_node_port_set_format (SpaNode            *node,
   if (format == NULL) {
     port->have_format = false;
     return SPA_RESULT_OK;
+  } else {
+    SpaVideoInfo info = { SPA_FORMAT_MEDIA_TYPE (format),
+                          SPA_FORMAT_MEDIA_SUBTYPE (format), };
+
+    if (info.media_type != this->type.media_type.video &&
+        info.media_subtype != this->type.media_subtype.raw)
+      return SPA_RESULT_INVALID_MEDIA_TYPE;
+
+    if (!spa_format_video_raw_parse (format, &info.info.raw, &this->type.format_video))
+      return SPA_RESULT_INVALID_MEDIA_TYPE;
+
+    if (!(flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY)) {
+      port->current_format = info;
+      port->have_format = true;
+    }
   }
-
-  if (format->body.media_type.value != this->type.media_type.video ||
-      format->body.media_subtype.value != this->type.media_subtype.raw)
-    return SPA_RESULT_INVALID_MEDIA_TYPE;
-
-  if ((res = spa_format_video_parse (format, &query_format) < 0))
-    return res;
-
-  if (!(flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY)) {
-    memcpy (&port->current_format, &query_format, sizeof (SpaVideoInfo));
-    port->have_format = true;
-  }
-
   return SPA_RESULT_OK;
 }
 

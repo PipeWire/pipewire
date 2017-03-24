@@ -52,7 +52,7 @@ type_map_get_id (SpaTypeMap *map, const char *type)
 }
 
 static const char *
-type_map_get_type (SpaTypeMap *map, uint32_t id)
+type_map_get_type (const SpaTypeMap *map, uint32_t id)
 {
   TypeMap *this = SPA_CONTAINER_OF (map, TypeMap, map);
 
@@ -63,7 +63,7 @@ type_map_get_type (SpaTypeMap *map, uint32_t id)
 }
 
 static size_t
-type_map_get_size (SpaTypeMap *map)
+type_map_get_size (const SpaTypeMap *map)
 {
   TypeMap *this = SPA_CONTAINER_OF (map, TypeMap, map);
   return this->n_types;

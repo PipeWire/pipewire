@@ -366,7 +366,6 @@ spa_volume_node_port_set_format (SpaNode            *node,
 {
   SpaVolume *this;
   SpaVolumePort *port;
-  SpaResult res;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -382,9 +381,17 @@ spa_volume_node_port_set_format (SpaNode            *node,
     port->have_format = false;
     clear_buffers (this, port);
   } else {
-    if ((res = spa_format_audio_parse (format, &this->current_format)) < 0)
-      return res;
+    SpaAudioInfo info = { SPA_FORMAT_MEDIA_TYPE (format),
+                          SPA_FORMAT_MEDIA_SUBTYPE (format), };
 
+    if (info.media_type != this->type.media_type.audio ||
+        info.media_subtype != this->type.media_subtype.raw)
+      return SPA_RESULT_INVALID_MEDIA_TYPE;
+
+    if (!spa_format_audio_raw_parse (format, &info.info.raw, &this->type.format_audio))
+      return SPA_RESULT_INVALID_MEDIA_TYPE;
+
+    this->current_format = info;
     port->have_format = true;
   }
 

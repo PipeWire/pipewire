@@ -42,6 +42,7 @@ main (int argc, char *argv[])
   uint8_t buffer[1024];
   SpaPOD *obj;
   SpaPODIter i;
+  SpaTypeMap *map = spa_type_map_get_default ();
 
   b.data = buffer;
   b.size = 1024;
@@ -87,11 +88,11 @@ main (int argc, char *argv[])
   spa_pod_builder_pop (&b, &frame[0]);
 
   obj = SPA_POD_BUILDER_DEREF (&b, frame[0].ref, SpaPOD);
-  spa_debug_pod (obj);
+  spa_debug_pod (obj, map);
 
   SpaPODProp *p = spa_pod_object_find_prop ((SpaPODObject *)obj, 4);
   printf ("%d %d\n", p->body.key, p->body.flags);
-  spa_debug_pod (&p->body.value);
+  spa_debug_pod (&p->body.value, map);
 
   obj = SPA_POD_BUILDER_DEREF (&b, frame[2].ref, SpaPOD);
 

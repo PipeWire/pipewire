@@ -50,7 +50,11 @@ gst_pinos_clock_get_internal_time (GstClock * clock)
 
   pinos_stream_get_time (pclock->stream, &t);
 
-  result = gst_util_uint64_scale_int (t.ticks, GST_SECOND, t.rate);
+  if (t.rate)
+    result = gst_util_uint64_scale_int (t.ticks, GST_SECOND, t.rate);
+  else
+    result = GST_CLOCK_TIME_NONE;
+
   GST_DEBUG ("%"PRId64", %d %"PRId64, t.ticks, t.rate, result);
 
   return result;

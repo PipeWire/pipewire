@@ -207,13 +207,17 @@ new_node (const PinosNodeInfo *info)
     type = GST_PINOS_DEVICE_TYPE_SINK;
 
     for (i = 0; i < info->n_input_formats; i++) {
-      gst_caps_append (caps, gst_caps_from_format (info->input_formats[i]));
+      GstCaps *c1 = gst_caps_from_format (info->input_formats[i]);
+      if (c1)
+        gst_caps_append (caps, c1);
     }
   }
   else if (info->max_outputs > 0 && info->max_inputs == 0) {
     type = GST_PINOS_DEVICE_TYPE_SOURCE;
     for (i = 0; i < info->n_output_formats; i++) {
-      gst_caps_append (caps, gst_caps_from_format (info->output_formats[i]));
+      GstCaps *c1 = gst_caps_from_format (info->output_formats[i]);
+      if (c1)
+        gst_caps_append (caps, c1);
     }
   } else {
     type = GST_PINOS_DEVICE_TYPE_UNKNOWN;

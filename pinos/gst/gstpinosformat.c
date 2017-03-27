@@ -584,11 +584,167 @@ gst_caps_to_format_all (GstCaps *caps)
   return res;
 }
 
+static void
+handle_id_prop (SpaPODProp *prop, const char *key, GstCaps *res)
+{
+  const char * str;
+  uint32_t *id = SPA_POD_CONTENTS (SpaPODProp, prop);
+  uint32_t i, n_items = SPA_POD_PROP_N_VALUES (prop);
+
+  switch (prop->body.flags & SPA_POD_PROP_RANGE_MASK) {
+    case SPA_POD_PROP_RANGE_NONE:
+      if (!(str = spa_type_map_get_type (type.map, id[0])))
+        return;
+      gst_caps_set_simple (res, key, G_TYPE_STRING, rindex (str, ':') + 1, NULL);
+      break;
+    case SPA_POD_PROP_RANGE_ENUM:
+    {
+      GValue list = { 0 }, v = { 0 };
+
+      g_value_init (&list, GST_TYPE_LIST);
+      for (i = 1; i < n_items; i++) {
+        if (!(str = spa_type_map_get_type (type.map, id[i])))
+          continue;
+
+        g_value_init (&v, G_TYPE_STRING);
+        g_value_set_string (&v, rindex (str, ':') + 1);
+        gst_value_list_append_and_take_value (&list, &v);
+      }
+      gst_caps_set_value (res, key, &list);
+      g_value_unset (&list);
+      break;
+    }
+    default:
+      break;
+  }
+}
+
+static void
+handle_int_prop (SpaPODProp *prop, const char *key, GstCaps *res)
+{
+  uint32_t *val = SPA_POD_CONTENTS (SpaPODProp, prop);
+  uint32_t i, n_items = SPA_POD_PROP_N_VALUES (prop);
+
+  switch (prop->body.flags & SPA_POD_PROP_RANGE_MASK) {
+    case SPA_POD_PROP_RANGE_NONE:
+      gst_caps_set_simple (res, key, G_TYPE_INT, val[0], NULL);
+      break;
+    case SPA_POD_PROP_RANGE_MIN_MAX:
+    case SPA_POD_PROP_RANGE_STEP:
+    {
+      if (n_items < 3)
+        return;
+      gst_caps_set_simple (res, key, GST_TYPE_INT_RANGE, val[1], val[2], NULL);
+      break;
+    }
+    case SPA_POD_PROP_RANGE_ENUM:
+    {
+      GValue list = { 0 }, v = { 0 };
+
+      g_value_init (&list, GST_TYPE_LIST);
+      for (i = 1; i < n_items; i++) {
+        g_value_init (&v, G_TYPE_INT);
+        g_value_set_int (&v, val[i]);
+        gst_value_list_append_and_take_value (&list, &v);
+      }
+      gst_caps_set_value (res, key, &list);
+      g_value_unset (&list);
+      break;
+    }
+    default:
+      break;
+  }
+}
+
+static void
+handle_rect_prop (SpaPODProp *prop, const char *width, const char *height, GstCaps *res)
+{
+  SpaRectangle *rect = SPA_POD_CONTENTS (SpaPODProp, prop);
+  uint32_t i, n_items = SPA_POD_PROP_N_VALUES (prop);
+
+  switch (prop->body.flags & SPA_POD_PROP_RANGE_MASK) {
+    case SPA_POD_PROP_RANGE_NONE:
+      gst_caps_set_simple (res, width, G_TYPE_INT, rect[0].width,
+                                height, G_TYPE_INT, rect[0].height, NULL);
+      break;
+    case SPA_POD_PROP_RANGE_MIN_MAX:
+    case SPA_POD_PROP_RANGE_STEP:
+    {
+      if (n_items < 3)
+        return;
+      gst_caps_set_simple (res, width, GST_TYPE_INT_RANGE, rect[1].width, rect[2].width,
+                                height, GST_TYPE_INT_RANGE, rect[1].height, rect[2].height, NULL);
+      break;
+    }
+    case SPA_POD_PROP_RANGE_ENUM:
+    {
+      GValue l1 = { 0 }, l2 = { 0 }, v1 = { 0 }, v2 = { 0 };
+
+      g_value_init (&l1, GST_TYPE_LIST);
+      g_value_init (&l2, GST_TYPE_LIST);
+      for (i = 1; i < n_items; i++) {
+        g_value_init (&v1, G_TYPE_INT);
+        g_value_set_int (&v1, rect[i].width);
+        gst_value_list_append_and_take_value (&l1, &v1);
+
+        g_value_init (&v2, G_TYPE_INT);
+        g_value_set_int (&v2, rect[i].height);
+        gst_value_list_append_and_take_value (&l2, &v2);
+      }
+      gst_caps_set_value (res, width, &l1);
+      gst_caps_set_value (res, height, &l2);
+      g_value_unset (&l1);
+      g_value_unset (&l2);
+      break;
+    }
+    default:
+      break;
+  }
+}
+
+static void
+handle_fraction_prop (SpaPODProp *prop, const char *key, GstCaps *res)
+{
+  SpaFraction *fract = SPA_POD_CONTENTS (SpaPODProp, prop);
+  uint32_t i, n_items = SPA_POD_PROP_N_VALUES (prop);
+
+  switch (prop->body.flags & SPA_POD_PROP_RANGE_MASK) {
+    case SPA_POD_PROP_RANGE_NONE:
+      gst_caps_set_simple (res, key, GST_TYPE_FRACTION, fract[0].num, fract[0].denom, NULL);
+      break;
+    case SPA_POD_PROP_RANGE_MIN_MAX:
+    case SPA_POD_PROP_RANGE_STEP:
+    {
+      if (n_items < 3)
+        return;
+      gst_caps_set_simple (res, key, GST_TYPE_FRACTION_RANGE, fract[1].num, fract[1].denom,
+                                                              fract[2].num, fract[2].denom, NULL);
+      break;
+    }
+    case SPA_POD_PROP_RANGE_ENUM:
+    {
+      GValue l1 = { 0 }, v1 = { 0 };
+
+      g_value_init (&l1, GST_TYPE_LIST);
+      for (i = 1; i < n_items; i++) {
+        g_value_init (&v1, GST_TYPE_FRACTION);
+        gst_value_set_fraction (&v1, fract[i].num, fract[i].denom);
+        gst_value_list_append_and_take_value (&l1, &v1);
+      }
+      gst_caps_set_value (res, key, &l1);
+      g_value_unset (&l1);
+      break;
+    }
+    default:
+      break;
+  }
+}
 GstCaps *
 gst_caps_from_format (const SpaFormat *format)
 {
   GstCaps *res = NULL;
   uint32_t media_type, media_subtype;
+  SpaPODProp *prop;
 
   ensure_types();
 
@@ -596,62 +752,43 @@ gst_caps_from_format (const SpaFormat *format)
   media_subtype = SPA_FORMAT_MEDIA_SUBTYPE (format);
 
   if (media_type == type.media_type.video) {
-    SpaVideoInfo f = { media_type, media_subtype, };
-
     if (media_subtype == type.media_subtype.raw) {
-      const char * str;
-
-      if (!spa_format_video_raw_parse (format, &f.info.raw, &type.format_video))
-        return NULL;
-
-      str = spa_type_map_get_type (type.map, f.info.raw.format);
-
-      res = gst_caps_new_simple ("video/x-raw",
-          "format", G_TYPE_STRING, rindex (str, ':') + 1,
-          "width", G_TYPE_INT, f.info.raw.size.width,
-          "height", G_TYPE_INT, f.info.raw.size.height,
-          "framerate", GST_TYPE_FRACTION, f.info.raw.framerate.num, f.info.raw.framerate.denom,
-          NULL);
+      res = gst_caps_new_empty_simple ("video/x-raw");
+      if ((prop = spa_format_find_prop (format, type.format_video.format))) {
+        handle_id_prop (prop, "format", res);
+      }
     }
     else if (media_subtype == type.media_subtype_video.mjpg) {
-      if (!spa_format_video_mjpg_parse (format, &f.info.mjpg, &type.format_video))
-        return NULL;
-
-      res = gst_caps_new_simple ("image/jpeg",
-          "width", G_TYPE_INT, f.info.mjpg.size.width,
-          "height", G_TYPE_INT, f.info.mjpg.size.height,
-          "framerate", GST_TYPE_FRACTION, f.info.mjpg.framerate.num, f.info.mjpg.framerate.denom,
-          NULL);
+      res = gst_caps_new_empty_simple ("image/jpeg");
     }
     else if (media_subtype == type.media_subtype_video.h264) {
-      if (!spa_format_video_h264_parse (format, &f.info.h264, &type.format_video))
-        return NULL;
-
       res = gst_caps_new_simple ("video/x-h264",
-          "width", G_TYPE_INT, f.info.h264.size.width,
-          "height", G_TYPE_INT, f.info.h264.size.height,
-          "framerate", GST_TYPE_FRACTION, f.info.h264.framerate.num, f.info.h264.framerate.denom,
           "stream-format", G_TYPE_STRING, "byte-stream",
           "alignment", G_TYPE_STRING, "au",
           NULL);
     }
+    if ((prop = spa_format_find_prop (format, type.format_video.size))) {
+      handle_rect_prop (prop, "width", "height", res);
+    }
+    if ((prop = spa_format_find_prop (format, type.format_video.framerate))) {
+      handle_fraction_prop (prop, "framerate", res);
+    }
   } else if (media_type == type.media_type.audio) {
-    SpaAudioInfo f = { media_type, media_subtype, };
-
     if (media_subtype == type.media_subtype.raw) {
-      const char * str;
-
-      if (!spa_format_audio_raw_parse (format, &f.info.raw, &type.format_audio))
-        return NULL;
-
-      str = spa_type_map_get_type (type.map, f.info.raw.format);
-
       res = gst_caps_new_simple ("audio/x-raw",
-          "format", G_TYPE_STRING, rindex (str, ':') + 1,
           "layout", G_TYPE_STRING, "interleaved",
-          "rate", G_TYPE_INT, f.info.raw.rate,
-          "channels", G_TYPE_INT, f.info.raw.channels,
           NULL);
+      if ((prop = spa_format_find_prop (format, type.format_audio.format))) {
+        handle_id_prop (prop, "format", res);
+      }
+      if ((prop = spa_format_find_prop (format, type.format_audio.rate))) {
+        handle_int_prop (prop, "rate", res);
+      }
+      if ((prop = spa_format_find_prop (format, type.format_audio.channels))) {
+        handle_int_prop (prop, "channels", res);
+      }
+    }
+    else if (media_subtype == type.media_subtype_audio.aac) {
     }
   }
   return res;

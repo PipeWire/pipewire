@@ -675,10 +675,14 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
 
   if (buffer->pool != GST_BUFFER_POOL_CAST (pinossink->pool)) {
     GstBuffer *b = NULL;
+    GstMapInfo info = { 0, };
 
     gst_buffer_pool_acquire_buffer (GST_BUFFER_POOL_CAST (pinossink->pool), &b, NULL);
 
-    /* FIXME, copy */
+    gst_buffer_map (b, &info, GST_MAP_WRITE);
+    gst_buffer_extract (buffer, 0, info.data, info.size);
+    gst_buffer_unmap (b, &info);
+    gst_buffer_resize (b, 0, info.size);
     buffer = b;
   }
 

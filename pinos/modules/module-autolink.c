@@ -35,7 +35,6 @@ typedef struct {
   PinosListener global_added;
   PinosListener global_removed;
 
-  SpaList node_list;
   SpaList client_list;
 } ModuleImpl;
 
@@ -45,6 +44,7 @@ typedef struct {
   SpaList        link;
   PinosListener  resource_added;
   PinosListener  resource_removed;
+  SpaList        node_list;
 } ClientInfo;
 
 typedef struct {
@@ -61,11 +61,11 @@ typedef struct {
 } NodeInfo;
 
 static NodeInfo *
-find_node_info (ModuleImpl *impl, PinosNode *node)
+find_node_info (ClientInfo *cinfo, PinosNode *node)
 {
   NodeInfo *info;
 
-  spa_list_for_each (info, &impl->node_list, link) {
+  spa_list_for_each (info, &cinfo->node_list, link) {
     if (info->node == node)
       return info;
   }
@@ -99,9 +99,15 @@ node_info_free (NodeInfo *info)
 static void
 client_info_free (ClientInfo *cinfo)
 {
+  NodeInfo *info, *tmp;
+
   spa_list_remove (&cinfo->link);
   pinos_signal_remove (&cinfo->resource_added);
   pinos_signal_remove (&cinfo->resource_removed);
+
+  spa_list_for_each_safe (info, tmp, &cinfo->node_list, link)
+    node_info_free (info);
+
   free (cinfo);
 }
 
@@ -285,7 +291,7 @@ on_node_added (ModuleImpl    *impl,
   info->node = node;
   info->resource = resource;
   info->info = cinfo;
-  spa_list_insert (impl->node_list.prev, &info->link);
+  spa_list_insert (cinfo->node_list.prev, &info->link);
 
   spa_list_init (&info->port_unlinked.link);
   spa_list_init (&info->link_state_changed.link);
@@ -325,7 +331,7 @@ on_resource_removed (PinosListener *listener,
     PinosClientNode *cnode = resource->object;
     NodeInfo *ninfo;
 
-    if ((ninfo = find_node_info (impl, cnode->node)))
+    if ((ninfo = find_node_info (cinfo, cnode->node)))
       node_info_free (ninfo);
 
     pinos_log_debug ("module %p: node %p removed", impl, cnode->node);
@@ -346,6 +352,8 @@ on_global_added (PinosListener *listener,
     cinfo = calloc (1, sizeof (ClientInfo));
     cinfo->impl = impl;
     cinfo->client = global->object;
+    spa_list_init (&cinfo->node_list);
+
     spa_list_insert (impl->client_list.prev, &cinfo->link);
 
     pinos_signal_add (&client->resource_added, &cinfo->resource_added, on_resource_added);
@@ -394,7 +402,6 @@ module_new (PinosCore       *core,
   impl->core = core;
   impl->properties = properties;
 
-  spa_list_init (&impl->node_list);
   spa_list_init (&impl->client_list);
 
   pinos_signal_add (&core->global_added, &impl->global_added, on_global_added);

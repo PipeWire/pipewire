@@ -215,7 +215,6 @@ core_update_types (void          *object,
 
   for (i = 0; i < n_types; i++, first_id++) {
     uint32_t this_id = spa_type_map_get_id (this->type.map, types[i]);
-    printf ("update %d %s -> %d\n", first_id, types[i], this_id);
     if (!pinos_map_insert_at (&client->types, first_id, SPA_UINT32_TO_PTR (this_id)))
       pinos_log_error ("can't add type for client");
   }

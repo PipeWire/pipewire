@@ -136,8 +136,8 @@ struct _SpaALSAState {
   SpaAudioInfo current_format;
   uint8_t format_buffer[1024];
 
-  snd_pcm_sframes_t buffer_frames;
-  snd_pcm_sframes_t period_frames;
+  snd_pcm_uframes_t buffer_frames;
+  snd_pcm_uframes_t period_frames;
   snd_pcm_format_t format;
   int rate;
   int channels;
@@ -161,6 +161,9 @@ struct _SpaALSAState {
   int n_fds;
   struct pollfd fds[16];
   SpaSource sources[16];
+  int timerfd;
+  bool alsa_started;
+  int threshold;
 
   int64_t sample_count;
   int64_t last_ticks;

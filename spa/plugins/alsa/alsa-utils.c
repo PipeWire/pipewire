@@ -6,6 +6,8 @@
 #include <getopt.h>
 #include <sys/time.h>
 #include <math.h>
+#include <limits.h>
+#include <sys/timerfd.h>
 
 #include <lib/debug.h>
 #include "alsa-utils.h"
@@ -35,6 +37,7 @@ spa_alsa_open (SpaALSAState *state)
                        SND_PCM_NO_AUTO_FORMAT), "open failed");
 
 
+  state->timerfd = timerfd_create (CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
   state->opened = true;
 
   return 0;
@@ -51,6 +54,7 @@ spa_alsa_close (SpaALSAState *state)
   spa_log_info (state->log, "Device closing");
   CHECK (snd_pcm_close (state->hndl), "close failed");
 
+  close (state->timerfd);
   state->opened = false;
 
   return err;
@@ -131,6 +135,10 @@ spa_alsa_set_format (SpaALSAState *state, SpaAudioInfo *fmt, SpaPortFormatFlags 
   /* set the interleaved read/write format */
   CHECK (snd_pcm_hw_params_set_access(hndl, params, SND_PCM_ACCESS_MMAP_INTERLEAVED), "set_access");
 
+  /* disable ALSA wakeups, we use a timer */
+  if (snd_pcm_hw_params_can_disable_period_wakeup (params))
+    CHECK (snd_pcm_hw_params_set_period_wakeup (hndl, params, 0), "set_period_wakeup");
+
   /* set the sample format */
   format = spa_alsa_format_to_alsa (&state->type, info->format);
   spa_log_info (state->log, "Stream parameters are %iHz, %s, %i channels", info->rate, snd_pcm_format_name(format), info->channels);
@@ -163,6 +171,7 @@ spa_alsa_set_format (SpaALSAState *state, SpaAudioInfo *fmt, SpaPortFormatFlags 
   state->rate = info->rate;
   state->frame_size = info->channels * 2;
 
+#if 0
   period_size = props->period_size;
   periods = props->periods;
 
@@ -177,6 +186,17 @@ spa_alsa_set_format (SpaALSAState *state, SpaAudioInfo *fmt, SpaPortFormatFlags 
   state->buffer_frames = periods * state->period_frames;
 
   CHECK (snd_pcm_hw_params_set_buffer_size (hndl, params, state->buffer_frames), "set_buffer_size");
+#else
+  CHECK (snd_pcm_hw_params_get_buffer_size_max (params, &state->buffer_frames), "get_buffer_size_max");
+
+  CHECK (snd_pcm_hw_params_set_buffer_size_near (hndl, params, &state->buffer_frames), "set_buffer_size_near");
+
+  dir = 0;
+  period_size = state->buffer_frames;
+  CHECK (snd_pcm_hw_params_set_period_size_near (hndl, params, &period_size, &dir), "set_period_size_near");
+  state->period_frames = period_size;
+  periods = state->buffer_frames / state->period_frames;
+#endif
 
   spa_log_info (state->log, "buffer frames %zd, period frames %zd, periods %u",
       state->buffer_frames, state->period_frames, periods);
@@ -193,6 +213,8 @@ set_swparams (SpaALSAState *state)
   snd_pcm_t *hndl = state->hndl;
   int err = 0;
   snd_pcm_sw_params_t *params;
+  snd_pcm_uframes_t boundary;
+
   SpaALSAProps *props = &state->props;
 
   snd_pcm_sw_params_alloca (&params);
@@ -203,23 +225,25 @@ set_swparams (SpaALSAState *state)
   CHECK (snd_pcm_sw_params_set_tstamp_mode (hndl, params, SND_PCM_TSTAMP_ENABLE), "sw_params_set_tstamp_mode");
 
   /* start the transfer */
-  CHECK (snd_pcm_sw_params_set_start_threshold (hndl, params, 0U), "set_start_threshold");
+  CHECK (snd_pcm_sw_params_set_start_threshold (hndl, params, LONG_MAX), "set_start_threshold");
 #if 1
-  CHECK (snd_pcm_sw_params_set_stop_threshold (hndl, params,
-         (state->buffer_frames / state->period_frames) * state->period_frames), "set_stop_threshold");
+  CHECK (snd_pcm_sw_params_get_boundary (params, &boundary), "get_boundary");
+
+  CHECK (snd_pcm_sw_params_set_stop_threshold (hndl, params, boundary), "set_stop_threshold");
 #else
   CHECK (snd_pcm_sw_params_set_stop_threshold (hndl, params, -1), "set_stop_threshold");
 #endif
 
-  CHECK (snd_pcm_sw_params_set_silence_threshold (hndl, params, 0U), "set_silence_threshold");
+//  CHECK (snd_pcm_sw_params_set_silence_threshold (hndl, params, 0U), "set_silence_threshold");
 
   /* enable period events when requested */
-  CHECK (snd_pcm_sw_params_set_period_event (hndl, params, props->period_event ? 1 : 0), "set_period_event");
+//  CHECK (snd_pcm_sw_params_set_period_event (hndl, params, props->period_event ? 1 : 0), "set_period_event");
+  CHECK (snd_pcm_sw_params_set_period_event (hndl, params, 0), "set_period_event");
 
 #if 1
   /* allow the transfer when at least period_size samples can be processed */
   /* or disable this mechanism when period event is enabled (aka interrupt like style processing) */
-  CHECK (snd_pcm_sw_params_set_avail_min (hndl, params, state->period_frames), "set_avail_min");
+//  CHECK (snd_pcm_sw_params_set_avail_min (hndl, params, state->period_frames), "set_avail_min");
 #else
   CHECK (snd_pcm_sw_params_set_avail_min (hndl, params, 0), "set_avail_min");
 #endif
@@ -269,13 +293,15 @@ pull_frames_queue (SpaALSAState *state,
                    snd_pcm_uframes_t offset,
                    snd_pcm_uframes_t frames)
 {
+  snd_pcm_uframes_t total_frames = 0, to_write = frames;
+
   if (spa_list_is_empty (&state->ready)) {
     SpaEvent event = SPA_EVENT_INIT (state->type.event_node.NeedInput);
     state->event_cb (&state->node, &event, state->user_data);
   }
-  if (!spa_list_is_empty (&state->ready)) {
+  while (!spa_list_is_empty (&state->ready) && to_write > 0) {
     uint8_t *src, *dst;
-    size_t n_bytes, size;
+    size_t n_bytes, n_frames, size;
     off_t offs;
     SpaALSABuffer *b;
 
@@ -287,8 +313,8 @@ pull_frames_queue (SpaALSAState *state,
 
     src = SPA_MEMBER (src, state->ready_offset, uint8_t);
     dst = SPA_MEMBER (my_areas[0].addr, offset * state->frame_size, uint8_t);
-    n_bytes = SPA_MIN (size - state->ready_offset, frames * state->frame_size);
-    frames = SPA_MIN (frames, n_bytes / state->frame_size);
+    n_bytes = SPA_MIN (size - state->ready_offset, to_write * state->frame_size);
+    n_frames = SPA_MIN (to_write, n_bytes / state->frame_size);
 
     memcpy (dst, src, n_bytes);
 
@@ -304,11 +330,16 @@ pull_frames_queue (SpaALSAState *state,
 
       state->ready_offset = 0;
     }
-  } else {
-    spa_log_warn (state->log, "underrun, want %zd frames", frames);
-    snd_pcm_areas_silence (my_areas, offset, state->channels, frames, state->format);
+    total_frames += n_frames;
+    to_write -= n_frames;
   }
-  return frames;
+  if (total_frames == 0) {
+    total_frames = state->threshold;
+    spa_log_warn (state->log, "underrun, want %zd frames", total_frames);
+    snd_pcm_areas_silence (my_areas, offset, state->channels, total_frames, state->format);
+  }
+  //spa_log_warn (state->log, "written %zd frames", total_frames);
+  return total_frames;
 }
 
 static snd_pcm_uframes_t
@@ -575,6 +606,119 @@ alsa_on_fd_events (SpaSource *source)
   }
 }
 
+static int
+alsa_try_resume (SpaALSAState *state)
+{
+  int res;
+
+  while ((res = snd_pcm_resume (state->hndl)) == -EAGAIN)
+    usleep (250000);
+  if (res < 0) {
+    spa_log_error (state->log, "suspended, failed to resume %s", snd_strerror(res));
+    res = snd_pcm_prepare (state->hndl);
+    if (res < 0)
+      spa_log_error (state->log, "suspended, failed to prepare %s", snd_strerror(res));
+  }
+  return res;
+}
+
+static inline void
+calc_timeout (size_t frames,
+              size_t cb_threshold,
+              size_t rate,
+              struct timespec *ts)
+{
+  size_t to_play_usec;
+
+  ts->tv_sec = 0;
+  /* adjust sleep time to target our callback threshold */
+  if (frames > cb_threshold)
+    to_play_usec = (frames - cb_threshold) * 1000000 / rate;
+  else
+    to_play_usec = 0;
+  ts->tv_nsec = to_play_usec * 1000 + 1;
+
+  while (ts->tv_nsec > 1000000000L) {
+    ts->tv_sec++;
+    ts->tv_nsec -= 1000000000L;
+  }
+}
+
+static void
+alsa_on_timeout_event (SpaSource *source)
+{
+  uint64_t exp;
+  int res;
+  SpaALSAState *state = source->data;
+  snd_pcm_t *hndl = state->hndl;
+  snd_pcm_sframes_t avail;
+  struct itimerspec ts;
+  snd_pcm_uframes_t total_written = 0, filled;
+  const snd_pcm_channel_area_t *my_areas;
+
+  read (state->timerfd, &exp, sizeof (uint64_t));
+
+  if ((avail = snd_pcm_avail (hndl)) < 0) {
+    spa_log_error (state->log, "snd_pcm_avail_update error: %s", snd_strerror (avail));
+    return;
+  }
+  if (avail > state->buffer_frames)
+    avail = state->buffer_frames;
+
+  filled = state->buffer_frames - avail;
+  if (filled > state->threshold) {
+    if (snd_pcm_state (hndl) == SND_PCM_STATE_SUSPENDED) {
+      spa_log_error (state->log, "suspended: try resume");
+      if ((res = alsa_try_resume (state)) < 0)
+        return;
+    }
+  }
+  else {
+    snd_pcm_uframes_t to_write = state->buffer_frames - filled;
+
+    while (total_written < to_write) {
+      snd_pcm_uframes_t written, frames, offset;
+
+      frames = to_write - total_written;
+      if ((res = snd_pcm_mmap_begin (hndl, &my_areas, &offset, &frames)) < 0) {
+        spa_log_error (state->log, "snd_pcm_mmap_begin error: %s", snd_strerror(res));
+        return;
+      }
+
+      if (state->ringbuffer)
+        written = pull_frames_ringbuffer (state, my_areas, offset, frames);
+      else
+        written = pull_frames_queue (state, my_areas, offset, frames);
+
+      if (written < frames)
+        to_write = 0;
+
+      if ((res = snd_pcm_mmap_commit (hndl, offset, written)) < 0) {
+        spa_log_error (state->log, "snd_pcm_mmap_commit error: %s", snd_strerror(res));
+        if (res != -EPIPE && res != -ESTRPIPE)
+          return;
+      }
+      total_written += written;
+    }
+  }
+  if (!state->alsa_started && total_written > 0) {
+    spa_log_trace (state->log, "snd_pcm_start");
+    if ((res = snd_pcm_start (state->hndl)) < 0) {
+      spa_log_error (state->log, "snd_pcm_start: %s", snd_strerror (res));
+      return;
+    }
+    state->alsa_started = true;
+  }
+
+  calc_timeout (total_written + filled, state->threshold, state->rate, &ts.it_value);
+
+//  printf ("timeout %ld %ld %ld %ld\n", total_written, filled, ts.it_value.tv_sec, ts.it_value.tv_nsec);
+
+  ts.it_interval.tv_sec = 0;
+  ts.it_interval.tv_nsec = 0;
+  timerfd_settime (state->timerfd, 0, &ts, NULL);
+}
+
 SpaResult
 spa_alsa_start (SpaALSAState *state, bool xrun_recover)
 {
@@ -595,6 +739,7 @@ spa_alsa_start (SpaALSAState *state, bool xrun_recover)
   for (i = 0; i < state->n_fds; i++)
     spa_loop_remove_source (state->data_loop, &state->sources[i]);
 
+#if 0
   if ((state->n_fds = snd_pcm_poll_descriptors_count (state->hndl)) <= 0) {
     spa_log_error (state->log, "Invalid poll descriptors count %d", state->n_fds);
     return SPA_RESULT_ERROR;
@@ -614,15 +759,29 @@ spa_alsa_start (SpaALSAState *state, bool xrun_recover)
     state->fds[i].revents  = 0;
     spa_loop_add_source (state->data_loop, &state->sources[i]);
   }
+#else
+  state->n_fds = 1;
+  state->sources[0].func = alsa_on_timeout_event;
+  state->sources[0].data = state;
+  state->sources[0].fd = state->timerfd;
+  state->sources[0].mask = SPA_IO_IN;
+  state->sources[0].rmask = 0;
+  spa_loop_add_source (state->data_loop, &state->sources[0]);
+#endif
+
+  state->threshold = 40;
+  state->alsa_started = false;
 
   if (state->stream == SND_PCM_STREAM_PLAYBACK) {
-    mmap_write (state);
+    alsa_on_timeout_event (&state->sources[0]);
   }
 
+#if 0
   if ((err = snd_pcm_start (state->hndl)) < 0) {
     spa_log_error (state->log, "snd_pcm_start: %s", snd_strerror (err));
     return SPA_RESULT_ERROR;
   }
+#endif
 
   state->started = true;
 

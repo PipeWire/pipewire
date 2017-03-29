@@ -626,17 +626,19 @@ static inline void
 calc_timeout (size_t frames,
               size_t cb_threshold,
               size_t rate,
+              snd_htimestamp_t *now,
               struct timespec *ts)
 {
   size_t to_play_usec;
 
-  ts->tv_sec = 0;
+  ts->tv_sec = now->tv_sec;
   /* adjust sleep time to target our callback threshold */
   if (frames > cb_threshold)
     to_play_usec = (frames - cb_threshold) * 1000000 / rate;
   else
     to_play_usec = 0;
-  ts->tv_nsec = to_play_usec * 1000 + 1;
+
+  ts->tv_nsec = to_play_usec * 1000 + now->tv_nsec;
 
   while (ts->tv_nsec > 1000000000L) {
     ts->tv_sec++;
@@ -651,22 +653,34 @@ alsa_on_timeout_event (SpaSource *source)
   int res;
   SpaALSAState *state = source->data;
   snd_pcm_t *hndl = state->hndl;
-  snd_pcm_sframes_t avail;
+  snd_pcm_sframes_t avail, delay;
   struct itimerspec ts;
   snd_pcm_uframes_t total_written = 0, filled;
   const snd_pcm_channel_area_t *my_areas;
+  snd_pcm_status_t *status;
+  snd_htimestamp_t htstamp;
 
   read (state->timerfd, &exp, sizeof (uint64_t));
 
-  if ((avail = snd_pcm_avail (hndl)) < 0) {
-    spa_log_error (state->log, "snd_pcm_avail_update error: %s", snd_strerror (avail));
+  snd_pcm_status_alloca(&status);
+
+  if ((res = snd_pcm_status (hndl, status)) < 0) {
+    spa_log_error (state->log, "snd_pcm_status error: %s", snd_strerror (res));
     return;
   }
+
+  avail = snd_pcm_status_get_avail (status);
+  delay = snd_pcm_status_get_delay (status);
+  snd_pcm_status_get_htstamp (status, &htstamp);
+
+  state->last_ticks = state->sample_count - delay;
+  state->last_monotonic = (int64_t)htstamp.tv_sec * SPA_NSEC_PER_SEC + (int64_t)htstamp.tv_nsec;
+
   if (avail > state->buffer_frames)
     avail = state->buffer_frames;
 
   filled = state->buffer_frames - avail;
-  if (filled > state->threshold) {
+  if (filled > state->threshold + 10) {
     if (snd_pcm_state (hndl) == SND_PCM_STATE_SUSPENDED) {
       spa_log_error (state->log, "suspended: try resume");
       if ((res = alsa_try_resume (state)) < 0)
@@ -700,6 +714,7 @@ alsa_on_timeout_event (SpaSource *source)
       }
       total_written += written;
     }
+    state->sample_count += total_written;
   }
   if (!state->alsa_started && total_written > 0) {
     spa_log_trace (state->log, "snd_pcm_start");
@@ -710,13 +725,13 @@ alsa_on_timeout_event (SpaSource *source)
     state->alsa_started = true;
   }
 
-  calc_timeout (total_written + filled, state->threshold, state->rate, &ts.it_value);
+  calc_timeout (total_written + filled, state->threshold, state->rate, &htstamp, &ts.it_value);
 
 //  printf ("timeout %ld %ld %ld %ld\n", total_written, filled, ts.it_value.tv_sec, ts.it_value.tv_nsec);
 
   ts.it_interval.tv_sec = 0;
   ts.it_interval.tv_nsec = 0;
-  timerfd_settime (state->timerfd, 0, &ts, NULL);
+  timerfd_settime (state->timerfd, TFD_TIMER_ABSTIME, &ts, NULL);
 }
 
 SpaResult

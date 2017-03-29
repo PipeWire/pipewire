@@ -378,7 +378,8 @@ do_flush_event (SpaSource *source,
                 void      *data)
 {
   PinosContextImpl *impl = data;
-  pinos_connection_flush (impl->connection);
+  if (impl->connection)
+    pinos_connection_flush (impl->connection);
 }
 
 static void
@@ -514,6 +515,8 @@ pinos_context_destroy (PinosContext *context)
   pinos_log_debug ("context %p: destroy", context);
   pinos_signal_emit (&context->destroy_signal, context);
 
+  pinos_loop_destroy_source (impl->this.loop, impl->flush_event);
+
   if (context->state != PINOS_CONTEXT_STATE_UNCONNECTED)
     pinos_context_disconnect (context);
 
@@ -523,8 +526,6 @@ pinos_context_destroy (PinosContext *context)
     pinos_proxy_destroy (proxy);
 
   pinos_map_clear (&context->objects);
-
-  pinos_loop_destroy_source (impl->this.loop, impl->flush_event);
 
   free (context->name);
   if (context->properties)

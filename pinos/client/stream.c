@@ -1078,12 +1078,12 @@ pinos_stream_get_time (PinosStream *stream,
                        PinosTime   *time)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
-  int64_t now, elapsed;
+  int64_t elapsed;
   struct timespec ts;
 
   clock_gettime (CLOCK_MONOTONIC, &ts);
-  now = SPA_TIMESPEC_TO_TIME (&ts);
-  elapsed = (now - impl->last_monotonic) / 1000;
+  time->now = SPA_TIMESPEC_TO_TIME (&ts);
+  elapsed = (time->now - impl->last_monotonic) / 1000;
 
   time->ticks = impl->last_ticks + (elapsed * impl->last_rate) / SPA_USEC_PER_SEC;
   time->rate = impl->last_rate;

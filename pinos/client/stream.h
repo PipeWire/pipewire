@@ -54,6 +54,7 @@ typedef enum {
 } PinosStreamMode;
 
 typedef struct {
+  int64_t now;
   int64_t ticks;
   int32_t rate;
 } PinosTime;

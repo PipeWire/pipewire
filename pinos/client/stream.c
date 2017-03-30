@@ -542,7 +542,7 @@ static void
 handle_socket (PinosStream *stream, int rtfd)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
-  struct timespec interval, start;
+  struct timespec interval;
 
   impl->rtfd = rtfd;
   impl->rtsocket_source = pinos_loop_add_io (stream->context->loop,
@@ -555,13 +555,11 @@ handle_socket (PinosStream *stream, int rtfd)
   impl->timeout_source = pinos_loop_add_timer (stream->context->loop,
                                                on_timeout,
                                                stream);
-  start.tv_sec = 0;
-  start.tv_nsec = 100000000;
   interval.tv_sec = 0;
   interval.tv_nsec = 100000000;
   pinos_loop_update_timer (stream->context->loop,
                            impl->timeout_source,
-                           &start,
+                           NULL,
                            &interval,
                            false);
   return;

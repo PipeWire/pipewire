@@ -505,8 +505,13 @@ loop_update_timer (SpaSource       *source,
   int flags = 0;
 
   spa_zero (its);
-  if (value)
+  if (value) {
     its.it_value = *value;
+  }
+  else if (interval) {
+    its.it_value = *interval;
+    absolute = true;
+  }
   if (interval)
     its.it_interval = *interval;
   if (absolute)

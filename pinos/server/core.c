@@ -611,6 +611,10 @@ again:
     asprintf (error, "error node state");
     goto error;
   }
+  if (format == NULL) {
+    asprintf (error, "error get format");
+    goto error;
+  }
   return format;
 
 error:

@@ -158,9 +158,7 @@ struct _SpaALSAState {
   size_t ready_offset;
 
   bool started;
-  int n_fds;
-  struct pollfd fds[16];
-  SpaSource sources[16];
+  SpaSource source;
   int timerfd;
   bool alsa_started;
   int threshold;

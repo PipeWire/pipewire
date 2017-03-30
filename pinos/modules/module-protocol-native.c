@@ -134,7 +134,7 @@ connection_data (SpaSource *source,
   void *message;
 
   if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
-    pinos_log_debug ("protocol-native %p: got connection error", client->impl);
+    pinos_log_error ("protocol-native %p: got connection error", client->impl);
     client_destroy (client);
     return;
   }
@@ -144,7 +144,7 @@ connection_data (SpaSource *source,
       PinosResource *resource;
       const PinosDemarshalFunc *demarshal;
 
-      pinos_log_debug ("protocol-native %p: got message %d from %u", client->impl, opcode, id);
+      pinos_log_trace ("protocol-native %p: got message %d from %u", client->impl, opcode, id);
 
       resource = pinos_map_lookup (&c->objects, id);
       if (resource == NULL) {

@@ -65,13 +65,6 @@ pinos_port_destroy (PinosPort *port)
 
   spa_list_remove (&port->link);
 
-  spa_node_port_use_buffers (port->node->node,
-                             port->direction,
-                             port->port_id,
-                             NULL, 0);
-  port->buffers = NULL;
-  port->n_buffers = 0;
-
   free (port);
 }
 

@@ -470,6 +470,8 @@ spa_alsa_source_node_port_get_format (SpaNode          *node,
                                       const SpaFormat **format)
 {
   SpaALSASource *this;
+  SpaPODBuilder b = { NULL, };
+  SpaPODFrame f[2];
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -482,7 +484,14 @@ spa_alsa_source_node_port_get_format (SpaNode          *node,
   if (!this->have_format)
     return SPA_RESULT_NO_FORMAT;
 
-  *format = NULL;
+  spa_pod_builder_init (&b, this->format_buffer, sizeof (this->format_buffer));
+  spa_pod_builder_format (&b, &f[0], this->type.format,
+         this->type.media_type.audio, this->type.media_subtype.raw,
+         PROP (&f[1], this->type.format_audio.format,   SPA_POD_TYPE_ID,  this->current_format.info.raw.format),
+         PROP (&f[1], this->type.format_audio.rate,     SPA_POD_TYPE_INT, this->current_format.info.raw.rate),
+         PROP (&f[1], this->type.format_audio.channels, SPA_POD_TYPE_INT, this->current_format.info.raw.channels));
+
+  *format = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
 
   return SPA_RESULT_OK;
 }
@@ -549,6 +558,7 @@ spa_alsa_source_node_port_use_buffers (SpaNode         *node,
     return SPA_RESULT_NO_FORMAT;
 
   if (this->n_buffers > 0) {
+    spa_alsa_pause (this, false);
     if ((res = spa_alsa_clear_buffers (this)) < 0)
       return res;
   }

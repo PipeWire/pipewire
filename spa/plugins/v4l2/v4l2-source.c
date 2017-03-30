@@ -709,6 +709,7 @@ spa_v4l2_source_node_port_use_buffers (SpaNode         *node,
     return SPA_RESULT_NO_FORMAT;
 
   if (state->n_buffers) {
+    spa_v4l2_stream_off (this);
     if ((res = spa_v4l2_clear_buffers (this)) < 0)
       return res;
   }

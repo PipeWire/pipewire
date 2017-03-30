@@ -323,6 +323,8 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
       if (po->buffer_id == SPA_ID_INVALID)
         continue;
 
+      pinos_log_trace ("node %p: have output %d", this, po->buffer_id);
+
       outport = this->output_port_map[i];
       spa_list_for_each (link, &outport->rt.links, rt.output_link) {
         if (link->rt.input == NULL || link->rt.output == NULL)
@@ -331,7 +333,6 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
         inport = link->rt.input;
         pi = &inport->node->transport->inputs[inport->port_id];
 
-        processed = true;
 
         pi->buffer_id = po->buffer_id;
 
@@ -344,6 +345,7 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
                                              po->buffer_id)) < 0)
         pinos_log_warn ("node %p: error reuse buffer: %d", this, res);
 
+      processed = true;
       po->buffer_id = SPA_ID_INVALID;
     }
     if (processed) {

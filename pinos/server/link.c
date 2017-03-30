@@ -47,7 +47,7 @@ typedef struct
   PinosListener output_port_destroy;
   PinosListener output_async_complete;
 
-  bool allocated;
+  void *buffer_owner;
   PinosMemblock buffer_mem;
   SpaBuffer **buffers;
   uint32_t n_buffers;
@@ -453,13 +453,20 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
         (out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS))
       minsize = 0;
 
-    if (this->output->allocated) {
+    if (this->output->n_buffers) {
       out_flags = 0;
       in_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
       impl->n_buffers = this->output->n_buffers;
       impl->buffers = this->output->buffers;
-      impl->allocated = false;
+      impl->buffer_owner = this->output;
       pinos_log_debug ("reusing %d output buffers %p", impl->n_buffers, impl->buffers);
+    } else if (this->input->n_buffers) {
+      out_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
+      in_flags = 0;
+      impl->n_buffers = this->input->n_buffers;
+      impl->buffers = this->input->buffers;
+      impl->buffer_owner = this->input;
+      pinos_log_debug ("reusing %d input buffers %p", impl->n_buffers, impl->buffers);
     } else {
       size_t data_sizes[1];
       ssize_t data_strides[1];
@@ -467,6 +474,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       data_sizes[0] = minsize;
       data_strides[0] = stride;
 
+      impl->buffer_owner = this;
       impl->n_buffers = max_buffers;
       impl->buffers = alloc_buffers (this,
                                      impl->n_buffers,
@@ -476,6 +484,8 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
                                      data_sizes,
                                      data_strides,
                                      &impl->buffer_mem);
+
+      pinos_log_debug ("allocating %d input buffers %p", impl->n_buffers, impl->buffers);
     }
 
     if (out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
@@ -492,7 +502,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       this->output->n_buffers = impl->n_buffers;
       this->output->allocated = true;
       this->output->buffer_mem = impl->buffer_mem;
-      impl->allocated = false;
+      impl->buffer_owner = this->output;
       pinos_log_debug ("allocated %d buffers %p from output port", impl->n_buffers, impl->buffers);
     } else if (in_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {
       if ((res = spa_node_port_alloc_buffers (this->input->node->node,
@@ -508,7 +518,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       this->input->n_buffers = impl->n_buffers;
       this->input->allocated = true;
       this->input->buffer_mem = impl->buffer_mem;
-      impl->allocated = false;
+      impl->buffer_owner = this->input;
       pinos_log_debug ("allocated %d buffers %p from input port", impl->n_buffers, impl->buffers);
     }
   }
@@ -682,7 +692,7 @@ on_port_destroy (PinosLink *this,
   } else
     return;
 
-  if (port->allocated) {
+  if (impl->buffer_owner == port) {
     impl->buffers = NULL;
     impl->n_buffers = 0;
 
@@ -743,7 +753,7 @@ pinos_link_free (PinosLink *link)
 
   pinos_work_queue_destroy (impl->work);
 
-  if (impl->allocated)
+  if (impl->buffer_owner == link)
     pinos_memblock_free (&impl->buffer_mem);
 
   free (impl);
@@ -876,7 +886,9 @@ pinos_link_new (PinosCore       *core,
 static void
 clear_port_buffers (PinosLink *link, PinosPort *port)
 {
-  if (!port->allocated) {
+  PinosLinkImpl *impl = SPA_CONTAINER_OF (link, PinosLinkImpl, this);
+
+  if (impl->buffer_owner != port) {
     pinos_log_debug ("link %p: clear buffers on port %p", link, port);
     spa_node_port_use_buffers (port->node->node,
                                port->direction,

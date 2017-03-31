@@ -371,7 +371,7 @@ handle_video_fields (ConvertData *d)
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
                                    type.format_video.format,
-                                   get_range_type (value) | SPA_POD_PROP_FLAG_READWRITE);
+                                   get_range_type (value));
 
       spa_pod_builder_id (&d->b, *video_format_map[gst_video_format_from_string (v)]);
     }
@@ -387,7 +387,7 @@ handle_video_fields (ConvertData *d)
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
                                    type.format_video.size,
-                                   get_range_type2 (value, value2) | SPA_POD_PROP_FLAG_READWRITE);
+                                   get_range_type2 (value, value2));
 
       spa_pod_builder_rectangle (&d->b, v.width, v.height);
     }
@@ -403,7 +403,7 @@ handle_video_fields (ConvertData *d)
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
                                    type.format_video.framerate,
-                                   get_range_type (value) | SPA_POD_PROP_FLAG_READWRITE);
+                                   get_range_type (value));
 
       spa_pod_builder_fraction (&d->b, v.num, v.denom);
     }
@@ -428,7 +428,7 @@ handle_audio_fields (ConvertData *d)
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
                                    type.format_audio.format,
-                                   get_range_type (value) | SPA_POD_PROP_FLAG_READWRITE);
+                                   get_range_type (value));
 
       spa_pod_builder_id (&d->b, *audio_format_map[gst_audio_format_from_string (v)]);
     }
@@ -453,7 +453,7 @@ handle_audio_fields (ConvertData *d)
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
                                    type.format_audio.layout,
-                                   get_range_type (value) | SPA_POD_PROP_FLAG_READWRITE);
+                                   get_range_type (value));
 
       spa_pod_builder_int (&d->b, layout);
     }
@@ -468,7 +468,7 @@ handle_audio_fields (ConvertData *d)
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
                                    type.format_audio.rate,
-                                   get_range_type (value) | SPA_POD_PROP_FLAG_READWRITE);
+                                   get_range_type (value));
 
       spa_pod_builder_int (&d->b, v);
     }
@@ -483,7 +483,7 @@ handle_audio_fields (ConvertData *d)
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
                                    type.format_audio.channels,
-                                   get_range_type (value) | SPA_POD_PROP_FLAG_READWRITE);
+                                   get_range_type (value));
 
       spa_pod_builder_int (&d->b, v);
     }

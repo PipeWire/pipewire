@@ -679,8 +679,7 @@ have_size:
   spa_pod_builder_push_prop (&b, &f[1],
                              this->type.format_video.framerate,
                              SPA_POD_PROP_RANGE_NONE |
-                             SPA_POD_PROP_FLAG_UNSET |
-                             SPA_POD_PROP_FLAG_READWRITE);
+                             SPA_POD_PROP_FLAG_UNSET);
 
   prop = SPA_POD_BUILDER_DEREF (&b, f[1].ref, SpaPODProp);
   n_fractions = 0;

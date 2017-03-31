@@ -94,6 +94,7 @@ do_add_source (SpaLoop   *loop,
 
   return SPA_RESULT_OK;
 }
+
 static SpaResult
 do_update_source (SpaSource  *source)
 {

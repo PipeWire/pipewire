@@ -151,10 +151,8 @@ typedef struct {
 #define SPA_POD_PROP_RANGE_MASK         0xf
 #define SPA_POD_PROP_FLAG_UNSET         (1 << 4)
 #define SPA_POD_PROP_FLAG_OPTIONAL      (1 << 5)
-#define SPA_POD_PROP_FLAG_READABLE      (1 << 6)
-#define SPA_POD_PROP_FLAG_WRITABLE      (1 << 7)
-#define SPA_POD_PROP_FLAG_READWRITE     (SPA_POD_PROP_FLAG_READABLE | SPA_POD_PROP_FLAG_WRITABLE)
-#define SPA_POD_PROP_FLAG_DEPRECATED    (1 << 8)
+#define SPA_POD_PROP_FLAG_READONLY      (1 << 6)
+#define SPA_POD_PROP_FLAG_DEPRECATED    (1 << 7)
   uint32_t         flags;
   SpaPOD           value;
   /* array with elements of value.size follows,

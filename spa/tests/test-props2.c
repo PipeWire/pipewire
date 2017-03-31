@@ -51,25 +51,24 @@ main (int argc, char *argv[])
 
   uint32_t formats[] = { 1, 2 };
   spa_pod_builder_push_prop (&b, &frame[1],
-                             1, SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_READWRITE);
+                             1, SPA_POD_PROP_RANGE_ENUM);
   spa_pod_builder_int (&b, 1);
   spa_pod_builder_int (&b, formats[0]);
   spa_pod_builder_int (&b, formats[1]);
   spa_pod_builder_pop (&b, &frame[1]);
 
-  spa_pod_builder_push_prop (&b, &frame[1],
-                             2, SPA_POD_PROP_RANGE_NONE | SPA_POD_PROP_FLAG_READWRITE);
+  spa_pod_builder_push_prop (&b, &frame[1], 2, 0);
   spa_pod_builder_int (&b, 42);
   spa_pod_builder_pop (&b, &frame[1]);
 
   SpaRectangle sizes[] = { { 0, 0 }, { 1024, 1024} };
   spa_pod_builder_push_prop (&b, &frame[1],
-                             3, SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET | SPA_POD_PROP_FLAG_READWRITE);
+                             3, SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET);
   spa_pod_builder_rectangle (&b, 320, 240);
   spa_pod_builder_raw (&b, sizes, sizeof (sizes));
   spa_pod_builder_pop (&b, &frame[1]);
 
-  spa_pod_builder_push_prop (&b, &frame[1], 4, SPA_POD_PROP_RANGE_NONE | SPA_POD_PROP_FLAG_READABLE);
+  spa_pod_builder_push_prop (&b, &frame[1], 4, SPA_POD_PROP_FLAG_READONLY);
   spa_pod_builder_push_struct (&b, &frame[2]);
   spa_pod_builder_int (&b, 4);
   spa_pod_builder_long (&b, 6000);

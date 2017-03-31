@@ -167,7 +167,7 @@ spa_props_filter (SpaPODBuilder  *b,
     rt2 = p2->body.flags & SPA_POD_PROP_RANGE_MASK;
 
     /* else we filter. start with copying the property */
-    spa_pod_builder_push_prop (b, &f, p1->body.key, SPA_POD_PROP_FLAG_READWRITE),
+    spa_pod_builder_push_prop (b, &f, p1->body.key, 0),
     np = SPA_POD_BUILDER_DEREF (b, f.ref, SpaPODProp);
 
     /* default value */

@@ -766,7 +766,7 @@ connect_error:
 }
 
 #define PROP(f,key,type,...)                                                    \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READWRITE,type,1,__VA_ARGS__)
+          SPA_POD_PROP (f,key,0,type,1,__VA_ARGS__)
 static void
 on_format_changed (PinosListener *listener,
                    PinosStream   *stream,

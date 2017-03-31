@@ -173,22 +173,18 @@ update_state (SpaV4l2Source *this, SpaNodeState state)
 }
 
 #define PROP(f,key,type,...)                                                    \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READWRITE,type,1,__VA_ARGS__)
+          SPA_POD_PROP (f,key,0,type,1,__VA_ARGS__)
 #define PROP_R(f,key,type,...)                                                  \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READABLE,type,1,__VA_ARGS__)
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READONLY,type,1,__VA_ARGS__)
 #define PROP_MM(f,key,type,...)                                                 \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READWRITE |                     \
-                              SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
+          SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
 #define PROP_U_MM(f,key,type,...)                                               \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READWRITE |                     \
-                              SPA_POD_PROP_FLAG_UNSET |                         \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |                         \
                               SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
 #define PROP_EN(f,key,type,n,...)                                               \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READWRITE |                     \
-                              SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
+          SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
 #define PROP_U_EN(f,key,type,n,...)                                             \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READWRITE |                     \
-                              SPA_POD_PROP_FLAG_UNSET |                         \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |                         \
                               SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
 #include "v4l2-utils.c"
 

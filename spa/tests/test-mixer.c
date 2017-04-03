@@ -42,6 +42,10 @@ typedef struct {
   uint32_t props;
   uint32_t format;
   uint32_t props_device;
+  uint32_t props_freq;
+  uint32_t props_volume;
+  uint32_t props_min_latency;
+  uint32_t props_live;
   SpaTypeMediaType media_type;
   SpaTypeMediaSubtype media_subtype;
   SpaTypeFormatAudio format_audio;
@@ -57,6 +61,10 @@ init_type (Type *type, SpaTypeMap *map)
   type->props = spa_type_map_get_id (map, SPA_TYPE__Props);
   type->format = spa_type_map_get_id (map, SPA_TYPE__Format);
   type->props_device = spa_type_map_get_id (map, SPA_TYPE_PROPS__device);
+  type->props_freq = spa_type_map_get_id (map, SPA_TYPE_PROPS__frequency);
+  type->props_volume = spa_type_map_get_id (map, SPA_TYPE_PROPS__volume);
+  type->props_min_latency = spa_type_map_get_id (map, SPA_TYPE_PROPS__minLatency);
+  type->props_live = spa_type_map_get_id (map, SPA_TYPE_PROPS__live);
   spa_type_media_type_map (map, &type->media_type);
   spa_type_media_subtype_map (map, &type->media_subtype);
   spa_type_format_audio_map (map, &type->format_audio);
@@ -110,6 +118,8 @@ typedef struct {
   struct pollfd fds[16];
   unsigned int n_fds;
 } AppData;
+
+#define BUFFER_SIZE     4096
 
 static void
 init_buffer (AppData *data, Buffer *b, void *ptr, size_t size)
@@ -291,8 +301,9 @@ make_nodes (AppData *data)
 
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
   spa_pod_builder_props (&b, &f[0], data->type.props,
-      SPA_POD_PROP (&f[1], data->type.props_device, 0,
-        SPA_POD_TYPE_STRING, 1, "hw:0"));
+      SPA_POD_PROP (&f[1], data->type.props_device, 0, SPA_POD_TYPE_STRING, 1, "hw:0"),
+      SPA_POD_PROP (&f[1], data->type.props_min_latency, 0, SPA_POD_TYPE_INT, 1, 1024),
+      SPA_POD_PROP (&f[1], data->type.props_live, 0, SPA_POD_TYPE_BOOL, 1, false));
   props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
 
   if ((res = spa_node_set_props (data->sink, props)) < 0)
@@ -304,18 +315,40 @@ make_nodes (AppData *data)
     printf ("can't create audiomixer: %d\n", res);
     return res;
   }
+
   if ((res = make_node (data, &data->source1,
                         "build/spa/plugins/audiotestsrc/libspa-audiotestsrc.so",
                         "audiotestsrc", false)) < 0) {
     printf ("can't create audiotestsrc: %d\n", res);
     return res;
   }
+
+  spa_pod_builder_init (&b, buffer, sizeof (buffer));
+  spa_pod_builder_props (&b, &f[0], data->type.props,
+      SPA_POD_PROP (&f[1], data->type.props_freq, 0, SPA_POD_TYPE_DOUBLE, 1, 600.0),
+      SPA_POD_PROP (&f[1], data->type.props_volume, 0, SPA_POD_TYPE_DOUBLE, 1, 0.5));
+  props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
+
+  if ((res = spa_node_set_props (data->source1, props)) < 0)
+    printf ("got set_props error %d\n", res);
+
   if ((res = make_node (data, &data->source2,
                         "build/spa/plugins/audiotestsrc/libspa-audiotestsrc.so",
                         "audiotestsrc", false)) < 0) {
     printf ("can't create audiotestsrc: %d\n", res);
     return res;
   }
+
+  spa_pod_builder_init (&b, buffer, sizeof (buffer));
+  spa_pod_builder_props (&b, &f[0], data->type.props,
+      SPA_POD_PROP (&f[1], data->type.props_freq, 0, SPA_POD_TYPE_DOUBLE, 1, 440.0),
+      SPA_POD_PROP (&f[1], data->type.props_volume, 0, SPA_POD_TYPE_DOUBLE, 1, 0.5),
+      SPA_POD_PROP (&f[1], data->type.props_live, 0, SPA_POD_TYPE_BOOL, 1, false));
+  props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
+
+  if ((res = spa_node_set_props (data->source2, props)) < 0)
+    printf ("got set_props error %d\n", res);
+
   return res;
 }
 
@@ -359,7 +392,7 @@ negotiate_formats (AppData *data)
   if ((res = spa_node_port_set_format (data->mix, SPA_DIRECTION_OUTPUT, 0, 0, format)) < 0)
     return res;
 
-  init_buffer (data, &data->mix_buffer[0], malloc (1024), 1024);
+  init_buffer (data, &data->mix_buffer[0], malloc (BUFFER_SIZE), BUFFER_SIZE);
   data->mix_buffers[0] = &data->mix_buffer[0].buffer;
   if ((res = spa_node_port_use_buffers (data->sink, SPA_DIRECTION_INPUT, 0, data->mix_buffers, 1)) < 0)
     return res;
@@ -380,7 +413,7 @@ negotiate_formats (AppData *data)
   if ((res = spa_node_port_set_format (data->source1, SPA_DIRECTION_OUTPUT, 0, 0, format)) < 0)
     return res;
 
-  init_buffer (data, &data->source1_buffer[0], malloc (1024), 1024);
+  init_buffer (data, &data->source1_buffer[0], malloc (BUFFER_SIZE), BUFFER_SIZE);
   data->source1_buffers[0] = &data->source1_buffer[0].buffer;
   if ((res = spa_node_port_use_buffers (data->mix, SPA_DIRECTION_INPUT, data->mix_ports[0], data->source1_buffers, 1)) < 0)
     return res;
@@ -400,7 +433,7 @@ negotiate_formats (AppData *data)
   if ((res = spa_node_port_set_format (data->source2, SPA_DIRECTION_OUTPUT, 0, 0, format)) < 0)
     return res;
 
-  init_buffer (data, &data->source2_buffer[0], malloc (1024), 1024);
+  init_buffer (data, &data->source2_buffer[0], malloc (BUFFER_SIZE), BUFFER_SIZE);
   data->source2_buffers[0] = &data->source2_buffer[0].buffer;
   if ((res = spa_node_port_use_buffers (data->mix, SPA_DIRECTION_INPUT, data->mix_ports[1], data->source2_buffers, 1)) < 0)
     return res;
@@ -489,8 +522,8 @@ run_async_sink (AppData *data)
     data->running = false;
   }
 
-  printf ("sleeping for 10 seconds\n");
-  sleep (10);
+  printf ("sleeping for 1000 seconds\n");
+  sleep (1000);
 
   if (data->running) {
     data->running = false;

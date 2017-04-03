@@ -230,9 +230,9 @@ pull_frames_queue (SpaALSAState *state,
     if ((io = state->io)) {
       io->flags = SPA_PORT_IO_FLAG_RANGE;
       io->status = SPA_RESULT_OK;
-      io->range.offset = state->sample_count;
-      io->range.min_size = state->threshold;
-      io->range.max_size = frames;
+      io->range.offset = state->sample_count * state->frame_size;
+      io->range.min_size = state->threshold * state->frame_size;
+      io->range.max_size = frames * state->frame_size;
     }
     state->event_cb (&state->node, &event, state->user_data);
   }
@@ -431,7 +431,7 @@ alsa_on_playback_timeout_event (SpaSource *source)
   int res;
   SpaALSAState *state = source->data;
   snd_pcm_t *hndl = state->hndl;
-  snd_pcm_sframes_t avail, delay;
+  snd_pcm_sframes_t avail;
   struct itimerspec ts;
   snd_pcm_uframes_t total_written = 0, filled;
   const snd_pcm_channel_area_t *my_areas;
@@ -448,16 +448,16 @@ alsa_on_playback_timeout_event (SpaSource *source)
   }
 
   avail = snd_pcm_status_get_avail (status);
-  delay = snd_pcm_status_get_delay (status);
   snd_pcm_status_get_htstamp (status, &htstamp);
-
-  state->last_ticks = state->sample_count - delay;
-  state->last_monotonic = (int64_t)htstamp.tv_sec * SPA_NSEC_PER_SEC + (int64_t)htstamp.tv_nsec;
 
   if (avail > state->buffer_frames)
     avail = state->buffer_frames;
 
   filled = state->buffer_frames - avail;
+
+  state->last_ticks = state->sample_count - filled;
+  state->last_monotonic = (int64_t)htstamp.tv_sec * SPA_NSEC_PER_SEC + (int64_t)htstamp.tv_nsec;
+
   if (filled > state->threshold + 16) {
     if (snd_pcm_state (hndl) == SND_PCM_STATE_SUSPENDED) {
       spa_log_error (state->log, "suspended: try resume");
@@ -505,7 +505,8 @@ alsa_on_playback_timeout_event (SpaSource *source)
 
   calc_timeout (total_written + filled, state->threshold, state->rate, &htstamp, &ts.it_value);
 
-//  printf ("timeout %ld %ld %ld %ld\n", total_written, filled, ts.it_value.tv_sec, ts.it_value.tv_nsec);
+  spa_log_debug (state->log, "timeout %ld %ld %ld %ld", total_written, filled,
+                                ts.it_value.tv_sec, ts.it_value.tv_nsec);
 
   ts.it_interval.tv_sec = 0;
   ts.it_interval.tv_nsec = 0;

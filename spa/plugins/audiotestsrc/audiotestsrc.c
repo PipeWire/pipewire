@@ -98,10 +98,10 @@ struct _ATSBuffer {
   SpaBuffer *outbuf;
   bool outstanding;
   SpaMetaHeader *h;
-  void *ptr;
-  size_t size;
   SpaList link;
 };
+
+typedef SpaResult (*RenderFunc) (SpaAudioTestSrc *this, void *samples, size_t n_samples);
 
 struct _SpaAudioTestSrc {
   SpaHandle handle;
@@ -132,6 +132,8 @@ struct _SpaAudioTestSrc {
   SpaAudioInfo current_format;
   uint8_t format_buffer[1024];
   size_t bpf;
+  RenderFunc render_func;
+  double accumulator;
 
   ATSBuffer buffers[MAX_BUFFERS];
   uint32_t  n_buffers;
@@ -243,18 +245,7 @@ send_have_output (SpaAudioTestSrc *this)
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-fill_buffer (SpaAudioTestSrc *this, ATSBuffer *b)
-{
-  uint8_t *p = b->ptr;
-  size_t i;
-
-  for (i = 0; i < b->size; i++) {
-    p[i] = rand();
-  }
-
-  return SPA_RESULT_OK;
-}
+#include "render.c"
 
 static void
 set_timer (SpaAudioTestSrc *this, bool enabled)
@@ -279,8 +270,9 @@ static SpaResult
 audiotestsrc_make_buffer (SpaAudioTestSrc *this)
 {
   ATSBuffer *b;
-  SpaPortIO *io;
+  SpaPortIO *io = this->io;
   uint64_t expirations;
+  int n_bytes, n_samples;
 
   if (read (this->timer_source.fd, &expirations, sizeof (uint64_t)) < sizeof (uint64_t))
     perror ("read timerfd");
@@ -292,9 +284,19 @@ audiotestsrc_make_buffer (SpaAudioTestSrc *this)
   b = spa_list_first (&this->empty, ATSBuffer, link);
   spa_list_remove (&b->link);
   b->outstanding = true;
-  spa_log_trace (this->log, "audiotestsrc %p: dequeue buffer %d", this, b->outbuf->id);
 
-  fill_buffer (this, b);
+  n_bytes = b->outbuf->datas[0].maxsize;
+  if (io->flags & SPA_PORT_IO_FLAG_RANGE)
+    n_bytes = SPA_CLAMP (n_bytes, io->range.min_size, io->range.max_size);
+
+  spa_log_trace (this->log, "audiotestsrc %p: dequeue buffer %d %d", this, b->outbuf->id, n_bytes);
+
+  n_samples = n_bytes / this->bpf;
+  this->render_func (this, b->outbuf->datas[0].data, n_samples);
+
+  b->outbuf->datas[0].chunk->offset = 0;
+  b->outbuf->datas[0].chunk->size = n_bytes;
+  b->outbuf->datas[0].chunk->stride = 0;
 
   if (b->h) {
     b->h->seq = this->sample_count;
@@ -302,14 +304,14 @@ audiotestsrc_make_buffer (SpaAudioTestSrc *this)
     b->h->dts_offset = 0;
   }
 
-  this->sample_count += b->size / this->bpf;
+  this->sample_count += n_samples;
   this->elapsed_time = SAMPLES_TO_TIME (this, this->sample_count);
   set_timer (this, true);
 
-  if ((io = this->io)) {
-    io->buffer_id = b->outbuf->id;
-    io->status = SPA_RESULT_OK;
-  }
+  io->flags = 0;
+  io->buffer_id = b->outbuf->id;
+  io->status = SPA_RESULT_OK;
+
   return SPA_RESULT_HAVE_OUTPUT;
 }
 
@@ -488,9 +490,11 @@ next:
     case 0:
       spa_pod_builder_format (&b, &f[0], this->type.format,
           this->type.media_type.audio, this->type.media_subtype.raw,
-          PROP_U_EN (&f[1], this->type.format_audio.format,   SPA_POD_TYPE_ID,  3, this->type.audio_format.S16,
+          PROP_U_EN (&f[1], this->type.format_audio.format,   SPA_POD_TYPE_ID,  5, this->type.audio_format.S16,
                                                                                 this->type.audio_format.S16,
-                                                                                this->type.audio_format.S32),
+                                                                                this->type.audio_format.S32,
+                                                                                this->type.audio_format.F32,
+                                                                                this->type.audio_format.F64),
           PROP_U_MM (&f[1], this->type.format_audio.rate,     SPA_POD_TYPE_INT, 44100, 1, INT32_MAX),
           PROP_U_MM (&f[1], this->type.format_audio.channels, SPA_POD_TYPE_INT, 2,     1, INT32_MAX));
       break;
@@ -545,6 +549,8 @@ spa_audiotestsrc_node_port_set_format (SpaNode            *node,
   } else {
     SpaAudioInfo info = { SPA_FORMAT_MEDIA_TYPE (format),
                           SPA_FORMAT_MEDIA_SUBTYPE (format), };
+    int idx;
+    int sizes[4] = { 2, 4, 4, 8 };
 
     if (info.media_type != this->type.media_type.audio ||
         info.media_subtype != this->type.media_subtype.raw)
@@ -553,9 +559,21 @@ spa_audiotestsrc_node_port_set_format (SpaNode            *node,
     if (!spa_format_audio_raw_parse (format, &info.info.raw, &this->type.format_audio))
       return SPA_RESULT_INVALID_MEDIA_TYPE;
 
+    if (info.info.raw.format == this->type.audio_format.S16)
+      idx = 0;
+    else if (info.info.raw.format == this->type.audio_format.S32)
+      idx = 1;
+    else if (info.info.raw.format == this->type.audio_format.F32)
+      idx = 2;
+    else if (info.info.raw.format == this->type.audio_format.F64)
+      idx = 3;
+    else
+      return SPA_RESULT_INVALID_MEDIA_TYPE;
+
+    this->bpf = sizes[idx] * info.info.raw.channels;
     this->current_format = info;
-    this->bpf = (2 * this->current_format.info.raw.channels);
     this->have_format = true;
+    this->render_func =  sine_funcs[idx];
   }
 
   if (this->have_format) {
@@ -570,8 +588,8 @@ spa_audiotestsrc_node_port_set_format (SpaNode            *node,
 
     spa_pod_builder_init (&b, this->params_buffer, sizeof (this->params_buffer));
     spa_pod_builder_object (&b, &f[0], 0, this->type.alloc_param_buffers.Buffers,
-      PROP      (&f[1], this->type.alloc_param_buffers.size,    SPA_POD_TYPE_INT, 1024),
-      PROP      (&f[1], this->type.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, 1024),
+      PROP      (&f[1], this->type.alloc_param_buffers.size,    SPA_POD_TYPE_INT, 1024 * this->bpf),
+      PROP      (&f[1], this->type.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, this->bpf),
       PROP_U_MM (&f[1], this->type.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, 32, 2, 32),
       PROP      (&f[1], this->type.alloc_param_buffers.align,   SPA_POD_TYPE_INT, 16));
     this->params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
@@ -701,8 +719,6 @@ spa_audiotestsrc_node_port_use_buffers (SpaNode         *node,
           spa_log_error (this->log, "audiotestsrc %p: invalid memory on buffer %p", this, buffers[i]);
           continue;
         }
-        b->ptr = d[0].data;
-        b->size = d[0].maxsize;
         break;
       default:
         break;

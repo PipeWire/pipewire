@@ -106,6 +106,7 @@ struct _SpaVideoTestSrc {
   SpaTypeMap *map;
   SpaLog *log;
   SpaLoop *data_loop;
+  bool async;
 
   uint8_t props_buffer[512];
   SpaVideoTestSrcProps props;
@@ -177,7 +178,6 @@ spa_videotestsrc_node_get_props (SpaNode       *node,
   this = SPA_CONTAINER_OF (node, SpaVideoTestSrc, node);
 
   spa_pod_builder_init (&b, this->props_buffer, sizeof (this->props_buffer));
-
   spa_pod_builder_props (&b, &f[0], this->type.props,
     PROP    (&f[1], this->type.prop_live,      SPA_POD_TYPE_BOOL, this->props.live),
     PROP_EN (&f[1], this->type.prop_pattern,   SPA_POD_TYPE_ID,  3,
@@ -256,10 +256,9 @@ set_timer (SpaVideoTestSrc *this, bool enabled)
   timerfd_settime (this->timer_source.fd, TFD_TIMER_ABSTIME, &this->timerspec, NULL);
 }
 
-static void
-videotestsrc_on_output (SpaSource *source)
+static SpaResult
+videotestsrc_make_buffer (SpaVideoTestSrc *this)
 {
-  SpaVideoTestSrc *this = source->data;
   VTSBuffer *b;
   SpaPortIO *io;
   uint64_t expirations;
@@ -269,10 +268,12 @@ videotestsrc_on_output (SpaSource *source)
 
   if (spa_list_is_empty (&this->empty)) {
     set_timer (this, false);
-    return;
+    return SPA_RESULT_OUT_OF_BUFFERS;
   }
   b = spa_list_first (&this->empty, VTSBuffer, link);
   spa_list_remove (&b->link);
+  b->outstanding = true;
+  spa_log_trace (this->log, "videotestsrc %p: dequeue buffer %d", this, b->outbuf->id);
 
   fill_buffer (this, b);
 
@@ -287,11 +288,22 @@ videotestsrc_on_output (SpaSource *source)
   set_timer (this, true);
 
   if ((io = this->io)) {
-    b->outstanding = true;
     io->buffer_id = b->outbuf->id;
     io->status = SPA_RESULT_OK;
-    send_have_output (this);
   }
+  return SPA_RESULT_HAVE_OUTPUT;
+}
+
+static void
+videotestsrc_on_output (SpaSource *source)
+{
+  SpaVideoTestSrc *this = source->data;
+  SpaResult res;
+
+  res = videotestsrc_make_buffer (this);
+
+  if (res == SPA_RESULT_HAVE_OUTPUT)
+    send_have_output (this);
 }
 
 static void
@@ -367,15 +379,9 @@ spa_videotestsrc_node_set_event_callback (SpaNode              *node,
 
   this = SPA_CONTAINER_OF (node, SpaVideoTestSrc, node);
 
-  if (event_cb == NULL && this->event_cb)
-    spa_loop_remove_source (this->data_loop, &this->timer_source);
-
   this->event_cb = event_cb;
   this->user_data = user_data;
 
-  if (this->event_cb) {
-    spa_loop_add_source (this->data_loop, &this->timer_source);
-  }
   return SPA_RESULT_OK;
 }
 
@@ -479,7 +485,6 @@ next:
     default:
       return SPA_RESULT_ENUM_END;
   }
-
   fmt = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
 
   spa_pod_builder_init (&b, this->format_buffer, sizeof (this->format_buffer));
@@ -605,7 +610,6 @@ spa_videotestsrc_node_port_get_format (SpaNode          *node,
     return SPA_RESULT_NO_FORMAT;
 
   spa_pod_builder_init (&b, this->format_buffer, sizeof (this->format_buffer));
-
   spa_pod_builder_format (&b, &f[0], this->type.format,
      this->type.media_type.video, this->type.media_subtype.raw,
      PROP (&f[1], this->type.format_video.format,     SPA_POD_TYPE_ID,        this->current_format.info.raw.format),
@@ -747,17 +751,30 @@ spa_videotestsrc_node_port_set_io (SpaNode       *node,
 {
   SpaVideoTestSrc *this;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaVideoTestSrc, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   this->io = io;
 
   return SPA_RESULT_OK;
+}
+
+static inline void
+reuse_buffer (SpaVideoTestSrc *this, uint32_t id)
+{
+  VTSBuffer *b = &this->buffers[id];
+  spa_return_if_fail (b->outstanding);
+
+  spa_log_trace (this->log, "videotestsrc %p: reuse buffer %d", this, id);
+
+  b->outstanding = false;
+  spa_list_insert (this->empty.prev, &b->link);
+
+  if (!this->props.live)
+    set_timer (this, true);
 }
 
 static SpaResult
@@ -766,31 +783,16 @@ spa_videotestsrc_node_port_reuse_buffer (SpaNode         *node,
                                          uint32_t         buffer_id)
 {
   SpaVideoTestSrc *this;
-  VTSBuffer *b;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaVideoTestSrc, node);
 
-  if (port_id != 0)
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (port_id == 0, SPA_RESULT_INVALID_PORT);
+  spa_return_val_if_fail (this->n_buffers > 0, SPA_RESULT_NO_BUFFERS);
+  spa_return_val_if_fail (buffer_id < this->n_buffers, SPA_RESULT_INVALID_BUFFER_ID);
 
-  if (this->n_buffers == 0)
-    return SPA_RESULT_NO_BUFFERS;
-
-  if (buffer_id >= this->n_buffers)
-    return SPA_RESULT_INVALID_BUFFER_ID;
-
-  b = &this->buffers[buffer_id];
-  if (!b->outstanding)
-    return SPA_RESULT_OK;
-
-  b->outstanding = false;
-  spa_list_insert (this->empty.prev, &b->link);
-
-  if (!this->props.live)
-    set_timer (this, true);
+  reuse_buffer (this, buffer_id);
 
   return SPA_RESULT_OK;
 }
@@ -814,24 +816,20 @@ static SpaResult
 spa_videotestsrc_node_process_output (SpaNode *node)
 {
   SpaVideoTestSrc *this;
-  VTSBuffer *b;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaVideoTestSrc, node);
 
   if (this->io && this->io->buffer_id != SPA_ID_INVALID) {
-    b = &this->buffers[this->io->buffer_id];
-    if (b->outstanding) {
-      b->outstanding = false;
-      spa_list_insert (this->empty.prev, &b->link);
-      if (!this->props.live)
-        set_timer (this, true);
-    }
+    reuse_buffer (this, this->io->buffer_id);
     this->io->buffer_id = SPA_ID_INVALID;
   }
-  return SPA_RESULT_OK;
+
+  if (!this->async)
+    return videotestsrc_make_buffer (this);
+  else
+    return SPA_RESULT_OK;
 }
 
 static const SpaNode videotestsrc_node = {
@@ -942,6 +940,7 @@ videotestsrc_clear (SpaHandle *handle)
 
   this = (SpaVideoTestSrc *) handle;
 
+  spa_loop_remove_source (this->data_loop, &this->timer_source);
   close (this->timer_source.fd);
 
   return SPA_RESULT_OK;
@@ -956,6 +955,7 @@ videotestsrc_init (const SpaHandleFactory  *factory,
 {
   SpaVideoTestSrc *this;
   uint32_t i;
+  const char *str;
 
   if (factory == NULL || handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -964,6 +964,11 @@ videotestsrc_init (const SpaHandleFactory  *factory,
   handle->clear = videotestsrc_clear;
 
   this = (SpaVideoTestSrc *) handle;
+
+  if (info && (str = spa_dict_lookup (info, "asynchronous")))
+    this->async = atoi (str) == 1;
+  else
+    this->async = false;
 
   for (i = 0; i < n_support; i++) {
     if (strcmp (support[i].type, SPA_TYPE__TypeMap) == 0)
@@ -974,10 +979,10 @@ videotestsrc_init (const SpaHandleFactory  *factory,
       this->data_loop = support[i].data;
   }
   if (this->map == NULL) {
-    spa_log_error (this->log, "an id-map is needed");
+    spa_log_error (this->log, "a type-map is needed");
     return SPA_RESULT_ERROR;
   }
-  if (this->data_loop == NULL) {
+  if (this->data_loop == NULL && this->async) {
     spa_log_error (this->log, "a data_loop is needed");
     return SPA_RESULT_ERROR;
   }
@@ -991,7 +996,7 @@ videotestsrc_init (const SpaHandleFactory  *factory,
 
   this->timer_source.func = videotestsrc_on_output;
   this->timer_source.data = this;
-  this->timer_source.fd = timerfd_create (CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
+  this->timer_source.fd = timerfd_create (CLOCK_MONOTONIC, TFD_CLOEXEC);
   this->timer_source.mask = SPA_IO_IN;
   this->timer_source.rmask = 0;
   this->timerspec.it_value.tv_sec = 0;
@@ -999,12 +1004,17 @@ videotestsrc_init (const SpaHandleFactory  *factory,
   this->timerspec.it_interval.tv_sec = 0;
   this->timerspec.it_interval.tv_nsec = 0;
 
+  if (this->data_loop && this->async)
+    spa_loop_add_source (this->data_loop, &this->timer_source);
+
   this->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
                      SPA_PORT_INFO_FLAG_NO_REF;
   if (this->props.live)
     this->info.flags |= SPA_PORT_INFO_FLAG_LIVE;
 
   this->node.state = SPA_NODE_STATE_CONFIGURE;
+
+  spa_log_info (this->log, "videotestsrc %p: initialized, async=%d", this, this->async);
 
   return SPA_RESULT_OK;
 }

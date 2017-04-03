@@ -141,7 +141,7 @@ init_buffer (AppData *data, Buffer *b, void *ptr, size_t size)
 }
 
 static SpaResult
-make_node (AppData *data, SpaNode **node, const char *lib, const char *name)
+make_node (AppData *data, SpaNode **node, const char *lib, const char *name, bool async)
 {
   SpaHandle *handle;
   SpaResult res;
@@ -149,6 +149,8 @@ make_node (AppData *data, SpaNode **node, const char *lib, const char *name)
   SpaEnumHandleFactoryFunc enum_func;
   unsigned int i;
   uint32_t state = 0;
+  SpaDictItem items[1];
+  SpaDict dict = SPA_DICT_INIT (1, items);
 
   if ((hnd = dlopen (lib, RTLD_NOW)) == NULL) {
     printf ("can't load %s: %s\n", lib, dlerror());
@@ -158,6 +160,9 @@ make_node (AppData *data, SpaNode **node, const char *lib, const char *name)
     printf ("can't find enum function\n");
     return SPA_RESULT_ERROR;
   }
+
+  items[0].key = "asynchronous";
+  items[0].value = async ? "1" : "0";
 
   for (i = 0; ;i++) {
     const SpaHandleFactory *factory;
@@ -172,7 +177,7 @@ make_node (AppData *data, SpaNode **node, const char *lib, const char *name)
       continue;
 
     handle = calloc (1, factory->size);
-    if ((res = spa_handle_factory_init (factory, handle, NULL, data->support, data->n_support)) < 0) {
+    if ((res = spa_handle_factory_init (factory, handle, &dict, data->support, data->n_support)) < 0) {
       printf ("can't make factory instance: %d\n", res);
       return res;
     }
@@ -194,7 +199,6 @@ on_sink_event (SpaNode *node, SpaEvent *event, void *user_data)
 
   if (SPA_EVENT_TYPE (event) == data->type.event_node.NeedInput) {
 
-    printf ("need input event\n");
     res = spa_node_process_output (data->mix);
 
     if (res == SPA_RESULT_NEED_INPUT) {
@@ -226,7 +230,6 @@ push:
   else if (SPA_EVENT_TYPE (event) == data->type.event_node.ReuseBuffer) {
     SpaEventNodeReuseBuffer *rb = (SpaEventNodeReuseBuffer *) event;
 
-    printf ("got recycle event %d\n", rb->body.buffer_id.value);
     data->mix_sink_io[0].buffer_id = rb->body.buffer_id.value;
   }
   else {
@@ -278,7 +281,9 @@ make_nodes (AppData *data)
   SpaPODFrame f[2];
   uint8_t buffer[128];
 
-  if ((res = make_node (data, &data->sink, "build/spa/plugins/alsa/libspa-alsa.so", "alsa-sink")) < 0) {
+  if ((res = make_node (data, &data->sink,
+                        "build/spa/plugins/alsa/libspa-alsa.so",
+                        "alsa-sink", true)) < 0) {
     printf ("can't create alsa-sink: %d\n", res);
     return res;
   }
@@ -293,15 +298,21 @@ make_nodes (AppData *data)
   if ((res = spa_node_set_props (data->sink, props)) < 0)
     printf ("got set_props error %d\n", res);
 
-  if ((res = make_node (data, &data->mix, "build/spa/plugins/audiomixer/libspa-audiomixer.so", "audiomixer")) < 0) {
+  if ((res = make_node (data, &data->mix,
+                        "build/spa/plugins/audiomixer/libspa-audiomixer.so",
+                        "audiomixer", false)) < 0) {
     printf ("can't create audiomixer: %d\n", res);
     return res;
   }
-  if ((res = make_node (data, &data->source1, "build/spa/plugins/audiotestsrc/libspa-audiotestsrc.so", "audiotestsrc")) < 0) {
+  if ((res = make_node (data, &data->source1,
+                        "build/spa/plugins/audiotestsrc/libspa-audiotestsrc.so",
+                        "audiotestsrc", false)) < 0) {
     printf ("can't create audiotestsrc: %d\n", res);
     return res;
   }
-  if ((res = make_node (data, &data->source2, "build/spa/plugins/audiotestsrc/libspa-audiotestsrc.so", "audiotestsrc")) < 0) {
+  if ((res = make_node (data, &data->source2,
+                        "build/spa/plugins/audiotestsrc/libspa-audiotestsrc.so",
+                        "audiotestsrc", false)) < 0) {
     printf ("can't create audiotestsrc: %d\n", res);
     return res;
   }
@@ -462,8 +473,14 @@ run_async_sink (AppData *data)
 
   {
     SpaCommand cmd = SPA_COMMAND_INIT (data->type.command_node.Start);
+    if ((res = spa_node_send_command (data->source1, &cmd)) < 0)
+      printf ("got source1 error %d\n", res);
+    if ((res = spa_node_send_command (data->source2, &cmd)) < 0)
+      printf ("got source2 error %d\n", res);
+    if ((res = spa_node_send_command (data->mix, &cmd)) < 0)
+      printf ("got mix error %d\n", res);
     if ((res = spa_node_send_command (data->sink, &cmd)) < 0)
-      printf ("got error %d\n", res);
+      printf ("got sink error %d\n", res);
   }
 
   data->running = true;
@@ -484,6 +501,12 @@ run_async_sink (AppData *data)
     SpaCommand cmd = SPA_COMMAND_INIT (data->type.command_node.Pause);
     if ((res = spa_node_send_command (data->sink, &cmd)) < 0)
       printf ("got error %d\n", res);
+    if ((res = spa_node_send_command (data->mix, &cmd)) < 0)
+      printf ("got mix error %d\n", res);
+    if ((res = spa_node_send_command (data->source1, &cmd)) < 0)
+      printf ("got source1 error %d\n", res);
+    if ((res = spa_node_send_command (data->source2, &cmd)) < 0)
+      printf ("got source2 error %d\n", res);
   }
 }
 

@@ -117,7 +117,6 @@ spa_alsa_set_format (SpaALSAState *state, SpaAudioInfo *fmt, SpaPortFormatFlags 
   SpaAudioInfoRaw *info = &fmt->info.raw;
   snd_pcm_t *hndl;
   unsigned int periods;
-  SpaALSAProps *props = &state->props;
 
   if ((err = spa_alsa_open (state)) < 0)
     return err;
@@ -194,8 +193,6 @@ set_swparams (SpaALSAState *state)
   int err = 0;
   snd_pcm_sw_params_t *params;
   snd_pcm_uframes_t boundary;
-
-  SpaALSAProps *props = &state->props;
 
   snd_pcm_sw_params_alloca (&params);
 
@@ -618,7 +615,7 @@ spa_alsa_start (SpaALSAState *state, bool xrun_recover)
   state->source.rmask = 0;
   spa_loop_add_source (state->data_loop, &state->source);
 
-  state->threshold = 1024;
+  state->threshold = state->props.min_latency;
 
   if (state->stream == SND_PCM_STREAM_PLAYBACK) {
     state->alsa_started = false;

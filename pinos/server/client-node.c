@@ -798,14 +798,11 @@ static SpaResult
 spa_proxy_node_process_output (SpaNode *node)
 {
   SpaProxy *this;
-  PinosNode *pnode;
-  int i;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaProxy, node);
-  pnode = this->pnode;
 
   send_need_input (this);
 

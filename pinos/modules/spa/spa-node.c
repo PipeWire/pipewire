@@ -51,6 +51,8 @@ pinos_spa_node_load (PinosCore  *core,
   SpaEnumHandleFactoryFunc enum_func;
   const SpaHandleFactory *factory;
   void *iface;
+  SpaDictItem items[1];
+  SpaDict dict = SPA_DICT_INIT (1, items);
 
   if ((hnd = dlopen (lib, RTLD_NOW)) == NULL) {
     pinos_log_error ("can't load %s: %s", lib, dlerror());
@@ -71,10 +73,13 @@ pinos_spa_node_load (PinosCore  *core,
       break;
   }
 
+  items[0].key = "asynchronous";
+  items[0].value = "1";
+
   handle = calloc (1, factory->size);
   if ((res = spa_handle_factory_init (factory,
                                       handle,
-                                      NULL,
+                                      &dict,
                                       core->support,
                                       core->n_support)) < 0) {
     pinos_log_error ("can't make factory instance: %d", res);

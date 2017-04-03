@@ -45,9 +45,7 @@ typedef struct {
   char device[64];
   char device_name[128];
   char card_name[128];
-  uint32_t period_size;
-  uint32_t periods;
-  bool period_event;
+  uint32_t min_latency;
 } SpaALSAProps;
 
 #define MAX_BUFFERS 64
@@ -68,9 +66,7 @@ typedef struct {
   uint32_t prop_device;
   uint32_t prop_device_name;
   uint32_t prop_card_name;
-  uint32_t prop_period_size;
-  uint32_t prop_periods;
-  uint32_t prop_period_event;
+  uint32_t prop_min_latency;
   SpaTypeMediaType media_type;
   SpaTypeMediaSubtype media_subtype;
   SpaTypeMediaSubtypeAudio media_subtype_audio;
@@ -92,9 +88,7 @@ init_type (Type *type, SpaTypeMap *map)
   type->prop_device = spa_type_map_get_id (map, SPA_TYPE_PROPS__device);
   type->prop_device_name = spa_type_map_get_id (map, SPA_TYPE_PROPS__deviceName);
   type->prop_card_name = spa_type_map_get_id (map, SPA_TYPE_PROPS__cardName);
-  type->prop_period_size = spa_type_map_get_id (map, SPA_TYPE_PROPS__periodSize);
-  type->prop_periods = spa_type_map_get_id (map, SPA_TYPE_PROPS__periods);
-  type->prop_period_event = spa_type_map_get_id (map, SPA_TYPE_PROPS__periodEvent);
+  type->prop_min_latency = spa_type_map_get_id (map, SPA_TYPE_PROPS__minLatency);
 
   spa_type_media_type_map (map, &type->media_type);
   spa_type_media_subtype_map (map, &type->media_subtype);

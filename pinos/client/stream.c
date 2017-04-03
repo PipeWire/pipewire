@@ -500,7 +500,6 @@ handle_rtnode_event (PinosStream  *stream,
   }
   else if (SPA_EVENT_TYPE (event) == context->type.event_node.NeedInput) {
     int i;
-    BufferId *bid;
 
     for (i = 0; i < impl->trans->area->n_outputs; i++) {
       SpaPortIO *output = &impl->trans->outputs[i];
@@ -516,7 +515,6 @@ handle_rtnode_event (PinosStream  *stream,
   }
   else if (SPA_EVENT_TYPE (event) == context->type.event_node.ReuseBuffer) {
     SpaEventNodeReuseBuffer *p = (SpaEventNodeReuseBuffer *) event;
-    BufferId *bid;
 
     if (p->body.port_id.value != impl->port_id)
       return;

@@ -452,7 +452,7 @@ spa_audiomixer_node_port_use_buffers (SpaNode         *node,
 
     b = &port->buffers[i];
     b->outbuf = buffers[i];
-    b->outstanding = true;
+    b->outstanding = direction == SPA_DIRECTION_INPUT ? true : false;
     b->h = spa_buffer_find_meta (buffers[i], SPA_META_TYPE_HEADER);
 
     switch (d[0].type) {
@@ -516,11 +516,34 @@ spa_audiomixer_node_port_set_io (SpaNode      *node,
   return SPA_RESULT_OK;
 }
 
+static void
+recycle_buffer (SpaAudioMixer *this, uint32_t id)
+{
+  SpaAudioMixerPort *port = &this->out_ports[0];
+
+  MixerBuffer *b = &port->buffers[id];
+  if (b->outstanding) {
+    spa_list_insert (port->queue.prev, &b->link);
+    b->outstanding = false;
+    spa_log_trace (this->log, "audiomixer %p: recycle buffer %d", this, id);
+  }
+}
+
 static SpaResult
 spa_audiomixer_node_port_reuse_buffer (SpaNode         *node,
                                        uint32_t         port_id,
                                        uint32_t         buffer_id)
 {
+  SpaAudioMixer *this;
+
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+
+  this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
+
+  spa_return_val_if_fail (CHECK_PORT (this, SPA_DIRECTION_OUTPUT, port_id), SPA_RESULT_INVALID_PORT);
+
+  recycle_buffer (this, buffer_id);
+
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
@@ -664,15 +687,11 @@ spa_audiomixer_node_process_output (SpaNode *node)
     input->range = output->range;
   }
   if (output->buffer_id != SPA_ID_INVALID) {
-    MixerBuffer *b = &port->buffers[output->buffer_id];
-    if (b->outstanding) {
-      spa_list_insert (port->queue.prev, &b->link);
-      b->outstanding = false;
-      spa_log_trace (this->log, "audiomixer %p: recycle buffer %d", this, b->outbuf->id);
-    }
+    recycle_buffer (this, output->buffer_id);
     output->buffer_id = SPA_ID_INVALID;
   }
   this->state = STATE_IN;
+
   return SPA_RESULT_NEED_INPUT;
 }
 

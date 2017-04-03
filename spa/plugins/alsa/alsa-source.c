@@ -39,17 +39,13 @@ update_state (SpaALSASource *this, SpaNodeState state)
 }
 
 static const char default_device[] = "hw:0";
-static const uint32_t default_period_size = 32;
-static const uint32_t default_periods = 2;
-static const bool default_period_event = 0;
+static const uint32_t default_min_latency = 1024;
 
 static void
 reset_alsa_props (SpaALSAProps *props)
 {
   strncpy (props->device, default_device, 64);
-  props->period_size = default_period_size;
-  props->periods = default_periods;
-  props->period_event = default_period_event;
+  props->min_latency = default_min_latency;
 }
 
 #define PROP(f,key,type,...)                                                    \
@@ -84,9 +80,7 @@ spa_alsa_source_node_get_props (SpaNode       *node,
     PROP    (&f[1], this->type.prop_device,      -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device)),
     PROP    (&f[1], this->type.prop_device_name, -SPA_POD_TYPE_STRING, this->props.device_name, sizeof (this->props.device_name)),
     PROP    (&f[1], this->type.prop_card_name,   -SPA_POD_TYPE_STRING, this->props.card_name, sizeof (this->props.card_name)),
-    PROP_MM (&f[1], this->type.prop_period_size,  SPA_POD_TYPE_INT,    this->props.period_size, 1, INT32_MAX),
-    PROP_MM (&f[1], this->type.prop_periods,      SPA_POD_TYPE_INT,    this->props.periods, 1, INT32_MAX),
-    PROP    (&f[1], this->type.prop_period_event, SPA_POD_TYPE_BOOL,   this->props.period_event));
+    PROP_MM (&f[1], this->type.prop_min_latency,  SPA_POD_TYPE_INT,    this->props.min_latency, 1, INT32_MAX));
 
   *props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
 
@@ -110,9 +104,7 @@ spa_alsa_source_node_set_props (SpaNode         *node,
   } else {
     spa_props_query (props,
         this->type.prop_device,      -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device),
-        this->type.prop_period_size,  SPA_POD_TYPE_INT,    &this->props.period_size,
-        this->type.prop_periods,      SPA_POD_TYPE_INT,    &this->props.periods,
-        this->type.prop_period_event, SPA_POD_TYPE_BOOL,   &this->props.period_event,
+        this->type.prop_min_latency,  SPA_POD_TYPE_INT,    &this->props.min_latency,
         0);
   }
 

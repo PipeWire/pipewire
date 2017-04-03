@@ -44,6 +44,8 @@ typedef struct _SpaPODBuilder {
   bool         first;
 } SpaPODBuilder;
 
+#define SPA_POD_BUILDER_INIT(buffer,size)  { buffer, size, }
+
 #define SPA_POD_BUILDER_DEREF(b,ref,type)    SPA_MEMBER ((b)->data, (ref), type)
 
 static inline void

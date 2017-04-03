@@ -373,41 +373,24 @@ spa_ffmpeg_dec_node_port_alloc_buffers (SpaNode         *node,
 }
 
 static SpaResult
-spa_ffmpeg_dec_node_port_set_input (SpaNode      *node,
-                                    uint32_t      port_id,
-                                    SpaPortInput *input)
+spa_ffmpeg_dec_node_port_set_io (SpaNode      *node,
+                                 SpaDirection  direction,
+                                 uint32_t      port_id,
+                                 SpaPortIO    *io)
 {
   SpaFFMpegDec *this;
+  SpaFFMpegPort *port;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaFFMpegDec, node);
 
-  if (!IS_VALID_PORT (this, SPA_DIRECTION_INPUT, port_id))
+  if (!IS_VALID_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
 
-  this->in_ports[port_id].io = input;
-
-  return SPA_RESULT_OK;
-}
-
-static SpaResult
-spa_ffmpeg_dec_node_port_set_output (SpaNode       *node,
-                                     uint32_t       port_id,
-                                     SpaPortOutput *output)
-{
-  SpaFFMpegDec *this;
-
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
-  this = SPA_CONTAINER_OF (node, SpaFFMpegDec, node);
-
-  if (!IS_VALID_PORT (this, SPA_DIRECTION_OUTPUT, port_id))
-    return SPA_RESULT_INVALID_PORT;
-
-  this->out_ports[port_id].io = output;
+  port = direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
+  port->io = io;
 
   return SPA_RESULT_OK;
 }
@@ -423,7 +406,7 @@ spa_ffmpeg_dec_node_process_output (SpaNode *node)
 {
   SpaFFMpegDec *this;
   SpaFFMpegPort *port;
-  SpaPortOutput *output;
+  SpaPortIO *output;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -488,8 +471,7 @@ static const SpaNode ffmpeg_dec_node = {
   spa_ffmpeg_dec_node_port_set_props,
   spa_ffmpeg_dec_node_port_use_buffers,
   spa_ffmpeg_dec_node_port_alloc_buffers,
-  spa_ffmpeg_dec_node_port_set_input,
-  spa_ffmpeg_dec_node_port_set_output,
+  spa_ffmpeg_dec_node_port_set_io,
   spa_ffmpeg_dec_node_port_reuse_buffer,
   spa_ffmpeg_dec_node_port_send_command,
   spa_ffmpeg_dec_node_process_input,

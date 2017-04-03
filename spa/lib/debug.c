@@ -472,3 +472,61 @@ spa_debug_dict (const SpaDict *dict)
 
   return SPA_RESULT_OK;
 }
+
+
+#define DEFAULT_LOG_LEVEL SPA_LOG_LEVEL_TRACE
+
+static void
+do_logv (SpaLog        *log,
+         SpaLogLevel    level,
+         const char    *file,
+         int            line,
+         const char    *func,
+         const char    *fmt,
+         va_list        args)
+{
+  char text[16*1024], location[128];
+  static const char *levels[] = {
+    "-",
+    "E",
+    "W",
+    "I",
+    "D",
+    "T",
+  };
+  vsnprintf (text, sizeof(text), fmt, args);
+  if (1) {
+    snprintf (location, sizeof(location), "%s:%i %s()", strrchr (file, '/')+1, line, func);
+    fprintf(stderr, "[%s][%s] %s\n", levels[level], location, text);
+  } else {
+    fprintf(stderr, "[%s] %s\n", levels[level], text);
+  }
+}
+
+static void
+do_log (SpaLog        *log,
+        SpaLogLevel    level,
+        const char    *file,
+        int            line,
+        const char    *func,
+        const char    *fmt, ...)
+{
+  va_list args;
+  va_start (args, fmt);
+  do_logv (log, level, file, line, func, fmt, args);
+  va_end (args);
+}
+
+static SpaLog log = {
+  sizeof (SpaLog),
+  NULL,
+  DEFAULT_LOG_LEVEL,
+  do_log,
+  do_logv,
+};
+
+SpaLog *
+spa_log_get_default (void)
+{
+  return &log;
+}

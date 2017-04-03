@@ -528,12 +528,16 @@ spa_v4l2_source_node_port_set_format (SpaNode            *node,
     info.media_type = SPA_FORMAT_MEDIA_TYPE (format);
     info.media_subtype = SPA_FORMAT_MEDIA_SUBTYPE (format);
 
-    if (info.media_type != this->type.media_type.video)
+    if (info.media_type != this->type.media_type.video) {
+      spa_log_error (this->log, "media type must be video");
       return SPA_RESULT_INVALID_MEDIA_TYPE;
+    }
 
     if (info.media_subtype == this->type.media_subtype.raw) {
-      if (!spa_format_video_raw_parse (format, &info.info.raw, &this->type.format_video))
+      if (!spa_format_video_raw_parse (format, &info.info.raw, &this->type.format_video)) {
+        spa_log_error (this->log, "can't parse video raw");
         return SPA_RESULT_INVALID_MEDIA_TYPE;
+      }
 
       if (state->have_format && info.media_type == state->current_format.media_type &&
           info.media_subtype == state->current_format.media_subtype &&
@@ -761,17 +765,10 @@ spa_v4l2_source_node_port_alloc_buffers (SpaNode         *node,
 }
 
 static SpaResult
-spa_v4l2_source_node_port_set_input (SpaNode      *node,
-                                     uint32_t      port_id,
-                                     SpaPortInput *input)
-{
-  return SPA_RESULT_NOT_IMPLEMENTED;
-}
-
-static SpaResult
-spa_v4l2_source_node_port_set_output (SpaNode       *node,
-                                      uint32_t       port_id,
-                                      SpaPortOutput *output)
+spa_v4l2_source_node_port_set_io (SpaNode       *node,
+                                  SpaDirection   direction,
+                                  uint32_t       port_id,
+                                  SpaPortIO     *io)
 {
   SpaV4l2Source *this;
 
@@ -780,14 +777,13 @@ spa_v4l2_source_node_port_set_output (SpaNode       *node,
 
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
 
-  if (!CHECK_PORT (this, SPA_DIRECTION_OUTPUT, port_id))
+  if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
 
-  this->state[port_id].io = output;
+  this->state[port_id].io = io;
 
   return SPA_RESULT_OK;
 }
-
 
 static SpaResult
 spa_v4l2_source_node_port_reuse_buffer (SpaNode         *node,
@@ -834,7 +830,8 @@ spa_v4l2_source_node_port_send_command (SpaNode        *node,
   }
   else if (SPA_COMMAND_TYPE (command) == this->type.command_node.Start) {
     res = spa_v4l2_port_set_enabled (this, true);
-  } else
+  }
+  else
     res = SPA_RESULT_NOT_IMPLEMENTED;
 
   return res;
@@ -849,7 +846,22 @@ spa_v4l2_source_node_process_input (SpaNode *node)
 static SpaResult
 spa_v4l2_source_node_process_output (SpaNode *node)
 {
-  return SPA_RESULT_OK;
+  SpaV4l2Source *this;
+  SpaResult res = SPA_RESULT_OK;
+  SpaPortIO *io;
+
+  if (node == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
+
+  if ((io = this->state[0].io)) {
+    if (io->buffer_id != SPA_ID_INVALID) {
+      res = spa_v4l2_buffer_recycle (this, io->buffer_id);
+      io->buffer_id = SPA_ID_INVALID;
+    }
+  }
+  return res;
 }
 
 static const SpaNode v4l2source_node = {
@@ -872,8 +884,7 @@ static const SpaNode v4l2source_node = {
   spa_v4l2_source_node_port_set_props,
   spa_v4l2_source_node_port_use_buffers,
   spa_v4l2_source_node_port_alloc_buffers,
-  spa_v4l2_source_node_port_set_input,
-  spa_v4l2_source_node_port_set_output,
+  spa_v4l2_source_node_port_set_io,
   spa_v4l2_source_node_port_reuse_buffer,
   spa_v4l2_source_node_port_send_command,
   spa_v4l2_source_node_process_input,

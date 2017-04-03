@@ -34,6 +34,7 @@
 #include <spa/format-utils.h>
 #include <spa/format-builder.h>
 #include <lib/mapper.h>
+#include <lib/debug.h>
 #include <lib/props.h>
 
 typedef struct {
@@ -65,27 +66,39 @@ init_type (Type *type, SpaTypeMap *map)
 }
 
 typedef struct {
+  SpaBuffer buffer;
+  SpaMeta metas[1];
+  SpaMetaHeader header;
+  SpaData datas[1];
+  SpaChunk chunks[1];
+} Buffer;
+
+typedef struct {
   SpaTypeMap *map;
   SpaLog *log;
   SpaLoop data_loop;
   Type type;
 
-  SpaSupport support[2];
+  SpaSupport support[4];
   uint32_t   n_support;
 
   SpaNode *sink;
-  SpaPortInput sink_input[1];
+  SpaPortIO mix_sink_io[1];
 
   SpaNode *mix;
   uint32_t mix_ports[2];
-  SpaPortInput mix_input[2];
-  SpaPortOutput mix_output[1];
+  SpaBuffer *mix_buffers[1];
+  Buffer mix_buffer[1];
 
   SpaNode *source1;
-  SpaPortOutput source1_output[1];
+  SpaPortIO source1_mix_io[1];
+  SpaBuffer *source1_buffers[1];
+  Buffer source1_buffer[1];
 
   SpaNode *source2;
-  SpaPortOutput source2_output[1];
+  SpaPortIO source2_mix_io[1];
+  SpaBuffer *source2_buffers[1];
+  Buffer source2_buffer[1];
 
   bool running;
   pthread_t thread;
@@ -97,6 +110,35 @@ typedef struct {
   struct pollfd fds[16];
   unsigned int n_fds;
 } AppData;
+
+static void
+init_buffer (AppData *data, Buffer *b, void *ptr, size_t size)
+{
+  b->buffer.id = 0;
+  b->buffer.n_metas = 1;
+  b->buffer.metas = b->metas;
+  b->buffer.n_datas = 1;
+  b->buffer.datas = b->datas;
+
+  b->header.flags = 0;
+  b->header.seq = 0;
+  b->header.pts = 0;
+  b->header.dts_offset = 0;
+  b->metas[0].type = SPA_META_TYPE_HEADER;
+  b->metas[0].data = &b->header;
+  b->metas[0].size = sizeof (b->header);
+
+  b->datas[0].type = SPA_DATA_TYPE_MEMPTR;
+  b->datas[0].flags = 0;
+  b->datas[0].fd = -1;
+  b->datas[0].mapoffset = 0;
+  b->datas[0].maxsize = size;
+  b->datas[0].data = ptr;
+  b->datas[0].chunk = &b->chunks[0];
+  b->datas[0].chunk->offset = 0;
+  b->datas[0].chunk->size = size;
+  b->datas[0].chunk->stride = 0;
+}
 
 static SpaResult
 make_node (AppData *data, SpaNode **node, const char *lib, const char *name)
@@ -145,45 +187,47 @@ make_node (AppData *data, SpaNode **node, const char *lib, const char *name)
 }
 
 static void
-on_mix_event (SpaNode *node, SpaEvent *event, void *user_data)
-{
-  /*
-  AppData *data = user_data;
-
-  if (SPA_EVENT_TYPE (event) == data->type.event_node.NeedInput) {
-    SpaPortInput pi = { 0, };
-    SpaPortOutput po = { 0, };
-    SpaResult res;
-    SpaNodeEventNeedInput *ni = (SpaNodeEventNeedInput *) event;
-    SpaNode *peer;
-
-    if (ni->port_id == data->mix_ports[0])
-      peer = data->source1;
-    else
-      peer = data->source2;
-
-    spa_node_port_set_output (peer, 0, &po);
-    if ((res = spa_node_process_output (peer)) < 0)
-      printf ("got error %d\n", res);
-
-    pi.buffer_id = po.buffer_id;
-
-    spa_node_port_set_input (data->mix, ni->port_id, &pi);
-    if ((res = spa_node_process_input (data->mix)) < 0)
-      printf ("got error from mixer %d\n", res);
-  }
-  else {
-    printf ("got event %d\n", SPA_EVENT_TYPE (event));
-  }
-  */
-}
-
-static void
 on_sink_event (SpaNode *node, SpaEvent *event, void *user_data)
 {
   AppData *data = user_data;
+  SpaResult res;
 
   if (SPA_EVENT_TYPE (event) == data->type.event_node.NeedInput) {
+
+    printf ("need input event\n");
+    res = spa_node_process_output (data->mix);
+
+    if (res == SPA_RESULT_NEED_INPUT) {
+
+      res = spa_node_process_output (data->source1);
+
+      if (res != SPA_RESULT_HAVE_OUTPUT)
+        printf ("got process_output error from source1 %d\n", res);
+
+      res = spa_node_process_output (data->source2);
+
+      if (res != SPA_RESULT_HAVE_OUTPUT)
+        printf ("got process_output error from source2 %d\n", res);
+
+      res = spa_node_process_input (data->mix);
+      if (res == SPA_RESULT_HAVE_OUTPUT)
+        goto push;
+      else
+        printf ("got process_input error from mixer %d\n", res);
+
+    } else if (res == SPA_RESULT_HAVE_OUTPUT) {
+push:
+      if ((res = spa_node_process_input (data->sink)) < 0)
+        printf ("got process_input error from sink %d\n", res);
+    } else {
+      printf ("got process_output error from mixer %d\n", res);
+    }
+  }
+  else if (SPA_EVENT_TYPE (event) == data->type.event_node.ReuseBuffer) {
+    SpaEventNodeReuseBuffer *rb = (SpaEventNodeReuseBuffer *) event;
+
+    printf ("got recycle event %d\n", rb->body.buffer_id.value);
+    data->mix_sink_io[0].buffer_id = rb->body.buffer_id.value;
   }
   else {
     printf ("got event %d\n", SPA_EVENT_TYPE (event));
@@ -215,6 +259,17 @@ do_remove_source (SpaSource  *source)
 }
 
 static SpaResult
+do_invoke (SpaLoop       *loop,
+           SpaInvokeFunc  func,
+           uint32_t       seq,
+           size_t         size,
+           void          *data,
+           void          *user_data)
+{
+  return func (loop, false, seq, size, data, user_data);
+}
+
+static SpaResult
 make_nodes (AppData *data)
 {
   SpaResult res;
@@ -232,7 +287,7 @@ make_nodes (AppData *data)
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
   spa_pod_builder_props (&b, &f[0], data->type.props,
       SPA_POD_PROP (&f[1], data->type.props_device, 0,
-        SPA_POD_TYPE_STRING, 1, "hw:1"));
+        SPA_POD_TYPE_STRING, 1, "hw:0"));
   props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
 
   if ((res = spa_node_set_props (data->sink, props)) < 0)
@@ -242,8 +297,6 @@ make_nodes (AppData *data)
     printf ("can't create audiomixer: %d\n", res);
     return res;
   }
-  spa_node_set_event_callback (data->mix, on_mix_event, data);
-
   if ((res = make_node (data, &data->source1, "build/spa/plugins/audiotestsrc/libspa-audiotestsrc.so", "audiotestsrc")) < 0) {
     printf ("can't create audiotestsrc: %d\n", res);
     return res;
@@ -285,20 +338,42 @@ negotiate_formats (AppData *data)
   if ((res = spa_node_port_enum_formats (data->sink, SPA_DIRECTION_INPUT, 0, &format, filter, state)) < 0)
     return res;
 
+
   if ((res = spa_node_port_set_format (data->sink, SPA_DIRECTION_INPUT, 0, 0, format)) < 0)
     return res;
 
+  spa_node_port_set_io (data->mix, SPA_DIRECTION_OUTPUT, 0, &data->mix_sink_io[0]);
+  spa_node_port_set_io (data->sink, SPA_DIRECTION_INPUT, 0, &data->mix_sink_io[0]);
+
   if ((res = spa_node_port_set_format (data->mix, SPA_DIRECTION_OUTPUT, 0, 0, format)) < 0)
+    return res;
+
+  init_buffer (data, &data->mix_buffer[0], malloc (1024), 1024);
+  data->mix_buffers[0] = &data->mix_buffer[0].buffer;
+  if ((res = spa_node_port_use_buffers (data->sink, SPA_DIRECTION_INPUT, 0, data->mix_buffers, 1)) < 0)
+    return res;
+  if ((res = spa_node_port_use_buffers (data->mix, SPA_DIRECTION_OUTPUT, 0, data->mix_buffers, 1)) < 0)
     return res;
 
   data->mix_ports[0] = 0;
   if ((res = spa_node_add_port (data->mix, SPA_DIRECTION_INPUT, 0)) < 0)
     return res;
 
+
   if ((res = spa_node_port_set_format (data->mix, SPA_DIRECTION_INPUT, data->mix_ports[0], 0, format)) < 0)
     return res;
 
+  spa_node_port_set_io (data->source1, SPA_DIRECTION_OUTPUT, 0, &data->source1_mix_io[0]);
+  spa_node_port_set_io (data->mix, SPA_DIRECTION_INPUT, 0, &data->source1_mix_io[0]);
+
   if ((res = spa_node_port_set_format (data->source1, SPA_DIRECTION_OUTPUT, 0, 0, format)) < 0)
+    return res;
+
+  init_buffer (data, &data->source1_buffer[0], malloc (1024), 1024);
+  data->source1_buffers[0] = &data->source1_buffer[0].buffer;
+  if ((res = spa_node_port_use_buffers (data->mix, SPA_DIRECTION_INPUT, data->mix_ports[0], data->source1_buffers, 1)) < 0)
+    return res;
+  if ((res = spa_node_port_use_buffers (data->source1, SPA_DIRECTION_OUTPUT, 0, data->source1_buffers, 1)) < 0)
     return res;
 
   data->mix_ports[1] = 1;
@@ -308,7 +383,17 @@ negotiate_formats (AppData *data)
   if ((res = spa_node_port_set_format (data->mix, SPA_DIRECTION_INPUT, data->mix_ports[1], 0, format)) < 0)
     return res;
 
+  spa_node_port_set_io (data->source2, SPA_DIRECTION_OUTPUT, 0, &data->source2_mix_io[0]);
+  spa_node_port_set_io (data->mix, SPA_DIRECTION_INPUT, 1, &data->source2_mix_io[0]);
+
   if ((res = spa_node_port_set_format (data->source2, SPA_DIRECTION_OUTPUT, 0, 0, format)) < 0)
+    return res;
+
+  init_buffer (data, &data->source2_buffer[0], malloc (1024), 1024);
+  data->source2_buffers[0] = &data->source2_buffer[0].buffer;
+  if ((res = spa_node_port_use_buffers (data->mix, SPA_DIRECTION_INPUT, data->mix_ports[1], data->source2_buffers, 1)) < 0)
+    return res;
+  if ((res = spa_node_port_use_buffers (data->source2, SPA_DIRECTION_OUTPUT, 0, data->source2_buffers, 1)) < 0)
     return res;
 
   return SPA_RESULT_OK;
@@ -348,7 +433,20 @@ loop (void *user_data)
     /* after */
     for (i = 0; i < data->n_sources; i++) {
       SpaSource *p = &data->sources[i];
-      p->func (p);
+      p->rmask = 0;
+      if (data->fds[i].revents & POLLIN)
+        p->rmask |= SPA_IO_IN;
+      if (data->fds[i].revents & POLLOUT)
+        p->rmask |= SPA_IO_OUT;
+      if (data->fds[i].revents & POLLHUP)
+        p->rmask |= SPA_IO_HUP;
+      if (data->fds[i].revents & POLLERR)
+        p->rmask |= SPA_IO_ERR;
+    }
+    for (i = 0; i < data->n_sources; i++) {
+      SpaSource *p = &data->sources[i];
+      if (p->rmask)
+        p->func (p);
     }
   }
   printf ("leave thread\n");
@@ -396,16 +494,22 @@ main (int argc, char *argv[])
   SpaResult res;
 
   data.map = spa_type_map_get_default();
+  data.log = spa_log_get_default();
   data.data_loop.size = sizeof (SpaLoop);
   data.data_loop.add_source = do_add_source;
   data.data_loop.update_source = do_update_source;
   data.data_loop.remove_source = do_remove_source;
+  data.data_loop.invoke = do_invoke;
 
   data.support[0].type = SPA_TYPE__TypeMap;
   data.support[0].data = data.map;
-  data.support[1].type = SPA_TYPE_LOOP__DataLoop;
-  data.support[1].data = &data.data_loop;
-  data.n_support = 2;
+  data.support[1].type = SPA_TYPE__Log;
+  data.support[1].data = data.log;
+  data.support[2].type = SPA_TYPE_LOOP__DataLoop;
+  data.support[2].data = &data.data_loop;
+  data.support[3].type = SPA_TYPE_LOOP__MainLoop;
+  data.support[3].data = &data.data_loop;
+  data.n_support = 4;
 
   init_type (&data.type, data.map);
 

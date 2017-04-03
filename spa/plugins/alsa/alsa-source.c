@@ -369,8 +369,7 @@ recycle_buffer (SpaALSASource *this, uint32_t buffer_id)
   SpaALSABuffer *b;
 
   b = &this->buffers[buffer_id];
-  if (!b->outstanding)
-    return;
+  spa_return_if_fail (b->outstanding);
 
   b->outstanding = false;
   spa_list_insert (this->free.prev, &b->link);
@@ -616,17 +615,10 @@ spa_alsa_source_node_port_alloc_buffers (SpaNode         *node,
 }
 
 static SpaResult
-spa_alsa_source_node_port_set_input (SpaNode      *node,
-                                     uint32_t      port_id,
-                                     SpaPortInput *input)
-{
-  return SPA_RESULT_NOT_IMPLEMENTED;
-}
-
-static SpaResult
-spa_alsa_source_node_port_set_output (SpaNode       *node,
-                                      uint32_t       port_id,
-                                      SpaPortOutput *output)
+spa_alsa_source_node_port_set_io (SpaNode       *node,
+                                  SpaDirection   direction,
+                                  uint32_t       port_id,
+                                  SpaPortIO     *io)
 {
   SpaALSASource *this;
 
@@ -635,10 +627,10 @@ spa_alsa_source_node_port_set_output (SpaNode       *node,
 
   this = SPA_CONTAINER_OF (node, SpaALSASource, node);
 
-  if (!CHECK_PORT (this, SPA_DIRECTION_OUTPUT, port_id))
+  if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
 
-  this->io = output;
+  this->io = io;
 
   return SPA_RESULT_OK;
 }
@@ -710,6 +702,17 @@ spa_alsa_source_node_process_input (SpaNode *node)
 static SpaResult
 spa_alsa_source_node_process_output (SpaNode *node)
 {
+  SpaALSASource *this;
+  SpaPortIO *io;
+
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+
+  this = SPA_CONTAINER_OF (node, SpaALSASource, node);
+
+  if ((io = this->io) && io->buffer_id != SPA_ID_INVALID) {
+    recycle_buffer (this, io->buffer_id);
+    io->buffer_id = SPA_ID_INVALID;
+  }
   return SPA_RESULT_OK;
 }
 
@@ -733,8 +736,7 @@ static const SpaNode alsasource_node = {
   spa_alsa_source_node_port_set_props,
   spa_alsa_source_node_port_use_buffers,
   spa_alsa_source_node_port_alloc_buffers,
-  spa_alsa_source_node_port_set_input,
-  spa_alsa_source_node_port_set_output,
+  spa_alsa_source_node_port_set_io,
   spa_alsa_source_node_port_reuse_buffer,
   spa_alsa_source_node_port_send_command,
   spa_alsa_source_node_process_input,
@@ -845,6 +847,14 @@ alsa_source_init (const SpaHandleFactory  *factory,
   }
   if (this->map == NULL) {
     spa_log_error (this->log, "an id-map is needed");
+    return SPA_RESULT_ERROR;
+  }
+  if (this->data_loop == NULL) {
+    spa_log_error (this->log, "a data loop is needed");
+    return SPA_RESULT_ERROR;
+  }
+  if (this->main_loop == NULL) {
+    spa_log_error (this->log, "a main loop is needed");
     return SPA_RESULT_ERROR;
   }
   init_type (&this->type, this->map);

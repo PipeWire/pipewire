@@ -228,6 +228,15 @@ pull_frames_queue (SpaALSAState *state,
 
   if (spa_list_is_empty (&state->ready)) {
     SpaEvent event = SPA_EVENT_INIT (state->type.event_node.NeedInput);
+    SpaPortIO *io;
+
+    if ((io = state->io)) {
+      io->flags = SPA_PORT_IO_FLAG_RANGE;
+      io->status = SPA_RESULT_OK;
+      io->range.offset = state->sample_count;
+      io->range.min_size = state->threshold;
+      io->range.max_size = frames;
+    }
     state->event_cb (&state->node, &event, state->user_data);
   }
   while (!spa_list_is_empty (&state->ready) && to_write > 0) {
@@ -334,7 +343,7 @@ push_frames_queue (SpaALSAState *state,
     size_t n_bytes;
     SpaALSABuffer *b;
     SpaData *d;
-    SpaPortOutput *output;
+    SpaPortIO *io;
 
     b = spa_list_first (&state->free, SpaALSABuffer, link);
     spa_list_remove (&b->link);
@@ -357,13 +366,13 @@ push_frames_queue (SpaALSAState *state,
     d[0].chunk->size = n_bytes;
     d[0].chunk->stride = 0;
 
-    if ((output = state->io)) {
-      b->outstanding = true;
-      output->buffer_id = b->outbuf->id;
-      output->status = SPA_RESULT_OK;
-    }
-    {
+    if ((io = state->io)) {
       SpaEvent event = SPA_EVENT_INIT (state->type.event_node.HaveOutput);
+
+      b->outstanding = true;
+      io->buffer_id = b->outbuf->id;
+      io->status = SPA_RESULT_OK;
+
       state->event_cb (&state->node, &event, state->user_data);
     }
   }

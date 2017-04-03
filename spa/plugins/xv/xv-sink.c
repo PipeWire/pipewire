@@ -116,7 +116,7 @@ struct _SpaXvSink {
   SpaPortInfo info;
   SpaXvState state;
 
-  SpaPortInput *input;
+  SpaPortIO *io;
 };
 
 #define CHECK_PORT(this,d,p)  ((d) == SPA_DIRECTION_OUTPUT && (p) == 0)
@@ -437,9 +437,10 @@ spa_xv_sink_node_port_alloc_buffers (SpaNode         *node,
 }
 
 static SpaResult
-spa_xv_sink_node_port_set_input (SpaNode      *node,
-                                 uint32_t      port_id,
-                                 SpaPortInput *input)
+spa_xv_sink_node_port_set_io (SpaNode      *node,
+                              SpaDirection  direction,
+                              uint32_t      port_id,
+                              SpaPortIO    *io)
 {
   SpaXvSink *this;
 
@@ -448,20 +449,12 @@ spa_xv_sink_node_port_set_input (SpaNode      *node,
 
   this = SPA_CONTAINER_OF (node, SpaXvSink, node);
 
-  if (!CHECK_PORT (this, SPA_DIRECTION_INPUT, port_id))
+  if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
 
-  this->input = input;
+  this->io = io;
 
   return SPA_RESULT_OK;
-}
-
-static SpaResult
-spa_xv_sink_node_port_set_output (SpaNode       *node,
-                                  uint32_t       port_id,
-                                  SpaPortOutput *output)
-{
-  return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult
@@ -513,8 +506,7 @@ static const SpaNode xvsink_node = {
   spa_xv_sink_node_port_set_props,
   spa_xv_sink_node_port_use_buffers,
   spa_xv_sink_node_port_alloc_buffers,
-  spa_xv_sink_node_port_set_input,
-  spa_xv_sink_node_port_set_output,
+  spa_xv_sink_node_port_set_io,
   spa_xv_sink_node_port_reuse_buffer,
   spa_xv_sink_node_port_send_command,
   spa_xv_sink_node_process_input,

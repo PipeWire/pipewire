@@ -47,8 +47,8 @@ transport_area_get_size (PinosTransportArea *area)
 {
   size_t size;
   size = sizeof (PinosTransportArea);
-  size += area->max_inputs * sizeof (SpaPortInput);
-  size += area->max_outputs * sizeof (SpaPortOutput);
+  size += area->max_inputs * sizeof (SpaPortIO);
+  size += area->max_outputs * sizeof (SpaPortIO);
   size += sizeof (SpaRingbuffer);
   size += INPUT_BUFFER_SIZE;
   size += sizeof (SpaRingbuffer);
@@ -63,25 +63,25 @@ transport_setup_area (void *p, PinosTransport *trans)
   int i;
 
   trans->area = a = p;
-  p = SPA_MEMBER (p, sizeof (PinosTransportArea), SpaPortInput);
+  p = SPA_MEMBER (p, sizeof (PinosTransportArea), SpaPortIO);
 
   trans->inputs = p;
   for (i = 0; i < a->max_inputs; i++) {
     trans->inputs[i].state = SPA_PORT_STATE_FLAG_NONE;
-    trans->inputs[i].flags = SPA_PORT_INPUT_FLAG_NONE;
+    trans->inputs[i].flags = SPA_PORT_IO_FLAG_NONE;
     trans->inputs[i].buffer_id = SPA_ID_INVALID;
     trans->inputs[i].status = SPA_RESULT_OK;
   }
-  p = SPA_MEMBER (p, a->max_inputs * sizeof (SpaPortInput), void);
+  p = SPA_MEMBER (p, a->max_inputs * sizeof (SpaPortIO), void);
 
   trans->outputs = p;
   for (i = 0; i < a->max_outputs; i++) {
     trans->outputs[i].state = SPA_PORT_STATE_FLAG_NONE;
-    trans->outputs[i].flags = SPA_PORT_OUTPUT_FLAG_NONE;
+    trans->outputs[i].flags = SPA_PORT_IO_FLAG_NONE;
     trans->outputs[i].buffer_id = SPA_ID_INVALID;
     trans->outputs[i].status = SPA_RESULT_OK;
   }
-  p = SPA_MEMBER (p, a->max_outputs * sizeof (SpaPortOutput), void);
+  p = SPA_MEMBER (p, a->max_outputs * sizeof (SpaPortIO), void);
 
   trans->input_buffer = p;
   spa_ringbuffer_init (trans->input_buffer, INPUT_BUFFER_SIZE);

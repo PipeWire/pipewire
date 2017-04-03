@@ -58,8 +58,8 @@ struct _PinosTransport {
                                  PinosTransport *trans));
 
   PinosTransportArea *area;
-  SpaPortInput       *inputs;
-  SpaPortOutput      *outputs;
+  SpaPortIO          *inputs;
+  SpaPortIO          *outputs;
   void               *input_data;
   SpaRingbuffer      *input_buffer;
   void               *output_data;

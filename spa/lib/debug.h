@@ -31,6 +31,7 @@ extern "C" {
 #include <spa/props.h>
 #include <spa/format.h>
 #include <spa/dict.h>
+#include <spa/log.h>
 
 SpaResult spa_debug_port_info (const SpaPortInfo *info, const SpaTypeMap *map);
 SpaResult spa_debug_buffer (const SpaBuffer *buffer);
@@ -39,6 +40,8 @@ SpaResult spa_debug_pod (const SpaPOD *pod, const SpaTypeMap *map);
 SpaResult spa_debug_format (const SpaFormat *format, const SpaTypeMap *map);
 SpaResult spa_debug_dump_mem  (const void *data, size_t size);
 SpaResult spa_debug_dict  (const SpaDict *dict);
+
+SpaLog * spa_log_get_default (void);
 
 #ifdef __cplusplus
 }  /* extern "C" */

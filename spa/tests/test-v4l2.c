@@ -28,14 +28,43 @@
 
 #include <SDL2/SDL.h>
 
-#include <spa/id-map.h>
+#include <spa/type-map.h>
 #include <spa/log.h>
 #include <spa/node.h>
 #include <spa/loop.h>
-#include <spa/video/format.h>
+#include <spa/video/format-utils.h>
+#include <spa/format-builder.h>
 #include <lib/debug.h>
 #include <lib/props.h>
 #include <lib/mapper.h>
+
+typedef struct {
+  uint32_t node;
+  uint32_t props;
+  uint32_t format;
+  uint32_t props_device;
+  SpaTypeMediaType media_type;
+  SpaTypeMediaSubtype media_subtype;
+  SpaTypeFormatVideo format_video;
+  SpaTypeVideoFormat video_format;
+  SpaTypeEventNode event_node;
+  SpaTypeCommandNode command_node;
+} Type;
+
+static inline void
+init_type (Type *type, SpaTypeMap *map)
+{
+  type->node = spa_type_map_get_id (map, SPA_TYPE__Node);
+  type->props = spa_type_map_get_id (map, SPA_TYPE__Props);
+  type->format = spa_type_map_get_id (map, SPA_TYPE__Format);
+  type->props_device = spa_type_map_get_id (map, SPA_TYPE_PROPS__device);
+  spa_type_media_type_map (map, &type->media_type);
+  spa_type_media_subtype_map (map, &type->media_subtype);
+  spa_type_format_video_map (map, &type->format_video);
+  spa_type_video_format_map (map, &type->video_format);
+  spa_type_event_node_map (map, &type->event_node);
+  spa_type_command_node_map (map, &type->command_node);
+}
 
 #define MAX_BUFFERS     8
 
@@ -45,14 +74,21 @@ typedef struct {
   SpaMetaHeader header;
   SpaMetaPointer ptr;
   SpaData datas[1];
+  SpaChunk chunks[1];
 } SDLBuffer;
 
 typedef struct {
-  uint32_t node;
-} Type;
+  Type type;
 
-typedef struct {
+  SpaTypeMap *map;
+  SpaLog *log;
+  SpaLoop data_loop;
+
+  SpaSupport support[4];
+  uint32_t   n_support;
+
   SpaNode *source;
+  SpaPortIO source_output[1];
 
   SDL_Renderer *renderer;
   SDL_Window *window;
@@ -62,20 +98,17 @@ typedef struct {
 
   bool running;
   pthread_t thread;
-  SpaPollFd fds[16];
+
+  SpaSource sources[16];
+  unsigned int n_sources;
+
+  bool rebuild_fds;
+  struct pollfd fds[16];
   unsigned int n_fds;
-  SpaPollItem poll;
 
   SpaBuffer *bp[MAX_BUFFERS];
   SDLBuffer buffers[MAX_BUFFERS];
   unsigned int n_buffers;
-
-  SpaSupport support[2];
-  uint32_t   n_support;
-  SpaTypeMap *map;
-  SpaLog *log;
-  SpaPoll data_loop;
-  Type type;
 } AppData;
 
 static SpaResult
@@ -86,7 +119,7 @@ make_node (AppData *data, SpaNode **node, const char *lib, const char *name)
   void *hnd;
   SpaEnumHandleFactoryFunc enum_func;
   unsigned int i;
-  void *state = NULL;
+  uint32_t state = 0;
 
   if ((hnd = dlopen (lib, RTLD_NOW)) == NULL) {
     printf ("can't load %s: %s\n", lib, dlerror());
@@ -101,7 +134,7 @@ make_node (AppData *data, SpaNode **node, const char *lib, const char *name)
     const SpaHandleFactory *factory;
     void *iface;
 
-    if ((res = enum_func (&factory, &state)) < 0) {
+    if ((res = enum_func (&factory, state)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
         printf ("can't enumerate factories: %d\n", res);
       break;
@@ -125,109 +158,110 @@ make_node (AppData *data, SpaNode **node, const char *lib, const char *name)
 }
 
 static void
-on_source_event (SpaNode *node, SpaNodeEvent *event, void *user_data)
+on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
 {
   AppData *data = user_data;
 
-  switch (event->type) {
-    case SPA_NODE_EVENT_TYPE_HAVE_OUTPUT:
-    {
-      SpaPortOutput po = { 0, };
-      SpaResult res;
-      SpaBuffer *b;
-      void *sdata, *ddata;
-      int sstride, dstride;
-      int i;
-      uint8_t *src, *dst;
-      SpaMeta *metas;
-      SpaData *datas;
+  if (SPA_EVENT_TYPE (event) == data->type.event_node.HaveOutput) {
+    SpaResult res;
+    SpaBuffer *b;
+    void *sdata, *ddata;
+    int sstride, dstride;
+    int i;
+    uint8_t *src, *dst;
+    SpaMeta *metas;
+    SpaData *datas;
 
-      spa_node_port_set_output (data->source, 0, &po);
-      if ((res = spa_node_process_output (data->source)) < 0)
-        printf ("got pull error %d\n", res);
+    b = data->bp[data->source_output[0].buffer_id];
 
-      b = data->bp[po.buffer_id];
-      metas = b->metas;
-      datas = b->datas;
+    metas = b->metas;
+    datas = b->datas;
 
-      if (metas[1].type == SPA_META_TYPE_POINTER &&
-          strcmp (((SpaMetaPointer *)metas[1].data)->ptr_type, "SDL_Texture") == 0) {
-        SDL_Texture *texture;
-        texture = ((SpaMetaPointer *)metas[1].data)->ptr;
+    if (metas[1].type == SPA_META_TYPE_POINTER &&
+        strcmp (((SpaMetaPointer *)metas[1].data)->ptr_type, "SDL_Texture") == 0) {
+      SDL_Texture *texture;
+      texture = ((SpaMetaPointer *)metas[1].data)->ptr;
 
-        SDL_UnlockTexture(texture);
+      SDL_UnlockTexture(texture);
 
-        SDL_RenderClear (data->renderer);
-        SDL_RenderCopy (data->renderer, texture, NULL, NULL);
-        SDL_RenderPresent (data->renderer);
+      SDL_RenderClear (data->renderer);
+      SDL_RenderCopy (data->renderer, texture, NULL, NULL);
+      SDL_RenderPresent (data->renderer);
 
-        if (SDL_LockTexture (texture, NULL, &sdata, &sstride) < 0) {
-          fprintf (stderr, "Couldn't lock texture: %s\n", SDL_GetError());
-          return;
-        }
-        datas[0].type = SPA_DATA_TYPE_MEMPTR;
-        datas[0].data = sdata;
-        datas[0].offset = 0;
-        datas[0].size = sstride * 240;
-        datas[0].maxsize = sstride * 240;
-        datas[0].stride = sstride;
-      } else {
-        if (SDL_LockTexture (data->texture, NULL, &ddata, &dstride) < 0) {
-          fprintf (stderr, "Couldn't lock texture: %s\n", SDL_GetError());
-          return;
-        }
-        sdata = datas[0].data;
-        sstride = datas[0].stride;
-
-        for (i = 0; i < 240; i++) {
-          src = ((uint8_t*)sdata + i * sstride);
-          dst = ((uint8_t*)ddata + i * dstride);
-          memcpy (dst, src, SPA_MIN (sstride, dstride));
-        }
-        SDL_UnlockTexture(data->texture);
-
-        SDL_RenderClear (data->renderer);
-        SDL_RenderCopy (data->renderer, data->texture, NULL, NULL);
-        SDL_RenderPresent (data->renderer);
+      if (SDL_LockTexture (texture, NULL, &sdata, &sstride) < 0) {
+        fprintf (stderr, "Couldn't lock texture: %s\n", SDL_GetError());
+        return;
       }
-      spa_node_port_reuse_buffer (data->source, 0, po.buffer_id);
-      break;
+      datas[0].type = SPA_DATA_TYPE_MEMPTR;
+      datas[0].flags = 0;
+      datas[0].fd = -1;
+      datas[0].mapoffset = 0;
+      datas[0].maxsize = sstride * 240;
+      datas[0].data = sdata;
+      datas[0].chunk->offset = 0;
+      datas[0].chunk->size = sstride * 240;
+      datas[0].chunk->stride = sstride;
+    } else {
+      if (SDL_LockTexture (data->texture, NULL, &ddata, &dstride) < 0) {
+        fprintf (stderr, "Couldn't lock texture: %s\n", SDL_GetError());
+        return;
+      }
+      sdata = datas[0].data;
+      sstride = datas[0].chunk->stride;
+
+      for (i = 0; i < 240; i++) {
+        src = ((uint8_t*)sdata + i * sstride);
+        dst = ((uint8_t*)ddata + i * dstride);
+        memcpy (dst, src, SPA_MIN (sstride, dstride));
+      }
+      SDL_UnlockTexture(data->texture);
+
+      SDL_RenderClear (data->renderer);
+      SDL_RenderCopy (data->renderer, data->texture, NULL, NULL);
+      SDL_RenderPresent (data->renderer);
     }
-    default:
-      printf ("got event %d\n", event->type);
-      break;
+
+    if ((res = spa_node_process_output (data->source)) < 0)
+      printf ("got pull error %d\n", res);
+  }
+  else {
+    printf ("got event %d\n", SPA_EVENT_TYPE (event));
   }
 }
 
 static SpaResult
-do_add_item (SpaPoll     *poll,
-             SpaPollItem *item)
+do_add_source (SpaLoop   *loop,
+               SpaSource *source)
 {
-  AppData *data = SPA_CONTAINER_OF (poll, AppData, data_loop);
-  int i;
+  AppData *data = SPA_CONTAINER_OF (loop, AppData, data_loop);
 
-  data->poll = *item;
-  for (i = 0; i < data->poll.n_fds; i++) {
-    data->fds[i] = item->fds[i];
-  }
-  data->n_fds = data->poll.n_fds;
-  data->poll.fds = data->fds;
+  data->sources[data->n_sources] = *source;
+  data->n_sources++;
+  data->rebuild_fds = true;
 
   return SPA_RESULT_OK;
 }
 
 static SpaResult
-do_update_item (SpaPoll     *poll,
-             SpaPollItem *item)
+do_update_source (SpaSource  *source)
 {
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-do_remove_item (SpaPoll     *poll,
-             SpaPollItem *item)
+static void
+do_remove_source (SpaSource  *source)
 {
-  return SPA_RESULT_OK;
+}
+
+static SpaResult
+do_invoke (SpaLoop       *loop,
+           SpaInvokeFunc  func,
+           uint32_t       seq,
+           size_t         size,
+           void          *data,
+           void          *user_data)
+{
+  return func (loop, false, seq, size, data, user_data);
 }
 
 static SpaResult
@@ -235,20 +269,22 @@ make_nodes (AppData *data, const char *device)
 {
   SpaResult res;
   SpaProps *props;
-  SpaPropValue value;
+  SpaPODBuilder b = { 0 };
+  SpaPODFrame f[2];
+  uint8_t buffer[256];
 
-  if ((res = make_node (data, &data->source, "spa/plugins/v4l2/libspa-v4l2.so", "v4l2-source")) < 0) {
+  if ((res = make_node (data, &data->source, "build/spa/plugins/v4l2/libspa-v4l2.so", "v4l2-source")) < 0) {
     printf ("can't create v4l2-source: %d\n", res);
     return res;
   }
   spa_node_set_event_callback (data->source, on_source_event, data);
 
-  if ((res = spa_node_get_props (data->source, &props)) < 0)
-    printf ("got get_props error %d\n", res);
-
-  value.value = device ? device : "/dev/video7";
-  value.size = strlen (value.value)+1;
-  spa_props_set_value (props, spa_props_index_for_name (props, "device"), &value);
+  spa_pod_builder_init (&b, buffer, sizeof (buffer));
+  spa_pod_builder_props (&b, &f[0], data->type.props,
+      SPA_POD_PROP (&f[1], data->type.props_device, 0,
+                           SPA_POD_TYPE_STRING, 1,
+                           device ? device : "/dev/video0"));
+  props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
 
   if ((res = spa_node_set_props (data->source, props)) < 0)
     printf ("got set_props error %d\n", res);
@@ -256,7 +292,7 @@ make_nodes (AppData *data, const char *device)
   return res;
 }
 
-static void
+static SpaResult
 alloc_buffers (AppData *data)
 {
   int i;
@@ -275,11 +311,11 @@ alloc_buffers (AppData *data)
                                  320, 240);
     if (!texture) {
       printf ("can't create texture: %s\n", SDL_GetError ());
-      return;
+      return SPA_RESULT_ERROR;
     }
     if (SDL_LockTexture (texture, NULL, &ptr, &stride) < 0) {
       fprintf (stderr, "Couldn't lock texture: %s\n", SDL_GetError());
-      return;
+      return SPA_RESULT_ERROR;
     }
 
     b->buffer.id = i;
@@ -303,31 +339,33 @@ alloc_buffers (AppData *data)
     b->metas[1].size = sizeof (b->ptr);
 
     b->datas[0].type = SPA_DATA_TYPE_MEMPTR;
-    b->datas[0].data = ptr;
-    b->datas[0].offset = 0;
-    b->datas[0].size = stride * 240;
+    b->datas[0].flags = 0;
+    b->datas[0].fd = -1;
+    b->datas[0].mapoffset = 0;
     b->datas[0].maxsize = stride * 240;
-    b->datas[0].stride = stride;
+    b->datas[0].data = ptr;
+    b->datas[0].chunk = &b->chunks[0];
+    b->datas[0].chunk->offset = 0;
+    b->datas[0].chunk->size = stride * 240;
+    b->datas[0].chunk->stride = stride;
   }
   data->n_buffers = MAX_BUFFERS;
 
-  spa_node_port_use_buffers (data->source, SPA_DIRECTION_OUTPUT, 0, data->bp, MAX_BUFFERS);
+  return spa_node_port_use_buffers (data->source, SPA_DIRECTION_OUTPUT, 0, data->bp, data->n_buffers);
 }
-
-typedef struct {
-  SpaFormat fmt;
-  SpaPropInfo infos[3];
-  SpaVideoFormat format;
-  SpaRectangle size;
-  SpaFraction framerate;
-} VideoFormat;
 
 static SpaResult
 negotiate_formats (AppData *data)
 {
   SpaResult res;
   const SpaPortInfo *info;
-  VideoFormat f;
+  SpaFormat *format;
+  SpaPODFrame f[2];
+  uint8_t buffer[256];
+  SpaPODBuilder b = SPA_POD_BUILDER_INIT (buffer, sizeof (buffer));
+
+  if ((res = spa_node_port_set_io (data->source, SPA_DIRECTION_OUTPUT, 0, &data->source_output[0])) < 0)
+    return res;
 
 #if 0
   void *state = NULL;
@@ -335,39 +373,30 @@ negotiate_formats (AppData *data)
   if ((res = spa_node_port_enum_formats (data->source, 0, &format, NULL, &state)) < 0)
     return res;
 #else
-  f.fmt.media_type = SPA_MEDIA_TYPE_VIDEO;
-  f.fmt.media_subtype = SPA_MEDIA_SUBTYPE_RAW;
-  f.fmt.props.n_prop_info = 3;
-  f.fmt.props.prop_info = f.infos;
 
-  spa_prop_info_fill_video (&f.infos[0],
-                            SPA_PROP_ID_VIDEO_FORMAT,
-                            offsetof (VideoFormat, format));
-  f.format = SPA_VIDEO_FORMAT_YUY2;
-
-  spa_prop_info_fill_video (&f.infos[1],
-                            SPA_PROP_ID_VIDEO_SIZE,
-                            offsetof (VideoFormat, size));
-  f.size.width = 320;
-  f.size.height = 240;
-
-  spa_prop_info_fill_video (&f.infos[2],
-                            SPA_PROP_ID_VIDEO_FRAMERATE,
-                            offsetof (VideoFormat, framerate));
-  f.framerate.num = 25;
-  f.framerate.denom = 1;
+  spa_pod_builder_format (&b, &f[0], data->type.format,
+      data->type.media_type.video, data->type.media_subtype.raw,
+      SPA_POD_PROP (&f[1], data->type.format_video.format, 0,
+                           SPA_POD_TYPE_ID, 1,
+                           data->type.video_format.YUY2),
+      SPA_POD_PROP (&f[1], data->type.format_video.size, 0,
+                           SPA_POD_TYPE_RECTANGLE, 1,
+                           320, 240),
+      SPA_POD_PROP (&f[1], data->type.format_video.framerate, 0,
+                           SPA_POD_TYPE_FRACTION, 1,
+                           25, 1));
+  format = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
 #endif
 
-  if ((res = spa_node_port_set_format (data->source, SPA_DIRECTION_OUTPUT, 0, false, &f.fmt)) < 0)
+  if ((res = spa_node_port_set_format (data->source, SPA_DIRECTION_OUTPUT, 0, 0, format)) < 0)
     return res;
 
   if ((res = spa_node_port_get_info (data->source, SPA_DIRECTION_OUTPUT, 0, &info)) < 0)
     return res;
 
-  spa_debug_port_info (info);
-
   if (data->use_buffer) {
-    alloc_buffers (data);
+    if ((res = alloc_buffers (data)) < 0)
+      return res;
   } else {
     unsigned int n_buffers;
 
@@ -393,11 +422,21 @@ static void *
 loop (void *user_data)
 {
   AppData *data = user_data;
-  int r;
 
   printf ("enter thread\n");
   while (data->running) {
-    SpaPollNotifyData ndata;
+    int i, r;
+
+    /* rebuild */
+    if (data->rebuild_fds) {
+      for (i = 0; i < data->n_sources; i++) {
+        SpaSource *p = &data->sources[i];
+        data->fds[i].fd = p->fd;
+        data->fds[i].events = p->mask;
+      }
+      data->n_fds = data->n_sources;
+      data->rebuild_fds = false;
+    }
 
     r = poll ((struct pollfd *) data->fds, data->n_fds, -1);
     if (r < 0) {
@@ -406,14 +445,27 @@ loop (void *user_data)
       break;
     }
     if (r == 0) {
-      fprintf (stderr, "select timeout\n");
+      fprintf (stderr, "select timeout");
       break;
     }
-    if (data->poll.after_cb) {
-      ndata.fds = data->poll.fds;
-      ndata.n_fds = data->poll.n_fds;
-      ndata.user_data = data->poll.user_data;
-      data->poll.after_cb (&ndata);
+
+    /* after */
+    for (i = 0; i < data->n_sources; i++) {
+      SpaSource *p = &data->sources[i];
+      p->rmask = 0;
+      if (data->fds[i].revents & POLLIN)
+        p->rmask |= SPA_IO_IN;
+      if (data->fds[i].revents & POLLOUT)
+        p->rmask |= SPA_IO_OUT;
+      if (data->fds[i].revents & POLLHUP)
+        p->rmask |= SPA_IO_HUP;
+      if (data->fds[i].revents & POLLERR)
+        p->rmask |= SPA_IO_ERR;
+    }
+    for (i = 0; i < data->n_sources; i++) {
+      SpaSource *p = &data->sources[i];
+      if (p->rmask)
+        p->func (p);
     }
   }
   printf ("leave thread\n");
@@ -424,12 +476,13 @@ static void
 run_async_source (AppData *data)
 {
   SpaResult res;
-  SpaNodeCommand cmd;
   int err;
 
-  cmd.type = SPA_NODE_COMMAND_START;
-  if ((res = spa_node_send_command (data->source, &cmd)) < 0)
-    printf ("got error %d\n", res);
+  {
+    SpaCommand cmd = SPA_COMMAND_INIT (data->type.command_node.Start);
+    if ((res = spa_node_send_command (data->source, &cmd)) < 0)
+      printf ("got error %d\n", res);
+  }
 
   data->running = true;
   if ((err = pthread_create (&data->thread, NULL, loop, data)) != 0) {
@@ -444,34 +497,41 @@ run_async_source (AppData *data)
     pthread_join (data->thread, NULL);
   }
 
-  cmd.type = SPA_NODE_COMMAND_PAUSE;
-  if ((res = spa_node_send_command (data->source, &cmd)) < 0)
-    printf ("got error %d\n", res);
+  {
+    SpaCommand cmd = SPA_COMMAND_INIT (data->type.command_node.Pause);
+    if ((res = spa_node_send_command (data->source, &cmd)) < 0)
+      printf ("got error %d\n", res);
+  }
 }
 
 int
 main (int argc, char *argv[])
 {
-  AppData data;
+  AppData data = { 0 };
   SpaResult res;
 
   data.use_buffer = true;
 
   data.map = spa_type_map_get_default ();
+  data.log = spa_log_get_default ();
 
-  data.data_loop.size = sizeof (SpaPoll);
-  data.data_loop.info = NULL;
-  data.data_loop.add_item = do_add_item;
-  data.data_loop.update_item = do_update_item;
-  data.data_loop.remove_item = do_remove_item;
+  data.data_loop.size = sizeof (SpaLoop);
+  data.data_loop.add_source = do_add_source;
+  data.data_loop.update_source = do_update_source;
+  data.data_loop.remove_source = do_remove_source;
+  data.data_loop.invoke = do_invoke;
 
   data.support[0].type = SPA_TYPE__TypeMap;
   data.support[0].data = data.map;
-  data.support[1].type = SPA_TYPE_LOOP__DataLoop;
-  data.support[1].data = &data.data_loop;
-  data.n_support = 2;
+  data.support[1].type = SPA_TYPE__Log;
+  data.support[1].data = data.log;
+  data.support[2].type = SPA_TYPE_LOOP__DataLoop;
+  data.support[2].data = &data.data_loop;
+  data.support[3].type = SPA_TYPE_LOOP__MainLoop;
+  data.support[3].data = &data.data_loop;
+  data.n_support = 4;
 
-  data.type.node = spa_type_map_get_id (data.map, SPA_TYPE__Node);
+  init_type (&data.type, data.map);
 
   if (SDL_Init (SDL_INIT_VIDEO) < 0) {
     printf ("can't initialize SDL: %s\n", SDL_GetError ());

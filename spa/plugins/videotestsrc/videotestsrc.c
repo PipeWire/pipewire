@@ -120,7 +120,7 @@ struct _SpaVideoTestSrc {
   SpaAllocParam *params[2];
   uint8_t params_buffer[1024];
   int stride;
-  SpaPortOutput *output;
+  SpaPortIO *io;
 
   bool have_format;
   SpaVideoInfo current_format;
@@ -261,7 +261,7 @@ videotestsrc_on_output (SpaSource *source)
 {
   SpaVideoTestSrc *this = source->data;
   VTSBuffer *b;
-  SpaPortOutput *output;
+  SpaPortIO *io;
   uint64_t expirations;
 
   if (read (this->timer_source.fd, &expirations, sizeof (uint64_t)) < sizeof (uint64_t))
@@ -286,10 +286,10 @@ videotestsrc_on_output (SpaSource *source)
   this->elapsed_time = FRAMES_TO_TIME (this, this->frame_count);
   set_timer (this, true);
 
-  if ((output = this->output)) {
+  if ((io = this->io)) {
     b->outstanding = true;
-    output->buffer_id = b->outbuf->id;
-    output->status = SPA_RESULT_OK;
+    io->buffer_id = b->outbuf->id;
+    io->status = SPA_RESULT_OK;
     send_have_output (this);
   }
 }
@@ -684,7 +684,7 @@ spa_videotestsrc_node_port_use_buffers (SpaNode         *node,
 
     b = &this->buffers[i];
     b->outbuf = buffers[i];
-    b->outstanding = true;
+    b->outstanding = false;
     b->h = spa_buffer_find_meta (buffers[i], SPA_META_TYPE_HEADER);
 
     switch (d[0].type) {
@@ -740,17 +740,10 @@ spa_videotestsrc_node_port_alloc_buffers (SpaNode         *node,
 }
 
 static SpaResult
-spa_videotestsrc_node_port_set_input (SpaNode      *node,
-                                      uint32_t      port_id,
-                                      SpaPortInput *input)
-{
-  return SPA_RESULT_NOT_IMPLEMENTED;
-}
-
-static SpaResult
-spa_videotestsrc_node_port_set_output (SpaNode       *node,
-                                       uint32_t       port_id,
-                                       SpaPortOutput *output)
+spa_videotestsrc_node_port_set_io (SpaNode       *node,
+                                   SpaDirection   direction,
+                                   uint32_t       port_id,
+                                   SpaPortIO     *io)
 {
   SpaVideoTestSrc *this;
 
@@ -759,10 +752,10 @@ spa_videotestsrc_node_port_set_output (SpaNode       *node,
 
   this = SPA_CONTAINER_OF (node, SpaVideoTestSrc, node);
 
-  if (!CHECK_PORT (this, SPA_DIRECTION_OUTPUT, port_id))
+  if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
 
-  this->output = output;
+  this->io = io;
 
   return SPA_RESULT_OK;
 }
@@ -814,12 +807,30 @@ spa_videotestsrc_node_port_send_command (SpaNode        *node,
 static SpaResult
 spa_videotestsrc_node_process_input (SpaNode *node)
 {
-  return SPA_RESULT_INVALID_PORT;
+  return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult
 spa_videotestsrc_node_process_output (SpaNode *node)
 {
+  SpaVideoTestSrc *this;
+  VTSBuffer *b;
+
+  if (node == NULL)
+    return SPA_RESULT_INVALID_ARGUMENTS;
+
+  this = SPA_CONTAINER_OF (node, SpaVideoTestSrc, node);
+
+  if (this->io && this->io->buffer_id != SPA_ID_INVALID) {
+    b = &this->buffers[this->io->buffer_id];
+    if (b->outstanding) {
+      b->outstanding = false;
+      spa_list_insert (this->empty.prev, &b->link);
+      if (!this->props.live)
+        set_timer (this, true);
+    }
+    this->io->buffer_id = SPA_ID_INVALID;
+  }
   return SPA_RESULT_OK;
 }
 
@@ -843,8 +854,7 @@ static const SpaNode videotestsrc_node = {
   spa_videotestsrc_node_port_set_props,
   spa_videotestsrc_node_port_use_buffers,
   spa_videotestsrc_node_port_alloc_buffers,
-  spa_videotestsrc_node_port_set_input,
-  spa_videotestsrc_node_port_set_output,
+  spa_videotestsrc_node_port_set_io,
   spa_videotestsrc_node_port_reuse_buffer,
   spa_videotestsrc_node_port_send_command,
   spa_videotestsrc_node_process_input,

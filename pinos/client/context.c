@@ -418,6 +418,8 @@ on_context_data (SpaSource *source,
       PinosProxy *proxy;
       const PinosDemarshalFunc *demarshal;
 
+      pinos_log_trace ("context %p: got message %d from %u", this, opcode, id);
+
       proxy = pinos_map_lookup (&this->objects, id);
       if (proxy == NULL) {
         pinos_log_error ("context %p: could not find proxy %u", this, id);
@@ -427,8 +429,6 @@ on_context_data (SpaSource *source,
         pinos_log_error ("context %p: invalid method %u", this, opcode);
         continue;
       }
-
-      pinos_log_debug ("context %p: object demarshal %u, %u", this, id, opcode);
 
       demarshal = proxy->iface->events;
       if (demarshal[opcode]) {

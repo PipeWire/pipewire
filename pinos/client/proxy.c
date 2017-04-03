@@ -54,12 +54,12 @@ pinos_proxy_new (PinosContext *context,
 
   spa_list_insert (&this->context->proxy_list, &this->link);
 
-  pinos_log_debug ("proxy %p: new %u", this, this->id);
+  pinos_log_trace ("proxy %p: new %u", this, this->id);
 
   return this;
 
 in_use:
-  pinos_log_debug ("proxy %p: id %u in use for context %p", this, id, context);
+  pinos_log_error ("proxy %p: id %u in use for context %p", this, id, context);
   free (impl);
   return NULL;
 }
@@ -69,12 +69,11 @@ pinos_proxy_destroy (PinosProxy *proxy)
 {
   PinosProxyImpl *impl = SPA_CONTAINER_OF (proxy, PinosProxyImpl, this);
 
-  pinos_log_debug ("proxy %p: destroy %u", proxy, proxy->id);
+  pinos_log_trace ("proxy %p: destroy %u", proxy, proxy->id);
   pinos_signal_emit (&proxy->destroy_signal, proxy);
 
   pinos_map_remove (&proxy->context->objects, proxy->id);
   spa_list_remove (&proxy->link);
 
-  pinos_log_debug ("proxy %p: free", proxy);
   free (impl);
 }

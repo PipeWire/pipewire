@@ -146,7 +146,7 @@ struct _SpaALSAState {
   SpaPortInfo info;
   SpaAllocParam *params[3];
   uint8_t params_buffer[1024];
-  void *io;
+  SpaPortIO *io;
 
   SpaALSABuffer buffers[MAX_BUFFERS];
   unsigned int n_buffers;

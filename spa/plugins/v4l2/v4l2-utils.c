@@ -90,6 +90,7 @@ spa_v4l2_buffer_recycle (SpaV4l2Source *this, uint32_t buffer_id)
     return SPA_RESULT_OK;
 
   b->outstanding = false;
+  spa_log_trace (state->log, "v4l2 %p: recycle buffer %d", this, buffer_id);
 
   if (xioctl (state->fd, VIDIOC_QBUF, &b->v4l2_buffer) < 0) {
     perror ("VIDIOC_QBUF");
@@ -916,7 +917,7 @@ mmap_read (SpaV4l2Source *this)
   V4l2Buffer *b;
   SpaData *d;
   int64_t pts;
-  SpaPortOutput *output;
+  SpaPortIO *io;
 
   CLEAR(buf);
   buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -955,10 +956,14 @@ mmap_read (SpaV4l2Source *this)
   d[0].chunk->size = buf.bytesused;
   d[0].chunk->stride = state->fmt.fmt.pix.bytesperline;
 
-  if ((output = state->io)) {
+  if ((io = state->io)) {
+    SpaEvent event = SPA_EVENT_INIT (this->type.event_node.HaveOutput);
+
     b->outstanding = true;
-    output->buffer_id = b->outbuf->id;
-    output->status = SPA_RESULT_OK;
+    io->buffer_id = b->outbuf->id;
+    io->status = SPA_RESULT_OK;
+
+    this->event_cb (&this->node, &event, this->user_data);
   }
   return SPA_RESULT_OK;
 }
@@ -976,11 +981,6 @@ v4l2_on_fd_events (SpaSource *source)
 
   if (mmap_read (this) < 0)
     return;
-
-  {
-    SpaEvent event = SPA_EVENT_INIT (this->type.event_node.HaveOutput);
-    this->event_cb (&this->node, &event, this->user_data);
-  }
 }
 
 static SpaResult

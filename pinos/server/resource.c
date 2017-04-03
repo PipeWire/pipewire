@@ -72,7 +72,7 @@ pinos_resource_destroy (PinosResource *resource)
 {
   PinosClient *client = resource->client;
 
-  pinos_log_debug ("resource %p: destroy %u", resource, resource->id);
+  pinos_log_trace ("resource %p: destroy %u", resource, resource->id);
   pinos_signal_emit (&resource->destroy_signal, resource);
 
   pinos_map_insert_at (&client->objects, resource->id, NULL);
@@ -84,6 +84,5 @@ pinos_resource_destroy (PinosResource *resource)
   if (client->core_resource)
     pinos_core_notify_remove_id (client->core_resource, resource->id);
 
-  pinos_log_debug ("resource %p: free", resource);
   free (resource);
 }

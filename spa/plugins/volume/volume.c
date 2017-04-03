@@ -55,7 +55,6 @@ typedef struct {
 
   SpaVolumeBuffer buffers[MAX_BUFFERS];
   uint32_t        n_buffers;
-
   void           *io;
 
   SpaList         empty;
@@ -565,41 +564,24 @@ spa_volume_node_port_alloc_buffers (SpaNode         *node,
 }
 
 static SpaResult
-spa_volume_node_port_set_input (SpaNode      *node,
-                                uint32_t      port_id,
-                                SpaPortInput *input)
+spa_volume_node_port_set_io (SpaNode      *node,
+                             SpaDirection  direction,
+                             uint32_t      port_id,
+                             SpaPortIO    *io)
 {
   SpaVolume *this;
+  SpaVolumePort *port;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaVolume, node);
 
-  if (!CHECK_PORT (this, SPA_DIRECTION_INPUT, port_id))
+  if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
 
-  this->in_ports[port_id].io = input;
-
-  return SPA_RESULT_OK;
-}
-
-static SpaResult
-spa_volume_node_port_set_output (SpaNode       *node,
-                                 uint32_t       port_id,
-                                 SpaPortOutput *output)
-{
-  SpaVolume *this;
-
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
-  this = SPA_CONTAINER_OF (node, SpaVolume, node);
-
-  if (!CHECK_PORT (this, SPA_DIRECTION_OUTPUT, port_id))
-    return SPA_RESULT_INVALID_PORT;
-
-  this->in_ports[port_id].io = output;
+  port = direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
+  port->io = io;
 
   return SPA_RESULT_OK;
 }
@@ -718,8 +700,8 @@ static SpaResult
 spa_volume_node_process_input (SpaNode *node)
 {
   SpaVolume *this;
-  SpaPortInput *input;
-  SpaPortOutput *output;
+  SpaPortIO *input;
+  SpaPortIO *output;
   SpaVolumePort *in_port, *out_port;
   SpaBuffer *dbuf, *sbuf;
 
@@ -795,8 +777,7 @@ static const SpaNode volume_node = {
   spa_volume_node_port_set_props,
   spa_volume_node_port_use_buffers,
   spa_volume_node_port_alloc_buffers,
-  spa_volume_node_port_set_input,
-  spa_volume_node_port_set_output,
+  spa_volume_node_port_set_io,
   spa_volume_node_port_reuse_buffer,
   spa_volume_node_port_send_command,
   spa_volume_node_process_input,

@@ -463,6 +463,18 @@ find_buffer (PinosStream *stream, uint32_t id)
   return NULL;
 }
 
+static inline void
+reuse_buffer (PinosStream *stream, uint32_t id)
+{
+  BufferId *bid;
+
+  if ((bid = find_buffer (stream, id)) && bid->used) {
+    pinos_log_trace ("stream %p: reuse buffer %u", stream, id);
+    bid->used = false;
+    pinos_signal_emit (&stream->new_buffer, stream, id);
+  }
+}
+
 static void
 handle_rtnode_event (PinosStream  *stream,
                      SpaEvent     *event)
@@ -473,10 +485,10 @@ handle_rtnode_event (PinosStream  *stream,
   if (SPA_EVENT_TYPE (event) == context->type.event_node.HaveOutput) {
     int i;
 
-    //pinos_log_debug ("stream %p: have output", stream);
+    pinos_log_trace ("stream %p: have output", stream);
 
     for (i = 0; i < impl->trans->area->n_inputs; i++) {
-      SpaPortInput *input = &impl->trans->inputs[i];
+      SpaPortIO *input = &impl->trans->inputs[i];
 
       if (input->buffer_id == SPA_ID_INVALID)
         continue;
@@ -487,7 +499,19 @@ handle_rtnode_event (PinosStream  *stream,
     send_need_input (stream);
   }
   else if (SPA_EVENT_TYPE (event) == context->type.event_node.NeedInput) {
-    //pinos_log_debug ("stream %p: need input", stream);
+    int i;
+    BufferId *bid;
+
+    for (i = 0; i < impl->trans->area->n_outputs; i++) {
+      SpaPortIO *output = &impl->trans->outputs[i];
+
+      if (output->buffer_id == SPA_ID_INVALID)
+        continue;
+
+      reuse_buffer (stream, output->buffer_id);
+      output->buffer_id = SPA_ID_INVALID;
+    }
+    pinos_log_trace ("stream %p: need input", stream);
     pinos_signal_emit (&stream->need_buffer, stream);
   }
   else if (SPA_EVENT_TYPE (event) == context->type.event_node.ReuseBuffer) {
@@ -499,10 +523,7 @@ handle_rtnode_event (PinosStream  *stream,
     if (impl->direction != SPA_DIRECTION_OUTPUT)
       return;
 
-    if ((bid = find_buffer (stream, p->body.buffer_id.value)) && bid->used) {
-      bid->used = false;
-      pinos_signal_emit (&stream->new_buffer, stream, p->body.buffer_id.value);
-    }
+    reuse_buffer (stream, p->body.buffer_id.value);
   }
   else {
     pinos_log_warn ("unexpected node event %d", SPA_EVENT_TYPE (event));
@@ -547,7 +568,7 @@ handle_socket (PinosStream *stream, int rtfd)
   impl->rtfd = rtfd;
   impl->rtsocket_source = pinos_loop_add_io (stream->context->loop,
                                              impl->rtfd,
-                                             SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP,
+                                             SPA_IO_ERR | SPA_IO_HUP,
                                              true,
                                              on_rtsocket_condition,
                                              stream);
@@ -583,17 +604,27 @@ handle_node_command (PinosStream      *stream,
   if (SPA_COMMAND_TYPE (command) == context->type.command_node.Pause) {
     pinos_log_debug ("stream %p: pause %d", stream, seq);
 
+    pinos_loop_update_io (stream->context->loop,
+                          impl->rtsocket_source,
+                          SPA_IO_ERR | SPA_IO_HUP);
+
     add_state_change (stream, SPA_NODE_STATE_PAUSED, false);
     add_async_complete (stream, seq, SPA_RESULT_OK, true);
     stream_set_state (stream, PINOS_STREAM_STATE_PAUSED, NULL);
   }
   else if (SPA_COMMAND_TYPE (command) == context->type.command_node.Start) {
-    pinos_log_debug ("stream %p: start %d", stream, seq);
+    pinos_log_debug ("stream %p: start %d %d", stream, seq, impl->direction);
     add_state_change (stream, SPA_NODE_STATE_STREAMING, false);
     add_async_complete (stream, seq, SPA_RESULT_OK, true);
 
+    pinos_loop_update_io (stream->context->loop,
+                          impl->rtsocket_source,
+                          SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP);
+
     if (impl->direction == SPA_DIRECTION_INPUT)
       send_need_input (stream);
+    else
+      pinos_signal_emit (&stream->need_buffer, stream);
 
     stream_set_state (stream, PINOS_STREAM_STATE_STREAMING, NULL);
   }

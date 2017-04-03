@@ -576,9 +576,10 @@ spa_alsa_sink_node_port_alloc_buffers (SpaNode         *node,
 }
 
 static SpaResult
-spa_alsa_sink_node_port_set_input (SpaNode      *node,
-                                   uint32_t      port_id,
-                                   SpaPortInput *input)
+spa_alsa_sink_node_port_set_io (SpaNode      *node,
+                                SpaDirection  direction,
+                                uint32_t      port_id,
+                                SpaPortIO    *io)
 {
   SpaALSASink *this;
 
@@ -587,20 +588,12 @@ spa_alsa_sink_node_port_set_input (SpaNode      *node,
 
   this = SPA_CONTAINER_OF (node, SpaALSASink, node);
 
-  if (!CHECK_PORT (this, SPA_DIRECTION_INPUT, port_id))
+  if (!CHECK_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
 
-  this->io = input;
+  this->io = io;
 
   return SPA_RESULT_OK;
-}
-
-static SpaResult
-spa_alsa_sink_node_port_set_output (SpaNode       *node,
-                                    uint32_t       port_id,
-                                    SpaPortOutput *output)
-{
-  return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult
@@ -648,7 +641,7 @@ static SpaResult
 spa_alsa_sink_node_process_input (SpaNode *node)
 {
   SpaALSASink *this;
-  SpaPortInput *input;
+  SpaPortIO *input;
   SpaALSABuffer *b;
 
   if (node == NULL)
@@ -680,8 +673,8 @@ spa_alsa_sink_node_process_input (SpaNode *node)
     this->ringbuffer = b;
   } else {
     spa_list_insert (this->ready.prev, &b->link);
+    spa_log_trace (this->log, "alsa-sink %p: queue buffer %u", this, input->buffer_id);
   }
-  //spa_log_debug (this->log, "alsa-source: got buffer %u", input->buffer_id);
   b->outstanding = false;
   input->buffer_id = SPA_ID_INVALID;
   input->status = SPA_RESULT_OK;
@@ -716,8 +709,7 @@ static const SpaNode alsasink_node = {
   spa_alsa_sink_node_port_set_props,
   spa_alsa_sink_node_port_use_buffers,
   spa_alsa_sink_node_port_alloc_buffers,
-  spa_alsa_sink_node_port_set_input,
-  spa_alsa_sink_node_port_set_output,
+  spa_alsa_sink_node_port_set_io,
   spa_alsa_sink_node_port_reuse_buffer,
   spa_alsa_sink_node_port_send_command,
   spa_alsa_sink_node_process_input,
@@ -779,7 +771,15 @@ alsa_sink_init (const SpaHandleFactory  *factory,
       this->main_loop = support[i].data;
   }
   if (this->map == NULL) {
-    spa_log_error (this->log, "an id-map is needed");
+    spa_log_error (this->log, "a type-map is needed");
+    return SPA_RESULT_ERROR;
+  }
+  if (this->data_loop == NULL) {
+    spa_log_error (this->log, "a data loop is needed");
+    return SPA_RESULT_ERROR;
+  }
+  if (this->main_loop == NULL) {
+    spa_log_error (this->log, "a main loop is needed");
     return SPA_RESULT_ERROR;
   }
   init_type (&this->type, this->map);

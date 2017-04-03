@@ -76,30 +76,19 @@ typedef enum {
 #define SPA_PORT_STATE_FLAG_HAVE_FORMAT           (1 << 0)
 #define SPA_PORT_STATE_FLAG_HAVE_BUFFERS          (1 << 1)
 
-/**
- * SpaPortInput:
- * @state: the port state
- * @flags: extra flags
- * @buffer_id: a buffer id
- * @status: status
- *
- * Input information for a node.
- */
 typedef struct {
-  uint32_t          state;
-#define SPA_PORT_INPUT_FLAG_NONE        0
-  uint32_t          flags;
-  uint32_t          buffer_id;
-  uint32_t          status;
-} SpaPortInput;
+  uint64_t          offset;
+  uint32_t          min_size;
+  uint32_t          max_size;
+} SpaRange;
 
 /**
- * SpaPortOutput:
+ * SpaPortIO:
  * @state: the port state
  * @flags: extra flags
  * @buffer_id: a buffer id will be set
  * @status: the status
- * @latency: current port latency
+ * @range: requested output range
  * @event: output event
  *
  * Output information for a port on a node. This is allocated
@@ -108,13 +97,14 @@ typedef struct {
  */
 typedef struct {
   uint32_t       state;
-#define SPA_PORT_OUTPUT_FLAG_NONE        0
+#define SPA_PORT_IO_FLAG_NONE        0
+#define SPA_PORT_IO_FLAG_RANGE       (1 << 0)
   uint32_t       flags;
   uint32_t       buffer_id;
   uint32_t       status;
-  uint64_t       latency;
+  SpaRange       range;
   SpaEvent      *event;
-} SpaPortOutput;
+} SpaPortIO;
 
 /**
  * SpaPortInfoFlags:
@@ -533,38 +523,23 @@ struct _SpaNode {
                                        uint32_t             *n_buffers);
 
   /**
-   * SpaNode::port_set_input:
-   * @port_id: an input port id
-   * @input: a #SpaPortInput
+   * SpaNode::port_set_io:
+   * @direction: a #SpaDirection
+   * @port_id: a port id
+   * @io: a #SpaPortIO
    *
-   * Configure the given input structure on the input @port_id. This
+   * Configure the given io structure on @port_id. This
    * structure is allocated by the host and is used to query the state
-   * of the port and transfer buffers into the port.
+   * of the port and exchange buffers with the port.
    *
-   * Setting an @input of %NULL will disable the port.
+   * Setting an @io of %NULL will disable the port.
    *
    * Returns: #SPA_RESULT_OK on success
    */
-  SpaResult   (*port_set_input)       (SpaNode       *node,
+  SpaResult   (*port_set_io)          (SpaNode       *node,
+                                       SpaDirection   direction,
                                        uint32_t       port_id,
-                                       SpaPortInput  *input);
-
-  /**
-   * SpaNode::port_set_output:
-   * @port_id: an output port id
-   * @output: a #SpaPortOutput
-   *
-   * Configure the given output structure on the output @port_id. This
-   * structure is allocated by the host and is used to query the state
-   * of the port and transfer buffers and events into the port.
-   *
-   * Setting an @output of %NULL will disable the port.
-   *
-   * Returns: #SPA_RESULT_OK on success
-   */
-  SpaResult   (*port_set_output)      (SpaNode       *node,
-                                       uint32_t       port_id,
-                                       SpaPortOutput *output);
+                                       SpaPortIO     *io);
 
   /**
    * SpaNode::port_reuse_buffer:
@@ -665,8 +640,7 @@ struct _SpaNode {
 #define spa_node_port_set_props(n,...)     (n)->port_set_props((n),__VA_ARGS__)
 #define spa_node_port_use_buffers(n,...)   (n)->port_use_buffers((n),__VA_ARGS__)
 #define spa_node_port_alloc_buffers(n,...) (n)->port_alloc_buffers((n),__VA_ARGS__)
-#define spa_node_port_set_input(n,...)     (n)->port_set_input((n),__VA_ARGS__)
-#define spa_node_port_set_output(n,...)    (n)->port_set_output((n),__VA_ARGS__)
+#define spa_node_port_set_io(n,...)        (n)->port_set_io((n),__VA_ARGS__)
 #define spa_node_port_reuse_buffer(n,...)  (n)->port_reuse_buffer((n),__VA_ARGS__)
 #define spa_node_port_send_command(n,...)  (n)->port_send_command((n),__VA_ARGS__)
 #define spa_node_process_input(n)          (n)->process_input((n))

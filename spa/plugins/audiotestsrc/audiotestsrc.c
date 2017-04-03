@@ -125,7 +125,7 @@ struct _SpaAudioTestSrc {
   SpaPortInfo info;
   SpaAllocParam *params[2];
   uint8_t params_buffer[1024];
-  SpaPortOutput *output;
+  SpaPortIO *io;
 
   bool have_format;
   SpaAudioInfo current_format;
@@ -275,23 +275,20 @@ set_timer (SpaAudioTestSrc *this, bool enabled)
   timerfd_settime (this->timer_source.fd, TFD_TIMER_ABSTIME, &this->timerspec, NULL);
 }
 
-static void
-audiotestsrc_on_output (SpaSource *source)
+static SpaResult
+audiotestsrc_make_buffer (SpaAudioTestSrc *this)
 {
-  SpaAudioTestSrc *this = source->data;
   ATSBuffer *b;
-  SpaPortOutput *output;
-  uint64_t expirations;
-
-  if (read (this->timer_source.fd, &expirations, sizeof (uint64_t)) < sizeof (uint64_t))
-    perror ("read timerfd");
+  SpaPortIO *io;
 
   if (spa_list_is_empty (&this->empty)) {
     set_timer (this, false);
-    return;
+    return SPA_RESULT_OUT_OF_BUFFERS;
   }
   b = spa_list_first (&this->empty, ATSBuffer, link);
   spa_list_remove (&b->link);
+  b->outstanding = true;
+  spa_log_trace (this->log, "audiotestsrc %p: dequeue buffer %d", this, b->outbuf->id);
 
   fill_buffer (this, b);
 
@@ -305,12 +302,25 @@ audiotestsrc_on_output (SpaSource *source)
   this->elapsed_time = SAMPLES_TO_TIME (this, this->sample_count);
   set_timer (this, true);
 
-  if ((output = this->output)) {
-    b->outstanding = true;
-    output->buffer_id = b->outbuf->id;
-    output->status = SPA_RESULT_OK;
-    send_have_output (this);
+  if ((io = this->io)) {
+    io->buffer_id = b->outbuf->id;
+    io->status = SPA_RESULT_OK;
   }
+  return SPA_RESULT_OK;
+}
+
+static void
+audiotestsrc_on_output (SpaSource *source)
+{
+  SpaAudioTestSrc *this = source->data;
+  uint64_t expirations;
+
+  if (read (this->timer_source.fd, &expirations, sizeof (uint64_t)) < sizeof (uint64_t))
+    perror ("read timerfd");
+
+  audiotestsrc_make_buffer (this);
+
+  send_have_output (this);
 }
 
 static void
@@ -684,7 +694,7 @@ spa_audiotestsrc_node_port_use_buffers (SpaNode         *node,
 
     b = &this->buffers[i];
     b->outbuf = buffers[i];
-    b->outstanding = true;
+    b->outstanding = false;
     b->h = spa_buffer_find_meta (buffers[i], SPA_META_TYPE_HEADER);
 
     switch (d[0].type) {
@@ -740,29 +750,20 @@ spa_audiotestsrc_node_port_alloc_buffers (SpaNode         *node,
 }
 
 static SpaResult
-spa_audiotestsrc_node_port_set_input (SpaNode      *node,
-                                      uint32_t      port_id,
-                                      SpaPortInput *input)
-{
-  return SPA_RESULT_NOT_IMPLEMENTED;
-}
-
-static SpaResult
-spa_audiotestsrc_node_port_set_output (SpaNode       *node,
-                                       uint32_t       port_id,
-                                       SpaPortOutput *output)
+spa_audiotestsrc_node_port_set_io (SpaNode       *node,
+                                   SpaDirection   direction,
+                                   uint32_t       port_id,
+                                   SpaPortIO     *io)
 {
   SpaAudioTestSrc *this;
 
-  if (node == NULL || output == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaAudioTestSrc, node);
 
-  if (!CHECK_PORT (this, SPA_DIRECTION_OUTPUT, port_id))
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
-  this->output = output;
+  this->io = io;
 
   return SPA_RESULT_OK;
 }
@@ -775,23 +776,18 @@ spa_audiotestsrc_node_port_reuse_buffer (SpaNode         *node,
   SpaAudioTestSrc *this;
   ATSBuffer *b;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaAudioTestSrc, node);
 
-  if (port_id != 0)
-    return SPA_RESULT_INVALID_PORT;
-
-  if (this->n_buffers == 0)
-    return SPA_RESULT_NO_BUFFERS;
-
-  if (buffer_id >= this->n_buffers)
-    return SPA_RESULT_INVALID_BUFFER_ID;
+  spa_return_val_if_fail (port_id == 0, SPA_RESULT_INVALID_PORT);
+  spa_return_val_if_fail (this->n_buffers > 0, SPA_RESULT_NO_BUFFERS);
+  spa_return_val_if_fail (buffer_id < this->n_buffers, SPA_RESULT_INVALID_BUFFER_ID);
 
   b = &this->buffers[buffer_id];
-  if (!b->outstanding)
-    return SPA_RESULT_OK;
+  spa_return_val_if_fail (b->outstanding, SPA_RESULT_INVALID_BUFFER_ID);
+
+  spa_log_trace (this->log, "audiotestsrc %p: reuse buffer %d", this, b->outbuf->id);
 
   b->outstanding = false;
   spa_list_insert (this->empty.prev, &b->link);
@@ -820,7 +816,29 @@ spa_audiotestsrc_node_process_input (SpaNode *node)
 static SpaResult
 spa_audiotestsrc_node_process_output (SpaNode *node)
 {
-  return SPA_RESULT_OK;
+  SpaResult res;
+  SpaAudioTestSrc *this;
+  ATSBuffer *b;
+
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+
+  this = SPA_CONTAINER_OF (node, SpaAudioTestSrc, node);
+
+  if (this->io && this->io->buffer_id != SPA_ID_INVALID) {
+    b = &this->buffers[this->io->buffer_id];
+    if (b->outstanding) {
+      b->outstanding = false;
+      spa_log_trace (this->log, "audiotestsrc %p: recycle buffer %d", this, b->outbuf->id);
+      spa_list_insert (this->empty.prev, &b->link);
+      if (!this->props.live)
+        set_timer (this, true);
+    }
+    this->io->buffer_id = SPA_ID_INVALID;
+  }
+  if ((res = audiotestsrc_make_buffer (this)) < 0)
+    return res;
+
+  return SPA_RESULT_HAVE_OUTPUT;
 }
 
 static const SpaNode audiotestsrc_node = {
@@ -843,8 +861,7 @@ static const SpaNode audiotestsrc_node = {
   spa_audiotestsrc_node_port_set_props,
   spa_audiotestsrc_node_port_use_buffers,
   spa_audiotestsrc_node_port_alloc_buffers,
-  spa_audiotestsrc_node_port_set_input,
-  spa_audiotestsrc_node_port_set_output,
+  spa_audiotestsrc_node_port_set_io,
   spa_audiotestsrc_node_port_reuse_buffer,
   spa_audiotestsrc_node_port_send_command,
   spa_audiotestsrc_node_process_input,

@@ -28,6 +28,7 @@
 #include <sys/mman.h>
 #include <sys/eventfd.h>
 
+
 #include "pinos/client/pinos.h"
 #include "pinos/client/interfaces.h"
 #include "pinos/client/transport.h"
@@ -36,6 +37,7 @@
 #include "pinos/server/client-node.h"
 
 #include "spa/include/spa/node.h"
+#include "spa/include/spa/format-builder.h"
 
 #define MAX_INPUTS       64
 #define MAX_OUTPUTS      64
@@ -107,6 +109,7 @@ struct _SpaProxy
   SpaProxyPort in_ports[MAX_INPUTS];
   SpaProxyPort out_ports[MAX_OUTPUTS];
 
+  uint8_t format_buffer[1024];
   uint32_t seq;
 };
 
@@ -446,6 +449,10 @@ spa_proxy_node_port_enum_formats (SpaNode          *node,
 {
   SpaProxy *this;
   SpaProxyPort *port;
+  SpaFormat *fmt;
+  SpaPODBuilder b = { NULL, };
+  SpaResult res;
+  uint32_t count, match = 0;
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -457,10 +464,20 @@ spa_proxy_node_port_enum_formats (SpaNode          *node,
 
   port = direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
 
-  if (index >= port->n_formats)
+  count = match = filter ? 0 : index;
+
+next:
+  if (count >= port->n_formats)
     return SPA_RESULT_ENUM_END;
 
-  *format = port->formats[index];
+  fmt = port->formats[count++];
+
+  spa_pod_builder_init (&b, this->format_buffer, sizeof (this->format_buffer));
+
+  if ((res = spa_format_filter (fmt, filter, &b)) != SPA_RESULT_OK || match++ != index)
+    goto next;
+
+  *format = SPA_POD_BUILDER_DEREF (&b, 0, SpaFormat);
 
   return SPA_RESULT_OK;
 }

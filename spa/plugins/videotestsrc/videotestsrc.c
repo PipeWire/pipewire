@@ -465,6 +465,7 @@ spa_videotestsrc_node_port_enum_formats (SpaNode          *node,
   uint8_t buffer[1024];
   SpaPODBuilder b = { NULL, };
   SpaPODFrame f[2];
+  uint32_t count, match;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (format != NULL, SPA_RESULT_INVALID_ARGUMENTS);
@@ -473,10 +474,12 @@ spa_videotestsrc_node_port_enum_formats (SpaNode          *node,
 
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
+  count = match = filter ? 0 : index;
+
 next:
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
 
-  switch (index++) {
+  switch (count++) {
     case 0:
       spa_pod_builder_format (&b, &f[0], this->type.format,
          this->type.media_type.video, this->type.media_subtype.raw,
@@ -500,7 +503,7 @@ next:
 
   spa_pod_builder_init (&b, this->format_buffer, sizeof (this->format_buffer));
 
-  if ((res = spa_format_filter (fmt, filter, &b)) != SPA_RESULT_OK)
+  if ((res = spa_format_filter (fmt, filter, &b)) != SPA_RESULT_OK || match++ != index)
     goto next;
 
   *format = SPA_POD_BUILDER_DEREF (&b, 0, SpaFormat);

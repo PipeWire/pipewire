@@ -97,62 +97,9 @@ release_buffer (GstBufferPool * pool, GstBuffer *buffer)
   GST_OBJECT_UNLOCK (pool);
 }
 
-#define PROP(f,key,type,...)                                                    \
-          SPA_POD_PROP (f,key,0,type,1,__VA_ARGS__)
-#define PROP_R(f,key,type,...)                                                  \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READONLY,type,1,__VA_ARGS__)
-#define PROP_MM(f,key,type,...)                                                 \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
-#define PROP_U_MM(f,key,type,...)                                               \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |                         \
-                              SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
-#define PROP_EN(f,key,type,n,...)                                               \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
-#define PROP_U_EN(f,key,type,n,...)                                             \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |                         \
-                              SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
 static gboolean
 do_start (GstBufferPool * pool)
 {
-  GstPinosPool *p = GST_PINOS_POOL (pool);
-  GstStructure *config;
-  GstCaps *caps;
-  guint size;
-  guint min_buffers;
-  guint max_buffers;
-  SpaAllocParam *port_params[3];
-  SpaPODBuilder b = { NULL };
-  uint8_t buffer[1024];
-  SpaPODFrame f[2];
-  PinosContext *ctx = p->stream->context;
-
-  config = gst_buffer_pool_get_config (pool);
-  gst_buffer_pool_config_get_params (config, &caps, &size, &min_buffers, &max_buffers);
-
-  spa_pod_builder_init (&b, buffer, sizeof (buffer));
-  spa_pod_builder_object (&b, &f[0], 0, ctx->type.alloc_param_buffers.Buffers,
-      PROP    (&f[1], ctx->type.alloc_param_buffers.size,    SPA_POD_TYPE_INT, size),
-      PROP    (&f[1], ctx->type.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, 0),
-      PROP_MM (&f[1], ctx->type.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, min_buffers, min_buffers, max_buffers),
-      PROP    (&f[1], ctx->type.alloc_param_buffers.align,   SPA_POD_TYPE_INT, 16));
-  port_params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
-
-  spa_pod_builder_object (&b, &f[0], 0, ctx->type.alloc_param_meta_enable.MetaEnable,
-      PROP    (&f[1], ctx->type.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, SPA_META_TYPE_HEADER));
-  port_params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
-
-  spa_pod_builder_object (&b, &f[0], 0, ctx->type.alloc_param_meta_enable.MetaEnable,
-      PROP    (&f[1], ctx->type.alloc_param_meta_enable.type,             SPA_POD_TYPE_INT, SPA_META_TYPE_RINGBUFFER),
-      PROP    (&f[1], ctx->type.alloc_param_meta_enable.ringbufferSize,   SPA_POD_TYPE_INT,
-                                                                         size * SPA_MAX (4,
-                                                                                SPA_MAX (min_buffers, max_buffers))),
-      PROP    (&f[1], ctx->type.alloc_param_meta_enable.ringbufferStride, SPA_POD_TYPE_INT, 0),
-      PROP    (&f[1], ctx->type.alloc_param_meta_enable.ringbufferBlocks, SPA_POD_TYPE_INT, 1),
-      PROP    (&f[1], ctx->type.alloc_param_meta_enable.ringbufferAlign,  SPA_POD_TYPE_INT, 16));
-  port_params[2] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
-
-  pinos_stream_finish_format (p->stream, SPA_RESULT_OK, port_params, 2);
-
   return TRUE;
 }
 

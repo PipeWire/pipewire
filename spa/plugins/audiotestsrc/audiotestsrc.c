@@ -183,8 +183,8 @@ spa_audiotestsrc_node_get_props (SpaNode       *node,
   SpaPODBuilder b = { NULL,  };
   SpaPODFrame f[2];
 
-  if (node == NULL || props == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (props != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaAudioTestSrc, node);
 
@@ -210,8 +210,7 @@ spa_audiotestsrc_node_set_props (SpaNode         *node,
 {
   SpaAudioTestSrc *this;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaAudioTestSrc, node);
 
@@ -237,7 +236,6 @@ spa_audiotestsrc_node_set_props (SpaNode         *node,
 static SpaResult
 send_have_output (SpaAudioTestSrc *this)
 {
-
   if (this->event_cb) {
     SpaEvent event = SPA_EVENT_INIT (this->type.event_node.HaveOutput);
     this->event_cb (&this->node, &event, this->user_data);
@@ -339,8 +337,8 @@ spa_audiotestsrc_node_send_command (SpaNode    *node,
 {
   SpaAudioTestSrc *this;
 
-  if (node == NULL || command == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (command != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaAudioTestSrc, node);
 
@@ -395,8 +393,7 @@ spa_audiotestsrc_node_set_event_callback (SpaNode              *node,
 {
   SpaAudioTestSrc *this;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaAudioTestSrc, node);
 
@@ -413,8 +410,7 @@ spa_audiotestsrc_node_get_n_ports (SpaNode       *node,
                                    uint32_t      *n_output_ports,
                                    uint32_t      *max_output_ports)
 {
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   if (n_input_ports)
     *n_input_ports = 0;
@@ -435,8 +431,7 @@ spa_audiotestsrc_node_get_port_ids (SpaNode       *node,
                                     uint32_t       n_output_ports,
                                     uint32_t      *output_ids)
 {
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   if (n_output_ports > 0 && output_ids != NULL)
     output_ids[0] = 0;
@@ -475,13 +470,12 @@ spa_audiotestsrc_node_port_enum_formats (SpaNode          *node,
   SpaPODBuilder b = { NULL, };
   SpaPODFrame f[2];
 
-  if (node == NULL || format == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (format != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaAudioTestSrc, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
 next:
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
@@ -535,13 +529,11 @@ spa_audiotestsrc_node_port_set_format (SpaNode            *node,
 {
   SpaAudioTestSrc *this;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaAudioTestSrc, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   if (format == NULL) {
     this->have_format = false;
@@ -617,13 +609,12 @@ spa_audiotestsrc_node_port_get_format (SpaNode          *node,
   SpaPODBuilder b = { NULL, };
   SpaPODFrame f[2];
 
-  if (node == NULL || format == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (format != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaAudioTestSrc, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   if (!this->have_format)
     return SPA_RESULT_NO_FORMAT;
@@ -648,13 +639,12 @@ spa_audiotestsrc_node_port_get_info (SpaNode            *node,
 {
   SpaAudioTestSrc *this;
 
-  if (node == NULL || info == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (info != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaAudioTestSrc, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   *info = &this->info;
 
@@ -689,13 +679,11 @@ spa_audiotestsrc_node_port_use_buffers (SpaNode         *node,
   SpaAudioTestSrc *this;
   uint32_t i;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaAudioTestSrc, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   if (!this->have_format)
     return SPA_RESULT_NO_FORMAT;
@@ -747,13 +735,11 @@ spa_audiotestsrc_node_port_alloc_buffers (SpaNode         *node,
 {
   SpaAudioTestSrc *this;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaAudioTestSrc, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   if (!this->have_format)
     return SPA_RESULT_NO_FORMAT;
@@ -900,8 +886,7 @@ spa_audiotestsrc_clock_get_time (SpaClock         *clock,
   struct timespec now;
   uint64_t tnow;
 
-  if (clock == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (clock != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   if (rate)
     *rate = SPA_NSEC_PER_SEC;
@@ -933,8 +918,8 @@ spa_audiotestsrc_get_interface (SpaHandle         *handle,
 {
   SpaAudioTestSrc *this;
 
-  if (handle == NULL || interface == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (interface != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = (SpaAudioTestSrc *) handle;
 
@@ -953,8 +938,7 @@ audiotestsrc_clear (SpaHandle *handle)
 {
   SpaAudioTestSrc *this;
 
-  if (handle == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = (SpaAudioTestSrc *) handle;
 
@@ -975,8 +959,8 @@ audiotestsrc_init (const SpaHandleFactory  *factory,
   uint32_t i;
   const char *str;
 
-  if (factory == NULL || handle == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   handle->get_interface = spa_audiotestsrc_get_interface;
   handle->clear = audiotestsrc_clear;
@@ -1048,8 +1032,8 @@ audiotestsrc_enum_interface_info (const SpaHandleFactory  *factory,
                                   const SpaInterfaceInfo **info,
                                   uint32_t                 index)
 {
-  if (factory == NULL || info == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (info != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   switch (index) {
     case 0:

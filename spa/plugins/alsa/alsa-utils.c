@@ -408,19 +408,19 @@ calc_timeout (size_t target,
               snd_htimestamp_t *now,
               struct timespec *ts)
 {
-  size_t to_sleep_usec;
+  size_t to_sleep_nsec;
 
   ts->tv_sec = now->tv_sec;
   if (target > current)
-    to_sleep_usec = (target - current) * 1000000 / rate;
+    to_sleep_nsec = (target - current) * SPA_NSEC_PER_SEC / rate;
   else
-    to_sleep_usec = 0;
+    to_sleep_nsec = 0;
 
-  ts->tv_nsec = to_sleep_usec * 1000 + now->tv_nsec;
+  ts->tv_nsec = to_sleep_nsec + now->tv_nsec;
 
-  while (ts->tv_nsec > 1000000000L) {
+  while (ts->tv_nsec > SPA_NSEC_PER_SEC) {
     ts->tv_sec++;
-    ts->tv_nsec -= 1000000000L;
+    ts->tv_nsec -= SPA_NSEC_PER_SEC;
   }
 }
 
@@ -505,7 +505,7 @@ alsa_on_playback_timeout_event (SpaSource *source)
 
   calc_timeout (total_written + filled, state->threshold, state->rate, &htstamp, &ts.it_value);
 
-  spa_log_debug (state->log, "timeout %ld %ld %ld %ld", total_written, filled,
+  spa_log_trace (state->log, "timeout %ld %ld %ld %ld", total_written, filled,
                                 ts.it_value.tv_sec, ts.it_value.tv_nsec);
 
   ts.it_interval.tv_sec = 0;
@@ -580,7 +580,8 @@ alsa_on_capture_timeout_event (SpaSource *source)
   }
   calc_timeout (state->threshold, avail - total_read, state->rate, &htstamp, &ts.it_value);
 
-//  printf ("timeout %ld %ld %ld %ld\n", total_read, avail, ts.it_value.tv_sec, ts.it_value.tv_nsec);
+  spa_log_trace (state->log, "timeout %ld %ld %ld %ld", total_read, avail,
+                                ts.it_value.tv_sec, ts.it_value.tv_nsec);
   ts.it_interval.tv_sec = 0;
   ts.it_interval.tv_nsec = 0;
   timerfd_settime (state->timerfd, TFD_TIMER_ABSTIME, &ts, NULL);

@@ -196,8 +196,8 @@ spa_v4l2_source_node_get_props (SpaNode       *node,
   SpaPODBuilder b = { NULL,  };
   SpaPODFrame f[2];
 
-  if (node == NULL || props == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (props != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
 
@@ -217,8 +217,7 @@ spa_v4l2_source_node_set_props (SpaNode         *node,
 {
   SpaV4l2Source *this;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
 
@@ -345,8 +344,8 @@ spa_v4l2_source_node_send_command (SpaNode    *node,
 {
   SpaV4l2Source *this;
 
-  if (node == NULL || command == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (command != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
 
@@ -406,8 +405,7 @@ spa_v4l2_source_node_set_event_callback (SpaNode              *node,
 {
   SpaV4l2Source *this;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
 
@@ -424,8 +422,7 @@ spa_v4l2_source_node_get_n_ports (SpaNode       *node,
                                   uint32_t      *n_output_ports,
                                   uint32_t      *max_output_ports)
 {
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   if (n_input_ports)
     *n_input_ports = 0;
@@ -446,8 +443,7 @@ spa_v4l2_source_node_get_port_ids (SpaNode       *node,
                                    uint32_t       n_output_ports,
                                    uint32_t      *output_ids)
 {
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   if (n_output_ports > 0 && output_ids != NULL)
     output_ids[0] = 0;
@@ -483,13 +479,12 @@ spa_v4l2_source_node_port_enum_formats (SpaNode         *node,
   SpaV4l2Source *this;
   SpaResult res;
 
-  if (node == NULL || format == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (format != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   res = spa_v4l2_enum_format (this, format, filter, index);
 
@@ -507,13 +502,11 @@ spa_v4l2_source_node_port_set_format (SpaNode            *node,
   SpaV4l2State *state;
   SpaVideoInfo info;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   state = &this->state[port_id];
 
@@ -596,13 +589,12 @@ spa_v4l2_source_node_port_get_format (SpaNode          *node,
   SpaPODBuilder b = { NULL, };
   SpaPODFrame f[2];
 
-  if (node == NULL || format == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (format != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   state = &this->state[port_id];
 
@@ -653,13 +645,12 @@ spa_v4l2_source_node_port_get_info (SpaNode            *node,
 {
   SpaV4l2Source *this;
 
-  if (node == NULL || info == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (info != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   *info = &this->state[port_id].info;
 
@@ -695,13 +686,11 @@ spa_v4l2_source_node_port_use_buffers (SpaNode         *node,
   SpaV4l2State *state;
   SpaResult res;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   state = &this->state[port_id];
 
@@ -739,13 +728,12 @@ spa_v4l2_source_node_port_alloc_buffers (SpaNode         *node,
   SpaV4l2State *state;
   SpaResult res;
 
-  if (node == NULL || buffers == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (buffers != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   state = &this->state[port_id];
 
@@ -772,13 +760,11 @@ spa_v4l2_source_node_port_set_io (SpaNode       *node,
 {
   SpaV4l2Source *this;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   this->state[port_id].io = io;
 
@@ -817,13 +803,11 @@ spa_v4l2_source_node_port_send_command (SpaNode        *node,
   SpaV4l2Source *this;
   SpaResult res;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
 
-  if (port_id != 0)
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   if (SPA_COMMAND_TYPE (command) == this->type.command_node.Pause) {
     res = spa_v4l2_port_set_enabled (this, false);
@@ -840,7 +824,7 @@ spa_v4l2_source_node_port_send_command (SpaNode        *node,
 static SpaResult
 spa_v4l2_source_node_process_input (SpaNode *node)
 {
-  return SPA_RESULT_INVALID_PORT;
+  return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult
@@ -850,8 +834,7 @@ spa_v4l2_source_node_process_output (SpaNode *node)
   SpaResult res = SPA_RESULT_OK;
   SpaPortIO *io;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
 
@@ -914,8 +897,7 @@ spa_v4l2_source_clock_get_time (SpaClock         *clock,
   SpaV4l2Source *this;
   SpaV4l2State *state;
 
-  if (clock == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (clock != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (clock, SpaV4l2Source, clock);
   state = &this->state[0];
@@ -946,8 +928,8 @@ spa_v4l2_source_get_interface (SpaHandle               *handle,
 {
   SpaV4l2Source *this;
 
-  if (handle == NULL || interface == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (interface != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = (SpaV4l2Source *) handle;
 
@@ -978,8 +960,8 @@ v4l2_source_init (const SpaHandleFactory  *factory,
   uint32_t i;
   const char *str;
 
-  if (factory == NULL || handle == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   handle->get_interface = spa_v4l2_source_get_interface;
   handle->clear = v4l2_source_clear,
@@ -1040,8 +1022,8 @@ v4l2_source_enum_interface_info (const SpaHandleFactory  *factory,
                                  const SpaInterfaceInfo **info,
                                  uint32_t                 index)
 {
-  if (factory == NULL || info == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (info != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   if (index < 0 || index >= SPA_N_ELEMENTS (v4l2_source_interfaces))
     return SPA_RESULT_ENUM_END;

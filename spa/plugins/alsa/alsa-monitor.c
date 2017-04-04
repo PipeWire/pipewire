@@ -302,8 +302,7 @@ spa_alsa_monitor_set_event_callback (SpaMonitor              *monitor,
   SpaResult res;
   SpaALSAMonitor *this;
 
-  if (monitor == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (monitor != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (monitor, SpaALSAMonitor, monitor);
 
@@ -346,8 +345,8 @@ spa_alsa_monitor_enum_items (SpaMonitor       *monitor,
   SpaALSAMonitor *this;
   struct udev_device *dev;
 
-  if (monitor == NULL || item == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (monitor != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (item != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (monitor, SpaALSAMonitor, monitor);
 
@@ -404,8 +403,8 @@ spa_alsa_monitor_get_interface (SpaHandle               *handle,
 {
   SpaALSAMonitor *this;
 
-  if (handle == NULL || interface == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (interface != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = (SpaALSAMonitor *) handle;
 
@@ -433,8 +432,8 @@ alsa_monitor_init (const SpaHandleFactory  *factory,
   SpaALSAMonitor *this;
   uint32_t i;
 
-  if (factory == NULL || handle == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   handle->get_interface = spa_alsa_monitor_get_interface;
   handle->clear = alsa_monitor_clear,
@@ -475,8 +474,8 @@ alsa_monitor_enum_interface_info (const SpaHandleFactory  *factory,
                                   const SpaInterfaceInfo **info,
                                   uint32_t                 index)
 {
-  if (factory == NULL || info == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (info != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   if (index < 0 || index >= SPA_N_ELEMENTS (alsa_monitor_interfaces))
     return SPA_RESULT_ENUM_END;

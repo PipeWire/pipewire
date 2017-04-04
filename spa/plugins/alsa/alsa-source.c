@@ -69,8 +69,8 @@ spa_alsa_source_node_get_props (SpaNode       *node,
   SpaPODBuilder b = { NULL,  };
   SpaPODFrame f[2];
 
-  if (node == NULL || props == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (props != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaALSASource, node);
 
@@ -93,8 +93,7 @@ spa_alsa_source_node_set_props (SpaNode         *node,
 {
   SpaALSASource *this;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaALSASource, node);
 
@@ -188,8 +187,8 @@ spa_alsa_source_node_send_command (SpaNode    *node,
 {
   SpaALSASource *this;
 
-  if (node == NULL || command == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (command != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaALSASource, node);
 
@@ -234,8 +233,7 @@ spa_alsa_source_node_set_event_callback (SpaNode              *node,
 {
   SpaALSASource *this;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaALSASource, node);
 
@@ -252,8 +250,7 @@ spa_alsa_source_node_get_n_ports (SpaNode       *node,
                                   uint32_t      *n_output_ports,
                                   uint32_t      *max_output_ports)
 {
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   if (n_input_ports)
     *n_input_ports = 0;
@@ -274,8 +271,7 @@ spa_alsa_source_node_get_port_ids (SpaNode       *node,
                                    uint32_t       n_output_ports,
                                    uint32_t      *output_ids)
 {
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   if (n_output_ports > 0 && output_ids != NULL)
     output_ids[0] = 0;
@@ -315,13 +311,12 @@ spa_alsa_source_node_port_enum_formats (SpaNode         *node,
   SpaPODBuilder b = { NULL, };
   SpaPODFrame f[2];
 
-  if (node == NULL || format == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (format != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaALSASource, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
 next:
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
@@ -360,6 +355,8 @@ recycle_buffer (SpaALSASource *this, uint32_t buffer_id)
 {
   SpaALSABuffer *b;
 
+  spa_log_trace (this->log, "alsa-source %p: recycle buffer %u", this, buffer_id);
+
   b = &this->buffers[buffer_id];
   spa_return_if_fail (b->outstanding);
 
@@ -389,13 +386,11 @@ spa_alsa_source_node_port_set_format (SpaNode            *node,
   SpaPODBuilder b = { NULL };
   SpaPODFrame f[2];
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaALSASource, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   if (format == NULL) {
     spa_alsa_pause (this, false);
@@ -460,13 +455,12 @@ spa_alsa_source_node_port_get_format (SpaNode          *node,
   SpaPODBuilder b = { NULL, };
   SpaPODFrame f[2];
 
-  if (node == NULL || format == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (format != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaALSASource, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   if (!this->have_format)
     return SPA_RESULT_NO_FORMAT;
@@ -491,13 +485,12 @@ spa_alsa_source_node_port_get_info (SpaNode            *node,
 {
   SpaALSASource *this;
 
-  if (node == NULL || info == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (info != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaALSASource, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   *info = &this->info;
 
@@ -533,13 +526,11 @@ spa_alsa_source_node_port_use_buffers (SpaNode         *node,
   SpaResult res;
   int i;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
-  if (!CHECK_PORT (this, direction, port_id))
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaALSASource, node);
+
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   if (!this->have_format)
     return SPA_RESULT_NO_FORMAT;
@@ -592,13 +583,12 @@ spa_alsa_source_node_port_alloc_buffers (SpaNode         *node,
 {
   SpaALSASource *this;
 
-  if (node == NULL || buffers == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
-  if (!CHECK_PORT (this, direction, port_id))
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (buffers != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaALSASource, node);
+
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   if (this->n_buffers == 0)
     return SPA_RESULT_NO_FORMAT;
@@ -614,13 +604,11 @@ spa_alsa_source_node_port_set_io (SpaNode       *node,
 {
   SpaALSASource *this;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaALSASource, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   this->io = io;
 
@@ -634,13 +622,11 @@ spa_alsa_source_node_port_reuse_buffer (SpaNode         *node,
 {
   SpaALSASource *this;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaALSASource, node);
 
-  if (port_id != 0)
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (port_id == 0, SPA_RESULT_INVALID_PORT);
 
   if (this->n_buffers == 0)
     return SPA_RESULT_NO_BUFFERS;
@@ -648,7 +634,6 @@ spa_alsa_source_node_port_reuse_buffer (SpaNode         *node,
   if (buffer_id >= this->n_buffers)
     return SPA_RESULT_INVALID_BUFFER_ID;
 
-  spa_log_trace (this->log, "recycle buffer %u", buffer_id);
   recycle_buffer (this, buffer_id);
 
   return SPA_RESULT_OK;
@@ -663,13 +648,11 @@ spa_alsa_source_node_port_send_command (SpaNode          *node,
   SpaALSASource *this;
   SpaResult res;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaALSASource, node);
 
-  if (port_id != 0)
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   if (SPA_COMMAND_TYPE (command) == this->type.command_node.Pause) {
     if (SPA_RESULT_IS_OK (res = spa_alsa_pause (this, false))) {
@@ -757,8 +740,7 @@ spa_alsa_source_clock_get_time (SpaClock         *clock,
 {
   SpaALSASource *this;
 
-  if (clock == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (clock != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (clock, SpaALSASource, clock);
 
@@ -788,8 +770,8 @@ spa_alsa_source_get_interface (SpaHandle               *handle,
 {
   SpaALSASource *this;
 
-  if (handle == NULL || interface == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (interface != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = (SpaALSASource *) handle;
 
@@ -819,8 +801,8 @@ alsa_source_init (const SpaHandleFactory  *factory,
   SpaALSASource *this;
   uint32_t i;
 
-  if (factory == NULL || handle == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   handle->get_interface = spa_alsa_source_get_interface;
   handle->clear = alsa_source_clear;
@@ -881,8 +863,8 @@ alsa_source_enum_interface_info (const SpaHandleFactory  *factory,
                                  const SpaInterfaceInfo **info,
                                  uint32_t                 index)
 {
-  if (factory == NULL || info == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (info != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   if (index < 0 || index >= SPA_N_ELEMENTS (alsa_source_interfaces))
     return SPA_RESULT_ENUM_END;

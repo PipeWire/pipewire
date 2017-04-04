@@ -26,8 +26,7 @@ SpaResult
 spa_enum_handle_factory (const SpaHandleFactory **factory,
                          uint32_t                 index)
 {
-  if (factory == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   switch (index) {
     case 0:

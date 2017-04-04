@@ -92,8 +92,6 @@ struct _VTSBuffer {
   SpaBuffer *outbuf;
   bool outstanding;
   SpaMetaHeader *h;
-  void *ptr;
-  size_t stride;
   SpaList link;
 };
 
@@ -120,13 +118,13 @@ struct _SpaVideoTestSrc {
   SpaPortInfo info;
   SpaAllocParam *params[2];
   uint8_t params_buffer[1024];
-  int stride;
   SpaPortIO *io;
 
   bool have_format;
   SpaVideoInfo current_format;
   uint8_t format_buffer[1024];
   size_t bpp;
+  int stride;
 
   VTSBuffer buffers[MAX_BUFFERS];
   uint32_t  n_buffers;
@@ -172,8 +170,8 @@ spa_videotestsrc_node_get_props (SpaNode       *node,
   SpaPODBuilder b = { NULL,  };
   SpaPODFrame f[2];
 
-  if (node == NULL || props == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (props != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaVideoTestSrc, node);
 
@@ -196,8 +194,7 @@ spa_videotestsrc_node_set_props (SpaNode         *node,
 {
   SpaVideoTestSrc *this;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaVideoTestSrc, node);
 
@@ -221,7 +218,6 @@ spa_videotestsrc_node_set_props (SpaNode         *node,
 static SpaResult
 send_have_output (SpaVideoTestSrc *this)
 {
-
   if (this->event_cb) {
     SpaEvent event = SPA_EVENT_INIT (this->type.event_node.HaveOutput);
     this->event_cb (&this->node, &event, this->user_data);
@@ -234,7 +230,7 @@ send_have_output (SpaVideoTestSrc *this)
 static SpaResult
 fill_buffer (SpaVideoTestSrc *this, VTSBuffer *b)
 {
-  return draw (this, b->ptr);
+  return draw (this, b->outbuf->datas[0].data);
 }
 
 static void
@@ -260,8 +256,9 @@ static SpaResult
 videotestsrc_make_buffer (SpaVideoTestSrc *this)
 {
   VTSBuffer *b;
-  SpaPortIO *io;
+  SpaPortIO *io = this->io;
   uint64_t expirations;
+  int n_bytes;
 
   if (read (this->timer_source.fd, &expirations, sizeof (uint64_t)) < sizeof (uint64_t))
     perror ("read timerfd");
@@ -273,9 +270,16 @@ videotestsrc_make_buffer (SpaVideoTestSrc *this)
   b = spa_list_first (&this->empty, VTSBuffer, link);
   spa_list_remove (&b->link);
   b->outstanding = true;
+
+  n_bytes = b->outbuf->datas[0].maxsize;
+
   spa_log_trace (this->log, "videotestsrc %p: dequeue buffer %d", this, b->outbuf->id);
 
   fill_buffer (this, b);
+
+  b->outbuf->datas[0].chunk->offset = 0;
+  b->outbuf->datas[0].chunk->size = n_bytes;
+  b->outbuf->datas[0].chunk->stride = this->stride;
 
   if (b->h) {
     b->h->seq = this->frame_count;
@@ -287,10 +291,10 @@ videotestsrc_make_buffer (SpaVideoTestSrc *this)
   this->elapsed_time = FRAMES_TO_TIME (this, this->frame_count);
   set_timer (this, true);
 
-  if ((io = this->io)) {
-    io->buffer_id = b->outbuf->id;
-    io->status = SPA_RESULT_OK;
-  }
+  io->flags = 0;
+  io->buffer_id = b->outbuf->id;
+  io->status = SPA_RESULT_OK;
+
   return SPA_RESULT_HAVE_OUTPUT;
 }
 
@@ -318,8 +322,8 @@ spa_videotestsrc_node_send_command (SpaNode    *node,
 {
   SpaVideoTestSrc *this;
 
-  if (node == NULL || command == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (command != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaVideoTestSrc, node);
 
@@ -374,8 +378,7 @@ spa_videotestsrc_node_set_event_callback (SpaNode              *node,
 {
   SpaVideoTestSrc *this;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaVideoTestSrc, node);
 
@@ -392,8 +395,7 @@ spa_videotestsrc_node_get_n_ports (SpaNode       *node,
                                    uint32_t      *n_output_ports,
                                    uint32_t      *max_output_ports)
 {
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   if (n_input_ports)
     *n_input_ports = 0;
@@ -414,8 +416,7 @@ spa_videotestsrc_node_get_port_ids (SpaNode       *node,
                                     uint32_t       n_output_ports,
                                     uint32_t      *output_ids)
 {
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   if (n_output_ports > 0 && output_ids != NULL)
     output_ids[0] = 0;
@@ -454,13 +455,12 @@ spa_videotestsrc_node_port_enum_formats (SpaNode          *node,
   SpaPODBuilder b = { NULL, };
   SpaPODFrame f[2];
 
-  if (node == NULL || format == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (format != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaVideoTestSrc, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
 next:
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
@@ -519,13 +519,11 @@ spa_videotestsrc_node_port_set_format (SpaNode            *node,
 {
   SpaVideoTestSrc *this;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaVideoTestSrc, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   if (format == NULL) {
     this->have_format = false;
@@ -541,6 +539,15 @@ spa_videotestsrc_node_port_set_format (SpaNode            *node,
     if (!spa_format_video_raw_parse (format, &info.info.raw, &this->type.format_video))
       return SPA_RESULT_INVALID_MEDIA_TYPE;
 
+    if (info.info.raw.format == this->type.video_format.RGB) {
+      this->bpp = 3;
+    }
+    else if (info.info.raw.format == this->type.video_format.UYVY) {
+      this->bpp = 2;
+    }
+    else
+      return SPA_RESULT_NOT_IMPLEMENTED;
+
     this->current_format = info;
     this->have_format = true;
   }
@@ -550,21 +557,11 @@ spa_videotestsrc_node_port_set_format (SpaNode            *node,
     SpaPODBuilder b = { NULL };
     SpaPODFrame f[2];
 
-    if (raw_info->format == this->type.video_format.RGB) {
-      this->bpp = 3;
-    }
-    else if (raw_info->format == this->type.video_format.UYVY) {
-      this->bpp = 2;
-    }
-    else
-      return SPA_RESULT_NOT_IMPLEMENTED;
-
-    this->info.maxbuffering = -1;
     this->info.latency = 0;
+    this->info.maxbuffering = -1;
 
     this->info.n_params = 2;
     this->info.params = this->params;
-
     this->stride = SPA_ROUND_UP_N (this->bpp * raw_info->size.width, 4);
 
     spa_pod_builder_init (&b, this->params_buffer, sizeof (this->params_buffer));
@@ -598,13 +595,12 @@ spa_videotestsrc_node_port_get_format (SpaNode          *node,
   SpaPODBuilder b = { NULL, };
   SpaPODFrame f[2];
 
-  if (node == NULL || format == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (format != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaVideoTestSrc, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   if (!this->have_format)
     return SPA_RESULT_NO_FORMAT;
@@ -628,13 +624,12 @@ spa_videotestsrc_node_port_get_info (SpaNode            *node,
 {
   SpaVideoTestSrc *this;
 
-  if (node == NULL || info == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (info != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaVideoTestSrc, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   *info = &this->info;
 
@@ -669,13 +664,11 @@ spa_videotestsrc_node_port_use_buffers (SpaNode         *node,
   SpaVideoTestSrc *this;
   uint32_t i;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaVideoTestSrc, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   if (!this->have_format)
     return SPA_RESULT_NO_FORMAT;
@@ -699,8 +692,6 @@ spa_videotestsrc_node_port_use_buffers (SpaNode         *node,
           spa_log_error (this->log, "videotestsrc %p: invalid memory on buffer %p", this, buffers[i]);
           continue;
         }
-        b->ptr = SPA_MEMBER (d[0].data, d[0].chunk->offset, void);
-        b->stride = d[0].chunk->stride;
         break;
       default:
         break;
@@ -729,13 +720,11 @@ spa_videotestsrc_node_port_alloc_buffers (SpaNode         *node,
 {
   SpaVideoTestSrc *this;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaVideoTestSrc, node);
 
-  if (!CHECK_PORT (this, direction, port_id))
-    return SPA_RESULT_INVALID_PORT;
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   if (!this->have_format)
     return SPA_RESULT_NO_FORMAT;
@@ -882,8 +871,7 @@ spa_videotestsrc_clock_get_time (SpaClock         *clock,
   struct timespec now;
   uint64_t tnow;
 
-  if (clock == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (clock != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   if (rate)
     *rate = SPA_NSEC_PER_SEC;
@@ -915,8 +903,8 @@ spa_videotestsrc_get_interface (SpaHandle         *handle,
 {
   SpaVideoTestSrc *this;
 
-  if (handle == NULL || interface == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (interface != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = (SpaVideoTestSrc *) handle;
 
@@ -935,8 +923,7 @@ videotestsrc_clear (SpaHandle *handle)
 {
   SpaVideoTestSrc *this;
 
-  if (handle == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = (SpaVideoTestSrc *) handle;
 
@@ -957,8 +944,8 @@ videotestsrc_init (const SpaHandleFactory  *factory,
   uint32_t i;
   const char *str;
 
-  if (factory == NULL || handle == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   handle->get_interface = spa_videotestsrc_get_interface;
   handle->clear = videotestsrc_clear;
@@ -1030,8 +1017,8 @@ videotestsrc_enum_interface_info (const SpaHandleFactory  *factory,
                                   const SpaInterfaceInfo **info,
                                   uint32_t                 index)
 {
-  if (factory == NULL || info == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+  spa_return_val_if_fail (factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (info != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   switch (index) {
     case 0:

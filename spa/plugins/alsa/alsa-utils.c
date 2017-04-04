@@ -408,15 +408,10 @@ calc_timeout (size_t target,
               snd_htimestamp_t *now,
               struct timespec *ts)
 {
-  size_t to_sleep_nsec;
-
   ts->tv_sec = now->tv_sec;
+  ts->tv_nsec = now->tv_nsec;
   if (target > current)
-    to_sleep_nsec = (target - current) * SPA_NSEC_PER_SEC / rate;
-  else
-    to_sleep_nsec = 0;
-
-  ts->tv_nsec = to_sleep_nsec + now->tv_nsec;
+    ts->tv_nsec += (target - current) * SPA_NSEC_PER_SEC / rate;
 
   while (ts->tv_nsec > SPA_NSEC_PER_SEC) {
     ts->tv_sec++;
@@ -458,7 +453,7 @@ alsa_on_playback_timeout_event (SpaSource *source)
   state->last_ticks = state->sample_count - filled;
   state->last_monotonic = (int64_t)htstamp.tv_sec * SPA_NSEC_PER_SEC + (int64_t)htstamp.tv_nsec;
 
-  if (filled > state->threshold + 16) {
+  if (filled > state->threshold) {
     if (snd_pcm_state (hndl) == SND_PCM_STATE_SUSPENDED) {
       spa_log_error (state->log, "suspended: try resume");
       if ((res = alsa_try_resume (state)) < 0)
@@ -495,7 +490,7 @@ alsa_on_playback_timeout_event (SpaSource *source)
     state->sample_count += total_written;
   }
   if (!state->alsa_started && total_written > 0) {
-    spa_log_trace (state->log, "snd_pcm_start");
+    spa_log_debug (state->log, "snd_pcm_start");
     if ((res = snd_pcm_start (state->hndl)) < 0) {
       spa_log_error (state->log, "snd_pcm_start: %s", snd_strerror (res));
       return;

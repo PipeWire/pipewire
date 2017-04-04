@@ -236,20 +236,33 @@ fill_buffer (SpaVideoTestSrc *this, VTSBuffer *b)
 static void
 set_timer (SpaVideoTestSrc *this, bool enabled)
 {
-  if (enabled) {
-    if (this->props.live) {
-      uint64_t next_time = this->start_time + this->elapsed_time;
-      this->timerspec.it_value.tv_sec = next_time / SPA_NSEC_PER_SEC;
-      this->timerspec.it_value.tv_nsec = next_time % SPA_NSEC_PER_SEC;
+  if (this->async || this->props.live) {
+    if (enabled) {
+      if (this->props.live) {
+        uint64_t next_time = this->start_time + this->elapsed_time;
+        this->timerspec.it_value.tv_sec = next_time / SPA_NSEC_PER_SEC;
+        this->timerspec.it_value.tv_nsec = next_time % SPA_NSEC_PER_SEC;
+      } else {
+        this->timerspec.it_value.tv_sec = 0;
+        this->timerspec.it_value.tv_nsec = 1;
+      }
     } else {
       this->timerspec.it_value.tv_sec = 0;
-      this->timerspec.it_value.tv_nsec = 1;
+      this->timerspec.it_value.tv_nsec = 0;
     }
-  } else {
-    this->timerspec.it_value.tv_sec = 0;
-    this->timerspec.it_value.tv_nsec = 0;
+    timerfd_settime (this->timer_source.fd, TFD_TIMER_ABSTIME, &this->timerspec, NULL);
   }
-  timerfd_settime (this->timer_source.fd, TFD_TIMER_ABSTIME, &this->timerspec, NULL);
+}
+
+static void
+read_timer (SpaVideoTestSrc *this)
+{
+  uint64_t expirations;
+
+  if (this->async || this->props.live) {
+    if (read (this->timer_source.fd, &expirations, sizeof (uint64_t)) < sizeof (uint64_t))
+      perror ("read timerfd");
+  }
 }
 
 static SpaResult
@@ -257,11 +270,9 @@ videotestsrc_make_buffer (SpaVideoTestSrc *this)
 {
   VTSBuffer *b;
   SpaPortIO *io = this->io;
-  uint64_t expirations;
   int n_bytes;
 
-  if (read (this->timer_source.fd, &expirations, sizeof (uint64_t)) < sizeof (uint64_t))
-    perror ("read timerfd");
+  read_timer (this);
 
   if (spa_list_is_empty (&this->empty)) {
     set_timer (this, false);
@@ -927,7 +938,8 @@ videotestsrc_clear (SpaHandle *handle)
 
   this = (SpaVideoTestSrc *) handle;
 
-  spa_loop_remove_source (this->data_loop, &this->timer_source);
+  if (this->data_loop)
+    spa_loop_remove_source (this->data_loop, &this->timer_source);
   close (this->timer_source.fd);
 
   return SPA_RESULT_OK;
@@ -991,7 +1003,7 @@ videotestsrc_init (const SpaHandleFactory  *factory,
   this->timerspec.it_interval.tv_sec = 0;
   this->timerspec.it_interval.tv_nsec = 0;
 
-  if (this->data_loop && this->async)
+  if (this->data_loop)
     spa_loop_add_source (this->data_loop, &this->timer_source);
 
   this->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |

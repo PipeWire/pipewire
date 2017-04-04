@@ -474,7 +474,7 @@ spa_debug_dict (const SpaDict *dict)
 }
 
 
-#define DEFAULT_LOG_LEVEL SPA_LOG_LEVEL_DEBUG
+#define DEFAULT_LOG_LEVEL SPA_LOG_LEVEL_INFO
 
 static void
 do_logv (SpaLog        *log,

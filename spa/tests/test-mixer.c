@@ -302,7 +302,7 @@ make_nodes (AppData *data)
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
   spa_pod_builder_props (&b, &f[0], data->type.props,
       SPA_POD_PROP (&f[1], data->type.props_device, 0, SPA_POD_TYPE_STRING, 1, "hw:0"),
-      SPA_POD_PROP (&f[1], data->type.props_min_latency, 0, SPA_POD_TYPE_INT, 1, 1024),
+      SPA_POD_PROP (&f[1], data->type.props_min_latency, 0, SPA_POD_TYPE_INT, 1, 256),
       SPA_POD_PROP (&f[1], data->type.props_live, 0, SPA_POD_TYPE_BOOL, 1, false));
   props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
 
@@ -556,6 +556,8 @@ main (int argc, char *argv[])
   data.data_loop.update_source = do_update_source;
   data.data_loop.remove_source = do_remove_source;
   data.data_loop.invoke = do_invoke;
+
+//  data.log->level = SPA_LOG_LEVEL_TRACE;
 
   data.support[0].type = SPA_TYPE__TypeMap;
   data.support[0].data = data.map;

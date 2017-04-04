@@ -69,7 +69,7 @@ setup_video_node (PinosCore *core, SpaNode *spa_node, PinosProperties *pinos_pro
 bool
 pinos__module_init (PinosModule * module, const char * args)
 {
-  PinosProperties *video_props = NULL;
+  PinosProperties *video_props = NULL, *audio_props = NULL;
 
   if (args != NULL) {
     char **tmp_argv;
@@ -87,7 +87,7 @@ pinos__module_init (PinosModule * module, const char * args)
       argv[i] = tmp_argv[i-1];
     }
 
-    video_props = pinos_properties_new (NULL, NULL);
+    video_props = pinos_properties_new ("media.class", "Video/Source", NULL);
 
     static struct option long_options[] = {
       {"filter",      required_argument,  0,  'f' },
@@ -123,11 +123,12 @@ pinos__module_init (PinosModule * module, const char * args)
                           "build/spa/plugins/v4l2/libspa-v4l2.so",
                           "v4l2-monitor",
                           "v4l2");
+  audio_props = pinos_properties_new ("media.class", "Audio/Source", NULL);
   pinos_spa_node_load (module->core,
                        "build/spa/plugins/audiotestsrc/libspa-audiotestsrc.so",
                        "audiotestsrc",
                        "audiotestsrc",
-                       NULL,
+                       audio_props,
                        NULL);
   pinos_spa_node_load (module->core,
                        "build/spa/plugins/videotestsrc/libspa-videotestsrc.so",

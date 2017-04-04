@@ -114,7 +114,7 @@ static int
 fill_item (SpaALSAMonitor *this, ALSAItem *item, struct udev_device *udevice)
 {
   int err;
-  const char *str, *name;
+  const char *str, *name, *klass = NULL;
   snd_pcm_t *hndl;
   char device[64];
   SpaPODBuilder b = { NULL, };
@@ -158,9 +158,11 @@ fill_item (SpaALSAMonitor *this, ALSAItem *item, struct udev_device *udevice)
       return -1;
     } else {
       factory = &spa_alsa_source_factory;
+      klass = "Audio/Source";
       snd_pcm_close (hndl);
     }
   } else {
+    klass = "Audio/Sink";
     factory = &spa_alsa_sink_factory;
     snd_pcm_close (hndl);
   }
@@ -184,7 +186,7 @@ fill_item (SpaALSAMonitor *this, ALSAItem *item, struct udev_device *udevice)
       SPA_POD_PROP (&f[1], this->type.monitor.flags,   0, SPA_POD_TYPE_INT,     1, 0),
       SPA_POD_PROP (&f[1], this->type.monitor.state,   0, SPA_POD_TYPE_INT,     1, SPA_MONITOR_ITEM_STATE_AVAILABLE),
       SPA_POD_PROP (&f[1], this->type.monitor.name,    0, SPA_POD_TYPE_STRING,  1, name),
-      SPA_POD_PROP (&f[1], this->type.monitor.klass,   0, SPA_POD_TYPE_STRING,  1, "Audio/Device"),
+      SPA_POD_PROP (&f[1], this->type.monitor.klass,   0, SPA_POD_TYPE_STRING,  1, klass),
       SPA_POD_PROP (&f[1], this->type.monitor.factory, 0, SPA_POD_TYPE_POINTER, 1, this->type.handle_factory,
                                                                                         factory),
       0);

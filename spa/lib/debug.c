@@ -195,6 +195,7 @@ struct pod_type_name {
   { "float", "Float" },
   { "double", "Double" },
   { "string", "String" },
+  { "bytes", "Bytes" },
   { "pointer", "Pointer" },
   { "rectangle", "Rectangle" },
   { "fraction", "Fraction" },
@@ -203,7 +204,6 @@ struct pod_type_name {
   { "struct", "Struct" },
   { "object", "Object" },
   { "prop", "Prop" },
-  { "bytes", "Bytes" },
 };
 
 static void

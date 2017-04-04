@@ -91,6 +91,10 @@ static const FormatInfo format_info[] =
   { _FORMAT_BE (S32),                           SND_PCM_FORMAT_S32_BE },
   { _FORMAT_LE (U32),                           SND_PCM_FORMAT_U32_LE },
   { _FORMAT_BE (U32),                           SND_PCM_FORMAT_U32_BE },
+  { _FORMAT_LE (F32),                           SND_PCM_FORMAT_FLOAT_LE },
+  { _FORMAT_BE (F32),                           SND_PCM_FORMAT_FLOAT_BE },
+  { _FORMAT_LE (F64),                           SND_PCM_FORMAT_FLOAT64_LE },
+  { _FORMAT_BE (F64),                           SND_PCM_FORMAT_FLOAT64_BE },
 };
 
 static snd_pcm_format_t
@@ -137,6 +141,9 @@ spa_alsa_set_format (SpaALSAState *state, SpaAudioInfo *fmt, SpaPortFormatFlags 
 
   /* set the sample format */
   format = spa_alsa_format_to_alsa (&state->type, info->format);
+  if (format == SND_PCM_FORMAT_UNKNOWN)
+    return -EINVAL;
+
   spa_log_info (state->log, "Stream parameters are %iHz, %s, %i channels", info->rate, snd_pcm_format_name(format), info->channels);
   CHECK (snd_pcm_hw_params_set_format (hndl, params, format), "set_format");
 
@@ -263,6 +270,7 @@ pull_frames_queue (SpaALSAState *state,
       spa_list_remove (&b->link);
       b->outstanding = true;
 
+      spa_log_trace (state->log, "alsa-util %p: reuse buffer %u", state, b->outbuf->id);
       state->event_cb (&state->node, (SpaEvent *)&rb, state->user_data);
 
       state->ready_offset = 0;

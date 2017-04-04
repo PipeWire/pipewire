@@ -110,6 +110,98 @@ spa_alsa_format_to_alsa (Type *map, uint32_t format)
   return SND_PCM_FORMAT_UNKNOWN;
 }
 
+SpaResult
+spa_alsa_enum_format (SpaALSAState    *state,
+                      SpaFormat      **format,
+                      const SpaFormat *filter,
+                      uint32_t         index)
+{
+  snd_pcm_t *hndl;
+  snd_pcm_hw_params_t *params;
+  snd_pcm_format_mask_t *fmask;
+  int err, i, j, dir;
+  unsigned int min, max;
+  SpaPODBuilder b = { NULL, };
+  SpaPODFrame f[2];
+  SpaPODProp *prop;
+
+  if (index == 1)
+    return SPA_RESULT_ENUM_END;
+
+  if ((err = spa_alsa_open (state)) < 0)
+    return SPA_RESULT_ERROR;
+
+  hndl = state->hndl;
+  snd_pcm_hw_params_alloca (&params);
+  CHECK (snd_pcm_hw_params_any (hndl, params), "Broken configuration: no configurations available");
+
+  spa_pod_builder_init (&b, state->format_buffer, sizeof (state->format_buffer));
+
+  spa_pod_builder_push_format (&b, &f[0], state->type.format,
+                               state->type.media_type.audio,
+                               state->type.media_subtype.raw);
+
+  snd_pcm_format_mask_alloca (&fmask);
+  snd_pcm_hw_params_get_format_mask (params, fmask);
+
+  spa_pod_builder_push_prop (&b, &f[1],
+                             state->type.format_audio.format,
+                             SPA_POD_PROP_RANGE_NONE);
+  prop = SPA_POD_BUILDER_DEREF (&b, f[1].ref, SpaPODProp);
+
+  for (i = 1, j = 0; i < SPA_N_ELEMENTS (format_info); i++) {
+    const FormatInfo *fi = &format_info[i];
+
+    if (snd_pcm_format_mask_test (fmask, fi->format)) {
+      uint32_t f = *SPA_MEMBER (&state->type, fi->format_offset, uint32_t);
+      if (j++ == 0)
+        spa_pod_builder_id (&b, f);
+      spa_pod_builder_id (&b, f);
+    }
+  }
+  if (j > 1)
+    prop->body.flags |= SPA_POD_PROP_RANGE_ENUM | SPA_POD_PROP_FLAG_UNSET;
+  spa_pod_builder_pop (&b, &f[1]);
+
+  CHECK (snd_pcm_hw_params_get_rate_min (params, &min, &dir), "get_rate_min");
+  CHECK (snd_pcm_hw_params_get_rate_max (params, &max, &dir), "get_rate_max");
+
+  spa_pod_builder_push_prop (&b, &f[1],
+                             state->type.format_audio.rate,
+                             SPA_POD_PROP_RANGE_NONE);
+  prop = SPA_POD_BUILDER_DEREF (&b, f[1].ref, SpaPODProp);
+
+  spa_pod_builder_int (&b, SPA_CLAMP (44100, min, max));
+  if (min != max) {
+    spa_pod_builder_int (&b, min);
+    spa_pod_builder_int (&b, max);
+    prop->body.flags |= SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET;
+  }
+  spa_pod_builder_pop (&b, &f[1]);
+
+  CHECK (snd_pcm_hw_params_get_channels_min (params, &min), "get_channels_min");
+  CHECK (snd_pcm_hw_params_get_channels_max (params, &max), "get_channels_max");
+
+  spa_pod_builder_push_prop (&b, &f[1],
+                             state->type.format_audio.channels,
+                             SPA_POD_PROP_RANGE_NONE);
+  prop = SPA_POD_BUILDER_DEREF (&b, f[1].ref, SpaPODProp);
+
+  spa_pod_builder_int (&b, SPA_CLAMP (2, min, max));
+  if (min != max) {
+    spa_pod_builder_int (&b, min);
+    spa_pod_builder_int (&b, max);
+    prop->body.flags |= SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET;
+  }
+  spa_pod_builder_pop (&b, &f[1]);
+
+  spa_pod_builder_pop (&b, &f[0]);
+
+  *format = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
+
+  return SPA_RESULT_OK;
+}
+
 int
 spa_alsa_set_format (SpaALSAState *state, SpaAudioInfo *fmt, SpaPortFormatFlags flags)
 {
@@ -134,6 +226,7 @@ spa_alsa_set_format (SpaALSAState *state, SpaAudioInfo *fmt, SpaPortFormatFlags 
   CHECK (snd_pcm_hw_params_set_rate_resample (hndl, params, 0), "set_rate_resample");
   /* set the interleaved read/write format */
   CHECK (snd_pcm_hw_params_set_access(hndl, params, SND_PCM_ACCESS_MMAP_INTERLEAVED), "set_access");
+
 
   /* disable ALSA wakeups, we use a timer */
   if (snd_pcm_hw_params_can_disable_period_wakeup (params))

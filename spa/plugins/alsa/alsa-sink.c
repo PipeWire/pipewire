@@ -48,18 +48,6 @@ update_state (SpaALSASink *this, SpaNodeState state)
   this->node.state = state;
 }
 
-#define PROP(f,key,type,...)                                                    \
-          SPA_POD_PROP (f,key,0,type,1,__VA_ARGS__)
-#define PROP_MM(f,key,type,...)                                                 \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
-#define PROP_U_MM(f,key,type,...)                                               \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |                         \
-                              SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
-#define PROP_U_EN(f,key,type,n,...)                                             \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |                         \
-                              SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
-
-
 static SpaResult
 spa_alsa_sink_node_get_props (SpaNode       *node,
                               SpaProps     **props)
@@ -268,11 +256,6 @@ spa_alsa_sink_node_port_enum_formats (SpaNode         *node,
                                       uint32_t         index)
 {
   SpaALSASink *this;
-  SpaResult res;
-  SpaFormat *fmt;
-  uint8_t buffer[1024];
-  SpaPODBuilder b = { NULL, };
-  SpaPODFrame f[2];
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (format != NULL, SPA_RESULT_INVALID_ARGUMENTS);
@@ -281,37 +264,7 @@ spa_alsa_sink_node_port_enum_formats (SpaNode         *node,
 
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
-next:
-  spa_pod_builder_init (&b, buffer, sizeof (buffer));
-
-  switch (index++) {
-    case 0:
-      spa_pod_builder_format (&b, &f[0], this->type.format,
-        this->type.media_type.audio, this->type.media_subtype.raw,
-        PROP_U_EN (&f[1], this->type.format_audio.format,   SPA_POD_TYPE_ID,  3, this->type.audio_format.S16,
-                                                                              this->type.audio_format.S16,
-                                                                              this->type.audio_format.S32),
-        PROP_U_MM (&f[1], this->type.format_audio.rate,     SPA_POD_TYPE_INT, 44100, 1, INT32_MAX),
-        PROP_U_MM (&f[1], this->type.format_audio.channels, SPA_POD_TYPE_INT, 2,     1, INT32_MAX));
-      break;
-    case 1:
-      spa_pod_builder_format (&b, &f[0], this->type.format,
-        this->type.media_type.audio, this->type.media_subtype_audio.aac,
-        SPA_POD_TYPE_NONE);
-      break;
-    default:
-      return SPA_RESULT_ENUM_END;
-  }
-  fmt = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
-
-  spa_pod_builder_init (&b, this->format_buffer, sizeof (this->format_buffer));
-
-  if ((res = spa_format_filter (fmt, filter, &b)) != SPA_RESULT_OK)
-    goto next;
-
-  *format = SPA_POD_BUILDER_DEREF (&b, 0, SpaFormat);
-
-  return SPA_RESULT_OK;
+  return spa_alsa_enum_format (this, format, filter, index);
 }
 
 static SpaResult

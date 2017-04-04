@@ -162,6 +162,25 @@ struct _SpaALSAState {
   int64_t last_monotonic;
 };
 
+#define PROP(f,key,type,...)                                                    \
+          SPA_POD_PROP (f,key,0,type,1,__VA_ARGS__)
+#define PROP_MM(f,key,type,...)                                                 \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
+#define PROP_U_MM(f,key,type,...)                                               \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |                         \
+                              SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
+#define PROP_EN(f,key,type,n,...)                                               \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
+#define PROP_U_EN(f,key,type,n,...)                                             \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |                         \
+                              SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
+
+SpaResult
+spa_alsa_enum_format (SpaALSAState    *state,
+                      SpaFormat      **format,
+                      const SpaFormat *filter,
+                      uint32_t         index);
+
 int spa_alsa_set_format (SpaALSAState *state,
                          SpaAudioInfo *info,
                          SpaPortFormatFlags flags);

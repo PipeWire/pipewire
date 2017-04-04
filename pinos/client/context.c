@@ -128,6 +128,8 @@ core_event_done (void     *object,
   PinosContext *this = proxy->context;
 
   if (seq == 0) {
+    pinos_core_do_sync (this->core_proxy, 1);
+  } else if (seq == 1) {
     context_set_state (this, PINOS_CONTEXT_STATE_CONNECTED, NULL);
   }
 }

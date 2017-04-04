@@ -165,7 +165,7 @@ spa_alsa_set_format (SpaALSAState *state, SpaAudioInfo *fmt, SpaPortFormatFlags 
   state->format = format;
   state->channels = info->channels;
   state->rate = info->rate;
-  state->frame_size = info->channels * 2;
+  state->frame_size = info->channels * (snd_pcm_format_physical_width (format) / 8);
 
   CHECK (snd_pcm_hw_params_get_buffer_size_max (params, &state->buffer_frames), "get_buffer_size_max");
 
@@ -177,8 +177,8 @@ spa_alsa_set_format (SpaALSAState *state, SpaAudioInfo *fmt, SpaPortFormatFlags 
   state->period_frames = period_size;
   periods = state->buffer_frames / state->period_frames;
 
-  spa_log_info (state->log, "buffer frames %zd, period frames %zd, periods %u",
-      state->buffer_frames, state->period_frames, periods);
+  spa_log_info (state->log, "buffer frames %zd, period frames %zd, periods %u, frame_size %zd",
+      state->buffer_frames, state->period_frames, periods, state->frame_size);
 
   /* write the parameters to device */
   CHECK (snd_pcm_hw_params (hndl, params), "set_hw_params");

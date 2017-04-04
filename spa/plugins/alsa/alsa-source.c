@@ -425,7 +425,8 @@ spa_alsa_source_node_port_set_format (SpaNode            *node,
 
     spa_pod_builder_init (&b, this->params_buffer, sizeof (this->params_buffer));
     spa_pod_builder_object (&b, &f[0], 0, this->type.alloc_param_buffers.Buffers,
-        PROP    (&f[1], this->type.alloc_param_buffers.size,    SPA_POD_TYPE_INT, this->period_frames * this->frame_size),
+        PROP    (&f[1], this->type.alloc_param_buffers.size,    SPA_POD_TYPE_INT,
+                                                        this->props.min_latency * this->frame_size),
         PROP    (&f[1], this->type.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, 0),
         PROP_MM (&f[1], this->type.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, 32, 1, 32),
         PROP    (&f[1], this->type.alloc_param_buffers.align,   SPA_POD_TYPE_INT, 16));

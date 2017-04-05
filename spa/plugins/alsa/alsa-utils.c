@@ -121,9 +121,12 @@ spa_alsa_enum_format (SpaALSAState    *state,
   snd_pcm_format_mask_t *fmask;
   int err, i, j, dir;
   unsigned int min, max;
-  SpaPODBuilder b = { NULL, };
+  uint8_t buffer[4096];
+  SpaPODBuilder b = SPA_POD_BUILDER_INIT (buffer, sizeof (buffer));
   SpaPODFrame f[2];
   SpaPODProp *prop;
+  SpaFormat *fmt;
+  SpaResult res;
 
   if (index == 1)
     return SPA_RESULT_ENUM_END;
@@ -134,8 +137,6 @@ spa_alsa_enum_format (SpaALSAState    *state,
   hndl = state->hndl;
   snd_pcm_hw_params_alloca (&params);
   CHECK (snd_pcm_hw_params_any (hndl, params), "Broken configuration: no configurations available");
-
-  spa_pod_builder_init (&b, state->format_buffer, sizeof (state->format_buffer));
 
   spa_pod_builder_push_format (&b, &f[0], state->type.format,
                                state->type.media_type.audio,
@@ -194,10 +195,15 @@ spa_alsa_enum_format (SpaALSAState    *state,
     prop->body.flags |= SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET;
   }
   spa_pod_builder_pop (&b, &f[1]);
-
   spa_pod_builder_pop (&b, &f[0]);
 
-  *format = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
+  fmt = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
+
+  spa_pod_builder_init (&b, state->format_buffer, sizeof (state->format_buffer));
+  if ((res = spa_format_filter (fmt, filter, &b)) < 0)
+    return res;
+
+  *format = SPA_POD_BUILDER_DEREF (&b, 0, SpaFormat);
 
   return SPA_RESULT_OK;
 }

@@ -39,11 +39,6 @@ extern const SpaHandleFactory spa_alsa_source_factory;
 typedef struct _SpaALSAMonitor SpaALSAMonitor;
 
 typedef struct {
-  SpaMonitorItem   *item;
-  struct udev_device *udevice;
-} ALSAItem;
-
-typedef struct {
   uint32_t handle_factory;
   SpaTypeMonitor monitor;
 } Type;
@@ -72,9 +67,15 @@ struct _SpaALSAMonitor {
   struct udev_enumerate *enumerate;
   uint32_t index;
   struct udev_list_entry *devices;
-  uint8_t item_buffer[4096];
 
-  ALSAItem uitem;
+  uint8_t item_buffer[4096];
+  SpaMonitorItem *item;
+
+  snd_ctl_t *ctl_hndl;
+  struct udev_device *dev;
+  char card_name[64];
+  int dev_idx;
+  int stream_idx;
 
   int fd;
   SpaSource source;
@@ -108,81 +109,43 @@ path_get_card_id (const char *path)
   return e + 5;
 }
 
-#define CHECK(s,msg) if ((err = (s)) < 0) { spa_log_error (state->log, msg ": %s", snd_strerror(err)); return err; }
-
 static int
-fill_item (SpaALSAMonitor *this, ALSAItem *item, struct udev_device *udevice)
+fill_item (SpaALSAMonitor *this,
+           snd_ctl_card_info_t *card_info,
+           snd_pcm_info_t *dev_info,
+           struct udev_device *dev)
 {
-  int err;
   const char *str, *name, *klass = NULL;
-  snd_pcm_t *hndl;
-  char device[64];
-  SpaPODBuilder b = { NULL, };
+  SpaPODBuilder b = SPA_POD_BUILDER_INIT (this->item_buffer, sizeof (this->item_buffer));
   const SpaHandleFactory *factory = NULL;
   SpaPODFrame f[3];
 
-  if (item->udevice)
-    udev_device_unref (item->udevice);
-  item->udevice = udevice;
-  if (udevice == NULL)
-    return -1;
-
-  if (udev_device_get_property_value (udevice, "PULSE_IGNORE"))
-    return -1;
-
-  if ((str = udev_device_get_property_value (udevice, "SOUND_CLASS")) &&
-      strcmp (str, "modem") == 0)
-    return -1;
-
-  if ((str = path_get_card_id (udev_device_get_property_value (udevice, "DEVPATH"))) == NULL)
-    return -1;
-
-  snprintf (device, 63, "hw:%s", str);
-
-  if ((err = snd_pcm_open (&hndl,
-                    device,
-                    SND_PCM_STREAM_PLAYBACK,
-                    SND_PCM_NONBLOCK |
-                    SND_PCM_NO_AUTO_RESAMPLE |
-                    SND_PCM_NO_AUTO_CHANNELS |
-                    SND_PCM_NO_AUTO_FORMAT)) < 0) {
-    spa_log_error (this->log, "PLAYBACK open failed: %s", snd_strerror(err));
-    if ((err = snd_pcm_open (&hndl,
-                      device,
-                      SND_PCM_STREAM_CAPTURE,
-                      SND_PCM_NONBLOCK |
-                      SND_PCM_NO_AUTO_RESAMPLE |
-                      SND_PCM_NO_AUTO_CHANNELS |
-                      SND_PCM_NO_AUTO_FORMAT)) < 0) {
-      spa_log_error (this->log, "CAPTURE open failed: %s", snd_strerror(err));
-      return -1;
-    } else {
+  switch (snd_pcm_info_get_stream (dev_info)) {
+    case SND_PCM_STREAM_PLAYBACK:
+      factory = &spa_alsa_sink_factory;
+      klass = "Audio/Sink";
+      break;
+    case SND_PCM_STREAM_CAPTURE:
       factory = &spa_alsa_source_factory;
       klass = "Audio/Source";
-      snd_pcm_close (hndl);
-    }
-  } else {
-    klass = "Audio/Sink";
-    factory = &spa_alsa_sink_factory;
-    snd_pcm_close (hndl);
+      break;
+    default:
+      return -1;
   }
 
-  name = udev_device_get_property_value (item->udevice, "ID_MODEL_FROM_DATABASE");
+  name = udev_device_get_property_value (dev, "ID_MODEL_FROM_DATABASE");
   if (!(name && *name)) {
-    name = udev_device_get_property_value (item->udevice, "ID_MODEL_ENC");
+    name = udev_device_get_property_value (dev, "ID_MODEL_ENC");
     if (!(name && *name)) {
-      name = udev_device_get_property_value (item->udevice, "ID_MODEL");
+      name = udev_device_get_property_value (dev, "ID_MODEL");
     }
   }
-  if (!(str && *str))
+  if (!(name && *name))
     name = "Unknown";
 
-  spa_pod_builder_init (&b, this->item_buffer, sizeof (this->item_buffer));
-
-  spa_pod_builder_push_object (&b, &f[0], 0, this->type.monitor.MonitorItem);
-
   spa_pod_builder_add (&b,
-      SPA_POD_PROP (&f[1], this->type.monitor.id,      0, SPA_POD_TYPE_STRING,  1, udev_device_get_syspath (item->udevice)),
+    SPA_POD_TYPE_OBJECT, &f[0], 0, this->type.monitor.MonitorItem,
+      SPA_POD_PROP (&f[1], this->type.monitor.id,      0, SPA_POD_TYPE_STRING,  1, name),
       SPA_POD_PROP (&f[1], this->type.monitor.flags,   0, SPA_POD_TYPE_INT,     1, 0),
       SPA_POD_PROP (&f[1], this->type.monitor.state,   0, SPA_POD_TYPE_INT,     1, SPA_MONITOR_ITEM_STATE_AVAILABLE),
       SPA_POD_PROP (&f[1], this->type.monitor.name,    0, SPA_POD_TYPE_STRING,  1, name),
@@ -196,66 +159,166 @@ fill_item (SpaALSAMonitor *this, ALSAItem *item, struct udev_device *udevice)
         SPA_POD_TYPE_STRUCT, 1, &f[2], 0);
 
   spa_pod_builder_add (&b,
-      SPA_POD_TYPE_STRING, "alsa.card", SPA_POD_TYPE_STRING, str,
+      SPA_POD_TYPE_STRING, "alsa.card", SPA_POD_TYPE_STRING, this->card_name,
+      SPA_POD_TYPE_STRING, "alsa.card.id", SPA_POD_TYPE_STRING, snd_ctl_card_info_get_id (card_info),
+      SPA_POD_TYPE_STRING, "alsa.card.components", SPA_POD_TYPE_STRING, snd_ctl_card_info_get_components (card_info),
+      SPA_POD_TYPE_STRING, "alsa.card.driver", SPA_POD_TYPE_STRING, snd_ctl_card_info_get_driver (card_info),
+      SPA_POD_TYPE_STRING, "alsa.card.name", SPA_POD_TYPE_STRING, snd_ctl_card_info_get_name (card_info),
+      SPA_POD_TYPE_STRING, "alsa.card.longname", SPA_POD_TYPE_STRING, snd_ctl_card_info_get_longname (card_info),
+      SPA_POD_TYPE_STRING, "alsa.card.mixername", SPA_POD_TYPE_STRING, snd_ctl_card_info_get_mixername (card_info),
       SPA_POD_TYPE_STRING, "udev-probed", SPA_POD_TYPE_STRING, "1",
       SPA_POD_TYPE_STRING, "device.api", SPA_POD_TYPE_STRING, "alsa",
+      SPA_POD_TYPE_STRING, "alsa.pcm.id", SPA_POD_TYPE_STRING, snd_pcm_info_get_id (dev_info),
+      SPA_POD_TYPE_STRING, "alsa.pcm.name", SPA_POD_TYPE_STRING, snd_pcm_info_get_name (dev_info),
+      SPA_POD_TYPE_STRING, "alsa.pcm.subname", SPA_POD_TYPE_STRING, snd_pcm_info_get_subdevice_name (dev_info),
       0);
 
-  if ((str = udev_device_get_property_value (udevice, "SOUND_CLASS")) && *str) {
+  if ((str = udev_device_get_property_value (dev, "SOUND_CLASS")) && *str) {
     spa_pod_builder_add (&b, SPA_POD_TYPE_STRING, "device.class", SPA_POD_TYPE_STRING, str, 0);
   }
 
-  str = udev_device_get_property_value (item->udevice, "ID_PATH");
+  str = udev_device_get_property_value (dev, "ID_PATH");
   if (!(str && *str))
-    str = udev_device_get_syspath (item->udevice);
+    str = udev_device_get_syspath (dev);
   if (str && *str) {
     spa_pod_builder_add (&b, SPA_POD_TYPE_STRING, "device.bus_path", SPA_POD_TYPE_STRING, str, 0);
   }
-  if ((str = udev_device_get_syspath (item->udevice)) && *str) {
+  if ((str = udev_device_get_syspath (dev)) && *str) {
     spa_pod_builder_add (&b, SPA_POD_TYPE_STRING, "sysfs.path", SPA_POD_TYPE_STRING, str, 0);
   }
-  if ((str = udev_device_get_property_value (item->udevice, "ID_ID")) && *str) {
+  if ((str = udev_device_get_property_value (dev, "ID_ID")) && *str) {
     spa_pod_builder_add (&b, SPA_POD_TYPE_STRING, "udev.id", SPA_POD_TYPE_STRING, str, 0);
   }
-  if ((str = udev_device_get_property_value (item->udevice, "ID_BUS")) && *str) {
+  if ((str = udev_device_get_property_value (dev, "ID_BUS")) && *str) {
     spa_pod_builder_add (&b, SPA_POD_TYPE_STRING, "device.bus", SPA_POD_TYPE_STRING, str, 0);
   }
-  if ((str = udev_device_get_property_value (item->udevice, "SUBSYSTEM")) && *str) {
+  if ((str = udev_device_get_property_value (dev, "SUBSYSTEM")) && *str) {
     spa_pod_builder_add (&b, SPA_POD_TYPE_STRING, "device.subsystem", SPA_POD_TYPE_STRING, str, 0);
   }
-  if ((str = udev_device_get_property_value (item->udevice, "ID_VENDOR_ID")) && *str) {
+  if ((str = udev_device_get_property_value (dev, "ID_VENDOR_ID")) && *str) {
     spa_pod_builder_add (&b, SPA_POD_TYPE_STRING, "device.vendor.id", SPA_POD_TYPE_STRING, str, 0);
   }
-  str = udev_device_get_property_value (item->udevice, "ID_VENDOR_FROM_DATABASE");
+  str = udev_device_get_property_value (dev, "ID_VENDOR_FROM_DATABASE");
   if (!(str && *str)) {
-    str = udev_device_get_property_value (item->udevice, "ID_VENDOR_ENC");
+    str = udev_device_get_property_value (dev, "ID_VENDOR_ENC");
     if (!(str && *str)) {
-      str = udev_device_get_property_value (item->udevice, "ID_VENDOR");
+      str = udev_device_get_property_value (dev, "ID_VENDOR");
     }
   }
   if (str && *str) {
     spa_pod_builder_add (&b, SPA_POD_TYPE_STRING, "device.vendor.name", SPA_POD_TYPE_STRING, str, 0);
   }
-  if ((str = udev_device_get_property_value (item->udevice, "ID_MODEL_ID")) && *str) {
+  if ((str = udev_device_get_property_value (dev, "ID_MODEL_ID")) && *str) {
     spa_pod_builder_add (&b, SPA_POD_TYPE_STRING, "device.product.id", SPA_POD_TYPE_STRING, str, 0);
   }
   spa_pod_builder_add (&b, SPA_POD_TYPE_STRING, "device.product.name", SPA_POD_TYPE_STRING, name, 0);
 
-  if ((str = udev_device_get_property_value (item->udevice, "ID_SERIAL")) && *str) {
+  if ((str = udev_device_get_property_value (dev, "ID_SERIAL")) && *str) {
     spa_pod_builder_add (&b, SPA_POD_TYPE_STRING, "device.serial", SPA_POD_TYPE_STRING, str, 0);
   }
-  if ((str = udev_device_get_property_value (item->udevice, "SOUND_FORM_FACTOR")) && *str) {
+  if ((str = udev_device_get_property_value (dev, "SOUND_FORM_FACTOR")) && *str) {
     spa_pod_builder_add (&b, SPA_POD_TYPE_STRING, "device.form_factor", SPA_POD_TYPE_STRING, str, 0);
   }
 
   spa_pod_builder_add (&b,
       -SPA_POD_TYPE_STRUCT, &f[2],
       -SPA_POD_TYPE_PROP, &f[1],
+      -SPA_POD_TYPE_OBJECT, &f[0],
       0);
 
-  spa_pod_builder_pop (&b, &f[0]);
+  this->item = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaMonitorItem);
 
-  item->item = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaMonitorItem);
+  return 0;
+}
+
+static void
+close_card (SpaALSAMonitor *this)
+{
+  if (this->ctl_hndl)
+    snd_ctl_close (this->ctl_hndl);
+  this->ctl_hndl = NULL;
+}
+
+static int
+open_card (SpaALSAMonitor *this, struct udev_device *dev)
+{
+  int err;
+  const char *str;
+
+  if (this->ctl_hndl)
+    return 0;
+
+  if (udev_device_get_property_value (dev, "PULSE_IGNORE"))
+    return -1;
+
+  if ((str = udev_device_get_property_value (dev, "SOUND_CLASS")) &&
+      strcmp (str, "modem") == 0)
+    return -1;
+
+  if ((str = path_get_card_id (udev_device_get_property_value (dev, "DEVPATH"))) == NULL)
+    return -1;
+
+  snprintf (this->card_name, 63, "hw:%s", str);
+
+  printf ("open card %s\n", this->card_name);
+  if ((err = snd_ctl_open (&this->ctl_hndl, this->card_name, 0)) < 0) {
+    spa_log_error (this->log, "can't open control for card %s: %s", this->card_name, snd_strerror (err));
+    return err;
+  }
+  this->dev_idx = -1;
+  this->stream_idx = -1;
+
+  return 0;
+}
+
+static int
+get_next_device (SpaALSAMonitor *this, struct udev_device *dev)
+{
+  int err;
+  snd_pcm_info_t *dev_info;
+  snd_ctl_card_info_t *card_info;
+
+  if (this->stream_idx == -1) {
+    printf ("next device %d\n", this->dev_idx);
+    if ((err = snd_ctl_pcm_next_device (this->ctl_hndl, &this->dev_idx)) < 0) {
+      spa_log_error (this->log, "error iterating devices: %s", snd_strerror (err));
+      return err;
+    }
+    if (this->dev_idx < 0)
+      return -1;
+
+    this->stream_idx = 0;
+  }
+
+  snd_pcm_info_alloca (&dev_info);
+  snd_pcm_info_set_device (dev_info, this->dev_idx);
+  snd_pcm_info_set_subdevice (dev_info, 0);
+
+again:
+  printf ("stream %d\n", this->stream_idx);
+  switch (this->stream_idx++) {
+    case 0:
+      snd_pcm_info_set_stream (dev_info, SND_PCM_STREAM_PLAYBACK);
+      break;
+    case 1:
+      snd_pcm_info_set_stream (dev_info, SND_PCM_STREAM_CAPTURE);
+      break;
+    default:
+      return -1;
+  }
+
+  snd_ctl_card_info_alloca (&card_info);
+
+  if ((err = snd_ctl_card_info (this->ctl_hndl, card_info)) < 0) {
+    spa_log_error (this->log, "can't get card info for device: %s", snd_strerror (err));
+    return err;
+  }
+
+  if ((err = snd_ctl_pcm_info (this->ctl_hndl, dev_info)) < 0)
+    goto again;
+
+  fill_item (this, card_info, dev_info, dev);
+  printf ("got item\n");
 
   return 0;
 }
@@ -265,35 +328,40 @@ alsa_on_fd_events (SpaSource *source)
 {
   SpaALSAMonitor *this = source->data;
   struct udev_device *dev;
-  SpaEvent *event;
-  const char *str;
+  const char *action;
   uint32_t type;
-  SpaPODBuilder b = { NULL, };
-  SpaPODFrame f[1];
-  uint8_t buffer[4096];
 
   dev = udev_monitor_receive_device (this->umonitor);
-  if (fill_item (this, &this->uitem, dev) < 0)
-    return;
 
-  if ((str = udev_device_get_action (dev)) == NULL)
-    str = "change";
+  if ((action = udev_device_get_action (dev)) == NULL)
+    action = "change";
 
-  if (strcmp (str, "add") == 0) {
+  if (strcmp (action, "add") == 0) {
     type = this->type.monitor.Added;
-  } else if (strcmp (str, "change") == 0) {
+  } else if (strcmp (action, "change") == 0) {
     type = this->type.monitor.Changed;
-  } else if (strcmp (str, "remove") == 0) {
+  } else if (strcmp (action, "remove") == 0) {
     type = this->type.monitor.Removed;
   } else
     return;
 
-  spa_pod_builder_init (&b, buffer, sizeof (buffer));
-  spa_pod_builder_object (&b, &f[0], 0, type,
-      SPA_POD_TYPE_POD, this->uitem.item);
+  if (open_card (this, dev) < 0)
+    return;
 
-  event = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaEventMonitor);
-  this->event_cb (&this->monitor, event, this->user_data);
+  while (true) {
+    uint8_t buffer[4096];
+    SpaPODBuilder b = SPA_POD_BUILDER_INIT (buffer, sizeof (buffer));
+    SpaPODFrame f[1];
+    SpaEventMonitor *event;
+
+    if (get_next_device (this, dev) < 0)
+      break;
+
+    spa_pod_builder_object (&b, &f[0], 0, type, SPA_POD_TYPE_POD, this->item);
+    event = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaEventMonitor);
+    this->event_cb (&this->monitor, event, this->user_data);
+  }
+  close_card (this);
 }
 
 static SpaResult
@@ -345,7 +413,6 @@ spa_alsa_monitor_enum_items (SpaMonitor       *monitor,
 {
   SpaResult res;
   SpaALSAMonitor *this;
-  struct udev_device *dev;
 
   spa_return_val_if_fail (monitor != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (item != NULL, SPA_RESULT_INVALID_ARGUMENTS);
@@ -371,22 +438,29 @@ spa_alsa_monitor_enum_items (SpaMonitor       *monitor,
     this->index++;
   }
 again:
-  if (this->devices == NULL) {
-    fill_item (this, &this->uitem, NULL);
+  if (this->devices == NULL)
     return SPA_RESULT_ENUM_END;
+
+  if (this->dev == NULL) {
+    this->dev = udev_device_new_from_syspath (this->udev,
+                                              udev_list_entry_get_name (this->devices));
+
+    if (open_card (this, this->dev) < 0) {
+      udev_device_unref (this->dev);
+next:
+      this->dev = NULL;
+      this->devices = udev_list_entry_get_next (this->devices);
+      goto again;
+    }
   }
-
-  dev = udev_device_new_from_syspath (this->udev,
-                                      udev_list_entry_get_name (this->devices));
-
-  this->devices = udev_list_entry_get_next (this->devices);
-
-  if (fill_item (this, &this->uitem, dev) < 0)
-    goto again;
+  if (get_next_device (this, this->dev) < 0) {
+    close_card (this);
+    goto next;
+  }
 
   this->index++;
 
-  *item = this->uitem.item;
+  *item = this->item;
 
   return SPA_RESULT_OK;
 }

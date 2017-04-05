@@ -797,7 +797,7 @@ alsa_source_init (const SpaHandleFactory  *factory,
 
   for (i = 0; info && i < info->n_items; i++) {
     if (!strcmp (info->items[i].key, "alsa.card")) {
-      snprintf (this->props.device, 63, "hw:%s", info->items[i].value);
+      snprintf (this->props.device, 63, "%s", info->items[i].value);
     }
   }
 

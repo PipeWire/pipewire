@@ -346,10 +346,6 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
     asprintf (&error, "error get input port info: %d", res);
     goto error;
   }
-  if (pinos_log_level_enabled (SPA_LOG_LEVEL_DEBUG)) {
-    spa_debug_port_info (oinfo, this->core->type.map);
-    spa_debug_port_info (iinfo, this->core->type.map);
-  }
 
   in_flags = iinfo->flags;
   out_flags = oinfo->flags;
@@ -388,8 +384,15 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
   } else if (out_state == SPA_NODE_STATE_READY && in_state > SPA_NODE_STATE_READY) {
     in_flags &= ~SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
     out_flags &= ~SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
-  } else
+  } else {
+    pinos_log_debug ("link %p: delay allocation, state %d %d", this, in_state, out_state);
     return SPA_RESULT_OK;
+  }
+
+  if (pinos_log_level_enabled (SPA_LOG_LEVEL_DEBUG)) {
+    spa_debug_port_info (oinfo, this->core->type.map);
+    spa_debug_port_info (iinfo, this->core->type.map);
+  }
 
   if (impl->buffers == NULL) {
     SpaAllocParam *in_alloc, *out_alloc;

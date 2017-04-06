@@ -590,8 +590,13 @@ handle_id_prop (SpaPODProp *prop, const char *key, GstCaps *res)
   const char * str;
   uint32_t *id = SPA_POD_CONTENTS (SpaPODProp, prop);
   uint32_t i, n_items = SPA_POD_PROP_N_VALUES (prop);
+  uint32_t flags;
 
-  switch (prop->body.flags & SPA_POD_PROP_RANGE_MASK) {
+  flags = prop->body.flags;
+  if (!(flags & SPA_POD_PROP_FLAG_UNSET))
+    flags &= ~SPA_POD_PROP_RANGE_MASK;
+
+  switch (flags) {
     case SPA_POD_PROP_RANGE_NONE:
       if (!(str = spa_type_map_get_type (type.map, id[0])))
         return;
@@ -624,8 +629,13 @@ handle_int_prop (SpaPODProp *prop, const char *key, GstCaps *res)
 {
   uint32_t *val = SPA_POD_CONTENTS (SpaPODProp, prop);
   uint32_t i, n_items = SPA_POD_PROP_N_VALUES (prop);
+  uint32_t flags;
 
-  switch (prop->body.flags & SPA_POD_PROP_RANGE_MASK) {
+  flags = prop->body.flags;
+  if (!(flags & SPA_POD_PROP_FLAG_UNSET))
+    flags &= ~SPA_POD_PROP_RANGE_MASK;
+
+  switch (flags) {
     case SPA_POD_PROP_RANGE_NONE:
       gst_caps_set_simple (res, key, G_TYPE_INT, val[0], NULL);
       break;
@@ -661,8 +671,13 @@ handle_rect_prop (SpaPODProp *prop, const char *width, const char *height, GstCa
 {
   SpaRectangle *rect = SPA_POD_CONTENTS (SpaPODProp, prop);
   uint32_t i, n_items = SPA_POD_PROP_N_VALUES (prop);
+  uint32_t flags;
 
-  switch (prop->body.flags & SPA_POD_PROP_RANGE_MASK) {
+  flags = prop->body.flags;
+  if (!(flags & SPA_POD_PROP_FLAG_UNSET))
+    flags &= ~SPA_POD_PROP_RANGE_MASK;
+
+  switch (flags) {
     case SPA_POD_PROP_RANGE_NONE:
       gst_caps_set_simple (res, width, G_TYPE_INT, rect[0].width,
                                 height, G_TYPE_INT, rect[0].height, NULL);
@@ -707,8 +722,13 @@ handle_fraction_prop (SpaPODProp *prop, const char *key, GstCaps *res)
 {
   SpaFraction *fract = SPA_POD_CONTENTS (SpaPODProp, prop);
   uint32_t i, n_items = SPA_POD_PROP_N_VALUES (prop);
+  uint32_t flags;
 
-  switch (prop->body.flags & SPA_POD_PROP_RANGE_MASK) {
+  flags = prop->body.flags;
+  if (!(flags & SPA_POD_PROP_FLAG_UNSET))
+    flags &= ~SPA_POD_PROP_RANGE_MASK;
+
+  switch (flags) {
     case SPA_POD_PROP_RANGE_NONE:
       gst_caps_set_simple (res, key, GST_TYPE_FRACTION, fract[0].num, fract[0].denom, NULL);
       break;

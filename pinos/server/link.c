@@ -79,7 +79,7 @@ static SpaResult
 do_negotiate (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
 {
   PinosLinkImpl *impl = SPA_CONTAINER_OF (this, PinosLinkImpl, this);
-  SpaResult res = SPA_RESULT_ERROR;
+  SpaResult res = SPA_RESULT_ERROR, res2;
   SpaFormat *format;
   char *error = NULL;
 
@@ -88,11 +88,6 @@ do_negotiate (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
 
   pinos_link_update_state (this, PINOS_LINK_STATE_NEGOTIATING, NULL);
 
-  if (out_state > SPA_NODE_STATE_READY && this->output->node->state == PINOS_NODE_STATE_IDLE) {
-    pinos_node_set_state (this->output->node, PINOS_NODE_STATE_SUSPENDED);
-    out_state = SPA_NODE_STATE_CONFIGURE;
-  }
-
   format = pinos_core_find_format (this->core,
                                    this->output,
                                    this->input,
@@ -100,8 +95,16 @@ do_negotiate (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
                                    0,
                                    NULL,
                                    &error);
-  if (format == NULL) {
+  if (format == NULL)
     goto error;
+
+  if (out_state > SPA_NODE_STATE_CONFIGURE && this->output->node->state == PINOS_NODE_STATE_IDLE) {
+    pinos_node_set_state (this->output->node, PINOS_NODE_STATE_SUSPENDED);
+    out_state = SPA_NODE_STATE_CONFIGURE;
+  }
+  if (in_state > SPA_NODE_STATE_CONFIGURE && this->input->node->state == PINOS_NODE_STATE_IDLE) {
+    pinos_node_set_state (this->input->node, PINOS_NODE_STATE_SUSPENDED);
+    in_state = SPA_NODE_STATE_CONFIGURE;
   }
 
   pinos_log_debug ("link %p: doing set format", this);
@@ -119,17 +122,19 @@ do_negotiate (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       goto error;
     }
     pinos_work_queue_add (impl->work, this->output->node, res, NULL, NULL);
-  } else if (in_state == SPA_NODE_STATE_CONFIGURE) {
+  }
+  if (in_state == SPA_NODE_STATE_CONFIGURE) {
     pinos_log_debug ("link %p: doing set format on input", this);
-    if ((res = spa_node_port_set_format (this->input->node->node,
-                                         SPA_DIRECTION_INPUT,
-                                         this->input->port_id,
-                                         SPA_PORT_FORMAT_FLAG_NEAREST,
-                                         format)) < 0) {
-      asprintf (&error, "error set input format: %d", res);
+    if ((res2 = spa_node_port_set_format (this->input->node->node,
+                                          SPA_DIRECTION_INPUT,
+                                          this->input->port_id,
+                                          SPA_PORT_FORMAT_FLAG_NEAREST,
+                                          format)) < 0) {
+      asprintf (&error, "error set input format: %d", res2);
       goto error;
     }
-    pinos_work_queue_add (impl->work, this->input->node, res, NULL, NULL);
+    pinos_work_queue_add (impl->work, this->input->node, res2, NULL, NULL);
+    res = res2 != SPA_RESULT_OK ? res2 : res;
   }
   return res;
 

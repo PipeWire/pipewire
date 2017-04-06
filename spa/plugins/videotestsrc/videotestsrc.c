@@ -325,6 +325,7 @@ static void
 update_state (SpaVideoTestSrc *this, SpaNodeState state)
 {
   this->node.state = state;
+  spa_log_info (this->log, "videotestsrc %p: update state %d", this, state);
 }
 
 static SpaResult

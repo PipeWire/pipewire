@@ -260,7 +260,6 @@ open_card (SpaALSAMonitor *this, struct udev_device *dev)
 
   snprintf (this->card_name, 63, "hw:%s", str);
 
-  printf ("open card %s\n", this->card_name);
   if ((err = snd_ctl_open (&this->ctl_hndl, this->card_name, 0)) < 0) {
     spa_log_error (this->log, "can't open control for card %s: %s", this->card_name, snd_strerror (err));
     return err;
@@ -279,7 +278,6 @@ get_next_device (SpaALSAMonitor *this, struct udev_device *dev)
   snd_ctl_card_info_t *card_info;
 
   if (this->stream_idx == -1) {
-    printf ("next device %d\n", this->dev_idx);
     if ((err = snd_ctl_pcm_next_device (this->ctl_hndl, &this->dev_idx)) < 0) {
       spa_log_error (this->log, "error iterating devices: %s", snd_strerror (err));
       return err;
@@ -295,7 +293,6 @@ get_next_device (SpaALSAMonitor *this, struct udev_device *dev)
   snd_pcm_info_set_subdevice (dev_info, 0);
 
 again:
-  printf ("stream %d\n", this->stream_idx);
   switch (this->stream_idx++) {
     case 0:
       snd_pcm_info_set_stream (dev_info, SND_PCM_STREAM_PLAYBACK);
@@ -318,7 +315,6 @@ again:
     goto again;
 
   fill_item (this, card_info, dev_info, dev);
-  printf ("got item\n");
 
   return 0;
 }

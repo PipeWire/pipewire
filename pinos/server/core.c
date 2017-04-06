@@ -551,6 +551,11 @@ pinos_core_find_format (PinosCore       *core,
   out_state = output->node->node->state;
   in_state = input->node->node->state;
 
+  if (out_state > SPA_NODE_STATE_CONFIGURE && output->node->state == PINOS_NODE_STATE_IDLE)
+    out_state = SPA_NODE_STATE_CONFIGURE;
+  if (in_state > SPA_NODE_STATE_CONFIGURE && input->node->state == PINOS_NODE_STATE_IDLE)
+    in_state = SPA_NODE_STATE_CONFIGURE;
+
   if (in_state == SPA_NODE_STATE_CONFIGURE && out_state > SPA_NODE_STATE_CONFIGURE) {
     /* only input needs format */
     if ((res = spa_node_port_get_format (output->node->node,

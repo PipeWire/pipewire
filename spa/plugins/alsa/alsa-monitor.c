@@ -119,6 +119,7 @@ fill_item (SpaALSAMonitor *this,
   SpaPODBuilder b = SPA_POD_BUILDER_INIT (this->item_buffer, sizeof (this->item_buffer));
   const SpaHandleFactory *factory = NULL;
   SpaPODFrame f[3];
+  char card_name[64];
 
   switch (snd_pcm_info_get_stream (dev_info)) {
     case SND_PCM_STREAM_PLAYBACK:
@@ -143,6 +144,8 @@ fill_item (SpaALSAMonitor *this,
   if (!(name && *name))
     name = "Unknown";
 
+  snprintf (card_name, 63, "%s,%d", this->card_name, snd_pcm_info_get_device (dev_info));
+
   spa_pod_builder_add (&b,
     SPA_POD_TYPE_OBJECT, &f[0], 0, this->type.monitor.MonitorItem,
       SPA_POD_PROP (&f[1], this->type.monitor.id,      0, SPA_POD_TYPE_STRING,  1, name),
@@ -159,7 +162,7 @@ fill_item (SpaALSAMonitor *this,
         SPA_POD_TYPE_STRUCT, 1, &f[2], 0);
 
   spa_pod_builder_add (&b,
-      SPA_POD_TYPE_STRING, "alsa.card", SPA_POD_TYPE_STRING, this->card_name,
+      SPA_POD_TYPE_STRING, "alsa.card", SPA_POD_TYPE_STRING, card_name,
       SPA_POD_TYPE_STRING, "alsa.card.id", SPA_POD_TYPE_STRING, snd_ctl_card_info_get_id (card_info),
       SPA_POD_TYPE_STRING, "alsa.card.components", SPA_POD_TYPE_STRING, snd_ctl_card_info_get_components (card_info),
       SPA_POD_TYPE_STRING, "alsa.card.driver", SPA_POD_TYPE_STRING, snd_ctl_card_info_get_driver (card_info),
@@ -278,6 +281,7 @@ get_next_device (SpaALSAMonitor *this, struct udev_device *dev)
   snd_ctl_card_info_t *card_info;
 
   if (this->stream_idx == -1) {
+next_device:
     if ((err = snd_ctl_pcm_next_device (this->ctl_hndl, &this->dev_idx)) < 0) {
       spa_log_error (this->log, "error iterating devices: %s", snd_strerror (err));
       return err;
@@ -301,7 +305,7 @@ again:
       snd_pcm_info_set_stream (dev_info, SND_PCM_STREAM_CAPTURE);
       break;
     default:
-      return -1;
+      goto next_device;
   }
 
   snd_ctl_card_info_alloca (&card_info);

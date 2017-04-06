@@ -127,10 +127,12 @@ spa_alsa_enum_format (SpaALSAState    *state,
   SpaPODProp *prop;
   SpaFormat *fmt;
   SpaResult res;
+  bool opened;
 
   if (index == 1)
     return SPA_RESULT_ENUM_END;
 
+  opened = state->opened;
   if ((err = spa_alsa_open (state)) < 0)
     return SPA_RESULT_ERROR;
 
@@ -204,6 +206,8 @@ spa_alsa_enum_format (SpaALSAState    *state,
     return res;
 
   *format = SPA_POD_BUILDER_DEREF (&b, 0, SpaFormat);
+  if (!opened)
+    spa_alsa_close (state);
 
   return SPA_RESULT_OK;
 }

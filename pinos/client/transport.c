@@ -57,7 +57,7 @@ transport_area_get_size (PinosTransportArea *area)
 }
 
 static void
-transport_setup_area (void *p, PinosTransport *trans)
+transport_setup_area (void *p, PinosTransport *trans, bool reset)
 {
   PinosTransportArea *a;
   int i;
@@ -66,36 +66,37 @@ transport_setup_area (void *p, PinosTransport *trans)
   p = SPA_MEMBER (p, sizeof (PinosTransportArea), SpaPortIO);
 
   trans->inputs = p;
-  for (i = 0; i < a->max_inputs; i++) {
-    trans->inputs[i].state = SPA_PORT_STATE_FLAG_NONE;
-    trans->inputs[i].flags = SPA_PORT_IO_FLAG_NONE;
-    trans->inputs[i].buffer_id = SPA_ID_INVALID;
-    trans->inputs[i].status = SPA_RESULT_OK;
-  }
   p = SPA_MEMBER (p, a->max_inputs * sizeof (SpaPortIO), void);
 
   trans->outputs = p;
-  for (i = 0; i < a->max_outputs; i++) {
-    trans->outputs[i].state = SPA_PORT_STATE_FLAG_NONE;
-    trans->outputs[i].flags = SPA_PORT_IO_FLAG_NONE;
-    trans->outputs[i].buffer_id = SPA_ID_INVALID;
-    trans->outputs[i].status = SPA_RESULT_OK;
-  }
   p = SPA_MEMBER (p, a->max_outputs * sizeof (SpaPortIO), void);
 
   trans->input_buffer = p;
-  spa_ringbuffer_init (trans->input_buffer, INPUT_BUFFER_SIZE);
   p = SPA_MEMBER (p, sizeof (SpaRingbuffer), void);
 
   trans->input_data = p;
   p = SPA_MEMBER (p, INPUT_BUFFER_SIZE, void);
 
   trans->output_buffer = p;
-  spa_ringbuffer_init (trans->output_buffer, OUTPUT_BUFFER_SIZE);
   p = SPA_MEMBER (p, sizeof (SpaRingbuffer), void);
 
   trans->output_data = p;
   p = SPA_MEMBER (p, OUTPUT_BUFFER_SIZE, void);
+
+  if (reset) {
+    for (i = 0; i < a->max_inputs; i++) {
+      trans->inputs[i].flags = 0;
+      trans->inputs[i].buffer_id = SPA_ID_INVALID;
+      trans->inputs[i].status = SPA_RESULT_OK;
+    }
+    for (i = 0; i < a->max_outputs; i++) {
+      trans->outputs[i].flags = 0;
+      trans->outputs[i].buffer_id = SPA_ID_INVALID;
+      trans->outputs[i].status = SPA_RESULT_OK;
+    }
+    spa_ringbuffer_init (trans->input_buffer, INPUT_BUFFER_SIZE);
+    spa_ringbuffer_init (trans->output_buffer, OUTPUT_BUFFER_SIZE);
+  }
 }
 
 PinosTransport *
@@ -127,7 +128,7 @@ pinos_transport_new (uint32_t max_inputs,
                         &impl->mem);
 
   memcpy (impl->mem.ptr, &area, sizeof (PinosTransportArea));
-  transport_setup_area (impl->mem.ptr, trans);
+  transport_setup_area (impl->mem.ptr, trans, true);
 
   return trans;
 }
@@ -158,7 +159,7 @@ pinos_transport_new_from_info (PinosTransportInfo *info)
 
   impl->offset = info->offset;
 
-  transport_setup_area (impl->mem.ptr, trans);
+  transport_setup_area (impl->mem.ptr, trans, false);
 
   tmp = trans->output_buffer;
   trans->output_buffer = trans->input_buffer;

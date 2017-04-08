@@ -428,16 +428,16 @@ on_context_data (SpaSource *source,
         continue;
       }
       if (opcode >= proxy->iface->n_events) {
-        pinos_log_error ("context %p: invalid method %u", this, opcode);
+        pinos_log_error ("context %p: invalid method %u for %u", this, opcode, id);
         continue;
       }
 
       demarshal = proxy->iface->events;
       if (demarshal[opcode]) {
         if (!demarshal[opcode] (proxy, message, size))
-          pinos_log_error ("context %p: invalid message received %u", this, opcode);
+          pinos_log_error ("context %p: invalid message received %u for %u", this, opcode, id);
       } else
-        pinos_log_error ("context %p: function %d not implemented", this, opcode);
+        pinos_log_error ("context %p: function %d not implemented on %u", this, opcode, id);
 
     }
   }

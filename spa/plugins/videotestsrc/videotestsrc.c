@@ -85,6 +85,7 @@ typedef struct {
 } SpaVideoTestSrcProps;
 
 #define MAX_BUFFERS 16
+#define MAX_PORTS 1
 
 typedef struct _VTSBuffer VTSBuffer;
 
@@ -137,7 +138,8 @@ struct _SpaVideoTestSrc {
   SpaList empty;
 };
 
-#define CHECK_PORT(this,d,p)  ((d) == SPA_DIRECTION_OUTPUT && (p) == 0)
+#define CHECK_PORT_NUM(this,d,p)  ((d) == SPA_DIRECTION_OUTPUT && (p) < MAX_PORTS)
+#define CHECK_PORT(this,d,p)      (CHECK_PORT_NUM(this,d,p) && this->io)
 
 #define DEFAULT_LIVE true
 #define DEFAULT_PATTERN pattern_smpte_snow
@@ -276,6 +278,7 @@ videotestsrc_make_buffer (SpaVideoTestSrc *this)
 
   if (spa_list_is_empty (&this->empty)) {
     set_timer (this, false);
+    spa_log_error (this->log, "videotestsrc %p: out of buffers", this);
     return SPA_RESULT_OUT_OF_BUFFERS;
   }
   b = spa_list_first (&this->empty, VTSBuffer, link);
@@ -321,13 +324,6 @@ videotestsrc_on_output (SpaSource *source)
     send_have_output (this);
 }
 
-static void
-update_state (SpaVideoTestSrc *this, SpaNodeState state)
-{
-  this->node.state = state;
-  spa_log_info (this->log, "videotestsrc %p: update state %d", this, state);
-}
-
 static SpaResult
 spa_videotestsrc_node_send_command (SpaNode    *node,
                                     SpaCommand *command)
@@ -361,7 +357,6 @@ spa_videotestsrc_node_send_command (SpaNode    *node,
 
     this->started = true;
     set_timer (this, true);
-    update_state (this, SPA_NODE_STATE_STREAMING);
   }
   else if (SPA_COMMAND_TYPE (command) == this->type.command_node.Pause) {
     if (!this->have_format)
@@ -375,7 +370,6 @@ spa_videotestsrc_node_send_command (SpaNode    *node,
 
     this->started = false;
     set_timer (this, false);
-    update_state (this, SPA_NODE_STATE_PAUSED);
   }
   else
     return SPA_RESULT_NOT_IMPLEMENTED;
@@ -592,10 +586,7 @@ spa_videotestsrc_node_port_set_format (SpaNode            *node,
     this->params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
     this->info.extra = NULL;
-    update_state (this, SPA_NODE_STATE_READY);
   }
-  else
-    update_state (this, SPA_NODE_STATE_CONFIGURE);
 
   return SPA_RESULT_OK;
 }
@@ -715,12 +706,6 @@ spa_videotestsrc_node_port_use_buffers (SpaNode         *node,
   }
   this->n_buffers = n_buffers;
 
-  if (this->n_buffers > 0) {
-    update_state (this, SPA_NODE_STATE_PAUSED);
-  } else {
-    update_state (this, SPA_NODE_STATE_READY);
-  }
-
   return SPA_RESULT_OK;
 }
 
@@ -759,7 +744,7 @@ spa_videotestsrc_node_port_set_io (SpaNode       *node,
 
   this = SPA_CONTAINER_OF (node, SpaVideoTestSrc, node);
 
-  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
+  spa_return_val_if_fail (CHECK_PORT_NUM (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   this->io = io;
 
@@ -839,7 +824,6 @@ spa_videotestsrc_node_process_output (SpaNode *node)
 static const SpaNode videotestsrc_node = {
   sizeof (SpaNode),
   NULL,
-  SPA_NODE_STATE_INIT,
   spa_videotestsrc_node_get_props,
   spa_videotestsrc_node_set_props,
   spa_videotestsrc_node_send_command,
@@ -1014,8 +998,6 @@ videotestsrc_init (const SpaHandleFactory  *factory,
                      SPA_PORT_INFO_FLAG_NO_REF;
   if (this->props.live)
     this->info.flags |= SPA_PORT_INFO_FLAG_LIVE;
-
-  this->node.state = SPA_NODE_STATE_CONFIGURE;
 
   spa_log_info (this->log, "videotestsrc %p: initialized, async=%d", this, this->async);
 

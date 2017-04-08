@@ -336,12 +336,6 @@ audiotestsrc_on_output (SpaSource *source)
     send_have_output (this);
 }
 
-static void
-update_state (SpaAudioTestSrc *this, SpaNodeState state)
-{
-  this->node.state = state;
-}
-
 static SpaResult
 spa_audiotestsrc_node_send_command (SpaNode    *node,
                                     SpaCommand *command)
@@ -375,7 +369,6 @@ spa_audiotestsrc_node_send_command (SpaNode    *node,
 
     this->started = true;
     set_timer (this, true);
-    update_state (this, SPA_NODE_STATE_STREAMING);
   }
   else if (SPA_COMMAND_TYPE (command) == this->type.command_node.Pause) {
     if (!this->have_format)
@@ -389,7 +382,6 @@ spa_audiotestsrc_node_send_command (SpaNode    *node,
 
     this->started = false;
     set_timer (this, false);
-    update_state (this, SPA_NODE_STATE_PAUSED);
   }
   else
     return SPA_RESULT_NOT_IMPLEMENTED;
@@ -605,10 +597,7 @@ spa_audiotestsrc_node_port_set_format (SpaNode            *node,
     this->params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
     this->info.extra = NULL;
-    update_state (this, SPA_NODE_STATE_READY);
   }
-  else
-    update_state (this, SPA_NODE_STATE_CONFIGURE);
 
   return SPA_RESULT_OK;
 }
@@ -729,12 +718,6 @@ spa_audiotestsrc_node_port_use_buffers (SpaNode         *node,
   }
   this->n_buffers = n_buffers;
 
-  if (this->n_buffers > 0) {
-    update_state (this, SPA_NODE_STATE_PAUSED);
-  } else {
-    update_state (this, SPA_NODE_STATE_READY);
-  }
-
   return SPA_RESULT_OK;
 }
 
@@ -853,7 +836,6 @@ spa_audiotestsrc_node_process_output (SpaNode *node)
 static const SpaNode audiotestsrc_node = {
   sizeof (SpaNode),
   NULL,
-  SPA_NODE_STATE_INIT,
   spa_audiotestsrc_node_get_props,
   spa_audiotestsrc_node_set_props,
   spa_audiotestsrc_node_send_command,
@@ -1028,8 +1010,6 @@ audiotestsrc_init (const SpaHandleFactory  *factory,
                      SPA_PORT_INFO_FLAG_NO_REF;
   if (this->props.live)
     this->info.flags |= SPA_PORT_INFO_FLAG_LIVE;
-
-  this->node.state = SPA_NODE_STATE_CONFIGURE;
 
   spa_log_info (this->log, "audiotestsrc %p: initialized, async=%d", this, this->async);
 

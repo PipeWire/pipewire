@@ -113,6 +113,7 @@ add_item (PinosSpaMonitor *this, SpaMonitorItem *item)
   mitem->id = strdup (id);
   mitem->node = pinos_node_new (impl->core,
                                 name,
+                                false,
                                 node_iface,
                                 clock_iface,
                                 props);

@@ -33,6 +33,9 @@ typedef struct
 {
   PinosNode this;
 
+#define STATE_IN  0
+#define STATE_OUT 1
+  int state;
   PinosWorkQueue *work;
 
   bool async_init;
@@ -41,13 +44,14 @@ typedef struct
 static void init_complete (PinosNode *this);
 
 static void
-update_port_ids (PinosNode *node, bool create)
+update_port_ids (PinosNode *node)
 {
   PinosNodeImpl *impl = SPA_CONTAINER_OF (node, PinosNodeImpl, this);
   uint32_t *input_port_ids, *output_port_ids;
   uint32_t n_input_ports, n_output_ports, max_input_ports, max_output_ports;
   uint32_t i;
   SpaList *ports;
+  SpaResult res;
 
   if (node->node == NULL)
     return;
@@ -58,6 +62,15 @@ update_port_ids (PinosNode *node, bool create)
                         &n_output_ports,
                         &max_output_ports);
 
+  node->transport = pinos_transport_new (max_input_ports,
+                                         max_output_ports);
+
+  node->input_port_map = calloc (max_input_ports, sizeof (PinosPort *));
+  node->output_port_map = calloc (max_output_ports, sizeof (PinosPort *));
+
+  node->transport->area->n_inputs = n_input_ports;
+  node->transport->area->n_outputs = n_output_ports;
+
   input_port_ids = alloca (sizeof (uint32_t) * n_input_ports);
   output_port_ids = alloca (sizeof (uint32_t) * n_output_ports);
 
@@ -66,9 +79,6 @@ update_port_ids (PinosNode *node, bool create)
                          input_port_ids,
                          max_output_ports,
                          output_port_ids);
-
-  node->input_port_map = realloc (node->input_port_map, sizeof (PinosPort *) * max_input_ports);
-  node->output_port_map = realloc (node->output_port_map, sizeof (PinosPort *) * max_output_ports);
 
   pinos_log_debug ("node %p: update_port ids %u/%u, %u/%u", node,
       n_input_ports, max_input_ports, n_output_ports, max_output_ports);
@@ -88,6 +98,10 @@ update_port_ids (PinosNode *node, bool create)
       pinos_log_debug ("node %p: input port added %d", node, input_port_ids[i]);
 
       np = pinos_port_new (node, PINOS_DIRECTION_INPUT, input_port_ids[i]);
+      np->io = &node->transport->inputs[np->port_id];
+      if ((res = spa_node_port_set_io (node->node, SPA_DIRECTION_INPUT, np->port_id, np->io)) < 0)
+        pinos_log_warn ("node %p: can't set input IO %d", node, res);
+
       spa_list_insert (ports, &np->link);
       ports = np->link.next;
       node->input_port_map[np->port_id] = np;
@@ -123,6 +137,10 @@ update_port_ids (PinosNode *node, bool create)
       pinos_log_debug ("node %p: output port added %d", node, output_port_ids[i]);
 
       np = pinos_port_new (node, PINOS_DIRECTION_OUTPUT, output_port_ids[i]);
+      np->io = &node->transport->outputs[np->port_id];
+      if ((res = spa_node_port_set_io (node->node, SPA_DIRECTION_OUTPUT, np->port_id, np->io)) < 0)
+        pinos_log_warn ("node %p: can't set output IO %d", node, res);
+
       spa_list_insert (ports, &np->link);
       ports = np->link.next;
       node->output_port_map[np->port_id] = np;
@@ -143,17 +161,6 @@ update_port_ids (PinosNode *node, bool create)
     }
   }
 
-  node->transport = pinos_transport_new (max_input_ports,
-                                         max_output_ports);
-
-  node->transport->area->n_inputs = n_input_ports;
-  node->transport->area->n_outputs = n_output_ports;
-
-  for (i = 0; i < max_input_ports; i++)
-    spa_node_port_set_io (node->node, SPA_DIRECTION_INPUT, i, &node->transport->inputs[i]);
-  for (i = 0; i < max_output_ports; i++)
-    spa_node_port_set_io (node->node, SPA_DIRECTION_OUTPUT, i, &node->transport->outputs[i]);
-
   pinos_signal_emit (&node->transport_changed, node);
 }
 
@@ -161,9 +168,6 @@ static SpaResult
 pause_node (PinosNode *this)
 {
   SpaResult res;
-
-  if (this->node->state <= SPA_NODE_STATE_PAUSED)
-    return SPA_RESULT_OK;
 
   pinos_log_debug ("node %p: pause node", this);
   {
@@ -267,7 +271,8 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
   else if (SPA_EVENT_TYPE (event) == this->core->type.event_node.NeedInput) {
     SpaResult res;
     int i;
-    bool processed = false;
+
+    this->sched_state = STATE_IN;
 
     for (i = 0; i < this->transport->area->n_inputs; i++) {
       PinosLink *link;
@@ -276,8 +281,7 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
       SpaPortIO *po;
 
       pi = &this->transport->inputs[i];
-      if (pi->buffer_id != SPA_ID_INVALID)
-        continue;
+      pinos_log_trace ("node %p: need input port %d, %d", this, i, pi->buffer_id);
 
       inport = this->input_port_map[i];
       spa_list_for_each (link, &inport->rt.links, rt.input_link) {
@@ -287,23 +291,58 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
         outport = link->rt.output;
         po = &outport->node->transport->outputs[outport->port_id];
 
-        if (po->buffer_id != SPA_ID_INVALID) {
-          processed = true;
+        if (outport->node->sched_state == STATE_IN) {
+          /* pull */
+          *po = *pi;
+          pi->buffer_id = SPA_ID_INVALID;
+
+          pinos_log_trace ("node %p: process output %p %d", outport->node, po, po->buffer_id);
+
+          res = spa_node_process_output (outport->node->node);
+
+          if (res == SPA_RESULT_NEED_INPUT) {
+            on_node_event (outport->node->node, event, outport->node);
+            if (outport->node->sched_state == STATE_OUT)
+              goto push;
+          }
+          else if (res == SPA_RESULT_HAVE_OUTPUT) {
+            outport->node->sched_state = STATE_OUT;
+          }
+          else
+            pinos_log_warn ("node %p: got process output %d", outport->node, res);
+        } else {
+          /* push */
+push:
           *pi = *po;
+
+          pinos_log_trace ("node %p: process output %p %d", outport->node, po, po->buffer_id);
+
+          res = spa_node_process_output (outport->node->node);
+
+          if (res == SPA_RESULT_HAVE_OUTPUT)
+            outport->node->sched_state = STATE_OUT;
+          else if (res == SPA_RESULT_NEED_INPUT)
+            outport->node->sched_state = STATE_IN;
+          else if (res < 0)
+            pinos_log_warn ("node %p: got process output %d", this, res);
         }
-        if ((res = spa_node_process_output (outport->node->node)) < 0)
-          pinos_log_warn ("node %p: got process output %d", outport->node, res);
       }
-    }
-    if (processed) {
-      if ((res = spa_node_process_input (this->node)) < 0)
-        pinos_log_warn ("node %p: got process input %d", this, res);
+      if (pi->buffer_id != SPA_ID_INVALID) {
+        pinos_log_trace ("node %p: process input", this);
+        res = spa_node_process_input (this->node);
+
+        if (res == SPA_RESULT_HAVE_OUTPUT)
+          this->sched_state = STATE_OUT;
+        else if (res == SPA_RESULT_NEED_INPUT)
+          this->sched_state = STATE_IN;
+        else if (res < 0)
+          pinos_log_warn ("node %p: got process input %d", this, res);
+      }
     }
   }
   else if (SPA_EVENT_TYPE (event) == this->core->type.event_node.HaveOutput) {
     SpaResult res;
     int i;
-    bool processed = false;
 
     for (i = 0; i < this->transport->area->n_outputs; i++) {
       PinosLink *link;
@@ -327,13 +366,36 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
         if ((res = spa_node_process_input (inport->node->node)) < 0)
           pinos_log_warn ("node %p: got process input %d", inport->node, res);
       }
-      processed = true;
     }
-    if (processed) {
-      if ((res = spa_node_process_output (this->node)) < 0)
-        pinos_log_warn ("node %p: got process output %d", this, res);
+    if ((res = spa_node_process_output (this->node)) < 0)
+      pinos_log_warn ("node %p: got process output %d", this, res);
+
+  }
+#if 0
+  else if (SPA_EVENT_TYPE (event) == this->core->type.event_node.ReuseBuffer) {
+    SpaEventNodeReuseBuffer *rb = (SpaEventNodeReuseBuffer *) event;
+    int i;
+
+    pinos_log_trace ("node %p: reuse buffer %u", this, rb->body.buffer_id.value);
+
+    for (i = 0; i < this->transport->area->n_inputs; i++) {
+      PinosLink *link;
+      PinosPort *inport, *outport;
+      SpaPortIO *po;
+
+      inport = this->input_port_map[i];
+      spa_list_for_each (link, &inport->rt.links, rt.input_link) {
+        if (link->rt.input == NULL || link->rt.output == NULL)
+          continue;
+
+        outport = link->rt.output;
+        po = &outport->node->transport->outputs[outport->port_id];
+
+        po->buffer_id = rb->body.buffer_id.value;
+      }
     }
   }
+#endif
   else if (SPA_EVENT_TYPE (event) == this->core->type.event_node.RequestClockUpdate) {
     send_clock_update (this);
   }
@@ -440,7 +502,7 @@ init_complete (PinosNode *this)
 {
   PinosNodeImpl *impl = SPA_CONTAINER_OF (this, PinosNodeImpl, this);
 
-  update_port_ids (this, false);
+  update_port_ids (this);
   pinos_log_debug ("node %p: init completed", this);
   impl->async_init = false;
 
@@ -466,6 +528,7 @@ pinos_node_set_data_loop (PinosNode        *node,
 PinosNode *
 pinos_node_new (PinosCore       *core,
                 const char      *name,
+                bool             async,
                 SpaNode         *node,
                 SpaClock        *clock,
                 PinosProperties *properties)
@@ -525,15 +588,15 @@ pinos_node_new (PinosCore       *core,
                             this->node->info->items[i].value);
   }
 
-  if (this->node->state > SPA_NODE_STATE_INIT) {
-    init_complete (this);
-  } else {
-    impl->async_init = true;
+  impl->async_init = async;
+  if (async) {
     pinos_work_queue_add (impl->work,
                           this,
                           SPA_RESULT_RETURN_ASYNC (0),
                           (PinosWorkFunc) init_complete,
                           NULL);
+  } else {
+    init_complete (this);
   }
 
   return this;
@@ -668,21 +731,27 @@ PinosPort *
 pinos_node_get_free_port (PinosNode       *node,
                           PinosDirection   direction)
 {
-  uint32_t n_ports, max_ports;
+  uint32_t *n_ports, max_ports;
   SpaList *ports;
-  PinosPort *port = NULL, *p;
+  PinosPort *port = NULL, *p, **portmap;
+  SpaPortIO *io;
+  int i;
 
   if (direction == PINOS_DIRECTION_INPUT) {
     max_ports = node->transport->area->max_inputs;
-    n_ports = node->transport->area->n_inputs;
+    n_ports = &node->transport->area->n_inputs;
     ports = &node->input_ports;
+    portmap = node->input_port_map;
+    io = node->transport->inputs;
   } else {
     max_ports = node->transport->area->max_outputs;
-    n_ports = node->transport->area->n_outputs;
+    n_ports = &node->transport->area->n_outputs;
     ports = &node->output_ports;
+    portmap = node->output_port_map;
+    io = node->transport->outputs;
   }
 
-  pinos_log_debug ("node %p: direction %d max %u, n %u", node, direction, max_ports, n_ports);
+  pinos_log_debug ("node %p: direction %d max %u, n %u", node, direction, max_ports, *n_ports);
 
   spa_list_for_each (p, ports, link) {
     if (spa_list_is_empty (&p->links)) {
@@ -691,9 +760,26 @@ pinos_node_get_free_port (PinosNode       *node,
     }
   }
 
-  if (port == NULL && !spa_list_is_empty (ports))
-    port = spa_list_first (ports, PinosPort, link);
-
+  if (port == NULL) {
+    /* no port, can we create one ? */
+    if (*n_ports < max_ports) {
+      for (i = 0; i < max_ports && port == NULL; i++) {
+        if (portmap[i] == NULL) {
+          pinos_log_debug ("node %p: creating port direction %d %u", node, direction, i);
+          port = portmap[i] = pinos_port_new (node, direction, i);
+          port->io = &io[i];
+          (*n_ports)++;
+          spa_node_add_port (node->node, direction, i);
+          spa_node_port_set_io (node->node, direction, i, port->io);
+        }
+      }
+    } else {
+      /* for output we can reuse an existing port */
+      if (direction == PINOS_DIRECTION_OUTPUT && !spa_list_is_empty (ports)) {
+        port = spa_list_first (ports, PinosPort, link);
+      }
+    }
+  }
   return port;
 
 }
@@ -714,6 +800,22 @@ on_state_complete (PinosNode *node,
   pinos_node_update_state (node, state, error);
 }
 
+static void
+node_activate (PinosNode *this)
+{
+  PinosPort *port;
+
+  spa_list_for_each (port, &this->input_ports, link) {
+    PinosLink *link;
+    spa_list_for_each (link, &port->links, input_link)
+      pinos_link_activate (link);
+  }
+  spa_list_for_each (port, &this->output_ports, link) {
+    PinosLink *link;
+    spa_list_for_each (link, &port->links, output_link)
+      pinos_link_activate (link);
+  }
+}
 /**
  * pinos_node_set_state:
  * @node: a #PinosNode
@@ -747,6 +849,7 @@ pinos_node_set_state (PinosNode      *node,
       break;
 
     case PINOS_NODE_STATE_RUNNING:
+      node_activate (node);
       send_clock_update (node);
       res = start_node (node);
       break;

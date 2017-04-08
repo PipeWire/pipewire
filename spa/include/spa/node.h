@@ -29,25 +29,6 @@ typedef struct _SpaNode SpaNode;
 #define SPA_TYPE__Node                        SPA_TYPE_INTERFACE_BASE "Node"
 #define SPA_TYPE_NODE_BASE                    SPA_TYPE__Node ":"
 
-/**
- * SpaNodeState:
- * @SPA_NODE_STATE_INIT: the node is initializing
- * @SPA_NODE_STATE_CONFIGURE: the node needs at least one port format
- * @SPA_NODE_STATE_READY: the node is ready for memory allocation
- * @SPA_NODE_STATE_PAUSED: the node is paused
- * @SPA_NODE_STATE_STREAMING: the node is streaming
- * @SPA_NODE_STATE_ERROR: the node is in error
- */
-typedef enum {
-  SPA_NODE_STATE_ERROR       = -1,
-  SPA_NODE_STATE_INIT        = 0,
-  SPA_NODE_STATE_CONFIGURE,
-  SPA_NODE_STATE_READY,
-  SPA_NODE_STATE_PAUSED,
-  SPA_NODE_STATE_STREAMING,
-} SpaNodeState;
-
-
 #include <spa/defs.h>
 #include <spa/plugin.h>
 #include <spa/props.h>
@@ -72,10 +53,6 @@ typedef enum {
   SPA_PORT_FORMAT_FLAG_NEAREST          = (1 << 2),
 } SpaPortFormatFlags;
 
-#define SPA_PORT_STATE_FLAG_NONE                  0
-#define SPA_PORT_STATE_FLAG_HAVE_FORMAT           (1 << 0)
-#define SPA_PORT_STATE_FLAG_HAVE_BUFFERS          (1 << 1)
-
 typedef struct {
   uint64_t          offset;
   uint32_t          min_size;
@@ -86,24 +63,20 @@ typedef struct {
  * SpaPortIO:
  * @state: the port state
  * @flags: extra flags
- * @buffer_id: a buffer id will be set
+ * @buffer_id: a buffer id
  * @status: the status
- * @range: requested output range
- * @event: output event
+ * @range: requested range
+ * @event: event
  *
- * Output information for a port on a node. This is allocated
- * by the host and configured on all output ports for which output is
- * requested.
+ * IO information for a port on a node. This is allocated
+ * by the host and configured on all ports for which IO is requested.
  */
 typedef struct {
-  uint32_t       state;
-#define SPA_PORT_IO_FLAG_NONE        0
-#define SPA_PORT_IO_FLAG_RANGE       (1 << 0)
+#define SPA_PORT_IO_FLAG_RANGE                  (1 << 0)        /* a range is present */
   uint32_t       flags;
   uint32_t       buffer_id;
   uint32_t       status;
   SpaRange       range;
-  SpaEvent      *event;
 } SpaPortIO;
 
 /**
@@ -142,6 +115,13 @@ typedef enum {
  *
  */
 typedef struct {
+#define SPA_PORT_STATE_ERROR           -1
+#define SPA_PORT_STATE_INIT             0
+#define SPA_PORT_STATE_CONFIGURE        1
+#define SPA_PORT_STATE_READY            2
+#define SPA_PORT_STATE_PAUSED           3
+#define SPA_PORT_STATE_STREAMING        4
+  uint32_t            state;
   SpaPortInfoFlags    flags;
   uint32_t            n_params;
   SpaAllocParam     **params;
@@ -181,12 +161,6 @@ struct _SpaNode {
    * Extra information about the node
    */
   const SpaDict * info;
-  /**
-   * SpaNode::state:
-   *
-   * The current state of the node
-   */
-  SpaNodeState state;
   /**
    * SpaNode::get_props:
    * @node: a #SpaNode

@@ -32,12 +32,6 @@
 
 typedef struct _SpaALSAState SpaALSASource;
 
-static void
-update_state (SpaALSASource *this, SpaNodeState state)
-{
-  this->node.state = state;
-}
-
 static const char default_device[] = "hw:0";
 static const uint32_t default_min_latency = 1024;
 
@@ -123,9 +117,7 @@ do_start (SpaLoop        *loop,
   SpaALSASource *this = user_data;
   SpaResult res;
 
-  if (SPA_RESULT_IS_OK (res = spa_alsa_start (this, false))) {
-    update_state (this, SPA_NODE_STATE_STREAMING);
-  }
+  res = spa_alsa_start (this, false);
 
   if (async) {
     SpaEventNodeAsyncComplete ac = SPA_EVENT_NODE_ASYNC_COMPLETE_INIT (this->type.event_node.AsyncComplete,
@@ -151,9 +143,7 @@ do_pause (SpaLoop        *loop,
   SpaALSASource *this = user_data;
   SpaResult res;
 
-  if (SPA_RESULT_IS_OK (res = spa_alsa_pause (this, false))) {
-    update_state (this, SPA_NODE_STATE_PAUSED);
-  }
+  res = spa_alsa_pause (this, false);
 
   if (async) {
     SpaEventNodeAsyncComplete ac = SPA_EVENT_NODE_ASYNC_COMPLETE_INIT (this->type.event_node.AsyncComplete,
@@ -390,10 +380,6 @@ spa_alsa_source_node_port_set_format (SpaNode            *node,
     this->params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
     this->info.extra = NULL;
-
-    update_state (this, SPA_NODE_STATE_READY);
-  } else {
-    update_state (this, SPA_NODE_STATE_CONFIGURE);
   }
 
   return SPA_RESULT_OK;
@@ -517,11 +503,6 @@ spa_alsa_source_node_port_use_buffers (SpaNode         *node,
   }
   this->n_buffers = n_buffers;
 
-  if (this->n_buffers > 0)
-    update_state (this, SPA_NODE_STATE_PAUSED);
-  else
-    update_state (this, SPA_NODE_STATE_READY);
-
   return SPA_RESULT_OK;
 }
 
@@ -609,13 +590,9 @@ spa_alsa_source_node_port_send_command (SpaNode          *node,
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   if (SPA_COMMAND_TYPE (command) == this->type.command_node.Pause) {
-    if (SPA_RESULT_IS_OK (res = spa_alsa_pause (this, false))) {
-      update_state (this, SPA_NODE_STATE_PAUSED);
-    }
+    res = spa_alsa_pause (this, false);
   } else if (SPA_COMMAND_TYPE (command) == this->type.command_node.Start) {
-    if (SPA_RESULT_IS_OK (res = spa_alsa_start (this, false))) {
-      update_state (this, SPA_NODE_STATE_STREAMING);
-    }
+    res = spa_alsa_start (this, false);
   } else
     res = SPA_RESULT_NOT_IMPLEMENTED;
 
@@ -648,7 +625,6 @@ spa_alsa_source_node_process_output (SpaNode *node)
 static const SpaNode alsasource_node = {
   sizeof (SpaNode),
   NULL,
-  SPA_NODE_STATE_INIT,
   spa_alsa_source_node_get_props,
   spa_alsa_source_node_set_props,
   spa_alsa_source_node_send_command,
@@ -800,9 +776,6 @@ alsa_source_init (const SpaHandleFactory  *factory,
       snprintf (this->props.device, 63, "%s", info->items[i].value);
     }
   }
-
-  update_state (this, SPA_NODE_STATE_CONFIGURE);
-
   return SPA_RESULT_OK;
 }
 

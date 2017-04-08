@@ -76,14 +76,14 @@ pinos_link_update_state (PinosLink      *link,
 }
 
 static SpaResult
-do_negotiate (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
+do_negotiate (PinosLink *this, uint32_t in_state, uint32_t out_state)
 {
   PinosLinkImpl *impl = SPA_CONTAINER_OF (this, PinosLinkImpl, this);
   SpaResult res = SPA_RESULT_ERROR, res2;
   SpaFormat *format;
   char *error = NULL;
 
-  if (in_state != SPA_NODE_STATE_CONFIGURE && out_state != SPA_NODE_STATE_CONFIGURE)
+  if (in_state != SPA_PORT_STATE_CONFIGURE && out_state != SPA_PORT_STATE_CONFIGURE)
     return SPA_RESULT_OK;
 
   pinos_link_update_state (this, PINOS_LINK_STATE_NEGOTIATING, NULL);
@@ -98,20 +98,20 @@ do_negotiate (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
   if (format == NULL)
     goto error;
 
-  if (out_state > SPA_NODE_STATE_CONFIGURE && this->output->node->state == PINOS_NODE_STATE_IDLE) {
+  if (out_state > SPA_PORT_STATE_CONFIGURE && this->output->node->state == PINOS_NODE_STATE_IDLE) {
     pinos_node_set_state (this->output->node, PINOS_NODE_STATE_SUSPENDED);
-    out_state = SPA_NODE_STATE_CONFIGURE;
+    out_state = SPA_PORT_STATE_CONFIGURE;
   }
-  if (in_state > SPA_NODE_STATE_CONFIGURE && this->input->node->state == PINOS_NODE_STATE_IDLE) {
+  if (in_state > SPA_PORT_STATE_CONFIGURE && this->input->node->state == PINOS_NODE_STATE_IDLE) {
     pinos_node_set_state (this->input->node, PINOS_NODE_STATE_SUSPENDED);
-    in_state = SPA_NODE_STATE_CONFIGURE;
+    in_state = SPA_PORT_STATE_CONFIGURE;
   }
 
   pinos_log_debug ("link %p: doing set format", this);
   if (pinos_log_level_enabled (SPA_LOG_LEVEL_DEBUG))
     spa_debug_format (format, this->core->type.map);
 
-  if (out_state == SPA_NODE_STATE_CONFIGURE) {
+  if (out_state == SPA_PORT_STATE_CONFIGURE) {
     pinos_log_debug ("link %p: doing set format on output", this);
     if ((res = spa_node_port_set_format (this->output->node->node,
                                          SPA_DIRECTION_OUTPUT,
@@ -121,9 +121,10 @@ do_negotiate (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       asprintf (&error, "error set output format: %d", res);
       goto error;
     }
+    this->output->state = SPA_PORT_STATE_READY;
     pinos_work_queue_add (impl->work, this->output->node, res, NULL, NULL);
   }
-  if (in_state == SPA_NODE_STATE_CONFIGURE) {
+  if (in_state == SPA_PORT_STATE_CONFIGURE) {
     pinos_log_debug ("link %p: doing set format on input", this);
     if ((res2 = spa_node_port_set_format (this->input->node->node,
                                           SPA_DIRECTION_INPUT,
@@ -133,6 +134,7 @@ do_negotiate (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       asprintf (&error, "error set input format: %d", res2);
       goto error;
     }
+    this->input->state = SPA_PORT_STATE_READY;
     pinos_work_queue_add (impl->work, this->input->node, res2, NULL, NULL);
     res = res2 != SPA_RESULT_OK ? res2 : res;
   }
@@ -322,7 +324,7 @@ alloc_buffers (PinosLink      *this,
 }
 
 static SpaResult
-do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
+do_allocation (PinosLink *this, uint32_t in_state, uint32_t out_state)
 {
   PinosLinkImpl *impl = SPA_CONTAINER_OF (this, PinosLinkImpl, this);
   SpaResult res;
@@ -330,7 +332,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
   SpaPortInfoFlags in_flags, out_flags;
   char *error = NULL;
 
-  if (in_state != SPA_NODE_STATE_READY && out_state != SPA_NODE_STATE_READY)
+  if (in_state != SPA_PORT_STATE_READY && out_state != SPA_PORT_STATE_READY)
     return SPA_RESULT_OK;
 
   pinos_link_update_state (this, PINOS_LINK_STATE_ALLOCATING, NULL);
@@ -361,7 +363,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
     this->input->node->live = true;
   }
 
-  if (in_state == SPA_NODE_STATE_READY && out_state == SPA_NODE_STATE_READY) {
+  if (in_state == SPA_PORT_STATE_READY && out_state == SPA_PORT_STATE_READY) {
     if ((out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) &&
         (in_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS)) {
       out_flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
@@ -383,10 +385,10 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       res = SPA_RESULT_ERROR;
       goto error;
     }
-  } else if (in_state == SPA_NODE_STATE_READY && out_state > SPA_NODE_STATE_READY) {
+  } else if (in_state == SPA_PORT_STATE_READY && out_state > SPA_PORT_STATE_READY) {
     out_flags &= ~SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
     in_flags &= ~SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
-  } else if (out_state == SPA_NODE_STATE_READY && in_state > SPA_NODE_STATE_READY) {
+  } else if (out_state == SPA_PORT_STATE_READY && in_state > SPA_PORT_STATE_READY) {
     in_flags &= ~SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
     out_flags &= ~SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
   } else {
@@ -505,6 +507,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
         asprintf (&error, "error alloc output buffers: %d", res);
         goto error;
       }
+      this->output->state = SPA_PORT_STATE_PAUSED;
       pinos_work_queue_add (impl->work, this->output->node, res, NULL, NULL);
       this->output->buffers = impl->buffers;
       this->output->n_buffers = impl->n_buffers;
@@ -521,6 +524,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
         asprintf (&error, "error alloc input buffers: %d", res);
         goto error;
       }
+      this->input->state = SPA_PORT_STATE_PAUSED;
       pinos_work_queue_add (impl->work, this->input->node, res, NULL, NULL);
       this->input->buffers = impl->buffers;
       this->input->n_buffers = impl->n_buffers;
@@ -541,6 +545,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       asprintf (&error, "error use input buffers: %d", res);
       goto error;
     }
+    this->input->state = SPA_PORT_STATE_PAUSED;
     pinos_work_queue_add (impl->work, this->input->node, res, NULL, NULL);
     this->input->buffers = impl->buffers;
     this->input->n_buffers = impl->n_buffers;
@@ -556,6 +561,7 @@ do_allocation (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
       asprintf (&error, "error use output buffers: %d", res);
       goto error;
     }
+    this->output->state = SPA_PORT_STATE_PAUSED;
     pinos_work_queue_add (impl->work, this->output->node, res, NULL, NULL);
     this->output->buffers = impl->buffers;
     this->output->n_buffers = impl->n_buffers;
@@ -581,24 +587,26 @@ error:
 }
 
 static SpaResult
-do_start (PinosLink *this, SpaNodeState in_state, SpaNodeState out_state)
+do_start (PinosLink *this, uint32_t in_state, uint32_t out_state)
 {
   SpaResult res = SPA_RESULT_OK;
   PinosLinkImpl *impl = SPA_CONTAINER_OF (this, PinosLinkImpl, this);
 
-  if (in_state < SPA_NODE_STATE_PAUSED || out_state < SPA_NODE_STATE_PAUSED)
+  if (in_state < SPA_PORT_STATE_PAUSED || out_state < SPA_PORT_STATE_PAUSED)
     return SPA_RESULT_OK;
-  else if (in_state == SPA_NODE_STATE_STREAMING && out_state == SPA_NODE_STATE_STREAMING) {
+  else if (in_state == SPA_PORT_STATE_STREAMING && out_state == SPA_PORT_STATE_STREAMING) {
     pinos_link_update_state (this, PINOS_LINK_STATE_RUNNING, NULL);
   } else {
     pinos_link_update_state (this, PINOS_LINK_STATE_PAUSED, NULL);
 
-    if (in_state == SPA_NODE_STATE_PAUSED) {
+    if (in_state == SPA_PORT_STATE_PAUSED) {
       res = pinos_node_set_state (this->input->node, PINOS_NODE_STATE_RUNNING);
       pinos_work_queue_add (impl->work, this->input->node, res, NULL, NULL);
+      this->input->state = SPA_PORT_STATE_STREAMING;
     }
-    if (out_state == SPA_NODE_STATE_PAUSED) {
+    if (out_state == SPA_PORT_STATE_PAUSED) {
       res = pinos_node_set_state (this->output->node, PINOS_NODE_STATE_RUNNING);
+      this->output->state = SPA_PORT_STATE_STREAMING;
       pinos_work_queue_add (impl->work, this->input->node, res, NULL, NULL);
     }
   }
@@ -611,7 +619,7 @@ check_states (PinosLink *this,
               SpaResult  res)
 {
   PinosLinkImpl *impl = SPA_CONTAINER_OF (this, PinosLinkImpl, this);
-  SpaNodeState in_state, out_state;
+  uint32_t in_state, out_state;
 
 again:
   if (this->state == PINOS_LINK_STATE_ERROR)
@@ -624,8 +632,8 @@ again:
       this->output->node->state == PINOS_NODE_STATE_ERROR)
     return SPA_RESULT_ERROR;
 
-  in_state = this->input->node->node->state;
-  out_state = this->output->node->node->state;
+  in_state = this->input->state;
+  out_state = this->output->state;
 
   pinos_log_debug ("link %p: input state %d, output state %d", this, in_state, out_state);
 
@@ -638,9 +646,9 @@ again:
   if ((res = do_start (this, in_state, out_state)) != SPA_RESULT_OK)
     goto exit;
 
-  if (this->input->node->node->state != in_state)
+  if (this->input->state != in_state)
     goto again;
-  if (this->output->node->node->state != out_state)
+  if (this->output->state != out_state)
     goto again;
 
   return SPA_RESULT_OK;
@@ -737,6 +745,7 @@ pinos_link_activate (PinosLink *this)
 {
   PinosLinkImpl *impl = SPA_CONTAINER_OF (this, PinosLinkImpl, this);
 
+  pinos_log_debug ("link %p: activate", this);
   pinos_work_queue_add (impl->work,
                         this,
                         SPA_RESULT_WAIT_SYNC,
@@ -902,6 +911,7 @@ clear_port_buffers (PinosLink *link, PinosPort *port)
                                port->direction,
                                port->port_id,
                                NULL, 0);
+    port->state = SPA_PORT_STATE_READY;
     port->buffers = NULL;
     port->n_buffers = 0;
   }

@@ -624,7 +624,7 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
 
   if (!gst_buffer_pool_is_active (GST_BUFFER_POOL_CAST (pinossink->pool))) {
     GstStructure *config = gst_buffer_pool_get_config (GST_BUFFER_POOL_CAST (pinossink->pool));
-    gst_buffer_pool_config_set_params (config, caps, 8192, 8, 16);
+    gst_buffer_pool_config_set_params (config, caps, 8192, 16, 32);
     gst_buffer_pool_set_config (GST_BUFFER_POOL_CAST (pinossink->pool), config);
     gst_buffer_pool_set_active (GST_BUFFER_POOL_CAST (pinossink->pool), TRUE);
   }

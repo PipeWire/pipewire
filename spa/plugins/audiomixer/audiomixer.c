@@ -25,6 +25,7 @@
 #include <spa/type-map.h>
 #include <spa/node.h>
 #include <spa/audio/format-utils.h>
+#include <spa/format-builder.h>
 #include <lib/props.h>
 
 #define MAX_BUFFERS     64
@@ -40,14 +41,14 @@ typedef struct {
 } MixerBuffer;
 
 typedef struct {
-  bool valid;
+  SpaPortIO   *io;
+
   bool have_format;
-  SpaAudioInfo format;
   SpaPortInfo info;
 
-  SpaPortIO   *io;
   MixerBuffer  buffers[MAX_BUFFERS];
   uint32_t     n_buffers;
+
   SpaList      queue;
   size_t       queued_offset;
   size_t       queued_bytes;
@@ -55,9 +56,11 @@ typedef struct {
 
 typedef struct {
   uint32_t node;
+  uint32_t format;
   SpaTypeMediaType media_type;
   SpaTypeMediaSubtype media_subtype;
   SpaTypeFormatAudio format_audio;
+  SpaTypeAudioFormat audio_format;
   SpaTypeCommandNode command_node;
 } Type;
 
@@ -65,9 +68,11 @@ static inline void
 init_type (Type *type, SpaTypeMap *map)
 {
   type->node = spa_type_map_get_id (map, SPA_TYPE__Node);
+  type->format = spa_type_map_get_id (map, SPA_TYPE__Format);
   spa_type_media_type_map (map, &type->media_type);
   spa_type_media_subtype_map (map, &type->media_subtype);
   spa_type_format_audio_map (map, &type->format_audio);
+  spa_type_audio_format_map (map, &type->audio_format);
   spa_type_command_node_map (map, &type->command_node);
 }
 
@@ -87,20 +92,36 @@ struct _SpaAudioMixer {
   SpaAudioMixerPort in_ports[MAX_PORTS];
   SpaAudioMixerPort out_ports[1];
 
+  bool have_format;
+  SpaAudioInfo format;
+  uint8_t format_buffer[4096];
+
+  bool started;
 #define STATE_ERROR     0
 #define STATE_IN        1
 #define STATE_OUT       2
   int state;
 };
 
-#define CHECK_FREE_IN_PORT(this,d,p) ((d) == SPA_DIRECTION_INPUT && (p) < MAX_PORTS && !this->in_ports[(p)].valid)
-#define CHECK_IN_PORT(this,d,p)      ((d) == SPA_DIRECTION_INPUT && (p) < MAX_PORTS && this->in_ports[(p)].valid)
+#define CHECK_PORT_NUM(this,d,p)     (((d) == SPA_DIRECTION_INPUT && (p) < MAX_PORTS) || \
+                                      ((d) == SPA_DIRECTION_OUTPUT && (p) == 0))
+#define CHECK_FREE_IN_PORT(this,d,p) ((d) == SPA_DIRECTION_INPUT && (p) < MAX_PORTS && !this->in_ports[(p)].io)
+#define CHECK_IN_PORT(this,d,p)      ((d) == SPA_DIRECTION_INPUT && (p) < MAX_PORTS && this->in_ports[(p)].io)
 #define CHECK_OUT_PORT(this,d,p)     ((d) == SPA_DIRECTION_OUTPUT && (p) == 0)
 #define CHECK_PORT(this,d,p)         (CHECK_OUT_PORT(this,d,p) || CHECK_IN_PORT (this,d,p))
 
-enum {
-  PROP_ID_LAST,
-};
+#define PROP(f,key,type,...)                                                    \
+          SPA_POD_PROP (f,key,0,type,1,__VA_ARGS__)
+#define PROP_MM(f,key,type,...)                                                 \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
+#define PROP_U_MM(f,key,type,...)                                               \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |                         \
+                              SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
+#define PROP_EN(f,key,type,n,...)                                               \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
+#define PROP_U_EN(f,key,type,n,...)                                             \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |                         \
+                              SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
 
 static SpaResult
 spa_audiomixer_node_get_props (SpaNode       *node,
@@ -116,12 +137,6 @@ spa_audiomixer_node_set_props (SpaNode         *node,
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static void
-update_state (SpaAudioMixer *this, SpaNodeState state)
-{
-  this->node.state = state;
-}
-
 static SpaResult
 spa_audiomixer_node_send_command (SpaNode    *node,
                                   SpaCommand *command)
@@ -134,10 +149,10 @@ spa_audiomixer_node_send_command (SpaNode    *node,
   this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
 
   if (SPA_COMMAND_TYPE (command) == this->type.command_node.Start) {
-    update_state (this, SPA_NODE_STATE_STREAMING);
+    this->started = true;
   }
   else if (SPA_COMMAND_TYPE (command) == this->type.command_node.Pause) {
-    update_state (this, SPA_NODE_STATE_PAUSED);
+    this->started = false;
   }
   else
     return SPA_RESULT_NOT_IMPLEMENTED;
@@ -199,7 +214,7 @@ spa_audiomixer_node_get_port_ids (SpaNode       *node,
 
   if (input_ids) {
     for (i = 0, idx = 0; i < MAX_PORTS && idx < n_input_ports; i++) {
-      if (this->in_ports[i].valid)
+      if (this->in_ports[i].io)
         input_ids[idx++] = i;
     }
   }
@@ -222,7 +237,6 @@ spa_audiomixer_node_add_port (SpaNode        *node,
 
   spa_return_val_if_fail (CHECK_FREE_IN_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
-  this->in_ports[port_id].valid = true;
   this->port_count++;
   spa_list_init (&this->in_ports[port_id].queue);
 
@@ -247,13 +261,12 @@ spa_audiomixer_node_remove_port (SpaNode        *node,
 
   spa_return_val_if_fail (CHECK_IN_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
-  this->in_ports[port_id].valid = false;
-  this->port_count--;
-
   io = this->in_ports[port_id].io;
-  if (io && io->buffer_id) {
+  if (io && io->buffer_id)
     this->port_queued--;
-  }
+
+  this->in_ports[port_id].io = NULL;
+  this->port_count--;
 
   return SPA_RESULT_OK;
 }
@@ -268,6 +281,12 @@ spa_audiomixer_node_port_enum_formats (SpaNode         *node,
                                        uint32_t         index)
 {
   SpaAudioMixer *this;
+  SpaResult res;
+  SpaFormat *fmt;
+  uint8_t buffer[256];
+  SpaPODBuilder b = { NULL, };
+  SpaPODFrame f[2];
+  uint32_t count, match;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (format != NULL, SPA_RESULT_INVALID_ARGUMENTS);
@@ -276,13 +295,30 @@ spa_audiomixer_node_port_enum_formats (SpaNode         *node,
 
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
-  switch (index) {
+  count = match = filter ? 0 : index;
+
+next:
+  spa_pod_builder_init (&b, buffer, sizeof (buffer));
+
+  switch (count++) {
     case 0:
+      spa_pod_builder_format (&b, &f[0], this->type.format,
+          this->type.media_type.audio, this->type.media_subtype.raw,
+          PROP      (&f[1], this->type.format_audio.format,   SPA_POD_TYPE_ID,  this->type.audio_format.S16),
+          PROP_U_MM (&f[1], this->type.format_audio.rate,     SPA_POD_TYPE_INT, 44100, 1, INT32_MAX),
+          PROP_U_MM (&f[1], this->type.format_audio.channels, SPA_POD_TYPE_INT, 2,     1, INT32_MAX));
       break;
     default:
       return SPA_RESULT_ENUM_END;
   }
-  *format = NULL;
+  fmt = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
+
+  spa_pod_builder_init (&b, this->format_buffer, sizeof (this->format_buffer));
+
+  if ((res = spa_format_filter (fmt, filter, &b)) != SPA_RESULT_OK || match++ != index)
+    goto next;
+
+  *format = SPA_POD_BUILDER_DEREF (&b, 0, SpaFormat);
 
   return SPA_RESULT_OK;
 }
@@ -330,15 +366,9 @@ spa_audiomixer_node_port_set_format (SpaNode            *node,
     if (!spa_format_audio_raw_parse (format, &info.info.raw, &this->type.format_audio))
       return SPA_RESULT_INVALID_MEDIA_TYPE;
 
-    port->format = info;
+    this->format = info;
     port->have_format = true;
   }
-
-  if (port->have_format) {
-    update_state (this, SPA_NODE_STATE_READY);
-  }
-  else
-    update_state (this, SPA_NODE_STATE_CONFIGURE);
 
   return SPA_RESULT_OK;
 }
@@ -351,6 +381,8 @@ spa_audiomixer_node_port_get_format (SpaNode          *node,
 {
   SpaAudioMixer *this;
   SpaAudioMixerPort *port;
+  SpaPODBuilder b = { NULL, };
+  SpaPODFrame f[2];
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (format != NULL, SPA_RESULT_INVALID_ARGUMENTS);
@@ -364,7 +396,13 @@ spa_audiomixer_node_port_get_format (SpaNode          *node,
   if (!port->have_format)
     return SPA_RESULT_NO_FORMAT;
 
-  *format = NULL;
+  spa_pod_builder_init (&b, this->format_buffer, sizeof (this->format_buffer));
+  spa_pod_builder_format (&b, &f[0], this->type.format,
+         this->type.media_type.audio, this->type.media_subtype.raw,
+         PROP (&f[1], this->type.format_audio.format,   SPA_POD_TYPE_ID,  this->format.info.raw.format),
+         PROP (&f[1], this->type.format_audio.rate,     SPA_POD_TYPE_INT, this->format.info.raw.rate),
+         PROP (&f[1], this->type.format_audio.channels, SPA_POD_TYPE_INT, this->format.info.raw.channels));
+  *format = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
 
   return SPA_RESULT_OK;
 }
@@ -453,15 +491,11 @@ spa_audiomixer_node_port_use_buffers (SpaNode         *node,
       default:
         break;
     }
-    spa_list_insert (port->queue.prev, &b->link);
+    if (!b->outstanding)
+      spa_list_insert (port->queue.prev, &b->link);
   }
   port->n_buffers = n_buffers;
 
-  if (port->n_buffers > 0) {
-    update_state (this, SPA_NODE_STATE_PAUSED);
-  } else {
-    update_state (this, SPA_NODE_STATE_READY);
-  }
   return SPA_RESULT_OK;
 }
 
@@ -490,7 +524,7 @@ spa_audiomixer_node_port_set_io (SpaNode      *node,
 
   this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
 
-  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
+  spa_return_val_if_fail (CHECK_PORT_NUM (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   port = direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
   port->io = io;
@@ -504,11 +538,15 @@ recycle_buffer (SpaAudioMixer *this, uint32_t id)
   SpaAudioMixerPort *port = &this->out_ports[0];
 
   MixerBuffer *b = &port->buffers[id];
-  if (b->outstanding) {
-    spa_list_insert (port->queue.prev, &b->link);
-    b->outstanding = false;
-    spa_log_trace (this->log, "audiomixer %p: recycle buffer %d", this, id);
+
+  if (!b->outstanding) {
+    spa_log_warn (this->log, "audiomixer %p: buffer %d not outstanding", this, id);
+    return;
   }
+
+  spa_list_insert (port->queue.prev, &b->link);
+  b->outstanding = false;
+  spa_log_trace (this->log, "audiomixer %p: recycle buffer %d", this, id);
 }
 
 static SpaResult
@@ -542,7 +580,7 @@ static void
 add_port_data (SpaAudioMixer *this, MixerBuffer *out, SpaAudioMixerPort *port, int layer)
 {
   int i;
-  uint16_t *op, *ip;
+  int16_t *op, *ip;
   size_t os, is, chunk;
   MixerBuffer *b = spa_list_first (&port->queue, MixerBuffer, link);
 
@@ -559,7 +597,7 @@ add_port_data (SpaAudioMixer *this, MixerBuffer *out, SpaAudioMixerPort *port, i
   }
   else {
     for (i = 0; i < chunk / 2; i++)
-      op[i] += ip[i];
+      op[i] = SPA_CLAMP (op[i] + ip[i], INT16_MIN, INT16_MAX);
   }
 
   port->queued_offset += chunk;
@@ -596,56 +634,66 @@ spa_audiomixer_node_process_input (SpaNode *node)
     SpaAudioMixerPort *port = &this->in_ports[i];
     SpaPortIO *input;
 
-    if (!port->valid || (input = port->io) == NULL)
+    if ((input = port->io) == NULL)
       continue;
 
     if (input->buffer_id != SPA_ID_INVALID) {
       MixerBuffer *b = &port->buffers[input->buffer_id];
 
+      if (!b->outstanding) {
+        spa_log_warn (this->log, "audiomixer %p: buffer was not outstanding %d", this, input->buffer_id);
+        continue;
+      }
+
       if (spa_list_is_empty (&port->queue)) {
         port->queued_bytes = 0;
         port->queued_offset = 0;
       }
-      spa_log_trace (this->log, "audiomixer %p: queue buffer %d on port %p", this, b->outbuf->id, port);
       spa_list_insert (port->queue.prev, &b->link);
       b->outstanding = false;
       port->queued_bytes += b->outbuf->datas[0].chunk->size;
+      spa_log_trace (this->log, "audiomixer %p: queue buffer %d on port %p %zd %zd",
+          this, b->outbuf->id, port, port->queued_bytes, min_queued);
       input->buffer_id = SPA_ID_INVALID;
     }
-    if (min_queued == -1 || port->queued_bytes < min_queued)
+    if (min_queued == -1 || (port->queued_bytes > 0 && port->queued_bytes < min_queued))
       min_queued = port->queued_bytes;
 
     input->status = SPA_RESULT_OK;
   }
 
-  if (min_queued != -1) {
+  if (min_queued > 0) {
     MixerBuffer *outbuf;
     SpaPortIO *output;
-    int j;
+    int layer;
 
     if (spa_list_is_empty (&outport->queue))
       return SPA_RESULT_OUT_OF_BUFFERS;
 
     outbuf = spa_list_first (&outport->queue, MixerBuffer, link);
     spa_list_remove (&outbuf->link);
-    spa_log_trace (this->log, "audiomixer %p: dequeue output buffer %d", this, outbuf->outbuf->id);
+    spa_log_trace (this->log, "audiomixer %p: dequeue output buffer %d %zd", this, outbuf->outbuf->id, min_queued);
     outbuf->outstanding = true;
     outbuf->outbuf->datas[0].chunk->offset = 0;
     outbuf->outbuf->datas[0].chunk->size = min_queued;
     outbuf->outbuf->datas[0].chunk->stride = 0;
 
-    for (j = 0, i = 0; i < MAX_PORTS; i++) {
+    for (layer = 0, i = 0; i < MAX_PORTS; i++) {
       SpaAudioMixerPort *port = &this->in_ports[i];
 
-      if (!port->valid || port->io == NULL ||
-          spa_list_is_empty (&port->queue))
+      if (port->io == NULL)
         continue;
 
-      add_port_data (this, outbuf, port, j++);
+      if (spa_list_is_empty (&port->queue)) {
+        spa_log_warn (this->log, "audiomixer %p: underrun stream %d", this, i);
+        continue;
+      }
+
+      add_port_data (this, outbuf, port, layer++);
     }
     output = outport->io;
     output->buffer_id = outbuf->outbuf->id;
-    output->state = SPA_RESULT_OK;
+    output->status = SPA_RESULT_OK;
     this->state = STATE_OUT;
   }
   return this->state == STATE_IN ? SPA_RESULT_NEED_INPUT : SPA_RESULT_HAVE_OUTPUT;
@@ -672,7 +720,7 @@ spa_audiomixer_node_process_output (SpaNode *node)
   for (i = 0; i < MAX_PORTS; i++) {
     SpaPortIO *input;
 
-    if (!this->in_ports[i].valid || (input = this->in_ports[i].io) == NULL)
+    if ((input = this->in_ports[i].io) == NULL)
       continue;
 
     input->flags = output->flags;
@@ -690,7 +738,6 @@ spa_audiomixer_node_process_output (SpaNode *node)
 static const SpaNode audiomixer_node = {
   sizeof (SpaNode),
   NULL,
-  SPA_NODE_STATE_INIT,
   spa_audiomixer_node_get_props,
   spa_audiomixer_node_set_props,
   spa_audiomixer_node_send_command,
@@ -772,7 +819,7 @@ spa_audiomixer_init (const SpaHandleFactory *factory,
 
   this->node = audiomixer_node;
 
-  this->out_ports[0].valid = true;
+  this->out_ports[0].io = NULL;
   this->out_ports[0].info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
                                   SPA_PORT_INFO_FLAG_NO_REF;
   spa_list_init (&this->out_ports[0].queue);

@@ -61,7 +61,7 @@ typedef struct
 {
   PinosStream this;
 
-  SpaNodeState node_state;
+  uint32_t port_state;
 
   uint32_t n_possible_formats;
   SpaFormat **possible_formats;
@@ -224,7 +224,7 @@ pinos_stream_new (PinosContext    *context,
 
   this->state = PINOS_STREAM_STATE_UNCONNECTED;
 
-  impl->node_state = SPA_NODE_STATE_INIT;
+  impl->port_state = SPA_PORT_STATE_INIT;
   pinos_array_init (&impl->mem_ids, 64);
   pinos_array_ensure_size (&impl->mem_ids, sizeof (MemId) * 64);
   pinos_array_init (&impl->buffer_ids, 32);
@@ -304,7 +304,7 @@ pinos_stream_destroy (PinosStream *stream)
 }
 
 static void
-add_node_update (PinosStream *stream, uint32_t change_mask, bool flush)
+add_node_update (PinosStream *stream, uint32_t change_mask)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
   uint32_t max_input_ports = 0, max_output_ports = 0;
@@ -322,19 +322,7 @@ add_node_update (PinosStream *stream, uint32_t change_mask, bool flush)
 }
 
 static void
-add_state_change (PinosStream *stream, SpaNodeState state, bool flush)
-{
-  PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
-
-  if (impl->node_state != state) {
-    impl->node_state = state;
-    pinos_client_node_do_state_change (impl->node_proxy,
-                                       state);
-  }
-}
-
-static void
-add_port_update (PinosStream *stream, uint32_t change_mask, bool flush)
+add_port_update (PinosStream *stream, uint32_t change_mask)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
 
@@ -384,7 +372,7 @@ send_have_output (PinosStream *stream)
 }
 
 static void
-add_request_clock_update (PinosStream *stream, bool flush)
+add_request_clock_update (PinosStream *stream)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
   SpaEventNodeRequestClockUpdate rcu =
@@ -397,8 +385,7 @@ add_request_clock_update (PinosStream *stream, bool flush)
 static void
 add_async_complete (PinosStream  *stream,
                     uint32_t      seq,
-                    SpaResult     res,
-                    bool          flush)
+                    SpaResult     res)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
   SpaEventNodeAsyncComplete ac =
@@ -413,14 +400,12 @@ do_node_init (PinosStream *stream)
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
 
   add_node_update (stream, PINOS_MESSAGE_NODE_UPDATE_MAX_INPUTS |
-                           PINOS_MESSAGE_NODE_UPDATE_MAX_OUTPUTS,
-                           false);
+                           PINOS_MESSAGE_NODE_UPDATE_MAX_OUTPUTS);
 
   impl->port_info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
   add_port_update (stream, PINOS_MESSAGE_PORT_UPDATE_POSSIBLE_FORMATS |
-                           PINOS_MESSAGE_PORT_UPDATE_INFO,
-                           false);
-  add_state_change (stream, SPA_NODE_STATE_CONFIGURE, true);
+                           PINOS_MESSAGE_PORT_UPDATE_INFO);
+  add_async_complete (stream, 0, SPA_RESULT_OK);
 }
 
 static void
@@ -428,8 +413,7 @@ on_timeout (SpaSource *source,
             void      *data)
 {
   PinosStream *stream = data;
-
-  add_request_clock_update (stream, true);
+  add_request_clock_update (stream);
 }
 
 static MemId *
@@ -606,14 +590,12 @@ handle_node_command (PinosStream      *stream,
                           impl->rtsocket_source,
                           SPA_IO_ERR | SPA_IO_HUP);
 
-    add_state_change (stream, SPA_NODE_STATE_PAUSED, false);
-    add_async_complete (stream, seq, SPA_RESULT_OK, true);
+    add_async_complete (stream, seq, SPA_RESULT_OK);
     stream_set_state (stream, PINOS_STREAM_STATE_PAUSED, NULL);
   }
   else if (SPA_COMMAND_TYPE (command) == context->type.command_node.Start) {
     pinos_log_debug ("stream %p: start %d %d", stream, seq, impl->direction);
-    add_state_change (stream, SPA_NODE_STATE_STREAMING, false);
-    add_async_complete (stream, seq, SPA_RESULT_OK, true);
+    add_async_complete (stream, seq, SPA_RESULT_OK);
 
     pinos_loop_update_io (stream->context->loop,
                           impl->rtsocket_source,
@@ -640,7 +622,7 @@ handle_node_command (PinosStream      *stream,
   }
   else {
     pinos_log_warn ("unhandled node command %d", SPA_COMMAND_TYPE (command));
-    add_async_complete (stream, seq, SPA_RESULT_NOT_IMPLEMENTED, true);
+    add_async_complete (stream, seq, SPA_RESULT_NOT_IMPLEMENTED);
   }
   return true;
 }
@@ -854,18 +836,14 @@ client_node_use_buffers (void                  *object,
     pinos_signal_emit (&stream->add_buffer, stream, bid->id);
   }
 
-  if (n_buffers) {
-    add_state_change (stream, SPA_NODE_STATE_PAUSED, false);
-  } else {
-    clear_mems (stream);
-    add_state_change (stream, SPA_NODE_STATE_READY, false);
-  }
-  add_async_complete (stream, seq, SPA_RESULT_OK, true);
+  add_async_complete (stream, seq, SPA_RESULT_OK);
 
   if (n_buffers)
     stream_set_state (stream, PINOS_STREAM_STATE_PAUSED, NULL);
-  else
+  else {
+    clear_mems (stream);
     stream_set_state (stream, PINOS_STREAM_STATE_READY, NULL);
+  }
 }
 
 static void
@@ -1031,19 +1009,15 @@ pinos_stream_finish_format (PinosStream     *stream,
 
   if (SPA_RESULT_IS_OK (res)) {
     add_port_update (stream, PINOS_MESSAGE_PORT_UPDATE_INFO |
-                             PINOS_MESSAGE_PORT_UPDATE_FORMAT,
-                             false);
-    if (impl->format) {
-      add_state_change (stream, SPA_NODE_STATE_READY, false);
-    } else {
+                             PINOS_MESSAGE_PORT_UPDATE_FORMAT);
+
+    if (!impl->format)
       clear_buffers (stream);
-      add_state_change (stream, SPA_NODE_STATE_CONFIGURE, false);
-    }
   }
   impl->port_info.params = NULL;
   impl->port_info.n_params = 0;
 
-  add_async_complete (stream, impl->pending_seq, res, true);
+  add_async_complete (stream, impl->pending_seq, res);
 
   impl->pending_seq = SPA_ID_INVALID;
 

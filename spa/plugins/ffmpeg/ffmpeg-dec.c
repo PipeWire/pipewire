@@ -47,7 +47,7 @@ typedef struct {
   bool have_buffers;
   FFMpegBuffer buffers[MAX_BUFFERS];
   SpaPortInfo info;
-  void *io;
+  SpaPortIO *io;
 } SpaFFMpegPort;
 
 typedef struct {
@@ -81,6 +81,8 @@ struct _SpaFFMpegDec {
 
   SpaFFMpegPort in_ports[1];
   SpaFFMpegPort out_ports[1];
+
+  bool started;
 };
 
 enum {
@@ -101,12 +103,6 @@ spa_ffmpeg_dec_node_set_props (SpaNode         *node,
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static void
-update_state (SpaFFMpegDec *this, SpaNodeState state)
-{
-  this->node.state = state;
-}
-
 static SpaResult
 spa_ffmpeg_dec_node_send_command (SpaNode    *node,
                                   SpaCommand *command)
@@ -119,10 +115,10 @@ spa_ffmpeg_dec_node_send_command (SpaNode    *node,
   this = SPA_CONTAINER_OF (node, SpaFFMpegDec, node);
 
   if (SPA_COMMAND_TYPE (command) == this->type.command_node.Start) {
-    update_state (this, SPA_NODE_STATE_STREAMING);
+    this->started = true;
   }
   else if (SPA_COMMAND_TYPE (command) == this->type.command_node.Pause) {
-    update_state (this, SPA_NODE_STATE_PAUSED);
+    this->started = false;
   }
   else
     return SPA_RESULT_NOT_IMPLEMENTED;
@@ -454,7 +450,6 @@ spa_ffmpeg_dec_node_port_send_command (SpaNode        *node,
 static const SpaNode ffmpeg_dec_node = {
   sizeof (SpaNode),
   NULL,
-  SPA_NODE_STATE_INIT,
   spa_ffmpeg_dec_node_get_props,
   spa_ffmpeg_dec_node_set_props,
   spa_ffmpeg_dec_node_send_command,

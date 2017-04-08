@@ -55,7 +55,7 @@ typedef struct {
 
   SpaVolumeBuffer buffers[MAX_BUFFERS];
   uint32_t        n_buffers;
-  void           *io;
+  SpaPortIO      *io;
 
   SpaList         empty;
 } SpaVolumePort;
@@ -113,6 +113,8 @@ struct _SpaVolume {
 
   SpaVolumePort in_ports[1];
   SpaVolumePort out_ports[1];
+
+  bool started;
 };
 
 #define CHECK_IN_PORT(this,d,p)  ((d) == SPA_DIRECTION_INPUT && (p) == 0)
@@ -127,12 +129,6 @@ reset_volume_props (SpaVolumeProps *props)
 {
   props->volume = DEFAULT_VOLUME;
   props->mute = DEFAULT_MUTE;
-}
-
-static void
-update_state (SpaVolume *this, SpaNodeState state)
-{
-  this->node.state = state;
 }
 
 #define PROP(f,key,type,...)                                                    \
@@ -203,10 +199,10 @@ spa_volume_node_send_command (SpaNode    *node,
   this = SPA_CONTAINER_OF (node, SpaVolume, node);
 
   if (SPA_COMMAND_TYPE (command) == this->type.command_node.Start) {
-    update_state (this, SPA_NODE_STATE_STREAMING);
+    this->started = true;
   }
   else if (SPA_COMMAND_TYPE (command) == this->type.command_node.Pause) {
-    update_state (this, SPA_NODE_STATE_PAUSED);
+    this->started = false;
   }
   else
     return SPA_RESULT_NOT_IMPLEMENTED;
@@ -410,10 +406,7 @@ spa_volume_node_port_set_format (SpaNode            *node,
     port->params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
     port->info.extra = NULL;
-    update_state (this, SPA_NODE_STATE_READY);
   }
-  else
-    update_state (this, SPA_NODE_STATE_CONFIGURE);
 
   return SPA_RESULT_OK;
 }
@@ -535,11 +528,6 @@ spa_volume_node_port_use_buffers (SpaNode         *node,
   }
   port->n_buffers = n_buffers;
 
-  if (port->n_buffers > 0) {
-    update_state (this, SPA_NODE_STATE_PAUSED);
-  } else {
-    update_state (this, SPA_NODE_STATE_READY);
-  }
   return SPA_RESULT_OK;
 }
 
@@ -747,7 +735,6 @@ spa_volume_node_process_output (SpaNode *node)
 static const SpaNode volume_node = {
   sizeof (SpaNode),
   NULL,
-  SPA_NODE_STATE_INIT,
   spa_volume_node_get_props,
   spa_volume_node_set_props,
   spa_volume_node_send_command,

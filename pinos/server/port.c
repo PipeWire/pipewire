@@ -48,6 +48,7 @@ pinos_port_new (PinosNode      *node,
   this->node = node;
   this->direction = direction;
   this->port_id = port_id;
+  this->state = SPA_PORT_STATE_CONFIGURE;
 
   spa_list_init (&this->links);
   spa_list_init (&this->rt.links);
@@ -200,6 +201,7 @@ static SpaResult
 pinos_port_pause (PinosPort *port)
 {
   SpaCommand cmd = SPA_COMMAND_INIT (port->node->core->type.command_node.Pause);
+  port->state = SPA_PORT_STATE_PAUSED;
   return spa_node_port_send_command (port->node->node,
                                     port->direction,
                                     port->port_id,
@@ -239,6 +241,7 @@ do_remove_link_done (SpaLoop        *loop,
                                port->direction,
                                port->port_id,
                                NULL, 0);
+    port->state = SPA_PORT_STATE_READY;
     port->buffers = NULL;
     port->n_buffers = 0;
   }
@@ -315,6 +318,7 @@ do_clear_buffers_done (SpaLoop        *loop,
                                    port->direction,
                                    port->port_id,
                                    NULL, 0);
+  port->state = SPA_PORT_STATE_READY;
   port->buffers = NULL;
   port->n_buffers = 0;
 

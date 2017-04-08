@@ -543,20 +543,22 @@ pinos_core_find_format (PinosCore       *core,
                         SpaFormat      **format_filterss,
                         char           **error)
 {
-  SpaNodeState out_state, in_state;
+  uint32_t out_state, in_state;
   SpaResult res;
   SpaFormat *filter = NULL, *format;
   uint32_t iidx = 0, oidx = 0;
 
-  out_state = output->node->node->state;
-  in_state = input->node->node->state;
+  out_state = output->state;
+  in_state = input->state;
 
-  if (out_state > SPA_NODE_STATE_CONFIGURE && output->node->state == PINOS_NODE_STATE_IDLE)
-    out_state = SPA_NODE_STATE_CONFIGURE;
-  if (in_state > SPA_NODE_STATE_CONFIGURE && input->node->state == PINOS_NODE_STATE_IDLE)
-    in_state = SPA_NODE_STATE_CONFIGURE;
+  pinos_log_debug ("core %p: finding best format %d %d", core, out_state, in_state);
 
-  if (in_state == SPA_NODE_STATE_CONFIGURE && out_state > SPA_NODE_STATE_CONFIGURE) {
+  if (out_state > SPA_PORT_STATE_CONFIGURE && output->node->state == PINOS_NODE_STATE_IDLE)
+    out_state = SPA_PORT_STATE_CONFIGURE;
+  if (in_state > SPA_PORT_STATE_CONFIGURE && input->node->state == PINOS_NODE_STATE_IDLE)
+    in_state = SPA_PORT_STATE_CONFIGURE;
+
+  if (in_state == SPA_PORT_STATE_CONFIGURE && out_state > SPA_PORT_STATE_CONFIGURE) {
     /* only input needs format */
     if ((res = spa_node_port_get_format (output->node->node,
                                          SPA_DIRECTION_OUTPUT,
@@ -565,7 +567,7 @@ pinos_core_find_format (PinosCore       *core,
       asprintf (error, "error get output format: %d", res);
       goto error;
     }
-  } else if (out_state == SPA_NODE_STATE_CONFIGURE && in_state > SPA_NODE_STATE_CONFIGURE) {
+  } else if (out_state == SPA_PORT_STATE_CONFIGURE && in_state > SPA_PORT_STATE_CONFIGURE) {
     /* only output needs format */
     if ((res = spa_node_port_get_format (input->node->node,
                                          SPA_DIRECTION_INPUT,
@@ -574,7 +576,7 @@ pinos_core_find_format (PinosCore       *core,
       asprintf (error, "error get input format: %d", res);
       goto error;
     }
-  } else if (in_state == SPA_NODE_STATE_CONFIGURE && out_state == SPA_NODE_STATE_CONFIGURE) {
+  } else if (in_state == SPA_PORT_STATE_CONFIGURE && out_state == SPA_PORT_STATE_CONFIGURE) {
 again:
     /* both ports need a format */
     pinos_log_debug ("core %p: finding best format", core);

@@ -123,12 +123,6 @@ struct _SpaXvSink {
 
 #include "xv-utils.c"
 
-static void
-update_state (SpaXvSink *this, SpaNodeState state)
-{
-  this->node.state = state;
-}
-
 #define PROP(f,key,type,...)                                                    \
           SPA_POD_PROP (f,key,0,type,1,__VA_ARGS__)
 #define PROP_R(f,key,type,...)                                                  \
@@ -191,13 +185,9 @@ spa_xv_sink_node_send_command (SpaNode    *node,
 
   if (SPA_COMMAND_TYPE (command) == this->type.command_node.Start) {
     spa_xv_start (this);
-
-    update_state (this, SPA_NODE_STATE_STREAMING);
   }
   else if (SPA_COMMAND_TYPE (command) == this->type.command_node.Pause) {
     spa_xv_stop (this);
-
-    update_state (this, SPA_NODE_STATE_PAUSED);
   }
   else
     return SPA_RESULT_NOT_IMPLEMENTED;
@@ -489,7 +479,6 @@ spa_xv_sink_node_process_output (SpaNode           *node)
 static const SpaNode xvsink_node = {
   sizeof (SpaNode),
   NULL,
-  SPA_NODE_STATE_INIT,
   spa_xv_sink_node_get_props,
   spa_xv_sink_node_set_props,
   spa_xv_sink_node_send_command,

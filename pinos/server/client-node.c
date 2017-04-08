@@ -75,7 +75,7 @@ typedef struct {
   SpaFormat     *format;
   uint32_t       n_formats;
   SpaFormat    **formats;
-  void          *io;
+  SpaPortIO     *io;
 
   uint32_t       n_buffers;
   ProxyBuffer    buffers[MAX_BUFFERS];
@@ -128,15 +128,6 @@ typedef struct
 
   int data_fd;
 } PinosClientNodeImpl;
-
-static void
-send_async_complete (SpaProxy *this, uint32_t seq, SpaResult res)
-{
-  PinosCore *core = this->pnode->core;
-  SpaEventNodeAsyncComplete ac = SPA_EVENT_NODE_ASYNC_COMPLETE_INIT (core->type.event_node.AsyncComplete,
-                                                                     seq, res);
-  this->event_cb (&this->node, (SpaEvent *)&ac, this->user_data);
-}
 
 static SpaResult
 clear_buffers (SpaProxy *this, SpaProxyPort *port)
@@ -758,7 +749,6 @@ spa_proxy_node_port_reuse_buffer (SpaNode         *node,
 {
   SpaProxy *this;
   PinosNode *pnode;
-  //uint64_t cmd = 1;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -769,11 +759,11 @@ spa_proxy_node_port_reuse_buffer (SpaNode         *node,
   if (!CHECK_OUT_PORT (this, SPA_DIRECTION_OUTPUT, port_id))
     return SPA_RESULT_INVALID_PORT;
 
+  spa_log_trace (this->log, "reuse buffer %d", buffer_id);
   {
     SpaEventNodeReuseBuffer rb = SPA_EVENT_NODE_REUSE_BUFFER_INIT (pnode->core->type.event_node.ReuseBuffer,
                                                                    port_id, buffer_id);
     pinos_transport_add_event (pnode->transport, (SpaEvent *)&rb);
-    //write (this->data_source.fd, &cmd, 8);
   }
 
   return SPA_RESULT_OK;
@@ -815,15 +805,23 @@ static SpaResult
 spa_proxy_node_process_output (SpaNode *node)
 {
   SpaProxy *this;
+  int i;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaProxy, node);
 
+  for (i = 0; i < MAX_OUTPUTS; i++) {
+    SpaPortIO *io = this->out_ports[i].io;
+    if (io && io->buffer_id != SPA_ID_INVALID) {
+      spa_proxy_node_port_reuse_buffer (node, i, io->buffer_id);
+      io->buffer_id = SPA_ID_INVALID;
+    }
+  }
   send_need_input (this);
 
-  return SPA_RESULT_OK;
+  return SPA_RESULT_HAVE_OUTPUT;
 }
 
 static SpaResult
@@ -894,22 +892,6 @@ client_node_port_update (void              *object,
 }
 
 static void
-client_node_state_change (void              *object,
-                          SpaNodeState       state)
-{
-  PinosResource *resource = object;
-  PinosClientNode *node = resource->object;
-  PinosClientNodeImpl *impl = SPA_CONTAINER_OF (node, PinosClientNodeImpl, this);
-  SpaProxy *this = &impl->proxy;
-  SpaNodeState old = this->node.state;
-
-  spa_log_info (this->log, "proxy %p: got node state change %d -> %d", this, old, state);
-  this->node.state = state;
-  if (old == SPA_NODE_STATE_INIT)
-    send_async_complete (this, 0, SPA_RESULT_OK);
-}
-
-static void
 client_node_event (void     *object,
                    SpaEvent *event)
 {
@@ -932,7 +914,6 @@ client_node_destroy (void              *object)
 static PinosClientNodeMethods client_node_methods = {
   &client_node_update,
   &client_node_port_update,
-  &client_node_state_change,
   &client_node_event,
   &client_node_destroy,
 };
@@ -965,7 +946,6 @@ proxy_on_data_fd_events (SpaSource *source)
 static const SpaNode proxy_node = {
   sizeof (SpaNode),
   NULL,
-  SPA_NODE_STATE_INIT,
   spa_proxy_node_get_props,
   spa_proxy_node_set_props,
   spa_proxy_node_send_command,
@@ -1153,6 +1133,7 @@ pinos_client_node_new (PinosClient     *client,
 
   this->node = pinos_node_new (client->core,
                                name,
+                               true,
                                &impl->proxy.node,
                                NULL,
                                properties);

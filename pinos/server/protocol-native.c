@@ -899,23 +899,6 @@ client_node_demarshal_port_update (void  *object,
 }
 
 static bool
-client_node_demarshal_state_change (void  *object,
-                                    void  *data,
-                                    size_t size)
-{
-  PinosResource *resource = object;
-  SpaPODIter it;
-  uint32_t state;
-
-  if (!spa_pod_iter_struct (&it, data, size) ||
-      !spa_pod_iter_get (&it, SPA_POD_TYPE_INT, &state, 0))
-    return false;
-
-  ((PinosClientNodeMethods*)resource->implementation)->state_change (resource, state);
-  return true;
-}
-
-static bool
 client_node_demarshal_event (void   *object,
                             void   *data,
                             size_t  size)
@@ -1035,7 +1018,6 @@ const PinosInterface pinos_protocol_native_server_client_interface = {
 static const PinosDemarshalFunc pinos_protocol_native_server_client_node_demarshal[] = {
   &client_node_demarshal_update,
   &client_node_demarshal_port_update,
-  &client_node_demarshal_state_change,
   &client_node_demarshal_event,
   &client_node_demarshal_destroy,
 };
@@ -1055,7 +1037,7 @@ static const PinosClientNodeEvents pinos_protocol_native_server_client_node_even
 };
 
 const PinosInterface pinos_protocol_native_server_client_node_interface = {
-  5, &pinos_protocol_native_server_client_node_demarshal,
+  4, &pinos_protocol_native_server_client_node_demarshal,
   11, &pinos_protocol_native_server_client_node_events,
 };
 

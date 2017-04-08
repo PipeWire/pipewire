@@ -137,7 +137,7 @@ typedef struct {
   SpaPortInfo info;
   SpaAllocParam *params[2];
   uint8_t params_buffer[1024];
-  void *io;
+  SpaPortIO *io;
 
   int64_t last_ticks;
   int64_t last_monotonic;
@@ -163,14 +163,8 @@ struct _SpaV4l2Source {
   SpaV4l2State state[1];
 };
 
-#define CHECK_PORT(this, direction, port_id)  ((direction) == SPA_DIRECTION_OUTPUT && (port_id) == 0)
+#define CHECK_PORT(this,direction,port_id)  ((direction) == SPA_DIRECTION_OUTPUT && (port_id) == 0)
 
-static void
-update_state (SpaV4l2Source *this, SpaNodeState state)
-{
-  spa_log_info (this->log, "state: %d", state);
-  this->node.state = state;
-}
 
 #define PROP(f,key,type,...)                                                    \
           SPA_POD_PROP (f,key,0,type,1,__VA_ARGS__)
@@ -249,7 +243,6 @@ do_pause_done (SpaLoop        *loop,
 
   if (SPA_RESULT_IS_OK (ac->body.res.value)) {
     state->started = false;
-    update_state (this, SPA_NODE_STATE_PAUSED);
   }
   this->event_cb (&this->node, (SpaEvent *)ac, this->user_data);
 
@@ -300,7 +293,6 @@ do_start_done (SpaLoop        *loop,
 
   if (SPA_RESULT_IS_OK (ac->body.res.value)) {
     state->started = true;
-    update_state (this, SPA_NODE_STATE_STREAMING);
   }
   this->event_cb (&this->node, (SpaEvent *)ac, this->user_data);
 
@@ -515,7 +507,6 @@ spa_v4l2_source_node_port_set_format (SpaNode            *node,
     spa_v4l2_clear_buffers (this);
     spa_v4l2_close (this);
     state->have_format = false;
-    update_state (this, SPA_NODE_STATE_CONFIGURE);
     return SPA_RESULT_OK;
   } else {
     info.media_type = SPA_FORMAT_MEDIA_TYPE (format);
@@ -572,7 +563,6 @@ spa_v4l2_source_node_port_set_format (SpaNode            *node,
   if (!(flags & SPA_PORT_FORMAT_FLAG_TEST_ONLY)) {
     state->current_format = info;
     state->have_format = true;
-    update_state (this, SPA_NODE_STATE_READY);
   }
 
   return SPA_RESULT_OK;
@@ -706,12 +696,6 @@ spa_v4l2_source_node_port_use_buffers (SpaNode         *node,
     if ((res = spa_v4l2_use_buffers (this, buffers, n_buffers)) < 0)
       return res;
   }
-
-  if (state->n_buffers)
-    update_state (this, SPA_NODE_STATE_PAUSED);
-  else
-    update_state (this, SPA_NODE_STATE_READY);
-
   return SPA_RESULT_OK;
 }
 
@@ -741,13 +725,6 @@ spa_v4l2_source_node_port_alloc_buffers (SpaNode         *node,
     return SPA_RESULT_NO_FORMAT;
 
   res = spa_v4l2_alloc_buffers (this, params, n_params, buffers, n_buffers);
-
-  if (state->n_buffers) {
-    if (state->started)
-      update_state (this, SPA_NODE_STATE_STREAMING);
-    else
-      update_state (this, SPA_NODE_STATE_PAUSED);
-  }
 
   return res;
 }
@@ -850,7 +827,6 @@ spa_v4l2_source_node_process_output (SpaNode *node)
 static const SpaNode v4l2source_node = {
   sizeof (SpaNode),
   NULL,
-  SPA_NODE_STATE_INIT,
   spa_v4l2_source_node_get_props,
   spa_v4l2_source_node_set_props,
   spa_v4l2_source_node_send_command,
@@ -1005,8 +981,6 @@ v4l2_source_init (const SpaHandleFactory  *factory,
   if (info && (str = spa_dict_lookup (info, "device.path"))) {
     strncpy (this->props.device, str, 63);
   }
-
-  update_state (this, SPA_NODE_STATE_CONFIGURE);
 
   return SPA_RESULT_OK;
 }

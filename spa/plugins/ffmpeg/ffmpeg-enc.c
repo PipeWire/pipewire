@@ -86,17 +86,9 @@ struct _SpaFFMpegEnc {
 
   SpaFFMpegPort in_ports[1];
   SpaFFMpegPort out_ports[1];
-};
 
-enum {
-  PROP_ID_LAST,
+  bool started;
 };
-
-static void
-update_state (SpaFFMpegEnc *this, SpaNodeState state)
-{
-  this->node.state = state;
-}
 
 static SpaResult
 spa_ffmpeg_enc_node_get_props (SpaNode       *node,
@@ -124,10 +116,10 @@ spa_ffmpeg_enc_node_send_command (SpaNode    *node,
   this = SPA_CONTAINER_OF (node, SpaFFMpegEnc, node);
 
   if (SPA_COMMAND_TYPE (command) == this->type.command_node.Start) {
-    update_state (this, SPA_NODE_STATE_STREAMING);
+    this->started = true;
   }
   else if (SPA_COMMAND_TYPE (command) == this->type.command_node.Pause) {
-    update_state (this, SPA_NODE_STATE_PAUSED);
+    this->started = false;
   }
   else
     return SPA_RESULT_NOT_IMPLEMENTED;
@@ -461,7 +453,6 @@ spa_ffmpeg_enc_node_process_output (SpaNode *node)
 static const SpaNode ffmpeg_enc_node = {
   sizeof (SpaNode),
   NULL,
-  SPA_NODE_STATE_INIT,
   spa_ffmpeg_enc_node_get_props,
   spa_ffmpeg_enc_node_set_props,
   spa_ffmpeg_enc_node_send_command,
@@ -533,8 +524,6 @@ spa_ffmpeg_enc_init (SpaHandle         *handle,
 
   this->in_ports[0].info.flags = SPA_PORT_INFO_FLAG_NONE;
   this->out_ports[0].info.flags = SPA_PORT_INFO_FLAG_NONE;
-
-  this->node.state = SPA_NODE_STATE_CONFIGURE;
 
   return SPA_RESULT_OK;
 }

@@ -536,23 +536,6 @@ client_node_marshal_port_update (void              *object,
 }
 
 static void
-client_node_marshal_state_change (void         *object,
-                                  SpaNodeState  state)
-{
-  PinosProxy *proxy = object;
-  PinosConnection *connection = proxy->context->protocol_private;
-  Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
-  SpaPODFrame f;
-
-  core_update_map (proxy->context);
-
-  spa_pod_builder_struct (&b.b, &f,
-        SPA_POD_TYPE_INT, state);
-
-  pinos_connection_end_write (connection, proxy->id, 2, b.b.offset);
-}
-
-static void
 client_node_marshal_event (void     *object,
                            SpaEvent *event)
 {
@@ -566,7 +549,7 @@ client_node_marshal_event (void     *object,
   spa_pod_builder_struct (&b.b, &f,
         SPA_POD_TYPE_POD, event);
 
-  pinos_connection_end_write (connection, proxy->id, 3, b.b.offset);
+  pinos_connection_end_write (connection, proxy->id, 2, b.b.offset);
 }
 
 static void
@@ -581,7 +564,7 @@ client_node_marshal_destroy (void    *object)
 
   spa_pod_builder_struct (&b.b, &f, 0);
 
-  pinos_connection_end_write (connection, proxy->id, 4, b.b.offset);
+  pinos_connection_end_write (connection, proxy->id, 3, b.b.offset);
 }
 
 static bool
@@ -1042,7 +1025,6 @@ static const PinosInterface pinos_protocol_native_client_registry_interface = {
 static const PinosClientNodeMethods pinos_protocol_native_client_client_node_methods = {
   &client_node_marshal_update,
   &client_node_marshal_port_update,
-  &client_node_marshal_state_change,
   &client_node_marshal_event,
   &client_node_marshal_destroy
 };
@@ -1062,7 +1044,7 @@ static const PinosDemarshalFunc pinos_protocol_native_client_client_node_demarsh
 };
 
 static const PinosInterface pinos_protocol_native_client_client_node_interface = {
-  5, &pinos_protocol_native_client_client_node_methods,
+  4, &pinos_protocol_native_client_client_node_methods,
   11, pinos_protocol_native_client_client_node_demarshal,
 };
 

@@ -67,6 +67,7 @@ struct _PinosNode {
   SpaNode *node;
   bool live;
   SpaClock *clock;
+  int sched_state;
 
   SpaList resource_list;
 
@@ -107,6 +108,7 @@ struct _PinosNode {
 
 PinosNode *         pinos_node_new                     (PinosCore       *core,
                                                         const char      *name,
+                                                        bool             async,
                                                         SpaNode         *node,
                                                         SpaClock        *clock,
                                                         PinosProperties *properties);

@@ -157,8 +157,6 @@ typedef struct {
                                 const SpaFormat   *format,
                                 const SpaProps    *props,
                                 const SpaPortInfo *info);
-  void (*state_change)         (void              *object,
-                                SpaNodeState       state);
   void (*event)                (void              *object,
                                 SpaEvent          *event);
   void (*destroy)              (void              *object);
@@ -166,7 +164,6 @@ typedef struct {
 
 #define pinos_client_node_do_update(r,...)       ((PinosClientNodeMethods*)r->iface->methods)->update(r,__VA_ARGS__)
 #define pinos_client_node_do_port_update(r,...)  ((PinosClientNodeMethods*)r->iface->methods)->port_update(r,__VA_ARGS__)
-#define pinos_client_node_do_state_change(r,...) ((PinosClientNodeMethods*)r->iface->methods)->state_change(r,__VA_ARGS__)
 #define pinos_client_node_do_event(r,...)        ((PinosClientNodeMethods*)r->iface->methods)->event(r,__VA_ARGS__)
 #define pinos_client_node_do_destroy(r)          ((PinosClientNodeMethods*)r->iface->methods)->destroy(r)
 

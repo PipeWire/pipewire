@@ -577,6 +577,17 @@ spa_audiomixer_node_port_send_command (SpaNode        *node,
 }
 
 static void
+clear_buffer (SpaAudioMixer *this, MixerBuffer *out)
+{
+  int16_t *op;
+  size_t os;
+
+  op = SPA_MEMBER (out->outbuf->datas[0].data, out->outbuf->datas[0].chunk->offset, void);
+  os = out->outbuf->datas[0].chunk->size;
+  memset (op, 0, os);
+}
+
+static void
 add_port_data (SpaAudioMixer *this, MixerBuffer *out, SpaAudioMixerPort *port, int layer)
 {
   int i;
@@ -634,7 +645,7 @@ spa_audiomixer_node_process_input (SpaNode *node)
     SpaAudioMixerPort *port = &this->in_ports[i];
     SpaPortIO *input;
 
-    if ((input = port->io) == NULL)
+    if ((input = port->io) == NULL || port->n_buffers == 0)
       continue;
 
     if (input->buffer_id != SPA_ID_INVALID) {
@@ -691,6 +702,9 @@ spa_audiomixer_node_process_input (SpaNode *node)
 
       add_port_data (this, outbuf, port, layer++);
     }
+    if (layer == 0)
+      clear_buffer (this, outbuf);
+
     output = outport->io;
     output->buffer_id = outbuf->outbuf->id;
     output->status = SPA_RESULT_OK;

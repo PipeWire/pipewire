@@ -175,6 +175,7 @@ pause_node (PinosNode *this)
     if ((res = spa_node_send_command (this->node, &cmd)) < 0)
       pinos_log_debug ("got error %d", res);
   }
+
   return res;
 }
 
@@ -208,6 +209,7 @@ suspend_node (PinosNode *this)
     if (p->allocated)
       pinos_memblock_free (&p->buffer_mem);
     p->allocated = false;
+    p->state = SPA_PORT_STATE_CONFIGURE;
   }
 
   spa_list_for_each (p, &this->output_ports, link) {
@@ -218,6 +220,7 @@ suspend_node (PinosNode *this)
     if (p->allocated)
       pinos_memblock_free (&p->buffer_mem);
     p->allocated = false;
+    p->state = SPA_PORT_STATE_CONFIGURE;
   }
   return res;
 }
@@ -735,6 +738,7 @@ pinos_node_get_free_port (PinosNode       *node,
   SpaList *ports;
   PinosPort *port = NULL, *p, **portmap;
   SpaPortIO *io;
+  SpaResult res;
   int i;
 
   if (direction == PINOS_DIRECTION_INPUT) {
@@ -769,8 +773,12 @@ pinos_node_get_free_port (PinosNode       *node,
           port = portmap[i] = pinos_port_new (node, direction, i);
           port->io = &io[i];
           (*n_ports)++;
-          spa_node_add_port (node->node, direction, i);
-          spa_node_port_set_io (node->node, direction, i, port->io);
+          if ((res = spa_node_add_port (node->node, direction, i)) < 0) {
+            pinos_log_error ("node %p: could not add port %d", node, i);
+          }
+          else {
+            spa_node_port_set_io (node->node, direction, i, port->io);
+          }
         }
       }
     } else {

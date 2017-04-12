@@ -412,7 +412,7 @@ spa_debug_format (const SpaFormat *format, const SpaTypeMap *map)
           break;
       }
 
-      fprintf (stderr, ssep);
+      fprintf (stderr, "%s", ssep);
 
       i = 0;
       SPA_POD_PROP_ALTERNATIVE_FOREACH (&prop->body, prop->pod.size, alt) {
@@ -421,7 +421,7 @@ spa_debug_format (const SpaFormat *format, const SpaTypeMap *map)
         print_format_value (map, prop->body.value.size, prop->body.value.type, alt);
         i++;
       }
-      fprintf (stderr, esep);
+      fprintf (stderr, "%s", esep);
     }
     fprintf (stderr, "\n");
   }

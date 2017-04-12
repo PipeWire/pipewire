@@ -408,7 +408,8 @@ handle_create_client_node (PinosDaemon1           *interface,
   target_node = pinos_properties_get (props, "pinos.target.node");
   if (target_node) {
     if (strncmp (target_node, "/org/pinos/node_", strlen ("/org/pinos/node_")) == 0) {
-      pinos_properties_setf (props, "pinos.target.node", target_node + strlen ("/org/pinos/node_"));
+      pinos_properties_setf (props, "pinos.target.node", "%s",
+          target_node + strlen ("/org/pinos/node_"));
     }
   }
 

@@ -733,7 +733,7 @@ spa_audiomixer_node_process_input (SpaNode *node)
       spa_log_trace (this->log, "audiomixer %p: queue buffer %d on port %d %zd %zd",
           this, b->outbuf->id, i, port->queued_bytes, min_queued);
     }
-    if (min_queued == SIZE_MAX || port->queued_bytes < min_queued)
+    if (port->queued_bytes > 0 && port->queued_bytes < min_queued)
       min_queued = port->queued_bytes;
   }
 
@@ -772,7 +772,7 @@ spa_audiomixer_node_process_output (SpaNode *node)
   res = SPA_RESULT_NEED_INPUT;
   /* produce more output if possible */
   if (this->state == STATE_OUT) {
-    size_t min_queued = -1;
+    size_t min_queued = SIZE_MAX;
 
     for (i = 0; i < MAX_PORTS; i++) {
       SpaAudioMixerPort *port = &this->in_ports[i];
@@ -780,10 +780,10 @@ spa_audiomixer_node_process_output (SpaNode *node)
       if (port->io == NULL || port->n_buffers == 0)
         continue;
 
-      if (min_queued == -1 || port->queued_bytes < min_queued)
+      if (port->queued_bytes > 0 && port->queued_bytes < min_queued)
         min_queued = port->queued_bytes;
     }
-    if (min_queued != -1 && min_queued > 0) {
+    if (min_queued != SIZE_MAX && min_queued > 0) {
       res = mix_output (this, min_queued);
     } else {
       this->state = STATE_IN;

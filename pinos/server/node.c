@@ -258,6 +258,7 @@ do_pull (PinosNode *this)
 {
   SpaResult res = SPA_RESULT_OK;
   PinosPort *inport;
+  bool have_output = false;
 
   spa_list_for_each (inport, &this->input_ports, link) {
     PinosLink *link;
@@ -288,22 +289,22 @@ do_pull (PinosNode *this)
 
       if (res == SPA_RESULT_NEED_INPUT) {
         res = do_pull (outport->node);
-
-        *pi = *po;
         pinos_log_trace ("node %p: pull return %d", outport->node, res);
       }
-      else if (res == SPA_RESULT_HAVE_OUTPUT) {
-        *pi = *po;
-      }
-      else
+      else if (res < 0 && res != SPA_RESULT_HAVE_OUTPUT) {
         pinos_log_warn ("node %p: got process output %d", outport->node, res);
+      }
+
+      if (res == SPA_RESULT_HAVE_OUTPUT) {
+        *pi = *po;
+        pinos_log_trace ("node %p: have output %d %d", this, pi->status, pi->buffer_id);
+        have_output = true;
+      }
     }
-    if (pi->buffer_id != SPA_ID_INVALID) {
-      pinos_log_trace ("node %p: process input %d %d", this, pi->status, pi->buffer_id);
-      res =  spa_node_process_input (this->node);
-      if (res == SPA_RESULT_HAVE_OUTPUT)
-        break;
-    }
+  }
+  if (have_output) {
+    pinos_log_trace ("node %p: doing process input", this);
+    res =  spa_node_process_input (this->node);
   }
   return res;
 }

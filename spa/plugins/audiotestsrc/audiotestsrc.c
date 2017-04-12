@@ -295,10 +295,13 @@ audiotestsrc_make_buffer (SpaAudioTestSrc *this)
   b->outstanding = true;
 
   n_bytes = b->outbuf->datas[0].maxsize;
-  if (io->flags & SPA_PORT_IO_FLAG_RANGE)
-    n_bytes = SPA_CLAMP (n_bytes, io->range.min_size, io->range.max_size);
+  if (io->range.min_size != 0) {
+    if (io->range.max_size < n_bytes)
+      n_bytes = io->range.max_size;
+  }
 
-  spa_log_trace (this->log, "audiotestsrc %p: dequeue buffer %d %d", this, b->outbuf->id, n_bytes);
+  spa_log_trace (this->log, "audiotestsrc %p: dequeue buffer %d %d %d", this, b->outbuf->id,
+      b->outbuf->datas[0].maxsize, n_bytes);
 
   n_samples = n_bytes / this->bpf;
   this->render_func (this, b->outbuf->datas[0].data, n_samples);
@@ -317,9 +320,8 @@ audiotestsrc_make_buffer (SpaAudioTestSrc *this)
   this->elapsed_time = SAMPLES_TO_TIME (this, this->sample_count);
   set_timer (this, true);
 
-  io->flags = 0;
   io->buffer_id = b->outbuf->id;
-  io->status = SPA_RESULT_OK;
+  io->status = SPA_RESULT_HAVE_OUTPUT;
 
   return SPA_RESULT_HAVE_OUTPUT;
 }
@@ -817,17 +819,23 @@ static SpaResult
 spa_audiotestsrc_node_process_output (SpaNode *node)
 {
   SpaAudioTestSrc *this;
+  SpaPortIO *io;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaAudioTestSrc, node);
+  io = this->io;
+  spa_return_val_if_fail (io != NULL, SPA_RESULT_WRONG_STATE);
 
-  if (this->io && this->io->buffer_id != SPA_ID_INVALID) {
+  if (io->status == SPA_RESULT_HAVE_OUTPUT)
+    return SPA_RESULT_HAVE_OUTPUT;
+
+  if (io->buffer_id != SPA_ID_INVALID) {
     reuse_buffer (this, this->io->buffer_id);
     this->io->buffer_id = SPA_ID_INVALID;
   }
 
-  if (!this->async)
+  if (!this->async && (io->status == SPA_RESULT_NEED_INPUT))
     return audiotestsrc_make_buffer (this);
   else
     return SPA_RESULT_OK;

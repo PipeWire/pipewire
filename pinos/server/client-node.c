@@ -58,6 +58,7 @@
 
 typedef struct _SpaProxy SpaProxy;
 typedef struct _ProxyBuffer ProxyBuffer;
+typedef struct _PinosClientNodeImpl PinosClientNodeImpl;
 
 struct _ProxyBuffer {
   SpaBuffer   *outbuf;
@@ -88,7 +89,7 @@ struct _SpaProxy
 {
   SpaNode    node;
 
-  PinosNode *pnode;
+  PinosClientNodeImpl *impl;
 
   SpaTypeMap *map;
   SpaLog *log;
@@ -113,7 +114,7 @@ struct _SpaProxy
   uint32_t seq;
 };
 
-typedef struct
+struct _PinosClientNodeImpl
 {
   PinosClientNode this;
 
@@ -121,13 +122,15 @@ typedef struct
 
   SpaProxy proxy;
 
+  PinosTransport *transport;
+
   PinosListener node_free;
-  PinosListener transport_changed;
+  PinosListener initialized;
   PinosListener loop_changed;
   PinosListener global_added;
 
   int data_fd;
-} PinosClientNodeImpl;
+};
 
 static SpaResult
 clear_buffers (SpaProxy *this, SpaProxyPort *port)
@@ -159,22 +162,22 @@ spa_proxy_node_set_props (SpaNode         *node,
 static void
 send_need_input (SpaProxy *this)
 {
-  PinosNode *pnode = this->pnode;
-  SpaEvent event = SPA_EVENT_INIT (pnode->core->type.event_node.NeedInput);
+  PinosClientNodeImpl *impl = SPA_CONTAINER_OF (this, PinosClientNodeImpl, proxy);
+  SpaEvent event = SPA_EVENT_INIT (impl->core->type.event_node.NeedInput);
   uint64_t cmd = 1;
 
-  pinos_transport_add_event (pnode->transport, &event);
+  pinos_transport_add_event (impl->transport, &event);
   write (this->data_source.fd, &cmd, 8);
 }
 
 static void
 send_have_output (SpaProxy *this)
 {
-  PinosNode *pnode = this->pnode;
-  SpaEvent event = SPA_EVENT_INIT (pnode->core->type.event_node.HaveOutput);
+  PinosClientNodeImpl *impl = SPA_CONTAINER_OF (this, PinosClientNodeImpl, proxy);
+  SpaEvent event = SPA_EVENT_INIT (impl->core->type.event_node.HaveOutput);
   uint64_t cmd = 1;
 
-  pinos_transport_add_event (pnode->transport, &event);
+  pinos_transport_add_event (impl->transport, &event);
   write (this->data_source.fd, &cmd, 8);
 }
 
@@ -194,7 +197,7 @@ spa_proxy_node_send_command (SpaNode    *node,
   if (this->resource == NULL)
     return SPA_RESULT_OK;
 
-  core = this->pnode->core;
+  core = this->impl->core;
 
   if (SPA_COMMAND_TYPE (command) == core->type.command_node.ClockUpdate) {
     pinos_client_node_notify_node_command (this->resource,
@@ -748,22 +751,22 @@ spa_proxy_node_port_reuse_buffer (SpaNode         *node,
                                   uint32_t         buffer_id)
 {
   SpaProxy *this;
-  PinosNode *pnode;
+  PinosClientNodeImpl *impl;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaProxy, node);
-  pnode = this->pnode;
+  impl = this->impl;
 
   if (!CHECK_OUT_PORT (this, SPA_DIRECTION_OUTPUT, port_id))
     return SPA_RESULT_INVALID_PORT;
 
   spa_log_trace (this->log, "reuse buffer %d", buffer_id);
   {
-    SpaEventNodeReuseBuffer rb = SPA_EVENT_NODE_REUSE_BUFFER_INIT (pnode->core->type.event_node.ReuseBuffer,
+    SpaEventNodeReuseBuffer rb = SPA_EVENT_NODE_REUSE_BUFFER_INIT (impl->core->type.event_node.ReuseBuffer,
                                                                    port_id, buffer_id);
-    pinos_transport_add_event (pnode->transport, (SpaEvent *)&rb);
+    pinos_transport_add_event (impl->transport, (SpaEvent *)&rb);
   }
 
   return SPA_RESULT_OK;
@@ -789,13 +792,25 @@ spa_proxy_node_port_send_command (SpaNode        *node,
 static SpaResult
 spa_proxy_node_process_input (SpaNode *node)
 {
+  PinosClientNodeImpl *impl;
   SpaProxy *this;
+  int i;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaProxy, node);
+  impl = this->impl;
 
+  for (i = 0; i < MAX_INPUTS; i++) {
+    SpaPortIO *io = this->in_ports[i].io;
+
+    if (!io)
+      continue;
+
+    impl->transport->inputs[i] = *io;
+    io->status = SPA_RESULT_OK;
+  }
   send_have_output (this);
 
   return SPA_RESULT_OK;
@@ -805,21 +820,44 @@ static SpaResult
 spa_proxy_node_process_output (SpaNode *node)
 {
   SpaProxy *this;
+  PinosClientNodeImpl *impl;
   int i;
+  bool send_need = false;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaProxy, node);
+  impl = this->impl;
 
   for (i = 0; i < MAX_OUTPUTS; i++) {
-    SpaPortIO *io = this->out_ports[i].io;
-    if (io && io->buffer_id != SPA_ID_INVALID) {
-      spa_proxy_node_port_reuse_buffer (node, i, io->buffer_id);
+    SpaPortIO *io = this->out_ports[i].io, tmp;
+
+    if (!io)
+      continue;
+
+    if (io->buffer_id != SPA_ID_INVALID) {
+      SpaEventNodeReuseBuffer rb =
+        SPA_EVENT_NODE_REUSE_BUFFER_INIT (impl->core->type.event_node.ReuseBuffer, i, io->buffer_id);
+
+      spa_log_trace (this->log, "reuse buffer %d", io->buffer_id);
+
+      pinos_transport_add_event (impl->transport, (SpaEvent *)&rb);
       io->buffer_id = SPA_ID_INVALID;
     }
+
+    tmp = impl->transport->outputs[i];
+    impl->transport->outputs[i] = *io;
+
+    pinos_log_trace ("%d %d  %d %d", io->status, io->buffer_id, tmp.status, tmp.buffer_id);
+
+    if (io->status == SPA_RESULT_NEED_INPUT)
+      send_need = true;
+
+    *io = tmp;
   }
-  send_need_input (this);
+  if (send_need)
+    send_need_input (this);
 
   return SPA_RESULT_HAVE_OUTPUT;
 }
@@ -922,7 +960,7 @@ static void
 proxy_on_data_fd_events (SpaSource *source)
 {
   SpaProxy *this = source->data;
-  PinosNode *pnode = this->pnode;
+  PinosClientNodeImpl *impl = this->impl;
 
   if (source->rmask & (SPA_IO_ERR | SPA_IO_HUP)) {
     spa_log_warn (this->log, "proxy %p: got error", this);
@@ -935,9 +973,9 @@ proxy_on_data_fd_events (SpaSource *source)
 
     read (this->data_source.fd, &cmd, 8);
 
-    while (pinos_transport_next_event (pnode->transport, &event) == SPA_RESULT_OK) {
+    while (pinos_transport_next_event (impl->transport, &event) == SPA_RESULT_OK) {
       SpaEvent *ev = alloca (SPA_POD_SIZE (&event));
-      pinos_transport_parse_event (pnode->transport, ev);
+      pinos_transport_parse_event (impl->transport, ev);
       this->event_cb (&this->node, ev, this->user_data);
     }
   }
@@ -1004,17 +1042,22 @@ proxy_init (SpaProxy         *this,
 }
 
 static void
-on_transport_changed (PinosListener   *listener,
-                      PinosNode       *node)
+on_initialized (PinosListener   *listener,
+                PinosNode       *node)
 {
-  PinosClientNodeImpl *impl = SPA_CONTAINER_OF (listener, PinosClientNodeImpl, transport_changed);
+  PinosClientNodeImpl *impl = SPA_CONTAINER_OF (listener, PinosClientNodeImpl, initialized);
   PinosClientNode *this = &impl->this;
   PinosTransportInfo info;
 
   if (this->resource == NULL)
     return;
 
-  pinos_transport_get_info (node->transport, &info);
+  impl->transport = pinos_transport_new (node->max_input_ports,
+                                         node->max_output_ports);
+  impl->transport->area->n_inputs = node->n_input_ports;
+  impl->transport->area->n_outputs = node->n_output_ports;
+
+  pinos_transport_get_info (impl->transport, &info);
   pinos_client_node_notify_transport (this->resource,
                                       info.memfd,
                                       info.offset,
@@ -1071,13 +1114,12 @@ client_node_resource_destroy (PinosResource *resource)
 
   pinos_signal_remove (&impl->global_added);
   pinos_signal_remove (&impl->loop_changed);
-  pinos_signal_remove (&impl->transport_changed);
+  pinos_signal_remove (&impl->initialized);
 
   if (proxy->data_source.fd != -1) {
     spa_loop_remove_source (proxy->data_loop, &proxy->data_source);
     close (proxy->data_source.fd);
   }
-
   pinos_node_destroy (this->node);
 }
 
@@ -1091,6 +1133,9 @@ on_node_free (PinosListener *listener,
   proxy_clear (&impl->proxy);
 
   pinos_signal_remove (&impl->node_free);
+
+  if (impl->transport)
+    pinos_transport_destroy (impl->transport);
 
   if (impl->data_fd != -1)
     close (impl->data_fd);
@@ -1140,7 +1185,7 @@ pinos_client_node_new (PinosClient     *client,
   if (this->node == NULL)
     goto error_no_node;
 
-  impl->proxy.pnode = this->node;
+  impl->proxy.impl = impl;
 
   this->resource = pinos_resource_new (client,
                                        id,
@@ -1156,9 +1201,9 @@ pinos_client_node_new (PinosClient     *client,
                     &impl->node_free,
                     on_node_free);
 
-  pinos_signal_add (&this->node->transport_changed,
-                    &impl->transport_changed,
-                    on_transport_changed);
+  pinos_signal_add (&this->node->initialized,
+                    &impl->initialized,
+                    on_initialized);
 
   pinos_signal_add (&this->node->loop_changed,
                     &impl->loop_changed,

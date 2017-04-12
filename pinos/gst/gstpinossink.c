@@ -480,8 +480,10 @@ do_send_buffer (GstPinosSink *pinossink)
   guint i;
 
   buffer = g_queue_pop_head (&pinossink->queue);
-  if (buffer == NULL)
+  if (buffer == NULL) {
+    GST_WARNING ("out of buffers");
     return;
+  }
 
   data = gst_mini_object_get_qdata (GST_MINI_OBJECT_CAST (buffer),
                                     process_mem_data_quark);
@@ -702,6 +704,7 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   } else
     gst_buffer_ref (buffer);
 
+  GST_DEBUG ("push buffer in queue");
   g_queue_push_tail (&pinossink->queue, buffer);
 
 //  if (pinossink->need_ready)

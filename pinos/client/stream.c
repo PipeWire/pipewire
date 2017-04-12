@@ -474,6 +474,7 @@ handle_rtnode_event (PinosStream  *stream,
     for (i = 0; i < impl->trans->area->n_inputs; i++) {
       SpaPortIO *input = &impl->trans->inputs[i];
 
+      pinos_log_trace ("stream %p: have output %d %d", stream, input->status, input->buffer_id);
       if (input->buffer_id == SPA_ID_INVALID)
         continue;
 
@@ -488,6 +489,7 @@ handle_rtnode_event (PinosStream  *stream,
     for (i = 0; i < impl->trans->area->n_outputs; i++) {
       SpaPortIO *output = &impl->trans->outputs[i];
 
+      pinos_log_trace ("stream %p: buffer %d %u", stream, output->status, output->buffer_id);
       if (output->buffer_id == SPA_ID_INVALID)
         continue;
 
@@ -1189,7 +1191,8 @@ pinos_stream_send_buffer (PinosStream     *stream,
   if ((bid = find_buffer (stream, id)) && !bid->used) {
     bid->used = true;
     impl->trans->outputs[0].buffer_id = id;
-    impl->trans->outputs[0].status = SPA_RESULT_OK;
+    impl->trans->outputs[0].status = SPA_RESULT_HAVE_OUTPUT;
+    pinos_log_trace ("stream %p: send buffer %d", stream, id);
     send_have_output (stream);
   } else {
     pinos_log_debug ("stream %p: output %u was used", stream, id);

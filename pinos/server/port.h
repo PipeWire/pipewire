@@ -46,7 +46,7 @@ struct _PinosPort {
   PinosDirection  direction;
   uint32_t        port_id;
   uint32_t        state;
-  SpaPortIO      *io;
+  SpaPortIO       io;
 
   bool            allocated;
   PinosMemblock   buffer_mem;

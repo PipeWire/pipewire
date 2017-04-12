@@ -61,10 +61,8 @@ typedef struct {
 
 /**
  * SpaPortIO:
- * @state: the port state
- * @flags: extra flags
- * @buffer_id: a buffer id
  * @status: the status
+ * @buffer_id: a buffer id
  * @range: requested range
  * @event: event
  *
@@ -72,10 +70,8 @@ typedef struct {
  * by the host and configured on all ports for which IO is requested.
  */
 typedef struct {
-#define SPA_PORT_IO_FLAG_RANGE                  (1 << 0)        /* a range is present */
-  uint32_t       flags;
-  uint32_t       buffer_id;
   uint32_t       status;
+  uint32_t       buffer_id;
   SpaRange       range;
 } SpaPortIO;
 

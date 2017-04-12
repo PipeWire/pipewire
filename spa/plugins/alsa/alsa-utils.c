@@ -337,8 +337,7 @@ pull_frames_queue (SpaALSAState *state,
   if (spa_list_is_empty (&state->ready)) {
     SpaEvent event = SPA_EVENT_INIT (state->type.event_node.NeedInput);
 
-    io->flags = SPA_PORT_IO_FLAG_RANGE;
-    io->status = SPA_RESULT_OK;
+    io->status = SPA_RESULT_NEED_INPUT;
     io->range.offset = state->sample_count * state->frame_size;
     io->range.min_size = state->threshold * state->frame_size;
     io->range.max_size = frames * state->frame_size;
@@ -370,7 +369,7 @@ pull_frames_queue (SpaALSAState *state,
 
       spa_list_remove (&b->link);
       b->outstanding = true;
-
+      state->io->buffer_id = b->outbuf->id;
       spa_log_trace (state->log, "alsa-util %p: reuse buffer %u", state, b->outbuf->id);
       state->event_cb (&state->node, (SpaEvent *)&rb, state->user_data);
       state->ready_offset = 0;

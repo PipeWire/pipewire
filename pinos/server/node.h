@@ -67,28 +67,30 @@ struct _PinosNode {
   SpaNode *node;
   bool live;
   SpaClock *clock;
-  int sched_state;
 
   SpaList resource_list;
 
-  SpaList input_ports;
-  SpaList output_ports;
+  PINOS_SIGNAL (initialized, (PinosListener *listener,
+                              PinosNode     *object));
+
+  uint32_t    max_input_ports;
+  uint32_t    n_input_ports;
+  SpaList     input_ports;
+  PinosPort **input_port_map;
+  uint32_t    n_used_input_links;
+
+  uint32_t    max_output_ports;
+  uint32_t    n_output_ports;
+  SpaList     output_ports;
+  PinosPort **output_port_map;
+  uint32_t    n_used_output_links;
+
   PINOS_SIGNAL (port_added, (PinosListener *listener,
                              PinosNode     *node,
                              PinosPort     *port));
   PINOS_SIGNAL (port_removed, (PinosListener *listener,
                                PinosNode     *node,
                                PinosPort     *port));
-
-  PinosPort **input_port_map;
-  PinosPort **output_port_map;
-
-  uint32_t n_used_output_links;
-  uint32_t n_used_input_links;
-
-  PinosTransport *transport;
-  PINOS_SIGNAL (transport_changed, (PinosListener *listener,
-                                    PinosNode     *object));
 
   PINOS_SIGNAL (destroy_signal, (PinosListener *listener,
                                  PinosNode     *object));

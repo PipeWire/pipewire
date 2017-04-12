@@ -305,9 +305,8 @@ videotestsrc_make_buffer (SpaVideoTestSrc *this)
   this->elapsed_time = FRAMES_TO_TIME (this, this->frame_count);
   set_timer (this, true);
 
-  io->flags = 0;
   io->buffer_id = b->outbuf->id;
-  io->status = SPA_RESULT_OK;
+  io->status = SPA_RESULT_HAVE_OUTPUT;
 
   return SPA_RESULT_HAVE_OUTPUT;
 }

@@ -85,14 +85,12 @@ transport_setup_area (void *p, PinosTransport *trans, bool reset)
 
   if (reset) {
     for (i = 0; i < a->max_inputs; i++) {
-      trans->inputs[i].flags = 0;
-      trans->inputs[i].buffer_id = SPA_ID_INVALID;
       trans->inputs[i].status = SPA_RESULT_OK;
+      trans->inputs[i].buffer_id = SPA_ID_INVALID;
     }
     for (i = 0; i < a->max_outputs; i++) {
-      trans->outputs[i].flags = 0;
-      trans->outputs[i].buffer_id = SPA_ID_INVALID;
       trans->outputs[i].status = SPA_RESULT_OK;
+      trans->outputs[i].buffer_id = SPA_ID_INVALID;
     }
     spa_ringbuffer_init (trans->input_buffer, INPUT_BUFFER_SIZE);
     spa_ringbuffer_init (trans->output_buffer, OUTPUT_BUFFER_SIZE);

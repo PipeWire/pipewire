@@ -49,6 +49,8 @@ pinos_port_new (PinosNode      *node,
   this->direction = direction;
   this->port_id = port_id;
   this->state = SPA_PORT_STATE_CONFIGURE;
+  this->io.status = SPA_RESULT_OK;
+  this->io.buffer_id = SPA_ID_INVALID;
 
   spa_list_init (&this->links);
   spa_list_init (&this->rt.links);

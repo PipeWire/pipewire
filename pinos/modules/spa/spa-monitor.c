@@ -112,6 +112,7 @@ add_item (PinosSpaMonitor *this, SpaMonitorItem *item)
   mitem = calloc (1, sizeof (PinosSpaMonitorItem));
   mitem->id = strdup (id);
   mitem->node = pinos_node_new (impl->core,
+                                NULL,
                                 name,
                                 false,
                                 node_iface,

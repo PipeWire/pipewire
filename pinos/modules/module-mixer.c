@@ -110,6 +110,7 @@ make_node (ModuleImpl *impl)
   spa_clock = iface;
 
   node = pinos_node_new (impl->core,
+                         NULL,
                          "audiomixer",
                          false,
                          spa_node,

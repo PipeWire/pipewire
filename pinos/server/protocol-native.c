@@ -101,7 +101,7 @@ core_marshal_info (void          *object,
   }
   spa_pod_builder_add (&b.b, -SPA_POD_TYPE_STRUCT, &f, 0);
 
-  pinos_connection_end_write (connection, resource->id, 0, b.b.offset);
+  pinos_connection_end_write (connection, resource->id, PINOS_CORE_EVENT_INFO, b.b.offset);
 }
 
 static void
@@ -118,7 +118,7 @@ core_marshal_done (void          *object,
   spa_pod_builder_struct (&b.b, &f,
         SPA_POD_TYPE_INT, seq);
 
-  pinos_connection_end_write (connection, resource->id, 1, b.b.offset);
+  pinos_connection_end_write (connection, resource->id, PINOS_CORE_EVENT_DONE, b.b.offset);
 }
 
 static void
@@ -145,7 +145,7 @@ core_marshal_error (void          *object,
         SPA_POD_TYPE_INT, res,
         SPA_POD_TYPE_STRING, buffer);
 
-  pinos_connection_end_write (connection, resource->id, 2, b.b.offset);
+  pinos_connection_end_write (connection, resource->id, PINOS_CORE_EVENT_ERROR, b.b.offset);
 }
 
 static void
@@ -162,7 +162,7 @@ core_marshal_remove_id (void          *object,
   spa_pod_builder_struct (&b.b, &f,
         SPA_POD_TYPE_INT, id);
 
-  pinos_connection_end_write (connection, resource->id, 3, b.b.offset);
+  pinos_connection_end_write (connection, resource->id, PINOS_CORE_EVENT_REMOVE_ID, b.b.offset);
 }
 
 static void
@@ -189,7 +189,7 @@ core_marshal_update_types (void          *object,
   spa_pod_builder_add (&b.b,
     -SPA_POD_TYPE_STRUCT, &f, 0);
 
-  pinos_connection_end_write (connection, resource->id, 4, b.b.offset);
+  pinos_connection_end_write (connection, resource->id, PINOS_CORE_EVENT_UPDATE_TYPES, b.b.offset);
 }
 
 static bool
@@ -375,7 +375,7 @@ registry_marshal_global (void          *object,
         SPA_POD_TYPE_INT, id,
         SPA_POD_TYPE_STRING, type);
 
-  pinos_connection_end_write (connection, resource->id, 0, b.b.offset);
+  pinos_connection_end_write (connection, resource->id, PINOS_REGISTRY_EVENT_GLOBAL, b.b.offset);
 }
 
 static void
@@ -392,7 +392,7 @@ registry_marshal_global_remove (void          *object,
   spa_pod_builder_struct (&b.b, &f,
         SPA_POD_TYPE_INT, id);
 
-  pinos_connection_end_write (connection, resource->id, 1, b.b.offset);
+  pinos_connection_end_write (connection, resource->id, PINOS_REGISTRY_EVENT_GLOBAL_REMOVE, b.b.offset);
 }
 
 static bool
@@ -446,7 +446,7 @@ module_marshal_info (void            *object,
   }
   spa_pod_builder_add (&b.b, -SPA_POD_TYPE_STRUCT, &f, 0);
 
-  pinos_connection_end_write (connection, resource->id, 0, b.b.offset);
+  pinos_connection_end_write (connection, resource->id, PINOS_MODULE_EVENT_INFO, b.b.offset);
 }
 
 static void
@@ -495,7 +495,7 @@ node_marshal_info (void          *object,
   }
   spa_pod_builder_add (&b.b, -SPA_POD_TYPE_STRUCT, &f, 0);
 
-  pinos_connection_end_write (connection, resource->id, 0, b.b.offset);
+  pinos_connection_end_write (connection, resource->id, PINOS_NODE_EVENT_INFO, b.b.offset);
 }
 
 static void
@@ -525,7 +525,7 @@ client_marshal_info (void          *object,
   }
   spa_pod_builder_add (&b.b, -SPA_POD_TYPE_STRUCT, &f, 0);
 
-  pinos_connection_end_write (connection, resource->id, 0, b.b.offset);
+  pinos_connection_end_write (connection, resource->id, PINOS_CLIENT_EVENT_INFO, b.b.offset);
 }
 
 static void
@@ -542,7 +542,7 @@ client_node_marshal_done (void     *object,
   spa_pod_builder_struct (&b.b, &f,
         SPA_POD_TYPE_INT, pinos_connection_add_fd (connection, datafd));
 
-  pinos_connection_end_write (connection, resource->id, 0, b.b.offset);
+  pinos_connection_end_write (connection, resource->id, PINOS_CLIENT_NODE_EVENT_DONE, b.b.offset);
 }
 
 static void
@@ -559,7 +559,7 @@ client_node_marshal_event (void           *object,
   spa_pod_builder_struct (&b.b, &f,
         SPA_POD_TYPE_POD, event);
 
-  pinos_connection_end_write (connection, resource->id, 1, b.b.offset);
+  pinos_connection_end_write (connection, resource->id, PINOS_CLIENT_NODE_EVENT_EVENT, b.b.offset);
 }
 
 static void
@@ -580,7 +580,7 @@ client_node_marshal_add_port (void         *object,
         SPA_POD_TYPE_INT, direction,
         SPA_POD_TYPE_INT, port_id);
 
-  pinos_connection_end_write (connection, resource->id, 2, b.b.offset);
+  pinos_connection_end_write (connection, resource->id, PINOS_CLIENT_NODE_EVENT_ADD_PORT, b.b.offset);
 }
 
 static void
@@ -601,7 +601,7 @@ client_node_marshal_remove_port (void         *object,
         SPA_POD_TYPE_INT, direction,
         SPA_POD_TYPE_INT, port_id);
 
-  pinos_connection_end_write (connection, resource->id, 3, b.b.offset);
+  pinos_connection_end_write (connection, resource->id, PINOS_CLIENT_NODE_EVENT_REMOVE_PORT, b.b.offset);
 }
 
 static void
@@ -626,7 +626,7 @@ client_node_marshal_set_format (void              *object,
       SPA_POD_TYPE_INT, flags,
       SPA_POD_TYPE_POD, format);
 
-  pinos_connection_end_write (connection, resource->id, 4, b.b.offset);
+  pinos_connection_end_write (connection, resource->id, PINOS_CLIENT_NODE_EVENT_SET_FORMAT, b.b.offset);
 }
 
 static void
@@ -648,7 +648,7 @@ client_node_marshal_set_property (void              *object,
         SPA_POD_TYPE_INT, id,
         SPA_POD_TYPE_BYTES, value, size);
 
-  pinos_connection_end_write (connection, resource->id, 5, b.b.offset);
+  pinos_connection_end_write (connection, resource->id, PINOS_CLIENT_NODE_EVENT_SET_PROPERTY, b.b.offset);
 }
 
 static void
@@ -679,7 +679,7 @@ client_node_marshal_add_mem (void              *object,
         SPA_POD_TYPE_INT, offset,
         SPA_POD_TYPE_INT, size);
 
-  pinos_connection_end_write (connection, resource->id, 6, b.b.offset);
+  pinos_connection_end_write (connection, resource->id, PINOS_CLIENT_NODE_EVENT_ADD_MEM, b.b.offset);
 }
 
 static void
@@ -734,7 +734,7 @@ client_node_marshal_use_buffers (void                  *object,
   }
   spa_pod_builder_add (&b.b, -SPA_POD_TYPE_STRUCT, &f, 0);
 
-  pinos_connection_end_write (connection, resource->id, 7, b.b.offset);
+  pinos_connection_end_write (connection, resource->id, PINOS_CLIENT_NODE_EVENT_USE_BUFFERS, b.b.offset);
 }
 
 static void
@@ -753,7 +753,7 @@ client_node_marshal_node_command (void             *object,
         SPA_POD_TYPE_INT, seq,
         SPA_POD_TYPE_POD, command);
 
-  pinos_connection_end_write (connection, resource->id, 8, b.b.offset);
+  pinos_connection_end_write (connection, resource->id, PINOS_CLIENT_NODE_EVENT_NODE_COMMAND, b.b.offset);
 }
 
 static void
@@ -772,7 +772,7 @@ client_node_marshal_port_command (void             *object,
         SPA_POD_TYPE_INT, port_id,
         SPA_POD_TYPE_POD, command);
 
-  pinos_connection_end_write (connection, resource->id, 9, b.b.offset);
+  pinos_connection_end_write (connection, resource->id, PINOS_CLIENT_NODE_EVENT_PORT_COMMAND, b.b.offset);
 }
 
 static void
@@ -793,7 +793,7 @@ client_node_marshal_transport (void              *object,
         SPA_POD_TYPE_INT, offset,
         SPA_POD_TYPE_INT, size);
 
-  pinos_connection_end_write (connection, resource->id, 10, b.b.offset);
+  pinos_connection_end_write (connection, resource->id, PINOS_CLIENT_NODE_EVENT_TRANSPORT, b.b.offset);
 }
 
 static bool
@@ -949,7 +949,7 @@ link_marshal_info (void          *object,
         SPA_POD_TYPE_INT, info->input_node_id,
         SPA_POD_TYPE_INT, info->input_port_id);
 
-  pinos_connection_end_write (connection, resource->id, 0, b.b.offset);
+  pinos_connection_end_write (connection, resource->id, PINOS_LINK_EVENT_INFO, b.b.offset);
 }
 
 static const PinosDemarshalFunc pinos_protocol_native_server_core_demarshal[] = {
@@ -970,8 +970,8 @@ static const PinosCoreEvents pinos_protocol_native_server_core_events = {
 };
 
 const PinosInterface pinos_protocol_native_server_core_interface = {
-  6, pinos_protocol_native_server_core_demarshal,
-  5, &pinos_protocol_native_server_core_events,
+  PINOS_CORE_METHOD_NUM, pinos_protocol_native_server_core_demarshal,
+  PINOS_CORE_EVENT_NUM, &pinos_protocol_native_server_core_events,
 };
 
 static const PinosDemarshalFunc pinos_protocol_native_server_registry_demarshal[] = {
@@ -984,8 +984,8 @@ static const PinosRegistryEvents pinos_protocol_native_server_registry_events = 
 };
 
 const PinosInterface pinos_protocol_native_server_registry_interface = {
-  1, pinos_protocol_native_server_registry_demarshal,
-  2, &pinos_protocol_native_server_registry_events,
+  PINOS_REGISTRY_METHOD_NUM, pinos_protocol_native_server_registry_demarshal,
+  PINOS_REGISTRY_EVENT_NUM, &pinos_protocol_native_server_registry_events,
 };
 
 static const PinosModuleEvents pinos_protocol_native_server_module_events = {
@@ -994,7 +994,7 @@ static const PinosModuleEvents pinos_protocol_native_server_module_events = {
 
 const PinosInterface pinos_protocol_native_server_module_interface = {
   0, NULL,
-  1, &pinos_protocol_native_server_module_events,
+  PINOS_MODULE_EVENT_NUM, &pinos_protocol_native_server_module_events,
 };
 
 static const PinosNodeEvents pinos_protocol_native_server_node_events = {
@@ -1003,7 +1003,7 @@ static const PinosNodeEvents pinos_protocol_native_server_node_events = {
 
 const PinosInterface pinos_protocol_native_server_node_interface = {
   0, NULL,
-  1, &pinos_protocol_native_server_node_events,
+  PINOS_NODE_EVENT_NUM, &pinos_protocol_native_server_node_events,
 };
 
 static const PinosClientEvents pinos_protocol_native_server_client_events = {
@@ -1012,7 +1012,7 @@ static const PinosClientEvents pinos_protocol_native_server_client_events = {
 
 const PinosInterface pinos_protocol_native_server_client_interface = {
   0, NULL,
-  2, &pinos_protocol_native_server_client_events,
+  PINOS_CLIENT_EVENT_NUM, &pinos_protocol_native_server_client_events,
 };
 
 static const PinosDemarshalFunc pinos_protocol_native_server_client_node_demarshal[] = {
@@ -1037,8 +1037,8 @@ static const PinosClientNodeEvents pinos_protocol_native_server_client_node_even
 };
 
 const PinosInterface pinos_protocol_native_server_client_node_interface = {
-  4, &pinos_protocol_native_server_client_node_demarshal,
-  11, &pinos_protocol_native_server_client_node_events,
+  PINOS_CLIENT_NODE_METHOD_NUM, &pinos_protocol_native_server_client_node_demarshal,
+  PINOS_CLIENT_NODE_EVENT_NUM, &pinos_protocol_native_server_client_node_events,
 };
 
 static const PinosLinkEvents pinos_protocol_native_server_link_events = {
@@ -1047,7 +1047,7 @@ static const PinosLinkEvents pinos_protocol_native_server_link_events = {
 
 const PinosInterface pinos_protocol_native_server_link_interface = {
   0, NULL,
-  1, &pinos_protocol_native_server_link_events,
+  PINOS_LINK_EVENT_NUM, &pinos_protocol_native_server_link_events,
 };
 
 bool

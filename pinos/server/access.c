@@ -18,10 +18,3 @@
  */
 
 #include "pinos/server/core.h"
-
-void
-pinos_access_init (PinosAccess *access)
-{
-  pinos_signal_init (&access->check_send);
-  pinos_signal_init (&access->check_dispatch);
-}

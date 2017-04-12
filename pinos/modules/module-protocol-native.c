@@ -183,7 +183,7 @@ client_new (PinosProtocolNative *impl,
   this->fd = fd;
   this->source = pinos_loop_add_io (impl->core->main_loop->loop,
                                     this->fd,
-                                    SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP,
+                                    SPA_IO_ERR | SPA_IO_HUP,
                                     false,
                                     connection_data,
                                     this);
@@ -336,6 +336,7 @@ socket_data (SpaSource *source,
              void      *data)
 {
   PinosProtocolNative *impl = data;
+  PinosProtocolNativeClient *client;
   struct sockaddr_un name;
   socklen_t length;
   int client_fd;
@@ -347,11 +348,16 @@ socket_data (SpaSource *source,
     return;
   }
 
-  if (client_new (impl, client_fd) == NULL) {
+  client = client_new (impl, client_fd);
+  if (client == NULL) {
     pinos_log_error ("failed to create client");
     close (client_fd);
     return;
   }
+
+  pinos_loop_update_io (impl->core->main_loop->loop,
+                        client->source,
+                        SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP);
 }
 
 static bool

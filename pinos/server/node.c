@@ -485,15 +485,16 @@ init_complete (PinosNode *this)
   pinos_log_debug ("node %p: init completed", this);
   impl->async_init = false;
 
-  pinos_node_update_state (this, PINOS_NODE_STATE_SUSPENDED, NULL);
-
   spa_list_insert (this->core->node_list.prev, &this->link);
-  this->global = pinos_core_add_global (this->core,
-                                        NULL,
-                                        this->core->type.node,
-                                        0,
-                                        this,
-                                        node_bind_func);
+  pinos_core_add_global (this->core,
+                         this->owner,
+                         this->core->type.node,
+                         0,
+                         this,
+                         node_bind_func,
+                         &this->global);
+
+  pinos_node_update_state (this, PINOS_NODE_STATE_SUSPENDED, NULL);
 }
 
 void
@@ -506,6 +507,7 @@ pinos_node_set_data_loop (PinosNode        *node,
 
 PinosNode *
 pinos_node_new (PinosCore       *core,
+                PinosClient     *owner,
                 const char      *name,
                 bool             async,
                 SpaNode         *node,
@@ -521,7 +523,8 @@ pinos_node_new (PinosCore       *core,
 
   this = &impl->this;
   this->core = core;
-  pinos_log_debug ("node %p: new", this);
+  this->owner = owner;
+  pinos_log_debug ("node %p: new, owner %p", this, owner);
 
   impl->work = pinos_work_queue_new (this->core->main_loop->loop);
 

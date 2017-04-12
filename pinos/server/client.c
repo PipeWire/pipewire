@@ -111,12 +111,13 @@ pinos_client_new (PinosCore       *core,
 
   spa_list_insert (core->client_list.prev, &this->link);
 
-  this->global = pinos_core_add_global (core,
-                                        this,
-                                        core->type.client,
-                                        0,
-                                        this,
-                                        client_bind_func);
+  pinos_core_add_global (core,
+                         this,
+                         core->type.client,
+                         0,
+                         this,
+                         client_bind_func,
+                         &this->global);
 
   this->info.id = this->global->id;
   this->info.props = this->properties ? &this->properties->dict : NULL;

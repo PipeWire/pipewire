@@ -1177,6 +1177,7 @@ pinos_client_node_new (PinosClient     *client,
   proxy_init (&impl->proxy, NULL, client->core->support, client->core->n_support);
 
   this->node = pinos_node_new (client->core,
+                               client,
                                name,
                                true,
                                &impl->proxy.node,

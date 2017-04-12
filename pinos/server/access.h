@@ -30,20 +30,18 @@ extern "C" {
 #include <pinos/client/sig.h>
 
 typedef struct _PinosAccess PinosAccess;
+typedef struct _PinosAccessData PinosAccessData;
 
 #include <pinos/server/client.h>
 #include <pinos/server/resource.h>
 
-typedef struct {
-  SpaResult         res;
-  PinosClient      *client;
-  PinosResource    *resource;
-  uint32_t          opcode;
-  void             *message;
-  bool              flush;
-} PinosAccessData;
+struct _PinosAccessData {
+  SpaResult res;
+  void (*complete_cb) (PinosAccessData *data);
+  void (*cancel_cb)   (PinosAccessData *data);
+  void *user_data;
+};
 
-typedef SpaResult (*PinosAccessFunc) (PinosAccessData *data);
 
 /**
  * PinosAccess:
@@ -51,15 +49,10 @@ typedef SpaResult (*PinosAccessFunc) (PinosAccessData *data);
  * Pinos Access support struct.
  */
 struct _PinosAccess {
-  PINOS_SIGNAL (check_send,     (PinosListener    *listener,
-                                 PinosAccessFunc   func,
-                                 PinosAccessData  *data));
-  PINOS_SIGNAL (check_dispatch, (PinosListener    *listener,
-                                 PinosAccessFunc   func,
-                                 PinosAccessData  *data));
+  SpaResult  (*check_global)     (PinosAccess      *access,
+                                  PinosClient      *client,
+                                  PinosGlobal      *global);
 };
-
-void pinos_access_init (PinosAccess *access);
 
 #ifdef __cplusplus
 }

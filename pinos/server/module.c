@@ -192,12 +192,13 @@ pinos_module_load (PinosCore    *core,
   if (!init_func (this, (char *) args))
     goto init_failed;
 
-  this->global = pinos_core_add_global (core,
-                                        NULL,
-                                        core->type.module,
-                                        0,
-                                        impl,
-                                        module_bind_func);
+  pinos_core_add_global (core,
+                         NULL,
+                         core->type.module,
+                         0,
+                         impl,
+                         module_bind_func,
+                         &this->global);
 
   this->info.id = this->global->id;
   this->info.name = name ? strdup (name) : NULL;

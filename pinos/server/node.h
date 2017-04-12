@@ -51,6 +51,7 @@ struct _PinosNode {
   SpaList      link;
   PinosGlobal *global;
 
+  PinosClient *owner;
   char *name;
   PinosProperties *properties;
   PinosNodeState state;
@@ -109,6 +110,7 @@ struct _PinosNode {
 };
 
 PinosNode *         pinos_node_new                     (PinosCore       *core,
+                                                        PinosClient     *owner,
                                                         const char      *name,
                                                         bool             async,
                                                         SpaNode         *node,

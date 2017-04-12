@@ -34,97 +34,60 @@ typedef struct {
   PinosListener  check_dispatch;
 } ModuleImpl;
 
-#if 0
 static bool
 check_global_owner (PinosCore   *core,
                     PinosClient *client,
-                    uint32_t     id)
+                    PinosGlobal *global)
 {
-  PinosGlobal *global;
+  pinos_log_debug ("%p", global);
 
-  global = pinos_map_lookup (&core->objects, id);
   if (global == NULL)
     return false;
 
+  pinos_log_debug ("%p", global->owner);
+
   if (global->owner == NULL)
     return true;
+
+  pinos_log_debug ("%d %d", global->owner->ucred.uid, client->ucred.uid);
 
   if (global->owner->ucred.uid == client->ucred.uid)
     return true;
 
   return false;
 }
-#endif
 
-static void
-do_check_send (PinosListener    *listener,
-               PinosAccessFunc   func,
-               PinosAccessData  *data)
+static SpaResult
+do_check_global (PinosAccess      *access,
+                 PinosClient      *client,
+                 PinosGlobal      *global)
 {
-  PinosClient *client = data->client;
-  PinosCore *core = client->core;
+  if (global->type == client->core->type.link) {
+    PinosLink *link = global->object;
 
-  if (data->resource->type == core->type.registry) {
-#if 0
-    switch (data->opcode) {
-      case 0:
-      {
-        PinosMessageNotifyGlobal *m = data->message;
+    pinos_log_debug ("link %p: global %p %p %p %p", link, global->owner, client, link->output, link->input);
 
-        if (check_global_owner (core, client, m->id))
-          data->res = SPA_RESULT_OK;
-        else
-          data->res = SPA_RESULT_SKIPPED;
-        break;
-      }
-      case 1:
-      {
-        PinosMessageNotifyGlobalRemove *m = data->message;
+    /* we must be able to see both nodes */
+    if (link->output && !check_global_owner (client->core, client, link->output->node->global))
+      return SPA_RESULT_ERROR;
 
-        if (check_global_owner (core, client, m->id))
-          data->res = SPA_RESULT_OK;
-        else
-          data->res = SPA_RESULT_SKIPPED;
-        break;
-      }
+    pinos_log_debug ("link %p: global %p %p %p %p", link, global->owner, client, link->output, link->input);
 
-      default:
-        data->res = SPA_RESULT_NO_PERMISSION;
-        break;
-    }
-#endif
+    if (link->input && !check_global_owner (client->core, client, link->input->node->global))
+      return SPA_RESULT_ERROR;
+
+    pinos_log_debug ("link %p: global %p %p %p %p", link, global->owner, client, link->output, link->input);
   }
-  else {
-    data->res = SPA_RESULT_OK;
-  }
+  else if (!check_global_owner (client->core, client, global))
+    return SPA_RESULT_ERROR;
+
+  return SPA_RESULT_OK;
 }
 
-static void
-do_check_dispatch (PinosListener    *listener,
-                   PinosAccessFunc   func,
-                   PinosAccessData  *data)
+static PinosAccess access_checks =
 {
-  PinosClient *client = data->client;
-  PinosCore *core = client->core;
-
-  if (data->resource->type == core->type.registry) {
-#if 0
-    if (data->opcode == 0) {
-      PinosMessageBind *m = data->message;
-
-      if (check_global_owner (core, client, m->id))
-        data->res = SPA_RESULT_OK;
-      else
-        data->res = SPA_RESULT_NO_PERMISSION;
-    } else {
-      data->res = SPA_RESULT_NO_PERMISSION;
-    }
-#endif
-  }
-  else {
-    data->res = SPA_RESULT_OK;
-  }
-}
+  do_check_global,
+};
 
 static ModuleImpl *
 module_new (PinosCore       *core,
@@ -138,12 +101,7 @@ module_new (PinosCore       *core,
   impl->core = core;
   impl->properties = properties;
 
-  pinos_signal_add (&core->access.check_send,
-                    &impl->check_send,
-                    do_check_send);
-  pinos_signal_add (&core->access.check_dispatch,
-                    &impl->check_dispatch,
-                    do_check_dispatch);
+  core->access = &access_checks;
 
   return impl;
 }

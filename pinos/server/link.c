@@ -891,12 +891,13 @@ pinos_link_new (PinosCore       *core,
 
   spa_list_insert (core->link_list.prev, &this->link);
 
-  this->global = pinos_core_add_global (core,
-                                        NULL,
-                                        core->type.link,
-                                        0,
-                                        this,
-                                        link_bind_func);
+  pinos_core_add_global (core,
+                         NULL,
+                         core->type.link,
+                         0,
+                         this,
+                         link_bind_func,
+                         &this->global);
   return this;
 }
 

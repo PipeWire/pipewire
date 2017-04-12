@@ -112,6 +112,7 @@ pinos_spa_node_load (PinosCore  *core,
   }
 
   this->node = pinos_node_new (core,
+                               NULL,
                                name,
                                false,
                                spa_node,

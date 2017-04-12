@@ -38,6 +38,10 @@ typedef struct {
 
 } PinosCoreImpl;
 
+#define ACCESS_CHECK_GLOBAL(client,global) (client->core->access && \
+                                            client->core->access->check_global (client->core->access, \
+                                                                                client, global) == SPA_RESULT_OK)
+
 static void
 registry_bind (void     *object,
                uint32_t  id,
@@ -53,6 +57,9 @@ registry_bind (void     *object,
       break;
 
   if (&global->link == &core->global_list)
+    goto no_id;
+
+  if (!ACCESS_CHECK_GLOBAL (client, global))
     goto no_id;
 
   pinos_log_debug ("global %p: bind object id %d to %d", global, id, new_id);
@@ -121,10 +128,12 @@ core_get_registry (void     *object,
 
   spa_list_insert (this->registry_resource_list.prev, &registry_resource->link);
 
-  spa_list_for_each (global, &this->global_list, link)
-    pinos_registry_notify_global (registry_resource,
-                                  global->id,
-                                  spa_type_map_get_type (this->type.map, global->type));
+  spa_list_for_each (global, &this->global_list, link) {
+    if (ACCESS_CHECK_GLOBAL (client, global))
+      pinos_registry_notify_global (registry_resource,
+                                    global->id,
+                                    spa_type_map_get_type (this->type.map, global->type));
+  }
 
   return;
 
@@ -291,7 +300,6 @@ pinos_core_new (PinosMainLoop   *main_loop,
   this->properties = properties;
 
   pinos_type_init (&this->type);
-  pinos_access_init (&this->access);
   pinos_map_init (&this->objects, 128, 32);
 
   impl->support[0].type = SPA_TYPE__TypeMap;
@@ -318,12 +326,13 @@ pinos_core_new (PinosMainLoop   *main_loop,
   pinos_signal_init (&this->global_added);
   pinos_signal_init (&this->global_removed);
 
-  this->global = pinos_core_add_global (this,
-                                        NULL,
-                                        this->type.core,
-                                        0,
-                                        this,
-                                        core_bind_func);
+  pinos_core_add_global (this,
+                         NULL,
+                         this->type.core,
+                         0,
+                         this,
+                         core_bind_func,
+                         &this->global);
 
   this->info.id = this->global->id;
   this->info.change_mask = 0;
@@ -358,13 +367,14 @@ pinos_core_destroy (PinosCore *core)
   free (impl);
 }
 
-PinosGlobal *
+bool
 pinos_core_add_global (PinosCore     *core,
                        PinosClient   *owner,
                        uint32_t       type,
                        uint32_t       version,
                        void          *object,
-                       PinosBindFunc  bind)
+                       PinosBindFunc  bind,
+                       PinosGlobal  **global)
 {
   PinosGlobalImpl *impl;
   PinosGlobal *this;
@@ -373,7 +383,7 @@ pinos_core_add_global (PinosCore     *core,
 
   impl = calloc (1, sizeof (PinosGlobalImpl));
   if (impl == NULL)
-    return NULL;
+    return false;
 
   this = &impl->this;
   impl->bind = bind;
@@ -383,6 +393,7 @@ pinos_core_add_global (PinosCore     *core,
   this->type = type;
   this->version = version;
   this->object = object;
+  *global = this;
 
   pinos_signal_init (&this->destroy_signal);
 
@@ -392,14 +403,15 @@ pinos_core_add_global (PinosCore     *core,
   pinos_signal_emit (&core->global_added, core, this);
 
   type_name = spa_type_map_get_type (core->type.map, this->type);
-  pinos_log_debug ("global %p: new %u %s", this, this->id, type_name);
+  pinos_log_debug ("global %p: new %u %s, owner %p", this, this->id, type_name, owner);
 
   spa_list_for_each (registry, &core->registry_resource_list, link)
-    pinos_registry_notify_global (registry,
-                                  this->id,
-                                  type_name);
+    if (ACCESS_CHECK_GLOBAL (registry->client, this))
+      pinos_registry_notify_global (registry,
+                                    this->id,
+                                    type_name);
 
-  return this;
+  return true;
 }
 
 SpaResult
@@ -433,7 +445,8 @@ pinos_global_destroy (PinosGlobal *global)
   pinos_signal_emit (&global->destroy_signal, global);
 
   spa_list_for_each (registry, &core->registry_resource_list, link)
-    pinos_registry_notify_global_remove (registry, global->id);
+    if (ACCESS_CHECK_GLOBAL (registry->client, global))
+      pinos_registry_notify_global_remove (registry, global->id);
 
   pinos_map_remove (&core->objects, global->id);
 

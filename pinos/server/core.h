@@ -69,7 +69,7 @@ struct _PinosCore {
   PinosProperties *properties;
 
   PinosType type;
-  PinosAccess access;
+  PinosAccess *access;
 
   PinosMap objects;
 
@@ -105,12 +105,13 @@ void            pinos_core_destroy       (PinosCore       *core);
 void            pinos_core_update_properties (PinosCore     *core,
                                               const SpaDict *dict);
 
-PinosGlobal *   pinos_core_add_global    (PinosCore     *core,
+bool            pinos_core_add_global    (PinosCore     *core,
                                           PinosClient   *owner,
                                           uint32_t       type,
                                           uint32_t       version,
                                           void          *object,
-                                          PinosBindFunc  bind);
+                                          PinosBindFunc  bind,
+                                          PinosGlobal  **global);
 
 SpaResult       pinos_global_bind        (PinosGlobal   *global,
                                           PinosClient   *client,

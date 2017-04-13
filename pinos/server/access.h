@@ -36,10 +36,12 @@ typedef struct _PinosAccessData PinosAccessData;
 #include <pinos/server/resource.h>
 
 struct _PinosAccessData {
-  SpaResult res;
-  void (*complete_cb) (PinosAccessData *data);
-  void (*cancel_cb)   (PinosAccessData *data);
-  void *user_data;
+  SpaResult      res;
+  PinosResource *resource;
+  void          *(*async_copy)  (PinosAccessData *data, size_t size);
+  void           (*complete_cb) (PinosAccessData *data);
+  void           (*free_cb)     (PinosAccessData *data);
+  void          *user_data;
 };
 
 
@@ -49,9 +51,18 @@ struct _PinosAccessData {
  * Pinos Access support struct.
  */
 struct _PinosAccess {
-  SpaResult  (*check_global)     (PinosAccess      *access,
-                                  PinosClient      *client,
-                                  PinosGlobal      *global);
+  SpaResult  (*view_global)            (PinosAccess      *access,
+                                        PinosClient      *client,
+                                        PinosGlobal      *global);
+  SpaResult  (*create_node)            (PinosAccess      *access,
+                                        PinosAccessData  *data,
+                                        const char       *factory_name,
+                                        const char       *name,
+                                        PinosProperties  *properties);
+  SpaResult  (*create_client_node)     (PinosAccess      *access,
+                                        PinosAccessData  *data,
+                                        const char       *name,
+                                        PinosProperties  *properties);
 };
 
 #ifdef __cplusplus

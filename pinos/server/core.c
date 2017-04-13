@@ -38,9 +38,9 @@ typedef struct {
 
 } PinosCoreImpl;
 
-#define ACCESS_CHECK_GLOBAL(client,global) (client->core->access && \
-                                            client->core->access->check_global (client->core->access, \
-                                                                                client, global) == SPA_RESULT_OK)
+#define ACCESS_VIEW_GLOBAL(client,global) (client->core->access && \
+                                           client->core->access->view_global (client->core->access, \
+                                                                              client, global) == SPA_RESULT_OK)
 
 static void
 registry_bind (void     *object,
@@ -59,7 +59,7 @@ registry_bind (void     *object,
   if (&global->link == &core->global_list)
     goto no_id;
 
-  if (!ACCESS_CHECK_GLOBAL (client, global))
+  if (!ACCESS_VIEW_GLOBAL (client, global))
     goto no_id;
 
   pinos_log_debug ("global %p: bind object id %d to %d", global, id, new_id);
@@ -129,7 +129,7 @@ core_get_registry (void     *object,
   spa_list_insert (this->registry_resource_list.prev, &registry_resource->link);
 
   spa_list_for_each (global, &this->global_list, link) {
-    if (ACCESS_CHECK_GLOBAL (client, global))
+    if (ACCESS_VIEW_GLOBAL (client, global))
       pinos_registry_notify_global (registry_resource,
                                     global->id,
                                     spa_type_map_get_type (this->type.map, global->type));
@@ -161,32 +161,57 @@ core_create_node (void          *object,
                            "not implemented");
 }
 
-static void
-core_create_client_node (void          *object,
-                         const char    *name,
-                         const SpaDict *props,
-                         uint32_t       new_id)
+typedef struct {
+  PinosAccessData data;
+  char *name;
+  PinosProperties *properties;
+  uint32_t new_id;
+  bool async;
+} AccessCreateClientNode;
+
+static void *
+async_create_client_node_copy (PinosAccessData *data, size_t size)
 {
-  PinosResource *resource = object;
+  AccessCreateClientNode *d;
+
+  d = calloc (1, sizeof (AccessCreateClientNode) + size);
+  memcpy (d, data, sizeof (AccessCreateClientNode));
+  d->name = strdup (d->name);
+  d->async = true;
+  d->data.user_data = SPA_MEMBER (d, sizeof (AccessCreateClientNode), void);
+  return d;
+}
+
+static void
+async_create_client_node_free (PinosAccessData *data)
+{
+  AccessCreateClientNode *d = (AccessCreateClientNode *) data;
+
+  if (d->async) {
+    if (d->data.free_cb)
+      d->data.free_cb (&d->data);
+    free (d->name);
+    free (d);
+  }
+}
+
+static void
+async_create_client_node_complete (PinosAccessData *data)
+{
+  AccessCreateClientNode *d = (AccessCreateClientNode *) data;
+  PinosResource *resource = d->data.resource;
   PinosClient *client = resource->client;
   PinosClientNode *node;
   SpaResult res;
-  int data_fd, i;
-  PinosProperties *properties;
+  int data_fd;
 
-  properties = pinos_properties_new (NULL, NULL);
-  if (properties == NULL)
-    goto no_mem;
-
-  for (i = 0; i < props->n_items; i++) {
-    pinos_properties_set (properties, props->items[i].key,
-                                      props->items[i].value);
-  }
+  if (data->res != SPA_RESULT_OK)
+    goto denied;
 
   node = pinos_client_node_new (client,
-                                new_id,
-                                name,
-                                properties);
+                                d->new_id,
+                                d->name,
+                                d->properties);
   if (node == NULL)
     goto no_mem;
 
@@ -200,6 +225,68 @@ core_create_client_node (void          *object,
 
   pinos_client_node_notify_done (node->resource,
                                  data_fd);
+  goto done;
+
+no_mem:
+  pinos_log_error ("can't create client node");
+  pinos_core_notify_error (client->core_resource,
+                           resource->id,
+                           SPA_RESULT_NO_MEMORY,
+                           "no memory");
+  goto done;
+denied:
+  pinos_log_error ("create client node refused");
+  pinos_core_notify_error (client->core_resource,
+                           resource->id,
+                           SPA_RESULT_NO_PERMISSION,
+                           "operation not allowed");
+done:
+  async_create_client_node_free (&d->data);
+  return;
+}
+
+static void
+core_create_client_node (void          *object,
+                         const char    *name,
+                         const SpaDict *props,
+                         uint32_t       new_id)
+{
+  PinosResource *resource = object;
+  PinosClient *client = resource->client;
+  int i;
+  PinosProperties *properties;
+  AccessCreateClientNode access_data;
+  SpaResult res;
+
+  properties = pinos_properties_new (NULL, NULL);
+  if (properties == NULL)
+    goto no_mem;
+
+  for (i = 0; i < props->n_items; i++) {
+    pinos_properties_set (properties, props->items[i].key,
+                                      props->items[i].value);
+  }
+
+  access_data.data.resource = resource;
+  access_data.data.async_copy = async_create_client_node_copy;
+  access_data.data.complete_cb = async_create_client_node_complete;
+  access_data.data.free_cb = NULL;
+  access_data.name = (char *) name;
+  access_data.properties = properties;
+  access_data.new_id = new_id;
+  access_data.async = false;
+
+  if (client->core->access) {
+    access_data.data.res = SPA_RESULT_NO_PERMISSION;
+    res =  client->core->access->create_client_node (client->core->access,
+                                                     &access_data.data,
+                                                     name,
+                                                     properties);
+  } else {
+    res = access_data.data.res = SPA_RESULT_OK;
+  }
+  if (!SPA_RESULT_IS_ASYNC (res))
+    async_create_client_node_complete (&access_data.data);
   return;
 
 no_mem:
@@ -406,7 +493,7 @@ pinos_core_add_global (PinosCore     *core,
   pinos_log_debug ("global %p: new %u %s, owner %p", this, this->id, type_name, owner);
 
   spa_list_for_each (registry, &core->registry_resource_list, link)
-    if (ACCESS_CHECK_GLOBAL (registry->client, this))
+    if (ACCESS_VIEW_GLOBAL (registry->client, this))
       pinos_registry_notify_global (registry,
                                     this->id,
                                     type_name);
@@ -445,7 +532,7 @@ pinos_global_destroy (PinosGlobal *global)
   pinos_signal_emit (&global->destroy_signal, global);
 
   spa_list_for_each (registry, &core->registry_resource_list, link)
-    if (ACCESS_CHECK_GLOBAL (registry->client, global))
+    if (ACCESS_VIEW_GLOBAL (registry->client, global))
       pinos_registry_notify_global_remove (registry, global->id);
 
   pinos_map_remove (&core->objects, global->id);

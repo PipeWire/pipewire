@@ -58,9 +58,9 @@ check_global_owner (PinosCore   *core,
 }
 
 static SpaResult
-do_check_global (PinosAccess      *access,
-                 PinosClient      *client,
-                 PinosGlobal      *global)
+do_view_global (PinosAccess      *access,
+                PinosClient      *client,
+                PinosGlobal      *global)
 {
   if (global->type == client->core->type.link) {
     PinosLink *link = global->object;
@@ -84,9 +84,65 @@ do_check_global (PinosAccess      *access,
   return SPA_RESULT_OK;
 }
 
+static SpaResult
+do_create_node (PinosAccess      *access,
+                PinosAccessData  *data,
+                const char       *factory_name,
+                const char       *name,
+                PinosProperties  *properties)
+{
+  data->res = SPA_RESULT_OK;
+  data->complete_cb (data);
+  return SPA_RESULT_OK;
+}
+
+#if 0
+static void
+check_timeout (SpaSource *source,
+               void      *d)
+{
+  PinosAccessData *data = d;
+
+  data->res = SPA_RESULT_OK;
+  data->complete_cb (data);
+}
+#endif
+
+static SpaResult
+do_create_client_node (PinosAccess      *access,
+                       PinosAccessData  *data,
+                       const char       *name,
+                       PinosProperties  *properties)
+{
+#if 0
+  struct timespec value;
+  SpaSource *timer;
+
+  pinos_log_debug ("access %p: check %s %p", access, name, properties);
+
+  timer = pinos_loop_add_timer (data->resource->core->main_loop->loop,
+                                check_timeout,
+                                data->async_copy (data, 0));
+  value.tv_sec = 3;
+  value.tv_nsec = 0;
+  pinos_loop_update_timer (data->resource->core->main_loop->loop,
+                           timer,
+                           &value,
+                           NULL,
+                           false);
+
+  return SPA_RESULT_RETURN_ASYNC (0);
+#else
+  data->res = SPA_RESULT_OK;
+  return SPA_RESULT_OK;
+#endif
+}
+
 static PinosAccess access_checks =
 {
-  do_check_global,
+  do_view_global,
+  do_create_node,
+  do_create_client_node,
 };
 
 static ModuleImpl *

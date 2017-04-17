@@ -53,6 +53,9 @@ struct _PinosMap {
 #define pinos_map_has_item(m,id)         (pinos_map_check_id(m,id) && !pinos_map_id_is_free(m, id))
 #define pinos_map_lookup_unchecked(m,id) pinos_map_get_item(m,id)->data
 
+#define PINOS_MAP_ID_TO_PTR(id)          (SPA_UINT32_TO_PTR((id)<<1))
+#define PINOS_MAP_PTR_TO_ID(p)           (SPA_PTR_TO_UINT32(p)>>1)
+
 static inline void
 pinos_map_init (PinosMap *map,
                 size_t    size,

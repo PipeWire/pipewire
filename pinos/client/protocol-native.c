@@ -400,6 +400,7 @@ node_demarshal_info (void   *object,
   int i;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
+      !pinos_pod_remap_data (SPA_POD_TYPE_STRUCT, data, size, &proxy->context->types) ||
       !spa_pod_iter_get (&it,
         SPA_POD_TYPE_INT, &info.id,
         SPA_POD_TYPE_LONG, &info.change_mask,
@@ -599,6 +600,7 @@ client_node_demarshal_event (void   *object,
   const SpaEvent *event;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
+      !pinos_pod_remap_data (SPA_POD_TYPE_STRUCT, data, size, &proxy->context->types) ||
       !spa_pod_iter_get (&it,
         SPA_POD_TYPE_OBJECT, &event,
         0))
@@ -661,6 +663,7 @@ client_node_demarshal_set_format (void   *object,
   const SpaFormat *format = NULL;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
+      !pinos_pod_remap_data (SPA_POD_TYPE_STRUCT, data, size, &proxy->context->types) ||
       !spa_pod_iter_get (&it,
         SPA_POD_TYPE_INT, &seq,
         SPA_POD_TYPE_INT, &direction,
@@ -816,6 +819,7 @@ client_node_demarshal_node_command (void   *object,
   uint32_t seq;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
+      !pinos_pod_remap_data (SPA_POD_TYPE_STRUCT, data, size, &proxy->context->types) ||
       !spa_pod_iter_get (&it,
         SPA_POD_TYPE_INT, &seq,
         SPA_POD_TYPE_OBJECT, &command,
@@ -837,6 +841,7 @@ client_node_demarshal_port_command (void   *object,
   uint32_t port_id;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
+      !pinos_pod_remap_data (SPA_POD_TYPE_STRUCT, data, size, &proxy->context->types) ||
       !spa_pod_iter_get (&it,
         SPA_POD_TYPE_INT, &port_id,
         SPA_POD_TYPE_OBJECT, &command,

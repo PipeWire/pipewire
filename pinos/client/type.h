@@ -64,6 +64,14 @@ struct _PinosType {
 
 void pinos_type_init (PinosType *type);
 
+bool pinos_pod_remap_data  (uint32_t type, void *body, uint32_t size, PinosMap *types);
+
+static inline bool
+pinos_pod_remap (SpaPOD *pod, PinosMap *types)
+{
+  return pinos_pod_remap_data (pod->type, SPA_POD_BODY (pod), pod->size, types);
+}
+
 #ifdef __cplusplus
 }
 #endif

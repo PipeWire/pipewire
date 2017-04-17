@@ -650,7 +650,6 @@ wakeup_main (void *userdata)
                           true);
 }
 
-
 static ModuleImpl *
 module_new (PinosCore       *core,
             PinosProperties *properties)

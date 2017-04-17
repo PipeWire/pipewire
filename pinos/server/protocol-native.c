@@ -807,6 +807,7 @@ client_node_demarshal_update (void  *object,
   const SpaProps *props;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
+      !pinos_pod_remap_data (SPA_POD_TYPE_STRUCT, data, size, &resource->client->types) ||
       !spa_pod_iter_get (&it,
         SPA_POD_TYPE_INT, &change_mask,
         SPA_POD_TYPE_INT, &max_input_ports,
@@ -833,6 +834,7 @@ client_node_demarshal_port_update (void  *object,
   SpaPOD *ipod;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
+      !pinos_pod_remap_data (SPA_POD_TYPE_STRUCT, data, size, &resource->client->types) ||
       !spa_pod_iter_get (&it,
         SPA_POD_TYPE_INT, &direction,
         SPA_POD_TYPE_INT, &port_id,
@@ -908,6 +910,7 @@ client_node_demarshal_event (void   *object,
   SpaEvent *event;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
+      !pinos_pod_remap_data (SPA_POD_TYPE_STRUCT, data, size, &resource->client->types) ||
       !spa_pod_iter_get (&it, SPA_POD_TYPE_OBJECT, &event, 0))
     return false;
 

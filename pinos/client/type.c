@@ -56,3 +56,62 @@ pinos_type_init (PinosType *type)
   spa_type_alloc_param_meta_enable_map (type->map, &type->alloc_param_meta_enable);
   spa_type_alloc_param_video_padding_map (type->map, &type->alloc_param_video_padding);
 }
+
+bool
+pinos_pod_remap_data (uint32_t type, void * body, uint32_t size, PinosMap *types)
+{
+  void *t;
+  switch (type) {
+    case SPA_POD_TYPE_ID:
+      if ((t = pinos_map_lookup (types, *(int32_t*)body)) == NULL)
+        return false;
+      *(int32_t*)body = PINOS_MAP_PTR_TO_ID (t);
+      break;
+
+    case SPA_POD_TYPE_PROP:
+    {
+      SpaPODPropBody *b = body;
+
+      if ((t = pinos_map_lookup (types, b->key)) == NULL)
+        return false;
+      b->key = PINOS_MAP_PTR_TO_ID (t);
+
+      if (b->value.type == SPA_POD_TYPE_ID) {
+        void *alt;
+        if (!pinos_pod_remap_data (b->value.type, SPA_POD_BODY (&b->value), b->value.size, types))
+          return false;
+
+        SPA_POD_PROP_ALTERNATIVE_FOREACH (b, size, alt)
+          if (!pinos_pod_remap_data (b->value.type, alt, b->value.size, types))
+            return false;
+      }
+      break;
+    }
+    case SPA_POD_TYPE_OBJECT:
+    {
+      SpaPODObjectBody *b = body;
+      SpaPOD *p;
+
+      if ((t = pinos_map_lookup (types, b->type)) == NULL)
+        return false;
+      b->type = PINOS_MAP_PTR_TO_ID (t);
+
+      SPA_POD_OBJECT_BODY_FOREACH (b, size, p)
+        if (!pinos_pod_remap_data (p->type, SPA_POD_BODY (p), p->size, types))
+          return false;
+      break;
+    }
+    case SPA_POD_TYPE_STRUCT:
+    {
+      SpaPOD *b = body, *p;
+
+      SPA_POD_FOREACH (b, size, p)
+        if (!pinos_pod_remap_data (p->type, SPA_POD_BODY (p), p->size, types))
+          return false;
+      break;
+    }
+    default:
+      break;
+  }
+  return true;
+}

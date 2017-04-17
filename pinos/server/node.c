@@ -282,6 +282,7 @@ do_pull (PinosNode *this)
 
       /* pull */
       *po = *pi;
+      pi->buffer_id = SPA_ID_INVALID;
 
       pinos_log_trace ("node %p: process output %p %d", outport->node, po, po->buffer_id);
 

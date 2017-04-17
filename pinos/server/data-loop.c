@@ -111,8 +111,9 @@ do_loop (void *user_data)
 
 
 static void
-do_stop (SpaSource *source,
-         void      *data)
+do_stop (SpaLoopUtils *utils,
+         SpaSource    *source,
+         void         *data)
 {
   PinosDataLoopImpl *impl = data;
   impl->running = false;

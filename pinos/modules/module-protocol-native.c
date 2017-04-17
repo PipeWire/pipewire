@@ -120,10 +120,11 @@ on_before_iterate (PinosListener *listener,
 }
 
 static void
-connection_data (SpaSource *source,
-                 int        fd,
-                 SpaIO      mask,
-                 void      *data)
+connection_data (SpaLoopUtils *utils,
+                 SpaSource    *source,
+                 int           fd,
+                 SpaIO         mask,
+                 void         *data)
 {
   PinosProtocolNativeClient *client = data;
   PinosConnection *conn = client->connection;
@@ -330,10 +331,11 @@ err:
 }
 
 static void
-socket_data (SpaSource *source,
-             int        fd,
-             SpaIO      mask,
-             void      *data)
+socket_data (SpaLoopUtils *utils,
+             SpaSource    *source,
+             int           fd,
+             SpaIO         mask,
+             void         *data)
 {
   PinosProtocolNative *impl = data;
   PinosProtocolNativeClient *client;

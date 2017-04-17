@@ -126,19 +126,24 @@ struct _SpaLoopControl {
 #define spa_loop_control_leave(l)              (l)->leave(l)
 
 
-typedef void (*SpaSourceIOFunc)     (SpaSource *source,
-                                     int        fd,
-                                     SpaIO      mask,
-                                     void      *data);
-typedef void (*SpaSourceIdleFunc)   (SpaSource *source,
-                                     void      *data);
-typedef void (*SpaSourceEventFunc)  (SpaSource *source,
-                                     void      *data);
-typedef void (*SpaSourceTimerFunc)  (SpaSource *source,
-                                     void      *data);
-typedef void (*SpaSourceSignalFunc) (SpaSource *source,
-                                     int        signal_number,
-                                     void      *data);
+typedef void (*SpaSourceIOFunc)     (SpaLoopUtils *utils,
+                                     SpaSource    *source,
+                                     int           fd,
+                                     SpaIO         mask,
+                                     void         *data);
+typedef void (*SpaSourceIdleFunc)   (SpaLoopUtils *utils,
+                                     SpaSource    *source,
+                                     void         *data);
+typedef void (*SpaSourceEventFunc)  (SpaLoopUtils *utils,
+                                     SpaSource    *source,
+                                     void         *data);
+typedef void (*SpaSourceTimerFunc)  (SpaLoopUtils *utils,
+                                     SpaSource    *source,
+                                     void         *data);
+typedef void (*SpaSourceSignalFunc) (SpaLoopUtils *utils,
+                                     SpaSource    *source,
+                                     int           signal_number,
+                                     void         *data);
 
 /**
  * SpaLoopUtils:
@@ -160,6 +165,7 @@ struct _SpaLoopUtils {
                                      SpaIO               mask);
 
   SpaSource *  (*add_idle)          (SpaLoopUtils       *utils,
+                                     bool                enabled,
                                      SpaSourceIdleFunc   func,
                                      void               *data);
   void         (*enable_idle)       (SpaSource          *source,

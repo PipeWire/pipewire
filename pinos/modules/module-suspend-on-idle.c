@@ -77,8 +77,9 @@ node_info_free (NodeInfo *info)
 }
 
 static void
-idle_timeout (SpaSource *source,
-              void      *data)
+idle_timeout (SpaLoopUtils *utils,
+              SpaSource    *source,
+              void         *data)
 {
   NodeInfo *info = data;
 

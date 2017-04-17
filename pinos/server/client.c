@@ -102,6 +102,7 @@ pinos_client_new (PinosCore       *core,
   this->properties = properties;
 
   spa_list_init (&this->resource_list);
+  pinos_signal_init (&this->properties_changed);
   pinos_signal_init (&this->resource_added);
   pinos_signal_init (&this->resource_removed);
 
@@ -184,6 +185,8 @@ pinos_client_update_properties (PinosClient     *client,
 
   client->info.change_mask = 1 << 0;
   client->info.props = client->properties ? &client->properties->dict : NULL;
+
+  pinos_signal_emit (&client->properties_changed, client);
 
   spa_list_for_each (resource, &client->resource_list, link) {
     pinos_client_notify_info (resource, &client->info);

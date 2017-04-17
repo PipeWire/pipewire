@@ -376,8 +376,9 @@ static const PinosRegistryEvents registry_events = {
 typedef bool (*PinosDemarshalFunc) (void *object, void *data, size_t size);
 
 static void
-do_flush_event (SpaSource *source,
-                void      *data)
+do_flush_event (SpaLoopUtils *utils,
+                SpaSource    *source,
+                void         *data)
 {
   PinosContextImpl *impl = data;
   if (impl->connection)
@@ -394,10 +395,11 @@ on_need_flush (PinosListener   *listener,
 }
 
 static void
-on_context_data (SpaSource *source,
-                 int        fd,
-                 SpaIO      mask,
-                 void      *data)
+on_context_data (SpaLoopUtils *utils,
+                 SpaSource    *source,
+                 int           fd,
+                 SpaIO         mask,
+                 void         *data)
 {
   PinosContextImpl *impl = data;
   PinosContext *this = &impl->this;

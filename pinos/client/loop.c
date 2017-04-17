@@ -35,21 +35,6 @@
 #include <pinos/client/loop.h>
 #include <pinos/client/log.h>
 
-typedef struct {
-  SpaSource source;
-  SpaList link;
-
-  bool close;
-  union {
-    SpaSourceIOFunc io;
-    SpaSourceIdleFunc idle;
-    SpaSourceEventFunc event;
-    SpaSourceTimerFunc timer;
-    SpaSourceSignalFunc signal;
-  } func;
-  int signal_number;
-} SpaSourceImpl;
-
 #define DATAS_SIZE (4096 * 8)
 
 typedef struct {
@@ -82,6 +67,24 @@ typedef struct {
   SpaRingbuffer  buffer;
   uint8_t        buffer_data[DATAS_SIZE];
 } PinosLoopImpl;
+
+typedef struct {
+  SpaSource source;
+
+  PinosLoopImpl *impl;
+  SpaList link;
+
+  bool close;
+  union {
+    SpaSourceIOFunc io;
+    SpaSourceIdleFunc idle;
+    SpaSourceEventFunc event;
+    SpaSourceTimerFunc timer;
+    SpaSourceSignalFunc signal;
+  } func;
+  int signal_number;
+  bool enabled;
+} SpaSourceImpl;
 
 static inline uint32_t
 spa_io_to_epoll (SpaIO mask)
@@ -221,8 +224,9 @@ loop_invoke (SpaLoop       *loop,
 }
 
 static void
-event_func (SpaSource *source,
-            void      *data)
+event_func (SpaLoopUtils *utils,
+            SpaSource    *source,
+            void         *data)
 {
   PinosLoopImpl *impl = data;
   uint32_t offset;
@@ -314,7 +318,7 @@ static void
 source_io_func (SpaSource *source)
 {
   SpaSourceImpl *impl = SPA_CONTAINER_OF (source, SpaSourceImpl, source);
-  impl->func.io (source, source->fd, source->rmask, source->data);
+  impl->func.io (&impl->impl->utils, source, source->fd, source->rmask, source->data);
 }
 
 static SpaSource *
@@ -337,6 +341,7 @@ loop_add_io (SpaLoopUtils    *utils,
   source->source.data = data;
   source->source.fd = fd;
   source->source.mask = mask;
+  source->impl = impl;
   source->close = close;
   source->func.io = func;
 
@@ -360,11 +365,12 @@ static void
 source_idle_func (SpaSource *source)
 {
   SpaSourceImpl *impl = SPA_CONTAINER_OF (source, SpaSourceImpl, source);
-  impl->func.idle (source, source->data);
+  impl->func.idle (&impl->impl->utils, source, source->data);
 }
 
 static SpaSource *
 loop_add_idle (SpaLoopUtils      *utils,
+               bool               enabled,
                SpaSourceIdleFunc  func,
                void              *data)
 {
@@ -379,6 +385,7 @@ loop_add_idle (SpaLoopUtils      *utils,
   source->source.func = source_idle_func;
   source->source.data = data;
   source->source.fd = eventfd (0, EFD_CLOEXEC | EFD_NONBLOCK);
+  source->impl = impl;
   source->close = true;
   source->source.mask = SPA_IO_IN;
   source->func.idle = func;
@@ -387,7 +394,8 @@ loop_add_idle (SpaLoopUtils      *utils,
 
   spa_list_insert (&impl->source_list, &source->link);
 
-  spa_loop_utils_enable_idle (&impl->utils, &source->source, true);
+  if (enabled)
+    spa_loop_utils_enable_idle (&impl->utils, &source->source, true);
 
   return &source->source;
 }
@@ -396,16 +404,18 @@ static void
 loop_enable_idle (SpaSource *source,
                   bool       enabled)
 {
+  SpaSourceImpl *impl = SPA_CONTAINER_OF (source, SpaSourceImpl, source);
   uint64_t count;
 
-  if (enabled) {
+  if (enabled && !impl->enabled) {
     count = 1;
     if (write (source->fd, &count, sizeof (uint64_t)) != sizeof (uint64_t))
       pinos_log_warn ("loop %p: failed to write idle fd: %s", source, strerror (errno));
-  } else {
+  } else if (!enabled && impl->enabled) {
     if (read (source->fd, &count, sizeof (uint64_t)) != sizeof (uint64_t))
       pinos_log_warn ("loop %p: failed to read idle fd: %s", source, strerror (errno));
   }
+  impl->enabled = enabled;
 }
 
 static void
@@ -417,7 +427,7 @@ source_event_func (SpaSource *source)
   if (read (source->fd, &count, sizeof (uint64_t)) != sizeof (uint64_t))
     pinos_log_warn ("loop %p: failed to read event fd: %s", source, strerror (errno));
 
-  impl->func.event (source, source->data);
+  impl->func.event (&impl->impl->utils, source, source->data);
 }
 
 static SpaSource *
@@ -437,6 +447,7 @@ loop_add_event (SpaLoopUtils       *utils,
   source->source.data = data;
   source->source.fd = eventfd (0, EFD_CLOEXEC | EFD_NONBLOCK);
   source->source.mask = SPA_IO_IN;
+  source->impl = impl;
   source->close = true;
   source->func.event = func;
 
@@ -465,7 +476,7 @@ source_timer_func (SpaSource *source)
   if (read (source->fd, &expires, sizeof (uint64_t)) != sizeof (uint64_t))
     pinos_log_warn ("loop %p: failed to read timer fd: %s", source, strerror (errno));
 
-  impl->func.timer (source, source->data);
+  impl->func.timer (&impl->impl->utils, source, source->data);
 }
 
 static SpaSource *
@@ -485,6 +496,7 @@ loop_add_timer (SpaLoopUtils       *utils,
   source->source.data = data;
   source->source.fd = timerfd_create (CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
   source->source.mask = SPA_IO_IN;
+  source->impl = impl;
   source->close = true;
   source->func.timer = func;
 
@@ -532,7 +544,7 @@ source_signal_func (SpaSource *source)
   if (read (source->fd, &signal_info, sizeof (signal_info)) != sizeof (signal_info))
     pinos_log_warn ("loop %p: failed to read signal fd: %s", source, strerror (errno));
 
-  impl->func.signal (source, impl->signal_number, source->data);
+  impl->func.signal (&impl->impl->utils, source, impl->signal_number, source->data);
 }
 
 static SpaSource *
@@ -557,6 +569,7 @@ loop_add_signal (SpaLoopUtils        *utils,
   source->source.fd = signalfd (-1, &mask, SFD_CLOEXEC | SFD_NONBLOCK);
   sigprocmask (SIG_BLOCK, &mask, NULL);
   source->source.mask = SPA_IO_IN;
+  source->impl = impl;
   source->close = true;
   source->func.signal = func;
   source->signal_number = signal_number;

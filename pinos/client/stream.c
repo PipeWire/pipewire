@@ -409,8 +409,9 @@ do_node_init (PinosStream *stream)
 }
 
 static void
-on_timeout (SpaSource *source,
-            void      *data)
+on_timeout (SpaLoopUtils *utils,
+            SpaSource    *source,
+            void         *data)
 {
   PinosStream *stream = data;
   add_request_clock_update (stream);
@@ -515,7 +516,8 @@ handle_rtnode_event (PinosStream  *stream,
 }
 
 static void
-on_rtsocket_condition (SpaSource    *source,
+on_rtsocket_condition (SpaLoopUtils *utils,
+                       SpaSource    *source,
                        int           fd,
                        SpaIO         mask,
                        void         *data)

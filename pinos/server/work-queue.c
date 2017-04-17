@@ -48,8 +48,9 @@ typedef struct
 
 
 static void
-process_work_queue (SpaSource *source,
-                    void      *data)
+process_work_queue (SpaLoopUtils *utils,
+                    SpaSource    *source,
+                    void         *data)
 {
   PinosWorkQueueImpl *impl = data;
   PinosWorkQueue *this = &impl->this;

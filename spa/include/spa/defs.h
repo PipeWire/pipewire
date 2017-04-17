@@ -123,9 +123,12 @@ typedef void (*SpaNotify) (void *data);
 #define SPA_IDX_INVALID  ((unsigned int)-1)
 #define SPA_ID_INVALID  ((uint32_t)0xffffffff)
 
-#define SPA_NSEC_PER_SEC (1000000000ll)
-#define SPA_USEC_PER_SEC (1000000ll)
-#define SPA_MSEC_PER_SEC (1000ll)
+#define SPA_NSEC_PER_SEC  (1000000000ll)
+#define SPA_NSEC_PER_MSEC (1000000ll)
+#define SPA_NSEC_PER_USEC (1000ll)
+#define SPA_USEC_PER_SEC  (1000000ll)
+#define SPA_USEC_PER_MSEC (1000ll)
+#define SPA_MSEC_PER_SEC  (1000ll)
 
 #define SPA_TIMESPEC_TO_TIME(ts) ((ts)->tv_sec * SPA_NSEC_PER_SEC + (ts)->tv_nsec)
 #define SPA_TIMEVAL_TO_TIME(tv)  ((tv)->tv_sec * SPA_NSEC_PER_SEC + (tv)->tv_usec * 1000ll)

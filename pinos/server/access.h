@@ -38,10 +38,10 @@ typedef struct _PinosAccessData PinosAccessData;
 struct _PinosAccessData {
   SpaResult      res;
   PinosResource *resource;
-  void          *(*async_copy)  (PinosAccessData *data, size_t size);
+  void *         (*async_copy)  (PinosAccessData *data, size_t size);
   void           (*complete_cb) (PinosAccessData *data);
   void           (*free_cb)     (PinosAccessData *data);
-  void          *user_data;
+  void *         user_data;
 };
 
 

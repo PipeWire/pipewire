@@ -46,6 +46,9 @@ struct _PinosClient {
   PinosGlobal *global;
 
   PinosProperties *properties;
+  PINOS_SIGNAL (properties_changed, (PinosListener *listener,
+                                     PinosClient   *client));
+
   PinosClientInfo  info;
   bool             ucred_valid;
   struct ucred     ucred;

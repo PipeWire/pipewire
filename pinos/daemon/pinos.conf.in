@@ -3,4 +3,4 @@ load-module libpinos-module-protocol-native
 load-module libpinos-module-suspend-on-idle
 load-module libpinos-module-spa --pattern snow
 load-module libpinos-module-autolink
-load-module libpinos-module-access
+load-module libpinos-module-flatpak

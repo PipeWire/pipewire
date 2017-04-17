@@ -57,8 +57,9 @@ post_hook (SpaLoopControl *ctrl,
 }
 
 static void
-do_stop (SpaSource *source,
-         void      *data)
+do_stop (SpaLoopUtils *utils,
+         SpaSource    *source,
+         void         *data)
 {
   PinosThreadMainLoopImpl *impl = data;
   impl->running = false;

@@ -115,11 +115,6 @@ bool             pinos_stream_finish_format     (PinosStream     *stream,
                                                  SpaAllocParam  **params,
                                                  uint32_t         n_params);
 
-
-
-bool             pinos_stream_start             (PinosStream     *stream);
-bool             pinos_stream_stop              (PinosStream     *stream);
-
 bool             pinos_stream_get_time          (PinosStream     *stream,
                                                  PinosTime       *time);
 

@@ -571,11 +571,8 @@ parse_stream_properties (GstPinosSrc *pinossrc, PinosProperties *props)
 static gboolean
 gst_pinos_src_stream_start (GstPinosSrc *pinossrc)
 {
-  gboolean res;
-
   pinos_thread_main_loop_lock (pinossrc->main_loop);
   GST_DEBUG_OBJECT (pinossrc, "doing stream start");
-  res = pinos_stream_start (pinossrc->stream);
   while (TRUE) {
     PinosStreamState state = pinossrc->stream->state;
 
@@ -601,7 +598,7 @@ gst_pinos_src_stream_start (GstPinosSrc *pinossrc)
   pinos_thread_main_loop_signal (pinossrc->main_loop, FALSE);
   pinos_thread_main_loop_unlock (pinossrc->main_loop);
 
-  return res;
+  return TRUE;
 
 start_error:
   {

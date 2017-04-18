@@ -777,7 +777,6 @@ gst_pinos_sink_stop (GstBaseSink * basesink)
 
   pinos_thread_main_loop_lock (pinossink->main_loop);
   if (pinossink->stream) {
-    pinos_stream_stop (pinossink->stream);
     pinos_stream_disconnect (pinossink->stream);
     pinos_stream_destroy (pinossink->stream);
     pinossink->stream = NULL;

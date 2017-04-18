@@ -53,6 +53,8 @@ struct _PinosType {
   SpaType spa_node;
   SpaType spa_clock;
   SpaType spa_monitor;
+  SpaType spa_format;
+  SpaType spa_props;
 
   SpaTypeEventNode event_node;
   SpaTypeCommandNode command_node;

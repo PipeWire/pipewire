@@ -96,6 +96,19 @@ typedef struct
   uint32_t P010_10LE;
   uint32_t IYU2;
   uint32_t VYUY;
+  uint32_t GBRA;
+  uint32_t GBRA_10BE;
+  uint32_t GBRA_10LE;
+  uint32_t GBR_12BE;
+  uint32_t GBR_12LE;
+  uint32_t GBRA_12BE;
+  uint32_t GBRA_12LE;
+  uint32_t I420_12BE;
+  uint32_t I420_12LE;
+  uint32_t I422_12BE;
+  uint32_t I422_12LE;
+  uint32_t Y444_12BE;
+  uint32_t Y444_12LE;
 } SpaTypeVideoFormat;
 
 static inline void
@@ -167,6 +180,19 @@ spa_type_video_format_map (SpaTypeMap *map, SpaTypeVideoFormat *type)
     type->P010_10LE    = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__P010_10LE);
     type->IYU2         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__IYU2);
     type->VYUY         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__VYUY);
+    type->GBRA         = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__GBRA);
+    type->GBRA_10BE    = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__GBRA_10BE);
+    type->GBRA_10LE    = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__GBRA_10LE);
+    type->GBR_12BE     = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__GBR_12BE);
+    type->GBR_12LE     = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__GBR_12LE);
+    type->GBRA_12BE    = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__GBRA_12BE);
+    type->GBRA_12LE    = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__GBRA_12LE);
+    type->I420_12BE    = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__I420_12BE);
+    type->I420_12LE    = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__I420_12LE);
+    type->I422_12BE    = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__I422_12BE);
+    type->I422_12LE    = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__I422_12LE);
+    type->Y444_12BE    = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__Y444_12BE);
+    type->Y444_12LE    = spa_type_map_get_id (map, SPA_TYPE_VIDEO_FORMAT__Y444_12LE);
   }
 }
 

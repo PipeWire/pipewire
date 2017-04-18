@@ -333,7 +333,6 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
 
     spa_list_for_each (outport, &this->output_ports, link) {
       PinosLink *link;
-      PinosPort *inport;
       SpaPortIO *po;
 
       po = &outport->io;
@@ -343,17 +342,22 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
       pinos_log_trace ("node %p: have output %d", this, po->buffer_id);
 
       spa_list_for_each (link, &outport->rt.links, rt.output_link) {
+        PinosPort *inport;
+
         if (link->rt.input == NULL || link->rt.output == NULL)
           continue;
 
         inport = link->rt.input;
         inport->io = *po;
 
+        pinos_log_trace ("node %p: do process input %d", this, po->buffer_id);
+
         if ((res = spa_node_process_input (inport->node->node)) < 0)
           pinos_log_warn ("node %p: got process input %d", inport->node, res);
       }
     }
-    if ((res = spa_node_process_output (this->node)) < 0)
+    res = spa_node_process_output (this->node);
+    if (res < 0 && res != SPA_RESULT_HAVE_OUTPUT)
       pinos_log_warn ("node %p: got process output %d", this, res);
 
   }

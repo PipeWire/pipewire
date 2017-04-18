@@ -48,6 +48,8 @@ pinos_type_init (PinosType *type)
   type->spa_node = spa_type_map_get_id (type->map, SPA_TYPE__Node);
   type->spa_clock = spa_type_map_get_id (type->map, SPA_TYPE__Clock);
   type->spa_monitor = spa_type_map_get_id (type->map, SPA_TYPE__Monitor);
+  type->spa_format = spa_type_map_get_id (type->map, SPA_TYPE__Format);
+  type->spa_props = spa_type_map_get_id (type->map, SPA_TYPE__Props);
 
   spa_type_event_node_map (type->map, &type->event_node);
   spa_type_command_node_map (type->map, &type->command_node);

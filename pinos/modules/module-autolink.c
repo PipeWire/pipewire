@@ -177,7 +177,7 @@ try_link_port (PinosNode *node,
 {
   ModuleImpl *impl = info->impl;
   PinosProperties *props;
-  const char *path;
+  const char *str;
   uint32_t path_id;
   char *error = NULL;
   PinosLink *link;
@@ -189,13 +189,19 @@ try_link_port (PinosNode *node,
     return;
   }
 
-  path = pinos_properties_get (props, "pinos.target.node");
-  if (path == NULL)
+  str = pinos_properties_get (props, "pinos.target.node");
+  if (str != NULL)
+    path_id = atoi (str);
+  else {
+    str = pinos_properties_get (props, "pinos.autoconnect");
+    if (str == NULL || atoi (str) == 0) {
+      pinos_log_debug ("module %p: node does not need autoconnect", impl);
+      return;
+    }
     path_id = SPA_ID_INVALID;
-  else
-    path_id = atoi (path);
+  }
 
-  pinos_log_debug ("module %p: try to find and link to node '%s'", impl, path);
+  pinos_log_debug ("module %p: try to find and link to node '%d'", impl, path_id);
 
   target = pinos_core_find_port (impl->core,
                                  port,

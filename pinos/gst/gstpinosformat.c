@@ -140,6 +140,19 @@ static const uint32_t *video_format_map[] = {
   &type.video_format.P010_10LE,
   &type.video_format.IYU2,
   &type.video_format.VYUY,
+  &type.video_format.GBRA,
+  &type.video_format.GBRA_10BE,
+  &type.video_format.GBRA_10LE,
+  &type.video_format.GBR_12BE,
+  &type.video_format.GBR_12LE,
+  &type.video_format.GBRA_12BE,
+  &type.video_format.GBRA_12LE,
+  &type.video_format.I420_12BE,
+  &type.video_format.I420_12LE,
+  &type.video_format.I422_12BE,
+  &type.video_format.I422_12LE,
+  &type.video_format.Y444_12BE,
+  &type.video_format.Y444_12LE,
 };
 
 #if __BYTE_ORDER == __BIG_ENDIAN
@@ -367,13 +380,16 @@ handle_video_fields (ConvertData *d)
   value = gst_structure_get_value (d->cs, "format");
   if (value) {
     const char *v;
+    int idx;
     for (i = 0; (v = get_nth_string (value, i)); i++) {
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
                                    type.format_video.format,
                                    get_range_type (value));
 
-      spa_pod_builder_id (&d->b, *video_format_map[gst_video_format_from_string (v)]);
+      idx = gst_video_format_from_string (v);
+      if (idx < SPA_N_ELEMENTS (video_format_map))
+        spa_pod_builder_id (&d->b, *video_format_map[idx]);
     }
     if (i > 1)
       SPA_POD_BUILDER_DEREF (&d->b, f.ref, SpaPODProp)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
@@ -424,13 +440,16 @@ handle_audio_fields (ConvertData *d)
   value = gst_structure_get_value (d->cs, "format");
   if (value) {
     const char *v;
+    int idx;
     for (i = 0; (v = get_nth_string (value, i)); i++) {
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
                                    type.format_audio.format,
                                    get_range_type (value));
 
-      spa_pod_builder_id (&d->b, *audio_format_map[gst_audio_format_from_string (v)]);
+      idx = gst_audio_format_from_string (v);
+      if (idx < SPA_N_ELEMENTS (audio_format_map))
+        spa_pod_builder_id (&d->b, *audio_format_map[idx]);
     }
     if (i > 1)
       SPA_POD_BUILDER_DEREF (&d->b, f.ref, SpaPODProp)->body.flags |= SPA_POD_PROP_FLAG_UNSET;

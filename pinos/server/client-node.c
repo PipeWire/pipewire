@@ -159,26 +159,31 @@ spa_proxy_node_set_props (SpaNode         *node,
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static void
+static inline void
+do_flush (SpaProxy *this)
+{
+  uint64_t cmd = 1;
+  write (this->data_source.fd, &cmd, 8);
+}
+
+static inline void
 send_need_input (SpaProxy *this)
 {
   PinosClientNodeImpl *impl = SPA_CONTAINER_OF (this, PinosClientNodeImpl, proxy);
   SpaEvent event = SPA_EVENT_INIT (impl->core->type.event_node.NeedInput);
-  uint64_t cmd = 1;
 
   pinos_transport_add_event (impl->transport, &event);
-  write (this->data_source.fd, &cmd, 8);
+  do_flush (this);
 }
 
-static void
+static inline void
 send_have_output (SpaProxy *this)
 {
   PinosClientNodeImpl *impl = SPA_CONTAINER_OF (this, PinosClientNodeImpl, proxy);
   SpaEvent event = SPA_EVENT_INIT (impl->core->type.event_node.HaveOutput);
-  uint64_t cmd = 1;
 
   pinos_transport_add_event (impl->transport, &event);
-  write (this->data_source.fd, &cmd, 8);
+  do_flush (this);
 }
 
 static SpaResult
@@ -808,6 +813,8 @@ spa_proxy_node_process_input (SpaNode *node)
     if (!io)
       continue;
 
+    pinos_log_trace ("%d %d", io->status, io->buffer_id);
+
     impl->transport->inputs[i] = *io;
     io->status = SPA_RESULT_OK;
   }
@@ -822,7 +829,7 @@ spa_proxy_node_process_output (SpaNode *node)
   SpaProxy *this;
   PinosClientNodeImpl *impl;
   int i;
-  bool send_need = false;
+  bool send_need = false, flush = false;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -844,6 +851,7 @@ spa_proxy_node_process_output (SpaNode *node)
 
       pinos_transport_add_event (impl->transport, (SpaEvent *)&rb);
       io->buffer_id = SPA_ID_INVALID;
+      flush = true;
     }
 
     tmp = impl->transport->outputs[i];
@@ -858,6 +866,8 @@ spa_proxy_node_process_output (SpaNode *node)
   }
   if (send_need)
     send_need_input (this);
+  else if (flush)
+    do_flush (this);
 
   return SPA_RESULT_HAVE_OUTPUT;
 }
@@ -866,6 +876,20 @@ static SpaResult
 handle_node_event (SpaProxy *this,
                    SpaEvent *event)
 {
+  PinosClientNodeImpl *impl = SPA_CONTAINER_OF (this, PinosClientNodeImpl, proxy);
+  int i;
+
+  if (SPA_EVENT_TYPE (event) == impl->core->type.event_node.HaveOutput) {
+    for (i = 0; i < MAX_OUTPUTS; i++) {
+      SpaPortIO *io = this->out_ports[i].io;
+
+      if (!io)
+        continue;
+
+      *io = impl->transport->outputs[i];
+      pinos_log_trace ("%d %d", io->status, io->buffer_id);
+    }
+  }
   this->event_cb (&this->node, event, this->user_data);
   return SPA_RESULT_OK;
 }

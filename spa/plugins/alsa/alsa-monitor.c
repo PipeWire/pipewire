@@ -73,7 +73,7 @@ struct _SpaALSAMonitor {
 
   snd_ctl_t *ctl_hndl;
   struct udev_device *dev;
-  char card_name[64];
+  char card_name[16];
   int dev_idx;
   int stream_idx;
 
@@ -144,7 +144,7 @@ fill_item (SpaALSAMonitor *this,
   if (!(name && *name))
     name = "Unknown";
 
-  snprintf (card_name, 63, "%s,%d", this->card_name, snd_pcm_info_get_device (dev_info));
+  snprintf (card_name, 64, "%s,%d", this->card_name, snd_pcm_info_get_device (dev_info));
 
   spa_pod_builder_add (&b,
     SPA_POD_TYPE_OBJECT, &f[0], 0, this->type.monitor.MonitorItem,
@@ -261,7 +261,7 @@ open_card (SpaALSAMonitor *this, struct udev_device *dev)
   if ((str = path_get_card_id (udev_device_get_property_value (dev, "DEVPATH"))) == NULL)
     return -1;
 
-  snprintf (this->card_name, 63, "hw:%s", str);
+  snprintf (this->card_name, 16, "hw:%s", str);
 
   if ((err = snd_ctl_open (&this->ctl_hndl, this->card_name, 0)) < 0) {
     spa_log_error (this->log, "can't open control for card %s: %s", this->card_name, snd_strerror (err));

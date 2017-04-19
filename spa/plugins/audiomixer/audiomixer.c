@@ -780,7 +780,7 @@ spa_audiomixer_node_process_output (SpaNode *node)
       if (port->io == NULL || port->n_buffers == 0)
         continue;
 
-      if (port->queued_bytes > 0 && port->queued_bytes < min_queued)
+      if (port->queued_bytes < min_queued)
         min_queued = port->queued_bytes;
     }
     if (min_queued != SIZE_MAX && min_queued > 0) {

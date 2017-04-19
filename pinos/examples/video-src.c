@@ -50,10 +50,7 @@ init_type (Type *type, SpaTypeMap *map)
   spa_type_video_format_map (map, &type->video_format);
 }
 
-#define WIDTH 320
-#define HEIGHT 240
 #define BPP    3
-#define STRIDE (BPP * WIDTH)
 
 typedef struct {
   Type type;
@@ -70,6 +67,7 @@ typedef struct {
   PinosListener on_stream_format_changed;
 
   SpaVideoInfoRaw format;
+  int32_t stride;
 
   uint8_t params_buffer[1024];
   int counter;
@@ -103,11 +101,11 @@ on_timeout (SpaLoopUtils *utils,
   } else
     return;
 
-  for (i = 0; i < HEIGHT; i++) {
-    for (j = 0; j < WIDTH * BPP; j++) {
+  for (i = 0; i < data->format.size.height; i++) {
+    for (j = 0; j < data->format.size.width * BPP; j++) {
       p[j] = data->counter + j * i;
     }
-    p += STRIDE;
+    p += buf->datas[0].chunk->stride;
     data->counter += 13;
   }
 
@@ -173,10 +171,15 @@ on_stream_format_changed (PinosListener  *listener,
   SpaAllocParam *params[2];
 
   if (format) {
+    spa_format_video_raw_parse (format, &data->format, &data->type.format_video);
+
+    data->stride = SPA_ROUND_UP_N (data->format.size.width * BPP, 4);
+
     spa_pod_builder_init (&b, data->params_buffer, sizeof (data->params_buffer));
     spa_pod_builder_object (&b, &f[0], 0, ctx->type.alloc_param_buffers.Buffers,
-        PROP      (&f[1], ctx->type.alloc_param_buffers.size,    SPA_POD_TYPE_INT, STRIDE * HEIGHT),
-        PROP      (&f[1], ctx->type.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, STRIDE),
+        PROP      (&f[1], ctx->type.alloc_param_buffers.size,    SPA_POD_TYPE_INT,
+                                                               data->stride * data->format.size.height),
+        PROP      (&f[1], ctx->type.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, data->stride),
         PROP_U_MM (&f[1], ctx->type.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, 32, 2, 32),
         PROP      (&f[1], ctx->type.alloc_param_buffers.align,   SPA_POD_TYPE_INT, 16));
     params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
@@ -217,9 +220,11 @@ on_state_changed (PinosListener  *listener,
 
       spa_pod_builder_format (&b, &f[0], data->type.format,
          data->type.media_type.video, data->type.media_subtype.raw,
-         PROP (&f[1], data->type.format_video.format,    SPA_POD_TYPE_ID,  data->type.video_format.RGB),
-         PROP (&f[1], data->type.format_video.size,      SPA_POD_TYPE_RECTANGLE, WIDTH, HEIGHT),
-         PROP (&f[1], data->type.format_video.framerate, SPA_POD_TYPE_FRACTION,  25, 1));
+         PROP      (&f[1], data->type.format_video.format,    SPA_POD_TYPE_ID,  data->type.video_format.RGB),
+         PROP_U_MM (&f[1], data->type.format_video.size,      SPA_POD_TYPE_RECTANGLE, 320, 240,
+                                                                                      1, 1,
+                                                                                      4096, 4096),
+         PROP      (&f[1], data->type.format_video.framerate, SPA_POD_TYPE_FRACTION,  25, 1));
 
       formats[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
 

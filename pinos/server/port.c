@@ -203,6 +203,9 @@ static SpaResult
 pinos_port_pause (PinosPort *port)
 {
   SpaCommand cmd = SPA_COMMAND_INIT (port->node->core->type.command_node.Pause);
+  if (port->state <= SPA_PORT_STATE_PAUSED)
+    return SPA_RESULT_OK;
+
   port->state = SPA_PORT_STATE_PAUSED;
   return spa_node_port_send_command (port->node->node,
                                     port->direction,

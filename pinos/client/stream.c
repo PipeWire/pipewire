@@ -135,18 +135,20 @@ clear_buffers (PinosStream *stream)
   spa_list_init (&impl->free);
 }
 
-static void
+static bool
 stream_set_state (PinosStream      *stream,
                   PinosStreamState  state,
                   char             *error)
 {
-  if (stream->state != state) {
+  bool res = stream->state != state;
+  if (res) {
     if (stream->error)
       free (stream->error);
     stream->error = error;
     stream->state = state;
     pinos_signal_emit (&stream->state_changed, stream);
   }
+  return res;
 }
 
 /**
@@ -604,32 +606,37 @@ handle_node_command (PinosStream      *stream,
   PinosContext *context = stream->context;
 
   if (SPA_COMMAND_TYPE (command) == context->type.command_node.Pause) {
-    pinos_log_debug ("stream %p: pause %d", stream, seq);
-
-    pinos_loop_update_io (stream->context->loop,
-                          impl->rtsocket_source,
-                          SPA_IO_ERR | SPA_IO_HUP);
-
     add_async_complete (stream, seq, SPA_RESULT_OK);
-    stream_set_state (stream, PINOS_STREAM_STATE_PAUSED, NULL);
+
+    if (stream->state == PINOS_STREAM_STATE_STREAMING) {
+      pinos_log_debug ("stream %p: pause %d", stream, seq);
+
+      pinos_loop_update_io (stream->context->loop,
+                            impl->rtsocket_source,
+                            SPA_IO_ERR | SPA_IO_HUP);
+
+      stream_set_state (stream, PINOS_STREAM_STATE_PAUSED, NULL);
+    }
   }
   else if (SPA_COMMAND_TYPE (command) == context->type.command_node.Start) {
-    pinos_log_debug ("stream %p: start %d %d", stream, seq, impl->direction);
     add_async_complete (stream, seq, SPA_RESULT_OK);
 
-    pinos_loop_update_io (stream->context->loop,
-                          impl->rtsocket_source,
-                          SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP);
+    if (stream->state == PINOS_STREAM_STATE_PAUSED) {
+      pinos_log_debug ("stream %p: start %d %d", stream, seq, impl->direction);
 
-    if (impl->direction == SPA_DIRECTION_INPUT)
-      send_need_input (stream);
-    else {
-      impl->in_need_buffer = true;
-      pinos_signal_emit (&stream->need_buffer, stream);
-      impl->in_need_buffer = false;
+      pinos_loop_update_io (stream->context->loop,
+                            impl->rtsocket_source,
+                            SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP);
+
+      if (impl->direction == SPA_DIRECTION_INPUT)
+        send_need_input (stream);
+      else {
+        impl->in_need_buffer = true;
+        pinos_signal_emit (&stream->need_buffer, stream);
+        impl->in_need_buffer = false;
+      }
+      stream_set_state (stream, PINOS_STREAM_STATE_STREAMING, NULL);
     }
-
-    stream_set_state (stream, PINOS_STREAM_STATE_STREAMING, NULL);
   }
   else if (SPA_COMMAND_TYPE (command) == context->type.command_node.ClockUpdate) {
     SpaCommandNodeClockUpdate *cu = (SpaCommandNodeClockUpdate *) command;
@@ -660,6 +667,8 @@ client_node_done (void              *object,
   pinos_log_info ("strean %p: create client node done with fd %d", stream, datafd);
   handle_socket (stream, datafd);
   do_node_init (stream);
+
+  stream_set_state (stream, PINOS_STREAM_STATE_CONFIGURE, NULL);
 }
 
 static void
@@ -703,11 +712,15 @@ client_node_set_format (void              *object,
 
   if (impl->format)
     free (impl->format);
-  impl->format = spa_format_copy (format);
+  impl->format = format ? spa_format_copy (format) : NULL;
   impl->pending_seq = seq;
 
   pinos_signal_emit (&stream->format_changed, stream, impl->format);
-  stream_set_state (stream, PINOS_STREAM_STATE_READY, NULL);
+
+  if (format)
+    stream_set_state (stream, PINOS_STREAM_STATE_READY, NULL);
+  else
+    stream_set_state (stream, PINOS_STREAM_STATE_CONFIGURE, NULL);
 }
 
 static void
@@ -1038,7 +1051,7 @@ pinos_stream_finish_format (PinosStream     *stream,
   impl->port_info.n_params = n_params;
 
   if (SPA_RESULT_IS_OK (res)) {
-    add_port_update (stream, PINOS_MESSAGE_PORT_UPDATE_INFO |
+    add_port_update (stream, (n_params ? PINOS_MESSAGE_PORT_UPDATE_INFO : 0) |
                              PINOS_MESSAGE_PORT_UPDATE_FORMAT);
 
     if (!impl->format)

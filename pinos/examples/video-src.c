@@ -69,6 +69,8 @@ typedef struct {
   PinosListener on_stream_state_changed;
   PinosListener on_stream_format_changed;
 
+  SpaVideoInfoRaw format;
+
   uint8_t params_buffer[1024];
   int counter;
 } Data;
@@ -170,19 +172,24 @@ on_stream_format_changed (PinosListener  *listener,
   SpaPODFrame f[2];
   SpaAllocParam *params[2];
 
-  spa_pod_builder_init (&b, data->params_buffer, sizeof (data->params_buffer));
-  spa_pod_builder_object (&b, &f[0], 0, ctx->type.alloc_param_buffers.Buffers,
-      PROP      (&f[1], ctx->type.alloc_param_buffers.size,    SPA_POD_TYPE_INT, STRIDE * HEIGHT),
-      PROP      (&f[1], ctx->type.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, STRIDE),
-      PROP_U_MM (&f[1], ctx->type.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, 32, 2, 32),
-      PROP      (&f[1], ctx->type.alloc_param_buffers.align,   SPA_POD_TYPE_INT, 16));
-  params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
+  if (format) {
+    spa_pod_builder_init (&b, data->params_buffer, sizeof (data->params_buffer));
+    spa_pod_builder_object (&b, &f[0], 0, ctx->type.alloc_param_buffers.Buffers,
+        PROP      (&f[1], ctx->type.alloc_param_buffers.size,    SPA_POD_TYPE_INT, STRIDE * HEIGHT),
+        PROP      (&f[1], ctx->type.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, STRIDE),
+        PROP_U_MM (&f[1], ctx->type.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, 32, 2, 32),
+        PROP      (&f[1], ctx->type.alloc_param_buffers.align,   SPA_POD_TYPE_INT, 16));
+    params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
-  spa_pod_builder_object (&b, &f[0], 0, ctx->type.alloc_param_meta_enable.MetaEnable,
-    PROP      (&f[1], ctx->type.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, SPA_META_TYPE_HEADER));
-  params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
+    spa_pod_builder_object (&b, &f[0], 0, ctx->type.alloc_param_meta_enable.MetaEnable,
+      PROP      (&f[1], ctx->type.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, SPA_META_TYPE_HEADER));
+    params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
-  pinos_stream_finish_format (stream, SPA_RESULT_OK, params, 2);
+    pinos_stream_finish_format (stream, SPA_RESULT_OK, params, 2);
+  }
+  else {
+    pinos_stream_finish_format (stream, SPA_RESULT_OK, NULL, 0);
+  }
 }
 
 static void

@@ -513,7 +513,7 @@ spa_v4l2_enum_format (SpaV4l2Source   *this,
   const FormatInfo *info;
   SpaPODFrame f[2];
   SpaPODProp *prop;
-  SpaPODBuilder b = { state->format_buffer, sizeof (state->format_buffer), };
+  SpaPODBuilder b = { NULL, };
   uint32_t media_type, media_subtype, video_format;
 
   if (spa_v4l2_open (this) < 0)
@@ -663,6 +663,7 @@ have_size:
   media_subtype = *SPA_MEMBER (&this->type, info->media_subtype_offset, uint32_t);
   video_format = *SPA_MEMBER (&this->type, info->format_offset, uint32_t);
 
+  spa_pod_builder_init (&b, state->format_buffer, sizeof (state->format_buffer));
   spa_pod_builder_push_format (&b, &f[0], this->type.format,
                                media_type,
                                media_subtype);

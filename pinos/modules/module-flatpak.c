@@ -82,6 +82,8 @@ close_request (AsyncPending *p)
   DBusMessage *m = NULL;
   ModuleImpl *impl = p->info->impl;
 
+  pinos_log_debug ("pending %p: handle %s", p, p->handle);
+
   if (!(m = dbus_message_new_method_call ("org.freedesktop.portal.Request",
                                           p->handle,
                                           "org.freedesktop.portal.Request",
@@ -116,6 +118,7 @@ free_pending (PinosAccessData *d)
   if (!p->handled)
     close_request(p);
 
+  pinos_log_debug ("pending %p: handle %s", p, p->handle);
   spa_list_remove (&p->link);
   free (p->handle);
 }
@@ -134,6 +137,7 @@ add_pending (ClientInfo *cinfo, const char *handle, PinosAccessData *access_data
   p->handle = strdup (handle);
   p->access_data = ad;
   p->handled = false;
+  pinos_log_debug ("pending %p: handle %s", p, handle);
 
   spa_list_insert (cinfo->async_pending.prev, &p->link);
 }

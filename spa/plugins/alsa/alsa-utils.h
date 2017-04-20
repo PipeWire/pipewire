@@ -144,8 +144,6 @@ struct _SpaALSAState {
 
   SpaALSABuffer buffers[MAX_BUFFERS];
   unsigned int n_buffers;
-  bool use_ringbuffer;
-  SpaALSABuffer *ringbuffer;
 
   SpaList free;
   SpaList ready;

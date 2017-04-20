@@ -98,6 +98,7 @@ struct _ATSBuffer {
   SpaBuffer *outbuf;
   bool outstanding;
   SpaMetaHeader *h;
+  SpaMetaRingbuffer *rb;
   SpaList link;
 };
 
@@ -296,6 +297,7 @@ audiotestsrc_make_buffer (SpaAudioTestSrc *this)
 
   n_bytes = b->outbuf->datas[0].maxsize;
   if (io->range.min_size != 0) {
+    n_bytes = SPA_MIN (n_bytes, io->range.min_size);
     if (io->range.max_size < n_bytes)
       n_bytes = io->range.max_size;
   }
@@ -303,12 +305,33 @@ audiotestsrc_make_buffer (SpaAudioTestSrc *this)
   spa_log_trace (this->log, "audiotestsrc %p: dequeue buffer %d %d %d", this, b->outbuf->id,
       b->outbuf->datas[0].maxsize, n_bytes);
 
-  n_samples = n_bytes / this->bpf;
-  this->render_func (this, b->outbuf->datas[0].data, n_samples);
+  if (b->rb) {
+    int32_t filled, avail;
+    uint32_t index, offset;
 
-  b->outbuf->datas[0].chunk->offset = 0;
-  b->outbuf->datas[0].chunk->size = n_bytes;
-  b->outbuf->datas[0].chunk->stride = 0;
+    filled = spa_ringbuffer_get_write_index (&b->rb->ringbuffer, &index);
+    avail = b->rb->ringbuffer.size - filled;
+    n_bytes = SPA_MIN (avail, n_bytes);
+
+    n_samples = n_bytes / this->bpf;
+
+    offset = index & b->rb->ringbuffer.mask;
+
+    if (offset + n_bytes > b->rb->ringbuffer.size) {
+      uint32_t l0 = b->rb->ringbuffer.size - offset;
+      this->render_func (this, SPA_MEMBER (b->outbuf->datas[0].data, offset, void), l0 / this->bpf);
+      this->render_func (this, b->outbuf->datas[0].data, (n_bytes - l0) / this->bpf);
+    } else {
+      this->render_func (this, SPA_MEMBER (b->outbuf->datas[0].data, offset, void), n_samples);
+    }
+    spa_ringbuffer_write_advance (&b->rb->ringbuffer, n_bytes);
+  } else {
+    n_samples = n_bytes / this->bpf;
+    this->render_func (this, b->outbuf->datas[0].data, n_samples);
+    b->outbuf->datas[0].chunk->size = n_bytes;
+    b->outbuf->datas[0].chunk->offset = 0;
+    b->outbuf->datas[0].chunk->stride = 0;
+  }
 
   if (b->h) {
     b->h->seq = this->sample_count;
@@ -703,6 +726,7 @@ spa_audiotestsrc_node_port_use_buffers (SpaNode         *node,
     b->outbuf = buffers[i];
     b->outstanding = false;
     b->h = spa_buffer_find_meta (buffers[i], SPA_META_TYPE_HEADER);
+    b->rb = spa_buffer_find_meta (buffers[i], SPA_META_TYPE_RINGBUFFER);
 
     switch (d[0].type) {
       case SPA_DATA_TYPE_MEMPTR:

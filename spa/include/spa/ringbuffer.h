@@ -160,7 +160,7 @@ spa_ringbuffer_read_advance (SpaRingbuffer      *rbuf,
  *
  * Returns: the fill level of @rbuf. values < 0 mean
  *          there was an underrun. values > rbuf->size means there
- *          was an overrun. Subsctract from the buffer size to get
+ *          was an overrun. Subtract from the buffer size to get
  *          the number of bytes available for writing.
  */
 static inline int32_t

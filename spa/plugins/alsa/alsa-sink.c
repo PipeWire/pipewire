@@ -266,7 +266,6 @@ spa_alsa_clear_buffers (SpaALSASink *this)
   if (this->n_buffers > 0) {
     spa_list_init (&this->ready);
     this->n_buffers = 0;
-    this->ringbuffer = NULL;
   }
   return SPA_RESULT_OK;
 }
@@ -450,8 +449,6 @@ spa_alsa_sink_node_port_use_buffers (SpaNode         *node,
 
     b->h = spa_buffer_find_meta (b->outbuf, SPA_META_TYPE_HEADER);
     b->rb = spa_buffer_find_meta (b->outbuf, SPA_META_TYPE_RINGBUFFER);
-    if (b->rb)
-      this->ringbuffer = b;
 
     switch (buffers[i]->datas[0].type) {
       case SPA_DATA_TYPE_MEMFD:
@@ -583,13 +580,10 @@ spa_alsa_sink_node_process_input (SpaNode *node)
     input->status = SPA_RESULT_INVALID_BUFFER_ID;
     return SPA_RESULT_ERROR;
   }
-  if (this->ringbuffer) {
-    this->ringbuffer->outstanding = true;
-    this->ringbuffer = b;
-  } else {
-    spa_list_insert (this->ready.prev, &b->link);
-    spa_log_trace (this->log, "alsa-sink %p: queue buffer %u", this, input->buffer_id);
-  }
+
+  spa_log_trace (this->log, "alsa-sink %p: queue buffer %u", this, input->buffer_id);
+
+  spa_list_insert (this->ready.prev, &b->link);
   b->outstanding = false;
   input->buffer_id = SPA_ID_INVALID;
   input->status = SPA_RESULT_OK;

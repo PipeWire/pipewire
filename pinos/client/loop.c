@@ -182,32 +182,45 @@ loop_invoke (SpaLoop       *loop,
 {
   PinosLoopImpl *impl = SPA_CONTAINER_OF (loop, PinosLoopImpl, loop);
   bool in_thread = pthread_equal (impl->thread, pthread_self());
-  SpaRingbufferArea areas[2];
   InvokeItem *item;
   SpaResult res;
 
   if (in_thread) {
     res = func (loop, false, seq, size, data, user_data);
   } else {
-    spa_ringbuffer_get_write_areas (&impl->buffer, areas);
-    if (areas[0].len < sizeof (InvokeItem)) {
-      pinos_log_warn ("data-loop %p: queue full", impl);
+    int32_t filled, avail;
+    uint32_t offset, l0;
+
+    filled = spa_ringbuffer_get_write_index (&impl->buffer, &offset);
+    if (filled < 0 || filled > impl->buffer.size) {
+      pinos_log_warn ("data-loop %p: queue xrun %d", impl, filled);
       return SPA_RESULT_ERROR;
     }
-    item = SPA_MEMBER (impl->buffer_data, areas[0].offset, InvokeItem);
+    avail = impl->buffer.size - filled;
+    if (avail < sizeof (InvokeItem)) {
+      pinos_log_warn ("data-loop %p: queue full %d", impl, avail);
+      return SPA_RESULT_ERROR;
+    }
+    offset &= impl->buffer.mask;
+
+    l0 = offset + avail;
+    if (l0 > impl->buffer.size)
+      l0 = impl->buffer.size - l0;
+
+    item = SPA_MEMBER (impl->buffer_data, offset, InvokeItem);
     item->func = func;
     item->seq = seq;
     item->size = size;
     item->user_data = user_data;
 
-    if (areas[0].len > sizeof (InvokeItem) + size) {
+    if (l0 > sizeof (InvokeItem) + size) {
       item->data = SPA_MEMBER (item, sizeof (InvokeItem), void);
       item->item_size = sizeof (InvokeItem) + size;
-      if (areas[0].len < sizeof (InvokeItem) + item->item_size)
-        item->item_size = areas[0].len;
+      if (l0 < sizeof (InvokeItem) + item->item_size)
+        item->item_size = l0;
     } else {
-      item->data = SPA_MEMBER (impl->buffer_data, areas[1].offset, void);
-      item->item_size = areas[0].len + 1 + size;
+      item->data = impl->buffer_data;
+      item->item_size = l0 + 1 + size;
     }
     memcpy (item->data, data, size);
 
@@ -231,8 +244,8 @@ event_func (SpaLoopUtils *utils,
   PinosLoopImpl *impl = data;
   uint32_t offset;
 
-  while (spa_ringbuffer_get_read_offset (&impl->buffer, &offset) > 0) {
-    InvokeItem *item = SPA_MEMBER (impl->buffer_data, offset, InvokeItem);
+  while (spa_ringbuffer_get_read_index (&impl->buffer, &offset) > 0) {
+    InvokeItem *item = SPA_MEMBER (impl->buffer_data, offset & impl->buffer.mask, InvokeItem);
     item->func (impl->this.loop, true, item->seq, item->size, item->data, item->user_data);
     spa_ringbuffer_read_advance (&impl->buffer, item->item_size);
   }

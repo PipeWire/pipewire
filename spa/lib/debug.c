@@ -120,7 +120,6 @@ spa_debug_buffer (const SpaBuffer *buffer)
         fprintf (stderr, "      writeindex:  %d\n", h->ringbuffer.writeindex);
         fprintf (stderr, "      size:        %d\n", h->ringbuffer.size);
         fprintf (stderr, "      mask:        %d\n", h->ringbuffer.mask);
-        fprintf (stderr, "      mask2:       %d\n", h->ringbuffer.mask2);
         break;
       }
       case SPA_META_TYPE_SHARED:

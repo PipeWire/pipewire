@@ -38,8 +38,8 @@ typedef struct {
   PinosMemblock  mem;
   size_t         offset;
 
-  SpaRingbufferArea areas[2];
   SpaEvent          current;
+  uint32_t          current_offset;
 } PinosTransportImpl;
 
 static size_t
@@ -206,20 +206,21 @@ pinos_transport_add_event (PinosTransport   *trans,
                            SpaEvent         *event)
 {
   PinosTransportImpl *impl = (PinosTransportImpl *) trans;
-  SpaRingbufferArea areas[2];
-  size_t avail, size;
+  int32_t filled, avail;
+  uint32_t size, index;
 
   if (impl == NULL || event == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
+  filled = spa_ringbuffer_get_write_index (trans->output_buffer, &index);
+  avail = trans->output_buffer->size - filled;
   size = SPA_POD_SIZE (event);
-  avail = spa_ringbuffer_get_write_areas (trans->output_buffer, areas);
   if (avail < size)
     return SPA_RESULT_ERROR;
 
   spa_ringbuffer_write_data (trans->output_buffer,
                              trans->output_data,
-                             areas,
+                             index & trans->output_buffer->mask,
                              event,
                              size);
   spa_ringbuffer_write_advance (trans->output_buffer, size);
@@ -232,18 +233,21 @@ pinos_transport_next_event (PinosTransport *trans,
                             SpaEvent       *event)
 {
   PinosTransportImpl *impl = (PinosTransportImpl *) trans;
-  size_t avail;
+  int32_t avail;
+  uint32_t index;
 
   if (impl == NULL || event == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  avail = spa_ringbuffer_get_read_areas (trans->input_buffer, impl->areas);
+  avail = spa_ringbuffer_get_read_index (trans->input_buffer, &index);
   if (avail < sizeof (SpaEvent))
     return SPA_RESULT_ENUM_END;
 
+  impl->current_offset = index & trans->input_buffer->mask;
+
   spa_ringbuffer_read_data (trans->input_buffer,
                             trans->input_data,
-                            impl->areas,
+                            impl->current_offset,
                             &impl->current,
                             sizeof (SpaEvent));
 
@@ -266,7 +270,7 @@ pinos_transport_parse_event (PinosTransport *trans,
 
   spa_ringbuffer_read_data (trans->input_buffer,
                             trans->input_data,
-                            impl->areas,
+                            impl->current_offset,
                             event,
                             size);
   spa_ringbuffer_read_advance (trans->input_buffer, size);

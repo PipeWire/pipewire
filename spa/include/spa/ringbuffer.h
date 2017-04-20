@@ -34,24 +34,18 @@ typedef struct _SpaRingbuffer SpaRingbuffer;
 #include <spa/defs.h>
 #include <spa/barrier.h>
 
-typedef struct {
-  uint32_t  offset;
-  uint32_t  len;
-} SpaRingbufferArea;
-
 /**
  * SpaRingbuffer:
  * @readindex: the current read index
  * @writeindex: the current write index
- * @size: the size of the ringbuffer
- * @size_mask: mask if @size is power of 2
+ * @size: the size of the ringbuffer must be power of 2
+ * @mask: mask as @size - 1
  */
 struct _SpaRingbuffer {
-  volatile uint32_t     readindex;
-  volatile uint32_t     writeindex;
-  uint32_t              size;
-  uint32_t              mask;
-  uint32_t              mask2;
+  uint32_t     readindex;
+  uint32_t     writeindex;
+  uint32_t     size;
+  uint32_t     mask;
 };
 
 /**
@@ -74,7 +68,6 @@ spa_ringbuffer_init (SpaRingbuffer *rbuf,
 
   rbuf->size = size;
   rbuf->mask = size - 1;
-  rbuf->mask2 = (size << 1) - 1;
   rbuf->readindex = 0;
   rbuf->writeindex = 0;
 
@@ -94,63 +87,53 @@ spa_ringbuffer_clear (SpaRingbuffer *rbuf)
   rbuf->writeindex = 0;
 }
 
-static inline uint32_t
-spa_ringbuffer_get_read_offset (SpaRingbuffer *rbuf,
-                                uint32_t      *offset)
+/**
+ * spa_ringbuffer_get_read_index:
+ * @rbuf: a #SpaRingbuffer
+ * @index: the value of readindex, should be masked to get the
+ *         offset in the ringbuffer memory
+ *
+ * Returns: number of available bytes to read. values < 0 mean
+ *          there was an underrun. values > rbuf->size means there
+ *          was an overrun.
+ */
+static inline int32_t
+spa_ringbuffer_get_read_index (SpaRingbuffer *rbuf,
+                               uint32_t      *index)
 {
-  uint32_t avail, r;
+  int32_t avail;
 
-  r = rbuf->readindex;
-  *offset = r & rbuf->mask;
-  avail = (rbuf->writeindex - r) & rbuf->mask2;
-
+  *index = rbuf->readindex;
+  avail = (int32_t) (rbuf->writeindex - *index);
   spa_barrier_read();
 
   return avail;
 }
 
 /**
- * spa_ringbuffer_get_read_areas:
+ * spa_ringbuffer_read_data:
  * @rbuf: a #SpaRingbuffer
- * @areas: an array of #SpaRingbufferArea
+ * @buffer: memory to read from
+ * @offset: offset in @buffer to read from
+ * @data: destination memory
+ * @len: number of bytes to read
  *
- * Fill @areas with pointers to read from. The total amount of
- * bytes that can be read can be obtained by summing the areas len fields.
+ * Read @len bytes from @rbuf starting @offset. @offset must be masked
+ * with the size of @rbuf and len should be smaller than the size.
  */
-static inline uint32_t
-spa_ringbuffer_get_read_areas (SpaRingbuffer      *rbuf,
-                               SpaRingbufferArea   areas[2])
-{
-  uint32_t avail, end, r;
-
-  avail = spa_ringbuffer_get_read_offset (rbuf, &r);
-  end = r + avail;
-
-  areas[0].offset = r;
-  areas[1].offset = 0;
-
-  if (SPA_UNLIKELY (end > rbuf->size)) {
-    areas[0].len = rbuf->size - r;
-    areas[1].len = end - rbuf->size;
-  } else {
-    areas[0].len = avail;
-    areas[1].len = 0;
-  }
-  return avail;
-}
-
 static inline void
 spa_ringbuffer_read_data (SpaRingbuffer      *rbuf,
                           void               *buffer,
-                          SpaRingbufferArea   areas[2],
+                          uint32_t            offset,
                           void               *data,
-                          uint32_t            size)
+                          uint32_t            len)
 {
-  if (SPA_LIKELY (size < areas[0].len))
-    memcpy (data, buffer + areas[0].offset, size);
-  else {
-    memcpy (data, buffer + areas[0].offset, areas[0].len);
-    memcpy (data + areas[0].len, buffer, size - areas[0].len);
+  if (SPA_LIKELY (offset + len < rbuf->size)) {
+    memcpy (data, buffer + offset, len);
+  } else {
+    uint32_t l0 = rbuf->size - offset;
+    memcpy (data, buffer + offset, l0);
+    memcpy (data + l0, buffer, len - l0);
   }
 }
 
@@ -166,65 +149,46 @@ spa_ringbuffer_read_advance (SpaRingbuffer      *rbuf,
                              int32_t             len)
 {
   spa_barrier_full();
-  rbuf->readindex = (rbuf->readindex + len) & rbuf->mask2;
-}
-
-static inline uint32_t
-spa_ringbuffer_get_write_offset (SpaRingbuffer *rbuf,
-                                 uint32_t      *offset)
-{
-  uint32_t avail, w;
-
-  w = rbuf->writeindex;
-  *offset = w & rbuf->mask;
-  avail = rbuf->size - ((w - rbuf->readindex) & rbuf->mask2);
-  spa_barrier_full();
-
-  return avail;
+  rbuf->readindex += len;
 }
 
 /**
- * spa_ringbuffer_get_write_areas:
+ * spa_ringbuffer_get_write_index:
  * @rbuf: a #SpaRingbuffer
- * @areas: an array of #SpaRingbufferArea
+ * @index: the value of writeindex, should be masked to get the
+ *         offset in the ringbuffer memory
  *
- * Fill @areas with pointers to write to. The total amount of
- * bytes that can be written can be obtained by summing the areas len fields.
+ * Returns: the fill level of @rbuf. values < 0 mean
+ *          there was an underrun. values > rbuf->size means there
+ *          was an overrun. Subsctract from the buffer size to get
+ *          the number of bytes available for writing.
  */
-static inline uint32_t
-spa_ringbuffer_get_write_areas (SpaRingbuffer      *rbuf,
-                                SpaRingbufferArea   areas[2])
+static inline int32_t
+spa_ringbuffer_get_write_index (SpaRingbuffer *rbuf,
+                                uint32_t      *index)
 {
-  uint32_t avail, end, w;
+  int32_t filled;
 
-  avail = spa_ringbuffer_get_write_offset (rbuf, &w);
-  end = w + avail;
+  *index = rbuf->writeindex;
+  filled = (int32_t) (*index - rbuf->readindex);
+  spa_barrier_full();
 
-  areas[0].offset = w;
-  areas[1].offset = 0;
-
-  if (SPA_UNLIKELY (end > rbuf->size)) {
-    areas[0].len = rbuf->size - w;
-    areas[1].len = end - rbuf->size;
-  } else {
-    areas[0].len = avail;
-    areas[1].len = 0;
-  }
-  return avail;
+  return filled;
 }
 
 static inline void
 spa_ringbuffer_write_data (SpaRingbuffer      *rbuf,
                            void               *buffer,
-                           SpaRingbufferArea   areas[2],
+                           uint32_t            offset,
                            void               *data,
-                           uint32_t            size)
+                           uint32_t            len)
 {
-  if (SPA_LIKELY (size < areas[0].len))
-    memcpy (buffer + areas[0].offset, data, size);
-  else {
-    memcpy (buffer + areas[0].offset, data, areas[0].len);
-    memcpy (buffer, data + areas[0].len, size - areas[0].len);
+  if (SPA_LIKELY (offset + len < rbuf->size)) {
+    memcpy (buffer + offset, data, len);
+  } else {
+    uint32_t l0 = rbuf->size - offset;
+    memcpy (buffer + offset, data, l0);
+    memcpy (buffer, data + l0, len - l0);
   }
 }
 
@@ -241,7 +205,7 @@ spa_ringbuffer_write_advance (SpaRingbuffer      *rbuf,
                               int32_t             len)
 {
   spa_barrier_write();
-  rbuf->writeindex = (rbuf->writeindex + len) & rbuf->mask2;
+  rbuf->writeindex += len;
 }
 
 

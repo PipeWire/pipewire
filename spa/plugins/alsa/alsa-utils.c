@@ -391,8 +391,9 @@ pull_frames_ringbuffer (SpaALSAState *state,
                         snd_pcm_uframes_t offset,
                         snd_pcm_uframes_t frames)
 {
-  SpaRingbufferArea areas[2];
-  size_t size, avail;
+  int32_t avail;
+  uint32_t index;
+  size_t size;
   SpaALSABuffer *b;
   uint8_t *src, *dst;
 
@@ -401,17 +402,16 @@ pull_frames_ringbuffer (SpaALSAState *state,
   src = b->outbuf->datas[0].data;
   dst = SPA_MEMBER (my_areas[0].addr, offset * state->frame_size, uint8_t);
 
-  avail = spa_ringbuffer_get_read_areas (&b->rb->ringbuffer, areas);
+  avail = spa_ringbuffer_get_read_index (&b->rb->ringbuffer, &index);
+
   size = SPA_MIN (avail, frames * state->frame_size);
 
-  spa_log_trace (state->log, "%u %u %u %u %zd %zd",
-      areas[0].offset, areas[0].len,
-      areas[1].offset, areas[1].len, offset, size);
+  spa_log_trace (state->log, "%u %d %zd %zd", index, avail, offset, size);
 
   if (size > 0) {
     spa_ringbuffer_read_data (&b->rb->ringbuffer,
                               src,
-                              areas,
+                              index & b->rb->ringbuffer.mask,
                               dst,
                               size);
     spa_ringbuffer_read_advance (&b->rb->ringbuffer, size);

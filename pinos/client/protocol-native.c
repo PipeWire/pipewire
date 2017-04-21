@@ -576,17 +576,22 @@ client_node_demarshal_done (void   *object,
   PinosProxy *proxy = object;
   SpaPODIter it;
   PinosConnection *connection = proxy->context->protocol_private;
-  int32_t idx;
-  int fd;
+  int32_t ridx, widx;
+  int readfd, writefd;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
       !spa_pod_iter_get (&it,
-        SPA_POD_TYPE_INT, &idx,
+        SPA_POD_TYPE_INT, &ridx,
+        SPA_POD_TYPE_INT, &widx,
         0))
     return false;
 
-  fd = pinos_connection_get_fd (connection, idx);
-  ((PinosClientNodeEvents*)proxy->implementation)->done (proxy, fd);
+  readfd = pinos_connection_get_fd (connection, ridx);
+  writefd = pinos_connection_get_fd (connection, widx);
+  if (readfd == -1 || writefd == -1)
+    return false;
+
+  ((PinosClientNodeEvents*)proxy->implementation)->done (proxy, readfd, writefd);
   return true;
 }
 

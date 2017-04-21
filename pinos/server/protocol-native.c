@@ -530,7 +530,8 @@ client_marshal_info (void          *object,
 
 static void
 client_node_marshal_done (void     *object,
-                          int       datafd)
+                          int       readfd,
+                          int       writefd)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;
@@ -540,7 +541,8 @@ client_node_marshal_done (void     *object,
   core_update_map (resource->client);
 
   spa_pod_builder_struct (&b.b, &f,
-        SPA_POD_TYPE_INT, pinos_connection_add_fd (connection, datafd));
+        SPA_POD_TYPE_INT, pinos_connection_add_fd (connection, readfd),
+        SPA_POD_TYPE_INT, pinos_connection_add_fd (connection, writefd));
 
   pinos_connection_end_write (connection, resource->id, PINOS_CLIENT_NODE_EVENT_DONE, b.b.offset);
 }

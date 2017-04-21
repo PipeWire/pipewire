@@ -217,7 +217,8 @@ typedef struct {
 
 typedef struct {
   void (*done)                 (void              *object,
-                                int                datafd);
+                                int                readfd,
+                                int                writefd);
   void (*event)                (void              *object,
                                 const SpaEvent    *event);
   void (*add_port)             (void              *object,

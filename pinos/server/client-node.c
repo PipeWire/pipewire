@@ -102,6 +102,7 @@ struct _SpaProxy
   PinosResource *resource;
 
   SpaSource data_source;
+  int writefd;
 
   uint32_t     max_inputs;
   uint32_t     n_inputs;
@@ -129,7 +130,8 @@ struct _PinosClientNodeImpl
   PinosListener loop_changed;
   PinosListener global_added;
 
-  int data_fd;
+  int fds[2];
+  int other_fds[2];
 };
 
 static SpaResult
@@ -163,7 +165,7 @@ static inline void
 do_flush (SpaProxy *this)
 {
   uint64_t cmd = 1;
-  write (this->data_source.fd, &cmd, 8);
+  write (this->writefd, &cmd, 8);
 }
 
 static inline void
@@ -1140,10 +1142,9 @@ client_node_resource_destroy (PinosResource *resource)
   pinos_signal_remove (&impl->loop_changed);
   pinos_signal_remove (&impl->initialized);
 
-  if (proxy->data_source.fd != -1) {
+  if (proxy->data_source.fd != -1)
     spa_loop_remove_source (proxy->data_loop, &proxy->data_source);
-    close (proxy->data_source.fd);
-  }
+
   pinos_node_destroy (this->node);
 }
 
@@ -1161,8 +1162,10 @@ on_node_free (PinosListener *listener,
   if (impl->transport)
     pinos_transport_destroy (impl->transport);
 
-  if (impl->data_fd != -1)
-    close (impl->data_fd);
+  if (impl->fds[0] != -1)
+    close (impl->fds[0]);
+  if (impl->fds[1] != -1)
+    close (impl->fds[1]);
   free (impl);
 }
 
@@ -1193,7 +1196,7 @@ pinos_client_node_new (PinosClient     *client,
   this->client = client;
 
   impl->core = client->core;
-  impl->data_fd = -1;
+  impl->fds[0] = impl->fds[1] = -1;
   pinos_log_debug ("client-node %p: new", impl);
 
   pinos_signal_init (&this->destroy_signal);
@@ -1257,39 +1260,45 @@ pinos_client_node_destroy (PinosClientNode * this)
 }
 
 /**
- * pinos_client_node_get_data_socket:
+ * pinos_client_node_get_fds:
  * @node: a #PinosClientNode
- * @error: a #GError
+ * @readfd: an fd for reading
+ * @writefd: an fd for writing
  *
- * Create or return a previously create socket pair for @node. The
- * Socket for the other end is returned.
+ * Create or return a previously create set of fds for @node.
  *
  * Returns: %SPA_RESULT_OK on success
  */
 SpaResult
-pinos_client_node_get_data_socket (PinosClientNode  *this,
-                                   int              *fd)
+pinos_client_node_get_fds (PinosClientNode  *this,
+                           int              *readfd,
+                           int              *writefd)
 {
   PinosClientNodeImpl *impl = SPA_CONTAINER_OF (this, PinosClientNodeImpl, this);
 
-  if (impl->data_fd == -1) {
-#if 1
-    int fd[2];
-
-    if (socketpair (AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, fd) != 0)
+  if (impl->fds[0] == -1) {
+#if 0
+    if (socketpair (AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, impl->fds) != 0)
       return SPA_RESULT_ERRNO;
 
-    impl->proxy.data_source.fd = fd[0];
-    impl->data_fd = fd[1];
+    impl->proxy.data_source.fd = impl->fds[0];
+    impl->proxy.writefd = impl->fds[0];
+    impl->other_fds[0] = impl->fds[1];
+    impl->other_fds[1] = impl->fds[1];
 #else
-
-    impl->proxy.data_source.fd = eventfd (0, EFD_CLOEXEC | EFD_NONBLOCK);
-    impl->data_fd = eventfd (0, EFD_CLOEXEC | EFD_NONBLOCK);
+    impl->fds[0] = eventfd (0, EFD_CLOEXEC | EFD_NONBLOCK);
+    impl->fds[1] = eventfd (0, EFD_CLOEXEC | EFD_NONBLOCK);
+    impl->proxy.data_source.fd = impl->fds[0];
+    impl->proxy.writefd = impl->fds[1];
+    impl->other_fds[0] = impl->fds[1];
+    impl->other_fds[1] = impl->fds[0];
 #endif
 
     spa_loop_add_source (impl->proxy.data_loop, &impl->proxy.data_source);
     pinos_log_debug ("client-node %p: add data fd %d", this, impl->proxy.data_source.fd);
   }
-  *fd = impl->data_fd;
+  *readfd = impl->other_fds[0];
+  *writefd = impl->other_fds[1];
+
   return SPA_RESULT_OK;
 }

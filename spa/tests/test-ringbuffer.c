@@ -282,7 +282,7 @@ make_nodes (AppData *data)
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
   spa_pod_builder_props (&b, &f[0], data->type.props,
       SPA_POD_PROP (&f[1], data->type.props_device, 0, SPA_POD_TYPE_STRING, 1, "hw:1"),
-      SPA_POD_PROP (&f[1], data->type.props_min_latency, 0, SPA_POD_TYPE_INT, 1, 128));
+      SPA_POD_PROP (&f[1], data->type.props_min_latency, 0, SPA_POD_TYPE_INT, 1, 64));
   props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
 
   if ((res = spa_node_set_props (data->sink, props)) < 0)

@@ -394,8 +394,8 @@ handle_create_client_node (PinosDaemon1           *interface,
   PinosProperties *props;
   GError *error = NULL;
   GUnixFDList *fdlist;
-  int ctrl_fd, data_fd;
-  int ctrl_idx, data_idx;
+  int ctrl_fd, data_rfd, data_wfd;
+  int ctrl_idx, data_ridx, data_widx;
   PinosProtocolDBusObject *object;
   int fd[2];
 
@@ -426,7 +426,7 @@ handle_create_client_node (PinosDaemon1           *interface,
   if (object == NULL)
     goto object_failed;
 
-  if ((res = pinos_client_node_get_data_socket (node, &data_fd)) < 0)
+  if ((res = pinos_client_node_get_fds (node, &data_rfd, &data_wfd)) < 0)
     goto no_socket;
 
   object_path = object->object_path;
@@ -434,10 +434,11 @@ handle_create_client_node (PinosDaemon1           *interface,
 
   fdlist = g_unix_fd_list_new ();
   ctrl_idx = g_unix_fd_list_append (fdlist, ctrl_fd, &error);
-  data_idx = g_unix_fd_list_append (fdlist, data_fd, &error);
+  data_ridx = g_unix_fd_list_append (fdlist, data_rfd, &error);
+  data_widx = g_unix_fd_list_append (fdlist, data_wfd, &error);
 
   g_dbus_method_invocation_return_value_with_unix_fd_list (invocation,
-           g_variant_new ("(ohh)", object_path, ctrl_idx, data_idx), fdlist);
+           g_variant_new ("(ohhh)", object_path, ctrl_idx, data_ridx, data_widx), fdlist);
   g_object_unref (fdlist);
 
   return TRUE;

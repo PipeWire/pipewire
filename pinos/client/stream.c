@@ -75,7 +75,8 @@ typedef struct
 
   PinosStreamMode mode;
 
-  int rtfd;
+  int rtreadfd;
+  int rtwritefd;
   SpaSource *rtsocket_source;
 
   PinosProxy *node_proxy;
@@ -372,7 +373,7 @@ send_need_input (PinosStream *stream)
   ni.event.type = SPA_EVENT_NODE_NEED_INPUT;
   ni.event.size = sizeof (ni);
   pinos_transport_add_event (impl->trans, &ni.event);
-  write (impl->rtfd, &cmd, 8);
+  write (impl->rtwritefd, &cmd, 8);
 #endif
 }
 
@@ -384,7 +385,7 @@ send_have_output (PinosStream *stream)
   uint64_t cmd = 1;
 
   pinos_transport_add_event (impl->trans, &ho);
-  write (impl->rtfd, &cmd, 8);
+  write (impl->rtwritefd, &cmd, 8);
 }
 
 static void
@@ -553,7 +554,7 @@ on_rtsocket_condition (SpaLoopUtils *utils,
     SpaEvent event;
     uint64_t cmd;
 
-    read (impl->rtfd, &cmd, 8);
+    read (impl->rtreadfd, &cmd, 8);
 
     while (pinos_transport_next_event (impl->trans, &event) == SPA_RESULT_OK) {
       SpaEvent *ev = alloca (SPA_POD_SIZE (&event));
@@ -564,14 +565,15 @@ on_rtsocket_condition (SpaLoopUtils *utils,
 }
 
 static void
-handle_socket (PinosStream *stream, int rtfd)
+handle_socket (PinosStream *stream, int rtreadfd, int rtwritefd)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
   struct timespec interval;
 
-  impl->rtfd = rtfd;
+  impl->rtreadfd = rtreadfd;
+  impl->rtwritefd = rtwritefd;
   impl->rtsocket_source = pinos_loop_add_io (stream->context->loop,
-                                             impl->rtfd,
+                                             impl->rtreadfd,
                                              SPA_IO_ERR | SPA_IO_HUP,
                                              true,
                                              on_rtsocket_condition,
@@ -659,13 +661,14 @@ handle_node_command (PinosStream      *stream,
 
 static void
 client_node_done (void              *object,
-                  int                datafd)
+                  int                readfd,
+                  int                writefd)
 {
   PinosProxy *proxy = object;
   PinosStream *stream = proxy->user_data;
 
-  pinos_log_info ("strean %p: create client node done with fd %d", stream, datafd);
-  handle_socket (stream, datafd);
+  pinos_log_info ("strean %p: create client node done with fds %d %d", stream, readfd, writefd);
+  handle_socket (stream, readfd, writefd);
   do_node_init (stream);
 
   stream_set_state (stream, PINOS_STREAM_STATE_CONFIGURE, NULL);
@@ -927,7 +930,7 @@ client_node_transport (void              *object,
     pinos_transport_destroy (impl->trans);
   impl->trans = pinos_transport_new_from_info (&info);
 
-  pinos_log_debug ("transport update %d %p", impl->rtfd, impl->trans);
+  pinos_log_debug ("transport update %p", impl->trans);
 }
 
 static const PinosClientNodeEvents client_node_events = {
@@ -1156,7 +1159,7 @@ pinos_stream_recycle_buffer (PinosStream *stream,
   spa_list_insert (impl->free.prev, &bid->link);
 
   pinos_transport_add_event (impl->trans, (SpaEvent *)&rb);
-  write (impl->rtfd, &cmd, 8);
+  write (impl->rtwritefd, &cmd, 8);
 
   return true;
 }

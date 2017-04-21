@@ -203,7 +203,7 @@ async_create_client_node_complete (PinosAccessData *data)
   PinosClient *client = resource->client;
   PinosClientNode *node;
   SpaResult res;
-  int data_fd;
+  int readfd, writefd;
 
   if (data->res != SPA_RESULT_OK)
     goto denied;
@@ -215,16 +215,17 @@ async_create_client_node_complete (PinosAccessData *data)
   if (node == NULL)
     goto no_mem;
 
-  if ((res = pinos_client_node_get_data_socket (node, &data_fd)) < 0) {
+  if ((res = pinos_client_node_get_fds (node, &readfd, &writefd)) < 0) {
     pinos_core_notify_error (client->core_resource,
                              resource->id,
                              SPA_RESULT_ERROR,
-                             "can't get data fd");
+                             "can't get data fds");
     return;
   }
 
   pinos_client_node_notify_done (node->resource,
-                                 data_fd);
+                                 readfd,
+                                 writefd);
   goto done;
 
 no_mem:

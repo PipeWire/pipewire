@@ -52,7 +52,9 @@ PinosClientNode *  pinos_client_node_new              (PinosClient     *client,
                                                        PinosProperties *properties);
 void               pinos_client_node_destroy          (PinosClientNode *node);
 
-SpaResult          pinos_client_node_get_data_socket  (PinosClientNode *node, int *fd);
+SpaResult          pinos_client_node_get_fds         (PinosClientNode *node,
+                                                      int             *readfd,
+                                                      int             *writefd);
 
 #ifdef __cplusplus
 }

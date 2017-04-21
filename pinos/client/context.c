@@ -33,6 +33,8 @@
 typedef struct {
   PinosContext this;
 
+  bool no_proxy;
+
   int fd;
   PinosConnection *connection;
   SpaSource source;
@@ -304,7 +306,11 @@ registry_event_global (void          *object,
 {
   PinosProxy *registry_proxy = object;
   PinosContext *this = registry_proxy->context;
+  PinosContextImpl *impl = SPA_CONTAINER_OF (this, PinosContextImpl, this);
   PinosProxy *proxy = NULL;
+
+  if (impl->no_proxy)
+    return;
 
   pinos_log_debug ("got global %u %s", id, type);
 
@@ -342,7 +348,7 @@ registry_event_global (void          *object,
     proxy->implementation = &link_events;
   }
   if (proxy) {
-    pinos_registry_do_bind (this->registry_proxy, id, proxy->id);
+    pinos_registry_do_bind (registry_proxy, id, proxy->id);
   }
 
   return;
@@ -547,7 +553,8 @@ pinos_context_destroy (PinosContext *context)
  * Returns: %TRUE on success.
  */
 bool
-pinos_context_connect (PinosContext *context)
+pinos_context_connect (PinosContext      *context,
+                       PinosContextFlags  flags)
 {
   struct sockaddr_un addr;
   socklen_t size;
@@ -589,7 +596,7 @@ pinos_context_connect (PinosContext *context)
     goto error_close;
   }
 
-  return pinos_context_connect_fd (context, fd);
+  return pinos_context_connect_fd (context, flags, fd);
 
 error_close:
   close (fd);
@@ -606,8 +613,9 @@ error_close:
  * Returns: %TRUE on success.
  */
 bool
-pinos_context_connect_fd (PinosContext  *context,
-                          int            fd)
+pinos_context_connect_fd (PinosContext      *context,
+                          PinosContextFlags  flags,
+                          int                fd)
 {
   PinosContextImpl *impl = SPA_CONTAINER_OF (context, PinosContextImpl, this);
 
@@ -643,16 +651,20 @@ pinos_context_connect_fd (PinosContext  *context,
   pinos_core_do_client_update (context->core_proxy,
                                &context->properties->dict);
 
-  context->registry_proxy = pinos_proxy_new (context,
-                                             SPA_ID_INVALID,
-                                             context->type.registry);
-  if (context->registry_proxy == NULL)
-    goto no_registry;
+  if (!(flags & PINOS_CONTEXT_FLAG_NO_REGISTRY)) {
+    context->registry_proxy = pinos_proxy_new (context,
+                                               SPA_ID_INVALID,
+                                               context->type.registry);
+    if (context->registry_proxy == NULL)
+      goto no_registry;
 
-  context->registry_proxy->implementation = &registry_events;
+    context->registry_proxy->implementation = &registry_events;
 
-  pinos_core_do_get_registry (context->core_proxy,
-                              context->registry_proxy->id);
+    pinos_core_do_get_registry (context->core_proxy,
+                                context->registry_proxy->id);
+
+  }
+  impl->no_proxy = !!(flags & PINOS_CONTEXT_FLAG_NO_PROXY);
 
   pinos_core_do_sync (context->core_proxy, 0);
 

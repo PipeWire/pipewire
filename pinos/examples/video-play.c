@@ -401,7 +401,7 @@ main (int argc, char *argv[])
                     &data.on_state_changed,
                     on_state_changed);
 
-  pinos_context_connect (data.context);
+  pinos_context_connect (data.context, PINOS_CONTEXT_FLAG_NO_REGISTRY);
 
   pinos_loop_enter (data.loop);
   while (data.running) {

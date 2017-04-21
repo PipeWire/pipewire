@@ -288,7 +288,7 @@ main (int argc, char *argv[])
                     &data.on_subscription,
                     on_subscription);
 
-  pinos_context_connect (data.context);
+  pinos_context_connect (data.context, 0);
 
   pinos_loop_enter (data.loop);
   while (data.running) {

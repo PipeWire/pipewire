@@ -373,7 +373,7 @@ gst_pinos_device_provider_probe (GstDeviceProvider * provider)
   if (!(c = pinos_context_new (l, self->client_name, NULL)))
     goto failed;
 
-  pinos_context_connect (c);
+  pinos_context_connect (c, 0);
 
   for (;;) {
     PinosContextState state;
@@ -479,7 +479,7 @@ gst_pinos_device_provider_start (GstDeviceProvider * provider)
                     &self->ctx_subscription,
                     on_context_subscription);
 
-  pinos_context_connect (self->context);
+  pinos_context_connect (self->context, 0);
   for (;;) {
     PinosContextState state;
 

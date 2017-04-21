@@ -49,6 +49,12 @@ typedef enum {
   PINOS_CONTEXT_STATE_CONNECTED    = 2,
 } PinosContextState;
 
+typedef enum {
+  PINOS_CONTEXT_FLAG_NONE          = 0,
+  PINOS_CONTEXT_FLAG_NO_REGISTRY   = (1 << 0),
+  PINOS_CONTEXT_FLAG_NO_PROXY      = (1 << 1),
+} PinosContextFlags;
+
 const char * pinos_context_state_as_string (PinosContextState state);
 
 /**
@@ -97,8 +103,10 @@ PinosContext *    pinos_context_new                   (PinosLoop         *loop,
                                                        PinosProperties   *properties);
 void              pinos_context_destroy               (PinosContext      *context);
 
-bool              pinos_context_connect               (PinosContext      *context);
+bool              pinos_context_connect               (PinosContext      *context,
+                                                       PinosContextFlags  flags);
 bool              pinos_context_connect_fd            (PinosContext      *context,
+                                                       PinosContextFlags  flags,
                                                        int                fd);
 bool              pinos_context_disconnect            (PinosContext      *context);
 

@@ -44,12 +44,12 @@ typedef enum {
 const char * pinos_stream_state_as_string (PinosStreamState state);
 
 typedef enum {
-  PINOS_STREAM_FLAG_NONE = 0,
+  PINOS_STREAM_FLAG_NONE        =  0,
   PINOS_STREAM_FLAG_AUTOCONNECT = (1 << 0),
 } PinosStreamFlags;
 
 typedef enum {
-  PINOS_STREAM_MODE_BUFFER = 0,
+  PINOS_STREAM_MODE_BUFFER     = 0,
   PINOS_STREAM_MODE_RINGBUFFER = 1,
 } PinosStreamMode;
 

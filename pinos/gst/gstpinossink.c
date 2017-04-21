@@ -823,7 +823,7 @@ gst_pinos_sink_open (GstPinosSink * pinossink)
 
   pinos_signal_add (&pinossink->ctx->state_changed, &pinossink->ctx_state_changed, on_ctx_state_changed);
 
-  pinos_context_connect (pinossink->ctx);
+  pinos_context_connect (pinossink->ctx, PINOS_CONTEXT_FLAG_NO_REGISTRY);
 
   while (TRUE) {
     PinosContextState state = pinossink->ctx->state;

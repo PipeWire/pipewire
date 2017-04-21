@@ -1037,7 +1037,7 @@ gst_pinos_src_open (GstPinosSrc * pinossrc)
 
   pinos_signal_add (&pinossrc->ctx->state_changed, &pinossrc->ctx_state_changed, on_ctx_state_changed);
 
-  pinos_context_connect (pinossrc->ctx);
+  pinos_context_connect (pinossrc->ctx, PINOS_CONTEXT_FLAG_NO_REGISTRY);
 
   while (TRUE) {
     PinosContextState state = pinossrc->ctx->state;

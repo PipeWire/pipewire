@@ -39,7 +39,7 @@ typedef struct {
   size_t         offset;
 
   SpaEvent          current;
-  uint32_t          current_offset;
+  uint32_t          current_index;
 } PinosTransportImpl;
 
 static size_t
@@ -223,7 +223,7 @@ pinos_transport_add_event (PinosTransport   *trans,
                              index & trans->output_buffer->mask,
                              event,
                              size);
-  spa_ringbuffer_write_advance (trans->output_buffer, size);
+  spa_ringbuffer_write_update (trans->output_buffer, index + size);
 
   return SPA_RESULT_OK;
 }
@@ -234,20 +234,17 @@ pinos_transport_next_event (PinosTransport *trans,
 {
   PinosTransportImpl *impl = (PinosTransportImpl *) trans;
   int32_t avail;
-  uint32_t index;
 
   if (impl == NULL || event == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  avail = spa_ringbuffer_get_read_index (trans->input_buffer, &index);
+  avail = spa_ringbuffer_get_read_index (trans->input_buffer, &impl->current_index);
   if (avail < sizeof (SpaEvent))
     return SPA_RESULT_ENUM_END;
 
-  impl->current_offset = index & trans->input_buffer->mask;
-
   spa_ringbuffer_read_data (trans->input_buffer,
                             trans->input_data,
-                            impl->current_offset,
+                            impl->current_index & trans->input_buffer->mask,
                             &impl->current,
                             sizeof (SpaEvent));
 
@@ -270,10 +267,10 @@ pinos_transport_parse_event (PinosTransport *trans,
 
   spa_ringbuffer_read_data (trans->input_buffer,
                             trans->input_data,
-                            impl->current_offset,
+                            impl->current_index & trans->input_buffer->mask,
                             event,
                             size);
-  spa_ringbuffer_read_advance (trans->input_buffer, size);
+  spa_ringbuffer_read_update (trans->input_buffer, impl->current_index + size);
 
   return SPA_RESULT_OK;
 }

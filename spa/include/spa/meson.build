@@ -1,6 +1,5 @@
 spa_headers = [
   'alloc-param.h',
-  'barrier.h',
   'buffer.h',
   'clock.h',
   'command.h',

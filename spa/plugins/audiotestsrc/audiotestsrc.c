@@ -324,7 +324,7 @@ audiotestsrc_make_buffer (SpaAudioTestSrc *this)
     } else {
       this->render_func (this, SPA_MEMBER (b->outbuf->datas[0].data, offset, void), n_samples);
     }
-    spa_ringbuffer_write_advance (&b->rb->ringbuffer, n_bytes);
+    spa_ringbuffer_write_update (&b->rb->ringbuffer, index + n_bytes);
   } else {
     n_samples = n_bytes / this->bpf;
     this->render_func (this, b->outbuf->datas[0].data, n_samples);

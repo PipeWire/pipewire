@@ -32,7 +32,6 @@ typedef struct _SpaRingbuffer SpaRingbuffer;
 #include <string.h>
 
 #include <spa/defs.h>
-#include <spa/barrier.h>
 
 /**
  * SpaRingbuffer:
@@ -103,9 +102,8 @@ spa_ringbuffer_get_read_index (SpaRingbuffer *rbuf,
 {
   int32_t avail;
 
-  *index = rbuf->readindex;
-  avail = (int32_t) (rbuf->writeindex - *index);
-  spa_barrier_read();
+  *index = __atomic_load_n (&rbuf->readindex, __ATOMIC_RELAXED);
+  avail = (int32_t) (__atomic_load_n (&rbuf->writeindex, __ATOMIC_ACQUIRE) - *index);
 
   return avail;
 }
@@ -138,18 +136,17 @@ spa_ringbuffer_read_data (SpaRingbuffer      *rbuf,
 }
 
 /**
- * spa_ringbuffer_read_advance:
+ * spa_ringbuffer_read_update:
  * @rbuf: a #SpaRingbuffer
- * @len: number of bytes to advance
+ * @index: new index
  *
- * Advance the read pointer by @len
+ * Update the read pointer to @index
  */
 static inline void
-spa_ringbuffer_read_advance (SpaRingbuffer      *rbuf,
-                             int32_t             len)
+spa_ringbuffer_read_update (SpaRingbuffer      *rbuf,
+                            int32_t             index)
 {
-  spa_barrier_full();
-  rbuf->readindex += len;
+  __atomic_store_n (&rbuf->readindex, index, __ATOMIC_RELEASE);
 }
 
 /**
@@ -169,9 +166,8 @@ spa_ringbuffer_get_write_index (SpaRingbuffer *rbuf,
 {
   int32_t filled;
 
-  *index = rbuf->writeindex;
-  filled = (int32_t) (*index - rbuf->readindex);
-  spa_barrier_full();
+  *index = __atomic_load_n (&rbuf->writeindex, __ATOMIC_RELAXED);
+  filled = (int32_t) (*index - __atomic_load_n (&rbuf->readindex, __ATOMIC_ACQUIRE));
 
   return filled;
 }
@@ -193,19 +189,18 @@ spa_ringbuffer_write_data (SpaRingbuffer      *rbuf,
 }
 
 /**
- * spa_ringbuffer_write_advance:
+ * spa_ringbuffer_write_update:
  * @rbuf: a #SpaRingbuffer
- * @len: number of bytes to advance
+ * @index: new index
  *
- * Advance the write pointer by @len
+ * Update the write pointer to @index
  *
  */
 static inline void
-spa_ringbuffer_write_advance (SpaRingbuffer      *rbuf,
-                              int32_t             len)
+spa_ringbuffer_write_update (SpaRingbuffer      *rbuf,
+                             int32_t             index)
 {
-  spa_barrier_write();
-  rbuf->writeindex += len;
+  __atomic_store_n (&rbuf->writeindex, index, __ATOMIC_RELEASE);
 }
 
 

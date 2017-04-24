@@ -372,7 +372,7 @@ pull_frames (SpaALSAState *state,
                                 dst,
                                 n_bytes);
 
-      spa_ringbuffer_read_advance (ringbuffer, n_bytes);
+      spa_ringbuffer_read_update (ringbuffer, index + n_bytes);
       reuse = avail == n_bytes;
     } else {
       offs = SPA_MIN (d[0].chunk->offset + state->ready_offset, d[0].maxsize);

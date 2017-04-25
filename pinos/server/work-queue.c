@@ -70,7 +70,7 @@ process_work_queue (SpaLoopUtils *utils,
     spa_list_remove (&item->link);
 
     if (item->func) {
-      pinos_log_debug ("work-queue %p: process work item %p %d", this, item->obj, item->seq);
+      pinos_log_debug ("work-queue %p: process work item %p %d %d", this, item->obj, item->seq, item->res);
       item->func (item->obj, item->data, item->res, item->id);
     }
     spa_list_insert (impl->free_list.prev, &item->link);

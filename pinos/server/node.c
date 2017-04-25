@@ -165,6 +165,9 @@ pause_node (PinosNode *this)
 {
   SpaResult res;
 
+  if (this->state <= PINOS_NODE_STATE_IDLE)
+    return SPA_RESULT_OK;
+
   pinos_log_debug ("node %p: pause node", this);
   {
     SpaCommand cmd = SPA_COMMAND_INIT (this->core->type.command_node.Pause);
@@ -649,6 +652,7 @@ do_node_remove (SpaLoop        *loop,
   spa_list_for_each_safe (port, tmp, &this->input_ports, link) {
     PinosLink *link, *tlink;
     spa_list_for_each_safe (link, tlink, &port->rt.links, rt.input_link) {
+      pinos_port_pause_rt (link->rt.input);
       spa_list_remove (&link->rt.input_link);
       link->rt.input = NULL;
     }
@@ -656,6 +660,7 @@ do_node_remove (SpaLoop        *loop,
   spa_list_for_each_safe (port, tmp, &this->output_ports, link) {
     PinosLink *link, *tlink;
     spa_list_for_each_safe (link, tlink, &port->rt.links, rt.output_link) {
+      pinos_port_pause_rt (link->rt.output);
       spa_list_remove (&link->rt.output_link);
       link->rt.output = NULL;
     }

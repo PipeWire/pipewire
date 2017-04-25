@@ -138,6 +138,21 @@ spa_v4l2_clear_buffers (SpaV4l2Source *this)
   return SPA_RESULT_OK;
 }
 
+static SpaResult
+spa_v4l2_port_set_enabled (SpaV4l2Source *this, bool enabled)
+{
+  SpaV4l2State *state = &this->state[0];
+  if (state->source_enabled != enabled) {
+    spa_log_info (state->log, "v4l2: enabled %d", enabled);
+    state->source_enabled = enabled;
+    if (enabled)
+      spa_loop_add_source (state->data_loop, &state->source);
+    else
+      spa_loop_remove_source (state->data_loop, &state->source);
+  }
+  return SPA_RESULT_OK;
+}
+
 static int
 spa_v4l2_close (SpaV4l2Source *this)
 {
@@ -149,10 +164,9 @@ spa_v4l2_close (SpaV4l2Source *this)
   if (state->n_buffers > 0)
     return 0;
 
-  spa_log_info (state->log, "v4l2: close");
+  spa_v4l2_port_set_enabled (this, false);
 
-  if (state->source_enabled)
-    spa_loop_remove_source (state->data_loop, &state->source);
+  spa_log_info (state->log, "v4l2: close");
 
   if (close(state->fd))
     perror ("close");
@@ -1210,25 +1224,16 @@ spa_v4l2_stream_on (SpaV4l2Source *this)
   SpaV4l2State *state = &this->state[0];
   enum v4l2_buf_type type;
 
+  if (state->started)
+    return SPA_RESULT_OK;
+
   type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   if (xioctl (state->fd, VIDIOC_STREAMON, &type) < 0) {
     spa_log_error (this->log, "VIDIOC_STREAMON: %s", strerror (errno));
     return SPA_RESULT_ERROR;
   }
-  return SPA_RESULT_OK;
-}
+  state->started = true;
 
-static SpaResult
-spa_v4l2_port_set_enabled (SpaV4l2Source *this, bool enabled)
-{
-  SpaV4l2State *state = &this->state[0];
-  if (state->source_enabled != enabled) {
-    state->source_enabled = enabled;
-    if (enabled)
-      spa_loop_add_source (state->data_loop, &state->source);
-    else
-      spa_loop_remove_source (state->data_loop, &state->source);
-  }
   return SPA_RESULT_OK;
 }
 
@@ -1238,6 +1243,9 @@ spa_v4l2_stream_off (SpaV4l2Source *this)
   SpaV4l2State *state = &this->state[0];
   enum v4l2_buf_type type;
   int i;
+
+  if (!state->started)
+    return SPA_RESULT_OK;
 
   type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   if (xioctl (state->fd, VIDIOC_STREAMOFF, &type) < 0) {
@@ -1252,6 +1260,7 @@ spa_v4l2_stream_off (SpaV4l2Source *this)
       if (xioctl (state->fd, VIDIOC_QBUF, &b->v4l2_buffer) < 0)
         spa_log_warn (this->log, "VIDIOC_QBUF: %s", strerror (errno));
   }
+  state->started = false;
 
   return SPA_RESULT_OK;
 }

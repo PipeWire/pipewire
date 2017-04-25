@@ -235,15 +235,11 @@ do_pause_done (SpaLoop        *loop,
                void           *user_data)
 {
   SpaV4l2Source *this = user_data;
-  SpaV4l2State *state = &this->state[0];
   SpaEventNodeAsyncComplete *ac = data;
 
   if (SPA_RESULT_IS_OK (ac->body.res.value))
     ac->body.res.value = spa_v4l2_stream_off (this);
 
-  if (SPA_RESULT_IS_OK (ac->body.res.value)) {
-    state->started = false;
-  }
   this->event_cb (&this->node, (SpaEvent *)ac, this->user_data);
 
   return SPA_RESULT_OK;
@@ -288,12 +284,8 @@ do_start_done (SpaLoop        *loop,
                void           *user_data)
 {
   SpaV4l2Source *this = user_data;
-  SpaV4l2State *state = &this->state[0];
   SpaEventNodeAsyncComplete *ac = data;
 
-  if (SPA_RESULT_IS_OK (ac->body.res.value)) {
-    state->started = true;
-  }
   this->event_cb (&this->node, (SpaEvent *)ac, this->user_data);
 
   return SPA_RESULT_OK;
@@ -351,9 +343,6 @@ spa_v4l2_source_node_send_command (SpaNode    *node,
     if (state->n_buffers == 0)
       return SPA_RESULT_NO_BUFFERS;
 
-    if (state->started)
-      return SPA_RESULT_OK;
-
     if ((res = spa_v4l2_stream_on (this)) < 0)
       return res;
 
@@ -372,9 +361,6 @@ spa_v4l2_source_node_send_command (SpaNode    *node,
 
     if (state->n_buffers == 0)
       return SPA_RESULT_NO_BUFFERS;
-
-    if (!state->started)
-      return SPA_RESULT_OK;
 
     return spa_loop_invoke (this->state[0].data_loop,
                             do_pause,

@@ -74,6 +74,7 @@ PinosLink *         pinos_port_link                    (PinosPort        *output
 SpaResult           pinos_port_unlink                  (PinosPort        *port,
                                                         PinosLink        *link);
 
+SpaResult           pinos_port_pause_rt                (PinosPort        *port);
 SpaResult           pinos_port_clear_buffers           (PinosPort        *port);
 
 

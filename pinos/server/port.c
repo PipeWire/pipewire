@@ -199,18 +199,22 @@ no_mem:
   return NULL;
 }
 
-static SpaResult
-pinos_port_pause (PinosPort *port)
+SpaResult
+pinos_port_pause_rt (PinosPort *port)
 {
   SpaCommand cmd = SPA_COMMAND_INIT (port->node->core->type.command_node.Pause);
+  SpaResult res;
+
   if (port->state <= SPA_PORT_STATE_PAUSED)
     return SPA_RESULT_OK;
 
-  port->state = SPA_PORT_STATE_PAUSED;
-  return spa_node_port_send_command (port->node->node,
+  res = spa_node_port_send_command (port->node->node,
                                     port->direction,
                                     port->port_id,
                                     &cmd);
+  port->state = SPA_PORT_STATE_PAUSED;
+  pinos_log_debug ("port %p: state PAUSED", port);
+  return res;
 }
 
 static SpaResult
@@ -240,15 +244,16 @@ do_remove_link_done (SpaLoop        *loop,
     }
   }
 
-  if (!port->allocated) {
+  if (!port->allocated && port->state > SPA_PORT_STATE_READY) {
     pinos_log_debug ("port %p: clear buffers on port", port);
     spa_node_port_use_buffers (port->node->node,
                                port->direction,
                                port->port_id,
                                NULL, 0);
-    port->state = SPA_PORT_STATE_READY;
     port->buffers = NULL;
     port->n_buffers = 0;
+    port->state = SPA_PORT_STATE_READY;
+    pinos_log_debug ("port %p: state READY", port);
   }
 
   if (node->n_used_output_links == 0 &&
@@ -273,9 +278,11 @@ do_remove_link (SpaLoop        *loop,
   SpaResult res;
 
   if (port->direction == PINOS_DIRECTION_INPUT) {
+    pinos_port_pause_rt (link->rt.input);
     spa_list_remove (&link->rt.input_link);
     link->rt.input = NULL;
   } else {
+    pinos_port_pause_rt (link->rt.output);
     spa_list_remove (&link->rt.output_link);
     link->rt.output = NULL;
   }
@@ -317,15 +324,18 @@ do_clear_buffers_done (SpaLoop        *loop,
   PinosPort *port = user_data;
   SpaResult res;
 
-  pinos_log_debug ("port %p: clear buffers finish", port);
+  if (port->state <= SPA_PORT_STATE_READY)
+    return SPA_RESULT_OK;
 
+  pinos_log_debug ("port %p: clear buffers finish", port);
   res = spa_node_port_use_buffers (port->node->node,
                                    port->direction,
                                    port->port_id,
                                    NULL, 0);
-  port->state = SPA_PORT_STATE_READY;
   port->buffers = NULL;
   port->n_buffers = 0;
+  port->state = SPA_PORT_STATE_READY;
+  pinos_log_debug ("port %p: state READY", port);
 
   return res;
 }
@@ -342,7 +352,7 @@ do_clear_buffers (SpaLoop        *loop,
   PinosNode *node = port->node;
   SpaResult res;
 
-  pinos_port_pause (port);
+  pinos_port_pause_rt (port);
 
   res = pinos_loop_invoke (node->core->main_loop->loop,
                            do_clear_buffers_done,

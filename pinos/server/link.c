@@ -971,8 +971,9 @@ do_link_remove_done (SpaLoop        *loop,
     clear_port_buffers (this, this->input);
 
     if (this->input->node->n_used_input_links == 0 &&
-        this->input->node->n_used_output_links == 0)
-      pinos_node_update_state (this->input->node, PINOS_NODE_STATE_IDLE, NULL);
+        this->input->node->n_used_output_links == 0 &&
+        this->input->node->state > PINOS_NODE_STATE_IDLE)
+        pinos_node_update_state (this->input->node, PINOS_NODE_STATE_IDLE, NULL);
 
     this->input = NULL;
   }
@@ -983,7 +984,8 @@ do_link_remove_done (SpaLoop        *loop,
     clear_port_buffers (this, this->output);
 
     if (this->output->node->n_used_input_links == 0 &&
-        this->output->node->n_used_output_links == 0)
+        this->output->node->n_used_output_links == 0 &&
+        this->output->node->state > PINOS_NODE_STATE_IDLE)
       pinos_node_update_state (this->output->node, PINOS_NODE_STATE_IDLE, NULL);
 
     this->output = NULL;

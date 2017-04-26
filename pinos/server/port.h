@@ -37,6 +37,15 @@ typedef struct _PinosPort PinosPort;
 #include <pinos/server/core.h>
 #include <pinos/server/link.h>
 
+typedef enum {
+  PINOS_PORT_STATE_ERROR         = -1,
+  PINOS_PORT_STATE_INIT          =  0,
+  PINOS_PORT_STATE_CONFIGURE     =  1,
+  PINOS_PORT_STATE_READY         =  2,
+  PINOS_PORT_STATE_PAUSED        =  3,
+  PINOS_PORT_STATE_STREAMING     =  4,
+} PinosPortState;
+
 struct _PinosPort {
   SpaList        link;
 
@@ -45,7 +54,7 @@ struct _PinosPort {
   PinosNode      *node;
   PinosDirection  direction;
   uint32_t        port_id;
-  uint32_t        state;
+  PinosPortState  state;
   SpaPortIO       io;
 
   bool            allocated;

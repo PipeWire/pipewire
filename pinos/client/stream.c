@@ -62,8 +62,6 @@ typedef struct
 {
   PinosStream this;
 
-  uint32_t port_state;
-
   uint32_t n_possible_formats;
   SpaFormat **possible_formats;
 
@@ -230,7 +228,6 @@ pinos_stream_new (PinosContext    *context,
 
   this->state = PINOS_STREAM_STATE_UNCONNECTED;
 
-  impl->port_state = SPA_PORT_STATE_INIT;
   pinos_array_init (&impl->mem_ids, 64);
   pinos_array_ensure_size (&impl->mem_ids, sizeof (MemId) * 64);
   pinos_array_init (&impl->buffer_ids, 32);
@@ -741,7 +738,7 @@ client_node_add_mem (void              *object,
                      SpaDirection       direction,
                      uint32_t           port_id,
                      uint32_t           mem_id,
-                     SpaDataType        type,
+                     uint32_t           type,
                      int                memfd,
                      uint32_t           flags,
                      uint32_t           offset,
@@ -856,26 +853,20 @@ client_node_use_buffers (void                  *object,
       memcpy (d, &buffers[i].buffer->datas[j], sizeof (SpaData));
       d->chunk = SPA_MEMBER (bid->buf_ptr, offset + sizeof (SpaChunk) * j, SpaChunk);
 
-      switch (d->type) {
-        case SPA_DATA_TYPE_ID:
-        {
-          MemId *bmid = find_mem (stream, SPA_PTR_TO_UINT32 (d->data));
-          d->type = SPA_DATA_TYPE_MEMFD;
-          d->data = NULL;
-          d->fd = bmid->fd;
-          pinos_log_debug (" data %d %u -> fd %d", j, bmid->id, bmid->fd);
-          break;
-        }
-        case SPA_DATA_TYPE_MEMPTR:
-        {
-          d->data = SPA_MEMBER (bid->buf_ptr, SPA_PTR_TO_INT (d->data), void);
-          d->fd = -1;
-          pinos_log_debug (" data %d %u -> mem %p", j, bid->id, d->data);
-          break;
-        }
-        default:
-          pinos_log_warn ("unknown buffer data type %d", d->type);
-          break;
+      if (d->type == stream->context->type.data.Id) {
+        MemId *bmid = find_mem (stream, SPA_PTR_TO_UINT32 (d->data));
+        d->type = stream->context->type.data.MemFd;
+        d->data = NULL;
+        d->fd = bmid->fd;
+        pinos_log_debug (" data %d %u -> fd %d", j, bmid->id, bmid->fd);
+      }
+      else if (d->type == stream->context->type.data.MemPtr) {
+        d->data = SPA_MEMBER (bid->buf_ptr, SPA_PTR_TO_INT (d->data), void);
+        d->fd = -1;
+        pinos_log_debug (" data %d %u -> mem %p", j, bid->id, d->data);
+      }
+      else {
+        pinos_log_warn ("unknown buffer data type %d", d->type);
       }
     }
     pinos_signal_emit (&stream->add_buffer, stream, bid->id);

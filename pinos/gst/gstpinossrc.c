@@ -388,6 +388,7 @@ on_add_buffer (PinosListener *listener,
   GstBuffer *buf;
   uint32_t i;
   ProcessMemData data;
+  PinosContext *ctx = pinossrc->stream->context;
 
   GST_LOG_OBJECT (pinossrc, "add buffer");
 
@@ -402,39 +403,22 @@ on_add_buffer (PinosListener *listener,
   data.src = gst_object_ref (pinossrc);
   data.id = id;
   data.buf = b;
-  data.header = NULL;
+  data.header = spa_buffer_find_meta (b, ctx->type.meta.Header);
 
-  for (i = 0; i < b->n_metas; i++) {
-    SpaMeta *m = &b->metas[i];
-
-    switch (m->type) {
-      case SPA_META_TYPE_HEADER:
-        data.header = m->data;
-        break;
-      default:
-        break;
-    }
-  }
   for (i = 0; i < b->n_datas; i++) {
     SpaData *d = &b->datas[i];
     GstMemory *gmem = NULL;
 
-    switch (d->type) {
-      case SPA_DATA_TYPE_MEMFD:
-      case SPA_DATA_TYPE_DMABUF:
-      {
-        gmem = gst_fd_allocator_alloc (pinossrc->fd_allocator, dup (d->fd),
-                  d->mapoffset + d->maxsize, GST_FD_MEMORY_FLAG_NONE);
-        gst_memory_resize (gmem, d->chunk->offset + d->mapoffset, d->chunk->size);
-        data.offset = d->mapoffset;
-        break;
-      }
-      case SPA_DATA_TYPE_MEMPTR:
-        gmem = gst_memory_new_wrapped (0, d->data, d->maxsize, d->chunk->offset + d->mapoffset,
-                  d->chunk->size, NULL, NULL);
-        data.offset = 0;
-      default:
-        break;
+    if (d->type == ctx->type.data.MemFd || d->type == ctx->type.data.DmaBuf) {
+      gmem = gst_fd_allocator_alloc (pinossrc->fd_allocator, dup (d->fd),
+                d->mapoffset + d->maxsize, GST_FD_MEMORY_FLAG_NONE);
+      gst_memory_resize (gmem, d->chunk->offset + d->mapoffset, d->chunk->size);
+      data.offset = d->mapoffset;
+    }
+    else if (d->type == ctx->type.data.MemPtr) {
+      gmem = gst_memory_new_wrapped (0, d->data, d->maxsize, d->chunk->offset + d->mapoffset,
+                d->chunk->size, NULL, NULL);
+      data.offset = 0;
     }
     if (gmem)
       gst_buffer_append_memory (buf, gmem);
@@ -787,7 +771,8 @@ on_format_changed (PinosListener *listener,
 
     spa_pod_builder_init (&b, buffer, sizeof (buffer));
     spa_pod_builder_object (&b, &f[0], 0, ctx->type.alloc_param_meta_enable.MetaEnable,
-        PROP    (&f[1], ctx->type.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, SPA_META_TYPE_HEADER));
+        PROP    (&f[1], ctx->type.alloc_param_meta_enable.type, SPA_POD_TYPE_ID, ctx->type.meta.Header),
+        PROP    (&f[1], ctx->type.alloc_param_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
     params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
     GST_DEBUG_OBJECT (pinossrc, "doing finish format");

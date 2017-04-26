@@ -83,7 +83,7 @@ complete_ready (void      *obj,
 {
   PinosPort *port = data;
   if (SPA_RESULT_IS_OK (res)) {
-    port->state = SPA_PORT_STATE_READY;
+    port->state = PINOS_PORT_STATE_READY;
     pinos_log_debug ("port %p: state READY", port);
   }
   else
@@ -98,7 +98,7 @@ complete_paused (void      *obj,
 {
   PinosPort *port = data;
   if (SPA_RESULT_IS_OK (res)) {
-    port->state = SPA_PORT_STATE_PAUSED;
+    port->state = PINOS_PORT_STATE_PAUSED;
     pinos_log_debug ("port %p: state PAUSED", port);
   }
   else
@@ -113,7 +113,7 @@ complete_streaming (void      *obj,
 {
   PinosPort *port = data;
   if (SPA_RESULT_IS_OK (res)) {
-    port->state = SPA_PORT_STATE_STREAMING;
+    port->state = PINOS_PORT_STATE_STREAMING;
     pinos_log_debug ("port %p: state STREAMING", port);
   }
   else
@@ -128,7 +128,7 @@ do_negotiate (PinosLink *this, uint32_t in_state, uint32_t out_state)
   SpaFormat *format;
   char *error = NULL;
 
-  if (in_state != SPA_PORT_STATE_CONFIGURE && out_state != SPA_PORT_STATE_CONFIGURE)
+  if (in_state != PINOS_PORT_STATE_CONFIGURE && out_state != PINOS_PORT_STATE_CONFIGURE)
     return SPA_RESULT_OK;
 
   pinos_link_update_state (this, PINOS_LINK_STATE_NEGOTIATING, NULL);
@@ -143,20 +143,20 @@ do_negotiate (PinosLink *this, uint32_t in_state, uint32_t out_state)
   if (format == NULL)
     goto error;
 
-  if (out_state > SPA_PORT_STATE_CONFIGURE && this->output->node->state == PINOS_NODE_STATE_IDLE) {
+  if (out_state > PINOS_PORT_STATE_CONFIGURE && this->output->node->state == PINOS_NODE_STATE_IDLE) {
     pinos_node_set_state (this->output->node, PINOS_NODE_STATE_SUSPENDED);
-    out_state = SPA_PORT_STATE_CONFIGURE;
+    out_state = PINOS_PORT_STATE_CONFIGURE;
   }
-  if (in_state > SPA_PORT_STATE_CONFIGURE && this->input->node->state == PINOS_NODE_STATE_IDLE) {
+  if (in_state > PINOS_PORT_STATE_CONFIGURE && this->input->node->state == PINOS_NODE_STATE_IDLE) {
     pinos_node_set_state (this->input->node, PINOS_NODE_STATE_SUSPENDED);
-    in_state = SPA_PORT_STATE_CONFIGURE;
+    in_state = PINOS_PORT_STATE_CONFIGURE;
   }
 
   pinos_log_debug ("link %p: doing set format", this);
   if (pinos_log_level_enabled (SPA_LOG_LEVEL_DEBUG))
     spa_debug_format (format, this->core->type.map);
 
-  if (out_state == SPA_PORT_STATE_CONFIGURE) {
+  if (out_state == PINOS_PORT_STATE_CONFIGURE) {
     pinos_log_debug ("link %p: doing set format on output", this);
     if ((res = spa_node_port_set_format (this->output->node->node,
                                          SPA_DIRECTION_OUTPUT,
@@ -168,7 +168,7 @@ do_negotiate (PinosLink *this, uint32_t in_state, uint32_t out_state)
     }
     pinos_work_queue_add (impl->work, this->output->node, res, complete_ready, this->output);
   }
-  if (in_state == SPA_PORT_STATE_CONFIGURE) {
+  if (in_state == PINOS_PORT_STATE_CONFIGURE) {
     pinos_log_debug ("link %p: doing set format on input", this);
     if ((res2 = spa_node_port_set_format (this->input->node->node,
                                           SPA_DIRECTION_INPUT,
@@ -203,7 +203,7 @@ find_param (const SpaPortInfo *info, uint32_t type)
 }
 
 static void *
-find_meta_enable (PinosCore *core, const SpaPortInfo *info, SpaMetaType type)
+find_meta_enable (PinosCore *core, const SpaPortInfo *info, uint32_t type)
 {
   uint32_t i;
 
@@ -212,7 +212,7 @@ find_meta_enable (PinosCore *core, const SpaPortInfo *info, SpaMetaType type)
       uint32_t qtype;
 
       if (spa_alloc_param_query (info->params[i],
-            core->type.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, &qtype, 0) != 1)
+            core->type.alloc_param_meta_enable.type, SPA_POD_TYPE_ID, &qtype, 0) != 1)
         continue;
 
       if (qtype == type)
@@ -248,8 +248,8 @@ alloc_buffers (PinosLink      *this,
   metas = alloca (sizeof (SpaMeta) * n_params + 1);
 
   /* add shared metadata */
-  metas[n_metas].type = SPA_META_TYPE_SHARED;
-  metas[n_metas].size = spa_meta_type_get_size (SPA_META_TYPE_SHARED);
+  metas[n_metas].type = this->core->type.meta.Shared;
+  metas[n_metas].size = sizeof (SpaMetaShared);
   meta_size += metas[n_metas].size;
   n_metas++;
   skel_size += sizeof (SpaMeta);
@@ -259,15 +259,16 @@ alloc_buffers (PinosLink      *this,
     SpaAllocParam *ap = params[i];
 
     if (ap->pod.type == this->core->type.alloc_param_meta_enable.MetaEnable) {
-      uint32_t type;
+      uint32_t type, size;
 
       if (spa_alloc_param_query (ap,
-            this->core->type.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, &type,
+            this->core->type.alloc_param_meta_enable.type, SPA_POD_TYPE_ID, &type,
+            this->core->type.alloc_param_meta_enable.size, SPA_POD_TYPE_INT, &size,
             0) != 1)
         continue;
 
       metas[n_metas].type = type;
-      metas[n_metas].size = spa_meta_type_get_size (type);
+      metas[n_metas].size = size;
       meta_size += metas[n_metas].size;
       n_metas++;
       skel_size += sizeof (SpaMeta);
@@ -312,26 +313,17 @@ alloc_buffers (PinosLink      *this,
       m->data = p;
       m->size = metas[j].size;
 
-      switch (m->type) {
-        case SPA_META_TYPE_SHARED:
-        {
-          SpaMetaShared *msh = p;
+      if (m->type == this->core->type.meta.Shared) {
+        SpaMetaShared *msh = p;
 
-          msh->type = SPA_DATA_TYPE_MEMFD;
-          msh->flags = 0;
-          msh->fd = mem->fd;
-          msh->offset = data_size * i;
-          msh->size = data_size;
-          break;
-        }
-        case SPA_META_TYPE_RINGBUFFER:
-        {
-          SpaMetaRingbuffer *rb = p;
-          spa_ringbuffer_init (&rb->ringbuffer, data_sizes[0]);
-          break;
-        }
-        default:
-          break;
+        msh->flags = 0;
+        msh->fd = mem->fd;
+        msh->offset = data_size * i;
+        msh->size = data_size;
+      }
+      else if (m->type == this->core->type.meta.Ringbuffer) {
+        SpaMetaRingbuffer *rb = p;
+        spa_ringbuffer_init (&rb->ringbuffer, data_sizes[0]);
       }
       p += m->size;
     }
@@ -347,7 +339,7 @@ alloc_buffers (PinosLink      *this,
 
       d->chunk = &cdp[j];
       if (data_sizes[j] > 0) {
-        d->type = SPA_DATA_TYPE_MEMFD;
+        d->type = this->core->type.data.MemFd;
         d->flags = 0;
         d->fd = mem->fd;
         d->mapoffset = SPA_PTRDIFF (ddp, mem->ptr);
@@ -358,7 +350,7 @@ alloc_buffers (PinosLink      *this,
         d->chunk->stride = data_strides[j];
         ddp += data_sizes[j];
       } else {
-        d->type = SPA_DATA_TYPE_INVALID;
+        d->type = SPA_ID_INVALID;
         d->data = NULL;
       }
     }
@@ -375,7 +367,7 @@ do_allocation (PinosLink *this, uint32_t in_state, uint32_t out_state)
   SpaPortInfoFlags in_flags, out_flags;
   char *error = NULL;
 
-  if (in_state != SPA_PORT_STATE_READY && out_state != SPA_PORT_STATE_READY)
+  if (in_state != PINOS_PORT_STATE_READY && out_state != PINOS_PORT_STATE_READY)
     return SPA_RESULT_OK;
 
   pinos_link_update_state (this, PINOS_LINK_STATE_ALLOCATING, NULL);
@@ -406,7 +398,7 @@ do_allocation (PinosLink *this, uint32_t in_state, uint32_t out_state)
     this->input->node->live = true;
   }
 
-  if (in_state == SPA_PORT_STATE_READY && out_state == SPA_PORT_STATE_READY) {
+  if (in_state == PINOS_PORT_STATE_READY && out_state == PINOS_PORT_STATE_READY) {
     if ((out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) &&
         (in_flags & SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS)) {
       out_flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
@@ -428,10 +420,10 @@ do_allocation (PinosLink *this, uint32_t in_state, uint32_t out_state)
       res = SPA_RESULT_ERROR;
       goto error;
     }
-  } else if (in_state == SPA_PORT_STATE_READY && out_state > SPA_PORT_STATE_READY) {
+  } else if (in_state == PINOS_PORT_STATE_READY && out_state > PINOS_PORT_STATE_READY) {
     out_flags &= ~SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
     in_flags &= ~SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
-  } else if (out_state == SPA_PORT_STATE_READY && in_state > SPA_PORT_STATE_READY) {
+  } else if (out_state == PINOS_PORT_STATE_READY && in_state > PINOS_PORT_STATE_READY) {
     in_flags &= ~SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
     out_flags &= ~SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS;
   } else {
@@ -450,8 +442,8 @@ do_allocation (PinosLink *this, uint32_t in_state, uint32_t out_state)
     uint32_t max_buffers;
     size_t minsize = 1024, stride = 0;
 
-    in_me = find_meta_enable (this->core, iinfo, SPA_META_TYPE_RINGBUFFER);
-    out_me = find_meta_enable (this->core, oinfo, SPA_META_TYPE_RINGBUFFER);
+    in_me = find_meta_enable (this->core, iinfo, this->core->type.meta.Ringbuffer);
+    out_me = find_meta_enable (this->core, oinfo, this->core->type.meta.Ringbuffer);
     if (in_me && out_me) {
       uint32_t ms1, ms2, s1, s2;
       max_buffers = 1;
@@ -631,18 +623,18 @@ do_start (PinosLink *this, uint32_t in_state, uint32_t out_state)
   SpaResult res = SPA_RESULT_OK;
   PinosLinkImpl *impl = SPA_CONTAINER_OF (this, PinosLinkImpl, this);
 
-  if (in_state < SPA_PORT_STATE_PAUSED || out_state < SPA_PORT_STATE_PAUSED)
+  if (in_state < PINOS_PORT_STATE_PAUSED || out_state < PINOS_PORT_STATE_PAUSED)
     return SPA_RESULT_OK;
-  else if (in_state == SPA_PORT_STATE_STREAMING && out_state == SPA_PORT_STATE_STREAMING) {
+  else if (in_state == PINOS_PORT_STATE_STREAMING && out_state == PINOS_PORT_STATE_STREAMING) {
     pinos_link_update_state (this, PINOS_LINK_STATE_RUNNING, NULL);
   } else {
     pinos_link_update_state (this, PINOS_LINK_STATE_PAUSED, NULL);
 
-    if (in_state == SPA_PORT_STATE_PAUSED) {
+    if (in_state == PINOS_PORT_STATE_PAUSED) {
       res = pinos_node_set_state (this->input->node, PINOS_NODE_STATE_RUNNING);
       pinos_work_queue_add (impl->work, this->input->node, res, complete_streaming, this->input);
     }
-    if (out_state == SPA_PORT_STATE_PAUSED) {
+    if (out_state == PINOS_PORT_STATE_PAUSED) {
       res = pinos_node_set_state (this->output->node, PINOS_NODE_STATE_RUNNING);
       pinos_work_queue_add (impl->work, this->output->node, res, complete_streaming, this->output);
     }
@@ -940,7 +932,7 @@ clear_port_buffers (PinosLink *link, PinosPort *port)
 {
   PinosLinkImpl *impl = SPA_CONTAINER_OF (link, PinosLinkImpl, this);
 
-  if (impl->buffer_owner != port && port->state > SPA_PORT_STATE_READY) {
+  if (impl->buffer_owner != port && port->state > PINOS_PORT_STATE_READY) {
     pinos_log_debug ("link %p: clear buffers on port %p", link, port);
     spa_node_port_use_buffers (port->node->node,
                                port->direction,
@@ -948,7 +940,7 @@ clear_port_buffers (PinosLink *link, PinosPort *port)
                                NULL, 0);
     port->buffers = NULL;
     port->n_buffers = 0;
-    port->state = SPA_PORT_STATE_READY;
+    port->state = PINOS_PORT_STATE_READY;
     pinos_log_debug ("port %p: state READY", port);
   }
 }

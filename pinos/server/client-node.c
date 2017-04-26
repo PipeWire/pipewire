@@ -613,16 +613,15 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
                                  uint32_t         n_buffers)
 {
   SpaProxy *this;
+  PinosClientNodeImpl *impl;
   SpaProxyPort *port;
   uint32_t i, j;
   size_t n_mem;
   PinosClientNodeBuffer *mb;
   SpaMetaShared *msh;
 
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
-
   this = SPA_CONTAINER_OF (node, SpaProxy, node);
+  impl = this->impl;
   spa_log_info (this->log, "proxy %p: use buffers %p %u", this, buffers, n_buffers);
 
   if (!CHECK_PORT (this, direction, port_id))
@@ -650,7 +649,7 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
   for (i = 0; i < n_buffers; i++) {
     ProxyBuffer *b = &port->buffers[i];
 
-    msh = spa_buffer_find_meta (buffers[i], SPA_META_TYPE_SHARED);
+    msh = spa_buffer_find_meta (buffers[i], impl->core->type.meta.Shared);
     if (msh == NULL) {
       spa_log_error (this->log, "missing shared metadata on buffer %d", i);
       return SPA_RESULT_ERROR;
@@ -670,7 +669,7 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
                                       direction,
                                       port_id,
                                       mb[i].mem_id,
-                                      SPA_DATA_TYPE_MEMFD,
+                                      impl->core->type.data.MemFd,
                                       msh->fd,
                                       msh->flags,
                                       msh->offset,
@@ -685,31 +684,29 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
 
       memcpy (&b->buffer.datas[j], d, sizeof (SpaData));
 
-      switch (d->type) {
-        case SPA_DATA_TYPE_DMABUF:
-        case SPA_DATA_TYPE_MEMFD:
-          pinos_client_node_notify_add_mem (this->resource,
-                                            direction,
-                                            port_id,
-                                            n_mem,
-                                            d->type,
-                                            d->fd,
-                                            d->flags,
-                                            d->mapoffset,
-                                            d->maxsize);
-          b->buffer.datas[j].type = SPA_DATA_TYPE_ID;
-          b->buffer.datas[j].data = SPA_UINT32_TO_PTR (n_mem);
-          n_mem++;
-          break;
-        case SPA_DATA_TYPE_MEMPTR:
-          b->buffer.datas[j].data = SPA_INT_TO_PTR (b->size);
-          b->size += d->maxsize;
-          break;
-        default:
-          b->buffer.datas[j].type = SPA_DATA_TYPE_INVALID;
-          b->buffer.datas[j].data = 0;
-          spa_log_error (this->log, "invalid memory type %d", d->type);
-          break;
+      if (d->type == impl->core->type.data.DmaBuf ||
+          d->type == impl->core->type.data.MemFd) {
+        pinos_client_node_notify_add_mem (this->resource,
+                                          direction,
+                                          port_id,
+                                          n_mem,
+                                          d->type,
+                                          d->fd,
+                                          d->flags,
+                                          d->mapoffset,
+                                          d->maxsize);
+        b->buffer.datas[j].type = impl->core->type.data.Id;
+        b->buffer.datas[j].data = SPA_UINT32_TO_PTR (n_mem);
+        n_mem++;
+      }
+      else if (d->type == impl->core->type.data.MemPtr) {
+        b->buffer.datas[j].data = SPA_INT_TO_PTR (b->size);
+        b->size += d->maxsize;
+      }
+      else {
+        b->buffer.datas[j].type = SPA_ID_INVALID;
+        b->buffer.datas[j].data = 0;
+        spa_log_error (this->log, "invalid memory type %d", d->type);
       }
     }
   }
@@ -832,9 +829,6 @@ spa_proxy_node_process_output (SpaNode *node)
   PinosClientNodeImpl *impl;
   int i;
   bool send_need = false, flush = false;
-
-  if (node == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaProxy, node);
   impl = this->impl;

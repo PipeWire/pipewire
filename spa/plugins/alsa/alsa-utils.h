@@ -67,6 +67,8 @@ typedef struct {
   uint32_t prop_device_name;
   uint32_t prop_card_name;
   uint32_t prop_min_latency;
+  SpaTypeMeta meta;
+  SpaTypeData data;
   SpaTypeMediaType media_type;
   SpaTypeMediaSubtype media_subtype;
   SpaTypeMediaSubtypeAudio media_subtype_audio;
@@ -90,6 +92,8 @@ init_type (Type *type, SpaTypeMap *map)
   type->prop_card_name = spa_type_map_get_id (map, SPA_TYPE_PROPS__cardName);
   type->prop_min_latency = spa_type_map_get_id (map, SPA_TYPE_PROPS__minLatency);
 
+  spa_type_meta_map (map, &type->meta);
+  spa_type_data_map (map, &type->data);
   spa_type_media_type_map (map, &type->media_type);
   spa_type_media_subtype_map (map, &type->media_subtype);
   spa_type_media_subtype_audio_map (map, &type->media_subtype_audio);

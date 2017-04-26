@@ -34,7 +34,7 @@ extern "C" {
 #include <spa/log.h>
 
 SpaResult spa_debug_port_info (const SpaPortInfo *info, const SpaTypeMap *map);
-SpaResult spa_debug_buffer (const SpaBuffer *buffer);
+SpaResult spa_debug_buffer (const SpaBuffer *buffer, const SpaTypeMap *map);
 SpaResult spa_debug_props (const SpaProps *props, const SpaTypeMap *map);
 SpaResult spa_debug_pod (const SpaPOD *pod, const SpaTypeMap *map);
 SpaResult spa_debug_format (const SpaFormat *format, const SpaTypeMap *map);

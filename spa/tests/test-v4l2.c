@@ -43,6 +43,9 @@ typedef struct {
   uint32_t props;
   uint32_t format;
   uint32_t props_device;
+  uint32_t SDL_Texture;
+  SpaTypeMeta meta;
+  SpaTypeData data;
   SpaTypeMediaType media_type;
   SpaTypeMediaSubtype media_subtype;
   SpaTypeFormatVideo format_video;
@@ -58,6 +61,9 @@ init_type (Type *type, SpaTypeMap *map)
   type->props = spa_type_map_get_id (map, SPA_TYPE__Props);
   type->format = spa_type_map_get_id (map, SPA_TYPE__Format);
   type->props_device = spa_type_map_get_id (map, SPA_TYPE_PROPS__device);
+  type->SDL_Texture = spa_type_map_get_id (map, SPA_TYPE_POINTER_BASE "SDL_Texture");
+  spa_type_meta_map (map, &type->meta);
+  spa_type_data_map (map, &type->data);
   spa_type_media_type_map (map, &type->media_type);
   spa_type_media_subtype_map (map, &type->media_subtype);
   spa_type_format_video_map (map, &type->format_video);
@@ -177,8 +183,8 @@ on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
     metas = b->metas;
     datas = b->datas;
 
-    if (metas[1].type == SPA_META_TYPE_POINTER &&
-        strcmp (((SpaMetaPointer *)metas[1].data)->ptr_type, "SDL_Texture") == 0) {
+    if (metas[1].type == data->type.meta.Pointer &&
+        ((SpaMetaPointer *)metas[1].data)->type == data->type.SDL_Texture) {
       SDL_Texture *texture;
       texture = ((SpaMetaPointer *)metas[1].data)->ptr;
 
@@ -192,7 +198,7 @@ on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
         fprintf (stderr, "Couldn't lock texture: %s\n", SDL_GetError());
         return;
       }
-      datas[0].type = SPA_DATA_TYPE_MEMPTR;
+      datas[0].type = data->type.data.MemPtr;
       datas[0].flags = 0;
       datas[0].fd = -1;
       datas[0].mapoffset = 0;
@@ -328,17 +334,17 @@ alloc_buffers (AppData *data)
     b->header.seq = 0;
     b->header.pts = 0;
     b->header.dts_offset = 0;
-    b->metas[0].type = SPA_META_TYPE_HEADER;
+    b->metas[0].type = data->type.meta.Header;
     b->metas[0].data = &b->header;
     b->metas[0].size = sizeof (b->header);
 
-    b->ptr.ptr_type = "SDL_Texture";
+    b->ptr.type = data->type.SDL_Texture;
     b->ptr.ptr = texture;
-    b->metas[1].type = SPA_META_TYPE_POINTER;
+    b->metas[1].type = data->type.meta.Pointer;
     b->metas[1].data = &b->ptr;
     b->metas[1].size = sizeof (b->ptr);
 
-    b->datas[0].type = SPA_DATA_TYPE_MEMPTR;
+    b->datas[0].type = data->type.data.MemPtr;
     b->datas[0].flags = 0;
     b->datas[0].fd = -1;
     b->datas[0].mapoffset = 0;

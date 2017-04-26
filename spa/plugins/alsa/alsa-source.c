@@ -376,7 +376,8 @@ spa_alsa_source_node_port_set_format (SpaNode            *node,
     this->params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
     spa_pod_builder_object (&b, &f[0], 0, this->type.alloc_param_meta_enable.MetaEnable,
-        PROP    (&f[1], this->type.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, SPA_META_TYPE_HEADER));
+        PROP    (&f[1], this->type.alloc_param_meta_enable.type, SPA_POD_TYPE_ID, this->type.meta.Header),
+        PROP    (&f[1], this->type.alloc_param_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
     this->params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
     this->info.extra = NULL;
@@ -482,22 +483,19 @@ spa_alsa_source_node_port_use_buffers (SpaNode         *node,
   }
   for (i = 0; i < n_buffers; i++) {
     SpaALSABuffer *b = &this->buffers[i];
+    SpaData *d = buffers[i]->datas;
+
     b->outbuf = buffers[i];
     b->outstanding = false;
 
-    b->h = spa_buffer_find_meta (b->outbuf, SPA_META_TYPE_HEADER);
+    b->h = spa_buffer_find_meta (b->outbuf, this->type.meta.Header);
 
-    switch (buffers[i]->datas[0].type) {
-      case SPA_DATA_TYPE_MEMFD:
-      case SPA_DATA_TYPE_DMABUF:
-      case SPA_DATA_TYPE_MEMPTR:
-        if (buffers[i]->datas[0].data == NULL) {
-          spa_log_error (this->log, "alsa-source: need mapped memory");
-          continue;
-        }
-        break;
-      default:
-        break;
+    if (!((d[0].type == this->type.data.MemFd ||
+           d[0].type == this->type.data.DmaBuf ||
+           d[0].type == this->type.data.MemPtr) &&
+          d[0].data != NULL)) {
+      spa_log_error (this->log, "alsa-source: need mapped memory");
+      return SPA_RESULT_ERROR;
     }
     spa_list_insert (this->free.prev, &b->link);
   }

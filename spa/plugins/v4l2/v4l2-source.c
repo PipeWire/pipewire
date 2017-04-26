@@ -80,6 +80,8 @@ typedef struct {
   SpaTypeCommandNode command_node;
   SpaTypeAllocParamBuffers alloc_param_buffers;
   SpaTypeAllocParamMetaEnable alloc_param_meta_enable;
+  SpaTypeMeta meta;
+  SpaTypeData data;
 } Type;
 
 static inline void
@@ -101,6 +103,8 @@ init_type (Type *type, SpaTypeMap *map)
   spa_type_command_node_map (map, &type->command_node);
   spa_type_alloc_param_buffers_map (map, &type->alloc_param_buffers);
   spa_type_alloc_param_meta_enable_map (map, &type->alloc_param_meta_enable);
+  spa_type_meta_map (map, &type->meta);
+  spa_type_data_map (map, &type->data);
 }
 
 typedef struct {

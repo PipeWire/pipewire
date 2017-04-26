@@ -26,126 +26,37 @@ extern "C" {
 
 typedef struct _SpaBuffer SpaBuffer;
 
+#include <spa/defs.h>
+#include <spa/meta.h>
+
 #define SPA_TYPE__Buffer            SPA_TYPE_POINTER_BASE "Buffer"
 #define SPA_TYPE_BUFFER_BASE        SPA_TYPE__Buffer ":"
 
-/**
- * SpaMetaType:
- * @SPA_META_TYPE_INVALID: invalid metadata, should be ignored
- * @SPA_META_TYPE_HEADER: header metadata
- * @SPA_META_TYPE_POINTER: a generic pointer
- * @SPA_META_TYPE_VIDEO_CROP: video cropping region
- * @SPA_META_TYPE_RINGBUFFER: a ringbuffer
- * @SPA_META_TYPE_SHARED: buffer data and metadata memory can be shared
- */
-typedef enum {
-  SPA_META_TYPE_INVALID               = 0,
-  SPA_META_TYPE_HEADER,
-  SPA_META_TYPE_POINTER,
-  SPA_META_TYPE_VIDEO_CROP,
-  SPA_META_TYPE_RINGBUFFER,
-  SPA_META_TYPE_SHARED,
-} SpaMetaType;
+#define SPA_TYPE__Data              SPA_TYPE_ENUM_BASE "DataType"
+#define SPA_TYPE_DATA_BASE          SPA_TYPE__Data ":"
 
-/**
- * SpaDataType:
- * @SPA_DATA_TYPE_INVALID: invalid data, should be ignored
- * @SPA_DATA_TYPE_MEMPTR: data points to CPU accessible memory
- * @SPA_DATA_TYPE_MEMFD: fd is memfd, data can be mmapped
- * @SPA_DATA_TYPE_DMABUF: fd is dmabuf, data can be mmapped
- * @SPA_DATA_TYPE_ID: data is an id use SPA_PTR_TO_INT32. The definition of
- *          the ID is conveyed in some other way
- */
-typedef enum {
-  SPA_DATA_TYPE_INVALID               = 0,
-  SPA_DATA_TYPE_MEMPTR,
-  SPA_DATA_TYPE_MEMFD,
-  SPA_DATA_TYPE_DMABUF,
-  SPA_DATA_TYPE_ID,
-} SpaDataType;
-
-#include <spa/defs.h>
-#include <spa/ringbuffer.h>
-
-/**
- * SpaBufferFlags:
- * @SPA_BUFFER_FLAG_NONE: no flag
- * @SPA_BUFFER_FLAG_DISCONT: the buffer marks a data discontinuity
- * @SPA_BUFFER_FLAG_CORRUPTED: the buffer data might be corrupted
- * @SPA_BUFFER_FLAG_MARKER: the buffer contains a media specific marker
- * @SPA_BUFFER_FLAG_HEADER: the buffer contains a header
- * @SPA_BUFFER_FLAG_GAP: the buffer has been constructed to fill a gap
- *                       and contains media neutral data
- * @SPA_BUFFER_FLAG_DELTA_UNIT: the media cannot be decoded independently
- */
-typedef enum {
-  SPA_BUFFER_FLAG_NONE               =  0,
-  SPA_BUFFER_FLAG_DISCONT            = (1 << 0),
-  SPA_BUFFER_FLAG_CORRUPTED          = (1 << 1),
-  SPA_BUFFER_FLAG_MARKER             = (1 << 2),
-  SPA_BUFFER_FLAG_HEADER             = (1 << 3),
-  SPA_BUFFER_FLAG_GAP                = (1 << 4),
-  SPA_BUFFER_FLAG_DELTA_UNIT         = (1 << 5),
-} SpaBufferFlags;
+#define SPA_TYPE_DATA__MemPtr                SPA_TYPE_DATA_BASE "MemPtr"
+#define SPA_TYPE_DATA__MemFd                 SPA_TYPE_DATA_BASE "MemFd"
+#define SPA_TYPE_DATA__DmaBuf                SPA_TYPE_DATA_BASE "DmaBuf"
+#define SPA_TYPE_DATA__Id                    SPA_TYPE_DATA_BASE "Id"
 
 typedef struct {
-  SpaBufferFlags flags;
-  uint32_t seq;
-  int64_t pts;
-  int64_t dts_offset;
-} SpaMetaHeader;
+  uint32_t MemPtr;
+  uint32_t MemFd;
+  uint32_t DmaBuf;
+  uint32_t Id;
+} SpaTypeData;
 
-typedef struct {
-  const char *ptr_type;
-  void       *ptr;
-} SpaMetaPointer;
-
-/**
- * SpaMetaVideoCrop:
- * @x:
- * @y:
- * @width:
- * @height
- */
-typedef struct {
-  int32_t   x, y;
-  int32_t   width, height;
-} SpaMetaVideoCrop;
-
-/**
- * SpaMetaRingbuffer:
- * @ringbuffer:
- */
-typedef struct {
-  SpaRingbuffer ringbuffer;
-} SpaMetaRingbuffer;
-
-/**
- * SpaMetaShared:
- * @type:
- * @flags:
- * @fd:
- * @size:
- */
-typedef struct {
-  SpaDataType    type;
-  int32_t        flags;
-  int            fd;
-  int32_t        offset;
-  uint32_t       size;
-} SpaMetaShared;
-
-/**
- * SpaMeta:
- * @type: metadata type
- * @data: pointer to metadata
- * @size: size of metadata
- */
-typedef struct {
-  SpaMetaType  type;
-  void        *data;
-  uint32_t     size;
-} SpaMeta;
+static inline void
+spa_type_data_map (SpaTypeMap *map, SpaTypeData *type)
+{
+  if (type->MemPtr == 0) {
+    type->MemPtr    = spa_type_map_get_id (map, SPA_TYPE_DATA__MemPtr);
+    type->MemFd     = spa_type_map_get_id (map, SPA_TYPE_DATA__MemFd);
+    type->DmaBuf    = spa_type_map_get_id (map, SPA_TYPE_DATA__DmaBuf);
+    type->Id        = spa_type_map_get_id (map, SPA_TYPE_DATA__Id);
+  }
+}
 
 /**
  * SpaChunk:
@@ -164,13 +75,13 @@ typedef struct {
  * @type: memory type
  * @flags: memory flags
  * @fd: file descriptor
- * @offset: start offset when mapping @fd
+ * @mapoffset: start offset when mapping @fd
  * @maxsize: maximum size of the memory
  * @data: pointer to memory
  * @chunk: pointer to chunk with valid offset
  */
 typedef struct {
-  SpaDataType    type;
+  uint32_t       type;
   uint32_t       flags;
   int            fd;
   uint32_t       mapoffset;
@@ -195,32 +106,16 @@ struct _SpaBuffer {
   SpaData       *datas;
 };
 
-
 static inline void *
-spa_buffer_find_meta (SpaBuffer *b, SpaMetaType type)
+spa_buffer_find_meta (SpaBuffer *b, uint32_t type)
 {
   uint32_t i;
 
   for (i = 0; i < b->n_metas; i++)
     if (b->metas[i].type == type)
       return b->metas[i].data;
-  return NULL;
-}
 
-static inline uint32_t
-spa_meta_type_get_size (SpaMetaType  type)
-{
-  static const uint32_t header_sizes[] = {
-    0,
-    sizeof (SpaMetaHeader),
-    sizeof (SpaMetaPointer),
-    sizeof (SpaMetaVideoCrop),
-    sizeof (SpaMetaRingbuffer),
-    sizeof (SpaMetaShared),
-  };
-  if (type <= 0 || type >= SPA_N_ELEMENTS (header_sizes))
-    return 0;
-  return header_sizes[type];
+  return NULL;
 }
 
 #ifdef __cplusplus

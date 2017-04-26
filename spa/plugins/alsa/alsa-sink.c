@@ -329,11 +329,13 @@ spa_alsa_sink_node_port_set_format (SpaNode            *node,
     this->params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
     spa_pod_builder_object (&b, &f[0], 0, this->type.alloc_param_meta_enable.MetaEnable,
-        PROP    (&f[1], this->type.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, SPA_META_TYPE_HEADER));
+        PROP    (&f[1], this->type.alloc_param_meta_enable.type, SPA_POD_TYPE_ID, this->type.meta.Header),
+        PROP    (&f[1], this->type.alloc_param_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
     this->params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
     spa_pod_builder_object (&b, &f[0], 0, this->type.alloc_param_meta_enable.MetaEnable,
-        PROP    (&f[1], this->type.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, SPA_META_TYPE_RINGBUFFER),
+        PROP    (&f[1], this->type.alloc_param_meta_enable.type, SPA_POD_TYPE_ID, this->type.meta.Ringbuffer),
+        PROP    (&f[1], this->type.alloc_param_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaRingbuffer)),
         PROP    (&f[1], this->type.alloc_param_meta_enable.ringbufferSize,   SPA_POD_TYPE_INT, this->period_frames * this->frame_size * 32),
         PROP    (&f[1], this->type.alloc_param_meta_enable.ringbufferStride, SPA_POD_TYPE_INT, 0),
         PROP    (&f[1], this->type.alloc_param_meta_enable.ringbufferBlocks, SPA_POD_TYPE_INT, 1),
@@ -444,23 +446,20 @@ spa_alsa_sink_node_port_use_buffers (SpaNode         *node,
 
   for (i = 0; i < n_buffers; i++) {
     SpaALSABuffer *b = &this->buffers[i];
+    uint32_t type = buffers[i]->datas[0].type;
+
     b->outbuf = buffers[i];
     b->outstanding = true;
 
-    b->h = spa_buffer_find_meta (b->outbuf, SPA_META_TYPE_HEADER);
-    b->rb = spa_buffer_find_meta (b->outbuf, SPA_META_TYPE_RINGBUFFER);
+    b->h = spa_buffer_find_meta (b->outbuf, this->type.meta.Header);
+    b->rb = spa_buffer_find_meta (b->outbuf, this->type.meta.Ringbuffer);
 
-    switch (buffers[i]->datas[0].type) {
-      case SPA_DATA_TYPE_MEMFD:
-      case SPA_DATA_TYPE_DMABUF:
-      case SPA_DATA_TYPE_MEMPTR:
-        if (buffers[i]->datas[0].data == NULL) {
-          spa_log_error (this->log, "alsa-source: need mapped memory");
-          continue;
-        }
-        break;
-      default:
-        break;
+    if ((type == this->type.data.MemFd ||
+         type == this->type.data.DmaBuf ||
+         type == this->type.data.MemPtr) &&
+        buffers[i]->datas[0].data == NULL) {
+      spa_log_error (this->log, "alsa-source: need mapped memory");
+      return SPA_RESULT_ERROR;
     }
   }
   this->n_buffers = n_buffers;

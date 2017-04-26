@@ -102,23 +102,17 @@ typedef enum {
 /**
  * SpaPortInfo
  * @flags: extra port flags
+ * @rate: rate of sequence number increment per second of media data
  * @n_params: number of elements in @params;
  * @params: extra allocation parameters
  * @maxbuffering: the maximum amount of bytes that the element will keep
  *                around internally
  * @latency: latency on this port in nanoseconds
  * @extra: a dictionary of extra port info
- *
  */
 typedef struct {
-#define SPA_PORT_STATE_ERROR           -1
-#define SPA_PORT_STATE_INIT             0
-#define SPA_PORT_STATE_CONFIGURE        1
-#define SPA_PORT_STATE_READY            2
-#define SPA_PORT_STATE_PAUSED           3
-#define SPA_PORT_STATE_STREAMING        4
-  uint32_t            state;
   SpaPortInfoFlags    flags;
+  uint32_t            rate;
   uint32_t            n_params;
   SpaAllocParam     **params;
   uint64_t            maxbuffering;

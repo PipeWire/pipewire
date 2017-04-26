@@ -46,6 +46,8 @@ typedef struct {
   uint32_t prop_pattern;
   uint32_t pattern_smpte_snow;
   uint32_t pattern_snow;
+  SpaTypeMeta meta;
+  SpaTypeData data;
   SpaTypeMediaType media_type;
   SpaTypeMediaSubtype media_subtype;
   SpaTypeFormatVideo format_video;
@@ -67,6 +69,8 @@ init_type (Type *type, SpaTypeMap *map)
   type->prop_pattern = spa_type_map_get_id (map, SPA_TYPE_PROPS__patternType);
   type->pattern_smpte_snow = spa_type_map_get_id (map, SPA_TYPE_PROPS__patternType ":smpte-snow");
   type->pattern_snow = spa_type_map_get_id (map, SPA_TYPE_PROPS__patternType ":snow");
+  spa_type_meta_map (map, &type->meta);
+  spa_type_data_map (map, &type->data);
   spa_type_media_type_map (map, &type->media_type);
   spa_type_media_subtype_map (map, &type->media_subtype);
   spa_type_format_video_map (map, &type->format_video);
@@ -581,7 +585,8 @@ spa_videotestsrc_node_port_set_format (SpaNode            *node,
     this->params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
     spa_pod_builder_object (&b, &f[0], 0, this->type.alloc_param_meta_enable.MetaEnable,
-      PROP      (&f[1], this->type.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, SPA_META_TYPE_HEADER));
+      PROP      (&f[1], this->type.alloc_param_meta_enable.type, SPA_POD_TYPE_ID, this->type.meta.Header),
+      PROP      (&f[1], this->type.alloc_param_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
     this->params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
     this->info.extra = NULL;
@@ -687,19 +692,13 @@ spa_videotestsrc_node_port_use_buffers (SpaNode         *node,
     b = &this->buffers[i];
     b->outbuf = buffers[i];
     b->outstanding = false;
-    b->h = spa_buffer_find_meta (buffers[i], SPA_META_TYPE_HEADER);
+    b->h = spa_buffer_find_meta (buffers[i], this->type.meta.Header);
 
-    switch (d[0].type) {
-      case SPA_DATA_TYPE_MEMPTR:
-      case SPA_DATA_TYPE_MEMFD:
-      case SPA_DATA_TYPE_DMABUF:
-        if (d[0].data == NULL) {
-          spa_log_error (this->log, "videotestsrc %p: invalid memory on buffer %p", this, buffers[i]);
-          continue;
-        }
-        break;
-      default:
-        break;
+    if ((d[0].type == this->type.data.MemPtr ||
+         d[0].type == this->type.data.MemFd ||
+         d[0].type == this->type.data.DmaBuf) &&
+        d[0].data == NULL) {
+      spa_log_error (this->log, "videotestsrc %p: invalid memory on buffer %p", this, buffers[i]);
     }
     spa_list_insert (this->empty.prev, &b->link);
   }

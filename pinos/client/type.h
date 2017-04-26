@@ -56,6 +56,8 @@ struct _PinosType {
   SpaType spa_format;
   SpaType spa_props;
 
+  SpaTypeMeta meta;
+  SpaTypeData data;
   SpaTypeEventNode event_node;
   SpaTypeCommandNode command_node;
   SpaTypeMonitor monitor;

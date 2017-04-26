@@ -51,6 +51,8 @@ pinos_type_init (PinosType *type)
   type->spa_format = spa_type_map_get_id (type->map, SPA_TYPE__Format);
   type->spa_props = spa_type_map_get_id (type->map, SPA_TYPE__Props);
 
+  spa_type_meta_map (type->map, &type->meta);
+  spa_type_data_map (type->map, &type->data);
   spa_type_event_node_map (type->map, &type->event_node);
   spa_type_command_node_map (type->map, &type->command_node);
   spa_type_monitor_map (type->map, &type->monitor);

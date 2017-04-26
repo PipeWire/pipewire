@@ -48,7 +48,7 @@ pinos_port_new (PinosNode      *node,
   this->node = node;
   this->direction = direction;
   this->port_id = port_id;
-  this->state = SPA_PORT_STATE_CONFIGURE;
+  this->state = PINOS_PORT_STATE_CONFIGURE;
   this->io.status = SPA_RESULT_OK;
   this->io.buffer_id = SPA_ID_INVALID;
 
@@ -205,14 +205,14 @@ pinos_port_pause_rt (PinosPort *port)
   SpaCommand cmd = SPA_COMMAND_INIT (port->node->core->type.command_node.Pause);
   SpaResult res;
 
-  if (port->state <= SPA_PORT_STATE_PAUSED)
+  if (port->state <= PINOS_PORT_STATE_PAUSED)
     return SPA_RESULT_OK;
 
   res = spa_node_port_send_command (port->node->node,
                                     port->direction,
                                     port->port_id,
                                     &cmd);
-  port->state = SPA_PORT_STATE_PAUSED;
+  port->state = PINOS_PORT_STATE_PAUSED;
   pinos_log_debug ("port %p: state PAUSED", port);
   return res;
 }
@@ -244,7 +244,7 @@ do_remove_link_done (SpaLoop        *loop,
     }
   }
 
-  if (!port->allocated && port->state > SPA_PORT_STATE_READY) {
+  if (!port->allocated && port->state > PINOS_PORT_STATE_READY) {
     pinos_log_debug ("port %p: clear buffers on port", port);
     spa_node_port_use_buffers (port->node->node,
                                port->direction,
@@ -252,7 +252,7 @@ do_remove_link_done (SpaLoop        *loop,
                                NULL, 0);
     port->buffers = NULL;
     port->n_buffers = 0;
-    port->state = SPA_PORT_STATE_READY;
+    port->state = PINOS_PORT_STATE_READY;
     pinos_log_debug ("port %p: state READY", port);
   }
 
@@ -324,7 +324,7 @@ do_clear_buffers_done (SpaLoop        *loop,
   PinosPort *port = user_data;
   SpaResult res;
 
-  if (port->state <= SPA_PORT_STATE_READY)
+  if (port->state <= PINOS_PORT_STATE_READY)
     return SPA_RESULT_OK;
 
   pinos_log_debug ("port %p: clear buffers finish", port);
@@ -334,7 +334,7 @@ do_clear_buffers_done (SpaLoop        *loop,
                                    NULL, 0);
   port->buffers = NULL;
   port->n_buffers = 0;
-  port->state = SPA_PORT_STATE_READY;
+  port->state = PINOS_PORT_STATE_READY;
   pinos_log_debug ("port %p: state READY", port);
 
   return res;

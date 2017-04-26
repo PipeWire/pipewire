@@ -62,6 +62,8 @@ typedef struct {
   SpaTypeFormatAudio format_audio;
   SpaTypeAudioFormat audio_format;
   SpaTypeCommandNode command_node;
+  SpaTypeMeta meta;
+  SpaTypeData data;
 } Type;
 
 static inline void
@@ -74,6 +76,8 @@ init_type (Type *type, SpaTypeMap *map)
   spa_type_format_audio_map (map, &type->format_audio);
   spa_type_audio_format_map (map, &type->audio_format);
   spa_type_command_node_map (map, &type->command_node);
+  spa_type_meta_map (map, &type->meta);
+  spa_type_data_map (map, &type->data);
 }
 
 struct _SpaAudioMixer {
@@ -477,19 +481,14 @@ spa_audiomixer_node_port_use_buffers (SpaNode         *node,
     b = &port->buffers[i];
     b->outbuf = buffers[i];
     b->outstanding = direction == SPA_DIRECTION_INPUT ? true : false;
-    b->h = spa_buffer_find_meta (buffers[i], SPA_META_TYPE_HEADER);
+    b->h = spa_buffer_find_meta (buffers[i], this->type.meta.Header);
 
-    switch (d[0].type) {
-      case SPA_DATA_TYPE_MEMPTR:
-      case SPA_DATA_TYPE_MEMFD:
-      case SPA_DATA_TYPE_DMABUF:
-        if (d[0].data == NULL) {
-          spa_log_error (this->log, "volume %p: invalid memory on buffer %p", this, buffers[i]);
-          continue;
-        }
-        break;
-      default:
-        break;
+    if (!((d[0].type == this->type.data.MemPtr ||
+           d[0].type == this->type.data.MemFd ||
+           d[0].type == this->type.data.DmaBuf) &&
+          d[0].data != NULL)) {
+      spa_log_error (this->log, "volume %p: invalid memory on buffer %p", this, buffers[i]);
+      return SPA_RESULT_ERROR;
     }
     if (!b->outstanding)
       spa_list_insert (port->queue.prev, &b->link);

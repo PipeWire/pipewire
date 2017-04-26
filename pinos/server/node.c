@@ -208,7 +208,7 @@ suspend_node (PinosNode *this)
     if (p->allocated)
       pinos_memblock_free (&p->buffer_mem);
     p->allocated = false;
-    p->state = SPA_PORT_STATE_CONFIGURE;
+    p->state = PINOS_PORT_STATE_CONFIGURE;
   }
 
   spa_list_for_each (p, &this->output_ports, link) {
@@ -219,7 +219,7 @@ suspend_node (PinosNode *this)
     if (p->allocated)
       pinos_memblock_free (&p->buffer_mem);
     p->allocated = false;
-    p->state = SPA_PORT_STATE_CONFIGURE;
+    p->state = PINOS_PORT_STATE_CONFIGURE;
   }
   return res;
 }

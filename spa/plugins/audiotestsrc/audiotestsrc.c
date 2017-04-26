@@ -48,6 +48,8 @@ typedef struct {
   uint32_t prop_volume;
   uint32_t wave_sine;
   uint32_t wave_square;
+  SpaTypeMeta meta;
+  SpaTypeData data;
   SpaTypeMediaType media_type;
   SpaTypeMediaSubtype media_subtype;
   SpaTypeFormatAudio format_audio;
@@ -71,6 +73,8 @@ init_type (Type *type, SpaTypeMap *map)
   type->prop_volume = spa_type_map_get_id (map, SPA_TYPE_PROPS__volume);
   type->wave_sine = spa_type_map_get_id (map, SPA_TYPE_PROPS__waveType ":sine");
   type->wave_square = spa_type_map_get_id (map, SPA_TYPE_PROPS__waveType ":square");
+  spa_type_meta_map (map, &type->meta);
+  spa_type_data_map (map, &type->data);
   spa_type_media_type_map (map, &type->media_type);
   spa_type_media_subtype_map (map, &type->media_subtype);
   spa_type_format_audio_map (map, &type->format_audio);
@@ -618,7 +622,8 @@ spa_audiotestsrc_node_port_set_format (SpaNode            *node,
     this->params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
     spa_pod_builder_object (&b, &f[0], 0, this->type.alloc_param_meta_enable.MetaEnable,
-      PROP      (&f[1], this->type.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, SPA_META_TYPE_HEADER));
+      PROP      (&f[1], this->type.alloc_param_meta_enable.type, SPA_POD_TYPE_ID, this->type.meta.Header),
+      PROP      (&f[1], this->type.alloc_param_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
     this->params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
     this->info.extra = NULL;
@@ -725,20 +730,14 @@ spa_audiotestsrc_node_port_use_buffers (SpaNode         *node,
     b = &this->buffers[i];
     b->outbuf = buffers[i];
     b->outstanding = false;
-    b->h = spa_buffer_find_meta (buffers[i], SPA_META_TYPE_HEADER);
-    b->rb = spa_buffer_find_meta (buffers[i], SPA_META_TYPE_RINGBUFFER);
+    b->h = spa_buffer_find_meta (buffers[i], this->type.meta.Header);
+    b->rb = spa_buffer_find_meta (buffers[i], this->type.meta.Ringbuffer);
 
-    switch (d[0].type) {
-      case SPA_DATA_TYPE_MEMPTR:
-      case SPA_DATA_TYPE_MEMFD:
-      case SPA_DATA_TYPE_DMABUF:
-        if (d[0].data == NULL) {
-          spa_log_error (this->log, "audiotestsrc %p: invalid memory on buffer %p", this, buffers[i]);
-          continue;
-        }
-        break;
-      default:
-        break;
+    if ((d[0].type == this->type.data.MemPtr ||
+         d[0].type == this->type.data.MemFd ||
+         d[0].type == this->type.data.DmaBuf) &&
+        d[0].data == NULL) {
+      spa_log_error (this->log, "audiotestsrc %p: invalid memory on buffer %p", this, buffers[i]);
     }
     spa_list_insert (this->empty.prev, &b->link);
   }

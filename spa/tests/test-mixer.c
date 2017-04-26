@@ -46,6 +46,8 @@ typedef struct {
   uint32_t props_volume;
   uint32_t props_min_latency;
   uint32_t props_live;
+  SpaTypeMeta meta;
+  SpaTypeData data;
   SpaTypeMediaType media_type;
   SpaTypeMediaSubtype media_subtype;
   SpaTypeFormatAudio format_audio;
@@ -65,6 +67,8 @@ init_type (Type *type, SpaTypeMap *map)
   type->props_volume = spa_type_map_get_id (map, SPA_TYPE_PROPS__volume);
   type->props_min_latency = spa_type_map_get_id (map, SPA_TYPE_PROPS__minLatency);
   type->props_live = spa_type_map_get_id (map, SPA_TYPE_PROPS__live);
+  spa_type_meta_map (map, &type->meta);
+  spa_type_data_map (map, &type->data);
   spa_type_media_type_map (map, &type->media_type);
   spa_type_media_subtype_map (map, &type->media_subtype);
   spa_type_format_audio_map (map, &type->format_audio);
@@ -141,11 +145,11 @@ init_buffer (AppData *data, SpaBuffer **bufs, Buffer *ba, int n_buffers, size_t 
     b->header.seq = 0;
     b->header.pts = 0;
     b->header.dts_offset = 0;
-    b->metas[0].type = SPA_META_TYPE_HEADER;
+    b->metas[0].type = data->type.meta.Header;
     b->metas[0].data = &b->header;
     b->metas[0].size = sizeof (b->header);
 
-    b->datas[0].type = SPA_DATA_TYPE_MEMPTR;
+    b->datas[0].type = data->type.data.MemPtr;
     b->datas[0].flags = 0;
     b->datas[0].fd = -1;
     b->datas[0].mapoffset = 0;

@@ -244,7 +244,7 @@ typedef struct {
                                 SpaDirection       direction,
                                 uint32_t           port_id,
                                 uint32_t           mem_id,
-                                SpaDataType        type,
+                                uint32_t           type,
                                 int                memfd,
                                 uint32_t           flags,
                                 uint32_t           offset,

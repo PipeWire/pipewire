@@ -33,6 +33,9 @@ typedef uint32_t SpaType;
 #define SPA_TYPE__Enum                         SPA_TYPE_BASE "Enum"
 #define SPA_TYPE_ENUM_BASE                     SPA_TYPE__Enum ":"
 
+#define SPA_TYPE__Pointer                      SPA_TYPE_BASE "Pointer"
+#define SPA_TYPE_POINTER_BASE                  SPA_TYPE__Pointer ":"
+
 #define SPA_TYPE__Interface                    SPA_TYPE_BASE "Interface"
 #define SPA_TYPE_INTERFACE_BASE                SPA_TYPE__Interface ":"
 

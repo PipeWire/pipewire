@@ -121,7 +121,7 @@ spa_v4l2_clear_buffers (SpaV4l2Source *this)
         munmap (b->outbuf->datas[0].data, b->outbuf->datas[0].maxsize);
       if (b->outbuf->datas[0].fd != -1)
         close (b->outbuf->datas[0].fd);
-      b->outbuf->datas[0].type = SPA_DATA_TYPE_INVALID;
+      b->outbuf->datas[0].type = SPA_ID_INVALID;
     }
   }
 
@@ -916,7 +916,8 @@ spa_v4l2_set_format (SpaV4l2Source *this, SpaVideoInfo *format, bool try_only)
   state->params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
   spa_pod_builder_object (&b, &f[0], 0, this->type.alloc_param_meta_enable.MetaEnable,
-        PROP      (&f[1], this->type.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, SPA_META_TYPE_HEADER));
+        PROP      (&f[1], this->type.alloc_param_meta_enable.type, SPA_POD_TYPE_ID, this->type.meta.Header),
+        PROP      (&f[1], this->type.alloc_param_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
   state->params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
   state->info.extra = NULL;
@@ -959,9 +960,9 @@ mmap_read (SpaV4l2Source *this)
 
   b = &state->buffers[buf.index];
   if (b->h) {
-    b->h->flags = SPA_BUFFER_FLAG_NONE;
+    b->h->flags = 0;
     if (buf.flags & V4L2_BUF_FLAG_ERROR)
-      b->h->flags |= SPA_BUFFER_FLAG_CORRUPTED;
+      b->h->flags |= SPA_META_HEADER_FLAG_CORRUPTED;
     b->h->seq = buf.sequence;
     b->h->pts = pts;
   }
@@ -1007,17 +1008,19 @@ spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffe
   SpaData *d;
 
   if (n_buffers > 0) {
-    switch (buffers[0]->datas[0].type) {
-      case SPA_DATA_TYPE_MEMPTR:
-      case SPA_DATA_TYPE_MEMFD:
-        state->memtype = V4L2_MEMORY_USERPTR;
-        break;
-      case SPA_DATA_TYPE_DMABUF:
-        state->memtype = V4L2_MEMORY_DMABUF;
-        break;
-      default:
-        spa_log_error (state->log, "v4l2: can't use buffers");
-        return SPA_RESULT_ERROR;
+    SpaData *d = buffers[0]->datas;
+
+    if ((d[0].type == this->type.data.MemPtr ||
+         d[0].type == this->type.data.MemFd) &&
+        d[0].data != NULL) {
+      state->memtype = V4L2_MEMORY_USERPTR;
+    }
+    else if (d[0].type == this->type.data.DmaBuf) {
+      state->memtype = V4L2_MEMORY_DMABUF;
+    }
+    else {
+      spa_log_error (state->log, "v4l2: can't use buffers of type %d", d[0].type);
+      return SPA_RESULT_ERROR;
     }
   }
 
@@ -1043,7 +1046,7 @@ spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffe
     b->outbuf = buffers[i];
     b->outstanding = true;
     b->allocated = false;
-    b->h = spa_buffer_find_meta (b->outbuf, SPA_META_TYPE_HEADER);
+    b->h = spa_buffer_find_meta (b->outbuf, this->type.meta.Header);
 
     spa_log_info (state->log, "v4l2: import buffer %p", buffers[i]);
 
@@ -1057,21 +1060,14 @@ spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffe
     b->v4l2_buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     b->v4l2_buffer.memory = state->memtype;
     b->v4l2_buffer.index = i;
-    switch (d[0].type) {
-      case SPA_DATA_TYPE_MEMPTR:
-      case SPA_DATA_TYPE_MEMFD:
-        if (d[0].data == NULL) {
-          spa_log_error (state->log, "v4l2: need mmaped memory");
-          continue;
-        }
-        b->v4l2_buffer.m.userptr = (unsigned long) d[0].data;
-        b->v4l2_buffer.length = d[0].maxsize;
-        break;
-      case SPA_DATA_TYPE_DMABUF:
-        b->v4l2_buffer.m.fd = d[0].fd;
-        break;
-      default:
-        break;
+
+    if (d[0].type == this->type.data.MemPtr ||
+        d[0].type == this->type.data.MemFd) {
+      b->v4l2_buffer.m.userptr = (unsigned long) d[0].data;
+      b->v4l2_buffer.length = d[0].maxsize;
+    }
+    else if (d[0].type == this->type.data.DmaBuf) {
+      b->v4l2_buffer.m.fd = d[0].fd;
     }
     spa_v4l2_buffer_recycle (this, buffers[i]->id);
   }
@@ -1126,7 +1122,7 @@ mmap_init (SpaV4l2Source   *this,
     b->outbuf = buffers[i];
     b->outstanding = true;
     b->allocated = true;
-    b->h = spa_buffer_find_meta (b->outbuf, SPA_META_TYPE_HEADER);
+    b->h = spa_buffer_find_meta (b->outbuf, this->type.meta.Header);
 
     CLEAR (b->v4l2_buffer);
     b->v4l2_buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -1156,11 +1152,11 @@ mmap_init (SpaV4l2Source   *this,
         perror("VIDIOC_EXPBUF");
         continue;
       }
-      d[0].type = SPA_DATA_TYPE_DMABUF;
+      d[0].type = this->type.data.DmaBuf;
       d[0].fd = expbuf.fd;
       d[0].data = NULL;
     } else {
-      d[0].type = SPA_DATA_TYPE_MEMPTR;
+      d[0].type = this->type.data.MemPtr;
       d[0].fd = -1;
       d[0].data = mmap (NULL,
                         b->v4l2_buffer.length,

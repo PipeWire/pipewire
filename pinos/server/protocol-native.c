@@ -658,7 +658,7 @@ client_node_marshal_add_mem (void              *object,
                              SpaDirection       direction,
                              uint32_t           port_id,
                              uint32_t           mem_id,
-                             SpaDataType        type,
+                             uint32_t           type,
                              int                memfd,
                              uint32_t           flags,
                              uint32_t           offset,
@@ -675,7 +675,7 @@ client_node_marshal_add_mem (void              *object,
         SPA_POD_TYPE_INT, direction,
         SPA_POD_TYPE_INT, port_id,
         SPA_POD_TYPE_INT, mem_id,
-        SPA_POD_TYPE_INT, type,
+        SPA_POD_TYPE_ID,  type,
         SPA_POD_TYPE_INT, pinos_connection_add_fd (connection, memfd),
         SPA_POD_TYPE_INT, flags,
         SPA_POD_TYPE_INT, offset,
@@ -720,14 +720,14 @@ client_node_marshal_use_buffers (void                  *object,
     for (j = 0; j < buf->n_metas; j++) {
       SpaMeta *m = &buf->metas[j];
       spa_pod_builder_add (&b.b,
-          SPA_POD_TYPE_INT, m->type,
+          SPA_POD_TYPE_ID, m->type,
           SPA_POD_TYPE_INT, m->size, 0);
     }
     spa_pod_builder_add (&b.b, SPA_POD_TYPE_INT, buf->n_datas, 0);
     for (j = 0; j < buf->n_datas; j++) {
       SpaData *d = &buf->datas[j];
       spa_pod_builder_add (&b.b,
-          SPA_POD_TYPE_INT, d->type,
+          SPA_POD_TYPE_ID, d->type,
           SPA_POD_TYPE_INT, SPA_PTR_TO_UINT32 (d->data),
           SPA_POD_TYPE_INT, d->flags,
           SPA_POD_TYPE_INT, d->mapoffset,
@@ -865,6 +865,7 @@ client_node_demarshal_port_update (void  *object,
     if (!spa_pod_iter_pod (&it2, ipod) ||
         !spa_pod_iter_get (&it2,
           SPA_POD_TYPE_INT, &info.flags,
+          SPA_POD_TYPE_INT, &info.rate,
           SPA_POD_TYPE_LONG, &info.maxbuffering,
           SPA_POD_TYPE_LONG, &info.latency,
           SPA_POD_TYPE_INT, &info.n_params,

@@ -87,6 +87,7 @@ spa_type_alloc_param_buffers_map (SpaTypeMap *map, SpaTypeAllocParamBuffers *typ
 #define SPA_TYPE_ALLOC_PARAM__MetaEnable         SPA_TYPE_ALLOC_PARAM_BASE "MetaEnable"
 #define SPA_TYPE_ALLOC_PARAM_META_ENABLE_BASE    SPA_TYPE_ALLOC_PARAM__MetaEnable ":"
 #define SPA_TYPE_ALLOC_PARAM_META_ENABLE__type   SPA_TYPE_ALLOC_PARAM_META_ENABLE_BASE "type"
+#define SPA_TYPE_ALLOC_PARAM_META_ENABLE__size   SPA_TYPE_ALLOC_PARAM_META_ENABLE_BASE "size"
 
 #define SPA_TYPE_ALLOC_PARAM_META_ENABLE__ringbufferSize   SPA_TYPE_ALLOC_PARAM_META_ENABLE_BASE "ringbufferSize"
 #define SPA_TYPE_ALLOC_PARAM_META_ENABLE__ringbufferStride SPA_TYPE_ALLOC_PARAM_META_ENABLE_BASE "ringbufferStride"
@@ -96,6 +97,7 @@ spa_type_alloc_param_buffers_map (SpaTypeMap *map, SpaTypeAllocParamBuffers *typ
 typedef struct {
   uint32_t MetaEnable;
   uint32_t type;
+  uint32_t size;
   uint32_t ringbufferSize;
   uint32_t ringbufferStride;
   uint32_t ringbufferBlocks;
@@ -108,6 +110,7 @@ spa_type_alloc_param_meta_enable_map (SpaTypeMap *map, SpaTypeAllocParamMetaEnab
   if (type->MetaEnable == 0) {
     type->MetaEnable           = spa_type_map_get_id (map, SPA_TYPE_ALLOC_PARAM__MetaEnable);
     type->type                 = spa_type_map_get_id (map, SPA_TYPE_ALLOC_PARAM_META_ENABLE__type);
+    type->size                 = spa_type_map_get_id (map, SPA_TYPE_ALLOC_PARAM_META_ENABLE__size);
     type->ringbufferSize       = spa_type_map_get_id (map, SPA_TYPE_ALLOC_PARAM_META_ENABLE__ringbufferSize);
     type->ringbufferStride     = spa_type_map_get_id (map, SPA_TYPE_ALLOC_PARAM_META_ENABLE__ringbufferStride);
     type->ringbufferBlocks     = spa_type_map_get_id (map, SPA_TYPE_ALLOC_PARAM_META_ENABLE__ringbufferBlocks);

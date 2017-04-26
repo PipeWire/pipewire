@@ -44,8 +44,9 @@ typedef enum {
 const char * pinos_stream_state_as_string (PinosStreamState state);
 
 typedef enum {
-  PINOS_STREAM_FLAG_NONE        =  0,
-  PINOS_STREAM_FLAG_AUTOCONNECT = (1 << 0),
+  PINOS_STREAM_FLAG_NONE         =  0,
+  PINOS_STREAM_FLAG_AUTOCONNECT  = (1 << 0),
+  PINOS_STREAM_FLAG_CLOCK_UPDATE = (1 << 1),
 } PinosStreamFlags;
 
 typedef enum {

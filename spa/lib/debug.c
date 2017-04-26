@@ -23,31 +23,6 @@
 #include <spa/format-utils.h>
 #include "debug.h"
 
-static const struct meta_type_name {
-  const char *name;
-} meta_type_names[] = {
-  { "invalid" },
-  { "SpaMetaHeader" },
-  { "SpaMetaPointer" },
-  { "SpaMetaVideoCrop" },
-  { "SpaMetaRingbuffer" },
-  { "SpaMetaShared" },
-  { "invalid" },
-};
-#define META_TYPE_NAME(t)  meta_type_names[SPA_CLAMP(t,0,SPA_N_ELEMENTS(meta_type_names)-1)].name
-
-static const struct data_type_name {
-  const char *name;
-} data_type_names[] = {
-  { "invalid" },
-  { "memptr" },
-  { "memfd" },
-  { "dmabuf" },
-  { "ID" },
-  { "invalid" },
-};
-#define DATA_TYPE_NAME(t)  data_type_names[SPA_CLAMP(t,0,SPA_N_ELEMENTS(data_type_names)-1)].name
-
 SpaResult
 spa_debug_port_info (const SpaPortInfo *info, const SpaTypeMap *map)
 {
@@ -69,7 +44,7 @@ spa_debug_port_info (const SpaPortInfo *info, const SpaTypeMap *map)
 }
 
 SpaResult
-spa_debug_buffer (const SpaBuffer *buffer)
+spa_debug_buffer (const SpaBuffer *buffer, const SpaTypeMap *map)
 {
   int i;
 
@@ -81,67 +56,59 @@ spa_debug_buffer (const SpaBuffer *buffer)
   fprintf (stderr, " n_metas: %u (at %p)\n", buffer->n_metas, buffer->metas);
   for (i = 0; i < buffer->n_metas; i++) {
     SpaMeta *m = &buffer->metas[i];
-    fprintf (stderr, "  meta %d: type %d (%s), data %p, size %d:\n", i, m->type, META_TYPE_NAME (m->type), m->data, m->size);
-    switch (m->type) {
-      case SPA_META_TYPE_HEADER:
-      {
-        SpaMetaHeader *h = m->data;
-        fprintf (stderr, "    SpaMetaHeader:\n");
-        fprintf (stderr, "      flags:      %08x\n", h->flags);
-        fprintf (stderr, "      seq:        %u\n", h->seq);
-        fprintf (stderr, "      pts:        %"PRIi64"\n", h->pts);
-        fprintf (stderr, "      dts_offset: %"PRIi64"\n", h->dts_offset);
-        break;
-      }
-      case SPA_META_TYPE_POINTER:
-      {
-        SpaMetaPointer *h = m->data;
-        fprintf (stderr, "    SpaMetaPointer:\n");
-        fprintf (stderr, "      ptr_type:   %s\n", h->ptr_type);
-        fprintf (stderr, "      ptr:        %p\n", h->ptr);
-        spa_debug_dump_mem (m->data, m->size);
-        break;
-      }
-      case SPA_META_TYPE_VIDEO_CROP:
-      {
-        SpaMetaVideoCrop *h = m->data;
-        fprintf (stderr, "    SpaMetaVideoCrop:\n");
-        fprintf (stderr, "      x:      %d\n", h->x);
-        fprintf (stderr, "      y:      %d\n", h->y);
-        fprintf (stderr, "      width:  %d\n", h->width);
-        fprintf (stderr, "      height: %d\n", h->height);
-        break;
-      }
-      case SPA_META_TYPE_RINGBUFFER:
-      {
-        SpaMetaRingbuffer *h = m->data;
-        fprintf (stderr, "    SpaMetaRingbuffer:\n");
-        fprintf (stderr, "      readindex:   %d\n", h->ringbuffer.readindex);
-        fprintf (stderr, "      writeindex:  %d\n", h->ringbuffer.writeindex);
-        fprintf (stderr, "      size:        %d\n", h->ringbuffer.size);
-        fprintf (stderr, "      mask:        %d\n", h->ringbuffer.mask);
-        break;
-      }
-      case SPA_META_TYPE_SHARED:
-      {
-        SpaMetaShared *h = m->data;
-        fprintf (stderr, "    SpaMetaShared:\n");
-        fprintf (stderr, "      type:   %d\n", h->type);
-        fprintf (stderr, "      flags:  %d\n", h->flags);
-        fprintf (stderr, "      fd:     %d\n", h->fd);
-        fprintf (stderr, "      offset: %d\n", h->offset);
-        fprintf (stderr, "      size:   %d\n", h->size);
-        break;
-      }
-      default:
-        spa_debug_dump_mem (m->data, m->size);
-        break;
+    const char *type_name;
+
+    type_name = spa_type_map_get_type (map, m->type);
+    fprintf (stderr, "  meta %d: type %d (%s), data %p, size %d:\n", i, m->type,
+        type_name, m->data, m->size);
+
+    if (!strcmp (type_name, SPA_TYPE_META__Header)) {
+      SpaMetaHeader *h = m->data;
+      fprintf (stderr, "    SpaMetaHeader:\n");
+      fprintf (stderr, "      flags:      %08x\n", h->flags);
+      fprintf (stderr, "      seq:        %u\n", h->seq);
+      fprintf (stderr, "      pts:        %"PRIi64"\n", h->pts);
+      fprintf (stderr, "      dts_offset: %"PRIi64"\n", h->dts_offset);
+    }
+    else if (!strcmp (type_name, SPA_TYPE_META__Pointer)) {
+      SpaMetaPointer *h = m->data;
+      fprintf (stderr, "    SpaMetaPointer:\n");
+      fprintf (stderr, "      type:       %s\n", spa_type_map_get_type (map, h->type));
+      fprintf (stderr, "      ptr:        %p\n", h->ptr);
+    }
+    else if (!strcmp (type_name, SPA_TYPE_META__VideoCrop)) {
+      SpaMetaVideoCrop *h = m->data;
+      fprintf (stderr, "    SpaMetaVideoCrop:\n");
+      fprintf (stderr, "      x:      %d\n", h->x);
+      fprintf (stderr, "      y:      %d\n", h->y);
+      fprintf (stderr, "      width:  %d\n", h->width);
+      fprintf (stderr, "      height: %d\n", h->height);
+    }
+    else if (!strcmp (type_name, SPA_TYPE_META__Ringbuffer)) {
+      SpaMetaRingbuffer *h = m->data;
+      fprintf (stderr, "    SpaMetaRingbuffer:\n");
+      fprintf (stderr, "      readindex:   %d\n", h->ringbuffer.readindex);
+      fprintf (stderr, "      writeindex:  %d\n", h->ringbuffer.writeindex);
+      fprintf (stderr, "      size:        %d\n", h->ringbuffer.size);
+      fprintf (stderr, "      mask:        %d\n", h->ringbuffer.mask);
+    }
+    else if (!strcmp (type_name, SPA_TYPE_META__Shared)) {
+      SpaMetaShared *h = m->data;
+      fprintf (stderr, "    SpaMetaShared:\n");
+      fprintf (stderr, "      flags:  %d\n", h->flags);
+      fprintf (stderr, "      fd:     %d\n", h->fd);
+      fprintf (stderr, "      offset: %d\n", h->offset);
+      fprintf (stderr, "      size:   %d\n", h->size);
+    }
+    else {
+      fprintf (stderr, "    Unknown:\n");
+      spa_debug_dump_mem (m->data, m->size);
     }
   }
   fprintf (stderr, " n_datas: \t%u (at %p)\n", buffer->n_datas, buffer->datas);
   for (i = 0; i < buffer->n_datas; i++) {
     SpaData *d = &buffer->datas[i];
-    fprintf (stderr, "   type:    %d (%s)\n", d->type, DATA_TYPE_NAME (d->type));
+    fprintf (stderr, "   type:    %d (%s)\n", d->type, spa_type_map_get_type (map, d->type));
     fprintf (stderr, "   flags:   %d\n", d->flags);
     fprintf (stderr, "   data:    %p\n", d->data);
     fprintf (stderr, "   fd:      %d\n", d->fd);

@@ -18,6 +18,7 @@
  */
 
 #include <stdio.h>
+#include <errno.h>
 #include <sys/mman.h>
 
 #include <spa/include/spa/type-map.h>
@@ -33,6 +34,8 @@
 typedef struct {
   uint32_t format;
   uint32_t props;
+  SpaTypeMeta meta;
+  SpaTypeData data;
   SpaTypeMediaType media_type;
   SpaTypeMediaSubtype media_subtype;
   SpaTypeFormatVideo format_video;
@@ -44,6 +47,8 @@ init_type (Type *type, SpaTypeMap *map)
 {
   type->format = spa_type_map_get_id (map, SPA_TYPE__Format);
   type->props = spa_type_map_get_id (map, SPA_TYPE__Props);
+  spa_type_meta_map (map, &type->meta);
+  spa_type_data_map (map, &type->data);
   spa_type_media_type_map (map, &type->media_type);
   spa_type_media_subtype_map (map, &type->media_subtype);
   spa_type_format_video_map (map, &type->format_video);
@@ -90,12 +95,16 @@ on_timeout (SpaLoopUtils *utils,
 
   buf = pinos_stream_peek_buffer (data->stream, id);
 
-  if (buf->datas[0].type == SPA_DATA_TYPE_MEMFD) {
+  if (buf->datas[0].type == data->type.data.MemFd) {
     map = mmap (NULL, buf->datas[0].maxsize + buf->datas[0].mapoffset, PROT_READ | PROT_WRITE,
                     MAP_SHARED, buf->datas[0].fd, 0);
+    if (map == MAP_FAILED) {
+      printf ("failed to mmap: %s\n", strerror (errno));
+      return;
+    }
     p = SPA_MEMBER (map, buf->datas[0].mapoffset, uint8_t);
   }
-  else if (buf->datas[0].type == SPA_DATA_TYPE_MEMPTR) {
+  else if (buf->datas[0].type == data->type.data.MemPtr) {
     map = NULL;
     p = buf->datas[0].data;
   } else
@@ -185,7 +194,8 @@ on_stream_format_changed (PinosListener  *listener,
     params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
     spa_pod_builder_object (&b, &f[0], 0, ctx->type.alloc_param_meta_enable.MetaEnable,
-      PROP      (&f[1], ctx->type.alloc_param_meta_enable.type, SPA_POD_TYPE_INT, SPA_META_TYPE_HEADER));
+      PROP      (&f[1], ctx->type.alloc_param_meta_enable.type, SPA_POD_TYPE_ID, ctx->type.meta.Header),
+      PROP      (&f[1], ctx->type.alloc_param_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
     params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
 
     pinos_stream_finish_format (stream, SPA_RESULT_OK, params, 2);
@@ -225,7 +235,6 @@ on_state_changed (PinosListener  *listener,
                                                                                       1, 1,
                                                                                       4096, 4096),
          PROP      (&f[1], data->type.format_video.framerate, SPA_POD_TYPE_FRACTION,  25, 1));
-
       formats[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
 
       pinos_signal_add (&data->stream->state_changed,

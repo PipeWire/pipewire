@@ -510,6 +510,7 @@ client_node_marshal_port_update (void              *object,
     spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f[1],
         SPA_POD_TYPE_INT, info->flags,
+        SPA_POD_TYPE_INT, info->rate,
         SPA_POD_TYPE_LONG, info->maxbuffering,
         SPA_POD_TYPE_LONG, info->latency,
         SPA_POD_TYPE_INT, info->n_params,
@@ -718,11 +719,12 @@ client_node_demarshal_add_mem (void   *object,
   int memfd;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
+      !pinos_pod_remap_data (SPA_POD_TYPE_STRUCT, data, size, &proxy->context->types) ||
       !spa_pod_iter_get (&it,
         SPA_POD_TYPE_INT, &direction,
         SPA_POD_TYPE_INT, &port_id,
         SPA_POD_TYPE_INT, &mem_id,
-        SPA_POD_TYPE_INT, &type,
+        SPA_POD_TYPE_ID, &type,
         SPA_POD_TYPE_INT, &memfd_idx,
         SPA_POD_TYPE_INT, &flags,
         SPA_POD_TYPE_INT, &offset,
@@ -756,6 +758,7 @@ client_node_demarshal_use_buffers (void   *object,
   int i, j;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
+      !pinos_pod_remap_data (SPA_POD_TYPE_STRUCT, data, size, &proxy->context->types) ||
       !spa_pod_iter_get (&it,
         SPA_POD_TYPE_INT, &seq,
         SPA_POD_TYPE_INT, &direction,
@@ -781,7 +784,7 @@ client_node_demarshal_use_buffers (void   *object,
       SpaMeta *m = &buf->metas[j];
 
       if (!spa_pod_iter_get (&it,
-            SPA_POD_TYPE_INT, &m->type,
+            SPA_POD_TYPE_ID, &m->type,
             SPA_POD_TYPE_INT, &m->size, 0))
         return false;
     }
@@ -793,7 +796,7 @@ client_node_demarshal_use_buffers (void   *object,
       SpaData *d = &buf->datas[j];
 
       if (!spa_pod_iter_get (&it,
-            SPA_POD_TYPE_INT, &d->type,
+            SPA_POD_TYPE_ID, &d->type,
             SPA_POD_TYPE_INT, &data_id,
             SPA_POD_TYPE_INT, &d->flags,
             SPA_POD_TYPE_INT, &d->mapoffset,

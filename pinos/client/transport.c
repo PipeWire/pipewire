@@ -57,10 +57,9 @@ transport_area_get_size (PinosTransportArea *area)
 }
 
 static void
-transport_setup_area (void *p, PinosTransport *trans, bool reset)
+transport_setup_area (void *p, PinosTransport *trans)
 {
   PinosTransportArea *a;
-  int i;
 
   trans->area = a = p;
   p = SPA_MEMBER (p, sizeof (PinosTransportArea), SpaPortIO);
@@ -82,19 +81,24 @@ transport_setup_area (void *p, PinosTransport *trans, bool reset)
 
   trans->output_data = p;
   p = SPA_MEMBER (p, OUTPUT_BUFFER_SIZE, void);
+}
 
-  if (reset) {
-    for (i = 0; i < a->max_inputs; i++) {
-      trans->inputs[i].status = SPA_RESULT_OK;
-      trans->inputs[i].buffer_id = SPA_ID_INVALID;
-    }
-    for (i = 0; i < a->max_outputs; i++) {
-      trans->outputs[i].status = SPA_RESULT_OK;
-      trans->outputs[i].buffer_id = SPA_ID_INVALID;
-    }
-    spa_ringbuffer_init (trans->input_buffer, INPUT_BUFFER_SIZE);
-    spa_ringbuffer_init (trans->output_buffer, OUTPUT_BUFFER_SIZE);
+static void
+transport_reset_area (PinosTransport *trans)
+{
+  int i;
+  PinosTransportArea *a = trans->area;
+
+  for (i = 0; i < a->max_inputs; i++) {
+    trans->inputs[i].status = SPA_RESULT_OK;
+    trans->inputs[i].buffer_id = SPA_ID_INVALID;
   }
+  for (i = 0; i < a->max_outputs; i++) {
+    trans->outputs[i].status = SPA_RESULT_OK;
+    trans->outputs[i].buffer_id = SPA_ID_INVALID;
+  }
+  spa_ringbuffer_init (trans->input_buffer, INPUT_BUFFER_SIZE);
+  spa_ringbuffer_init (trans->output_buffer, OUTPUT_BUFFER_SIZE);
 }
 
 PinosTransport *
@@ -126,7 +130,8 @@ pinos_transport_new (uint32_t max_inputs,
                         &impl->mem);
 
   memcpy (impl->mem.ptr, &area, sizeof (PinosTransportArea));
-  transport_setup_area (impl->mem.ptr, trans, true);
+  transport_setup_area (impl->mem.ptr, trans);
+  transport_reset_area (trans);
 
   return trans;
 }
@@ -148,16 +153,16 @@ pinos_transport_new_from_info (PinosTransportInfo *info)
   impl->mem.flags = PINOS_MEMBLOCK_FLAG_MAP_READWRITE |
                     PINOS_MEMBLOCK_FLAG_WITH_FD;
   impl->mem.fd = info->memfd;
+  impl->mem.offset = info->offset;
   impl->mem.size = info->size;
-  impl->mem.ptr = mmap (NULL, info->size, PROT_READ | PROT_WRITE, MAP_SHARED, info->memfd, info->offset);
-  if (impl->mem.ptr == MAP_FAILED) {
+  if (pinos_memblock_map (&impl->mem) != SPA_RESULT_OK) {
     pinos_log_warn ("transport %p: failed to map fd %d: %s", impl, info->memfd, strerror (errno));
     goto mmap_failed;
   }
 
   impl->offset = info->offset;
 
-  transport_setup_area (impl->mem.ptr, trans, false);
+  transport_setup_area (impl->mem.ptr, trans);
 
   tmp = trans->output_buffer;
   trans->output_buffer = trans->input_buffer;

@@ -31,9 +31,10 @@ typedef struct _PinosMemblock PinosMemblock;
 typedef enum {
   PINOS_MEMBLOCK_FLAG_NONE           = 0,
   PINOS_MEMBLOCK_FLAG_WITH_FD        = (1 << 0),
-  PINOS_MEMBLOCK_FLAG_MAP_READ       = (1 << 1),
-  PINOS_MEMBLOCK_FLAG_MAP_WRITE      = (1 << 2),
-  PINOS_MEMBLOCK_FLAG_SEAL           = (1 << 3),
+  PINOS_MEMBLOCK_FLAG_SEAL           = (1 << 1),
+  PINOS_MEMBLOCK_FLAG_MAP_READ       = (1 << 2),
+  PINOS_MEMBLOCK_FLAG_MAP_WRITE      = (1 << 3),
+  PINOS_MEMBLOCK_FLAG_MAP_TWICE      = (1 << 4),
 } PinosMemblockFlags;
 
 #define PINOS_MEMBLOCK_FLAG_MAP_READWRITE (PINOS_MEMBLOCK_FLAG_MAP_READ | PINOS_MEMBLOCK_FLAG_MAP_WRITE)
@@ -41,6 +42,7 @@ typedef enum {
 struct _PinosMemblock {
   PinosMemblockFlags flags;
   int                fd;
+  off_t              offset;
   void              *ptr;
   size_t             size;
 };
@@ -48,6 +50,7 @@ struct _PinosMemblock {
 SpaResult     pinos_memblock_alloc     (PinosMemblockFlags  flags,
                                         size_t              size,
                                         PinosMemblock      *mem);
+SpaResult     pinos_memblock_map       (PinosMemblock      *mem);
 void          pinos_memblock_free      (PinosMemblock      *mem);
 
 #ifdef __cplusplus

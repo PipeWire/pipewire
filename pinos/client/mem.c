@@ -76,17 +76,65 @@ static inline int memfd_create(const char *name, unsigned int flags) {
 #undef USE_MEMFD
 
 SpaResult
+pinos_memblock_map (PinosMemblock *mem)
+{
+  if (mem->ptr != NULL)
+    return SPA_RESULT_OK;
+
+  if (mem->flags & PINOS_MEMBLOCK_FLAG_MAP_READWRITE) {
+    int prot = 0;
+
+    if (mem->flags & PINOS_MEMBLOCK_FLAG_MAP_READ)
+      prot |= PROT_READ;
+    if (mem->flags & PINOS_MEMBLOCK_FLAG_MAP_WRITE)
+      prot |= PROT_WRITE;
+
+    if (mem->flags & PINOS_MEMBLOCK_FLAG_MAP_TWICE) {
+      void *ptr;
+
+      mem->ptr = mmap (NULL, mem->size << 1, PROT_NONE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+      if (mem->ptr == MAP_FAILED)
+        return SPA_RESULT_NO_MEMORY;
+
+      ptr = mmap (mem->ptr, mem->size, prot, MAP_FIXED | MAP_SHARED, mem->fd, mem->offset);
+      if (ptr != mem->ptr) {
+        munmap (mem->ptr, mem->size << 1);
+        return SPA_RESULT_NO_MEMORY;
+      }
+
+      ptr = mmap (mem->ptr + mem->size, mem->size, prot, MAP_FIXED | MAP_SHARED, mem->fd, mem->offset);
+      if (ptr != mem->ptr + mem->size) {
+        munmap (mem->ptr, mem->size << 1);
+        return SPA_RESULT_NO_MEMORY;
+      }
+    } else {
+      mem->ptr = mmap (NULL, mem->size, prot, MAP_SHARED, mem->fd, 0);
+      if (mem->ptr == MAP_FAILED)
+        return SPA_RESULT_NO_MEMORY;
+    }
+  } else {
+    mem->ptr = NULL;
+  }
+  return SPA_RESULT_OK;
+}
+
+SpaResult
 pinos_memblock_alloc (PinosMemblockFlags  flags,
                       size_t              size,
                       PinosMemblock      *mem)
 {
+  bool use_fd;
+
   if (mem == NULL || size == 0)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
+  mem->offset = 0;
   mem->flags = flags;
   mem->size = size;
 
-  if (flags & PINOS_MEMBLOCK_FLAG_WITH_FD) {
+  use_fd = !!(flags & (PINOS_MEMBLOCK_FLAG_MAP_TWICE | PINOS_MEMBLOCK_FLAG_WITH_FD));
+
+  if (use_fd) {
 #ifdef USE_MEMFD
     mem->fd = memfd_create ("pinos-memfd", MFD_CLOEXEC | MFD_ALLOW_SEALING);
     if (mem->fd == -1) {
@@ -116,27 +164,23 @@ pinos_memblock_alloc (PinosMemblockFlags  flags,
       }
     }
 #endif
-    if (flags & PINOS_MEMBLOCK_FLAG_MAP_READWRITE) {
-      int prot = 0;
-
-      if (flags & PINOS_MEMBLOCK_FLAG_MAP_READ)
-        prot |= PROT_READ;
-      if (flags & PINOS_MEMBLOCK_FLAG_MAP_WRITE)
-        prot |= PROT_WRITE;
-
-      mem->ptr = mmap (NULL, size, prot, MAP_SHARED, mem->fd, 0);
-      if (mem->ptr == MAP_FAILED)
-        return SPA_RESULT_NO_MEMORY;
-    } else {
-      mem->ptr = NULL;
-    }
+    if (pinos_memblock_map (mem) != SPA_RESULT_OK)
+      goto mmap_failed;
   } else {
     mem->ptr = malloc (size);
     if (mem->ptr == NULL)
       return SPA_RESULT_NO_MEMORY;
     mem->fd = -1;
   }
+  if (!(flags & PINOS_MEMBLOCK_FLAG_WITH_FD) && mem->fd != -1) {
+    close (mem->fd);
+    mem->fd = -1;
+  }
   return SPA_RESULT_OK;
+
+mmap_failed:
+  close (mem->fd);
+  return SPA_RESULT_NO_MEMORY;
 }
 
 void

@@ -18,9 +18,12 @@
  */
 
 #include <stdio.h>
+#include <unistd.h>
+#include <errno.h>
 
 #include <lib/mapper.h>
 #include <spa/format-utils.h>
+#include <spa/loop.h>
 #include "debug.h"
 
 SpaResult
@@ -442,6 +445,15 @@ spa_debug_dict (const SpaDict *dict)
 
 #define DEFAULT_LOG_LEVEL SPA_LOG_LEVEL_INFO
 
+#define TRACE_BUFFER 4096
+
+typedef struct {
+  SpaLog log;
+  SpaRingbuffer  trace_rb;
+  uint8_t        trace_data[TRACE_BUFFER];
+  SpaSource     *source;
+} DebugLog;
+
 static void
 do_logv (SpaLog        *log,
          SpaLogLevel    level,
@@ -451,22 +463,28 @@ do_logv (SpaLog        *log,
          const char    *fmt,
          va_list        args)
 {
-  char text[16*1024], location[128];
-  static const char *levels[] = {
-    "-",
-    "E",
-    "W",
-    "I",
-    "D",
-    "T",
-  };
+  DebugLog *l = SPA_CONTAINER_OF (log, DebugLog, log);
+  char text[512], location[1024];
+  static const char *levels[] = { "-", "E", "W", "I", "D", "T", };
+  int size;
+
   vsnprintf (text, sizeof(text), fmt, args);
-  if (1) {
-    snprintf (location, sizeof(location), "%s:%i %s()", strrchr (file, '/')+1, line, func);
-    fprintf(stderr, "[%s][%s] %s\n", levels[level], location, text);
-  } else {
-    fprintf(stderr, "[%s] %s\n", levels[level], text);
-  }
+  size = snprintf (location, sizeof(location), "[%s][%s:%i %s()] %s\n",
+      levels[level], strrchr (file, '/')+1, line, func, text);
+
+  if (SPA_UNLIKELY (level == SPA_LOG_LEVEL_TRACE) && l->source) {
+    uint32_t index;
+    uint64_t count = 1;
+
+    spa_ringbuffer_get_write_index (&l->trace_rb, &index);
+    spa_ringbuffer_write_data (&l->trace_rb, l->trace_data,
+                                index & l->trace_rb.mask,
+                                location, size);
+    spa_ringbuffer_write_update (&l->trace_rb, index + size);
+
+    write (l->source->fd, &count, sizeof(uint64_t));
+  } else
+    fputs (location, stderr);
 }
 
 static void
@@ -483,16 +501,54 @@ do_log (SpaLog        *log,
   va_end (args);
 }
 
-static SpaLog log = {
-  sizeof (SpaLog),
-  NULL,
-  DEFAULT_LOG_LEVEL,
-  do_log,
-  do_logv,
+static DebugLog log = {
+  { sizeof (SpaLog),
+    NULL,
+    DEFAULT_LOG_LEVEL,
+    do_log,
+    do_logv,
+  },
+  {  0, 0, TRACE_BUFFER, TRACE_BUFFER - 1 },
 };
 
 SpaLog *
 spa_log_get_default (void)
 {
-  return &log;
+  return &log.log;
+}
+
+static void
+on_trace_event (SpaSource *source)
+{
+  int32_t avail;
+  uint32_t index;
+  uint64_t count;
+
+  if (read (source->fd, &count, sizeof (uint64_t)) != sizeof (uint64_t))
+    fprintf (stderr, "failed to read event fd: %s", strerror (errno));
+
+  while ((avail = spa_ringbuffer_get_read_index (&log.trace_rb, &index)) > 0) {
+    uint32_t offset, first, written;
+
+    if (avail > log.trace_rb.size) {
+      index += avail - log.trace_rb.size;
+      avail = log.trace_rb.size;
+    }
+    offset = index & log.trace_rb.mask;
+    first = SPA_MIN (avail, log.trace_rb.size - offset);
+
+    written = fprintf (stderr, "%*s", first, log.trace_data + offset);
+    if (SPA_UNLIKELY (avail > first)) {
+      written += fprintf (stderr, "%*s", avail - first, log.trace_data + first);
+    }
+    spa_ringbuffer_read_update (&log.trace_rb, index + written);
+  }
+}
+
+void
+spa_log_default_set_trace_event (SpaSource *source)
+{
+  log.source = source;
+  log.source->func = on_trace_event;
+  log.source->data = &log;
 }

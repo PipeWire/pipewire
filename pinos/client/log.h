@@ -21,6 +21,7 @@
 #define __PINOS_LOG_H__
 
 #include <spa/log.h>
+#include <spa/loop.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -31,6 +32,8 @@ extern SpaLogLevel pinos_log_level;
 SpaLog *      pinos_log_get       (void);
 
 void          pinos_log_set_level (SpaLogLevel level);
+void          pinos_log_set_trace_event (SpaSource *source);
+
 
 void          pinos_log_log       (SpaLogLevel  level,
                                    const char  *file,

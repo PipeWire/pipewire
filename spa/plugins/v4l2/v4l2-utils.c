@@ -897,7 +897,7 @@ spa_v4l2_set_format (SpaV4l2Source *this, SpaVideoInfo *format, bool try_only)
   framerate->denom = streamparm.parm.capture.timeperframe.numerator;
 
   state->fmt = fmt;
-  state->info.flags = SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS |
+  state->info.flags = (state->export_buf ? SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS : 0) |
                       SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
                       SPA_PORT_INFO_FLAG_LIVE;
   state->info.maxbuffering = -1;
@@ -1052,7 +1052,7 @@ spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffe
 
     if (buffers[i]->n_datas < 1) {
       spa_log_error (state->log, "v4l2: invalid memory on buffer %p", buffers[i]);
-      continue;
+      return SPA_RESULT_ERROR;
     }
     d = buffers[i]->datas;
 
@@ -1242,6 +1242,8 @@ spa_v4l2_stream_off (SpaV4l2Source *this)
 
   if (!state->started)
     return SPA_RESULT_OK;
+
+  spa_v4l2_port_set_enabled (this, false);
 
   type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   if (xioctl (state->fd, VIDIOC_STREAMOFF, &type) < 0) {

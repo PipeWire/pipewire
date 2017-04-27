@@ -79,6 +79,9 @@ core_marshal_client_update (void          *object,
   SpaPODFrame f;
   int i, n_items;
 
+  if (connection == NULL)
+    return;
+
   core_update_map (proxy->context);
 
   n_items = props ? props->n_items : 0;
@@ -107,6 +110,9 @@ core_marshal_sync (void     *object,
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
 
+  if (connection == NULL)
+    return;
+
   core_update_map (proxy->context);
 
   spa_pod_builder_struct (&b.b, &f,
@@ -123,6 +129,9 @@ core_marshal_get_registry (void     *object,
   PinosConnection *connection = proxy->context->protocol_private;
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
+
+  if (connection == NULL)
+    return;
 
   core_update_map (proxy->context);
 
@@ -144,6 +153,9 @@ core_marshal_create_node (void          *object,
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
   uint32_t i, n_items;
+
+  if (connection == NULL)
+    return;
 
   core_update_map (proxy->context);
 
@@ -180,6 +192,9 @@ core_marshal_create_client_node (void          *object,
   SpaPODFrame f;
   uint32_t i, n_items;
 
+  if (connection == NULL)
+    return;
+
   core_update_map (proxy->context);
 
   n_items = props ? props->n_items : 0;
@@ -213,6 +228,9 @@ core_marshal_update_types (void          *object,
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
   uint32_t i;
+
+  if (connection == NULL)
+    return;
 
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f,
@@ -460,6 +478,9 @@ client_node_marshal_update (void           *object,
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
 
+  if (connection == NULL)
+    return;
+
   core_update_map (proxy->context);
 
   spa_pod_builder_struct (&b.b, &f,
@@ -487,6 +508,9 @@ client_node_marshal_port_update (void              *object,
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f[2];
   int i, n_items;
+
+  if (connection == NULL)
+    return;
 
   core_update_map (proxy->context);
 
@@ -546,6 +570,9 @@ client_node_marshal_event (void     *object,
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
 
+  if (connection == NULL)
+    return;
+
   core_update_map (proxy->context);
 
   spa_pod_builder_struct (&b.b, &f,
@@ -561,6 +588,9 @@ client_node_marshal_destroy (void    *object)
   PinosConnection *connection = proxy->context->protocol_private;
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
+
+  if (connection == NULL)
+    return;
 
   core_update_map (proxy->context);
 
@@ -989,6 +1019,9 @@ registry_marshal_bind (void          *object,
   PinosConnection *connection = proxy->context->protocol_private;
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f;
+
+  if (connection == NULL)
+    return;
 
   core_update_map (proxy->context);
 

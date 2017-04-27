@@ -37,7 +37,7 @@ typedef struct {
 
   int fd;
   PinosConnection *connection;
-  SpaSource source;
+  SpaSource *source;
 
   bool disconnecting;
   PinosListener  need_flush;
@@ -388,7 +388,8 @@ do_flush_event (SpaLoopUtils *utils,
 {
   PinosContextImpl *impl = data;
   if (impl->connection)
-    pinos_connection_flush (impl->connection);
+    if (!pinos_connection_flush (impl->connection))
+      pinos_context_disconnect (&impl->this);
 }
 
 static void
@@ -633,12 +634,12 @@ pinos_context_connect_fd (PinosContext      *context,
 
   impl->fd = fd;
 
-  pinos_loop_add_io (context->loop,
-                     fd,
-                     SPA_IO_IN | SPA_IO_HUP | SPA_IO_ERR,
-                     false,
-                     on_context_data,
-                     impl);
+  impl->source = pinos_loop_add_io (context->loop,
+                                    fd,
+                                    SPA_IO_IN | SPA_IO_HUP | SPA_IO_ERR,
+                                    false,
+                                    on_context_data,
+                                    impl);
 
   context->core_proxy = pinos_proxy_new (context,
                                          0,
@@ -673,6 +674,7 @@ pinos_context_connect_fd (PinosContext      *context,
 no_registry:
   pinos_proxy_destroy (context->core_proxy);
 no_proxy:
+  pinos_loop_destroy_source (context->loop, impl->source);
   pinos_connection_destroy (impl->connection);
 error_close:
   close (fd);
@@ -693,6 +695,10 @@ pinos_context_disconnect (PinosContext *context)
   PinosContextImpl *impl = SPA_CONTAINER_OF (context, PinosContextImpl, this);
 
   impl->disconnecting = true;
+
+  if (impl->source)
+    pinos_loop_destroy_source (context->loop, impl->source);
+  impl->source = NULL;
 
   if (context->registry_proxy)
     pinos_proxy_destroy (context->registry_proxy);

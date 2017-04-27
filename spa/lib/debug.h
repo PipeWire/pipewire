@@ -42,6 +42,8 @@ SpaResult spa_debug_dump_mem  (const void *data, size_t size);
 SpaResult spa_debug_dict  (const SpaDict *dict);
 
 SpaLog * spa_log_get_default (void);
+void     spa_log_default_trace_purge (void);
+
 
 #ifdef __cplusplus
 }  /* extern "C" */

@@ -42,6 +42,14 @@ main (int argc, char *argv[])
   }
 
   loop = pinos_main_loop_new ();
+#if 0
+  {
+    SpaSource *source;
+    source = pinos_loop_add_event (loop->loop, NULL, NULL);
+    pinos_log_set_trace_event (source);
+  }
+#endif
+
   core = pinos_core_new (loop, NULL);
 
   pinos_daemon_config_run_commands (config, core);

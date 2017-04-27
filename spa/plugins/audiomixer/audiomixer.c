@@ -575,22 +575,24 @@ spa_audiomixer_node_port_send_command (SpaNode        *node,
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static void
+static inline void
 add_port_data (SpaAudioMixer *this, MixerBuffer *out, SpaAudioMixerPort *port, int layer)
 {
   int i;
   int16_t *op, *ip;
   size_t os, is, chunk;
   MixerBuffer *b;
+  SpaData *id, *od;
 
-  op = SPA_MEMBER (out->outbuf->datas[0].data, out->outbuf->datas[0].chunk->offset, void);
-  os = out->outbuf->datas[0].chunk->size;
+  od = out->outbuf->datas;
+  op = SPA_MEMBER (od[0].data, od[0].chunk->offset, void);
+  os = od[0].chunk->size;
 
   b = spa_list_first (&port->queue, MixerBuffer, link);
 
-  ip = SPA_MEMBER (b->outbuf->datas[0].data,
-      port->queued_offset + b->outbuf->datas[0].chunk->offset, void);
-  is = b->outbuf->datas[0].chunk->size - port->queued_offset;
+  id = b->outbuf->datas;
+  ip = SPA_MEMBER (id[0].data, port->queued_offset + id[0].chunk->offset, void);
+  is = id[0].chunk->size - port->queued_offset;
 
   chunk = SPA_MIN (os, is);
 
@@ -629,6 +631,7 @@ mix_output (SpaAudioMixer *this, size_t n_bytes)
   int i, layer;
   SpaAudioMixerPort *outport;
   SpaPortIO *output;
+  SpaData *od;
 
   outport = &this->out_ports[0];
   output = outport->io;
@@ -638,15 +641,15 @@ mix_output (SpaAudioMixer *this, size_t n_bytes)
 
   outbuf = spa_list_first (&outport->queue, MixerBuffer, link);
   spa_list_remove (&outbuf->link);
+  outbuf->outstanding = true;
 
-  n_bytes = SPA_MIN (n_bytes, outbuf->outbuf->datas[0].maxsize);
+  od = outbuf->outbuf->datas;
+  n_bytes = SPA_MIN (n_bytes, od[0].maxsize);
+  od[0].chunk->offset = 0;
+  od[0].chunk->size = n_bytes;
+  od[0].chunk->stride = 0;
 
   spa_log_trace (this->log, "audiomixer %p: dequeue output buffer %d %zd", this, outbuf->outbuf->id, n_bytes);
-
-  outbuf->outstanding = true;
-  outbuf->outbuf->datas[0].chunk->offset = 0;
-  outbuf->outbuf->datas[0].chunk->size = n_bytes;
-  outbuf->outbuf->datas[0].chunk->stride = 0;
 
   for (layer = 0, i = 0; i < MAX_PORTS; i++) {
     SpaAudioMixerPort *port = &this->in_ports[i];
@@ -662,11 +665,6 @@ mix_output (SpaAudioMixer *this, size_t n_bytes)
     }
     add_port_data (this, outbuf, port, layer++);
   }
-  if (layer == 0) {
-    this->state = STATE_IN;
-    return SPA_RESULT_NEED_INPUT;
-  }
-
   output->buffer_id = outbuf->outbuf->id;
   output->status = SPA_RESULT_HAVE_OUTPUT;
   this->state = STATE_OUT;
@@ -747,10 +745,8 @@ spa_audiomixer_node_process_output (SpaNode *node)
   this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
 
   port = &this->out_ports[0];
-  spa_return_val_if_fail (port->io != NULL, SPA_RESULT_ERROR);
   output = port->io;
-
-  spa_return_val_if_fail (port->n_buffers > 0, SPA_RESULT_NO_BUFFERS);
+  spa_return_val_if_fail (output != NULL, SPA_RESULT_ERROR);
 
   /* recycle */
   if (output->buffer_id != SPA_ID_INVALID) {

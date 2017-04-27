@@ -123,8 +123,10 @@ typedef struct {
   unsigned int n_fds;
 } AppData;
 
-#define BUFFER_SIZE1     4092
-#define BUFFER_SIZE2     4096
+#define MIN_LATENCY     64
+
+#define BUFFER_SIZE1    MIN_LATENCY
+#define BUFFER_SIZE2    MIN_LATENCY - 4
 
 static void
 init_buffer (AppData *data, SpaBuffer **bufs, Buffer *ba, int n_buffers, size_t size)
@@ -297,7 +299,7 @@ do_invoke (SpaLoop       *loop,
 }
 
 static SpaResult
-make_nodes (AppData *data)
+make_nodes (AppData *data, const char *device)
 {
   SpaResult res;
   SpaProps *props;
@@ -315,8 +317,8 @@ make_nodes (AppData *data)
 
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
   spa_pod_builder_props (&b, &f[0], data->type.props,
-      SPA_POD_PROP (&f[1], data->type.props_device, 0, SPA_POD_TYPE_STRING, 1, "hw:1"),
-      SPA_POD_PROP (&f[1], data->type.props_min_latency, 0, SPA_POD_TYPE_INT, 1, 128));
+      SPA_POD_PROP (&f[1], data->type.props_device, 0, SPA_POD_TYPE_STRING, 1, device ? device : "hw:0"),
+      SPA_POD_PROP (&f[1], data->type.props_min_latency, 0, SPA_POD_TYPE_INT, 1, MIN_LATENCY));
   props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
 
   if ((res = spa_node_set_props (data->sink, props)) < 0)
@@ -583,7 +585,7 @@ main (int argc, char *argv[])
 
   init_type (&data.type, data.map);
 
-  if ((res = make_nodes (&data)) < 0) {
+  if ((res = make_nodes (&data, argc > 1 ? argv[1] : NULL)) < 0) {
     printf ("can't make nodes: %d\n", res);
     return -1;
   }

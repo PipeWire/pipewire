@@ -465,14 +465,18 @@ do_logv (SpaLog        *log,
 {
   DebugLog *l = SPA_CONTAINER_OF (log, DebugLog, log);
   char text[512], location[1024];
-  static const char *levels[] = { "-", "E", "W", "I", "D", "T", };
+  static const char *levels[] = { "-", "E", "W", "I", "D", "T", "*T*" };
   int size;
+  bool do_trace;
+
+  if ((do_trace = (level == SPA_LOG_LEVEL_TRACE && l->source)))
+    level++;
 
   vsnprintf (text, sizeof(text), fmt, args);
   size = snprintf (location, sizeof(location), "[%s][%s:%i %s()] %s\n",
       levels[level], strrchr (file, '/')+1, line, func, text);
 
-  if (SPA_UNLIKELY (level == SPA_LOG_LEVEL_TRACE) && l->source) {
+  if (SPA_UNLIKELY (do_trace)) {
     uint32_t index;
     uint64_t count = 1;
 
@@ -528,7 +532,7 @@ on_trace_event (SpaSource *source)
     fprintf (stderr, "failed to read event fd: %s", strerror (errno));
 
   while ((avail = spa_ringbuffer_get_read_index (&log.trace_rb, &index)) > 0) {
-    uint32_t offset, first, written;
+    uint32_t offset, first;
 
     if (avail > log.trace_rb.size) {
       index += avail - log.trace_rb.size;
@@ -537,11 +541,11 @@ on_trace_event (SpaSource *source)
     offset = index & log.trace_rb.mask;
     first = SPA_MIN (avail, log.trace_rb.size - offset);
 
-    written = fprintf (stderr, "%*s", first, log.trace_data + offset);
+    fwrite (log.trace_data + offset, first, 1, stderr);
     if (SPA_UNLIKELY (avail > first)) {
-      written += fprintf (stderr, "%*s", avail - first, log.trace_data + first);
+      fwrite (log.trace_data, avail - first, 1, stderr);
     }
-    spa_ringbuffer_read_update (&log.trace_rb, index + written);
+    spa_ringbuffer_read_update (&log.trace_rb, index + avail);
   }
 }
 

@@ -42,7 +42,7 @@ main (int argc, char *argv[])
   }
 
   loop = pinos_main_loop_new ();
-#if 0
+#if 1
   {
     SpaSource *source;
     source = pinos_loop_add_event (loop->loop, NULL, NULL);

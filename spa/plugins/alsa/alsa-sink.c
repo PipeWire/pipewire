@@ -550,43 +550,30 @@ spa_alsa_sink_node_process_input (SpaNode *node)
 {
   SpaALSASink *this;
   SpaPortIO *input;
-  SpaALSABuffer *b;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaALSASink, node);
+  input = this->io;
+  spa_return_val_if_fail (input != NULL, SPA_RESULT_WRONG_STATE);
 
-  if ((input = this->io) == NULL) {
-    return SPA_RESULT_OK;
-  }
+  if (input->status == SPA_RESULT_HAVE_BUFFER &&
+      input->buffer_id != SPA_ID_INVALID) {
+    SpaALSABuffer *b = &this->buffers[input->buffer_id];
 
-  if (!this->have_format) {
-    spa_log_error (this->log, "alsa-sink %p: no format", this);
-    input->status = SPA_RESULT_NO_FORMAT;
-    return SPA_RESULT_ERROR;
-  }
+    if (!b->outstanding) {
+      spa_log_warn (this->log, "alsa-sink %p: buffer %u in use", this, input->buffer_id);
+      input->status = SPA_RESULT_INVALID_BUFFER_ID;
+      return SPA_RESULT_ERROR;
+    }
 
-  if (input->buffer_id >= this->n_buffers) {
-    spa_log_error (this->log, "alsa-sink %p: invalid buffer %u", this, input->buffer_id);
-    input->status = SPA_RESULT_INVALID_BUFFER_ID;
-    return SPA_RESULT_ERROR;
-  }
+    spa_log_trace (this->log, "alsa-sink %p: queue buffer %u", this, input->buffer_id);
 
-  b = &this->buffers[input->buffer_id];
-  if (!b->outstanding) {
-    spa_log_error (this->log, "alsa-sink %p: buffer %u in use", this, input->buffer_id);
+    spa_list_insert (this->ready.prev, &b->link);
+    b->outstanding = false;
     input->buffer_id = SPA_ID_INVALID;
-    input->status = SPA_RESULT_INVALID_BUFFER_ID;
-    return SPA_RESULT_ERROR;
+    input->status = SPA_RESULT_OK;
   }
-
-  spa_log_trace (this->log, "alsa-sink %p: queue buffer %u", this, input->buffer_id);
-
-  spa_list_insert (this->ready.prev, &b->link);
-  b->outstanding = false;
-  input->buffer_id = SPA_ID_INVALID;
-  input->status = SPA_RESULT_OK;
-
   return SPA_RESULT_OK;
 }
 

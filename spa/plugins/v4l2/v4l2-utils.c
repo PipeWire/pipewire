@@ -933,7 +933,7 @@ mmap_read (SpaV4l2Source *this)
   V4l2Buffer *b;
   SpaData *d;
   int64_t pts;
-  SpaPortIO *io;
+  SpaPortIO *io = state->io;
 
   CLEAR(buf);
   buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -972,12 +972,12 @@ mmap_read (SpaV4l2Source *this)
   d[0].chunk->size = buf.bytesused;
   d[0].chunk->stride = state->fmt.fmt.pix.bytesperline;
 
-  if ((io = state->io)) {
+  {
     SpaEvent event = SPA_EVENT_INIT (this->type.event_node.HaveOutput);
 
     b->outstanding = true;
     io->buffer_id = b->outbuf->id;
-    io->status = SPA_RESULT_OK;
+    io->status = SPA_RESULT_HAVE_BUFFER;
 
     this->event_cb (&this->node, &event, this->user_data);
   }

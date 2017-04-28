@@ -612,8 +612,13 @@ spa_alsa_source_node_process_output (SpaNode *node)
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaALSASource, node);
+  io = this->io;
+  spa_return_val_if_fail (io != NULL, SPA_RESULT_WRONG_STATE);
 
-  if ((io = this->io) && io->buffer_id != SPA_ID_INVALID) {
+  if (io->status == SPA_RESULT_HAVE_BUFFER)
+    return SPA_RESULT_HAVE_BUFFER;
+
+  if (io->buffer_id != SPA_ID_INVALID) {
     recycle_buffer (this, io->buffer_id);
     io->buffer_id = SPA_ID_INVALID;
   }

@@ -164,9 +164,24 @@ make_node (AppData *data, SpaNode **node, const char *lib, const char *name)
 }
 
 static void
+handle_events (AppData *data)
+{
+  SDL_Event event;
+  while (SDL_PollEvent (&event)) {
+    switch (event.type) {
+      case SDL_QUIT:
+        exit (0);
+        break;
+    }
+  }
+}
+
+static void
 on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
 {
   AppData *data = user_data;
+
+  handle_events (data);
 
   if (SPA_EVENT_TYPE (event) == data->type.event_node.HaveOutput) {
     SpaResult res;
@@ -496,7 +511,7 @@ run_async_source (AppData *data)
     data->running = false;
   }
 
-  sleep (10);
+  sleep (10000);
 
   if (data->running) {
     data->running = false;

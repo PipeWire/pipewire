@@ -454,7 +454,7 @@ push_frames (SpaALSAState *state,
 
       b->outstanding = true;
       io->buffer_id = b->outbuf->id;
-      io->status = SPA_RESULT_OK;
+      io->status = SPA_RESULT_HAVE_BUFFER;
 
       state->event_cb (&state->node, &event, state->user_data);
     }
@@ -612,6 +612,9 @@ alsa_on_capture_timeout_event (SpaSource *source)
   state->last_ticks = state->sample_count + avail;
   state->last_monotonic = (int64_t)htstamp.tv_sec * SPA_NSEC_PER_SEC + (int64_t)htstamp.tv_nsec;
 
+  spa_log_trace (state->log, "timeout %ld %d %ld %ld %ld", avail, state->threshold,
+                      state->sample_count, htstamp.tv_sec, htstamp.tv_nsec);
+
   if (avail < state->threshold) {
     if (snd_pcm_state (hndl) == SND_PCM_STATE_SUSPENDED) {
       spa_log_error (state->log, "suspended: try resume");
@@ -645,8 +648,6 @@ alsa_on_capture_timeout_event (SpaSource *source)
   }
   calc_timeout (state->threshold, avail - total_read, state->rate, &htstamp, &ts.it_value);
 
-  spa_log_trace (state->log, "timeout %ld %ld %ld %ld", total_read, avail,
-                                ts.it_value.tv_sec, ts.it_value.tv_nsec);
   ts.it_interval.tv_sec = 0;
   ts.it_interval.tv_nsec = 0;
   timerfd_settime (state->timerfd, TFD_TIMER_ABSTIME, &ts, NULL);

@@ -357,7 +357,9 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
 
         if ((res = spa_node_process_input (inport->node->node)) < 0)
           pinos_log_warn ("node %p: got process input %d", inport->node, res);
+
       }
+      po->status = SPA_RESULT_NEED_BUFFER;
     }
     res = spa_node_process_output (this->node);
     if (res < 0 && res != SPA_RESULT_HAVE_BUFFER)

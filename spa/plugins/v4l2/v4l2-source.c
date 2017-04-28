@@ -804,12 +804,15 @@ spa_v4l2_source_node_process_output (SpaNode *node)
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
+  io = this->state[0].io;
+  spa_return_val_if_fail (io != NULL, SPA_RESULT_WRONG_STATE);
 
-  if ((io = this->state[0].io)) {
-    if (io->buffer_id != SPA_ID_INVALID) {
-      res = spa_v4l2_buffer_recycle (this, io->buffer_id);
-      io->buffer_id = SPA_ID_INVALID;
-    }
+  if (io->status == SPA_RESULT_HAVE_BUFFER)
+    return SPA_RESULT_HAVE_BUFFER;
+
+  if (io->buffer_id != SPA_ID_INVALID) {
+    res = spa_v4l2_buffer_recycle (this, io->buffer_id);
+    io->buffer_id = SPA_ID_INVALID;
   }
   return res;
 }

@@ -38,7 +38,7 @@ typedef struct {
 
 } PinosCoreImpl;
 
-#define ACCESS_VIEW_GLOBAL(client,global) (client->core->access && \
+#define ACCESS_VIEW_GLOBAL(client,global) (client->core->access == NULL || \
                                            client->core->access->view_global (client->core->access, \
                                                                               client, global) == SPA_RESULT_OK)
 

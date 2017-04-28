@@ -310,9 +310,9 @@ videotestsrc_make_buffer (SpaVideoTestSrc *this)
   set_timer (this, true);
 
   io->buffer_id = b->outbuf->id;
-  io->status = SPA_RESULT_HAVE_OUTPUT;
+  io->status = SPA_RESULT_HAVE_BUFFER;
 
-  return SPA_RESULT_HAVE_OUTPUT;
+  return SPA_RESULT_HAVE_BUFFER;
 }
 
 static void
@@ -323,7 +323,7 @@ videotestsrc_on_output (SpaSource *source)
 
   res = videotestsrc_make_buffer (this);
 
-  if (res == SPA_RESULT_HAVE_OUTPUT)
+  if (res == SPA_RESULT_HAVE_BUFFER)
     send_have_output (this);
 }
 

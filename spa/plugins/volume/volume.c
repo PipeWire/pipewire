@@ -725,13 +725,13 @@ spa_volume_node_process_input (SpaNode *node)
   if (sbuf != dbuf)
     release_buffer (this, sbuf);
 
-  return SPA_RESULT_HAVE_OUTPUT;
+  return SPA_RESULT_HAVE_BUFFER;
 }
 
 static SpaResult
 spa_volume_node_process_output (SpaNode *node)
 {
-  return SPA_RESULT_NEED_INPUT;
+  return SPA_RESULT_NEED_BUFFER;
 }
 
 static const SpaNode volume_node = {

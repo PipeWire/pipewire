@@ -329,15 +329,16 @@ static inline snd_pcm_uframes_t
 pull_frames (SpaALSAState *state,
              const snd_pcm_channel_area_t *my_areas,
              snd_pcm_uframes_t offset,
-             snd_pcm_uframes_t frames)
+             snd_pcm_uframes_t frames,
+             bool do_pull)
 {
   snd_pcm_uframes_t total_frames = 0, to_write = frames;
   SpaPortIO *io = state->io;
 
-  if (spa_list_is_empty (&state->ready)) {
+  if (spa_list_is_empty (&state->ready) && do_pull) {
     SpaEvent event = SPA_EVENT_INIT (state->type.event_node.NeedInput);
 
-    io->status = SPA_RESULT_NEED_INPUT;
+    io->status = SPA_RESULT_NEED_BUFFER;
     io->range.offset = state->sample_count * state->frame_size;
     io->range.min_size = state->threshold * state->frame_size;
     io->range.max_size = frames * state->frame_size;
@@ -401,9 +402,9 @@ pull_frames (SpaALSAState *state,
     total_frames += n_frames;
     to_write -= n_frames;
   }
-  if (total_frames == 0) {
+  if (total_frames == 0 && do_pull) {
     total_frames = SPA_MIN (frames, state->threshold);
-    spa_log_warn (state->log, "underrun, want %zd frames", total_frames);
+    spa_log_trace (state->log, "underrun, want %zd frames", total_frames);
     snd_pcm_areas_silence (my_areas, offset, state->channels, total_frames, state->format);
   }
   return total_frames;
@@ -419,7 +420,7 @@ push_frames (SpaALSAState *state,
   SpaPortIO *io = state->io;
 
   if (spa_list_is_empty (&state->free)) {
-    spa_log_warn (state->log, "no more buffers");
+    spa_log_trace (state->log, "no more buffers");
   }
   else {
     uint8_t *src;
@@ -529,6 +530,9 @@ alsa_on_playback_timeout_event (SpaSource *source)
   state->last_ticks = state->sample_count - filled;
   state->last_monotonic = (int64_t)htstamp.tv_sec * SPA_NSEC_PER_SEC + (int64_t)htstamp.tv_nsec;
 
+  spa_log_trace (state->log, "timeout %ld %d %ld %ld %ld", filled, state->threshold,
+                      state->sample_count, htstamp.tv_sec, htstamp.tv_nsec);
+
   if (filled > state->threshold) {
     if (snd_pcm_state (hndl) == SND_PCM_STATE_SUSPENDED) {
       spa_log_error (state->log, "suspended: try resume");
@@ -538,6 +542,7 @@ alsa_on_playback_timeout_event (SpaSource *source)
   }
   else {
     snd_pcm_uframes_t to_write = state->buffer_frames - filled;
+    bool do_pull = true;
 
     while (total_written < to_write) {
       snd_pcm_uframes_t written, frames, offset;
@@ -547,9 +552,7 @@ alsa_on_playback_timeout_event (SpaSource *source)
         spa_log_error (state->log, "snd_pcm_mmap_begin error: %s", snd_strerror(res));
         return;
       }
-
-      written = pull_frames (state, my_areas, offset, frames);
-
+      written = pull_frames (state, my_areas, offset, frames, do_pull);
       if (written < frames)
         to_write = 0;
 
@@ -559,6 +562,7 @@ alsa_on_playback_timeout_event (SpaSource *source)
           return;
       }
       total_written += written;
+      do_pull = false;
     }
     state->sample_count += total_written;
   }
@@ -572,10 +576,6 @@ alsa_on_playback_timeout_event (SpaSource *source)
   }
 
   calc_timeout (total_written + filled, state->threshold, state->rate, &htstamp, &ts.it_value);
-
-  spa_log_trace (state->log, "timeout %ld %ld %ld %ld %ld", total_written, filled,
-                                ts.it_value.tv_sec, ts.it_value.tv_nsec,
-                                ts.it_value.tv_nsec - htstamp.tv_nsec);
 
   ts.it_interval.tv_sec = 0;
   ts.it_interval.tv_nsec = 0;

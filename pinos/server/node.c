@@ -273,7 +273,7 @@ do_pull (PinosNode *this)
     pinos_log_trace ("node %p: need input port %d, %d %d", this,
         inport->port_id, pi->buffer_id, pi->status);
 
-    if (pi->status != SPA_RESULT_NEED_INPUT)
+    if (pi->status != SPA_RESULT_NEED_BUFFER)
       continue;
 
     spa_list_for_each (link, &inport->rt.links, rt.input_link) {
@@ -291,15 +291,15 @@ do_pull (PinosNode *this)
 
       res = spa_node_process_output (outport->node->node);
 
-      if (res == SPA_RESULT_NEED_INPUT) {
+      if (res == SPA_RESULT_NEED_BUFFER) {
         res = do_pull (outport->node);
         pinos_log_trace ("node %p: pull return %d", outport->node, res);
       }
-      else if (res < 0 && res != SPA_RESULT_HAVE_OUTPUT) {
+      else if (res < 0 && res != SPA_RESULT_HAVE_BUFFER) {
         pinos_log_warn ("node %p: got process output %d", outport->node, res);
       }
 
-      if (res == SPA_RESULT_HAVE_OUTPUT) {
+      if (res == SPA_RESULT_HAVE_BUFFER) {
         *pi = *po;
         pinos_log_trace ("node %p: have output %d %d", this, pi->status, pi->buffer_id);
         have_output = true;
@@ -360,7 +360,7 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
       }
     }
     res = spa_node_process_output (this->node);
-    if (res < 0 && res != SPA_RESULT_HAVE_OUTPUT)
+    if (res < 0 && res != SPA_RESULT_HAVE_BUFFER)
       pinos_log_warn ("node %p: got process output %d", this, res);
 
   }

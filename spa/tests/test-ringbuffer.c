@@ -215,7 +215,7 @@ on_sink_event (SpaNode *node, SpaEvent *event, void *user_data)
 
   if (SPA_EVENT_TYPE (event) == data->type.event_node.NeedInput) {
     res = spa_node_process_output (data->source);
-    if (res != SPA_RESULT_HAVE_OUTPUT)
+    if (res != SPA_RESULT_HAVE_BUFFER)
       printf ("got process_output error from source %d\n", res);
 
     if ((res = spa_node_process_input (data->sink)) < 0)

@@ -101,10 +101,7 @@ struct _SpaAudioMixer {
   uint8_t format_buffer[4096];
 
   bool started;
-#define STATE_ERROR     0
-#define STATE_IN        1
-#define STATE_OUT       2
-  int state;
+  SpaResult state;
 };
 
 #define CHECK_PORT_NUM(this,d,p)     (((d) == SPA_DIRECTION_INPUT && (p) < MAX_PORTS) || \
@@ -666,16 +663,14 @@ mix_output (SpaAudioMixer *this, size_t n_bytes)
     add_port_data (this, outbuf, port, layer++);
   }
   output->buffer_id = outbuf->outbuf->id;
-  output->status = SPA_RESULT_HAVE_OUTPUT;
-  this->state = STATE_OUT;
+  output->status = SPA_RESULT_HAVE_BUFFER;
 
-  return SPA_RESULT_HAVE_OUTPUT;
+  return SPA_RESULT_HAVE_BUFFER;
 }
 
 static SpaResult
 spa_audiomixer_node_process_input (SpaNode *node)
 {
-  SpaResult res;
   SpaAudioMixer *this;
   uint32_t i;
   SpaAudioMixerPort *outport;
@@ -690,8 +685,8 @@ spa_audiomixer_node_process_input (SpaNode *node)
   output = outport->io;
   spa_return_val_if_fail (output != NULL, SPA_RESULT_ERROR);
 
-  if (this->state == STATE_OUT)
-    return SPA_RESULT_HAVE_OUTPUT;
+  if (this->state == SPA_RESULT_HAVE_BUFFER)
+    return SPA_RESULT_HAVE_BUFFER;
 
   for (i = 0; i < MAX_PORTS; i++) {
     SpaAudioMixerPort *port = &this->in_ports[i];
@@ -701,7 +696,7 @@ spa_audiomixer_node_process_input (SpaNode *node)
       continue;
 
     if (port->queued_bytes == 0 &&
-        input->status == SPA_RESULT_HAVE_OUTPUT &&
+        input->status == SPA_RESULT_HAVE_BUFFER &&
         input->buffer_id != SPA_ID_INVALID) {
       MixerBuffer *b = &port->buffers[input->buffer_id];
 
@@ -724,17 +719,16 @@ spa_audiomixer_node_process_input (SpaNode *node)
   }
 
   if (min_queued != SIZE_MAX && min_queued > 0) {
-    res = mix_output (this, min_queued);
+    this->state = mix_output (this, min_queued);
   } else {
-    res = SPA_RESULT_NEED_INPUT;
+    this->state = SPA_RESULT_NEED_BUFFER;
   }
-  return res;
+  return this->state;
 }
 
 static SpaResult
 spa_audiomixer_node_process_output (SpaNode *node)
 {
-  SpaResult res;
   SpaAudioMixer *this;
   SpaAudioMixerPort *port;
   SpaPortIO *output;
@@ -753,9 +747,8 @@ spa_audiomixer_node_process_output (SpaNode *node)
     recycle_buffer (this, output->buffer_id);
     output->buffer_id = SPA_ID_INVALID;
   }
-  res = SPA_RESULT_NEED_INPUT;
   /* produce more output if possible */
-  if (this->state == STATE_OUT) {
+  if (this->state == SPA_RESULT_HAVE_BUFFER) {
     size_t min_queued = SIZE_MAX;
 
     for (i = 0; i < MAX_PORTS; i++) {
@@ -768,13 +761,13 @@ spa_audiomixer_node_process_output (SpaNode *node)
         min_queued = port->queued_bytes;
     }
     if (min_queued != SIZE_MAX && min_queued > 0) {
-      res = mix_output (this, min_queued);
+      this->state = mix_output (this, min_queued);
     } else {
-      this->state = STATE_IN;
+      this->state = SPA_RESULT_NEED_BUFFER;
     }
   }
   /* take requested output range and apply to input */
-  if (this->state == STATE_IN) {
+  if (this->state == SPA_RESULT_NEED_BUFFER) {
     for (i = 0; i < MAX_PORTS; i++) {
       SpaAudioMixerPort *port = &this->in_ports[i];
       SpaPortIO *input;
@@ -784,7 +777,7 @@ spa_audiomixer_node_process_output (SpaNode *node)
 
       if (port->queued_bytes == 0) {
         input->range = output->range;
-        input->status = SPA_RESULT_NEED_INPUT;
+        input->status = SPA_RESULT_NEED_BUFFER;
       }
       else {
         input->status = SPA_RESULT_OK;
@@ -793,7 +786,7 @@ spa_audiomixer_node_process_output (SpaNode *node)
           i, output->range.min_size, port->queued_bytes, input->status);
     }
   }
-  return res;
+  return this->state;
 }
 
 static const SpaNode audiomixer_node = {
@@ -879,7 +872,7 @@ spa_audiomixer_init (const SpaHandleFactory *factory,
   init_type (&this->type, this->map);
 
   this->node = audiomixer_node;
-  this->state = STATE_IN;
+  this->state = SPA_RESULT_NEED_BUFFER;
 
   this->out_ports[0].io = NULL;
   this->out_ports[0].info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |

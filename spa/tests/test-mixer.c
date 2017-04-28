@@ -225,27 +225,27 @@ on_sink_event (SpaNode *node, SpaEvent *event, void *user_data)
 
     res = spa_node_process_output (data->mix);
 
-    if (res == SPA_RESULT_NEED_INPUT) {
+    if (res == SPA_RESULT_NEED_BUFFER) {
 
-      if (data->source1_mix_io[0].status == SPA_RESULT_NEED_INPUT) {
+      if (data->source1_mix_io[0].status == SPA_RESULT_NEED_BUFFER) {
         res = spa_node_process_output (data->source1);
-        if (res != SPA_RESULT_HAVE_OUTPUT)
+        if (res != SPA_RESULT_HAVE_BUFFER)
           printf ("got process_output error from source1 %d\n", res);
       }
 
-      if (data->source2_mix_io[0].status == SPA_RESULT_NEED_INPUT) {
+      if (data->source2_mix_io[0].status == SPA_RESULT_NEED_BUFFER) {
         res = spa_node_process_output (data->source2);
-        if (res != SPA_RESULT_HAVE_OUTPUT)
+        if (res != SPA_RESULT_HAVE_BUFFER)
           printf ("got process_output error from source2 %d\n", res);
       }
 
       res = spa_node_process_input (data->mix);
-      if (res == SPA_RESULT_HAVE_OUTPUT)
+      if (res == SPA_RESULT_HAVE_BUFFER)
         goto push;
       else
         printf ("got process_input error from mixer %d\n", res);
 
-    } else if (res == SPA_RESULT_HAVE_OUTPUT) {
+    } else if (res == SPA_RESULT_HAVE_BUFFER) {
 push:
       if ((res = spa_node_process_input (data->sink)) < 0)
         printf ("got process_input error from sink %d\n", res);

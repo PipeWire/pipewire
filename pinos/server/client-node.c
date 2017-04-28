@@ -855,7 +855,7 @@ spa_proxy_node_process_output (SpaNode *node)
 
     pinos_log_trace ("%d %d  %d %d", io->status, io->buffer_id, tmp.status, tmp.buffer_id);
 
-    if (io->status == SPA_RESULT_NEED_INPUT)
+    if (io->status == SPA_RESULT_NEED_BUFFER)
       send_need = true;
 
     *io = tmp;
@@ -865,7 +865,7 @@ spa_proxy_node_process_output (SpaNode *node)
   else if (flush)
     do_flush (this);
 
-  return SPA_RESULT_HAVE_OUTPUT;
+  return SPA_RESULT_HAVE_BUFFER;
 }
 
 static SpaResult

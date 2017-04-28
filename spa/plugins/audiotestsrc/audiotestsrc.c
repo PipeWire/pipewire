@@ -348,9 +348,9 @@ audiotestsrc_make_buffer (SpaAudioTestSrc *this)
   set_timer (this, true);
 
   io->buffer_id = b->outbuf->id;
-  io->status = SPA_RESULT_HAVE_OUTPUT;
+  io->status = SPA_RESULT_HAVE_BUFFER;
 
-  return SPA_RESULT_HAVE_OUTPUT;
+  return SPA_RESULT_HAVE_BUFFER;
 }
 
 static void
@@ -361,7 +361,7 @@ audiotestsrc_on_output (SpaSource *source)
 
   res = audiotestsrc_make_buffer (this);
 
-  if (res == SPA_RESULT_HAVE_OUTPUT)
+  if (res == SPA_RESULT_HAVE_BUFFER)
     send_have_output (this);
 }
 
@@ -850,15 +850,15 @@ spa_audiotestsrc_node_process_output (SpaNode *node)
   io = this->io;
   spa_return_val_if_fail (io != NULL, SPA_RESULT_WRONG_STATE);
 
-  if (io->status == SPA_RESULT_HAVE_OUTPUT)
-    return SPA_RESULT_HAVE_OUTPUT;
+  if (io->status == SPA_RESULT_HAVE_BUFFER)
+    return SPA_RESULT_HAVE_BUFFER;
 
   if (io->buffer_id != SPA_ID_INVALID) {
     reuse_buffer (this, this->io->buffer_id);
     this->io->buffer_id = SPA_ID_INVALID;
   }
 
-  if (!this->async && (io->status == SPA_RESULT_NEED_INPUT))
+  if (!this->async && (io->status == SPA_RESULT_NEED_BUFFER))
     return audiotestsrc_make_buffer (this);
   else
     return SPA_RESULT_OK;

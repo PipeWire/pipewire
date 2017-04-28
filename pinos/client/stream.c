@@ -1207,7 +1207,7 @@ pinos_stream_send_buffer (PinosStream     *stream,
     bid->used = true;
     spa_list_remove (&bid->link);
     impl->trans->outputs[0].buffer_id = id;
-    impl->trans->outputs[0].status = SPA_RESULT_HAVE_OUTPUT;
+    impl->trans->outputs[0].status = SPA_RESULT_HAVE_BUFFER;
     pinos_log_trace ("stream %p: send buffer %d", stream, id);
     if (!impl->in_need_buffer)
       send_have_output (stream);

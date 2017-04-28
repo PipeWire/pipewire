@@ -192,8 +192,9 @@ on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
     uint8_t *src, *dst;
     SpaMeta *metas;
     SpaData *datas;
+    SpaPortIO *io = &data->source_output[0];
 
-    b = data->bp[data->source_output[0].buffer_id];
+    b = data->bp[io->buffer_id];
 
     metas = b->metas;
     datas = b->datas;
@@ -241,6 +242,8 @@ on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
       SDL_RenderCopy (data->renderer, data->texture, NULL, NULL);
       SDL_RenderPresent (data->renderer);
     }
+
+    io->status = SPA_RESULT_NEED_BUFFER;
 
     if ((res = spa_node_process_output (data->source)) < 0)
       printf ("got pull error %d\n", res);

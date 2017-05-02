@@ -663,6 +663,10 @@ check_states (PinosLink *this,
   in_state = this->input->state;
   out_state = this->output->state;
 
+  if (in_state == PINOS_PORT_STATE_STREAMING &&
+      out_state == PINOS_PORT_STATE_STREAMING)
+    return SPA_RESULT_OK;
+
   pinos_log_debug ("link %p: input state %d, output state %d", this, in_state, out_state);
 
   if ((res = do_negotiate (this, in_state, out_state)) != SPA_RESULT_OK)

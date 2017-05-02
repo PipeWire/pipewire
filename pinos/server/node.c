@@ -323,9 +323,8 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
     SpaEventNodeAsyncComplete *ac = (SpaEventNodeAsyncComplete *) event;
 
     pinos_log_debug ("node %p: async complete event %d %d", this, ac->body.seq.value, ac->body.res.value);
-    if (!pinos_work_queue_complete (impl->work, this, ac->body.seq.value, ac->body.res.value)) {
-      pinos_signal_emit (&this->async_complete, this, ac->body.seq.value, ac->body.res.value);
-    }
+    pinos_work_queue_complete (impl->work, this, ac->body.seq.value, ac->body.res.value);
+    pinos_signal_emit (&this->async_complete, this, ac->body.seq.value, ac->body.res.value);
   }
   else if (SPA_EVENT_TYPE (event) == this->core->type.event_node.NeedInput) {
     do_pull (this);

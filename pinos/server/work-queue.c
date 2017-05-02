@@ -44,6 +44,7 @@ typedef struct
 
   SpaList  work_list;
   SpaList  free_list;
+  int      n_queued;
 } PinosWorkQueueImpl;
 
 
@@ -58,19 +59,23 @@ process_work_queue (SpaLoopUtils *utils,
 
   spa_list_for_each_safe (item, tmp, &impl->work_list, link) {
     if (item->seq != SPA_ID_INVALID) {
-      pinos_log_debug ("work-queue %p: waiting for item %p %d", this, item->obj, item->seq);
+      pinos_log_debug ("work-queue %p: %d waiting for item %p %d", this, impl->n_queued,
+          item->obj, item->seq);
       continue;
     }
 
     if (item->res == SPA_RESULT_WAIT_SYNC && item != spa_list_first (&impl->work_list, WorkItem, link)) {
-      pinos_log_debug ("work-queue %p: sync item %p not head", this, item->obj);
+      pinos_log_debug ("work-queue %p: %d sync item %p not head", this, impl->n_queued,
+          item->obj);
       continue;
     }
 
     spa_list_remove (&item->link);
+    impl->n_queued--;
 
     if (item->func) {
-      pinos_log_debug ("work-queue %p: process work item %p %d %d", this, item->obj, item->seq, item->res);
+      pinos_log_debug ("work-queue %p: %d process work item %p %d %d", this, impl->n_queued,
+               item->obj, item->seq, item->res);
       item->func (item->obj, item->data, item->res, item->id);
     }
     spa_list_insert (impl->free_list.prev, &item->link);
@@ -118,9 +123,12 @@ pinos_work_queue_destroy (PinosWorkQueue * queue)
 
   pinos_loop_destroy_source (queue->loop, impl->wakeup);
 
-  spa_list_for_each_safe (item, tmp, &impl->free_list, link)
+  spa_list_for_each_safe (item, tmp, &impl->work_list, link) {
+    pinos_log_warn ("work-queue %p: cancel work item %p %d %d", queue,
+          item->obj, item->seq, item->res);
     free (item);
-  spa_list_for_each_safe (item, tmp, &impl->work_list, link)
+  }
+  spa_list_for_each_safe (item, tmp, &impl->free_list, link)
     free (item);
 
   free (impl);
@@ -166,6 +174,7 @@ pinos_work_queue_add (PinosWorkQueue *queue,
     pinos_log_debug ("work-queue %p: defer object %p", queue, obj);
   }
   spa_list_insert (impl->work_list.prev, &item->link);
+  impl->n_queued++;
 
   if (have_work)
     pinos_loop_signal_event (impl->this.loop, impl->wakeup);

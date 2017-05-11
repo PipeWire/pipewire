@@ -109,7 +109,7 @@ struct _SpaVolume {
   uint8_t props_buffer[512];
   SpaVolumeProps props;
 
-  SpaEventNodeCallback event_cb;
+  SpaNodeCallbacks callbacks;
   void *user_data;
 
   uint8_t format_buffer[1024];
@@ -215,9 +215,10 @@ spa_volume_node_send_command (SpaNode    *node,
 }
 
 static SpaResult
-spa_volume_node_set_event_callback (SpaNode              *node,
-                                    SpaEventNodeCallback  event,
-                                    void                 *user_data)
+spa_volume_node_set_callbacks (SpaNode                *node,
+                               const SpaNodeCallbacks *callbacks,
+                               size_t                  callbacks_size,
+                               void                   *user_data)
 {
   SpaVolume *this;
 
@@ -225,7 +226,7 @@ spa_volume_node_set_event_callback (SpaNode              *node,
 
   this = SPA_CONTAINER_OF (node, SpaVolume, node);
 
-  this->event_cb = event;
+  this->callbacks = *callbacks;
   this->user_data = user_data;
 
   return SPA_RESULT_OK;
@@ -352,11 +353,11 @@ clear_buffers (SpaVolume *this, SpaVolumePort *port)
 }
 
 static SpaResult
-spa_volume_node_port_set_format (SpaNode            *node,
-                                 SpaDirection        direction,
-                                 uint32_t            port_id,
-                                 SpaPortFormatFlags  flags,
-                                 const SpaFormat    *format)
+spa_volume_node_port_set_format (SpaNode         *node,
+                                 SpaDirection     direction,
+                                 uint32_t         port_id,
+                                 uint32_t         flags,
+                                 const SpaFormat *format)
 {
   SpaVolume *this;
   SpaVolumePort *port;
@@ -623,12 +624,10 @@ find_free_buffer (SpaVolume *this, SpaVolumePort *port)
   return b->outbuf;
 }
 
-static void
+static inline void
 release_buffer (SpaVolume *this, SpaBuffer *buffer)
 {
-  SpaEventNodeReuseBuffer rb = SPA_EVENT_NODE_REUSE_BUFFER_INIT (this->type.event_node.ReuseBuffer,
-                                                                 0, buffer->id);
-  this->event_cb (&this->node, (SpaEvent *)&rb, this->user_data);
+  this->callbacks.reuse_buffer (&this->node, 0, buffer->id, this->user_data);
 }
 
 static void
@@ -740,7 +739,7 @@ static const SpaNode volume_node = {
   spa_volume_node_get_props,
   spa_volume_node_set_props,
   spa_volume_node_send_command,
-  spa_volume_node_set_event_callback,
+  spa_volume_node_set_callbacks,
   spa_volume_node_get_n_ports,
   spa_volume_node_get_port_ids,
   spa_volume_node_add_port,

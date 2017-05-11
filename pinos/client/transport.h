@@ -1,4 +1,4 @@
-/* Simple Plugin API
+/* Pinos
  * Copyright (C) 2016 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -82,6 +82,46 @@ SpaResult        pinos_transport_next_event     (PinosTransport *trans,
                                                  SpaEvent       *event);
 SpaResult        pinos_transport_parse_event    (PinosTransport *trans,
                                                  void           *event);
+
+#define PINOS_TYPE_EVENT__Transport            SPA_TYPE_EVENT_BASE "Transport"
+#define PINOS_TYPE_EVENT_TRANSPORT_BASE        PINOS_TYPE_EVENT__Transport ":"
+
+#define PINOS_TYPE_EVENT_TRANSPORT__HaveOutput            PINOS_TYPE_EVENT_TRANSPORT_BASE "HaveOutput"
+#define PINOS_TYPE_EVENT_TRANSPORT__NeedInput             PINOS_TYPE_EVENT_TRANSPORT_BASE "NeedInput"
+#define PINOS_TYPE_EVENT_TRANSPORT__ReuseBuffer           PINOS_TYPE_EVENT_TRANSPORT_BASE "ReuseBuffer"
+
+typedef struct {
+  uint32_t HaveOutput;
+  uint32_t NeedInput;
+  uint32_t ReuseBuffer;
+} PinosTypeEventTransport;
+
+static inline void
+pinos_type_event_transport_map (SpaTypeMap *map, PinosTypeEventTransport *type)
+{
+  if (type->HaveOutput == 0) {
+    type->HaveOutput        = spa_type_map_get_id (map, PINOS_TYPE_EVENT_TRANSPORT__HaveOutput);
+    type->NeedInput         = spa_type_map_get_id (map, PINOS_TYPE_EVENT_TRANSPORT__NeedInput);
+    type->ReuseBuffer       = spa_type_map_get_id (map, PINOS_TYPE_EVENT_TRANSPORT__ReuseBuffer);
+  }
+}
+
+typedef struct {
+  SpaPODObjectBody body;
+  SpaPODInt        port_id;
+  SpaPODInt        buffer_id;
+} PinosEventTransportReuseBufferBody;
+
+typedef struct {
+  SpaPOD                             pod;
+  PinosEventTransportReuseBufferBody body;
+} PinosEventTransportReuseBuffer;
+
+#define PINOS_EVENT_TRANSPORT_REUSE_BUFFER_INIT(type,port_id,buffer_id)         \
+  SPA_EVENT_INIT_COMPLEX (sizeof (PinosEventTransportReuseBufferBody), type,    \
+      SPA_POD_INT_INIT (port_id),                                               \
+      SPA_POD_INT_INIT (buffer_id))
+
 
 #ifdef __cplusplus
 }  /* extern "C" */

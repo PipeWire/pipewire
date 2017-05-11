@@ -99,7 +99,7 @@ do_send_event (SpaLoop        *loop,
 {
   SpaALSASink *this = user_data;
 
-  this->event_cb (&this->node, data, this->user_data);
+  this->callbacks.event (&this->node, data, this->user_data);
 
   return SPA_RESULT_OK;
 }
@@ -171,9 +171,10 @@ spa_alsa_sink_node_send_command (SpaNode    *node,
 }
 
 static SpaResult
-spa_alsa_sink_node_set_event_callback (SpaNode              *node,
-                                       SpaEventNodeCallback  event,
-                                       void                 *user_data)
+spa_alsa_sink_node_set_callbacks (SpaNode                *node,
+                                  const SpaNodeCallbacks *callbacks,
+                                  size_t                  callbacks_size,
+                                  void                   *user_data)
 {
   SpaALSASink *this;
 
@@ -181,7 +182,7 @@ spa_alsa_sink_node_set_event_callback (SpaNode              *node,
 
   this = SPA_CONTAINER_OF (node, SpaALSASink, node);
 
-  this->event_cb = event;
+  this->callbacks = *callbacks;
   this->user_data = user_data;
 
   return SPA_RESULT_OK;
@@ -271,11 +272,11 @@ spa_alsa_clear_buffers (SpaALSASink *this)
 }
 
 static SpaResult
-spa_alsa_sink_node_port_set_format (SpaNode            *node,
-                                    SpaDirection        direction,
-                                    uint32_t            port_id,
-                                    SpaPortFormatFlags  flags,
-                                    const SpaFormat    *format)
+spa_alsa_sink_node_port_set_format (SpaNode         *node,
+                                    SpaDirection     direction,
+                                    uint32_t         port_id,
+                                    uint32_t         flags,
+                                    const SpaFormat *format)
 {
   SpaALSASink *this;
   SpaPODBuilder b = { NULL };
@@ -590,7 +591,7 @@ static const SpaNode alsasink_node = {
   spa_alsa_sink_node_get_props,
   spa_alsa_sink_node_set_props,
   spa_alsa_sink_node_send_command,
-  spa_alsa_sink_node_set_event_callback,
+  spa_alsa_sink_node_set_callbacks,
   spa_alsa_sink_node_get_n_ports,
   spa_alsa_sink_node_get_port_ids,
   spa_alsa_sink_node_add_port,

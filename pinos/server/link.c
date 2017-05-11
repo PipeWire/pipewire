@@ -364,7 +364,7 @@ do_allocation (PinosLink *this, uint32_t in_state, uint32_t out_state)
   PinosLinkImpl *impl = SPA_CONTAINER_OF (this, PinosLinkImpl, this);
   SpaResult res;
   const SpaPortInfo *iinfo, *oinfo;
-  SpaPortInfoFlags in_flags, out_flags;
+  uint32_t in_flags, out_flags;
   char *error = NULL;
 
   if (in_state != PINOS_PORT_STATE_READY && out_state != PINOS_PORT_STATE_READY)

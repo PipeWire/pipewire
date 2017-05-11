@@ -210,26 +210,36 @@ make_node (AppData *data, SpaNode **node, const char *lib, const char *name, boo
 static void
 on_sink_event (SpaNode *node, SpaEvent *event, void *user_data)
 {
+  printf ("got event %d\n", SPA_EVENT_TYPE (event));
+}
+
+static void
+on_sink_need_input (SpaNode *node, void *user_data)
+{
   AppData *data = user_data;
   SpaResult res;
 
-  if (SPA_EVENT_TYPE (event) == data->type.event_node.NeedInput) {
-    res = spa_node_process_output (data->source);
-    if (res != SPA_RESULT_HAVE_BUFFER)
-      printf ("got process_output error from source %d\n", res);
+  res = spa_node_process_output (data->source);
+  if (res != SPA_RESULT_HAVE_BUFFER)
+    printf ("got process_output error from source %d\n", res);
 
-    if ((res = spa_node_process_input (data->sink)) < 0)
-      printf ("got process_input error from sink %d\n", res);
-  }
-  else if (SPA_EVENT_TYPE (event) == data->type.event_node.ReuseBuffer) {
-    SpaEventNodeReuseBuffer *rb = (SpaEventNodeReuseBuffer *) event;
-
-    data->source_sink_io[0].buffer_id = rb->body.buffer_id.value;
-  }
-  else {
-    printf ("got event %d\n", SPA_EVENT_TYPE (event));
-  }
+  if ((res = spa_node_process_input (data->sink)) < 0)
+    printf ("got process_input error from sink %d\n", res);
 }
+
+static void
+on_sink_reuse_buffer (SpaNode *node, uint32_t port_id, uint32_t buffer_id, void *user_data)
+{
+  AppData *data = user_data;
+  data->source_sink_io[0].buffer_id = buffer_id;
+}
+
+static const SpaNodeCallbacks sink_callbacks = {
+  &on_sink_event,
+  &on_sink_need_input,
+  NULL,
+  &on_sink_reuse_buffer
+};
 
 static SpaResult
 do_add_source (SpaLoop   *loop,
@@ -281,7 +291,7 @@ make_nodes (AppData *data)
     printf ("can't create alsa-sink: %d\n", res);
     return res;
   }
-  spa_node_set_event_callback (data->sink, on_sink_event, data);
+  spa_node_set_callbacks (data->sink, &sink_callbacks, sizeof (sink_callbacks), data);
 
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
   spa_pod_builder_props (&b, &f[0], data->type.props,

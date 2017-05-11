@@ -213,7 +213,7 @@ spa_alsa_enum_format (SpaALSAState    *state,
 }
 
 int
-spa_alsa_set_format (SpaALSAState *state, SpaAudioInfo *fmt, SpaPortFormatFlags flags)
+spa_alsa_set_format (SpaALSAState *state, SpaAudioInfo *fmt, uint32_t flags)
 {
   unsigned int rrate, rchannels;
   snd_pcm_uframes_t period_size;
@@ -336,13 +336,11 @@ pull_frames (SpaALSAState *state,
   SpaPortIO *io = state->io;
 
   if (spa_list_is_empty (&state->ready) && do_pull) {
-    SpaEvent event = SPA_EVENT_INIT (state->type.event_node.NeedInput);
-
     io->status = SPA_RESULT_NEED_BUFFER;
     io->range.offset = state->sample_count * state->frame_size;
     io->range.min_size = state->threshold * state->frame_size;
     io->range.max_size = frames * state->frame_size;
-    state->event_cb (&state->node, &event, state->user_data);
+    state->callbacks.need_input (&state->node, state->user_data);
   }
   while (!spa_list_is_empty (&state->ready) && to_write > 0) {
     uint8_t *src, *dst;
@@ -389,14 +387,11 @@ pull_frames (SpaALSAState *state,
       reuse = (state->ready_offset >= size);
     }
     if (reuse) {
-      SpaEventNodeReuseBuffer rb = SPA_EVENT_NODE_REUSE_BUFFER_INIT (state->type.event_node.ReuseBuffer,
-                                                                     0, b->outbuf->id);
-
       spa_list_remove (&b->link);
       b->outstanding = true;
       state->io->buffer_id = b->outbuf->id;
       spa_log_trace (state->log, "alsa-util %p: reuse buffer %u", state, b->outbuf->id);
-      state->event_cb (&state->node, (SpaEvent *)&rb, state->user_data);
+      state->callbacks.reuse_buffer (&state->node, 0, b->outbuf->id, state->user_data);
       state->ready_offset = 0;
     }
     total_frames += n_frames;
@@ -450,13 +445,10 @@ push_frames (SpaALSAState *state,
     d[0].chunk->stride = 0;
 
     {
-      SpaEvent event = SPA_EVENT_INIT (state->type.event_node.HaveOutput);
-
       b->outstanding = true;
       io->buffer_id = b->outbuf->id;
       io->status = SPA_RESULT_HAVE_BUFFER;
-
-      state->event_cb (&state->node, &event, state->user_data);
+      state->callbacks.have_output (&state->node, state->user_data);
     }
   }
   return total_frames;

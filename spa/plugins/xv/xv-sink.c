@@ -106,7 +106,7 @@ struct _SpaXvSink {
   uint8_t props_buffer[512];
   SpaXvSinkProps props;
 
-  SpaEventNodeCallback event_cb;
+  SpaNodeCallbacks callbacks;
   void *user_data;
 
   bool have_format;
@@ -196,9 +196,10 @@ spa_xv_sink_node_send_command (SpaNode    *node,
 }
 
 static SpaResult
-spa_xv_sink_node_set_event_callback (SpaNode              *node,
-                                     SpaEventNodeCallback  event,
-                                     void                 *user_data)
+spa_xv_sink_node_set_callbacks (SpaNode                *node,
+                                const SpaNodeCallbacks *callbacks,
+                                size_t                  callbacks_size,
+                                void                   *user_data)
 {
   SpaXvSink *this;
 
@@ -207,7 +208,7 @@ spa_xv_sink_node_set_event_callback (SpaNode              *node,
 
   this = SPA_CONTAINER_OF (node, SpaXvSink, node);
 
-  this->event_cb = event;
+  this->callbacks = *callbacks;
   this->user_data = user_data;
 
   return SPA_RESULT_OK;
@@ -298,11 +299,11 @@ spa_xv_sink_node_port_enum_formats (SpaNode         *node,
 }
 
 static SpaResult
-spa_xv_sink_node_port_set_format (SpaNode            *node,
-                                  SpaDirection        direction,
-                                  uint32_t            port_id,
-                                  SpaPortFormatFlags  flags,
-                                  const SpaFormat    *format)
+spa_xv_sink_node_port_set_format (SpaNode         *node,
+                                  SpaDirection     direction,
+                                  uint32_t         port_id,
+                                  uint32_t         flags,
+                                  const SpaFormat *format)
 {
   SpaXvSink *this;
 
@@ -482,7 +483,7 @@ static const SpaNode xvsink_node = {
   spa_xv_sink_node_get_props,
   spa_xv_sink_node_set_props,
   spa_xv_sink_node_send_command,
-  spa_xv_sink_node_set_event_callback,
+  spa_xv_sink_node_set_callbacks,
   spa_xv_sink_node_get_n_ports,
   spa_xv_sink_node_get_port_ids,
   spa_xv_sink_node_add_port,
@@ -561,7 +562,7 @@ xv_sink_init (const SpaHandleFactory  *factory,
   this->node = xvsink_node;
   reset_xv_sink_props (&this->props);
 
-  this->info.flags = SPA_PORT_INFO_FLAG_NONE;
+  this->info.flags = 0;
 
   return SPA_RESULT_OK;
 }

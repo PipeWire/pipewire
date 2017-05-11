@@ -81,7 +81,7 @@ struct _SpaFFMpegEnc {
   SpaTypeMap *map;
   SpaLog *log;
 
-  SpaEventNodeCallback event_cb;
+  SpaNodeCallbacks callbacks;
   void *user_data;
 
   SpaFFMpegPort in_ports[1];
@@ -128,9 +128,10 @@ spa_ffmpeg_enc_node_send_command (SpaNode    *node,
 }
 
 static SpaResult
-spa_ffmpeg_enc_node_set_event_callback (SpaNode              *node,
-                                        SpaEventNodeCallback  event,
-                                        void                 *user_data)
+spa_ffmpeg_enc_node_set_callbacks (SpaNode                *node,
+                                   const SpaNodeCallbacks *callbacks,
+                                   size_t                  callbacks_size,
+                                   void                   *user_data)
 {
   SpaFFMpegEnc *this;
 
@@ -139,7 +140,7 @@ spa_ffmpeg_enc_node_set_event_callback (SpaNode              *node,
 
   this = SPA_CONTAINER_OF (node, SpaFFMpegEnc, node);
 
-  this->event_cb = event;
+  this->callbacks = *callbacks;
   this->user_data = user_data;
 
   return SPA_RESULT_OK;
@@ -235,11 +236,11 @@ spa_ffmpeg_enc_node_port_enum_formats (SpaNode         *node,
 }
 
 static SpaResult
-spa_ffmpeg_enc_node_port_set_format (SpaNode            *node,
-                                     SpaDirection        direction,
-                                     uint32_t            port_id,
-                                     SpaPortFormatFlags  flags,
-                                     const SpaFormat    *format)
+spa_ffmpeg_enc_node_port_set_format (SpaNode         *node,
+                                     SpaDirection     direction,
+                                     uint32_t         port_id,
+                                     uint32_t         flags,
+                                     const SpaFormat *format)
 {
   SpaFFMpegEnc *this;
   SpaFFMpegPort *port;
@@ -456,7 +457,7 @@ static const SpaNode ffmpeg_enc_node = {
   spa_ffmpeg_enc_node_get_props,
   spa_ffmpeg_enc_node_set_props,
   spa_ffmpeg_enc_node_send_command,
-  spa_ffmpeg_enc_node_set_event_callback,
+  spa_ffmpeg_enc_node_set_callbacks,
   spa_ffmpeg_enc_node_get_n_ports,
   spa_ffmpeg_enc_node_get_port_ids,
   spa_ffmpeg_enc_node_add_port,
@@ -522,8 +523,8 @@ spa_ffmpeg_enc_init (SpaHandle         *handle,
 
   this->node = ffmpeg_enc_node;
 
-  this->in_ports[0].info.flags = SPA_PORT_INFO_FLAG_NONE;
-  this->out_ports[0].info.flags = SPA_PORT_INFO_FLAG_NONE;
+  this->in_ports[0].info.flags = 0;
+  this->out_ports[0].info.flags = 0;
 
   return SPA_RESULT_OK;
 }

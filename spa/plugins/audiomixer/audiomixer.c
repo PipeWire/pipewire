@@ -88,7 +88,7 @@ struct _SpaAudioMixer {
   SpaTypeMap *map;
   SpaLog *log;
 
-  SpaEventNodeCallback event_cb;
+  SpaNodeCallbacks callbacks;
   void *user_data;
 
   int port_count;
@@ -161,9 +161,10 @@ spa_audiomixer_node_send_command (SpaNode    *node,
 }
 
 static SpaResult
-spa_audiomixer_node_set_event_callback (SpaNode              *node,
-                                        SpaEventNodeCallback  event,
-                                        void                 *user_data)
+spa_audiomixer_node_set_callbacks (SpaNode                *node,
+                                   const SpaNodeCallbacks *callbacks,
+                                   size_t                  callbacks_size,
+                                   void                   *user_data)
 {
   SpaAudioMixer *this;
 
@@ -171,7 +172,7 @@ spa_audiomixer_node_set_event_callback (SpaNode              *node,
 
   this = SPA_CONTAINER_OF (node, SpaAudioMixer, node);
 
-  this->event_cb = event;
+  this->callbacks = *callbacks;
   this->user_data = user_data;
 
   return SPA_RESULT_OK;
@@ -335,11 +336,11 @@ clear_buffers (SpaAudioMixer *this, SpaAudioMixerPort *port)
 }
 
 static SpaResult
-spa_audiomixer_node_port_set_format (SpaNode            *node,
-                                     SpaDirection        direction,
-                                     uint32_t            port_id,
-                                     SpaPortFormatFlags  flags,
-                                     const SpaFormat    *format)
+spa_audiomixer_node_port_set_format (SpaNode         *node,
+                                     SpaDirection     direction,
+                                     uint32_t         port_id,
+                                     uint32_t         flags,
+                                     const SpaFormat *format)
 {
   SpaAudioMixer *this;
   SpaAudioMixerPort *port;
@@ -789,7 +790,7 @@ static const SpaNode audiomixer_node = {
   spa_audiomixer_node_get_props,
   spa_audiomixer_node_set_props,
   spa_audiomixer_node_send_command,
-  spa_audiomixer_node_set_event_callback,
+  spa_audiomixer_node_set_callbacks,
   spa_audiomixer_node_get_n_ports,
   spa_audiomixer_node_get_port_ids,
   spa_audiomixer_node_add_port,

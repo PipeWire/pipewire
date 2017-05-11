@@ -114,7 +114,7 @@ struct _SpaVideoTestSrc {
   uint8_t props_buffer[512];
   SpaVideoTestSrcProps props;
 
-  SpaEventNodeCallback event_cb;
+  SpaNodeCallbacks callbacks;
   void *user_data;
 
   SpaSource timer_source;
@@ -221,13 +221,11 @@ spa_videotestsrc_node_set_props (SpaNode         *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
+static inline SpaResult
 send_have_output (SpaVideoTestSrc *this)
 {
-  if (this->event_cb) {
-    SpaEvent event = SPA_EVENT_INIT (this->type.event_node.HaveOutput);
-    this->event_cb (&this->node, &event, this->user_data);
-  }
+  if (this->callbacks.have_output)
+    this->callbacks.have_output (&this->node, this->user_data);
   return SPA_RESULT_OK;
 }
 
@@ -381,9 +379,10 @@ spa_videotestsrc_node_send_command (SpaNode    *node,
 }
 
 static SpaResult
-spa_videotestsrc_node_set_event_callback (SpaNode              *node,
-                                          SpaEventNodeCallback  event_cb,
-                                          void                 *user_data)
+spa_videotestsrc_node_set_callbacks (SpaNode                *node,
+                                     const SpaNodeCallbacks *callbacks,
+                                     size_t                  callbacks_size,
+                                     void                   *user_data)
 {
   SpaVideoTestSrc *this;
 
@@ -391,7 +390,7 @@ spa_videotestsrc_node_set_event_callback (SpaNode              *node,
 
   this = SPA_CONTAINER_OF (node, SpaVideoTestSrc, node);
 
-  this->event_cb = event_cb;
+  this->callbacks = *callbacks;
   this->user_data = user_data;
 
   return SPA_RESULT_OK;
@@ -523,11 +522,11 @@ clear_buffers (SpaVideoTestSrc *this)
 }
 
 static SpaResult
-spa_videotestsrc_node_port_set_format (SpaNode            *node,
-                                       SpaDirection        direction,
-                                       uint32_t            port_id,
-                                       SpaPortFormatFlags  flags,
-                                       const SpaFormat    *format)
+spa_videotestsrc_node_port_set_format (SpaNode         *node,
+                                       SpaDirection     direction,
+                                       uint32_t         port_id,
+                                       uint32_t         flags,
+                                       const SpaFormat *format)
 {
   SpaVideoTestSrc *this;
 
@@ -831,7 +830,7 @@ static const SpaNode videotestsrc_node = {
   spa_videotestsrc_node_get_props,
   spa_videotestsrc_node_set_props,
   spa_videotestsrc_node_send_command,
-  spa_videotestsrc_node_set_event_callback,
+  spa_videotestsrc_node_set_callbacks,
   spa_videotestsrc_node_get_n_ports,
   spa_videotestsrc_node_get_port_ids,
   spa_videotestsrc_node_add_port,

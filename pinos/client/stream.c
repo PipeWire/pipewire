@@ -378,7 +378,7 @@ static inline void
 send_have_output (PinosStream *stream)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
-  SpaEvent ho = SPA_EVENT_INIT (stream->context->type.event_node.HaveOutput);
+  SpaEvent ho = SPA_EVENT_INIT (stream->context->type.event_transport.HaveOutput);
   uint64_t cmd = 1;
 
   pinos_transport_add_event (impl->trans, &ho);
@@ -483,7 +483,7 @@ handle_rtnode_event (PinosStream  *stream,
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
   PinosContext *context = impl->this.context;
 
-  if (SPA_EVENT_TYPE (event) == context->type.event_node.HaveOutput) {
+  if (SPA_EVENT_TYPE (event) == context->type.event_transport.HaveOutput) {
     int i;
 
     for (i = 0; i < impl->trans->area->n_inputs; i++) {
@@ -498,7 +498,7 @@ handle_rtnode_event (PinosStream  *stream,
     }
     send_need_input (stream);
   }
-  else if (SPA_EVENT_TYPE (event) == context->type.event_node.NeedInput) {
+  else if (SPA_EVENT_TYPE (event) == context->type.event_transport.NeedInput) {
     int i;
 
     for (i = 0; i < impl->trans->area->n_outputs; i++) {
@@ -516,8 +516,8 @@ handle_rtnode_event (PinosStream  *stream,
     pinos_signal_emit (&stream->need_buffer, stream);
     impl->in_need_buffer = false;
   }
-  else if (SPA_EVENT_TYPE (event) == context->type.event_node.ReuseBuffer) {
-    SpaEventNodeReuseBuffer *p = (SpaEventNodeReuseBuffer *) event;
+  else if (SPA_EVENT_TYPE (event) == context->type.event_transport.ReuseBuffer) {
+    PinosEventTransportReuseBuffer *p = (PinosEventTransportReuseBuffer *) event;
 
     if (p->body.port_id.value != impl->port_id)
       return;
@@ -699,12 +699,12 @@ client_node_remove_port (void              *object,
 }
 
 static void
-client_node_set_format (void              *object,
-                        uint32_t           seq,
-                        SpaDirection       direction,
-                        uint32_t           port_id,
-                        SpaPortFormatFlags flags,
-                        const SpaFormat   *format)
+client_node_set_format (void            *object,
+                        uint32_t         seq,
+                        SpaDirection     direction,
+                        uint32_t         port_id,
+                        uint32_t         flags,
+                        const SpaFormat *format)
 {
   PinosProxy *proxy = object;
   PinosStream *stream = proxy->user_data;
@@ -1138,8 +1138,8 @@ pinos_stream_recycle_buffer (PinosStream *stream,
                              uint32_t     id)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
-  SpaEventNodeReuseBuffer rb = SPA_EVENT_NODE_REUSE_BUFFER_INIT (stream->context->type.event_node.ReuseBuffer,
-                                                                 impl->port_id, id);
+  PinosEventTransportReuseBuffer rb = PINOS_EVENT_TRANSPORT_REUSE_BUFFER_INIT
+                        (stream->context->type.event_transport.ReuseBuffer, impl->port_id, id);
   BufferId *bid;
   uint64_t cmd = 1;
 

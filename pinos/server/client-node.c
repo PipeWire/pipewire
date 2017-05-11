@@ -96,7 +96,7 @@ struct _SpaProxy
   SpaLoop *main_loop;
   SpaLoop *data_loop;
 
-  SpaEventNodeCallback event_cb;
+  SpaNodeCallbacks callbacks;
   void *user_data;
 
   PinosResource *resource;
@@ -172,7 +172,7 @@ static inline void
 send_need_input (SpaProxy *this)
 {
   PinosClientNodeImpl *impl = SPA_CONTAINER_OF (this, PinosClientNodeImpl, proxy);
-  SpaEvent event = SPA_EVENT_INIT (impl->core->type.event_node.NeedInput);
+  SpaEvent event = SPA_EVENT_INIT (impl->core->type.event_transport.NeedInput);
 
   pinos_transport_add_event (impl->transport, &event);
   do_flush (this);
@@ -182,7 +182,7 @@ static inline void
 send_have_output (SpaProxy *this)
 {
   PinosClientNodeImpl *impl = SPA_CONTAINER_OF (this, PinosClientNodeImpl, proxy);
-  SpaEvent event = SPA_EVENT_INIT (impl->core->type.event_node.HaveOutput);
+  SpaEvent event = SPA_EVENT_INIT (impl->core->type.event_transport.HaveOutput);
 
   pinos_transport_add_event (impl->transport, &event);
   do_flush (this);
@@ -225,9 +225,10 @@ spa_proxy_node_send_command (SpaNode    *node,
 }
 
 static SpaResult
-spa_proxy_node_set_event_callback (SpaNode              *node,
-                                   SpaEventNodeCallback  event,
-                                   void                 *user_data)
+spa_proxy_node_set_callbacks (SpaNode                *node,
+                              const SpaNodeCallbacks *callbacks,
+                              size_t                  callbacks_size,
+                              void                   *user_data)
 {
   SpaProxy *this;
 
@@ -235,7 +236,7 @@ spa_proxy_node_set_event_callback (SpaNode              *node,
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   this = SPA_CONTAINER_OF (node, SpaProxy, node);
-  this->event_cb = event;
+  this->callbacks = *callbacks;
   this->user_data = user_data;
 
   return SPA_RESULT_OK;
@@ -484,11 +485,11 @@ next:
 }
 
 static SpaResult
-spa_proxy_node_port_set_format (SpaNode            *node,
-                                SpaDirection        direction,
-                                uint32_t            port_id,
-                                SpaPortFormatFlags  flags,
-                                const SpaFormat    *format)
+spa_proxy_node_port_set_format (SpaNode         *node,
+                                SpaDirection     direction,
+                                uint32_t         port_id,
+                                uint32_t         flags,
+                                const SpaFormat *format)
 {
   SpaProxy *this;
 
@@ -768,8 +769,8 @@ spa_proxy_node_port_reuse_buffer (SpaNode         *node,
 
   spa_log_trace (this->log, "reuse buffer %d", buffer_id);
   {
-    SpaEventNodeReuseBuffer rb = SPA_EVENT_NODE_REUSE_BUFFER_INIT (impl->core->type.event_node.ReuseBuffer,
-                                                                   port_id, buffer_id);
+    PinosEventTransportReuseBuffer rb = PINOS_EVENT_TRANSPORT_REUSE_BUFFER_INIT
+                                (impl->core->type.event_transport.ReuseBuffer, port_id, buffer_id);
     pinos_transport_add_event (impl->transport, (SpaEvent *)&rb);
   }
 
@@ -840,8 +841,8 @@ spa_proxy_node_process_output (SpaNode *node)
       continue;
 
     if (io->buffer_id != SPA_ID_INVALID) {
-      SpaEventNodeReuseBuffer rb =
-        SPA_EVENT_NODE_REUSE_BUFFER_INIT (impl->core->type.event_node.ReuseBuffer, i, io->buffer_id);
+      PinosEventTransportReuseBuffer rb =
+        PINOS_EVENT_TRANSPORT_REUSE_BUFFER_INIT (impl->core->type.event_transport.ReuseBuffer, i, io->buffer_id);
 
       spa_log_trace (this->log, "reuse buffer %d", io->buffer_id);
 
@@ -875,7 +876,7 @@ handle_node_event (SpaProxy *this,
   PinosClientNodeImpl *impl = SPA_CONTAINER_OF (this, PinosClientNodeImpl, proxy);
   int i;
 
-  if (SPA_EVENT_TYPE (event) == impl->core->type.event_node.HaveOutput) {
+  if (SPA_EVENT_TYPE (event) == impl->core->type.event_transport.HaveOutput) {
     for (i = 0; i < MAX_OUTPUTS; i++) {
       SpaPortIO *io = this->out_ports[i].io;
 
@@ -885,8 +886,15 @@ handle_node_event (SpaProxy *this,
       *io = impl->transport->outputs[i];
       pinos_log_trace ("%d %d", io->status, io->buffer_id);
     }
+    this->callbacks.have_output (&this->node, this->user_data);
   }
-  this->event_cb (&this->node, event, this->user_data);
+  else if (SPA_EVENT_TYPE (event) == impl->core->type.event_transport.NeedInput) {
+    this->callbacks.need_input (&this->node, this->user_data);
+  }
+  else if (SPA_EVENT_TYPE (event) == impl->core->type.event_transport.ReuseBuffer) {
+    PinosEventTransportReuseBuffer *p = (PinosEventTransportReuseBuffer *) event;
+    this->callbacks.reuse_buffer (&this->node, p->body.port_id.value, p->body.buffer_id.value, this->user_data);
+  }
   return SPA_RESULT_OK;
 }
 
@@ -958,7 +966,7 @@ client_node_event (void     *object,
   PinosClientNodeImpl *impl = SPA_CONTAINER_OF (node, PinosClientNodeImpl, this);
   SpaProxy *this = &impl->proxy;
 
-  handle_node_event (this, event);
+  this->callbacks.event (&this->node, event, this->user_data);
 }
 
 static void
@@ -996,7 +1004,7 @@ proxy_on_data_fd_events (SpaSource *source)
     while (pinos_transport_next_event (impl->transport, &event) == SPA_RESULT_OK) {
       SpaEvent *ev = alloca (SPA_POD_SIZE (&event));
       pinos_transport_parse_event (impl->transport, ev);
-      this->event_cb (&this->node, ev, this->user_data);
+      handle_node_event (this, ev);
     }
   }
 }
@@ -1007,7 +1015,7 @@ static const SpaNode proxy_node = {
   spa_proxy_node_get_props,
   spa_proxy_node_set_props,
   spa_proxy_node_send_command,
-  spa_proxy_node_set_event_callback,
+  spa_proxy_node_set_callbacks,
   spa_proxy_node_get_n_ports,
   spa_proxy_node_get_port_ids,
   spa_proxy_node_add_port,

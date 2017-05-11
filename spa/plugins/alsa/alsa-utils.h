@@ -121,7 +121,7 @@ struct _SpaALSAState {
   snd_pcm_stream_t stream;
   snd_output_t *output;
 
-  SpaEventNodeCallback event_cb;
+  SpaNodeCallbacks callbacks;
   void *user_data;
 
   uint8_t props_buffer[1024];
@@ -185,7 +185,7 @@ spa_alsa_enum_format (SpaALSAState    *state,
 
 int spa_alsa_set_format (SpaALSAState *state,
                          SpaAudioInfo *info,
-                         SpaPortFormatFlags flags);
+                         uint32_t      flags);
 
 SpaResult spa_alsa_start (SpaALSAState *state, bool xrun_recover);
 SpaResult spa_alsa_pause (SpaALSAState *state, bool xrun_recover);

@@ -33,9 +33,6 @@ extern "C" {
 #define SPA_TYPE_EVENT_NODE_BASE         SPA_TYPE_EVENT__Node ":"
 
 #define SPA_TYPE_EVENT_NODE__AsyncComplete         SPA_TYPE_EVENT_NODE_BASE "AsyncComplete"
-#define SPA_TYPE_EVENT_NODE__HaveOutput            SPA_TYPE_EVENT_NODE_BASE "HaveOutput"
-#define SPA_TYPE_EVENT_NODE__NeedInput             SPA_TYPE_EVENT_NODE_BASE "NeedInput"
-#define SPA_TYPE_EVENT_NODE__ReuseBuffer           SPA_TYPE_EVENT_NODE_BASE "ReuseBuffer"
 #define SPA_TYPE_EVENT_NODE__Error                 SPA_TYPE_EVENT_NODE_BASE "Error"
 #define SPA_TYPE_EVENT_NODE__Buffering             SPA_TYPE_EVENT_NODE_BASE "Buffering"
 #define SPA_TYPE_EVENT_NODE__RequestRefresh        SPA_TYPE_EVENT_NODE_BASE "RequestRefresh"
@@ -43,9 +40,6 @@ extern "C" {
 
 typedef struct {
   uint32_t AsyncComplete;
-  uint32_t HaveOutput;
-  uint32_t NeedInput;
-  uint32_t ReuseBuffer;
   uint32_t Error;
   uint32_t Buffering;
   uint32_t RequestRefresh;
@@ -57,9 +51,6 @@ spa_type_event_node_map (SpaTypeMap *map, SpaTypeEventNode *type)
 {
   if (type->AsyncComplete == 0) {
     type->AsyncComplete        = spa_type_map_get_id (map, SPA_TYPE_EVENT_NODE__AsyncComplete);
-    type->HaveOutput           = spa_type_map_get_id (map, SPA_TYPE_EVENT_NODE__HaveOutput);
-    type->NeedInput            = spa_type_map_get_id (map, SPA_TYPE_EVENT_NODE__NeedInput);
-    type->ReuseBuffer          = spa_type_map_get_id (map, SPA_TYPE_EVENT_NODE__ReuseBuffer);
     type->Error                = spa_type_map_get_id (map, SPA_TYPE_EVENT_NODE__Error);
     type->Buffering            = spa_type_map_get_id (map, SPA_TYPE_EVENT_NODE__Buffering);
     type->RequestRefresh       = spa_type_map_get_id (map, SPA_TYPE_EVENT_NODE__RequestRefresh);
@@ -82,22 +73,6 @@ typedef struct {
   SPA_EVENT_INIT_COMPLEX (sizeof (SpaEventNodeAsyncCompleteBody), type, \
       SPA_POD_INT_INIT (seq),                                           \
       SPA_POD_INT_INIT (res))
-
-typedef struct {
-  SpaPODObjectBody body;
-  SpaPODInt        port_id;
-  SpaPODInt        buffer_id;
-} SpaEventNodeReuseBufferBody;
-
-typedef struct {
-  SpaPOD                      pod;
-  SpaEventNodeReuseBufferBody body;
-} SpaEventNodeReuseBuffer;
-
-#define SPA_EVENT_NODE_REUSE_BUFFER_INIT(type,port_id,buffer_id)        \
-  SPA_EVENT_INIT_COMPLEX (sizeof (SpaEventNodeReuseBufferBody), type,   \
-      SPA_POD_INT_INIT (port_id),                                       \
-      SPA_POD_INT_INIT (buffer_id))
 
 typedef struct {
   SpaPODObjectBody body;

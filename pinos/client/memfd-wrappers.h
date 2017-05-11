@@ -1,4 +1,4 @@
-/* Simple Plugin API
+/* Pinos
  * Copyright (C) 2016 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or

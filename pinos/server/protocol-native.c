@@ -607,12 +607,12 @@ client_node_marshal_remove_port (void         *object,
 }
 
 static void
-client_node_marshal_set_format (void              *object,
-                                uint32_t           seq,
-                                SpaDirection       direction,
-                                uint32_t           port_id,
-                                SpaPortFormatFlags flags,
-                                const SpaFormat   *format)
+client_node_marshal_set_format (void            *object,
+                                uint32_t         seq,
+                                SpaDirection     direction,
+                                uint32_t         port_id,
+                                uint32_t         flags,
+                                const SpaFormat *format)
 {
   PinosResource *resource = object;
   PinosConnection *connection = resource->client->protocol_private;

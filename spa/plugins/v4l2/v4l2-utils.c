@@ -972,15 +972,11 @@ mmap_read (SpaV4l2Source *this)
   d[0].chunk->size = buf.bytesused;
   d[0].chunk->stride = state->fmt.fmt.pix.bytesperline;
 
-  {
-    SpaEvent event = SPA_EVENT_INIT (this->type.event_node.HaveOutput);
+  b->outstanding = true;
+  io->buffer_id = b->outbuf->id;
+  io->status = SPA_RESULT_HAVE_BUFFER;
+  this->callbacks.have_output (&this->node, this->user_data);
 
-    b->outstanding = true;
-    io->buffer_id = b->outbuf->id;
-    io->status = SPA_RESULT_HAVE_BUFFER;
-
-    this->event_cb (&this->node, &event, this->user_data);
-  }
   return SPA_RESULT_OK;
 }
 

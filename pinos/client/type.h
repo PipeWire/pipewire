@@ -24,12 +24,14 @@
 extern "C" {
 #endif
 
-#include <pinos/client/map.h>
 #include <spa/include/spa/type-map.h>
 #include <spa/include/spa/event-node.h>
 #include <spa/include/spa/command-node.h>
 #include <spa/include/spa/monitor.h>
 #include <spa/include/spa/alloc-param.h>
+
+#include <pinos/client/map.h>
+#include <pinos/client/transport.h>
 
 typedef struct _PinosType PinosType;
 
@@ -64,6 +66,7 @@ struct _PinosType {
   SpaTypeAllocParamBuffers alloc_param_buffers;
   SpaTypeAllocParamMetaEnable alloc_param_meta_enable;
   SpaTypeAllocParamVideoPadding alloc_param_video_padding;
+  PinosTypeEventTransport event_transport;
 };
 
 void pinos_type_init (PinosType *type);

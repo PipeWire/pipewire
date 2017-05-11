@@ -38,21 +38,6 @@ typedef struct _SpaNode SpaNode;
 #include <spa/buffer.h>
 #include <spa/format.h>
 
-/**
- * SpaPortFormatFlags:
- * @SPA_PORT_FORMAT_FLAG_NONE: no flags
- * @SPA_PORT_FORMAT_FLAG_TEST_ONLY: just check if the format is accepted
- * @SPA_PORT_FORMAT_FLAG_FIXATE: fixate the non-optional unset fields
- * @SPA_PORT_FORMAT_FLAG_NEAREST: allow set fields to be rounded to the
- *            nearest allowed field value.
- */
-typedef enum {
-  SPA_PORT_FORMAT_FLAG_NONE             =  0,
-  SPA_PORT_FORMAT_FLAG_TEST_ONLY        = (1 << 0),
-  SPA_PORT_FORMAT_FLAG_FIXATE           = (1 << 1),
-  SPA_PORT_FORMAT_FLAG_NEAREST          = (1 << 2),
-} SpaPortFormatFlags;
-
 typedef struct {
   uint64_t          offset;
   uint32_t          min_size;
@@ -76,30 +61,6 @@ typedef struct {
 } SpaPortIO;
 
 /**
- * SpaPortInfoFlags:
- * @SPA_PORT_INFO_FLAG_NONE: no flags
- * @SPA_PORT_INFO_FLAG_REMOVABLE: port can be removed
- * @SPA_PORT_INFO_FLAG_OPTIONAL: processing on port is optional
- * @SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS: the port can give a buffer
- * @SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS: the port can use a provided buffer
- * @SPA_PORT_INFO_FLAG_IN_PLACE: the port can process data in-place and will need
- *    a writable input buffer
- * @SPA_PORT_INFO_FLAG_NO_REF: the port does not keep a ref on the buffer
- * @SPA_PORT_INFO_FLAG_LIVE: output buffers from this port are timestamped against
- *                           a live clock.
- */
-typedef enum {
-  SPA_PORT_INFO_FLAG_NONE                  = 0,
-  SPA_PORT_INFO_FLAG_REMOVABLE             = 1 << 0,
-  SPA_PORT_INFO_FLAG_OPTIONAL              = 1 << 1,
-  SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS     = 1 << 2,
-  SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS       = 1 << 3,
-  SPA_PORT_INFO_FLAG_IN_PLACE              = 1 << 4,
-  SPA_PORT_INFO_FLAG_NO_REF                = 1 << 5,
-  SPA_PORT_INFO_FLAG_LIVE                  = 1 << 6,
-} SpaPortInfoFlags;
-
-/**
  * SpaPortInfo
  * @flags: extra port flags
  * @rate: rate of sequence number increment per second of media data
@@ -111,7 +72,16 @@ typedef enum {
  * @extra: a dictionary of extra port info
  */
 typedef struct {
-  SpaPortInfoFlags    flags;
+#define SPA_PORT_INFO_FLAG_REMOVABLE            (1<<0)  /* port can be removed */
+#define SPA_PORT_INFO_FLAG_OPTIONAL             (1<<1)  /* processing on port is optional */
+#define SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS    (1<<2)  /* the port can allocate buffer data */
+#define SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS      (1<<3)  /* the port can use a provided buffer */
+#define SPA_PORT_INFO_FLAG_IN_PLACE             (1<<4)  /* the port can process data in-place and will need
+                                                         * a writable input buffer */
+#define SPA_PORT_INFO_FLAG_NO_REF               (1<<5)  /* the port does not keep a ref on the buffer */
+#define SPA_PORT_INFO_FLAG_LIVE                 (1<<6)  /* output buffers from this port are timestamped against
+                                                         * a live clock. */
+  uint32_t            flags;
   uint32_t            rate;
   uint32_t            n_params;
   SpaAllocParam     **params;
@@ -120,18 +90,53 @@ typedef struct {
   SpaDict            *extra;
 } SpaPortInfo;
 
-/**
- * SpaEventNodeCallback:
- * @node: a #SpaNode emiting the event
- * @event: the event that was emited
- * @user_data: user data provided when registering the callback
- *
- * This will be called when an out-of-bound event is notified
- * on @node.
- */
-typedef void   (*SpaEventNodeCallback)   (SpaNode  *node,
-                                          SpaEvent *event,
-                                          void     *user_data);
+
+typedef struct {
+  /**
+   * SpaNodeCallbacks::event:
+   * @node: a #SpaNode
+   * @event: the event that was emited
+   * @user_data: user data provided when registering the callbacks
+   *
+   * This will be called when an out-of-bound event is notified
+   * on @node.
+   */
+  void (*event)       (SpaNode  *node,
+                       SpaEvent *event,
+                       void     *user_data);
+  /**
+   * SpaNodeCallbacks::need_input:
+   * @node: a #SpaNode
+   * @user_data: user data provided when registering the callbacks
+   *
+   * The node needs more input
+   */
+  void (*need_input)  (SpaNode  *node,
+                       void     *user_data);
+  /**
+   * SpaNodeCallbacks::have_output:
+   * @node: a #SpaNode
+   * @user_data: user data provided when registering the callbacks
+   *
+   * The node has output input
+   */
+  void (*have_output)  (SpaNode  *node,
+                        void     *user_data);
+
+  /**
+   * SpaNodeCallbacks::reuse_buffer:
+   * @node: a #SpaNode
+   * @port_id: an input port_id
+   * @buffer_id: the buffer id to be reused
+   * @user_data: user data provided when registering the callbacks
+   *
+   * The node has a buffer that can be reused.
+   */
+  void (*reuse_buffer) (SpaNode  *node,
+                        uint32_t  port_id,
+                        uint32_t  buffer_id,
+                        void     *user_data);
+} SpaNodeCallbacks;
 
 /**
  * SpaNode:
@@ -219,8 +224,9 @@ struct _SpaNode {
   /**
    * SpaNode::set_event_callback:
    * @node: a #SpaNode
-   * @callback: a callback
-   * @user_data: user data passed in the callback
+   * @callbacks: callbacks to set
+   * @callbacks_size: size of the callbacks structure
+   * @user_data: user data passed to the callback functions
    *
    * Set a callback to receive events from @node. if @callback is %NULL, the
    * current callback is removed.
@@ -233,9 +239,10 @@ struct _SpaNode {
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_INVALID_ARGUMENTS when node is %NULL
    */
-  SpaResult   (*set_event_callback)   (SpaNode              *node,
-                                       SpaEventNodeCallback  callback,
-                                       void                 *user_data);
+  SpaResult   (*set_callbacks)   (SpaNode                *node,
+                                  const SpaNodeCallbacks *callbacks,
+                                  size_t                  callbacks_size,
+                                  void                   *user_data);
   /**
    * SpaNode::get_n_ports:
    * @node: a #SpaNode
@@ -367,11 +374,15 @@ struct _SpaNode {
    *                 is not correct.
    *          #SPA_RESULT_ASYNC the function is executed asynchronously
    */
-  SpaResult   (*port_set_format)      (SpaNode            *node,
-                                       SpaDirection        direction,
-                                       uint32_t            port_id,
-                                       SpaPortFormatFlags  flags,
-                                       const SpaFormat    *format);
+#define SPA_PORT_FORMAT_FLAG_TEST_ONLY        (1 << 0)      /* just check if the format is accepted */
+#define SPA_PORT_FORMAT_FLAG_FIXATE           (1 << 1)      /* fixate the non-optional unset fields */
+#define SPA_PORT_FORMAT_FLAG_NEAREST          (1 << 2)      /* allow set fields to be rounded to the
+                                                             * nearest allowed field value. */
+  SpaResult   (*port_set_format)      (SpaNode         *node,
+                                       SpaDirection     direction,
+                                       uint32_t         port_id,
+                                       uint32_t         flags,
+                                       const SpaFormat *format);
   /**
    * SpaNode::port_get_format:
    * @node: a #SpaNode
@@ -591,7 +602,7 @@ struct _SpaNode {
 #define spa_node_get_props(n,...)          (n)->get_props((n),__VA_ARGS__)
 #define spa_node_set_props(n,...)          (n)->set_props((n),__VA_ARGS__)
 #define spa_node_send_command(n,...)       (n)->send_command((n),__VA_ARGS__)
-#define spa_node_set_event_callback(n,...) (n)->set_event_callback((n),__VA_ARGS__)
+#define spa_node_set_callbacks(n,...)      (n)->set_callbacks((n),__VA_ARGS__)
 #define spa_node_get_n_ports(n,...)        (n)->get_n_ports((n),__VA_ARGS__)
 #define spa_node_get_port_ids(n,...)       (n)->get_port_ids((n),__VA_ARGS__)
 #define spa_node_add_port(n,...)           (n)->add_port((n),__VA_ARGS__)

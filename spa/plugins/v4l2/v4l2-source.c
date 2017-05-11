@@ -161,7 +161,7 @@ struct _SpaV4l2Source {
   uint8_t props_buffer[512];
   SpaV4l2SourceProps props;
 
-  SpaEventNodeCallback event_cb;
+  SpaNodeCallbacks callbacks;
   void *user_data;
 
   SpaV4l2State state[1];
@@ -244,7 +244,7 @@ do_pause_done (SpaLoop        *loop,
   if (SPA_RESULT_IS_OK (ac->body.res.value))
     ac->body.res.value = spa_v4l2_stream_off (this);
 
-  this->event_cb (&this->node, (SpaEvent *)ac, this->user_data);
+  this->callbacks.event (&this->node, (SpaEvent *)ac, this->user_data);
 
   return SPA_RESULT_OK;
 }
@@ -290,7 +290,7 @@ do_start_done (SpaLoop        *loop,
   SpaV4l2Source *this = user_data;
   SpaEventNodeAsyncComplete *ac = data;
 
-  this->event_cb (&this->node, (SpaEvent *)ac, this->user_data);
+  this->callbacks.event (&this->node, (SpaEvent *)ac, this->user_data);
 
   return SPA_RESULT_OK;
 }
@@ -381,9 +381,10 @@ spa_v4l2_source_node_send_command (SpaNode    *node,
 }
 
 static SpaResult
-spa_v4l2_source_node_set_event_callback (SpaNode              *node,
-                                         SpaEventNodeCallback  event,
-                                         void                 *user_data)
+spa_v4l2_source_node_set_callbacks (SpaNode                *node,
+                                    const SpaNodeCallbacks *callbacks,
+                                    size_t                  callbacks_size,
+                                    void                   *user_data)
 {
   SpaV4l2Source *this;
 
@@ -391,7 +392,7 @@ spa_v4l2_source_node_set_event_callback (SpaNode              *node,
 
   this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
 
-  this->event_cb = event;
+  this->callbacks = *callbacks;
   this->user_data = user_data;
 
   return SPA_RESULT_OK;
@@ -474,11 +475,11 @@ spa_v4l2_source_node_port_enum_formats (SpaNode         *node,
 }
 
 static SpaResult
-spa_v4l2_source_node_port_set_format (SpaNode            *node,
-                                      SpaDirection        direction,
-                                      uint32_t            port_id,
-                                      SpaPortFormatFlags  flags,
-                                      const SpaFormat    *format)
+spa_v4l2_source_node_port_set_format (SpaNode         *node,
+                                      SpaDirection     direction,
+                                      uint32_t         port_id,
+                                      uint32_t         flags,
+                                      const SpaFormat *format)
 {
   SpaV4l2Source *this;
   SpaV4l2State *state;
@@ -823,7 +824,7 @@ static const SpaNode v4l2source_node = {
   spa_v4l2_source_node_get_props,
   spa_v4l2_source_node_set_props,
   spa_v4l2_source_node_send_command,
-  spa_v4l2_source_node_set_event_callback,
+  spa_v4l2_source_node_set_callbacks,
   spa_v4l2_source_node_get_n_ports,
   spa_v4l2_source_node_get_port_ids,
   spa_v4l2_source_node_add_port,

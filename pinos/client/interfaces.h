@@ -1,4 +1,4 @@
-/* Simple Plugin API
+/* Pinos
  * Copyright (C) 2016 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -233,7 +233,7 @@ typedef struct {
                                 uint32_t           seq,
                                 SpaDirection       direction,
                                 uint32_t           port_id,
-                                SpaPortFormatFlags flags,
+                                uint32_t           flags,
                                 const SpaFormat   *format);
   void (*set_property)         (void              *object,
                                 uint32_t           seq,

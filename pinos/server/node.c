@@ -33,9 +33,6 @@ typedef struct
 {
   PinosNode this;
 
-#define STATE_IN  0
-#define STATE_OUT 1
-  int state;
   PinosWorkQueue *work;
 
   bool async_init;
@@ -295,15 +292,15 @@ do_pull (PinosNode *this)
         res = do_pull (outport->node);
         pinos_log_trace ("node %p: pull return %d", outport->node, res);
       }
-      else if (res < 0 && res != SPA_RESULT_HAVE_BUFFER) {
-        pinos_log_warn ("node %p: got process output %d", outport->node, res);
-      }
-
-      if (res == SPA_RESULT_HAVE_BUFFER) {
+      else if (res == SPA_RESULT_HAVE_BUFFER) {
         *pi = *po;
         pinos_log_trace ("node %p: have output %d %d", this, pi->status, pi->buffer_id);
         have_output = true;
       }
+      else if (res < 0) {
+        pinos_log_warn ("node %p: got process output %d", outport->node, res);
+      }
+
     }
   }
   if (have_output) {
@@ -326,66 +323,77 @@ on_node_event (SpaNode *node, SpaEvent *event, void *user_data)
     pinos_work_queue_complete (impl->work, this, ac->body.seq.value, ac->body.res.value);
     pinos_signal_emit (&this->async_complete, this, ac->body.seq.value, ac->body.res.value);
   }
-  else if (SPA_EVENT_TYPE (event) == this->core->type.event_node.NeedInput) {
-    do_pull (this);
-  }
-  else if (SPA_EVENT_TYPE (event) == this->core->type.event_node.HaveOutput) {
-    SpaResult res;
-    PinosPort *outport;
-
-    spa_list_for_each (outport, &this->output_ports, link) {
-      PinosLink *link;
-      SpaPortIO *po;
-
-      po = &outport->io;
-      if (po->buffer_id == SPA_ID_INVALID)
-        continue;
-
-      pinos_log_trace ("node %p: have output %d", this, po->buffer_id);
-
-      spa_list_for_each (link, &outport->rt.links, rt.output_link) {
-        PinosPort *inport;
-
-        if (link->rt.input == NULL || link->rt.output == NULL)
-          continue;
-
-        inport = link->rt.input;
-        inport->io = *po;
-
-        pinos_log_trace ("node %p: do process input %d", this, po->buffer_id);
-
-        if ((res = spa_node_process_input (inport->node->node)) < 0)
-          pinos_log_warn ("node %p: got process input %d", inport->node, res);
-
-      }
-      po->status = SPA_RESULT_NEED_BUFFER;
-    }
-    res = spa_node_process_output (this->node);
-    if (res < 0 && res != SPA_RESULT_HAVE_BUFFER)
-      pinos_log_warn ("node %p: got process output %d", this, res);
-
-  }
-  else if (SPA_EVENT_TYPE (event) == this->core->type.event_node.ReuseBuffer) {
-    SpaEventNodeReuseBuffer *rb = (SpaEventNodeReuseBuffer *) event;
-    PinosPort *inport;
-
-    pinos_log_trace ("node %p: reuse buffer %u", this, rb->body.buffer_id.value);
-
-    spa_list_for_each (inport, &this->input_ports, link) {
-      PinosLink *link;
-      PinosPort *outport;
-
-      spa_list_for_each (link, &inport->rt.links, rt.input_link) {
-        if (link->rt.input == NULL || link->rt.output == NULL)
-          continue;
-
-        outport = link->rt.output;
-        outport->io.buffer_id = rb->body.buffer_id.value;
-      }
-    }
-  }
   else if (SPA_EVENT_TYPE (event) == this->core->type.event_node.RequestClockUpdate) {
     send_clock_update (this);
+  }
+}
+
+static void
+on_node_need_input (SpaNode *node, void *user_data)
+{
+  PinosNode *this = user_data;
+
+  do_pull (this);
+}
+
+static void
+on_node_have_output (SpaNode *node, void *user_data)
+{
+  PinosNode *this = user_data;
+  SpaResult res;
+  PinosPort *outport;
+
+  spa_list_for_each (outport, &this->output_ports, link) {
+    PinosLink *link;
+    SpaPortIO *po;
+
+    po = &outport->io;
+    if (po->buffer_id == SPA_ID_INVALID)
+      continue;
+
+    pinos_log_trace ("node %p: have output %d", this, po->buffer_id);
+
+    spa_list_for_each (link, &outport->rt.links, rt.output_link) {
+      PinosPort *inport;
+
+      if (link->rt.input == NULL || link->rt.output == NULL)
+        continue;
+
+      inport = link->rt.input;
+      inport->io = *po;
+
+      pinos_log_trace ("node %p: do process input %d", this, po->buffer_id);
+
+      if ((res = spa_node_process_input (inport->node->node)) < 0)
+        pinos_log_warn ("node %p: got process input %d", inport->node, res);
+
+    }
+    po->status = SPA_RESULT_NEED_BUFFER;
+  }
+  res = spa_node_process_output (this->node);
+  if (res != SPA_RESULT_OK)
+    pinos_log_warn ("node %p: got process output %d", this, res);
+}
+
+static void
+on_node_reuse_buffer (SpaNode *node, uint32_t port_id, uint32_t buffer_id, void *user_data)
+{
+  PinosNode *this = user_data;
+  PinosPort *inport;
+
+  pinos_log_trace ("node %p: reuse buffer %u", this, buffer_id);
+
+  spa_list_for_each (inport, &this->input_ports, link) {
+    PinosLink *link;
+    PinosPort *outport;
+
+    spa_list_for_each (link, &inport->rt.links, rt.input_link) {
+      if (link->rt.input == NULL || link->rt.output == NULL)
+        continue;
+
+      outport = link->rt.output;
+      outport->io.buffer_id = buffer_id;
+    }
   }
 }
 
@@ -514,6 +522,13 @@ pinos_node_set_data_loop (PinosNode        *node,
   pinos_signal_emit (&node->loop_changed, node);
 }
 
+static const SpaNodeCallbacks node_callbacks = {
+  &on_node_event,
+  &on_node_need_input,
+  &on_node_have_output,
+  &on_node_reuse_buffer,
+};
+
 PinosNode *
 pinos_node_new (PinosCore       *core,
                 PinosClient     *owner,
@@ -546,7 +561,7 @@ pinos_node_new (PinosCore       *core,
 
   spa_list_init (&this->resource_list);
 
-  if (spa_node_set_event_callback (this->node, on_node_event, this) < 0)
+  if (spa_node_set_callbacks (this->node, &node_callbacks, sizeof (node_callbacks), this) < 0)
     pinos_log_warn ("node %p: error setting callback", this);
 
   pinos_signal_init (&this->destroy_signal);

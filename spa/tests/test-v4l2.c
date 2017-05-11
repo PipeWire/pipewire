@@ -183,75 +183,86 @@ on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
 
   handle_events (data);
 
-  if (SPA_EVENT_TYPE (event) == data->type.event_node.HaveOutput) {
-    SpaResult res;
-    SpaBuffer *b;
-    void *sdata, *ddata;
-    int sstride, dstride;
-    int i;
-    uint8_t *src, *dst;
-    SpaMeta *metas;
-    SpaData *datas;
-    SpaPortIO *io = &data->source_output[0];
-
-    b = data->bp[io->buffer_id];
-
-    metas = b->metas;
-    datas = b->datas;
-
-    if (metas[1].type == data->type.meta.Pointer &&
-        ((SpaMetaPointer *)metas[1].data)->type == data->type.SDL_Texture) {
-      SDL_Texture *texture;
-      texture = ((SpaMetaPointer *)metas[1].data)->ptr;
-
-      SDL_UnlockTexture(texture);
-
-      SDL_RenderClear (data->renderer);
-      SDL_RenderCopy (data->renderer, texture, NULL, NULL);
-      SDL_RenderPresent (data->renderer);
-
-      if (SDL_LockTexture (texture, NULL, &sdata, &sstride) < 0) {
-        fprintf (stderr, "Couldn't lock texture: %s\n", SDL_GetError());
-        return;
-      }
-      datas[0].type = data->type.data.MemPtr;
-      datas[0].flags = 0;
-      datas[0].fd = -1;
-      datas[0].mapoffset = 0;
-      datas[0].maxsize = sstride * 240;
-      datas[0].data = sdata;
-      datas[0].chunk->offset = 0;
-      datas[0].chunk->size = sstride * 240;
-      datas[0].chunk->stride = sstride;
-    } else {
-      if (SDL_LockTexture (data->texture, NULL, &ddata, &dstride) < 0) {
-        fprintf (stderr, "Couldn't lock texture: %s\n", SDL_GetError());
-        return;
-      }
-      sdata = datas[0].data;
-      sstride = datas[0].chunk->stride;
-
-      for (i = 0; i < 240; i++) {
-        src = ((uint8_t*)sdata + i * sstride);
-        dst = ((uint8_t*)ddata + i * dstride);
-        memcpy (dst, src, SPA_MIN (sstride, dstride));
-      }
-      SDL_UnlockTexture(data->texture);
-
-      SDL_RenderClear (data->renderer);
-      SDL_RenderCopy (data->renderer, data->texture, NULL, NULL);
-      SDL_RenderPresent (data->renderer);
-    }
-
-    io->status = SPA_RESULT_NEED_BUFFER;
-
-    if ((res = spa_node_process_output (data->source)) < 0)
-      printf ("got pull error %d\n", res);
-  }
-  else {
-    printf ("got event %d\n", SPA_EVENT_TYPE (event));
-  }
+  printf ("got event %d\n", SPA_EVENT_TYPE (event));
 }
+
+static void
+on_source_have_output (SpaNode *node, void *user_data)
+{
+  AppData *data = user_data;
+  SpaResult res;
+  SpaBuffer *b;
+  void *sdata, *ddata;
+  int sstride, dstride;
+  int i;
+  uint8_t *src, *dst;
+  SpaMeta *metas;
+  SpaData *datas;
+  SpaPortIO *io = &data->source_output[0];
+
+  handle_events (data);
+
+  b = data->bp[io->buffer_id];
+
+  metas = b->metas;
+  datas = b->datas;
+
+  if (metas[1].type == data->type.meta.Pointer &&
+      ((SpaMetaPointer *)metas[1].data)->type == data->type.SDL_Texture) {
+    SDL_Texture *texture;
+    texture = ((SpaMetaPointer *)metas[1].data)->ptr;
+
+    SDL_UnlockTexture(texture);
+
+    SDL_RenderClear (data->renderer);
+    SDL_RenderCopy (data->renderer, texture, NULL, NULL);
+    SDL_RenderPresent (data->renderer);
+
+    if (SDL_LockTexture (texture, NULL, &sdata, &sstride) < 0) {
+      fprintf (stderr, "Couldn't lock texture: %s\n", SDL_GetError());
+      return;
+    }
+    datas[0].type = data->type.data.MemPtr;
+    datas[0].flags = 0;
+    datas[0].fd = -1;
+    datas[0].mapoffset = 0;
+    datas[0].maxsize = sstride * 240;
+    datas[0].data = sdata;
+    datas[0].chunk->offset = 0;
+    datas[0].chunk->size = sstride * 240;
+    datas[0].chunk->stride = sstride;
+  } else {
+    if (SDL_LockTexture (data->texture, NULL, &ddata, &dstride) < 0) {
+      fprintf (stderr, "Couldn't lock texture: %s\n", SDL_GetError());
+      return;
+    }
+    sdata = datas[0].data;
+    sstride = datas[0].chunk->stride;
+
+    for (i = 0; i < 240; i++) {
+      src = ((uint8_t*)sdata + i * sstride);
+      dst = ((uint8_t*)ddata + i * dstride);
+      memcpy (dst, src, SPA_MIN (sstride, dstride));
+    }
+    SDL_UnlockTexture(data->texture);
+
+    SDL_RenderClear (data->renderer);
+    SDL_RenderCopy (data->renderer, data->texture, NULL, NULL);
+    SDL_RenderPresent (data->renderer);
+  }
+
+  io->status = SPA_RESULT_NEED_BUFFER;
+
+  if ((res = spa_node_process_output (data->source)) < 0)
+    printf ("got pull error %d\n", res);
+}
+
+static const SpaNodeCallbacks source_callbacks = {
+  &on_source_event,
+  NULL,
+  &on_source_have_output,
+  NULL
+};
 
 static SpaResult
 do_add_source (SpaLoop   *loop,
@@ -301,7 +312,7 @@ make_nodes (AppData *data, const char *device)
     printf ("can't create v4l2-source: %d\n", res);
     return res;
   }
-  spa_node_set_event_callback (data->source, on_source_event, data);
+  spa_node_set_callbacks (data->source, &source_callbacks, sizeof (source_callbacks), data);
 
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
   spa_pod_builder_props (&b, &f[0], data->type.props,

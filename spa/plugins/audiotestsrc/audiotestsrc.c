@@ -117,7 +117,6 @@ struct _SpaAudioTestSrc {
   SpaTypeMap *map;
   SpaLog *log;
   SpaLoop *data_loop;
-  bool async;
 
   uint8_t props_buffer[512];
   SpaAudioTestSrcProps props;
@@ -251,7 +250,7 @@ send_have_output (SpaAudioTestSrc *this)
 static void
 set_timer (SpaAudioTestSrc *this, bool enabled)
 {
-  if (this->async || this->props.live) {
+  if (this->callbacks.have_output || this->props.live) {
     if (enabled) {
       if (this->props.live) {
         uint64_t next_time = this->start_time + this->elapsed_time;
@@ -274,7 +273,7 @@ read_timer (SpaAudioTestSrc *this)
 {
   uint64_t expirations;
 
-  if (this->async || this->props.live) {
+  if (this->callbacks.have_output || this->props.live) {
     if (read (this->timer_source.fd, &expirations, sizeof (uint64_t)) < sizeof (uint64_t))
       perror ("read timerfd");
   }
@@ -427,6 +426,11 @@ spa_audiotestsrc_node_set_callbacks (SpaNode                *node,
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
   this = SPA_CONTAINER_OF (node, SpaAudioTestSrc, node);
+
+  if (this->data_loop == NULL && callbacks->have_output) {
+    spa_log_error (this->log, "a data_loop is needed for async operation");
+    return SPA_RESULT_ERROR;
+  }
 
   this->callbacks = *callbacks;
   this->user_data = user_data;
@@ -857,7 +861,7 @@ spa_audiotestsrc_node_process_output (SpaNode *node)
     this->io->buffer_id = SPA_ID_INVALID;
   }
 
-  if (!this->async && (io->status == SPA_RESULT_NEED_BUFFER))
+  if (!this->callbacks.have_output && (io->status == SPA_RESULT_NEED_BUFFER))
     return audiotestsrc_make_buffer (this);
   else
     return SPA_RESULT_OK;
@@ -984,7 +988,6 @@ audiotestsrc_init (const SpaHandleFactory  *factory,
 {
   SpaAudioTestSrc *this;
   uint32_t i;
-  const char *str;
 
   spa_return_val_if_fail (factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
@@ -993,11 +996,6 @@ audiotestsrc_init (const SpaHandleFactory  *factory,
   handle->clear = audiotestsrc_clear;
 
   this = (SpaAudioTestSrc *) handle;
-
-  if (info && (str = spa_dict_lookup (info, "asynchronous")))
-    this->async = atoi (str) == 1;
-  else
-    this->async = false;
 
   for (i = 0; i < n_support; i++) {
     if (strcmp (support[i].type, SPA_TYPE__TypeMap) == 0)
@@ -1009,10 +1007,6 @@ audiotestsrc_init (const SpaHandleFactory  *factory,
   }
   if (this->map == NULL) {
     spa_log_error (this->log, "a type-map is needed");
-    return SPA_RESULT_ERROR;
-  }
-  if (this->data_loop == NULL && this->async) {
-    spa_log_error (this->log, "a data_loop is needed");
     return SPA_RESULT_ERROR;
   }
   init_type (&this->type, this->map);
@@ -1041,7 +1035,7 @@ audiotestsrc_init (const SpaHandleFactory  *factory,
   if (this->props.live)
     this->info.flags |= SPA_PORT_INFO_FLAG_LIVE;
 
-  spa_log_info (this->log, "audiotestsrc %p: initialized, async=%d", this, this->async);
+  spa_log_info (this->log, "audiotestsrc %p: initialized", this);
 
   return SPA_RESULT_OK;
 }

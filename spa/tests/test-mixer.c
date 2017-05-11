@@ -165,7 +165,7 @@ init_buffer (AppData *data, SpaBuffer **bufs, Buffer *ba, int n_buffers, size_t 
 }
 
 static SpaResult
-make_node (AppData *data, SpaNode **node, const char *lib, const char *name, bool async)
+make_node (AppData *data, SpaNode **node, const char *lib, const char *name)
 {
   SpaHandle *handle;
   SpaResult res;
@@ -173,8 +173,6 @@ make_node (AppData *data, SpaNode **node, const char *lib, const char *name, boo
   SpaEnumHandleFactoryFunc enum_func;
   unsigned int i;
   uint32_t state = 0;
-  SpaDictItem items[1];
-  SpaDict dict = SPA_DICT_INIT (1, items);
 
   if ((hnd = dlopen (lib, RTLD_NOW)) == NULL) {
     printf ("can't load %s: %s\n", lib, dlerror());
@@ -184,9 +182,6 @@ make_node (AppData *data, SpaNode **node, const char *lib, const char *name, boo
     printf ("can't find enum function\n");
     return SPA_RESULT_ERROR;
   }
-
-  items[0].key = "asynchronous";
-  items[0].value = async ? "1" : "0";
 
   for (i = 0; ;i++) {
     const SpaHandleFactory *factory;
@@ -201,7 +196,7 @@ make_node (AppData *data, SpaNode **node, const char *lib, const char *name, boo
       continue;
 
     handle = calloc (1, factory->size);
-    if ((res = spa_handle_factory_init (factory, handle, &dict, data->support, data->n_support)) < 0) {
+    if ((res = spa_handle_factory_init (factory, handle, NULL, data->support, data->n_support)) < 0) {
       printf ("can't make factory instance: %d\n", res);
       return res;
     }
@@ -318,7 +313,7 @@ make_nodes (AppData *data, const char *device)
 
   if ((res = make_node (data, &data->sink,
                         "build/spa/plugins/alsa/libspa-alsa.so",
-                        "alsa-sink", true)) < 0) {
+                        "alsa-sink")) < 0) {
     printf ("can't create alsa-sink: %d\n", res);
     return res;
   }
@@ -335,14 +330,14 @@ make_nodes (AppData *data, const char *device)
 
   if ((res = make_node (data, &data->mix,
                         "build/spa/plugins/audiomixer/libspa-audiomixer.so",
-                        "audiomixer", false)) < 0) {
+                        "audiomixer")) < 0) {
     printf ("can't create audiomixer: %d\n", res);
     return res;
   }
 
   if ((res = make_node (data, &data->source1,
                         "build/spa/plugins/audiotestsrc/libspa-audiotestsrc.so",
-                        "audiotestsrc", false)) < 0) {
+                        "audiotestsrc")) < 0) {
     printf ("can't create audiotestsrc: %d\n", res);
     return res;
   }
@@ -359,7 +354,7 @@ make_nodes (AppData *data, const char *device)
 
   if ((res = make_node (data, &data->source2,
                         "build/spa/plugins/audiotestsrc/libspa-audiotestsrc.so",
-                        "audiotestsrc", false)) < 0) {
+                        "audiotestsrc")) < 0) {
     printf ("can't create audiotestsrc: %d\n", res);
     return res;
   }

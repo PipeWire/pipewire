@@ -109,7 +109,6 @@ struct _SpaVideoTestSrc {
   SpaTypeMap *map;
   SpaLog *log;
   SpaLoop *data_loop;
-  bool async;
 
   uint8_t props_buffer[512];
   SpaVideoTestSrcProps props;
@@ -221,14 +220,6 @@ spa_videotestsrc_node_set_props (SpaNode         *node,
   return SPA_RESULT_OK;
 }
 
-static inline SpaResult
-send_have_output (SpaVideoTestSrc *this)
-{
-  if (this->callbacks.have_output)
-    this->callbacks.have_output (&this->node, this->user_data);
-  return SPA_RESULT_OK;
-}
-
 #include "draw.c"
 
 static SpaResult
@@ -240,7 +231,7 @@ fill_buffer (SpaVideoTestSrc *this, VTSBuffer *b)
 static void
 set_timer (SpaVideoTestSrc *this, bool enabled)
 {
-  if (this->async || this->props.live) {
+  if (this->callbacks.have_output || this->props.live) {
     if (enabled) {
       if (this->props.live) {
         uint64_t next_time = this->start_time + this->elapsed_time;
@@ -263,7 +254,7 @@ read_timer (SpaVideoTestSrc *this)
 {
   uint64_t expirations;
 
-  if (this->async || this->props.live) {
+  if (this->callbacks.have_output || this->props.live) {
     if (read (this->timer_source.fd, &expirations, sizeof (uint64_t)) < sizeof (uint64_t))
       perror ("read timerfd");
   }
@@ -322,7 +313,7 @@ videotestsrc_on_output (SpaSource *source)
   res = videotestsrc_make_buffer (this);
 
   if (res == SPA_RESULT_HAVE_BUFFER)
-    send_have_output (this);
+    this->callbacks.have_output (&this->node, this->user_data);
 }
 
 static SpaResult
@@ -390,6 +381,10 @@ spa_videotestsrc_node_set_callbacks (SpaNode                *node,
 
   this = SPA_CONTAINER_OF (node, SpaVideoTestSrc, node);
 
+  if (this->data_loop == NULL && callbacks->have_output != NULL) {
+    spa_log_error (this->log, "a data_loop is needed for async operation");
+    return SPA_RESULT_ERROR;
+  }
   this->callbacks = *callbacks;
   this->user_data = user_data;
 
@@ -818,7 +813,7 @@ spa_videotestsrc_node_process_output (SpaNode *node)
     this->io->buffer_id = SPA_ID_INVALID;
   }
 
-  if (!this->async && (io->status == SPA_RESULT_NEED_BUFFER))
+  if (!this->callbacks.have_output && (io->status == SPA_RESULT_NEED_BUFFER))
     return videotestsrc_make_buffer (this);
   else
     return SPA_RESULT_OK;
@@ -945,7 +940,6 @@ videotestsrc_init (const SpaHandleFactory  *factory,
 {
   SpaVideoTestSrc *this;
   uint32_t i;
-  const char *str;
 
   spa_return_val_if_fail (factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
@@ -954,11 +948,6 @@ videotestsrc_init (const SpaHandleFactory  *factory,
   handle->clear = videotestsrc_clear;
 
   this = (SpaVideoTestSrc *) handle;
-
-  if (info && (str = spa_dict_lookup (info, "asynchronous")))
-    this->async = atoi (str) == 1;
-  else
-    this->async = false;
 
   for (i = 0; i < n_support; i++) {
     if (strcmp (support[i].type, SPA_TYPE__TypeMap) == 0)
@@ -970,10 +959,6 @@ videotestsrc_init (const SpaHandleFactory  *factory,
   }
   if (this->map == NULL) {
     spa_log_error (this->log, "a type-map is needed");
-    return SPA_RESULT_ERROR;
-  }
-  if (this->data_loop == NULL && this->async) {
-    spa_log_error (this->log, "a data_loop is needed");
     return SPA_RESULT_ERROR;
   }
   init_type (&this->type, this->map);
@@ -1002,7 +987,7 @@ videotestsrc_init (const SpaHandleFactory  *factory,
   if (this->props.live)
     this->info.flags |= SPA_PORT_INFO_FLAG_LIVE;
 
-  spa_log_info (this->log, "videotestsrc %p: initialized, async=%d", this, this->async);
+  spa_log_info (this->log, "videotestsrc %p: initialized", this);
 
   return SPA_RESULT_OK;
 }

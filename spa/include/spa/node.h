@@ -99,7 +99,7 @@ typedef struct {
    * @user_data: user data provided when registering the callbacks
    *
    * This will be called when an out-of-bound event is notified
-   * on @node.
+   * on @node. the callback can be called from any thread.
    */
   void (*event)       (SpaNode  *node,
                        SpaEvent *event,
@@ -109,7 +109,11 @@ typedef struct {
    * @node: a #SpaNode
    * @user_data: user data provided when registering the callbacks
    *
-   * The node needs more input
+   * The node needs more input. This callback is called from the
+   * data thread.
+   *
+   * When this function is NULL, synchronous operation is requested
+   * on the input ports.
    */
   void (*need_input)  (SpaNode  *node,
                        void     *user_data);
@@ -118,11 +122,14 @@ typedef struct {
    * @node: a #SpaNode
    * @user_data: user data provided when registering the callbacks
    *
-   * The node has output input
+   * The node has output input. This callback is called from the
+   * data thread.
+   *
+   * When this function is NULL, synchronous operation is requested
+   * on the output ports.
    */
   void (*have_output)  (SpaNode  *node,
                         void     *user_data);
-
   /**
    * SpaNodeCallbacks::reuse_buffer:
    * @node: a #SpaNode
@@ -130,7 +137,11 @@ typedef struct {
    * @buffer_id: the buffer id to be reused
    * @user_data: user data provided when registering the callbacks
    *
-   * The node has a buffer that can be reused.
+   * The node has a buffer that can be reused. This callback is called
+   * from the data thread.
+   *
+   * When this function is NULL, the buffers to reuse will be set in
+   * the io area or the input ports.
    */
   void (*reuse_buffer) (SpaNode  *node,
                         uint32_t  port_id,
@@ -228,11 +239,8 @@ struct _SpaNode {
    * @callbacks_size: size of the callbacks structure
    * @user_data: user data passed to the callback functions
    *
-   * Set a callback to receive events from @node. if @callback is %NULL, the
-   * current callback is removed.
-   *
-   * The callback can be emited from any thread. The caller should take
-   * appropriate actions to node the event in other threads when needed.
+   * Set callbacks to receive events and scheduling callbacks from @node.
+   * if @callbacks is %NULL, the current callbacks are removed.
    *
    * This function must be called from the main thread.
    *

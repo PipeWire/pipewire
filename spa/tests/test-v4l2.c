@@ -544,11 +544,15 @@ main (int argc, char *argv[])
 {
   AppData data = { 0 };
   SpaResult res;
+  const char *str;
 
   data.use_buffer = true;
 
   data.map = spa_type_map_get_default ();
   data.log = spa_log_get_default ();
+
+  if ((str = getenv ("PINOS_DEBUG")))
+    data.log->level = atoi (str);
 
   data.data_loop.size = sizeof (SpaLoop);
   data.data_loop.add_source = do_add_source;

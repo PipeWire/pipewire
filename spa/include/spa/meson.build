@@ -21,6 +21,7 @@ spa_headers = [
   'pod-utils.h',
   'props.h',
   'ringbuffer.h',
+  'type.h',
   'type-map.h',
 ]
 

@@ -1,6 +1,8 @@
 pinos_headers = [
   'array.h',
+  'connection.h',
   'context.h',
+  'interfaces.h',
   'introspect.h',
   'log.h',
   'loop.h',
@@ -11,6 +13,7 @@ pinos_headers = [
   'protocol-native.h',
   'proxy.h',
   'rtkit.h',
+  'sig.h',
   'stream.h',
   'subscribe.h',
   'thread-mainloop.h',

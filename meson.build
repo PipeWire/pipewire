@@ -17,7 +17,7 @@ else
   pinos_version_nano = 0
 endif
 
-apiversion = '1.0'
+apiversion = '0.1'
 soversion = 0
 libversion = '@0@.@1@.0'.format(soversion, pinos_version_minor.to_int() * 100 + pinos_version_micro.to_int())
 
@@ -37,7 +37,6 @@ cdata.set('PINOS_API_VERSION', '"@0@"'.format(apiversion))
 cdata.set('PINOS_DATADIR', '"@0@/@1@"'.format(prefix, get_option('datadir')))
 cdata.set('LOCALEDIR', '"@0@/@1@"'.format(prefix, get_option('localedir')))
 cdata.set('LIBDIR', '"@0@/@1@"'.format(prefix, get_option('libdir')))
-cdata.set('PINOS_API_VERSION', '"0.1"')
 cdata.set('GETTEXT_PACKAGE', '"pinos"')
 cdata.set('PINOS_LICENSE', '"LGPL"')
 cdata.set('PINOS_PACKAGE_ORIGIN', '"Unknown package origin"')
@@ -48,8 +47,8 @@ cdata.set('PACKAGE_STRING', '"Pinos @0@"'.format(pinos_version))
 cdata.set('PACKAGE_TARNAME', '"pinos"')
 cdata.set('PACKAGE_URL', '""')
 cdata.set('PACKAGE_VERSION', '"@0@"'.format(pinos_version))
-cdata.set('PLUGINDIR', '"@0@/@1@/pinos"'.format(get_option('prefix'),get_option('libdir')))
-cdata.set('MODULEDIR', '"@0@/@1@/pinos"'.format(get_option('prefix'),get_option('libdir')))
+cdata.set('PLUGINDIR', '"@0@/@1@/pinos-@2@"'.format(get_option('prefix'),get_option('libdir'),apiversion))
+cdata.set('MODULEDIR', '"@0@/@1@/pinos-@2@"'.format(get_option('prefix'),get_option('libdir'),apiversion))
 cdata.set('PINOS_CONFIG_DIR', '"@0@/etc/pinos"'.format(get_option('prefix')))
 cdata.set('VERSION', '"@0@"'.format(pinos_version))
 # FIXME: --with-memory-alignment],[8,N,malloc,pagesize (default is 32)]) option

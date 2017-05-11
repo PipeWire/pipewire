@@ -7,5 +7,5 @@ moduledir=@moduledir@
 Name: libpinos
 Description: Pinos Client Interface
 Version: @PACKAGE_VERSION@
-Libs: -L${libdir} -lpinos-@PINOS_MAJORMINOR@
+Libs: -L${libdir} -lpinos
 Cflags: -I${includedir} -D_REENTRANT

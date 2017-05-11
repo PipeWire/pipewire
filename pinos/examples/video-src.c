@@ -21,11 +21,11 @@
 #include <errno.h>
 #include <sys/mman.h>
 
-#include <spa/include/spa/type-map.h>
-#include <spa/include/spa/format-utils.h>
-#include <spa/include/spa/video/format-utils.h>
-#include <spa/include/spa/format-builder.h>
-#include <spa/include/spa/props.h>
+#include <spa/type-map.h>
+#include <spa/format-utils.h>
+#include <spa/video/format-utils.h>
+#include <spa/format-builder.h>
+#include <spa/props.h>
 
 #include <pinos/client/pinos.h>
 #include <pinos/client/sig.h>

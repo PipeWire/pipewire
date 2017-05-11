@@ -35,7 +35,7 @@ extern "C" {
 #include <pinos/client/subscribe.h>
 #include <pinos/client/utils.h>
 
-#include <spa/include/spa/type-map.h>
+#include <spa/type-map.h>
 
 void pinos_init (int *argc, char **argv[]);
 

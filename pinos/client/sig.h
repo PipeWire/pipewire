@@ -20,7 +20,7 @@
 #ifndef __PINOS_SIGNAL_H__
 #define __PINOS_SIGNAL_H__
 
-#include <spa/include/spa/list.h>
+#include <spa/list.h>
 
 #ifdef __cplusplus
 extern "C" {

@@ -24,11 +24,11 @@
 extern "C" {
 #endif
 
-#include <spa/include/spa/type-map.h>
-#include <spa/include/spa/event-node.h>
-#include <spa/include/spa/command-node.h>
-#include <spa/include/spa/monitor.h>
-#include <spa/include/spa/alloc-param.h>
+#include <spa/type-map.h>
+#include <spa/event-node.h>
+#include <spa/command-node.h>
+#include <spa/monitor.h>
+#include <spa/alloc-param.h>
 
 #include <pinos/client/map.h>
 #include <pinos/client/transport.h>

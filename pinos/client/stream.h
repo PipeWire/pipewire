@@ -20,8 +20,8 @@
 #ifndef __PINOS_STREAM_H__
 #define __PINOS_STREAM_H__
 
-#include <spa/include/spa/buffer.h>
-#include <spa/include/spa/format.h>
+#include <spa/buffer.h>
+#include <spa/format.h>
 
 #include <pinos/client/context.h>
 

@@ -26,7 +26,7 @@ extern "C" {
 
 typedef struct _PinosProperties PinosProperties;
 
-#include <spa/include/spa/dict.h>
+#include <spa/dict.h>
 
 struct _PinosProperties {
   SpaDict dict;

@@ -24,8 +24,8 @@
 extern "C" {
 #endif
 
-#include <spa/include/spa/list.h>
-#include <spa/include/spa/loop.h>
+#include <spa/list.h>
+#include <spa/loop.h>
 #include <pinos/client/sig.h>
 
 typedef struct _PinosLoop PinosLoop;

@@ -123,6 +123,8 @@ clear_buffers (PinosStream *stream)
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
   BufferId *bid;
 
+  pinos_log_debug ("stream %p: clear buffers", stream);
+
   pinos_array_for_each (bid, &impl->buffer_ids) {
     pinos_signal_emit (&stream->remove_buffer, stream, bid->id);
     free (bid->buf);
@@ -144,6 +146,12 @@ stream_set_state (PinosStream      *stream,
     if (stream->error)
       free (stream->error);
     stream->error = error;
+
+    pinos_log_debug ("stream %p: update state from %s -> %s (%s)", stream,
+                pinos_stream_state_as_string (stream->state),
+                pinos_stream_state_as_string (state),
+                stream->error);
+
     stream->state = state;
     pinos_signal_emit (&stream->state_changed, stream);
   }
@@ -504,7 +512,6 @@ handle_rtnode_event (PinosStream  *stream,
     for (i = 0; i < impl->trans->area->n_outputs; i++) {
       SpaPortIO *output = &impl->trans->outputs[i];
 
-      pinos_log_trace ("stream %p: buffer %d %u", stream, output->status, output->buffer_id);
       if (output->buffer_id == SPA_ID_INVALID)
         continue;
 
@@ -664,7 +671,7 @@ client_node_done (void              *object,
   PinosProxy *proxy = object;
   PinosStream *stream = proxy->user_data;
 
-  pinos_log_info ("strean %p: create client node done with fds %d %d", stream, readfd, writefd);
+  pinos_log_info ("stream %p: create client node done with fds %d %d", stream, readfd, writefd);
   handle_socket (stream, readfd, writefd);
   do_node_init (stream);
 
@@ -1048,8 +1055,10 @@ pinos_stream_finish_format (PinosStream     *stream,
     add_port_update (stream, (n_params ? PINOS_MESSAGE_PORT_UPDATE_INFO : 0) |
                              PINOS_MESSAGE_PORT_UPDATE_FORMAT);
 
-    if (!impl->format)
+    if (!impl->format) {
       clear_buffers (stream);
+      clear_mems (stream);
+    }
   }
   impl->port_info.params = NULL;
   impl->port_info.n_params = 0;

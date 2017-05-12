@@ -371,8 +371,6 @@ on_node_have_output (SpaNode *node, void *user_data)
     po->status = SPA_RESULT_NEED_BUFFER;
   }
   res = spa_node_process_output (this->node);
-  if (res != SPA_RESULT_OK)
-    pinos_log_warn ("node %p: got process output %d", this, res);
 }
 
 static void

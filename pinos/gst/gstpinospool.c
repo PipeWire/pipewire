@@ -30,6 +30,16 @@ GST_DEBUG_CATEGORY_STATIC (gst_pinos_pool_debug_category);
 
 G_DEFINE_TYPE (GstPinosPool, gst_pinos_pool, GST_TYPE_BUFFER_POOL);
 
+enum
+{
+  ACTIVATED,
+  /* FILL ME */
+  LAST_SIGNAL
+};
+
+
+static guint pool_signals[LAST_SIGNAL] = { 0 };
+
 GstPinosPool *
 gst_pinos_pool_new (void)
 {
@@ -57,14 +67,16 @@ gst_pinos_pool_add_buffer (GstPinosPool *pool, GstBuffer *buffer)
 gboolean
 gst_pinos_pool_remove_buffer (GstPinosPool *pool, GstBuffer *buffer)
 {
+  gboolean res;
+
   g_return_val_if_fail (GST_IS_PINOS_POOL (pool), FALSE);
   g_return_val_if_fail (GST_IS_BUFFER (buffer), FALSE);
 
   GST_OBJECT_LOCK (pool);
-  g_queue_remove (&pool->available, buffer);
+  res = g_queue_remove (&pool->available, buffer);
   GST_OBJECT_UNLOCK (pool);
 
-  return TRUE;
+  return res;
 }
 
 static GstFlowReturn
@@ -74,7 +86,13 @@ acquire_buffer (GstBufferPool * pool, GstBuffer ** buffer,
   GstPinosPool *p = GST_PINOS_POOL (pool);
 
   GST_OBJECT_LOCK (pool);
-  while (p->available.length == 0) {
+  while (TRUE) {
+    if (G_UNLIKELY (GST_BUFFER_POOL_IS_FLUSHING (pool)))
+      goto flushing;
+
+    if (p->available.length > 0)
+      break;
+
     GST_WARNING ("queue empty");
     g_cond_wait (&p->cond, GST_OBJECT_GET_LOCK (pool));
   }
@@ -83,6 +101,23 @@ acquire_buffer (GstBufferPool * pool, GstBuffer ** buffer,
   GST_DEBUG ("acquire buffer %p", *buffer);
 
   return GST_FLOW_OK;
+
+flushing:
+  {
+    GST_OBJECT_UNLOCK (pool);
+    return GST_FLOW_FLUSHING;
+  }
+}
+
+static void
+flush_start (GstBufferPool * pool)
+{
+  GstPinosPool *p = GST_PINOS_POOL (pool);
+
+  GST_DEBUG ("flush start");
+  GST_OBJECT_LOCK (pool);
+  g_cond_signal (&p->cond);
+  GST_OBJECT_UNLOCK (pool);
 }
 
 static void
@@ -100,6 +135,7 @@ release_buffer (GstBufferPool * pool, GstBuffer *buffer)
 static gboolean
 do_start (GstBufferPool * pool)
 {
+  g_signal_emit (pool, pool_signals[ACTIVATED], 0, NULL);
   return TRUE;
 }
 
@@ -122,8 +158,13 @@ gst_pinos_pool_class_init (GstPinosPoolClass * klass)
   gobject_class->finalize = gst_pinos_pool_finalize;
 
   bufferpool_class->start = do_start;
+  bufferpool_class->flush_start = flush_start;
   bufferpool_class->acquire_buffer = acquire_buffer;
   bufferpool_class->release_buffer = release_buffer;
+
+  pool_signals[ACTIVATED] =
+      g_signal_new ("activated", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST,
+      0, NULL, NULL, g_cclosure_marshal_generic, G_TYPE_NONE, 0, G_TYPE_NONE);
 
   GST_DEBUG_CATEGORY_INIT (gst_pinos_pool_debug_category, "pinospool", 0,
       "debug category for pinospool object");

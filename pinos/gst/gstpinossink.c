@@ -219,6 +219,65 @@ gst_pinos_sink_class_init (GstPinosSinkClass * klass)
   process_mem_data_quark = g_quark_from_static_string ("GstPinosSinkProcessMemQuark");
 }
 
+
+#define PROP(f,key,type,...)                                                    \
+          SPA_POD_PROP (f,key,0,type,1,__VA_ARGS__)
+#define PROP_R(f,key,type,...)                                                  \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READONLY,type,1,__VA_ARGS__)
+#define PROP_MM(f,key,type,...)                                                 \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
+#define PROP_U_MM(f,key,type,...)                                               \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |                         \
+                              SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
+#define PROP_EN(f,key,type,n,...)                                               \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
+#define PROP_U_EN(f,key,type,n,...)                                             \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |                         \
+                              SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
+static void
+pool_activated (GstPinosPool *pool, GstPinosSink *sink)
+{
+  PinosContext *ctx = sink->stream->context;
+  GstStructure *config;
+  GstCaps *caps;
+  guint size;
+  guint min_buffers;
+  guint max_buffers;
+  SpaAllocParam *port_params[3];
+  SpaPODBuilder b = { NULL };
+  uint8_t buffer[1024];
+  SpaPODFrame f[2];
+
+  config = gst_buffer_pool_get_config (GST_BUFFER_POOL (pool));
+  gst_buffer_pool_config_get_params (config, &caps, &size, &min_buffers, &max_buffers);
+
+  spa_pod_builder_init (&b, buffer, sizeof (buffer));
+  spa_pod_builder_object (&b, &f[0], 0, ctx->type.alloc_param_buffers.Buffers,
+      PROP    (&f[1], ctx->type.alloc_param_buffers.size,    SPA_POD_TYPE_INT, size),
+      PROP    (&f[1], ctx->type.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, 0),
+      PROP_MM (&f[1], ctx->type.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, min_buffers, min_buffers, max_buffers),
+      PROP    (&f[1], ctx->type.alloc_param_buffers.align,   SPA_POD_TYPE_INT, 16));
+  port_params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
+
+  spa_pod_builder_object (&b, &f[0], 0, ctx->type.alloc_param_meta_enable.MetaEnable,
+      PROP    (&f[1], ctx->type.alloc_param_meta_enable.type, SPA_POD_TYPE_ID, ctx->type.meta.Header),
+      PROP    (&f[1], ctx->type.alloc_param_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
+  port_params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
+
+  spa_pod_builder_object (&b, &f[0], 0, ctx->type.alloc_param_meta_enable.MetaEnable,
+      PROP    (&f[1], ctx->type.alloc_param_meta_enable.type, SPA_POD_TYPE_ID, ctx->type.meta.Ringbuffer),
+      PROP    (&f[1], ctx->type.alloc_param_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaRingbuffer)),
+      PROP    (&f[1], ctx->type.alloc_param_meta_enable.ringbufferSize,   SPA_POD_TYPE_INT,
+                                                                         size * SPA_MAX (4,
+                                                                                SPA_MAX (min_buffers, max_buffers))),
+      PROP    (&f[1], ctx->type.alloc_param_meta_enable.ringbufferStride, SPA_POD_TYPE_INT, 0),
+      PROP    (&f[1], ctx->type.alloc_param_meta_enable.ringbufferBlocks, SPA_POD_TYPE_INT, 1),
+      PROP    (&f[1], ctx->type.alloc_param_meta_enable.ringbufferAlign,  SPA_POD_TYPE_INT, 16));
+  port_params[2] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
+
+  pinos_stream_finish_format (sink->stream, SPA_RESULT_OK, port_params, 2);
+}
+
 static void
 gst_pinos_sink_init (GstPinosSink * sink)
 {
@@ -226,6 +285,8 @@ gst_pinos_sink_init (GstPinosSink * sink)
   sink->pool =  gst_pinos_pool_new ();
   sink->client_name = pinos_client_name();
   sink->mode = DEFAULT_PROP_MODE;
+
+  g_signal_connect (sink->pool, "activated", G_CALLBACK (pool_activated), sink);
 
   sink->buf_ids = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL,
       (GDestroyNotify) gst_buffer_unref);
@@ -427,10 +488,14 @@ on_remove_buffer (PinosListener *listener,
 
   GST_LOG_OBJECT (pinossink, "remove buffer");
   buf = g_hash_table_lookup (pinossink->buf_ids, GINT_TO_POINTER (id));
-  GST_MINI_OBJECT_CAST (buf)->dispose = NULL;
-
-  gst_pinos_pool_remove_buffer (pinossink->pool, buf);
-  g_hash_table_remove (pinossink->buf_ids, GINT_TO_POINTER (id));
+  if (buf) {
+    GST_MINI_OBJECT_CAST (buf)->dispose = NULL;
+    if (!gst_pinos_pool_remove_buffer (pinossink->pool, buf))
+      gst_buffer_ref (buf);
+    if (g_queue_remove (&pinossink->queue, buf))
+      gst_buffer_unref (buf);
+    g_hash_table_remove (pinossink->buf_ids, GINT_TO_POINTER (id));
+  }
 }
 
 static void
@@ -449,7 +514,6 @@ on_new_buffer (PinosListener *listener,
   buf = g_hash_table_lookup (pinossink->buf_ids, GINT_TO_POINTER (id));
 
   if (buf) {
-    gst_buffer_unref (buf);
     pinos_thread_main_loop_signal (pinossink->main_loop, FALSE);
   }
 }
@@ -485,10 +549,11 @@ do_send_buffer (GstPinosSink *pinossink)
 
   if (!(res = pinos_stream_send_buffer (pinossink->stream, data->id))) {
     g_warning ("can't send buffer");
-    gst_buffer_unref (buffer);
     pinos_thread_main_loop_signal (pinossink->main_loop, FALSE);
   } else
     pinossink->need_ready--;
+
+  gst_buffer_unref (buffer);
 }
 
 
@@ -529,66 +594,15 @@ on_state_changed (PinosListener *listener,
   pinos_thread_main_loop_signal (pinossink->main_loop, FALSE);
 }
 
-#define PROP(f,key,type,...)                                                    \
-          SPA_POD_PROP (f,key,0,type,1,__VA_ARGS__)
-#define PROP_R(f,key,type,...)                                                  \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READONLY,type,1,__VA_ARGS__)
-#define PROP_MM(f,key,type,...)                                                 \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
-#define PROP_U_MM(f,key,type,...)                                               \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |                         \
-                              SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
-#define PROP_EN(f,key,type,n,...)                                               \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
-#define PROP_U_EN(f,key,type,n,...)                                             \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |                         \
-                              SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
-
 static void
 on_format_changed (PinosListener *listener,
                    PinosStream   *stream,
                    SpaFormat     *format)
 {
   GstPinosSink *pinossink = SPA_CONTAINER_OF (listener, GstPinosSink, stream_format_changed);
-  PinosContext *ctx = stream->context;
-  GstStructure *config;
-  GstCaps *caps;
-  guint size;
-  guint min_buffers;
-  guint max_buffers;
-  SpaAllocParam *port_params[3];
-  SpaPODBuilder b = { NULL };
-  uint8_t buffer[1024];
-  SpaPODFrame f[2];
 
-  config = gst_buffer_pool_get_config (GST_BUFFER_POOL (pinossink->pool));
-  gst_buffer_pool_config_get_params (config, &caps, &size, &min_buffers, &max_buffers);
-
-  spa_pod_builder_init (&b, buffer, sizeof (buffer));
-  spa_pod_builder_object (&b, &f[0], 0, ctx->type.alloc_param_buffers.Buffers,
-      PROP    (&f[1], ctx->type.alloc_param_buffers.size,    SPA_POD_TYPE_INT, size),
-      PROP    (&f[1], ctx->type.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, 0),
-      PROP_MM (&f[1], ctx->type.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, min_buffers, min_buffers, max_buffers),
-      PROP    (&f[1], ctx->type.alloc_param_buffers.align,   SPA_POD_TYPE_INT, 16));
-  port_params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
-
-  spa_pod_builder_object (&b, &f[0], 0, ctx->type.alloc_param_meta_enable.MetaEnable,
-      PROP    (&f[1], ctx->type.alloc_param_meta_enable.type, SPA_POD_TYPE_ID, ctx->type.meta.Header),
-      PROP    (&f[1], ctx->type.alloc_param_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
-  port_params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
-
-  spa_pod_builder_object (&b, &f[0], 0, ctx->type.alloc_param_meta_enable.MetaEnable,
-      PROP    (&f[1], ctx->type.alloc_param_meta_enable.type, SPA_POD_TYPE_ID, ctx->type.meta.Ringbuffer),
-      PROP    (&f[1], ctx->type.alloc_param_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaRingbuffer)),
-      PROP    (&f[1], ctx->type.alloc_param_meta_enable.ringbufferSize,   SPA_POD_TYPE_INT,
-                                                                         size * SPA_MAX (4,
-                                                                                SPA_MAX (min_buffers, max_buffers))),
-      PROP    (&f[1], ctx->type.alloc_param_meta_enable.ringbufferStride, SPA_POD_TYPE_INT, 0),
-      PROP    (&f[1], ctx->type.alloc_param_meta_enable.ringbufferBlocks, SPA_POD_TYPE_INT, 1),
-      PROP    (&f[1], ctx->type.alloc_param_meta_enable.ringbufferAlign,  SPA_POD_TYPE_INT, 16));
-  port_params[2] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
-
-  pinos_stream_finish_format (pinossink->stream, SPA_RESULT_OK, port_params, 2);
+  if (gst_buffer_pool_is_active (GST_BUFFER_POOL_CAST (pinossink->pool)))
+    pool_activated (pinossink->pool, pinossink);
 }
 
 static gboolean
@@ -609,13 +623,6 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
   if (state == PINOS_STREAM_STATE_ERROR)
     goto start_error;
 
-  if (!gst_buffer_pool_is_active (GST_BUFFER_POOL_CAST (pinossink->pool))) {
-    GstStructure *config = gst_buffer_pool_get_config (GST_BUFFER_POOL_CAST (pinossink->pool));
-    gst_buffer_pool_config_set_params (config, caps, 8192, 16, 32);
-    gst_buffer_pool_set_config (GST_BUFFER_POOL_CAST (pinossink->pool), config);
-    gst_buffer_pool_set_active (GST_BUFFER_POOL_CAST (pinossink->pool), TRUE);
-  }
-
   if (state == PINOS_STREAM_STATE_UNCONNECTED) {
     PinosStreamFlags flags = 0;
 
@@ -633,7 +640,7 @@ gst_pinos_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
     while (TRUE) {
       state = pinossink->stream->state;
 
-      if (state == PINOS_STREAM_STATE_READY)
+      if (state == PINOS_STREAM_STATE_CONFIGURE)
         break;
 
       if (state == PINOS_STREAM_STATE_ERROR)
@@ -678,6 +685,9 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
     GstBuffer *b = NULL;
     GstMapInfo info = { 0, };
 
+    if (!gst_buffer_pool_is_active (GST_BUFFER_POOL_CAST (pinossink->pool)))
+      gst_buffer_pool_set_active (GST_BUFFER_POOL_CAST (pinossink->pool), TRUE);
+
     if ((res = gst_buffer_pool_acquire_buffer (GST_BUFFER_POOL_CAST (pinossink->pool), &b, NULL)) != GST_FLOW_OK)
       goto done;
 
@@ -692,8 +702,8 @@ gst_pinos_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   GST_DEBUG ("push buffer in queue");
   g_queue_push_tail (&pinossink->queue, buffer);
 
-//  if (pinossink->need_ready)
-//    do_send_buffer (pinossink);
+  if (pinossink->need_ready && pinossink->mode == GST_PINOS_SINK_MODE_PROVIDE)
+    do_send_buffer (pinossink);
 
 done:
   pinos_thread_main_loop_unlock (pinossink->main_loop);
@@ -704,11 +714,6 @@ not_negotiated:
   {
     return GST_FLOW_NOT_NEGOTIATED;
   }
-//streaming_error:
-//  {
-//    pinos_thread_main_loop_unlock (pinossink->main_loop);
-//    return GST_FLOW_ERROR;
-//  }
 }
 
 static gboolean

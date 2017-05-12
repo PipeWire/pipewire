@@ -792,6 +792,9 @@ have_framerate:
     }
     n_fractions++;
   }
+  if (n_fractions <= 1) {
+    prop->body.flags &= ~(SPA_POD_PROP_RANGE_MASK | SPA_POD_PROP_FLAG_UNSET);
+  }
   spa_pod_builder_pop (&b, &f[1]);
   spa_pod_builder_pop (&b, &f[0]);
 

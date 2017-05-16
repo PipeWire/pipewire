@@ -1,3 +1,11 @@
+spalib_headers = [
+  'debug.h',
+  'mapper.h',
+  'props.h',
+]
+
+install_headers(spalib_headers, subdir : 'spa/lib')
+
 spalib_sources = ['debug.c',
                   'mapper.c',
                   'props.c',

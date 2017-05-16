@@ -62,12 +62,12 @@ const char *
 pinos_direction_as_string (PinosDirection direction)
 {
   switch (direction) {
-    case PINOS_DIRECTION_INVALID:
-      return "invalid";
     case PINOS_DIRECTION_INPUT:
       return "input";
     case PINOS_DIRECTION_OUTPUT:
       return "output";
+    default:
+      return "invalid";
   }
   return "invalid-direction";
 }

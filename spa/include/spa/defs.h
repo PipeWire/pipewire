@@ -84,9 +84,8 @@ typedef enum {
 #define SPA_RESULT_RETURN_ASYNC(seq)    (SPA_RESULT_ASYNC | ((seq) & SPA_ASYNC_SEQ_MASK))
 
 typedef enum {
-  SPA_DIRECTION_INVALID = 0,
-  SPA_DIRECTION_INPUT,
-  SPA_DIRECTION_OUTPUT,
+  SPA_DIRECTION_INPUT  = 0,
+  SPA_DIRECTION_OUTPUT = 1,
 } SpaDirection;
 
 typedef struct {

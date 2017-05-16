@@ -71,7 +71,6 @@ const char * pinos_node_state_as_string (PinosNodeState state);
  * The direction of a port
  */
 enum _PinosDirection {
-  PINOS_DIRECTION_INVALID = SPA_DIRECTION_INVALID,
   PINOS_DIRECTION_INPUT = SPA_DIRECTION_INPUT,
   PINOS_DIRECTION_OUTPUT = SPA_DIRECTION_OUTPUT
 };

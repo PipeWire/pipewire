@@ -20,8 +20,8 @@
 #include <string.h>
 
 #include <spa/lib/debug.h>
-#include <spa/include/spa/video/format.h>
-#include <spa/include/spa/pod-utils.h>
+#include <spa/video/format.h>
+#include <spa/pod-utils.h>
 
 #include "pinos/client/pinos.h"
 #include "pinos/client/interfaces.h"

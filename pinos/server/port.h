@@ -29,7 +29,7 @@ extern "C" {
 
 typedef struct _PinosPort PinosPort;
 
-#include <spa/include/spa/node.h>
+#include <spa/node.h>
 
 #include <pinos/client/introspect.h>
 #include <pinos/client/mem.h>

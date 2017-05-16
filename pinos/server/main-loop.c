@@ -22,8 +22,8 @@
 #include <errno.h>
 #include <sys/eventfd.h>
 
-#include "spa/include/spa/list.h"
-#include "spa/include/spa/ringbuffer.h"
+#include "spa/list.h"
+#include "spa/ringbuffer.h"
 #include "pinos/client/log.h"
 #include "pinos/server/main-loop.h"
 

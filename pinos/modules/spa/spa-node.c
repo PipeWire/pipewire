@@ -21,7 +21,7 @@
 #include <stdio.h>
 #include <dlfcn.h>
 
-#include <spa/include/spa/node.h>
+#include <spa/node.h>
 
 #include "spa-node.h"
 

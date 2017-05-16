@@ -29,7 +29,7 @@ extern "C" {
 
 typedef struct _PinosResource PinosResource;
 
-#include <spa/include/spa/list.h>
+#include <spa/list.h>
 
 #include <pinos/client/sig.h>
 

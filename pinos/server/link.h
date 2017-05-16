@@ -26,7 +26,7 @@ extern "C" {
 
 typedef struct _PinosLink PinosLink;
 
-#include <spa/include/spa/ringbuffer.h>
+#include <spa/ringbuffer.h>
 
 #include <pinos/client/mem.h>
 

@@ -36,8 +36,8 @@
 #include "pinos/server/core.h"
 #include "pinos/server/client-node.h"
 
-#include "spa/include/spa/node.h"
-#include "spa/include/spa/format-builder.h"
+#include "spa/node.h"
+#include "spa/format-builder.h"
 
 #define MAX_INPUTS       64
 #define MAX_OUTPUTS      64

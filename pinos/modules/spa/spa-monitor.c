@@ -26,9 +26,9 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
-#include <spa/include/spa/node.h>
-#include <spa/include/spa/monitor.h>
-#include <spa/include/spa/pod-iter.h>
+#include <spa/node.h>
+#include <spa/monitor.h>
+#include <spa/pod-iter.h>
 #include <pinos/client/log.h>
 #include <pinos/server/node.h>
 

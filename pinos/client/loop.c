@@ -29,8 +29,8 @@
 #include <sys/signalfd.h>
 #include <pthread.h>
 
-#include <spa/include/spa/loop.h>
-#include <spa/include/spa/ringbuffer.h>
+#include <spa/loop.h>
+#include <spa/ringbuffer.h>
 
 #include <pinos/client/loop.h>
 #include <pinos/client/log.h>

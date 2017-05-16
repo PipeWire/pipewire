@@ -25,9 +25,9 @@
 #include <gst/audio/audio.h>
 
 #include <spa/lib/mapper.h>
-#include <spa/include/spa/format-builder.h>
-#include <spa/include/spa/video/format-utils.h>
-#include <spa/include/spa/audio/format-utils.h>
+#include <spa/format-builder.h>
+#include <spa/video/format-utils.h>
+#include <spa/audio/format-utils.h>
 
 #include "gstpinosformat.h"
 

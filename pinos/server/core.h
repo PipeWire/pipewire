@@ -27,7 +27,7 @@ extern "C" {
 typedef struct _PinosCore PinosCore;
 typedef struct _PinosGlobal PinosGlobal;
 
-#include <spa/include/spa/log.h>
+#include <spa/log.h>
 
 #include <pinos/client/type.h>
 

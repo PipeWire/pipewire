@@ -29,7 +29,7 @@
 #include "pinos/server/client-node.h"
 #include "pinos/server/module.h"
 
-#include "spa/include/spa/monitor.h"
+#include "spa/monitor.h"
 
 void
 pinos_type_init (PinosType *type)

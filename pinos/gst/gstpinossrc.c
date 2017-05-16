@@ -45,7 +45,7 @@
 #include <gst/allocators/gstfdmemory.h>
 #include <gst/video/video.h>
 
-#include <spa/include/spa/buffer.h>
+#include <spa/buffer.h>
 
 #include "gstpinosclock.h"
 

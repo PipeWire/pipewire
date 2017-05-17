@@ -26,6 +26,7 @@ extern "C" {
 
 #include <spa/defs.h>
 #include <spa/ringbuffer.h>
+#include <spa/type-map.h>
 
 #define SPA_TYPE__Meta              SPA_TYPE_POINTER_BASE "Meta"
 #define SPA_TYPE_META_BASE          SPA_TYPE__Meta ":"

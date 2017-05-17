@@ -28,6 +28,7 @@ typedef struct _SpaBuffer SpaBuffer;
 
 #include <spa/defs.h>
 #include <spa/meta.h>
+#include <spa/type-map.h>
 
 #define SPA_TYPE__Buffer            SPA_TYPE_POINTER_BASE "Buffer"
 #define SPA_TYPE_BUFFER_BASE        SPA_TYPE__Buffer ":"

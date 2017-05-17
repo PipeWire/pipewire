@@ -786,8 +786,11 @@ on_format_changed (PinosListener *listener,
   gboolean res;
   PinosContext *ctx = stream->context;
 
-  if (!format)
+  if (format == NULL) {
+    GST_DEBUG_OBJECT (pinossrc, "clear format");
+    pinos_stream_finish_format (pinossrc->stream, SPA_RESULT_OK, NULL, 0);
     return;
+  }
 
   caps = gst_caps_from_format (format);
   GST_DEBUG_OBJECT (pinossrc, "we got format %" GST_PTR_FORMAT, caps);

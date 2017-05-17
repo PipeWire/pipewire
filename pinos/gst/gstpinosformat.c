@@ -427,6 +427,22 @@ handle_video_fields (ConvertData *d)
       SPA_POD_BUILDER_DEREF (&d->b, f.ref, SpaPODProp)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
     spa_pod_builder_pop (&d->b, &f);
   }
+
+  value = gst_structure_get_value (d->cs, "max-framerate");
+  if (value) {
+    SpaFraction v;
+    for (i = 0; get_nth_fraction (value, i, &v); i++) {
+      if (i == 0)
+        spa_pod_builder_push_prop (&d->b, &f,
+                                   type.format_video.max_framerate,
+                                   get_range_type (value));
+
+      spa_pod_builder_fraction (&d->b, v.num, v.denom);
+    }
+    if (i > 1)
+      SPA_POD_BUILDER_DEREF (&d->b, f.ref, SpaPODProp)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
+    spa_pod_builder_pop (&d->b, &f);
+  }
   return TRUE;
 }
 
@@ -811,6 +827,9 @@ gst_caps_from_format (const SpaFormat *format)
     }
     if ((prop = spa_format_find_prop (format, type.format_video.framerate))) {
       handle_fraction_prop (prop, "framerate", res);
+    }
+    if ((prop = spa_format_find_prop (format, type.format_video.max_framerate))) {
+      handle_fraction_prop (prop, "max-framerate", res);
     }
   } else if (media_type == type.media_type.audio) {
     if (media_subtype == type.media_subtype.raw) {

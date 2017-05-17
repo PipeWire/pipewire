@@ -45,7 +45,7 @@ typedef uint32_t SpaType;
 static inline bool
 spa_type_is_a (const char *type, const char *parent)
 {
-  return type != NULL && parent != NULL && strstr (type, parent) == type;
+  return type != NULL && parent != NULL && strncmp (type, parent, strlen (parent)) == 0;
 }
 
 #ifdef __cplusplus

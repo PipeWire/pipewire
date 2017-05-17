@@ -270,11 +270,11 @@ main (int argc, char *argv[])
 
   do_static_struct (map);
 
-  printf ("%d\n", spa_type_is_a (SPA_TYPE__MediaType, SPA_TYPE_ENUM_BASE));
-  printf ("%d\n", spa_type_is_a (SPA_TYPE__MediaSubtype, SPA_TYPE_ENUM_BASE));
-  printf ("%d\n", spa_type_is_a (SPA_TYPE__Format, SPA_TYPE_ENUM_BASE));
-  printf ("%d\n", spa_type_is_a (SPA_TYPE__Format, SPA_TYPE_POD_BASE));
-  printf ("%d\n", spa_type_is_a (SPA_TYPE__Format, SPA_TYPE_POD_OBJECT_BASE));
+  printf ("media type is enum %d\n", spa_type_is_a (SPA_TYPE__MediaType, SPA_TYPE_ENUM_BASE));
+  printf ("media sybtype is enum %d\n", spa_type_is_a (SPA_TYPE__MediaSubtype, SPA_TYPE_ENUM_BASE));
+  printf ("format is enum %d\n", spa_type_is_a (SPA_TYPE__Format, SPA_TYPE_ENUM_BASE));
+  printf ("format is pod %d\n", spa_type_is_a (SPA_TYPE__Format, SPA_TYPE_POD_BASE));
+  printf ("format is object %d\n", spa_type_is_a (SPA_TYPE__Format, SPA_TYPE_POD_OBJECT_BASE));
 
   return 0;
 }

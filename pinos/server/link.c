@@ -1004,13 +1004,15 @@ do_link_remove (SpaLoop        *loop,
   PinosLink *this = user_data;
 
   if (this->rt.input) {
-    pinos_port_pause_rt (this->rt.input);
     spa_list_remove (&this->rt.input_link);
+    if (spa_list_is_empty (&this->rt.input->rt.links))
+      pinos_port_pause_rt (this->rt.input);
     this->rt.input = NULL;
   }
   if (this->rt.output) {
-    pinos_port_pause_rt (this->rt.output);
     spa_list_remove (&this->rt.output_link);
+    if (spa_list_is_empty (&this->rt.output->rt.links))
+      pinos_port_pause_rt (this->rt.output);
     this->rt.output = NULL;
   }
 

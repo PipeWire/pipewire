@@ -786,6 +786,9 @@ on_format_changed (PinosListener *listener,
   gboolean res;
   PinosContext *ctx = stream->context;
 
+  if (!format)
+    return;
+
   caps = gst_caps_from_format (format);
   GST_DEBUG_OBJECT (pinossrc, "we got format %" GST_PTR_FORMAT, caps);
   res = gst_base_src_set_caps (GST_BASE_SRC (pinossrc), caps);

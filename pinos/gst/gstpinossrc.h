@@ -54,6 +54,7 @@ struct _GstPinosSrc {
   /*< private >*/
   gchar *path;
   gchar *client_name;
+  gboolean always_copy;
 
   gboolean negotiated;
   gboolean flushing;

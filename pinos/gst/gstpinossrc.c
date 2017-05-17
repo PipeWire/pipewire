@@ -54,12 +54,15 @@ static GQuark process_mem_data_quark;
 GST_DEBUG_CATEGORY_STATIC (pinos_src_debug);
 #define GST_CAT_DEFAULT pinos_src_debug
 
+#define DEFAULT_ALWAYS_COPY     false
+
 enum
 {
   PROP_0,
   PROP_PATH,
   PROP_CLIENT_NAME,
   PROP_STREAM_PROPERTIES,
+  PROP_ALWAYS_COPY,
 };
 
 
@@ -115,6 +118,10 @@ gst_pinos_src_set_property (GObject * object, guint prop_id,
           gst_structure_copy (gst_value_get_structure (value));
       break;
 
+    case PROP_ALWAYS_COPY:
+      pinossrc->always_copy = g_value_get_boolean (value);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -138,6 +145,10 @@ gst_pinos_src_get_property (GObject * object, guint prop_id,
 
     case PROP_STREAM_PROPERTIES:
       gst_value_set_structure (value, pinossrc->properties);
+      break;
+
+    case PROP_ALWAYS_COPY:
+      g_value_set_boolean (value, pinossrc->always_copy);
       break;
 
     default:
@@ -248,6 +259,15 @@ gst_pinos_src_class_init (GstPinosSrcClass * klass)
                                                        G_PARAM_READWRITE |
                                                        G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (gobject_class,
+                                   PROP_ALWAYS_COPY,
+                                   g_param_spec_boolean ("always-copy",
+                                                         "Always copy",
+                                                         "Always copy the buffer and data",
+                                                         DEFAULT_ALWAYS_COPY,
+                                                         G_PARAM_READWRITE |
+                                                         G_PARAM_STATIC_STRINGS));
+
   gstelement_class->provide_clock = gst_pinos_src_provide_clock;
   gstelement_class->change_state = gst_pinos_src_change_state;
 
@@ -282,6 +302,8 @@ gst_pinos_src_init (GstPinosSrc * src)
 
   GST_OBJECT_FLAG_SET (src, GST_ELEMENT_FLAG_PROVIDE_CLOCK);
 
+  src->always_copy = DEFAULT_ALWAYS_COPY;
+
   g_queue_init (&src->queue);
 
   src->fd_allocator = gst_fd_allocator_new ();
@@ -291,6 +313,7 @@ gst_pinos_src_init (GstPinosSrc * src)
   src->loop = pinos_loop_new ();
   src->main_loop = pinos_thread_main_loop_new (src->loop, "pinos-main-loop");
   GST_DEBUG ("loop %p, mainloop %p", src->loop, src->main_loop);
+
 }
 
 static GstCaps *
@@ -498,7 +521,12 @@ on_new_buffer (PinosListener *listener,
     mem->offset = d->chunk->offset + data->offset;
     mem->size = d->chunk->size;
   }
-  gst_buffer_ref (buf);
+
+  if (pinossrc->always_copy)
+    buf = gst_buffer_copy_deep (buf);
+  else
+    gst_buffer_ref (buf);
+
   g_queue_push_tail (&pinossrc->queue, buf);
 
   pinos_thread_main_loop_signal (pinossrc->main_loop, FALSE);

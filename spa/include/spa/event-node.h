@@ -70,7 +70,8 @@ typedef struct {
 } SpaEventNodeAsyncComplete;
 
 #define SPA_EVENT_NODE_ASYNC_COMPLETE_INIT(type,seq,res)                \
-  SPA_EVENT_INIT_COMPLEX (sizeof (SpaEventNodeAsyncCompleteBody), type, \
+  SPA_EVENT_INIT_COMPLEX (SpaEventNodeAsyncComplete,                    \
+                          sizeof (SpaEventNodeAsyncCompleteBody), type, \
       SPA_POD_INT_INIT (seq),                                           \
       SPA_POD_INT_INIT (res))
 
@@ -90,7 +91,8 @@ typedef struct {
 } SpaEventNodeRequestClockUpdate;
 
 #define SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_INIT(type,update_mask,timestamp,offset)     \
-  SPA_EVENT_INIT_COMPLEX (sizeof (SpaEventNodeRequestClockUpdateBody), type,            \
+  SPA_EVENT_INIT_COMPLEX (SpaEventNodeRequestClockUpdate,                               \
+                          sizeof (SpaEventNodeRequestClockUpdateBody), type,            \
       SPA_POD_INT_INIT (update_mask),                                                   \
       SPA_POD_LONG_INIT (timestamp),                                                    \
       SPA_POD_LONG_INIT (offset))

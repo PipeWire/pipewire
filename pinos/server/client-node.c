@@ -172,9 +172,9 @@ static inline void
 send_need_input (SpaProxy *this)
 {
   PinosClientNodeImpl *impl = SPA_CONTAINER_OF (this, PinosClientNodeImpl, proxy);
-  SpaEvent event = SPA_EVENT_INIT (impl->core->type.event_transport.NeedInput);
 
-  pinos_transport_add_event (impl->transport, &event);
+  pinos_transport_add_event (impl->transport,
+                             &SPA_EVENT_INIT (impl->core->type.event_transport.NeedInput));
   do_flush (this);
 }
 
@@ -182,9 +182,9 @@ static inline void
 send_have_output (SpaProxy *this)
 {
   PinosClientNodeImpl *impl = SPA_CONTAINER_OF (this, PinosClientNodeImpl, proxy);
-  SpaEvent event = SPA_EVENT_INIT (impl->core->type.event_transport.HaveOutput);
 
-  pinos_transport_add_event (impl->transport, &event);
+  pinos_transport_add_event (impl->transport,
+                             &SPA_EVENT_INIT (impl->core->type.event_transport.HaveOutput));
   do_flush (this);
 }
 

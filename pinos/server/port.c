@@ -202,7 +202,6 @@ no_mem:
 SpaResult
 pinos_port_pause_rt (PinosPort *port)
 {
-  SpaCommand cmd = SPA_COMMAND_INIT (port->node->core->type.command_node.Pause);
   SpaResult res;
 
   if (port->state <= PINOS_PORT_STATE_PAUSED)
@@ -211,7 +210,7 @@ pinos_port_pause_rt (PinosPort *port)
   res = spa_node_port_send_command (port->node->node,
                                     port->direction,
                                     port->port_id,
-                                    &cmd);
+                                    &SPA_COMMAND_INIT (port->node->core->type.command_node.Pause));
   port->state = PINOS_PORT_STATE_PAUSED;
   pinos_log_debug ("port %p: state PAUSED", port);
   return res;

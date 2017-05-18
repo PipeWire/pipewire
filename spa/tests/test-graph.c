@@ -1,5 +1,5 @@
 /* Spa
- * Copyright (C) 2016 Wim Taymans <wim.taymans@gmail.com>
+ * Copyright (C) 2017 Wim Taymans <wim.taymans@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -29,16 +29,15 @@
 #include <spa/node.h>
 #include <spa/log.h>
 #include <spa/loop.h>
-#include <spa/graph.h>
 #include <spa/type-map.h>
 #include <spa/audio/format-utils.h>
 #include <spa/format-utils.h>
 #include <spa/format-builder.h>
+#include <spa/graph.h>
+
 #include <lib/mapper.h>
 #include <lib/debug.h>
 #include <lib/props.h>
-
-#undef USE_GRAPH
 
 typedef struct {
   uint32_t node;
@@ -98,33 +97,25 @@ typedef struct {
   uint32_t   n_support;
 
   SpaGraph graph;
-  SpaGraphNode source1_node;
-  SpaGraphPort source1_out;
-  SpaGraphNode source2_node;
-  SpaGraphPort source2_out;
-  SpaGraphPort mix_in[2];
-  SpaGraphNode mix_node;
-  SpaGraphPort mix_out;
+  SpaGraphNode source_node;
+  SpaGraphPort source_out;
+  SpaGraphPort volume_in;
+  SpaGraphNode volume_node;
+  SpaGraphPort volume_out;
   SpaGraphPort sink_in;
   SpaGraphNode sink_node;
 
   SpaNode *sink;
-  SpaPortIO mix_sink_io[1];
+  SpaPortIO volume_sink_io[1];
 
-  SpaNode *mix;
-  uint32_t mix_ports[2];
-  SpaBuffer *mix_buffers[1];
-  Buffer mix_buffer[1];
+  SpaNode *volume;
+  SpaBuffer *volume_buffers[1];
+  Buffer volume_buffer[1];
 
-  SpaNode *source1;
-  SpaPortIO source1_mix_io[1];
-  SpaBuffer *source1_buffers[2];
-  Buffer source1_buffer[2];
-
-  SpaNode *source2;
-  SpaPortIO source2_mix_io[1];
-  SpaBuffer *source2_buffers[2];
-  Buffer source2_buffer[2];
+  SpaNode *source;
+  SpaPortIO source_volume_io[1];
+  SpaBuffer *source_buffers[1];
+  Buffer source_buffer[1];
 
   bool running;
   pthread_t thread;
@@ -139,8 +130,7 @@ typedef struct {
 
 #define MIN_LATENCY     64
 
-#define BUFFER_SIZE1    MIN_LATENCY
-#define BUFFER_SIZE2    MIN_LATENCY - 4
+#define BUFFER_SIZE    MIN_LATENCY
 
 static void
 init_buffer (AppData *data, SpaBuffer **bufs, Buffer *ba, int n_buffers, size_t size)
@@ -234,42 +224,11 @@ static void
 on_sink_need_input (SpaNode *node, void *user_data)
 {
   AppData *data = user_data;
-#ifdef USE_GRAPH
+
   data->sink_node.action = PROCESS_CHECK;
   data->sink_node.state = SPA_RESULT_NEED_BUFFER;
 
   spa_graph_node_schedule (&data->graph, &data->sink_node);
-#else
-  SpaResult res;
-
-  res = spa_node_process_output (data->mix);
-  if (res == SPA_RESULT_NEED_BUFFER) {
-    if (data->source1_mix_io[0].status == SPA_RESULT_NEED_BUFFER) {
-      res = spa_node_process_output (data->source1);
-      if (res != SPA_RESULT_HAVE_BUFFER)
-        printf ("got process_output error from source1 %d\n", res);
-    }
-
-    if (data->source2_mix_io[0].status == SPA_RESULT_NEED_BUFFER) {
-      res = spa_node_process_output (data->source2);
-      if (res != SPA_RESULT_HAVE_BUFFER)
-        printf ("got process_output error from source2 %d\n", res);
-    }
-
-    res = spa_node_process_input (data->mix);
-    if (res == SPA_RESULT_HAVE_BUFFER)
-      goto push;
-    else
-      printf ("got process_input error from mixer %d\n", res);
-
-  } else if (res == SPA_RESULT_HAVE_BUFFER) {
-push:
-    if ((res = spa_node_process_input (data->sink)) < 0)
-      printf ("got process_input error from sink %d\n", res);
-  } else {
-    printf ("got process_output error from mixer %d\n", res);
-  }
-#endif
 }
 
 static void
@@ -277,7 +236,7 @@ on_sink_reuse_buffer (SpaNode *node, uint32_t port_id, uint32_t buffer_id, void 
 {
   AppData *data = user_data;
 
-  data->mix_sink_io[0].buffer_id = buffer_id;
+  data->volume_sink_io[0].buffer_id = buffer_id;
 }
 
 static const SpaNodeCallbacks sink_callbacks =
@@ -349,14 +308,14 @@ make_nodes (AppData *data, const char *device)
   if ((res = spa_node_set_props (data->sink, props)) < 0)
     printf ("got set_props error %d\n", res);
 
-  if ((res = make_node (data, &data->mix,
-                        "build/spa/plugins/audiomixer/libspa-audiomixer.so",
-                        "audiomixer")) < 0) {
-    printf ("can't create audiomixer: %d\n", res);
+  if ((res = make_node (data, &data->volume,
+                        "build/spa/plugins/volume/libspa-volume.so",
+                        "volume")) < 0) {
+    printf ("can't create volume: %d\n", res);
     return res;
   }
 
-  if ((res = make_node (data, &data->source1,
+  if ((res = make_node (data, &data->source,
                         "build/spa/plugins/audiotestsrc/libspa-audiotestsrc.so",
                         "audiotestsrc")) < 0) {
     printf ("can't create audiotestsrc: %d\n", res);
@@ -370,74 +329,36 @@ make_nodes (AppData *data, const char *device)
       SPA_POD_PROP (&f[1], data->type.props_live, 0, SPA_POD_TYPE_BOOL, 1, false));
   props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
 
-  if ((res = spa_node_set_props (data->source1, props)) < 0)
+  if ((res = spa_node_set_props (data->source, props)) < 0)
     printf ("got set_props error %d\n", res);
 
-  if ((res = make_node (data, &data->source2,
-                        "build/spa/plugins/audiotestsrc/libspa-audiotestsrc.so",
-                        "audiotestsrc")) < 0) {
-    printf ("can't create audiotestsrc: %d\n", res);
-    return res;
-  }
+  spa_node_port_set_io (data->source, SPA_DIRECTION_OUTPUT, 0, &data->source_volume_io[0]);
+  spa_node_port_set_io (data->volume, SPA_DIRECTION_INPUT, 0, &data->source_volume_io[0]);
+  spa_node_port_set_io (data->volume, SPA_DIRECTION_OUTPUT, 0, &data->volume_sink_io[0]);
+  spa_node_port_set_io (data->sink, SPA_DIRECTION_INPUT, 0, &data->volume_sink_io[0]);
 
-  spa_pod_builder_init (&b, buffer, sizeof (buffer));
-  spa_pod_builder_props (&b, &f[0], data->type.props,
-      SPA_POD_PROP (&f[1], data->type.props_freq, 0, SPA_POD_TYPE_DOUBLE, 1, 440.0),
-      SPA_POD_PROP (&f[1], data->type.props_volume, 0, SPA_POD_TYPE_DOUBLE, 1, 0.5),
-      SPA_POD_PROP (&f[1], data->type.props_live, 0, SPA_POD_TYPE_BOOL, 1, false));
-  props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
+  spa_graph_node_add (&data->graph, &data->source_node, spa_graph_node_schedule_default, data->source);
+  spa_graph_port_add (&data->graph, &data->source_node,
+                      &data->source_out, SPA_DIRECTION_OUTPUT, 0,
+                      0, &data->source_volume_io[0]);
 
-  if ((res = spa_node_set_props (data->source2, props)) < 0)
-    printf ("got set_props error %d\n", res);
+  spa_graph_node_add (&data->graph, &data->volume_node, spa_graph_node_schedule_default, data->volume);
+  spa_graph_port_add (&data->graph, &data->volume_node,
+                      &data->volume_in, SPA_DIRECTION_INPUT, 0,
+                      0, &data->source_volume_io[0]);
 
-  data->mix_ports[0] = 0;
-  if ((res = spa_node_add_port (data->mix, SPA_DIRECTION_INPUT, 0)) < 0)
-    return res;
+  spa_graph_port_link (&data->graph, &data->source_out, &data->volume_in);
 
-  data->mix_ports[1] = 1;
-  if ((res = spa_node_add_port (data->mix, SPA_DIRECTION_INPUT, 1)) < 0)
-    return res;
-
-  spa_node_port_set_io (data->source1, SPA_DIRECTION_OUTPUT, 0, &data->source1_mix_io[0]);
-  spa_node_port_set_io (data->source2, SPA_DIRECTION_OUTPUT, 0, &data->source2_mix_io[0]);
-  spa_node_port_set_io (data->mix, SPA_DIRECTION_INPUT, 0, &data->source1_mix_io[0]);
-  spa_node_port_set_io (data->mix, SPA_DIRECTION_INPUT, 1, &data->source2_mix_io[0]);
-  spa_node_port_set_io (data->mix, SPA_DIRECTION_OUTPUT, 0, &data->mix_sink_io[0]);
-  spa_node_port_set_io (data->sink, SPA_DIRECTION_INPUT, 0, &data->mix_sink_io[0]);
-
-#ifdef USE_GRAPH
-  spa_graph_node_add (&data->graph, &data->source1_node, spa_graph_node_schedule_default, data->source1);
-  spa_graph_port_add (&data->graph, &data->source1_node,
-                      &data->source1_out, SPA_DIRECTION_OUTPUT, 0,
-                      0, &data->source1_mix_io[0]);
-
-  spa_graph_node_add (&data->graph, &data->source2_node, spa_graph_node_schedule_default, data->source2);
-  spa_graph_port_add (&data->graph, &data->source2_node,
-                      &data->source2_out, SPA_DIRECTION_OUTPUT, 0,
-                      0, &data->source2_mix_io[0]);
-
-  spa_graph_node_add (&data->graph, &data->mix_node, spa_graph_node_schedule_default, data->mix);
-  spa_graph_port_add (&data->graph, &data->mix_node,
-                      &data->mix_in[0], SPA_DIRECTION_INPUT, data->mix_ports[0],
-                      0, &data->source1_mix_io[0]);
-  spa_graph_port_add (&data->graph, &data->mix_node,
-                      &data->mix_in[1], SPA_DIRECTION_INPUT, data->mix_ports[1],
-                      0, &data->source2_mix_io[0]);
-
-  spa_graph_port_link (&data->graph, &data->source1_out, &data->mix_in[0]);
-  spa_graph_port_link (&data->graph, &data->source2_out, &data->mix_in[1]);
-
-  spa_graph_port_add (&data->graph, &data->mix_node,
-                      &data->mix_out, SPA_DIRECTION_OUTPUT, 0,
-                      0, &data->mix_sink_io[0]);
+  spa_graph_port_add (&data->graph, &data->volume_node,
+                      &data->volume_out, SPA_DIRECTION_OUTPUT, 0,
+                      0, &data->volume_sink_io[0]);
 
   spa_graph_node_add (&data->graph, &data->sink_node, spa_graph_node_schedule_default, data->sink);
   spa_graph_port_add (&data->graph, &data->sink_node,
                       &data->sink_in, SPA_DIRECTION_INPUT, 0,
-                      0, &data->mix_sink_io[0]);
+                      0, &data->volume_sink_io[0]);
 
-  spa_graph_port_link (&data->graph, &data->mix_out, &data->sink_in);
-#endif
+  spa_graph_port_link (&data->graph, &data->volume_out, &data->sink_in);
 
   return res;
 }
@@ -472,40 +393,28 @@ negotiate_formats (AppData *data)
   if ((res = spa_node_port_enum_formats (data->sink, SPA_DIRECTION_INPUT, 0, &format, filter, state)) < 0)
     return res;
 
+
   if ((res = spa_node_port_set_format (data->sink, SPA_DIRECTION_INPUT, 0, 0, format)) < 0)
     return res;
 
-  if ((res = spa_node_port_set_format (data->mix, SPA_DIRECTION_OUTPUT, 0, 0, format)) < 0)
+  if ((res = spa_node_port_set_format (data->volume, SPA_DIRECTION_OUTPUT, 0, 0, format)) < 0)
     return res;
 
-  init_buffer (data, data->mix_buffers, data->mix_buffer, 1, BUFFER_SIZE2);
-  if ((res = spa_node_port_use_buffers (data->sink, SPA_DIRECTION_INPUT, 0, data->mix_buffers, 1)) < 0)
+  init_buffer (data, data->volume_buffers, data->volume_buffer, 1, BUFFER_SIZE);
+  if ((res = spa_node_port_use_buffers (data->sink, SPA_DIRECTION_INPUT, 0, data->volume_buffers, 1)) < 0)
     return res;
-  if ((res = spa_node_port_use_buffers (data->mix, SPA_DIRECTION_OUTPUT, 0, data->mix_buffers, 1)) < 0)
-    return res;
-
-  if ((res = spa_node_port_set_format (data->mix, SPA_DIRECTION_INPUT, data->mix_ports[0], 0, format)) < 0)
+  if ((res = spa_node_port_use_buffers (data->volume, SPA_DIRECTION_OUTPUT, 0, data->volume_buffers, 1)) < 0)
     return res;
 
-  if ((res = spa_node_port_set_format (data->source1, SPA_DIRECTION_OUTPUT, 0, 0, format)) < 0)
+  if ((res = spa_node_port_set_format (data->volume, SPA_DIRECTION_INPUT, 0, 0, format)) < 0)
+    return res;
+  if ((res = spa_node_port_set_format (data->source, SPA_DIRECTION_OUTPUT, 0, 0, format)) < 0)
     return res;
 
-  init_buffer (data, data->source1_buffers, data->source1_buffer, 2, BUFFER_SIZE1);
-  if ((res = spa_node_port_use_buffers (data->mix, SPA_DIRECTION_INPUT, data->mix_ports[0], data->source1_buffers, 2)) < 0)
+  init_buffer (data, data->source_buffers, data->source_buffer, 1, BUFFER_SIZE);
+  if ((res = spa_node_port_use_buffers (data->volume, SPA_DIRECTION_INPUT, 0, data->source_buffers, 1)) < 0)
     return res;
-  if ((res = spa_node_port_use_buffers (data->source1, SPA_DIRECTION_OUTPUT, 0, data->source1_buffers, 2)) < 0)
-    return res;
-
-  if ((res = spa_node_port_set_format (data->mix, SPA_DIRECTION_INPUT, data->mix_ports[1], 0, format)) < 0)
-    return res;
-
-  if ((res = spa_node_port_set_format (data->source2, SPA_DIRECTION_OUTPUT, 0, 0, format)) < 0)
-    return res;
-
-  init_buffer (data, data->source2_buffers, data->source2_buffer, 2, BUFFER_SIZE2);
-  if ((res = spa_node_port_use_buffers (data->mix, SPA_DIRECTION_INPUT, data->mix_ports[1], data->source2_buffers, 2)) < 0)
-    return res;
-  if ((res = spa_node_port_use_buffers (data->source2, SPA_DIRECTION_OUTPUT, 0, data->source2_buffers, 2)) < 0)
+  if ((res = spa_node_port_use_buffers (data->source, SPA_DIRECTION_OUTPUT, 0, data->source_buffers, 1)) < 0)
     return res;
 
   return SPA_RESULT_OK;
@@ -574,12 +483,10 @@ run_async_sink (AppData *data)
 
   {
     SpaCommand cmd = SPA_COMMAND_INIT (data->type.command_node.Start);
-    if ((res = spa_node_send_command (data->source1, &cmd)) < 0)
-      printf ("got source1 error %d\n", res);
-    if ((res = spa_node_send_command (data->source2, &cmd)) < 0)
-      printf ("got source2 error %d\n", res);
-    if ((res = spa_node_send_command (data->mix, &cmd)) < 0)
-      printf ("got mix error %d\n", res);
+    if ((res = spa_node_send_command (data->source, &cmd)) < 0)
+      printf ("got source error %d\n", res);
+    if ((res = spa_node_send_command (data->volume, &cmd)) < 0)
+      printf ("got volume error %d\n", res);
     if ((res = spa_node_send_command (data->sink, &cmd)) < 0)
       printf ("got sink error %d\n", res);
   }
@@ -590,8 +497,8 @@ run_async_sink (AppData *data)
     data->running = false;
   }
 
-  printf ("sleeping for 30 seconds\n");
-  sleep (30);
+  printf ("sleeping for 1000 seconds\n");
+  sleep (1000);
 
   if (data->running) {
     data->running = false;
@@ -602,12 +509,10 @@ run_async_sink (AppData *data)
     SpaCommand cmd = SPA_COMMAND_INIT (data->type.command_node.Pause);
     if ((res = spa_node_send_command (data->sink, &cmd)) < 0)
       printf ("got error %d\n", res);
-    if ((res = spa_node_send_command (data->mix, &cmd)) < 0)
-      printf ("got mix error %d\n", res);
-    if ((res = spa_node_send_command (data->source1, &cmd)) < 0)
-      printf ("got source1 error %d\n", res);
-    if ((res = spa_node_send_command (data->source2, &cmd)) < 0)
-      printf ("got source2 error %d\n", res);
+    if ((res = spa_node_send_command (data->volume, &cmd)) < 0)
+      printf ("got volume error %d\n", res);
+    if ((res = spa_node_send_command (data->source, &cmd)) < 0)
+      printf ("got source error %d\n", res);
   }
 }
 
@@ -618,6 +523,9 @@ main (int argc, char *argv[])
   SpaResult res;
   const char *str;
 
+
+  spa_graph_init (&data.graph);
+
   data.map = spa_type_map_get_default();
   data.log = spa_log_get_default();
   data.data_loop.size = sizeof (SpaLoop);
@@ -625,8 +533,6 @@ main (int argc, char *argv[])
   data.data_loop.update_source = do_update_source;
   data.data_loop.remove_source = do_remove_source;
   data.data_loop.invoke = do_invoke;
-
-  spa_graph_init (&data.graph);
 
   if ((str = getenv ("PINOS_DEBUG")))
     data.log->level = atoi (str);

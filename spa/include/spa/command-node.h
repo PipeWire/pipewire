@@ -95,7 +95,8 @@ typedef struct {
 } SpaCommandNodeClockUpdate;
 
 #define SPA_COMMAND_NODE_CLOCK_UPDATE_INIT(type,change_mask,rate,ticks,monotonic_time,offset,scale,state,flags,latency)  \
-  SPA_COMMAND_INIT_COMPLEX (sizeof (SpaCommandNodeClockUpdateBody), type,  \
+  SPA_COMMAND_INIT_COMPLEX (SpaCommandNodeClockUpdate,                     \
+                            sizeof (SpaCommandNodeClockUpdateBody), type,  \
                                  SPA_POD_INT_INIT (change_mask),           \
                                  SPA_POD_INT_INIT (rate),                  \
                                  SPA_POD_LONG_INIT (ticks),                \

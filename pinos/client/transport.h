@@ -118,7 +118,8 @@ typedef struct {
 } PinosEventTransportReuseBuffer;
 
 #define PINOS_EVENT_TRANSPORT_REUSE_BUFFER_INIT(type,port_id,buffer_id)         \
-  SPA_EVENT_INIT_COMPLEX (sizeof (PinosEventTransportReuseBufferBody), type,    \
+  SPA_EVENT_INIT_COMPLEX (PinosEventTransportReuseBuffer,                       \
+                          sizeof (PinosEventTransportReuseBufferBody), type,    \
       SPA_POD_INT_INIT (port_id),                                               \
       SPA_POD_INT_INIT (buffer_id))
 

@@ -386,10 +386,10 @@ static inline void
 send_have_output (PinosStream *stream)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
-  SpaEvent ho = SPA_EVENT_INIT (stream->context->type.event_transport.HaveOutput);
   uint64_t cmd = 1;
 
-  pinos_transport_add_event (impl->trans, &ho);
+  pinos_transport_add_event (impl->trans,
+                 &SPA_EVENT_INIT (stream->context->type.event_transport.HaveOutput));
   write (impl->rtwritefd, &cmd, 8);
 }
 
@@ -397,11 +397,10 @@ static void
 add_request_clock_update (PinosStream *stream)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
-  SpaEventNodeRequestClockUpdate rcu =
-    SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_INIT (stream->context->type.event_node.RequestClockUpdate,
-                                              SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_TIME, 0, 0);
 
-  pinos_client_node_do_event (impl->node_proxy, (SpaEvent*)&rcu);
+  pinos_client_node_do_event (impl->node_proxy, (SpaEvent*)
+    &SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_INIT (stream->context->type.event_node.RequestClockUpdate,
+                                               SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_TIME, 0, 0));
 }
 
 static void
@@ -410,10 +409,11 @@ add_async_complete (PinosStream  *stream,
                     SpaResult     res)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
-  SpaEventNodeAsyncComplete ac =
-    SPA_EVENT_NODE_ASYNC_COMPLETE_INIT (stream->context->type.event_node.AsyncComplete,
-                                        seq, res);
-  pinos_client_node_do_event (impl->node_proxy, (SpaEvent*)&ac);
+
+  pinos_client_node_do_event (impl->node_proxy, (SpaEvent*)
+    &SPA_EVENT_NODE_ASYNC_COMPLETE_INIT (stream->context->type.event_node.AsyncComplete,
+                                        seq, res));
+
 }
 
 static void

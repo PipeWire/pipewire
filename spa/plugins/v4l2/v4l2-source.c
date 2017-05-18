@@ -267,13 +267,12 @@ do_pause (SpaLoop        *loop,
                                     cmd);
 
   if (async) {
-    SpaEventNodeAsyncComplete ac = SPA_EVENT_NODE_ASYNC_COMPLETE_INIT (this->type.event_node.AsyncComplete,
-                                                                       seq, res);
     spa_loop_invoke (this->state[0].main_loop,
                      do_pause_done,
                      seq,
-                     sizeof (ac),
-                     &ac,
+                     sizeof (SpaEventNodeAsyncComplete),
+                     &SPA_EVENT_NODE_ASYNC_COMPLETE_INIT (this->type.event_node.AsyncComplete,
+                                                          seq, res),
                      this);
   }
   return res;
@@ -313,13 +312,12 @@ do_start (SpaLoop        *loop,
                                     cmd);
 
   if (async) {
-    SpaEventNodeAsyncComplete ac = SPA_EVENT_NODE_ASYNC_COMPLETE_INIT (this->type.event_node.AsyncComplete,
-                                                                       seq, res);
     spa_loop_invoke (this->state[0].main_loop,
                      do_start_done,
                      seq,
-                     sizeof (ac),
-                     &ac,
+                     sizeof (SpaEventNodeAsyncComplete),
+                     &SPA_EVENT_NODE_ASYNC_COMPLETE_INIT (this->type.event_node.AsyncComplete,
+                                                          seq, res),
                      this);
   }
 

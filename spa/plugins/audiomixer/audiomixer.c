@@ -532,7 +532,6 @@ static void
 recycle_buffer (SpaAudioMixer *this, uint32_t id)
 {
   SpaAudioMixerPort *port = &this->out_ports[0];
-
   MixerBuffer *b = &port->buffers[id];
 
   if (!b->outstanding) {

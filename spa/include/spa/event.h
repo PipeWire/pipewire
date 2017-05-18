@@ -43,11 +43,11 @@ struct _SpaEvent {
 
 #define SPA_EVENT_TYPE(ev)   ((ev)->body.body.type)
 
-#define SPA_EVENT_INIT(type)                            \
+#define SPA_EVENT_INIT(type) (SpaEvent)                 \
   { { sizeof (SpaEventBody), SPA_POD_TYPE_OBJECT },     \
     { { 0, type } } }                                   \
 
-#define SPA_EVENT_INIT_COMPLEX(size,type,...)           \
+#define SPA_EVENT_INIT_COMPLEX(t,size,type,...) (t)     \
   { { size, SPA_POD_TYPE_OBJECT },                      \
     { { 0, type }, __VA_ARGS__ } }                      \
 

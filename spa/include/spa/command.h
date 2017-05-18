@@ -43,11 +43,11 @@ struct _SpaCommand {
 
 #define SPA_COMMAND_TYPE(cmd)   ((cmd)->body.body.type)
 
-#define SPA_COMMAND_INIT(type)                                  \
+#define SPA_COMMAND_INIT(type) (SpaCommand)                     \
   { { sizeof (SpaCommandBody), SPA_POD_TYPE_OBJECT },           \
     { { 0, type } } }                                           \
 
-#define SPA_COMMAND_INIT_COMPLEX(size,type,...)                 \
+#define SPA_COMMAND_INIT_COMPLEX(t,size,type,...) (t)           \
   { { size, SPA_POD_TYPE_OBJECT },                              \
     { { 0, type }, __VA_ARGS__ } }                              \
 

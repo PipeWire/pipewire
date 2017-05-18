@@ -166,11 +166,10 @@ pause_node (PinosNode *this)
     return SPA_RESULT_OK;
 
   pinos_log_debug ("node %p: pause node", this);
-  {
-    SpaCommand cmd = SPA_COMMAND_INIT (this->core->type.command_node.Pause);
-    if ((res = spa_node_send_command (this->node, &cmd)) < 0)
-      pinos_log_debug ("got error %d", res);
-  }
+
+  if ((res = spa_node_send_command (this->node,
+          &SPA_COMMAND_INIT (this->core->type.command_node.Pause))) < 0)
+    pinos_log_debug ("got error %d", res);
 
   return res;
 }
@@ -181,11 +180,11 @@ start_node (PinosNode *this)
   SpaResult res;
 
   pinos_log_debug ("node %p: start node", this);
-  {
-    SpaCommand cmd = SPA_COMMAND_INIT (this->core->type.command_node.Start);
-    if ((res = spa_node_send_command (this->node, &cmd)) < 0)
-      pinos_log_debug ("got error %d", res);
-  }
+
+  if ((res = spa_node_send_command (this->node,
+          &SPA_COMMAND_INIT (this->core->type.command_node.Start))) < 0)
+    pinos_log_debug ("got error %d", res);
+
   return res;
 }
 

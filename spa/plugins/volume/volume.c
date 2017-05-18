@@ -567,13 +567,28 @@ spa_volume_node_port_set_io (SpaNode      *node,
   return SPA_RESULT_OK;
 }
 
+static void
+recycle_buffer (SpaVolume *this, uint32_t id)
+{
+  SpaVolumePort *port = &this->out_ports[0];
+  SpaVolumeBuffer *b = &port->buffers[id];
+
+  if (!b->outstanding) {
+    spa_log_warn (this->log, "volume %p: buffer %d not outstanding", this, id);
+    return;
+  }
+
+  spa_list_insert (port->empty.prev, &b->link);
+  b->outstanding = false;
+  spa_log_trace (this->log, "volume %p: recycle buffer %d", this, id);
+}
+
 static SpaResult
 spa_volume_node_port_reuse_buffer (SpaNode         *node,
                                    uint32_t         port_id,
                                    uint32_t         buffer_id)
 {
   SpaVolume *this;
-  SpaVolumeBuffer *b;
   SpaVolumePort *port;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
@@ -590,12 +605,7 @@ spa_volume_node_port_reuse_buffer (SpaNode         *node,
   if (buffer_id >= port->n_buffers)
     return SPA_RESULT_INVALID_BUFFER_ID;
 
-  b = &port->buffers[buffer_id];
-  if (!b->outstanding)
-    return SPA_RESULT_OK;
-
-  b->outstanding = false;
-  spa_list_insert (port->empty.prev, &b->link);
+  recycle_buffer (this, buffer_id);
 
   return SPA_RESULT_OK;
 }
@@ -627,7 +637,8 @@ find_free_buffer (SpaVolume *this, SpaVolumePort *port)
 static inline void
 release_buffer (SpaVolume *this, SpaBuffer *buffer)
 {
-  this->callbacks.reuse_buffer (&this->node, 0, buffer->id, this->user_data);
+  if (this->callbacks.reuse_buffer)
+    this->callbacks.reuse_buffer (&this->node, 0, buffer->id, this->user_data);
 }
 
 static void
@@ -686,43 +697,28 @@ spa_volume_node_process_input (SpaNode *node)
 
   this = SPA_CONTAINER_OF (node, SpaVolume, node);
 
-  in_port = &this->in_ports[0];
   out_port = &this->out_ports[0];
+  output = out_port->io;
+  spa_return_val_if_fail (output != NULL, SPA_RESULT_ERROR);
 
-  if ((input = in_port->io) == NULL)
-    return SPA_RESULT_ERROR;
-  if ((output = out_port->io) == NULL)
-    return SPA_RESULT_ERROR;
+  if (output->status == SPA_RESULT_HAVE_BUFFER)
+    return SPA_RESULT_HAVE_BUFFER;
 
-  if (!in_port->have_format) {
-    input->status = SPA_RESULT_NO_FORMAT;
-    return SPA_RESULT_ERROR;
-  }
-  if (input->buffer_id >= in_port->n_buffers) {
-    input->status = SPA_RESULT_INVALID_BUFFER_ID;
-    return SPA_RESULT_ERROR;
-  }
+  in_port = &this->in_ports[0];
+  input = in_port->io;
+  spa_return_val_if_fail (input != NULL, SPA_RESULT_ERROR);
 
-  if (output->buffer_id >= out_port->n_buffers) {
-    dbuf = find_free_buffer (this, out_port);
-  } else {
-    dbuf = out_port->buffers[output->buffer_id].outbuf;
-  }
-  if (dbuf == NULL)
+  if ((dbuf = find_free_buffer (this, out_port)) == NULL)
     return SPA_RESULT_OUT_OF_BUFFERS;
 
   sbuf = in_port->buffers[input->buffer_id].outbuf;
 
-  input->buffer_id = SPA_ID_INVALID;
-  input->status = SPA_RESULT_OK;
+  input->status = SPA_RESULT_NEED_BUFFER;
 
   do_volume (this, sbuf, dbuf);
 
   output->buffer_id = dbuf->id;
-  output->status = SPA_RESULT_OK;
-
-  if (sbuf != dbuf)
-    release_buffer (this, sbuf);
+  output->status = SPA_RESULT_HAVE_BUFFER;
 
   return SPA_RESULT_HAVE_BUFFER;
 }
@@ -730,6 +726,34 @@ spa_volume_node_process_input (SpaNode *node)
 static SpaResult
 spa_volume_node_process_output (SpaNode *node)
 {
+  SpaVolume *this;
+  SpaVolumePort *in_port, *out_port;
+  SpaPortIO *input, *output;
+
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+
+  this = SPA_CONTAINER_OF (node, SpaVolume, node);
+
+  out_port = &this->out_ports[0];
+  output = out_port->io;
+  spa_return_val_if_fail (output != NULL, SPA_RESULT_ERROR);
+
+  if (output->status == SPA_RESULT_HAVE_BUFFER)
+    return SPA_RESULT_HAVE_BUFFER;
+
+  /* recycle */
+  if (output->buffer_id != SPA_ID_INVALID) {
+    recycle_buffer (this, output->buffer_id);
+    output->buffer_id = SPA_ID_INVALID;
+  }
+
+  in_port = &this->in_ports[0];
+  input = in_port->io;
+  spa_return_val_if_fail (input != NULL, SPA_RESULT_ERROR);
+
+  input->range = output->range;
+  input->status = SPA_RESULT_NEED_BUFFER;
+
   return SPA_RESULT_NEED_BUFFER;
 }
 

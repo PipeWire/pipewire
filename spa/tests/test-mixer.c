@@ -398,6 +398,10 @@ make_nodes (AppData *data, const char *device)
   if ((res = spa_node_add_port (data->mix, SPA_DIRECTION_INPUT, 1)) < 0)
     return res;
 
+  data->source1_mix_io[0] = SPA_PORT_IO_INIT;
+  data->source2_mix_io[0] = SPA_PORT_IO_INIT;
+  data->mix_sink_io[0] = SPA_PORT_IO_INIT;
+
   spa_node_port_set_io (data->source1, SPA_DIRECTION_OUTPUT, 0, &data->source1_mix_io[0]);
   spa_node_port_set_io (data->source2, SPA_DIRECTION_OUTPUT, 0, &data->source2_mix_io[0]);
   spa_node_port_set_io (data->mix, SPA_DIRECTION_INPUT, 0, &data->source1_mix_io[0]);

@@ -39,6 +39,13 @@
 #include <lib/debug.h>
 #include <lib/props.h>
 
+#define MODE_SYNC_PUSH          (1<<0)
+#define MODE_SYNC_PULL          (1<<1)
+#define MODE_ASYNC_PUSH         (1<<2)
+#define MODE_ASYNC_PULL         (1<<3)
+#define MODE_ASYNC_BOTH         (MODE_ASYNC_PUSH|MODE_ASYNC_PULL)
+#define MODE_DIRECT             (1<<4)
+
 typedef struct {
   uint32_t node;
   uint32_t props;
@@ -52,8 +59,6 @@ typedef struct {
   SpaTypeData data;
   SpaTypeMediaType media_type;
   SpaTypeMediaSubtype media_subtype;
-  SpaTypeFormatAudio format_audio;
-  SpaTypeAudioFormat audio_format;
   SpaTypeEventNode event_node;
   SpaTypeCommandNode command_node;
 } Type;
@@ -73,8 +78,6 @@ init_type (Type *type, SpaTypeMap *map)
   spa_type_data_map (map, &type->data);
   spa_type_media_type_map (map, &type->media_type);
   spa_type_media_subtype_map (map, &type->media_subtype);
-  spa_type_format_audio_map (map, &type->format_audio);
-  spa_type_audio_format_map (map, &type->audio_format);
   spa_type_event_node_map (map, &type->event_node);
   spa_type_command_node_map (map, &type->command_node);
 }
@@ -93,27 +96,23 @@ typedef struct {
   SpaLoop data_loop;
   Type type;
 
+  int mode;
+
   SpaSupport support[4];
   uint32_t   n_support;
+
+  int iterations;
 
   SpaGraph graph;
   SpaGraphNode source_node;
   SpaGraphPort source_out;
-  SpaGraphPort volume_in;
-  SpaGraphNode volume_node;
-  SpaGraphPort volume_out;
   SpaGraphPort sink_in;
   SpaGraphNode sink_node;
 
   SpaNode *sink;
-  SpaPortIO volume_sink_io[1];
-
-  SpaNode *volume;
-  SpaBuffer *volume_buffers[1];
-  Buffer volume_buffer[1];
+  SpaPortIO source_sink_io[1];
 
   SpaNode *source;
-  SpaPortIO source_volume_io[1];
   SpaBuffer *source_buffers[1];
   Buffer source_buffer[1];
 
@@ -126,6 +125,8 @@ typedef struct {
   bool rebuild_fds;
   struct pollfd fds[16];
   unsigned int n_fds;
+
+  void *hnd;
 } AppData;
 
 #define MIN_LATENCY     64
@@ -173,16 +174,17 @@ make_node (AppData *data, SpaNode **node, const char *lib, const char *name)
 {
   SpaHandle *handle;
   SpaResult res;
-  void *hnd;
   SpaEnumHandleFactoryFunc enum_func;
   unsigned int i;
   uint32_t state = 0;
 
-  if ((hnd = dlopen (lib, RTLD_NOW)) == NULL) {
-    printf ("can't load %s: %s\n", lib, dlerror());
-    return SPA_RESULT_ERROR;
+  if (data->hnd == NULL) {
+    if ((data->hnd = dlopen (lib, RTLD_NOW)) == NULL) {
+      printf ("can't load %s: %s\n", lib, dlerror());
+      return SPA_RESULT_ERROR;
+    }
   }
-  if ((enum_func = dlsym (hnd, "spa_enum_handle_factory")) == NULL) {
+  if ((enum_func = dlsym (data->hnd, "spa_enum_handle_factory")) == NULL) {
     printf ("can't find enum function\n");
     return SPA_RESULT_ERROR;
   }
@@ -215,20 +217,49 @@ make_node (AppData *data, SpaNode **node, const char *lib, const char *name)
 }
 
 static void
+on_sink_pull (AppData *data)
+{
+  spa_log_trace (data->log, "do sink pull");
+  data->sink_node.state = SPA_RESULT_NEED_BUFFER;
+  if (data->mode & MODE_DIRECT) {
+    spa_node_process_output (data->source);
+    spa_node_process_input (data->sink);
+  }
+  else {
+    data->sink_node.action = SPA_GRAPH_ACTION_CHECK;
+    spa_graph_node_schedule (&data->graph, &data->sink_node);
+  }
+}
+
+static void
+on_source_push (AppData *data)
+{
+  spa_log_trace (data->log, "do source push");
+  if (data->mode & MODE_DIRECT) {
+    spa_node_process_output (data->source);
+    spa_node_process_input (data->sink);
+  }
+  else {
+    data->source_node.action = SPA_GRAPH_ACTION_OUT;
+    spa_graph_node_schedule (&data->graph, &data->source_node);
+  }
+}
+
+static void
 on_sink_event (SpaNode *node, SpaEvent *event, void *user_data)
 {
-  printf ("got event %d\n", SPA_EVENT_TYPE (event));
+  AppData *data = user_data;
+  spa_log_trace (data->log, "got sink event %d", SPA_EVENT_TYPE (event));
 }
 
 static void
 on_sink_need_input (SpaNode *node, void *user_data)
 {
   AppData *data = user_data;
-
-  data->sink_node.action = SPA_GRAPH_ACTION_CHECK;
-  data->sink_node.state = SPA_RESULT_NEED_BUFFER;
-
-  spa_graph_node_schedule (&data->graph, &data->sink_node);
+  spa_log_trace (data->log, "need input");
+  on_sink_pull (data);
+  if (--data->iterations == 0)
+    data->running = false;
 }
 
 static void
@@ -236,7 +267,7 @@ on_sink_reuse_buffer (SpaNode *node, uint32_t port_id, uint32_t buffer_id, void 
 {
   AppData *data = user_data;
 
-  data->volume_sink_io[0].buffer_id = buffer_id;
+  data->source_sink_io[0].buffer_id = buffer_id;
 }
 
 static const SpaNodeCallbacks sink_callbacks =
@@ -246,6 +277,32 @@ static const SpaNodeCallbacks sink_callbacks =
   NULL,
   &on_sink_reuse_buffer
 };
+
+static void
+on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
+{
+  AppData *data = user_data;
+  spa_log_trace (data->log, "got source event %d", SPA_EVENT_TYPE (event));
+}
+
+static void
+on_source_have_output (SpaNode *node, void *user_data)
+{
+  AppData *data = user_data;
+  spa_log_trace (data->log, "have_output");
+  on_source_push (data);
+  if (--data->iterations == 0)
+    data->running = false;
+}
+
+static const SpaNodeCallbacks source_callbacks =
+{
+  &on_source_event,
+  NULL,
+  &on_source_have_output,
+  NULL
+};
+
 
 static SpaResult
 do_add_source (SpaLoop   *loop,
@@ -283,85 +340,50 @@ do_invoke (SpaLoop       *loop,
 }
 
 static SpaResult
-make_nodes (AppData *data, const char *device)
+make_nodes (AppData *data)
 {
   SpaResult res;
-  SpaProps *props;
-  SpaPODBuilder b = { 0 };
-  SpaPODFrame f[2];
-  uint8_t buffer[128];
 
   if ((res = make_node (data, &data->sink,
-                        "build/spa/plugins/alsa/libspa-alsa.so",
-                        "alsa-sink")) < 0) {
-    printf ("can't create alsa-sink: %d\n", res);
+                        "build/spa/plugins/test/libspa-test.so",
+                        "fakesink")) < 0) {
+    printf ("can't create fakesink: %d\n", res);
     return res;
   }
-  spa_node_set_callbacks (data->sink, &sink_callbacks, sizeof (sink_callbacks), data);
 
-  spa_pod_builder_init (&b, buffer, sizeof (buffer));
-  spa_pod_builder_props (&b, &f[0], data->type.props,
-      SPA_POD_PROP (&f[1], data->type.props_device, 0, SPA_POD_TYPE_STRING, 1, device ? device : "hw:0"),
-      SPA_POD_PROP (&f[1], data->type.props_min_latency, 0, SPA_POD_TYPE_INT, 1, MIN_LATENCY));
-  props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
-
-  if ((res = spa_node_set_props (data->sink, props)) < 0)
-    printf ("got set_props error %d\n", res);
-
-  if ((res = make_node (data, &data->volume,
-                        "build/spa/plugins/volume/libspa-volume.so",
-                        "volume")) < 0) {
-    printf ("can't create volume: %d\n", res);
-    return res;
-  }
+  if (data->mode & MODE_ASYNC_PULL)
+    spa_node_set_callbacks (data->sink, &sink_callbacks, sizeof (sink_callbacks), data);
 
   if ((res = make_node (data, &data->source,
-                        "build/spa/plugins/audiotestsrc/libspa-audiotestsrc.so",
-                        "audiotestsrc")) < 0) {
-    printf ("can't create audiotestsrc: %d\n", res);
+                        "build/spa/plugins/test/libspa-test.so",
+                        "fakesrc")) < 0) {
+    printf ("can't create fakesrc: %d\n", res);
     return res;
   }
 
-  spa_pod_builder_init (&b, buffer, sizeof (buffer));
-  spa_pod_builder_props (&b, &f[0], data->type.props,
-      SPA_POD_PROP (&f[1], data->type.props_freq, 0, SPA_POD_TYPE_DOUBLE, 1, 600.0),
-      SPA_POD_PROP (&f[1], data->type.props_volume, 0, SPA_POD_TYPE_DOUBLE, 1, 0.5),
-      SPA_POD_PROP (&f[1], data->type.props_live, 0, SPA_POD_TYPE_BOOL, 1, false));
-  props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
+  if (data->mode & MODE_ASYNC_PUSH)
+    spa_node_set_callbacks (data->source, &source_callbacks, sizeof (source_callbacks), data);
 
-  if ((res = spa_node_set_props (data->source, props)) < 0)
-    printf ("got set_props error %d\n", res);
+  data->source_sink_io[0] = SPA_PORT_IO_INIT;
+  data->source_sink_io[0].status = SPA_RESULT_NEED_BUFFER;
 
-  data->source_volume_io[0] = SPA_PORT_IO_INIT;
-  data->volume_sink_io[0] = SPA_PORT_IO_INIT;
+  spa_node_port_set_io (data->source, SPA_DIRECTION_OUTPUT, 0, &data->source_sink_io[0]);
+  spa_node_port_set_io (data->sink, SPA_DIRECTION_INPUT, 0, &data->source_sink_io[0]);
 
-  spa_node_port_set_io (data->source, SPA_DIRECTION_OUTPUT, 0, &data->source_volume_io[0]);
-  spa_node_port_set_io (data->volume, SPA_DIRECTION_INPUT, 0, &data->source_volume_io[0]);
-  spa_node_port_set_io (data->volume, SPA_DIRECTION_OUTPUT, 0, &data->volume_sink_io[0]);
-  spa_node_port_set_io (data->sink, SPA_DIRECTION_INPUT, 0, &data->volume_sink_io[0]);
-
-  spa_graph_node_add (&data->graph, &data->source_node, spa_graph_node_schedule_default, data->source);
+  spa_graph_node_add (&data->graph, &data->source_node,
+                      spa_graph_node_schedule_default, data->source);
+  data->source_node.flags = (data->mode & MODE_ASYNC_PUSH) ? SPA_GRAPH_NODE_FLAG_ASYNC : 0;
   spa_graph_port_add (&data->graph, &data->source_node,
                       &data->source_out, SPA_DIRECTION_OUTPUT, 0,
-                      0, &data->source_volume_io[0]);
-
-  spa_graph_node_add (&data->graph, &data->volume_node, spa_graph_node_schedule_default, data->volume);
-  spa_graph_port_add (&data->graph, &data->volume_node,
-                      &data->volume_in, SPA_DIRECTION_INPUT, 0,
-                      0, &data->source_volume_io[0]);
-
-  spa_graph_port_link (&data->graph, &data->source_out, &data->volume_in);
-
-  spa_graph_port_add (&data->graph, &data->volume_node,
-                      &data->volume_out, SPA_DIRECTION_OUTPUT, 0,
-                      0, &data->volume_sink_io[0]);
+                      0, &data->source_sink_io[0]);
 
   spa_graph_node_add (&data->graph, &data->sink_node, spa_graph_node_schedule_default, data->sink);
+  data->sink_node.flags = (data->mode & MODE_ASYNC_PULL) ? SPA_GRAPH_NODE_FLAG_ASYNC : 0;
   spa_graph_port_add (&data->graph, &data->sink_node,
                       &data->sink_in, SPA_DIRECTION_INPUT, 0,
-                      0, &data->volume_sink_io[0]);
+                      0, &data->source_sink_io[0]);
 
-  spa_graph_port_link (&data->graph, &data->volume_out, &data->sink_in);
+  spa_graph_port_link (&data->graph, &data->source_out, &data->sink_in);
 
   return res;
 }
@@ -370,52 +392,25 @@ static SpaResult
 negotiate_formats (AppData *data)
 {
   SpaResult res;
-  SpaFormat *format, *filter;
-  uint32_t state = 0;
+  SpaFormat *format;
   SpaPODBuilder b = { 0 };
   SpaPODFrame f[2];
   uint8_t buffer[256];
 
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
   spa_pod_builder_format (&b, &f[0], data->type.format,
-      data->type.media_type.audio, data->type.media_subtype.raw,
-      SPA_POD_PROP (&f[1], data->type.format_audio.format, 0,
-                           SPA_POD_TYPE_ID,  1,
-                           data->type.audio_format.S16),
-      SPA_POD_PROP (&f[1], data->type.format_audio.layout, 0,
-                           SPA_POD_TYPE_INT, 1,
-                           SPA_AUDIO_LAYOUT_INTERLEAVED),
-      SPA_POD_PROP (&f[1], data->type.format_audio.rate, 0,
-                           SPA_POD_TYPE_INT, 1,
-                           44100),
-      SPA_POD_PROP (&f[1], data->type.format_audio.channels, 0,
-                           SPA_POD_TYPE_INT, 1,
-                           2));
-  filter = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
-
-  if ((res = spa_node_port_enum_formats (data->sink, SPA_DIRECTION_INPUT, 0, &format, filter, state)) < 0)
-    return res;
-
+      data->type.media_type.binary, data->type.media_subtype.raw, 0);
+  format = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
 
   if ((res = spa_node_port_set_format (data->sink, SPA_DIRECTION_INPUT, 0, 0, format)) < 0)
     return res;
 
-  if ((res = spa_node_port_set_format (data->volume, SPA_DIRECTION_OUTPUT, 0, 0, format)) < 0)
-    return res;
-
-  init_buffer (data, data->volume_buffers, data->volume_buffer, 1, BUFFER_SIZE);
-  if ((res = spa_node_port_use_buffers (data->sink, SPA_DIRECTION_INPUT, 0, data->volume_buffers, 1)) < 0)
-    return res;
-  if ((res = spa_node_port_use_buffers (data->volume, SPA_DIRECTION_OUTPUT, 0, data->volume_buffers, 1)) < 0)
-    return res;
-
-  if ((res = spa_node_port_set_format (data->volume, SPA_DIRECTION_INPUT, 0, 0, format)) < 0)
-    return res;
   if ((res = spa_node_port_set_format (data->source, SPA_DIRECTION_OUTPUT, 0, 0, format)) < 0)
     return res;
 
   init_buffer (data, data->source_buffers, data->source_buffer, 1, BUFFER_SIZE);
-  if ((res = spa_node_port_use_buffers (data->volume, SPA_DIRECTION_INPUT, 0, data->source_buffers, 1)) < 0)
+
+  if ((res = spa_node_port_use_buffers (data->sink, SPA_DIRECTION_INPUT, 0, data->source_buffers, 1)) < 0)
     return res;
   if ((res = spa_node_port_use_buffers (data->source, SPA_DIRECTION_OUTPUT, 0, data->source_buffers, 1)) < 0)
     return res;
@@ -479,41 +474,54 @@ loop (void *user_data)
 }
 
 static void
-run_async_sink (AppData *data)
+run_graph (AppData *data)
 {
   SpaResult res;
-  int err;
+  int err, i;
+  struct timespec now;
+  int64_t start, stop;
 
   {
     SpaCommand cmd = SPA_COMMAND_INIT (data->type.command_node.Start);
     if ((res = spa_node_send_command (data->source, &cmd)) < 0)
       printf ("got source error %d\n", res);
-    if ((res = spa_node_send_command (data->volume, &cmd)) < 0)
-      printf ("got volume error %d\n", res);
     if ((res = spa_node_send_command (data->sink, &cmd)) < 0)
       printf ("got sink error %d\n", res);
   }
 
-  data->running = true;
-  if ((err = pthread_create (&data->thread, NULL, loop, data)) != 0) {
-    printf ("can't create thread: %d %s", err, strerror (err));
-    data->running = false;
+  clock_gettime (CLOCK_MONOTONIC, &now);
+  start = SPA_TIMESPEC_TO_TIME (&now);
+
+  printf ("running\n");
+
+  if (data->mode & MODE_SYNC_PUSH) {
+    for (i = 0; i < data->iterations; i++)
+      on_source_push (data);
+  }
+  else if (data->mode & MODE_SYNC_PULL) {
+    for (i = 0; i < data->iterations; i++)
+      on_sink_pull (data);
+  }
+  else {
+    data->running = true;
+    if ((err = pthread_create (&data->thread, NULL, loop, data)) != 0) {
+      printf ("can't create thread: %d %s", err, strerror (err));
+      data->running = false;
+    }
+    if (data->running) {
+      pthread_join (data->thread, NULL);
+    }
   }
 
-  printf ("sleeping for 1000 seconds\n");
-  sleep (1000);
+  clock_gettime (CLOCK_MONOTONIC, &now);
+  stop = SPA_TIMESPEC_TO_TIME (&now);
 
-  if (data->running) {
-    data->running = false;
-    pthread_join (data->thread, NULL);
-  }
+  printf ("stopping, elapsed %"PRIi64"\n", stop - start);
 
   {
     SpaCommand cmd = SPA_COMMAND_INIT (data->type.command_node.Pause);
     if ((res = spa_node_send_command (data->sink, &cmd)) < 0)
       printf ("got error %d\n", res);
-    if ((res = spa_node_send_command (data->volume, &cmd)) < 0)
-      printf ("got volume error %d\n", res);
     if ((res = spa_node_send_command (data->source, &cmd)) < 0)
       printf ("got source error %d\n", res);
   }
@@ -525,7 +533,6 @@ main (int argc, char *argv[])
   AppData data = { NULL };
   SpaResult res;
   const char *str;
-
 
   spa_graph_init (&data.graph);
 
@@ -540,6 +547,11 @@ main (int argc, char *argv[])
   if ((str = getenv ("PINOS_DEBUG")))
     data.log->level = atoi (str);
 
+  data.mode = argc > 1 ? atoi (argv[1]) : MODE_SYNC_PUSH;
+  data.iterations = argc > 2 ? atoi (argv[2]) : 100000;
+
+  printf ("mode %08x\n", data.mode);
+
   data.support[0].type = SPA_TYPE__TypeMap;
   data.support[0].data = data.map;
   data.support[1].type = SPA_TYPE__Log;
@@ -552,7 +564,7 @@ main (int argc, char *argv[])
 
   init_type (&data.type, data.map);
 
-  if ((res = make_nodes (&data, argc > 1 ? argv[1] : NULL)) < 0) {
+  if ((res = make_nodes (&data)) < 0) {
     printf ("can't make nodes: %d\n", res);
     return -1;
   }
@@ -561,5 +573,5 @@ main (int argc, char *argv[])
     return -1;
   }
 
-  run_async_sink (&data);
+  run_graph (&data);
 }

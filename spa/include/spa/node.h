@@ -49,7 +49,6 @@ typedef struct {
  * @status: the status
  * @buffer_id: a buffer id
  * @range: requested range
- * @event: event
  *
  * IO information for a port on a node. This is allocated
  * by the host and configured on all ports for which IO is requested.
@@ -59,6 +58,8 @@ typedef struct {
   uint32_t       buffer_id;
   SpaRange       range;
 } SpaPortIO;
+
+#define SPA_PORT_IO_INIT  (SpaPortIO) { SPA_RESULT_NEED_BUFFER, SPA_ID_INVALID, }
 
 /**
  * SpaPortInfo

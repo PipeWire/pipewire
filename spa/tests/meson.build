@@ -13,6 +13,11 @@ executable('test-graph', 'test-graph.c',
            dependencies : [dl_lib, pthread_lib],
            link_with : spalib,
            install : false)
+executable('test-perf', 'test-perf.c',
+           include_directories : [spa_inc, spa_libinc ],
+           dependencies : [dl_lib, pthread_lib],
+           link_with : spalib,
+           install : false)
 executable('stress-ringbuffer', 'stress-ringbuffer.c',
            include_directories : [spa_inc, spa_libinc ],
            dependencies : [dl_lib, pthread_lib],

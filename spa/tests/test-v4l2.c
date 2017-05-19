@@ -399,6 +399,8 @@ negotiate_formats (AppData *data)
   uint8_t buffer[256];
   SpaPODBuilder b = SPA_POD_BUILDER_INIT (buffer, sizeof (buffer));
 
+  data->source_output[0] = SPA_PORT_IO_INIT;
+
   if ((res = spa_node_port_set_io (data->source, SPA_DIRECTION_OUTPUT, 0, &data->source_output[0])) < 0)
     return res;
 

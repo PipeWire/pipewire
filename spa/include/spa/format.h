@@ -38,6 +38,8 @@ typedef struct _SpaFormat SpaFormat;
 #define SPA_TYPE_MEDIA_TYPE__audio      SPA_TYPE_MEDIA_TYPE_BASE "audio"
 #define SPA_TYPE_MEDIA_TYPE__video      SPA_TYPE_MEDIA_TYPE_BASE "video"
 #define SPA_TYPE_MEDIA_TYPE__image      SPA_TYPE_MEDIA_TYPE_BASE "image"
+#define SPA_TYPE_MEDIA_TYPE__binary     SPA_TYPE_MEDIA_TYPE_BASE "binary"
+#define SPA_TYPE_MEDIA_TYPE__stream     SPA_TYPE_MEDIA_TYPE_BASE "stream"
 
 #define SPA_TYPE__MediaSubtype          SPA_TYPE_ENUM_BASE "MediaSubtype"
 #define SPA_TYPE_MEDIA_SUBTYPE_BASE     SPA_TYPE__MediaSubtype ":"

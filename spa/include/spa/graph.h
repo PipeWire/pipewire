@@ -36,10 +36,6 @@ struct SpaGraph {
   SpaList  ready;
 };
 
-#define PROCESS_CHECK   0
-#define PROCESS_IN      1
-#define PROCESS_OUT     2
-
 typedef SpaResult (*SpaGraphNodeFunc) (SpaGraphNode *node);
 
 struct SpaGraphNode {
@@ -49,6 +45,9 @@ struct SpaGraphNode {
 #define SPA_GRAPH_NODE_FLAG_ASYNC       (1 << 0)
   uint32_t         flags;
   SpaResult        state;
+#define SPA_GRAPH_ACTION_CHECK   0
+#define SPA_GRAPH_ACTION_IN      1
+#define SPA_GRAPH_ACTION_OUT     2
   uint32_t         action;
   SpaGraphNodeFunc schedule;
   void            *user_data;
@@ -78,9 +77,10 @@ static inline SpaResult
 spa_graph_node_schedule_default (SpaGraphNode *node)
 {
   SpaNode *n = node->user_data;
-  if (node->action == PROCESS_IN)
+
+  if (node->action == SPA_GRAPH_ACTION_IN)
     return spa_node_process_input (n);
-  else if (node->action == PROCESS_OUT)
+  else if (node->action == SPA_GRAPH_ACTION_OUT)
     return spa_node_process_output (n);
   else
     return SPA_RESULT_ERROR;
@@ -93,7 +93,7 @@ spa_graph_node_add (SpaGraph *graph, SpaGraphNode *node, SpaGraphNodeFunc schedu
   spa_list_init (&node->ports[SPA_DIRECTION_OUTPUT]);
   node->flags = 0;
   node->state = SPA_RESULT_OK;
-  node->action = PROCESS_OUT;
+  node->action = SPA_GRAPH_ACTION_OUT;
   node->schedule = schedule;
   node->user_data = user_data;
   spa_list_insert (graph->nodes.prev, &node->link);
@@ -110,7 +110,7 @@ spa_graph_port_check (SpaGraph     *graph,
     node->ready_in++;
 
   if (node->required_in > 0 && node->ready_in == node->required_in) {
-    node->action = PROCESS_IN;
+    node->action = SPA_GRAPH_ACTION_IN;
     if (node->ready_link.next == NULL)
       spa_list_insert (graph->ready.prev, &node->ready_link);
   } else if (node->ready_link.next) {
@@ -182,21 +182,25 @@ spa_graph_node_schedule (SpaGraph *graph, SpaGraphNode *node)
     n->ready_link.next = NULL;
 
     switch (n->action) {
-      case PROCESS_IN:
-      case PROCESS_OUT:
+      case SPA_GRAPH_ACTION_IN:
+      case SPA_GRAPH_ACTION_OUT:
         n->state = n->schedule (n);
-        n->action = PROCESS_CHECK;
+        if (n->action == SPA_GRAPH_ACTION_IN && n == node)
+          continue;
+        n->action = SPA_GRAPH_ACTION_CHECK;
         spa_list_insert (graph->ready.prev, &n->ready_link);
         break;
 
-      case PROCESS_CHECK:
+      case SPA_GRAPH_ACTION_CHECK:
         if (n->state == SPA_RESULT_NEED_BUFFER) {
           n->ready_in = 0;
           spa_list_for_each (p, &n->ports[SPA_DIRECTION_INPUT], link) {
             SpaGraphNode *pn = p->peer->node;
             if (p->io->status == SPA_RESULT_NEED_BUFFER) {
-              pn->action = PROCESS_OUT;
-              spa_list_insert (graph->ready.prev, &pn->ready_link);
+              if (pn != node || pn->flags & SPA_GRAPH_NODE_FLAG_ASYNC) {
+                pn->action = SPA_GRAPH_ACTION_OUT;
+                spa_list_insert (graph->ready.prev, &pn->ready_link);
+              }
             }
             else if (p->io->status == SPA_RESULT_OK)
               n->ready_in++;

@@ -34,15 +34,19 @@ typedef struct {
   uint32_t audio;
   uint32_t video;
   uint32_t image;
+  uint32_t binary;
+  uint32_t stream;
 } SpaTypeMediaType;
 
 static inline void
 spa_type_media_type_map (SpaTypeMap *map, SpaTypeMediaType *type)
 {
   if (type->audio == 0) {
-    type->audio = spa_type_map_get_id (map, SPA_TYPE_MEDIA_TYPE__audio);
-    type->video = spa_type_map_get_id (map, SPA_TYPE_MEDIA_TYPE__video);
-    type->image = spa_type_map_get_id (map, SPA_TYPE_MEDIA_TYPE__image);
+    type->audio  = spa_type_map_get_id (map, SPA_TYPE_MEDIA_TYPE__audio);
+    type->video  = spa_type_map_get_id (map, SPA_TYPE_MEDIA_TYPE__video);
+    type->image  = spa_type_map_get_id (map, SPA_TYPE_MEDIA_TYPE__image);
+    type->binary = spa_type_map_get_id (map, SPA_TYPE_MEDIA_TYPE__binary);
+    type->stream = spa_type_map_get_id (map, SPA_TYPE_MEDIA_TYPE__stream);
   }
 }
 

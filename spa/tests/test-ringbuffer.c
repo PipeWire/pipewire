@@ -348,6 +348,8 @@ negotiate_formats (AppData *data)
   if ((res = spa_node_port_set_format (data->sink, SPA_DIRECTION_INPUT, 0, 0, format)) < 0)
     return res;
 
+  data->source_sink_io[0] = SPA_PORT_IO_INIT;
+
   spa_node_port_set_io (data->source, SPA_DIRECTION_OUTPUT, 0, &data->source_sink_io[0]);
   spa_node_port_set_io (data->sink, SPA_DIRECTION_INPUT, 0, &data->source_sink_io[0]);
 

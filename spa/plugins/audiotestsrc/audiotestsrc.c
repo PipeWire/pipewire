@@ -608,8 +608,6 @@ spa_audiotestsrc_node_port_set_format (SpaNode         *node,
   }
 
   if (this->have_format) {
-    this->info.direction = direction;
-    this->info.port_id = port_id;
     this->info.rate = this->current_format.info.raw.rate;
   }
 

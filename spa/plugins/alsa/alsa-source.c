@@ -356,8 +356,6 @@ spa_alsa_source_node_port_set_format (SpaNode         *node,
   }
 
   if (this->have_format) {
-    this->info.direction = direction;
-    this->info.port_id = port_id;
     this->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
                        SPA_PORT_INFO_FLAG_LIVE;
     this->info.rate = this->rate;

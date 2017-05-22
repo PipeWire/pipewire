@@ -898,8 +898,6 @@ spa_v4l2_set_format (SpaV4l2Source *this, SpaVideoInfo *format, bool try_only)
   framerate->denom = streamparm.parm.capture.timeperframe.numerator;
 
   state->fmt = fmt;
-  state->info.direction = SPA_DIRECTION_OUTPUT;
-  state->info.port_id = 0;
   state->info.flags = (state->export_buf ? SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS : 0) |
                       SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
                       SPA_PORT_INFO_FLAG_LIVE;

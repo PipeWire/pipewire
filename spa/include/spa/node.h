@@ -65,15 +65,8 @@ typedef struct {
  * SpaPortInfo
  * @flags: extra port flags
  * @rate: rate of sequence number increment per second of media data
- * @n_params: number of elements in @params;
- * @params: type ids of params that can be queried
- * @maxbuffering: the maximum amount of bytes that the element will keep
- *                around internally
- * @latency: latency on this port in nanoseconds
  */
 typedef struct {
-  uint32_t            direction;
-  uint32_t            port_id;
 #define SPA_PORT_INFO_FLAG_REMOVABLE            (1<<0)  /* port can be removed */
 #define SPA_PORT_INFO_FLAG_OPTIONAL             (1<<1)  /* processing on port is optional */
 #define SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS    (1<<2)  /* the port can allocate buffer data */

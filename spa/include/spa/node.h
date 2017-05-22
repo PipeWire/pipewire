@@ -32,7 +32,7 @@ typedef struct _SpaNode SpaNode;
 #include <spa/defs.h>
 #include <spa/plugin.h>
 #include <spa/props.h>
-#include <spa/alloc-param.h>
+#include <spa/param.h>
 #include <spa/event-node.h>
 #include <spa/command-node.h>
 #include <spa/buffer.h>
@@ -66,13 +66,14 @@ typedef struct {
  * @flags: extra port flags
  * @rate: rate of sequence number increment per second of media data
  * @n_params: number of elements in @params;
- * @params: extra allocation parameters
+ * @params: type ids of params that can be queried
  * @maxbuffering: the maximum amount of bytes that the element will keep
  *                around internally
  * @latency: latency on this port in nanoseconds
- * @extra: a dictionary of extra port info
  */
 typedef struct {
+  uint32_t            direction;
+  uint32_t            port_id;
 #define SPA_PORT_INFO_FLAG_REMOVABLE            (1<<0)  /* port can be removed */
 #define SPA_PORT_INFO_FLAG_OPTIONAL             (1<<1)  /* processing on port is optional */
 #define SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS    (1<<2)  /* the port can allocate buffer data */
@@ -84,11 +85,6 @@ typedef struct {
                                                          * a live clock. */
   uint32_t            flags;
   uint32_t            rate;
-  uint32_t            n_params;
-  SpaAllocParam     **params;
-  uint64_t            maxbuffering;
-  uint64_t            latency;
-  SpaDict            *extra;
 } SpaPortInfo;
 
 
@@ -419,14 +415,15 @@ struct _SpaNode {
                                        uint32_t              port_id,
                                        const SpaPortInfo   **info);
 
-  SpaResult   (*port_get_props)       (SpaNode              *node,
+  SpaResult   (*port_enum_params)     (SpaNode              *node,
                                        SpaDirection          direction,
                                        uint32_t              port_id,
-                                       SpaProps            **props);
-  SpaResult   (*port_set_props)       (SpaNode              *node,
+                                       uint32_t              index,
+                                       SpaParam            **param);
+  SpaResult   (*port_set_param)       (SpaNode              *node,
                                        SpaDirection          direction,
                                        uint32_t              port_id,
-                                       const SpaProps       *props);
+                                       const SpaParam       *param);
 
   /**
    * SpaNode::port_use_buffers:
@@ -501,7 +498,7 @@ struct _SpaNode {
   SpaResult   (*port_alloc_buffers)   (SpaNode              *node,
                                        SpaDirection          direction,
                                        uint32_t              port_id,
-                                       SpaAllocParam       **params,
+                                       SpaParam            **params,
                                        uint32_t              n_params,
                                        SpaBuffer           **buffers,
                                        uint32_t             *n_buffers);
@@ -620,8 +617,8 @@ struct _SpaNode {
 #define spa_node_port_set_format(n,...)    (n)->port_set_format((n),__VA_ARGS__)
 #define spa_node_port_get_format(n,...)    (n)->port_get_format((n),__VA_ARGS__)
 #define spa_node_port_get_info(n,...)      (n)->port_get_info((n),__VA_ARGS__)
-#define spa_node_port_get_props(n,...)     (n)->port_get_props((n),__VA_ARGS__)
-#define spa_node_port_set_props(n,...)     (n)->port_set_props((n),__VA_ARGS__)
+#define spa_node_port_enum_params(n,...)   (n)->port_enum_params((n),__VA_ARGS__)
+#define spa_node_port_set_param(n,...)     (n)->port_set_param((n),__VA_ARGS__)
 #define spa_node_port_use_buffers(n,...)   (n)->port_use_buffers((n),__VA_ARGS__)
 #define spa_node_port_alloc_buffers(n,...) (n)->port_alloc_buffers((n),__VA_ARGS__)
 #define spa_node_port_set_io(n,...)        (n)->port_set_io((n),__VA_ARGS__)

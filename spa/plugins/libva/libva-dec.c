@@ -60,8 +60,6 @@ typedef struct {
   bool have_buffers;
   LibvaBuffer buffers[MAX_BUFFERS];
   SpaPortInfo info;
-  SpaAllocParam *params[1];
-  SpaAllocParamBuffers param_buffers;
   SpaPortStatus status;
 } SpaLibvaState;
 
@@ -412,7 +410,7 @@ spa_libva_dec_node_port_use_buffers (SpaHandle       *handle,
 static SpaResult
 spa_libva_dec_node_port_alloc_buffers (SpaHandle       *handle,
                                        uint32_t         port_id,
-                                       SpaAllocParam  **params,
+                                       SpaParam       **params,
                                        uint32_t         n_params,
                                        SpaBuffer      **buffers,
                                        uint32_t        *n_buffers)

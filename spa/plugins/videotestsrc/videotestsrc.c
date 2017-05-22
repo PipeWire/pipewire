@@ -29,6 +29,7 @@
 #include <spa/log.h>
 #include <spa/loop.h>
 #include <spa/node.h>
+#include <spa/param-alloc.h>
 #include <spa/list.h>
 #include <spa/video/format-utils.h>
 #include <spa/format-builder.h>
@@ -54,8 +55,8 @@ typedef struct {
   SpaTypeVideoFormat video_format;
   SpaTypeEventNode event_node;
   SpaTypeCommandNode command_node;
-  SpaTypeAllocParamBuffers alloc_param_buffers;
-  SpaTypeAllocParamMetaEnable alloc_param_meta_enable;
+  SpaTypeParamAllocBuffers param_alloc_buffers;
+  SpaTypeParamAllocMetaEnable param_alloc_meta_enable;
 } Type;
 
 static inline void
@@ -77,8 +78,8 @@ init_type (Type *type, SpaTypeMap *map)
   spa_type_video_format_map (map, &type->video_format);
   spa_type_event_node_map (map, &type->event_node);
   spa_type_command_node_map (map, &type->command_node);
-  spa_type_alloc_param_buffers_map (map, &type->alloc_param_buffers);
-  spa_type_alloc_param_meta_enable_map (map, &type->alloc_param_meta_enable);
+  spa_type_param_alloc_buffers_map (map, &type->param_alloc_buffers);
+  spa_type_param_alloc_meta_enable_map (map, &type->param_alloc_meta_enable);
 }
 
 typedef struct _SpaVideoTestSrc SpaVideoTestSrc;
@@ -120,7 +121,6 @@ struct _SpaVideoTestSrc {
   struct itimerspec timerspec;
 
   SpaPortInfo info;
-  SpaAllocParam *params[2];
   uint8_t params_buffer[1024];
   SpaPortIO *io;
 
@@ -560,30 +560,7 @@ spa_videotestsrc_node_port_set_format (SpaNode         *node,
 
   if (this->have_format) {
     SpaVideoInfoRaw *raw_info = &this->current_format.info.raw;
-    SpaPODBuilder b = { NULL };
-    SpaPODFrame f[2];
-
-    this->info.latency = 0;
-    this->info.maxbuffering = -1;
-
-    this->info.n_params = 2;
-    this->info.params = this->params;
     this->stride = SPA_ROUND_UP_N (this->bpp * raw_info->size.width, 4);
-
-    spa_pod_builder_init (&b, this->params_buffer, sizeof (this->params_buffer));
-    spa_pod_builder_object (&b, &f[0], 0, this->type.alloc_param_buffers.Buffers,
-      PROP      (&f[1], this->type.alloc_param_buffers.size,    SPA_POD_TYPE_INT, this->stride * raw_info->size.height),
-      PROP      (&f[1], this->type.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, this->stride),
-      PROP_U_MM (&f[1], this->type.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, 32, 2, 32),
-      PROP      (&f[1], this->type.alloc_param_buffers.align,   SPA_POD_TYPE_INT, 16));
-    this->params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
-
-    spa_pod_builder_object (&b, &f[0], 0, this->type.alloc_param_meta_enable.MetaEnable,
-      PROP      (&f[1], this->type.alloc_param_meta_enable.type, SPA_POD_TYPE_ID, this->type.meta.Header),
-      PROP      (&f[1], this->type.alloc_param_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
-    this->params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
-
-    this->info.extra = NULL;
   }
 
   return SPA_RESULT_OK;
@@ -641,19 +618,57 @@ spa_videotestsrc_node_port_get_info (SpaNode            *node,
 }
 
 static SpaResult
-spa_videotestsrc_node_port_get_props (SpaNode       *node,
-                                      SpaDirection   direction,
-                                      uint32_t       port_id,
-                                      SpaProps     **props)
+spa_videotestsrc_node_port_enum_params (SpaNode       *node,
+                                        SpaDirection   direction,
+                                        uint32_t       port_id,
+                                        uint32_t       index,
+                                        SpaParam     **param)
 {
-  return SPA_RESULT_NOT_IMPLEMENTED;
+  SpaVideoTestSrc *this;
+  SpaPODBuilder b = { NULL, };
+  SpaPODFrame f[2];
+
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (param != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+
+  this = SPA_CONTAINER_OF (node, SpaVideoTestSrc, node);
+
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
+
+  spa_pod_builder_init (&b, this->params_buffer, sizeof (this->params_buffer));
+
+  switch (index) {
+  case 0:
+  {
+    SpaVideoInfoRaw *raw_info = &this->current_format.info.raw;
+
+    spa_pod_builder_object (&b, &f[0], 0, this->type.param_alloc_buffers.Buffers,
+      PROP      (&f[1], this->type.param_alloc_buffers.size,    SPA_POD_TYPE_INT, this->stride * raw_info->size.height),
+      PROP      (&f[1], this->type.param_alloc_buffers.stride,  SPA_POD_TYPE_INT, this->stride),
+      PROP_U_MM (&f[1], this->type.param_alloc_buffers.buffers, SPA_POD_TYPE_INT, 32, 2, 32),
+      PROP      (&f[1], this->type.param_alloc_buffers.align,   SPA_POD_TYPE_INT, 16));
+    break;
+  }
+  case 1:
+    spa_pod_builder_object (&b, &f[0], 0, this->type.param_alloc_meta_enable.MetaEnable,
+      PROP      (&f[1], this->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID, this->type.meta.Header),
+      PROP      (&f[1], this->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
+    break;
+
+  default:
+    return SPA_RESULT_NOT_IMPLEMENTED;
+  }
+
+  *param = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaParam);
+
+  return SPA_RESULT_OK;
 }
 
 static SpaResult
-spa_videotestsrc_node_port_set_props (SpaNode        *node,
+spa_videotestsrc_node_port_set_param (SpaNode        *node,
                                       SpaDirection    direction,
                                       uint32_t        port_id,
-                                      const SpaProps *props)
+                                      const SpaParam *param)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
@@ -705,7 +720,7 @@ static SpaResult
 spa_videotestsrc_node_port_alloc_buffers (SpaNode         *node,
                                           SpaDirection     direction,
                                           uint32_t         port_id,
-                                          SpaAllocParam  **params,
+                                          SpaParam       **params,
                                           uint32_t         n_params,
                                           SpaBuffer      **buffers,
                                           uint32_t        *n_buffers)
@@ -834,8 +849,8 @@ static const SpaNode videotestsrc_node = {
   spa_videotestsrc_node_port_set_format,
   spa_videotestsrc_node_port_get_format,
   spa_videotestsrc_node_port_get_info,
-  spa_videotestsrc_node_port_get_props,
-  spa_videotestsrc_node_port_set_props,
+  spa_videotestsrc_node_port_enum_params,
+  spa_videotestsrc_node_port_set_param,
   spa_videotestsrc_node_port_use_buffers,
   spa_videotestsrc_node_port_alloc_buffers,
   spa_videotestsrc_node_port_set_io,

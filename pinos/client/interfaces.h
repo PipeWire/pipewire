@@ -27,7 +27,7 @@ extern "C" {
 #include <spa/defs.h>
 #include <spa/props.h>
 #include <spa/format.h>
-#include <spa/alloc-param.h>
+#include <spa/param-alloc.h>
 #include <spa/node.h>
 
 typedef struct _PinosClientNodeBuffer PinosClientNodeBuffer;
@@ -184,13 +184,14 @@ typedef struct {
                                 uint32_t           port_id,
 #define PINOS_MESSAGE_PORT_UPDATE_POSSIBLE_FORMATS  (1 << 0)
 #define PINOS_MESSAGE_PORT_UPDATE_FORMAT            (1 << 1)
-#define PINOS_MESSAGE_PORT_UPDATE_PROPS             (1 << 2)
+#define PINOS_MESSAGE_PORT_UPDATE_PARAMS            (1 << 2)
 #define PINOS_MESSAGE_PORT_UPDATE_INFO              (1 << 3)
                                 uint32_t           change_mask,
                                 uint32_t           n_possible_formats,
                                 const SpaFormat  **possible_formats,
                                 const SpaFormat   *format,
-                                const SpaProps    *props,
+                                uint32_t           n_params,
+                                const SpaParam   **params,
                                 const SpaPortInfo *info);
   void (*event)                (void              *object,
                                 SpaEvent          *event);

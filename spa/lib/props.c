@@ -183,6 +183,7 @@ spa_props_filter (SpaPODBuilder  *b,
       nalt1--;
     } else {
       nalt1 = 1;
+      rt1 = SPA_POD_PROP_RANGE_NONE;
     }
 
     if (p2->body.flags & SPA_POD_PROP_FLAG_UNSET) {
@@ -190,6 +191,7 @@ spa_props_filter (SpaPODBuilder  *b,
       nalt2--;
     } else {
       nalt2 = 1;
+      rt2 = SPA_POD_PROP_RANGE_NONE;
     }
 
     if ((rt1 == SPA_POD_PROP_RANGE_NONE && rt2 == SPA_POD_PROP_RANGE_NONE) ||

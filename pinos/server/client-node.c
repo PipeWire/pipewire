@@ -76,6 +76,8 @@ typedef struct {
   SpaFormat     *format;
   uint32_t       n_formats;
   SpaFormat    **formats;
+  uint32_t       n_params;
+  SpaParam     **params;
   SpaPortIO     *io;
 
   uint32_t       n_buffers;
@@ -306,7 +308,8 @@ do_update_port (SpaProxy          *this,
                 uint32_t           n_possible_formats,
                 const SpaFormat  **possible_formats,
                 const SpaFormat   *format,
-                const SpaProps    *props,
+                uint32_t           n_params,
+                const SpaParam   **params,
                 const SpaPortInfo *info)
 {
   SpaProxyPort *port;
@@ -332,20 +335,17 @@ do_update_port (SpaProxy          *this,
     port->format = spa_format_copy (format);
   }
 
-  if (change_mask & PINOS_MESSAGE_PORT_UPDATE_PROPS) {
+  if (change_mask & PINOS_MESSAGE_PORT_UPDATE_PARAMS) {
+    for (i = 0; i < port->n_params; i++)
+      free (port->params[i]);
+    port->n_params = n_params;
+    port->params = realloc (port->params, port->n_params * sizeof (SpaParam *));
+    for (i = 0; i < port->n_params; i++)
+      port->params[i] = spa_param_copy (params[i]);
   }
 
-  if (change_mask & PINOS_MESSAGE_PORT_UPDATE_INFO && info) {
-    void *old;
-    for (i = 0; i < port->info.n_params; i++)
-      free (port->info.params[i]);
-    old = port->info.params;
+  if (change_mask & PINOS_MESSAGE_PORT_UPDATE_INFO && info)
     port->info = *info;
-    port->info.params = realloc (old, port->info.n_params * sizeof (SpaAllocParam *));
-    for (i = 0; i < port->info.n_params; i++)
-      port->info.params[i] = spa_alloc_param_copy (info->params[i]);
-    port->info.extra = NULL;
-  }
 
   if (!port->valid) {
     spa_log_info (this->log, "proxy %p: adding port %d", this, port_id);
@@ -370,11 +370,12 @@ clear_port (SpaProxy     *this,
                   port_id,
                   PINOS_MESSAGE_PORT_UPDATE_POSSIBLE_FORMATS |
                   PINOS_MESSAGE_PORT_UPDATE_FORMAT |
-                  PINOS_MESSAGE_PORT_UPDATE_PROPS |
+                  PINOS_MESSAGE_PORT_UPDATE_PARAMS |
                   PINOS_MESSAGE_PORT_UPDATE_INFO,
                   0,
                   NULL,
                   NULL,
+                  0,
                   NULL,
                   NULL);
   clear_buffers (this, port);
@@ -566,19 +567,37 @@ spa_proxy_node_port_get_info (SpaNode            *node,
 }
 
 static SpaResult
-spa_proxy_node_port_get_props (SpaNode        *node,
-                               SpaDirection    direction,
-                               uint32_t        port_id,
-                               SpaProps     **props)
+spa_proxy_node_port_enum_params (SpaNode       *node,
+                                 SpaDirection   direction,
+                                 uint32_t       port_id,
+                                 uint32_t       index,
+                                 SpaParam     **param)
 {
-  return SPA_RESULT_NOT_IMPLEMENTED;
+  SpaProxy *this;
+  SpaProxyPort *port;
+
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (param != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+
+  this = SPA_CONTAINER_OF (node, SpaProxy, node);
+
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
+
+  port = direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
+
+  if (index >= port->n_params)
+    return SPA_RESULT_ENUM_END;
+
+  *param = port->params[index];
+
+  return SPA_RESULT_OK;
 }
 
 static SpaResult
-spa_proxy_node_port_set_props (SpaNode        *node,
+spa_proxy_node_port_set_param (SpaNode        *node,
                                SpaDirection    direction,
                                uint32_t        port_id,
-                               const SpaProps *props)
+                               const SpaParam *param)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
@@ -726,7 +745,7 @@ static SpaResult
 spa_proxy_node_port_alloc_buffers (SpaNode         *node,
                                    SpaDirection     direction,
                                    uint32_t         port_id,
-                                   SpaAllocParam  **params,
+                                   SpaParam       **params,
                                    uint32_t         n_params,
                                    SpaBuffer      **buffers,
                                    uint32_t        *n_buffers)
@@ -927,7 +946,8 @@ client_node_port_update (void              *object,
                          uint32_t           n_possible_formats,
                          const SpaFormat  **possible_formats,
                          const SpaFormat   *format,
-                         const SpaProps    *props,
+                         uint32_t           n_params,
+                         const SpaParam   **params,
                          const SpaPortInfo *info)
 {
   PinosResource *resource = object;
@@ -952,7 +972,8 @@ client_node_port_update (void              *object,
                     n_possible_formats,
                     possible_formats,
                     format,
-                    props,
+                    n_params,
+                    params,
                     info);
   }
 }
@@ -1024,8 +1045,8 @@ static const SpaNode proxy_node = {
   spa_proxy_node_port_set_format,
   spa_proxy_node_port_get_format,
   spa_proxy_node_port_get_info,
-  spa_proxy_node_port_get_props,
-  spa_proxy_node_port_set_props,
+  spa_proxy_node_port_enum_params,
+  spa_proxy_node_port_set_param,
   spa_proxy_node_port_use_buffers,
   spa_proxy_node_port_alloc_buffers,
   spa_proxy_node_port_set_io,

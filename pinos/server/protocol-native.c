@@ -829,8 +829,8 @@ client_node_demarshal_port_update (void  *object,
 {
   PinosResource *resource = object;
   SpaPODIter it;
-  uint32_t i, direction, port_id, change_mask, n_possible_formats;
-  const SpaProps *props = NULL;
+  uint32_t i, direction, port_id, change_mask, n_possible_formats, n_params;
+  const SpaParam **params = NULL;
   const SpaFormat **possible_formats = NULL, *format = NULL;
   SpaPortInfo info, *infop = NULL;
   SpaPOD *ipod;
@@ -852,13 +852,21 @@ client_node_demarshal_port_update (void  *object,
 
   if (!spa_pod_iter_get (&it,
         -SPA_POD_TYPE_OBJECT, &format,
-        -SPA_POD_TYPE_OBJECT, &props,
+        SPA_POD_TYPE_INT, &n_params,
+        0))
+    return false;
+
+  params = alloca (n_params * sizeof (SpaParam*));
+  for (i = 0; i < n_params; i++)
+    if (!spa_pod_iter_get (&it, SPA_POD_TYPE_OBJECT, &params[i], 0))
+      return false;
+
+  if (!spa_pod_iter_get (&it,
         -SPA_POD_TYPE_STRUCT, &ipod,
         0))
     return false;
 
   if (ipod) {
-    SpaDict dict;
     SpaPODIter it2;
     infop = &info;
 
@@ -866,29 +874,8 @@ client_node_demarshal_port_update (void  *object,
         !spa_pod_iter_get (&it2,
           SPA_POD_TYPE_INT, &info.flags,
           SPA_POD_TYPE_INT, &info.rate,
-          SPA_POD_TYPE_LONG, &info.maxbuffering,
-          SPA_POD_TYPE_LONG, &info.latency,
-          SPA_POD_TYPE_INT, &info.n_params,
           0))
       return false;
-
-    info.params = alloca (info.n_params * sizeof (SpaAllocParam *));
-    for (i = 0; i < info.n_params; i++)
-      if (!spa_pod_iter_get (&it2, SPA_POD_TYPE_OBJECT, &info.params[i], 0))
-        return false;
-
-    if (!spa_pod_iter_get (&it2, SPA_POD_TYPE_INT, &dict.n_items, 0))
-      return false;
-
-    info.extra = &dict;
-    dict.items = alloca (dict.n_items * sizeof (SpaDictItem));
-    for (i = 0; i < dict.n_items; i++) {
-      if (!spa_pod_iter_get (&it2,
-            SPA_POD_TYPE_STRING, &dict.items[i].key,
-            SPA_POD_TYPE_STRING, &dict.items[i].value,
-            0))
-        return false;
-    }
   }
 
   ((PinosClientNodeMethods*)resource->implementation)->port_update (resource,
@@ -898,7 +885,8 @@ client_node_demarshal_port_update (void  *object,
                                     n_possible_formats,
                                     possible_formats,
                                     format,
-                                    props,
+                                    n_params,
+                                    params,
                                     infop);
   return true;
 }

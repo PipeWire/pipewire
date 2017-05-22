@@ -500,14 +500,15 @@ client_node_marshal_port_update (void              *object,
                                  uint32_t           n_possible_formats,
                                  const SpaFormat  **possible_formats,
                                  const SpaFormat   *format,
-                                 const SpaProps    *props,
+                                 uint32_t           n_params,
+                                 const SpaParam   **params,
                                  const SpaPortInfo *info)
 {
   PinosProxy *proxy = object;
   PinosConnection *connection = proxy->context->protocol_private;
   Builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
   SpaPODFrame f[2];
-  int i, n_items;
+  int i;
 
   if (connection == NULL)
     return;
@@ -527,31 +528,20 @@ client_node_marshal_port_update (void              *object,
 
   spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_POD, format,
-      SPA_POD_TYPE_POD, props,
+      SPA_POD_TYPE_INT, n_params,
       0);
+
+  for (i = 0; i < n_params; i++) {
+    const SpaParam *p = params[i];
+    spa_pod_builder_add (&b.b, SPA_POD_TYPE_POD, p, 0);
+  }
 
   if (info) {
     spa_pod_builder_add (&b.b,
       SPA_POD_TYPE_STRUCT, &f[1],
         SPA_POD_TYPE_INT, info->flags,
         SPA_POD_TYPE_INT, info->rate,
-        SPA_POD_TYPE_LONG, info->maxbuffering,
-        SPA_POD_TYPE_LONG, info->latency,
-        SPA_POD_TYPE_INT, info->n_params,
         0);
-
-    for (i = 0; i < info->n_params; i++) {
-      SpaAllocParam *p = info->params[i];
-      spa_pod_builder_add (&b.b, SPA_POD_TYPE_POD, p, 0);
-    }
-    n_items = info->extra ? info->extra->n_items : 0;
-    spa_pod_builder_add (&b.b, SPA_POD_TYPE_INT, n_items, 0);
-    for (i = 0; i < n_items; i++) {
-      spa_pod_builder_add (&b.b,
-          SPA_POD_TYPE_STRING, info->extra->items[i].key,
-          SPA_POD_TYPE_STRING, info->extra->items[i].value,
-          0);
-    }
     spa_pod_builder_add (&b.b, -SPA_POD_TYPE_STRUCT, &f[1], 0);
   } else {
     spa_pod_builder_add (&b.b, SPA_POD_TYPE_POD, NULL, 0);

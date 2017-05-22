@@ -29,20 +29,12 @@
 SpaResult
 spa_debug_port_info (const SpaPortInfo *info, const SpaTypeMap *map)
 {
-  int i;
-
   if (info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
   fprintf (stderr, "SpaPortInfo %p:\n", info);
   fprintf (stderr, " flags: \t%08x\n", info->flags);
-  fprintf (stderr, " maxbuffering: \t%"PRIu64"\n", info->maxbuffering);
-  fprintf (stderr, " latency: \t%" PRIu64 "\n", info->latency);
-  fprintf (stderr, " n_params: \t%d\n", info->n_params);
-  for (i = 0; i < info->n_params; i++) {
-    SpaAllocParam *param = info->params[i];
-    spa_debug_pod (&param->pod, map);
-  }
+
   return SPA_RESULT_OK;
 }
 
@@ -148,6 +140,13 @@ SpaResult
 spa_debug_props (const SpaProps *props, const SpaTypeMap *map)
 {
   spa_debug_pod (&props->pod, map);
+  return SPA_RESULT_OK;
+}
+
+SpaResult
+spa_debug_param (const SpaParam *param, const SpaTypeMap *map)
+{
+  spa_debug_pod (&param->pod, map);
   return SPA_RESULT_OK;
 }
 

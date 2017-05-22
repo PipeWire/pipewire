@@ -814,8 +814,6 @@ spa_v4l2_set_format (SpaV4l2Source *this, SpaVideoInfo *format, bool try_only)
   uint32_t video_format;
   SpaRectangle *size = NULL;
   SpaFraction *framerate = NULL;
-  SpaPODBuilder b = { NULL };
-  SpaPODFrame f[2];
 
   CLEAR (fmt);
   CLEAR (streamparm);
@@ -900,30 +898,12 @@ spa_v4l2_set_format (SpaV4l2Source *this, SpaVideoInfo *format, bool try_only)
   framerate->denom = streamparm.parm.capture.timeperframe.numerator;
 
   state->fmt = fmt;
+  state->info.direction = SPA_DIRECTION_OUTPUT;
+  state->info.port_id = 0;
   state->info.flags = (state->export_buf ? SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS : 0) |
                       SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
                       SPA_PORT_INFO_FLAG_LIVE;
-  state->info.maxbuffering = -1;
-  state->info.latency = (streamparm.parm.capture.timeperframe.numerator * SPA_NSEC_PER_SEC) /
-                         streamparm.parm.capture.timeperframe.denominator;
-
-  state->info.n_params = 2;
-  state->info.params = state->params;
-
-  spa_pod_builder_init (&b, state->params_buffer, sizeof (state->params_buffer));
-  spa_pod_builder_object (&b, &f[0], 0, this->type.alloc_param_buffers.Buffers,
-        PROP      (&f[1], this->type.alloc_param_buffers.size,    SPA_POD_TYPE_INT, fmt.fmt.pix.sizeimage),
-        PROP      (&f[1], this->type.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, fmt.fmt.pix.bytesperline),
-        PROP_U_MM (&f[1], this->type.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, MAX_BUFFERS, 2, MAX_BUFFERS),
-        PROP      (&f[1], this->type.alloc_param_buffers.align,   SPA_POD_TYPE_INT, 16));
-  state->params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
-
-  spa_pod_builder_object (&b, &f[0], 0, this->type.alloc_param_meta_enable.MetaEnable,
-        PROP      (&f[1], this->type.alloc_param_meta_enable.type, SPA_POD_TYPE_ID, this->type.meta.Header),
-        PROP      (&f[1], this->type.alloc_param_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
-  state->params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
-
-  state->info.extra = NULL;
+  state->info.rate = streamparm.parm.capture.timeperframe.denominator;
 
   return 0;
 }
@@ -1077,7 +1057,7 @@ spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffe
 
 static SpaResult
 mmap_init (SpaV4l2Source   *this,
-           SpaAllocParam  **params,
+           SpaParam       **params,
            uint32_t         n_params,
            SpaBuffer      **buffers,
            uint32_t        *n_buffers)
@@ -1189,7 +1169,7 @@ read_init (SpaV4l2Source *this)
 
 static SpaResult
 spa_v4l2_alloc_buffers (SpaV4l2Source   *this,
-                        SpaAllocParam  **params,
+                        SpaParam       **params,
                         uint32_t         n_params,
                         SpaBuffer      **buffers,
                         uint32_t        *n_buffers)

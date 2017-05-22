@@ -65,6 +65,9 @@ typedef struct
   uint32_t n_possible_formats;
   SpaFormat **possible_formats;
 
+  uint32_t n_params;
+  SpaParam **params;
+
   SpaFormat *format;
   SpaPortInfo port_info;
   SpaDirection direction;
@@ -289,6 +292,28 @@ set_possible_formats (PinosStream *stream,
   }
 }
 
+static void
+set_params (PinosStream *stream,
+            int          n_params,
+            SpaParam   **params)
+{
+  PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
+  int i;
+
+  if (impl->params) {
+    for (i = 0; i < impl->n_params; i++)
+      free (impl->params[i]);
+    free (impl->params);
+    impl->params = NULL;
+  }
+  impl->n_params = n_params;
+  if (n_params > 0) {
+    impl->params = malloc (n_params * sizeof (SpaParam *));
+    for (i = 0; i < n_params; i++)
+      impl->params[i] = spa_param_copy (params[i]);
+  }
+}
+
 void
 pinos_stream_destroy (PinosStream *stream)
 {
@@ -306,6 +331,7 @@ pinos_stream_destroy (PinosStream *stream)
     pinos_signal_remove (&impl->node_proxy_destroy);
 
   set_possible_formats (stream, 0, NULL);
+  set_params (stream, 0, NULL);
 
   if (impl->format)
     free (impl->format);
@@ -361,7 +387,8 @@ add_port_update (PinosStream *stream, uint32_t change_mask)
                                     impl->n_possible_formats,
                                     (const SpaFormat **) impl->possible_formats,
                                     impl->format,
-                                    NULL,
+                                    impl->n_params,
+                                    (const SpaParam **)impl->params,
                                     &impl->port_info);
 }
 
@@ -1028,7 +1055,7 @@ pinos_stream_connect (PinosStream      *stream,
  * pinos_stream_finish_format:
  * @stream: a #PinosStream
  * @res: a #SpaResult
- * @params: an array of pointers to #SpaAllocParam
+ * @params: an array of pointers to #SpaParam
  * @n_params: number of elements in @params
  *
  * Complete the negotiation process with result code @res.
@@ -1043,16 +1070,15 @@ pinos_stream_connect (PinosStream      *stream,
 bool
 pinos_stream_finish_format (PinosStream     *stream,
                             SpaResult        res,
-                            SpaAllocParam  **params,
+                            SpaParam       **params,
                             uint32_t         n_params)
 {
   PinosStreamImpl *impl = SPA_CONTAINER_OF (stream, PinosStreamImpl, this);
 
-  impl->port_info.params = params;
-  impl->port_info.n_params = n_params;
+  set_params (stream, n_params, params);
 
   if (SPA_RESULT_IS_OK (res)) {
-    add_port_update (stream, (n_params ? PINOS_MESSAGE_PORT_UPDATE_INFO : 0) |
+    add_port_update (stream, (n_params ? PINOS_MESSAGE_PORT_UPDATE_PARAMS : 0) |
                              PINOS_MESSAGE_PORT_UPDATE_FORMAT);
 
     if (!impl->format) {
@@ -1060,9 +1086,6 @@ pinos_stream_finish_format (PinosStream     *stream,
       clear_mems (stream);
     }
   }
-  impl->port_info.params = NULL;
-  impl->port_info.n_params = 0;
-
   add_async_complete (stream, impl->pending_seq, res);
 
   impl->pending_seq = SPA_ID_INVALID;

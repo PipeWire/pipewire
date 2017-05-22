@@ -33,6 +33,7 @@ extern "C" {
 #include <spa/log.h>
 #include <spa/list.h>
 #include <spa/node.h>
+#include <spa/param-alloc.h>
 #include <spa/loop.h>
 #include <spa/ringbuffer.h>
 #include <spa/audio/format-utils.h>
@@ -76,8 +77,8 @@ typedef struct {
   SpaTypeAudioFormat audio_format;
   SpaTypeEventNode event_node;
   SpaTypeCommandNode command_node;
-  SpaTypeAllocParamBuffers alloc_param_buffers;
-  SpaTypeAllocParamMetaEnable alloc_param_meta_enable;
+  SpaTypeParamAllocBuffers param_alloc_buffers;
+  SpaTypeParamAllocMetaEnable param_alloc_meta_enable;
 } Type;
 
 static inline void
@@ -101,8 +102,8 @@ init_type (Type *type, SpaTypeMap *map)
   spa_type_audio_format_map (map, &type->audio_format);
   spa_type_event_node_map (map, &type->event_node);
   spa_type_command_node_map (map, &type->command_node);
-  spa_type_alloc_param_buffers_map (map, &type->alloc_param_buffers);
-  spa_type_alloc_param_meta_enable_map (map, &type->alloc_param_meta_enable);
+  spa_type_param_alloc_buffers_map (map, &type->param_alloc_buffers);
+  spa_type_param_alloc_meta_enable_map (map, &type->param_alloc_meta_enable);
 }
 
 struct _SpaALSAState {
@@ -142,7 +143,7 @@ struct _SpaALSAState {
   size_t frame_size;
 
   SpaPortInfo info;
-  SpaAllocParam *params[3];
+  uint32_t params[3];
   uint8_t params_buffer[1024];
   SpaPortIO *io;
 

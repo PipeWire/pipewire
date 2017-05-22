@@ -278,8 +278,6 @@ spa_alsa_sink_node_port_set_format (SpaNode         *node,
                                     const SpaFormat *format)
 {
   SpaALSASink *this;
-  SpaPODBuilder b = { NULL };
-  SpaPODFrame f[2];
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
@@ -312,36 +310,11 @@ spa_alsa_sink_node_port_set_format (SpaNode         *node,
   }
 
   if (this->have_format) {
+    this->info.direction = direction;
+    this->info.port_id = port_id;
     this->info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS |
                        SPA_PORT_INFO_FLAG_LIVE;
-    this->info.maxbuffering = this->buffer_frames * this->frame_size;
-    this->info.latency = (this->period_frames * SPA_NSEC_PER_SEC) / this->rate;
-    this->info.n_params = 3;
-    this->info.params = this->params;
-
-    spa_pod_builder_init (&b, this->params_buffer, sizeof (this->params_buffer));
-    spa_pod_builder_object (&b, &f[0], 0, this->type.alloc_param_buffers.Buffers,
-        PROP    (&f[1], this->type.alloc_param_buffers.size,    SPA_POD_TYPE_INT,
-                                                        this->props.min_latency * this->frame_size),
-        PROP    (&f[1], this->type.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, 0),
-        PROP_MM (&f[1], this->type.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, 32, 1, 32),
-        PROP    (&f[1], this->type.alloc_param_buffers.align,   SPA_POD_TYPE_INT, 16));
-    this->params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
-
-    spa_pod_builder_object (&b, &f[0], 0, this->type.alloc_param_meta_enable.MetaEnable,
-        PROP    (&f[1], this->type.alloc_param_meta_enable.type, SPA_POD_TYPE_ID, this->type.meta.Header),
-        PROP    (&f[1], this->type.alloc_param_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
-    this->params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
-
-    spa_pod_builder_object (&b, &f[0], 0, this->type.alloc_param_meta_enable.MetaEnable,
-        PROP    (&f[1], this->type.alloc_param_meta_enable.type, SPA_POD_TYPE_ID, this->type.meta.Ringbuffer),
-        PROP    (&f[1], this->type.alloc_param_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaRingbuffer)),
-        PROP    (&f[1], this->type.alloc_param_meta_enable.ringbufferSize,   SPA_POD_TYPE_INT, this->period_frames * this->frame_size * 32),
-        PROP    (&f[1], this->type.alloc_param_meta_enable.ringbufferStride, SPA_POD_TYPE_INT, 0),
-        PROP    (&f[1], this->type.alloc_param_meta_enable.ringbufferBlocks, SPA_POD_TYPE_INT, 1),
-        PROP    (&f[1], this->type.alloc_param_meta_enable.ringbufferAlign,  SPA_POD_TYPE_INT, 16));
-    this->params[2] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
-    this->info.extra = NULL;
+    this->info.rate = this->rate;
   }
 
   return SPA_RESULT_OK;
@@ -400,19 +373,66 @@ spa_alsa_sink_node_port_get_info (SpaNode            *node,
 }
 
 static SpaResult
-spa_alsa_sink_node_port_get_props (SpaNode       *node,
-                                   SpaDirection   direction,
-                                   uint32_t       port_id,
-                                   SpaProps     **props)
+spa_alsa_sink_node_port_enum_params (SpaNode       *node,
+                                     SpaDirection   direction,
+                                     uint32_t       port_id,
+                                     uint32_t       index,
+                                     SpaParam     **param)
 {
-  return SPA_RESULT_NOT_IMPLEMENTED;
+
+  SpaALSASink *this;
+  SpaPODBuilder b = { NULL };
+  SpaPODFrame f[2];
+
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (param != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+
+  this = SPA_CONTAINER_OF (node, SpaALSASink, node);
+
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
+
+  spa_pod_builder_init (&b, this->params_buffer, sizeof (this->params_buffer));
+
+  switch (index) {
+  case 0:
+    spa_pod_builder_object (&b, &f[0], 0, this->type.param_alloc_buffers.Buffers,
+        PROP    (&f[1], this->type.param_alloc_buffers.size,    SPA_POD_TYPE_INT,
+                                                        this->props.min_latency * this->frame_size),
+        PROP    (&f[1], this->type.param_alloc_buffers.stride,  SPA_POD_TYPE_INT, 0),
+        PROP_MM (&f[1], this->type.param_alloc_buffers.buffers, SPA_POD_TYPE_INT, 32, 1, 32),
+        PROP    (&f[1], this->type.param_alloc_buffers.align,   SPA_POD_TYPE_INT, 16));
+    break;
+
+  case 1:
+    spa_pod_builder_object (&b, &f[0], 0, this->type.param_alloc_meta_enable.MetaEnable,
+        PROP    (&f[1], this->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID, this->type.meta.Header),
+        PROP    (&f[1], this->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
+    break;
+
+  case 2:
+    spa_pod_builder_object (&b, &f[0], 0, this->type.param_alloc_meta_enable.MetaEnable,
+        PROP    (&f[1], this->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID, this->type.meta.Ringbuffer),
+        PROP    (&f[1], this->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaRingbuffer)),
+        PROP    (&f[1], this->type.param_alloc_meta_enable.ringbufferSize,   SPA_POD_TYPE_INT, this->period_frames * this->frame_size * 32),
+        PROP    (&f[1], this->type.param_alloc_meta_enable.ringbufferStride, SPA_POD_TYPE_INT, 0),
+        PROP    (&f[1], this->type.param_alloc_meta_enable.ringbufferBlocks, SPA_POD_TYPE_INT, 1),
+        PROP    (&f[1], this->type.param_alloc_meta_enable.ringbufferAlign,  SPA_POD_TYPE_INT, 16));
+    break;
+
+  default:
+    return SPA_RESULT_NOT_IMPLEMENTED;
+  }
+
+  *param = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaParam);
+
+  return SPA_RESULT_OK;
 }
 
 static SpaResult
-spa_alsa_sink_node_port_set_props (SpaNode         *node,
+spa_alsa_sink_node_port_set_param (SpaNode         *node,
                                    SpaDirection     direction,
                                    uint32_t         port_id,
-                                   const SpaProps  *props)
+                                   const SpaParam  *param)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
@@ -471,7 +491,7 @@ static SpaResult
 spa_alsa_sink_node_port_alloc_buffers (SpaNode         *node,
                                        SpaDirection     direction,
                                        uint32_t         port_id,
-                                       SpaAllocParam  **params,
+                                       SpaParam       **params,
                                        uint32_t         n_params,
                                        SpaBuffer      **buffers,
                                        uint32_t        *n_buffers)
@@ -599,8 +619,8 @@ static const SpaNode alsasink_node = {
   spa_alsa_sink_node_port_set_format,
   spa_alsa_sink_node_port_get_format,
   spa_alsa_sink_node_port_get_info,
-  spa_alsa_sink_node_port_get_props,
-  spa_alsa_sink_node_port_set_props,
+  spa_alsa_sink_node_port_enum_params,
+  spa_alsa_sink_node_port_set_param,
   spa_alsa_sink_node_port_use_buffers,
   spa_alsa_sink_node_port_alloc_buffers,
   spa_alsa_sink_node_port_set_io,

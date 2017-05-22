@@ -247,10 +247,11 @@ on_stream_format_changed (PinosListener  *listener,
   PinosContext *ctx = stream->context;
   SpaPODBuilder b = { NULL };
   SpaPODFrame f[2];
-  SpaAllocParam *params[2];
+  SpaParam *params[2];
 
   if (format) {
     Uint32 sdl_format;
+    void *d;
 
     spa_debug_format (format, data->context->type.map);
 
@@ -267,21 +268,22 @@ on_stream_format_changed (PinosListener  *listener,
                                        SDL_TEXTUREACCESS_STREAMING,
                                        data->format.size.width,
                                        data->format.size.height);
-    data->stride = data->format.size.width * 4;
+    SDL_LockTexture (data->texture, NULL, &d, &data->stride);
+    SDL_UnlockTexture (data->texture);
 
     spa_pod_builder_init (&b, data->params_buffer, sizeof (data->params_buffer));
-    spa_pod_builder_object (&b, &f[0], 0, ctx->type.alloc_param_buffers.Buffers,
-        PROP      (&f[1], ctx->type.alloc_param_buffers.size,    SPA_POD_TYPE_INT,
+    spa_pod_builder_object (&b, &f[0], 0, ctx->type.param_alloc_buffers.Buffers,
+        PROP      (&f[1], ctx->type.param_alloc_buffers.size,    SPA_POD_TYPE_INT,
                                                                data->stride * data->format.size.height),
-        PROP      (&f[1], ctx->type.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, data->stride),
-        PROP_U_MM (&f[1], ctx->type.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, 32, 2, 32),
-        PROP      (&f[1], ctx->type.alloc_param_buffers.align,   SPA_POD_TYPE_INT, 16));
-    params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
+        PROP      (&f[1], ctx->type.param_alloc_buffers.stride,  SPA_POD_TYPE_INT, data->stride),
+        PROP_U_MM (&f[1], ctx->type.param_alloc_buffers.buffers, SPA_POD_TYPE_INT, 32, 2, 32),
+        PROP      (&f[1], ctx->type.param_alloc_buffers.align,   SPA_POD_TYPE_INT, 16));
+    params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaParam);
 
-    spa_pod_builder_object (&b, &f[0], 0, ctx->type.alloc_param_meta_enable.MetaEnable,
-      PROP      (&f[1], ctx->type.alloc_param_meta_enable.type, SPA_POD_TYPE_ID, ctx->type.meta.Header),
-      PROP      (&f[1], ctx->type.alloc_param_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
-    params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
+    spa_pod_builder_object (&b, &f[0], 0, ctx->type.param_alloc_meta_enable.MetaEnable,
+      PROP      (&f[1], ctx->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID, ctx->type.meta.Header),
+      PROP      (&f[1], ctx->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
+    params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaParam);
 
     pinos_stream_finish_format (stream, SPA_RESULT_OK, params, 2);
   }

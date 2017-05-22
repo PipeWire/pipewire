@@ -26,6 +26,7 @@
 #include <spa/list.h>
 #include <spa/audio/format-utils.h>
 #include <spa/format-builder.h>
+#include <spa/param-alloc.h>
 #include <lib/props.h>
 
 #define MAX_BUFFERS     16
@@ -50,7 +51,6 @@ typedef struct {
   bool            have_format;
 
   SpaPortInfo     info;
-  SpaAllocParam  *params[2];
   uint8_t         params_buffer[1024];
 
   SpaVolumeBuffer buffers[MAX_BUFFERS];
@@ -74,8 +74,8 @@ typedef struct {
   SpaTypeAudioFormat audio_format;
   SpaTypeEventNode event_node;
   SpaTypeCommandNode command_node;
-  SpaTypeAllocParamBuffers alloc_param_buffers;
-  SpaTypeAllocParamMetaEnable alloc_param_meta_enable;
+  SpaTypeParamAllocBuffers param_alloc_buffers;
+  SpaTypeParamAllocMetaEnable param_alloc_meta_enable;
 } Type;
 
 static inline void
@@ -94,8 +94,8 @@ init_type (Type *type, SpaTypeMap *map)
   spa_type_audio_format_map (map, &type->audio_format);
   spa_type_event_node_map (map, &type->event_node);
   spa_type_command_node_map (map, &type->command_node);
-  spa_type_alloc_param_buffers_map (map, &type->alloc_param_buffers);
-  spa_type_alloc_param_meta_enable_map (map, &type->alloc_param_meta_enable);
+  spa_type_param_alloc_buffers_map (map, &type->param_alloc_buffers);
+  spa_type_param_alloc_meta_enable_map (map, &type->param_alloc_meta_enable);
 }
 
 struct _SpaVolume {
@@ -388,32 +388,6 @@ spa_volume_node_port_set_format (SpaNode         *node,
     port->have_format = true;
   }
 
-  if (port->have_format) {
-    SpaPODBuilder b = { NULL };
-    SpaPODFrame f[2];
-
-    port->info.maxbuffering = -1;
-    port->info.latency = 0;
-
-    port->info.n_params = 2;
-    port->info.params = port->params;
-
-    spa_pod_builder_init (&b, port->params_buffer, sizeof (port->params_buffer));
-    spa_pod_builder_object (&b, &f[0], 0, this->type.alloc_param_buffers.Buffers,
-      PROP      (&f[1], this->type.alloc_param_buffers.size,    SPA_POD_TYPE_INT, 16),
-      PROP      (&f[1], this->type.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, 16),
-      PROP_U_MM (&f[1], this->type.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, MAX_BUFFERS, 2, MAX_BUFFERS),
-      PROP      (&f[1], this->type.alloc_param_buffers.align,   SPA_POD_TYPE_INT, 16));
-    port->params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
-
-    spa_pod_builder_object (&b, &f[0], 0, this->type.alloc_param_meta_enable.MetaEnable,
-      PROP      (&f[1], this->type.alloc_param_meta_enable.type, SPA_POD_TYPE_ID, this->type.meta.Header),
-      PROP      (&f[1], this->type.alloc_param_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
-    port->params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
-
-    port->info.extra = NULL;
-  }
-
   return SPA_RESULT_OK;
 }
 
@@ -466,19 +440,57 @@ spa_volume_node_port_get_info (SpaNode            *node,
 }
 
 static SpaResult
-spa_volume_node_port_get_props (SpaNode       *node,
-                                SpaDirection   direction,
-                                uint32_t       port_id,
-                                SpaProps     **props)
+spa_volume_node_port_enum_params (SpaNode       *node,
+                                  SpaDirection   direction,
+                                  uint32_t       port_id,
+                                  uint32_t       index,
+                                  SpaParam     **param)
 {
-  return SPA_RESULT_NOT_IMPLEMENTED;
+  SpaPODBuilder b = { NULL };
+  SpaPODFrame f[2];
+  SpaVolume *this;
+  SpaVolumePort *port;
+
+  spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+  spa_return_val_if_fail (param != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+
+  this = SPA_CONTAINER_OF (node, SpaVolume, node);
+
+  spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
+
+  port = direction == SPA_DIRECTION_INPUT ? &this->in_ports[port_id] : &this->out_ports[port_id];
+
+  spa_pod_builder_init (&b, port->params_buffer, sizeof (port->params_buffer));
+
+  switch (index) {
+  case 0:
+    spa_pod_builder_object (&b, &f[0], 0, this->type.param_alloc_buffers.Buffers,
+      PROP      (&f[1], this->type.param_alloc_buffers.size,    SPA_POD_TYPE_INT, 16),
+      PROP      (&f[1], this->type.param_alloc_buffers.stride,  SPA_POD_TYPE_INT, 16),
+      PROP_U_MM (&f[1], this->type.param_alloc_buffers.buffers, SPA_POD_TYPE_INT, MAX_BUFFERS, 2, MAX_BUFFERS),
+      PROP      (&f[1], this->type.param_alloc_buffers.align,   SPA_POD_TYPE_INT, 16));
+    break;
+
+  case 1:
+    spa_pod_builder_object (&b, &f[0], 0, this->type.param_alloc_meta_enable.MetaEnable,
+      PROP      (&f[1], this->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID, this->type.meta.Header),
+      PROP      (&f[1], this->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
+    break;
+
+  default:
+    return SPA_RESULT_NOT_IMPLEMENTED;
+  }
+
+  *param = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaParam);
+
+  return SPA_RESULT_OK;
 }
 
 static SpaResult
-spa_volume_node_port_set_props (SpaNode        *node,
+spa_volume_node_port_set_param (SpaNode        *node,
                                 SpaDirection    direction,
                                 uint32_t        port_id,
-                                const SpaProps *props)
+                                const SpaParam *param)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
@@ -538,7 +550,7 @@ static SpaResult
 spa_volume_node_port_alloc_buffers (SpaNode         *node,
                                     SpaDirection     direction,
                                     uint32_t         port_id,
-                                    SpaAllocParam  **params,
+                                    SpaParam       **params,
                                     uint32_t         n_params,
                                     SpaBuffer      **buffers,
                                     uint32_t        *n_buffers)
@@ -772,8 +784,8 @@ static const SpaNode volume_node = {
   spa_volume_node_port_set_format,
   spa_volume_node_port_get_format,
   spa_volume_node_port_get_info,
-  spa_volume_node_port_get_props,
-  spa_volume_node_port_set_props,
+  spa_volume_node_port_enum_params,
+  spa_volume_node_port_set_param,
   spa_volume_node_port_use_buffers,
   spa_volume_node_port_alloc_buffers,
   spa_volume_node_port_set_io,

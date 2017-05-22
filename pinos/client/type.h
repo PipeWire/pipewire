@@ -28,7 +28,7 @@ extern "C" {
 #include <spa/event-node.h>
 #include <spa/command-node.h>
 #include <spa/monitor.h>
-#include <spa/alloc-param.h>
+#include <spa/param-alloc.h>
 
 #include <pinos/client/map.h>
 #include <pinos/client/transport.h>
@@ -63,9 +63,9 @@ struct _PinosType {
   SpaTypeEventNode event_node;
   SpaTypeCommandNode command_node;
   SpaTypeMonitor monitor;
-  SpaTypeAllocParamBuffers alloc_param_buffers;
-  SpaTypeAllocParamMetaEnable alloc_param_meta_enable;
-  SpaTypeAllocParamVideoPadding alloc_param_video_padding;
+  SpaTypeParamAllocBuffers param_alloc_buffers;
+  SpaTypeParamAllocMetaEnable param_alloc_meta_enable;
+  SpaTypeParamAllocVideoPadding param_alloc_video_padding;
   PinosTypeEventTransport event_transport;
 };
 

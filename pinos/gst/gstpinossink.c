@@ -243,7 +243,7 @@ pool_activated (GstPinosPool *pool, GstPinosSink *sink)
   guint size;
   guint min_buffers;
   guint max_buffers;
-  SpaAllocParam *port_params[3];
+  SpaParam *port_params[3];
   SpaPODBuilder b = { NULL };
   uint8_t buffer[1024];
   SpaPODFrame f[2];
@@ -252,28 +252,37 @@ pool_activated (GstPinosPool *pool, GstPinosSink *sink)
   gst_buffer_pool_config_get_params (config, &caps, &size, &min_buffers, &max_buffers);
 
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
-  spa_pod_builder_object (&b, &f[0], 0, ctx->type.alloc_param_buffers.Buffers,
-      PROP    (&f[1], ctx->type.alloc_param_buffers.size,    SPA_POD_TYPE_INT, size),
-      PROP    (&f[1], ctx->type.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, 0),
-      PROP_MM (&f[1], ctx->type.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, min_buffers, min_buffers, max_buffers),
-      PROP    (&f[1], ctx->type.alloc_param_buffers.align,   SPA_POD_TYPE_INT, 16));
-  port_params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
+  spa_pod_builder_push_object (&b, &f[0], 0, ctx->type.param_alloc_buffers.Buffers);
+  if (size == 0)
+    spa_pod_builder_add (&b,
+        PROP_U_MM (&f[1], ctx->type.param_alloc_buffers.size, SPA_POD_TYPE_INT, 0, 0, INT32_MAX), 0);
+  else
+    spa_pod_builder_add (&b,
+        PROP_MM (&f[1], ctx->type.param_alloc_buffers.size, SPA_POD_TYPE_INT, size, size, INT32_MAX), 0);
 
-  spa_pod_builder_object (&b, &f[0], 0, ctx->type.alloc_param_meta_enable.MetaEnable,
-      PROP    (&f[1], ctx->type.alloc_param_meta_enable.type, SPA_POD_TYPE_ID, ctx->type.meta.Header),
-      PROP    (&f[1], ctx->type.alloc_param_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
-  port_params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
+  spa_pod_builder_add (&b,
+      PROP_MM (&f[1], ctx->type.param_alloc_buffers.stride,  SPA_POD_TYPE_INT, 0, 0, INT32_MAX),
+      PROP_U_MM (&f[1], ctx->type.param_alloc_buffers.buffers, SPA_POD_TYPE_INT, min_buffers, min_buffers, max_buffers ? max_buffers : INT32_MAX),
+      PROP    (&f[1], ctx->type.param_alloc_buffers.align,   SPA_POD_TYPE_INT, 16),
+      0);
+  spa_pod_builder_pop (&b, &f[0]);
+  port_params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaParam);
 
-  spa_pod_builder_object (&b, &f[0], 0, ctx->type.alloc_param_meta_enable.MetaEnable,
-      PROP    (&f[1], ctx->type.alloc_param_meta_enable.type, SPA_POD_TYPE_ID, ctx->type.meta.Ringbuffer),
-      PROP    (&f[1], ctx->type.alloc_param_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaRingbuffer)),
-      PROP    (&f[1], ctx->type.alloc_param_meta_enable.ringbufferSize,   SPA_POD_TYPE_INT,
+  spa_pod_builder_object (&b, &f[0], 0, ctx->type.param_alloc_meta_enable.MetaEnable,
+      PROP    (&f[1], ctx->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID, ctx->type.meta.Header),
+      PROP    (&f[1], ctx->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
+  port_params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaParam);
+
+  spa_pod_builder_object (&b, &f[0], 0, ctx->type.param_alloc_meta_enable.MetaEnable,
+      PROP    (&f[1], ctx->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID, ctx->type.meta.Ringbuffer),
+      PROP    (&f[1], ctx->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaRingbuffer)),
+      PROP    (&f[1], ctx->type.param_alloc_meta_enable.ringbufferSize,   SPA_POD_TYPE_INT,
                                                                          size * SPA_MAX (4,
                                                                                 SPA_MAX (min_buffers, max_buffers))),
-      PROP    (&f[1], ctx->type.alloc_param_meta_enable.ringbufferStride, SPA_POD_TYPE_INT, 0),
-      PROP    (&f[1], ctx->type.alloc_param_meta_enable.ringbufferBlocks, SPA_POD_TYPE_INT, 1),
-      PROP    (&f[1], ctx->type.alloc_param_meta_enable.ringbufferAlign,  SPA_POD_TYPE_INT, 16));
-  port_params[2] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
+      PROP    (&f[1], ctx->type.param_alloc_meta_enable.ringbufferStride, SPA_POD_TYPE_INT, 0),
+      PROP    (&f[1], ctx->type.param_alloc_meta_enable.ringbufferBlocks, SPA_POD_TYPE_INT, 1),
+      PROP    (&f[1], ctx->type.param_alloc_meta_enable.ringbufferAlign,  SPA_POD_TYPE_INT, 16));
+  port_params[2] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaParam);
 
   pinos_stream_finish_format (sink->stream, SPA_RESULT_OK, port_params, 2);
 }

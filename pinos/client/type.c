@@ -56,9 +56,9 @@ pinos_type_init (PinosType *type)
   spa_type_event_node_map (type->map, &type->event_node);
   spa_type_command_node_map (type->map, &type->command_node);
   spa_type_monitor_map (type->map, &type->monitor);
-  spa_type_alloc_param_buffers_map (type->map, &type->alloc_param_buffers);
-  spa_type_alloc_param_meta_enable_map (type->map, &type->alloc_param_meta_enable);
-  spa_type_alloc_param_video_padding_map (type->map, &type->alloc_param_video_padding);
+  spa_type_param_alloc_buffers_map (type->map, &type->param_alloc_buffers);
+  spa_type_param_alloc_meta_enable_map (type->map, &type->param_alloc_meta_enable);
+  spa_type_param_alloc_video_padding_map (type->map, &type->param_alloc_video_padding);
 
   pinos_type_event_transport_map (type->map, &type->event_transport);
 }

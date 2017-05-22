@@ -113,7 +113,7 @@ bool             pinos_stream_disconnect        (PinosStream      *stream);
 
 bool             pinos_stream_finish_format     (PinosStream     *stream,
                                                  SpaResult        res,
-                                                 SpaAllocParam  **params,
+                                                 SpaParam       **params,
                                                  uint32_t         n_params);
 
 bool             pinos_stream_get_time          (PinosStream     *stream,

@@ -776,6 +776,10 @@ connect_error:
 
 #define PROP(f,key,type,...)                                                    \
           SPA_POD_PROP (f,key,0,type,1,__VA_ARGS__)
+#define PROP_U_MM(f,key,type,...)                                               \
+          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |                         \
+                              SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
+
 static void
 on_format_changed (PinosListener *listener,
                    PinosStream   *stream,
@@ -798,19 +802,26 @@ on_format_changed (PinosListener *listener,
   gst_caps_unref (caps);
 
   if (res) {
-    SpaAllocParam *params[1];
+    SpaParam *params[2];
     SpaPODBuilder b = { NULL };
-    uint8_t buffer[128];
+    uint8_t buffer[512];
     SpaPODFrame f[2];
 
     spa_pod_builder_init (&b, buffer, sizeof (buffer));
-    spa_pod_builder_object (&b, &f[0], 0, ctx->type.alloc_param_meta_enable.MetaEnable,
-        PROP    (&f[1], ctx->type.alloc_param_meta_enable.type, SPA_POD_TYPE_ID, ctx->type.meta.Header),
-        PROP    (&f[1], ctx->type.alloc_param_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
-    params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
+    spa_pod_builder_object (&b, &f[0], 0, ctx->type.param_alloc_buffers.Buffers,
+      PROP_U_MM (&f[1], ctx->type.param_alloc_buffers.size,    SPA_POD_TYPE_INT, 0, 0, INT32_MAX),
+      PROP_U_MM (&f[1], ctx->type.param_alloc_buffers.stride,  SPA_POD_TYPE_INT, 0, 0, INT32_MAX),
+      PROP_U_MM (&f[1], ctx->type.param_alloc_buffers.buffers, SPA_POD_TYPE_INT, 16, 0, INT32_MAX),
+      PROP    (&f[1], ctx->type.param_alloc_buffers.align,   SPA_POD_TYPE_INT, 16));
+    params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaParam);
+
+    spa_pod_builder_object (&b, &f[0], 0, ctx->type.param_alloc_meta_enable.MetaEnable,
+        PROP    (&f[1], ctx->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID, ctx->type.meta.Header),
+        PROP    (&f[1], ctx->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
+    params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaParam);
 
     GST_DEBUG_OBJECT (pinossrc, "doing finish format");
-    pinos_stream_finish_format (pinossrc->stream, SPA_RESULT_OK, params, 1);
+    pinos_stream_finish_format (pinossrc->stream, SPA_RESULT_OK, params, 2);
   } else {
     GST_WARNING_OBJECT (pinossrc, "finish format with error");
     pinos_stream_finish_format (pinossrc->stream, SPA_RESULT_INVALID_MEDIA_TYPE, NULL, 0);

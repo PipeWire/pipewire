@@ -36,6 +36,7 @@ extern "C" {
 SpaResult spa_debug_port_info (const SpaPortInfo *info, const SpaTypeMap *map);
 SpaResult spa_debug_buffer (const SpaBuffer *buffer, const SpaTypeMap *map);
 SpaResult spa_debug_props (const SpaProps *props, const SpaTypeMap *map);
+SpaResult spa_debug_param (const SpaParam *param, const SpaTypeMap *map);
 SpaResult spa_debug_pod (const SpaPOD *pod, const SpaTypeMap *map);
 SpaResult spa_debug_format (const SpaFormat *format, const SpaTypeMap *map);
 SpaResult spa_debug_dump_mem  (const void *data, size_t size);

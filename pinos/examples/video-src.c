@@ -19,6 +19,7 @@
 
 #include <stdio.h>
 #include <errno.h>
+#include <time.h>
 #include <sys/mman.h>
 
 #include <spa/type-map.h>
@@ -76,6 +77,7 @@ typedef struct {
 
   uint8_t params_buffer[1024];
   int counter;
+  uint32_t seq;
 } Data;
 
 static void
@@ -88,6 +90,7 @@ on_timeout (SpaLoopUtils *utils,
   SpaBuffer *buf;
   int i, j;
   uint8_t *p, *map;
+  SpaMetaHeader *h;
 
   id = pinos_stream_get_empty_buffer (data->stream);
   if (id == SPA_ID_INVALID)
@@ -110,6 +113,15 @@ on_timeout (SpaLoopUtils *utils,
   } else
     return;
 
+  if ((h =  spa_buffer_find_meta (buf, data->type.meta.Header))) {
+    struct timespec now;
+    h->flags = 0;
+    h->seq = data->seq++;
+    clock_gettime (CLOCK_MONOTONIC, &now);
+    h->pts = SPA_TIMESPEC_TO_TIME (&now);
+    h->dts_offset = 0;
+  }
+
   for (i = 0; i < data->format.size.height; i++) {
     for (j = 0; j < data->format.size.width * BPP; j++) {
       p[j] = data->counter + j * i;
@@ -119,7 +131,7 @@ on_timeout (SpaLoopUtils *utils,
   }
 
   if (map)
-    munmap (map, buf->datas[0].maxsize);
+    munmap (map, buf->datas[0].maxsize + buf->datas[0].mapoffset);
 
   pinos_stream_send_buffer (data->stream, id);
 }
@@ -177,7 +189,7 @@ on_stream_format_changed (PinosListener  *listener,
   PinosContext *ctx = stream->context;
   SpaPODBuilder b = { NULL };
   SpaPODFrame f[2];
-  SpaAllocParam *params[2];
+  SpaParam *params[2];
 
   if (format) {
     spa_format_video_raw_parse (format, &data->format, &data->type.format_video);
@@ -185,18 +197,18 @@ on_stream_format_changed (PinosListener  *listener,
     data->stride = SPA_ROUND_UP_N (data->format.size.width * BPP, 4);
 
     spa_pod_builder_init (&b, data->params_buffer, sizeof (data->params_buffer));
-    spa_pod_builder_object (&b, &f[0], 0, ctx->type.alloc_param_buffers.Buffers,
-        PROP      (&f[1], ctx->type.alloc_param_buffers.size,    SPA_POD_TYPE_INT,
+    spa_pod_builder_object (&b, &f[0], 0, ctx->type.param_alloc_buffers.Buffers,
+        PROP      (&f[1], ctx->type.param_alloc_buffers.size,    SPA_POD_TYPE_INT,
                                                                data->stride * data->format.size.height),
-        PROP      (&f[1], ctx->type.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, data->stride),
-        PROP_U_MM (&f[1], ctx->type.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, 32, 2, 32),
-        PROP      (&f[1], ctx->type.alloc_param_buffers.align,   SPA_POD_TYPE_INT, 16));
-    params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
+        PROP      (&f[1], ctx->type.param_alloc_buffers.stride,  SPA_POD_TYPE_INT, data->stride),
+        PROP_U_MM (&f[1], ctx->type.param_alloc_buffers.buffers, SPA_POD_TYPE_INT, 32, 2, 32),
+        PROP      (&f[1], ctx->type.param_alloc_buffers.align,   SPA_POD_TYPE_INT, 16));
+    params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaParam);
 
-    spa_pod_builder_object (&b, &f[0], 0, ctx->type.alloc_param_meta_enable.MetaEnable,
-      PROP      (&f[1], ctx->type.alloc_param_meta_enable.type, SPA_POD_TYPE_ID, ctx->type.meta.Header),
-      PROP      (&f[1], ctx->type.alloc_param_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
-    params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaAllocParam);
+    spa_pod_builder_object (&b, &f[0], 0, ctx->type.param_alloc_meta_enable.MetaEnable,
+      PROP      (&f[1], ctx->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID, ctx->type.meta.Header),
+      PROP      (&f[1], ctx->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
+    params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaParam);
 
     pinos_stream_finish_format (stream, SPA_RESULT_OK, params, 2);
   }

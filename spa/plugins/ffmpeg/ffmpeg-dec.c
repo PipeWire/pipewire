@@ -324,19 +324,20 @@ spa_ffmpeg_dec_node_port_get_info (SpaNode            *node,
 }
 
 static SpaResult
-spa_ffmpeg_dec_node_port_get_props (SpaNode        *node,
-                                    SpaDirection    direction,
-                                    uint32_t        port_id,
-                                    SpaProps      **props)
+spa_ffmpeg_dec_node_port_enum_params (SpaNode        *node,
+                                      SpaDirection    direction,
+                                      uint32_t        port_id,
+                                      uint32_t        index,
+                                      SpaParam      **param)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 static SpaResult
-spa_ffmpeg_dec_node_port_set_props (SpaNode         *node,
+spa_ffmpeg_dec_node_port_set_param (SpaNode         *node,
                                     SpaDirection     direction,
                                     uint32_t         port_id,
-                                    const SpaProps  *props)
+                                    const SpaParam  *param)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
@@ -361,7 +362,7 @@ static SpaResult
 spa_ffmpeg_dec_node_port_alloc_buffers (SpaNode         *node,
                                         SpaDirection     direction,
                                         uint32_t         port_id,
-                                        SpaAllocParam  **params,
+                                        SpaParam       **params,
                                         uint32_t         n_params,
                                         SpaBuffer      **buffers,
                                         uint32_t        *n_buffers)
@@ -463,8 +464,8 @@ static const SpaNode ffmpeg_dec_node = {
   spa_ffmpeg_dec_node_port_set_format,
   spa_ffmpeg_dec_node_port_get_format,
   spa_ffmpeg_dec_node_port_get_info,
-  spa_ffmpeg_dec_node_port_get_props,
-  spa_ffmpeg_dec_node_port_set_props,
+  spa_ffmpeg_dec_node_port_enum_params,
+  spa_ffmpeg_dec_node_port_set_param,
   spa_ffmpeg_dec_node_port_use_buffers,
   spa_ffmpeg_dec_node_port_alloc_buffers,
   spa_ffmpeg_dec_node_port_set_io,

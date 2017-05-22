@@ -51,10 +51,9 @@ inspect_port (AppData *data, SpaNode *node, SpaDirection direction, uint32_t por
 {
   SpaResult res;
   SpaFormat *format;
-  uint32_t index = 0;
-  SpaProps *props;
+  uint32_t index;
 
-  while (true) {
+  for (index = 0; ; index++) {
     if ((res = spa_node_port_enum_formats (node, direction, port_id, &format, NULL, index)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
         printf ("got error %d\n", res);
@@ -62,12 +61,19 @@ inspect_port (AppData *data, SpaNode *node, SpaDirection direction, uint32_t por
     }
     if (format)
       spa_debug_format (format, data->map);
-    index++;
   }
-  if ((res = spa_node_port_get_props (node, direction, port_id, &props)) < 0)
-    printf ("port_get_props error: %d\n", res);
-  else
-    spa_debug_props (props, data->map);
+
+
+  for (index = 0; ; index++) {
+    SpaParam *param;
+
+    if ((res = spa_node_port_enum_params (node, direction, port_id, index, &param)) < 0) {
+      if (res != SPA_RESULT_ENUM_END)
+        printf ("port_enum_params error: %d\n", res);
+      break;
+    }
+    spa_debug_param (param, data->map);
+  }
 }
 
 static void

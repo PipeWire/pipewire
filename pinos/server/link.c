@@ -23,6 +23,8 @@
 #include <spa/video/format.h>
 #include <spa/pod-utils.h>
 
+#include <spa/lib/props.h>
+
 #include "pinos/client/pinos.h"
 #include "pinos/client/interfaces.h"
 
@@ -190,33 +192,33 @@ error:
   }
 }
 
-static void *
-find_param (const SpaPortInfo *info, uint32_t type)
+static SpaParam *
+find_param (SpaParam **params, int n_params, uint32_t type)
 {
   uint32_t i;
 
-  for (i = 0; i < info->n_params; i++) {
-    if (spa_pod_is_object_type (&info->params[i]->pod, type))
-      return info->params[i];
+  for (i = 0; i < n_params; i++) {
+    if (spa_pod_is_object_type (&params[i]->pod, type))
+      return params[i];
   }
   return NULL;
 }
 
-static void *
-find_meta_enable (PinosCore *core, const SpaPortInfo *info, uint32_t type)
+static SpaParam *
+find_meta_enable (PinosCore *core, SpaParam **params, int n_params, uint32_t type)
 {
   uint32_t i;
 
-  for (i = 0; i < info->n_params; i++) {
-    if (spa_pod_is_object_type (&info->params[i]->pod, core->type.alloc_param_meta_enable.MetaEnable)) {
+  for (i = 0; i < n_params; i++) {
+    if (spa_pod_is_object_type (&params[i]->pod, core->type.param_alloc_meta_enable.MetaEnable)) {
       uint32_t qtype;
 
-      if (spa_alloc_param_query (info->params[i],
-            core->type.alloc_param_meta_enable.type, SPA_POD_TYPE_ID, &qtype, 0) != 1)
+      if (spa_param_query (params[i],
+            core->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID, &qtype, 0) != 1)
         continue;
 
       if (qtype == type)
-        return info->params[i];
+        return params[i];
     }
   }
   return NULL;
@@ -226,7 +228,7 @@ static SpaBuffer **
 alloc_buffers (PinosLink      *this,
                uint32_t        n_buffers,
                uint32_t        n_params,
-               SpaAllocParam **params,
+               SpaParam      **params,
                uint32_t        n_datas,
                size_t         *data_sizes,
                ssize_t        *data_strides,
@@ -256,16 +258,16 @@ alloc_buffers (PinosLink      *this,
 
   /* collect metadata */
   for (i = 0; i < n_params; i++) {
-    SpaAllocParam *ap = params[i];
-
-    if (ap->pod.type == this->core->type.alloc_param_meta_enable.MetaEnable) {
+    if (spa_pod_is_object_type (&params[i]->pod, this->core->type.param_alloc_meta_enable.MetaEnable)) {
       uint32_t type, size;
 
-      if (spa_alloc_param_query (ap,
-            this->core->type.alloc_param_meta_enable.type, SPA_POD_TYPE_ID, &type,
-            this->core->type.alloc_param_meta_enable.size, SPA_POD_TYPE_INT, &size,
-            0) != 1)
+      if (spa_param_query (params[i],
+            this->core->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID, &type,
+            this->core->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, &size,
+            0) != 2)
         continue;
+
+      pinos_log_debug ("link %p: enable meta %d %d", this, type, size);
 
       metas[n_metas].type = type;
       metas[n_metas].size = size;
@@ -358,6 +360,56 @@ alloc_buffers (PinosLink      *this,
   return buffers;
 }
 
+static int
+spa_node_param_filter (PinosLink     *this,
+                       SpaNode       *in_node,
+                       uint32_t       in_port,
+                       SpaNode       *out_node,
+                       uint32_t       out_port,
+                       SpaPODBuilder *result)
+{
+  SpaResult res;
+  SpaParam *oparam, *iparam;
+  int iidx, oidx, num = 0;
+
+  for (iidx = 0; ; iidx++) {
+    if (spa_node_port_enum_params (in_node, SPA_DIRECTION_INPUT, in_port, iidx, &iparam) < 0)
+      break;
+
+    if (pinos_log_level_enabled (SPA_LOG_LEVEL_DEBUG))
+      spa_debug_param (iparam, this->core->type.map);
+
+    for (oidx = 0; ; oidx++) {
+      SpaPODFrame f;
+      uint32_t offset;
+
+      if (spa_node_port_enum_params (out_node, SPA_DIRECTION_OUTPUT, out_port, oidx, &oparam) < 0)
+        break;
+
+      if (pinos_log_level_enabled (SPA_LOG_LEVEL_DEBUG))
+        spa_debug_param (oparam, this->core->type.map);
+
+      if (iparam->body.body.type != oparam->body.body.type)
+        continue;
+
+      offset = result->offset;
+      spa_pod_builder_push_object (result, &f, 0, iparam->body.body.type);
+      if ((res = spa_props_filter (result,
+                          SPA_POD_CONTENTS (SpaParam, iparam),
+                          SPA_POD_CONTENTS_SIZE (SpaParam, iparam),
+                          SPA_POD_CONTENTS (SpaParam, oparam),
+                          SPA_POD_CONTENTS_SIZE (SpaParam, oparam))) < 0) {
+        result->offset = offset;
+        result->stack = NULL;
+        continue;
+      }
+      spa_pod_builder_pop (result, &f);
+      num++;
+    }
+  }
+  return num;
+}
+
 static SpaResult
 do_allocation (PinosLink *this, uint32_t in_state, uint32_t out_state)
 {
@@ -437,55 +489,54 @@ do_allocation (PinosLink *this, uint32_t in_state, uint32_t out_state)
   }
 
   if (impl->buffers == NULL) {
-    SpaAllocParam *in_alloc, *out_alloc;
-    SpaAllocParam *in_me, *out_me;
+    SpaParam **params, *param;
+    uint8_t buffer[4096];
+    SpaPODBuilder b = SPA_POD_BUILDER_INIT (buffer, sizeof (buffer));
+    int i, offset, n_params;
     uint32_t max_buffers;
     size_t minsize = 1024, stride = 0;
 
-    in_me = find_meta_enable (this->core, iinfo, this->core->type.meta.Ringbuffer);
-    out_me = find_meta_enable (this->core, oinfo, this->core->type.meta.Ringbuffer);
-    if (in_me && out_me) {
-      uint32_t ms1, ms2, s1, s2;
+    n_params = spa_node_param_filter (this,
+                                      this->input->node->node,
+                                      this->input->port_id,
+                                      this->output->node->node,
+                                      this->output->port_id,
+                                      &b);
+
+    params = alloca (n_params * sizeof (SpaParam *));
+    for (i = 0, offset = 0; i < n_params; i++) {
+      params[i] = SPA_MEMBER (buffer, offset, SpaParam);
+      spa_param_fixate (params[i]);
+      spa_debug_param (params[i], this->core->type.map);
+      offset += SPA_ROUND_UP_N (SPA_POD_SIZE (params[i]), 8);
+    }
+
+    param = find_meta_enable (this->core, params, n_params,
+                              this->core->type.meta.Ringbuffer);
+    if (param) {
+      uint32_t ms, s;
       max_buffers = 1;
 
-      if (spa_alloc_param_query (in_me,
-            this->core->type.alloc_param_meta_enable.ringbufferSize,   SPA_POD_TYPE_INT, &ms1,
-            this->core->type.alloc_param_meta_enable.ringbufferStride, SPA_POD_TYPE_INT, &s1, 0) == 2 &&
-          spa_alloc_param_query (in_me,
-            this->core->type.alloc_param_meta_enable.ringbufferSize,   SPA_POD_TYPE_INT, &ms2,
-            this->core->type.alloc_param_meta_enable.ringbufferStride, SPA_POD_TYPE_INT, &s2, 0) == 2) {
-        minsize = SPA_MAX (ms1, ms2);
-        stride = SPA_MAX (s1, s2);
+      if (spa_param_query (param,
+            this->core->type.param_alloc_meta_enable.ringbufferSize,   SPA_POD_TYPE_INT, &ms,
+            this->core->type.param_alloc_meta_enable.ringbufferStride, SPA_POD_TYPE_INT, &s, 0) == 2) {
+        minsize = ms;
+        stride = s;
       }
     } else {
       max_buffers = MAX_BUFFERS;
       minsize = stride = 0;
-      in_alloc = find_param (iinfo, this->core->type.alloc_param_buffers.Buffers);
-      if (in_alloc) {
+      param = find_param (params, n_params,
+                          this->core->type.param_alloc_buffers.Buffers);
+      if (param) {
         uint32_t qmax_buffers = max_buffers,
                  qminsize = minsize,
                  qstride = stride;
 
-        spa_alloc_param_query (in_alloc,
-            this->core->type.alloc_param_buffers.size,    SPA_POD_TYPE_INT, &qminsize,
-            this->core->type.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, &qstride,
-            this->core->type.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, &qmax_buffers,
-            0);
-
-        max_buffers = qmax_buffers == 0 ? max_buffers : SPA_MIN (qmax_buffers, max_buffers);
-        minsize = SPA_MAX (minsize, qminsize);
-        stride = SPA_MAX (stride, qstride);
-      }
-      out_alloc = find_param (oinfo, this->core->type.alloc_param_buffers.Buffers);
-      if (out_alloc) {
-        uint32_t qmax_buffers = max_buffers,
-                 qminsize = minsize,
-                 qstride = stride;
-
-        spa_alloc_param_query (out_alloc,
-            this->core->type.alloc_param_buffers.size,    SPA_POD_TYPE_INT, &qminsize,
-            this->core->type.alloc_param_buffers.stride,  SPA_POD_TYPE_INT, &qstride,
-            this->core->type.alloc_param_buffers.buffers, SPA_POD_TYPE_INT, &qmax_buffers,
+        spa_param_query (param,
+            this->core->type.param_alloc_buffers.size,    SPA_POD_TYPE_INT, &qminsize,
+            this->core->type.param_alloc_buffers.stride,  SPA_POD_TYPE_INT, &qstride,
+            this->core->type.param_alloc_buffers.buffers, SPA_POD_TYPE_INT, &qmax_buffers,
             0);
 
         max_buffers = qmax_buffers == 0 ? max_buffers : SPA_MIN (qmax_buffers, max_buffers);
@@ -523,8 +574,8 @@ do_allocation (PinosLink *this, uint32_t in_state, uint32_t out_state)
       impl->n_buffers = max_buffers;
       impl->buffers = alloc_buffers (this,
                                      impl->n_buffers,
-                                     oinfo->n_params,
-                                     oinfo->params,
+                                     n_params,
+                                     params,
                                      1,
                                      data_sizes,
                                      data_strides,
@@ -537,7 +588,7 @@ do_allocation (PinosLink *this, uint32_t in_state, uint32_t out_state)
       if ((res = spa_node_port_alloc_buffers (this->output->node->node,
                                               SPA_DIRECTION_OUTPUT,
                                               this->output->port_id,
-                                              iinfo->params, iinfo->n_params,
+                                              params, n_params,
                                               impl->buffers, &impl->n_buffers)) < 0) {
         asprintf (&error, "error alloc output buffers: %d", res);
         goto error;
@@ -553,7 +604,7 @@ do_allocation (PinosLink *this, uint32_t in_state, uint32_t out_state)
       if ((res = spa_node_port_alloc_buffers (this->input->node->node,
                                               SPA_DIRECTION_INPUT,
                                               this->input->port_id,
-                                              oinfo->params, oinfo->n_params,
+                                              params, n_params,
                                               impl->buffers, &impl->n_buffers)) < 0) {
         asprintf (&error, "error alloc input buffers: %d", res);
         goto error;

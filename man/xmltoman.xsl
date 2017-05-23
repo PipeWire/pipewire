@@ -2,20 +2,20 @@
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/xhtml">
 
 <!--
-  This file is part of Pinos.
+  This file is part of PipeWire.
 
-  Pinos is free software; you can redistribute it and/or modify it under
+  PipeWire is free software; you can redistribute it and/or modify it under
   the terms of the GNU General Public License as published by the Free
   Software Foundation; either version 2 of the License, or (at your
   option) any later version.
 
-  Pinos is distributed in the hope that it will be useful, but WITHOUT
+  PipeWire is distributed in the hope that it will be useful, but WITHOUT
   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
   FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
   for more details.
 
   You should have received a copy of the GNU General Public License
-  along with Pinos; if not, see <http://www.gnu.org/licenses/>.
+  along with PipeWire; if not, see <http://www.gnu.org/licenses/>.
 -->
 
 <xsl:output method="xml" version="1.0" encoding="iso-8859-15" doctype-public="-//W3C//DTD XHTML 1.0 Strict//EN" doctype-system="http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd" indent="yes"/>

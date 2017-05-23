@@ -1,4 +1,4 @@
-project('pinos', 'c',
+project('pipewire', 'c',
   version : '0.0.1.1',
   meson_version : '>= 0.36.0',
   default_options : [ 'warning_level=1',
@@ -6,24 +6,24 @@ project('pinos', 'c',
                       'buildtype=debugoptimized' ])
 
 
-pinos_version = meson.project_version()
-version_arr = pinos_version.split('.')
-pinos_version_major = version_arr[0]
-pinos_version_minor = version_arr[1]
-pinos_version_micro = version_arr[2]
+pipewire_version = meson.project_version()
+version_arr = pipewire_version.split('.')
+pipewire_version_major = version_arr[0]
+pipewire_version_minor = version_arr[1]
+pipewire_version_micro = version_arr[2]
 if version_arr.length() == 4
-  pinos_version_nano = version_arr[3]
+  pipewire_version_nano = version_arr[3]
 else
-  pinos_version_nano = 0
+  pipewire_version_nano = 0
 endif
 
 apiversion = '0.1'
 soversion = 0
-libversion = '@0@.@1@.0'.format(soversion, pinos_version_minor.to_int() * 100 + pinos_version_micro.to_int())
+libversion = '@0@.@1@.0'.format(soversion, pipewire_version_minor.to_int() * 100 + pipewire_version_micro.to_int())
 
 prefix = get_option('prefix')
 
-modules_install_dir = '@0@/pinos-@1@'.format(get_option('libdir'), apiversion)
+modules_install_dir = '@0@/pipewire-@1@'.format(get_option('libdir'), apiversion)
 
 gnome = import('gnome')
 
@@ -31,27 +31,27 @@ cc = meson.get_compiler('c')
 
 
 cdata = configuration_data()
-cdata.set('PINOS_VERSION_MAJOR', pinos_version_major)
-cdata.set('PINOS_VERSION_MINOR', pinos_version_minor)
-cdata.set('PINOS_VERSION_MICRO', pinos_version_micro)
-cdata.set('PINOS_VERSION_NANO', pinos_version_nano)
-cdata.set('PINOS_API_VERSION', '"@0@"'.format(apiversion))
-cdata.set('PINOS_DATADIR', '"@0@/@1@"'.format(prefix, get_option('datadir')))
+cdata.set('PIPEWIRE_VERSION_MAJOR', pipewire_version_major)
+cdata.set('PIPEWIRE_VERSION_MINOR', pipewire_version_minor)
+cdata.set('PIPEWIRE_VERSION_MICRO', pipewire_version_micro)
+cdata.set('PIPEWIRE_VERSION_NANO', pipewire_version_nano)
+cdata.set('PIPEWIRE_API_VERSION', '"@0@"'.format(apiversion))
+cdata.set('PIPEWIRE_DATADIR', '"@0@/@1@"'.format(prefix, get_option('datadir')))
 cdata.set('LOCALEDIR', '"@0@/@1@"'.format(prefix, get_option('localedir')))
 cdata.set('LIBDIR', '"@0@/@1@"'.format(prefix, get_option('libdir')))
-cdata.set('GETTEXT_PACKAGE', '"pinos"')
-cdata.set('PINOS_LICENSE', '"LGPL"')
-cdata.set('PINOS_PACKAGE_ORIGIN', '"Unknown package origin"')
-cdata.set('PINOS_PACKAGE_NAME', '"Pinos source release"')
-cdata.set('PACKAGE', '"pinos"')
-cdata.set('PACKAGE_NAME', '"Pinos"')
-cdata.set('PACKAGE_STRING', '"Pinos @0@"'.format(pinos_version))
-cdata.set('PACKAGE_TARNAME', '"pinos"')
+cdata.set('GETTEXT_PACKAGE', '"pipewire"')
+cdata.set('PIPEWIRE_LICENSE', '"LGPL"')
+cdata.set('PIPEWIRE_PACKAGE_ORIGIN', '"Unknown package origin"')
+cdata.set('PIPEWIRE_PACKAGE_NAME', '"PipeWire source release"')
+cdata.set('PACKAGE', '"pipewire"')
+cdata.set('PACKAGE_NAME', '"PipeWire"')
+cdata.set('PACKAGE_STRING', '"PipeWire @0@"'.format(pipewire_version))
+cdata.set('PACKAGE_TARNAME', '"pipewire"')
 cdata.set('PACKAGE_URL', '""')
-cdata.set('PACKAGE_VERSION', '"@0@"'.format(pinos_version))
-cdata.set('MODULEDIR', '"@0@/@1@/pinos-@2@"'.format(get_option('prefix'),get_option('libdir'),apiversion))
-cdata.set('PINOS_CONFIG_DIR', '"@0@/pinos"'.format(join_paths(get_option('prefix'), get_option('sysconfdir'))))
-cdata.set('VERSION', '"@0@"'.format(pinos_version))
+cdata.set('PACKAGE_VERSION', '"@0@"'.format(pipewire_version))
+cdata.set('MODULEDIR', '"@0@/@1@/pipewire-@2@"'.format(get_option('prefix'),get_option('libdir'),apiversion))
+cdata.set('PIPEWIRE_CONFIG_DIR', '"@0@/pipewire"'.format(join_paths(get_option('prefix'), get_option('sysconfdir'))))
+cdata.set('VERSION', '"@0@"'.format(pipewire_version))
 # FIXME: --with-memory-alignment],[8,N,malloc,pagesize (default is 32)]) option
 cdata.set('MEMORY_ALIGNMENT_MALLOC', 1)
 
@@ -134,7 +134,7 @@ gst_dep = [dependency('gstreamer-1.0'),
            dependency('gstreamer-allocators-1.0'),]
 
 subdir('spa')
-subdir('pinos')
+subdir('pipewire')
 subdir('pkgconfig')
 
 #gtkdoc = find_program('gtkdoc-scan', required : false)

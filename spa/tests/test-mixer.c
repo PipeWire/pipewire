@@ -632,7 +632,7 @@ main (int argc, char *argv[])
 
   spa_graph_init (&data.graph);
 
-  if ((str = getenv ("PINOS_DEBUG")))
+  if ((str = getenv ("SPA_DEBUG")))
     data.log->level = atoi (str);
 
   data.support[0].type = SPA_TYPE__TypeMap;

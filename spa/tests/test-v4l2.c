@@ -553,7 +553,7 @@ main (int argc, char *argv[])
   data.map = spa_type_map_get_default ();
   data.log = spa_log_get_default ();
 
-  if ((str = getenv ("PINOS_DEBUG")))
+  if ((str = getenv ("SPA_DEBUG")))
     data.log->level = atoi (str);
 
   data.data_loop.size = sizeof (SpaLoop);

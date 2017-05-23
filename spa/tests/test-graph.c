@@ -537,7 +537,7 @@ main (int argc, char *argv[])
   data.data_loop.remove_source = do_remove_source;
   data.data_loop.invoke = do_invoke;
 
-  if ((str = getenv ("PINOS_DEBUG")))
+  if ((str = getenv ("SPA_DEBUG")))
     data.log->level = atoi (str);
 
   data.support[0].type = SPA_TYPE__TypeMap;

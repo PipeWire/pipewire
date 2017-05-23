@@ -1,5 +1,5 @@
-Pinos
------
+PipeWire
+--------
 
 The idea is to make a server where you can provide
 and consume media to/from.

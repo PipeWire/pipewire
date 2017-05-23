@@ -1,5 +1,4 @@
 spa_headers = [
-  'alloc-param.h',
   'buffer.h',
   'clock.h',
   'command.h',
@@ -17,6 +16,8 @@ spa_headers = [
   'meta.h',
   'monitor.h',
   'node.h',
+  'param.h',
+  'param-alloc.h',
   'plugin.h',
   'pod.h',
   'pod-builder.h',

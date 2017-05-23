@@ -364,7 +364,7 @@
 #mesondefine MODULEDIR
 
 /* directory where config files are located */
-#mesondefine PINOS_CONFIG_DIR
+#mesondefine PIPEWIRE_CONFIG_DIR
 
 /* Define to necessary symbol if this constant uses a non-standard name on
    your system. */

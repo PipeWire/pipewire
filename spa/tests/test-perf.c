@@ -544,7 +544,7 @@ main (int argc, char *argv[])
   data.data_loop.remove_source = do_remove_source;
   data.data_loop.invoke = do_invoke;
 
-  if ((str = getenv ("PINOS_DEBUG")))
+  if ((str = getenv ("SPA_DEBUG")))
     data.log->level = atoi (str);
 
   data.mode = argc > 1 ? atoi (argv[1]) : MODE_SYNC_PUSH;

@@ -8,6 +8,6 @@ clean:
 	ninja-build -C build clean
 
 run:
-	PINOS_MODULE_DIR=build \
-	PINOS_CONFIG_FILE=build/pinos/daemon/pinos.conf \
-	build/pinos/daemon/pinos
+	PIPEWIRE_MODULE_DIR=build \
+	PIPEWIRE_CONFIG_FILE=build/pipewire/daemon/pipewire.conf \
+	build/pipewire/daemon/pipewire

@@ -7,5 +7,4 @@ ABOUT-NLS
 *.tar.xz
 *.o
 config.h.meson
-pkgconfig/libpinos-*.pc
 

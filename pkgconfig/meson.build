@@ -4,13 +4,13 @@ pkgconf.set('prefix', get_option('prefix'))
 pkgconf.set('exec_prefix', '${prefix}')
 pkgconf.set('libdir', '${prefix}/@0@'.format(get_option('libdir')))
 pkgconf.set('includedir', '${prefix}/@0@'.format(get_option('includedir')))
-pkgconf.set('PINOS_API_VERSION', apiversion)
-pkgconf.set('VERSION', pinos_version)
+pkgconf.set('PIPEWIRE_API_VERSION', apiversion)
+pkgconf.set('VERSION', pipewire_version)
 
 pkg_install_dir = '@0@/pkgconfig'.format(get_option('libdir'))
 
 pkg_files = [
-  'libpinos',
+  'libpipewire',
   'libspa',
 ]
 

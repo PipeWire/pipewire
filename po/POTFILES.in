@@ -1,2 +1,2 @@
-pinos/daemon/main.c
-pinos/daemon/pinos.desktop.in
+pipewire/daemon/main.c
+pipewire/daemon/pipewire.desktop.in

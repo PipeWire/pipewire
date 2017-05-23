@@ -1,12 +1,15 @@
-Pinos
------
+PipeWire
+--------
 
-Pinos is a user space API to deal with video. This includes:
+PipeWire is a server and user space API to deal with multimedia
+pipelines. This includes:
 
   - Make availabe sources of video (such as from a capture devices or
-       application provided streams)
+       application provided streams) and multiplexing this with
+       clients.
   - Accessing sources of video for consumption.
+  - Generating graphs for audio and video processing
 
-Video providers and consumers are implemented as separate processes
-communicating with DBUS and exchanging video frames using fd passing.
-
+Nodes in the graph can be implemented as separate processes,
+communicating with sockets and exchanging multimedia content using fd
+passing.

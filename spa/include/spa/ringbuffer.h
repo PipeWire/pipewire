@@ -24,8 +24,7 @@
 extern "C" {
 #endif
 
-typedef struct _SpaRingbuffer SpaRingbuffer;
-
+struct spa_ringbuffer;
 #define SPA_TYPE__RingBuffer           SPA_TYPE_INTERFACE_BASE "RingBuffer"
 #define SPA_TYPE_RINGBUFFER_BASE       SPA_TYPE__RingBuffer ":"
 
@@ -34,13 +33,13 @@ typedef struct _SpaRingbuffer SpaRingbuffer;
 #include <spa/defs.h>
 
 /**
- * SpaRingbuffer:
+ * spa_ringbuffer:
  * @readindex: the current read index
  * @writeindex: the current write index
  * @size: the size of the ringbuffer must be power of 2
  * @mask: mask as @size - 1
  */
-struct _SpaRingbuffer {
+struct spa_ringbuffer {
   uint32_t     readindex;
   uint32_t     writeindex;
   uint32_t     size;
@@ -49,17 +48,17 @@ struct _SpaRingbuffer {
 
 /**
  * spa_ringbuffer_init:
- * @rbuf: a #SpaRingbuffer
+ * @rbuf: a #struct spa_ringbuffer
  * @data: pointer to an array
  * @size: the number of elements in @data
  *
- * Initialize a #SpaRingbuffer with @data and @size.
+ * Initialize a #struct spa_ringbuffer with @data and @size.
  * Size must be a power of 2.
  *
  * Returns: %SPA_RESULT_OK, unless size is not a power of 2.
  */
-static inline SpaResult
-spa_ringbuffer_init (SpaRingbuffer *rbuf,
+static inline int
+spa_ringbuffer_init (struct spa_ringbuffer *rbuf,
                      uint32_t size)
 {
   if (SPA_UNLIKELY ((size & (size - 1)) != 0))
@@ -75,12 +74,12 @@ spa_ringbuffer_init (SpaRingbuffer *rbuf,
 
 /**
  * spa_ringbuffer_clear:
- * @rbuf: a #SpaRingbuffer
+ * @rbuf: a #struct spa_ringbuffer
  *
  * Clear @rbuf
  */
 static inline void
-spa_ringbuffer_clear (SpaRingbuffer *rbuf)
+spa_ringbuffer_clear (struct spa_ringbuffer *rbuf)
 {
   rbuf->readindex = 0;
   rbuf->writeindex = 0;
@@ -88,7 +87,7 @@ spa_ringbuffer_clear (SpaRingbuffer *rbuf)
 
 /**
  * spa_ringbuffer_get_read_index:
- * @rbuf: a #SpaRingbuffer
+ * @rbuf: a #struct spa_ringbuffer
  * @index: the value of readindex, should be masked to get the
  *         offset in the ringbuffer memory
  *
@@ -97,8 +96,8 @@ spa_ringbuffer_clear (SpaRingbuffer *rbuf)
  *          was an overrun.
  */
 static inline int32_t
-spa_ringbuffer_get_read_index (SpaRingbuffer *rbuf,
-                               uint32_t      *index)
+spa_ringbuffer_get_read_index (struct spa_ringbuffer *rbuf,
+                               uint32_t              *index)
 {
   int32_t avail;
 
@@ -110,7 +109,7 @@ spa_ringbuffer_get_read_index (SpaRingbuffer *rbuf,
 
 /**
  * spa_ringbuffer_read_data:
- * @rbuf: a #SpaRingbuffer
+ * @rbuf: a #struct spa_ringbuffer
  * @buffer: memory to read from
  * @offset: offset in @buffer to read from
  * @data: destination memory
@@ -120,11 +119,11 @@ spa_ringbuffer_get_read_index (SpaRingbuffer *rbuf,
  * with the size of @rbuf and len should be smaller than the size.
  */
 static inline void
-spa_ringbuffer_read_data (SpaRingbuffer      *rbuf,
-                          void               *buffer,
-                          uint32_t            offset,
-                          void               *data,
-                          uint32_t            len)
+spa_ringbuffer_read_data (struct spa_ringbuffer *rbuf,
+                          void                  *buffer,
+                          uint32_t               offset,
+                          void                  *data,
+                          uint32_t               len)
 {
   uint32_t first = SPA_MIN (len, rbuf->size - offset);
   memcpy (data, buffer + offset, first);
@@ -135,21 +134,21 @@ spa_ringbuffer_read_data (SpaRingbuffer      *rbuf,
 
 /**
  * spa_ringbuffer_read_update:
- * @rbuf: a #SpaRingbuffer
+ * @rbuf: a #struct spa_ringbuffer
  * @index: new index
  *
  * Update the read pointer to @index
  */
 static inline void
-spa_ringbuffer_read_update (SpaRingbuffer      *rbuf,
-                            int32_t             index)
+spa_ringbuffer_read_update (struct spa_ringbuffer *rbuf,
+                            int32_t                index)
 {
   __atomic_store_n (&rbuf->readindex, index, __ATOMIC_RELEASE);
 }
 
 /**
  * spa_ringbuffer_get_write_index:
- * @rbuf: a #SpaRingbuffer
+ * @rbuf: a #struct spa_ringbuffer
  * @index: the value of writeindex, should be masked to get the
  *         offset in the ringbuffer memory
  *
@@ -159,8 +158,8 @@ spa_ringbuffer_read_update (SpaRingbuffer      *rbuf,
  *          the number of bytes available for writing.
  */
 static inline int32_t
-spa_ringbuffer_get_write_index (SpaRingbuffer *rbuf,
-                                uint32_t      *index)
+spa_ringbuffer_get_write_index (struct spa_ringbuffer *rbuf,
+                                uint32_t              *index)
 {
   int32_t filled;
 
@@ -171,11 +170,11 @@ spa_ringbuffer_get_write_index (SpaRingbuffer *rbuf,
 }
 
 static inline void
-spa_ringbuffer_write_data (SpaRingbuffer      *rbuf,
-                           void               *buffer,
-                           uint32_t            offset,
-                           void               *data,
-                           uint32_t            len)
+spa_ringbuffer_write_data (struct spa_ringbuffer *rbuf,
+                           void                  *buffer,
+                           uint32_t               offset,
+                           void                  *data,
+                           uint32_t               len)
 {
   uint32_t first = SPA_MIN (len, rbuf->size - offset);
   memcpy (buffer + offset, data, first);
@@ -186,15 +185,15 @@ spa_ringbuffer_write_data (SpaRingbuffer      *rbuf,
 
 /**
  * spa_ringbuffer_write_update:
- * @rbuf: a #SpaRingbuffer
+ * @rbuf: a #struct spa_ringbuffer
  * @index: new index
  *
  * Update the write pointer to @index
  *
  */
 static inline void
-spa_ringbuffer_write_update (SpaRingbuffer      *rbuf,
-                             int32_t             index)
+spa_ringbuffer_write_update (struct spa_ringbuffer *rbuf,
+                             int32_t                index)
 {
   __atomic_store_n (&rbuf->writeindex, index, __ATOMIC_RELEASE);
 }

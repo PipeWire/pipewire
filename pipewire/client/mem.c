@@ -75,7 +75,7 @@ static inline int memfd_create(const char *name, unsigned int flags) {
 
 #undef USE_MEMFD
 
-SpaResult
+int
 pw_memblock_map (struct pw_memblock *mem)
 {
   if (mem->ptr != NULL)
@@ -118,7 +118,7 @@ pw_memblock_map (struct pw_memblock *mem)
   return SPA_RESULT_OK;
 }
 
-SpaResult
+int
 pw_memblock_alloc (enum pw_memblock_flags   flags,
                    size_t                   size,
                    struct pw_memblock      *mem)

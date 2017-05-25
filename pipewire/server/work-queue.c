@@ -27,28 +27,28 @@ struct work_item {
   uint32_t        id;
   void           *obj;
   uint32_t        seq;
-  SpaResult       res;
+  int       res;
   pw_work_func_t  func;
   void           *data;
-  SpaList         link;
+  struct spa_list link;
 };
 
 struct impl {
   struct pw_work_queue this;
 
-  SpaSource *wakeup;
+  struct spa_source *wakeup;
   uint32_t counter;
 
-  SpaList  work_list;
-  SpaList  free_list;
-  int      n_queued;
+  struct spa_list  work_list;
+  struct spa_list  free_list;
+  int              n_queued;
 };
 
 
 static void
-process_work_queue (SpaLoopUtils *utils,
-                    SpaSource    *source,
-                    void         *data)
+process_work_queue (struct spa_loop_utils *utils,
+                    struct spa_source     *source,
+                    void                  *data)
 {
   struct impl *impl = data;
   struct pw_work_queue *this = &impl->this;
@@ -135,7 +135,7 @@ pw_work_queue_destroy (struct pw_work_queue * queue)
 uint32_t
 pw_work_queue_add (struct pw_work_queue *queue,
                    void                 *obj,
-                   SpaResult             res,
+                   int             res,
                    pw_work_func_t        func,
                    void                 *data)
 {
@@ -205,7 +205,7 @@ bool
 pw_work_queue_complete (struct pw_work_queue *queue,
                         void                 *obj,
                         uint32_t              seq,
-                        SpaResult             res)
+                        int             res)
 {
   struct work_item *item;
   struct impl *impl = SPA_CONTAINER_OF (queue, struct impl, this);

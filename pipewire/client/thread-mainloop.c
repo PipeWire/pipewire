@@ -34,14 +34,14 @@ struct thread_main_loop {
   bool running;
   pthread_t       thread;
 
-  SpaSource *event;
+  struct spa_source *event;
 
   int n_waiting;
   int n_waiting_for_accept;
 };
 
 static void
-pre_hook (SpaLoopControl *ctrl,
+pre_hook (struct spa_loop_control *ctrl,
           void           *data)
 {
   struct thread_main_loop *impl = data;
@@ -49,7 +49,7 @@ pre_hook (SpaLoopControl *ctrl,
 }
 
 static void
-post_hook (SpaLoopControl *ctrl,
+post_hook (struct spa_loop_control *ctrl,
            void           *data)
 {
   struct thread_main_loop *impl = data;
@@ -57,8 +57,8 @@ post_hook (SpaLoopControl *ctrl,
 }
 
 static void
-do_stop (SpaLoopUtils *utils,
-         SpaSource    *source,
+do_stop (struct spa_loop_utils *utils,
+         struct spa_source    *source,
          void         *data)
 {
   struct thread_main_loop *impl = data;
@@ -136,7 +136,7 @@ do_loop (void *user_data)
 {
   struct thread_main_loop *impl = user_data;
   struct pw_thread_main_loop *this = &impl->this;
-  SpaResult res;
+  int res;
 
   pthread_mutex_lock (&impl->lock);
   pw_log_debug ("thread-mainloop %p: enter thread", this);
@@ -161,7 +161,7 @@ do_loop (void *user_data)
  *
  * Returns: %SPA_RESULT_OK on success.
  */
-SpaResult
+int
 pw_thread_main_loop_start (struct pw_thread_main_loop *loop)
 {
   struct thread_main_loop *impl = SPA_CONTAINER_OF (loop, struct thread_main_loop, this);

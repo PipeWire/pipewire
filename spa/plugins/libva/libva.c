@@ -23,8 +23,8 @@
 SpaHandle * spa_libva_dec_new (void);
 SpaHandle * spa_libva_enc_new (void);
 
-static SpaResult
-libva_dec_instantiate (const SpaHandleFactory  *factory,
+static int
+libva_dec_instantiate (const struct spa_handle_factory  *factory,
                        SpaHandle              **handle)
 {
   if (factory == NULL || handle == NULL)
@@ -35,8 +35,8 @@ libva_dec_instantiate (const SpaHandleFactory  *factory,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-libva_enc_instantiate (const SpaHandleFactory  *factory,
+static int
+libva_enc_instantiate (const struct spa_handle_factory  *factory,
                        SpaHandle              **handle)
 {
   if (factory == NULL || handle == NULL)
@@ -48,7 +48,7 @@ libva_enc_instantiate (const SpaHandleFactory  *factory,
 }
 
 
-static const SpaInterfaceInfo libva_interfaces[] =
+static const struct spa_interface_info libva_interfaces[] =
 {
   { SPA_INTERFACE_ID_NODE,
     SPA_INTERFACE_ID_NODE_NAME,
@@ -56,10 +56,10 @@ static const SpaInterfaceInfo libva_interfaces[] =
   },
 };
 
-static SpaResult
-libva_enum_interface_info (const SpaHandleFactory  *factory,
+static int
+libva_enum_interface_info (const struct spa_handle_factory  *factory,
                            uint32_t                 index,
-                           const SpaInterfaceInfo **info)
+                           const struct spa_interface_info **info)
 {
   if (index >= 1)
     return SPA_RESULT_ENUM_END;
@@ -69,7 +69,7 @@ libva_enum_interface_info (const SpaHandleFactory  *factory,
   return SPA_RESULT_OK;
 }
 
-static const SpaHandleFactory factories[] =
+static const struct spa_handle_factory factories[] =
 {
   { "libva-dec",
     NULL,
@@ -83,9 +83,9 @@ static const SpaHandleFactory factories[] =
   }
 };
 
-SpaResult
-spa_enum_handle_factory (uint32_t                 index,
-                         const SpaHandleFactory **factory)
+int
+spa_handle_factory_enum (uint32_t                 index,
+                         const struct spa_handle_factory **factory)
 {
   if (index >= 2)
     return SPA_RESULT_ENUM_END;

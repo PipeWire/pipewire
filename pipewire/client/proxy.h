@@ -30,7 +30,7 @@ extern "C" {
 
 struct pw_proxy {
   struct pw_context *context;
-  SpaList            link;
+  struct spa_list    link;
 
   uint32_t        id;
   uint32_t        type;

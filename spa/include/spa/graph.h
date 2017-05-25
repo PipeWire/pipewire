@@ -27,56 +27,56 @@ extern "C" {
 #include <spa/defs.h>
 #include <spa/list.h>
 
-typedef struct SpaGraph SpaGraph;
-typedef struct SpaGraphNode SpaGraphNode;
-typedef struct SpaGraphPort SpaGraphPort;
+struct spa_graph;
+struct spa_graph_node;
+struct spa_graph_port;
 
-struct SpaGraph {
-  SpaList  nodes;
-  SpaList  ready;
+struct spa_graph {
+  struct spa_list  nodes;
+  struct spa_list  ready;
 };
 
-typedef SpaResult (*SpaGraphNodeFunc) (SpaGraphNode *node);
+typedef int (*spa_graph_node_func_t) (struct spa_graph_node *node);
 
-struct SpaGraphNode {
-  SpaList          link;
-  SpaList          ready_link;
-  SpaList          ports[2];
+struct spa_graph_node {
+  struct spa_list  link;
+  struct spa_list  ready_link;
+  struct spa_list  ports[2];
 #define SPA_GRAPH_NODE_FLAG_ASYNC       (1 << 0)
   uint32_t         flags;
-  SpaResult        state;
+  int              state;
 #define SPA_GRAPH_ACTION_CHECK   0
 #define SPA_GRAPH_ACTION_IN      1
 #define SPA_GRAPH_ACTION_OUT     2
   uint32_t         action;
-  SpaGraphNodeFunc schedule;
+  spa_graph_node_func_t schedule;
   void            *user_data;
   uint32_t         max_in;
   uint32_t         required_in;
   uint32_t         ready_in;
 };
 
-struct SpaGraphPort {
-  SpaList          link;
-  SpaGraphNode    *node;
-  SpaDirection     direction;
-  uint32_t         port_id;
-  uint32_t         flags;
-  SpaPortIO       *io;
-  SpaGraphPort    *peer;
+struct spa_graph_port {
+  struct spa_list        link;
+  struct spa_graph_node *node;
+  enum spa_direction     direction;
+  uint32_t               port_id;
+  uint32_t               flags;
+  struct spa_port_io    *io;
+  struct spa_graph_port *peer;
 };
 
 static inline void
-spa_graph_init (SpaGraph *graph)
+spa_graph_init (struct spa_graph *graph)
 {
   spa_list_init (&graph->nodes);
   spa_list_init (&graph->ready);
 }
 
-static inline SpaResult
-spa_graph_node_schedule_default (SpaGraphNode *node)
+static inline int
+spa_graph_node_schedule_default (struct spa_graph_node *node)
 {
-  SpaNode *n = node->user_data;
+  struct spa_node *n = node->user_data;
 
   if (node->action == SPA_GRAPH_ACTION_IN)
     return spa_node_process_input (n);
@@ -87,7 +87,7 @@ spa_graph_node_schedule_default (SpaGraphNode *node)
 }
 
 static inline void
-spa_graph_node_add (SpaGraph *graph, SpaGraphNode *node, SpaGraphNodeFunc schedule, void *user_data)
+spa_graph_node_add (struct spa_graph *graph, struct spa_graph_node *node, spa_graph_node_func_t schedule, void *user_data)
 {
   spa_list_init (&node->ports[SPA_DIRECTION_INPUT]);
   spa_list_init (&node->ports[SPA_DIRECTION_OUTPUT]);
@@ -101,10 +101,10 @@ spa_graph_node_add (SpaGraph *graph, SpaGraphNode *node, SpaGraphNodeFunc schedu
 }
 
 static inline void
-spa_graph_port_check (SpaGraph     *graph,
-                      SpaGraphPort *port)
+spa_graph_port_check (struct spa_graph     *graph,
+                      struct spa_graph_port *port)
 {
-  SpaGraphNode *node = port->node;
+  struct spa_graph_node *node = port->node;
 
   if (port->io->status == SPA_RESULT_HAVE_BUFFER)
     node->ready_in++;
@@ -120,13 +120,13 @@ spa_graph_port_check (SpaGraph     *graph,
 }
 
 static inline void
-spa_graph_port_add (SpaGraph     *graph,
-                    SpaGraphNode *node,
-                    SpaGraphPort *port,
-                    SpaDirection  direction,
-                    uint32_t      port_id,
-                    uint32_t      flags,
-                    SpaPortIO    *io)
+spa_graph_port_add (struct spa_graph      *graph,
+                    struct spa_graph_node *node,
+                    struct spa_graph_port *port,
+                    enum spa_direction     direction,
+                    uint32_t               port_id,
+                    uint32_t               flags,
+                    struct spa_port_io    *io)
 {
   port->node = node;
   port->direction = direction;
@@ -142,41 +142,41 @@ spa_graph_port_add (SpaGraph     *graph,
 }
 
 static inline void
-spa_graph_node_remove (SpaGraph *graph, SpaGraphNode *node)
+spa_graph_node_remove (struct spa_graph *graph, struct spa_graph_node *node)
 {
   spa_list_remove (&node->link);
 }
 
 static inline void
-spa_graph_port_remove (SpaGraph *graph, SpaGraphPort *port)
+spa_graph_port_remove (struct spa_graph *graph, struct spa_graph_port *port)
 {
   spa_list_remove (&port->link);
 }
 
 static inline void
-spa_graph_port_link (SpaGraph *graph, SpaGraphPort *out, SpaGraphPort *in)
+spa_graph_port_link (struct spa_graph *graph, struct spa_graph_port *out, struct spa_graph_port *in)
 {
   out->peer = in;
   in->peer = out;
 }
 
 static inline void
-spa_graph_port_unlink (SpaGraph *graph, SpaGraphPort *out, SpaGraphPort *in)
+spa_graph_port_unlink (struct spa_graph *graph, struct spa_graph_port *out, struct spa_graph_port *in)
 {
   out->peer = NULL;
   in->peer = NULL;
 }
 
 static inline void
-spa_graph_node_schedule (SpaGraph *graph, SpaGraphNode *node)
+spa_graph_node_schedule (struct spa_graph *graph, struct spa_graph_node *node)
 {
-  SpaGraphPort *p;
+  struct spa_graph_port *p;
 
   if (node->ready_link.next == NULL)
     spa_list_insert (graph->ready.prev, &node->ready_link);
 
   while (!spa_list_is_empty (&graph->ready)) {
-    SpaGraphNode *n = spa_list_first (&graph->ready, SpaGraphNode, ready_link);
+    struct spa_graph_node *n = spa_list_first (&graph->ready, struct spa_graph_node, ready_link);
 
     spa_list_remove (&n->ready_link);
     n->ready_link.next = NULL;
@@ -195,7 +195,7 @@ spa_graph_node_schedule (SpaGraph *graph, SpaGraphNode *node)
         if (n->state == SPA_RESULT_NEED_BUFFER) {
           n->ready_in = 0;
           spa_list_for_each (p, &n->ports[SPA_DIRECTION_INPUT], link) {
-            SpaGraphNode *pn = p->peer->node;
+            struct spa_graph_node *pn = p->peer->node;
             if (p->io->status == SPA_RESULT_NEED_BUFFER) {
               if (pn != node || pn->flags & SPA_GRAPH_NODE_FLAG_ASYNC) {
                 pn->action = SPA_GRAPH_ACTION_OUT;

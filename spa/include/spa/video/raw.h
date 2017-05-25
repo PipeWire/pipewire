@@ -24,8 +24,6 @@
 extern "C" {
 #endif
 
-typedef struct _SpaVideoInfoRaw SpaVideoInfoRaw;
-
 #include <spa/props.h>
 #include <spa/video/chroma.h>
 #include <spa/video/color.h>
@@ -116,7 +114,7 @@ typedef struct _SpaVideoInfoRaw SpaVideoInfoRaw;
 #define SPA_TYPE_VIDEO_FORMAT__Y444_12LE      SPA_TYPE_VIDEO_FORMAT_BASE "Y444_12LE"
 
 /**
- * SpaVideoFlags:
+ * spa_video_flags:
  * @SPA_VIDEO_FLAG_NONE: no flags
  * @SPA_VIDEO_FLAG_VARIABLE_FPS: a variable fps is selected, fps_n and fps_d
  *     denote the maximum fps of the video
@@ -125,14 +123,14 @@ typedef struct _SpaVideoInfoRaw SpaVideoInfoRaw;
  *
  * Extra video flags
  */
-typedef enum {
+enum spa_video_flags {
   SPA_VIDEO_FLAG_NONE                = 0,
   SPA_VIDEO_FLAG_VARIABLE_FPS        = (1 << 0),
   SPA_VIDEO_FLAG_PREMULTIPLIED_ALPHA = (1 << 1)
-} SpaVideoFlags;
+};
 
 /**
- * SpaVideoInterlaceMode:
+ * spa_video_interlace_mode:
  * @SPA_VIDEO_INTERLACE_MODE_PROGRESSIVE: all frames are progressive
  * @SPA_VIDEO_INTERLACE_MODE_INTERLEAVED: 2 fields are interleaved in one video
  *     frame. Extra buffer flags describe the field order.
@@ -143,21 +141,21 @@ typedef enum {
  *     'views' property > 1) the fields of view N can be found at frame ID
  *     (N * 2) and (N * 2) + 1.
  *     Each field has only half the amount of lines as noted in the
- *     height property. This mode requires multiple SpaVideoMeta metadata
+ *     height property. This mode requires multiple spa_data
  *     to describe the fields.
  *
- * The possible values of the #SpaVideoInterlaceMode describing the interlace
+ * The possible values of the #spa_video_interlace_mode describing the interlace
  * mode of the stream.
  */
-typedef enum {
+enum spa_video_interlace_mode {
   SPA_VIDEO_INTERLACE_MODE_PROGRESSIVE = 0,
   SPA_VIDEO_INTERLACE_MODE_INTERLEAVED,
   SPA_VIDEO_INTERLACE_MODE_MIXED,
   SPA_VIDEO_INTERLACE_MODE_FIELDS
-} SpaVideoInterlaceMode;
+};
 
 /**
- * SpaVideoInfoRaw:
+ * spa_video_info_raw:
  * @format: the format
  * @size: the frame size of the video
  * @framerate: the framerate of the video 0/1 means variable rate
@@ -176,21 +174,21 @@ typedef enum {
  * @transfer_function: the transfer function. used to convert between R'G'B' and RGB
  * @color_primaries: color primaries. used to convert between R'G'B' and CIE XYZ
  */
-struct _SpaVideoInfoRaw {
-  uint32_t                  format;
-  SpaRectangle              size;
-  SpaFraction               framerate;
-  SpaFraction               max_framerate;
-  uint32_t                  views;
-  SpaVideoInterlaceMode     interlace_mode;
-  SpaFraction               pixel_aspect_ratio;
-  SpaVideoMultiviewMode     multiview_mode;
-  SpaVideoMultiviewFlags    multiview_flags;
-  SpaVideoChromaSite        chroma_site;
-  SpaVideoColorRange        color_range;
-  SpaVideoColorMatrix       color_matrix;
-  SpaVideoTransferFunction  transfer_function;
-  SpaVideoColorPrimaries    color_primaries;
+struct spa_video_info_raw {
+  uint32_t                          format;
+  struct spa_rectangle              size;
+  struct spa_fraction               framerate;
+  struct spa_fraction               max_framerate;
+  uint32_t                          views;
+  enum spa_video_interlace_mode     interlace_mode;
+  struct spa_fraction               pixel_aspect_ratio;
+  enum spa_video_multiview_mode     multiview_mode;
+  enum spa_video_multiview_flags    multiview_flags;
+  enum spa_video_chroma_site        chroma_site;
+  enum spa_video_color_range        color_range;
+  enum spa_video_color_matrix       color_matrix;
+  enum spa_video_transfer_function  transfer_function;
+  enum spa_video_color_primaries    color_primaries;
 };
 
 #ifdef __cplusplus

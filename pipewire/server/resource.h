@@ -36,7 +36,7 @@ typedef void  (*pw_destroy_t)  (void *object);
 
 struct pw_resource {
   struct pw_core    *core;
-  SpaList            link;
+  struct spa_list    link;
 
   struct pw_client  *client;
 

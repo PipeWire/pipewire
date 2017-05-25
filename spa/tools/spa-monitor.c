@@ -32,61 +32,61 @@
 #include <lib/debug.h>
 #include <lib/mapper.h>
 
-typedef struct {
-  SpaTypeMonitor monitor;
-} Type;
+struct type {
+  struct spa_type_monitor monitor;
+};
 
-typedef struct {
-  Type type;
+struct data {
+  struct type type;
 
-  SpaTypeMap *map;
-  SpaLog *log;
-  SpaLoop main_loop;
+  struct spa_type_map *map;
+  struct spa_log *log;
+  struct spa_loop main_loop;
 
-  SpaSupport support[3];
+  struct spa_support support[3];
   uint32_t   n_support;
 
   unsigned int n_sources;
-  SpaSource sources[16];
+  struct spa_source sources[16];
 
   bool rebuild_fds;
   struct pollfd fds[16];
   unsigned int n_fds;
-} AppData;
+};
 
 
 static void
-inspect_item (AppData *data, SpaMonitorItem *item)
+inspect_item (struct data *data, struct spa_monitor_item *item)
 {
-  spa_debug_pod (&item->pod, data->map);
+  spa_debug_pod (&item->object.pod, data->map);
 }
 
 static void
-on_monitor_event  (SpaMonitor      *monitor,
-                   SpaEvent        *event,
-                   void            *user_data)
+on_monitor_event  (struct spa_monitor  *monitor,
+                   struct spa_event    *event,
+                   void                *user_data)
 {
-  AppData *data = user_data;
+  struct data *data = user_data;
 
   if (SPA_EVENT_TYPE (event) == data->type.monitor.Added) {
     fprintf (stderr, "added:\n");
-    inspect_item (data, (SpaMonitorItem*)event);
+    inspect_item (data, (struct spa_monitor_item*)event);
   }
   else if (SPA_EVENT_TYPE (event) == data->type.monitor.Removed) {
     fprintf (stderr, "removed:\n");
-    inspect_item (data, (SpaMonitorItem*)event);
+    inspect_item (data, (struct spa_monitor_item*)event);
   }
   else if (SPA_EVENT_TYPE (event) == data->type.monitor.Changed) {
     fprintf (stderr, "changed:\n");
-    inspect_item (data, (SpaMonitorItem*)event);
+    inspect_item (data, (struct spa_monitor_item*)event);
   }
 }
 
-static SpaResult
-do_add_source (SpaLoop   *loop,
-               SpaSource *source)
+static int
+do_add_source (struct spa_loop   *loop,
+               struct spa_source *source)
 {
-  AppData *data = SPA_CONTAINER_OF (loop, AppData, main_loop);
+  struct data *data = SPA_CONTAINER_OF (loop, struct data, main_loop);
 
   data->sources[data->n_sources] = *source;
   data->n_sources++;
@@ -95,28 +95,32 @@ do_add_source (SpaLoop   *loop,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-do_update_source (SpaSource  *source)
+static int
+do_update_source (struct spa_source  *source)
 {
   return SPA_RESULT_OK;
 }
 
 static void
-do_remove_source (SpaSource  *source)
+do_remove_source (struct spa_source  *source)
 {
 }
 
+static const struct spa_monitor_callbacks callbacks = {
+  on_monitor_event,
+};
+
 static void
-handle_monitor (AppData *data, SpaMonitor *monitor)
+handle_monitor (struct data *data, struct spa_monitor *monitor)
 {
-  SpaResult res;
+  int res;
   uint32_t index;
 
   if (monitor->info)
     spa_debug_dict (monitor->info);
 
   for (index = 0; ; index++) {
-    SpaMonitorItem *item;
+    struct spa_monitor_item *item;
 
     if ((res = spa_monitor_enum_items (monitor, &item, index)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
@@ -126,7 +130,7 @@ handle_monitor (AppData *data, SpaMonitor *monitor)
     inspect_item (data, item);
   }
 
-  spa_monitor_set_event_callback (monitor, on_monitor_event, &data);
+  spa_monitor_set_callbacks (monitor, &callbacks, sizeof (callbacks), &data);
 
   while (true) {
     int i, r;
@@ -134,7 +138,7 @@ handle_monitor (AppData *data, SpaMonitor *monitor)
     /* rebuild */
     if (data->rebuild_fds) {
       for (i = 0; i < data->n_sources; i++) {
-        SpaSource *p = &data->sources[i];
+        struct spa_source *p = &data->sources[i];
         data->fds[i].fd = p->fd;
         data->fds[i].events = p->mask;
       }
@@ -155,7 +159,7 @@ handle_monitor (AppData *data, SpaMonitor *monitor)
 
     /* after */
     for (i = 0; i < data->n_sources; i++) {
-      SpaSource *p = &data->sources[i];
+      struct spa_source *p = &data->sources[i];
       p->func (p);
     }
   }
@@ -164,15 +168,15 @@ handle_monitor (AppData *data, SpaMonitor *monitor)
 int
 main (int argc, char *argv[])
 {
-  AppData data = { 0 };
-  SpaResult res;
+  struct data data = { 0 };
+  int res;
   void *handle;
-  SpaEnumHandleFactoryFunc enum_func;
+  spa_handle_factory_enum_func_t enum_func;
   uint32_t fidx;
 
   data.map = spa_type_map_get_default ();
   data.log = NULL;
-  data.main_loop.size = sizeof (SpaLoop);
+  data.main_loop.size = sizeof (struct spa_loop);
   data.main_loop.add_source = do_add_source;
   data.main_loop.update_source = do_update_source;
   data.main_loop.remove_source = do_remove_source;
@@ -196,13 +200,13 @@ main (int argc, char *argv[])
     printf ("can't load %s\n", argv[1]);
     return -1;
   }
-  if ((enum_func = dlsym (handle, "spa_enum_handle_factory")) == NULL) {
+  if ((enum_func = dlsym (handle, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
     printf ("can't find function\n");
     return -1;
   }
 
   for (fidx = 0;; fidx++) {
-    const SpaHandleFactory *factory;
+    const struct spa_handle_factory *factory;
     uint32_t iidx;
 
     if ((res = enum_func (&factory, fidx)) < 0) {
@@ -212,7 +216,7 @@ main (int argc, char *argv[])
     }
 
     for (iidx = 0;; iidx++) {
-      const SpaInterfaceInfo *info;
+      const struct spa_interface_info *info;
 
       if ((res = spa_handle_factory_enum_interface_info (factory, &info, iidx)) < 0) {
         if (res != SPA_RESULT_ENUM_END)
@@ -221,7 +225,7 @@ main (int argc, char *argv[])
       }
 
       if (!strcmp (info->type, SPA_TYPE__Monitor)) {
-        SpaHandle *handle;
+        struct spa_handle *handle;
         void *interface;
 
         handle = calloc (1, factory->size);

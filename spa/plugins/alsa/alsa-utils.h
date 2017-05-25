@@ -39,27 +39,24 @@ extern "C" {
 #include <spa/audio/format-utils.h>
 #include <spa/format-builder.h>
 
-typedef struct _SpaALSAState SpaALSAState;
-typedef struct _SpaALSABuffer SpaALSABuffer;
-
-typedef struct {
+struct props {
   char device[64];
   char device_name[128];
   char card_name[128];
   uint32_t min_latency;
-} SpaALSAProps;
+};
 
 #define MAX_BUFFERS 64
 
-struct _SpaALSABuffer {
-  SpaBuffer *outbuf;
-  SpaMetaHeader *h;
-  SpaMetaRingbuffer *rb;
+struct buffer {
+  struct spa_buffer *outbuf;
+  struct spa_meta_header *h;
+  struct spa_meta_ringbuffer *rb;
   bool outstanding;
-  SpaList link;
+  struct spa_list link;
 };
 
-typedef struct {
+struct type {
   uint32_t node;
   uint32_t clock;
   uint32_t format;
@@ -68,21 +65,21 @@ typedef struct {
   uint32_t prop_device_name;
   uint32_t prop_card_name;
   uint32_t prop_min_latency;
-  SpaTypeMeta meta;
-  SpaTypeData data;
-  SpaTypeMediaType media_type;
-  SpaTypeMediaSubtype media_subtype;
-  SpaTypeMediaSubtypeAudio media_subtype_audio;
-  SpaTypeFormatAudio format_audio;
-  SpaTypeAudioFormat audio_format;
-  SpaTypeEventNode event_node;
-  SpaTypeCommandNode command_node;
-  SpaTypeParamAllocBuffers param_alloc_buffers;
-  SpaTypeParamAllocMetaEnable param_alloc_meta_enable;
-} Type;
+  struct spa_type_meta meta;
+  struct spa_type_data data;
+  struct spa_type_media_type media_type;
+  struct spa_type_media_subtype media_subtype;
+  struct spa_type_media_subtype_audio media_subtype_audio;
+  struct spa_type_format_audio format_audio;
+  struct spa_type_audio_format audio_format;
+  struct spa_type_event_node event_node;
+  struct spa_type_command_node command_node;
+  struct spa_type_param_alloc_buffers param_alloc_buffers;
+  struct spa_type_param_alloc_meta_enable param_alloc_meta_enable;
+};
 
 static inline void
-init_type (Type *type, SpaTypeMap *map)
+init_type (struct type *type, struct spa_type_map *map)
 {
   type->node = spa_type_map_get_id (map, SPA_TYPE__Node);
   type->clock = spa_type_map_get_id (map, SPA_TYPE__Clock);
@@ -106,33 +103,33 @@ init_type (Type *type, SpaTypeMap *map)
   spa_type_param_alloc_meta_enable_map (map, &type->param_alloc_meta_enable);
 }
 
-struct _SpaALSAState {
-  SpaHandle handle;
-  SpaNode node;
-  SpaClock clock;
+struct state {
+  struct spa_handle handle;
+  struct spa_node node;
+  struct spa_clock clock;
 
   uint32_t seq;
 
-  Type type;
-  SpaTypeMap *map;
-  SpaLog *log;
-  SpaLoop *main_loop;
-  SpaLoop *data_loop;
+  struct type type;
+  struct spa_type_map *map;
+  struct spa_log *log;
+  struct spa_loop *main_loop;
+  struct spa_loop *data_loop;
 
   snd_pcm_stream_t stream;
   snd_output_t *output;
 
-  SpaNodeCallbacks callbacks;
+  struct spa_node_callbacks callbacks;
   void *user_data;
 
   uint8_t props_buffer[1024];
-  SpaALSAProps props;
+  struct props props;
 
   bool opened;
   snd_pcm_t *hndl;
 
   bool have_format;
-  SpaAudioInfo current_format;
+  struct spa_audio_info current_format;
   uint8_t format_buffer[1024];
 
   snd_pcm_uframes_t buffer_frames;
@@ -142,20 +139,20 @@ struct _SpaALSAState {
   int channels;
   size_t frame_size;
 
-  SpaPortInfo info;
+  struct spa_port_info info;
   uint32_t params[3];
   uint8_t params_buffer[1024];
-  SpaPortIO *io;
+  struct spa_port_io *io;
 
-  SpaALSABuffer buffers[MAX_BUFFERS];
+  struct buffer buffers[MAX_BUFFERS];
   unsigned int n_buffers;
 
-  SpaList free;
-  SpaList ready;
+  struct spa_list free;
+  struct spa_list ready;
   size_t ready_offset;
 
   bool started;
-  SpaSource source;
+  struct spa_source source;
   int timerfd;
   bool alsa_started;
   int threshold;
@@ -178,19 +175,19 @@ struct _SpaALSAState {
           SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |                         \
                               SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
 
-SpaResult
-spa_alsa_enum_format (SpaALSAState    *state,
-                      SpaFormat      **format,
-                      const SpaFormat *filter,
-                      uint32_t         index);
+int
+spa_alsa_enum_format (struct state            *state,
+                      struct spa_format      **format,
+                      const struct spa_format *filter,
+                      uint32_t                 index);
 
-int spa_alsa_set_format (SpaALSAState *state,
-                         SpaAudioInfo *info,
-                         uint32_t      flags);
+int spa_alsa_set_format (struct state          *state,
+                         struct spa_audio_info *info,
+                         uint32_t               flags);
 
-SpaResult spa_alsa_start (SpaALSAState *state, bool xrun_recover);
-SpaResult spa_alsa_pause (SpaALSAState *state, bool xrun_recover);
-SpaResult spa_alsa_close (SpaALSAState *state);
+int spa_alsa_start (struct state *state, bool xrun_recover);
+int spa_alsa_pause (struct state *state, bool xrun_recover);
+int spa_alsa_close (struct state *state);
 
 #ifdef __cplusplus
 }  /* extern "C" */

@@ -26,31 +26,31 @@
 #include <spa/loop.h>
 #include "debug.h"
 
-SpaResult
-spa_debug_port_info (const SpaPortInfo *info, const SpaTypeMap *map)
+int
+spa_debug_port_info (const struct spa_port_info *info, const struct spa_type_map *map)
 {
   if (info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  fprintf (stderr, "SpaPortInfo %p:\n", info);
+  fprintf (stderr, "struct spa_port_info %p:\n", info);
   fprintf (stderr, " flags: \t%08x\n", info->flags);
 
   return SPA_RESULT_OK;
 }
 
-SpaResult
-spa_debug_buffer (const SpaBuffer *buffer, const SpaTypeMap *map)
+int
+spa_debug_buffer (const struct spa_buffer *buffer, const struct spa_type_map *map)
 {
   int i;
 
   if (buffer == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  fprintf (stderr, "SpaBuffer %p:\n", buffer);
+  fprintf (stderr, "spa_buffer %p:\n", buffer);
   fprintf (stderr, " id:      %08X\n", buffer->id);
   fprintf (stderr, " n_metas: %u (at %p)\n", buffer->n_metas, buffer->metas);
   for (i = 0; i < buffer->n_metas; i++) {
-    SpaMeta *m = &buffer->metas[i];
+    struct spa_meta *m = &buffer->metas[i];
     const char *type_name;
 
     type_name = spa_type_map_get_type (map, m->type);
@@ -58,38 +58,38 @@ spa_debug_buffer (const SpaBuffer *buffer, const SpaTypeMap *map)
         type_name, m->data, m->size);
 
     if (!strcmp (type_name, SPA_TYPE_META__Header)) {
-      SpaMetaHeader *h = m->data;
-      fprintf (stderr, "    SpaMetaHeader:\n");
+      struct spa_meta_header *h = m->data;
+      fprintf (stderr, "    struct spa_meta_header:\n");
       fprintf (stderr, "      flags:      %08x\n", h->flags);
       fprintf (stderr, "      seq:        %u\n", h->seq);
       fprintf (stderr, "      pts:        %"PRIi64"\n", h->pts);
       fprintf (stderr, "      dts_offset: %"PRIi64"\n", h->dts_offset);
     }
     else if (!strcmp (type_name, SPA_TYPE_META__Pointer)) {
-      SpaMetaPointer *h = m->data;
-      fprintf (stderr, "    SpaMetaPointer:\n");
+      struct spa_meta_pointer *h = m->data;
+      fprintf (stderr, "    struct spa_meta_pointer:\n");
       fprintf (stderr, "      type:       %s\n", spa_type_map_get_type (map, h->type));
       fprintf (stderr, "      ptr:        %p\n", h->ptr);
     }
     else if (!strcmp (type_name, SPA_TYPE_META__VideoCrop)) {
-      SpaMetaVideoCrop *h = m->data;
-      fprintf (stderr, "    SpaMetaVideoCrop:\n");
+      struct spa_meta_video_crop *h = m->data;
+      fprintf (stderr, "    struct spa_meta_video_crop:\n");
       fprintf (stderr, "      x:      %d\n", h->x);
       fprintf (stderr, "      y:      %d\n", h->y);
       fprintf (stderr, "      width:  %d\n", h->width);
       fprintf (stderr, "      height: %d\n", h->height);
     }
     else if (!strcmp (type_name, SPA_TYPE_META__Ringbuffer)) {
-      SpaMetaRingbuffer *h = m->data;
-      fprintf (stderr, "    SpaMetaRingbuffer:\n");
+      struct spa_meta_ringbuffer *h = m->data;
+      fprintf (stderr, "    struct spa_meta_ringbuffer:\n");
       fprintf (stderr, "      readindex:   %d\n", h->ringbuffer.readindex);
       fprintf (stderr, "      writeindex:  %d\n", h->ringbuffer.writeindex);
       fprintf (stderr, "      size:        %d\n", h->ringbuffer.size);
       fprintf (stderr, "      mask:        %d\n", h->ringbuffer.mask);
     }
     else if (!strcmp (type_name, SPA_TYPE_META__Shared)) {
-      SpaMetaShared *h = m->data;
-      fprintf (stderr, "    SpaMetaShared:\n");
+      struct spa_meta_shared *h = m->data;
+      fprintf (stderr, "    struct spa_meta_shared:\n");
       fprintf (stderr, "      flags:  %d\n", h->flags);
       fprintf (stderr, "      fd:     %d\n", h->fd);
       fprintf (stderr, "      offset: %d\n", h->offset);
@@ -102,7 +102,7 @@ spa_debug_buffer (const SpaBuffer *buffer, const SpaTypeMap *map)
   }
   fprintf (stderr, " n_datas: \t%u (at %p)\n", buffer->n_datas, buffer->datas);
   for (i = 0; i < buffer->n_datas; i++) {
-    SpaData *d = &buffer->datas[i];
+    struct spa_data *d = &buffer->datas[i];
     fprintf (stderr, "   type:    %d (%s)\n", d->type, spa_type_map_get_type (map, d->type));
     fprintf (stderr, "   flags:   %d\n", d->flags);
     fprintf (stderr, "   data:    %p\n", d->data);
@@ -117,7 +117,7 @@ spa_debug_buffer (const SpaBuffer *buffer, const SpaTypeMap *map)
   return SPA_RESULT_OK;
 }
 
-SpaResult
+int
 spa_debug_dump_mem (const void *mem, size_t size)
 {
   const uint8_t *t = mem;
@@ -136,17 +136,17 @@ spa_debug_dump_mem (const void *mem, size_t size)
   return SPA_RESULT_OK;
 }
 
-SpaResult
-spa_debug_props (const SpaProps *props, const SpaTypeMap *map)
+int
+spa_debug_props (const struct spa_props *props, const struct spa_type_map *map)
 {
-  spa_debug_pod (&props->pod, map);
+  spa_debug_pod (&props->object.pod, map);
   return SPA_RESULT_OK;
 }
 
-SpaResult
-spa_debug_param (const SpaParam *param, const SpaTypeMap *map)
+int
+spa_debug_param (const struct spa_param *param, const struct spa_type_map *map)
 {
-  spa_debug_pod (&param->pod, map);
+  spa_debug_pod (&param->object.pod, map);
   return SPA_RESULT_OK;
 }
 
@@ -175,7 +175,7 @@ struct pod_type_name {
 };
 
 static void
-print_pod_value (const SpaTypeMap *map, uint32_t size, uint32_t type, void *body, int prefix)
+print_pod_value (const struct spa_type_map *map, uint32_t size, uint32_t type, void *body, int prefix)
 {
   switch (type) {
     case SPA_POD_TYPE_BOOL:
@@ -202,20 +202,20 @@ print_pod_value (const SpaTypeMap *map, uint32_t size, uint32_t type, void *body
       break;
     case SPA_POD_TYPE_POINTER:
     {
-      SpaPODPointerBody *b = body;
+      struct spa_pod_pointer_body *b = body;
       printf ("%-*sPointer %s %p\n", prefix, "",
           spa_type_map_get_type (map, b->type), b->value);
       break;
     }
     case SPA_POD_TYPE_RECTANGLE:
     {
-      SpaRectangle *r = body;
+      struct spa_rectangle *r = body;
       printf ("%-*sRectangle %dx%d\n", prefix, "", r->width, r->height);
       break;
     }
     case SPA_POD_TYPE_FRACTION:
     {
-      SpaFraction *f = body;
+      struct spa_fraction *f = body;
       printf ("%-*sFraction %d/%d\n", prefix, "", f->num, f->denom);
       break;
     }
@@ -224,7 +224,7 @@ print_pod_value (const SpaTypeMap *map, uint32_t size, uint32_t type, void *body
       break;
     case SPA_POD_TYPE_ARRAY:
     {
-      SpaPODArrayBody *b = body;
+      struct spa_pod_array_body *b = body;
       void *p;
       printf ("%-*sArray: child.size %d, child.type %d\n", prefix, "", b->child.size, b->child.type);
 
@@ -234,7 +234,7 @@ print_pod_value (const SpaTypeMap *map, uint32_t size, uint32_t type, void *body
     }
     case SPA_POD_TYPE_STRUCT:
     {
-      SpaPOD *b = body, *p;
+      struct spa_pod *b = body, *p;
       printf ("%-*sStruct: size %d\n", prefix, "", size);
       SPA_POD_FOREACH (b, size, p)
         print_pod_value (map, p->size, p->type, SPA_POD_BODY (p), prefix + 2);
@@ -242,8 +242,8 @@ print_pod_value (const SpaTypeMap *map, uint32_t size, uint32_t type, void *body
     }
     case SPA_POD_TYPE_OBJECT:
     {
-      SpaPODObjectBody *b = body;
-      SpaPOD *p;
+      struct spa_pod_object_body *b = body;
+      struct spa_pod *p;
 
       printf ("%-*sObject: size %d, id %d, type %s\n", prefix, "", size, b->id,
           spa_type_map_get_type (map, b->type));
@@ -253,7 +253,7 @@ print_pod_value (const SpaTypeMap *map, uint32_t size, uint32_t type, void *body
     }
     case SPA_POD_TYPE_PROP:
     {
-      SpaPODPropBody *b = body;
+      struct spa_pod_prop_body *b = body;
       void *alt;
       int i;
 
@@ -288,8 +288,8 @@ print_pod_value (const SpaTypeMap *map, uint32_t size, uint32_t type, void *body
   }
 }
 
-SpaResult
-spa_debug_pod (const SpaPOD *pod, const SpaTypeMap *map)
+int
+spa_debug_pod (const struct spa_pod *pod, const struct spa_type_map *map)
 {
   map = map ? map : spa_type_map_get_default ();
   print_pod_value (map, pod->size, pod->type, SPA_POD_BODY (pod), 0);
@@ -297,7 +297,7 @@ spa_debug_pod (const SpaPOD *pod, const SpaTypeMap *map)
 }
 
 static void
-print_format_value (const SpaTypeMap *map, uint32_t size, uint32_t type, void *body)
+print_format_value (const struct spa_type_map *map, uint32_t size, uint32_t type, void *body)
 {
   switch (type) {
     case SPA_POD_TYPE_BOOL:
@@ -333,13 +333,13 @@ print_format_value (const SpaTypeMap *map, uint32_t size, uint32_t type, void *b
       break;
     case SPA_POD_TYPE_RECTANGLE:
     {
-      SpaRectangle *r = body;
+      struct spa_rectangle *r = body;
       fprintf (stderr, "%"PRIu32"x%"PRIu32, r->width, r->height);
       break;
     }
     case SPA_POD_TYPE_FRACTION:
     {
-      SpaFraction *f = body;
+      struct spa_fraction *f = body;
       fprintf (stderr, "%"PRIu32"/%"PRIu32, f->num, f->denom);
       break;
     }
@@ -354,13 +354,13 @@ print_format_value (const SpaTypeMap *map, uint32_t size, uint32_t type, void *b
   }
 }
 
-SpaResult
-spa_debug_format (const SpaFormat *format, const SpaTypeMap *map)
+int
+spa_debug_format (const struct spa_format *format, const struct spa_type_map *map)
 {
   int i;
   const char *media_type;
   const char *media_subtype;
-  SpaPODProp *prop;
+  struct spa_pod_prop *prop;
   uint32_t mtype, mstype;
 
   if (format == NULL)
@@ -427,8 +427,8 @@ spa_debug_format (const SpaFormat *format, const SpaTypeMap *map)
   return SPA_RESULT_OK;
 }
 
-SpaResult
-spa_debug_dict (const SpaDict *dict)
+int
+spa_debug_dict (const struct spa_dict *dict)
 {
   unsigned int i;
 
@@ -446,23 +446,23 @@ spa_debug_dict (const SpaDict *dict)
 
 #define TRACE_BUFFER 4096
 
-typedef struct {
-  SpaLog log;
-  SpaRingbuffer  trace_rb;
+struct debug_log {
+  struct spa_log log;
+  struct spa_ringbuffer  trace_rb;
   uint8_t        trace_data[TRACE_BUFFER];
-  SpaSource     *source;
-} DebugLog;
+  struct spa_source     *source;
+};
 
 static void
-do_logv (SpaLog        *log,
-         SpaLogLevel    level,
-         const char    *file,
-         int            line,
-         const char    *func,
-         const char    *fmt,
-         va_list        args)
+do_logv (struct spa_log     *log,
+         enum spa_log_level  level,
+         const char         *file,
+         int                 line,
+         const char         *func,
+         const char         *fmt,
+         va_list             args)
 {
-  DebugLog *l = SPA_CONTAINER_OF (log, DebugLog, log);
+  struct debug_log *l = SPA_CONTAINER_OF (log, struct debug_log, log);
   char text[512], location[1024];
   static const char *levels[] = { "-", "E", "W", "I", "D", "T", "*T*" };
   int size;
@@ -491,12 +491,12 @@ do_logv (SpaLog        *log,
 }
 
 static void
-do_log (SpaLog        *log,
-        SpaLogLevel    level,
-        const char    *file,
-        int            line,
-        const char    *func,
-        const char    *fmt, ...)
+do_log (struct spa_log     *log,
+        enum spa_log_level  level,
+        const char         *file,
+        int                 line,
+        const char         *func,
+        const char         *fmt, ...)
 {
   va_list args;
   va_start (args, fmt);
@@ -504,8 +504,8 @@ do_log (SpaLog        *log,
   va_end (args);
 }
 
-static DebugLog log = {
-  { sizeof (SpaLog),
+static struct debug_log log = {
+  { sizeof (struct spa_log),
     NULL,
     DEFAULT_LOG_LEVEL,
     do_log,
@@ -514,14 +514,14 @@ static DebugLog log = {
   {  0, 0, TRACE_BUFFER, TRACE_BUFFER - 1 },
 };
 
-SpaLog *
+struct spa_log *
 spa_log_get_default (void)
 {
   return &log.log;
 }
 
 static void
-on_trace_event (SpaSource *source)
+on_trace_event (struct spa_source *source)
 {
   int32_t avail;
   uint32_t index;
@@ -549,7 +549,7 @@ on_trace_event (SpaSource *source)
 }
 
 void
-spa_log_default_set_trace_event (SpaSource *source)
+spa_log_default_set_trace_event (struct spa_source *source)
 {
   log.source = source;
   log.source->func = on_trace_event;

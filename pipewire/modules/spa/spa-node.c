@@ -42,21 +42,21 @@ pw_spa_node_load (struct pw_core  *core,
 {
   struct pw_spa_node *this;
   struct impl *impl;
-  SpaNode *spa_node;
-  SpaClock *spa_clock;
-  SpaResult res;
-  SpaHandle *handle;
+  struct spa_node *spa_node;
+  struct spa_clock *spa_clock;
+  int res;
+  struct spa_handle *handle;
   void *hnd;
   uint32_t index;
-  SpaEnumHandleFactoryFunc enum_func;
-  const SpaHandleFactory *factory;
+  spa_handle_factory_enum_func_t enum_func;
+  const struct spa_handle_factory *factory;
   void *iface;
 
   if ((hnd = dlopen (lib, RTLD_NOW)) == NULL) {
     pw_log_error ("can't load %s: %s", lib, dlerror());
     return NULL;
   }
-  if ((enum_func = dlsym (hnd, "spa_enum_handle_factory")) == NULL) {
+  if ((enum_func = dlsym (hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
     pw_log_error ("can't find enum function");
     goto no_symbol;
   }

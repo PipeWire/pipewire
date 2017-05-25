@@ -55,12 +55,12 @@ struct pw_transport {
                               struct pw_transport *trans));
 
   struct pw_transport_area *area;
-  SpaPortIO                *inputs;
-  SpaPortIO                *outputs;
+  struct spa_port_io       *inputs;
+  struct spa_port_io       *outputs;
   void                     *input_data;
-  SpaRingbuffer            *input_buffer;
+  struct spa_ringbuffer    *input_buffer;
   void                     *output_data;
-  SpaRingbuffer            *output_buffer;
+  struct spa_ringbuffer    *output_buffer;
 };
 
 struct pw_transport * pw_transport_new            (uint32_t max_inputs,
@@ -69,15 +69,15 @@ struct pw_transport * pw_transport_new_from_info  (struct pw_transport_info *inf
 
 void                  pw_transport_destroy        (struct pw_transport      *trans);
 
-SpaResult             pw_transport_get_info       (struct pw_transport      *trans,
+int             pw_transport_get_info       (struct pw_transport      *trans,
                                                    struct pw_transport_info *info);
 
-SpaResult             pw_transport_add_event      (struct pw_transport *trans,
-                                                   SpaEvent            *event);
+int             pw_transport_add_event      (struct pw_transport *trans,
+                                                   struct spa_event            *event);
 
-SpaResult             pw_transport_next_event     (struct pw_transport *trans,
-                                                   SpaEvent            *event);
-SpaResult             pw_transport_parse_event    (struct pw_transport *trans,
+int             pw_transport_next_event     (struct pw_transport *trans,
+                                                   struct spa_event            *event);
+int             pw_transport_parse_event    (struct pw_transport *trans,
                                                    void                *event);
 
 #define PIPEWIRE_TYPE_EVENT__Transport            SPA_TYPE_EVENT_BASE "Transport"
@@ -94,7 +94,7 @@ struct pw_type_event_transport {
 };
 
 static inline void
-pw_type_event_transport_map (SpaTypeMap *map, struct pw_type_event_transport *type)
+pw_type_event_transport_map (struct spa_type_map *map, struct pw_type_event_transport *type)
 {
   if (type->HaveOutput == 0) {
     type->HaveOutput        = spa_type_map_get_id (map, PIPEWIRE_TYPE_EVENT_TRANSPORT__HaveOutput);
@@ -104,13 +104,13 @@ pw_type_event_transport_map (SpaTypeMap *map, struct pw_type_event_transport *ty
 }
 
 struct pw_event_transport_reuse_buffer_body {
-  SpaPODObjectBody body;
-  SpaPODInt        port_id;
-  SpaPODInt        buffer_id;
+  struct spa_pod_object_body body;
+  struct spa_pod_int         port_id;
+  struct spa_pod_int         buffer_id;
 };
 
 struct pw_event_transport_reuse_buffer {
-  SpaPOD pod;
+  struct spa_pod pod;
   struct pw_event_transport_reuse_buffer_body body;
 };
 

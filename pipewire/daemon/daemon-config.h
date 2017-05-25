@@ -28,7 +28,7 @@ extern "C" {
 #include <pipewire/server/core.h>
 
 struct pw_daemon_config {
-  SpaList commands;
+  struct spa_list commands;
 };
 
 struct pw_daemon_config * pw_daemon_config_new           (void);

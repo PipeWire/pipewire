@@ -10,20 +10,20 @@
 #define CLEAR(x) memset(&(x), 0, sizeof(x))
 
 static int
-spa_xv_open (SpaXvSink *this)
+spa_xv_open (struct impl *this)
 {
-  SpaXvState *state = &this->state;
+  struct port *port = &this->in_ports[0];
 
-  if (state->opened)
+  if (port->opened)
     return 0;
 
-  state->opened = true;
+  port->opened = true;
 
   return 0;
 }
 
 static int
-spa_xv_set_format (SpaXvSink *this, SpaVideoInfo *info, bool try_only)
+spa_xv_set_format (struct impl *this, struct spa_video_info *info, bool try_only)
 {
   if (spa_xv_open (this) < 0)
     return -1;
@@ -32,20 +32,20 @@ spa_xv_set_format (SpaXvSink *this, SpaVideoInfo *info, bool try_only)
 }
 
 static int
-spa_xv_close (SpaXvSink *this)
+spa_xv_close (struct impl *this)
 {
-  SpaXvState *state = &this->state;
+  struct port *port = &this->in_ports[0];
 
-  if (!state->opened)
+  if (!port->opened)
     return 0;
 
-  state->opened = false;
+  port->opened = false;
 
   return 0;
 }
 
 static int
-spa_xv_start (SpaXvSink *this)
+spa_xv_start (struct impl *this)
 {
   if (spa_xv_open (this) < 0)
     return -1;
@@ -54,7 +54,7 @@ spa_xv_start (SpaXvSink *this)
 }
 
 static int
-spa_xv_stop (SpaXvSink *this)
+spa_xv_stop (struct impl *this)
 {
   spa_xv_close (this);
 

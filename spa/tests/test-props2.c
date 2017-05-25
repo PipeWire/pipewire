@@ -37,12 +37,12 @@
 int
 main (int argc, char *argv[])
 {
-  SpaPODBuilder b = { NULL, };
-  SpaPODFrame frame[4];
+  struct spa_pod_builder b = { NULL, };
+  struct spa_pod_frame frame[4];
   uint8_t buffer[1024];
-  SpaPOD *obj;
-  SpaPODIter i;
-  SpaTypeMap *map = spa_type_map_get_default ();
+  struct spa_pod *obj;
+  struct spa_pod_iter i;
+  struct spa_type_map *map = spa_type_map_get_default ();
 
   b.data = buffer;
   b.size = 1024;
@@ -61,7 +61,7 @@ main (int argc, char *argv[])
   spa_pod_builder_int (&b, 42);
   spa_pod_builder_pop (&b, &frame[1]);
 
-  SpaRectangle sizes[] = { { 0, 0 }, { 1024, 1024} };
+  struct spa_rectangle sizes[] = { { 0, 0 }, { 1024, 1024} };
   spa_pod_builder_push_prop (&b, &frame[1],
                              3, SPA_POD_PROP_RANGE_MIN_MAX | SPA_POD_PROP_FLAG_UNSET);
   spa_pod_builder_rectangle (&b, 320, 240);
@@ -86,23 +86,23 @@ main (int argc, char *argv[])
   spa_pod_builder_pop (&b, &frame[1]);
   spa_pod_builder_pop (&b, &frame[0]);
 
-  obj = SPA_POD_BUILDER_DEREF (&b, frame[0].ref, SpaPOD);
+  obj = SPA_POD_BUILDER_DEREF (&b, frame[0].ref, struct spa_pod);
   spa_debug_pod (obj, map);
 
-  SpaPODProp *p = spa_pod_object_find_prop ((SpaPODObject *)obj, 4);
+  struct spa_pod_prop *p = spa_pod_object_find_prop ((struct spa_pod_object *)obj, 4);
   printf ("%d %d\n", p->body.key, p->body.flags);
   spa_debug_pod (&p->body.value, map);
 
-  obj = SPA_POD_BUILDER_DEREF (&b, frame[2].ref, SpaPOD);
+  obj = SPA_POD_BUILDER_DEREF (&b, frame[2].ref, struct spa_pod);
 
   int32_t vi, *pi;
   int64_t vl;
   float vf;
   double vd;
   char *vs;
-  SpaRectangle vr;
-  SpaFraction vfr;
-  SpaPODArray *va;
+  struct spa_rectangle vr;
+  struct spa_fraction vfr;
+  struct spa_pod_array *va;
   spa_pod_iter_pod (&i, obj);
   spa_pod_iter_get (&i, SPA_POD_TYPE_INT, &vi,
                         SPA_POD_TYPE_LONG, &vl,

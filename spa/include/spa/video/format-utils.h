@@ -28,7 +28,7 @@ extern "C" {
 #include <spa/video/format.h>
 #include <spa/video/raw-utils.h>
 
-typedef struct {
+struct spa_type_format_video {
   uint32_t format;
   uint32_t size;
   uint32_t framerate;
@@ -47,10 +47,10 @@ typedef struct {
   uint32_t level;
   uint32_t stream_format;
   uint32_t alignment;
-} SpaTypeFormatVideo;
+};
 
 static inline void
-spa_type_format_video_map (SpaTypeMap *map, SpaTypeFormatVideo *type)
+spa_type_format_video_map (struct spa_type_map *map, struct spa_type_format_video *type)
 {
   if (type->format == 0) {
     type->format               = spa_type_map_get_id (map, SPA_TYPE_FORMAT_VIDEO__format);
@@ -75,9 +75,9 @@ spa_type_format_video_map (SpaTypeMap *map, SpaTypeFormatVideo *type)
 }
 
 static inline bool
-spa_format_video_raw_parse (const SpaFormat    *format,
-                            SpaVideoInfoRaw    *info,
-                            SpaTypeFormatVideo *type)
+spa_format_video_raw_parse (const struct spa_format      *format,
+                            struct spa_video_info_raw    *info,
+                            struct spa_type_format_video *type)
 {
   spa_format_query (format,
       type->format,             SPA_POD_TYPE_ID,        &info->format,
@@ -99,9 +99,9 @@ spa_format_video_raw_parse (const SpaFormat    *format,
 }
 
 static inline bool
-spa_format_video_h264_parse (const SpaFormat    *format,
-                             SpaVideoInfoH264   *info,
-                             SpaTypeFormatVideo *type)
+spa_format_video_h264_parse (const struct spa_format      *format,
+                             struct spa_video_info_h264   *info,
+                             struct spa_type_format_video *type)
 {
   spa_format_query (format,
       type->size,               SPA_POD_TYPE_RECTANGLE, &info->size,
@@ -114,9 +114,9 @@ spa_format_video_h264_parse (const SpaFormat    *format,
 }
 
 static inline bool
-spa_format_video_mjpg_parse (const SpaFormat    *format,
-                             SpaVideoInfoMJPG   *info,
-                             SpaTypeFormatVideo *type)
+spa_format_video_mjpg_parse (const struct spa_format      *format,
+                             struct spa_video_info_mjpg   *info,
+                             struct spa_type_format_video *type)
 {
   spa_format_query (format,
       type->size,               SPA_POD_TYPE_RECTANGLE, &info->size,

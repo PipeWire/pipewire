@@ -42,25 +42,25 @@ struct impl {
   struct pw_listener    global_added;
   struct pw_listener    global_removed;
 
-  SpaList          client_list;
+  struct spa_list       client_list;
   struct pw_access      access;
 
-  SpaSource       *dispatch_event;
+  struct spa_source       *dispatch_event;
 };
 
 struct client_info {
-  struct impl  *impl;
-  SpaList      link;
+  struct impl      *impl;
+  struct spa_list   link;
   struct pw_client *client;
-  bool         is_sandboxed;
-  SpaList      async_pending;
+  bool              is_sandboxed;
+  struct spa_list   async_pending;
 };
 
 struct async_pending {
-  SpaList          link;
-  bool             handled;
-  struct client_info      *info;
-  char            *handle;
+  struct spa_list     link;
+  bool                handled;
+  struct client_info *info;
+  char               *handle;
   struct pw_access_data *access_data;
 };
 
@@ -232,7 +232,7 @@ check_global_owner (struct pw_core   *core,
   return false;
 }
 
-static SpaResult
+static int
 do_view_global (struct pw_access      *access,
                 struct pw_client      *client,
                 struct pw_global      *global)
@@ -253,7 +253,7 @@ do_view_global (struct pw_access      *access,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
+static int
 do_create_node (struct pw_access      *access,
                 struct pw_access_data  *data,
                 const char       *factory_name,
@@ -310,7 +310,7 @@ portal_response (DBusConnection *connection, DBusMessage *msg, void *user_data)
   return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
-static SpaResult
+static int
 do_create_client_node (struct pw_access      *access,
                        struct pw_access_data  *data,
                        const char       *name,
@@ -453,7 +453,7 @@ on_global_removed (struct pw_listener *listener,
 }
 
 static void
-dispatch_cb (SpaLoopUtils *utils, SpaSource *source, void *userdata)
+dispatch_cb (struct spa_loop_utils *utils, struct spa_source *source, void *userdata)
 {
   struct impl *impl = userdata;
 
@@ -471,10 +471,10 @@ dispatch_status (DBusConnection *conn, DBusDispatchStatus status, void *userdata
                           status == DBUS_DISPATCH_COMPLETE ? false : true);
 }
 
-static inline SpaIO
+static inline enum spa_io
 dbus_to_io (DBusWatch *watch)
 {
-  SpaIO mask;
+  enum spa_io mask;
   unsigned int flags;
 
   /* no watch flags for disabled watches */
@@ -493,7 +493,7 @@ dbus_to_io (DBusWatch *watch)
 }
 
 static inline unsigned int
-io_to_dbus (SpaIO mask)
+io_to_dbus (enum spa_io mask)
 {
   unsigned int flags = 0;
 
@@ -509,10 +509,10 @@ io_to_dbus (SpaIO mask)
 }
 
 static void
-handle_io_event (SpaLoopUtils *utils,
-                 SpaSource    *source,
+handle_io_event (struct spa_loop_utils *utils,
+                 struct spa_source    *source,
                  int           fd,
-                 SpaIO         mask,
+                 enum spa_io         mask,
                  void         *userdata)
 {
   DBusWatch *watch = userdata;
@@ -528,7 +528,7 @@ static dbus_bool_t
 add_watch (DBusWatch *watch, void *userdata)
 {
   struct impl *impl = userdata;
-  SpaSource *source;
+  struct spa_source *source;
 
   pw_log_debug ("add watch %p %d", watch, dbus_watch_get_unix_fd (watch));
 
@@ -549,7 +549,7 @@ static void
 remove_watch (DBusWatch *watch, void *userdata)
 {
   struct impl *impl = userdata;
-  SpaSource *source;
+  struct spa_source *source;
 
   if ((source = dbus_watch_get_data (watch)))
     pw_loop_destroy_source (impl->core->main_loop->loop, source);
@@ -559,7 +559,7 @@ static void
 toggle_watch (DBusWatch *watch, void *userdata)
 {
   struct impl *impl = userdata;
-  SpaSource *source;
+  struct spa_source *source;
 
   source = dbus_watch_get_data (watch);
 
@@ -569,7 +569,7 @@ toggle_watch (DBusWatch *watch, void *userdata)
 }
 
 static void
-handle_timer_event (SpaLoopUtils *utils, SpaSource *source, void *userdata)
+handle_timer_event (struct spa_loop_utils *utils, struct spa_source *source, void *userdata)
 {
   DBusTimeout *timeout = userdata;
   uint64_t t;
@@ -589,7 +589,7 @@ static dbus_bool_t
 add_timeout (DBusTimeout *timeout, void *userdata)
 {
   struct impl *impl = userdata;
-  SpaSource *source;
+  struct spa_source *source;
   struct timespec ts;
   uint64_t t;
 
@@ -617,7 +617,7 @@ static void
 remove_timeout (DBusTimeout *timeout, void *userdata)
 {
   struct impl *impl = userdata;
-  SpaSource *source;
+  struct spa_source *source;
 
   if ((source = dbus_timeout_get_data (timeout)))
     pw_loop_destroy_source (impl->core->main_loop->loop, source);
@@ -627,7 +627,7 @@ static void
 toggle_timeout (DBusTimeout *timeout, void *userdata)
 {
   struct impl *impl = userdata;
-  SpaSource *source;
+  struct spa_source *source;
   struct timespec ts, *tsp;
 
   source = dbus_timeout_get_data (timeout);

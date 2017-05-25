@@ -28,16 +28,16 @@
 
 #define MAX_TYPES 4096
 
-typedef struct {
-  SpaTypeMap map;
+struct type_map{
+  struct spa_type_map map;
   char *types[MAX_TYPES];
   unsigned int n_types;
-} TypeMap;
+};
 
 static uint32_t
-type_map_get_id (SpaTypeMap *map, const char *type)
+type_map_get_id (struct spa_type_map *map, const char *type)
 {
-  TypeMap *this = SPA_CONTAINER_OF (map, TypeMap, map);
+  struct type_map *this = SPA_CONTAINER_OF (map, struct type_map, map);
   unsigned int i = 0;
 
   if (type != NULL) {
@@ -52,9 +52,9 @@ type_map_get_id (SpaTypeMap *map, const char *type)
 }
 
 static const char *
-type_map_get_type (const SpaTypeMap *map, uint32_t id)
+type_map_get_type (const struct spa_type_map *map, uint32_t id)
 {
-  TypeMap *this = SPA_CONTAINER_OF (map, TypeMap, map);
+  struct type_map *this = SPA_CONTAINER_OF (map, struct type_map, map);
 
   if (id <= this->n_types)
     return this->types[id];
@@ -63,14 +63,14 @@ type_map_get_type (const SpaTypeMap *map, uint32_t id)
 }
 
 static size_t
-type_map_get_size (const SpaTypeMap *map)
+type_map_get_size (const struct spa_type_map *map)
 {
-  TypeMap *this = SPA_CONTAINER_OF (map, TypeMap, map);
+  struct type_map *this = SPA_CONTAINER_OF (map, struct type_map, map);
   return this->n_types;
 }
 
-static TypeMap default_type_map = {
-  { sizeof (SpaTypeMap),
+static struct type_map default_type_map = {
+  { sizeof (struct spa_type_map),
     NULL,
     type_map_get_id,
     type_map_get_type,
@@ -80,16 +80,16 @@ static TypeMap default_type_map = {
   0
 };
 
-static SpaTypeMap *default_map = &default_type_map.map;
+static struct spa_type_map *default_map = &default_type_map.map;
 
-SpaTypeMap *
+struct spa_type_map *
 spa_type_map_get_default (void)
 {
   return default_map;
 }
 
 void
-spa_type_map_set_default (SpaTypeMap *map)
+spa_type_map_set_default (struct spa_type_map *map)
 {
   default_map = map;
 }

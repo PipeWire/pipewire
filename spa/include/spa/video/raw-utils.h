@@ -24,13 +24,10 @@
 extern "C" {
 #endif
 
-typedef struct _SpaVideoInfoRaw SpaVideoInfoRaw;
-
 #include <spa/type-map.h>
 #include <spa/video/raw.h>
 
-typedef struct
-{
+struct spa_type_video_format {
   uint32_t UNKNOWN;
   uint32_t ENCODED;
   uint32_t I420;
@@ -109,10 +106,10 @@ typedef struct
   uint32_t I422_12LE;
   uint32_t Y444_12BE;
   uint32_t Y444_12LE;
-} SpaTypeVideoFormat;
+};
 
 static inline void
-spa_type_video_format_map (SpaTypeMap *map, SpaTypeVideoFormat *type)
+spa_type_video_format_map (struct spa_type_map *map, struct spa_type_video_format *type)
 {
   if (type->ENCODED == 0) {
     type->UNKNOWN      = 0;

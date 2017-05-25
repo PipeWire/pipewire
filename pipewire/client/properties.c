@@ -29,19 +29,19 @@ struct properties {
 static void
 add_func (struct pw_properties *this, char *key, char *value)
 {
-  SpaDictItem *item;
+  struct spa_dict_item *item;
   struct properties *impl = SPA_CONTAINER_OF (this, struct properties, this);
 
-  item = pw_array_add (&impl->items, sizeof (SpaDictItem));
+  item = pw_array_add (&impl->items, sizeof (struct spa_dict_item));
   item->key = key;
   item->value = value;
 
   this->dict.items = impl->items.data;
-  this->dict.n_items = pw_array_get_len (&impl->items, SpaDictItem);
+  this->dict.n_items = pw_array_get_len (&impl->items, struct spa_dict_item);
 }
 
 static void
-clear_item (SpaDictItem *item)
+clear_item (struct spa_dict_item *item)
 {
   free ((char*)item->key);
   free ((char*)item->value);
@@ -51,10 +51,10 @@ static int
 find_index (struct pw_properties *this, const char *key)
 {
   struct properties *impl = SPA_CONTAINER_OF (this, struct properties, this);
-  int i, len = pw_array_get_len (&impl->items, SpaDictItem);
+  int i, len = pw_array_get_len (&impl->items, struct spa_dict_item);
 
   for (i = 0; i < len; i++) {
-    SpaDictItem *item = pw_array_get_unchecked (&impl->items, i, SpaDictItem);
+    struct spa_dict_item *item = pw_array_get_unchecked (&impl->items, i, struct spa_dict_item);
     if (strcmp (item->key, key) == 0)
       return i;
   }
@@ -103,7 +103,7 @@ pw_properties_new (const char *key, ...)
  * Returns: a new #struct pw_properties
  */
 struct pw_properties *
-pw_properties_new_dict (const SpaDict *dict)
+pw_properties_new_dict (const struct spa_dict *dict)
 {
   uint32_t i;
   struct properties *impl;
@@ -133,7 +133,7 @@ pw_properties_copy (struct pw_properties *properties)
 {
   struct properties *impl = SPA_CONTAINER_OF (properties, struct properties, this);
   struct pw_properties *copy;
-  SpaDictItem *item;
+  struct spa_dict_item *item;
 
   copy = pw_properties_new (NULL, NULL);
   if (copy == NULL)
@@ -185,7 +185,7 @@ void
 pw_properties_free (struct pw_properties *properties)
 {
   struct properties *impl = SPA_CONTAINER_OF (properties, struct properties, this);
-  SpaDictItem *item;
+  struct spa_dict_item *item;
 
   pw_array_for_each (item, &impl->items)
     clear_item (item);
@@ -205,16 +205,16 @@ do_replace (struct pw_properties *properties,
   if (index == -1) {
     add_func (properties, key, value);
   } else {
-    SpaDictItem *item = pw_array_get_unchecked (&impl->items, index, SpaDictItem);
+    struct spa_dict_item *item = pw_array_get_unchecked (&impl->items, index, struct spa_dict_item);
 
     clear_item (item);
     if (value == NULL) {
-      SpaDictItem *other = pw_array_get_unchecked (&impl->items,
-                                                   pw_array_get_len (&impl->items, SpaDictItem) - 1,
-                                                   SpaDictItem);
+      struct spa_dict_item *other = pw_array_get_unchecked (&impl->items,
+                                                   pw_array_get_len (&impl->items, struct spa_dict_item) - 1,
+                                                   struct spa_dict_item);
       item->key = other->key;
       item->value = other->value;
-      impl->items.size -= sizeof (SpaDictItem);
+      impl->items.size -= sizeof (struct spa_dict_item);
     } else {
       item->key = key;
       item->value = value;
@@ -285,7 +285,7 @@ pw_properties_get (struct pw_properties *properties,
   if (index == -1)
     return NULL;
 
-  return pw_array_get_unchecked (&impl->items, index, SpaDictItem)->value;
+  return pw_array_get_unchecked (&impl->items, index, struct spa_dict_item)->value;
 }
 
 /**
@@ -314,10 +314,10 @@ pw_properties_iterate (struct pw_properties  *properties,
   else
     index = SPA_PTR_TO_INT (*state);
 
-  if (!pw_array_check_index (&impl->items, index, SpaDictItem))
+  if (!pw_array_check_index (&impl->items, index, struct spa_dict_item))
     return NULL;
 
   *state = SPA_INT_TO_PTR (index + 1);
 
-  return pw_array_get_unchecked (&impl->items, index, SpaDictItem)->key;
+  return pw_array_get_unchecked (&impl->items, index, struct spa_dict_item)->key;
 }

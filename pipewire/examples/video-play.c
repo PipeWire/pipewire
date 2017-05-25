@@ -32,19 +32,19 @@
 #include <pipewire/client/sig.h>
 #include <spa/lib/debug.h>
 
-typedef struct {
+struct type {
   uint32_t format;
   uint32_t props;
-  SpaTypeMeta meta;
-  SpaTypeData data;
-  SpaTypeMediaType media_type;
-  SpaTypeMediaSubtype media_subtype;
-  SpaTypeFormatVideo format_video;
-  SpaTypeVideoFormat video_format;
-} Type;
+  struct spa_type_meta meta;
+  struct spa_type_data data;
+  struct spa_type_media_type media_type;
+  struct spa_type_media_subtype media_subtype;
+  struct spa_type_format_video format_video;
+  struct spa_type_video_format video_format;
+};
 
 static inline void
-init_type (Type *type, SpaTypeMap *map)
+init_type (struct type *type, struct spa_type_map *map)
 {
   type->format = spa_type_map_get_id (map, SPA_TYPE__Format);
   type->props = spa_type_map_get_id (map, SPA_TYPE__Props);
@@ -61,7 +61,7 @@ init_type (Type *type, SpaTypeMap *map)
 #define BPP    3
 
 struct data {
-  Type type;
+  struct type type;
 
   const char *path;
 
@@ -71,7 +71,7 @@ struct data {
 
   bool running;
   struct pw_loop *loop;
-  SpaSource *timer;
+  struct spa_source *timer;
 
   struct pw_context *context;
   struct pw_listener on_state_changed;
@@ -81,7 +81,7 @@ struct data {
   struct pw_listener on_stream_format_changed;
   struct pw_listener on_stream_new_buffer;
 
-  SpaVideoInfoRaw format;
+  struct spa_video_info_raw format;
   int32_t stride;
 
   uint8_t params_buffer[1024];
@@ -107,7 +107,7 @@ on_stream_new_buffer (struct pw_listener *listener,
                       uint32_t            id)
 {
   struct data *data = SPA_CONTAINER_OF (listener, struct data, on_stream_new_buffer);
-  SpaBuffer *buf;
+  struct spa_buffer *buf;
   uint8_t *map;
   void *sdata, *ddata;
   int sstride, dstride, ostride;
@@ -166,46 +166,46 @@ static struct {
   Uint32 format;
   uint32_t id;
 } video_formats[] = {
-  { SDL_PIXELFORMAT_UNKNOWN,      offsetof (SpaTypeVideoFormat, UNKNOWN), },
-  { SDL_PIXELFORMAT_INDEX1LSB,    offsetof (SpaTypeVideoFormat, UNKNOWN), },
-  { SDL_PIXELFORMAT_UNKNOWN,      offsetof (SpaTypeVideoFormat, UNKNOWN), },
-  { SDL_PIXELFORMAT_INDEX1LSB,    offsetof (SpaTypeVideoFormat, UNKNOWN), },
-  { SDL_PIXELFORMAT_INDEX1MSB,    offsetof (SpaTypeVideoFormat, UNKNOWN), },
-  { SDL_PIXELFORMAT_INDEX4LSB,    offsetof (SpaTypeVideoFormat, UNKNOWN), },
-  { SDL_PIXELFORMAT_INDEX4MSB,    offsetof (SpaTypeVideoFormat, UNKNOWN), },
-  { SDL_PIXELFORMAT_INDEX8,       offsetof (SpaTypeVideoFormat, UNKNOWN), },
-  { SDL_PIXELFORMAT_RGB332,       offsetof (SpaTypeVideoFormat, UNKNOWN), },
-  { SDL_PIXELFORMAT_RGB444,       offsetof (SpaTypeVideoFormat, UNKNOWN), },
-  { SDL_PIXELFORMAT_RGB555,       offsetof (SpaTypeVideoFormat, UNKNOWN), },
-  { SDL_PIXELFORMAT_BGR555,       offsetof (SpaTypeVideoFormat, UNKNOWN), },
-  { SDL_PIXELFORMAT_ARGB4444,     offsetof (SpaTypeVideoFormat, UNKNOWN), },
-  { SDL_PIXELFORMAT_RGBA4444,     offsetof (SpaTypeVideoFormat, UNKNOWN), },
-  { SDL_PIXELFORMAT_ABGR4444,     offsetof (SpaTypeVideoFormat, UNKNOWN), },
-  { SDL_PIXELFORMAT_BGRA4444,     offsetof (SpaTypeVideoFormat, UNKNOWN), },
-  { SDL_PIXELFORMAT_ARGB1555,     offsetof (SpaTypeVideoFormat, UNKNOWN), },
-  { SDL_PIXELFORMAT_RGBA5551,     offsetof (SpaTypeVideoFormat, UNKNOWN), },
-  { SDL_PIXELFORMAT_ABGR1555,     offsetof (SpaTypeVideoFormat, UNKNOWN), },
-  { SDL_PIXELFORMAT_BGRA5551,     offsetof (SpaTypeVideoFormat, UNKNOWN), },
-  { SDL_PIXELFORMAT_RGB565,       offsetof (SpaTypeVideoFormat, UNKNOWN), },
-  { SDL_PIXELFORMAT_BGR565,       offsetof (SpaTypeVideoFormat, UNKNOWN), },
-  { SDL_PIXELFORMAT_RGB24,        offsetof (SpaTypeVideoFormat, RGB), },
-  { SDL_PIXELFORMAT_RGB888,       offsetof (SpaTypeVideoFormat, RGB), },
-  { SDL_PIXELFORMAT_RGBX8888,     offsetof (SpaTypeVideoFormat, RGBx), },
-  { SDL_PIXELFORMAT_BGR24,        offsetof (SpaTypeVideoFormat, BGR), },
-  { SDL_PIXELFORMAT_BGR888,       offsetof (SpaTypeVideoFormat, BGR), },
-  { SDL_PIXELFORMAT_BGRX8888,     offsetof (SpaTypeVideoFormat, BGRx), },
-  { SDL_PIXELFORMAT_ARGB2101010,  offsetof (SpaTypeVideoFormat, UNKNOWN), },
-  { SDL_PIXELFORMAT_RGBA8888,     offsetof (SpaTypeVideoFormat, RGBA), },
-  { SDL_PIXELFORMAT_ARGB8888,     offsetof (SpaTypeVideoFormat, ARGB), },
-  { SDL_PIXELFORMAT_BGRA8888,     offsetof (SpaTypeVideoFormat, BGRA), },
-  { SDL_PIXELFORMAT_ABGR8888,     offsetof (SpaTypeVideoFormat, ABGR), },
-  { SDL_PIXELFORMAT_YV12,         offsetof (SpaTypeVideoFormat, YV12), },
-  { SDL_PIXELFORMAT_IYUV,         offsetof (SpaTypeVideoFormat, I420), },
-  { SDL_PIXELFORMAT_YUY2,         offsetof (SpaTypeVideoFormat, YUY2), },
-  { SDL_PIXELFORMAT_UYVY,         offsetof (SpaTypeVideoFormat, UYVY), },
-  { SDL_PIXELFORMAT_YVYU,         offsetof (SpaTypeVideoFormat, YVYU), },
-  { SDL_PIXELFORMAT_NV12,         offsetof (SpaTypeVideoFormat, NV12), },
-  { SDL_PIXELFORMAT_NV21,         offsetof (SpaTypeVideoFormat, NV21), }
+  { SDL_PIXELFORMAT_UNKNOWN,      offsetof (struct spa_type_video_format, UNKNOWN), },
+  { SDL_PIXELFORMAT_INDEX1LSB,    offsetof (struct spa_type_video_format, UNKNOWN), },
+  { SDL_PIXELFORMAT_UNKNOWN,      offsetof (struct spa_type_video_format, UNKNOWN), },
+  { SDL_PIXELFORMAT_INDEX1LSB,    offsetof (struct spa_type_video_format, UNKNOWN), },
+  { SDL_PIXELFORMAT_INDEX1MSB,    offsetof (struct spa_type_video_format, UNKNOWN), },
+  { SDL_PIXELFORMAT_INDEX4LSB,    offsetof (struct spa_type_video_format, UNKNOWN), },
+  { SDL_PIXELFORMAT_INDEX4MSB,    offsetof (struct spa_type_video_format, UNKNOWN), },
+  { SDL_PIXELFORMAT_INDEX8,       offsetof (struct spa_type_video_format, UNKNOWN), },
+  { SDL_PIXELFORMAT_RGB332,       offsetof (struct spa_type_video_format, UNKNOWN), },
+  { SDL_PIXELFORMAT_RGB444,       offsetof (struct spa_type_video_format, UNKNOWN), },
+  { SDL_PIXELFORMAT_RGB555,       offsetof (struct spa_type_video_format, UNKNOWN), },
+  { SDL_PIXELFORMAT_BGR555,       offsetof (struct spa_type_video_format, UNKNOWN), },
+  { SDL_PIXELFORMAT_ARGB4444,     offsetof (struct spa_type_video_format, UNKNOWN), },
+  { SDL_PIXELFORMAT_RGBA4444,     offsetof (struct spa_type_video_format, UNKNOWN), },
+  { SDL_PIXELFORMAT_ABGR4444,     offsetof (struct spa_type_video_format, UNKNOWN), },
+  { SDL_PIXELFORMAT_BGRA4444,     offsetof (struct spa_type_video_format, UNKNOWN), },
+  { SDL_PIXELFORMAT_ARGB1555,     offsetof (struct spa_type_video_format, UNKNOWN), },
+  { SDL_PIXELFORMAT_RGBA5551,     offsetof (struct spa_type_video_format, UNKNOWN), },
+  { SDL_PIXELFORMAT_ABGR1555,     offsetof (struct spa_type_video_format, UNKNOWN), },
+  { SDL_PIXELFORMAT_BGRA5551,     offsetof (struct spa_type_video_format, UNKNOWN), },
+  { SDL_PIXELFORMAT_RGB565,       offsetof (struct spa_type_video_format, UNKNOWN), },
+  { SDL_PIXELFORMAT_BGR565,       offsetof (struct spa_type_video_format, UNKNOWN), },
+  { SDL_PIXELFORMAT_RGB24,        offsetof (struct spa_type_video_format, RGB), },
+  { SDL_PIXELFORMAT_RGB888,       offsetof (struct spa_type_video_format, RGB), },
+  { SDL_PIXELFORMAT_RGBX8888,     offsetof (struct spa_type_video_format, RGBx), },
+  { SDL_PIXELFORMAT_BGR24,        offsetof (struct spa_type_video_format, BGR), },
+  { SDL_PIXELFORMAT_BGR888,       offsetof (struct spa_type_video_format, BGR), },
+  { SDL_PIXELFORMAT_BGRX8888,     offsetof (struct spa_type_video_format, BGRx), },
+  { SDL_PIXELFORMAT_ARGB2101010,  offsetof (struct spa_type_video_format, UNKNOWN), },
+  { SDL_PIXELFORMAT_RGBA8888,     offsetof (struct spa_type_video_format, RGBA), },
+  { SDL_PIXELFORMAT_ARGB8888,     offsetof (struct spa_type_video_format, ARGB), },
+  { SDL_PIXELFORMAT_BGRA8888,     offsetof (struct spa_type_video_format, BGRA), },
+  { SDL_PIXELFORMAT_ABGR8888,     offsetof (struct spa_type_video_format, ABGR), },
+  { SDL_PIXELFORMAT_YV12,         offsetof (struct spa_type_video_format, YV12), },
+  { SDL_PIXELFORMAT_IYUV,         offsetof (struct spa_type_video_format, I420), },
+  { SDL_PIXELFORMAT_YUY2,         offsetof (struct spa_type_video_format, YUY2), },
+  { SDL_PIXELFORMAT_UYVY,         offsetof (struct spa_type_video_format, UYVY), },
+  { SDL_PIXELFORMAT_YVYU,         offsetof (struct spa_type_video_format, YVYU), },
+  { SDL_PIXELFORMAT_NV12,         offsetof (struct spa_type_video_format, NV12), },
+  { SDL_PIXELFORMAT_NV21,         offsetof (struct spa_type_video_format, NV21), }
 };
 
 static uint32_t
@@ -241,13 +241,13 @@ id_to_sdl_format (struct data *data, uint32_t id)
 static void
 on_stream_format_changed (struct pw_listener  *listener,
                           struct pw_stream    *stream,
-                          SpaFormat           *format)
+                          struct spa_format           *format)
 {
   struct data *data = SPA_CONTAINER_OF (listener, struct data, on_stream_format_changed);
   struct pw_context *ctx = stream->context;
-  SpaPODBuilder b = { NULL };
-  SpaPODFrame f[2];
-  SpaParam *params[2];
+  struct spa_pod_builder b = { NULL };
+  struct spa_pod_frame f[2];
+  struct spa_param *params[2];
 
   if (format) {
     Uint32 sdl_format;
@@ -278,12 +278,12 @@ on_stream_format_changed (struct pw_listener  *listener,
         PROP      (&f[1], ctx->type.param_alloc_buffers.stride,  SPA_POD_TYPE_INT, data->stride),
         PROP_U_MM (&f[1], ctx->type.param_alloc_buffers.buffers, SPA_POD_TYPE_INT, 32, 2, 32),
         PROP      (&f[1], ctx->type.param_alloc_buffers.align,   SPA_POD_TYPE_INT, 16));
-    params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaParam);
+    params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_param);
 
     spa_pod_builder_object (&b, &f[0], 0, ctx->type.param_alloc_meta_enable.MetaEnable,
       PROP      (&f[1], ctx->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID, ctx->type.meta.Header),
-      PROP      (&f[1], ctx->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
-    params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaParam);
+      PROP      (&f[1], ctx->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (struct spa_meta_header)));
+    params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_param);
 
     pw_stream_finish_format (stream, SPA_RESULT_OK, params, 2);
   }
@@ -305,10 +305,10 @@ on_state_changed (struct pw_listener  *listener,
 
     case PW_CONTEXT_STATE_CONNECTED:
     {
-      SpaFormat *formats[1];
+      struct spa_format *formats[1];
       uint8_t buffer[1024];
-      SpaPODBuilder b = SPA_POD_BUILDER_INIT (buffer, sizeof (buffer));
-      SpaPODFrame f[2];
+      struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buffer, sizeof (buffer));
+      struct spa_pod_frame f[2];
       SDL_RendererInfo info;
       int i, c;
 
@@ -350,7 +350,7 @@ on_state_changed (struct pw_listener  *listener,
          0);
 
       spa_pod_builder_pop (&b, &f[0]);
-      formats[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
+      formats[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_format);
 
       printf ("supported formats:\n");
       spa_debug_format (formats[0], data->context->type.map);

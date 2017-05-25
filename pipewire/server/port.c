@@ -71,8 +71,8 @@ pw_port_destroy (struct pw_port *port)
   free (port);
 }
 
-static SpaResult
-do_add_link (SpaLoop        *loop,
+static int
+do_add_link (struct spa_loop        *loop,
              bool            async,
              uint32_t        seq,
              size_t          size,
@@ -130,7 +130,7 @@ pw_port_get_link (struct pw_port       *output_port,
 struct pw_link *
 pw_port_link (struct pw_port        *output_port,
               struct pw_port        *input_port,
-              SpaFormat            **format_filter,
+              struct spa_format    **format_filter,
               struct pw_properties  *properties,
               char                 **error)
 {
@@ -199,10 +199,10 @@ no_mem:
   return NULL;
 }
 
-SpaResult
+int
 pw_port_pause_rt (struct pw_port *port)
 {
-  SpaResult res;
+  int res;
 
   if (port->state <= PW_PORT_STATE_PAUSED)
     return SPA_RESULT_OK;
@@ -216,13 +216,13 @@ pw_port_pause_rt (struct pw_port *port)
   return res;
 }
 
-static SpaResult
-do_remove_link_done (SpaLoop        *loop,
-                     bool            async,
-                     uint32_t        seq,
-                     size_t          size,
-                     void           *data,
-                     void           *user_data)
+static int
+do_remove_link_done (struct spa_loop *loop,
+                     bool             async,
+                     uint32_t         seq,
+                     size_t           size,
+                     void            *data,
+                     void            *user_data)
 {
   struct pw_port *port = user_data;
   struct pw_node *node = port->node;
@@ -263,18 +263,18 @@ do_remove_link_done (SpaLoop        *loop,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-do_remove_link (SpaLoop        *loop,
-                bool            async,
-                uint32_t        seq,
-                size_t          size,
-                void           *data,
-                void           *user_data)
+static int
+do_remove_link (struct spa_loop *loop,
+                bool             async,
+                uint32_t         seq,
+                size_t           size,
+                void            *data,
+                void            *user_data)
 {
   struct pw_port *port = user_data;
   struct pw_node *this = port->node;
   struct pw_link *link = ((struct pw_link**)data)[0];
-  SpaResult res;
+  int res;
 
   if (port->direction == PW_DIRECTION_INPUT) {
     pw_port_pause_rt (link->rt.input);
@@ -295,10 +295,10 @@ do_remove_link (SpaLoop        *loop,
   return res;
 }
 
-SpaResult
+int
 pw_port_unlink (struct pw_port *port, struct pw_link *link)
 {
-  SpaResult res;
+  int res;
   struct impl *impl = SPA_CONTAINER_OF (port, struct impl, this);
 
   pw_log_debug ("port %p: start unlink %p", port, link);
@@ -312,16 +312,16 @@ pw_port_unlink (struct pw_port *port, struct pw_link *link)
   return res;
 }
 
-static SpaResult
-do_clear_buffers_done (SpaLoop        *loop,
-                       bool            async,
-                       uint32_t        seq,
-                       size_t          size,
-                       void           *data,
-                       void           *user_data)
+static int
+do_clear_buffers_done (struct spa_loop *loop,
+                       bool             async,
+                       uint32_t         seq,
+                       size_t           size,
+                       void            *data,
+                       void            *user_data)
 {
   struct pw_port *port = user_data;
-  SpaResult res;
+  int res;
 
   if (port->state <= PW_PORT_STATE_READY)
     return SPA_RESULT_OK;
@@ -339,17 +339,17 @@ do_clear_buffers_done (SpaLoop        *loop,
   return res;
 }
 
-static SpaResult
-do_clear_buffers (SpaLoop        *loop,
-                  bool            async,
-                  uint32_t        seq,
-                  size_t          size,
-                  void           *data,
-                  void           *user_data)
+static int
+do_clear_buffers (struct spa_loop *loop,
+                  bool             async,
+                  uint32_t         seq,
+                  size_t           size,
+                  void            *data,
+                  void            *user_data)
 {
   struct pw_port *port = user_data;
   struct pw_node *node = port->node;
-  SpaResult res;
+  int res;
 
   pw_port_pause_rt (port);
 
@@ -361,10 +361,10 @@ do_clear_buffers (SpaLoop        *loop,
   return res;
 }
 
-SpaResult
+int
 pw_port_clear_buffers (struct pw_port *port)
 {
-  SpaResult res;
+  int res;
   struct impl *impl = SPA_CONTAINER_OF (port, struct impl, this);
 
   pw_log_debug ("port %p: clear buffers", port);

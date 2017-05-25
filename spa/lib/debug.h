@@ -33,17 +33,17 @@ extern "C" {
 #include <spa/dict.h>
 #include <spa/log.h>
 
-SpaResult spa_debug_port_info (const SpaPortInfo *info, const SpaTypeMap *map);
-SpaResult spa_debug_buffer (const SpaBuffer *buffer, const SpaTypeMap *map);
-SpaResult spa_debug_props (const SpaProps *props, const SpaTypeMap *map);
-SpaResult spa_debug_param (const SpaParam *param, const SpaTypeMap *map);
-SpaResult spa_debug_pod (const SpaPOD *pod, const SpaTypeMap *map);
-SpaResult spa_debug_format (const SpaFormat *format, const SpaTypeMap *map);
-SpaResult spa_debug_dump_mem  (const void *data, size_t size);
-SpaResult spa_debug_dict  (const SpaDict *dict);
+int spa_debug_port_info (const struct spa_port_info *info, const struct spa_type_map *map);
+int spa_debug_buffer (const struct spa_buffer *buffer, const struct spa_type_map *map);
+int spa_debug_props (const struct spa_props *props, const struct spa_type_map *map);
+int spa_debug_param (const struct spa_param *param, const struct spa_type_map *map);
+int spa_debug_pod (const struct spa_pod *pod, const struct spa_type_map *map);
+int spa_debug_format (const struct spa_format *format, const struct spa_type_map *map);
+int spa_debug_dump_mem  (const void *data, size_t size);
+int spa_debug_dict  (const struct spa_dict *dict);
 
-SpaLog * spa_log_get_default (void);
-void     spa_log_default_trace_purge (void);
+struct spa_log* spa_log_get_default (void);
+void            spa_log_default_trace_purge (void);
 
 
 #ifdef __cplusplus

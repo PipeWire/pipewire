@@ -25,7 +25,7 @@
 #include <spa/props.h>
 
 static int
-compare_value (SpaPODType type, const void *r1, const void *r2)
+compare_value (enum spa_pod_type type, const void *r1, const void *r2)
 {
   switch (type) {
     case SPA_POD_TYPE_INVALID:
@@ -45,8 +45,8 @@ compare_value (SpaPODType type, const void *r1, const void *r2)
       return strcmp (r1, r2);
     case SPA_POD_TYPE_RECTANGLE:
     {
-      const SpaRectangle *rec1 = (SpaRectangle*)r1,
-                         *rec2 = (SpaRectangle*)r2;
+      const struct spa_rectangle *rec1 = (struct spa_rectangle*)r1,
+                                 *rec2 = (struct spa_rectangle*)r2;
       if (rec1->width == rec2->width && rec1->height == rec2->height)
         return 0;
       else if (rec1->width < rec2->width || rec1->height < rec2->height)
@@ -56,8 +56,8 @@ compare_value (SpaPODType type, const void *r1, const void *r2)
     }
     case SPA_POD_TYPE_FRACTION:
     {
-      const SpaFraction *f1 = (SpaFraction*)r1,
-                        *f2 = (SpaFraction*)r2;
+      const struct spa_fraction *f1 = (struct spa_fraction*)r1,
+                                *f2 = (struct spa_fraction*)r2;
       uint64_t n1, n2;
       n1 = ((int64_t) f1->num) * f2->denom;
       n2 = ((int64_t) f2->num) * f1->denom;
@@ -75,9 +75,9 @@ compare_value (SpaPODType type, const void *r1, const void *r2)
 }
 
 static void
-fix_default (SpaPODProp *prop)
+fix_default (struct spa_pod_prop *prop)
 {
-  void *val = SPA_MEMBER (prop, sizeof (SpaPODProp), void),
+  void *val = SPA_MEMBER (prop, sizeof (struct spa_pod_prop), void),
        *alt = SPA_MEMBER (val, prop->body.value.size, void);
   int i, nalt = SPA_POD_PROP_N_VALUES (prop) - 1;
 
@@ -120,30 +120,30 @@ fix_default (SpaPODProp *prop)
   }
 }
 
-static inline SpaPODProp *
-find_prop (const SpaPOD *pod, uint32_t size, uint32_t key)
+static inline struct spa_pod_prop *
+find_prop (const struct spa_pod *pod, uint32_t size, uint32_t key)
 {
-  const SpaPOD *res;
+  const struct spa_pod *res;
   SPA_POD_FOREACH (pod, size, res) {
-    if (res->type == SPA_POD_TYPE_PROP && ((SpaPODProp*)res)->body.key == key)
-      return (SpaPODProp *)res;
+    if (res->type == SPA_POD_TYPE_PROP && ((struct spa_pod_prop*)res)->body.key == key)
+      return (struct spa_pod_prop *)res;
   }
   return NULL;
 }
 
-SpaResult
-spa_props_filter (SpaPODBuilder  *b,
-                  const SpaPOD   *props,
-                  uint32_t        props_size,
-                  const SpaPOD   *filter,
-                  uint32_t        filter_size)
+int
+spa_props_filter (struct spa_pod_builder *b,
+                  const struct spa_pod   *props,
+                  uint32_t                props_size,
+                  const struct spa_pod   *filter,
+                  uint32_t                filter_size)
 {
   int j, k;
-  const SpaPOD *pr;
+  const struct spa_pod *pr;
 
   SPA_POD_FOREACH (props, props_size, pr) {
-    SpaPODFrame f;
-    SpaPODProp *p1, *p2, *np;
+    struct spa_pod_frame f;
+    struct spa_pod_prop *p1, *p2, *np;
     int nalt1, nalt2;
     void *alt1, *alt2, *a1, *a2;
     uint32_t rt1, rt2;
@@ -151,7 +151,7 @@ spa_props_filter (SpaPODBuilder  *b,
     if (pr->type != SPA_POD_TYPE_PROP)
       continue;
 
-    p1 = (SpaPODProp *) pr;
+    p1 = (struct spa_pod_prop *) pr;
 
     if (filter == NULL || (p2 = find_prop (filter, filter_size, p1->body.key)) == NULL) {
       /* no filter, copy the complete property */
@@ -168,14 +168,14 @@ spa_props_filter (SpaPODBuilder  *b,
 
     /* else we filter. start with copying the property */
     spa_pod_builder_push_prop (b, &f, p1->body.key, 0),
-    np = SPA_POD_BUILDER_DEREF (b, f.ref, SpaPODProp);
+    np = SPA_POD_BUILDER_DEREF (b, f.ref, struct spa_pod_prop);
 
     /* default value */
     spa_pod_builder_raw (b, &p1->body.value, sizeof (p1->body.value) + p1->body.value.size);
 
-    alt1 = SPA_MEMBER (p1, sizeof (SpaPODProp), void);
+    alt1 = SPA_MEMBER (p1, sizeof (struct spa_pod_prop), void);
     nalt1 = SPA_POD_PROP_N_VALUES (p1);
-    alt2 = SPA_MEMBER (p2, sizeof (SpaPODProp), void);
+    alt2 = SPA_MEMBER (p2, sizeof (struct spa_pod_prop), void);
     nalt2 = SPA_POD_PROP_N_VALUES (p2);
 
     if (p1->body.flags & SPA_POD_PROP_FLAG_UNSET) {

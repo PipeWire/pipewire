@@ -34,7 +34,7 @@ struct global_impl {
 struct impl {
   struct pw_core  this;
 
-  SpaSupport support[4];
+  struct spa_support support[4];
 };
 
 #define ACCESS_VIEW_GLOBAL(client,global) (client->core->access == NULL || \
@@ -88,8 +88,8 @@ destroy_registry_resource (void *object)
 }
 
 static void
-core_client_update (void          *object,
-                    const SpaDict *props)
+core_client_update (void                  *object,
+                    const struct spa_dict *props)
 {
   struct pw_resource *resource = object;
 
@@ -148,7 +148,7 @@ static void
 core_create_node (void          *object,
                   const char    *factory_name,
                   const char    *name,
-                  const SpaDict *props,
+                  const struct spa_dict *props,
                   uint32_t       new_id)
 {
   struct pw_resource *resource = object;
@@ -201,7 +201,7 @@ async_create_client_node_complete (struct pw_access_data *data)
   struct pw_resource *resource = d->data.resource;
   struct pw_client *client = resource->client;
   struct pw_client_node *node;
-  SpaResult res;
+  int res;
   int readfd, writefd;
 
   if (data->res != SPA_RESULT_OK)
@@ -248,7 +248,7 @@ done:
 static void
 core_create_client_node (void          *object,
                          const char    *name,
-                         const SpaDict *props,
+                         const struct spa_dict *props,
                          uint32_t       new_id)
 {
   struct pw_resource *resource = object;
@@ -256,7 +256,7 @@ core_create_client_node (void          *object,
   int i;
   struct pw_properties *properties;
   struct access_create_client_node access_data;
-  SpaResult res;
+  int res;
 
   properties = pw_properties_new (NULL, NULL);
   if (properties == NULL)
@@ -333,7 +333,7 @@ core_unbind_func (void *data)
   spa_list_remove (&resource->link);
 }
 
-static SpaResult
+static int
 core_bind_func (struct pw_global *global,
                 struct pw_client *client,
                 uint32_t          version,
@@ -501,13 +501,13 @@ pw_core_add_global (struct pw_core    *core,
   return true;
 }
 
-SpaResult
+int
 pw_global_bind (struct pw_global *global,
                 struct pw_client *client,
                 uint32_t          version,
                 uint32_t          id)
 {
-  SpaResult res;
+  int res;
   struct global_impl *impl = SPA_CONTAINER_OF (global, struct global_impl, this);
 
   if (impl->bind) {
@@ -546,7 +546,7 @@ pw_global_destroy (struct pw_global *global)
 
 void
 pw_core_update_properties (struct pw_core     *core,
-                           const SpaDict *dict)
+                           const struct spa_dict *dict)
 {
   struct pw_resource *resource;
 
@@ -576,7 +576,7 @@ pw_core_find_port (struct pw_core       *core,
                    uint32_t              id,
                    struct pw_properties *props,
                    uint32_t              n_format_filters,
-                   SpaFormat           **format_filters,
+                   struct spa_format           **format_filters,
                    char                **error)
 {
   struct pw_port *best = NULL;
@@ -634,18 +634,18 @@ pw_core_find_port (struct pw_core       *core,
   return best;
 }
 
-SpaFormat *
+struct spa_format *
 pw_core_find_format (struct pw_core       *core,
                      struct pw_port       *output,
                      struct pw_port       *input,
                      struct pw_properties *props,
                      uint32_t              n_format_filters,
-                     SpaFormat           **format_filterss,
+                     struct spa_format           **format_filterss,
                      char                **error)
 {
   uint32_t out_state, in_state;
-  SpaResult res;
-  SpaFormat *filter = NULL, *format;
+  int res;
+  struct spa_format *filter = NULL, *format;
   uint32_t iidx = 0, oidx = 0;
 
   out_state = output->state;
@@ -663,7 +663,7 @@ pw_core_find_format (struct pw_core       *core,
     if ((res = spa_node_port_get_format (output->node->node,
                                          SPA_DIRECTION_OUTPUT,
                                          output->port_id,
-                                         (const SpaFormat **)&format)) < 0) {
+                                         (const struct spa_format **)&format)) < 0) {
       asprintf (error, "error get output format: %d", res);
       goto error;
     }
@@ -672,7 +672,7 @@ pw_core_find_format (struct pw_core       *core,
     if ((res = spa_node_port_get_format (input->node->node,
                                          SPA_DIRECTION_INPUT,
                                          input->port_id,
-                                         (const SpaFormat **)&format)) < 0) {
+                                         (const struct spa_format **)&format)) < 0) {
       asprintf (error, "error get input format: %d", res);
       goto error;
     }

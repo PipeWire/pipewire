@@ -9,7 +9,7 @@
 #define ARRAY_SIZE 64
 #define MAX_VALUE 0x10000
 
-SpaRingbuffer rb;
+struct spa_ringbuffer rb;
 uint8_t *data;
 
 static int

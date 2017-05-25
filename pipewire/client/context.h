@@ -75,9 +75,9 @@ struct pw_context {
   uint32_t              n_types;
   struct pw_map         types;
 
-  SpaList          global_list;
-  SpaList          stream_list;
-  SpaList          proxy_list;
+  struct spa_list       global_list;
+  struct spa_list       stream_list;
+  struct spa_list       proxy_list;
 
   void            *protocol_private;
 

@@ -35,16 +35,16 @@
 struct type {
   uint32_t format;
   uint32_t props;
-  SpaTypeMeta meta;
-  SpaTypeData data;
-  SpaTypeMediaType media_type;
-  SpaTypeMediaSubtype media_subtype;
-  SpaTypeFormatVideo format_video;
-  SpaTypeVideoFormat video_format;
+  struct spa_type_meta meta;
+  struct spa_type_data data;
+  struct spa_type_media_type media_type;
+  struct spa_type_media_subtype media_subtype;
+  struct spa_type_format_video format_video;
+  struct spa_type_video_format video_format;
 };
 
 static inline void
-init_type (struct type *type, SpaTypeMap *map)
+init_type (struct type *type, struct spa_type_map *map)
 {
   type->format = spa_type_map_get_id (map, SPA_TYPE__Format);
   type->props = spa_type_map_get_id (map, SPA_TYPE__Props);
@@ -63,7 +63,7 @@ struct data {
 
   bool running;
   struct pw_loop *loop;
-  SpaSource *timer;
+  struct spa_source *timer;
 
   struct pw_context *context;
   struct pw_listener on_state_changed;
@@ -72,7 +72,7 @@ struct data {
   struct pw_listener on_stream_state_changed;
   struct pw_listener on_stream_format_changed;
 
-  SpaVideoInfoRaw format;
+  struct spa_video_info_raw format;
   int32_t stride;
 
   uint8_t params_buffer[1024];
@@ -81,16 +81,16 @@ struct data {
 };
 
 static void
-on_timeout (SpaLoopUtils *utils,
-            SpaSource    *source,
+on_timeout (struct spa_loop_utils *utils,
+            struct spa_source    *source,
             void         *userdata)
 {
   struct data *data = userdata;
   uint32_t id;
-  SpaBuffer *buf;
+  struct spa_buffer *buf;
   int i, j;
   uint8_t *p, *map;
-  SpaMetaHeader *h;
+  struct spa_meta_header *h;
 
   id = pw_stream_get_empty_buffer (data->stream);
   if (id == SPA_ID_INVALID)
@@ -183,13 +183,13 @@ on_stream_state_changed (struct pw_listener  *listener,
 static void
 on_stream_format_changed (struct pw_listener  *listener,
                           struct pw_stream    *stream,
-                          SpaFormat      *format)
+                          struct spa_format      *format)
 {
   struct data *data = SPA_CONTAINER_OF (listener, struct data, on_stream_format_changed);
   struct pw_context *ctx = stream->context;
-  SpaPODBuilder b = { NULL };
-  SpaPODFrame f[2];
-  SpaParam *params[2];
+  struct spa_pod_builder b = { NULL };
+  struct spa_pod_frame f[2];
+  struct spa_param *params[2];
 
   if (format) {
     spa_format_video_raw_parse (format, &data->format, &data->type.format_video);
@@ -203,12 +203,12 @@ on_stream_format_changed (struct pw_listener  *listener,
         PROP      (&f[1], ctx->type.param_alloc_buffers.stride,  SPA_POD_TYPE_INT, data->stride),
         PROP_U_MM (&f[1], ctx->type.param_alloc_buffers.buffers, SPA_POD_TYPE_INT, 32, 2, 32),
         PROP      (&f[1], ctx->type.param_alloc_buffers.align,   SPA_POD_TYPE_INT, 16));
-    params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaParam);
+    params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_param);
 
     spa_pod_builder_object (&b, &f[0], 0, ctx->type.param_alloc_meta_enable.MetaEnable,
       PROP      (&f[1], ctx->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID, ctx->type.meta.Header),
-      PROP      (&f[1], ctx->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
-    params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaParam);
+      PROP      (&f[1], ctx->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (struct spa_meta_header)));
+    params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_param);
 
     pw_stream_finish_format (stream, SPA_RESULT_OK, params, 2);
   }
@@ -231,10 +231,10 @@ on_state_changed (struct pw_listener  *listener,
 
     case PW_CONTEXT_STATE_CONNECTED:
     {
-      SpaFormat *formats[1];
+      struct spa_format *formats[1];
       uint8_t buffer[1024];
-      SpaPODBuilder b = SPA_POD_BUILDER_INIT (buffer, sizeof (buffer));
-      SpaPODFrame f[2];
+      struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buffer, sizeof (buffer));
+      struct spa_pod_frame f[2];
 
       printf ("context state: \"%s\"\n", pw_context_state_as_string (context->state));
 
@@ -247,7 +247,7 @@ on_state_changed (struct pw_listener  *listener,
                                                                                       1, 1,
                                                                                       4096, 4096),
          PROP      (&f[1], data->type.format_video.framerate, SPA_POD_TYPE_FRACTION,  25, 1));
-      formats[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
+      formats[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_format);
 
       pw_signal_add (&data->stream->state_changed,
                      &data->on_stream_state_changed,

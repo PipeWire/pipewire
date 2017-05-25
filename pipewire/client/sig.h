@@ -27,13 +27,13 @@ extern "C" {
 #endif
 
 struct pw_listener {
-  SpaList         link;
+  struct spa_list link;
   void (*notify) (void *);
 };
 
 #define PW_SIGNAL(name,func)                                            \
   union {                                                               \
-    SpaList listeners;                                                  \
+    struct spa_list listeners;                                          \
     void (*notify) func;                                                \
   } name;
 

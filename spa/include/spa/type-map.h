@@ -24,8 +24,6 @@
 extern "C" {
 #endif
 
-typedef struct _SpaTypeMap SpaTypeMap;
-
 #include <spa/defs.h>
 #include <spa/plugin.h>
 #include <spa/type.h>
@@ -33,28 +31,28 @@ typedef struct _SpaTypeMap SpaTypeMap;
 #define SPA_TYPE__TypeMap                      SPA_TYPE_INTERFACE_BASE "TypeMap"
 
 /**
- * SpaTypeMap:
+ * spa_type_map:
  *
  * Maps between string types and their type id
  */
-struct _SpaTypeMap {
+struct spa_type_map {
   /* the total size of this structure. This can be used to expand this
    * structure in the future */
   const size_t size;
   /**
-   * SpaTypeMap::info
+   * spa_type_map::info
    *
    * Extra information about the type map
    */
-  const SpaDict *info;
+  const struct spa_dict *info;
 
-  SpaType       (*get_id)    (SpaTypeMap *map,
-                              const char *type);
+  uint32_t      (*get_id)    (struct spa_type_map       *map,
+                              const char                *type);
 
-  const char *  (*get_type)  (const SpaTypeMap *map,
-                              SpaType     id);
+  const char *  (*get_type)  (const struct spa_type_map *map,
+                              uint32_t                   id);
 
-  size_t        (*get_size)  (const SpaTypeMap *map);
+  size_t        (*get_size)  (const struct spa_type_map *map);
 };
 
 #define spa_type_map_get_id(n,...)            (n)->get_id((n),__VA_ARGS__)

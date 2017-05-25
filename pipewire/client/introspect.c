@@ -103,9 +103,9 @@ pw_link_state_as_string (enum pw_link_state state)
 }
 
 static void
-pw_spa_dict_destroy (SpaDict *dict)
+pw_spa_dict_destroy (struct spa_dict *dict)
 {
-  SpaDictItem *item;
+  struct spa_dict_item *item;
 
   spa_dict_for_each (item, dict) {
     free ((void *)item->key);
@@ -115,19 +115,19 @@ pw_spa_dict_destroy (SpaDict *dict)
   free (dict);
 }
 
-static SpaDict *
-pw_spa_dict_copy (SpaDict *dict)
+static struct spa_dict *
+pw_spa_dict_copy (struct spa_dict *dict)
 {
-  SpaDict *copy;
+  struct spa_dict *copy;
   uint32_t i;
 
   if (dict == NULL)
     return NULL;
 
-  copy = calloc (1, sizeof (SpaDict));
+  copy = calloc (1, sizeof (struct spa_dict));
   if (copy == NULL)
     goto no_mem;
-  copy->items = calloc (dict->n_items, sizeof (SpaDictItem));
+  copy->items = calloc (dict->n_items, sizeof (struct spa_dict_item));
   if (copy->items == NULL)
     goto no_items;
   copy->n_items = dict->n_items;
@@ -246,7 +246,7 @@ pw_node_info_update (struct pw_node_info       *info,
       free (info->input_formats[i]);
     info->n_input_formats = update->n_input_formats;
     if (info->n_input_formats)
-      info->input_formats = realloc (info->input_formats, info->n_input_formats * sizeof (SpaFormat *));
+      info->input_formats = realloc (info->input_formats, info->n_input_formats * sizeof (struct spa_format *));
     else {
       free (info->input_formats);
       info->input_formats = NULL;
@@ -262,7 +262,7 @@ pw_node_info_update (struct pw_node_info       *info,
       free (info->output_formats[i]);
     info->n_output_formats = update->n_output_formats;
     if (info->n_output_formats)
-      info->output_formats = realloc (info->output_formats, info->n_output_formats * sizeof (SpaFormat *));
+      info->output_formats = realloc (info->output_formats, info->n_output_formats * sizeof (struct spa_format *));
     else {
       free (info->output_formats);
       info->output_formats = NULL;

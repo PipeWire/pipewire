@@ -25,34 +25,34 @@
 #include <spa/audio/format.h>
 #include <lib/props.h>
 
+#define NAME "alsa-sink"
+
 #include "alsa-utils.h"
 
 #define CHECK_PORT(this,d,p)    ((d) == SPA_DIRECTION_INPUT && (p) == 0)
-
-typedef struct _SpaALSAState SpaALSASink;
 
 static const char default_device[] = "default";
 static const uint32_t default_min_latency = 1024;
 
 static void
-reset_alsa_sink_props (SpaALSAProps *props)
+reset_props (struct props *props)
 {
   strncpy (props->device, default_device, 64);
   props->min_latency = default_min_latency;
 }
 
-static SpaResult
-spa_alsa_sink_node_get_props (SpaNode       *node,
-                              SpaProps     **props)
+static int
+impl_node_get_props (struct spa_node       *node,
+                              struct spa_props     **props)
 {
-  SpaALSASink *this;
-  SpaPODBuilder b = { NULL,  };
-  SpaPODFrame f[2];
+  struct state *this;
+  struct spa_pod_builder b = { NULL,  };
+  struct spa_pod_frame f[2];
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (props != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaALSASink, node);
+  this = SPA_CONTAINER_OF (node, struct state, node);
 
   spa_pod_builder_init (&b, this->props_buffer, sizeof (this->props_buffer));
 
@@ -62,23 +62,23 @@ spa_alsa_sink_node_get_props (SpaNode       *node,
         PROP    (&f[1], this->type.prop_card_name,   -SPA_POD_TYPE_STRING, this->props.card_name, sizeof (this->props.card_name)),
         PROP_MM (&f[1], this->type.prop_min_latency,  SPA_POD_TYPE_INT,    this->props.min_latency, 1, INT32_MAX));
 
-  *props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
+  *props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_props);
 
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_alsa_sink_node_set_props (SpaNode         *node,
-                              const SpaProps  *props)
+static int
+impl_node_set_props (struct spa_node         *node,
+                              const struct spa_props  *props)
 {
-  SpaALSASink *this;
+  struct state *this;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaALSASink, node);
+  this = SPA_CONTAINER_OF (node, struct state, node);
 
   if (props == NULL) {
-    reset_alsa_sink_props (&this->props);
+    reset_props (&this->props);
     return SPA_RESULT_OK;
   } else {
     spa_props_query (props,
@@ -89,32 +89,32 @@ spa_alsa_sink_node_set_props (SpaNode         *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-do_send_event (SpaLoop        *loop,
-               bool            async,
-               uint32_t        seq,
-               size_t          size,
-               void           *data,
-               void           *user_data)
+static int
+do_send_event (struct spa_loop *loop,
+               bool             async,
+               uint32_t         seq,
+               size_t           size,
+               void            *data,
+               void            *user_data)
 {
-  SpaALSASink *this = user_data;
+  struct state *this = user_data;
 
   this->callbacks.event (&this->node, data, this->user_data);
 
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-do_command (SpaLoop        *loop,
-            bool            async,
-            uint32_t        seq,
-            size_t          size,
-            void           *data,
-            void           *user_data)
+static int
+do_command (struct spa_loop *loop,
+            bool             async,
+            uint32_t         seq,
+            size_t           size,
+            void            *data,
+            void            *user_data)
 {
-  SpaALSASink *this = user_data;
-  SpaResult res;
-  SpaCommand *cmd = data;
+  struct state *this = user_data;
+  int res;
+  struct spa_command *cmd = data;
 
   if (SPA_COMMAND_TYPE (cmd) == this->type.command_node.Start ||
       SPA_COMMAND_TYPE (cmd) == this->type.command_node.Pause) {
@@ -130,7 +130,7 @@ do_command (SpaLoop        *loop,
     spa_loop_invoke (this->main_loop,
                      do_send_event,
                      SPA_ID_INVALID,
-                     sizeof (SpaEventNodeAsyncComplete),
+                     sizeof (struct spa_event_node_async_complete),
                      &SPA_EVENT_NODE_ASYNC_COMPLETE_INIT (this->type.event_node.AsyncComplete,
                                                           seq, res),
                      this);
@@ -138,16 +138,16 @@ do_command (SpaLoop        *loop,
   return res;
 }
 
-static SpaResult
-spa_alsa_sink_node_send_command (SpaNode    *node,
-                                 SpaCommand *command)
+static int
+impl_node_send_command (struct spa_node    *node,
+                                 struct spa_command *command)
 {
-  SpaALSASink *this;
+  struct state *this;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (command != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaALSASink, node);
+  this = SPA_CONTAINER_OF (node, struct state, node);
 
   if (SPA_COMMAND_TYPE (command) == this->type.command_node.Start ||
       SPA_COMMAND_TYPE (command) == this->type.command_node.Pause) {
@@ -169,17 +169,17 @@ spa_alsa_sink_node_send_command (SpaNode    *node,
     return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_alsa_sink_node_set_callbacks (SpaNode                *node,
-                                  const SpaNodeCallbacks *callbacks,
+static int
+impl_node_set_callbacks (struct spa_node                *node,
+                                  const struct spa_node_callbacks *callbacks,
                                   size_t                  callbacks_size,
                                   void                   *user_data)
 {
-  SpaALSASink *this;
+  struct state *this;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaALSASink, node);
+  this = SPA_CONTAINER_OF (node, struct state, node);
 
   this->callbacks = *callbacks;
   this->user_data = user_data;
@@ -187,8 +187,8 @@ spa_alsa_sink_node_set_callbacks (SpaNode                *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_alsa_sink_node_get_n_ports (SpaNode       *node,
+static int
+impl_node_get_n_ports (struct spa_node       *node,
                                 uint32_t      *n_input_ports,
                                 uint32_t      *max_input_ports,
                                 uint32_t      *n_output_ports,
@@ -208,8 +208,8 @@ spa_alsa_sink_node_get_n_ports (SpaNode       *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_alsa_sink_node_get_port_ids (SpaNode       *node,
+static int
+impl_node_get_port_ids (struct spa_node       *node,
                                  uint32_t       n_input_ports,
                                  uint32_t      *input_ids,
                                  uint32_t       n_output_ports,
@@ -224,44 +224,44 @@ spa_alsa_sink_node_get_port_ids (SpaNode       *node,
 }
 
 
-static SpaResult
-spa_alsa_sink_node_add_port (SpaNode        *node,
-                             SpaDirection    direction,
+static int
+impl_node_add_port (struct spa_node        *node,
+                             enum spa_direction    direction,
                              uint32_t        port_id)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_alsa_sink_node_remove_port (SpaNode        *node,
-                                SpaDirection    direction,
+static int
+impl_node_remove_port (struct spa_node        *node,
+                                enum spa_direction    direction,
                                 uint32_t        port_id)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_alsa_sink_node_port_enum_formats (SpaNode         *node,
-                                      SpaDirection     direction,
+static int
+impl_node_port_enum_formats (struct spa_node         *node,
+                                      enum spa_direction     direction,
                                       uint32_t         port_id,
-                                      SpaFormat      **format,
-                                      const SpaFormat *filter,
+                                      struct spa_format      **format,
+                                      const struct spa_format *filter,
                                       uint32_t         index)
 {
-  SpaALSASink *this;
+  struct state *this;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (format != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaALSASink, node);
+  this = SPA_CONTAINER_OF (node, struct state, node);
 
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   return spa_alsa_enum_format (this, format, filter, index);
 }
 
-static SpaResult
-spa_alsa_clear_buffers (SpaALSASink *this)
+static int
+clear_buffers (struct state *this)
 {
   if (this->n_buffers > 0) {
     spa_list_init (&this->ready);
@@ -270,30 +270,30 @@ spa_alsa_clear_buffers (SpaALSASink *this)
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_alsa_sink_node_port_set_format (SpaNode         *node,
-                                    SpaDirection     direction,
+static int
+impl_node_port_set_format (struct spa_node         *node,
+                                    enum spa_direction     direction,
                                     uint32_t         port_id,
                                     uint32_t         flags,
-                                    const SpaFormat *format)
+                                    const struct spa_format *format)
 {
-  SpaALSASink *this;
+  struct state *this;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaALSASink, node);
+  this = SPA_CONTAINER_OF (node, struct state, node);
 
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   if (format == NULL) {
     spa_log_info (this->log, "clear format");
     spa_alsa_pause (this, false);
-    spa_alsa_clear_buffers (this);
+    clear_buffers (this);
     spa_alsa_close (this);
     this->have_format = false;
   } else {
-    SpaAudioInfo info = { SPA_FORMAT_MEDIA_TYPE (format),
-                          SPA_FORMAT_MEDIA_SUBTYPE (format), };
+    struct spa_audio_info info = { SPA_FORMAT_MEDIA_TYPE (format),
+                                   SPA_FORMAT_MEDIA_SUBTYPE (format), };
 
     if (info.media_type != this->type.media_type.audio ||
         info.media_subtype != this->type.media_subtype.raw)
@@ -318,20 +318,20 @@ spa_alsa_sink_node_port_set_format (SpaNode         *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_alsa_sink_node_port_get_format (SpaNode          *node,
-                                    SpaDirection      direction,
+static int
+impl_node_port_get_format (struct spa_node          *node,
+                                    enum spa_direction      direction,
                                     uint32_t          port_id,
-                                    const SpaFormat **format)
+                                    const struct spa_format **format)
 {
-  SpaALSASink *this;
-  SpaPODBuilder b = { NULL, };
-  SpaPODFrame f[2];
+  struct state *this;
+  struct spa_pod_builder b = { NULL, };
+  struct spa_pod_frame f[2];
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (format != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaALSASink, node);
+  this = SPA_CONTAINER_OF (node, struct state, node);
 
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
@@ -345,23 +345,23 @@ spa_alsa_sink_node_port_get_format (SpaNode          *node,
          PROP (&f[1], this->type.format_audio.rate,     SPA_POD_TYPE_INT, this->current_format.info.raw.rate),
          PROP (&f[1], this->type.format_audio.channels, SPA_POD_TYPE_INT, this->current_format.info.raw.channels));
 
-  *format = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
+  *format = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_format);
 
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_alsa_sink_node_port_get_info (SpaNode            *node,
-                                  SpaDirection        direction,
+static int
+impl_node_port_get_info (struct spa_node            *node,
+                                  enum spa_direction        direction,
                                   uint32_t            port_id,
-                                  const SpaPortInfo **info)
+                                  const struct spa_port_info **info)
 {
-  SpaALSASink *this;
+  struct state *this;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (info != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaALSASink, node);
+  this = SPA_CONTAINER_OF (node, struct state, node);
 
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
@@ -370,22 +370,22 @@ spa_alsa_sink_node_port_get_info (SpaNode            *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_alsa_sink_node_port_enum_params (SpaNode       *node,
-                                     SpaDirection   direction,
+static int
+impl_node_port_enum_params (struct spa_node       *node,
+                                     enum spa_direction   direction,
                                      uint32_t       port_id,
                                      uint32_t       index,
-                                     SpaParam     **param)
+                                     struct spa_param     **param)
 {
 
-  SpaALSASink *this;
-  SpaPODBuilder b = { NULL };
-  SpaPODFrame f[2];
+  struct state *this;
+  struct spa_pod_builder b = { NULL };
+  struct spa_pod_frame f[2];
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (param != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaALSASink, node);
+  this = SPA_CONTAINER_OF (node, struct state, node);
 
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
@@ -404,13 +404,13 @@ spa_alsa_sink_node_port_enum_params (SpaNode       *node,
   case 1:
     spa_pod_builder_object (&b, &f[0], 0, this->type.param_alloc_meta_enable.MetaEnable,
         PROP    (&f[1], this->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID, this->type.meta.Header),
-        PROP    (&f[1], this->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
+        PROP    (&f[1], this->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (struct spa_meta_header)));
     break;
 
   case 2:
     spa_pod_builder_object (&b, &f[0], 0, this->type.param_alloc_meta_enable.MetaEnable,
         PROP    (&f[1], this->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID, this->type.meta.Ringbuffer),
-        PROP    (&f[1], this->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaRingbuffer)),
+        PROP    (&f[1], this->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (struct spa_meta_ringbuffer)),
         PROP    (&f[1], this->type.param_alloc_meta_enable.ringbufferSize,   SPA_POD_TYPE_INT, this->period_frames * this->frame_size * 32),
         PROP    (&f[1], this->type.param_alloc_meta_enable.ringbufferStride, SPA_POD_TYPE_INT, 0),
         PROP    (&f[1], this->type.param_alloc_meta_enable.ringbufferBlocks, SPA_POD_TYPE_INT, 1),
@@ -421,33 +421,33 @@ spa_alsa_sink_node_port_enum_params (SpaNode       *node,
     return SPA_RESULT_NOT_IMPLEMENTED;
   }
 
-  *param = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaParam);
+  *param = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_param);
 
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_alsa_sink_node_port_set_param (SpaNode         *node,
-                                   SpaDirection     direction,
+static int
+impl_node_port_set_param (struct spa_node         *node,
+                                   enum spa_direction     direction,
                                    uint32_t         port_id,
-                                   const SpaParam  *param)
+                                   const struct spa_param  *param)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_alsa_sink_node_port_use_buffers (SpaNode         *node,
-                                     SpaDirection     direction,
-                                     uint32_t         port_id,
-                                     SpaBuffer      **buffers,
-                                     uint32_t         n_buffers)
+static int
+impl_node_port_use_buffers (struct spa_node            *node,
+                                     enum spa_direction        direction,
+                                     uint32_t            port_id,
+                                     struct spa_buffer **buffers,
+                                     uint32_t            n_buffers)
 {
-  SpaALSASink *this;
+  struct state *this;
   int i;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaALSASink, node);
+  this = SPA_CONTAINER_OF (node, struct state, node);
 
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
@@ -458,12 +458,12 @@ spa_alsa_sink_node_port_use_buffers (SpaNode         *node,
 
   if (n_buffers == 0) {
     spa_alsa_pause (this, false);
-    spa_alsa_clear_buffers (this);
+    clear_buffers (this);
     return SPA_RESULT_OK;
   }
 
   for (i = 0; i < n_buffers; i++) {
-    SpaALSABuffer *b = &this->buffers[i];
+    struct buffer *b = &this->buffers[i];
     uint32_t type = buffers[i]->datas[0].type;
 
     b->outbuf = buffers[i];
@@ -476,7 +476,7 @@ spa_alsa_sink_node_port_use_buffers (SpaNode         *node,
          type == this->type.data.DmaBuf ||
          type == this->type.data.MemPtr) &&
         buffers[i]->datas[0].data == NULL) {
-      spa_log_error (this->log, "alsa-source: need mapped memory");
+      spa_log_error (this->log, NAME " %p: need mapped memory", this);
       return SPA_RESULT_ERROR;
     }
   }
@@ -485,21 +485,21 @@ spa_alsa_sink_node_port_use_buffers (SpaNode         *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_alsa_sink_node_port_alloc_buffers (SpaNode         *node,
-                                       SpaDirection     direction,
-                                       uint32_t         port_id,
-                                       SpaParam       **params,
-                                       uint32_t         n_params,
-                                       SpaBuffer      **buffers,
-                                       uint32_t        *n_buffers)
+static int
+impl_node_port_alloc_buffers (struct spa_node            *node,
+                                       enum spa_direction        direction,
+                                       uint32_t            port_id,
+                                       struct spa_param          **params,
+                                       uint32_t            n_params,
+                                       struct spa_buffer **buffers,
+                                       uint32_t           *n_buffers)
 {
-  SpaALSASink *this;
+  struct state *this;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (buffers != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaALSASink, node);
+  this = SPA_CONTAINER_OF (node, struct state, node);
 
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
@@ -509,17 +509,17 @@ spa_alsa_sink_node_port_alloc_buffers (SpaNode         *node,
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_alsa_sink_node_port_set_io (SpaNode      *node,
-                                SpaDirection  direction,
+static int
+impl_node_port_set_io (struct spa_node      *node,
+                                enum spa_direction  direction,
                                 uint32_t      port_id,
-                                SpaPortIO    *io)
+                                struct spa_port_io    *io)
 {
-  SpaALSASink *this;
+  struct state *this;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaALSASink, node);
+  this = SPA_CONTAINER_OF (node, struct state, node);
 
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
@@ -528,26 +528,26 @@ spa_alsa_sink_node_port_set_io (SpaNode      *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_alsa_sink_node_port_reuse_buffer (SpaNode         *node,
+static int
+impl_node_port_reuse_buffer (struct spa_node         *node,
                                       uint32_t         port_id,
                                       uint32_t         buffer_id)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_alsa_sink_node_port_send_command (SpaNode          *node,
-                                      SpaDirection      direction,
-                                      uint32_t          port_id,
-                                      SpaCommand       *command)
+static int
+impl_node_port_send_command (struct spa_node            *node,
+                                      enum spa_direction        direction,
+                                      uint32_t            port_id,
+                                      struct spa_command *command)
 {
-  SpaALSASink *this;
-  SpaResult res;
+  struct state *this;
+  int res;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaALSASink, node);
+  this = SPA_CONTAINER_OF (node, struct state, node);
 
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
@@ -563,29 +563,29 @@ spa_alsa_sink_node_port_send_command (SpaNode          *node,
   return res;
 }
 
-static SpaResult
-spa_alsa_sink_node_process_input (SpaNode *node)
+static int
+impl_node_process_input (struct spa_node *node)
 {
-  SpaALSASink *this;
-  SpaPortIO *input;
+  struct state *this;
+  struct spa_port_io *input;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaALSASink, node);
+  this = SPA_CONTAINER_OF (node, struct state, node);
   input = this->io;
   spa_return_val_if_fail (input != NULL, SPA_RESULT_WRONG_STATE);
 
   if (input->status == SPA_RESULT_HAVE_BUFFER &&
       input->buffer_id != SPA_ID_INVALID) {
-    SpaALSABuffer *b = &this->buffers[input->buffer_id];
+    struct buffer *b = &this->buffers[input->buffer_id];
 
     if (!b->outstanding) {
-      spa_log_warn (this->log, "alsa-sink %p: buffer %u in use", this, input->buffer_id);
+      spa_log_warn (this->log, NAME " %p: buffer %u in use", this, input->buffer_id);
       input->status = SPA_RESULT_INVALID_BUFFER_ID;
       return SPA_RESULT_ERROR;
     }
 
-    spa_log_trace (this->log, "alsa-sink %p: queue buffer %u", this, input->buffer_id);
+    spa_log_trace (this->log, NAME " %p: queue buffer %u", this, input->buffer_id);
 
     spa_list_insert (this->ready.prev, &b->link);
     b->outstanding = false;
@@ -595,50 +595,50 @@ spa_alsa_sink_node_process_input (SpaNode *node)
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_alsa_sink_node_process_output (SpaNode *node)
+static int
+impl_node_process_output (struct spa_node *node)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 
-static const SpaNode alsasink_node = {
-  sizeof (SpaNode),
+static const struct spa_node impl_node = {
+  sizeof (struct spa_node),
   NULL,
-  spa_alsa_sink_node_get_props,
-  spa_alsa_sink_node_set_props,
-  spa_alsa_sink_node_send_command,
-  spa_alsa_sink_node_set_callbacks,
-  spa_alsa_sink_node_get_n_ports,
-  spa_alsa_sink_node_get_port_ids,
-  spa_alsa_sink_node_add_port,
-  spa_alsa_sink_node_remove_port,
-  spa_alsa_sink_node_port_enum_formats,
-  spa_alsa_sink_node_port_set_format,
-  spa_alsa_sink_node_port_get_format,
-  spa_alsa_sink_node_port_get_info,
-  spa_alsa_sink_node_port_enum_params,
-  spa_alsa_sink_node_port_set_param,
-  spa_alsa_sink_node_port_use_buffers,
-  spa_alsa_sink_node_port_alloc_buffers,
-  spa_alsa_sink_node_port_set_io,
-  spa_alsa_sink_node_port_reuse_buffer,
-  spa_alsa_sink_node_port_send_command,
-  spa_alsa_sink_node_process_input,
-  spa_alsa_sink_node_process_output,
+  impl_node_get_props,
+  impl_node_set_props,
+  impl_node_send_command,
+  impl_node_set_callbacks,
+  impl_node_get_n_ports,
+  impl_node_get_port_ids,
+  impl_node_add_port,
+  impl_node_remove_port,
+  impl_node_port_enum_formats,
+  impl_node_port_set_format,
+  impl_node_port_get_format,
+  impl_node_port_get_info,
+  impl_node_port_enum_params,
+  impl_node_port_set_param,
+  impl_node_port_use_buffers,
+  impl_node_port_alloc_buffers,
+  impl_node_port_set_io,
+  impl_node_port_reuse_buffer,
+  impl_node_port_send_command,
+  impl_node_process_input,
+  impl_node_process_output,
 };
 
-static SpaResult
-spa_alsa_sink_get_interface (SpaHandle               *handle,
+static int
+impl_get_interface (struct spa_handle               *handle,
                              uint32_t                 interface_id,
                              void                   **interface)
 {
-  SpaALSASink *this;
+  struct state *this;
 
   spa_return_val_if_fail (handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (interface != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = (SpaALSASink *) handle;
+  this = (struct state *) handle;
 
   if (interface_id == this->type.node)
     *interface = &this->node;
@@ -648,29 +648,29 @@ spa_alsa_sink_get_interface (SpaHandle               *handle,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-alsa_sink_clear (SpaHandle *handle)
+static int
+impl_clear (struct spa_handle *handle)
 {
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-alsa_sink_init (const SpaHandleFactory  *factory,
-                SpaHandle               *handle,
-                const SpaDict           *info,
-                const SpaSupport        *support,
+static int
+impl_init (const struct spa_handle_factory  *factory,
+                struct spa_handle               *handle,
+                const struct spa_dict           *info,
+                const struct spa_support        *support,
                 uint32_t                 n_support)
 {
-  SpaALSASink *this;
+  struct state *this;
   uint32_t i;
 
   spa_return_val_if_fail (factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  handle->get_interface = spa_alsa_sink_get_interface;
-  handle->clear = alsa_sink_clear;
+  handle->get_interface = impl_get_interface;
+  handle->clear = impl_clear;
 
-  this = (SpaALSASink *) handle;
+  this = (struct state *) handle;
 
   for (i = 0; i < n_support; i++) {
     if (strcmp (support[i].type, SPA_TYPE__TypeMap) == 0)
@@ -696,9 +696,9 @@ alsa_sink_init (const SpaHandleFactory  *factory,
   }
   init_type (&this->type, this->map);
 
-  this->node = alsasink_node;
+  this->node = impl_node;
   this->stream = SND_PCM_STREAM_PLAYBACK;
-  reset_alsa_sink_props (&this->props);
+  reset_props (&this->props);
 
   spa_list_init (&this->ready);
 
@@ -711,14 +711,14 @@ alsa_sink_init (const SpaHandleFactory  *factory,
   return SPA_RESULT_OK;
 }
 
-static const SpaInterfaceInfo alsa_sink_interfaces[] =
+static const struct spa_interface_info impl_interfaces[] =
 {
   { SPA_TYPE__Node, },
 };
 
-static SpaResult
-alsa_sink_enum_interface_info (const SpaHandleFactory  *factory,
-                               const SpaInterfaceInfo **info,
+static int
+impl_enum_interface_info (const struct spa_handle_factory  *factory,
+                               const struct spa_interface_info **info,
                                uint32_t                 index)
 {
   spa_return_val_if_fail (factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
@@ -726,7 +726,7 @@ alsa_sink_enum_interface_info (const SpaHandleFactory  *factory,
 
   switch (index) {
     case 0:
-      *info = &alsa_sink_interfaces[index];
+      *info = &impl_interfaces[index];
       break;
     default:
       return SPA_RESULT_ENUM_END;
@@ -734,10 +734,10 @@ alsa_sink_enum_interface_info (const SpaHandleFactory  *factory,
   return SPA_RESULT_OK;
 }
 
-const SpaHandleFactory spa_alsa_sink_factory =
-{ "alsa-sink",
+const struct spa_handle_factory spa_alsa_sink_factory =
+{ NAME,
   NULL,
-  sizeof (SpaALSASink),
-  alsa_sink_init,
-  alsa_sink_enum_interface_info,
+  sizeof (struct state),
+  impl_init,
+  impl_enum_interface_info,
 };

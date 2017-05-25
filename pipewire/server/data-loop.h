@@ -41,8 +41,8 @@ struct pw_data_loop {
 struct pw_data_loop * pw_data_loop_new              (void);
 void                  pw_data_loop_destroy          (struct pw_data_loop *loop);
 
-SpaResult             pw_data_loop_start            (struct pw_data_loop *loop);
-SpaResult             pw_data_loop_stop             (struct pw_data_loop *loop);
+int             pw_data_loop_start            (struct pw_data_loop *loop);
+int             pw_data_loop_stop             (struct pw_data_loop *loop);
 
 bool                  pw_data_loop_in_thread        (struct pw_data_loop *loop);
 

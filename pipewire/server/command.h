@@ -28,7 +28,7 @@ extern "C" {
 #include <pipewire/server/core.h>
 
 struct pw_command {
-  SpaList link;
+  struct spa_list link;
 
   const char *name;
 };

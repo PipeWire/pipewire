@@ -83,7 +83,7 @@ static const SpaPropInfo prop_info[] =
   { 0, },
 };
 
-static SpaResult
+static int
 spa_libva_dec_node_get_props (SpaHandle     *handle,
                               SpaProps     **props)
 {
@@ -98,13 +98,13 @@ spa_libva_dec_node_get_props (SpaHandle     *handle,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
+static int
 spa_libva_dec_node_set_props (SpaHandle       *handle,
                               const SpaProps  *props)
 {
   SpaLibvaDec *this = (SpaLibvaDec *) handle;
   SpaLibvaDecProps *p = &this->props[1];
-  SpaResult res;
+  int res;
 
   if (handle == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -119,7 +119,7 @@ spa_libva_dec_node_set_props (SpaHandle       *handle,
   return res;
 }
 
-static SpaResult
+static int
 spa_libva_dec_node_send_command (SpaHandle     *handle,
                                  SpaCommand    *command)
 {
@@ -169,7 +169,7 @@ spa_libva_dec_node_send_command (SpaHandle     *handle,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
+static int
 spa_libva_dec_node_set_event_callback (SpaHandle            *handle,
                                        SpaNodeEventCallback  event,
                                        void                 *user_data)
@@ -185,7 +185,7 @@ spa_libva_dec_node_set_event_callback (SpaHandle            *handle,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
+static int
 spa_libva_dec_node_get_n_ports (SpaHandle     *handle,
                                 uint32_t      *n_input_ports,
                                 uint32_t      *max_input_ports,
@@ -207,7 +207,7 @@ spa_libva_dec_node_get_n_ports (SpaHandle     *handle,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
+static int
 spa_libva_dec_node_get_port_ids (SpaHandle     *handle,
                                  uint32_t       n_input_ports,
                                  uint32_t      *input_ids,
@@ -226,7 +226,7 @@ spa_libva_dec_node_get_port_ids (SpaHandle     *handle,
 }
 
 
-static SpaResult
+static int
 spa_libva_dec_node_add_port (SpaHandle      *handle,
                              SpaDirection    direction,
                              uint32_t       *port_id)
@@ -234,14 +234,14 @@ spa_libva_dec_node_add_port (SpaHandle      *handle,
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
+static int
 spa_libva_dec_node_remove_port (SpaHandle      *handle,
                                  uint32_t        port_id)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
+static int
 spa_libva_dec_node_port_enum_formats (SpaHandle       *handle,
                                       uint32_t         port_id,
                                       uint32_t         index,
@@ -270,7 +270,7 @@ spa_libva_dec_node_port_enum_formats (SpaHandle       *handle,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
+static int
 spa_libva_dec_node_port_set_format (SpaHandle       *handle,
                                     uint32_t         port_id,
                                     bool             test_only,
@@ -278,7 +278,7 @@ spa_libva_dec_node_port_set_format (SpaHandle       *handle,
 {
   SpaLibvaDec *this = (SpaLibvaDec *) handle;
   SpaLibvaState *state;
-  SpaResult res;
+  int res;
   SpaFormat *f, *tf;
   size_t fs;
 
@@ -316,7 +316,7 @@ spa_libva_dec_node_port_set_format (SpaHandle       *handle,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
+static int
 spa_libva_dec_node_port_get_format (SpaHandle        *handle,
                                     uint32_t          port_id,
                                     const SpaFormat **format)
@@ -340,7 +340,7 @@ spa_libva_dec_node_port_get_format (SpaHandle        *handle,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
+static int
 spa_libva_dec_node_port_get_info (SpaHandle          *handle,
                                   uint32_t            port_id,
                                   const SpaPortInfo **info)
@@ -358,7 +358,7 @@ spa_libva_dec_node_port_get_info (SpaHandle          *handle,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
+static int
 spa_libva_dec_node_port_get_props (SpaHandle  *handle,
                                    uint32_t    port_id,
                                    SpaProps  **props)
@@ -366,7 +366,7 @@ spa_libva_dec_node_port_get_props (SpaHandle  *handle,
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
+static int
 spa_libva_dec_node_port_set_props (SpaHandle       *handle,
                                    uint32_t         port_id,
                                    const SpaProps  *props)
@@ -374,7 +374,7 @@ spa_libva_dec_node_port_set_props (SpaHandle       *handle,
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
+static int
 spa_libva_dec_node_port_get_status (SpaHandle            *handle,
                                     uint32_t              port_id,
                                     const SpaPortStatus **status)
@@ -392,7 +392,7 @@ spa_libva_dec_node_port_get_status (SpaHandle            *handle,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
+static int
 spa_libva_dec_node_port_use_buffers (SpaHandle       *handle,
                                      uint32_t         port_id,
                                      SpaBuffer      **buffers,
@@ -407,7 +407,7 @@ spa_libva_dec_node_port_use_buffers (SpaHandle       *handle,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
+static int
 spa_libva_dec_node_port_alloc_buffers (SpaHandle       *handle,
                                        uint32_t         port_id,
                                        SpaParam       **params,
@@ -419,7 +419,7 @@ spa_libva_dec_node_port_alloc_buffers (SpaHandle       *handle,
 }
 
 
-static SpaResult
+static int
 spa_libva_dec_node_port_push_input (SpaHandle      *handle,
                                     uint32_t        n_info,
                                     SpaInputInfo   *info)
@@ -427,7 +427,7 @@ spa_libva_dec_node_port_push_input (SpaHandle      *handle,
   return SPA_RESULT_INVALID_PORT;
 }
 
-static SpaResult
+static int
 spa_libva_dec_node_port_pull_output (SpaHandle      *handle,
                                      uint32_t        n_info,
                                      SpaOutputInfo  *info)
@@ -485,7 +485,7 @@ static const SpaNode libva_dec_node = {
   spa_libva_dec_node_port_pull_output,
 };
 
-static SpaResult
+static int
 spa_libva_dec_get_interface (SpaHandle               *handle,
                              uint32_t                 interface_id,
                              const void             **interface)

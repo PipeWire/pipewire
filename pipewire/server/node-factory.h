@@ -37,7 +37,7 @@ extern "C" {
  */
 struct pw_node_factory {
   struct pw_core   *core;
-  SpaList           link;
+  struct spa_list   link;
   struct pw_global *global;
 
   const char *name;

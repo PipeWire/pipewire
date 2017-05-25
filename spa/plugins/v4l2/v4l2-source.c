@@ -36,35 +36,33 @@
 #include <lib/debug.h>
 #include <lib/props.h>
 
-typedef struct _SpaV4l2Source SpaV4l2Source;
+#define NAME "v4l2-source"
 
 static const char default_device[] = "/dev/video0";
 
-typedef struct {
+struct props {
   char device[64];
   char device_name[128];
   int  device_fd;
-} SpaV4l2SourceProps;
+};
 
 static void
-reset_v4l2_source_props (SpaV4l2SourceProps *props)
+reset_props (struct props *props)
 {
   strncpy (props->device, default_device, 64);
 }
 
 #define MAX_BUFFERS     64
 
-typedef struct _V4l2Buffer V4l2Buffer;
-
-struct _V4l2Buffer {
-  SpaBuffer *outbuf;
-  SpaMetaHeader *h;
+struct buffer {
+  struct spa_buffer *outbuf;
+  struct spa_meta_header *h;
   bool outstanding;
   bool allocated;
   struct v4l2_buffer v4l2_buffer;
 };
 
-typedef struct {
+struct type {
   uint32_t node;
   uint32_t clock;
   uint32_t format;
@@ -72,21 +70,21 @@ typedef struct {
   uint32_t prop_device;
   uint32_t prop_device_name;
   uint32_t prop_device_fd;
-  SpaTypeMediaType media_type;
-  SpaTypeMediaSubtype media_subtype;
-  SpaTypeMediaSubtypeVideo media_subtype_video;
-  SpaTypeFormatVideo format_video;
-  SpaTypeVideoFormat video_format;
-  SpaTypeEventNode event_node;
-  SpaTypeCommandNode command_node;
-  SpaTypeParamAllocBuffers param_alloc_buffers;
-  SpaTypeParamAllocMetaEnable param_alloc_meta_enable;
-  SpaTypeMeta meta;
-  SpaTypeData data;
-} Type;
+  struct spa_type_media_type media_type;
+  struct spa_type_media_subtype media_subtype;
+  struct spa_type_media_subtype_video media_subtype_video;
+  struct spa_type_format_video format_video;
+  struct spa_type_video_format video_format;
+  struct spa_type_event_node event_node;
+  struct spa_type_command_node command_node;
+  struct spa_type_param_alloc_buffers param_alloc_buffers;
+  struct spa_type_param_alloc_meta_enable param_alloc_meta_enable;
+  struct spa_type_meta meta;
+  struct spa_type_data data;
+};
 
 static inline void
-init_type (Type *type, SpaTypeMap *map)
+init_type (struct type *type, struct spa_type_map *map)
 {
   type->node = spa_type_map_get_id (map, SPA_TYPE__Node);
   type->clock = spa_type_map_get_id (map, SPA_TYPE__Clock);
@@ -108,10 +106,10 @@ init_type (Type *type, SpaTypeMap *map)
   spa_type_data_map (map, &type->data);
 }
 
-typedef struct {
-  SpaLog *log;
-  SpaLoop *main_loop;
-  SpaLoop *data_loop;
+struct port {
+  struct spa_log *log;
+  struct spa_loop *main_loop;
+  struct spa_loop *data_loop;
 
   bool export_buf;
   bool started;
@@ -123,7 +121,7 @@ typedef struct {
   struct v4l2_frmivalenum frmival;
 
   bool have_format;
-  SpaVideoInfo current_format;
+  struct spa_video_info current_format;
   uint8_t format_buffer[1024];
 
   int fd;
@@ -133,38 +131,38 @@ typedef struct {
   enum v4l2_buf_type type;
   enum v4l2_memory memtype;
 
-  V4l2Buffer   buffers[MAX_BUFFERS];
-  uint32_t     n_buffers;
+  struct buffer buffers[MAX_BUFFERS];
+  uint32_t n_buffers;
 
   bool source_enabled;
-  SpaSource source;
+  struct spa_source source;
 
-  SpaPortInfo info;
+  struct spa_port_info info;
   uint8_t params_buffer[1024];
-  SpaPortIO *io;
+  struct spa_port_io *io;
 
   int64_t last_ticks;
   int64_t last_monotonic;
-} SpaV4l2State;
+};
 
-struct _SpaV4l2Source {
-  SpaHandle handle;
-  SpaNode node;
-  SpaClock clock;
+struct impl {
+  struct spa_handle handle;
+  struct spa_node node;
+  struct spa_clock clock;
 
-  SpaTypeMap *map;
-  SpaLog *log;
-  Type type;
+  struct spa_type_map *map;
+  struct spa_log *log;
+  struct type type;
 
   uint32_t seq;
 
   uint8_t props_buffer[512];
-  SpaV4l2SourceProps props;
+  struct props props;
 
-  SpaNodeCallbacks callbacks;
+  struct spa_node_callbacks callbacks;
   void *user_data;
 
-  SpaV4l2State state[1];
+  struct port out_ports[1];
 };
 
 #define CHECK_PORT(this,direction,port_id)  ((direction) == SPA_DIRECTION_OUTPUT && (port_id) == 0)
@@ -186,41 +184,41 @@ struct _SpaV4l2Source {
                               SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
 #include "v4l2-utils.c"
 
-static SpaResult
-spa_v4l2_source_node_get_props (SpaNode       *node,
-                                SpaProps     **props)
+static int
+impl_node_get_props (struct spa_node       *node,
+                                struct spa_props     **props)
 {
-  SpaV4l2Source *this;
-  SpaPODBuilder b = { NULL,  };
-  SpaPODFrame f[2];
+  struct impl *this;
+  struct spa_pod_builder b = { NULL,  };
+  struct spa_pod_frame f[2];
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (props != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   spa_pod_builder_init (&b, this->props_buffer, sizeof (this->props_buffer));
   spa_pod_builder_props (&b, &f[0], this->type.props,
       PROP   (&f[1], this->type.prop_device,      -SPA_POD_TYPE_STRING, this->props.device, sizeof (this->props.device)),
       PROP_R (&f[1], this->type.prop_device_name, -SPA_POD_TYPE_STRING, this->props.device_name, sizeof (this->props.device_name)),
       PROP_R (&f[1], this->type.prop_device_fd,    SPA_POD_TYPE_INT,    this->props.device_fd));
-  *props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
+  *props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_props);
 
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_v4l2_source_node_set_props (SpaNode         *node,
-                                const SpaProps  *props)
+static int
+impl_node_set_props (struct spa_node         *node,
+                                const struct spa_props  *props)
 {
-  SpaV4l2Source *this;
+  struct impl *this;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   if (props == NULL) {
-    reset_v4l2_source_props (&this->props);
+    reset_props (&this->props);
     return SPA_RESULT_OK;
   } else {
     spa_props_query (props,
@@ -230,36 +228,36 @@ spa_v4l2_source_node_set_props (SpaNode         *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-do_pause_done (SpaLoop        *loop,
-               bool            async,
-               uint32_t        seq,
-               size_t          size,
-               void           *data,
-               void           *user_data)
+static int
+do_pause_done (struct spa_loop *loop,
+               bool             async,
+               uint32_t         seq,
+               size_t           size,
+               void            *data,
+               void            *user_data)
 {
-  SpaV4l2Source *this = user_data;
-  SpaEventNodeAsyncComplete *ac = data;
+  struct impl *this = user_data;
+  struct spa_event_node_async_complete *ac = data;
 
   if (SPA_RESULT_IS_OK (ac->body.res.value))
     ac->body.res.value = spa_v4l2_stream_off (this);
 
-  this->callbacks.event (&this->node, (SpaEvent *)ac, this->user_data);
+  this->callbacks.event (&this->node, (struct spa_event *)ac, this->user_data);
 
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-do_pause (SpaLoop        *loop,
-          bool            async,
-          uint32_t        seq,
-          size_t          size,
-          void           *data,
-          void           *user_data)
+static int
+do_pause (struct spa_loop *loop,
+          bool             async,
+          uint32_t         seq,
+          size_t           size,
+          void            *data,
+          void            *user_data)
 {
-  SpaV4l2Source *this = user_data;
-  SpaResult res;
-  SpaCommand *cmd = data;
+  struct impl *this = user_data;
+  int res;
+  struct spa_command *cmd = data;
 
   res = spa_node_port_send_command (&this->node,
                                     SPA_DIRECTION_OUTPUT,
@@ -267,10 +265,10 @@ do_pause (SpaLoop        *loop,
                                     cmd);
 
   if (async) {
-    spa_loop_invoke (this->state[0].main_loop,
+    spa_loop_invoke (this->out_ports[0].main_loop,
                      do_pause_done,
                      seq,
-                     sizeof (SpaEventNodeAsyncComplete),
+                     sizeof (struct spa_event_node_async_complete),
                      &SPA_EVENT_NODE_ASYNC_COMPLETE_INIT (this->type.event_node.AsyncComplete,
                                                           seq, res),
                      this);
@@ -278,33 +276,33 @@ do_pause (SpaLoop        *loop,
   return res;
 }
 
-static SpaResult
-do_start_done (SpaLoop        *loop,
-               bool            async,
-               uint32_t        seq,
-               size_t          size,
-               void           *data,
-               void           *user_data)
+static int
+do_start_done (struct spa_loop *loop,
+               bool             async,
+               uint32_t         seq,
+               size_t           size,
+               void            *data,
+               void            *user_data)
 {
-  SpaV4l2Source *this = user_data;
-  SpaEventNodeAsyncComplete *ac = data;
+  struct impl *this = user_data;
+  struct spa_event_node_async_complete *ac = data;
 
-  this->callbacks.event (&this->node, (SpaEvent *)ac, this->user_data);
+  this->callbacks.event (&this->node, (struct spa_event *)ac, this->user_data);
 
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-do_start (SpaLoop        *loop,
-          bool            async,
-          uint32_t        seq,
-          size_t          size,
-          void           *data,
-          void           *user_data)
+static int
+do_start (struct spa_loop *loop,
+          bool             async,
+          uint32_t         seq,
+          size_t           size,
+          void            *data,
+          void            *user_data)
 {
-  SpaV4l2Source *this = user_data;
-  SpaResult res;
-  SpaCommand *cmd = data;
+  struct impl *this = user_data;
+  int res;
+  struct spa_command *cmd = data;
 
   res = spa_node_port_send_command (&this->node,
                                     SPA_DIRECTION_OUTPUT,
@@ -312,10 +310,10 @@ do_start (SpaLoop        *loop,
                                     cmd);
 
   if (async) {
-    spa_loop_invoke (this->state[0].main_loop,
+    spa_loop_invoke (this->out_ports[0].main_loop,
                      do_start_done,
                      seq,
-                     sizeof (SpaEventNodeAsyncComplete),
+                     sizeof (struct spa_event_node_async_complete),
                      &SPA_EVENT_NODE_ASYNC_COMPLETE_INIT (this->type.event_node.AsyncComplete,
                                                           seq, res),
                      this);
@@ -324,20 +322,20 @@ do_start (SpaLoop        *loop,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_v4l2_source_node_send_command (SpaNode    *node,
-                                   SpaCommand *command)
+static int
+impl_node_send_command (struct spa_node    *node,
+                                   struct spa_command *command)
 {
-  SpaV4l2Source *this;
+  struct impl *this;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (command != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   if (SPA_COMMAND_TYPE (command) == this->type.command_node.Start) {
-    SpaV4l2State *state = &this->state[0];
-    SpaResult res;
+    struct port *state = &this->out_ports[0];
+    int res;
 
     if (!state->have_format)
       return SPA_RESULT_NO_FORMAT;
@@ -348,7 +346,7 @@ spa_v4l2_source_node_send_command (SpaNode    *node,
     if ((res = spa_v4l2_stream_on (this)) < 0)
       return res;
 
-    return spa_loop_invoke (this->state[0].data_loop,
+    return spa_loop_invoke (this->out_ports[0].data_loop,
                             do_start,
                             ++this->seq,
                             SPA_POD_SIZE (command),
@@ -356,7 +354,7 @@ spa_v4l2_source_node_send_command (SpaNode    *node,
                             this);
   }
   else if (SPA_COMMAND_TYPE (command) == this->type.command_node.Pause) {
-    SpaV4l2State *state = &this->state[0];
+    struct port *state = &this->out_ports[0];
 
     if (!state->have_format)
       return SPA_RESULT_NO_FORMAT;
@@ -364,7 +362,7 @@ spa_v4l2_source_node_send_command (SpaNode    *node,
     if (state->n_buffers == 0)
       return SPA_RESULT_NO_BUFFERS;
 
-    return spa_loop_invoke (this->state[0].data_loop,
+    return spa_loop_invoke (this->out_ports[0].data_loop,
                             do_pause,
                             ++this->seq,
                             SPA_POD_SIZE (command),
@@ -378,17 +376,17 @@ spa_v4l2_source_node_send_command (SpaNode    *node,
     return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_v4l2_source_node_set_callbacks (SpaNode                *node,
-                                    const SpaNodeCallbacks *callbacks,
+static int
+impl_node_set_callbacks (struct spa_node                *node,
+                                    const struct spa_node_callbacks *callbacks,
                                     size_t                  callbacks_size,
                                     void                   *user_data)
 {
-  SpaV4l2Source *this;
+  struct impl *this;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   this->callbacks = *callbacks;
   this->user_data = user_data;
@@ -396,8 +394,8 @@ spa_v4l2_source_node_set_callbacks (SpaNode                *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_v4l2_source_node_get_n_ports (SpaNode       *node,
+static int
+impl_node_get_n_ports (struct spa_node       *node,
                                   uint32_t      *n_input_ports,
                                   uint32_t      *max_input_ports,
                                   uint32_t      *n_output_ports,
@@ -417,8 +415,8 @@ spa_v4l2_source_node_get_n_ports (SpaNode       *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_v4l2_source_node_get_port_ids (SpaNode       *node,
+static int
+impl_node_get_port_ids (struct spa_node       *node,
                                    uint32_t       n_input_ports,
                                    uint32_t      *input_ids,
                                    uint32_t       n_output_ports,
@@ -433,37 +431,37 @@ spa_v4l2_source_node_get_port_ids (SpaNode       *node,
 }
 
 
-static SpaResult
-spa_v4l2_source_node_add_port (SpaNode        *node,
-                               SpaDirection    direction,
+static int
+impl_node_add_port (struct spa_node        *node,
+                               enum spa_direction    direction,
                                uint32_t        port_id)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_v4l2_source_node_remove_port (SpaNode        *node,
-                                  SpaDirection    direction,
+static int
+impl_node_remove_port (struct spa_node        *node,
+                                  enum spa_direction    direction,
                                   uint32_t        port_id)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_v4l2_source_node_port_enum_formats (SpaNode         *node,
-                                        SpaDirection     direction,
+static int
+impl_node_port_enum_formats (struct spa_node         *node,
+                                        enum spa_direction     direction,
                                         uint32_t         port_id,
-                                        SpaFormat      **format,
-                                        const SpaFormat *filter,
+                                        struct spa_format      **format,
+                                        const struct spa_format *filter,
                                         uint32_t         index)
 {
-  SpaV4l2Source *this;
-  SpaResult res;
+  struct impl *this;
+  int res;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (format != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
@@ -472,24 +470,24 @@ spa_v4l2_source_node_port_enum_formats (SpaNode         *node,
   return res;
 }
 
-static SpaResult
-spa_v4l2_source_node_port_set_format (SpaNode         *node,
-                                      SpaDirection     direction,
+static int
+impl_node_port_set_format (struct spa_node         *node,
+                                      enum spa_direction     direction,
                                       uint32_t         port_id,
                                       uint32_t         flags,
-                                      const SpaFormat *format)
+                                      const struct spa_format *format)
 {
-  SpaV4l2Source *this;
-  SpaV4l2State *state;
-  SpaVideoInfo info;
+  struct impl *this;
+  struct port *state;
+  struct spa_video_info info;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
-  state = &this->state[port_id];
+  state = &this->out_ports[port_id];
 
   if (format == NULL) {
     spa_v4l2_stream_off (this);
@@ -557,25 +555,25 @@ spa_v4l2_source_node_port_set_format (SpaNode         *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_v4l2_source_node_port_get_format (SpaNode          *node,
-                                      SpaDirection      direction,
+static int
+impl_node_port_get_format (struct spa_node          *node,
+                                      enum spa_direction      direction,
                                       uint32_t          port_id,
-                                      const SpaFormat **format)
+                                      const struct spa_format **format)
 {
-  SpaV4l2Source *this;
-  SpaV4l2State *state;
-  SpaPODBuilder b = { NULL, };
-  SpaPODFrame f[2];
+  struct impl *this;
+  struct port *state;
+  struct spa_pod_builder b = { NULL, };
+  struct spa_pod_frame f[2];
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (format != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
-  state = &this->state[port_id];
+  state = &this->out_ports[port_id];
 
   if (!state->have_format)
     return SPA_RESULT_NO_FORMAT;
@@ -611,52 +609,52 @@ spa_v4l2_source_node_port_get_format (SpaNode          *node,
 
   spa_pod_builder_pop (&b, &f[0]);
 
-  *format = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
+  *format = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_format);
 
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_v4l2_source_node_port_get_info (SpaNode            *node,
-                                    SpaDirection        direction,
+static int
+impl_node_port_get_info (struct spa_node            *node,
+                                    enum spa_direction        direction,
                                     uint32_t            port_id,
-                                    const SpaPortInfo **info)
+                                    const struct spa_port_info **info)
 {
-  SpaV4l2Source *this;
+  struct impl *this;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (info != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
-  *info = &this->state[port_id].info;
+  *info = &this->out_ports[port_id].info;
 
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_v4l2_source_node_port_enum_params (SpaNode       *node,
-                                       SpaDirection   direction,
+static int
+impl_node_port_enum_params (struct spa_node       *node,
+                                       enum spa_direction   direction,
                                        uint32_t       port_id,
                                        uint32_t       index,
-                                       SpaParam     **param)
+                                       struct spa_param     **param)
 {
 
-  SpaV4l2Source *this;
-  SpaV4l2State *state;
-  SpaPODBuilder b = { NULL, };
-  SpaPODFrame f[2];
+  struct impl *this;
+  struct port *state;
+  struct spa_pod_builder b = { NULL, };
+  struct spa_pod_frame f[2];
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (param != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
-  state = &this->state[port_id];
+  state = &this->out_ports[port_id];
 
   spa_pod_builder_init (&b, state->params_buffer, sizeof (state->params_buffer));
 
@@ -672,45 +670,45 @@ spa_v4l2_source_node_port_enum_params (SpaNode       *node,
   case 1:
     spa_pod_builder_object (&b, &f[0], 0, this->type.param_alloc_meta_enable.MetaEnable,
         PROP      (&f[1], this->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID, this->type.meta.Header),
-        PROP      (&f[1], this->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
+        PROP      (&f[1], this->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (struct spa_meta_header)));
     break;
 
   default:
     return SPA_RESULT_NOT_IMPLEMENTED;
   }
 
-  *param = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaParam);
+  *param = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_param);
 
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_v4l2_source_node_port_set_param (SpaNode         *node,
-                                     SpaDirection     direction,
+static int
+impl_node_port_set_param (struct spa_node         *node,
+                                     enum spa_direction     direction,
                                      uint32_t         port_id,
-                                     const SpaParam  *param)
+                                     const struct spa_param  *param)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_v4l2_source_node_port_use_buffers (SpaNode         *node,
-                                       SpaDirection     direction,
-                                       uint32_t         port_id,
-                                       SpaBuffer      **buffers,
-                                       uint32_t         n_buffers)
+static int
+impl_node_port_use_buffers (struct spa_node            *node,
+                                       enum spa_direction        direction,
+                                       uint32_t            port_id,
+                                       struct spa_buffer **buffers,
+                                       uint32_t            n_buffers)
 {
-  SpaV4l2Source *this;
-  SpaV4l2State *state;
-  SpaResult res;
+  struct impl *this;
+  struct port *state;
+  int res;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
-  state = &this->state[port_id];
+  state = &this->out_ports[port_id];
 
   if (!state->have_format)
     return SPA_RESULT_NO_FORMAT;
@@ -727,27 +725,27 @@ spa_v4l2_source_node_port_use_buffers (SpaNode         *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_v4l2_source_node_port_alloc_buffers (SpaNode         *node,
-                                         SpaDirection     direction,
-                                         uint32_t         port_id,
-                                         SpaParam       **params,
-                                         uint32_t         n_params,
-                                         SpaBuffer      **buffers,
-                                         uint32_t        *n_buffers)
+static int
+impl_node_port_alloc_buffers (struct spa_node            *node,
+                                         enum spa_direction        direction,
+                                         uint32_t            port_id,
+                                         struct spa_param          **params,
+                                         uint32_t            n_params,
+                                         struct spa_buffer **buffers,
+                                         uint32_t           *n_buffers)
 {
-  SpaV4l2Source *this;
-  SpaV4l2State *state;
-  SpaResult res;
+  struct impl *this;
+  struct port *state;
+  int res;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (buffers != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
-  state = &this->state[port_id];
+  state = &this->out_ports[port_id];
 
   if (!state->have_format)
     return SPA_RESULT_NO_FORMAT;
@@ -757,39 +755,39 @@ spa_v4l2_source_node_port_alloc_buffers (SpaNode         *node,
   return res;
 }
 
-static SpaResult
-spa_v4l2_source_node_port_set_io (SpaNode       *node,
-                                  SpaDirection   direction,
+static int
+impl_node_port_set_io (struct spa_node       *node,
+                                  enum spa_direction   direction,
                                   uint32_t       port_id,
-                                  SpaPortIO     *io)
+                                  struct spa_port_io     *io)
 {
-  SpaV4l2Source *this;
+  struct impl *this;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
-  this->state[port_id].io = io;
+  this->out_ports[port_id].io = io;
 
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_v4l2_source_node_port_reuse_buffer (SpaNode         *node,
+static int
+impl_node_port_reuse_buffer (struct spa_node         *node,
                                         uint32_t         port_id,
                                         uint32_t         buffer_id)
 {
-  SpaV4l2Source *this;
-  SpaV4l2State *state;
-  SpaResult res;
+  struct impl *this;
+  struct port *state;
+  int res;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (port_id == 0, SPA_RESULT_INVALID_PORT);
 
-  this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
-  state = &this->state[port_id];
+  this = SPA_CONTAINER_OF (node, struct impl, node);
+  state = &this->out_ports[port_id];
 
   spa_return_val_if_fail (state->n_buffers > 0, SPA_RESULT_NO_BUFFERS);
   spa_return_val_if_fail (buffer_id < state->n_buffers, SPA_RESULT_INVALID_BUFFER_ID);
@@ -799,18 +797,18 @@ spa_v4l2_source_node_port_reuse_buffer (SpaNode         *node,
   return res;
 }
 
-static SpaResult
-spa_v4l2_source_node_port_send_command (SpaNode        *node,
-                                        SpaDirection    direction,
-                                        uint32_t        port_id,
-                                        SpaCommand     *command)
+static int
+impl_node_port_send_command (struct spa_node            *node,
+                                        enum spa_direction        direction,
+                                        uint32_t            port_id,
+                                        struct spa_command *command)
 {
-  SpaV4l2Source *this;
-  SpaResult res;
+  struct impl *this;
+  int res;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
@@ -826,23 +824,23 @@ spa_v4l2_source_node_port_send_command (SpaNode        *node,
   return res;
 }
 
-static SpaResult
-spa_v4l2_source_node_process_input (SpaNode *node)
+static int
+impl_node_process_input (struct spa_node *node)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_v4l2_source_node_process_output (SpaNode *node)
+static int
+impl_node_process_output (struct spa_node *node)
 {
-  SpaV4l2Source *this;
-  SpaResult res = SPA_RESULT_OK;
-  SpaPortIO *io;
+  struct impl *this;
+  int res = SPA_RESULT_OK;
+  struct spa_port_io *io;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaV4l2Source, node);
-  io = this->state[0].io;
+  this = SPA_CONTAINER_OF (node, struct impl, node);
+  io = this->out_ports[0].io;
   spa_return_val_if_fail (io != NULL, SPA_RESULT_WRONG_STATE);
 
   if (io->status == SPA_RESULT_HAVE_BUFFER)
@@ -855,59 +853,59 @@ spa_v4l2_source_node_process_output (SpaNode *node)
   return res;
 }
 
-static const SpaNode v4l2source_node = {
-  sizeof (SpaNode),
+static const struct spa_node impl_node = {
+  sizeof (struct spa_node),
   NULL,
-  spa_v4l2_source_node_get_props,
-  spa_v4l2_source_node_set_props,
-  spa_v4l2_source_node_send_command,
-  spa_v4l2_source_node_set_callbacks,
-  spa_v4l2_source_node_get_n_ports,
-  spa_v4l2_source_node_get_port_ids,
-  spa_v4l2_source_node_add_port,
-  spa_v4l2_source_node_remove_port,
-  spa_v4l2_source_node_port_enum_formats,
-  spa_v4l2_source_node_port_set_format,
-  spa_v4l2_source_node_port_get_format,
-  spa_v4l2_source_node_port_get_info,
-  spa_v4l2_source_node_port_enum_params,
-  spa_v4l2_source_node_port_set_param,
-  spa_v4l2_source_node_port_use_buffers,
-  spa_v4l2_source_node_port_alloc_buffers,
-  spa_v4l2_source_node_port_set_io,
-  spa_v4l2_source_node_port_reuse_buffer,
-  spa_v4l2_source_node_port_send_command,
-  spa_v4l2_source_node_process_input,
-  spa_v4l2_source_node_process_output,
+  impl_node_get_props,
+  impl_node_set_props,
+  impl_node_send_command,
+  impl_node_set_callbacks,
+  impl_node_get_n_ports,
+  impl_node_get_port_ids,
+  impl_node_add_port,
+  impl_node_remove_port,
+  impl_node_port_enum_formats,
+  impl_node_port_set_format,
+  impl_node_port_get_format,
+  impl_node_port_get_info,
+  impl_node_port_enum_params,
+  impl_node_port_set_param,
+  impl_node_port_use_buffers,
+  impl_node_port_alloc_buffers,
+  impl_node_port_set_io,
+  impl_node_port_reuse_buffer,
+  impl_node_port_send_command,
+  impl_node_process_input,
+  impl_node_process_output,
 };
 
-static SpaResult
-spa_v4l2_source_clock_get_props (SpaClock  *clock,
-                                 SpaProps **props)
+static int
+impl_clock_get_props (struct spa_clock  *clock,
+                                 struct spa_props         **props)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_v4l2_source_clock_set_props (SpaClock       *clock,
-                                 const SpaProps *props)
+static int
+impl_clock_set_props (struct spa_clock *clock,
+                                 const struct spa_props   *props)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_v4l2_source_clock_get_time (SpaClock         *clock,
+static int
+impl_clock_get_time (struct spa_clock *clock,
                                 int32_t          *rate,
                                 int64_t          *ticks,
                                 int64_t          *monotonic_time)
 {
-  SpaV4l2Source *this;
-  SpaV4l2State *state;
+  struct impl *this;
+  struct port *state;
 
   spa_return_val_if_fail (clock != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (clock, SpaV4l2Source, clock);
-  state = &this->state[0];
+  this = SPA_CONTAINER_OF (clock, struct impl, clock);
+  state = &this->out_ports[0];
 
   if (rate)
     *rate = SPA_USEC_PER_SEC;
@@ -919,26 +917,26 @@ spa_v4l2_source_clock_get_time (SpaClock         *clock,
   return SPA_RESULT_OK;
 }
 
-static const SpaClock v4l2source_clock = {
-  sizeof (SpaClock),
+static const struct spa_clock impl_clock = {
+  sizeof (struct spa_clock),
   NULL,
   SPA_CLOCK_STATE_STOPPED,
-  spa_v4l2_source_clock_get_props,
-  spa_v4l2_source_clock_set_props,
-  spa_v4l2_source_clock_get_time,
+  impl_clock_get_props,
+  impl_clock_set_props,
+  impl_clock_get_time,
 };
 
-static SpaResult
-spa_v4l2_source_get_interface (SpaHandle               *handle,
+static int
+impl_get_interface (struct spa_handle               *handle,
                                uint32_t                 interface_id,
                                void                   **interface)
 {
-  SpaV4l2Source *this;
+  struct impl *this;
 
   spa_return_val_if_fail (handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (interface != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = (SpaV4l2Source *) handle;
+  this = (struct impl *) handle;
 
   if (interface_id == this->type.node)
     *interface = &this->node;
@@ -950,30 +948,30 @@ spa_v4l2_source_get_interface (SpaHandle               *handle,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-v4l2_source_clear (SpaHandle *handle)
+static int
+impl_clear (struct spa_handle *handle)
 {
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-v4l2_source_init (const SpaHandleFactory  *factory,
-                  SpaHandle               *handle,
-                  const SpaDict           *info,
-                  const SpaSupport        *support,
+static int
+impl_init (const struct spa_handle_factory  *factory,
+                  struct spa_handle               *handle,
+                  const struct spa_dict           *info,
+                  const struct spa_support        *support,
                   uint32_t                 n_support)
 {
-  SpaV4l2Source *this;
+  struct impl *this;
   uint32_t i;
   const char *str;
 
   spa_return_val_if_fail (factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  handle->get_interface = spa_v4l2_source_get_interface;
-  handle->clear = v4l2_source_clear,
+  handle->get_interface = impl_get_interface;
+  handle->clear = impl_clear,
 
-  this = (SpaV4l2Source *) handle;
+  this = (struct impl *) handle;
 
   for (i = 0; i < n_support; i++) {
     if (strcmp (support[i].type, SPA_TYPE__TypeMap) == 0)
@@ -981,33 +979,33 @@ v4l2_source_init (const SpaHandleFactory  *factory,
     else if (strcmp (support[i].type, SPA_TYPE__Log) == 0)
       this->log = support[i].data;
     else if (strcmp (support[i].type, SPA_TYPE_LOOP__MainLoop) == 0)
-      this->state[0].main_loop = support[i].data;
+      this->out_ports[0].main_loop = support[i].data;
     else if (strcmp (support[i].type, SPA_TYPE_LOOP__DataLoop) == 0)
-      this->state[0].data_loop = support[i].data;
+      this->out_ports[0].data_loop = support[i].data;
   }
   if (this->map == NULL) {
     spa_log_error (this->log, "a type-map is needed");
     return SPA_RESULT_ERROR;
   }
-  if (this->state[0].main_loop == NULL) {
+  if (this->out_ports[0].main_loop == NULL) {
     spa_log_error (this->log, "a main_loop is needed");
     return SPA_RESULT_ERROR;
   }
-  if (this->state[0].data_loop == NULL) {
+  if (this->out_ports[0].data_loop == NULL) {
     spa_log_error (this->log, "a data_loop is needed");
     return SPA_RESULT_ERROR;
   }
   init_type (&this->type, this->map);
 
-  this->node = v4l2source_node;
-  this->clock = v4l2source_clock;
+  this->node = impl_node;
+  this->clock = impl_clock;
 
-  reset_v4l2_source_props (&this->props);
+  reset_props (&this->props);
 
-  this->state[0].log = this->log;
-  this->state[0].info.flags = SPA_PORT_INFO_FLAG_LIVE;
+  this->out_ports[0].log = this->log;
+  this->out_ports[0].info.flags = SPA_PORT_INFO_FLAG_LIVE;
 
-  this->state[0].export_buf = true;
+  this->out_ports[0].export_buf = true;
 
   if (info && (str = spa_dict_lookup (info, "device.path"))) {
     strncpy (this->props.device, str, 63);
@@ -1016,31 +1014,31 @@ v4l2_source_init (const SpaHandleFactory  *factory,
   return SPA_RESULT_OK;
 }
 
-static const SpaInterfaceInfo v4l2_source_interfaces[] =
+static const struct spa_interface_info impl_interfaces[] =
 {
   { SPA_TYPE__Node, },
   { SPA_TYPE__Clock, },
 };
 
-static SpaResult
-v4l2_source_enum_interface_info (const SpaHandleFactory  *factory,
-                                 const SpaInterfaceInfo **info,
+static int
+impl_enum_interface_info (const struct spa_handle_factory  *factory,
+                                 const struct spa_interface_info **info,
                                  uint32_t                 index)
 {
   spa_return_val_if_fail (factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (info != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  if (index < 0 || index >= SPA_N_ELEMENTS (v4l2_source_interfaces))
+  if (index < 0 || index >= SPA_N_ELEMENTS (impl_interfaces))
     return SPA_RESULT_ENUM_END;
 
-  *info = &v4l2_source_interfaces[index];
+  *info = &impl_interfaces[index];
   return SPA_RESULT_OK;
 }
 
-const SpaHandleFactory spa_v4l2_source_factory =
-{ "v4l2-source",
+const struct spa_handle_factory spa_v4l2_source_factory =
+{ NAME,
   NULL,
-  sizeof (SpaV4l2Source),
-  v4l2_source_init,
-  v4l2_source_enum_interface_info,
+  sizeof (struct impl),
+  impl_init,
+  impl_enum_interface_info,
 };

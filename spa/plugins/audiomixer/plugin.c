@@ -20,20 +20,21 @@
 #include <spa/plugin.h>
 #include <spa/node.h>
 
-extern const SpaHandleFactory spa_audiomixer_factory;
+extern const struct spa_handle_factory spa_audiomixer_factory;
 
-SpaResult
-spa_enum_handle_factory (const SpaHandleFactory **factory,
-                         uint32_t                 index)
+int
+spa_handle_factory_enum(const struct spa_handle_factory **factory,
+			uint32_t index)
 {
-  spa_return_val_if_fail (factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(factory != NULL,
+			       SPA_RESULT_INVALID_ARGUMENTS);
 
-  switch (index) {
-    case 0:
-      *factory = &spa_audiomixer_factory;
-      break;
-    default:
-      return SPA_RESULT_ENUM_END;
-  }
-  return SPA_RESULT_OK;
+	switch (index) {
+	case 0:
+		*factory = &spa_audiomixer_factory;
+		break;
+	default:
+		return SPA_RESULT_ENUM_END;
+	}
+	return SPA_RESULT_OK;
 }

@@ -38,56 +38,56 @@
 #define DATAS_SIZE (4096 * 8)
 
 struct invoke_item {
-  size_t         item_size;
-  SpaInvokeFunc  func;
-  uint32_t       seq;
-  size_t         size;
-  void          *data;
-  void          *user_data;
+  size_t            item_size;
+  spa_invoke_func_t func;
+  uint32_t          seq;
+  size_t            size;
+  void             *data;
+  void             *user_data;
 };
 
-struct loop {
+struct impl {
   struct pw_loop this;
 
-  SpaList source_list;
+  struct spa_list source_list;
 
-  SpaLoopHook    pre_func;
-  SpaLoopHook    post_func;
+  spa_loop_hook_t    pre_func;
+  spa_loop_hook_t    post_func;
   void          *hook_data;
 
   int            epoll_fd;
   pthread_t      thread;
 
-  SpaLoop        loop;
-  SpaLoopControl control;
-  SpaLoopUtils   utils;
+  struct spa_loop        loop;
+  struct spa_loop_control control;
+  struct spa_loop_utils   utils;
 
-  SpaSource     *event;
+  struct spa_source     *event;
 
-  SpaRingbuffer  buffer;
+  struct spa_ringbuffer  buffer;
   uint8_t        buffer_data[DATAS_SIZE];
 };
 
-typedef struct {
-  SpaSource source;
+struct source_impl {
+  struct spa_source source;
 
-  struct loop *impl;
-  SpaList link;
+  struct impl *impl;
+  struct spa_list link;
 
   bool close;
   union {
-    SpaSourceIOFunc io;
-    SpaSourceIdleFunc idle;
-    SpaSourceEventFunc event;
-    SpaSourceTimerFunc timer;
-    SpaSourceSignalFunc signal;
+    spa_source_io_func_t io;
+    spa_source_idle_func_t idle;
+    spa_source_event_func_t event;
+    spa_source_timer_func_t timer;
+    spa_source_signal_func_t signal;
   } func;
   int signal_number;
   bool enabled;
-} SpaSourceImpl;
+};
 
 static inline uint32_t
-spa_io_to_epoll (SpaIO mask)
+spa_io_to_epoll (enum spa_io mask)
 {
   uint32_t events = 0;
 
@@ -103,10 +103,10 @@ spa_io_to_epoll (SpaIO mask)
   return events;
 }
 
-static inline SpaIO
+static inline enum spa_io
 spa_epoll_to_io (uint32_t events)
 {
-  SpaIO mask = 0;
+  enum spa_io mask = 0;
 
   if (events & EPOLLIN)
     mask |= SPA_IO_IN;
@@ -120,11 +120,11 @@ spa_epoll_to_io (uint32_t events)
   return mask;
 }
 
-static SpaResult
-loop_add_source (SpaLoop    *loop,
-                 SpaSource  *source)
+static int
+loop_add_source (struct spa_loop    *loop,
+                 struct spa_source  *source)
 {
-  struct loop *impl = SPA_CONTAINER_OF (loop, struct loop, loop);
+  struct impl *impl = SPA_CONTAINER_OF (loop, struct impl, loop);
 
   source->loop = loop;
 
@@ -141,11 +141,11 @@ loop_add_source (SpaLoop    *loop,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-loop_update_source (SpaSource *source)
+static int
+loop_update_source (struct spa_source *source)
 {
-  SpaLoop *loop = source->loop;
-  struct loop *impl = SPA_CONTAINER_OF (loop, struct loop, loop);
+  struct spa_loop *loop = source->loop;
+  struct impl *impl = SPA_CONTAINER_OF (loop, struct impl, loop);
 
   if (source->fd != -1) {
     struct epoll_event ep;
@@ -161,10 +161,10 @@ loop_update_source (SpaSource *source)
 }
 
 static void
-loop_remove_source (SpaSource *source)
+loop_remove_source (struct spa_source *source)
 {
-  SpaLoop *loop = source->loop;
-  struct loop *impl = SPA_CONTAINER_OF (loop, struct loop, loop);
+  struct spa_loop *loop = source->loop;
+  struct impl *impl = SPA_CONTAINER_OF (loop, struct impl, loop);
 
   if (source->fd != -1)
     epoll_ctl (impl->epoll_fd, EPOLL_CTL_DEL, source->fd, NULL);
@@ -172,18 +172,18 @@ loop_remove_source (SpaSource *source)
   source->loop = NULL;
 }
 
-static SpaResult
-loop_invoke (SpaLoop       *loop,
-             SpaInvokeFunc  func,
-             uint32_t       seq,
-             size_t         size,
-             void          *data,
-             void          *user_data)
+static int
+loop_invoke (struct spa_loop   *loop,
+             spa_invoke_func_t  func,
+             uint32_t           seq,
+             size_t             size,
+             void              *data,
+             void              *user_data)
 {
-  struct loop *impl = SPA_CONTAINER_OF (loop, struct loop, loop);
+  struct impl *impl = SPA_CONTAINER_OF (loop, struct impl, loop);
   bool in_thread = pthread_equal (impl->thread, pthread_self());
   struct invoke_item *item;
-  SpaResult res;
+  int res;
 
   if (in_thread) {
     res = func (loop, false, seq, size, data, user_data);
@@ -237,11 +237,11 @@ loop_invoke (SpaLoop       *loop,
 }
 
 static void
-event_func (SpaLoopUtils *utils,
-            SpaSource    *source,
+event_func (struct spa_loop_utils *utils,
+            struct spa_source    *source,
             void         *data)
 {
-  struct loop *impl = data;
+  struct impl *impl = data;
   uint32_t index;
 
   while (spa_ringbuffer_get_read_index (&impl->buffer, &index) > 0) {
@@ -252,20 +252,20 @@ event_func (SpaLoopUtils *utils,
 }
 
 static int
-loop_get_fd (SpaLoopControl *ctrl)
+loop_get_fd (struct spa_loop_control *ctrl)
 {
-  struct loop *impl = SPA_CONTAINER_OF (ctrl, struct loop, control);
+  struct impl *impl = SPA_CONTAINER_OF (ctrl, struct impl, control);
 
   return impl->epoll_fd;
 }
 
 static void
-loop_set_hooks (SpaLoopControl *ctrl,
-                SpaLoopHook     pre_func,
-                SpaLoopHook     post_func,
+loop_set_hooks (struct spa_loop_control *ctrl,
+                spa_loop_hook_t     pre_func,
+                spa_loop_hook_t     post_func,
                 void           *data)
 {
-  struct loop *impl = SPA_CONTAINER_OF (ctrl, struct loop, control);
+  struct impl *impl = SPA_CONTAINER_OF (ctrl, struct impl, control);
 
   impl->pre_func = pre_func;
   impl->post_func = post_func;
@@ -273,24 +273,24 @@ loop_set_hooks (SpaLoopControl *ctrl,
 }
 
 static void
-loop_enter (SpaLoopControl  *ctrl)
+loop_enter (struct spa_loop_control  *ctrl)
 {
-  struct loop *impl = SPA_CONTAINER_OF (ctrl, struct loop, control);
+  struct impl *impl = SPA_CONTAINER_OF (ctrl, struct impl, control);
   impl->thread = pthread_self();
 }
 
 static void
-loop_leave (SpaLoopControl  *ctrl)
+loop_leave (struct spa_loop_control  *ctrl)
 {
-  struct loop *impl = SPA_CONTAINER_OF (ctrl, struct loop, control);
+  struct impl *impl = SPA_CONTAINER_OF (ctrl, struct impl, control);
   impl->thread = 0;
 }
 
-static SpaResult
-loop_iterate (SpaLoopControl *ctrl,
+static int
+loop_iterate (struct spa_loop_control *ctrl,
               int             timeout)
 {
-  struct loop *impl = SPA_CONTAINER_OF (ctrl, struct loop, control);
+  struct impl *impl = SPA_CONTAINER_OF (ctrl, struct impl, control);
   struct pw_loop *loop = &impl->this;
   struct epoll_event ep[32];
   int i, nfds, save_errno;
@@ -315,11 +315,11 @@ loop_iterate (SpaLoopControl *ctrl,
    * some callback might also want to look at other sources it manages and
    * can then reset the rmask to suppress the callback */
   for (i = 0; i < nfds; i++) {
-    SpaSource *source = ep[i].data.ptr;
+    struct spa_source *source = ep[i].data.ptr;
     source->rmask = spa_epoll_to_io (ep[i].events);
   }
   for (i = 0; i < nfds; i++) {
-    SpaSource *source = ep[i].data.ptr;
+    struct spa_source *source = ep[i].data.ptr;
     if (source->rmask) {
       source->func (source);
     }
@@ -328,24 +328,24 @@ loop_iterate (SpaLoopControl *ctrl,
 }
 
 static void
-source_io_func (SpaSource *source)
+source_io_func (struct spa_source *source)
 {
-  SpaSourceImpl *impl = SPA_CONTAINER_OF (source, SpaSourceImpl, source);
+  struct source_impl *impl = SPA_CONTAINER_OF (source, struct source_impl, source);
   impl->func.io (&impl->impl->utils, source, source->fd, source->rmask, source->data);
 }
 
-static SpaSource *
-loop_add_io (SpaLoopUtils    *utils,
+static struct spa_source *
+loop_add_io (struct spa_loop_utils    *utils,
              int              fd,
-             SpaIO            mask,
+             enum spa_io            mask,
              bool             close,
-             SpaSourceIOFunc  func,
+             spa_source_io_func_t  func,
              void            *data)
 {
-  struct loop *impl = SPA_CONTAINER_OF (utils, struct loop, utils);
-  SpaSourceImpl *source;
+  struct impl *impl = SPA_CONTAINER_OF (utils, struct impl, utils);
+  struct source_impl *source;
 
-  source = calloc (1, sizeof (SpaSourceImpl));
+  source = calloc (1, sizeof (struct source_impl));
   if (source == NULL)
     return NULL;
 
@@ -365,9 +365,9 @@ loop_add_io (SpaLoopUtils    *utils,
   return &source->source;
 }
 
-static SpaResult
-loop_update_io (SpaSource *source,
-                SpaIO        mask)
+static int
+loop_update_io (struct spa_source *source,
+                enum spa_io        mask)
 {
   source->mask = mask;
   return spa_loop_update_source (source->loop, source);
@@ -375,22 +375,22 @@ loop_update_io (SpaSource *source,
 
 
 static void
-source_idle_func (SpaSource *source)
+source_idle_func (struct spa_source *source)
 {
-  SpaSourceImpl *impl = SPA_CONTAINER_OF (source, SpaSourceImpl, source);
+  struct source_impl *impl = SPA_CONTAINER_OF (source, struct source_impl, source);
   impl->func.idle (&impl->impl->utils, source, source->data);
 }
 
-static SpaSource *
-loop_add_idle (SpaLoopUtils      *utils,
+static struct spa_source *
+loop_add_idle (struct spa_loop_utils      *utils,
                bool               enabled,
-               SpaSourceIdleFunc  func,
+               spa_source_idle_func_t  func,
                void              *data)
 {
-  struct loop *impl = SPA_CONTAINER_OF (utils, struct loop, utils);
-  SpaSourceImpl *source;
+  struct impl *impl = SPA_CONTAINER_OF (utils, struct impl, utils);
+  struct source_impl *source;
 
-  source = calloc (1, sizeof (SpaSourceImpl));
+  source = calloc (1, sizeof (struct source_impl));
   if (source == NULL)
     return NULL;
 
@@ -414,10 +414,10 @@ loop_add_idle (SpaLoopUtils      *utils,
 }
 
 static void
-loop_enable_idle (SpaSource *source,
+loop_enable_idle (struct spa_source *source,
                   bool       enabled)
 {
-  SpaSourceImpl *impl = SPA_CONTAINER_OF (source, SpaSourceImpl, source);
+  struct source_impl *impl = SPA_CONTAINER_OF (source, struct source_impl, source);
   uint64_t count;
 
   if (enabled && !impl->enabled) {
@@ -432,9 +432,9 @@ loop_enable_idle (SpaSource *source,
 }
 
 static void
-source_event_func (SpaSource *source)
+source_event_func (struct spa_source *source)
 {
-  SpaSourceImpl *impl = SPA_CONTAINER_OF (source, SpaSourceImpl, source);
+  struct source_impl *impl = SPA_CONTAINER_OF (source, struct source_impl, source);
   uint64_t count;
 
   if (read (source->fd, &count, sizeof (uint64_t)) != sizeof (uint64_t))
@@ -443,15 +443,15 @@ source_event_func (SpaSource *source)
   impl->func.event (&impl->impl->utils, source, source->data);
 }
 
-static SpaSource *
-loop_add_event (SpaLoopUtils       *utils,
-                SpaSourceEventFunc  func,
+static struct spa_source *
+loop_add_event (struct spa_loop_utils       *utils,
+                spa_source_event_func_t  func,
                 void               *data)
 {
-  struct loop *impl = SPA_CONTAINER_OF (utils, struct loop, utils);
-  SpaSourceImpl *source;
+  struct impl *impl = SPA_CONTAINER_OF (utils, struct impl, utils);
+  struct source_impl *source;
 
-  source = calloc (1, sizeof (SpaSourceImpl));
+  source = calloc (1, sizeof (struct source_impl));
   if (source == NULL)
     return NULL;
 
@@ -472,7 +472,7 @@ loop_add_event (SpaLoopUtils       *utils,
 }
 
 static void
-loop_signal_event (SpaSource *source)
+loop_signal_event (struct spa_source *source)
 {
   uint64_t count = 1;
 
@@ -481,9 +481,9 @@ loop_signal_event (SpaSource *source)
 }
 
 static void
-source_timer_func (SpaSource *source)
+source_timer_func (struct spa_source *source)
 {
-  SpaSourceImpl *impl = SPA_CONTAINER_OF (source, SpaSourceImpl, source);
+  struct source_impl *impl = SPA_CONTAINER_OF (source, struct source_impl, source);
   uint64_t expires;
 
   if (read (source->fd, &expires, sizeof (uint64_t)) != sizeof (uint64_t))
@@ -492,15 +492,15 @@ source_timer_func (SpaSource *source)
   impl->func.timer (&impl->impl->utils, source, source->data);
 }
 
-static SpaSource *
-loop_add_timer (SpaLoopUtils       *utils,
-                SpaSourceTimerFunc  func,
+static struct spa_source *
+loop_add_timer (struct spa_loop_utils       *utils,
+                spa_source_timer_func_t  func,
                 void               *data)
 {
-  struct loop *impl = SPA_CONTAINER_OF (utils, struct loop, utils);
-  SpaSourceImpl *source;
+  struct impl *impl = SPA_CONTAINER_OF (utils, struct impl, utils);
+  struct source_impl *source;
 
-  source = calloc (1, sizeof (SpaSourceImpl));
+  source = calloc (1, sizeof (struct source_impl));
   if (source == NULL)
     return NULL;
 
@@ -520,8 +520,8 @@ loop_add_timer (SpaLoopUtils       *utils,
   return &source->source;
 }
 
-static SpaResult
-loop_update_timer (SpaSource       *source,
+static int
+loop_update_timer (struct spa_source       *source,
                    struct timespec *value,
                    struct timespec *interval,
                    bool             absolute)
@@ -549,9 +549,9 @@ loop_update_timer (SpaSource       *source,
 }
 
 static void
-source_signal_func (SpaSource *source)
+source_signal_func (struct spa_source *source)
 {
-  SpaSourceImpl *impl = SPA_CONTAINER_OF (source, SpaSourceImpl, source);
+  struct source_impl *impl = SPA_CONTAINER_OF (source, struct source_impl, source);
   struct signalfd_siginfo signal_info;
 
   if (read (source->fd, &signal_info, sizeof (signal_info)) != sizeof (signal_info))
@@ -560,17 +560,17 @@ source_signal_func (SpaSource *source)
   impl->func.signal (&impl->impl->utils, source, impl->signal_number, source->data);
 }
 
-static SpaSource *
-loop_add_signal (SpaLoopUtils        *utils,
+static struct spa_source *
+loop_add_signal (struct spa_loop_utils        *utils,
                  int                  signal_number,
-                 SpaSourceSignalFunc  func,
+                 spa_source_signal_func_t  func,
                  void                *data)
 {
-  struct loop *impl = SPA_CONTAINER_OF (utils, struct loop, utils);
-  SpaSourceImpl *source;
+  struct impl *impl = SPA_CONTAINER_OF (utils, struct impl, utils);
+  struct source_impl *source;
   sigset_t mask;
 
-  source = calloc (1, sizeof (SpaSourceImpl));
+  source = calloc (1, sizeof (struct source_impl));
   if (source == NULL)
     return NULL;
 
@@ -595,9 +595,9 @@ loop_add_signal (SpaLoopUtils        *utils,
 }
 
 static void
-loop_destroy_source (SpaSource *source)
+loop_destroy_source (struct spa_source *source)
 {
-  SpaSourceImpl *impl = SPA_CONTAINER_OF (source, SpaSourceImpl, source);
+  struct source_impl *impl = SPA_CONTAINER_OF (source, struct source_impl, source);
 
   spa_list_remove (&impl->link);
 
@@ -611,10 +611,10 @@ loop_destroy_source (SpaSource *source)
 struct pw_loop *
 pw_loop_new (void)
 {
-  struct loop *impl;
+  struct impl *impl;
   struct pw_loop *this;
 
-  impl = calloc (1, sizeof (struct loop));
+  impl = calloc (1, sizeof (struct impl));
   if (impl == NULL)
     return NULL;
 
@@ -629,14 +629,14 @@ pw_loop_new (void)
   pw_signal_init (&this->before_iterate);
   pw_signal_init (&this->destroy_signal);
 
-  impl->loop.size = sizeof (SpaLoop);
+  impl->loop.size = sizeof (struct spa_loop);
   impl->loop.add_source = loop_add_source;
   impl->loop.update_source = loop_update_source;
   impl->loop.remove_source = loop_remove_source;
   impl->loop.invoke = loop_invoke;
   this->loop = &impl->loop;
 
-  impl->control.size = sizeof (SpaLoopControl);
+  impl->control.size = sizeof (struct spa_loop_control);
   impl->control.get_fd = loop_get_fd;
   impl->control.set_hooks = loop_set_hooks;
   impl->control.enter = loop_enter;
@@ -644,7 +644,7 @@ pw_loop_new (void)
   impl->control.iterate = loop_iterate;
   this->control = &impl->control;
 
-  impl->utils.size = sizeof (SpaLoopUtils);
+  impl->utils.size = sizeof (struct spa_loop_utils);
   impl->utils.add_io = loop_add_io;
   impl->utils.update_io = loop_update_io;
   impl->utils.add_idle = loop_add_idle;
@@ -673,8 +673,8 @@ no_epoll:
 void
 pw_loop_destroy (struct pw_loop *loop)
 {
-  struct loop *impl = SPA_CONTAINER_OF (loop, struct loop, this);
-  SpaSourceImpl *source, *tmp;
+  struct impl *impl = SPA_CONTAINER_OF (loop, struct impl, this);
+  struct source_impl *source, *tmp;
 
   pw_signal_emit (&loop->destroy_signal, loop);
 

@@ -89,7 +89,7 @@ find_module (const char * path, const char *name)
   return filename;
 }
 
-static SpaResult
+static int
 module_bind_func (struct pw_global *global,
                   struct pw_client *client,
                   uint32_t          version,

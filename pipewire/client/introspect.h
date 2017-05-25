@@ -122,7 +122,7 @@ struct pw_core_info {
   const char *version;
   const char *name;
   uint32_t cookie;
-  SpaDict *props;
+  struct spa_dict *props;
 };
 
 struct pw_core_info * pw_core_info_update (struct pw_core_info       *info,
@@ -138,7 +138,7 @@ void                  pw_core_info_free   (struct pw_core_info       *info);
  * Callback with information about the PipeWire core in @info.
  */
 typedef void (*pw_core_info_cb_t)  (struct pw_context         *c,
-                                    SpaResult                  res,
+                                    int                  res,
                                     const struct pw_core_info *info,
                                     void                      *user_data);
 
@@ -161,7 +161,7 @@ struct pw_module_info {
   const char *name;
   const char *filename;
   const char *args;
-  SpaDict *props;
+  struct spa_dict *props;
 };
 
 struct pw_module_info *  pw_module_info_update (struct pw_module_info       *info,
@@ -178,7 +178,7 @@ void                     pw_module_info_free   (struct pw_module_info       *inf
  * Callback with information about the PipeWire module in @info.
  */
 typedef void (*pw_module_info_cb_t)  (struct pw_context           *c,
-                                      SpaResult                    res,
+                                      int                    res,
                                       const struct pw_module_info *info,
                                       void                        *user_data);
 
@@ -202,7 +202,7 @@ void            pw_context_get_module_info_by_id (struct pw_context   *context,
 struct pw_client_info {
   uint32_t id;
   uint64_t change_mask;
-  SpaDict *props;
+  struct spa_dict *props;
 };
 
 struct pw_client_info *  pw_client_info_update (struct pw_client_info       *info,
@@ -219,7 +219,7 @@ void                     pw_client_info_free   (struct pw_client_info       *inf
  * Callback with information about the PipeWire client in @info.
  */
 typedef void (*pw_client_info_cb_t)  (struct pw_context           *c,
-                                      SpaResult                    res,
+                                      int                    res,
                                       const struct pw_client_info *info,
                                       void                        *user_data);
 
@@ -250,14 +250,14 @@ struct pw_node_info {
   uint32_t        max_inputs;
   uint32_t        n_inputs;
   uint32_t        n_input_formats;
-  SpaFormat     **input_formats;
+  struct spa_format     **input_formats;
   uint32_t        max_outputs;
   uint32_t        n_outputs;
   uint32_t        n_output_formats;
-  SpaFormat     **output_formats;
+  struct spa_format     **output_formats;
   enum pw_node_state  state;
   const char     *error;
-  SpaDict        *props;
+  struct spa_dict        *props;
 };
 
 struct pw_node_info * pw_node_info_update (struct pw_node_info       *info,
@@ -273,7 +273,7 @@ void                  pw_node_info_free   (struct pw_node_info       *info);
  * Callback with information about the PipeWire node in @info.
  */
 typedef void (*pw_node_info_cb_t)  (struct pw_context         *c,
-                                    SpaResult                  res,
+                                    int                  res,
                                     const struct pw_node_info *info,
                                     void                      *user_data);
 
@@ -321,7 +321,7 @@ void                  pw_link_info_free   (struct pw_link_info       *info);
  * Callback with information about the PipeWire link in @info.
  */
 typedef void (*pw_link_info_cb_t)               (struct pw_context         *c,
-                                                 SpaResult                  res,
+                                                 int                  res,
                                                  const struct pw_link_info *info,
                                                  void                      *user_data);
 

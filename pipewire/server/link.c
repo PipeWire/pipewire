@@ -40,7 +40,7 @@ struct impl {
 
   struct pw_work_queue *work;
 
-  SpaFormat **format_filter;
+  struct spa_format **format_filter;
   struct pw_properties *properties;
 
   struct pw_listener input_port_destroy;
@@ -50,7 +50,7 @@ struct impl {
 
   void *buffer_owner;
   struct pw_memblock buffer_mem;
-  SpaBuffer **buffers;
+  struct spa_buffer **buffers;
   uint32_t n_buffers;
 };
 
@@ -79,7 +79,7 @@ pw_link_update_state (struct pw_link     *link,
 static void
 complete_ready (void      *obj,
                 void      *data,
-                SpaResult  res,
+                int  res,
                 uint32_t   id)
 {
   struct pw_port *port = data;
@@ -94,7 +94,7 @@ complete_ready (void      *obj,
 static void
 complete_paused (void      *obj,
                  void      *data,
-                 SpaResult  res,
+                 int  res,
                  uint32_t   id)
 {
   struct pw_port *port = data;
@@ -109,7 +109,7 @@ complete_paused (void      *obj,
 static void
 complete_streaming (void      *obj,
                     void      *data,
-                    SpaResult  res,
+                    int  res,
                     uint32_t   id)
 {
   struct pw_port *port = data;
@@ -121,12 +121,12 @@ complete_streaming (void      *obj,
     pw_log_warn ("port %p: failed to go to STREAMING", port);
 }
 
-static SpaResult
+static int
 do_negotiate (struct pw_link *this, uint32_t in_state, uint32_t out_state)
 {
   struct impl *impl = SPA_CONTAINER_OF (this, struct impl, this);
-  SpaResult res = SPA_RESULT_ERROR, res2;
-  SpaFormat *format;
+  int res = SPA_RESULT_ERROR, res2;
+  struct spa_format *format;
   char *error = NULL;
 
   if (in_state != PW_PORT_STATE_CONFIGURE && out_state != PW_PORT_STATE_CONFIGURE)
@@ -191,25 +191,25 @@ error:
   }
 }
 
-static SpaParam *
-find_param (SpaParam **params, int n_params, uint32_t type)
+static struct spa_param *
+find_param (struct spa_param **params, int n_params, uint32_t type)
 {
   uint32_t i;
 
   for (i = 0; i < n_params; i++) {
-    if (spa_pod_is_object_type (&params[i]->pod, type))
+    if (spa_pod_is_object_type (&params[i]->object.pod, type))
       return params[i];
   }
   return NULL;
 }
 
-static SpaParam *
-find_meta_enable (struct pw_core *core, SpaParam **params, int n_params, uint32_t type)
+static struct spa_param *
+find_meta_enable (struct pw_core *core, struct spa_param **params, int n_params, uint32_t type)
 {
   uint32_t i;
 
   for (i = 0; i < n_params; i++) {
-    if (spa_pod_is_object_type (&params[i]->pod, core->type.param_alloc_meta_enable.MetaEnable)) {
+    if (spa_pod_is_object_type (&params[i]->object.pod, core->type.param_alloc_meta_enable.MetaEnable)) {
       uint32_t qtype;
 
       if (spa_param_query (params[i],
@@ -223,41 +223,41 @@ find_meta_enable (struct pw_core *core, SpaParam **params, int n_params, uint32_
   return NULL;
 }
 
-static SpaBuffer **
+static struct spa_buffer **
 alloc_buffers (struct pw_link     *this,
                uint32_t            n_buffers,
                uint32_t            n_params,
-               SpaParam          **params,
+               struct spa_param          **params,
                uint32_t            n_datas,
                size_t             *data_sizes,
                ssize_t            *data_strides,
                struct pw_memblock *mem)
 {
-  SpaBuffer **buffers, *bp;
+  struct spa_buffer **buffers, *bp;
   uint32_t i;
   size_t skel_size, data_size, meta_size;
-  SpaChunk *cdp;
+  struct spa_chunk *cdp;
   void *ddp;
   uint32_t n_metas;
-  SpaMeta *metas;
+  struct spa_meta *metas;
 
   n_metas = data_size = meta_size = 0;
 
   /* each buffer */
-  skel_size = sizeof (SpaBuffer);
+  skel_size = sizeof (struct spa_buffer);
 
-  metas = alloca (sizeof (SpaMeta) * n_params + 1);
+  metas = alloca (sizeof (struct spa_meta) * n_params + 1);
 
   /* add shared metadata */
   metas[n_metas].type = this->core->type.meta.Shared;
-  metas[n_metas].size = sizeof (SpaMetaShared);
+  metas[n_metas].size = sizeof (struct spa_meta_shared);
   meta_size += metas[n_metas].size;
   n_metas++;
-  skel_size += sizeof (SpaMeta);
+  skel_size += sizeof (struct spa_meta);
 
   /* collect metadata */
   for (i = 0; i < n_params; i++) {
-    if (spa_pod_is_object_type (&params[i]->pod, this->core->type.param_alloc_meta_enable.MetaEnable)) {
+    if (spa_pod_is_object_type (&params[i]->object.pod, this->core->type.param_alloc_meta_enable.MetaEnable)) {
       uint32_t type, size;
 
       if (spa_param_query (params[i],
@@ -272,21 +272,21 @@ alloc_buffers (struct pw_link     *this,
       metas[n_metas].size = size;
       meta_size += metas[n_metas].size;
       n_metas++;
-      skel_size += sizeof (SpaMeta);
+      skel_size += sizeof (struct spa_meta);
     }
   }
   data_size += meta_size;
 
   /* data */
   for (i = 0; i < n_datas; i++) {
-    data_size += sizeof (SpaChunk);
+    data_size += sizeof (struct spa_chunk);
     data_size += data_sizes[i];
-    skel_size += sizeof (SpaData);
+    skel_size += sizeof (struct spa_data);
   }
 
-  buffers = calloc (n_buffers, skel_size + sizeof (SpaBuffer *));
+  buffers = calloc (n_buffers, skel_size + sizeof (struct spa_buffer *));
   /* pointer to buffer structures */
-  bp = SPA_MEMBER (buffers, n_buffers * sizeof (SpaBuffer *), SpaBuffer);
+  bp = SPA_MEMBER (buffers, n_buffers * sizeof (struct spa_buffer *), struct spa_buffer);
 
   pw_memblock_alloc (PW_MEMBLOCK_FLAG_WITH_FD |
                      PW_MEMBLOCK_FLAG_MAP_READWRITE |
@@ -296,25 +296,25 @@ alloc_buffers (struct pw_link     *this,
 
   for (i = 0; i < n_buffers; i++) {
     int j;
-    SpaBuffer *b;
+    struct spa_buffer *b;
     void *p;
 
-    buffers[i] = b = SPA_MEMBER (bp, skel_size * i, SpaBuffer);
+    buffers[i] = b = SPA_MEMBER (bp, skel_size * i, struct spa_buffer);
 
     p = SPA_MEMBER (mem->ptr, data_size * i, void);
 
     b->id = i;
     b->n_metas = n_metas;
-    b->metas = SPA_MEMBER (b, sizeof (SpaBuffer), SpaMeta);
+    b->metas = SPA_MEMBER (b, sizeof (struct spa_buffer), struct spa_meta);
     for (j = 0; j < n_metas; j++) {
-      SpaMeta *m = &b->metas[j];
+      struct spa_meta *m = &b->metas[j];
 
       m->type = metas[j].type;
       m->data = p;
       m->size = metas[j].size;
 
       if (m->type == this->core->type.meta.Shared) {
-        SpaMetaShared *msh = p;
+        struct spa_meta_shared *msh = p;
 
         msh->flags = 0;
         msh->fd = mem->fd;
@@ -322,20 +322,20 @@ alloc_buffers (struct pw_link     *this,
         msh->size = data_size;
       }
       else if (m->type == this->core->type.meta.Ringbuffer) {
-        SpaMetaRingbuffer *rb = p;
+        struct spa_meta_ringbuffer *rb = p;
         spa_ringbuffer_init (&rb->ringbuffer, data_sizes[0]);
       }
       p += m->size;
     }
     /* pointer to data structure */
     b->n_datas = n_datas;
-    b->datas = SPA_MEMBER (b->metas, n_metas * sizeof (SpaMeta), SpaData);
+    b->datas = SPA_MEMBER (b->metas, n_metas * sizeof (struct spa_meta), struct spa_data);
 
     cdp = p;
-    ddp = SPA_MEMBER (cdp, sizeof (SpaChunk) * n_datas, void);
+    ddp = SPA_MEMBER (cdp, sizeof (struct spa_chunk) * n_datas, void);
 
     for (j = 0; j < n_datas; j++) {
-      SpaData *d = &b->datas[j];
+      struct spa_data *d = &b->datas[j];
 
       d->chunk = &cdp[j];
       if (data_sizes[j] > 0) {
@@ -360,14 +360,14 @@ alloc_buffers (struct pw_link     *this,
 
 static int
 spa_node_param_filter (struct pw_link  *this,
-                       SpaNode         *in_node,
+                       struct spa_node *in_node,
                        uint32_t         in_port,
-                       SpaNode         *out_node,
+                       struct spa_node *out_node,
                        uint32_t         out_port,
-                       SpaPODBuilder   *result)
+                       struct spa_pod_builder   *result)
 {
-  SpaResult res;
-  SpaParam *oparam, *iparam;
+  int res;
+  struct spa_param *oparam, *iparam;
   int iidx, oidx, num = 0;
 
   for (iidx = 0; ; iidx++) {
@@ -378,7 +378,7 @@ spa_node_param_filter (struct pw_link  *this,
       spa_debug_param (iparam, this->core->type.map);
 
     for (oidx = 0; ; oidx++) {
-      SpaPODFrame f;
+      struct spa_pod_frame f;
       uint32_t offset;
 
       if (spa_node_port_enum_params (out_node, SPA_DIRECTION_OUTPUT, out_port, oidx, &oparam) < 0)
@@ -387,16 +387,16 @@ spa_node_param_filter (struct pw_link  *this,
       if (pw_log_level_enabled (SPA_LOG_LEVEL_DEBUG))
         spa_debug_param (oparam, this->core->type.map);
 
-      if (iparam->body.body.type != oparam->body.body.type)
+      if (iparam->object.body.type != oparam->object.body.type)
         continue;
 
       offset = result->offset;
-      spa_pod_builder_push_object (result, &f, 0, iparam->body.body.type);
+      spa_pod_builder_push_object (result, &f, 0, iparam->object.body.type);
       if ((res = spa_props_filter (result,
-                          SPA_POD_CONTENTS (SpaParam, iparam),
-                          SPA_POD_CONTENTS_SIZE (SpaParam, iparam),
-                          SPA_POD_CONTENTS (SpaParam, oparam),
-                          SPA_POD_CONTENTS_SIZE (SpaParam, oparam))) < 0) {
+                          SPA_POD_CONTENTS (struct spa_param, iparam),
+                          SPA_POD_CONTENTS_SIZE (struct spa_param, iparam),
+                          SPA_POD_CONTENTS (struct spa_param, oparam),
+                          SPA_POD_CONTENTS_SIZE (struct spa_param, oparam))) < 0) {
         result->offset = offset;
         result->stack = NULL;
         continue;
@@ -408,12 +408,12 @@ spa_node_param_filter (struct pw_link  *this,
   return num;
 }
 
-static SpaResult
+static int
 do_allocation (struct pw_link *this, uint32_t in_state, uint32_t out_state)
 {
   struct impl *impl = SPA_CONTAINER_OF (this, struct impl, this);
-  SpaResult res;
-  const SpaPortInfo *iinfo, *oinfo;
+  int res;
+  const struct spa_port_info *iinfo, *oinfo;
   uint32_t in_flags, out_flags;
   char *error = NULL;
 
@@ -487,9 +487,9 @@ do_allocation (struct pw_link *this, uint32_t in_state, uint32_t out_state)
   }
 
   if (impl->buffers == NULL) {
-    SpaParam **params, *param;
+    struct spa_param **params, *param;
     uint8_t buffer[4096];
-    SpaPODBuilder b = SPA_POD_BUILDER_INIT (buffer, sizeof (buffer));
+    struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buffer, sizeof (buffer));
     int i, offset, n_params;
     uint32_t max_buffers;
     size_t minsize = 1024, stride = 0;
@@ -501,9 +501,9 @@ do_allocation (struct pw_link *this, uint32_t in_state, uint32_t out_state)
                                       this->output->port_id,
                                       &b);
 
-    params = alloca (n_params * sizeof (SpaParam *));
+    params = alloca (n_params * sizeof (struct spa_param *));
     for (i = 0, offset = 0; i < n_params; i++) {
-      params[i] = SPA_MEMBER (buffer, offset, SpaParam);
+      params[i] = SPA_MEMBER (buffer, offset, struct spa_param);
       spa_param_fixate (params[i]);
       spa_debug_param (params[i], this->core->type.map);
       offset += SPA_ROUND_UP_N (SPA_POD_SIZE (params[i]), 8);
@@ -666,10 +666,10 @@ error:
   }
 }
 
-static SpaResult
+static int
 do_start (struct pw_link *this, uint32_t in_state, uint32_t out_state)
 {
-  SpaResult res = SPA_RESULT_OK;
+  int res = SPA_RESULT_OK;
   struct impl *impl = SPA_CONTAINER_OF (this, struct impl, this);
 
   if (in_state < PW_PORT_STATE_PAUSED || out_state < PW_PORT_STATE_PAUSED)
@@ -691,10 +691,10 @@ do_start (struct pw_link *this, uint32_t in_state, uint32_t out_state)
   return res;
 }
 
-static SpaResult
+static int
 check_states (struct pw_link *this,
               void           *user_data,
-              SpaResult       res)
+              int       res)
 {
   struct impl *impl = SPA_CONTAINER_OF (this, struct impl, this);
   uint32_t in_state, out_state;
@@ -745,7 +745,7 @@ static void
 on_input_async_complete_notify (struct pw_listener *listener,
                                 struct pw_node     *node,
                                 uint32_t       seq,
-                                SpaResult      res)
+                                int      res)
 {
   struct impl *impl = SPA_CONTAINER_OF (listener, struct impl, input_async_complete);
 
@@ -757,7 +757,7 @@ static void
 on_output_async_complete_notify (struct pw_listener *listener,
                                  struct pw_node     *node,
                                  uint32_t       seq,
-                                 SpaResult      res)
+                                 int      res)
 {
   struct impl *impl = SPA_CONTAINER_OF (listener, struct impl, output_async_complete);
 
@@ -868,7 +868,7 @@ link_unbind_func (void *data)
     pw_link_free (this);
 }
 
-static SpaResult
+static int
 link_bind_func (struct pw_global *global,
                 struct pw_client *client,
                 uint32_t          version,
@@ -917,7 +917,7 @@ struct pw_link *
 pw_link_new (struct pw_core       *core,
              struct pw_port       *output,
              struct pw_port       *input,
-             SpaFormat           **format_filter,
+             struct spa_format   **format_filter,
              struct pw_properties *properties)
 {
   struct impl *impl;
@@ -998,13 +998,13 @@ clear_port_buffers (struct pw_link *link, struct pw_port *port)
   }
 }
 
-static SpaResult
-do_link_remove_done (SpaLoop   *loop,
-                     bool       async,
-                     uint32_t   seq,
-                     size_t     size,
-                     void      *data,
-                     void      *user_data)
+static int
+do_link_remove_done (struct spa_loop *loop,
+                     bool             async,
+                     uint32_t         seq,
+                     size_t           size,
+                     void            *data,
+                     void            *user_data)
 {
   struct pw_link *this = user_data;
   struct impl *impl = SPA_CONTAINER_OF (this, struct impl, this);
@@ -1041,15 +1041,15 @@ do_link_remove_done (SpaLoop   *loop,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-do_link_remove (SpaLoop        *loop,
-                bool            async,
-                uint32_t        seq,
-                size_t          size,
-                void           *data,
-                void           *user_data)
+static int
+do_link_remove (struct spa_loop *loop,
+                bool             async,
+                uint32_t         seq,
+                size_t           size,
+                void            *data,
+                void            *user_data)
 {
-  SpaResult res;
+  int res;
   struct pw_link *this = user_data;
 
   if (this->rt.input) {

@@ -36,7 +36,7 @@ struct impl
 {
   struct pw_data_loop this;
 
-  SpaSource *event;
+  struct spa_source *event;
 
   bool running;
   pthread_t thread;
@@ -91,7 +91,7 @@ do_loop (void *user_data)
 {
   struct impl *impl = user_data;
   struct pw_data_loop *this = &impl->this;
-  SpaResult res;
+  int res;
 
   make_realtime (this);
 
@@ -110,9 +110,9 @@ do_loop (void *user_data)
 
 
 static void
-do_stop (SpaLoopUtils *utils,
-         SpaSource    *source,
-         void         *data)
+do_stop (struct spa_loop_utils *utils,
+         struct spa_source     *source,
+         void                  *data)
 {
   struct impl *impl = data;
   impl->running = false;
@@ -169,7 +169,7 @@ pw_data_loop_destroy (struct pw_data_loop *loop)
   free (impl);
 }
 
-SpaResult
+int
 pw_data_loop_start (struct pw_data_loop *loop)
 {
   struct impl *impl = SPA_CONTAINER_OF (loop, struct impl, this);
@@ -187,7 +187,7 @@ pw_data_loop_start (struct pw_data_loop *loop)
   return SPA_RESULT_OK;
 }
 
-SpaResult
+int
 pw_data_loop_stop (struct pw_data_loop *loop)
 {
   struct impl *impl = SPA_CONTAINER_OF (loop, struct impl, this);

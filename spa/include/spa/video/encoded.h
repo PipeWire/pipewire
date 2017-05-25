@@ -24,37 +24,37 @@
 extern "C" {
 #endif
 
-typedef struct _SpaVideoInfoH264 SpaVideoInfoH264;
-typedef struct _SpaVideoInfoMJPG SpaVideoInfoMJPG;
+struct spa_video_info_h264;
+struct spa_video_info_mjpg;
 
 #include <spa/format.h>
 #include <spa/video/format.h>
 
-typedef enum {
+enum spa_h264_stream_format {
   SPA_H264_STREAM_FORMAT_UNKNOWN        = 0,
   SPA_H264_STREAM_FORMAT_AVC,
   SPA_H264_STREAM_FORMAT_AVC3,
   SPA_H264_STREAM_FORMAT_BYTESTREAM
-} SpaH264StreamFormat;
+};
 
-typedef enum {
+enum spa_h264_alignment {
   SPA_H264_ALIGNMENT_UNKNOWN        = 0,
   SPA_H264_ALIGNMENT_AU,
   SPA_H264_ALIGNMENT_NAL
-} SpaH264Alignment;
-
-struct _SpaVideoInfoH264 {
-  SpaRectangle              size;
-  SpaFraction               framerate;
-  SpaFraction               max_framerate;
-  SpaH264StreamFormat       stream_format;
-  SpaH264Alignment          alignment;
 };
 
-struct _SpaVideoInfoMJPG {
-  SpaRectangle              size;
-  SpaFraction               framerate;
-  SpaFraction               max_framerate;
+struct spa_video_info_h264 {
+  struct spa_rectangle        size;
+  struct spa_fraction         framerate;
+  struct spa_fraction         max_framerate;
+  enum spa_h264_stream_format stream_format;
+  enum spa_h264_alignment     alignment;
+};
+
+struct spa_video_info_mjpg {
+  struct spa_rectangle      size;
+  struct spa_fraction       framerate;
+  struct spa_fraction       max_framerate;
 };
 
 #ifdef __cplusplus

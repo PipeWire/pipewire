@@ -25,7 +25,7 @@ extern "C" {
 #endif
 
 /**
- * SpaVideoColorRange:
+ * spa_video_color_range:
  * @SPA_VIDEO_COLOR_RANGE_UNKNOWN: unknown range
  * @SPA_VIDEO_COLOR_RANGE_0_255: [0..255] for 8 bit components
  * @SPA_VIDEO_COLOR_RANGE_16_235: [16..235] for 8 bit components. Chroma has
@@ -34,14 +34,14 @@ extern "C" {
  * Possible color range values. These constants are defined for 8 bit color
  * values and can be scaled for other bit depths.
  */
-typedef enum {
+enum spa_video_color_range {
   SPA_VIDEO_COLOR_RANGE_UNKNOWN = 0,
   SPA_VIDEO_COLOR_RANGE_0_255,
   SPA_VIDEO_COLOR_RANGE_16_235
-} SpaVideoColorRange;
+};
 
 /**
- * SpaVideoColorMatrix:
+ * spa_video_color_matrix:
  * @SPA_VIDEO_COLOR_MATRIX_UNKNOWN: unknown matrix
  * @SPA_VIDEO_COLOR_MATRIX_RGB: identity matrix
  * @SPA_VIDEO_COLOR_MATRIX_FCC: FCC color matrix
@@ -53,7 +53,7 @@ typedef enum {
  * The color matrix is used to convert between Y'PbPr and
  * non-linear RGB (R'G'B')
  */
-typedef enum {
+enum spa_video_color_matrix {
   SPA_VIDEO_COLOR_MATRIX_UNKNOWN = 0,
   SPA_VIDEO_COLOR_MATRIX_RGB,
   SPA_VIDEO_COLOR_MATRIX_FCC,
@@ -61,10 +61,10 @@ typedef enum {
   SPA_VIDEO_COLOR_MATRIX_BT601,
   SPA_VIDEO_COLOR_MATRIX_SMPTE240M,
   SPA_VIDEO_COLOR_MATRIX_BT2020
-} SpaVideoColorMatrix;
+};
 
 /**
- * SpaVideoTransferFunction:
+ * spa_video_transfer_function:
  * @SPA_VIDEO_TRANSFER_UNKNOWN: unknown transfer function
  * @SPA_VIDEO_TRANSFER_GAMMA10: linear RGB, gamma 1.0 curve
  * @SPA_VIDEO_TRANSFER_GAMMA18: Gamma 1.8 curve
@@ -89,7 +89,7 @@ typedef enum {
  * The video transfer function defines the formula for converting between
  * non-linear RGB (R'G'B') and linear RGB
  */
-typedef enum {
+enum spa_video_transfer_function {
   SPA_VIDEO_TRANSFER_UNKNOWN = 0,
   SPA_VIDEO_TRANSFER_GAMMA10,
   SPA_VIDEO_TRANSFER_GAMMA18,
@@ -103,10 +103,10 @@ typedef enum {
   SPA_VIDEO_TRANSFER_LOG316,
   SPA_VIDEO_TRANSFER_BT2020_12,
   SPA_VIDEO_TRANSFER_ADOBERGB
-} SpaVideoTransferFunction;
+};
 
 /**
- * SpaVideoColorPrimaries:
+ * spa_video_color_primaries:
  * @SPA_VIDEO_COLOR_PRIMARIES_UNKNOWN: unknown color primaries
  * @SPA_VIDEO_COLOR_PRIMARIES_BT709: BT709 primaries
  * @SPA_VIDEO_COLOR_PRIMARIES_BT470M: BT470M primaries
@@ -120,7 +120,7 @@ typedef enum {
  * The color primaries define the how to transform linear RGB values to and from
  * the CIE XYZ colorspace.
  */
-typedef enum {
+enum spa_video_color_primaries {
   SPA_VIDEO_COLOR_PRIMARIES_UNKNOWN = 0,
   SPA_VIDEO_COLOR_PRIMARIES_BT709,
   SPA_VIDEO_COLOR_PRIMARIES_BT470M,
@@ -130,10 +130,10 @@ typedef enum {
   SPA_VIDEO_COLOR_PRIMARIES_FILM,
   SPA_VIDEO_COLOR_PRIMARIES_BT2020,
   SPA_VIDEO_COLOR_PRIMARIES_ADOBERGB
-} SpaVideoColorPrimaries;
+};
 
 /**
- * SpaVideoColorimetry:
+ * spa_video_colorimetry:
  * @range: the color range. This is the valid range for the samples.
  *         It is used to convert the samples to Y'PbPr values.
  * @matrix: the color matrix. Used to convert between Y'PbPr and
@@ -143,12 +143,12 @@ typedef enum {
  *
  * Structure describing the color info.
  */
-typedef struct {
-  SpaVideoColorRange        range;
-  SpaVideoColorMatrix       matrix;
-  SpaVideoTransferFunction  transfer;
-  SpaVideoColorPrimaries    primaries;
-} SpaVideoColorimetry;
+struct spa_video_colorimetry {
+  enum spa_video_color_range        range;
+  enum spa_video_color_matrix       matrix;
+  enum spa_video_transfer_function  transfer;
+  enum spa_video_color_primaries    primaries;
+};
 
 #ifdef __cplusplus
 }  /* extern "C" */

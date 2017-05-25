@@ -26,8 +26,6 @@ extern "C" {
 
 #include <spa/defs.h>
 
-typedef uint32_t SpaType;
-
 #define SPA_TYPE_BASE                          "Spa:"
 
 #define SPA_TYPE__Enum                         SPA_TYPE_BASE "Enum"

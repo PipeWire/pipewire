@@ -33,23 +33,25 @@
 #include <spa/format-builder.h>
 #include <lib/props.h>
 
-typedef struct {
+#define NAME "fakesrc"
+
+struct type {
   uint32_t node;
   uint32_t clock;
   uint32_t format;
   uint32_t props;
   uint32_t prop_live;
   uint32_t prop_pattern;
-  SpaTypeMeta meta;
-  SpaTypeData data;
-  SpaTypeEventNode event_node;
-  SpaTypeCommandNode command_node;
-  SpaTypeParamAllocBuffers param_alloc_buffers;
-  SpaTypeParamAllocMetaEnable param_alloc_meta_enable;
-} Type;
+  struct spa_type_meta meta;
+  struct spa_type_data data;
+  struct spa_type_event_node event_node;
+  struct spa_type_command_node command_node;
+  struct spa_type_param_alloc_buffers param_alloc_buffers;
+  struct spa_type_param_alloc_meta_enable param_alloc_meta_enable;
+};
 
 static inline void
-init_type (Type *type, SpaTypeMap *map)
+init_type (struct type *type, struct spa_type_map *map)
 {
   type->node = spa_type_map_get_id (map, SPA_TYPE__Node);
   type->clock = spa_type_map_get_id (map, SPA_TYPE__Clock);
@@ -65,52 +67,48 @@ init_type (Type *type, SpaTypeMap *map)
   spa_type_param_alloc_meta_enable_map (map, &type->param_alloc_meta_enable);
 }
 
-typedef struct _SpaFakeSrc SpaFakeSrc;
-
-typedef struct {
+struct props {
   bool live;
   uint32_t pattern;
-} SpaFakeSrcProps;
+};
 
 #define MAX_BUFFERS 16
 #define MAX_PORTS 1
 
-typedef struct _Buffer Buffer;
-
-struct _Buffer {
-  SpaBuffer *outbuf;
+struct buffer {
+  struct spa_buffer *outbuf;
   bool outstanding;
-  SpaMetaHeader *h;
-  SpaList link;
+  struct spa_meta_header *h;
+  struct spa_list link;
 };
 
-struct _SpaFakeSrc {
-  SpaHandle handle;
-  SpaNode node;
-  SpaClock clock;
+struct impl {
+  struct spa_handle handle;
+  struct spa_node node;
+  struct spa_clock clock;
 
-  Type type;
-  SpaTypeMap *map;
-  SpaLog *log;
-  SpaLoop *data_loop;
+  struct type type;
+  struct spa_type_map *map;
+  struct spa_log *log;
+  struct spa_loop *data_loop;
 
   uint8_t props_buffer[512];
-  SpaFakeSrcProps props;
+  struct props props;
 
-  SpaNodeCallbacks callbacks;
+  struct spa_node_callbacks callbacks;
   void *user_data;
 
-  SpaSource timer_source;
+  struct spa_source timer_source;
   struct itimerspec timerspec;
 
-  SpaPortInfo info;
+  struct spa_port_info info;
   uint8_t params_buffer[1024];
-  SpaPortIO *io;
+  struct spa_port_io *io;
 
   bool have_format;
   uint8_t format_buffer[1024];
 
-  Buffer buffers[MAX_BUFFERS];
+  struct buffer buffers[MAX_BUFFERS];
   uint32_t  n_buffers;
 
   bool started;
@@ -118,7 +116,7 @@ struct _SpaFakeSrc {
   uint64_t elapsed_time;
 
   uint64_t buffer_count;
-  SpaList empty;
+  struct spa_list empty;
   bool underrun;
 };
 
@@ -129,7 +127,7 @@ struct _SpaFakeSrc {
 #define DEFAULT_PATTERN 0
 
 static void
-reset_fakesrc_props (SpaFakeSrc *this, SpaFakeSrcProps *props)
+reset_props (struct impl *this, struct props *props)
 {
   props->live = DEFAULT_LIVE;
   props->pattern = DEFAULT_PATTERN;
@@ -148,18 +146,18 @@ reset_fakesrc_props (SpaFakeSrc *this, SpaFakeSrcProps *props)
           SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |                         \
                               SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
 
-static SpaResult
-spa_fakesrc_node_get_props (SpaNode       *node,
-                            SpaProps     **props)
+static int
+impl_node_get_props (struct spa_node       *node,
+                            struct spa_props     **props)
 {
-  SpaFakeSrc *this;
-  SpaPODBuilder b = { NULL,  };
-  SpaPODFrame f[2];
+  struct impl *this;
+  struct spa_pod_builder b = { NULL,  };
+  struct spa_pod_frame f[2];
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (props != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaFakeSrc, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   spa_pod_builder_init (&b, this->props_buffer, sizeof (this->props_buffer));
   spa_pod_builder_props (&b, &f[0], this->type.props,
@@ -168,23 +166,23 @@ spa_fakesrc_node_get_props (SpaNode       *node,
                                                         this->props.pattern,
                                                         this->props.pattern));
 
-  *props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaProps);
+  *props = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_props);
 
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_fakesrc_node_set_props (SpaNode         *node,
-                            const SpaProps  *props)
+static int
+impl_node_set_props (struct spa_node         *node,
+                            const struct spa_props  *props)
 {
-  SpaFakeSrc *this;
+  struct impl *this;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaFakeSrc, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   if (props == NULL) {
-    reset_fakesrc_props (this, &this->props);
+    reset_props (this, &this->props);
   } else {
     spa_props_query (props,
         this->type.prop_live,     SPA_POD_TYPE_BOOL,   &this->props.live,
@@ -200,14 +198,14 @@ spa_fakesrc_node_set_props (SpaNode         *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-fill_buffer (SpaFakeSrc *this, Buffer *b)
+static int
+fill_buffer (struct impl *this, struct buffer *b)
 {
   return SPA_RESULT_OK;
 }
 
 static void
-set_timer (SpaFakeSrc *this, bool enabled)
+set_timer (struct impl *this, bool enabled)
 {
   if (this->callbacks.have_output || this->props.live) {
     if (enabled) {
@@ -228,7 +226,7 @@ set_timer (SpaFakeSrc *this, bool enabled)
 }
 
 static inline void
-read_timer (SpaFakeSrc *this)
+read_timer (struct impl *this)
 {
   uint64_t expirations;
 
@@ -238,11 +236,11 @@ read_timer (SpaFakeSrc *this)
   }
 }
 
-static SpaResult
-fakesrc_make_buffer (SpaFakeSrc *this)
+static int
+make_buffer (struct impl *this)
 {
-  Buffer *b;
-  SpaPortIO *io = this->io;
+  struct buffer *b;
+  struct spa_port_io *io = this->io;
   int n_bytes;
 
   read_timer (this);
@@ -250,16 +248,16 @@ fakesrc_make_buffer (SpaFakeSrc *this)
   if (spa_list_is_empty (&this->empty)) {
     set_timer (this, false);
     this->underrun = true;
-    spa_log_error (this->log, "fakesrc %p: out of buffers", this);
+    spa_log_error (this->log, NAME " %p: out of buffers", this);
     return SPA_RESULT_OUT_OF_BUFFERS;
   }
-  b = spa_list_first (&this->empty, Buffer, link);
+  b = spa_list_first (&this->empty, struct buffer, link);
   spa_list_remove (&b->link);
   b->outstanding = true;
 
   n_bytes = b->outbuf->datas[0].maxsize;
 
-  spa_log_trace (this->log, "fakesrc %p: dequeue buffer %d", this, b->outbuf->id);
+  spa_log_trace (this->log, NAME " %p: dequeue buffer %d", this, b->outbuf->id);
 
   fill_buffer (this, b);
 
@@ -284,27 +282,27 @@ fakesrc_make_buffer (SpaFakeSrc *this)
 }
 
 static void
-fakesrc_on_output (SpaSource *source)
+on_output (struct spa_source *source)
 {
-  SpaFakeSrc *this = source->data;
-  SpaResult res;
+  struct impl *this = source->data;
+  int res;
 
-  res = fakesrc_make_buffer (this);
+  res = make_buffer (this);
 
   if (res == SPA_RESULT_HAVE_BUFFER && this->callbacks.have_output)
     this->callbacks.have_output (&this->node, this->user_data);
 }
 
-static SpaResult
-spa_fakesrc_node_send_command (SpaNode    *node,
-                               SpaCommand *command)
+static int
+impl_node_send_command (struct spa_node    *node,
+                               struct spa_command *command)
 {
-  SpaFakeSrc *this;
+  struct impl *this;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (command != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaFakeSrc, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   if (SPA_COMMAND_TYPE (command) == this->type.command_node.Start) {
     struct timespec now;
@@ -348,17 +346,17 @@ spa_fakesrc_node_send_command (SpaNode    *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_fakesrc_node_set_callbacks (SpaNode                *node,
-                                const SpaNodeCallbacks *callbacks,
+static int
+impl_node_set_callbacks (struct spa_node                *node,
+                                const struct spa_node_callbacks *callbacks,
                                 size_t                  callbacks_size,
                                 void                   *user_data)
 {
-  SpaFakeSrc *this;
+  struct impl *this;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaFakeSrc, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   if (this->data_loop == NULL && callbacks->have_output != NULL) {
     spa_log_error (this->log, "a data_loop is needed for async operation");
@@ -370,8 +368,8 @@ spa_fakesrc_node_set_callbacks (SpaNode                *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_fakesrc_node_get_n_ports (SpaNode       *node,
+static int
+impl_node_get_n_ports (struct spa_node       *node,
                               uint32_t      *n_input_ports,
                               uint32_t      *max_input_ports,
                               uint32_t      *n_output_ports,
@@ -391,8 +389,8 @@ spa_fakesrc_node_get_n_ports (SpaNode       *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_fakesrc_node_get_port_ids (SpaNode       *node,
+static int
+impl_node_get_port_ids (struct spa_node       *node,
                                uint32_t       n_input_ports,
                                uint32_t      *input_ids,
                                uint32_t       n_output_ports,
@@ -406,47 +404,47 @@ spa_fakesrc_node_get_port_ids (SpaNode       *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_fakesrc_node_add_port (SpaNode        *node,
-                           SpaDirection    direction,
+static int
+impl_node_add_port (struct spa_node        *node,
+                           enum spa_direction    direction,
                            uint32_t        port_id)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_fakesrc_node_remove_port (SpaNode        *node,
-                              SpaDirection    direction,
+static int
+impl_node_remove_port (struct spa_node        *node,
+                              enum spa_direction    direction,
                               uint32_t        port_id)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_fakesrc_node_port_enum_formats (SpaNode          *node,
-                                    SpaDirection      direction,
+static int
+impl_node_port_enum_formats (struct spa_node          *node,
+                                    enum spa_direction      direction,
                                     uint32_t          port_id,
-                                    SpaFormat       **format,
-                                    const SpaFormat  *filter,
+                                    struct spa_format       **format,
+                                    const struct spa_format  *filter,
                                     uint32_t          index)
 {
-  SpaFakeSrc *this;
+  struct impl *this;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (format != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaFakeSrc, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   return SPA_RESULT_ENUM_END;
 }
 
-static SpaResult
-clear_buffers (SpaFakeSrc *this)
+static int
+clear_buffers (struct impl *this)
 {
   if (this->n_buffers > 0) {
-    spa_log_info (this->log, "fakesrc %p: clear buffers", this);
+    spa_log_info (this->log, NAME " %p: clear buffers", this);
     this->n_buffers = 0;
     spa_list_init (&this->empty);
     this->started = false;
@@ -455,18 +453,18 @@ clear_buffers (SpaFakeSrc *this)
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_fakesrc_node_port_set_format (SpaNode         *node,
-                                  SpaDirection     direction,
+static int
+impl_node_port_set_format (struct spa_node         *node,
+                                  enum spa_direction     direction,
                                   uint32_t         port_id,
                                   uint32_t         flags,
-                                  const SpaFormat *format)
+                                  const struct spa_format *format)
 {
-  SpaFakeSrc *this;
+  struct impl *this;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaFakeSrc, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
@@ -486,41 +484,41 @@ spa_fakesrc_node_port_set_format (SpaNode         *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_fakesrc_node_port_get_format (SpaNode          *node,
-                                  SpaDirection      direction,
+static int
+impl_node_port_get_format (struct spa_node          *node,
+                                  enum spa_direction      direction,
                                   uint32_t          port_id,
-                                  const SpaFormat **format)
+                                  const struct spa_format **format)
 {
-  SpaFakeSrc *this;
+  struct impl *this;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (format != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaFakeSrc, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
   if (!this->have_format)
     return SPA_RESULT_NO_FORMAT;
 
-  *format = (const SpaFormat *) this->format_buffer;
+  *format = (const struct spa_format *) this->format_buffer;
 
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_fakesrc_node_port_get_info (SpaNode            *node,
-                                SpaDirection        direction,
+static int
+impl_node_port_get_info (struct spa_node            *node,
+                                enum spa_direction        direction,
                                 uint32_t            port_id,
-                                const SpaPortInfo **info)
+                                const struct spa_port_info **info)
 {
-  SpaFakeSrc *this;
+  struct impl *this;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (info != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaFakeSrc, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
@@ -529,21 +527,21 @@ spa_fakesrc_node_port_get_info (SpaNode            *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_fakesrc_node_port_enum_params (SpaNode       *node,
-                                   SpaDirection   direction,
+static int
+impl_node_port_enum_params (struct spa_node       *node,
+                                   enum spa_direction   direction,
                                    uint32_t       port_id,
                                    uint32_t       index,
-                                   SpaParam     **param)
+                                   struct spa_param     **param)
 {
-  SpaFakeSrc *this;
-  SpaPODBuilder b = { NULL };
-  SpaPODFrame f[2];
+  struct impl *this;
+  struct spa_pod_builder b = { NULL };
+  struct spa_pod_frame f[2];
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (param != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaFakeSrc, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
@@ -561,39 +559,39 @@ spa_fakesrc_node_port_enum_params (SpaNode       *node,
   case 1:
     spa_pod_builder_object (&b, &f[0], 0, this->type.param_alloc_meta_enable.MetaEnable,
       PROP      (&f[1], this->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID, this->type.meta.Header),
-      PROP      (&f[1], this->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
+      PROP      (&f[1], this->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (struct spa_meta_header)));
     break;
 
   default:
     return SPA_RESULT_NOT_IMPLEMENTED;
   }
-  *param = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaParam);
+  *param = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_param);
 
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_fakesrc_node_port_set_param (SpaNode        *node,
-                                 SpaDirection    direction,
+static int
+impl_node_port_set_param (struct spa_node        *node,
+                                 enum spa_direction    direction,
                                  uint32_t        port_id,
-                                 const SpaParam *param)
+                                 const struct spa_param *param)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_fakesrc_node_port_use_buffers (SpaNode         *node,
-                                   SpaDirection     direction,
-                                   uint32_t         port_id,
-                                   SpaBuffer      **buffers,
-                                   uint32_t         n_buffers)
+static int
+impl_node_port_use_buffers (struct spa_node            *node,
+                                   enum spa_direction        direction,
+                                   uint32_t            port_id,
+                                   struct spa_buffer **buffers,
+                                   uint32_t            n_buffers)
 {
-  SpaFakeSrc *this;
+  struct impl *this;
   uint32_t i;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaFakeSrc, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
@@ -603,8 +601,8 @@ spa_fakesrc_node_port_use_buffers (SpaNode         *node,
   clear_buffers (this);
 
   for (i = 0; i < n_buffers; i++) {
-    Buffer *b;
-    SpaData *d = buffers[i]->datas;
+    struct buffer *b;
+    struct spa_data *d = buffers[i]->datas;
 
     b = &this->buffers[i];
     b->outbuf = buffers[i];
@@ -615,7 +613,7 @@ spa_fakesrc_node_port_use_buffers (SpaNode         *node,
          d[0].type == this->type.data.MemFd ||
          d[0].type == this->type.data.DmaBuf) &&
         d[0].data == NULL) {
-      spa_log_error (this->log, "fakesrc %p: invalid memory on buffer %p", this, buffers[i]);
+      spa_log_error (this->log, NAME " %p: invalid memory on buffer %p", this, buffers[i]);
     }
     spa_list_insert (this->empty.prev, &b->link);
   }
@@ -625,20 +623,20 @@ spa_fakesrc_node_port_use_buffers (SpaNode         *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_fakesrc_node_port_alloc_buffers (SpaNode         *node,
-                                     SpaDirection     direction,
-                                     uint32_t         port_id,
-                                     SpaParam       **params,
-                                     uint32_t         n_params,
-                                     SpaBuffer      **buffers,
-                                     uint32_t        *n_buffers)
+static int
+impl_node_port_alloc_buffers (struct spa_node            *node,
+                                     enum spa_direction        direction,
+                                     uint32_t            port_id,
+                                     struct spa_param          **params,
+                                     uint32_t            n_params,
+                                     struct spa_buffer **buffers,
+                                     uint32_t           *n_buffers)
 {
-  SpaFakeSrc *this;
+  struct impl *this;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaFakeSrc, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   spa_return_val_if_fail (CHECK_PORT (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
@@ -648,17 +646,17 @@ spa_fakesrc_node_port_alloc_buffers (SpaNode         *node,
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_fakesrc_node_port_set_io (SpaNode       *node,
-                              SpaDirection   direction,
+static int
+impl_node_port_set_io (struct spa_node       *node,
+                              enum spa_direction   direction,
                               uint32_t       port_id,
-                              SpaPortIO     *io)
+                              struct spa_port_io     *io)
 {
-  SpaFakeSrc *this;
+  struct impl *this;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaFakeSrc, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   spa_return_val_if_fail (CHECK_PORT_NUM (this, direction, port_id), SPA_RESULT_INVALID_PORT);
 
@@ -668,12 +666,12 @@ spa_fakesrc_node_port_set_io (SpaNode       *node,
 }
 
 static inline void
-reuse_buffer (SpaFakeSrc *this, uint32_t id)
+reuse_buffer (struct impl *this, uint32_t id)
 {
-  Buffer *b = &this->buffers[id];
+  struct buffer *b = &this->buffers[id];
   spa_return_if_fail (b->outstanding);
 
-  spa_log_trace (this->log, "fakesrc %p: reuse buffer %d", this, id);
+  spa_log_trace (this->log, NAME " %p: reuse buffer %d", this, id);
 
   b->outstanding = false;
   spa_list_insert (this->empty.prev, &b->link);
@@ -684,16 +682,16 @@ reuse_buffer (SpaFakeSrc *this, uint32_t id)
   }
 }
 
-static SpaResult
-spa_fakesrc_node_port_reuse_buffer (SpaNode         *node,
+static int
+impl_node_port_reuse_buffer (struct spa_node         *node,
                                     uint32_t         port_id,
                                     uint32_t         buffer_id)
 {
-  SpaFakeSrc *this;
+  struct impl *this;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaFakeSrc, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   spa_return_val_if_fail (port_id == 0, SPA_RESULT_INVALID_PORT);
   spa_return_val_if_fail (this->n_buffers > 0, SPA_RESULT_NO_BUFFERS);
@@ -704,30 +702,30 @@ spa_fakesrc_node_port_reuse_buffer (SpaNode         *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_fakesrc_node_port_send_command (SpaNode        *node,
-                                    SpaDirection    direction,
-                                    uint32_t        port_id,
-                                    SpaCommand     *command)
+static int
+impl_node_port_send_command (struct spa_node            *node,
+                                    enum spa_direction        direction,
+                                    uint32_t            port_id,
+                                    struct spa_command *command)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_fakesrc_node_process_input (SpaNode *node)
+static int
+impl_node_process_input (struct spa_node *node)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_fakesrc_node_process_output (SpaNode *node)
+static int
+impl_node_process_output (struct spa_node *node)
 {
-  SpaFakeSrc *this;
-  SpaPortIO *io;
+  struct impl *this;
+  struct spa_port_io *io;
 
   spa_return_val_if_fail (node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (node, SpaFakeSrc, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
   io = this->io;
   spa_return_val_if_fail (io != NULL, SPA_RESULT_WRONG_STATE);
 
@@ -740,53 +738,53 @@ spa_fakesrc_node_process_output (SpaNode *node)
   }
 
   if (this->callbacks.have_output == NULL && (io->status == SPA_RESULT_NEED_BUFFER))
-    return fakesrc_make_buffer (this);
+    return make_buffer (this);
   else
     return SPA_RESULT_OK;
 }
 
-static const SpaNode fakesrc_node = {
-  sizeof (SpaNode),
+static const struct spa_node impl_node = {
+  sizeof (struct spa_node),
   NULL,
-  spa_fakesrc_node_get_props,
-  spa_fakesrc_node_set_props,
-  spa_fakesrc_node_send_command,
-  spa_fakesrc_node_set_callbacks,
-  spa_fakesrc_node_get_n_ports,
-  spa_fakesrc_node_get_port_ids,
-  spa_fakesrc_node_add_port,
-  spa_fakesrc_node_remove_port,
-  spa_fakesrc_node_port_enum_formats,
-  spa_fakesrc_node_port_set_format,
-  spa_fakesrc_node_port_get_format,
-  spa_fakesrc_node_port_get_info,
-  spa_fakesrc_node_port_enum_params,
-  spa_fakesrc_node_port_set_param,
-  spa_fakesrc_node_port_use_buffers,
-  spa_fakesrc_node_port_alloc_buffers,
-  spa_fakesrc_node_port_set_io,
-  spa_fakesrc_node_port_reuse_buffer,
-  spa_fakesrc_node_port_send_command,
-  spa_fakesrc_node_process_input,
-  spa_fakesrc_node_process_output,
+  impl_node_get_props,
+  impl_node_set_props,
+  impl_node_send_command,
+  impl_node_set_callbacks,
+  impl_node_get_n_ports,
+  impl_node_get_port_ids,
+  impl_node_add_port,
+  impl_node_remove_port,
+  impl_node_port_enum_formats,
+  impl_node_port_set_format,
+  impl_node_port_get_format,
+  impl_node_port_get_info,
+  impl_node_port_enum_params,
+  impl_node_port_set_param,
+  impl_node_port_use_buffers,
+  impl_node_port_alloc_buffers,
+  impl_node_port_set_io,
+  impl_node_port_reuse_buffer,
+  impl_node_port_send_command,
+  impl_node_process_input,
+  impl_node_process_output,
 };
 
-static SpaResult
-spa_fakesrc_clock_get_props (SpaClock  *clock,
-                             SpaProps **props)
+static int
+impl_clock_get_props (struct spa_clock  *clock,
+                             struct spa_props         **props)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_fakesrc_clock_set_props (SpaClock       *clock,
-                             const SpaProps *props)
+static int
+impl_clock_set_props (struct spa_clock *clock,
+                             const struct spa_props   *props)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_fakesrc_clock_get_time (SpaClock         *clock,
+static int
+impl_clock_get_time (struct spa_clock *clock,
                             int32_t          *rate,
                             int64_t          *ticks,
                             int64_t          *monotonic_time)
@@ -810,26 +808,26 @@ spa_fakesrc_clock_get_time (SpaClock         *clock,
   return SPA_RESULT_OK;
 }
 
-static const SpaClock fakesrc_clock = {
-  sizeof (SpaClock),
+static const struct spa_clock impl_clock = {
+  sizeof (struct spa_clock),
   NULL,
   SPA_CLOCK_STATE_STOPPED,
-  spa_fakesrc_clock_get_props,
-  spa_fakesrc_clock_set_props,
-  spa_fakesrc_clock_get_time,
+  impl_clock_get_props,
+  impl_clock_set_props,
+  impl_clock_get_time,
 };
 
-static SpaResult
-spa_fakesrc_get_interface (SpaHandle         *handle,
+static int
+impl_get_interface (struct spa_handle         *handle,
                            uint32_t           interface_id,
                            void             **interface)
 {
-  SpaFakeSrc *this;
+  struct impl *this;
 
   spa_return_val_if_fail (handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (interface != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = (SpaFakeSrc *) handle;
+  this = (struct impl *) handle;
 
   if (interface_id == this->type.node)
     *interface = &this->node;
@@ -841,14 +839,14 @@ spa_fakesrc_get_interface (SpaHandle         *handle,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-fakesrc_clear (SpaHandle *handle)
+static int
+impl_clear (struct spa_handle *handle)
 {
-  SpaFakeSrc *this;
+  struct impl *this;
 
   spa_return_val_if_fail (handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = (SpaFakeSrc *) handle;
+  this = (struct impl *) handle;
 
   if (this->data_loop)
     spa_loop_remove_source (this->data_loop, &this->timer_source);
@@ -857,23 +855,23 @@ fakesrc_clear (SpaHandle *handle)
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-fakesrc_init (const SpaHandleFactory  *factory,
-              SpaHandle               *handle,
-              const SpaDict           *info,
-              const SpaSupport        *support,
+static int
+impl_init (const struct spa_handle_factory  *factory,
+              struct spa_handle               *handle,
+              const struct spa_dict           *info,
+              const struct spa_support        *support,
               uint32_t                 n_support)
 {
-  SpaFakeSrc *this;
+  struct impl *this;
   uint32_t i;
 
   spa_return_val_if_fail (factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  handle->get_interface = spa_fakesrc_get_interface;
-  handle->clear = fakesrc_clear;
+  handle->get_interface = impl_get_interface;
+  handle->clear = impl_clear;
 
-  this = (SpaFakeSrc *) handle;
+  this = (struct impl *) handle;
 
   for (i = 0; i < n_support; i++) {
     if (strcmp (support[i].type, SPA_TYPE__TypeMap) == 0)
@@ -889,13 +887,13 @@ fakesrc_init (const SpaHandleFactory  *factory,
   }
   init_type (&this->type, this->map);
 
-  this->node = fakesrc_node;
-  this->clock = fakesrc_clock;
-  reset_fakesrc_props (this, &this->props);
+  this->node = impl_node;
+  this->clock = impl_clock;
+  reset_props (this, &this->props);
 
   spa_list_init (&this->empty);
 
-  this->timer_source.func = fakesrc_on_output;
+  this->timer_source.func = on_output;
   this->timer_source.data = this;
   this->timer_source.fd = timerfd_create (CLOCK_MONOTONIC, TFD_CLOEXEC);
   this->timer_source.mask = SPA_IO_IN;
@@ -913,20 +911,20 @@ fakesrc_init (const SpaHandleFactory  *factory,
   if (this->props.live)
     this->info.flags |= SPA_PORT_INFO_FLAG_LIVE;
 
-  spa_log_info (this->log, "fakesrc %p: initialized", this);
+  spa_log_info (this->log, NAME " %p: initialized", this);
 
   return SPA_RESULT_OK;
 }
 
-static const SpaInterfaceInfo fakesrc_interfaces[] =
+static const struct spa_interface_info impl_interfaces[] =
 {
   { SPA_TYPE__Node, },
   { SPA_TYPE__Clock, },
 };
 
-static SpaResult
-fakesrc_enum_interface_info (const SpaHandleFactory  *factory,
-                             const SpaInterfaceInfo **info,
+static int
+impl_enum_interface_info (const struct spa_handle_factory  *factory,
+                             const struct spa_interface_info **info,
                              uint32_t                 index)
 {
   spa_return_val_if_fail (factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
@@ -934,7 +932,7 @@ fakesrc_enum_interface_info (const SpaHandleFactory  *factory,
 
   switch (index) {
     case 0:
-      *info = &fakesrc_interfaces[index];
+      *info = &impl_interfaces[index];
       break;
     default:
       return SPA_RESULT_ENUM_END;
@@ -942,10 +940,10 @@ fakesrc_enum_interface_info (const SpaHandleFactory  *factory,
   return SPA_RESULT_OK;
 }
 
-const SpaHandleFactory spa_fakesrc_factory =
-{ "fakesrc",
+const struct spa_handle_factory spa_fakesrc_factory =
+{ NAME,
   NULL,
-  sizeof (SpaFakeSrc),
-  fakesrc_init,
-  fakesrc_enum_interface_info,
+  sizeof (struct impl),
+  impl_init,
+  impl_enum_interface_info,
 };

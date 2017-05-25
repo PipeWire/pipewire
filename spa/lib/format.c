@@ -27,13 +27,13 @@
 #include <lib/props.h>
 #include <lib/mapper.h>
 
-SpaResult
-spa_format_filter (const SpaFormat  *format,
-                   const SpaFormat  *filter,
-                   SpaPODBuilder    *result)
+int
+spa_format_filter (const struct spa_format  *format,
+                   const struct spa_format  *filter,
+                   struct spa_pod_builder   *result)
 {
-  SpaPODFrame f;
-  SpaResult res;
+  struct spa_pod_frame f;
+  int res;
 
   if (format == NULL || result == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -51,10 +51,10 @@ spa_format_filter (const SpaFormat  *format,
                                SPA_FORMAT_MEDIA_TYPE (filter),
                                SPA_FORMAT_MEDIA_SUBTYPE (filter));
   res = spa_props_filter (result,
-                          SPA_POD_CONTENTS (SpaFormat, format),
-                          SPA_POD_CONTENTS_SIZE (SpaFormat, format),
-                          SPA_POD_CONTENTS (SpaFormat, filter),
-                          SPA_POD_CONTENTS_SIZE (SpaFormat, filter));
+                          SPA_POD_CONTENTS (struct spa_format, format),
+                          SPA_POD_CONTENTS_SIZE (struct spa_format, format),
+                          SPA_POD_CONTENTS (struct spa_format, filter),
+                          SPA_POD_CONTENTS_SIZE (struct spa_format, filter));
   spa_pod_builder_pop (result, &f);
 
   return res;

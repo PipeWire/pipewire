@@ -35,16 +35,16 @@ struct impl {
   struct pw_listener global_added;
   struct pw_listener global_removed;
 
-  SpaList client_list;
+  struct spa_list client_list;
 };
 
 struct client_info {
   struct impl        *impl;
   struct pw_client   *client;
-  SpaList             link;
+  struct spa_list     link;
   struct pw_listener  resource_added;
   struct pw_listener  resource_removed;
-  SpaList             node_list;
+  struct spa_list     node_list;
 };
 
 struct node_info {
@@ -52,7 +52,7 @@ struct node_info {
   struct client_info *info;
   struct pw_node     *node;
   struct pw_resource *resource;
-  SpaList             link;
+  struct spa_list     link;
   struct pw_listener  state_changed;
   struct pw_listener  port_added;
   struct pw_listener  port_removed;

@@ -43,7 +43,7 @@ struct pw_thread_main_loop *  pw_thread_main_loop_new             (struct pw_loo
                                                                    const char     *name);
 void                   pw_thread_main_loop_destroy         (struct pw_thread_main_loop *loop);
 
-SpaResult              pw_thread_main_loop_start           (struct pw_thread_main_loop *loop);
+int              pw_thread_main_loop_start           (struct pw_thread_main_loop *loop);
 void                   pw_thread_main_loop_stop            (struct pw_thread_main_loop *loop);
 
 void                   pw_thread_main_loop_lock            (struct pw_thread_main_loop *loop);

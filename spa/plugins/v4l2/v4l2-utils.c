@@ -9,7 +9,7 @@
 
 #define CLEAR(x) memset(&(x), 0, sizeof(x))
 
-static void v4l2_on_fd_events (SpaSource *source);
+static void v4l2_on_fd_events (struct spa_source *source);
 
 static int
 xioctl (int fd, int request, void *arg)
@@ -24,11 +24,11 @@ xioctl (int fd, int request, void *arg)
 }
 
 static int
-spa_v4l2_open (SpaV4l2Source *this)
+spa_v4l2_open (struct impl *this)
 {
-  SpaV4l2State *state = &this->state[0];
+  struct port *state = &this->out_ports[0];
   struct stat st;
-  SpaV4l2SourceProps *props = &this->props;
+  struct props *props = &this->props;
 
   if (state->opened)
     return 0;
@@ -80,11 +80,11 @@ spa_v4l2_open (SpaV4l2Source *this)
   return 0;
 }
 
-static SpaResult
-spa_v4l2_buffer_recycle (SpaV4l2Source *this, uint32_t buffer_id)
+static int
+spa_v4l2_buffer_recycle (struct impl *this, uint32_t buffer_id)
 {
-  SpaV4l2State *state = &this->state[0];
-  V4l2Buffer *b = &state->buffers[buffer_id];
+  struct port *state = &this->out_ports[0];
+  struct buffer *b = &state->buffers[buffer_id];
 
   if (!b->outstanding)
     return SPA_RESULT_OK;
@@ -98,10 +98,10 @@ spa_v4l2_buffer_recycle (SpaV4l2Source *this, uint32_t buffer_id)
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_v4l2_clear_buffers (SpaV4l2Source *this)
+static int
+spa_v4l2_clear_buffers (struct impl *this)
 {
-  SpaV4l2State *state = &this->state[0];
+  struct port *state = &this->out_ports[0];
   struct v4l2_requestbuffers reqbuf;
   int i;
 
@@ -109,7 +109,7 @@ spa_v4l2_clear_buffers (SpaV4l2Source *this)
     return SPA_RESULT_OK;
 
   for (i = 0; i < state->n_buffers; i++) {
-    V4l2Buffer *b;
+    struct buffer *b;
 
     b = &state->buffers[i];
     if (b->outstanding) {
@@ -138,10 +138,10 @@ spa_v4l2_clear_buffers (SpaV4l2Source *this)
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_v4l2_port_set_enabled (SpaV4l2Source *this, bool enabled)
+static int
+spa_v4l2_port_set_enabled (struct impl *this, bool enabled)
 {
-  SpaV4l2State *state = &this->state[0];
+  struct port *state = &this->out_ports[0];
   if (state->source_enabled != enabled) {
     spa_log_info (state->log, "v4l2: enabled %d", enabled);
     state->source_enabled = enabled;
@@ -154,9 +154,9 @@ spa_v4l2_port_set_enabled (SpaV4l2Source *this, bool enabled)
 }
 
 static int
-spa_v4l2_close (SpaV4l2Source *this)
+spa_v4l2_close (struct impl *this)
 {
-  SpaV4l2State *state = &this->state[0];
+  struct port *state = &this->out_ports[0];
 
   if (!state->opened)
     return 0;
@@ -177,63 +177,63 @@ spa_v4l2_close (SpaV4l2Source *this)
   return 0;
 }
 
-typedef struct {
+struct format_info {
   uint32_t fourcc;
   off_t format_offset;
   off_t media_type_offset;
   off_t media_subtype_offset;
-} FormatInfo;
+};
 
-#define VIDEO   offsetof(Type, media_type.video)
-#define IMAGE   offsetof(Type, media_type.image)
+#define VIDEO   offsetof(struct type, media_type.video)
+#define IMAGE   offsetof(struct type, media_type.image)
 
-#define RAW     offsetof(Type, media_subtype.raw)
+#define RAW     offsetof(struct type, media_subtype.raw)
 
-#define BAYER   offsetof(Type, media_subtype_video.bayer)
-#define MJPG    offsetof(Type, media_subtype_video.mjpg)
-#define JPEG    offsetof(Type, media_subtype_video.jpeg)
-#define DV      offsetof(Type, media_subtype_video.dv)
-#define MPEGTS  offsetof(Type, media_subtype_video.mpegts)
-#define H264    offsetof(Type, media_subtype_video.h264)
-#define H263    offsetof(Type, media_subtype_video.h263)
-#define MPEG1   offsetof(Type, media_subtype_video.mpeg1)
-#define MPEG2   offsetof(Type, media_subtype_video.mpeg2)
-#define MPEG4   offsetof(Type, media_subtype_video.mpeg4)
-#define XVID    offsetof(Type, media_subtype_video.xvid)
-#define VC1     offsetof(Type, media_subtype_video.vc1)
-#define VP8     offsetof(Type, media_subtype_video.vp8)
+#define BAYER   offsetof(struct type, media_subtype_video.bayer)
+#define MJPG    offsetof(struct type, media_subtype_video.mjpg)
+#define JPEG    offsetof(struct type, media_subtype_video.jpeg)
+#define DV      offsetof(struct type, media_subtype_video.dv)
+#define MPEGTS  offsetof(struct type, media_subtype_video.mpegts)
+#define H264    offsetof(struct type, media_subtype_video.h264)
+#define H263    offsetof(struct type, media_subtype_video.h263)
+#define MPEG1   offsetof(struct type, media_subtype_video.mpeg1)
+#define MPEG2   offsetof(struct type, media_subtype_video.mpeg2)
+#define MPEG4   offsetof(struct type, media_subtype_video.mpeg4)
+#define XVID    offsetof(struct type, media_subtype_video.xvid)
+#define VC1     offsetof(struct type, media_subtype_video.vc1)
+#define VP8     offsetof(struct type, media_subtype_video.vp8)
 
-#define FORMAT_UNKNOWN    offsetof(Type, video_format.UNKNOWN)
-#define FORMAT_ENCODED    offsetof(Type, video_format.ENCODED)
-#define FORMAT_RGB15      offsetof(Type, video_format.RGB15)
-#define FORMAT_BGR15      offsetof(Type, video_format.BGR15)
-#define FORMAT_RGB16      offsetof(Type, video_format.RGB16)
-#define FORMAT_BGR        offsetof(Type, video_format.BGR)
-#define FORMAT_RGB        offsetof(Type, video_format.RGB)
-#define FORMAT_BGRA       offsetof(Type, video_format.BGRA)
-#define FORMAT_BGRx       offsetof(Type, video_format.BGRx)
-#define FORMAT_ARGB       offsetof(Type, video_format.ARGB)
-#define FORMAT_xRGB       offsetof(Type, video_format.xRGB)
-#define FORMAT_GRAY8      offsetof(Type, video_format.GRAY8)
-#define FORMAT_GRAY16_LE  offsetof(Type, video_format.GRAY16_LE)
-#define FORMAT_GRAY16_BE  offsetof(Type, video_format.GRAY16_BE)
-#define FORMAT_YVU9       offsetof(Type, video_format.YVU9)
-#define FORMAT_YV12       offsetof(Type, video_format.YV12)
-#define FORMAT_YUY2       offsetof(Type, video_format.YUY2)
-#define FORMAT_YVYU       offsetof(Type, video_format.YVYU)
-#define FORMAT_UYVY       offsetof(Type, video_format.UYVY)
-#define FORMAT_Y42B       offsetof(Type, video_format.Y42B)
-#define FORMAT_Y41B       offsetof(Type, video_format.Y41B)
-#define FORMAT_YUV9       offsetof(Type, video_format.YUV9)
-#define FORMAT_I420       offsetof(Type, video_format.I420)
-#define FORMAT_NV12       offsetof(Type, video_format.NV12)
-#define FORMAT_NV12_64Z32 offsetof(Type, video_format.NV12_64Z32)
-#define FORMAT_NV21       offsetof(Type, video_format.NV21)
-#define FORMAT_NV16       offsetof(Type, video_format.NV16)
-#define FORMAT_NV61       offsetof(Type, video_format.NV61)
-#define FORMAT_NV24       offsetof(Type, video_format.NV24)
+#define FORMAT_UNKNOWN    offsetof(struct type, video_format.UNKNOWN)
+#define FORMAT_ENCODED    offsetof(struct type, video_format.ENCODED)
+#define FORMAT_RGB15      offsetof(struct type, video_format.RGB15)
+#define FORMAT_BGR15      offsetof(struct type, video_format.BGR15)
+#define FORMAT_RGB16      offsetof(struct type, video_format.RGB16)
+#define FORMAT_BGR        offsetof(struct type, video_format.BGR)
+#define FORMAT_RGB        offsetof(struct type, video_format.RGB)
+#define FORMAT_BGRA       offsetof(struct type, video_format.BGRA)
+#define FORMAT_BGRx       offsetof(struct type, video_format.BGRx)
+#define FORMAT_ARGB       offsetof(struct type, video_format.ARGB)
+#define FORMAT_xRGB       offsetof(struct type, video_format.xRGB)
+#define FORMAT_GRAY8      offsetof(struct type, video_format.GRAY8)
+#define FORMAT_GRAY16_LE  offsetof(struct type, video_format.GRAY16_LE)
+#define FORMAT_GRAY16_BE  offsetof(struct type, video_format.GRAY16_BE)
+#define FORMAT_YVU9       offsetof(struct type, video_format.YVU9)
+#define FORMAT_YV12       offsetof(struct type, video_format.YV12)
+#define FORMAT_YUY2       offsetof(struct type, video_format.YUY2)
+#define FORMAT_YVYU       offsetof(struct type, video_format.YVYU)
+#define FORMAT_UYVY       offsetof(struct type, video_format.UYVY)
+#define FORMAT_Y42B       offsetof(struct type, video_format.Y42B)
+#define FORMAT_Y41B       offsetof(struct type, video_format.Y41B)
+#define FORMAT_YUV9       offsetof(struct type, video_format.YUV9)
+#define FORMAT_I420       offsetof(struct type, video_format.I420)
+#define FORMAT_NV12       offsetof(struct type, video_format.NV12)
+#define FORMAT_NV12_64Z32 offsetof(struct type, video_format.NV12_64Z32)
+#define FORMAT_NV21       offsetof(struct type, video_format.NV21)
+#define FORMAT_NV16       offsetof(struct type, video_format.NV16)
+#define FORMAT_NV61       offsetof(struct type, video_format.NV61)
+#define FORMAT_NV24       offsetof(struct type, video_format.NV24)
 
-static const FormatInfo format_info[] =
+static const struct format_info format_info[] =
 {
   /* RGB formats */
   { V4L2_PIX_FMT_RGB332,       FORMAT_UNKNOWN,    VIDEO, RAW },
@@ -342,7 +342,7 @@ static const FormatInfo format_info[] =
   { V4L2_PIX_FMT_PWC2,         FORMAT_UNKNOWN,    VIDEO, RAW },
 };
 
-static const FormatInfo *
+static const struct format_info *
 fourcc_to_format_info (uint32_t fourcc)
 {
   int i;
@@ -355,8 +355,8 @@ fourcc_to_format_info (uint32_t fourcc)
 }
 
 #if 0
-static const FormatInfo *
-video_format_to_format_info (SpaVideoFormat format)
+static const struct format_info *
+video_format_to_format_info (uint32_t format)
 {
   int i;
 
@@ -368,8 +368,8 @@ video_format_to_format_info (SpaVideoFormat format)
 }
 #endif
 
-static const FormatInfo *
-find_format_info_by_media_type (Type           *types,
+static const struct format_info *
+find_format_info_by_media_type (struct type    *types,
                                 uint32_t        type,
                                 uint32_t        subtype,
                                 uint32_t        format,
@@ -393,14 +393,14 @@ find_format_info_by_media_type (Type           *types,
 }
 
 static uint32_t
-enum_filter_format (Type *type, const SpaFormat *filter, uint32_t index)
+enum_filter_format (struct type *type, const struct spa_format *filter, uint32_t index)
 {
   uint32_t video_format = 0;
 
   if ((filter->body.media_type.value == type->media_type.video ||
        filter->body.media_type.value == type->media_type.image)) {
     if (filter->body.media_subtype.value == type->media_subtype.raw) {
-      SpaPODProp *p;
+      struct spa_pod_prop *p;
       uint32_t n_values;
       const uint32_t *values;
 
@@ -429,10 +429,10 @@ enum_filter_format (Type *type, const SpaFormat *filter, uint32_t index)
 }
 
 static bool
-filter_framesize (struct v4l2_frmsizeenum *frmsize,
-                  const SpaRectangle      *min,
-                  const SpaRectangle      *max,
-                  const SpaRectangle      *step)
+filter_framesize (struct v4l2_frmsizeenum    *frmsize,
+                  const struct spa_rectangle *min,
+                  const struct spa_rectangle *max,
+                  const struct spa_rectangle *step)
 {
   if (frmsize->type == V4L2_FRMSIZE_TYPE_DISCRETE) {
     if (frmsize->discrete.width < min->width ||
@@ -464,7 +464,7 @@ filter_framesize (struct v4l2_frmsizeenum *frmsize,
 }
 
 static int
-compare_fraction (struct v4l2_fract *f1, const SpaFraction *f2)
+compare_fraction (struct v4l2_fract *f1, const struct spa_fraction *f2)
 {
   uint64_t n1, n2;
 
@@ -481,10 +481,10 @@ compare_fraction (struct v4l2_fract *f1, const SpaFraction *f2)
 }
 
 static bool
-filter_framerate (struct v4l2_frmivalenum *frmival,
-                  const SpaFraction       *min,
-                  const SpaFraction       *max,
-                  const SpaFraction       *step)
+filter_framerate (struct v4l2_frmivalenum   *frmival,
+                  const struct spa_fraction *min,
+                  const struct spa_fraction *max,
+                  const struct spa_fraction *step)
 {
   if (frmival->type == V4L2_FRMIVAL_TYPE_DISCRETE) {
     if (compare_fraction (&frmival->discrete, min) < 0 ||
@@ -516,18 +516,18 @@ filter_framerate (struct v4l2_frmivalenum *frmival,
 
 #define FOURCC_ARGS(f) (f)&0x7f,((f)>>8)&0x7f,((f)>>16)&0x7f,((f)>>24)&0x7f
 
-static SpaResult
-spa_v4l2_enum_format (SpaV4l2Source   *this,
-                      SpaFormat      **format,
-                      const SpaFormat *filter,
+static int
+spa_v4l2_enum_format (struct impl   *this,
+                      struct spa_format      **format,
+                      const struct spa_format *filter,
                       uint32_t         index)
 {
-  SpaV4l2State *state = &this->state[0];
+  struct port *state = &this->out_ports[0];
   int res, n_fractions;
-  const FormatInfo *info;
-  SpaPODFrame f[2];
-  SpaPODProp *prop;
-  SpaPODBuilder b = { NULL, };
+  const struct format_info *info;
+  struct spa_pod_frame f[2];
+  struct spa_pod_prop *prop;
+  struct spa_pod_builder b = { NULL, };
   uint32_t media_type, media_subtype, video_format;
 
   if (spa_v4l2_open (this) < 0)
@@ -584,7 +584,7 @@ next_fmtdesc:
 next_frmsize:
   while (state->next_frmsize) {
     if (filter) {
-      SpaPODProp *p;
+      struct spa_pod_prop *p;
 
       /* check if we have a fixed frame size */
       if (!(p = spa_format_find_prop (filter, this->type.format_video.size)))
@@ -594,7 +594,7 @@ next_frmsize:
         return SPA_RESULT_ENUM_END;
 
       if (!(p->body.flags & SPA_POD_PROP_FLAG_UNSET)) {
-        const SpaRectangle *values = SPA_POD_BODY_CONST (&p->body.value);
+        const struct spa_rectangle *values = SPA_POD_BODY_CONST (&p->body.value);
 
         if (state->frmsize.index > 0)
           goto next_fmtdesc;
@@ -614,8 +614,8 @@ do_frmsize:
       return SPA_RESULT_ENUM_END;
     }
     if (filter) {
-      SpaPODProp *p;
-      const SpaRectangle step = { 1, 1 }, *values;
+      struct spa_pod_prop *p;
+      const struct spa_rectangle step = { 1, 1 }, *values;
       uint32_t range;
       uint32_t i, n_values;
 
@@ -697,7 +697,7 @@ have_size:
                              SPA_POD_PROP_RANGE_NONE |
                              SPA_POD_PROP_FLAG_UNSET);
 
-  prop = SPA_POD_BUILDER_DEREF (&b, f[1].ref, SpaPODProp);
+  prop = SPA_POD_BUILDER_DEREF (&b, f[1].ref, struct spa_pod_prop);
   n_fractions = 0;
 
   state->frmival.index = 0;
@@ -715,10 +715,10 @@ have_size:
       return SPA_RESULT_ENUM_END;
     }
     if (filter) {
-      SpaPODProp *p;
+      struct spa_pod_prop *p;
       uint32_t range;
       uint32_t i, n_values;
-      const SpaFraction step = { 1, 1 }, *values;
+      const struct spa_fraction step = { 1, 1 }, *values;
 
       if (!(p = spa_format_find_prop (filter, this->type.format_video.framerate)))
         goto have_framerate;
@@ -798,22 +798,22 @@ have_framerate:
   spa_pod_builder_pop (&b, &f[1]);
   spa_pod_builder_pop (&b, &f[0]);
 
-  *format = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
+  *format = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_format);
 
   return SPA_RESULT_OK;
 }
 
 static int
-spa_v4l2_set_format (SpaV4l2Source *this, SpaVideoInfo *format, bool try_only)
+spa_v4l2_set_format (struct impl *this, struct spa_video_info *format, bool try_only)
 {
-  SpaV4l2State *state = &this->state[0];
+  struct port *state = &this->out_ports[0];
   int cmd;
   struct v4l2_format reqfmt, fmt;
   struct v4l2_streamparm streamparm;
-  const FormatInfo *info = NULL;
+  const struct format_info *info = NULL;
   uint32_t video_format;
-  SpaRectangle *size = NULL;
-  SpaFraction *framerate = NULL;
+  struct spa_rectangle *size = NULL;
+  struct spa_fraction *framerate = NULL;
 
   CLEAR (fmt);
   CLEAR (streamparm);
@@ -906,15 +906,15 @@ spa_v4l2_set_format (SpaV4l2Source *this, SpaVideoInfo *format, bool try_only)
   return 0;
 }
 
-static SpaResult
-mmap_read (SpaV4l2Source *this)
+static int
+mmap_read (struct impl *this)
 {
-  SpaV4l2State *state = &this->state[0];
+  struct port *state = &this->out_ports[0];
   struct v4l2_buffer buf;
-  V4l2Buffer *b;
-  SpaData *d;
+  struct buffer *b;
+  struct spa_data *d;
   int64_t pts;
-  SpaPortIO *io = state->io;
+  struct spa_port_io *io = state->io;
 
   CLEAR(buf);
   buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -962,9 +962,9 @@ mmap_read (SpaV4l2Source *this)
 }
 
 static void
-v4l2_on_fd_events (SpaSource *source)
+v4l2_on_fd_events (struct spa_source *source)
 {
-  SpaV4l2Source *this = source->data;
+  struct impl *this = source->data;
 
   if (source->rmask & SPA_IO_ERR)
     return;
@@ -976,16 +976,16 @@ v4l2_on_fd_events (SpaSource *source)
     return;
 }
 
-static SpaResult
-spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffers)
+static int
+spa_v4l2_use_buffers (struct impl *this, struct spa_buffer **buffers, uint32_t n_buffers)
 {
-  SpaV4l2State *state = &this->state[0];
+  struct port *state = &this->out_ports[0];
   struct v4l2_requestbuffers reqbuf;
   int i;
-  SpaData *d;
+  struct spa_data *d;
 
   if (n_buffers > 0) {
-    SpaData *d = buffers[0]->datas;
+    d = buffers[0]->datas;
 
     if ((d[0].type == this->type.data.MemPtr ||
          d[0].type == this->type.data.MemFd) &&
@@ -1017,7 +1017,7 @@ spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffe
   }
 
   for (i = 0; i < reqbuf.count; i++) {
-    V4l2Buffer *b;
+    struct buffer *b;
 
     b = &state->buffers[i];
     b->outbuf = buffers[i];
@@ -1053,14 +1053,14 @@ spa_v4l2_use_buffers (SpaV4l2Source *this, SpaBuffer **buffers, uint32_t n_buffe
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-mmap_init (SpaV4l2Source   *this,
-           SpaParam       **params,
-           uint32_t         n_params,
-           SpaBuffer      **buffers,
-           uint32_t        *n_buffers)
+static int
+mmap_init (struct impl      *this,
+           struct spa_param          **params,
+           uint32_t            n_params,
+           struct spa_buffer **buffers,
+           uint32_t           *n_buffers)
 {
-  SpaV4l2State *state = &this->state[0];
+  struct port *state = &this->out_ports[0];
   struct v4l2_requestbuffers reqbuf;
   int i;
 
@@ -1087,8 +1087,8 @@ mmap_init (SpaV4l2Source   *this,
     spa_log_info (state->log, "v4l2: using EXPBUF");
 
   for (i = 0; i < reqbuf.count; i++) {
-    V4l2Buffer *b;
-    SpaData *d;
+    struct buffer *b;
+    struct spa_data *d;
 
     if (buffers[i]->n_datas < 1) {
       spa_log_error (state->log, "v4l2: invalid buffer data");
@@ -1153,27 +1153,27 @@ mmap_init (SpaV4l2Source   *this,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-userptr_init (SpaV4l2Source *this)
+static int
+userptr_init (struct impl *this)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-read_init (SpaV4l2Source *this)
+static int
+read_init (struct impl *this)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_v4l2_alloc_buffers (SpaV4l2Source   *this,
-                        SpaParam       **params,
-                        uint32_t         n_params,
-                        SpaBuffer      **buffers,
-                        uint32_t        *n_buffers)
+static int
+spa_v4l2_alloc_buffers (struct impl      *this,
+                        struct spa_param          **params,
+                        uint32_t            n_params,
+                        struct spa_buffer **buffers,
+                        uint32_t           *n_buffers)
 {
-  SpaResult res;
-  SpaV4l2State *state = &this->state[0];
+  int res;
+  struct port *state = &this->out_ports[0];
 
   if (state->n_buffers > 0)
     return SPA_RESULT_ERROR;
@@ -1191,10 +1191,10 @@ spa_v4l2_alloc_buffers (SpaV4l2Source   *this,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_v4l2_stream_on (SpaV4l2Source *this)
+static int
+spa_v4l2_stream_on (struct impl *this)
 {
-  SpaV4l2State *state = &this->state[0];
+  struct port *state = &this->out_ports[0];
   enum v4l2_buf_type type;
 
   if (state->started)
@@ -1210,10 +1210,10 @@ spa_v4l2_stream_on (SpaV4l2Source *this)
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_v4l2_stream_off (SpaV4l2Source *this)
+static int
+spa_v4l2_stream_off (struct impl *this)
 {
-  SpaV4l2State *state = &this->state[0];
+  struct port *state = &this->out_ports[0];
   enum v4l2_buf_type type;
   int i;
 
@@ -1228,7 +1228,7 @@ spa_v4l2_stream_off (SpaV4l2Source *this)
     return SPA_RESULT_ERROR;
   }
   for (i = 0; i < state->n_buffers; i++) {
-    V4l2Buffer *b;
+    struct buffer *b;
 
     b = &state->buffers[i];
     if (!b->outstanding)

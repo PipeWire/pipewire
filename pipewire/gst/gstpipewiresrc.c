@@ -364,8 +364,8 @@ gst_pipewire_src_src_fixate (GstBaseSrc * bsrc, GstCaps * caps)
 typedef struct {
   GstPipeWireSrc *src;
   guint id;
-  SpaBuffer *buf;
-  SpaMetaHeader *header;
+  struct spa_buffer *buf;
+  struct spa_meta_header *header;
   guint flags;
   goffset offset;
 } ProcessMemData;
@@ -405,7 +405,7 @@ on_add_buffer (struct pw_listener *listener,
                guint          id)
 {
   GstPipeWireSrc *pwsrc = SPA_CONTAINER_OF (listener, GstPipeWireSrc, stream_add_buffer);
-  SpaBuffer *b;
+  struct spa_buffer *b;
   GstBuffer *buf;
   uint32_t i;
   ProcessMemData data;
@@ -427,7 +427,7 @@ on_add_buffer (struct pw_listener *listener,
   data.header = spa_buffer_find_meta (b, ctx->type.meta.Header);
 
   for (i = 0; i < b->n_datas; i++) {
-    SpaData *d = &b->datas[i];
+    struct spa_data *d = &b->datas[i];
     GstMemory *gmem = NULL;
 
     if (d->type == ctx->type.data.MemFd || d->type == ctx->type.data.DmaBuf) {
@@ -490,7 +490,7 @@ on_new_buffer (struct pw_listener *listener,
   GstPipeWireSrc *pwsrc = SPA_CONTAINER_OF (listener, GstPipeWireSrc, stream_new_buffer);
   GstBuffer *buf;
   ProcessMemData *data;
-  SpaMetaHeader *h;
+  struct spa_meta_header *h;
   guint i;
 
   buf = g_hash_table_lookup (pwsrc->buf_ids, GINT_TO_POINTER (id));
@@ -514,7 +514,7 @@ on_new_buffer (struct pw_listener *listener,
     GST_BUFFER_OFFSET (buf) = h->seq;
   }
   for (i = 0; i < data->buf->n_datas; i++) {
-    SpaData *d = &data->buf->datas[i];
+    struct spa_data *d = &data->buf->datas[i];
     GstMemory *mem = gst_buffer_peek_memory (buf, i);
     mem->offset = d->chunk->offset + data->offset;
     mem->size = d->chunk->size;
@@ -714,7 +714,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
                      pwsrc->path,
                      PW_STREAM_FLAG_AUTOCONNECT,
                      possible->len,
-                     (SpaFormat **)possible->pdata);
+                     (struct spa_format **)possible->pdata);
 
   while (TRUE) {
     enum pw_stream_state state = pwsrc->stream->state;
@@ -781,7 +781,7 @@ connect_error:
 static void
 on_format_changed (struct pw_listener *listener,
                    struct pw_stream   *stream,
-                   SpaFormat     *format)
+                   struct spa_format  *format)
 {
   GstPipeWireSrc *pwsrc = SPA_CONTAINER_OF (listener, GstPipeWireSrc, stream_format_changed);
   GstCaps *caps;
@@ -800,10 +800,10 @@ on_format_changed (struct pw_listener *listener,
   gst_caps_unref (caps);
 
   if (res) {
-    SpaParam *params[2];
-    SpaPODBuilder b = { NULL };
+    struct spa_param *params[2];
+    struct spa_pod_builder b = { NULL };
     uint8_t buffer[512];
-    SpaPODFrame f[2];
+    struct spa_pod_frame f[2];
 
     spa_pod_builder_init (&b, buffer, sizeof (buffer));
     spa_pod_builder_object (&b, &f[0], 0, ctx->type.param_alloc_buffers.Buffers,
@@ -811,12 +811,12 @@ on_format_changed (struct pw_listener *listener,
       PROP_U_MM (&f[1], ctx->type.param_alloc_buffers.stride,  SPA_POD_TYPE_INT, 0, 0, INT32_MAX),
       PROP_U_MM (&f[1], ctx->type.param_alloc_buffers.buffers, SPA_POD_TYPE_INT, 16, 0, INT32_MAX),
       PROP    (&f[1], ctx->type.param_alloc_buffers.align,   SPA_POD_TYPE_INT, 16));
-    params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaParam);
+    params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_param);
 
     spa_pod_builder_object (&b, &f[0], 0, ctx->type.param_alloc_meta_enable.MetaEnable,
         PROP    (&f[1], ctx->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID, ctx->type.meta.Header),
-        PROP    (&f[1], ctx->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
-    params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaParam);
+        PROP    (&f[1], ctx->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (struct spa_meta_header)));
+    params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_param);
 
     GST_DEBUG_OBJECT (pwsrc, "doing finish format");
     pw_stream_finish_format (pwsrc->stream, SPA_RESULT_OK, params, 2);

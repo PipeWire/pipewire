@@ -37,16 +37,16 @@ extern "C" {
 #define SPA_TYPE_META__Ringbuffer            SPA_TYPE_META_BASE "Ringbuffer"
 #define SPA_TYPE_META__Shared                SPA_TYPE_META_BASE "Shared"
 
-typedef struct {
+struct spa_type_meta {
   uint32_t Header;
   uint32_t Pointer;
   uint32_t VideoCrop;
   uint32_t Ringbuffer;
   uint32_t Shared;
-} SpaTypeMeta;
+};
 
 static inline void
-spa_type_meta_map (SpaTypeMap *map, SpaTypeMeta *type)
+spa_type_meta_map (struct spa_type_map *map, struct spa_type_meta *type)
 {
   if (type->Header == 0) {
     type->Header        = spa_type_map_get_id (map, SPA_TYPE_META__Header);
@@ -58,14 +58,14 @@ spa_type_meta_map (SpaTypeMap *map, SpaTypeMeta *type)
 }
 
 /**
- * SpaMetaHeader:
+ * spa_meta_header:
  * @flags: extra flags
  * @seq: sequence number. This monotonically increments and with the rate,
  *       it can be used to derive a media time.
  * @pts: The MONOTONIC time for @seq.
  * @dts_offset: offset relative to @pts to start decoding this buffer.
  */
-typedef struct {
+struct spa_meta_header {
 #define SPA_META_HEADER_FLAG_DISCONT            (1 << 0)   /* data is not continous with previous buffer */
 #define SPA_META_HEADER_FLAG_CORRUPTED          (1 << 1)   /* data might be corrupted */
 #define SPA_META_HEADER_FLAG_MARKER             (1 << 2)   /* media specific marker */
@@ -76,58 +76,58 @@ typedef struct {
   uint32_t seq;
   int64_t  pts;
   int64_t  dts_offset;
-} SpaMetaHeader;
+};
 
-typedef struct {
+struct spa_meta_pointer {
   uint32_t   type;
   void      *ptr;
-} SpaMetaPointer;
+};
 
 /**
- * SpaMetaVideoCrop:
+ * spa_meta_video_crop:
  * @x:
  * @y:
  * @width:
  * @height
  */
-typedef struct {
+struct spa_meta_video_crop {
   int32_t   x, y;
   int32_t   width, height;
-} SpaMetaVideoCrop;
+};
 
 /**
- * SpaMetaRingbuffer:
+ * spa_meta_ringbuffer:
  * @ringbuffer:
  */
-typedef struct {
-  SpaRingbuffer ringbuffer;
-} SpaMetaRingbuffer;
+struct spa_meta_ringbuffer {
+  struct spa_ringbuffer ringbuffer;
+};
 
 /**
- * SpaMetaShared:
+ * spa_meta_shared:
  * @flags: flags
  * @fd: the fd of the memory
  * @offset: start offset of memory
  * @size: size of the memory
  */
-typedef struct {
+struct spa_meta_shared {
   int32_t        flags;
   int            fd;
   int32_t        offset;
   uint32_t       size;
-} SpaMetaShared;
+};
 
 /**
- * SpaMeta:
+ * spa_meta:
  * @type: metadata type
  * @data: pointer to metadata
  * @size: size of metadata
  */
-typedef struct {
+struct spa_meta {
   uint32_t     type;
   void        *data;
   uint32_t     size;
-} SpaMeta;
+};
 
 #ifdef __cplusplus
 }  /* extern "C" */

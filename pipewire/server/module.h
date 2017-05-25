@@ -29,7 +29,7 @@ extern "C" {
 
 struct pw_module {
   struct pw_core   *core;
-  SpaList           link;
+  struct spa_list   link;
   struct pw_global *global;
 
   struct pw_module_info info;

@@ -27,27 +27,27 @@
 
 #define DEFAULT_LOG_LEVEL SPA_LOG_LEVEL_ERROR
 
-SpaLogLevel pw_log_level = DEFAULT_LOG_LEVEL;
+enum spa_log_level pw_log_level = DEFAULT_LOG_LEVEL;
 
 #define TRACE_BUFFER (16*1024)
 
-typedef struct {
-  SpaLog log;
-  SpaRingbuffer  trace_rb;
+struct debug_log {
+  struct spa_log log;
+  struct spa_ringbuffer  trace_rb;
   uint8_t        trace_data[TRACE_BUFFER];
-  SpaSource     *source;
-} DebugLog;
+  struct spa_source     *source;
+};
 
 static void
-do_logv (SpaLog        *log,
-         SpaLogLevel    level,
-         const char    *file,
-         int            line,
-         const char    *func,
-         const char    *fmt,
-         va_list        args)
+do_logv (struct spa_log     *log,
+         enum spa_log_level  level,
+         const char         *file,
+         int                 line,
+         const char         *func,
+         const char         *fmt,
+         va_list             args)
 {
-  DebugLog *l = SPA_CONTAINER_OF (log, DebugLog, log);
+  struct debug_log *l = SPA_CONTAINER_OF (log, struct debug_log, log);
   char text[1024], location[1024];
   static const char *levels[] = { "-", "E", "W", "I", "D", "T", "*T*"};
   int size;
@@ -77,12 +77,12 @@ do_logv (SpaLog        *log,
 }
 
 static void
-do_log (SpaLog        *log,
-        SpaLogLevel    level,
-        const char    *file,
-        int            line,
-        const char    *func,
-        const char    *fmt, ...)
+do_log (struct spa_log     *log,
+        enum spa_log_level  level,
+        const char         *file,
+        int                 line,
+        const char         *func,
+        const char         *fmt, ...)
 {
   va_list args;
   va_start (args, fmt);
@@ -90,8 +90,8 @@ do_log (SpaLog        *log,
   va_end (args);
 }
 
-static DebugLog log = {
-  { sizeof (SpaLog),
+static struct debug_log log = {
+  { sizeof (struct spa_log),
     NULL,
     DEFAULT_LOG_LEVEL,
     do_log,
@@ -100,21 +100,21 @@ static DebugLog log = {
   {  0, 0, TRACE_BUFFER, TRACE_BUFFER - 1 },
 };
 
-SpaLog *
+struct spa_log *
 pw_log_get (void)
 {
   return &log.log;
 }
 
 void
-pw_log_set_level (SpaLogLevel level)
+pw_log_set_level (enum spa_log_level level)
 {
   pw_log_level = level;
   log.log.level = level;
 }
 
 static void
-on_trace_event (SpaSource *source)
+on_trace_event (struct spa_source *source)
 {
   int32_t avail;
   uint32_t index;
@@ -143,7 +143,7 @@ on_trace_event (SpaSource *source)
 }
 
 void
-pw_log_set_trace_event (SpaSource *source)
+pw_log_set_trace_event (struct spa_source *source)
 {
   log.source = source;
   log.source->func = on_trace_event;
@@ -151,11 +151,11 @@ pw_log_set_trace_event (SpaSource *source)
 }
 
 void
-pw_log_log (SpaLogLevel  level,
-            const char  *file,
-            int          line,
-            const char  *func,
-            const char  *fmt, ...)
+pw_log_log (enum spa_log_level  level,
+            const char         *file,
+            int                 line,
+            const char         *func,
+            const char         *fmt, ...)
 {
   if (SPA_UNLIKELY (pw_log_level_enabled (level))) {
     va_list args;
@@ -166,12 +166,12 @@ pw_log_log (SpaLogLevel  level,
 }
 
 void
-pw_log_logv (SpaLogLevel  level,
-             const char  *file,
-             int          line,
-             const char  *func,
-             const char  *fmt,
-             va_list      args)
+pw_log_logv (enum spa_log_level  level,
+             const char         *file,
+             int                 line,
+             const char         *func,
+             const char         *fmt,
+             va_list             args)
 {
   if (SPA_UNLIKELY (pw_log_level_enabled (level))) {
     do_logv (&log.log, level, file, line, func, fmt, args);

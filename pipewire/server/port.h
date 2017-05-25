@@ -45,7 +45,7 @@ enum pw_port_state {
 };
 
 struct pw_port {
-  SpaList        link;
+  struct spa_list     link;
 
   PW_SIGNAL   (destroy_signal, (struct pw_listener *listener, struct pw_port *));
 
@@ -53,17 +53,17 @@ struct pw_port {
   enum pw_direction   direction;
   uint32_t            port_id;
   enum pw_port_state  state;
-  SpaPortIO           io;
+  struct spa_port_io  io;
 
   bool                 allocated;
   struct pw_memblock   buffer_mem;
-  SpaBuffer          **buffers;
+  struct spa_buffer  **buffers;
   uint32_t             n_buffers;
 
-  SpaList           links;
+  struct spa_list      links;
 
   struct {
-    SpaList         links;
+    struct spa_list    links;
   } rt;
 };
 
@@ -75,14 +75,14 @@ void                pw_port_destroy                 (struct pw_port        *port
 
 struct pw_link *    pw_port_link                    (struct pw_port        *output_port,
                                                      struct pw_port        *input_port,
-                                                     SpaFormat            **format_filter,
+                                                     struct spa_format            **format_filter,
                                                      struct pw_properties  *properties,
                                                      char                 **error);
-SpaResult           pw_port_unlink                  (struct pw_port        *port,
+int           pw_port_unlink                  (struct pw_port        *port,
                                                      struct pw_link        *link);
 
-SpaResult           pw_port_pause_rt                (struct pw_port        *port);
-SpaResult           pw_port_clear_buffers           (struct pw_port        *port);
+int           pw_port_pause_rt                (struct pw_port        *port);
+int           pw_port_clear_buffers           (struct pw_port        *port);
 
 
 #ifdef __cplusplus

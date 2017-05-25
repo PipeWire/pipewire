@@ -21,11 +21,9 @@
 
 #define M_PI_M2 ( M_PI + M_PI )
 
-typedef SpaResult (*RenderFunc) (SpaAudioTestSrc *this, void *samples, size_t n_samples);
-
 #define DEFINE_SINE(type,scale)                                                 \
 static void                                                                     \
-audio_test_src_create_sine_##type (SpaAudioTestSrc *this, type * samples, size_t n_samples) \
+audio_test_src_create_sine_##type (struct impl *this, type * samples, size_t n_samples) \
 {                                                                               \
   int i, c, channels;                                                           \
   double step, amp;                                                             \
@@ -48,9 +46,9 @@ DEFINE_SINE (int32_t, 2147483647.0);
 DEFINE_SINE (float, 1.0);
 DEFINE_SINE (double, 1.0);
 
-static const RenderFunc sine_funcs[] = {
-  (RenderFunc) audio_test_src_create_sine_int16_t,
-  (RenderFunc) audio_test_src_create_sine_int32_t,
-  (RenderFunc) audio_test_src_create_sine_float,
-  (RenderFunc) audio_test_src_create_sine_double
+static const render_func_t sine_funcs[] = {
+  (render_func_t) audio_test_src_create_sine_int16_t,
+  (render_func_t) audio_test_src_create_sine_int32_t,
+  (render_func_t) audio_test_src_create_sine_float,
+  (render_func_t) audio_test_src_create_sine_double
 };

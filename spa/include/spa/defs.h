@@ -30,7 +30,7 @@ extern "C" {
 #include <string.h>
 #include <stddef.h>
 
-typedef enum {
+enum {
   SPA_RESULT_ASYNC                     =  (1 << 30),
   SPA_RESULT_WAIT_SYNC                 =  2,
   SPA_RESULT_MODIFIED                  =  1,
@@ -71,7 +71,7 @@ typedef enum {
   SPA_RESULT_SKIPPED                   = -34,
   SPA_RESULT_OUT_OF_BUFFERS            = -35,
   SPA_RESULT_INCOMPATIBLE_PROPS        = -36,
-} SpaResult;
+};
 
 #define SPA_ASYNC_MASK                  (3 << 30)
 #define SPA_ASYNC_SEQ_MASK              (SPA_RESULT_ASYNC - 1)
@@ -83,22 +83,20 @@ typedef enum {
 #define SPA_RESULT_ASYNC_SEQ(res)       ((res) & SPA_ASYNC_SEQ_MASK)
 #define SPA_RESULT_RETURN_ASYNC(seq)    (SPA_RESULT_ASYNC | ((seq) & SPA_ASYNC_SEQ_MASK))
 
-typedef enum {
+enum spa_direction {
   SPA_DIRECTION_INPUT  = 0,
   SPA_DIRECTION_OUTPUT = 1,
-} SpaDirection;
+};
 
-typedef struct {
+struct spa_rectangle {
   uint32_t width;
   uint32_t height;
-} SpaRectangle;
+};
 
-typedef struct {
+struct spa_fraction {
   uint32_t num;
   uint32_t denom;
-} SpaFraction;
-
-typedef void (*SpaNotify) (void *data);
+};
 
 #define SPA_N_ELEMENTS(arr)  (sizeof (arr) / sizeof ((arr)[0]))
 #define SPA_MIN(a,b)  ((a)<(b) ? (a) : (b))

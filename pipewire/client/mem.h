@@ -45,10 +45,10 @@ struct pw_memblock {
   size_t             size;
 };
 
-SpaResult     pw_memblock_alloc     (enum pw_memblock_flags  flags,
+int     pw_memblock_alloc     (enum pw_memblock_flags  flags,
                                      size_t                  size,
                                      struct pw_memblock     *mem);
-SpaResult     pw_memblock_map       (struct pw_memblock     *mem);
+int     pw_memblock_map       (struct pw_memblock     *mem);
 void          pw_memblock_free      (struct pw_memblock     *mem);
 
 #ifdef __cplusplus

@@ -136,13 +136,13 @@ draw_pixel_uyvy (DrawingData *dd, int x, Pixel *color)
   }
 }
 
-static SpaResult
+static int
 drawing_data_init (DrawingData *dd,
-                   SpaVideoTestSrc *this,
+                   struct impl *this,
                    char* data)
 {
-  SpaVideoInfo *format = &this->current_format;
-  SpaRectangle *size = &format->info.raw.size;
+  struct spa_video_info *format = &this->current_format;
+  struct spa_rectangle *size = &format->info.raw.size;
 
   if ((format->media_type != this->type.media_type.video) ||
       (format->media_subtype != this->type.media_subtype.raw))
@@ -276,11 +276,11 @@ draw_snow (DrawingData *dd)
   }
 }
 
-static SpaResult
-draw (SpaVideoTestSrc *this, char *data)
+static int
+draw (struct impl *this, char *data)
 {
   DrawingData dd;
-  SpaResult res;
+  int res;
   uint32_t pattern;
 
   init_colors ();

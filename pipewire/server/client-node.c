@@ -56,24 +56,24 @@
 #define CHECK_PORT_BUFFER(this,b,p)      (b < p->n_buffers)
 
 struct proxy_buffer {
-  SpaBuffer   *outbuf;
-  SpaBuffer    buffer;
-  SpaMeta      metas[4];
-  SpaData      datas[4];
-  off_t        offset;
-  size_t       size;
-  bool         outstanding;
+  struct spa_buffer *outbuf;
+  struct spa_buffer  buffer;
+  struct spa_meta    metas[4];
+  struct spa_data    datas[4];
+  off_t              offset;
+  size_t             size;
+  bool               outstanding;
 };
 
 struct proxy_port {
   bool           valid;
-  SpaPortInfo    info;
-  SpaFormat     *format;
+  struct spa_port_info    info;
+  struct spa_format     *format;
   uint32_t       n_formats;
-  SpaFormat    **formats;
+  struct spa_format    **formats;
   uint32_t       n_params;
-  SpaParam     **params;
-  SpaPortIO     *io;
+  struct spa_param     **params;
+  struct spa_port_io     *io;
 
   uint32_t            n_buffers;
   struct proxy_buffer buffers[MAX_BUFFERS];
@@ -84,21 +84,21 @@ struct proxy_port {
 
 struct proxy
 {
-  SpaNode    node;
+  struct spa_node    node;
 
   struct impl *impl;
 
-  SpaTypeMap *map;
-  SpaLog *log;
-  SpaLoop *main_loop;
-  SpaLoop *data_loop;
+  struct spa_type_map *map;
+  struct spa_log *log;
+  struct spa_loop *main_loop;
+  struct spa_loop *data_loop;
 
-  SpaNodeCallbacks callbacks;
+  struct spa_node_callbacks callbacks;
   void *user_data;
 
   struct pw_resource *resource;
 
-  SpaSource data_source;
+  struct spa_source data_source;
   int writefd;
 
   uint32_t     max_inputs;
@@ -130,7 +130,7 @@ struct impl {
   int other_fds[2];
 };
 
-static SpaResult
+static int
 clear_buffers (struct proxy *this, struct proxy_port *port)
 {
   if (port->n_buffers) {
@@ -143,16 +143,16 @@ clear_buffers (struct proxy *this, struct proxy_port *port)
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_proxy_node_get_props (SpaNode       *node,
-                          SpaProps     **props)
+static int
+spa_proxy_node_get_props (struct spa_node       *node,
+                          struct spa_props     **props)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_proxy_node_set_props (SpaNode         *node,
-                          const SpaProps  *props)
+static int
+spa_proxy_node_set_props (struct spa_node         *node,
+                          const struct spa_props  *props)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
@@ -184,12 +184,12 @@ send_have_output (struct proxy *this)
   do_flush (this);
 }
 
-static SpaResult
-spa_proxy_node_send_command (SpaNode    *node,
-                             SpaCommand *command)
+static int
+spa_proxy_node_send_command (struct spa_node    *node,
+                             struct spa_command *command)
 {
   struct proxy *this;
-  SpaResult res = SPA_RESULT_OK;
+  int res = SPA_RESULT_OK;
   struct pw_core *core;
 
   if (node == NULL || command == NULL)
@@ -220,9 +220,9 @@ spa_proxy_node_send_command (SpaNode    *node,
   return res;
 }
 
-static SpaResult
-spa_proxy_node_set_callbacks (SpaNode                *node,
-                              const SpaNodeCallbacks *callbacks,
+static int
+spa_proxy_node_set_callbacks (struct spa_node                *node,
+                              const struct spa_node_callbacks *callbacks,
                               size_t                  callbacks_size,
                               void                   *user_data)
 {
@@ -238,8 +238,8 @@ spa_proxy_node_set_callbacks (SpaNode                *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_proxy_node_get_n_ports (SpaNode       *node,
+static int
+spa_proxy_node_get_n_ports (struct spa_node       *node,
                             uint32_t      *n_input_ports,
                             uint32_t      *max_input_ports,
                             uint32_t      *n_output_ports,
@@ -264,8 +264,8 @@ spa_proxy_node_get_n_ports (SpaNode       *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_proxy_node_get_port_ids (SpaNode       *node,
+static int
+spa_proxy_node_get_port_ids (struct spa_node       *node,
                              uint32_t       n_input_ports,
                              uint32_t      *input_ids,
                              uint32_t       n_output_ports,
@@ -296,15 +296,15 @@ spa_proxy_node_get_port_ids (SpaNode       *node,
 
 static void
 do_update_port (struct proxy          *this,
-                SpaDirection       direction,
+                enum spa_direction       direction,
                 uint32_t           port_id,
                 uint32_t           change_mask,
                 uint32_t           n_possible_formats,
-                const SpaFormat  **possible_formats,
-                const SpaFormat   *format,
+                const struct spa_format  **possible_formats,
+                const struct spa_format   *format,
                 uint32_t           n_params,
-                const SpaParam   **params,
-                const SpaPortInfo *info)
+                const struct spa_param   **params,
+                const struct spa_port_info *info)
 {
   struct proxy_port *port;
   uint32_t i;
@@ -319,7 +319,7 @@ do_update_port (struct proxy          *this,
     for (i = 0; i < port->n_formats; i++)
       free (port->formats[i]);
     port->n_formats = n_possible_formats;
-    port->formats = realloc (port->formats, port->n_formats * sizeof (SpaFormat *));
+    port->formats = realloc (port->formats, port->n_formats * sizeof (struct spa_format *));
     for (i = 0; i < port->n_formats; i++)
       port->formats[i] = spa_format_copy (possible_formats[i]);
   }
@@ -333,7 +333,7 @@ do_update_port (struct proxy          *this,
     for (i = 0; i < port->n_params; i++)
       free (port->params[i]);
     port->n_params = n_params;
-    port->params = realloc (port->params, port->n_params * sizeof (SpaParam *));
+    port->params = realloc (port->params, port->n_params * sizeof (struct spa_param *));
     for (i = 0; i < port->n_params; i++)
       port->params[i] = spa_param_copy (params[i]);
   }
@@ -356,7 +356,7 @@ do_update_port (struct proxy          *this,
 static void
 clear_port (struct proxy     *this,
             struct proxy_port *port,
-            SpaDirection  direction,
+            enum spa_direction  direction,
             uint32_t      port_id)
 {
   do_update_port (this,
@@ -377,7 +377,7 @@ clear_port (struct proxy     *this,
 
 static void
 do_uninit_port (struct proxy     *this,
-                SpaDirection  direction,
+                enum spa_direction  direction,
                 uint32_t      port_id)
 {
   struct proxy_port *port;
@@ -394,9 +394,9 @@ do_uninit_port (struct proxy     *this,
   port->valid = false;
 }
 
-static SpaResult
-spa_proxy_node_add_port (SpaNode        *node,
-                         SpaDirection    direction,
+static int
+spa_proxy_node_add_port (struct spa_node        *node,
+                         enum spa_direction    direction,
                          uint32_t        port_id)
 {
   struct proxy *this;
@@ -416,9 +416,9 @@ spa_proxy_node_add_port (SpaNode        *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_proxy_node_remove_port (SpaNode        *node,
-                            SpaDirection    direction,
+static int
+spa_proxy_node_remove_port (struct spa_node        *node,
+                            enum spa_direction    direction,
                             uint32_t        port_id)
 {
   struct proxy *this;
@@ -436,19 +436,19 @@ spa_proxy_node_remove_port (SpaNode        *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_proxy_node_port_enum_formats (SpaNode          *node,
-                                  SpaDirection      direction,
+static int
+spa_proxy_node_port_enum_formats (struct spa_node          *node,
+                                  enum spa_direction      direction,
                                   uint32_t          port_id,
-                                  SpaFormat       **format,
-                                  const SpaFormat  *filter,
+                                  struct spa_format       **format,
+                                  const struct spa_format  *filter,
                                   uint32_t          index)
 {
   struct proxy *this;
   struct proxy_port *port;
-  SpaFormat *fmt;
-  SpaPODBuilder b = { NULL, };
-  SpaResult res;
+  struct spa_format *fmt;
+  struct spa_pod_builder b = { NULL, };
+  int res;
   uint32_t count, match = 0;
 
   if (node == NULL || format == NULL)
@@ -474,17 +474,17 @@ next:
   if ((res = spa_format_filter (fmt, filter, &b)) != SPA_RESULT_OK || match++ != index)
     goto next;
 
-  *format = SPA_POD_BUILDER_DEREF (&b, 0, SpaFormat);
+  *format = SPA_POD_BUILDER_DEREF (&b, 0, struct spa_format);
 
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_proxy_node_port_set_format (SpaNode         *node,
-                                SpaDirection     direction,
+static int
+spa_proxy_node_port_set_format (struct spa_node         *node,
+                                enum spa_direction     direction,
                                 uint32_t         port_id,
                                 uint32_t         flags,
-                                const SpaFormat *format)
+                                const struct spa_format *format)
 {
   struct proxy *this;
 
@@ -509,11 +509,11 @@ spa_proxy_node_port_set_format (SpaNode         *node,
   return SPA_RESULT_RETURN_ASYNC (this->seq++);
 }
 
-static SpaResult
-spa_proxy_node_port_get_format (SpaNode          *node,
-                                SpaDirection      direction,
+static int
+spa_proxy_node_port_get_format (struct spa_node          *node,
+                                enum spa_direction      direction,
                                 uint32_t          port_id,
-                                const SpaFormat **format)
+                                const struct spa_format **format)
 {
   struct proxy *this;
   struct proxy_port *port;
@@ -536,11 +536,11 @@ spa_proxy_node_port_get_format (SpaNode          *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_proxy_node_port_get_info (SpaNode            *node,
-                              SpaDirection        direction,
+static int
+spa_proxy_node_port_get_info (struct spa_node            *node,
+                              enum spa_direction        direction,
                               uint32_t            port_id,
-                              const SpaPortInfo **info)
+                              const struct spa_port_info **info)
 {
   struct proxy *this;
   struct proxy_port *port;
@@ -560,12 +560,12 @@ spa_proxy_node_port_get_info (SpaNode            *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_proxy_node_port_enum_params (SpaNode       *node,
-                                 SpaDirection   direction,
+static int
+spa_proxy_node_port_enum_params (struct spa_node       *node,
+                                 enum spa_direction   direction,
                                  uint32_t       port_id,
                                  uint32_t       index,
-                                 SpaParam     **param)
+                                 struct spa_param     **param)
 {
   struct proxy *this;
   struct proxy_port *port;
@@ -587,20 +587,20 @@ spa_proxy_node_port_enum_params (SpaNode       *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_proxy_node_port_set_param (SpaNode        *node,
-                               SpaDirection    direction,
+static int
+spa_proxy_node_port_set_param (struct spa_node        *node,
+                               enum spa_direction    direction,
                                uint32_t        port_id,
-                               const SpaParam *param)
+                               const struct spa_param *param)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_proxy_node_port_set_io (SpaNode      *node,
-                            SpaDirection  direction,
+static int
+spa_proxy_node_port_set_io (struct spa_node      *node,
+                            enum spa_direction  direction,
                             uint32_t      port_id,
-                            SpaPortIO    *io)
+                            struct spa_port_io    *io)
 {
   struct proxy *this;
   struct proxy_port *port;
@@ -619,12 +619,12 @@ spa_proxy_node_port_set_io (SpaNode      *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_proxy_node_port_use_buffers (SpaNode         *node,
-                                 SpaDirection     direction,
-                                 uint32_t         port_id,
-                                 SpaBuffer      **buffers,
-                                 uint32_t         n_buffers)
+static int
+spa_proxy_node_port_use_buffers (struct spa_node            *node,
+                                 enum spa_direction        direction,
+                                 uint32_t            port_id,
+                                 struct spa_buffer **buffers,
+                                 uint32_t            n_buffers)
 {
   struct proxy *this;
   struct impl *impl;
@@ -632,7 +632,7 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
   uint32_t i, j;
   size_t n_mem;
   struct pw_client_node_buffer *mb;
-  SpaMetaShared *msh;
+  struct spa_meta_shared *msh;
 
   this = SPA_CONTAINER_OF (node, struct proxy, node);
   impl = this->impl;
@@ -670,7 +670,7 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
     }
 
     b->outbuf = buffers[i];
-    memcpy (&b->buffer, buffers[i], sizeof (SpaBuffer));
+    memcpy (&b->buffer, buffers[i], sizeof (struct spa_buffer));
     b->buffer.datas = b->datas;
     b->buffer.metas = b->metas;
 
@@ -690,13 +690,13 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
                                       msh->size);
 
     for (j = 0; j < buffers[i]->n_metas; j++) {
-      memcpy (&b->buffer.metas[j], &buffers[i]->metas[j], sizeof (SpaMeta));
+      memcpy (&b->buffer.metas[j], &buffers[i]->metas[j], sizeof (struct spa_meta));
     }
 
     for (j = 0; j < buffers[i]->n_datas; j++) {
-      SpaData *d = &buffers[i]->datas[j];
+      struct spa_data *d = &buffers[i]->datas[j];
 
-      memcpy (&b->buffer.datas[j], d, sizeof (SpaData));
+      memcpy (&b->buffer.datas[j], d, sizeof (struct spa_data));
 
       if (d->type == impl->core->type.data.DmaBuf ||
           d->type == impl->core->type.data.MemFd) {
@@ -735,14 +735,14 @@ spa_proxy_node_port_use_buffers (SpaNode         *node,
   return SPA_RESULT_RETURN_ASYNC (this->seq++);
 }
 
-static SpaResult
-spa_proxy_node_port_alloc_buffers (SpaNode         *node,
-                                   SpaDirection     direction,
-                                   uint32_t         port_id,
-                                   SpaParam       **params,
-                                   uint32_t         n_params,
-                                   SpaBuffer      **buffers,
-                                   uint32_t        *n_buffers)
+static int
+spa_proxy_node_port_alloc_buffers (struct spa_node            *node,
+                                   enum spa_direction        direction,
+                                   uint32_t            port_id,
+                                   struct spa_param          **params,
+                                   uint32_t            n_params,
+                                   struct spa_buffer **buffers,
+                                   uint32_t           *n_buffers)
 {
   struct proxy *this;
   struct proxy_port *port;
@@ -763,8 +763,8 @@ spa_proxy_node_port_alloc_buffers (SpaNode         *node,
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_proxy_node_port_reuse_buffer (SpaNode         *node,
+static int
+spa_proxy_node_port_reuse_buffer (struct spa_node         *node,
                                   uint32_t         port_id,
                                   uint32_t         buffer_id)
 {
@@ -784,17 +784,17 @@ spa_proxy_node_port_reuse_buffer (SpaNode         *node,
   {
     struct pw_event_transport_reuse_buffer rb = PW_EVENT_TRANSPORT_REUSE_BUFFER_INIT
                                 (impl->core->type.event_transport.ReuseBuffer, port_id, buffer_id);
-    pw_transport_add_event (impl->transport, (SpaEvent *)&rb);
+    pw_transport_add_event (impl->transport, (struct spa_event *)&rb);
   }
 
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_proxy_node_port_send_command (SpaNode        *node,
-                                  SpaDirection    direction,
-                                  uint32_t        port_id,
-                                  SpaCommand     *command)
+static int
+spa_proxy_node_port_send_command (struct spa_node            *node,
+                                  enum spa_direction        direction,
+                                  uint32_t            port_id,
+                                  struct spa_command *command)
 {
   struct proxy *this;
 
@@ -807,8 +807,8 @@ spa_proxy_node_port_send_command (SpaNode        *node,
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_proxy_node_process_input (SpaNode *node)
+static int
+spa_proxy_node_process_input (struct spa_node *node)
 {
   struct impl *impl;
   struct proxy *this;
@@ -821,7 +821,7 @@ spa_proxy_node_process_input (SpaNode *node)
   impl = this->impl;
 
   for (i = 0; i < MAX_INPUTS; i++) {
-    SpaPortIO *io = this->in_ports[i].io;
+    struct spa_port_io *io = this->in_ports[i].io;
 
     if (!io)
       continue;
@@ -836,8 +836,8 @@ spa_proxy_node_process_input (SpaNode *node)
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_proxy_node_process_output (SpaNode *node)
+static int
+spa_proxy_node_process_output (struct spa_node *node)
 {
   struct proxy *this;
   struct impl *impl;
@@ -848,7 +848,7 @@ spa_proxy_node_process_output (SpaNode *node)
   impl = this->impl;
 
   for (i = 0; i < MAX_OUTPUTS; i++) {
-    SpaPortIO *io = this->out_ports[i].io, tmp;
+    struct spa_port_io *io = this->out_ports[i].io, tmp;
 
     if (!io)
       continue;
@@ -859,7 +859,7 @@ spa_proxy_node_process_output (SpaNode *node)
 
       spa_log_trace (this->log, "reuse buffer %d", io->buffer_id);
 
-      pw_transport_add_event (impl->transport, (SpaEvent *)&rb);
+      pw_transport_add_event (impl->transport, (struct spa_event *)&rb);
       io->buffer_id = SPA_ID_INVALID;
       flush = true;
     }
@@ -882,16 +882,16 @@ spa_proxy_node_process_output (SpaNode *node)
   return SPA_RESULT_HAVE_BUFFER;
 }
 
-static SpaResult
+static int
 handle_node_event (struct proxy *this,
-                   SpaEvent *event)
+                   struct spa_event *event)
 {
   struct impl *impl = SPA_CONTAINER_OF (this, struct impl, proxy);
   int i;
 
   if (SPA_EVENT_TYPE (event) == impl->core->type.event_transport.HaveOutput) {
     for (i = 0; i < MAX_OUTPUTS; i++) {
-      SpaPortIO *io = this->out_ports[i].io;
+      struct spa_port_io *io = this->out_ports[i].io;
 
       if (!io)
         continue;
@@ -916,7 +916,7 @@ client_node_update (void           *object,
                     uint32_t        change_mask,
                     uint32_t        max_input_ports,
                     uint32_t        max_output_ports,
-                    const SpaProps *props)
+                    const struct spa_props *props)
 {
   struct pw_resource *resource = object;
   struct pw_client_node *node = resource->object;
@@ -934,15 +934,15 @@ client_node_update (void           *object,
 
 static void
 client_node_port_update (void              *object,
-                         SpaDirection       direction,
+                         enum spa_direction direction,
                          uint32_t           port_id,
                          uint32_t           change_mask,
                          uint32_t           n_possible_formats,
-                         const SpaFormat  **possible_formats,
-                         const SpaFormat   *format,
+                         const struct spa_format  **possible_formats,
+                         const struct spa_format   *format,
                          uint32_t           n_params,
-                         const SpaParam   **params,
-                         const SpaPortInfo *info)
+                         const struct spa_param   **params,
+                         const struct spa_port_info *info)
 {
   struct pw_resource *resource = object;
   struct pw_client_node *node = resource->object;
@@ -974,7 +974,7 @@ client_node_port_update (void              *object,
 
 static void
 client_node_event (void     *object,
-                   SpaEvent *event)
+                   struct spa_event *event)
 {
   struct pw_resource *resource = object;
   struct pw_client_node *node = resource->object;
@@ -1000,7 +1000,7 @@ static struct pw_client_node_methods client_node_methods = {
 };
 
 static void
-proxy_on_data_fd_events (SpaSource *source)
+proxy_on_data_fd_events (struct spa_source *source)
 {
   struct proxy *this = source->data;
   struct impl *impl = this->impl;
@@ -1011,21 +1011,21 @@ proxy_on_data_fd_events (SpaSource *source)
   }
 
   if (source->rmask & SPA_IO_IN) {
-    SpaEvent event;
+    struct spa_event event;
     uint64_t cmd;
 
     read (this->data_source.fd, &cmd, 8);
 
     while (pw_transport_next_event (impl->transport, &event) == SPA_RESULT_OK) {
-      SpaEvent *ev = alloca (SPA_POD_SIZE (&event));
+      struct spa_event *ev = alloca (SPA_POD_SIZE (&event));
       pw_transport_parse_event (impl->transport, ev);
       handle_node_event (this, ev);
     }
   }
 }
 
-static const SpaNode proxy_node = {
-  sizeof (SpaNode),
+static const struct spa_node proxy_node = {
+  sizeof (struct spa_node),
   NULL,
   spa_proxy_node_get_props,
   spa_proxy_node_set_props,
@@ -1050,11 +1050,11 @@ static const SpaNode proxy_node = {
   spa_proxy_node_process_output,
 };
 
-static SpaResult
-proxy_init (struct proxy         *this,
-            SpaDict          *info,
-            const SpaSupport *support,
-            uint32_t          n_support)
+static int
+proxy_init (struct proxy      *this,
+            struct spa_dict   *info,
+            const struct spa_support  *support,
+            uint32_t           n_support)
 {
   uint32_t i;
 
@@ -1126,7 +1126,7 @@ on_global_added (struct pw_listener   *listener,
     global->owner = impl->this.client;
 }
 
-static SpaResult
+static int
 proxy_clear (struct proxy *this)
 {
   uint32_t i;
@@ -1287,7 +1287,7 @@ pw_client_node_destroy (struct pw_client_node * this)
  *
  * Returns: %SPA_RESULT_OK on success
  */
-SpaResult
+int
 pw_client_node_get_fds (struct pw_client_node  *this,
                            int              *readfd,
                            int              *writefd)

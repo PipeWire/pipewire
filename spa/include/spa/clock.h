@@ -24,76 +24,74 @@
 extern "C" {
 #endif
 
-typedef struct _SpaClock SpaClock;
-
 #define SPA_TYPE__Clock            SPA_TYPE_INTERFACE_BASE "Clock"
 #define SPA_TYPE_CLOCK_BASE        SPA_TYPE__Clock ":"
 
 /**
- * SpaClockState:
+ * spa_clock_state:
  * @SPA_CLOCK_STATE_STOPPED: the clock is stopped
  * @SPA_CLOCK_STATE_PAUSED: the clock is paused
  * @SPA_CLOCK_STATE_RUNNING: the clock is running
  */
-typedef enum {
+enum spa_clock_state {
   SPA_CLOCK_STATE_STOPPED,
   SPA_CLOCK_STATE_PAUSED,
   SPA_CLOCK_STATE_RUNNING,
-} SpaClockState;
+};
 
 #include <spa/defs.h>
 #include <spa/plugin.h>
 #include <spa/props.h>
 
 /**
- * SpaClock:
+ * spa_clock:
  *
  * A time provider.
  */
-struct _SpaClock {
+struct spa_clock {
   /* the total size of this clock. This can be used to expand this
    * structure in the future */
   size_t size;
   /**
-   * SpaClock::info
+   * spa_clock::info
    *
    * Extra information about the clock
    */
-  const SpaDict *info;
+  const struct spa_dict *info;
   /**
-   * SpaClock::state:
+   * spa_clock::state:
    *
    * The current state of the clock
    */
-  SpaClockState state;
+  enum spa_clock_state state;
   /**
-   * SpaClock::get_props:
-   * @clock: a #SpaClock
-   * @props: a location for a #SpaProps pointer
+   * spa_clock::get_props:
+   * @clock: a #spa_clock
+   * @props: a location for a #struct spa_props pointer
    *
    * Get the configurable properties of @clock.
    *
    * The returned @props is a snapshot of the current configuration and
    * can be modified. The modifications will take effect after a call
-   * to SpaClock::set_props.
+   * to spa_clock::set_props.
    *
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_INVALID_ARGUMENTS when clock or props are %NULL
    *          #SPA_RESULT_NOT_IMPLEMENTED when there are no properties
    *                 implemented on @clock
    */
-  SpaResult   (*get_props)            (SpaClock          *clock,
-                                       SpaProps        **props);
+  int   (*get_props)            (struct spa_clock  *clock,
+                                 struct spa_props **props);
   /**
-   * SpaClock::set_props:
-   * @clock: a #SpaClock
-   * @props: a #SpaProps
+   * spa_clock::set_props:
+   * @clock: a #spa_clock
+   * @props: a #struct spa_props
    *
    * Set the configurable properties in @clock.
    *
-   * Usually, @props will be obtained from SpaClock::get_props and then
-   * modified but it is also possible to set another #SpaProps object
-   * as long as its keys and types match those of SpaProps::get_props.
+   * Usually, @props will be obtained from spa_clock::get_props and then
+   * modified but it is also possible to set another #struct spa_props object
+   * as long as its keys and types match those of struct spa_props::get_props.
    *
    * Properties with keys that are not known are ignored.
    *
@@ -106,13 +104,13 @@ struct _SpaClock {
    *          #SPA_RESULT_WRONG_PROPERTY_TYPE when a property has the wrong
    *                 type.
    */
-  SpaResult   (*set_props)           (SpaClock         *clock,
-                                      const SpaProps   *props);
+  int   (*set_props)           (struct spa_clock       *clock,
+                                const struct spa_props *props);
 
-  SpaResult   (*get_time)            (SpaClock         *clock,
-                                      int32_t          *rate,
-                                      int64_t          *ticks,
-                                      int64_t          *monotonic_time);
+  int   (*get_time)            (struct spa_clock *clock,
+                                int32_t          *rate,
+                                int64_t          *ticks,
+                                int64_t          *monotonic_time);
 };
 
 #define spa_clock_get_props(n,...)          (n)->get_props((n),__VA_ARGS__)

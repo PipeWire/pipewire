@@ -46,7 +46,7 @@
 #define MODE_ASYNC_BOTH         (MODE_ASYNC_PUSH|MODE_ASYNC_PULL)
 #define MODE_DIRECT             (1<<4)
 
-typedef struct {
+struct type {
   uint32_t node;
   uint32_t props;
   uint32_t format;
@@ -55,16 +55,16 @@ typedef struct {
   uint32_t props_volume;
   uint32_t props_min_latency;
   uint32_t props_live;
-  SpaTypeMeta meta;
-  SpaTypeData data;
-  SpaTypeMediaType media_type;
-  SpaTypeMediaSubtype media_subtype;
-  SpaTypeEventNode event_node;
-  SpaTypeCommandNode command_node;
-} Type;
+  struct spa_type_meta meta;
+  struct spa_type_data data;
+  struct spa_type_media_type media_type;
+  struct spa_type_media_subtype media_subtype;
+  struct spa_type_event_node event_node;
+  struct spa_type_command_node command_node;
+};
 
 static inline void
-init_type (Type *type, SpaTypeMap *map)
+init_type (struct type *type, struct spa_type_map *map)
 {
   type->node = spa_type_map_get_id (map, SPA_TYPE__Node);
   type->props = spa_type_map_get_id (map, SPA_TYPE__Props);
@@ -82,44 +82,44 @@ init_type (Type *type, SpaTypeMap *map)
   spa_type_command_node_map (map, &type->command_node);
 }
 
-typedef struct {
-  SpaBuffer buffer;
-  SpaMeta metas[1];
-  SpaMetaHeader header;
-  SpaData datas[1];
-  SpaChunk chunks[1];
-} Buffer;
+struct buffer {
+  struct spa_buffer buffer;
+  struct spa_meta metas[1];
+  struct spa_meta_header header;
+  struct spa_data datas[1];
+  struct spa_chunk chunks[1];
+};
 
-typedef struct {
-  SpaTypeMap *map;
-  SpaLog *log;
-  SpaLoop data_loop;
-  Type type;
+struct data {
+  struct spa_type_map *map;
+  struct spa_log *log;
+  struct spa_loop data_loop;
+  struct type type;
 
   int mode;
 
-  SpaSupport support[4];
+  struct spa_support support[4];
   uint32_t   n_support;
 
   int iterations;
 
-  SpaGraph graph;
-  SpaGraphNode source_node;
-  SpaGraphPort source_out;
-  SpaGraphPort sink_in;
-  SpaGraphNode sink_node;
+  struct spa_graph graph;
+  struct spa_graph_node source_node;
+  struct spa_graph_port source_out;
+  struct spa_graph_port sink_in;
+  struct spa_graph_node sink_node;
 
-  SpaNode *sink;
-  SpaPortIO source_sink_io[1];
+  struct spa_node *sink;
+  struct spa_port_io source_sink_io[1];
 
-  SpaNode *source;
-  SpaBuffer *source_buffers[1];
-  Buffer source_buffer[1];
+  struct spa_node *source;
+  struct spa_buffer *source_buffers[1];
+  struct buffer source_buffer[1];
 
   bool running;
   pthread_t thread;
 
-  SpaSource sources[16];
+  struct spa_source sources[16];
   unsigned int n_sources;
 
   bool rebuild_fds;
@@ -127,19 +127,19 @@ typedef struct {
   unsigned int n_fds;
 
   void *hnd;
-} AppData;
+};
 
 #define MIN_LATENCY     64
 
 #define BUFFER_SIZE    MIN_LATENCY
 
 static void
-init_buffer (AppData *data, SpaBuffer **bufs, Buffer *ba, int n_buffers, size_t size)
+init_buffer (struct data *data, struct spa_buffer **bufs, struct buffer *ba, int n_buffers, size_t size)
 {
   int i;
 
   for (i = 0; i < n_buffers; i++) {
-    Buffer *b = &ba[i];
+    struct buffer *b = &ba[i];
     bufs[i] = &b->buffer;
 
     b->buffer.id = i;
@@ -169,12 +169,12 @@ init_buffer (AppData *data, SpaBuffer **bufs, Buffer *ba, int n_buffers, size_t 
   }
 }
 
-static SpaResult
-make_node (AppData *data, SpaNode **node, const char *lib, const char *name)
+static int
+make_node (struct data *data, struct spa_node **node, const char *lib, const char *name)
 {
-  SpaHandle *handle;
-  SpaResult res;
-  SpaEnumHandleFactoryFunc enum_func;
+  struct spa_handle *handle;
+  int res;
+  spa_handle_factory_enum_func_t enum_func;
   unsigned int i;
   uint32_t state = 0;
 
@@ -184,13 +184,13 @@ make_node (AppData *data, SpaNode **node, const char *lib, const char *name)
       return SPA_RESULT_ERROR;
     }
   }
-  if ((enum_func = dlsym (data->hnd, "spa_enum_handle_factory")) == NULL) {
+  if ((enum_func = dlsym (data->hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
     printf ("can't find enum function\n");
     return SPA_RESULT_ERROR;
   }
 
   for (i = 0; ;i++) {
-    const SpaHandleFactory *factory;
+    const struct spa_handle_factory *factory;
     void *iface;
 
     if ((res = enum_func (&factory, state++)) < 0) {
@@ -217,7 +217,7 @@ make_node (AppData *data, SpaNode **node, const char *lib, const char *name)
 }
 
 static void
-on_sink_pull (AppData *data)
+on_sink_pull (struct data *data)
 {
   spa_log_trace (data->log, "do sink pull");
   data->sink_node.state = SPA_RESULT_NEED_BUFFER;
@@ -232,7 +232,7 @@ on_sink_pull (AppData *data)
 }
 
 static void
-on_source_push (AppData *data)
+on_source_push (struct data *data)
 {
   spa_log_trace (data->log, "do source push");
   if (data->mode & MODE_DIRECT) {
@@ -246,16 +246,16 @@ on_source_push (AppData *data)
 }
 
 static void
-on_sink_event (SpaNode *node, SpaEvent *event, void *user_data)
+on_sink_event (struct spa_node *node, struct spa_event *event, void *user_data)
 {
-  AppData *data = user_data;
+  struct data *data = user_data;
   spa_log_trace (data->log, "got sink event %d", SPA_EVENT_TYPE (event));
 }
 
 static void
-on_sink_need_input (SpaNode *node, void *user_data)
+on_sink_need_input (struct spa_node *node, void *user_data)
 {
-  AppData *data = user_data;
+  struct data *data = user_data;
   spa_log_trace (data->log, "need input");
   on_sink_pull (data);
   if (--data->iterations == 0)
@@ -263,14 +263,14 @@ on_sink_need_input (SpaNode *node, void *user_data)
 }
 
 static void
-on_sink_reuse_buffer (SpaNode *node, uint32_t port_id, uint32_t buffer_id, void *user_data)
+on_sink_reuse_buffer (struct spa_node *node, uint32_t port_id, uint32_t buffer_id, void *user_data)
 {
-  AppData *data = user_data;
+  struct data *data = user_data;
 
   data->source_sink_io[0].buffer_id = buffer_id;
 }
 
-static const SpaNodeCallbacks sink_callbacks =
+static const struct spa_node_callbacks sink_callbacks =
 {
   &on_sink_event,
   &on_sink_need_input,
@@ -279,23 +279,23 @@ static const SpaNodeCallbacks sink_callbacks =
 };
 
 static void
-on_source_event (SpaNode *node, SpaEvent *event, void *user_data)
+on_source_event (struct spa_node *node, struct spa_event *event, void *user_data)
 {
-  AppData *data = user_data;
+  struct data *data = user_data;
   spa_log_trace (data->log, "got source event %d", SPA_EVENT_TYPE (event));
 }
 
 static void
-on_source_have_output (SpaNode *node, void *user_data)
+on_source_have_output (struct spa_node *node, void *user_data)
 {
-  AppData *data = user_data;
+  struct data *data = user_data;
   spa_log_trace (data->log, "have_output");
   on_source_push (data);
   if (--data->iterations == 0)
     data->running = false;
 }
 
-static const SpaNodeCallbacks source_callbacks =
+static const struct spa_node_callbacks source_callbacks =
 {
   &on_source_event,
   NULL,
@@ -304,11 +304,11 @@ static const SpaNodeCallbacks source_callbacks =
 };
 
 
-static SpaResult
-do_add_source (SpaLoop   *loop,
-               SpaSource *source)
+static int
+do_add_source (struct spa_loop   *loop,
+               struct spa_source *source)
 {
-  AppData *data = SPA_CONTAINER_OF (loop, AppData, data_loop);
+  struct data *data = SPA_CONTAINER_OF (loop, struct data, data_loop);
 
   data->sources[data->n_sources] = *source;
   data->n_sources++;
@@ -317,20 +317,20 @@ do_add_source (SpaLoop   *loop,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-do_update_source (SpaSource  *source)
+static int
+do_update_source (struct spa_source  *source)
 {
   return SPA_RESULT_OK;
 }
 
 static void
-do_remove_source (SpaSource  *source)
+do_remove_source (struct spa_source  *source)
 {
 }
 
-static SpaResult
-do_invoke (SpaLoop       *loop,
-           SpaInvokeFunc  func,
+static int
+do_invoke (struct spa_loop       *loop,
+           spa_invoke_func_t  func,
            uint32_t       seq,
            size_t         size,
            void          *data,
@@ -339,10 +339,10 @@ do_invoke (SpaLoop       *loop,
   return func (loop, false, seq, size, data, user_data);
 }
 
-static SpaResult
-make_nodes (AppData *data)
+static int
+make_nodes (struct data *data)
 {
-  SpaResult res;
+  int res;
 
   if ((res = make_node (data, &data->sink,
                         "build/spa/plugins/test/libspa-test.so",
@@ -388,19 +388,19 @@ make_nodes (AppData *data)
   return res;
 }
 
-static SpaResult
-negotiate_formats (AppData *data)
+static int
+negotiate_formats (struct data *data)
 {
-  SpaResult res;
-  SpaFormat *format;
-  SpaPODBuilder b = { 0 };
-  SpaPODFrame f[2];
+  int res;
+  struct spa_format *format;
+  struct spa_pod_builder b = { 0 };
+  struct spa_pod_frame f[2];
   uint8_t buffer[256];
 
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
   spa_pod_builder_format (&b, &f[0], data->type.format,
       data->type.media_type.binary, data->type.media_subtype.raw, 0);
-  format = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
+  format = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_format);
 
   if ((res = spa_node_port_set_format (data->sink, SPA_DIRECTION_INPUT, 0, 0, format)) < 0)
     return res;
@@ -421,7 +421,7 @@ negotiate_formats (AppData *data)
 static void *
 loop (void *user_data)
 {
-  AppData *data = user_data;
+  struct data *data = user_data;
 
   printf ("enter thread %d\n", data->n_sources);
   while (data->running) {
@@ -430,7 +430,7 @@ loop (void *user_data)
     /* rebuild */
     if (data->rebuild_fds) {
       for (i = 0; i < data->n_sources; i++) {
-        SpaSource *p = &data->sources[i];
+        struct spa_source *p = &data->sources[i];
         data->fds[i].fd = p->fd;
         data->fds[i].events = p->mask;
       }
@@ -451,7 +451,7 @@ loop (void *user_data)
 
     /* after */
     for (i = 0; i < data->n_sources; i++) {
-      SpaSource *p = &data->sources[i];
+      struct spa_source *p = &data->sources[i];
       p->rmask = 0;
       if (data->fds[i].revents & POLLIN)
         p->rmask |= SPA_IO_IN;
@@ -463,7 +463,7 @@ loop (void *user_data)
         p->rmask |= SPA_IO_ERR;
     }
     for (i = 0; i < data->n_sources; i++) {
-      SpaSource *p = &data->sources[i];
+      struct spa_source *p = &data->sources[i];
       if (p->rmask)
         p->func (p);
     }
@@ -474,15 +474,15 @@ loop (void *user_data)
 }
 
 static void
-run_graph (AppData *data)
+run_graph (struct data *data)
 {
-  SpaResult res;
+  int res;
   int err, i;
   struct timespec now;
   int64_t start, stop;
 
   {
-    SpaCommand cmd = SPA_COMMAND_INIT (data->type.command_node.Start);
+    struct spa_command cmd = SPA_COMMAND_INIT (data->type.command_node.Start);
     if ((res = spa_node_send_command (data->source, &cmd)) < 0)
       printf ("got source error %d\n", res);
     if ((res = spa_node_send_command (data->sink, &cmd)) < 0)
@@ -519,7 +519,7 @@ run_graph (AppData *data)
   printf ("stopping, elapsed %"PRIi64"\n", stop - start);
 
   {
-    SpaCommand cmd = SPA_COMMAND_INIT (data->type.command_node.Pause);
+    struct spa_command cmd = SPA_COMMAND_INIT (data->type.command_node.Pause);
     if ((res = spa_node_send_command (data->sink, &cmd)) < 0)
       printf ("got error %d\n", res);
     if ((res = spa_node_send_command (data->source, &cmd)) < 0)
@@ -530,15 +530,15 @@ run_graph (AppData *data)
 int
 main (int argc, char *argv[])
 {
-  AppData data = { NULL };
-  SpaResult res;
+  struct data data = { NULL };
+  int res;
   const char *str;
 
   spa_graph_init (&data.graph);
 
   data.map = spa_type_map_get_default();
   data.log = spa_log_get_default();
-  data.data_loop.size = sizeof (SpaLoop);
+  data.data_loop.size = sizeof (struct spa_loop);
   data.data_loop.add_source = do_add_source;
   data.data_loop.update_source = do_update_source;
   data.data_loop.remove_source = do_remove_source;

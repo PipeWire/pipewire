@@ -24,49 +24,43 @@
 extern "C" {
 #endif
 
-typedef struct _SpaParam SpaParam;
 
 #include <spa/defs.h>
 #include <spa/pod-utils.h>
 
+struct spa_param;
 #define SPA_TYPE__Param         SPA_TYPE_POD_OBJECT_BASE "Param"
 #define SPA_TYPE_PARAM_BASE     SPA_TYPE__Param ":"
 
-typedef struct {
-  SpaPODObjectBody body;
-  /* SpaPODProp follow */
-} SpaParamBody;
-
-struct _SpaParam {
-  SpaPOD       pod;
-  SpaParamBody body;
+struct spa_param {
+  struct spa_pod_object object;
 };
 
 static inline uint32_t
-spa_param_query (const SpaParam *param, uint32_t key, ...)
+spa_param_query (const struct spa_param *param, uint32_t key, ...)
 {
   uint32_t count;
   va_list args;
 
   va_start (args, key);
-  count = spa_pod_contents_queryv (&param->pod, sizeof (SpaParam), key, args);
+  count = spa_pod_contents_queryv (&param->object.pod, sizeof (struct spa_param), key, args);
   va_end (args);
 
   return count;
 }
 
 #define SPA_PARAM_BODY_FOREACH(body, size, iter) \
-  for ((iter) = SPA_MEMBER ((body), sizeof (SpaParamBody), SpaPODProp); \
-       (iter) < SPA_MEMBER ((body), (size), SpaPODProp); \
-       (iter) = SPA_MEMBER ((iter), SPA_ROUND_UP_N (SPA_POD_SIZE (iter), 8), SpaPODProp))
+  for ((iter) = SPA_MEMBER ((body), sizeof (struct spa_pod_object_body), struct spa_pod_prop); \
+       (iter) < SPA_MEMBER ((body), (size), struct spa_pod_prop); \
+       (iter) = SPA_MEMBER ((iter), SPA_ROUND_UP_N (SPA_POD_SIZE (iter), 8), struct spa_pod_prop))
 
 #define SPA_PARAM_FOREACH(param, iter) \
-  SPA_PARAM_BODY_FOREACH(&param->body, SPA_POD_BODY_SIZE(param), iter)
+  SPA_PARAM_BODY_FOREACH(&param->object.body, SPA_POD_BODY_SIZE(param), iter)
 
-static inline SpaResult
-spa_param_fixate (SpaParam *param)
+static inline int
+spa_param_fixate (struct spa_param *param)
 {
-  SpaPODProp *prop;
+  struct spa_pod_prop *prop;
 
   SPA_PARAM_FOREACH (param, prop)
     prop->body.flags &= ~SPA_POD_PROP_FLAG_UNSET;

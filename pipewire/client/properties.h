@@ -27,11 +27,11 @@ extern "C" {
 #include <spa/dict.h>
 
 struct pw_properties {
-  SpaDict dict;
+  struct spa_dict dict;
 };
 
 struct pw_properties * pw_properties_new      (const char *key, ...);
-struct pw_properties * pw_properties_new_dict (const SpaDict *dict);
+struct pw_properties * pw_properties_new_dict (const struct spa_dict *dict);
 struct pw_properties * pw_properties_copy     (struct pw_properties *properties);
 struct pw_properties * pw_properties_merge    (struct pw_properties *oldprops,
                                                struct pw_properties *newprops);

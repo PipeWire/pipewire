@@ -33,33 +33,33 @@
 #include <spa/monitor.h>
 #include <lib/debug.h>
 
-extern const SpaHandleFactory spa_alsa_sink_factory;
-extern const SpaHandleFactory spa_alsa_source_factory;
+#define NAME  "alsa-monitor"
 
-typedef struct _SpaALSAMonitor SpaALSAMonitor;
+extern const struct spa_handle_factory spa_alsa_sink_factory;
+extern const struct spa_handle_factory spa_alsa_source_factory;
 
-typedef struct {
+struct type {
   uint32_t handle_factory;
-  SpaTypeMonitor monitor;
-} Type;
+  struct spa_type_monitor monitor;
+};
 
 static inline void
-init_type (Type *type, SpaTypeMap *map)
+init_type (struct type *type, struct spa_type_map *map)
 {
   type->handle_factory = spa_type_map_get_id (map, SPA_TYPE__HandleFactory);
   spa_type_monitor_map (map, &type->monitor);
 }
 
-struct _SpaALSAMonitor {
-  SpaHandle handle;
-  SpaMonitor monitor;
+struct impl {
+  struct spa_handle handle;
+  struct spa_monitor monitor;
 
-  Type type;
-  SpaTypeMap *map;
-  SpaLog *log;
-  SpaLoop *main_loop;
+  struct type type;
+  struct spa_type_map *map;
+  struct spa_log *log;
+  struct spa_loop *main_loop;
 
-  SpaEventMonitorCallback event_cb;
+  struct spa_monitor_callbacks callbacks;
   void *user_data;
 
   struct udev* udev;
@@ -69,7 +69,7 @@ struct _SpaALSAMonitor {
   struct udev_list_entry *devices;
 
   uint8_t item_buffer[4096];
-  SpaMonitorItem *item;
+  struct spa_monitor_item *item;
 
   snd_ctl_t *ctl_hndl;
   struct udev_device *dev;
@@ -78,11 +78,11 @@ struct _SpaALSAMonitor {
   int stream_idx;
 
   int fd;
-  SpaSource source;
+  struct spa_source source;
 };
 
-static SpaResult
-alsa_udev_open (SpaALSAMonitor *this)
+static int
+impl_udev_open (struct impl *this)
 {
   if (this->udev != NULL)
     return SPA_RESULT_OK;
@@ -110,15 +110,15 @@ path_get_card_id (const char *path)
 }
 
 static int
-fill_item (SpaALSAMonitor *this,
+fill_item (struct impl *this,
            snd_ctl_card_info_t *card_info,
            snd_pcm_info_t *dev_info,
            struct udev_device *dev)
 {
   const char *str, *name, *klass = NULL;
-  SpaPODBuilder b = SPA_POD_BUILDER_INIT (this->item_buffer, sizeof (this->item_buffer));
-  const SpaHandleFactory *factory = NULL;
-  SpaPODFrame f[3];
+  struct spa_pod_builder b = SPA_POD_BUILDER_INIT (this->item_buffer, sizeof (this->item_buffer));
+  const struct spa_handle_factory *factory = NULL;
+  struct spa_pod_frame f[3];
   char card_name[64];
 
   switch (snd_pcm_info_get_stream (dev_info)) {
@@ -229,13 +229,13 @@ fill_item (SpaALSAMonitor *this,
       -SPA_POD_TYPE_OBJECT, &f[0],
       0);
 
-  this->item = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaMonitorItem);
+  this->item = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_monitor_item);
 
   return 0;
 }
 
 static void
-close_card (SpaALSAMonitor *this)
+close_card (struct impl *this)
 {
   if (this->ctl_hndl)
     snd_ctl_close (this->ctl_hndl);
@@ -243,7 +243,7 @@ close_card (SpaALSAMonitor *this)
 }
 
 static int
-open_card (SpaALSAMonitor *this, struct udev_device *dev)
+open_card (struct impl *this, struct udev_device *dev)
 {
   int err;
   const char *str;
@@ -274,7 +274,7 @@ open_card (SpaALSAMonitor *this, struct udev_device *dev)
 }
 
 static int
-get_next_device (SpaALSAMonitor *this, struct udev_device *dev)
+get_next_device (struct impl *this, struct udev_device *dev)
 {
   int err;
   snd_pcm_info_t *dev_info;
@@ -324,9 +324,9 @@ again:
 }
 
 static void
-alsa_on_fd_events (SpaSource *source)
+impl_on_fd_events (struct spa_source *source)
 {
-  SpaALSAMonitor *this = source->data;
+  struct impl *this = source->data;
   struct udev_device *dev;
   const char *action;
   uint32_t type;
@@ -350,37 +350,38 @@ alsa_on_fd_events (SpaSource *source)
 
   while (true) {
     uint8_t buffer[4096];
-    SpaPODBuilder b = SPA_POD_BUILDER_INIT (buffer, sizeof (buffer));
-    SpaPODFrame f[1];
-    SpaEventMonitor *event;
+    struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buffer, sizeof (buffer));
+    struct spa_pod_frame f[1];
+    struct spa_event *event;
 
     if (get_next_device (this, dev) < 0)
       break;
 
     spa_pod_builder_object (&b, &f[0], 0, type, SPA_POD_TYPE_POD, this->item);
-    event = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaEventMonitor);
-    this->event_cb (&this->monitor, event, this->user_data);
+    event = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_event);
+    this->callbacks.event (&this->monitor, event, this->user_data);
   }
   close_card (this);
 }
 
-static SpaResult
-spa_alsa_monitor_set_event_callback (SpaMonitor              *monitor,
-                                     SpaEventMonitorCallback  callback,
-                                     void                    *user_data)
+static int
+impl_monitor_set_callbacks (struct spa_monitor                 *monitor,
+                                const struct spa_monitor_callbacks *callbacks,
+                                size_t                              callbacks_size,
+                                void                               *user_data)
 {
-  SpaResult res;
-  SpaALSAMonitor *this;
+  int res;
+  struct impl *this;
 
   spa_return_val_if_fail (monitor != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (monitor, SpaALSAMonitor, monitor);
+  this = SPA_CONTAINER_OF (monitor, struct impl, monitor);
 
-  this->event_cb = callback;
-  this->user_data = user_data;
+  if (callbacks) {
+    this->callbacks = *callbacks;
+    this->user_data = user_data;
 
-  if (callback) {
-    if ((res = alsa_udev_open (this)) < 0)
+    if ((res = impl_udev_open (this)) < 0)
       return res;
 
     this->umonitor = udev_monitor_new_from_netlink (this->udev, "udev");
@@ -393,33 +394,34 @@ spa_alsa_monitor_set_event_callback (SpaMonitor              *monitor,
 
     udev_monitor_enable_receiving (this->umonitor);
 
-    this->source.func = alsa_on_fd_events;
+    this->source.func = impl_on_fd_events;
     this->source.data = this;
     this->source.fd = udev_monitor_get_fd (this->umonitor);;
     this->source.mask = SPA_IO_IN | SPA_IO_ERR;
 
     spa_loop_add_source (this->main_loop, &this->source);
   } else {
+    spa_zero (this->callbacks);
     spa_loop_remove_source (this->main_loop, &this->source);
   }
 
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_alsa_monitor_enum_items (SpaMonitor       *monitor,
-                             SpaMonitorItem  **item,
+static int
+impl_monitor_enum_items (struct spa_monitor       *monitor,
+                             struct spa_monitor_item  **item,
                              uint32_t          index)
 {
-  SpaResult res;
-  SpaALSAMonitor *this;
+  int res;
+  struct impl *this;
 
   spa_return_val_if_fail (monitor != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (item != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = SPA_CONTAINER_OF (monitor, SpaALSAMonitor, monitor);
+  this = SPA_CONTAINER_OF (monitor, struct impl, monitor);
 
-  if ((res = alsa_udev_open (this)) < 0)
+  if ((res = impl_udev_open (this)) < 0)
     return res;
 
   if (index == 0 || this->index > index) {
@@ -465,24 +467,24 @@ next:
   return SPA_RESULT_OK;
 }
 
-static const SpaMonitor alsamonitor = {
+static const struct spa_monitor impl_monitor = {
   NULL,
-  sizeof (SpaMonitor),
-  spa_alsa_monitor_set_event_callback,
-  spa_alsa_monitor_enum_items,
+  sizeof (struct spa_monitor),
+  impl_monitor_set_callbacks,
+  impl_monitor_enum_items,
 };
 
-static SpaResult
-spa_alsa_monitor_get_interface (SpaHandle               *handle,
-                                uint32_t                 interface_id,
-                                void                   **interface)
+static int
+impl_get_interface (struct spa_handle               *handle,
+                    uint32_t                 interface_id,
+                    void                   **interface)
 {
-  SpaALSAMonitor *this;
+  struct impl *this;
 
   spa_return_val_if_fail (handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (interface != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  this = (SpaALSAMonitor *) handle;
+  this = (struct impl *) handle;
 
   if (interface_id == this->type.monitor.Monitor)
     *interface = &this->monitor;
@@ -492,29 +494,29 @@ spa_alsa_monitor_get_interface (SpaHandle               *handle,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-alsa_monitor_clear (SpaHandle *handle)
+static int
+impl_clear (struct spa_handle *handle)
 {
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-alsa_monitor_init (const SpaHandleFactory  *factory,
-                   SpaHandle               *handle,
-                   const SpaDict           *info,
-                   const SpaSupport        *support,
+static int
+impl_init (const struct spa_handle_factory  *factory,
+                   struct spa_handle               *handle,
+                   const struct spa_dict           *info,
+                   const struct spa_support        *support,
                    uint32_t                 n_support)
 {
-  SpaALSAMonitor *this;
+  struct impl *this;
   uint32_t i;
 
   spa_return_val_if_fail (factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (handle != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  handle->get_interface = spa_alsa_monitor_get_interface;
-  handle->clear = alsa_monitor_clear,
+  handle->get_interface = impl_get_interface;
+  handle->clear = impl_clear,
 
-  this = (SpaALSAMonitor *) handle;
+  this = (struct impl *) handle;
 
   for (i = 0; i < n_support; i++) {
     if (strcmp (support[i].type, SPA_TYPE__TypeMap) == 0)
@@ -535,35 +537,36 @@ alsa_monitor_init (const SpaHandleFactory  *factory,
 
   init_type (&this->type, this->map);
 
-  this->monitor = alsamonitor;
+  this->monitor = impl_monitor;
 
   return SPA_RESULT_OK;
 }
 
-static const SpaInterfaceInfo alsa_monitor_interfaces[] =
+static const struct spa_interface_info impl_interfaces[] =
 {
   { SPA_TYPE__Monitor, },
 };
 
-static SpaResult
-alsa_monitor_enum_interface_info (const SpaHandleFactory  *factory,
-                                  const SpaInterfaceInfo **info,
+static int
+impl_enum_interface_info (const struct spa_handle_factory  *factory,
+                                  const struct spa_interface_info **info,
                                   uint32_t                 index)
 {
   spa_return_val_if_fail (factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
   spa_return_val_if_fail (info != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
-  if (index < 0 || index >= SPA_N_ELEMENTS (alsa_monitor_interfaces))
+  if (index < 0 || index >= SPA_N_ELEMENTS (impl_interfaces))
     return SPA_RESULT_ENUM_END;
 
-  *info = &alsa_monitor_interfaces[index];
+  *info = &impl_interfaces[index];
   return SPA_RESULT_OK;
 }
 
-const SpaHandleFactory spa_alsa_monitor_factory =
-{ "alsa-monitor",
+const struct spa_handle_factory spa_alsa_monitor_factory =
+{
+  NAME,
   NULL,
-  sizeof (SpaALSAMonitor),
-  alsa_monitor_init,
-  alsa_monitor_enum_interface_info,
+  sizeof (struct impl),
+  impl_init,
+  impl_enum_interface_info,
 };

@@ -46,7 +46,7 @@ extern "C" {
  */
 struct pw_node {
   struct pw_core   *core;
-  SpaList           link;
+  struct spa_list   link;
   struct pw_global *global;
 
   struct pw_client *owner;
@@ -62,25 +62,25 @@ struct pw_node {
                              enum pw_node_state  old,
                              enum pw_node_state  state));
 
-  SpaHandle *handle;
-  SpaNode *node;
+  struct spa_handle *handle;
+  struct spa_node *node;
   bool live;
-  SpaClock *clock;
+  struct spa_clock *clock;
 
-  SpaList resource_list;
+  struct spa_list resource_list;
 
   PW_SIGNAL (initialized, (struct pw_listener *listener,
                            struct pw_node     *object));
 
   uint32_t         max_input_ports;
   uint32_t         n_input_ports;
-  SpaList          input_ports;
+  struct spa_list  input_ports;
   struct pw_port **input_port_map;
   uint32_t         n_used_input_links;
 
   uint32_t         max_output_ports;
   uint32_t         n_output_ports;
-  SpaList          output_ports;
+  struct spa_list  output_ports;
   struct pw_port **output_port_map;
   uint32_t         n_used_output_links;
 
@@ -99,7 +99,7 @@ struct pw_node {
   PW_SIGNAL (async_complete, (struct pw_listener *listener,
                               struct pw_node     *node,
                               uint32_t            seq,
-                              SpaResult           res));
+                              int           res));
 
   struct pw_data_loop *data_loop;
   PW_SIGNAL (loop_changed, (struct pw_listener *listener,
@@ -110,8 +110,8 @@ struct pw_node *    pw_node_new                     (struct pw_core       *core,
                                                      struct pw_client     *owner,
                                                      const char           *name,
                                                      bool                  async,
-                                                     SpaNode              *node,
-                                                     SpaClock             *clock,
+                                                     struct spa_node      *node,
+                                                     struct spa_clock     *clock,
                                                      struct pw_properties *properties);
 void                pw_node_destroy                 (struct pw_node       *node);
 
@@ -122,7 +122,7 @@ void                pw_node_set_data_loop           (struct pw_node       *node,
 struct pw_port *    pw_node_get_free_port           (struct pw_node       *node,
                                                      enum pw_direction     direction);
 
-SpaResult           pw_node_set_state               (struct pw_node       *node,
+int           pw_node_set_state               (struct pw_node       *node,
                                                      enum pw_node_state    state);
 void                pw_node_update_state            (struct pw_node       *node,
                                                      enum pw_node_state    state,

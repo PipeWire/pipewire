@@ -24,25 +24,23 @@
 extern "C" {
 #endif
 
-typedef struct _SpaList SpaList;
-
 #include <spa/defs.h>
 
-struct _SpaList {
-  SpaList *next;
-  SpaList *prev;
+struct spa_list {
+  struct spa_list *next;
+  struct spa_list *prev;
 };
 
 static inline void
-spa_list_init (SpaList *list)
+spa_list_init (struct spa_list *list)
 {
   list->next = list;
   list->prev = list;
 }
 
 static inline void
-spa_list_insert (SpaList *list,
-                 SpaList *elem)
+spa_list_insert (struct spa_list *list,
+                 struct spa_list *elem)
 {
   elem->prev = list;
   elem->next = list->next;
@@ -51,7 +49,7 @@ spa_list_insert (SpaList *list,
 }
 
 static inline void
-spa_list_remove (SpaList *elem)
+spa_list_remove (struct spa_list *elem)
 {
   elem->prev->next = elem->next;
   elem->next->prev = elem->prev;

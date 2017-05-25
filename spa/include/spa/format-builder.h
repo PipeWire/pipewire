@@ -30,13 +30,13 @@ extern "C" {
 #include <spa/pod-builder.h>
 
 static inline uint32_t
-spa_pod_builder_push_format (SpaPODBuilder *builder,
-                             SpaPODFrame   *frame,
-                             uint32_t       format_type,
-                             uint32_t       media_type,
-                             uint32_t       media_subtype)
+spa_pod_builder_push_format (struct spa_pod_builder *builder,
+                             struct spa_pod_frame   *frame,
+                             uint32_t                format_type,
+                             uint32_t                media_type,
+                             uint32_t                media_subtype)
 {
-  const SpaFormat p = { { sizeof (SpaFormatBody), SPA_POD_TYPE_OBJECT },
+  const struct spa_format p = { { sizeof (struct spa_format_body), SPA_POD_TYPE_OBJECT },
                         { { 0, format_type },
                         { { sizeof (uint32_t), SPA_POD_TYPE_ID }, media_type },
                         { { sizeof (uint32_t), SPA_POD_TYPE_ID }, media_subtype } } };
@@ -50,10 +50,10 @@ spa_pod_builder_push_format (SpaPODBuilder *builder,
                          SPA_POD_TYPE_ID,media_subtype,                        \
                          __VA_ARGS__)
 
-SpaResult
-spa_format_filter (const SpaFormat  *format,
-                   const SpaFormat  *filter,
-                   SpaPODBuilder    *result);
+int
+spa_format_filter (const struct spa_format *format,
+                   const struct spa_format *filter,
+                   struct spa_pod_builder  *result);
 
 #ifdef __cplusplus
 }  /* extern "C" */

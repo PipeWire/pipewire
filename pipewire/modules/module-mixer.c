@@ -34,22 +34,22 @@ struct impl {
   struct pw_properties *properties;
 
   void *hnd;
-  const SpaHandleFactory *factory;
+  const struct spa_handle_factory *factory;
 };
 
-static const SpaHandleFactory *
+static const struct spa_handle_factory *
 find_factory (struct impl *impl)
 {
-  SpaEnumHandleFactoryFunc enum_func;
+  spa_handle_factory_enum_func_t enum_func;
   uint32_t index;
-  const SpaHandleFactory *factory = NULL;
-  SpaResult res;
+  const struct spa_handle_factory *factory = NULL;
+  int res;
 
   if ((impl->hnd = dlopen (AUDIOMIXER_LIB, RTLD_NOW)) == NULL) {
     pw_log_error ("can't load %s: %s", AUDIOMIXER_LIB, dlerror());
     return NULL;
   }
-  if ((enum_func = dlsym (impl->hnd, "spa_enum_handle_factory")) == NULL) {
+  if ((enum_func = dlsym (impl->hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
     pw_log_error ("can't find enum function");
     goto no_symbol;
   }
@@ -75,11 +75,11 @@ no_symbol:
 static struct pw_node *
 make_node (struct impl *impl)
 {
-  SpaHandle *handle;
-  SpaResult res;
+  struct spa_handle *handle;
+  int res;
   void *iface;
-  SpaNode *spa_node;
-  SpaClock *spa_clock;
+  struct spa_node *spa_node;
+  struct spa_clock *spa_clock;
   struct pw_node *node;
 
   handle = calloc (1, impl->factory->size);

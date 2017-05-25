@@ -198,7 +198,7 @@ new_node (const struct pw_node_info *info)
   GstCaps *caps = NULL;
   GstStructure *props;
   const gchar *klass = NULL;
-  SpaDictItem *item;
+  struct spa_dict_item *item;
   GstPipeWireDeviceType type;
   int i;
 
@@ -243,7 +243,7 @@ new_node (const struct pw_node_info *info)
 
 static void
 get_node_info_cb (struct pw_context        *context,
-                  SpaResult            res,
+                  int            res,
                   const struct pw_node_info *info,
                   gpointer             user_data)
 {
@@ -316,7 +316,7 @@ typedef struct {
 
 static void
 list_node_info_cb (struct pw_context        *c,
-                   SpaResult            res,
+                   int            res,
                    const struct pw_node_info *info,
                    void                *user_data)
 {
@@ -330,7 +330,7 @@ list_node_info_cb (struct pw_context        *c,
 
 static void
 get_core_info_cb (struct pw_context         *c,
-                  SpaResult                  res,
+                  int                  res,
                   const struct pw_core_info *info,
                   void                      *user_data)
 {

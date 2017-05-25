@@ -27,8 +27,6 @@ extern "C" {
 #include <spa/format.h>
 #include <spa/audio/raw.h>
 
-typedef struct _SpaAudioInfo SpaAudioInfo;
-
 #define SPA_TYPE_FORMAT__Audio            SPA_TYPE_FORMAT_BASE "Audio"
 #define SPA_TYPE_FORMAT_AUDIO_BASE        SPA_TYPE_FORMAT__Audio ":"
 
@@ -39,11 +37,11 @@ typedef struct _SpaAudioInfo SpaAudioInfo;
 #define SPA_TYPE_FORMAT_AUDIO__channels        SPA_TYPE_FORMAT_AUDIO_BASE "channels"
 #define SPA_TYPE_FORMAT_AUDIO__channelMask     SPA_TYPE_FORMAT_AUDIO_BASE "channel-mask"
 
-struct _SpaAudioInfo {
+struct spa_audio_info {
   uint32_t media_type;
   uint32_t media_subtype;
   union {
-    SpaAudioInfoRaw raw;
+    struct spa_audio_info_raw raw;
   } info;
 };
 

@@ -28,7 +28,7 @@ extern "C" {
 
 typedef void (*pw_work_func_t) (void      *obj,
                                 void      *data,
-                                SpaResult  res,
+                                int  res,
                                 uint32_t   id);
 
 /**
@@ -48,7 +48,7 @@ void                   pw_work_queue_destroy          (struct pw_work_queue *que
 
 uint32_t               pw_work_queue_add              (struct pw_work_queue *queue,
                                                        void                 *obj,
-                                                       SpaResult             res,
+                                                       int             res,
                                                        pw_work_func_t        func,
                                                        void                 *data);
 void                   pw_work_queue_cancel           (struct pw_work_queue *queue,
@@ -57,7 +57,7 @@ void                   pw_work_queue_cancel           (struct pw_work_queue *que
 bool                   pw_work_queue_complete         (struct pw_work_queue *queue,
                                                        void                 *obj,
                                                        uint32_t              seq,
-                                                       SpaResult             res);
+                                                       int             res);
 
 #ifdef __cplusplus
 }

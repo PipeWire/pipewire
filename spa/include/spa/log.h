@@ -24,8 +24,6 @@
 extern "C" {
 #endif
 
-typedef struct _SpaLog SpaLog;
-
 #define SPA_TYPE__Log           SPA_TYPE_INTERFACE_BASE "Log"
 #define SPA_TYPE_LOG_BASE       SPA_TYPE__Log ":"
 
@@ -34,43 +32,42 @@ typedef struct _SpaLog SpaLog;
 #include <spa/defs.h>
 #include <spa/plugin.h>
 
-typedef enum
-{
+enum spa_log_level {
   SPA_LOG_LEVEL_NONE   = 0,
   SPA_LOG_LEVEL_ERROR,
   SPA_LOG_LEVEL_WARN,
   SPA_LOG_LEVEL_INFO,
   SPA_LOG_LEVEL_DEBUG,
   SPA_LOG_LEVEL_TRACE,
-} SpaLogLevel;
+};
 
 /**
- * SpaLog:
+ * struct spa_log:
  *
  * The Log interface
  */
-struct _SpaLog {
+struct spa_log {
   /* the total size of this log. This can be used to expand this
    * structure in the future */
   size_t size;
   /**
-   * SpaLog::info
+   * struct spa_log::info
    *
    * Extra information about the log
    */
-  const SpaDict *info;
+  const struct spa_dict *info;
 
   /**
-   * SpaLog::level
+   * struct spa_log::level
    *
    * Logging level, everything above this level is not logged
    */
-  SpaLogLevel level;
+  enum spa_log_level level;
 
   /**
-   * SpaLog::log
-   * @log: a #SpaLog
-   * @level: a #SpaLogLevel
+   * struct spa_log::log
+   * @log: a #struct spa_log
+   * @level: a #enum spa_log_level
    * @file: the file name
    * @line: the line number
    * @func: the function name
@@ -79,17 +76,17 @@ struct _SpaLog {
    *
    * Log a message with the given log level.
    */
-  void   (*log)           (SpaLog        *log,
-                           SpaLogLevel    level,
-                           const char    *file,
-                           int            line,
-                           const char    *func,
-                           const char    *fmt, ...) SPA_PRINTF_FUNC(6, 7);
+  void   (*log)           (struct spa_log     *log,
+                           enum spa_log_level  level,
+                           const char         *file,
+                           int                 line,
+                           const char         *func,
+                           const char         *fmt, ...) SPA_PRINTF_FUNC(6, 7);
 
   /**
-   * SpaLog::logv
-   * @log: a #SpaLog
-   * @level: a #SpaLogLevel
+   * struct spa_log::logv
+   * @log: a #struct spa_log
+   * @level: a #enum spa_log_level
    * @file: the file name
    * @line: the line number
    * @func: the function name
@@ -98,13 +95,13 @@ struct _SpaLog {
    *
    * Log a message with the given log level.
    */
-  void   (*logv)          (SpaLog        *log,
-                           SpaLogLevel    level,
-                           const char    *file,
-                           int            line,
-                           const char    *func,
-                           const char    *fmt,
-                           va_list        args) SPA_PRINTF_FUNC(6, 0);
+  void   (*logv)          (struct spa_log     *log,
+                           enum spa_log_level  level,
+                           const char         *file,
+                           int                 line,
+                           const char         *func,
+                           const char         *fmt,
+                           va_list             args) SPA_PRINTF_FUNC(6, 0);
 };
 
 #define spa_log_level_enabled(l,lev) ((l) && (l)->level >= (lev))
@@ -124,7 +121,7 @@ struct _SpaLog {
 #else
 
 #define SPA_LOG_FUNC(name,lev)                                                  \
-static inline void spa_log_##name (SpaLog *l, const char *format, ...)          \
+static inline void spa_log_##name (struct spa_log *l, const char *format, ...)  \
 {                                                                               \
   if (SPA_UNLIKELY (spa_log_level_enabled (l, lev))) {                          \
     va_list varargs;                                                            \

@@ -33,9 +33,9 @@ struct data {
 };
 
 static void
-print_properties (SpaDict *props, char mark)
+print_properties (struct spa_dict *props, char mark)
 {
-  SpaDictItem *item;
+  struct spa_dict_item *item;
 
   if (props == NULL)
     return;
@@ -55,7 +55,7 @@ struct dumpdata {
 
 static void
 dump_core_info (struct pw_context         *c,
-                SpaResult                  res,
+                int                  res,
                 const struct pw_core_info *info,
                 void                      *user_data)
 {
@@ -78,7 +78,7 @@ dump_core_info (struct pw_context         *c,
 
 static void
 dump_client_info (struct pw_context           *c,
-                  SpaResult                    res,
+                  int                    res,
                   const struct pw_client_info *info,
                   void                        *user_data)
 {
@@ -96,7 +96,7 @@ dump_client_info (struct pw_context           *c,
 
 static void
 dump_node_info (struct pw_context         *c,
-                SpaResult                  res,
+                int                  res,
                 const struct pw_node_info *info,
                 void                      *user_data)
 {
@@ -135,7 +135,7 @@ dump_node_info (struct pw_context         *c,
 
 static void
 dump_module_info (struct pw_context          *c,
-                  SpaResult              res,
+                  int              res,
                   const struct pw_module_info *info,
                   void                  *user_data)
 {
@@ -159,7 +159,7 @@ dump_module_info (struct pw_context          *c,
 
 static void
 dump_link_info (struct pw_context         *c,
-                SpaResult                  res,
+                int                  res,
                 const struct pw_link_info *info,
                 void                      *user_data)
 {

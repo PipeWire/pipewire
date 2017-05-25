@@ -35,7 +35,7 @@ extern "C" {
 #define _SPA_TYPE_AUDIO_FORMAT_OE(fmt) SPA_TYPE_AUDIO_FORMAT_BASE fmt "BE"
 #endif
 
-typedef struct {
+struct spa_type_audio_format {
   uint32_t UNKNOWN;
   uint32_t ENCODED;
   uint32_t S8;
@@ -68,10 +68,10 @@ typedef struct {
   uint32_t U18_OE;
   uint32_t F32_OE;
   uint32_t F64_OE;
-} SpaTypeAudioFormat;
+};
 
 static inline void
-spa_type_audio_format_map (SpaTypeMap *map, SpaTypeAudioFormat *type)
+spa_type_audio_format_map (struct spa_type_map *map, struct spa_type_audio_format *type)
 {
   if (type->ENCODED == 0) {
     type->UNKNOWN      = 0;

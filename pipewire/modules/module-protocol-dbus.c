@@ -52,15 +52,15 @@
 
 struct impl {
   struct pw_core   *core;
-  SpaList      link;
+  struct spa_list      link;
 
   struct pw_properties *properties;
 
   GDBusConnection *connection;
   GDBusObjectManagerServer *server_manager;
 
-  SpaList client_list;
-  SpaList object_list;
+  struct spa_list client_list;
+  struct spa_list object_list;
 
   struct pw_listener global_added;
   struct pw_listener global_removed;
@@ -68,7 +68,7 @@ struct impl {
 
 struct object {
   struct impl            *impl;
-  SpaList                 link;
+  struct spa_list         link;
   struct pw_global       *global;
   void                   *iface;
   PipeWireObjectSkeleton *skel;
@@ -78,15 +78,15 @@ struct object {
 
 struct server {
   struct object  parent;
-  SpaList        link;
+  struct spa_list        link;
   guint          id;
 };
 
 struct client {
-  struct object  parent;
-  SpaList        link;
-  gchar         *sender;
-  guint          id;
+  struct object   parent;
+  struct spa_list link;
+  gchar          *sender;
+  guint           id;
 };
 
 struct node {
@@ -389,7 +389,7 @@ handle_create_client_node (PipeWireDaemon1           *interface,
   struct impl *impl = user_data;
   struct pw_client_node *node;
   struct pw_client *client;
-  SpaResult res;
+  int res;
   const char *sender, *object_path, *target_node;
   struct pw_properties *props;
   GError *error = NULL;

@@ -24,10 +24,9 @@
 extern "C" {
 #endif
 
+struct spa_format;
 #define SPA_TYPE__Format           SPA_TYPE_POD_OBJECT_BASE "Format"
 #define SPA_TYPE_FORMAT_BASE       SPA_TYPE__Format ":"
-
-typedef struct _SpaFormat SpaFormat;
 
 #include <spa/defs.h>
 #include <spa/pod.h>
@@ -77,22 +76,22 @@ typedef struct _SpaFormat SpaFormat;
 #define SPA_TYPE_MEDIA_SUBTYPE__amr          SPA_TYPE_MEDIA_SUBTYPE_BASE "amr"
 #define SPA_TYPE_MEDIA_SUBTYPE__gsm          SPA_TYPE_MEDIA_SUBTYPE_BASE "gsm"
 
-typedef struct {
-  SpaPODObjectBody obj_body;
-  SpaPODId         media_type           SPA_ALIGNED (8);
-  SpaPODId         media_subtype        SPA_ALIGNED (8);
-  /* contents follow, series of SpaPODProp */
-} SpaFormatBody;
+struct spa_format_body {
+  struct spa_pod_object_body obj_body;
+  struct spa_pod_id          media_type           SPA_ALIGNED (8);
+  struct spa_pod_id          media_subtype        SPA_ALIGNED (8);
+  /* contents follow, series of spa_pod_prop */
+};
 
 /**
- * SpaFormat:
+ * spa_format:
  * @media_type: media type
  * @media_subtype: subtype
  * @pod: POD object with properties
  */
-struct _SpaFormat {
-  SpaPOD        pod;
-  SpaFormatBody body;
+struct spa_format {
+  struct spa_pod         pod;
+  struct spa_format_body body;
 };
 
 #ifdef __cplusplus

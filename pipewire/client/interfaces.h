@@ -42,7 +42,7 @@ extern "C" {
 
 struct pw_core_methods {
   void (*client_update)       (void          *object,
-                               const SpaDict *props);
+                               const struct spa_dict *props);
   void (*sync)                (void          *object,
                                uint32_t       seq);
   void (*get_registry)        (void          *object,
@@ -50,11 +50,11 @@ struct pw_core_methods {
   void (*create_node)         (void          *object,
                                const char    *factory_name,
                                const char    *name,
-                               const SpaDict *props,
+                               const struct spa_dict *props,
                                uint32_t       new_id);
   void (*create_client_node)  (void          *object,
                                const char    *name,
-                               const SpaDict *props,
+                               const struct spa_dict *props,
                                uint32_t       new_id);
   void (*update_types)        (void          *object,
                                uint32_t       first_id,
@@ -83,7 +83,7 @@ struct pw_core_events {
                                uint32_t       seq);
   void (*error)               (void          *object,
                                uint32_t       id,
-                               SpaResult      res,
+                               int      res,
                                const char    *error, ...);
   void (*remove_id)           (void          *object,
                                uint32_t       id);
@@ -147,10 +147,10 @@ struct pw_node_events {
 #define pw_node_notify_info(r,...)      ((struct pw_node_events*)r->iface->events)->info(r,__VA_ARGS__)
 
 struct pw_client_node_buffer {
-  uint32_t    mem_id;
-  uint32_t    offset;
-  uint32_t    size;
-  SpaBuffer  *buffer;
+  uint32_t           mem_id;
+  uint32_t           offset;
+  uint32_t           size;
+  struct spa_buffer *buffer;
 };
 
 #define PW_CLIENT_NODE_METHOD_UPDATE         0
@@ -167,10 +167,10 @@ struct pw_client_node_methods {
                                 uint32_t        change_mask,
                                 uint32_t        max_input_ports,
                                 uint32_t        max_output_ports,
-                                const SpaProps *props);
+                                const struct spa_props *props);
 
   void (*port_update)          (void              *object,
-                                SpaDirection       direction,
+                                enum spa_direction       direction,
                                 uint32_t           port_id,
 #define PW_MESSAGE_PORT_UPDATE_POSSIBLE_FORMATS  (1 << 0)
 #define PW_MESSAGE_PORT_UPDATE_FORMAT            (1 << 1)
@@ -178,13 +178,13 @@ struct pw_client_node_methods {
 #define PW_MESSAGE_PORT_UPDATE_INFO              (1 << 3)
                                 uint32_t           change_mask,
                                 uint32_t           n_possible_formats,
-                                const SpaFormat  **possible_formats,
-                                const SpaFormat   *format,
+                                const struct spa_format  **possible_formats,
+                                const struct spa_format   *format,
                                 uint32_t           n_params,
-                                const SpaParam   **params,
-                                const SpaPortInfo *info);
+                                const struct spa_param   **params,
+                                const struct spa_port_info *info);
   void (*event)                (void              *object,
-                                SpaEvent          *event);
+                                struct spa_event          *event);
   void (*destroy)              (void              *object);
 };
 
@@ -211,28 +211,28 @@ struct pw_client_node_events {
                                 int                readfd,
                                 int                writefd);
   void (*event)                (void              *object,
-                                const SpaEvent    *event);
+                                const struct spa_event    *event);
   void (*add_port)             (void              *object,
                                 uint32_t           seq,
-                                SpaDirection       direction,
+                                enum spa_direction direction,
                                 uint32_t           port_id);
   void (*remove_port)          (void              *object,
                                 uint32_t           seq,
-                                SpaDirection       direction,
+                                enum spa_direction direction,
                                 uint32_t           port_id);
   void (*set_format)           (void              *object,
                                 uint32_t           seq,
-                                SpaDirection       direction,
+                                enum spa_direction direction,
                                 uint32_t           port_id,
                                 uint32_t           flags,
-                                const SpaFormat   *format);
+                                const struct spa_format   *format);
   void (*set_property)         (void              *object,
                                 uint32_t           seq,
                                 uint32_t           id,
                                 uint32_t           size,
                                 const void        *value);
   void (*add_mem)              (void              *object,
-                                SpaDirection       direction,
+                                enum spa_direction direction,
                                 uint32_t           port_id,
                                 uint32_t           mem_id,
                                 uint32_t           type,
@@ -242,16 +242,16 @@ struct pw_client_node_events {
                                 uint32_t           size);
   void (*use_buffers)          (void              *object,
                                 uint32_t            seq,
-                                SpaDirection        direction,
+                                enum spa_direction  direction,
                                 uint32_t            port_id,
                                 uint32_t            n_buffers,
                                 struct pw_client_node_buffer *buffers);
   void (*node_command)         (void              *object,
                                 uint32_t           seq,
-                                const SpaCommand  *command);
+                                const struct spa_command  *command);
   void (*port_command)         (void              *object,
                                 uint32_t           port_id,
-                                const SpaCommand  *command);
+                                const struct spa_command  *command);
   void (*transport)            (void              *object,
                                 int                memfd,
                                 uint32_t           offset,

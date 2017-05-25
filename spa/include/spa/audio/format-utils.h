@@ -28,17 +28,17 @@ extern "C" {
 #include <spa/audio/format.h>
 #include <spa/audio/raw-utils.h>
 
-typedef struct {
+struct spa_type_format_audio {
   uint32_t format;
   uint32_t flags;
   uint32_t layout;
   uint32_t rate;
   uint32_t channels;
   uint32_t channel_mask;
-} SpaTypeFormatAudio;
+};
 
 static inline void
-spa_type_format_audio_map (SpaTypeMap *map, SpaTypeFormatAudio *type)
+spa_type_format_audio_map (struct spa_type_map *map, struct spa_type_format_audio *type)
 {
   if (type->format == 0) {
     type->format = spa_type_map_get_id (map, SPA_TYPE_FORMAT_AUDIO__format);
@@ -51,9 +51,9 @@ spa_type_format_audio_map (SpaTypeMap *map, SpaTypeFormatAudio *type)
 }
 
 static inline bool
-spa_format_audio_raw_parse (const SpaFormat    *format,
-                            SpaAudioInfoRaw    *info,
-                            SpaTypeFormatAudio *type)
+spa_format_audio_raw_parse (const struct spa_format      *format,
+                            struct spa_audio_info_raw    *info,
+                            struct spa_type_format_audio *type)
 {
   spa_format_query (format,
       type->format,       SPA_POD_TYPE_ID,  &info->format,

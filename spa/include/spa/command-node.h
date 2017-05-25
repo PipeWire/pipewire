@@ -37,17 +37,17 @@ extern "C" {
 #define SPA_TYPE_COMMAND_NODE__Marker         SPA_TYPE_COMMAND_NODE_BASE "Marker"
 #define SPA_TYPE_COMMAND_NODE__ClockUpdate    SPA_TYPE_COMMAND_NODE_BASE "ClockUpdate"
 
-typedef struct {
+struct spa_type_command_node {
   uint32_t Pause;
   uint32_t Start;
   uint32_t Flush;
   uint32_t Drain;
   uint32_t Marker;
   uint32_t ClockUpdate;
-} SpaTypeCommandNode;
+};
 
 static inline void
-spa_type_command_node_map (SpaTypeMap *map, SpaTypeCommandNode *type)
+spa_type_command_node_map (struct spa_type_map *map, struct spa_type_command_node *type)
 {
   if (type->Pause == 0) {
     type->Pause          = spa_type_map_get_id (map, SPA_TYPE_COMMAND_NODE__Pause);
@@ -60,7 +60,7 @@ spa_type_command_node_map (SpaTypeMap *map, SpaTypeCommandNode *type)
 }
 
 /**
- * SpaCommandNodeClockUpdate:
+ * spa_command_node_clock_update:
  * @change_mask: marks which fields are updated
  * @rate: the number of  @ticks per second
  * @ticks: the new ticks, when @change_mask = 1<<0
@@ -71,40 +71,40 @@ spa_type_command_node_map (SpaTypeMap *map, SpaTypeCommandNode *type)
  * @scale: update to the speed stored as Q16.16, @change_mask = 1<<1
  * @state: the new clock state, when @change_mask = 1<<2
  */
-typedef struct {
-  SpaPODObjectBody body;
+struct spa_command_node_clock_update_body {
+  struct spa_pod_object_body body;
 #define SPA_COMMAND_NODE_CLOCK_UPDATE_TIME        (1 << 0)
 #define SPA_COMMAND_NODE_CLOCK_UPDATE_SCALE       (1 << 1)
 #define SPA_COMMAND_NODE_CLOCK_UPDATE_STATE       (1 << 2)
 #define SPA_COMMAND_NODE_CLOCK_UPDATE_LATENCY     (1 << 3)
-  SpaPODInt       change_mask           SPA_ALIGNED (8);
-  SpaPODInt       rate                  SPA_ALIGNED (8);
-  SpaPODLong      ticks                 SPA_ALIGNED (8);
-  SpaPODLong      monotonic_time        SPA_ALIGNED (8);
-  SpaPODLong      offset                SPA_ALIGNED (8);
-  SpaPODInt       scale                 SPA_ALIGNED (8);
-  SpaPODInt       state                 SPA_ALIGNED (8);
+  struct spa_pod_int       change_mask           SPA_ALIGNED (8);
+  struct spa_pod_int       rate                  SPA_ALIGNED (8);
+  struct spa_pod_long      ticks                 SPA_ALIGNED (8);
+  struct spa_pod_long      monotonic_time        SPA_ALIGNED (8);
+  struct spa_pod_long      offset                SPA_ALIGNED (8);
+  struct spa_pod_int       scale                 SPA_ALIGNED (8);
+  struct spa_pod_int       state                 SPA_ALIGNED (8);
 #define SPA_COMMAND_NODE_CLOCK_UPDATE_FLAG_LIVE   (1 << 0)
-  SpaPODInt       flags                 SPA_ALIGNED (8);
-  SpaPODLong      latency               SPA_ALIGNED (8);
-} SpaCommandNodeClockUpdateBody;
+  struct spa_pod_int       flags                 SPA_ALIGNED (8);
+  struct spa_pod_long      latency               SPA_ALIGNED (8);
+};
 
-typedef struct {
-  SpaPOD                        pod;
-  SpaCommandNodeClockUpdateBody body;
-} SpaCommandNodeClockUpdate;
+struct spa_command_node_clock_update {
+  struct spa_pod                            pod;
+  struct spa_command_node_clock_update_body body;
+};
 
 #define SPA_COMMAND_NODE_CLOCK_UPDATE_INIT(type,change_mask,rate,ticks,monotonic_time,offset,scale,state,flags,latency)  \
-  SPA_COMMAND_INIT_COMPLEX (SpaCommandNodeClockUpdate,                     \
-                            sizeof (SpaCommandNodeClockUpdateBody), type,  \
-                                 SPA_POD_INT_INIT (change_mask),           \
-                                 SPA_POD_INT_INIT (rate),                  \
-                                 SPA_POD_LONG_INIT (ticks),                \
-                                 SPA_POD_LONG_INIT (monotonic_time),       \
-                                 SPA_POD_LONG_INIT (offset),               \
-                                 SPA_POD_INT_INIT (scale),                 \
-                                 SPA_POD_INT_INIT (state),                 \
-                                 SPA_POD_INT_INIT (flags),                 \
+  SPA_COMMAND_INIT_COMPLEX (struct spa_command_node_clock_update,                       \
+                            sizeof (struct spa_command_node_clock_update_body), type,   \
+                                 SPA_POD_INT_INIT (change_mask),                        \
+                                 SPA_POD_INT_INIT (rate),                               \
+                                 SPA_POD_LONG_INIT (ticks),                             \
+                                 SPA_POD_LONG_INIT (monotonic_time),                    \
+                                 SPA_POD_LONG_INIT (offset),                            \
+                                 SPA_POD_INT_INIT (scale),                              \
+                                 SPA_POD_INT_INIT (state),                              \
+                                 SPA_POD_INT_INIT (flags),                              \
                                  SPA_POD_LONG_INIT (latency))
 
 #ifdef __cplusplus

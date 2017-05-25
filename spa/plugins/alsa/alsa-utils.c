@@ -15,10 +15,10 @@
 #define CHECK(s,msg) if ((err = (s)) < 0) { spa_log_error (state->log, msg ": %s", snd_strerror(err)); return err; }
 
 static int
-spa_alsa_open (SpaALSAState *state)
+spa_alsa_open (struct state *state)
 {
   int err;
-  SpaALSAProps *props = &state->props;
+  struct props *props = &state->props;
 
   if (state->opened)
     return 0;
@@ -41,7 +41,7 @@ spa_alsa_open (SpaALSAState *state)
 }
 
 int
-spa_alsa_close (SpaALSAState *state)
+spa_alsa_close (struct state *state)
 {
   int err = 0;
 
@@ -57,24 +57,24 @@ spa_alsa_close (SpaALSAState *state)
   return err;
 }
 
-typedef struct {
+struct format_info {
   off_t format_offset;
   snd_pcm_format_t format;
-} FormatInfo;
+};
 
 #if __BYTE_ORDER == __BIG_ENDIAN
-#define _FORMAT_LE(fmt)  offsetof(Type, audio_format. fmt ## _OE)
-#define _FORMAT_BE(fmt)  offsetof(Type, audio_format. fmt)
+#define _FORMAT_LE(fmt)  offsetof(struct type, audio_format. fmt ## _OE)
+#define _FORMAT_BE(fmt)  offsetof(struct type, audio_format. fmt)
 #elif __BYTE_ORDER == __LITTLE_ENDIAN
-#define _FORMAT_LE(fmt)  offsetof(Type, audio_format. fmt)
-#define _FORMAT_BE(fmt)  offsetof(Type, audio_format. fmt ## _OE)
+#define _FORMAT_LE(fmt)  offsetof(struct type, audio_format. fmt)
+#define _FORMAT_BE(fmt)  offsetof(struct type, audio_format. fmt ## _OE)
 #endif
 
-static const FormatInfo format_info[] =
+static const struct format_info format_info[] =
 {
-  { offsetof(Type, audio_format.UNKNOWN),       SND_PCM_FORMAT_UNKNOWN },
-  { offsetof(Type, audio_format.S8),            SND_PCM_FORMAT_S8 },
-  { offsetof(Type, audio_format.U8),            SND_PCM_FORMAT_U8 },
+  { offsetof(struct type, audio_format.UNKNOWN),       SND_PCM_FORMAT_UNKNOWN },
+  { offsetof(struct type, audio_format.S8),            SND_PCM_FORMAT_S8 },
+  { offsetof(struct type, audio_format.U8),            SND_PCM_FORMAT_U8 },
   { _FORMAT_LE (S16),                           SND_PCM_FORMAT_S16_LE },
   { _FORMAT_BE (S16),                           SND_PCM_FORMAT_S16_BE },
   { _FORMAT_LE (U16),                           SND_PCM_FORMAT_U16_LE },
@@ -98,7 +98,7 @@ static const FormatInfo format_info[] =
 };
 
 static snd_pcm_format_t
-spa_alsa_format_to_alsa (Type *map, uint32_t format)
+spa_alsa_format_to_alsa (struct type *map, uint32_t format)
 {
   int i;
 
@@ -110,10 +110,10 @@ spa_alsa_format_to_alsa (Type *map, uint32_t format)
   return SND_PCM_FORMAT_UNKNOWN;
 }
 
-SpaResult
-spa_alsa_enum_format (SpaALSAState    *state,
-                      SpaFormat      **format,
-                      const SpaFormat *filter,
+int
+spa_alsa_enum_format (struct state    *state,
+                      struct spa_format      **format,
+                      const struct spa_format *filter,
                       uint32_t         index)
 {
   snd_pcm_t *hndl;
@@ -122,11 +122,11 @@ spa_alsa_enum_format (SpaALSAState    *state,
   int err, i, j, dir;
   unsigned int min, max;
   uint8_t buffer[4096];
-  SpaPODBuilder b = SPA_POD_BUILDER_INIT (buffer, sizeof (buffer));
-  SpaPODFrame f[2];
-  SpaPODProp *prop;
-  SpaFormat *fmt;
-  SpaResult res;
+  struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buffer, sizeof (buffer));
+  struct spa_pod_frame f[2];
+  struct spa_pod_prop *prop;
+  struct spa_format *fmt;
+  int res;
   bool opened;
 
   if (index == 1)
@@ -150,10 +150,10 @@ spa_alsa_enum_format (SpaALSAState    *state,
   spa_pod_builder_push_prop (&b, &f[1],
                              state->type.format_audio.format,
                              SPA_POD_PROP_RANGE_NONE);
-  prop = SPA_POD_BUILDER_DEREF (&b, f[1].ref, SpaPODProp);
+  prop = SPA_POD_BUILDER_DEREF (&b, f[1].ref, struct spa_pod_prop);
 
   for (i = 1, j = 0; i < SPA_N_ELEMENTS (format_info); i++) {
-    const FormatInfo *fi = &format_info[i];
+    const struct format_info *fi = &format_info[i];
 
     if (snd_pcm_format_mask_test (fmask, fi->format)) {
       uint32_t f = *SPA_MEMBER (&state->type, fi->format_offset, uint32_t);
@@ -172,7 +172,7 @@ spa_alsa_enum_format (SpaALSAState    *state,
   spa_pod_builder_push_prop (&b, &f[1],
                              state->type.format_audio.rate,
                              SPA_POD_PROP_RANGE_NONE);
-  prop = SPA_POD_BUILDER_DEREF (&b, f[1].ref, SpaPODProp);
+  prop = SPA_POD_BUILDER_DEREF (&b, f[1].ref, struct spa_pod_prop);
 
   spa_pod_builder_int (&b, SPA_CLAMP (44100, min, max));
   if (min != max) {
@@ -188,7 +188,7 @@ spa_alsa_enum_format (SpaALSAState    *state,
   spa_pod_builder_push_prop (&b, &f[1],
                              state->type.format_audio.channels,
                              SPA_POD_PROP_RANGE_NONE);
-  prop = SPA_POD_BUILDER_DEREF (&b, f[1].ref, SpaPODProp);
+  prop = SPA_POD_BUILDER_DEREF (&b, f[1].ref, struct spa_pod_prop);
 
   spa_pod_builder_int (&b, SPA_CLAMP (2, min, max));
   if (min != max) {
@@ -199,13 +199,13 @@ spa_alsa_enum_format (SpaALSAState    *state,
   spa_pod_builder_pop (&b, &f[1]);
   spa_pod_builder_pop (&b, &f[0]);
 
-  fmt = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaFormat);
+  fmt = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_format);
 
   spa_pod_builder_init (&b, state->format_buffer, sizeof (state->format_buffer));
   if ((res = spa_format_filter (fmt, filter, &b)) < 0)
     return res;
 
-  *format = SPA_POD_BUILDER_DEREF (&b, 0, SpaFormat);
+  *format = SPA_POD_BUILDER_DEREF (&b, 0, struct spa_format);
   if (!opened)
     spa_alsa_close (state);
 
@@ -213,14 +213,14 @@ spa_alsa_enum_format (SpaALSAState    *state,
 }
 
 int
-spa_alsa_set_format (SpaALSAState *state, SpaAudioInfo *fmt, uint32_t flags)
+spa_alsa_set_format (struct state *state, struct spa_audio_info *fmt, uint32_t flags)
 {
   unsigned int rrate, rchannels;
   snd_pcm_uframes_t period_size;
   int err, dir;
   snd_pcm_hw_params_t *params;
   snd_pcm_format_t format;
-  SpaAudioInfoRaw *info = &fmt->info.raw;
+  struct spa_audio_info_raw *info = &fmt->info.raw;
   snd_pcm_t *hndl;
   unsigned int periods;
 
@@ -297,7 +297,7 @@ spa_alsa_set_format (SpaALSAState *state, SpaAudioInfo *fmt, uint32_t flags)
 }
 
 static int
-set_swparams (SpaALSAState *state)
+set_swparams (struct state *state)
 {
   snd_pcm_t *hndl = state->hndl;
   int err = 0;
@@ -326,14 +326,14 @@ set_swparams (SpaALSAState *state)
 }
 
 static inline snd_pcm_uframes_t
-pull_frames (SpaALSAState *state,
+pull_frames (struct state *state,
              const snd_pcm_channel_area_t *my_areas,
              snd_pcm_uframes_t offset,
              snd_pcm_uframes_t frames,
              bool do_pull)
 {
   snd_pcm_uframes_t total_frames = 0, to_write = frames;
-  SpaPortIO *io = state->io;
+  struct spa_port_io *io = state->io;
 
   if (spa_list_is_empty (&state->ready) && do_pull) {
     io->status = SPA_RESULT_NEED_BUFFER;
@@ -346,17 +346,17 @@ pull_frames (SpaALSAState *state,
     uint8_t *src, *dst;
     size_t n_bytes, n_frames, size;
     off_t offs;
-    SpaALSABuffer *b;
+    struct buffer *b;
     bool reuse = false;
-    SpaData *d;
+    struct spa_data *d;
 
-    b = spa_list_first (&state->ready, SpaALSABuffer, link);
+    b = spa_list_first (&state->ready, struct buffer, link);
     d = b->outbuf->datas;
 
     dst = SPA_MEMBER (my_areas[0].addr, offset * state->frame_size, uint8_t);
 
     if (b->rb) {
-      SpaRingbuffer *ringbuffer = &b->rb->ringbuffer;
+      struct spa_ringbuffer *ringbuffer = &b->rb->ringbuffer;
       uint32_t index;
       int32_t avail;
 
@@ -406,13 +406,13 @@ pull_frames (SpaALSAState *state,
 }
 
 static snd_pcm_uframes_t
-push_frames (SpaALSAState *state,
+push_frames (struct state *state,
              const snd_pcm_channel_area_t *my_areas,
              snd_pcm_uframes_t offset,
              snd_pcm_uframes_t frames)
 {
   snd_pcm_uframes_t total_frames = 0;
-  SpaPortIO *io = state->io;
+  struct spa_port_io *io = state->io;
 
   if (spa_list_is_empty (&state->free)) {
     spa_log_trace (state->log, "no more buffers");
@@ -420,10 +420,10 @@ push_frames (SpaALSAState *state,
   else {
     uint8_t *src;
     size_t n_bytes;
-    SpaALSABuffer *b;
-    SpaData *d;
+    struct buffer *b;
+    struct spa_data *d;
 
-    b = spa_list_first (&state->free, SpaALSABuffer, link);
+    b = spa_list_first (&state->free, struct buffer, link);
     spa_list_remove (&b->link);
 
     if (b->h) {
@@ -455,7 +455,7 @@ push_frames (SpaALSAState *state,
 }
 
 static int
-alsa_try_resume (SpaALSAState *state)
+alsa_try_resume (struct state *state)
 {
   int res;
 
@@ -489,11 +489,11 @@ calc_timeout (size_t target,
 }
 
 static void
-alsa_on_playback_timeout_event (SpaSource *source)
+alsa_on_playback_timeout_event (struct spa_source *source)
 {
   uint64_t exp;
   int res;
-  SpaALSAState *state = source->data;
+  struct state *state = source->data;
   snd_pcm_t *hndl = state->hndl;
   snd_pcm_sframes_t avail;
   struct itimerspec ts;
@@ -576,11 +576,11 @@ alsa_on_playback_timeout_event (SpaSource *source)
 
 
 static void
-alsa_on_capture_timeout_event (SpaSource *source)
+alsa_on_capture_timeout_event (struct spa_source *source)
 {
   uint64_t exp;
   int res;
-  SpaALSAState *state = source->data;
+  struct state *state = source->data;
   snd_pcm_t *hndl = state->hndl;
   snd_pcm_sframes_t avail;
   snd_pcm_uframes_t total_read = 0;
@@ -645,8 +645,8 @@ alsa_on_capture_timeout_event (SpaSource *source)
   timerfd_settime (state->timerfd, TFD_TIMER_ABSTIME, &ts, NULL);
 }
 
-SpaResult
-spa_alsa_start (SpaALSAState *state, bool xrun_recover)
+int
+spa_alsa_start (struct state *state, bool xrun_recover)
 {
   int err;
 
@@ -693,8 +693,8 @@ spa_alsa_start (SpaALSAState *state, bool xrun_recover)
   return SPA_RESULT_OK;
 }
 
-SpaResult
-spa_alsa_pause (SpaALSAState *state, bool xrun_recover)
+int
+spa_alsa_pause (struct state *state, bool xrun_recover)
 {
   int err;
 

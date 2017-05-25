@@ -28,8 +28,6 @@ extern "C" {
 #include <spa/video/raw.h>
 #include <spa/video/encoded.h>
 
-typedef struct _SpaVideoInfo SpaVideoInfo;
-
 #define SPA_TYPE_FORMAT__Video           SPA_TYPE_FORMAT_BASE "Video"
 #define SPA_TYPE_FORMAT_VIDEO_BASE       SPA_TYPE_FORMAT__Video ":"
 
@@ -52,13 +50,13 @@ typedef struct _SpaVideoInfo SpaVideoInfo;
 #define SPA_TYPE_FORMAT_VIDEO__streamFormat            SPA_TYPE_FORMAT_VIDEO_BASE "stream-format"
 #define SPA_TYPE_FORMAT_VIDEO__alignment               SPA_TYPE_FORMAT_VIDEO_BASE "alignment"
 
-struct _SpaVideoInfo {
+struct spa_video_info {
   uint32_t media_type;
   uint32_t media_subtype;
   union {
-    SpaVideoInfoRaw raw;
-    SpaVideoInfoH264 h264;
-    SpaVideoInfoMJPG mjpg;
+    struct spa_video_info_raw  raw;
+    struct spa_video_info_h264 h264;
+    struct spa_video_info_mjpg mjpg;
   } info;
 };
 

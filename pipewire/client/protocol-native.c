@@ -27,14 +27,14 @@
 #include "pipewire/client/connection.h"
 
 struct builder {
-  SpaPODBuilder b;
+  struct spa_pod_builder b;
   struct pw_connection *connection;
 };
 
 typedef bool (*demarshal_func_t) (void *object, void *data, size_t size);
 
 static uint32_t
-write_pod (SpaPODBuilder *b, uint32_t ref, const void *data, uint32_t size)
+write_pod (struct spa_pod_builder *b, uint32_t ref, const void *data, uint32_t size)
 {
   if (ref == -1)
     ref = b->offset;
@@ -71,12 +71,12 @@ core_update_map (struct pw_context *context)
 
 static void
 core_marshal_client_update (void          *object,
-                            const SpaDict *props)
+                            const struct spa_dict *props)
 {
   struct pw_proxy *proxy = object;
   struct pw_connection *connection = proxy->context->protocol_private;
   struct builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
-  SpaPODFrame f;
+  struct spa_pod_frame f;
   int i, n_items;
 
   if (connection == NULL)
@@ -108,7 +108,7 @@ core_marshal_sync (void     *object,
   struct pw_proxy *proxy = object;
   struct pw_connection *connection = proxy->context->protocol_private;
   struct builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
-  SpaPODFrame f;
+  struct spa_pod_frame f;
 
   if (connection == NULL)
     return;
@@ -128,7 +128,7 @@ core_marshal_get_registry (void     *object,
   struct pw_proxy *proxy = object;
   struct pw_connection *connection = proxy->context->protocol_private;
   struct builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
-  SpaPODFrame f;
+  struct spa_pod_frame f;
 
   if (connection == NULL)
     return;
@@ -145,13 +145,13 @@ static void
 core_marshal_create_node (void          *object,
                           const char    *factory_name,
                           const char    *name,
-                          const SpaDict *props,
+                          const struct spa_dict *props,
                           uint32_t       new_id)
 {
   struct pw_proxy *proxy = object;
   struct pw_connection *connection = proxy->context->protocol_private;
   struct builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
-  SpaPODFrame f;
+  struct spa_pod_frame f;
   uint32_t i, n_items;
 
   if (connection == NULL)
@@ -183,13 +183,13 @@ core_marshal_create_node (void          *object,
 static void
 core_marshal_create_client_node (void          *object,
                                  const char    *name,
-                                 const SpaDict *props,
+                                 const struct spa_dict *props,
                                  uint32_t       new_id)
 {
   struct pw_proxy *proxy = object;
   struct pw_connection *connection = proxy->context->protocol_private;
   struct builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
-  SpaPODFrame f;
+  struct spa_pod_frame f;
   uint32_t i, n_items;
 
   if (connection == NULL)
@@ -226,7 +226,7 @@ core_marshal_update_types (void          *object,
   struct pw_proxy *proxy = object;
   struct pw_connection *connection = proxy->context->protocol_private;
   struct builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
-  SpaPODFrame f;
+  struct spa_pod_frame f;
   uint32_t i;
 
   if (connection == NULL)
@@ -253,9 +253,9 @@ core_demarshal_info (void   *object,
                      size_t  size)
 {
   struct pw_proxy *proxy = object;
-  SpaDict props;
+  struct spa_dict props;
   struct pw_core_info info;
-  SpaPODIter it;
+  struct spa_pod_iter it;
   int i;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
@@ -272,7 +272,7 @@ core_demarshal_info (void   *object,
     return false;
 
   info.props = &props;
-  props.items = alloca (props.n_items * sizeof (SpaDictItem));
+  props.items = alloca (props.n_items * sizeof (struct spa_dict_item));
   for (i = 0; i < props.n_items; i++) {
     if (!spa_pod_iter_get (&it,
           SPA_POD_TYPE_STRING, &props.items[i].key,
@@ -290,7 +290,7 @@ core_demarshal_done (void   *object,
                      size_t  size)
 {
   struct pw_proxy *proxy = object;
-  SpaPODIter it;
+  struct spa_pod_iter it;
   uint32_t seq;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
@@ -309,7 +309,7 @@ core_demarshal_error (void   *object,
                       size_t  size)
 {
   struct pw_proxy *proxy = object;
-  SpaPODIter it;
+  struct spa_pod_iter it;
   uint32_t id, res;
   const char *error;
 
@@ -331,7 +331,7 @@ core_demarshal_remove_id (void   *object,
                           size_t  size)
 {
   struct pw_proxy *proxy = object;
-  SpaPODIter it;
+  struct spa_pod_iter it;
   uint32_t id;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
@@ -350,7 +350,7 @@ core_demarshal_update_types (void   *object,
                              size_t  size)
 {
   struct pw_proxy *proxy = object;
-  SpaPODIter it;
+  struct spa_pod_iter it;
   uint32_t first_id, n_types;
   const char **types;
   int i;
@@ -377,8 +377,8 @@ module_demarshal_info (void   *object,
                        size_t  size)
 {
   struct pw_proxy *proxy = object;
-  SpaPODIter it;
-  SpaDict props;
+  struct spa_pod_iter it;
+  struct spa_dict props;
   struct pw_module_info info;
   int i;
 
@@ -394,7 +394,7 @@ module_demarshal_info (void   *object,
     return false;
 
   info.props = &props;
-  props.items = alloca (props.n_items * sizeof (SpaDictItem));
+  props.items = alloca (props.n_items * sizeof (struct spa_dict_item));
   for (i = 0; i < props.n_items; i++) {
     if (!spa_pod_iter_get (&it,
           SPA_POD_TYPE_STRING, &props.items[i].key,
@@ -412,8 +412,8 @@ node_demarshal_info (void   *object,
                      size_t  size)
 {
   struct pw_proxy *proxy = object;
-  SpaPODIter it;
-  SpaDict props;
+  struct spa_pod_iter it;
+  struct spa_dict props;
   struct pw_node_info info;
   int i;
 
@@ -429,7 +429,7 @@ node_demarshal_info (void   *object,
         0))
     return false;
 
-  info.input_formats = alloca (info.n_input_formats * sizeof (SpaFormat*));
+  info.input_formats = alloca (info.n_input_formats * sizeof (struct spa_format*));
   for (i = 0; i < info.n_input_formats; i++)
     if (!spa_pod_iter_get (&it, SPA_POD_TYPE_OBJECT, &info.input_formats[i], 0))
       return false;
@@ -441,7 +441,7 @@ node_demarshal_info (void   *object,
         0))
     return false;
 
-  info.output_formats = alloca (info.n_output_formats * sizeof (SpaFormat*));
+  info.output_formats = alloca (info.n_output_formats * sizeof (struct spa_format*));
   for (i = 0; i < info.n_output_formats; i++)
     if (!spa_pod_iter_get (&it, SPA_POD_TYPE_OBJECT, &info.output_formats[i], 0))
       return false;
@@ -454,7 +454,7 @@ node_demarshal_info (void   *object,
     return false;
 
   info.props = &props;
-  props.items = alloca (props.n_items * sizeof (SpaDictItem));
+  props.items = alloca (props.n_items * sizeof (struct spa_dict_item));
   for (i = 0; i < props.n_items; i++) {
     if (!spa_pod_iter_get (&it,
           SPA_POD_TYPE_STRING, &props.items[i].key,
@@ -471,12 +471,12 @@ client_node_marshal_update (void           *object,
                             uint32_t        change_mask,
                             uint32_t        max_input_ports,
                             uint32_t        max_output_ports,
-                            const SpaProps *props)
+                            const struct spa_props *props)
 {
   struct pw_proxy *proxy = object;
   struct pw_connection *connection = proxy->context->protocol_private;
   struct builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
-  SpaPODFrame f;
+  struct spa_pod_frame f;
 
   if (connection == NULL)
     return;
@@ -494,20 +494,20 @@ client_node_marshal_update (void           *object,
 
 static void
 client_node_marshal_port_update (void              *object,
-                                 SpaDirection       direction,
+                                 enum spa_direction direction,
                                  uint32_t           port_id,
                                  uint32_t           change_mask,
                                  uint32_t           n_possible_formats,
-                                 const SpaFormat  **possible_formats,
-                                 const SpaFormat   *format,
+                                 const struct spa_format  **possible_formats,
+                                 const struct spa_format   *format,
                                  uint32_t           n_params,
-                                 const SpaParam   **params,
-                                 const SpaPortInfo *info)
+                                 const struct spa_param   **params,
+                                 const struct spa_port_info *info)
 {
   struct pw_proxy *proxy = object;
   struct pw_connection *connection = proxy->context->protocol_private;
   struct builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
-  SpaPODFrame f[2];
+  struct spa_pod_frame f[2];
   int i;
 
   if (connection == NULL)
@@ -532,7 +532,7 @@ client_node_marshal_port_update (void              *object,
       0);
 
   for (i = 0; i < n_params; i++) {
-    const SpaParam *p = params[i];
+    const struct spa_param *p = params[i];
     spa_pod_builder_add (&b.b, SPA_POD_TYPE_POD, p, 0);
   }
 
@@ -553,12 +553,12 @@ client_node_marshal_port_update (void              *object,
 
 static void
 client_node_marshal_event (void     *object,
-                           SpaEvent *event)
+                           struct spa_event *event)
 {
   struct pw_proxy *proxy = object;
   struct pw_connection *connection = proxy->context->protocol_private;
   struct builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
-  SpaPODFrame f;
+  struct spa_pod_frame f;
 
   if (connection == NULL)
     return;
@@ -577,7 +577,7 @@ client_node_marshal_destroy (void    *object)
   struct pw_proxy *proxy = object;
   struct pw_connection *connection = proxy->context->protocol_private;
   struct builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
-  SpaPODFrame f;
+  struct spa_pod_frame f;
 
   if (connection == NULL)
     return;
@@ -595,7 +595,7 @@ client_node_demarshal_done (void   *object,
                             size_t  size)
 {
   struct pw_proxy *proxy = object;
-  SpaPODIter it;
+  struct spa_pod_iter it;
   struct pw_connection *connection = proxy->context->protocol_private;
   int32_t ridx, widx;
   int readfd, writefd;
@@ -622,8 +622,8 @@ client_node_demarshal_event (void   *object,
                              size_t  size)
 {
   struct pw_proxy *proxy = object;
-  SpaPODIter it;
-  const SpaEvent *event;
+  struct spa_pod_iter it;
+  const struct spa_event *event;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
       !pw_pod_remap_data (SPA_POD_TYPE_STRUCT, data, size, &proxy->context->types) ||
@@ -642,7 +642,7 @@ client_node_demarshal_add_port (void   *object,
                                 size_t  size)
 {
   struct pw_proxy *proxy = object;
-  SpaPODIter it;
+  struct spa_pod_iter it;
   int32_t seq, direction, port_id;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
@@ -663,7 +663,7 @@ client_node_demarshal_remove_port (void   *object,
                                    size_t  size)
 {
   struct pw_proxy *proxy = object;
-  SpaPODIter it;
+  struct spa_pod_iter it;
   int32_t seq, direction, port_id;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
@@ -684,9 +684,9 @@ client_node_demarshal_set_format (void   *object,
                                   size_t  size)
 {
   struct pw_proxy *proxy = object;
-  SpaPODIter it;
+  struct spa_pod_iter it;
   uint32_t seq, direction, port_id, flags;
-  const SpaFormat *format = NULL;
+  const struct spa_format *format = NULL;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
       !pw_pod_remap_data (SPA_POD_TYPE_STRUCT, data, size, &proxy->context->types) ||
@@ -710,7 +710,7 @@ client_node_demarshal_set_property (void   *object,
                                     size_t  size)
 {
   struct pw_proxy *proxy = object;
-  SpaPODIter it;
+  struct spa_pod_iter it;
   uint32_t seq, id;
   const void *value;
   uint32_t s;
@@ -733,7 +733,7 @@ client_node_demarshal_add_mem (void   *object,
                                size_t  size)
 {
   struct pw_proxy *proxy = object;
-  SpaPODIter it;
+  struct spa_pod_iter it;
   struct pw_connection *connection = proxy->context->protocol_private;
   uint32_t direction, port_id, mem_id, type, memfd_idx, flags, offset, sz;
   int memfd;
@@ -772,7 +772,7 @@ client_node_demarshal_use_buffers (void   *object,
                                    size_t  size)
 {
   struct pw_proxy *proxy = object;
-  SpaPODIter it;
+  struct spa_pod_iter it;
   uint32_t seq, direction, port_id, n_buffers, data_id;
   struct pw_client_node_buffer *buffers;
   int i, j;
@@ -789,7 +789,7 @@ client_node_demarshal_use_buffers (void   *object,
 
   buffers = alloca (sizeof (struct pw_client_node_buffer) * n_buffers);
   for (i = 0; i < n_buffers; i++) {
-    SpaBuffer *buf = buffers[i].buffer = alloca (sizeof (SpaBuffer));
+    struct spa_buffer *buf = buffers[i].buffer = alloca (sizeof (struct spa_buffer));
 
     if (!spa_pod_iter_get (&it,
           SPA_POD_TYPE_INT, &buffers[i].mem_id,
@@ -799,9 +799,9 @@ client_node_demarshal_use_buffers (void   *object,
           SPA_POD_TYPE_INT, &buf->n_metas, 0))
       return false;
 
-    buf->metas = alloca (sizeof (SpaMeta) * buf->n_metas);
+    buf->metas = alloca (sizeof (struct spa_meta) * buf->n_metas);
     for (j = 0; j < buf->n_metas; j++) {
-      SpaMeta *m = &buf->metas[j];
+      struct spa_meta *m = &buf->metas[j];
 
       if (!spa_pod_iter_get (&it,
             SPA_POD_TYPE_ID, &m->type,
@@ -811,9 +811,9 @@ client_node_demarshal_use_buffers (void   *object,
     if (!spa_pod_iter_get (&it, SPA_POD_TYPE_INT, &buf->n_datas, 0))
       return false;
 
-    buf->datas = alloca (sizeof (SpaData) * buf->n_datas);
+    buf->datas = alloca (sizeof (struct spa_data) * buf->n_datas);
     for (j = 0; j < buf->n_datas; j++) {
-      SpaData *d = &buf->datas[j];
+      struct spa_data *d = &buf->datas[j];
 
       if (!spa_pod_iter_get (&it,
             SPA_POD_TYPE_ID, &d->type,
@@ -842,8 +842,8 @@ client_node_demarshal_node_command (void   *object,
                                     size_t  size)
 {
   struct pw_proxy *proxy = object;
-  SpaPODIter it;
-  const SpaCommand *command;
+  struct spa_pod_iter it;
+  const struct spa_command *command;
   uint32_t seq;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
@@ -864,8 +864,8 @@ client_node_demarshal_port_command (void   *object,
                                     size_t  size)
 {
   struct pw_proxy *proxy = object;
-  SpaPODIter it;
-  const SpaCommand *command;
+  struct spa_pod_iter it;
+  const struct spa_command *command;
   uint32_t port_id;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
@@ -886,7 +886,7 @@ client_node_demarshal_transport (void   *object,
                                  size_t  size)
 {
   struct pw_proxy *proxy = object;
-  SpaPODIter it;
+  struct spa_pod_iter it;
   struct pw_connection *connection = proxy->context->protocol_private;
   uint32_t memfd_idx, offset, sz;
   int memfd;
@@ -910,8 +910,8 @@ client_demarshal_info (void   *object,
                        size_t  size)
 {
   struct pw_proxy *proxy = object;
-  SpaPODIter it;
-  SpaDict props;
+  struct spa_pod_iter it;
+  struct spa_dict props;
   struct pw_client_info info;
   uint32_t i;
 
@@ -924,7 +924,7 @@ client_demarshal_info (void   *object,
     return false;
 
   info.props = &props;
-  props.items = alloca (props.n_items * sizeof (SpaDictItem));
+  props.items = alloca (props.n_items * sizeof (struct spa_dict_item));
   for (i = 0; i < props.n_items; i++) {
     if (!spa_pod_iter_get (&it,
           SPA_POD_TYPE_STRING, &props.items[i].key,
@@ -942,7 +942,7 @@ link_demarshal_info (void   *object,
                      size_t  size)
 {
   struct pw_proxy *proxy = object;
-  SpaPODIter it;
+  struct spa_pod_iter it;
   struct pw_link_info info;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
@@ -966,7 +966,7 @@ registry_demarshal_global (void   *object,
                            size_t  size)
 {
   struct pw_proxy *proxy = object;
-  SpaPODIter it;
+  struct spa_pod_iter it;
   uint32_t id;
   const char *type;
 
@@ -987,7 +987,7 @@ registry_demarshal_global_remove (void   *object,
                                   size_t  size)
 {
   struct pw_proxy *proxy = object;
-  SpaPODIter it;
+  struct spa_pod_iter it;
   uint32_t id;
 
   if (!spa_pod_iter_struct (&it, data, size) ||
@@ -1008,7 +1008,7 @@ registry_marshal_bind (void          *object,
   struct pw_proxy *proxy = object;
   struct pw_connection *connection = proxy->context->protocol_private;
   struct builder b = { { NULL, 0, 0, NULL, write_pod }, connection };
-  SpaPODFrame f;
+  struct spa_pod_frame f;
 
   if (connection == NULL)
     return;

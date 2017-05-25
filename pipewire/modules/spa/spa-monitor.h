@@ -28,12 +28,12 @@ extern "C" {
 #endif
 
 struct pw_spa_monitor {
-  SpaMonitor *monitor;
+  struct spa_monitor *monitor;
 
   char *lib;
   char *factory_name;
   char *system_name;
-  SpaHandle *handle;
+  struct spa_handle *handle;
 
   PW_SIGNAL (destroy_signal, (struct pw_listener *listener, struct pw_spa_monitor *monitor));
 };

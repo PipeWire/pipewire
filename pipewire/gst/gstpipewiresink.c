@@ -241,10 +241,10 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
   guint size;
   guint min_buffers;
   guint max_buffers;
-  SpaParam *port_params[3];
-  SpaPODBuilder b = { NULL };
+  struct spa_param *port_params[3];
+  struct spa_pod_builder b = { NULL };
   uint8_t buffer[1024];
-  SpaPODFrame f[2];
+  struct spa_pod_frame f[2];
 
   config = gst_buffer_pool_get_config (GST_BUFFER_POOL (pool));
   gst_buffer_pool_config_get_params (config, &caps, &size, &min_buffers, &max_buffers);
@@ -264,23 +264,23 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
       PROP    (&f[1], ctx->type.param_alloc_buffers.align,   SPA_POD_TYPE_INT, 16),
       0);
   spa_pod_builder_pop (&b, &f[0]);
-  port_params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaParam);
+  port_params[0] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_param);
 
   spa_pod_builder_object (&b, &f[0], 0, ctx->type.param_alloc_meta_enable.MetaEnable,
       PROP    (&f[1], ctx->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID, ctx->type.meta.Header),
-      PROP    (&f[1], ctx->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaMetaHeader)));
-  port_params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaParam);
+      PROP    (&f[1], ctx->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (struct spa_meta_header)));
+  port_params[1] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_param);
 
   spa_pod_builder_object (&b, &f[0], 0, ctx->type.param_alloc_meta_enable.MetaEnable,
       PROP    (&f[1], ctx->type.param_alloc_meta_enable.type, SPA_POD_TYPE_ID, ctx->type.meta.Ringbuffer),
-      PROP    (&f[1], ctx->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (SpaRingbuffer)),
+      PROP    (&f[1], ctx->type.param_alloc_meta_enable.size, SPA_POD_TYPE_INT, sizeof (struct spa_meta_ringbuffer)),
       PROP    (&f[1], ctx->type.param_alloc_meta_enable.ringbufferSize,   SPA_POD_TYPE_INT,
                                                                          size * SPA_MAX (4,
                                                                                 SPA_MAX (min_buffers, max_buffers))),
       PROP    (&f[1], ctx->type.param_alloc_meta_enable.ringbufferStride, SPA_POD_TYPE_INT, 0),
       PROP    (&f[1], ctx->type.param_alloc_meta_enable.ringbufferBlocks, SPA_POD_TYPE_INT, 1),
       PROP    (&f[1], ctx->type.param_alloc_meta_enable.ringbufferAlign,  SPA_POD_TYPE_INT, 16));
-  port_params[2] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, SpaParam);
+  port_params[2] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_param);
 
   pw_stream_finish_format (sink->stream, SPA_RESULT_OK, port_params, 2);
 }
@@ -414,8 +414,8 @@ gst_pipewire_sink_get_property (GObject * object, guint prop_id,
 typedef struct {
   GstPipeWireSink *sink;
   guint id;
-  SpaBuffer *buf;
-  SpaMetaHeader *header;
+  struct spa_buffer *buf;
+  struct spa_meta_header *header;
   guint flags;
   goffset offset;
 } ProcessMemData;
@@ -435,7 +435,7 @@ on_add_buffer (struct pw_listener *listener,
                uint32_t       id)
 {
   GstPipeWireSink *pwsink = SPA_CONTAINER_OF (listener, GstPipeWireSink, stream_add_buffer);
-  SpaBuffer *b;
+  struct spa_buffer *b;
   GstBuffer *buf;
   uint32_t i;
   ProcessMemData data;
@@ -455,7 +455,7 @@ on_add_buffer (struct pw_listener *listener,
   data.header = spa_buffer_find_meta (b, stream->context->type.meta.Header);
 
   for (i = 0; i < b->n_datas; i++) {
-    SpaData *d = &b->datas[i];
+    struct spa_data *d = &b->datas[i];
     GstMemory *gmem = NULL;
 
     if (d->type == stream->context->type.data.MemFd ||
@@ -548,7 +548,7 @@ do_send_buffer (GstPipeWireSink *pwsink)
     data->header->dts_offset = GST_BUFFER_DTS (buffer);
   }
   for (i = 0; i < data->buf->n_datas; i++) {
-    SpaData *d = &data->buf->datas[i];
+    struct spa_data *d = &data->buf->datas[i];
     GstMemory *mem = gst_buffer_peek_memory (buffer, i);
     d->chunk->offset = mem->offset - data->offset;
     d->chunk->size = mem->size;
@@ -604,7 +604,7 @@ on_state_changed (struct pw_listener *listener,
 static void
 on_format_changed (struct pw_listener *listener,
                    struct pw_stream   *stream,
-                   SpaFormat     *format)
+                   struct spa_format     *format)
 {
   GstPipeWireSink *pwsink = SPA_CONTAINER_OF (listener, GstPipeWireSink, stream_format_changed);
 
@@ -642,7 +642,7 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
                           pwsink->path,
                           flags,
                           possible->len,
-                          (SpaFormat **) possible->pdata);
+                          (struct spa_format **) possible->pdata);
 
     while (TRUE) {
       state = pwsink->stream->state;

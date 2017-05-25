@@ -38,9 +38,9 @@ extern "C" {
 #define SPA_TYPE_POD_STRUCT_BASE               SPA_TYPE_POD__Struct ":"
 
 /**
- * SpaPODType:
+ * spa_pod_type:
  */
-typedef enum {
+enum spa_pod_type {
   SPA_POD_TYPE_INVALID         = 0,
   SPA_POD_TYPE_NONE            = 1,
   SPA_POD_TYPE_BOOL,
@@ -60,88 +60,97 @@ typedef enum {
   SPA_POD_TYPE_OBJECT,
   SPA_POD_TYPE_PROP,
   SPA_POD_TYPE_POD,
-} SpaPODType;
+};
 
-typedef struct {
+struct spa_pod {
   uint32_t     size;
-  uint32_t     type;    /* one of SpaPODType */
-} SpaPOD;
+  uint32_t     type;    /* one of spa_pod_type */
+};
 
-typedef struct {
-  SpaPOD       pod;
-  int32_t      value;
+struct spa_pod_int {
+  struct spa_pod pod;
+  int32_t        value;
   int32_t      __padding;
-} SpaPODInt;
+};
 
-typedef SpaPODInt SpaPODBool;
-typedef SpaPODInt SpaPODId;
+struct spa_pod_bool {
+  struct spa_pod pod;
+  int32_t        value;
+  int32_t      __padding;
+};
 
-typedef struct {
-  SpaPOD       pod;
-  int64_t      value;
-} SpaPODLong;
+struct spa_pod_id {
+  struct spa_pod pod;
+  int32_t        value;
+  int32_t      __padding;
+};
 
-typedef struct {
-  SpaPOD       pod;
-  float        value;
-} SpaPODFloat;
+struct spa_pod_long {
+  struct spa_pod pod;
+  int64_t        value;
+};
 
-typedef struct {
-  SpaPOD       pod;
-  double       value;
-} SpaPODDouble;
+struct spa_pod_float {
+  struct spa_pod pod;
+  float          value;
+};
 
-typedef struct {
-  SpaPOD       pod;
+struct spa_pod_double {
+  struct spa_pod pod;
+  double         value;
+};
+
+struct spa_pod_string {
+  struct spa_pod pod;
   /* value here */
-} SpaPODString;
+};
 
-typedef struct {
-  SpaPOD       pod;
+struct spa_pod_bytes {
+  struct spa_pod pod;
   /* value here */
-} SpaPODBytes;
+};
 
-typedef struct {
+struct spa_pod_pointer_body {
   uint32_t     type;
   void        *value;
-} SpaPODPointerBody;
+};
 
-typedef struct {
-  SpaPOD            pod;
-  SpaPODPointerBody body;
-} SpaPODPointer;
+struct spa_pod_pointer {
+  struct spa_pod              pod;
+  struct spa_pod_pointer_body body;
+};
 
-typedef struct {
-  SpaPOD       pod;
-  SpaRectangle value;
-} SpaPODRectangle;
+struct spa_pod_rectangle {
+  struct spa_pod       pod;
+  struct spa_rectangle value;
+};
 
-typedef struct {
-  SpaPOD       pod;
-  SpaFraction  value;
-} SpaPODFraction;
+struct spa_pod_fraction {
+  struct spa_pod       pod;
+  struct spa_fraction  value;
+};
 
-typedef struct {
-  SpaPOD       pod;
+struct spa_pod_bitmap {
+  struct spa_pod    pod;
   /* array of uint8_t follows with the bitmap */
-} SpaPODBitmap;
+};
 
-typedef struct {
-  SpaPOD    child;
+struct spa_pod_array_body {
+  struct spa_pod    child;
   /* array with elements of child.size follows */
-} SpaPODArrayBody;
+};
 
-typedef struct {
-  SpaPOD           pod;
-  SpaPODArrayBody  body;
-} SpaPODArray;
+struct spa_pod_array {
+  struct spa_pod            pod;
+  struct spa_pod_array_body body;
+};
 
-typedef struct {
-  SpaPOD           pod;
-  /* one or more SpaPOD follow */
-} SpaPODStruct;
+struct spa_pod_struct {
+  struct spa_pod   pod;
+  /* one or more spa_pod follow */
+};
 
-typedef struct {
+struct spa_pod_prop_body {
   uint32_t         key;
 #define SPA_POD_PROP_RANGE_NONE         0
 #define SPA_POD_PROP_RANGE_MIN_MAX      1
@@ -154,26 +163,26 @@ typedef struct {
 #define SPA_POD_PROP_FLAG_READONLY      (1 << 6)
 #define SPA_POD_PROP_FLAG_DEPRECATED    (1 << 7)
   uint32_t         flags;
-  SpaPOD           value;
+  struct spa_pod   value;
   /* array with elements of value.size follows,
    * first element is value/default, rest are alternatives */
-} SpaPODPropBody;
+};
 
-typedef struct {
-  SpaPOD         pod;
-  SpaPODPropBody body;
-} SpaPODProp;
+struct spa_pod_prop {
+  struct spa_pod           pod;
+  struct spa_pod_prop_body body;
+};
 
-typedef struct {
+struct spa_pod_object_body {
   uint32_t         id;
   uint32_t         type;
-  /* contents follow, series of SpaPODProp */
-} SpaPODObjectBody;
+  /* contents follow, series of spa_pod_prop */
+};
 
-typedef struct {
-  SpaPOD           pod;
-  SpaPODObjectBody body;
-} SpaPODObject;
+struct spa_pod_object {
+  struct spa_pod             pod;
+  struct spa_pod_object_body body;
+};
 
 #ifdef __cplusplus
 }  /* extern "C" */

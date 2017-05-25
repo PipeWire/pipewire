@@ -37,7 +37,7 @@ client_unbind_func (void *data)
   spa_list_remove (&resource->link);
 }
 
-static SpaResult
+static int
 client_bind_func (struct pw_global *global,
                   struct pw_client *client,
                   uint32_t          version,
@@ -166,8 +166,8 @@ pw_client_destroy (struct pw_client * client)
 }
 
 void
-pw_client_update_properties (struct pw_client *client,
-                             const SpaDict    *dict)
+pw_client_update_properties (struct pw_client      *client,
+                             const struct spa_dict *dict)
 {
   struct pw_resource *resource;
 

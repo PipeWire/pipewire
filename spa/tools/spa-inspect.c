@@ -31,26 +31,26 @@
 #include <lib/debug.h>
 #include <lib/mapper.h>
 
-typedef struct {
+struct type {
   uint32_t node;
   uint32_t clock;
-} Type;
+};
 
-typedef struct {
-  Type type;
+struct data {
+  struct type type;
 
-  SpaSupport support[4];
+  struct spa_support support[4];
   uint32_t   n_support;
-  SpaTypeMap *map;
-  SpaLog *log;
-  SpaLoop loop;
-} AppData;
+  struct spa_type_map *map;
+  struct spa_log *log;
+  struct spa_loop loop;
+};
 
 static void
-inspect_port (AppData *data, SpaNode *node, SpaDirection direction, uint32_t port_id)
+inspect_port (struct data *data, struct spa_node *node, enum spa_direction direction, uint32_t port_id)
 {
-  SpaResult res;
-  SpaFormat *format;
+  int res;
+  struct spa_format *format;
   uint32_t index;
 
   for (index = 0; ; index++) {
@@ -65,7 +65,7 @@ inspect_port (AppData *data, SpaNode *node, SpaDirection direction, uint32_t por
 
 
   for (index = 0; ; index++) {
-    SpaParam *param;
+    struct spa_param *param;
 
     if ((res = spa_node_port_enum_params (node, direction, port_id, index, &param)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
@@ -77,12 +77,12 @@ inspect_port (AppData *data, SpaNode *node, SpaDirection direction, uint32_t por
 }
 
 static void
-inspect_node (AppData *data, SpaNode *node)
+inspect_node (struct data *data, struct spa_node *node)
 {
-  SpaResult res;
+  int res;
   uint32_t i, n_input, max_input, n_output, max_output;
   uint32_t *in_ports, *out_ports;
-  SpaProps *props;
+  struct spa_props *props;
 
   if ((res = spa_node_get_props (node, &props)) < 0)
     printf ("can't get properties: %d\n", res);
@@ -116,10 +116,10 @@ inspect_node (AppData *data, SpaNode *node)
 }
 
 static void
-inspect_factory (AppData *data, const SpaHandleFactory *factory)
+inspect_factory (struct data *data, const struct spa_handle_factory *factory)
 {
-  SpaResult res;
-  SpaHandle *handle;
+  int res;
+  struct spa_handle *handle;
   void *interface;
   uint32_t index = 0;
 
@@ -139,7 +139,7 @@ inspect_factory (AppData *data, const SpaHandleFactory *factory)
   printf ("factory interfaces:\n");
 
   while (true) {
-    const SpaInterfaceInfo *info;
+    const struct spa_interface_info *info;
     uint32_t interface_id;
 
     if ((res = spa_handle_factory_enum_interface_info (factory, &info, index)) < 0) {
@@ -165,29 +165,29 @@ inspect_factory (AppData *data, const SpaHandleFactory *factory)
   }
 }
 
-static SpaResult
-do_add_source (SpaLoop   *loop,
-               SpaSource *source)
+static int
+do_add_source (struct spa_loop   *loop,
+               struct spa_source *source)
 {
   return SPA_RESULT_OK;
 }
-static SpaResult
-do_update_source (SpaSource  *source)
+static int
+do_update_source (struct spa_source  *source)
 {
   return SPA_RESULT_OK;
 }
 static void
-do_remove_source (SpaSource  *source)
+do_remove_source (struct spa_source  *source)
 {
 }
 
 int
 main (int argc, char *argv[])
 {
-  AppData data;
-  SpaResult res;
+  struct data data;
+  int res;
   void *handle;
-  SpaEnumHandleFactoryFunc enum_func;
+  spa_handle_factory_enum_func_t enum_func;
   uint32_t index = 0;
 
   if (argc < 2) {
@@ -197,7 +197,7 @@ main (int argc, char *argv[])
 
   data.map = spa_type_map_get_default();
   data.log = NULL;
-  data.loop.size = sizeof (SpaLoop);
+  data.loop.size = sizeof (struct spa_loop);
   data.loop.add_source = do_add_source;
   data.loop.update_source = do_update_source;
   data.loop.remove_source = do_remove_source;
@@ -219,13 +219,13 @@ main (int argc, char *argv[])
     printf ("can't load %s\n", argv[1]);
     return -1;
   }
-  if ((enum_func = dlsym (handle, "spa_enum_handle_factory")) == NULL) {
+  if ((enum_func = dlsym (handle, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
     printf ("can't find function\n");
     return -1;
   }
 
   while (true) {
-    const SpaHandleFactory *factory;
+    const struct spa_handle_factory *factory;
 
     if ((res = enum_func (&factory, index)) < 0) {
       if (res != SPA_RESULT_ENUM_END)

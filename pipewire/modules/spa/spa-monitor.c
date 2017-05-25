@@ -36,9 +36,9 @@
 
 struct monitor_item
 {
-  char      *id;
-  SpaList    link;
-  struct pw_node *node;
+  char            *id;
+  struct spa_list  link;
+  struct pw_node  *node;
 };
 
 struct impl {
@@ -48,24 +48,24 @@ struct impl {
 
   void *hnd;
 
-  SpaList item_list;
+  struct spa_list item_list;
 };
 
 static void
-add_item (struct pw_spa_monitor *this, SpaMonitorItem *item)
+add_item (struct pw_spa_monitor *this, struct spa_monitor_item *item)
 {
   struct impl *impl = SPA_CONTAINER_OF (this, struct impl, this);
-  SpaResult res;
-  SpaHandle *handle;
+  int res;
+  struct spa_handle *handle;
   struct monitor_item *mitem;
   void *node_iface;
   void *clock_iface;
   struct pw_properties *props = NULL;
   const char *name, *id, *klass;
-  SpaHandleFactory *factory;
-  SpaPOD *info = NULL;
+  struct spa_handle_factory *factory;
+  struct spa_pod *info = NULL;
 
-  spa_pod_object_query (item,
+  spa_pod_object_query (&item->object,
       impl->core->type.monitor.name,    SPA_POD_TYPE_STRING,  &name,
       impl->core->type.monitor.id,      SPA_POD_TYPE_STRING,  &id,
       impl->core->type.monitor.klass,   SPA_POD_TYPE_STRING,  &klass,
@@ -78,7 +78,7 @@ add_item (struct pw_spa_monitor *this, SpaMonitorItem *item)
   props = pw_properties_new (NULL, NULL);
 
   if (info) {
-    SpaPODIter it;
+    struct spa_pod_iter it;
 
     spa_pod_iter_pod (&it, info);
     while (true) {
@@ -146,13 +146,13 @@ destroy_item (struct monitor_item *mitem)
 }
 
 static void
-remove_item (struct pw_spa_monitor *this, SpaMonitorItem *item)
+remove_item (struct pw_spa_monitor *this, struct spa_monitor_item *item)
 {
   struct impl *impl = SPA_CONTAINER_OF (this, struct impl, this);
   struct monitor_item *mitem;
   const char *name, *id;
 
-  spa_pod_object_query (item,
+  spa_pod_object_query (&item->object,
       impl->core->type.monitor.name,    SPA_POD_TYPE_STRING,  &name,
       impl->core->type.monitor.id,      SPA_POD_TYPE_STRING,  &id,
       0);
@@ -164,26 +164,26 @@ remove_item (struct pw_spa_monitor *this, SpaMonitorItem *item)
 }
 
 static void
-on_monitor_event  (SpaMonitor      *monitor,
-                   SpaEventMonitor *event,
-                   void            *user_data)
+on_monitor_event  (struct spa_monitor  *monitor,
+                   struct spa_event    *event,
+                   void                *user_data)
 {
   struct pw_spa_monitor *this = user_data;
   struct impl *impl = SPA_CONTAINER_OF (this, struct impl, this);
 
   if (SPA_EVENT_TYPE (event) == impl->core->type.monitor.Added) {
-    SpaMonitorItem *item = SPA_POD_CONTENTS (SpaEvent, event);
+    struct spa_monitor_item *item = SPA_POD_CONTENTS (struct spa_event, event);
     add_item (this, item);
   }
   else if (SPA_EVENT_TYPE (event) == impl->core->type.monitor.Removed) {
-    SpaMonitorItem *item = SPA_POD_CONTENTS (SpaEvent, event);
+    struct spa_monitor_item *item = SPA_POD_CONTENTS (struct spa_event, event);
     remove_item (this, item);
   }
   else if (SPA_EVENT_TYPE (event) == impl->core->type.monitor.Changed) {
-    SpaMonitorItem *item = SPA_POD_CONTENTS (SpaEvent, event);
+    struct spa_monitor_item *item = SPA_POD_CONTENTS (struct spa_event, event);
     const char *name;
 
-    spa_pod_object_query (item,
+    spa_pod_object_query (&item->object,
         impl->core->type.monitor.name,    SPA_POD_TYPE_STRING,  &name,
         0);
 
@@ -196,8 +196,8 @@ update_monitor (struct pw_core *core,
                 const char     *name)
 {
   const char *monitors;
-  SpaDictItem item;
-  SpaDict dict = SPA_DICT_INIT(1, &item);
+  struct spa_dict_item item;
+  struct spa_dict dict = SPA_DICT_INIT(1, &item);
 
   if (core->properties)
     monitors = pw_properties_get (core->properties, "monitors");
@@ -216,6 +216,10 @@ update_monitor (struct pw_core *core,
     free ((void*)item.value);
 }
 
+static const struct spa_monitor_callbacks callbacks = {
+  on_monitor_event,
+};
+
 struct pw_spa_monitor *
 pw_spa_monitor_load (struct pw_core  *core,
                      const char *lib,
@@ -224,19 +228,19 @@ pw_spa_monitor_load (struct pw_core  *core,
 {
   struct impl *impl;
   struct pw_spa_monitor *this;
-  SpaHandle *handle;
-  SpaResult res;
+  struct spa_handle *handle;
+  int res;
   void *iface;
   void *hnd;
   uint32_t index;
-  SpaEnumHandleFactoryFunc enum_func;
-  const SpaHandleFactory *factory;
+  spa_handle_factory_enum_func_t enum_func;
+  const struct spa_handle_factory *factory;
 
   if ((hnd = dlopen (lib, RTLD_NOW)) == NULL) {
     pw_log_error ("can't load %s: %s", lib, dlerror());
     return NULL;
   }
-  if ((enum_func = dlsym (hnd, "spa_enum_handle_factory")) == NULL) {
+  if ((enum_func = dlsym (hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
     pw_log_error ("can't find enum function");
     goto no_symbol;
   }
@@ -284,8 +288,8 @@ pw_spa_monitor_load (struct pw_core  *core,
   spa_list_init (&impl->item_list);
 
   for (index = 0;; index++) {
-    SpaMonitorItem *item;
-    SpaResult res;
+    struct spa_monitor_item *item;
+    int res;
 
     if ((res = spa_monitor_enum_items (this->monitor, &item, index)) < 0) {
       if (res != SPA_RESULT_ENUM_END)
@@ -294,7 +298,7 @@ pw_spa_monitor_load (struct pw_core  *core,
     }
     add_item (this, item);
   }
-  spa_monitor_set_event_callback (this->monitor, on_monitor_event, this);
+  spa_monitor_set_callbacks (this->monitor, &callbacks, sizeof (callbacks), this);
 
   return this;
 

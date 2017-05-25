@@ -27,25 +27,25 @@
 extern "C" {
 #endif
 
-extern SpaLogLevel pw_log_level;
+extern enum spa_log_level pw_log_level;
 
-SpaLog *      pw_log_get       (void);
+struct spa_log* pw_log_get       (void);
 
-void          pw_log_set_level (SpaLogLevel level);
-void          pw_log_set_trace_event (SpaSource *source);
+void          pw_log_set_level (enum spa_log_level level);
+void          pw_log_set_trace_event (struct spa_source *source);
 
 
-void          pw_log_log       (SpaLogLevel  level,
-                                const char  *file,
-                                int          line,
-                                const char  *func,
-                                const char  *fmt, ...) SPA_PRINTF_FUNC(5, 6);
-void          pw_log_logv      (SpaLogLevel  level,
-                                const char  *file,
-                                int          line,
-                                const char  *func,
-                                const char  *fmt,
-                                va_list      args) SPA_PRINTF_FUNC(5, 0);
+void          pw_log_log       (enum spa_log_level  level,
+                                const char         *file,
+                                int                 line,
+                                const char         *func,
+                                const char         *fmt, ...) SPA_PRINTF_FUNC(5, 6);
+void          pw_log_logv      (enum spa_log_level  level,
+                                const char         *file,
+                                int                 line,
+                                const char         *func,
+                                const char         *fmt,
+                                va_list             args) SPA_PRINTF_FUNC(5, 0);
 
 #define pw_log_level_enabled(lev) (pw_log_level >= (lev))
 

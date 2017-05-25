@@ -30,11 +30,11 @@
 #include "spa-monitor.h"
 #include "spa-node.h"
 
-static SpaResult
-setup_video_node (struct pw_core *core, SpaNode *spa_node, struct pw_properties *pw_props) {
-  SpaResult res;
-  SpaProps *props;
-  SpaPODProp *prop;
+static int
+setup_video_node (struct pw_core *core, struct spa_node *spa_node, struct pw_properties *pw_props) {
+  int res;
+  struct spa_props *props;
+  struct spa_pod_prop *prop;
   const char *pattern, *pattern_type;
 
   /* Retrieve pattern property */
@@ -53,9 +53,9 @@ setup_video_node (struct pw_core *core, SpaNode *spa_node, struct pw_properties 
     return SPA_RESULT_ERROR;
   }
 
-  if ((prop = spa_pod_object_find_prop (props, spa_type_map_get_id (core->type.map, SPA_TYPE_PROPS__patternType)))) {
+  if ((prop = spa_pod_object_find_prop (&props->object, spa_type_map_get_id (core->type.map, SPA_TYPE_PROPS__patternType)))) {
    if (prop->body.value.type == SPA_POD_TYPE_ID)
-     SPA_POD_VALUE (SpaPODId, &prop->body.value) = spa_type_map_get_id (core->type.map, pattern_type);
+     SPA_POD_VALUE (struct spa_pod_id, &prop->body.value) = spa_type_map_get_id (core->type.map, pattern_type);
   }
 
   if ((res = spa_node_set_props (spa_node, props)) != SPA_RESULT_OK) {

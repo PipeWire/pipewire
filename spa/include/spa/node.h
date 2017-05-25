@@ -24,10 +24,10 @@
 extern "C" {
 #endif
 
-typedef struct _SpaNode SpaNode;
-
 #define SPA_TYPE__Node                        SPA_TYPE_INTERFACE_BASE "Node"
 #define SPA_TYPE_NODE_BASE                    SPA_TYPE__Node ":"
+
+struct spa_node;
 
 #include <spa/defs.h>
 #include <spa/plugin.h>
@@ -38,14 +38,14 @@ typedef struct _SpaNode SpaNode;
 #include <spa/buffer.h>
 #include <spa/format.h>
 
-typedef struct {
-  uint64_t          offset;
-  uint32_t          min_size;
-  uint32_t          max_size;
-} SpaRange;
+struct spa_range {
+  uint64_t offset;
+  uint32_t min_size;
+  uint32_t max_size;
+};
 
 /**
- * SpaPortIO:
+ * struct spa_port_io:
  * @status: the status
  * @buffer_id: a buffer id
  * @range: requested range
@@ -53,20 +53,20 @@ typedef struct {
  * IO information for a port on a node. This is allocated
  * by the host and configured on all ports for which IO is requested.
  */
-typedef struct {
-  uint32_t       status;
-  uint32_t       buffer_id;
-  SpaRange       range;
-} SpaPortIO;
+struct spa_port_io {
+  uint32_t         status;
+  uint32_t         buffer_id;
+  struct spa_range range;
+};
 
-#define SPA_PORT_IO_INIT  (SpaPortIO) { SPA_RESULT_NEED_BUFFER, SPA_ID_INVALID, }
+#define SPA_PORT_IO_INIT  (struct spa_port_io) { SPA_RESULT_NEED_BUFFER, SPA_ID_INVALID, }
 
 /**
- * SpaPortInfo
+ * struct spa_port_info
  * @flags: extra port flags
  * @rate: rate of sequence number increment per second of media data
  */
-typedef struct {
+struct spa_port_info {
 #define SPA_PORT_INFO_FLAG_REMOVABLE            (1<<0)  /* port can be removed */
 #define SPA_PORT_INFO_FLAG_OPTIONAL             (1<<1)  /* processing on port is optional */
 #define SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS    (1<<2)  /* the port can allocate buffer data */
@@ -76,27 +76,27 @@ typedef struct {
 #define SPA_PORT_INFO_FLAG_NO_REF               (1<<5)  /* the port does not keep a ref on the buffer */
 #define SPA_PORT_INFO_FLAG_LIVE                 (1<<6)  /* output buffers from this port are timestamped against
                                                          * a live clock. */
-  uint32_t            flags;
-  uint32_t            rate;
-} SpaPortInfo;
+  uint32_t flags;
+  uint32_t rate;
+};
 
 
-typedef struct {
+struct spa_node_callbacks {
   /**
-   * SpaNodeCallbacks::event:
-   * @node: a #SpaNode
+   * struct spa_node_callbacks::event:
+   * @node: a #struct spa_node
    * @event: the event that was emited
    * @user_data: user data provided when registering the callbacks
    *
    * This will be called when an out-of-bound event is notified
    * on @node. the callback can be called from any thread.
    */
-  void (*event)       (SpaNode  *node,
-                       SpaEvent *event,
-                       void     *user_data);
+  void (*event)       (struct spa_node  *node,
+                       struct spa_event *event,
+                       void             *user_data);
   /**
-   * SpaNodeCallbacks::need_input:
-   * @node: a #SpaNode
+   * struct spa_node_callbacks::need_input:
+   * @node: a #struct spa_node
    * @user_data: user data provided when registering the callbacks
    *
    * The node needs more input. This callback is called from the
@@ -105,11 +105,11 @@ typedef struct {
    * When this function is NULL, synchronous operation is requested
    * on the input ports.
    */
-  void (*need_input)  (SpaNode  *node,
-                       void     *user_data);
+  void (*need_input)  (struct spa_node  *node,
+                       void             *user_data);
   /**
-   * SpaNodeCallbacks::have_output:
-   * @node: a #SpaNode
+   * struct spa_node_callbacks::have_output:
+   * @node: a #struct spa_node
    * @user_data: user data provided when registering the callbacks
    *
    * The node has output input. This callback is called from the
@@ -118,11 +118,11 @@ typedef struct {
    * When this function is NULL, synchronous operation is requested
    * on the output ports.
    */
-  void (*have_output)  (SpaNode  *node,
-                        void     *user_data);
+  void (*have_output)  (struct spa_node  *node,
+                        void             *user_data);
   /**
-   * SpaNodeCallbacks::reuse_buffer:
-   * @node: a #SpaNode
+   * struct spa_node_callbacks::reuse_buffer:
+   * @node: a #struct spa_node
    * @port_id: an input port_id
    * @buffer_id: the buffer id to be reused
    * @user_data: user data provided when registering the callbacks
@@ -133,40 +133,40 @@ typedef struct {
    * When this function is NULL, the buffers to reuse will be set in
    * the io area or the input ports.
    */
-  void (*reuse_buffer) (SpaNode  *node,
-                        uint32_t  port_id,
-                        uint32_t  buffer_id,
-                        void     *user_data);
-} SpaNodeCallbacks;
+  void (*reuse_buffer) (struct spa_node  *node,
+                        uint32_t          port_id,
+                        uint32_t          buffer_id,
+                        void             *user_data);
+};
 
 /**
- * SpaNode:
+ * struct spa_node:
  *
- * A SpaNode is a component that can comsume and produce buffers.
+ * A struct spa_node is a component that can comsume and produce buffers.
  *
  *
  *
  */
-struct _SpaNode {
+struct spa_node {
   /* the total size of this node. This can be used to expand this
    * structure in the future */
   size_t size;
   /**
-   * SpaNode::info
+   * spa_node::info
    *
    * Extra information about the node
    */
-  const SpaDict * info;
+  const struct spa_dict *info;
   /**
-   * SpaNode::get_props:
-   * @node: a #SpaNode
-   * @props: a location for a #SpaProps pointer
+   * spa_node::get_props:
+   * @node: a #spa_node
+   * @props: a location for a #struct spa_props pointer
    *
    * Get the configurable properties of @node.
    *
    * The returned @props is a snapshot of the current configuration and
    * can be modified. The modifications will take effect after a call
-   * to SpaNode::set_props.
+   * to spa_node::set_props.
    *
    * This function must be called from the main thread.
    *
@@ -175,18 +175,18 @@ struct _SpaNode {
    *          #SPA_RESULT_NOT_IMPLEMENTED when there are no properties
    *                 implemented on @node
    */
-  SpaResult   (*get_props)            (SpaNode          *node,
-                                       SpaProps        **props);
+  int   (*get_props)            (struct spa_node          *node,
+                                 struct spa_props        **props);
   /**
-   * SpaNode::set_props:
-   * @node: a #SpaNode
-   * @props: a #SpaProps
+   * struct spa_node::set_props:
+   * @node: a #struct spa_node
+   * @props: a #struct spa_props
    *
    * Set the configurable properties in @node.
    *
-   * Usually, @props will be obtained from SpaNode::get_props and then
-   * modified but it is also possible to set another #SpaProps object
-   * as long as its keys and types match those of SpaProps::get_props.
+   * Usually, @props will be obtained from struct spa_node::get_props and then
+   * modified but it is also possible to set another #struct spa_props object
+   * as long as its keys and types match those of struct spa_props::get_props.
    *
    * Properties with keys that are not known are ignored.
    *
@@ -201,12 +201,12 @@ struct _SpaNode {
    *          #SPA_RESULT_WRONG_PROPERTY_TYPE when a property has the wrong
    *                 type.
    */
-  SpaResult   (*set_props)           (SpaNode         *node,
-                                      const SpaProps  *props);
+  int   (*set_props)           (struct spa_node         *node,
+                                const struct spa_props  *props);
   /**
-   * SpaNode::send_command:
-   * @node: a #SpaNode
-   * @command: a #SpaCommand
+   * struct spa_node::send_command:
+   * @node: a #struct spa_node
+   * @command: a #spa_command
    *
    * Send a command to @node.
    *
@@ -220,11 +220,11 @@ struct _SpaNode {
    *          #SPA_RESULT_INVALID_COMMAND @command is an invalid command
    *          #SPA_RESULT_ASYNC @command is executed asynchronously
    */
-  SpaResult   (*send_command)         (SpaNode    *node,
-                                       SpaCommand *command);
+  int   (*send_command)         (struct spa_node    *node,
+                                 struct spa_command *command);
   /**
-   * SpaNode::set_event_callback:
-   * @node: a #SpaNode
+   * struct spa_node::set_event_callback:
+   * @node: a #struct spa_node
    * @callbacks: callbacks to set
    * @callbacks_size: size of the callbacks structure
    * @user_data: user data passed to the callback functions
@@ -237,13 +237,13 @@ struct _SpaNode {
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_INVALID_ARGUMENTS when node is %NULL
    */
-  SpaResult   (*set_callbacks)   (SpaNode                *node,
-                                  const SpaNodeCallbacks *callbacks,
-                                  size_t                  callbacks_size,
-                                  void                   *user_data);
+  int   (*set_callbacks)   (struct spa_node                 *node,
+                            const struct spa_node_callbacks *callbacks,
+                            size_t                           callbacks_size,
+                            void                            *user_data);
   /**
-   * SpaNode::get_n_ports:
-   * @node: a #SpaNode
+   * struct spa_node::get_n_ports:
+   * @node: a #struct spa_node
    * @n_input_ports: location to hold the number of input ports or %NULL
    * @max_input_ports: location to hold the maximum number of input ports or %NULL
    * @n_output_ports: location to hold the number of output ports or %NULL
@@ -257,14 +257,14 @@ struct _SpaNode {
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_INVALID_ARGUMENTS when node is %NULL
    */
-  SpaResult   (*get_n_ports)          (SpaNode          *node,
-                                       uint32_t         *n_input_ports,
-                                       uint32_t         *max_input_ports,
-                                       uint32_t         *n_output_ports,
-                                       uint32_t         *max_output_ports);
+  int   (*get_n_ports)          (struct spa_node  *node,
+                                 uint32_t         *n_input_ports,
+                                 uint32_t         *max_input_ports,
+                                 uint32_t         *n_output_ports,
+                                 uint32_t         *max_output_ports);
   /**
-   * SpaNode::get_port_ids:
-   * @node: a #SpaNode
+   * struct spa_node::get_port_ids:
+   * @node: a #struct spa_node
    * @n_input_ports: size of the @input_ids array
    * @input_ids: array to store the input stream ids
    * @n_output_ports: size of the @output_ids array
@@ -277,16 +277,16 @@ struct _SpaNode {
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_INVALID_ARGUMENTS when node is %NULL
    */
-  SpaResult   (*get_port_ids)         (SpaNode          *node,
-                                       uint32_t          n_input_ports,
-                                       uint32_t         *input_ids,
-                                       uint32_t          n_output_ports,
-                                       uint32_t         *output_ids);
+  int   (*get_port_ids)         (struct spa_node  *node,
+                                 uint32_t          n_input_ports,
+                                 uint32_t         *input_ids,
+                                 uint32_t          n_output_ports,
+                                 uint32_t         *output_ids);
 
   /**
-   * SpaNode::add_port:
-   * @node: a #SpaNode
-   * @direction: a #SpaDirection
+   * struct spa_node::add_port:
+   * @node: a #struct spa_node
+   * @direction: a #enum spa_direction
    * @port_id: an unused port id
    *
    * Make a new port with @port_id. The called should use get_port_ids() to
@@ -299,17 +299,17 @@ struct _SpaNode {
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_INVALID_ARGUMENTS when node is %NULL
    */
-  SpaResult   (*add_port)             (SpaNode          *node,
-                                       SpaDirection      direction,
-                                       uint32_t          port_id);
-  SpaResult   (*remove_port)          (SpaNode          *node,
-                                       SpaDirection      direction,
-                                       uint32_t          port_id);
+  int   (*add_port)             (struct spa_node    *node,
+                                 enum spa_direction  direction,
+                                 uint32_t            port_id);
+  int   (*remove_port)          (struct spa_node    *node,
+                                 enum spa_direction  direction,
+                                 uint32_t            port_id);
 
   /**
-   * SpaNode::port_enum_formats:
-   * @node: a #SpaNode
-   * @direction: a #SpaDirection
+   * struct spa_node::port_enum_formats:
+   * @node: a #struct spa_node
+   * @direction: a #enum spa_direction
    * @port_id: the port to query
    * @format: pointer to a format
    * @filter: a format filter
@@ -324,7 +324,7 @@ struct _SpaNode {
    * returns #SPA_RESULT_ENUM_END.
    *
    * The result format can be queried and modified and ultimately be used
-   * to call SpaNode::port_set_format.
+   * to call struct spa_node::port_set_format.
    *
    * This function must be called from the main thread.
    *
@@ -333,19 +333,19 @@ struct _SpaNode {
    *          #SPA_RESULT_INVALID_PORT when port_id is not valid
    *          #SPA_RESULT_ENUM_END when no format exists
    */
-  SpaResult   (*port_enum_formats)    (SpaNode          *node,
-                                       SpaDirection      direction,
-                                       uint32_t          port_id,
-                                       SpaFormat       **format,
-                                       const SpaFormat  *filter,
-                                       uint32_t          index);
+  int   (*port_enum_formats)    (struct spa_node          *node,
+                                 enum spa_direction        direction,
+                                 uint32_t                  port_id,
+                                 struct spa_format       **format,
+                                 const struct spa_format  *filter,
+                                 uint32_t                  index);
   /**
-   * SpaNode::port_set_format:
-   * @node: a #SpaNode
-   * @direction: a #SpaDirection
+   * struct spa_node::port_set_format:
+   * @node: a #struct spa_node
+   * @direction: a #enum spa_direction
    * @port_id: the port to configure
    * @flags: flags
-   * @format: a #SpaFormat with the format
+   * @format: a #struct spa_format with the format
    *
    * Set a format on @port_id of @node.
    *
@@ -361,7 +361,7 @@ struct _SpaNode {
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_OK_RECHECK on success, the value of @format might have been
    *                 changed depending on @flags and the final value can be found by
-   *                 doing SpaNode::get_format.
+   *                 doing struct spa_node::get_format.
    *          #SPA_RESULT_INVALID_ARGUMENTS when node is %NULL
    *          #SPA_RESULT_INVALID_PORT when port_id is not valid
    *          #SPA_RESULT_INVALID_MEDIA_TYPE when the media type is not valid
@@ -376,19 +376,19 @@ struct _SpaNode {
 #define SPA_PORT_FORMAT_FLAG_FIXATE           (1 << 1)      /* fixate the non-optional unset fields */
 #define SPA_PORT_FORMAT_FLAG_NEAREST          (1 << 2)      /* allow set fields to be rounded to the
                                                              * nearest allowed field value. */
-  SpaResult   (*port_set_format)      (SpaNode         *node,
-                                       SpaDirection     direction,
-                                       uint32_t         port_id,
-                                       uint32_t         flags,
-                                       const SpaFormat *format);
+  int   (*port_set_format)      (struct spa_node         *node,
+                                 enum spa_direction       direction,
+                                 uint32_t                 port_id,
+                                 uint32_t                 flags,
+                                 const struct spa_format *format);
   /**
-   * SpaNode::port_get_format:
-   * @node: a #SpaNode
-   * @direction: a #SpaDirection
+   * struct spa_node::port_get_format:
+   * @node: a #struct spa_node
+   * @direction: a #enum spa_direction
    * @port_id: the port to query
-   * @format: a pointer to a location to hold the #SpaFormat
+   * @format: a pointer to a location to hold the #struct spa_format
    *
-   * Get the format on @port_id of @node. The result #SpaFormat can
+   * Get the format on @port_id of @node. The result #struct spa_format can
    * not be modified.
    *
    * This function must be called from the main thread.
@@ -398,30 +398,30 @@ struct _SpaNode {
    *          #SPA_RESULT_INVALID_PORT when @port_id is not valid
    *          #SPA_RESULT_INVALID_NO_FORMAT when no format was set
    */
-  SpaResult   (*port_get_format)      (SpaNode              *node,
-                                       SpaDirection          direction,
-                                       uint32_t              port_id,
-                                       const SpaFormat     **format);
+  int   (*port_get_format)      (struct spa_node          *node,
+                                 enum spa_direction        direction,
+                                 uint32_t                  port_id,
+                                 const struct spa_format **format);
 
-  SpaResult   (*port_get_info)        (SpaNode              *node,
-                                       SpaDirection          direction,
-                                       uint32_t              port_id,
-                                       const SpaPortInfo   **info);
+  int   (*port_get_info)        (struct spa_node             *node,
+                                 enum spa_direction           direction,
+                                 uint32_t                     port_id,
+                                 const struct spa_port_info **info);
 
-  SpaResult   (*port_enum_params)     (SpaNode              *node,
-                                       SpaDirection          direction,
-                                       uint32_t              port_id,
-                                       uint32_t              index,
-                                       SpaParam            **param);
-  SpaResult   (*port_set_param)       (SpaNode              *node,
-                                       SpaDirection          direction,
-                                       uint32_t              port_id,
-                                       const SpaParam       *param);
+  int   (*port_enum_params)     (struct spa_node        *node,
+                                 enum spa_direction      direction,
+                                 uint32_t                port_id,
+                                 uint32_t                index,
+                                 struct spa_param      **param);
+  int   (*port_set_param)       (struct spa_node        *node,
+                                 enum spa_direction      direction,
+                                 uint32_t                port_id,
+                                 const struct spa_param *param);
 
   /**
-   * SpaNode::port_use_buffers:
-   * @node: a #SpaNode
-   * @direction: a #SpaDirection
+   * struct spa_node::port_use_buffers:
+   * @node: a #struct spa_node
+   * @direction: a #enum spa_direction
    * @port_id: a port id
    * @buffers: an array of buffer pointers
    * @n_buffers: number of elements in @buffers
@@ -448,15 +448,15 @@ struct _SpaNode {
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_ASYNC the function is executed asynchronously
    */
-  SpaResult   (*port_use_buffers)     (SpaNode              *node,
-                                       SpaDirection          direction,
-                                       uint32_t              port_id,
-                                       SpaBuffer           **buffers,
-                                       uint32_t              n_buffers);
+  int   (*port_use_buffers)     (struct spa_node      *node,
+                                 enum spa_direction    direction,
+                                 uint32_t              port_id,
+                                 struct spa_buffer   **buffers,
+                                 uint32_t              n_buffers);
   /**
-   * SpaNode::port_alloc_buffers:
-   * @node: a #SpaNode
-   * @direction: a #SpaDirection
+   * struct spa_node::port_alloc_buffers:
+   * @node: a #struct spa_node
+   * @direction: a #enum spa_direction
    * @port_id: a port id
    * @params: allocation parameters
    * @n_params: number of elements in @params
@@ -480,7 +480,7 @@ struct _SpaNode {
    * node to PAUSED, when the node has enough buffers on all ports.
    *
    * Once the port has allocated buffers, the memory of the buffers can be
-   * released again by calling SpaNode::port_use_buffers with %NULL.
+   * released again by calling struct spa_node::port_use_buffers with %NULL.
    *
    * This function must be called from the main thread.
    *
@@ -488,19 +488,19 @@ struct _SpaNode {
    *          #SPA_RESULT_ERROR when the node already has allocated buffers.
    *          #SPA_RESULT_ASYNC the function is executed asynchronously
    */
-  SpaResult   (*port_alloc_buffers)   (SpaNode              *node,
-                                       SpaDirection          direction,
-                                       uint32_t              port_id,
-                                       SpaParam            **params,
-                                       uint32_t              n_params,
-                                       SpaBuffer           **buffers,
-                                       uint32_t             *n_buffers);
+  int   (*port_alloc_buffers)   (struct spa_node      *node,
+                                 enum spa_direction    direction,
+                                 uint32_t              port_id,
+                                 struct spa_param    **params,
+                                 uint32_t              n_params,
+                                 struct spa_buffer   **buffers,
+                                 uint32_t             *n_buffers);
 
   /**
-   * SpaNode::port_set_io:
-   * @direction: a #SpaDirection
+   * struct spa_node::port_set_io:
+   * @direction: a #enum spa_direction
    * @port_id: a port id
-   * @io: a #SpaPortIO
+   * @io: a #struct spa_port_io
    *
    * Configure the given io structure on @port_id. This
    * structure is allocated by the host and is used to query the state
@@ -510,14 +510,14 @@ struct _SpaNode {
    *
    * Returns: #SPA_RESULT_OK on success
    */
-  SpaResult   (*port_set_io)          (SpaNode       *node,
-                                       SpaDirection   direction,
-                                       uint32_t       port_id,
-                                       SpaPortIO     *io);
+  int   (*port_set_io)          (struct spa_node     *node,
+                                 enum spa_direction   direction,
+                                 uint32_t             port_id,
+                                 struct spa_port_io  *io);
 
   /**
-   * SpaNode::port_reuse_buffer:
-   * @node: a #SpaNode
+   * struct spa_node::port_reuse_buffer:
+   * @node: a #struct spa_node
    * @port_id: a port id
    * @buffer_id: a buffer id to reuse
    *
@@ -528,74 +528,87 @@ struct _SpaNode {
    * Returns: #SPA_RESULT_OK on success
    *          #SPA_RESULT_INVALID_ARGUMENTS when node is %NULL
    */
-  SpaResult   (*port_reuse_buffer)    (SpaNode          *node,
-                                       uint32_t          port_id,
-                                       uint32_t          buffer_id);
+  int   (*port_reuse_buffer)    (struct spa_node  *node,
+                                 uint32_t          port_id,
+                                 uint32_t          buffer_id);
 
-  SpaResult   (*port_send_command)    (SpaNode          *node,
-                                       SpaDirection      direction,
-                                       uint32_t          port_id,
-                                       SpaCommand       *command);
+  int   (*port_send_command)    (struct spa_node    *node,
+                                 enum spa_direction  direction,
+                                 uint32_t            port_id,
+                                 struct spa_command *command);
   /**
-   * SpaNode::process_input:
-   * @node: a #SpaNode
+   * struct spa_node::process_input:
+   * @node: a #struct spa_node
    *
    * Process the input area of the node.
    *
    * For synchronous nodes, this function is called to start processing data
-   * or when process_output returned SPA_RESULT_NEED_MORE_INPUT
+   * or when process_output returned SPA_RESULT_NEED_BUFFER
    *
    * For Asynchronous node, this function is called when a NEED_INPUT event
    * is received from the node.
    *
-   * Before calling this function, you must configure SpaPortInput structures
+   * Before calling this function, you must configure spa_port_io structures
    * configured on the input ports.
    *
-   * The node will loop through all SpaPortInput structures and will
-   * process the buffers. For each port, the port info will be updated as:
+   * The node will loop through all spa_port_io structures and will
+   * process the buffers. For each port, the port io will be used as:
    *
-   *  - The buffer_id is set to SPA_ID_INVALID and the status is set to
-   *    SPA_RESULT_OK when the buffer was successfully consumed
+   *  - if status is set to HAVE_BUFFER, buffer_id is read and processed.
    *
-   *  - The buffer_id is untouched and the status is set to an error when
-   *    the buffer was invalid.
+   * The spa_port_io of the port is then updated as follows.
    *
-   *  - The buffer_id is untouched and the status is set to SPA_RESULT_OK
-   *    when no input was consumed. This can happen when the node does not
-   *    need input on this port.
+   *  - buffer_id is set to a buffer id that should be reused. SPA_ID_INVALID
+   *    is set when there is no buffer to reuse
+   *
+   *  - status is set to SPA_RESULT_OK when no new buffer is needed
+   *
+   *  - status is set to SPA_RESULT_NEED_BUFFER when a new buffer is needed
+   *    on the pad.
+   *
+   *  - status is set to an error code when the buffer_id was invalid or any
+   *    processing error happened on the port.
    *
    * Returns: #SPA_RESULT_OK on success or when the node is asynchronous
-   *          #SPA_RESULT_HAVE_OUTPUT for synchronous nodes when output
+   *          #SPA_RESULT_HAVE_BUFFER for synchronous nodes when output
    *                                  can be consumed.
-   *          #SPA_RESULT_OUT_OF_BUFFERS for synchronous nodes when buffers
-   *                                     should be released with port_reuse_buffer
    *          #SPA_RESULT_ERROR when one of the inputs is in error
    */
-  SpaResult   (*process_input)           (SpaNode *node);
+  int   (*process_input)           (struct spa_node *node);
 
   /**
-   * SpaNode::process_output:
-   * @node: a #SpaNode
+   * struct spa_node::process_output:
+   * @node: a #struct spa_node
    *
-   * Tell the node to produce more output.
-   *
-   * Before calling this function you must process the buffers and events
-   * in the SpaPortOutput structure and set the buffer_id to SPA_ID_INVALID
-   * for all consumed buffers. Buffers that you do not want to consume should
-   * be returned to the node with port_reuse_buffer.
+   * Tell the node that output is consumed.
    *
    * For synchronous nodes, this function can be called when process_input
-   * returned #SPA_RESULT_HAVE_ENOUGH_INPUT.
+   * returned #SPA_RESULT_HAVE_BUFFER.
    *
    * For Asynchronous node, this function is called when a HAVE_OUTPUT event
    * is received from the node.
    *
+   * Before calling this function you must process the buffers
+   * in each of the output ports spa_port_io structure as follows:
+   *
+   * - use the buffer_id from the io for all the ports where the status is
+   *   SPA_RESULT_HAVE_BUFFER
+   *
+   * - set buffer_id to a buffer_id you would like to reuse or SPA_ID_INVALID
+   *   when no buffer is to be reused.
+   *
+   * - set the status to SPA_RESULT_NEED_BUFFER for all port you want more
+   *   output from
+   *
+   * - set the status to SPA_RESULT_OK for the port you don't want more
+   *   buffer from.
+   *
    * Returns: #SPA_RESULT_OK on success or when the node is asynchronous
-   *          #SPA_RESULT_NEED_INPUT for synchronous nodes when input
+   *          #SPA_RESULT_NEED_BUFFER for synchronous nodes when input
    *                                 is needed.
    *          #SPA_RESULT_ERROR when one of the outputs is in error
    */
-  SpaResult   (*process_output)          (SpaNode *node);
+  int   (*process_output)          (struct spa_node *node);
 };
 
 #define spa_node_get_props(n,...)          (n)->get_props((n),__VA_ARGS__)

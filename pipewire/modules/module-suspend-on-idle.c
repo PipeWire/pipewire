@@ -33,22 +33,22 @@ struct impl {
   struct pw_listener global_added;
   struct pw_listener global_removed;
 
-  SpaList node_list;
+  struct spa_list node_list;
 };
 
-typedef struct {
+struct node_info {
   struct impl    *impl;
   struct pw_node *node;
-  SpaList         link;
+  struct spa_list link;
   struct pw_listener  node_state_request;
   struct pw_listener  node_state_changed;
-  SpaSource     *idle_timeout;
-} NodeInfo;
+  struct spa_source     *idle_timeout;
+};
 
-static NodeInfo *
+static struct node_info *
 find_node_info (struct impl *impl, struct pw_node *node)
 {
-  NodeInfo *info;
+  struct node_info *info;
 
   spa_list_for_each (info, &impl->node_list, link) {
     if (info->node == node)
@@ -58,7 +58,7 @@ find_node_info (struct impl *impl, struct pw_node *node)
 }
 
 static void
-remove_idle_timeout (NodeInfo *info)
+remove_idle_timeout (struct node_info *info)
 {
   if (info->idle_timeout) {
     pw_loop_destroy_source (info->impl->core->main_loop->loop, info->idle_timeout);
@@ -67,7 +67,7 @@ remove_idle_timeout (NodeInfo *info)
 }
 
 static void
-node_info_free (NodeInfo *info)
+node_info_free (struct node_info *info)
 {
   spa_list_remove (&info->link);
   remove_idle_timeout (info);
@@ -77,11 +77,11 @@ node_info_free (NodeInfo *info)
 }
 
 static void
-idle_timeout (SpaLoopUtils *utils,
-              SpaSource    *source,
+idle_timeout (struct spa_loop_utils *utils,
+              struct spa_source    *source,
               void         *data)
 {
-  NodeInfo *info = data;
+  struct node_info *info = data;
 
   pw_log_debug ("module %p: node %p idle timeout", info->impl, info->node);
   remove_idle_timeout (info);
@@ -93,7 +93,7 @@ on_node_state_request (struct pw_listener *listener,
                        struct pw_node     *node,
                        enum pw_node_state  state)
 {
-  NodeInfo *info = SPA_CONTAINER_OF (listener, NodeInfo, node_state_request);
+  struct node_info *info = SPA_CONTAINER_OF (listener, struct node_info, node_state_request);
   remove_idle_timeout (info);
 }
 
@@ -103,7 +103,7 @@ on_node_state_changed (struct pw_listener *listener,
                        enum pw_node_state  old,
                        enum pw_node_state  state)
 {
-  NodeInfo *info = SPA_CONTAINER_OF (listener, NodeInfo, node_state_changed);
+  struct node_info *info = SPA_CONTAINER_OF (listener, struct node_info, node_state_changed);
   struct impl *impl = info->impl;
 
   if (state != PW_NODE_STATE_IDLE) {
@@ -134,9 +134,9 @@ on_global_added (struct pw_listener *listener,
 
   if (global->type == impl->core->type.node) {
     struct pw_node *node = global->object;
-    NodeInfo *info;
+    struct node_info *info;
 
-    info = calloc (1, sizeof (NodeInfo));
+    info = calloc (1, sizeof (struct node_info));
     info->impl = impl;
     info->node = node;
     spa_list_insert (impl->node_list.prev, &info->link);
@@ -156,7 +156,7 @@ on_global_removed (struct pw_listener *listener,
 
   if (global->type == impl->core->type.node) {
     struct pw_node *node = global->object;
-    NodeInfo *info;
+    struct node_info *info;
 
     if ((info = find_node_info (impl, node)))
       node_info_free (info);

@@ -28,80 +28,80 @@ extern "C" {
 #include <stdarg.h>
 #include <spa/pod.h>
 
-#define SPA_POD_BODY_SIZE(pod)           (((SpaPOD*)(pod))->size)
-#define SPA_POD_TYPE(pod)                (((SpaPOD*)(pod))->type)
-#define SPA_POD_SIZE(pod)                (sizeof(SpaPOD) + SPA_POD_BODY_SIZE(pod))
+#define SPA_POD_BODY_SIZE(pod)           (((struct spa_pod*)(pod))->size)
+#define SPA_POD_TYPE(pod)                (((struct spa_pod*)(pod))->type)
+#define SPA_POD_SIZE(pod)                (sizeof(struct spa_pod) + SPA_POD_BODY_SIZE(pod))
 #define SPA_POD_CONTENTS_SIZE(type,pod)  (SPA_POD_SIZE(pod)-sizeof(type))
 
 #define SPA_POD_CONTENTS(type,pod)       SPA_MEMBER((pod),sizeof(type),void)
 #define SPA_POD_CONTENTS_CONST(type,pod) SPA_MEMBER((pod),sizeof(type),const void)
-#define SPA_POD_BODY(pod)                SPA_MEMBER((pod),sizeof(SpaPOD),void)
-#define SPA_POD_BODY_CONST(pod)          SPA_MEMBER((pod),sizeof(SpaPOD),const void)
+#define SPA_POD_BODY(pod)                SPA_MEMBER((pod),sizeof(struct spa_pod),void)
+#define SPA_POD_BODY_CONST(pod)          SPA_MEMBER((pod),sizeof(struct spa_pod),const void)
 
 #define SPA_POD_VALUE(type,pod)          (((type*)pod)->value)
 
-#define SPA_POD_PROP_N_VALUES(prop) (((prop)->pod.size - sizeof (SpaPODPropBody)) / (prop)->body.value.size)
+#define SPA_POD_PROP_N_VALUES(prop) (((prop)->pod.size - sizeof (struct spa_pod_prop_body)) / (prop)->body.value.size)
 
 static inline bool
-spa_pod_is_object_type (SpaPOD *pod, uint32_t type)
+spa_pod_is_object_type (struct spa_pod *pod, uint32_t type)
 {
-  return (pod->type == SPA_POD_TYPE_OBJECT && ((SpaPODObject*)pod)->body.type == type);
+  return (pod->type == SPA_POD_TYPE_OBJECT && ((struct spa_pod_object*)pod)->body.type == type);
 }
 
 #define SPA_POD_ARRAY_BODY_FOREACH(body, _size, iter) \
-  for ((iter) = SPA_MEMBER ((body), sizeof(SpaPODArrayBody), __typeof__(*(iter))); \
+  for ((iter) = SPA_MEMBER ((body), sizeof(struct spa_pod_array_body), __typeof__(*(iter))); \
        (iter) < SPA_MEMBER ((body), (_size), __typeof__(*(iter))); \
        (iter) = SPA_MEMBER ((iter), (body)->child.size, __typeof__(*(iter))))
 
 #define SPA_POD_FOREACH(pod, size, iter) \
   for ((iter) = (pod); \
-       (iter) < SPA_MEMBER ((pod), (size), SpaPOD); \
-       (iter) = SPA_MEMBER ((iter), SPA_ROUND_UP_N (SPA_POD_SIZE (iter), 8), SpaPOD))
+       (iter) < SPA_MEMBER ((pod), (size), struct spa_pod); \
+       (iter) = SPA_MEMBER ((iter), SPA_ROUND_UP_N (SPA_POD_SIZE (iter), 8), struct spa_pod))
 
 #define SPA_POD_CONTENTS_FOREACH(pod, offset, iter) \
-  SPA_POD_FOREACH(SPA_MEMBER ((pod), (offset), SpaPOD),SPA_POD_SIZE (pod),iter)
+  SPA_POD_FOREACH(SPA_MEMBER ((pod), (offset), struct spa_pod),SPA_POD_SIZE (pod),iter)
 
 #define SPA_POD_OBJECT_BODY_FOREACH(body, size, iter) \
-  for ((iter) = SPA_MEMBER ((body), sizeof (SpaPODObjectBody), SpaPOD); \
-       (iter) < SPA_MEMBER ((body), (size), SpaPOD); \
-       (iter) = SPA_MEMBER ((iter), SPA_ROUND_UP_N (SPA_POD_SIZE (iter), 8), SpaPOD))
+  for ((iter) = SPA_MEMBER ((body), sizeof (struct spa_pod_object_body), struct spa_pod); \
+       (iter) < SPA_MEMBER ((body), (size), struct spa_pod); \
+       (iter) = SPA_MEMBER ((iter), SPA_ROUND_UP_N (SPA_POD_SIZE (iter), 8), struct spa_pod))
 
 #define SPA_POD_OBJECT_FOREACH(obj, iter) \
   SPA_POD_OBJECT_BODY_FOREACH(&obj->body, SPA_POD_BODY_SIZE(obj), iter)
 
 #define SPA_POD_PROP_ALTERNATIVE_FOREACH(body, _size, iter) \
-  for ((iter) = SPA_MEMBER ((body), (body)->value.size + sizeof (SpaPODPropBody), __typeof__(*iter)); \
+  for ((iter) = SPA_MEMBER ((body), (body)->value.size + sizeof (struct spa_pod_prop_body), __typeof__(*iter)); \
        (iter) <= SPA_MEMBER ((body), (_size)-(body)->value.size, __typeof__(*iter)); \
        (iter) = SPA_MEMBER ((iter), (body)->value.size, __typeof__(*iter)))
 
-static inline SpaPODProp *
-spa_pod_contents_find_prop (const SpaPOD *pod, uint32_t offset, uint32_t key)
+static inline struct spa_pod_prop *
+spa_pod_contents_find_prop (const struct spa_pod *pod, uint32_t offset, uint32_t key)
 {
-  SpaPOD *res;
+  struct spa_pod *res;
   SPA_POD_CONTENTS_FOREACH (pod, offset, res) {
-    if (res->type == SPA_POD_TYPE_PROP && ((SpaPODProp*)res)->body.key == key)
-      return (SpaPODProp *)res;
+    if (res->type == SPA_POD_TYPE_PROP && ((struct spa_pod_prop*)res)->body.key == key)
+      return (struct spa_pod_prop *)res;
   }
   return NULL;
 }
 
-static inline SpaPODProp *
-spa_pod_object_find_prop (const SpaPODObject *obj, uint32_t key)
+static inline struct spa_pod_prop *
+spa_pod_object_find_prop (const struct spa_pod_object *obj, uint32_t key)
 {
-  return spa_pod_contents_find_prop (&obj->pod, sizeof (SpaPODObject), key);
+  return spa_pod_contents_find_prop (&obj->pod, sizeof (struct spa_pod_object), key);
 }
 
 #define SPA_POD_COLLECT(pod,type,args,error)                                            \
   do {                                                                                  \
     if (type == SPA_POD_TYPE_POD) {                                                     \
-      *(va_arg (args, SpaPOD **)) = pod;                                                \
+      *(va_arg (args, struct spa_pod **)) = pod;                                        \
     } else if ((pod)->type == SPA_POD_TYPE_NONE) {                                      \
       switch (type) {                                                                   \
         case -SPA_POD_TYPE_ARRAY:                                                       \
         case -SPA_POD_TYPE_STRUCT:                                                      \
         case -SPA_POD_TYPE_OBJECT:                                                      \
         case -SPA_POD_TYPE_PROP:                                                        \
-          *(va_arg (args, SpaPOD **)) = NULL;                                           \
+          *(va_arg (args, struct spa_pod **)) = NULL;                                   \
           break;                                                                        \
         default:                                                                        \
           goto error;                                                                   \
@@ -111,45 +111,47 @@ spa_pod_object_find_prop (const SpaPODObject *obj, uint32_t key)
         case SPA_POD_TYPE_BOOL:                                                         \
         case SPA_POD_TYPE_ID:                                                           \
         case SPA_POD_TYPE_INT:                                                          \
-          *(va_arg (args, int32_t*)) = SPA_POD_VALUE(SpaPODInt, pod);                   \
+          *(va_arg (args, int32_t*)) = SPA_POD_VALUE(struct spa_pod_int, pod);          \
           break;                                                                        \
         case SPA_POD_TYPE_LONG:                                                         \
-          *(va_arg (args, int64_t*)) = SPA_POD_VALUE (SpaPODLong, pod);                 \
+          *(va_arg (args, int64_t*)) = SPA_POD_VALUE (struct spa_pod_long, pod);        \
           break;                                                                        \
         case SPA_POD_TYPE_FLOAT:                                                        \
-          *(va_arg (args, float*)) = SPA_POD_VALUE (SpaPODFloat, pod);                  \
+          *(va_arg (args, float*)) = SPA_POD_VALUE (struct spa_pod_float, pod);         \
           break;                                                                        \
         case SPA_POD_TYPE_DOUBLE:                                                       \
-          *(va_arg (args, double*)) = SPA_POD_VALUE (SpaPODDouble, pod);                \
+          *(va_arg (args, double*)) = SPA_POD_VALUE (struct spa_pod_double, pod);       \
           break;                                                                        \
         case SPA_POD_TYPE_STRING:                                                       \
-          *(va_arg (args, char **)) = SPA_POD_CONTENTS (SpaPODString, pod);             \
+          *(va_arg (args, char **)) = SPA_POD_CONTENTS (struct spa_pod_string, pod);    \
           break;                                                                        \
         case -SPA_POD_TYPE_STRING:                                                      \
         {                                                                               \
           char *dest = va_arg (args, char *);                                           \
           uint32_t maxlen = va_arg (args, uint32_t);                                    \
-          strncpy (dest, SPA_POD_CONTENTS (SpaPODString, pod), maxlen-1);               \
+          strncpy (dest, SPA_POD_CONTENTS (struct spa_pod_string, pod), maxlen-1);      \
           break;                                                                        \
         }                                                                               \
         case SPA_POD_TYPE_BYTES:                                                        \
-          *(va_arg (args, void **)) = SPA_POD_CONTENTS (SpaPODBytes, pod);              \
+          *(va_arg (args, void **)) = SPA_POD_CONTENTS (struct spa_pod_bytes, pod);     \
           *(va_arg (args, uint32_t *)) = SPA_POD_BODY_SIZE (pod);                       \
           break;                                                                        \
         case SPA_POD_TYPE_POINTER:                                                      \
         {                                                                               \
-          SpaPODPointerBody *b = SPA_POD_BODY (pod);                                    \
+          struct spa_pod_pointer_body *b = SPA_POD_BODY (pod);                          \
           *(va_arg (args, void **)) = b->value;                                         \
           break;                                                                        \
         }                                                                               \
         case SPA_POD_TYPE_RECTANGLE:                                                    \
-          *(va_arg (args, SpaRectangle *)) = SPA_POD_VALUE (SpaPODRectangle, pod);      \
+          *(va_arg (args, struct spa_rectangle *)) =                                    \
+                        SPA_POD_VALUE (struct spa_pod_rectangle, pod);                  \
           break;                                                                        \
         case SPA_POD_TYPE_FRACTION:                                                     \
-          *(va_arg (args, SpaFraction *)) = SPA_POD_VALUE (SpaPODFraction, pod);        \
+          *(va_arg (args, struct spa_fraction *)) =                                     \
+                        SPA_POD_VALUE (struct spa_pod_fraction, pod);                   \
           break;                                                                        \
         case SPA_POD_TYPE_BITMASK:                                                      \
-          *(va_arg (args, uint32_t **)) = SPA_POD_CONTENTS (SpaPOD, pod);               \
+          *(va_arg (args, uint32_t **)) = SPA_POD_CONTENTS (struct spa_pod, pod);       \
           break;                                                                        \
         case SPA_POD_TYPE_ARRAY:                                                        \
         case SPA_POD_TYPE_STRUCT:                                                       \
@@ -159,14 +161,14 @@ spa_pod_object_find_prop (const SpaPODObject *obj, uint32_t key)
         case -SPA_POD_TYPE_STRUCT:                                                      \
         case -SPA_POD_TYPE_OBJECT:                                                      \
         case -SPA_POD_TYPE_PROP:                                                        \
-          *(va_arg (args, SpaPOD **)) = pod;                                            \
+          *(va_arg (args, struct spa_pod **)) = pod;                                    \
           break;                                                                        \
         default:                                                                        \
           goto error;                                                                   \
       }                                                                                 \
     } else                                                                              \
        goto error;                                                                      \
-  } while (false);                                                                      \
+  } while (false);
 
 #define SPA_POD_COLLECT_SKIP(type,args)                                                 \
     switch (type) {                                                                     \
@@ -200,13 +202,13 @@ spa_pod_object_find_prop (const SpaPODObject *obj, uint32_t key)
     }                                                                                   \
 
 static inline uint32_t
-spa_pod_contents_queryv (const SpaPOD *pod, uint32_t offset, uint32_t key, va_list args)
+spa_pod_contents_queryv (const struct spa_pod *pod, uint32_t offset, uint32_t key, va_list args)
 {
   uint32_t count = 0;
 
   while (key) {
     uint32_t type;
-    SpaPODProp *prop = spa_pod_contents_find_prop (pod, offset, key);
+    struct spa_pod_prop *prop = spa_pod_contents_find_prop (pod, offset, key);
 
     type = va_arg (args, uint32_t);
 
@@ -224,7 +226,7 @@ next:
 }
 
 static inline uint32_t
-spa_pod_contents_query (const SpaPOD *pod, uint32_t offset, uint32_t key, ...)
+spa_pod_contents_query (const struct spa_pod *pod, uint32_t offset, uint32_t key, ...)
 {
   va_list args;
   uint32_t count;
@@ -237,7 +239,7 @@ spa_pod_contents_query (const SpaPOD *pod, uint32_t offset, uint32_t key, ...)
 }
 
 #define spa_pod_object_query(object,key, ...) \
-   spa_pod_contents_query (&object->pod, sizeof (SpaPODObject), key, __VA_ARGS__)
+   spa_pod_contents_query (&(object)->pod, sizeof (struct spa_pod_object), key, __VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

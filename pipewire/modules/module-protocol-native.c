@@ -59,30 +59,31 @@ struct socket {
   int        fd_lock;
   struct     sockaddr_un addr;
   char       lock_addr[UNIX_PATH_MAX + LOCK_SUFFIXLEN];
-  struct pw_loop *loop;
-  SpaSource *source;
-  char      *core_name;
-  SpaList    link;
+
+  struct pw_loop    *loop;
+  struct spa_source *source;
+  char              *core_name;
+  struct spa_list    link;
 };
 
 struct impl {
   struct pw_core   *core;
-  SpaList           link;
+  struct spa_list   link;
 
   struct pw_properties *properties;
 
-  SpaList socket_list;
-  SpaList client_list;
+  struct spa_list socket_list;
+  struct spa_list client_list;
 
   struct pw_listener before_iterate;
 };
 
 struct native_client {
-  struct impl *impl;
-  SpaList               link;
+  struct impl          *impl;
+  struct spa_list       link;
   struct pw_client     *client;
   int                   fd;
-  SpaSource            *source;
+  struct spa_source    *source;
   struct pw_connection *connection;
   struct pw_listener    resource_added;
 };
@@ -120,11 +121,11 @@ on_before_iterate (struct pw_listener *listener,
 }
 
 static void
-connection_data (SpaLoopUtils *utils,
-                 SpaSource    *source,
-                 int           fd,
-                 SpaIO         mask,
-                 void         *data)
+connection_data (struct spa_loop_utils      *utils,
+                 struct spa_source *source,
+                 int                fd,
+                 enum spa_io              mask,
+                 void              *data)
 {
   struct native_client *client = data;
   struct pw_connection *conn = client->connection;
@@ -331,10 +332,10 @@ err:
 }
 
 static void
-socket_data (SpaLoopUtils *utils,
-             SpaSource    *source,
+socket_data (struct spa_loop_utils *utils,
+             struct spa_source    *source,
              int           fd,
-             SpaIO         mask,
+             enum spa_io         mask,
              void         *data)
 {
   struct impl *impl = data;

@@ -40,15 +40,15 @@ void         pw_free_strv    (char **str);
 char *       pw_strip        (char       *str,
                               const char *whitespace);
 
-static inline SpaPOD *
-pw_spa_pod_copy (const SpaPOD *pod)
+static inline struct spa_pod *
+pw_spa_pod_copy (const struct spa_pod *pod)
 {
   return pod ? memcpy (malloc (SPA_POD_SIZE (pod)), pod, SPA_POD_SIZE (pod)) : NULL;
 }
 
-#define spa_format_copy(f)      ((SpaFormat*)pw_spa_pod_copy(&(f)->pod))
-#define spa_props_copy(p)       ((SpaProps*)pw_spa_pod_copy(&(p)->pod))
-#define spa_param_copy(p)       ((SpaParam*)pw_spa_pod_copy(&(p)->pod))
+#define spa_format_copy(f)      ((struct spa_format*)pw_spa_pod_copy(&(f)->pod))
+#define spa_props_copy(p)       ((struct spa_prop*)pw_spa_pod_copy(&(p)->object.pod))
+#define spa_param_copy(p)       ((struct spa_param*)pw_spa_pod_copy(&(p)->object.pod))
 
 #ifdef __cplusplus
 }  /* extern "C" */

@@ -24,8 +24,7 @@
 extern "C" {
 #endif
 
-typedef struct _SpaMonitor SpaMonitor;
-
+struct spa_monitor;
 #define SPA_TYPE__Monitor            SPA_TYPE_INTERFACE_BASE "Monitor"
 #define SPA_TYPE_MONITOR_BASE        SPA_TYPE__Monitor ":"
 
@@ -33,7 +32,6 @@ typedef struct _SpaMonitor SpaMonitor;
 #include <spa/dict.h>
 #include <spa/event.h>
 
-typedef SpaEvent     SpaEventMonitor;
 #define SPA_TYPE_EVENT__Monitor           SPA_TYPE_EVENT_BASE "Monitor"
 #define SPA_TYPE_EVENT_MONITOR_BASE       SPA_TYPE_EVENT__Monitor ":"
 
@@ -41,7 +39,9 @@ typedef SpaEvent     SpaEventMonitor;
 #define SPA_TYPE_EVENT_MONITOR__Removed        SPA_TYPE_EVENT_MONITOR_BASE "Removed"
 #define SPA_TYPE_EVENT_MONITOR__Changed        SPA_TYPE_EVENT_MONITOR_BASE "Changed"
 
-typedef SpaPODObject SpaMonitorItem;
+struct spa_monitor_item {
+  struct spa_pod_object object;
+};
 #define SPA_TYPE__MonitorItem                  SPA_TYPE_POD_OBJECT_BASE "MonitorItem"
 #define SPA_TYPE_MONITOR_ITEM_BASE             SPA_TYPE__MonitorItem ":"
 
@@ -53,7 +53,7 @@ typedef SpaPODObject SpaMonitorItem;
 #define SPA_TYPE_MONITOR_ITEM__info            SPA_TYPE_MONITOR_ITEM_BASE "info"
 #define SPA_TYPE_MONITOR_ITEM__factory         SPA_TYPE_MONITOR_ITEM_BASE "factory"
 
-typedef struct {
+struct spa_type_monitor {
   uint32_t Monitor;
 
   uint32_t Added;
@@ -68,10 +68,10 @@ typedef struct {
   uint32_t klass;
   uint32_t info;
   uint32_t factory;
-} SpaTypeMonitor;
+};
 
 static inline void
-spa_type_monitor_map (SpaTypeMap *map, SpaTypeMonitor *type)
+spa_type_monitor_map (struct spa_type_map *map, struct spa_type_monitor *type)
 {
   if (type->Added == 0) {
     type->Monitor      = spa_type_map_get_id (map, SPA_TYPE__Monitor);
@@ -89,75 +89,72 @@ spa_type_monitor_map (SpaTypeMap *map, SpaTypeMonitor *type)
   }
 }
 
-typedef enum {
+enum spa_monitor_item_flags {
   SPA_MONITOR_ITEM_FLAG_NONE    = 0,
-} SpaMonitorItemFlags;
+};
 
 /**
- * SpaMonitorItemState:
+ * spa_monitor_item_state:
  * @SPA_MONITOR_ITEM_STATE_AVAILABLE: The item is available
  * @SPA_MONITOR_ITEM_STATE_DISABLED: the item is disabled
  * @SPA_MONITOR_ITEM_STATE_UNAVAILABLE: the item is unavailable
  */
-typedef enum {
+enum spa_monitor_item_state {
   SPA_MONITOR_ITEM_STATE_AVAILABLE,
   SPA_MONITOR_ITEM_STATE_DISABLED,
   SPA_MONITOR_ITEM_STATE_UNAVAILABLE,
-} SpaMonitorItemState;
+};
 
 /**
- * SpaMonitorCallback:
- * @node: a #SpaMonitor emiting the event
- * @event: the event that was emited
- * @user_data: user data provided when registering the callback
- *
- * This will be called when a monitor event is notified
- * on @monitor.
+ * spa_monitor_callbacks:
  */
-typedef void   (*SpaEventMonitorCallback)  (SpaMonitor       *monitor,
-                                            SpaEventMonitor  *event,
-                                            void             *user_data);
+struct spa_monitor_callbacks {
+   void  (*event)  (struct spa_monitor *monitor,
+                    struct spa_event   *event,
+                    void               *user_data);
+};
 
 /**
- * SpaMonitor:
+ * spa_monitor:
  *
  * The device monitor interface.
  */
-struct _SpaMonitor {
+struct spa_monitor {
   /**
-   * SpaMonitor::info
+   * spa_monitor::info
    *
    * Extra information about the monitor
    */
-  const SpaDict * info;
+  const struct spa_dict* info;
 
   /* the total size of this monitor. This can be used to expand this
    * structure in the future */
   size_t size;
 
   /**
-   * SpaMonitor::set_event_callback:
-   * @monitor: a #SpaMonitor
-   * @callback: a #SpaEventMonitorCallback
+   * spa_monitor::set_callbacks:
+   * @monitor: a #spa_monitor
+   * @callback: a #callbacks
    * @user_data: extra user data
    *
-   * Set an event callback to receive asynchronous notifications from
+   * Set callbacks to receive asynchronous notifications from
    * the monitor.
    *
    * Returns: #SPA_RESULT_OK on success
    */
-  SpaResult  (*set_event_callback)   (SpaMonitor              *monitor,
-                                      SpaEventMonitorCallback  callback,
-                                      void                    *user_data);
+  int   (*set_callbacks)   (struct spa_monitor                 *monitor,
+                            const struct spa_monitor_callbacks *callbacks,
+                            size_t                              callbacks_size,
+                            void                               *user_data);
 
-  SpaResult  (*enum_items)           (SpaMonitor              *monitor,
-                                      SpaMonitorItem         **item,
-                                      uint32_t                 index);
+  int   (*enum_items)      (struct spa_monitor          *monitor,
+                            struct spa_monitor_item    **item,
+                            uint32_t                     index);
 
 };
 
-#define spa_monitor_set_event_callback(m,...) (m)->set_event_callback((m),__VA_ARGS__)
-#define spa_monitor_enum_items(m,...)         (m)->enum_items((m),__VA_ARGS__)
+#define spa_monitor_set_callbacks(m,...) (m)->set_callbacks((m),__VA_ARGS__)
+#define spa_monitor_enum_items(m,...)    (m)->enum_items((m),__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

@@ -38,11 +38,11 @@ struct context {
 
   int fd;
   struct pw_connection *connection;
-  SpaSource *source;
+  struct spa_source *source;
 
   bool disconnecting;
   struct pw_listener  need_flush;
-  SpaSource     *flush_event;
+  struct spa_source     *flush_event;
 };
 
 /**
@@ -140,7 +140,7 @@ core_event_done (void     *object,
 static void
 core_event_error (void       *object,
                   uint32_t    id,
-                  SpaResult   res,
+                  int   res,
                   const char *error, ...)
 {
   struct pw_proxy *proxy = object;
@@ -174,7 +174,7 @@ core_event_update_types (void          *object,
   int i;
 
   for (i = 0; i < n_types; i++, first_id++) {
-    SpaType this_id = spa_type_map_get_id (this->type.map, types[i]);
+    uint32_t this_id = spa_type_map_get_id (this->type.map, types[i]);
     if (!pw_map_insert_at (&this->types, first_id, PW_MAP_ID_TO_PTR (this_id)))
       pw_log_error ("can't add type for client");
   }
@@ -383,8 +383,8 @@ static const struct pw_registry_events registry_events = {
 typedef bool (*demarshal_func_t) (void *object, void *data, size_t size);
 
 static void
-do_flush_event (SpaLoopUtils *utils,
-                SpaSource    *source,
+do_flush_event (struct spa_loop_utils *utils,
+                struct spa_source    *source,
                 void         *data)
 {
   struct context *impl = data;
@@ -403,10 +403,10 @@ on_need_flush (struct pw_listener   *listener,
 }
 
 static void
-on_context_data (SpaLoopUtils *utils,
-                 SpaSource    *source,
+on_context_data (struct spa_loop_utils *utils,
+                 struct spa_source    *source,
                  int           fd,
-                 SpaIO         mask,
+                 enum spa_io         mask,
                  void         *data)
 {
   struct context *impl = data;
@@ -742,7 +742,7 @@ pw_context_get_core_info (struct pw_context   *context,
   cb (context, SPA_RESULT_ENUM_END, NULL, user_data);
 }
 
-typedef void (*list_func_t) (struct pw_context *, SpaResult, void *, void *);
+typedef void (*list_func_t) (struct pw_context *, int, void *, void *);
 
 static void
 do_list (struct pw_context            *context,

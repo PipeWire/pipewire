@@ -25,9 +25,9 @@ extern "C" {
 #endif
 
 /**
- * SpaVideoMultiviewMode:
+ * spa_video_multiview_mode:
  * @SPA_VIDEO_MULTIVIEW_MODE_NONE: A special value indicating
- * no multiview information. Used in SpaVideoInfo and other places to
+ * no multiview information. Used in spa_video_info and other places to
  * indicate that no specific multiview handling has been requested or
  * provided. This value is never carried on caps.
  * @SPA_VIDEO_MULTIVIEW_MODE_MONO: All frames are monoscopic.
@@ -53,18 +53,17 @@ extern "C" {
  * @SPA_VIDEO_MULTIVIEW_MODE_MULTIVIEW_FRAME_BY_FRAME: Multiple
  * independent views are provided in separate frames in sequence.
  * This method only applies to raw video buffers at the moment.
- * Specific view identification is via the #SpaVideoMultiviewMeta
- * and #SpaVideoMeta(s) on raw video buffers.
+ * Specific view identification is via the #spa_video_multiview_meta
+ * on raw video buffers.
  * @SPA_VIDEO_MULTIVIEW_MODE_SEPARATED: Multiple views are
- * provided as separate #SpaMemory framebuffers attached to each
- * #SpaBuffer, described by the #SpaVideoMultiviewMeta
- * and #SpaVideoMeta(s)
+ * provided as separate #spa_data framebuffers attached to each
+ * #spa_buffer, described by the #spa_video_multiview_meta
  *
  * All possible stereoscopic 3D and multiview representations.
- * In conjunction with #SpaVideoMultiviewFlags, describes how
+ * In conjunction with #soa_video_multiview_flags, describes how
  * multiview content is being transported in the stream.
  */
-typedef enum {
+enum spa_video_multiview_mode {
   SPA_VIDEO_MULTIVIEW_MODE_NONE = -1,
   SPA_VIDEO_MULTIVIEW_MODE_MONO = 0,
   /* Single view modes */
@@ -84,10 +83,10 @@ typedef enum {
   SPA_VIDEO_MULTIVIEW_MODE_MULTIVIEW_FRAME_BY_FRAME,
   SPA_VIDEO_MULTIVIEW_MODE_SEPARATED
   /* future expansion for annotated modes */
-} SpaVideoMultiviewMode;
+};
 
 /**
- * SpaVideoMultiviewFlags:
+ * spa_video_multiview_flags:
  * @SPA_VIDEO_MULTIVIEW_FLAGS_NONE: No flags
  * @SPA_VIDEO_MULTIVIEW_FLAGS_RIGHT_VIEW_FIRST: For stereo streams, the
  *     normal arrangement of left and right views is reversed.
@@ -113,11 +112,11 @@ typedef enum {
  *     absence or presence of the @SPA_VIDEO_BUFFER_FLAG_MULTIPLE_VIEW
  *     buffer flag.
  *
- * SpaVideoMultiviewFlags are used to indicate extra properties of a
+ * spa_video_multiview_flags are used to indicate extra properties of a
  * stereo/multiview stream beyond the frame layout and buffer mapping
- * that is conveyed in the #SpaMultiviewMode.
+ * that is conveyed in the #spa_video_multiview_mode.
  */
-typedef enum {
+enum spa_video_multiview_flags {
   SPA_VIDEO_MULTIVIEW_FLAGS_NONE             = 0,
   SPA_VIDEO_MULTIVIEW_FLAGS_RIGHT_VIEW_FIRST = (1 << 0),
   SPA_VIDEO_MULTIVIEW_FLAGS_LEFT_FLIPPED     = (1 << 1),
@@ -126,7 +125,7 @@ typedef enum {
   SPA_VIDEO_MULTIVIEW_FLAGS_RIGHT_FLOPPED    = (1 << 4),
   SPA_VIDEO_MULTIVIEW_FLAGS_HALF_ASPECT      = (1 << 14),
   SPA_VIDEO_MULTIVIEW_FLAGS_MIXED_MONO       = (1 << 15)
-} SpaVideoMultiviewFlags;
+};
 
 
 #ifdef __cplusplus

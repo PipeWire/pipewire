@@ -27,16 +27,16 @@
 
 #include <pipewire/client/map.h>
 
-typedef struct {
-  SpaTypeMap      map;
+struct impl {
+  struct spa_type_map      map;
   struct pw_map   types;
   struct pw_array strings;
-} TypeMap;
+};
 
 static uint32_t
-type_map_get_id (SpaTypeMap *map, const char *type)
+type_map_get_id (struct spa_type_map *map, const char *type)
 {
-  TypeMap *this = SPA_CONTAINER_OF (map, TypeMap, map);
+  struct impl *this = SPA_CONTAINER_OF (map, struct impl, map);
   uint32_t i = 0, len;
   void *p;
   off_t o;
@@ -57,9 +57,9 @@ type_map_get_id (SpaTypeMap *map, const char *type)
 }
 
 static const char *
-type_map_get_type (const SpaTypeMap *map, uint32_t id)
+type_map_get_type (const struct spa_type_map *map, uint32_t id)
 {
-  TypeMap *this = SPA_CONTAINER_OF (map, TypeMap, map);
+  struct impl *this = SPA_CONTAINER_OF (map, struct impl, map);
 
   if (id == SPA_ID_INVALID)
     return NULL;
@@ -72,14 +72,14 @@ type_map_get_type (const SpaTypeMap *map, uint32_t id)
 }
 
 static size_t
-type_map_get_size (const SpaTypeMap *map)
+type_map_get_size (const struct spa_type_map *map)
 {
-  TypeMap *this = SPA_CONTAINER_OF (map, TypeMap, map);
+  struct impl *this = SPA_CONTAINER_OF (map, struct impl, map);
   return pw_map_get_size (&this->types);
 }
 
-static TypeMap default_type_map = {
-  { sizeof (SpaTypeMap),
+static struct impl default_type_map = {
+  { sizeof (struct spa_type_map),
     NULL,
     type_map_get_id,
     type_map_get_type,
@@ -89,7 +89,7 @@ static TypeMap default_type_map = {
   PW_ARRAY_INIT (4096)
 };
 
-SpaTypeMap *
+struct spa_type_map *
 pw_type_map_get_default (void)
 {
   spa_type_map_set_default (&default_type_map.map);

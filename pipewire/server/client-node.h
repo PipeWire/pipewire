@@ -50,7 +50,7 @@ struct pw_client_node * pw_client_node_new            (struct pw_client      *cl
                                                        struct pw_properties  *properties);
 void                    pw_client_node_destroy        (struct pw_client_node *node);
 
-SpaResult               pw_client_node_get_fds        (struct pw_client_node *node,
+int               pw_client_node_get_fds        (struct pw_client_node *node,
                                                        int                   *readfd,
                                                        int                   *writefd);
 

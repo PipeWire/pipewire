@@ -39,7 +39,7 @@ extern "C" {
  */
 struct pw_link {
   struct pw_core   *core;
-  SpaList           link;
+  struct spa_list   link;
   struct pw_global *global;
 
   struct pw_properties *properties;
@@ -56,22 +56,22 @@ struct pw_link {
   PW_SIGNAL (free_signal,    (struct pw_listener *,
                               struct pw_link *));
 
-  SpaList resource_list;
+  struct spa_list resource_list;
 
-  struct pw_port *output;
-  SpaList         output_link;
-  struct pw_port *input;
-  SpaList         input_link;
+  struct pw_port  *output;
+  struct spa_list  output_link;
+  struct pw_port  *input;
+  struct spa_list  input_link;
   PW_SIGNAL (port_unlinked, (struct pw_listener *listener,
                              struct pw_link     *link,
                              struct pw_port     *port));
 
   struct {
-    uint32_t        in_ready;
-    struct pw_port *input;
-    struct pw_port *output;
-    SpaList         input_link;
-    SpaList         output_link;
+    uint32_t         in_ready;
+    struct pw_port  *input;
+    struct pw_port  *output;
+    struct spa_list  input_link;
+    struct spa_list  output_link;
   } rt;
 };
 
@@ -79,7 +79,7 @@ struct pw_link {
 struct pw_link * pw_link_new          (struct pw_core       *core,
                                        struct pw_port       *output,
                                        struct pw_port       *input,
-                                       SpaFormat           **format_filter,
+                                       struct spa_format           **format_filter,
                                        struct pw_properties *properties);
 void             pw_link_destroy      (struct pw_link       *link);
 

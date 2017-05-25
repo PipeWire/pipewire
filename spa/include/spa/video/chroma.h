@@ -25,7 +25,7 @@ extern "C" {
 #endif
 
 /**
- * SpaVideoChromaSite:
+ * spa_video_chroma_site:
  * @SPA_VIDEO_CHROMA_SITE_UNKNOWN: unknown cositing
  * @SPA_VIDEO_CHROMA_SITE_NONE: no cositing
  * @SPA_VIDEO_CHROMA_SITE_H_COSITED: chroma is horizontally cosited
@@ -38,7 +38,7 @@ extern "C" {
  *
  * Various Chroma sitings.
  */
-typedef enum {
+enum spa_video_chroma_site {
   SPA_VIDEO_CHROMA_SITE_UNKNOWN   =  0,
   SPA_VIDEO_CHROMA_SITE_NONE      = (1 << 0),
   SPA_VIDEO_CHROMA_SITE_H_COSITED = (1 << 1),
@@ -49,7 +49,7 @@ typedef enum {
   SPA_VIDEO_CHROMA_SITE_JPEG      = (SPA_VIDEO_CHROMA_SITE_NONE),
   SPA_VIDEO_CHROMA_SITE_MPEG2     = (SPA_VIDEO_CHROMA_SITE_H_COSITED),
   SPA_VIDEO_CHROMA_SITE_DV        = (SPA_VIDEO_CHROMA_SITE_COSITED | SPA_VIDEO_CHROMA_SITE_ALT_LINE),
-} SpaVideoChromaSite;
+};
 
 #ifdef __cplusplus
 }  /* extern "C" */

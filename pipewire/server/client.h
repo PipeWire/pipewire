@@ -40,7 +40,7 @@ extern "C" {
  */
 struct pw_client {
   struct pw_core   *core;
-  SpaList           link;
+  struct spa_list   link;
   struct pw_global *global;
 
   struct pw_properties *properties;
@@ -59,7 +59,7 @@ struct pw_client {
   uint32_t      n_types;
   struct pw_map types;
 
-  SpaList resource_list;
+  struct spa_list resource_list;
   PW_SIGNAL (resource_added,   (struct pw_listener *listener,
                                 struct pw_client   *client,
                                 struct pw_resource *resource));
@@ -77,7 +77,7 @@ struct pw_client * pw_client_new                  (struct pw_core       *core,
 void               pw_client_destroy              (struct pw_client     *client);
 
 void               pw_client_update_properties    (struct pw_client     *client,
-                                                   const SpaDict        *dict);
+                                                   const struct spa_dict *dict);
 
 #ifdef __cplusplus
 }

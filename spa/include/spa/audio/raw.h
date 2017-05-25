@@ -24,8 +24,6 @@
 extern "C" {
 #endif
 
-typedef struct _SpaAudioInfoRaw SpaAudioInfoRaw;
-
 #include <endian.h>
 
 #define SPA_TYPE__AudioFormat                SPA_TYPE_ENUM_BASE "AudioFormat"
@@ -65,32 +63,32 @@ typedef struct _SpaAudioInfoRaw SpaAudioInfoRaw;
 #define SPA_TYPE_AUDIO_FORMAT__F64BE         SPA_TYPE_AUDIO_FORMAT_BASE "F64BE"
 
 /**
- * SpaAudioFlags:
+ * spa_audio_flags:
  * @SPA_AUDIO_FLAG_NONE: no valid flag
  * @SPA_AUDIO_FLAG_UNPOSITIONED: the position array explicitly
  *     contains unpositioned channels.
  *
  * Extra audio flags
  */
-typedef enum {
+enum spa_audio_flags {
   SPA_AUDIO_FLAG_NONE              = 0,
   SPA_AUDIO_FLAG_UNPOSITIONED      = (1 << 0)
-} SpaAudioFlags;
+};
 
 /**
- * SpaAudioLayout:
+ * spa_audio_layout:
  * @SPA_AUDIO_LAYOUT_INTERLEAVED: interleaved audio
  * @SPA_AUDIO_LAYOUT_NON_INTERLEAVED: non-interleaved audio
  *
  * Layout of the audio samples for the different channels.
  */
-typedef enum {
+enum spa_audio_layout {
   SPA_AUDIO_LAYOUT_INTERLEAVED = 0,
   SPA_AUDIO_LAYOUT_NON_INTERLEAVED
-} SpaAudioLayout;
+};
 
 /**
- * SpaAudioInfoRaw:
+ * spa_audio_info_raw:
  * @format: the format
  * @flags: extra flags
  * @layout: the sample layout
@@ -98,13 +96,13 @@ typedef enum {
  * @channels: the number of channels
  * @channel_mask: the channel mask
  */
-struct _SpaAudioInfoRaw {
-  uint32_t       format;
-  SpaAudioFlags  flags;
-  SpaAudioLayout layout;
-  uint32_t       rate;
-  uint32_t       channels;
-  uint32_t       channel_mask;
+struct spa_audio_info_raw {
+  uint32_t              format;
+  enum spa_audio_flags  flags;
+  enum spa_audio_layout layout;
+  uint32_t              rate;
+  uint32_t              channels;
+  uint32_t              channel_mask;
 };
 
 #ifdef __cplusplus

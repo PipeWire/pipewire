@@ -28,38 +28,34 @@
 #include <spa/video/format-utils.h>
 #include <lib/props.h>
 
-typedef struct _SpaFFMpegDec SpaFFMpegDec;
-
 #define IS_VALID_PORT(this,d,id) ((id) == 0)
 #define MAX_BUFFERS    32
 
-typedef struct _FFMpegBuffer FFMpegBuffer;
-
-struct _FFMpegBuffer {
-  SpaBuffer *outbuf;
+struct buffer {
+  struct spa_buffer *outbuf;
   bool outstanding;
-  FFMpegBuffer *next;
+  struct buffer *next;
 };
 
-typedef struct {
+struct port {
   bool have_format;
-  SpaVideoInfo current_format;
+  struct spa_video_info current_format;
   bool have_buffers;
-  FFMpegBuffer buffers[MAX_BUFFERS];
-  SpaPortInfo info;
-  SpaPortIO *io;
-} SpaFFMpegPort;
+  struct buffer buffers[MAX_BUFFERS];
+  struct spa_port_info info;
+  struct spa_port_io *io;
+};
 
-typedef struct {
+struct type {
   uint32_t node;
-  SpaTypeMediaType media_type;
-  SpaTypeMediaSubtype media_subtype;
-  SpaTypeFormatVideo format_video;
-  SpaTypeCommandNode command_node;
-} Type;
+  struct spa_type_media_type media_type;
+  struct spa_type_media_subtype media_subtype;
+  struct spa_type_format_video format_video;
+  struct spa_type_command_node command_node;
+};
 
 static inline void
-init_type (Type *type, SpaTypeMap *map)
+init_type (struct type *type, struct spa_type_map *map)
 {
   type->node = spa_type_map_get_id (map, SPA_TYPE__Node);
   spa_type_media_type_map (map, &type->media_type);
@@ -68,51 +64,47 @@ init_type (Type *type, SpaTypeMap *map)
   spa_type_command_node_map (map, &type->command_node);
 }
 
-struct _SpaFFMpegDec {
-  SpaHandle handle;
-  SpaNode   node;
+struct impl {
+  struct spa_handle handle;
+  struct spa_node   node;
 
-  Type type;
-  SpaTypeMap *map;
-  SpaLog *log;
+  struct type type;
+  struct spa_type_map *map;
+  struct spa_log *log;
 
-  SpaNodeCallbacks callbacks;
+  struct spa_node_callbacks callbacks;
   void *user_data;
 
-  SpaFFMpegPort in_ports[1];
-  SpaFFMpegPort out_ports[1];
+  struct port in_ports[1];
+  struct port out_ports[1];
 
   bool started;
 };
 
-enum {
-  PROP_ID_LAST,
-};
-
-static SpaResult
-spa_ffmpeg_dec_node_get_props (SpaNode       *node,
-                               SpaProps     **props)
+static int
+spa_ffmpeg_dec_node_get_props (struct spa_node       *node,
+                               struct spa_props     **props)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_ffmpeg_dec_node_set_props (SpaNode         *node,
-                               const SpaProps  *props)
+static int
+spa_ffmpeg_dec_node_set_props (struct spa_node         *node,
+                               const struct spa_props  *props)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_ffmpeg_dec_node_send_command (SpaNode    *node,
-                                  SpaCommand *command)
+static int
+spa_ffmpeg_dec_node_send_command (struct spa_node    *node,
+                                  struct spa_command *command)
 {
-  SpaFFMpegDec *this;
+  struct impl *this;
 
   if (node == NULL || command == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = SPA_CONTAINER_OF (node, SpaFFMpegDec, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   if (SPA_COMMAND_TYPE (command) == this->type.command_node.Start) {
     this->started = true;
@@ -126,18 +118,18 @@ spa_ffmpeg_dec_node_send_command (SpaNode    *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_ffmpeg_dec_node_set_callbacks (SpaNode                *node,
-                                   const SpaNodeCallbacks *callbacks,
+static int
+spa_ffmpeg_dec_node_set_callbacks (struct spa_node                *node,
+                                   const struct spa_node_callbacks *callbacks,
                                    size_t                  callbacks_size,
                                    void                   *user_data)
 {
-  SpaFFMpegDec *this;
+  struct impl *this;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = SPA_CONTAINER_OF (node, SpaFFMpegDec, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   this->callbacks = *callbacks;
   this->user_data = user_data;
@@ -145,8 +137,8 @@ spa_ffmpeg_dec_node_set_callbacks (SpaNode                *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_ffmpeg_dec_node_get_n_ports (SpaNode       *node,
+static int
+spa_ffmpeg_dec_node_get_n_ports (struct spa_node       *node,
                                  uint32_t      *n_input_ports,
                                  uint32_t      *max_input_ports,
                                  uint32_t      *n_output_ports,
@@ -167,8 +159,8 @@ spa_ffmpeg_dec_node_get_n_ports (SpaNode       *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_ffmpeg_dec_node_get_port_ids (SpaNode       *node,
+static int
+spa_ffmpeg_dec_node_get_port_ids (struct spa_node       *node,
                                   uint32_t       n_input_ports,
                                   uint32_t      *input_ids,
                                   uint32_t       n_output_ports,
@@ -186,36 +178,36 @@ spa_ffmpeg_dec_node_get_port_ids (SpaNode       *node,
 }
 
 
-static SpaResult
-spa_ffmpeg_dec_node_add_port (SpaNode        *node,
-                              SpaDirection    direction,
+static int
+spa_ffmpeg_dec_node_add_port (struct spa_node        *node,
+                              enum spa_direction    direction,
                               uint32_t        port_id)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_ffmpeg_dec_node_remove_port (SpaNode        *node,
-                                 SpaDirection    direction,
+static int
+spa_ffmpeg_dec_node_remove_port (struct spa_node        *node,
+                                 enum spa_direction    direction,
                                  uint32_t        port_id)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_ffmpeg_dec_node_port_enum_formats (SpaNode         *node,
-                                       SpaDirection     direction,
+static int
+spa_ffmpeg_dec_node_port_enum_formats (struct spa_node         *node,
+                                       enum spa_direction     direction,
                                        uint32_t         port_id,
-                                       SpaFormat      **format,
-                                       const SpaFormat *filter,
+                                       struct spa_format      **format,
+                                       const struct spa_format *filter,
                                        uint32_t         index)
 {
-  //SpaFFMpegDec *this;
+  //struct impl *this;
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  //this = SPA_CONTAINER_OF (node, SpaFFMpegDec, node);
+  //this = SPA_CONTAINER_OF (node, struct impl, node);
 
   if (!IS_VALID_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -231,20 +223,20 @@ spa_ffmpeg_dec_node_port_enum_formats (SpaNode         *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_ffmpeg_dec_node_port_set_format (SpaNode         *node,
-                                     SpaDirection     direction,
+static int
+spa_ffmpeg_dec_node_port_set_format (struct spa_node         *node,
+                                     enum spa_direction     direction,
                                      uint32_t         port_id,
                                      uint32_t         flags,
-                                     const SpaFormat *format)
+                                     const struct spa_format *format)
 {
-  SpaFFMpegDec *this;
-  SpaFFMpegPort *port;
+  struct impl *this;
+  struct port *port;
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = SPA_CONTAINER_OF (node, SpaFFMpegDec, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   if (!IS_VALID_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -255,8 +247,8 @@ spa_ffmpeg_dec_node_port_set_format (SpaNode         *node,
     port->have_format = false;
     return SPA_RESULT_OK;
   } else {
-    SpaVideoInfo info = { SPA_FORMAT_MEDIA_TYPE (format),
-                          SPA_FORMAT_MEDIA_SUBTYPE (format), };
+    struct spa_video_info info = { SPA_FORMAT_MEDIA_TYPE (format),
+                                   SPA_FORMAT_MEDIA_SUBTYPE (format), };
 
     if (info.media_type != this->type.media_type.video &&
         info.media_subtype != this->type.media_subtype.raw)
@@ -273,19 +265,19 @@ spa_ffmpeg_dec_node_port_set_format (SpaNode         *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_ffmpeg_dec_node_port_get_format (SpaNode          *node,
-                                     SpaDirection      direction,
+static int
+spa_ffmpeg_dec_node_port_get_format (struct spa_node          *node,
+                                     enum spa_direction      direction,
                                      uint32_t          port_id,
-                                     const SpaFormat **format)
+                                     const struct spa_format **format)
 {
-  SpaFFMpegDec *this;
-  SpaFFMpegPort *port;
+  struct impl *this;
+  struct port *port;
 
   if (node == NULL || format == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = SPA_CONTAINER_OF (node, SpaFFMpegDec, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   if (!IS_VALID_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -300,19 +292,19 @@ spa_ffmpeg_dec_node_port_get_format (SpaNode          *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_ffmpeg_dec_node_port_get_info (SpaNode            *node,
-                                   SpaDirection        direction,
+static int
+spa_ffmpeg_dec_node_port_get_info (struct spa_node            *node,
+                                   enum spa_direction        direction,
                                    uint32_t            port_id,
-                                   const SpaPortInfo **info)
+                                   const struct spa_port_info **info)
 {
-  SpaFFMpegDec *this;
-  SpaFFMpegPort *port;
+  struct impl *this;
+  struct port *port;
 
   if (node == NULL || info == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = SPA_CONTAINER_OF (node, SpaFFMpegDec, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   if (!IS_VALID_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -323,31 +315,31 @@ spa_ffmpeg_dec_node_port_get_info (SpaNode            *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_ffmpeg_dec_node_port_enum_params (SpaNode        *node,
-                                      SpaDirection    direction,
+static int
+spa_ffmpeg_dec_node_port_enum_params (struct spa_node        *node,
+                                      enum spa_direction    direction,
                                       uint32_t        port_id,
                                       uint32_t        index,
-                                      SpaParam      **param)
+                                      struct spa_param      **param)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_ffmpeg_dec_node_port_set_param (SpaNode         *node,
-                                    SpaDirection     direction,
+static int
+spa_ffmpeg_dec_node_port_set_param (struct spa_node         *node,
+                                    enum spa_direction     direction,
                                     uint32_t         port_id,
-                                    const SpaParam  *param)
+                                    const struct spa_param  *param)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_ffmpeg_dec_node_port_use_buffers (SpaNode         *node,
-                                      SpaDirection     direction,
-                                      uint32_t         port_id,
-                                      SpaBuffer      **buffers,
-                                      uint32_t         n_buffers)
+static int
+spa_ffmpeg_dec_node_port_use_buffers (struct spa_node            *node,
+                                      enum spa_direction        direction,
+                                      uint32_t            port_id,
+                                      struct spa_buffer **buffers,
+                                      uint32_t            n_buffers)
 {
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
@@ -358,31 +350,31 @@ spa_ffmpeg_dec_node_port_use_buffers (SpaNode         *node,
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_ffmpeg_dec_node_port_alloc_buffers (SpaNode         *node,
-                                        SpaDirection     direction,
-                                        uint32_t         port_id,
-                                        SpaParam       **params,
-                                        uint32_t         n_params,
-                                        SpaBuffer      **buffers,
-                                        uint32_t        *n_buffers)
+static int
+spa_ffmpeg_dec_node_port_alloc_buffers (struct spa_node            *node,
+                                        enum spa_direction        direction,
+                                        uint32_t            port_id,
+                                        struct spa_param          **params,
+                                        uint32_t            n_params,
+                                        struct spa_buffer **buffers,
+                                        uint32_t           *n_buffers)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_ffmpeg_dec_node_port_set_io (SpaNode      *node,
-                                 SpaDirection  direction,
+static int
+spa_ffmpeg_dec_node_port_set_io (struct spa_node      *node,
+                                 enum spa_direction  direction,
                                  uint32_t      port_id,
-                                 SpaPortIO    *io)
+                                 struct spa_port_io    *io)
 {
-  SpaFFMpegDec *this;
-  SpaFFMpegPort *port;
+  struct impl *this;
+  struct port *port;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = SPA_CONTAINER_OF (node, SpaFFMpegDec, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   if (!IS_VALID_PORT (this, direction, port_id))
     return SPA_RESULT_INVALID_PORT;
@@ -393,23 +385,23 @@ spa_ffmpeg_dec_node_port_set_io (SpaNode      *node,
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_ffmpeg_dec_node_process_input (SpaNode *node)
+static int
+spa_ffmpeg_dec_node_process_input (struct spa_node *node)
 {
   return SPA_RESULT_INVALID_PORT;
 }
 
-static SpaResult
-spa_ffmpeg_dec_node_process_output (SpaNode *node)
+static int
+spa_ffmpeg_dec_node_process_output (struct spa_node *node)
 {
-  SpaFFMpegDec *this;
-  SpaFFMpegPort *port;
-  SpaPortIO *output;
+  struct impl *this;
+  struct port *port;
+  struct spa_port_io *output;
 
   if (node == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = SPA_CONTAINER_OF (node, SpaFFMpegDec, node);
+  this = SPA_CONTAINER_OF (node, struct impl, node);
 
   port = &this->out_ports[0];
 
@@ -425,8 +417,8 @@ spa_ffmpeg_dec_node_process_output (SpaNode *node)
   return SPA_RESULT_OK;
 }
 
-static SpaResult
-spa_ffmpeg_dec_node_port_reuse_buffer (SpaNode         *node,
+static int
+spa_ffmpeg_dec_node_port_reuse_buffer (struct spa_node         *node,
                                        uint32_t         port_id,
                                        uint32_t         buffer_id)
 {
@@ -439,18 +431,18 @@ spa_ffmpeg_dec_node_port_reuse_buffer (SpaNode         *node,
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static SpaResult
-spa_ffmpeg_dec_node_port_send_command (SpaNode        *node,
-                                       SpaDirection    direction,
-                                       uint32_t        port_id,
-                                       SpaCommand     *command)
+static int
+spa_ffmpeg_dec_node_port_send_command (struct spa_node            *node,
+                                       enum spa_direction        direction,
+                                       uint32_t            port_id,
+                                       struct spa_command *command)
 {
   return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
 
-static const SpaNode ffmpeg_dec_node = {
-  sizeof (SpaNode),
+static const struct spa_node ffmpeg_dec_node = {
+  sizeof (struct spa_node),
   NULL,
   spa_ffmpeg_dec_node_get_props,
   spa_ffmpeg_dec_node_set_props,
@@ -475,17 +467,17 @@ static const SpaNode ffmpeg_dec_node = {
   spa_ffmpeg_dec_node_process_output,
 };
 
-static SpaResult
-spa_ffmpeg_dec_get_interface (SpaHandle         *handle,
+static int
+spa_ffmpeg_dec_get_interface (struct spa_handle         *handle,
                               uint32_t           interface_id,
                               void             **interface)
 {
-  SpaFFMpegDec *this;
+  struct impl *this;
 
   if (handle == NULL || interface == NULL)
     return SPA_RESULT_INVALID_ARGUMENTS;
 
-  this = (SpaFFMpegDec *) handle;
+  this = (struct impl *) handle;
 
   if (interface_id == this->type.node)
     *interface = &this->node;
@@ -495,18 +487,18 @@ spa_ffmpeg_dec_get_interface (SpaHandle         *handle,
   return SPA_RESULT_OK;
 }
 
-SpaResult
-spa_ffmpeg_dec_init (SpaHandle         *handle,
-                     const SpaDict     *info,
-                     const SpaSupport  *support,
-                     uint32_t           n_support)
+int
+spa_ffmpeg_dec_init (struct spa_handle             *handle,
+                     const struct spa_dict *info,
+                     const struct spa_support      *support,
+                     uint32_t               n_support)
 {
-  SpaFFMpegDec *this;
+  struct impl *this;
   uint32_t i;
 
   handle->get_interface = spa_ffmpeg_dec_get_interface;
 
-  this = (SpaFFMpegDec *) handle;
+  this = (struct impl *) handle;
 
   for (i = 0; i < n_support; i++) {
     if (strcmp (support[i].type, SPA_TYPE__TypeMap) == 0)

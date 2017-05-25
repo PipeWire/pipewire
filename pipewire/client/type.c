@@ -76,7 +76,7 @@ pw_pod_remap_data (uint32_t type, void * body, uint32_t size, struct pw_map *typ
 
     case SPA_POD_TYPE_PROP:
     {
-      SpaPODPropBody *b = body;
+      struct spa_pod_prop_body *b = body;
 
       if ((t = pw_map_lookup (types, b->key)) == NULL)
         return false;
@@ -95,8 +95,8 @@ pw_pod_remap_data (uint32_t type, void * body, uint32_t size, struct pw_map *typ
     }
     case SPA_POD_TYPE_OBJECT:
     {
-      SpaPODObjectBody *b = body;
-      SpaPOD *p;
+      struct spa_pod_object_body *b = body;
+      struct spa_pod *p;
 
       if ((t = pw_map_lookup (types, b->type)) == NULL)
         return false;
@@ -109,7 +109,7 @@ pw_pod_remap_data (uint32_t type, void * body, uint32_t size, struct pw_map *typ
     }
     case SPA_POD_TYPE_STRUCT:
     {
-      SpaPOD *b = body, *p;
+      struct spa_pod *b = body, *p;
 
       SPA_POD_FOREACH (b, size, p)
         if (!pw_pod_remap_data (p->type, SPA_POD_BODY (p), p->size, types))

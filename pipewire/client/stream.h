@@ -65,7 +65,7 @@ struct pw_time{
  */
 struct pw_stream {
   struct pw_context *context;
-  SpaList            link;
+  struct spa_list    link;
 
   char                 *name;
   struct pw_properties *properties;
@@ -80,7 +80,7 @@ struct pw_stream {
 
   PW_SIGNAL (format_changed, (struct pw_listener *listener,
                               struct pw_stream   *stream,
-                              SpaFormat          *format));
+                              struct spa_format          *format));
 
   PW_SIGNAL (add_buffer,    (struct pw_listener *listener,
                              struct pw_stream   *stream,
@@ -106,12 +106,12 @@ bool               pw_stream_connect           (struct pw_stream      *stream,
                                                 const char            *port_path,
                                                 enum pw_stream_flags   flags,
                                                 uint32_t               n_possible_formats,
-                                                SpaFormat            **possible_formats);
+                                                struct spa_format            **possible_formats);
 bool               pw_stream_disconnect        (struct pw_stream      *stream);
 
 bool               pw_stream_finish_format     (struct pw_stream     *stream,
-                                                SpaResult             res,
-                                                SpaParam            **params,
+                                                int             res,
+                                                struct spa_param            **params,
                                                 uint32_t              n_params);
 
 bool               pw_stream_get_time          (struct pw_stream     *stream,
@@ -120,7 +120,7 @@ bool               pw_stream_get_time          (struct pw_stream     *stream,
 uint32_t           pw_stream_get_empty_buffer  (struct pw_stream     *stream);
 bool               pw_stream_recycle_buffer    (struct pw_stream     *stream,
                                                 uint32_t              id);
-SpaBuffer *        pw_stream_peek_buffer       (struct pw_stream     *stream,
+struct spa_buffer *pw_stream_peek_buffer       (struct pw_stream     *stream,
                                                 uint32_t              id);
 bool               pw_stream_send_buffer       (struct pw_stream     *stream,
                                                 uint32_t              id);

@@ -38,16 +38,16 @@ extern "C" {
 #define SPA_TYPE_EVENT_NODE__RequestRefresh        SPA_TYPE_EVENT_NODE_BASE "RequestRefresh"
 #define SPA_TYPE_EVENT_NODE__RequestClockUpdate    SPA_TYPE_EVENT_NODE_BASE "RequestClockUpdate"
 
-typedef struct {
+struct spa_type_event_node {
   uint32_t AsyncComplete;
   uint32_t Error;
   uint32_t Buffering;
   uint32_t RequestRefresh;
   uint32_t RequestClockUpdate;
-} SpaTypeEventNode;
+};
 
 static inline void
-spa_type_event_node_map (SpaTypeMap *map, SpaTypeEventNode *type)
+spa_type_event_node_map (struct spa_type_map *map, struct spa_type_event_node *type)
 {
   if (type->AsyncComplete == 0) {
     type->AsyncComplete        = spa_type_map_get_id (map, SPA_TYPE_EVENT_NODE__AsyncComplete);
@@ -58,43 +58,43 @@ spa_type_event_node_map (SpaTypeMap *map, SpaTypeEventNode *type)
   }
 }
 
-typedef struct {
-  SpaPODObjectBody body;
-  SpaPODInt        seq         SPA_ALIGNED (8);
-  SpaPODInt        res         SPA_ALIGNED (8);
-} SpaEventNodeAsyncCompleteBody;
+struct spa_event_node_async_complete_body {
+  struct spa_pod_object_body body;
+  struct spa_pod_int         seq         SPA_ALIGNED (8);
+  struct spa_pod_int         res         SPA_ALIGNED (8);
+};
 
-typedef struct {
-  SpaPOD                        pod;
-  SpaEventNodeAsyncCompleteBody body;
-} SpaEventNodeAsyncComplete;
+struct spa_event_node_async_complete {
+  struct spa_pod                            pod;
+  struct spa_event_node_async_complete_body body;
+};
 
-#define SPA_EVENT_NODE_ASYNC_COMPLETE_INIT(type,seq,res)                \
-  SPA_EVENT_INIT_COMPLEX (SpaEventNodeAsyncComplete,                    \
-                          sizeof (SpaEventNodeAsyncCompleteBody), type, \
-      SPA_POD_INT_INIT (seq),                                           \
+#define SPA_EVENT_NODE_ASYNC_COMPLETE_INIT(type,seq,res)                                \
+  SPA_EVENT_INIT_COMPLEX (struct spa_event_node_async_complete,                         \
+                          sizeof (struct spa_event_node_async_complete_body), type,     \
+      SPA_POD_INT_INIT (seq),                                                           \
       SPA_POD_INT_INIT (res))
 
-typedef struct {
-  SpaPODObjectBody body;
+struct spa_event_node_request_clock_update_body {
+  struct spa_pod_object_body body;
 #define SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_TIME        (1 << 0)
 #define SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_SCALE       (1 << 1)
 #define SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_STATE       (1 << 2)
-  SpaPODInt        update_mask  SPA_ALIGNED (8);
-  SpaPODLong       timestamp    SPA_ALIGNED (8);
-  SpaPODLong       offset       SPA_ALIGNED (8);
-} SpaEventNodeRequestClockUpdateBody;
+  struct spa_pod_int         update_mask  SPA_ALIGNED (8);
+  struct spa_pod_long        timestamp    SPA_ALIGNED (8);
+  struct spa_pod_long        offset       SPA_ALIGNED (8);
+};
 
-typedef struct {
-  SpaPOD                             pod;
-  SpaEventNodeRequestClockUpdateBody body;
-} SpaEventNodeRequestClockUpdate;
+struct spa_event_node_request_clock_update {
+  struct spa_pod                                  pod;
+  struct spa_event_node_request_clock_update_body body;
+};
 
-#define SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_INIT(type,update_mask,timestamp,offset)     \
-  SPA_EVENT_INIT_COMPLEX (SpaEventNodeRequestClockUpdate,                               \
-                          sizeof (SpaEventNodeRequestClockUpdateBody), type,            \
-      SPA_POD_INT_INIT (update_mask),                                                   \
-      SPA_POD_LONG_INIT (timestamp),                                                    \
+#define SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_INIT(type,update_mask,timestamp,offset)             \
+  SPA_EVENT_INIT_COMPLEX (struct spa_event_node_request_clock_update,                           \
+                          sizeof (struct spa_event_node_request_clock_update_body), type,       \
+      SPA_POD_INT_INIT (update_mask),                                                           \
+      SPA_POD_LONG_INIT (timestamp),                                                            \
       SPA_POD_LONG_INIT (offset))
 
 #ifdef __cplusplus

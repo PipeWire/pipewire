@@ -31,29 +31,29 @@
 
 #include "gstpipewireformat.h"
 
-typedef struct {
+struct media_type {
   const char *name;
   uint32_t *media_type;
   uint32_t *media_subtype;
-} MediaType;
+};
 
 static struct {
-  SpaTypeMap *map;
+  struct spa_type_map *map;
   uint32_t format;
-  SpaTypeMediaType media_type;
-  SpaTypeMediaSubtype media_subtype;
-  SpaTypeMediaSubtypeVideo media_subtype_video;
-  SpaTypeMediaSubtypeAudio media_subtype_audio;
-  SpaTypeFormatVideo format_video;
-  SpaTypeFormatAudio format_audio;
-  SpaTypeVideoFormat video_format;
-  SpaTypeAudioFormat audio_format;
+  struct spa_type_media_type media_type;
+  struct spa_type_media_subtype media_subtype;
+  struct spa_type_media_subtype_video media_subtype_video;
+  struct spa_type_media_subtype_audio media_subtype_audio;
+  struct spa_type_format_video format_video;
+  struct spa_type_format_audio format_audio;
+  struct spa_type_video_format video_format;
+  struct spa_type_audio_format audio_format;
 } type = { NULL, };
 
 static void
 ensure_types (void)
 {
-  SpaTypeMap *map = type.map = spa_type_map_get_default ();
+  struct spa_type_map *map = type.map = spa_type_map_get_default ();
 
   type.format = spa_type_map_get_id (map, SPA_TYPE__Format);
   spa_type_media_type_map (map, &type.media_type);
@@ -66,7 +66,7 @@ ensure_types (void)
   spa_type_audio_format_map (map, &type.audio_format);
 }
 
-static const MediaType media_type_map[] = {
+static const struct media_type media_type_map[] = {
   { "video/x-raw", &type.media_type.video, &type.media_subtype.raw },
   { "audio/x-raw", &type.media_type.audio, &type.media_subtype.raw },
   { "image/jpeg", &type.media_type.video, &type.media_subtype_video.mjpg },
@@ -199,13 +199,13 @@ static const uint32_t *audio_format_map[] = {
 };
 
 typedef struct {
-  SpaPODBuilder b;
-  const MediaType *type;
+  struct spa_pod_builder b;
+  const struct media_type *type;
   const GstCapsFeatures *cf;
   const GstStructure *cs;
 } ConvertData;
 
-static const MediaType *
+static const struct media_type *
 find_media_types (const char *name)
 {
   int i;
@@ -266,7 +266,7 @@ get_nth_int (const GValue *val, int idx, int *res)
 }
 
 static gboolean
-get_nth_fraction (const GValue *val, int idx, SpaFraction *f)
+get_nth_fraction (const GValue *val, int idx, struct spa_fraction *f)
 {
   const GValue *v = NULL;
   GType type = G_VALUE_TYPE (val);
@@ -294,7 +294,7 @@ get_nth_fraction (const GValue *val, int idx, SpaFraction *f)
 }
 
 static gboolean
-get_nth_rectangle (const GValue *width, const GValue *height, int idx, SpaRectangle *r)
+get_nth_rectangle (const GValue *width, const GValue *height, int idx, struct spa_rectangle *r)
 {
   const GValue *w = NULL, *h = NULL;
   GType wt = G_VALUE_TYPE (width);
@@ -373,7 +373,7 @@ get_range_type2 (const GValue *v1, const GValue *v2)
 static gboolean
 handle_video_fields (ConvertData *d)
 {
-  SpaPODFrame f;
+  struct spa_pod_frame f;
   const GValue *value, *value2;
   int i;
 
@@ -392,13 +392,13 @@ handle_video_fields (ConvertData *d)
         spa_pod_builder_id (&d->b, *video_format_map[idx]);
     }
     if (i > 1)
-      SPA_POD_BUILDER_DEREF (&d->b, f.ref, SpaPODProp)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
+      SPA_POD_BUILDER_DEREF (&d->b, f.ref, struct spa_pod_prop)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
     spa_pod_builder_pop (&d->b, &f);
   }
   value = gst_structure_get_value (d->cs, "width");
   value2 = gst_structure_get_value (d->cs, "height");
   if (value || value2) {
-    SpaRectangle v;
+    struct spa_rectangle v;
     for (i = 0; get_nth_rectangle (value, value2, i, &v); i++) {
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
@@ -408,13 +408,13 @@ handle_video_fields (ConvertData *d)
       spa_pod_builder_rectangle (&d->b, v.width, v.height);
     }
     if (i > 1)
-      SPA_POD_BUILDER_DEREF (&d->b, f.ref, SpaPODProp)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
+      SPA_POD_BUILDER_DEREF (&d->b, f.ref, struct spa_pod_prop)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
     spa_pod_builder_pop (&d->b, &f);
   }
 
   value = gst_structure_get_value (d->cs, "framerate");
   if (value) {
-    SpaFraction v;
+    struct spa_fraction v;
     for (i = 0; get_nth_fraction (value, i, &v); i++) {
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
@@ -424,13 +424,13 @@ handle_video_fields (ConvertData *d)
       spa_pod_builder_fraction (&d->b, v.num, v.denom);
     }
     if (i > 1)
-      SPA_POD_BUILDER_DEREF (&d->b, f.ref, SpaPODProp)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
+      SPA_POD_BUILDER_DEREF (&d->b, f.ref, struct spa_pod_prop)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
     spa_pod_builder_pop (&d->b, &f);
   }
 
   value = gst_structure_get_value (d->cs, "max-framerate");
   if (value) {
-    SpaFraction v;
+    struct spa_fraction v;
     for (i = 0; get_nth_fraction (value, i, &v); i++) {
       if (i == 0)
         spa_pod_builder_push_prop (&d->b, &f,
@@ -440,7 +440,7 @@ handle_video_fields (ConvertData *d)
       spa_pod_builder_fraction (&d->b, v.num, v.denom);
     }
     if (i > 1)
-      SPA_POD_BUILDER_DEREF (&d->b, f.ref, SpaPODProp)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
+      SPA_POD_BUILDER_DEREF (&d->b, f.ref, struct spa_pod_prop)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
     spa_pod_builder_pop (&d->b, &f);
   }
   return TRUE;
@@ -449,7 +449,7 @@ handle_video_fields (ConvertData *d)
 static gboolean
 handle_audio_fields (ConvertData *d)
 {
-  SpaPODFrame f;
+  struct spa_pod_frame f;
   const GValue *value;
   int i = 0;
 
@@ -468,7 +468,7 @@ handle_audio_fields (ConvertData *d)
         spa_pod_builder_id (&d->b, *audio_format_map[idx]);
     }
     if (i > 1)
-      SPA_POD_BUILDER_DEREF (&d->b, f.ref, SpaPODProp)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
+      SPA_POD_BUILDER_DEREF (&d->b, f.ref, struct spa_pod_prop)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
     spa_pod_builder_pop (&d->b, &f);
   }
 
@@ -476,7 +476,7 @@ handle_audio_fields (ConvertData *d)
   if (value) {
     const char *v;
     for (i = 0; (v = get_nth_string (value, i)); i++) {
-      SpaAudioLayout layout;
+      enum spa_audio_layout layout;
 
       if (!strcmp (v, "interleaved"))
         layout = SPA_AUDIO_LAYOUT_INTERLEAVED;
@@ -493,7 +493,7 @@ handle_audio_fields (ConvertData *d)
       spa_pod_builder_int (&d->b, layout);
     }
     if (i > 1)
-      SPA_POD_BUILDER_DEREF (&d->b, f.ref, SpaPODProp)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
+      SPA_POD_BUILDER_DEREF (&d->b, f.ref, struct spa_pod_prop)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
     spa_pod_builder_pop (&d->b, &f);
   }
   value = gst_structure_get_value (d->cs, "rate");
@@ -508,7 +508,7 @@ handle_audio_fields (ConvertData *d)
       spa_pod_builder_int (&d->b, v);
     }
     if (i > 1)
-      SPA_POD_BUILDER_DEREF (&d->b, f.ref, SpaPODProp)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
+      SPA_POD_BUILDER_DEREF (&d->b, f.ref, struct spa_pod_prop)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
     spa_pod_builder_pop (&d->b, &f);
   }
   value = gst_structure_get_value (d->cs, "channels");
@@ -523,14 +523,14 @@ handle_audio_fields (ConvertData *d)
       spa_pod_builder_int (&d->b, v);
     }
     if (i > 1)
-      SPA_POD_BUILDER_DEREF (&d->b, f.ref, SpaPODProp)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
+      SPA_POD_BUILDER_DEREF (&d->b, f.ref, struct spa_pod_prop)->body.flags |= SPA_POD_PROP_FLAG_UNSET;
     spa_pod_builder_pop (&d->b, &f);
   }
   return TRUE;
 }
 
 static uint32_t
-write_pod (SpaPODBuilder *b, uint32_t ref, const void *data, uint32_t size)
+write_pod (struct spa_pod_builder *b, uint32_t ref, const void *data, uint32_t size)
 {
   if (ref == -1)
     ref = b->offset;
@@ -543,11 +543,11 @@ write_pod (SpaPODBuilder *b, uint32_t ref, const void *data, uint32_t size)
   return ref;
 }
 
-static SpaFormat *
+static struct spa_format *
 convert_1 (GstCapsFeatures *cf, GstStructure *cs)
 {
   ConvertData d;
-  SpaPODFrame f;
+  struct spa_pod_frame f;
 
   spa_zero (d);
   d.cf = cf;
@@ -569,15 +569,15 @@ convert_1 (GstCapsFeatures *cf, GstStructure *cs)
 
   spa_pod_builder_pop (&d.b, &f);
 
-  return SPA_MEMBER (d.b.data, 0, SpaFormat);
+  return SPA_MEMBER (d.b.data, 0, struct spa_format);
 }
 
-SpaFormat *
+struct spa_format *
 gst_caps_to_format (GstCaps *caps, guint index)
 {
   GstCapsFeatures *f;
   GstStructure *s;
-  SpaFormat *res;
+  struct spa_format *res;
 
   g_return_val_if_fail (GST_IS_CAPS (caps), NULL);
   g_return_val_if_fail (gst_caps_is_fixed (caps), NULL);
@@ -597,7 +597,7 @@ foreach_func (GstCapsFeatures *features,
               GstStructure    *structure,
               GPtrArray       *array)
 {
-  SpaFormat *fmt;
+  struct spa_format *fmt;
 
   if ((fmt = convert_1 (features, structure)))
     g_ptr_array_insert (array, -1, fmt);
@@ -620,10 +620,10 @@ gst_caps_to_format_all (GstCaps *caps)
 }
 
 static void
-handle_id_prop (SpaPODProp *prop, const char *key, GstCaps *res)
+handle_id_prop (struct spa_pod_prop *prop, const char *key, GstCaps *res)
 {
   const char * str;
-  uint32_t *id = SPA_POD_CONTENTS (SpaPODProp, prop);
+  uint32_t *id = SPA_POD_CONTENTS (struct spa_pod_prop, prop);
   uint32_t i, n_items = SPA_POD_PROP_N_VALUES (prop);
   uint32_t flags;
 
@@ -660,9 +660,9 @@ handle_id_prop (SpaPODProp *prop, const char *key, GstCaps *res)
 }
 
 static void
-handle_int_prop (SpaPODProp *prop, const char *key, GstCaps *res)
+handle_int_prop (struct spa_pod_prop *prop, const char *key, GstCaps *res)
 {
-  uint32_t *val = SPA_POD_CONTENTS (SpaPODProp, prop);
+  uint32_t *val = SPA_POD_CONTENTS (struct spa_pod_prop, prop);
   uint32_t i, n_items = SPA_POD_PROP_N_VALUES (prop);
   uint32_t flags;
 
@@ -702,9 +702,9 @@ handle_int_prop (SpaPODProp *prop, const char *key, GstCaps *res)
 }
 
 static void
-handle_rect_prop (SpaPODProp *prop, const char *width, const char *height, GstCaps *res)
+handle_rect_prop (struct spa_pod_prop *prop, const char *width, const char *height, GstCaps *res)
 {
-  SpaRectangle *rect = SPA_POD_CONTENTS (SpaPODProp, prop);
+  struct spa_rectangle *rect = SPA_POD_CONTENTS (struct spa_pod_prop, prop);
   uint32_t i, n_items = SPA_POD_PROP_N_VALUES (prop);
   uint32_t flags;
 
@@ -753,9 +753,9 @@ handle_rect_prop (SpaPODProp *prop, const char *width, const char *height, GstCa
 }
 
 static void
-handle_fraction_prop (SpaPODProp *prop, const char *key, GstCaps *res)
+handle_fraction_prop (struct spa_pod_prop *prop, const char *key, GstCaps *res)
 {
-  SpaFraction *fract = SPA_POD_CONTENTS (SpaPODProp, prop);
+  struct spa_fraction *fract = SPA_POD_CONTENTS (struct spa_pod_prop, prop);
   uint32_t i, n_items = SPA_POD_PROP_N_VALUES (prop);
   uint32_t flags;
 
@@ -795,11 +795,11 @@ handle_fraction_prop (SpaPODProp *prop, const char *key, GstCaps *res)
   }
 }
 GstCaps *
-gst_caps_from_format (const SpaFormat *format)
+gst_caps_from_format (const struct spa_format *format)
 {
   GstCaps *res = NULL;
   uint32_t media_type, media_subtype;
-  SpaPODProp *prop;
+  struct spa_pod_prop *prop;
 
   ensure_types();
 

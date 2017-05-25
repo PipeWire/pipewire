@@ -24,27 +24,25 @@
 extern "C" {
 #endif
 
-typedef struct _SpaCommand SpaCommand;
-
 #include <spa/defs.h>
 #include <spa/pod.h>
 
 #define SPA_TYPE__Command            SPA_TYPE_POD_OBJECT_BASE "Command"
 #define SPA_TYPE_COMMAND_BASE        SPA_TYPE__Command ":"
 
-typedef struct {
-  SpaPODObjectBody body;
-} SpaCommandBody;
+struct spa_command_body {
+  struct spa_pod_object_body body;
+};
 
-struct _SpaCommand {
-  SpaPOD         pod;
-  SpaCommandBody body;
+struct spa_command {
+  struct spa_pod          pod;
+  struct spa_command_body body;
 };
 
 #define SPA_COMMAND_TYPE(cmd)   ((cmd)->body.body.type)
 
-#define SPA_COMMAND_INIT(type) (SpaCommand)                     \
-  { { sizeof (SpaCommandBody), SPA_POD_TYPE_OBJECT },           \
+#define SPA_COMMAND_INIT(type) (struct spa_command)             \
+  { { sizeof (struct spa_command_body), SPA_POD_TYPE_OBJECT },  \
     { { 0, type } } }                                           \
 
 #define SPA_COMMAND_INIT_COMPLEX(t,size,type,...) (t)           \

@@ -24,8 +24,6 @@
 extern "C" {
 #endif
 
-typedef struct _SpaDict SpaDict;
-
 #define SPA_TYPE__Dict            SPA_TYPE_POINTER_BASE "Dict"
 #define SPA_TYPE_DICT_BASE        SPA_TYPE__Dict ":"
 
@@ -33,14 +31,14 @@ typedef struct _SpaDict SpaDict;
 
 #include <spa/defs.h>
 
-typedef struct {
+struct spa_dict_item {
   const char *key;
   const char *value;
-} SpaDictItem;
+};
 
-struct _SpaDict {
-  uint32_t      n_items;
-  SpaDictItem  *items;
+struct spa_dict {
+  uint32_t               n_items;
+  struct spa_dict_item  *items;
 };
 
 #define SPA_DICT_INIT(n_items,items) { n_items, items }
@@ -50,10 +48,10 @@ struct _SpaDict {
        (item) < &(dict)->items[(dict)->n_items];     \
        (item)++)
 
-static inline SpaDictItem *
-spa_dict_lookup_item (const SpaDict *dict, const char *key)
+static inline struct spa_dict_item *
+spa_dict_lookup_item (const struct spa_dict *dict, const char *key)
 {
-  SpaDictItem *item;
+  struct spa_dict_item *item;
   spa_dict_for_each (item, dict) {
     if (!strcmp (item->key, key))
       return item;
@@ -62,9 +60,9 @@ spa_dict_lookup_item (const SpaDict *dict, const char *key)
 }
 
 static inline const char *
-spa_dict_lookup (const SpaDict *dict, const char *key)
+spa_dict_lookup (const struct spa_dict *dict, const char *key)
 {
-  SpaDictItem *item = spa_dict_lookup_item (dict, key);
+  struct spa_dict_item *item = spa_dict_lookup_item (dict, key);
   return item ? item->value : NULL;
 }
 

@@ -51,25 +51,25 @@ struct mem_id {
 };
 
 struct buffer_id {
-  SpaList link;
+  struct spa_list link;
   uint32_t id;
   bool used;
   void *buf_ptr;
-  SpaBuffer *buf;
+  struct spa_buffer *buf;
 };
 
 struct stream {
   struct pw_stream this;
 
   uint32_t n_possible_formats;
-  SpaFormat **possible_formats;
+  struct spa_format **possible_formats;
 
   uint32_t n_params;
-  SpaParam **params;
+  struct spa_param **params;
 
-  SpaFormat *format;
-  SpaPortInfo port_info;
-  SpaDirection direction;
+  struct spa_format *format;
+  struct spa_port_info port_info;
+  enum spa_direction direction;
   uint32_t port_id;
   uint32_t pending_seq;
 
@@ -77,7 +77,7 @@ struct stream {
 
   int rtreadfd;
   int rtwritefd;
-  SpaSource *rtsocket_source;
+  struct spa_source *rtsocket_source;
 
   struct pw_proxy *node_proxy;
   bool disconnecting;
@@ -85,13 +85,13 @@ struct stream {
 
   struct pw_transport *trans;
 
-  SpaSource *timeout_source;
+  struct spa_source *timeout_source;
 
   struct pw_array mem_ids;
   struct pw_array buffer_ids;
   bool in_order;
 
-  SpaList free;
+  struct spa_list free;
   bool in_need_buffer;
 
   int64_t last_ticks;
@@ -272,7 +272,7 @@ unhandle_socket (struct pw_stream *stream)
 static void
 set_possible_formats (struct pw_stream *stream,
                       int          n_possible_formats,
-                      SpaFormat  **possible_formats)
+                      struct spa_format  **possible_formats)
 {
   struct stream *impl = SPA_CONTAINER_OF (stream, struct stream, this);
   int i;
@@ -285,7 +285,7 @@ set_possible_formats (struct pw_stream *stream,
   }
   impl->n_possible_formats = n_possible_formats;
   if (n_possible_formats > 0) {
-    impl->possible_formats = malloc (n_possible_formats * sizeof (SpaFormat *));
+    impl->possible_formats = malloc (n_possible_formats * sizeof (struct spa_format *));
     for (i = 0; i < n_possible_formats; i++)
       impl->possible_formats[i] = spa_format_copy (possible_formats[i]);
   }
@@ -294,7 +294,7 @@ set_possible_formats (struct pw_stream *stream,
 static void
 set_params (struct pw_stream *stream,
             int          n_params,
-            SpaParam   **params)
+            struct spa_param   **params)
 {
   struct stream *impl = SPA_CONTAINER_OF (stream, struct stream, this);
   int i;
@@ -307,7 +307,7 @@ set_params (struct pw_stream *stream,
   }
   impl->n_params = n_params;
   if (n_params > 0) {
-    impl->params = malloc (n_params * sizeof (SpaParam *));
+    impl->params = malloc (n_params * sizeof (struct spa_param *));
     for (i = 0; i < n_params; i++)
       impl->params[i] = spa_param_copy (params[i]);
   }
@@ -384,10 +384,10 @@ add_port_update (struct pw_stream *stream, uint32_t change_mask)
                                     impl->port_id,
                                     change_mask,
                                     impl->n_possible_formats,
-                                    (const SpaFormat **) impl->possible_formats,
+                                    (const struct spa_format **) impl->possible_formats,
                                     impl->format,
                                     impl->n_params,
-                                    (const SpaParam **)impl->params,
+                                    (const struct spa_param **)impl->params,
                                     &impl->port_info);
 }
 
@@ -396,14 +396,10 @@ send_need_input (struct pw_stream *stream)
 {
 #if 0
   struct stream *impl = SPA_CONTAINER_OF (stream, struct stream, this);
-  SpaEventNodeNeedInput ni;
   uint64_t cmd = 1;
 
-  pw_log_debug ("stream %p: need input", stream);
-
-  ni.event.type = SPA_EVENT_NODE_NEED_INPUT;
-  ni.event.size = sizeof (ni);
-  pw_transport_add_event (impl->trans, &ni.event);
+  pw_transport_add_event (impl->trans,
+                 &SPA_EVENT_INIT (stream->context->type.event_transport.NeedInput));
   write (impl->rtwritefd, &cmd, 8);
 #endif
 }
@@ -424,7 +420,7 @@ add_request_clock_update (struct pw_stream *stream)
 {
   struct stream *impl = SPA_CONTAINER_OF (stream, struct stream, this);
 
-  pw_client_node_do_event (impl->node_proxy, (SpaEvent*)
+  pw_client_node_do_event (impl->node_proxy, (struct spa_event*)
     &SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_INIT (stream->context->type.event_node.RequestClockUpdate,
                                                SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_TIME, 0, 0));
 }
@@ -432,11 +428,11 @@ add_request_clock_update (struct pw_stream *stream)
 static void
 add_async_complete (struct pw_stream  *stream,
                     uint32_t      seq,
-                    SpaResult     res)
+                    int     res)
 {
   struct stream *impl = SPA_CONTAINER_OF (stream, struct stream, this);
 
-  pw_client_node_do_event (impl->node_proxy, (SpaEvent*)
+  pw_client_node_do_event (impl->node_proxy, (struct spa_event*)
     &SPA_EVENT_NODE_ASYNC_COMPLETE_INIT (stream->context->type.event_node.AsyncComplete,
                                         seq, res));
 
@@ -457,8 +453,8 @@ do_node_init (struct pw_stream *stream)
 }
 
 static void
-on_timeout (SpaLoopUtils *utils,
-            SpaSource    *source,
+on_timeout (struct spa_loop_utils *utils,
+            struct spa_source    *source,
             void         *data)
 {
   struct pw_stream *stream = data;
@@ -512,7 +508,7 @@ reuse_buffer (struct pw_stream *stream, uint32_t id)
 
 static void
 handle_rtnode_event (struct pw_stream  *stream,
-                     SpaEvent     *event)
+                     struct spa_event     *event)
 {
   struct stream *impl = SPA_CONTAINER_OF (stream, struct stream, this);
   struct pw_context *context = impl->this.context;
@@ -521,7 +517,7 @@ handle_rtnode_event (struct pw_stream  *stream,
     int i;
 
     for (i = 0; i < impl->trans->area->n_inputs; i++) {
-      SpaPortIO *input = &impl->trans->inputs[i];
+      struct spa_port_io *input = &impl->trans->inputs[i];
 
       pw_log_trace ("stream %p: have output %d %d", stream, input->status, input->buffer_id);
       if (input->buffer_id == SPA_ID_INVALID)
@@ -536,7 +532,7 @@ handle_rtnode_event (struct pw_stream  *stream,
     int i;
 
     for (i = 0; i < impl->trans->area->n_outputs; i++) {
-      SpaPortIO *output = &impl->trans->outputs[i];
+      struct spa_port_io *output = &impl->trans->outputs[i];
 
       if (output->buffer_id == SPA_ID_INVALID)
         continue;
@@ -565,10 +561,10 @@ handle_rtnode_event (struct pw_stream  *stream,
 }
 
 static void
-on_rtsocket_condition (SpaLoopUtils *utils,
-                       SpaSource    *source,
+on_rtsocket_condition (struct spa_loop_utils *utils,
+                       struct spa_source    *source,
                        int           fd,
-                       SpaIO         mask,
+                       enum spa_io         mask,
                        void         *data)
 {
   struct pw_stream *stream = data;
@@ -581,13 +577,13 @@ on_rtsocket_condition (SpaLoopUtils *utils,
   }
 
   if (mask & SPA_IO_IN) {
-    SpaEvent event;
+    struct spa_event event;
     uint64_t cmd;
 
     read (impl->rtreadfd, &cmd, 8);
 
     while (pw_transport_next_event (impl->trans, &event) == SPA_RESULT_OK) {
-      SpaEvent *ev = alloca (SPA_POD_SIZE (&event));
+      struct spa_event *ev = alloca (SPA_POD_SIZE (&event));
       pw_transport_parse_event (impl->trans, ev);
       handle_rtnode_event (stream, ev);
     }
@@ -624,7 +620,7 @@ handle_socket (struct pw_stream *stream, int rtreadfd, int rtwritefd)
 
 static void
 handle_node_event (struct pw_stream    *stream,
-                   const SpaEvent *event)
+                   const struct spa_event *event)
 {
   pw_log_warn ("unhandled node event %d", SPA_EVENT_TYPE (event));
 }
@@ -632,7 +628,7 @@ handle_node_event (struct pw_stream    *stream,
 static bool
 handle_node_command (struct pw_stream      *stream,
                      uint32_t          seq,
-                     const SpaCommand *command)
+                     const struct spa_command *command)
 {
   struct stream *impl = SPA_CONTAINER_OF (stream, struct stream, this);
   struct pw_context *context = stream->context;
@@ -671,7 +667,7 @@ handle_node_command (struct pw_stream      *stream,
     }
   }
   else if (SPA_COMMAND_TYPE (command) == context->type.command_node.ClockUpdate) {
-    SpaCommandNodeClockUpdate *cu = (SpaCommandNodeClockUpdate *) command;
+    struct spa_command_node_clock_update *cu = (struct spa_command_node_clock_update *) command;
     if (cu->body.flags.value & SPA_COMMAND_NODE_CLOCK_UPDATE_FLAG_LIVE) {
       pw_properties_set (stream->properties,
                         "pipewire.latency.is-live", "1");
@@ -706,7 +702,7 @@ client_node_done (void              *object,
 
 static void
 client_node_event (void           *object,
-                   const SpaEvent *event)
+                   const struct spa_event *event)
 {
   struct pw_proxy *proxy = object;
   struct pw_stream *stream = proxy->user_data;
@@ -716,7 +712,7 @@ client_node_event (void           *object,
 static void
 client_node_add_port (void              *object,
                       uint32_t           seq,
-                      SpaDirection       direction,
+                      enum spa_direction       direction,
                       uint32_t           port_id)
 {
   pw_log_warn ("add port not supported");
@@ -725,7 +721,7 @@ client_node_add_port (void              *object,
 static void
 client_node_remove_port (void              *object,
                          uint32_t           seq,
-                         SpaDirection       direction,
+                         enum spa_direction       direction,
                          uint32_t           port_id)
 {
   pw_log_warn ("remove port not supported");
@@ -734,10 +730,10 @@ client_node_remove_port (void              *object,
 static void
 client_node_set_format (void            *object,
                         uint32_t         seq,
-                        SpaDirection     direction,
+                        enum spa_direction     direction,
                         uint32_t         port_id,
                         uint32_t         flags,
-                        const SpaFormat *format)
+                        const struct spa_format *format)
 {
   struct pw_proxy *proxy = object;
   struct pw_stream *stream = proxy->user_data;
@@ -768,7 +764,7 @@ client_node_set_property (void       *object,
 
 static void
 client_node_add_mem (void              *object,
-                     SpaDirection       direction,
+                     enum spa_direction       direction,
                      uint32_t           port_id,
                      uint32_t           mem_id,
                      uint32_t           type,
@@ -803,7 +799,7 @@ client_node_add_mem (void              *object,
 static void
 client_node_use_buffers (void                  *object,
                          uint32_t               seq,
-                         SpaDirection           direction,
+                         enum spa_direction           direction,
                          uint32_t               port_id,
                          uint32_t               n_buffers,
                          struct pw_client_node_buffer *buffers)
@@ -813,7 +809,7 @@ client_node_use_buffers (void                  *object,
   struct stream *impl = SPA_CONTAINER_OF (stream, struct stream, this);
   struct buffer_id *bid;
   uint32_t i, j, len;
-  SpaBuffer *b;
+  struct spa_buffer *b;
 
   /* clear previous buffers */
   clear_buffers (stream);
@@ -852,17 +848,17 @@ client_node_use_buffers (void                  *object,
     {
       size_t size;
 
-      size = sizeof (SpaBuffer);
+      size = sizeof (struct spa_buffer);
       for (j = 0; j < buffers[i].buffer->n_metas; j++)
-        size += sizeof (SpaMeta);
+        size += sizeof (struct spa_meta);
       for (j = 0; j < buffers[i].buffer->n_datas; j++)
-        size += sizeof (SpaData);
+        size += sizeof (struct spa_data);
 
       b = bid->buf = malloc (size);
-      memcpy (b, buffers[i].buffer, sizeof (SpaBuffer));
+      memcpy (b, buffers[i].buffer, sizeof (struct spa_buffer));
 
-      b->metas = SPA_MEMBER (b, sizeof (SpaBuffer), SpaMeta);
-      b->datas = SPA_MEMBER (b->metas, sizeof(SpaMeta) * b->n_metas, SpaData);
+      b->metas = SPA_MEMBER (b, sizeof (struct spa_buffer), struct spa_meta);
+      b->datas = SPA_MEMBER (b->metas, sizeof(struct spa_meta) * b->n_metas, struct spa_data);
     }
     bid->id = b->id;
 
@@ -874,17 +870,17 @@ client_node_use_buffers (void                  *object,
 
     offset = 0;
     for (j = 0; j < b->n_metas; j++) {
-      SpaMeta *m = &b->metas[j];
-      memcpy (m, &buffers[i].buffer->metas[j], sizeof (SpaMeta));
+      struct spa_meta *m = &b->metas[j];
+      memcpy (m, &buffers[i].buffer->metas[j], sizeof (struct spa_meta));
       m->data = SPA_MEMBER (bid->buf_ptr, offset, void);
       offset += m->size;
     }
 
     for (j = 0; j < b->n_datas; j++) {
-      SpaData *d = &b->datas[j];
+      struct spa_data *d = &b->datas[j];
 
-      memcpy (d, &buffers[i].buffer->datas[j], sizeof (SpaData));
-      d->chunk = SPA_MEMBER (bid->buf_ptr, offset + sizeof (SpaChunk) * j, SpaChunk);
+      memcpy (d, &buffers[i].buffer->datas[j], sizeof (struct spa_data));
+      d->chunk = SPA_MEMBER (bid->buf_ptr, offset + sizeof (struct spa_chunk) * j, struct spa_chunk);
 
       if (d->type == stream->context->type.data.Id) {
         struct mem_id *bmid = find_mem (stream, SPA_PTR_TO_UINT32 (d->data));
@@ -918,7 +914,7 @@ client_node_use_buffers (void                  *object,
 static void
 client_node_node_command (void             *object,
                           uint32_t          seq,
-                          const SpaCommand *command)
+                          const struct spa_command *command)
 {
   struct pw_proxy *proxy = object;
   struct pw_stream *stream = proxy->user_data;
@@ -928,7 +924,7 @@ client_node_node_command (void             *object,
 static void
 client_node_port_command (void             *object,
                           uint32_t          port_id,
-                          const SpaCommand *command)
+                          const struct spa_command *command)
 {
   pw_log_warn ("port command not supported");
 }
@@ -1009,7 +1005,7 @@ pw_stream_connect (struct pw_stream       *stream,
                    const char             *port_path,
                    enum pw_stream_flags  flags,
                    uint32_t                n_possible_formats,
-                   SpaFormat             **possible_formats)
+                   struct spa_format             **possible_formats)
 {
   struct stream *impl = SPA_CONTAINER_OF (stream, struct stream, this);
 
@@ -1053,8 +1049,8 @@ pw_stream_connect (struct pw_stream       *stream,
 /**
  * pw_stream_finish_format:
  * @stream: a #struct pw_stream
- * @res: a #SpaResult
- * @params: an array of pointers to #SpaParam
+ * @res: a #int
+ * @params: an array of pointers to #struct spa_param
  * @n_params: number of elements in @params
  *
  * Complete the negotiation process with result code @res.
@@ -1068,8 +1064,8 @@ pw_stream_connect (struct pw_stream       *stream,
  */
 bool
 pw_stream_finish_format (struct pw_stream     *stream,
-                            SpaResult        res,
-                            SpaParam       **params,
+                            int        res,
+                            struct spa_param       **params,
                             uint32_t         n_params)
 {
   struct stream *impl = SPA_CONTAINER_OF (stream, struct stream, this);
@@ -1180,7 +1176,7 @@ pw_stream_recycle_buffer (struct pw_stream *stream,
   bid->used = false;
   spa_list_insert (impl->free.prev, &bid->link);
 
-  pw_transport_add_event (impl->trans, (SpaEvent *)&rb);
+  pw_transport_add_event (impl->trans, (struct spa_event *)&rb);
   write (impl->rtwritefd, &cmd, 8);
 
   return true;
@@ -1194,9 +1190,9 @@ pw_stream_recycle_buffer (struct pw_stream *stream,
  * Get the buffer with @id from @stream. This function should be called from
  * the new-buffer signal callback.
  *
- * Returns: a #SpaBuffer or %NULL when there is no buffer.
+ * Returns: a #struct spa_buffer or %NULL when there is no buffer.
  */
-SpaBuffer *
+struct spa_buffer *
 pw_stream_peek_buffer (struct pw_stream *stream,
                        uint32_t          id)
 {

@@ -32,7 +32,7 @@ extern "C" {
 #include <pipewire/server/resource.h>
 
 struct pw_access_data {
-  SpaResult           res;
+  int           res;
   struct pw_resource *resource;
 
   void *  (*async_copy)  (struct pw_access_data *data, size_t size);
@@ -48,15 +48,15 @@ struct pw_access_data {
  * PipeWire Access support struct.
  */
 struct pw_access {
-  SpaResult  (*view_global)            (struct pw_access      *access,
+  int  (*view_global)            (struct pw_access      *access,
                                         struct pw_client      *client,
                                         struct pw_global      *global);
-  SpaResult  (*create_node)            (struct pw_access      *access,
+  int  (*create_node)            (struct pw_access      *access,
                                         struct pw_access_data *data,
                                         const char            *factory_name,
                                         const char            *name,
                                         struct pw_properties  *properties);
-  SpaResult  (*create_client_node)     (struct pw_access      *access,
+  int  (*create_client_node)     (struct pw_access      *access,
                                         struct pw_access_data *data,
                                         const char            *name,
                                         struct pw_properties  *properties);

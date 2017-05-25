@@ -23,11 +23,9 @@
 extern const struct spa_handle_factory spa_audiomixer_factory;
 
 int
-spa_handle_factory_enum(const struct spa_handle_factory **factory,
-			uint32_t index)
+spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t index)
 {
-	spa_return_val_if_fail(factory != NULL,
-			       SPA_RESULT_INVALID_ARGUMENTS);
+	spa_return_val_if_fail(factory != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
 	switch (index) {
 	case 0:

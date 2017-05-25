@@ -25,92 +25,89 @@
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 
-int spa_ffmpeg_dec_init (struct spa_handle *handle, const struct spa_dict *info, const struct spa_support *support, uint32_t n_support);
-int spa_ffmpeg_enc_init (struct spa_handle *handle, const struct spa_dict *info, const struct spa_support *support, uint32_t n_support);
+int spa_ffmpeg_dec_init(struct spa_handle *handle, const struct spa_dict *info,
+			const struct spa_support *support, uint32_t n_support);
+int spa_ffmpeg_enc_init(struct spa_handle *handle, const struct spa_dict *info,
+			const struct spa_support *support, uint32_t n_support);
 
 static int
-ffmpeg_dec_init (const struct spa_handle_factory  *factory,
-                 struct spa_handle               *handle,
-                 const struct spa_dict    *info,
-                 const struct spa_support        *support,
-                 uint32_t                 n_support)
+ffmpeg_dec_init(const struct spa_handle_factory *factory,
+		struct spa_handle *handle,
+		const struct spa_dict *info,
+		const struct spa_support *support,
+		uint32_t n_support)
 {
-  if (factory == NULL || handle == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+	if (factory == NULL || handle == NULL)
+		return SPA_RESULT_INVALID_ARGUMENTS;
 
-  return spa_ffmpeg_dec_init (handle, info, support, n_support);
+	return spa_ffmpeg_dec_init(handle, info, support, n_support);
 }
 
 static int
-ffmpeg_enc_init (const struct spa_handle_factory  *factory,
-                 struct spa_handle               *handle,
-                 const struct spa_dict    *info,
-                 const struct spa_support        *support,
-                 uint32_t                 n_support)
+ffmpeg_enc_init(const struct spa_handle_factory *factory,
+		struct spa_handle *handle,
+		const struct spa_dict *info,
+		const struct spa_support *support,
+		uint32_t n_support)
 {
-  if (factory == NULL || handle == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+	if (factory == NULL || handle == NULL)
+		return SPA_RESULT_INVALID_ARGUMENTS;
 
-  return spa_ffmpeg_enc_init (handle, info, support, n_support);
+	return spa_ffmpeg_enc_init(handle, info, support, n_support);
 }
 
-static const struct spa_interface_info ffmpeg_interfaces[] =
-{
-  { SPA_TYPE__Node,
-  },
+static const struct spa_interface_info ffmpeg_interfaces[] = {
+	{SPA_TYPE__Node, },
 };
 
 static int
-ffmpeg_enum_interface_info (const struct spa_handle_factory  *factory,
-                            const struct spa_interface_info **info,
-                            uint32_t                 index)
+ffmpeg_enum_interface_info(const struct spa_handle_factory *factory,
+			   const struct spa_interface_info **info,
+			   uint32_t index)
 {
-  if (factory == NULL || info == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+	if (factory == NULL || info == NULL)
+		return SPA_RESULT_INVALID_ARGUMENTS;
 
-  if (index >= 1)
-    return SPA_RESULT_ENUM_END;
+	if (index >= 1)
+		return SPA_RESULT_ENUM_END;
 
-  *info = &ffmpeg_interfaces[index];
+	*info = &ffmpeg_interfaces[index];
 
-  return SPA_RESULT_OK;
+	return SPA_RESULT_OK;
 }
 
-int
-spa_handle_factory_enum (const struct spa_handle_factory **factory,
-                         uint32_t                 index)
+int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t index)
 {
-  static const AVCodec *c = NULL;
-  static int ci = 0;
-  static struct spa_handle_factory f;
-  static char name[128];
+	static const AVCodec *c = NULL;
+	static int ci = 0;
+	static struct spa_handle_factory f;
+	static char name[128];
 
-  av_register_all();
+	av_register_all();
 
-  if (index == 0) {
-    c = av_codec_next (NULL);
-    ci = 0;
-  }
-  while (index > ci && c) {
-    c = av_codec_next (c);
-    ci++;
-  }
-  if (c == NULL)
-    return SPA_RESULT_ENUM_END;
+	if (index == 0) {
+		c = av_codec_next(NULL);
+		ci = 0;
+	}
+	while (index > ci && c) {
+		c = av_codec_next(c);
+		ci++;
+	}
+	if (c == NULL)
+		return SPA_RESULT_ENUM_END;
 
-  if (av_codec_is_encoder (c)) {
-    snprintf (name, 128, "ffenc_%s", c->name);
-    f.init = ffmpeg_enc_init;
-  }
-  else {
-    snprintf (name, 128, "ffdec_%s", c->name);
-    f.init = ffmpeg_dec_init;
-  }
-  f.name = name;
-  f.info = NULL;
-  f.enum_interface_info = ffmpeg_enum_interface_info;
+	if (av_codec_is_encoder(c)) {
+		snprintf(name, 128, "ffenc_%s", c->name);
+		f.init = ffmpeg_enc_init;
+	} else {
+		snprintf(name, 128, "ffdec_%s", c->name);
+		f.init = ffmpeg_dec_init;
+	}
+	f.name = name;
+	f.info = NULL;
+	f.enum_interface_info = ffmpeg_enum_interface_info;
 
-  *factory = &f;
+	*factory = &f;
 
-  return SPA_RESULT_OK;
+	return SPA_RESULT_OK;
 }

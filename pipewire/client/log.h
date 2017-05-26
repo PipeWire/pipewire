@@ -29,31 +29,34 @@ extern "C" {
 
 extern enum spa_log_level pw_log_level;
 
-struct spa_log* pw_log_get       (void);
+struct spa_log *pw_log_get(void);
 
-void          pw_log_set_level (enum spa_log_level level);
-void          pw_log_set_trace_event (struct spa_source *source);
+void
+pw_log_set_level(enum spa_log_level level);
+
+void
+pw_log_set_trace_event(struct spa_source *source);
 
 
-void          pw_log_log       (enum spa_log_level  level,
-                                const char         *file,
-                                int                 line,
-                                const char         *func,
-                                const char         *fmt, ...) SPA_PRINTF_FUNC(5, 6);
-void          pw_log_logv      (enum spa_log_level  level,
-                                const char         *file,
-                                int                 line,
-                                const char         *func,
-                                const char         *fmt,
-                                va_list             args) SPA_PRINTF_FUNC(5, 0);
+void
+pw_log_log(enum spa_log_level level,
+	   const char *file,
+	   int line, const char *func,
+	   const char *fmt, ...) SPA_PRINTF_FUNC(5, 6);
+
+void
+pw_log_logv(enum spa_log_level level,
+	    const char *file,
+	    int line, const char *func,
+	    const char *fmt, va_list args) SPA_PRINTF_FUNC(5, 0);
 
 #define pw_log_level_enabled(lev) (pw_log_level >= (lev))
 
 #if __STDC_VERSION__ >= 199901L
 
-#define pw_log_logc(lev,...)                         \
-  if (SPA_UNLIKELY (pw_log_level_enabled (lev)))     \
-    pw_log_log(lev,__VA_ARGS__)
+#define pw_log_logc(lev,...)				\
+	if (SPA_UNLIKELY(pw_log_level_enabled (lev)))	\
+		pw_log_log(lev,__VA_ARGS__)
 
 #define pw_log_error(...)   pw_log_logc(SPA_LOG_LEVEL_ERROR,__FILE__,__LINE__,__func__,__VA_ARGS__)
 #define pw_log_warn(...)    pw_log_logc(SPA_LOG_LEVEL_WARN,__FILE__,__LINE__,__func__,__VA_ARGS__)
@@ -65,16 +68,17 @@ void          pw_log_logv      (enum spa_log_level  level,
 
 #include <stdarg.h>
 
-#define PW_LOG_FUNC(name,lev)                                                   \
-static inline void pw_log_##name (const char *format, ...)                      \
-{                                                                               \
-  if (SPA_UNLIKELY (pw_log_level_enabled (lev))) {                              \
-    va_list varargs;                                                            \
-    va_start (varargs, format);                                                 \
-    pw_log_logv (lev,__FILE__,__LINE__,__func__,format,varargs);                \
-    va_end (varargs);                                                           \
-  }                                                                             \
+#define PW_LOG_FUNC(name,lev)							\
+static inline void pw_log_##name (const char *format, ...)			\
+{										\
+	if (SPA_UNLIKELY(pw_log_level_enabled(lev))) {				\
+		va_list varargs;						\
+		va_start(varargs, format);					\
+		pw_log_logv(lev,__FILE__,__LINE__,__func__,format,varargs);	\
+		va_end(varargs);						\
+	}									\
 }
+
 PW_LOG_FUNC(error, SPA_LOG_LEVEL_ERROR)
 PW_LOG_FUNC(warn, SPA_LOG_LEVEL_WARN)
 PW_LOG_FUNC(info, SPA_LOG_LEVEL_INFO)
@@ -86,5 +90,4 @@ PW_LOG_FUNC(trace, SPA_LOG_LEVEL_TRACE)
 #ifdef __cplusplus
 }
 #endif
-
 #endif /* __PIPEWIRE_LOG_H__ */

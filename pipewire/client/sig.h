@@ -27,38 +27,37 @@ extern "C" {
 #endif
 
 struct pw_listener {
-  struct spa_list link;
-  void (*notify) (void *);
+	struct spa_list link;
+	void (*notify) (void *);
 };
 
-#define PW_SIGNAL(name,func)                                            \
-  union {                                                               \
-    struct spa_list listeners;                                          \
-    void (*notify) func;                                                \
-  } name;
+#define PW_SIGNAL(name,func)				\
+	union {						\
+		struct spa_list listeners;		\
+		void (*notify) func;			\
+	} name;
 
-#define pw_signal_init(signal)                                          \
-  spa_list_init (&(signal)->listeners);
+#define pw_signal_init(signal)				\
+	spa_list_init(&(signal)->listeners);
 
-#define pw_signal_add(signal,listener,func)                             \
-  do {                                                                  \
-    __typeof__((signal)->notify) n = (func);                            \
-    (listener)->notify = (void (*) (void *)) n;                         \
-    spa_list_insert ((signal)->listeners.prev, &(listener)->link);      \
-  } while (false);
+#define pw_signal_add(signal,listener,func)				\
+do {									\
+	__typeof__((signal)->notify) n = (func);			\
+	(listener)->notify = (void(*)(void *)) n;			\
+	spa_list_insert((signal)->listeners.prev, &(listener)->link);	\
+} while (false);
 
-static inline void
-pw_signal_remove (struct pw_listener *listener)
+static inline void pw_signal_remove(struct pw_listener *listener)
 {
-  spa_list_remove (&listener->link);
+	spa_list_remove(&listener->link);
 }
 
-#define pw_signal_emit(signal,...)                                      \
-  do {                                                                  \
-    struct pw_listener *l, *next;                                       \
-    spa_list_for_each_safe (l, next, &(signal)->listeners, link)        \
-      ((__typeof__((signal)->notify))l->notify) (l,__VA_ARGS__);        \
-  } while (false);
+#define pw_signal_emit(signal,...)					\
+do {									\
+	struct pw_listener *l, *next;					\
+	spa_list_for_each_safe(l, next, &(signal)->listeners, link)	\
+	((__typeof__((signal)->notify))l->notify)(l,__VA_ARGS__);	\
+} while (false);
 
 #ifdef __cplusplus
 }

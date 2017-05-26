@@ -28,21 +28,22 @@ extern "C" {
 #endif
 
 struct pw_spa_monitor {
-  struct spa_monitor *monitor;
+	struct spa_monitor *monitor;
 
-  char *lib;
-  char *factory_name;
-  char *system_name;
-  struct spa_handle *handle;
+	char *lib;
+	char *factory_name;
+	char *system_name;
+	struct spa_handle *handle;
 
-  PW_SIGNAL (destroy_signal, (struct pw_listener *listener, struct pw_spa_monitor *monitor));
+	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_spa_monitor * monitor));
 };
 
-struct pw_spa_monitor * pw_spa_monitor_load     (struct pw_core  *core,
-                                                 const char *lib,
-                                                 const char *factory_name,
-                                                 const char *system_name);
-void                    pw_spa_monitor_destroy  (struct pw_spa_monitor *monitor);
+struct pw_spa_monitor *
+pw_spa_monitor_load(struct pw_core *core,
+		    const char *lib,
+		    const char *factory_name, const char *system_name);
+void
+pw_spa_monitor_destroy(struct pw_spa_monitor *monitor);
 
 #ifdef __cplusplus
 }

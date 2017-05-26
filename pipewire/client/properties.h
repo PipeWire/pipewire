@@ -21,34 +21,42 @@
 #define __PIPEWIRE_PROPERTIES_H__
 
 #ifdef __cplusplus
-extern "C" {
+//extern "C" {
 #endif
 
 #include <spa/dict.h>
 
 struct pw_properties {
-  struct spa_dict dict;
+	struct spa_dict dict;
 };
 
-struct pw_properties * pw_properties_new      (const char *key, ...);
-struct pw_properties * pw_properties_new_dict (const struct spa_dict *dict);
-struct pw_properties * pw_properties_copy     (struct pw_properties *properties);
-struct pw_properties * pw_properties_merge    (struct pw_properties *oldprops,
-                                               struct pw_properties *newprops);
-void                   pw_properties_free     (struct pw_properties *properties);
+struct pw_properties *
+pw_properties_new(const char *key, ...);
 
-void                   pw_properties_set      (struct pw_properties *properties,
-                                               const char           *key,
-                                               const char           *value);
-void                   pw_properties_setf     (struct pw_properties *properties,
-                                               const char           *key,
-                                               const char           *format,
-                                               ...) SPA_PRINTF_FUNC (3, 4);
-const char *           pw_properties_get      (struct pw_properties *properties,
-                                               const char           *key);
+struct pw_properties *
+pw_properties_new_dict(const struct spa_dict *dict);
 
-const char *           pw_properties_iterate  (struct pw_properties *properties,
-                                               void                **state);
+struct pw_properties *
+pw_properties_copy(struct pw_properties *properties);
+
+struct pw_properties *
+pw_properties_merge(struct pw_properties *oldprops,
+		    struct pw_properties *newprops);
+
+void
+pw_properties_free(struct pw_properties *properties);
+
+void
+pw_properties_set(struct pw_properties *properties, const char *key, const char *value);
+
+void
+pw_properties_setf(struct pw_properties *properties,
+		   const char *key, const char *format, ...) SPA_PRINTF_FUNC(3, 4);
+const char *
+pw_properties_get(struct pw_properties *properties, const char *key);
+
+const char *
+pw_properties_iterate(struct pw_properties *properties, void **state);
 
 #ifdef __cplusplus
 }

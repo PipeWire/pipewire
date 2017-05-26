@@ -40,10 +40,9 @@ extern "C" {
 #define SPA_TYPE__Object                       SPA_TYPE_BASE "Object"
 #define SPA_TYPE_OBJECT_BASE                   SPA_TYPE__Object ":"
 
-static inline bool
-spa_type_is_a (const char *type, const char *parent)
+static inline bool spa_type_is_a(const char *type, const char *parent)
 {
-  return type != NULL && parent != NULL && strncmp (type, parent, strlen (parent)) == 0;
+	return type != NULL && parent != NULL && strncmp(type, parent, strlen(parent)) == 0;
 }
 
 #ifdef __cplusplus

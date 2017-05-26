@@ -20,4 +20,5 @@
 #include "pipewire/client/pipewire.h"
 #include "pipewire/client/interfaces.h"
 
-bool pw_protocol_native_client_setup (struct pw_proxy *proxy);
+bool
+pw_protocol_native_client_setup(struct pw_proxy *proxy);

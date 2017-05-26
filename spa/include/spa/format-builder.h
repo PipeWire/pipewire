@@ -30,30 +30,30 @@ extern "C" {
 #include <spa/pod-builder.h>
 
 static inline uint32_t
-spa_pod_builder_push_format (struct spa_pod_builder *builder,
-                             struct spa_pod_frame   *frame,
-                             uint32_t                format_type,
-                             uint32_t                media_type,
-                             uint32_t                media_subtype)
+spa_pod_builder_push_format(struct spa_pod_builder *builder,
+			    struct spa_pod_frame *frame,
+			    uint32_t format_type,
+			    uint32_t media_type,
+			    uint32_t media_subtype)
 {
-  const struct spa_format p = { { sizeof (struct spa_format_body), SPA_POD_TYPE_OBJECT },
-                        { { 0, format_type },
-                        { { sizeof (uint32_t), SPA_POD_TYPE_ID }, media_type },
-                        { { sizeof (uint32_t), SPA_POD_TYPE_ID }, media_subtype } } };
-  return spa_pod_builder_push (builder, frame, &p.pod,
-                               spa_pod_builder_raw (builder, &p, sizeof(p)));
+	const struct spa_format p = {
+		{sizeof(struct spa_format_body), SPA_POD_TYPE_OBJECT}, {{0, format_type},
+			{{sizeof(uint32_t), SPA_POD_TYPE_ID}, media_type},
+			{{sizeof(uint32_t), SPA_POD_TYPE_ID}, media_subtype} } };
+	return spa_pod_builder_push(builder, frame, &p.pod,
+				    spa_pod_builder_raw(builder, &p, sizeof(p)));
 }
 
-#define spa_pod_builder_format(b,f,format_type,media_type,media_subtype,...)    \
-  spa_pod_builder_object(b, f, 0, format_type,                                  \
-                         SPA_POD_TYPE_ID,media_type,                           \
-                         SPA_POD_TYPE_ID,media_subtype,                        \
-                         __VA_ARGS__)
+#define spa_pod_builder_format(b,f,format_type,media_type,media_subtype,...)	\
+	spa_pod_builder_object(b, f, 0, format_type,				\
+		SPA_POD_TYPE_ID,media_type,					\
+		SPA_POD_TYPE_ID,media_subtype,					\
+		__VA_ARGS__)
 
 int
-spa_format_filter (const struct spa_format *format,
-                   const struct spa_format *filter,
-                   struct spa_pod_builder  *result);
+spa_format_filter(const struct spa_format *format,
+		  const struct spa_format *filter,
+		  struct spa_pod_builder *result);
 
 #ifdef __cplusplus
 }  /* extern "C" */

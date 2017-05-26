@@ -34,18 +34,19 @@ extern "C" {
  * PipeWire loop interface.
  */
 struct pw_loop {
-  struct spa_loop         *loop;
-  struct spa_loop_control *control;
-  struct spa_loop_utils   *utils;
+	struct spa_loop *loop;
+	struct spa_loop_control *control;
+	struct spa_loop_utils *utils;
 
-  PW_SIGNAL  (before_iterate,   (struct pw_listener *listener,
-                                 struct pw_loop     *loop));
-  PW_SIGNAL  (destroy_signal,   (struct pw_listener *listener,
-                                 struct pw_loop     *loop));
+	PW_SIGNAL(before_iterate, (struct pw_listener * listener, struct pw_loop * loop));
+	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_loop * loop));
 };
 
-struct pw_loop * pw_loop_new             (void);
-void             pw_loop_destroy         (struct pw_loop *loop);
+struct pw_loop *
+pw_loop_new(void);
+
+void
+pw_loop_destroy(struct pw_loop *loop);
 
 #define pw_loop_add_source(l,...)      spa_loop_add_source((l)->loop,__VA_ARGS__)
 #define pw_loop_update_source(l,...)   spa_loop_update_source(__VA_ARGS__)

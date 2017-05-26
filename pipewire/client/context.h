@@ -41,18 +41,18 @@ extern "C" {
  * The state of a pw_context
  */
 enum pw_context_state {
-  PW_CONTEXT_STATE_ERROR        = -1,
-  PW_CONTEXT_STATE_UNCONNECTED  = 0,
-  PW_CONTEXT_STATE_CONNECTING   = 1,
-  PW_CONTEXT_STATE_CONNECTED    = 2,
+	PW_CONTEXT_STATE_ERROR = -1,
+	PW_CONTEXT_STATE_UNCONNECTED = 0,
+	PW_CONTEXT_STATE_CONNECTING = 1,
+	PW_CONTEXT_STATE_CONNECTED = 2,
 };
 
-const char * pw_context_state_as_string (enum pw_context_state state);
+const char *pw_context_state_as_string(enum pw_context_state state);
 
 enum pw_context_flags {
-  PW_CONTEXT_FLAG_NONE          = 0,
-  PW_CONTEXT_FLAG_NO_REGISTRY   = (1 << 0),
-  PW_CONTEXT_FLAG_NO_PROXY      = (1 << 1),
+	PW_CONTEXT_FLAG_NONE = 0,
+	PW_CONTEXT_FLAG_NO_REGISTRY = (1 << 0),
+	PW_CONTEXT_FLAG_NO_PROXY = (1 << 1),
 };
 
 /**
@@ -61,52 +61,51 @@ enum pw_context_flags {
  * PipeWire context object class.
  */
 struct pw_context {
-  char                 *name;
-  struct pw_properties *properties;
+	char *name;
+	struct pw_properties *properties;
 
-  struct pw_type        type;
+	struct pw_type type;
 
-  struct pw_loop       *loop;
+	struct pw_loop *loop;
 
-  struct pw_proxy      *core_proxy;
-  struct pw_proxy      *registry_proxy;
+	struct pw_proxy *core_proxy;
+	struct pw_proxy *registry_proxy;
 
-  struct pw_map         objects;
-  uint32_t              n_types;
-  struct pw_map         types;
+	struct pw_map objects;
+	uint32_t n_types;
+	struct pw_map types;
 
-  struct spa_list       global_list;
-  struct spa_list       stream_list;
-  struct spa_list       proxy_list;
+	struct spa_list global_list;
+	struct spa_list stream_list;
+	struct spa_list proxy_list;
 
-  void            *protocol_private;
+	void *protocol_private;
 
-  enum pw_context_state state;
-  char *error;
-  PW_SIGNAL (state_changed,  (struct pw_listener *listener,
-                              struct pw_context  *context));
+	enum pw_context_state state;
+	char *error;
+	PW_SIGNAL(state_changed, (struct pw_listener * listener, struct pw_context * context));
 
-  PW_SIGNAL (subscription,   (struct pw_listener         *listener,
-                              struct pw_context          *context,
-                              enum pw_subscription_event  event,
-                              uint32_t                    type,
-                              uint32_t                    id));
+	PW_SIGNAL(subscription, (struct pw_listener * listener,
+				 struct pw_context * context,
+				 enum pw_subscription_event event, uint32_t type, uint32_t id));
 
-  PW_SIGNAL (destroy_signal, (struct pw_listener *listener,
-                              struct pw_context  *context));
+	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_context * context));
 };
 
-struct pw_context * pw_context_new                   (struct pw_loop        *loop,
-                                                      const char            *name,
-                                                      struct pw_properties  *properties);
-void                pw_context_destroy               (struct pw_context     *context);
+struct pw_context *
+pw_context_new(struct pw_loop *loop,
+	       const char *name, struct pw_properties *properties);
+void
+pw_context_destroy(struct pw_context *context);
 
-bool                pw_context_connect               (struct pw_context     *context,
-                                                      enum pw_context_flags  flags);
-bool                pw_context_connect_fd            (struct pw_context     *context,
-                                                      enum pw_context_flags  flags,
-                                                      int                    fd);
-bool                pw_context_disconnect            (struct pw_context     *context);
+bool
+pw_context_connect(struct pw_context *context, enum pw_context_flags flags);
+
+bool
+pw_context_connect_fd(struct pw_context *context, enum pw_context_flags flags, int fd);
+
+bool
+pw_context_disconnect(struct pw_context *context);
 
 #ifdef __cplusplus
 }

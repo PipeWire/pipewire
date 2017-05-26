@@ -71,8 +71,8 @@ extern "C" {
  * Extra audio flags
  */
 enum spa_audio_flags {
-  SPA_AUDIO_FLAG_NONE              = 0,
-  SPA_AUDIO_FLAG_UNPOSITIONED      = (1 << 0)
+	SPA_AUDIO_FLAG_NONE = 0,
+	SPA_AUDIO_FLAG_UNPOSITIONED = (1 << 0)
 };
 
 /**
@@ -83,8 +83,8 @@ enum spa_audio_flags {
  * Layout of the audio samples for the different channels.
  */
 enum spa_audio_layout {
-  SPA_AUDIO_LAYOUT_INTERLEAVED = 0,
-  SPA_AUDIO_LAYOUT_NON_INTERLEAVED
+	SPA_AUDIO_LAYOUT_INTERLEAVED = 0,
+	SPA_AUDIO_LAYOUT_NON_INTERLEAVED
 };
 
 /**
@@ -97,12 +97,12 @@ enum spa_audio_layout {
  * @channel_mask: the channel mask
  */
 struct spa_audio_info_raw {
-  uint32_t              format;
-  enum spa_audio_flags  flags;
-  enum spa_audio_layout layout;
-  uint32_t              rate;
-  uint32_t              channels;
-  uint32_t              channel_mask;
+	uint32_t format;
+	enum spa_audio_flags flags;
+	enum spa_audio_layout layout;
+	uint32_t rate;
+	uint32_t channels;
+	uint32_t channel_mask;
 };
 
 #ifdef __cplusplus

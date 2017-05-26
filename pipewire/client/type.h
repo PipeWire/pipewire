@@ -34,10 +34,10 @@ extern "C" {
 #include <pipewire/client/transport.h>
 
 struct pw_interface {
-  uint32_t    n_methods;
-  const void *methods;
-  uint32_t    n_events;
-  const void *events;
+	uint32_t n_methods;
+	const void *methods;
+	uint32_t n_events;
+	const void *events;
 };
 
 /**
@@ -46,42 +46,44 @@ struct pw_interface {
  * PipeWire Type support struct.
  */
 struct pw_type {
-  struct spa_type_map *map;
+	struct spa_type_map *map;
 
-  uint32_t core;
-  uint32_t registry;
-  uint32_t node;
-  uint32_t node_factory;
-  uint32_t link;
-  uint32_t client;
-  uint32_t client_node;
-  uint32_t module;
+	uint32_t core;
+	uint32_t registry;
+	uint32_t node;
+	uint32_t node_factory;
+	uint32_t link;
+	uint32_t client;
+	uint32_t client_node;
+	uint32_t module;
 
-  uint32_t spa_node;
-  uint32_t spa_clock;
-  uint32_t spa_monitor;
-  uint32_t spa_format;
-  uint32_t spa_props;
+	uint32_t spa_node;
+	uint32_t spa_clock;
+	uint32_t spa_monitor;
+	uint32_t spa_format;
+	uint32_t spa_props;
 
-  struct spa_type_meta meta;
-  struct spa_type_data data;
-  struct spa_type_event_node event_node;
-  struct spa_type_command_node command_node;
-  struct spa_type_monitor monitor;
-  struct spa_type_param_alloc_buffers param_alloc_buffers;
-  struct spa_type_param_alloc_meta_enable param_alloc_meta_enable;
-  struct spa_type_param_alloc_video_padding param_alloc_video_padding;
-  struct pw_type_event_transport event_transport;
+	struct spa_type_meta meta;
+	struct spa_type_data data;
+	struct spa_type_event_node event_node;
+	struct spa_type_command_node command_node;
+	struct spa_type_monitor monitor;
+	struct spa_type_param_alloc_buffers param_alloc_buffers;
+	struct spa_type_param_alloc_meta_enable param_alloc_meta_enable;
+	struct spa_type_param_alloc_video_padding param_alloc_video_padding;
+	struct pw_type_event_transport event_transport;
 };
 
-void pw_type_init (struct pw_type *type);
+void
+pw_type_init(struct pw_type *type);
 
-bool pw_pod_remap_data  (uint32_t type, void *body, uint32_t size, struct pw_map *types);
+bool
+pw_pod_remap_data(uint32_t type, void *body, uint32_t size, struct pw_map *types);
 
 static inline bool
-pw_pod_remap (struct spa_pod *pod, struct pw_map *types)
+pw_pod_remap(struct spa_pod *pod, struct pw_map *types)
 {
-  return pw_pod_remap_data (pod->type, SPA_POD_BODY (pod), pod->size, types);
+	return pw_pod_remap_data(pod->type, SPA_POD_BODY(pod), pod->size, types);
 }
 
 #ifdef __cplusplus

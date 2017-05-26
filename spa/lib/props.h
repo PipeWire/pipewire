@@ -26,16 +26,14 @@ extern "C" {
 
 #include <spa/props.h>
 
-int
-spa_props_filter (struct spa_pod_builder *b,
-                  const struct spa_pod   *props,
-                  uint32_t                props_size,
-                  const struct spa_pod   *filter,
-                  uint32_t                filter_size);
+int spa_props_filter(struct spa_pod_builder *b,
+		     const struct spa_pod *props,
+		     uint32_t props_size,
+		     const struct spa_pod *filter,
+		     uint32_t filter_size);
 
 #ifdef __cplusplus
-}  /* extern "C" */
+} /* extern "C" */
 #endif
-
 
 #endif /* __SPA_LIBPROPS_H__ */

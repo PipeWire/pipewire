@@ -28,7 +28,7 @@ extern "C" {
 #include <spa/pod-builder.h>
 
 struct spa_props {
-  struct spa_pod_object object;
+	struct spa_pod_object object;
 };
 
 #define SPA_TYPE__Props           SPA_TYPE_POD_OBJECT_BASE "Props"
@@ -51,27 +51,26 @@ struct spa_props {
 #define SPA_TYPE_PROPS__patternType          SPA_TYPE_PROPS_BASE "patternType"
 
 static inline uint32_t
-spa_pod_builder_push_props (struct spa_pod_builder *builder,
-                            struct spa_pod_frame   *frame,
-                            uint32_t       props_type)
+spa_pod_builder_push_props(struct spa_pod_builder *builder,
+			   struct spa_pod_frame *frame,
+			   uint32_t props_type)
 {
-  return spa_pod_builder_push_object (builder, frame, 0, props_type);
+	return spa_pod_builder_push_object(builder, frame, 0, props_type);
 }
 
 #define spa_pod_builder_props(b,f,props_type,...)               \
-  spa_pod_builder_object(b, f, 0, props_type,__VA_ARGS__)
+	spa_pod_builder_object(b, f, 0, props_type,__VA_ARGS__)
 
-static inline uint32_t
-spa_props_query (const struct spa_props *props, uint32_t key, ...)
+static inline uint32_t spa_props_query(const struct spa_props *props, uint32_t key, ...)
 {
-  uint32_t count;
-  va_list args;
+	uint32_t count;
+	va_list args;
 
-  va_start (args, key);
-  count = spa_pod_contents_queryv (&props->object.pod, sizeof (struct spa_props), key, args);
-  va_end (args);
+	va_start(args, key);
+	count = spa_pod_contents_queryv(&props->object.pod, sizeof(struct spa_props), key, args);
+	va_end(args);
 
-  return count;
+	return count;
 }
 
 #ifdef __cplusplus

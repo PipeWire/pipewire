@@ -131,18 +131,18 @@ static void reset_props(struct impl *this, struct props *props)
 	props->pattern = DEFAULT_PATTERN;
 }
 
-#define PROP(f,key,type,...)                                                    \
-          SPA_POD_PROP (f,key,0,type,1,__VA_ARGS__)
-#define PROP_MM(f,key,type,...)                                                 \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
-#define PROP_U_MM(f,key,type,...)                                               \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |                         \
-                              SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
-#define PROP_EN(f,key,type,n,...)                                               \
-          SPA_POD_PROP (f,key, SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
-#define PROP_U_EN(f,key,type,n,...)                                             \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |                         \
-                              SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
+#define PROP(f,key,type,...)							\
+	SPA_POD_PROP (f,key,0,type,1,__VA_ARGS__)
+#define PROP_MM(f,key,type,...)							\
+	SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
+#define PROP_U_MM(f,key,type,...)						\
+	SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |				\
+			SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
+#define PROP_EN(f,key,type,n,...)						\
+	SPA_POD_PROP (f,key, SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
+#define PROP_U_EN(f,key,type,n,...)						\
+	SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |				\
+			SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
 
 static int impl_node_get_props(struct spa_node *node, struct spa_props **props)
 {

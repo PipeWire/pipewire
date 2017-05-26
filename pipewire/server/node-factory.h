@@ -36,19 +36,18 @@ extern "C" {
  * PipeWire node factory interface.
  */
 struct pw_node_factory {
-  struct pw_core   *core;
-  struct spa_list   link;
-  struct pw_global *global;
+	struct pw_core *core;
+	struct spa_list link;
+	struct pw_global *global;
 
-  const char *name;
+	const char *name;
 
-  struct pw_node * (*create_node) (struct pw_node_factory *factory,
-                                   struct pw_client       *client,
-                                   const char             *name,
-                                   struct pw_properties   *properties);
+	struct pw_node *(*create_node) (struct pw_node_factory * factory,
+					struct pw_client * client,
+					const char *name, struct pw_properties * properties);
 };
 
-#define pw_node_factory_create_node(f,...)          (f)->create_node((f),__VA_ARGS__)
+#define pw_node_factory_create_node(f,...)	(f)->create_node((f),__VA_ARGS__)
 
 #ifdef __cplusplus
 }

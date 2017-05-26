@@ -27,53 +27,49 @@ extern "C" {
 #include <spa/defs.h>
 
 struct spa_list {
-  struct spa_list *next;
-  struct spa_list *prev;
+	struct spa_list *next;
+	struct spa_list *prev;
 };
 
-static inline void
-spa_list_init (struct spa_list *list)
+static inline void spa_list_init(struct spa_list *list)
 {
-  list->next = list;
-  list->prev = list;
+	list->next = list;
+	list->prev = list;
 }
 
-static inline void
-spa_list_insert (struct spa_list *list,
-                 struct spa_list *elem)
+static inline void spa_list_insert(struct spa_list *list, struct spa_list *elem)
 {
-  elem->prev = list;
-  elem->next = list->next;
-  list->next = elem;
-  elem->next->prev = elem;
+	elem->prev = list;
+	elem->next = list->next;
+	list->next = elem;
+	elem->next->prev = elem;
 }
 
-static inline void
-spa_list_remove (struct spa_list *elem)
+static inline void spa_list_remove(struct spa_list *elem)
 {
-  elem->prev->next = elem->next;
-  elem->next->prev = elem->prev;
+	elem->prev->next = elem->next;
+	elem->next->prev = elem->prev;
 }
 
 #define spa_list_is_empty(l)  ((l)->next == (l))
 
-#define spa_list_first(head, type, member)                                      \
-    SPA_CONTAINER_OF((head)->next, type, member)
+#define spa_list_first(head, type, member)				\
+	SPA_CONTAINER_OF((head)->next, type, member)
 
-#define spa_list_last(item, type, member)                                       \
-    SPA_CONTAINER_OF((head)->prev, type, member)
+#define spa_list_last(item, type, member)				\
+	SPA_CONTAINER_OF((head)->prev, type, member)
 
-#define spa_list_for_each(pos, head, member)                                    \
-    for (pos = SPA_CONTAINER_OF((head)->next, __typeof__(*pos), member);        \
-         &pos->member != (head);                                                \
-         pos = SPA_CONTAINER_OF(pos->member.next, __typeof__(*pos), member))
+#define spa_list_for_each(pos, head, member)						\
+	for (pos = SPA_CONTAINER_OF((head)->next, __typeof__(*pos), member);		\
+	     &pos->member != (head);							\
+	     pos = SPA_CONTAINER_OF(pos->member.next, __typeof__(*pos), member))
 
-#define spa_list_for_each_safe(pos, tmp, head, member)                          \
-    for (pos = SPA_CONTAINER_OF((head)->next, __typeof__(*pos), member),        \
-         tmp = SPA_CONTAINER_OF((pos)->member.next, __typeof__(*tmp), member);  \
-         &pos->member != (head);                                                \
-         pos = tmp,                                                             \
-         tmp = SPA_CONTAINER_OF(pos->member.next, __typeof__(*tmp), member))
+#define spa_list_for_each_safe(pos, tmp, head, member)					\
+	for (pos = SPA_CONTAINER_OF((head)->next, __typeof__(*pos), member),		\
+	     tmp = SPA_CONTAINER_OF((pos)->member.next, __typeof__(*tmp), member);	\
+	     &pos->member != (head);							\
+	     pos = tmp,									\
+	     tmp = SPA_CONTAINER_OF(pos->member.next, __typeof__(*tmp), member))
 
 
 #ifdef __cplusplus

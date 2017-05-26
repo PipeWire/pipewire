@@ -37,24 +37,37 @@ extern "C" {
 
 #include <spa/type-map.h>
 
-void pw_init (int *argc, char **argv[]);
+void
+pw_init(int *argc, char **argv[]);
 
-const char * pw_get_application_name (void);
-const char * pw_get_prgname (void);
-const char * pw_get_user_name (void);
-const char * pw_get_host_name (void);
+const char *
+pw_get_application_name(void);
 
-char * pw_client_name (void);
+const char *
+pw_get_prgname(void);
 
-void   pw_fill_context_properties (struct pw_properties *properties);
-void   pw_fill_stream_properties  (struct pw_properties *properties);
+const char *
+pw_get_user_name(void);
 
-enum pw_direction pw_direction_reverse (enum pw_direction direction);
+const char *
+pw_get_host_name(void);
 
-struct spa_type_map * pw_type_map_get_default (void);
+char *
+pw_client_name(void);
+
+void
+pw_fill_context_properties(struct pw_properties *properties);
+
+void
+pw_fill_stream_properties(struct pw_properties *properties);
+
+enum pw_direction
+pw_direction_reverse(enum pw_direction direction);
+
+struct spa_type_map *
+pw_type_map_get_default(void);
 
 #ifdef __cplusplus
 }
 #endif
-
 #endif /* __PIPEWIRE_H__ */

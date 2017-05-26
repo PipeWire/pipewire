@@ -38,23 +38,22 @@ extern "C" {
 #define SPA_TYPE_META__Shared                SPA_TYPE_META_BASE "Shared"
 
 struct spa_type_meta {
-  uint32_t Header;
-  uint32_t Pointer;
-  uint32_t VideoCrop;
-  uint32_t Ringbuffer;
-  uint32_t Shared;
+	uint32_t Header;
+	uint32_t Pointer;
+	uint32_t VideoCrop;
+	uint32_t Ringbuffer;
+	uint32_t Shared;
 };
 
-static inline void
-spa_type_meta_map (struct spa_type_map *map, struct spa_type_meta *type)
+static inline void spa_type_meta_map(struct spa_type_map *map, struct spa_type_meta *type)
 {
-  if (type->Header == 0) {
-    type->Header        = spa_type_map_get_id (map, SPA_TYPE_META__Header);
-    type->Pointer       = spa_type_map_get_id (map, SPA_TYPE_META__Pointer);
-    type->VideoCrop     = spa_type_map_get_id (map, SPA_TYPE_META__VideoCrop);
-    type->Ringbuffer    = spa_type_map_get_id (map, SPA_TYPE_META__Ringbuffer);
-    type->Shared        = spa_type_map_get_id (map, SPA_TYPE_META__Shared);
-  }
+	if (type->Header == 0) {
+		type->Header = spa_type_map_get_id(map, SPA_TYPE_META__Header);
+		type->Pointer = spa_type_map_get_id(map, SPA_TYPE_META__Pointer);
+		type->VideoCrop = spa_type_map_get_id(map, SPA_TYPE_META__VideoCrop);
+		type->Ringbuffer = spa_type_map_get_id(map, SPA_TYPE_META__Ringbuffer);
+		type->Shared = spa_type_map_get_id(map, SPA_TYPE_META__Shared);
+	}
 }
 
 /**
@@ -66,21 +65,21 @@ spa_type_meta_map (struct spa_type_map *map, struct spa_type_meta *type)
  * @dts_offset: offset relative to @pts to start decoding this buffer.
  */
 struct spa_meta_header {
-#define SPA_META_HEADER_FLAG_DISCONT            (1 << 0)   /* data is not continous with previous buffer */
-#define SPA_META_HEADER_FLAG_CORRUPTED          (1 << 1)   /* data might be corrupted */
-#define SPA_META_HEADER_FLAG_MARKER             (1 << 2)   /* media specific marker */
-#define SPA_META_HEADER_FLAG_HEADER             (1 << 3)   /* data contains a codec specific header */
-#define SPA_META_HEADER_FLAG_GAP                (1 << 4)   /* data contains media neutral data */
-#define SPA_META_HEADER_FLAG_DELTA_UNIT         (1 << 5)   /* cannot be decoded independently */
-  uint32_t flags;
-  uint32_t seq;
-  int64_t  pts;
-  int64_t  dts_offset;
+#define SPA_META_HEADER_FLAG_DISCONT            (1 << 0)	/* data is not continous with previous buffer */
+#define SPA_META_HEADER_FLAG_CORRUPTED          (1 << 1)	/* data might be corrupted */
+#define SPA_META_HEADER_FLAG_MARKER             (1 << 2)	/* media specific marker */
+#define SPA_META_HEADER_FLAG_HEADER             (1 << 3)	/* data contains a codec specific header */
+#define SPA_META_HEADER_FLAG_GAP                (1 << 4)	/* data contains media neutral data */
+#define SPA_META_HEADER_FLAG_DELTA_UNIT         (1 << 5)	/* cannot be decoded independently */
+	uint32_t flags;
+	uint32_t seq;
+	int64_t pts;
+	int64_t dts_offset;
 };
 
 struct spa_meta_pointer {
-  uint32_t   type;
-  void      *ptr;
+	uint32_t type;
+	void *ptr;
 };
 
 /**
@@ -91,8 +90,8 @@ struct spa_meta_pointer {
  * @height
  */
 struct spa_meta_video_crop {
-  int32_t   x, y;
-  int32_t   width, height;
+	int32_t x, y;
+	int32_t width, height;
 };
 
 /**
@@ -100,7 +99,7 @@ struct spa_meta_video_crop {
  * @ringbuffer:
  */
 struct spa_meta_ringbuffer {
-  struct spa_ringbuffer ringbuffer;
+	struct spa_ringbuffer ringbuffer;
 };
 
 /**
@@ -111,10 +110,10 @@ struct spa_meta_ringbuffer {
  * @size: size of the memory
  */
 struct spa_meta_shared {
-  int32_t        flags;
-  int            fd;
-  int32_t        offset;
-  uint32_t       size;
+	int32_t flags;
+	int fd;
+	int32_t offset;
+	uint32_t size;
 };
 
 /**
@@ -124,9 +123,9 @@ struct spa_meta_shared {
  * @size: size of metadata
  */
 struct spa_meta {
-  uint32_t     type;
-  void        *data;
-  uint32_t     size;
+	uint32_t type;
+	void *data;
+	uint32_t size;
 };
 
 #ifdef __cplusplus

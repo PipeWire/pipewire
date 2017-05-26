@@ -28,68 +28,63 @@
 
 #define MAX_TYPES 4096
 
-struct type_map{
-  struct spa_type_map map;
-  char *types[MAX_TYPES];
-  unsigned int n_types;
+struct type_map {
+	struct spa_type_map map;
+	char *types[MAX_TYPES];
+	unsigned int n_types;
 };
 
-static uint32_t
-type_map_get_id (struct spa_type_map *map, const char *type)
+static uint32_t type_map_get_id(struct spa_type_map *map, const char *type)
 {
-  struct type_map *this = SPA_CONTAINER_OF (map, struct type_map, map);
-  unsigned int i = 0;
+	struct type_map *this = SPA_CONTAINER_OF(map, struct type_map, map);
+	unsigned int i = 0;
 
-  if (type != NULL) {
-    for (i = 1; i <= this->n_types; i++) {
-      if (strcmp (this->types[i], type) == 0)
-        return i;
-    }
-    this->types[i] = (char *)type;
-    this->n_types++;
-  }
-  return i;
+	if (type != NULL) {
+		for (i = 1; i <= this->n_types; i++) {
+			if (strcmp(this->types[i], type) == 0)
+				return i;
+		}
+		this->types[i] = (char *) type;
+		this->n_types++;
+	}
+	return i;
 }
 
-static const char *
-type_map_get_type (const struct spa_type_map *map, uint32_t id)
+static const char *type_map_get_type(const struct spa_type_map *map, uint32_t id)
 {
-  struct type_map *this = SPA_CONTAINER_OF (map, struct type_map, map);
+	struct type_map *this = SPA_CONTAINER_OF(map, struct type_map, map);
 
-  if (id <= this->n_types)
-    return this->types[id];
+	if (id <= this->n_types)
+		return this->types[id];
 
-  return NULL;
+	return NULL;
 }
 
-static size_t
-type_map_get_size (const struct spa_type_map *map)
+static size_t type_map_get_size(const struct spa_type_map *map)
 {
-  struct type_map *this = SPA_CONTAINER_OF (map, struct type_map, map);
-  return this->n_types;
+	struct type_map *this = SPA_CONTAINER_OF(map, struct type_map, map);
+	return this->n_types;
 }
 
 static struct type_map default_type_map = {
-  { sizeof (struct spa_type_map),
-    NULL,
-    type_map_get_id,
-    type_map_get_type,
-    type_map_get_size,
-  },
-  { NULL, },
-  0
+	{sizeof(struct spa_type_map),
+	 NULL,
+	 type_map_get_id,
+	 type_map_get_type,
+	 type_map_get_size,
+	 },
+	{NULL,},
+	0
 };
 
 static struct spa_type_map *default_map = &default_type_map.map;
 
-struct spa_type_map *
-spa_type_map_get_default (void)
+struct spa_type_map *spa_type_map_get_default(void)
 {
-  return default_map;
+	return default_map;
 }
 
-void
-spa_type_map_set_default (struct spa_type_map *map)
+void spa_type_map_set_default(struct spa_type_map *map)
 {
-  default_map = map;
+	default_map = map;
 }

@@ -30,117 +30,107 @@ extern "C" {
 #include <spa/pod-utils.h>
 
 struct spa_pod_iter {
-  const void *data;
-  uint32_t    size;
-  uint32_t    offset;
+	const void *data;
+	uint32_t size;
+	uint32_t offset;
 };
 
-static inline void
-spa_pod_iter_contents (struct spa_pod_iter *iter, const void *data, uint32_t size)
+static inline void spa_pod_iter_contents(struct spa_pod_iter *iter, const void *data, uint32_t size)
 {
-  iter->data = data;
-  iter->size = size;
-  iter->offset = 0;
+	iter->data = data;
+	iter->size = size;
+	iter->offset = 0;
 }
 
-static inline bool
-spa_pod_iter_struct (struct spa_pod_iter *iter, const void *data, uint32_t size)
+static inline bool spa_pod_iter_struct(struct spa_pod_iter *iter, const void *data, uint32_t size)
 {
-  if (data == NULL || size < 8 || SPA_POD_SIZE (data) > size || SPA_POD_TYPE (data) != SPA_POD_TYPE_STRUCT)
-    return false;
+	if (data == NULL || size < 8 || SPA_POD_SIZE(data) > size
+	    || SPA_POD_TYPE(data) != SPA_POD_TYPE_STRUCT)
+		return false;
 
-  spa_pod_iter_contents (iter, SPA_POD_CONTENTS (struct spa_pod_struct, data),
-                               SPA_POD_CONTENTS_SIZE (struct spa_pod_struct, data));
-  return true;
+	spa_pod_iter_contents(iter, SPA_POD_CONTENTS(struct spa_pod_struct, data),
+			      SPA_POD_CONTENTS_SIZE(struct spa_pod_struct, data));
+	return true;
 }
 
-static inline bool
-spa_pod_iter_object (struct spa_pod_iter *iter, const void *data, uint32_t size)
+static inline bool spa_pod_iter_object(struct spa_pod_iter *iter, const void *data, uint32_t size)
 {
-  if (data == NULL || SPA_POD_SIZE (data) > size || SPA_POD_TYPE (data) != SPA_POD_TYPE_OBJECT)
-    return false;
+	if (data == NULL || SPA_POD_SIZE(data) > size || SPA_POD_TYPE(data) != SPA_POD_TYPE_OBJECT)
+		return false;
 
-  spa_pod_iter_contents (iter, SPA_POD_CONTENTS (struct spa_pod_object, data),
-                               SPA_POD_CONTENTS_SIZE (struct spa_pod_object, data));
-  return true;
-}
-static inline bool
-spa_pod_iter_pod (struct spa_pod_iter *iter, struct spa_pod *pod)
-{
-  void *data;
-  uint32_t size;
-
-  switch (SPA_POD_TYPE (pod)) {
-    case SPA_POD_TYPE_STRUCT:
-      data = SPA_POD_CONTENTS (struct spa_pod_struct, pod);
-      size = SPA_POD_CONTENTS_SIZE (struct spa_pod_struct, pod);
-      break;
-    case SPA_POD_TYPE_OBJECT:
-      data = SPA_POD_CONTENTS (struct spa_pod_object, pod);
-      size = SPA_POD_CONTENTS_SIZE (struct spa_pod_object, pod);
-      break;
-    default:
-      spa_pod_iter_contents (iter, NULL, 0);
-      return false;
-  }
-  spa_pod_iter_contents (iter, data, size);
-  return true;
+	spa_pod_iter_contents(iter, SPA_POD_CONTENTS(struct spa_pod_object, data),
+			      SPA_POD_CONTENTS_SIZE(struct spa_pod_object, data));
+	return true;
 }
 
-static inline bool
-spa_pod_iter_has_next (struct spa_pod_iter *iter)
+static inline bool spa_pod_iter_pod(struct spa_pod_iter *iter, struct spa_pod *pod)
 {
-  return (iter->offset + 8 <= iter->size &&
-      SPA_POD_SIZE (SPA_MEMBER (iter->data, iter->offset, struct spa_pod)) <= iter->size);
+	void *data;
+	uint32_t size;
+
+	switch (SPA_POD_TYPE(pod)) {
+	case SPA_POD_TYPE_STRUCT:
+		data = SPA_POD_CONTENTS(struct spa_pod_struct, pod);
+		size = SPA_POD_CONTENTS_SIZE(struct spa_pod_struct, pod);
+		break;
+	case SPA_POD_TYPE_OBJECT:
+		data = SPA_POD_CONTENTS(struct spa_pod_object, pod);
+		size = SPA_POD_CONTENTS_SIZE(struct spa_pod_object, pod);
+		break;
+	default:
+		spa_pod_iter_contents(iter, NULL, 0);
+		return false;
+	}
+	spa_pod_iter_contents(iter, data, size);
+	return true;
 }
 
-static inline struct spa_pod *
-spa_pod_iter_next (struct spa_pod_iter *iter)
+static inline bool spa_pod_iter_has_next(struct spa_pod_iter *iter)
 {
-  struct spa_pod *res = SPA_MEMBER (iter->data, iter->offset, struct spa_pod);
-  iter->offset += SPA_ROUND_UP_N (SPA_POD_SIZE (res), 8);
-  return res;
+	return (iter->offset + 8 <= iter->size &&
+		SPA_POD_SIZE(SPA_MEMBER(iter->data, iter->offset, struct spa_pod)) <= iter->size);
 }
 
-static inline struct spa_pod *
-spa_pod_iter_first (struct spa_pod_iter *iter, struct spa_pod *pod)
+static inline struct spa_pod *spa_pod_iter_next(struct spa_pod_iter *iter)
 {
-  if (!spa_pod_iter_pod (iter, pod) ||
-      !spa_pod_iter_has_next (iter))
-    return NULL;
-  return spa_pod_iter_next (iter);
+	struct spa_pod *res = SPA_MEMBER(iter->data, iter->offset, struct spa_pod);
+	iter->offset += SPA_ROUND_UP_N(SPA_POD_SIZE(res), 8);
+	return res;
 }
 
-static inline bool
-spa_pod_iter_getv (struct spa_pod_iter *iter,
-                   uint32_t    type,
-                   va_list     args)
+static inline struct spa_pod *spa_pod_iter_first(struct spa_pod_iter *iter, struct spa_pod *pod)
 {
-  bool res = true;
-
-  while (type && (res = spa_pod_iter_has_next (iter))) {
-    struct spa_pod *pod = spa_pod_iter_next (iter);
-
-    SPA_POD_COLLECT (pod, type, args, error);
-
-    type = va_arg (args, uint32_t);
-  }
-  return res;
-error:
-  return false;
+	if (!spa_pod_iter_pod(iter, pod) || !spa_pod_iter_has_next(iter))
+		return NULL;
+	return spa_pod_iter_next(iter);
 }
 
-static inline bool
-spa_pod_iter_get (struct spa_pod_iter *iter, uint32_t type, ...)
+static inline bool spa_pod_iter_getv(struct spa_pod_iter *iter, uint32_t type, va_list args)
 {
-  va_list args;
-  bool res;
+	bool res = true;
 
-  va_start (args, type);
-  res = spa_pod_iter_getv (iter, type, args);
-  va_end (args);
+	while (type && (res = spa_pod_iter_has_next(iter))) {
+		struct spa_pod *pod = spa_pod_iter_next(iter);
 
-  return res;
+		SPA_POD_COLLECT(pod, type, args, error);
+
+		type = va_arg(args, uint32_t);
+	}
+	return res;
+      error:
+	return false;
+}
+
+static inline bool spa_pod_iter_get(struct spa_pod_iter *iter, uint32_t type, ...)
+{
+	va_list args;
+	bool res;
+
+	va_start(args, type);
+	res = spa_pod_iter_getv(iter, type, args);
+	va_end(args);
+
+	return res;
 }
 
 #ifdef __cplusplus

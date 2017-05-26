@@ -39,63 +39,63 @@ extern "C" {
 #define SPA_TYPE_EVENT_NODE__RequestClockUpdate    SPA_TYPE_EVENT_NODE_BASE "RequestClockUpdate"
 
 struct spa_type_event_node {
-  uint32_t AsyncComplete;
-  uint32_t Error;
-  uint32_t Buffering;
-  uint32_t RequestRefresh;
-  uint32_t RequestClockUpdate;
+	uint32_t AsyncComplete;
+	uint32_t Error;
+	uint32_t Buffering;
+	uint32_t RequestRefresh;
+	uint32_t RequestClockUpdate;
 };
 
 static inline void
-spa_type_event_node_map (struct spa_type_map *map, struct spa_type_event_node *type)
+spa_type_event_node_map(struct spa_type_map *map, struct spa_type_event_node *type)
 {
-  if (type->AsyncComplete == 0) {
-    type->AsyncComplete        = spa_type_map_get_id (map, SPA_TYPE_EVENT_NODE__AsyncComplete);
-    type->Error                = spa_type_map_get_id (map, SPA_TYPE_EVENT_NODE__Error);
-    type->Buffering            = spa_type_map_get_id (map, SPA_TYPE_EVENT_NODE__Buffering);
-    type->RequestRefresh       = spa_type_map_get_id (map, SPA_TYPE_EVENT_NODE__RequestRefresh);
-    type->RequestClockUpdate   = spa_type_map_get_id (map, SPA_TYPE_EVENT_NODE__RequestClockUpdate);
-  }
+	if (type->AsyncComplete == 0) {
+		type->AsyncComplete = spa_type_map_get_id(map, SPA_TYPE_EVENT_NODE__AsyncComplete);
+		type->Error = spa_type_map_get_id(map, SPA_TYPE_EVENT_NODE__Error);
+		type->Buffering = spa_type_map_get_id(map, SPA_TYPE_EVENT_NODE__Buffering);
+		type->RequestRefresh = spa_type_map_get_id(map, SPA_TYPE_EVENT_NODE__RequestRefresh);
+		type->RequestClockUpdate = spa_type_map_get_id(map, SPA_TYPE_EVENT_NODE__RequestClockUpdate);
+	}
 }
 
 struct spa_event_node_async_complete_body {
-  struct spa_pod_object_body body;
-  struct spa_pod_int         seq         SPA_ALIGNED (8);
-  struct spa_pod_int         res         SPA_ALIGNED (8);
+	struct spa_pod_object_body body;
+	struct spa_pod_int seq SPA_ALIGNED(8);
+	struct spa_pod_int res SPA_ALIGNED(8);
 };
 
 struct spa_event_node_async_complete {
-  struct spa_pod                            pod;
-  struct spa_event_node_async_complete_body body;
+	struct spa_pod pod;
+	struct spa_event_node_async_complete_body body;
 };
 
-#define SPA_EVENT_NODE_ASYNC_COMPLETE_INIT(type,seq,res)                                \
-  SPA_EVENT_INIT_COMPLEX (struct spa_event_node_async_complete,                         \
-                          sizeof (struct spa_event_node_async_complete_body), type,     \
-      SPA_POD_INT_INIT (seq),                                                           \
-      SPA_POD_INT_INIT (res))
+#define SPA_EVENT_NODE_ASYNC_COMPLETE_INIT(type,seq,res)			\
+	SPA_EVENT_INIT_COMPLEX(struct spa_event_node_async_complete,		\
+		sizeof(struct spa_event_node_async_complete_body), type,	\
+		SPA_POD_INT_INIT(seq),						\
+		SPA_POD_INT_INIT(res))
 
 struct spa_event_node_request_clock_update_body {
-  struct spa_pod_object_body body;
+	struct spa_pod_object_body body;
 #define SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_TIME        (1 << 0)
 #define SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_SCALE       (1 << 1)
 #define SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_STATE       (1 << 2)
-  struct spa_pod_int         update_mask  SPA_ALIGNED (8);
-  struct spa_pod_long        timestamp    SPA_ALIGNED (8);
-  struct spa_pod_long        offset       SPA_ALIGNED (8);
+	struct spa_pod_int update_mask		SPA_ALIGNED(8);
+	struct spa_pod_long timestamp		SPA_ALIGNED(8);
+	struct spa_pod_long offset		SPA_ALIGNED(8);
 };
 
 struct spa_event_node_request_clock_update {
-  struct spa_pod                                  pod;
-  struct spa_event_node_request_clock_update_body body;
+	struct spa_pod pod;
+	struct spa_event_node_request_clock_update_body body;
 };
 
-#define SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_INIT(type,update_mask,timestamp,offset)             \
-  SPA_EVENT_INIT_COMPLEX (struct spa_event_node_request_clock_update,                           \
-                          sizeof (struct spa_event_node_request_clock_update_body), type,       \
-      SPA_POD_INT_INIT (update_mask),                                                           \
-      SPA_POD_LONG_INIT (timestamp),                                                            \
-      SPA_POD_LONG_INIT (offset))
+#define SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_INIT(type,update_mask,timestamp,offset)	\
+	SPA_EVENT_INIT_COMPLEX(struct spa_event_node_request_clock_update,		\
+		sizeof(struct spa_event_node_request_clock_update_body), type,		\
+		SPA_POD_INT_INIT(update_mask),						\
+		SPA_POD_LONG_INIT(timestamp),						\
+		SPA_POD_LONG_INIT(offset))
 
 #ifdef __cplusplus
 }  /* extern "C" */

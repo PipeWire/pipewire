@@ -34,9 +34,9 @@ extern "C" {
  * @SPA_CLOCK_STATE_RUNNING: the clock is running
  */
 enum spa_clock_state {
-  SPA_CLOCK_STATE_STOPPED,
-  SPA_CLOCK_STATE_PAUSED,
-  SPA_CLOCK_STATE_RUNNING,
+	SPA_CLOCK_STATE_STOPPED,
+	SPA_CLOCK_STATE_PAUSED,
+	SPA_CLOCK_STATE_RUNNING,
 };
 
 #include <spa/defs.h>
@@ -49,68 +49,64 @@ enum spa_clock_state {
  * A time provider.
  */
 struct spa_clock {
-  /* the total size of this clock. This can be used to expand this
-   * structure in the future */
-  size_t size;
-  /**
-   * spa_clock::info
-   *
-   * Extra information about the clock
-   */
-  const struct spa_dict *info;
-  /**
-   * spa_clock::state:
-   *
-   * The current state of the clock
-   */
-  enum spa_clock_state state;
-  /**
-   * spa_clock::get_props:
-   * @clock: a #spa_clock
-   * @props: a location for a #struct spa_props pointer
-   *
-   * Get the configurable properties of @clock.
-   *
-   * The returned @props is a snapshot of the current configuration and
-   * can be modified. The modifications will take effect after a call
-   * to spa_clock::set_props.
-   *
-   * Returns: #SPA_RESULT_OK on success
-   *          #SPA_RESULT_INVALID_ARGUMENTS when clock or props are %NULL
-   *          #SPA_RESULT_NOT_IMPLEMENTED when there are no properties
-   *                 implemented on @clock
-   */
-  int   (*get_props)            (struct spa_clock  *clock,
-                                 struct spa_props **props);
-  /**
-   * spa_clock::set_props:
-   * @clock: a #spa_clock
-   * @props: a #struct spa_props
-   *
-   * Set the configurable properties in @clock.
-   *
-   * Usually, @props will be obtained from spa_clock::get_props and then
-   * modified but it is also possible to set another #struct spa_props object
-   * as long as its keys and types match those of struct spa_props::get_props.
-   *
-   * Properties with keys that are not known are ignored.
-   *
-   * If @props is NULL, all the properties are reset to their defaults.
-   *
-   * Returns: #SPA_RESULT_OK on success
-   *          #SPA_RESULT_INVALID_ARGUMENTS when clock is %NULL
-   *          #SPA_RESULT_NOT_IMPLEMENTED when no properties can be
-   *                 modified on @clock.
-   *          #SPA_RESULT_WRONG_PROPERTY_TYPE when a property has the wrong
-   *                 type.
-   */
-  int   (*set_props)           (struct spa_clock       *clock,
-                                const struct spa_props *props);
+	/* the total size of this clock. This can be used to expand this
+	 * structure in the future */
+	size_t size;
 
-  int   (*get_time)            (struct spa_clock *clock,
-                                int32_t          *rate,
-                                int64_t          *ticks,
-                                int64_t          *monotonic_time);
+	const struct spa_dict *info;
+	/**
+	 * spa_clock::state:
+	 *
+	 * The current state of the clock
+	 */
+	enum spa_clock_state state;
+	/**
+	 * spa_clock::get_props:
+	 * @clock: a #spa_clock
+	 * @props: a location for a #struct spa_props pointer
+	 *
+	 * Get the configurable properties of @clock.
+	 *
+	 * The returned @props is a snapshot of the current configuration and
+	 * can be modified. The modifications will take effect after a call
+	 * to spa_clock::set_props.
+	 *
+	 * Returns: #SPA_RESULT_OK on success
+	 *          #SPA_RESULT_INVALID_ARGUMENTS when clock or props are %NULL
+	 *          #SPA_RESULT_NOT_IMPLEMENTED when there are no properties
+	 *                 implemented on @clock
+	 */
+	int (*get_props) (struct spa_clock *clock,
+			  struct spa_props **props);
+	/**
+	 * spa_clock::set_props:
+	 * @clock: a #spa_clock
+	 * @props: a #struct spa_props
+	 *
+	 * Set the configurable properties in @clock.
+	 *
+	 * Usually, @props will be obtained from spa_clock::get_props and then
+	 * modified but it is also possible to set another #struct spa_props object
+	 * as long as its keys and types match those of struct spa_props::get_props.
+	 *
+	 * Properties with keys that are not known are ignored.
+	 *
+	 * If @props is NULL, all the properties are reset to their defaults.
+	 *
+	 * Returns: #SPA_RESULT_OK on success
+	 *          #SPA_RESULT_INVALID_ARGUMENTS when clock is %NULL
+	 *          #SPA_RESULT_NOT_IMPLEMENTED when no properties can be
+	 *                 modified on @clock.
+	 *          #SPA_RESULT_WRONG_PROPERTY_TYPE when a property has the wrong
+	 *                 type.
+	 */
+	int (*set_props) (struct spa_clock *clock,
+			  const struct spa_props *props);
+
+	int (*get_time) (struct spa_clock *clock,
+			 int32_t *rate,
+			 int64_t *ticks,
+			 int64_t *monotonic_time);
 };
 
 #define spa_clock_get_props(n,...)          (n)->get_props((n),__VA_ARGS__)
@@ -121,4 +117,4 @@ struct spa_clock {
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_CLOCK_H__ */
+#endif				/* __SPA_CLOCK_H__ */

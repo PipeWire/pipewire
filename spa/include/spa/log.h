@@ -33,12 +33,12 @@ extern "C" {
 #include <spa/plugin.h>
 
 enum spa_log_level {
-  SPA_LOG_LEVEL_NONE   = 0,
-  SPA_LOG_LEVEL_ERROR,
-  SPA_LOG_LEVEL_WARN,
-  SPA_LOG_LEVEL_INFO,
-  SPA_LOG_LEVEL_DEBUG,
-  SPA_LOG_LEVEL_TRACE,
+	SPA_LOG_LEVEL_NONE = 0,
+	SPA_LOG_LEVEL_ERROR,
+	SPA_LOG_LEVEL_WARN,
+	SPA_LOG_LEVEL_INFO,
+	SPA_LOG_LEVEL_DEBUG,
+	SPA_LOG_LEVEL_TRACE,
 };
 
 /**
@@ -47,88 +47,88 @@ enum spa_log_level {
  * The Log interface
  */
 struct spa_log {
-  /* the total size of this log. This can be used to expand this
-   * structure in the future */
-  size_t size;
-  /**
-   * struct spa_log::info
-   *
-   * Extra information about the log
-   */
-  const struct spa_dict *info;
+	/* the total size of this log. This can be used to expand this
+	 * structure in the future */
+	size_t size;
+	/**
+	 * struct spa_log::info
+	 *
+	 * Extra information about the log
+	 */
+	const struct spa_dict *info;
 
-  /**
-   * struct spa_log::level
-   *
-   * Logging level, everything above this level is not logged
-   */
-  enum spa_log_level level;
+	/**
+	 * struct spa_log::level
+	 *
+	 * Logging level, everything above this level is not logged
+	 */
+	enum spa_log_level level;
 
-  /**
-   * struct spa_log::log
-   * @log: a #struct spa_log
-   * @level: a #enum spa_log_level
-   * @file: the file name
-   * @line: the line number
-   * @func: the function name
-   * @fmt: printf style format
-   * @...: format arguments
-   *
-   * Log a message with the given log level.
-   */
-  void   (*log)           (struct spa_log     *log,
-                           enum spa_log_level  level,
-                           const char         *file,
-                           int                 line,
-                           const char         *func,
-                           const char         *fmt, ...) SPA_PRINTF_FUNC(6, 7);
+	/**
+	 * struct spa_log::log
+	 * @log: a #struct spa_log
+	 * @level: a #enum spa_log_level
+	 * @file: the file name
+	 * @line: the line number
+	 * @func: the function name
+	 * @fmt: printf style format
+	 * @...: format arguments
+	 *
+	 * Log a message with the given log level.
+	 */
+	void (*log) (struct spa_log * log,
+		     enum spa_log_level level,
+		     const char *file,
+		     int line,
+		     const char *func,
+		     const char *fmt, ...) SPA_PRINTF_FUNC(6, 7);
 
-  /**
-   * struct spa_log::logv
-   * @log: a #struct spa_log
-   * @level: a #enum spa_log_level
-   * @file: the file name
-   * @line: the line number
-   * @func: the function name
-   * @fmt: printf style format
-   * @args: format arguments
-   *
-   * Log a message with the given log level.
-   */
-  void   (*logv)          (struct spa_log     *log,
-                           enum spa_log_level  level,
-                           const char         *file,
-                           int                 line,
-                           const char         *func,
-                           const char         *fmt,
-                           va_list             args) SPA_PRINTF_FUNC(6, 0);
+	/**
+	 * struct spa_log::logv
+	 * @log: a #struct spa_log
+	 * @level: a #enum spa_log_level
+	 * @file: the file name
+	 * @line: the line number
+	 * @func: the function name
+	 * @fmt: printf style format
+	 * @args: format arguments
+	 *
+	 * Log a message with the given log level.
+	 */
+	void (*logv) (struct spa_log * log,
+		      enum spa_log_level level,
+		      const char *file,
+		      int line,
+		      const char *func,
+		      const char *fmt,
+		      va_list args) SPA_PRINTF_FUNC(6, 0);
 };
 
 #define spa_log_level_enabled(l,lev) ((l) && (l)->level >= (lev))
 
 #if __STDC_VERSION__ >= 199901L
 
-#define spa_log_log(l,lev,...)                          \
-  if (SPA_UNLIKELY (spa_log_level_enabled (l, lev)))    \
-    (l)->log((l),lev,__VA_ARGS__)
+#define spa_log_log(l,lev,...)					\
+	if (SPA_UNLIKELY (spa_log_level_enabled (l, lev)))	\
+		(l)->log((l),lev,__VA_ARGS__)
 
-#define spa_log_error(l,...)           spa_log_log(l,SPA_LOG_LEVEL_ERROR,__FILE__,__LINE__,__func__,__VA_ARGS__)
-#define spa_log_warn(l,...)            spa_log_log(l,SPA_LOG_LEVEL_WARN,__FILE__,__LINE__,__func__,__VA_ARGS__)
-#define spa_log_info(l,...)            spa_log_log(l,SPA_LOG_LEVEL_INFO,__FILE__,__LINE__,__func__,__VA_ARGS__)
-#define spa_log_debug(l,...)           spa_log_log(l,SPA_LOG_LEVEL_DEBUG,__FILE__,__LINE__,__func__,__VA_ARGS__)
-#define spa_log_trace(l,...)           spa_log_log(l,SPA_LOG_LEVEL_TRACE,__FILE__,__LINE__,__func__,__VA_ARGS__)
+#define spa_log_error(l,...)	spa_log_log(l,SPA_LOG_LEVEL_ERROR,__FILE__,__LINE__,__func__,__VA_ARGS__)
+#define spa_log_warn(l,...)	spa_log_log(l,SPA_LOG_LEVEL_WARN,__FILE__,__LINE__,__func__,__VA_ARGS__)
+#define spa_log_info(l,...)	spa_log_log(l,SPA_LOG_LEVEL_INFO,__FILE__,__LINE__,__func__,__VA_ARGS__)
+#define spa_log_debug(l,...)	spa_log_log(l,SPA_LOG_LEVEL_DEBUG,__FILE__,__LINE__,__func__,__VA_ARGS__)
+#define spa_log_trace(l,...)	spa_log_log(l,SPA_LOG_LEVEL_TRACE,__FILE__,__LINE__,__func__,__VA_ARGS__)
 
 #else
 
-#define SPA_LOG_FUNC(name,lev)                                                  \
-static inline void spa_log_##name (struct spa_log *l, const char *format, ...)  \
-{                                                                               \
-  if (SPA_UNLIKELY (spa_log_level_enabled (l, lev))) {                          \
-    va_list varargs;                                                            \
-    va_start (varargs, format);                                                 \
-    (l)->logv((l),lev,__FILE__,__LINE__,__func__,format,varargs);               \
-    va_end (varargs);                                                           \
-  }                                                                             \
+#define SPA_LOG_FUNC(name,lev)							\
+static inline void spa_log_##name (struct spa_log *l, const char *format, ...)	\
+{										\
+	if (SPA_UNLIKELY (spa_log_level_enabled (l, lev))) {			\
+		va_list varargs;						\
+		va_start (varargs, format);					\
+		(l)->logv((l),lev,__FILE__,__LINE__,__func__,format,varargs);	\
+		va_end (varargs);						\
+	}									\
 }
 
 SPA_LOG_FUNC(error, SPA_LOG_LEVEL_ERROR)
@@ -138,9 +138,7 @@ SPA_LOG_FUNC(debug, SPA_LOG_LEVEL_DEBUG)
 SPA_LOG_FUNC(trace, SPA_LOG_LEVEL_TRACE)
 
 #endif
-
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif
-
 #endif /* __SPA_LOG_H__ */

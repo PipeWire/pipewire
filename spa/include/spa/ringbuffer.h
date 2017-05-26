@@ -40,10 +40,10 @@ struct spa_ringbuffer;
  * @mask: mask as @size - 1
  */
 struct spa_ringbuffer {
-  uint32_t     readindex;
-  uint32_t     writeindex;
-  uint32_t     size;
-  uint32_t     mask;
+	uint32_t readindex;
+	uint32_t writeindex;
+	uint32_t size;
+	uint32_t mask;
 };
 
 /**
@@ -57,19 +57,17 @@ struct spa_ringbuffer {
  *
  * Returns: %SPA_RESULT_OK, unless size is not a power of 2.
  */
-static inline int
-spa_ringbuffer_init (struct spa_ringbuffer *rbuf,
-                     uint32_t size)
+static inline int spa_ringbuffer_init(struct spa_ringbuffer *rbuf, uint32_t size)
 {
-  if (SPA_UNLIKELY ((size & (size - 1)) != 0))
-    return SPA_RESULT_ERROR;
+	if (SPA_UNLIKELY((size & (size - 1)) != 0))
+		return SPA_RESULT_ERROR;
 
-  rbuf->size = size;
-  rbuf->mask = size - 1;
-  rbuf->readindex = 0;
-  rbuf->writeindex = 0;
+	rbuf->size = size;
+	rbuf->mask = size - 1;
+	rbuf->readindex = 0;
+	rbuf->writeindex = 0;
 
-  return SPA_RESULT_OK;
+	return SPA_RESULT_OK;
 }
 
 /**
@@ -78,11 +76,10 @@ spa_ringbuffer_init (struct spa_ringbuffer *rbuf,
  *
  * Clear @rbuf
  */
-static inline void
-spa_ringbuffer_clear (struct spa_ringbuffer *rbuf)
+static inline void spa_ringbuffer_clear(struct spa_ringbuffer *rbuf)
 {
-  rbuf->readindex = 0;
-  rbuf->writeindex = 0;
+	rbuf->readindex = 0;
+	rbuf->writeindex = 0;
 }
 
 /**
@@ -95,16 +92,14 @@ spa_ringbuffer_clear (struct spa_ringbuffer *rbuf)
  *          there was an underrun. values > rbuf->size means there
  *          was an overrun.
  */
-static inline int32_t
-spa_ringbuffer_get_read_index (struct spa_ringbuffer *rbuf,
-                               uint32_t              *index)
+static inline int32_t spa_ringbuffer_get_read_index(struct spa_ringbuffer *rbuf, uint32_t * index)
 {
-  int32_t avail;
+	int32_t avail;
 
-  *index = __atomic_load_n (&rbuf->readindex, __ATOMIC_RELAXED);
-  avail = (int32_t) (__atomic_load_n (&rbuf->writeindex, __ATOMIC_ACQUIRE) - *index);
+	*index = __atomic_load_n(&rbuf->readindex, __ATOMIC_RELAXED);
+	avail = (int32_t) (__atomic_load_n(&rbuf->writeindex, __ATOMIC_ACQUIRE) - *index);
 
-  return avail;
+	return avail;
 }
 
 /**
@@ -119,17 +114,14 @@ spa_ringbuffer_get_read_index (struct spa_ringbuffer *rbuf,
  * with the size of @rbuf and len should be smaller than the size.
  */
 static inline void
-spa_ringbuffer_read_data (struct spa_ringbuffer *rbuf,
-                          void                  *buffer,
-                          uint32_t               offset,
-                          void                  *data,
-                          uint32_t               len)
+spa_ringbuffer_read_data(struct spa_ringbuffer *rbuf,
+			 void *buffer, uint32_t offset, void *data, uint32_t len)
 {
-  uint32_t first = SPA_MIN (len, rbuf->size - offset);
-  memcpy (data, buffer + offset, first);
-  if (SPA_UNLIKELY (len > first)) {
-    memcpy (data + first, buffer, len - first);
-  }
+	uint32_t first = SPA_MIN(len, rbuf->size - offset);
+	memcpy(data, buffer + offset, first);
+	if (SPA_UNLIKELY(len > first)) {
+		memcpy(data + first, buffer, len - first);
+	}
 }
 
 /**
@@ -139,11 +131,9 @@ spa_ringbuffer_read_data (struct spa_ringbuffer *rbuf,
  *
  * Update the read pointer to @index
  */
-static inline void
-spa_ringbuffer_read_update (struct spa_ringbuffer *rbuf,
-                            int32_t                index)
+static inline void spa_ringbuffer_read_update(struct spa_ringbuffer *rbuf, int32_t index)
 {
-  __atomic_store_n (&rbuf->readindex, index, __ATOMIC_RELEASE);
+	__atomic_store_n(&rbuf->readindex, index, __ATOMIC_RELEASE);
 }
 
 /**
@@ -157,30 +147,25 @@ spa_ringbuffer_read_update (struct spa_ringbuffer *rbuf,
  *          was an overrun. Subtract from the buffer size to get
  *          the number of bytes available for writing.
  */
-static inline int32_t
-spa_ringbuffer_get_write_index (struct spa_ringbuffer *rbuf,
-                                uint32_t              *index)
+static inline int32_t spa_ringbuffer_get_write_index(struct spa_ringbuffer *rbuf, uint32_t * index)
 {
-  int32_t filled;
+	int32_t filled;
 
-  *index = __atomic_load_n (&rbuf->writeindex, __ATOMIC_RELAXED);
-  filled = (int32_t) (*index - __atomic_load_n (&rbuf->readindex, __ATOMIC_ACQUIRE));
+	*index = __atomic_load_n(&rbuf->writeindex, __ATOMIC_RELAXED);
+	filled = (int32_t) (*index - __atomic_load_n(&rbuf->readindex, __ATOMIC_ACQUIRE));
 
-  return filled;
+	return filled;
 }
 
 static inline void
-spa_ringbuffer_write_data (struct spa_ringbuffer *rbuf,
-                           void                  *buffer,
-                           uint32_t               offset,
-                           void                  *data,
-                           uint32_t               len)
+spa_ringbuffer_write_data(struct spa_ringbuffer *rbuf,
+			  void *buffer, uint32_t offset, void *data, uint32_t len)
 {
-  uint32_t first = SPA_MIN (len, rbuf->size - offset);
-  memcpy (buffer + offset, data, first);
-  if (SPA_UNLIKELY (len > first)) {
-    memcpy (buffer, data + first, len - first);
-  }
+	uint32_t first = SPA_MIN(len, rbuf->size - offset);
+	memcpy(buffer + offset, data, first);
+	if (SPA_UNLIKELY(len > first)) {
+		memcpy(buffer, data + first, len - first);
+	}
 }
 
 /**
@@ -191,11 +176,9 @@ spa_ringbuffer_write_data (struct spa_ringbuffer *rbuf,
  * Update the write pointer to @index
  *
  */
-static inline void
-spa_ringbuffer_write_update (struct spa_ringbuffer *rbuf,
-                             int32_t                index)
+static inline void spa_ringbuffer_write_update(struct spa_ringbuffer *rbuf, int32_t index)
 {
-  __atomic_store_n (&rbuf->writeindex, index, __ATOMIC_RELEASE);
+	__atomic_store_n(&rbuf->writeindex, index, __ATOMIC_RELEASE);
 }
 
 

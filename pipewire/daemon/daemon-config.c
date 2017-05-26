@@ -33,36 +33,33 @@
 #define DEFAULT_CONFIG_FILE PIPEWIRE_CONFIG_DIR "/pipewire.conf"
 
 static bool
-parse_line (struct pw_daemon_config *config,
-            const char              *filename,
-            char                    *line,
-            unsigned int             lineno,
-            char                   **err)
+parse_line(struct pw_daemon_config *config,
+	   const char *filename, char *line, unsigned int lineno, char **err)
 {
-  struct pw_command *command = NULL;
-  char *p;
-  bool ret = true;
-  char *local_err = NULL;
+	struct pw_command *command = NULL;
+	char *p;
+	bool ret = true;
+	char *local_err = NULL;
 
-  /* search for comments */
-  if ((p = strchr (line, '#')))
-    *p = '\0';
+	/* search for comments */
+	if ((p = strchr(line, '#')))
+		*p = '\0';
 
-  /* remove whitespaces */
-  pw_strip (line, "\n\r \t");
+	/* remove whitespaces */
+	pw_strip(line, "\n\r \t");
 
-  if (*line == '\0') /* empty line */
-    return true;
+	if (*line == '\0')	/* empty line */
+		return true;
 
-  if ((command = pw_command_parse (line, &local_err)) == NULL) {
-    asprintf (err, "%s:%u: %s", filename, lineno, local_err);
-    free (local_err);
-    ret = false;
-  } else {
-    spa_list_insert (config->commands.prev, &command->link);
-  }
+	if ((command = pw_command_parse(line, &local_err)) == NULL) {
+		asprintf(err, "%s:%u: %s", filename, lineno, local_err);
+		free(local_err);
+		ret = false;
+	} else {
+		spa_list_insert(config->commands.prev, &command->link);
+	}
 
-  return ret;
+	return ret;
 }
 
 /**
@@ -70,15 +67,14 @@ parse_line (struct pw_daemon_config *config,
  *
  * Returns a new empty #struct pw_daemon_config.
  */
-struct pw_daemon_config *
-pw_daemon_config_new (void)
+struct pw_daemon_config *pw_daemon_config_new(void)
 {
-  struct pw_daemon_config *config;
+	struct pw_daemon_config *config;
 
-  config = calloc (1, sizeof (struct pw_daemon_config));
-  spa_list_init (&config->commands);
+	config = calloc(1, sizeof(struct pw_daemon_config));
+	spa_list_init(&config->commands);
 
-  return config;
+	return config;
 }
 
 /**
@@ -87,15 +83,14 @@ pw_daemon_config_new (void)
  *
  * Free all resources associated to @config.
  */
-void
-pw_daemon_config_free (struct pw_daemon_config * config)
+void pw_daemon_config_free(struct pw_daemon_config *config)
 {
-  struct pw_command *cmd, *tmp;
+	struct pw_command *cmd, *tmp;
 
-  spa_list_for_each_safe (cmd, tmp, &config->commands, link)
-    pw_command_free (cmd);
+	spa_list_for_each_safe(cmd, tmp, &config->commands, link)
+	    pw_command_free(cmd);
 
-  free (config);
+	free(config);
 }
 
 /**
@@ -108,47 +103,46 @@ pw_daemon_config_free (struct pw_daemon_config * config)
  *
  * Returns: %true on success, otherwise %false and @err is set.
  */
-bool
-pw_daemon_config_load_file (struct pw_daemon_config *config,
-                            const char              *filename,
-                            char                   **err)
+bool pw_daemon_config_load_file(struct pw_daemon_config *config, const char *filename, char **err)
 {
-  unsigned int line;
-  FILE *f;
-  char buf[4096];
+	unsigned int line;
+	FILE *f;
+	char buf[4096];
 
-  pw_log_debug ("deamon-config %p: loading configuration file '%s'", config, filename);
+	pw_log_debug("deamon-config %p: loading configuration file '%s'", config, filename);
 
-  if ((f = fopen (filename, "r")) == NULL) {
-    asprintf (err, "failed to open configuration file '%s': %s", filename, strerror (errno));
-    goto open_error;
-  }
+	if ((f = fopen(filename, "r")) == NULL) {
+		asprintf(err, "failed to open configuration file '%s': %s", filename,
+			 strerror(errno));
+		goto open_error;
+	}
 
-  line = 0;
+	line = 0;
 
-  while (!feof(f)) {
-    if (!fgets(buf, sizeof (buf), f)) {
-      if (feof(f))
-        break;
+	while (!feof(f)) {
+		if (!fgets(buf, sizeof(buf), f)) {
+			if (feof(f))
+				break;
 
-      asprintf (err, "failed to read configuration file '%s': %s", filename, strerror (errno));
-      goto read_error;
-    }
+			asprintf(err, "failed to read configuration file '%s': %s",
+				 filename, strerror(errno));
+			goto read_error;
+		}
 
-    line++;
+		line++;
 
-    if (!parse_line (config, filename, buf, line, err))
-      goto parse_failed;
-  }
-  fclose (f);
+		if (!parse_line(config, filename, buf, line, err))
+			goto parse_failed;
+	}
+	fclose(f);
 
-  return true;
+	return true;
 
-parse_failed:
-read_error:
-  fclose (f);
-open_error:
-  return false;
+      parse_failed:
+      read_error:
+	fclose(f);
+      open_error:
+	return false;
 }
 
 /**
@@ -161,19 +155,17 @@ open_error:
  *
  * Return: %true on success, otherwise %false and @err is set.
  */
-bool
-pw_daemon_config_load (struct pw_daemon_config  *config,
-                       char                    **err)
+bool pw_daemon_config_load(struct pw_daemon_config * config, char **err)
 {
-  const char *filename;
+	const char *filename;
 
-  filename = getenv ("PIPEWIRE_CONFIG_FILE");
-  if (filename != NULL && *filename != '\0') {
-    pw_log_debug ("PIPEWIRE_CONFIG_FILE set to: %s", filename);
-  } else {
-    filename = DEFAULT_CONFIG_FILE;
-  }
-  return pw_daemon_config_load_file (config, filename, err);
+	filename = getenv("PIPEWIRE_CONFIG_FILE");
+	if (filename != NULL && *filename != '\0') {
+		pw_log_debug("PIPEWIRE_CONFIG_FILE set to: %s", filename);
+	} else {
+		filename = DEFAULT_CONFIG_FILE;
+	}
+	return pw_daemon_config_load_file(config, filename, err);
 }
 
 /**
@@ -186,25 +178,23 @@ pw_daemon_config_load (struct pw_daemon_config  *config,
  *
  * Returns: %true if all commands where executed with success, otherwise %false.
  */
-bool
-pw_daemon_config_run_commands (struct pw_daemon_config *config,
-                               struct pw_core          *core)
+bool pw_daemon_config_run_commands(struct pw_daemon_config * config, struct pw_core * core)
 {
-  char *err = NULL;
-  bool ret = true;
-  struct pw_command *command, *tmp;
+	char *err = NULL;
+	bool ret = true;
+	struct pw_command *command, *tmp;
 
-  spa_list_for_each (command, &config->commands, link) {
-    if (!pw_command_run (command, core, &err)) {
-      pw_log_warn ("could not run command %s: %s", command->name, err);
-      free (err);
-      ret = false;
-    }
-  }
+	spa_list_for_each(command, &config->commands, link) {
+		if (!pw_command_run(command, core, &err)) {
+			pw_log_warn("could not run command %s: %s", command->name, err);
+			free(err);
+			ret = false;
+		}
+	}
 
-  spa_list_for_each_safe (command, tmp, &config->commands, link) {
-    pw_command_free (command);
-  }
+	spa_list_for_each_safe(command, tmp, &config->commands, link) {
+		pw_command_free(command);
+	}
 
-  return ret;
+	return ret;
 }

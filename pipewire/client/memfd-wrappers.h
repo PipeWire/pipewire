@@ -28,8 +28,9 @@
  * a whole conflicts with the original glibc header <fnctl.h>.
  */
 
-static inline int memfd_create(const char *name, unsigned int flags) {
-    return syscall(SYS_memfd_create, name, flags);
+static inline int
+memfd_create(const char *name, unsigned int flags) {
+	return syscall(SYS_memfd_create, name, flags);
 }
 
 /* memfd_create(2) flags */

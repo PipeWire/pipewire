@@ -28,9 +28,9 @@
 #include "pipewire/server/main-loop.h"
 
 struct impl {
-  struct pw_main_loop this;
+	struct pw_main_loop this;
 
-  bool running;
+	bool running;
 };
 
 /**
@@ -40,43 +40,41 @@ struct impl {
  *
  * Returns: a new #struct pw_main_loop
  */
-struct pw_main_loop *
-pw_main_loop_new (void)
+struct pw_main_loop *pw_main_loop_new(void)
 {
-  struct impl *impl;
-  struct pw_main_loop *this;
+	struct impl *impl;
+	struct pw_main_loop *this;
 
-  impl = calloc (1, sizeof (struct impl));
-  if (impl == NULL)
-    return NULL;
+	impl = calloc(1, sizeof(struct impl));
+	if (impl == NULL)
+		return NULL;
 
-  pw_log_debug ("main-loop %p: new", impl);
-  this = &impl->this;
+	pw_log_debug("main-loop %p: new", impl);
+	this = &impl->this;
 
-  this->loop = pw_loop_new ();
-  if (this->loop == NULL)
-    goto no_loop;
+	this->loop = pw_loop_new();
+	if (this->loop == NULL)
+		goto no_loop;
 
-  pw_signal_init (&this->destroy_signal);
+	pw_signal_init(&this->destroy_signal);
 
-  return this;
+	return this;
 
-no_loop:
-  free (impl);
-  return NULL;
+      no_loop:
+	free(impl);
+	return NULL;
 }
 
-void
-pw_main_loop_destroy (struct pw_main_loop *loop)
+void pw_main_loop_destroy(struct pw_main_loop *loop)
 {
-  struct impl *impl = SPA_CONTAINER_OF (loop, struct impl, this);
+	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, this);
 
-  pw_log_debug ("main-loop %p: destroy", impl);
-  pw_signal_emit (&loop->destroy_signal, loop);
+	pw_log_debug("main-loop %p: destroy", impl);
+	pw_signal_emit(&loop->destroy_signal, loop);
 
-  pw_loop_destroy (loop->loop);
+	pw_loop_destroy(loop->loop);
 
-  free (impl);
+	free(impl);
 }
 
 /**
@@ -85,12 +83,11 @@ pw_main_loop_destroy (struct pw_main_loop *loop)
  *
  * Stop the running @loop.
  */
-void
-pw_main_loop_quit (struct pw_main_loop *loop)
+void pw_main_loop_quit(struct pw_main_loop *loop)
 {
-  struct impl *impl = SPA_CONTAINER_OF (loop, struct impl, this);
-  pw_log_debug ("main-loop %p: quit", impl);
-  impl->running = false;
+	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, this);
+	pw_log_debug("main-loop %p: quit", impl);
+	impl->running = false;
 }
 
 /**
@@ -100,17 +97,16 @@ pw_main_loop_quit (struct pw_main_loop *loop)
  * Start running @loop. This function blocks until pw_main_loop_quit()
  * has been called.
  */
-void
-pw_main_loop_run (struct pw_main_loop *loop)
+void pw_main_loop_run(struct pw_main_loop *loop)
 {
-  struct impl *impl = SPA_CONTAINER_OF (loop, struct impl, this);
+	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, this);
 
-  pw_log_debug ("main-loop %p: run", impl);
+	pw_log_debug("main-loop %p: run", impl);
 
-  impl->running = true;
-  pw_loop_enter (loop->loop);
-  while (impl->running) {
-    pw_loop_iterate (loop->loop, -1);
-  }
-  pw_loop_leave (loop->loop);
+	impl->running = true;
+	pw_loop_enter(loop->loop);
+	while (impl->running) {
+		pw_loop_iterate(loop->loop, -1);
+	}
+	pw_loop_leave(loop->loop);
 }

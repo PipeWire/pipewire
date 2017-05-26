@@ -29,25 +29,25 @@ extern "C" {
 #include <pipewire/client/type.h>
 
 struct pw_proxy {
-  struct pw_context *context;
-  struct spa_list    link;
+	struct pw_context *context;
+	struct spa_list link;
 
-  uint32_t        id;
-  uint32_t        type;
+	uint32_t id;
+	uint32_t type;
 
-  const struct pw_interface *iface;
-  const void                *implementation;
+	const struct pw_interface *iface;
+	const void *implementation;
 
-  void           *user_data;
+	void *user_data;
 
-  PW_SIGNAL (destroy_signal, (struct pw_listener *listener,
-                              struct pw_proxy    *proxy));
+	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_proxy * proxy));
 };
 
-struct pw_proxy * pw_proxy_new                     (struct pw_context *context,
-                                                    uint32_t           id,
-                                                    uint32_t           type);
-void              pw_proxy_destroy                 (struct pw_proxy   *proxy);
+struct pw_proxy *
+pw_proxy_new(struct pw_context *context, uint32_t id, uint32_t type);
+
+void
+pw_proxy_destroy(struct pw_proxy *proxy);
 
 #ifdef __cplusplus
 }

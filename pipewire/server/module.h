@@ -28,16 +28,15 @@ extern "C" {
 #include <pipewire/server/core.h>
 
 struct pw_module {
-  struct pw_core   *core;
-  struct spa_list   link;
-  struct pw_global *global;
+	struct pw_core *core;
+	struct spa_list link;
+	struct pw_global *global;
 
-  struct pw_module_info info;
+	struct pw_module_info info;
 
-  void *user_data;
+	void *user_data;
 
-  PW_SIGNAL (destroy_signal, (struct pw_listener *listener,
-                              struct pw_module   *module));
+	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_module * module));
 };
 
 /**
@@ -50,13 +49,14 @@ struct pw_module {
  *
  * Returns: %true on success, %false otherwise
  */
-typedef bool (*pw_module_init_func_t) (struct pw_module *module, char *args);
+typedef bool (*pw_module_init_func_t) (struct pw_module * module, char *args);
 
-struct pw_module * pw_module_load              (struct pw_core *core,
-                                                const char     *name,
-                                                const char     *args,
-                                                char          **err);
-void               pw_module_destroy           (struct pw_module *module);
+struct pw_module *
+pw_module_load(struct pw_core *core,
+	       const char *name, const char *args, char **err);
+
+void
+pw_module_destroy(struct pw_module *module);
 
 #ifdef __cplusplus
 }

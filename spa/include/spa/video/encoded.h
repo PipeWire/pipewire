@@ -31,34 +31,34 @@ struct spa_video_info_mjpg;
 #include <spa/video/format.h>
 
 enum spa_h264_stream_format {
-  SPA_H264_STREAM_FORMAT_UNKNOWN        = 0,
-  SPA_H264_STREAM_FORMAT_AVC,
-  SPA_H264_STREAM_FORMAT_AVC3,
-  SPA_H264_STREAM_FORMAT_BYTESTREAM
+	SPA_H264_STREAM_FORMAT_UNKNOWN = 0,
+	SPA_H264_STREAM_FORMAT_AVC,
+	SPA_H264_STREAM_FORMAT_AVC3,
+	SPA_H264_STREAM_FORMAT_BYTESTREAM
 };
 
 enum spa_h264_alignment {
-  SPA_H264_ALIGNMENT_UNKNOWN        = 0,
-  SPA_H264_ALIGNMENT_AU,
-  SPA_H264_ALIGNMENT_NAL
+	SPA_H264_ALIGNMENT_UNKNOWN = 0,
+	SPA_H264_ALIGNMENT_AU,
+	SPA_H264_ALIGNMENT_NAL
 };
 
 struct spa_video_info_h264 {
-  struct spa_rectangle        size;
-  struct spa_fraction         framerate;
-  struct spa_fraction         max_framerate;
-  enum spa_h264_stream_format stream_format;
-  enum spa_h264_alignment     alignment;
+	struct spa_rectangle size;
+	struct spa_fraction framerate;
+	struct spa_fraction max_framerate;
+	enum spa_h264_stream_format stream_format;
+	enum spa_h264_alignment alignment;
 };
 
 struct spa_video_info_mjpg {
-  struct spa_rectangle      size;
-  struct spa_fraction       framerate;
-  struct spa_fraction       max_framerate;
+	struct spa_rectangle size;
+	struct spa_fraction framerate;
+	struct spa_fraction max_framerate;
 };
 
 #ifdef __cplusplus
-}  /* extern "C" */
+} /* extern "C" */
 #endif
 
 #endif /* __SPA_VIDEO_ENCODED_H__ */

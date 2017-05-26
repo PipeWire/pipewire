@@ -36,23 +36,20 @@ struct pw_global;
 #include <pipewire/server/link.h>
 #include <pipewire/server/node-factory.h>
 
-typedef int (*pw_bind_func_t) (struct pw_global *global,
-                                     struct pw_client *client,
-                                     uint32_t          version,
-                                     uint32_t          id);
+typedef int (*pw_bind_func_t) (struct pw_global * global,
+			       struct pw_client * client, uint32_t version, uint32_t id);
 
 struct pw_global {
-  struct pw_core   *core;
-  struct pw_client *owner;
+	struct pw_core *core;
+	struct pw_client *owner;
 
-  struct spa_list      link;
-  uint32_t     id;
-  uint32_t     type;
-  uint32_t     version;
-  void        *object;
+	struct spa_list link;
+	uint32_t id;
+	uint32_t type;
+	uint32_t version;
+	void *object;
 
-  PW_SIGNAL (destroy_signal, (struct pw_listener *listener,
-                              struct pw_global   *global));
+	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_global * global));
 };
 
 /**
@@ -61,81 +58,83 @@ struct pw_global {
  * PipeWire core object class.
  */
 struct pw_core {
-  struct pw_global *global;
+	struct pw_global *global;
 
-  struct pw_core_info info;
+	struct pw_core_info info;
 
-  struct pw_properties *properties;
+	struct pw_properties *properties;
 
-  struct pw_type type;
-  struct pw_access *access;
+	struct pw_type type;
+	struct pw_access *access;
 
-  struct pw_map objects;
+	struct pw_map objects;
 
-  struct spa_list resource_list;
-  struct spa_list registry_resource_list;
-  struct spa_list global_list;
-  struct spa_list client_list;
-  struct spa_list node_list;
-  struct spa_list node_factory_list;
-  struct spa_list link_list;
+	struct spa_list resource_list;
+	struct spa_list registry_resource_list;
+	struct spa_list global_list;
+	struct spa_list client_list;
+	struct spa_list node_list;
+	struct spa_list node_factory_list;
+	struct spa_list link_list;
 
-  struct pw_main_loop *main_loop;
-  struct pw_data_loop *data_loop;
+	struct pw_main_loop *main_loop;
+	struct pw_data_loop *data_loop;
 
-  struct spa_support *support;
-  uint32_t    n_support;
+	struct spa_support *support;
+	uint32_t n_support;
 
-  PW_SIGNAL (destroy_signal, (struct pw_listener *listener,
-                              struct pw_core     *core));
+	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_core * core));
 
-  PW_SIGNAL (global_added,  (struct pw_listener *listener,
-                             struct pw_core     *core,
-                             struct pw_global   *global));
-  PW_SIGNAL (global_removed, (struct pw_listener *listener,
-                              struct pw_core     *core,
-                              struct pw_global   *global));
+	PW_SIGNAL(global_added, (struct pw_listener * listener,
+				 struct pw_core * core, struct pw_global * global));
+	PW_SIGNAL(global_removed, (struct pw_listener * listener,
+				   struct pw_core * core, struct pw_global * global));
 };
 
-struct pw_core * pw_core_new           (struct pw_main_loop  *main_loop,
-                                        struct pw_properties *props);
-void             pw_core_destroy       (struct pw_core       *core);
+struct pw_core *
+pw_core_new(struct pw_main_loop *main_loop, struct pw_properties *props);
 
-void             pw_core_update_properties (struct pw_core        *core,
-                                            const struct spa_dict *dict);
+void
+pw_core_destroy(struct pw_core *core);
 
-bool             pw_core_add_global    (struct pw_core    *core,
-                                        struct pw_client  *owner,
-                                        uint32_t           type,
-                                        uint32_t           version,
-                                        void              *object,
-                                        pw_bind_func_t     bind,
-                                        struct pw_global **global);
+void
+pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict);
 
-int        pw_global_bind        (struct pw_global *global,
-                                        struct pw_client *client,
-                                        uint32_t          version,
-                                        uint32_t          id);
-void             pw_global_destroy     (struct pw_global   *global);
+bool
+pw_core_add_global(struct pw_core *core,
+		   struct pw_client *owner,
+		   uint32_t type,
+		   uint32_t version,
+		   void *object, pw_bind_func_t bind,
+		   struct pw_global **global);
 
-struct spa_format *      pw_core_find_format   (struct pw_core        *core,
-                                        struct pw_port        *output,
-                                        struct pw_port        *input,
-                                        struct pw_properties  *props,
-                                        uint32_t               n_format_filters,
-                                        struct spa_format            **format_filters,
-                                        char                 **error);
+int
+pw_global_bind(struct pw_global *global,
+	       struct pw_client *client, uint32_t version, uint32_t id);
 
-struct pw_port * pw_core_find_port     (struct pw_core        *core,
-                                        struct pw_port        *other_port,
-                                        uint32_t               id,
-                                        struct pw_properties  *props,
-                                        uint32_t               n_format_filters,
-                                        struct spa_format            **format_filters,
-                                        char                 **error);
+void
+pw_global_destroy(struct pw_global *global);
 
-struct pw_node_factory * pw_core_find_node_factory (struct pw_core  *core,
-                                                    const char *name);
+struct spa_format *
+pw_core_find_format(struct pw_core *core,
+		    struct pw_port *output,
+		    struct pw_port *input,
+		    struct pw_properties *props,
+		    uint32_t n_format_filters,
+		    struct spa_format **format_filters,
+		    char **error);
+
+struct pw_port *
+pw_core_find_port(struct pw_core *core,
+		  struct pw_port *other_port,
+		  uint32_t id,
+		  struct pw_properties *props,
+		  uint32_t n_format_filters,
+		  struct spa_format **format_filters,
+		  char **error);
+
+struct pw_node_factory *
+pw_core_find_node_factory(struct pw_core *core, const char *name);
 
 #ifdef __cplusplus
 }

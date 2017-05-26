@@ -33,249 +33,227 @@
 #define CMD_PROCESS_SYNC       (1<<2)
 
 struct transport {
-  struct pw_transport trans;
+	struct pw_transport trans;
 
-  struct pw_memblock  mem;
-  size_t              offset;
+	struct pw_memblock mem;
+	size_t offset;
 
-  struct spa_event            current;
-  uint32_t            current_index;
+	struct spa_event current;
+	uint32_t current_index;
 };
 
-static size_t
-transport_area_get_size (struct pw_transport_area *area)
+static size_t transport_area_get_size(struct pw_transport_area *area)
 {
-  size_t size;
-  size = sizeof (struct pw_transport_area);
-  size += area->max_inputs * sizeof (struct spa_port_io);
-  size += area->max_outputs * sizeof (struct spa_port_io);
-  size += sizeof (struct spa_ringbuffer);
-  size += INPUT_BUFFER_SIZE;
-  size += sizeof (struct spa_ringbuffer);
-  size += OUTPUT_BUFFER_SIZE;
-  return size;
+	size_t size;
+	size = sizeof(struct pw_transport_area);
+	size += area->max_inputs * sizeof(struct spa_port_io);
+	size += area->max_outputs * sizeof(struct spa_port_io);
+	size += sizeof(struct spa_ringbuffer);
+	size += INPUT_BUFFER_SIZE;
+	size += sizeof(struct spa_ringbuffer);
+	size += OUTPUT_BUFFER_SIZE;
+	return size;
 }
 
-static void
-transport_setup_area (void *p, struct pw_transport *trans)
+static void transport_setup_area(void *p, struct pw_transport *trans)
 {
-  struct pw_transport_area *a;
+	struct pw_transport_area *a;
 
-  trans->area = a = p;
-  p = SPA_MEMBER (p, sizeof (struct pw_transport_area), struct spa_port_io);
+	trans->area = a = p;
+	p = SPA_MEMBER(p, sizeof(struct pw_transport_area), struct spa_port_io);
 
-  trans->inputs = p;
-  p = SPA_MEMBER (p, a->max_inputs * sizeof (struct spa_port_io), void);
+	trans->inputs = p;
+	p = SPA_MEMBER(p, a->max_inputs * sizeof(struct spa_port_io), void);
 
-  trans->outputs = p;
-  p = SPA_MEMBER (p, a->max_outputs * sizeof (struct spa_port_io), void);
+	trans->outputs = p;
+	p = SPA_MEMBER(p, a->max_outputs * sizeof(struct spa_port_io), void);
 
-  trans->input_buffer = p;
-  p = SPA_MEMBER (p, sizeof (struct spa_ringbuffer), void);
+	trans->input_buffer = p;
+	p = SPA_MEMBER(p, sizeof(struct spa_ringbuffer), void);
 
-  trans->input_data = p;
-  p = SPA_MEMBER (p, INPUT_BUFFER_SIZE, void);
+	trans->input_data = p;
+	p = SPA_MEMBER(p, INPUT_BUFFER_SIZE, void);
 
-  trans->output_buffer = p;
-  p = SPA_MEMBER (p, sizeof (struct spa_ringbuffer), void);
+	trans->output_buffer = p;
+	p = SPA_MEMBER(p, sizeof(struct spa_ringbuffer), void);
 
-  trans->output_data = p;
-  p = SPA_MEMBER (p, OUTPUT_BUFFER_SIZE, void);
+	trans->output_data = p;
+	p = SPA_MEMBER(p, OUTPUT_BUFFER_SIZE, void);
 }
 
-static void
-transport_reset_area (struct pw_transport *trans)
+static void transport_reset_area(struct pw_transport *trans)
 {
-  int i;
-  struct pw_transport_area *a = trans->area;
+	int i;
+	struct pw_transport_area *a = trans->area;
 
-  for (i = 0; i < a->max_inputs; i++) {
-    trans->inputs[i].status = SPA_RESULT_OK;
-    trans->inputs[i].buffer_id = SPA_ID_INVALID;
-  }
-  for (i = 0; i < a->max_outputs; i++) {
-    trans->outputs[i].status = SPA_RESULT_OK;
-    trans->outputs[i].buffer_id = SPA_ID_INVALID;
-  }
-  spa_ringbuffer_init (trans->input_buffer, INPUT_BUFFER_SIZE);
-  spa_ringbuffer_init (trans->output_buffer, OUTPUT_BUFFER_SIZE);
+	for (i = 0; i < a->max_inputs; i++) {
+		trans->inputs[i].status = SPA_RESULT_OK;
+		trans->inputs[i].buffer_id = SPA_ID_INVALID;
+	}
+	for (i = 0; i < a->max_outputs; i++) {
+		trans->outputs[i].status = SPA_RESULT_OK;
+		trans->outputs[i].buffer_id = SPA_ID_INVALID;
+	}
+	spa_ringbuffer_init(trans->input_buffer, INPUT_BUFFER_SIZE);
+	spa_ringbuffer_init(trans->output_buffer, OUTPUT_BUFFER_SIZE);
 }
 
-struct pw_transport *
-pw_transport_new (uint32_t max_inputs,
-                  uint32_t max_outputs)
+struct pw_transport *pw_transport_new(uint32_t max_inputs, uint32_t max_outputs)
 {
-  struct transport *impl;
-  struct pw_transport *trans;
-  struct pw_transport_area area;
+	struct transport *impl;
+	struct pw_transport *trans;
+	struct pw_transport_area area;
 
-  area.max_inputs = max_inputs;
-  area.n_inputs = 0;
-  area.max_outputs = max_outputs;
-  area.n_outputs = 0;
+	area.max_inputs = max_inputs;
+	area.n_inputs = 0;
+	area.max_outputs = max_outputs;
+	area.n_outputs = 0;
 
-  impl = calloc (1, sizeof (struct transport));
-  if (impl == NULL)
-    return NULL;
+	impl = calloc(1, sizeof(struct transport));
+	if (impl == NULL)
+		return NULL;
 
-  impl->offset = 0;
+	impl->offset = 0;
 
-  trans = &impl->trans;
-  pw_signal_init (&trans->destroy_signal);
+	trans = &impl->trans;
+	pw_signal_init(&trans->destroy_signal);
 
-  pw_memblock_alloc (PW_MEMBLOCK_FLAG_WITH_FD |
-                        PW_MEMBLOCK_FLAG_MAP_READWRITE |
-                        PW_MEMBLOCK_FLAG_SEAL,
-                        transport_area_get_size (&area),
-                        &impl->mem);
+	pw_memblock_alloc(PW_MEMBLOCK_FLAG_WITH_FD |
+			  PW_MEMBLOCK_FLAG_MAP_READWRITE |
+			  PW_MEMBLOCK_FLAG_SEAL, transport_area_get_size(&area), &impl->mem);
 
-  memcpy (impl->mem.ptr, &area, sizeof (struct pw_transport_area));
-  transport_setup_area (impl->mem.ptr, trans);
-  transport_reset_area (trans);
+	memcpy(impl->mem.ptr, &area, sizeof(struct pw_transport_area));
+	transport_setup_area(impl->mem.ptr, trans);
+	transport_reset_area(trans);
 
-  return trans;
+	return trans;
 }
 
-struct pw_transport *
-pw_transport_new_from_info (struct pw_transport_info *info)
+struct pw_transport *pw_transport_new_from_info(struct pw_transport_info *info)
 {
-  struct transport *impl;
-  struct pw_transport *trans;
-  void *tmp;
+	struct transport *impl;
+	struct pw_transport *trans;
+	void *tmp;
 
-  impl = calloc (1, sizeof (struct transport));
-  if (impl == NULL)
-    return NULL;
+	impl = calloc(1, sizeof(struct transport));
+	if (impl == NULL)
+		return NULL;
 
-  trans = &impl->trans;
-  pw_signal_init (&trans->destroy_signal);
+	trans = &impl->trans;
+	pw_signal_init(&trans->destroy_signal);
 
-  impl->mem.flags = PW_MEMBLOCK_FLAG_MAP_READWRITE |
-                    PW_MEMBLOCK_FLAG_WITH_FD;
-  impl->mem.fd = info->memfd;
-  impl->mem.offset = info->offset;
-  impl->mem.size = info->size;
-  if (pw_memblock_map (&impl->mem) != SPA_RESULT_OK) {
-    pw_log_warn ("transport %p: failed to map fd %d: %s", impl, info->memfd, strerror (errno));
-    goto mmap_failed;
-  }
+	impl->mem.flags = PW_MEMBLOCK_FLAG_MAP_READWRITE | PW_MEMBLOCK_FLAG_WITH_FD;
+	impl->mem.fd = info->memfd;
+	impl->mem.offset = info->offset;
+	impl->mem.size = info->size;
+	if (pw_memblock_map(&impl->mem) != SPA_RESULT_OK) {
+		pw_log_warn("transport %p: failed to map fd %d: %s", impl, info->memfd,
+			    strerror(errno));
+		goto mmap_failed;
+	}
 
-  impl->offset = info->offset;
+	impl->offset = info->offset;
 
-  transport_setup_area (impl->mem.ptr, trans);
+	transport_setup_area(impl->mem.ptr, trans);
 
-  tmp = trans->output_buffer;
-  trans->output_buffer = trans->input_buffer;
-  trans->input_buffer = tmp;
+	tmp = trans->output_buffer;
+	trans->output_buffer = trans->input_buffer;
+	trans->input_buffer = tmp;
 
-  tmp = trans->output_data;
-  trans->output_data = trans->input_data;
-  trans->input_data = tmp;
+	tmp = trans->output_data;
+	trans->output_data = trans->input_data;
+	trans->input_data = tmp;
 
-  return trans;
+	return trans;
 
-mmap_failed:
-  free (impl);
-  return NULL;
+      mmap_failed:
+	free(impl);
+	return NULL;
 }
 
 
-void
-pw_transport_destroy (struct pw_transport *trans)
+void pw_transport_destroy(struct pw_transport *trans)
 {
-  struct transport *impl = (struct transport *) trans;
+	struct transport *impl = (struct transport *) trans;
 
-  pw_log_debug ("transport %p: destroy", trans);
+	pw_log_debug("transport %p: destroy", trans);
 
-  pw_signal_emit (&trans->destroy_signal, trans);
+	pw_signal_emit(&trans->destroy_signal, trans);
 
-  pw_memblock_free (&impl->mem);
-  free (impl);
+	pw_memblock_free(&impl->mem);
+	free(impl);
 }
 
-int
-pw_transport_get_info (struct pw_transport      *trans,
-                       struct pw_transport_info *info)
+int pw_transport_get_info(struct pw_transport *trans, struct pw_transport_info *info)
 {
-  struct transport *impl = (struct transport *) trans;
+	struct transport *impl = (struct transport *) trans;
 
-  info->memfd = impl->mem.fd;
-  info->offset = impl->offset;
-  info->size = impl->mem.size;
+	info->memfd = impl->mem.fd;
+	info->offset = impl->offset;
+	info->size = impl->mem.size;
 
-  return SPA_RESULT_OK;
+	return SPA_RESULT_OK;
 }
 
-int
-pw_transport_add_event (struct pw_transport *trans,
-                        struct spa_event            *event)
+int pw_transport_add_event(struct pw_transport *trans, struct spa_event *event)
 {
-  struct transport *impl = (struct transport *) trans;
-  int32_t filled, avail;
-  uint32_t size, index;
+	struct transport *impl = (struct transport *) trans;
+	int32_t filled, avail;
+	uint32_t size, index;
 
-  if (impl == NULL || event == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+	if (impl == NULL || event == NULL)
+		return SPA_RESULT_INVALID_ARGUMENTS;
 
-  filled = spa_ringbuffer_get_write_index (trans->output_buffer, &index);
-  avail = trans->output_buffer->size - filled;
-  size = SPA_POD_SIZE (event);
-  if (avail < size)
-    return SPA_RESULT_ERROR;
+	filled = spa_ringbuffer_get_write_index(trans->output_buffer, &index);
+	avail = trans->output_buffer->size - filled;
+	size = SPA_POD_SIZE(event);
+	if (avail < size)
+		return SPA_RESULT_ERROR;
 
-  spa_ringbuffer_write_data (trans->output_buffer,
-                             trans->output_data,
-                             index & trans->output_buffer->mask,
-                             event,
-                             size);
-  spa_ringbuffer_write_update (trans->output_buffer, index + size);
+	spa_ringbuffer_write_data(trans->output_buffer,
+				  trans->output_data,
+				  index & trans->output_buffer->mask, event, size);
+	spa_ringbuffer_write_update(trans->output_buffer, index + size);
 
-  return SPA_RESULT_OK;
+	return SPA_RESULT_OK;
 }
 
-int
-pw_transport_next_event (struct pw_transport *trans,
-                         struct spa_event            *event)
+int pw_transport_next_event(struct pw_transport *trans, struct spa_event *event)
 {
-  struct transport *impl = (struct transport *) trans;
-  int32_t avail;
+	struct transport *impl = (struct transport *) trans;
+	int32_t avail;
 
-  if (impl == NULL || event == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+	if (impl == NULL || event == NULL)
+		return SPA_RESULT_INVALID_ARGUMENTS;
 
-  avail = spa_ringbuffer_get_read_index (trans->input_buffer, &impl->current_index);
-  if (avail < sizeof (struct spa_event))
-    return SPA_RESULT_ENUM_END;
+	avail = spa_ringbuffer_get_read_index(trans->input_buffer, &impl->current_index);
+	if (avail < sizeof(struct spa_event))
+		return SPA_RESULT_ENUM_END;
 
-  spa_ringbuffer_read_data (trans->input_buffer,
-                            trans->input_data,
-                            impl->current_index & trans->input_buffer->mask,
-                            &impl->current,
-                            sizeof (struct spa_event));
+	spa_ringbuffer_read_data(trans->input_buffer,
+				 trans->input_data,
+				 impl->current_index & trans->input_buffer->mask,
+				 &impl->current, sizeof(struct spa_event));
 
-  *event = impl->current;
+	*event = impl->current;
 
-  return SPA_RESULT_OK;
+	return SPA_RESULT_OK;
 }
 
-int
-pw_transport_parse_event (struct pw_transport *trans,
-                          void                *event)
+int pw_transport_parse_event(struct pw_transport *trans, void *event)
 {
-  struct transport *impl = (struct transport *) trans;
-  uint32_t size;
+	struct transport *impl = (struct transport *) trans;
+	uint32_t size;
 
-  if (impl == NULL || event == NULL)
-    return SPA_RESULT_INVALID_ARGUMENTS;
+	if (impl == NULL || event == NULL)
+		return SPA_RESULT_INVALID_ARGUMENTS;
 
-  size = SPA_POD_SIZE (&impl->current);
+	size = SPA_POD_SIZE(&impl->current);
 
-  spa_ringbuffer_read_data (trans->input_buffer,
-                            trans->input_data,
-                            impl->current_index & trans->input_buffer->mask,
-                            event,
-                            size);
-  spa_ringbuffer_read_update (trans->input_buffer, impl->current_index + size);
+	spa_ringbuffer_read_data(trans->input_buffer,
+				 trans->input_data,
+				 impl->current_index & trans->input_buffer->mask, event, size);
+	spa_ringbuffer_read_update(trans->input_buffer, impl->current_index + size);
 
-  return SPA_RESULT_OK;
+	return SPA_RESULT_OK;
 }

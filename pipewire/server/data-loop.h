@@ -32,19 +32,25 @@ extern "C" {
  * PipeWire rt-loop object.
  */
 struct pw_data_loop {
-  struct pw_loop *loop;
+	struct pw_loop *loop;
 
-  PW_SIGNAL (destroy_signal, (struct pw_listener  *listener,
-                              struct pw_data_loop *loop));
+	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_data_loop * loop));
 };
 
-struct pw_data_loop * pw_data_loop_new              (void);
-void                  pw_data_loop_destroy          (struct pw_data_loop *loop);
+struct pw_data_loop *
+pw_data_loop_new(void);
 
-int             pw_data_loop_start            (struct pw_data_loop *loop);
-int             pw_data_loop_stop             (struct pw_data_loop *loop);
+void
+pw_data_loop_destroy(struct pw_data_loop *loop);
 
-bool                  pw_data_loop_in_thread        (struct pw_data_loop *loop);
+int
+pw_data_loop_start(struct pw_data_loop *loop);
+
+int
+pw_data_loop_stop(struct pw_data_loop *loop);
+
+bool
+pw_data_loop_in_thread(struct pw_data_loop *loop);
 
 #ifdef __cplusplus
 }

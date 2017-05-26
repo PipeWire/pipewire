@@ -35,24 +35,25 @@ extern "C" {
  * PipeWire client node interface
  */
 struct pw_client_node {
-  struct pw_node *node;
+	struct pw_node *node;
 
-  struct pw_client *client;
-  struct pw_resource *resource;
+	struct pw_client *client;
+	struct pw_resource *resource;
 
-  PW_SIGNAL (destroy_signal, (struct pw_listener    *listener,
-                              struct pw_client_node *node));
+	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_client_node * node));
 };
 
-struct pw_client_node * pw_client_node_new            (struct pw_client      *client,
-                                                       uint32_t               id,
-                                                       const char            *name,
-                                                       struct pw_properties  *properties);
-void                    pw_client_node_destroy        (struct pw_client_node *node);
+struct pw_client_node *
+pw_client_node_new(struct pw_client *client,
+		   uint32_t id,
+		   const char *name,
+		   struct pw_properties *properties);
 
-int               pw_client_node_get_fds        (struct pw_client_node *node,
-                                                       int                   *readfd,
-                                                       int                   *writefd);
+void
+pw_client_node_destroy(struct pw_client_node *node);
+
+int
+pw_client_node_get_fds(struct pw_client_node *node, int *readfd, int *writefd);
 
 #ifdef __cplusplus
 }

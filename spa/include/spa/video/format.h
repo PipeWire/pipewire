@@ -51,17 +51,17 @@ extern "C" {
 #define SPA_TYPE_FORMAT_VIDEO__alignment               SPA_TYPE_FORMAT_VIDEO_BASE "alignment"
 
 struct spa_video_info {
-  uint32_t media_type;
-  uint32_t media_subtype;
-  union {
-    struct spa_video_info_raw  raw;
-    struct spa_video_info_h264 h264;
-    struct spa_video_info_mjpg mjpg;
-  } info;
+	uint32_t media_type;
+	uint32_t media_subtype;
+	union {
+		struct spa_video_info_raw raw;
+		struct spa_video_info_h264 h264;
+		struct spa_video_info_mjpg mjpg;
+	} info;
 };
 
 #ifdef __cplusplus
-}  /* extern "C" */
+} /* extern "C" */
 #endif
 
 #endif /* __SPA_VIDEO_FORMAT */

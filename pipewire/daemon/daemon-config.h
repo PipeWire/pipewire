@@ -28,21 +28,26 @@ extern "C" {
 #include <pipewire/server/core.h>
 
 struct pw_daemon_config {
-  struct spa_list commands;
+	struct spa_list commands;
 };
 
-struct pw_daemon_config * pw_daemon_config_new           (void);
-void                      pw_daemon_config_free          (struct pw_daemon_config  *config);
-bool                      pw_daemon_config_load_file     (struct pw_daemon_config  *config,
-                                                          const char               *filename,
-                                                          char                    **err);
-bool                      pw_daemon_config_load          (struct pw_daemon_config  *config,
-                                                          char                    **err);
-bool                      pw_daemon_config_run_commands  (struct pw_daemon_config  *config,
-                                                          struct pw_core           *core);
+struct pw_daemon_config *
+pw_daemon_config_new(void);
+
+void
+pw_daemon_config_free(struct pw_daemon_config *config);
+
+bool
+pw_daemon_config_load_file(struct pw_daemon_config *config, const char *filename, char **err);
+
+bool
+pw_daemon_config_load(struct pw_daemon_config *config, char **err);
+
+bool
+pw_daemon_config_run_commands(struct pw_daemon_config *config, struct pw_core *core);
+
 #ifdef __cplusplus
 }
 #endif
-
 
 #endif /* __PIPEWIRE_DAEMON_CONFIG_H__ */

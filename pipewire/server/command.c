@@ -26,80 +26,68 @@
 
 #include "command.h"
 
-typedef bool (*pw_command_func_t)                   (struct pw_command  *command,
-                                                     struct pw_core     *core,
-                                                     char              **err);
+typedef bool(*pw_command_func_t) (struct pw_command * command, struct pw_core * core, char **err);
 
-static bool  execute_command_module_load            (struct pw_command  *command,
-                                                     struct pw_core     *core,
-                                                     char              **err);
+static bool execute_command_module_load(struct pw_command *command,
+					struct pw_core *core, char **err);
 
-typedef struct pw_command * (*pw_command_parse_func_t)  (const char    *line,
-                                                         char         **err);
+typedef struct pw_command *(*pw_command_parse_func_t) (const char *line, char **err);
 
-static struct pw_command *  parse_command_module_load   (const char   *line,
-                                                         char         **err);
+static struct pw_command *parse_command_module_load(const char *line, char **err);
 
 struct impl {
-  struct pw_command this;
+	struct pw_command this;
 
-  pw_command_func_t func;
-  char **args;
-  int    n_args;
+	pw_command_func_t func;
+	char **args;
+	int n_args;
 };
 
-struct command_parse
-{
-  const char *name;
-  pw_command_parse_func_t func;
+struct command_parse {
+	const char *name;
+	pw_command_parse_func_t func;
 };
 
 static const struct command_parse parsers[] = {
-  {"load-module", parse_command_module_load},
-  {NULL, NULL}
+	{"load-module", parse_command_module_load},
+	{NULL, NULL}
 };
 
 static const char whitespace[] = " \t";
 
-static struct pw_command *
-parse_command_module_load (const char * line, char ** err)
+static struct pw_command *parse_command_module_load(const char *line, char **err)
 {
-  struct impl *impl;
+	struct impl *impl;
 
-  impl = calloc (1, sizeof (struct impl));
-  if (impl == NULL)
-    goto no_mem;
+	impl = calloc(1, sizeof(struct impl));
+	if (impl == NULL)
+		goto no_mem;
 
-  impl->func = execute_command_module_load;
-  impl->args = pw_split_strv (line, whitespace, 3, &impl->n_args);
+	impl->func = execute_command_module_load;
+	impl->args = pw_split_strv(line, whitespace, 3, &impl->n_args);
 
-  if (impl->args[1] == NULL)
-    goto no_module;
+	if (impl->args[1] == NULL)
+		goto no_module;
 
-  impl->this.name = impl->args[0];
+	impl->this.name = impl->args[0];
 
-  return &impl->this;
+	return &impl->this;
 
-no_module:
-  asprintf (err, "%s requires a module name", impl->args[0]);
-  pw_free_strv (impl->args);
-  return NULL;
-no_mem:
-  asprintf (err, "no memory");
-  return NULL;
+      no_module:
+	asprintf(err, "%s requires a module name", impl->args[0]);
+	pw_free_strv(impl->args);
+	return NULL;
+      no_mem:
+	asprintf(err, "no memory");
+	return NULL;
 }
 
 static bool
-execute_command_module_load (struct pw_command  *command,
-                             struct pw_core     *core,
-                             char              **err)
+execute_command_module_load(struct pw_command *command, struct pw_core *core, char **err)
 {
-  struct impl *impl = SPA_CONTAINER_OF (command, struct impl, this);
+	struct impl *impl = SPA_CONTAINER_OF(command, struct impl, this);
 
-  return pw_module_load (core,
-                            impl->args[1],
-                            impl->args[2],
-                            err) != NULL;
+	return pw_module_load(core, impl->args[1], impl->args[2], err) != NULL;
 }
 
 /**
@@ -108,14 +96,13 @@ execute_command_module_load (struct pw_command  *command,
  *
  * Free all resources assicated with @command.
  */
-void
-pw_command_free (struct pw_command * command)
+void pw_command_free(struct pw_command *command)
 {
-  struct impl *impl = SPA_CONTAINER_OF (command, struct impl, this);
+	struct impl *impl = SPA_CONTAINER_OF(command, struct impl, this);
 
-  spa_list_remove (&command->link);
-  pw_free_strv (impl->args);
-  free (impl);
+	spa_list_remove(&command->link);
+	pw_free_strv(impl->args);
+	free(impl);
 }
 
 /**
@@ -128,30 +115,28 @@ pw_command_free (struct pw_command * command)
  *
  * Returns: The command or %NULL when @err is set.
  */
-struct pw_command *
-pw_command_parse (const char    *line,
-                  char         **err)
+struct pw_command *pw_command_parse(const char *line, char **err)
 {
-  struct pw_command *command = NULL;
-  const struct command_parse *parse;
-  char *name;
-  size_t len;
+	struct pw_command *command = NULL;
+	const struct command_parse *parse;
+	char *name;
+	size_t len;
 
-  len = strcspn (line, whitespace);
+	len = strcspn(line, whitespace);
 
-  name = strndup (line, len);
+	name = strndup(line, len);
 
-  for (parse = parsers; parse->name != NULL; parse++) {
-    if (strcmp (name, parse->name) == 0) {
-      command = parse->func (line, err);
-      goto out;
-    }
-  }
+	for (parse = parsers; parse->name != NULL; parse++) {
+		if (strcmp(name, parse->name) == 0) {
+			command = parse->func(line, err);
+			goto out;
+		}
+	}
 
-  asprintf (err, "Command \"%s\" does not exist", name);
-out:
-  free (name);
-  return command;
+	asprintf(err, "Command \"%s\" does not exist", name);
+      out:
+	free(name);
+	return command;
 }
 
 /**
@@ -164,14 +149,11 @@ out:
  *
  * Returns: %true if @command was executed successfully, %false otherwise.
  */
-bool
-pw_command_run (struct pw_command  *command,
-                struct pw_core     *core,
-                char              **err)
+bool pw_command_run(struct pw_command * command, struct pw_core * core, char **err)
 {
-  struct impl *impl = SPA_CONTAINER_OF (command, struct impl, this);
+	struct impl *impl = SPA_CONTAINER_OF(command, struct impl, this);
 
-  return impl->func (command, core, err);
+	return impl->func(command, core, err);
 }
 
 /**
@@ -182,10 +164,9 @@ pw_command_run (struct pw_command  *command,
  *
  * Returns: The name of @command.
  */
-const char *
-pw_command_get_name (struct pw_command * command)
+const char *pw_command_get_name(struct pw_command *command)
 {
-  struct impl *impl = SPA_CONTAINER_OF (command, struct impl, this);
+	struct impl *impl = SPA_CONTAINER_OF(command, struct impl, this);
 
-  return impl->args[0];
+	return impl->args[0];
 }

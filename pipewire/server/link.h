@@ -38,53 +38,55 @@ extern "C" {
  * PipeWire link interface.
  */
 struct pw_link {
-  struct pw_core   *core;
-  struct spa_list   link;
-  struct pw_global *global;
+	struct pw_core *core;
+	struct spa_list link;
+	struct pw_global *global;
 
-  struct pw_properties *properties;
+	struct pw_properties *properties;
 
-  enum pw_link_state state;
-  char *error;
-  PW_SIGNAL (state_changed,  (struct pw_listener *listener,
-                              struct pw_link     *link,
-                              enum pw_link_state  old,
-                              enum pw_link_state  state));
+	enum pw_link_state state;
+	char *error;
+	PW_SIGNAL(state_changed, (struct pw_listener * listener,
+				  struct pw_link * link,
+				  enum pw_link_state old, enum pw_link_state state));
 
-  PW_SIGNAL (destroy_signal, (struct pw_listener *,
-                              struct pw_link *));
-  PW_SIGNAL (free_signal,    (struct pw_listener *,
-                              struct pw_link *));
+	PW_SIGNAL(destroy_signal, (struct pw_listener *, struct pw_link *));
+	PW_SIGNAL(free_signal, (struct pw_listener *, struct pw_link *));
 
-  struct spa_list resource_list;
+	struct spa_list resource_list;
 
-  struct pw_port  *output;
-  struct spa_list  output_link;
-  struct pw_port  *input;
-  struct spa_list  input_link;
-  PW_SIGNAL (port_unlinked, (struct pw_listener *listener,
-                             struct pw_link     *link,
-                             struct pw_port     *port));
+	struct pw_port *output;
+	struct spa_list output_link;
+	struct pw_port *input;
+	struct spa_list input_link;
+	PW_SIGNAL(port_unlinked, (struct pw_listener * listener,
+				  struct pw_link * link, struct pw_port * port));
 
-  struct {
-    uint32_t         in_ready;
-    struct pw_port  *input;
-    struct pw_port  *output;
-    struct spa_list  input_link;
-    struct spa_list  output_link;
-  } rt;
+	struct {
+		uint32_t in_ready;
+		struct pw_port *input;
+		struct pw_port *output;
+		struct spa_list input_link;
+		struct spa_list output_link;
+	} rt;
 };
 
 
-struct pw_link * pw_link_new          (struct pw_core       *core,
-                                       struct pw_port       *output,
-                                       struct pw_port       *input,
-                                       struct spa_format           **format_filter,
-                                       struct pw_properties *properties);
-void             pw_link_destroy      (struct pw_link       *link);
+struct pw_link *
+pw_link_new(struct pw_core *core,
+	    struct pw_port *output,
+	    struct pw_port *input,
+	    struct spa_format **format_filter,
+	    struct pw_properties *properties);
 
-bool             pw_link_activate     (struct pw_link *link);
-bool             pw_link_deactivate   (struct pw_link *link);
+void
+pw_link_destroy(struct pw_link *link);
+
+bool
+pw_link_activate(struct pw_link *link);
+
+bool
+pw_link_deactivate(struct pw_link *link);
 
 #ifdef __cplusplus
 }

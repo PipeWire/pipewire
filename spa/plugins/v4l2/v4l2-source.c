@@ -166,20 +166,20 @@ struct impl {
 #define CHECK_PORT(this,direction,port_id)  ((direction) == SPA_DIRECTION_OUTPUT && (port_id) == 0)
 
 
-#define PROP(f,key,type,...)                                                    \
-          SPA_POD_PROP (f,key,0,type,1,__VA_ARGS__)
-#define PROP_R(f,key,type,...)                                                  \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READONLY,type,1,__VA_ARGS__)
-#define PROP_MM(f,key,type,...)                                                 \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
-#define PROP_U_MM(f,key,type,...)                                               \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |                         \
-                              SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
-#define PROP_EN(f,key,type,n,...)                                               \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
-#define PROP_U_EN(f,key,type,n,...)                                             \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |                         \
-                              SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
+#define PROP(f,key,type,...)							\
+	SPA_POD_PROP (f,key,0,type,1,__VA_ARGS__)
+#define PROP_R(f,key,type,...)							\
+	SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_READONLY,type,1,__VA_ARGS__)
+#define PROP_MM(f,key,type,...)							\
+	SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
+#define PROP_U_MM(f,key,type,...)						\
+	SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |				\
+		SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
+#define PROP_EN(f,key,type,n,...)						\
+	SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
+#define PROP_U_EN(f,key,type,n,...)						\
+	SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |				\
+		SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
 #include "v4l2-utils.c"
 
 static int impl_node_get_props(struct spa_node *node, struct spa_props **props)

@@ -22,58 +22,54 @@
 #include <pipewire/client/protocol-native.h>
 
 struct proxy {
-  struct pw_proxy this;
+	struct pw_proxy this;
 };
 
-struct pw_proxy *
-pw_proxy_new (struct pw_context *context,
-              uint32_t           id,
-              uint32_t           type)
+struct pw_proxy *pw_proxy_new(struct pw_context *context, uint32_t id, uint32_t type)
 {
-  struct proxy *impl;
-  struct pw_proxy *this;
+	struct proxy *impl;
+	struct pw_proxy *this;
 
-  impl = calloc (1, sizeof (struct proxy));
-  if (impl == NULL)
-    return NULL;
+	impl = calloc(1, sizeof(struct proxy));
+	if (impl == NULL)
+		return NULL;
 
-  this = &impl->this;
-  this->context = context;
-  this->type = type;
+	this = &impl->this;
+	this->context = context;
+	this->type = type;
 
-  pw_signal_init (&this->destroy_signal);
+	pw_signal_init(&this->destroy_signal);
 
-  if (id == SPA_ID_INVALID) {
-    id = pw_map_insert_new (&context->objects, this);
-  } else if (!pw_map_insert_at (&context->objects, id, this))
-    goto in_use;
+	if (id == SPA_ID_INVALID) {
+		id = pw_map_insert_new(&context->objects, this);
+	} else if (!pw_map_insert_at(&context->objects, id, this))
+		goto in_use;
 
-  this->id = id;
+	this->id = id;
 
-  pw_protocol_native_client_setup (this);
+	pw_protocol_native_client_setup(this);
 
-  spa_list_insert (&this->context->proxy_list, &this->link);
+	spa_list_insert(&this->context->proxy_list, &this->link);
 
-  pw_log_trace ("proxy %p: new %u", this, this->id);
+	pw_log_trace("proxy %p: new %u", this, this->id);
 
-  return this;
+	return this;
 
-in_use:
-  pw_log_error ("proxy %p: id %u in use for context %p", this, id, context);
-  free (impl);
-  return NULL;
+      in_use:
+	pw_log_error("proxy %p: id %u in use for context %p", this, id, context);
+	free(impl);
+	return NULL;
 }
 
-void
-pw_proxy_destroy (struct pw_proxy *proxy)
+void pw_proxy_destroy(struct pw_proxy *proxy)
 {
-  struct proxy *impl = SPA_CONTAINER_OF (proxy, struct proxy, this);
+	struct proxy *impl = SPA_CONTAINER_OF(proxy, struct proxy, this);
 
-  pw_log_trace ("proxy %p: destroy %u", proxy, proxy->id);
-  pw_signal_emit (&proxy->destroy_signal, proxy);
+	pw_log_trace("proxy %p: destroy %u", proxy, proxy->id);
+	pw_signal_emit(&proxy->destroy_signal, proxy);
 
-  pw_map_remove (&proxy->context->objects, proxy->id);
-  spa_list_remove (&proxy->link);
+	pw_map_remove(&proxy->context->objects, proxy->id);
+	spa_list_remove(&proxy->link);
 
-  free (impl);
+	free(impl);
 }

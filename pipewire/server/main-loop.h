@@ -33,17 +33,22 @@ extern "C" {
  * PipeWire main-loop interface.
  */
 struct pw_main_loop {
-  struct pw_loop    *loop;
+	struct pw_loop *loop;
 
-  PW_SIGNAL (destroy_signal, (struct pw_listener *listener,
-                              struct pw_main_loop *loop));
+	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_main_loop * loop));
 };
 
-struct pw_main_loop * pw_main_loop_new                     (void);
-void                  pw_main_loop_destroy                 (struct pw_main_loop *loop);
+struct pw_main_loop *
+pw_main_loop_new(void);
 
-void                  pw_main_loop_run                     (struct pw_main_loop *loop);
-void                  pw_main_loop_quit                    (struct pw_main_loop *loop);
+void
+pw_main_loop_destroy(struct pw_main_loop *loop);
+
+void
+pw_main_loop_run(struct pw_main_loop *loop);
+
+void
+pw_main_loop_quit(struct pw_main_loop *loop);
 
 #ifdef __cplusplus
 }

@@ -38,11 +38,11 @@ extern "C" {
 #define SPA_TYPE_FORMAT_AUDIO__channelMask     SPA_TYPE_FORMAT_AUDIO_BASE "channel-mask"
 
 struct spa_audio_info {
-  uint32_t media_type;
-  uint32_t media_subtype;
-  union {
-    struct spa_audio_info_raw raw;
-  } info;
+	uint32_t media_type;
+	uint32_t media_subtype;
+	union {
+		struct spa_audio_info_raw raw;
+	} info;
 };
 
 #ifdef __cplusplus

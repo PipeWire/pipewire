@@ -31,23 +31,23 @@ extern "C" {
 #define SPA_TYPE_COMMAND_BASE        SPA_TYPE__Command ":"
 
 struct spa_command_body {
-  struct spa_pod_object_body body;
+	struct spa_pod_object_body body;
 };
 
 struct spa_command {
-  struct spa_pod          pod;
-  struct spa_command_body body;
+	struct spa_pod		pod;
+	struct spa_command_body body;
 };
 
 #define SPA_COMMAND_TYPE(cmd)   ((cmd)->body.body.type)
 
-#define SPA_COMMAND_INIT(type) (struct spa_command)             \
-  { { sizeof (struct spa_command_body), SPA_POD_TYPE_OBJECT },  \
-    { { 0, type } } }                                           \
+#define SPA_COMMAND_INIT(type) (struct spa_command)			\
+	{ { sizeof(struct spa_command_body), SPA_POD_TYPE_OBJECT },	\
+	  { { 0, type } } }						\
 
-#define SPA_COMMAND_INIT_COMPLEX(t,size,type,...) (t)           \
-  { { size, SPA_POD_TYPE_OBJECT },                              \
-    { { 0, type }, __VA_ARGS__ } }                              \
+#define SPA_COMMAND_INIT_COMPLEX(t,size,type,...) (t)			\
+	{ { size, SPA_POD_TYPE_OBJECT },				\
+	  { { 0, type }, __VA_ARGS__ } }				\
 
 #ifdef __cplusplus
 }  /* extern "C" */

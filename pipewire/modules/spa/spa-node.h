@@ -28,25 +28,24 @@ extern "C" {
 #endif
 
 struct pw_spa_node {
-  struct pw_node *node;
+	struct pw_node *node;
 
-  char *lib;
-  char *factory_name;
-  struct spa_handle  *handle;
-  PW_SIGNAL (destroy_signal, (struct pw_listener *listener,
-                              struct pw_spa_node  *node));
+	char *lib;
+	char *factory_name;
+	struct spa_handle *handle;
+	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_spa_node * node));
 };
 
-typedef int (*setup_node_t) (struct pw_core       *core,
-                                   struct spa_node      *spa_node,
-                                   struct pw_properties *pw_props);
+typedef int (*setup_node_t) (struct pw_core * core,
+			     struct spa_node * spa_node, struct pw_properties * pw_props);
 
-struct pw_spa_node * pw_spa_node_load      (struct pw_core       *core,
-                                            const char           *lib,
-                                            const char           *factory_name,
-                                            const char           *name,
-                                            struct pw_properties *properties,
-                                            setup_node_t          setup_func);
+struct pw_spa_node *
+pw_spa_node_load(struct pw_core *core,
+		 const char *lib,
+		 const char *factory_name,
+		 const char *name,
+		 struct pw_properties *properties,
+		 setup_node_t setup_func);
 
 #ifdef __cplusplus
 }

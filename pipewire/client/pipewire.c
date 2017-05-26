@@ -32,54 +32,49 @@
  * initialize the PipeWire system, parse and modify any parameters given
  * by @argc and @argv.
  */
-void
-pw_init (int *argc, char **argv[])
+void pw_init(int *argc, char **argv[])
 {
-  const char *str;
+	const char *str;
 
-  if ((str = getenv ("PIPEWIRE_DEBUG")))
-    pw_log_set_level (atoi (str));
+	if ((str = getenv("PIPEWIRE_DEBUG")))
+		pw_log_set_level(atoi(str));
 }
 
-const char *
-pw_get_application_name (void)
+const char *pw_get_application_name(void)
 {
-  return NULL;
+	return NULL;
 }
 
-const char *
-pw_get_prgname (void)
+const char *pw_get_prgname(void)
 {
-  static char tcomm[16+1];
-  spa_zero(tcomm);
+	static char tcomm[16 + 1];
+	spa_zero(tcomm);
 
-  if (prctl (PR_GET_NAME, (unsigned long) tcomm, 0, 0, 0) == 0)
-    return tcomm;
+	if (prctl(PR_GET_NAME, (unsigned long) tcomm, 0, 0, 0) == 0)
+		return tcomm;
 
-  return NULL;
+	return NULL;
 }
 
-const char *
-pw_get_user_name (void)
+const char *pw_get_user_name(void)
 {
-  struct passwd *pw;
+	struct passwd *pw;
 
-  if ((pw = getpwuid (getuid ())))
-    return pw->pw_name;
+	if ((pw = getpwuid(getuid())))
+		return pw->pw_name;
 
-  return NULL;
+	return NULL;
 }
 
-const char *
-pw_get_host_name (void)
+const char *pw_get_host_name(void)
 {
-  static char hname[256];
+	static char hname[256];
 
-  if (gethostname (hname, 256) < 0)
-    return NULL;
+	if (gethostname(hname, 256) < 0)
+		return NULL;
 
-  hname[255] = 0;
-  return hname;
+	hname[255] = 0;
+	return hname;
 }
 
 /**
@@ -87,20 +82,19 @@ pw_get_host_name (void)
  *
  * Make a new PipeWire client name that can be used to construct a context.
  */
-char *
-pw_client_name (void)
+char *pw_client_name(void)
 {
-  char *c;
-  const char *cc;
+	char *c;
+	const char *cc;
 
-  if ((cc = pw_get_application_name ()))
-    return strdup (cc);
-  else if ((cc = pw_get_prgname ()))
-    return strdup (cc);
-  else {
-    asprintf (&c, "pipewire-pid-%zd", (size_t) getpid ());
-    return c;
-  }
+	if ((cc = pw_get_application_name()))
+		return strdup(cc);
+	else if ((cc = pw_get_prgname()))
+		return strdup(cc);
+	else {
+		asprintf(&c, "pipewire-pid-%zd", (size_t) getpid());
+		return c;
+	}
 }
 
 /**
@@ -109,30 +103,30 @@ pw_client_name (void)
  *
  * Fill @properties with a set of default context properties.
  */
-void
-pw_fill_context_properties (struct pw_properties *properties)
+void pw_fill_context_properties(struct pw_properties *properties)
 {
-  if (!pw_properties_get (properties, "application.name"))
-    pw_properties_set (properties, "application.name", pw_get_application_name ());
+	if (!pw_properties_get(properties, "application.name"))
+		pw_properties_set(properties, "application.name", pw_get_application_name());
 
-  if (!pw_properties_get (properties, "application.prgname"))
-    pw_properties_set (properties, "application.prgname", pw_get_prgname ());
+	if (!pw_properties_get(properties, "application.prgname"))
+		pw_properties_set(properties, "application.prgname", pw_get_prgname());
 
-  if (!pw_properties_get (properties, "application.language")) {
-    pw_properties_set (properties, "application.language", getenv ("LANG"));
-  }
-  if (!pw_properties_get (properties, "application.process.id")) {
-    pw_properties_setf (properties, "application.process.id", "%zd", (size_t) getpid ());
-  }
-  if (!pw_properties_get (properties, "application.process.user"))
-    pw_properties_set (properties, "application.process.user", pw_get_user_name ());
+	if (!pw_properties_get(properties, "application.language")) {
+		pw_properties_set(properties, "application.language", getenv("LANG"));
+	}
+	if (!pw_properties_get(properties, "application.process.id")) {
+		pw_properties_setf(properties, "application.process.id", "%zd", (size_t) getpid());
+	}
+	if (!pw_properties_get(properties, "application.process.user"))
+		pw_properties_set(properties, "application.process.user", pw_get_user_name());
 
-  if (!pw_properties_get (properties, "application.process.host"))
-    pw_properties_set (properties, "application.process.host", pw_get_host_name ());
+	if (!pw_properties_get(properties, "application.process.host"))
+		pw_properties_set(properties, "application.process.host", pw_get_host_name());
 
-  if (!pw_properties_get (properties, "application.process.session_id")) {
-    pw_properties_set (properties, "application.process.session_id", getenv ("XDG_SESSION_ID"));
-  }
+	if (!pw_properties_get(properties, "application.process.session_id")) {
+		pw_properties_set(properties, "application.process.session_id",
+				  getenv("XDG_SESSION_ID"));
+	}
 }
 
 /**
@@ -141,17 +135,15 @@ pw_fill_context_properties (struct pw_properties *properties)
  *
  * Fill @properties with a set of default stream properties.
  */
-void
-pw_fill_stream_properties (struct pw_properties *properties)
+void pw_fill_stream_properties(struct pw_properties *properties)
 {
 }
 
-enum pw_direction
-pw_direction_reverse (enum pw_direction direction)
+enum pw_direction pw_direction_reverse(enum pw_direction direction)
 {
-  if (direction == PW_DIRECTION_INPUT)
-    return PW_DIRECTION_OUTPUT;
-  else if (direction == PW_DIRECTION_OUTPUT)
-    return PW_DIRECTION_INPUT;
-  return direction;
+	if (direction == PW_DIRECTION_INPUT)
+		return PW_DIRECTION_OUTPUT;
+	else if (direction == PW_DIRECTION_OUTPUT)
+		return PW_DIRECTION_INPUT;
+	return direction;
 }

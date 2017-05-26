@@ -28,37 +28,42 @@ extern "C" {
 #include <pipewire/client/sig.h>
 
 struct pw_connection {
-  int fd;
+	int fd;
 
-  PW_SIGNAL (need_flush,     (struct pw_listener   *listener,
-                              struct pw_connection *conn));
-  PW_SIGNAL (destroy_signal, (struct pw_listener   *listener,
-                              struct pw_connection *conn));
+	PW_SIGNAL(need_flush,     (struct pw_listener * listener, struct pw_connection * conn));
+	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_connection * conn));
 };
 
-struct pw_connection * pw_connection_new             (int                   fd);
-void                   pw_connection_destroy         (struct pw_connection *conn);
+struct pw_connection *
+pw_connection_new(int fd);
 
-uint32_t               pw_connection_add_fd          (struct pw_connection *conn,
-                                                      int                   fd);
-int                    pw_connection_get_fd          (struct pw_connection *conn,
-                                                      uint32_t              index);
+void
+pw_connection_destroy(struct pw_connection *conn);
 
-bool                   pw_connection_get_next        (struct pw_connection  *conn,
-                                                      uint8_t               *opcode,
-                                                      uint32_t              *dest_id,
-                                                      void                 **data,
-                                                      uint32_t              *size);
+uint32_t
+pw_connection_add_fd(struct pw_connection *conn, int fd);
 
-void *                 pw_connection_begin_write     (struct pw_connection  *conn,
-                                                      uint32_t               size);
-void                   pw_connection_end_write       (struct pw_connection  *conn,
-                                                      uint32_t               dest_id,
-                                                      uint8_t                opcode,
-                                                      uint32_t               size);
+int
+pw_connection_get_fd(struct pw_connection *conn, uint32_t index);
 
-bool                   pw_connection_flush           (struct pw_connection  *conn);
-bool                   pw_connection_clear           (struct pw_connection  *conn);
+bool
+pw_connection_get_next(struct pw_connection *conn,
+		       uint8_t *opcode,
+		       uint32_t *dest_id,
+		       void **data, uint32_t *size);
+
+void *
+pw_connection_begin_write(struct pw_connection *conn, uint32_t size);
+
+void
+pw_connection_end_write(struct pw_connection *conn,
+			uint32_t dest_id, uint8_t opcode, uint32_t size);
+
+bool
+pw_connection_flush(struct pw_connection *conn);
+
+bool
+pw_connection_clear(struct pw_connection *conn);
 
 #ifdef __cplusplus
 }  /* extern "C" */

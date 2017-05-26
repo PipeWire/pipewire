@@ -40,7 +40,7 @@ struct spa_monitor;
 #define SPA_TYPE_EVENT_MONITOR__Changed        SPA_TYPE_EVENT_MONITOR_BASE "Changed"
 
 struct spa_monitor_item {
-  struct spa_pod_object object;
+	struct spa_pod_object object;
 };
 #define SPA_TYPE__MonitorItem                  SPA_TYPE_POD_OBJECT_BASE "MonitorItem"
 #define SPA_TYPE_MONITOR_ITEM_BASE             SPA_TYPE__MonitorItem ":"
@@ -54,43 +54,42 @@ struct spa_monitor_item {
 #define SPA_TYPE_MONITOR_ITEM__factory         SPA_TYPE_MONITOR_ITEM_BASE "factory"
 
 struct spa_type_monitor {
-  uint32_t Monitor;
+	uint32_t Monitor;
 
-  uint32_t Added;
-  uint32_t Removed;
-  uint32_t Changed;
+	uint32_t Added;
+	uint32_t Removed;
+	uint32_t Changed;
 
-  uint32_t MonitorItem;
-  uint32_t id;
-  uint32_t flags;
-  uint32_t state;
-  uint32_t name;
-  uint32_t klass;
-  uint32_t info;
-  uint32_t factory;
+	uint32_t MonitorItem;
+	uint32_t id;
+	uint32_t flags;
+	uint32_t state;
+	uint32_t name;
+	uint32_t klass;
+	uint32_t info;
+	uint32_t factory;
 };
 
-static inline void
-spa_type_monitor_map (struct spa_type_map *map, struct spa_type_monitor *type)
+static inline void spa_type_monitor_map(struct spa_type_map *map, struct spa_type_monitor *type)
 {
-  if (type->Added == 0) {
-    type->Monitor      = spa_type_map_get_id (map, SPA_TYPE__Monitor);
-    type->Added        = spa_type_map_get_id (map, SPA_TYPE_EVENT_MONITOR__Added);
-    type->Removed      = spa_type_map_get_id (map, SPA_TYPE_EVENT_MONITOR__Removed);
-    type->Changed      = spa_type_map_get_id (map, SPA_TYPE_EVENT_MONITOR__Changed);
-    type->MonitorItem  = spa_type_map_get_id (map, SPA_TYPE__MonitorItem);
-    type->id           = spa_type_map_get_id (map, SPA_TYPE_MONITOR_ITEM__id);
-    type->flags        = spa_type_map_get_id (map, SPA_TYPE_MONITOR_ITEM__flags);
-    type->state        = spa_type_map_get_id (map, SPA_TYPE_MONITOR_ITEM__state);
-    type->name         = spa_type_map_get_id (map, SPA_TYPE_MONITOR_ITEM__name);
-    type->klass        = spa_type_map_get_id (map, SPA_TYPE_MONITOR_ITEM__class);
-    type->info         = spa_type_map_get_id (map, SPA_TYPE_MONITOR_ITEM__info);
-    type->factory      = spa_type_map_get_id (map, SPA_TYPE_MONITOR_ITEM__factory);
-  }
+	if (type->Monitor == 0) {
+		type->Monitor = spa_type_map_get_id(map, SPA_TYPE__Monitor);
+		type->Added = spa_type_map_get_id(map, SPA_TYPE_EVENT_MONITOR__Added);
+		type->Removed = spa_type_map_get_id(map, SPA_TYPE_EVENT_MONITOR__Removed);
+		type->Changed = spa_type_map_get_id(map, SPA_TYPE_EVENT_MONITOR__Changed);
+		type->MonitorItem = spa_type_map_get_id(map, SPA_TYPE__MonitorItem);
+		type->id = spa_type_map_get_id(map, SPA_TYPE_MONITOR_ITEM__id);
+		type->flags = spa_type_map_get_id(map, SPA_TYPE_MONITOR_ITEM__flags);
+		type->state = spa_type_map_get_id(map, SPA_TYPE_MONITOR_ITEM__state);
+		type->name = spa_type_map_get_id(map, SPA_TYPE_MONITOR_ITEM__name);
+		type->klass = spa_type_map_get_id(map, SPA_TYPE_MONITOR_ITEM__class);
+		type->info = spa_type_map_get_id(map, SPA_TYPE_MONITOR_ITEM__info);
+		type->factory = spa_type_map_get_id(map, SPA_TYPE_MONITOR_ITEM__factory);
+	}
 }
 
 enum spa_monitor_item_flags {
-  SPA_MONITOR_ITEM_FLAG_NONE    = 0,
+	SPA_MONITOR_ITEM_FLAG_NONE = 0,
 };
 
 /**
@@ -100,18 +99,16 @@ enum spa_monitor_item_flags {
  * @SPA_MONITOR_ITEM_STATE_UNAVAILABLE: the item is unavailable
  */
 enum spa_monitor_item_state {
-  SPA_MONITOR_ITEM_STATE_AVAILABLE,
-  SPA_MONITOR_ITEM_STATE_DISABLED,
-  SPA_MONITOR_ITEM_STATE_UNAVAILABLE,
+	SPA_MONITOR_ITEM_STATE_AVAILABLE,
+	SPA_MONITOR_ITEM_STATE_DISABLED,
+	SPA_MONITOR_ITEM_STATE_UNAVAILABLE,
 };
 
 /**
  * spa_monitor_callbacks:
  */
 struct spa_monitor_callbacks {
-   void  (*event)  (struct spa_monitor *monitor,
-                    struct spa_event   *event,
-                    void               *user_data);
+	void (*event) (struct spa_monitor * monitor, struct spa_event * event, void *user_data);
 };
 
 /**
@@ -120,36 +117,34 @@ struct spa_monitor_callbacks {
  * The device monitor interface.
  */
 struct spa_monitor {
-  /**
-   * spa_monitor::info
-   *
-   * Extra information about the monitor
-   */
-  const struct spa_dict* info;
+	/**
+	 * spa_monitor::info
+	 *
+	 * Extra information about the monitor
+	 */
+	const struct spa_dict *info;
 
-  /* the total size of this monitor. This can be used to expand this
-   * structure in the future */
-  size_t size;
+	/* the total size of this monitor. This can be used to expand this
+	 * structure in the future */
+	size_t size;
 
-  /**
-   * spa_monitor::set_callbacks:
-   * @monitor: a #spa_monitor
-   * @callback: a #callbacks
-   * @user_data: extra user data
-   *
-   * Set callbacks to receive asynchronous notifications from
-   * the monitor.
-   *
-   * Returns: #SPA_RESULT_OK on success
-   */
-  int   (*set_callbacks)   (struct spa_monitor                 *monitor,
-                            const struct spa_monitor_callbacks *callbacks,
-                            size_t                              callbacks_size,
-                            void                               *user_data);
+	/**
+	 * spa_monitor::set_callbacks:
+	 * @monitor: a #spa_monitor
+	 * @callback: a #callbacks
+	 * @user_data: extra user data
+	 *
+	 * Set callbacks to receive asynchronous notifications from
+	 * the monitor.
+	 *
+	 * Returns: #SPA_RESULT_OK on success
+	 */
+	int (*set_callbacks) (struct spa_monitor * monitor,
+			      const struct spa_monitor_callbacks * callbacks,
+			      size_t callbacks_size, void *user_data);
 
-  int   (*enum_items)      (struct spa_monitor          *monitor,
-                            struct spa_monitor_item    **item,
-                            uint32_t                     index);
+	int (*enum_items) (struct spa_monitor * monitor,
+			   struct spa_monitor_item ** item, uint32_t index);
 
 };
 

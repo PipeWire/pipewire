@@ -32,32 +32,31 @@ extern "C" {
 #include <pipewire/client/sig.h>
 #include <pipewire/server/core.h>
 
-typedef void  (*pw_destroy_t)  (void *object);
+typedef void (*pw_destroy_t) (void *object);
 
 struct pw_resource {
-  struct pw_core    *core;
-  struct spa_list    link;
+	struct pw_core *core;
+	struct spa_list link;
 
-  struct pw_client  *client;
+	struct pw_client *client;
 
-  uint32_t      id;
-  uint32_t      type;
-  void         *object;
-  pw_destroy_t  destroy;
+	uint32_t id;
+	uint32_t type;
+	void *object;
+	pw_destroy_t destroy;
 
-  const struct pw_interface *iface;
-  const void                *implementation;
+	const struct pw_interface *iface;
+	const void *implementation;
 
-  PW_SIGNAL (destroy_signal, (struct pw_listener *listener,
-                              struct pw_resource *resource));
+	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_resource * resource));
 };
 
-struct pw_resource * pw_resource_new              (struct pw_client   *client,
-                                                   uint32_t            id,
-                                                   uint32_t            type,
-                                                   void               *object,
-                                                   pw_destroy_t        destroy);
-void                 pw_resource_destroy          (struct pw_resource *resource);
+struct pw_resource *
+pw_resource_new(struct pw_client *client,
+		uint32_t id, uint32_t type, void *object, pw_destroy_t destroy);
+
+void
+pw_resource_destroy(struct pw_resource *resource);
 
 #ifdef __cplusplus
 }

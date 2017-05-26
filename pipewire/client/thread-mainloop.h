@@ -32,29 +32,42 @@ extern "C" {
  * PipeWire main loop object class.
  */
 struct pw_thread_main_loop {
-  struct pw_loop *loop;
-  char           *name;
+	struct pw_loop *loop;
+	char *name;
 
-  PW_SIGNAL (destroy_signal, (struct pw_listener         *listener,
-                              struct pw_thread_main_loop *loop));
+	PW_SIGNAL(destroy_signal, (struct pw_listener * listener,
+				   struct pw_thread_main_loop * loop));
 };
 
-struct pw_thread_main_loop *  pw_thread_main_loop_new             (struct pw_loop *loop,
-                                                                   const char     *name);
-void                   pw_thread_main_loop_destroy         (struct pw_thread_main_loop *loop);
+struct pw_thread_main_loop *
+pw_thread_main_loop_new(struct pw_loop *loop, const char *name);
 
-int              pw_thread_main_loop_start           (struct pw_thread_main_loop *loop);
-void                   pw_thread_main_loop_stop            (struct pw_thread_main_loop *loop);
+void
+pw_thread_main_loop_destroy(struct pw_thread_main_loop *loop);
 
-void                   pw_thread_main_loop_lock            (struct pw_thread_main_loop *loop);
-void                   pw_thread_main_loop_unlock          (struct pw_thread_main_loop *loop);
+int
+pw_thread_main_loop_start(struct pw_thread_main_loop *loop);
 
-void                   pw_thread_main_loop_wait            (struct pw_thread_main_loop *loop);
-void                   pw_thread_main_loop_signal          (struct pw_thread_main_loop *loop,
-                                                            bool                        wait_for_accept);
-void                   pw_thread_main_loop_accept          (struct pw_thread_main_loop *loop);
+void
+pw_thread_main_loop_stop(struct pw_thread_main_loop *loop);
 
-bool                   pw_thread_main_loop_in_thread       (struct pw_thread_main_loop *loop);
+void
+pw_thread_main_loop_lock(struct pw_thread_main_loop *loop);
+
+void
+pw_thread_main_loop_unlock(struct pw_thread_main_loop *loop);
+
+void
+pw_thread_main_loop_wait(struct pw_thread_main_loop *loop);
+
+void
+pw_thread_main_loop_signal(struct pw_thread_main_loop *loop, bool wait_for_accept);
+
+void
+pw_thread_main_loop_accept(struct pw_thread_main_loop *loop);
+
+bool
+pw_thread_main_loop_in_thread(struct pw_thread_main_loop *loop);
 
 #ifdef __cplusplus
 }

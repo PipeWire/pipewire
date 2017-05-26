@@ -124,9 +124,9 @@ extern "C" {
  * Extra video flags
  */
 enum spa_video_flags {
-  SPA_VIDEO_FLAG_NONE                = 0,
-  SPA_VIDEO_FLAG_VARIABLE_FPS        = (1 << 0),
-  SPA_VIDEO_FLAG_PREMULTIPLIED_ALPHA = (1 << 1)
+	SPA_VIDEO_FLAG_NONE = 0,
+	SPA_VIDEO_FLAG_VARIABLE_FPS = (1 << 0),
+	SPA_VIDEO_FLAG_PREMULTIPLIED_ALPHA = (1 << 1)
 };
 
 /**
@@ -148,10 +148,10 @@ enum spa_video_flags {
  * mode of the stream.
  */
 enum spa_video_interlace_mode {
-  SPA_VIDEO_INTERLACE_MODE_PROGRESSIVE = 0,
-  SPA_VIDEO_INTERLACE_MODE_INTERLEAVED,
-  SPA_VIDEO_INTERLACE_MODE_MIXED,
-  SPA_VIDEO_INTERLACE_MODE_FIELDS
+	SPA_VIDEO_INTERLACE_MODE_PROGRESSIVE = 0,
+	SPA_VIDEO_INTERLACE_MODE_INTERLEAVED,
+	SPA_VIDEO_INTERLACE_MODE_MIXED,
+	SPA_VIDEO_INTERLACE_MODE_FIELDS
 };
 
 /**
@@ -175,24 +175,24 @@ enum spa_video_interlace_mode {
  * @color_primaries: color primaries. used to convert between R'G'B' and CIE XYZ
  */
 struct spa_video_info_raw {
-  uint32_t                          format;
-  struct spa_rectangle              size;
-  struct spa_fraction               framerate;
-  struct spa_fraction               max_framerate;
-  uint32_t                          views;
-  enum spa_video_interlace_mode     interlace_mode;
-  struct spa_fraction               pixel_aspect_ratio;
-  enum spa_video_multiview_mode     multiview_mode;
-  enum spa_video_multiview_flags    multiview_flags;
-  enum spa_video_chroma_site        chroma_site;
-  enum spa_video_color_range        color_range;
-  enum spa_video_color_matrix       color_matrix;
-  enum spa_video_transfer_function  transfer_function;
-  enum spa_video_color_primaries    color_primaries;
+	uint32_t format;
+	struct spa_rectangle size;
+	struct spa_fraction framerate;
+	struct spa_fraction max_framerate;
+	uint32_t views;
+	enum spa_video_interlace_mode interlace_mode;
+	struct spa_fraction pixel_aspect_ratio;
+	enum spa_video_multiview_mode multiview_mode;
+	enum spa_video_multiview_flags multiview_flags;
+	enum spa_video_chroma_site chroma_site;
+	enum spa_video_color_range color_range;
+	enum spa_video_color_matrix color_matrix;
+	enum spa_video_transfer_function transfer_function;
+	enum spa_video_color_primaries color_primaries;
 };
 
 #ifdef __cplusplus
-}  /* extern "C" */
+} /* extern "C" */
 #endif
 
 #endif /* __SPA_VIDEO_RAW_H__ */

@@ -28,18 +28,21 @@ extern "C" {
 #include <pipewire/server/core.h>
 
 struct pw_command {
-  struct spa_list link;
+	struct spa_list link;
 
-  const char *name;
+	const char *name;
 };
 
 
-struct pw_command * pw_command_parse                (const char    *line,
-                                                     char         **err);
-void                pw_command_free                 (struct pw_command *command);
-bool                pw_command_run                  (struct pw_command *command,
-                                                     struct pw_core    *core,
-                                                     char             **err);
+struct pw_command *
+pw_command_parse(const char *line, char **err);
+
+void
+pw_command_free(struct pw_command *command);
+
+bool
+pw_command_run(struct pw_command *command, struct pw_core *core, char **err);
+
 #ifdef __cplusplus
 }
 #endif

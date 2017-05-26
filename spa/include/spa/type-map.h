@@ -36,23 +36,21 @@ extern "C" {
  * Maps between string types and their type id
  */
 struct spa_type_map {
-  /* the total size of this structure. This can be used to expand this
-   * structure in the future */
-  const size_t size;
-  /**
-   * spa_type_map::info
-   *
-   * Extra information about the type map
-   */
-  const struct spa_dict *info;
+	/* the total size of this structure. This can be used to expand this
+	 * structure in the future */
+	const size_t size;
+	/**
+	 * spa_type_map::info
+	 *
+	 * Extra information about the type map
+	 */
+	const struct spa_dict *info;
 
-  uint32_t      (*get_id)    (struct spa_type_map       *map,
-                              const char                *type);
+	uint32_t (*get_id) (struct spa_type_map * map, const char *type);
 
-  const char *  (*get_type)  (const struct spa_type_map *map,
-                              uint32_t                   id);
+	const char *(*get_type) (const struct spa_type_map * map, uint32_t id);
 
-  size_t        (*get_size)  (const struct spa_type_map *map);
+	size_t (*get_size) (const struct spa_type_map * map);
 };
 
 #define spa_type_map_get_id(n,...)            (n)->get_id((n),__VA_ARGS__)

@@ -27,23 +27,22 @@ extern "C" {
 #include <spa/defs.h>
 #include <spa/pod-utils.h>
 
-const char * pw_split_walk   (const char  *str,
-                              const char  *delimiter,
-                              size_t      *len,
-                              const char **state);
-char **      pw_split_strv   (const char *str,
-                              const char *delimiter,
-                              int         max_tokens,
-                              int        *n_tokens);
-void         pw_free_strv    (char **str);
+const char *
+pw_split_walk(const char *str, const char *delimiter, size_t * len, const char **state);
 
-char *       pw_strip        (char       *str,
-                              const char *whitespace);
+char **
+pw_split_strv(const char *str, const char *delimiter, int max_tokens, int *n_tokens);
+
+void
+pw_free_strv(char **str);
+
+char *
+pw_strip(char *str, const char *whitespace);
 
 static inline struct spa_pod *
-pw_spa_pod_copy (const struct spa_pod *pod)
+pw_spa_pod_copy(const struct spa_pod *pod)
 {
-  return pod ? memcpy (malloc (SPA_POD_SIZE (pod)), pod, SPA_POD_SIZE (pod)) : NULL;
+	return pod ? memcpy(malloc(SPA_POD_SIZE(pod)), pod, SPA_POD_SIZE(pod)) : NULL;
 }
 
 #define spa_format_copy(f)      ((struct spa_format*)pw_spa_pod_copy(&(f)->pod))
@@ -51,7 +50,7 @@ pw_spa_pod_copy (const struct spa_pod *pod)
 #define spa_param_copy(p)       ((struct spa_param*)pw_spa_pod_copy(&(p)->object.pod))
 
 #ifdef __cplusplus
-}  /* extern "C" */
+}				/* extern "C" */
 #endif
 
 #endif /* __PIPEWIRE_UTILS_H__ */

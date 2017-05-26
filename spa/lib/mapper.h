@@ -26,11 +26,11 @@ extern "C" {
 
 #include <spa/type-map.h>
 
-void                  spa_type_map_set_default (struct spa_type_map *map);
-struct spa_type_map * spa_type_map_get_default (void);
+void spa_type_map_set_default(struct spa_type_map *map);
+struct spa_type_map *spa_type_map_get_default(void);
 
 #ifdef __cplusplus
-}  /* extern "C" */
+} /* extern "C" */
 #endif
 
 #endif /* __SPA_LIBMAPPER_H__ */

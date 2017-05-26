@@ -23,42 +23,41 @@
 
 #include "daemon-config.h"
 
-int
-main (int argc, char *argv[])
+int main(int argc, char *argv[])
 {
-  struct pw_core *core;
-  struct pw_main_loop *loop;
-  struct pw_daemon_config *config;
-  char *err = NULL;
+	struct pw_core *core;
+	struct pw_main_loop *loop;
+	struct pw_daemon_config *config;
+	char *err = NULL;
 
-  pw_init (&argc, &argv);
+	pw_init(&argc, &argv);
 
-  /* parse configuration */
-  config = pw_daemon_config_new ();
-  if (!pw_daemon_config_load (config, &err)) {
-    pw_log_error ("failed to parse config: %s", err);
-    free (err);
-    return -1;
-  }
+	/* parse configuration */
+	config = pw_daemon_config_new();
+	if (!pw_daemon_config_load(config, &err)) {
+		pw_log_error("failed to parse config: %s", err);
+		free(err);
+		return -1;
+	}
 
-  loop = pw_main_loop_new ();
+	loop = pw_main_loop_new();
 #if 1
-  {
-    struct spa_source *source;
-    source = pw_loop_add_event (loop->loop, NULL, NULL);
-    pw_log_set_trace_event (source);
-  }
+	{
+		struct spa_source *source;
+		source = pw_loop_add_event(loop->loop, NULL, NULL);
+		pw_log_set_trace_event(source);
+	}
 #endif
 
-  core = pw_core_new (loop, NULL);
+	core = pw_core_new(loop, NULL);
 
-  pw_daemon_config_run_commands (config, core);
+	pw_daemon_config_run_commands(config, core);
 
-  pw_main_loop_run (loop);
+	pw_main_loop_run(loop);
 
-  pw_main_loop_destroy (loop);
+	pw_main_loop_destroy(loop);
 
-  pw_core_destroy (core);
+	pw_core_destroy(core);
 
-  return 0;
+	return 0;
 }

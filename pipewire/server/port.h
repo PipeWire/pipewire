@@ -36,54 +36,59 @@ extern "C" {
 #include <pipewire/server/link.h>
 
 enum pw_port_state {
-  PW_PORT_STATE_ERROR         = -1,
-  PW_PORT_STATE_INIT          =  0,
-  PW_PORT_STATE_CONFIGURE     =  1,
-  PW_PORT_STATE_READY         =  2,
-  PW_PORT_STATE_PAUSED        =  3,
-  PW_PORT_STATE_STREAMING     =  4,
+	PW_PORT_STATE_ERROR = -1,
+	PW_PORT_STATE_INIT = 0,
+	PW_PORT_STATE_CONFIGURE = 1,
+	PW_PORT_STATE_READY = 2,
+	PW_PORT_STATE_PAUSED = 3,
+	PW_PORT_STATE_STREAMING = 4,
 };
 
 struct pw_port {
-  struct spa_list     link;
+	struct spa_list link;
 
-  PW_SIGNAL   (destroy_signal, (struct pw_listener *listener, struct pw_port *));
+	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_port *));
 
-  struct pw_node     *node;
-  enum pw_direction   direction;
-  uint32_t            port_id;
-  enum pw_port_state  state;
-  struct spa_port_io  io;
+	struct pw_node *node;
+	enum pw_direction direction;
+	uint32_t port_id;
+	enum pw_port_state state;
+	struct spa_port_io io;
 
-  bool                 allocated;
-  struct pw_memblock   buffer_mem;
-  struct spa_buffer  **buffers;
-  uint32_t             n_buffers;
+	bool allocated;
+	struct pw_memblock buffer_mem;
+	struct spa_buffer **buffers;
+	uint32_t n_buffers;
 
-  struct spa_list      links;
+	struct spa_list links;
 
-  struct {
-    struct spa_list    links;
-  } rt;
+	struct {
+		struct spa_list links;
+	} rt;
 };
 
-struct pw_port *    pw_port_new                     (struct pw_node        *node,
-                                                     enum pw_direction      direction,
-                                                     uint32_t               port_id);
-void                pw_port_destroy                 (struct pw_port        *port);
+struct pw_port *
+pw_port_new(struct pw_node *node, enum pw_direction direction, uint32_t port_id);
+
+void
+pw_port_destroy(struct pw_port *port);
 
 
-struct pw_link *    pw_port_link                    (struct pw_port        *output_port,
-                                                     struct pw_port        *input_port,
-                                                     struct spa_format            **format_filter,
-                                                     struct pw_properties  *properties,
-                                                     char                 **error);
-int           pw_port_unlink                  (struct pw_port        *port,
-                                                     struct pw_link        *link);
+struct pw_link *
+pw_port_link(struct pw_port *output_port,
+	     struct pw_port *input_port,
+	     struct spa_format **format_filter,
+	     struct pw_properties *properties,
+	     char **error);
 
-int           pw_port_pause_rt                (struct pw_port        *port);
-int           pw_port_clear_buffers           (struct pw_port        *port);
+int
+pw_port_unlink(struct pw_port *port, struct pw_link *link);
 
+int
+pw_port_pause_rt(struct pw_port *port);
+
+int
+pw_port_clear_buffers(struct pw_port *port);
 
 #ifdef __cplusplus
 }

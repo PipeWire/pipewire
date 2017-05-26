@@ -21,34 +21,34 @@
 
 #define M_PI_M2 ( M_PI + M_PI )
 
-#define DEFINE_SINE(type,scale)                                                 \
-static void                                                                     \
+#define DEFINE_SINE(type,scale)								\
+static void										\
 audio_test_src_create_sine_##type (struct impl *this, type * samples, size_t n_samples) \
-{                                                                               \
-  int i, c, channels;                                                           \
-  double step, amp;                                                             \
-                                                                                \
-  channels = this->current_format.info.raw.channels;                            \
-  step = M_PI_M2 * this->props.freq / this->current_format.info.raw.rate;       \
-  amp = this->props.volume * scale;                                             \
-                                                                                \
-  for (i = 0; i < n_samples; i++) {                                             \
-    this->accumulator += step;                                                  \
-    if (this->accumulator >= M_PI_M2)                                           \
-      this->accumulator -= M_PI_M2;                                             \
-    for (c = 0; c < channels; ++c)                                              \
-      *samples++ = (type) (sin (this->accumulator) * amp);                      \
-  }                                                                             \
+{											\
+	int i, c, channels;								\
+	double step, amp;								\
+											\
+	channels = this->current_format.info.raw.channels;				\
+	step = M_PI_M2 * this->props.freq / this->current_format.info.raw.rate;		\
+	amp = this->props.volume * scale;						\
+											\
+	for (i = 0; i < n_samples; i++) {						\
+		this->accumulator += step;						\
+		if (this->accumulator >= M_PI_M2)					\
+			this->accumulator -= M_PI_M2;					\
+		for (c = 0; c < channels; ++c)						\
+			*samples++ = (type) (sin (this->accumulator) * amp);		\
+	}										\
 }
 
-DEFINE_SINE (int16_t, 32767.0);
-DEFINE_SINE (int32_t, 2147483647.0);
-DEFINE_SINE (float, 1.0);
-DEFINE_SINE (double, 1.0);
+DEFINE_SINE(int16_t, 32767.0);
+DEFINE_SINE(int32_t, 2147483647.0);
+DEFINE_SINE(float, 1.0);
+DEFINE_SINE(double, 1.0);
 
 static const render_func_t sine_funcs[] = {
-  (render_func_t) audio_test_src_create_sine_int16_t,
-  (render_func_t) audio_test_src_create_sine_int32_t,
-  (render_func_t) audio_test_src_create_sine_float,
-  (render_func_t) audio_test_src_create_sine_double
+	(render_func_t) audio_test_src_create_sine_int16_t,
+	(render_func_t) audio_test_src_create_sine_int32_t,
+	(render_func_t) audio_test_src_create_sine_float,
+	(render_func_t) audio_test_src_create_sine_double
 };

@@ -26,10 +26,7 @@ extern "C" {
 
 #include <pipewire/client/loop.h>
 
-typedef void (*pw_work_func_t) (void      *obj,
-                                void      *data,
-                                int  res,
-                                uint32_t   id);
+typedef void (*pw_work_func_t) (void *obj, void *data, int res, uint32_t id);
 
 /**
  * pw_work_queue:
@@ -37,30 +34,30 @@ typedef void (*pw_work_func_t) (void      *obj,
  * PipeWire work queue object.
  */
 struct pw_work_queue {
-  struct pw_loop *loop;
+	struct pw_loop *loop;
 
-  PW_SIGNAL (destroy_signal,  (struct pw_listener   *listener,
-                               struct pw_work_queue *queue));
+	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_work_queue * queue));
 };
 
-struct pw_work_queue * pw_work_queue_new              (struct pw_loop       *loop);
-void                   pw_work_queue_destroy          (struct pw_work_queue *queue);
+struct pw_work_queue *
+pw_work_queue_new(struct pw_loop *loop);
 
-uint32_t               pw_work_queue_add              (struct pw_work_queue *queue,
-                                                       void                 *obj,
-                                                       int             res,
-                                                       pw_work_func_t        func,
-                                                       void                 *data);
-void                   pw_work_queue_cancel           (struct pw_work_queue *queue,
-                                                       void                 *obj,
-                                                       uint32_t              id);
-bool                   pw_work_queue_complete         (struct pw_work_queue *queue,
-                                                       void                 *obj,
-                                                       uint32_t              seq,
-                                                       int             res);
+void
+pw_work_queue_destroy(struct pw_work_queue *queue);
+
+uint32_t
+pw_work_queue_add(struct pw_work_queue *queue,
+		  void *obj, int res,
+		  pw_work_func_t func, void *data);
+
+void
+pw_work_queue_cancel(struct pw_work_queue *queue, void *obj, uint32_t id);
+
+bool
+pw_work_queue_complete(struct pw_work_queue *queue, void *obj, uint32_t seq, int res);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __PIPEWIRE_WORK_QUEUE_H__ */
+#endif				/* __PIPEWIRE_WORK_QUEUE_H__ */

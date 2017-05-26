@@ -52,41 +52,39 @@
 #include "rtkit.h"
 
 struct pw_rtkit_bus {
-  DBusConnection *bus;
+	DBusConnection *bus;
 };
 
-struct pw_rtkit_bus *
-pw_rtkit_bus_get_system (void)
+struct pw_rtkit_bus *pw_rtkit_bus_get_system(void)
 {
-  struct pw_rtkit_bus *bus;
-  DBusError error;
+	struct pw_rtkit_bus *bus;
+	DBusError error;
 
-  dbus_error_init(&error);
+	dbus_error_init(&error);
 
-  bus = calloc (1, sizeof (struct pw_rtkit_bus));
-  if (bus == NULL)
-    return NULL;
+	bus = calloc(1, sizeof(struct pw_rtkit_bus));
+	if (bus == NULL)
+		return NULL;
 
-  bus->bus = dbus_bus_get_private (DBUS_BUS_SYSTEM, &error);
-  if (bus->bus == NULL)
-    goto error;
+	bus->bus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error);
+	if (bus->bus == NULL)
+		goto error;
 
-  dbus_connection_set_exit_on_disconnect (bus->bus, false);
+	dbus_connection_set_exit_on_disconnect(bus->bus, false);
 
-  return bus;
+	return bus;
 
-error:
-  pw_log_error ("Failed to connect to system bus: %s", error.message);
-  dbus_error_free (&error);
-  return NULL;
+      error:
+	pw_log_error("Failed to connect to system bus: %s", error.message);
+	dbus_error_free(&error);
+	return NULL;
 }
 
-void
-pw_rtkit_bus_free (struct pw_rtkit_bus *system_bus)
+void pw_rtkit_bus_free(struct pw_rtkit_bus *system_bus)
 {
-  dbus_connection_close (system_bus->bus);
-  dbus_connection_unref (system_bus->bus);
-  free (system_bus);
+	dbus_connection_close(system_bus->bus);
+	dbus_connection_unref(system_bus->bus);
+	free(system_bus);
 }
 
 #if defined(__linux__) && !defined(__ANDROID__)
@@ -105,277 +103,274 @@ pw_rtkit_bus_free (struct pw_rtkit_bus *system_bus)
 #include <sys/syscall.h>
 
 
-static pid_t _gettid(void) {
-        return (pid_t) syscall(SYS_gettid);
-}
-
-static int translate_error(const char *name) {
-        if (0 == strcmp (name, DBUS_ERROR_NO_MEMORY))
-                return -ENOMEM;
-        if (0 == strcmp (name, DBUS_ERROR_SERVICE_UNKNOWN) ||
-            0 == strcmp (name, DBUS_ERROR_NAME_HAS_NO_OWNER))
-                return -ENOENT;
-        if (0 == strcmp (name, DBUS_ERROR_ACCESS_DENIED) ||
-            0 == strcmp (name, DBUS_ERROR_AUTH_FAILED))
-                return -EACCES;
-
-        return -EIO;
-}
-
-static long long rtkit_get_int_property(struct pw_rtkit_bus *connection, const char* propname, long long* propval) {
-        DBusMessage *m = NULL, *r = NULL;
-        DBusMessageIter iter, subiter;
-        dbus_int64_t i64;
-        dbus_int32_t i32;
-        DBusError error;
-        int current_type;
-        long long ret;
-        const char * interfacestr = "org.freedesktop.RealtimeKit1";
-
-        dbus_error_init(&error);
-
-        if (!(m = dbus_message_new_method_call(
-                              RTKIT_SERVICE_NAME,
-                              RTKIT_OBJECT_PATH,
-                              "org.freedesktop.DBus.Properties",
-                              "Get"))) {
-                ret = -ENOMEM;
-                goto finish;
-        }
-
-        if (!dbus_message_append_args(
-                            m,
-                            DBUS_TYPE_STRING, &interfacestr,
-                            DBUS_TYPE_STRING, &propname,
-                            DBUS_TYPE_INVALID)) {
-                ret = -ENOMEM;
-                goto finish;
-        }
-
-        if (!(r = dbus_connection_send_with_reply_and_block(connection->bus, m, -1, &error))) {
-                ret = translate_error(error.name);
-                goto finish;
-        }
-
-        if (dbus_set_error_from_message(&error, r)) {
-                ret = translate_error(error.name);
-                goto finish;
-        }
-
-        ret = -EBADMSG;
-        dbus_message_iter_init(r, &iter);
-        while ((current_type = dbus_message_iter_get_arg_type (&iter)) != DBUS_TYPE_INVALID) {
-
-                if (current_type == DBUS_TYPE_VARIANT) {
-                        dbus_message_iter_recurse(&iter, &subiter);
-
-                        while ((current_type = dbus_message_iter_get_arg_type (&subiter)) != DBUS_TYPE_INVALID) {
-
-                                if (current_type == DBUS_TYPE_INT32) {
-                                        dbus_message_iter_get_basic(&subiter, &i32);
-                                        *propval = i32;
-                                        ret = 0;
-                                }
-
-                                if (current_type == DBUS_TYPE_INT64) {
-                                        dbus_message_iter_get_basic(&subiter, &i64);
-                                        *propval = i64;
-                                        ret = 0;
-                                }
-
-                                dbus_message_iter_next (&subiter);
-                         }
-                }
-                dbus_message_iter_next (&iter);
-        }
-
-finish:
-
-        if (m)
-                dbus_message_unref(m);
-
-        if (r)
-                dbus_message_unref(r);
-
-        dbus_error_free(&error);
-
-        return ret;
-}
-
-int pw_rtkit_get_max_realtime_priority(struct pw_rtkit_bus *connection) {
-        long long retval;
-        int err;
-
-        err = rtkit_get_int_property(connection, "MaxRealtimePriority", &retval);
-        return err < 0 ? err : retval;
-}
-
-int pw_rtkit_get_min_nice_level(struct pw_rtkit_bus *connection, int* min_nice_level) {
-        long long retval;
-        int err;
-
-        err = rtkit_get_int_property(connection, "MinNiceLevel", &retval);
-        if (err >= 0)
-                *min_nice_level = retval;
-        return err;
-}
-
-long long pw_rtkit_get_rttime_usec_max(struct pw_rtkit_bus *connection) {
-        long long retval;
-        int err;
-
-        err = rtkit_get_int_property(connection, "RTTimeUSecMax", &retval);
-        return err < 0 ? err : retval;
-}
-
-int
-pw_rtkit_make_realtime (struct pw_rtkit_bus       *connection,
-                           pid_t                thread,
-                           int                  priority)
+static pid_t _gettid(void)
 {
-        DBusMessage *m = NULL, *r = NULL;
-        dbus_uint64_t u64;
-        dbus_uint32_t u32;
-        DBusError error;
-        int ret;
-
-        dbus_error_init(&error);
-
-        if (thread == 0)
-                thread = _gettid();
-
-        if (!(m = dbus_message_new_method_call(
-                              RTKIT_SERVICE_NAME,
-                              RTKIT_OBJECT_PATH,
-                              "org.freedesktop.RealtimeKit1",
-                              "MakeThreadRealtime"))) {
-                ret = -ENOMEM;
-                goto finish;
-        }
-
-        u64 = (dbus_uint64_t) thread;
-        u32 = (dbus_uint32_t) priority;
-
-        if (!dbus_message_append_args(
-                            m,
-                            DBUS_TYPE_UINT64, &u64,
-                            DBUS_TYPE_UINT32, &u32,
-                            DBUS_TYPE_INVALID)) {
-                ret = -ENOMEM;
-                goto finish;
-        }
-
-        if (!(r = dbus_connection_send_with_reply_and_block(connection->bus, m, -1, &error))) {
-                ret = translate_error(error.name);
-                goto finish;
-        }
-
-
-        if (dbus_set_error_from_message(&error, r)) {
-                ret = translate_error(error.name);
-                goto finish;
-        }
-
-        ret = 0;
-
-finish:
-
-        if (m)
-                dbus_message_unref(m);
-
-        if (r)
-                dbus_message_unref(r);
-
-        dbus_error_free(&error);
-
-        return ret;
+	return (pid_t) syscall(SYS_gettid);
 }
 
-int
-pw_rtkit_make_high_priority (struct pw_rtkit_bus       *connection,
-                                pid_t                thread,
-                                int                  nice_level)
+static int translate_error(const char *name)
 {
-        DBusMessage *m = NULL, *r = NULL;
-        dbus_uint64_t u64;
-        dbus_int32_t s32;
-        DBusError error;
-        int ret;
+	if (0 == strcmp(name, DBUS_ERROR_NO_MEMORY))
+		return -ENOMEM;
+	if (0 == strcmp(name, DBUS_ERROR_SERVICE_UNKNOWN) ||
+	    0 == strcmp(name, DBUS_ERROR_NAME_HAS_NO_OWNER))
+		return -ENOENT;
+	if (0 == strcmp(name, DBUS_ERROR_ACCESS_DENIED) ||
+	    0 == strcmp(name, DBUS_ERROR_AUTH_FAILED))
+		return -EACCES;
 
-        dbus_error_init(&error);
+	return -EIO;
+}
 
-        if (thread == 0)
-                thread = _gettid();
+static long long rtkit_get_int_property(struct pw_rtkit_bus *connection, const char *propname,
+					long long *propval)
+{
+	DBusMessage *m = NULL, *r = NULL;
+	DBusMessageIter iter, subiter;
+	dbus_int64_t i64;
+	dbus_int32_t i32;
+	DBusError error;
+	int current_type;
+	long long ret;
+	const char *interfacestr = "org.freedesktop.RealtimeKit1";
 
-        if (!(m = dbus_message_new_method_call(
-                              RTKIT_SERVICE_NAME,
-                              RTKIT_OBJECT_PATH,
-                              "org.freedesktop.RealtimeKit1",
-                              "MakeThreadHighPriority"))) {
-                ret = -ENOMEM;
-                goto finish;
-        }
+	dbus_error_init(&error);
 
-        u64 = (dbus_uint64_t) thread;
-        s32 = (dbus_int32_t) nice_level;
+	if (!(m = dbus_message_new_method_call(RTKIT_SERVICE_NAME,
+					       RTKIT_OBJECT_PATH,
+					       "org.freedesktop.DBus.Properties", "Get"))) {
+		ret = -ENOMEM;
+		goto finish;
+	}
 
-        if (!dbus_message_append_args(
-                            m,
-                            DBUS_TYPE_UINT64, &u64,
-                            DBUS_TYPE_INT32, &s32,
-                            DBUS_TYPE_INVALID)) {
-                ret = -ENOMEM;
-                goto finish;
-        }
+	if (!dbus_message_append_args(m,
+				      DBUS_TYPE_STRING, &interfacestr,
+				      DBUS_TYPE_STRING, &propname, DBUS_TYPE_INVALID)) {
+		ret = -ENOMEM;
+		goto finish;
+	}
+
+	if (!(r = dbus_connection_send_with_reply_and_block(connection->bus, m, -1, &error))) {
+		ret = translate_error(error.name);
+		goto finish;
+	}
+
+	if (dbus_set_error_from_message(&error, r)) {
+		ret = translate_error(error.name);
+		goto finish;
+	}
+
+	ret = -EBADMSG;
+	dbus_message_iter_init(r, &iter);
+	while ((current_type = dbus_message_iter_get_arg_type(&iter)) != DBUS_TYPE_INVALID) {
+
+		if (current_type == DBUS_TYPE_VARIANT) {
+			dbus_message_iter_recurse(&iter, &subiter);
+
+			while ((current_type =
+				dbus_message_iter_get_arg_type(&subiter)) != DBUS_TYPE_INVALID) {
+
+				if (current_type == DBUS_TYPE_INT32) {
+					dbus_message_iter_get_basic(&subiter, &i32);
+					*propval = i32;
+					ret = 0;
+				}
+
+				if (current_type == DBUS_TYPE_INT64) {
+					dbus_message_iter_get_basic(&subiter, &i64);
+					*propval = i64;
+					ret = 0;
+				}
+
+				dbus_message_iter_next(&subiter);
+			}
+		}
+		dbus_message_iter_next(&iter);
+	}
+
+      finish:
+
+	if (m)
+		dbus_message_unref(m);
+
+	if (r)
+		dbus_message_unref(r);
+
+	dbus_error_free(&error);
+
+	return ret;
+}
+
+int pw_rtkit_get_max_realtime_priority(struct pw_rtkit_bus *connection)
+{
+	long long retval;
+	int err;
+
+	err = rtkit_get_int_property(connection, "MaxRealtimePriority", &retval);
+	return err < 0 ? err : retval;
+}
+
+int pw_rtkit_get_min_nice_level(struct pw_rtkit_bus *connection, int *min_nice_level)
+{
+	long long retval;
+	int err;
+
+	err = rtkit_get_int_property(connection, "MinNiceLevel", &retval);
+	if (err >= 0)
+		*min_nice_level = retval;
+	return err;
+}
+
+long long pw_rtkit_get_rttime_usec_max(struct pw_rtkit_bus *connection)
+{
+	long long retval;
+	int err;
+
+	err = rtkit_get_int_property(connection, "RTTimeUSecMax", &retval);
+	return err < 0 ? err : retval;
+}
+
+int pw_rtkit_make_realtime(struct pw_rtkit_bus *connection, pid_t thread, int priority)
+{
+	DBusMessage *m = NULL, *r = NULL;
+	dbus_uint64_t u64;
+	dbus_uint32_t u32;
+	DBusError error;
+	int ret;
+
+	dbus_error_init(&error);
+
+	if (thread == 0)
+		thread = _gettid();
+
+	if (!(m = dbus_message_new_method_call(RTKIT_SERVICE_NAME,
+					       RTKIT_OBJECT_PATH,
+					       "org.freedesktop.RealtimeKit1",
+					       "MakeThreadRealtime"))) {
+		ret = -ENOMEM;
+		goto finish;
+	}
+
+	u64 = (dbus_uint64_t) thread;
+	u32 = (dbus_uint32_t) priority;
+
+	if (!dbus_message_append_args(m,
+				      DBUS_TYPE_UINT64, &u64,
+				      DBUS_TYPE_UINT32, &u32, DBUS_TYPE_INVALID)) {
+		ret = -ENOMEM;
+		goto finish;
+	}
+
+	if (!(r = dbus_connection_send_with_reply_and_block(connection->bus, m, -1, &error))) {
+		ret = translate_error(error.name);
+		goto finish;
+	}
+
+
+	if (dbus_set_error_from_message(&error, r)) {
+		ret = translate_error(error.name);
+		goto finish;
+	}
+
+	ret = 0;
+
+      finish:
+
+	if (m)
+		dbus_message_unref(m);
+
+	if (r)
+		dbus_message_unref(r);
+
+	dbus_error_free(&error);
+
+	return ret;
+}
+
+int pw_rtkit_make_high_priority(struct pw_rtkit_bus *connection, pid_t thread, int nice_level)
+{
+	DBusMessage *m = NULL, *r = NULL;
+	dbus_uint64_t u64;
+	dbus_int32_t s32;
+	DBusError error;
+	int ret;
+
+	dbus_error_init(&error);
+
+	if (thread == 0)
+		thread = _gettid();
+
+	if (!(m = dbus_message_new_method_call(RTKIT_SERVICE_NAME,
+					       RTKIT_OBJECT_PATH,
+					       "org.freedesktop.RealtimeKit1",
+					       "MakeThreadHighPriority"))) {
+		ret = -ENOMEM;
+		goto finish;
+	}
+
+	u64 = (dbus_uint64_t) thread;
+	s32 = (dbus_int32_t) nice_level;
+
+	if (!dbus_message_append_args(m,
+				      DBUS_TYPE_UINT64, &u64,
+				      DBUS_TYPE_INT32, &s32, DBUS_TYPE_INVALID)) {
+		ret = -ENOMEM;
+		goto finish;
+	}
 
 
 
-        if (!(r = dbus_connection_send_with_reply_and_block(connection->bus, m, -1, &error))) {
-                ret = translate_error(error.name);
-                goto finish;
-        }
+	if (!(r = dbus_connection_send_with_reply_and_block(connection->bus, m, -1, &error))) {
+		ret = translate_error(error.name);
+		goto finish;
+	}
 
 
-        if (dbus_set_error_from_message(&error, r)) {
-                ret = translate_error(error.name);
-                goto finish;
-        }
+	if (dbus_set_error_from_message(&error, r)) {
+		ret = translate_error(error.name);
+		goto finish;
+	}
 
-        ret = 0;
+	ret = 0;
 
-finish:
+      finish:
 
-        if (m)
-                dbus_message_unref(m);
+	if (m)
+		dbus_message_unref(m);
 
-        if (r)
-                dbus_message_unref(r);
+	if (r)
+		dbus_message_unref(r);
 
-        dbus_error_free(&error);
+	dbus_error_free(&error);
 
-        return ret;
+	return ret;
 }
 
 #else
 
-int pw_rtkit_make_realtime(struct pw_rtkit_bus *connection, pid_t thread, int priority) {
-        return -ENOTSUP;
+int pw_rtkit_make_realtime(struct pw_rtkit_bus *connection, pid_t thread, int priority)
+{
+	return -ENOTSUP;
 }
 
-int pw_rtkit_make_high_priority(struct pw_rtkit_bus *connection, pid_t thread, int nice_level) {
-        return -ENOTSUP;
+int pw_rtkit_make_high_priority(struct pw_rtkit_bus *connection, pid_t thread, int nice_level)
+{
+	return -ENOTSUP;
 }
 
-int pw_rtkit_get_max_realtime_priority(struct pw_rtkit_bus *connection) {
-        return -ENOTSUP;
+int pw_rtkit_get_max_realtime_priority(struct pw_rtkit_bus *connection)
+{
+	return -ENOTSUP;
 }
 
-int pw_rtkit_get_min_nice_level(struct pw_rtkit_bus *connection, int* min_nice_level) {
-        return -ENOTSUP;
+int pw_rtkit_get_min_nice_level(struct pw_rtkit_bus *connection, int *min_nice_level)
+{
+	return -ENOTSUP;
 }
 
-long long pw_rtkit_get_rttime_usec_max(struct pw_rtkit_bus *connection) {
-        return -ENOTSUP;
+long long pw_rtkit_get_rttime_usec_max(struct pw_rtkit_bus *connection)
+{
+	return -ENOTSUP;
 }
 
 #endif

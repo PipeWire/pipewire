@@ -31,46 +31,46 @@ extern "C" {
 #include <stddef.h>
 
 enum {
-  SPA_RESULT_ASYNC                     =  (1 << 30),
-  SPA_RESULT_WAIT_SYNC                 =  2,
-  SPA_RESULT_MODIFIED                  =  1,
-  SPA_RESULT_OK                        =  0,
-  SPA_RESULT_ERROR                     = -1,
-  SPA_RESULT_ERRNO                     = -2,
-  SPA_RESULT_INACTIVE                  = -3,
-  SPA_RESULT_NO_FORMAT                 = -4,
-  SPA_RESULT_INVALID_COMMAND           = -5,
-  SPA_RESULT_INVALID_PORT              = -6,
-  SPA_RESULT_HAVE_BUFFER               = -7,
-  SPA_RESULT_NEED_BUFFER               = -8,
-  SPA_RESULT_PORTS_CHANGED             = -9,
-  SPA_RESULT_FORMAT_CHANGED            = -10,
-  SPA_RESULT_PROPERTIES_CHANGED        = -11,
-  SPA_RESULT_NOT_IMPLEMENTED           = -12,
-  SPA_RESULT_INVALID_PROPERTY_INDEX    = -13,
-  SPA_RESULT_PROPERTY_UNSET            = -14,
-  SPA_RESULT_ENUM_END                  = -15,
-  SPA_RESULT_WRONG_PROPERTY_TYPE       = -16,
-  SPA_RESULT_WRONG_PROPERTY_SIZE       = -17,
-  SPA_RESULT_INVALID_MEDIA_TYPE        = -18,
-  SPA_RESULT_INVALID_FORMAT_PROPERTIES = -19,
-  SPA_RESULT_FORMAT_INCOMPLETE         = -20,
-  SPA_RESULT_INVALID_ARGUMENTS         = -21,
-  SPA_RESULT_UNKNOWN_INTERFACE         = -22,
-  SPA_RESULT_INVALID_DIRECTION         = -23,
-  SPA_RESULT_TOO_MANY_PORTS            = -24,
-  SPA_RESULT_INVALID_PROPERTY_ACCESS   = -25,
-  SPA_RESULT_UNEXPECTED                = -26,
-  SPA_RESULT_NO_BUFFERS                = -27,
-  SPA_RESULT_INVALID_BUFFER_ID         = -28,
-  SPA_RESULT_WRONG_STATE               = -29,
-  SPA_RESULT_ASYNC_BUSY                = -30,
-  SPA_RESULT_INVALID_OBJECT_ID         = -31,
-  SPA_RESULT_NO_MEMORY                 = -32,
-  SPA_RESULT_NO_PERMISSION             = -33,
-  SPA_RESULT_SKIPPED                   = -34,
-  SPA_RESULT_OUT_OF_BUFFERS            = -35,
-  SPA_RESULT_INCOMPATIBLE_PROPS        = -36,
+	SPA_RESULT_ASYNC = (1 << 30),
+	SPA_RESULT_WAIT_SYNC = 2,
+	SPA_RESULT_MODIFIED = 1,
+	SPA_RESULT_OK = 0,
+	SPA_RESULT_ERROR = -1,
+	SPA_RESULT_ERRNO = -2,
+	SPA_RESULT_INACTIVE = -3,
+	SPA_RESULT_NO_FORMAT = -4,
+	SPA_RESULT_INVALID_COMMAND = -5,
+	SPA_RESULT_INVALID_PORT = -6,
+	SPA_RESULT_HAVE_BUFFER = -7,
+	SPA_RESULT_NEED_BUFFER = -8,
+	SPA_RESULT_PORTS_CHANGED = -9,
+	SPA_RESULT_FORMAT_CHANGED = -10,
+	SPA_RESULT_PROPERTIES_CHANGED = -11,
+	SPA_RESULT_NOT_IMPLEMENTED = -12,
+	SPA_RESULT_INVALID_PROPERTY_INDEX = -13,
+	SPA_RESULT_PROPERTY_UNSET = -14,
+	SPA_RESULT_ENUM_END = -15,
+	SPA_RESULT_WRONG_PROPERTY_TYPE = -16,
+	SPA_RESULT_WRONG_PROPERTY_SIZE = -17,
+	SPA_RESULT_INVALID_MEDIA_TYPE = -18,
+	SPA_RESULT_INVALID_FORMAT_PROPERTIES = -19,
+	SPA_RESULT_FORMAT_INCOMPLETE = -20,
+	SPA_RESULT_INVALID_ARGUMENTS = -21,
+	SPA_RESULT_UNKNOWN_INTERFACE = -22,
+	SPA_RESULT_INVALID_DIRECTION = -23,
+	SPA_RESULT_TOO_MANY_PORTS = -24,
+	SPA_RESULT_INVALID_PROPERTY_ACCESS = -25,
+	SPA_RESULT_UNEXPECTED = -26,
+	SPA_RESULT_NO_BUFFERS = -27,
+	SPA_RESULT_INVALID_BUFFER_ID = -28,
+	SPA_RESULT_WRONG_STATE = -29,
+	SPA_RESULT_ASYNC_BUSY = -30,
+	SPA_RESULT_INVALID_OBJECT_ID = -31,
+	SPA_RESULT_NO_MEMORY = -32,
+	SPA_RESULT_NO_PERMISSION = -33,
+	SPA_RESULT_SKIPPED = -34,
+	SPA_RESULT_OUT_OF_BUFFERS = -35,
+	SPA_RESULT_INCOMPATIBLE_PROPS = -36,
 };
 
 #define SPA_ASYNC_MASK                  (3 << 30)
@@ -84,21 +84,21 @@ enum {
 #define SPA_RESULT_RETURN_ASYNC(seq)    (SPA_RESULT_ASYNC | ((seq) & SPA_ASYNC_SEQ_MASK))
 
 enum spa_direction {
-  SPA_DIRECTION_INPUT  = 0,
-  SPA_DIRECTION_OUTPUT = 1,
+	SPA_DIRECTION_INPUT = 0,
+	SPA_DIRECTION_OUTPUT = 1,
 };
 
 struct spa_rectangle {
-  uint32_t width;
-  uint32_t height;
+	uint32_t width;
+	uint32_t height;
 };
 
 struct spa_fraction {
-  uint32_t num;
-  uint32_t denom;
+	uint32_t num;
+	uint32_t denom;
 };
 
-#define SPA_N_ELEMENTS(arr)  (sizeof (arr) / sizeof ((arr)[0]))
+#define SPA_N_ELEMENTS(arr)  (sizeof(arr) / sizeof((arr)[0]))
 #define SPA_MIN(a,b)  ((a)<(b) ? (a) : (b))
 #define SPA_MAX(a,b)  ((a)>(b) ? (a) : (b))
 #define SPA_ABS(a)    ((a)>0 ? (a) : -(a))
@@ -131,11 +131,11 @@ struct spa_fraction {
 #define SPA_TIMEVAL_TO_TIME(tv)  ((tv)->tv_sec * SPA_NSEC_PER_SEC + (tv)->tv_usec * 1000ll)
 
 #ifdef __GNUC__
-# define SPA_PRINTF_FUNC(fmt, arg1) __attribute__((format(printf, fmt, arg1)))
-# define SPA_ALIGNED(align) __attribute__ ((aligned (align)))
+#define SPA_PRINTF_FUNC(fmt, arg1) __attribute__((format(printf, fmt, arg1)))
+#define SPA_ALIGNED(align) __attribute__((aligned(align)))
 #else
-# define SPA_PRINTF_FUNC(fmt, arg1)
-# define SPA_ALIGNED(align)
+#define SPA_PRINTF_FUNC(fmt, arg1)
+#define SPA_ALIGNED(align)
 #endif
 
 #define SPA_ROUND_UP_N(num,align) ((((num) + ((align) - 1)) & ~((align) - 1)))
@@ -150,25 +150,25 @@ struct spa_fraction {
 #endif
 #endif
 
-#define spa_return_if_fail(expr)                                        \
-    do {                                                                \
-        if (SPA_UNLIKELY (!(expr)))                                     \
-            return;                                                     \
-    } while(false)
+#define spa_return_if_fail(expr)					\
+	do {								\
+		if (SPA_UNLIKELY(!(expr)))				\
+			return;						\
+	} while(false)
 
-#define spa_return_val_if_fail(expr, val)                               \
-    do {                                                                \
-        if (SPA_UNLIKELY(!(expr)))                                      \
-            return (val);                                               \
-    } while(false)
+#define spa_return_val_if_fail(expr, val)				\
+	do {								\
+		if (SPA_UNLIKELY(!(expr)))				\
+			return (val);					\
+	} while(false)
 
 /* spa_assert_se() is an assert which guarantees side effects of x,
  * i.e. is never optimized away, regardless of NDEBUG or FASTPATH. */
-#define spa_assert_se(expr)                                             \
-    do {                                                                \
-        if (SPA_UNLIKELY(!(expr)))                                      \
-            abort();                                                    \
-    } while (false)
+#define spa_assert_se(expr)						\
+	do {								\
+		if (SPA_UNLIKELY(!(expr)))				\
+			abort();					\
+	} while (false)
 
 /* Does exactly nothing */
 #define spa_nop() do {} while (false)
@@ -177,8 +177,7 @@ struct spa_fraction {
 #define spa_zero(x) (spa_memzero(&(x), sizeof(x)))
 
 #ifdef __cplusplus
-}  /* extern "C" */
+} /* extern "C" */
 #endif
-
 
 #endif /* __SPA_DEFS_H__ */

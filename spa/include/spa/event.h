@@ -31,23 +31,23 @@ extern "C" {
 #define SPA_TYPE_EVENT_BASE        SPA_TYPE__Event ":"
 
 struct spa_event_body {
-  struct spa_pod_object_body body;
+	struct spa_pod_object_body body;
 };
 
 struct spa_event {
-  struct spa_pod        pod;
-  struct spa_event_body body;
+	struct spa_pod pod;
+	struct spa_event_body body;
 };
 
 #define SPA_EVENT_TYPE(ev)   ((ev)->body.body.type)
 
-#define SPA_EVENT_INIT(type) (struct spa_event)                 \
-  { { sizeof (struct spa_event_body), SPA_POD_TYPE_OBJECT },    \
-    { { 0, type } } }                                           \
+#define SPA_EVENT_INIT(type) (struct spa_event)				\
+	{ { sizeof(struct spa_event_body), SPA_POD_TYPE_OBJECT },	\
+	  { { 0, type } } }						\
 
-#define SPA_EVENT_INIT_COMPLEX(t,size,type,...) (t)             \
-  { { size, SPA_POD_TYPE_OBJECT },                              \
-    { { 0, type }, __VA_ARGS__ } }                              \
+#define SPA_EVENT_INIT_COMPLEX(t,size,type,...) (t)			\
+	{ { size, SPA_POD_TYPE_OBJECT },				\
+	  { { 0, type }, __VA_ARGS__ } }				\
 
 #ifdef __cplusplus
 }  /* extern "C" */

@@ -32,90 +32,84 @@
 #include "pipewire/client/rtkit.h"
 #include "pipewire/server/data-loop.h"
 
-struct impl
-{
-  struct pw_data_loop this;
+struct impl {
+	struct pw_data_loop this;
 
-  struct spa_source *event;
+	struct spa_source *event;
 
-  bool running;
-  pthread_t thread;
+	bool running;
+	pthread_t thread;
 };
 
-static void
-make_realtime (struct pw_data_loop *this)
+static void make_realtime(struct pw_data_loop *this)
 {
-  struct sched_param sp;
-  struct pw_rtkit_bus *system_bus;
-  struct rlimit rl;
-  int r, rtprio;
-  long long rttime;
+	struct sched_param sp;
+	struct pw_rtkit_bus *system_bus;
+	struct rlimit rl;
+	int r, rtprio;
+	long long rttime;
 
-  rtprio = 20;
-  rttime = 20000;
+	rtprio = 20;
+	rttime = 20000;
 
-  spa_zero (sp);
-  sp.sched_priority = rtprio;
+	spa_zero(sp);
+	sp.sched_priority = rtprio;
 
-  if (pthread_setschedparam (pthread_self(), SCHED_OTHER|SCHED_RESET_ON_FORK, &sp) == 0) {
-    pw_log_debug ("SCHED_OTHER|SCHED_RESET_ON_FORK worked.");
-    return;
-  }
-  system_bus = pw_rtkit_bus_get_system ();
+	if (pthread_setschedparam(pthread_self(), SCHED_OTHER | SCHED_RESET_ON_FORK, &sp) == 0) {
+		pw_log_debug("SCHED_OTHER|SCHED_RESET_ON_FORK worked.");
+		return;
+	}
+	system_bus = pw_rtkit_bus_get_system();
 
-  rl.rlim_cur = rl.rlim_max = rttime;
-  if ((r = setrlimit (RLIMIT_RTTIME, &rl)) < 0)
-    pw_log_debug ("setrlimit() failed: %s", strerror (errno));
+	rl.rlim_cur = rl.rlim_max = rttime;
+	if ((r = setrlimit(RLIMIT_RTTIME, &rl)) < 0)
+		pw_log_debug("setrlimit() failed: %s", strerror(errno));
 
-  if (rttime >= 0) {
-    r = getrlimit (RLIMIT_RTTIME, &rl);
-    if (r >= 0 && (long long) rl.rlim_max > rttime) {
-      pw_log_debug ("Clamping rlimit-rttime to %lld for RealtimeKit", rttime);
-      rl.rlim_cur = rl.rlim_max = rttime;
+	if (rttime >= 0) {
+		r = getrlimit(RLIMIT_RTTIME, &rl);
+		if (r >= 0 && (long long) rl.rlim_max > rttime) {
+			pw_log_debug("Clamping rlimit-rttime to %lld for RealtimeKit", rttime);
+			rl.rlim_cur = rl.rlim_max = rttime;
 
-      if ((r = setrlimit (RLIMIT_RTTIME, &rl)) < 0)
-        pw_log_debug ("setrlimit() failed: %s", strerror (errno));
-    }
-  }
+			if ((r = setrlimit(RLIMIT_RTTIME, &rl)) < 0)
+				pw_log_debug("setrlimit() failed: %s", strerror(errno));
+		}
+	}
 
-  if ((r = pw_rtkit_make_realtime (system_bus, 0, rtprio)) < 0) {
-    pw_log_debug ("could not make thread realtime: %s", strerror (r));
-  } else {
-    pw_log_debug ("thread made realtime");
-  }
-  pw_rtkit_bus_free (system_bus);
+	if ((r = pw_rtkit_make_realtime(system_bus, 0, rtprio)) < 0) {
+		pw_log_debug("could not make thread realtime: %s", strerror(r));
+	} else {
+		pw_log_debug("thread made realtime");
+	}
+	pw_rtkit_bus_free(system_bus);
 }
 
-static void *
-do_loop (void *user_data)
+static void *do_loop(void *user_data)
 {
-  struct impl *impl = user_data;
-  struct pw_data_loop *this = &impl->this;
-  int res;
+	struct impl *impl = user_data;
+	struct pw_data_loop *this = &impl->this;
+	int res;
 
-  make_realtime (this);
+	make_realtime(this);
 
-  pw_log_debug ("data-loop %p: enter thread", this);
-  pw_loop_enter (impl->this.loop);
+	pw_log_debug("data-loop %p: enter thread", this);
+	pw_loop_enter(impl->this.loop);
 
-  while (impl->running) {
-    if ((res = pw_loop_iterate (this->loop, -1)) < 0)
-      pw_log_warn ("data-loop %p: iterate error %d", this, res);
-  }
-  pw_log_debug ("data-loop %p: leave thread", this);
-  pw_loop_leave (impl->this.loop);
+	while (impl->running) {
+		if ((res = pw_loop_iterate(this->loop, -1)) < 0)
+			pw_log_warn("data-loop %p: iterate error %d", this, res);
+	}
+	pw_log_debug("data-loop %p: leave thread", this);
+	pw_loop_leave(impl->this.loop);
 
-  return NULL;
+	return NULL;
 }
 
 
-static void
-do_stop (struct spa_loop_utils *utils,
-         struct spa_source     *source,
-         void                  *data)
+static void do_stop(struct spa_loop_utils *utils, struct spa_source *source, void *data)
 {
-  struct impl *impl = data;
-  impl->running = false;
+	struct impl *impl = data;
+	impl->running = false;
 }
 
 /**
@@ -125,84 +119,77 @@ do_stop (struct spa_loop_utils *utils,
  *
  * Returns: a new #struct pw_data_loop
  */
-struct pw_data_loop *
-pw_data_loop_new (void)
+struct pw_data_loop *pw_data_loop_new(void)
 {
-  struct impl *impl;
-  struct pw_data_loop *this;
+	struct impl *impl;
+	struct pw_data_loop *this;
 
-  impl = calloc (1, sizeof (struct impl));
-  if (impl == NULL)
-    return NULL;
+	impl = calloc(1, sizeof(struct impl));
+	if (impl == NULL)
+		return NULL;
 
-  pw_log_debug ("data-loop %p: new", impl);
+	pw_log_debug("data-loop %p: new", impl);
 
-  this = &impl->this;
-  this->loop = pw_loop_new ();
-  if (this->loop == NULL)
-    goto no_loop;
+	this = &impl->this;
+	this->loop = pw_loop_new();
+	if (this->loop == NULL)
+		goto no_loop;
 
-  pw_signal_init (&this->destroy_signal);
+	pw_signal_init(&this->destroy_signal);
 
-  impl->event = pw_loop_add_event (this->loop,
-                                      do_stop,
-                                      impl);
-  return this;
+	impl->event = pw_loop_add_event(this->loop, do_stop, impl);
+	return this;
 
-no_loop:
-  free (impl);
-  return NULL;
+      no_loop:
+	free(impl);
+	return NULL;
 }
 
-void
-pw_data_loop_destroy (struct pw_data_loop *loop)
+void pw_data_loop_destroy(struct pw_data_loop *loop)
 {
-  struct impl *impl = SPA_CONTAINER_OF (loop, struct impl, this);
+	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, this);
 
-  pw_log_debug ("data-loop %p: destroy", impl);
-  pw_signal_emit (&loop->destroy_signal, loop);
+	pw_log_debug("data-loop %p: destroy", impl);
+	pw_signal_emit(&loop->destroy_signal, loop);
 
-  pw_data_loop_stop (loop);
+	pw_data_loop_stop(loop);
 
-  pw_loop_destroy_source (loop->loop, impl->event);
-  pw_loop_destroy (loop->loop);
-  free (impl);
+	pw_loop_destroy_source(loop->loop, impl->event);
+	pw_loop_destroy(loop->loop);
+	free(impl);
 }
 
-int
-pw_data_loop_start (struct pw_data_loop *loop)
+int pw_data_loop_start(struct pw_data_loop *loop)
 {
-  struct impl *impl = SPA_CONTAINER_OF (loop, struct impl, this);
+	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, this);
 
-  if (!impl->running) {
-    int err;
+	if (!impl->running) {
+		int err;
 
-    impl->running = true;
-    if ((err = pthread_create (&impl->thread, NULL, do_loop, impl)) != 0) {
-      pw_log_warn ("data-loop %p: can't create thread: %s", impl, strerror (err));
-      impl->running = false;
-      return SPA_RESULT_ERROR;
-    }
-  }
-  return SPA_RESULT_OK;
+		impl->running = true;
+		if ((err = pthread_create(&impl->thread, NULL, do_loop, impl)) != 0) {
+			pw_log_warn("data-loop %p: can't create thread: %s", impl, strerror(err));
+			impl->running = false;
+			return SPA_RESULT_ERROR;
+		}
+	}
+	return SPA_RESULT_OK;
 }
 
-int
-pw_data_loop_stop (struct pw_data_loop *loop)
+int pw_data_loop_stop(struct pw_data_loop *loop)
 {
-  struct impl *impl = SPA_CONTAINER_OF (loop, struct impl, this);
+	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, this);
 
-  if (impl->running) {
-    pw_loop_signal_event (impl->this.loop, impl->event);
+	if (impl->running) {
+		pw_loop_signal_event(impl->this.loop, impl->event);
 
-    pthread_join (impl->thread, NULL);
-  }
-  return SPA_RESULT_OK;
+		pthread_join(impl->thread, NULL);
+	}
+	return SPA_RESULT_OK;
 }
 
-bool
-pw_data_loop_in_thread (struct pw_data_loop *loop)
+bool pw_data_loop_in_thread(struct pw_data_loop * loop)
 {
-  struct impl *impl = SPA_CONTAINER_OF (loop, struct impl, this);
-  return pthread_equal (impl->thread, pthread_self());
+	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, this);
+	return pthread_equal(impl->thread, pthread_self());
 }

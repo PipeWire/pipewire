@@ -40,21 +40,20 @@ extern "C" {
 #define SPA_TYPE_DATA__Id                    SPA_TYPE_DATA_BASE "Id"
 
 struct spa_type_data {
-  uint32_t MemPtr;
-  uint32_t MemFd;
-  uint32_t DmaBuf;
-  uint32_t Id;
+	uint32_t MemPtr;
+	uint32_t MemFd;
+	uint32_t DmaBuf;
+	uint32_t Id;
 };
 
-static inline void
-spa_type_data_map (struct spa_type_map *map, struct spa_type_data *type)
+static inline void spa_type_data_map(struct spa_type_map *map, struct spa_type_data *type)
 {
-  if (type->MemPtr == 0) {
-    type->MemPtr    = spa_type_map_get_id (map, SPA_TYPE_DATA__MemPtr);
-    type->MemFd     = spa_type_map_get_id (map, SPA_TYPE_DATA__MemFd);
-    type->DmaBuf    = spa_type_map_get_id (map, SPA_TYPE_DATA__DmaBuf);
-    type->Id        = spa_type_map_get_id (map, SPA_TYPE_DATA__Id);
-  }
+	if (type->MemPtr == 0) {
+		type->MemPtr = spa_type_map_get_id(map, SPA_TYPE_DATA__MemPtr);
+		type->MemFd = spa_type_map_get_id(map, SPA_TYPE_DATA__MemFd);
+		type->DmaBuf = spa_type_map_get_id(map, SPA_TYPE_DATA__DmaBuf);
+		type->Id = spa_type_map_get_id(map, SPA_TYPE_DATA__Id);
+	}
 }
 
 /**
@@ -64,9 +63,9 @@ spa_type_data_map (struct spa_type_map *map, struct spa_type_data *type)
  * @stride: stride of data if applicable
  */
 struct spa_chunk {
-  uint32_t       offset;
-  uint32_t       size;
-  int32_t        stride;
+	uint32_t offset;
+	uint32_t size;
+	int32_t stride;
 };
 
 /**
@@ -80,13 +79,13 @@ struct spa_chunk {
  * @chunk: pointer to chunk with valid offset
  */
 struct spa_data {
-  uint32_t          type;
-  uint32_t          flags;
-  int               fd;
-  uint32_t          mapoffset;
-  uint32_t          maxsize;
-  void             *data;
-  struct spa_chunk *chunk;
+	uint32_t type;
+	uint32_t flags;
+	int fd;
+	uint32_t mapoffset;
+	uint32_t maxsize;
+	void *data;
+	struct spa_chunk *chunk;
 };
 
 /**
@@ -98,27 +97,26 @@ struct spa_data {
  * @datas: offset of array of @n_datas data pointers
  */
 struct spa_buffer {
-  uint32_t         id;
-  uint32_t         n_metas;
-  struct spa_meta *metas;
-  uint32_t         n_datas;
-  struct spa_data *datas;
+	uint32_t id;
+	uint32_t n_metas;
+	struct spa_meta *metas;
+	uint32_t n_datas;
+	struct spa_data *datas;
 };
 
-static inline void *
-spa_buffer_find_meta (struct spa_buffer *b, uint32_t type)
+static inline void *spa_buffer_find_meta(struct spa_buffer *b, uint32_t type)
 {
-  uint32_t i;
+	uint32_t i;
 
-  for (i = 0; i < b->n_metas; i++)
-    if (b->metas[i].type == type)
-      return b->metas[i].data;
+	for (i = 0; i < b->n_metas; i++)
+		if (b->metas[i].type == type)
+			return b->metas[i].data;
 
-  return NULL;
+	return NULL;
 }
 
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif
 
-#endif /* __SPA_BUFFER_H__ */
+#endif				/* __SPA_BUFFER_H__ */

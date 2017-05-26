@@ -39,7 +39,8 @@ extern "C" {
 #include <spa/audio/format-utils.h>
 #include <spa/format-builder.h>
 
-struct props {
+struct props
+{
   char device[64];
   char device_name[128];
   char card_name[128];
@@ -48,7 +49,8 @@ struct props {
 
 #define MAX_BUFFERS 64
 
-struct buffer {
+struct buffer
+{
   struct spa_buffer *outbuf;
   struct spa_meta_header *h;
   struct spa_meta_ringbuffer *rb;
@@ -56,7 +58,8 @@ struct buffer {
   struct spa_list link;
 };
 
-struct type {
+struct type
+{
   uint32_t node;
   uint32_t clock;
   uint32_t format;
@@ -101,9 +104,9 @@ init_type (struct type *type, struct spa_type_map *map)
   spa_type_command_node_map (map, &type->command_node);
   spa_type_param_alloc_buffers_map (map, &type->param_alloc_buffers);
   spa_type_param_alloc_meta_enable_map (map, &type->param_alloc_meta_enable);
-}
+} struct state
 
-struct state {
+{
   struct spa_handle handle;
   struct spa_node node;
   struct spa_clock clock;
@@ -162,35 +165,33 @@ struct state {
   int64_t last_monotonic;
 };
 
-#define PROP(f,key,type,...)                                                    \
-          SPA_POD_PROP (f,key,0,type,1,__VA_ARGS__)
-#define PROP_MM(f,key,type,...)                                                 \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
-#define PROP_U_MM(f,key,type,...)                                               \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |                         \
-                              SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
-#define PROP_EN(f,key,type,n,...)                                               \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
-#define PROP_U_EN(f,key,type,n,...)                                             \
-          SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |                         \
-                              SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
+#define PROP(f,key,type,...)							\
+	SPA_POD_PROP (f,key,0,type,1,__VA_ARGS__)
+#define PROP_MM(f,key,type,...)							\
+	SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
+#define PROP_U_MM(f,key,type,...)						\
+	SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |				\
+			SPA_POD_PROP_RANGE_MIN_MAX,type,3,__VA_ARGS__)
+#define PROP_EN(f,key,type,n,...)						\
+	SPA_POD_PROP (f,key,SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
+#define PROP_U_EN(f,key,type,n,...)						\
+	SPA_POD_PROP (f,key,SPA_POD_PROP_FLAG_UNSET |				\
+			SPA_POD_PROP_RANGE_ENUM,type,n,__VA_ARGS__)
 
 int
-spa_alsa_enum_format (struct state            *state,
-                      struct spa_format      **format,
-                      const struct spa_format *filter,
-                      uint32_t                 index);
+spa_alsa_enum_format (struct state *state,
+		      struct spa_format **format,
+		      const struct spa_format *filter, uint32_t index);
 
-int spa_alsa_set_format (struct state          *state,
-                         struct spa_audio_info *info,
-                         uint32_t               flags);
+int spa_alsa_set_format (struct state *state, struct spa_audio_info *info,
+			 uint32_t flags);
 
 int spa_alsa_start (struct state *state, bool xrun_recover);
 int spa_alsa_pause (struct state *state, bool xrun_recover);
 int spa_alsa_close (struct state *state);
 
 #ifdef __cplusplus
-}  /* extern "C" */
+} /* extern "C" */
 #endif
 
 #endif /* __SPA_ALSA_UTILS_H__ */

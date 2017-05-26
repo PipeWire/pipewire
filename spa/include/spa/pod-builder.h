@@ -298,13 +298,15 @@ spa_pod_builder_push_object(struct spa_pod_builder *builder,
 				    spa_pod_builder_raw(builder, &p, sizeof(p)));
 }
 
+#define SPA_POD_PROP_INIT(size,key,flags,val_size,val_type)	\
+	{ { size, SPA_POD_TYPE_PROP}, {key, flags, { val_size, val_type } } }
+
 static inline uint32_t
 spa_pod_builder_push_prop(struct spa_pod_builder *builder,
 			  struct spa_pod_frame *frame, uint32_t key, uint32_t flags)
 {
-	const struct spa_pod_prop p = { {sizeof(struct spa_pod_prop_body) -
-					 sizeof(struct spa_pod), SPA_POD_TYPE_PROP},
-					{key, flags, {0, 0}} };
+	const struct spa_pod_prop p = SPA_POD_PROP_INIT (sizeof(struct spa_pod_prop_body) -
+                                         sizeof(struct spa_pod), key, flags, 0, 0);
 	return spa_pod_builder_push(builder, frame, &p.pod,
 				    spa_pod_builder_raw(builder, &p,
 							sizeof(p) - sizeof(struct spa_pod)));

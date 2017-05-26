@@ -523,6 +523,7 @@ on_new_buffer (struct pw_listener *listener,
   buf = g_hash_table_lookup (pwsink->buf_ids, GINT_TO_POINTER (id));
 
   if (buf) {
+    gst_buffer_unref (buf);
     pw_thread_main_loop_signal (pwsink->main_loop, FALSE);
   }
 }
@@ -561,8 +562,6 @@ do_send_buffer (GstPipeWireSink *pwsink)
     pw_thread_main_loop_signal (pwsink->main_loop, FALSE);
   } else
     pwsink->need_ready--;
-
-  gst_buffer_unref (buffer);
 }
 
 
@@ -705,8 +704,9 @@ gst_pipewire_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
     gst_buffer_unmap (b, &info);
     gst_buffer_resize (b, 0, gst_buffer_get_size (buffer));
     buffer = b;
-  } else
+  } else {
     gst_buffer_ref (buffer);
+  }
 
   GST_DEBUG ("push buffer in queue");
   g_queue_push_tail (&pwsink->queue, buffer);

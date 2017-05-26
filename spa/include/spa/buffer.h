@@ -28,16 +28,16 @@ extern "C" {
 #include <spa/meta.h>
 #include <spa/type-map.h>
 
-#define SPA_TYPE__Buffer            SPA_TYPE_POINTER_BASE "Buffer"
-#define SPA_TYPE_BUFFER_BASE        SPA_TYPE__Buffer ":"
+#define SPA_TYPE__Buffer		SPA_TYPE_POINTER_BASE "Buffer"
+#define SPA_TYPE_BUFFER_BASE		SPA_TYPE__Buffer ":"
 
-#define SPA_TYPE__Data              SPA_TYPE_ENUM_BASE "DataType"
-#define SPA_TYPE_DATA_BASE          SPA_TYPE__Data ":"
+#define SPA_TYPE__Data			SPA_TYPE_ENUM_BASE "DataType"
+#define SPA_TYPE_DATA_BASE		SPA_TYPE__Data ":"
 
-#define SPA_TYPE_DATA__MemPtr                SPA_TYPE_DATA_BASE "MemPtr"
-#define SPA_TYPE_DATA__MemFd                 SPA_TYPE_DATA_BASE "MemFd"
-#define SPA_TYPE_DATA__DmaBuf                SPA_TYPE_DATA_BASE "DmaBuf"
-#define SPA_TYPE_DATA__Id                    SPA_TYPE_DATA_BASE "Id"
+#define SPA_TYPE_DATA__MemPtr		SPA_TYPE_DATA_BASE "MemPtr"
+#define SPA_TYPE_DATA__MemFd		SPA_TYPE_DATA_BASE "MemFd"
+#define SPA_TYPE_DATA__DmaBuf		SPA_TYPE_DATA_BASE "DmaBuf"
+#define SPA_TYPE_DATA__Id		SPA_TYPE_DATA_BASE "Id"
 
 struct spa_type_data {
 	uint32_t MemPtr;
@@ -119,4 +119,4 @@ static inline void *spa_buffer_find_meta(struct spa_buffer *b, uint32_t type)
 }  /* extern "C" */
 #endif
 
-#endif				/* __SPA_BUFFER_H__ */
+#endif /* __SPA_BUFFER_H__ */

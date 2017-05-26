@@ -27,8 +27,8 @@ extern "C" {
 #include <spa/defs.h>
 #include <spa/dict.h>
 
-#define SPA_TYPE__Handle            SPA_TYPE_INTERFACE_BASE "Handle"
-#define SPA_TYPE__HandleFactory     SPA_TYPE_INTERFACE_BASE "HandleFactory"
+#define SPA_TYPE__Handle		SPA_TYPE_INTERFACE_BASE "Handle"
+#define SPA_TYPE__HandleFactory		SPA_TYPE_INTERFACE_BASE "HandleFactory"
 
 struct spa_handle {
 	/* user_data that can be set by the application */
@@ -58,8 +58,8 @@ struct spa_handle {
 	int (*clear) (struct spa_handle * handle);
 };
 
-#define spa_handle_get_interface(h,...)  (h)->get_interface((h),__VA_ARGS__)
-#define spa_handle_clear(h)              (h)->clear((h))
+#define spa_handle_get_interface(h,...)	(h)->get_interface((h),__VA_ARGS__)
+#define spa_handle_clear(h)		(h)->clear((h))
 
 /**
  * struct spa_interface_info:
@@ -148,8 +148,8 @@ struct spa_handle_factory {
 				    uint32_t index);
 };
 
-#define spa_handle_factory_init(h,...)                (h)->init((h),__VA_ARGS__)
-#define spa_handle_factory_enum_interface_info(h,...) (h)->enum_interface_info((h),__VA_ARGS__)
+#define spa_handle_factory_init(h,...)			(h)->init((h),__VA_ARGS__)
+#define spa_handle_factory_enum_interface_info(h,...)	(h)->enum_interface_info((h),__VA_ARGS__)
 
 /**
  * spa_handle_factory_enum_func_t:

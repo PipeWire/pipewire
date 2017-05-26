@@ -73,15 +73,15 @@ enum {
 	SPA_RESULT_INCOMPATIBLE_PROPS = -36,
 };
 
-#define SPA_ASYNC_MASK                  (3 << 30)
-#define SPA_ASYNC_SEQ_MASK              (SPA_RESULT_ASYNC - 1)
+#define SPA_ASYNC_MASK			(3 << 30)
+#define SPA_ASYNC_SEQ_MASK		(SPA_RESULT_ASYNC - 1)
 
-#define SPA_RESULT_IS_OK(res)           ((res) >= 0)
-#define SPA_RESULT_IS_ERROR(res)        ((res) < 0)
-#define SPA_RESULT_IS_ASYNC(res)        (((res) & SPA_ASYNC_MASK) == SPA_RESULT_ASYNC)
+#define SPA_RESULT_IS_OK(res)		((res) >= 0)
+#define SPA_RESULT_IS_ERROR(res)	((res) < 0)
+#define SPA_RESULT_IS_ASYNC(res)	(((res) & SPA_ASYNC_MASK) == SPA_RESULT_ASYNC)
 
-#define SPA_RESULT_ASYNC_SEQ(res)       ((res) & SPA_ASYNC_SEQ_MASK)
-#define SPA_RESULT_RETURN_ASYNC(seq)    (SPA_RESULT_ASYNC | ((seq) & SPA_ASYNC_SEQ_MASK))
+#define SPA_RESULT_ASYNC_SEQ(res)	((res) & SPA_ASYNC_SEQ_MASK)
+#define SPA_RESULT_RETURN_ASYNC(seq)	(SPA_RESULT_ASYNC | ((seq) & SPA_ASYNC_SEQ_MASK))
 
 enum spa_direction {
 	SPA_DIRECTION_INPUT = 0,

@@ -25,16 +25,16 @@ extern "C" {
 #endif
 
 struct spa_loop;
-#define SPA_TYPE__Loop           SPA_TYPE_INTERFACE_BASE "Loop"
-#define SPA_TYPE_LOOP_BASE       SPA_TYPE__Loop ":"
+#define SPA_TYPE__Loop		SPA_TYPE_INTERFACE_BASE "Loop"
+#define SPA_TYPE_LOOP_BASE	SPA_TYPE__Loop ":"
 
 struct spa_loop_control;
-#define SPA_TYPE__LoopControl    SPA_TYPE_INTERFACE_BASE "LoopControl"
+#define SPA_TYPE__LoopControl	SPA_TYPE_INTERFACE_BASE "LoopControl"
 struct spa_loop_utils;
-#define SPA_TYPE__LoopUtils      SPA_TYPE_INTERFACE_BASE "LoopUtils"
+#define SPA_TYPE__LoopUtils	SPA_TYPE_INTERFACE_BASE "LoopUtils"
 
-#define SPA_TYPE_LOOP__MainLoop     SPA_TYPE_LOOP_BASE "MainLoop"
-#define SPA_TYPE_LOOP__DataLoop     SPA_TYPE_LOOP_BASE "DataLoop"
+#define SPA_TYPE_LOOP__MainLoop		SPA_TYPE_LOOP_BASE "MainLoop"
+#define SPA_TYPE_LOOP__DataLoop		SPA_TYPE_LOOP_BASE "DataLoop"
 
 #include <spa/defs.h>
 
@@ -89,10 +89,10 @@ struct spa_loop {
 		       void *user_data);
 };
 
-#define spa_loop_add_source(l,...)          (l)->add_source((l),__VA_ARGS__)
-#define spa_loop_update_source(l,...)       (l)->update_source(__VA_ARGS__)
-#define spa_loop_remove_source(l,...)       (l)->remove_source(__VA_ARGS__)
-#define spa_loop_invoke(l,...)              (l)->invoke((l),__VA_ARGS__)
+#define spa_loop_add_source(l,...)	(l)->add_source((l),__VA_ARGS__)
+#define spa_loop_update_source(l,...)	(l)->update_source(__VA_ARGS__)
+#define spa_loop_remove_source(l,...)	(l)->remove_source(__VA_ARGS__)
+#define spa_loop_invoke(l,...)		(l)->invoke((l),__VA_ARGS__)
 
 typedef void (*spa_loop_hook_t) (struct spa_loop_control * ctrl, void *data);
 
@@ -119,11 +119,11 @@ struct spa_loop_control {
 	int (*iterate) (struct spa_loop_control *ctrl, int timeout);
 };
 
-#define spa_loop_control_get_fd(l)             (l)->get_fd(l)
-#define spa_loop_control_set_hooks(l,...)      (l)->set_hooks((l),__VA_ARGS__)
-#define spa_loop_control_enter(l)              (l)->enter(l)
-#define spa_loop_control_iterate(l,...)        (l)->iterate((l),__VA_ARGS__)
-#define spa_loop_control_leave(l)              (l)->leave(l)
+#define spa_loop_control_get_fd(l)		(l)->get_fd(l)
+#define spa_loop_control_set_hooks(l,...)	(l)->set_hooks((l),__VA_ARGS__)
+#define spa_loop_control_enter(l)		(l)->enter(l)
+#define spa_loop_control_iterate(l,...)		(l)->iterate((l),__VA_ARGS__)
+#define spa_loop_control_leave(l)		(l)->leave(l)
 
 
 typedef void (*spa_source_io_func_t) (struct spa_loop_utils * utils,
@@ -179,16 +179,16 @@ struct spa_loop_utils {
 	void (*destroy_source) (struct spa_source * source);
 };
 
-#define spa_loop_utils_add_io(l,...)             (l)->add_io(l,__VA_ARGS__)
-#define spa_loop_utils_update_io(l,...)          (l)->update_io(__VA_ARGS__)
-#define spa_loop_utils_add_idle(l,...)           (l)->add_idle(l,__VA_ARGS__)
-#define spa_loop_utils_enable_idle(l,...)        (l)->enable_idle(__VA_ARGS__)
-#define spa_loop_utils_add_event(l,...)          (l)->add_event(l,__VA_ARGS__)
-#define spa_loop_utils_signal_event(l,...)       (l)->signal_event(__VA_ARGS__)
-#define spa_loop_utils_add_timer(l,...)          (l)->add_timer(l,__VA_ARGS__)
-#define spa_loop_utils_update_timer(l,...)       (l)->update_timer(__VA_ARGS__)
-#define spa_loop_utils_add_signal(l,...)         (l)->add_signal(l,__VA_ARGS__)
-#define spa_loop_utils_destroy_source(l,...)     (l)->destroy_source(__VA_ARGS__)
+#define spa_loop_utils_add_io(l,...)		(l)->add_io(l,__VA_ARGS__)
+#define spa_loop_utils_update_io(l,...)		(l)->update_io(__VA_ARGS__)
+#define spa_loop_utils_add_idle(l,...)		(l)->add_idle(l,__VA_ARGS__)
+#define spa_loop_utils_enable_idle(l,...)	(l)->enable_idle(__VA_ARGS__)
+#define spa_loop_utils_add_event(l,...)		(l)->add_event(l,__VA_ARGS__)
+#define spa_loop_utils_signal_event(l,...)	(l)->signal_event(__VA_ARGS__)
+#define spa_loop_utils_add_timer(l,...)		(l)->add_timer(l,__VA_ARGS__)
+#define spa_loop_utils_update_timer(l,...)	(l)->update_timer(__VA_ARGS__)
+#define spa_loop_utils_add_signal(l,...)	(l)->add_signal(l,__VA_ARGS__)
+#define spa_loop_utils_destroy_source(l,...)	(l)->destroy_source(__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

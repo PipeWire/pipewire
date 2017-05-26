@@ -28,8 +28,8 @@ extern "C" {
 #include <spa/pod-utils.h>
 
 struct spa_param;
-#define SPA_TYPE__Param         SPA_TYPE_POD_OBJECT_BASE "Param"
-#define SPA_TYPE_PARAM_BASE     SPA_TYPE__Param ":"
+#define SPA_TYPE__Param		SPA_TYPE_POD_OBJECT_BASE "Param"
+#define SPA_TYPE_PARAM_BASE	SPA_TYPE__Param ":"
 
 struct spa_param {
 	struct spa_pod_object object;

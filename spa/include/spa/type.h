@@ -26,19 +26,19 @@ extern "C" {
 
 #include <spa/defs.h>
 
-#define SPA_TYPE_BASE                          "Spa:"
+#define SPA_TYPE_BASE				"Spa:"
 
-#define SPA_TYPE__Enum                         SPA_TYPE_BASE "Enum"
-#define SPA_TYPE_ENUM_BASE                     SPA_TYPE__Enum ":"
+#define SPA_TYPE__Enum				SPA_TYPE_BASE "Enum"
+#define SPA_TYPE_ENUM_BASE			SPA_TYPE__Enum ":"
 
-#define SPA_TYPE__Pointer                      SPA_TYPE_BASE "Pointer"
-#define SPA_TYPE_POINTER_BASE                  SPA_TYPE__Pointer ":"
+#define SPA_TYPE__Pointer			SPA_TYPE_BASE "Pointer"
+#define SPA_TYPE_POINTER_BASE			SPA_TYPE__Pointer ":"
 
-#define SPA_TYPE__Interface                    SPA_TYPE_BASE "Interface"
-#define SPA_TYPE_INTERFACE_BASE                SPA_TYPE__Interface ":"
+#define SPA_TYPE__Interface			SPA_TYPE_BASE "Interface"
+#define SPA_TYPE_INTERFACE_BASE			SPA_TYPE__Interface ":"
 
-#define SPA_TYPE__Object                       SPA_TYPE_BASE "Object"
-#define SPA_TYPE_OBJECT_BASE                   SPA_TYPE__Object ":"
+#define SPA_TYPE__Object			SPA_TYPE_BASE "Object"
+#define SPA_TYPE_OBJECT_BASE			SPA_TYPE__Object ":"
 
 static inline bool spa_type_is_a(const char *type, const char *parent)
 {

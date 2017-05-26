@@ -29,14 +29,14 @@ extern "C" {
 #include <spa/type-map.h>
 #include <spa/node.h>
 
-#define SPA_TYPE_EVENT__Node             SPA_TYPE_EVENT_BASE "Node"
-#define SPA_TYPE_EVENT_NODE_BASE         SPA_TYPE_EVENT__Node ":"
+#define SPA_TYPE_EVENT__Node		SPA_TYPE_EVENT_BASE "Node"
+#define SPA_TYPE_EVENT_NODE_BASE	SPA_TYPE_EVENT__Node ":"
 
-#define SPA_TYPE_EVENT_NODE__AsyncComplete         SPA_TYPE_EVENT_NODE_BASE "AsyncComplete"
-#define SPA_TYPE_EVENT_NODE__Error                 SPA_TYPE_EVENT_NODE_BASE "Error"
-#define SPA_TYPE_EVENT_NODE__Buffering             SPA_TYPE_EVENT_NODE_BASE "Buffering"
-#define SPA_TYPE_EVENT_NODE__RequestRefresh        SPA_TYPE_EVENT_NODE_BASE "RequestRefresh"
-#define SPA_TYPE_EVENT_NODE__RequestClockUpdate    SPA_TYPE_EVENT_NODE_BASE "RequestClockUpdate"
+#define SPA_TYPE_EVENT_NODE__AsyncComplete	SPA_TYPE_EVENT_NODE_BASE "AsyncComplete"
+#define SPA_TYPE_EVENT_NODE__Error		SPA_TYPE_EVENT_NODE_BASE "Error"
+#define SPA_TYPE_EVENT_NODE__Buffering		SPA_TYPE_EVENT_NODE_BASE "Buffering"
+#define SPA_TYPE_EVENT_NODE__RequestRefresh	SPA_TYPE_EVENT_NODE_BASE "RequestRefresh"
+#define SPA_TYPE_EVENT_NODE__RequestClockUpdate	SPA_TYPE_EVENT_NODE_BASE "RequestClockUpdate"
 
 struct spa_type_event_node {
 	uint32_t AsyncComplete;
@@ -77,9 +77,9 @@ struct spa_event_node_async_complete {
 
 struct spa_event_node_request_clock_update_body {
 	struct spa_pod_object_body body;
-#define SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_TIME        (1 << 0)
-#define SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_SCALE       (1 << 1)
-#define SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_STATE       (1 << 2)
+#define SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_TIME	(1 << 0)
+#define SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_SCALE	(1 << 1)
+#define SPA_EVENT_NODE_REQUEST_CLOCK_UPDATE_STATE	(1 << 2)
 	struct spa_pod_int update_mask		SPA_ALIGNED(8);
 	struct spa_pod_long timestamp		SPA_ALIGNED(8);
 	struct spa_pod_long offset		SPA_ALIGNED(8);

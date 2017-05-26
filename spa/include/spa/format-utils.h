@@ -150,8 +150,8 @@ spa_type_media_subtype_audio_map(struct spa_type_map *map,
 #define SPA_FORMAT_FOREACH(format, iter) \
 	SPA_FORMAT_BODY_FOREACH(&format->body, SPA_POD_BODY_SIZE(format), iter)
 
-#define SPA_FORMAT_MEDIA_TYPE(f)        SPA_POD_VALUE(struct spa_pod_id, &f->body.media_type)
-#define SPA_FORMAT_MEDIA_SUBTYPE(f)     SPA_POD_VALUE(struct spa_pod_id, &f->body.media_subtype)
+#define SPA_FORMAT_MEDIA_TYPE(f)	SPA_POD_VALUE(struct spa_pod_id, &f->body.media_type)
+#define SPA_FORMAT_MEDIA_SUBTYPE(f)	SPA_POD_VALUE(struct spa_pod_id, &f->body.media_subtype)
 
 static inline struct spa_pod_prop *spa_format_find_prop(const struct spa_format *format,
 							uint32_t key)

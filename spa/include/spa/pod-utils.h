@@ -28,19 +28,19 @@ extern "C" {
 #include <stdarg.h>
 #include <spa/pod.h>
 
-#define SPA_POD_BODY_SIZE(pod)           (((struct spa_pod*)(pod))->size)
-#define SPA_POD_TYPE(pod)                (((struct spa_pod*)(pod))->type)
-#define SPA_POD_SIZE(pod)                (sizeof(struct spa_pod) + SPA_POD_BODY_SIZE(pod))
-#define SPA_POD_CONTENTS_SIZE(type,pod)  (SPA_POD_SIZE(pod)-sizeof(type))
+#define SPA_POD_BODY_SIZE(pod)			(((struct spa_pod*)(pod))->size)
+#define SPA_POD_TYPE(pod)			(((struct spa_pod*)(pod))->type)
+#define SPA_POD_SIZE(pod)			(sizeof(struct spa_pod) + SPA_POD_BODY_SIZE(pod))
+#define SPA_POD_CONTENTS_SIZE(type,pod)		(SPA_POD_SIZE(pod)-sizeof(type))
 
-#define SPA_POD_CONTENTS(type,pod)       SPA_MEMBER((pod),sizeof(type),void)
-#define SPA_POD_CONTENTS_CONST(type,pod) SPA_MEMBER((pod),sizeof(type),const void)
-#define SPA_POD_BODY(pod)                SPA_MEMBER((pod),sizeof(struct spa_pod),void)
-#define SPA_POD_BODY_CONST(pod)          SPA_MEMBER((pod),sizeof(struct spa_pod),const void)
+#define SPA_POD_CONTENTS(type,pod)		SPA_MEMBER((pod),sizeof(type),void)
+#define SPA_POD_CONTENTS_CONST(type,pod)	SPA_MEMBER((pod),sizeof(type),const void)
+#define SPA_POD_BODY(pod)			SPA_MEMBER((pod),sizeof(struct spa_pod),void)
+#define SPA_POD_BODY_CONST(pod)			SPA_MEMBER((pod),sizeof(struct spa_pod),const void)
 
-#define SPA_POD_VALUE(type,pod)          (((type*)pod)->value)
+#define SPA_POD_VALUE(type,pod)			(((type*)pod)->value)
 
-#define SPA_POD_PROP_N_VALUES(prop)	 (((prop)->pod.size - sizeof(struct spa_pod_prop_body)) / (prop)->body.value.size)
+#define SPA_POD_PROP_N_VALUES(prop)		(((prop)->pod.size - sizeof(struct spa_pod_prop_body)) / (prop)->body.value.size)
 
 static inline bool spa_pod_is_object_type(struct spa_pod *pod, uint32_t type)
 {

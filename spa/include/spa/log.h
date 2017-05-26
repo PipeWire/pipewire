@@ -24,8 +24,8 @@
 extern "C" {
 #endif
 
-#define SPA_TYPE__Log           SPA_TYPE_INTERFACE_BASE "Log"
-#define SPA_TYPE_LOG_BASE       SPA_TYPE__Log ":"
+#define SPA_TYPE__Log		SPA_TYPE_INTERFACE_BASE "Log"
+#define SPA_TYPE_LOG_BASE	SPA_TYPE__Log ":"
 
 #include <stdarg.h>
 

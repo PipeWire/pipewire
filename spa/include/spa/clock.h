@@ -24,8 +24,8 @@
 extern "C" {
 #endif
 
-#define SPA_TYPE__Clock            SPA_TYPE_INTERFACE_BASE "Clock"
-#define SPA_TYPE_CLOCK_BASE        SPA_TYPE__Clock ":"
+#define SPA_TYPE__Clock		SPA_TYPE_INTERFACE_BASE "Clock"
+#define SPA_TYPE_CLOCK_BASE	SPA_TYPE__Clock ":"
 
 /**
  * spa_clock_state:
@@ -109,9 +109,9 @@ struct spa_clock {
 			 int64_t *monotonic_time);
 };
 
-#define spa_clock_get_props(n,...)          (n)->get_props((n),__VA_ARGS__)
-#define spa_clock_set_props(n,...)          (n)->set_props((n),__VA_ARGS__)
-#define spa_clock_get_time(n,...)           (n)->get_time((n),__VA_ARGS__)
+#define spa_clock_get_props(n,...)	(n)->get_props((n),__VA_ARGS__)
+#define spa_clock_set_props(n,...)	(n)->set_props((n),__VA_ARGS__)
+#define spa_clock_get_time(n,...)	(n)->get_time((n),__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

@@ -25,8 +25,8 @@ extern "C" {
 #endif
 
 struct spa_ringbuffer;
-#define SPA_TYPE__RingBuffer           SPA_TYPE_INTERFACE_BASE "RingBuffer"
-#define SPA_TYPE_RINGBUFFER_BASE       SPA_TYPE__RingBuffer ":"
+#define SPA_TYPE__RingBuffer		SPA_TYPE_INTERFACE_BASE "RingBuffer"
+#define SPA_TYPE_RINGBUFFER_BASE	SPA_TYPE__RingBuffer ":"
 
 #include <string.h>
 

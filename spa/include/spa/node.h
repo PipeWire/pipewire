@@ -24,8 +24,8 @@
 extern "C" {
 #endif
 
-#define SPA_TYPE__Node                        SPA_TYPE_INTERFACE_BASE "Node"
-#define SPA_TYPE_NODE_BASE                    SPA_TYPE__Node ":"
+#define SPA_TYPE__Node		SPA_TYPE_INTERFACE_BASE "Node"
+#define SPA_TYPE_NODE_BASE	SPA_TYPE__Node ":"
 
 struct spa_node;
 
@@ -67,14 +67,14 @@ struct spa_port_io {
  * @rate: rate of sequence number increment per second of media data
  */
 struct spa_port_info {
-#define SPA_PORT_INFO_FLAG_REMOVABLE            (1<<0)	/* port can be removed */
-#define SPA_PORT_INFO_FLAG_OPTIONAL             (1<<1)	/* processing on port is optional */
-#define SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS    (1<<2)	/* the port can allocate buffer data */
-#define SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS      (1<<3)	/* the port can use a provided buffer */
-#define SPA_PORT_INFO_FLAG_IN_PLACE             (1<<4)	/* the port can process data in-place and will need
+#define SPA_PORT_INFO_FLAG_REMOVABLE		(1<<0)	/* port can be removed */
+#define SPA_PORT_INFO_FLAG_OPTIONAL		(1<<1)	/* processing on port is optional */
+#define SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS	(1<<2)	/* the port can allocate buffer data */
+#define SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS	(1<<3)	/* the port can use a provided buffer */
+#define SPA_PORT_INFO_FLAG_IN_PLACE		(1<<4)	/* the port can process data in-place and will need
 							 * a writable input buffer */
-#define SPA_PORT_INFO_FLAG_NO_REF               (1<<5)	/* the port does not keep a ref on the buffer */
-#define SPA_PORT_INFO_FLAG_LIVE                 (1<<6)	/* output buffers from this port are timestamped against
+#define SPA_PORT_INFO_FLAG_NO_REF		(1<<5)	/* the port does not keep a ref on the buffer */
+#define SPA_PORT_INFO_FLAG_LIVE			(1<<6)	/* output buffers from this port are timestamped against
 							 * a live clock. */
 	uint32_t flags;
 	uint32_t rate;
@@ -360,9 +360,9 @@ struct spa_node {
 	 *                 is not correct.
 	 *          #SPA_RESULT_ASYNC the function is executed asynchronously
 	 */
-#define SPA_PORT_FORMAT_FLAG_TEST_ONLY        (1 << 0)	/* just check if the format is accepted */
-#define SPA_PORT_FORMAT_FLAG_FIXATE           (1 << 1)	/* fixate the non-optional unset fields */
-#define SPA_PORT_FORMAT_FLAG_NEAREST          (1 << 2)	/* allow set fields to be rounded to the
+#define SPA_PORT_FORMAT_FLAG_TEST_ONLY	(1 << 0)	/* just check if the format is accepted */
+#define SPA_PORT_FORMAT_FLAG_FIXATE	(1 << 1)	/* fixate the non-optional unset fields */
+#define SPA_PORT_FORMAT_FLAG_NEAREST	(1 << 2)	/* allow set fields to be rounded to the
 							 * nearest allowed field value. */
 	int (*port_set_format) (struct spa_node * node,
 				enum spa_direction direction,
@@ -597,27 +597,27 @@ struct spa_node {
 	int (*process_output) (struct spa_node * node);
 };
 
-#define spa_node_get_props(n,...)          (n)->get_props((n),__VA_ARGS__)
-#define spa_node_set_props(n,...)          (n)->set_props((n),__VA_ARGS__)
-#define spa_node_send_command(n,...)       (n)->send_command((n),__VA_ARGS__)
-#define spa_node_set_callbacks(n,...)      (n)->set_callbacks((n),__VA_ARGS__)
-#define spa_node_get_n_ports(n,...)        (n)->get_n_ports((n),__VA_ARGS__)
-#define spa_node_get_port_ids(n,...)       (n)->get_port_ids((n),__VA_ARGS__)
-#define spa_node_add_port(n,...)           (n)->add_port((n),__VA_ARGS__)
-#define spa_node_remove_port(n,...)        (n)->remove_port((n),__VA_ARGS__)
-#define spa_node_port_enum_formats(n,...)  (n)->port_enum_formats((n),__VA_ARGS__)
-#define spa_node_port_set_format(n,...)    (n)->port_set_format((n),__VA_ARGS__)
-#define spa_node_port_get_format(n,...)    (n)->port_get_format((n),__VA_ARGS__)
-#define spa_node_port_get_info(n,...)      (n)->port_get_info((n),__VA_ARGS__)
-#define spa_node_port_enum_params(n,...)   (n)->port_enum_params((n),__VA_ARGS__)
-#define spa_node_port_set_param(n,...)     (n)->port_set_param((n),__VA_ARGS__)
-#define spa_node_port_use_buffers(n,...)   (n)->port_use_buffers((n),__VA_ARGS__)
-#define spa_node_port_alloc_buffers(n,...) (n)->port_alloc_buffers((n),__VA_ARGS__)
-#define spa_node_port_set_io(n,...)        (n)->port_set_io((n),__VA_ARGS__)
-#define spa_node_port_reuse_buffer(n,...)  (n)->port_reuse_buffer((n),__VA_ARGS__)
-#define spa_node_port_send_command(n,...)  (n)->port_send_command((n),__VA_ARGS__)
-#define spa_node_process_input(n)          (n)->process_input((n))
-#define spa_node_process_output(n)         (n)->process_output((n))
+#define spa_node_get_props(n,...)		(n)->get_props((n),__VA_ARGS__)
+#define spa_node_set_props(n,...)		(n)->set_props((n),__VA_ARGS__)
+#define spa_node_send_command(n,...)		(n)->send_command((n),__VA_ARGS__)
+#define spa_node_set_callbacks(n,...)		(n)->set_callbacks((n),__VA_ARGS__)
+#define spa_node_get_n_ports(n,...)		(n)->get_n_ports((n),__VA_ARGS__)
+#define spa_node_get_port_ids(n,...)		(n)->get_port_ids((n),__VA_ARGS__)
+#define spa_node_add_port(n,...)		(n)->add_port((n),__VA_ARGS__)
+#define spa_node_remove_port(n,...)		(n)->remove_port((n),__VA_ARGS__)
+#define spa_node_port_enum_formats(n,...)	(n)->port_enum_formats((n),__VA_ARGS__)
+#define spa_node_port_set_format(n,...)		(n)->port_set_format((n),__VA_ARGS__)
+#define spa_node_port_get_format(n,...)		(n)->port_get_format((n),__VA_ARGS__)
+#define spa_node_port_get_info(n,...)		(n)->port_get_info((n),__VA_ARGS__)
+#define spa_node_port_enum_params(n,...)	(n)->port_enum_params((n),__VA_ARGS__)
+#define spa_node_port_set_param(n,...)		(n)->port_set_param((n),__VA_ARGS__)
+#define spa_node_port_use_buffers(n,...)	(n)->port_use_buffers((n),__VA_ARGS__)
+#define spa_node_port_alloc_buffers(n,...)	(n)->port_alloc_buffers((n),__VA_ARGS__)
+#define spa_node_port_set_io(n,...)		(n)->port_set_io((n),__VA_ARGS__)
+#define spa_node_port_reuse_buffer(n,...)	(n)->port_reuse_buffer((n),__VA_ARGS__)
+#define spa_node_port_send_command(n,...)	(n)->port_send_command((n),__VA_ARGS__)
+#define spa_node_process_input(n)		(n)->process_input((n))
+#define spa_node_process_output(n)		(n)->process_output((n))
 
 #ifdef __cplusplus
 }  /* extern "C" */

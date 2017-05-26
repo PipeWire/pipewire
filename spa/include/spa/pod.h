@@ -28,14 +28,14 @@ extern "C" {
 
 #include <spa/defs.h>
 
-#define SPA_TYPE__POD                          SPA_TYPE_BASE "POD"
-#define SPA_TYPE_POD_BASE                      SPA_TYPE__POD ":"
+#define SPA_TYPE__POD			SPA_TYPE_BASE "POD"
+#define SPA_TYPE_POD_BASE		SPA_TYPE__POD ":"
 
-#define SPA_TYPE_POD__Object                   SPA_TYPE_POD_BASE "Object"
-#define SPA_TYPE_POD_OBJECT_BASE               SPA_TYPE_POD__Object ":"
+#define SPA_TYPE_POD__Object		SPA_TYPE_POD_BASE "Object"
+#define SPA_TYPE_POD_OBJECT_BASE	SPA_TYPE_POD__Object ":"
 
-#define SPA_TYPE_POD__Struct                   SPA_TYPE_POD_BASE "Struct"
-#define SPA_TYPE_POD_STRUCT_BASE               SPA_TYPE_POD__Struct ":"
+#define SPA_TYPE_POD__Struct		SPA_TYPE_POD_BASE "Struct"
+#define SPA_TYPE_POD_STRUCT_BASE	SPA_TYPE_POD__Struct ":"
 
 /**
  * spa_pod_type:
@@ -152,16 +152,16 @@ struct spa_pod_struct {
 
 struct spa_pod_prop_body {
 	uint32_t key;
-#define SPA_POD_PROP_RANGE_NONE         0
-#define SPA_POD_PROP_RANGE_MIN_MAX      1
-#define SPA_POD_PROP_RANGE_STEP         2
-#define SPA_POD_PROP_RANGE_ENUM         3
-#define SPA_POD_PROP_RANGE_FLAGS        4
-#define SPA_POD_PROP_RANGE_MASK         0xf
-#define SPA_POD_PROP_FLAG_UNSET         (1 << 4)
-#define SPA_POD_PROP_FLAG_OPTIONAL      (1 << 5)
-#define SPA_POD_PROP_FLAG_READONLY      (1 << 6)
-#define SPA_POD_PROP_FLAG_DEPRECATED    (1 << 7)
+#define SPA_POD_PROP_RANGE_NONE		0
+#define SPA_POD_PROP_RANGE_MIN_MAX	1
+#define SPA_POD_PROP_RANGE_STEP		2
+#define SPA_POD_PROP_RANGE_ENUM		3
+#define SPA_POD_PROP_RANGE_FLAGS	4
+#define SPA_POD_PROP_RANGE_MASK		0xf
+#define SPA_POD_PROP_FLAG_UNSET		(1 << 4)
+#define SPA_POD_PROP_FLAG_OPTIONAL	(1 << 5)
+#define SPA_POD_PROP_FLAG_READONLY	(1 << 6)
+#define SPA_POD_PROP_FLAG_DEPRECATED	(1 << 7)
 	uint32_t flags;
 	struct spa_pod value;
 	/* array with elements of value.size follows,

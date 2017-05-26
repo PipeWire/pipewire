@@ -28,14 +28,14 @@ extern "C" {
 #include <spa/ringbuffer.h>
 #include <spa/type-map.h>
 
-#define SPA_TYPE__Meta              SPA_TYPE_POINTER_BASE "Meta"
-#define SPA_TYPE_META_BASE          SPA_TYPE__Meta ":"
+#define SPA_TYPE__Meta			SPA_TYPE_POINTER_BASE "Meta"
+#define SPA_TYPE_META_BASE		SPA_TYPE__Meta ":"
 
-#define SPA_TYPE_META__Header                SPA_TYPE_META_BASE "Header"
-#define SPA_TYPE_META__Pointer               SPA_TYPE_META_BASE "Pointer"
-#define SPA_TYPE_META__VideoCrop             SPA_TYPE_META_BASE "VideoCrop"
-#define SPA_TYPE_META__Ringbuffer            SPA_TYPE_META_BASE "Ringbuffer"
-#define SPA_TYPE_META__Shared                SPA_TYPE_META_BASE "Shared"
+#define SPA_TYPE_META__Header		SPA_TYPE_META_BASE "Header"
+#define SPA_TYPE_META__Pointer		SPA_TYPE_META_BASE "Pointer"
+#define SPA_TYPE_META__VideoCrop	SPA_TYPE_META_BASE "VideoCrop"
+#define SPA_TYPE_META__Ringbuffer	SPA_TYPE_META_BASE "Ringbuffer"
+#define SPA_TYPE_META__Shared		SPA_TYPE_META_BASE "Shared"
 
 struct spa_type_meta {
 	uint32_t Header;
@@ -65,12 +65,12 @@ static inline void spa_type_meta_map(struct spa_type_map *map, struct spa_type_m
  * @dts_offset: offset relative to @pts to start decoding this buffer.
  */
 struct spa_meta_header {
-#define SPA_META_HEADER_FLAG_DISCONT            (1 << 0)	/* data is not continous with previous buffer */
-#define SPA_META_HEADER_FLAG_CORRUPTED          (1 << 1)	/* data might be corrupted */
-#define SPA_META_HEADER_FLAG_MARKER             (1 << 2)	/* media specific marker */
-#define SPA_META_HEADER_FLAG_HEADER             (1 << 3)	/* data contains a codec specific header */
-#define SPA_META_HEADER_FLAG_GAP                (1 << 4)	/* data contains media neutral data */
-#define SPA_META_HEADER_FLAG_DELTA_UNIT         (1 << 5)	/* cannot be decoded independently */
+#define SPA_META_HEADER_FLAG_DISCONT	(1 << 0)	/* data is not continous with previous buffer */
+#define SPA_META_HEADER_FLAG_CORRUPTED	(1 << 1)	/* data might be corrupted */
+#define SPA_META_HEADER_FLAG_MARKER	(1 << 2)	/* media specific marker */
+#define SPA_META_HEADER_FLAG_HEADER	(1 << 3)	/* data contains a codec specific header */
+#define SPA_META_HEADER_FLAG_GAP	(1 << 4)	/* data contains media neutral data */
+#define SPA_META_HEADER_FLAG_DELTA_UNIT	(1 << 5)	/* cannot be decoded independently */
 	uint32_t flags;
 	uint32_t seq;
 	int64_t pts;

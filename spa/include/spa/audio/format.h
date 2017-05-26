@@ -27,15 +27,15 @@ extern "C" {
 #include <spa/format.h>
 #include <spa/audio/raw.h>
 
-#define SPA_TYPE_FORMAT__Audio            SPA_TYPE_FORMAT_BASE "Audio"
-#define SPA_TYPE_FORMAT_AUDIO_BASE        SPA_TYPE_FORMAT__Audio ":"
+#define SPA_TYPE_FORMAT__Audio			SPA_TYPE_FORMAT_BASE "Audio"
+#define SPA_TYPE_FORMAT_AUDIO_BASE		SPA_TYPE_FORMAT__Audio ":"
 
-#define SPA_TYPE_FORMAT_AUDIO__format          SPA_TYPE_FORMAT_AUDIO_BASE "format"
-#define SPA_TYPE_FORMAT_AUDIO__flags           SPA_TYPE_FORMAT_AUDIO_BASE "flags"
-#define SPA_TYPE_FORMAT_AUDIO__layout          SPA_TYPE_FORMAT_AUDIO_BASE "layout"
-#define SPA_TYPE_FORMAT_AUDIO__rate            SPA_TYPE_FORMAT_AUDIO_BASE "rate"
-#define SPA_TYPE_FORMAT_AUDIO__channels        SPA_TYPE_FORMAT_AUDIO_BASE "channels"
-#define SPA_TYPE_FORMAT_AUDIO__channelMask     SPA_TYPE_FORMAT_AUDIO_BASE "channel-mask"
+#define SPA_TYPE_FORMAT_AUDIO__format		SPA_TYPE_FORMAT_AUDIO_BASE "format"
+#define SPA_TYPE_FORMAT_AUDIO__flags		SPA_TYPE_FORMAT_AUDIO_BASE "flags"
+#define SPA_TYPE_FORMAT_AUDIO__layout		SPA_TYPE_FORMAT_AUDIO_BASE "layout"
+#define SPA_TYPE_FORMAT_AUDIO__rate		SPA_TYPE_FORMAT_AUDIO_BASE "rate"
+#define SPA_TYPE_FORMAT_AUDIO__channels		SPA_TYPE_FORMAT_AUDIO_BASE "channels"
+#define SPA_TYPE_FORMAT_AUDIO__channelMask	SPA_TYPE_FORMAT_AUDIO_BASE "channel-mask"
 
 struct spa_audio_info {
 	uint32_t media_type;

@@ -27,8 +27,8 @@ extern "C" {
 #include <spa/defs.h>
 #include <spa/pod.h>
 
-#define SPA_TYPE__Command            SPA_TYPE_POD_OBJECT_BASE "Command"
-#define SPA_TYPE_COMMAND_BASE        SPA_TYPE__Command ":"
+#define SPA_TYPE__Command		SPA_TYPE_POD_OBJECT_BASE "Command"
+#define SPA_TYPE_COMMAND_BASE		SPA_TYPE__Command ":"
 
 struct spa_command_body {
 	struct spa_pod_object_body body;

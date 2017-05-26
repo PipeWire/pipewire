@@ -28,7 +28,7 @@ extern "C" {
 #include <spa/plugin.h>
 #include <spa/type.h>
 
-#define SPA_TYPE__TypeMap                      SPA_TYPE_INTERFACE_BASE "TypeMap"
+#define SPA_TYPE__TypeMap		SPA_TYPE_INTERFACE_BASE "TypeMap"
 
 /**
  * spa_type_map:
@@ -53,9 +53,9 @@ struct spa_type_map {
 	size_t (*get_size) (const struct spa_type_map * map);
 };
 
-#define spa_type_map_get_id(n,...)            (n)->get_id((n),__VA_ARGS__)
-#define spa_type_map_get_type(n,...)          (n)->get_type((n),__VA_ARGS__)
-#define spa_type_map_get_size(n)              (n)->get_size(n)
+#define spa_type_map_get_id(n,...)	(n)->get_id((n),__VA_ARGS__)
+#define spa_type_map_get_type(n,...)	(n)->get_type((n),__VA_ARGS__)
+#define spa_type_map_get_size(n)	(n)->get_size(n)
 
 #ifdef __cplusplus
 }  /* extern "C" */

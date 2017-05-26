@@ -32,13 +32,13 @@ extern "C" {
 
 #include <pipewire/client/introspect.h>
 
-#define PW_CORE_METHOD_CLIENT_UPDATE         0
-#define PW_CORE_METHOD_SYNC                  1
-#define PW_CORE_METHOD_GET_REGISTRY          2
-#define PW_CORE_METHOD_CREATE_NODE           3
-#define PW_CORE_METHOD_CREATE_CLIENT_NODE    4
-#define PW_CORE_METHOD_UPDATE_TYPES          5
-#define PW_CORE_METHOD_NUM                   6
+#define PW_CORE_METHOD_CLIENT_UPDATE		0
+#define PW_CORE_METHOD_SYNC			1
+#define PW_CORE_METHOD_GET_REGISTRY		2
+#define PW_CORE_METHOD_CREATE_NODE		3
+#define PW_CORE_METHOD_CREATE_CLIENT_NODE	4
+#define PW_CORE_METHOD_UPDATE_TYPES		5
+#define PW_CORE_METHOD_NUM			6
 
 struct pw_core_methods {
 	void (*client_update) (void *object, const struct spa_dict * props);

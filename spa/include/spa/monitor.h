@@ -25,33 +25,33 @@ extern "C" {
 #endif
 
 struct spa_monitor;
-#define SPA_TYPE__Monitor            SPA_TYPE_INTERFACE_BASE "Monitor"
-#define SPA_TYPE_MONITOR_BASE        SPA_TYPE__Monitor ":"
+#define SPA_TYPE__Monitor		SPA_TYPE_INTERFACE_BASE "Monitor"
+#define SPA_TYPE_MONITOR_BASE		SPA_TYPE__Monitor ":"
 
 #include <spa/defs.h>
 #include <spa/dict.h>
 #include <spa/event.h>
 
-#define SPA_TYPE_EVENT__Monitor           SPA_TYPE_EVENT_BASE "Monitor"
-#define SPA_TYPE_EVENT_MONITOR_BASE       SPA_TYPE_EVENT__Monitor ":"
+#define SPA_TYPE_EVENT__Monitor		SPA_TYPE_EVENT_BASE "Monitor"
+#define SPA_TYPE_EVENT_MONITOR_BASE	SPA_TYPE_EVENT__Monitor ":"
 
-#define SPA_TYPE_EVENT_MONITOR__Added          SPA_TYPE_EVENT_MONITOR_BASE "Added"
-#define SPA_TYPE_EVENT_MONITOR__Removed        SPA_TYPE_EVENT_MONITOR_BASE "Removed"
-#define SPA_TYPE_EVENT_MONITOR__Changed        SPA_TYPE_EVENT_MONITOR_BASE "Changed"
+#define SPA_TYPE_EVENT_MONITOR__Added		SPA_TYPE_EVENT_MONITOR_BASE "Added"
+#define SPA_TYPE_EVENT_MONITOR__Removed		SPA_TYPE_EVENT_MONITOR_BASE "Removed"
+#define SPA_TYPE_EVENT_MONITOR__Changed		SPA_TYPE_EVENT_MONITOR_BASE "Changed"
 
 struct spa_monitor_item {
 	struct spa_pod_object object;
 };
-#define SPA_TYPE__MonitorItem                  SPA_TYPE_POD_OBJECT_BASE "MonitorItem"
-#define SPA_TYPE_MONITOR_ITEM_BASE             SPA_TYPE__MonitorItem ":"
+#define SPA_TYPE__MonitorItem			SPA_TYPE_POD_OBJECT_BASE "MonitorItem"
+#define SPA_TYPE_MONITOR_ITEM_BASE		SPA_TYPE__MonitorItem ":"
 
-#define SPA_TYPE_MONITOR_ITEM__id              SPA_TYPE_MONITOR_ITEM_BASE "id"
-#define SPA_TYPE_MONITOR_ITEM__flags           SPA_TYPE_MONITOR_ITEM_BASE "flags"
-#define SPA_TYPE_MONITOR_ITEM__state           SPA_TYPE_MONITOR_ITEM_BASE "state"
-#define SPA_TYPE_MONITOR_ITEM__name            SPA_TYPE_MONITOR_ITEM_BASE "name"
-#define SPA_TYPE_MONITOR_ITEM__class           SPA_TYPE_MONITOR_ITEM_BASE "class"
-#define SPA_TYPE_MONITOR_ITEM__info            SPA_TYPE_MONITOR_ITEM_BASE "info"
-#define SPA_TYPE_MONITOR_ITEM__factory         SPA_TYPE_MONITOR_ITEM_BASE "factory"
+#define SPA_TYPE_MONITOR_ITEM__id		SPA_TYPE_MONITOR_ITEM_BASE "id"
+#define SPA_TYPE_MONITOR_ITEM__flags		SPA_TYPE_MONITOR_ITEM_BASE "flags"
+#define SPA_TYPE_MONITOR_ITEM__state		SPA_TYPE_MONITOR_ITEM_BASE "state"
+#define SPA_TYPE_MONITOR_ITEM__name		SPA_TYPE_MONITOR_ITEM_BASE "name"
+#define SPA_TYPE_MONITOR_ITEM__class		SPA_TYPE_MONITOR_ITEM_BASE "class"
+#define SPA_TYPE_MONITOR_ITEM__info		SPA_TYPE_MONITOR_ITEM_BASE "info"
+#define SPA_TYPE_MONITOR_ITEM__factory		SPA_TYPE_MONITOR_ITEM_BASE "factory"
 
 struct spa_type_monitor {
 	uint32_t Monitor;
@@ -148,8 +148,8 @@ struct spa_monitor {
 
 };
 
-#define spa_monitor_set_callbacks(m,...) (m)->set_callbacks((m),__VA_ARGS__)
-#define spa_monitor_enum_items(m,...)    (m)->enum_items((m),__VA_ARGS__)
+#define spa_monitor_set_callbacks(m,...)	(m)->set_callbacks((m),__VA_ARGS__)
+#define spa_monitor_enum_items(m,...)		(m)->enum_items((m),__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

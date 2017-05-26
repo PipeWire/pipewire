@@ -539,7 +539,7 @@ bool pw_context_connect(struct pw_context *context, enum pw_context_flags flags)
  *
  * Returns: %TRUE on success.
  */
-bool pw_context_connect_fd(struct pw_context * context, enum pw_context_flags flags, int fd)
+bool pw_context_connect_fd(struct pw_context *context, enum pw_context_flags flags, int fd)
 {
 	struct context *impl = SPA_CONTAINER_OF(context, struct context, this);
 
@@ -603,7 +603,7 @@ bool pw_context_connect_fd(struct pw_context * context, enum pw_context_flags fl
  *
  * Returns: %TRUE on success.
  */
-bool pw_context_disconnect(struct pw_context * context)
+bool pw_context_disconnect(struct pw_context *context)
 {
 	struct context *impl = SPA_CONTAINER_OF(context, struct context, this);
 

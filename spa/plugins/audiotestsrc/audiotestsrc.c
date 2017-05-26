@@ -107,7 +107,7 @@ struct buffer {
 
 struct impl;
 
-typedef int (*render_func_t) (struct impl * this, void *samples, size_t n_samples);
+typedef int (*render_func_t) (struct impl *this, void *samples, size_t n_samples);
 
 struct impl {
 	struct spa_handle handle;
@@ -768,7 +768,7 @@ impl_node_port_alloc_buffers(struct spa_node *node,
 			     struct spa_param **params,
 			     uint32_t n_params,
 			     struct spa_buffer **buffers,
-			     uint32_t * n_buffers)
+			     uint32_t *n_buffers)
 {
 	struct impl *this;
 

@@ -92,7 +92,7 @@ static inline void spa_ringbuffer_clear(struct spa_ringbuffer *rbuf)
  *          there was an underrun. values > rbuf->size means there
  *          was an overrun.
  */
-static inline int32_t spa_ringbuffer_get_read_index(struct spa_ringbuffer *rbuf, uint32_t * index)
+static inline int32_t spa_ringbuffer_get_read_index(struct spa_ringbuffer *rbuf, uint32_t *index)
 {
 	int32_t avail;
 
@@ -147,7 +147,7 @@ static inline void spa_ringbuffer_read_update(struct spa_ringbuffer *rbuf, int32
  *          was an overrun. Subtract from the buffer size to get
  *          the number of bytes available for writing.
  */
-static inline int32_t spa_ringbuffer_get_write_index(struct spa_ringbuffer *rbuf, uint32_t * index)
+static inline int32_t spa_ringbuffer_get_write_index(struct spa_ringbuffer *rbuf, uint32_t *index)
 {
 	int32_t filled;
 

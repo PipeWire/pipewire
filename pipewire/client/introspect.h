@@ -143,8 +143,8 @@ pw_core_info_free(struct pw_core_info *info);
  *
  * Callback with information about the PipeWire core in @info.
  */
-typedef void (*pw_core_info_cb_t) (struct pw_context * c,
-				   int res, const struct pw_core_info * info, void *user_data);
+typedef void (*pw_core_info_cb_t) (struct pw_context *c,
+				   int res, const struct pw_core_info *info, void *user_data);
 
 void
 pw_context_get_core_info(struct pw_context *context, pw_core_info_cb_t cb, void *user_data);
@@ -183,8 +183,8 @@ pw_module_info_free(struct pw_module_info *info);
  *
  * Callback with information about the PipeWire module in @info.
  */
-typedef void (*pw_module_info_cb_t) (struct pw_context * c,
-				     int res, const struct pw_module_info * info, void *user_data);
+typedef void (*pw_module_info_cb_t) (struct pw_context *c,
+				     int res, const struct pw_module_info *info, void *user_data);
 
 void
 pw_context_list_module_info(struct pw_context *context,
@@ -224,8 +224,8 @@ pw_client_info_free(struct pw_client_info *info);
  *
  * Callback with information about the PipeWire client in @info.
  */
-typedef void (*pw_client_info_cb_t) (struct pw_context * c,
-				     int res, const struct pw_client_info * info, void *user_data);
+typedef void (*pw_client_info_cb_t) (struct pw_context *c,
+				     int res, const struct pw_client_info *info, void *user_data);
 
 void
 pw_context_list_client_info(struct pw_context *context,
@@ -279,8 +279,8 @@ pw_node_info_free(struct pw_node_info *info);
  *
  * Callback with information about the PipeWire node in @info.
  */
-typedef void (*pw_node_info_cb_t) (struct pw_context * c,
-				   int res, const struct pw_node_info * info, void *user_data);
+typedef void (*pw_node_info_cb_t) (struct pw_context *c,
+				   int res, const struct pw_node_info *info, void *user_data);
 
 void
 pw_context_list_node_info(struct pw_context *context, pw_node_info_cb_t cb, void *user_data);
@@ -327,8 +327,8 @@ pw_link_info_free(struct pw_link_info *info);
  *
  * Callback with information about the PipeWire link in @info.
  */
-typedef void (*pw_link_info_cb_t) (struct pw_context * c,
-				   int res, const struct pw_link_info * info, void *user_data);
+typedef void (*pw_link_info_cb_t) (struct pw_context *c,
+				   int res, const struct pw_link_info *info, void *user_data);
 
 void
 pw_context_list_link_info(struct pw_context *context, pw_link_info_cb_t cb, void *user_data);

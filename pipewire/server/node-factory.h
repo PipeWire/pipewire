@@ -42,9 +42,9 @@ struct pw_node_factory {
 
 	const char *name;
 
-	struct pw_node *(*create_node) (struct pw_node_factory * factory,
-					struct pw_client * client,
-					const char *name, struct pw_properties * properties);
+	struct pw_node *(*create_node) (struct pw_node_factory *factory,
+					struct pw_client *client,
+					const char *name, struct pw_properties *properties);
 };
 
 #define pw_node_factory_create_node(f,...)	(f)->create_node((f),__VA_ARGS__)

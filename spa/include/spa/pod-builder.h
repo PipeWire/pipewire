@@ -39,7 +39,7 @@ struct spa_pod_builder {
 	uint32_t size;
 	uint32_t offset;
 	struct spa_pod_frame *stack;
-	uint32_t (*write) (struct spa_pod_builder * builder, uint32_t ref, const void *data,
+	uint32_t (*write) (struct spa_pod_builder *builder, uint32_t ref, const void *data,
 			   uint32_t size);
 	bool in_array;
 	bool first;

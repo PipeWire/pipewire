@@ -83,13 +83,13 @@ struct pw_context {
 
 	enum pw_context_state state;
 	char *error;
-	PW_SIGNAL(state_changed, (struct pw_listener * listener, struct pw_context * context));
+	PW_SIGNAL(state_changed, (struct pw_listener *listener, struct pw_context *context));
 
-	PW_SIGNAL(subscription, (struct pw_listener * listener,
-				 struct pw_context * context,
+	PW_SIGNAL(subscription, (struct pw_listener *listener,
+				 struct pw_context *context,
 				 enum pw_subscription_event event, uint32_t type, uint32_t id));
 
-	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_context * context));
+	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_context *context));
 };
 
 struct pw_context *

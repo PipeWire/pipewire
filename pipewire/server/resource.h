@@ -48,7 +48,7 @@ struct pw_resource {
 	const struct pw_interface *iface;
 	const void *implementation;
 
-	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_resource * resource));
+	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_resource *resource));
 };
 
 struct pw_resource *

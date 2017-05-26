@@ -36,7 +36,7 @@ struct pw_module {
 
 	void *user_data;
 
-	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_module * module));
+	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_module *module));
 };
 
 /**
@@ -49,7 +49,7 @@ struct pw_module {
  *
  * Returns: %true on success, %false otherwise
  */
-typedef bool (*pw_module_init_func_t) (struct pw_module * module, char *args);
+typedef bool (*pw_module_init_func_t) (struct pw_module *module, char *args);
 
 struct pw_module *
 pw_module_load(struct pw_core *core,

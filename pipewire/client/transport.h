@@ -51,7 +51,7 @@ struct pw_transport_area {
 };
 
 struct pw_transport {
-	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_transport * trans));
+	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_transport *trans));
 
 	struct pw_transport_area *area;
 	struct spa_port_io *inputs;
@@ -125,7 +125,7 @@ struct pw_event_transport_reuse_buffer {
 
 
 #ifdef __cplusplus
-}				/* extern "C" */
+} /* extern "C" */
 #endif
 
 #endif /* __PIPEWIRE_TRANSPORT_H__ */

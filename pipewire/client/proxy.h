@@ -40,7 +40,7 @@ struct pw_proxy {
 
 	void *user_data;
 
-	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_proxy * proxy));
+	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_proxy *proxy));
 };
 
 struct pw_proxy *

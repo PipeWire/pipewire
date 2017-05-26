@@ -34,7 +34,7 @@ extern "C" {
 struct pw_data_loop {
 	struct pw_loop *loop;
 
-	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_data_loop * loop));
+	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_data_loop *loop));
 };
 
 struct pw_data_loop *

@@ -41,15 +41,15 @@ extern "C" {
 #define PW_CORE_METHOD_NUM			6
 
 struct pw_core_methods {
-	void (*client_update) (void *object, const struct spa_dict * props);
+	void (*client_update) (void *object, const struct spa_dict *props);
 	void (*sync) (void *object, uint32_t seq);
 	void (*get_registry) (void *object, uint32_t new_id);
 	void (*create_node) (void *object,
 			     const char *factory_name,
-			     const char *name, const struct spa_dict * props, uint32_t new_id);
+			     const char *name, const struct spa_dict *props, uint32_t new_id);
 	void (*create_client_node) (void *object,
 				    const char *name,
-				    const struct spa_dict * props, uint32_t new_id);
+				    const struct spa_dict *props, uint32_t new_id);
 	void (*update_types) (void *object,
 			      uint32_t first_id, uint32_t n_types, const char **types);
 };
@@ -69,7 +69,7 @@ struct pw_core_methods {
 #define PW_CORE_EVENT_NUM          5
 
 struct pw_core_events {
-	void (*info) (void *object, struct pw_core_info * info);
+	void (*info) (void *object, struct pw_core_info *info);
 	void (*done) (void *object, uint32_t seq);
 	void (*error) (void *object, uint32_t id, int res, const char *error, ...);
 	void (*remove_id) (void *object, uint32_t id);
@@ -109,7 +109,7 @@ struct pw_registry_events {
 #define PW_MODULE_EVENT_NUM          1
 
 struct pw_module_events {
-	void (*info) (void *object, struct pw_module_info * info);
+	void (*info) (void *object, struct pw_module_info *info);
 };
 
 #define pw_module_notify_info(r,...)      ((struct pw_module_events*)r->iface->events)->info(r,__VA_ARGS__)
@@ -118,7 +118,7 @@ struct pw_module_events {
 #define PW_NODE_EVENT_NUM          1
 
 struct pw_node_events {
-	void (*info) (void *object, struct pw_node_info * info);
+	void (*info) (void *object, struct pw_node_info *info);
 };
 
 #define pw_node_notify_info(r,...)      ((struct pw_node_events*)r->iface->events)->info(r,__VA_ARGS__)
@@ -143,7 +143,7 @@ struct pw_client_node_methods {
 #define PW_MESSAGE_NODE_UPDATE_PROPS        (1 << 2)
 			uint32_t change_mask,
 			uint32_t max_input_ports,
-			uint32_t max_output_ports, const struct spa_props * props);
+			uint32_t max_output_ports, const struct spa_props *props);
 
 	void (*port_update) (void *object, enum spa_direction direction, uint32_t port_id,
 #define PW_MESSAGE_PORT_UPDATE_POSSIBLE_FORMATS  (1 << 0)
@@ -152,11 +152,11 @@ struct pw_client_node_methods {
 #define PW_MESSAGE_PORT_UPDATE_INFO              (1 << 3)
 			     uint32_t change_mask,
 			     uint32_t n_possible_formats,
-			     const struct spa_format ** possible_formats,
-			     const struct spa_format * format,
+			     const struct spa_format **possible_formats,
+			     const struct spa_format *format,
 			     uint32_t n_params,
-			     const struct spa_param ** params, const struct spa_port_info * info);
-	void (*event) (void *object, struct spa_event * event);
+			     const struct spa_param **params, const struct spa_port_info *info);
+	void (*event) (void *object, struct spa_event *event);
 	void (*destroy) (void *object);
 };
 
@@ -180,7 +180,7 @@ struct pw_client_node_methods {
 
 struct pw_client_node_events {
 	void (*done) (void *object, int readfd, int writefd);
-	void (*event) (void *object, const struct spa_event * event);
+	void (*event) (void *object, const struct spa_event *event);
 	void (*add_port) (void *object,
 			  uint32_t seq, enum spa_direction direction, uint32_t port_id);
 	void (*remove_port) (void *object,
@@ -188,7 +188,7 @@ struct pw_client_node_events {
 	void (*set_format) (void *object,
 			    uint32_t seq,
 			    enum spa_direction direction,
-			    uint32_t port_id, uint32_t flags, const struct spa_format * format);
+			    uint32_t port_id, uint32_t flags, const struct spa_format *format);
 	void (*set_property) (void *object,
 			      uint32_t seq, uint32_t id, uint32_t size, const void *value);
 	void (*add_mem) (void *object,
@@ -200,9 +200,9 @@ struct pw_client_node_events {
 			     uint32_t seq,
 			     enum spa_direction direction,
 			     uint32_t port_id,
-			     uint32_t n_buffers, struct pw_client_node_buffer * buffers);
-	void (*node_command) (void *object, uint32_t seq, const struct spa_command * command);
-	void (*port_command) (void *object, uint32_t port_id, const struct spa_command * command);
+			     uint32_t n_buffers, struct pw_client_node_buffer *buffers);
+	void (*node_command) (void *object, uint32_t seq, const struct spa_command *command);
+	void (*port_command) (void *object, uint32_t port_id, const struct spa_command *command);
 	void (*transport) (void *object, int memfd, uint32_t offset, uint32_t size);
 };
 
@@ -222,7 +222,7 @@ struct pw_client_node_events {
 #define PW_CLIENT_EVENT_NUM          1
 
 struct pw_client_events {
-	void (*info) (void *object, struct pw_client_info * info);
+	void (*info) (void *object, struct pw_client_info *info);
 };
 
 #define pw_client_notify_info(r,...)      ((struct pw_client_events*)r->iface->events)->info(r,__VA_ARGS__)
@@ -231,7 +231,7 @@ struct pw_client_events {
 #define PW_LINK_EVENT_NUM          1
 
 struct pw_link_events {
-	void (*info) (void *object, struct pw_link_info * info);
+	void (*info) (void *object, struct pw_link_info *info);
 };
 
 #define pw_link_notify_info(r,...)      ((struct pw_link_events*)r->iface->events)->info(r,__VA_ARGS__)

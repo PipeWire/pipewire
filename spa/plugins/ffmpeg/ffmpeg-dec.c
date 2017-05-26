@@ -130,10 +130,10 @@ spa_ffmpeg_dec_node_set_callbacks(struct spa_node *node,
 
 static int
 spa_ffmpeg_dec_node_get_n_ports(struct spa_node *node,
-				uint32_t * n_input_ports,
-				uint32_t * max_input_ports,
-				uint32_t * n_output_ports,
-				uint32_t * max_output_ports)
+				uint32_t *n_input_ports,
+				uint32_t *max_input_ports,
+				uint32_t *n_output_ports,
+				uint32_t *max_output_ports)
 {
 	if (node == NULL)
 		return SPA_RESULT_INVALID_ARGUMENTS;
@@ -153,9 +153,9 @@ spa_ffmpeg_dec_node_get_n_ports(struct spa_node *node,
 static int
 spa_ffmpeg_dec_node_get_port_ids(struct spa_node *node,
 				 uint32_t n_input_ports,
-				 uint32_t * input_ids,
+				 uint32_t *input_ids,
 				 uint32_t n_output_ports,
-				 uint32_t * output_ids)
+				 uint32_t *output_ids)
 {
 	if (node == NULL)
 		return SPA_RESULT_INVALID_ARGUMENTS;
@@ -350,7 +350,7 @@ spa_ffmpeg_dec_node_port_alloc_buffers(struct spa_node *node,
 				       struct spa_param **params,
 				       uint32_t n_params,
 				       struct spa_buffer **buffers,
-				       uint32_t * n_buffers)
+				       uint32_t *n_buffers)
 {
 	return SPA_RESULT_NOT_IMPLEMENTED;
 }

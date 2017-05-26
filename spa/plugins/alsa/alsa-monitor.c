@@ -107,7 +107,7 @@ static const char *path_get_card_id(const char *path)
 }
 
 static int
-fill_item(struct impl *this, snd_ctl_card_info_t * card_info, snd_pcm_info_t * dev_info, struct udev_device *dev)
+fill_item(struct impl *this, snd_ctl_card_info_t *card_info, snd_pcm_info_t *dev_info, struct udev_device *dev)
 {
 	const char *str, *name, *klass = NULL;
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(this->item_buffer, sizeof(this->item_buffer));

@@ -155,7 +155,7 @@ bool pw_daemon_config_load_file(struct pw_daemon_config *config, const char *fil
  *
  * Return: %true on success, otherwise %false and @err is set.
  */
-bool pw_daemon_config_load(struct pw_daemon_config * config, char **err)
+bool pw_daemon_config_load(struct pw_daemon_config *config, char **err)
 {
 	const char *filename;
 
@@ -178,7 +178,7 @@ bool pw_daemon_config_load(struct pw_daemon_config * config, char **err)
  *
  * Returns: %true if all commands where executed with success, otherwise %false.
  */
-bool pw_daemon_config_run_commands(struct pw_daemon_config * config, struct pw_core * core)
+bool pw_daemon_config_run_commands(struct pw_daemon_config *config, struct pw_core *core)
 {
 	char *err = NULL;
 	bool ret = true;

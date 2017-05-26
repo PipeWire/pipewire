@@ -47,7 +47,7 @@ enum pw_port_state {
 struct pw_port {
 	struct spa_list link;
 
-	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_port *));
+	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_port *));
 
 	struct pw_node *node;
 	enum pw_direction direction;

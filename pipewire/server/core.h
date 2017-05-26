@@ -36,8 +36,8 @@ struct pw_global;
 #include <pipewire/server/link.h>
 #include <pipewire/server/node-factory.h>
 
-typedef int (*pw_bind_func_t) (struct pw_global * global,
-			       struct pw_client * client, uint32_t version, uint32_t id);
+typedef int (*pw_bind_func_t) (struct pw_global *global,
+			       struct pw_client *client, uint32_t version, uint32_t id);
 
 struct pw_global {
 	struct pw_core *core;
@@ -49,7 +49,7 @@ struct pw_global {
 	uint32_t version;
 	void *object;
 
-	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_global * global));
+	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_global *global));
 };
 
 /**
@@ -83,12 +83,12 @@ struct pw_core {
 	struct spa_support *support;
 	uint32_t n_support;
 
-	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_core * core));
+	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_core *core));
 
-	PW_SIGNAL(global_added, (struct pw_listener * listener,
-				 struct pw_core * core, struct pw_global * global));
-	PW_SIGNAL(global_removed, (struct pw_listener * listener,
-				   struct pw_core * core, struct pw_global * global));
+	PW_SIGNAL(global_added, (struct pw_listener *listener,
+				 struct pw_core *core, struct pw_global *global));
+	PW_SIGNAL(global_removed, (struct pw_listener *listener,
+				   struct pw_core *core, struct pw_global *global));
 };
 
 struct pw_core *

@@ -39,7 +39,7 @@
 GST_DEBUG_CATEGORY (pipewire_debug);
 
 static gboolean
-plugin_init (GstPlugin * plugin)
+plugin_init (GstPlugin *plugin)
 {
   pw_init (NULL, NULL);
 

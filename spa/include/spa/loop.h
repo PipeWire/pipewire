@@ -47,7 +47,7 @@ enum spa_io {
 
 struct spa_source;
 
-typedef void (*spa_source_func_t) (struct spa_source * source);
+typedef void (*spa_source_func_t) (struct spa_source *source);
 
 struct spa_source {
 	struct spa_loop *loop;
@@ -58,7 +58,7 @@ struct spa_source {
 	enum spa_io rmask;
 };
 
-typedef int (*spa_invoke_func_t) (struct spa_loop * loop,
+typedef int (*spa_invoke_func_t) (struct spa_loop *loop,
 				  bool async,
 				  uint32_t seq,
 				  size_t size,
@@ -81,7 +81,7 @@ struct spa_loop {
 
 	void (*remove_source) (struct spa_source *source);
 
-	int (*invoke) (struct spa_loop * loop,
+	int (*invoke) (struct spa_loop *loop,
 		       spa_invoke_func_t func,
 		       uint32_t seq,
 		       size_t size,
@@ -94,7 +94,7 @@ struct spa_loop {
 #define spa_loop_remove_source(l,...)	(l)->remove_source(__VA_ARGS__)
 #define spa_loop_invoke(l,...)		(l)->invoke((l),__VA_ARGS__)
 
-typedef void (*spa_loop_hook_t) (struct spa_loop_control * ctrl, void *data);
+typedef void (*spa_loop_hook_t) (struct spa_loop_control *ctrl, void *data);
 
 /**
  * spa_loop_control:
@@ -126,17 +126,17 @@ struct spa_loop_control {
 #define spa_loop_control_leave(l)		(l)->leave(l)
 
 
-typedef void (*spa_source_io_func_t) (struct spa_loop_utils * utils,
-				      struct spa_source * source,
+typedef void (*spa_source_io_func_t) (struct spa_loop_utils *utils,
+				      struct spa_source *source,
 				      int fd, enum spa_io mask, void *data);
-typedef void (*spa_source_idle_func_t) (struct spa_loop_utils * utils,
-					struct spa_source * source, void *data);
-typedef void (*spa_source_event_func_t) (struct spa_loop_utils * utils,
-					 struct spa_source * source, void *data);
-typedef void (*spa_source_timer_func_t) (struct spa_loop_utils * utils,
-					 struct spa_source * source, void *data);
-typedef void (*spa_source_signal_func_t) (struct spa_loop_utils * utils,
-					  struct spa_source * source,
+typedef void (*spa_source_idle_func_t) (struct spa_loop_utils *utils,
+					struct spa_source *source, void *data);
+typedef void (*spa_source_event_func_t) (struct spa_loop_utils *utils,
+					 struct spa_source *source, void *data);
+typedef void (*spa_source_timer_func_t) (struct spa_loop_utils *utils,
+					 struct spa_source *source, void *data);
+typedef void (*spa_source_signal_func_t) (struct spa_loop_utils *utils,
+					  struct spa_source *source,
 					  int signal_number, void *data);
 
 /**
@@ -149,34 +149,34 @@ struct spa_loop_utils {
 	 * structure in the future */
 	size_t size;
 
-	struct spa_source *(*add_io) (struct spa_loop_utils * utils,
+	struct spa_source *(*add_io) (struct spa_loop_utils *utils,
 				      int fd,
 				      enum spa_io mask,
 				      bool close,
 				      spa_source_io_func_t func, void *data);
 
-	int (*update_io) (struct spa_source * source, enum spa_io mask);
+	int (*update_io) (struct spa_source *source, enum spa_io mask);
 
-	struct spa_source *(*add_idle) (struct spa_loop_utils * utils,
+	struct spa_source *(*add_idle) (struct spa_loop_utils *utils,
 					bool enabled,
 					spa_source_idle_func_t func, void *data);
-	void (*enable_idle) (struct spa_source * source, bool enabled);
+	void (*enable_idle) (struct spa_source *source, bool enabled);
 
-	struct spa_source *(*add_event) (struct spa_loop_utils * utils,
+	struct spa_source *(*add_event) (struct spa_loop_utils *utils,
 					 spa_source_event_func_t func, void *data);
-	void (*signal_event) (struct spa_source * source);
+	void (*signal_event) (struct spa_source *source);
 
-	struct spa_source *(*add_timer) (struct spa_loop_utils * utils,
+	struct spa_source *(*add_timer) (struct spa_loop_utils *utils,
 					 spa_source_timer_func_t func, void *data);
-	int (*update_timer) (struct spa_source * source,
-			     struct timespec * value,
-			     struct timespec * interval,
+	int (*update_timer) (struct spa_source *source,
+			     struct timespec *value,
+			     struct timespec *interval,
 			     bool absolute);
-	struct spa_source *(*add_signal) (struct spa_loop_utils * utils,
+	struct spa_source *(*add_signal) (struct spa_loop_utils *utils,
 					  int signal_number,
 					  spa_source_signal_func_t func, void *data);
 
-	void (*destroy_source) (struct spa_source * source);
+	void (*destroy_source) (struct spa_source *source);
 };
 
 #define spa_loop_utils_add_io(l,...)		(l)->add_io(l,__VA_ARGS__)

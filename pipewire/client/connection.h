@@ -30,8 +30,8 @@ extern "C" {
 struct pw_connection {
 	int fd;
 
-	PW_SIGNAL(need_flush,     (struct pw_listener * listener, struct pw_connection * conn));
-	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_connection * conn));
+	PW_SIGNAL(need_flush,     (struct pw_listener *listener, struct pw_connection *conn));
+	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_connection *conn));
 };
 
 struct pw_connection *

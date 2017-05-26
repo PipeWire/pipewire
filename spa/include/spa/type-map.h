@@ -46,11 +46,11 @@ struct spa_type_map {
 	 */
 	const struct spa_dict *info;
 
-	uint32_t (*get_id) (struct spa_type_map * map, const char *type);
+	uint32_t (*get_id) (struct spa_type_map *map, const char *type);
 
-	const char *(*get_type) (const struct spa_type_map * map, uint32_t id);
+	const char *(*get_type) (const struct spa_type_map *map, uint32_t id);
 
-	size_t (*get_size) (const struct spa_type_map * map);
+	size_t (*get_size) (const struct spa_type_map *map);
 };
 
 #define spa_type_map_get_id(n,...)	(n)->get_id((n),__VA_ARGS__)

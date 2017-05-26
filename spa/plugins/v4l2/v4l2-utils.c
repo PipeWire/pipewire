@@ -1138,7 +1138,7 @@ spa_v4l2_alloc_buffers(struct impl *this,
 		       struct spa_param **params,
 		       uint32_t n_params,
 		       struct spa_buffer **buffers,
-		       uint32_t * n_buffers)
+		       uint32_t *n_buffers)
 {
 	int res;
 	struct port *state = &this->out_ports[0];

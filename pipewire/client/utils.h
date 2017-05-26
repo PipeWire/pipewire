@@ -28,7 +28,7 @@ extern "C" {
 #include <spa/pod-utils.h>
 
 const char *
-pw_split_walk(const char *str, const char *delimiter, size_t * len, const char **state);
+pw_split_walk(const char *str, const char *delimiter, size_t *len, const char **state);
 
 char **
 pw_split_strv(const char *str, const char *delimiter, int max_tokens, int *n_tokens);
@@ -50,7 +50,7 @@ pw_spa_pod_copy(const struct spa_pod *pod)
 #define spa_param_copy(p)       ((struct spa_param*)pw_spa_pod_copy(&(p)->object.pod))
 
 #ifdef __cplusplus
-}				/* extern "C" */
+} /* extern "C" */
 #endif
 
 #endif /* __PIPEWIRE_UTILS_H__ */

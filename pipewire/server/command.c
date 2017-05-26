@@ -26,7 +26,7 @@
 
 #include "command.h"
 
-typedef bool(*pw_command_func_t) (struct pw_command * command, struct pw_core * core, char **err);
+typedef bool(*pw_command_func_t) (struct pw_command *command, struct pw_core *core, char **err);
 
 static bool execute_command_module_load(struct pw_command *command,
 					struct pw_core *core, char **err);
@@ -149,7 +149,7 @@ struct pw_command *pw_command_parse(const char *line, char **err)
  *
  * Returns: %true if @command was executed successfully, %false otherwise.
  */
-bool pw_command_run(struct pw_command * command, struct pw_core * core, char **err)
+bool pw_command_run(struct pw_command *command, struct pw_core *core, char **err)
 {
 	struct impl *impl = SPA_CONTAINER_OF(command, struct impl, this);
 

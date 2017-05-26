@@ -61,7 +61,7 @@ int pw_connection_get_fd(struct pw_connection *conn, uint32_t index)
 	return impl->in.fds[index];
 }
 
-uint32_t pw_connection_add_fd(struct pw_connection * conn, int fd)
+uint32_t pw_connection_add_fd(struct pw_connection *conn, int fd)
 {
 	struct pw_connection_impl *impl = SPA_CONTAINER_OF(conn, struct pw_connection_impl, this);
 	uint32_t index, i;
@@ -210,10 +210,10 @@ void pw_connection_destroy(struct pw_connection *conn)
  */
 bool
 pw_connection_get_next(struct pw_connection *conn,
-		       uint8_t * opcode,
-		       uint32_t * dest_id,
+		       uint8_t *opcode,
+		       uint32_t *dest_id,
 		       void **dt,
-		       uint32_t * sz)
+		       uint32_t *sz)
 {
 	struct pw_connection_impl *impl = SPA_CONTAINER_OF(conn, struct pw_connection_impl, this);
 	size_t len, size;
@@ -365,7 +365,7 @@ bool pw_connection_flush(struct pw_connection *conn)
 	return false;
 }
 
-bool pw_connection_clear(struct pw_connection * conn)
+bool pw_connection_clear(struct pw_connection *conn)
 {
 	struct pw_connection_impl *impl = SPA_CONTAINER_OF(conn, struct pw_connection_impl, this);
 

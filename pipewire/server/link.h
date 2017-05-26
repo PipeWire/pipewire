@@ -46,8 +46,8 @@ struct pw_link {
 
 	enum pw_link_state state;
 	char *error;
-	PW_SIGNAL(state_changed, (struct pw_listener * listener,
-				  struct pw_link * link,
+	PW_SIGNAL(state_changed, (struct pw_listener *listener,
+				  struct pw_link *link,
 				  enum pw_link_state old, enum pw_link_state state));
 
 	PW_SIGNAL(destroy_signal, (struct pw_listener *, struct pw_link *));
@@ -59,8 +59,8 @@ struct pw_link {
 	struct spa_list output_link;
 	struct pw_port *input;
 	struct spa_list input_link;
-	PW_SIGNAL(port_unlinked, (struct pw_listener * listener,
-				  struct pw_link * link, struct pw_port * port));
+	PW_SIGNAL(port_unlinked, (struct pw_listener *listener,
+				  struct pw_link *link, struct pw_port *port));
 
 	struct {
 		uint32_t in_ready;

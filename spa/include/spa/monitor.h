@@ -108,7 +108,7 @@ enum spa_monitor_item_state {
  * spa_monitor_callbacks:
  */
 struct spa_monitor_callbacks {
-	void (*event) (struct spa_monitor * monitor, struct spa_event * event, void *user_data);
+	void (*event) (struct spa_monitor *monitor, struct spa_event *event, void *user_data);
 };
 
 /**
@@ -139,12 +139,12 @@ struct spa_monitor {
 	 *
 	 * Returns: #SPA_RESULT_OK on success
 	 */
-	int (*set_callbacks) (struct spa_monitor * monitor,
-			      const struct spa_monitor_callbacks * callbacks,
+	int (*set_callbacks) (struct spa_monitor *monitor,
+			      const struct spa_monitor_callbacks *callbacks,
 			      size_t callbacks_size, void *user_data);
 
-	int (*enum_items) (struct spa_monitor * monitor,
-			   struct spa_monitor_item ** item, uint32_t index);
+	int (*enum_items) (struct spa_monitor *monitor,
+			   struct spa_monitor_item **item, uint32_t index);
 
 };
 

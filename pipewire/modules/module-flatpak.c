@@ -261,7 +261,7 @@ do_create_node(struct pw_access *access,
 
 
 static DBusHandlerResult
-portal_response(DBusConnection * connection, DBusMessage * msg, void *user_data)
+portal_response(DBusConnection *connection, DBusMessage *msg, void *user_data)
 {
 	struct client_info *cinfo = user_data;
 
@@ -438,7 +438,7 @@ static void dispatch_cb(struct spa_loop_utils *utils, struct spa_source *source,
 		pw_loop_enable_idle(impl->core->main_loop->loop, source, false);
 }
 
-static void dispatch_status(DBusConnection * conn, DBusDispatchStatus status, void *userdata)
+static void dispatch_status(DBusConnection *conn, DBusDispatchStatus status, void *userdata)
 {
 	struct impl *impl = userdata;
 
@@ -446,7 +446,7 @@ static void dispatch_status(DBusConnection * conn, DBusDispatchStatus status, vo
 			    impl->dispatch_event, status == DBUS_DISPATCH_COMPLETE ? false : true);
 }
 
-static inline enum spa_io dbus_to_io(DBusWatch * watch)
+static inline enum spa_io dbus_to_io(DBusWatch *watch)
 {
 	enum spa_io mask;
 	unsigned int flags;
@@ -494,7 +494,7 @@ handle_io_event(struct spa_loop_utils *utils,
 	dbus_watch_handle(watch, io_to_dbus(mask));
 }
 
-static dbus_bool_t add_watch(DBusWatch * watch, void *userdata)
+static dbus_bool_t add_watch(DBusWatch *watch, void *userdata)
 {
 	struct impl *impl = userdata;
 	struct spa_source *source;
@@ -511,7 +511,7 @@ static dbus_bool_t add_watch(DBusWatch * watch, void *userdata)
 	return TRUE;
 }
 
-static void remove_watch(DBusWatch * watch, void *userdata)
+static void remove_watch(DBusWatch *watch, void *userdata)
 {
 	struct impl *impl = userdata;
 	struct spa_source *source;
@@ -520,7 +520,7 @@ static void remove_watch(DBusWatch * watch, void *userdata)
 		pw_loop_destroy_source(impl->core->main_loop->loop, source);
 }
 
-static void toggle_watch(DBusWatch * watch, void *userdata)
+static void toggle_watch(DBusWatch *watch, void *userdata)
 {
 	struct impl *impl = userdata;
 	struct spa_source *source;
@@ -547,7 +547,7 @@ handle_timer_event(struct spa_loop_utils *utils, struct spa_source *source, void
 	}
 }
 
-static dbus_bool_t add_timeout(DBusTimeout * timeout, void *userdata)
+static dbus_bool_t add_timeout(DBusTimeout *timeout, void *userdata)
 {
 	struct impl *impl = userdata;
 	struct spa_source *source;
@@ -568,7 +568,7 @@ static dbus_bool_t add_timeout(DBusTimeout * timeout, void *userdata)
 	return TRUE;
 }
 
-static void remove_timeout(DBusTimeout * timeout, void *userdata)
+static void remove_timeout(DBusTimeout *timeout, void *userdata)
 {
 	struct impl *impl = userdata;
 	struct spa_source *source;
@@ -577,7 +577,7 @@ static void remove_timeout(DBusTimeout * timeout, void *userdata)
 		pw_loop_destroy_source(impl->core->main_loop->loop, source);
 }
 
-static void toggle_timeout(DBusTimeout * timeout, void *userdata)
+static void toggle_timeout(DBusTimeout *timeout, void *userdata)
 {
 	struct impl *impl = userdata;
 	struct spa_source *source;

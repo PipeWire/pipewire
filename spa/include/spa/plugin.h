@@ -45,7 +45,7 @@ struct spa_handle {
 	 *          #SPA_RESULT_NOT_IMPLEMENTED when there are no extensions
 	 *          #SPA_RESULT_INVALID_ARGUMENTS when handle or info is %NULL
 	 */
-	int (*get_interface) (struct spa_handle * handle, uint32_t interface_id, void **interface);
+	int (*get_interface) (struct spa_handle *handle, uint32_t interface_id, void **interface);
 	/**
 	 * spa_handle::clear
 	 * @handle: a pointer to memory
@@ -55,7 +55,7 @@ struct spa_handle {
 	 *
 	 * Returns: #SPA_RESULT_OK on success
 	 */
-	int (*clear) (struct spa_handle * handle);
+	int (*clear) (struct spa_handle *handle);
 };
 
 #define spa_handle_get_interface(h,...)	(h)->get_interface((h),__VA_ARGS__)
@@ -124,10 +124,10 @@ struct spa_handle_factory {
 	 *          #SPA_RESULT_NOT_IMPLEMENTED when an instance can't be made
 	 *          #SPA_RESULT_INVALID_ARGUMENTS when factory or handle are %NULL
 	 */
-	int (*init) (const struct spa_handle_factory * factory,
-		     struct spa_handle * handle,
-		     const struct spa_dict * info,
-		     const struct spa_support * support,
+	int (*init) (const struct spa_handle_factory *factory,
+		     struct spa_handle *handle,
+		     const struct spa_dict *info,
+		     const struct spa_support *support,
 		     uint32_t n_support);
 
 	/**
@@ -143,8 +143,8 @@ struct spa_handle_factory {
 	 *          #SPA_RESULT_INVALID_ARGUMENTS when handle or info is %NULL
 	 *          #SPA_RESULT_ENUM_END when there are no more infos
 	 */
-	int (*enum_interface_info) (const struct spa_handle_factory * factory,
-				    const struct spa_interface_info ** info,
+	int (*enum_interface_info) (const struct spa_handle_factory *factory,
+				    const struct spa_interface_info **info,
 				    uint32_t index);
 };
 
@@ -162,7 +162,7 @@ struct spa_handle_factory {
  *          #SPA_RESULT_INVALID_ARGUMENTS when factory is %NULL
  *          #SPA_RESULT_ENUM_END when there are no more factories
  */
-typedef int (*spa_handle_factory_enum_func_t) (const struct spa_handle_factory ** factory,
+typedef int (*spa_handle_factory_enum_func_t) (const struct spa_handle_factory **factory,
 					       uint32_t index);
 
 #define SPA_HANDLE_FACTORY_ENUM_FUNC_NAME "spa_handle_factory_enum"

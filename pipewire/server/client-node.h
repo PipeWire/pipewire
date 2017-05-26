@@ -40,7 +40,7 @@ struct pw_client_node {
 	struct pw_client *client;
 	struct pw_resource *resource;
 
-	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_client_node * node));
+	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_client_node *node));
 };
 
 struct pw_client_node *

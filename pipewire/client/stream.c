@@ -614,8 +614,8 @@ handle_node_command(struct pw_stream *stream, uint32_t seq, const struct spa_com
 			stream_set_state(stream, PW_STREAM_STATE_STREAMING, NULL);
 		}
 	} else if (SPA_COMMAND_TYPE(command) == context->type.command_node.ClockUpdate) {
-		struct spa_command_node_clock_update *cu =
-		    (struct spa_command_node_clock_update *) command;
+		struct spa_command_node_clock_update *cu = (__typeof__(cu)) command;
+
 		if (cu->body.flags.value & SPA_COMMAND_NODE_CLOCK_UPDATE_FLAG_LIVE) {
 			pw_properties_set(stream->properties, "pipewire.latency.is-live", "1");
 			pw_properties_setf(stream->properties,
@@ -976,8 +976,8 @@ pw_stream_connect(struct pw_stream *stream,
  * Returns: %true on success
  */
 bool
-pw_stream_finish_format(struct pw_stream * stream,
-			int res, struct spa_param ** params, uint32_t n_params)
+pw_stream_finish_format(struct pw_stream *stream,
+			int res, struct spa_param **params, uint32_t n_params)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
@@ -1007,7 +1007,7 @@ pw_stream_finish_format(struct pw_stream * stream,
  *
  * Returns: %true on success
  */
-bool pw_stream_disconnect(struct pw_stream * stream)
+bool pw_stream_disconnect(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
@@ -1020,7 +1020,7 @@ bool pw_stream_disconnect(struct pw_stream * stream)
 	return true;
 }
 
-bool pw_stream_get_time(struct pw_stream * stream, struct pw_time * time)
+bool pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	int64_t elapsed;
@@ -1045,7 +1045,7 @@ bool pw_stream_get_time(struct pw_stream * stream, struct pw_time * time)
  * Returns: the id of an empty buffer or #SPA_ID_INVALID when no buffer is
  * available.
  */
-uint32_t pw_stream_get_empty_buffer(struct pw_stream * stream)
+uint32_t pw_stream_get_empty_buffer(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct buffer_id *bid;
@@ -1067,7 +1067,7 @@ uint32_t pw_stream_get_empty_buffer(struct pw_stream * stream)
  *
  * Returns: %true on success.
  */
-bool pw_stream_recycle_buffer(struct pw_stream * stream, uint32_t id)
+bool pw_stream_recycle_buffer(struct pw_stream *stream, uint32_t id)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct pw_event_transport_reuse_buffer rb = PW_EVENT_TRANSPORT_REUSE_BUFFER_INIT
@@ -1121,7 +1121,7 @@ struct spa_buffer *pw_stream_peek_buffer(struct pw_stream *stream, uint32_t id)
  *
  * Returns: %true when @id was handled
  */
-bool pw_stream_send_buffer(struct pw_stream * stream, uint32_t id)
+bool pw_stream_send_buffer(struct pw_stream *stream, uint32_t id)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct buffer_id *bid;

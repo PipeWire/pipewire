@@ -223,9 +223,10 @@ spa_proxy_node_set_callbacks(struct spa_node *node,
 
 static int
 spa_proxy_node_get_n_ports(struct spa_node *node,
-			   uint32_t * n_input_ports,
-			   uint32_t * max_input_ports,
-			   uint32_t * n_output_ports, uint32_t * max_output_ports)
+			   uint32_t *n_input_ports,
+			   uint32_t *max_input_ports,
+			   uint32_t *n_output_ports,
+			   uint32_t *max_output_ports)
 {
 	struct proxy *this;
 
@@ -249,7 +250,9 @@ spa_proxy_node_get_n_ports(struct spa_node *node,
 static int
 spa_proxy_node_get_port_ids(struct spa_node *node,
 			    uint32_t n_input_ports,
-			    uint32_t * input_ids, uint32_t n_output_ports, uint32_t * output_ids)
+			    uint32_t *input_ids,
+			    uint32_t n_output_ports,
+			    uint32_t *output_ids)
 {
 	struct proxy *this;
 	int c, i;
@@ -690,7 +693,8 @@ spa_proxy_node_port_alloc_buffers(struct spa_node *node,
 				  uint32_t port_id,
 				  struct spa_param **params,
 				  uint32_t n_params,
-				  struct spa_buffer **buffers, uint32_t * n_buffers)
+				  struct spa_buffer **buffers,
+				  uint32_t *n_buffers)
 {
 	struct proxy *this;
 	struct proxy_port *port;

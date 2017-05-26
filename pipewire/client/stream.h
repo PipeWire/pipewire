@@ -71,22 +71,22 @@ struct pw_stream {
 	char *name;
 	struct pw_properties *properties;
 
-	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_stream * stream));
+	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_stream *stream));
 
 	enum pw_stream_state state;
 	char *error;
-	PW_SIGNAL(state_changed, (struct pw_listener * listener, struct pw_stream * stream));
+	PW_SIGNAL(state_changed, (struct pw_listener *listener, struct pw_stream *stream));
 
-	PW_SIGNAL(format_changed, (struct pw_listener * listener,
-				    struct pw_stream * stream, struct spa_format * format));
+	PW_SIGNAL(format_changed, (struct pw_listener *listener,
+				    struct pw_stream *stream, struct spa_format *format));
 
-	PW_SIGNAL(add_buffer, (struct pw_listener * listener,
-				struct pw_stream * stream, uint32_t id));
-	PW_SIGNAL(remove_buffer, (struct pw_listener * listener,
-				   struct pw_stream * stream, uint32_t id));
-	PW_SIGNAL(new_buffer, (struct pw_listener * listener,
-				struct pw_stream * stream, uint32_t id));
-	PW_SIGNAL(need_buffer, (struct pw_listener * listener, struct pw_stream * stream));
+	PW_SIGNAL(add_buffer, (struct pw_listener *listener,
+				struct pw_stream *stream, uint32_t id));
+	PW_SIGNAL(remove_buffer, (struct pw_listener *listener,
+				   struct pw_stream *stream, uint32_t id));
+	PW_SIGNAL(new_buffer, (struct pw_listener *listener,
+				struct pw_stream *stream, uint32_t id));
+	PW_SIGNAL(need_buffer, (struct pw_listener *listener, struct pw_stream *stream));
 };
 
 struct pw_stream *

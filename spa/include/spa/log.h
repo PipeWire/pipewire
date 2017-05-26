@@ -76,7 +76,7 @@ struct spa_log {
 	 *
 	 * Log a message with the given log level.
 	 */
-	void (*log) (struct spa_log * log,
+	void (*log) (struct spa_log *log,
 		     enum spa_log_level level,
 		     const char *file,
 		     int line,
@@ -95,7 +95,7 @@ struct spa_log {
 	 *
 	 * Log a message with the given log level.
 	 */
-	void (*logv) (struct spa_log * log,
+	void (*logv) (struct spa_log *log,
 		      enum spa_log_level level,
 		      const char *file,
 		      int line,

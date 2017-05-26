@@ -44,7 +44,7 @@ struct pw_client {
 	struct pw_global *global;
 
 	struct pw_properties *properties;
-	PW_SIGNAL(properties_changed, (struct pw_listener * listener, struct pw_client * client));
+	PW_SIGNAL(properties_changed, (struct pw_listener *listener, struct pw_client *client));
 
 	struct pw_client_info info;
 	bool ucred_valid;
@@ -59,12 +59,12 @@ struct pw_client {
 	struct pw_map types;
 
 	struct spa_list resource_list;
-	PW_SIGNAL(resource_added, (struct pw_listener * listener,
-				   struct pw_client * client, struct pw_resource * resource));
-	PW_SIGNAL(resource_removed, (struct pw_listener * listener,
-				     struct pw_client * client, struct pw_resource * resource));
+	PW_SIGNAL(resource_added, (struct pw_listener *listener,
+				   struct pw_client *client, struct pw_resource *resource));
+	PW_SIGNAL(resource_removed, (struct pw_listener *listener,
+				     struct pw_client *client, struct pw_resource *resource));
 
-	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_client * client));
+	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_client *client));
 };
 
 struct pw_client *

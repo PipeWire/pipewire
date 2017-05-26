@@ -23,7 +23,7 @@
 
 #define DEFINE_SINE(type,scale)								\
 static void										\
-audio_test_src_create_sine_##type (struct impl *this, type * samples, size_t n_samples) \
+audio_test_src_create_sine_##type (struct impl *this, type *samples, size_t n_samples)	\
 {											\
 	int i, c, channels;								\
 	double step, amp;								\

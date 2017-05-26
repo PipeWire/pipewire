@@ -54,10 +54,10 @@ struct pw_node {
 	struct pw_properties *properties;
 	enum pw_node_state state;
 	char *error;
-	PW_SIGNAL(state_request, (struct pw_listener * listener,
-				  struct pw_node * object, enum pw_node_state state));
-	PW_SIGNAL(state_changed, (struct pw_listener * listener,
-				  struct pw_node * object,
+	PW_SIGNAL(state_request, (struct pw_listener *listener,
+				  struct pw_node *object, enum pw_node_state state));
+	PW_SIGNAL(state_changed, (struct pw_listener *listener,
+				  struct pw_node *object,
 				  enum pw_node_state old, enum pw_node_state state));
 
 	struct spa_handle *handle;
@@ -67,7 +67,7 @@ struct pw_node {
 
 	struct spa_list resource_list;
 
-	PW_SIGNAL(initialized, (struct pw_listener * listener, struct pw_node * object));
+	PW_SIGNAL(initialized, (struct pw_listener *listener, struct pw_node *object));
 
 	uint32_t max_input_ports;
 	uint32_t n_input_ports;
@@ -81,19 +81,19 @@ struct pw_node {
 	struct pw_port **output_port_map;
 	uint32_t n_used_output_links;
 
-	PW_SIGNAL(port_added, (struct pw_listener * listener,
-			       struct pw_node * node, struct pw_port * port));
-	PW_SIGNAL(port_removed, (struct pw_listener * listener,
-				 struct pw_node * node, struct pw_port * port));
+	PW_SIGNAL(port_added, (struct pw_listener *listener,
+			       struct pw_node *node, struct pw_port *port));
+	PW_SIGNAL(port_removed, (struct pw_listener *listener,
+				 struct pw_node *node, struct pw_port *port));
 
-	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_node * object));
-	PW_SIGNAL(free_signal, (struct pw_listener * listener, struct pw_node * object));
+	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_node *object));
+	PW_SIGNAL(free_signal, (struct pw_listener *listener, struct pw_node *object));
 
-	PW_SIGNAL(async_complete, (struct pw_listener * listener,
-				   struct pw_node * node, uint32_t seq, int res));
+	PW_SIGNAL(async_complete, (struct pw_listener *listener,
+				   struct pw_node *node, uint32_t seq, int res));
 
 	struct pw_data_loop *data_loop;
-	PW_SIGNAL(loop_changed, (struct pw_listener * listener, struct pw_node * object));
+	PW_SIGNAL(loop_changed, (struct pw_listener *listener, struct pw_node *object));
 };
 
 struct pw_node *

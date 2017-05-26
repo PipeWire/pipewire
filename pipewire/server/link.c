@@ -201,8 +201,9 @@ static struct spa_buffer **alloc_buffers(struct pw_link *this,
 					 uint32_t n_params,
 					 struct spa_param **params,
 					 uint32_t n_datas,
-					 size_t * data_sizes,
-					 ssize_t * data_strides, struct pw_memblock *mem)
+					 size_t *data_sizes,
+					 ssize_t *data_strides,
+					 struct pw_memblock *mem)
 {
 	struct spa_buffer **buffers, *bp;
 	uint32_t i;
@@ -789,7 +790,7 @@ bool pw_link_activate(struct pw_link *this)
 	return true;
 }
 
-bool pw_link_deactivate(struct pw_link * this)
+bool pw_link_deactivate(struct pw_link *this)
 {
 	return true;
 }

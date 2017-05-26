@@ -184,8 +184,10 @@ impl_node_set_callbacks(struct spa_node *node,
 
 static int
 impl_node_get_n_ports(struct spa_node *node,
-		      uint32_t * n_input_ports,
-		      uint32_t * max_input_ports, uint32_t * n_output_ports, uint32_t * max_output_ports)
+		      uint32_t *n_input_ports,
+		      uint32_t *max_input_ports,
+		      uint32_t *n_output_ports,
+		      uint32_t *max_output_ports)
 {
 	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
@@ -203,7 +205,10 @@ impl_node_get_n_ports(struct spa_node *node,
 
 static int
 impl_node_get_port_ids(struct spa_node *node,
-		       uint32_t n_input_ports, uint32_t * input_ids, uint32_t n_output_ports, uint32_t * output_ids)
+		       uint32_t n_input_ports,
+		       uint32_t *input_ids,
+		       uint32_t n_output_ports,
+		       uint32_t *output_ids)
 {
 	spa_return_val_if_fail(node != NULL, SPA_RESULT_INVALID_ARGUMENTS);
 
@@ -467,7 +472,9 @@ impl_node_port_alloc_buffers(struct spa_node *node,
 			     enum spa_direction direction,
 			     uint32_t port_id,
 			     struct spa_param **params,
-			     uint32_t n_params, struct spa_buffer **buffers, uint32_t * n_buffers)
+			     uint32_t n_params,
+			     struct spa_buffer **buffers,
+			     uint32_t *n_buffers)
 {
 	struct state *this;
 
@@ -606,7 +613,10 @@ static int impl_clock_set_props(struct spa_clock *clock, const struct spa_props 
 	return SPA_RESULT_NOT_IMPLEMENTED;
 }
 
-static int impl_clock_get_time(struct spa_clock *clock, int32_t * rate, int64_t * ticks, int64_t * monotonic_time)
+static int impl_clock_get_time(struct spa_clock *clock,
+			       int32_t *rate,
+			       int64_t *ticks,
+			       int64_t *monotonic_time)
 {
 	struct state *this;
 

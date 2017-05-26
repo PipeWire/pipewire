@@ -38,8 +38,8 @@ struct pw_loop {
 	struct spa_loop_control *control;
 	struct spa_loop_utils *utils;
 
-	PW_SIGNAL(before_iterate, (struct pw_listener * listener, struct pw_loop * loop));
-	PW_SIGNAL(destroy_signal, (struct pw_listener * listener, struct pw_loop * loop));
+	PW_SIGNAL(before_iterate, (struct pw_listener *listener, struct pw_loop *loop));
+	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_loop *loop));
 };
 
 struct pw_loop *

@@ -71,7 +71,7 @@ setup_video_node(struct pw_core *core, struct spa_node *spa_node, struct pw_prop
 	return SPA_RESULT_OK;
 }
 
-bool pipewire__module_init(struct pw_module * module, const char *args)
+bool pipewire__module_init(struct pw_module *module, const char *args)
 {
 	struct pw_properties *video_props = NULL, *audio_props = NULL;
 

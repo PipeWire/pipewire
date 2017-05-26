@@ -500,7 +500,7 @@ impl_node_port_alloc_buffers(struct spa_node *node,
 			     struct spa_param **params,
 			     uint32_t n_params,
 			     struct spa_buffer **buffers,
-			     uint32_t * n_buffers)
+			     uint32_t *n_buffers)
 {
 	return SPA_RESULT_NOT_IMPLEMENTED;
 }

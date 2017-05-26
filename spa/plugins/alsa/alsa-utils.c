@@ -311,7 +311,10 @@ static int set_swparams(struct state *state)
 
 static inline snd_pcm_uframes_t
 pull_frames(struct state *state,
-	    const snd_pcm_channel_area_t * my_areas, snd_pcm_uframes_t offset, snd_pcm_uframes_t frames, bool do_pull)
+	    const snd_pcm_channel_area_t *my_areas,
+	    snd_pcm_uframes_t offset,
+	    snd_pcm_uframes_t frames,
+	    bool do_pull)
 {
 	snd_pcm_uframes_t total_frames = 0, to_write = frames;
 	struct spa_port_io *io = state->io;
@@ -384,7 +387,9 @@ pull_frames(struct state *state,
 
 static snd_pcm_uframes_t
 push_frames(struct state *state,
-	    const snd_pcm_channel_area_t * my_areas, snd_pcm_uframes_t offset, snd_pcm_uframes_t frames)
+	    const snd_pcm_channel_area_t *my_areas,
+	    snd_pcm_uframes_t offset,
+	    snd_pcm_uframes_t frames)
 {
 	snd_pcm_uframes_t total_frames = 0;
 	struct spa_port_io *io = state->io;
@@ -443,7 +448,9 @@ static int alsa_try_resume(struct state *state)
 	return res;
 }
 
-static inline void calc_timeout(size_t target, size_t current, size_t rate, snd_htimestamp_t * now, struct timespec *ts)
+static inline void calc_timeout(size_t target, size_t current,
+				size_t rate, snd_htimestamp_t *now,
+				struct timespec *ts)
 {
 	ts->tv_sec = now->tv_sec;
 	ts->tv_nsec = now->tv_nsec;

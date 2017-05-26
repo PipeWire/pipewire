@@ -282,7 +282,9 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
       PROP    (&f[1], ctx->type.param_alloc_meta_enable.ringbufferAlign,  SPA_POD_TYPE_INT, 16));
   port_params[2] = SPA_POD_BUILDER_DEREF (&b, f[0].ref, struct spa_param);
 
+  pw_thread_main_loop_lock (sink->main_loop);
   pw_stream_finish_format (sink->stream, SPA_RESULT_OK, port_params, 2);
+  pw_thread_main_loop_unlock (sink->main_loop);
 }
 
 static void

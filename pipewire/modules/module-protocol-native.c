@@ -148,15 +148,15 @@ connection_data(struct spa_loop_utils *utils,
 				continue;
 			}
 			if (opcode >= resource->iface->n_methods) {
-				pw_log_error("protocol-native %p: invalid method %u", client->impl,
-					     opcode);
+				pw_log_error("protocol-native %p: invalid method %u %u", client->impl,
+					     id,  opcode);
 				client_destroy(client);
 				break;
 			}
 			demarshal = resource->iface->methods;
 			if (!demarshal[opcode] || !demarshal[opcode] (resource, message, size)) {
-				pw_log_error("protocol-native %p: invalid message received",
-					     client->impl);
+				pw_log_error("protocol-native %p: invalid message received %u %u",
+					     client->impl, id, opcode);
 				client_destroy(client);
 				break;
 			}

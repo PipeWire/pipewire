@@ -32,8 +32,6 @@ extern "C" {
 #include <pipewire/client/sig.h>
 #include <pipewire/server/core.h>
 
-typedef void (*pw_destroy_t) (void *object);
-
 struct pw_resource {
 	struct pw_core *core;
 	struct spa_list link;

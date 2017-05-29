@@ -27,6 +27,8 @@ extern "C" {
 #include <spa/defs.h>
 #include <spa/pod-utils.h>
 
+typedef void (*pw_destroy_t) (void *object);
+
 const char *
 pw_split_walk(const char *str, const char *delimiter, size_t *len, const char **state);
 

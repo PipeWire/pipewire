@@ -41,7 +41,11 @@ struct debug_log {
 static void
 do_logv(struct spa_log *log,
 	enum spa_log_level level,
-	const char *file, int line, const char *func, const char *fmt, va_list args)
+	const char *file,
+	int line,
+	const char *func,
+	const char *fmt,
+	va_list args)
 {
 	struct debug_log *l = SPA_CONTAINER_OF(log, struct debug_log, log);
 	char text[1024], location[1024];
@@ -73,7 +77,11 @@ do_logv(struct spa_log *log,
 
 static void
 do_log(struct spa_log *log,
-       enum spa_log_level level, const char *file, int line, const char *func, const char *fmt, ...)
+       enum spa_log_level level,
+       const char *file,
+       int line,
+       const char *func,
+       const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
@@ -139,7 +147,10 @@ void pw_log_set_trace_event(struct spa_source *source)
 
 void
 pw_log_log(enum spa_log_level level,
-	   const char *file, int line, const char *func, const char *fmt, ...)
+	   const char *file,
+	   int line,
+	   const char *func,
+	   const char *fmt, ...)
 {
 	if (SPA_UNLIKELY(pw_log_level_enabled(level))) {
 		va_list args;
@@ -151,7 +162,11 @@ pw_log_log(enum spa_log_level level,
 
 void
 pw_log_logv(enum spa_log_level level,
-	    const char *file, int line, const char *func, const char *fmt, va_list args)
+	    const char *file,
+	    int line,
+	    const char *func,
+	    const char *fmt,
+	    va_list args)
 {
 	if (SPA_UNLIKELY(pw_log_level_enabled(level))) {
 		do_logv(&log.log, level, file, line, func, fmt, args);

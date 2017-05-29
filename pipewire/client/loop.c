@@ -50,6 +50,7 @@ struct impl {
 	struct pw_loop this;
 
 	struct spa_list source_list;
+	struct spa_list destroy_list;
 
 	spa_loop_hook_t pre_func;
 	spa_loop_hook_t post_func;
@@ -276,6 +277,7 @@ static int loop_iterate(struct spa_loop_control *ctrl, int timeout)
 	struct pw_loop *loop = &impl->this;
 	struct epoll_event ep[32];
 	int i, nfds, save_errno;
+	struct source_impl *source, *tmp;
 
 	pw_signal_emit(&loop->before_iterate, loop);
 
@@ -297,15 +299,20 @@ static int loop_iterate(struct spa_loop_control *ctrl, int timeout)
 	 * some callback might also want to look at other sources it manages and
 	 * can then reset the rmask to suppress the callback */
 	for (i = 0; i < nfds; i++) {
-		struct spa_source *source = ep[i].data.ptr;
-		source->rmask = spa_epoll_to_io(ep[i].events);
+		struct spa_source *s = ep[i].data.ptr;
+		s->rmask = spa_epoll_to_io(ep[i].events);
 	}
 	for (i = 0; i < nfds; i++) {
-		struct spa_source *source = ep[i].data.ptr;
-		if (source->rmask) {
-			source->func(source);
+		struct spa_source *s = ep[i].data.ptr;
+		if (s->rmask) {
+			s->func(s);
 		}
 	}
+	spa_list_for_each_safe(source, tmp, &impl->destroy_list, link)
+	    free(source);
+
+	spa_list_init(&impl->destroy_list);
+
 	return SPA_RESULT_OK;
 }
 
@@ -555,6 +562,7 @@ static struct spa_source *loop_add_signal(struct spa_loop_utils *utils,
 static void loop_destroy_source(struct spa_source *source)
 {
 	struct source_impl *impl = SPA_CONTAINER_OF(source, struct source_impl, source);
+	struct impl *loop_impl = SPA_CONTAINER_OF(source->loop, struct impl, loop);
 
 	spa_list_remove(&impl->link);
 
@@ -562,7 +570,8 @@ static void loop_destroy_source(struct spa_source *source)
 
 	if (source->fd != -1 && impl->close)
 		close(source->fd);
-	free(impl);
+
+	spa_list_insert(&loop_impl->destroy_list, &impl->link);
 }
 
 struct pw_loop *pw_loop_new(void)
@@ -581,6 +590,7 @@ struct pw_loop *pw_loop_new(void)
 		goto no_epoll;
 
 	spa_list_init(&impl->source_list);
+	spa_list_init(&impl->destroy_list);
 
 	pw_signal_init(&this->before_iterate);
 	pw_signal_init(&this->destroy_signal);
@@ -633,6 +643,8 @@ void pw_loop_destroy(struct pw_loop *loop)
 
 	spa_list_for_each_safe(source, tmp, &impl->source_list, link)
 	    loop_destroy_source(&source->source);
+	spa_list_for_each_safe(source, tmp, &impl->destroy_list, link)
+	    free(source);
 
 	close(impl->epoll_fd);
 	free(impl);

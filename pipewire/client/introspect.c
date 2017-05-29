@@ -190,9 +190,6 @@ struct pw_core_info *pw_core_info_update(struct pw_core_info *info,
 
 void pw_core_info_free(struct pw_core_info *info)
 {
-	if (info == NULL)
-		return;
-
 	if (info->user_name)
 		free((void *) info->user_name);
 	if (info->host_name)
@@ -286,8 +283,6 @@ void pw_node_info_free(struct pw_node_info *info)
 {
 	int i;
 
-	if (info == NULL)
-		return;
 	if (info->name)
 		free((void *) info->name);
 	if (info->input_formats) {
@@ -351,9 +346,6 @@ struct pw_module_info *pw_module_info_update(struct pw_module_info *info,
 
 void pw_module_info_free(struct pw_module_info *info)
 {
-	if (info == NULL)
-		return;
-
 	if (info->name)
 		free((void *) info->name);
 	if (info->filename)
@@ -395,8 +387,6 @@ struct pw_client_info *pw_client_info_update(struct pw_client_info *info,
 
 void pw_client_info_free(struct pw_client_info *info)
 {
-	if (info == NULL)
-		return;
 	if (info->props)
 		pw_spa_dict_destroy(info->props);
 	free(info);

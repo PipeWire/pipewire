@@ -254,6 +254,26 @@ static const struct pw_link_events link_events = {
 	&link_event_info
 };
 
+static void
+destroy_proxy (struct pw_proxy *proxy)
+{
+	if (proxy->user_data == NULL)
+		return;
+
+	if (proxy->type == proxy->context->type.core) {
+		pw_core_info_free (proxy->user_data);
+	} else if (proxy->type == proxy->context->type.node) {
+		pw_node_info_free (proxy->user_data);
+	} else if (proxy->type == proxy->context->type.module) {
+		pw_module_info_free (proxy->user_data);
+	} else if (proxy->type == proxy->context->type.client) {
+		pw_client_info_free (proxy->user_data);
+	} else if (proxy->type == proxy->context->type.link) {
+		pw_link_info_free (proxy->user_data);
+	}
+	proxy->user_data = NULL;
+}
+
 static void registry_event_global(void *object, uint32_t id, const char *type)
 {
 	struct pw_proxy *registry_proxy = object;
@@ -292,6 +312,7 @@ static void registry_event_global(void *object, uint32_t id, const char *type)
 		proxy->implementation = &link_events;
 	}
 	if (proxy) {
+		proxy->destroy = (pw_destroy_t)destroy_proxy;
 		pw_registry_do_bind(registry_proxy, id, proxy->id);
 	}
 
@@ -467,6 +488,7 @@ void pw_context_destroy(struct pw_context *context)
 	    pw_proxy_destroy(proxy);
 
 	pw_map_clear(&context->objects);
+	pw_map_clear(&context->types);
 
 	free(context->name);
 	if (context->properties)
@@ -565,6 +587,7 @@ bool pw_context_connect_fd(struct pw_context *context, enum pw_context_flags fla
 		goto no_proxy;
 
 	context->core_proxy->implementation = &core_events;
+	context->core_proxy->destroy = (pw_destroy_t)destroy_proxy;
 
 	pw_core_do_client_update(context->core_proxy, &context->properties->dict);
 

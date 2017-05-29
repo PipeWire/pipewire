@@ -71,5 +71,8 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 	pw_map_remove(&proxy->context->objects, proxy->id);
 	spa_list_remove(&proxy->link);
 
+	if (proxy->destroy)
+		proxy->destroy(proxy);
+
 	free(impl);
 }

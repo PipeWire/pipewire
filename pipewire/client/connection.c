@@ -25,11 +25,16 @@
 #include <unistd.h>
 #include <sys/socket.h>
 
+#include <spa/lib/debug.h>
+
+#include "pipewire.h"
 #include "connection.h"
 #include "log.h"
 
 #define MAX_BUFFER_SIZE 4096
 #define MAX_FDS 28
+
+static bool debug_messages = 0;
 
 struct buffer {
 	uint8_t *buffer_data;
@@ -161,6 +166,8 @@ struct pw_connection *pw_connection_new(int fd)
 	if (impl == NULL)
 		return NULL;
 
+	debug_messages = pw_debug_is_category_enabled("connection");
+
 	this = &impl->this;
 
 	pw_log_debug("connection %p: new", this);
@@ -271,7 +278,11 @@ pw_connection_get_next(struct pw_connection *conn,
 	*dt = buf->data;
 	*sz = buf->size;
 
-//  spa_debug_pod (data);
+
+	if (debug_messages) {
+		printf("<<<<<<<<< in:\n");
+	        spa_debug_pod((struct spa_pod *)data, NULL);
+	}
 
 	return true;
 }
@@ -298,6 +309,11 @@ pw_connection_end_write(struct pw_connection *conn, uint32_t dest_id, uint8_t op
 	*p++ = (opcode << 24) | (size & 0xffffff);
 
 	buf->buffer_size += 8 + size;
+
+	if (debug_messages) {
+		printf(">>>>>>>>> out:\n");
+	        spa_debug_pod((struct spa_pod *)p, NULL);
+	}
 
 	pw_signal_emit(&conn->need_flush, conn);
 }

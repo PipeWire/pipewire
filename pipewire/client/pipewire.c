@@ -18,11 +18,27 @@
  */
 
 #include <unistd.h>
+#include <limits.h>
 #include <stdio.h>
 #include <sys/prctl.h>
 #include <pwd.h>
 
 #include "pipewire/client/pipewire.h"
+
+static char **categories = NULL;
+
+static void configure_debug(const char *str)
+{
+	char **level;
+	int n_tokens;
+
+	level = pw_split_strv(str, ":", INT_MAX, &n_tokens);
+	if (n_tokens > 0)
+		pw_log_set_level(atoi(level[0]));
+
+	if (n_tokens > 1)
+		categories = pw_split_strv(level[1], ",", INT_MAX, &n_tokens);
+}
 
 /**
  * pw_init:
@@ -37,7 +53,21 @@ void pw_init(int *argc, char **argv[])
 	const char *str;
 
 	if ((str = getenv("PIPEWIRE_DEBUG")))
-		pw_log_set_level(atoi(str));
+		configure_debug(str);
+}
+
+bool pw_debug_is_category_enabled(const char *name)
+{
+	int i;
+
+	if (categories == NULL)
+		return false;
+
+	for (i = 0; categories[i]; i++) {
+		if (strcmp (categories[i], name) == 0)
+			return true;
+	}
+	return false;
 }
 
 const char *pw_get_application_name(void)

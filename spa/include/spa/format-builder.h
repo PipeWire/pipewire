@@ -29,7 +29,7 @@ extern "C" {
 #include <spa/format.h>
 #include <spa/pod-builder.h>
 
-#define SPA_FORMAT_INIT(size,type,media_type,media_subtype,...)		\
+#define SPA_FORMAT_INIT(size,type,media_type,media_subtype)		\
 	{ { size, SPA_POD_TYPE_OBJECT },				\
 	  { { 0, type },						\
 		SPA_POD_ID_INIT(media_type),				\
@@ -43,7 +43,7 @@ spa_pod_builder_push_format(struct spa_pod_builder *builder,
 			    uint32_t media_subtype)
 {
 	const struct spa_format p = SPA_FORMAT_INIT(sizeof(struct spa_format_body),
-					0, format_type, media_type, media_subtype);
+					format_type, media_type, media_subtype);
 	return spa_pod_builder_push(builder, frame, &p.pod,
 				    spa_pod_builder_raw(builder, &p, sizeof(p)));
 }

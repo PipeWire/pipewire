@@ -40,6 +40,9 @@ extern "C" {
 void
 pw_init(int *argc, char **argv[]);
 
+bool
+pw_debug_is_category_enabled(const char *name);
+
 const char *
 pw_get_application_name(void);
 

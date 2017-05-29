@@ -27,6 +27,7 @@ extern "C" {
 #include <pipewire/client/connection.h>
 #include <pipewire/client/context.h>
 #include <pipewire/client/type.h>
+#include <pipewire/client/utils.h>
 
 struct pw_proxy {
 	struct pw_context *context;
@@ -39,6 +40,7 @@ struct pw_proxy {
 	const void *implementation;
 
 	void *user_data;
+        pw_destroy_t destroy;
 
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_proxy *proxy));
 };

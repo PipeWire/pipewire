@@ -550,7 +550,7 @@ struct spa_node {
 	 *  - status is set to SPA_RESULT_OK when no new buffer is needed
 	 *
 	 *  - status is set to SPA_RESULT_NEED_BUFFER when a new buffer is needed
-	 *    on the pad.
+	 *    on the port.
 	 *
 	 *  - status is set to an error code when the buffer_id was invalid or any
 	 *    processing error happened on the port.

@@ -87,21 +87,20 @@ static void do_static_struct(struct spa_type_map *map)
 		struct spa_format fmt;
 
 		struct {
-			struct spa_pod_prop prop_format;	SPA_ALIGNED(8)
+			struct spa_pod_prop prop_format		SPA_ALIGNED(8);
 			struct {
 				uint32_t def_format;
 				uint32_t enum_format[2];
 			} format_vals;
-			uint32_t pad;
 
-			struct spa_pod_prop prop_size;		SPA_ALIGNED(8)
+			struct spa_pod_prop prop_size		SPA_ALIGNED(8);
 			struct {
 				struct spa_rectangle def_size;
 				struct spa_rectangle min_size;
 				struct spa_rectangle max_size;
 			} size_vals;
 
-			struct spa_pod_prop prop_framerate;	SPA_ALIGNED(8)
+			struct spa_pod_prop prop_framerate	SPA_ALIGNED(8);
 			struct {
 				struct spa_fraction def_framerate;
 				struct spa_fraction min_framerate;
@@ -120,7 +119,7 @@ static void do_static_struct(struct spa_type_map *map)
 			{
 				type.video_format.I420,
 				{ type.video_format.I420, type.video_format.YUY2 }
-			}, 0,
+			},
 			SPA_POD_PROP_INIT(sizeof(test_format.props.size_vals) +
 						sizeof(struct spa_pod_prop_body),
 					  type.format_video.size,

@@ -302,7 +302,7 @@ do_update_port(struct proxy *this,
 		port = &this->out_ports[port_id];
 	}
 
-	if (change_mask & PW_MESSAGE_PORT_UPDATE_POSSIBLE_FORMATS) {
+	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_POSSIBLE_FORMATS) {
 		for (i = 0; i < port->n_formats; i++)
 			free(port->formats[i]);
 		port->n_formats = n_possible_formats;
@@ -311,13 +311,13 @@ do_update_port(struct proxy *this,
 		for (i = 0; i < port->n_formats; i++)
 			port->formats[i] = spa_format_copy(possible_formats[i]);
 	}
-	if (change_mask & PW_MESSAGE_PORT_UPDATE_FORMAT) {
+	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_FORMAT) {
 		if (port->format)
 			free(port->format);
 		port->format = spa_format_copy(format);
 	}
 
-	if (change_mask & PW_MESSAGE_PORT_UPDATE_PARAMS) {
+	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_PARAMS) {
 		for (i = 0; i < port->n_params; i++)
 			free(port->params[i]);
 		port->n_params = n_params;
@@ -326,7 +326,7 @@ do_update_port(struct proxy *this,
 			port->params[i] = spa_param_copy(params[i]);
 	}
 
-	if (change_mask & PW_MESSAGE_PORT_UPDATE_INFO && info)
+	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_INFO && info)
 		port->info = *info;
 
 	if (!port->valid) {
@@ -348,10 +348,10 @@ clear_port(struct proxy *this,
 	do_update_port(this,
 		       direction,
 		       port_id,
-		       PW_MESSAGE_PORT_UPDATE_POSSIBLE_FORMATS |
-		       PW_MESSAGE_PORT_UPDATE_FORMAT |
-		       PW_MESSAGE_PORT_UPDATE_PARAMS |
-		       PW_MESSAGE_PORT_UPDATE_INFO, 0, NULL, NULL, 0, NULL, NULL);
+		       PW_CLIENT_NODE_PORT_UPDATE_POSSIBLE_FORMATS |
+		       PW_CLIENT_NODE_PORT_UPDATE_FORMAT |
+		       PW_CLIENT_NODE_PORT_UPDATE_PARAMS |
+		       PW_CLIENT_NODE_PORT_UPDATE_INFO, 0, NULL, NULL, 0, NULL, NULL);
 	clear_buffers(this, port);
 }
 
@@ -873,9 +873,9 @@ client_node_update(void *object,
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	struct proxy *this = &impl->proxy;
 
-	if (change_mask & PW_MESSAGE_NODE_UPDATE_MAX_INPUTS)
+	if (change_mask & PW_CLIENT_NODE_UPDATE_MAX_INPUTS)
 		this->max_inputs = max_input_ports;
-	if (change_mask & PW_MESSAGE_NODE_UPDATE_MAX_OUTPUTS)
+	if (change_mask & PW_CLIENT_NODE_UPDATE_MAX_OUTPUTS)
 		this->max_outputs = max_output_ports;
 
 	spa_log_info(this->log, "proxy %p: got node update max_in %u, max_out %u", this,

@@ -343,9 +343,9 @@ static void add_node_update(struct pw_stream *stream, uint32_t change_mask)
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	uint32_t max_input_ports = 0, max_output_ports = 0;
 
-	if (change_mask & PW_MESSAGE_NODE_UPDATE_MAX_INPUTS)
+	if (change_mask & PW_CLIENT_NODE_UPDATE_MAX_INPUTS)
 		max_input_ports = impl->direction == SPA_DIRECTION_INPUT ? 1 : 0;
-	if (change_mask & PW_MESSAGE_NODE_UPDATE_MAX_OUTPUTS)
+	if (change_mask & PW_CLIENT_NODE_UPDATE_MAX_OUTPUTS)
 		max_output_ports = impl->direction == SPA_DIRECTION_OUTPUT ? 1 : 0;
 
 	pw_client_node_do_update(impl->node_proxy,
@@ -416,12 +416,12 @@ static void do_node_init(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
-	add_node_update(stream, PW_MESSAGE_NODE_UPDATE_MAX_INPUTS |
-			PW_MESSAGE_NODE_UPDATE_MAX_OUTPUTS);
+	add_node_update(stream, PW_CLIENT_NODE_UPDATE_MAX_INPUTS |
+			PW_CLIENT_NODE_UPDATE_MAX_OUTPUTS);
 
 	impl->port_info.flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
-	add_port_update(stream, PW_MESSAGE_PORT_UPDATE_POSSIBLE_FORMATS |
-			PW_MESSAGE_PORT_UPDATE_INFO);
+	add_port_update(stream, PW_CLIENT_NODE_PORT_UPDATE_POSSIBLE_FORMATS |
+			PW_CLIENT_NODE_PORT_UPDATE_INFO);
 	add_async_complete(stream, 0, SPA_RESULT_OK);
 }
 
@@ -988,8 +988,8 @@ pw_stream_finish_format(struct pw_stream *stream,
 	set_params(stream, n_params, params);
 
 	if (SPA_RESULT_IS_OK(res)) {
-		add_port_update(stream, (n_params ? PW_MESSAGE_PORT_UPDATE_PARAMS : 0) |
-				PW_MESSAGE_PORT_UPDATE_FORMAT);
+		add_port_update(stream, (n_params ? PW_CLIENT_NODE_PORT_UPDATE_PARAMS : 0) |
+				PW_CLIENT_NODE_PORT_UPDATE_FORMAT);
 
 		if (!impl->format) {
 			clear_buffers(stream);

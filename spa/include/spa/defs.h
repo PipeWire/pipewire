@@ -133,9 +133,11 @@ struct spa_fraction {
 #ifdef __GNUC__
 #define SPA_PRINTF_FUNC(fmt, arg1) __attribute__((format(printf, fmt, arg1)))
 #define SPA_ALIGNED(align) __attribute__((aligned(align)))
+#define SPA_DEPRECATED __attribute__ ((deprecated))
 #else
 #define SPA_PRINTF_FUNC(fmt, arg1)
 #define SPA_ALIGNED(align)
+#define SPA_DEPRECATED
 #endif
 
 #define SPA_ROUND_UP_N(num,align) ((((num) + ((align) - 1)) & ~((align) - 1)))

@@ -299,9 +299,9 @@ struct pw_client_node_methods {
 	 * \param props new properties
 	 */
 	void (*update) (void *object,
-#define PW_MESSAGE_NODE_UPDATE_MAX_INPUTS   (1 << 0)
-#define PW_MESSAGE_NODE_UPDATE_MAX_OUTPUTS  (1 << 1)
-#define PW_MESSAGE_NODE_UPDATE_PROPS        (1 << 2)
+#define PW_CLIENT_NODE_UPDATE_MAX_INPUTS   (1 << 0)
+#define PW_CLIENT_NODE_UPDATE_MAX_OUTPUTS  (1 << 1)
+#define PW_CLIENT_NODE_UPDATE_PROPS        (1 << 2)
 			uint32_t change_mask,
 			uint32_t max_input_ports,
 			uint32_t max_output_ports,
@@ -321,11 +321,13 @@ struct pw_client_node_methods {
 	 * \param params array of port parameters
 	 * \param info port information
 	 */
-	void (*port_update) (void *object, enum spa_direction direction, uint32_t port_id,
-#define PW_MESSAGE_PORT_UPDATE_POSSIBLE_FORMATS  (1 << 0)
-#define PW_MESSAGE_PORT_UPDATE_FORMAT            (1 << 1)
-#define PW_MESSAGE_PORT_UPDATE_PARAMS            (1 << 2)
-#define PW_MESSAGE_PORT_UPDATE_INFO              (1 << 3)
+	void (*port_update) (void *object,
+			     enum spa_direction direction,
+			     uint32_t port_id,
+#define PW_CLIENT_NODE_PORT_UPDATE_POSSIBLE_FORMATS  (1 << 0)
+#define PW_CLIENT_NODE_PORT_UPDATE_FORMAT            (1 << 1)
+#define PW_CLIENT_NODE_PORT_UPDATE_PARAMS            (1 << 2)
+#define PW_CLIENT_NODE_PORT_UPDATE_INFO              (1 << 3)
 			     uint32_t change_mask,
 			     uint32_t n_possible_formats,
 			     const struct spa_format **possible_formats,

@@ -23,6 +23,7 @@
 #include "pipewire/client/log.h"
 #include "pipewire/server/work-queue.h"
 
+/** \cond */
 struct work_item {
 	uint32_t id;
 	void *obj;
@@ -43,7 +44,7 @@ struct impl {
 	struct spa_list free_list;
 	int n_queued;
 };
-
+/** \endcond */
 
 static void process_work_queue(struct spa_loop_utils *utils, struct spa_source *source, void *data)
 {
@@ -77,12 +78,12 @@ static void process_work_queue(struct spa_loop_utils *utils, struct spa_source *
 	}
 }
 
-/**
- * pw_work_queue_new:
+/** Create a new \ref pw_work_queue
  *
- * Create a new #struct pw_work_queue.
+ * \param loop the loop to use
+ * \return a newly allocated work queue
  *
- * Returns: a new #struct pw_work_queue
+ * \memberof pw_work_queue
  */
 struct pw_work_queue *pw_work_queue_new(struct pw_loop *loop)
 {
@@ -104,6 +105,11 @@ struct pw_work_queue *pw_work_queue_new(struct pw_loop *loop)
 	return this;
 }
 
+/** Destroy a work queue
+ * \param queue the work queue to destroy
+ *
+ * \memberof pw_work_queue
+ */
 void pw_work_queue_destroy(struct pw_work_queue *queue)
 {
 	struct impl *impl = SPA_CONTAINER_OF(queue, struct impl, this);
@@ -125,6 +131,16 @@ void pw_work_queue_destroy(struct pw_work_queue *queue)
 	free(impl);
 }
 
+/** Add an item to the work queue
+ *
+ * \param queue the work queue
+ * \param obj the object owning the work item
+ * \param res a result code
+ * \param func a work function
+ * \param data passed to \a func
+ *
+ * \memberof pw_work_queue
+ */
 uint32_t
 pw_work_queue_add(struct pw_work_queue *queue, void *obj, int res, pw_work_func_t func, void *data)
 {
@@ -169,6 +185,13 @@ pw_work_queue_add(struct pw_work_queue *queue, void *obj, int res, pw_work_func_
 	return item->id;
 }
 
+/** Cancel a work item
+ * \param queue the work queue
+ * \param obj the owner object
+ * \param id the wotk id to cancel
+ *
+ * \memberof pw_work_queue
+ */
 void pw_work_queue_cancel(struct pw_work_queue *queue, void *obj, uint32_t id)
 {
 	struct impl *impl = SPA_CONTAINER_OF(queue, struct impl, this);
@@ -188,6 +211,14 @@ void pw_work_queue_cancel(struct pw_work_queue *queue, void *obj, uint32_t id)
 		pw_loop_signal_event(impl->this.loop, impl->wakeup);
 }
 
+/** Complete a work item
+ * \param queue the work queue
+ * \param obj the owner object
+ * \param seq the sequence number that completed
+ * \param res the result of the completed work
+ *
+ * \memberof pw_work_queue
+ */
 bool pw_work_queue_complete(struct pw_work_queue *queue, void *obj, uint32_t seq, int res)
 {
 	struct work_item *item;

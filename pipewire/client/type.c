@@ -31,6 +31,10 @@
 
 #include "spa/monitor.h"
 
+/** Initializes the type system
+ * \param type a type structure
+ * \memberof pw_type
+ */
 void pw_type_init(struct pw_type *type)
 {
 	type->map = pw_type_map_get_default();

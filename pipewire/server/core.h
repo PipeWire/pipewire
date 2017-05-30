@@ -39,54 +39,68 @@ struct pw_global;
 typedef int (*pw_bind_func_t) (struct pw_global *global,
 			       struct pw_client *client, uint32_t version, uint32_t id);
 
+/** \class pw_global
+ *
+ * \brief A global object visible to all clients
+ *
+ * A global object is visible to all clients and represents a resource
+ * that can be used or inspected.
+ */
 struct pw_global {
-	struct pw_core *core;
-	struct pw_client *owner;
+	struct pw_core *core;		/**< the core */
+	struct pw_client *owner;	/**< the owner of this object, NULL when the
+					  *  PipeWire server is the owner */
 
-	struct spa_list link;
-	uint32_t id;
-	uint32_t type;
-	uint32_t version;
-	void *object;
+	struct spa_list link;		/**< link in core list of globals */
+	uint32_t id;			/**< server id of the object */
+	uint32_t type;			/**< type of the object */
+	uint32_t version;		/**< version of the object */
+	void *object;			/**< object associated with the global */
 
+	/** Emited when the global is destroyed */
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_global *global));
 };
 
-/**
- * struct pw_core:
+/** \class pw_core
  *
- * PipeWire core object class.
+ * \brief the core PipeWire object
+ *
+ * The server core object manages all resources available on the
+ * server.
  */
 struct pw_core {
-	struct pw_global *global;
+	struct pw_global *global;	/**< the global of the core */
 
-	struct pw_core_info info;
+	struct pw_core_info info;	/**< info about the core */
 
-	struct pw_properties *properties;
+	struct pw_properties *properties;	/**< properties of the core */
 
-	struct pw_type type;
-	struct pw_access *access;
+	struct pw_type type;		/**< type map and common types */
+	struct pw_access *access;	/**< access control checks */
 
-	struct pw_map objects;
+	struct pw_map objects;		/**< map of known objects */
 
-	struct spa_list resource_list;
-	struct spa_list registry_resource_list;
-	struct spa_list global_list;
-	struct spa_list client_list;
-	struct spa_list node_list;
-	struct spa_list node_factory_list;
-	struct spa_list link_list;
+	struct spa_list resource_list;		/**< list of resources */
+	struct spa_list registry_resource_list;	/**< list of registry resources */
+	struct spa_list global_list;		/**< list of globals */
+	struct spa_list client_list;		/**< list of clients */
+	struct spa_list node_list;		/**< list of nodes */
+	struct spa_list node_factory_list;	/**< list of node factories */
+	struct spa_list link_list;		/**< list of links */
 
-	struct pw_main_loop *main_loop;
-	struct pw_data_loop *data_loop;
+	struct pw_main_loop *main_loop;	/**< main loop for control */
+	struct pw_data_loop *data_loop;	/**< data loop for data passing */
 
-	struct spa_support *support;
-	uint32_t n_support;
+	struct spa_support *support;	/**< support for spa plugins */
+	uint32_t n_support;		/**< number of support items */
 
+	/** Emited when the core is destroyed */
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_core *core));
 
+	/** Emited when a global is added */
 	PW_SIGNAL(global_added, (struct pw_listener *listener,
 				 struct pw_core *core, struct pw_global *global));
+	/** Emited when a global is removed */
 	PW_SIGNAL(global_removed, (struct pw_listener *listener,
 				   struct pw_core *core, struct pw_global *global));
 };

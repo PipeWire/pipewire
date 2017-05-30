@@ -28,17 +28,20 @@ extern "C" {
 #include <spa/loop.h>
 #include <pipewire/client/sig.h>
 
-/**
- * pw_loop:
+/** \class pw_loop
  *
- * PipeWire loop interface.
+ * PipeWire loop interface provides an implementation of
+ * the spa loop interfaces. It can be used to implement various
+ * event loops.
  */
 struct pw_loop {
-	struct spa_loop *loop;
-	struct spa_loop_control *control;
-	struct spa_loop_utils *utils;
+	struct spa_loop *loop;			/**< wrapped loop */
+	struct spa_loop_control *control;	/**< loop control */
+	struct spa_loop_utils *utils;		/**< loop utils */
 
+	/** Emited before the loop iteration starts */
 	PW_SIGNAL(before_iterate, (struct pw_listener *listener, struct pw_loop *loop));
+	/** Emited when the loop is destroyed */
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_loop *loop));
 };
 

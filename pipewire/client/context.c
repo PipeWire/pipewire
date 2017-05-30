@@ -31,6 +31,7 @@
 #include "pipewire/client/connection.h"
 #include "pipewire/client/subscribe.h"
 
+/** \cond */
 struct context {
 	struct pw_context this;
 
@@ -44,15 +45,8 @@ struct context {
 	struct pw_listener need_flush;
 	struct spa_source *flush_event;
 };
+/** \endcond */
 
-/**
- * pw_context_state_as_string:
- * @state: a #enum pw_context_state
- *
- * Return the string representation of @state.
- *
- * Returns: the string representation of @state.
- */
 const char *pw_context_state_as_string(enum pw_context_state state)
 {
 	switch (state) {
@@ -274,7 +268,7 @@ destroy_proxy (struct pw_proxy *proxy)
 	proxy->user_data = NULL;
 }
 
-static void registry_event_global(void *object, uint32_t id, const char *type)
+static void registry_event_global(void *object, uint32_t id, const char *type, uint32_t version)
 {
 	struct pw_proxy *registry_proxy = object;
 	struct pw_context *this = registry_proxy->context;
@@ -284,7 +278,7 @@ static void registry_event_global(void *object, uint32_t id, const char *type)
 	if (impl->no_proxy)
 		return;
 
-	pw_log_debug("got global %u %s", id, type);
+	pw_log_debug("got global %u %s %u", id, type, version);
 
 	if (!strcmp(type, PIPEWIRE_TYPE__Node)) {
 		proxy = pw_proxy_new(this, SPA_ID_INVALID, this->type.node);
@@ -313,7 +307,7 @@ static void registry_event_global(void *object, uint32_t id, const char *type)
 	}
 	if (proxy) {
 		proxy->destroy = (pw_destroy_t)destroy_proxy;
-		pw_registry_do_bind(registry_proxy, id, proxy->id);
+		pw_registry_do_bind(registry_proxy, id, version, proxy->id);
 	}
 
 	return;
@@ -406,15 +400,15 @@ on_context_data(struct spa_loop_utils *utils,
 	}
 }
 
-/**
- * pw_context_new:
- * @context: a #GMainContext to run in
- * @name: an application name
- * @properties: (transfer full): optional properties
+/** Create a new unconnected context
  *
- * Make a new unconnected #struct pw_context
+ * \param loop a \ref pw_loop to use as event loop
+ * \param name an application name
+ * \param properties optional properties, ownership of the properties is
+ *		taken.
+ * \return a new unconnected context
  *
- * Returns: a new unconnected #struct pw_context
+ * \memberof pw_context
  */
 struct pw_context *pw_context_new(struct pw_loop *loop,
 				  const char *name, struct pw_properties *properties)
@@ -453,7 +447,6 @@ struct pw_context *pw_context_new(struct pw_loop *loop,
 	pw_map_init(&this->types, 64, 32);
 
 	spa_list_init(&this->stream_list);
-	spa_list_init(&this->global_list);
 	spa_list_init(&this->proxy_list);
 
 	pw_signal_init(&this->state_changed);
@@ -468,6 +461,12 @@ struct pw_context *pw_context_new(struct pw_loop *loop,
 	return NULL;
 }
 
+/** Destroy a context
+ *
+ * \param context a \ref pw_context to destroy to destroy
+ *
+ * \memberof pw_context
+ */
 void pw_context_destroy(struct pw_context *context)
 {
 	struct context *impl = SPA_CONTAINER_OF(context, struct context, this);
@@ -497,13 +496,13 @@ void pw_context_destroy(struct pw_context *context)
 	free(impl);
 }
 
-/**
- * pw_context_connect:
- * @context: a #struct pw_context
+/** Connect to the PipeWire daemon
  *
- * Connect to the daemon
+ * \param context a \ref pw_context
+ * \param flags flags to use
+ * \return true on success.
  *
- * Returns: %TRUE on success.
+ * \memberof pw_context
  */
 bool pw_context_connect(struct pw_context *context, enum pw_context_flags flags)
 {
@@ -552,14 +551,14 @@ bool pw_context_connect(struct pw_context *context, enum pw_context_flags flags)
 	return false;
 }
 
-/**
- * pw_context_connect_fd:
- * @context: a #struct pw_context
- * @fd: FD of a connected PipeWire socket
+/** Connect to the PipeWire daemon on the given socket
  *
- * Connect to a daemon. @fd should already be connected to a PipeWire socket.
+ * \param context a \ref pw_context
+ * \param flags flags to use
+ * \param fd the connected socket to use
+ * \return true on success.
  *
- * Returns: %TRUE on success.
+ * \memberof pw_context
  */
 bool pw_context_connect_fd(struct pw_context *context, enum pw_context_flags flags, int fd)
 {
@@ -618,13 +617,12 @@ bool pw_context_connect_fd(struct pw_context *context, enum pw_context_flags fla
 	return false;
 }
 
-/**
- * pw_context_disconnect:
- * @context: a #struct pw_context
+/** Disconnect from the daemon.
  *
- * Disonnect from the daemon.
+ * \param context a \ref pw_context
+ * \return true on success.
  *
- * Returns: %TRUE on success.
+ * \memberof pw_context
  */
 bool pw_context_disconnect(struct pw_context *context)
 {
@@ -658,6 +656,14 @@ bool pw_context_disconnect(struct pw_context *context)
 	return true;
 }
 
+/** Get core information
+ *
+ * \param context A \ref pw_context
+ * \param cb the callback to call with the result
+ * \param user_data user data passed to \a cb
+ *
+ * \memberof pw_introspect
+ */
 void pw_context_get_core_info(struct pw_context *context, pw_core_info_cb_t cb, void *user_data)
 {
 	struct pw_proxy *proxy;
@@ -695,13 +701,33 @@ static void do_list(struct pw_context *context, uint32_t type, list_func_t cb, v
 	cb(context, SPA_RESULT_ENUM_END, NULL, user_data);
 }
 
-
+/** Get all module information
+ *
+ * \param context A \ref pw_context
+ * \param cb the callback to call with the results
+ * \param user_data user data passed to \a cb
+ *
+ * \a cb is called for each module
+ *
+ * \memberof pw_introspect
+ */
 void
 pw_context_list_module_info(struct pw_context *context, pw_module_info_cb_t cb, void *user_data)
 {
 	do_list(context, context->type.module, (list_func_t) cb, user_data);
 }
 
+/** Get module information
+ *
+ * \param context A \ref pw_context
+ * \param id the server side id of the module to query
+ * \param cb the callback to call with the results
+ * \param user_data user data passed to \a cb
+ *
+ * \a cb is called for the module with \a id
+ *
+ * \memberof pw_introspect
+ */
 void
 pw_context_get_module_info_by_id(struct pw_context *context,
 				 uint32_t id, pw_module_info_cb_t cb, void *user_data)
@@ -719,12 +745,33 @@ pw_context_get_module_info_by_id(struct pw_context *context,
 	cb(context, SPA_RESULT_ENUM_END, NULL, user_data);
 }
 
+/** Get all client information
+ *
+ * \param context A \ref pw_context
+ * \param cb the callback to call with the results
+ * \param user_data user data passed to \a cb
+ *
+ * \a cb is called for each client
+ *
+ * \memberof pw_introspect
+ */
 void
 pw_context_list_client_info(struct pw_context *context, pw_client_info_cb_t cb, void *user_data)
 {
 	do_list(context, context->type.client, (list_func_t) cb, user_data);
 }
 
+/** Get client information
+ *
+ * \param context A \ref pw_context
+ * \param id the server side id of the client to query
+ * \param cb the callback to call with the results
+ * \param user_data user data passed to \a cb
+ *
+ * \a cb is called for the client with \a id
+ *
+ * \memberof pw_introspect
+ */
 void
 pw_context_get_client_info_by_id(struct pw_context *context,
 				 uint32_t id, pw_client_info_cb_t cb, void *user_data)
@@ -742,11 +789,32 @@ pw_context_get_client_info_by_id(struct pw_context *context,
 	cb(context, SPA_RESULT_ENUM_END, NULL, user_data);
 }
 
+/** Get all node information
+ *
+ * \param context A \ref pw_context
+ * \param cb the callback to call with the results
+ * \param user_data user data passed to \a cb
+ *
+ * \a cb is called for each node
+ *
+ * \memberof pw_introspect
+ */
 void pw_context_list_node_info(struct pw_context *context, pw_node_info_cb_t cb, void *user_data)
 {
 	do_list(context, context->type.node, (list_func_t) cb, user_data);
 }
 
+/** Get node information
+ *
+ * \param context A \ref pw_context
+ * \param id the server side id of the node to query
+ * \param cb the callback to call with the results
+ * \param user_data user data passed to \a cb
+ *
+ * \a cb is called for the node with \a id
+ *
+ * \memberof pw_introspect
+ */
 void
 pw_context_get_node_info_by_id(struct pw_context *context,
 			       uint32_t id, pw_node_info_cb_t cb, void *user_data)
@@ -764,11 +832,32 @@ pw_context_get_node_info_by_id(struct pw_context *context,
 	cb(context, SPA_RESULT_ENUM_END, NULL, user_data);
 }
 
+/** Get all link information
+ *
+ * \param context A \ref pw_context
+ * \param cb the callback to call with the results
+ * \param user_data user data passed to \a cb
+ *
+ * \a cb is called for each link
+ *
+ * \memberof pw_introspect
+ */
 void pw_context_list_link_info(struct pw_context *context, pw_link_info_cb_t cb, void *user_data)
 {
 	do_list(context, context->type.link, (list_func_t) cb, user_data);
 }
 
+/** Get link information
+ *
+ * \param context A \ref pw_context
+ * \param id the server side id of the link to query
+ * \param cb the callback to call with the results
+ * \param user_data user data passed to \a cb
+ *
+ * \a cb is called for the link with \a id
+ *
+ * \memberof pw_introspect
+ */
 void
 pw_context_get_link_info_by_id(struct pw_context *context,
 			       uint32_t id, pw_link_info_cb_t cb, void *user_data)

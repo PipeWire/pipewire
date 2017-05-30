@@ -32,34 +32,40 @@ extern "C" {
 #include <pipewire/client/mem.h>
 #include <pipewire/client/sig.h>
 
+/** information about the transport region \memberof pw_transport */
 struct pw_transport_info {
-	int memfd;
-	uint32_t offset;
-	uint32_t size;
+	int memfd;		/**< the memfd of the transport area */
+	uint32_t offset;	/**< offset to map \a memfd at */
+	uint32_t size;		/**< size of memfd mapping */
 };
 
-/**
- * struct pw_transport_area:
- *
- * Shared structure between client and server
- */
+/** Shared structure between client and server \memberof pw_transport */
 struct pw_transport_area {
-	uint32_t max_inputs;
-	uint32_t n_inputs;
-	uint32_t max_outputs;
-	uint32_t n_outputs;
+	uint32_t max_inputs;	/**< max inputs of the node */
+	uint32_t n_inputs;	/**< number of inputs of the node */
+	uint32_t max_outputs;	/**< max outputs of the node */
+	uint32_t n_outputs;	/**< number of outputs of the node */
 };
 
+/** \class pw_transport
+ *
+ * \brief Transport object
+ *
+ * The transport object contains shared data and ringbuffers to exchange
+ * events and data between the server and the client in a low-latency and
+ * lockfree way.
+ */
 struct pw_transport {
+	/** Emited when the transport is destroyed */
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_transport *trans));
 
-	struct pw_transport_area *area;
-	struct spa_port_io *inputs;
-	struct spa_port_io *outputs;
-	void *input_data;
-	struct spa_ringbuffer *input_buffer;
-	void *output_data;
-	struct spa_ringbuffer *output_buffer;
+	struct pw_transport_area *area;		/**< the transport area */
+	struct spa_port_io *inputs;		/**< array of input port io */
+	struct spa_port_io *outputs;		/**< array of output port io */
+	void *input_data;			/**< input memory for ringbuffer */
+	struct spa_ringbuffer *input_buffer;	/**< ringbuffer for input memory */
+	void *output_data;			/**< output memory for ringbuffer */
+	struct spa_ringbuffer *output_buffer;	/**< ringbuffer for output memory */
 };
 
 struct pw_transport *

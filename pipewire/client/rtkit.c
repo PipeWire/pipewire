@@ -51,9 +51,11 @@
 
 #include "rtkit.h"
 
+/** \cond */
 struct pw_rtkit_bus {
 	DBusConnection *bus;
 };
+/** \endcond */
 
 struct pw_rtkit_bus *pw_rtkit_bus_get_system(void)
 {

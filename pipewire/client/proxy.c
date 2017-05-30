@@ -21,10 +21,26 @@
 #include <pipewire/client/proxy.h>
 #include <pipewire/client/protocol-native.h>
 
+/** \cond */
 struct proxy {
 	struct pw_proxy this;
 };
+/** \endcond */
 
+/** Create a proxy object with a given id and type
+ *
+ * \param context Context object
+ * \param id Id of the new object, SPA_ID_INVALID will choose a new id
+ * \param type Type of the proxy object
+ * \return A newly allocated proxy object or NULL on failure
+ *
+ * This function creates a new proxy object with the supplied id and type. The
+ * proxy object will have an id assigned from the client id space.
+ *
+ * \sa pw_context
+ *
+ * \memberof pw_proxy
+ */
 struct pw_proxy *pw_proxy_new(struct pw_context *context, uint32_t id, uint32_t type)
 {
 	struct proxy *impl;
@@ -61,6 +77,14 @@ struct pw_proxy *pw_proxy_new(struct pw_context *context, uint32_t id, uint32_t 
 	return NULL;
 }
 
+/** Destroy a proxy object
+ *
+ * \param proxy Proxy object to destroy
+ *
+ * \note This is normally called by \ref pw_context when the server
+ *       decides to destroy the server side object
+ * \memberof pw_proxy
+ */
 void pw_proxy_destroy(struct pw_proxy *proxy)
 {
 	struct proxy *impl = SPA_CONTAINER_OF(proxy, struct proxy, this);

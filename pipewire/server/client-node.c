@@ -38,6 +38,8 @@
 #include "pipewire/server/core.h"
 #include "pipewire/server/client-node.h"
 
+/** \cond */
+
 #define MAX_INPUTS       64
 #define MAX_OUTPUTS      64
 
@@ -128,6 +130,8 @@ struct impl {
 	int fds[2];
 	int other_fds[2];
 };
+
+/** \endcond */
 
 static int clear_buffers(struct proxy *this, struct proxy_port *port)
 {
@@ -1107,20 +1111,21 @@ static void on_node_free(struct pw_listener *listener, struct pw_node *node)
 	free(impl);
 }
 
-/**
- * pw_client_node_new:
- * @client: a #pw_client
- * @id: an id
- * @name: a name
- * @properties: extra properties
+/** Create a new client node
+ * \param client an owner \ref pw_client
+ * \param id an id
+ * \param name a name
+ * \param properties extra properties
+ * \return a newly allocated client node
  *
- * Create a new #struct pw_node.
+ * Create a new \ref pw_node.
  *
- * Returns: a new #struct pw_node
+ * \memberof pw_client_node
  */
 struct pw_client_node *pw_client_node_new(struct pw_client *client,
 					  uint32_t id,
-					  const char *name, struct pw_properties *properties)
+					  const char *name,
+					  struct pw_properties *properties)
 {
 	struct impl *impl;
 	struct pw_client_node *this;
@@ -1178,19 +1183,20 @@ void pw_client_node_destroy(struct pw_client_node *this)
 	pw_resource_destroy(this->resource);
 }
 
-/**
- * pw_client_node_get_fds:
- * @node: a #struct pw_client_node
- * @readfd: an fd for reading
- * @writefd: an fd for writing
+/** Get the set of fds for this \ref pw_client_node
  *
- * Create or return a previously create set of fds for @node.
+ * \param node a \ref pw_client_node
+ * \param[out] readfd an fd for reading
+ * \param[out] writefd an fd for writing
+ * \return 0 on success < 0 on error
  *
- * Returns: %SPA_RESULT_OK on success
+ * Create or return a previously created set of fds for \a node.
+ *
+ * \memberof pw_client_node
  */
-int pw_client_node_get_fds(struct pw_client_node *this, int *readfd, int *writefd)
+int pw_client_node_get_fds(struct pw_client_node *node, int *readfd, int *writefd)
 {
-	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
+	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 
 	if (impl->fds[0] == -1) {
 #if 0
@@ -1212,7 +1218,7 @@ int pw_client_node_get_fds(struct pw_client_node *this, int *readfd, int *writef
 #endif
 
 		spa_loop_add_source(impl->proxy.data_loop, &impl->proxy.data_source);
-		pw_log_debug("client-node %p: add data fd %d", this, impl->proxy.data_source.fd);
+		pw_log_debug("client-node %p: add data fd %d", node, impl->proxy.data_source.fd);
 	}
 	*readfd = impl->other_fds[0];
 	*writefd = impl->other_fds[1];

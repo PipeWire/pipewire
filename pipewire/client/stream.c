@@ -36,6 +36,8 @@
 #include "pipewire/client/transport.h"
 #include "pipewire/client/utils.h"
 
+/** \cond */
+
 #define MAX_BUFFER_SIZE 4096
 #define MAX_FDS         32
 #define MAX_INPUTS      64
@@ -98,6 +100,7 @@ struct stream {
 	int32_t last_rate;
 	int64_t last_monotonic;
 };
+/** \endcond */
 
 static void clear_memid(struct mem_id *mid)
 {
@@ -153,14 +156,6 @@ static bool stream_set_state(struct pw_stream *stream, enum pw_stream_state stat
 	return res;
 }
 
-/**
- * pw_stream_state_as_string:
- * @state: a #enum pw_stream_state
- *
- * Return the string representation of @state.
- *
- * Returns: the string representation of @state.
- */
 const char *pw_stream_state_as_string(enum pw_stream_state state)
 {
 	switch (state) {
@@ -182,15 +177,14 @@ const char *pw_stream_state_as_string(enum pw_stream_state state)
 	return "invalid-state";
 }
 
-/**
- * pw_stream_new:
- * @context: a #struct pw_context
- * @name: a stream name
- * @properties: (transfer full): stream properties
+/** Create a new unconneced \ref pw_stream
  *
- * Make a new unconnected #struct pw_stream
+ * \param context a \ref pw_context
+ * \param name a stream name
+ * \param props stream properties, ownership is taken
+ * \return a newly allocated \ref pw_stream
  *
- * Returns: a new unconnected #struct pw_stream
+ * \memberof pw_stream
  */
 struct pw_stream *pw_stream_new(struct pw_context *context,
 				const char *name, struct pw_properties *props)
@@ -298,6 +292,10 @@ static void set_params(struct pw_stream *stream, int n_params, struct spa_param 
 	}
 }
 
+/** Destroy a stream
+ * \param stream the stream to destroy
+ * \memberof pw_stream
+ */
 void pw_stream_destroy(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
@@ -572,11 +570,6 @@ static void handle_socket(struct pw_stream *stream, int rtreadfd, int rtwritefd)
 	return;
 }
 
-static void handle_node_event(struct pw_stream *stream, const struct spa_event *event)
-{
-	pw_log_warn("unhandled node event %d", SPA_EVENT_TYPE(event));
-}
-
 static bool
 handle_node_command(struct pw_stream *stream, uint32_t seq, const struct spa_command *command)
 {
@@ -644,11 +637,15 @@ static void client_node_done(void *object, int readfd, int writefd)
 	stream_set_state(stream, PW_STREAM_STATE_CONFIGURE, NULL);
 }
 
+static void
+client_node_set_props(void *object, uint32_t seq, const struct spa_props *props)
+{
+	pw_log_warn("set property not implemented");
+}
+
 static void client_node_event(void *object, const struct spa_event *event)
 {
-	struct pw_proxy *proxy = object;
-	struct pw_stream *stream = proxy->user_data;
-	handle_node_event(stream, event);
+	pw_log_warn("unhandled node event %d", SPA_EVENT_TYPE(event));
 }
 
 static void
@@ -687,9 +684,13 @@ client_node_set_format(void *object,
 }
 
 static void
-client_node_set_property(void *object, uint32_t seq, uint32_t id, uint32_t size, const void *value)
+client_node_set_param(void *object,
+		      uint32_t seq,
+		      enum spa_direction direction,
+		      uint32_t port_id,
+		      const struct spa_param *param)
 {
-	pw_log_warn("set property not implemented");
+	pw_log_warn("set param not implemented");
 }
 
 static void
@@ -847,7 +848,10 @@ static void client_node_node_command(void *object, uint32_t seq, const struct sp
 }
 
 static void
-client_node_port_command(void *object, uint32_t port_id, const struct spa_command *command)
+client_node_port_command(void *object,
+			 uint32_t direction,
+			 uint32_t port_id,
+			 const struct spa_command *command)
 {
 	pw_log_warn("port command not supported");
 }
@@ -874,11 +878,12 @@ static void client_node_transport(void *object, int memfd, uint32_t offset, uint
 
 static const struct pw_client_node_events client_node_events = {
 	&client_node_done,
+	&client_node_set_props,
 	&client_node_event,
 	&client_node_add_port,
 	&client_node_remove_port,
 	&client_node_set_format,
-	&client_node_set_property,
+	&client_node_set_param,
 	&client_node_add_mem,
 	&client_node_use_buffers,
 	&client_node_node_command,
@@ -897,23 +902,21 @@ static void on_node_proxy_destroy(struct pw_listener *listener, struct pw_proxy 
 	stream_set_state(this, PW_STREAM_STATE_UNCONNECTED, NULL);
 }
 
-/**
- * pw_stream_connect:
- * @stream: a #struct pw_stream
- * @direction: the stream direction
- * @mode: a #enum pw_stream_mode
- * @port_path: the port path to connect to or %NULL to get the default port
- * @flags: a #struct pw_stream
- * @n_possible_formats: number of items in @possible_formats
- * @possible_formats: an array with possible accepted formats
+/** Connect a stream for input or output on \a port_path.
+ * \param stream a \ref pw_stream
+ * \param direction the stream direction
+ * \param mode a \ref pw_stream_mode
+ * \param port_path the port path to connect to or NULL to let the server choose a port
+ * \param flags a \ref pw_stream
+ * \param n_possible_formats number of items in \a possible_formats
+ * \param possible_formats an array with possible accepted formats
+ * \return true on success.
  *
- * Connect @stream for input or output on @port_path.
- *
- * When @mode is #PW_STREAM_MODE_BUFFER, you should connect to the new-buffer
- * signal and use pw_stream_capture_buffer() to get the latest metadata and
+ * When \a mode is \ref PW_STREAM_MODE_BUFFER, you should connect to the new-buffer
+ * signal and use pw_stream_peek_buffer() to get the latest metadata and
  * data.
  *
- * Returns: %true on success.
+ * \memberof pw_stream
  */
 bool
 pw_stream_connect(struct pw_stream *stream,
@@ -959,21 +962,22 @@ pw_stream_connect(struct pw_stream *stream,
 	return true;
 }
 
-/**
- * pw_stream_finish_format:
- * @stream: a #struct pw_stream
- * @res: a #int
- * @params: an array of pointers to #struct spa_param
- * @n_params: number of elements in @params
+/** Complete the negotiation process with result code \a res
+ * \param stream a \ref pw_stream
+ * \param res a result code
+ * \param params an array of pointers to \ref spa_param
+ * \param n_params number of elements in \a params
  *
- * Complete the negotiation process with result code @res.
+ * Complete the negotiation process with result code \a res.
  *
  * This function should be called after notification of the format.
 
- * When @res indicates success, @params contain the parameters for the
+ * When \a res indicates success, \a params contain the parameters for the
  * allocation state.
  *
  * Returns: %true on success
+ *
+ * \memberof pw_stream
  */
 bool
 pw_stream_finish_format(struct pw_stream *stream,
@@ -999,13 +1003,11 @@ pw_stream_finish_format(struct pw_stream *stream,
 	return true;
 }
 
-/**
- * pw_stream_disconnect:
- * @stream: a #struct pw_stream
+/** Disconnect \a stream
+ * \param stream: a \ref pw_stream
+ * \return true on success
  *
- * Disconnect @stream.
- *
- * Returns: %true on success
+ * \memberof pw_stream
  */
 bool pw_stream_disconnect(struct pw_stream *stream)
 {
@@ -1036,14 +1038,13 @@ bool pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 	return true;
 }
 
-/**
- * pw_stream_get_empty_buffer:
- * @stream: a #struct pw_stream
+/** Get the id of an empty buffer that can be filled
  *
- * Get the id of an empty buffer that can be filled
- *
- * Returns: the id of an empty buffer or #SPA_ID_INVALID when no buffer is
+ * \param stream: a \ref pw_stream
+ * \return the id of an empty buffer or \ref SPA_ID_INVALID when no buffer is
  * available.
+ *
+ * \memberof pw_stream
  */
 uint32_t pw_stream_get_empty_buffer(struct pw_stream *stream)
 {
@@ -1058,14 +1059,14 @@ uint32_t pw_stream_get_empty_buffer(struct pw_stream *stream)
 	return bid->id;
 }
 
-/**
- * pw_stream_recycle_buffer:
- * @stream: a #struct pw_stream
- * @id: a buffer id
+/** Recycle the buffer with \a id
+ * \param stream: a \ref pw_stream
+ * \param id: a buffer id
+ * \return true on success
  *
- * Recycle the buffer with @id.
+ * Let the PipeWire server know that it can reuse the buffer with \a id.
  *
- * Returns: %true on success.
+ * \memberof pw_stream
  */
 bool pw_stream_recycle_buffer(struct pw_stream *stream, uint32_t id)
 {
@@ -1087,15 +1088,14 @@ bool pw_stream_recycle_buffer(struct pw_stream *stream, uint32_t id)
 	return true;
 }
 
-/**
- * pw_stream_peek_buffer:
- * @stream: a #struct pw_stream
- * @id: the buffer id
+/** Get the buffer with \a id from \a stream
+ * \param stream: a \ref pw_stream
+ * \param id: the buffer id
+ * \return a \ref spa_buffer or NULL when there is no buffer
  *
- * Get the buffer with @id from @stream. This function should be called from
- * the new-buffer signal callback.
+ * This function should be called from the new-buffer signal callback.
  *
- * Returns: a #struct spa_buffer or %NULL when there is no buffer.
+ * \memberof pw_stream
  */
 struct spa_buffer *pw_stream_peek_buffer(struct pw_stream *stream, uint32_t id)
 {
@@ -1107,19 +1107,15 @@ struct spa_buffer *pw_stream_peek_buffer(struct pw_stream *stream, uint32_t id)
 	return NULL;
 }
 
-/**
- * pw_stream_send_buffer:
- * @stream: a #struct pw_stream
- * @id: a buffer id
- * @offset: the offset in the buffer
- * @size: the size in the buffer
+/** Send a buffer with \a id to \a stream
+ * \param stream a \ref pw_stream
+ * \param id a buffer id
+ * \return true when \a id was handled
  *
- * Send a buffer with @id to @stream.
+ * For provider or playback streams, this function should be called whenever
+ * there is a new frame available.
  *
- * For provider streams, this function should be called whenever there is a new frame
- * available.
- *
- * Returns: %true when @id was handled
+ * \memberof pw_stream
  */
 bool pw_stream_send_buffer(struct pw_stream *stream, uint32_t id)
 {

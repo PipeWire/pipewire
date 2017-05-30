@@ -26,6 +26,7 @@
 extern "C" {
 #endif
 
+/** Flags passed to \ref pw_memblock_alloc() \memberof pw_memblock */
 enum pw_memblock_flags {
 	PW_MEMBLOCK_FLAG_NONE = 0,
 	PW_MEMBLOCK_FLAG_WITH_FD = (1 << 0),
@@ -37,12 +38,14 @@ enum pw_memblock_flags {
 
 #define PW_MEMBLOCK_FLAG_MAP_READWRITE (PW_MEMBLOCK_FLAG_MAP_READ | PW_MEMBLOCK_FLAG_MAP_WRITE)
 
+/** \class pw_memblock
+ * Memory block structure */
 struct pw_memblock {
-	enum pw_memblock_flags flags;
-	int fd;
-	off_t offset;
-	void *ptr;
-	size_t size;
+	enum pw_memblock_flags flags;	/**< flags used when allocating */
+	int fd;				/**< memfd if any */
+	off_t offset;			/**< offset of mappable memory */
+	void *ptr;			/**< ptr to mapped memory */
+	size_t size;			/**< size of mapped memory */
 };
 
 int

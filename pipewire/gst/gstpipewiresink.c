@@ -292,7 +292,7 @@ gst_pipewire_sink_init (GstPipeWireSink * sink)
 {
   sink->allocator = gst_fd_allocator_new ();
   sink->pool =  gst_pipewire_pool_new ();
-  sink->client_name = pw_client_name();
+  sink->client_name = pw_get_client_name();
   sink->mode = DEFAULT_PROP_MODE;
 
   g_signal_connect (sink->pool, "activated", G_CALLBACK (pool_activated), sink);

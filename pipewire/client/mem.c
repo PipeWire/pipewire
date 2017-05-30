@@ -76,6 +76,11 @@ static inline int memfd_create(const char *name, unsigned int flags)
 
 #undef USE_MEMFD
 
+/** Map a memblock
+ * \param mem a memblock
+ * \return 0 on success, < 0 on error
+ * \memberof pw_memblock
+ */
 int pw_memblock_map(struct pw_memblock *mem)
 {
 	if (mem->ptr != NULL)
@@ -124,6 +129,13 @@ int pw_memblock_map(struct pw_memblock *mem)
 	return SPA_RESULT_OK;
 }
 
+/** Create a new memblock
+ * \param flags memblock flags
+ * \param size size to allocate
+ * \param[out] mem memblock structure to fill
+ * \return 0 on success, < 0 on error
+ * \memberof pw_memblock
+ */
 int pw_memblock_alloc(enum pw_memblock_flags flags, size_t size, struct pw_memblock *mem)
 {
 	bool use_fd;
@@ -186,6 +198,10 @@ int pw_memblock_alloc(enum pw_memblock_flags flags, size_t size, struct pw_membl
 	return SPA_RESULT_NO_MEMORY;
 }
 
+/** Free a memblock
+ * \param mem a memblock
+ * \memberof pw_memblock
+ */
 void pw_memblock_free(struct pw_memblock *mem)
 {
 	if (mem == NULL)

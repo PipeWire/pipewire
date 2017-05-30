@@ -31,14 +31,21 @@ extern "C" {
 #include <pipewire/client/array.h>
 #include <pipewire/client/log.h>
 
+/** \class pw_map
+ *
+ * A map that holds objects indexed by id
+ */
+
+/** An entry in the map \memberof pw_map */
 union pw_map_item {
-	uint32_t next;
-	void *data;
+	uint32_t next;	/**< next free index */
+	void *data;	/**< data of this item, must be an even address */
 };
 
+/** A map \memberof pw_map */
 struct pw_map {
-	struct pw_array items;
-	uint32_t free_list;
+	struct pw_array items;	/**< an array with the map items */
+	uint32_t free_list;	/**< the free items */
 };
 
 #define PW_MAP_INIT(extend) { PW_ARRAY_INIT(extend), 0 }
@@ -51,9 +58,17 @@ struct pw_map {
 #define pw_map_has_item(m,id)         (pw_map_check_id(m,id) && !pw_map_id_is_free(m, id))
 #define pw_map_lookup_unchecked(m,id) pw_map_get_item(m,id)->data
 
+/** Convert an id to a pointer that can be inserted into the map \memberof pw_map */
 #define PW_MAP_ID_TO_PTR(id)          (SPA_UINT32_TO_PTR((id)<<1))
+/** Convert a pointer to an id that can be retrieved from the map \memberof pw_map */
 #define PW_MAP_PTR_TO_ID(p)           (SPA_PTR_TO_UINT32(p)>>1)
 
+/** Initialize a map
+ * \param map the map to initialize
+ * \param size the initial size of the map
+ * \param extend the amount to bytes to grow the map with when needed
+ * \memberof pw_map
+ */
 static inline void pw_map_init(struct pw_map *map, size_t size, size_t extend)
 {
 	pw_array_init(&map->items, extend);
@@ -61,11 +76,21 @@ static inline void pw_map_init(struct pw_map *map, size_t size, size_t extend)
 	map->free_list = 0;
 }
 
+/** Clear a map
+ * \param map the map to clear
+ * \memberof pw_map
+ */
 static inline void pw_map_clear(struct pw_map *map)
 {
 	pw_array_clear(&map->items);
 }
 
+/** Insert data in the map
+ * \param map the map to insert into
+ * \param data the item to add
+ * \return the id where the item was inserted
+ * \memberof pw_map
+ */
 static inline uint32_t pw_map_insert_new(struct pw_map *map, void *data)
 {
 	union pw_map_item *start, *item;
@@ -86,6 +111,13 @@ static inline uint32_t pw_map_insert_new(struct pw_map *map, void *data)
 	return id;
 }
 
+/** Insert data in the map at an index
+ * \param map the map to inser into
+ * \param id the index to insert at
+ * \param data the data to insert
+ * \return true on success, false when the index is invalid
+ * \memberof pw_map
+ */
 static inline bool pw_map_insert_at(struct pw_map *map, uint32_t id, void *data)
 {
 	size_t size = pw_map_get_size(map);
@@ -102,12 +134,23 @@ static inline bool pw_map_insert_at(struct pw_map *map, uint32_t id, void *data)
 	return true;
 }
 
+/** Remove and item at index
+ * \param map the map to remove from
+ * \param id the index to remove
+ * \memberof pw_map
+ */
 static inline void pw_map_remove(struct pw_map *map, uint32_t id)
 {
 	pw_map_get_item(map, id)->next = map->free_list;
 	map->free_list = (id << 1) | 1;
 }
 
+/** Find an item in the map
+ * \param map the map to use
+ * \param id the index to look at
+ * \return the item at \a id or NULL when no such item exists
+ * \memberof pw_map
+ */
 static inline void *pw_map_lookup(struct pw_map *map, uint32_t id)
 {
 	if (SPA_LIKELY(pw_map_check_id(map, id))) {
@@ -118,6 +161,12 @@ static inline void *pw_map_lookup(struct pw_map *map, uint32_t id)
 	return NULL;
 }
 
+/** Iterate all map items
+ * \param map the map to iterate
+ * \param func the function to call for each item
+ * \param data data to pass to \a func
+ * \memberof pw_map
+ */
 static inline void pw_map_for_each(struct pw_map *map, void (*func) (void *, void *), void *data)
 {
 	union pw_map_item *item;

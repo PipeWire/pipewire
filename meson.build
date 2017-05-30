@@ -22,6 +22,10 @@ soversion = 0
 libversion = '@0@.@1@.0'.format(soversion, pipewire_version_minor.to_int() * 100 + pipewire_version_micro.to_int())
 
 prefix = get_option('prefix')
+pipewire_datadir = join_paths(prefix, get_option('datadir'))
+pipewire_libdir = join_paths(prefix, get_option('libdir'))
+pipewire_localedir = join_paths(prefix, get_option('localedir'))
+pipewire_sysconfdir = join_paths(prefix, get_option('sysconfdir'))
 
 modules_install_dir = '@0@/pipewire-@1@'.format(get_option('libdir'), apiversion)
 
@@ -36,9 +40,9 @@ cdata.set('PIPEWIRE_VERSION_MINOR', pipewire_version_minor)
 cdata.set('PIPEWIRE_VERSION_MICRO', pipewire_version_micro)
 cdata.set('PIPEWIRE_VERSION_NANO', pipewire_version_nano)
 cdata.set('PIPEWIRE_API_VERSION', '"@0@"'.format(apiversion))
-cdata.set('PIPEWIRE_DATADIR', '"@0@/@1@"'.format(prefix, get_option('datadir')))
-cdata.set('LOCALEDIR', '"@0@/@1@"'.format(prefix, get_option('localedir')))
-cdata.set('LIBDIR', '"@0@/@1@"'.format(prefix, get_option('libdir')))
+cdata.set('PIPEWIRE_DATADIR', '"@0@/@1@"'.format(pipewire_datadir))
+cdata.set('LOCALEDIR', '"@0@/@1@"'.format(pipewire_localedir))
+cdata.set('LIBDIR', '"@0@/@1@"'.format(pipewire_libdir))
 cdata.set('GETTEXT_PACKAGE', '"pipewire"')
 cdata.set('PIPEWIRE_LICENSE', '"LGPL"')
 cdata.set('PIPEWIRE_PACKAGE_ORIGIN', '"Unknown package origin"')
@@ -49,8 +53,8 @@ cdata.set('PACKAGE_STRING', '"PipeWire @0@"'.format(pipewire_version))
 cdata.set('PACKAGE_TARNAME', '"pipewire"')
 cdata.set('PACKAGE_URL', '""')
 cdata.set('PACKAGE_VERSION', '"@0@"'.format(pipewire_version))
-cdata.set('MODULEDIR', '"@0@/@1@/pipewire-@2@"'.format(get_option('prefix'),get_option('libdir'),apiversion))
-cdata.set('PIPEWIRE_CONFIG_DIR', '"@0@/pipewire"'.format(join_paths(get_option('prefix'), get_option('sysconfdir'))))
+cdata.set('MODULEDIR', '"@0@/@1@/pipewire-@2@"'.format(pipewire_libdir,apiversion))
+cdata.set('PIPEWIRE_CONFIG_DIR', '"@0@/pipewire"'.format(pipewire_sysconfdir))
 cdata.set('VERSION', '"@0@"'.format(pipewire_version))
 # FIXME: --with-memory-alignment],[8,N,malloc,pagesize (default is 32)]) option
 cdata.set('MEMORY_ALIGNMENT_MALLOC', 1)
@@ -136,6 +140,13 @@ gst_dep = [dependency('gstreamer-1.0'),
 subdir('spa')
 subdir('pipewire')
 subdir('pkgconfig')
+
+doxygen = find_program('doxygen', required: false)
+if doxygen.found()
+  subdir('doxygen')
+else
+  message('Documentation disabled without doxygen')
+endif
 
 #gtkdoc = find_program('gtkdoc-scan', required : false)
 #if gtkdoc.found()

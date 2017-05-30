@@ -26,15 +26,21 @@
 extern "C" {
 #endif
 
-/**
- * pw_thread_main_loop:
+/** \class pw_thread_main_loop
  *
- * PipeWire main loop object class.
+ * \brief PipeWire threaded main loop object
+ *
+ * The threaded main loop object runs a \ref pw_loop in a separate thread
+ * and ensures proper locking is done.
+ *
+ * All of the loop callbacks will be executed with the main loop
+ * lock held.
  */
 struct pw_thread_main_loop {
-	struct pw_loop *loop;
-	char *name;
+	struct pw_loop *loop;	/**< the \ref pw_loop that is wrapped */
+	char *name;		/**< the thread name */
 
+	/** Emited when the mainloop is destroyed */
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener,
 				   struct pw_thread_main_loop *loop));
 };

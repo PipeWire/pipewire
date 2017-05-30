@@ -37,6 +37,8 @@
 
 #define DATAS_SIZE (4096 * 8)
 
+/** \cond */
+
 struct invoke_item {
 	size_t item_size;
 	spa_invoke_func_t func;
@@ -86,6 +88,7 @@ struct source_impl {
 	int signal_number;
 	bool enabled;
 };
+/** \endcond */
 
 static inline uint32_t spa_io_to_epoll(enum spa_io mask)
 {
@@ -574,6 +577,10 @@ static void loop_destroy_source(struct spa_source *source)
 	spa_list_insert(&loop_impl->destroy_list, &impl->link);
 }
 
+/** Create a new loop
+ * \returns a newly allocated loop
+ * \memberof pw_loop
+ */
 struct pw_loop *pw_loop_new(void)
 {
 	struct impl *impl;
@@ -634,6 +641,10 @@ struct pw_loop *pw_loop_new(void)
 	return NULL;
 }
 
+/** Destroy a loop
+ * \param loop a loop to destroy
+ * \memberof pw_loop
+ */
 void pw_loop_destroy(struct pw_loop *loop)
 {
 	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, this);

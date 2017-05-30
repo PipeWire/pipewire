@@ -24,12 +24,14 @@
 #include "pipewire/server/resource.h"
 #include "pipewire/server/protocol-native.h"
 
+/** \cond */
 typedef bool(*demarshal_func_t) (void *object, void *data, size_t size);
 
 struct builder {
 	struct spa_pod_builder b;
 	struct pw_connection *connection;
 };
+/** \endcond */
 
 static uint32_t write_pod(struct spa_pod_builder *b, uint32_t ref, const void *data, uint32_t size)
 {
@@ -296,7 +298,7 @@ static bool core_demarshal_update_types(void *object, void *data, size_t size)
 	return true;
 }
 
-static void registry_marshal_global(void *object, uint32_t id, const char *type)
+static void registry_marshal_global(void *object, uint32_t id, const char *type, uint32_t version)
 {
 	struct pw_resource *resource = object;
 	struct pw_connection *connection = resource->client->protocol_private;
@@ -305,7 +307,10 @@ static void registry_marshal_global(void *object, uint32_t id, const char *type)
 
 	core_update_map(resource->client);
 
-	spa_pod_builder_struct(&b.b, &f, SPA_POD_TYPE_INT, id, SPA_POD_TYPE_STRING, type);
+	spa_pod_builder_struct(&b.b, &f,
+			       SPA_POD_TYPE_INT, id,
+			       SPA_POD_TYPE_STRING, type,
+			       SPA_POD_TYPE_INT, version);
 
 	pw_connection_end_write(connection, resource->id, PW_REGISTRY_EVENT_GLOBAL, b.b.offset);
 }
@@ -329,13 +334,16 @@ static bool registry_demarshal_bind(void *object, void *data, size_t size)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_iter it;
-	uint32_t id, new_id;
+	uint32_t id, version, new_id;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !spa_pod_iter_get(&it, SPA_POD_TYPE_INT, &id, SPA_POD_TYPE_INT, &new_id, 0))
+	    !spa_pod_iter_get(&it,
+			      SPA_POD_TYPE_INT, &id,
+			      SPA_POD_TYPE_INT, &version,
+			      SPA_POD_TYPE_INT, &new_id, 0))
 		return false;
 
-	((struct pw_registry_methods *) resource->implementation)->bind(resource, id, new_id);
+	((struct pw_registry_methods *) resource->implementation)->bind(resource, id, version, new_id);
 	return true;
 }
 
@@ -458,6 +466,24 @@ static void client_node_marshal_done(void *object, int readfd, int writefd)
 	pw_connection_end_write(connection, resource->id, PW_CLIENT_NODE_EVENT_DONE, b.b.offset);
 }
 
+static void
+client_node_marshal_set_props(void *object, uint32_t seq, const struct spa_props *props)
+{
+	struct pw_resource *resource = object;
+	struct pw_connection *connection = resource->client->protocol_private;
+	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
+	struct spa_pod_frame f;
+
+	core_update_map(resource->client);
+
+	spa_pod_builder_struct(&b.b, &f,
+			       SPA_POD_TYPE_INT, seq,
+			       SPA_POD_TYPE_POD, props);
+
+	pw_connection_end_write(connection, resource->id, PW_CLIENT_NODE_EVENT_SET_PROPS,
+				b.b.offset);
+}
+
 static void client_node_marshal_event(void *object, const struct spa_event *event)
 {
 	struct pw_resource *resource = object;
@@ -514,7 +540,9 @@ static void
 client_node_marshal_set_format(void *object,
 			       uint32_t seq,
 			       enum spa_direction direction,
-			       uint32_t port_id, uint32_t flags, const struct spa_format *format)
+			       uint32_t port_id,
+			       uint32_t flags,
+			       const struct spa_format *format)
 {
 	struct pw_resource *resource = object;
 	struct pw_connection *connection = resource->client->protocol_private;
@@ -527,15 +555,19 @@ client_node_marshal_set_format(void *object,
 			       SPA_POD_TYPE_INT, seq,
 			       SPA_POD_TYPE_INT, direction,
 			       SPA_POD_TYPE_INT, port_id,
-			       SPA_POD_TYPE_INT, flags, SPA_POD_TYPE_POD, format);
+			       SPA_POD_TYPE_INT, flags,
+			       SPA_POD_TYPE_POD, format);
 
 	pw_connection_end_write(connection, resource->id, PW_CLIENT_NODE_EVENT_SET_FORMAT,
 				b.b.offset);
 }
 
 static void
-client_node_marshal_set_property(void *object,
-				 uint32_t seq, uint32_t id, uint32_t size, const void *value)
+client_node_marshal_set_param(void *object,
+			      uint32_t seq,
+			      enum spa_direction direction,
+			      uint32_t port_id,
+			      const struct spa_param *param)
 {
 	struct pw_resource *resource = object;
 	struct pw_connection *connection = resource->client->protocol_private;
@@ -546,9 +578,11 @@ client_node_marshal_set_property(void *object,
 
 	spa_pod_builder_struct(&b.b, &f,
 			       SPA_POD_TYPE_INT, seq,
-			       SPA_POD_TYPE_INT, id, SPA_POD_TYPE_BYTES, value, size);
+			       SPA_POD_TYPE_INT, direction,
+			       SPA_POD_TYPE_INT, port_id,
+			       SPA_POD_TYPE_POD, param);
 
-	pw_connection_end_write(connection, resource->id, PW_CLIENT_NODE_EVENT_SET_PROPERTY,
+	pw_connection_end_write(connection, resource->id, PW_CLIENT_NODE_EVENT_SET_PARAM,
 				b.b.offset);
 }
 
@@ -648,7 +682,10 @@ client_node_marshal_node_command(void *object, uint32_t seq, const struct spa_co
 }
 
 static void
-client_node_marshal_port_command(void *object, uint32_t port_id, const struct spa_command *command)
+client_node_marshal_port_command(void *object,
+				 uint32_t direction,
+				 uint32_t port_id,
+				 const struct spa_command *command)
 {
 	struct pw_resource *resource = object;
 	struct pw_connection *connection = resource->client->protocol_private;
@@ -657,7 +694,10 @@ client_node_marshal_port_command(void *object, uint32_t port_id, const struct sp
 
 	core_update_map(resource->client);
 
-	spa_pod_builder_struct(&b.b, &f, SPA_POD_TYPE_INT, port_id, SPA_POD_TYPE_POD, command);
+	spa_pod_builder_struct(&b.b, &f,
+			       SPA_POD_TYPE_INT, direction,
+			       SPA_POD_TYPE_INT, port_id,
+			       SPA_POD_TYPE_POD, command);
 
 	pw_connection_end_write(connection, resource->id, PW_CLIENT_NODE_EVENT_PORT_COMMAND,
 				b.b.offset);
@@ -879,11 +919,12 @@ static const demarshal_func_t pw_protocol_native_server_client_node_demarshal[] 
 
 static const struct pw_client_node_events pw_protocol_native_server_client_node_events = {
 	&client_node_marshal_done,
+	&client_node_marshal_set_props,
 	&client_node_marshal_event,
 	&client_node_marshal_add_port,
 	&client_node_marshal_remove_port,
 	&client_node_marshal_set_format,
-	&client_node_marshal_set_property,
+	&client_node_marshal_set_param,
 	&client_node_marshal_add_mem,
 	&client_node_marshal_use_buffers,
 	&client_node_marshal_node_command,

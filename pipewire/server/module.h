@@ -27,27 +27,35 @@ extern "C" {
 
 #include <pipewire/server/core.h>
 
+#define PIPEWIRE_SYMBOL_MODULE_INIT "pipewire__module_init"
+
+/** \class pw_module
+ *
+ * A dynamically loadable module
+ */
 struct pw_module {
-	struct pw_core *core;
-	struct spa_list link;
-	struct pw_global *global;
+	struct pw_core *core;		/**< the core object */
+	struct spa_list link;		/**< link in the core module_list */
+	struct pw_global *global;	/**< global object for this module */
 
-	struct pw_module_info info;
+	struct pw_module_info info;	/**< introspectable module info */
 
-	void *user_data;
+	void *user_data;		/**< module user_data */
 
+	/** Emited when the module is destroyed */
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_module *module));
 };
 
-/**
- * pw_module_init_func_t:
- * @module: A #struct pw_module
- * @args: Arguments to the module
+/** Module init function signature
+ *
+ * \param module A \ref pw_module
+ * \param args Arguments to the module
+ * \return true on success, false otherwise
  *
  * A module should provide an init function with this signature. This function
  * will be called when a module is loaded.
  *
- * Returns: %true on success, %false otherwise
+ * \memberof pw_module
  */
 typedef bool (*pw_module_init_func_t) (struct pw_module *module, char *args);
 

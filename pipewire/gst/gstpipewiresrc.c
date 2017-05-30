@@ -305,7 +305,7 @@ gst_pipewire_src_init (GstPipeWireSrc * src)
   g_queue_init (&src->queue);
 
   src->fd_allocator = gst_fd_allocator_new ();
-  src->client_name = pw_client_name ();
+  src->client_name = pw_get_client_name ();
   src->buf_ids = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL, (GDestroyNotify) gst_buffer_unref);
 
   src->loop = pw_loop_new ();

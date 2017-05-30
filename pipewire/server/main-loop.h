@@ -27,14 +27,18 @@ extern "C" {
 #include <spa/include/spa/loop.h>
 #include <pipewire/client/loop.h>
 
-/**
- * pa_main_loop:
+/** \class pa_main_loop
  *
- * PipeWire main-loop interface.
+ * \brief PipeWire main-loop interface.
+ *
+ * A main loop object
  */
-struct pw_main_loop {
-	struct pw_loop *loop;
 
+/** A main loop object \memberof pw_main_loop */
+struct pw_main_loop {
+	struct pw_loop *loop;		/**< the wrapped loop */
+
+	/** Emited when the loop is destroyed */
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_main_loop *loop));
 };
 

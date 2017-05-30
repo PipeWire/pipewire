@@ -39,8 +39,7 @@ extern "C" {
 #include <pipewire/server/client.h>
 #include <pipewire/server/data-loop.h>
 
-/**
- * pw_node:
+/** \class pw_node
  *
  * PipeWire node class.
  */

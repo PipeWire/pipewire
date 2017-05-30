@@ -23,6 +23,19 @@
 #include <pipewire/client/log.h>
 #include <pipewire/client/utils.h>
 
+/** Split a string based on delimiters
+ * \param str a string to split
+ * \param delimiter delimiter characters to split on
+ * \param[out] len the length of the current string
+ * \param[in,out] state a state variable
+ * \return a string or NULL when the end is reached
+ *
+ * Repeatedly call this function to split \a str into all substrings
+ * delimited by \a delimiter. \a state should be set to NULL on the first
+ * invocation and passed to the function until NULL is returned.
+ *
+ * \memberof pw_utils
+ */
 const char *pw_split_walk(const char *str, const char *delimiter, size_t * len, const char **state)
 {
 	const char *s = *state ? *state : str;
@@ -38,6 +51,16 @@ const char *pw_split_walk(const char *str, const char *delimiter, size_t * len, 
 	return s;
 }
 
+/** Split a string based on delimiters
+ * \param str a string to split
+ * \param delimiter delimiter characters to split on
+ * \param max_tokens the max number of tokens to split
+ * \param[out] n_tokens the number of tokens
+ * \return a NULL terminated array of strings that should be
+ *	freed with \ref pw_free_strv.
+ *
+ * \memberof pw_utils
+ */
 char **pw_split_strv(const char *str, const char *delimiter, int max_tokens, int *n_tokens)
 {
 	const char *state = NULL, *s = NULL;
@@ -64,7 +87,13 @@ char **pw_split_strv(const char *str, const char *delimiter, int max_tokens, int
 	return arr.data;
 }
 
-
+/** Free a NULL terminated array of strings
+ * \param str a NULL terminated array of string
+ *
+ * Free all the strings in the array and the array
+ *
+ * \memberof pw_utils
+ */
 void pw_free_strv(char **str)
 {
 	int i;
@@ -73,6 +102,16 @@ void pw_free_strv(char **str)
 	free(str);
 }
 
+/** Strip all whitespace before and after a string
+ * \param str a string to strip
+ * \param whitespace characters to strip
+ * \return the stripped part of \a str
+ *
+ * Strip whitespace before and after \a str. \a str will be
+ * modified.
+ *
+ * \memberof pw_utils
+ */
 char *pw_strip(char *str, const char *whitespace)
 {
 	char *e, *l = NULL;

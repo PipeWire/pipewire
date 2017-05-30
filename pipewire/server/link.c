@@ -33,6 +33,7 @@
 
 #define MAX_BUFFERS     16
 
+/** \cond */
 struct impl {
 	struct pw_link this;
 
@@ -40,7 +41,7 @@ struct impl {
 
 	struct pw_work_queue *work;
 
-	struct spa_format **format_filter;
+	struct spa_format *format_filter;
 	struct pw_properties *properties;
 
 	struct pw_listener input_port_destroy;
@@ -53,6 +54,8 @@ struct impl {
 	struct spa_buffer **buffers;
 	uint32_t n_buffers;
 };
+
+/** \endcond */
 
 static void pw_link_update_state(struct pw_link *link, enum pw_link_state state, char *error)
 {
@@ -858,10 +861,22 @@ link_bind_func(struct pw_global *global, struct pw_client *client, uint32_t vers
 	return SPA_RESULT_NO_MEMORY;
 }
 
+/** Create a new link
+ * \param core the core class
+ * \param output an output port
+ * \param input an input port
+ * \param format_filter a format filter
+ * \param properties extra properties
+ *
+ * Make a link between \a output and \a input
+ *
+ * \memberof pw_link
+ */
 struct pw_link *pw_link_new(struct pw_core *core,
 			    struct pw_port *output,
 			    struct pw_port *input,
-			    struct spa_format **format_filter, struct pw_properties *properties)
+			    struct spa_format *format_filter,
+			    struct pw_properties *properties)
 {
 	struct impl *impl;
 	struct pw_link *this;
@@ -991,42 +1006,43 @@ do_link_remove(struct spa_loop *loop,
 	return res;
 }
 
-/**
- * pw_link_destroy:
- * @link: a #struct pw_link
+/** Destroy a link
+ * \param link the link to destroy
  *
- * Trigger removal of @link
+ * Trigger removal of \a link
+ *
+ * \memberof pw_link
  */
-void pw_link_destroy(struct pw_link *this)
+void pw_link_destroy(struct pw_link *link)
 {
-	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
+	struct impl *impl = SPA_CONTAINER_OF(link, struct impl, this);
 	struct pw_resource *resource, *tmp;
 
 	pw_log_debug("link %p: destroy", impl);
-	pw_signal_emit(&this->destroy_signal, this);
+	pw_signal_emit(&link->destroy_signal, link);
 
-	pw_global_destroy(this->global);
-	spa_list_remove(&this->link);
+	pw_global_destroy(link->global);
+	spa_list_remove(&link->link);
 
-	spa_list_for_each_safe(resource, tmp, &this->resource_list, link)
+	spa_list_for_each_safe(resource, tmp, &link->resource_list, link)
 	    pw_resource_destroy(resource);
 
-	if (this->input) {
+	if (link->input) {
 		pw_signal_remove(&impl->input_port_destroy);
 		pw_signal_remove(&impl->input_async_complete);
 
 		impl->refcount++;
-		pw_loop_invoke(this->input->node->data_loop->loop,
-			       do_link_remove, 1, 0, NULL, this);
+		pw_loop_invoke(link->input->node->data_loop->loop,
+			       do_link_remove, 1, 0, NULL, link);
 	}
-	if (this->output) {
+	if (link->output) {
 		pw_signal_remove(&impl->output_port_destroy);
 		pw_signal_remove(&impl->output_async_complete);
 
 		impl->refcount++;
-		pw_loop_invoke(this->output->node->data_loop->loop,
-			       do_link_remove, 2, 0, NULL, this);
+		pw_loop_invoke(link->output->node->data_loop->loop,
+			       do_link_remove, 2, 0, NULL, link);
 	}
 	if (--impl->refcount == 0)
-		pw_link_free(this);
+		pw_link_free(link);
 }

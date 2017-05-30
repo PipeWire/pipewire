@@ -26,20 +26,28 @@
 extern "C" {
 #endif
 
+/** \class pw_signal
+ * Signal emission helpers
+ */
+
+/** A listener \memberof pw_signal */
 struct pw_listener {
-	struct spa_list link;
-	void (*notify) (void *);
+	struct spa_list link;		/**< link in the signal listeners */
+	void (*notify) (void *);	/**< notify function */
 };
 
+/** A signal definition \memberof pw_signal */
 #define PW_SIGNAL(name,func)				\
 	union {						\
 		struct spa_list listeners;		\
 		void (*notify) func;			\
 	} name;
 
+/** Initialize a signal \memberof pw_signal */
 #define pw_signal_init(signal)				\
 	spa_list_init(&(signal)->listeners);
 
+/** Add a signal listener \memberof pw_signal */
 #define pw_signal_add(signal,listener,func)				\
 do {									\
 	__typeof__((signal)->notify) n = (func);			\
@@ -47,11 +55,13 @@ do {									\
 	spa_list_insert((signal)->listeners.prev, &(listener)->link);	\
 } while (false);
 
+/** Remove a signal listener \memberof pw_signal */
 static inline void pw_signal_remove(struct pw_listener *listener)
 {
 	spa_list_remove(&listener->link);
 }
 
+/** Emit a signal \memberof pw_signal */
 #define pw_signal_emit(signal,...)					\
 do {									\
 	struct pw_listener *l, *next;					\

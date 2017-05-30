@@ -26,6 +26,7 @@
 #include <spa/lib/debug.h>
 #include <spa/format-utils.h>
 
+/** \cond */
 struct global_impl {
 	struct pw_global this;
 	pw_bind_func_t bind;
@@ -37,21 +38,30 @@ struct impl {
 	struct spa_support support[4];
 };
 
+struct access_create_client_node {
+	struct pw_access_data data;
+	char *name;
+	struct pw_properties *properties;
+	uint32_t new_id;
+	bool async;
+};
+/** \endcond */
+
 #define ACCESS_VIEW_GLOBAL(client,global) (client->core->access == NULL || \
 					   client->core->access->view_global (client->core->access, \
 									      client, global) == SPA_RESULT_OK)
 
-static void registry_bind(void *object, uint32_t id, uint32_t new_id)
+static void registry_bind(void *object, uint32_t id, uint32_t version, uint32_t new_id)
 {
 	struct pw_resource *resource = object;
 	struct pw_client *client = resource->client;
 	struct pw_core *core = resource->core;
 	struct pw_global *global;
 
-	spa_list_for_each(global, &core->global_list, link)
-	if (global->id == id)
-		break;
-
+	spa_list_for_each(global, &core->global_list, link) {
+		if (global->id == id)
+			break;
+	}
 	if (&global->link == &core->global_list)
 		goto no_id;
 
@@ -59,7 +69,7 @@ static void registry_bind(void *object, uint32_t id, uint32_t new_id)
 		 goto no_id;
 
 	pw_log_debug("global %p: bind object id %d to %d", global, id, new_id);
-	pw_global_bind(global, client, 0, new_id);
+	pw_global_bind(global, client, version, new_id);
 
 	return;
 
@@ -120,7 +130,8 @@ static void core_get_registry(void *object, uint32_t new_id)
 			 pw_registry_notify_global(registry_resource,
 						   global->id,
 						   spa_type_map_get_type(this->type.map,
-									 global->type));
+									 global->type),
+						   global->version);
 	}
 
 	return;
@@ -142,14 +153,6 @@ core_create_node(void *object,
 	pw_core_notify_error(client->core_resource,
 			     resource->id, SPA_RESULT_NOT_IMPLEMENTED, "not implemented");
 }
-
-struct access_create_client_node {
-	struct pw_access_data data;
-	char *name;
-	struct pw_properties *properties;
-	uint32_t new_id;
-	bool async;
-};
 
 static void *async_create_client_node_copy(struct pw_access_data *data, size_t size)
 {
@@ -317,6 +320,14 @@ core_bind_func(struct pw_global *global, struct pw_client *client, uint32_t vers
 	return SPA_RESULT_NO_MEMORY;
 }
 
+/** Create a new core object
+ *
+ * \param main_loop the main loop to use
+ * \param properties extra properties for the core, ownership it taken
+ * \return a newly allocated core object
+ *
+ * \memberof pw_core
+ */
 struct pw_core *pw_core_new(struct pw_main_loop *main_loop, struct pw_properties *properties)
 {
 	struct impl *impl;
@@ -380,6 +391,12 @@ struct pw_core *pw_core_new(struct pw_main_loop *main_loop, struct pw_properties
 	return NULL;
 }
 
+/** Destroy a core object
+ *
+ * \param core a core to destroy
+ *
+ * \memberof pw_core
+ */
 void pw_core_destroy(struct pw_core *core)
 {
 	struct impl *impl = SPA_CONTAINER_OF(core, struct impl, this);
@@ -395,11 +412,27 @@ void pw_core_destroy(struct pw_core *core)
 	free(impl);
 }
 
+/** Create and add a new global to the core
+ *
+ * \param core a core
+ * \param owner an optional owner of the global
+ * \param type the type of the global
+ * \param version the version
+ * \param object the associated object
+ * \param bind a function to bind to this global
+ * \param[out] global a result global
+ * \return true on success
+ *
+ * \memberof pw_core
+ */
 bool
 pw_core_add_global(struct pw_core *core,
 		   struct pw_client *owner,
 		   uint32_t type,
-		   uint32_t version, void *object, pw_bind_func_t bind, struct pw_global **global)
+		   uint32_t version,
+		   void *object,
+		   pw_bind_func_t bind,
+		   struct pw_global **global)
 {
 	struct global_impl *impl;
 	struct pw_global *this;
@@ -432,11 +465,24 @@ pw_core_add_global(struct pw_core *core,
 
 	spa_list_for_each(registry, &core->registry_resource_list, link)
 	    if (ACCESS_VIEW_GLOBAL(registry->client, this))
-		pw_registry_notify_global(registry, this->id, type_name);
+		pw_registry_notify_global(registry, this->id, type_name, this->version);
 
 	return true;
 }
 
+/** Bind to a global
+ *
+ * \param global the global to bind to
+ * \param client the client that binds
+ * \param version the version
+ * \param id the id
+ *
+ * Let \a client bind to \a global with the given version and id.
+ * After binding, the client and the global object will be able to
+ * exchange messages.
+ *
+ * \memberof pw_global
+ */
 int
 pw_global_bind(struct pw_global *global, struct pw_client *client, uint32_t version, uint32_t id)
 {
@@ -453,6 +499,12 @@ pw_global_bind(struct pw_global *global, struct pw_client *client, uint32_t vers
 	return res;
 }
 
+/** Destroy a global
+ *
+ * \param global a global to destroy
+ *
+ * \memberof pw_global
+ */
 void pw_global_destroy(struct pw_global *global)
 {
 	struct pw_core *core = global->core;
@@ -474,6 +526,15 @@ void pw_global_destroy(struct pw_global *global)
 	free(global);
 }
 
+/** Update core properties
+ *
+ * \param core a core
+ * \param dict properties to update
+ *
+ * Update the core object with the given properties
+ *
+ * \memberof pw_core
+ */
 void pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict)
 {
 	struct pw_resource *resource;
@@ -497,12 +558,26 @@ void pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict
 	}
 }
 
+/** Find a port to link with
+ *
+ * \param core a core
+ * \param other_port a port to find a link with
+ * \param id the id of a port or SPA_ID_INVALID
+ * \param props extra properties
+ * \param n_format_filters number of filters
+ * \param format_filters array of format filters
+ * \param[out] error an error when something is wrong
+ * \return a port that can be used to link to \a otherport or NULL on error
+ *
+ * \memberof pw_core
+ */
 struct pw_port *pw_core_find_port(struct pw_core *core,
 				  struct pw_port *other_port,
 				  uint32_t id,
 				  struct pw_properties *props,
 				  uint32_t n_format_filters,
-				  struct spa_format **format_filters, char **error)
+				  struct spa_format **format_filters,
+				  char **error)
 {
 	struct pw_port *best = NULL;
 	bool have_id;
@@ -560,12 +635,29 @@ struct pw_port *pw_core_find_port(struct pw_core *core,
 	return best;
 }
 
+/** Find a common format between two ports
+ *
+ * \param core a core object
+ * \param output an output port
+ * \param input an input port
+ * \param props extra properties
+ * \param n_format_filters number of format filters
+ * \param format_filters array of format filters
+ * \param[out] error an error when something is wrong
+ * \return a common format of NULL on error
+ *
+ * Find a common format between the given ports. The format will
+ * be restricted to a subset given with the format filters.
+ *
+ * \memberof pw_core
+ */
 struct spa_format *pw_core_find_format(struct pw_core *core,
 				       struct pw_port *output,
 				       struct pw_port *input,
 				       struct pw_properties *props,
 				       uint32_t n_format_filters,
-				       struct spa_format **format_filterss, char **error)
+				       struct spa_format **format_filters,
+				       char **error)
 {
 	uint32_t out_state, in_state;
 	int res;
@@ -647,6 +739,16 @@ struct spa_format *pw_core_find_format(struct pw_core *core,
 	return NULL;
 }
 
+/** Find a node by name
+ *
+ * \param core the core object
+ * \param name the name of the node to find
+ *
+ * Find in the list of nodes registered in \a core for one with
+ * the given \a name.
+ *
+ * \memberof pw_core
+ */
 struct pw_node_factory *pw_core_find_node_factory(struct pw_core *core, const char *name)
 {
 	struct pw_node_factory *factory;

@@ -27,10 +27,19 @@ extern "C" {
 #include <spa/defs.h>
 #include <pipewire/client/sig.h>
 
+/** \class pw_connection
+ *
+ * \brief Manages the connection between client and server
+ *
+ * The \ref pw_connection handles the connection between client
+ * and server on a given socket.
+ */
 struct pw_connection {
-	int fd;
+	int fd;	/**< the socket */
 
+	/** Emited when data has been written that needs to be flushed */
 	PW_SIGNAL(need_flush,     (struct pw_listener *listener, struct pw_connection *conn));
+	/** Emited when the connection is destroyed */
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_connection *conn));
 };
 

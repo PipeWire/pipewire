@@ -40,13 +40,17 @@ static void configure_debug(const char *str)
 		categories = pw_split_strv(level[1], ",", INT_MAX, &n_tokens);
 }
 
-/**
- * pw_init:
- * @argc: pointer to argc
- * @argv: pointer to argv
+/** Initialize PipeWire
  *
- * initialize the PipeWire system, parse and modify any parameters given
- * by @argc and @argv.
+ * \param argc pointer to argc
+ * \param argv pointer to argv
+ *
+ * Initialize the PipeWire system, parse and modify any parameters given
+ * by \a argc and \a argv and set up debugging.
+ *
+ * The environment variable \a PIPEWIRE_DEBUG
+ *
+ * \memberof pw_pipewire
  */
 void pw_init(int *argc, char **argv[])
 {
@@ -56,6 +60,16 @@ void pw_init(int *argc, char **argv[])
 		configure_debug(str);
 }
 
+/** Check if a debug category is enabled
+ *
+ * \param name the name of the category to check
+ * \return true if enabled
+ *
+ * Debugging categories can be enabled by using the PIPEWIRE_DEBUG
+ * environment variable
+ *
+ * \memberof pw_pipewire
+ */
 bool pw_debug_is_category_enabled(const char *name)
 {
 	int i;
@@ -70,11 +84,13 @@ bool pw_debug_is_category_enabled(const char *name)
 	return false;
 }
 
+/** Get the application name \memberof pw_pipewire */
 const char *pw_get_application_name(void)
 {
 	return NULL;
 }
 
+/** Get the program name \memberof pw_pipewire */
 const char *pw_get_prgname(void)
 {
 	static char tcomm[16 + 1];
@@ -86,6 +102,7 @@ const char *pw_get_prgname(void)
 	return NULL;
 }
 
+/** Get the user name \memberof pw_pipewire */
 const char *pw_get_user_name(void)
 {
 	struct passwd *pw;
@@ -96,6 +113,7 @@ const char *pw_get_user_name(void)
 	return NULL;
 }
 
+/** Get the host name \memberof pw_pipewire */
 const char *pw_get_host_name(void)
 {
 	static char hname[256];
@@ -107,12 +125,13 @@ const char *pw_get_host_name(void)
 	return hname;
 }
 
-/**
- * pw_client_name:
+/** Get the client name
  *
  * Make a new PipeWire client name that can be used to construct a context.
+ *
+ * \memberof pw_pipewire
  */
-char *pw_client_name(void)
+char *pw_get_client_name(void)
 {
 	char *c;
 	const char *cc;
@@ -127,11 +146,12 @@ char *pw_client_name(void)
 	}
 }
 
-/**
- * pw_fill_context_properties:
- * @properties: a #struct pw_properties
+/** Fill context properties
+ * \param properties a \ref pw_properties
  *
- * Fill @properties with a set of default context properties.
+ * Fill \a properties with a set of default context properties.
+ *
+ * \memberof pw_pipewire
  */
 void pw_fill_context_properties(struct pw_properties *properties)
 {
@@ -159,16 +179,18 @@ void pw_fill_context_properties(struct pw_properties *properties)
 	}
 }
 
-/**
- * pw_fill_stream_properties
- * @properties: a #struct pw_properties
+/** Fill stream properties
+ * \param properties a \ref pw_properties
  *
- * Fill @properties with a set of default stream properties.
+ * Fill \a properties with a set of default stream properties.
+ *
+ * \memberof pw_pipewire
  */
 void pw_fill_stream_properties(struct pw_properties *properties)
 {
 }
 
+/** Reverse the direction \memberof pw_pipewire */
 enum pw_direction pw_direction_reverse(enum pw_direction direction)
 {
 	if (direction == PW_DIRECTION_INPUT)

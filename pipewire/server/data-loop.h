@@ -26,14 +26,14 @@ extern "C" {
 
 #include <pipewire/client/loop.h>
 
-/**
- * pw_data_loop:
+/** \class pw_data_loop
  *
  * PipeWire rt-loop object.
  */
 struct pw_data_loop {
-	struct pw_loop *loop;
+	struct pw_loop *loop;		/**< wrapped loop object */
 
+	/** Emited when the data loop is destroyed */
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_data_loop *loop));
 };
 

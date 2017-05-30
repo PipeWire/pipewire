@@ -26,12 +26,15 @@
 #include "pipewire/client/interfaces.h"
 #include "pipewire/client/connection.h"
 
+/** \cond */
 struct builder {
 	struct spa_pod_builder b;
 	struct pw_connection *connection;
 };
 
 typedef bool(*demarshal_func_t) (void *object, void *data, size_t size);
+
+/** \endcond */
 
 static uint32_t write_pod(struct spa_pod_builder *b, uint32_t ref, const void *data, uint32_t size)
 {
@@ -525,6 +528,23 @@ static bool client_node_demarshal_done(void *object, void *data, size_t size)
 	return true;
 }
 
+static bool client_node_demarshal_set_props(void *object, void *data, size_t size)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_iter it;
+	uint32_t seq;
+	const struct spa_props *props = NULL;
+
+	if (!spa_pod_iter_struct(&it, data, size) ||
+	    !spa_pod_iter_get(&it,
+			      SPA_POD_TYPE_INT, &seq,
+			      -SPA_POD_TYPE_OBJECT, &props, 0))
+		return false;
+
+	((struct pw_client_node_events *) proxy->implementation)->set_props(proxy, seq, props);
+	return true;
+}
+
 static bool client_node_demarshal_event(void *object, void *data, size_t size)
 {
 	struct pw_proxy *proxy = object;
@@ -587,7 +607,8 @@ static bool client_node_demarshal_set_format(void *object, void *data, size_t si
 			      SPA_POD_TYPE_INT, &seq,
 			      SPA_POD_TYPE_INT, &direction,
 			      SPA_POD_TYPE_INT, &port_id,
-			      SPA_POD_TYPE_INT, &flags, -SPA_POD_TYPE_OBJECT, &format, 0))
+			      SPA_POD_TYPE_INT, &flags,
+			      -SPA_POD_TYPE_OBJECT, &format, 0))
 		return false;
 
 	((struct pw_client_node_events *) proxy->implementation)->set_format(proxy, seq, direction,
@@ -596,22 +617,24 @@ static bool client_node_demarshal_set_format(void *object, void *data, size_t si
 	return true;
 }
 
-static bool client_node_demarshal_set_property(void *object, void *data, size_t size)
+static bool client_node_demarshal_set_param(void *object, void *data, size_t size)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_iter it;
-	uint32_t seq, id;
-	const void *value;
-	uint32_t s;
+	uint32_t seq, direction, port_id;
+	const struct spa_param *param = NULL;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
+	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->context->types) ||
 	    !spa_pod_iter_get(&it,
 			      SPA_POD_TYPE_INT, &seq,
-			      SPA_POD_TYPE_INT, &id, SPA_POD_TYPE_BYTES, &value, &s, 0))
+			      SPA_POD_TYPE_INT, &direction,
+			      SPA_POD_TYPE_INT, &port_id,
+			      -SPA_POD_TYPE_OBJECT, &param, 0))
 		return false;
 
-	((struct pw_client_node_events *) proxy->implementation)->set_property(proxy, seq, id, s,
-									       value);
+	((struct pw_client_node_events *) proxy->implementation)->set_param(proxy, seq, direction,
+									     port_id, param);
 	return true;
 }
 
@@ -730,14 +753,19 @@ static bool client_node_demarshal_port_command(void *object, void *data, size_t 
 	struct pw_proxy *proxy = object;
 	struct spa_pod_iter it;
 	const struct spa_command *command;
-	uint32_t port_id;
+	uint32_t direction, port_id;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
 	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->context->types) ||
-	    !spa_pod_iter_get(&it, SPA_POD_TYPE_INT, &port_id, SPA_POD_TYPE_OBJECT, &command, 0))
+	    !spa_pod_iter_get(&it,
+			      SPA_POD_TYPE_INT, &direction,
+			      SPA_POD_TYPE_INT, &port_id,
+			      SPA_POD_TYPE_OBJECT, &command, 0))
 		return false;
 
-	((struct pw_client_node_events *) proxy->implementation)->port_command(proxy, port_id,
+	((struct pw_client_node_events *) proxy->implementation)->port_command(proxy,
+									       direction,
+									       port_id,
 									       command);
 	return true;
 }
@@ -753,7 +781,8 @@ static bool client_node_demarshal_transport(void *object, void *data, size_t siz
 	if (!spa_pod_iter_struct(&it, data, size) ||
 	    !spa_pod_iter_get(&it,
 			      SPA_POD_TYPE_INT, &memfd_idx,
-			      SPA_POD_TYPE_INT, &offset, SPA_POD_TYPE_INT, &sz, 0))
+			      SPA_POD_TYPE_INT, &offset,
+			      SPA_POD_TYPE_INT, &sz, 0))
 		return false;
 
 	memfd = pw_connection_get_fd(connection, memfd_idx);
@@ -813,14 +842,17 @@ static bool registry_demarshal_global(void *object, void *data, size_t size)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_iter it;
-	uint32_t id;
+	uint32_t id, version;
 	const char *type;
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !spa_pod_iter_get(&it, SPA_POD_TYPE_INT, &id, SPA_POD_TYPE_STRING, &type, 0))
+	    !spa_pod_iter_get(&it,
+			      SPA_POD_TYPE_INT, &id,
+			      SPA_POD_TYPE_STRING, &type,
+			      SPA_POD_TYPE_INT, &version, 0))
 		return false;
 
-	((struct pw_registry_events *) proxy->implementation)->global (proxy, id, type);
+	((struct pw_registry_events *) proxy->implementation)->global (proxy, id, type, version);
 	return true;
 }
 
@@ -838,7 +870,7 @@ static bool registry_demarshal_global_remove(void *object, void *data, size_t si
 	return true;
 }
 
-static void registry_marshal_bind(void *object, uint32_t id, uint32_t new_id)
+static void registry_marshal_bind(void *object, uint32_t id, uint32_t version, uint32_t new_id)
 {
 	struct pw_proxy *proxy = object;
 	struct pw_connection *connection = proxy->context->protocol_private;
@@ -850,7 +882,10 @@ static void registry_marshal_bind(void *object, uint32_t id, uint32_t new_id)
 
 	core_update_map(proxy->context);
 
-	spa_pod_builder_struct(&b.b, &f, SPA_POD_TYPE_INT, id, SPA_POD_TYPE_INT, new_id);
+	spa_pod_builder_struct(&b.b, &f,
+			       SPA_POD_TYPE_INT, id,
+			       SPA_POD_TYPE_INT, version,
+			       SPA_POD_TYPE_INT, new_id);
 
 	pw_connection_end_write(connection, proxy->id, PW_REGISTRY_METHOD_BIND, b.b.offset);
 }
@@ -900,11 +935,12 @@ static const struct pw_client_node_methods pw_protocol_native_client_client_node
 
 static const demarshal_func_t pw_protocol_native_client_client_node_demarshal[] = {
 	&client_node_demarshal_done,
+	&client_node_demarshal_set_props,
 	&client_node_demarshal_event,
 	&client_node_demarshal_add_port,
 	&client_node_demarshal_remove_port,
 	&client_node_demarshal_set_format,
-	&client_node_demarshal_set_property,
+	&client_node_demarshal_set_param,
 	&client_node_demarshal_add_mem,
 	&client_node_demarshal_use_buffers,
 	&client_node_demarshal_node_command,

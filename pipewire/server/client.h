@@ -33,37 +33,46 @@ extern "C" {
 #include <pipewire/server/core.h>
 #include <pipewire/server/resource.h>
 
-/**
- * pw_client:
+/** \class pw_client
  *
- * PipeWire client object class.
+ * \brief PipeWire client object class.
+ *
+ * The client object represents a client connection with the PipeWire
+ * server.
+ *
+ * Each client has its own list of resources it is bound to along with
+ * a mapping between the client types and server types.
  */
 struct pw_client {
-	struct pw_core *core;
-	struct spa_list link;
-	struct pw_global *global;
+	struct pw_core *core;		/**< core object */
+	struct spa_list link;		/**< link in core object client list */
+	struct pw_global *global;	/**< global object created for this client */
 
-	struct pw_properties *properties;
+	struct pw_properties *properties;	/**< Client properties */
+	/** Emited when the properties changed */
 	PW_SIGNAL(properties_changed, (struct pw_listener *listener, struct pw_client *client));
 
-	struct pw_client_info info;
-	bool ucred_valid;
-	struct ucred ucred;
+	struct pw_client_info info;	/**< client info */
+	bool ucred_valid;		/**< if the ucred member is valid */
+	struct ucred ucred;		/**< ucred information */
 
-	void *protocol_private;
+	void *protocol_private;		/**< private data for the protocol implementation */
 
-	struct pw_resource *core_resource;
+	struct pw_resource *core_resource;	/**< core resource object */
 
-	struct pw_map objects;
-	uint32_t n_types;
-	struct pw_map types;
+	struct pw_map objects;		/**< list of resource objects */
+	uint32_t n_types;		/**< number of client types */
+	struct pw_map types;		/**< map of client types */
 
-	struct spa_list resource_list;
+	struct spa_list resource_list;	/**< The list of resources of this client */
+	/** Emited when a resource is added */
 	PW_SIGNAL(resource_added, (struct pw_listener *listener,
 				   struct pw_client *client, struct pw_resource *resource));
+	/** Emited when a resource is removed */
 	PW_SIGNAL(resource_removed, (struct pw_listener *listener,
 				     struct pw_client *client, struct pw_resource *resource));
 
+	/** Emited when the client is destroyed */
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_client *client));
 };
 

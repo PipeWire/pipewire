@@ -26,6 +26,15 @@
 
 #include <spa/dict.h>
 
+/** \class pw_properties
+ *
+ * \brief A collection of key/value pairs
+ *
+ * Properties are used to pass around arbitrary key/value pairs.
+ * Both keys and values are strings which keeps things simple.
+ * Encoding of arbitrary values should be done by using a string
+ * serialization such as base64 for binary blobs.
+ */
 struct pw_properties {
 	struct spa_dict dict;
 };

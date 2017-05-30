@@ -32,87 +32,52 @@ struct pw_context;
 #include <pipewire/client/context.h>
 #include <pipewire/client/properties.h>
 
-/**
- * pw_node_state:
- * @PW_NODE_STATE_ERROR: the node is in error
- * @PW_NODE_STATE_CREATING: the node is being created
- * @PW_NODE_STATE_SUSPENDED: the node is suspended, the device might
- *                             be closed
- * @PW_NODE_STATE_IDLE: the node is running but there is no active
- *                         port
- * @PW_NODE_STATE_RUNNING: the node is running
- *
- * The different node states
- */
+/** \enum pw_node_state The different node states \memberof pw_node */
 enum pw_node_state {
-	PW_NODE_STATE_ERROR = -1,
-	PW_NODE_STATE_CREATING = 0,
-	PW_NODE_STATE_SUSPENDED = 1,
-	PW_NODE_STATE_IDLE = 2,
-	PW_NODE_STATE_RUNNING = 3,
+	PW_NODE_STATE_ERROR = -1,	/**< error state */
+	PW_NODE_STATE_CREATING = 0,	/**< the node is being created */
+	PW_NODE_STATE_SUSPENDED = 1,	/**< the node is suspended, the device might
+					 *   be closed */
+	PW_NODE_STATE_IDLE = 2,		/**< the node is running but there is no active
+					 *   port */
+	PW_NODE_STATE_RUNNING = 3,	/**< the node is running */
 };
 
-const char *
-pw_node_state_as_string(enum pw_node_state state);
+/** Convert a \ref pw_node_state to a readable string \memberof pw_node */
+const char * pw_node_state_as_string(enum pw_node_state state);
 
-/**
- * pw_direction:
- * @PW_DIRECTION_INVALID: invalid direction
- * @PW_DIRECTION_INPUT: an input port
- * @PW_DIRECTION_OUTPUT: an output port
- *
- * The direction of a port
- */
+/** \enum pw_direction The direction of a port \memberof pw_introspect */
 enum pw_direction {
-	PW_DIRECTION_INPUT = SPA_DIRECTION_INPUT,
-	PW_DIRECTION_OUTPUT = SPA_DIRECTION_OUTPUT
+	PW_DIRECTION_INPUT = SPA_DIRECTION_INPUT,	/**< an input port direction */
+	PW_DIRECTION_OUTPUT = SPA_DIRECTION_OUTPUT	/**< an output port direction */
 };
 
-const char *
-pw_direction_as_string(enum pw_direction direction);
+/** Convert a \ref pw_direction to a readable string \memberof pw_introspect */
+const char * pw_direction_as_string(enum pw_direction direction);
 
-/**
- * pw_link_state:
- * @PW_LINK_STATE_ERROR: the link is in error
- * @PW_LINK_STATE_UNLINKED: the link is unlinked
- * @PW_LINK_STATE_INIT: the link is initialized
- * @PW_LINK_STATE_NEGOTIATING: the link is negotiating formats
- * @PW_LINK_STATE_ALLOCATING: the link is allocating buffers
- * @PW_LINK_STATE_PAUSED: the link is paused
- * @PW_LINK_STATE_RUNNING: the link is running
- *
- * The different link states
- */
+/** \enum pw_link_state The different link states \memberof pw_link */
 enum pw_link_state {
-	PW_LINK_STATE_ERROR = -2,
-	PW_LINK_STATE_UNLINKED = -1,
-	PW_LINK_STATE_INIT = 0,
-	PW_LINK_STATE_NEGOTIATING = 1,
-	PW_LINK_STATE_ALLOCATING = 2,
-	PW_LINK_STATE_PAUSED = 3,
-	PW_LINK_STATE_RUNNING = 4,
+	PW_LINK_STATE_ERROR = -2,	/**< the link is in error */
+	PW_LINK_STATE_UNLINKED = -1,	/**< the link is unlinked */
+	PW_LINK_STATE_INIT = 0,		/**< the link is initialized */
+	PW_LINK_STATE_NEGOTIATING = 1,	/**< the link is negotiating formats */
+	PW_LINK_STATE_ALLOCATING = 2,	/**< the link is allocating buffers */
+	PW_LINK_STATE_PAUSED = 3,	/**< the link is paused */
+	PW_LINK_STATE_RUNNING = 4,	/**< the link is running */
 };
 
-const char *
-pw_link_state_as_string(enum pw_link_state state);
+/** Convert a \ref pw_link_state to a readable string \memberof pw_link */
+const char * pw_link_state_as_string(enum pw_link_state state);
 
-/**
- * pw_core_info:
- * @id: generic id of the core
- * @change_mask: bitfield of changed fields since last call
- * @user_name: name of the user that started the core
- * @host_name: name of the machine the core is running on
- * @version: version of the core
- * @name: name of the core
- * @cookie: a random cookie for identifying this instance of PipeWire
- * @props: extra properties
+/** \class pw_introspect
  *
- * The core information. Extra information can be added in later
- * versions.
+ * The introspection methods and structures are used to get information
+ * about the object in the PipeWire server
  */
+
+/**  The core information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_core_info {
-	uint32_t id;
-	uint64_t change_mask;
+	uint32_t id;			/**< server side id of the core */
 #define PW_CORE_CHANGE_MASK_USER_NAME  (1 << 0)
 #define PW_CORE_CHANGE_MASK_HOST_NAME  (1 << 1)
 #define PW_CORE_CHANGE_MASK_VERSION    (1 << 2)
@@ -120,68 +85,63 @@ struct pw_core_info {
 #define PW_CORE_CHANGE_MASK_COOKIE     (1 << 4)
 #define PW_CORE_CHANGE_MASK_PROPS      (1 << 5)
 #define PW_CORE_CHANGE_MASK_ALL        (~0)
-	const char *user_name;
-	const char *host_name;
-	const char *version;
-	const char *name;
-	uint32_t cookie;
-	struct spa_dict *props;
+	uint64_t change_mask;		/**< bitfield of changed fields since last call */
+	const char *user_name;		/**< name of the user that started the core */
+	const char *host_name;		/**< name of the machine the core is running on */
+	const char *version;		/**< version of the core */
+	const char *name;		/**< name of the core */
+	uint32_t cookie;		/**< a random cookie for identifying this instance of PipeWire */
+	struct spa_dict *props;		/**< extra properties */
 };
 
+/** Update and existing \ref pw_core_info with \a update  \memberof pw_introspect */
 struct pw_core_info *
 pw_core_info_update(struct pw_core_info *info,
 		    const struct pw_core_info *update);
 
-void
-pw_core_info_free(struct pw_core_info *info);
+/** Free a \ref pw_core_info  \memberof pw_introspect */
+void pw_core_info_free(struct pw_core_info *info);
 
-/**
- * pw_core_info_cb_t:
- * @c: a #struct pw_context
- * @info: a #struct pw_core_info
- * @user_data: user data
+/**  Callback with information about the PipeWire core
+ * \param c A \ref pw_context
+ * \param res A result code
+ * \param info a \ref pw_core_info
+ * \param user_data user data as passed to \ref pw_context_get_core_info()
  *
- * Callback with information about the PipeWire core in @info.
+ * \memberof pw_introspect
  */
 typedef void (*pw_core_info_cb_t) (struct pw_context *c,
 				   int res, const struct pw_core_info *info, void *user_data);
 
-void
-pw_context_get_core_info(struct pw_context *context, pw_core_info_cb_t cb, void *user_data);
+void pw_context_get_core_info(struct pw_context *context, pw_core_info_cb_t cb, void *user_data);
 
-/**
- * pw_module_info:
- * @id: generic id of the module
- * @change_mask: bitfield of changed fields since last call
- * @props: extra properties
- *
- * The module information. Extra information can be added in later
- * versions.
- */
+/** The module information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_module_info {
-	uint32_t id;
-	uint64_t change_mask;
-	const char *name;
-	const char *filename;
-	const char *args;
-	struct spa_dict *props;
+	uint32_t id;		/**< server side id of the module */
+	uint64_t change_mask;	/**< bitfield of changed fields since last call */
+	const char *name;	/**< name of the module */
+	const char *filename;	/**< filename of the module */
+	const char *args;	/**< arguments passed to the module */
+	struct spa_dict *props;	/**< extra properties */
 };
 
+/** Update and existing \ref pw_module_info with \a update \memberof pw_introspect */
 struct pw_module_info *
 pw_module_info_update(struct pw_module_info *info,
 		      const struct pw_module_info *update);
 
-void
-pw_module_info_free(struct pw_module_info *info);
+/** Free a \ref pw_module_info \memberof pw_introspect */
+void pw_module_info_free(struct pw_module_info *info);
 
 
-/**
- * pw_module_info_cb_t:
- * @c: a #struct pw_context
- * @info: a #struct pw_module_info
- * @user_data: user data
+
+/** Callback with information about a module
+ * \param c A \ref pw_context
+ * \param res A result code
+ * \param info a \ref pw_module_info
+ * \param user_data user data as passed to \ref pw_context_list_module_info()
  *
- * Callback with information about the PipeWire module in @info.
+ * \memberof pw_introspect
  */
 typedef void (*pw_module_info_cb_t) (struct pw_context *c,
 				     int res, const struct pw_module_info *info, void *user_data);
@@ -189,40 +149,35 @@ typedef void (*pw_module_info_cb_t) (struct pw_context *c,
 void
 pw_context_list_module_info(struct pw_context *context,
 			    pw_module_info_cb_t cb, void *user_data);
+
+
 void
 pw_context_get_module_info_by_id(struct pw_context *context,
 				 uint32_t id, pw_module_info_cb_t cb, void *user_data);
 
-/**
- * pw_client_info:
- * @id: generic id of the client
- * @change_mask: bitfield of changed fields since last call
- * @props: extra properties
- *
- * The client information. Extra information can be added in later
- * versions.
- */
+/** The client information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_client_info {
-	uint32_t id;
-	uint64_t change_mask;
-	struct spa_dict *props;
+	uint32_t id;		/**< server side id of the client */
+	uint64_t change_mask;	/**< bitfield of changed fields since last call */
+	struct spa_dict *props;	/**< extra properties */
 };
 
+/** Update and existing \ref pw_client_info with \a update \memberof pw_introspect */
 struct pw_client_info *
 pw_client_info_update(struct pw_client_info *info,
 		      const struct pw_client_info *update);
 
-void
-pw_client_info_free(struct pw_client_info *info);
+/** Free a \ref pw_client_info \memberof pw_introspect */
+void pw_client_info_free(struct pw_client_info *info);
 
 
-/**
- * pw_client_info_cb_t:
- * @c: a #struct pw_context
- * @info: a #struct pw_client_info
- * @user_data: user data
+/** Callback with information about a client
+ * \param c A \ref pw_context
+ * \param res A result code
+ * \param info a \ref pw_client_info
+ * \param user_data user data as passed to \ref pw_context_list_client_info()
  *
- * Callback with information about the PipeWire client in @info.
+ * \memberof pw_introspect
  */
 typedef void (*pw_client_info_cb_t) (struct pw_context *c,
 				     int res, const struct pw_client_info *info, void *user_data);
@@ -235,33 +190,22 @@ void
 pw_context_get_client_info_by_id(struct pw_context *context,
 				 uint32_t id, pw_client_info_cb_t cb, void *user_data);
 
-/**
- * pw_node_info:
- * @id: generic id of the node
- * @change_mask: bitfield of changed fields since last call
- * @name: name the node, suitable for display
- * @state: the current state of the node
- * @error: an error reason if @state is error
- * @props: the properties of the node
- *
- * The node information. Extra information can be added in later
- * versions.
- */
+/** The node information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_node_info {
-	uint32_t id;
-	uint64_t change_mask;
-	const char *name;
-	uint32_t max_inputs;
-	uint32_t n_inputs;
-	uint32_t n_input_formats;
-	struct spa_format **input_formats;
-	uint32_t max_outputs;
-	uint32_t n_outputs;
-	uint32_t n_output_formats;
-	struct spa_format **output_formats;
-	enum pw_node_state state;
-	const char *error;
-	struct spa_dict *props;
+	uint32_t id;				/**< server side id of the node */
+	uint64_t change_mask;			/**< bitfield of changed fields since last call */
+	const char *name;			/**< name the node, suitable for display */
+	uint32_t max_inputs;			/**< maximum number of inputs */
+	uint32_t n_inputs;			/**< number of inputs */
+	uint32_t n_input_formats;		/**< number of input formats */
+	struct spa_format **input_formats;	/**< array of input formats */
+	uint32_t max_outputs;			/**< maximum number of outputs */
+	uint32_t n_outputs;			/**< number of outputs */
+	uint32_t n_output_formats;		/**< number of output formats */
+	struct spa_format **output_formats;	/**< array of output formats */
+	enum pw_node_state state;		/**< the current state of the node */
+	const char *error;			/**< an error reason if \a state is error */
+	struct spa_dict *props;			/**< the properties of the node */
 };
 
 struct pw_node_info *
@@ -271,13 +215,13 @@ pw_node_info_update(struct pw_node_info *info,
 void
 pw_node_info_free(struct pw_node_info *info);
 
-/**
- * pw_node_info_cb_t:
- * @c: a #struct pw_context
- * @info: a #struct pw_node_info
- * @user_data: user data
+/** Callback with information about a node
+ * \param c A \ref pw_context
+ * \param res A result code
+ * \param info a \ref pw_node_info
+ * \param user_data user data as passed to \ref pw_context_list_node_info()
  *
- * Callback with information about the PipeWire node in @info.
+ * \memberof pw_introspect
  */
 typedef void (*pw_node_info_cb_t) (struct pw_context *c,
 				   int res, const struct pw_node_info *info, void *user_data);
@@ -290,25 +234,14 @@ pw_context_get_node_info_by_id(struct pw_context *context,
 			       uint32_t id, pw_node_info_cb_t cb, void *user_data);
 
 
-/**
- * pw_link_info:
- * @id: generic id of the link
- * @change_mask: bitfield of changed fields since last call
- * @output_node_path: the output node
- * @output_port: the output port
- * @input_node_path: the input node
- * @input_port: the input port
- *
- * The link information. Extra information can be added in later
- * versions.
- */
+/** The link information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_link_info {
-	uint32_t id;
-	uint64_t change_mask;
-	uint32_t output_node_id;
-	uint32_t output_port_id;
-	uint32_t input_node_id;
-	uint32_t input_port_id;
+	uint32_t id;			/**< server side id of the link */
+	uint64_t change_mask;		/**< bitfield of changed fields since last call */
+	uint32_t output_node_id;	/**< server side output node id */
+	uint32_t output_port_id;	/**< output port id */
+	uint32_t input_node_id;		/**< server side input node id */
+	uint32_t input_port_id;		/**< input port id */
 };
 
 struct pw_link_info *
@@ -319,13 +252,13 @@ void
 pw_link_info_free(struct pw_link_info *info);
 
 
-/**
- * pw_link_info_cb_t:
- * @c: a #struct pw_context
- * @info: a #struct pw_link_info
- * @user_data: user data
+/** Callback with information about a link
+ * \param c A \ref pw_context
+ * \param res A result code
+ * \param info a \ref pw_link_info
+ * \param user_data user data as passed to \ref pw_context_list_link_info()
  *
- * Callback with information about the PipeWire link in @info.
+ * \memberof pw_introspect
  */
 typedef void (*pw_link_info_cb_t) (struct pw_context *c,
 				   int res, const struct pw_link_info *info, void *user_data);

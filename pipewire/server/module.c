@@ -27,18 +27,17 @@
 #include <sys/stat.h>
 #include <errno.h>
 
-
 #include "pipewire/client/pipewire.h"
 #include "pipewire/client/interfaces.h"
 #include "pipewire/client/utils.h"
 #include "pipewire/server/module.h"
 
-#define PIPEWIRE_SYMBOL_MODULE_INIT "pipewire__module_init"
-
+/** \cond */
 struct impl {
 	struct pw_module this;
 	void *hnd;
 };
+/** \endcond */
 
 static char *find_module(const char *path, const char *name)
 {
@@ -111,16 +110,15 @@ module_bind_func(struct pw_global *global, struct pw_client *client, uint32_t ve
 	return SPA_RESULT_NO_MEMORY;
 }
 
-/**
- * pw_module_load:
- * @core: a #struct pw_core
- * @name: name of the module to load
- * @args: A string with arguments for the module
- * @err: Return location for an error string, or %NULL
+/** Load a module
  *
- * Load module with @name.
+ * \param core a \ref pw_core
+ * \param name name of the module to load
+ * \param args A string with arguments for the module
+ * \param[out] err Return location for an error string, or NULL
+ * \return A \ref pw_module if the module could be loaded, or NULL on failure.
  *
- * Returns: A #struct pw_module if the module could be loaded, or %NULL on failure.
+ * \memberof pw_module
  */
 struct pw_module *pw_module_load(struct pw_core *core,
 				 const char *name, const char *args, char **err)
@@ -208,18 +206,22 @@ struct pw_module *pw_module_load(struct pw_core *core,
 	return NULL;
 }
 
-void pw_module_destroy(struct pw_module *this)
+/** Destroy a module
+ * \param module the module to destroy
+ * \memberof pw_module
+ */
+void pw_module_destroy(struct pw_module *module)
 {
-	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
+	struct impl *impl = SPA_CONTAINER_OF(module, struct impl, this);
 
-	pw_signal_emit(&this->destroy_signal, this);
+	pw_signal_emit(&module->destroy_signal, module);
 
-	if (this->info.name)
-		free((char *) this->info.name);
-	if (this->info.filename)
-		free((char *) this->info.filename);
-	if (this->info.args)
-		free((char *) this->info.args);
+	if (module->info.name)
+		free((char *) module->info.name);
+	if (module->info.filename)
+		free((char *) module->info.filename);
+	if (module->info.args)
+		free((char *) module->info.args);
 	dlclose(impl->hnd);
 	free(impl);
 }

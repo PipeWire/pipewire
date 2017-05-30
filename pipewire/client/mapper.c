@@ -27,11 +27,13 @@
 
 #include <pipewire/client/map.h>
 
+/** \cond */
 struct impl {
 	struct spa_type_map map;
 	struct pw_map types;
 	struct pw_array strings;
 };
+/** \endcond */
 
 static uint32_t type_map_get_id(struct spa_type_map *map, const char *type)
 {
@@ -86,6 +88,10 @@ static struct impl default_type_map = {
 	PW_ARRAY_INIT(4096)
 };
 
+/** Get the default type map
+ * \return the default type map
+ * \memberof pw_pipewire
+ */
 struct spa_type_map *pw_type_map_get_default(void)
 {
 	spa_type_map_set_default(&default_type_map.map);

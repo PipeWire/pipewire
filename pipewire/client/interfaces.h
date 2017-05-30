@@ -40,18 +40,77 @@ extern "C" {
 #define PW_CORE_METHOD_UPDATE_TYPES		5
 #define PW_CORE_METHOD_NUM			6
 
+/** \file
+ *
+ * The object interfaces
+ *
+ * Methods are sent from client to server and events from
+ * server to client.
+ */
+
+/** Core methods */
 struct pw_core_methods {
+	/**
+	 * Update the client properties
+	 * \param props the new client properties
+	 */
 	void (*client_update) (void *object, const struct spa_dict *props);
+	/**
+	 * Do server roundtrip
+	 *
+	 * Ask the server to emit the 'done' event with \a id.
+	 * Since methods are handled in-order and events are delivered
+	 * in-order, this can be used as a barrier to ensure all previous
+	 * methods and the resulting events have been handled.
+	 * \param seq the sequence number passed to the done event
+	 */
 	void (*sync) (void *object, uint32_t seq);
+	/**
+	 * Get the registry object
+	 *
+	 * Create a registry object that allows the client to list and bind
+	 * the global objects available from the PipeWire server
+	 * \param id the client proxy id
+	 */
 	void (*get_registry) (void *object, uint32_t new_id);
+	/**
+	 * Create a new node on the PipeWire server from a factory
+	 *
+	 * \param factory_name the factory name to use
+	 * \param name the node name
+	 * \param props extra properties
+	 * \param new_id the client proxy id
+	 */
 	void (*create_node) (void *object,
 			     const char *factory_name,
-			     const char *name, const struct spa_dict *props, uint32_t new_id);
+			     const char *name,
+			     const struct spa_dict *props,
+			     uint32_t new_id);
+	/**
+	 * Create a new node on the server. The node can be controlled
+	 * with the client node interface.
+	 *
+	 * \param name the node name
+	 * \param props extra properties
+	 * \param new_id the client proxy id
+	 */
 	void (*create_client_node) (void *object,
 				    const char *name,
-				    const struct spa_dict *props, uint32_t new_id);
+				    const struct spa_dict *props,
+				    uint32_t new_id);
+	/**
+	 * Update the type map
+	 *
+	 * Send a type map update to the PipeWire server. The server uses this
+	 * information to keep a mapping between client types and the server types.
+	 * \param first_id the id of the first type
+	 * \param n_types the number of types
+	 * \param types the types as a string
+	 */
 	void (*update_types) (void *object,
-			      uint32_t first_id, uint32_t n_types, const char **types);
+			      uint32_t first_id,
+			      uint32_t n_types,
+			      const char **types);
 };
 
 #define pw_core_do_client_update(r,...)      ((struct pw_core_methods*)r->iface->methods)->client_update(r,__VA_ARGS__)
@@ -68,13 +127,59 @@ struct pw_core_methods {
 #define PW_CORE_EVENT_UPDATE_TYPES 4
 #define PW_CORE_EVENT_NUM          5
 
+/** Core events */
 struct pw_core_events {
+	/**
+	 * Notify new core info
+	 *
+	 * \param info new core info
+	 */
 	void (*info) (void *object, struct pw_core_info *info);
+	/**
+	 * Emit a done event
+	 *
+	 * The done event is emited as a result of a sync method with the
+	 * same sequence number.
+	 * \param seq the sequence number passed to the sync method call
+	 */
 	void (*done) (void *object, uint32_t seq);
+	/**
+	 * Fatal error event
+         *
+         * The error event is sent out when a fatal (non-recoverable)
+         * error has occurred. The id argument is the object where
+         * the error occurred, most often in response to a request to that
+         * object. The message is a brief description of the error,
+         * for (debugging) convenience.
+         * \param id object where the error occurred
+         * \param res error code
+         * \param error error description
+	 */
 	void (*error) (void *object, uint32_t id, int res, const char *error, ...);
+	/**
+	 * Remove an object ID
+         *
+         * This event is used internally by the object ID management
+         * logic. When a client deletes an object, the server will send
+         * this event to acknowledge that it has seen the delete request.
+         * When the client receives this event, it will know that it can
+         * safely reuse the object ID.
+         * \param id deleted object ID
+	 */
 	void (*remove_id) (void *object, uint32_t id);
+	/**
+	 * Update the type map
+	 *
+	 * Send a type map update to the client. The client uses this
+	 * information to keep a mapping between server types and the client types.
+	 * \param first_id the id of the first type
+	 * \param n_types the number of types
+	 * \param types the types as a string
+	 */
 	void (*update_types) (void *object,
-			      uint32_t first_id, uint32_t n_types, const char **types);
+			      uint32_t first_id,
+			      uint32_t n_types,
+			      const char **types);
 };
 
 #define pw_core_notify_info(r,...)         ((struct pw_core_events*)r->iface->events)->info(r,__VA_ARGS__)
@@ -87,8 +192,20 @@ struct pw_core_events {
 #define PW_REGISTRY_METHOD_BIND      0
 #define PW_REGISTRY_METHOD_NUM       1
 
+/** Registry methods */
 struct pw_registry_methods {
-	void (*bind) (void *object, uint32_t id, uint32_t new_id);
+	/**
+	 * Bind to a global object
+	 *
+	 * Bind to the global object with \a id and use the client proxy
+	 * with new_id as the proxy. After this call, methods can be
+	 * send to the remote global object and events can be received
+	 *
+	 * \param id the global id to bind to
+	 * \param version the version to use
+	 * \param new_id the client proxy to use
+	 */
+	void (*bind) (void *object, uint32_t id, uint32_t version, uint32_t new_id);
 };
 
 #define pw_registry_do_bind(r,...)        ((struct pw_registry_methods*)r->iface->methods)->bind(r,__VA_ARGS__)
@@ -97,8 +214,28 @@ struct pw_registry_methods {
 #define PW_REGISTRY_EVENT_GLOBAL_REMOVE      1
 #define PW_REGISTRY_EVENT_NUM                2
 
+/** Registry events */
 struct pw_registry_events {
-	void (*global) (void *object, uint32_t id, const char *type);
+	/**
+	 * Notify of a new global object
+	 *
+	 * The registry emits this event when a new global object is
+	 * available.
+	 *
+	 * \param id the global object id
+	 * \param type the type of the object
+	 * \param version the version of the object
+	 */
+	void (*global) (void *object, uint32_t id, const char *type, uint32_t version);
+	/**
+	 * Notify of a global object removal
+	 *
+	 * Emited when a global object was removed from the registry.
+	 * If the client has any bindings to the global, it should destroy
+	 * those.
+	 *
+	 * \param id the id of the global that was removed
+	 */
 	void (*global_remove) (void *object, uint32_t id);
 };
 
@@ -108,7 +245,13 @@ struct pw_registry_events {
 #define PW_MODULE_EVENT_INFO         0
 #define PW_MODULE_EVENT_NUM          1
 
+/** Module events */
 struct pw_module_events {
+	/**
+	 * Notify module info
+	 *
+	 * \param info info about the module
+	 */
 	void (*info) (void *object, struct pw_module_info *info);
 };
 
@@ -117,17 +260,24 @@ struct pw_module_events {
 #define PW_NODE_EVENT_INFO         0
 #define PW_NODE_EVENT_NUM          1
 
+/** Node events */
 struct pw_node_events {
+	/**
+	 * Notify node info
+	 *
+	 * \param info info about the node
+	 */
 	void (*info) (void *object, struct pw_node_info *info);
 };
 
 #define pw_node_notify_info(r,...)      ((struct pw_node_events*)r->iface->events)->info(r,__VA_ARGS__)
 
+/** information about a buffer */
 struct pw_client_node_buffer {
-	uint32_t mem_id;
-	uint32_t offset;
-	uint32_t size;
-	struct spa_buffer *buffer;
+	uint32_t mem_id;		/**< the memory id for the metadata */
+	uint32_t offset;		/**< offset in memory */
+	uint32_t size;			/**< size in memory */
+	struct spa_buffer *buffer;	/**< buffer describing metadata and buffer memory */
 };
 
 #define PW_CLIENT_NODE_METHOD_UPDATE         0
@@ -136,15 +286,41 @@ struct pw_client_node_buffer {
 #define PW_CLIENT_NODE_METHOD_DESTROY        3
 #define PW_CLIENT_NODE_METHOD_NUM            4
 
+/** \ref pw_client_node methods */
 struct pw_client_node_methods {
+	/**
+	 * Update the node ports and properties
+	 *
+	 * Update the maximum number of ports and the properties of the
+	 * client node.
+	 * \param change_mask bitfield with changed parameters
+	 * \param max_input_ports new max input ports
+	 * \param max_output_ports new max output ports
+	 * \param props new properties
+	 */
 	void (*update) (void *object,
 #define PW_MESSAGE_NODE_UPDATE_MAX_INPUTS   (1 << 0)
 #define PW_MESSAGE_NODE_UPDATE_MAX_OUTPUTS  (1 << 1)
 #define PW_MESSAGE_NODE_UPDATE_PROPS        (1 << 2)
 			uint32_t change_mask,
 			uint32_t max_input_ports,
-			uint32_t max_output_ports, const struct spa_props *props);
+			uint32_t max_output_ports,
+			const struct spa_props *props);
 
+	/**
+	 * Update a node port
+	 *
+	 * Update the information of one port of a node.
+	 * \param direction the direction of the port
+	 * \param port_id the port id to update
+	 * \param change_mask a bitfield of changed items
+	 * \param n_possible_formats number of possible formats
+	 * \param possible_formats array of possible formats on the port
+	 * \param format the current format on the port
+	 * \param n_params number of port parameters
+	 * \param params array of port parameters
+	 * \param info port information
+	 */
 	void (*port_update) (void *object, enum spa_direction direction, uint32_t port_id,
 #define PW_MESSAGE_PORT_UPDATE_POSSIBLE_FORMATS  (1 << 0)
 #define PW_MESSAGE_PORT_UPDATE_FORMAT            (1 << 1)
@@ -155,8 +331,16 @@ struct pw_client_node_methods {
 			     const struct spa_format **possible_formats,
 			     const struct spa_format *format,
 			     uint32_t n_params,
-			     const struct spa_param **params, const struct spa_port_info *info);
+			     const struct spa_param **params,
+			     const struct spa_port_info *info);
+	/**
+	 * Send an event to the node
+	 * \param event the event to send
+	 */
 	void (*event) (void *object, struct spa_event *event);
+	/**
+	 * Destroy the client_node
+	 */
 	void (*destroy) (void *object);
 };
 
@@ -166,52 +350,175 @@ struct pw_client_node_methods {
 #define pw_client_node_do_destroy(r)          ((struct pw_client_node_methods*)r->iface->methods)->destroy(r)
 
 #define PW_CLIENT_NODE_EVENT_DONE            0
-#define PW_CLIENT_NODE_EVENT_EVENT           1
-#define PW_CLIENT_NODE_EVENT_ADD_PORT        2
-#define PW_CLIENT_NODE_EVENT_REMOVE_PORT     3
-#define PW_CLIENT_NODE_EVENT_SET_FORMAT      4
-#define PW_CLIENT_NODE_EVENT_SET_PROPERTY    5
-#define PW_CLIENT_NODE_EVENT_ADD_MEM         6
-#define PW_CLIENT_NODE_EVENT_USE_BUFFERS     7
-#define PW_CLIENT_NODE_EVENT_NODE_COMMAND    8
-#define PW_CLIENT_NODE_EVENT_PORT_COMMAND    9
-#define PW_CLIENT_NODE_EVENT_TRANSPORT       10
-#define PW_CLIENT_NODE_EVENT_NUM             11
+#define PW_CLIENT_NODE_EVENT_SET_PROPS       1
+#define PW_CLIENT_NODE_EVENT_EVENT           2
+#define PW_CLIENT_NODE_EVENT_ADD_PORT        3
+#define PW_CLIENT_NODE_EVENT_REMOVE_PORT     4
+#define PW_CLIENT_NODE_EVENT_SET_FORMAT      5
+#define PW_CLIENT_NODE_EVENT_SET_PARAM       6
+#define PW_CLIENT_NODE_EVENT_ADD_MEM         7
+#define PW_CLIENT_NODE_EVENT_USE_BUFFERS     8
+#define PW_CLIENT_NODE_EVENT_NODE_COMMAND    9
+#define PW_CLIENT_NODE_EVENT_PORT_COMMAND    10
+#define PW_CLIENT_NODE_EVENT_TRANSPORT       11
+#define PW_CLIENT_NODE_EVENT_NUM             12
 
+/** \ref pw_client_node events */
 struct pw_client_node_events {
+	/**
+	 * Notify the creation of the client node
+	 *
+	 * A set of sockets are exchanged that are used to notify when
+	 * commands are available for reading and writing.
+	 *
+	 * \param readfd the fd used for receiving commands
+	 * \param writefd the fd used for sending command
+	 */
 	void (*done) (void *object, int readfd, int writefd);
+	/**
+	 * Notify of a property change
+	 *
+	 * When the server configures the properties on the node
+	 * this event is sent
+	 *
+	 * \param seq a sequence number
+	 * \param props the props to set
+	 */
+	void (*set_props) (void *object,
+			   uint32_t seq,
+			   const struct spa_props *props);
+	/**
+	 * Receive an event from the client node
+	 * \param event the received event */
 	void (*event) (void *object, const struct spa_event *event);
+	/**
+	 * A new port was added to the node
+	 *
+	 * The server can at any time add a port to the node when there
+	 * are free ports available.
+	 *
+	 * \param seq a sequence number
+	 * \param direction the direction of the port
+	 * \param port_id the new port id
+	 */
 	void (*add_port) (void *object,
-			  uint32_t seq, enum spa_direction direction, uint32_t port_id);
+			  uint32_t seq,
+			  enum spa_direction direction,
+			  uint32_t port_id);
+	/**
+	 * A port was removed from the node
+	 *
+	 * \param seq a sequence number
+	 * \param direction a port direction
+	 * \param port_id the remove port id
+	 */
 	void (*remove_port) (void *object,
-			     uint32_t seq, enum spa_direction direction, uint32_t port_id);
+			     uint32_t seq,
+			     enum spa_direction direction,
+			     uint32_t port_id);
+	/**
+	 * A format was configured on the port
+	 *
+	 * \param seq a sequence number
+	 * \param direction a port direction
+	 * \param port_id the port id
+	 * \param flags flags used when setting the format
+	 * \param format the new format
+	 */
 	void (*set_format) (void *object,
 			    uint32_t seq,
 			    enum spa_direction direction,
-			    uint32_t port_id, uint32_t flags, const struct spa_format *format);
-	void (*set_property) (void *object,
-			      uint32_t seq, uint32_t id, uint32_t size, const void *value);
+			    uint32_t port_id,
+			    uint32_t flags,
+			    const struct spa_format *format);
+	/**
+	 * A parameter was configured on the port
+	 *
+	 * \param seq a sequence number
+	 * \param direction a port direction
+	 * \param port_id the port id
+	 * \param param the new param
+	 */
+	void (*set_param) (void *object,
+			   uint32_t seq,
+			   enum spa_direction direction,
+			   uint32_t port_id,
+			   const struct spa_param *param);
+	/**
+	 * Memory was added for a port
+	 *
+	 * \param direction a port direction
+	 * \param port_id the port id
+	 * \param mem_id the id of the memory
+	 * \param type the memory type
+	 * \param memfd the fd of the memory
+	 * \param flags flags for the \a memfd
+	 * \param offset valid offset of mapped memory from \a memfd
+	 * \param size valid size of mapped memory from \a memfd
+	 */
 	void (*add_mem) (void *object,
 			 enum spa_direction direction,
 			 uint32_t port_id,
 			 uint32_t mem_id,
-			 uint32_t type, int memfd, uint32_t flags, uint32_t offset, uint32_t size);
+			 uint32_t type,
+			 int memfd,
+			 uint32_t flags,
+			 uint32_t offset,
+			 uint32_t size);
+	/**
+	 * Notify the port of buffers
+	 *
+	 * \param seq a sequence number
+	 * \param direction a port direction
+	 * \param port_id the port id
+	 * \param n_buffer the number of buffers
+	 * \param buffers and array of buffer descriptions
+	 */
 	void (*use_buffers) (void *object,
 			     uint32_t seq,
 			     enum spa_direction direction,
 			     uint32_t port_id,
-			     uint32_t n_buffers, struct pw_client_node_buffer *buffers);
+			     uint32_t n_buffers,
+			     struct pw_client_node_buffer *buffers);
+	/**
+	 * Notify of a new node command
+	 *
+	 * \param seq a sequence number
+	 * \param command the command
+	 */
 	void (*node_command) (void *object, uint32_t seq, const struct spa_command *command);
-	void (*port_command) (void *object, uint32_t port_id, const struct spa_command *command);
+	/**
+	 * Notify of a new port command
+	 *
+	 * \param direction a port direction
+	 * \param port_id the port id
+	 * \param command the command
+	 */
+	void (*port_command) (void *object,
+			      enum spa_direction direction,
+			      uint32_t port_id,
+			      const struct spa_command *command);
+
+	/**
+	 * Notify of a new transport area
+	 *
+	 * The transport area is used to exchange real-time commands between
+	 * the client and the server.
+	 *
+	 * \param memfd the memory fd of the area
+	 * \param offset the offset to map
+	 * \param size the size to map
+	 */
 	void (*transport) (void *object, int memfd, uint32_t offset, uint32_t size);
 };
 
 #define pw_client_node_notify_done(r,...)         ((struct pw_client_node_events*)r->iface->events)->done(r,__VA_ARGS__)
+#define pw_client_node_notify_set_props(r,...)    ((struct pw_client_node_events*)r->iface->events)->props(r,__VA_ARGS__)
 #define pw_client_node_notify_event(r,...)        ((struct pw_client_node_events*)r->iface->events)->event(r,__VA_ARGS__)
 #define pw_client_node_notify_add_port(r,...)     ((struct pw_client_node_events*)r->iface->events)->add_port(r,__VA_ARGS__)
 #define pw_client_node_notify_remove_port(r,...)  ((struct pw_client_node_events*)r->iface->events)->remove_port(r,__VA_ARGS__)
 #define pw_client_node_notify_set_format(r,...)   ((struct pw_client_node_events*)r->iface->events)->set_format(r,__VA_ARGS__)
-#define pw_client_node_notify_set_property(r,...) ((struct pw_client_node_events*)r->iface->events)->set_property(r,__VA_ARGS__)
+#define pw_client_node_notify_set_param(r,...)    ((struct pw_client_node_events*)r->iface->events)->set_param(r,__VA_ARGS__)
 #define pw_client_node_notify_add_mem(r,...)      ((struct pw_client_node_events*)r->iface->events)->add_mem(r,__VA_ARGS__)
 #define pw_client_node_notify_use_buffers(r,...)  ((struct pw_client_node_events*)r->iface->events)->use_buffers(r,__VA_ARGS__)
 #define pw_client_node_notify_node_command(r,...) ((struct pw_client_node_events*)r->iface->events)->node_command(r,__VA_ARGS__)
@@ -221,7 +528,13 @@ struct pw_client_node_events {
 #define PW_CLIENT_EVENT_INFO         0
 #define PW_CLIENT_EVENT_NUM          1
 
+/** Client events */
 struct pw_client_events {
+	/**
+	 * Notify client info
+	 *
+	 * \param info info about the client
+	 */
 	void (*info) (void *object, struct pw_client_info *info);
 };
 
@@ -230,7 +543,13 @@ struct pw_client_events {
 #define PW_LINK_EVENT_INFO         0
 #define PW_LINK_EVENT_NUM          1
 
+/** Link events */
 struct pw_link_events {
+	/**
+	 * Notify link info
+	 *
+	 * \param info info about the link
+	 */
 	void (*info) (void *object, struct pw_link_info *info);
 };
 

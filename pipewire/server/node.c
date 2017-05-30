@@ -29,6 +29,7 @@
 #include "pipewire/server/main-loop.h"
 #include "pipewire/server/work-queue.h"
 
+/** \cond */
 struct impl {
 	struct pw_node this;
 
@@ -36,6 +37,8 @@ struct impl {
 
 	bool async_init;
 };
+
+/** \endcond */
 
 static void init_complete(struct pw_node *this);
 
@@ -651,40 +654,42 @@ do_node_remove(struct spa_loop *loop,
 	return res;
 }
 
-/**
- * pw_node_destroy:
- * @node: a #struct pw_node
+/** Destroy a node
+ * \param node a node to destroy
  *
- * Remove @node. This will stop the transfer on the node and
- * free the resources allocated by @node.
+ * Remove \a node. This will stop the transfer on the node and
+ * free the resources allocated by \a node.
+ *
+ * \memberof pw_node
  */
-void pw_node_destroy(struct pw_node *this)
+void pw_node_destroy(struct pw_node *node)
 {
-	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
+	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	struct pw_resource *resource, *tmp;
 
 	pw_log_debug("node %p: destroy", impl);
-	pw_signal_emit(&this->destroy_signal, this);
+	pw_signal_emit(&node->destroy_signal, node);
 
 	if (!impl->async_init) {
-		spa_list_remove(&this->link);
-		pw_global_destroy(this->global);
+		spa_list_remove(&node->link);
+		pw_global_destroy(node->global);
 	}
 
-	spa_list_for_each_safe(resource, tmp, &this->resource_list, link)
+	spa_list_for_each_safe(resource, tmp, &node->resource_list, link)
 		pw_resource_destroy(resource);
 
-	pw_loop_invoke(this->data_loop->loop, do_node_remove, 1, 0, NULL, this);
+	pw_loop_invoke(node->data_loop->loop, do_node_remove, 1, 0, NULL, node);
 }
 
 /**
  * pw_node_get_free_port:
- * @node: a #struct pw_node
- * @direction: a #enum pw_direction
+ * \param node a \ref pw_node
+ * \param direction a \ref pw_direction
+ * \return the new port or NULL on error
  *
- * Find a new unused port in @node with @direction
+ * Find a new unused port in \a node with \a direction
  *
- * Returns: the new port or %NULL on error
+ * \memberof pw_node
  */
 struct pw_port *pw_node_get_free_port(struct pw_node *node, enum pw_direction direction)
 {
@@ -774,14 +779,14 @@ static void node_activate(struct pw_node *this)
 	}
 }
 
-/**
- * pw_node_set_state:
- * @node: a #struct pw_node
- * @state: a #enum pw_node_state
+/** Set th node state
+ * \param node a \ref pw_node
+ * \param state a \ref pw_node_state
+ * \return 0 on success < 0 on error
  *
- * Set the state of @node to @state.
+ * Set the state of \a node to \a state.
  *
- * Returns: a #int
+ * \memberof pw_node
  */
 int pw_node_set_state(struct pw_node *node, enum pw_node_state state)
 {
@@ -822,14 +827,15 @@ int pw_node_set_state(struct pw_node *node, enum pw_node_state state)
 	return res;
 }
 
-/**
- * pw_node_update_state:
- * @node: a #struct pw_node
- * @state: a #enum pw_node_state
- * @error: error when @state is #PW_NODE_STATE_ERROR
+/** Update the node state
+ * \param node a \ref pw_node
+ * \param state a \ref pw_node_state
+ * \param error error when \a state is \ref PW_NODE_STATE_ERROR
  *
- * Update the state of a node. This method is used from
- * inside @node itself.
+ * Update the state of a node. This method is used from inside \a node
+ * itself.
+ *
+ * \memberof pw_node
  */
 void pw_node_update_state(struct pw_node *node, enum pw_node_state state, char *error)
 {

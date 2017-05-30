@@ -37,6 +37,10 @@ extern "C" {
 
 #include <spa/type-map.h>
 
+/** \class pw_pipewire
+ *
+ * \brief PipeWire initalization and infrasctructure functions
+ */
 void
 pw_init(int *argc, char **argv[]);
 
@@ -56,7 +60,7 @@ const char *
 pw_get_host_name(void);
 
 char *
-pw_client_name(void);
+pw_get_client_name(void);
 
 void
 pw_fill_context_properties(struct pw_properties *properties);

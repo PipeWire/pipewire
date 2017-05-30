@@ -20,11 +20,13 @@
 #include "pipewire/client/pipewire.h"
 #include "pipewire/client/properties.h"
 
+/** \cond */
 struct properties {
 	struct pw_properties this;
 
 	struct pw_array items;
 };
+/** \endcond */
 
 static void add_func(struct pw_properties *this, char *key, char *value)
 {
@@ -59,14 +61,13 @@ static int find_index(struct pw_properties *this, const char *key)
 	return -1;
 }
 
-/**
- * pw_properties_new:
- * @key: first key
- * @...: value
+/** Make a new properties object
  *
- * Make a new #struct pw_properties with given, NULL-terminated key/value pairs.
+ * \param key a first key
+ * \param ... value and more keys NULL terminated
+ * \return a newly allocated properties object
  *
- * Returns: a new #struct pw_properties
+ * \memberof pw_properties
  */
 struct pw_properties *pw_properties_new(const char *key, ...)
 {
@@ -91,13 +92,12 @@ struct pw_properties *pw_properties_new(const char *key, ...)
 	return &impl->this;
 }
 
-/**
- * pw_properties_new_dict:
- * @dict: a dict
+/** Make a new properties object from the given dictionary
  *
- * Make a new #struct pw_properties with given @dict.
+ * \param dict a dictionary. keys and values are copied
+ * \return a new properties object
  *
- * Returns: a new #struct pw_properties
+ * \memberof pw_properties
  */
 struct pw_properties *pw_properties_new_dict(const struct spa_dict *dict)
 {
@@ -116,13 +116,12 @@ struct pw_properties *pw_properties_new_dict(const struct spa_dict *dict)
 	return &impl->this;
 }
 
-/**
- * pw_properties_copy:
- * @properties: a #struct pw_properties
+/** Copy a properties object
  *
- * Make a copy of @properties.
+ * \param properties properties to copy
+ * \return a new properties object
  *
- * Returns: a copy of @properties
+ * \memberof pw_properties
  */
 struct pw_properties *pw_properties_copy(struct pw_properties *properties)
 {
@@ -140,6 +139,17 @@ struct pw_properties *pw_properties_copy(struct pw_properties *properties)
 	return copy;
 }
 
+/** Merge properties into one
+ *
+ * \param oldprops properties to merge into
+ * \param newprops properties to merge
+ * \return a newly allocated \ref pw_properties
+ *
+ * A new \ref pw_properties is allocated and the properties of
+ * \a oldprops and \a newprops are copied into it in that order.
+ *
+ * \memberof pw_properties
+ */
 struct pw_properties *pw_properties_merge(struct pw_properties *oldprops,
 					  struct pw_properties *newprops)
 {
@@ -167,11 +177,11 @@ struct pw_properties *pw_properties_merge(struct pw_properties *oldprops,
 	return res;
 }
 
-/**
- * pw_properties_free:
- * @properties: a #struct pw_properties
+/** Free a properties object
  *
- * Free @properties
+ * \param properties the properties to free
+ *
+ * \memberof pw_properties
  */
 void pw_properties_free(struct pw_properties *properties)
 {
@@ -214,30 +224,34 @@ static void do_replace(struct pw_properties *properties, char *key, char *value)
 	}
 }
 
-/**
- * pw_properties_set:
- * @properties: a #struct pw_properties
- * @key: a key
- * @value: a value
+/** Set a property value
  *
- * Set the property in @properties with @key to @value. Any previous value
- * of @key will be overwritten. When @value is %NULL, the key will be
+ * \param properties the properties to change
+ * \param key a key
+ * \param value a value or NULL to remove the key
+ *
+ * Set the property in \a properties with \a key to \a value. Any previous value
+ * of \a key will be overwritten. When \a value is NULL, the key will be
  * removed.
+ *
+ * \memberof pw_properties
  */
 void pw_properties_set(struct pw_properties *properties, const char *key, const char *value)
 {
 	do_replace(properties, strdup(key), value ? strdup(value) : NULL);
 }
 
-/**
- * pw_properties_setf:
- * @properties: a #struct pw_properties
- * @key: a key
- * @format: a value
- * @...: extra arguments
+/** Set a property value by format
  *
- * Set the property in @properties with @key to the value in printf style @format
- * Any previous value of @key will be overwritten.
+ * \param properties a \ref pw_properties
+ * \param key a key
+ * \param format a value
+ * \param ... extra arguments
+ *
+ * Set the property in \a properties with \a key to the value in printf style \a format
+ * Any previous value of \a key will be overwritten.
+ *
+ * \memberof pw_properties
  */
 void pw_properties_setf(struct pw_properties *properties, const char *key, const char *format, ...)
 {
@@ -251,14 +265,15 @@ void pw_properties_setf(struct pw_properties *properties, const char *key, const
 	do_replace(properties, strdup(key), value);
 }
 
-/**
- * pw_properties_get:
- * @properties: a #struct pw_properties
- * @key: a key
+/** Get a property
  *
- * Get the property in @properties with @key.
+ * \param properties a \ref pw_properties
+ * \param key a key
+ * \return the property for \a key or NULL when the key was not found
  *
- * Returns: the property for @key or %NULL when the key was not found
+ * Get the property in \a properties with \a key.
+ *
+ * \memberof pw_properties
  */
 const char *pw_properties_get(struct pw_properties *properties, const char *key)
 {
@@ -271,19 +286,18 @@ const char *pw_properties_get(struct pw_properties *properties, const char *key)
 	return pw_array_get_unchecked(&impl->items, index, struct spa_dict_item)->value;
 }
 
-/**
- * pw_properties_iterate:
- * @properties: a #struct pw_properties
- * @state: state
+/** Iterate property values
  *
- * Iterate over @properties, returning each key in turn. @state should point
- * to a pointer holding %NULL to get the first element and will be updated
- * after each iteration. When %NULL is returned, all elements have been
+ * \param properties a \ref pw_properties
+ * \param state state
+ * \return The next key or NULL when there are no more keys to iterate.
+ *
+ * Iterate over \a properties, returning each key in turn. \a state should point
+ * to a pointer holding NULL to get the first element and will be updated
+ * after each iteration. When NULL is returned, all elements have been
  * iterated.
  *
- * Aborting the iteration before %NULL is returned might cause memory leaks.
- *
- * Returns: The next key or %NULL when there are no more keys to iterate.
+ * \memberof pw_properties
  */
 const char *pw_properties_iterate(struct pw_properties *properties, void **state)
 {

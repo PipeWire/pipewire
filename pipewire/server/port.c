@@ -25,11 +25,13 @@
 
 #include "pipewire/server/port.h"
 
+/** \cond */
 struct impl {
 	struct pw_port this;
 
 	uint32_t seq;
 };
+/** \endcond */
 
 struct pw_port *pw_port_new(struct pw_node *node, enum pw_direction direction, uint32_t port_id)
 {
@@ -95,29 +97,25 @@ static struct pw_link *find_link(struct pw_port *output_port, struct pw_port *in
 	return NULL;
 }
 
-struct pw_link *pw_port_get_link(struct pw_port *output_port, struct pw_port *input_port)
-{
-	return find_link(output_port, input_port);
-}
-
-/**
- * pw_port_link:
- * @output_port: an output port
- * @input_port: an input port
- * @format_filter: a format filter
- * @properties: extra properties
- * @error: an error or %NULL
+/** Link two ports
+ * \param output_port an output port
+ * \param input_port an input port
+ * \param format_filter a format filter
+ * \param properties extra properties
+ * \param error an error or NULL
+ * \return a newly allocated \ref pw_link or NULL and \a error is set.
  *
- * Make a link between @output_port and @input_port
+ * Make a link between \a output_port and \a input_port
  *
- * If the ports were already linked, the existing links will be returned.
+ * If the ports were already linked, the existing link will be returned.
  *
- * Returns: a new #struct pw_link or %NULL and @error is set.
+ * \memberof pw_port
  */
 struct pw_link *pw_port_link(struct pw_port *output_port,
 			     struct pw_port *input_port,
-			     struct spa_format **format_filter,
-			     struct pw_properties *properties, char **error)
+			     struct spa_format *format_filter,
+			     struct pw_properties *properties,
+			     char **error)
 {
 	struct pw_node *input_node, *output_node;
 	struct pw_link *link;

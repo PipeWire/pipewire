@@ -29,8 +29,7 @@ extern "C" {
 #define PIPEWIRE_TYPE__ClientNode                            "PipeWire:Object:ClientNode"
 #define PIPEWIRE_TYPE_CLIENT_NODE_BASE                       PIPEWIRE_TYPE__ClientNode ":"
 
-/**
- * pw_client_node:
+/** \class pw_client_node
  *
  * PipeWire client node interface
  */

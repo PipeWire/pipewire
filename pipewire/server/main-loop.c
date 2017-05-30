@@ -27,18 +27,18 @@
 #include "pipewire/client/log.h"
 #include "pipewire/server/main-loop.h"
 
+/** \cond */
 struct impl {
 	struct pw_main_loop this;
 
 	bool running;
 };
+/** \endcond */
 
-/**
- * pw_main_loop_new:
+/** Create a new new main loop
+ * \return a newly allocated \ref pw_main_loop
  *
- * Create a new #struct pw_main_loop.
- *
- * Returns: a new #struct pw_main_loop
+ * \memberof pw_main_loop
  */
 struct pw_main_loop *pw_main_loop_new(void)
 {
@@ -65,6 +65,11 @@ struct pw_main_loop *pw_main_loop_new(void)
 	return NULL;
 }
 
+/** Destroy a main loop
+ * \param loop the main loop to destroy
+ *
+ * \memberof pw_main_loop
+ */
 void pw_main_loop_destroy(struct pw_main_loop *loop)
 {
 	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, this);
@@ -77,11 +82,12 @@ void pw_main_loop_destroy(struct pw_main_loop *loop)
 	free(impl);
 }
 
-/**
- * pw_main_loop_quit:
- * @loop: a #struct pw_main_loop
+/** Stop a main loop
+ * \param loop a \ref pw_main_loop to stop
  *
- * Stop the running @loop.
+ * The call to \ref pw_main_loop_run() will return
+ *
+ * \memberof pw_main_loop
  */
 void pw_main_loop_quit(struct pw_main_loop *loop)
 {
@@ -90,12 +96,13 @@ void pw_main_loop_quit(struct pw_main_loop *loop)
 	impl->running = false;
 }
 
-/**
- * pw_main_loop_run:
- * @loop: a #struct pw_main_loop
+/** Start a main loop
+ * \param loop the main loop to start
  *
- * Start running @loop. This function blocks until pw_main_loop_quit()
- * has been called.
+ * Start running \a loop. This function blocks until \ref pw_main_loop_quit()
+ * has been called
+ *
+ * \memberof pw_main_loop
  */
 void pw_main_loop_run(struct pw_main_loop *loop)
 {

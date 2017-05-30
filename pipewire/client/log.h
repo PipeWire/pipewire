@@ -27,6 +27,16 @@
 extern "C" {
 #endif
 
+/** \class pw_log
+ *
+ * Logging functions of PipeWire
+ *
+ * Loggin is performed to stdout and stderr. Trace logging is performed
+ * in a lockfree ringbuffer and written out from the main thread as to not
+ * block the realtime threads.
+ */
+
+/** The global log level */
 extern enum spa_log_level pw_log_level;
 
 struct spa_log *pw_log_get(void);
@@ -50,6 +60,8 @@ pw_log_logv(enum spa_log_level level,
 	    int line, const char *func,
 	    const char *fmt, va_list args) SPA_PRINTF_FUNC(5, 0);
 
+
+/** Check if a loglevel is enabled \memberof pw_log */
 #define pw_log_level_enabled(lev) (pw_log_level >= (lev))
 
 #if __STDC_VERSION__ >= 199901L
@@ -68,15 +80,15 @@ pw_log_logv(enum spa_log_level level,
 
 #include <stdarg.h>
 
-#define PW_LOG_FUNC(name,lev)							\
-static inline void pw_log_##name (const char *format, ...)			\
-{										\
-	if (SPA_UNLIKELY(pw_log_level_enabled(lev))) {				\
-		va_list varargs;						\
-		va_start(varargs, format);					\
-		pw_log_logv(lev,__FILE__,__LINE__,__func__,format,varargs);	\
-		va_end(varargs);						\
-	}									\
+#define PW_LOG_FUNC(name,lev)								\
+static inline void pw_log_##name (const char *format, ...) SPA_PRINTF_FUNC(1, 0);	\
+{											\
+	if (SPA_UNLIKELY(pw_log_level_enabled(lev))) {					\
+		va_list varargs;							\
+		va_start(varargs, format);						\
+		pw_log_logv(lev,__FILE__,__LINE__,__func__,format,varargs);		\
+		va_end(varargs);							\
+	}										\
 }
 
 PW_LOG_FUNC(error, SPA_LOG_LEVEL_ERROR)

@@ -24,14 +24,6 @@
 #include "pipewire/client/context.h"
 #include "pipewire/client/subscribe.h"
 
-/**
- * pw_node_state_as_string:
- * @state: a #enum pw_node_state
- *
- * Return the string representation of @state.
- *
- * Returns: the string representation of @state.
- */
 const char *pw_node_state_as_string(enum pw_node_state state)
 {
 	switch (state) {
@@ -49,14 +41,6 @@ const char *pw_node_state_as_string(enum pw_node_state state)
 	return "invalid-state";
 }
 
-/**
- * pw_direction_as_string:
- * @direction: a #enum pw_direction
- *
- * Return the string representation of @direction.
- *
- * Returns: the string representation of @direction.
- */
 const char *pw_direction_as_string(enum pw_direction direction)
 {
 	switch (direction) {
@@ -70,14 +54,6 @@ const char *pw_direction_as_string(enum pw_direction direction)
 	return "invalid-direction";
 }
 
-/**
- * pw_link_state_as_string:
- * @state: a #enum pw_link_state
- *
- * Return the string representation of @state.
- *
- * Returns: the string representation of @state.
- */
 const char *pw_link_state_as_string(enum pw_link_state state)
 {
 	switch (state) {

@@ -31,6 +31,8 @@
 #include "connection.h"
 #include "log.h"
 
+/** \cond */
+
 #define MAX_BUFFER_SIZE 4096
 #define MAX_FDS 28
 
@@ -56,6 +58,16 @@ struct pw_connection_impl {
 	struct buffer in, out;
 };
 
+/** \endcond */
+
+/** Get an fd from a connection
+ *
+ * \param conn the connection
+ * \param index the index of the fd to get
+ * \return the fd at \a index or -1 when no such fd exists
+ *
+ * \memberof pw_connection
+ */
 int pw_connection_get_fd(struct pw_connection *conn, uint32_t index)
 {
 	struct pw_connection_impl *impl = SPA_CONTAINER_OF(conn, struct pw_connection_impl, this);
@@ -66,6 +78,14 @@ int pw_connection_get_fd(struct pw_connection *conn, uint32_t index)
 	return impl->in.fds[index];
 }
 
+/** Add an fd to a connection
+ *
+ * \param conn the connection
+ * \param fd the fd to add
+ * \return the index of the fd or -1 when an error occured
+ *
+ * \memberof pw_connection
+ */
 uint32_t pw_connection_add_fd(struct pw_connection *conn, int fd)
 {
 	struct pw_connection_impl *impl = SPA_CONTAINER_OF(conn, struct pw_connection_impl, this);
@@ -157,6 +177,13 @@ static void clear_buffer(struct buffer *buf)
 	buf->buffer_size = 0;
 }
 
+/** Make a new connection object for the given socket
+ *
+ * \param fd the socket
+ * \returns a newly allocated connection object
+ *
+ * \memberof pw_connection
+ */
 struct pw_connection *pw_connection_new(int fd)
 {
 	struct pw_connection_impl *impl;
@@ -194,6 +221,12 @@ struct pw_connection *pw_connection_new(int fd)
 	return NULL;
 }
 
+/** Destroy a connection
+ *
+ * \param conn the connection to destroy
+ *
+ * \memberof pw_connection
+ */
 void pw_connection_destroy(struct pw_connection *conn)
 {
 	struct pw_connection_impl *impl = SPA_CONTAINER_OF(conn, struct pw_connection_impl, this);
@@ -207,13 +240,19 @@ void pw_connection_destroy(struct pw_connection *conn)
 	free(impl);
 }
 
-/**
- * pw_connection_has_next:
- * @iter: a connection
+/** Move to the next packet in the connection
  *
- * Move to the next packet in @conn.
+ * \param conn the connection
+ * \param opcode addres of result opcode
+ * \param dest_id addres of result destination id
+ * \param dt pointer to packet data
+ * \param sz size of packet data
+ * \return true on success
  *
- * Returns: %true if more packets are available.
+ * Get the next packet in \a conn and store the opcode and destination
+ * id as well as the packet data and size.
+ *
+ * \memberof pw_connection
  */
 bool
 pw_connection_get_next(struct pw_connection *conn,
@@ -287,6 +326,17 @@ pw_connection_get_next(struct pw_connection *conn,
 	return true;
 }
 
+/** Start writing \a size bytes
+ *
+ * \param conn the connection
+ * \param size the number of bytes to write
+ * \return memory to write into
+ *
+ * Makes sure that \a size bytes can be written to \a conn and
+ * returns a pointer to the memory to write into
+ *
+ * \memberof pw_connection
+ */
 void *pw_connection_begin_write(struct pw_connection *conn, uint32_t size)
 {
 	struct pw_connection_impl *impl = SPA_CONTAINER_OF(conn, struct pw_connection_impl, this);
@@ -297,6 +347,18 @@ void *pw_connection_begin_write(struct pw_connection *conn, uint32_t size)
 	return p + 2;
 }
 
+/** End writing to the connection
+ *
+ * \param conn the connection
+ * \param dest_id the destination id
+ * \param opcode the opcode
+ * \param size the total written size
+ *
+ * Finnish writing a message of \a size to \a conn and write the
+ * \a dest_id and \a opcode and final size to the connection
+ *
+ * \memberof pw_connection
+ */
 void
 pw_connection_end_write(struct pw_connection *conn, uint32_t dest_id, uint8_t opcode, uint32_t size)
 {
@@ -318,6 +380,15 @@ pw_connection_end_write(struct pw_connection *conn, uint32_t dest_id, uint8_t op
 	pw_signal_emit(&conn->need_flush, conn);
 }
 
+/** Flush the connection object
+ *
+ * \param conn the connection object
+ * \return true on success
+ *
+ * Write the queued messages on the connection to the socket
+ *
+ * \memberof pw_connection
+ */
 bool pw_connection_flush(struct pw_connection *conn)
 {
 	struct pw_connection_impl *impl = SPA_CONTAINER_OF(conn, struct pw_connection_impl, this);
@@ -381,6 +452,15 @@ bool pw_connection_flush(struct pw_connection *conn)
 	return false;
 }
 
+/** Clear the connection object
+ *
+ * \param conn the connection object
+ * \return true on success
+ *
+ * Remove all queued messages from \a conn
+ *
+ * \memberof pw_connection
+ */
 bool pw_connection_clear(struct pw_connection *conn)
 {
 	struct pw_connection_impl *impl = SPA_CONTAINER_OF(conn, struct pw_connection_impl, this);

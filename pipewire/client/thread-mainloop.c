@@ -22,6 +22,7 @@
 #include "pipewire.h"
 #include "thread-mainloop.h"
 
+/** \cond */
 struct thread_main_loop {
 	struct pw_thread_main_loop this;
 
@@ -39,6 +40,7 @@ struct thread_main_loop {
 	int n_waiting;
 	int n_waiting_for_accept;
 };
+/** \endcond */
 
 static void pre_hook(struct spa_loop_control *ctrl, void *data)
 {
@@ -58,15 +60,19 @@ static void do_stop(struct spa_loop_utils *utils, struct spa_source *source, voi
 	impl->running = false;
 }
 
-/**
- * pw_thread_main_loop_new:
- * @context: a #GMainContext
- * @name: a thread name
+/** Create a new \ref pw_thread_main_loop
  *
- * Make a new #struct pw_thread_main_loop that will run a mainloop on @context in
- * a thread with @name.
+ * \param loop the loop to wrap
+ * \param name the name of the thread or NULL
+ * \return a newly allocated \ref  pw_thread_main_loop
  *
- * Returns: a #struct pw_thread_main_loop
+ * Make a new \ref pw_thread_main_loop that will run a mainloop on \a loop in
+ * a thread with \a name.
+ *
+ * After this function you should probably call pw_thread_main_loop_start() to
+ * actually start the thread
+ *
+ * \memberof pw_thread_main_loop
  */
 struct pw_thread_main_loop *pw_thread_main_loop_new(struct pw_loop *loop, const char *name)
 {
@@ -99,6 +105,7 @@ struct pw_thread_main_loop *pw_thread_main_loop_new(struct pw_loop *loop, const 
 	return this;
 }
 
+/** Destroy a threaded main loop \memberof pw_thread_main_loop */
 void pw_thread_main_loop_destroy(struct pw_thread_main_loop *loop)
 {
 	struct thread_main_loop *impl = SPA_CONTAINER_OF(loop, struct thread_main_loop, this);
@@ -137,13 +144,12 @@ static void *do_loop(void *user_data)
 	return NULL;
 }
 
-/**
- * pw_thread_main_loop_start:
- * @loop: a #struct pw_thread_main_loop
+/** Start the thread to handle \a loop
  *
- * Start the thread to handle @loop.
+ * \param loop a \ref pw_thread_main_loop
+ * \return \ref SPA_RESULT_OK on success
  *
- * Returns: %SPA_RESULT_OK on success.
+ * \memberof pw_thread_main_loop
  */
 int pw_thread_main_loop_start(struct pw_thread_main_loop *loop)
 {
@@ -163,11 +169,11 @@ int pw_thread_main_loop_start(struct pw_thread_main_loop *loop)
 	return SPA_RESULT_OK;
 }
 
-/**
- * pw_thread_main_loop_stop:
- * @loop: a #struct pw_thread_main_loop
+/** Quit the main loop and stop its thread
  *
- * Quit the main loop and stop its thread.
+ * \param loop a \ref pw_thread_main_loop
+ *
+ * \memberof pw_thread_main_loop
  */
 void pw_thread_main_loop_stop(struct pw_thread_main_loop *loop)
 {
@@ -185,11 +191,11 @@ void pw_thread_main_loop_stop(struct pw_thread_main_loop *loop)
 	pw_log_debug("thread-mainloop: %p stopped", impl);
 }
 
-/**
- * pw_thread_main_loop_lock:
- * @loop: a #struct pw_thread_main_loop
+/** Lock the mutex associated with \a loop
  *
- * Lock the mutex associated with @loop.
+ * \param loop a \ref pw_thread_main_loop
+ *
+ * \memberof pw_thread_main_loop
  */
 void pw_thread_main_loop_lock(struct pw_thread_main_loop *loop)
 {
@@ -197,11 +203,11 @@ void pw_thread_main_loop_lock(struct pw_thread_main_loop *loop)
 	pthread_mutex_lock(&impl->lock);
 }
 
-/**
- * pw_thread_main_loop_unlock:
- * @loop: a #struct pw_thread_main_loop
+/** Unlock the mutex associated with \a loop
  *
- * Unlock the mutex associated with @loop.
+ * \param loop a \ref pw_thread_main_loop
+ *
+ * \memberof pw_thread_main_loop
  */
 void pw_thread_main_loop_unlock(struct pw_thread_main_loop *loop)
 {
@@ -209,12 +215,15 @@ void pw_thread_main_loop_unlock(struct pw_thread_main_loop *loop)
 	pthread_mutex_unlock(&impl->lock);
 }
 
-/**
- * pw_thread_main_loop_signal:
- * @loop: a #struct pw_thread_main_loop
+/** Signal the main thread
  *
- * Signal the main thread of @loop. If @wait_for_accept is %TRUE,
- * this function waits until pw_thread_main_loop_accept() is called.
+ * \param loop a \ref pw_thread_main_loop to signal
+ * \param wait_for_accept if we need to wait for accept
+ *
+ * Signal the main thread of \a loop. If \a wait_for_accept is true,
+ * this function waits until \ref pw_thread_main_loop_accept() is called.
+ *
+ * \memberof pw_thread_main_loop
  */
 void pw_thread_main_loop_signal(struct pw_thread_main_loop *loop, bool wait_for_accept)
 {
@@ -231,11 +240,11 @@ void pw_thread_main_loop_signal(struct pw_thread_main_loop *loop, bool wait_for_
 	}
 }
 
-/**
- * pw_thread_main_loop_wait:
- * @loop: a #struct pw_thread_main_loop
+/** Wait for the loop thread to call \ref pw_thread_main_loop_signal()
  *
- * Wait for the loop thread to call pw_thread_main_loop_signal().
+ * \param loop a \ref pw_thread_main_loop to signal
+ *
+ * \memberof pw_thread_main_loop
  */
 void pw_thread_main_loop_wait(struct pw_thread_main_loop *loop)
 {
@@ -247,11 +256,11 @@ void pw_thread_main_loop_wait(struct pw_thread_main_loop *loop)
 	impl->n_waiting--;
 }
 
-/**
- * pw_thread_main_loop_accept:
- * @loop: a #struct pw_thread_main_loop
+/** Signal the loop thread waiting for accept with \ref pw_thread_main_loop_signal()
  *
- * Signal the loop thread waiting for accept with pw_thread_main_loop_signal().
+ * \param loop a \ref pw_thread_main_loop to signal
+ *
+ * \memberof pw_thread_main_loop
  */
 void pw_thread_main_loop_accept(struct pw_thread_main_loop *loop)
 {
@@ -261,13 +270,12 @@ void pw_thread_main_loop_accept(struct pw_thread_main_loop *loop)
 	pthread_cond_signal(&impl->accept_cond);
 }
 
-/**
- * pw_thread_main_loop_in_thread:
- * @loop: a #struct pw_thread_main_loop
+/** Check if we are inside the thread of the loop
  *
- * Check if we are inside the thread of @loop.
+ * \param loop a \ref pw_thread_main_loop to signal
+ * \return true when called inside the thread of \a loop.
  *
- * Returns: %TRUE when called inside the thread of @loop.
+ * \memberof pw_thread_main_loop
  */
 bool pw_thread_main_loop_in_thread(struct pw_thread_main_loop *loop)
 {

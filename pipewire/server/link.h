@@ -32,8 +32,7 @@ extern "C" {
 #include <pipewire/server/port.h>
 #include <pipewire/server/main-loop.h>
 
-/**
- * pw_link:
+/** \class pw_link
  *
  * PipeWire link interface.
  */
@@ -76,7 +75,7 @@ struct pw_link *
 pw_link_new(struct pw_core *core,
 	    struct pw_port *output,
 	    struct pw_port *input,
-	    struct spa_format **format_filter,
+	    struct spa_format *format_filter,
 	    struct pw_properties *properties);
 
 void

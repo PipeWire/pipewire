@@ -551,7 +551,7 @@ gst_pipewire_device_provider_set_property (GObject * object,
         GST_WARNING_OBJECT (self,
             "Empty PipeWire client name not allowed. "
             "Resetting to default value");
-        self->client_name = pw_client_name ();
+        self->client_name = pw_get_client_name ();
       } else
         self->client_name = g_value_dup_string (value);
       break;
@@ -602,7 +602,7 @@ gst_pipewire_device_provider_class_init (GstPipeWireDeviceProviderClass * klass)
   dm_class->start = gst_pipewire_device_provider_start;
   dm_class->stop = gst_pipewire_device_provider_stop;
 
-  client_name = pw_client_name ();
+  client_name = pw_get_client_name ();
   g_object_class_install_property (gobject_class,
       PROP_CLIENT_NAME,
       g_param_spec_string ("client-name", "Client Name",
@@ -620,5 +620,5 @@ gst_pipewire_device_provider_class_init (GstPipeWireDeviceProviderClass * klass)
 static void
 gst_pipewire_device_provider_init (GstPipeWireDeviceProvider * self)
 {
-  self->client_name = pw_client_name ();
+  self->client_name = pw_get_client_name ();
 }

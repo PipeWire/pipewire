@@ -44,6 +44,10 @@ enum pw_port_state {
 	PW_PORT_STATE_STREAMING = 4,
 };
 
+/** \class pw_port
+ *
+ * The port object
+ */
 struct pw_port {
 	struct spa_list link;
 
@@ -77,7 +81,7 @@ pw_port_destroy(struct pw_port *port);
 struct pw_link *
 pw_port_link(struct pw_port *output_port,
 	     struct pw_port *input_port,
-	     struct spa_format **format_filter,
+	     struct spa_format *format_filter,
 	     struct pw_properties *properties,
 	     char **error);
 

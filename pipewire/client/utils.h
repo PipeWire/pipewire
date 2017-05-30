@@ -27,6 +27,12 @@ extern "C" {
 #include <spa/defs.h>
 #include <spa/pod-utils.h>
 
+/** \class pw_utils
+ *
+ * Various utility functions
+ */
+
+/** a function to destroy an item \memberof pw_utils */
 typedef void (*pw_destroy_t) (void *object);
 
 const char *
@@ -41,6 +47,7 @@ pw_free_strv(char **str);
 char *
 pw_strip(char *str, const char *whitespace);
 
+/** Copy a pod structure \memberof pw_utils  */
 static inline struct spa_pod *
 pw_spa_pod_copy(const struct spa_pod *pod)
 {

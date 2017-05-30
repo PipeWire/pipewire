@@ -24,6 +24,8 @@
 #include <pipewire/client/log.h>
 #include <pipewire/client/transport.h>
 
+/** \cond */
+
 #define INPUT_BUFFER_SIZE       (1<<12)
 #define OUTPUT_BUFFER_SIZE      (1<<12)
 
@@ -41,6 +43,7 @@ struct transport {
 	struct spa_event current;
 	uint32_t current_index;
 };
+/** \endcond */
 
 static size_t transport_area_get_size(struct pw_transport_area *area)
 {
@@ -98,6 +101,12 @@ static void transport_reset_area(struct pw_transport *trans)
 	spa_ringbuffer_init(trans->output_buffer, OUTPUT_BUFFER_SIZE);
 }
 
+/** Create a new transport
+ * \param max_inputs maximum number of inputs
+ * \param max_outputs maximum number of outputs
+ * \return a newly allocated \ref pw_transport
+ * \memberof pw_transport
+ */
 struct pw_transport *pw_transport_new(uint32_t max_inputs, uint32_t max_outputs)
 {
 	struct transport *impl;
@@ -171,7 +180,10 @@ struct pw_transport *pw_transport_new_from_info(struct pw_transport_info *info)
 	return NULL;
 }
 
-
+/** Destroy a transport
+ * \param trans a transport to destroy
+ * \memberof pw_transport
+ */
 void pw_transport_destroy(struct pw_transport *trans)
 {
 	struct transport *impl = (struct transport *) trans;
@@ -184,6 +196,16 @@ void pw_transport_destroy(struct pw_transport *trans)
 	free(impl);
 }
 
+/** Get transport info
+ * \param trans the transport to get info of
+ * \param[out] info transport info
+ * \return 0 on success
+ *
+ * Fill \a info with the transport info of \a trans. This information can be
+ * passed to the client to set up the shared transport.
+ *
+ * \memberof pw_transport
+ */
 int pw_transport_get_info(struct pw_transport *trans, struct pw_transport_info *info)
 {
 	struct transport *impl = (struct transport *) trans;
@@ -195,6 +217,16 @@ int pw_transport_get_info(struct pw_transport *trans, struct pw_transport_info *
 	return SPA_RESULT_OK;
 }
 
+/** Add an event to the transport
+ * \param trans the transport to send the event on
+ * \param event the event to add
+ * \return 0 on success, < 0 on error
+ *
+ * Write \a event to the shared ringbuffer and signal the other side that
+ * new data can be read.
+ *
+ * \memberof pw_transport
+ */
 int pw_transport_add_event(struct pw_transport *trans, struct spa_event *event)
 {
 	struct transport *impl = (struct transport *) trans;
@@ -218,6 +250,20 @@ int pw_transport_add_event(struct pw_transport *trans, struct spa_event *event)
 	return SPA_RESULT_OK;
 }
 
+/** Get next event from a transport
+ * \param trans the transport to get the event of
+ * \param[out] event the event to read
+ * \return 0 on success, < 0 on error, SPA_RESULT_ENUM_END when no more events
+ *	are available.
+ *
+ * Get the skeleton next event from \a trans into \a event. This function will
+ * only read the head and object body of the event.
+ *
+ * After the complete size of the event has been calculated, you should call
+ * \ref pw_transport_parse_event() to read the complete event contents.
+ *
+ * \memberof pw_transport
+ */
 int pw_transport_next_event(struct pw_transport *trans, struct spa_event *event)
 {
 	struct transport *impl = (struct transport *) trans;
@@ -240,6 +286,15 @@ int pw_transport_next_event(struct pw_transport *trans, struct spa_event *event)
 	return SPA_RESULT_OK;
 }
 
+/** Parse the complete event on transport
+ * \param trans the transport to read from
+ * \param[out] event memory that can hold the complete event
+ * \return 0 on success, < 0 on error
+ *
+ * Use this function after \ref pw_transport_next_event().
+ *
+ * \memberof pw_transport
+ */
 int pw_transport_parse_event(struct pw_transport *trans, void *event)
 {
 	struct transport *impl = (struct transport *) trans;

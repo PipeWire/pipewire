@@ -32,6 +32,7 @@
 #include "pipewire/client/rtkit.h"
 #include "pipewire/server/data-loop.h"
 
+/** \cond */
 struct impl {
 	struct pw_data_loop this;
 
@@ -40,6 +41,7 @@ struct impl {
 	bool running;
 	pthread_t thread;
 };
+/** \endcond */
 
 static void make_realtime(struct pw_data_loop *this)
 {
@@ -112,12 +114,10 @@ static void do_stop(struct spa_loop_utils *utils, struct spa_source *source, voi
 	impl->running = false;
 }
 
-/**
- * pw_data_loop_new:
+/** Create a new \ref pw_data_loop.
+ * \return a newly allocated data loop
  *
- * Create a new #struct pw_data_loop.
- *
- * Returns: a new #struct pw_data_loop
+ * \memberof pw_data_loop
  */
 struct pw_data_loop *pw_data_loop_new(void)
 {
@@ -145,6 +145,10 @@ struct pw_data_loop *pw_data_loop_new(void)
 	return NULL;
 }
 
+/** Destroy a data loop
+ * \param loop the data loop to destroy
+ * \memberof pw_data_loop
+ */
 void pw_data_loop_destroy(struct pw_data_loop *loop)
 {
 	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, this);
@@ -159,6 +163,14 @@ void pw_data_loop_destroy(struct pw_data_loop *loop)
 	free(impl);
 }
 
+/** Start a data loop
+ * \param loop the data loop to start
+ * \return 0 if ok, -1 on error
+ *
+ * This will start the realtime thread that manages the loop.
+ *
+ * \memberof pw_data_loop
+ */
 int pw_data_loop_start(struct pw_data_loop *loop)
 {
 	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, this);
@@ -176,6 +188,14 @@ int pw_data_loop_start(struct pw_data_loop *loop)
 	return SPA_RESULT_OK;
 }
 
+/** Stop a data loop
+ * \param loop the data loop to Stop
+ * \return \ref SPA_RESULT_OK
+ *
+ * This will stop and join the realtime thread that manages the loop.
+ *
+ * \memberof pw_data_loop
+ */
 int pw_data_loop_stop(struct pw_data_loop *loop)
 {
 	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, this);
@@ -188,6 +208,12 @@ int pw_data_loop_stop(struct pw_data_loop *loop)
 	return SPA_RESULT_OK;
 }
 
+/** Check if we are inside the data loop
+ * \param loop the data loop to check
+ * \return true is the current thread is the data loop thread
+ *
+ * \memberof pw_data_loop
+ */
 bool pw_data_loop_in_thread(struct pw_data_loop * loop)
 {
 	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, this);

@@ -29,6 +29,7 @@
 
 enum spa_log_level pw_log_level = DEFAULT_LOG_LEVEL;
 
+/** \cond */
 #define TRACE_BUFFER (16*1024)
 
 struct debug_log {
@@ -37,6 +38,7 @@ struct debug_log {
 	uint8_t trace_data[TRACE_BUFFER];
 	struct spa_source *source;
 };
+/** \endcond */
 
 static void
 do_logv(struct spa_log *log,
@@ -99,11 +101,19 @@ static struct debug_log log = {
 	{0, 0, TRACE_BUFFER, TRACE_BUFFER - 1},
 };
 
+/** Get the global log interface
+ * \return the global log
+ * \memberof pw_log
+ */
 struct spa_log *pw_log_get(void)
 {
 	return &log.log;
 }
 
+/** Set the global log level
+ * \param level the new log level
+ * \memberof pw_log
+ */
 void pw_log_set_level(enum spa_log_level level)
 {
 	pw_log_level = level;
@@ -138,6 +148,14 @@ static void on_trace_event(struct spa_source *source)
 	}
 }
 
+/** Set the trace notify event
+ * \param source the trace notify event
+ *
+ * When the trace log has produced new logging in the ringbuffer, this event
+ * will be triggered and will then write the trace log to stderr
+ *
+ * \memberof pw_log
+ */
 void pw_log_set_trace_event(struct spa_source *source)
 {
 	log.source = source;
@@ -145,6 +163,16 @@ void pw_log_set_trace_event(struct spa_source *source)
 	log.source->data = &log;
 }
 
+/** Log a message
+ * \param level the log level
+ * \param file the file this message originated from
+ * \param line the line number
+ * \param func the function
+ * \param fmt the printf style format
+ * \param ... printf style arguments to log
+ *
+ * \memberof pw_log
+ */
 void
 pw_log_log(enum spa_log_level level,
 	   const char *file,
@@ -160,6 +188,16 @@ pw_log_log(enum spa_log_level level,
 	}
 }
 
+/** Log a message with va_list
+ * \param level the log level
+ * \param file the file this message originated from
+ * \param line the line number
+ * \param func the function
+ * \param fmt the printf style format
+ * \param args a va_list of arguments
+ *
+ * \memberof pw_log
+ */
 void
 pw_log_logv(enum spa_log_level level,
 	    const char *file,
@@ -172,3 +210,35 @@ pw_log_logv(enum spa_log_level level,
 		do_logv(&log.log, level, file, line, func, fmt, args);
 	}
 }
+
+/** \fn void pw_log_error (const char *format, ...)
+ * Log an error message
+ * \param format a printf style format
+ * \param ... printf style arguments
+ * \memberof pw_log
+ */
+/** \fn void pw_log_warn (const char *format, ...)
+ * Log a warning message
+ * \param format a printf style format
+ * \param ... printf style arguments
+ * \memberof pw_log
+ */
+/** \fn void pw_log_info (const char *format, ...)
+ * Log an info message
+ * \param format a printf style format
+ * \param ... printf style arguments
+ * \memberof pw_log
+ */
+/** \fn void pw_log_debug (const char *format, ...)
+ * Log a debug message
+ * \param format a printf style format
+ * \param ... printf style arguments
+ * \memberof pw_log
+ */
+/** \fn void pw_log_trace (const char *format, ...)
+ * Log a trace message. Trace messages may be generated from
+ * \param format a printf style format
+ * \param ... printf style arguments
+ * realtime threads
+ * \memberof pw_log
+ */

@@ -28,14 +28,14 @@ extern "C" {
 
 typedef void (*pw_work_func_t) (void *obj, void *data, int res, uint32_t id);
 
-/**
- * pw_work_queue:
+/** \class pw_work_queue
  *
- * PipeWire work queue object.
+ * PipeWire work queue object
  */
 struct pw_work_queue {
-	struct pw_loop *loop;
+	struct pw_loop *loop;	/**< the loop used for handling work */
 
+	/** Emited when the work queue is destroyed */
 	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_work_queue *queue));
 };
 

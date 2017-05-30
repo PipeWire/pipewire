@@ -22,9 +22,11 @@
 #include "pipewire/client/interfaces.h"
 #include "pipewire/server/resource.h"
 
+/** \cond */
 struct impl {
 	struct pw_resource this;
 };
+/** \endcond */
 
 struct pw_resource *pw_resource_new(struct pw_client *client,
 				    uint32_t id, uint32_t type, void *object, pw_destroy_t destroy)

@@ -25,9 +25,11 @@
 #include "pipewire/server/client.h"
 #include "pipewire/server/resource.h"
 
+/** \cond */
 struct impl {
 	struct pw_client this;
 };
+/** \endcond */
 
 static void client_unbind_func(void *data)
 {
@@ -61,14 +63,14 @@ client_bind_func(struct pw_global *global, struct pw_client *client, uint32_t ve
 	return SPA_RESULT_NO_MEMORY;
 }
 
-/**
- * pw_client_new:
- * @core: a #pw_core
- * @properties: extra client properties
+/** Make a new client object
  *
- * Make a new #struct pw_client object and register it to @core
+ * \param core a \ref pw_core object to register the client with
+ * \param ucred a ucred structure or NULL when unknown
+ * \param properties optional client properties, ownership is taken
+ * \return a newly allocated client object
  *
- * Returns: a new #struct pw_client
+ * \memberof pw_client
  */
 struct pw_client *pw_client_new(struct pw_core *core,
 				struct ucred *ucred, struct pw_properties *properties)
@@ -112,11 +114,11 @@ static void destroy_resource(void *object, void *data)
 	pw_resource_destroy(object);
 }
 
-/**
- * pw_client_destroy:
- * @client: a #struct pw_client
+/** Destroy a client object
  *
- * Trigger removal of @client
+ * \param client the client to destroy
+ *
+ * \memberof pw_client
  */
 void pw_client_destroy(struct pw_client *client)
 {
@@ -143,6 +145,17 @@ void pw_client_destroy(struct pw_client *client)
 	free(impl);
 }
 
+/** Update client properties
+ *
+ * \param client the client
+ * \param dict a \ref spa_dict with properties
+ *
+ * Add all properties in \a dict to the client properties. Existing
+ * properties are overwritten. Items can be removed by setting the value
+ * to NULL.
+ *
+ * \memberof pw_client
+ */
 void pw_client_update_properties(struct pw_client *client, const struct spa_dict *dict)
 {
 	struct pw_resource *resource;

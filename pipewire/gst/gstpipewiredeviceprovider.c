@@ -443,7 +443,7 @@ on_context_state_changed (struct pw_listener *listener,
       GST_ERROR_OBJECT (self, "context error: %s", context->error);
       break;
   }
-  pw_thread_main_loop_signal (self->main_loop, FALSE);
+  pw_thread_loop_signal (self->main_loop, FALSE);
 }
 
 static gboolean
@@ -455,17 +455,17 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
 
   self->loop = pw_loop_new ();
 
-  if (!(self->main_loop = pw_thread_main_loop_new (self->loop, "pipewire-device-monitor"))) {
+  if (!(self->main_loop = pw_thread_loop_new (self->loop, "pipewire-device-monitor"))) {
     GST_ERROR_OBJECT (self, "Could not create PipeWire mainloop");
     goto failed_main_loop;
   }
 
-  if (pw_thread_main_loop_start (self->main_loop) != SPA_RESULT_OK) {
+  if (pw_thread_loop_start (self->main_loop) != SPA_RESULT_OK) {
     GST_ERROR_OBJECT (self, "Could not start PipeWire mainloop");
     goto failed_start;
   }
 
-  pw_thread_main_loop_lock (self->main_loop);
+  pw_thread_loop_lock (self->main_loop);
 
   if (!(self->context = pw_context_new (self->loop, self->client_name, NULL))) {
     GST_ERROR_OBJECT (self, "Failed to create context");
@@ -494,13 +494,13 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
       break;
 
     /* Wait until something happens */
-    pw_thread_main_loop_wait (self->main_loop);
+    pw_thread_loop_wait (self->main_loop);
   }
   GST_DEBUG_OBJECT (self, "connected");
   pw_context_get_core_info (self->context,
                             get_core_info_cb,
                             self);
-  pw_thread_main_loop_unlock (self->main_loop);
+  pw_thread_loop_unlock (self->main_loop);
 
   return TRUE;
 
@@ -508,9 +508,9 @@ not_running:
   pw_context_destroy (self->context);
   self->context = NULL;
 failed_context:
-  pw_thread_main_loop_unlock (self->main_loop);
+  pw_thread_loop_unlock (self->main_loop);
 failed_start:
-  pw_thread_main_loop_destroy (self->main_loop);
+  pw_thread_loop_destroy (self->main_loop);
   self->main_loop = NULL;
 failed_main_loop:
   pw_loop_destroy (self->loop);
@@ -529,7 +529,7 @@ gst_pipewire_device_provider_stop (GstDeviceProvider * provider)
     self->context = NULL;
   }
   if (self->main_loop) {
-    pw_thread_main_loop_destroy (self->main_loop);
+    pw_thread_loop_destroy (self->main_loop);
     self->main_loop = NULL;
   }
   if (self->loop) {

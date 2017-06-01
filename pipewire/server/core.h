@@ -36,6 +36,13 @@ struct pw_global;
 #include <pipewire/server/link.h>
 #include <pipewire/server/node-factory.h>
 
+/** \page page_server_api Server API
+ *
+ * \section page_server_overview Overview
+ *
+ *
+ */
+
 typedef int (*pw_bind_func_t) (struct pw_global *global,
 			       struct pw_client *client, uint32_t version, uint32_t id);
 
@@ -67,6 +74,8 @@ struct pw_global {
  *
  * The server core object manages all resources available on the
  * server.
+ *
+ * See \ref page_server_api
  */
 struct pw_core {
 	struct pw_global *global;	/**< the global of the core */

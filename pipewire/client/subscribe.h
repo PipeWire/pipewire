@@ -44,8 +44,7 @@ extern "C" {
 #define PIPEWIRE_TYPE__Module                        "PipeWire:Object:Module"
 #define PIPEWIRE_TYPE_MODULE_BASE                    PIPEWIRE_TYPE__Module ":"
 
-/** \class pw_subscribe
- *
+/** \enum pw_subscription_event
  * subscription events
  */
 enum pw_subscription_event {

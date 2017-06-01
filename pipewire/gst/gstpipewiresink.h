@@ -78,7 +78,7 @@ struct _GstPipeWireSink {
   gboolean negotiated;
 
   struct pw_loop *loop;
-  struct pw_thread_main_loop *main_loop;
+  struct pw_thread_loop *main_loop;
 
   struct pw_context *ctx;
   struct pw_listener ctx_state_changed;

@@ -24,6 +24,72 @@
 extern "C" {
 #endif
 
+/** \page page_client_api Client API
+ *
+ * \section sec_client_api_overview Overview
+ *
+ * The client side API allows you to connect to the PipeWire server and
+ * perform actions on the PipeWire graph. This includes
+ *
+ * \li introspecting the objects on the server
+ * \li Creating nodes
+ * \li Linking nodes on their ports
+ * \li providing media to the server for playback or consumption
+ * \li retrieving media from the server
+ *
+ * \section sec_client_api_loop Event Loop Abstraction
+ *
+ * Most API is asynchronous and based around an event loop. Methods will
+ * start an operation which will cause a state change of the \ref pw_context
+ * object. Connect to the state_changed signal to be notified of these
+ * state changes.
+ *
+ * The most convenient way to deal with the asynchronous calls is probably
+ * with the thread loop (See \subpage page_thread_loop for more details).
+ *
+ * \section sec_client_api_context Context
+ *
+ * \subsection ssec_context_create Create
+ *
+ * To create a new context use pw_context_new(). You will
+ * need to pass a \ref pw_loop implementation to use as the event loop.
+ *
+ * A typical loop would be created with pw_thread_loop_new() but
+ * other implementation are possible.
+ *
+ * You will also need to pass properties for the context. Use
+ * pw_fill_context_properties() to get a default set of properties.
+ *
+ * After creating the context, you can track the state of the context
+ * by listening for the state_changed signal.
+ *
+ * \subsection ssec_client_api_context_connect Connecting
+ *
+ * A context must be connected to a server before any operation can be
+ * issued.  Calling pw_context_connect() will initiate the connection
+ * procedure.
+ *
+ * When connecting, the context will automatically create a registry
+ * proxy to get notified of server objects. This behaviour can be disabled
+ * by passing the \ref PW_CONTEXT_FLAG_NO_REGISTRY. You can create your
+ * own registry later from the core_proxy member of the context.
+ *
+ * The context will automatically create proxies for all remote objects
+ * and will bind to them. Use the subscription signal to reveive
+ * notifications about objects. You can also disable this behaviour
+ * with the \ref PW_CONTEXT_FLAG_NO_PROXY flag and manually bind to
+ * the objects you are interested in.
+ *
+ * \subsection ssec_client_api_context_functions Streams
+ *
+ * Data exchange with the PipeWire server is done with the \ref pw_stream
+ * object. \subpage page_streams
+ *
+ * \subsection ssec_client_api_context_disconnect Disconnect
+ *
+ * Use pw_context_disconnect() to disconnect from the server.
+ */
+
 #include <pipewire/client/map.h>
 #include <pipewire/client/loop.h>
 #include <pipewire/client/properties.h>
@@ -42,7 +108,7 @@ enum pw_context_state {
 /** Convert a \ref pw_context_state to a readable string \memberof pw_context */
 const char *pw_context_state_as_string(enum pw_context_state state);
 
-/** \enum pw_context_flags Extra flags passed to \ref pw_context_connect() \memberof pw_context */
+/** \enum pw_context_flags Extra flags passed to pw_context_connect() \memberof pw_context */
 enum pw_context_flags {
 	PW_CONTEXT_FLAG_NONE = 0,		/**< no flags */
 	PW_CONTEXT_FLAG_NO_REGISTRY = (1 << 0),	/**< don't create the registry object */
@@ -57,6 +123,8 @@ enum pw_context_flags {
  * a \ref pw_context is created and used to connect to the server.
  * A \ref pw_proxy for the core object will automatically be created
  * when connecting.
+ *
+ * See also \ref page_client_api
  */
 struct pw_context {
 	char *name;				/**< the application name */
@@ -64,7 +132,7 @@ struct pw_context {
 
 	struct pw_type type;			/**< the type map */
 
-	struct pw_loop *loop;			/**< the main loop */
+	struct pw_loop *loop;			/**< the loop */
 
 	struct pw_proxy *core_proxy;		/**< proxy for the core object */
 	struct pw_proxy *registry_proxy;	/**< proxy for the registry object. Can

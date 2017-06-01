@@ -27,7 +27,7 @@ extern "C" {
 
 #include <pipewire/server/core.h>
 
-/** \class command
+/** \class pw_command
  *
  * A configuration command
  */

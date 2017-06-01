@@ -1178,9 +1178,13 @@ struct pw_client_node *pw_client_node_new(struct pw_client *client,
 	return NULL;
 }
 
-void pw_client_node_destroy(struct pw_client_node *this)
+/** Destroy a client node
+ * \param node the client node to destroy
+ * \memberof pw_client_node
+ */
+void pw_client_node_destroy(struct pw_client_node *node)
 {
-	pw_resource_destroy(this->resource);
+	pw_resource_destroy(node->resource);
 }
 
 /** Get the set of fds for this \ref pw_client_node

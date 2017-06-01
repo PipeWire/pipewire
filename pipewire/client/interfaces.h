@@ -32,6 +32,22 @@ extern "C" {
 
 #include <pipewire/client/introspect.h>
 
+/**
+ * \page page_pipewire The PipeWire protocol
+ * \section page_ifaces_pipewire Interfaces
+ * - \subpage page_iface_pw_core - core global object
+ * - \subpage page_iface_pw_registry - global registry object
+ */
+
+/**
+ * \page page_iface_pw_core pw_core
+ * \section page_iface_pw_core_desc Description
+ *
+ * The core global object.  This is a special singleton object.  It
+ * is used for internal Wayland protocol features.
+ * \section page_iface_pw_core API
+ */
+
 #define PW_CORE_METHOD_CLIENT_UPDATE		0
 #define PW_CORE_METHOD_SYNC			1
 #define PW_CORE_METHOD_GET_REGISTRY		2
@@ -40,15 +56,14 @@ extern "C" {
 #define PW_CORE_METHOD_UPDATE_TYPES		5
 #define PW_CORE_METHOD_NUM			6
 
-/** \file
+/**
+ * \struct pw_core_methods
+ * \brief Core methods
  *
- * The object interfaces
- *
- * Methods are sent from client to server and events from
- * server to client.
+ * The core global object. This is a singleton object used for
+ * creating new objects in the PipeWire server. It is also used
+ * for internal features.
  */
-
-/** Core methods */
 struct pw_core_methods {
 	/**
 	 * Update the client properties
@@ -127,7 +142,10 @@ struct pw_core_methods {
 #define PW_CORE_EVENT_UPDATE_TYPES 4
 #define PW_CORE_EVENT_NUM          5
 
-/** Core events */
+/** \struct pw_core_events
+ *  \brief Core events
+ *  \ingroup pw_core_interface The pw_core interface
+ */
 struct pw_core_events {
 	/**
 	 * Notify new core info

@@ -49,12 +49,10 @@ struct pw_node {
 	struct pw_global *global;
 
 	struct pw_client *owner;
-	char *name;
 	struct pw_properties *properties;
-        struct pw_node_info info;
 
-	enum pw_node_state state;
-	char *error;
+	struct pw_node_info info;
+
 	PW_SIGNAL(state_request, (struct pw_listener *listener,
 				  struct pw_node *object, enum pw_node_state state));
 	PW_SIGNAL(state_changed, (struct pw_listener *listener,

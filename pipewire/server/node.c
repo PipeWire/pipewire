@@ -164,7 +164,7 @@ static int pause_node(struct pw_node *this)
 {
 	int res;
 
-	if (this->state <= PW_NODE_STATE_IDLE)
+	if (this->info.state <= PW_NODE_STATE_IDLE)
 		return SPA_RESULT_OK;
 
 	pw_log_debug("node %p: pause node", this);
@@ -405,7 +405,6 @@ static void
 update_info(struct pw_node *this)
 {
 	this->info.id = this->global->id;
-	this->info.name = this->name;
 	this->info.input_formats = NULL;
 	for (this->info.n_input_formats = 0;; this->info.n_input_formats++) {
 		struct spa_format *fmt;
@@ -434,8 +433,6 @@ update_info(struct pw_node *this)
 			    sizeof(struct spa_format *) * (this->info.n_output_formats + 1));
 		this->info.output_formats[this->info.n_output_formats] = spa_format_copy(fmt);
 	}
-	this->info.state = this->state;
-	this->info.error = this->error;
 	this->info.props = this->properties ? &this->properties->dict : NULL;
 }
 
@@ -444,6 +441,7 @@ clear_info(struct pw_node *this)
 {
 	int i;
 
+	free((char*)this->info.name);
 	if (this->info.input_formats) {
 		for (i = 0; i < this->info.n_input_formats; i++)
 			free(this->info.input_formats[i]);
@@ -455,6 +453,7 @@ clear_info(struct pw_node *this)
 			free(this->info.output_formats[i]);
 		free(this->info.output_formats);
 	}
+	free((char*)this->info.error);
 
 }
 
@@ -536,7 +535,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 
 	impl->work = pw_work_queue_new(this->core->main_loop->loop);
 
-	this->name = strdup(name);
+	this->info.name = strdup(name);
 	this->properties = properties;
 
 	this->node = node;
@@ -558,7 +557,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	pw_signal_init(&this->initialized);
 	pw_signal_init(&this->loop_changed);
 
-	this->state = PW_NODE_STATE_CREATING;
+	this->info.state = PW_NODE_STATE_CREATING;
 
 	spa_list_init(&this->input_ports);
 	spa_list_init(&this->output_ports);
@@ -590,7 +589,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	return this;
 
       no_mem:
-	free(this->name);
+	free((char *)this->info.name);
 	free(impl);
 	return NULL;
 }
@@ -620,8 +619,6 @@ do_node_remove_done(struct spa_loop *loop,
 	if (this->output_port_map)
 		free(this->output_port_map);
 
-	free(this->name);
-	free(this->error);
 	if (this->properties)
 		pw_properties_free(this->properties);
 	clear_info(this);
@@ -849,24 +846,21 @@ void pw_node_update_state(struct pw_node *node, enum pw_node_state state, char *
 {
 	enum pw_node_state old;
 
-	old = node->state;
+	old = node->info.state;
 	if (old != state) {
 		struct pw_resource *resource;
 
 		pw_log_debug("node %p: update state from %s -> %s", node,
 			     pw_node_state_as_string(old), pw_node_state_as_string(state));
 
-		if (node->error)
-			free(node->error);
-		node->error = error;
-		node->state = state;
+		if (node->info.error)
+			free((char*)node->info.error);
+		node->info.error = error;
+		node->info.state = state;
 
 		pw_signal_emit(&node->state_changed, node, old, state);
 
 		node->info.change_mask = 1 << 5;
-		node->info.state = node->state;
-		node->info.error = node->error;
-
 		spa_list_for_each(resource, &node->resource_list, link) {
 			pw_node_notify_info(resource, &node->info);
 		}

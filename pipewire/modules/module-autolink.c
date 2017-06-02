@@ -273,7 +273,7 @@ on_node_added(struct impl *impl,
 
 	pw_log_debug("module %p: node %p added", impl, node);
 
-	if (node->state > PW_NODE_STATE_CREATING)
+	if (node->info.state > PW_NODE_STATE_CREATING)
 		on_node_created(node, info);
 }
 

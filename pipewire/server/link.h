@@ -68,7 +68,6 @@ struct pw_link {
 				  struct pw_link *link, struct pw_port *port));
 
 	struct {
-//		uint32_t in_ready;
 		struct pw_port *input;
 		struct pw_port *output;
 		struct spa_list input_link;

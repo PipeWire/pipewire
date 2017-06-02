@@ -688,9 +688,9 @@ struct spa_format *pw_core_find_format(struct pw_core *core,
 
 	pw_log_debug("core %p: finding best format %d %d", core, out_state, in_state);
 
-	if (out_state > PW_PORT_STATE_CONFIGURE && output->node->state == PW_NODE_STATE_IDLE)
+	if (out_state > PW_PORT_STATE_CONFIGURE && output->node->info.state == PW_NODE_STATE_IDLE)
 		out_state = PW_PORT_STATE_CONFIGURE;
-	if (in_state > PW_PORT_STATE_CONFIGURE && input->node->state == PW_NODE_STATE_IDLE)
+	if (in_state > PW_PORT_STATE_CONFIGURE && input->node->info.state == PW_NODE_STATE_IDLE)
 		in_state = PW_PORT_STATE_CONFIGURE;
 
 	if (in_state == PW_PORT_STATE_CONFIGURE && out_state > PW_PORT_STATE_CONFIGURE) {

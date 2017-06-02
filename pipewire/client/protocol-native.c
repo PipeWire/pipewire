@@ -869,6 +869,7 @@ static bool link_demarshal_info(void *object, void *data, size_t size)
 	struct pw_link_info info = { 0, };
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
+	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &proxy->context->types) ||
 	    !spa_pod_iter_get(&it,
 			      SPA_POD_TYPE_INT, &info.id,
 			      SPA_POD_TYPE_LONG, &info.change_mask,

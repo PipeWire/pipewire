@@ -120,11 +120,11 @@ static int do_negotiate(struct pw_link *this, uint32_t in_state, uint32_t out_st
 	if (format == NULL)
 		goto error;
 
-	if (out_state > PW_PORT_STATE_CONFIGURE && this->output->node->state == PW_NODE_STATE_IDLE) {
+	if (out_state > PW_PORT_STATE_CONFIGURE && this->output->node->info.state == PW_NODE_STATE_IDLE) {
 		pw_node_set_state(this->output->node, PW_NODE_STATE_SUSPENDED);
 		out_state = PW_PORT_STATE_CONFIGURE;
 	}
-	if (in_state > PW_PORT_STATE_CONFIGURE && this->input->node->state == PW_NODE_STATE_IDLE) {
+	if (in_state > PW_PORT_STATE_CONFIGURE && this->input->node->info.state == PW_NODE_STATE_IDLE) {
 		pw_node_set_state(this->input->node, PW_NODE_STATE_SUSPENDED);
 		in_state = PW_PORT_STATE_CONFIGURE;
 	}
@@ -683,8 +683,8 @@ static int check_states(struct pw_link *this, void *user_data, int res)
 	if (this->input == NULL || this->output == NULL)
 		return SPA_RESULT_OK;
 
-	if (this->input->node->state == PW_NODE_STATE_ERROR ||
-	    this->output->node->state == PW_NODE_STATE_ERROR)
+	if (this->input->node->info.state == PW_NODE_STATE_ERROR ||
+	    this->output->node->info.state == PW_NODE_STATE_ERROR)
 		return SPA_RESULT_ERROR;
 
 	in_state = this->input->state;
@@ -959,7 +959,7 @@ do_link_remove_done(struct spa_loop *loop,
 
 		if (this->input->node->n_used_input_links == 0 &&
 		    this->input->node->n_used_output_links == 0 &&
-		    this->input->node->state > PW_NODE_STATE_IDLE)
+		    this->input->node->info.state > PW_NODE_STATE_IDLE)
 			pw_node_update_state(this->input->node, PW_NODE_STATE_IDLE, NULL);
 
 		this->input = NULL;
@@ -972,7 +972,7 @@ do_link_remove_done(struct spa_loop *loop,
 
 		if (this->output->node->n_used_input_links == 0 &&
 		    this->output->node->n_used_output_links == 0 &&
-		    this->output->node->state > PW_NODE_STATE_IDLE)
+		    this->output->node->info.state > PW_NODE_STATE_IDLE)
 			pw_node_update_state(this->output->node, PW_NODE_STATE_IDLE, NULL);
 
 		this->output = NULL;

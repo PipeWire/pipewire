@@ -160,9 +160,12 @@ static void async_create_node_free(struct pw_access_data *data)
 {
 	struct access_create_node *d = (struct access_create_node *) data;
 
+	if (d->properties)
+		pw_properties_free(d->properties);
 	if (d->async) {
 		if (d->data.free_cb)
 			d->data.free_cb(&d->data);
+		free(d->factory_name);
 		free(d->name);
 		free(d);
 	}
@@ -184,6 +187,7 @@ static void async_create_node_complete(struct pw_access_data *data)
 
 	/* error will be posted */
 	pw_node_factory_create_node(factory, client, d->name, d->properties, d->new_id);
+	d->properties = NULL;
 
 	goto done;
 

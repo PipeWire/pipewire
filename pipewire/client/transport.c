@@ -49,8 +49,8 @@ static size_t transport_area_get_size(struct pw_transport_area *area)
 {
 	size_t size;
 	size = sizeof(struct pw_transport_area);
-	size += area->max_inputs * sizeof(struct spa_port_io);
-	size += area->max_outputs * sizeof(struct spa_port_io);
+	size += area->max_input_ports * sizeof(struct spa_port_io);
+	size += area->max_output_ports * sizeof(struct spa_port_io);
 	size += sizeof(struct spa_ringbuffer);
 	size += INPUT_BUFFER_SIZE;
 	size += sizeof(struct spa_ringbuffer);
@@ -66,10 +66,10 @@ static void transport_setup_area(void *p, struct pw_transport *trans)
 	p = SPA_MEMBER(p, sizeof(struct pw_transport_area), struct spa_port_io);
 
 	trans->inputs = p;
-	p = SPA_MEMBER(p, a->max_inputs * sizeof(struct spa_port_io), void);
+	p = SPA_MEMBER(p, a->max_input_ports * sizeof(struct spa_port_io), void);
 
 	trans->outputs = p;
-	p = SPA_MEMBER(p, a->max_outputs * sizeof(struct spa_port_io), void);
+	p = SPA_MEMBER(p, a->max_output_ports * sizeof(struct spa_port_io), void);
 
 	trans->input_buffer = p;
 	p = SPA_MEMBER(p, sizeof(struct spa_ringbuffer), void);
@@ -89,11 +89,11 @@ static void transport_reset_area(struct pw_transport *trans)
 	int i;
 	struct pw_transport_area *a = trans->area;
 
-	for (i = 0; i < a->max_inputs; i++) {
+	for (i = 0; i < a->max_input_ports; i++) {
 		trans->inputs[i].status = SPA_RESULT_OK;
 		trans->inputs[i].buffer_id = SPA_ID_INVALID;
 	}
-	for (i = 0; i < a->max_outputs; i++) {
+	for (i = 0; i < a->max_output_ports; i++) {
 		trans->outputs[i].status = SPA_RESULT_OK;
 		trans->outputs[i].buffer_id = SPA_ID_INVALID;
 	}
@@ -102,21 +102,21 @@ static void transport_reset_area(struct pw_transport *trans)
 }
 
 /** Create a new transport
- * \param max_inputs maximum number of inputs
- * \param max_outputs maximum number of outputs
+ * \param max_input_ports maximum number of input_ports
+ * \param max_output_ports maximum number of output_ports
  * \return a newly allocated \ref pw_transport
  * \memberof pw_transport
  */
-struct pw_transport *pw_transport_new(uint32_t max_inputs, uint32_t max_outputs)
+struct pw_transport *pw_transport_new(uint32_t max_input_ports, uint32_t max_output_ports)
 {
 	struct transport *impl;
 	struct pw_transport *trans;
 	struct pw_transport_area area;
 
-	area.max_inputs = max_inputs;
-	area.n_inputs = 0;
-	area.max_outputs = max_outputs;
-	area.n_outputs = 0;
+	area.max_input_ports = max_input_ports;
+	area.n_input_ports = 0;
+	area.max_output_ports = max_output_ports;
+	area.n_output_ports = 0;
 
 	impl = calloc(1, sizeof(struct transport));
 	if (impl == NULL)

@@ -57,10 +57,10 @@ static void update_port_ids(struct pw_node *node)
 	spa_node_get_n_ports(node->node,
 			     &n_input_ports, &max_input_ports, &n_output_ports, &max_output_ports);
 
-	node->n_input_ports = n_input_ports;
-	node->max_input_ports = max_input_ports;
-	node->n_output_ports = n_output_ports;
-	node->max_output_ports = max_output_ports;
+	node->info.n_input_ports = n_input_ports;
+	node->info.max_input_ports = max_input_ports;
+	node->info.n_output_ports = n_output_ports;
+	node->info.max_output_ports = max_output_ports;
 
 	node->input_port_map = calloc(max_input_ports, sizeof(struct pw_port *));
 	node->output_port_map = calloc(max_output_ports, sizeof(struct pw_port *));
@@ -401,13 +401,68 @@ static void node_unbind_func(void *data)
 	spa_list_remove(&resource->link);
 }
 
+static void
+update_info(struct pw_node *this)
+{
+	this->info.id = this->global->id;
+	this->info.name = this->name;
+	this->info.input_formats = NULL;
+	for (this->info.n_input_formats = 0;; this->info.n_input_formats++) {
+		struct spa_format *fmt;
+
+		if (spa_node_port_enum_formats(this->node,
+					       SPA_DIRECTION_INPUT,
+					       0, &fmt, NULL, this->info.n_input_formats) < 0)
+			break;
+
+		this->info.input_formats =
+		    realloc(this->info.input_formats,
+			    sizeof(struct spa_format *) * (this->info.n_input_formats + 1));
+		this->info.input_formats[this->info.n_input_formats] = spa_format_copy(fmt);
+	}
+	this->info.output_formats = NULL;
+	for (this->info.n_output_formats = 0;; this->info.n_output_formats++) {
+		struct spa_format *fmt;
+
+		if (spa_node_port_enum_formats(this->node,
+					       SPA_DIRECTION_OUTPUT,
+					       0, &fmt, NULL, this->info.n_output_formats) < 0)
+			break;
+
+		this->info.output_formats =
+		    realloc(this->info.output_formats,
+			    sizeof(struct spa_format *) * (this->info.n_output_formats + 1));
+		this->info.output_formats[this->info.n_output_formats] = spa_format_copy(fmt);
+	}
+	this->info.state = this->state;
+	this->info.error = this->error;
+	this->info.props = this->properties ? &this->properties->dict : NULL;
+}
+
+static void
+clear_info(struct pw_node *this)
+{
+	int i;
+
+	if (this->info.input_formats) {
+		for (i = 0; i < this->info.n_input_formats; i++)
+			free(this->info.input_formats[i]);
+		free(this->info.input_formats);
+	}
+
+	if (this->info.output_formats) {
+		for (i = 0; i < this->info.n_output_formats; i++)
+			free(this->info.output_formats[i]);
+		free(this->info.output_formats);
+	}
+
+}
+
 static int
 node_bind_func(struct pw_global *global, struct pw_client *client, uint32_t version, uint32_t id)
 {
 	struct pw_node *this = global->object;
 	struct pw_resource *resource;
-	struct pw_node_info info;
-	int i;
 
 	resource = pw_resource_new(client, id, global->type, global->object, node_unbind_func);
 	if (resource == NULL)
@@ -417,58 +472,8 @@ node_bind_func(struct pw_global *global, struct pw_client *client, uint32_t vers
 
 	spa_list_insert(this->resource_list.prev, &resource->link);
 
-	info.id = global->id;
-	info.change_mask = ~0;
-	info.name = this->name;
-	info.max_inputs = this->max_input_ports;
-	info.n_inputs = this->n_input_ports;
-	info.input_formats = NULL;
-	for (info.n_input_formats = 0;; info.n_input_formats++) {
-		struct spa_format *fmt;
-
-		if (spa_node_port_enum_formats(this->node,
-					       SPA_DIRECTION_INPUT,
-					       0, &fmt, NULL, info.n_input_formats) < 0)
-			break;
-
-		info.input_formats =
-		    realloc(info.input_formats,
-			    sizeof(struct spa_format *) * (info.n_input_formats + 1));
-		info.input_formats[info.n_input_formats] = spa_format_copy(fmt);
-	}
-	info.max_outputs = this->max_output_ports;
-	info.n_outputs = this->n_output_ports;
-	info.output_formats = NULL;
-	for (info.n_output_formats = 0;; info.n_output_formats++) {
-		struct spa_format *fmt;
-
-		if (spa_node_port_enum_formats(this->node,
-					       SPA_DIRECTION_OUTPUT,
-					       0, &fmt, NULL, info.n_output_formats) < 0)
-			break;
-
-		info.output_formats =
-		    realloc(info.output_formats,
-			    sizeof(struct spa_format *) * (info.n_output_formats + 1));
-		info.output_formats[info.n_output_formats] = spa_format_copy(fmt);
-	}
-	info.state = this->state;
-	info.error = this->error;
-	info.props = this->properties ? &this->properties->dict : NULL;
-
-	pw_node_notify_info(resource, &info);
-
-	if (info.input_formats) {
-		for (i = 0; i < info.n_input_formats; i++)
-			free(info.input_formats[i]);
-		free(info.input_formats);
-	}
-
-	if (info.output_formats) {
-		for (i = 0; i < info.n_output_formats; i++)
-			free(info.output_formats[i]);
-		free(info.output_formats);
-	}
+	this->info.change_mask = ~0;
+	pw_node_notify_info(resource, &this->info);
 
 	return SPA_RESULT_OK;
 
@@ -491,6 +496,8 @@ static void init_complete(struct pw_node *this)
 	pw_core_add_global(this->core,
 			   this->owner,
 			   this->core->type.node, 0, this, node_bind_func, &this->global);
+
+	update_info(this);
 
 	pw_node_update_state(this, PW_NODE_STATE_SUSPENDED, NULL);
 }
@@ -617,6 +624,7 @@ do_node_remove_done(struct spa_loop *loop,
 	free(this->error);
 	if (this->properties)
 		pw_properties_free(this->properties);
+	clear_info(this);
 	free(impl);
 
 	return SPA_RESULT_OK;
@@ -700,13 +708,13 @@ struct pw_port *pw_node_get_free_port(struct pw_node *node, enum pw_direction di
 	int i;
 
 	if (direction == PW_DIRECTION_INPUT) {
-		max_ports = node->max_input_ports;
-		n_ports = &node->n_input_ports;
+		max_ports = node->info.max_input_ports;
+		n_ports = &node->info.n_input_ports;
 		ports = &node->input_ports;
 		portmap = node->input_port_map;
 	} else {
-		max_ports = node->max_output_ports;
-		n_ports = &node->n_output_ports;
+		max_ports = node->info.max_output_ports;
+		n_ports = &node->info.n_output_ports;
 		ports = &node->output_ports;
 		portmap = node->output_port_map;
 	}
@@ -843,7 +851,6 @@ void pw_node_update_state(struct pw_node *node, enum pw_node_state state, char *
 
 	old = node->state;
 	if (old != state) {
-		struct pw_node_info info;
 		struct pw_resource *resource;
 
 		pw_log_debug("node %p: update state from %s -> %s", node,
@@ -856,15 +863,12 @@ void pw_node_update_state(struct pw_node *node, enum pw_node_state state, char *
 
 		pw_signal_emit(&node->state_changed, node, old, state);
 
-		spa_zero(info);
-		info.change_mask = 1 << 5;
-		info.state = node->state;
-		info.error = node->error;
+		node->info.change_mask = 1 << 5;
+		node->info.state = node->state;
+		node->info.error = node->error;
 
 		spa_list_for_each(resource, &node->resource_list, link) {
-			/* global is only set when there are resources */
-			info.id = node->global->id;
-			pw_node_notify_info(resource, &info);
+			pw_node_notify_info(resource, &node->info);
 		}
 	}
 }

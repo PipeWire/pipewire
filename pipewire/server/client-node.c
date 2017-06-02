@@ -1032,9 +1032,9 @@ static void on_initialized(struct pw_listener *listener, struct pw_node *node)
 	if (this->resource == NULL)
 		return;
 
-	impl->transport = pw_transport_new(node->max_input_ports, node->max_output_ports);
-	impl->transport->area->n_inputs = node->n_input_ports;
-	impl->transport->area->n_outputs = node->n_output_ports;
+	impl->transport = pw_transport_new(node->info.max_input_ports, node->info.max_output_ports);
+	impl->transport->area->n_input_ports = node->info.n_input_ports;
+	impl->transport->area->n_output_ports = node->info.n_output_ports;
 
 	pw_transport_get_info(impl->transport, &info);
 	pw_client_node_notify_transport(this->resource, info.memfd, info.offset, info.size);

@@ -51,6 +51,8 @@ struct pw_node {
 	struct pw_client *owner;
 	char *name;
 	struct pw_properties *properties;
+        struct pw_node_info info;
+
 	enum pw_node_state state;
 	char *error;
 	PW_SIGNAL(state_request, (struct pw_listener *listener,
@@ -68,14 +70,10 @@ struct pw_node {
 
 	PW_SIGNAL(initialized, (struct pw_listener *listener, struct pw_node *object));
 
-	uint32_t max_input_ports;
-	uint32_t n_input_ports;
 	struct spa_list input_ports;
 	struct pw_port **input_port_map;
 	uint32_t n_used_input_links;
 
-	uint32_t max_output_ports;
-	uint32_t n_output_ports;
 	struct spa_list output_ports;
 	struct pw_port **output_port_map;
 	uint32_t n_used_output_links;

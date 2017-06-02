@@ -831,7 +831,6 @@ link_bind_func(struct pw_global *global, struct pw_client *client, uint32_t vers
 	struct pw_link *this = global->object;
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct pw_resource *resource;
-	struct pw_link_info info;
 
 	resource = pw_resource_new(client, id, global->type, global->object, link_unbind_func);
 	if (resource == NULL)
@@ -843,14 +842,8 @@ link_bind_func(struct pw_global *global, struct pw_client *client, uint32_t vers
 
 	spa_list_insert(this->resource_list.prev, &resource->link);
 
-	info.id = global->id;
-	info.change_mask = ~0;
-	info.output_node_id = this->output ? this->output->node->global->id : -1;
-	info.output_port_id = this->output ? this->output->port_id : -1;
-	info.input_node_id = this->input ? this->input->node->global->id : -1;
-	info.input_port_id = this->input ? this->input->port_id : -1;
-
-	pw_link_notify_info(resource, &info);
+	this->info.change_mask = ~0;
+	pw_link_notify_info(resource, &this->info);
 
 	return SPA_RESULT_OK;
 
@@ -925,6 +918,14 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	spa_list_insert(core->link_list.prev, &this->link);
 
 	pw_core_add_global(core, NULL, core->type.link, 0, this, link_bind_func, &this->global);
+
+	this->info.id = this->global->id;
+	this->info.output_node_id = output ? output->node->global->id : -1;
+	this->info.output_port_id = output ? output->port_id : -1;
+	this->info.input_node_id = input ? input->node->global->id : -1;
+	this->info.input_port_id = input ? input->port_id : -1;
+	this->info.format = NULL;
+
 	return this;
 }
 

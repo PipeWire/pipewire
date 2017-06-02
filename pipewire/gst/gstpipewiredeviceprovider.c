@@ -203,7 +203,7 @@ new_node (const struct pw_node_info *info)
   int i;
 
   caps = gst_caps_new_empty ();
-  if (info->max_inputs > 0 && info->max_outputs == 0) {
+  if (info->max_input_ports > 0 && info->max_output_ports == 0) {
     type = GST_PIPEWIRE_DEVICE_TYPE_SINK;
 
     for (i = 0; i < info->n_input_formats; i++) {
@@ -212,7 +212,7 @@ new_node (const struct pw_node_info *info)
         gst_caps_append (caps, c1);
     }
   }
-  else if (info->max_outputs > 0 && info->max_inputs == 0) {
+  else if (info->max_output_ports > 0 && info->max_input_ports == 0) {
     type = GST_PIPEWIRE_DEVICE_TYPE_SOURCE;
     for (i = 0; i < info->n_output_formats; i++) {
       GstCaps *c1 = gst_caps_from_format (info->output_formats[i]);

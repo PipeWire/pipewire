@@ -481,7 +481,7 @@ static void handle_rtnode_event(struct pw_stream *stream, struct spa_event *even
 	if (SPA_EVENT_TYPE(event) == context->type.event_transport.HaveOutput) {
 		int i;
 
-		for (i = 0; i < impl->trans->area->n_inputs; i++) {
+		for (i = 0; i < impl->trans->area->n_input_ports; i++) {
 			struct spa_port_io *input = &impl->trans->inputs[i];
 
 			pw_log_trace("stream %p: have output %d %d", stream, input->status,
@@ -496,7 +496,7 @@ static void handle_rtnode_event(struct pw_stream *stream, struct spa_event *even
 	} else if (SPA_EVENT_TYPE(event) == context->type.event_transport.NeedInput) {
 		int i;
 
-		for (i = 0; i < impl->trans->area->n_outputs; i++) {
+		for (i = 0; i < impl->trans->area->n_output_ports; i++) {
 			struct spa_port_io *output = &impl->trans->outputs[i];
 
 			if (output->buffer_id == SPA_ID_INVALID)

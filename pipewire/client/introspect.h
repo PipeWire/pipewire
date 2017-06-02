@@ -195,12 +195,12 @@ struct pw_node_info {
 	uint32_t id;				/**< server side id of the node */
 	uint64_t change_mask;			/**< bitfield of changed fields since last call */
 	const char *name;			/**< name the node, suitable for display */
-	uint32_t max_inputs;			/**< maximum number of inputs */
-	uint32_t n_inputs;			/**< number of inputs */
+	uint32_t max_input_ports;		/**< maximum number of inputs */
+	uint32_t n_input_ports;			/**< number of inputs */
 	uint32_t n_input_formats;		/**< number of input formats */
 	struct spa_format **input_formats;	/**< array of input formats */
-	uint32_t max_outputs;			/**< maximum number of outputs */
-	uint32_t n_outputs;			/**< number of outputs */
+	uint32_t max_output_ports;		/**< maximum number of outputs */
+	uint32_t n_output_ports;		/**< number of outputs */
 	uint32_t n_output_formats;		/**< number of output formats */
 	struct spa_format **output_formats;	/**< array of output formats */
 	enum pw_node_state state;		/**< the current state of the node */
@@ -242,6 +242,7 @@ struct pw_link_info {
 	uint32_t output_port_id;	/**< output port id */
 	uint32_t input_node_id;		/**< server side input node id */
 	uint32_t input_port_id;		/**< input port id */
+	struct spa_format *format;	/**< format over link */
 };
 
 struct pw_link_info *

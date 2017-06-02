@@ -433,16 +433,16 @@ static void node_marshal_info(void *object, struct pw_node_info *info)
 			    SPA_POD_TYPE_INT, info->id,
 			    SPA_POD_TYPE_LONG, info->change_mask,
 			    SPA_POD_TYPE_STRING, info->name,
-			    SPA_POD_TYPE_INT, info->max_inputs,
-			    SPA_POD_TYPE_INT, info->n_inputs,
+			    SPA_POD_TYPE_INT, info->max_input_ports,
+			    SPA_POD_TYPE_INT, info->n_input_ports,
 			    SPA_POD_TYPE_INT, info->n_input_formats, 0);
 
 	for (i = 0; i < info->n_input_formats; i++)
 		spa_pod_builder_add(&b.b, SPA_POD_TYPE_POD, info->input_formats[i], 0);
 
 	spa_pod_builder_add(&b.b,
-			    SPA_POD_TYPE_INT, info->max_outputs,
-			    SPA_POD_TYPE_INT, info->n_outputs,
+			    SPA_POD_TYPE_INT, info->max_output_ports,
+			    SPA_POD_TYPE_INT, info->n_output_ports,
 			    SPA_POD_TYPE_INT, info->n_output_formats, 0);
 
 	for (i = 0; i < info->n_output_formats; i++)
@@ -883,7 +883,8 @@ static void link_marshal_info(void *object, struct pw_link_info *info)
 			       SPA_POD_TYPE_INT, info->output_node_id,
 			       SPA_POD_TYPE_INT, info->output_port_id,
 			       SPA_POD_TYPE_INT, info->input_node_id,
-			       SPA_POD_TYPE_INT, info->input_port_id);
+			       SPA_POD_TYPE_INT, info->input_port_id,
+			       SPA_POD_TYPE_POD, info->format);
 
 	pw_connection_end_write(connection, resource->id, PW_LINK_EVENT_INFO, b.b.offset);
 }

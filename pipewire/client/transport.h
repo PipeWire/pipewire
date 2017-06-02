@@ -41,10 +41,10 @@ struct pw_transport_info {
 
 /** Shared structure between client and server \memberof pw_transport */
 struct pw_transport_area {
-	uint32_t max_inputs;	/**< max inputs of the node */
-	uint32_t n_inputs;	/**< number of inputs of the node */
-	uint32_t max_outputs;	/**< max outputs of the node */
-	uint32_t n_outputs;	/**< number of outputs of the node */
+	uint32_t max_input_ports;	/**< max input ports of the node */
+	uint32_t n_input_ports;		/**< number of input ports of the node */
+	uint32_t max_output_ports;	/**< max output ports of the node */
+	uint32_t n_output_ports;	/**< number of output ports of the node */
 };
 
 /** \class pw_transport
@@ -69,7 +69,7 @@ struct pw_transport {
 };
 
 struct pw_transport *
-pw_transport_new(uint32_t max_inputs, uint32_t max_outputs);
+pw_transport_new(uint32_t max_input_ports, uint32_t max_output_ports);
 
 struct pw_transport *
 pw_transport_new_from_info(struct pw_transport_info *info);

@@ -205,7 +205,7 @@ struct pw_node_info *pw_node_info_update(struct pw_node_info *info,
 		info->name = update->name ? strdup(update->name) : NULL;
 	}
 	if (update->change_mask & (1 << 1))
-		info->max_inputs = update->max_inputs;
+		info->max_input_ports = update->max_input_ports;
 	if (update->change_mask & (1 << 2)) {
 		for (i = 0; i < info->n_input_formats; i++)
 			free(info->input_formats[i]);
@@ -223,7 +223,7 @@ struct pw_node_info *pw_node_info_update(struct pw_node_info *info,
 		}
 	}
 	if (update->change_mask & (1 << 3))
-		info->max_outputs = update->max_outputs;
+		info->max_output_ports = update->max_output_ports;
 	if (update->change_mask & (1 << 4)) {
 		for (i = 0; i < info->n_output_formats; i++)
 			free(info->output_formats[i]);
@@ -395,11 +395,17 @@ struct pw_link_info *pw_link_info_update(struct pw_link_info *info,
 		info->input_node_id = update->input_node_id;
 	if (update->change_mask & (1 << 3))
 		info->input_port_id = update->input_port_id;
-
+	if (update->change_mask & (1 << 4)) {
+		if (info->format)
+			free(info->format);
+		info->format = spa_format_copy(update->format);
+	}
 	return info;
 }
 
 void pw_link_info_free(struct pw_link_info *info)
 {
+	if (info->format)
+		free(info->format);
 	free(info);
 }

@@ -402,8 +402,8 @@ static bool node_demarshal_info(void *object, void *data, size_t size)
 			      SPA_POD_TYPE_INT, &info.id,
 			      SPA_POD_TYPE_LONG, &info.change_mask,
 			      SPA_POD_TYPE_STRING, &info.name,
-			      SPA_POD_TYPE_INT, &info.max_inputs,
-			      SPA_POD_TYPE_INT, &info.n_inputs,
+			      SPA_POD_TYPE_INT, &info.max_input_ports,
+			      SPA_POD_TYPE_INT, &info.n_input_ports,
 			      SPA_POD_TYPE_INT, &info.n_input_formats, 0))
 		return false;
 
@@ -413,8 +413,8 @@ static bool node_demarshal_info(void *object, void *data, size_t size)
 			return false;
 
 	if (!spa_pod_iter_get(&it,
-			      SPA_POD_TYPE_INT, &info.max_outputs,
-			      SPA_POD_TYPE_INT, &info.n_outputs,
+			      SPA_POD_TYPE_INT, &info.max_output_ports,
+			      SPA_POD_TYPE_INT, &info.n_output_ports,
 			      SPA_POD_TYPE_INT, &info.n_output_formats, 0))
 		return false;
 
@@ -866,7 +866,7 @@ static bool link_demarshal_info(void *object, void *data, size_t size)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_iter it;
-	struct pw_link_info info;
+	struct pw_link_info info = { 0, };
 
 	if (!spa_pod_iter_struct(&it, data, size) ||
 	    !spa_pod_iter_get(&it,
@@ -875,7 +875,8 @@ static bool link_demarshal_info(void *object, void *data, size_t size)
 			      SPA_POD_TYPE_INT, &info.output_node_id,
 			      SPA_POD_TYPE_INT, &info.output_port_id,
 			      SPA_POD_TYPE_INT, &info.input_node_id,
-			      SPA_POD_TYPE_INT, &info.input_port_id, 0))
+			      SPA_POD_TYPE_INT, &info.input_port_id,
+			      -SPA_POD_TYPE_OBJECT, &info.format, 0))
 		return false;
 
 	((struct pw_link_events *) proxy->implementation)->info(proxy, &info);

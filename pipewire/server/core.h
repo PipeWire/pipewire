@@ -40,18 +40,41 @@ struct pw_global;
  *
  * \section page_server_overview Overview
  *
+ * \subpage page_core
+ *
+ * \subpage page_global
+ *
+ * \subpage page_client
+ *
+ * \subpage page_resource
  *
  */
 
+/** \page page_core Core
+ *
+ * \section page_core_overview Overview
+ *
+ * The core object is a singleton object that manages the state and
+ * resources of the PipeWire server.
+ *
+ */
 typedef int (*pw_bind_func_t) (struct pw_global *global,
 			       struct pw_client *client, uint32_t version, uint32_t id);
 
+/** \page page_global Global
+ *
+ * Global objects represent resources that are available on the server and
+ * accessible to clients.
+ *
+ */
 /** \class pw_global
  *
  * \brief A global object visible to all clients
  *
  * A global object is visible to all clients and represents a resource
  * that can be used or inspected.
+ *
+ * See \ref page_server_api
  */
 struct pw_global {
 	struct pw_core *core;		/**< the core */
@@ -89,7 +112,7 @@ struct pw_core {
 
 	struct pw_map objects;		/**< map of known objects */
 
-	struct spa_list resource_list;		/**< list of resources */
+	struct spa_list resource_list;		/**< list of core resources */
 	struct spa_list registry_resource_list;	/**< list of registry resources */
 	struct spa_list global_list;		/**< list of globals */
 	struct spa_list client_list;		/**< list of clients */

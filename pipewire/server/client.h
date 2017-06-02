@@ -33,6 +33,36 @@ extern "C" {
 #include <pipewire/server/core.h>
 #include <pipewire/server/resource.h>
 
+/** \page page_client Client
+ *
+ * \section sec_page_client_overview Overview
+ *
+ * The \ref pw_client object is created by a protocol implementation when
+ * a new client connects.
+ *
+ * The client is used to keep track of all resources belonging to one
+ * connection with the PipeWire server.
+ *
+ * \section sec_page_client_credentials Credentials
+ *
+ * The client object will have its credentials filled in by the protocol.
+ * This information is used to check if a resource or action is available
+ * for this client. See also \ref page_access
+ *
+ * \section sec_page_client_types Types
+ *
+ * The client and server maintain a mapping between the client and server
+ * types. All type ids that are in messages exchanged between the client
+ * and server will automatically be remapped. See also \ref page_types.
+ *
+ * \section sec_page_client_resources Resources
+ *
+ * When a client binds to core global object, a resource is made for this
+ * binding and a unique id is assigned to the resources. The client and
+ * server will use this id as the destination when exchanging messages.
+ * See also \ref page_resource
+ */
+
 /** \class pw_client
  *
  * \brief PipeWire client object class.

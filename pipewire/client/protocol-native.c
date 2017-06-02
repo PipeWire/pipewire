@@ -194,6 +194,50 @@ core_marshal_create_client_node(void *object,
 }
 
 static void
+core_marshal_create_link(void *object,
+			 uint32_t output_node_id,
+			 uint32_t output_port_id,
+			 uint32_t input_node_id,
+			 uint32_t input_port_id,
+			 const struct spa_format *filter,
+			 const struct spa_dict *props,
+			 uint32_t new_id)
+{
+	struct pw_proxy *proxy = object;
+	struct pw_connection *connection = proxy->context->protocol_private;
+	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
+	struct spa_pod_frame f;
+	uint32_t i, n_items;
+
+	if (connection == NULL)
+		return;
+
+	core_update_map(proxy->context);
+
+	n_items = props ? props->n_items : 0;
+
+	spa_pod_builder_add(&b.b,
+			    SPA_POD_TYPE_STRUCT, &f,
+			    SPA_POD_TYPE_INT, output_node_id,
+			    SPA_POD_TYPE_INT, output_port_id,
+			    SPA_POD_TYPE_INT, input_node_id,
+			    SPA_POD_TYPE_INT, input_port_id,
+			    SPA_POD_TYPE_POD, filter,
+			    SPA_POD_TYPE_INT, n_items, 0);
+
+	for (i = 0; i < n_items; i++) {
+		spa_pod_builder_add(&b.b,
+				    SPA_POD_TYPE_STRING, props->items[i].key,
+				    SPA_POD_TYPE_STRING, props->items[i].value, 0);
+	}
+	spa_pod_builder_add(&b.b,
+			    SPA_POD_TYPE_INT, new_id,
+			    -SPA_POD_TYPE_STRUCT, &f, 0);
+
+	pw_connection_end_write(connection, proxy->id, PW_CORE_METHOD_CREATE_LINK, b.b.offset);
+}
+
+static void
 core_marshal_update_types(void *object, uint32_t first_id, uint32_t n_types, const char **types)
 {
 	struct pw_proxy *proxy = object;
@@ -891,20 +935,21 @@ static void registry_marshal_bind(void *object, uint32_t id, uint32_t version, u
 }
 
 static const struct pw_core_methods pw_protocol_native_client_core_methods = {
-	&core_marshal_client_update,
+	&core_marshal_update_types,
 	&core_marshal_sync,
 	&core_marshal_get_registry,
+	&core_marshal_client_update,
 	&core_marshal_create_node,
 	&core_marshal_create_client_node,
-	&core_marshal_update_types,
+	&core_marshal_create_link
 };
 
-static const demarshal_func_t pw_protocol_native_client_core_demarshal[] = {
-	&core_demarshal_info,
+static const demarshal_func_t pw_protocol_native_client_core_demarshal[PW_CORE_EVENT_NUM] = {
+	&core_demarshal_update_types,
 	&core_demarshal_done,
 	&core_demarshal_error,
 	&core_demarshal_remove_id,
-	&core_demarshal_update_types,
+	&core_demarshal_info
 };
 
 static const struct pw_interface pw_protocol_native_client_core_interface = {

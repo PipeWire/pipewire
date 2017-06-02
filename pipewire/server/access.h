@@ -43,7 +43,7 @@ struct pw_access_data {
 
 
 /**
- * struct pw_access:
+ * \struct pw_access
  *
  * PipeWire Access support struct.
  */

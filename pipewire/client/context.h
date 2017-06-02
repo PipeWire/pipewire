@@ -47,6 +47,16 @@ extern "C" {
  * The most convenient way to deal with the asynchronous calls is probably
  * with the thread loop (See \subpage page_thread_loop for more details).
  *
+ * \subsection ssec_client_api_context_proxy Proxy
+ *
+ * Proxies are client side representations of server side resources. They
+ * allow communication between client and server objects.
+ *
+ * The context maintains a list of all proxies, including a core proxy
+ * object and a registry object.
+ *
+ * See also \subpage page_proxy
+ *
  * \section sec_client_api_context Context
  *
  * \subsection ssec_context_create Create

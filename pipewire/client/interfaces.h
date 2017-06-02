@@ -33,7 +33,7 @@ extern "C" {
 #include <pipewire/client/introspect.h>
 
 /**
- * \page page_pipewire The PipeWire protocol
+ * \page page_pipewire_protocol The PipeWire protocol
  * \section page_ifaces_pipewire Interfaces
  * - \subpage page_iface_pw_core - core global object
  * - \subpage page_iface_pw_registry - global registry object
@@ -48,13 +48,14 @@ extern "C" {
  * \section page_iface_pw_core API
  */
 
-#define PW_CORE_METHOD_CLIENT_UPDATE		0
+#define PW_CORE_METHOD_UPDATE_TYPES		0
 #define PW_CORE_METHOD_SYNC			1
 #define PW_CORE_METHOD_GET_REGISTRY		2
-#define PW_CORE_METHOD_CREATE_NODE		3
-#define PW_CORE_METHOD_CREATE_CLIENT_NODE	4
-#define PW_CORE_METHOD_UPDATE_TYPES		5
-#define PW_CORE_METHOD_NUM			6
+#define PW_CORE_METHOD_CLIENT_UPDATE		3
+#define PW_CORE_METHOD_CREATE_NODE		4
+#define PW_CORE_METHOD_CREATE_CLIENT_NODE	5
+#define PW_CORE_METHOD_CREATE_LINK		6
+#define PW_CORE_METHOD_NUM			7
 
 /**
  * \struct pw_core_methods
@@ -66,10 +67,18 @@ extern "C" {
  */
 struct pw_core_methods {
 	/**
-	 * Update the client properties
-	 * \param props the new client properties
+	 * Update the type map
+	 *
+	 * Send a type map update to the PipeWire server. The server uses this
+	 * information to keep a mapping between client types and the server types.
+	 * \param first_id the id of the first type
+	 * \param n_types the number of types
+	 * \param types the types as a string
 	 */
-	void (*client_update) (void *object, const struct spa_dict *props);
+	void (*update_types) (void *object,
+			      uint32_t first_id,
+			      uint32_t n_types,
+			      const char **types);
 	/**
 	 * Do server roundtrip
 	 *
@@ -88,6 +97,11 @@ struct pw_core_methods {
 	 * \param id the client proxy id
 	 */
 	void (*get_registry) (void *object, uint32_t new_id);
+	/**
+	 * Update the client properties
+	 * \param props the new client properties
+	 */
+	void (*client_update) (void *object, const struct spa_dict *props);
 	/**
 	 * Create a new node on the PipeWire server from a factory
 	 *
@@ -114,32 +128,39 @@ struct pw_core_methods {
 				    const struct spa_dict *props,
 				    uint32_t new_id);
 	/**
-	 * Update the type map
+	 * Create a new link between two node ports
 	 *
-	 * Send a type map update to the PipeWire server. The server uses this
-	 * information to keep a mapping between client types and the server types.
-	 * \param first_id the id of the first type
-	 * \param n_types the number of types
-	 * \param types the types as a string
+	 * \param output_node_id the global id of the output node
+	 * \param output_port_id the id of the output port
+	 * \param input_node_id the global id of the input node
+	 * \param input_port_id the id of the input port
+	 * \param filter an optional format filter
+	 * \param props optional properties
+	 * \param new_id the client proxy id
 	 */
-	void (*update_types) (void *object,
-			      uint32_t first_id,
-			      uint32_t n_types,
-			      const char **types);
+	void (*create_link) (void *object,
+			     uint32_t output_node_id,
+			     uint32_t output_port_id,
+			     uint32_t input_node_id,
+			     uint32_t input_port_id,
+			     const struct spa_format *filter,
+			     const struct spa_dict *props,
+			     uint32_t new_id);
 };
 
-#define pw_core_do_client_update(r,...)      ((struct pw_core_methods*)r->iface->methods)->client_update(r,__VA_ARGS__)
+#define pw_core_do_update_types(r,...)       ((struct pw_core_methods*)r->iface->methods)->update_types(r,__VA_ARGS__)
 #define pw_core_do_sync(r,...)               ((struct pw_core_methods*)r->iface->methods)->sync(r,__VA_ARGS__)
 #define pw_core_do_get_registry(r,...)       ((struct pw_core_methods*)r->iface->methods)->get_registry(r,__VA_ARGS__)
+#define pw_core_do_client_update(r,...)      ((struct pw_core_methods*)r->iface->methods)->client_update(r,__VA_ARGS__)
 #define pw_core_do_create_node(r,...)        ((struct pw_core_methods*)r->iface->methods)->create_node(r,__VA_ARGS__)
 #define pw_core_do_create_client_node(r,...) ((struct pw_core_methods*)r->iface->methods)->create_client_node(r,__VA_ARGS__)
-#define pw_core_do_update_types(r,...)       ((struct pw_core_methods*)r->iface->methods)->update_types(r,__VA_ARGS__)
+#define pw_core_do_create_link(r,...)        ((struct pw_core_methods*)r->iface->methods)->create_link(r,__VA_ARGS__)
 
-#define PW_CORE_EVENT_INFO         0
+#define PW_CORE_EVENT_UPDATE_TYPES 0
 #define PW_CORE_EVENT_DONE         1
 #define PW_CORE_EVENT_ERROR        2
 #define PW_CORE_EVENT_REMOVE_ID    3
-#define PW_CORE_EVENT_UPDATE_TYPES 4
+#define PW_CORE_EVENT_INFO         4
 #define PW_CORE_EVENT_NUM          5
 
 /** \struct pw_core_events
@@ -148,11 +169,18 @@ struct pw_core_methods {
  */
 struct pw_core_events {
 	/**
-	 * Notify new core info
+	 * Update the type map
 	 *
-	 * \param info new core info
+	 * Send a type map update to the client. The client uses this
+	 * information to keep a mapping between server types and the client types.
+	 * \param first_id the id of the first type
+	 * \param n_types the number of types
+	 * \param types the types as a string
 	 */
-	void (*info) (void *object, struct pw_core_info *info);
+	void (*update_types) (void *object,
+			      uint32_t first_id,
+			      uint32_t n_types,
+			      const char **types);
 	/**
 	 * Emit a done event
 	 *
@@ -186,25 +214,18 @@ struct pw_core_events {
 	 */
 	void (*remove_id) (void *object, uint32_t id);
 	/**
-	 * Update the type map
+	 * Notify new core info
 	 *
-	 * Send a type map update to the client. The client uses this
-	 * information to keep a mapping between server types and the client types.
-	 * \param first_id the id of the first type
-	 * \param n_types the number of types
-	 * \param types the types as a string
+	 * \param info new core info
 	 */
-	void (*update_types) (void *object,
-			      uint32_t first_id,
-			      uint32_t n_types,
-			      const char **types);
+	void (*info) (void *object, struct pw_core_info *info);
 };
 
-#define pw_core_notify_info(r,...)         ((struct pw_core_events*)r->iface->events)->info(r,__VA_ARGS__)
+#define pw_core_notify_update_types(r,...) ((struct pw_core_events*)r->iface->events)->update_types(r,__VA_ARGS__)
 #define pw_core_notify_done(r,...)         ((struct pw_core_events*)r->iface->events)->done(r,__VA_ARGS__)
 #define pw_core_notify_error(r,...)        ((struct pw_core_events*)r->iface->events)->error(r,__VA_ARGS__)
 #define pw_core_notify_remove_id(r,...)    ((struct pw_core_events*)r->iface->events)->remove_id(r,__VA_ARGS__)
-#define pw_core_notify_update_types(r,...) ((struct pw_core_events*)r->iface->events)->update_types(r,__VA_ARGS__)
+#define pw_core_notify_info(r,...)         ((struct pw_core_events*)r->iface->events)->info(r,__VA_ARGS__)
 
 
 #define PW_REGISTRY_METHOD_BIND      0

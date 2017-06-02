@@ -153,11 +153,11 @@ core_event_update_types(void *object, uint32_t first_id, uint32_t n_types, const
 }
 
 static const struct pw_core_events core_events = {
-	&core_event_info,
+	&core_event_update_types,
 	&core_event_done,
 	&core_event_error,
 	&core_event_remove_id,
-	&core_event_update_types
+	&core_event_info,
 };
 
 static void module_event_info(void *object, struct pw_module_info *info)

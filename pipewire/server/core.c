@@ -263,6 +263,24 @@ core_create_client_node(void *object,
 	return;
 }
 
+static void
+core_create_link(void *object,
+		 uint32_t output_node_id,
+		 uint32_t output_port_id,
+		 uint32_t input_node_id,
+		 uint32_t input_port_id,
+		 const struct spa_format *filter,
+		 const struct spa_dict *props,
+		 uint32_t new_id)
+{
+	struct pw_resource *resource = object;
+	struct pw_client *client = resource->client;
+
+	pw_log_error("can't create link");
+	pw_core_notify_error(client->core_resource,
+			     resource->id, SPA_RESULT_NOT_IMPLEMENTED, "not implemented");
+}
+
 static void core_update_types(void *object, uint32_t first_id, uint32_t n_types, const char **types)
 {
 	struct pw_resource *resource = object;
@@ -278,12 +296,13 @@ static void core_update_types(void *object, uint32_t first_id, uint32_t n_types,
 }
 
 static struct pw_core_methods core_methods = {
-	&core_client_update,
+	&core_update_types,
 	&core_sync,
 	&core_get_registry,
+	&core_client_update,
 	&core_create_node,
 	&core_create_client_node,
-	&core_update_types
+	&core_create_link
 };
 
 static void core_unbind_func(void *data)

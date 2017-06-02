@@ -276,6 +276,47 @@ static bool core_demarshal_create_client_node(void *object, void *data, size_t s
 	return true;
 }
 
+static bool core_demarshal_create_link(void *object, void *data, size_t size)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_iter it;
+	uint32_t new_id, i;
+	uint32_t output_node_id, output_port_id, input_node_id, input_port_id;
+	struct spa_format *filter = NULL;
+	struct spa_dict props;
+
+	if (!spa_pod_iter_struct(&it, data, size) ||
+	    !pw_pod_remap_data(SPA_POD_TYPE_STRUCT, data, size, &resource->client->types) ||
+	    !spa_pod_iter_get(&it,
+			      SPA_POD_TYPE_INT, &output_node_id,
+			      SPA_POD_TYPE_INT, &output_port_id,
+			      SPA_POD_TYPE_INT, &input_node_id,
+			      SPA_POD_TYPE_INT, &input_port_id,
+			      -SPA_POD_TYPE_OBJECT, &filter,
+			      SPA_POD_TYPE_INT, &props.n_items, 0))
+		return false;
+
+	props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
+	for (i = 0; i < props.n_items; i++) {
+		if (!spa_pod_iter_get(&it,
+				      SPA_POD_TYPE_STRING, &props.items[i].key,
+				      SPA_POD_TYPE_STRING, &props.items[i].value, 0))
+			return false;
+	}
+	if (!spa_pod_iter_get(&it, SPA_POD_TYPE_INT, &new_id, 0))
+		return false;
+
+	((struct pw_core_methods *) resource->implementation)->create_link(resource,
+									   output_node_id,
+									   output_port_id,
+									   input_node_id,
+									   input_port_id,
+									   filter,
+									   &props,
+									   new_id);
+	return true;
+}
+
 static bool core_demarshal_update_types(void *object, void *data, size_t size)
 {
 	struct pw_resource *resource = object;
@@ -847,21 +888,22 @@ static void link_marshal_info(void *object, struct pw_link_info *info)
 	pw_connection_end_write(connection, resource->id, PW_LINK_EVENT_INFO, b.b.offset);
 }
 
-static const demarshal_func_t pw_protocol_native_server_core_demarshal[] = {
-	&core_demarshal_client_update,
+static const demarshal_func_t pw_protocol_native_server_core_demarshal[PW_CORE_METHOD_NUM] = {
+	&core_demarshal_update_types,
 	&core_demarshal_sync,
 	&core_demarshal_get_registry,
+	&core_demarshal_client_update,
 	&core_demarshal_create_node,
 	&core_demarshal_create_client_node,
-	&core_demarshal_update_types
+	&core_demarshal_create_link
 };
 
 static const struct pw_core_events pw_protocol_native_server_core_events = {
-	&core_marshal_info,
+	&core_marshal_update_types,
 	&core_marshal_done,
 	&core_marshal_error,
 	&core_marshal_remove_id,
-	&core_marshal_update_types
+	&core_marshal_info
 };
 
 const struct pw_interface pw_protocol_native_server_core_interface = {

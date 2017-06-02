@@ -29,6 +29,53 @@ extern "C" {
 #include <pipewire/client/type.h>
 #include <pipewire/client/utils.h>
 
+/** \page page_proxy Proxy
+ *
+ * \section sec_page_proxy_overview Overview
+ *
+ * The proxy object is a client side representation of a resource
+ * that lives on the server.
+ *
+ * It is used to communicate with the server side object.
+ *
+ * \section sec_page_proxy_create Create
+ *
+ * A client first creates a new proxy object with pw_proxy_new(). A
+ * type must be provided for this object.
+ *
+ * The protocol of the context will usually install an interface to
+ * translate method calls and events to the wire format.
+ *
+ * The creator of the proxy will usually also install an event
+ * implementation of the particular object type.
+ *
+ * \section sec_page_proxy_bind Bind
+ *
+ * To actually use the proxy object, one needs to create a server
+ * side resource for it. This can be done by, for example, binding
+ * to a global object or by calling a method that creates and binds
+ * to a new remote object. In all cases, the local id is passed to
+ * the server and is used to create a resource with the same id.
+ *
+ * \section sec_page_proxy_methods Methods
+ *
+ * To call a method on the proxy use the interface methods. Calling
+ * any interface method will result in a request to the server to
+ * perform the requested action on the corresponding resource.
+ *
+ * \section sec_page_proxy_events Events
+ *
+ * Events send from the server to the proxy will be demarshalled by
+ * the protocol and will then result in a call to the installed
+ * implementation of the proxy.
+ *
+ * \section sec_page_proxy_destroy Destroy
+ *
+ * Use pw_proxy_destroy() to destroy the client side object. This
+ * is usually done automatically when the server removes the resource
+ * associated to the proxy.
+ */
+
 /** \class pw_proxy
  *
  * \brief Represents an object on the client side.
@@ -37,6 +84,8 @@ extern "C" {
  * pipewire server. The proxy is responsible for converting interface functions
  * invoked by the client to PipeWire messages. Events will call the handlers
  * set in implementation.
+ *
+ * See \ref page_proxy
  */
 struct pw_proxy {
 	/** the owner context of this proxy */

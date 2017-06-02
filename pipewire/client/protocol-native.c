@@ -162,38 +162,6 @@ core_marshal_create_node(void *object,
 }
 
 static void
-core_marshal_create_client_node(void *object,
-				const char *name, const struct spa_dict *props, uint32_t new_id)
-{
-	struct pw_proxy *proxy = object;
-	struct pw_connection *connection = proxy->context->protocol_private;
-	struct builder b = { {NULL, 0, 0, NULL, write_pod}, connection };
-	struct spa_pod_frame f;
-	uint32_t i, n_items;
-
-	if (connection == NULL)
-		return;
-
-	core_update_map(proxy->context);
-
-	n_items = props ? props->n_items : 0;
-
-	spa_pod_builder_add(&b.b,
-			    SPA_POD_TYPE_STRUCT, &f,
-			    SPA_POD_TYPE_STRING, name, SPA_POD_TYPE_INT, n_items, 0);
-
-	for (i = 0; i < n_items; i++) {
-		spa_pod_builder_add(&b.b,
-				    SPA_POD_TYPE_STRING, props->items[i].key,
-				    SPA_POD_TYPE_STRING, props->items[i].value, 0);
-	}
-	spa_pod_builder_add(&b.b, SPA_POD_TYPE_INT, new_id, -SPA_POD_TYPE_STRUCT, &f, 0);
-
-	pw_connection_end_write(connection, proxy->id, PW_CORE_METHOD_CREATE_CLIENT_NODE,
-				b.b.offset);
-}
-
-static void
 core_marshal_create_link(void *object,
 			 uint32_t output_node_id,
 			 uint32_t output_port_id,
@@ -942,7 +910,6 @@ static const struct pw_core_methods pw_protocol_native_client_core_methods = {
 	&core_marshal_get_registry,
 	&core_marshal_client_update,
 	&core_marshal_create_node,
-	&core_marshal_create_client_node,
 	&core_marshal_create_link
 };
 

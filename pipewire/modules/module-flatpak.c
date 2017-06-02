@@ -242,24 +242,6 @@ do_view_global(struct pw_access *access, struct pw_client *client, struct pw_glo
 	return SPA_RESULT_OK;
 }
 
-static int
-do_create_node(struct pw_access *access,
-	       struct pw_access_data *data,
-	       const char *factory_name, const char *name, struct pw_properties *properties)
-{
-	struct impl *impl = SPA_CONTAINER_OF(access, struct impl, access);
-	struct client_info *cinfo = find_client_info(impl, data->resource->client);
-
-	if (cinfo->is_sandboxed)
-		data->res = SPA_RESULT_NO_PERMISSION;
-	else
-		data->res = SPA_RESULT_OK;
-
-	data->complete_cb(data);
-	return SPA_RESULT_OK;
-}
-
-
 static DBusHandlerResult
 portal_response(DBusConnection *connection, DBusMessage *msg, void *user_data)
 {
@@ -299,9 +281,11 @@ portal_response(DBusConnection *connection, DBusMessage *msg, void *user_data)
 }
 
 static int
-do_create_client_node(struct pw_access *access,
-		      struct pw_access_data *data,
-		      const char *name, struct pw_properties *properties)
+do_create_node(struct pw_access *access,
+	       struct pw_access_data *data,
+	       const char *factory_name,
+	       const char *name,
+	       struct pw_properties *properties)
 {
 	struct impl *impl = SPA_CONTAINER_OF(access, struct impl, access);
 	struct client_info *cinfo = find_client_info(impl, data->resource->client);
@@ -317,6 +301,11 @@ do_create_client_node(struct pw_access *access,
 		data->res = SPA_RESULT_OK;
 		data->complete_cb(data);
 		return SPA_RESULT_OK;
+	}
+	if (strcmp(factory_name, "client-node") != 0) {
+		data->res = SPA_RESULT_NO_PERMISSION;
+		data->complete_cb(data);
+		return SPA_RESULT_NO_PERMISSION;
 	}
 
 	pw_log_info("ask portal for client %p", cinfo->client);
@@ -386,10 +375,33 @@ do_create_client_node(struct pw_access *access,
 	return SPA_RESULT_NO_PERMISSION;
 }
 
+static int
+do_create_link(struct pw_access *access,
+	       struct pw_access_data *data,
+	       uint32_t output_node_id,
+	       uint32_t output_port_id,
+	       uint32_t input_node_id,
+	       uint32_t input_port_id,
+	       const struct spa_format *filter,
+	       const struct pw_properties *props)
+{
+	struct impl *impl = SPA_CONTAINER_OF(access, struct impl, access);
+	struct client_info *cinfo = find_client_info(impl, data->resource->client);
+
+	if (cinfo->is_sandboxed)
+		data->res = SPA_RESULT_NO_PERMISSION;
+	else
+		data->res = SPA_RESULT_OK;
+
+	data->complete_cb(data);
+	return SPA_RESULT_OK;
+}
+
+
 static struct pw_access access_checks = {
 	do_view_global,
 	do_create_node,
-	do_create_client_node,
+	do_create_link,
 };
 
 static void

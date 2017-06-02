@@ -38,8 +38,9 @@ struct impl {
 	struct spa_support support[4];
 };
 
-struct access_create_client_node {
+struct access_create_node {
 	struct pw_access_data data;
+	char *factory_name;
 	char *name;
 	struct pw_properties *properties;
 	uint32_t new_id;
@@ -142,33 +143,22 @@ static void core_get_registry(void *object, uint32_t new_id)
 			     resource->id, SPA_RESULT_NO_MEMORY, "no memory");
 }
 
-static void
-core_create_node(void *object,
-		 const char *factory_name,
-		 const char *name, const struct spa_dict *props, uint32_t new_id)
+static void *async_create_node_copy(struct pw_access_data *data, size_t size)
 {
-	struct pw_resource *resource = object;
-	struct pw_client *client = resource->client;
+	struct access_create_node *d;
 
-	pw_core_notify_error(client->core_resource,
-			     resource->id, SPA_RESULT_NOT_IMPLEMENTED, "not implemented");
-}
-
-static void *async_create_client_node_copy(struct pw_access_data *data, size_t size)
-{
-	struct access_create_client_node *d;
-
-	d = calloc(1, sizeof(struct access_create_client_node) + size);
-	memcpy(d, data, sizeof(struct access_create_client_node));
+	d = calloc(1, sizeof(struct access_create_node) + size);
+	memcpy(d, data, sizeof(struct access_create_node));
+	d->factory_name = strdup(d->factory_name);
 	d->name = strdup(d->name);
 	d->async = true;
-	d->data.user_data = SPA_MEMBER(d, sizeof(struct access_create_client_node), void);
+	d->data.user_data = SPA_MEMBER(d, sizeof(struct access_create_node), void);
 	return d;
 }
 
-static void async_create_client_node_free(struct pw_access_data *data)
+static void async_create_node_free(struct pw_access_data *data)
 {
-	struct access_create_client_node *d = (struct access_create_client_node *) data;
+	struct access_create_node *d = (struct access_create_node *) data;
 
 	if (d->async) {
 		if (d->data.free_cb)
@@ -178,54 +168,51 @@ static void async_create_client_node_free(struct pw_access_data *data)
 	}
 }
 
-static void async_create_client_node_complete(struct pw_access_data *data)
+static void async_create_node_complete(struct pw_access_data *data)
 {
-	struct access_create_client_node *d = (struct access_create_client_node *) data;
+	struct access_create_node *d = (struct access_create_node *) data;
 	struct pw_resource *resource = d->data.resource;
 	struct pw_client *client = resource->client;
-	struct pw_client_node *node;
-	int res;
-	int readfd, writefd;
+	struct pw_node_factory *factory;
 
 	if (data->res != SPA_RESULT_OK)
 		goto denied;
 
-	node = pw_client_node_new(client, d->new_id, d->name, d->properties);
-	if (node == NULL)
-		goto no_mem;
+	factory = pw_core_find_node_factory(client->core, d->factory_name);
+	if (factory == NULL)
+		goto no_factory;
 
-	if ((res = pw_client_node_get_fds(node, &readfd, &writefd)) < 0) {
-		pw_core_notify_error(client->core_resource,
-				     resource->id, SPA_RESULT_ERROR, "can't get data fds");
-		return;
-	}
+	/* error will be posted */
+	pw_node_factory_create_node(factory, client, d->name, d->properties, d->new_id);
 
-	pw_client_node_notify_done(node->resource, readfd, writefd);
 	goto done;
 
-      no_mem:
-	pw_log_error("can't create client node");
+      no_factory:
+	pw_log_error("can't find node factory");
 	pw_core_notify_error(client->core_resource,
-			     resource->id, SPA_RESULT_NO_MEMORY, "no memory");
+			     resource->id, SPA_RESULT_INVALID_ARGUMENTS, "unknown factory name");
 	goto done;
       denied:
-	pw_log_error("create client node refused");
+	pw_log_error("create node refused");
 	pw_core_notify_error(client->core_resource,
 			     resource->id, SPA_RESULT_NO_PERMISSION, "operation not allowed");
       done:
-	async_create_client_node_free(&d->data);
+	async_create_node_free(&d->data);
 	return;
 }
 
 static void
-core_create_client_node(void *object,
-			const char *name, const struct spa_dict *props, uint32_t new_id)
+core_create_node(void *object,
+		 const char *factory_name,
+		 const char *name,
+		 const struct spa_dict *props,
+		 uint32_t new_id)
 {
 	struct pw_resource *resource = object;
 	struct pw_client *client = resource->client;
 	int i;
 	struct pw_properties *properties;
-	struct access_create_client_node access_data;
+	struct access_create_node access_data;
 	int res;
 
 	properties = pw_properties_new(NULL, NULL);
@@ -237,9 +224,10 @@ core_create_client_node(void *object,
 	}
 
 	access_data.data.resource = resource;
-	access_data.data.async_copy = async_create_client_node_copy;
-	access_data.data.complete_cb = async_create_client_node_complete;
+	access_data.data.async_copy = async_create_node_copy;
+	access_data.data.complete_cb = async_create_node_complete;
 	access_data.data.free_cb = NULL;
+	access_data.factory_name = (char *) factory_name;
 	access_data.name = (char *) name;
 	access_data.properties = properties;
 	access_data.new_id = new_id;
@@ -247,13 +235,16 @@ core_create_client_node(void *object,
 
 	if (client->core->access) {
 		access_data.data.res = SPA_RESULT_NO_PERMISSION;
-		res = client->core->access->create_client_node(client->core->access,
-							       &access_data.data, name, properties);
+		res = client->core->access->create_node(client->core->access,
+							&access_data.data,
+							factory_name,
+							name,
+							properties);
 	} else {
 		res = access_data.data.res = SPA_RESULT_OK;
 	}
 	if (!SPA_RESULT_IS_ASYNC(res))
-		async_create_client_node_complete(&access_data.data);
+		async_create_node_complete(&access_data.data);
 	return;
 
       no_mem:
@@ -301,7 +292,6 @@ static struct pw_core_methods core_methods = {
 	&core_get_registry,
 	&core_client_update,
 	&core_create_node,
-	&core_create_client_node,
 	&core_create_link
 };
 

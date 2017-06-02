@@ -30,21 +30,28 @@ extern "C" {
 #include <pipewire/server/core.h>
 #include <pipewire/server/client.h>
 
-/**
- * pw_node_factory:
+/** \class pw_node_factory
  *
- * PipeWire node factory interface.
+ * \brief PipeWire node factory interface.
+ *
+ * The factory object is used to make nodes on demand.
  */
 struct pw_node_factory {
-	struct pw_core *core;
-	struct spa_list link;
-	struct pw_global *global;
+	struct pw_core *core;		/**< the core */
+	struct spa_list link;		/**< link in core node_factory_list */
+	struct pw_global *global;	/**< global for this factory */
 
-	const char *name;
+	const char *name;		/**< the factory name */
 
+	/** Emited when the factory is destroyed */
+	PW_SIGNAL(destroy_signal, (struct pw_listener *listener, struct pw_node_factory *object));
+
+	/** The function to create a node from this factory */
 	struct pw_node *(*create_node) (struct pw_node_factory *factory,
 					struct pw_client *client,
-					const char *name, struct pw_properties *properties);
+					const char *name,
+					struct pw_properties *properties,
+					uint32_t new_id);
 };
 
 #define pw_node_factory_create_node(f,...)	(f)->create_node((f),__VA_ARGS__)

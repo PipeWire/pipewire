@@ -956,9 +956,10 @@ pw_stream_connect(struct pw_stream *stream,
 	impl->node_proxy->user_data = stream;
 	impl->node_proxy->implementation = &client_node_events;
 
-	pw_core_do_create_client_node(stream->context->core_proxy,
-				      "client-node",
-				      &stream->properties->dict, impl->node_proxy->id);
+	pw_core_do_create_node(stream->context->core_proxy,
+			       "client-node",
+			       "client-node",
+			       &stream->properties->dict, impl->node_proxy->id);
 	return true;
 }
 

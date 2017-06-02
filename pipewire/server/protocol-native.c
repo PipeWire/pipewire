@@ -248,34 +248,6 @@ static bool core_demarshal_create_node(void *object, void *data, size_t size)
 	return true;
 }
 
-static bool core_demarshal_create_client_node(void *object, void *data, size_t size)
-{
-	struct pw_resource *resource = object;
-	struct spa_pod_iter it;
-	uint32_t new_id, i;
-	const char *name;
-	struct spa_dict props;
-
-	if (!spa_pod_iter_struct(&it, data, size) ||
-	    !spa_pod_iter_get(&it, SPA_POD_TYPE_STRING, &name, SPA_POD_TYPE_INT, &props.n_items, 0))
-		return false;
-
-	props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
-	for (i = 0; i < props.n_items; i++) {
-		if (!spa_pod_iter_get(&it,
-				      SPA_POD_TYPE_STRING, &props.items[i].key,
-				      SPA_POD_TYPE_STRING, &props.items[i].value, 0))
-			return false;
-	}
-	if (!spa_pod_iter_get(&it, SPA_POD_TYPE_INT, &new_id, 0))
-		return false;
-
-	((struct pw_core_methods *) resource->implementation)->create_client_node(resource,
-										  name,
-										  &props, new_id);
-	return true;
-}
-
 static bool core_demarshal_create_link(void *object, void *data, size_t size)
 {
 	struct pw_resource *resource = object;
@@ -895,7 +867,6 @@ static const demarshal_func_t pw_protocol_native_server_core_demarshal[PW_CORE_M
 	&core_demarshal_get_registry,
 	&core_demarshal_client_update,
 	&core_demarshal_create_node,
-	&core_demarshal_create_client_node,
 	&core_demarshal_create_link
 };
 

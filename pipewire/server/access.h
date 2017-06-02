@@ -54,9 +54,14 @@ struct pw_access {
 			    struct pw_access_data *data,
 			    const char *factory_name,
 			    const char *name, struct pw_properties *properties);
-	int (*create_client_node) (struct pw_access *access,
-				   struct pw_access_data *data,
-				   const char *name, struct pw_properties *properties);
+	int (*create_link) (struct pw_access *access,
+			    struct pw_access_data *data,
+			    uint32_t output_node_id,
+			    uint32_t output_port_id,
+			    uint32_t input_node_id,
+			    uint32_t input_port_id,
+			    const struct spa_format *filter,
+			    const struct pw_properties *props);
 };
 
 #ifdef __cplusplus

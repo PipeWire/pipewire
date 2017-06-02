@@ -53,9 +53,8 @@ extern "C" {
 #define PW_CORE_METHOD_GET_REGISTRY		2
 #define PW_CORE_METHOD_CLIENT_UPDATE		3
 #define PW_CORE_METHOD_CREATE_NODE		4
-#define PW_CORE_METHOD_CREATE_CLIENT_NODE	5
-#define PW_CORE_METHOD_CREATE_LINK		6
-#define PW_CORE_METHOD_NUM			7
+#define PW_CORE_METHOD_CREATE_LINK		5
+#define PW_CORE_METHOD_NUM			6
 
 /**
  * \struct pw_core_methods
@@ -103,7 +102,9 @@ struct pw_core_methods {
 	 */
 	void (*client_update) (void *object, const struct spa_dict *props);
 	/**
-	 * Create a new node on the PipeWire server from a factory
+	 * Create a new node on the PipeWire server from a factory.
+	 * Use a \a fectory_name of "client-node" to create a
+	 * \ref pw_client_node.
 	 *
 	 * \param factory_name the factory name to use
 	 * \param name the node name
@@ -115,18 +116,6 @@ struct pw_core_methods {
 			     const char *name,
 			     const struct spa_dict *props,
 			     uint32_t new_id);
-	/**
-	 * Create a new node on the server. The node can be controlled
-	 * with the client node interface.
-	 *
-	 * \param name the node name
-	 * \param props extra properties
-	 * \param new_id the client proxy id
-	 */
-	void (*create_client_node) (void *object,
-				    const char *name,
-				    const struct spa_dict *props,
-				    uint32_t new_id);
 	/**
 	 * Create a new link between two node ports
 	 *
@@ -153,7 +142,6 @@ struct pw_core_methods {
 #define pw_core_do_get_registry(r,...)       ((struct pw_core_methods*)r->iface->methods)->get_registry(r,__VA_ARGS__)
 #define pw_core_do_client_update(r,...)      ((struct pw_core_methods*)r->iface->methods)->client_update(r,__VA_ARGS__)
 #define pw_core_do_create_node(r,...)        ((struct pw_core_methods*)r->iface->methods)->create_node(r,__VA_ARGS__)
-#define pw_core_do_create_client_node(r,...) ((struct pw_core_methods*)r->iface->methods)->create_client_node(r,__VA_ARGS__)
 #define pw_core_do_create_link(r,...)        ((struct pw_core_methods*)r->iface->methods)->create_link(r,__VA_ARGS__)
 
 #define PW_CORE_EVENT_UPDATE_TYPES 0

@@ -27,7 +27,7 @@ extern "C" {
 #include <spa/include/spa/loop.h>
 #include <pipewire/client/loop.h>
 
-/** \class pa_main_loop
+/** \class pw_main_loop
  *
  * \brief PipeWire main-loop interface.
  *

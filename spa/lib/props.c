@@ -57,7 +57,7 @@ static int compare_value(enum spa_pod_type type, const void *r1, const void *r2)
 	{
 		const struct spa_fraction *f1 = (struct spa_fraction *) r1,
 		    *f2 = (struct spa_fraction *) r2;
-		uint64_t n1, n2;
+		int64_t n1, n2;
 		n1 = ((int64_t) f1->num) * f2->denom;
 		n2 = ((int64_t) f2->num) * f1->denom;
 		if (n1 < n2)

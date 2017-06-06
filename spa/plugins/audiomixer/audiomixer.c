@@ -481,7 +481,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 		if (!((d[0].type == this->type.data.MemPtr ||
 		       d[0].type == this->type.data.MemFd ||
 		       d[0].type == this->type.data.DmaBuf) && d[0].data != NULL)) {
-			spa_log_error(this->log, "volume %p: invalid memory on buffer %p", this,
+			spa_log_error(this->log, NAME " %p: invalid memory on buffer %p", this,
 				      buffers[i]);
 			return SPA_RESULT_ERROR;
 		}

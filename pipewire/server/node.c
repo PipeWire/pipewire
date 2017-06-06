@@ -294,7 +294,8 @@ static int do_pull(struct pw_node *this)
 			if (res == SPA_RESULT_NEED_BUFFER) {
 				res = do_pull(outport->node);
 				pw_log_trace("node %p: pull return %d", outport->node, res);
-			} else if (res == SPA_RESULT_HAVE_BUFFER) {
+			}
+			if (res == SPA_RESULT_HAVE_BUFFER) {
 				*pi = *po;
 				pw_log_trace("node %p: have output %d %d", this, pi->status,
 					     pi->buffer_id);

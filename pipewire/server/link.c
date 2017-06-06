@@ -516,6 +516,8 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 									      max_buffers);
 				minsize = SPA_MAX(minsize, qminsize);
 				stride = SPA_MAX(stride, qstride);
+			} else {
+				minsize = 4096;
 			}
 		}
 
@@ -554,8 +556,8 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 						      1,
 						      data_sizes, data_strides, &impl->buffer_mem);
 
-			pw_log_debug("allocating %d input buffers %p", impl->n_buffers,
-				     impl->buffers);
+			pw_log_debug("allocating %d input buffers %p %zd %zd", impl->n_buffers,
+				     impl->buffers, minsize, stride);
 		}
 
 		if (out_flags & SPA_PORT_INFO_FLAG_CAN_ALLOC_BUFFERS) {

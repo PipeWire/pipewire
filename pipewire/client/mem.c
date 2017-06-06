@@ -146,6 +146,7 @@ int pw_memblock_alloc(enum pw_memblock_flags flags, size_t size, struct pw_membl
 	mem->offset = 0;
 	mem->flags = flags;
 	mem->size = size;
+	mem->ptr = NULL;
 
 	use_fd = ! !(flags & (PW_MEMBLOCK_FLAG_MAP_TWICE | PW_MEMBLOCK_FLAG_WITH_FD));
 
